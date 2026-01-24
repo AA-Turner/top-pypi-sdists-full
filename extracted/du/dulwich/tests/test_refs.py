@@ -30,22 +30,24 @@ from typing import ClassVar
 from dulwich import errors
 from dulwich.file import GitFile
 from dulwich.objects import ZERO_SHA
+from dulwich.protocol import split_peeled_refs, strip_peeled_refs
 from dulwich.refs import (
     DictRefsContainer,
-    InfoRefsContainer,
+    NamespacedRefsContainer,
     SymrefLoop,
     _split_ref_line,
     check_ref_format,
+    is_per_worktree_ref,
     parse_remote_ref,
     parse_symref_value,
     read_packed_refs,
     read_packed_refs_with_peeled,
-    split_peeled_refs,
-    strip_peeled_refs,
+    shorten_ref_name,
     write_packed_refs,
 )
 from dulwich.repo import Repo
 from dulwich.tests.utils import open_repo, tear_down_repo
+from dulwich.worktree import add_worktree
 
 from . import SkipTest, TestCase
 
@@ -838,6 +840,192 @@ class DiskRefsContainerTests(RefsContainerTests, TestCase):
         self._refs[ref_name] = ref_value
 
 
+class IsPerWorktreeRefsTests(TestCase):
+    def test(self) -> None:
+        cases = [
+            (b"HEAD", True),
+            (b"refs/bisect/good", True),
+            (b"refs/worktree/foo", True),
+            (b"refs/rewritten/onto", True),
+            (b"refs/stash", False),
+            (b"refs/heads/main", False),
+            (b"refs/tags/v1.0", False),
+            (b"refs/remotes/origin/main", False),
+            (b"refs/custom/foo", False),
+            (b"refs/replace/aaaaaa", False),
+        ]
+        for ref, expected in cases:
+            with self.subTest(ref=ref, expected=expected):
+                self.assertEqual(is_per_worktree_ref(ref), expected)
+
+
+class DiskRefsContainerWorktreeRefsTest(TestCase):
+    def setUp(self) -> None:
+        # Create temporary directories
+        temp_dir = tempfile.mkdtemp()
+        test_dir = os.path.join(temp_dir, "main")
+        os.makedirs(test_dir)
+
+        repo = Repo.init(test_dir, default_branch=b"main")
+        main_worktree = repo.get_worktree()
+        with open(os.path.join(test_dir, "test.txt"), "wb") as f:
+            f.write(b"test content")
+        main_worktree.stage(["test.txt"])
+        self.first_commit = main_worktree.commit(message=b"Initial commit")
+
+        worktree_dir = os.path.join(temp_dir, "worktree")
+        wt_repo = add_worktree(repo, worktree_dir, branch="wt-main")
+        linked_worktree = wt_repo.get_worktree()
+        with open(os.path.join(test_dir, "test2.txt"), "wb") as f:
+            f.write(b"test content")
+        linked_worktree.stage(["test2.txt"])
+        self.second_commit = linked_worktree.commit(message=b"second commit")
+
+        self.refs = repo.refs
+        self.wt_refs = wt_repo.refs
+
+    def test_refpath(self) -> None:
+        main_path = self.refs.path
+        common = self.wt_refs.path
+        wt_path = self.wt_refs.worktree_path
+
+        cases = [
+            (self.refs, b"HEAD", main_path),
+            (self.refs, b"refs/heads/main", main_path),
+            (self.refs, b"refs/heads/wt-main", main_path),
+            (self.refs, b"refs/worktree/foo", main_path),
+            (self.refs, b"refs/bisect/good", main_path),
+            (self.wt_refs, b"HEAD", wt_path),
+            (self.wt_refs, b"refs/heads/main", common),
+            (self.wt_refs, b"refs/heads/wt-main", common),
+            (self.wt_refs, b"refs/worktree/foo", wt_path),
+            (self.wt_refs, b"refs/bisect/good", wt_path),
+        ]
+
+        for refs, refname, git_dir in cases:
+            with self.subTest(refs=refs, refname=refname, git_dir=git_dir):
+                refpath = refs.refpath(refname)
+                expected_path = os.path.join(
+                    git_dir, refname.replace(b"/", os.fsencode(os.sep))
+                )
+                self.assertEqual(refpath, expected_path)
+
+    def test_shared_ref(self) -> None:
+        self.assertEqual(self.refs[b"refs/heads/main"], self.first_commit)
+        self.assertEqual(self.refs[b"refs/heads/wt-main"], self.second_commit)
+        self.assertEqual(self.wt_refs[b"refs/heads/main"], self.first_commit)
+        self.assertEqual(self.wt_refs[b"refs/heads/wt-main"], self.second_commit)
+
+        expected = {b"HEAD", b"refs/heads/main", b"refs/heads/wt-main"}
+        self.assertEqual(expected, self.refs.keys())
+        self.assertEqual(expected, self.wt_refs.keys())
+
+        self.assertEqual({b"main", b"wt-main"}, set(self.refs.keys(b"refs/heads/")))
+        self.assertEqual({b"main", b"wt-main"}, set(self.wt_refs.keys(b"refs/heads/")))
+
+        ref_path = os.path.join(self.refs.path, b"refs", b"heads", b"main")
+        self.assertTrue(os.path.exists(ref_path))
+
+        ref_path = os.path.join(self.wt_refs.worktree_path, b"refs", b"heads", b"main")
+        self.assertFalse(os.path.exists(ref_path))
+
+    def test_per_worktree_ref(self) -> None:
+        path = self.refs.path
+        wt_path = self.wt_refs.worktree_path
+
+        self.assertEqual(self.refs[b"HEAD"], self.first_commit)
+        self.assertEqual(self.wt_refs[b"HEAD"], self.second_commit)
+
+        self.refs[b"refs/bisect/good"] = self.first_commit
+        self.wt_refs[b"refs/bisect/good"] = self.second_commit
+
+        self.refs[b"refs/bisect/start"] = self.first_commit
+        self.wt_refs[b"refs/bisect/bad"] = self.second_commit
+
+        self.assertEqual(self.refs[b"refs/bisect/good"], self.first_commit)
+        self.assertEqual(self.wt_refs[b"refs/bisect/good"], self.second_commit)
+
+        self.assertTrue(os.path.exists(os.path.join(path, b"refs", b"bisect", b"good")))
+        self.assertTrue(
+            os.path.exists(os.path.join(wt_path, b"refs", b"bisect", b"good"))
+        )
+
+        self.assertEqual(self.refs[b"refs/bisect/start"], self.first_commit)
+        with self.assertRaises(KeyError):
+            self.wt_refs[b"refs/bisect/start"]
+        self.assertTrue(
+            os.path.exists(os.path.join(path, b"refs", b"bisect", b"start"))
+        )
+        self.assertFalse(
+            os.path.exists(os.path.join(wt_path, b"refs", b"bisect", b"start"))
+        )
+
+        with self.assertRaises(KeyError):
+            self.refs[b"refs/bisect/bad"]
+        self.assertEqual(self.wt_refs[b"refs/bisect/bad"], self.second_commit)
+        self.assertFalse(os.path.exists(os.path.join(path, b"refs", b"bisect", b"bad")))
+        self.assertTrue(
+            os.path.exists(os.path.join(wt_path, b"refs", b"bisect", b"bad"))
+        )
+
+        expected_refs = {
+            b"HEAD",
+            b"refs/heads/main",
+            b"refs/heads/wt-main",
+            b"refs/bisect/good",
+            b"refs/bisect/start",
+        }
+        self.assertEqual(self.refs.keys(), expected_refs)
+        self.assertEqual({b"good", b"start"}, self.refs.keys(b"refs/bisect/"))
+
+        expected_wt_refs = {
+            b"HEAD",
+            b"refs/heads/main",
+            b"refs/heads/wt-main",
+            b"refs/bisect/good",
+            b"refs/bisect/bad",
+        }
+        self.assertEqual(self.wt_refs.keys(), expected_wt_refs)
+        self.assertEqual({b"good", b"bad"}, self.wt_refs.keys(b"refs/bisect/"))
+
+    def test_delete_per_worktree_ref(self) -> None:
+        self.refs[b"refs/worktree/foo"] = self.first_commit
+        self.wt_refs[b"refs/worktree/foo"] = self.second_commit
+
+        del self.wt_refs[b"refs/worktree/foo"]
+        with self.assertRaises(KeyError):
+            self.wt_refs[b"refs/worktree/foo"]
+
+        del self.refs[b"refs/worktree/foo"]
+        with self.assertRaises(KeyError):
+            self.refs[b"refs/worktree/foo"]
+
+    def test_delete_shared_ref(self) -> None:
+        self.refs[b"refs/heads/branch"] = self.first_commit
+
+        del self.wt_refs[b"refs/heads/branch"]
+
+        with self.assertRaises(KeyError):
+            self.wt_refs[b"refs/heads/branch"]
+        with self.assertRaises(KeyError):
+            self.refs[b"refs/heads/branch"]
+
+    def test_contains_shared_ref(self):
+        self.assertIn(b"refs/heads/main", self.refs)
+        self.assertIn(b"refs/heads/main", self.wt_refs)
+        self.assertIn(b"refs/heads/wt-main", self.refs)
+        self.assertIn(b"refs/heads/wt-main", self.wt_refs)
+
+    def test_contains_per_worktree_ref(self):
+        self.refs[b"refs/worktree/foo"] = self.first_commit
+        self.wt_refs[b"refs/worktree/bar"] = self.second_commit
+
+        self.assertIn(b"refs/worktree/foo", self.refs)
+        self.assertNotIn(b"refs/worktree/bar", self.refs)
+        self.assertNotIn(b"refs/worktree/foo", self.wt_refs)
+        self.assertIn(b"refs/worktree/bar", self.wt_refs)
+
+
 _TEST_REFS_SERIALIZED = (
     b"42d06bd4b77fed026b154d16493e5deab78f02ec\t"
     b"refs/heads/40-char-ref-aaaaaaaaaaaaaaaaaa\n"
@@ -889,55 +1077,6 @@ class DiskRefsContainerPathlibTests(TestCase):
         # Test refpath returns worktree path for HEAD
         ref_path = refs.refpath(b"HEAD")
         self.assertEqual(ref_path, os.path.join(worktree_dir.encode(), b"HEAD"))
-
-
-class InfoRefsContainerTests(TestCase):
-    def test_invalid_refname(self) -> None:
-        text = _TEST_REFS_SERIALIZED + b"00" * 20 + b"\trefs/stash\n"
-        refs = InfoRefsContainer(BytesIO(text))
-        expected_refs = dict(_TEST_REFS)
-        del expected_refs[b"HEAD"]
-        expected_refs[b"refs/stash"] = b"00" * 20
-        del expected_refs[b"refs/heads/loop"]
-        self.assertEqual(expected_refs, refs.as_dict())
-
-    def test_keys(self) -> None:
-        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
-        actual_keys = set(refs.keys())
-        self.assertEqual(set(refs.allkeys()), actual_keys)
-        expected_refs = dict(_TEST_REFS)
-        del expected_refs[b"HEAD"]
-        del expected_refs[b"refs/heads/loop"]
-        self.assertEqual(set(expected_refs.keys()), actual_keys)
-
-        actual_keys = refs.keys(b"refs/heads")
-        actual_keys.discard(b"loop")
-        self.assertEqual(
-            [b"40-char-ref-aaaaaaaaaaaaaaaaaa", b"master", b"packed"],
-            sorted(actual_keys),
-        )
-        self.assertEqual([b"refs-0.1", b"refs-0.2"], sorted(refs.keys(b"refs/tags")))
-
-    def test_as_dict(self) -> None:
-        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
-        # refs/heads/loop does not show up even if it exists
-        expected_refs = dict(_TEST_REFS)
-        del expected_refs[b"HEAD"]
-        del expected_refs[b"refs/heads/loop"]
-        self.assertEqual(expected_refs, refs.as_dict())
-
-    def test_contains(self) -> None:
-        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
-        self.assertIn(b"refs/heads/master", refs)
-        self.assertNotIn(b"refs/heads/bar", refs)
-
-    def test_get_peeled(self) -> None:
-        refs = InfoRefsContainer(BytesIO(_TEST_REFS_SERIALIZED))
-        # refs/heads/loop does not show up even if it exists
-        self.assertEqual(
-            _TEST_REFS[b"refs/heads/master"],
-            refs.get_peeled(b"refs/heads/master"),
-        )
 
 
 class ParseSymrefValueTests(TestCase):
@@ -1008,3 +1147,255 @@ class StripPeeledRefsTests(TestCase):
                 b"refs/tags/1.0.0": b"a93db4b0360cc635a2b93675010bac8d101f73f0",
             },
         )
+
+
+class ShortenRefNameTests(TestCase):
+    """Tests for shorten_ref_name function."""
+
+    def test_branch_ref(self) -> None:
+        """Test shortening branch references."""
+        self.assertEqual(b"master", shorten_ref_name(b"refs/heads/master"))
+        self.assertEqual(b"develop", shorten_ref_name(b"refs/heads/develop"))
+        self.assertEqual(
+            b"feature/new-ui", shorten_ref_name(b"refs/heads/feature/new-ui")
+        )
+
+    def test_remote_ref(self) -> None:
+        """Test shortening remote references."""
+        self.assertEqual(b"origin/main", shorten_ref_name(b"refs/remotes/origin/main"))
+        self.assertEqual(
+            b"upstream/master", shorten_ref_name(b"refs/remotes/upstream/master")
+        )
+        self.assertEqual(
+            b"origin/feature/test",
+            shorten_ref_name(b"refs/remotes/origin/feature/test"),
+        )
+
+    def test_tag_ref(self) -> None:
+        """Test shortening tag references."""
+        self.assertEqual(b"v1.0", shorten_ref_name(b"refs/tags/v1.0"))
+        self.assertEqual(b"release-2.0", shorten_ref_name(b"refs/tags/release-2.0"))
+
+    def test_special_refs(self) -> None:
+        """Test that special refs are not shortened."""
+        self.assertEqual(b"HEAD", shorten_ref_name(b"HEAD"))
+        self.assertEqual(b"FETCH_HEAD", shorten_ref_name(b"FETCH_HEAD"))
+        self.assertEqual(b"ORIG_HEAD", shorten_ref_name(b"ORIG_HEAD"))
+
+    def test_other_refs(self) -> None:
+        """Test refs that don't match standard prefixes."""
+        # Refs that don't match any standard prefix are returned as-is
+        self.assertEqual(b"refs/stash", shorten_ref_name(b"refs/stash"))
+        self.assertEqual(b"refs/bisect/good", shorten_ref_name(b"refs/bisect/good"))
+
+
+class RefUtilityFunctionsTests(TestCase):
+    """Tests for the new ref utility functions."""
+
+    def test_local_branch_name(self) -> None:
+        """Test local_branch_name function."""
+        from dulwich.refs import local_branch_name
+
+        # Test adding prefix to branch name
+        self.assertEqual(b"refs/heads/master", local_branch_name(b"master"))
+        self.assertEqual(b"refs/heads/develop", local_branch_name(b"develop"))
+        self.assertEqual(
+            b"refs/heads/feature/new-ui", local_branch_name(b"feature/new-ui")
+        )
+
+        # Test idempotency - already has prefix
+        self.assertEqual(b"refs/heads/master", local_branch_name(b"refs/heads/master"))
+
+    def test_local_tag_name(self) -> None:
+        """Test local_tag_name function."""
+        from dulwich.refs import local_tag_name
+
+        # Test adding prefix to tag name
+        self.assertEqual(b"refs/tags/v1.0", local_tag_name(b"v1.0"))
+        self.assertEqual(b"refs/tags/release-2.0", local_tag_name(b"release-2.0"))
+
+        # Test idempotency - already has prefix
+        self.assertEqual(b"refs/tags/v1.0", local_tag_name(b"refs/tags/v1.0"))
+
+    def test_extract_branch_name(self) -> None:
+        """Test extract_branch_name function."""
+        from dulwich.refs import extract_branch_name
+
+        # Test extracting branch name from full ref
+        self.assertEqual(b"master", extract_branch_name(b"refs/heads/master"))
+        self.assertEqual(b"develop", extract_branch_name(b"refs/heads/develop"))
+        self.assertEqual(
+            b"feature/new-ui", extract_branch_name(b"refs/heads/feature/new-ui")
+        )
+
+        # Test error on invalid ref
+        with self.assertRaises(ValueError) as cm:
+            extract_branch_name(b"refs/tags/v1.0")
+        self.assertIn("Not a local branch ref", str(cm.exception))
+
+        with self.assertRaises(ValueError):
+            extract_branch_name(b"master")
+
+    def test_extract_tag_name(self) -> None:
+        """Test extract_tag_name function."""
+        from dulwich.refs import extract_tag_name
+
+        # Test extracting tag name from full ref
+        self.assertEqual(b"v1.0", extract_tag_name(b"refs/tags/v1.0"))
+        self.assertEqual(b"release-2.0", extract_tag_name(b"refs/tags/release-2.0"))
+
+        # Test error on invalid ref
+        with self.assertRaises(ValueError) as cm:
+            extract_tag_name(b"refs/heads/master")
+        self.assertIn("Not a local tag ref", str(cm.exception))
+
+        with self.assertRaises(ValueError):
+            extract_tag_name(b"v1.0")
+
+
+class NamespacedRefsContainerTests(TestCase):
+    """Tests for NamespacedRefsContainer."""
+
+    def setUp(self) -> None:
+        TestCase.setUp(self)
+        # Create an underlying refs container
+        self._underlying_refs = DictRefsContainer(dict(_TEST_REFS))
+        # Create a namespaced view
+        self._refs = NamespacedRefsContainer(self._underlying_refs, b"foo")
+
+    def test_namespace_prefix_simple(self) -> None:
+        """Test simple namespace prefix."""
+        refs = NamespacedRefsContainer(self._underlying_refs, b"foo")
+        self.assertEqual(b"refs/namespaces/foo/", refs._namespace_prefix)
+
+    def test_namespace_prefix_nested(self) -> None:
+        """Test nested namespace prefix."""
+        refs = NamespacedRefsContainer(self._underlying_refs, b"foo/bar")
+        self.assertEqual(
+            b"refs/namespaces/foo/refs/namespaces/bar/", refs._namespace_prefix
+        )
+
+    def test_allkeys_empty_namespace(self) -> None:
+        """Test that newly created namespace has no refs except HEAD."""
+        # HEAD is shared across namespaces, so it appears even in empty namespace
+        self.assertEqual({b"HEAD"}, self._refs.allkeys())
+
+    def test_setitem_and_getitem(self) -> None:
+        """Test setting and getting refs in namespace."""
+        sha = b"9" * 40
+        self._refs[b"refs/heads/master"] = sha
+        self.assertEqual(sha, self._refs[b"refs/heads/master"])
+
+        # Verify it's stored with the namespace prefix in underlying container
+        self.assertIn(
+            b"refs/namespaces/foo/refs/heads/master", self._underlying_refs.allkeys()
+        )
+        self.assertEqual(
+            sha, self._underlying_refs[b"refs/namespaces/foo/refs/heads/master"]
+        )
+
+    def test_head_not_namespaced(self) -> None:
+        """Test that HEAD is not namespaced."""
+        sha = b"a" * 40
+        self._refs[b"HEAD"] = sha
+        self.assertEqual(sha, self._refs[b"HEAD"])
+
+        # HEAD should be directly in the underlying container, not namespaced
+        self.assertIn(b"HEAD", self._underlying_refs.allkeys())
+        self.assertNotIn(b"refs/namespaces/foo/HEAD", self._underlying_refs.allkeys())
+
+    def test_isolation_between_namespaces(self) -> None:
+        """Test that different namespaces are isolated."""
+        sha1 = b"a" * 40
+        sha2 = b"b" * 40
+
+        # Create two different namespaces
+        refs_foo = NamespacedRefsContainer(self._underlying_refs, b"foo")
+        refs_bar = NamespacedRefsContainer(self._underlying_refs, b"bar")
+
+        # Set ref in foo namespace
+        refs_foo[b"refs/heads/master"] = sha1
+
+        # Set ref in bar namespace
+        refs_bar[b"refs/heads/master"] = sha2
+
+        # Each namespace should only see its own refs (plus shared HEAD)
+        self.assertEqual(sha1, refs_foo[b"refs/heads/master"])
+        self.assertEqual(sha2, refs_bar[b"refs/heads/master"])
+        self.assertEqual({b"HEAD", b"refs/heads/master"}, refs_foo.allkeys())
+        self.assertEqual({b"HEAD", b"refs/heads/master"}, refs_bar.allkeys())
+
+    def test_allkeys_filters_namespace(self) -> None:
+        """Test that allkeys only returns refs in the namespace."""
+        # Add refs in multiple namespaces
+        self._underlying_refs[b"refs/namespaces/foo/refs/heads/master"] = b"a" * 40
+        self._underlying_refs[b"refs/namespaces/foo/refs/heads/develop"] = b"b" * 40
+        self._underlying_refs[b"refs/namespaces/bar/refs/heads/feature"] = b"c" * 40
+        self._underlying_refs[b"refs/heads/global"] = b"d" * 40
+
+        # Only refs in 'foo' namespace should be visible (plus HEAD which is shared)
+        foo_refs = NamespacedRefsContainer(self._underlying_refs, b"foo")
+        self.assertEqual(
+            {b"HEAD", b"refs/heads/master", b"refs/heads/develop"}, foo_refs.allkeys()
+        )
+
+    def test_set_symbolic_ref(self) -> None:
+        """Test symbolic ref creation in namespace."""
+        sha = b"e" * 40
+        self._refs[b"refs/heads/develop"] = sha
+        self._refs.set_symbolic_ref(b"refs/heads/main", b"refs/heads/develop")
+
+        # Both target and link should be namespaced
+        self.assertIn(
+            b"refs/namespaces/foo/refs/heads/main", self._underlying_refs.allkeys()
+        )
+        self.assertEqual(
+            b"ref: refs/namespaces/foo/refs/heads/develop",
+            self._underlying_refs.read_loose_ref(
+                b"refs/namespaces/foo/refs/heads/main"
+            ),
+        )
+
+    def test_remove_if_equals(self) -> None:
+        """Test removing refs from namespace."""
+        sha = b"f" * 40
+        self._refs[b"refs/heads/temp"] = sha
+
+        # Remove the ref
+        self.assertTrue(self._refs.remove_if_equals(b"refs/heads/temp", sha))
+        self.assertNotIn(b"refs/heads/temp", self._refs.allkeys())
+        self.assertNotIn(
+            b"refs/namespaces/foo/refs/heads/temp", self._underlying_refs.allkeys()
+        )
+
+    def test_get_packed_refs(self) -> None:
+        """Test get_packed_refs returns empty dict for DictRefsContainer."""
+        # DictRefsContainer doesn't support packed refs, so just verify
+        # the wrapper returns an empty dict
+        packed = self._refs.get_packed_refs()
+        self.assertEqual({}, packed)
+
+    def test_add_if_new(self) -> None:
+        """Test add_if_new in namespace."""
+        sha = b"1" * 40
+        # Should succeed - ref doesn't exist
+        self.assertTrue(self._refs.add_if_new(b"refs/heads/new", sha))
+        self.assertEqual(sha, self._refs[b"refs/heads/new"])
+
+        # Should fail - ref already exists
+        self.assertFalse(self._refs.add_if_new(b"refs/heads/new", b"2" * 40))
+        self.assertEqual(sha, self._refs[b"refs/heads/new"])
+
+    def test_set_if_equals(self) -> None:
+        """Test set_if_equals in namespace."""
+        sha1 = b"a" * 40
+        sha2 = b"b" * 40
+        self._refs[b"refs/heads/test"] = sha1
+
+        # Should fail with wrong old value
+        self.assertFalse(self._refs.set_if_equals(b"refs/heads/test", b"c" * 40, sha2))
+        self.assertEqual(sha1, self._refs[b"refs/heads/test"])
+
+        # Should succeed with correct old value
+        self.assertTrue(self._refs.set_if_equals(b"refs/heads/test", sha1, sha2))
+        self.assertEqual(sha2, self._refs[b"refs/heads/test"])

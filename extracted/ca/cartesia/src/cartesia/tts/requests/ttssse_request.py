@@ -5,6 +5,7 @@ from .tts_request_voice_specifier import TtsRequestVoiceSpecifierParams
 import typing_extensions
 from ..types.supported_language import SupportedLanguage
 from .sse_output_format import SseOutputFormatParams
+from .generation_config import GenerationConfigParams
 from ..types.model_speed import ModelSpeed
 from ..types.context_id import ContextId
 
@@ -19,6 +20,7 @@ class TtssseRequestParams(typing_extensions.TypedDict):
     voice: TtsRequestVoiceSpecifierParams
     language: typing_extensions.NotRequired[SupportedLanguage]
     output_format: SseOutputFormatParams
+    generation_config: typing_extensions.NotRequired[GenerationConfigParams]
     duration: typing_extensions.NotRequired[float]
     """
     The maximum duration of the audio in seconds. You do not usually need to specify this.
@@ -44,4 +46,9 @@ class TtssseRequestParams(typing_extensions.TypedDict):
     context_id: typing_extensions.NotRequired[ContextId]
     """
     Optional context ID for this request.
+    """
+
+    pronunciation_dict_id: typing_extensions.NotRequired[str]
+    """
+    A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
     """

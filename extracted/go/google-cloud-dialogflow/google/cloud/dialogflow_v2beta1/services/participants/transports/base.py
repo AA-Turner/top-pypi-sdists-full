@@ -72,9 +72,10 @@ class ParticipantsTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -175,6 +176,18 @@ class ParticipantsTransport(abc.ABC):
             self.streaming_analyze_content: gapic_v1.method.wrap_method(
                 self.streaming_analyze_content,
                 default_timeout=220.0,
+                client_info=client_info,
+            ),
+            self.bidi_streaming_analyze_content: gapic_v1.method.wrap_method(
+                self.bidi_streaming_analyze_content,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(),
+                    deadline=1800.0,
+                ),
+                default_timeout=1800.0,
                 client_info=client_info,
             ),
             self.suggest_articles: gapic_v1.method.wrap_method(
@@ -302,6 +315,18 @@ class ParticipantsTransport(abc.ABC):
         Union[
             participant.StreamingAnalyzeContentResponse,
             Awaitable[participant.StreamingAnalyzeContentResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def bidi_streaming_analyze_content(
+        self,
+    ) -> Callable[
+        [participant.BidiStreamingAnalyzeContentRequest],
+        Union[
+            participant.BidiStreamingAnalyzeContentResponse,
+            Awaitable[participant.BidiStreamingAnalyzeContentResponse],
         ],
     ]:
         raise NotImplementedError()

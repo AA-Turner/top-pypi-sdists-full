@@ -7,6 +7,11 @@ from sys import platform
 from time import time
 from urllib.parse import urlparse
 
+try:
+    import certifi
+except ImportError:
+    certifi = None
+
 from . import defines
 from . import errors
 from .block import RowOrientedBlock
@@ -120,7 +125,10 @@ class Connection(object):
     :param ca_certs: see :func:`ssl.wrap_socket` docs.
     :param ciphers: see :func:`ssl.wrap_socket` docs.
     :param keyfile: see :func:`ssl.wrap_socket` docs.
+    :param keypass: see :func:`ssl.wrap_socket` docs.
     :param certfile: see :func:`ssl.wrap_socket` docs.
+    :param check_hostname: see :func:`ssl.wrap_socket` docs.
+                           Defaults to ``True``.
     :param server_hostname: Hostname to use in SSL Wrapper construction.
                             Defaults to `None` which will send the passed
                             host param during SSL initialization. This param
@@ -141,6 +149,10 @@ class Connection(object):
                           Defaults to ``False``.
     :param client_revision: can be used for client version downgrading.
                           Defaults to ``None``.
+    :param disable_reconnect: disable automatic reconnect in case of
+                              failed ``ping``, helpful when every reconnect
+                              need to be caught in calling code.
+                              Defaults to ``False``.
     """
 
     def __init__(
@@ -156,12 +168,13 @@ class Connection(object):
             secure=False,
             # Secure socket parameters.
             verify=True, ssl_version=None, ca_certs=None, ciphers=None,
-            keyfile=None, certfile=None,
+            keyfile=None, keypass=None, certfile=None, check_hostname=True,
             server_hostname=None,
             alt_hosts=None,
             settings_is_important=False,
             tcp_keepalive=False,
-            client_revision=None
+            client_revision=None,
+            disable_reconnect=False,
     ):
         if secure:
             default_port = defines.DEFAULT_SECURE_PORT
@@ -187,9 +200,13 @@ class Connection(object):
         self.client_revision = min(
             client_revision or defines.CLIENT_REVISION, defines.CLIENT_REVISION
         )
+        self.disable_reconnect = disable_reconnect
 
         self.secure_socket = secure
         self.verify_cert = verify
+
+        if certifi is not None:
+            ca_certs = ca_certs or certifi.where()
 
         ssl_options = {}
         if ssl_version is not None:
@@ -200,11 +217,14 @@ class Connection(object):
             ssl_options['ciphers'] = ciphers
         if keyfile is not None:
             ssl_options['keyfile'] = keyfile
+        if keypass is not None:
+            ssl_options['keypass'] = keypass
         if certfile is not None:
             ssl_options['certfile'] = certfile
 
         self.ssl_options = ssl_options
 
+        self.check_hostname = check_hostname if self.verify_cert else False
         self.server_hostname = server_hostname
 
         # Use LZ4 compression by default.
@@ -258,6 +278,11 @@ class Connection(object):
             self.connect()
 
         elif not self.ping():
+            if self.disable_reconnect:
+                raise errors.NetworkError(
+                    "Connection was closed, reconnect is disabled."
+                )
+
             logger.warning('Connection was closed, reconnecting.')
             self.connect()
 
@@ -307,7 +332,7 @@ class Connection(object):
 
         version = ssl_options.get('ssl_version', ssl.PROTOCOL_TLS_CLIENT)
         context = ssl.SSLContext(version)
-        context.check_hostname = self.verify_cert
+        context.check_hostname = self.check_hostname
 
         if 'ca_certs' in ssl_options:
             context.load_verify_locations(ssl_options['ca_certs'])
@@ -321,7 +346,11 @@ class Connection(object):
 
         if 'certfile' in ssl_options:
             keyfile = ssl_options.get('keyfile')
-            context.load_cert_chain(ssl_options['certfile'], keyfile=keyfile)
+            keypass = ssl_options.get('keypass')
+            context.load_cert_chain(
+                ssl_options['certfile'],
+                keyfile=keyfile, password=keypass
+            )
 
         return context
 
@@ -542,6 +571,9 @@ class Connection(object):
             )
 
     def ping(self):
+        if not self.socket:
+            return None
+
         timeout = self.sync_request_timeout
 
         with self.timeout_setter(timeout):

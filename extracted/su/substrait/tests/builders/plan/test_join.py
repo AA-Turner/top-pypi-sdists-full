@@ -1,20 +1,24 @@
-import substrait.gen.proto.type_pb2 as stt
-import substrait.gen.proto.plan_pb2 as stp
 import substrait.gen.proto.algebra_pb2 as stalg
-from substrait.builders.type import boolean, i64, string
-from substrait.builders.plan import read_named_table, join
+import substrait.gen.proto.plan_pb2 as stp
+import substrait.gen.proto.type_pb2 as stt
 from substrait.builders.extended_expression import literal
+from substrait.builders.plan import default_version, join, read_named_table
+from substrait.builders.type import boolean, i64, string
 from substrait.extension_registry import ExtensionRegistry
 
 registry = ExtensionRegistry(load_default_extensions=False)
 
-struct = stt.Type.Struct(types=[i64(nullable=False), boolean()])
+struct = stt.Type.Struct(
+    types=[i64(nullable=False), boolean()], nullability=stt.Type.NULLABILITY_REQUIRED
+)
 
 named_struct = stt.NamedStruct(names=["id", "is_applicable"], struct=struct)
 
 named_struct_2 = stt.NamedStruct(
     names=["fk_id", "name"],
-    struct=stt.Type.Struct(types=[i64(nullable=False), string()]),
+    struct=stt.Type.Struct(
+        types=[i64(nullable=False), string()], nullability=stt.Type.NULLABILITY_REQUIRED
+    ),
 )
 
 
@@ -27,6 +31,7 @@ def test_join():
     )(registry)
 
     expected = stp.Plan(
+        version=default_version,
         relations=[
             stp.PlanRel(
                 root=stalg.RelRoot(
@@ -43,7 +48,7 @@ def test_join():
                     names=["id", "is_applicable", "fk_id", "name"],
                 )
             )
-        ]
+        ],
     )
 
     assert actual == expected

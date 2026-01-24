@@ -346,15 +346,15 @@ class Certificate(pulumi.CustomResource):
                 },
             },
             permanent_deletion_time_in_days=7)
-        key = tls.index.PrivateKey("key", algorithm=RSA)
-        csr = tls.index.CertRequest("csr",
+        key = tls.PrivateKey("key", algorithm="RSA")
+        csr = tls.CertRequest("csr",
             private_key_pem=key.private_key_pem,
             subject=[{
-                commonName: example,
+                "commonName": "example",
             }])
         example = aws.acmpca.Certificate("example",
             certificate_authority_arn=example_certificate_authority.arn,
-            certificate_signing_request=csr["certRequestPem"],
+            certificate_signing_request=csr.cert_request_pem,
             signing_algorithm="SHA256WITHRSA",
             validity={
                 "type": "YEARS",
@@ -364,11 +364,15 @@ class Certificate(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the ACM PCA certificate.
+
         Using `pulumi import`, import ACM PCA Certificates using their ARN. For example:
 
-        ```sh
-        $ pulumi import aws:acmpca/certificate:Certificate cert arn:aws:acm-pca:eu-west-1:675225743824:certificate-authority/08319ede-83g9-1400-8f21-c7d12b2b6edb/certificate/a4e9c2aa4bcfab625g1b9136464cd3a
-        ```
+        % pulumi import aws_acmpca_certificate.cert arn:aws:acm-pca:eu-west-1:675225743824:certificate-authority/08319ede-83g9-1400-8f21-c7d12b2b6edb/certificate/a4e9c2aa4bcfab625g1b9136464cd3a
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -413,15 +417,15 @@ class Certificate(pulumi.CustomResource):
                 },
             },
             permanent_deletion_time_in_days=7)
-        key = tls.index.PrivateKey("key", algorithm=RSA)
-        csr = tls.index.CertRequest("csr",
+        key = tls.PrivateKey("key", algorithm="RSA")
+        csr = tls.CertRequest("csr",
             private_key_pem=key.private_key_pem,
             subject=[{
-                commonName: example,
+                "commonName": "example",
             }])
         example = aws.acmpca.Certificate("example",
             certificate_authority_arn=example_certificate_authority.arn,
-            certificate_signing_request=csr["certRequestPem"],
+            certificate_signing_request=csr.cert_request_pem,
             signing_algorithm="SHA256WITHRSA",
             validity={
                 "type": "YEARS",
@@ -431,11 +435,15 @@ class Certificate(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the ACM PCA certificate.
+
         Using `pulumi import`, import ACM PCA Certificates using their ARN. For example:
 
-        ```sh
-        $ pulumi import aws:acmpca/certificate:Certificate cert arn:aws:acm-pca:eu-west-1:675225743824:certificate-authority/08319ede-83g9-1400-8f21-c7d12b2b6edb/certificate/a4e9c2aa4bcfab625g1b9136464cd3a
-        ```
+        % pulumi import aws_acmpca_certificate.cert arn:aws:acm-pca:eu-west-1:675225743824:certificate-authority/08319ede-83g9-1400-8f21-c7d12b2b6edb/certificate/a4e9c2aa4bcfab625g1b9136464cd3a
 
         :param str resource_name: The name of the resource.
         :param CertificateArgs args: The arguments to use to populate this resource's properties.

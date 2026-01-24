@@ -1,8 +1,12 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
+from pathlib import Path
+
+from ibm_watsonx_ai.utils.utils import get_from_json
 
 __all__ = [
     "fetch_pipelines",
@@ -25,7 +29,7 @@ __all__ = [
     "try_import_openpyxl",
     "try_import_onnxruntime",
     "try_import_onnxruntime_extensions",
-    "download_onnx_model",
+    "prepare_onnx_model_to_publish",
     "try_import_graphviz",
     "prepare_cos_client",
     "create_model_download_link",
@@ -67,17 +71,27 @@ from importlib.metadata import PackageNotFoundError
 from subprocess import check_call
 from sys import executable
 from tarfile import open as open_tar
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+    overload,
+)
 from warnings import warn
 from zipfile import ZipFile
 
-import pandas as pd
 from packaging import version
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.utils import get_module_version
 from ibm_watsonx_ai.wml_client_error import WMLClientError
+from ibm_watsonx_ai.wml_resource import WMLResource
 
 from .enums import (
     BatchedClassificationAlgorithms,
@@ -130,12 +144,14 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-def create_model_download_link(file_path: str):
+def create_model_download_link(file_path: str | Path):
     """Create download link and shows it in the jupyter notebook.
 
     :param file_path: path to model file
     :type file_path: str
     """
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
     if is_ipython():
         from IPython.display import display
 
@@ -146,7 +162,7 @@ def create_model_download_link(file_path: str):
 
 def fetch_pipelines(
     run_params: dict,
-    path: str,
+    path: str | Path,
     api_client: Optional["APIClient"] = None,
     pipeline_name: str = None,
     load_pipelines: bool = False,
@@ -159,7 +175,7 @@ def fetch_pipelines(
     :param run_params: fetched details of the run/fit
     :type run_params: dict
     :param path: local system path indicates where to store downloaded pipelines
-    :type path: str
+    :type path: str | Path
     :param api_client: API client
     :type api_client: APIClient
     :param pipeline_name: name of the pipeline to download, if not specified, all pipelines are downloaded
@@ -232,6 +248,9 @@ def fetch_pipelines(
 
     joblib = try_import_joblib()
 
+    if isinstance(path, Path):
+        path = str(path)
+
     path = os.path.abspath(path)
     pipelines_names = []
     pipelines = {}
@@ -260,10 +279,8 @@ def fetch_pipelines(
             if pipeline["context"]["phase"] == model_phase:
                 model_type = "onnx_model" if onnx_model else "model"
                 # note: fetch and create model paths from file system
-                model_path = (
-                    pipeline["context"]["intermediate_model"]
-                    .get("location", {})
-                    .get(model_type, None)
+                model_path = get_from_json(
+                    pipeline, ["context", "intermediate_model", "location", model_type]
                 )
                 if (
                     onnx_model is None and model_path is None
@@ -549,10 +566,10 @@ def fetch_pipelines(
 
 def _download_notebook(
     run_params: dict,
-    path: str,
+    path: str | Path,
     api_client: Optional["APIClient"] = None,
     pipeline_name: Optional[str] = None,
-    filename: str = None,
+    filename: str | Path | None = None,
     **kwargs,
 ) -> str:
     """Helper function to download and load computed AutoAI pipelines (sklearn pipelines).
@@ -561,7 +578,7 @@ def _download_notebook(
     :type run_params: dict
 
     :param path: local system path indicates where to store downloaded pipelines
-    :type path: str
+    :type path: str, Path
 
     :param api_client: API client
     :type api_client: APIClient
@@ -571,7 +588,7 @@ def _download_notebook(
 
     :param filename: name of pipeline notebook file, if not specified,
         the file name will be created based on pipeline name
-    :type filename: str, optional
+    :type filename: str, Path, optional
 
     :return: path to saved pipeline notebook
     :rtype: str
@@ -590,7 +607,13 @@ def _download_notebook(
         raise WMLClientError("No API client provided")
     # --- end note
 
-    path = os.path.abspath(path)
+    if isinstance(path, str):
+        path = Path(path)
+
+    if isinstance(filename, str):
+        filename = Path(filename)
+
+    path = path.absolute()
     is_ts_metrics = (
         "timeseries"
         in run_params["entity"]["status"].get("metrics", [None])[0]["context"]
@@ -613,28 +636,28 @@ def _download_notebook(
                 if pipeline["context"]["phase"] == model_phase:
                     # note: fetch and create model paths from file system
                     try:
-                        notebook_path = f"{pipeline['context']['intermediate_model']['notebook_location']}"
+                        notebook_path = Path(
+                            f"{pipeline['context']['intermediate_model']['notebook_location']}"
+                        )
                     except Exception:
                         raise NoAvailableNotebookLocation(pipeline_name)
                     # --- end note
 
                     if not filename:
-                        filename = f"{path}/Pipeline_{model_number}_notebook.ipynb"
+                        filename = path / f"Pipeline_{model_number}_notebook.ipynb"
 
-                    with open(filename, "wb") as file:
-                        file.write(
-                            load_file_from_file_system(
-                                api_client=api_client, file_path=notebook_path
-                            ).getvalue()
-                        )
-
+                    filename.write_bytes(
+                        load_file_from_file_system(
+                            api_client=api_client, file_path=notebook_path
+                        ).getvalue()
+                    )
                     print(f"Selected pipeline notebook stored under: {filename}")
 
                     # note: display download link to the model
                     create_model_download_link(filename)
                     # --- end note
 
-                    return filename
+                    return str(filename)
 
     else:
         from ibm_watsonx_ai.helpers import DataConnection  # prevent circular import
@@ -663,7 +686,7 @@ def _download_notebook(
                         raise NoAvailableNotebookLocation(pipeline_name)
 
                     if not filename:
-                        filename = f"{path}/Pipeline_{model_number}_notebook.ipynb"
+                        filename = path / f"Pipeline_{model_number}_notebook.ipynb"
 
                     notebook_reference.location.path = notebook_path
                     notebook_reference.download(filename=filename)
@@ -673,14 +696,14 @@ def _download_notebook(
                     # note: display download link to the model
                     create_model_download_link(filename)
 
-                    return filename
+                    return str(filename)
 
     raise NoAvailableNotebookLocation(pipeline_name)
 
 
 def load_file_from_file_system(
-    api_client: Optional["APIClient"] = None,
-    file_path: Optional[str] = None,
+    api_client: APIClient | None = None,
+    file_path: str | Path | None = None,
     stream: bool = True,
     **kwargs,
 ) -> "io.BytesIO":
@@ -689,13 +712,16 @@ def load_file_from_file_system(
     :param api_client: API client
     :type api_client: APIClient
     :param file_path: path in the file system of the file
-    :type file_path: str
+    :type file_path: str | Path, optional
     :param stream: indicator to stream data content
     :type stream: bool, optional
 
     :return: Sklearn Pipeline
     :rtype: io.BytesIO
     """
+    if isinstance(file_path, Path):
+        file_path = str(file_path)
+
     # note: backward compatibility
     if (wml_client := kwargs.get("wml_client")) is not None:
         if api_client is None:
@@ -715,26 +741,84 @@ def load_file_from_file_system(
 
     # note: prepare the file path
     file_path = file_path.split("/assets/", 1)[-1]
+    buffer = io.BytesIO()
     # --- end note
 
     url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
-    response_with_model = requests.get(
-        url=url,
-        headers=api_client._get_headers(),
-        params=api_client._params(),
-        stream=stream,
-    )
+    headers = api_client._get_headers()
+    params = api_client._params()
 
-    api_client.deployments._handle_response(
-        200, "get asset file", response_with_model, json_response=False
-    )
-
-    buffer = io.BytesIO()
     if stream:
-        for data in response_with_model.iter_content():
-            buffer.write(data)
+        with api_client.httpx_client.stream(
+            method="GET", url=url, headers=headers, params=params
+        ) as response:
+            WMLResource._handle_response(
+                200, "get asset file", response, json_response=False
+            )
+
+            for data in response.iter_bytes():
+                buffer.write(data)
     else:
-        buffer.write(response_with_model.content)
+        response = api_client.httpx_client.get(url=url, headers=headers, params=params)
+
+        WMLResource._handle_response(
+            200, "get asset file", response, json_response=False
+        )
+
+        buffer.write(response.content)
+
+    buffer.seek(0)
+
+    return buffer
+
+
+async def aload_file_from_file_system(
+    api_client: APIClient,
+    file_path: str | Path,
+    stream: bool = True,
+) -> "io.BytesIO":
+    """Load file into memory from the file system asynchronously.
+
+    :param api_client: API client
+    :type api_client: APIClient
+    :param file_path: path in the file system of the file
+    :type file_path: str | Path
+    :param stream: indicator to stream data content
+    :type stream: bool, optional
+
+    :return: Sklearn Pipeline
+    :rtype: io.BytesIO
+    """
+    if isinstance(file_path, Path):
+        file_path = str(file_path)
+
+    file_path = file_path.split("/assets/", 1)[-1]
+    buffer = io.BytesIO()
+
+    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    headers = await api_client._aget_headers()
+    params = api_client._params()
+
+    if stream:
+        async with api_client.async_httpx_client.stream(
+            method="GET", url=url, headers=headers, params=params
+        ) as response:
+            WMLResource._handle_response(
+                200, "get asset file", response, json_response=False
+            )
+
+            async for data in response.aiter_bytes():
+                buffer.write(data)
+    else:
+        response = await api_client.async_httpx_client.get(
+            url=url, headers=headers, params=params
+        )
+
+        WMLResource._handle_response(
+            200, "get asset file", response, json_response=False
+        )
+
+        buffer.write(response.content)
 
     buffer.seek(0)
 
@@ -742,8 +826,8 @@ def load_file_from_file_system(
 
 
 def load_file_from_file_system_nonautoai(
-    api_client: Optional["APIClient"] = None,
-    file_path: Optional[str] = None,
+    api_client: APIClient | None = None,
+    file_path: str | Path | None = None,
     stream: bool = True,
     **kwargs,
 ) -> "io.BytesIO":
@@ -752,13 +836,16 @@ def load_file_from_file_system_nonautoai(
     :param api_client: API client
     :type api_client: APIClient
     :param file_path: path in the file system of the file
-    :type file_path: str
+    :type file_path: str | Path, optional
     :param stream: indicator to stream data content
     :type stream: bool, optional
 
     :return: file content
     :rtype: io.BytesIO
     """
+    if isinstance(file_path, Path):
+        file_path = str(file_path)
+
     # note: backward compatibility
     if (wml_client := kwargs.get("wml_client")) is not None:
         if api_client is None:
@@ -780,18 +867,64 @@ def load_file_from_file_system_nonautoai(
 
     buffer = io.BytesIO()
 
-    response_with_model = requests.get(
-        url=f"{api_client._href_definitions.get_wsd_model_attachment_href()}{file_path}",
-        headers=api_client._get_headers(),
-        params=api_client._params(),
-        stream=stream,
-    )
+    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    headers = api_client._get_headers()
+    params = api_client._params()
 
     if stream:
-        for data in response_with_model.iter_content():
-            buffer.write(data)
+        with api_client.httpx_client.stream(
+            method="GET", url=url, headers=headers, params=params
+        ) as response:
+            for data in response.iter_bytes():
+                buffer.write(data)
     else:
-        buffer.write(response_with_model.content)
+        response = api_client.httpx_client.get(url=url, headers=headers, params=params)
+
+        buffer.write(response.content)
+
+    buffer.seek(0)
+
+    return buffer
+
+
+async def aload_file_from_file_system_nonautoai(
+    api_client: APIClient,
+    file_path: str | Path,
+    stream: bool = True,
+) -> "io.BytesIO":
+    """Load file into memory from the file system asynchronously.
+
+    :param api_client: API client
+    :type api_client: APIClient
+    :param file_path: path in the file system of the file
+    :type file_path: str | Path
+    :param stream: indicator to stream data content
+    :type stream: bool, optional
+
+    :return: file content
+    :rtype: io.BytesIO
+    """
+    if isinstance(file_path, Path):
+        file_path = str(file_path)
+
+    buffer = io.BytesIO()
+
+    url = api_client._href_definitions.get_wsd_model_attachment_href() + file_path
+    headers = await api_client._aget_headers()
+    params = api_client._params()
+
+    if stream:
+        async with api_client.async_httpx_client.stream(
+            method="GET", url=url, headers=headers, params=params
+        ) as response:
+            async for data in response.aiter_bytes():
+                buffer.write(data)
+    else:
+        response = await api_client.async_httpx_client.get(
+            url=url, headers=headers, params=params
+        )
+
+        buffer.write(response.content)
 
     buffer.seek(0)
 
@@ -832,7 +965,7 @@ class NextRunDetailsGenerator:
 
     def __next__(self):
         if self.next_href is not None:
-            response = requests.get(
+            response = self.api_client.httpx_client.get(
                 url=f"{self.api_client.credentials.url}{self.next_href}",
                 headers=self.api_client._get_headers(),
             )
@@ -1004,7 +1137,7 @@ def prepare_auto_ai_model_to_publish_normal_scenario(
     run_id: str,
     api_client: Optional["APIClient"] = None,
     space_id: Optional[str] = None,
-    result_reference: "DataConnection" = None,
+    result_reference: Optional["DataConnection"] = None,
     auto_pipelines_parameters: dict = None,
     **kwargs,
 ) -> tuple[str, dict[str, Any]]:
@@ -1058,17 +1191,79 @@ def prepare_auto_ai_model_to_publish_normal_scenario(
             reason="The name of the pipeline is incorrect or there are no pipelines computed.",
         )
     # note: fill connection details
-    if "connection" in run_params["entity"]["results_reference"]:
-        if "content_location" in request_json:
-            if "location" in request_json["content_location"]:
-                if (
-                    request_json["content_location"]["location"].get("type") != "s3"
-                    and request_json["content_location"]["location"].get("type")
-                    != "container"
-                ):
-                    request_json["content_location"]["connection"] = run_params[
-                        "entity"
-                    ]["results_reference"]["connection"]
+    if (
+        "connection" in run_params["entity"]["results_reference"]
+        and "content_location" in request_json
+        and "location" in request_json["content_location"]
+        and request_json["content_location"]["location"].get("type")
+        not in {"s3", "container"}
+    ):
+        request_json["content_location"]["connection"] = run_params["entity"][
+            "results_reference"
+        ]["connection"]
+
+    artifact_name = f"autoai_sdk{os.path.sep}{pipeline_model}.pickle"
+
+    return artifact_name, request_json
+
+
+async def aprepare_auto_ai_model_to_publish_normal_scenario(
+    pipeline_model: Pipeline | TrainablePipeline,
+    run_params: dict,
+    run_id: str,
+    api_client: APIClient | None = None,
+    space_id: str | None = None,
+    result_reference: DataConnection | None = None,
+    auto_pipelines_parameters: dict | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Helper function to specify `content_location` statement for AutoAI models to store in repository.
+
+    :param pipeline_model: model that will be prepared for an upload
+    :type pipeline_model: Pipeline or TrainablePipeline
+    :param run_params: fetched details of the run/fit
+    :type run_params: dict
+    :param run_id: fit/run ID associated with the model
+    :type run_id: str
+    :param api_client: API Client
+    :type api_client: APIClient
+    :param space_id: UID of space
+    :type space_id: str, optional
+    :param result_reference: needed when we have something different than old S3 on a Cloud
+    :type result_reference: DataConnection, optional
+    :param auto_pipelines_parameters: auto pipelines parameters
+    :type auto_pipelines_parameters: dict, optional
+
+    :return:
+        if cp4d: dictionary with model schema and artifact name to upload, stored temporally in the user local
+            file system
+        else: path name to the stored model in COS
+    :rtype: dict or str
+    """
+
+    try:
+        request_json: Dict[str, dict] = await adownload_request_json(
+            run_params,
+            pipeline_model,
+            api_client,
+            result_reference,
+            auto_pipelines_parameters=auto_pipelines_parameters,
+        )
+    except Exception:
+        raise MissingPipeline(
+            pipeline_model,
+            reason="The name of the pipeline is incorrect or there are no pipelines computed.",
+        )
+    # note: fill connection details
+    if (
+        "connection" in run_params["entity"]["results_reference"]
+        and "content_location" in request_json
+        and "location" in request_json["content_location"]
+        and request_json["content_location"]["location"].get("type")
+        not in ("s3", "container")
+    ):
+        request_json["content_location"]["connection"] = run_params["entity"][
+            "results_reference"
+        ]["connection"]
 
     artifact_name = f"autoai_sdk{os.path.sep}{pipeline_model}.pickle"
 
@@ -1207,6 +1402,131 @@ def prepare_auto_ai_model_to_publish(
     return json.loads(schema_json), artifact_name
 
 
+# TODO: remove this function
+async def aprepare_auto_ai_model_to_publish(
+    pipeline_model: Pipeline | TrainablePipeline,
+    run_params: dict,
+    run_id: str,
+    api_client: APIClient | None = None,
+) -> tuple[dict[str, dict], str]:
+    """Helper function to download and load computed AutoAI pipelines (sklearn pipelines).
+
+    :param pipeline_model: model that will be prepared for an upload
+    :type pipeline_model: Pipeline or TrainablePipeline
+    :param run_params: fetched details of the run/fit
+    :type run_params: dict
+    :param run_id: fit/run ID associated with the model
+    :type run_id: str
+    :param api_client: API Client
+    :type api_client: APIClient
+
+    :return:
+        if cp4d: Dictionary with model schema and artifact name to upload, stored temporally in the user local
+            file system
+        else: path name to the stored model in COS
+
+    :rtype: tuple[dict, str] or str
+    """
+
+    joblib = try_import_joblib()
+
+    metric = run_params["entity"]["status"].get("metrics")[-1]
+    is_ml_metrics = "ml_metrics" in metric
+    is_ts_metrics = "ts_metrics" in metric
+    is_tsad_metrics = "tsad_metrics" in metric
+
+    if not is_ml_metrics and not is_ts_metrics and not is_tsad_metrics:
+        raise NoAvailableMetrics()
+
+    artifact_type = ".tar.gz" if api_client.ICP_PLATFORM_SPACES else ".gzip"
+
+    artifact_name = f"artifact_auto_ai_model{artifact_type}"
+    model_artifact_name = f"model_{run_id}.tar.gz"
+    pipeline_definition_name = "pipeline-model.json"
+    temp_model_name = "__temp_model.pickle"
+    temp_ts_model_name = "model.gzip"
+
+    # note: prepare file paths of pipeline-model and schema (COS / file system location)
+    pipeline_info = run_params["entity"]["status"].get("metrics")[-1]
+    pipeline_model_path = f"{pipeline_info['context']['intermediate_model']['location']['pipeline_model']}"
+    schema_path = f"{pipeline_info['context']['intermediate_model']['schema_location']}"
+    # --- end note
+
+    if api_client.ICP_PLATFORM_SPACES:
+        # note: downloading pipeline-model.json and schema.json from file system on CP4D
+        schema_json = (
+            (
+                await aload_file_from_file_system(
+                    api_client=api_client, file_path=schema_path
+                )
+            )
+            .read()
+            .decode()
+        )
+        pipeline_model_json = (
+            (
+                await aload_file_from_file_system(
+                    api_client=api_client, file_path=pipeline_model_path
+                )
+            )
+            .read()
+            .decode()
+        )
+        with open(pipeline_definition_name, "w") as f:
+            f.write(pipeline_model_json)
+        # --- end note
+
+    else:
+        from ibm_watsonx_ai.helpers import DataConnection
+
+        results_reference = DataConnection.from_dict(
+            run_params["entity"]["results_reference"]
+        )
+        results_reference.set_client(api_client)
+
+        # note: need to download model schema and pipeline definition json
+        results_reference.location.path = pipeline_model_path
+        results_reference.download(filename=pipeline_definition_name)
+
+        results_reference.location.path = schema_path
+        results_reference.download(filename="schema.json")
+
+        with open("schema.json", "r") as f:
+            schema_json = f.read()
+
+    # note: update the schema, it has wrong field types and missing id
+    schema_json = schema_json.replace("fieldType", "type")
+    # --- end note
+
+    if is_ml_metrics:
+        # note: saved passed model as pickle, for further tar.gz packaging
+        joblib.dump(pipeline_model, temp_model_name)
+        # --- end note
+        # note: create a tar.gz file with model pickle, name it as 'model_run_id.tar.gz', model.pickle inside
+        with open_tar(model_artifact_name, "w:gz") as tar:
+            tar.add(temp_model_name, arcname="model.pickle")
+        # --- end note
+        remove_file(filename=temp_model_name)
+    else:  # ts & tsad scenario
+        try_import_autoai_ts_libs()
+        from autoai_ts_libs.utils.score import Score
+
+        Score.save(pipeline_model, temp_ts_model_name)
+        with open_tar(model_artifact_name, "w:gz") as tar:
+            tar.add(temp_ts_model_name, arcname="model.gzip")
+        remove_file(filename=temp_model_name)
+
+    with ZipFile(artifact_name, "w") as zip_file:
+        zip_file.write(model_artifact_name)
+        zip_file.write(pipeline_definition_name)
+
+    remove_file(filename=model_artifact_name)
+    remove_file(filename=pipeline_definition_name)
+    # --- end note
+
+    return json.loads(schema_json), artifact_name
+
+
 def modify_pipeline_model_json(data_location: str, model_path: str) -> None:
     """Change the location of KB model in pipeline-model.json
 
@@ -1282,9 +1602,11 @@ def init_cos_client(connection: dict) -> "resource":
     return cos_client
 
 
-def remove_file(filename: str):
+def remove_file(filename: str | Path):
     """Helper function to clean user local storage from temporary package files."""
-    if os.path.exists(filename):
+    if isinstance(filename, Path) and filename.exists():
+        filename.unlink()
+    elif isinstance(filename, str) and os.path.exists(filename):
         os.remove(filename)
 
 
@@ -1839,9 +2161,9 @@ def check_dependencies_versions(
     if wml_client is None and api_client is None:
         raise WMLClientError("No API client provided")
     # --- end note
-    sw_spec_name = request_json.get("hybrid_pipeline_software_specs", [{"name": None}])[
-        -1
-    ]["name"]
+    sw_spec_name = get_from_json(
+        request_json, ["hybrid_pipeline_software_specs", -1, "name"]
+    )
     sw_spec_id = api_client.software_specifications.get_id_by_name(sw_spec_name)
     sw_spec = api_client.software_specifications.get_details(sw_spec_id)
 
@@ -2058,10 +2380,14 @@ def create_summary(
     """
     from pandas import DataFrame
 
-    is_ml_metrics = "ml_metrics" in details["entity"]["status"].get("metrics", [{}])[0]
-    is_ts_metrics = "ts_metrics" in details["entity"]["status"].get("metrics", [{}])[0]
-    is_tsad_metrics = (
-        "tsad_metrics" in details["entity"]["status"].get("metrics", [{}])[0]
+    is_ml_metrics = "ml_metrics" in get_from_json(
+        details, ["entity", "status", "metrics", 0], {}
+    )
+    is_ts_metrics = "ts_metrics" in get_from_json(
+        details, ["entity", "status", "metrics", 0], {}
+    )
+    is_tsad_metrics = "tsad_metrics" in get_from_json(
+        details, ["entity", "status", "metrics", 0], {}
     )
 
     if not is_ml_metrics and not is_ts_metrics and not is_tsad_metrics:
@@ -2069,30 +2395,27 @@ def create_summary(
 
     def get_metrics_names():
         if is_ml_metrics:
-            return (
-                details["entity"]["status"]
-                .get("metrics", [{}])[0]
-                .get("ml_metrics", {})
-                .keys()
-            )
+            return get_from_json(
+                details, ["entity", "status", "metrics", 0, "ml_metrics"], {}
+            ).keys()
         elif is_ts_metrics:
-            names = list(
-                [
-                    "validation_" + x
-                    for x in details["entity"]["status"]
-                    .get("metrics", [{}])[0]
-                    .get("ts_metrics", {})
-                    .get("training", {})
-                    .keys()
-                ]
-            )
+            names = [
+                "validation_" + x
+                for x in get_from_json(
+                    details,
+                    ["entity", "status", "metrics", 0, "ts_metrics", "training"],
+                    {},
+                ).keys()
+            ]
             try:
                 holdout_names = list(
                     [
                         "holdout_" + y
                         for y in [
                             x
-                            for x in details["entity"]["status"].get("metrics", [{}])
+                            for x in get_from_json(
+                                details, ["entity", "status", "metrics"], [{}]
+                            )
                             if "holdout" in x["ts_metrics"]
                         ][0]["ts_metrics"]["holdout"].keys()
                     ]
@@ -2105,7 +2428,9 @@ def create_summary(
                         "backtest_" + y
                         for y in [
                             x
-                            for x in details["entity"]["status"].get("metrics", [{}])
+                            for x in get_from_json(
+                                details, ["entity", "status", "metrics"], [{}]
+                            )
                             if "backtest" in x["ts_metrics"]
                         ][0]["ts_metrics"]["backtest"]["avg"].keys()
                     ]
@@ -2139,7 +2464,7 @@ def create_summary(
         if is_ts_metrics or is_tsad_metrics:
             final_pipelines = [
                 x
-                for x in details["entity"]["status"].get("metrics", [{}])
+                for x in get_from_json(details, ["entity", "status", "metrics"], [{}])
                 if x["context"]["phase"] == "after_final_pipelines_generation"
             ]
             if len(final_pipelines) > 0:
@@ -2151,13 +2476,15 @@ def create_summary(
 
             pipelines_after_holdout_execution = [
                 x
-                for x in details["entity"]["status"].get("metrics", [{}])
+                for x in get_from_json(details, ["entity", "status", "metrics"], [{}])
                 if x["context"]["phase"] == "after_holdout_execution"
             ]
             if len(pipelines_after_holdout_execution) > 0:
-                return pipeline_name in pipelines_after_holdout_execution[0][
-                    "context"
-                ].get("timeseries", {}).get("winners", [])
+                return pipeline_name in get_from_json(
+                    pipelines_after_holdout_execution,
+                    [0, "context", "timeseries", "winners"],
+                    [],
+                )
             else:
                 return False
         elif is_ml_metrics:
@@ -2184,9 +2511,9 @@ def create_summary(
         # note: list only completed pipelines:
         if (
             is_ml_metrics
-            and pipeline["context"]["intermediate_model"]
-            .get("location", {})
-            .get("model", None)
+            and get_from_json(
+                pipeline, ["context", "intermediate_model", "location", "model"]
+            )
             is None
         ):
             continue  # don't list the not-finished pipeline in summary
@@ -2219,9 +2546,11 @@ def create_summary(
                 enhancements = "HPO, FE"
 
                 if (
-                    pipeline["context"]
-                    .get("timeseries", {})
-                    .get("autoai_ts_model_type", "non-exogenous")
+                    get_from_json(
+                        pipeline,
+                        ["context", "timeseries", "autoai_ts_model_type"],
+                        "non-exogenous",
+                    )
                     == "exogenous"
                 ):
                     enhancements += ", SUP"  # supporting features/exogenous
@@ -2525,16 +2854,21 @@ def download_wml_pipeline_details_from_file(
     return details
 
 
-def prepare_model_location_path(model_path: str) -> str:
+def prepare_model_location_path(model_path: str | Path) -> Path:
     """To be able to get best pipeline after computation we need to change model_location string to global_output."""
+    if isinstance(model_path, str):
+        model_path = Path(model_path)
 
-    if "data/automl/" in model_path:
-        path = model_path.split("data/automl/")[0]
-        path = f"{path}data/automl/global_output/"
-
+    if "data/automl/" in str(model_path):
+        base = model_path.parts[
+            : model_path.parts.index("data") + 2
+        ]  # parts up to 'data/automl/'
+        path = Path(*base) / "global_output"
     else:
-        path = model_path.split("data/kb/")[0]
-        path = f"{path}data/kb/global_output/"
+        base = model_path.parts[
+            : model_path.parts.index("data") + 2
+        ]  # parts up to 'data/kb/'
+        path = Path(*base) / "global_output"
 
     return path
 
@@ -2859,6 +3193,122 @@ def download_request_json(
     return request_json
 
 
+async def adownload_request_json(
+    run_params: dict,
+    model_name: str,
+    api_client: APIClient,
+    results_reference: DataConnection,
+    auto_pipelines_parameters: dict | None = None,
+) -> dict:
+    run_id = run_params["metadata"]["id"]
+    metric = run_params["entity"]["status"].get("metrics")[-1]
+    is_ml_metrics = "ml_metrics" in metric
+    is_ts_metrics = "ts_metrics" in metric
+    is_tsad_metrics = "tsad_metrics" in metric
+
+    if not is_ml_metrics and not is_ts_metrics and not is_tsad_metrics:
+        raise NoAvailableMetrics()
+
+    pipeline_info = run_params["entity"]["status"].get("metrics")[0]
+    schema_path = f"{pipeline_info['context']['intermediate_model']['schema_location']}"
+    if "_" in model_name:
+        model_number = model_name.split("_")[-1]
+    else:
+        model_number = model_name[1:]
+    if is_ml_metrics:
+        model_output = chose_model_output(
+            model_number=model_number, run_params=run_params
+        )
+    elif is_ts_metrics or is_tsad_metrics:
+        model_output = "after_final_pipelines_generation"
+
+    request_path = f"{schema_path.rsplit('/data/', 1)[0]}/assets/{run_id}_P{model_number}_{model_output}/resources/wml_model/request.json"
+
+    if api_client.ICP_PLATFORM_SPACES:
+        request_bytes = (
+            await aload_file_from_file_system(
+                api_client=api_client, file_path=request_path
+            )
+        ).read()
+        try:
+            request_str = request_bytes.decode()
+        except Exception as e:
+            if auto_pipelines_parameters:
+                request_str = request_bytes.decode(
+                    encoding=auto_pipelines_parameters.get("encoding")
+                )
+            else:
+                raise e
+        # note: only if there was 1 estimator during training
+        if "content_location" not in request_str:
+            request_path = f"{schema_path.rsplit('/data/', 1)[0]}/assets/{run_id}_P{model_number}_compose_model_type_output/resources/wml_model/request.json"
+            request_bytes = (
+                await aload_file_from_file_system(
+                    api_client=api_client, file_path=request_path
+                )
+            ).read()
+            try:
+                request_str = request_bytes.decode()
+            except Exception as e:
+                if auto_pipelines_parameters:
+                    request_str = request_bytes.decode(
+                        encoding=auto_pipelines_parameters.get("encoding")
+                    )
+                else:
+                    raise e
+
+    else:
+        from ibm_watsonx_ai.helpers import DataConnection  # prevent circular import
+
+        if results_reference is None:
+            results_reference = run_params["entity"]["results_reference"]
+            if isinstance(results_reference, dict):
+                results_reference = DataConnection.from_dict(results_reference)
+
+        results_reference.set_client(api_client)
+        results_reference.location.path = request_path
+
+        results_reference.download(filename="request.json")
+
+        try:
+            with open("request.json", "r") as f:
+                request_str = f.read()
+        except Exception as e:
+            if auto_pipelines_parameters:
+                with open(
+                    "request.json",
+                    "r",
+                    encoding=auto_pipelines_parameters.get("encoding"),
+                ) as f:
+                    request_str = f.read()
+            else:
+                raise e
+
+        # note: only if there was 1 estimator during training
+        if "content_location" not in request_str:
+            request_path = f"{schema_path.split('/data/')[0]}/assets/{run_id}_P{model_number}_compose_model_type_output/resources/wml_model/request.json"
+            results_reference.location.path = request_path
+            results_reference.download(filename="request.json")
+            try:
+                with open("request.json", "r") as f:
+                    request_str = f.read()
+            except Exception as e:
+                if auto_pipelines_parameters:
+                    with open(
+                        "request.json",
+                        "r",
+                        encoding=auto_pipelines_parameters.get("encoding"),
+                    ) as f:
+                        request_str = f.read()
+                else:
+                    raise e
+
+    request_json: Dict[str, dict] = json.loads(request_str)
+    request_json = preprocess_request_json(request_json)
+
+    return request_json
+
+
 def is_list_composed_from_enum(
     sequence: List[Union[str, enum.Enum]], enum_class: Union[object, enum.EnumMeta]
 ) -> None:
@@ -3006,7 +3456,9 @@ def all_logging_disabled(highest_level=logging.CRITICAL):
 
 def check_if_ts_pipeline_is_winner(details: dict, model_name: str) -> None:
     """Check if ts pipeline is the winner one. It should be used before model store in the repo."""
-    is_ts_metrics = "ts_metrics" in details["entity"]["status"].get("metrics", [{}])[0]
+    is_ts_metrics = "ts_metrics" in get_from_json(
+        details, ["entity", "status", "metrics", 0], {}
+    )
     if is_ts_metrics:
         summary = create_summary(details=details, scoring=None)
         summary.reset_index(inplace=True)
@@ -3198,17 +3650,35 @@ def translate_batched_estimator_string_to_enum(estimator):
     return estimator
 
 
+@overload
+def convert_dataframe_to_fields_values_payload(
+    df: DataFrame,
+    return_values_only: bool = ...,
+    onnx_mode: Literal[True] = True,
+) -> list[dict[str, Any]]: ...
+
+
+@overload
+def convert_dataframe_to_fields_values_payload(
+    df: DataFrame,
+    return_values_only: bool = ...,
+    onnx_mode: Literal[False] = False,
+) -> dict[str, Any]: ...
+
+
 def convert_dataframe_to_fields_values_payload(
     df: "DataFrame", return_values_only: bool = False, onnx_mode: bool = False
 ) -> dict[str, Any] | list:
-    if isinstance(df, pd.DataFrame):
-        data = df.where(pd.notnull(df), None)
+    from pandas import DataFrame, isnull, notnull
+
+    if isinstance(df, DataFrame):
+        data = df.where(notnull(df), None)
         data.fillna(json.dumps(float("nan")), inplace=True)
         values = data.values
 
         # note: scoring endpoint could not recognize NaN values, convert NaN to None
         try:
-            values[pd.isnull(values)] = None
+            values[isnull(values)] = None
 
         # note: above code fails when there is no null values in a dataframe
         except TypeError:
@@ -3276,13 +3746,10 @@ def run_id_required(func: Callable) -> Callable:
     return wrapper
 
 
-def download_onnx_model(
+def prepare_onnx_model_to_publish(
     model: str, run_params: dict, client: APIClient
 ) -> tuple[str, dict]:
-    """Store ONNX model as archive & update model metadata"""
-
-    onnx_model_name = "model.onnx"
-    onnx_request_json = "onnx-request.json"
+    """Read ONNX request & update model metadata"""
 
     model_number = int(model.split("_")[-1])
     if model_number < len(run_params["entity"]["status"]["metrics"]):
@@ -3295,23 +3762,15 @@ def download_onnx_model(
     if intermediate_model["location"].get("onnx_model") is None:
         raise WMLClientError(f"ONNX model with provided `{model}` does not exist.")
 
-    model_path = f"{intermediate_model['location'].get('onnx_model')}"
     onnx_request = _get_onnx_request_path(run_params, model_number, intermediate_model)
 
     if client.ICP_PLATFORM_SPACES:
-        # note: downloading model and onnx-request from file system on CP4D
+        # note: downloading onnx-request from file system on CP4D
         schema_json = (
             load_file_from_file_system(api_client=client, file_path=onnx_request)
             .read()
             .decode()
         )
-        model_onnx = (
-            load_file_from_file_system(api_client=client, file_path=model_path)
-            .read()
-            .decode()
-        )
-        with open(onnx_model_name, "w") as f:
-            f.write(model_onnx)
         # --- end note
 
     else:
@@ -3322,16 +3781,9 @@ def download_onnx_model(
         )
         results_reference.set_client(client)
 
-        results_reference.location.path = model_path
-        results_reference.download(filename=onnx_model_name)
-
         results_reference.location.path = onnx_request
-        results_reference.download(filename=onnx_request_json)
-
-        with open(onnx_request_json, "r") as f:
-            schema_json = f.read()
-
-        remove_file(filename=onnx_request_json)
+        data = results_reference.read(binary=True)
+        schema_json = data.decode("utf-8")
 
     schema_json = schema_json.replace("fieldType", "type")
     model_props = json.loads(schema_json)
@@ -3344,16 +3796,11 @@ def download_onnx_model(
             model_props[client.repository.ModelMetaNames.SOFTWARE_SPEC_ID] = (
                 client.software_specifications.get_id_by_name(sw_spec.get("name"))
             )
-    model_props.pop("content_location")  # causes error during deployment
+    model_props["content_location"]["contents"][0]["content_format"] = "native"
+    if "hybrid_pipeline_software_specs" in model_props:
+        model_props.pop("hybrid_pipeline_software_specs")
 
-    artifact_name = f"onnx_{model}.zip"
-
-    with ZipFile(artifact_name, "w") as zip_obj:
-        zip_obj.write(onnx_model_name, arcname=onnx_model_name)
-
-    remove_file(filename=onnx_model_name)
-
-    return artifact_name, model_props
+    return run_params["metadata"]["id"], model_props
 
 
 def _get_onnx_request_path(run_params, model_number, intermediate_model):

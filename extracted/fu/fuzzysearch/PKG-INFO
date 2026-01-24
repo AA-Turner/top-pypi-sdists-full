@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fuzzysearch
-Version: 0.8.0
+Version: 0.8.1
 Summary: fuzzysearch is useful for finding approximate subsequence matches
 Home-page: https://github.com/taleinat/fuzzysearch
 Author: Tal Einat
@@ -17,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -216,9 +218,17 @@ one must always supply ``max_l_dist`` and/or all other criteria.
 History
 -------
 
-0.8.0 (????-??-??)
+0.8.1 (2025-11-11)
 ++++++++++++++++++
 
+* Fixed sometimes raising ValueError with empty sequences.
+* Added support for Python 3.13 and 3.14.
+
+0.8.0 (2025-05-24)
+++++++++++++++++++
+
+* Fixed a long-standing occasional crash, mostly happening on Windows.
+* Overhauled CI.
 * Dropped support for Python 2.7, 3.5, 3.6 and 3.7.
 * Added support for Python 3.9, 3.10, 3.11 and 3.12.
 

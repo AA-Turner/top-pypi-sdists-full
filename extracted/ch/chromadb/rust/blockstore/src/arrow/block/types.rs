@@ -68,8 +68,8 @@ impl<'de> Deserialize<'de> for RecordBatchWrapper {
     where
         D: serde::Deserializer<'de>,
     {
-        let data: &'de [u8] = serde_bytes::deserialize(deserializer)?;
-        let rb = Block::load_record_batch(data, false).map_err(D::Error::custom)?;
+        let data = Vec::<u8>::deserialize(deserializer)?;
+        let rb = Block::load_record_batch(&data, false).map_err(D::Error::custom)?;
         Ok(RecordBatchWrapper(rb))
     }
 }
@@ -284,6 +284,30 @@ impl Block {
     /*
         ===== Block Queries =====
     */
+
+    /// Get all key-value pairs for a specific prefix in the block
+    /// Returns an iterator of (key, value) pairs for better performance when collecting all values
+    pub fn get_prefix<'me, K: ArrowReadableKey<'me>, V: ArrowReadableValue<'me>>(
+        &'me self,
+        prefix: &str,
+    ) -> impl Iterator<Item = (K, V)> {
+        // Find the start index for this prefix
+        let offset = self.find_smallest_index_of_prefix::<K>(prefix);
+        if offset >= self.len() {
+            return Vec::new().into_iter().zip(Vec::new());
+        }
+
+        // Find the end index (first element with a different prefix)
+        let cap = self.find_smallest_index_of_next_prefix::<K>(prefix);
+        let length = cap - offset;
+
+        // Extract key value pairs
+        let keys = K::get_range(self.data.column(1), offset, length);
+        let values = V::get_range(self.data.column(2), offset, length);
+
+        // Zip and collect
+        keys.into_iter().zip(values)
+    }
 
     /// Get the value for a given key in the block
     /// ### Panics
@@ -832,6 +856,7 @@ fn verify_buffers_layout(bytes: &[u8]) -> Result<(), ArrowLayoutVerificationErro
             for block in blocks.iter().skip(1) {
                 let curr_offset = block.offset();
                 let len = (curr_offset - prev_offset) as usize;
+                #[allow(clippy::manual_is_multiple_of)]
                 if len % ARROW_ALIGNMENT != 0 {
                     return Err(ArrowLayoutVerificationError::BufferLengthNotAligned);
                 }
@@ -839,6 +864,7 @@ fn verify_buffers_layout(bytes: &[u8]) -> Result<(), ArrowLayoutVerificationErro
             }
             // Check the remaining buffer length based on the body length
             let last_buffer_len = record_batch_body_len - prev_offset as usize;
+            #[allow(clippy::manual_is_multiple_of)]
             if last_buffer_len % ARROW_ALIGNMENT != 0 {
                 return Err(ArrowLayoutVerificationError::BufferLengthNotAligned);
             }

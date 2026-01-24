@@ -9,7 +9,7 @@ from launchable.utils.http_client import _HttpClient, _join_paths
 from launchable.utils.tracking import Tracking, TrackingClient  # type: ignore
 
 from ..app import Application
-from .authentication import get_org_workspace
+from .authentication import ensure_org_workspace
 from .env_keys import REPORT_ERROR_KEY
 
 
@@ -23,13 +23,7 @@ class LaunchableClient:
             app=app
         )
         self.tracking_client = tracking_client
-        self.organization, self.workspace = get_org_workspace()
-        if self.organization is None or self.workspace is None:
-            raise ValueError(
-                "Could not identify a Launchable organization/workspace. "
-                "Confirm that you set LAUNCHABLE_TOKEN "
-                "(or LAUNCHABLE_ORGANIZATION and LAUNCHABLE_WORKSPACE) environment variable(s)\n"
-                "See https://docs.launchableinc.com/getting-started#setting-your-api-key")
+        self.organization, self.workspace = ensure_org_workspace()
         self._workspace_state_cache: Optional[Dict[str, Union[str, bool]]] = None
 
     def request(

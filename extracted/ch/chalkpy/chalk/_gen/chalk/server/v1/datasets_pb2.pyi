@@ -44,6 +44,17 @@ class OfflineQueryGivensVersion(int, metaclass=_enum_type_wrapper.EnumTypeWrappe
     OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME: _ClassVar[OfflineQueryGivensVersion]
     OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME_WITH_URI_PREFIX: _ClassVar[OfflineQueryGivensVersion]
 
+class DatasetSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DATASET_SORT_COLUMN_UNSPECIFIED: _ClassVar[DatasetSortColumn]
+    DATASET_SORT_COLUMN_CREATED_AT: _ClassVar[DatasetSortColumn]
+
+class SortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SORT_ORDER_UNSPECIFIED: _ClassVar[SortOrder]
+    SORT_ORDER_DESC: _ClassVar[SortOrder]
+    SORT_ORDER_ASC: _ClassVar[SortOrder]
+
 DATASET_REVISION_STATUS_UNSPECIFIED: DatasetRevisionStatus
 DATASET_REVISION_STATUS_UNKNOWN: DatasetRevisionStatus
 DATASET_REVISION_STATUS_WORKING: DatasetRevisionStatus
@@ -64,6 +75,11 @@ OFFLINE_QUERY_GIVENS_VERSION_UNKNOWN: OfflineQueryGivensVersion
 OFFLINE_QUERY_GIVENS_VERSION_NATIVE_TS_FEATURE_FOR_ROOT_NS: OfflineQueryGivensVersion
 OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME: OfflineQueryGivensVersion
 OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME_WITH_URI_PREFIX: OfflineQueryGivensVersion
+DATASET_SORT_COLUMN_UNSPECIFIED: DatasetSortColumn
+DATASET_SORT_COLUMN_CREATED_AT: DatasetSortColumn
+SORT_ORDER_UNSPECIFIED: SortOrder
+SORT_ORDER_DESC: SortOrder
+SORT_ORDER_ASC: SortOrder
 
 class DatasetRevisionMeta(_message.Message):
     __slots__ = (
@@ -178,15 +194,27 @@ class DatasetMeta(_message.Message):
     ) -> None: ...
 
 class ListDatasetsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "search")
+    __slots__ = ("cursor", "limit", "search", "include_anonymous", "sort_column", "sort_order")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     SEARCH_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ANONYMOUS_FIELD_NUMBER: _ClassVar[int]
+    SORT_COLUMN_FIELD_NUMBER: _ClassVar[int]
+    SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     search: str
+    include_anonymous: bool
+    sort_column: DatasetSortColumn
+    sort_order: SortOrder
     def __init__(
-        self, cursor: _Optional[str] = ..., limit: _Optional[int] = ..., search: _Optional[str] = ...
+        self,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        search: _Optional[str] = ...,
+        include_anonymous: bool = ...,
+        sort_column: _Optional[_Union[DatasetSortColumn, str]] = ...,
+        sort_order: _Optional[_Union[SortOrder, str]] = ...,
     ) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
@@ -244,3 +272,44 @@ class GetDatasetRevisionResponse(_message.Message):
     REVISION_FIELD_NUMBER: _ClassVar[int]
     revision: DatasetRevisionMeta
     def __init__(self, revision: _Optional[_Union[DatasetRevisionMeta, _Mapping]] = ...) -> None: ...
+
+class GetDatasetRevisionDownloadLinksRequest(_message.Message):
+    __slots__ = ("revision_id",)
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    revision_id: str
+    def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetRevisionDownloadLinksResponse(_message.Message):
+    __slots__ = (
+        "output_urls",
+        "givens_urls",
+        "performance_summary_urls",
+        "request_body_url",
+        "trace_urls",
+        "error",
+        "expiration",
+    )
+    OUTPUT_URLS_FIELD_NUMBER: _ClassVar[int]
+    GIVENS_URLS_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_URLS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_BODY_URL_FIELD_NUMBER: _ClassVar[int]
+    TRACE_URLS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    output_urls: _containers.RepeatedScalarFieldContainer[str]
+    givens_urls: _containers.RepeatedScalarFieldContainer[str]
+    performance_summary_urls: _containers.RepeatedScalarFieldContainer[str]
+    request_body_url: str
+    trace_urls: _containers.RepeatedScalarFieldContainer[str]
+    error: str
+    expiration: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        output_urls: _Optional[_Iterable[str]] = ...,
+        givens_urls: _Optional[_Iterable[str]] = ...,
+        performance_summary_urls: _Optional[_Iterable[str]] = ...,
+        request_body_url: _Optional[str] = ...,
+        trace_urls: _Optional[_Iterable[str]] = ...,
+        error: _Optional[str] = ...,
+        expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...

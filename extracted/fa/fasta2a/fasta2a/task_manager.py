@@ -79,6 +79,7 @@ from .schema import (
     SetTaskPushNotificationRequest,
     SetTaskPushNotificationResponse,
     StreamMessageRequest,
+    StreamMessageResponse,
     TaskNotFoundError,
     TaskSendParams,
 )
@@ -112,7 +113,7 @@ class TaskManager:
         self._aexit_stack = None
 
     async def send_message(self, request: SendMessageRequest) -> SendMessageResponse:
-        """Send a message using the A2A v0.2.3 protocol."""
+        """Send a message using the A2A v0.3.0 protocol."""
         request_id = request['id']
         message = request['params']['message']
         context_id = message.get('context_id', str(uuid.uuid4()))
@@ -155,7 +156,7 @@ class TaskManager:
             )
         return CancelTaskResponse(jsonrpc='2.0', id=request['id'], result=task)
 
-    async def stream_message(self, request: StreamMessageRequest) -> None:
+    async def stream_message(self, request: StreamMessageRequest) -> StreamMessageResponse:
         """Stream messages using Server-Sent Events."""
         raise NotImplementedError('message/stream method is not implemented yet.')
 

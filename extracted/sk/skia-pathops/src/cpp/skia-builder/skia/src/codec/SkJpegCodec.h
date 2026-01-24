@@ -74,6 +74,7 @@ protected:
 
     bool conversionSupported(const SkImageInfo&, bool, bool) override;
 
+    bool onGetGainmapCodec(SkGainmapInfo* info, std::unique_ptr<SkCodec>* gainmapCodec) override;
     bool onGetGainmapInfo(SkGainmapInfo* info,
                           std::unique_ptr<SkStream>* gainmapImageStream) override;
 
@@ -128,8 +129,9 @@ private:
 
     void initializeSwizzler(const SkImageInfo& dstInfo, const Options& options,
                             bool needsCMYKToRGB);
-    bool SK_WARN_UNUSED_RESULT allocateStorage(const SkImageInfo& dstInfo);
-    int readRows(const SkImageInfo& dstInfo, void* dst, size_t rowBytes, int count, const Options&);
+    [[nodiscard]] bool allocateStorage(const SkImageInfo& dstInfo);
+    Result readRows(const SkImageInfo& dstInfo, void* dst, size_t rowBytes, int count,
+                  const Options&, int* rowsDecoded);
 
     /*
      * Scanline decoding.

@@ -5,6 +5,7 @@ import attr
 from dateutil.parser import isoparse
 
 from ..extensions import NotPresentError
+from ..models.archive_record import ArchiveRecord
 from ..models.creation_origin import CreationOrigin
 from ..models.fields import Fields
 from ..models.party_summary import PartySummary
@@ -33,6 +34,8 @@ class WorkflowTask:
     _root_task: Union[Unset, WorkflowTaskSummary] = UNSET
     _source_outputs: Union[Unset, List[WorkflowOutputSummary]] = UNSET
     _source_tasks: Union[Unset, List[WorkflowTaskSummary]] = UNSET
+    _workflow_outputs: Union[Unset, List[WorkflowOutputSummary]] = UNSET
+    _archive_record: Union[Unset, None, ArchiveRecord] = UNSET
     _assignee: Union[Unset, None, UserSummary] = UNSET
     _cloned_from: Union[Unset, None, WorkflowTaskSummary] = UNSET
     _created_at: Union[Unset, str] = UNSET
@@ -61,6 +64,8 @@ class WorkflowTask:
         fields.append("root_task={}".format(repr(self._root_task)))
         fields.append("source_outputs={}".format(repr(self._source_outputs)))
         fields.append("source_tasks={}".format(repr(self._source_tasks)))
+        fields.append("workflow_outputs={}".format(repr(self._workflow_outputs)))
+        fields.append("archive_record={}".format(repr(self._archive_record)))
         fields.append("assignee={}".format(repr(self._assignee)))
         fields.append("cloned_from={}".format(repr(self._cloned_from)))
         fields.append("created_at={}".format(repr(self._created_at)))
@@ -129,6 +134,18 @@ class WorkflowTask:
                 source_tasks_item = source_tasks_item_data.to_dict()
 
                 source_tasks.append(source_tasks_item)
+
+        workflow_outputs: Union[Unset, List[Any]] = UNSET
+        if not isinstance(self._workflow_outputs, Unset):
+            workflow_outputs = []
+            for workflow_outputs_item_data in self._workflow_outputs:
+                workflow_outputs_item = workflow_outputs_item_data.to_dict()
+
+                workflow_outputs.append(workflow_outputs_item)
+
+        archive_record: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self._archive_record, Unset):
+            archive_record = self._archive_record.to_dict() if self._archive_record else None
 
         assignee: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self._assignee, Unset):
@@ -203,6 +220,10 @@ class WorkflowTask:
             field_dict["sourceOutputs"] = source_outputs
         if source_tasks is not UNSET:
             field_dict["sourceTasks"] = source_tasks
+        if workflow_outputs is not UNSET:
+            field_dict["workflowOutputs"] = workflow_outputs
+        if archive_record is not UNSET:
+            field_dict["archiveRecord"] = archive_record
         if assignee is not UNSET:
             field_dict["assignee"] = assignee
         if cloned_from is not UNSET:
@@ -371,6 +392,41 @@ class WorkflowTask:
             if strict:
                 raise
             source_tasks = cast(Union[Unset, List[WorkflowTaskSummary]], UNSET)
+
+        def get_workflow_outputs() -> Union[Unset, List[WorkflowOutputSummary]]:
+            workflow_outputs = []
+            _workflow_outputs = d.pop("workflowOutputs")
+            for workflow_outputs_item_data in _workflow_outputs or []:
+                workflow_outputs_item = WorkflowOutputSummary.from_dict(
+                    workflow_outputs_item_data, strict=False
+                )
+
+                workflow_outputs.append(workflow_outputs_item)
+
+            return workflow_outputs
+
+        try:
+            workflow_outputs = get_workflow_outputs()
+        except KeyError:
+            if strict:
+                raise
+            workflow_outputs = cast(Union[Unset, List[WorkflowOutputSummary]], UNSET)
+
+        def get_archive_record() -> Union[Unset, None, ArchiveRecord]:
+            archive_record = None
+            _archive_record = d.pop("archiveRecord")
+
+            if _archive_record is not None and not isinstance(_archive_record, Unset):
+                archive_record = ArchiveRecord.from_dict(_archive_record)
+
+            return archive_record
+
+        try:
+            archive_record = get_archive_record()
+        except KeyError:
+            if strict:
+                raise
+            archive_record = cast(Union[Unset, None, ArchiveRecord], UNSET)
 
         def get_assignee() -> Union[Unset, None, UserSummary]:
             assignee = None
@@ -612,6 +668,8 @@ class WorkflowTask:
             root_task=root_task,
             source_outputs=source_outputs,
             source_tasks=source_tasks,
+            workflow_outputs=workflow_outputs,
+            archive_record=archive_record,
             assignee=assignee,
             cloned_from=cloned_from,
             created_at=created_at,
@@ -770,6 +828,35 @@ class WorkflowTask:
     @source_tasks.deleter
     def source_tasks(self) -> None:
         self._source_tasks = UNSET
+
+    @property
+    def workflow_outputs(self) -> List[WorkflowOutputSummary]:
+        """ The outputs of the workflow task group """
+        if isinstance(self._workflow_outputs, Unset):
+            raise NotPresentError(self, "workflow_outputs")
+        return self._workflow_outputs
+
+    @workflow_outputs.setter
+    def workflow_outputs(self, value: List[WorkflowOutputSummary]) -> None:
+        self._workflow_outputs = value
+
+    @workflow_outputs.deleter
+    def workflow_outputs(self) -> None:
+        self._workflow_outputs = UNSET
+
+    @property
+    def archive_record(self) -> Optional[ArchiveRecord]:
+        if isinstance(self._archive_record, Unset):
+            raise NotPresentError(self, "archive_record")
+        return self._archive_record
+
+    @archive_record.setter
+    def archive_record(self, value: Optional[ArchiveRecord]) -> None:
+        self._archive_record = value
+
+    @archive_record.deleter
+    def archive_record(self) -> None:
+        self._archive_record = UNSET
 
     @property
     def assignee(self) -> Optional[UserSummary]:

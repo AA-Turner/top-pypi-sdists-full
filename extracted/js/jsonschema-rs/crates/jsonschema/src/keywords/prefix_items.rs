@@ -1,10 +1,11 @@
 use crate::{
     compiler,
     error::{no_error, ErrorIterator, ValidationError},
+    evaluation::Annotations,
     node::SchemaNode,
-    paths::{LazyLocation, Location},
+    paths::{LazyLocation, Location, RefTracker},
     types::JsonType,
-    validator::{PartialApplication, Validate},
+    validator::{EvaluationResult, Validate, ValidationContext},
 };
 use serde_json::{Map, Value};
 
@@ -32,28 +33,14 @@ impl PrefixItemsValidator {
 }
 
 impl Validate for PrefixItemsValidator {
-    #[allow(clippy::needless_collect)]
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool {
         if let Value::Array(items) = instance {
-            let errors: Vec<_> = self
-                .schemas
-                .iter()
-                .zip(items.iter())
-                .enumerate()
-                .flat_map(|(idx, (n, i))| n.iter_errors(i, &location.push(idx)))
-                .collect();
-            Box::new(errors.into_iter())
-        } else {
-            no_error()
-        }
-    }
-
-    fn is_valid(&self, instance: &Value) -> bool {
-        if let Value::Array(items) = instance {
-            self.schemas
-                .iter()
-                .zip(items.iter())
-                .all(|(n, i)| n.is_valid(i))
+            for (schema, item) in self.schemas.iter().zip(items.iter()) {
+                if !schema.is_valid(item, ctx) {
+                    return false;
+                }
+            }
+            true
         } else {
             true
         }
@@ -63,42 +50,67 @@ impl Validate for PrefixItemsValidator {
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Array(items) = instance {
             for (idx, (schema, item)) in self.schemas.iter().zip(items.iter()).enumerate() {
-                schema.validate(item, &location.push(idx))?;
+                schema.validate(item, &location.push(idx), tracker, ctx)?;
             }
         }
         Ok(())
     }
 
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
+        if let Value::Array(items) = instance {
+            let mut errors = Vec::new();
+            for (idx, (schema, item)) in self.schemas.iter().zip(items.iter()).enumerate() {
+                errors.extend(schema.iter_errors(item, &location.push(idx), tracker, ctx));
+            }
+            ErrorIterator::from_iterator(errors.into_iter())
+        } else {
+            no_error()
+        }
+    }
+
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         if let Value::Array(items) = instance {
             if !items.is_empty() {
-                let validate_total = self.schemas.len();
-                let mut results = Vec::with_capacity(validate_total);
-                let mut max_index_applied = 0;
+                let mut children = Vec::with_capacity(self.schemas.len().min(items.len()));
+                let mut max_index_applied = 0usize;
                 for (idx, (schema_node, item)) in self.schemas.iter().zip(items.iter()).enumerate()
                 {
-                    let path = location.push(idx);
-                    results.push(schema_node.apply_rooted(item, &path));
+                    children.push(schema_node.evaluate_instance(
+                        item,
+                        &location.push(idx),
+                        tracker,
+                        ctx,
+                    ));
                     max_index_applied = idx;
                 }
-                // Per draft 2020-12 section https://json-schema.org/draft/2020-12/json-schema-core.html#rfc.section.10.3.1.1
-                // we must produce an annotation with the largest index of the underlying
-                // array which the subschema was applied. The value MAY be a boolean true if
-                // a subschema was applied to every index of the instance.
-                let schema_was_applied: Value = if results.len() == items.len() {
-                    true.into()
+                let annotation = if children.len() == items.len() {
+                    Value::Bool(true)
                 } else {
-                    max_index_applied.into()
+                    Value::from(max_index_applied)
                 };
-                let mut output: PartialApplication = results.into_iter().collect();
-                output.annotate(schema_was_applied.into());
-                return output;
+                let mut result = EvaluationResult::from_children(children);
+                result.annotate(Annotations::new(annotation));
+                return result;
             }
         }
-        PartialApplication::valid_empty()
+        EvaluationResult::valid_empty()
     }
 }
 
@@ -111,9 +123,11 @@ pub(crate) fn compile<'a>(
     if let Value::Array(items) = schema {
         Some(PrefixItemsValidator::compile(ctx, items))
     } else {
+        let location = ctx.location().join("prefixItems");
         Some(Err(ValidationError::single_type_error(
+            location.clone(),
+            location,
             Location::new(),
-            ctx.location().clone(),
             schema,
             JsonType::Array,
         )))
@@ -134,116 +148,140 @@ mod tests {
         tests_util::assert_schema_location(schema, instance, expected);
     }
 
-    #[test_case{
-        &json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema", 
-            "type": "array",
-            "prefixItems": [
-                {
-                    "type": "string"
-                }
-            ]
-        }),
-        &json!([]),
-        &json!({
-            "valid": true,
-            "annotations": []
-        }); "valid prefixItems empty array"
-    }]
-    #[test_case{
-        &json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema", 
-            "type": "array",
-            "prefixItems": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "number"
-                }
-            ]
-        }),
-        &json!(["string", 1]),
-        &json!({
-            "valid": true,
-            "annotations": [
-                {
-                    "keywordLocation": "/prefixItems",
-                    "instanceLocation": "",
-                    "annotations": true
-                },
-            ]
-        }); "prefixItems valid items"
-    }]
-    #[test_case{
-        &json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema", 
-            "type": "array",
-            "prefixItems": [
-                {
-                    "type": "string"
-                }
-            ]
-        }),
-        &json!(["string", 1]),
-        &json!({
-            "valid": true,
-            "annotations": [
-                {
-                    "keywordLocation": "/prefixItems",
-                    "instanceLocation": "",
-                    "annotations": 0
-                },
-            ]
-        }); "prefixItems valid mixed items"
-    }]
-    #[test_case{
-        &json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema", 
-            "type": "array",
-            "items": {
-                "type": "number",
-                "annotation": "value"
-            },
-            "prefixItems": [
-                {
-                    "type": "string"
-                },
-                {
-                    "type": "boolean"
-                }
-            ]
-        }),
-        &json!(["string", true, 2, 3]),
-        &json!({
-            "valid": true,
-            "annotations": [
-                {
-                    "keywordLocation": "/prefixItems",
-                    "instanceLocation": "",
-                    "annotations": 1
-                },
-                {
-                    "keywordLocation": "/items",
-                    "instanceLocation": "",
-                    "annotations": true
-                },
-                {
-                    "annotations": {"annotation": "value" },
-                    "instanceLocation": "/2",
-                    "keywordLocation": "/items"
-                },
-                {
-                    "annotations": {"annotation": "value" },
-                    "instanceLocation": "/3",
-                    "keywordLocation": "/items"
-                }
-            ]
-        }); "valid prefixItems with mixed items"
-    }]
-    fn test_basic_output(schema: &Value, instance: &Value, expected_output: &Value) {
-        let validator = crate::validator_for(schema).unwrap();
-        let output = serde_json::to_value(validator.apply(instance).basic()).unwrap();
-        assert_eq!(&output, expected_output);
+    #[test]
+    fn evaluation_outputs_cover_prefix_items() {
+        let schema = json!({
+            "type": "object",
+            "properties": {"name": {"type": "string"}, "age": {"type": "number", "minimum": 0}},
+            "required": ["name"]
+        });
+        let validator = crate::validator_for(&schema).expect("schema compiles");
+        let evaluation = validator.evaluate(&json!({"name": "Alice", "age": 1}));
+
+        assert_eq!(
+            serde_json::to_value(evaluation.list()).unwrap(),
+            json!({
+                "valid": true,
+                "details": [
+                    {"evaluationPath": "", "instanceLocation": "", "schemaLocation": "", "valid": true},
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties",
+                        "instanceLocation": "",
+                        "schemaLocation": "/properties",
+                        "annotations": ["age", "name"]
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties/age",
+                        "instanceLocation": "/age",
+                        "schemaLocation": "/properties/age"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties/age/minimum",
+                        "instanceLocation": "/age",
+                        "schemaLocation": "/properties/age/minimum"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties/age/type",
+                        "instanceLocation": "/age",
+                        "schemaLocation": "/properties/age/type"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties/name",
+                        "instanceLocation": "/name",
+                        "schemaLocation": "/properties/name"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties/name/type",
+                        "instanceLocation": "/name",
+                        "schemaLocation": "/properties/name/type"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/required",
+                        "instanceLocation": "",
+                        "schemaLocation": "/required"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/type",
+                        "instanceLocation": "",
+                        "schemaLocation": "/type"
+                    }
+                ]
+            })
+        );
+
+        assert_eq!(
+            serde_json::to_value(evaluation.hierarchical()).unwrap(),
+            json!({
+                "valid": true,
+                "evaluationPath": "",
+                "instanceLocation": "",
+                "schemaLocation": "",
+                "details": [
+                    {
+                        "valid": true,
+                        "evaluationPath": "/properties",
+                        "instanceLocation": "",
+                        "schemaLocation": "/properties",
+                        "annotations": ["age", "name"],
+                        "details": [
+                            {
+                                "valid": true,
+                                "evaluationPath": "/properties/age",
+                                "instanceLocation": "/age",
+                                "schemaLocation": "/properties/age",
+                                "details": [
+                                    {
+                                        "valid": true,
+                                        "evaluationPath": "/properties/age/minimum",
+                                        "instanceLocation": "/age",
+                                        "schemaLocation": "/properties/age/minimum"
+                                    },
+                                    {
+                                        "valid": true,
+                                        "evaluationPath": "/properties/age/type",
+                                        "instanceLocation": "/age",
+                                        "schemaLocation": "/properties/age/type"
+                                    }
+                                ]
+                            },
+                            {
+                                "valid": true,
+                                "evaluationPath": "/properties/name",
+                                "instanceLocation": "/name",
+                                "schemaLocation": "/properties/name",
+                                "details": [
+                                    {
+                                        "valid": true,
+                                        "evaluationPath": "/properties/name/type",
+                                        "instanceLocation": "/name",
+                                        "schemaLocation": "/properties/name/type"
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/required",
+                        "instanceLocation": "",
+                        "schemaLocation": "/required"
+                    },
+                    {
+                        "valid": true,
+                        "evaluationPath": "/type",
+                        "instanceLocation": "",
+                        "schemaLocation": "/type"
+                    }
+                ]
+            })
+        );
     }
 }

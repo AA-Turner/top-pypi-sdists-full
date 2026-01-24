@@ -3,7 +3,7 @@ Type annotations for launch-wizard service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,7 @@ Usage::
     from types_aiobotocore_launch_wizard.client import LaunchWizardClient
     from types_aiobotocore_launch_wizard.paginator import (
         ListDeploymentEventsPaginator,
+        ListDeploymentPatternVersionsPaginator,
         ListDeploymentsPaginator,
         ListWorkloadDeploymentPatternsPaginator,
         ListWorkloadsPaginator,
@@ -23,6 +24,7 @@ Usage::
         client: LaunchWizardClient
 
         list_deployment_events_paginator: ListDeploymentEventsPaginator = client.get_paginator("list_deployment_events")
+        list_deployment_pattern_versions_paginator: ListDeploymentPatternVersionsPaginator = client.get_paginator("list_deployment_pattern_versions")
         list_deployments_paginator: ListDeploymentsPaginator = client.get_paginator("list_deployments")
         list_workload_deployment_patterns_paginator: ListWorkloadDeploymentPatternsPaginator = client.get_paginator("list_workload_deployment_patterns")
         list_workloads_paginator: ListWorkloadsPaginator = client.get_paginator("list_workloads")
@@ -39,6 +41,8 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     ListDeploymentEventsInputPaginateTypeDef,
     ListDeploymentEventsOutputTypeDef,
+    ListDeploymentPatternVersionsInputPaginateTypeDef,
+    ListDeploymentPatternVersionsOutputTypeDef,
     ListDeploymentsInputPaginateTypeDef,
     ListDeploymentsOutputTypeDef,
     ListWorkloadDeploymentPatternsInputPaginateTypeDef,
@@ -54,6 +58,7 @@ else:
 
 __all__ = (
     "ListDeploymentEventsPaginator",
+    "ListDeploymentPatternVersionsPaginator",
     "ListDeploymentsPaginator",
     "ListWorkloadDeploymentPatternsPaginator",
     "ListWorkloadsPaginator",
@@ -75,6 +80,26 @@ class ListDeploymentEventsPaginator(_ListDeploymentEventsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/paginator/ListDeploymentEvents.html#LaunchWizard.Paginator.ListDeploymentEvents.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/paginators/#listdeploymenteventspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListDeploymentPatternVersionsPaginatorBase = AioPaginator[
+        ListDeploymentPatternVersionsOutputTypeDef
+    ]
+else:
+    _ListDeploymentPatternVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListDeploymentPatternVersionsPaginator(_ListDeploymentPatternVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/paginator/ListDeploymentPatternVersions.html#LaunchWizard.Paginator.ListDeploymentPatternVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/paginators/#listdeploymentpatternversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDeploymentPatternVersionsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListDeploymentPatternVersionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/launch-wizard/paginator/ListDeploymentPatternVersions.html#LaunchWizard.Paginator.ListDeploymentPatternVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_launch_wizard/paginators/#listdeploymentpatternversionspaginator)
         """
 
 if TYPE_CHECKING:

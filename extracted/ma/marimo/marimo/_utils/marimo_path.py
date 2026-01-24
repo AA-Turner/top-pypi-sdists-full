@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -84,6 +84,9 @@ class MarimoPath:
 
     def read_text(self, encoding: str = "utf-8") -> str:
         return self.path.read_text(encoding)
+
+    def read_bytes(self) -> bytes:
+        return self.path.read_bytes()
 
     @property
     def short_name(self) -> str:

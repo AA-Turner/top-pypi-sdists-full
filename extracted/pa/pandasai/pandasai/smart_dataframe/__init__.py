@@ -1,42 +1,24 @@
-"""
-A smart dataframe class is a wrapper around the pandas/polars dataframe that allows you
-to query it using natural language. It uses the LLMs to generate Python code from
-natural language and then executes it on the dataframe.
-
-Example:
-    ```python
-    from pandasai.smart_dataframe import SmartDataframe
-    from pandasai.llm.openai import OpenAI
-
-    df = pd.read_csv("examples/data/Loan payments data.csv")
-    llm = OpenAI()
-
-    df = SmartDataframe(df, config={"llm": llm})
-    response = df.chat("What is the average loan amount?")
-    print(response)
-    # The average loan amount is $15,000.
-    ```
-"""
-
 import uuid
+import warnings
 from functools import cached_property
 from io import StringIO
 from typing import Any, List, Optional, Union
 
-import pandasai.pandas as pd
-from pandasai.agent import Agent
-from pandasai.connectors.pandas import PandasConnector
-from pandasai.helpers.df_validator import DfValidator
-from pandasai.pydantic import BaseModel
+import pandas as pd
 
-from ..connectors.base import BaseConnector
-from ..helpers.df_info import DataFrameType
+from pandasai.agent import Agent
+from pandasai.dataframe.base import DataFrame
+
+from ..config import Config
 from ..helpers.logger import Logger
-from ..schemas.df_config import Config
-from ..skills import Skill
 
 
 class SmartDataframe:
+    """
+    A wrapper class for pandas DataFrame that integrates with PandasAI features.
+    Provides additional metadata and configuration options, and will be deprecated in favor of df.chat().
+    """
+
     _table_name: str
     _table_description: str
     _custom_head: str = None
@@ -44,73 +26,56 @@ class SmartDataframe:
 
     def __init__(
         self,
-        df: Union[DataFrameType, BaseConnector],
+        df: pd.DataFrame,
         name: str = None,
         description: str = None,
         custom_head: pd.DataFrame = None,
         config: Config = None,
     ):
         """
+        Initialize a SmartDataframe instance.
+
         Args:
-            df: A supported dataframe type, or a pandasai Connector
-            name (str, optional): Name of the dataframe. Defaults to None.
-            description (str, optional): Description of the dataframe. Defaults to "".
-            custom_head (pd.DataFrame, optional): Sample head of the dataframe.
-            config (Config, optional): Config to be used. Defaults to None.
+            df (pd.DataFrame): The pandas DataFrame to wrap.
+            name (str, optional): Name of the table.
+            description (str, optional): Description of the table.
+            custom_head (pd.DataFrame, optional): Custom head DataFrame for display.
+            config (Config, optional): PandasAI configuration object.
         """
+        warnings.warn(
+            "\n"
+            + "*" * 80
+            + "\n"
+            + "\033[1;33mDEPRECATION WARNING:\033[0m\n"
+            + "SmartDataframe will soon be deprecated. Please use df.chat() instead.\n"
+            + "*" * 80
+            + "\n",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         self._original_import = df
-
-        self._agent = Agent([df], config=config)
-
-        self.dataframe = self._agent.context.dfs[0]
-
+        self.dataframe = self.load_df(df, name, description, custom_head)
+        self._agent = Agent([self.dataframe], config=config)
         self._table_description = description
         self._table_name = name
-
         if custom_head is not None:
             self._custom_head = custom_head.to_csv(index=False)
 
-    def load_dfs(self, df, name: str, description: str, custom_head: pd.DataFrame):
-        if isinstance(df, (pd.DataFrame, pd.Series, list, dict, str)):
-            df = PandasConnector(
-                {"original_df": df},
+    def load_df(self, df, name: str, description: str, custom_head: pd.DataFrame):
+        if isinstance(df, pd.DataFrame):
+            df = DataFrame(
+                df,
                 name=name,
                 description=description,
-                custom_head=custom_head,
             )
         else:
-            try:
-                import polars as pl
-
-                if isinstance(df, pl.DataFrame):
-                    from ..connectors.polars import PolarsConnector
-
-                    df = PolarsConnector(
-                        {"original_df": df},
-                        name=name,
-                        description=description,
-                        custom_head=custom_head,
-                    )
-                else:
-                    raise ValueError(
-                        "Invalid input data. We cannot convert it to a dataframe."
-                    )
-            except ImportError as e:
-                raise ValueError(
-                    "Invalid input data. We cannot convert it to a dataframe."
-                ) from e
+            raise ValueError("Invalid input data. We cannot convert it to a dataframe.")
         return df
-
-    def add_skills(self, *skills: Skill):
-        """
-        Add Skills to PandasAI
-        """
-        self._agent.add_skills(*skills)
 
     def chat(self, query: str, output_type: Optional[str] = None):
         """
         Run a query on the dataframe.
-
         Args:
             query (str): Query to run on the dataframe
             output_type (Optional[str]): Add a hint for LLM of which
@@ -119,34 +84,22 @@ class SmartDataframe:
                     * number - specifies that user expects to get a number
                         as a response object
                     * dataframe - specifies that user expects to get
-                        pandas/modin/polars dataframe as a response object
+                        pandas dataframe as a response object
                     * plot - specifies that user expects LLM to build
                         a plot
                     * string - specifies that user expects to get text
                         as a response object
-
         Raises:
             ValueError: If the query is empty
         """
         return self._agent.chat(query, output_type)
 
-    def validate(self, schema: BaseModel):
-        """
-        Validates Dataframe rows on the basis Pydantic schema input
-        (Args):
-            schema: Pydantic schema class
-            verbose: Print Errors
-        """
-        df_validator = DfValidator(self.dataframe)
-        return df_validator.validate(schema)
-
     @cached_property
     def head_df(self):
         """
         Get the head of the dataframe as a dataframe.
-
         Returns:
-            DataFrameType: Pandas, Modin or Polars dataframe
+            pd.DataFrame: Pandas dataframe
         """
         return self.dataframe.get_head()
 
@@ -154,7 +107,6 @@ class SmartDataframe:
     def head_csv(self):
         """
         Get the head of the dataframe as a CSV string.
-
         Returns:
             str: CSV string
         """
@@ -171,7 +123,7 @@ class SmartDataframe:
 
     @property
     def last_code_generated(self):
-        return self._agent.last_code_executed
+        return self._agent.last_code_generated
 
     @property
     def last_code_executed(self):
@@ -209,22 +161,6 @@ class SmartDataframe:
         self._agent.context.config.save_logs = save_logs
 
     @property
-    def enforce_privacy(self):
-        return self._agent.context.config.enforce_privacy
-
-    @enforce_privacy.setter
-    def enforce_privacy(self, enforce_privacy: bool):
-        self._agent.context.config.enforce_privacy = enforce_privacy
-
-    @property
-    def enable_cache(self):
-        return self._agent.context.config.enable_cache
-
-    @enable_cache.setter
-    def enable_cache(self, enable_cache: bool):
-        self._agent.context.config.enable_cache = enable_cache
-
-    @property
     def save_charts(self):
         return self._agent.context.config.save_charts
 
@@ -253,10 +189,6 @@ class SmartDataframe:
         data = StringIO(self._custom_head)
         return pd.read_csv(data)
 
-    @property
-    def last_query_log_id(self):
-        return self._agent.last_query_log_id
-
     def __len__(self):
         return len(self.dataframe)
 
@@ -277,20 +209,17 @@ class SmartDataframe:
 
 
 def load_smartdataframes(
-    dfs: List[Union[DataFrameType, Any]], config: Config
+    dfs: List[Union[pd.DataFrame, Any]], config: Config
 ) -> List[SmartDataframe]:
     """
     Load all the dataframes to be used in the smart datalake.
-
     Args:
-        dfs (List[Union[DataFrameType, Any]]): List of dataframes to be used
+        dfs (List[Union[pd.DataFrame, Any]]): List of dataframes to be used
     """
-
     smart_dfs = []
     for df in dfs:
         if not isinstance(df, SmartDataframe):
             smart_dfs.append(SmartDataframe(df, config=config))
         else:
             smart_dfs.append(df)
-
     return smart_dfs

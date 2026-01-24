@@ -73,7 +73,8 @@ def handle_domains(
         if "domain_name" in kwargs:
             url = urljoin(url["base"], kwargs["domain_name"])
         elif method == "delete":
-            # TODO: Remove replacing v4 with v3 when the 'Delete a domain API' will be updated to v4, see https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Domains/#tag/Domains/operation/DELETE-v3-domains--name-
+            # TODO: Remove replacing v4 with v3 when the 'Delete a domain API' swill be updated to v4,
+            # see https://documentation.mailgun.com/docs/mailgun/api-reference/openapi-final/tag/Domains/#tag/Domains/operation/DELETE-v3-domains--name-
             url = urljoin(url["base"].replace("/v4/", "/v3/"), domain)
 
         else:
@@ -96,3 +97,51 @@ def handle_sending_queues(
 ) -> str | Any:
     """Handle sending queues endpoint URL construction."""
     return url["base"][:-1] + f"/{domain}/sending_queues"
+
+
+def handle_mailboxes_credentials(
+    url: dict[str, Any],
+    domain: str | None,
+    _method: str | None,
+    **kwargs: Any,
+) -> Any:
+    """Handle Mailboxes credentials.
+
+    :param url: Incoming URL dictionary
+    :type url: dict
+    :param domain: Incoming domain
+    :type domain: str
+    :param _method: Incoming request method (it's not being used for this handler)
+    :type _method: str
+    :param kwargs: kwargs
+    :return: final url for Mailboxes credentials endpoint
+    """
+    final_keys = path.join("/", *url["keys"]) if url["keys"] else ""
+    if "login" in kwargs:
+        url = url["base"] + domain + final_keys + "/" + kwargs["login"]
+
+    return url
+
+
+def handle_dkimkeys(
+    url: dict[str, Any],
+    _domain: str | None,
+    _method: str | None,
+    **kwargs: Any,
+) -> Any:
+    """Handle Mailboxes credentials.
+
+    :param url: Incoming URL dictionary
+    :type url: dict
+    :param domain: Incoming domain
+    :type domain: str
+    :param _method: Incoming request method (it's not being used for this handler)
+    :type _method: str
+    :param kwargs: kwargs
+    :return: final url for Mailboxes credentials endpoint
+    """
+    final_keys = path.join(*url["keys"]) if url["keys"] else ""
+    if "keys" in final_keys:
+        url = url["base"] + final_keys
+
+    return url

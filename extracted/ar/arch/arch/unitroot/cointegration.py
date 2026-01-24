@@ -1,18 +1,17 @@
 from collections.abc import Sequence
 from functools import cached_property
-from typing import Optional
+from typing import cast
 
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
-from pandas.util._decorators import Appender, Substitution
 from scipy import stats
 from statsmodels.iolib.summary import Summary, fmt_2cols, fmt_params
 from statsmodels.iolib.table import SimpleTable
 from statsmodels.regression.linear_model import OLS, RegressionResults
 
+from arch._typing import ArrayLike1D, ArrayLike2D, Float64Array, Literal, UnitRootTrend
 from arch.covariance.kernel import CovarianceEstimate, CovarianceEstimator
-from arch.typing import ArrayLike1D, ArrayLike2D, Float64Array, Literal, UnitRootTrend
 from arch.unitroot._engle_granger import EngleGrangerTestResults, engle_granger
 from arch.unitroot._phillips_ouliaris import (
     CriticalValueWarning,
@@ -30,15 +29,16 @@ from arch.unitroot.unitroot import SHORT_TREND_DESCRIPTION
 from arch.utility.array import ensure2d
 from arch.utility.io import pval_format, str_format
 from arch.utility.timeseries import add_trend
+from arch.vendor._decorators import Appender, Substitution
 
 __all__ = [
-    "engle_granger",
-    "EngleGrangerTestResults",
+    "CriticalValueWarning",
     "DynamicOLS",
     "DynamicOLSResults",
-    "phillips_ouliaris",
+    "EngleGrangerTestResults",
     "PhillipsOuliarisTestResults",
-    "CriticalValueWarning",
+    "engle_granger",
+    "phillips_ouliaris",
 ]
 
 
@@ -529,11 +529,11 @@ class DynamicOLS:
         y: ArrayLike1D,
         x: ArrayLike2D,
         trend: UnitRootTrend = "c",
-        lags: Optional[int] = None,
-        leads: Optional[int] = None,
+        lags: int | None = None,
+        leads: int | None = None,
         common: bool = False,
-        max_lag: Optional[int] = None,
-        max_lead: Optional[int] = None,
+        max_lag: int | None = None,
+        max_lead: int | None = None,
         method: Literal["aic", "bic", "hqic"] = "bic",
     ) -> None:
         setup = _check_cointegrating_regression(y, x, trend)
@@ -684,7 +684,7 @@ class DynamicOLS:
             "unadjusted", "homoskedastic", "robust", "kernel"
         ] = "unadjusted",
         kernel: str = "bartlett",
-        bandwidth: Optional[int] = None,
+        bandwidth: int | None = None,
         force_int: bool = False,
         df_adjust: bool = False,
     ) -> DynamicOLSResults:
@@ -757,8 +757,9 @@ class DynamicOLS:
         mod = OLS(lhs, rhs)
         res = mod.fit()
         coeffs = np.asarray(res.params)
-        resid = lhs.squeeze() - (rhs @ coeffs).squeeze()
-        resid.name = "resid"
+        resid = pd.Series(
+            lhs.squeeze() - np.asarray(rhs @ coeffs).squeeze(), name="resid"
+        )
         cov, est = self._cov(
             cov_type, kernel, bandwidth, force_int, df_adjust, rhs, resid
         )
@@ -782,7 +783,7 @@ class DynamicOLS:
     def _cov(
         cov_type: Literal["unadjusted", "homoskedastic", "robust", "kernel"],
         kernel: str,
-        bandwidth: Optional[int],
+        bandwidth: int | None,
         force_int: bool,
         df_adjust: bool,
         rhs: pd.DataFrame,
@@ -983,7 +984,7 @@ class FullyModifiedOLS:
         y: ArrayLike1D,
         x: ArrayLike2D,
         trend: UnitRootTrend = "c",
-        x_trend: Optional[UnitRootTrend] = None,
+        x_trend: UnitRootTrend | None = None,
     ) -> None:
         setup = _check_cointegrating_regression(y, x, trend)
         self._y = setup.y
@@ -993,7 +994,7 @@ class FullyModifiedOLS:
         self._y_df = pd.DataFrame(self._y)
 
     def _common_fit(
-        self, kernel: str, bandwidth: Optional[float], force_int: bool, diff: bool
+        self, kernel: str, bandwidth: float | None, force_int: bool, diff: bool
     ) -> tuple[CovarianceEstimator, Float64Array, Float64Array]:
         kernel = _check_kernel(kernel)
         res = _cross_section(self._y, self._x, self._trend)
@@ -1034,8 +1035,8 @@ class FullyModifiedOLS:
             center = float(self._y.mean())
             tss_df = 1
         y_centered = self._y - center
-        ssr = resid.T @ resid
-        tss = y_centered.T @ y_centered
+        ssr = float(cast("float", resid.T @ resid))
+        tss = float(cast("float", y_centered.T @ y_centered))
         r2 = 1.0 - ssr / tss
         r2_adj = 1.0 - (ssr / (nobs - nvar)) / (tss / (nobs - tss_df))
         return resid, r2, r2_adj
@@ -1043,7 +1044,7 @@ class FullyModifiedOLS:
     def fit(
         self,
         kernel: str = "bartlett",
-        bandwidth: Optional[float] = None,
+        bandwidth: float | None = None,
         force_int: bool = True,
         diff: bool = False,
         df_adjust: bool = False,
@@ -1141,7 +1142,7 @@ class CanonicalCointegratingReg(FullyModifiedOLS):
         y: ArrayLike1D,
         x: ArrayLike2D,
         trend: UnitRootTrend = "c",
-        x_trend: Optional[UnitRootTrend] = None,
+        x_trend: UnitRootTrend | None = None,
     ) -> None:
         super().__init__(y, x, trend, x_trend)
 
@@ -1149,7 +1150,7 @@ class CanonicalCointegratingReg(FullyModifiedOLS):
     def fit(
         self,
         kernel: str = "bartlett",
-        bandwidth: Optional[float] = None,
+        bandwidth: float | None = None,
         force_int: bool = True,
         diff: bool = False,
         df_adjust: bool = False,

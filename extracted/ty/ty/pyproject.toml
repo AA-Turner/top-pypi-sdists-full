@@ -1,6 +1,6 @@
 [project]
 name = "ty"
-version = "0.0.1a21"
+version = "0.0.13"
 requires-python = ">=3.8"
 dependencies = []
 description = "An extremely fast Python type checker, written in Rust."
@@ -8,7 +8,7 @@ readme = "README.md"
 authors = [{ name = "Astral Software Inc.", email = "hey@astral.sh" }]
 keywords = ["ty", "typing", "analysis", "check"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Rust",
     "Topic :: Software Development :: Quality Assurance",
@@ -39,7 +40,7 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [dependency-groups]
-release = ["rooster-blue"]
+release = ["rooster"]
 
 [tool.uv]
 cache-keys = [
@@ -49,6 +50,9 @@ cache-keys = [
     { file = "ruff/Cargo.lock" },
     { file = "**/*.rs" },
 ]
+
+[tool.uv.dependency-groups]
+release = {requires-python = ">=3.12"}
 
 [tool.ruff]
 extend-exclude = ["ruff"]
@@ -82,10 +86,6 @@ ignore = [
 [tool.ruff.lint.isort]
 required-imports = ["from __future__ import annotations"]
 
-
-[tool.uv.sources]
-rooster-blue = { git = "https://github.com/zanieb/rooster", rev = "c24ea11bf3cfea89d6f8c782462cac4313e5e0d6" }
-
 [tool.maturin]
 bindings = "bin"
 manifest-path = "ruff/crates/ty/Cargo.toml"
@@ -103,21 +103,28 @@ include = [
 version-files = [
     "pyproject.toml",
     { path = "dist-workspace.toml", field = "workspace.version", format = "cargo" },
+    "docs/installation.md",
 ]
 submodules = ["ruff"]
 require-labels = [{ submodule = "ruff", labels = ["ty"] }]
-ignore-labels = ["internal", "testing", "ci"]
-major-labels = []  # We do not use the major version number yet
-minor-labels = []  # We do not use the minor version number yet
+ignore-labels = [
+    "internal",
+    "testing",
+    "ci",
+    "playground",
+    "documentation",
+    "release",
+]
+changelog-ignore-authors = ["github-actions"]
+major-labels = [] # We do not use the major version number yet
+minor-labels = [] # We do not use the minor version number yet
 version-format = "cargo"
-default-bump-type = "pre"
 trim-title-prefixes = ["[ty]"]
 
 [tool.rooster.section-labels]
 "Breaking changes" = ["breaking"]
 "Preview features" = ["preview"]
 "Bug fixes" = ["bug"]
-"Server" = ["server"]
+"LSP server" = ["server"]
 "CLI" = ["cli"]
 "Configuration" = ["configuration"]
-"Documentation" = ["documentation"]

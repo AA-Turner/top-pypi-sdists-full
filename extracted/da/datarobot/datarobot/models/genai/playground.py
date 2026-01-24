@@ -21,30 +21,26 @@ from datarobot.models.use_cases.use_case import UseCase
 from datarobot.models.use_cases.utils import UseCaseLike, get_use_case_id, resolve_use_cases
 from datarobot.utils.pagination import unpaginate
 
-playground_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("description"): t.String(allow_blank=True),
-        t.Key("use_case_id"): t.String,
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("last_update_date"): t.String,
-        t.Key("last_update_user_id"): t.String,
-        t.Key("saved_llm_blueprints_count"): t.Int,
-        t.Key("llm_blueprints_count"): t.Int,
-        t.Key("user_name"): t.String(allow_blank=True),
-        t.Key("playground_type"): t.Enum(*enum_to_list(PlaygroundType)),
-    }
-).ignore_extra("*")
+playground_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("description"): t.String(allow_blank=True),
+    t.Key("use_case_id"): t.String,
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("last_update_date"): t.String,
+    t.Key("last_update_user_id"): t.String,
+    t.Key("saved_llm_blueprints_count"): t.Int,
+    t.Key("llm_blueprints_count"): t.Int,
+    t.Key("user_name"): t.String(allow_blank=True),
+    t.Key("playground_type"): t.Enum(*enum_to_list(PlaygroundType)),
+}).ignore_extra("*")
 
 
-copy_insights_request_trafaret = t.Dict(
-    {
-        t.Key("source_playground_id"): t.String,
-        t.Key("with_evaluation_datasets"): t.Bool,
-    }
-).ignore_extra("*")
+copy_insights_request_trafaret = t.Dict({
+    t.Key("source_playground_id"): t.String,
+    t.Key("with_evaluation_datasets"): t.Bool,
+}).ignore_extra("*")
 
 
 class CopyInsightsRequest(APIObject):

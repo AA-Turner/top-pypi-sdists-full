@@ -8,17 +8,16 @@ Supported backends are:
 - `pydantic <https://docs.pydantic.dev>`_ (optional dependency)
 """
 
+import ast
 import dataclasses
 import functools
 import inspect
-from collections.abc import Mapping, Sequence
-from itertools import groupby
+import textwrap
+from collections.abc import Callable, Mapping, Sequence
+from itertools import groupby, pairwise
 from typing import (
     Any,
-    Callable,
-    Optional,
     Protocol,
-    Union,
     cast,
     get_args,
     get_origin,
@@ -74,8 +73,8 @@ class ClsHandler(Protocol):
     @staticmethod
     def resolve_types(
         cls: type[types.T],
-        globalns: Optional[dict[str, Any]] = None,
-        localns: Optional[dict[str, Any]] = None,
+        globalns: dict[str, Any] | None = None,
+        localns: dict[str, Any] | None = None,
         include_extras: bool = True,
     ) -> type[types.T]:
         """
@@ -129,24 +128,33 @@ class Attrs:
             r_cls = attrs.resolve_types(
                 r_cls, globalns=getattr(r_cls, "__globals__", None)
             )
+            attr_docs = _get_attr_docs(r_cls)
             for field in attrs.fields(r_cls):  # type: ignore[misc]
                 if field.init is False:
                     continue
                 if field.type is not None and attrs.has(field.type):
-                    iter_attribs(field.type, f"{prefix}{field.name}.")
+                    iter_attribs(field.type, f"{prefix}{field.alias}.")
                 else:
                     is_nothing = field.default is attrs.NOTHING
                     is_factory = isinstance(field.default, cast(type, attrs.Factory))
-                    metadata = _get_metadata(field.metadata.get(constants.METADATA_KEY))
+                    metadata = _get_metadata(
+                        field.metadata.get(constants.METADATA_KEY),
+                        attr_docs.get(field.alias),
+                    )
+                    origin = get_origin(field.type)
                     oinfo = types.OptionInfo(
                         parent_cls=r_cls,
-                        path=f"{prefix}{field.name}",
+                        path=f"{prefix}{field.alias}",
                         cls=field.type,
                         is_secret=(
                             isinstance(field.repr, types.SecretRepr)
                             or (
                                 isinstance(field.type, type)
                                 and issubclass(field.type, types.SECRETS_TYPES)
+                            )
+                            or (
+                                isinstance(origin, type)
+                                and issubclass(origin, types.SECRETS_TYPES)
                             )
                         ),
                         collection_child_options=nested_options(field.type),
@@ -166,7 +174,7 @@ class Attrs:
         import attrs
 
         return {
-            field.name: (field.type if attrs.has(field.type) else cls)
+            field.alias: (field.type if attrs.has(field.type) else cls)
             for field in attrs.fields(cls)  # type: ignore[misc]
         }
 
@@ -179,8 +187,8 @@ class Attrs:
     @staticmethod
     def resolve_types(
         cls: type[types.T],
-        globalns: Optional[dict[str, Any]] = None,
-        localns: Optional[dict[str, Any]] = None,
+        globalns: dict[str, Any] | None = None,
+        localns: dict[str, Any] | None = None,
         include_extras: bool = True,
     ) -> type[types.T]:
         import attrs
@@ -205,6 +213,7 @@ class Dataclasses:
 
         def iter_attribs(r_cls: type, prefix: str) -> None:
             r_cls = self.resolve_types(r_cls)  # type: ignore[type-var]
+            attr_docs = _get_attr_docs(r_cls)
             for field in dataclasses.fields(r_cls):
                 if field.init is False:
                     continue
@@ -215,7 +224,11 @@ class Dataclasses:
                     is_factory = (
                         is_nothing and field.default_factory is not dataclasses.MISSING
                     )
-                    metadata = _get_metadata(field.metadata.get(constants.METADATA_KEY))
+                    metadata = _get_metadata(
+                        field.metadata.get(constants.METADATA_KEY),
+                        attr_docs.get(field.name),
+                    )
+                    origin = get_origin(field.type)
                     oinfo = types.OptionInfo(
                         parent_cls=r_cls,
                         path=f"{prefix}{field.name}",
@@ -225,6 +238,10 @@ class Dataclasses:
                             or (
                                 isinstance(field.type, type)
                                 and issubclass(field.type, types.SECRETS_TYPES)
+                            )
+                            or (
+                                isinstance(origin, type)
+                                and issubclass(origin, types.SECRETS_TYPES)
                             )
                         ),
                         default=field.default,
@@ -253,8 +270,8 @@ class Dataclasses:
     @staticmethod
     def resolve_types(
         cls: type[types.T],
-        globalns: Optional[dict[str, Any]] = None,
-        localns: Optional[dict[str, Any]] = None,
+        globalns: dict[str, Any] | None = None,
+        localns: dict[str, Any] | None = None,
         include_extras: bool = True,
     ) -> type[types.T]:
         # Since calling get_type_hints is expensive we cache whether we've
@@ -301,21 +318,32 @@ class Pydantic:
         result: list[types.OptionInfo] = []
 
         def iter_attribs(r_cls: type, prefix: str) -> None:
+            attr_docs = _get_attr_docs(r_cls)
             for name, field in r_cls.model_fields.items():  # type: ignore[attr-defined]
+                alias = (
+                    field.validation_alias
+                    if isinstance(field.validation_alias, str)
+                    else name
+                )
+
                 if (
                     field.annotation is not None
                     and isinstance(field.annotation, type)
                     and safe_is_subclass(field.annotation, pydantic.BaseModel)
                 ):
-                    iter_attribs(field.annotation, f"{prefix}{name}.")
+                    iter_attribs(field.annotation, f"{prefix}{alias}.")
                 else:
                     json_schema_extra = field.json_schema_extra or {}
                     metadata_or_none = json_schema_extra.get(constants.METADATA_KEY, {})
-                    metadata = _get_metadata(metadata_or_none, field.description)
+                    metadata = _get_metadata(
+                        # Field description has precedence over docstring if both exist:
+                        metadata_or_none,
+                        field.description or attr_docs.get(name),
+                    )
 
                     oinfo = types.OptionInfo(
                         parent_cls=r_cls,
-                        path=f"{prefix}{name}",
+                        path=f"{prefix}{alias}",
                         cls=field.annotation,  # type: ignore[arg-type]
                         is_secret=(
                             isinstance(field.annotation, type)
@@ -347,7 +375,9 @@ class Pydantic:
         import pydantic
 
         return {
-            name: (
+            field.validation_alias
+            if isinstance(field.validation_alias, str)
+            else name: (
                 field.annotation
                 if isinstance(field.annotation, type)
                 and issubclass(field.annotation, pydantic.BaseModel)
@@ -363,8 +393,8 @@ class Pydantic:
     @staticmethod
     def resolve_types(
         cls: type[types.T],
-        globalns: Optional[dict[str, Any]] = None,
-        localns: Optional[dict[str, Any]] = None,
+        globalns: dict[str, Any] | None = None,
+        localns: dict[str, Any] | None = None,
         include_extras: bool = True,
     ) -> type[types.T]:
         # Pydantic classes automatically resolve themselves.
@@ -425,7 +455,7 @@ def safe_is_subclass(cls: object, subclass: type) -> bool:
         return False
 
 
-def nested_options(cls: type) -> Optional[CollectionChildOptions]:
+def nested_options(cls: type) -> CollectionChildOptions | None:
     """
     Return a list of nested options if *cls* is either a mapping or a sequence of
     settings classes.
@@ -527,8 +557,8 @@ def group_options(
 def resolve_types(
     cls: None = None,
     *,
-    globalns: Optional[dict[str, Any]] = None,
-    localns: Optional[dict[str, Any]] = None,
+    globalns: dict[str, Any] | None = None,
+    localns: dict[str, Any] | None = None,
     include_extras: bool = True,
 ) -> Callable[[type[types.T]], type[types.T]]: ...
 
@@ -537,19 +567,19 @@ def resolve_types(
 def resolve_types(
     cls: type[types.T],
     *,
-    globalns: Optional[dict[str, Any]] = None,
-    localns: Optional[dict[str, Any]] = None,
+    globalns: dict[str, Any] | None = None,
+    localns: dict[str, Any] | None = None,
     include_extras: bool = True,
 ) -> type[types.T]: ...
 
 
 def resolve_types(
-    cls: Optional[type[types.T]] = None,
+    cls: type[types.T] | None = None,
     *,
-    globalns: Optional[dict[str, Any]] = None,
-    localns: Optional[dict[str, Any]] = None,
+    globalns: dict[str, Any] | None = None,
+    localns: dict[str, Any] | None = None,
     include_extras: bool = True,
-) -> Union[type[types.T], Callable[[type[types.T]], type[types.T]]]:
+) -> type[types.T] | Callable[[type[types.T]], type[types.T]]:
     """
     Resolve any strings and forward annotations in type annotations.
 
@@ -614,7 +644,7 @@ def resolve_types(
     )
 
 
-def _get_metadata(metadata_or_none: Any, default_help: Optional[str] = None) -> dict:
+def _get_metadata(metadata_or_none: Any, default_help: str | None = None) -> dict:
     metadata = metadata_or_none if isinstance(metadata_or_none, dict) else {}
 
     cli_defaults: dict[str, Any] = {}
@@ -637,3 +667,56 @@ def _get_metadata(metadata_or_none: Any, default_help: Optional[str] = None) -> 
         metadata[constants.ARGPARSE_METADATA_KEY] = argparse_config
 
     return metadata
+
+
+def _get_attr_docs(cls: type[Any]) -> dict[str, str]:
+    """
+    Get any docstrings placed after attribute assignments in a class body.
+
+    Based on https://davidism.com/attribute-docstrings/, licensed under MIT license.
+    """
+    if not isinstance(cls, type):
+        raise TypeError("Given object was not a class.")
+
+    try:
+        cls_source = inspect.getsource(cls)
+    except (OSError, TypeError):
+        # Generated classes (e.g. from "ts.cls_attrs.combine()") have no source and
+        # generate an OSError.
+        # Classes defined in examples in the docs don't have a source file which causes
+        # a TypeError.
+        return {}
+
+    cls_node = ast.parse(textwrap.dedent(cls_source)).body[0]
+    assert isinstance(cls_node, ast.ClassDef)
+
+    out = {}
+
+    # Consider each pair of nodes.
+    for a, b in pairwise(cls_node.body):
+        # Must be an assignment then a constant string.
+        if (
+            not isinstance(a, ast.Assign | ast.AnnAssign)
+            or not isinstance(b, ast.Expr)
+            or not isinstance(b.value, ast.Constant)
+            or not isinstance(b.value.value, str)
+        ):
+            continue
+
+        doc = inspect.cleandoc(b.value.value)
+
+        if isinstance(a, ast.Assign):  # TEST
+            # An assignment can have multiple targets (a = b = v).
+            targets = a.targets
+        else:
+            # An annotated assignment only has one target.
+            targets = [a.target]
+
+        for target in targets:
+            # Must be assigning to a plain name.
+            if not isinstance(target, ast.Name):
+                continue  # TEST
+
+            out[target.id] = doc
+
+    return out

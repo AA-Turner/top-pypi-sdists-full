@@ -5,25 +5,27 @@
 #include <simpledbus/base/Logging.h>
 #include <simpledbus/base/Path.h>
 #include <algorithm>
+#include <iostream>
 
-// #include <simpledbus/interfaces/Properties.h>
+#include <simpledbus/interfaces/Properties.h>
 
 using namespace SimpleDBus;
 
 Proxy::Proxy(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path)
     : _conn(conn), _bus_name(bus_name), _path(path), _valid(true), _registered(false) {
-    // TODO: UNCOMMENT THIS WHEN MIGRATING TO NEW PROXY FORWARDING LOGIC
-    // register_object_path();
-
-    //_interfaces.emplace(std::make_pair("org.freedesktop.DBus.Properties", std::make_shared<Properties>(conn, bus_name,
-    //path)));
-}
+    }
 
 Proxy::~Proxy() {
-    // TODO: UNCOMMENT THIS WHEN MIGRATING TO NEW PROXY FORWARDING LOGIC
-    // unregister_object_path();
+    unregister_object_path();
     on_child_created.unload();
     on_signal_received.unload();
+}
+
+void Proxy::on_registration() {
+    // TODO: This is a hack to make sure the Properties interface is always available and
+    // not removed by the linker. We'll remove this once the Properties interface is used
+    // a lot more.
+    auto prop = std::make_shared<Interfaces::Properties>(_conn, shared_from_this());
 }
 
 std::shared_ptr<Proxy> Proxy::path_create(const std::string& path) {
@@ -34,8 +36,7 @@ bool Proxy::valid() const { return _valid; }
 
 void Proxy::invalidate() {
     _valid = false;
-    // TODO: UNCOMMENT THIS WHEN MIGRATING TO NEW PROXY FORWARDING LOGIC
-    // unregister_object_path();
+    unregister_object_path();
 }
 
 std::string Proxy::path() const { return _path; }
@@ -104,7 +105,7 @@ void Proxy::interfaces_load(Holder managed_interfaces) {
         if (!interface_exists(iface_name)) {
             if (InterfaceRegistry::getInstance().isRegistered(iface_name)) {
                 _interfaces.emplace(std::make_pair(
-                    iface_name, InterfaceRegistry::getInstance().create(iface_name, _conn, _bus_name, _path, options)));
+                    iface_name, InterfaceRegistry::getInstance().create(iface_name, _conn, shared_from_this(), options)));
             } else {
                 LOG_WARN("Interface {} not registered within SimpleDBus", iface_name);
             }
@@ -160,7 +161,7 @@ std::shared_ptr<Proxy> Proxy::path_get(const std::string& path) {
 
 void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfaces) {
     // If the path is not a child of the current path, then we can't add it.
-    if (!Path::is_descendant(_path, path)) {
+    if (!PathUtils::is_descendant(_path, path)) {
         // TODO: Should an exception be thrown here?
         return;
     }
@@ -174,7 +175,7 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
     // As children will be extensively accessed, we need to lock the child access mutex.
     std::scoped_lock lock(_child_access_mutex);
 
-    if (Path::is_child(_path, path)) {
+    if (PathUtils::is_child(_path, path)) {
         // If the path is a direct child of the proxy path, create a new proxy for it.
         std::shared_ptr<Proxy> child = path_create(path);
         child->interfaces_load(managed_interfaces);
@@ -185,7 +186,7 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
         auto child_result = std::find_if(
             _children.begin(), _children.end(),
             [path](const std::pair<std::string, std::shared_ptr<Proxy>>& child_data) -> bool {
-                return Path::is_descendant(child_data.first, path);
+                return PathUtils::is_descendant(child_data.first, path);
             });
 
         if (child_result != _children.end()) {
@@ -194,7 +195,7 @@ void Proxy::path_add(const std::string& path, SimpleDBus::Holder managed_interfa
         } else {
             // If there is no child proxy for the new path, create the child and forward the path to it.
             // This path will be taken if an empty proxy object needs to be created for an intermediate path.
-            std::string child_path = Path::next_child(_path, path);
+            std::string child_path = PathUtils::next_child(_path, path);
             std::shared_ptr<Proxy> child = path_create(child_path);
             _children.emplace(std::make_pair(child_path, child));
             child->path_add(path, managed_interfaces);
@@ -213,7 +214,7 @@ bool Proxy::path_remove(const std::string& path, SimpleDBus::Holder options) {
     }
 
     // If the path is not the current path nor a descendant, then there's nothing to do
-    if (!Path::is_descendant(_path, path)) {
+    if (!PathUtils::is_descendant(_path, path)) {
         return false;
     }
 
@@ -221,7 +222,7 @@ bool Proxy::path_remove(const std::string& path, SimpleDBus::Holder options) {
     std::scoped_lock lock(_child_access_mutex);
 
     // If the path is a direct child of the proxy path, forward the request to the child proxy.
-    std::string child_path = Path::next_child(_path, path);
+    std::string child_path = PathUtils::next_child(_path, path);
     if (path_exists(child_path)) {
         bool must_erase = _children.at(child_path)->path_remove(path, options);
 
@@ -261,11 +262,18 @@ bool Proxy::path_prune() {
 }
 
 Holder Proxy::path_collect() {
+    // TODO: This function logic should be moved to the ObjectManager interface.
     SimpleDBus::Holder result = SimpleDBus::Holder::create_dict();
     SimpleDBus::Holder interfaces = SimpleDBus::Holder::create_dict();
 
     for (const auto& [interface_name, interface_ptr] : _interfaces) {
-        SimpleDBus::Holder properties = interface_ptr->property_collect();
+        SimpleDBus::Holder properties = SimpleDBus::Holder::create_dict();
+        {
+            std::scoped_lock lock(interface_ptr->_property_update_mutex);
+            for (const auto& [key, value] : interface_ptr->_properties) {
+                properties.dict_append(SimpleDBus::Holder::Type::STRING, key, value);
+            }
+        }
         interfaces.dict_append(SimpleDBus::Holder::Type::STRING, interface_name, std::move(properties));
     }
 
@@ -289,7 +297,7 @@ void Proxy::path_append_child(const std::string& path, std::shared_ptr<Proxy> ch
     // ! This function is used to manually add children to the proxy.
 
     // If the provided path is not a child of the current path, return silently.
-    if (!Path::is_child(_path, path)) {
+    if (!PathUtils::is_child(_path, path)) {
         // TODO: Should an exception be thrown here?
         return;
     }
@@ -303,7 +311,7 @@ void Proxy::path_remove_child(const std::string& path) {
     // ! This function is used to manually add children to the proxy.
 
     // If the provided path is not a child of the current path, return silently.
-    if (!Path::is_child(_path, path)) {
+    if (!PathUtils::is_child(_path, path)) {
         // TODO: Should an exception be thrown here?
         return;
     }
@@ -314,55 +322,15 @@ void Proxy::path_remove_child(const std::string& path) {
 
 // ----- MESSAGE HANDLING -----
 
-void Proxy::message_forward(Message& msg) {
-    // If the message is for the current proxy, then forward it to the message handler.
-    if (msg.get_path() == _path) {
-        // If the message is involves a property change, forward it to the correct interface.
-        if (msg.is_signal("org.freedesktop.DBus.Properties", "PropertiesChanged")) {
-            Holder interface_h = msg.extract();
-            std::string iface_name = interface_h.get_string();
-            msg.extract_next();
-            Holder changed_properties = msg.extract();
-            msg.extract_next();
-            Holder invalidated_properties = msg.extract();
-
-            // If the interface is not loaded, then ignore the message.
-            if (!interface_exists(iface_name)) {
-                return;
-            }
-
-            interface_get(iface_name)->signal_property_changed(changed_properties, invalidated_properties);
-
-        } else if (interface_exists(msg.get_interface())) {
-            interface_get(msg.get_interface())->message_handle(msg);
-        }
-
-        return;
-    }
-
-    // If the message is for a child proxy or a descendant, forward it to that child proxy.
-    for (auto& [child_path, child] : _children) {
-        if (child_path == msg.get_path()) {
-            child->message_forward(msg);
-
-            if (msg.get_type() == Message::Type::SIGNAL) {
-                child->on_signal_received();
-            }
-
-            return;
-        } else if (Path::is_descendant(child_path, msg.get_path())) {
-            child->message_forward(msg);
-            return;
-        }
-    }
-}
-
 void Proxy::message_handle(Message& msg) {
     bool handled = false;
 
+    // ! This is the only block that should be used to forward messages to interfaces.
     if (interface_exists(msg.get_interface())) {
         interface_get(msg.get_interface())->message_handle(msg);
         handled = true;
+    } else {
+        LOG_WARN("Unhandled message for interface {}: {}", msg.get_interface(), msg.to_string());
     }
 
     if (msg.get_type() == Message::Type::SIGNAL) {

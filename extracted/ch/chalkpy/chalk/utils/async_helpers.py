@@ -6,9 +6,18 @@ import functools
 import queue
 import threading
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Generic, Iterable, TypeVar, overload
-
-from typing_extensions import ParamSpec
+from typing import (
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Callable,
+    Coroutine,
+    Generic,
+    Iterable,
+    ParamSpec,
+    TypeVar,
+    overload,
+)
 
 from chalk.utils.tracing import safe_activate_trace_context, safe_current_trace_context
 
@@ -52,8 +61,8 @@ def run_coroutine_fn_threadsafe(
             @functools.wraps(coro_fn)
             async def wrapped_with_context(*args: P.args, **kwargs: P.kwargs):
                 try:
-                    safe_activate_trace_context(current_trace_context)
-                    res = await coro_fn(*args, **kwargs)
+                    with safe_activate_trace_context(current_trace_context):
+                        res = await coro_fn(*args, **kwargs)
                 except BaseException as exc:
                     ans.set_exception(exc)
                 else:

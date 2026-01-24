@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Iterable, Optional
+from typing import Dict, Iterable, Optional
 from typing_extensions import Required, TypedDict
 
+from ..._types import SequenceNotStr
 from ..recipient_request_param import RecipientRequestParam
 
 __all__ = ["BulkAddSubscriptionsParams", "Subscription"]
@@ -12,11 +13,14 @@ __all__ = ["BulkAddSubscriptionsParams", "Subscription"]
 
 class BulkAddSubscriptionsParams(TypedDict, total=False):
     subscriptions: Required[Iterable[Subscription]]
-    """A list of subscriptions."""
+    """A nested list of subscriptions."""
 
 
 class Subscription(TypedDict, total=False):
-    recipients: Required[List[RecipientRequestParam]]
+    id: Required[str]
+    """Unique identifier for the object."""
+
+    recipients: Required[SequenceNotStr[RecipientRequestParam]]
     """The recipients of the subscription.
 
     You can subscribe up to 100 recipients to an object at a time.

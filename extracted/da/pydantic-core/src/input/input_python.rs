@@ -3,7 +3,7 @@ use std::str::from_utf8;
 use pyo3::intern;
 use pyo3::prelude::*;
 
-use pyo3::sync::GILOnceCell;
+use pyo3::sync::PyOnceLock;
 use pyo3::types::PyType;
 use pyo3::types::{
     PyBool, PyByteArray, PyBytes, PyComplex, PyDate, PyDateTime, PyDict, PyFloat, PyFrozenSet, PyInt, PyIterator,
@@ -48,7 +48,7 @@ use super::{
     Input,
 };
 
-static FRACTION_TYPE: GILOnceCell<Py<PyType>> = GILOnceCell::new();
+static FRACTION_TYPE: PyOnceLock<Py<PyType>> = PyOnceLock::new();
 
 pub fn get_fraction_type(py: Python<'_>) -> &Bound<'_, PyType> {
     FRACTION_TYPE
@@ -163,7 +163,11 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
         }
     }
 
-    fn validate_str(&self, strict: bool, coerce_numbers_to_str: bool) -> ValResult<ValidationMatch<EitherString<'_>>> {
+    fn validate_str(
+        &self,
+        strict: bool,
+        coerce_numbers_to_str: bool,
+    ) -> ValResult<ValidationMatch<EitherString<'_, 'py>>> {
         if let Ok(py_str) = self.downcast_exact::<PyString>() {
             return Ok(ValidationMatch::exact(py_str.clone().into()));
         } else if let Ok(py_str) = self.downcast::<PyString>() {
@@ -310,7 +314,7 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
         }
     }
 
-    fn exact_str(&self) -> ValResult<EitherString<'_>> {
+    fn exact_str(&self) -> ValResult<EitherString<'_, 'py>> {
         if let Ok(py_str) = self.downcast_exact() {
             Ok(EitherString::Py(py_str.clone()))
         } else {
@@ -391,15 +395,17 @@ impl<'py> Input<'py> for Bound<'py, PyAny> {
         Self: 'a;
 
     fn strict_dict<'a>(&'a self) -> ValResult<GenericPyMapping<'a, 'py>> {
-        if let Ok(dict) = self.downcast::<PyDict>() {
+        if let Ok(dict) = self.downcast_exact::<PyDict>() {
             Ok(GenericPyMapping::Dict(dict))
+        } else if self.is_instance_of::<PyDict>() {
+            Ok(GenericPyMapping::Mapping(self.downcast::<PyMapping>()?))
         } else {
             Err(ValError::new(ErrorTypeDefaults::DictType, self))
         }
     }
 
     fn lax_dict<'a>(&'a self) -> ValResult<GenericPyMapping<'a, 'py>> {
-        if let Ok(dict) = self.downcast::<PyDict>() {
+        if let Ok(dict) = self.downcast_exact::<PyDict>() {
             Ok(GenericPyMapping::Dict(dict))
         } else if let Ok(mapping) = self.downcast::<PyMapping>() {
             Ok(GenericPyMapping::Mapping(mapping))
@@ -827,7 +833,7 @@ impl<'py> KeywordArgs<'py> for PyKwargs<'py> {
         &self,
         key: &'k crate::lookup_key::LookupKey,
     ) -> ValResult<Option<(&'k crate::lookup_key::LookupPath, Self::Item<'_>)>> {
-        key.py_get_dict_item(&self.0)
+        key.py_get_dict_item(&self.0).map_err(Into::into)
     }
 
     fn iter(&self) -> impl Iterator<Item = ValResult<(Self::Key<'_>, Self::Item<'_>)>> {
@@ -858,8 +864,8 @@ impl<'py> ValidatedDict<'py> for GenericPyMapping<'_, 'py> {
         key: &'k crate::lookup_key::LookupKey,
     ) -> ValResult<Option<(&'k crate::lookup_key::LookupPath, Self::Item<'_>)>> {
         match self {
-            Self::Dict(dict) => key.py_get_dict_item(dict),
-            Self::Mapping(mapping) => key.py_get_mapping_item(mapping),
+            Self::Dict(dict) => key.py_get_dict_item(dict).map_err(Into::into),
+            Self::Mapping(mapping) => key.py_get_mapping_item(mapping).map_err(Into::into),
             Self::GetAttr(obj, dict) => key.py_get_attr(obj, dict.as_ref()),
         }
     }

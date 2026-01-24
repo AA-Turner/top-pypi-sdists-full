@@ -2,29 +2,17 @@
 
 from __future__ import annotations
 
-import sys
 import threading
 
 import pytest
 
-from cx_Freeze._compat import ABI_THREAD, IS_ARM_64, IS_WINDOWS
-
-TIMEOUT = 10
+TIMEOUT = 15
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
 )
 
 
-@pytest.mark.xfail(
-    IS_WINDOWS
-    and IS_ARM_64
-    and sys.version_info[:2] >= (3, 13)
-    and ABI_THREAD == "t",
-    raises=ModuleNotFoundError,
-    reason="pyzmq does not support Python 3.13t on Windows arm64",
-    strict=True,
-)
 @pytest.mark.venv
 @zip_packages
 def test_pyzmq(tmp_package, zip_packages: bool) -> None:

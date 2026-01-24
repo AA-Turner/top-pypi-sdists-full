@@ -1,12 +1,13 @@
 import json
 import logging
 from typing import Union, Optional, Literal, Any
+from urllib.parse import urljoin
 
 from pydantic import BaseModel
 
 from ipfabric.models import Device
 from ipfabric.models.security import DefaultAction
-from ipfabric.tools.shared import raise_for_status
+from ipfabric.tools.shared import raise_for_status, api_header
 from .input_models import (
     Unicast,
     Multicast,
@@ -90,6 +91,7 @@ class Diagram(BaseModel):
         graph_settings: Union[GRAPH_SETTINGS, dict] = None,
         attr_filters: ATTRIBUTE_FILTERS = None,
         positions: POSITION_SETTINGS = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> Union[dict, bytes]:
         """
         Submits a query, does no formatting on the parameters.  Use for copy/pasting from the webpage.
@@ -99,10 +101,10 @@ class Diagram(BaseModel):
         url = GRAPHS_URL
         if image in ["svg", "png", "vsdx"]:
             url += image
-        payload = dict(
-            parameters=parameters if isinstance(parameters, dict) else parameters.model_dump(),
-            snapshot=self._check_snapshot_id(snapshot_id),
-        )
+        payload = {
+            "parameters": parameters if isinstance(parameters, dict) else parameters.model_dump(),
+            "snapshot": self._check_snapshot_id(snapshot_id),
+        }
         if overlay:
             payload["overlay"] = self._format_overlay(overlay, snapshot_id)
         if graph_settings:
@@ -113,7 +115,9 @@ class Diagram(BaseModel):
         if image == "vsdx":
             if payload.get("overlay", None):
                 logger.warning("Overlay is not supported for Visio diagrams.")
-            json_graph = raise_for_status(self.ipf.post(GRAPHS_URL, json=payload)).json()["graphResult"]
+            json_graph = raise_for_status(
+                self.ipf.post(GRAPHS_URL, json=payload, headers=api_header(api_version))
+            ).json()["graphResult"]
             files = {
                 "graph": (
                     "graph.json",
@@ -129,9 +133,9 @@ class Diagram(BaseModel):
                     "application/json",
                 )
             }
-            res = raise_for_status(self.ipf.post(url, files=files))
+            res = raise_for_status(self.ipf.post(url, files=files, headers=api_header(api_version)))
         else:
-            res = raise_for_status(self.ipf.post(url, json=payload))
+            res = raise_for_status(self.ipf.post(url, json=payload, headers=api_header(api_version)))
         return res.json() if image == "json" else res.content
 
     @staticmethod
@@ -147,6 +151,7 @@ class Diagram(BaseModel):
         attr_filters: ATTRIBUTE_FILTERS = None,
         unicast_swap_src_dst: bool = False,
         positions: POSITION_SETTINGS = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> dict:
         return self._query(
             self._swap_src_dst(parameters, unicast_swap_src_dst),
@@ -156,6 +161,7 @@ class Diagram(BaseModel):
             attr_filters=attr_filters,
             graph_settings=graph_settings.model_dump() if graph_settings else None,
             positions=positions,
+            api_version=api_version,
         )
 
     def svg(
@@ -167,6 +173,7 @@ class Diagram(BaseModel):
         attr_filters: ATTRIBUTE_FILTERS = None,
         unicast_swap_src_dst: bool = False,
         positions: POSITION_SETTINGS = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> bytes:
         return self._query(
             self._swap_src_dst(parameters, unicast_swap_src_dst),
@@ -176,6 +183,7 @@ class Diagram(BaseModel):
             image="svg",
             graph_settings=graph_settings.model_dump() if graph_settings else None,
             positions=positions,
+            api_version=api_version,
         )
 
     def png(
@@ -187,6 +195,7 @@ class Diagram(BaseModel):
         attr_filters: ATTRIBUTE_FILTERS = None,
         unicast_swap_src_dst: bool = False,
         positions: POSITION_SETTINGS = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> bytes:
         return self._query(
             self._swap_src_dst(parameters, unicast_swap_src_dst),
@@ -196,6 +205,7 @@ class Diagram(BaseModel):
             image="png",
             graph_settings=graph_settings.model_dump() if graph_settings else None,
             positions=positions,
+            api_version=api_version,
         )
 
     def visio(
@@ -207,6 +217,7 @@ class Diagram(BaseModel):
         attr_filters: ATTRIBUTE_FILTERS = None,
         unicast_swap_src_dst: bool = False,
         positions: POSITION_SETTINGS = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> bytes:
         return self._query(
             self._swap_src_dst(parameters, unicast_swap_src_dst),
@@ -216,6 +227,7 @@ class Diagram(BaseModel):
             image="vsdx",
             graph_settings=graph_settings.model_dump() if graph_settings else None,
             positions=positions,
+            api_version=api_version,
         )
 
     def share_link(
@@ -255,7 +267,7 @@ class Diagram(BaseModel):
         if overlay:
             payload["graphView"]["overlay"] = self._format_overlay(overlay, snapshot_id)
         res = raise_for_status(self.ipf.post("graphs/urls", json=payload))
-        return str(self.ipf.base_url.join(f"/diagrams/share/{res.json()['id']}"))
+        return urljoin(self.ipf.base_url, f"/diagrams/share/{res.json()['id']}")
 
     def model(
         self,
@@ -273,7 +285,7 @@ class Diagram(BaseModel):
         graph_result = TopologyResult(**json_data) if "topology" in json_data else PathLookupResult(**json_data)
         e_setting = self._diagram_edge_settings(graph_result.graphResult.settings)
 
-        edges = {edge_id: edge for edge_id, edge in graph_result.edges.items()}
+        edges = {edge_id: edge for edge_id, edge in graph_result.edges.items()}  # noqa: S7500
         for edge_id, edge in edges.items():
             edge.protocol = e_setting[edge.edgeSettingsId].name if edge.edgeSettingsId in e_setting else None
             if edge.source:
@@ -295,7 +307,7 @@ class Diagram(BaseModel):
 
     @staticmethod
     def _diagram_edge_settings(graph_settings: Union[NetworkSettings, PathLookupSettings]) -> dict:
-        edge_setting_dict = dict()
+        edge_setting_dict = {}
         for edge in graph_settings.edges:
             edge_setting_dict[edge.id] = edge
             if isinstance(edge, GroupSettings):
@@ -402,7 +414,7 @@ class Diagram(BaseModel):
         Returns:
             list[dict]: Device inventory
         """
-        list_of_device_objects = list()
+        list_of_device_objects = []
         dev_types = NetworkSettings._valid_dev_types(dev_types or ["l3switch", "fw", "switch", "router", "lb"])
         inventory_columns = list(inventory_columns) or ["sn", "version", "hostname", "model", "vendor", "siteName"]
         if not all(_ in self.ipf.oas["tables/inventory/devices"].post.columns for _ in inventory_columns):
@@ -435,7 +447,7 @@ class Diagram(BaseModel):
         path = self._process_path(path, snapshot_id)
         app_graph_nodes_dict = {node.id: node for node in path.nodes.values() if node.style}
         path_inventory_dict = {device.sn: device for device in self.nodes_in_diagram(path, snapshot_id)}
-        list_for_return = list()
+        list_for_return = []
 
         for vdevice, decisions in path.pathlookup.decisions.items():
             node = app_graph_nodes_dict.get(vdevice, None)

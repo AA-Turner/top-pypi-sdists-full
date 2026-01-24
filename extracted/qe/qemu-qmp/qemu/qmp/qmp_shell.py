@@ -134,14 +134,21 @@ from subprocess import Popen
 import sys
 from typing import (
     IO,
+    Dict,
     Iterator,
     List,
     NoReturn,
     Optional,
     Sequence,
+    cast,
 )
 
-from qemu.qmp import ConnectError, QMPError, SocketAddrT
+from qemu.qmp import (
+    ConnectError,
+    ExecuteError,
+    QMPError,
+    SocketAddrT,
+)
 from qemu.qmp.legacy import (
     QEMUMonitorProtocol,
     QMPBadPortError,
@@ -217,6 +224,7 @@ class QMPShell(QEMUMonitorProtocol):
                  verbose: bool = False,
                  server: bool = False,
                  logfile: Optional[str] = None):
+        # pylint: disable=too-many-positional-arguments
         super().__init__(address, server=server)
         self._greeting: Optional[QMPMessage] = None
         self._completer = QMPCompleter()
@@ -237,11 +245,12 @@ class QMPShell(QEMUMonitorProtocol):
         super().close()
 
     def _fill_completion(self) -> None:
-        cmds = self.cmd('query-commands')
-        if 'error' in cmds:
-            return
-        for cmd in cmds['return']:
-            self._completer.append(cmd['name'])
+        try:
+            cmds = cast(List[Dict[str, str]], self.cmd('query-commands'))
+            for cmd in cmds:
+                self._completer.append(cmd['name'])
+        except ExecuteError:
+            pass
 
     def _completer_setup(self) -> None:
         self._completer = QMPCompleter()
@@ -469,6 +478,7 @@ class HMPShell(QMPShell):
                  verbose: bool = False,
                  server: bool = False,
                  logfile: Optional[str] = None):
+        # pylint: disable=too-many-positional-arguments
         super().__init__(address, pretty, verbose, server, logfile)
         self._cpu_index = 0
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-libbraiding
-Version: 10.6.27
+Version: 10.6.47
 Summary: passagemath: Braid computations with libbraiding
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -24,13 +24,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: <3.14,>=3.10
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/x-rst
-Requires-Dist: passagemath-objects~=10.6.27.0
-Requires-Dist: memory_allocator
-Requires-Dist: cysignals<1.12.4; sys_platform == "win32"
+Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Provides-Extra: test
 Requires-Dist: passagemath-combinat; extra == "test"
@@ -85,7 +84,7 @@ the passagemath distributions. Use of the full functionality of passagemath
 on Windows currently requires the use of Windows Subsystem for Linux (WSL)
 or virtualization.
 
-The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.13.x.
+The supported Python versions in the passagemath 10.6.x series are 3.10.x-3.14.x.
 
 
 About this pip-installable distribution package
@@ -110,7 +109,7 @@ Examples
 
     $ pipx run --pip-args="--prefer-binary" --spec "passagemath-libbraiding[test]" ipython
 
-    In [1]: from sage.all__sagemath_libbraiding import *
+    In [1]: from passagemath_libbraiding import *
 
     In [2]: from sage.libs.braiding import conjugatingbraid
 

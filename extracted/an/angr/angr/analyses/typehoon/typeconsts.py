@@ -2,9 +2,11 @@
 """
 All type constants used in type inference. They can be mapped, translated, or rewritten to C-style types.
 """
+
 from __future__ import annotations
 
 import functools
+import itertools
 
 
 def memoize(f):
@@ -23,6 +25,9 @@ def memoize(f):
 
 class TypeConstant:
     SIZE = None
+
+    def __init__(self, name: str | None = None):
+        self.name = name
 
     def pp_str(self, mapping) -> str:  # pylint:disable=unused-argument
         return repr(self)
@@ -44,6 +49,13 @@ class TypeConstant:
 
     def __repr__(self, memo=None) -> str:
         raise NotImplementedError
+
+    def replace(
+        self,
+        mapping: dict[TypeConstant, TypeConstant],
+        memo: set[TypeConstant] | None = None,  # pylint:disable=unused-argument
+    ) -> TypeConstant:
+        return mapping.get(self, self)
 
 
 class TopType(TypeConstant):
@@ -115,7 +127,8 @@ class Int512(Int):
 
 
 class IntVar(Int):
-    def __init__(self, size):
+    def __init__(self, size, name: str | None = None):
+        super().__init__(name)
         self._size = size
 
     @property
@@ -146,7 +159,8 @@ class Float64(Float):
 
 
 class Pointer(TypeConstant):
-    def __init__(self, basetype: TypeConstant | None):
+    def __init__(self, basetype: TypeConstant | None, name: str | None = None):
+        super().__init__(name=name)
         self.basetype: TypeConstant | None = basetype
 
     def __eq__(self, other):
@@ -157,11 +171,25 @@ class Pointer(TypeConstant):
             return hash(type(self))
         return hash((type(self), self.basetype._hash(visited)))
 
-    def new(self, basetype):
-        return self.__class__(basetype)
+    def new(self, basetype, name: str | None = None):
+        return self.__class__(basetype, name=name)
 
     def __hash__(self):
         return self._hash(set())
+
+    def replace(self, mapping: dict[TypeConstant, TypeConstant], memo: set | None = None) -> TypeConstant:
+        if self in mapping:
+            return mapping[self]
+        if memo is None:
+            memo = set()
+        else:
+            if self in memo:
+                return self
+        memo.add(self)
+        new_basetype = self.basetype.replace(mapping, memo=memo) if self.basetype else None
+        if new_basetype is self.basetype:
+            return self
+        return self.new(new_basetype, name=self.name)
 
 
 class Pointer32(Pointer, Int32):
@@ -169,13 +197,15 @@ class Pointer32(Pointer, Int32):
     32-bit pointers.
     """
 
-    def __init__(self, basetype=None):
-        Pointer.__init__(self, basetype)
+    def __init__(self, basetype=None, name: str | None = None):
+        Pointer.__init__(self, basetype, name=name)
+        Int32.__init__(self, name=name)
 
     @memoize
     def __repr__(self, memo=None):
         bt = self.basetype.__repr__(memo=memo) if isinstance(self.basetype, TypeConstant) else repr(self.basetype)
-        return f"ptr32({bt})"
+        name_str = f"{self.name}#" if self.name else ""
+        return f"{name_str}ptr32({bt})"
 
 
 class Pointer64(Pointer, Int64):
@@ -183,17 +213,20 @@ class Pointer64(Pointer, Int64):
     64-bit pointers.
     """
 
-    def __init__(self, basetype=None):
-        Pointer.__init__(self, basetype)
+    def __init__(self, basetype=None, name: str | None = None):
+        Pointer.__init__(self, basetype, name=name)
+        Int64.__init__(self, name=name)
 
     @memoize
     def __repr__(self, memo=None):
         bt = self.basetype.__repr__(memo=memo) if isinstance(self.basetype, TypeConstant) else repr(self.basetype)
-        return f"ptr64({bt})"
+        name_str = f"{self.name}#" if self.name else ""
+        return f"{name_str}ptr64({bt})"
 
 
 class Array(TypeConstant):
-    def __init__(self, element=None, count=None):
+    def __init__(self, element=None, count=None, name: str | None = None):
+        super().__init__(name=name)
         self.element: TypeConstant | None = element
         self.count: int | None = count
 
@@ -221,19 +254,33 @@ class Array(TypeConstant):
     def __hash__(self):
         return self._hash(set())
 
+    def replace(self, mapping: dict[TypeConstant, TypeConstant], memo: set | None = None) -> TypeConstant:
+        if self in mapping:
+            return mapping[self]
+        if memo is None:
+            memo = {self}
+        new_element = self.element.replace(mapping, memo=memo) if self.element else None
+        if new_element is self.element:
+            return self
+        return Array(new_element, self.count, name=self.name)
+
+
+_STRUCT_ID = itertools.count()
+
 
 class Struct(TypeConstant):
-    def __init__(self, fields=None, name=None, field_names=None, is_cppclass: bool = False):
+    def __init__(self, fields=None, name=None, field_names=None, is_cppclass: bool = False, idx: int = -1):
+        super().__init__(name=name)
         self.fields = {} if fields is None else fields  # offset to type
-        self.name = name
         self.field_names = field_names
         self.is_cppclass = is_cppclass
+        self.idx = idx if idx != -1 else next(_STRUCT_ID)
 
     def _hash(self, visited: set[int]):
         if id(self) in visited:
             return 0
         visited.add(id(self))
-        return hash((type(self), self._hash_fields(visited)))
+        return hash((type(self), self.idx, self._hash_fields(visited)))
 
     def _hash_fields(self, visited: set[int]):
         keys = sorted(self.fields.keys())
@@ -252,6 +299,7 @@ class Struct(TypeConstant):
     @memoize
     def __repr__(self, memo=None):
         prefix = "CppClass" if self.is_cppclass else "struct"
+        prefix += f"#{self.idx}"
         if self.name:
             prefix = f"{prefix} {self.name}"
         return (
@@ -262,14 +310,101 @@ class Struct(TypeConstant):
         )
 
     def __eq__(self, other):
-        return type(other) is type(self) and hash(self) == hash(other)
+        return type(other) is type(self) and self.idx == other.idx and hash(self) == hash(other)
 
     def __hash__(self):
         return self._hash(set())
 
+    def replace(self, mapping: dict[TypeConstant, TypeConstant], memo: set | None = None) -> TypeConstant:
+        if self in mapping:
+            return mapping[self]
+        if memo is None:
+            memo = set()
+        else:
+            if self in memo:
+                return self
+        memo.add(self)
+        new_fields = {}
+        changed = False
+        for off, typ in self.fields.items():
+            new_typ = typ.replace(mapping, memo=memo) if typ else None
+            new_fields[off] = new_typ
+            if new_typ is not typ:
+                changed = True
+        if not changed:
+            return self
+        return Struct(
+            fields=new_fields,
+            name=self.name,
+            field_names=self.field_names,
+            is_cppclass=self.is_cppclass,
+            idx=self.idx,
+        )
+
+
+_ENUM_ID = itertools.count()
+
+
+class Enum(TypeConstant):
+    """
+    Enum type constant for type inference.
+
+    :ivar members:      Mapping of enum member names to their integer values
+    :ivar base_type:    The underlying type constant (defaults to Int32)
+    :ivar idx:          Unique identifier for this enum
+    """
+
+    def __init__(
+        self,
+        members: dict[str, int] | None = None,
+        base_type: TypeConstant | None = None,
+        name: str | None = None,
+        idx: int = -1,
+    ):
+        super().__init__(name=name)
+        self.members: dict[str, int] = members if members is not None else {}
+        self.base_type = base_type
+        self.idx = idx if idx != -1 else next(_ENUM_ID)
+
+    @property
+    def size(self) -> int:
+        """Return the size of the enum in bytes."""
+        if self.base_type is not None:
+            return self.base_type.size
+        return 4  # Default to 32-bit int size
+
+    @memoize
+    def __repr__(self, memo=None):
+        members_str = ", ".join(f"{k}={v}" for k, v in self.members.items())
+        name_str = f" {self.name}" if self.name else ""
+        return f"enum#{self.idx}{name_str}{{{members_str}}}"
+
+    def __eq__(self, other):
+        return type(other) is type(self) and self.idx == other.idx and self.members == other.members
+
+    def _hash(self, visited: set[int]):
+        if id(self) in visited:
+            return 0
+        visited.add(id(self))
+        return hash((type(self), self.idx, tuple(sorted(self.members.items()))))
+
+    def __hash__(self):
+        return self._hash(set())
+
+    def replace(
+        self,
+        mapping: dict[TypeConstant, TypeConstant],
+        memo: set | None = None,
+    ) -> TypeConstant:
+        if self in mapping:
+            return mapping[self]
+        # Enums don't contain nested types that need recursive replacement
+        return self
+
 
 class Function(TypeConstant):
-    def __init__(self, params: list, outputs: list):
+    def __init__(self, params: list, outputs: list, name: str | None = None):
+        super().__init__(name=name)
         self.params = params
         self.outputs = outputs
 
@@ -296,9 +431,36 @@ class Function(TypeConstant):
     def __hash__(self):
         return self._hash(set())
 
+    def replace(self, mapping: dict[TypeConstant, TypeConstant], memo: set | None = None) -> TypeConstant:
+        if self in mapping:
+            return mapping[self]
+        if memo is None:
+            memo = set()
+        else:
+            if self in memo:
+                return self
+        memo.add(self)
+        new_params = []
+        new_outputs = []
+        changed = False
+        for param in self.params:
+            new_param = param.replace(mapping, memo=memo)
+            new_params.append(new_param)
+            if new_param is not param:
+                changed = True
+        for output in self.outputs:
+            new_output = output.replace(mapping, memo=memo)
+            new_outputs.append(new_output)
+            if new_output is not output:
+                changed = True
+        if not changed:
+            return self
+        return Function(new_params, new_outputs, name=self.name)
+
 
 class TypeVariableReference(TypeConstant):
-    def __init__(self, typevar):
+    def __init__(self, typevar, name: str | None = None):
+        super().__init__(name=name)
         self.typevar = typevar
 
     def __repr__(self, memo=None):

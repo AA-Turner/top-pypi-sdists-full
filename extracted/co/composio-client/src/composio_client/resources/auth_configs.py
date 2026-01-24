@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union, Optional
+from typing import Dict, Union, Optional
 from typing_extensions import Literal, overload
 
 import httpx
@@ -126,9 +126,12 @@ class AuthConfigsResource(SyncAPIResource):
         self,
         nanoid: str,
         *,
-        credentials: auth_config_update_params.Variant0Credentials,
         type: Literal["custom"],
-        proxy_config: auth_config_update_params.Variant0ProxyConfig | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -143,6 +146,14 @@ class AuthConfigsResource(SyncAPIResource):
 
         Args:
           nanoid: The unique identifier of the authentication configuration to update
+
+          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
+
+          shared_credentials: Shared credentials that will be inherited by connected accounts. For eg: this
+              can be used to share the API key for a tool with all connected accounts using
+              this auth config.
 
           extra_headers: Send extra headers
 
@@ -160,7 +171,10 @@ class AuthConfigsResource(SyncAPIResource):
         nanoid: str,
         *,
         type: Literal["default"],
+        is_enabled_for_tool_router: bool | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant1ToolAccessConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -176,6 +190,14 @@ class AuthConfigsResource(SyncAPIResource):
         Args:
           nanoid: The unique identifier of the authentication configuration to update
 
+          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
+
+          shared_credentials: Shared credentials that will be inherited by connected accounts. For eg: this
+              can be used to share the API key for a tool with all connected accounts using
+              this auth config.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -186,14 +208,17 @@ class AuthConfigsResource(SyncAPIResource):
         """
         ...
 
-    @required_args(["credentials", "type"], ["type"])
+    @required_args(["type"])
     def update(
         self,
         nanoid: str,
         *,
-        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         type: Literal["custom"] | Literal["default"],
-        proxy_config: auth_config_update_params.Variant0ProxyConfig | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
         | auth_config_update_params.Variant1ToolAccessConfig
         | Omit = omit,
@@ -211,9 +236,12 @@ class AuthConfigsResource(SyncAPIResource):
             f"/api/v3/auth_configs/{nanoid}",
             body=maybe_transform(
                 {
-                    "credentials": credentials,
                     "type": type,
+                    "credentials": credentials,
+                    "is_enabled_for_tool_router": is_enabled_for_tool_router,
                     "proxy_config": proxy_config,
+                    "restrict_to_following_tools": restrict_to_following_tools,
+                    "shared_credentials": shared_credentials,
                     "tool_access_config": tool_access_config,
                     "scopes": scopes,
                 },
@@ -254,9 +282,11 @@ class AuthConfigsResource(SyncAPIResource):
 
           deprecated_app_id: The app id to filter by
 
+          deprecated_status: DEPRECATED: This parameter will be removed in a future version.
+
           is_composio_managed: Whether to filter by composio managed auth configs
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           search: Search auth configs by name
 
@@ -474,9 +504,12 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         self,
         nanoid: str,
         *,
-        credentials: auth_config_update_params.Variant0Credentials,
         type: Literal["custom"],
-        proxy_config: auth_config_update_params.Variant0ProxyConfig | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -491,6 +524,14 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
 
         Args:
           nanoid: The unique identifier of the authentication configuration to update
+
+          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
+
+          shared_credentials: Shared credentials that will be inherited by connected accounts. For eg: this
+              can be used to share the API key for a tool with all connected accounts using
+              this auth config.
 
           extra_headers: Send extra headers
 
@@ -508,7 +549,10 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         nanoid: str,
         *,
         type: Literal["default"],
+        is_enabled_for_tool_router: bool | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
         scopes: Union[str, SequenceNotStr[str]] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant1ToolAccessConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -524,6 +568,14 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         Args:
           nanoid: The unique identifier of the authentication configuration to update
 
+          is_enabled_for_tool_router: Whether this auth config is enabled for tool router
+
+          restrict_to_following_tools: Use tool_access_config instead. This field will be deprecated in the future.
+
+          shared_credentials: Shared credentials that will be inherited by connected accounts. For eg: this
+              can be used to share the API key for a tool with all connected accounts using
+              this auth config.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -534,14 +586,17 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
         """
         ...
 
-    @required_args(["credentials", "type"], ["type"])
+    @required_args(["type"])
     async def update(
         self,
         nanoid: str,
         *,
-        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
         type: Literal["custom"] | Literal["default"],
-        proxy_config: auth_config_update_params.Variant0ProxyConfig | Omit = omit,
+        credentials: auth_config_update_params.Variant0Credentials | Omit = omit,
+        is_enabled_for_tool_router: bool | Omit = omit,
+        proxy_config: Optional[auth_config_update_params.Variant0ProxyConfig] | Omit = omit,
+        restrict_to_following_tools: SequenceNotStr[str] | Omit = omit,
+        shared_credentials: Dict[str, Optional[object]] | Omit = omit,
         tool_access_config: auth_config_update_params.Variant0ToolAccessConfig
         | auth_config_update_params.Variant1ToolAccessConfig
         | Omit = omit,
@@ -559,9 +614,12 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
             f"/api/v3/auth_configs/{nanoid}",
             body=await async_maybe_transform(
                 {
-                    "credentials": credentials,
                     "type": type,
+                    "credentials": credentials,
+                    "is_enabled_for_tool_router": is_enabled_for_tool_router,
                     "proxy_config": proxy_config,
+                    "restrict_to_following_tools": restrict_to_following_tools,
+                    "shared_credentials": shared_credentials,
                     "tool_access_config": tool_access_config,
                     "scopes": scopes,
                 },
@@ -602,9 +660,11 @@ class AsyncAuthConfigsResource(AsyncAPIResource):
 
           deprecated_app_id: The app id to filter by
 
+          deprecated_status: DEPRECATED: This parameter will be removed in a future version.
+
           is_composio_managed: Whether to filter by composio managed auth configs
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           search: Search auth configs by name
 

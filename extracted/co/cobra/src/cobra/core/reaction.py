@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 from copy import copy, deepcopy
 from functools import partial
-from math import isinf
+from math import isclose, isinf
 from operator import attrgetter
 from typing import (
     TYPE_CHECKING,
@@ -49,7 +49,7 @@ config = Configuration()
 
 # This regular expression finds any single letter compartment enclosed in
 # square brackets at the beginning of the string. For example [c] : foo --> bar
-compartment_finder = re.compile(r"^\s*(\[[A-Za-z]\])\s*:*")
+compartment_finder = re.compile(r"^\s*\[([A-Za-z])\]\s*:*")
 # Regular expressions to match the arrows
 _reversible_arrow_finder = re.compile("<(-+|=+)>")
 _forward_arrow_finder = re.compile("(-+|=+)>")
@@ -1451,7 +1451,11 @@ class Reaction(Object):
             for element, amount in metabolite.elements.items():
                 reaction_element_dict[element] += coefficient * amount
         # filter out 0 values
-        return {k: v for k, v in reaction_element_dict.items() if v != 0}
+        return {
+            k: v
+            for k, v in reaction_element_dict.items()
+            if not isclose(v, 0.0, abs_tol=config.tolerance)
+        }
 
     @property
     def compartments(self) -> Set:
@@ -1573,7 +1577,7 @@ class Reaction(Object):
             compartment = found_compartments[0]
             reaction_str = compartment_finder.sub("", reaction_str)
         else:
-            compartment = ""
+            compartment = None
 
         # reversible case
         arrow_match = reversible_arrow_finder.search(reaction_str)
@@ -1609,13 +1613,14 @@ class Reaction(Object):
                 else:
                     met_id = term
                     num = factor
-                met_id += compartment
+                if compartment is not None:
+                    met_id += f"[{compartment}]"
                 try:
                     met = model.metabolites.get_by_id(met_id)
                 except KeyError:
                     if verbose:
                         print(f"unknown metabolite '{met_id}' created")
-                    met = Metabolite(met_id)
+                    met = Metabolite(met_id, compartment=compartment)
                 self.add_metabolites({met: num})
 
     def summary(
@@ -1678,25 +1683,30 @@ class Reaction(Object):
         return f"""
         <table>
             <tr>
-                <td><strong>Reaction identifier</strong></td><td>{format_long_string(
-            self.id, 100)}</td>
+                <td><strong>Reaction identifier</strong></td><td>
+                    {format_long_string(self.id, 100)}
+                </td>
             </tr><tr>
-                <td><strong>Name</strong></td><td>{format_long_string(
-            self.name, 100)}</td>
+                <td><strong>Name</strong></td><td>
+                    {format_long_string(self.name, 100)}
+                </td>
             </tr><tr>
                 <td><strong>Memory address</strong></td>
                 <td>{f"{id(self):#x}"}</td>
             </tr><tr>
                 <td><strong>Stoichiometry</strong></td>
                 <td>
-                    <p style='text-align:right'>{format_long_string(
-            self.build_reaction_string(), 200)}</p>
-                    <p style='text-align:right'>{format_long_string(
-            self.build_reaction_string(True), 200)}</p>
+                    <p style='text-align:right'>
+                        {format_long_string(self.build_reaction_string(), 200)}
+                    </p>
+                    <p style='text-align:right'>
+                        {format_long_string(self.build_reaction_string(True), 200)}
+                    </p>
                 </td>
             </tr><tr>
-                <td><strong>GPR</strong></td><td>{format_long_string(
-            self.gene_reaction_rule, 100)}</td>
+                <td><strong>GPR</strong></td><td>
+                    {format_long_string(self.gene_reaction_rule, 100)}
+                </td>
             </tr><tr>
                 <td><strong>Lower bound</strong></td><td>{self.lower_bound}</td>
             </tr><tr>

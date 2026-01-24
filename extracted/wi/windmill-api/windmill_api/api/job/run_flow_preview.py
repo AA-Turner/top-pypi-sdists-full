@@ -16,6 +16,7 @@ def _get_kwargs(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
+    memory_id: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -25,6 +26,8 @@ def _get_kwargs(
     params["invisible_to_owner"] = invisible_to_owner
 
     params["job_id"] = job_id
+
+    params["memory_id"] = memory_id
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -64,6 +67,7 @@ def sync_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
+    memory_id: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """run flow preview
 
@@ -72,6 +76,7 @@ def sync_detailed(
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
+        memory_id (Union[Unset, None, str]):
         json_body (RunFlowPreviewJsonBody):
 
     Raises:
@@ -88,6 +93,7 @@ def sync_detailed(
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
         job_id=job_id,
+        memory_id=memory_id,
     )
 
     response = client.get_httpx_client().request(
@@ -105,6 +111,7 @@ async def asyncio_detailed(
     include_header: Union[Unset, None, str] = UNSET,
     invisible_to_owner: Union[Unset, None, bool] = UNSET,
     job_id: Union[Unset, None, str] = UNSET,
+    memory_id: Union[Unset, None, str] = UNSET,
 ) -> Response[Any]:
     """run flow preview
 
@@ -113,6 +120,7 @@ async def asyncio_detailed(
         include_header (Union[Unset, None, str]):
         invisible_to_owner (Union[Unset, None, bool]):
         job_id (Union[Unset, None, str]):
+        memory_id (Union[Unset, None, str]):
         json_body (RunFlowPreviewJsonBody):
 
     Raises:
@@ -129,6 +137,7 @@ async def asyncio_detailed(
         include_header=include_header,
         invisible_to_owner=invisible_to_owner,
         job_id=job_id,
+        memory_id=memory_id,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

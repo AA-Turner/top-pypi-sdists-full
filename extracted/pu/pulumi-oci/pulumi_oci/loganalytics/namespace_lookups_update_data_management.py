@@ -28,11 +28,12 @@ class NamespaceLookupsUpdateDataManagementArgs:
         """
         The set of arguments for constructing a NamespaceLookupsUpdateDataManagement resource.
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request. 
+        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
                
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        :param pulumi.Input[_builtins.str] update_lookup_file: Path to the file containing data for the lookup update.
         :param pulumi.Input[_builtins.str] char_encoding: The character encoding of the uploaded file.
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
@@ -63,7 +64,7 @@ class NamespaceLookupsUpdateDataManagementArgs:
     @pulumi.getter
     def namespace(self) -> pulumi.Input[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request. 
+        The Logging Analytics namespace used for the request.
 
 
         ** IMPORTANT **
@@ -78,6 +79,9 @@ class NamespaceLookupsUpdateDataManagementArgs:
     @_builtins.property
     @pulumi.getter(name="updateLookupFile")
     def update_lookup_file(self) -> pulumi.Input[_builtins.str]:
+        """
+        Path to the file containing data for the lookup update.
+        """
         return pulumi.get(self, "update_lookup_file")
 
     @update_lookup_file.setter
@@ -136,11 +140,12 @@ class _NamespaceLookupsUpdateDataManagementState:
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request. 
+        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
                
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        :param pulumi.Input[_builtins.str] update_lookup_file: Path to the file containing data for the lookup update.
         """
         if char_encoding is not None:
             pulumi.set(__self__, "char_encoding", char_encoding)
@@ -207,7 +212,7 @@ class _NamespaceLookupsUpdateDataManagementState:
     @pulumi.getter
     def namespace(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        The Logging Analytics namespace used for the request. 
+        The Logging Analytics namespace used for the request.
 
 
         ** IMPORTANT **
@@ -222,6 +227,9 @@ class _NamespaceLookupsUpdateDataManagementState:
     @_builtins.property
     @pulumi.getter(name="updateLookupFile")
     def update_lookup_file(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Path to the file containing data for the lookup update.
+        """
         return pulumi.get(self, "update_lookup_file")
 
     @update_lookup_file.setter
@@ -243,9 +251,24 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
                  update_lookup_file: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Namespace Lookups Update Data Management resource in Oracle Cloud Infrastructure Log Analytics service.
+        ## Example Usage
 
-        Updates the lookup content. The csv file containing the content to be updated is passed in as binary data in the request.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_namespace_lookups_update_data_management = oci.loganalytics.NamespaceLookupsUpdateDataManagement("test_namespace_lookups_update_data_management",
+            update_lookup_file=namespace_lookups_update_data_management_update_lookup_file,
+            lookup_name=namespace_lookups_update_data_management_lookup_name,
+            namespace=namespace_lookups_update_data_management_namespace,
+            char_encoding=namespace_lookups_update_data_management_char_encoding,
+            expect=namespace_lookups_update_data_management_expect,
+            is_force=namespace_lookups_update_data_management_is_force)
+        ```
+
+        ## Import
+
+        Import is not supported for NamespaceLookupsUpdateDataManagement
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -253,11 +276,12 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request. 
+        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
                
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        :param pulumi.Input[_builtins.str] update_lookup_file: Path to the file containing data for the lookup update.
         """
         ...
     @overload
@@ -266,9 +290,24 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
                  args: NamespaceLookupsUpdateDataManagementArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Namespace Lookups Update Data Management resource in Oracle Cloud Infrastructure Log Analytics service.
+        ## Example Usage
 
-        Updates the lookup content. The csv file containing the content to be updated is passed in as binary data in the request.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_namespace_lookups_update_data_management = oci.loganalytics.NamespaceLookupsUpdateDataManagement("test_namespace_lookups_update_data_management",
+            update_lookup_file=namespace_lookups_update_data_management_update_lookup_file,
+            lookup_name=namespace_lookups_update_data_management_lookup_name,
+            namespace=namespace_lookups_update_data_management_namespace,
+            char_encoding=namespace_lookups_update_data_management_char_encoding,
+            expect=namespace_lookups_update_data_management_expect,
+            is_force=namespace_lookups_update_data_management_is_force)
+        ```
+
+        ## Import
+
+        Import is not supported for NamespaceLookupsUpdateDataManagement
 
         :param str resource_name: The name of the resource.
         :param NamespaceLookupsUpdateDataManagementArgs args: The arguments to use to populate this resource's properties.
@@ -339,11 +378,12 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] expect: A value of `100-continue` requests preliminary verification of the request method, path, and headers before the request body is sent. If no error results from such verification, the server will send a 100 (Continue) interim response to indicate readiness for the request body. The only allowed value for this parameter is "100-Continue" (case-insensitive).
         :param pulumi.Input[_builtins.bool] is_force: is force
         :param pulumi.Input[_builtins.str] lookup_name: The name of the lookup to operate on.
-        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request. 
+        :param pulumi.Input[_builtins.str] namespace: The Logging Analytics namespace used for the request.
                
                
                ** IMPORTANT **
                Any change to a property that does not support update will force the destruction and recreation of the resource with the new property values
+        :param pulumi.Input[_builtins.str] update_lookup_file: Path to the file containing data for the lookup update.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -393,7 +433,7 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
     @pulumi.getter
     def namespace(self) -> pulumi.Output[_builtins.str]:
         """
-        The Logging Analytics namespace used for the request. 
+        The Logging Analytics namespace used for the request.
 
 
         ** IMPORTANT **
@@ -404,5 +444,8 @@ class NamespaceLookupsUpdateDataManagement(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="updateLookupFile")
     def update_lookup_file(self) -> pulumi.Output[_builtins.str]:
+        """
+        Path to the file containing data for the lookup update.
+        """
         return pulumi.get(self, "update_lookup_file")
 

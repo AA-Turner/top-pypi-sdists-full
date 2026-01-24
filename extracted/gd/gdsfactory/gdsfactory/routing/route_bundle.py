@@ -20,6 +20,7 @@ from warnings import warn
 
 import kfactory as kf
 from kfactory.routing.generic import ManhattanRoute
+from kfactory.routing.optical import PathLengthConfig
 
 import gdsfactory as gf
 from gdsfactory.routing.auto_taper import add_auto_tapers
@@ -123,6 +124,8 @@ def route_bundle(
     layer_transitions: LayerTransitions | None = None,
     layer_marker: LayerSpec | None = None,
     raise_on_error: bool = False,
+    path_length_matching_config: PathLengthConfig | None = None,
+    layer_label: LayerSpec | None = None,
 ) -> list[ManhattanRoute]:
     """Places a bundle of routes to connect two groups of ports.
 
@@ -163,6 +166,7 @@ def route_bundle(
         layer_transitions: dictionary of layer transitions to use for the routing when auto_taper=True.
         layer_marker: layers to place markers on the route.
         raise_on_error: if True, raises an exception on routing error instead of adding error markers.
+        layer_label: layer to place length labels on the route.
 
     .. plot::
         :include-source:
@@ -187,6 +191,9 @@ def route_bundle(
         gf.routing.route_bundle(component=c, ports1=ports1, ports2=ports2, cross_section='strip', separation=5)
         c.plot()
     """
+    component = gf.Component(base=component.base)  # type: ignore[call-overload]
+    ports1 = [gf.Port(base=p1.base) for p1 in ports1]
+    ports2 = [gf.Port(base=p2.base) for p2 in ports2]
 
     if router:
         warnings.warn(
@@ -214,8 +221,8 @@ def route_bundle(
     if cross_section is None:
         cross_section = partial(
             gf.cross_section.cross_section,
-            layer=cast(LayerSpec, layer),
-            width=cast(float, route_width),
+            layer=cast("LayerSpec", layer),
+            width=cast("float", route_width),
             port_names=("e1", "e2") if port_type == "electrical" else ("o1", "o2"),
             port_types=(port_type, port_type),
         )
@@ -379,10 +386,17 @@ def route_bundle(
             waypoints=waypoints_,
             end_angles=end_angles,
             start_angles=start_angles,
+            path_length_matching_config=path_length_matching_config,
         )
     except Exception as e:
+        if "kdb.Trans" in str(e):
+            e = ValueError("You need at least 2 waypoints or steps.")
+        elif "non-manhattan" in str(e):
+            e = ValueError("Waypoints need to be Manhattan (axis-aligned) coordinates.")
+
         if raise_on_error:
-            raise e
+            raise
+
         gf.logger.error(f"Error in route_bundle: {e}")
         layer_error_path = gf.get_layer_info(gf.CONF.layer_error_path)
         route = kf.routing.electrical.route_bundle(
@@ -408,6 +422,14 @@ def route_bundle(
                     size=(10, 10), layer=layer_marker, centered=True
                 )
                 marker.center = (p.x, p.y)
+
+    if layer_label:
+        for route_i in route:
+            c.add_label(
+                text=f"{route_i.length:.3f}",
+                layer=layer_label,
+                position=route_i.instances[0].dcenter,
+            )
 
     return route
 

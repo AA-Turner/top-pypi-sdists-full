@@ -8,8 +8,8 @@ except ImportError:
 
 from distutils.spawn import find_executable
 
-VERSION = '2.15.3'
-ICU_MAX_MAJOR_VERSION = '77'  # max supported major version of ICU
+VERSION = '2.16'
+ICU_MAX_MAJOR_VERSION = '78'  # max supported major version of ICU
 
 try:
     from subprocess import check_output as subprocess_check_output

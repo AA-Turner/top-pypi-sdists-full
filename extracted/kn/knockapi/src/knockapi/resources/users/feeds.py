@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import List
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -56,7 +55,7 @@ class FeedsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FeedGetSettingsResponse:
         """
         Returns the feed settings for a user.
@@ -87,22 +86,23 @@ class FeedsResource(SyncAPIResource):
         user_id: str,
         id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        archived: Literal["exclude", "include", "only"] | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        has_tenant: bool | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
-        source: str | NotGiven = NOT_GIVEN,
-        status: Literal["unread", "read", "unseen", "seen", "all"] | NotGiven = NOT_GIVEN,
-        tenant: str | NotGiven = NOT_GIVEN,
-        trigger_data: str | NotGiven = NOT_GIVEN,
-        workflow_categories: List[str] | NotGiven = NOT_GIVEN,
+        after: str | Omit = omit,
+        archived: Literal["exclude", "include", "only"] | Omit = omit,
+        before: str | Omit = omit,
+        has_tenant: bool | Omit = omit,
+        locale: str | Omit = omit,
+        page_size: int | Omit = omit,
+        source: str | Omit = omit,
+        status: Literal["unread", "read", "unseen", "seen", "all"] | Omit = omit,
+        tenant: str | Omit = omit,
+        trigger_data: str | Omit = omit,
+        workflow_categories: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncEntriesCursor[FeedListItemsResponse]:
         """
         Returns a paginated list of feed items for a user in reverse chronological
@@ -128,6 +128,11 @@ class FeedsResource(SyncAPIResource):
           before: The cursor to fetch entries before.
 
           has_tenant: Whether the feed items have a tenant.
+
+          locale: The locale to render the feed items in. Must be in the IETF 5646 format (e.g.
+              `en-US`). When not provided, will default to the locale that the feed items were
+              rendered in. Only available for enterprise plan customers using custom
+              translations.
 
           page_size: The number of items per page (defaults to 50).
 
@@ -167,6 +172,7 @@ class FeedsResource(SyncAPIResource):
                         "archived": archived,
                         "before": before,
                         "has_tenant": has_tenant,
+                        "locale": locale,
                         "page_size": page_size,
                         "source": source,
                         "status": status,
@@ -211,7 +217,7 @@ class AsyncFeedsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FeedGetSettingsResponse:
         """
         Returns the feed settings for a user.
@@ -242,22 +248,23 @@ class AsyncFeedsResource(AsyncAPIResource):
         user_id: str,
         id: str,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        archived: Literal["exclude", "include", "only"] | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        has_tenant: bool | NotGiven = NOT_GIVEN,
-        page_size: int | NotGiven = NOT_GIVEN,
-        source: str | NotGiven = NOT_GIVEN,
-        status: Literal["unread", "read", "unseen", "seen", "all"] | NotGiven = NOT_GIVEN,
-        tenant: str | NotGiven = NOT_GIVEN,
-        trigger_data: str | NotGiven = NOT_GIVEN,
-        workflow_categories: List[str] | NotGiven = NOT_GIVEN,
+        after: str | Omit = omit,
+        archived: Literal["exclude", "include", "only"] | Omit = omit,
+        before: str | Omit = omit,
+        has_tenant: bool | Omit = omit,
+        locale: str | Omit = omit,
+        page_size: int | Omit = omit,
+        source: str | Omit = omit,
+        status: Literal["unread", "read", "unseen", "seen", "all"] | Omit = omit,
+        tenant: str | Omit = omit,
+        trigger_data: str | Omit = omit,
+        workflow_categories: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FeedListItemsResponse, AsyncEntriesCursor[FeedListItemsResponse]]:
         """
         Returns a paginated list of feed items for a user in reverse chronological
@@ -283,6 +290,11 @@ class AsyncFeedsResource(AsyncAPIResource):
           before: The cursor to fetch entries before.
 
           has_tenant: Whether the feed items have a tenant.
+
+          locale: The locale to render the feed items in. Must be in the IETF 5646 format (e.g.
+              `en-US`). When not provided, will default to the locale that the feed items were
+              rendered in. Only available for enterprise plan customers using custom
+              translations.
 
           page_size: The number of items per page (defaults to 50).
 
@@ -322,6 +334,7 @@ class AsyncFeedsResource(AsyncAPIResource):
                         "archived": archived,
                         "before": before,
                         "has_tenant": has_tenant,
+                        "locale": locale,
                         "page_size": page_size,
                         "source": source,
                         "status": status,

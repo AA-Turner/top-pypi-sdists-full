@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 NOTICE (mlin 2023-03-06): this script derives the Python package version number
 based on the git history/tags. It also stores that info in a RELEASE-VERSION
@@ -68,25 +66,24 @@ __license__ = "This file is placed into the public domain."
 __maintainer__ = "Michal Nazarewicz"
 __email__ = "mina86@mina86.com"
 
-__all__ = "getVersion"
+__all__ = ("get_version",)
 
 
+import pathlib
 import re
 import shlex
 import sys
 from datetime import date
-from os.path import basename, dirname, join, relpath
+from os.path import join, relpath
 from subprocess import DEVNULL, CalledProcessError, check_output
 
 GIT_RELPATH = "apis/python/version.py"
-RELEASE_VERSION_FILE = join(dirname(__file__), "RELEASE-VERSION")
+RELEASE_VERSION_FILE = join(pathlib.Path(__file__).parent, "RELEASE-VERSION")
 
 # http://www.python.org/dev/peps/pep-0386/
 _PEP386_SHORT_VERSION_RE = r"\d+(?:\.\d+)+(?:(?:[abc]|rc)\d+(?:\.\d+)*)?"
-_PEP386_VERSION_RE = r"^%s(?:\.post\d+)?(?:\.dev\d+)?$" % _PEP386_SHORT_VERSION_RE
-_GIT_DESCRIPTION_RE = (
-    r"^(?P<ver>%s)-(?P<commits>\d+)-g(?P<sha>[\da-f]+)$" % _PEP386_SHORT_VERSION_RE
-)
+_PEP386_VERSION_RE = rf"^{_PEP386_SHORT_VERSION_RE}(?:\.post\d+)?(?:\.dev\d+)?$"
+_GIT_DESCRIPTION_RE = rf"^(?P<ver>{_PEP386_SHORT_VERSION_RE})-(?P<commits>\d+)-g(?P<sha>[\da-f]+)$"
 
 
 def err(*args, **kwargs):
@@ -94,9 +91,7 @@ def err(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def lines(
-    *cmd, drop_trailing_newline: bool = True, stderr=DEVNULL, **kwargs
-) -> list[str] | None:
+def lines(*cmd, drop_trailing_newline: bool = True, stderr=DEVNULL, **kwargs) -> list[str] | None:
     """Run a command, return its stdout as a list of lines.
 
     Strip each line's trailing newline, and drop the last line if it's empty, by default.
@@ -104,10 +99,7 @@ def lines(
     If `CalledProcessError` is raised, return `None`.
     """
     try:
-        lns = [
-            ln.rstrip("\n")
-            for ln in check_output(cmd, stderr=stderr, **kwargs).decode().splitlines()
-        ]
+        lns = [ln.rstrip("\n") for ln in check_output(cmd, stderr=stderr, **kwargs).decode().splitlines()]
     except CalledProcessError:
         return None
     if lns and drop_trailing_newline and not lns[-1]:
@@ -156,20 +148,16 @@ def get_default_remote() -> str | None:
     - Otherwise, if there's only one remote, use that
     - Otherwise, return `None`
     """
-    tracked_branch = line(
-        "git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"
-    )
+    tracked_branch = line("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
     if tracked_branch:
         tracked_remote = tracked_branch.split("/")[0]
         err(f"Parsed tracked remote {tracked_remote} from branch {tracked_branch}")
         return tracked_remote
-    else:
-        remote = line("git", "remote")
-        if remote:
-            err(f"Checking tags at default/only remote {remote}")
-            return remote
-        else:
-            return None
+    remote = line("git", "remote")
+    if remote:
+        err(f"Checking tags at default/only remote {remote}")
+        return remote
+    return None
 
 
 def get_git_version() -> str | None:
@@ -224,9 +212,7 @@ def get_git_version() -> str | None:
                 if not latest_tag:
                     err(f"Failed to find tags in remote {remote}")
                     return None
-                err(
-                    f"Git traversal returned {ver}, using latest tag {latest_tag} from tracked remote {remote}"
-                )
+                err(f"Git traversal returned {ver}, using latest tag {latest_tag} from tracked remote {remote}")
             else:
                 err("Failed to find a suitable remote for tag traversal")
                 return None
@@ -234,16 +220,13 @@ def get_git_version() -> str | None:
         sha_base10 = get_sha_base10()
         if sha_base10:
             return f"{latest_tag}.post0.dev{sha_base10}"
-        else:
-            err("Failed to find current SHA")
-            return None
-    else:
-        commits = int(m.group("commits"))
-        if commits:
-            sha_base10 = int(m.group("sha"), 16)
-            return f"{ver}.post{commits}.dev{sha_base10}"
-        else:
-            return ver
+        err("Failed to find current SHA")
+        return None
+    commits = int(m.group("commits"))
+    if commits:
+        sha_base10 = int(m.group("sha"), 16)
+        return f"{ver}.post{commits}.dev{sha_base10}"
+    return ver
 
 
 def read_release_version() -> str | None:
@@ -251,10 +234,7 @@ def read_release_version() -> str | None:
         with open(RELEASE_VERSION_FILE) as fd:
             ver = fd.readline().strip()
         if not re.search(_PEP386_VERSION_RE, ver):
-            err(
-                "version: release version (%s) is invalid, "
-                "will use it anyway\n" % ver,
-            )
+            err(f"version: release version ({ver}) is invalid, will use it anyway\n")
         return ver
     except FileNotFoundError:
         return None
@@ -277,9 +257,7 @@ def get_version():
         version = release_version
     if not version:
         version = generate_cal_version()
-        err(
-            f"No {basename(RELEASE_VERSION_FILE)} or Git version found, using calver {version}"
-        )
+        err(f"No {pathlib.Path(RELEASE_VERSION_FILE).name} or Git version found, using calver {version}")
     if version != release_version:
         write_release_version(version)
     return version

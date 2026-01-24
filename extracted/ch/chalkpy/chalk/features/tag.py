@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Sequence, Union
-
-from typing_extensions import TypeAlias
+from typing import Sequence, TypeAlias, Union
 
 Tags: TypeAlias = Union[str, Sequence[str]]
 """

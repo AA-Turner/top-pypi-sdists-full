@@ -1,0 +1,462 @@
+#:tombi schema.strict = false
+
+[project]
+name = "llmling-agent"
+version = "1.17.1"
+description = "Pydantic-AI based Multi-Agent Framework with YAML-based Agents, Teams, Workflows & Extended ACP / AGUI integration"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Philipp Temminghoff", email = "philipptemminghoff@googlemail.com" },
+]
+keywords = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Framework :: Pydantic",
+  "Framework :: Pydantic :: 2",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Documentation",
+  "Topic :: Internet",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Utilities",
+  "Typing :: Typed",
+]
+dependencies = [
+  "anyenv[httpx]>=0.3.0",
+  "docler>=1.0.3",
+  "docstring-parser>=0.17.0",
+  "epregistry",
+  "evented>=1.0.5",
+  "exxec>=0.1.0",
+  "fastmcp>=2.12.4",
+  "fsspec",
+  "httpx",
+  "jinja2",
+  "jinjarope",
+  "llmling-models>=0.2.0",
+  "logfire",
+  "mcp>=1.2.0",
+  "platformdirs",
+  "promptantic>=0.4.5",
+  "psygnal>=0.11.1",
+  "pydantic>=2.10.0",
+  "pydantic-ai-slim>=1.0.0",
+  # Only add below (Copier)
+  "python-dotenv>=1.0.1",
+  "rich",
+  "schemez[codegen]",
+  # "schemez @ file:///home/phil65/dev/oss/schemez",
+  "searchly[all]>=2.0.1",
+  "slashed>=0.1.0",
+  "sqlalchemy[aiosqlite]",
+  "sqlmodel>=0.0.22",
+  "structlog>=25.5.0",
+  "tokonomics>=0.1.2",
+  "toprompt>=0.0.1",
+  "typer",
+  "upathtools>=0.1.0",
+  "yamling>=2.0.2",
+]
+
+[project.urls]
+"Code coverage" = "https://app.codecov.io/gh/phil65/llmling-agent"
+Discussions = "https://github.com/phil65/llmling-agent/discussions"
+Documentation = "https://phil65.github.io/llmling-agent/"
+Issues = "https://github.com/phil65/llmling-agent/issues"
+Source = "https://github.com/phil65/llmling-agent"
+
+[project.scripts]
+acp-bridge = "acp.bridge.__main__:main"
+llmling-agent = "llmling_agent.__main__:cli"
+llmling-agent-db = "llmling_agent_storage.sql_provider.cli:main"
+
+[project.entry-points."fsspec.specs"]
+acp = "acp.filesystem:ACPFileSystem"
+
+[project.entry-points."jinjarope.environment"]
+llmling_agent = "llmling_agent.utils:setup_env"
+
+[project.entry-points."universal_pathlib.implementations"]
+acp = "acp.filesystem:ACPPath"
+
+[project.optional-dependencies]
+a2a = ["fasta2a", "starlette"]  # A2A Server
+ag-ui = ["ag-ui-protocol>=0.1.10"]  # Ag-UI Agents
+braintrust = ["braintrust", "autoevals"]  # Braintrust Prompt Hub
+claude = ["claude-agent-sdk>=0.1.18"]
+clipboard = ["clipman"]  # Clipboard functionality
+coding = [
+  "rustworkx>=0.17.1",
+  "grep-ast",
+  "ast-grep-py>=0.40.0",
+  "tree-sitter>=0.25.2",
+  "tree-sitter-python>=0.25.0",
+  "tree-sitter-c>=0.24.1",
+  "tree-sitter-javascript>=0.25.0",
+  "tree-sitter>=0.25.2",
+  "tree-sitter-typescript>=0.23.0",
+  "tree-sitter-cpp>=0.23.0",
+  "tree-sitter-rust>=0.23.0",
+  "tree-sitter-go>=0.23.0",
+  "tree-sitter-json>=0.24.0",
+  "tree-sitter-yaml>=0.6.0",
+]  # Packages to allow coding functionality
+composio = ["composio"]  # Composio toolsets
+default = [
+  "pydantic-ai-slim[openai,google,anthropic,mistral,retries]>=1.0.0",
+]  # Set of commonly used AI providers
+events = ["evented[all]"]  # Event triggers for agents
+git = ["fsspec[git]"]  # Git support
+langfuse = ["langfuse"]  # Langfuse Prompt Hub
+markitdown = [
+  "markitdown; python_version < '3.14'"
+]  # MarkItDown Media Converter
+mcp_run = ["mcpx-py>=0.7.0"]  # MCP.run Toolset
+memory = ["typeagent>=0.3.3"]  # TypeAgent semantic knowledge DB
+notifications = ["apprise>=1.9.5"]  # Notification Toolset
+oauth = [
+  "keyring>=25.6.0"
+]  # OAuth functionality (will be fixed dep for FastMCP >2.13)
+promptlayer = ["promptlayer"]  # PromptLayer Prompt Hub
+server = [
+  "logfire[fastapi]",
+  "fastapi",
+  "uvicorn[standard]"
+]  # OpenAI Server functionality
+textual = ["textual>=1.0.0"]  # Textual CLI app to create configs
+tiktoken = ["tiktoken"]  # Exact token counting
+tts = [
+  "openai>=1.0.0",
+  "sounddevice>=0.5.0",
+  "numpy>=1.24.0"
+]  # Text-to-Speech with OpenAI
+tts-edge = [
+  "edge-tts>=7.0.0",
+  "miniaudio>=1.60",
+  "sounddevice>=0.5.0",
+]  # Text-to-Speech with Edge TTS (free, no API key)
+
+[dependency-groups]
+dev = [
+  "alembic>=1.16.5",
+  "check-jsonschema>=0.35.0",
+  "devtools",
+  "openapi_spec_validator",
+  "pyinstaller>=6.17.0",
+  "pyreadline3",
+  "pytest",
+  # Only add below (Copier)
+  "pytest-asyncio>=0.24.0",
+  "pytest-cov",
+  "pytest-rerunfailures>=16.1",
+  "pytest-xdist",
+  "syrupy>=4.0.0",
+]
+benchmark = ["pyinstrument"]
+docs = [
+  "beautifulsoup4>=4.14.3",
+  "json-schema-for-humans>=1.0.0",
+  "mkdocs-material",
+  "mknodes",
+  # Only add below (Copier)
+]
+lint = [
+  "mypy[faster-cache]",
+  "ruff",
+  "types-PyYAML",
+  "types-Pygments",
+  "types-jsonschema>=4.25.1.20251009",
+  # Only add below (Copier)
+]
+
+[build-system]
+requires = ["uv_build>=0.8.22"]
+build-backend = "uv_build"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+parallel = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "@overload",
+  "except ImportError",
+  'if __name__ == "__main__":',
+]
+show_missing = true
+skip_covered = true
+
+[tool.logfire]
+ignore_no_config = true
+
+[tool.mknodes]
+allowed-commit-types = [
+  "fix",
+  "feat",
+  "refactor",
+  "docs",
+  "test",
+  "build",
+  "chore",
+]
+docstring-style = "google"
+
+[tool.mypy]
+python_version = "3.13"
+pretty = true
+strict = true
+check_untyped_defs = true
+exclude = ["venv/", ".venv/"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+disable_error_code = [
+  "no-untyped-def",
+  "no-untyped-call",
+  "no-any-return",
+  "unused-ignore"
+]
+
+[[tool.mypy.overrides]]
+module = ["fsspec.*"]
+ignore_missing_imports = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+pythonPlatform = "All"
+typeCheckingMode = "basic"
+deprecateTypingAliases = true
+reportMissingTypeStubs = false
+reportUnusedCallResult = false
+reportUnknownVariableType = false
+reportAny = false
+reportImplicitOverride = false
+reportUnusedFunction = false
+reportImplicitStringConcatenation = false
+reportIgnoreCommentWithoutRule = false
+reportUnannotatedClassAttribute = false
+reportSelfClsParameterName = false
+reportPrivateImportUsage = false
+reportUnusedExpression = false
+
+[tool.pytest]
+addopts = ["-m", "not slow and not acp_cli_snapshot"]
+filterwarnings = [
+  "ignore::DeprecationWarning:psygnal.*",
+  "ignore::DeprecationWarning:pydantic.*:",
+  "ignore::DeprecationWarning:typer.*",
+]
+log_cli = true
+log_date_format = "%Y-%m-%d %H:%M:%S"
+log_format = "%(asctime)s %(levelname)s %(message)s"
+log_level = "ERROR"
+markers = [
+  "acp_cli_snapshot: marks tests as ACP CLI snapshot tests (excluded by default)",
+  "asyncio: mark test as async",
+  "integration: marks tests as integration tests",
+  "slow: marks tests as slow",
+  "unit: marks tests as unit tests",
+]
+minversion = "9.0"
+python_files = ["test_*.py"]
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+extend-exclude = ["docs"]
+target-version = "py313"
+
+[tool.ruff.lint]
+future-annotations = true
+select = [
+  "A",  # Flake8-builtins
+  # "ANN",  # Flake8-Annotations
+  # "ASYNC",  # Flake8-Async
+  # "ARG",  # # Flake8-Unused-Arguments
+  "B",  # flake8-bugbear
+  "BLE",  # Flake8-blind-except
+  "C",
+  "C4",  # flake8-comprehensions
+  # "C90",  # MCCabe
+  "COM",  # Flake8-commas
+  # "CPY",  #  Copyright-related rules
+  "D",  # PyDocStyle
+  # "DTZ",  # Flake8- Datetimez
+  "E",  # PyCodeStyle Error
+  "EM",  # flake8-errmsg
+  # "ERA",  #  Eradicate
+  "EXE",  # flake8-executable
+  "F",  # PyFlakes
+  "FA",  # flake8-future-annotations
+  # "FBT",  # flake8-boolean-trap
+  # "FIX",  # flake8-fixme
+  "FLY",  # flynt
+  "G",  # flake8-logging-format
+  "I",  # ISort
+  "ICN",  # Flake8-import-conventions
+  "INP",  # flake8-no-pep420
+  "INT",  # flake8-gettext
+  "ISC",  # flake8-implicit-str-concat
+  "N",  # pep8-naming
+  # "NPY",  # numpy-specific rules
+  # "PD",   # pandas-vet
+  "PERF",  # perflint
+  # "PGH",  # pygrep-hooks
+  "PIE",  # flake8-pie
+  "PLE",  # PyLint Error
+  "PLC",  # PyLint convention
+  "PLW",  # PyLint Warning
+  "PLR",  # PyLint refactor
+  "PT",  # flake8-pytest-style
+  "PTH",  # flake8-use-pathlib
+  "PYI",  # flake8-pyi
+  "Q",  # flake8-quotes
+  "RET",  # flake8-return
+  "RSE",  # flake8-raise
+  "RUF",  # ruff-specific rules
+  # "S",    # flake8-bandit
+  "SIM",  # flake8-simplify
+  "SLF",  # flake8-self
+  "SLOT",  # flake8-slots
+  # "T",
+  # "TD",   # flake8-todos
+  "T10",  # flake8-debugger
+  # "T20",  # flake8-print
+  "TC",  # flake8-type-checking
+  "TID",  # flake8-tidy-imports
+  "TRY",  # tryceratops
+  "UP",  # PyUpgrade
+  "W",  # PyCodeStyle warning
+  "YTT",  # flake8-2020
+]
+ignore = [
+  "C408",  # Unnecessary {obj_type} call (rewrite as a literal)
+  "C901",  # {name} is too complex ({complexity} > {max_complexity})
+  "COM812",
+  # "CPY001", # Missing copyright notice at top of file
+  "D100",  # Missing docstring in public module
+  "D102",  # Missing docstring in public method
+  "D103",  # Missing docstring in public function
+  "D105",  # Missing docstring in magic method
+  "D107",  # Missing docstring in __init__
+  "D203",  # 1 blank line required before class docstring
+  "D204",  # 1 blank line required after class docstring
+  "D213",  # Multi-line docstring summary should start at the second line
+  "D401",  # First line of docstring should be in imperative mood: "{first_line}"
+  "D408",  # Section underline should be in the line following the section's name ("{name}")
+  "D413",  # Missing blank line after last section ("{name}")
+  "EM101",  # Exception must not use a string literal, assign to variable first
+  "EM102",  # Exception must not use an f-string literal, assign to variable first
+  "ISC001",
+  "PLC0415",
+  "PLR0912",  # Too many branches
+  "PLR0913",  # Too many arguments to function call
+  # "PLR2004", # Magic values instead of named consts
+  "SLF001",  # Private member accessed
+  "TRY003",  # Avoid specifying long messages outside the exception class
+  "TC006",  # runtime-cast-value
+]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+  "pydantic.BaseModel",
+  "sqlalchemy.orm.DeclarativeBase",
+  "schemez.Schema",
+  "acp.base.Schema",
+  "sqlmodel.SQLModel",
+]
+runtime-evaluated-decorators = [
+  "pydantic.validate_call",
+  "fastapi.FastAPI.get",
+  "fastapi.FastAPI.post",
+  "fastmcp.FastMCP.tool",
+  "typer.Typer.command",
+]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+# lines-between-types = 1
+# atomic = true
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402", "I001"]
+"scripts/*" = ["INP001"]
+"*tests/*" = ["D100"]
+"docs/examples/**/*.py" = [
+  "TC001",
+]  # Examples don't need TYPE_CHECKING imports
+
+[tool.ruff.format]
+preview = true
+
+[tool.ty.environment]
+python-version = "3.13"
+python-platform = "all"
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+
+[tool.uv]
+default-groups = ["dev", "lint", "docs"]
+constraint-dependencies = ["extism-sys<1.13.0"]
+
+[tool.uv.build-backend]
+module-name = [
+  "llmling_agent",
+  "llmling_agent_config",
+  "llmling_agent_cli",
+  "llmling_agent_commands",
+  "llmling_agent_storage",
+  "llmling_agent_prompts",
+  "llmling_agent_server",
+  "llmling_agent_toolsets",
+  "acp",
+]
+wheel-exclude = [
+  ".mypy_cache/**",
+  "__pycache__/**",
+  "*.pyc",
+  "*.pyo",
+  ".pytest_cache/**",
+  ".ruff_cache/**",
+]
+source-exclude = [
+  ".mypy_cache/**",
+  "__pycache__/**",
+  "*.pyc",
+  "*.pyo",
+  ".pytest_cache/**",
+  ".ruff_cache/**",
+]
+
+# [tool.uv.sources]
+# schemez = { path = "../schemez", editable = true }

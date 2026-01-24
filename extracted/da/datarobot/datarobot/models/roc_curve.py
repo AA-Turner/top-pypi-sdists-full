@@ -65,9 +65,7 @@ class RocCurveThresholdMixin:  # pylint: disable=missing-class-docstring
             roc_points_with_bigger_threshold = [
                 roc_point for roc_point in self.roc_points if roc_point["threshold"] > threshold
             ]
-            estimated_roc_point = sorted(
-                roc_points_with_bigger_threshold, key=lambda rp: rp["threshold"]
-            )[0]
+            estimated_roc_point = sorted(roc_points_with_bigger_threshold, key=lambda rp: rp["threshold"])[0]
         return estimated_roc_point
 
     def get_best_f1_threshold(self) -> float:
@@ -85,44 +83,39 @@ class RocCurveThresholdMixin:  # pylint: disable=missing-class-docstring
         return roc_point_with_best_f1["threshold"]
 
 
-RocPointsTrafaret = t.Dict(
-    {
-        t.Key("negative_class_predictions"): t.List(t.Float),
-        t.Key("positive_class_predictions"): t.List(t.Float),
-        t.Key("roc_points"): t.List(
-            t.Dict(
-                {
-                    t.Key("accuracy"): t.Float,
-                    t.Key("f1_score"): t.Float,
-                    t.Key("false_negative_score"): Int,
-                    t.Key("true_negative_score"): Int,
-                    t.Key("true_positive_score"): Int,
-                    t.Key("false_positive_score"): Int,
-                    t.Key("true_negative_rate"): t.Float,
-                    t.Key("false_positive_rate"): t.Float,
-                    t.Key("true_positive_rate"): t.Float,
-                    t.Key("matthews_correlation_coefficient"): t.Float,
-                    t.Key("positive_predictive_value"): t.Float,
-                    t.Key("negative_predictive_value"): t.Float,
-                    t.Key("threshold"): t.Float,
-                    t.Key("fraction_predicted_as_positive"): t.Float,
-                    t.Key("fraction_predicted_as_negative"): t.Float,
-                    t.Key("lift_positive"): t.Float,
-                    t.Key("lift_negative"): t.Float,
-                }
-            ).ignore_extra("*")
-        ),
-    }
-)
+RocPointsTrafaret = t.Dict({
+    t.Key("negative_class_predictions"): t.List(t.Float),
+    t.Key("positive_class_predictions"): t.List(t.Float),
+    t.Key("roc_points"): t.List(
+        t.Dict({
+            t.Key("accuracy"): t.Float,
+            t.Key("f1_score"): t.Float,
+            t.Key("false_negative_score"): Int,
+            t.Key("true_negative_score"): Int,
+            t.Key("true_positive_score"): Int,
+            t.Key("false_positive_score"): Int,
+            t.Key("true_negative_rate"): t.Float,
+            t.Key("false_positive_rate"): t.Float,
+            t.Key("true_positive_rate"): t.Float,
+            t.Key("matthews_correlation_coefficient"): t.Float,
+            t.Key("positive_predictive_value"): t.Float,
+            t.Key("negative_predictive_value"): t.Float,
+            t.Key("threshold"): t.Float,
+            t.Key("fraction_predicted_as_positive"): t.Float,
+            t.Key("fraction_predicted_as_negative"): t.Float,
+            t.Key("lift_positive"): t.Float,
+            t.Key("lift_negative"): t.Float,
+        }).ignore_extra("*")
+    ),
+})
 
 RocCurveTrafaret = (
-    t.Dict(
-        {
-            t.Key("source"): String,
-            t.Key("source_model_id"): String,
-            t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
-        }
-    )
+    t
+    .Dict({
+        t.Key("source"): String,
+        t.Key("source_model_id"): String,
+        t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
+    })
     .merge(RocPointsTrafaret)
     .ignore_extra("*")
 )
@@ -298,13 +291,12 @@ class LabelwiseRocCurve(RocCurve):
     """
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("label"): String,
-                t.Key("kolmogorov_smirnov_metric"): t.Float,
-                t.Key("auc"): t.Float,
-            }
-        )
+        t
+        .Dict({
+            t.Key("label"): String,
+            t.Key("kolmogorov_smirnov_metric"): t.Float,
+            t.Key("auc"): t.Float,
+        })
         .merge(RocCurveTrafaret)
         .ignore_extra("*")
     )

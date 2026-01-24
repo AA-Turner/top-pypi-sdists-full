@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 import gradio_client as grc
 import pytest
-from gradio_client import media_data
 from gradio_client import utils as client_utils
 from pydub import AudioSegment
 from starlette.testclient import TestClient
@@ -15,12 +14,13 @@ from tqdm import tqdm
 
 import gradio as gr
 from gradio import helpers, utils
+from gradio.media import get_audio, get_image
 from gradio.route_utils import API_PREFIX
 
 
 @patch("gradio.utils.get_cache_folder", return_value=Path(tempfile.mkdtemp()))
 class TestExamples:
-    def test_handle_single_input(self, patched_cache_folder):
+    def test_handle_single_input(self, patched_cache_folder, media_data):
         examples = gr.Examples(["hello", "hi"], gr.Textbox())
         assert examples.non_none_processed_examples.as_list() == [["hello"], ["hi"]]
 
@@ -35,7 +35,7 @@ class TestExamples:
             == media_data.BASE64_IMAGE
         )
 
-    def test_handle_multiple_inputs(self, patched_cache_folder):
+    def test_handle_multiple_inputs(self, patched_cache_folder, media_data):
         examples = gr.Examples(
             [["hello", "test/test_files/bus.png"]], [gr.Textbox(), gr.Image()]
         )
@@ -47,7 +47,7 @@ class TestExamples:
             == media_data.BASE64_IMAGE
         )
 
-    def test_handle_directory(self, patched_cache_folder):
+    def test_handle_directory(self, patched_cache_folder, media_data):
         examples = gr.Examples("test/test_files/images", gr.Image())
         assert len(examples.non_none_processed_examples.as_list()) == 2
         for row in examples.non_none_processed_examples.as_list():
@@ -57,7 +57,7 @@ class TestExamples:
                     == media_data.BASE64_IMAGE
                 )
 
-    def test_handle_directory_with_log_file(self, patched_cache_folder):
+    def test_handle_directory_with_log_file(self, patched_cache_folder, media_data):
         examples = gr.Examples(
             "test/test_files/images_log", [gr.Image(label="im"), gr.Text()]
         )
@@ -77,7 +77,7 @@ class TestExamples:
         examples = gr.Examples(["hello", "hi"], gr.Textbox(), examples_per_page=2)
         assert examples.dataset.get_config()["samples_per_page"] == 2
 
-    def test_no_preprocessing(self, patched_cache_folder, connect):
+    def test_no_preprocessing(self, patched_cache_folder, connect, media_data):
         with gr.Blocks() as demo:
             image = gr.Image()
             textbox = gr.Textbox()
@@ -154,7 +154,7 @@ def test_setting_cache_dir_env_variable(monkeypatch, connect):
 @patch("gradio.utils.get_cache_folder", return_value=Path(tempfile.mkdtemp()))
 class TestExamplesDataset:
     def test_no_headers(self, patched_cache_folder):
-        examples = gr.Examples("test/test_files/images_log", [gr.Image(), gr.Text()])
+        examples = gr.Examples("test/test_files/images_log", [gr.Image(), gr.Number()])
         assert examples.dataset.headers == []
 
     def test_all_headers(self, patched_cache_folder):
@@ -166,7 +166,7 @@ class TestExamplesDataset:
 
     def test_some_headers(self, patched_cache_folder):
         examples = gr.Examples(
-            "test/test_files/images_log", [gr.Image(label="im"), gr.Text()]
+            "test/test_files/images_log", [gr.Image(label="im"), gr.Number()]
         )
         assert examples.dataset.headers == ["im", ""]
 
@@ -283,14 +283,14 @@ class TestProcessExamples:
             audio_identity,
             "audio",
             "audio",
-            examples=[["test/test_files/audio_sample.wav"]],
+            examples=[[get_audio("audio_sample.wav")]],
             cache_examples=True,
         )
         with connect(io):
             prediction = io.examples_handler.load_from_cache(0)
         file = prediction[0].path
         assert client_utils.encode_url_or_file_to_base64(file).startswith(
-            "data:audio/wav;base64,UklGRgA/"
+            "data:audio/wav;base64,UklGRgA/AABXQVZFZm10I"
         )
 
     def test_caching_with_update(self, patched_cache_folder, connect):
@@ -339,7 +339,7 @@ class TestProcessExamples:
             prediction = io.examples_handler.load_from_cache(0)
         assert prediction == [
             {"lines": 4, "__type__": "update", "interactive": False},
-            gr.Label.data_model(**{"label": "lion", "confidences": None}),
+            gr.Label.data_model(**{"label": "lion", "confidences": None}),  # type: ignore
         ]
 
     def test_caching_with_generators(self, patched_cache_folder, connect):
@@ -361,8 +361,7 @@ class TestProcessExamples:
     def test_caching_with_generators_and_streamed_output(
         self, patched_cache_folder, connect
     ):
-        file_dir = Path(Path(__file__).parent, "test_files")
-        audio = str(file_dir / "audio_sample.wav")
+        audio = get_audio("audio_sample.wav")
 
         def test_generator(x):
             for y in range(int(x)):
@@ -568,7 +567,6 @@ class TestProcessExamples:
                 "autoscroll": True,
                 "elem_classes": [],
                 "rtl": False,
-                "show_copy_button": False,
                 "__type__": "update",
                 "visible": True,
                 "preserved_by_key": ["value"],
@@ -576,6 +574,7 @@ class TestProcessExamples:
                 "type": "text",
                 "stop_btn": False,
                 "submit_btn": False,
+                "buttons": [],
             }
         ]
 
@@ -591,13 +590,13 @@ class TestProcessExamples:
                 "elem_classes": [],
                 "rtl": False,
                 "preserved_by_key": ["value"],
-                "show_copy_button": False,
                 "__type__": "update",
                 "visible": True,
                 "value": "Michael",
                 "type": "text",
                 "stop_btn": False,
                 "submit_btn": False,
+                "buttons": [],
             }
         ]
 
@@ -639,7 +638,7 @@ class TestProcessExamples:
 
             gr.Examples(
                 examples=[
-                    ["test/test_files/cheetah1.jpg", "cheetah"],
+                    [get_image("cheetah1.jpg"), "cheetah"],
                     ["test/test_files/bus.png", "bus"],
                 ],
                 inputs=[i1, t],
@@ -671,7 +670,7 @@ def test_multiple_file_flagging(tmp_path, connect):
                 gr.Image(type="filepath", label="frame 2"),
             ],
             outputs=[gr.Files()],
-            examples=[["test/test_files/cheetah1.jpg", "test/test_files/bus.png"]],
+            examples=[[get_image("cheetah1.jpg"), "test/test_files/bus.png"]],
             cache_examples=True,
         )
         with connect(io):
@@ -947,7 +946,7 @@ def test_request_session_none_without_sessionmiddleware():
     def foo(a: int, prof: gr.OAuthProfile | None = None):
         return a
 
-    inputs, _, _ = helpers.special_args(
+    inputs, *_ = helpers.special_args(
         foo,
         inputs=[5],
         request=Request(scope={"type": "http"}),  # type: ignore
@@ -965,6 +964,7 @@ def test_examples_no_cache_optional_inputs():
         "json",
         cache_examples=False,
         examples=[["a", "b", None, "d"], ["a", "b", None, "de"]],
+        api_name="predict",
     )
 
     try:

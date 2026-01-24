@@ -4,12 +4,11 @@ dynamic = ["dependencies", "version"]
 description = "Open Source Secure Provisioning SDK for NXP MCU/MPU"
 readme = "README.md"
 authors = [{ name = "NXP", email = "spsdk@nxp.com" }]
-license = { text = "BSD-3-Clause" }
-requires-python = ">=3.9"
+license = "BSD-3-Clause"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -17,7 +16,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS :: MacOS X",
-    "License :: OSI Approved :: BSD License",
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Embedded Systems",
     "Topic :: System :: Hardware",
@@ -46,10 +44,9 @@ can = ["python-can<4.6,>=4.5"]
 jlink = ["spsdk-jlink<1,>=0.3.1"]
 lauterbach = ["spsdk-lauterbach<1,>=0.4.0"]
 pemicro = ["spsdk-pemicro<1,>=0.3.1"]
-# disabled until the support of Python 3.12 is fixed (https://github.com/pyauth/python-pkcs11/issues/165)
-# pkcs11 = ["spsdk-pkcs11<1,>=0.3.1"]
+pkcs11 = ["spsdk-pkcs11<1,>=0.3.1"]
 pqc = ["spsdk-pqc<1.0,>=0.6.1"]
-rblhost = ["pymboot-rs<0.2.0"]
+rblhost = ["pymboot-rs<0.3.0"]
 all = [
     "spsdk[examples]",
     "spsdk[dk6]",
@@ -58,6 +55,7 @@ all = [
     "spsdk[jlink]",
     "spsdk[lauterbach]",
     "spsdk[pemicro]",
+    "spsdk[pkcs11]",
     "spsdk[pqc]",
     "spsdk[rblhost]",
 ]
@@ -86,11 +84,11 @@ lpcprog = "spsdk.apps.lpcprog:safe_main"
 nxpshe = "spsdk.apps.nxpshe:safe_main"
 
 [build-system]
-requires = ["setuptools_scm<8.2", "setuptools>=72.1,<74", "wheel"]
+requires = ["setuptools_scm<8.2", "setuptools>=77", "wheel"]
 
 [tool.black]
 line-length = 100
-target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+target-version = ['py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
 force-exclude = '''
 '''
@@ -107,6 +105,11 @@ line_length = 100
 disallow_untyped_defs = true
 ignore_missing_imports = true
 warn_unused_ignores = false
+exclude = [
+    "examples/signature_provider/_common/plugins/spsdk_sasp",
+    "docs/examples/signature_provider/_common/hsm",
+    "docs/examples",
+]
 
 [tool.pytest.ini_options]
 junit_family = "xunit1"
@@ -140,7 +143,14 @@ skips = ["B101", "B110", "B301", "B403", "B404", "B603"]
 [tool.setuptools_scm]
 version_file = "spsdk/__version__.py"
 version_scheme = "spsdk.versioning:run"
-git_describe_command = 'git describe --tags --long --match "v[0-9].*"'
+git_describe_command = [
+    "git",
+    "describe",
+    "--tags",
+    "--long",
+    "--match",
+    "v[0-9].*",
+]
 
 [tool.py_headers]
 excluded_files = ["docs/conf.py", "spsdk/__version__.py"]
@@ -208,11 +218,13 @@ root_package = "spsdk"
 # Reports output directory
 git_parent_branch = "origin/master"
 output_directory = "reports"
-default_check_paths = ["spsdk", "tools"]
+default_check_paths = ["tests", "examples", "docs", "spsdk", "tools"]
 jupyter_check_paths = ["examples"]
 
 checkers = [
-    { "pytest" = { timeout = 1200 } },
+    { "pytest" = { check_paths = [
+        "spsdk",
+    ], timeout = 1200 } },
     { "gitcov" = { info_only = true } },
     { "pylint" = { timeout = 300 } },
     { "mypy" = { timeout = 300 } },
@@ -220,13 +232,18 @@ checkers = [
     { "pydocstyle" = { timeout = 200 } },
     "ruff",
     { "radon_c" = { info_only = true, timeout = 60 } },
-    { "radon_d" = { timeout = 60 } },
+    { "radon_d" = { check_paths = [
+        "examples",
+        "docs",
+        "spsdk",
+    ], timeout = 60 } },
     { "black" = { timeout = 120 } },
     { "isort" = { timeout = 60 } },
     "copyright",
     "py_headers",
     { "cyclic" = { info_only = true, check_paths = [
         "spsdk",
+        "tests",
     ] } },
     { "cspell" = { info_only = false, timeout = 300 } },
     { "bandit" = { info_only = true } },
@@ -237,9 +254,12 @@ checkers = [
 
 
 [tool.release-tools]
+disabled = ["scr"]
 
 [tool.release-tools.docs]
-install_hook = ['uv pip install ".[all]" -r docs/requirements.txt --force-reinstall']
+install_hook = [
+    'uv pip install ".[all]" -r docs/requirements.txt --force-reinstall',
+]
 docs_directory = "docs"
 # Disable JIRA upload due to artifacts size
 disable_jira_upload = true
@@ -248,9 +268,6 @@ disable_jira_upload = true
 install_hook = ['uv pip install ".[all]" --force-reinstall']
 check_directories = ["spsdk", "tests", "tools", "examples"]
 excluded_files = ["spsdk/__version__.py"]
-
-[tool.release-tools.scr]
-scr_file = "SW_Content_Register_SPSDK.txt"
 
 [tool.release-tools.testpypi]
 test_cmd = "spsdk --version"
@@ -265,7 +282,9 @@ spsdk_full_test_scope_win11 = { artifact_regex = ".*results.xml" }
 project_name = "spsdk"
 include_detector_types = ["pip"]
 sbom_location = "SBOM-spsdk.spdx.json"
-install_hook = ['uv pip install ".[all]" -r requirements-develop.txt --force-reinstall']
+install_hook = [
+    'uv pip install ".[all]" -r requirements-develop.txt --force-reinstall',
+]
 license = 'BSD 3-clause "New" or "Revised" License'
 excluded_directories = ['build', 'dist']
 

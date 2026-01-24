@@ -178,7 +178,7 @@ class Iq(RootStanza):
         else:
             matcher = MatcherId(self['id'])
 
-        future = asyncio.Future()
+        future = asyncio.Future(loop=self.stream.loop)
 
         # Prevents handlers from existing forever.
         if timeout is None:

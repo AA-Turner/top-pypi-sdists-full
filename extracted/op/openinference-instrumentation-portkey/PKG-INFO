@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: openinference-instrumentation-portkey
+Version: 0.1.7
+Summary: OpenInference Portkey AI Instrumentation
+Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-portkey
+Author-email: OpenInference Authors <oss@arize.com>
+License-Expression: Apache-2.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <3.15,>=3.9
+Requires-Dist: openinference-instrumentation>=0.1.17
+Requires-Dist: openinference-semantic-conventions>=0.1.17
+Requires-Dist: opentelemetry-api
+Requires-Dist: opentelemetry-instrumentation
+Requires-Dist: opentelemetry-semantic-conventions
+Requires-Dist: typing-extensions
+Requires-Dist: wrapt
+Provides-Extra: instruments
+Requires-Dist: portkey-ai>=0.1.0; extra == 'instruments'
+Provides-Extra: test
+Requires-Dist: opentelemetry-sdk; extra == 'test'
+Requires-Dist: portkey-ai>=0.1.0; extra == 'test'
+Requires-Dist: responses; extra == 'test'
+Description-Content-Type: text/markdown
+
+# OpenInference Portkey AI Instrumentation
+
+This package provides instrumentation for the [Portkey AI](https://portkey.ai) library using OpenInference.
+
+## Installation
+
+```bash
+pip install openinference-instrumentation-portkey
+```
+
+## Usage
+
+```python
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+from openinference.instrumentation.portkey import PortkeyInstrumentor
+
+# Set up the tracer provider
+trace.set_tracer_provider(TracerProvider())
+trace.get_tracer_provider().add_span_processor(
+    SimpleSpanProcessor(ConsoleSpanExporter())
+)
+
+# Instrument Portkey AI
+PortkeyInstrumentor().instrument()
+
+# Use Portkey AI as usual
+# ...
+
+# Uninstrument when done
+PortkeyInstrumentor().uninstrument()
+```
+
+## Features
+
+- Automatic instrumentation of Portkey AI API calls
+- Capture of input messages, output messages, and model information
+- Integration with OpenTelemetry for distributed tracing
+
+## Requirements
+
+- Python 3.9+
+- Portkey AI 0.1.0+
+
+## License
+
+Apache License 2.0 

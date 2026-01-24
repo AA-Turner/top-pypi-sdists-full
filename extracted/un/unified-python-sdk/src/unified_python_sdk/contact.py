@@ -66,6 +66,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -82,7 +83,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -164,6 +165,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -180,7 +182,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -256,6 +258,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -272,7 +275,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -348,6 +351,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -364,7 +368,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -440,6 +444,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -456,7 +461,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -532,6 +537,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -548,7 +554,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -621,6 +627,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -637,7 +644,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -710,6 +717,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -726,7 +734,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -798,6 +806,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -814,7 +823,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -886,6 +895,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -902,7 +912,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -974,6 +984,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -990,7 +1001,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1062,6 +1073,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1078,7 +1090,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1151,6 +1163,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1167,7 +1180,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAccountingContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1240,6 +1253,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1256,7 +1270,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listAccountingContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1329,6 +1343,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1345,7 +1360,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCrmContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1418,6 +1433,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1434,7 +1450,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCrmContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1506,6 +1522,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1522,7 +1539,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUcContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1594,6 +1611,7 @@ class Contact(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1610,7 +1628,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listUcContacts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1690,6 +1708,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1706,7 +1725,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1786,6 +1805,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1802,7 +1822,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1878,6 +1898,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1894,7 +1915,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1970,6 +1991,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1986,7 +2008,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2061,6 +2083,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2077,7 +2100,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2152,6 +2175,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2168,7 +2192,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2243,6 +2267,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2259,7 +2284,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2339,6 +2364,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2355,7 +2381,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2433,6 +2459,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2449,7 +2476,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2527,6 +2554,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2543,7 +2571,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2621,6 +2649,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2637,7 +2666,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2715,6 +2744,7 @@ class Contact(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2731,7 +2761,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2818,6 +2848,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2834,7 +2865,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2916,6 +2947,7 @@ class Contact(BaseSDK):
                 "json",
                 shared.AccountingContact,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2932,7 +2964,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateAccountingContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3008,6 +3040,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3024,7 +3057,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3100,6 +3133,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.crm_contact, False, False, "json", shared.CrmContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3116,7 +3150,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCrmContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3192,6 +3226,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3208,7 +3243,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3284,6 +3319,7 @@ class Contact(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.uc_contact, False, False, "json", shared.UcContact
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3300,7 +3336,7 @@ class Contact(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateUcContact",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

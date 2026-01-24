@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-source-vips
-Version: 1.33.0
+Version: 1.33.5
 Summary: A libvips tilesource for large_image.
 Home-page: https://github.com/girder/large_image
 Author: Kitware, Inc.
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: large-image>=1.33.0
+Requires-Dist: large-image>=1.33.5
 Requires-Dist: numpy
 Requires-Dist: packaging
 Requires-Dist: pyvips

@@ -17,9 +17,8 @@
 
 """Encoder/decoder for http style chunked encoding."""
 
-from testtools.compat import _b
+empty = b""
 
-empty = _b('')
 
 class Decoder(object):
     """Decode chunked content to a byte stream."""
@@ -46,11 +45,11 @@ class Decoder(object):
         self.state = self._read_length
         self.body_length = 0
         self.strict = strict
-        self._match_chars = _b("0123456789abcdefABCDEF\r\n")
-        self._slash_n = _b('\n')
-        self._slash_r = _b('\r')
-        self._slash_rn = _b('\r\n')
-        self._slash_nr = _b('\n\r')
+        self._match_chars = b"0123456789abcdefABCDEF\r\n"
+        self._slash_n = b"\n"
+        self._slash_r = b"\r"
+        self._slash_rn = b"\r\n"
+        self._slash_nr = b"\n\r"
 
     def close(self):
         """Close the decoder.
@@ -80,9 +79,8 @@ class Decoder(object):
                 if not self.body_length:
                     self.state = self._read_length
             else:
-                self.output.write(self.buffered_bytes[0][:self.body_length])
-                self.buffered_bytes[0] = \
-                    self.buffered_bytes[0][self.body_length:]
+                self.output.write(self.buffered_bytes[0][: self.body_length])
+                self.buffered_bytes[0] = self.buffered_bytes[0][self.body_length :]
                 self.body_length = 0
                 self.state = self._read_length
                 return self.state()
@@ -92,7 +90,7 @@ class Decoder(object):
         count_chars = []
         for bytes in self.buffered_bytes:
             for pos in range(len(bytes)):
-                byte = bytes[pos:pos+1]
+                byte = bytes[pos : pos + 1]
                 if byte not in self._match_chars:
                     break
                 count_chars.append(byte)
@@ -164,7 +162,7 @@ class Encoder(object):
         buffer_size = self.buffer_size
         self.buffered_bytes = []
         self.buffer_size = 0
-        self.output.write(_b("%X\r\n" % (buffer_size + extra_len)))
+        self.output.write(b"%X\r\n" % (buffer_size + extra_len))
         if buffer_size:
             self.output.write(empty.join(buffered_bytes))
         return True
@@ -182,4 +180,4 @@ class Encoder(object):
     def close(self):
         """Finish the stream. This does not close the output stream."""
         self.flush()
-        self.output.write(_b("0\r\n"))
+        self.output.write(b"0\r\n")

@@ -7,8 +7,6 @@ from typing import List, Optional, Sequence, Tuple
 
 from dbt_semantic_interfaces.protocols.dimension import Dimension, DimensionType
 from dbt_semantic_interfaces.protocols.entity import Entity
-from dbt_semantic_interfaces.protocols.measure import Measure
-from dbt_semantic_interfaces.protocols.semantic_model import SemanticModel
 from dbt_semantic_interfaces.references import (
     EntityReference,
     SemanticModelElementReference,
@@ -19,18 +17,22 @@ from dbt_semantic_interfaces.type_enums.time_granularity import TimeGranularity
 from metricflow_semantics.aggregation_properties import AggregationState
 from metricflow_semantics.dag.id_prefix import DynamicIdPrefix, StaticIdPrefix
 from metricflow_semantics.dag.sequential_id import SequentialIdGenerator
+from metricflow_semantics.experimental.dsi.simple_metric_model_object_lookup import SimpleMetricModelObjectLookup
+from metricflow_semantics.experimental.semantic_graph.model_id import SemanticModelId
 from metricflow_semantics.instances import (
     DimensionInstance,
     EntityInstance,
     InstanceSet,
-    MeasureInstance,
+    SimpleMetricInputInstance,
     TimeDimensionInstance,
 )
+from metricflow_semantics.mf_logging.lazy_formattable import LazyFormat
+from metricflow_semantics.model.semantic_manifest_lookup import SemanticManifestLookup
 from metricflow_semantics.model.semantics.semantic_model_helper import SemanticModelHelper
-from metricflow_semantics.model.spec_converters import MeasureConverter
 from metricflow_semantics.specs.column_assoc import ColumnAssociationResolver
 from metricflow_semantics.specs.dimension_spec import DimensionSpec
 from metricflow_semantics.specs.entity_spec import EntitySpec
+from metricflow_semantics.specs.simple_metric_input_spec import SimpleMetricInputSpec
 from metricflow_semantics.specs.time_dimension_spec import DEFAULT_TIME_GRANULARITY, TimeDimensionSpec
 from metricflow_semantics.sql.sql_exprs import (
     SqlColumnReference,
@@ -67,17 +69,23 @@ class DimensionConversionResult:
 class SemanticModelToDataSetConverter:
     """Converts a semantic model in the model to a data set that can be used with the dataflow plan builder.
 
-    Entity links generally refer to the entities used to join the measure source to the dimension source. For
+    Entity links generally refer to the entities used to join the simple-metric source to the dimension source. For
     example, the dimension name "user_id__device_id__platform" has entity links "user_id" and "device_id" and would
-    mean that the measure source was joined by "user_id" to an intermediate source, and then it was joined by
+    mean that the simple-metric source was joined by "user_id" to an intermediate source, and then it was joined by
     "device_id" to the source containing the "platform" dimension.
     """
 
     # Regex for inferring whether an expression for an element is a column reference.
     _SQL_IDENTIFIER_REGEX = re.compile("^[a-zA-Z_][a-zA-Z_0-9]*$")
 
-    def __init__(self, column_association_resolver: ColumnAssociationResolver) -> None:  # noqa: D107
+    def __init__(  # noqa: D107
+        self,
+        column_association_resolver: ColumnAssociationResolver,
+        manifest_lookup: SemanticManifestLookup,
+    ) -> None:
         self._column_association_resolver = column_association_resolver
+        self._manifest_lookup = manifest_lookup
+        self._manifest_object_lookup = manifest_lookup.manifest_object_lookup
 
     def _create_dimension_instance(
         self,
@@ -182,41 +190,47 @@ class SemanticModelToDataSetConverter:
             )
         )
 
-    def _convert_measures(
+    def _convert_simple_metric_inputs(
         self,
-        semantic_model_name: str,
-        measures: Sequence[Measure],
+        model_lookup: SimpleMetricModelObjectLookup,
         table_alias: str,
-    ) -> Tuple[Sequence[MeasureInstance], Sequence[SqlSelectColumn]]:
-        # Convert all elements to instances
-        measure_instances = []
+    ) -> Tuple[Sequence[SimpleMetricInputInstance], Sequence[SqlSelectColumn]]:
+        # Convert the simple metrics associated with the given model.
+        simple_metric_instances = []
         select_columns = []
-        for measure in measures or []:
-            measure_spec = MeasureConverter.convert_to_measure_spec(measure=measure)
-            measure_instance = MeasureInstance(
-                associated_columns=(self._column_association_resolver.resolve_spec(measure_spec),),
-                spec=measure_spec,
-                defined_from=(
-                    SemanticModelElementReference(
-                        semantic_model_name=semantic_model_name,
-                        element_name=measure.reference.element_name,
-                    ),
-                ),
-                aggregation_state=AggregationState.NON_AGGREGATED,
-            )
-            measure_instances.append(measure_instance)
-            select_columns.append(
-                SqlSelectColumn(
-                    expr=SemanticModelToDataSetConverter._make_element_sql_expr(
-                        table_alias=table_alias,
-                        element_name=measure.reference.element_name,
-                        element_expr=measure.expr,
-                    ),
-                    column_alias=measure_instance.associated_column.column_name,
+        for (
+            aggregation_configuration,
+            simple_metric_inputs,
+        ) in model_lookup.aggregation_configuration_to_simple_metric_inputs.items():
+            for simple_metric_input in simple_metric_inputs:
+                spec = SimpleMetricInputSpec(
+                    element_name=simple_metric_input.name,
+                    fill_nulls_with=None,
                 )
-            )
+                instance = SimpleMetricInputInstance(
+                    associated_columns=(self._column_association_resolver.resolve_spec(spec),),
+                    spec=spec,
+                    defined_from=(
+                        SemanticModelElementReference(
+                            semantic_model_name=model_lookup.model_id.model_name,
+                            element_name=simple_metric_input.name,
+                        ),
+                    ),
+                    aggregation_state=AggregationState.NON_AGGREGATED,
+                )
+                simple_metric_instances.append(instance)
+                select_columns.append(
+                    SqlSelectColumn(
+                        expr=SemanticModelToDataSetConverter._make_element_sql_expr(
+                            table_alias=table_alias,
+                            element_name=simple_metric_input.name,
+                            element_expr=simple_metric_input.expr,
+                        ),
+                        column_alias=instance.associated_column.column_name,
+                    )
+                )
 
-        return measure_instances, select_columns
+        return simple_metric_instances, select_columns
 
     def _convert_dimensions(
         self,
@@ -413,26 +427,28 @@ class SemanticModelToDataSetConverter:
             )
         return entity_instances, select_columns
 
-    def create_sql_source_data_set(self, semantic_model: SemanticModel) -> SemanticModelDataSet:
+    def create_sql_source_data_set(self, model_reference: SemanticModelReference) -> SemanticModelDataSet:
         """Create an SQL source data set from a semantic model in the model."""
         # Gather all instances and columns from all semantic models.
-        all_measure_instances: List[MeasureInstance] = []
+        all_simple_metric_input_instances: List[SimpleMetricInputInstance] = []
         all_dimension_instances: List[DimensionInstance] = []
         all_time_dimension_instances: List[TimeDimensionInstance] = []
         all_entity_instances: List[EntityInstance] = []
 
         all_select_columns: List[SqlSelectColumn] = []
-        from_source_alias = SequentialIdGenerator.create_next_id(
-            DynamicIdPrefix(prefix=f"{semantic_model.name}_src")
-        ).str_value
-        # Handle measures
-        if len(semantic_model.measures) > 0:
-            measure_instances, select_columns = self._convert_measures(
-                semantic_model_name=semantic_model.name,
-                measures=semantic_model.measures,
+        model_name = model_reference.semantic_model_name
+        from_source_alias = SequentialIdGenerator.create_next_id(DynamicIdPrefix(prefix=f"{model_name}_src")).str_value
+        # Handle simple metrics
+        model_lookup = self._manifest_object_lookup.model_id_to_simple_metric_model_lookup.get(
+            SemanticModelId.get_instance(model_reference.semantic_model_name)
+        )
+
+        if model_lookup is not None:
+            simple_metric_input_instances, select_columns = self._convert_simple_metric_inputs(
+                model_lookup=model_lookup,
                 table_alias=from_source_alias,
             )
-            all_measure_instances.extend(measure_instances)
+            all_simple_metric_input_instances.extend(simple_metric_input_instances)
             all_select_columns.extend(select_columns)
 
         # Group by items in the semantic model can be accessed though a subset of the entities defined in the model.
@@ -440,6 +456,11 @@ class SemanticModelToDataSetConverter:
             (),
         ]
 
+        semantic_model = self._manifest_lookup.semantic_model_lookup.get_by_reference(model_reference)
+        if semantic_model is None:
+            raise RuntimeError(
+                LazyFormat("Did not find a semantic model with the given reference", model_reference=model_reference)
+            )
         for entity_link in SemanticModelHelper.entity_links_for_local_elements(semantic_model):
             possible_entity_links.append((entity_link,))
 
@@ -502,7 +523,7 @@ class SemanticModelToDataSetConverter:
         return SemanticModelDataSet(
             semantic_model_reference=SemanticModelReference(semantic_model_name=semantic_model.name),
             instance_set=InstanceSet(
-                measure_instances=tuple(all_measure_instances),
+                simple_metric_input_instances=tuple(all_simple_metric_input_instances),
                 dimension_instances=tuple(all_dimension_instances),
                 time_dimension_instances=tuple(all_time_dimension_instances),
                 entity_instances=tuple(all_entity_instances),
@@ -567,7 +588,7 @@ class SemanticModelToDataSetConverter:
             sql_select_node=SqlSelectStatementNode.create(
                 description=time_spine_source.data_set_description,
                 select_columns=tuple(select_columns),
-                from_source=SqlTableNode.create(sql_table=time_spine_source.spine_table),
+                from_source=SqlTableNode.create(sql_table=time_spine_source.sql_table),
                 from_source_alias=from_source_alias,
             ),
         )

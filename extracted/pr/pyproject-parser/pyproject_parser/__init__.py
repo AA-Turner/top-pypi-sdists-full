@@ -77,7 +77,7 @@ from pyproject_parser.utils import _load_toml
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2021 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "0.13.0"
+__version__: str = "0.14.0"
 __email__: str = "dominic@davis-foster.co.uk"
 
 __all__ = ["PyProject", "PyProjectTomlEncoder", "_PP"]
@@ -403,10 +403,11 @@ class PyProject:
 
 		if toml_dict["project"] is not None:
 			if "license" in toml_dict["project"] and toml_dict["project"]["license"] is not None:
-				toml_dict["project"] = {  # type: ignore[typeddict-item]
-					**toml_dict["project"],  # type: ignore[misc,arg-type]
-					"license": toml_dict["project"]["license"].to_pep621_dict()
-					}
+				_license = toml_dict["project"]["license"].to_pep639()
+				toml_dict["project"] = {
+						**toml_dict["project"],
+						"license": _license  # type: ignore[typeddict-item]
+						}
 
 			if "readme" in toml_dict["project"] and toml_dict["project"]["readme"] is not None:
 				readme_dict = toml_dict["project"]["readme"].to_pep621_dict()

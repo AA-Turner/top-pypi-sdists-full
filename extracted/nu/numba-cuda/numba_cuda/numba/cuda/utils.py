@@ -8,6 +8,7 @@ import functools
 
 import atexit
 import builtins
+import importlib
 import inspect
 import operator
 import timeit
@@ -17,24 +18,27 @@ import weakref
 import threading
 import contextlib
 import json
-import typing as _tp
 from pprint import pformat
 
 from types import ModuleType
 from importlib import import_module
+from importlib.util import find_spec
 import numpy as np
 
 from inspect import signature as pysignature  # noqa: F401
 from inspect import Signature as pySignature  # noqa: F401
 from inspect import Parameter as pyParameter  # noqa: F401
 
-from numba.core.config import (
+from numba.cuda.core.config import (
     MACHINE_BITS,  # noqa: F401
     DEVELOPER_MODE,
 )  # noqa: F401
-from numba.core import types, config
 
-from collections.abc import Mapping, Sequence, MutableSet, MutableMapping
+from numba.cuda.core import config
+
+from collections.abc import Sequence
+
+PYVERSION = config.PYVERSION
 
 
 def erase_traceback(exc_value):
@@ -112,7 +116,7 @@ INPLACE_BINOPS_TO_OPERATORS = {
 ALL_BINOPS_TO_OPERATORS = {**BINOPS_TO_OPERATORS, **INPLACE_BINOPS_TO_OPERATORS}
 
 
-UNARY_BUITINS_TO_OPERATORS = {
+UNARY_BUILTINS_TO_OPERATORS = {
     "+": operator.pos,
     "-": operator.neg,
     "~": operator.invert,
@@ -308,7 +312,7 @@ class ConfigOptions(object):
         return hash(tuple(sorted(self._values.items())))
 
 
-def order_by_target_specificity(target, templates, fnkey=""):
+def order_by_target_specificity(templates, fnkey=""):
     """This orders the given templates from most to least specific against the
     current "target". "fnkey" is an indicative typing key for use in the
     exception message in the case that there's no usable templates for the
@@ -317,8 +321,6 @@ def order_by_target_specificity(target, templates, fnkey=""):
     # No templates... return early!
     if templates == []:
         return []
-
-    from numba.core.target_extension import target_registry
 
     # fish out templates that are specific to the target if a target is
     # specified
@@ -329,122 +331,28 @@ def order_by_target_specificity(target, templates, fnkey=""):
         md = getattr(temp_cls, "metadata", {})
         hw = md.get("target", DEFAULT_TARGET)
         if hw is not None:
-            hw_clazz = target_registry[hw]
-            if target.inherits_from(hw_clazz):
-                usable.append((temp_cls, hw_clazz, ix))
+            if hw in ("generic", "cuda"):
+                usable.append((temp_cls, ix))
 
     # sort templates based on target specificity
+    # cuda-specific templates get priority before generic ones
     def key(x):
-        return target.__mro__.index(x[1])
+        md = getattr(x[0], "metadata", {})
+        hw = md.get("target", DEFAULT_TARGET)
+        return (0 if hw == "cuda" else 1, x[1])
 
     order = [x[0] for x in sorted(usable, key=key)]
 
     if not order:
         msg = (
             f"Function resolution cannot find any matches for function "
-            f"'{fnkey}' for the current target: '{target}'."
+            f"'{fnkey}'."
         )
-        from numba.core.errors import UnsupportedError
+        from numba.cuda.core.errors import UnsupportedError
 
         raise UnsupportedError(msg)
 
     return order
-
-
-T = _tp.TypeVar("T")
-
-
-class OrderedSet(MutableSet[T]):
-    def __init__(self, iterable: _tp.Iterable[T] = ()):
-        # Just uses a dictionary under-the-hood to maintain insertion order.
-        self._data = dict.fromkeys(iterable, None)
-
-    def __contains__(self, key):
-        return key in self._data
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __len__(self):
-        return len(self._data)
-
-    def add(self, item):
-        self._data[item] = None
-
-    def discard(self, item):
-        self._data.pop(item, None)
-
-
-class MutableSortedSet(MutableSet[T], _tp.Generic[T]):
-    """Mutable Sorted Set"""
-
-    def __init__(self, values: _tp.Iterable[T] = ()):
-        self._values = set(values)
-
-    def __len__(self):
-        return len(self._values)
-
-    def __iter__(self):
-        return iter(k for k in sorted(self._values))
-
-    def __contains__(self, x: T) -> bool:
-        return self._values.__contains__(x)
-
-    def add(self, x: T):
-        return self._values.add(x)
-
-    def discard(self, value: T):
-        self._values.discard(value)
-
-    def update(self, values):
-        self._values.update(values)
-
-
-Tk = _tp.TypeVar("Tk")
-Tv = _tp.TypeVar("Tv")
-
-
-class SortedMap(Mapping[Tk, Tv], _tp.Generic[Tk, Tv]):
-    """Immutable"""
-
-    def __init__(self, seq):
-        self._values = []
-        self._index = {}
-        for i, (k, v) in enumerate(sorted(seq)):
-            self._index[k] = i
-            self._values.append((k, v))
-
-    def __getitem__(self, k):
-        i = self._index[k]
-        return self._values[i][1]
-
-    def __len__(self):
-        return len(self._values)
-
-    def __iter__(self):
-        return iter(k for k, v in self._values)
-
-
-class MutableSortedMap(MutableMapping[Tk, Tv], _tp.Generic[Tk, Tv]):
-    def __init__(self, dct=None):
-        if dct is None:
-            dct = {}
-        self._dct: dict[Tk, Tv] = dct
-
-    def __getitem__(self, k: Tk) -> Tv:
-        return self._dct[k]
-
-    def __setitem__(self, k: Tk, v: Tv):
-        self._dct[k] = v
-
-    def __delitem__(self, k: Tk):
-        del self._dct[k]
-
-    def __len__(self) -> int:
-        return len(self._dct)
-
-    def __iter__(self) -> int:
-        return iter(k for k in sorted(self._dct))
 
 
 class UniqueDict(dict):
@@ -572,26 +480,6 @@ def get_nargs_range(pyfunc):
     return min_nargs, max_nargs
 
 
-def unify_function_types(numba_types):
-    """Return a normalized tuple of Numba function types so that
-
-        Tuple(numba_types)
-
-    becomes
-
-        UniTuple(dtype=<unified function type>, count=len(numba_types))
-
-    If the above transformation would be incorrect, return the
-    original input as given. For instance, if the input tuple contains
-    types that are not function or dispatcher type, the transformation
-    is considered incorrect.
-    """
-    dtype = unified_function_type(numba_types)
-    if dtype is None:
-        return numba_types
-    return (dtype,) * len(numba_types)
-
-
 def unified_function_type(numba_types, require_precise=True):
     """Returns a unified Numba function type if possible.
 
@@ -603,7 +491,7 @@ def unified_function_type(numba_types, require_precise=True):
 
     Returns
     -------
-    typ : {numba.core.types.Type, None}
+    typ : {numba.cuda.types.Type, None}
       A unified Numba function type. Or ``None`` when the Numba types
       cannot be unified, e.g. when the ``numba_types`` contains at
       least two different Numba function type instances.
@@ -617,7 +505,8 @@ def unified_function_type(numba_types, require_precise=True):
     when the precise Numba function cannot be determined on the first
     occurrence that is not a call expression.
     """
-    from numba.core.errors import NumbaExperimentalFeatureWarning
+    from numba.cuda.core.errors import NumbaExperimentalFeatureWarning
+    from numba.cuda import types
 
     if not (
         isinstance(numba_types, Sequence)
@@ -726,6 +615,13 @@ class _RedirectSubpackage(ModuleType):
         return _RedirectSubpackage, args
 
 
+def redirect_numba_module(old_module_locals, numba_module, numba_cuda_module):
+    if find_spec("numba"):
+        return _RedirectSubpackage(old_module_locals, numba_module)
+    else:
+        return _RedirectSubpackage(old_module_locals, numba_cuda_module)
+
+
 def get_hashable_key(value):
     """
     Given a value, returns a key that can be used
@@ -759,7 +655,7 @@ def dump_llvm(fndesc, module):
             from pygments import highlight
             from pygments.lexers import LlvmLexer as lexer
             from pygments.formatters import Terminal256Formatter
-            from numba.misc.dump_style import by_colorscheme
+            from numba.cuda.misc.dump_style import by_colorscheme
 
             print(
                 highlight(
@@ -815,3 +711,14 @@ def _readenv(name, ctor, default):
 def cached_file_read(filepath, how="r"):
     with open(filepath, how) as f:
         return f.read()
+
+
+@contextlib.contextmanager
+def numba_target_override():
+    if importlib.util.find_spec("numba"):
+        from numba.core.target_extension import target_override
+
+        with target_override("cuda"):
+            yield
+    else:
+        yield

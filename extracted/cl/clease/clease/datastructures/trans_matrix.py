@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
 import attr
 import numpy as np
 
@@ -16,7 +14,7 @@ __all__ = ("TransMatrix",)
 class TransMatrix:
     """Data class wrapper for the translation matrix."""
 
-    trans_matrix: List[Dict[int, int]] = attr.field()
+    trans_matrix: list[dict[int, int]] = attr.field()
 
     def key_array(self) -> np.ndarray:
         """The keys of the trans matrix in NumPy format."""

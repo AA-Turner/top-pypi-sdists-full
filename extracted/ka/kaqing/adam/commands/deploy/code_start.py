@@ -25,19 +25,16 @@ class CodeStart(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
-            return state
+        with self.validate(args, state) as (args, state):
+            log2('This will support c3/c3 only for demo.')
 
-        log2('This will support c3/c3 only for demo.')
-
-        stop_user_codes(state.namespace)
-        try:
-            start_user_code(state.namespace)
-        finally:
             stop_user_codes(state.namespace)
+            try:
+                start_user_code(state.namespace)
+            finally:
+                stop_user_codes(state.namespace)
 
-        return state
+            return state
 
     def completion(self, state: ReplState):
         if state.namespace:
@@ -45,5 +42,5 @@ class CodeStart(Command):
 
         return {}
 
-    def help(self, _: ReplState):
-        return f'{CodeStart.COMMAND}\t start code server'
+    def help(self, state: ReplState):
+        return super().help(state, 'start code server')

@@ -1,6 +1,6 @@
 """pygrib module"""
 
-__version__ = '2.1.6'
+__version__ = '2.1.8'
 
 import numpy as np
 cimport numpy as npc
@@ -8,12 +8,18 @@ cimport cython
 import warnings
 import os
 from datetime import datetime
-from io import BufferedReader
+from io import BufferedReader, UnsupportedOperation
 from os import PathLike
 from packaging import version
 from numpy import ma
+from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE
 import pyproj
 npc.import_array()
+
+# Print scalars legacy style (e.g. (15.0) not np.float64(15.0))
+# https://numpy.org/doc/2.2/release/2.0.0-notes.html#representation-of-numpy-scalars-changed
+if np.lib.NumpyVersion(np.__version__) >= '2.0.0':
+    np.set_printoptions(legacy="1.25")
 
 ctypedef fused float_type:
     float
@@ -22,6 +28,8 @@ ctypedef fused int_type:
     int
     long
     long long
+
+__has_fmemopen__ = HAS_FMEMOPEN
 
 def redtoreg(float_type[:] redgrid_data, int_type[:] lonsperlat, missval=None):
     """
@@ -91,6 +99,10 @@ cdef extern from "stdio.h":
 
 cdef extern from "./portable.h":
     int wrap_dup(int)
+    FILE *fmemopen(void *buf, size_t size, char *mode)
+    cdef enum:
+        HAS_FMEMOPEN
+
 
 cdef extern from "Python.h":
     object PyBytes_FromStringAndSize(char *s, size_t size)
@@ -327,24 +339,41 @@ cdef class open(object):
     cdef FILE *_fd
     cdef grib_handle *_gh
     cdef long _offset
-    cdef object _inner
     cdef public object name, messagenumber, messages, closed,\
                        has_multi_field_msgs
+    cdef object _inner, _buffer_allocated
+    cdef Py_buffer _buffer
     def __cinit__(self, filename):
         # initialize C level objects.
         cdef grib_handle *gh
         cdef FILE *_fd
+        self._buffer_allocated = False
         if isinstance(filename, BufferedReader):
-            fileno = wrap_dup(filename.fileno())
-            self._fd = fdopen(fileno, "rb")
-            self._offset = filename.tell()
-            self._inner = filename
-            # since BufferedReader has its own read buffer,
-            # BufferedReader.seek() sometimes just changes its
-            # internal position and BufferedReader.tell() returns
-            # a calculated value, we need to ensure the actual
-            # position by fseek().
-            fseek(self._fd, self._offset, SEEK_SET)
+            try: 
+                fileno = filename.fileno()
+            except UnsupportedOperation:
+                fileno = None
+            if fileno is not None:
+                fileno = wrap_dup(filename.fileno())
+                self._fd = fdopen(fileno, "rb")
+                self._offset = filename.tell()
+                self._inner = filename
+                # since BufferedReader has its own read buffer,
+                # BufferedReader.seek() sometimes just changes its
+                # internal position and BufferedReader.tell() returns
+                # a calculated value, we need to ensure the actual
+                # position by fseek().      
+                fseek(self._fd, self._offset, SEEK_SET)
+            else:
+                if not HAS_FMEMOPEN:
+                    raise NotImplementedError('reading from a byte stream not implemented on windows')
+                buf = filename.read()
+                if PyObject_GetBuffer(buf, &self._buffer, PyBUF_SIMPLE) != 0:
+                    raise MemoryError("Could not get memory buffer from BufferedReader object.")
+                self._buffer_allocated = True
+                self._fd = fmemopen(<char*>self._buffer.buf, <size_t>self._buffer.len, 'rb')
+                self._offset = 0
+                self._inner = None
         else:
             if isinstance(filename, PathLike):
                 bytestr = os.fsencode(filename)
@@ -354,7 +383,6 @@ cdef class open(object):
             self._offset = 0
             self._inner = None
         if self._fd == NULL:
-            raise IOError("could not open %s", filename)
             raise OSError("could not open {}".format(filename))
         self._gh = NULL
     def __init__(self, filename):
@@ -362,7 +390,10 @@ cdef class open(object):
         cdef grib_handle *gh
         # initalize Python level objects
         if isinstance(filename, BufferedReader):
-            self.name = filename.name
+            try:
+                self.name = filename.name
+            except AttributeError:
+                self.name = None
         elif isinstance(filename, PathLike):
             self.name = str(filename)
         else:
@@ -417,7 +448,7 @@ cdef class open(object):
             grbs = [self.message(n) for n in xrange(beg,end,inc)]
             self.seek(msg) # put iterator back in original position
             return grbs
-        elif type(key) == int or type(key) == long:
+        elif type(key) == int:
             # for an integer, return a single grib message.
             msg = self.tell()
             grb = self.message(key)
@@ -502,6 +533,9 @@ cdef class open(object):
             err = grib_handle_delete(self._gh)
             if err:
                 raise RuntimeError(_get_error_message(err))
+        if self._buffer_allocated:
+            PyBuffer_Release(&self._buffer)
+            self._buffer_allocated = False
         self.closed = True
         self._fd = NULL
 
@@ -511,6 +545,9 @@ cdef class open(object):
         cdef int err
         if self._fd:
             fclose(self._fd)
+        if self._buffer_allocated:
+            PyBuffer_Release(&self._buffer)
+            self._buffer_allocated = False
 
     def rewind(self):
         """rewind iterator (same as ``seek(0)``)"""
@@ -688,21 +725,17 @@ def setdates(gribmessage grb):
        grb.indicatorOfUnitOfTimeRange in _ftimedict:
         grb.fcstimeunits = _ftimedict[grb.indicatorOfUnitOfTimeRange]
     if grb.has_key('forecastTime'):
-        if grb.has_key('forecastTime'):
-            ftime = grb.forecastTime
-        elif grb.has_key('stepRange'):
-            # if forecastTime doesn't exist, use end of stepRange.
-            ftime = grb['stepRange'] # computed key, uses stepUnits
-            if grb.has_key('stepUnits') and grb.stepUnits in _ftimedict:
-                grb.fcstimeunits = _ftimedict[grb.stepUnits]
-            # if it's a range, use the end of the range to define validDate
-            try: 
-                ftime = float(ftime.split('-')[1])
-            except:
-                ftime = None
-    else:
-        ftime = 0
-    if ftime is None: ftime = 0. # make sure ftime is not None
+        ftime = grb.forecastTime
+    elif grb.has_key('stepRange'):
+        # if forecastTime doesn't exist, use end of stepRange.
+        ftime = grb['stepRange'] # computed key, uses stepUnits
+        if grb.has_key('stepUnits') and grb.stepUnits in _ftimedict:
+            grb.fcstimeunits = _ftimedict[grb.stepUnits]
+        # if it's a range, use the end of the range to define validDate
+        try: 
+            ftime = float(ftime.split('-')[1])
+        except:
+            ftime = 0.
     if grb.has_key('julianDay'):
         # don't do anything if datetime fails (because of a miscoded julianDay)
         try:
@@ -1922,8 +1955,8 @@ Example usage:
             # if there are no matches for this key, just skip it
             if not size:
                 continue
-            if typ == 'l' or (type(v) == int or type(v) == long):
-                longval = long(v)
+            if typ == 'l' or (type(v) == int):
+                longval = int(v)
                 err = grib_index_select_long(self._gi, key, longval)
                 if err:
                     raise RuntimeError(_get_error_message(err))

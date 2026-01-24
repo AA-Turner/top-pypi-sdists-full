@@ -9,16 +9,43 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
 from typing_extensions import TypedDict
 
 
-class OidcCustomSubType(TypedDict):
-    """Actions OIDC Subject customization
+class LabelType(TypedDict):
+    """Label
 
-    Actions OIDC Subject customization
+    Color-coded labels help you categorize and filter your issues (just like labels
+    in Gmail).
     """
 
-    include_claim_keys: list[str]
+    id: int
+    node_id: str
+    url: str
+    name: str
+    description: Union[str, None]
+    color: str
+    default: bool
 
 
-__all__ = ("OidcCustomSubType",)
+class LabelTypeForResponse(TypedDict):
+    """Label
+
+    Color-coded labels help you categorize and filter your issues (just like labels
+    in Gmail).
+    """
+
+    id: int
+    node_id: str
+    url: str
+    name: str
+    description: Union[str, None]
+    color: str
+    default: bool
+
+
+__all__ = (
+    "LabelType",
+    "LabelTypeForResponse",
+)

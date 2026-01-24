@@ -1,0 +1,12 @@
+# refer: https://docs.codecov.com/docs/commit-status
+coverage:
+  status:
+    project:
+      default:
+        target: 85%
+    patch:
+      default:
+        target: 65%
+ignore:
+  - "**/types.py"
+

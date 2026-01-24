@@ -7,6 +7,7 @@ from kombu.messaging import Consumer as MessagingConsumer
 from kombu.messaging import Producer
 from kombu.transport.base import Channel
 from kombu.utils.limits import TokenBucket
+from typing_extensions import override
 
 class ConsumerMixin:
     connect_max_retries: int | None
@@ -20,7 +21,7 @@ class ConsumerMixin:
         connection: Connection,
         channel: Channel,
         consumers: Sequence[MessagingConsumer],
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None: ...
     def on_consume_end(self, connection: Connection, channel: Channel) -> None: ...
     def on_iteration(self) -> None: ...
@@ -36,7 +37,7 @@ class ConsumerMixin:
         limit: int | None = ...,
         timeout: int | None = ...,
         safety_interval: int = ...,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None: ...
     def maybe_conn_error(self, fun: Callable[..., Any] | None) -> Any: ...
     def create_connection(self) -> Connection: ...
@@ -50,6 +51,7 @@ class ConsumerMixin:
     def channel_errors(self) -> Sequence[Exception]: ...
 
 class ConsumerProducerMixin(ConsumerMixin):
+    @override
     def on_consume_end(self, connection: Connection, channel: Channel) -> None: ...
     @property
     def producer(self) -> Producer: ...

@@ -1,12 +1,12 @@
 from json import dumps
 from typing import Generator
 from logging import getLogger
-from langchain.schema import Document
+from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
-from langchain.text_splitter import TokenTextSplitter
+from langchain_text_splitters import TokenTextSplitter
 
 from typing import Optional, List
-from langchain_core.pydantic_v1 import BaseModel
+from pydantic import BaseModel
 from ..utils import tiktoken_length
 
 logger = getLogger(__name__)

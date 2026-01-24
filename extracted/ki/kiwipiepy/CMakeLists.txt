@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.9)
 
 project(Kiwipiepy)
 
+option(Py_GIL_DISABLED "Build kiwipiepy with GIL disabled" OFF)
+set(Py_LIMITED_API "" CACHE STRING "Build kiwipiepy with limited API")
+
 set ( CMAKE_CXX_STANDARD 17 )
 set ( CMAKE_VERBOSE_MAKEFILE true )
 
@@ -15,6 +18,19 @@ if(KIWI_USE_MIMALLOC)
   set ( ADDITIONAL_FLAGS "-DKIWI_USE_MIMALLOC" )
   include_directories( Kiwi/third_party/mimalloc/include )
 endif()
+
+if(Py_GIL_DISABLED)
+  message(STATUS "Build kiwipiepy with GIL disabled")
+  set ( ADDITIONAL_FLAGS "${ADDITIONAL_FLAGS} -DPy_GIL_DISABLED=1" )
+endif()
+
+if(Py_LIMITED_API)
+  message(STATUS "Build kiwipiepy with limited API")
+  set ( ADDITIONAL_FLAGS "${ADDITIONAL_FLAGS} -DPy_LIMITED_API=${Py_LIMITED_API}" )
+endif()
+
+set ( CMAKE_CXX_VISIBILITY_PRESET hidden )
+set ( CMAKE_VISIBILITY_INLINES_HIDDEN ON )
 
 if(MSVC)
   set ( CMAKE_C_FLAGS_DEBUG "-DDEBUG -DC_FLAGS -Zc:__cplusplus -Zi -Od ${ADDITIONAL_FLAGS}" )
@@ -65,3 +81,14 @@ target_link_libraries("_kiwipiepy" PRIVATE
   ${LIBRARIES}
 )
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  if(APPLE)
+    add_custom_command(TARGET _kiwipiepy POST_BUILD
+        COMMAND ${CMAKE_STRIP} -x $<TARGET_FILE:_kiwipiepy>
+    )
+  elseif(UNIX)
+    add_custom_command(TARGET _kiwipiepy POST_BUILD
+        COMMAND ${CMAKE_STRIP} --strip-unneeded $<TARGET_FILE:_kiwipiepy>
+    )
+  endif()
+endif()

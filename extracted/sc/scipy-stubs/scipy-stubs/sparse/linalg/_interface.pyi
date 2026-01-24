@@ -1,5 +1,5 @@
 # mypy: disable-error-code="override"
-
+import types
 from collections.abc import Callable, Iterable
 from typing import Any, ClassVar, Final, Generic, Protocol, Self, TypeAlias, final, overload, type_check_only
 from typing_extensions import TypeVar, override
@@ -62,6 +62,9 @@ class LinearOperator(Generic[_SCT_co]):
 
     shape: Final[tuple[int, int]]
     dtype: np.dtype[_SCT_co]
+
+    @classmethod
+    def __class_getitem__(cls, arg: object, /) -> types.GenericAlias: ...
 
     # keep in sync with `_CustomLinearOperator.__init__`
     @overload  # no dtype
@@ -489,13 +492,13 @@ class _AdjointMatrixOperator(MatrixLinearOperator[_SCT_co], Generic[_SCT_co]):
 
     @property
     @override
-    def dtype(self, /) -> np.dtype[_SCT_co]: ...  # pyright: ignore[reportIncompatibleVariableOverride]
+    def dtype(self, /) -> np.dtype[_SCT_co]: ...  # pyright: ignore[reportIncompatibleVariableOverride]  # pyrefly: ignore[bad-override]
 
     #
     def __new__(cls, adjoint_array: LinearOperator[_SCT_co]) -> Self: ...
     def __init__(self, /, adjoint_array: LinearOperator[_SCT_co]) -> None: ...
     @override
-    def _adjoint(self, /) -> MatrixLinearOperator[_SCT_co]: ...  # pyright: ignore[reportIncompatibleMethodOverride]
+    def _adjoint(self, /) -> MatrixLinearOperator[_SCT_co]: ...  # pyright: ignore[reportIncompatibleMethodOverride] # pyrefly: ignore[bad-override] # ty: ignore[invalid-method-override]
 
 class IdentityOperator(LinearOperator[_SCT_co], Generic[_SCT_co]):
     @overload

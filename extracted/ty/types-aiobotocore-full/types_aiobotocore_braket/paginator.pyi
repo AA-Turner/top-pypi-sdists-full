@@ -3,7 +3,7 @@ Type annotations for braket service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -15,6 +15,7 @@ Usage::
         SearchDevicesPaginator,
         SearchJobsPaginator,
         SearchQuantumTasksPaginator,
+        SearchSpendingLimitsPaginator,
     )
 
     session = get_session()
@@ -24,6 +25,7 @@ Usage::
         search_devices_paginator: SearchDevicesPaginator = client.get_paginator("search_devices")
         search_jobs_paginator: SearchJobsPaginator = client.get_paginator("search_jobs")
         search_quantum_tasks_paginator: SearchQuantumTasksPaginator = client.get_paginator("search_quantum_tasks")
+        search_spending_limits_paginator: SearchSpendingLimitsPaginator = client.get_paginator("search_spending_limits")
     ```
 """
 
@@ -41,6 +43,8 @@ from .type_defs import (
     SearchJobsResponseTypeDef,
     SearchQuantumTasksRequestPaginateTypeDef,
     SearchQuantumTasksResponseTypeDef,
+    SearchSpendingLimitsRequestPaginateTypeDef,
+    SearchSpendingLimitsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -48,7 +52,12 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("SearchDevicesPaginator", "SearchJobsPaginator", "SearchQuantumTasksPaginator")
+__all__ = (
+    "SearchDevicesPaginator",
+    "SearchJobsPaginator",
+    "SearchQuantumTasksPaginator",
+    "SearchSpendingLimitsPaginator",
+)
 
 if TYPE_CHECKING:
     _SearchDevicesPaginatorBase = AioPaginator[SearchDevicesResponseTypeDef]
@@ -102,4 +111,22 @@ class SearchQuantumTasksPaginator(_SearchQuantumTasksPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/paginator/SearchQuantumTasks.html#Braket.Paginator.SearchQuantumTasks.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/paginators/#searchquantumtaskspaginator)
+        """
+
+if TYPE_CHECKING:
+    _SearchSpendingLimitsPaginatorBase = AioPaginator[SearchSpendingLimitsResponseTypeDef]
+else:
+    _SearchSpendingLimitsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class SearchSpendingLimitsPaginator(_SearchSpendingLimitsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/paginator/SearchSpendingLimits.html#Braket.Paginator.SearchSpendingLimits)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/paginators/#searchspendinglimitspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchSpendingLimitsRequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchSpendingLimitsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/braket/paginator/SearchSpendingLimits.html#Braket.Paginator.SearchSpendingLimits.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_braket/paginators/#searchspendinglimitspaginator)
         """

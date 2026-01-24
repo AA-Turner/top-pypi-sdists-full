@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: beartype
-Version: 0.21.0
-Summary: Unbearably fast near-real-time hybrid runtime-static type-checking in pure Python.
+Version: 0.22.9
+Summary: Unbearably fast near-real-time pure-Python runtime-static type-checker.
 Project-URL: Docs, https://beartype.readthedocs.io
 Project-URL: GitHub, https://github.com/beartype/beartype
 Project-URL: Forums, https://github.com/beartype/beartype/discussions
@@ -36,82 +36,116 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: autoapi>=0.9.0; extra == 'dev'
+Requires-Dist: celery; extra == 'dev'
 Requires-Dist: click; extra == 'dev'
 Requires-Dist: coverage>=5.5; extra == 'dev'
-Requires-Dist: equinox; (sys_platform == 'linux') and extra == 'dev'
-Requires-Dist: jax[cpu]; (sys_platform == 'linux') and extra == 'dev'
+Requires-Dist: docutils>=0.22.0; extra == 'dev'
+Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
+Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'dev'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'dev'
-Requires-Dist: langchain; extra == 'dev'
+Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'dev'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux') and extra == 'dev'
-Requires-Dist: numba; (python_version < '3.13.0') and extra == 'dev'
-Requires-Dist: numpy; (sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
-Requires-Dist: pandera; extra == 'dev'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: numba; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'dev'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'dev'
+Requires-Dist: poetry; extra == 'dev'
+Requires-Dist: polars; (python_version < '3.14.0') and extra == 'dev'
 Requires-Dist: pydata-sphinx-theme<=0.7.2; extra == 'dev'
 Requires-Dist: pygments; extra == 'dev'
+Requires-Dist: pyinstaller; extra == 'dev'
 Requires-Dist: pyright>=1.1.370; extra == 'dev'
-Requires-Dist: pytest>=4.0.0; extra == 'dev'
+Requires-Dist: pytest>=6.2.0; extra == 'dev'
+Requires-Dist: redis; extra == 'dev'
 Requires-Dist: rich-click; extra == 'dev'
+Requires-Dist: setuptools; extra == 'dev'
 Requires-Dist: sphinx; extra == 'dev'
 Requires-Dist: sphinx<6.0.0,>=4.2.0; extra == 'dev'
 Requires-Dist: sphinxext-opengraph>=0.7.5; extra == 'dev'
 Requires-Dist: sqlalchemy; extra == 'dev'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'dev'
 Requires-Dist: tox>=3.20.1; extra == 'dev'
+Requires-Dist: typer; extra == 'dev'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'dev'
-Requires-Dist: xarray; extra == 'dev'
+Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'dev'
+Provides-Extra: doc-ghp
+Requires-Dist: mkdocs-material[imaging]>=9.6.0; extra == 'doc-ghp'
+Requires-Dist: mkdocstrings-python-xref>=1.16.0; extra == 'doc-ghp'
+Requires-Dist: mkdocstrings-python>=1.16.0; extra == 'doc-ghp'
 Provides-Extra: doc-rtd
 Requires-Dist: autoapi>=0.9.0; extra == 'doc-rtd'
 Requires-Dist: pydata-sphinx-theme<=0.7.2; extra == 'doc-rtd'
+Requires-Dist: setuptools; extra == 'doc-rtd'
 Requires-Dist: sphinx<6.0.0,>=4.2.0; extra == 'doc-rtd'
 Requires-Dist: sphinxext-opengraph>=0.7.5; extra == 'doc-rtd'
 Provides-Extra: test
+Requires-Dist: celery; extra == 'test'
 Requires-Dist: click; extra == 'test'
 Requires-Dist: coverage>=5.5; extra == 'test'
-Requires-Dist: equinox; (sys_platform == 'linux') and extra == 'test'
-Requires-Dist: jax[cpu]; (sys_platform == 'linux') and extra == 'test'
+Requires-Dist: docutils>=0.22.0; extra == 'test'
+Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
+Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'test'
-Requires-Dist: langchain; extra == 'test'
+Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'test'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux') and extra == 'test'
-Requires-Dist: numba; (python_version < '3.13.0') and extra == 'test'
-Requires-Dist: numpy; (sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
-Requires-Dist: pandera; extra == 'test'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test'
+Requires-Dist: numba; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'test'
+Requires-Dist: poetry; extra == 'test'
+Requires-Dist: polars; (python_version < '3.14.0') and extra == 'test'
 Requires-Dist: pygments; extra == 'test'
+Requires-Dist: pyinstaller; extra == 'test'
 Requires-Dist: pyright>=1.1.370; extra == 'test'
-Requires-Dist: pytest>=4.0.0; extra == 'test'
+Requires-Dist: pytest>=6.2.0; extra == 'test'
+Requires-Dist: redis; extra == 'test'
 Requires-Dist: rich-click; extra == 'test'
 Requires-Dist: sphinx; extra == 'test'
 Requires-Dist: sqlalchemy; extra == 'test'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test'
 Requires-Dist: tox>=3.20.1; extra == 'test'
+Requires-Dist: typer; extra == 'test'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'test'
-Requires-Dist: xarray; extra == 'test'
+Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'test'
 Provides-Extra: test-tox
+Requires-Dist: celery; extra == 'test-tox'
 Requires-Dist: click; extra == 'test-tox'
-Requires-Dist: equinox; (sys_platform == 'linux') and extra == 'test-tox'
-Requires-Dist: jax[cpu]; (sys_platform == 'linux') and extra == 'test-tox'
+Requires-Dist: docutils>=0.22.0; extra == 'test-tox'
+Requires-Dist: equinox; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
+Requires-Dist: fastmcp; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: jax[cpu]; (sys_platform == 'linux' and python_version < '3.15.0') and extra == 'test-tox'
 Requires-Dist: jaxtyping; (sys_platform == 'linux') and extra == 'test-tox'
-Requires-Dist: langchain; extra == 'test-tox'
+Requires-Dist: langchain; (python_version < '3.14.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
 Requires-Dist: mypy>=0.800; (platform_python_implementation != 'PyPy') and extra == 'test-tox'
-Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux') and extra == 'test-tox'
-Requires-Dist: numba; (python_version < '3.13.0') and extra == 'test-tox'
-Requires-Dist: numpy; (sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
-Requires-Dist: pandera; extra == 'test-tox'
+Requires-Dist: nuitka>=1.2.6; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: numba; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: numpy; (python_version < '3.15.0' and sys_platform != 'darwin' and platform_python_implementation != 'PyPy') and extra == 'test-tox'
+Requires-Dist: pandera>=0.26.0; (python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: poetry; extra == 'test-tox'
+Requires-Dist: polars; (python_version < '3.14.0') and extra == 'test-tox'
 Requires-Dist: pygments; extra == 'test-tox'
+Requires-Dist: pyinstaller; extra == 'test-tox'
 Requires-Dist: pyright>=1.1.370; extra == 'test-tox'
-Requires-Dist: pytest>=4.0.0; extra == 'test-tox'
+Requires-Dist: pytest>=6.2.0; extra == 'test-tox'
+Requires-Dist: redis; extra == 'test-tox'
 Requires-Dist: rich-click; extra == 'test-tox'
 Requires-Dist: sphinx; extra == 'test-tox'
 Requires-Dist: sqlalchemy; extra == 'test-tox'
+Requires-Dist: torch; (sys_platform == 'linux' and python_version < '3.14.0') and extra == 'test-tox'
+Requires-Dist: typer; extra == 'test-tox'
 Requires-Dist: typing-extensions>=3.10.0.0; extra == 'test-tox'
-Requires-Dist: xarray; extra == 'test-tox'
+Requires-Dist: xarray; (python_version < '3.15.0') and extra == 'test-tox'
 Provides-Extra: test-tox-coverage
 Requires-Dist: coverage>=5.5; extra == 'test-tox-coverage'
 Description-Content-Type: text/x-rst
@@ -173,7 +207,8 @@ usability, unsubstantiated jargon we just made up, and thrilling puns.
 .. code-block:: bash
 
    # Install beartype.
-   $ pip3 install beartype
+   $ pip install beartype
+
    # Edit the "{your_package}.__init__" submodule with your favourite IDE.
    $ vim {your_package}/__init__.py      # <-- so, i see that you too vim
 
@@ -295,6 +330,26 @@ you. Would you like to know more?
        Wall time: 36.7 µs
    True
 
+   # ....................{ MAKE US DO IT                   }....................
+   # Don't know type hints? Do but wish you didn't? What if somebody else could
+   # write your type hints for you? @beartype: it's somebody. Let BeartypeAI™
+   # write your type hints for you. When you no longer care, call BeartypeAI™.
+   >>> from beartype.bite import infer_hint  # <----- caring begins
+
+   # What type hint describes the root state of a Pygments lexer, BeartypeAI™?
+   >>> from pygments.lexers import PythonLexer
+   >>> infer_hint(PythonLexer().tokens["root"])
+   list[
+       tuple[str | pygments.token._TokenType[str], ...] |
+       tuple[str | collections.abc.Callable[
+           typing.Concatenate[object, object, ...], object], ...] |
+       typing.Annotated[
+           collections.abc.Collection[str],
+           beartype.vale.IsInstance[pygments.lexer.include]]
+   ]  # <---- caring ends
+
+   # ...all righty then. Guess I'll just take your word for that, BeartypeAI™.
+
 Beartype brings Rust_- and `C++`_-inspired `zero-cost abstractions <zero-cost
 abstraction_>`__ into the lawless world of `dynamically-typed`_ Python by
 `enforcing type safety at the granular level of functions and methods <beartype
@@ -337,8 +392,8 @@ developed Python versions <Python status_>`__, `all Python package managers
    :align: top
    :target: https://beartype.readthedocs.io
    :alt: bear-ified
-.. |ci-badge| image:: https://github.com/beartype/beartype/workflows/test/badge.svg
-   :target: https://github.com/beartype/beartype/actions?workflow=test
+.. |ci-badge| image:: https://github.com/beartype/beartype/actions/workflows/python_test.yml/badge.svg
+   :target: https://github.com/beartype/beartype/actions?workflow=tests
    :alt: beartype continuous integration (CI) status
 .. |codecov-badge| image:: https://codecov.io/gh/beartype/beartype/branch/main/graph/badge.svg?token=E6F4YSY9ZQ
    :target: https://codecov.io/gh/beartype/beartype

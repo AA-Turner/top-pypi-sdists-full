@@ -39,17 +39,16 @@ input = "clangd_version.txt"
 Documentation = "https://clangd.llvm.org/"
 Source = "https://github.com/jmpfar/clangd-wheel"
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
-    "pytest==8.4.2",
+    "pytest==9.0.2",
     "pytest-sugar==1.1.1",
     "pytest-timeout==2.4.0",
-    "pylspclient==0.1.2"
+    "pylspclient==0.1.2",
+    "PyYAML==6.0.3"
 ]
-
 dev = [
-    "clangd[test]",
-    "ruff==0.12.12",
+    "ruff==0.14.8",
 ]
 
 [project.scripts]
@@ -62,7 +61,6 @@ cmake.version = ">=3.16.0"
 ninja.version = ">=1.10.0"
 cmake.verbose = true
 logging.level = "DEBUG"
-wheel.exclude = ["*.h"]
 
 [tool.pytest.ini_options]
 log_cli = true
@@ -77,4 +75,4 @@ build-verbosity = 3
 environment = "CMAKE_GENERATOR=Ninja"
 
 test-command = "pytest {package}/tests"
-test-extras = "test"
+test-groups = ["test", "dev"]

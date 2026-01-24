@@ -1,0 +1,830 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/members/98/works?rows=5&cursor=%2A
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"next-cursor":"DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ==","total-results":412910,"items":[{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T19:32:33Z","timestamp":1697484753049},"reference-count":0,"publisher":"Hindawi
+      Limited","issue":"4","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":6452,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Hum.
+      Mutat."],"published-print":{"date-parts":[[1998]]},"DOI":"10.1002\/(sici)1098-1004(1998)11:4<286::aid-humu6>3.3.co;2-2","type":"journal-article","created":{"date-parts":[[2002,8,25]],"date-time":"2002-08-25T19:00:59Z","timestamp":1030302059000},"page":"286-294","source":"Crossref","is-referenced-by-count":1,"title":["Mutation
+      and expression analysis of the endoglin gene in hereditary hemorrhagic telangiectasia
+      reveals null alleles"],"prefix":"10.1155","volume":"11","author":[{"given":"Carol
+      J.","family":"Gallione","sequence":"first","affiliation":[]},{"given":"Daniel
+      J.","family":"Klaus","sequence":"additional","affiliation":[]},{"given":"Eric
+      Y.","family":"Yeh","sequence":"additional","affiliation":[]},{"given":"Timothy
+      T.","family":"Stenzel","sequence":"additional","affiliation":[]},{"given":"Yan","family":"Xue","sequence":"additional","affiliation":[]},{"given":"Kara
+      B.","family":"Anthony","sequence":"additional","affiliation":[]},{"given":"Kimberly
+      A.","family":"McAllister","sequence":"additional","affiliation":[]},{"given":"Melanie
+      A.","family":"Baldwin","sequence":"additional","affiliation":[]},{"given":"Jonathan
+      N.","family":"Berg","sequence":"additional","affiliation":[]},{"given":"Andreas","family":"Lux","sequence":"additional","affiliation":[]},{"given":"Joshua
+      D.","family":"Smith","sequence":"additional","affiliation":[]},{"given":"Calvin
+      P.H.","family":"Vary","sequence":"additional","affiliation":[]},{"given":"William
+      J.","family":"Craigen","sequence":"additional","affiliation":[]},{"given":"C.J.J.","family":"Westermann","sequence":"additional","affiliation":[]},{"given":"Mary
+      L.","family":"Warner","sequence":"additional","affiliation":[]},{"given":"York
+      E.","family":"Miller","sequence":"additional","affiliation":[]},{"given":"C.
+      Eugene","family":"Jackson","sequence":"additional","affiliation":[]},{"given":"Alan
+      E.","family":"Guttmacher","sequence":"additional","affiliation":[]},{"given":"Douglas
+      A.","family":"Marchuk","sequence":"additional","affiliation":[]}],"member":"98","container-title":["Human
+      Mutation"],"link":[{"URL":"http:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2F(SICI)1098-1004(1998)11:4%3C286::AID-HUMU6%3E3.3.CO;2-2","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2022,12,29]],"date-time":"2022-12-29T16:50:03Z","timestamp":1672332603000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/doi.wiley.com\/10.1002\/%28SICI%291098-1004%281998%2911%3A4%3C286%3A%3AAID-HUMU6%3E3.3.CO%3B2-2"}},"issued":{"date-parts":[[1998]]},"references-count":0,"journal-issue":{"issue":"4"},"URL":"http:\/\/dx.doi.org\/10.1002\/(sici)1098-1004(1998)11:4<286::aid-humu6>3.3.co;2-2","ISSN":["1059-7794","1098-1004"],"issn-type":[{"value":"1059-7794","type":"print"},{"value":"1098-1004","type":"electronic"}],"published":{"date-parts":[[1998]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T18:54:23Z","timestamp":1697482463821},"reference-count":43,"publisher":"Hindawi
+      Limited","issue":"5","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":6574,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Breast
+      Journal"],"published-print":{"date-parts":[[1997,9]]},"DOI":"10.1111\/j.1524-4741.1997.tb00181.x","type":"journal-article","created":{"date-parts":[[2007,2,2]],"date-time":"2007-02-02T21:03:21Z","timestamp":1170450201000},"page":"261-266","source":"Crossref","is-referenced-by-count":5,"title":["Morphologic
+      Risk Factors for Local Recurrence in Patients with Invasive Breast Cancer Treated
+      with Conservative Surgery and Radiation Therapy"],"prefix":"10.1155","volume":"3","author":[{"given":"Stuart
+      J.","family":"Schnitt","sequence":"first","affiliation":[]}],"member":"98","reference":[{"key":"b1_323","doi-asserted-by":"publisher","DOI":"10.1001\/jama.265.3.391"},{"key":"b2_324","first-page":"11","volume":"3","author":"Bedwinek
+      JM","year":"1980","journal-title":"Cancer Clin Trials"},{"key":"b3_325","doi-asserted-by":"publisher","DOI":"10.1097\/00000421-198406000-00006"},{"key":"b4_326","first-page":"434","volume":"13","author":"Recht
+      A","year":"1986","journal-title":"Semin Oncol"},{"key":"b5_327","doi-asserted-by":"crossref","first-page":"1","DOI":"10.1016\/S0167-8140(87)80016-6","volume":"8","author":"Limbergen
+      E","year":"1987","journal-title":"Radiother Oncol"},{"key":"b6_328","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19900501)65:9+<2113::AID-CNCR2820651406>3.0.CO;2-N"},{"key":"b7_329","doi-asserted-by":"crossref","first-page":"33","DOI":"10.2214\/ajr.162.1.8273685","volume":"162","author":"Graham
+      RA","year":"1994","journal-title":"AJR"},{"key":"b8_330","doi-asserted-by":"crossref","first-page":"81","DOI":"10.2214\/ajr.164.1.7998574","volume":"164","author":"Lee
+      CH","year":"1995","journal-title":"AJR"},{"key":"b9_331","doi-asserted-by":"publisher","DOI":"10.1016\/0167-8140(90)90163-Q"},{"key":"b10_332","doi-asserted-by":"publisher","DOI":"10.1016\/0167-8140(92)90264-U"},{"key":"b11_333","doi-asserted-by":"crossref","first-page":"873","DOI":"10.1038\/bjc.1990.195","volume":"61","author":"Jacquemier
+      J","year":"1990","journal-title":"Br J Cancer"},{"key":"b12_334","doi-asserted-by":"crossref","first-page":"890","DOI":"10.1002\/bjs.1800760906","volume":"76","author":"Locker
+      AP","year":"1989","journal-title":"Br J Surg"},{"key":"b13_335","first-page":"13","volume":"105","author":"Lindley
+      R","year":"1989","journal-title":"Surgery"},{"key":"b14_336","doi-asserted-by":"crossref","first-page":"719","DOI":"10.1016\/0360-3016(89)90057-6","volume":"17","author":"Fourquet
+      A","year":"1989","journal-title":"Int J Radiat Oncol Biol Phys"},{"key":"b15_337","first-page":"167","volume-title":"Breast
+      Cancer Treatment. A Comprehensive Guide to Management","author":"Yeh I","year":"1991"},{"key":"b16_338","doi-asserted-by":"publisher","DOI":"10.1007\/BF00348194"},{"key":"b17_339","doi-asserted-by":"crossref","first-page":"1217","DOI":"10.1016\/0360-3016(89)90529-4","volume":"17","author":"Healey
+      EA","year":"1989","journal-title":"Int J Radiat Oncol Biol Phys"},{"key":"b18_340","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19870215)59:4<675::AID-CNCR2820590402>3.0.CO;2-U"},{"key":"b19_341","doi-asserted-by":"crossref","first-page":"113","DOI":"10.1200\/JCO.1990.8.1.113","volume":"8","author":"Holland
+      R","year":"1980","journal-title":"J Clin Oncol"},{"key":"b20_342","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19910601)67:11<2805::AID-CNCR2820671116>3.0.CO;2-D"},{"key":"b21_343","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19860501)57:9<1717::AID-CNCR2820570902>3.0.CO;2-H"},{"key":"b22_344","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19940915)74:6<1746::AID-CNCR2820740617>3.0.CO;2-Y"},{"key":"b23_345","doi-asserted-by":"publisher","DOI":"10.1002\/(SICI)1097-0142(19961101)78:9<1921::AID-CNCR12>3.0.CO;2-#"},{"key":"b24_346","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19950715)76:2<259::AID-CNCR2820760216>3.0.CO;2-2"},{"key":"b25_347","doi-asserted-by":"crossref","first-page":"125","DOI":"10.1093\/ajcp\/98.1.125","volume":"98","author":"Schnitt
+      SJ","year":"1992","journal-title":"Am J Clin Pathol"},{"key":"b26_348","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19950701)76:1<32::AID-CNCR2820760106>3.0.CO;2-R"},{"key":"b27_349","doi-asserted-by":"crossref","first-page":"279","DOI":"10.1016\/0360-3016(91)90772-V","volume":"21","author":"Solin
+      LJ","year":"1991","journal-title":"Int J Radiat Oncol Biol Phys"},{"key":"b28_350","doi-asserted-by":"crossref","first-page":"653","DOI":"10.1200\/JCO.1994.12.4.653","volume":"12","author":"Borger
+      J","year":"1994","journal-title":"J Clin Oncol"},{"key":"b29_351","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19900415)65:8<1867::AID-CNCR2820650833>3.0.CO;2-I"},{"key":"b30_352","doi-asserted-by":"publisher","DOI":"10.1097\/00000658-199307000-00005"},{"key":"b31_353","doi-asserted-by":"crossref","first-page":"952","DOI":"10.1001\/archsurg.1994.01420330066013","volume":"129","author":"Spivack
+      B","year":"1994","journal-title":"Arch Surg"},{"key":"b32_354","doi-asserted-by":"publisher","DOI":"10.1002\/(SICI)1097-0142(19961015)78:8<1722::AID-CNCR12>3.0.CO;2-#"},{"key":"b33_355","doi-asserted-by":"publisher","DOI":"10.1056\/NEJM199511303332203"},{"key":"b34_356","doi-asserted-by":"publisher","DOI":"10.1016\/S0140-6736(96)02133-2"},{"key":"b35_357","doi-asserted-by":"crossref","first-page":"93","DOI":"10.1007\/978-3-642-84593-2_10","volume-title":"Non-Disseminated
+      Breast Cancer-Controversial Issues in Management","author":"Schnitt SJ.","year":"1993"},{"key":"b36_358","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19890415)63:8<1630::AID-CNCR2820630833>3.0.CO;2-U"},{"key":"b37_359","doi-asserted-by":"crossref","first-page":"941","DOI":"10.1016\/0360-3016(92)90898-R","volume":"23","author":"Weiss
+      MC","year":"1992","journal-title":"In J Radiat Oncol Biol Phys"},{"key":"b38_360","doi-asserted-by":"crossref","first-page":"7","DOI":"10.1111\/j.1524-4741.1997.tb00134.x","volume":"3","author":"Haffty
+      BG","year":"1997","journal-title":"The Breast J"},{"key":"b39_361","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19920601)69:11<2789::AID-CNCR2820691126>3.0.CO;2-J"},{"key":"b40_362","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19890715)64:2<448::AID-CNCR2820640218>3.0.CO;2-7"},{"key":"b41_363","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19940315)73:6<1673::AID-CNCR2820730620>3.0.CO;2-B"},{"key":"b42_364","doi-asserted-by":"publisher","DOI":"10.1002\/1097-0142(19940715)74:2<640::AID-CNCR2820740216>3.0.CO;2-V"},{"key":"b43_365","doi-asserted-by":"publisher","DOI":"10.1002\/(SICI)1097-0142(19960101)77:1<113::AID-CNCR19>3.0.CO;2-8"}],"container-title":["The
+      Breast Journal"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1111%2Fj.1524-4741.1997.tb00181.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/onlinelibrary.wiley.com\/wol1\/doi\/10.1111\/j.1524-4741.1997.tb00181.x\/fullpdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,1,28]],"date-time":"2022-01-28T06:23:49Z","timestamp":1643351029000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.1524-4741.1997.tb00181.x"}},"issued":{"date-parts":[[1997,9]]},"references-count":43,"journal-issue":{"issue":"5","published-print":{"date-parts":[[1997,9]]}},"alternative-id":["10.1111\/j.1524-4741.1997.tb00181.x"],"URL":"http:\/\/dx.doi.org\/10.1111\/j.1524-4741.1997.tb00181.x","ISSN":["1075-122X","1524-4741"],"issn-type":[{"value":"1075-122X","type":"print"},{"value":"1524-4741","type":"electronic"}],"published":{"date-parts":[[1997,9]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T14:00:36Z","timestamp":1697464836188},"reference-count":67,"publisher":"Hindawi
+      Limited","issue":"1","license":[{"start":{"date-parts":[[2009,4,14]],"date-time":"2009-04-14T00:00:00Z","timestamp":1239667200000},"content-version":"unspecified","delay-in-days":4821,"URL":"https:\/\/www.cambridge.org\/core\/terms"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Genet.
+      Res."],"published-print":{"date-parts":[[1996,2]]},"abstract":"<jats:title>Summary<\/jats:title><jats:p>Microsatellites
+      closely associated with each member of the<jats:italic>Tcp1O<\/jats:italic>gene
+      family were amplified simultaneously from<jats:italic>t<\/jats:italic>haplotype
+      and wild-type forms of mouse chromosome 17, by PCR. The<jats:italic>t<\/jats:italic>complex
+      responder (<jats:italic>Tcr<\/jats:italic>) locus, which plays a central role
+      in transmission ratio distortion, maps within the<jats:italic>Tcp10<\/jats:italic>cluster
+      on the<jats:italic>t<\/jats:italic>haplotype. Thus the amplified set of microsatellite
+      loci (referred to collectively as<jats:italic>Tcp10ms<\/jats:italic>) provides
+      a direct marker for this central component of the meiotic drive system associated
+      with all naturally occurring<jats:italic>t<\/jats:italic>haplotypes. A unique<jats:italic>Tcp10ms<\/jats:italic>pattern
+      of microsatellite alleles was obtained for a number of independent, laboratory-maintained
+      complete and partial<jats:italic>t<\/jats:italic>haplotypes. Independent<jats:italic>t<\/jats:italic>chromosomes
+      found in wild mice from US populations also had unique patterns, even when they
+      were classified within the same lethal complementation group. Wild and laboratory
+      chromosomes in the<jats:italic>t<\/jats:italic><jats:sup>w5<\/jats:sup>group
+      showed similarly-sized but non-identical Tcp10ms patterns, suggesting they share
+      a recent common ancestor. These chromosomes are likely to have derived from
+      an ancestral chromosome within the founding population of North American house
+      mice. The Tcp10ms pattern was also shown to be useful in field studies for distinguishing
+      among independent<jats:italic>t<\/jats:italic>haplotypes, when more than one
+      is present within a single population.<\/jats:p>","DOI":"10.1017\/s0016672300033425","type":"journal-article","created":{"date-parts":[[2009,9,17]],"date-time":"2009-09-17T07:23:27Z","timestamp":1253172207000},"page":"1-10","source":"Crossref","is-referenced-by-count":8,"title":["Recent
+      evolution of mouse<i>t<\/i>haplotypes at polymorphic microsatellites associated
+      with the<i>t<\/i>complex responder (<i>Tcr<\/i>) locus"],"prefix":"10.1155","volume":"67","author":[{"given":"Kristin
+      G.","family":"Ardlie","sequence":"first","affiliation":[]},{"given":"Lee M.","family":"Silver","sequence":"additional","affiliation":[]}],"member":"98","published-online":{"date-parts":[[2009,4,14]]},"reference":[{"key":"S0016672300033425_ref054","doi-asserted-by":"publisher","DOI":"10.1017\/S0016672300026720"},{"key":"S0016672300033425_ref043","doi-asserted-by":"publisher","DOI":"10.1111\/j.1558-5646.1967.tb03403.x"},{"key":"S0016672300033425_ref002","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(92)90285-Z"},{"key":"S0016672300033425_ref065","first-page":"388","article-title":"Abundant
+      class of human DNA polymorphisms which can be typed using the polymerase chain
+      reaction","volume":"44","author":"Weber","year":"1989","journal-title":"American
+      Journal of Human Genetics"},{"key":"S0016672300033425_ref061","volume-title":"DNA
+      Fingerprinting: State of the science","author":"Tautz","year":"1993"},{"key":"S0016672300033425_ref059","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(91)90467-S"},{"key":"S0016672300033425_ref052","volume-title":"Mouse
+      Genetics: Concepts and Applications","author":"Silver","year":"1995"},{"key":"S0016672300033425_ref051","doi-asserted-by":"publisher","DOI":"10.1016\/0168-9525(93)90090-5"},{"key":"S0016672300033425_ref049","doi-asserted-by":"publisher","DOI":"10.1007\/BF00401359"},{"key":"S0016672300033425_ref067","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(86)90839-1"},{"key":"S0016672300033425_ref047","doi-asserted-by":"publisher","DOI":"10.1016\/0022-2836(87)90235-X"},{"key":"S0016672300033425_ref019","doi-asserted-by":"publisher","DOI":"10.1073\/pnas.86.9.3261"},{"key":"S0016672300033425_ref008","first-page":"922","article-title":"Incidence
+      and origin of \u2018null\u2019 alleles in the (AC)n microsatellite markers","volume":"52","author":"Callen","year":"1993","journal-title":"American
+      Journal of Human Genetics"},{"key":"S0016672300033425_ref035","doi-asserted-by":"publisher","DOI":"10.1093\/nar\/18.14.4123"},{"key":"S0016672300033425_ref014","doi-asserted-by":"crossref","first-page":"175","DOI":"10.1093\/genetics\/131.1.175","article-title":"New
+      molecular markers for the distal end of the t-complex and their relationships
+      to mutations affecting mouse development","volume":"131","author":"Ebersole","year":"1992","journal-title":"Genetics"},{"key":"S0016672300033425_ref011","doi-asserted-by":"publisher","DOI":"10.1007\/BF00352330"},{"key":"S0016672300033425_ref066","doi-asserted-by":"publisher","DOI":"10.1093\/hmg\/2.8.1123"},{"key":"S0016672300033425_ref025","volume-title":"Manipulating
+      the Mouse Embryo: A Laboratory Manual, Second Edition","author":"Hogan","year":"1994"},{"key":"S0016672300033425_ref015","doi-asserted-by":"publisher","DOI":"10.1007\/BF00364807"},{"key":"S0016672300033425_ref003","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(75)90033-1"},{"key":"S0016672300033425_ref037","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(84)90393-3"},{"key":"S0016672300033425_ref057","doi-asserted-by":"publisher","DOI":"10.1006\/geno.1994.1232"},{"key":"S0016672300033425_ref001","doi-asserted-by":"publisher","DOI":"10.1084\/jem.162.1.93"},{"key":"S0016672300033425_ref017","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(85)90309-5"},{"key":"S0016672300033425_ref013","doi-asserted-by":"publisher","DOI":"10.1073\/pnas.43.1.158"},{"key":"S0016672300033425_ref009","doi-asserted-by":"publisher","DOI":"10.1038\/349239a0"},{"key":"S0016672300033425_ref012","doi-asserted-by":"crossref","first-page":"423","DOI":"10.1093\/genetics\/131.2.423","article-title":"A
+      genetic map of the mouse suitable for typing intraspecific crosses","volume":"131","author":"Dietrich","year":"1992","journal-title":"Genetics"},{"key":"S0016672300033425_ref029","doi-asserted-by":"publisher","DOI":"10.1093\/hmg\/2.12.2075"},{"key":"S0016672300033425_ref040","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(91)90448-N"},{"key":"S0016672300033425_ref033","doi-asserted-by":"publisher","DOI":"10.2307\/1381340"},{"key":"S0016672300033425_ref020","first-page":"971","article-title":"Phylogenetic
+      analysis of the alpha-globin pseudogene-4 (Hba-ps4) locus in the house mouse
+      species complex reveals a stepwise evolution of t haplotypes","volume":"10","author":"Hammer","year":"1993","journal-title":"Molecular
+      Biology and Evolution"},{"key":"S0016672300033425_ref031","doi-asserted-by":"publisher","DOI":"10.1016\/0735-0651(89)90021-6"},{"key":"S0016672300033425_ref007","doi-asserted-by":"publisher","DOI":"10.1007\/BF00350625"},{"key":"S0016672300033425_ref021","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(86)90468-X"},{"key":"S0016672300033425_ref023","doi-asserted-by":"publisher","DOI":"10.1093\/nar\/17.14.5865"},{"key":"S0016672300033425_ref026","doi-asserted-by":"publisher","DOI":"10.1017\/S0016672300030652"},{"key":"S0016672300033425_ref027","doi-asserted-by":"crossref","first-page":"1103","DOI":"10.1093\/genetics\/126.4.1103","article-title":"Genetic
+      Molecular analysis of the proximal region of the mouse t-complex using new molecular
+      probes and partial t-haplotypes","volume":"126","author":"Howard","year":"1990","journal-title":"Genetics"},{"key":"S0016672300033425_ref050","doi-asserted-by":"publisher","DOI":"10.1146\/annurev.ge.19.120185.001143"},{"key":"S0016672300033425_ref018","doi-asserted-by":"publisher","DOI":"10.1073\/pnas.79.21.6465"},{"key":"S0016672300033425_ref032","doi-asserted-by":"publisher","DOI":"10.1007\/BF00356162"},{"key":"S0016672300033425_ref058","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(95)80115-3"},{"key":"S0016672300033425_ref064","doi-asserted-by":"crossref","first-page":"737","DOI":"10.1093\/genetics\/133.3.737","article-title":"Allele
+      frequencies at microsatellite loci: The stepwise mutation model revisited","volume":"133","author":"Valdes","year":"1993","journal-title":"Genetics"},{"key":"S0016672300033425_ref053","first-page":"473","article-title":"Molecular
+      evidence for the rapid propagation of mouse t haplotypes from a single, recent,
+      ancestral chromosome","volume":"4","author":"Silver","year":"1987","journal-title":"Molecular
+      Biology and Evolution"},{"key":"S0016672300033425_ref036","first-page":"483","article-title":"Tracing
+      paternal ancestry in mice, using the Y-linked, sex-determining locus. Sry","volume":"11","author":"Lundrigan","year":"1994","journal-title":"Molecular
+      Biology and Evolution"},{"key":"S0016672300033425_ref038","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(86)90770-1"},{"key":"S0016672300033425_ref055","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(83)90205-2"},{"key":"S0016672300033425_ref041","doi-asserted-by":"publisher","DOI":"10.1073\/pnas.89.15.6851"},{"key":"S0016672300033425_ref010","doi-asserted-by":"publisher","DOI":"10.1007\/BF00350842"},{"key":"S0016672300033425_ref042","doi-asserted-by":"publisher","DOI":"10.1111\/j.1365-294X.1995.tb00214.x"},{"key":"S0016672300033425_ref056","doi-asserted-by":"crossref","first-page":"457","DOI":"10.1093\/genetics\/139.1.457","article-title":"A
+      measure of population subdivision based on microsatellite allele frequencies","volume":"139","author":"Slatkin","year":"1995","journal-title":"Genetics"},{"key":"S0016672300033425_ref063","doi-asserted-by":"crossref","first-page":"1093","DOI":"10.1093\/genetics\/126.4.1093","article-title":"Submegabase
+      clusters of unstable tandem repeats unique to the Tla region of mouse t haplotypes","volume":"126","author":"Uehara","year":"1990","journal-title":"Genetics"},{"key":"S0016672300033425_ref062","doi-asserted-by":"publisher","DOI":"10.1093\/nar\/12.10.4127"},{"key":"S0016672300033425_ref045","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(90)90235-M"},{"key":"S0016672300033425_ref006","doi-asserted-by":"publisher","DOI":"10.1007\/BF00352329"},{"key":"S0016672300033425_ref005","doi-asserted-by":"crossref","first-page":"957","DOI":"10.1093\/genetics\/124.4.957","article-title":"Molecular
+      cloning and genetic mapping of the t complex responder candidate gene family","volume":"124","author":"Bullard","year":"1990","journal-title":"Genetics"},{"key":"S0016672300033425_ref028","doi-asserted-by":"publisher","DOI":"10.1111\/j.1365-294X.1993.tb00102.x"},{"key":"S0016672300033425_ref046","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(88)90010-4"},{"key":"S0016672300033425_ref030","doi-asserted-by":"publisher","DOI":"10.1017\/S0016672300026239"},{"key":"S0016672300033425_ref016","doi-asserted-by":"crossref","first-page":"157","DOI":"10.1093\/genetics\/119.1.157","article-title":"t-specific
+      DNA polymorphisms among wild mice from Israel and Spain","volume":"119","author":"Figueroa","year":"1988","journal-title":"Genetics"},{"key":"S0016672300033425_ref039","doi-asserted-by":"publisher","DOI":"10.1017\/S0016672300023302"},{"key":"S0016672300033425_ref004","doi-asserted-by":"publisher","DOI":"10.1016\/0959-437X(93)90017-J"},{"key":"S0016672300033425_ref034","first-page":"397","article-title":"A
+      hypervariable microsatellite revealed by in vitro amplification of a dinucleotide
+      repeat within the cardiac muscle actin gene","volume":"44","author":"Litt","year":"1989","journal-title":"American
+      Journal of Human Genetics"},{"key":"S0016672300033425_ref060","doi-asserted-by":"crossref","first-page":"333","DOI":"10.1093\/genetics\/136.1.333","article-title":"Possible
+      role of natural selection in the formation of tandem-repetitive noncoding DNA","volume":"136","author":"Stephan","year":"1994","journal-title":"Genetics"},{"key":"S0016672300033425_ref022","doi-asserted-by":"publisher","DOI":"10.1016\/0092-8674(87)90078-X"},{"key":"S0016672300033425_ref024","doi-asserted-by":"publisher","DOI":"10.1073\/pnas.90.2.730"},{"key":"S0016672300033425_ref044","doi-asserted-by":"publisher","DOI":"10.1016\/0888-7543(92)90403-F"},{"key":"S0016672300033425_ref048","doi-asserted-by":"publisher","DOI":"10.1093\/nar\/20.2.211"}],"container-title":["Genetical
+      Research"],"language":"en","link":[{"URL":"https:\/\/www.cambridge.org\/core\/services\/aop-cambridge-core\/content\/view\/S0016672300033425","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2021,10,10]],"date-time":"2021-10-10T22:41:43Z","timestamp":1633905703000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/www.cambridge.org\/core\/product\/identifier\/S0016672300033425\/type\/journal_article"}},"issued":{"date-parts":[[1996,2]]},"references-count":67,"journal-issue":{"issue":"1","published-print":{"date-parts":[[1996,2]]}},"alternative-id":["S0016672300033425"],"URL":"http:\/\/dx.doi.org\/10.1017\/s0016672300033425","ISSN":["0016-6723","1469-5073"],"issn-type":[{"value":"0016-6723","type":"print"},{"value":"1469-5073","type":"electronic"}],"published":{"date-parts":[[1996,2]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T18:28:24Z","timestamp":1697480904464},"reference-count":4,"publisher":"Hindawi
+      Limited","issue":"2","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":7854,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Int.
+      J. Energy Res."],"published-print":{"date-parts":[[1994,3]]},"DOI":"10.1002\/er.4440180220","type":"journal-article","created":{"date-parts":[[2007,7,4]],"date-time":"2007-07-04T13:59:12Z","timestamp":1183557552000},"page":"223-231","source":"Crossref","is-referenced-by-count":16,"title":["New
+      zeolites in fischer-tropsch synthesis"],"prefix":"10.1155","volume":"18","author":[{"given":"H.","family":"Hammer","sequence":"first","affiliation":[]},{"given":"M.","family":"Joisten","sequence":"additional","affiliation":[]},{"given":"S.","family":"L\u00fcngen","sequence":"additional","affiliation":[]},{"given":"D.","family":"Winkler","sequence":"additional","affiliation":[]}],"member":"98","reference":[{"key":"10.1002\/er.4440180220-BIB1","first-page":"440","volume-title":"Chemische
+      Technologie","volume":"3","author":"K\u00f6lbel","year":"1959","unstructured":"(1959).
+      \u2018Die Fischer-Tropsch Synthese\u2019 in Chemische Technologie Vol. 3, and
+      (Eds.), M\u00fcnchen, Carl Hanser Verlag, pp. 440\u2013530."},{"key":"10.1002\/er.4440180220-BIB2","author":"Meier","year":"1987","unstructured":"and
+      (1987). Atlas of Zeolite Structure Types, Butterworth."},{"key":"10.1002\/er.4440180220-BIB3","doi-asserted-by":"crossref","first-page":"259","DOI":"10.1007\/BF02084207","volume":"6","author":"R\u00e4hse","year":"1977","journal-title":"React.
+      Kinet. Catal. Lett."},{"key":"10.1002\/er.4440180220-BIB4","first-page":"a7","volume-title":"Ullmann''s
+      Encyclopedia of Industrial Chemistry","year":"1986","unstructured":"Ullmann''s
+      Encyclopedia of Industrial Chemistry (1986), Weinheim, Verlag VCH, A7, 206."}],"container-title":["International
+      Journal of Energy Research"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2Fer.4440180220","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/full\/10.1002\/er.4440180220","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,6]],"date-time":"2023-01-06T11:54:11Z","timestamp":1673006051000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/er.4440180220"}},"issued":{"date-parts":[[1994,3]]},"references-count":4,"journal-issue":{"issue":"2","published-print":{"date-parts":[[1994,3]]}},"URL":"http:\/\/dx.doi.org\/10.1002\/er.4440180220","ISSN":["0363-907X","1099-114X"],"issn-type":[{"value":"0363-907X","type":"print"},{"value":"1099-114X","type":"electronic"}],"published":{"date-parts":[[1994,3]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T18:21:41Z","timestamp":1697480501442},"reference-count":8,"publisher":"Hindawi
+      Limited","issue":"2","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":12296,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Int.
+      J. Energy Res."],"published-print":{"date-parts":[[1982]]},"DOI":"10.1002\/er.4440060208","type":"journal-article","created":{"date-parts":[[2007,7,3]],"date-time":"2007-07-03T09:26:48Z","timestamp":1183454808000},"page":"169-173","source":"Crossref","is-referenced-by-count":3,"title":["Spectral
+      selectivity and accelerated life testing of Al-PbS solar selective surfaces"],"prefix":"10.1155","volume":"6","author":[{"given":"R.","family":"Thangaraj","sequence":"first","affiliation":[]},{"given":"S.
+      B.","family":"Gadgil","sequence":"additional","affiliation":[]},{"given":"B.
+      K.","family":"Gupta","sequence":"additional","affiliation":[]},{"given":"J.
+      Vaidhyanathan","family":"Iyer","sequence":"additional","affiliation":[]},{"given":"O.
+      P. A.","family":"Agnihotri","sequence":"additional","affiliation":[]}],"member":"98","reference":[{"key":"10.1002\/er.4440060208-BIB1","doi-asserted-by":"crossref","first-page":"390","DOI":"10.1063\/1.324345","volume":"49","author":"Marchini","year":"1978","journal-title":"J.
+      Appl. Phys."},{"key":"10.1002\/er.4440060208-BIB2","doi-asserted-by":"crossref","first-page":"182","DOI":"10.1116\/1.568750","volume":"12","author":"Mattox","year":"1975","journal-title":"J.
+      Vac. Sci. Technol."},{"key":"10.1002\/er.4440060208-BIB3","doi-asserted-by":"crossref","first-page":"793","DOI":"10.1116\/1.1312754","volume":"11","author":"Mattox","year":"1974","journal-title":"J.
+      Vac. Sci. Technol."},{"key":"10.1002\/er.4440060208-BIB4","doi-asserted-by":"crossref","first-page":"2750","DOI":"10.1364\/AO.13.002750","volume":"13","author":"McMohan","year":"1974","journal-title":"Appl.
+      Optics"},{"key":"10.1002\/er.4440060208-BIB5","doi-asserted-by":"crossref","first-page":"596","DOI":"10.1116\/1.569041","volume":"13","author":"Pettit","year":"1976","journal-title":"J.
+      Vac. Sci. Technol."},{"key":"10.1002\/er.4440060208-BIB6","first-page":"5","volume-title":"Topics
+      in Applied Physics","author":"Seraphin","year":"1978a","unstructured":"(1978a).
+      Topics in Applied Physics, Springer Verlag, Berlin, Germany, 5."},{"key":"10.1002\/er.4440060208-BIB7","first-page":"1","volume-title":"Physics
+      of Thin Films","author":"Seraphin","year":"1978b","unstructured":"(1978b). In
+      (ed.). Physics of Thin Films, Academic Press, New York, 1."},{"key":"10.1002\/er.4440060208-BIB8","author":"Williams","year":"1963","unstructured":"and
+      (1963). J. Engg. for Power, 213."}],"container-title":["International Journal
+      of Energy Research"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2Fer.4440060208","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/full\/10.1002\/er.4440060208","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,6]],"date-time":"2023-01-06T11:54:30Z","timestamp":1673006070000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/er.4440060208"}},"issued":{"date-parts":[[1982]]},"references-count":8,"journal-issue":{"issue":"2","published-print":{"date-parts":[[1982]]}},"URL":"http:\/\/dx.doi.org\/10.1002\/er.4440060208","ISSN":["0363-907X","1099-114X"],"issn-type":[{"value":"0363-907X","type":"print"},{"value":"1099-114X","type":"electronic"}],"published":{"date-parts":[[1982]]}}],"items-per-page":5,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '7841'
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 14:07:07 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/members/98/works?rows=5&cursor=DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ%3D%3D
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"next-cursor":"DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ==","total-results":412910,"items":[{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T15:41:52Z","timestamp":1697470912827},"reference-count":0,"publisher":"Hindawi
+      Limited","issue":"5","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":4017,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Breast
+      Journal"],"published-print":{"date-parts":[[2004,9]]},"DOI":"10.1111\/j.1075-122x.2004.21367.x","type":"journal-article","created":{"date-parts":[[2004,8,23]],"date-time":"2004-08-23T18:40:22Z","timestamp":1093286422000},"page":"454-457","source":"Crossref","is-referenced-by-count":1,"title":["Ductography:
+      A Pictorial Essay of Common Pathologies"],"prefix":"10.1155","volume":"10","author":[{"given":"Darrilyn","family":"Greenberg","sequence":"first","affiliation":[]},{"given":"Heather","family":"McIntyre","sequence":"additional","affiliation":[]},{"given":"Marli","family":"Gregory","sequence":"additional","affiliation":[]},{"given":"Reena","family":"Ramsaroop","sequence":"additional","affiliation":[]}],"member":"98","container-title":["The
+      Breast Journal"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1111%2Fj.1075-122X.2004.21367.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/onlinelibrary.wiley.com\/wol1\/doi\/10.1111\/j.1075-122X.2004.21367.x\/fullpdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,1,28]],"date-time":"2022-01-28T06:27:23Z","timestamp":1643351243000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.1075-122X.2004.21367.x"}},"issued":{"date-parts":[[2004,9]]},"references-count":0,"journal-issue":{"issue":"5","published-print":{"date-parts":[[2004,9]]}},"alternative-id":["10.1111\/j.1075-122X.2004.21367.x"],"URL":"http:\/\/dx.doi.org\/10.1111\/j.1075-122x.2004.21367.x","ISSN":["1075-122X","1524-4741"],"issn-type":[{"value":"1075-122X","type":"print"},{"value":"1524-4741","type":"electronic"}],"published":{"date-parts":[[2004,9]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T16:44:25Z","timestamp":1697474665223},"reference-count":12,"publisher":"Hindawi
+      Limited","license":[{"start":{"date-parts":[[2018,10,1]],"date-time":"2018-10-01T00:00:00Z","timestamp":1538352000000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Journal
+      of Probability and Statistics"],"published-print":{"date-parts":[[2018,10,1]]},"abstract":"<jats:p>This
+      study proposes EWMA-type control charts by considering some auxiliary information.
+      The ratio estimation technique for the mean with ranked set sampling design
+      is used in designing the control structure of the proposed charts. We have developed
+      EWMA control charts using two exponential ratio-type estimators based on ranked
+      set sampling for the process mean to obtain specific ARLs, being suitable when
+      small process shifts are of interest.<\/jats:p>","DOI":"10.1155\/2018\/9413939","type":"journal-article","created":{"date-parts":[[2018,10,1]],"date-time":"2018-10-01T23:37:28Z","timestamp":1538437048000},"page":"1-15","source":"Crossref","is-referenced-by-count":4,"title":["Exponentially
+      Weighted Moving Average Control Charts for the Process Mean Using Exponential
+      Ratio Type Estimator"],"prefix":"10.1155","volume":"2018","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-5650-7519","authenticated-orcid":true,"given":"Hina","family":"Khan","sequence":"first","affiliation":[{"name":"Department
+      of Statistics, GC University, Lahore 54000, Pakistan"}]},{"given":"Saleh","family":"Farooq","sequence":"additional","affiliation":[{"name":"Department
+      of Statistics, GC University, Lahore 54000, Pakistan"}]},{"ORCID":"http:\/\/orcid.org\/0000-0003-0644-1950","authenticated-orcid":true,"given":"Muhammad","family":"Aslam","sequence":"additional","affiliation":[{"name":"Department
+      of Statistics, Faculty of Science, King Abdulaziz University, Jeddah 21551,
+      Saudi Arabia"}]},{"given":"Masood Amjad","family":"Khan","sequence":"additional","affiliation":[{"name":"Department
+      of Statistics, GC University, Lahore 54000, Pakistan"}]}],"member":"98","reference":[{"key":"18","year":"2014","journal-title":"Quality
+      and Reliability Engineering International"},{"key":"3","year":"2014","journal-title":"Quality
+      and Reliability Engineering International"},{"key":"2","doi-asserted-by":"publisher","DOI":"10.1080\/03610926.2012.700368"},{"key":"17","doi-asserted-by":"publisher","DOI":"10.1080\/00949655.2013.780059"},{"key":"19","doi-asserted-by":"publisher","DOI":"10.1080\/00949655.2013.873040"},{"issue":"160","key":"9","first-page":"108","volume":"18","year":"2017","journal-title":"Quality
+      - Access to Success"},{"key":"28","doi-asserted-by":"publisher","DOI":"10.1016\/j.cie.2017.10.001"},{"issue":"5","key":"20","first-page":"1897","volume":"26","year":"2014","journal-title":"Sci.Int.(Lahore)"},{"key":"35","first-page":"1","year":"2012","journal-title":"International
+      Scholarly Research Network ISRN Probability and Statistics"},{"key":"14","first-page":"93","volume":"29","year":"2000","journal-title":"Hacettepe
+      Bulletin of Natural Sciences and Engineering Series B"},{"issue":"2","key":"37","first-page":"21","volume":"5","year":"2015","journal-title":"Journal
+      of Operational Research"},{"key":"32","first-page":"555","volume":"6","year":"2003","journal-title":"Statistics
+      in Transition"}],"container-title":["Journal of Probability and Statistics"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/jps\/2018\/9413939.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/jps\/2018\/9413939.xml","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/jps\/2018\/9413939.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2018,10,1]],"date-time":"2018-10-01T23:37:30Z","timestamp":1538437050000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/www.hindawi.com\/journals\/jps\/2018\/9413939\/"}},"issued":{"date-parts":[[2018,10,1]]},"references-count":12,"alternative-id":["9413939","9413939"],"URL":"http:\/\/dx.doi.org\/10.1155\/2018\/9413939","ISSN":["1687-952X","1687-9538"],"issn-type":[{"value":"1687-952X","type":"print"},{"value":"1687-9538","type":"electronic"}],"published":{"date-parts":[[2018,10,1]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T17:23:44Z","timestamp":1697477024157},"reference-count":0,"publisher":"Hindawi
+      Limited","issue":"2","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":5325,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Hum.
+      Mutat."],"published-print":{"date-parts":[[2001,2]]},"DOI":"10.1002\/1098-1004(200102)17:2<103::aid-humu2>3.3.co;2-e","type":"journal-article","created":{"date-parts":[[2002,8,25]],"date-time":"2002-08-25T04:30:39Z","timestamp":1030249839000},"page":"103","source":"Crossref","is-referenced-by-count":2,"title":["Mutations
+      in the X-linked RSK2 gene (RPS6KA3) in patients with Coffin-Lowry syndrome"],"prefix":"10.1155","volume":"17","author":[{"given":"Jean-Pierre","family":"Delaunoy","sequence":"first","affiliation":[]},{"given":"Fatima","family":"Abidi","sequence":"additional","affiliation":[]},{"given":"Maria","family":"Zeniou","sequence":"additional","affiliation":[]},{"given":"Sylvie","family":"Jacquot","sequence":"additional","affiliation":[]},{"given":"Karine","family":"Merienne","sequence":"additional","affiliation":[]},{"given":"Solange","family":"Pannetier","sequence":"additional","affiliation":[]},{"given":"Mich\u00e8le","family":"Schmitt","sequence":"additional","affiliation":[]},{"given":"Charles
+      E.","family":"Schwartz","sequence":"additional","affiliation":[]},{"given":"Andr\u00e9","family":"Hanauer","sequence":"additional","affiliation":[]}],"member":"98","container-title":["Human
+      Mutation"],"link":[{"URL":"http:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2F1098-1004(200102)17:2%3C103::AID-HUMU2%3E3.3.CO;2-E","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2022,12,29]],"date-time":"2022-12-29T16:52:06Z","timestamp":1672332726000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/doi.wiley.com\/10.1002\/1098-1004%28200102%2917%3A2%3C103%3A%3AAID-HUMU2%3E3.3.CO%3B2-E"}},"issued":{"date-parts":[[2001,2]]},"references-count":0,"journal-issue":{"issue":"2"},"URL":"http:\/\/dx.doi.org\/10.1002\/1098-1004(200102)17:2<103::aid-humu2>3.3.co;2-e","ISSN":["1059-7794","1098-1004"],"issn-type":[{"value":"1059-7794","type":"print"},{"value":"1098-1004","type":"electronic"}],"published":{"date-parts":[[2001,2]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T15:57:03Z","timestamp":1697471823694},"reference-count":0,"publisher":"Hindawi
+      Limited","license":[{"start":{"date-parts":[[2001,1,1]],"date-time":"2001-01-01T00:00:00Z","timestamp":978307200000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/3.0\/"}],"funder":[{"DOI":"10.13039\/100000054","name":"National
+      Cancer Institute","doi-asserted-by":"publisher","award":["R01-CA 61038","DAMD17-98-18526"],"id":[{"id":"10.13039\/100000054","id-type":"DOI","asserted-by":"publisher"}]}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["The
+      Scientific World JOURNAL"],"published-print":{"date-parts":[[2001]]},"DOI":"10.1100\/tsw.2001.168","type":"journal-article","created":{"date-parts":[[2011,8,15]],"date-time":"2011-08-15T07:52:50Z","timestamp":1313394770000},"page":"59-59","source":"Crossref","is-referenced-by-count":1,"title":["Anticancer
+      Drug-Induced Apoptosis and Cytotoxicity in Prostate Cancer Cells Are Modulated
+      by Organ-Specific Stromal Cell Factors"],"prefix":"10.1100","volume":"1","author":[{"given":"Bal
+      L.","family":"Lokeshwar","sequence":"first","affiliation":[{"name":"Sylvester
+      Cancer Center and Department of Urology (M-800), University of Miami School
+      of Medicine, Miami, Florida, USA"}]},{"given":"Kamalaveni R.","family":"Prabhakar","sequence":"additional","affiliation":[{"name":"Sylvester
+      Cancer Center and Department of Urology (M-800), University of Miami School
+      of Medicine, Miami, Florida, USA"}]},{"given":"Tie Yan","family":"Shang","sequence":"additional","affiliation":[{"name":"Sylvester
+      Cancer Center and Department of Urology (M-800), University of Miami School
+      of Medicine, Miami, Florida, USA"}]},{"given":"Zafiria","family":"Mourelatos","sequence":"additional","affiliation":[{"name":"Sylvester
+      Cancer Center and Department of Urology (M-800), University of Miami School
+      of Medicine, Miami, Florida, USA"}]},{"given":"De-Quan","family":"Li","sequence":"additional","affiliation":[{"name":"Sylvester
+      Cancer Center and Department of Urology (M-800), University of Miami School
+      of Medicine, Miami, Florida, USA"}]}],"member":"98","container-title":["The
+      Scientific World JOURNAL"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/tswj\/2001\/275809.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/tswj\/2001\/275809.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2016,8,23]],"date-time":"2016-08-23T03:42:35Z","timestamp":1471923755000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/www.hindawi.com\/journals\/tswj\/2001\/275809\/abs\/"}},"issued":{"date-parts":[[2001]]},"references-count":0,"alternative-id":["275809"],"URL":"http:\/\/dx.doi.org\/10.1100\/tsw.2001.168","ISSN":["1537-744X"],"issn-type":[{"value":"1537-744X","type":"electronic"}],"published":{"date-parts":[[2001]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T16:22:15Z","timestamp":1697473335817},"reference-count":0,"publisher":"Hindawi
+      Limited","issue":"6","license":[{"start":{"date-parts":[[2010,1,1]],"date-time":"2010-01-01T00:00:00Z","timestamp":1262304000000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by-nc\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Canadian
+      Journal of Gastroenterology"],"published-print":{"date-parts":[[2010]]},"abstract":"<jats:p>BACKGROUND:
+      Colorectal cancer (CRC) screening is an efficacious but underused means to reduce
+      the burden of CRC. Population-based CRC screening programs are currently being
+      implemented in Canada and physicians are key partners in increasing screening
+      uptake. The current study identified physician attitudes and barriers that need
+      to be addressed by provincial programs.<\/jats:p><jats:p>METHODS: A mailed survey
+      of primary care physicians in Alberta.<\/jats:p><jats:p>RESULTS: The survey
+      response rate was 42.4% (806 of 1903). The majority of physicians suggested
+      CRC screening as part of a routine periodic examination; however, the approach
+      to test selection and the type of tests recommended varied by geographical region.
+      The majority of physicians agreed (48%) or strongly agreed (36%) that a province-wide
+      screening program is the best approach to reducing mortality from CRC. However,
+      there were many serious concerns identified \u2013 the most common was endoscopic
+      capacity for follow-up of patients with a positive fecal occult blood test (FOBT),
+      which was cited by 55% to 69% of the physicians surveyed. The barriers to three
+      commonly available tests (FOBT, flexible sigmoidoscopy and colonoscopy) varied
+      according to health region, and the types of barriers identified varied according
+      to the specific test.<\/jats:p><jats:p>INTERPRETATION: Screening for CRC is
+      gradually being accepted among primary care physicians in Alberta. A key finding
+      of the present descriptive study was the regional variation in practices, perceived
+      barriers and concerns about provincial population-based screening programs based
+      on FOBT as the primary screening test. Provincial programs will need to address
+      the issue of endoscopic capacity and perceived barriers to FOBT to gain primary
+      care physician acceptance of FOBT-based CRC screening programs.<\/jats:p>","DOI":"10.1155\/2010\/591326","type":"journal-article","created":{"date-parts":[[2016,3,15]],"date-time":"2016-03-15T04:00:10Z","timestamp":1458014410000},"page":"359-364","source":"Crossref","is-referenced-by-count":5,"title":["Physician
+      Barriers to Population-Based, Fecal Occult Blood Test-Based Colorectal Cancer
+      Screening Programs for Average-Risk Patients"],"prefix":"10.1155","volume":"24","author":[{"given":"S
+      Elizabeth","family":"McGregor","sequence":"first","affiliation":[{"name":"Population
+      Health Research, Alberta Health Services Cancer Care, Canada"}]},{"given":"Robert
+      J","family":"Hilsden","sequence":"additional","affiliation":[{"name":"Departments
+      of Medicine and Community Health Sciences, University of Calgary, Canada"}]},{"given":"Huiming","family":"Yang","sequence":"additional","affiliation":[{"name":"Alberta
+      Health Services Population and Public Health, Calgary, Alberta, Canada"}]}],"member":"98","container-title":["Canadian
+      Journal of Gastroenterology"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/cjgh\/2010\/591326.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/cjgh\/2010\/591326.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2016,8,23]],"date-time":"2016-08-23T08:08:32Z","timestamp":1471939712000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/www.hindawi.com\/journals\/cjgh\/2010\/591326\/"}},"issued":{"date-parts":[[2010]]},"references-count":0,"journal-issue":{"issue":"6","published-print":{"date-parts":[[2010]]}},"alternative-id":["591326"],"URL":"http:\/\/dx.doi.org\/10.1155\/2010\/591326","ISSN":["0835-7900"],"issn-type":[{"value":"0835-7900","type":"print"}],"published":{"date-parts":[[2010]]}}],"items-per-page":5,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '4793'
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 14:07:07 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/members/98/works?rows=5&cursor=DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ%3D%3D
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"next-cursor":"DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ==","total-results":412910,"items":[{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T13:54:27Z","timestamp":1697464467583},"reference-count":30,"publisher":"Hindawi
+      Limited","issue":"6","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":2283,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"published-print":{"date-parts":[[2009,6]]},"DOI":"10.1111\/j.1600-0404.2008.01107.x","type":"journal-article","created":{"date-parts":[[2009,5,12]],"date-time":"2009-05-12T11:26:15Z","timestamp":1242127575000},"page":"364-370","source":"Crossref","is-referenced-by-count":18,"title":["Tongue
+      weakness is associated with respiratory failure in patients with severe Guillain-Barr\u00e9
+      syndrome"],"prefix":"10.1155","volume":"119","author":[{"given":"D.","family":"Orlikowski","sequence":"first","affiliation":[]},{"given":"N.","family":"Terzi","sequence":"additional","affiliation":[]},{"given":"M.","family":"Blumen","sequence":"additional","affiliation":[]},{"given":"T.","family":"Sharshar","sequence":"additional","affiliation":[]},{"given":"J.
+      C.","family":"Raphael","sequence":"additional","affiliation":[]},{"given":"D.","family":"Annane","sequence":"additional","affiliation":[]},{"given":"F.","family":"Lofaso","sequence":"additional","affiliation":[]}],"member":"98","reference":[{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB1","doi-asserted-by":"crossref","first-page":"1653","DOI":"10.1016\/S0140-6736(05)67665-9","article-title":"Guillain-Barre
+      syndrome","volume":"366","author":"Hughes","year":"2005","journal-title":"Lancet"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB2","doi-asserted-by":"crossref","first-page":"1662","DOI":"10.1212\/WNL.35.11.1662","article-title":"Guillain-Barre
+      syndrome: management of respiratory failure","volume":"35","author":"Ropper","year":"1985","journal-title":"Neurology"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB3","doi-asserted-by":"crossref","first-page":"814","DOI":"10.1164\/ajrccm\/144.4.814","article-title":"Repeated
+      vital capacity measurements as predictive parameters for mechanical ventilation
+      need and weaning success in the Guillain-Barre syndrome","volume":"144","author":"Chevrolet","year":"1991","journal-title":"Am
+      Rev Respir Dis"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB4","first-page":"613","article-title":"[The
+      Landry-Guillain-Barre syndrome. Study of prognostic factors in 223 cases]","volume":"142","author":"Raphael","year":"1986","journal-title":"Rev
+      Neurol (Paris)"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB5","first-page":"73","volume-title":"Clinical
+      features of the typical syndrome, Guillain-Barr\u00e9 syndrome","author":"Ropper","year":"1991"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB6","doi-asserted-by":"crossref","first-page":"561","DOI":"10.1001\/archneur.1996.00550060105023","article-title":"Twelfth-nerve
+      palsy. Analysis of 100 cases","volume":"53","author":"Keane","year":"1996","journal-title":"Arch
+      Neurol"},{"issue":"Suppl","key":"10.1111\/j.1600-0404.2008.01107.x-BIB7","doi-asserted-by":"crossref","first-page":"S21","DOI":"10.1002\/ana.410270707","article-title":"Assessment
+      of current diagnostic criteria for Guillain-Barre syndrome","volume":"27","author":"Asbury","year":"1990","journal-title":"Ann
+      Neurol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB8","doi-asserted-by":"crossref","first-page":"278","DOI":"10.1097\/00003246-200301000-00044","article-title":"Early
+      predictors of mechanical ventilation in Guillain-Barre syndrome","volume":"31","author":"Sharshar","year":"2003","journal-title":"Crit
+      Care Med"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB9","first-page":"586","article-title":"Double-blind
+      trial of intravenous methylprednisolone in Guillain-Barre syndrome. Guillain-Barre
+      Syndrome Steroid Trial Group","volume":"341","author":"Anonymous","year":"1993","journal-title":"Lancet"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB10","doi-asserted-by":"crossref","first-page":"151","DOI":"10.1212\/WNL.52.1.151","article-title":"Impact
+      of neurologic signs and symptoms on functional status in peripheral neuropathies","volume":"52","author":"Molenaar","year":"1999","journal-title":"Neurology"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB11","doi-asserted-by":"crossref","first-page":"5","DOI":"10.1183\/09041950.005s1693","article-title":"Lung
+      volumes and forced ventilatory flows. Report Working Party Standardization of
+      Lung Function Tests, European Community for Steel and Coal. Official Statement
+      of the European Respiratory Society","volume":"16","author":"Quanjer","year":"1993","journal-title":"Eur
+      Respir J Suppl"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB12","doi-asserted-by":"crossref","first-page":"518","DOI":"10.1164\/rccm.166.4.518","article-title":"ATS\/ERS
+      statement on respiratory muscle testing","volume":"166","author":"Anonymous","year":"2002","journal-title":"Am
+      J Respir Crit Care Med"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB13","doi-asserted-by":"crossref","first-page":"535","DOI":"10.1136\/thx.39.7.535","article-title":"Predicted
+      normal values for maximal respiratory pressures in Caucasian adults and children","volume":"39","author":"Wilson","year":"1984","journal-title":"Thorax"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB14","doi-asserted-by":"crossref","first-page":"1685","DOI":"10.1136\/jnnp.74.12.1685","article-title":"Limitations
+      of sniff nasal pressure in patients with severe neuromuscular weakness","volume":"74","author":"Hart","year":"2003","journal-title":"J
+      Neurol Neurosurg Psychiatry"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB15","doi-asserted-by":"crossref","first-page":"155","DOI":"10.1016\/j.resp.2003.12.001","article-title":"Tongue
+      mechanical characteristics and genioglossus muscle EMG in obstructive sleep
+      apnoea patients","volume":"140","author":"Blumen","year":"2004","journal-title":"Respir
+      Physiol Neurobiol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB16","doi-asserted-by":"crossref","first-page":"389","DOI":"10.1046\/j.1365-2869.2000.00222.x","article-title":"Tongue
+      protrusion strength and fatiguability: relationship to apnoea\/hypopnoea index
+      and age","volume":"9","author":"Mortimore","year":"2000","journal-title":"J
+      Sleep Res"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB17","doi-asserted-by":"crossref","first-page":"170","DOI":"10.1007\/s00421-002-0697-y","article-title":"Genioglossal
+      electromyogram during maintained contraction in normal humans","volume":"88","author":"Blumen","year":"2002","journal-title":"Eur
+      J Appl Physiol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB18","doi-asserted-by":"crossref","first-page":"1158","DOI":"10.1044\/jshr.3606.1158","article-title":"Multiple
+      orofacial indices in amyotrophic lateral sclerosis","volume":"36","author":"Depaul","year":"1993","journal-title":"J
+      Speech Hear Res"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB19","doi-asserted-by":"crossref","first-page":"55","DOI":"10.1093\/brain\/86.1.55","article-title":"The
+      Landry-Guillain Barr\u00e9 syndrome","volume":"86","author":"Marshall","year":"1963","journal-title":"Brain"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB20","doi-asserted-by":"crossref","first-page":"605","DOI":"10.1136\/jnnp.51.5.605","article-title":"A
+      prospective study of acute idiopathic neuropathy. I. Clinical features and their
+      prognostic value","volume":"51","author":"Winer","year":"1988","journal-title":"J
+      Neurol Neurosurg Psychiatry"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB21","first-page":"38","article-title":"A
+      tongue force measurement system for the assessment of oral-phase swallowing
+      disorders","volume":"72","author":"Robinovitch","year":"1991","journal-title":"Arch
+      Phys Med Rehabil"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB22","doi-asserted-by":"crossref","first-page":"418","DOI":"10.1152\/jappl.2002.92.1.418","article-title":"Influence
+      of genioglossus tonic activity on upper airway dynamics assessed by phrenic
+      nerve stimulation","volume":"92","author":"Series","year":"2002","journal-title":"J
+      Appl Physiol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB23","doi-asserted-by":"crossref","first-page":"11","DOI":"10.1007\/BF00385793","article-title":"Videofluoroscopic
+      evaluation of patients with Guillain-Barre syndrome","volume":"11","author":"Chen","year":"1996","journal-title":"Dysphagia"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB24","doi-asserted-by":"crossref","first-page":"1052","DOI":"10.1152\/jappl.1981.50.5.1052","article-title":"Diaphragmatic
+      and genioglossal electromyogram responses to CO2 rebreathing in humans","volume":"50","author":"Onal","year":"1981","journal-title":"J
+      Appl Physiol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB25","doi-asserted-by":"crossref","first-page":"1553","DOI":"10.1152\/jappl.1994.76.4.1553","article-title":"Acoustically
+      induced cortical arousal increases phasic pharyngeal muscle and diaphragmatic
+      EMG in NREM sleep","volume":"76","author":"Carlson","year":"1994","journal-title":"J
+      Appl Physiol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB26","doi-asserted-by":"crossref","first-page":"871","DOI":"10.1001\/archneur.58.6.871","article-title":"The
+      challenge of respiratory dysfunction in Guillain-Barre syndrome","volume":"58","author":"Hahn","year":"2001","journal-title":"Arch
+      Neurol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB27","first-page":"742","article-title":"Respiratory
+      failure in Guillain-Barre syndrome: a 6-year experience","volume":"57","author":"Gracey","year":"1982","journal-title":"Mayo
+      Clin Proc"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB28","doi-asserted-by":"crossref","first-page":"1962","DOI":"10.1007\/s00134-006-0332-1","article-title":"Prognosis
+      and risk factors of early onset pneumonia in ventilated patients with Guillain-Barre
+      syndrome","volume":"32","author":"Orlikowski","year":"2006","journal-title":"Intens
+      Care Med"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB29","doi-asserted-by":"crossref","first-page":"893","DOI":"10.1001\/archneur.58.6.893","article-title":"Anticipating
+      mechanical ventilation in Guillain-Barre syndrome","volume":"58","author":"Lawn","year":"2001","journal-title":"Arch
+      Neurol"},{"key":"10.1111\/j.1600-0404.2008.01107.x-BIB30","doi-asserted-by":"crossref","first-page":"154S","DOI":"10.1378\/chest.129.1_suppl.154S","article-title":"Cough
+      and aspiration of food and liquids due to oral-pharyngeal dysphagia: ACCP evidence-based
+      clinical practice guidelines","volume":"129","author":"Smith Hammond","year":"2006","journal-title":"Chest"}],"container-title":["Acta
+      Neurologica Scandinavica"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1111%2Fj.1600-0404.2008.01107.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/onlinelibrary.wiley.com\/wol1\/doi\/10.1111\/j.1600-0404.2008.01107.x\/fullpdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,12,20]],"date-time":"2022-12-20T12:42:36Z","timestamp":1671540156000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.1600-0404.2008.01107.x"}},"issued":{"date-parts":[[2009,6]]},"references-count":30,"journal-issue":{"issue":"6","published-print":{"date-parts":[[2009,6]]}},"URL":"http:\/\/dx.doi.org\/10.1111\/j.1600-0404.2008.01107.x","ISSN":["0001-6314","1600-0404"],"issn-type":[{"value":"0001-6314","type":"print"},{"value":"1600-0404","type":"electronic"}],"published":{"date-parts":[[2009,6]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T13:46:42Z","timestamp":1697464002494},"reference-count":17,"publisher":"Hindawi
+      Limited","license":[{"start":{"date-parts":[[2014,1,1]],"date-time":"2014-01-01T00:00:00Z","timestamp":1388534400000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/3.0\/"}],"funder":[{"DOI":"10.13039\/501100001809","name":"National
+      Natural Science Foundation of China","doi-asserted-by":"publisher","award":["61102085"],"id":[{"id":"10.13039\/501100001809","id-type":"DOI","asserted-by":"publisher"}]}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["The
+      Scientific World Journal"],"published-print":{"date-parts":[[2014]]},"abstract":"<jats:p>A
+      fast and robust ellipse-detection method based on sorted merging is proposed
+      in this paper. This method first represents the edge bitmap approximately with
+      a set of line segments and then gradually merges the line segments into elliptical
+      arcs and ellipses. To achieve high accuracy, a sorted merging strategy is proposed:
+      the merging degrees of line segments\/elliptical arcs are estimated, and line
+      segments\/elliptical arcs are merged in descending order of the merging degrees,
+      which significantly improves the merging accuracy. During the merging process,
+      multiple properties of ellipses are utilized to filter line segment\/elliptical
+      arc pairs, making the method very efficient. In addition, an ellipse-fitting
+      method is proposed that restricts the maximum ratio of the semimajor axis and
+      the semiminor axis, further improving the merging accuracy. Experimental results
+      indicate that the proposed method is robust to outliers, noise, and partial
+      occlusion and is fast enough for real-time applications.<\/jats:p>","DOI":"10.1155\/2014\/481312","type":"journal-article","created":{"date-parts":[[2014,3,23]],"date-time":"2014-03-23T21:01:47Z","timestamp":1395608507000},"page":"1-15","source":"Crossref","is-referenced-by-count":9,"title":["A
+      Fast and Robust Ellipse-Detection Method Based on Sorted Merging"],"prefix":"10.1155","volume":"2014","author":[{"ORCID":"http:\/\/orcid.org\/0000-0002-3026-2680","authenticated-orcid":true,"given":"Gangyi","family":"Wang","sequence":"first","affiliation":[{"name":"School
+      of Electronics and Information Engineering, Harbin Institute of Technology,
+      Harbin, Heilongjiang 150001, China"}]},{"given":"Guanghui","family":"Ren","sequence":"additional","affiliation":[{"name":"School
+      of Electronics and Information Engineering, Harbin Institute of Technology,
+      Harbin, Heilongjiang 150001, China"}]},{"ORCID":"http:\/\/orcid.org\/0000-0002-3402-9093","authenticated-orcid":true,"given":"Zhilu","family":"Wu","sequence":"additional","affiliation":[{"name":"School
+      of Electronics and Information Engineering, Harbin Institute of Technology,
+      Harbin, Heilongjiang 150001, China"}]},{"given":"Yaqin","family":"Zhao","sequence":"additional","affiliation":[{"name":"School
+      of Electronics and Information Engineering, Harbin Institute of Technology,
+      Harbin, Heilongjiang 150001, China"}]},{"given":"Lihui","family":"Jiang","sequence":"additional","affiliation":[{"name":"School
+      of Electronics and Information Engineering, Harbin Institute of Technology,
+      Harbin, Heilongjiang 150001, China"}]}],"member":"98","reference":[{"key":"3","doi-asserted-by":"publisher","DOI":"10.1145\/361237.361242"},{"issue":"1","key":"5","first-page":"27","volume":"138","year":"1991","journal-title":"IEE
+      Proceedings E"},{"issue":"8","key":"6","first-page":"777","volume":"27","year":"1978","journal-title":"IEEE
+      Transactions on Computers C"},{"issue":"1","key":"8","doi-asserted-by":"crossref","first-page":"31","DOI":"10.1016\/0262-8856(89)90017-6","volume":"7","year":"1989","journal-title":"Image
+      and Vision Computing"},{"key":"9","doi-asserted-by":"publisher","DOI":"10.1109\/TIP.2010.2099127"},{"key":"10","doi-asserted-by":"publisher","DOI":"10.1016\/j.patcog.2004.03.014"},{"issue":"3-4","key":"11","doi-asserted-by":"crossref","first-page":"299","DOI":"10.1016\/S0167-8655(98)00010-5","volume":"19","year":"1998","journal-title":"Pattern
+      Recognition Letters"},{"key":"12","doi-asserted-by":"publisher","DOI":"10.1016\/j.patcog.2007.09.006"},{"key":"13","doi-asserted-by":"publisher","DOI":"10.1016\/S0167-8655(00)00077-5"},{"key":"15","doi-asserted-by":"publisher","DOI":"10.1016\/S0167-8655(99)00037-9"},{"key":"16","doi-asserted-by":"publisher","DOI":"10.1016\/S0262-8856(02)00156-7"},{"key":"17","doi-asserted-by":"publisher","DOI":"10.1109\/34.677267"},{"key":"18","doi-asserted-by":"publisher","DOI":"10.1016\/j.patrec.2008.05.025"},{"key":"20","doi-asserted-by":"publisher","DOI":"10.1016\/j.patcog.2008.01.027"},{"key":"21","doi-asserted-by":"crossref","first-page":"35","DOI":"10.1142\/S0219467804001282","volume":"4","year":"2004","journal-title":"International
+      Journal of Image and Graphics"},{"key":"23","year":"1973"},{"key":"24","doi-asserted-by":"publisher","DOI":"10.1109\/34.765658"}],"container-title":["The
+      Scientific World Journal"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/tswj\/2014\/481312.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/tswj\/2014\/481312.xml","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/tswj\/2014\/481312.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2017,6,22]],"date-time":"2017-06-22T10:12:39Z","timestamp":1498126359000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/www.hindawi.com\/journals\/tswj\/2014\/481312\/"}},"issued":{"date-parts":[[2014]]},"references-count":17,"alternative-id":["481312","481312"],"URL":"http:\/\/dx.doi.org\/10.1155\/2014\/481312","ISSN":["2356-6140","1537-744X"],"issn-type":[{"value":"2356-6140","type":"print"},{"value":"1537-744X","type":"electronic"}],"published":{"date-parts":[[2014]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T20:12:50Z","timestamp":1697487170797},"reference-count":54,"publisher":"Hindawi
+      Limited","issue":"2","license":[{"start":{"date-parts":[[2021,8,30]],"date-time":"2021-08-30T00:00:00Z","timestamp":1630281600000},"content-version":"vor","delay-in-days":0,"URL":"http:\/\/onlinelibrary.wiley.com\/termsAndConditions#vor"},{"start":{"date-parts":[[2021,8,30]],"date-time":"2021-08-30T00:00:00Z","timestamp":1630281600000},"content-version":"tdm","delay-in-days":0,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":["onlinelibrary.wiley.com"],"crossmark-restriction":true},"short-container-title":["Intl
+      J of Energy Research"],"published-print":{"date-parts":[[2022,2]]},"DOI":"10.1002\/er.7220","type":"journal-article","created":{"date-parts":[[2021,8,31]],"date-time":"2021-08-31T00:10:55Z","timestamp":1630368655000},"page":"995-1007","update-policy":"http:\/\/dx.doi.org\/10.1002\/crossmark_policy","source":"Crossref","is-referenced-by-count":2,"title":["Performance
+      study of Ni, Co, and Mo catalysts supported on\n            <scp>\n              <i>\u03b3<\/i>\n              \u2010Al\n              <sub>2<\/sub>\n              O\n              <sub>3<\/sub>\n            <\/scp>\n            and\n            <scp>HZSM5<\/scp>\n            in\n            <scp>HDS<\/scp>\n            reactions
+      of mixed naphtha"],"prefix":"10.1155","volume":"46","author":[{"given":"Mahdi","family":"Karimi
+      Boroujeni","sequence":"first","affiliation":[{"name":"Hydrogen and Fuel Cell
+      Research Laboratory, Department of Chemical Engineering, Faculty of Engineering
+      University of Kashan  Kashan Iran"}]},{"ORCID":"http:\/\/orcid.org\/0000-0002-3901-4552","authenticated-orcid":false,"given":"Abdullah","family":"Irankhah","sequence":"additional","affiliation":[{"name":"Hydrogen
+      and Fuel Cell Research Laboratory, Department of Chemical Engineering, Faculty
+      of Engineering University of Kashan  Kashan Iran"}]}],"member":"98","published-online":{"date-parts":[[2021,8,30]]},"reference":[{"key":"e_1_2_7_2_1","doi-asserted-by":"publisher","DOI":"10.1007\/978-3-319-49347-3_21"},{"key":"e_1_2_7_3_1","doi-asserted-by":"publisher","DOI":"10.1007\/BF00811767"},{"key":"e_1_2_7_4_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.fuproc.2020.106498"},{"key":"e_1_2_7_5_1","doi-asserted-by":"publisher","DOI":"10.1039\/c0ee00379d"},{"key":"e_1_2_7_6_1","doi-asserted-by":"publisher","DOI":"10.1007\/s12182-019-0319-5"},{"key":"e_1_2_7_7_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.apcata.2013.03.043"},{"key":"e_1_2_7_8_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jcat.2010.12.014"},{"key":"e_1_2_7_9_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.mcat.2021.111438"},{"key":"e_1_2_7_10_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.fuel.2020.119129"},{"key":"e_1_2_7_11_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.fuel.2020.118495"},{"key":"e_1_2_7_12_1","doi-asserted-by":"publisher","DOI":"10.1080\/01614940903048612"},{"key":"e_1_2_7_13_1","doi-asserted-by":"publisher","DOI":"10.1002\/er.6642"},{"key":"e_1_2_7_14_1","doi-asserted-by":"publisher","DOI":"10.1515\/revce-2017-0082"},{"key":"e_1_2_7_15_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jece.2019.102957"},{"key":"e_1_2_7_16_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jece.2017.03.001"},{"key":"e_1_2_7_17_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.ijhydene.2018.05.102"},{"key":"e_1_2_7_18_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jcat.2012.11.012"},{"key":"e_1_2_7_19_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.aej.2021.02.062"},{"key":"e_1_2_7_20_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.apcatb.2021.120399"},{"key":"e_1_2_7_21_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.envpol.2020.116068"},{"key":"e_1_2_7_22_1","first-page":"144","article-title":"Study
+      on novel scheme for hydrodesulfurization of middle distillates using different
+      types of catalyst","volume":"31","author":"Abid MF","year":"2019","journal-title":"J
+      King Saud Univ Eng Sci"},{"key":"e_1_2_7_23_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.biombioe.2019.05.005"},{"key":"e_1_2_7_24_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.cattod.2019.06.011"},{"key":"e_1_2_7_25_1","doi-asserted-by":"publisher","DOI":"10.1134\/S1070427217040139"},{"key":"e_1_2_7_26_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.cattod.2015.11.004"},{"key":"e_1_2_7_27_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.apcatb.2015.07.013"},{"key":"e_1_2_7_28_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.apcatb.2016.06.004"},{"key":"e_1_2_7_29_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.ijhydene.2020.06.001"},{"key":"e_1_2_7_30_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.ijhydene.2019.04.244"},{"key":"e_1_2_7_31_1","doi-asserted-by":"publisher","DOI":"10.1002\/ceat.201900682"},{"key":"e_1_2_7_32_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jtice.2013.08.009"},{"key":"e_1_2_7_33_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jcat.2015.06.019"},{"key":"e_1_2_7_34_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.fuproc.2014.04.011"},{"key":"e_1_2_7_35_1","doi-asserted-by":"publisher","DOI":"10.1007\/s11244-020-01326-8"},{"key":"e_1_2_7_36_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jtice.2017.06.048"},{"key":"e_1_2_7_37_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.jaap.2016.12.013"},{"key":"e_1_2_7_38_1","doi-asserted-by":"publisher","DOI":"10.1007\/s13762-018-1661-7"},{"key":"e_1_2_7_39_1","doi-asserted-by":"publisher","DOI":"10.1002\/er.4697"},{"key":"e_1_2_7_40_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.micromeso.2021.111216"},{"key":"e_1_2_7_41_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.mcat.2018.02.002"},{"key":"e_1_2_7_42_1","doi-asserted-by":"publisher","DOI":"10.1039\/D0NJ01106A"},{"key":"e_1_2_7_43_1","doi-asserted-by":"publisher","DOI":"10.1021\/acs.energyfuels.8b04536"},{"key":"e_1_2_7_44_1","doi-asserted-by":"publisher","DOI":"10.9767\/bcrec.15.1.5556.112-118"},{"key":"e_1_2_7_45_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.arabjc.2011.06.018"},{"key":"e_1_2_7_46_1","doi-asserted-by":"publisher","DOI":"10.1007\/s11164-019-03905-1"},{"key":"e_1_2_7_47_1","doi-asserted-by":"publisher","DOI":"10.1007\/s00339-017-0786-8"},{"key":"e_1_2_7_48_1","doi-asserted-by":"publisher","DOI":"10.1088\/1361-6528\/ab6fe2"},{"key":"e_1_2_7_49_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.apcatb.2008.05.019"},{"key":"e_1_2_7_50_1","doi-asserted-by":"publisher","DOI":"10.1007\/s11164-019-03905-1"},{"key":"e_1_2_7_51_1","doi-asserted-by":"publisher","DOI":"10.1590\/0104-6632.20190361s20180067"},{"key":"e_1_2_7_52_1","doi-asserted-by":"publisher","DOI":"10.1515\/pac-2014-1117"},{"key":"e_1_2_7_53_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.cattod.2009.04.012"},{"key":"e_1_2_7_54_1","doi-asserted-by":"publisher","DOI":"10.1021\/ef020287g"},{"key":"e_1_2_7_55_1","doi-asserted-by":"publisher","DOI":"10.1016\/j.fuel.2007.07.020"}],"container-title":["International
+      Journal of Energy Research"],"language":"en","link":[{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/pdf\/10.1002\/er.7220","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/full-xml\/10.1002\/er.7220","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/pdf\/10.1002\/er.7220","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,1,6]],"date-time":"2023-01-06T12:07:59Z","timestamp":1673006879000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/er.7220"}},"issued":{"date-parts":[[2021,8,30]]},"references-count":54,"journal-issue":{"issue":"2","published-print":{"date-parts":[[2022,2]]}},"alternative-id":["10.1002\/er.7220"],"URL":"http:\/\/dx.doi.org\/10.1002\/er.7220","archive":["Portico"],"ISSN":["0363-907X","1099-114X"],"issn-type":[{"value":"0363-907X","type":"print"},{"value":"1099-114X","type":"electronic"}],"published":{"date-parts":[[2021,8,30]]},"assertion":[{"value":"2021-05-09","order":0,"name":"received","label":"Received","group":{"name":"publication_history","label":"Publication
+      History"}},{"value":"2021-08-16","order":1,"name":"accepted","label":"Accepted","group":{"name":"publication_history","label":"Publication
+      History"}},{"value":"2021-08-30","order":2,"name":"published","label":"Published","group":{"name":"publication_history","label":"Publication
+      History"}}]},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T09:10:07Z","timestamp":1697447407170},"reference-count":20,"publisher":"Hindawi
+      Limited","issue":"5","license":[{"start":{"date-parts":[[2003,10,1]],"date-time":"2003-10-01T00:00:00Z","timestamp":1064966400000},"content-version":"tdm","delay-in-days":0,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"},{"start":{"date-parts":[[2003,10,17]],"date-time":"2003-10-17T00:00:00Z","timestamp":1066348800000},"content-version":"vor","delay-in-days":16,"URL":"http:\/\/onlinelibrary.wiley.com\/termsAndConditions#vor"}],"content-domain":{"domain":[],"crossmark-restriction":false},"published-print":{"date-parts":[[2003,10]]},"DOI":"10.1046\/j.0269-4727.2003.00505.x","type":"journal-article","created":{"date-parts":[[2003,10,17]],"date-time":"2003-10-17T11:50:46Z","timestamp":1066391446000},"page":"379-384","source":"Crossref","is-referenced-by-count":11,"title":["Double-blind
+      comparison of fluoxetine and nortriptyline in the treatment of moderate to severe
+      major depression"],"prefix":"10.1155","volume":"28","author":[{"given":"S.","family":"Akhondzadeh","sequence":"first","affiliation":[]},{"given":"H.","family":"Faraji","sequence":"additional","affiliation":[]},{"given":"M.","family":"Sadeghi","sequence":"additional","affiliation":[]},{"given":"K.","family":"Afkham","sequence":"additional","affiliation":[]},{"given":"H.","family":"Fakhrzadeh","sequence":"additional","affiliation":[]},{"given":"A.","family":"Kamalipour","sequence":"additional","affiliation":[]}],"member":"98","published-online":{"date-parts":[[2003,10,17]]},"reference":[{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB1|cit1","first-page":"481","article-title":"Neurochemical
+      and metabolic aspects of antidepressants: an overview","volume":"25","author":"Baker","year":"2000","journal-title":"Journal
+      of Psychiatry and Neuroscience"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB2|cit2","first-page":"419","article-title":"Depression:
+      a neglected major illness","volume":"54","author":"Greenberg","year":"1993","journal-title":"Journal
+      of Clinical Psychiatry"},{"issue":"Suppl","key":"10.1046\/j.0269-4727.2003.00505.x-BIB3|cit3","doi-asserted-by":"crossref","first-page":"5","DOI":"10.1097\/00004850-199512004-00002","article-title":"Mood
+      disorders in the general population represent an important and worldwide public
+      health problem","volume":"10","author":"Judd","year":"1995","journal-title":"International
+      Journal of Clinical Psychopharmacology"},{"issue":"Suppl","key":"10.1046\/j.0269-4727.2003.00505.x-BIB4|cit4","first-page":"1","article-title":"Optimizing
+      antidepressant use in clinical practice: towards criteria for antidepressant
+      selection. The Br","volume":"179","author":"Mendlewich","year":"2001","journal-title":"Journal
+      of Psychiatry"},{"issue":"Suppl","key":"10.1046\/j.0269-4727.2003.00505.x-BIB5|cit5","first-page":"19S","article-title":"Efficacy
+      of antidepressants in the treatment of severe depression: The place of mitrazapine","volume":"17","author":"Siegfried","year":"1997","journal-title":"Journal
+      of Clinical Psychopharmacology"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB6|cit6","doi-asserted-by":"crossref","first-page":"95","DOI":"10.1192\/bjp.179.2.95","article-title":"New
+      and old antidepressants: all equal in the eyes of the lore","volume":"179","author":"Gordon","year":"2001","journal-title":"British
+      Journal of Psychiatry"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB7|cit7","doi-asserted-by":"crossref","first-page":"326","DOI":"10.4088\/JCP.v60n0511","article-title":"Efficacy
+      of SSRIs and newer antidepressants in severe depression: comparison with TCAs","volume":"60","author":"Hirscfeld","year":"1999","journal-title":"Journal
+      of Clinical Psychiatry"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB8|cit8","doi-asserted-by":"crossref","first-page":"19","DOI":"10.1016\/S0165-0327(99)00092-0","article-title":"Selective
+      serotonin reuptake inhibitors versus tricyclic antidepressants: a meta analysis
+      of efficacy and tolerability","volume":"58","author":"Anderson","year":"2000","journal-title":"Journal
+      of Affective Disorders"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB9|cit9","doi-asserted-by":"crossref","first-page":"421","DOI":"10.1192\/bjp.176.5.421","article-title":"Mata-analysis
+      of randomized controlled trials of fluoxetine v. placebo and tricyclic antidepressants
+      in the short-term treatment of major depression","volume":"176","author":"Bech","year":"2000","journal-title":"British
+      Journal of Psychiatry"},{"issue":"Suppl","key":"10.1046\/j.0269-4727.2003.00505.x-BIB10|cit10","doi-asserted-by":"crossref","first-page":"S101","DOI":"10.1016\/S0924-977X(99)00028-0","article-title":"Where
+      are we going with SSRIs","volume":"9","author":"Isaac","year":"1999","journal-title":"European
+      Neuropsychopharmacology,"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB11|cit11","doi-asserted-by":"crossref","first-page":"S84","DOI":"10.1067\/mhj.2000.109977","article-title":"Considerations
+      for the use of antidepressants in patients with cardiovascular disease","volume":"140","author":"Roose","year":"2000","journal-title":"American
+      Heart Journal"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB12|cit12","doi-asserted-by":"crossref","first-page":"435","DOI":"10.1034\/j.1600-0447.2001.00228.x","article-title":"Citalopram
+      versus nortriptyline on late-life depression: a 12-week randomized single-blind
+      study","volume":"103","author":"Navarro","year":"2001","journal-title":"Acta
+      Psychiatricia Scandinavica"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB13|cit13","doi-asserted-by":"crossref","first-page":"21","DOI":"10.1097\/00004714-200302000-00004","article-title":"Single-blind
+      comparison of venlafaxine and nortriptyline in elderly major depression","volume":"23","author":"Gasto","year":"2003","journal-title":"Journal
+      of Clinical Psychopharmacology"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB14|cit14","doi-asserted-by":"crossref","first-page":"384","DOI":"10.1046\/j.1440-1614.2001.01026.x","article-title":"Patterns
+      and predictors of remission, response and recovery in major depression treated
+      with fluoxetine or nortriptyline","volume":"36","author":"Joyce","year":"2002","journal-title":"Australian
+      and News land Journal of Psychiatry"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB15|cit15","doi-asserted-by":"crossref","first-page":"338","DOI":"10.1176\/appi.ajp.157.3.338","article-title":"Compliance
+      with antidepressant medication in the treatment of major depressive disorder
+      in primary care: A randomized comparison of fluoxetine and a tricyclic antidepressant","volume":"157","author":"Thompson","year":"2000","journal-title":"American
+      Journal of Psychiatry"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB16|cit16","volume-title":"Diagnostic
+      and Statistical Manual of Mental Disorders, 4th edn. (DSM-IV)","author":"American
+      Psychiatric Association","year":"1994"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB17|cit17","doi-asserted-by":"crossref","first-page":"62","DOI":"10.1136\/jnnp.23.1.56","article-title":"A
+      rating scale for depression","volume":"23","author":"Hamilton","year":"1960","journal-title":"Journal
+      of Neurology, Neurosurgery and Psychiatry"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB18|cit18","doi-asserted-by":"crossref","first-page":"19","DOI":"10.1177\/0269881193007001041","article-title":"Guidelines
+      for treating depressive illness with antidepressants","volume":"7","author":"British
+      Association for Psychopharmacology","year":"1993","journal-title":"Journal of
+      Psychopharmacology"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB19|cit19","doi-asserted-by":"crossref","first-page":"1069","DOI":"10.1016\/S0025-6196(12)61375-5","article-title":"Pharmacology
+      of antidepressants-characteristic of the ideal drug","volume":"69","author":"Richelson","year":"1994","journal-title":"Mayo
+      Clinic Proceeding"},{"key":"10.1046\/j.0269-4727.2003.00505.x-BIB20|cit20","doi-asserted-by":"crossref","first-page":"27","DOI":"10.1016\/S0165-0327(96)00095-X","article-title":"Compliance
+      during treatment with antidepressants","volume":"43","author":"Demyttenaere","year":"1997","journal-title":"Journal
+      of Affective Disorders"}],"container-title":["Journal of Clinical Pharmacy and
+      Therapeutics"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1046%2Fj.0269-4727.2003.00505.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1046%2Fj.0269-4727.2003.00505.x","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/onlinelibrary.wiley.com\/wol1\/doi\/10.1046\/j.0269-4727.2003.00505.x\/fullpdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,12,23]],"date-time":"2022-12-23T18:03:46Z","timestamp":1671818626000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/doi.wiley.com\/10.1046\/j.0269-4727.2003.00505.x"}},"subtitle":["<i>Fluoxetine
+      vs. nortriptyline in the treatment of depression<\/i>"],"issued":{"date-parts":[[2003,10]]},"references-count":20,"journal-issue":{"issue":"5","published-print":{"date-parts":[[2003,10]]}},"URL":"http:\/\/dx.doi.org\/10.1046\/j.0269-4727.2003.00505.x","archive":["Portico"],"ISSN":["0269-4727"],"issn-type":[{"value":"0269-4727","type":"print"}],"published":{"date-parts":[[2003,10]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T07:37:12Z","timestamp":1697441832376},"reference-count":29,"publisher":"Hindawi
+      Limited","license":[{"start":{"date-parts":[[2016,1,1]],"date-time":"2016-01-01T00:00:00Z","timestamp":1451606400000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/4.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Interdisciplinary
+      Perspectives on Infectious Diseases"],"published-print":{"date-parts":[[2016]]},"abstract":"<jats:p><jats:italic>Objective<\/jats:italic>.
+      There is a large variation in the prevalence of<jats:italic>Trichomonas vaginalis<\/jats:italic>(TV)
+      between different countries and between racial groups within countries. Sexual
+      partner concurrency may play a role. We investigate the correlation between
+      the prevalence of sexual partner concurrency and TV prevalence.<jats:italic>Methods<\/jats:italic>.
+      Spearman\u2019s correlation to assess relationship between TV prevalence in
+      women and point prevalence of concurrency in men in (1) 11 countries with comparable
+      data (concurrency data from WHO Survey and TV prevalence data from Global Burden
+      of Disease estimates) and (2) three racial groups in the United States (Add
+      Health Study).<jats:italic>Results<\/jats:italic>. The prevalence of TV and
+      concurrency was positively correlated in the international (rho = 0.84,<mml:math
+      xmlns:mml=\"http:\/\/www.w3.org\/1998\/Math\/MathML\" id=\"M1\"><mml:mi>P<\/mml:mi><mml:mo>=<\/mml:mo><mml:mn
+      fontstyle=\"italic\">0<\/mml:mn><mml:mo>.<\/mml:mo><mml:mn fontstyle=\"italic\">001<\/mml:mn><\/mml:math>)
+      and USA study (rho = 1.0,<mml:math xmlns:mml=\"http:\/\/www.w3.org\/1998\/Math\/MathML\"
+      id=\"M2\"><mml:mi>P<\/mml:mi><mml:mo>&lt;<\/mml:mo><mml:mn fontstyle=\"italic\">0<\/mml:mn><mml:mo>.<\/mml:mo><mml:mn
+      fontstyle=\"italic\">00<\/mml:mn><mml:mn fontstyle=\"italic\">1<\/mml:mn><\/mml:math>).<jats:italic>Conclusion<\/jats:italic>.
+      Prospective longitudinal studies that include measures of partner behavior are
+      required to definitively establish the role of concurrency in the spread of
+      TV.<\/jats:p>","DOI":"10.1155\/2016\/5052802","type":"journal-article","created":{"date-parts":[[2016,2,2]],"date-time":"2016-02-02T21:17:38Z","timestamp":1454447858000},"page":"1-5","source":"Crossref","is-referenced-by-count":5,"title":["Correlation
+      between<i>Trichomonas vaginalis<\/i>and Concurrency: An Ecological Study"],"prefix":"10.1155","volume":"2016","author":[{"given":"Chris
+      R.","family":"Kenyon","sequence":"first","affiliation":[{"name":"HIV\/STI Unit,
+      Institute of Tropical Medicine Antwerp, Nationalestraat 155, 2000 Antwerpen,
+      Belgium"},{"name":"Department of Medicine, University of Cape Town, Anzio Road,
+      Cape Town, South Africa"}]},{"given":"Deven T.","family":"Hamilton","sequence":"additional","affiliation":[{"name":"Center
+      for Studies in Demography and Ecology, University of Washington, 206 Raitt Hall,
+      Box 353412, Seattle, WA 98195, USA"}]}],"member":"98","reference":[{"key":"1","year":"2011"},{"key":"2","doi-asserted-by":"publisher","DOI":"10.1097\/00002030-200108004-00010"},{"key":"3","doi-asserted-by":"publisher","DOI":"10.1097\/qco.0b013e3282f3d999"},{"key":"4","year":"2001"},{"key":"5","doi-asserted-by":"crossref","first-page":"418","DOI":"10.1136\/sextrans-2013-051075","volume":"89","year":"2013","journal-title":"Sexually
+      Transmitted Infections"},{"key":"6","doi-asserted-by":"publisher","DOI":"10.1016\/1047-2797(94)00101-x"},{"key":"7","doi-asserted-by":"publisher","DOI":"10.1097\/00007435-199807000-00006"},{"key":"8","doi-asserted-by":"publisher","DOI":"10.1097\/01.olq.0000086609.95617.8d"},{"key":"9","doi-asserted-by":"publisher","DOI":"10.1097\/01.olq.0000179874.76360.ad"},{"key":"10","doi-asserted-by":"publisher","DOI":"10.1086\/498217"},{"key":"11","first-page":"771","volume-title":"Trichomonas
+      vaginalis and trichomoniasis","year":"2008"},{"key":"12","doi-asserted-by":"publisher","DOI":"10.1136\/sti.2009.037341"},{"issue":"4","key":"13","doi-asserted-by":"crossref","first-page":"495","DOI":"10.4269\/ajtmh.1998.58.495","volume":"58","year":"1998","journal-title":"The
+      American Journal of Tropical Medicine and Hygiene"},{"key":"14","doi-asserted-by":"publisher","DOI":"10.1067\/mob.2001.113848"},{"key":"15","doi-asserted-by":"publisher","DOI":"10.1097\/01.olq.0000143091.95094.73"},{"key":"16","doi-asserted-by":"publisher","DOI":"10.1016\/S0140-6736(09)62040-7"},{"key":"17","first-page":"25","volume-title":"Sexual
+      networks, concurrency and STD\/HIV","year":"2008"},{"key":"18","doi-asserted-by":"publisher","DOI":"10.1016\/j.epidem.2015.02.003"},{"key":"19","doi-asserted-by":"publisher","DOI":"10.1097\/00007435-199701000-00009"},{"key":"20","doi-asserted-by":"publisher","DOI":"10.1353\/sof.2002.0056"},{"key":"21","doi-asserted-by":"publisher","DOI":"10.1007\/s10461-013-0618-6"},{"key":"22","volume-title":"Characteristics
+      of surveys and data quality","year":"1995"},{"key":"23","volume-title":"Sexual
+      behaviour","year":"1995"},{"key":"24","doi-asserted-by":"publisher","DOI":"10.1016\/j.ijid.2012.05.008"},{"key":"25","doi-asserted-by":"publisher","DOI":"10.2989\/16085906.2012.754830"},{"key":"26","doi-asserted-by":"publisher","DOI":"10.1093\/oxfordjournals.aje.a009965"},{"key":"27","doi-asserted-by":"publisher","DOI":"10.1001\/jama.1997.03550100049038"},{"key":"28","doi-asserted-by":"publisher","DOI":"10.1016\/j.whi.2008.04.002"},{"key":"29","doi-asserted-by":"publisher","DOI":"10.1097\/01.olq.0000148302.81575.fc"}],"container-title":["Interdisciplinary
+      Perspectives on Infectious Diseases"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/ipid\/2016\/5052802.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/ipid\/2016\/5052802.xml","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/ipid\/2016\/5052802.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2017,6,24]],"date-time":"2017-06-24T05:04:20Z","timestamp":1498280660000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/www.hindawi.com\/journals\/ipid\/2016\/5052802\/"}},"issued":{"date-parts":[[2016]]},"references-count":29,"alternative-id":["5052802","5052802"],"URL":"http:\/\/dx.doi.org\/10.1155\/2016\/5052802","ISSN":["1687-708X","1687-7098"],"issn-type":[{"value":"1687-708X","type":"print"},{"value":"1687-7098","type":"electronic"}],"published":{"date-parts":[[2016]]}}],"items-per-page":5,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '10662'
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 14:07:08 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+- request:
+    body: ''
+    headers:
+      accept:
+      - '*/*'
+      accept-encoding:
+      - gzip, deflate
+      connection:
+      - keep-alive
+      host:
+      - api.crossref.org
+      user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+      x-user-agent:
+      - python-httpx/0.27.2 habanero/1.2.6.91
+    method: GET
+    uri: https://api.crossref.org/members/98/works?rows=5&cursor=DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ%3D%3D
+  response:
+    content: '{"status":"ok","message-type":"work-list","message-version":"1.0.0","message":{"facets":{},"next-cursor":"DnF1ZXJ5VGhlbkZldGNoBgAAAAAeImBlFmFScjNDcGpYUUVPbTJ4Skp0NFpiN2cAAAAAG1AalRZvMEJoaVdrd1RSZUtsbTRZQ0FjWS1BAAAAAB4rsPQWazdXTlZoRnVScFMtNnhxN1A4eEhEUQAAAAAea7iXFjNsQ3YwX25kUnFtNjhDTVFFZmVCNHcAAAAAHIn0FxYzLTl6di15UVI5T0R0ekU1ZDU1emRRAAAAABeXP8YWQVczemV1NkdUVVNzVlFnLUVxdWowUQ==","total-results":412910,"items":[{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T07:32:34Z","timestamp":1697441554669},"reference-count":16,"publisher":"Hindawi
+      Limited","license":[{"start":{"date-parts":[[2011,1,1]],"date-time":"2011-01-01T00:00:00Z","timestamp":1293840000000},"content-version":"unspecified","delay-in-days":0,"URL":"http:\/\/creativecommons.org\/licenses\/by\/3.0\/"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Case
+      Reports in Medicine"],"published-print":{"date-parts":[[2011]]},"abstract":"<jats:p>Endometrial
+      stromal nodule (ESN) is the least common of the endometrial stromal tumors.
+      They are rare neoplasms which are diagnosed in most instances by light microscopy.
+      Although such nodules are benign, hysterectomy has been considered the treatment
+      of choice to determine the margins of the tumor required for diagnosis and to
+      differentiate it from invasive stromal sarcoma Whose prognosis is totally different.
+      We report a case of a 45 years old woman, with presurgical diagnosis of adnexal
+      mass or uterine tumor. She underwent a total abdominal hysterectomy. Pathologic
+      examination revealed an endometrial stromal nodule. Through this observation,
+      we insist on the fact that the ESNs are rare and benign entities which must
+      be differentiated from the other invasive malignant stromal tumors; this can
+      change the final prognosis.<\/jats:p>","DOI":"10.1155\/2011\/260647","type":"journal-article","created":{"date-parts":[[2011,3,7]],"date-time":"2011-03-07T15:16:54Z","timestamp":1299511014000},"page":"1-5","source":"Crossref","is-referenced-by-count":4,"title":["Endometrial
+      Stromal Nodule: Report of a Case"],"prefix":"10.1155","volume":"2011","author":[{"given":"F.
+      Z.","family":"Fdili Alaoui","sequence":"first","affiliation":[{"name":"Department
+      of Obstetrics and Gynecology II, CHU Hassan II, Fez, Morocco"}]},{"given":"H.","family":"Chaara","sequence":"additional","affiliation":[{"name":"Department
+      of Obstetrics and Gynecology II, CHU Hassan II, Fez, Morocco"}]},{"given":"H.","family":"Bouguern","sequence":"additional","affiliation":[{"name":"Department
+      of Obstetrics and Gynecology II, CHU Hassan II, Fez, Morocco"}]},{"given":"M.
+      A.","family":"Melhouf","sequence":"additional","affiliation":[{"name":"Department
+      of Obstetrics and Gynecology II, CHU Hassan II, Fez, Morocco"}]},{"given":"H.","family":"Fatemi","sequence":"additional","affiliation":[{"name":"Department
+      of Anatomic Pathology, CHU Hassan II, Fez, Morocco"}]},{"given":"A.","family":"Belmlih","sequence":"additional","affiliation":[{"name":"Department
+      of Anatomic Pathology, CHU Hassan II, Fez, Morocco"}]},{"given":"Afaf","family":"Amarti","sequence":"additional","affiliation":[{"name":"Department
+      of Anatomic Pathology, CHU Hassan II, Fez, Morocco"}]}],"member":"98","reference":[{"key":"1","first-page":"140","volume":"2","year":"2005","journal-title":"Aegean
+      Pathology Journal"},{"key":"2","volume-title":"Endometrial stromal lesions","year":"2003"},{"key":"3","volume-title":"Mesenchymal
+      tumors of the uterus","year":"2001"},{"key":"4","year":"2003"},{"key":"5","first-page":"27","volume":"14","year":"1996","journal-title":"Shimane
+      Journal of Medical Science"},{"key":"6","series-title":"Atlas of Tumor Pathology
+      3rd Series","year":"1992"},{"key":"7","year":"1992"},{"key":"8","doi-asserted-by":"publisher","DOI":"10.1053\/j.anndiagpath.2004.10.009"},{"issue":"1","key":"9","doi-asserted-by":"crossref","first-page":"1","DOI":"10.1111\/j.1365-2559.1981.tb01761.x","volume":"5","year":"1981","journal-title":"Histopathology"},{"issue":"4","key":"10","doi-asserted-by":"crossref","first-page":"561","DOI":"10.1111\/j.1471-0528.1957.tb06285.x","volume":"64","year":"1957","journal-title":"The
+      Journal of Obstetrics and Gynaecology of the British Empire"},{"key":"11","doi-asserted-by":"publisher","DOI":"10.1097\/00000478-200205000-00003"},{"key":"12","doi-asserted-by":"publisher","DOI":"10.1007\/s00404-007-0412-7"},{"issue":"5,
+      part 2","key":"13","doi-asserted-by":"crossref","first-page":"805","DOI":"10.1016\/S0029-7844(98)00332-9","volume":"93","year":"1999","journal-title":"Obstetrics
+      & Gynecology"},{"key":"14","doi-asserted-by":"publisher","DOI":"10.1097\/00000478-200209000-00004"},{"issue":"5","key":"15","doi-asserted-by":"crossref","first-page":"415","DOI":"10.1097\/00000478-199005000-00002","volume":"14","year":"1990","journal-title":"American
+      Journal of Surgical Pathology"},{"key":"16","doi-asserted-by":"publisher","DOI":"10.4103\/0377-4929.40407"}],"container-title":["Case
+      Reports in Medicine"],"language":"en","link":[{"URL":"http:\/\/downloads.hindawi.com\/journals\/crim\/2011\/260647.pdf","content-type":"application\/pdf","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/crim\/2011\/260647.xml","content-type":"application\/xml","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/downloads.hindawi.com\/journals\/crim\/2011\/260647.pdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2017,6,19]],"date-time":"2017-06-19T16:42:51Z","timestamp":1497890571000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/www.hindawi.com\/journals\/crim\/2011\/260647\/"}},"issued":{"date-parts":[[2011]]},"references-count":16,"alternative-id":["260647","260647"],"URL":"http:\/\/dx.doi.org\/10.1155\/2011\/260647","ISSN":["1687-9627","1687-9635"],"issn-type":[{"value":"1687-9627","type":"print"},{"value":"1687-9635","type":"electronic"}],"published":{"date-parts":[[2011]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T08:37:18Z","timestamp":1697445438088},"reference-count":25,"publisher":"Hindawi
+      Limited","issue":"6","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":193,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Int
+      J RF and Microwave Comp Aid Eng"],"published-print":{"date-parts":[[2015,8]]},"DOI":"10.1002\/mmce.20890","type":"journal-article","created":{"date-parts":[[2015,2,21]],"date-time":"2015-02-21T04:15:33Z","timestamp":1424492133000},"page":"536-547","source":"Crossref","is-referenced-by-count":4,"title":["Phase-spacing
+      optimization of linear microstrip antenna arrays using simulation-based surrogate
+      superposition models"],"prefix":"10.1155","volume":"25","author":[{"given":"Slawomir","family":"Koziel","sequence":"first","affiliation":[{"name":"Engineering
+      Optimization & Modeling Center, School of Science and Engineering, Reykjavik
+      University; Menntavegur 1 101 Reykjavik Iceland"}]},{"given":"Stanislav","family":"Ogurtsov","sequence":"additional","affiliation":[{"name":"Engineering
+      Optimization & Modeling Center, School of Science and Engineering, Reykjavik
+      University; Menntavegur 1 101 Reykjavik Iceland"}]}],"member":"98","published-online":{"date-parts":[[2015,2,20]]},"reference":[{"key":"10.1002\/mmce.20890-BIB0001|mmce20890-cit-0001","doi-asserted-by":"crossref","first-page":"1547","DOI":"10.1109\/LAWP.2013.2292573","article-title":"Multiobjective
+      genetic optimization of nonuniform linear array with low sidelobes and beamwidth","volume":"12","author":"Bhargav","year":"2013","journal-title":"IEEE
+      Antennas Wireless Propag Lett"},{"key":"10.1002\/mmce.20890-BIB0002|mmce20890-cit-0002","doi-asserted-by":"crossref","first-page":"1581","DOI":"10.1109\/TAP.2008.923354","article-title":"Grating
+      lobe reduction in a phased array of limited scanning","volume":"56","author":"Wang","year":"2008","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0003|mmce20890-cit-0003","doi-asserted-by":"crossref","first-page":"356","DOI":"10.1109\/TAP.2004.838800","article-title":"A
+      simultaneous parameter adaptation scheme for genetic algorithms with application
+      to phased array synthesis","volume":"53","author":"Boeringer","year":"2005","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0004|mmce20890-cit-0004","doi-asserted-by":"crossref","first-page":"506","DOI":"10.1109\/8.768786","article-title":"Genetic
+      algorithms in the design and optimization of antenna array patterns","volume":"47","author":"Ares-Pena","year":"1999","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0005|mmce20890-cit-0005","doi-asserted-by":"crossref","first-page":"2674","DOI":"10.1109\/TAP.2005.851762","article-title":"Linear
+      array geometry synthesis with minimum sidelobe level and null control using
+      particle swarm optimization","volume":"53","author":"Khodier","year":"2005","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0006|mmce20890-cit-0006","unstructured":"N.
+      Jin Y. Rahmat-Samii 2006"},{"key":"10.1002\/mmce.20890-BIB0007|mmce20890-cit-0007","doi-asserted-by":"crossref","first-page":"168","DOI":"10.1002\/mop.11005","article-title":"Particle
+      swarm optimization for reconfigurable phased-differentiated array design","volume":"38","author":"Gies","year":"2003","journal-title":"Microwave
+      Opt Technol Lett"},{"key":"10.1002\/mmce.20890-BIB0008|mmce20890-cit-0008","doi-asserted-by":"crossref","first-page":"70","DOI":"10.1109\/MAP.2007.376644","article-title":"Linear
+      array synthesis using an ant-colony-optimization-based algorithm","volume":"49","author":"Rajo-Iglesias","year":"2007","journal-title":"IEEE
+      Antennas Propag Mag"},{"key":"10.1002\/mmce.20890-BIB0009|mmce20890-cit-0009","doi-asserted-by":"crossref","first-page":"23","DOI":"10.1109\/74.815316","article-title":"The
+      influence of electromagnetic environment on operation of active array antennas:
+      Analysis and simulation techniques","volume":"41","author":"Loyka","year":"1999","journal-title":"IEEE
+      Antennas Propag Mag"},{"key":"10.1002\/mmce.20890-BIB0010|mmce20890-cit-0010","doi-asserted-by":"crossref","first-page":"4853","DOI":"10.1109\/TAP.2011.2165481","article-title":"A
+      novel planar slot array antenna with omnidirectional pattern","volume":"59","author":"Chen","year":"2011","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0011|mmce20890-cit-0011","volume-title":"Frontiers
+      in antennas: Next generation design and engineering","year":"2011"},{"key":"10.1002\/mmce.20890-BIB0012|mmce20890-cit-0012","doi-asserted-by":"crossref","first-page":"3106","DOI":"10.1109\/TAP.2011.2158943","article-title":"Reducing
+      the number of elements in linear and planar antenna arrays with sparseness constrained
+      optimization","volume":"59","author":"Zhang","year":"2011","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0013|mmce20890-cit-0013","doi-asserted-by":"crossref","first-page":"3923","DOI":"10.1109\/TAP.2010.2078446","article-title":"Beampattern
+      synthesis for linear and planar arrays with antenna selection by convex optimization","volume":"58","author":"Nai","year":"2010","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0014|mmce20890-cit-0014","doi-asserted-by":"crossref","first-page":"3174","DOI":"10.1109\/TAP.2012.2196917","article-title":"Position
+      mutated hierarchical particle swarm optimization and its application in synthesis
+      of unequally spaced antenna arrays","volume":"60","author":"Bhattacharya","year":"2012","journal-title":"IEEE
+      Trans Antennas Propag"},{"key":"10.1002\/mmce.20890-BIB0015|mmce20890-cit-0015","unstructured":"Matlab
+      R. 2013"},{"key":"10.1002\/mmce.20890-BIB0016|mmce20890-cit-0016","volume-title":"Antenna
+      theory: Analysis and design","author":"Balanis","year":"2005","edition":"3"},{"key":"10.1002\/mmce.20890-BIB0017|mmce20890-cit-0017","volume-title":"Phased
+      array antenna handbook","author":"Mailloux","year":"2005","edition":"2"},{"key":"10.1002\/mmce.20890-BIB0018|mmce20890-cit-0018","unstructured":"2013"},{"key":"10.1002\/mmce.20890-BIB0019|mmce20890-cit-0019","volume-title":"Numerical
+      optimization","author":"Nocedal","year":"2006"},{"key":"10.1002\/mmce.20890-BIB0020|mmce20890-cit-0020","doi-asserted-by":"crossref","first-page":"635","DOI":"10.1109\/LAWP.2014.2313694","article-title":"Expedited
+      design of microstrip antenna subarrays using surrogate-based optimization","volume":"13","author":"Koziel","year":"2014","journal-title":"IEEE
+      Antennas Wireless Propag Lett"},{"key":"10.1002\/mmce.20890-BIB0021|mmce20890-cit-0021","unstructured":"S.
+      Koziel S. Ogurtsov 2012"},{"key":"10.1002\/mmce.20890-BIB0022|mmce20890-cit-0022","doi-asserted-by":"crossref","first-page":"337","DOI":"10.1109\/TMTT.2003.820904","article-title":"Space
+      mapping: The state of the art","volume":"52","author":"Bandler","year":"2004","journal-title":"IEEE
+      Trans Microwave Theory Tech"},{"key":"10.1002\/mmce.20890-BIB0023|mmce20890-cit-0023","doi-asserted-by":"crossref","first-page":"45","DOI":"10.1109\/MCAS.2011.2181095","article-title":"Demystifying
+      surrogate modeling for circuits and systems","volume":"12","author":"Yelten","year":"2012","journal-title":"IEEE
+      Circuits Syst Mag"},{"key":"10.1002\/mmce.20890-BIB0024|mmce20890-cit-0024","doi-asserted-by":"crossref","volume-title":"Antenna
+      design by simulation-driven optimization","author":"Koziel","year":"2014","DOI":"10.1007\/978-3-319-04367-8"},{"key":"10.1002\/mmce.20890-BIB0025|mmce20890-cit-0025","unstructured":"A.R.
+      Conn N.I.M. Gould P.L. Toint 2000"}],"container-title":["International Journal
+      of RF and Microwave Computer-Aided Engineering"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2Fmmce.20890","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/full\/10.1002\/mmce.20890","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,12,20]],"date-time":"2022-12-20T13:12:43Z","timestamp":1671541963000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/mmce.20890"}},"subtitle":["Phase-Spacing
+      Optimization"],"issued":{"date-parts":[[2015,2,20]]},"references-count":25,"journal-issue":{"issue":"6","published-print":{"date-parts":[[2015,8]]}},"URL":"http:\/\/dx.doi.org\/10.1002\/mmce.20890","ISSN":["1096-4290"],"issn-type":[{"value":"1096-4290","type":"print"}],"published":{"date-parts":[[2015,2,20]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T08:33:09Z","timestamp":1697445189780},"reference-count":52,"publisher":"Hindawi
+      Limited","issue":"3","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":7305,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Eur
+      J Cancer Care"],"published-print":{"date-parts":[[1995,9]]},"DOI":"10.1111\/j.1365-2354.1995.tb00071.x","type":"journal-article","created":{"date-parts":[[2007,8,2]],"date-time":"2007-08-02T15:10:14Z","timestamp":1186067414000},"page":"133-142","source":"Crossref","is-referenced-by-count":28,"title":["Acute
+      leukaemia and malignant lymphoma patients''experiences of disease, treatment
+      and nursing care during the active treatment phase: an explorative study"],"prefix":"10.1155","volume":"4","author":[{"given":"L.","family":"PERSSON","sequence":"first","affiliation":[]},{"given":"I.R.","family":"HALLBERG","sequence":"additional","affiliation":[]},{"given":"O.","family":"OHLSSON","sequence":"additional","affiliation":[]}],"member":"98","reference":[{"key":"b1_57","doi-asserted-by":"publisher","DOI":"10.1093\/jnci\/85.5.365"},{"key":"b2_58","first-page":"231","volume":"111","author":"Aaronsson
+      N.K.","year":"1988","journal-title":"Cancer Research"},{"key":"b3_59","volume-title":"Health
+      Stress and Coping","author":"Antonowsky A.","year":"1979"},{"key":"b4_60","first-page":"185","author":"Beck
+      S.","year":"1979","journal-title":"Cancer Nursing"},{"key":"b5_61","doi-asserted-by":"crossref","unstructured":"S.
+      Beck (1979 ) Impact of a systematic oral care protocol on stomatitis after chemotherapy
+      . Cancer Nursing, June, 185 -199 .","DOI":"10.1097\/00002820-197906000-00002"},{"key":"b6_62","doi-asserted-by":"crossref","first-page":"355","DOI":"10.3109\/00365549109024323","volume":"23","author":"Bergman
+      O.J.","year":"1991","journal-title":"Scandinavian Journal of Infectious Diseases"},{"key":"b7_63","doi-asserted-by":"publisher","DOI":"10.1046\/j.1365-2648.1993.18091346.x"},{"key":"b8_64","doi-asserted-by":"crossref","first-page":"311","DOI":"10.3109\/02841869209108178","volume":"31","author":"Bjordal
+      K.","year":"1992","journal-title":"Acta Oncologica"},{"key":"b9_65","doi-asserted-by":"publisher","DOI":"10.1016\/0277-9536(91)90156-7"},{"key":"b10_66","doi-asserted-by":"crossref","first-page":"523","DOI":"10.1016\/S0029-6465(22)01766-2","volume":"18","author":"Campbell
+      J.B.","year":"1983","journal-title":"Nursing Clinics of North America"},{"key":"b11_67","volume-title":"The
+      Swedish Cancer Registry","author":"Cancer Incidence in Sweden","year":"1991"},{"key":"b12_68","doi-asserted-by":"publisher","DOI":"10.1037\/0022-006X.54.5.616"},{"key":"b13_69","doi-asserted-by":"publisher","DOI":"10.1111\/j.1365-2648.1984.tb00338.x"},{"key":"b14_70","doi-asserted-by":"publisher","DOI":"10.1016\/0277-5379(83)90418-2"},{"key":"b15_71","first-page":"675","volume":"16","author":"Collins
+      C.","year":"1989","journal-title":"Oncology Nursing Forum"},{"key":"b16_72","doi-asserted-by":"publisher","DOI":"10.1046\/j.1365-2648.1993.18050788.x"},{"key":"b17_73","first-page":"347","author":"Daeffler
+      R.","year":"1980","journal-title":"Cancer Nursing"},{"key":"b18_74","first-page":"276","volume":"35","author":"Derdiarian
+      A.","year":"1986","journal-title":"Nursing Research"},{"key":"b19_75","doi-asserted-by":"publisher","DOI":"10.1097\/00002820-198706000-00002"},{"key":"b20_76","doi-asserted-by":"publisher","DOI":"10.1111\/j.1600-0714.1989.tb00734.x"},{"key":"b21_77","doi-asserted-by":"crossref","first-page":"684","DOI":"10.1007\/978-3-642-74643-7_124","volume":"33","author":"Gale
+      R.P.","year":"1990","journal-title":"Haematology and Blood Transfusion"},{"key":"b22_78","doi-asserted-by":"publisher","DOI":"10.1007\/BF00366048"},{"key":"b23_79","doi-asserted-by":"crossref","first-page":"173","DOI":"10.1111\/j.1471-6712.1990.tb00069.x","volume":"4","author":"Grahn
+      G.","year":"1990","journal-title":"Scandinavian Journal of Caring Sciences"},{"key":"b24_80","doi-asserted-by":"publisher","DOI":"10.1097\/00002820-198610000-00007"},{"key":"b25_81","first-page":"2335","volume":"91","author":"Hagberg
+      H.","year":"1995","journal-title":"Lakartidningen"},{"key":"b26_82","first-page":"94","volume":"17","author":"Halstead
+      M.T.","year":"1995","journal-title":"Cancer Nursing"},{"key":"b27_83","doi-asserted-by":"crossref","first-page":"361","DOI":"10.1093\/intqhc\/6.4.361","volume":"6","author":"Jakobsson
+      L.","year":"1995","journal-title":"International Journal for Quality in Health
+      Care"},{"key":"b28_84","doi-asserted-by":"publisher","DOI":"10.1097\/00002820-198204000-00003"},{"key":"b29_85","doi-asserted-by":"publisher","DOI":"10.1007\/BF00846179"},{"key":"b30_86","doi-asserted-by":"crossref","first-page":"563","DOI":"10.1176\/ajp.134.5.563","volume":"134","author":"Kellerman
+      J.","year":"1977","journal-title":"American Journal of Psychiatry"},{"key":"b31_87","doi-asserted-by":"crossref","first-page":"21","DOI":"10.1111\/j.1471-6712.1990.tb00003.x","volume":"4","author":"Kihlgren
+      M.","year":"1990","journal-title":"Scandinavian Journal of Caring Sciences"},{"key":"b32_88","doi-asserted-by":"crossref","first-page":"3","DOI":"10.1111\/j.1471-6712.1993.tb00154.x","volume":"7","author":"Langius
+      A.","year":"1993","journal-title":"Scandinavian Journal of Caring Sciences"},{"key":"b33_89","first-page":"22","volume":"12","author":"Leino-Kilpi
+      H.","year":"1992","journal-title":"Vard i Norden"},{"key":"b34_90","doi-asserted-by":"publisher","DOI":"10.1046\/j.1365-2648.1994.20020245.x"},{"key":"b35_91","first-page":"1493","volume":"20","author":"McGuire
+      D.B.","year":"1993","journal-title":"Oncology Nursing Forum"},{"key":"b36_92","doi-asserted-by":"crossref","first-page":"225","DOI":"10.1111\/j.1547-5069.1988.tb00082.x","volume":"20","author":"Mishel
+      M.H.","year":"1988","journal-title":"Journal of Nursing Scholarship"},{"key":"b37_93","volume-title":"Stress
+      and Coping. An Anthology","author":"Monat A.","year":"1993","edition":"3"},{"key":"b38_94","first-page":"19","volume":"40","author":"Morgan
+      G.","year":"1989","journal-title":"Haematology Nursing"},{"key":"b39_95","doi-asserted-by":"publisher","DOI":"10.1097\/00006199-199103000-00014"},{"key":"b40_96","doi-asserted-by":"crossref","first-page":"134","DOI":"10.1093\/geronj\/16.2.134","volume":"16","author":"Neugarten
+      B.L.","year":"1961","journal-title":"Journal of Gerontology"},{"key":"b41_97","unstructured":"B.
+      Nordbeck, B. Hagberg, G. Jadbeck, and B. Johansson (1992 ) Stroke Patients in
+      Sweden. Paper given at the XVth World Congress of Gerontology. Budapest, Hungary."},{"key":"b42_98","volume-title":"Qualitative
+      Evaluation and Research Methods","author":"Patton M.Q.","year":"1990"},{"key":"b43_99","volume-title":"Interpretation
+      Theory. Discourse and the Surplus of Meaning","author":"Ricoeur P.","year":"1976"},{"key":"b44_100","doi-asserted-by":"publisher","DOI":"10.1007\/BF00435732"},{"key":"b45_101","volume-title":"Development
+      of methods to map out psychosocial factors which should be taken into consideration
+      in regional planning","author":"Rubenowitz S.","year":"1980"},{"key":"b46_102","doi-asserted-by":"publisher","DOI":"10.2307\/3425761"},{"key":"b47_103","doi-asserted-by":"publisher","DOI":"10.1016\/0030-4220(89)90212-0"},{"key":"b48_104","first-page":"120","volume-title":"Oncology
+      for Nurses and Health Care Professionals","author":"Webb C.","year":"1988","edition":"2"},{"key":"b49_105","doi-asserted-by":"publisher","DOI":"10.1037\/0033-2909.90.2.245"},{"key":"b50_106","first-page":"23","volume":"21","author":"Winningham
+      M.L.","year":"1995","journal-title":"Oncology Nursing Forum"},{"key":"b51_107","doi-asserted-by":"publisher","DOI":"10.1097\/00002820-198612000-00002"},{"key":"b52_108","doi-asserted-by":"publisher","DOI":"10.1097\/00002820-199206000-00006"}],"container-title":["European
+      Journal of Cancer Care"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1111%2Fj.1365-2354.1995.tb00071.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"http:\/\/onlinelibrary.wiley.com\/wol1\/doi\/10.1111\/j.1365-2354.1995.tb00071.x\/fullpdf","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2023,5,13]],"date-time":"2023-05-13T17:22:08Z","timestamp":1683998528000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1111\/j.1365-2354.1995.tb00071.x"}},"issued":{"date-parts":[[1995,9]]},"references-count":52,"journal-issue":{"issue":"3","published-print":{"date-parts":[[1995,9]]}},"alternative-id":["10.1111\/j.1365-2354.1995.tb00071.x"],"URL":"http:\/\/dx.doi.org\/10.1111\/j.1365-2354.1995.tb00071.x","ISSN":["0961-5423","1365-2354"],"issn-type":[{"value":"0961-5423","type":"print"},{"value":"1365-2354","type":"electronic"}],"published":{"date-parts":[[1995,9]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T08:59:51Z","timestamp":1697446791776},"reference-count":16,"publisher":"Hindawi
+      Limited","issue":"4-5","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":5540,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["J
+      Appl Ichthyol"],"published-print":{"date-parts":[[2000,7]]},"DOI":"10.1046\/j.1439-0426.2000.00261.x","type":"journal-article","created":{"date-parts":[[2003,3,12]],"date-time":"2003-03-12T03:08:26Z","timestamp":1047438506000},"page":"209-213","source":"Crossref","is-referenced-by-count":24,"title":["A
+      review of marine aquaculture in Spain: production, regulations and environmental
+      monitoring"],"prefix":"10.1155","volume":"16","author":[{"given":"A.","family":"Sanchez-Mata","sequence":"first","affiliation":[]},{"given":"J.","family":"Mora","sequence":"additional","affiliation":[]}],"member":"98","reference":[{"key":"b8_131","first-page":"1","volume-title":"Foro
+      dos Recursos Marinos e Acuicultura das Rias Galegas","author":"Alcalde A.","year":"1998"},{"key":"b10_132","first-page":"534","volume-title":"Secretaria
+      General de Pesca Maritima","author":"Anonymous","year":"1999"},{"key":"b9_133","first-page":"76","volume":"139","author":"Anonymous","year":"1999","journal-title":"Productos
+      Del Mar"},{"key":"b15_134","doi-asserted-by":"crossref","first-page":"275","DOI":"10.1111\/j.1439-0426.1998.tb00655.x","volume":"14","author":"Barja
+      J. L.","year":"1998","journal-title":"J. Appl. Ichthyology"},{"key":"b11_135","first-page":"97","volume":"137","author":"Basurco
+      B.","year":"1999","journal-title":"Productos Del Mar"},{"key":"b14_136","first-page":"108","volume":"135","author":"Cacho
+      A. M.","year":"1999","journal-title":"Productos Del Mar"},{"key":"b12_137","volume-title":"Diario
+      Oficial de Galicia, 9 de Diciembre de 1996","author":"Decreto","year":"1996"},{"key":"b2_138","first-page":"87","volume":"135","author":"Fernandez-Otero
+      J.","year":"1999","journal-title":"Productos Del Mar"},{"key":"b1_139","first-page":"77","volume":"135","author":"Larrazabal
+      G.","year":"1999","journal-title":"Productos Del Mar"},{"key":"b13_140","first-page":"104","volume":"135","author":"Rodriguez-Rebollo
+      M.","year":"1999","journal-title":"Productos Del Mar"},{"key":"b4_141","first-page":"9","volume":"266","author":"Roman
+      G.","year":"1979","journal-title":"Publicacions del Instituto Espanol de Oceanografia"},{"key":"b7_142","doi-asserted-by":"publisher","DOI":"10.1017\/S0025315498000010"},{"key":"b6_143","doi-asserted-by":"crossref","first-page":"337","DOI":"10.1163\/156854093X00685","volume":"64","author":"Sanchez-Mata
+      A.","year":"1993","journal-title":"Crustaceana"},{"key":"b2025_144","first-page":"41","volume":"11","author":"Sanchez-Mata
+      A.","year":"1993","journal-title":"Publicaciones Especiales Del Instituto Espanol
+      Oceanografia"},{"key":"b5_145","first-page":"701","volume":"40","author":"Tenore
+      K. R.","year":"1982","journal-title":"J. Mar Research"},{"key":"b3_146","first-page":"601","volume-title":"10th
+      European Symposium on Marine Biology, Ostend, Belgium","volume":"2","author":"Tenore
+      K. R.","year":"1975"}],"container-title":["Journal of Applied Ichthyology"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1046%2Fj.1439-0426.2000.00261.x","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"}],"deposited":{"date-parts":[[2022,11,28]],"date-time":"2022-11-28T13:54:56Z","timestamp":1669643696000},"score":0.0,"resource":{"primary":{"URL":"http:\/\/doi.wiley.com\/10.1046\/j.1439-0426.2000.00261.x"}},"issued":{"date-parts":[[2000,7]]},"references-count":16,"journal-issue":{"issue":"4-5","published-print":{"date-parts":[[2000,7]]}},"alternative-id":["10.1046\/j.1439-0426.2000.00261.x"],"URL":"http:\/\/dx.doi.org\/10.1046\/j.1439-0426.2000.00261.x","ISSN":["0175-8659","1439-0426"],"issn-type":[{"value":"0175-8659","type":"print"},{"value":"1439-0426","type":"electronic"}],"published":{"date-parts":[[2000,7]]}},{"indexed":{"date-parts":[[2023,10,16]],"date-time":"2023-10-16T08:23:12Z","timestamp":1697444592091},"reference-count":40,"publisher":"Hindawi
+      Limited","issue":"5","license":[{"start":{"date-parts":[[2015,9,1]],"date-time":"2015-09-01T00:00:00Z","timestamp":1441065600000},"content-version":"tdm","delay-in-days":4261,"URL":"http:\/\/doi.wiley.com\/10.1002\/tdm_license_1.1"}],"content-domain":{"domain":[],"crossmark-restriction":false},"short-container-title":["Hum.
+      Mutat."],"published-print":{"date-parts":[[2004,11]]},"DOI":"10.1002\/humu.20106","type":"journal-article","created":{"date-parts":[[2004,9,30]],"date-time":"2004-09-30T23:03:35Z","timestamp":1096585415000},"page":"408-416","source":"Crossref","is-referenced-by-count":21,"title":["A
+      paradigm for single nucleotide polymorphism analysis: The case of the acetylcholinesterase
+      gene"],"prefix":"10.1155","volume":"24","author":[{"given":"Yehudit","family":"Hasin","sequence":"first","affiliation":[]},{"given":"Nili","family":"Avidan","sequence":"additional","affiliation":[]},{"given":"Dani","family":"Bercovich","sequence":"additional","affiliation":[]},{"given":"Amos","family":"Korczyn","sequence":"additional","affiliation":[]},{"given":"Israel","family":"Silman","sequence":"additional","affiliation":[]},{"given":"Jacques
+      S.","family":"Beckmann","sequence":"additional","affiliation":[]},{"given":"Joel
+      L.","family":"Sussman","sequence":"additional","affiliation":[]}],"member":"98","published-online":{"date-parts":[[2004]]},"reference":[{"key":"10.1002\/humu.20106-BIB1","first-page":"928","volume":"52","author":"Bartels","year":"1993","journal-title":"Am
+      J Hum Genet"},{"key":"10.1002\/humu.20106-BIB2","doi-asserted-by":"crossref","first-page":"279","DOI":"10.1016\/S0166-4328(01)00297-2","volume":"125","author":"Benjamini","year":"2001","journal-title":"Behav
+      Brain Res"},{"key":"10.1002\/humu.20106-BIB3","doi-asserted-by":"crossref","first-page":"189","DOI":"10.1089\/109065703322537197","volume":"7","author":"Bercovich","year":"2003","journal-title":"Genet
+      Test"},{"key":"10.1002\/humu.20106-BIB4","doi-asserted-by":"crossref","first-page":"4992","DOI":"10.1093\/nar\/23.24.4992","volume":"23","author":"Bonfield","year":"1995","journal-title":"Nucleic
+      Acids Res"},{"key":"10.1002\/humu.20106-BIB5","doi-asserted-by":"crossref","first-page":"2963","DOI":"10.1074\/jbc.274.5.2963","volume":"274","author":"Bourne","year":"1999","journal-title":"J
+      Biol Chem"},{"key":"10.1002\/humu.20106-BIB6","doi-asserted-by":"crossref","first-page":"214","DOI":"10.1096\/fj.02-0609com","volume":"17","author":"Brenner","year":"2003","journal-title":"FASEB
+      J"},{"key":"10.1002\/humu.20106-BIB7","doi-asserted-by":"crossref","first-page":"131","DOI":"10.1038\/nrn1035","volume":"4","author":"Darvesh","year":"2003","journal-title":"Nat
+      Rev Neurosci"},{"key":"10.1002\/humu.20106-BIB8","doi-asserted-by":"crossref","first-page":"613","DOI":"10.1093\/hmg\/11.6.613","volume":"11","author":"Duetsch","year":"2002","journal-title":"Hum
+      Mol Genet"},{"key":"10.1002\/humu.20106-BIB9","doi-asserted-by":"crossref","first-page":"288","DOI":"10.1006\/geno.1994.1386","volume":"22","author":"Ehrlich","year":"1994","journal-title":"Genomics"},{"key":"10.1002\/humu.20106-BIB10","doi-asserted-by":"crossref","first-page":"153","DOI":"10.1006\/geno.2000.6369","volume":"70","author":"Escary","year":"2000","journal-title":"Genomics"},{"key":"10.1002\/humu.20106-BIB11","doi-asserted-by":"crossref","first-page":"318","DOI":"10.1016\/S1093-3263(98)00005-9","volume":"15","author":"Felder","year":"1997","journal-title":"J
+      Mol Graph Model"},{"key":"10.1002\/humu.20106-BIB12","doi-asserted-by":"crossref","first-page":"881","DOI":"10.1086\/303070","volume":"67","author":"Fullerton","year":"2000","journal-title":"Am
+      J Hum Genet"},{"key":"10.1002\/humu.20106-BIB13","first-page":"181","volume-title":"Cholinesterases
+      and cholinesterase inhibitors","author":"Giacobini","year":"2000","unstructured":"2000.
+      Cholinesterase inhibitors: from the Calabar bean to Alzheimer therapy. In: editor.
+      Cholinesterases and cholinesterase inhibitors. London: Martin Dunitz. p 181-226."},{"key":"10.1002\/humu.20106-BIB14","doi-asserted-by":"crossref","first-page":"369","DOI":"10.1385\/JMN:20:3:369","volume":"20","author":"Greenblatt","year":"2003","journal-title":"J
+      Mol Neurosci"},{"key":"10.1002\/humu.20106-BIB15","doi-asserted-by":"crossref","first-page":"29","DOI":"10.1016\/S0163-7258(99)00071-6","volume":"86","author":"Kawashima","year":"2000","journal-title":"Pharmacol
+      Ther"},{"key":"10.1002\/humu.20106-BIB16","doi-asserted-by":"crossref","first-page":"62","DOI":"10.1007\/s00439-002-0834-z","volume":"112","author":"Knowles","year":"2003","journal-title":"Hum
+      Genet"},{"key":"10.1002\/humu.20106-BIB17","doi-asserted-by":"crossref","first-page":"1385","DOI":"10.1107\/S0907444900010659","volume":"56","author":"Kryger","year":"2000","journal-title":"Acta
+      Crystallogr D Biol Crystallogr"},{"key":"10.1002\/humu.20106-BIB18","doi-asserted-by":"crossref","first-page":"2275","DOI":"10.1093\/oxfordjournals.hmg.a018918","volume":"9","author":"Lambert","year":"2000","journal-title":"Hum
+      Mol Genet"},{"key":"10.1002\/humu.20106-BIB19","doi-asserted-by":"crossref","first-page":"3644","DOI":"10.1182\/blood.V89.10.3644","volume":"89","author":"Lev-Lehman","year":"1997","journal-title":"Blood"},{"key":"10.1002\/humu.20106-BIB20","doi-asserted-by":"crossref","first-page":"23083","DOI":"10.1016\/S0021-9258(18)54466-5","volume":"266","author":"Li","year":"1991","journal-title":"J
+      Biol Chem"},{"key":"10.1002\/humu.20106-BIB21","doi-asserted-by":"crossref","first-page":"29","DOI":"10.1016\/S0009-2797(99)00011-3","volume":"119-120","author":"Massouli\u00e9","year":"1999","journal-title":"Chem
+      Biol Interact"},{"key":"10.1002\/humu.20106-BIB22","doi-asserted-by":"crossref","first-page":"897","DOI":"10.1124\/jpet.102.035840","volume":"304","author":"Michaelis","year":"2003","journal-title":"J
+      Pharmacol Exp Ther"},{"key":"10.1002\/humu.20106-BIB23","doi-asserted-by":"crossref","first-page":"2531","DOI":"10.1016\/j.ejca.2003.08.017","volume":"39","author":"Miyoshi","year":"2003","journal-title":"Eur
+      J Cancer"},{"key":"10.1002\/humu.20106-BIB24","doi-asserted-by":"crossref","first-page":"259","DOI":"10.1038\/ng0795-259","volume":"10","author":"Richard","year":"1995","journal-title":"Nat
+      Genet"},{"key":"10.1002\/humu.20106-BIB25","doi-asserted-by":"crossref","first-page":"5128","DOI":"10.1073\/pnas.90.11.5128","volume":"90","author":"Ripoll","year":"1993","journal-title":"Proc
+      Natl Acad Sci USA"},{"key":"10.1002\/humu.20106-BIB26","doi-asserted-by":"crossref","first-page":"539","DOI":"10.1016\/S1474-4422(03)00502-7","volume":"2","author":"Scarpini","year":"2003","journal-title":"Lancet
+      Neurol"},{"key":"10.1002\/humu.20106-BIB27","doi-asserted-by":"crossref","first-page":"2993","DOI":"10.1128\/MCB.15.6.2993","volume":"15","author":"Seidman","year":"1995","journal-title":"Mol
+      Cell Biol"},{"key":"10.1002\/humu.20106-BIB28","doi-asserted-by":"crossref","first-page":"1273","DOI":"10.1093\/hmg\/9.9.1273","volume":"9","author":"Shapira","year":"2000","journal-title":"Hum
+      Mol Genet"},{"key":"10.1002\/humu.20106-BIB29","first-page":"9","volume-title":"Cholinesterases
+      and cholinesterase inhibitors","author":"Silman","year":"2000","unstructured":"2000.
+      Structural studies on acetylcholinesterase. In: editor. Cholinesterases and
+      cholinesterase inhibitors. London: Martin Dunitz. p 9-25."},{"key":"10.1002\/humu.20106-BIB30","doi-asserted-by":"crossref","first-page":"294","DOI":"10.1038\/35067589","volume":"2","author":"Soreq","year":"2001","journal-title":"Nat
+      Rev Neurosci"},{"key":"10.1002\/humu.20106-BIB31","doi-asserted-by":"crossref","first-page":"978","DOI":"10.1086\/319501","volume":"68","author":"Stephens","year":"2001","journal-title":"Am
+      J Hum Genet"},{"key":"10.1002\/humu.20106-BIB32","doi-asserted-by":"crossref","first-page":"1240","DOI":"10.1523\/JNEUROSCI.18-04-01240.1998","volume":"18","author":"Sternfeld","year":"1998","journal-title":"J
+      Neurosci"},{"key":"10.1002\/humu.20106-BIB33","doi-asserted-by":"crossref","first-page":"872","DOI":"10.1126\/science.1678899","volume":"253","author":"Sussman","year":"1991","journal-title":"Science"},{"key":"10.1002\/humu.20106-BIB34","doi-asserted-by":"crossref","first-page":"1961","DOI":"10.1016\/S0047-6374(01)00309-8","volume":"122","author":"Talesa","year":"2001","journal-title":"Mech
+      Ageing Dev"},{"key":"10.1002\/humu.20106-BIB35","doi-asserted-by":"crossref","first-page":"506","DOI":"10.1038\/nature01621","volume":"423","author":"Ueda","year":"2003","journal-title":"Nature"},{"key":"10.1002\/humu.20106-BIB36","doi-asserted-by":"crossref","first-page":"r72","DOI":"10.1186\/gb-2003-4-11-r72","volume":"4","author":"Vitkup","year":"2003","journal-title":"Genome
+      Biol"},{"key":"10.1002\/humu.20106-BIB37","doi-asserted-by":"crossref","first-page":"263","DOI":"10.1002\/humu.22","volume":"17","author":"Wang","year":"2001","journal-title":"Hum
+      Mutat"},{"key":"10.1002\/humu.20106-BIB38","first-page":"896","volume":"293","author":"Xie","year":"2000","journal-title":"J
+      Pharmacol Exp Ther"},{"key":"10.1002\/humu.20106-BIB39","doi-asserted-by":"crossref","first-page":"289","DOI":"10.1016\/S0009-2797(99)00039-3","volume":"119-120","author":"Xie","year":"1999","journal-title":"Chem
+      Biol Interact"},{"key":"10.1002\/humu.20106-BIB40","doi-asserted-by":"crossref","first-page":"323","DOI":"10.1002\/humu.9069","volume":"20","author":"Yaron","year":"2002","journal-title":"Hum
+      Mutat"}],"container-title":["Human Mutation"],"language":"en","link":[{"URL":"https:\/\/api.wiley.com\/onlinelibrary\/tdm\/v1\/articles\/10.1002%2Fhumu.20106","content-type":"unspecified","content-version":"vor","intended-application":"text-mining"},{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/full\/10.1002\/humu.20106","content-type":"unspecified","content-version":"vor","intended-application":"similarity-checking"}],"deposited":{"date-parts":[[2022,12,29]],"date-time":"2022-12-29T16:51:42Z","timestamp":1672332702000},"score":0.0,"resource":{"primary":{"URL":"https:\/\/onlinelibrary.wiley.com\/doi\/10.1002\/humu.20106"}},"issued":{"date-parts":[[2004]]},"references-count":40,"journal-issue":{"issue":"5","published-print":{"date-parts":[[2004,11]]}},"URL":"http:\/\/dx.doi.org\/10.1002\/humu.20106","ISSN":["1059-7794","1098-1004"],"issn-type":[{"value":"1059-7794","type":"print"},{"value":"1098-1004","type":"electronic"}],"published":{"date-parts":[[2004]]}}],"items-per-page":5,"query":{"start-index":0,"search-terms":null}}}'
+    headers:
+      access-control-allow-headers:
+      - X-Requested-With, Accept, Accept-Encoding, Accept-Charset, Accept-Language,
+        Accept-Ranges, Cache-Control
+      access-control-allow-origin:
+      - '*'
+      access-control-expose-headers:
+      - Link
+      connection:
+      - close
+      content-encoding:
+      - gzip
+      content-length:
+      - '9560'
+      content-type:
+      - application/json
+      date:
+      - Sun, 13 Oct 2024 14:07:08 GMT
+      permissions-policy:
+      - interest-cohort=()
+      server:
+      - Jetty(9.4.40.v20210413)
+      vary:
+      - Accept-Encoding
+      x-api-pool:
+      - public
+      x-rate-limit-interval:
+      - 1s
+      x-rate-limit-limit:
+      - '50'
+      x-ratelimit-interval:
+      - 1s
+      x-ratelimit-limit:
+      - '50'
+    http_version: HTTP/1.1
+    status_code: 200
+version: 1

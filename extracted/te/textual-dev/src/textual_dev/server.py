@@ -41,17 +41,22 @@ async def _on_startup(app: Application) -> None:
 def _run_devtools(
     verbose: bool, exclude: list[str] | None = None, port: int | None = None
 ) -> None:
-    app = _make_devtools_aiohttp_app(verbose=verbose, exclude=exclude)
+    app = _make_devtools_aiohttp_app(port=port, verbose=verbose, exclude=exclude)
 
     def noop_print(_: str) -> None:
         pass
+
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
 
     try:
         run_app(
             app,
             port=DEVTOOLS_PORT if port is None else port,
             print=noop_print,
-            loop=asyncio.get_event_loop(),
+            loop=loop,
         )
     except OSError:
         from rich import print
@@ -63,6 +68,7 @@ def _run_devtools(
 
 def _make_devtools_aiohttp_app(
     size_change_poll_delay_secs: float = DEFAULT_SIZE_CHANGE_POLL_DELAY_SECONDS,
+    port: int | None = None,
     verbose: bool = False,
     exclude: list[str] | None = None,
 ) -> Application:
@@ -73,7 +79,10 @@ def _make_devtools_aiohttp_app(
 
     app["verbose"] = verbose
     app["service"] = DevtoolsService(
-        update_frequency=size_change_poll_delay_secs, verbose=verbose, exclude=exclude
+        update_frequency=size_change_poll_delay_secs,
+        port=port,
+        verbose=verbose,
+        exclude=exclude,
     )
 
     app.add_routes(

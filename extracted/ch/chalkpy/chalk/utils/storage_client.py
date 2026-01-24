@@ -33,8 +33,11 @@ from chalk.utils.missing_dependency import missing_dependency_exception
 from chalk.utils.tracing import safe_distribution, safe_incr, safe_trace
 
 if TYPE_CHECKING:
+    import azure.storage.blob
     import google.cloud.storage
     import pyarrow as pa
+    from azure.core.credentials import TokenCredential
+    from azure.core.credentials_async import AsyncTokenCredential
     from fsspec import AbstractFileSystem
     from mypy_boto3_s3.client import S3Client
 
@@ -620,6 +623,249 @@ class S3StorageClient(StorageClient):
             Key=filename,
         )
         return obj["ContentLength"]
+
+
+class AzureBlobStorageClient(StorageClient):
+    protocol = "abfs"
+
+    def __init__(
+        self,
+        blob_service_client: azure.storage.blob.BlobServiceClient,
+        account_name: str,
+        container_name: str,
+        executor: ThreadPoolExecutor,
+        credential: TokenCredential | AsyncTokenCredential | None = None,
+    ):
+        super().__init__()
+        try:
+            import adlfs
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[runtime]")
+        self.bucket = container_name  # interface requirement
+        self._blob_service_client = blob_service_client
+        self._container_name = container_name
+        self._container_client = blob_service_client.get_container_client(container_name)
+        self._account_name = account_name
+        self._executor = executor
+        if credential is None:
+            credential = blob_service_client.credential
+        self.fs = adlfs.AzureBlobFileSystem(
+            account_name=account_name,
+            credential=credential,  # pyright: ignore[reportArgumentType]
+        )
+
+    @override
+    def get_uri(self, filename: str) -> str:
+        """Return a URI for a filename"""
+        return f"{self.protocol}://{self._container_name}@{self._account_name}.dfs.core.windows.net/{filename}"
+
+    def get_https_uri(self, filename: str) -> str:
+        """Return an HTTPS URI for signed URLs and direct access"""
+        return f"https://{self._account_name}.blob.core.windows.net/{self._container_name}/{filename}"
+
+    def _normalize_path(self, path: str) -> str:
+        if path.startswith(self._container_name):
+            return path[len(self._container_name) + 1 :]
+        return path
+
+    @override
+    def upload_object(
+        self,
+        filename: str,
+        content_type: str,
+        data: bytes | BinaryIO,
+        metadata: Mapping[str, str] | None = None,
+    ):
+        from azure.storage.blob import ContentSettings
+
+        if not isinstance(data, bytes):
+            data.seek(0)
+            data = data.read()
+        assert isinstance(data, bytes)
+
+        if metadata is None:
+            metadata = {}
+        else:
+            metadata = dict(metadata)
+
+        # Not using the actual filename in the tag to avoid tag blowup
+        safe_distribution(
+            "chalk.engine.storage_client.files_uploaded",
+            1,
+            tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
+        )
+        safe_distribution(
+            "chalk.engine.storage_client.bytes_uploaded",
+            len(data),
+            tags=[f"bucket:{self.bucket}", f"protocol:{self.protocol}"],
+        )
+
+        blob_client = self._container_client.get_blob_client(self._normalize_path(filename))
+
+        # Optimize based on size
+        if len(data) < 256 * 1024 * 1024:  # < 256 MB
+            blob_client.upload_blob(
+                data,
+                overwrite=True,
+                content_settings=ContentSettings(content_type=content_type),
+                metadata=metadata,
+            )
+        else:
+            blob_client.upload_blob(
+                data,
+                overwrite=True,
+                max_block_size=100 * 1024 * 1024,
+                max_concurrency=8,
+                content_settings=ContentSettings(content_type=content_type),
+                metadata=metadata,
+            )
+
+    async def async_upload_object(
+        self,
+        filename: str,
+        content_type: str,
+        data: bytes | BinaryIO,
+        metadata: Mapping[str, str] | None = None,
+    ):
+        return await asyncio.get_running_loop().run_in_executor(
+            self._executor,
+            self.upload_object,
+            filename,
+            content_type,
+            data,
+            metadata,
+        )
+
+    @overload
+    @override
+    def download_object(self, filename: str) -> bytes:
+        ...
+
+    @overload
+    @override
+    def download_object(self, filename: str, destination: BinaryIO | str) -> None:
+        ...
+
+    @override
+    def download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
+        blob_client = self._container_client.get_blob_client(self._normalize_path(filename))
+        if destination is None:
+            downloader = blob_client.download_blob()
+            return downloader.readall()
+        elif isinstance(destination, str):
+            with open(destination, "wb") as f:
+                downloader = blob_client.download_blob()
+                downloader.readinto(f)
+        else:
+            downloader = blob_client.download_blob()
+            downloader.readinto(destination)
+
+    @overload
+    @override
+    async def async_download_object(self, filename: str) -> bytes:
+        ...
+
+    @overload
+    @override
+    async def async_download_object(self, filename: str, destination: BinaryIO | str) -> None:
+        ...
+
+    @override
+    async def async_download_object(self, filename: str, destination: str | BinaryIO | None = None) -> bytes | None:
+        if destination is None:
+            return cast(
+                None,
+                await asyncio.get_running_loop().run_in_executor(self._executor, self.download_object, filename),
+            )
+        else:
+            return await asyncio.get_running_loop().run_in_executor(
+                self._executor, self.download_object, filename, destination
+            )
+
+    def sign_url(
+        self,
+        filename: str,
+        expiration: datetime,
+        mode: SignedUrlMode,
+        response_disposition: str | None = None,
+    ) -> str:
+        from datetime import timedelta
+
+        from azure.storage.blob import BlobSasPermissions, UserDelegationKey, generate_blob_sas
+
+        if expiration <= datetime.now(timezone.utc):
+            raise ValueError("Expiration time is in the past")
+
+        if mode == SignedUrlMode.DOWNLOAD:
+            permissions = BlobSasPermissions(read=True)
+        elif mode == SignedUrlMode.UPLOAD:
+            permissions = BlobSasPermissions(read=True, write=True, create=True, add=True)
+        else:
+            assert_never(mode)
+
+        filename = self._normalize_path(filename)
+
+        start_time = datetime.now(timezone.utc) - timedelta(minutes=10)
+        try:
+            user_delegation_key: UserDelegationKey = self._blob_service_client.get_user_delegation_key(
+                key_start_time=start_time,
+                key_expiry_time=expiration,
+            )
+        except Exception as e:
+            _logger.error(
+                f"Failed to get user delegation key for '{filename}'; falling back to storage client URL",
+                exc_info=e,
+            )
+            return self.get_https_uri(filename)
+
+        sas_token = generate_blob_sas(
+            account_name=self._account_name,
+            container_name=self._container_name,
+            blob_name=filename,
+            user_delegation_key=user_delegation_key,
+            permission=permissions,
+            expiry=expiration,
+            start=start_time,
+            protocol="https",
+            content_disposition=response_disposition,
+        )
+        return f"{self.get_https_uri(filename)}?{sas_token}"
+
+    def list_files(self, prefix: str, delimiter: Optional[str] = None) -> Iterable[str]:
+        try:
+            prefix = self._normalize_path(prefix)
+            if delimiter is None:
+                # Flat listing
+                blob_list = self._container_client.list_blobs(name_starts_with=prefix)
+                for blob in blob_list:
+                    yield blob.name
+            else:
+                # Hierarchical listing
+                blob_list = self._container_client.walk_blobs(name_starts_with=prefix, delimiter=delimiter)
+                for item in blob_list:
+                    # walk_blobs returns both BlobProperties and BlobPrefix
+                    if hasattr(item, "name"):
+                        yield item.name
+        except Exception:
+            _logger.error(f"Got exception while listing files for {prefix=}", exc_info=True)
+            raise
+
+    async def async_list_files(self, prefix: str, delimiter: Optional[str] = None) -> AsyncIterator[str]:
+        iterable = await asyncio.get_running_loop().run_in_executor(self._executor, self.list_files, prefix, delimiter)
+        async for filename in to_async_iterable(iterable, self._executor):
+            yield filename
+
+    def copy(self, source_filename: str, dest_filename: str) -> None:
+        source_blob_url = self.get_https_uri(self._normalize_path(source_filename))
+        dest_blob_client = self._container_client.get_blob_client(self._normalize_path(dest_filename))
+        dest_blob_client.start_copy_from_url(source_blob_url)
+
+    def get_file_size(self, filename: str) -> int:
+        blob_client = self._container_client.get_blob_client(self._normalize_path(filename))
+        properties = blob_client.get_blob_properties()
+        size = properties.size
+        assert size is not None
+        return size
 
 
 class LocalStorageClient(StorageClient):

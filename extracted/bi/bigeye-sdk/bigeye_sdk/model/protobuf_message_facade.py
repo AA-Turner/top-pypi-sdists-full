@@ -3,13 +3,13 @@ from __future__ import annotations
 import json
 import re
 from abc import ABC
+from enum import Enum
 from typing import List, Optional, TypeVar, Union
 
 import betterproto
 import yaml
 from deprecated import deprecated
 from pydantic.v1 import validator, Field, root_validator
-from pydantic_yaml import YamlStrEnum
 
 from bigeye_sdk.bigconfig_validation.validation_functions import safe_split_dict_entry_lines, must_be_list_validator
 from bigeye_sdk.bigconfig_validation.yaml_model_base import YamlModelWithValidatorContext
@@ -516,7 +516,6 @@ class SimpleAutoThreshold(SimpleThreshold, type='AUTO'):
 
         return values
 
-
     def to_datawatch_object(self, **kwargs) -> List[Threshold]:
         lb = SimpleBound(bound_type=SimpleBoundType.LOWER_BOUND_SIMPLE_BOUND_TYPE, value=-1.0)
         ub = SimpleBound(bound_type=SimpleBoundType.UPPER_BOUND_SIMPLE_BOUND_TYPE, value=-1.0)
@@ -658,9 +657,17 @@ class SimpleStdDevThreshold(SimpleThreshold, type='STDDEV'):
 
 
 class SimpleNoneThreshold(SimpleThreshold, type='NONE'):
+    json_value = {"noneThreshold": {}}
 
     def to_datawatch_object(self, **kwargs) -> List[Threshold]:
         return [Threshold(none_threshold=NoneThreshold())]
+
+    def to_json(self) -> str:
+        return json.dumps(self.json_value)
+
+    def to_dict(self, casing: betterproto.Casing = betterproto.Casing.CAMEL,
+                include_default_values: bool = False) -> dict:
+        return self.json_value
 
 
 SNC = TypeVar('SNC', bound='SimpleNotificationChannel')
@@ -868,6 +875,8 @@ class SimpleCollection(YamlModelWithValidatorContext, DatawatchFacade):
     muted_until_timestamp: int = 0
 
     def __eq__(self, other: SimpleCollection):
+        # TODO: I'm not sure if this is accurate, since you can't create collections with the same name in Bigeye
+        # TODO: Verify if only name equality is sufficient to use
         if self.name == other.name \
                 and self.description == other.description \
                 and self.metric_ids == other.metric_ids \
@@ -951,7 +960,7 @@ class SimpleCollection(YamlModelWithValidatorContext, DatawatchFacade):
         return c
 
 
-class BucketSize(YamlStrEnum):
+class BucketSize(str, Enum):
     DAY = "DAY"  # 86400
     HOUR = "HOUR"  # 3600
 
@@ -1043,22 +1052,22 @@ class SimpleMetricDefinition(YamlModelWithValidatorContext, DatawatchFacade):
         elif not metric_type:
             """For the case where this is a saved metric reference."""
             return values
-        elif metric_type \
-                and metric_type in SimpleMetricType.get_freshness_metric_types():
-            """Freshness metrics should execute every 6 hours by default WIZ-1623"""
-            values['schedule_frequency'] = SimpleTimeInterval(
-                interval_type=SimpleTimeIntervalType.HOURS, interval_value=6
-            )
-            return values
-        elif metric_type \
-                and SimpleMetricType.is_freshness_volume(metric_type):
-            """Freshness and volume should execute every 6 hours by default"""
-            values['schedule_frequency'] = SimpleTimeInterval(
-                interval_type=SimpleTimeIntervalType.HOURS, interval_value=6
-            )
-            return values
+        # elif metric_type \
+        #         and metric_type in SimpleMetricType.get_freshness_metric_types():
+        #     """Freshness metrics should execute every 6 hours by default WIZ-1623"""
+        #     values['schedule_frequency'] = SimpleTimeInterval(
+        #         interval_type=SimpleTimeIntervalType.HOURS, interval_value=6
+        #     )
+        #     return values
+        # elif metric_type \
+        #         and SimpleMetricType.is_freshness_volume(metric_type):
+        #     """Freshness and volume should execute every 6 hours by default"""
+        #     values['schedule_frequency'] = SimpleTimeInterval(
+        #         interval_type=SimpleTimeIntervalType.HOURS, interval_value=6
+        #     )
+        #     return values
         else:
-            """All other metrics should execute every 24 hours by default WIZ-1623"""
+            """ 2025-09-26: All metrics have a default of every 24 hours"""
             values['schedule_frequency'] = SimpleTimeInterval(
                 interval_type=SimpleTimeIntervalType.HOURS, interval_value=24
             )
@@ -1276,7 +1285,10 @@ class SimpleMetricDefinition(YamlModelWithValidatorContext, DatawatchFacade):
         builder.filters = self.conditions
         builder.group_bys = self.group_by
 
-        if self.threshold:
+
+        if isinstance(self.threshold, SimpleNoneThreshold):
+            builder.thresholds = [self.threshold]
+        else:
             builder.thresholds = self.threshold.to_datawatch_object()
 
         if self.notification_channels:

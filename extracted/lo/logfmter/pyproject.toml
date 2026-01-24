@@ -2,9 +2,15 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.isort]
-profile = "black"
-sections = "FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER"
-
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["I", "F", "E"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["logfmter"]

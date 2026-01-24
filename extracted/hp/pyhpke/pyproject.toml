@@ -1,47 +1,104 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9.7,<1"]
+build-backend = "uv_build"
 
-[tool.poetry]
+[project]
 name = "pyhpke"
-version = "0.6.2"
+version = "0.6.4"
 description = "A Python implementation of HPKE."
-authors = ["Ajitomi Daisuke <dajiaji@gmail.com>"]
-license = "MIT"
 readme = "README.md"
-repository = "https://github.com/dajiaji/pyhpke"
-
-include = [
-  "CHANGES.rst",
-  "docs",
-  "poetry.lock",
-  "tests",
-  "tox.ini",
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "cryptography>=42.0.1,<47",
+]
+authors = [{ name = "Ajitomi Daisuke", email = "dajiaji@gmail.com" }]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 
-exclude = [
-  "docs/_build",
+[project.urls]
+Repository = "https://github.com/dajiaji/pyhpke"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.10",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-cryptography = ">=42.0.1,<45"
-Sphinx = {version = ">=7.1,<8", optional = true, extras = ["docs"]}
-sphinx-autodoc-typehints = {version = ">=1.25.2", optional = true, extras = ["docs"]}
-sphinx-rtd-theme = {version = ">=1.2.1", optional = true, extras = ["docs"]}
-
-[tool.poetry.extras]
 docs = [
-  "Sphinx",
-  "sphinx-rtd-theme",
-  "sphinx-autodoc-typehints",
+    "docutils>=0.21.2",
+    "sphinx>=7.4.7,<9.0.0",
+    "sphinx-autodoc-typehints>=2.3.0",
+    "sphinx-rtd-theme>=3.0.2",
 ]
 
-[tool.poetry.dev-dependencies]
-pytest = ">=7.4.2"
-pytest-cov = ">=4.1.0"
-tox = ">=4.11.3"
-pre-commit = ">=3.4.0"
+[tool.uv.build-backend]
+source-include = [
+    "tests/**",
+    "docs/**",
+]
+source-exclude = [
+    "docs/_build/**",
+]
 
-[tool.poetry.group.dev.dependencies]
-sphinx-rtd-theme = "^3.0.2"
+[tool.mypy]
+ignore_missing_imports = true
+pretty = true
+warn_unused_ignores = true
+check_untyped_defs = true
+warn_return_any = true
+no_implicit_optional = true
+strict_equality = true
+python_version = "3.10"
+exclude = "^(tests|examples|dist)/"
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true
+
+[tool.ruff]
+target-version = "py310"
+line-length = 128  # Match black configuration used by pre-commit hooks.
+
+[tool.ruff.format]
+line-ending = "auto"
+indent-style = "space"
+quote-style = "double"
+skip-magic-trailing-comma = false
+docstring-code-format = true  # Mirrors blacken-docs formatting of fenced blocks.
+docstring-code-line-length = 128
+
+[tool.ruff.lint]
+# Match the flake8 + flake8-bugbear setup from .pre-commit-config.yaml by enabling
+# E/F/W plus B codes, and extend with Ruff's built-in equivalents for the
+# plugins we already run (flake8-comprehensions, pyupgrade, flake8-unused-arguments,
+# flake8-simplify, isort, debug-statements) per docs.astral.sh/ruff/rules/.
+select = [
+    "B",
+    "E",
+    "F",
+    "W",
+    "I",
+    "T10",
+    "C4",
+    "UP",
+    "ARG",
+    "SIM",
+]
+ignore = ["E203", "E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pyhpke", "tests"]

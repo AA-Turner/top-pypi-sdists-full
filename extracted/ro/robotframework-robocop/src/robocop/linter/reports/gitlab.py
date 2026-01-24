@@ -23,16 +23,16 @@ class GitlabReport(robocop.linter.reports.JsonFileReport):
     Report that generates Gitlab Code Quality output file.
 
     This report is not included in the default reports. The ``--reports all`` option will not enable this report.
-    You can still enable it using report name directly: ``--reports gitlab`` or ``--reports all,gitlab``.
+    You can still enable it using the report name directly: ``--reports gitlab`` or ``--reports all,gitlab``.
 
-    It allows to display issue information in the Gitlab, for example in the PR view.
+    It allows displaying issue information in the Gitlab, for example, in the PR view.
     More information at https://docs.gitlab.com/ci/testing/code_quality/#code-quality-report-format .
 
-    You can configure output path. It's relative path to file that will be produced by the report::
+    You can configure an output path. It's a relative path to the file that will be produced by the report:
 
         robocop check --configure gitlab.output_path=output/robocop_code_quality.json
 
-    Default path is ``robocop-code-quality.json`` .
+    The default path is ``robocop-code-quality.json``.
 
     """
 
@@ -56,7 +56,7 @@ class GitlabReport(robocop.linter.reports.JsonFileReport):
             fingerprints = set()
             for diagnostic in diag_by_source:
                 if not source_lines:  # TODO: model should be coming from source, not diagnostics
-                    source_lines = self._get_source_lines(diagnostic.model)
+                    source_lines = self._get_source_lines(diagnostic.model, source)
                 content = self._get_line_content(diagnostic, source_lines)
                 unique_id = 0
                 while True:
@@ -77,8 +77,15 @@ class GitlabReport(robocop.linter.reports.JsonFileReport):
         return report
 
     @staticmethod
-    def _get_source_lines(model: File) -> list[str]:
-        return StatementLinesCollector(model).text.splitlines()
+    def _get_source_lines(model: File | None, source: str | None = None) -> list[str]:
+        if model is not None:
+            return StatementLinesCollector(model).text.splitlines()
+        if source is not None:
+            try:
+                return Path(source).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                return []
+        return []
 
     @staticmethod
     def _get_line_content(diagnostic: Diagnostic, lines: list[str]) -> str:

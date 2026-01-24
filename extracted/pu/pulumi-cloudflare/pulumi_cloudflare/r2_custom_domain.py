@@ -342,12 +342,16 @@ class R2CustomDomain(pulumi.CustomResource):
         example_r2_custom_domain = cloudflare.R2CustomDomain("example_r2_custom_domain",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            domain="domain",
+            domain="prefix.example-domain.com",
             enabled=True,
-            zone_id="zoneId",
+            zone_id="36ca64a6d92827b8a6b90be344bb1bfd",
             ciphers=["string"],
             min_tls="1.0")
         ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -377,12 +381,16 @@ class R2CustomDomain(pulumi.CustomResource):
         example_r2_custom_domain = cloudflare.R2CustomDomain("example_r2_custom_domain",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            domain="domain",
+            domain="prefix.example-domain.com",
             enabled=True,
-            zone_id="zoneId",
+            zone_id="36ca64a6d92827b8a6b90be344bb1bfd",
             ciphers=["string"],
             min_tls="1.0")
         ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
 
         :param str resource_name: The name of the resource.
         :param R2CustomDomainArgs args: The arguments to use to populate this resource's properties.

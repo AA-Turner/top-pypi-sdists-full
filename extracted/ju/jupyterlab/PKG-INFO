@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab
-Version: 4.4.7
+Version: 4.5.3
 Summary: JupyterLab computational environment
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://jupyterlab.readthedocs.io/en/stable/getting_started/changelog.html
@@ -68,7 +68,7 @@ Requires-Dist: jinja2>=3.0.3
 Requires-Dist: jupyter-core
 Requires-Dist: jupyter-lsp>=2.0.0
 Requires-Dist: jupyter-server<3,>=2.4.0
-Requires-Dist: jupyterlab-server<3,>=2.27.1
+Requires-Dist: jupyterlab-server<3,>=2.28.0
 Requires-Dist: notebook-shim>=0.2
 Requires-Dist: packaging
 Requires-Dist: setuptools>=41.1.0
@@ -82,7 +82,7 @@ Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: hatch; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: ruff==0.11.4; extra == 'dev'
+Requires-Dist: ruff==0.11.12; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: jsx-lexer; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
@@ -93,7 +93,7 @@ Requires-Dist: pytest-jupyter; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx<8.2.0,>=1.8; extra == 'docs'
 Provides-Extra: docs-screenshots
-Requires-Dist: altair==5.5.0; extra == 'docs-screenshots'
+Requires-Dist: altair==6.0.0; extra == 'docs-screenshots'
 Requires-Dist: ipython==8.16.1; extra == 'docs-screenshots'
 Requires-Dist: ipywidgets==8.1.5; extra == 'docs-screenshots'
 Requires-Dist: jupyterlab-geojson==3.4.0; extra == 'docs-screenshots'
@@ -102,7 +102,6 @@ Requires-Dist: matplotlib==3.10.0; extra == 'docs-screenshots'
 Requires-Dist: nbconvert>=7.0.0; extra == 'docs-screenshots'
 Requires-Dist: pandas==2.2.3; extra == 'docs-screenshots'
 Requires-Dist: scipy==1.15.1; extra == 'docs-screenshots'
-Requires-Dist: vega-datasets==0.9.0; extra == 'docs-screenshots'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
 Requires-Dist: pytest-check-links>=0.7; extra == 'test'
@@ -133,7 +132,7 @@ Description-Content-Type: text/markdown
 # [JupyterLab](https://jupyterlab.readthedocs.io)
 
 [![PyPI version](https://badge.fury.io/py/jupyterlab.svg)](https://badge.fury.io/py/jupyterlab)
-[![Downloads](https://static.pepy.tech/badge/jupyterlab/month)](https://pepy.tech/project/jupyterlab)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/jupyterlab?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=GRAY&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/jupyterlab)
 [![Build Status](https://github.com/jupyterlab/jupyterlab/workflows/Linux%20Tests/badge.svg)](https://github.com/jupyterlab/jupyterlab/actions?query=branch%3Amain+workflow%3A%22Linux+Tests%22)
 [![Build Status](https://github.com/jupyterlab/jupyterlab/workflows/Windows%20Tests/badge.svg)](https://github.com/jupyterlab/jupyterlab/actions?query=branch%3Amain+workflow%3A%22Windows+Tests%22)
 [![Documentation Status](https://readthedocs.org/projects/jupyterlab/badge/?version=stable)](http://jupyterlab.readthedocs.io/en/stable/)
@@ -143,7 +142,6 @@ Description-Content-Type: text/markdown
 [![GitHub](https://img.shields.io/badge/issue_tracking-github-blue.svg)](https://github.com/jupyterlab/jupyterlab/issues)
 [![Discourse](https://img.shields.io/badge/help_forum-discourse-blue.svg)](https://discourse.jupyter.org/c/jupyterlab)
 [![Zulip](https://img.shields.io/badge/social_chat-zulip-blue.svg)](https://jupyter.zulipchat.com/#narrow/channel/469762-jupyterlab)
-[![Gitpod](https://img.shields.io/badge/gitpod_editor-open-blue.svg)](https://gitpod.io/#https://github.com/jupyterlab/jupyterlab)
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/jupyterlab/jupyterlab-demo/HEAD?urlpath=lab/tree/demo)
 
@@ -253,7 +251,7 @@ JupyterLab follows the Jupyter [Community Guides](https://jupyter.readthedocs.io
 ### License
 
 JupyterLab uses a shared copyright model that enables all contributors to maintain the
-copyright on their contributions. All code is licensed under the terms of the revised [BSD license](https://github.com/jupyterlab/jupyterlab/blob/4.4.x/LICENSE).
+copyright on their contributions. All code is licensed under the terms of the revised [BSD license](https://github.com/jupyterlab/jupyterlab/blob/4.5.x/LICENSE).
 
 ### Team
 
@@ -276,7 +274,6 @@ JupyterLab's current maintainers are listed in alphabetical order, with affiliat
 - Max Klein, JPMorgan Chase (UI Package, build system, general development, extensions).
 - Gonzalo Peña-Castellanos, QuanSight (general development, i18n, extensions).
 - Fernando Perez, UC Berkeley (co-creator, vision).
-- Isabela Presedo-Floyd, QuanSight Labs (design/UX).
 - Steven Silvester, MongoDB (co-creator, release management, packaging,
   prolific contributions throughout the code base).
 - Jeremy Tuloup, QuantStack (general development, extensions).
@@ -288,6 +285,7 @@ Maintainer emeritus:
 - Jessica Forde, Project Jupyter (demo, documentation)
 - Tim George, Cal Poly (UI/UX design, strategy, management, user needs analysis).
 - Cameron Oelsen, Cal Poly (UI/UX design).
+- Isabela Presedo-Floyd, QuanSight Labs (design/UX).
 - Ian Rose, Quansight/City of LA (general core development, extensions).
 - Andrew Schlaepfer, Bloomberg (general development, extensions).
 - Saul Shanabrook, Quansight (general development, extensions)

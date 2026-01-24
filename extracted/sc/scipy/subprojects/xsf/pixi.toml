@@ -1,4 +1,4 @@
-[project]
+[workspace]
 authors = [
   "Albert Steppi <albert.steppi@gmail.com>",
   "Irwin Zaid <irwin.zaid@gmail.com>",
@@ -7,7 +7,7 @@ channels = ["https://prefix.dev/conda-forge"]
 description = "Special function implementations."
 name = "xsf"
 platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
-version = "0.1.0"
+version = "0.1.3"
 
 ## Build
 
@@ -74,6 +74,7 @@ clang-format = "*"
 
 [feature.clang-format.tasks]
 format = "git ls-files '*.cpp' '*.h' | xargs clang-format -i --style=file"
+format-dry-error = "git ls-files '*.cpp' '*.h' | xargs clang-format --style=file --Werror --dry-run"
 
 ## Coverage
 
@@ -130,8 +131,43 @@ coverage.cmd = [
 coverage.depends-on = ["tests-ci"]
 coverage.cwd = "."
 
+# CuPy tests
+[feature.cupy-tests]
+platforms = ["linux-64"]
+
+[feature.cupy-tests.dependencies]
+python = ">=3.12.0,<3.13"
+pip = "*"
+setuptools = "*"
+cupy = "*"
+pytest = "*"
+pytest-forked = "*"
+
+[feature.cupy-tests.tasks]
+# Since CuPy tests are only available on Linux, we can use bash like
+# this to only clone xsref if it isn't already there and checked out
+# at the proper tag.
+clone-xsref-test-cupy.cmd = """
+bash -c '
+if [ -d xsref ]; then
+  tag=$(git -C xsref describe --tags --exact-match 2>/dev/null || true)
+fi
+if [ \"$tag\" != v0.0.0 ]; then
+  rm -rf xsref
+  git clone --branch v0.0.0 --depth 1 https://github.com/scipy/xsref.git
+fi
+'
+"""
+clone-xsref-test-cupy.cwd = "."
+install-xsref-test-cupy.cmd = "pip install ."
+install-xsref-test-cupy.cwd = "xsref"
+install-xsref-test-cupy.depends-on = ["clone-xsref-test-cupy"]
+test-cupy.cmd = "pytest --forked python_tests/test_cupy.py"
+test-cupy.cwd = "."
+test-cupy.depends-on = ["install-xsref-test-cupy"]
 
 [environments]
 default = { features = ["build", "tests"], solve-group = "default" }
 tests-ci = { features = ["build", "tests", "tests-ci", "coverage"], solve-group = "default" }
 lint = { features = ["clang-format"], solve-group = "default" }
+cupy-tests = { features = ["cupy-tests"], solve-group = "default" }

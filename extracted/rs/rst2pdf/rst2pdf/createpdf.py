@@ -55,11 +55,17 @@ from docutils.parsers.rst import directives
 from docutils.readers import standalone
 from docutils.transforms import Transform
 from docutils.utils import DependencyList
+from docutils.utils import smartquotes
 
 try:
     from roman import toRoman
 except ImportError:
-    from docutils.utils.roman import toRoman
+    # The roman package is not available, so use our internal version
+    from rst2pdf.roman_numerals import RomanNumeral
+
+    def toRoman(n):
+        return str(RomanNumeral(n))
+
 
 import reportlab
 from reportlab.lib.units import cm
@@ -102,7 +108,6 @@ from rst2pdf.flowables import (
 from rst2pdf.sinker import Sinker
 from rst2pdf.image import MyImage, missing
 from rst2pdf.log import log, nodeid
-from smartypants import smartypants
 from rst2pdf import styles as sty
 from rst2pdf.nodehandlers import nodehandlers
 from rst2pdf.languages import get_language_available
@@ -213,14 +218,7 @@ class RstToPdf(object):
         self.background_fit_mode = background_fit_mode
         self.to_unlink = []
 
-        # See https://pythonhosted.org/smartypants/reference.html#smartypants-module
-        self.smartypants_attributes = 0
-        if smarty == '1':
-            self.smartypants_attributes = 1 | 6 | 8 | 64 | 512
-        elif smarty == '2':
-            self.smartypants_attributes = 1 | 6 | 24 | 64 | 512
-        elif smarty == '3':
-            self.smartypants_attributes = 1 | 6 | 40 | 64 | 512
+        self.smartypants_attributes = smarty
 
         self.baseurl = baseurl
         self.repeat_table_rows = repeat_table_rows
@@ -549,6 +547,7 @@ class RstToPdf(object):
                     'strip_elements_with_classes'
                 ] = self.strip_elements_with_classes
                 settings_overrides['exit_status_level'] = 3
+                settings_overrides['halt_level'] = 3
 
                 try:
                     self.doctree = docutils.core.publish_doctree(
@@ -1008,7 +1007,7 @@ class HeaderOrFooter(object):
             text = text.replace(u"###Title###", doc.title)
             text = text.replace(u"###Section###", getattr(canv, 'sectName', ''))
             text = text.replace(u"###SectNum###", getattr(canv, 'sectNum', ''))
-            text = smartypants(text, smarty)
+            text = smartquotes.smartyPants(text, smarty)
             return text
 
         for i, e in enumerate(elems):

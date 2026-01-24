@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: UnleashClient
-Version: 6.3.0
+Version: 6.5.0
 Summary: Python client for the Unleash feature toggle system!
 Author-email: Ivan Lee <ivanklee86@gmail.com>
-Project-URL: Homepage, https://github.com/Unleash/unleash-client-python
-Project-URL: Documentation, https://docs.getunleash.io/unleash-client-python
-Project-URL: Changelog, https://github.com/Unleash/unleash-client-python/blob/main/CHANGELOG.md
-Project-URL: Repository, https://github.com/Unleash/unleash-client-python
-Project-URL: Issues, https://github.com/Unleash/unleash-client-python/issues
+Project-URL: Homepage, https://github.com/Unleash/unleash-python-sdk
+Project-URL: Documentation, https://docs.getunleash.io/unleash-python-sdk
+Project-URL: Changelog, https://github.com/unleash/unleash-python-sdk/blob/main/CHANGELOG.md
+Project-URL: Repository, https://github.com/Unleash/unleash-python-sdk
+Project-URL: Issues, https://github.com/Unleash/unleash-python-sdk/issues
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -28,12 +28,13 @@ Requires-Dist: apscheduler<4.0.0
 Requires-Dist: importlib_metadata
 Requires-Dist: python-dateutil
 Requires-Dist: semver<4.0.0
-Requires-Dist: yggdrasil-engine
+Requires-Dist: yggdrasil-engine>=1.0.0
+Requires-Dist: launchdarkly-eventsource
 Dynamic: license-file
 
-# Unleash Client SDK for Python
+# Unleash SDK for Python
 
-![](https://github.com/unleash/unleash-client-python/workflows/CI/badge.svg?branch=main) [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-client-python/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-client-python?branch=main) [![PyPI version](https://badge.fury.io/py/UnleashClient.svg)](https://badge.fury.io/py/UnleashClient) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/UnleashClient.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![](https://github.com/unleash/unleash-python-sdk/workflows/CI/badge.svg?branch=main) [![Coverage Status](https://coveralls.io/repos/github/Unleash/unleash-python-sdk/badge.svg?branch=main)](https://coveralls.io/github/Unleash/unleash-python-sdk?branch=main) [![PyPI version](https://badge.fury.io/py/UnleashClient.svg)](https://badge.fury.io/py/UnleashClient) ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/UnleashClient.svg) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Unleash is a private, secure, and scalable [feature management platform](https://www.getunleash.io/) built to reduce the risk of releasing new features and accelerate software development. This server-side Python SDK is designed to help you integrate with Unleash and evaluate feature flags inside your application.
 
@@ -151,7 +152,7 @@ The UnleashClient constructor supports the following configuration options:
 | app_name 	                | Name of the application using the client. Required.	                                                                                            | None                      |
 | environment               | Logical environment name (deprecated).	                                                                                                        | "default"                 |
 | instance_id               | Unique identifier for this client instance.	                                                                                                    | "unleash-client-python"   |
-| refresh_interval  	    | How often to fetch feature toggles (seconds).	                                                                                                    | 15                        |
+| refresh_interval  	    | How often to fetch feature flags (seconds).	                                                                                                    | 15                        |
 | refresh_jitter            | Jitter to add to refresh interval (seconds).	                                                                                                    | None                      |
 | metrics_interval  	    | How often to send metrics to Unleash (seconds).	                                                                                                | 60                        |
 | metrics_jitter            | Jitter to add to metrics interval (seconds).	                                                                                                    | None                      |
@@ -172,13 +173,13 @@ The UnleashClient constructor supports the following configuration options:
 
 ### Bootstrap
 
-By default, the Python SDK fetches your feature toggles from the Unleash API at startup. If you want to make your SDK more resilient (e.g., during network outages), you can bootstrap the client with a local or remote toggle config.
+By default, the Python SDK fetches your feature flags from the Unleash API at startup. If you want to make your SDK more resilient (e.g., during network outages), you can bootstrap the client with a local or remote toggle config.
 
 How it works:
 
 - Use a FileCache (or your own BaseCache implementation).
 
-- Pre-seed it with feature toggles using bootstrap_from_dict, bootstrap_from_file, or bootstrap_from_url.
+- Pre-seed it with feature flags using bootstrap_from_dict, bootstrap_from_file, or bootstrap_from_url.
 
 - Pass your cache to the UnleashClient on startup.
 
@@ -276,11 +277,13 @@ client = UnleashClient(
 
 ```
 
-### Impression data
+### Events and impression data
 
-The Python SDK supports [impression data](https://docs.getunleash.io/reference/impression-data). This lets you capture an event for every feature toggle evaluation.
+The Python SDK lets you tap into its behavior through [impression data](https://docs.getunleash.io/reference/impression-data) and lifecycle events.
 
 **Note**: The SDK does not include a built-in event bus — you’ll need to provide your own. The example below shows how to use [Blinker](https://pypi.org/project/blinker/) to send signals.
+
+#### Impression events
 
 To use impression data:
 - Enable impression data on your feature flags in the Unleash UI.
@@ -315,9 +318,94 @@ client.is_enabled("testFlag")
 
 Impression callbacks run in-process — keep them fast to avoid blocking your app.
 
+#### Lifecycle events
+
+The same event_callback also delivers lifecycle events:
+- FETCHED: triggered when a new version of feature flags is pulled from the Unleash server. (Does not trigger on 304 Not Modified). The FETCHED event includes a features property containing all the feature flags returned by that fetch.
+- READY: triggered once when the SDK first loads feature flags from the Unleash server or a local backup.
+
+```python
+from blinker import signal
+from UnleashClient import UnleashClient
+from UnleashClient.events import UnleashEvent, UnleashEventType
+
+send_data = signal('send-data')
+
+@send_data.connect
+def receive_data(sender, **kw):
+    if kw["data"].event_type == UnleashEventType.READY:
+        print("SDK is ready: toggles loaded from Unleash or backup")
+    elif kw["data"].event_type == UnleashEventType.FETCHED:
+        # Only FETCHED events have a 'features' property
+        print("Fetched new feature flags:", kw["data"].features)
+
+def example_callback(event: UnleashEvent):
+    send_data.send('anonymous', data=event)
+
+client = UnleashClient(
+    url="https://YOUR-API-URL",
+    app_name="my-python-app",
+    custom_headers={'Authorization': '<API token>'},
+    event_callback=example_callback
+)
+client.initialize_client()
+client.is_enabled("testFlag")
+
+```
+
+### Impact metrics
+
+Impact metrics are lightweight, application-level time-series metrics stored and visualized directly inside Unleash. They allow you to connect specific application data, such as request counts, error rates, or latency, to your feature flags and release plans.
+
+These metrics help validate feature impact and automate release processes. For instance, you can monitor usage patterns or performance to determine if a feature meets its goals.
+
+The SDK automatically attaches context labels to metrics: `appName` and `environment`.
+
+#### Counters
+
+Use counters for cumulative values that only increase (total requests, errors):
+
+```python
+client.impact_metrics.define_counter(
+    "request_count",
+    "Total number of HTTP requests processed"
+)
+
+client.impact_metrics.increment_counter("request_count")
+```
+
+#### Gauges
+
+Use gauges for point-in-time values that can go up or down:
+
+```python
+client.impact_metrics.define_gauge(
+    "total_users",
+    "Total number of registered users"
+)
+
+client.impact_metrics.update_gauge("total_users", user_count)
+```
+
+#### Histograms
+
+Histograms measure value distribution (request duration, response size):
+
+```python
+client.impact_metrics.define_histogram(
+    "request_time_ms",
+    "Time taken to process a request in milliseconds",
+    [50, 100, 200, 500, 1000]
+)
+
+client.impact_metrics.observe_histogram("request_time_ms", 125)
+```
+
+Impact metrics are batched and sent using the same interval as standard SDK metrics.
+
 ### Custom cache
 
-By default, the Python SDK stores feature toggles in an on-disk cache using fcache. If you need a different storage backend, for example, Redis, memory-only, or a custom database, you can provide your own cache implementation.
+By default, the Python SDK stores feature flags in an on-disk cache using fcache. If you need a different storage backend, for example, Redis, memory-only, or a custom database, you can provide your own cache implementation.
 
 Below is an example custom CustomCache using fcache under the hood.
 
@@ -360,7 +448,7 @@ client = UnleashClient(
 
 ## Running in multi-process setups
 
-The Python SDK runs a background thread to keep feature toggles in sync with the Unleash server. Some runtime environments, like WSGI servers and Celery workers, need extra setup to make sure the SDK works correctly.
+The Python SDK runs a background thread to keep feature flags in sync with the Unleash server. Some runtime environments, like WSGI servers and Celery workers, need extra setup to make sure the SDK works correctly.
 
 ### WSGI
 
@@ -375,7 +463,7 @@ See [The Art of Graceful Reloading](https://uwsgi-docs.readthedocs.io/en/latest/
 
 ### Celery
 
-When using the SDK in Celery tasks, make sure you initialize it inside the worker_process_init event. Otherwise, the worker may run but won’t poll for feature toggle updates.
+When using the SDK in Celery tasks, make sure you initialize it inside the worker_process_init event. Otherwise, the worker may run but won’t poll for feature flag updates.
 
 ```python
 from UnleashClient import UnleashClient

@@ -1,5 +1,6 @@
 import enum
 
+
 # Session constants
 TIMEOUT_SECS = 600
 MAX_SESSION_LIFETIME_SECS = 180
@@ -20,13 +21,13 @@ MAX_CONCURRENT_PARTS = 4  # Maximum concurrent parts for multipart upload
 
 # Multipart upload constants
 MIN_PART_SIZE_MB = 5  # Minimum part size (S3 requirement)
-TARGET_PART_SIZE_MB = 100  # Target part size for optimal performance
-MAX_MULTIPART_PARTS = 250  # Maximum parts per upload (S3 limit)
+TARGET_PART_SIZE_MB = 250  # Target part size
+MAX_MULTIPART_PARTS = 250  # Maximum parts per upload
 MULTIPART_UPLOAD_TIMEOUT = 300  # Timeout in seconds for uploading each part
 MULTIPART_THRESHOLD_GB = 5.0  # threshold for switching to multipart upload
 
 # maximum number of GB sized files we support finetuning for
-MAX_FILE_SIZE_GB = 25.0
+MAX_FILE_SIZE_GB = 50.1
 
 
 # Messages
@@ -40,6 +41,11 @@ MIN_SAMPLES = 1
 # the number of bytes in a gigabyte, used to convert bytes to GB for readable comparison
 NUM_BYTES_IN_GB = 2**30
 
+# Multimodal limits
+MAX_IMAGES_PER_EXAMPLE = 10
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10MB
+# Max length = Header length + base64 factor (4/3) * image bytes
+MAX_BASE64_IMAGE_LENGTH = len("data:image/jpeg;base64,") + 4 * MAX_IMAGE_BYTES // 3
 
 # expected columns for Parquet files
 PARQUET_EXPECTED_COLUMNS = ["input_ids", "attention_mask", "labels"]

@@ -11,7 +11,6 @@ from angr import SIM_LIBRARIES
 from angr.utils.endness import ail_const_to_be
 from .base import PeepholeOptimizationStmtBase
 
-
 ASCII_PRINTABLES = set(string.printable)
 ASCII_DIGITS = set(string.digits)
 
@@ -213,5 +212,5 @@ class InlinedStrcpy(PeepholeOptimizationStmtBase):
             and stmt.args is not None
             and len(stmt.args) == 3
             and isinstance(stmt.args[1], Const)
-            and hasattr(stmt.args[1], "custom_string")
+            and "custom_string" in stmt.args[1].tags
         )

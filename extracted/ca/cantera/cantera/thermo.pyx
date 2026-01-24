@@ -2,7 +2,7 @@
 # at https://cantera.org/license.txt for license and copyright information.
 
 import warnings
-import weakref
+import weakref as _weakref
 import numbers as _numbers
 import numpy as np
 cimport numpy as np
@@ -273,7 +273,7 @@ cdef class ThermoPhase(_SolutionBase):
         # object is used to track whether the ThermoPhase is being used by other
         # objects that require the number of species to remain constant and do not
         # have C++ implementations (e.g. Quantity objects).
-        self._references = weakref.WeakKeyDictionary()
+        self._references = _weakref.WeakKeyDictionary()
         # validate plasma phase
         self._enable_plasma = False
         if dynamic_cast[CxxPlasmaPhasePtr](self.thermo):
@@ -305,7 +305,7 @@ cdef class ThermoPhase(_SolutionBase):
 
         :param show_thermo:
             A Boolean argument specifying whether to show phase thermodynamic
-            information in the ouptut.
+            information in the output.
         :param threshold:
             The threshold used to clip data in the output. Values below the threshold
             are not displayed.
@@ -463,17 +463,12 @@ cdef class ThermoPhase(_SolutionBase):
         returned. If no such element is present, an exception is thrown.
         """
         if isinstance(element, (str, bytes)):
-            index = self.thermo.elementIndex(stringify(element))
-        elif isinstance(element, (int, float)):
-            index = <int>element
-        else:
-            raise TypeError("'element' must be a string or a number."
-                            " Got {!r}.".format(element))
+            return self.thermo.elementIndex(stringify(element), True)
+        if isinstance(element, (int, float)):
+            return self.thermo.checkElementIndex(<int>element)
 
-        if not 0 <= index < self.n_elements:
-            raise ValueError('No such element {!r}.'.format(element))
-
-        return index
+        raise TypeError("'element' must be a string or a number. "
+                        f"Got {element!r}.")
 
     def element_name(self, m):
         """Name of the element with index ``m``."""
@@ -525,17 +520,11 @@ cdef class ThermoPhase(_SolutionBase):
         returned. If no such species is present, an exception is thrown.
         """
         if isinstance(species, (str, bytes)):
-            index = self.thermo.speciesIndex(stringify(species))
-        elif isinstance(species, (int, float)):
-            index = <int>species
-        else:
-            raise TypeError("'species' must be a string or a number."
-                            " Got {!r}.".format(species))
-
-        if not 0 <= index < self.n_species:
-            raise ValueError('No such species {!r}.'.format(species))
-
-        return index
+            return self.thermo.speciesIndex(stringify(species), True)
+        if isinstance(species, (int, float)):
+            return self.thermo.checkSpeciesIndex(<int>species)
+        raise TypeError("'species' must be a string or a number."
+                        f" Got {species!r}.")
 
     property case_sensitive_species_names:
         """Enforce case-sensitivity for look up of species names"""
@@ -708,7 +697,7 @@ cdef class ThermoPhase(_SolutionBase):
 
     property concentrations:
         """
-        Get/Set the species concentrations. Units are kmol/m^3 for bulk phases, kmol/m^2
+        Get/Set the species concentrations. Units are kmol/m³ for bulk phases, kmol/m²
         for surface phases, and kmol/m for edge phases.
         """
         def __get__(self):
@@ -1183,32 +1172,32 @@ cdef class ThermoPhase(_SolutionBase):
             return self.thermo.temperature()
 
     property density:
-        """Density [kg/m^3 or kmol/m^3] depending on `basis`."""
+        """Density [kg/m³ or kmol/m³] depending on `basis`."""
         def __get__(self):
             return self.thermo.density() / self._mass_factor()
 
     property density_mass:
-        """(Mass) density [kg/m^3]."""
+        """(Mass) density [kg/m³]."""
         def __get__(self):
             return self.thermo.density()
 
     property density_mole:
-        """Molar density [kmol/m^3]."""
+        """Molar density [kmol/m³]."""
         def __get__(self):
             return self.thermo.molarDensity()
 
     property v:
-        """Specific volume [m^3/kg or m^3/kmol] depending on `basis`."""
+        """Specific volume [m³/kg or m³/kmol] depending on `basis`."""
         def __get__(self):
             return self._mass_factor() / self.thermo.density()
 
     property volume_mass:
-        """Specific volume [m^3/kg]."""
+        """Specific volume [m³/kg]."""
         def __get__(self):
             return 1.0 / self.thermo.density()
 
     property volume_mole:
-        """Molar volume [m^3/kmol]."""
+        """Molar volume [m³/kmol]."""
         def __get__(self):
             return self.thermo.molarVolume()
 
@@ -1274,37 +1263,37 @@ cdef class ThermoPhase(_SolutionBase):
 
     property cv:
         """
-        Heat capacity at constant volume [J/kg/K or J/kmol/K] depending on
-        `basis`.
+        Heat capacity at constant volume and composition
+        [J/kg/K or J/kmol/K depending on `basis`].
         """
         def __get__(self):
             return self.thermo.cv_mole() * self._mole_factor()
 
     property cv_mole:
-        """Molar heat capacity at constant volume [J/kmol/K]."""
+        """Molar heat capacity at constant volume and composition [J/kmol/K]."""
         def __get__(self):
             return self.thermo.cv_mole()
 
     property cv_mass:
-        """Specific heat capacity at constant volume [J/kg/K]."""
+        """Specific heat capacity at constant volume and composition [J/kg/K]."""
         def __get__(self):
             return self.thermo.cv_mass()
 
     property cp:
         """
-        Heat capacity at constant pressure [J/kg/K or J/kmol/K] depending
-        on `basis`.
+        Heat capacity at constant pressure and composition.
+        [J/kg/K or J/kmol/K depending on `basis`]
         """
         def __get__(self):
             return self.thermo.cp_mole() * self._mole_factor()
 
     property cp_mole:
-        """Molar heat capacity at constant pressure [J/kmol/K]."""
+        """Molar heat capacity at constant pressure and composition [J/kmol/K]."""
         def __get__(self):
             return self.thermo.cp_mole()
 
     property cp_mass:
-        """Specific heat capacity at constant pressure [J/kg/K]."""
+        """Specific heat capacity at constant pressure and composition [J/kg/K]."""
         def __get__(self):
             return self.thermo.cp_mass()
 
@@ -1319,7 +1308,7 @@ cdef class ThermoPhase(_SolutionBase):
             return self.thermo.critPressure()
 
     property critical_density:
-        """Critical density [kg/m^3 or kmol/m^3] depending on `basis`."""
+        """Critical density [kg/m³ or kmol/m³] depending on `basis`."""
         def __get__(self):
             return self.thermo.critDensity() / self._mass_factor()
 
@@ -1368,7 +1357,7 @@ cdef class ThermoPhase(_SolutionBase):
             self.thermo.restoreState(len(state), &cstate[0])
 
     property TD:
-        """Get/Set temperature [K] and density [kg/m^3 or kmol/m^3]."""
+        """Get/Set temperature [K] and density [kg/m³ or kmol/m³]."""
         def __get__(self):
             return self.T, self.density
         def __set__(self, values):
@@ -1379,8 +1368,7 @@ cdef class ThermoPhase(_SolutionBase):
 
     property TDX:
         """
-        Get/Set temperature [K], density [kg/m^3 or kmol/m^3], and mole
-        fractions.
+        Get/Set temperature [K], density [kg/m³ or kmol/m³], and mole fractions.
         """
         def __get__(self):
             return self.T, self.density, self.X
@@ -1393,8 +1381,7 @@ cdef class ThermoPhase(_SolutionBase):
 
     property TDY:
         """
-        Get/Set temperature [K] and density [kg/m^3 or kmol/m^3], and mass
-        fractions.
+        Get/Set temperature [K] and density [kg/m³ or kmol/m³], and mass fractions.
         """
         def __get__(self):
             return self.T, self.density, self.Y
@@ -1439,8 +1426,7 @@ cdef class ThermoPhase(_SolutionBase):
 
     property UV:
         """
-        Get/Set internal energy [J/kg or J/kmol] and specific volume
-        [m^3/kg or m^3/kmol].
+        Get/Set internal energy [J/kg or J/kmol] and specific volume [m³/kg or m³/kmol].
         """
         def __get__(self):
             return self.u, self.v
@@ -1453,8 +1439,8 @@ cdef class ThermoPhase(_SolutionBase):
 
     property UVX:
         """
-        Get/Set internal energy [J/kg or J/kmol], specific volume
-        [m^3/kg or m^3/kmol], and mole fractions.
+        Get/Set internal energy [J/kg or J/kmol], specific volume [m³/kg or m³/kmol],
+        and mole fractions.
         """
         def __get__(self):
             return self.u, self.v, self.X
@@ -1468,8 +1454,8 @@ cdef class ThermoPhase(_SolutionBase):
 
     property UVY:
         """
-        Get/Set internal energy [J/kg or J/kmol], specific volume
-        [m^3/kg or m^3/kmol], and mass fractions.
+        Get/Set internal energy [J/kg or J/kmol], specific volume [m³/kg or m³/kmol],
+        and mass fractions.
         """
         def __get__(self):
             return self.u, self.v, self.Y
@@ -1482,7 +1468,7 @@ cdef class ThermoPhase(_SolutionBase):
                                     V / self._mass_factor())
 
     property DP:
-        """Get/Set density [kg/m^3] and pressure [Pa]."""
+        """Get/Set density [kg/m³] and pressure [Pa]."""
         def __get__(self):
             return self.density, self.P
         def __set__(self, values):
@@ -1492,7 +1478,7 @@ cdef class ThermoPhase(_SolutionBase):
             self.thermo.setState_DP(D*self._mass_factor(), P)
 
     property DPX:
-        """Get/Set density [kg/m^3], pressure [Pa], and mole fractions."""
+        """Get/Set density [kg/m³], pressure [Pa], and mole fractions."""
         def __get__(self):
             return self.density, self.P, self.X
         def __set__(self, values):
@@ -1503,7 +1489,7 @@ cdef class ThermoPhase(_SolutionBase):
             self.thermo.setState_DP(D*self._mass_factor(), P)
 
     property DPY:
-        """Get/Set density [kg/m^3], pressure [Pa], and mass fractions."""
+        """Get/Set density [kg/m³], pressure [Pa], and mass fractions."""
         def __get__(self):
             return self.density, self.P, self.Y
         def __set__(self, values):
@@ -1579,8 +1565,7 @@ cdef class ThermoPhase(_SolutionBase):
 
     property SV:
         """
-        Get/Set entropy [J/kg/K or J/kmol/K] and specific volume [m^3/kg or
-        m^3/kmol].
+        Get/Set entropy [J/kg/K or J/kmol/K] and specific volume [m³/kg or m³/kmol].
         """
         def __get__(self):
             return self.s, self.v
@@ -1593,8 +1578,8 @@ cdef class ThermoPhase(_SolutionBase):
 
     property SVX:
         """
-        Get/Set entropy [J/kg/K or J/kmol/K], specific volume [m^3/kg or
-        m^3/kmol], and mole fractions.
+        Get/Set entropy [J/kg/K or J/kmol/K], specific volume [m³/kg or m³/kmol], and
+        mole fractions.
         """
         def __get__(self):
             return self.s, self.v, self.X
@@ -1608,8 +1593,8 @@ cdef class ThermoPhase(_SolutionBase):
 
     property SVY:
         """
-        Get/Set entropy [J/kg/K or J/kmol/K], specific volume [m^3/kg or
-        m^3/kmol], and mass fractions.
+        Get/Set entropy [J/kg/K or J/kmol/K], specific volume [m³/kg or m³/kmol], and
+        mass fractions.
         """
         def __get__(self):
             return self.s, self.v, self.Y
@@ -1656,7 +1641,7 @@ cdef class ThermoPhase(_SolutionBase):
             return self._getArray1(thermo_getPartialMolarCp)
 
     property partial_molar_volumes:
-        """Array of species partial molar volumes [m^3/kmol]."""
+        """Array of species partial molar volumes [m³/kmol]."""
         def __get__(self):
             return self._getArray1(thermo_getPartialMolarVolumes)
 
@@ -1783,6 +1768,41 @@ cdef class ThermoPhase(_SolutionBase):
                 raise ThermoModelMethodError(self.thermo_model)
             return self.plasma.electronPressure()
 
+    property reduced_electric_field:
+        """
+        Get/Set the reduced electric field (E/N) [V·m²].
+
+        .. versionadded:: 3.2
+        """
+        def __get__(self):
+            if not self._enable_plasma:
+                raise ThermoModelMethodError(self.thermo_model)
+            return self.plasma.reducedElectricField()
+
+        def __set__(self, value):
+            if not self._enable_plasma:
+                raise ThermoModelMethodError(self.thermo_model)
+            self.plasma.setReducedElectricField(value)
+
+    property electric_field:
+        """
+        Get/Set the electric field (E) [V/m].
+
+        This is the absolute electric field strength. It is related to the reduced
+        electric field (E/N) through the number density of neutrals.
+
+        .. versionadded:: 3.2
+        """
+        def __get__(self):
+            if not self._enable_plasma:
+                raise ThermoModelMethodError(self.thermo_model)
+            return self.plasma.electricField()
+
+        def __set__(self, value):
+            if not self._enable_plasma:
+                raise ThermoModelMethodError(self.thermo_model)
+            self.plasma.setElectricField(value)
+
     def set_discretized_electron_energy_distribution(self, levels, distribution):
         """
         Set electron energy distribution. When this method is used, electron
@@ -1808,6 +1828,18 @@ cdef class ThermoPhase(_SolutionBase):
         self.plasma.setDiscretizedElectronEnergyDist(&data_levels[0],
                                                      &data_dist[0],
                                                      len(levels))
+
+    def update_electron_energy_distribution(self):
+        """
+        Update the electron energy distribution function to account for changes in
+        composition, temperature, pressure, or electric field strength.
+
+        .. versionadded:: 3.2
+        """
+        if not self._enable_plasma:
+            raise TypeError('This method is invalid for '
+                            f'thermo model: {self.thermo_model}.')
+        self.plasma.updateElectronEnergyDistribution()
 
     property n_electron_energy_levels:
         """ Number of electron energy levels """
@@ -1904,6 +1936,16 @@ cdef class ThermoPhase(_SolutionBase):
                 raise ThermoModelMethodError(self.thermo_model)
             return pystr(self.plasma.electronSpeciesName())
 
+    property elastic_power_loss:
+        """
+        Elastic power loss (W/m³)
+
+        .. versionadded:: 3.2
+        """
+        def __get__(self):
+            if not self._enable_plasma:
+                raise ThermoModelMethodError(self.thermo_model)
+            return self.plasma.elasticPowerLoss()
 
 cdef class InterfacePhase(ThermoPhase):
     """ A class representing a surface, edge phase """
@@ -1924,7 +1966,7 @@ cdef class InterfacePhase(ThermoPhase):
 
     property site_density:
         """
-        Get/Set the site density. [kmol/m^2] for surface phases; [kmol/m] for
+        Get/Set the site density. [kmol/m²] for surface phases; [kmol/m] for
         edge phases.
         """
         def __get__(self):
@@ -2018,8 +2060,7 @@ cdef class PureFluid(ThermoPhase):
 
     property TV:
         """
-        Get/Set the temperature [K] and specific volume [m^3/kg] of
-        a PureFluid.
+        Get/Set the temperature [K] and specific volume [m³/kg] of a PureFluid.
         """
         def __get__(self):
             return self.T, self.v
@@ -2030,8 +2071,7 @@ cdef class PureFluid(ThermoPhase):
 
     property PV:
         """
-        Get/Set the pressure [Pa] and specific volume [m^3/kg] of
-        a PureFluid.
+        Get/Set the pressure [Pa] and specific volume [m³/kg] of a PureFluid.
         """
         def __get__(self):
             return self.P, self.v
@@ -2054,7 +2094,7 @@ cdef class PureFluid(ThermoPhase):
 
     property VH:
         """
-        Get/Set the specific volume [m^3/kg] and the specific
+        Get/Set the specific volume [m³/kg] and the specific
         enthalpy [J/kg] of a PureFluid.
         """
         def __get__(self):
@@ -2090,8 +2130,7 @@ cdef class PureFluid(ThermoPhase):
 
     property TDQ:
         """
-        Get the temperature [K], density [kg/m^3 or kmol/m^3], and vapor
-        fraction.
+        Get the temperature [K], density [kg/m³ or kmol/m³], and vapor fraction.
         """
         def __get__(self):
             return self.T, self.density, self.Q
@@ -2114,13 +2153,13 @@ cdef class PureFluid(ThermoPhase):
     property UVQ:
         """
         Get the internal energy [J/kg or J/kmol], specific volume
-        [m^3/kg or m^3/kmol], and vapor fraction.
+        [m³/kg or m³/kmol], and vapor fraction.
         """
         def __get__(self):
             return self.u, self.v, self.Q
 
     property DPQ:
-        """Get the density [kg/m^3], pressure [Pa], and vapor fraction."""
+        """Get the density [kg/m³], pressure [Pa], and vapor fraction."""
         def __get__(self):
             return self.density, self.P, self.Q
 
@@ -2140,15 +2179,14 @@ cdef class PureFluid(ThermoPhase):
 
     property SVQ:
         """
-        Get the entropy [J/kg/K or J/kmol/K], specific volume [m^3/kg or
-        m^3/kmol], and vapor fraction.
+        Get the entropy [J/kg/K or J/kmol/K], specific volume [m³/kg or
+        m³/kmol], and vapor fraction.
         """
         def __get__(self):
             return self.s, self.v, self.Q
 
-# TODO: Remove these helper methods when support for Python 3.8 is dropped. Python 3.9
-# allows the classmethod and property decorators to be chained, so these can be
-# implemented as properties in the Element class.
+# Helper methods for the implementation of properties of class Element.
+# @todo These can be inlined once Support for Cython 0.29 is dropped.
 def _element_symbols():
     syms = elementSymbols()
     return tuple(pystr(s) for s in syms)
@@ -2203,12 +2241,10 @@ class Element:
     #: The number of named elements (not isotopes) defined in Cantera
     num_elements_defined = numElementsDefined()
 
-    #: A list of the symbols of all the elements (not isotopes) defined
-    #: in Cantera
+    #: A list of the symbols of all the elements (not isotopes) defined in Cantera
     element_symbols = _element_symbols()
 
-    #: A list of the names of all the elements (not isotopes) defined
-    #: in Cantera
+    #: A list of the names of all the elements (not isotopes) defined in Cantera
     element_names = _element_names()
 
     def __init__(self, arg):

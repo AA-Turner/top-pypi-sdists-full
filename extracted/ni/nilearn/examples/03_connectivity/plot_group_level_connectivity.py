@@ -45,7 +45,7 @@ from nilearn.maskers import NiftiMapsMasker
 masker = NiftiMapsMasker(
     msdl_data.maps,
     resampling_target="data",
-    t_r=2,
+    t_r=development_dataset.t_r,
     detrend=True,
     low_pass=0.1,
     high_pass=0.01,
@@ -53,6 +53,7 @@ masker = NiftiMapsMasker(
     memory_level=1,
     standardize="zscore_sample",
     standardize_confounds=True,
+    verbose=1,
 )
 
 # %%
@@ -64,6 +65,7 @@ for func_file, confound_file, phenotype in zip(
     development_dataset.func,
     development_dataset.confounds,
     development_dataset.phenotypic["Child_Adult"],
+    strict=False,
 ):
     time_series = masker.fit_transform(func_file, confounds=confound_file)
     pooled_subjects.append(time_series)
@@ -82,8 +84,7 @@ print(f"Data has {len(children)} children.")
 from nilearn.connectome import ConnectivityMeasure
 
 correlation_measure = ConnectivityMeasure(
-    kind="correlation",
-    standardize="zscore_sample",
+    kind="correlation", standardize="zscore_sample", verbose=1
 )
 
 # %%
@@ -110,7 +111,9 @@ from matplotlib import pyplot as plt
 
 _, axes = plt.subplots(1, 3, figsize=(15, 5))
 vmax = np.absolute(correlation_matrices).max()
-for i, (matrix, ax) in enumerate(zip(correlation_matrices, axes)):
+for i, (matrix, ax) in enumerate(
+    zip(correlation_matrices, axes, strict=False)
+):
     plot_matrix(
         matrix,
         tri="lower",
@@ -136,8 +139,7 @@ plot_connectome(
 # We can also study **direct connections**, revealed by partial correlation
 # coefficients. We just change the `ConnectivityMeasure` kind
 partial_correlation_measure = ConnectivityMeasure(
-    kind="partial correlation",
-    standardize="zscore_sample",
+    kind="partial correlation", standardize="zscore_sample", verbose=1
 )
 partial_correlation_matrices = partial_correlation_measure.fit_transform(
     children
@@ -148,7 +150,9 @@ partial_correlation_matrices = partial_correlation_measure.fit_transform(
 
 _, axes = plt.subplots(1, 3, figsize=(15, 5))
 vmax = np.absolute(partial_correlation_matrices).max()
-for i, (matrix, ax) in enumerate(zip(partial_correlation_matrices, axes)):
+for i, (matrix, ax) in enumerate(
+    zip(partial_correlation_matrices, axes, strict=False)
+):
     plot_matrix(
         matrix,
         tri="lower",
@@ -171,8 +175,7 @@ plot_connectome(
 # reproducible connectivity patterns at the group-level.
 # This is done by the tangent space embedding.
 tangent_measure = ConnectivityMeasure(
-    kind="tangent",
-    standardize="zscore_sample",
+    kind="tangent", standardize="zscore_sample", verbose=1
 )
 
 # %%
@@ -188,7 +191,7 @@ tangent_matrices = tangent_measure.fit_transform(children)
 # directly reflect individual brain connections. For instance negative
 # coefficients can not be interpreted as anticorrelated regions.
 _, axes = plt.subplots(1, 3, figsize=(15, 5))
-for i, (matrix, ax) in enumerate(zip(tangent_matrices, axes)):
+for i, (matrix, ax) in enumerate(zip(tangent_matrices, axes, strict=False)):
     plot_matrix(
         matrix,
         tri="lower",
@@ -226,9 +229,7 @@ for kind in kinds:
         # *ConnectivityMeasure* can output the estimated subjects coefficients
         # as a 1D arrays through the parameter *vectorize*.
         connectivity = ConnectivityMeasure(
-            kind=kind,
-            vectorize=True,
-            standardize="zscore_sample",
+            kind=kind, vectorize=True, standardize="zscore_sample", verbose=1
         )
         # build vectorized connectomes for subjects in the train set
         connectomes = connectivity.fit_transform(pooled_subjects[train])

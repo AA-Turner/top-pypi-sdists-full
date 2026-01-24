@@ -38,6 +38,40 @@ def escape_backslashes(text: str) -> str:
     return text.replace("\\", "\\\\")
 
 
+escape_characters_dict = {
+    v.encode().decode("unicode_escape"): v
+    for v in [
+        r"\x00",  # Null
+        r"\b",  # Backspace
+        r"\v",  # Vertical tab
+        r"\f",  # Form feed
+        r"\x1b",  # Escape
+        r"\x7f",  # Delete
+        r"\u00a0",  # Non-breaking space
+        r"\u200b",  # Zero-width space
+        r"\u200c",  # Zero-width non-joiner
+        r"\u200d",  # Zero-width joiner
+        r"\u200e",  # Left-to-right mark
+        r"\u200f",  # Right-to-left mark
+        r"\u202c",  # Pop directional formatting
+        r"\u202d",  # Left-to-right override
+        r"\u202e",  # Right-to-left override
+        r"\u2028",  # Line separator
+        r"\u2029",  # Paragraph separator
+        r"\ufeff",  # Byte order mark
+    ]
+}
+
+
+def escape_control_characters(text: str) -> str:
+    if not text:
+        return text
+
+    translation_table = str.maketrans(escape_characters_dict)
+
+    return text.translate(translation_table)
+
+
 class InlinePythonReporter(Reporter):
     def __init__(
         self,
@@ -60,14 +94,13 @@ class InlinePythonReporter(Reporter):
         return test_stack_frame.filename
 
     def create_received_file(self, received_path: str, test_source_file: str) -> str:
-        code = Path(test_source_file).read_text()
+        code = Path(test_source_file).read_text(encoding="utf-8")
 
-        original_received_text = Path(received_path).read_text()[:-1]
+        original_received_text = Path(received_path).read_text(encoding="utf-8")[:-1]
         received_text = original_received_text + self.footer
-        # Handle preceding whitespace consistently across all lines.
         received_text = handle_preceeding_whitespace(received_text)
-        # Escape backslashes to avoid accidental escape sequences in the docstring.
         received_text = escape_backslashes(received_text)
+        received_text = escape_control_characters(received_text)
         method_name = StackFrameNamer.get_test_frame().function
         if detect_trailing_whitespace(original_received_text):
             trailing_comment = "  # Warning: Editors may remove trailing spaces, causing this test to fail"
@@ -78,7 +111,7 @@ class InlinePythonReporter(Reporter):
             received_text, code, method_name, after_docstring_comment=trailing_comment
         )
         file = tempfile.NamedTemporaryFile(suffix=".received.txt", delete=False).name
-        Path(file).write_text(new_code)
+        Path(file).write_text(new_code, encoding="utf-8")
         return file
 
     def swap(

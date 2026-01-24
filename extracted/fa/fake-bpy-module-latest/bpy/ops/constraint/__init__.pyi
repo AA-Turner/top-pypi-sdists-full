@@ -8,11 +8,7 @@ def add_target(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a target to the constraint
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a target to the constraint"""
 
 def apply(
     execution_context: int | str | None = None,
@@ -25,10 +21,7 @@ def apply(
 ) -> None:
     """Apply constraint and remove from the stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -36,9 +29,7 @@ def apply(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
         :param report: Report, Create a notification after the operation
-        :type report: bool | None
     """
 
 def childof_clear_inverse(
@@ -51,10 +42,7 @@ def childof_clear_inverse(
 ) -> None:
     """Clear inverse correction for Child Of constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -62,7 +50,6 @@ def childof_clear_inverse(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def childof_set_inverse(
@@ -75,10 +62,7 @@ def childof_set_inverse(
 ) -> None:
     """Set inverse correction for Child Of constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -86,7 +70,6 @@ def childof_set_inverse(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def copy(
@@ -100,10 +83,7 @@ def copy(
 ) -> None:
     """Duplicate constraint at the same position in the stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -111,9 +91,7 @@ def copy(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
         :param report: Report, Create a notification after the operation
-        :type report: bool | None
     """
 
 def copy_to_selected(
@@ -126,10 +104,7 @@ def copy_to_selected(
 ) -> None:
     """Copy constraint to other selected objects/bones
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -137,7 +112,6 @@ def copy_to_selected(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def delete(
@@ -151,10 +125,7 @@ def delete(
 ) -> None:
     """Remove constraint from constraint stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -162,9 +133,7 @@ def delete(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
         :param report: Report, Create a notification after the operation
-        :type report: bool | None
     """
 
 def disable_keep_transform(
@@ -172,11 +141,7 @@ def disable_keep_transform(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the influence of this constraint to zero while trying to maintain the objects transformation. Other active constraints can still influence the final transformation
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the influence of this constraint to zero while trying to maintain the objects transformation. Other active constraints can still influence the final transformation"""
 
 def followpath_path_animate(
     execution_context: int | str | None = None,
@@ -190,10 +155,7 @@ def followpath_path_animate(
 ) -> None:
     """Add default animation for path used by constraint if it isnt animated already
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -201,11 +163,8 @@ def followpath_path_animate(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
         :param frame_start: Start Frame, First frame of path animation
-        :type frame_start: int | None
         :param length: Length, Number of frames that path animation should take
-        :type length: int | None
     """
 
 def limitdistance_reset(
@@ -218,10 +177,7 @@ def limitdistance_reset(
 ) -> None:
     """Reset limiting distance for Limit Distance Constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -229,7 +185,6 @@ def limitdistance_reset(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def move_down(
@@ -242,10 +197,7 @@ def move_down(
 ) -> None:
     """Move constraint down in constraint stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -253,7 +205,6 @@ def move_down(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def move_to_index(
@@ -267,10 +218,7 @@ def move_to_index(
 ) -> None:
     """Change the constraints position in the list so it evaluates after the set number of others
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -278,9 +226,7 @@ def move_to_index(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
         :param index: Index, The index to move the constraint to
-        :type index: int | None
     """
 
 def move_up(
@@ -293,10 +239,7 @@ def move_up(
 ) -> None:
     """Move constraint up in constraint stack
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -304,7 +247,6 @@ def move_up(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def normalize_target_weights(
@@ -312,11 +254,7 @@ def normalize_target_weights(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Normalize weights of all target bones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Normalize weights of all target bones"""
 
 def objectsolver_clear_inverse(
     execution_context: int | str | None = None,
@@ -328,10 +266,7 @@ def objectsolver_clear_inverse(
 ) -> None:
     """Clear inverse correction for Object Solver constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -339,7 +274,6 @@ def objectsolver_clear_inverse(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def objectsolver_set_inverse(
@@ -352,10 +286,7 @@ def objectsolver_set_inverse(
 ) -> None:
     """Set inverse correction for Object Solver constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -363,7 +294,6 @@ def objectsolver_set_inverse(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """
 
 def remove_target(
@@ -375,10 +305,7 @@ def remove_target(
 ) -> None:
     """Remove the target from the constraint
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param index: index
-    :type index: int | None
     """
 
 def stretchto_reset(
@@ -391,10 +318,7 @@ def stretchto_reset(
 ) -> None:
     """Reset original length of bone for Stretch To Constraint
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param constraint: Constraint, Name of the constraint to edit
-        :type constraint: str
         :param owner: Owner, The owner of this constraint
 
     OBJECT
@@ -402,5 +326,4 @@ def stretchto_reset(
 
     BONE
     Bone -- Edit a constraint on the active bone.
-        :type owner: typing.Literal['OBJECT','BONE'] | None
     """

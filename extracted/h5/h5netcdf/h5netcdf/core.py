@@ -1,26 +1,47 @@
 # For details on how netCDF4 builds on HDF5:
 # https://docs.unidata.ucar.edu/netcdf-c/current/file_format_specifications.html#netcdf_4_spec
-import os.path
+import os
 import warnings
 import weakref
 from collections import ChainMap, Counter, OrderedDict, defaultdict
 from collections.abc import Mapping
 
-import h5py
 import numpy as np
 from packaging import version
 
 from . import __version__
 from .attrs import Attributes
-from .dimensions import Dimension, Dimensions
-from .utils import Frozen
+from .dimensions import Dimension, Dimensions, _check_classic_unlimited
+from .utils import (
+    CompatibilityError,
+    Frozen,
+    _commit_enum_type,
+    _create_classic_string_dataset,
+    _create_enum_dataset,
+    _create_enum_dataset_attribute,
+    _create_string_attribute,
+)
 
 try:
-    import h5pyd
+    import h5py  # noqa
+except ImportError:
+    no_h5py = True
+else:
+    no_h5py = False
+
+try:
+    import h5pyd  # noqa
 except ImportError:
     no_h5pyd = True
 else:
     no_h5pyd = False
+
+try:
+    import pyfive  # noqa
+except ImportError:
+    no_pyfive = True
+else:
+    no_pyfive = False
 
 
 NOT_A_VARIABLE = b"This is a netCDF dimension but not a netCDF variable."
@@ -36,10 +57,6 @@ def _name_from_dimension(dim):
     return dim[0].name.split("/")[-1]
 
 
-class CompatibilityError(Exception):
-    """Raised when using features that are not part of the NetCDF4 API."""
-
-
 def _invalid_netcdf_feature(feature, allow):
     if not allow:
         msg = (
@@ -51,20 +68,13 @@ def _invalid_netcdf_feature(feature, allow):
 
 def _transform_1d_boolean_indexers(key):
     """Find and transform 1D boolean indexers to int"""
-    # return key, if not iterable
-    try:
-        key = [
-            (
-                np.asanyarray(k).nonzero()[0]
-                if isinstance(k, (np.ndarray, list)) and type(k[0]) in (bool, np.bool_)
-                else k
-            )
-            for k in key
-        ]
-    except TypeError:
-        return key
-
-    return tuple(key)
+    # Convert 1D boolean arrays/lists to integer indices,
+    # leaving all other types unchanged
+    return tuple(
+        np.flatnonzero(arr) if arr.dtype == bool else k
+        for k in key
+        for arr in [np.asanyarray(k)]
+    )
 
 
 def _expanded_indexer(key, ndim):
@@ -108,6 +118,107 @@ def _expanded_indexer(key, ndim):
     return key[k1] + res_dims + key[k2]
 
 
+def _parse_backend(path, mode, backend, **kwargs):
+    """Parse the 'backend' keyword to File.__init__.
+
+    Parameters
+    ----------
+    path : path-like
+    mode : str
+    backend : str
+        The backend parameter.
+
+    Returns
+    -------
+    backend: str
+        The backend that is going to be used. If the input backend is
+        None, then a value of the H5NETCDF_BACKEND environment
+        variable is used.
+
+    """
+    is_remote = path.startswith(("http", "hdf5:")) if isinstance(path, str) else False
+    driver = kwargs.get("driver")
+    if backend not in (None, "pyfive", "h5py", "h5pyd"):
+        raise ValueError(
+            f"Unknown backend {backend!r} - valid options are: "
+            "'pyfive', 'h5py', 'h5pyd'"
+        )
+
+    if driver == "h5pyd" and backend not in ["pyfive", "h5py"]:
+        msg = "Specifying driver='h5pyd' is deprecated, please use backend='h5pyd' instead."
+        warnings.warn(msg, DeprecationWarning)
+        backend, driver = "h5pyd", None
+
+    if driver is not None:
+        if backend not in [None, "h5py"]:
+            msg = f"driver={driver!r} only works with 'h5py' backend, but given backend={backend}."
+            raise ValueError(msg)
+        else:
+            backend = "h5py"
+
+    if is_remote and backend is None and driver is None:
+        backend = "h5pyd"
+
+    if backend is None:
+        read_backend = os.environ.get("H5NETCDF_READ_BACKEND", "h5py")
+        write_backend = os.environ.get("H5NETCDF_WRITE_BACKEND", "h5py")
+        backend = read_backend if mode == "r" else write_backend
+
+    no_backend = {
+        "pyfive": no_pyfive,
+        "h5py": no_h5py,
+        "h5pyd": no_h5pyd,
+    }
+
+    if no_backend.get(backend, False):
+        raise ImportError(
+            f"No module named {backend!r}, backend not available. "
+            f"Please install {backend!r} into your Python environment."
+        )
+
+    return backend
+
+
+def _get_track_order(backend):
+    """
+    In h5netcdf version 0.12.0 and earlier, order tracking was disabled in
+    HDF5 file. As this is a requirement for the current netCDF4 standard,
+    it has been enabled without deprecation as of version 0.13.0 (:issue:`128`).
+
+    Datasets created with h5netcdf version 0.12.0 that are opened with
+    newer versions of h5netcdf will continue to disable order tracker.
+
+    If an h5py File object is passed in, closing the h5netcdf wrapper will
+    not close the h5py File. In other cases, closing the h5netcdf File object
+    does close the underlying file.
+
+    """
+    # 2022/01/09
+    # netCDF4 wants the track_order parameter to be true
+    # through this might be getting relaxed in a more recent version of the
+    # standard
+    # https://github.com/Unidata/netcdf-c/issues/2054
+    # https://github.com/h5netcdf/h5netcdf/issues/128
+    # h5py versions less than 3.7.0 had a bug that limited the number of
+    # attributes when track_order was set to true by default.
+    # However, setting track_order to True helps with compatibility
+    # with netcdf4-c and generally, keeping track of how things were added
+    # to the dataset.
+    # https://github.com/h5netcdf/h5netcdf/issues/136#issuecomment-1017457067
+    if backend == "h5py":
+        import h5py
+
+        track_order = version.parse(h5py.__version__) >= version.parse("3.7.0")
+    elif backend == "h5pyd":
+        import h5pyd
+
+        track_order = version.parse(h5pyd.__version__) >= version.parse("0.21.0")
+    else:
+        track_order = None
+
+    return track_order
+
+
 class BaseObject:
     def __init__(self, parent, name):
         self._parent_ref = weakref.ref(parent)
@@ -127,6 +238,10 @@ class BaseObject:
         # Always refer to the root file and store not h5py object
         # subclasses:
         return self._root._h5file[self._h5path]
+
+    @property
+    def _backend(self):
+        return self._root._backend
 
     @property
     def name(self):
@@ -151,10 +266,11 @@ _h5type_mapping = {
 
 def _get_h5usertype_identifier(h5type):
     """Return H5 Type Identifier from given H5 Datatype."""
-    try:
-        # h5py first
+    module = h5type.__module__
+    if module.startswith("h5py.") or module.startswith("pyfive."):
+        # h5py/pyfive first
         h5typeid = h5type.id.get_class()
-    except AttributeError:
+    elif module.startswith("h5pyd."):
         # h5pyd second
         h5typeid = _h5type_mapping[h5type.id.type_json["class"]]
     return h5typeid
@@ -162,12 +278,14 @@ def _get_h5usertype_identifier(h5type):
 
 def _get_h5dstype_identifier(h5type):
     """Return H5 Type Identifier from given H5 Dataset."""
-    try:
-        # h5py first
+    module = h5type.__module__
+    if module.startswith("h5py."):
         h5typeid = h5type.id.get_type().get_class()
-    except AttributeError:
-        # h5pyd second
+    elif module.startswith("h5pyd."):
         h5typeid = _h5type_mapping[h5type.id.type_json["class"]]
+    elif module.startswith("pyfive."):
+        h5typeid = h5type.id.get_type().type_id
+
     return h5typeid
 
 
@@ -348,7 +466,9 @@ class BaseVariable(BaseObject):
             [self._parent._all_dimensions[d]._dimid for d in dims],
             "int32",
         )
-        if len(coord_ids) > 1:
+        # add _Netcdf4Coordinates for multi-dimensional coordinate variables
+        # or for (one-dimensional) coordinates
+        if len(coord_ids) >= 1:
             self._h5ds.attrs["_Netcdf4Coordinates"] = coord_ids
 
     def _ensure_dim_id(self):
@@ -361,12 +481,21 @@ class BaseVariable(BaseObject):
                 self._h5ds.attrs["_Netcdf4Dimid"] = dim.attrs["_Netcdf4Dimid"]
 
     def _maybe_resize_dimensions(self, key, value):
-        """Resize according to given (expanded) key with respect to variable dimensions"""
+        """Resize according to given (expanded) key with respect to variable dimensions.
+
+        Parameters
+        ----------
+        key : Tuple[slice]
+            Indexing key
+        value : array-like
+            Values to be written.
+        """
         new_shape = ()
-        v = None
+        v = np.asarray(value)
         for i, dim in enumerate(self.dimensions):
             # is unlimited dimensions (check in all dimensions)
             if self._parent._all_dimensions[dim].isunlimited():
+                current_dim_size = len(self._parent._all_dimensions[dim])
                 if key[i].stop is None:
                     # if stop is None, get dimensions from value,
                     # they must match with variable dimension
@@ -375,16 +504,25 @@ class BaseVariable(BaseObject):
                     if v.ndim == self.ndim:
                         new_max = max(v.shape[i], self._h5ds.shape[i])
                     elif v.ndim == 0:
-                        # for scalars we take the current dimension size (check in all dimensions
+                        # for scalar values we take the current dimension size
+                        # (check in all dimensions)
                         new_max = self._parent._all_dimensions[dim].size
+                        # but for compatibility with netcdf4-python/netcdf-c
+                        # we set at least 1
+                        if new_max == 0:
+                            new_max = 1
                     else:
                         raise IndexError("shape of data does not conform to slice")
+                # if slice stop is negative, we need to check the value size
+                elif key[i].stop < 0:
+                    new_max = v.shape[i] - key[i].stop
                 else:
                     new_max = max(key[i].stop, self._h5ds.shape[i])
                 # resize unlimited dimension if needed but no other variables
                 # this is in line with `netcdf4-python` which only resizes
                 # the dimension and this variable
-                if self._parent._all_dimensions[dim].size < new_max:
+                # todo: check above assumptions with latest netcdf4-python/netcdf-c
+                if current_dim_size < new_max and self.name == dim:
                     self._parent.resize_dimension(dim, new_max)
                 new_shape += (new_max,)
             else:
@@ -412,8 +550,19 @@ class BaseVariable(BaseObject):
                 string_info
                 and string_info.length is not None
                 and string_info.length > 1
-            ) or enum_info:
+            ):
+                # fixed length string
                 value = fillvalue
+            elif string_info and string_info.length is None:
+                # variable length string
+                value = fillvalue
+            elif enum_info:
+                value = fillvalue
+                if self._root._h5py.__name__ == "h5py":
+                    _create_enum_dataset_attribute(
+                        self, "_FillValue", value, self.datatype
+                    )
+                    return
             else:
                 value = self.dtype.type(fillvalue)
 
@@ -474,11 +623,13 @@ class BaseVariable(BaseObject):
         """
         # this is really painful as we have to iterate over all types
         # and check equality
-        usertype = self._parent._get_usertype_dict(self._h5type_identifier)
-        if usertype is not None:
-            for tid in usertype.values():
-                if self._h5datatype == tid._h5datatype:
-                    return tid
+        if self._backend is not None:
+            usertype = self._parent._get_usertype_dict(self._h5type_identifier)
+            if usertype is not None:
+                for tid in usertype.values():
+                    if self._h5datatype == tid._h5datatype:
+                        return tid
+
         return self.dtype
 
     def _get_padding(self, key):
@@ -491,24 +642,39 @@ class BaseVariable(BaseObject):
             h5ds_shape = self._h5ds.shape
             shape = self.shape
 
-            # check for ndarray and list
             # see https://github.com/pydata/xarray/issues/7154
+            # see https://github.com/pydata/xarray/issues/10867
             # first get maximum index
-            max_index = [
-                max(k) + 1 if isinstance(k, (np.ndarray, list)) else k.stop
-                for k in key0
-            ]
+            def _get_max_index(k):
+                # Return the maximum index for ndarray, list, slice, or int,
+                # handling empty arrays/lists safely
+                if isinstance(k, np.ndarray):
+                    if k.size == 0:
+                        return None
+                    return k.max() + 1
+                elif isinstance(k, list):
+                    return max(k) + 1 if k else None
+                elif isinstance(k, slice):
+                    return k.stop
+                elif isinstance(k, int):
+                    return k + 1
+                else:
+                    return None
+
+            max_index = [_get_max_index(k) for k in key0]
+
             # second convert to max shape
+            # we take the minimum of shape vs max_index to not return
+            # slices larger than expected data
             max_shape = tuple(
-                [
-                    shape[i] if k is None else max(h5ds_shape[i], k)
-                    for i, k in enumerate(max_index)
-                ]
+                s if k is None else min(s, k) for s, k in zip(shape, max_index)
             )
 
             # check if hdf5 dataset dimensions are smaller than
             # their respective netcdf dimensions
             sdiff = [d0 - d1 for d0, d1 in zip(max_shape, h5ds_shape)]
+            # set negative values to zero
+            sdiff = np.maximum(sdiff, 0)
             # create padding only if hdf5 dataset is smaller than netcdf dimension
             if sum(sdiff):
                 padding = [(0, s) for s in sdiff]
@@ -525,14 +691,19 @@ class BaseVariable(BaseObject):
             # fix boolean indexing for affected versions
             # https://github.com/h5py/h5py/pull/2079
             # https://github.com/h5netcdf/h5netcdf/pull/125/
-            h5py_version = version.parse(h5py.__version__)
-            if version.parse("3.0.0") <= h5py_version < version.parse("3.7.0"):
-                key = _transform_1d_boolean_indexers(key)
+            if self._backend == "h5py":
+                h5py_version = version.parse(self._root._h5py.__version__)
+                if version.parse("3.0.0") <= h5py_version < version.parse("3.7.0"):
+                    key = _transform_1d_boolean_indexers(key)
 
         if getattr(self._root, "decode_vlen_strings", False):
             string_info = self._root._h5py.check_string_dtype(self._h5ds.dtype)
             if string_info and string_info.length is None:
-                return self._h5ds.asstr()[key]
+                if self._backend == "pyfive":
+                    # pyfive backend has already dealt with strings
+                    return self._h5ds[key]
+                else:
+                    return self._h5ds.asstr()[key]
 
         # get padding
         padding = self._get_padding(key)
@@ -583,13 +754,28 @@ class BaseVariable(BaseObject):
         ):
             self._h5ds[key] = value.view(view)
         else:
-            self._h5ds[key] = value
+            # write with low-level API for CLASSIC format
+            if (
+                self._root._format == "NETCDF4_CLASSIC"
+                and self.dtype.kind in ["S", "U"]
+                and self._root._h5py.__name__ == "h5py"
+            ):
+                # h5py expects np.ndarray
+                value = np.asanyarray(value)
+                self._h5ds.id.write(
+                    h5py.h5s.ALL, h5py.h5s.ALL, value, mtype=self._h5ds.id.get_type()
+                )
+            else:
+                self._h5ds[key] = value
 
     @property
     def attrs(self):
         """Return variable attributes."""
         return Attributes(
-            self._h5ds.attrs, self._root._check_valid_netcdf_dtype, self._root._h5py
+            self._h5ds.attrs,
+            self._root._check_valid_netcdf_dtype,
+            self._root._h5py,
+            format=self._root._format,
         )
 
     _cls_name = "h5netcdf.Variable"
@@ -630,6 +816,54 @@ class Variable(BaseVariable):
     @property
     def shuffle(self):
         return self._h5ds.shuffle
+
+    def filters(self):
+        """Return HDF5 filter parameters dictionary, matching netCDF4's var.filters() API.
+
+        Returns a dictionary with compression flags (zlib, szip, bzip2, blosc, zstd)
+        and complevel, matching the format returned by netCDF4's var.filters() method.
+        Returns None if no filters are present.
+        """
+        # These filters were obtained by opening the same file with netCDF4 and
+        # calling the filter method there
+        filters_dict = {
+            "zlib": False,
+            "szip": False,
+            "bzip2": False,
+            "blosc": False,
+            "zstd": False,
+            "shuffle": self._h5ds.shuffle,
+            "fletcher32": self._h5ds.fletcher32,
+        }
+
+        if self._h5ds.compression == "gzip":
+            filters_dict["zlib"] = True
+            filters_dict["complevel"] = self._h5ds.compression_opts
+
+        h5py_filters = getattr(self._h5ds, "_filters", {})
+        # These don't really get defined in h5py
+        # https://github.com/HDFGroup/hdf5_plugins/blob/master/docs/RegisteredFilterPlugins.md
+        HDF5_FILTER_TO_COMPRESSION = {
+            "1": "zlib",
+            "2": "szip",
+            "307": "bzip2",
+            "32004": "blosc",
+            "32015": "zstd",
+            # They might return the filter as a string, not as a code
+            "zlib": "zlib",
+            "szip": "szip",
+            "bzip2": "bzip2",
+            "blosc": "blosc",
+            "zstd": "zstd",
+        }
+        for filter_id, filter_opts in h5py_filters.items():
+            compression_name = HDF5_FILTER_TO_COMPRESSION.get(filter_id, None)
+            if compression_name is not None:
+                filters_dict[compression_name] = True
+                if filter_opts and len(filter_opts) > 0:
+                    filters_dict["complevel"] = filter_opts[0]
+
+        return filters_dict
 
 
 class _LazyObjectLookup(Mapping):
@@ -893,7 +1127,36 @@ class Group(Mapping):
         if self._root._phony_dims_mode is not None:
             phony_dims = Counter()
 
-        for k, v in self._h5group.items():
+        for k in self._h5group:
+            if self._root._backend == "pyfive":
+                # Some backends might have unsupported HDF5
+                # features. Either skip over them, or fail.
+                unsupported = self._root._unsupported_hdf5_features
+                # warnings.filterwarnings("error", message=r"^\w+\s+datatype class not supported\.$", category=UserWarning,)
+                try:
+                    v = self._h5group[k]
+                except NotImplementedError as e:
+                    msg = (
+                        f"{self._root.backend} backend: Skipping unsupported type "
+                        f"of HDF5 variable or dimension {k!r}."
+                    )
+                    if unsupported == "warn":
+                        warnings.warn(msg)
+                    elif unsupported == "error":
+                        msg2 = (
+                            "Consider setting unsupported_hdf5_features='skip' or "
+                            "unsupported_hdf5_features='warn'."
+                        )
+                        e.add_note(" ".join((msg, msg2)))
+                        raise e
+                    continue
+                else:
+                    # probably unsupported DataType
+                    if v is None:
+                        continue
+            else:
+                v = self._h5group[k]
+
             if isinstance(v, self._root._h5py.Group):
                 # add to the groups collection if this is a h5py(d) Group
                 # instance
@@ -950,8 +1213,9 @@ class Group(Mapping):
 
     @property
     def _track_order(self):
-        if self._root._h5py.__name__ == "h5pyd":
-            return False
+        if self._root._backend == "h5pyd":
+            return self._h5group.track_order
+
         # TODO: make a suggestion to upstream to create a property
         # for files to get if they track the order
         # As of version 3.6.0 this property did not exist
@@ -979,6 +1243,9 @@ class Group(Mapping):
 
     @dimensions.setter
     def dimensions(self, value):
+        if self._root._format == "NETCDF4_CLASSIC":
+            _check_classic_unlimited(value)
+
         for k, v in self._all_dimensions.maps[0].items():
             if k in value:
                 if v != value[k]:
@@ -1104,8 +1371,10 @@ class Group(Mapping):
         # dimension scale without a corresponding variable.
         # Keep the references, to re-attach later
         refs = None
+        dimid = None
         if h5name in self._dimensions and h5name in self._h5group:
             refs = self._dimensions[name]._scale_refs
+            dimid = self._dimensions[name]._h5ds.attrs.get("_Netcdf4Dimid", None)
             self._dimensions[name]._detach_scale()
             del self._h5group[name]
 
@@ -1115,15 +1384,28 @@ class Group(Mapping):
         fillvalue, h5fillvalue = _check_fillvalue(self, fillvalue, dtype)
 
         # create hdf5 variable
-        self._h5group.create_dataset(
-            h5name,
-            shape,
-            dtype=dtype,
-            data=data,
-            chunks=chunks,
-            fillvalue=h5fillvalue,
-            **kwargs,
-        )
+        # for classic format string types write with low level API
+        if (
+            self._root._format == "NETCDF4_CLASSIC"
+            and np.dtype(dtype).kind in ["S", "U"]
+            and self._root._h5py.__name__ == "h5py"
+        ):
+            _create_classic_string_dataset(
+                self._h5group._id, h5name, data, shape, chunks
+            )
+        elif self._root._h5py.__name__ == "h5py" and isinstance(dtype, EnumType):
+            # use low level API for creating ENUMS
+            _create_enum_dataset(self, h5name, shape, dtype, h5fillvalue)
+        else:
+            self._h5group.create_dataset(
+                h5name,
+                shape,
+                dtype=dtype,
+                data=data,
+                chunks=chunks,
+                fillvalue=h5fillvalue,
+                **kwargs,
+            )
 
         # create variable class instance
         variable = self._variable_cls(self, h5name, dimensions)
@@ -1135,9 +1417,12 @@ class Group(Mapping):
 
         # Re-create dim-scale and re-attach references to coordinate variable.
         if name in self._all_dimensions and h5name in self._h5group:
-            self._all_dimensions[name]._create_scale()
+            if dimid is not None:
+                self._all_dimensions[name]._create_scale(dimid=dimid)
             if refs is not None:
                 self._all_dimensions[name]._attach_scale(refs)
+            # re-attach coords for dimension scales
+            variable._attach_coords()
 
         # In case of data variables attach dim_scales and coords.
         if name in self.variables and h5name not in self._dimensions:
@@ -1146,9 +1431,12 @@ class Group(Mapping):
 
         # This is a bit of a hack, netCDF4 attaches _Netcdf4Dimid to every variable
         # when a variable is first written to, after variable creation.
-        # Here we just attach it to every variable on creation.
-        # Todo: get this consistent with netcdf-c/netcdf4-python
-        variable._ensure_dim_id()
+        # Last known behaviour since netcdf4-python 1.7.2 and netcdf-c 4.9.2
+        if (None in maxshape and maxshape[0] is not None) or (
+            None not in maxshape
+            and len(variable._h5ds.attrs.get("_Netcdf4Coordinates", [])) >= 1
+        ):
+            variable._ensure_dim_id()
 
         # add fillvalue attribute to variable
         if fillvalue is not None:
@@ -1211,7 +1499,6 @@ class Group(Mapping):
         var : h5netcdf.Variable
             Variable class instance
         """
-
         # if root-variable
         if name.startswith("/"):
             # handling default fillvalues for legacyapi
@@ -1220,6 +1507,12 @@ class Group(Mapping):
 
             if fillvalue is None and isinstance(self._parent._root, Dataset):
                 fillvalue = _get_default_fillvalue(dtype)
+
+            if self._root._format == "NETCDF4_CLASSIC" and len(dimensions) == 0:
+                raise CompatibilityError(
+                    "NETCDF4_CLASSIC format does not allow variables without dimensions."
+                )
+
             return self._root.create_variable(
                 name[1:],
                 dimensions,
@@ -1306,7 +1599,13 @@ class Group(Mapping):
 
     def _get_usertype(self, h5type):
         """Get usertype from related usertype dict."""
-        h5typeid = _get_h5usertype_identifier(h5type)
+        if self._root._h5py.__name__ == "pyfive":
+            if isinstance(h5type.id, self._root._h5py.h5t.TypeEnumID):
+                h5typeid = 8
+            elif isinstance(h5type.id, self._root._h5py.h5t.TypeCompoundID):
+                h5typeid = 6
+        else:
+            h5typeid = _get_h5usertype_identifier(h5type)
         return self._get_usertype_dict(h5typeid).get(h5type.name.split("/")[-1])
 
     def _get_usertype_dict(self, h5typeid):
@@ -1343,7 +1642,10 @@ class Group(Mapping):
     @property
     def attrs(self):
         return Attributes(
-            self._h5group.attrs, self._root._check_valid_netcdf_dtype, self._root._h5py
+            self._h5group.attrs,
+            self._root._check_valid_netcdf_dtype,
+            self._root._h5py,
+            format=self._root._format,
         )
 
     _cls_name = "h5netcdf.Group"
@@ -1397,8 +1699,14 @@ class Group(Mapping):
         enum_dict: dict
             A Python dictionary containing the Enum field/value pairs.
         """
-        et = self._root._h5py.enum_dtype(enum_dict, basetype=datatype)
-        self._h5group[datatype_name] = et
+        # to correspond with netcdf4-python/netcdf-c we need to create
+        # with low level API, to keep enums ordered by value
+        # works only for h5py
+        if self._root._h5py.__name__ == "h5py":
+            _commit_enum_type(self, datatype_name, enum_dict, datatype)
+        else:
+            et = self._root._h5py.enum_dtype(enum_dict, basetype=datatype)
+            self._h5group[datatype_name] = et
         # create enumtype class instance
         enumtype = self._enumtype_cls(self, datatype_name)
         self._enumtypes[datatype_name] = enumtype
@@ -1441,8 +1749,77 @@ class Group(Mapping):
         return cmptype
 
 
+def _open_pyfive(path, mode):
+    import pyfive
+
+    try:
+        h5file = pyfive.File(path, mode)
+    except Exception:
+        raise
+    else:
+        return h5file
+
+
+def _open_h5pyd(path, mode, **kwargs):
+    original_mode = mode
+    if mode != "r":
+        kwargs.setdefault("track_order", _get_track_order("h5pyd"))
+    if mode == "a":
+        mode = "r+"  # probe for existing before creating
+    try:
+        h5file = h5pyd.File(path, mode, **kwargs)
+    except OSError:
+        if original_mode == "a":
+            msg = (
+                "Append mode for h5pyd now probes with 'r+' first and "
+                "only falls back to 'w' if the file is missing.\n"
+                "To silence this warning use 'r+' (open-existing) or 'w' "
+                "(create-new) directly."
+            )
+            warnings.warn(msg, UserWarning, stacklevel=2)
+
+            try:
+                h5file = h5pyd.File(path, "w", **kwargs)
+            except Exception:
+                raise
+            else:
+                return h5file, False
+        raise
+    else:
+        return h5file, (mode != "w")
+
+
+def _open_h5py(path, mode, **kwargs):
+    if mode != "r":
+        kwargs.setdefault("track_order", _get_track_order("h5py"))
+    try:
+        if isinstance(path, str):
+            exists = path.startswith(("http", "s3://")) or (
+                os.path.exists(path) and mode != "w"
+            )
+            h5file = h5py.File(path, mode, **kwargs)
+            return h5file, exists, True
+        elif isinstance(path, h5py.File):
+            # already-open file
+            return path, (mode in {"r", "r+", "a"}), False
+        else:  # file-like object
+            h5file = h5py.File(path, mode, **kwargs)
+            return h5file, (mode in {"r", "r+", "a"}), True
+    except Exception:
+        raise
+
+
 class File(Group):
-    def __init__(self, path, mode="r", invalid_netcdf=False, phony_dims=None, **kwargs):
+    def __init__(
+        self,
+        path,
+        mode="r",
+        format="NETCDF4",
+        invalid_netcdf=False,
+        phony_dims=None,
+        backend=None,
+        **kwargs,
+    ):
         """NetCDF4 file constructor.
 
         Parameters
@@ -1454,6 +1831,10 @@ class File(Group):
         mode: "r", "r+", "a", "w"
             A valid file access mode. Defaults to "r".
 
+        format: "NETCDF4", "NETCDF4_CLASSIC"
+            The format of the file to create. Only relevant when creating a new
+            file (mode "w"). Defaults to "NETCDF4".
+
         invalid_netcdf: bool
             Allow writing netCDF4 with data types and attributes that would
             otherwise not generate netCDF4 files that can be read by other
@@ -1461,6 +1842,16 @@ class File(Group):
 
         phony_dims: 'sort', 'access'
             See :ref:`phony dims` for more details.
+
+        backend: 'h5py', 'h5pyd', 'pyfive' or None
+            The default backend is h5py (backend=None, or backend='h5py'), but
+            for reading data, the pure python pyfive backend is available.
+
+        unsupported_hdf5_features: str
+            How h5netcdf handles pyfive's unsupported hdf5_features
+            'skip': skip, no warning
+            'warn': skip, with warning
+            'error' raise an exception
 
         track_order: bool
             Corresponds to the h5py.File `track_order` parameter. Unless
@@ -1471,10 +1862,13 @@ class File(Group):
             append to a file. If an older version of h5py is detected, this
             parameter will be set to False by default to work around a bug in
             h5py limiting the number of attributes for a given variable.
+            Ignored for the 'pyfive' backend.
 
         **kwargs:
-            Additional keyword arguments to be passed to the ``h5py.File``
-            constructor.
+            Additional keyword arguments to be passed to the backend
+            file constructor, which is ``h5py.File`` for the 'h5py'
+            backend (the default), or ``pyfive.File`` for the 'pyfive'
+            backend.
 
         Notes
         -----
@@ -1488,90 +1882,48 @@ class File(Group):
         If an h5py File object is passed in, closing the h5netcdf wrapper will
         not close the h5py File. In other cases, closing the h5netcdf File object
         does close the underlying file.
-        """
-        # 2022/01/09
-        # netCDF4 wants the track_order parameter to be true
-        # through this might be getting relaxed in a more recent version of the
-        # standard
-        # https://github.com/Unidata/netcdf-c/issues/2054
-        # https://github.com/h5netcdf/h5netcdf/issues/128
-        # h5py versions less than 3.7.0 had a bug that limited the number of
-        # attributes when track_order was set to true by default.
-        # However, setting track_order to True helps with compatibility
-        # with netcdf4-c and generally, keeping track of how things were added
-        # to the dataset.
-        # https://github.com/h5netcdf/h5netcdf/issues/136#issuecomment-1017457067
-        track_order_default = version.parse(h5py.__version__) >= version.parse("3.7.0")
-        track_order = kwargs.pop("track_order", track_order_default)
 
+        """
         self.decode_vlen_strings = kwargs.pop("decode_vlen_strings", None)
         self._close_h5file = True
+        self._preexisting_file = True
+
         try:
-            if isinstance(path, str):
-                if kwargs.get("driver") == "h5pyd" or (
-                    path.startswith(("http://", "https://", "hdf5://"))
-                    and "driver" not in kwargs
-                ):
-                    if no_h5pyd:
-                        raise ImportError(
-                            "No module named 'h5pyd'. h5pyd is required for "
-                            f"opening urls: {path}"
-                        )
-                    self._preexisting_file = mode in {"r", "r+", "a"}
-                    # remap "a" -> "r+" to check file existence
-                    # fallback to "w" if not
-                    _mode = mode
-                    if mode == "a":
-                        mode = "r+"
-                    self._h5py = h5pyd
-                    try:
-                        self.__h5file = self._h5py.File(
-                            path, mode, track_order=track_order, **kwargs
-                        )
-                        self._preexisting_file = mode != "w"
-                    except OSError:
-                        # if file does not exist, create it
-                        if _mode == "a":
-                            mode = "w"
-                            self.__h5file = self._h5py.File(
-                                path, mode, track_order=track_order, **kwargs
-                            )
-                            self._preexisting_file = False
-                            msg = (
-                                "Append mode for h5pyd now probes with 'r+' first and "
-                                "only falls back to 'w' if the file is missing.\n"
-                                "To silence this warning use 'r+' (open-existing) or 'w' "
-                                "(create-new) directly."
-                            )
-                            warnings.warn(msg, UserWarning, stacklevel=2)
-                        else:
-                            raise
-                else:
-                    self._preexisting_file = os.path.exists(path) and mode != "w"
-                    self._h5py = h5py
-                    self.__h5file = self._h5py.File(
-                        path, mode, track_order=track_order, **kwargs
-                    )
-            elif isinstance(path, h5py.File):
-                self._preexisting_file = mode in {"r", "r+", "a"}
-                self._h5py = h5py
-                self.__h5file = path
-                # h5py File passed in: let the caller decide when to close it
-                self._close_h5file = False
-            else:  # file-like object
-                self._preexisting_file = mode in {"r", "r+", "a"}
-                self._h5py = h5py
-                self.__h5file = self._h5py.File(
-                    path, mode, track_order=track_order, **kwargs
+            self._backend = _parse_backend(path, mode, backend, **kwargs)
+            if self.backend == "pyfive":
+                self._unsupported_hdf5_features = kwargs.pop(
+                    "unsupported_hdf5_features",
+                    os.environ.get("PYFIVE_UNSUPPORTED_FEATURE", "error"),
                 )
+                self._h5py = pyfive
+                self.__h5file = _open_pyfive(path, mode)
+            elif self.backend == "h5pyd":
+                self._h5py = h5pyd
+                self.__h5file, self._preexisting_file = _open_h5pyd(
+                    path, mode, **kwargs
+                )
+            else:  # default h5py
+                self._h5py = h5py
+                self.__h5file, self._preexisting_file, self._close_h5file = _open_h5py(
+                    path, mode, **kwargs
+                )
+
         except Exception:
             self._closed = True
             raise
         else:
             self._closed = False
 
+        if self._preexisting_file:
+            format = (
+                "NETCDF4_CLASSIC"
+                if self._h5file.attrs.get("_nc3_strict")
+                else "NETCDF4"
+            )
+
         self._filename = self._h5file.filename
         self._mode = mode
+        self._format = format
         self._writable = mode != "r"
         self._root_ref = weakref.ref(self)
         self._h5path = "/"
@@ -1587,6 +1939,9 @@ class File(Group):
                     "Use phony_dims='sort' for sorted naming, "
                     "phony_dims='access' for per access naming."
                 )
+
+        if format not in ["NETCDF4", "NETCDF4_CLASSIC"]:
+            raise ValueError(f"unknown format {format!r}")
 
         # string decoding
         if "legacy" in self._cls_name:
@@ -1638,6 +1993,11 @@ class File(Group):
             description = "boolean"
         elif self._h5py.check_dtype(ref=dtype) is not None:
             description = "reference"
+        elif (
+            dtype in [int, np.int64, np.uint64, np.uint32, np.uint16, np.uint8]
+            and self._format == "NETCDF4_CLASSIC"
+        ):
+            description = f"{dtype} (CLASSIC)"
         else:
             description = None
 
@@ -1660,8 +2020,23 @@ class File(Group):
         return None
 
     @property
+    def data_model(self):
+        return self._format
+
+    @property
     def _root(self):
         return self
+
+    @property
+    def backend(self) -> str:
+        """The HDF5 backend.
+
+        Returns either "h5py" (the backend is h5py, built on the HDF5
+        C library), "h5pyd" (python library for HDF REST API) or
+        "pyfive" (the backend is pyfive, which is pure Python).
+
+        """
+        return self._backend
 
     def flush(self):
         if self._writable:
@@ -1672,12 +2047,20 @@ class File(Group):
                     f"hdf5={self._h5py.version.hdf5_version},"
                     f"{self._h5py.__name__}={self._h5py.__version__}"
                 )
-                self.attrs._h5attrs["_NCProperties"] = np.array(
-                    _NC_PROPERTIES,
-                    dtype=self._h5py.string_dtype(
-                        encoding="ascii", length=len(_NC_PROPERTIES)
-                    ),
-                )
+                if self._format == "NETCDF4_CLASSIC" and self._h5py.__name__ == "h5py":
+                    _create_string_attribute(
+                        self.attrs._h5attrs._id, "_NCProperties", _NC_PROPERTIES
+                    )
+                else:
+                    self.attrs._h5attrs["_NCProperties"] = np.array(
+                        _NC_PROPERTIES,
+                        dtype=self._h5py.string_dtype(
+                            encoding="ascii", length=len(_NC_PROPERTIES)
+                        ),
+                    )
+                if self._format == "NETCDF4_CLASSIC":
+                    self.attrs._h5attrs["_nc3_strict"] = np.array(1, np.int32)
+
             if self.invalid_netcdf:
                 # see https://github.com/h5netcdf/h5netcdf/issues/165
                 # warn user if .nc file extension is used for invalid netcdf features
@@ -1692,6 +2075,8 @@ class File(Group):
                 # remove _NCProperties if invalid_netcdf if exists
                 if "_NCProperties" in self.attrs._h5attrs:
                     del self.attrs._h5attrs["_NCProperties"]
+                if "_nc3_strict" in self.attrs._h5attrs:
+                    del self.attrs._h5attrs["_nc3_strict"]
 
     sync = flush
 
@@ -1723,7 +2108,9 @@ class File(Group):
         if self._closed:
             return f"<Closed {self._cls_name}>"
         header = (
-            f"<{self._cls_name} {os.path.basename(self.filename)!r} (mode {self.mode})>"
+            f"<{self._cls_name} "
+            f"{os.path.basename(self.filename)!r} "
+            f"(mode {self.mode}, backend {self.backend})>"
         )
         return "\n".join([header] + self._repr_body())
 

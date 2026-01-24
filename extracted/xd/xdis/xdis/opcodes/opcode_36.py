@@ -1,4 +1,4 @@
-# (C) Copyright 2016-2017, 2019-2021, 2023-2024
+# (C) Copyright 2016-2017, 2019-2021, 2023-2025
 # by Rocky Bernstein
 #
 #  This program is free software; you can redistribute it and/or
@@ -185,17 +185,17 @@ def extended_format_FORMAT_VALUE(
 def extended_format_MAKE_FUNCTION_36(
     opc, instructions: List[Instruction]
 ) -> Tuple[str, int]:
-    assert len(instructions) >= 2
+    assert len(instructions) >= 3
     inst = instructions[0]
     assert inst.opname in ("MAKE_FUNCTION", "MAKE_CLOSURE")
     s = ""
-    name_inst = instructions[1]
     code_inst = instructions[2]
     start_offset = code_inst.offset
     if code_inst.opname == "LOAD_CONST" and hasattr(code_inst.argval, "co_name"):
+        arg_flags = instructions[0].argval
+        param_elision_str = extended_function_signature(code_inst.argval) if arg_flags != 0 else ""
         s += (
-            f"def {name_inst.argval}({extended_function_signature(code_inst.argval)}): "
-            "..."
+            f"def {code_inst.argval.co_name}({param_elision_str}): ..."
         )
         return s, start_offset
     return s, start_offset
@@ -218,7 +218,7 @@ def format_MAKE_FUNCTION_36(flags: int) -> str:
     return pattr
 
 
-def format_value_flags(flags):
+def format_value_flags(flags) -> str | None:
     if (flags & 0x03) == 0x00:
         return ""
     elif (flags & 0x03) == 0x01:
@@ -233,11 +233,11 @@ def format_value_flags(flags):
         return ""
 
 
-def format_extended_arg36(arg):
+def format_extended_arg36(arg) -> str:
     return str(arg * (1 << 8))
 
 
-def format_CALL_FUNCTION(argc):
+def format_CALL_FUNCTION(argc) -> str:
     """argc indicates the number of positional arguments"""
     if argc == 1:
         plural = ""
@@ -246,7 +246,7 @@ def format_CALL_FUNCTION(argc):
     return "%d positional argument%s" % (argc, plural)
 
 
-def format_CALL_FUNCTION_EX(flags):
+def format_CALL_FUNCTION_EX(flags) -> str:
     str = ""
     if flags & 0x01:
         str = "keyword and positional arguments"

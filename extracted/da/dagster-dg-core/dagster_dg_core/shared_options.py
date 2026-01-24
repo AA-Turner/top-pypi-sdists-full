@@ -1,8 +1,8 @@
 import os
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, Optional, TypeVar, Union
 
 import click
 
@@ -103,14 +103,11 @@ EDITABLE_DAGSTER_OPTIONS = {
     for option in [
         click.Option(
             ["--use-editable-dagster"],
-            type=str,
-            flag_value="TRUE",
-            is_flag=False,
-            default="TRUE" if is_use_editable_env_var_true() else None,
+            is_flag=True,
+            default=True if is_use_editable_env_var_true() else False,
             help=(
-                "Install all Dagster package dependencies from a local Dagster clone. Accepts a path to local Dagster clone root or"
-                " may be set as a flag (no value is passed). If set as a flag,"
-                " the location of the local Dagster clone will be read from the `DAGSTER_GIT_REPO_DIR` environment variable."
+                "Install all Dagster package dependencies from a local Dagster clone. The location "
+                "of the local Dagster clone will be read from the `DAGSTER_GIT_REPO_DIR` environment variable."
             ),
         ),
     ]
@@ -134,3 +131,21 @@ PATH_OPTIONS = {
 }
 
 dg_path_options = make_option_group(PATH_OPTIONS)
+
+VENV_OPTIONS = {
+    not_none(option.name): option
+    for option in [
+        click.Option(
+            ["--use-active-venv"],
+            type=click.BOOL,
+            is_flag=True,
+            default=False,
+            help=(
+                "Use the active virtual environment as defined by $VIRTUAL_ENV for all projects "
+                "instead of attempting to resolve individual project virtual environments."
+            ),
+        ),
+    ]
+}
+
+dg_venv_options = make_option_group(VENV_OPTIONS)

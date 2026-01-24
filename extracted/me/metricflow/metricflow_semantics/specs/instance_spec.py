@@ -8,16 +8,15 @@ from typing import Generic, List, Optional, Sequence, Tuple, TypeVar
 from dbt_semantic_interfaces.dataclass_serialization import SerializableDataclass
 from dbt_semantic_interfaces.references import EntityReference, LinkableElementReference
 
-from metricflow_semantics.model.semantics.linkable_element import ElementPathKey
 from metricflow_semantics.naming.linkable_spec_name import StructuredLinkableSpecName
 
 if typing.TYPE_CHECKING:
     from metricflow_semantics.specs.dimension_spec import DimensionSpec
     from metricflow_semantics.specs.entity_spec import EntitySpec
     from metricflow_semantics.specs.group_by_metric_spec import GroupByMetricSpec
-    from metricflow_semantics.specs.measure_spec import MeasureSpec
     from metricflow_semantics.specs.metadata_spec import MetadataSpec
     from metricflow_semantics.specs.metric_spec import MetricSpec
+    from metricflow_semantics.specs.simple_metric_input_spec import SimpleMetricInputSpec
     from metricflow_semantics.specs.time_dimension_spec import TimeDimensionSpec
 from metricflow_semantics.visitor import VisitorOutputT
 
@@ -44,8 +43,8 @@ class InstanceSpec(SerializableDataclass):
         return result
 
     @property
-    def qualified_name(self) -> str:
-        """Return the qualified name of this spec. e.g. "user_id__country"."""
+    def dunder_name(self) -> str:
+        """Return the dunder name of this spec. e.g. "user_id__country"."""
         raise NotImplementedError()
 
     def accept(self, visitor: InstanceSpecVisitor[VisitorOutputT]) -> VisitorOutputT:
@@ -65,7 +64,7 @@ class InstanceSpecVisitor(Generic[VisitorOutputT], ABC):
     """Visitor for the InstanceSpec classes."""
 
     @abstractmethod
-    def visit_measure_spec(self, measure_spec: MeasureSpec) -> VisitorOutputT:  # noqa: D102
+    def visit_simple_metric_input_spec(self, spec: SimpleMetricInputSpec) -> VisitorOutputT:  # noqa: D102
         raise NotImplementedError
 
     @abstractmethod
@@ -127,22 +126,16 @@ class LinkableInstanceSpec(InstanceSpec, ABC):
         return result
 
     @property
-    def qualified_name(self) -> str:
+    def dunder_name(self) -> str:
         """Return the qualified name of this spec. e.g. "user_id__country"."""
         return StructuredLinkableSpecName(
             entity_link_names=tuple(x.element_name for x in self.entity_links), element_name=self.element_name
-        ).qualified_name
+        ).dunder_name
 
     @property
     @abstractmethod
     def reference(self) -> LinkableElementReference:
         """Return the LinkableElementReference associated with the spec instance."""
-        raise NotImplementedError()
-
-    @property
-    @abstractmethod
-    def element_path_key(self) -> ElementPathKey:
-        """Return the ElementPathKey representation of the LinkableInstanceSpec subtype."""
         raise NotImplementedError()
 
     @abstractmethod

@@ -1,25 +1,14 @@
 import abc
 import keyword
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Protocol,
-    Sequence,
-    Tuple,
-    TypeVar,
-)
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Any, Generic, Optional, Protocol, TypeVar
 
 from comtypes.tools import typedesc
 
 
 class _MethodTypeDesc(Protocol):
-    arguments: List[Tuple[Any, str, List[str], Optional[Any]]]
-    idlflags: List[str]
+    arguments: list[tuple[Any, str, list[str], Optional[Any]]]
+    idlflags: list[str]
     name: str
 
 
@@ -31,7 +20,7 @@ class _MethodAnnotator(abc.ABC, Generic[_T_MTD]):
         self.method = method
 
     @property
-    def inarg_specs(self) -> Sequence[Tuple[Any, str, Optional[Any]]]:
+    def inarg_specs(self) -> Sequence[tuple[Any, str, Optional[Any]]]:
         index = 0
         result = []
         for typ, name, flags, default in self.method.arguments:
@@ -46,20 +35,20 @@ class _MethodAnnotator(abc.ABC, Generic[_T_MTD]):
     def getvalue(self, name: str) -> str: ...
 
 
-_CatMths = Tuple[  # categorized methods
+_CatMths = tuple[  # categorized methods
     str, Optional[_T_MTD], Optional[_T_MTD], Optional[_T_MTD], Optional[_T_MTD]
 ]
 
 
 class _MethodsAnnotator(abc.ABC, Generic[_T_MTD]):
     def __init__(self) -> None:
-        self.data: List[str] = []
+        self.data: list[str] = []
 
     @abc.abstractmethod
     def to_method_annotator(self, method: _T_MTD) -> _MethodAnnotator[_T_MTD]: ...
 
     def _iter_methods(self, members: Iterable[_T_MTD]) -> Iterator[_CatMths[_T_MTD]]:
-        methods: Dict[str, List[Optional[_T_MTD]]] = {}
+        methods: dict[str, list[Optional[_T_MTD]]] = {}
         MTH = 0
         GET = 1
         PUT = 2
@@ -233,25 +222,41 @@ def _to_outtype(typ: Any) -> str:
     return "hints.Incomplete"
 
 
+def _generate_trailing_params(specs: Sequence[tuple[Any, str, Optional[Any]]]) -> str:
+    """Generates a type hint for variadic positional arguments.
+
+    This is for cases where required parameters follow optional ones, which is
+    not directly representable in Python's syntax. This pattern typically
+    occurs in COM `propput` or `propputref` methods that take multiple
+    arguments, corresponding to assignments like `obj.prop[a, b] = value`.
+    """
+    params = f"tuple[{', '.join(('hints.Incomplete',) * len(specs))}]"
+    return f"*args: hints.Unpack[{params}]"
+
+
 class ComMethodAnnotator(_MethodAnnotator[typedesc.ComMethod]):
-    def _iter_outarg_specs(self) -> Iterator[Tuple[Any, str]]:
+    def _iter_outarg_specs(self) -> Iterator[tuple[Any, str]]:
         for typ, name, flags, _ in self.method.arguments:
             if "out" in flags:
                 yield typ, name
 
     def getvalue(self, name: str) -> str:
+        specs = self.inarg_specs
         inargs = []
         has_optional = False
-        for _, argname, default in self.inarg_specs:
+        for i, (_, argname, default) in enumerate(specs):
             if keyword.iskeyword(argname):
                 inargs = ["*args: hints.Any", "**kwargs: hints.Any"]
                 break
             if default is None:
                 if has_optional:
-                    # probably propput or propputref
+                    # Required parameters are positioned after optional ones.
+                    # This likely indicates a named propput or named propputref
+                    # assignment in the form of `obj.prop[...] = ...`.
                     # HACK: Something that goes into this conditional branch
                     #       should be a special callback.
-                    inargs.append("**kwargs: hints.Any")
+                    inargs.append("/")
+                    inargs.append(_generate_trailing_params(specs[i:]))
                     break
                 inargs.append(f"{argname}: hints.Incomplete")
             else:
@@ -263,7 +268,7 @@ class ComMethodAnnotator(_MethodAnnotator[typedesc.ComMethod]):
         elif len(outargs) == 1:
             out = outargs[0]
         else:
-            out = "hints.Tuple[" + ", ".join(outargs) + "]"
+            out = "tuple[" + ", ".join(outargs) + "]"
         in_ = ("self, " + ", ".join(inargs)) if inargs else "self"
         content = f"def {name}({in_}) -> {out}: ..."
         if keyword.iskeyword(name):
@@ -286,26 +291,42 @@ class ComInterfaceMembersAnnotator:
 
 class DispMethodAnnotator(_MethodAnnotator[typedesc.DispMethod]):
     def getvalue(self, name: str) -> str:
+        specs = self.inarg_specs
         inargs = []
         has_optional = False
-        for _, argname, default in self.inarg_specs:
+        # NOTE: Since named parameters are not yet implemented, all arguments
+        #       for the dispmethod (called via `Invoke`) are marked as
+        #       positional-only parameters, introduced in PEP570.
+        #       See also `automation.IDispatch.Invoke`.
+        #       See https://github.com/enthought/comtypes/issues/371
+        for i, (_, argname, default) in enumerate(specs):
             if keyword.iskeyword(argname):
                 inargs = ["*args: hints.Any", "**kwargs: hints.Any"]
                 break
             if default is None:
                 if has_optional:
-                    # probably propput or propputref
+                    # Required parameters are positioned after optional ones.
+                    # This likely indicates a named propput or named propputref
+                    # assignment in the form of `obj.prop[...] = ...`.
+                    inargs.append("/")
                     # HACK: Something that goes into this conditional branch
                     #       should be a special callback.
-                    inargs.append("**kwargs: hints.Any")
+                    inargs.append(_generate_trailing_params(specs[i:]))
                     break
                 inargs.append(f"{argname}: hints.Incomplete")
             else:
                 inargs.append(f"{argname}: hints.Incomplete = ...")
                 has_optional = True
+        else:
+            # TODO: After named parameters are supported, the positional-only
+            #       parameter markers will be removed.
+            if inargs:
+                inargs.append("/")
         out = _to_outtype(self.method.returns)
-        in_ = ("self, " + ", ".join(inargs)) if inargs else "self"
-        content = f"def {name}({in_}) -> {out}: ..."
+        if inargs:
+            content = f"def {name}(self, {', '.join(inargs)}) -> {out}: ..."
+        else:
+            content = f"def {name}(self) -> {out}: ..."
         if keyword.iskeyword(name):
             content = f"pass  # avoid using a keyword for {content}"
         return content
@@ -322,9 +343,9 @@ class DispInterfaceMembersAnnotator:
 
     def _categorize_members(
         self,
-    ) -> Tuple[Iterable[typedesc.DispProperty], Iterable[typedesc.DispMethod]]:
-        props: List[typedesc.DispProperty] = []
-        methods: List[typedesc.DispMethod] = []
+    ) -> tuple[Iterable[typedesc.DispProperty], Iterable[typedesc.DispMethod]]:
+        props: list[typedesc.DispProperty] = []
+        methods: list[typedesc.DispMethod] = []
         for mem in self.itf.members:
             if isinstance(mem, typedesc.DispMethod):
                 methods.append(mem)
@@ -334,7 +355,7 @@ class DispInterfaceMembersAnnotator:
 
     def generate(self) -> str:
         props, methods = self._categorize_members()
-        property_lines: List[str] = []
+        property_lines: list[str] = []
         for mem in props:
             out = _to_outtype(mem.typ)
             decorator = "@property  # dispprop"

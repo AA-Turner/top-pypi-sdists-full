@@ -74,7 +74,7 @@ def version() -> str:
 
 
 setuptools.setup(
-    name="pylint-gitlab",
+    name="pylint_gitlab",
     version=version(),
     author="Stephan Müller",
     author_email="mail@stephanmueller.eu",

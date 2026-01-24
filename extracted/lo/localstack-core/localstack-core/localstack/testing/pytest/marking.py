@@ -3,7 +3,8 @@ Custom pytest mark typings
 """
 
 import os
-from typing import TYPE_CHECKING, Callable, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
 from _pytest.config import PytestPluginManager
@@ -36,13 +37,13 @@ class SkipSnapshotVerifyMarker:
     def __call__(
         self,
         *,
-        paths: "Optional[list[str]]" = None,
-        condition: "Optional[Callable[[...], bool]]" = None,
+        paths: "list[str] | None" = None,
+        condition: "Callable[[...], bool] | None" = None,
     ): ...
 
 
 class MultiRuntimeMarker:
-    def __call__(self, *, scenario: str, runtimes: Optional[list[str]] = None): ...
+    def __call__(self, *, scenario: str, runtimes: list[str] | None = None): ...
 
 
 class SnapshotMarkers:
@@ -75,6 +76,10 @@ class Markers:
     """The test requires docker or a compatible container engine - will not work on kubernetes"""
     lambda_runtime_update = pytest.mark.lambda_runtime_update
     """Tests to execute when updating snapshots for a new Lambda runtime"""
+    k8s_always_run = pytest.mark.k8s_always_run
+    """This tests will always run against k8s environment"""
+    skip_k8s = pytest.mark.skip_k8s
+    """This test will be skipped in k8s environment"""
 
 
 # pytest plugin
@@ -225,4 +230,8 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers",
         "requires_in_process: mark the test as requiring the test to run inside the same process as LocalStack - will not work if tests are run against a running LS container.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "k8s_always_run: mark the test to always run in k8s environment. This allows us to run tests that would otherwise be skipped, such as localstack_only tests.",
     )

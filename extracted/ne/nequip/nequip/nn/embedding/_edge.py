@@ -9,44 +9,10 @@ from nequip.utils.global_dtype import _GLOBAL_DTYPE
 from nequip.utils.compile import conditional_torchscript_jit
 from nequip.data import AtomicDataDict
 from .._graph_mixin import GraphModuleMixin
-from ..utils import with_edge_vectors_
+from ..utils import with_edge_vectors_, with_edge_type_
+from .utils import cutoff_partialdict_to_tensor
 
 from typing import Optional, List, Dict, Union
-
-
-def _process_per_edge_type_cutoff(
-    type_names: List[str], per_edge_type_cutoff, r_max: float
-) -> torch.Tensor:
-    num_types: int = len(type_names)
-
-    # map dicts from type name to thing into lists
-    processed_cutoffs = {}
-    for source_type in type_names:
-        if source_type in per_edge_type_cutoff:
-            e = per_edge_type_cutoff[source_type]
-            if not isinstance(e, float):
-                cutoffs_for_source = []
-                for target_type in type_names:
-                    if target_type in e:
-                        cutoffs_for_source.append(e[target_type])
-                    else:
-                        # default missing target types to `r_max`
-                        cutoffs_for_source.append(r_max)
-                processed_cutoffs[source_type] = cutoffs_for_source
-            else:
-                processed_cutoffs[source_type] = [e] * num_types
-        else:
-            # default missing source types to `r_max`
-            processed_cutoffs[source_type] = [r_max] * num_types
-
-    per_edge_type_cutoff = [processed_cutoffs[k] for k in type_names]
-    per_edge_type_cutoff = torch.as_tensor(
-        per_edge_type_cutoff, dtype=_GLOBAL_DTYPE
-    ).contiguous()
-    assert per_edge_type_cutoff.shape == (num_types, num_types)
-    assert torch.all(per_edge_type_cutoff > 0)
-    assert torch.all(per_edge_type_cutoff <= r_max)
-    return per_edge_type_cutoff
 
 
 @compile_mode("script")
@@ -78,8 +44,8 @@ class EdgeLengthNormalizer(GraphModuleMixin, torch.nn.Module):
         if per_edge_type_cutoff is not None:
             # process per_edge_type_cutoff
             self._per_edge_type = True
-            per_edge_type_cutoff = _process_per_edge_type_cutoff(
-                type_names, per_edge_type_cutoff, self.r_max
+            per_edge_type_cutoff = cutoff_partialdict_to_tensor(
+                per_edge_type_cutoff, type_names, self.r_max
             )
             # compute 1/rmax and flatten for how they're used in forward, i.e. (n_type, n_type) -> (n_type^2,)
             rmax_recip = per_edge_type_cutoff.reciprocal().view(-1)
@@ -103,17 +69,13 @@ class EdgeLengthNormalizer(GraphModuleMixin, torch.nn.Module):
         # == get norm ==
         rmax_recip = self._rmax_recip
         if self._per_edge_type:
-            # get edge types with shape (2, num_edges) form first
-            edge_type = torch.index_select(
-                data[AtomicDataDict.ATOM_TYPE_KEY].view(-1),
-                0,
-                data[AtomicDataDict.EDGE_INDEX_KEY].view(-1),
-            ).view(2, -1)
-            data[self.edge_type_field] = edge_type
-            # then convert into row-major NxN matrix index with shape (num_edges,)
-            edge_type = edge_type[0] * self.num_types + edge_type[1]
+            # use helper to get edge types
+            data = with_edge_type_(data, self.edge_type_field)
+            edge_type = data[self.edge_type_field]
+            # convert to row-major NxN matrix index with shape (num_edges,)
+            edge_type_flat = edge_type[0] * self.num_types + edge_type[1]
             # (num_type^2,), (num_edges,) -> (num_edges, 1)
-            rmax_recip = torch.index_select(rmax_recip, 0, edge_type).unsqueeze(-1)
+            rmax_recip = torch.index_select(rmax_recip, 0, edge_type_flat).unsqueeze(-1)
         data[self.norm_length_field] = r * rmax_recip
         return data
 

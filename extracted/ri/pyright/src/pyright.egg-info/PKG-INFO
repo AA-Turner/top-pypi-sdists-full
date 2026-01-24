@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyright
-Version: 1.1.405
+Version: 1.1.408
 Summary: Command line wrapper for pyright
 Home-page: https://github.com/RobertCraigie/pyright-python
 Author: Robert Craigie
@@ -20,10 +20,29 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: dev
-Provides-Extra: nodejs
-Provides-Extra: all
 License-File: LICENSE
+Requires-Dist: nodeenv>=1.6.0
+Requires-Dist: typing-extensions>=4.1
+Provides-Extra: dev
+Requires-Dist: twine>=3.4.1; extra == "dev"
+Provides-Extra: nodejs
+Requires-Dist: nodejs-wheel-binaries; extra == "nodejs"
+Provides-Extra: all
+Requires-Dist: twine>=3.4.1; extra == "all"
+Requires-Dist: nodejs-wheel-binaries; extra == "all"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Pyright for Python
 
@@ -75,7 +94,7 @@ You can also setup pyright to run automatically before each commit by setting up
 ```yaml
 repos:
   - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.405
+    rev: v1.1.408
     hooks:
     - id: pyright
 ```

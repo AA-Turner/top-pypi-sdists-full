@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "toolchain_layering_check_lib",
@@ -6,6 +6,7 @@ go_library(
     importpath = "go.skia.org/skia/infra/bots/task_drivers/toolchain_layering_check",
     visibility = ["//visibility:private"],
     deps = [
+        "//infra/bots/task_drivers/common",
         "@org_skia_go_infra//go/exec",
         "@org_skia_go_infra//task_driver/go/lib/bazel",
         "@org_skia_go_infra//task_driver/go/lib/os_steps",

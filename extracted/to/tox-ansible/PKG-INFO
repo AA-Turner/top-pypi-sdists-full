@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: tox-ansible
-Version: 25.8.0
+Version: 26.1.0
 Summary: A radical approach to testing ansible content
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
-License: MIT
+License-Expression: MIT
 Project-URL: changelog, https://github.com/ansible/tox-ansible/releases
 Project-URL: documentation, https://ansible.readthedocs.io/projects/tox-ansible/
 Project-URL: homepage, https://github.com/ansible/tox-ansible
@@ -12,7 +12,6 @@ Project-URL: repository, https://github.com/ansible/tox-ansible
 Keywords: ansible,collections,tox
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -29,27 +28,11 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pytest
+Requires-Dist: pytest>=8.4.1
 Requires-Dist: pytest-ansible>=3.1.0
-Requires-Dist: pytest-xdist
-Requires-Dist: pyyaml
+Requires-Dist: pytest-xdist>=3.8.0
+Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: tox>=4.15.1
-Provides-Extra: docs
-Requires-Dist: mkdocs-ansible>=0.2.0; extra == "docs"
-Provides-Extra: test
-Requires-Dist: ansible-core; extra == "test"
-Requires-Dist: coverage[toml]; extra == "test"
-Requires-Dist: mypy; extra == "test"
-Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: pydoclint; extra == "test"
-Requires-Dist: pylint; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: ruff; extra == "test"
-Requires-Dist: toml-sort; extra == "test"
-Requires-Dist: tox; extra == "test"
-Requires-Dist: tox-extra>=2.2.0; extra == "test"
-Requires-Dist: types-PyYAML; extra == "test"
 Dynamic: license-file
 
 # tox-ansible

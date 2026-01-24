@@ -1,20 +1,30 @@
-- name: "initialize route maps"
-  vars:
-    ansible_connection: network_cli
-  sonic_config:
-    commands: "{{ preparations_tests.init_route_map }}"
-- name: "initialize VRFs"
-  vars:
-    ansible_connection: network_cli
-  sonic_config:
-    commands: "{{ preparations_tests.init_vrf }}"
-- name: Deletes old bgp
-  sonic_bgp:
-    config: []
-    state: deleted
-  ignore_errors: yes    
-- name: Create bgp 
-  sonic_bgp:
-    config: "{{ preparations_tests.init_bgp }}"
+---
+- name: "Initialize prefix list"
+  dellemc.enterprise_sonic.sonic_prefix_lists:
+    config:
+      - afi: ipv4
+        name: pf1
+        prefixes:
+          - action: permit
+            sequence: 40
+            prefix: 1.2.3.0/24
     state: merged
-  ignore_errors: yes
+  failed_when: false
+
+- name: "Initialize route maps"
+  dellemc.enterprise_sonic.sonic_route_maps:
+    config: "{{ sonic_bgp_af_preparation_task_input.route_map }}"
+    state: overridden
+  failed_when: false
+
+- name: "Initialize VRFs"
+  dellemc.enterprise_sonic.sonic_vrfs:
+    config: "{{ sonic_bgp_af_preparation_task_input.vrf }}"
+    state: overridden
+  failed_when: false
+
+- name: "Initialize BGP"
+  dellemc.enterprise_sonic.sonic_bgp:
+    config: "{{ sonic_bgp_af_preparation_task_input.bgp }}"
+    state: overridden
+  failed_when: false

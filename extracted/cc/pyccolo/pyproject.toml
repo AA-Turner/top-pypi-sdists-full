@@ -1,0 +1,44 @@
+[build-system]
+requires = [
+    "setuptools >= 48",
+    "wheel >= 0.30.0",
+    "setuptools-git-versioning",
+]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools-git-versioning]
+enabled = true
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+extend-exclude = '(^/pyccolo/__init__|^/versioneer|_version|.*uses_optional_chaining)\.py'
+
+[tool.isort]
+profile = 'black'
+extend_skip_glob = [
+    '**/pyccolo/__init__.py',
+    '**/versioneer.py',
+    '**/_version.py',
+    '**/setup.py',
+]
+
+[tool.pytest.ini_options]
+markers = ['integration: mark a test as an integration test.']
+filterwarnings = [
+    'ignore::DeprecationWarning',
+    'ignore::pytest.PytestAssertRewriteWarning',
+]
+
+[tool.coverage.run]
+source = ['pyccolo']
+omit = ['pyccolo/_version.py', 'pyccolo/version.py', 'pyccolo/examples/**']
+
+[tool.coverage.report]
+exclude_lines = [
+    'pragma: no cover *$',
+    '^ *if TYPE_CHECKING:',
+    '^ *except Exception',
+    '^ *raise',
+    '^ *\.\.\.',
+]

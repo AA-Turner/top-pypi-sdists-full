@@ -2,9 +2,7 @@
 
 from typing import List, Optional
 
-from pyspark.sql import SparkSession
-from pyspark.sql.column import Column
-from pyspark.sql.functions import DataFrame
+from pyspark.sql import SparkSession, Column, DataFrame
 
 import prophecy.lookups.LookupsNative
 from prophecy.lookups.LookupsNative import LookupCondition as LookupConditionNative

@@ -1,7 +1,7 @@
 # This file is part of Cantera. See License.txt in the top-level directory or
 # at https://cantera.org/license.txt for license and copyright information.
 
-from ctypes import c_int
+from ctypes import c_int as _c_int
 import warnings
 cimport numpy as np
 import numpy as np
@@ -37,8 +37,8 @@ cdef np.ndarray get_dense(CxxSparseMatrix& smat):
         return np.zeros((smat.rows(), 0))
 
     # index/value triplets
-    cdef np.ndarray[int, ndim=1, mode="c"] rows = np.empty(length, dtype=c_int)
-    cdef np.ndarray[int, ndim=1, mode="c"] cols = np.empty(length, dtype=c_int)
+    cdef np.ndarray[int, ndim=1, mode="c"] rows = np.empty(length, dtype=_c_int)
+    cdef np.ndarray[int, ndim=1, mode="c"] cols = np.empty(length, dtype=_c_int)
     cdef np.ndarray[np.double_t, ndim=1] data = np.empty(length)
 
     size = CxxSparseTriplets(smat, &rows[0], &cols[0], &data[0], length)
@@ -51,11 +51,11 @@ cdef get_sparse(CxxSparseMatrix& smat):
     # pointers to values and inner indices of CSC storage
     cdef size_t length = smat.nonZeros()
     cdef np.ndarray[np.double_t, ndim=1] value = np.empty(length)
-    cdef np.ndarray[int, ndim=1, mode="c"] inner = np.empty(length, dtype=c_int)
+    cdef np.ndarray[int, ndim=1, mode="c"] inner = np.empty(length, dtype=_c_int)
 
     # pointers outer indices of CSC storage
     cdef size_t ncols = smat.outerSize()
-    cdef np.ndarray[int, ndim=1, mode="c"] outer = np.empty(ncols + 1, dtype=c_int)
+    cdef np.ndarray[int, ndim=1, mode="c"] outer = np.empty(ncols + 1, dtype=_c_int)
 
     CxxSparseCscData(smat, &value[0], &inner[0], &outer[0])
     return value, inner, outer
@@ -110,21 +110,6 @@ cdef class Kinetics(_SolutionBase):
         def __get__(self):
             return self.kinetics.nPhases()
 
-    property reaction_phase_index:
-        """
-        The index of the phase where the reactions occur.
-
-        .. deprecated:: 3.0
-
-            After Cantera 3.0, the reacting phase is always the first phase associated
-            with the Kinetics object. This method will be removed after Cantera 3.1.
-        """
-        def __get__(self):
-            warnings.warn("Kinetics.reaction_phase_index: To be removed after "
-                          "Cantera 3.1; The reacting phase is always index 0.",
-                          DeprecationWarning)
-            return 0
-
     def _check_phase_index(self, n):
         if not 0 <= n < self.n_phases:
             raise ValueError("Phase index ({0}) out of range".format(n))
@@ -145,7 +130,7 @@ cdef class Kinetics(_SolutionBase):
         """
         cdef int k
         if isinstance(species, (str, bytes)):
-            return self.kinetics.kineticsSpeciesIndex(stringify(species))
+            return self.kinetics.kineticsSpeciesIndex(stringify(species), True)
         else:
             k = species
             self._check_kinetics_species_index(k)
@@ -157,7 +142,7 @@ cdef class Kinetics(_SolutionBase):
         Name of the species with index ``k`` in the arrays returned by methods
         of class `Kinetics`.
         """
-        return pystr(self.kinetics.kineticsSpeciesName(k))
+        return pystr(self.kinetics.kineticsSpeciesName(k, True))
 
     property kinetics_species_names:
         """
@@ -317,24 +302,24 @@ cdef class Kinetics(_SolutionBase):
 
     property forward_rates_of_progress:
         """
-        Forward rates of progress for the reactions. [kmol/m^3/s] for bulk
-        phases or [kmol/m^2/s] for surface phases.
+        Forward rates of progress for the reactions. [kmol/m³/s] for bulk
+        phases or [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_reaction_array(self, kin_getFwdRatesOfProgress)
 
     property reverse_rates_of_progress:
         """
-        Reverse rates of progress for the reactions. [kmol/m^3/s] for bulk
-        phases or [kmol/m^2/s] for surface phases.
+        Reverse rates of progress for the reactions. [kmol/m³/s] for bulk
+        phases or [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_reaction_array(self, kin_getRevRatesOfProgress)
 
     property net_rates_of_progress:
         """
-        Net rates of progress for the reactions. [kmol/m^3/s] for bulk phases
-        or [kmol/m^2/s] for surface phases.
+        Net rates of progress for the reactions. [kmol/m³/s] for bulk phases
+        or [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_reaction_array(self, kin_getNetRatesOfProgress)
@@ -370,24 +355,24 @@ cdef class Kinetics(_SolutionBase):
 
     property creation_rates:
         """
-        Creation rates for each species. [kmol/m^3/s] for bulk phases or
-        [kmol/m^2/s] for surface phases.
+        Creation rates for each species. [kmol/m³/s] for bulk phases or
+        [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_species_array(self, kin_getCreationRates)
 
     property destruction_rates:
         """
-        Destruction rates for each species. [kmol/m^3/s] for bulk phases or
-        [kmol/m^2/s] for surface phases.
+        Destruction rates for each species. [kmol/m³/s] for bulk phases or
+        [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_species_array(self, kin_getDestructionRates)
 
     property net_production_rates:
         """
-        Net production rates for each species. [kmol/m^3/s] for bulk phases or
-        [kmol/m^2/s] for surface phases.
+        Net production rates for each species. [kmol/m³/s] for bulk phases or
+        [kmol/m²/s] for surface phases.
         """
         def __get__(self):
             return get_species_array(self, kin_getNetProductionRates)
@@ -708,7 +693,7 @@ cdef class Kinetics(_SolutionBase):
         The method returns a matrix with `n_total_species` rows and `n_total_species`
         columns.
 
-        For a derivative with respect to :math: `c_i`, all other :math: `c_i` are
+        For a derivative with respect to :math:`c_i`, all other :math:`c_i` are
         held constant.
 
         .. warning::
@@ -776,7 +761,7 @@ cdef class Kinetics(_SolutionBase):
         species. For sparse output, set ``ct.use_sparse(True)``.
 
         The method returns a matrix with `n_total_species` rows and `n_total_species` columns.
-        For a derivative with respect to :math: `c_i`, all other :math: `c_i` are
+        For a derivative with respect to :math:`c_i`, all other :math:`c_i` are
         held constant.
 
         .. warning::
@@ -844,7 +829,7 @@ cdef class Kinetics(_SolutionBase):
         species. For sparse output, set ``ct.use_sparse(True)``.
 
         The method returns a matrix with `n_total_species` rows and `n_total_species` columns.
-        For a derivative with respect to :math: `c_i`, all other :math: `c_i` are
+        For a derivative with respect to :math:`c_i`, all other :math:`c_i` are
         held constant.
 
         .. warning::
@@ -908,7 +893,7 @@ cdef class Kinetics(_SolutionBase):
 
     property heat_release_rate:
         """
-        Get the total volumetric heat release rate [W/m^3].
+        Get the total volumetric heat release rate [W/m³].
         """
         def __get__(self):
             return - np.sum(self.partial_molar_enthalpies *
@@ -916,7 +901,7 @@ cdef class Kinetics(_SolutionBase):
 
     property heat_production_rates:
         """
-        Get the volumetric heat production rates [W/m^3] on a per-reaction
+        Get the volumetric heat production rates [W/m³] on a per-reaction
         basis. The sum over all reactions results in the total volumetric heat
         release rate.
         Example: C. K. Law: Combustion Physics (2006), Fig. 7.8.6
@@ -943,7 +928,7 @@ cdef class InterfaceKinetics(Kinetics):
     def _setup_phase_indices(self):
         self._phase_indices = {}
         for name, phase in list(self.adjacent.items()) + [(self.name, self)]:
-            i = self.kinetics.phaseIndex(stringify(name))
+            i = self.kinetics.phaseIndex(stringify(name), True)
             self._phase_indices[phase] = i
             self._phase_indices[name] = i
             self._phase_indices[i] = i
@@ -1010,7 +995,7 @@ cdef class InterfaceKinetics(Kinetics):
         """
         The interface current is useful when charge transfer reactions occur at
         an interface. It is defined here as the net positive charge entering the
-        phase ``phase`` (Units: A/m^2 for a surface, A/m for an edge reaction).
+        phase ``phase`` (Units: A/m² for a surface, A/m for an edge reaction).
         """
         i_phase = self.phase_index(phase)
         return (<CxxInterfaceKinetics*>self.kinetics).interfaceCurrent(i_phase)

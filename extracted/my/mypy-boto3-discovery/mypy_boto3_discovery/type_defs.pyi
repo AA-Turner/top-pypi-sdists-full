@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     TermLengthType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -162,7 +157,7 @@ class DeleteAgentTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -200,7 +195,7 @@ class ContinuousExportDescriptionTypeDef(TypedDict):
     startTime: NotRequired[datetime]
     stopTime: NotRequired[datetime]
     dataSource: NotRequired[Literal["AGENT"]]
-    schemaStorageConfig: NotRequired[Dict[str, str]]
+    schemaStorageConfig: NotRequired[dict[str, str]]
 
 class CreateApplicationRequestTypeDef(TypedDict):
     name: str
@@ -375,7 +370,7 @@ class UpdateApplicationRequestTypeDef(TypedDict):
 class AgentInfoTypeDef(TypedDict):
     agentId: NotRequired[str]
     hostName: NotRequired[str]
-    agentNetworkInfoList: NotRequired[List[AgentNetworkInfoTypeDef]]
+    agentNetworkInfoList: NotRequired[list[AgentNetworkInfoTypeDef]]
     connectorId: NotRequired[str]
     version: NotRequired[str]
     health: NotRequired[AgentStatusType]
@@ -388,7 +383,7 @@ class BatchDeleteAgentsRequestTypeDef(TypedDict):
     deleteAgents: Sequence[DeleteAgentTypeDef]
 
 class BatchDeleteAgentsResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteAgentErrorTypeDef]
+    errors: list[BatchDeleteAgentErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateApplicationResponseTypeDef(TypedDict):
@@ -396,7 +391,7 @@ class CreateApplicationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeConfigurationsResponseTypeDef(TypedDict):
-    configurations: List[Dict[str, str]]
+    configurations: list[dict[str, str]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExportConfigurationsResponseTypeDef(TypedDict):
@@ -404,7 +399,7 @@ class ExportConfigurationsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationsResponseTypeDef(TypedDict):
-    configurations: List[Dict[str, str]]
+    configurations: list[dict[str, str]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -417,11 +412,11 @@ class StartContinuousExportResponseTypeDef(TypedDict):
     s3Bucket: str
     startTime: datetime
     dataSource: Literal["AGENT"]
-    schemaStorageConfig: Dict[str, str]
+    schemaStorageConfig: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDataCollectionByAgentIdsResponseTypeDef(TypedDict):
-    agentsConfigurationStatus: List[AgentConfigurationStatusTypeDef]
+    agentsConfigurationStatus: list[AgentConfigurationStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartExportTaskResponseTypeDef(TypedDict):
@@ -434,7 +429,7 @@ class StopContinuousExportResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StopDataCollectionByAgentIdsResponseTypeDef(TypedDict):
-    agentsConfigurationStatus: List[AgentConfigurationStatusTypeDef]
+    agentsConfigurationStatus: list[AgentConfigurationStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteConfigurationTaskTypeDef(TypedDict):
@@ -443,22 +438,22 @@ class BatchDeleteConfigurationTaskTypeDef(TypedDict):
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
     configurationType: NotRequired[Literal["SERVER"]]
-    requestedConfigurations: NotRequired[List[str]]
-    deletedConfigurations: NotRequired[List[str]]
-    failedConfigurations: NotRequired[List[FailedConfigurationTypeDef]]
-    deletionWarnings: NotRequired[List[DeletionWarningTypeDef]]
+    requestedConfigurations: NotRequired[list[str]]
+    deletedConfigurations: NotRequired[list[str]]
+    failedConfigurations: NotRequired[list[FailedConfigurationTypeDef]]
+    deletionWarnings: NotRequired[list[DeletionWarningTypeDef]]
 
 class BatchDeleteImportDataResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteImportDataErrorTypeDef]
+    errors: list[BatchDeleteImportDataErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTagsResponseTypeDef(TypedDict):
-    tags: List[ConfigurationTagTypeDef]
+    tags: list[ConfigurationTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeContinuousExportsResponseTypeDef(TypedDict):
-    descriptions: List[ContinuousExportDescriptionTypeDef]
+    descriptions: list[ContinuousExportDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -501,12 +496,12 @@ class DescribeExportConfigurationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeExportConfigurationsResponseTypeDef(TypedDict):
-    exportsInfo: List[ExportInfoTypeDef]
+    exportsInfo: list[ExportInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeExportTasksResponseTypeDef(TypedDict):
-    exportsInfo: List[ExportInfoTypeDef]
+    exportsInfo: list[ExportInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -531,7 +526,7 @@ class DescribeImportTasksRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class DescribeImportTasksResponseTypeDef(TypedDict):
-    tasks: List[ImportTaskTypeDef]
+    tasks: list[ImportTaskTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -571,13 +566,13 @@ class ListConfigurationsRequestTypeDef(TypedDict):
     orderBy: NotRequired[Sequence[OrderByElementTypeDef]]
 
 class ListServerNeighborsResponseTypeDef(TypedDict):
-    neighbors: List[NeighborConnectionDetailTypeDef]
+    neighbors: list[NeighborConnectionDetailTypeDef]
     knownDependencyCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DescribeAgentsResponseTypeDef(TypedDict):
-    agentsInfo: List[AgentInfoTypeDef]
+    agentsInfo: list[AgentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

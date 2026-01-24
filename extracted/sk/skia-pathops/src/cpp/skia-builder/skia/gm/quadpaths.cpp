@@ -11,6 +11,7 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkScalar.h"
 #include "include/core/SkSize.h"
@@ -19,6 +20,7 @@
 #include "include/core/SkTypes.h"
 #include "src/base/SkRandom.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 namespace skiagm {
 
@@ -27,12 +29,9 @@ public:
     QuadPathGM() {}
 
 protected:
+    SkString getName() const override { return SkString("quadpath"); }
 
-    SkString onShortName() override {
-        return SkString("quadpath");
-    }
-
-    SkISize onISize() override { return SkISize::Make(1240, 390); }
+    SkISize getISize() override { return SkISize::Make(1240, 390); }
 
     void drawPath(SkPath& path,SkCanvas* canvas,SkColor color,
                   const SkRect& clip,SkPaint::Cap cap, SkPaint::Join join,
@@ -86,14 +85,16 @@ protected:
             const char* fName;
         };
         PathAndName path;
-        path.fPath.moveTo(25*SK_Scalar1, 10*SK_Scalar1);
-        path.fPath.quadTo(50*SK_Scalar1, 20*SK_Scalar1,
-                          75*SK_Scalar1, 10*SK_Scalar1);
+        path.fPath = SkPathBuilder()
+                     .moveTo(25*SK_Scalar1, 10*SK_Scalar1)
+                     .quadTo(50*SK_Scalar1, 20*SK_Scalar1,
+                             75*SK_Scalar1, 10*SK_Scalar1)
+                     .detach();
         path.fName = "moveTo-quad";
 
         SkPaint titlePaint;
-        SkFont  font(ToolUtils::create_portable_typeface(), 15);
-        SkFont  labelFont(ToolUtils::create_portable_typeface(), 10);
+        SkFont  font(ToolUtils::DefaultPortableTypeface(), 15);
+        SkFont  labelFont(ToolUtils::DefaultPortableTypeface(), 10);
 
         const char title[] = "Quad Drawn Into Rectangle Clips With "
                              "Indicated Style, Fill and Linecaps, with stroke width 10";
@@ -157,12 +158,9 @@ public:
     QuadClosePathGM() {}
 
 protected:
+    SkString getName() const override { return SkString("quadclosepath"); }
 
-    SkString onShortName() override {
-        return SkString("quadclosepath");
-    }
-
-    SkISize onISize() override { return SkISize::Make(1240, 390); }
+    SkISize getISize() override { return SkISize::Make(1240, 390); }
 
     void drawPath(SkPath& path,SkCanvas* canvas,SkColor color,
                   const SkRect& clip,SkPaint::Cap cap, SkPaint::Join join,
@@ -216,15 +214,17 @@ protected:
             const char* fName;
         };
         PathAndName path;
-        path.fPath.moveTo(25*SK_Scalar1, 10*SK_Scalar1);
-        path.fPath.quadTo(50*SK_Scalar1, 20*SK_Scalar1,
-                          75*SK_Scalar1, 10*SK_Scalar1);
-        path.fPath.close();
+        path.fPath = SkPathBuilder()
+                     .moveTo(25*SK_Scalar1, 10*SK_Scalar1)
+                     .quadTo(50*SK_Scalar1, 20*SK_Scalar1,
+                             75*SK_Scalar1, 10*SK_Scalar1)
+                     .close()
+                     .detach();
         path.fName = "moveTo-quad-close";
 
         SkPaint titlePaint;
-        SkFont     font(ToolUtils::create_portable_typeface(), 15);
-        SkFont     labelFont(ToolUtils::create_portable_typeface(), 10);
+        SkFont     font(ToolUtils::DefaultPortableTypeface(), 15);
+        SkFont     labelFont(ToolUtils::DefaultPortableTypeface(), 10);
         const char title[] = "Quad Closed Drawn Into Rectangle Clips With "
                              "Indicated Style, Fill and Linecaps, with stroke width 10";
         canvas->drawString(title, 20.0f, 20.0f, font, titlePaint);

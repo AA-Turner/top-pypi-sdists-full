@@ -17,16 +17,15 @@ from pytensor.tensor.basic import (
     ScalarFromTensor,
     Split,
     TensorFromScalar,
-    Tri,
     get_scalar_constant_value,
 )
 from pytensor.tensor.exceptions import NotScalarConstantError
 from pytensor.tensor.shape import Shape_i
 
 
-ARANGE_CONCRETE_VALUE_ERROR = """JAX requires the arguments of `jax.numpy.arange`
-to be constants. The graph that you defined thus cannot be JIT-compiled
-by JAX. An example of a graph that can be compiled to JAX:
+ARANGE_CONCRETE_VALUE_ERROR = """JAX requires the arguments of `jax.numpy.arange` to be constants.
+The graph that you defined thus cannot be JIT-compiled by JAX.
+An example of a graph that can be compiled to JAX:
 >>> import pytensor.tensor as pt
 >>> pt.arange(1, 10, 2)
 """
@@ -119,20 +118,22 @@ def jax_funcify_Split(op: Split, node, **kwargs):
     def split(x, axis, splits):
         if constant_axis is not None:
             axis = constant_axis
+            if len(splits) != op.len_splits:
+                raise ValueError("Length of splits is not equal to n_splits")
+
         if constant_splits is not None:
             splits = constant_splits
             cumsum_splits = np.cumsum(splits[:-1])
+            if (splits < 0).any():
+                raise ValueError("Split sizes cannot be negative")
         else:
             cumsum_splits = jnp.cumsum(splits[:-1])
 
-        if len(splits) != op.len_splits:
-            raise ValueError("Length of splits is not equal to n_splits")
-        if np.sum(splits) != x.shape[axis]:
-            raise ValueError(
-                f"Split sizes do not sum up to input length along axis: {x.shape[axis]}"
-            )
-        if np.any(splits < 0):
-            raise ValueError("Split sizes cannot be negative")
+        if constant_axis is not None and constant_splits is not None:
+            if splits.sum() != x.shape[axis]:
+                raise ValueError(
+                    f"Split sizes do not sum up to input length along axis: {x.shape[axis]}"
+                )
 
         return jnp.split(x, cumsum_splits, axis=axis)
 
@@ -183,19 +184,3 @@ def jax_funcify_ScalarFromTensor(op, **kwargs):
         return jnp.array(x).flatten()[0]
 
     return scalar_from_tensor
-
-
-@jax_funcify.register(Tri)
-def jax_funcify_Tri(op, node, **kwargs):
-    # node.inputs is N, M, k
-    const_args = [getattr(x, "data", None) for x in node.inputs]
-
-    def tri(*args):
-        # args is N, M, k
-        args = [
-            x if const_x is None else const_x
-            for x, const_x in zip(args, const_args, strict=True)
-        ]
-        return jnp.tri(*args, dtype=op.dtype)
-
-    return tri

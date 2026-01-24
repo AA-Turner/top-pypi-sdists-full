@@ -233,7 +233,8 @@ def stderr_input(prompt: str = '', file: IO = sys.stdout) -> str:  # pragma: no 
 
 	On Unix, GNU readline is used if enabled.
 
-	The ``prompt`` string, if given, is printed to stderr without a trailing newline before reading.
+	:param prompt: If given, is printed to stderr without a trailing newline before reading.
+	:param file:
 	"""
 
 	if file is sys.stdout:
@@ -291,7 +292,7 @@ def choice(
 		prompt_suffix: str = ...,
 		show_default: bool = ...,
 		err: bool = ...,
-		start_index: int = ...
+		start_index: int = ...,
 		) -> int: ...
 
 
@@ -303,7 +304,7 @@ def choice(
 		prompt_suffix: str = ...,
 		show_default: bool = ...,
 		err: bool = ...,
-		start_index: int = ...
+		start_index: int = ...,
 		) -> str: ...
 
 
@@ -314,7 +315,7 @@ def choice(
 		prompt_suffix: str = ": ",
 		show_default: bool = True,
 		err: bool = False,
-		start_index: int = 0
+		start_index: int = 0,
 		) -> Union[str, int]:
 	"""
 	Prompts a user for input.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: trulens-core
-Version: 2.4.0
+Version: 2.5.3
 Summary: Library to systematically track and evaluate LLM based applications.
 Home-page: https://trulens.org/
 License: MIT
@@ -15,7 +15,6 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: alembic (>=1.8.1,<2.0.0)
 Requires-Dist: dill (>=0.3.8,<0.4.0)
 Requires-Dist: importlib-resources (>=6.0,<7.0)

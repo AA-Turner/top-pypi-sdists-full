@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plum-dispatch
-Version: 2.5.7
+Version: 2.6.1
 Summary: Multiple dispatch in Python
 Project-URL: repository, https://github.com/beartype/plum
 Project-URL: documentation, https://beartype.github.io/plum
@@ -13,33 +13,16 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: beartype>=0.16.2
 Requires-Dist: rich>=10.0
 Requires-Dist: typing-extensions>=4.9.0
-Provides-Extra: dev
-Requires-Dist: black==23.9.0; extra == 'dev'
-Requires-Dist: build; extra == 'dev'
-Requires-Dist: coveralls; extra == 'dev'
-Requires-Dist: ghp-import; extra == 'dev'
-Requires-Dist: ipython; extra == 'dev'
-Requires-Dist: jupyter-book; extra == 'dev'
-Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: numpy; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pyright>=1.1.331; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: pytest>=6; extra == 'dev'
-Requires-Dist: ruff>=0.2.1; extra == 'dev'
-Requires-Dist: sybil; extra == 'dev'
-Requires-Dist: tox; extra == 'dev'
-Requires-Dist: wheel; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # [Plum: Multiple Dispatch in Python](https://github.com/beartype/plum)
 
 [![DOI](https://zenodo.org/badge/110279931.svg)](https://zenodo.org/badge/latestdoi/110279931)
-[![CI](https://github.com/beartype/plum/workflows/CI/badge.svg?branch=master)](https://github.com/beartype/plum/actions?query=workflow%3ACI)
+[![CI](https://github.com/beartype/plum/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/beartype/plum/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/beartype/plum/badge.svg?branch=master&service=github)](https://coveralls.io/github/beartype/plum?branch=master)
 [![Latest Docs](https://img.shields.io/badge/docs-latest-blue.svg)](https://beartype.github.io/plum)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
@@ -55,7 +38,7 @@ If you notice any issues with the new release, please open an issue.
 
 # Installation
 
-Plum requires Python 3.8 or higher.
+Plum requires Python 3.10 or higher.
 
 ```bash
 pip install plum-dispatch
@@ -87,7 +70,7 @@ def f(x: int):
 
 @dispatch
 def f(x: Number):
-    return "This is a general number, but I don't know which type."
+    return "This is a number, but I don't know which type."
 ```
 
 ```python
@@ -179,6 +162,7 @@ Would you like to add your project here?
 Please feel free to open a PR to add it to the list!
 
 - [Coordinax](https://github.com/GalacticDynamics/coordinax) implements coordinates in JAX.
+- [`fasttransform`](https://github.com/AnswerDotAI/fasttransform) provides the main building block of data pipelines in `fastai`.
 - [GPAR](https://github.com/wesselb/gpar) is an implementation of the [Gaussian Process Autoregressive Model](https://arxiv.org/abs/1802.07182).
 - [GPCM](https://github.com/wesselb/gpcm) is an implementation of various [Gaussian Process Convolution Models](https://arxiv.org/abs/2203.06997).
 - [Galax](https://github.com/GalacticDynamics/galax) does galactic and gravitational dynamics.

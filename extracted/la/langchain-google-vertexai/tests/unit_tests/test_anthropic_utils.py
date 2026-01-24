@@ -1,5 +1,8 @@
 """Unit tests for _anthropic_utils.py."""
 
+import base64
+from unittest.mock import patch
+
 import pytest
 from anthropic.types import (
     RawContentBlockDeltaEvent,
@@ -17,6 +20,7 @@ from langchain_core.messages.tool import tool_call as create_tool_call
 
 from langchain_google_vertexai._anthropic_utils import (
     _documents_in_params,
+    _format_image,
     _format_message_anthropic,
     _format_messages_anthropic,
     _make_message_chunk_from_anthropic_event,
@@ -24,7 +28,7 @@ from langchain_google_vertexai._anthropic_utils import (
 )
 
 
-def test_format_message_anthropic_with_cache_control_in_kwargs():
+def test_format_message_anthropic_with_cache_control_in_kwargs() -> None:
     """Test formatting a message with cache control in additional_kwargs."""
     message = HumanMessage(
         content="Hello", additional_kwargs={"cache_control": {"type": "semantic"}}
@@ -38,7 +42,7 @@ def test_format_message_anthropic_with_cache_control_in_kwargs():
     }
 
 
-def test_format_message_anthropic_with_cache_control_in_block():
+def test_format_message_anthropic_with_cache_control_in_block() -> None:
     """Test formatting a message with cache control in content block."""
     message = HumanMessage(
         content=[
@@ -54,7 +58,7 @@ def test_format_message_anthropic_with_cache_control_in_block():
     }
 
 
-def test_format_message_anthropic_with_mixed_blocks():
+def test_format_message_anthropic_with_mixed_blocks() -> None:
     """Test formatting a message with mixed blocks, some with cache control."""
     message = HumanMessage(
         content=[
@@ -74,7 +78,7 @@ def test_format_message_anthropic_with_mixed_blocks():
     }
 
 
-def test_format_messages_anthropic_with_system_cache_control():
+def test_format_messages_anthropic_with_system_cache_control() -> None:
     """Test formatting messages with system message having cache control."""
     messages = [
         SystemMessage(
@@ -100,7 +104,7 @@ def test_format_messages_anthropic_with_system_cache_control():
     ]
 
 
-def test_format_message_anthropic_system():
+def test_format_message_anthropic_system() -> None:
     """Test formatting a system message."""
     message = SystemMessage(
         content="System message",
@@ -116,7 +120,7 @@ def test_format_message_anthropic_system():
     ]
 
 
-def test_format_message_anthropic_system_list():
+def test_format_message_anthropic_system_list() -> None:
     """Test formatting a system message with list content."""
     message = SystemMessage(
         content=[
@@ -139,7 +143,7 @@ def test_format_message_anthropic_system_list():
     ]
 
 
-def test_format_message_anthropic_with_chain_of_thoughts():
+def test_format_message_anthropic_with_chain_of_thoughts() -> None:
     """Test formatting a system message with chain of thoughts."""
     message = SystemMessage(
         content=[
@@ -175,7 +179,7 @@ def test_format_message_anthropic_with_chain_of_thoughts():
     ]
 
 
-def test_format_messages_anthropic_with_system_string():
+def test_format_messages_anthropic_with_system_string() -> None:
     """Test formatting messages with system message as string."""
     messages = [
         SystemMessage(content="System message"),
@@ -192,7 +196,7 @@ def test_format_messages_anthropic_with_system_string():
     ]
 
 
-def test_format_messages_anthropic_with_system_list():
+def test_format_messages_anthropic_with_system_list() -> None:
     """Test formatting messages with system message as a list."""
     messages = [
         SystemMessage(
@@ -225,7 +229,7 @@ def test_format_messages_anthropic_with_system_list():
     ]
 
 
-def test_format_messages_anthropic_with_system_mixed_list():
+def test_format_messages_anthropic_with_system_mixed_list() -> None:
     """Test formatting messages with system message as a mixed list."""
     messages = [
         SystemMessage(
@@ -258,7 +262,7 @@ def test_format_messages_anthropic_with_system_mixed_list():
     ]
 
 
-def test_format_messages_anthropic_with_mixed_messages():
+def test_format_messages_anthropic_with_mixed_messages() -> None:
     """Test formatting a conversation with various message types and cache controls."""
     messages = [
         SystemMessage(
@@ -321,7 +325,7 @@ def test_format_messages_anthropic_with_mixed_messages():
 
 
 @pytest.mark.parametrize(
-    "source_history, expected_sm, expected_history",
+    ("source_history", "expected_sm", "expected_history"),
     [
         (
             [
@@ -847,7 +851,7 @@ def test_format_messages_anthropic(
         source_history, project="test-project"
     )
 
-    for result, expected in zip(result_history, expected_history):
+    for result, expected in zip(result_history, expected_history, strict=False):
         assert result == expected
     assert sm == expected_sm
 
@@ -952,12 +956,11 @@ def test_documents_in_params_false_no_document() -> None:
     assert not _documents_in_params(params)
 
 
-def test_ai_message_empty_content_with_tool_calls():
+def test_ai_message_empty_content_with_tool_calls() -> None:
     """Test that AIMessage with empty content and tool_calls includes tool_calls output.
 
     Addresses the issue where tool_calls were being trimmed out when content was empty.
     """
-
     # Empty string content
     message_empty_string = AIMessage(
         content="",
@@ -1049,9 +1052,8 @@ def test_ai_message_empty_content_with_tool_calls():
     assert len(text_blocks) == 0
 
 
-def test_ai_message_empty_content_without_tool_calls():
+def test_ai_message_empty_content_without_tool_calls() -> None:
     """Test AIMessage with empty content and no tool_calls properly returns None."""
-
     # Empty string content without tool_calls
     message_empty_string = AIMessage(content="")
     result_empty_string = _format_message_anthropic(
@@ -1065,3 +1067,280 @@ def test_ai_message_empty_content_without_tool_calls():
         message_empty_list, project="test-project"
     )
     assert result_empty_list is None
+
+
+def test_format_messages_tool_message_with_streaming_metadata() -> None:
+    """Test that streaming metadata is removed from ToolMessage content.
+
+    Streaming adds 'index' and 'partial_json' fields that must be cleaned.
+    """
+    messages = [
+        AIMessage(
+            content="",
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather", args={"city": "Paris"}, id="call_1"
+                )
+            ],
+        ),
+        ToolMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "Sunny, 22°C",
+                    "index": 0,
+                }  # Streaming metadata
+            ],
+            tool_call_id="call_1",
+        ),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # Verify tool_result format with no 'index' field
+    assert formatted[1]["content"][0] == {
+        "type": "tool_result",
+        "content": [{"type": "text", "text": "Sunny, 22°C"}],  # NO 'index'
+        "tool_use_id": "call_1",
+    }
+
+
+def test_format_messages_tool_message_with_error() -> None:
+    """Test that error ToolMessages include is_error flag."""
+    messages = [
+        AIMessage(
+            content="",
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather", args={"city": "Paris"}, id="call_1"
+                )
+            ],
+        ),
+        ToolMessage(content="API key invalid", tool_call_id="call_1", status="error"),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # Verify is_error flag present
+    assert formatted[1]["content"][0] == {
+        "type": "tool_result",
+        "content": "API key invalid",
+        "tool_use_id": "call_1",
+        "is_error": True,
+    }
+
+
+def test_format_messages_ai_message_with_streaming_metadata() -> None:
+    """Test that AIMessage content blocks are cleaned of streaming metadata."""
+    from langchain_core.messages import BaseMessage
+
+    messages: list[BaseMessage] = [
+        AIMessage(
+            content=[
+                {"type": "text", "text": "Calling tool...", "index": 0},
+                {
+                    "type": "tool_use",
+                    "name": "get_weather",
+                    "input": {"city": "Paris"},
+                    "id": "call_1",
+                    "index": 1,
+                },
+            ],
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather", args={"city": "Paris"}, id="call_1"
+                )
+            ],
+        )
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # Verify 'index' removed from both blocks
+    assert "index" not in formatted[0]["content"][0]
+    # Tool use block should have 'index' removed but keep other fields
+    tool_use_block = formatted[0]["content"][1]
+    assert "index" not in tool_use_block
+    assert tool_use_block["type"] == "tool_use"
+    assert tool_use_block["name"] == "get_weather"
+
+
+def test_format_messages_tool_message_with_partial_json() -> None:
+    """Test that partial_json streaming metadata is removed."""
+    messages = [
+        AIMessage(
+            content="",
+            tool_calls=[
+                create_tool_call(name="calculator", args={"expr": "2+2"}, id="call_1")
+            ],
+        ),
+        ToolMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "4",
+                    "partial_json": '{"result"',  # Streaming metadata
+                }
+            ],
+            tool_call_id="call_1",
+        ),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # Verify partial_json removed
+    assert "partial_json" not in formatted[1]["content"][0]["content"][0]
+    assert formatted[1]["content"][0]["content"][0] == {
+        "type": "text",
+        "text": "4",
+    }
+
+
+def test_format_messages_tool_message_backward_compatibility() -> None:
+    """Test that already-formatted tool_result messages work (backward compat)."""
+    messages = [
+        AIMessage(
+            content="",
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather", args={"city": "Paris"}, id="call_1"
+                )
+            ],
+        ),
+        ToolMessage(
+            content=[
+                {
+                    "type": "tool_result",
+                    "content": "Sunny, 22°C",
+                    "tool_use_id": "call_1",
+                }
+            ],
+            tool_call_id="call_1",
+        ),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # Should pass through already-formatted tool_result
+    assert formatted[1]["content"][0] == {
+        "type": "tool_result",
+        "content": "Sunny, 22°C",
+        "tool_use_id": "call_1",
+    }
+
+
+def test_format_messages_complex_multiturn_with_tools() -> None:
+    """Test complex multi-turn conversation with streaming metadata cleanup."""
+    messages = [
+        HumanMessage(content="What's the weather in Paris?"),
+        AIMessage(
+            content=[
+                {"type": "text", "text": "I'll check that for you.", "index": 0},
+            ],
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather", args={"city": "Paris"}, id="call_1"
+                )
+            ],
+        ),
+        ToolMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "Sunny, 22°C",
+                    "index": 0,
+                    "partial_json": "{}",
+                }
+            ],
+            tool_call_id="call_1",
+        ),
+        AIMessage(
+            content=[
+                {
+                    "type": "text",
+                    "text": "It's sunny and 22°C in Paris!",
+                    "index": 0,
+                }
+            ]
+        ),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+
+    # First message (human) should be unchanged
+    assert formatted[0]["role"] == "user"
+
+    # Second message (AI with tool call) should have 'index' removed
+    assert "index" not in formatted[1]["content"][0]
+    assert formatted[1]["content"][0]["text"] == "I'll check that for you."
+
+    # Third message (tool result) should have streaming metadata removed
+    tool_result = formatted[2]["content"][0]
+    assert tool_result["type"] == "tool_result"
+    assert "index" not in tool_result["content"][0]
+    assert "partial_json" not in tool_result["content"][0]
+
+    # Fourth message (AI response) should have 'index' removed
+    assert "index" not in formatted[3]["content"][0]
+    assert formatted[3]["content"][0]["text"] == "It's sunny and 22°C in Paris!"
+
+
+def test_tool_message_preserves_cache_control() -> None:
+    messages = [
+        AIMessage(
+            content="",
+            tool_calls=[
+                create_tool_call(
+                    name="get_weather",
+                    args={"city": "Paris"},
+                    id="call_1",
+                )
+            ],
+        ),
+        ToolMessage(
+            content="Sunny, 22°C",
+            tool_call_id="call_1",
+            additional_kwargs={"cache_control": {"type": "ephemeral"}},
+        ),
+    ]
+
+    _, formatted = _format_messages_anthropic(messages, project="test-project")
+    tool_result = formatted[1]["content"][0]
+
+    assert tool_result == {
+        "type": "tool_result",
+        "content": "Sunny, 22°C",
+        "tool_use_id": "call_1",
+        "cache_control": {"type": "ephemeral"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("image_url", "expected_media_type"),
+    [
+        ("https://example.com/image.png?token=123", "image/png"),
+        ("https://example.com/image.jpg", "image/jpeg"),
+        ("https://example.com/document.pdf", "application/pdf"),
+    ],
+)
+def test_format_image(image_url: str, expected_media_type: str) -> None:
+    """Test that _format_image correctly handles various URLs."""
+    project = "test-project"
+
+    with patch(
+        "langchain_google_vertexai._anthropic_utils.ImageBytesLoader"
+    ) as MockLoader:
+        mock_loader_instance = MockLoader.return_value
+        mock_loader_instance.load_bytes.return_value = b"fake_image_data"
+
+        result = _format_image(image_url, project)
+
+        expected_data = base64.b64encode(b"fake_image_data").decode("ascii")
+
+        assert result == {
+            "type": "base64",
+            "media_type": expected_media_type,
+            "data": expected_data,
+        }
+
+        mock_loader_instance.load_bytes.assert_called_once_with(image_url)

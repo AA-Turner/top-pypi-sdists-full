@@ -14,7 +14,7 @@ namespace SimpleDBus {
 
 class Interface;
 
-class Proxy {
+class Proxy : public std::enable_shared_from_this<Proxy> {
   public:
     Proxy(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path);
     virtual ~Proxy();
@@ -34,10 +34,6 @@ class Proxy {
     const std::map<std::string, std::shared_ptr<Interface>>& interfaces();
 
     virtual std::shared_ptr<Proxy> path_create(const std::string& path);
-
-    // ----- PATH HANDLING -----
-    void register_object_path();
-    void unregister_object_path();
 
     // ----- INTROSPECTION -----
     // ! TODO: This should be moved to the Introspectable interface.
@@ -66,7 +62,6 @@ class Proxy {
     void path_append_child(const std::string& path, std::shared_ptr<Proxy> child);
     void path_remove_child(const std::string& path);
     // ----- MESSAGE HANDLING -----
-    void message_forward(Message& msg);
     void message_handle(Message& msg);
 
     // ----- CALLBACKS -----
@@ -91,7 +86,7 @@ class Proxy {
         std::vector<std::shared_ptr<T>> result;
         std::scoped_lock lock(_child_access_mutex);
         for (auto& [path, child] : _children) {
-            const std::string next_child = SimpleDBus::Path::next_child_strip(_path, path);
+            const std::string next_child = SimpleDBus::PathUtils::next_child_strip(_path, path);
             if (next_child.find(prefix) == 0) {
                 result.push_back(std::dynamic_pointer_cast<T>(child));
             }
@@ -99,9 +94,19 @@ class Proxy {
         return result;
     }
 
+    template <typename T>
+    static std::shared_ptr<T> create(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path) {
+        auto child = std::make_shared<T>(conn, bus_name, path);
+        child->on_registration();
+        child->register_object_path();
+        return std::dynamic_pointer_cast<T>(child);
+    }
+
+    // ----- INTERNAL CALLBACKS -----
+    virtual void on_registration();
+
   protected:
     bool _valid;
-    bool _registered;
     std::string _path;
     std::string _bus_name;
 
@@ -112,6 +117,12 @@ class Proxy {
 
     std::recursive_mutex _interface_access_mutex;
     std::recursive_mutex _child_access_mutex;
+
+  private:
+    // ----- PATH HANDLING -----
+    bool _registered;
+    void register_object_path();
+    void unregister_object_path();
 };
 
 }  // namespace SimpleDBus

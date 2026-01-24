@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: git-changelog
-Version: 2.6.3
+Version: 2.7.0
 Summary: Automatic Changelog generator using Jinja2 templates.
 Keywords: git,changelog,changelog-generator,commit-style,commit-convention
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
@@ -11,7 +11,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -30,7 +29,7 @@ Project-URL: Issues, https://github.com/pawamoy/git-changelog/issues
 Project-URL: Discussions, https://github.com/pawamoy/git-changelog/discussions
 Project-URL: Gitter, https://gitter.im/git-changelog/community
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: Jinja2>=3.0
 Requires-Dist: packaging>=24.0
 Requires-Dist: platformdirs>=4.4
@@ -115,3 +114,8 @@ To show the different options and their descriptions, use `git-changelog -h`.
 ## Alternatives
 
 - [git-cliff](https://github.com/orhun/git-cliff): A highly customizable Changelog Generator that follows Conventional Commit specifications.
+
+## Sponsors
+
+<!-- sponsors-start -->
+<!-- sponsors-end -->

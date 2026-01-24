@@ -1,13 +1,12 @@
 from sqlalchemy import select
 
 
+from chellow.e.neso import csv_latest, parse_date
 from chellow.models import Contract, RateScript
-from chellow.national_grid import api_get
 from chellow.utils import (
     ct_datetime,
     to_utc,
 )
-
 
 BANDED_START = to_utc(ct_datetime(2023, 4, 1))
 
@@ -84,14 +83,30 @@ def _process_banded_hh(ds, hh):
         hh["tnuos-days"] = 1
 
 
-def national_grid_import(sess, log, set_progress, s):
+def neso_import(sess, log, set_progress):
     log("Starting to check for new TNUoS TDR Tariffs")
 
-    contract = Contract.get_non_core_by_name(sess, "tnuos")
+    contract_name = "tnuos"
+    contract = Contract.find_non_core_by_name(sess, contract_name)
+    if contract is None:
+        contract = Contract.insert_non_core(
+            sess,
+            contract_name,
+            "",
+            {"enabled": True},
+            to_utc(ct_datetime(1996, 4, 1)),
+            None,
+            {},
+        )
+        sess.commit()
+    state = contract.make_state()
+    last_import_date = state.get("last_import_date")
 
-    params = {"sql": """SELECT * FROM "dcca94fd-343e-4d4e-8c5d-66009dec4ad3" """}
-    res_j = api_get(s, "datastore_search_sql", params=params)
-    for record in res_j["result"]["records"]:
+    for record in csv_latest(
+        "transmission-network-use-of-system-tnuos-tariffs",
+        last_import_date,
+        name="transmission_demand_residual_(tdr)_tariffs",
+    ):
         # {
         #   "_id": 1,
         #   "Publication": "Final",
@@ -122,10 +137,10 @@ def national_grid_import(sess, log, set_progress, s):
             bands = rs_script["bands"] = {}
 
         record_key = record["TDR Band"]
-        record_published_date = record["Published_Date"]
+        record_published_date = parse_date(record["Published_Date"])
 
         band = bands.get(record_key)
-        if band is None or band["Published_Date"] < record_published_date:
+        if band is None or parse_date(band["Published_Date"]) < record_published_date:
             if "TDR Tariff" not in record:
                 tdr_tariff = [
                     v for k, v in record.items() if k.startswith("TDR Tariff")

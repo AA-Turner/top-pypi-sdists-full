@@ -30,6 +30,7 @@ from localstack.services.cloudformation.engine.v2.change_set_model import (
     NodeProperties,
     NodeProperty,
     NodeResource,
+    NodeResources,
     NodeTemplate,
     Nothing,
     NothingType,
@@ -45,6 +46,7 @@ from localstack.services.cloudformation.engine.v2.change_set_model_visitor impor
     ChangeSetModelVisitor,
 )
 from localstack.services.cloudformation.engine.v2.resolving import (
+    REGEX_DYNAMIC_REF,
     extract_dynamic_reference,
     perform_dynamic_reference_lookup,
 )
@@ -55,6 +57,7 @@ from localstack.services.cloudformation.stores import (
 from localstack.services.cloudformation.v2.entities import ChangeSet
 from localstack.services.cloudformation.v2.types import ResolvedResource
 from localstack.utils.aws.arns import get_partition
+from localstack.utils.numbers import to_number
 from localstack.utils.objects import get_value_from_path
 from localstack.utils.run import to_str
 from localstack.utils.strings import to_bytes
@@ -224,6 +227,8 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
     def process(self) -> None:
         self._setup_runtime_cache()
         node_template = self._change_set.update_model.node_template
+        node_conditions = self._change_set.update_model.node_template.conditions
+        self.visit(node_conditions)
         self.visit(node_template)
         self._save_runtime_cache()
 
@@ -273,10 +278,10 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
         property_value: Any | None = get_value_from_path(properties, property_name)
 
         if property_value:
-            if not isinstance(property_value, (str, list)):
-                # TODO: is this correct? If there is a bug in the logic here, it's probably
-                #  better to know about it with a clear error message than to receive some form
-                #  of message about trying to use a dictionary in place of a string
+            if not isinstance(property_value, (str, list, dict)):
+                # Str: Standard expected type. TODO validate bools and numbers
+                # List: Multiple resource types can return a list of values e.g. AWS::EC2::VPC.
+                # Dict: Custom resources in CloudFormation can return arbitrary data structures.
                 raise RuntimeError(
                     f"Accessing property '{property_name}' from '{resource_logical_id}' resulted in a non-string value nor list"
                 )
@@ -432,6 +437,7 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
     def _perform_dynamic_replacements(self, value: _T) -> _T:
         if not isinstance(value, str):
             return value
+
         if dynamic_ref := extract_dynamic_reference(value):
             new_value = perform_dynamic_reference_lookup(
                 reference=dynamic_ref,
@@ -439,7 +445,11 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
                 region_name=self._change_set.region_name,
             )
             if new_value:
-                return new_value
+                # We need to use a function here, to avoid backslash processing by regex.
+                # From the regex sub documentation:
+                # repl can be a string or a function; if it is a string, any backslash escapes in it are processed.
+                # Using a function, we can avoid this processing.
+                return REGEX_DYNAMIC_REF.sub(lambda _: new_value, value)
 
         return value
 
@@ -559,13 +569,49 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             arguments_list = arguments.split(".")
         else:
             arguments_list = arguments
+
+        if len(arguments_list) < 2:
+            raise ValidationError(
+                "Template error: every Fn::GetAtt object requires two non-empty parameters, the resource name and the resource attribute"
+            )
+
         logical_name_of_resource = arguments_list[0]
-        attribute_name = arguments_list[1]
+        attribute_name = ".".join(arguments_list[1:])
 
         node_resource = self._get_node_resource_for(
             resource_name=logical_name_of_resource,
             node_template=self._change_set.update_model.node_template,
         )
+
+        if not is_nothing(node_resource.condition_reference):
+            condition = self._get_node_condition_if_exists(node_resource.condition_reference.value)
+            evaluation_result = self._resolve_condition(condition.name)
+
+            if select_before and not evaluation_result.before:
+                raise ValidationError(
+                    f"Template format error: Unresolved resource dependencies [{logical_name_of_resource}] in the Resources block of the template"
+                )
+
+            if not select_before and not evaluation_result.after:
+                raise ValidationError(
+                    f"Template format error: Unresolved resource dependencies [{logical_name_of_resource}] in the Resources block of the template"
+                )
+
+        # Custom Resources can mutate their definition
+        # So the preproc should search first in the resource values and then check the template
+        if select_before:
+            value = self._before_deployed_property_value_of(
+                resource_logical_id=logical_name_of_resource,
+                property_name=attribute_name,
+            )
+        else:
+            value = self._after_deployed_property_value_of(
+                resource_logical_id=logical_name_of_resource,
+                property_name=attribute_name,
+            )
+        if value is not None:
+            return value
+
         node_property: NodeProperty | None = self._get_node_property_for(
             property_name=attribute_name, node_resource=node_resource
         )
@@ -573,19 +619,7 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             # The property is statically defined in the template and its value can be computed.
             property_delta = self.visit(node_property)
             value = property_delta.before if select_before else property_delta.after
-        else:
-            # The property is not statically defined and must therefore be available in
-            # the properties deployed set.
-            if select_before:
-                value = self._before_deployed_property_value_of(
-                    resource_logical_id=logical_name_of_resource,
-                    property_name=attribute_name,
-                )
-            else:
-                value = self._after_deployed_property_value_of(
-                    resource_logical_id=logical_name_of_resource,
-                    property_name=attribute_name,
-                )
+
         return value
 
     def visit_node_intrinsic_function_fn_get_att(
@@ -614,6 +648,12 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             return args[0] == args[1]
 
         arguments_delta = self.visit(node_intrinsic_function.arguments)
+
+        if isinstance(arguments_delta.after, list) and len(arguments_delta.after) != 2:
+            raise ValidationError(
+                "Template error: every Fn::Equals object requires a list of 2 string parameters."
+            )
+
         delta = self._cached_apply(
             scope=node_intrinsic_function.scope,
             arguments_delta=arguments_delta,
@@ -637,6 +677,13 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             node_condition = self._get_node_condition_if_exists(
                 condition_name=condition_delta.before
             )
+            if is_nothing(node_condition):
+                # TODO: I don't think this is a possible state since for us to be evaluating the before state,
+                #  we must have successfully deployed the stack and as such this case was not reached before
+                raise ValidationError(
+                    f"Template error: unresolved condition dependency {condition_delta.before} in Fn::If"
+                )
+
             condition_value = self.visit(node_condition).before
             if condition_value:
                 arg_delta = self.visit(node_intrinsic_function.arguments.array[1])
@@ -648,6 +695,11 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             node_condition = self._get_node_condition_if_exists(
                 condition_name=condition_delta.after
             )
+            if is_nothing(node_condition):
+                raise ValidationError(
+                    f"Template error: unresolved condition dependency {condition_delta.after} in Fn::If"
+                )
+
             condition_value = self.visit(node_condition).after
             if condition_value:
                 arg_delta = self.visit(node_intrinsic_function.arguments.array[1])
@@ -890,6 +942,17 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             return split_string
 
         arguments_delta = self.visit(node_intrinsic_function.arguments)
+
+        if not (
+            is_nothing(arguments_delta.after)
+            or isinstance(arguments_delta.after, list)
+            and len(arguments_delta.after) == 2
+        ):
+            raise ValidationError(
+                "Template error: every Fn::Split object requires two parameters, "
+                "(1) a string delimiter and (2) a string to be split or a function that returns a string to be split."
+            )
+
         delta = self._cached_apply(
             scope=node_intrinsic_function.scope,
             arguments_delta=arguments_delta,
@@ -1006,8 +1069,13 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
 
         def _resolve_parameter_type(value: str, type_: str) -> Any:
             match type_:
-                case "List<String>" | "CommaDelimitedList":
+                case s if re.match(r"List<[^>]+>", s):
                     return [item.strip() for item in value.split(",")]
+                case "CommaDelimitedList":
+                    return [item.strip() for item in value.split(",")]
+                case "Number":
+                    # TODO: validate the parameter type at template parse time (or whatever is in parity with AWS) so we know this cannot fail
+                    return to_number(value)
             return value
 
         if not is_nothing(after):
@@ -1149,6 +1217,20 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
             after = after_delta.after
         return PreprocEntityDelta(before=before, after=after)
 
+    def visit_node_resources(self, node_resources: NodeResources):
+        """
+        Skip resources where they conditionally evaluate to False
+        """
+        for node_resource in node_resources.resources:
+            if not is_nothing(node_resource.condition_reference):
+                condition_delta = self._resolve_resource_condition_reference(
+                    node_resource.condition_reference
+                )
+                condition_after = condition_delta.after
+                if condition_after is False:
+                    continue
+            self.visit(node_resource)
+
     def visit_node_resource(
         self, node_resource: NodeResource
     ) -> PreprocEntityDelta[PreprocResource, PreprocResource]:
@@ -1259,6 +1341,14 @@ class ChangeSetModelPreproc(ChangeSetModelVisitor):
         before: list[PreprocOutput] = []
         after: list[PreprocOutput] = []
         for node_output in node_outputs.outputs:
+            if not is_nothing(node_output.condition_reference):
+                condition_delta = self._resolve_resource_condition_reference(
+                    node_output.condition_reference
+                )
+                condition_after = condition_delta.after
+                if condition_after is False:
+                    continue
+
             output_delta: PreprocEntityDelta[PreprocOutput, PreprocOutput] = self.visit(node_output)
             output_before = output_delta.before
             output_after = output_delta.after

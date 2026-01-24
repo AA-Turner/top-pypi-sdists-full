@@ -38,7 +38,7 @@ HEADS_FILENAME = 'HEADS'
 CONTRACT_HEAD_FILENAME = 'CONTRACT_HEAD'
 EXPAND_HEAD_FILENAME = 'EXPAND_HEAD'
 
-CURRENT_RELEASE = migration.RELEASE_2025_1
+CURRENT_RELEASE = migration.RELEASE_2025_2
 RELEASES = (
     migration.LIBERTY,
     migration.MITAKA,
@@ -60,6 +60,7 @@ RELEASES = (
     migration.RELEASE_2024_1,
     migration.RELEASE_2024_2,
     migration.RELEASE_2025_1,
+    migration.RELEASE_2025_2,
 )
 
 EXPAND_BRANCH = 'expand'
@@ -250,7 +251,7 @@ def _get_release_labels(labels):
     for label in labels:
         # release labels were introduced Liberty for a short time and dropped
         # in that same release cycle
-        result.add('{}_{}'.format(migration.LIBERTY, label))
+        result.add(f'{migration.LIBERTY}_{label}')
     return result
 
 

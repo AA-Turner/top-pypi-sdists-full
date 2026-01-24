@@ -1,21 +1,23 @@
 from typing import Any, Union
 
-from httpx import Client, Timeout
+from niquests import Session, TimeoutConfiguration
+from niquests.typing import ProxyType
 from pydantic import BaseModel, PrivateAttr
 
 from ipfabric.models.matrix import Version, SupportMatrix
 
 
 class FeatureMatrix(BaseModel):
-    timeout: Any = Timeout(timeout=5.0)
-    proxy: Any = None
-    _client: Client = PrivateAttr(None)
+    timeout: Any = TimeoutConfiguration(total=5.0)
+    proxy: ProxyType = None
+    _client: Session = PrivateAttr(None)
     _versions: list[Version] = PrivateAttr(None)
     _matrix_version: Version = PrivateAttr(None)
     _matrix: Any = PrivateAttr(None)
 
     def model_post_init(self, __context: Any) -> None:
-        self._client = Client(base_url="https://matrix.ipfabric.io/api/", timeout=self.timeout, proxy=self.proxy)
+        self._client = Session(base_url="https://matrix.ipfabric.io/api/", timeout=self.timeout)
+        self._client.proxies = self.proxy
         self._versions = [Version(**_) for _ in self._client.get("version").json()]
         self._versions.sort(key=lambda p: [int(_) for _ in p.name.split(".")], reverse=True)
         self.create_matrix()
@@ -54,13 +56,13 @@ class FeatureMatrix(BaseModel):
         families = {_["id"]: _ for _ in self._client.get("vendor/family", params={"versionId": vid}).json()}
 
         matrix = [
-            dict(
-                category=categories[tasks[status["taskId"]]["categoryId"]],
-                task=tasks[status["taskId"]],
-                vendor=vendors[status["vendorId"]],
-                family=families[status["familyId"]],
-                status=status,
-            )
+            {
+                "category": categories[tasks[status["taskId"]]["categoryId"]],
+                "task": tasks[status["taskId"]],
+                "vendor": vendors[status["vendorId"]],
+                "family": families[status["familyId"]],
+                "status": status,
+            }
             for status in self._client.get("task/status", params={"versionId": vid}).json()
         ]
         matrix = SupportMatrix(matrix=matrix, version=version)

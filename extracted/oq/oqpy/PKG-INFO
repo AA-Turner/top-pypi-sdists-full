@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: oqpy
-Version: 0.3.8
+Version: 0.3.9
 Summary: Generating OpenQASM 3 + OpenPulse in Python
 License: Apache-2.0
 Keywords: openqasm,quantum

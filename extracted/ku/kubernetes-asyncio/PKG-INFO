@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kubernetes_asyncio
-Version: 33.3.0
+Version: 34.3.3
 Summary: Kubernetes asynchronous python client
 Home-page: https://github.com/tomplus/kubernetes_asyncio
 Author: Kubernetes
@@ -15,13 +15,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: certifi>=14.05.14
 Requires-Dist: six>=1.9.0
@@ -37,6 +35,7 @@ Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
     Python client for kubernetes http://kubernetes.io/

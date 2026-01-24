@@ -1,0 +1,75 @@
+#
+# Copyright (c) 2024, Neptune Labs Sp. z o.o.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from io import BytesIO
+from typing import (
+    Any,
+    BinaryIO,
+    Callable,
+    Generator,
+    Generic,
+    Optional,
+    TypeVar,
+)
+
+from google.protobuf.message import Message
+
+from neptune_query.generated.neptune_api import AuthenticatedClient
+from neptune_query.generated.neptune_api.types import File
+
+T = TypeVar("T")
+R = TypeVar("R")
+_Params = Any
+
+
+@dataclass
+class Page(Generic[T]):
+    items: list[T]
+
+
+def fetch_pages(
+    client: AuthenticatedClient,
+    fetch_page: Callable[[AuthenticatedClient, _Params], R],
+    process_page: Callable[[R], Page[T]],
+    make_new_page_params: Callable[[_Params, Optional[R]], Optional[_Params]],
+    initial_params: _Params,
+) -> Generator[Page[T], None, None]:
+    page_params = make_new_page_params(initial_params, None)
+    while page_params is not None:
+        data = fetch_page(client, page_params)
+        page = process_page(data)
+        yield page
+        page_params = make_new_page_params(page_params, data)
+
+
+class ReusableFile(File):
+    """A File that recreates its payload on each access to support retries."""
+
+    @property
+    def payload(self) -> BinaryIO:
+        return self.get_payload()
+
+    @payload.setter
+    def payload(self, payload: BinaryIO) -> None:
+        stored_payload = payload.read()
+        self.get_payload = lambda: BytesIO(stored_payload)
+
+
+def body_from_protobuf(message: Message) -> ReusableFile:
+    """Generate a ReusableFile from a protobuf message."""
+    return ReusableFile(payload=BytesIO(message.SerializeToString()))

@@ -15,8 +15,17 @@
 
 """Worry-free YAML configuration files.
 """
+from __future__ import annotations
+
+__all__ = [
+    'CONFIG_FILENAME', 'DEFAULT_FILENAME', 'ROOT_NAME', 'REDACTED_TOMBSTONE',
+    'ConfigView', 'RootView', 'Subview', 'Configuration', 'LazyConfig'
+]
+
 import errno
 import os
+from pathlib import Path
+from typing import Any, Iterable, Sequence, TypeVar
 import yaml
 from collections import OrderedDict
 
@@ -32,11 +41,12 @@ ROOT_NAME = 'root'
 
 REDACTED_TOMBSTONE = 'REDACTED'
 
+R = TypeVar('R')
 
 # Views and sources.
 
 
-class ConfigView(object):
+class ConfigView():
     """A configuration "view" is a query into a program's configuration
     data. A view represents a hypothetical location in the configuration
     tree; to extract the data from the location, a client typically
@@ -68,7 +78,7 @@ class ConfigView(object):
         try:
             return util.iter_first(pairs)
         except ValueError:
-            raise NotFoundError(u"{0} not found".format(self.name))
+            raise NotFoundError("{0} not found".format(self.name))
 
     def exists(self):
         """Determine whether the view has a setting in any source.
@@ -119,7 +129,7 @@ class ConfigView(object):
             except ConfigTypeError:
                 item, _ = self.first()
                 raise ConfigTypeError(
-                    u'{0} must be a dictionary or a list, not {1}'.format(
+                    '{0} must be a dictionary or a list, not {1}'.format(
                         self.name, type(item).__name__
                     )
                 )
@@ -188,7 +198,7 @@ class ConfigView(object):
                 cur_keys = dic.keys()
             except AttributeError:
                 raise ConfigTypeError(
-                    u'{0} must be a dict, not {1}'.format(
+                    '{0} must be a dict, not {1}'.format(
                         self.name, type(dic).__name__
                     )
                 )
@@ -228,7 +238,7 @@ class ConfigView(object):
             return
         if not isinstance(collection, (list, tuple)):
             raise ConfigTypeError(
-                u'{0} must be a list, not {1}'.format(
+                '{0} must be a list, not {1}'.format(
                     self.name, type(collection).__name__
                 )
             )
@@ -249,7 +259,7 @@ class ConfigView(object):
                 it = iter(collection)
             except TypeError:
                 raise ConfigTypeError(
-                    u'{0} must be an iterable, not {1}'.format(
+                    '{0} must be an iterable, not {1}'.format(
                         self.name, type(collection).__name__
                     )
                 )
@@ -277,7 +287,7 @@ class ConfigView(object):
                     od[key] = view.get()
         return od
 
-    def get(self, template=templates.REQUIRED):
+    def get(self, template=templates.REQUIRED) -> Any:
         """Retrieve the value for this view according to the template.
 
         The `template` against which the values are checked can be
@@ -294,47 +304,50 @@ class ConfigView(object):
 
     # Shortcuts for common templates.
 
-    def as_filename(self):
+    def as_filename(self) -> str:
         """Get the value as a path. Equivalent to `get(Filename())`.
         """
         return self.get(templates.Filename())
 
-    def as_path(self):
+    def as_path(self) -> Path:
         """Get the value as a `pathlib.Path` object. Equivalent to `get(Path())`.
         """
         return self.get(templates.Path())
 
-    def as_choice(self, choices):
+    def as_choice(self, choices: Iterable[R]) -> R:
         """Get the value from a list of choices. Equivalent to
         `get(Choice(choices))`.
+
+        Sequences, dictionaries and :class:`Enum` types are supported,
+        see :class:`confuse.templates.Choice` for more details.
         """
         return self.get(templates.Choice(choices))
 
-    def as_number(self):
+    def as_number(self) -> int | float:
         """Get the value as any number type: int or float. Equivalent to
         `get(Number())`.
         """
         return self.get(templates.Number())
 
-    def as_str_seq(self, split=True):
+    def as_str_seq(self, split=True) -> Sequence[str]:
         """Get the value as a sequence of strings. Equivalent to
         `get(StrSeq(split=split))`.
         """
         return self.get(templates.StrSeq(split=split))
 
-    def as_pairs(self, default_value=None):
+    def as_pairs(self, default_value=None) -> Sequence[tuple[str, str]]:
         """Get the value as a sequence of pairs of two strings. Equivalent to
         `get(Pairs(default_value=default_value))`.
         """
         return self.get(templates.Pairs(default_value=default_value))
 
-    def as_str(self):
+    def as_str(self) -> str:
         """Get the value as a (Unicode) string. Equivalent to
         `get(unicode)` on Python 2 and `get(str)` on Python 3.
         """
         return self.get(templates.String())
 
-    def as_str_expanded(self):
+    def as_str_expanded(self) -> str:
         """Get the value as a (Unicode) string, with env vars
         expanded by `os.path.expandvars()`.
         """
@@ -378,8 +391,8 @@ class RootView(ConfigView):
         self.name = ROOT_NAME
         self.redactions = set()
 
-    def add(self, obj):
-        self.sources.append(ConfigSource.of(obj))
+    def add(self, value):
+        self.sources.append(ConfigSource.of(value=value))
 
     def set(self, value):
         self.sources.insert(0, ConfigSource.of(value))
@@ -423,7 +436,7 @@ class Subview(ConfigView):
             if not isinstance(self.key, int):
                 self.name += '.'
         if isinstance(self.key, int):
-            self.name += u'#{0}'.format(self.key)
+            self.name += '#{0}'.format(self.key)
         elif isinstance(self.key, bytes):
             self.name += self.key.decode('utf-8')
         elif isinstance(self.key, str):
@@ -444,7 +457,7 @@ class Subview(ConfigView):
             except TypeError:
                 # Not subscriptable.
                 raise ConfigTypeError(
-                    u"{0} must be a collection, not {1}".format(
+                    "{0} must be a collection, not {1}".format(
                         self.parent.name, type(collection).__name__
                     )
                 )
@@ -482,7 +495,7 @@ class Configuration(RootView):
         object at module load time and then call the `read` method
         later. Specify the Loader class as `loader`.
         """
-        super(Configuration, self).__init__([])
+        super().__init__([])
         self.appname = appname
         self.modname = modname
         self.loader = loader
@@ -552,7 +565,7 @@ class Configuration(RootView):
             appdir = os.environ[self._env_var]
             appdir = os.path.abspath(os.path.expanduser(appdir))
             if os.path.isfile(appdir):
-                raise ConfigError(u'{0} must be a directory'.format(
+                raise ConfigError('{0} must be a directory'.format(
                     self._env_var
                 ))
 
@@ -668,14 +681,14 @@ class LazyConfig(Configuration):
     the module level.
     """
     def __init__(self, appname, modname=None):
-        super(LazyConfig, self).__init__(appname, modname, False)
+        super().__init__(appname, modname, False)
         self._materialized = False  # Have we read the files yet?
         self._lazy_prefix = []  # Pre-materialization calls to set().
         self._lazy_suffix = []  # Calls to add().
 
     def read(self, user=True, defaults=True):
         self._materialized = True
-        super(LazyConfig, self).read(user, defaults)
+        super().read(user, defaults)
 
     def resolve(self):
         if not self._materialized:
@@ -683,17 +696,17 @@ class LazyConfig(Configuration):
             self.read()
             self.sources += self._lazy_suffix
             self.sources[:0] = self._lazy_prefix
-        return super(LazyConfig, self).resolve()
+        return super().resolve()
 
     def add(self, value):
-        super(LazyConfig, self).add(value)
+        super().add(value)
         if not self._materialized:
             # Buffer additions to end.
             self._lazy_suffix += self.sources
             del self.sources[:]
 
     def set(self, value):
-        super(LazyConfig, self).set(value)
+        super().set(value)
         if not self._materialized:
             # Buffer additions to beginning.
             self._lazy_prefix[:0] = self.sources
@@ -701,7 +714,7 @@ class LazyConfig(Configuration):
 
     def clear(self):
         """Remove all sources from this configuration."""
-        super(LazyConfig, self).clear()
+        super().clear()
         self._lazy_suffix = []
         self._lazy_prefix = []
 

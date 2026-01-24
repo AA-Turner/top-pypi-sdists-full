@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Dict, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -164,8 +165,8 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    resourceId: Optional[String]
-    resourceType: Optional[ResourceType]
+    resourceId: String | None
+    resourceType: ResourceType | None
 
 
 class InternalServerException(ServiceException):
@@ -186,8 +187,8 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    resourceId: Optional[String]
-    resourceType: Optional[ResourceType]
+    resourceId: String | None
+    resourceType: ResourceType | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -198,8 +199,8 @@ class ServiceQuotaExceededException(ServiceException):
     code: str = "ServiceQuotaExceededException"
     sender_fault: bool = False
     status_code: int = 402
-    resourceId: Optional[String]
-    resourceType: Optional[ResourceType]
+    resourceId: String | None
+    resourceType: ResourceType | None
 
 
 class ThrottlingException(ServiceException):
@@ -210,7 +211,7 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 429
-    retryAfterSeconds: Optional[RetryAfterSeconds]
+    retryAfterSeconds: RetryAfterSeconds | None
 
 
 class ValidationException(ServiceException):
@@ -221,11 +222,11 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = False
     status_code: int = 400
-    reason: Optional[ValidationExceptionReason]
+    reason: ValidationExceptionReason | None
 
 
 Asset = bytes
-AssetHashes = Dict[HashAlgorithm, HashValue]
+AssetHashes = dict[HashAlgorithm, HashValue]
 LongOptional = int
 
 
@@ -233,16 +234,16 @@ class AssetSummary(TypedDict, total=False):
     """Contains details about a package version asset."""
 
     name: AssetName
-    size: Optional[LongOptional]
-    hashes: Optional[AssetHashes]
+    size: LongOptional | None
+    hashes: AssetHashes | None
 
 
-AssetSummaryList = List[AssetSummary]
+AssetSummaryList = list[AssetSummary]
 
 
 class AssociateExternalConnectionRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     externalConnection: ExternalConnectionName
 
@@ -253,21 +254,21 @@ Timestamp = datetime
 class RepositoryExternalConnectionInfo(TypedDict, total=False):
     """Contains information about the external connection of a repository."""
 
-    externalConnectionName: Optional[ExternalConnectionName]
-    packageFormat: Optional[PackageFormat]
-    status: Optional[ExternalConnectionStatus]
+    externalConnectionName: ExternalConnectionName | None
+    packageFormat: PackageFormat | None
+    status: ExternalConnectionStatus | None
 
 
-RepositoryExternalConnectionInfoList = List[RepositoryExternalConnectionInfo]
+RepositoryExternalConnectionInfoList = list[RepositoryExternalConnectionInfo]
 
 
 class UpstreamRepositoryInfo(TypedDict, total=False):
     """Information about an upstream repository."""
 
-    repositoryName: Optional[RepositoryName]
+    repositoryName: RepositoryName | None
 
 
-UpstreamRepositoryInfoList = List[UpstreamRepositoryInfo]
+UpstreamRepositoryInfoList = list[UpstreamRepositoryInfo]
 
 
 class RepositoryDescription(TypedDict, total=False):
@@ -280,73 +281,73 @@ class RepositoryDescription(TypedDict, total=False):
     per Amazon Web Services account.
     """
 
-    name: Optional[RepositoryName]
-    administratorAccount: Optional[AccountId]
-    domainName: Optional[DomainName]
-    domainOwner: Optional[AccountId]
-    arn: Optional[Arn]
-    description: Optional[Description]
-    upstreams: Optional[UpstreamRepositoryInfoList]
-    externalConnections: Optional[RepositoryExternalConnectionInfoList]
-    createdTime: Optional[Timestamp]
+    name: RepositoryName | None
+    administratorAccount: AccountId | None
+    domainName: DomainName | None
+    domainOwner: AccountId | None
+    arn: Arn | None
+    description: Description | None
+    upstreams: UpstreamRepositoryInfoList | None
+    externalConnections: RepositoryExternalConnectionInfoList | None
+    createdTime: Timestamp | None
 
 
 class AssociateExternalConnectionResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class AssociatedPackage(TypedDict, total=False):
     """A package associated with a package group."""
 
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    associationType: Optional[PackageGroupAssociationType]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    associationType: PackageGroupAssociationType | None
 
 
-AssociatedPackageList = List[AssociatedPackage]
+AssociatedPackageList = list[AssociatedPackage]
 AuthorizationTokenDurationSeconds = int
-PackageVersionRevisionMap = Dict[PackageVersion, PackageVersionRevision]
-PackageVersionList = List[PackageVersion]
+PackageVersionRevisionMap = dict[PackageVersion, PackageVersionRevision]
+PackageVersionList = list[PackageVersion]
 
 
 class CopyPackageVersionsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     sourceRepository: RepositoryName
     destinationRepository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
-    versions: Optional[PackageVersionList]
-    versionRevisions: Optional[PackageVersionRevisionMap]
-    allowOverwrite: Optional[BooleanOptional]
-    includeFromUpstream: Optional[BooleanOptional]
+    versions: PackageVersionList | None
+    versionRevisions: PackageVersionRevisionMap | None
+    allowOverwrite: BooleanOptional | None
+    includeFromUpstream: BooleanOptional | None
 
 
 class PackageVersionError(TypedDict, total=False):
     """l An error associated with package."""
 
-    errorCode: Optional[PackageVersionErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    errorCode: PackageVersionErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
-PackageVersionErrorMap = Dict[PackageVersion, PackageVersionError]
+PackageVersionErrorMap = dict[PackageVersion, PackageVersionError]
 
 
 class SuccessfulPackageVersionInfo(TypedDict, total=False):
     """Contains the revision and status of a package version."""
 
-    revision: Optional[String]
-    status: Optional[PackageVersionStatus]
+    revision: String | None
+    status: PackageVersionStatus | None
 
 
-SuccessfulPackageVersionInfoMap = Dict[PackageVersion, SuccessfulPackageVersionInfo]
+SuccessfulPackageVersionInfoMap = dict[PackageVersion, SuccessfulPackageVersionInfo]
 
 
 class CopyPackageVersionsResult(TypedDict, total=False):
-    successfulVersions: Optional[SuccessfulPackageVersionInfoMap]
-    failedVersions: Optional[PackageVersionErrorMap]
+    successfulVersions: SuccessfulPackageVersionInfoMap | None
+    failedVersions: PackageVersionErrorMap | None
 
 
 class Tag(TypedDict, total=False):
@@ -358,13 +359,13 @@ class Tag(TypedDict, total=False):
     value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateDomainRequest(ServiceRequest):
     domain: DomainName
-    encryptionKey: Optional[Arn]
-    tags: Optional[TagList]
+    encryptionKey: Arn | None
+    tags: TagList | None
 
 
 Long = int
@@ -376,35 +377,35 @@ class DomainDescription(TypedDict, total=False):
     repositories.
     """
 
-    name: Optional[DomainName]
-    owner: Optional[AccountId]
-    arn: Optional[Arn]
-    status: Optional[DomainStatus]
-    createdTime: Optional[Timestamp]
-    encryptionKey: Optional[Arn]
-    repositoryCount: Optional[Integer]
-    assetSizeBytes: Optional[Long]
-    s3BucketArn: Optional[Arn]
+    name: DomainName | None
+    owner: AccountId | None
+    arn: Arn | None
+    status: DomainStatus | None
+    createdTime: Timestamp | None
+    encryptionKey: Arn | None
+    repositoryCount: Integer | None
+    assetSizeBytes: Long | None
+    s3BucketArn: Arn | None
 
 
 class CreateDomainResult(TypedDict, total=False):
-    domain: Optional[DomainDescription]
+    domain: DomainDescription | None
 
 
 class CreatePackageGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
-    contactInfo: Optional[PackageGroupContactInfo]
-    description: Optional[Description]
-    tags: Optional[TagList]
+    contactInfo: PackageGroupContactInfo | None
+    description: Description | None
+    tags: TagList | None
 
 
 class PackageGroupReference(TypedDict, total=False):
     """Information about the identifiers of a package group."""
 
-    arn: Optional[Arn]
-    pattern: Optional[PackageGroupPattern]
+    arn: Arn | None
+    pattern: PackageGroupPattern | None
 
 
 class PackageGroupOriginRestriction(TypedDict, total=False):
@@ -412,13 +413,13 @@ class PackageGroupOriginRestriction(TypedDict, total=False):
     controls of a package group.
     """
 
-    mode: Optional[PackageGroupOriginRestrictionMode]
-    effectiveMode: Optional[PackageGroupOriginRestrictionMode]
-    inheritedFrom: Optional[PackageGroupReference]
-    repositoriesCount: Optional[LongOptional]
+    mode: PackageGroupOriginRestrictionMode | None
+    effectiveMode: PackageGroupOriginRestrictionMode | None
+    inheritedFrom: PackageGroupReference | None
+    repositoriesCount: LongOptional | None
 
 
-PackageGroupOriginRestrictions = Dict[
+PackageGroupOriginRestrictions = dict[
     PackageGroupOriginRestrictionType, PackageGroupOriginRestriction
 ]
 
@@ -428,25 +429,25 @@ class PackageGroupOriginConfiguration(TypedDict, total=False):
     versions can enter repositories.
     """
 
-    restrictions: Optional[PackageGroupOriginRestrictions]
+    restrictions: PackageGroupOriginRestrictions | None
 
 
 class PackageGroupDescription(TypedDict, total=False):
     """The description of the package group."""
 
-    arn: Optional[Arn]
-    pattern: Optional[PackageGroupPattern]
-    domainName: Optional[DomainName]
-    domainOwner: Optional[AccountId]
-    createdTime: Optional[Timestamp]
-    contactInfo: Optional[PackageGroupContactInfo]
-    description: Optional[Description]
-    originConfiguration: Optional[PackageGroupOriginConfiguration]
-    parent: Optional[PackageGroupReference]
+    arn: Arn | None
+    pattern: PackageGroupPattern | None
+    domainName: DomainName | None
+    domainOwner: AccountId | None
+    createdTime: Timestamp | None
+    contactInfo: PackageGroupContactInfo | None
+    description: Description | None
+    originConfiguration: PackageGroupOriginConfiguration | None
+    parent: PackageGroupReference | None
 
 
 class CreatePackageGroupResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
+    packageGroup: PackageGroupDescription | None
 
 
 class UpstreamRepository(TypedDict, total=False):
@@ -460,26 +461,26 @@ class UpstreamRepository(TypedDict, total=False):
     repositoryName: RepositoryName
 
 
-UpstreamRepositoryList = List[UpstreamRepository]
+UpstreamRepositoryList = list[UpstreamRepository]
 
 
 class CreateRepositoryRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
-    description: Optional[Description]
-    upstreams: Optional[UpstreamRepositoryList]
-    tags: Optional[TagList]
+    description: Description | None
+    upstreams: UpstreamRepositoryList | None
+    tags: TagList | None
 
 
 class CreateRepositoryResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class DeleteDomainPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
-    policyRevision: Optional[PolicyRevision]
+    domainOwner: AccountId | None
+    policyRevision: PolicyRevision | None
 
 
 class ResourcePolicy(TypedDict, total=False):
@@ -487,40 +488,40 @@ class ResourcePolicy(TypedDict, total=False):
     details, and a revision.
     """
 
-    resourceArn: Optional[Arn]
-    revision: Optional[PolicyRevision]
-    document: Optional[PolicyDocument]
+    resourceArn: Arn | None
+    revision: PolicyRevision | None
+    document: PolicyDocument | None
 
 
 class DeleteDomainPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
 class DeleteDomainRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
 
 
 class DeleteDomainResult(TypedDict, total=False):
-    domain: Optional[DomainDescription]
+    domain: DomainDescription | None
 
 
 class DeletePackageGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: String
 
 
 class DeletePackageGroupResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
+    packageGroup: PackageGroupDescription | None
 
 
 class DeletePackageRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
 
 
@@ -537,94 +538,94 @@ class PackageOriginRestrictions(TypedDict, total=False):
 class PackageOriginConfiguration(TypedDict, total=False):
     """Details about the package origin configuration of a package."""
 
-    restrictions: Optional[PackageOriginRestrictions]
+    restrictions: PackageOriginRestrictions | None
 
 
 class PackageSummary(TypedDict, total=False):
     """Details about a package, including its format, namespace, and name."""
 
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    originConfiguration: Optional[PackageOriginConfiguration]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    originConfiguration: PackageOriginConfiguration | None
 
 
 class DeletePackageResult(TypedDict, total=False):
-    deletedPackage: Optional[PackageSummary]
+    deletedPackage: PackageSummary | None
 
 
 class DeletePackageVersionsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     versions: PackageVersionList
-    expectedStatus: Optional[PackageVersionStatus]
+    expectedStatus: PackageVersionStatus | None
 
 
 class DeletePackageVersionsResult(TypedDict, total=False):
-    successfulVersions: Optional[SuccessfulPackageVersionInfoMap]
-    failedVersions: Optional[PackageVersionErrorMap]
+    successfulVersions: SuccessfulPackageVersionInfoMap | None
+    failedVersions: PackageVersionErrorMap | None
 
 
 class DeleteRepositoryPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
-    policyRevision: Optional[PolicyRevision]
+    policyRevision: PolicyRevision | None
 
 
 class DeleteRepositoryPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
 class DeleteRepositoryRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
 
 
 class DeleteRepositoryResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class DescribeDomainRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
 
 
 class DescribeDomainResult(TypedDict, total=False):
-    domain: Optional[DomainDescription]
+    domain: DomainDescription | None
 
 
 class DescribePackageGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
 
 
 class DescribePackageGroupResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
+    packageGroup: PackageGroupDescription | None
 
 
 class DescribePackageRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
 
 
 class PackageDescription(TypedDict, total=False):
     """Details about a package."""
 
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    name: Optional[PackageName]
-    originConfiguration: Optional[PackageOriginConfiguration]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    name: PackageName | None
+    originConfiguration: PackageOriginConfiguration | None
 
 
 class DescribePackageResult(TypedDict, total=False):
@@ -633,10 +634,10 @@ class DescribePackageResult(TypedDict, total=False):
 
 class DescribePackageVersionRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
 
@@ -656,43 +657,43 @@ class DomainEntryPoint(TypedDict, total=False):
     package version's value.
     """
 
-    repositoryName: Optional[RepositoryName]
-    externalConnectionName: Optional[ExternalConnectionName]
+    repositoryName: RepositoryName | None
+    externalConnectionName: ExternalConnectionName | None
 
 
 class PackageVersionOrigin(TypedDict, total=False):
     """Information about how a package version was added to a repository."""
 
-    domainEntryPoint: Optional[DomainEntryPoint]
-    originType: Optional[PackageVersionOriginType]
+    domainEntryPoint: DomainEntryPoint | None
+    originType: PackageVersionOriginType | None
 
 
 class LicenseInfo(TypedDict, total=False):
     """Details of the license data."""
 
-    name: Optional[String]
-    url: Optional[String]
+    name: String | None
+    url: String | None
 
 
-LicenseInfoList = List[LicenseInfo]
+LicenseInfoList = list[LicenseInfo]
 
 
 class PackageVersionDescription(TypedDict, total=False):
     """Details about a package version."""
 
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    packageName: Optional[PackageName]
-    displayName: Optional[String255]
-    version: Optional[PackageVersion]
-    summary: Optional[String]
-    homePage: Optional[String]
-    sourceCodeRepository: Optional[String]
-    publishedTime: Optional[Timestamp]
-    licenses: Optional[LicenseInfoList]
-    revision: Optional[PackageVersionRevision]
-    status: Optional[PackageVersionStatus]
-    origin: Optional[PackageVersionOrigin]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    packageName: PackageName | None
+    displayName: String255 | None
+    version: PackageVersion | None
+    summary: String | None
+    homePage: String | None
+    sourceCodeRepository: String | None
+    publishedTime: Timestamp | None
+    licenses: LicenseInfoList | None
+    revision: PackageVersionRevision | None
+    status: PackageVersionStatus | None
+    origin: PackageVersionOrigin | None
 
 
 class DescribePackageVersionResult(TypedDict, total=False):
@@ -701,40 +702,40 @@ class DescribePackageVersionResult(TypedDict, total=False):
 
 class DescribeRepositoryRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
 
 
 class DescribeRepositoryResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class DisassociateExternalConnectionRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     externalConnection: ExternalConnectionName
 
 
 class DisassociateExternalConnectionResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class DisposePackageVersionsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     versions: PackageVersionList
-    versionRevisions: Optional[PackageVersionRevisionMap]
-    expectedStatus: Optional[PackageVersionStatus]
+    versionRevisions: PackageVersionRevisionMap | None
+    expectedStatus: PackageVersionStatus | None
 
 
 class DisposePackageVersionsResult(TypedDict, total=False):
-    successfulVersions: Optional[SuccessfulPackageVersionInfoMap]
-    failedVersions: Optional[PackageVersionErrorMap]
+    successfulVersions: SuccessfulPackageVersionInfoMap | None
+    failedVersions: PackageVersionErrorMap | None
 
 
 class DomainSummary(TypedDict, total=False):
@@ -744,248 +745,248 @@ class DomainSummary(TypedDict, total=False):
     operation returns a list of ``DomainSummary`` objects.
     """
 
-    name: Optional[DomainName]
-    owner: Optional[AccountId]
-    arn: Optional[Arn]
-    status: Optional[DomainStatus]
-    createdTime: Optional[Timestamp]
-    encryptionKey: Optional[Arn]
+    name: DomainName | None
+    owner: AccountId | None
+    arn: Arn | None
+    status: DomainStatus | None
+    createdTime: Timestamp | None
+    encryptionKey: Arn | None
 
 
-DomainSummaryList = List[DomainSummary]
+DomainSummaryList = list[DomainSummary]
 
 
 class GetAssociatedPackageGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
 
 
 class GetAssociatedPackageGroupResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
-    associationType: Optional[PackageGroupAssociationType]
+    packageGroup: PackageGroupDescription | None
+    associationType: PackageGroupAssociationType | None
 
 
 class GetAuthorizationTokenRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
-    durationSeconds: Optional[AuthorizationTokenDurationSeconds]
+    domainOwner: AccountId | None
+    durationSeconds: AuthorizationTokenDurationSeconds | None
 
 
 class GetAuthorizationTokenResult(TypedDict, total=False):
-    authorizationToken: Optional[String]
-    expiration: Optional[Timestamp]
+    authorizationToken: String | None
+    expiration: Timestamp | None
 
 
 class GetDomainPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
 
 
 class GetDomainPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
 class GetPackageVersionAssetRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
     asset: AssetName
-    packageVersionRevision: Optional[PackageVersionRevision]
+    packageVersionRevision: PackageVersionRevision | None
 
 
 class GetPackageVersionAssetResult(TypedDict, total=False):
-    asset: Optional[Union[Asset, IO[Asset], Iterable[Asset]]]
-    assetName: Optional[AssetName]
-    packageVersion: Optional[PackageVersion]
-    packageVersionRevision: Optional[PackageVersionRevision]
+    asset: Asset | IO[Asset] | Iterable[Asset] | None
+    assetName: AssetName | None
+    packageVersion: PackageVersion | None
+    packageVersionRevision: PackageVersionRevision | None
 
 
 class GetPackageVersionReadmeRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
 
 
 class GetPackageVersionReadmeResult(TypedDict, total=False):
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    version: Optional[PackageVersion]
-    versionRevision: Optional[PackageVersionRevision]
-    readme: Optional[String]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    version: PackageVersion | None
+    versionRevision: PackageVersionRevision | None
+    readme: String | None
 
 
 class GetRepositoryEndpointRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    endpointType: Optional[EndpointType]
+    endpointType: EndpointType | None
 
 
 class GetRepositoryEndpointResult(TypedDict, total=False):
-    repositoryEndpoint: Optional[String]
+    repositoryEndpoint: String | None
 
 
 class GetRepositoryPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
 
 
 class GetRepositoryPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
 class ListAllowedRepositoriesForGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
     originRestrictionType: PackageGroupOriginRestrictionType
-    maxResults: Optional[ListAllowedRepositoriesForGroupMaxResults]
-    nextToken: Optional[PaginationToken]
+    maxResults: ListAllowedRepositoriesForGroupMaxResults | None
+    nextToken: PaginationToken | None
 
 
-RepositoryNameList = List[RepositoryName]
+RepositoryNameList = list[RepositoryName]
 
 
 class ListAllowedRepositoriesForGroupResult(TypedDict, total=False):
-    allowedRepositories: Optional[RepositoryNameList]
-    nextToken: Optional[PaginationToken]
+    allowedRepositories: RepositoryNameList | None
+    nextToken: PaginationToken | None
 
 
 class ListAssociatedPackagesRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
-    maxResults: Optional[ListPackagesMaxResults]
-    nextToken: Optional[PaginationToken]
-    preview: Optional[BooleanOptional]
+    maxResults: ListPackagesMaxResults | None
+    nextToken: PaginationToken | None
+    preview: BooleanOptional | None
 
 
 class ListAssociatedPackagesResult(TypedDict, total=False):
-    packages: Optional[AssociatedPackageList]
-    nextToken: Optional[PaginationToken]
+    packages: AssociatedPackageList | None
+    nextToken: PaginationToken | None
 
 
 class ListDomainsRequest(ServiceRequest):
-    maxResults: Optional[ListDomainsMaxResults]
-    nextToken: Optional[PaginationToken]
+    maxResults: ListDomainsMaxResults | None
+    nextToken: PaginationToken | None
 
 
 class ListDomainsResult(TypedDict, total=False):
-    domains: Optional[DomainSummaryList]
-    nextToken: Optional[PaginationToken]
+    domains: DomainSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListPackageGroupsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
-    maxResults: Optional[ListPackageGroupsMaxResults]
-    nextToken: Optional[PaginationToken]
-    prefix: Optional[PackageGroupPatternPrefix]
+    domainOwner: AccountId | None
+    maxResults: ListPackageGroupsMaxResults | None
+    nextToken: PaginationToken | None
+    prefix: PackageGroupPatternPrefix | None
 
 
 class PackageGroupSummary(TypedDict, total=False):
     """Details about a package group."""
 
-    arn: Optional[Arn]
-    pattern: Optional[PackageGroupPattern]
-    domainName: Optional[DomainName]
-    domainOwner: Optional[AccountId]
-    createdTime: Optional[Timestamp]
-    contactInfo: Optional[PackageGroupContactInfo]
-    description: Optional[Description]
-    originConfiguration: Optional[PackageGroupOriginConfiguration]
-    parent: Optional[PackageGroupReference]
+    arn: Arn | None
+    pattern: PackageGroupPattern | None
+    domainName: DomainName | None
+    domainOwner: AccountId | None
+    createdTime: Timestamp | None
+    contactInfo: PackageGroupContactInfo | None
+    description: Description | None
+    originConfiguration: PackageGroupOriginConfiguration | None
+    parent: PackageGroupReference | None
 
 
-PackageGroupSummaryList = List[PackageGroupSummary]
+PackageGroupSummaryList = list[PackageGroupSummary]
 
 
 class ListPackageGroupsResult(TypedDict, total=False):
-    packageGroups: Optional[PackageGroupSummaryList]
-    nextToken: Optional[PaginationToken]
+    packageGroups: PackageGroupSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListPackageVersionAssetsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
-    maxResults: Optional[ListPackageVersionAssetsMaxResults]
-    nextToken: Optional[PaginationToken]
+    maxResults: ListPackageVersionAssetsMaxResults | None
+    nextToken: PaginationToken | None
 
 
 class ListPackageVersionAssetsResult(TypedDict, total=False):
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    version: Optional[PackageVersion]
-    versionRevision: Optional[PackageVersionRevision]
-    nextToken: Optional[PaginationToken]
-    assets: Optional[AssetSummaryList]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    version: PackageVersion | None
+    versionRevision: PackageVersionRevision | None
+    nextToken: PaginationToken | None
+    assets: AssetSummaryList | None
 
 
 class ListPackageVersionDependenciesRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class PackageDependency(TypedDict, total=False):
     """Details about a package dependency."""
 
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    dependencyType: Optional[String]
-    versionRequirement: Optional[String]
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    dependencyType: String | None
+    versionRequirement: String | None
 
 
-PackageDependencyList = List[PackageDependency]
+PackageDependencyList = list[PackageDependency]
 
 
 class ListPackageVersionDependenciesResult(TypedDict, total=False):
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    version: Optional[PackageVersion]
-    versionRevision: Optional[PackageVersionRevision]
-    nextToken: Optional[PaginationToken]
-    dependencies: Optional[PackageDependencyList]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    version: PackageVersion | None
+    versionRevision: PackageVersionRevision | None
+    nextToken: PaginationToken | None
+    dependencies: PackageDependencyList | None
 
 
 class ListPackageVersionsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
-    status: Optional[PackageVersionStatus]
-    sortBy: Optional[PackageVersionSortType]
-    maxResults: Optional[ListPackageVersionsMaxResults]
-    nextToken: Optional[PaginationToken]
-    originType: Optional[PackageVersionOriginType]
+    status: PackageVersionStatus | None
+    sortBy: PackageVersionSortType | None
+    maxResults: ListPackageVersionsMaxResults | None
+    nextToken: PaginationToken | None
+    originType: PackageVersionOriginType | None
 
 
 class PackageVersionSummary(TypedDict, total=False):
@@ -996,51 +997,51 @@ class PackageVersionSummary(TypedDict, total=False):
     """
 
     version: PackageVersion
-    revision: Optional[PackageVersionRevision]
+    revision: PackageVersionRevision | None
     status: PackageVersionStatus
-    origin: Optional[PackageVersionOrigin]
+    origin: PackageVersionOrigin | None
 
 
-PackageVersionSummaryList = List[PackageVersionSummary]
+PackageVersionSummaryList = list[PackageVersionSummary]
 
 
 class ListPackageVersionsResult(TypedDict, total=False):
-    defaultDisplayVersion: Optional[PackageVersion]
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    versions: Optional[PackageVersionSummaryList]
-    nextToken: Optional[PaginationToken]
+    defaultDisplayVersion: PackageVersion | None
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    versions: PackageVersionSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListPackagesRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    packagePrefix: Optional[PackageName]
-    maxResults: Optional[ListPackagesMaxResults]
-    nextToken: Optional[PaginationToken]
-    publish: Optional[AllowPublish]
-    upstream: Optional[AllowUpstream]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    packagePrefix: PackageName | None
+    maxResults: ListPackagesMaxResults | None
+    nextToken: PaginationToken | None
+    publish: AllowPublish | None
+    upstream: AllowUpstream | None
 
 
-PackageSummaryList = List[PackageSummary]
+PackageSummaryList = list[PackageSummary]
 
 
 class ListPackagesResult(TypedDict, total=False):
-    packages: Optional[PackageSummaryList]
-    nextToken: Optional[PaginationToken]
+    packages: PackageSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListRepositoriesInDomainRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
-    administratorAccount: Optional[AccountId]
-    repositoryPrefix: Optional[RepositoryName]
-    maxResults: Optional[ListRepositoriesInDomainMaxResults]
-    nextToken: Optional[PaginationToken]
+    domainOwner: AccountId | None
+    administratorAccount: AccountId | None
+    repositoryPrefix: RepositoryName | None
+    maxResults: ListRepositoriesInDomainMaxResults | None
+    nextToken: PaginationToken | None
 
 
 class RepositorySummary(TypedDict, total=False):
@@ -1050,45 +1051,45 @@ class RepositorySummary(TypedDict, total=False):
     operation returns a list of ``RepositorySummary`` objects.
     """
 
-    name: Optional[RepositoryName]
-    administratorAccount: Optional[AccountId]
-    domainName: Optional[DomainName]
-    domainOwner: Optional[AccountId]
-    arn: Optional[Arn]
-    description: Optional[Description]
-    createdTime: Optional[Timestamp]
+    name: RepositoryName | None
+    administratorAccount: AccountId | None
+    domainName: DomainName | None
+    domainOwner: AccountId | None
+    arn: Arn | None
+    description: Description | None
+    createdTime: Timestamp | None
 
 
-RepositorySummaryList = List[RepositorySummary]
+RepositorySummaryList = list[RepositorySummary]
 
 
 class ListRepositoriesInDomainResult(TypedDict, total=False):
-    repositories: Optional[RepositorySummaryList]
-    nextToken: Optional[PaginationToken]
+    repositories: RepositorySummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListRepositoriesRequest(ServiceRequest):
-    repositoryPrefix: Optional[RepositoryName]
-    maxResults: Optional[ListRepositoriesMaxResults]
-    nextToken: Optional[PaginationToken]
+    repositoryPrefix: RepositoryName | None
+    maxResults: ListRepositoriesMaxResults | None
+    nextToken: PaginationToken | None
 
 
 class ListRepositoriesResult(TypedDict, total=False):
-    repositories: Optional[RepositorySummaryList]
-    nextToken: Optional[PaginationToken]
+    repositories: RepositorySummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListSubPackageGroupsRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
-    maxResults: Optional[ListPackageGroupsMaxResults]
-    nextToken: Optional[PaginationToken]
+    maxResults: ListPackageGroupsMaxResults | None
+    nextToken: PaginationToken | None
 
 
 class ListSubPackageGroupsResult(TypedDict, total=False):
-    packageGroups: Optional[PackageGroupSummaryList]
-    nextToken: Optional[PaginationToken]
+    packageGroups: PackageGroupSummaryList | None
+    nextToken: PaginationToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1096,10 +1097,10 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResult(TypedDict, total=False):
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
-OriginRestrictions = Dict[PackageGroupOriginRestrictionType, PackageGroupOriginRestrictionMode]
+OriginRestrictions = dict[PackageGroupOriginRestrictionType, PackageGroupOriginRestrictionMode]
 
 
 class PackageGroupAllowedRepository(TypedDict, total=False):
@@ -1107,15 +1108,15 @@ class PackageGroupAllowedRepository(TypedDict, total=False):
     name and origin configuration.
     """
 
-    repositoryName: Optional[RepositoryName]
-    originRestrictionType: Optional[PackageGroupOriginRestrictionType]
+    repositoryName: RepositoryName | None
+    originRestrictionType: PackageGroupOriginRestrictionType | None
 
 
-PackageGroupAllowedRepositoryList = List[PackageGroupAllowedRepository]
-PackageGroupAllowedRepositoryUpdate = Dict[
+PackageGroupAllowedRepositoryList = list[PackageGroupAllowedRepository]
+PackageGroupAllowedRepositoryUpdate = dict[
     PackageGroupAllowedRepositoryUpdateType, RepositoryNameList
 ]
-PackageGroupAllowedRepositoryUpdates = Dict[
+PackageGroupAllowedRepositoryUpdates = dict[
     PackageGroupOriginRestrictionType, PackageGroupAllowedRepositoryUpdate
 ]
 
@@ -1123,65 +1124,65 @@ PackageGroupAllowedRepositoryUpdates = Dict[
 class PublishPackageVersionRequest(ServiceRequest):
     assetContent: IO[Asset]
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     packageVersion: PackageVersion
     assetName: AssetName
     assetSHA256: SHA256
-    unfinished: Optional[BooleanOptional]
+    unfinished: BooleanOptional | None
 
 
 class PublishPackageVersionResult(TypedDict, total=False):
-    format: Optional[PackageFormat]
-    namespace: Optional[PackageNamespace]
-    package: Optional[PackageName]
-    version: Optional[PackageVersion]
-    versionRevision: Optional[PackageVersionRevision]
-    status: Optional[PackageVersionStatus]
-    asset: Optional[AssetSummary]
+    format: PackageFormat | None
+    namespace: PackageNamespace | None
+    package: PackageName | None
+    version: PackageVersion | None
+    versionRevision: PackageVersionRevision | None
+    status: PackageVersionStatus | None
+    asset: AssetSummary | None
 
 
 class PutDomainPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
-    policyRevision: Optional[PolicyRevision]
+    domainOwner: AccountId | None
+    policyRevision: PolicyRevision | None
     policyDocument: PolicyDocument
 
 
 class PutDomainPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
 class PutPackageOriginConfigurationRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     restrictions: PackageOriginRestrictions
 
 
 class PutPackageOriginConfigurationResult(TypedDict, total=False):
-    originConfiguration: Optional[PackageOriginConfiguration]
+    originConfiguration: PackageOriginConfiguration | None
 
 
 class PutRepositoryPermissionsPolicyRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
-    policyRevision: Optional[PolicyRevision]
+    policyRevision: PolicyRevision | None
     policyDocument: PolicyDocument
 
 
 class PutRepositoryPermissionsPolicyResult(TypedDict, total=False):
-    policy: Optional[ResourcePolicy]
+    policy: ResourcePolicy | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1204,63 +1205,63 @@ class UntagResourceResult(TypedDict, total=False):
 
 class UpdatePackageGroupOriginConfigurationRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
-    restrictions: Optional[OriginRestrictions]
-    addAllowedRepositories: Optional[PackageGroupAllowedRepositoryList]
-    removeAllowedRepositories: Optional[PackageGroupAllowedRepositoryList]
+    restrictions: OriginRestrictions | None
+    addAllowedRepositories: PackageGroupAllowedRepositoryList | None
+    removeAllowedRepositories: PackageGroupAllowedRepositoryList | None
 
 
 class UpdatePackageGroupOriginConfigurationResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
-    allowedRepositoryUpdates: Optional[PackageGroupAllowedRepositoryUpdates]
+    packageGroup: PackageGroupDescription | None
+    allowedRepositoryUpdates: PackageGroupAllowedRepositoryUpdates | None
 
 
 class UpdatePackageGroupRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     packageGroup: PackageGroupPattern
-    contactInfo: Optional[PackageGroupContactInfo]
-    description: Optional[Description]
+    contactInfo: PackageGroupContactInfo | None
+    description: Description | None
 
 
 class UpdatePackageGroupResult(TypedDict, total=False):
-    packageGroup: Optional[PackageGroupDescription]
+    packageGroup: PackageGroupDescription | None
 
 
 class UpdatePackageVersionsStatusRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
     format: PackageFormat
-    namespace: Optional[PackageNamespace]
+    namespace: PackageNamespace | None
     package: PackageName
     versions: PackageVersionList
-    versionRevisions: Optional[PackageVersionRevisionMap]
-    expectedStatus: Optional[PackageVersionStatus]
+    versionRevisions: PackageVersionRevisionMap | None
+    expectedStatus: PackageVersionStatus | None
     targetStatus: PackageVersionStatus
 
 
 class UpdatePackageVersionsStatusResult(TypedDict, total=False):
-    successfulVersions: Optional[SuccessfulPackageVersionInfoMap]
-    failedVersions: Optional[PackageVersionErrorMap]
+    successfulVersions: SuccessfulPackageVersionInfoMap | None
+    failedVersions: PackageVersionErrorMap | None
 
 
 class UpdateRepositoryRequest(ServiceRequest):
     domain: DomainName
-    domainOwner: Optional[AccountId]
+    domainOwner: AccountId | None
     repository: RepositoryName
-    description: Optional[Description]
-    upstreams: Optional[UpstreamRepositoryList]
+    description: Description | None
+    upstreams: UpstreamRepositoryList | None
 
 
 class UpdateRepositoryResult(TypedDict, total=False):
-    repository: Optional[RepositoryDescription]
+    repository: RepositoryDescription | None
 
 
 class CodeartifactApi:
-    service = "codeartifact"
-    version = "2018-09-22"
+    service: str = "codeartifact"
+    version: str = "2018-09-22"
 
     @handler("AssociateExternalConnection")
     def associate_external_connection(

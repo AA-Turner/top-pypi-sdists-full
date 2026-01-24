@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast_simplification
-Version: 0.1.12
+Version: 0.1.13
 Summary: Wrapper around the Fast-Quadric-Mesh-Simplification library.
 Home-page: https://github.com/pyvista/fast-simplification
 Author: Alex Kaszynski
@@ -10,11 +10,11 @@ Keywords: fast-simplification decimation
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE

@@ -26,9 +26,11 @@ class TargetHandler(NextTokenBaseHandler):
         if (
             self.indicator is True
             and token.is_keyword
-            and token.normalized in ("IF", "NOT", "EXISTS")
+            and token.normalized == "IF NOT EXISTS"
         ):
             # special handling for CREATE TABLE IF NOT EXISTS
+            # starting sqlparse v0.5.4, IF NOT EXISTS is treated as 1 keyword instead of 3
+            # See https://github.com/andialbrecht/sqlparse/commit/e92a032c81d51a6645b4f8c32470481894818ba0
             return True
         else:
             return token.normalized in self.TARGET_TABLE_TOKENS
@@ -39,8 +41,7 @@ class TargetHandler(NextTokenBaseHandler):
             # referring https://github.com/andialbrecht/sqlparse/issues/483 for further information
             if not isinstance(token.token_first(skip_cm=True), Identifier):
                 raise SQLLineageException(
-                    "An Identifier is expected, got %s[value: %s] instead."
-                    % (type(token).__name__, token)
+                    f"An Identifier is expected, got {type(token).__name__}[value: {token}] instead."
                 )
             holder.add_write(SqlParseTable.of(token.token_first(skip_cm=True)))
         elif isinstance(token, Comparison):
@@ -51,8 +52,7 @@ class TargetHandler(NextTokenBaseHandler):
                 and isinstance(token.right, Identifier)
             ):
                 raise SQLLineageException(
-                    "An Identifier is expected, got %s[value: %s] instead."
-                    % (type(token).__name__, token)
+                    f"An Identifier is expected, got {type(token).__name__}[value: {token}] instead."
                 )
             holder.add_write(SqlParseTable.of(token.left))
             holder.add_read(SqlParseTable.of(token.right))

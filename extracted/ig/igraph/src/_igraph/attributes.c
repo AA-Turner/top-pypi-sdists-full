@@ -183,7 +183,7 @@ int igraphmodule_PyObject_matches_attribute_record(PyObject* object, igraph_attr
   return 0;
 }
 
-int igraphmodule_get_vertex_id_by_name(igraph_t *graph, PyObject* o, igraph_integer_t* vid) {
+int igraphmodule_get_vertex_id_by_name(igraph_t *graph, PyObject* o, igraph_int_t* vid) {
   igraphmodule_i_attribute_struct* attrs = ATTR_STRUCT(graph);
   PyObject* o_vid = NULL;
 
@@ -347,9 +347,11 @@ PyObject* igraphmodule_create_or_get_edge_attribute_values(const igraph_t* graph
 /* Attribute handlers for the Python interface */
 
 /* Initialization */
-static igraph_error_t igraphmodule_i_attribute_init(igraph_t *graph, igraph_vector_ptr_t *attr) {
+static igraph_error_t igraphmodule_i_attribute_init(
+  igraph_t *graph, const igraph_attribute_record_list_t *attr
+) {
   igraphmodule_i_attribute_struct* attrs;
-  igraph_integer_t i, n;
+  igraph_int_t i, n;
 
   attrs = (igraphmodule_i_attribute_struct*)calloc(1, sizeof(igraphmodule_i_attribute_struct));
   if (!attrs) {
@@ -368,27 +370,26 @@ static igraph_error_t igraphmodule_i_attribute_init(igraph_t *graph, igraph_vect
     PyObject *dict = attrs->attrs[0], *value;
     const char *s;
 
-    n = igraph_vector_ptr_size(attr);
+    n = igraph_attribute_record_list_size(attr);
     for (i = 0; i < n; i++) {
-      igraph_attribute_record_t *attr_rec;
-      attr_rec = VECTOR(*attr)[i];
+      igraph_attribute_record_t *attr_rec = igraph_attribute_record_list_get_ptr(attr, i);
 
       switch (attr_rec->type) {
       case IGRAPH_ATTRIBUTE_NUMERIC:
-        value = PyFloat_FromDouble((double)VECTOR(*(igraph_vector_t*)attr_rec->value)[0]);
+        value = PyFloat_FromDouble((double)VECTOR(*attr_rec->value.as_vector)[0]);
         if (!value) {
           PyErr_PrintEx(0);
         }
         break;
       case IGRAPH_ATTRIBUTE_STRING:
-        s = igraph_strvector_get((igraph_strvector_t*)attr_rec->value, 0);
+        s = igraph_strvector_get(attr_rec->value.as_strvector, 0);
         value = PyUnicode_FromString(s ? s : "");
         if (!value) {
           PyErr_PrintEx(0);
         }
         break;
       case IGRAPH_ATTRIBUTE_BOOLEAN:
-        value = VECTOR(*(igraph_vector_bool_t*)attr_rec->value)[0] ? Py_True : Py_False;
+        value = VECTOR(*attr_rec->value.as_vector_bool)[0] ? Py_True : Py_False;
         Py_INCREF(value);
         break;
       default:
@@ -515,10 +516,12 @@ static igraph_error_t igraphmodule_i_attribute_copy(igraph_t *to, const igraph_t
 }
 
 /* Adding vertices */
-static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igraph_integer_t nv, igraph_vector_ptr_t *attr) {
+static igraph_error_t igraphmodule_i_attribute_add_vertices(
+  igraph_t *graph, igraph_int_t nv, const igraph_attribute_record_list_t *attr
+) {
   /* Extend the end of every value in the vertex hash with nv pieces of None */
   PyObject *key, *value, *dict;
-  igraph_integer_t i, j, k, num_attr_entries;
+  igraph_int_t i, j, k, num_attr_entries;
   igraph_attribute_record_t *attr_rec;
   igraph_vector_bool_t added_attrs;
   Py_ssize_t pos = 0;
@@ -531,7 +534,7 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
     return IGRAPH_SUCCESS;
   }
 
-  num_attr_entries = attr ? igraph_vector_ptr_size(attr) : 0;
+  num_attr_entries = attr ? igraph_attribute_record_list_size(attr) : 0;
   IGRAPH_VECTOR_BOOL_INIT_FINALLY(&added_attrs, num_attr_entries);
 
   dict = ATTR_STRUCT_DICT(graph)[ATTRHASH_IDX_VERTEX];
@@ -547,7 +550,7 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
     /* Check if we have specific values for the given attribute */
     attr_rec = NULL;
     for (i = 0; i < num_attr_entries; i++) {
-      attr_rec = VECTOR(*attr)[i];
+      attr_rec = igraph_attribute_record_list_get_ptr(attr, i);
       if (igraphmodule_PyObject_matches_attribute_record(key, attr_rec)) {
         VECTOR(added_attrs)[i] = 1;
         break;
@@ -564,14 +567,14 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
 
         switch (attr_rec->type) {
         case IGRAPH_ATTRIBUTE_NUMERIC:
-          o = PyFloat_FromDouble((double)VECTOR(*(igraph_vector_t*)attr_rec->value)[i]);
+          o = PyFloat_FromDouble((double)VECTOR(*attr_rec->value.as_vector)[i]);
           break;
         case IGRAPH_ATTRIBUTE_STRING:
-          s = igraph_strvector_get((igraph_strvector_t*)attr_rec->value, i);
+          s = igraph_strvector_get(attr_rec->value.as_strvector, i);
           o = PyUnicode_FromString(s);
           break;
         case IGRAPH_ATTRIBUTE_BOOLEAN:
-          o = VECTOR(*(igraph_vector_bool_t*)attr_rec->value)[i] ? Py_True : Py_False;
+          o = VECTOR(*attr_rec->value.as_vector_bool)[i] ? Py_True : Py_False;
           Py_INCREF(o);
           break;
         default:
@@ -620,7 +623,7 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
       continue;
     }
 
-    attr_rec = (igraph_attribute_record_t*)VECTOR(*attr)[k];
+    attr_rec = igraph_attribute_record_list_get_ptr(attr, k);
 
     value = PyList_New(j + nv);
     if (!value) {
@@ -637,14 +640,14 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
       PyObject *o = NULL;
       switch (attr_rec->type) {
       case IGRAPH_ATTRIBUTE_NUMERIC:
-        o = PyFloat_FromDouble((double)VECTOR(*(igraph_vector_t*)attr_rec->value)[i]);
+        o = PyFloat_FromDouble((double)VECTOR(*attr_rec->value.as_vector)[i]);
         break;
       case IGRAPH_ATTRIBUTE_STRING:
-        s = igraph_strvector_get((igraph_strvector_t*)attr_rec->value, i);
+        s = igraph_strvector_get(attr_rec->value.as_strvector, i);
         o = PyUnicode_FromString(s);
         break;
       case IGRAPH_ATTRIBUTE_BOOLEAN:
-        o = VECTOR(*(igraph_vector_bool_t*)attr_rec->value)[i] ? Py_True : Py_False;
+        o = VECTOR(*attr_rec->value.as_vector_bool)[i] ? Py_True : Py_False;
         Py_INCREF(o);
         break;
       default:
@@ -687,7 +690,7 @@ static igraph_error_t igraphmodule_i_attribute_add_vertices(igraph_t *graph, igr
 /* Permuting vertices */
 static igraph_error_t igraphmodule_i_attribute_permute_vertices(const igraph_t *graph,
     igraph_t *newgraph, const igraph_vector_int_t *idx) {
-  igraph_integer_t i, n;
+  igraph_int_t i, n;
   PyObject *key, *value, *dict, *newdict, *newlist, *o;
   Py_ssize_t pos = 0;
 
@@ -739,11 +742,13 @@ static igraph_error_t igraphmodule_i_attribute_permute_vertices(const igraph_t *
 }
 
 /* Adding edges */
-static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const igraph_vector_int_t *edges, igraph_vector_ptr_t *attr) {
+static igraph_error_t igraphmodule_i_attribute_add_edges(
+  igraph_t *graph, const igraph_vector_int_t *edges, const igraph_attribute_record_list_t* attr
+) {
   /* Extend the end of every value in the edge hash with ne pieces of None */
   PyObject *key, *value, *dict;
   Py_ssize_t pos = 0;
-  igraph_integer_t i, j, k, ne, num_attr_entries;
+  igraph_int_t i, j, k, ne, num_attr_entries;
   igraph_vector_bool_t added_attrs;
   igraph_attribute_record_t *attr_rec;
 
@@ -756,7 +761,7 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
     return IGRAPH_SUCCESS;
   }
 
-  num_attr_entries = attr ? igraph_vector_ptr_size(attr) : 0;
+  num_attr_entries = attr ? igraph_attribute_record_list_size(attr) : 0;
   IGRAPH_VECTOR_BOOL_INIT_FINALLY(&added_attrs, num_attr_entries);
 
   dict = ATTR_STRUCT_DICT(graph)[ATTRHASH_IDX_EDGE];
@@ -772,7 +777,7 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
     /* Check if we have specific values for the given attribute */
     attr_rec = NULL;
     for (i = 0; i < num_attr_entries; i++) {
-      attr_rec = VECTOR(*attr)[i];
+      attr_rec = igraph_attribute_record_list_get_ptr(attr, i);
       if (igraphmodule_PyObject_matches_attribute_record(key, attr_rec)) {
         VECTOR(added_attrs)[i] = 1;
         break;
@@ -788,14 +793,14 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
         PyObject *o;
         switch (attr_rec->type) {
         case IGRAPH_ATTRIBUTE_NUMERIC:
-          o = PyFloat_FromDouble((double)VECTOR(*(igraph_vector_t*)attr_rec->value)[i]);
+          o = PyFloat_FromDouble((double)VECTOR(*attr_rec->value.as_vector)[i]);
           break;
         case IGRAPH_ATTRIBUTE_STRING:
-          s = igraph_strvector_get((igraph_strvector_t*)attr_rec->value, i);
+          s = igraph_strvector_get(attr_rec->value.as_strvector, i);
           o = PyUnicode_FromString(s);
           break;
         case IGRAPH_ATTRIBUTE_BOOLEAN:
-          o = VECTOR(*(igraph_vector_bool_t*)attr_rec->value)[i] ? Py_True : Py_False;
+          o = VECTOR(*attr_rec->value.as_vector_bool)[i] ? Py_True : Py_False;
           Py_INCREF(o);
           break;
         default:
@@ -837,7 +842,7 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
     if (VECTOR(added_attrs)[k]) {
       continue;
     }
-    attr_rec=(igraph_attribute_record_t*)VECTOR(*attr)[k];
+    attr_rec = igraph_attribute_record_list_get_ptr(attr, k);
 
     value = PyList_New(j + ne);
     if (!value) {
@@ -854,14 +859,14 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
       PyObject *o;
       switch (attr_rec->type) {
       case IGRAPH_ATTRIBUTE_NUMERIC:
-        o = PyFloat_FromDouble((double)VECTOR(*(igraph_vector_t*)attr_rec->value)[i]);
+        o = PyFloat_FromDouble((double)VECTOR(*attr_rec->value.as_vector)[i]);
         break;
       case IGRAPH_ATTRIBUTE_STRING:
-        s = igraph_strvector_get((igraph_strvector_t*)attr_rec->value, i);
+        s = igraph_strvector_get(attr_rec->value.as_strvector, i);
         o = PyUnicode_FromString(s);
         break;
       case IGRAPH_ATTRIBUTE_BOOLEAN:
-        o = VECTOR(*(igraph_vector_bool_t*)attr_rec->value)[i] ? Py_True : Py_False;
+        o = VECTOR(*attr_rec->value.as_vector_bool)[i] ? Py_True : Py_False;
         Py_INCREF(o);
         break;
       default:
@@ -899,7 +904,7 @@ static igraph_error_t igraphmodule_i_attribute_add_edges(igraph_t *graph, const 
 /* Permuting edges */
 static igraph_error_t igraphmodule_i_attribute_permute_edges(const igraph_t *graph,
     igraph_t *newgraph, const igraph_vector_int_t *idx) {
-  igraph_integer_t i, n;
+  igraph_int_t i, n;
   PyObject *key, *value, *dict, *newdict, *newlist, *o;
   Py_ssize_t pos=0;
 
@@ -956,14 +961,14 @@ static igraph_error_t igraphmodule_i_attribute_permute_edges(const igraph_t *gra
  */
 static PyObject* igraphmodule_i_ac_func(PyObject* values,
     const igraph_vector_int_list_t *merges, PyObject* func) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *list, *item;
 
   res = PyList_New(len);
 
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
-    igraph_integer_t j, n = igraph_vector_int_size(v);
+    igraph_int_t j, n = igraph_vector_int_size(v);
 
     list = PyList_New(n);
     for (j = 0; j < n; j++) {
@@ -1039,14 +1044,14 @@ static PyObject* igraphmodule_i_ac_builtin_func(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_sum(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
     igraph_real_t num = 0.0, sum = 0.0;
-    igraph_integer_t j, n = igraph_vector_int_size(v);
+    igraph_int_t j, n = igraph_vector_int_size(v);
 
     for (j = 0; j < n; j++) {
       item = PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[j]);
@@ -1082,14 +1087,14 @@ static PyObject* igraphmodule_i_ac_sum(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_prod(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
     igraph_real_t num = 1.0, prod = 1.0;
-    igraph_integer_t j, n = igraph_vector_int_size(v);
+    igraph_int_t j, n = igraph_vector_int_size(v);
 
     for (j = 0; j < n; j++) {
       item = PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[j]);
@@ -1126,13 +1131,13 @@ static PyObject* igraphmodule_i_ac_prod(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_first(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
-    igraph_integer_t n = igraph_vector_int_size(v);
+    igraph_int_t n = igraph_vector_int_size(v);
 
     item = n > 0 ? PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[0]) : Py_None;
     if (item == 0) {
@@ -1159,7 +1164,7 @@ static PyObject* igraphmodule_i_ac_first(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_random(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item, *num;
   PyObject *random_module = PyImport_ImportModule("random");
   PyObject *random_func;
@@ -1176,7 +1181,7 @@ static PyObject* igraphmodule_i_ac_random(PyObject* values,
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
-    igraph_integer_t n = igraph_vector_int_size(v);
+    igraph_int_t n = igraph_vector_int_size(v);
 
     if (n > 0) {
       num = PyObject_CallObject(random_func, 0);
@@ -1187,7 +1192,7 @@ static PyObject* igraphmodule_i_ac_random(PyObject* values,
       }
 
       item = PyList_GetItem(
-        values, VECTOR(*v)[(igraph_integer_t)(n * PyFloat_AsDouble(num))]
+        values, VECTOR(*v)[(igraph_int_t)(n * PyFloat_AsDouble(num))]
       );
       if (item == 0) {
         Py_DECREF(random_func);
@@ -1222,13 +1227,13 @@ static PyObject* igraphmodule_i_ac_random(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_last(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
-    igraph_integer_t n = igraph_vector_int_size(v);
+    igraph_int_t n = igraph_vector_int_size(v);
 
     item = (n > 0) ? PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[n-1]) : Py_None;
     if (item == 0) {
@@ -1256,14 +1261,14 @@ static PyObject* igraphmodule_i_ac_last(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_mean(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
     igraph_real_t num = 0.0, mean = 0.0;
-    igraph_integer_t j, n = igraph_vector_int_size(v);
+    igraph_int_t j, n = igraph_vector_int_size(v);
 
     for (j = 0; j < n; ) {
       item = PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[j]);
@@ -1302,13 +1307,13 @@ static PyObject* igraphmodule_i_ac_mean(PyObject* values,
  */
 static PyObject* igraphmodule_i_ac_median(PyObject* values,
     const igraph_vector_int_list_t *merges) {
-  igraph_integer_t i, len = igraph_vector_int_list_size(merges);
+  igraph_int_t i, len = igraph_vector_int_list_size(merges);
   PyObject *res, *list, *item;
 
   res = PyList_New(len);
   for (i = 0; i < len; i++) {
     igraph_vector_int_t *v = igraph_vector_int_list_get_ptr(merges, i);
-    igraph_integer_t j, n = igraph_vector_int_size(v);
+    igraph_int_t j, n = igraph_vector_int_size(v);
     list = PyList_New(n);
     for (j = 0; j < n; j++) {
       item = PyList_GetItem(values, (Py_ssize_t)VECTOR(*v)[j]);
@@ -1768,15 +1773,15 @@ igraph_error_t igraphmodule_i_get_boolean_graph_attr(const igraph_t *graph,
   if (!o) {
     IGRAPH_ERRORF("No boolean graph attribute named \"%s\" exists.", IGRAPH_EINVAL, name);
   }
-  IGRAPH_CHECK(igraph_vector_bool_resize(value, 1));
-  VECTOR(*value)[0] = PyObject_IsTrue(o);
-  return IGRAPH_SUCCESS;
+  return igraph_vector_bool_push_back(value, PyObject_IsTrue(o));
 }
 
 /* Getting numeric graph attributes */
 igraph_error_t igraphmodule_i_get_numeric_graph_attr(const igraph_t *graph,
                                           const char *name, igraph_vector_t *value) {
   PyObject *dict, *o, *result;
+  double num;
+
   dict = ATTR_STRUCT_DICT(graph)[ATTRHASH_IDX_GRAPH];
   /* No error checking, if we get here, the type has already been checked by previous
      attribute handler calls... hopefully :) Same applies for the other handlers. */
@@ -1784,18 +1789,20 @@ igraph_error_t igraphmodule_i_get_numeric_graph_attr(const igraph_t *graph,
   if (!o) {
     IGRAPH_ERRORF("No numeric graph attribute named \"%s\" exists.", IGRAPH_EINVAL, name);
   }
-  IGRAPH_CHECK(igraph_vector_resize(value, 1));
-  if (o == Py_None) {
-    VECTOR(*value)[0] = IGRAPH_NAN;
-    return IGRAPH_SUCCESS;
-  }
-  result = PyNumber_Float(o);
-  if (result) {
-    VECTOR(*value)[0] = PyFloat_AsDouble(o);
-    Py_DECREF(result);
-  } else IGRAPH_ERROR("Internal error in PyFloat_AsDouble", IGRAPH_EINVAL);
 
-  return IGRAPH_SUCCESS;
+  if (o == Py_None) {
+    num = IGRAPH_NAN;
+  } else {
+    result = PyNumber_Float(o);
+    if (result) {
+      num = PyFloat_AsDouble(o);
+      Py_DECREF(result);
+    } else {
+      IGRAPH_ERROR("Internal error in PyNumber_Float", IGRAPH_EINVAL);
+    }
+  }
+
+  return igraph_vector_push_back(value, num);
 }
 
 /* Getting string graph attributes */
@@ -1809,7 +1816,6 @@ igraph_error_t igraphmodule_i_get_string_graph_attr(const igraph_t *graph,
   if (!o) {
     IGRAPH_ERRORF("No string graph attribute named \"%s\" exists.", IGRAPH_EINVAL, name);
   }
-  IGRAPH_CHECK(igraph_strvector_resize(value, 1));
 
   /* For Python 3.x, we simply call PyObject_Str, which produces a
    * Unicode string, then encode it into UTF-8, except when we
@@ -1837,7 +1843,7 @@ igraph_error_t igraphmodule_i_get_string_graph_attr(const igraph_t *graph,
     IGRAPH_ERROR("Internal error in PyBytes_AsString", IGRAPH_EINVAL);
   }
 
-  IGRAPH_CHECK(igraph_strvector_set(value, 0, c_str));
+  IGRAPH_CHECK(igraph_strvector_push_back(value, c_str));
 
   Py_XDECREF(str);
 
@@ -1859,16 +1865,19 @@ igraph_error_t igraphmodule_i_get_numeric_vertex_attr(const igraph_t *graph,
   }
 
   if (igraph_vs_is_all(&vs)) {
-    if (igraphmodule_PyObject_float_to_vector_t(list, &newvalue))
+    if (igraphmodule_PyObject_float_to_vector_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_vector_update(value, &newvalue);
+    }
+    IGRAPH_FINALLY(igraph_vector_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_vector_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
     igraph_vector_destroy(&newvalue);
   } else {
     igraph_vit_t it;
-    igraph_integer_t i = 0;
+    igraph_int_t i = igraph_vector_size(value);
     IGRAPH_CHECK(igraph_vit_create(graph, vs, &it));
     IGRAPH_FINALLY(igraph_vit_destroy, &it);
-    IGRAPH_CHECK(igraph_vector_resize(value, IGRAPH_VIT_SIZE(it)));
+    IGRAPH_CHECK(igraph_vector_resize(value, i + IGRAPH_VIT_SIZE(it)));
     while (!IGRAPH_VIT_END(it)) {
       o = PyList_GetItem(list, (Py_ssize_t)IGRAPH_VIT_GET(it));
       if (o != Py_None) {
@@ -1903,18 +1912,21 @@ igraph_error_t igraphmodule_i_get_string_vertex_attr(const igraph_t *graph,
   }
 
   if (igraph_vs_is_all(&vs)) {
-    if (igraphmodule_PyList_to_strvector_t(list, &newvalue))
+    if (igraphmodule_PyList_to_strvector_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_strvector_destroy(value);
-    *value=newvalue;
+    }
+    IGRAPH_FINALLY(igraph_strvector_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_strvector_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
+    igraph_strvector_destroy(&newvalue);
   } else {
     igraph_vit_t it;
-    igraph_integer_t i = 0;
+    igraph_int_t i = igraph_strvector_size(value);
     IGRAPH_CHECK(igraph_vit_create(graph, vs, &it));
     IGRAPH_FINALLY(igraph_vit_destroy, &it);
-    IGRAPH_CHECK(igraph_strvector_resize(value, IGRAPH_VIT_SIZE(it)));
+    IGRAPH_CHECK(igraph_strvector_resize(value, i + IGRAPH_VIT_SIZE(it)));
     while (!IGRAPH_VIT_END(it)) {
-      igraph_integer_t v = IGRAPH_VIT_GET(it);
+      igraph_int_t v = IGRAPH_VIT_GET(it);
       char* str;
 
       result = PyList_GetItem(list, v);
@@ -1922,16 +1934,19 @@ igraph_error_t igraphmodule_i_get_string_vertex_attr(const igraph_t *graph,
         IGRAPH_ERROR("null element in PyList", IGRAPH_EINVAL);
 
       str = igraphmodule_PyObject_ConvertToCString(result);
-      if (str == 0)
+      if (str == 0) {
         IGRAPH_ERROR("error while calling igraphmodule_PyObject_ConvertToCString", IGRAPH_EINVAL);
+      }
+      IGRAPH_FINALLY(free, str);
 
       /* Note: this is a bit inefficient here, igraphmodule_PyObject_ConvertToCString
        * allocates a new string which could be copied into the string
        * vector straight away. Instead of that, the string vector makes
        * another copy. Probably the performance hit is not too severe.
        */
-      igraph_strvector_set(value, i, str);
+      IGRAPH_CHECK(igraph_strvector_set(value, i, str));
       free(str);
+      IGRAPH_FINALLY_CLEAN(1);
 
       IGRAPH_VIT_NEXT(it);
       i++;
@@ -1958,16 +1973,19 @@ igraph_error_t igraphmodule_i_get_boolean_vertex_attr(const igraph_t *graph,
   }
 
   if (igraph_vs_is_all(&vs)) {
-    if (igraphmodule_PyObject_to_vector_bool_t(list, &newvalue))
+    if (igraphmodule_PyObject_to_vector_bool_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_vector_bool_update(value, &newvalue);
+    }
+    IGRAPH_FINALLY(igraph_vector_bool_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_vector_bool_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
     igraph_vector_bool_destroy(&newvalue);
   } else {
     igraph_vit_t it;
-    igraph_integer_t i = 0;
+    igraph_int_t i = igraph_vector_bool_size(value);
     IGRAPH_CHECK(igraph_vit_create(graph, vs, &it));
     IGRAPH_FINALLY(igraph_vit_destroy, &it);
-    IGRAPH_CHECK(igraph_vector_bool_resize(value, IGRAPH_VIT_SIZE(it)));
+    IGRAPH_CHECK(igraph_vector_bool_resize(value, i + IGRAPH_VIT_SIZE(it)));
     while (!IGRAPH_VIT_END(it)) {
       o = PyList_GetItem(list, (Py_ssize_t)IGRAPH_VIT_GET(it));
       VECTOR(*value)[i] = PyObject_IsTrue(o);
@@ -1996,23 +2014,32 @@ igraph_error_t igraphmodule_i_get_numeric_edge_attr(const igraph_t *graph,
   }
 
   if (igraph_es_is_all(&es)) {
-    if (igraphmodule_PyObject_float_to_vector_t(list, &newvalue))
+    if (igraphmodule_PyObject_float_to_vector_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_vector_update(value, &newvalue);
+    }
+    IGRAPH_FINALLY(igraph_vector_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_vector_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
     igraph_vector_destroy(&newvalue);
   } else {
     igraph_eit_t it;
-    igraph_integer_t i = 0;
+    igraph_int_t i = igraph_vector_size(value);
     IGRAPH_CHECK(igraph_eit_create(graph, es, &it));
     IGRAPH_FINALLY(igraph_eit_destroy, &it);
-    IGRAPH_CHECK(igraph_vector_resize(value, IGRAPH_EIT_SIZE(it)));
+    IGRAPH_CHECK(igraph_vector_resize(value, i + IGRAPH_EIT_SIZE(it)));
     while (!IGRAPH_EIT_END(it)) {
       o = PyList_GetItem(list, (Py_ssize_t)IGRAPH_EIT_GET(it));
       if (o != Py_None) {
         result = PyNumber_Float(o);
-        VECTOR(*value)[i] = PyFloat_AsDouble(result);
-        Py_XDECREF(result);
-      } else VECTOR(*value)[i] = IGRAPH_NAN;
+        if (result) {
+          VECTOR(*value)[i] = PyFloat_AsDouble(result);
+          Py_XDECREF(result);
+        } else {
+          IGRAPH_ERROR("Internal error in PyNumber_Float", IGRAPH_EINVAL);
+        }
+      } else {
+        VECTOR(*value)[i] = IGRAPH_NAN;
+      }
       IGRAPH_EIT_NEXT(it);
       i++;
     }
@@ -2038,13 +2065,16 @@ igraph_error_t igraphmodule_i_get_string_edge_attr(const igraph_t *graph,
   }
 
   if (igraph_es_is_all(&es)) {
-    if (igraphmodule_PyList_to_strvector_t(list, &newvalue))
+    if (igraphmodule_PyList_to_strvector_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_strvector_destroy(value);
-    *value=newvalue;
+    }
+    IGRAPH_FINALLY(igraph_strvector_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_strvector_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
+    igraph_strvector_destroy(&newvalue);
   } else {
     igraph_eit_t it;
-    igraph_integer_t i = 0;
+    igraph_int_t i = igraph_strvector_size(value);
     IGRAPH_CHECK(igraph_eit_create(graph, es, &it));
     IGRAPH_FINALLY(igraph_eit_destroy, &it);
     IGRAPH_CHECK(igraph_strvector_resize(value, IGRAPH_EIT_SIZE(it)));
@@ -2064,7 +2094,9 @@ igraph_error_t igraphmodule_i_get_string_edge_attr(const igraph_t *graph,
        * vector straight away. Instead of that, the string vector makes
        * another copy. Probably the performance hit is not too severe.
        */
-      igraph_strvector_set(value, i, str);
+      IGRAPH_FINALLY(free, str);
+      IGRAPH_CHECK(igraph_strvector_set(value, i, str));
+      IGRAPH_FINALLY_CLEAN(1);
       free(str);
 
       IGRAPH_EIT_NEXT(it);
@@ -2092,16 +2124,19 @@ igraph_error_t igraphmodule_i_get_boolean_edge_attr(const igraph_t *graph,
   }
 
   if (igraph_es_is_all(&es)) {
-    if (igraphmodule_PyObject_to_vector_bool_t(list, &newvalue))
+    if (igraphmodule_PyObject_to_vector_bool_t(list, &newvalue)) {
       IGRAPH_ERROR("Internal error", IGRAPH_EINVAL);
-    igraph_vector_bool_update(value, &newvalue);
+    }
+    IGRAPH_FINALLY(igraph_vector_bool_destroy, &newvalue);
+    IGRAPH_CHECK(igraph_vector_bool_append(value, &newvalue));
+    IGRAPH_FINALLY_CLEAN(1);
     igraph_vector_bool_destroy(&newvalue);
   } else {
     igraph_eit_t it;
-    igraph_integer_t i=0;
+    igraph_int_t i = igraph_vector_bool_size(value);
     IGRAPH_CHECK(igraph_eit_create(graph, es, &it));
     IGRAPH_FINALLY(igraph_eit_destroy, &it);
-    IGRAPH_CHECK(igraph_vector_bool_resize(value, IGRAPH_EIT_SIZE(it)));
+    IGRAPH_CHECK(igraph_vector_bool_resize(value, i + IGRAPH_EIT_SIZE(it)));
     while (!IGRAPH_EIT_END(it)) {
       o = PyList_GetItem(list, (Py_ssize_t)IGRAPH_EIT_GET(it));
       VECTOR(*value)[i] = PyObject_IsTrue(o);

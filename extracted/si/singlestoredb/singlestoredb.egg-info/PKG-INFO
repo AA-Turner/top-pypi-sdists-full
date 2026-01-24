@@ -1,30 +1,71 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: singlestoredb
-Version: 1.15.7
+Version: 1.16.8
 Summary: Interface to the SingleStoreDB database and workspace management APIs
-Home-page: https://github.com/singlestore-labs/singlestoredb-python
-Author: SingleStore
-Author-email: support@singlestore.com
+Author-email: SingleStore <support@singlestore.com>
 License: Apache-2.0
+Project-URL: Homepage, https://github.com/singlestore-labs/singlestoredb-python
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Database
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: dataframe
-Provides-Extra: dbt
-Provides-Extra: docker
-Provides-Extra: ed22519
-Provides-Extra: gssapi
-Provides-Extra: ibis
-Provides-Extra: kerberos
-Provides-Extra: pytest
-Provides-Extra: rsa
-Provides-Extra: sqlalchemy
-Provides-Extra: vectorstore
 License-File: LICENSE
+Requires-Dist: PyJWT
+Requires-Dist: parsimonious
+Requires-Dist: requests
+Requires-Dist: sqlparams
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
+Requires-Dist: typing-extensions; python_version < "3.11"
+Provides-Extra: dataframe
+Requires-Dist: ibis-singlestoredb; extra == "dataframe"
+Provides-Extra: dbt
+Requires-Dist: dbt-singlestore; extra == "dbt"
+Provides-Extra: docker
+Requires-Dist: docker; extra == "docker"
+Provides-Extra: ed22519
+Requires-Dist: PyNaCl>=1.4.0; extra == "ed22519"
+Provides-Extra: gssapi
+Requires-Dist: gssapi; extra == "gssapi"
+Provides-Extra: ibis
+Requires-Dist: ibis-singlestoredb; extra == "ibis"
+Provides-Extra: kerberos
+Requires-Dist: gssapi; extra == "kerberos"
+Provides-Extra: pytest
+Requires-Dist: pytest; extra == "pytest"
+Provides-Extra: rsa
+Requires-Dist: cryptography; extra == "rsa"
+Provides-Extra: sqlalchemy
+Requires-Dist: sqlalchemy-singlestoredb>=1.0.0; extra == "sqlalchemy"
+Provides-Extra: vectorstore
+Requires-Dist: singlestore-vectorstore>=0.1.2; extra == "vectorstore"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Requires-Dist: dash; extra == "test"
+Requires-Dist: docker; extra == "test"
+Requires-Dist: fastapi; extra == "test"
+Requires-Dist: ipython; extra == "test"
+Requires-Dist: jupysql; extra == "test"
+Requires-Dist: pandas; extra == "test"
+Requires-Dist: parameterized; extra == "test"
+Requires-Dist: polars; extra == "test"
+Requires-Dist: pyarrow; extra == "test"
+Requires-Dist: pydantic; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: singlestore-vectorstore>=0.1.2; extra == "test"
+Requires-Dist: uvicorn; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: build
+Requires-Dist: build; extra == "build"
+Requires-Dist: setuptools>=61.0; extra == "build"
+Requires-Dist: wheel; extra == "build"
+Provides-Extra: dev
+Requires-Dist: singlestoredb[build,docs,test]; extra == "dev"
+Dynamic: license-file
 
 # <img src="https://github.com/singlestore-labs/singlestoredb-python/blob/main/resources/singlestore-logo.png" height="60" valign="middle"/> SingleStoreDB Python SDK
 

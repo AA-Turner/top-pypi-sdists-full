@@ -16,7 +16,6 @@
 
 from . import ffdec
 from .exceptions import DecodeError, NoBackendError
-from .version import version as __version__  # noqa
 from .base import AudioFile  # noqa
 
 

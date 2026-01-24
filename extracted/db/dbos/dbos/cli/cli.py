@@ -1,22 +1,18 @@
+import json
+import logging
 import os
 import platform
 import signal
 import subprocess
-import time
 import typing
 from os import path
-from typing import Any, Optional, Tuple
+from typing import Annotated, Any, List, Optional, Tuple
 
-import jsonpickle  # type: ignore
 import sqlalchemy as sa
 import typer
-from rich import print as richprint
-from rich.prompt import IntPrompt
-from typing_extensions import Annotated, List
 
 from dbos._context import SetWorkflowID
-from dbos._debug import debug_workflow, parse_start_command
-from dbos.cli.migration import grant_dbos_schema_permissions, migrate_dbos_databases
+from dbos.cli.migration import run_dbos_database_migrations
 
 from .._client import DBOSClient
 from .._dbos_config import (
@@ -28,15 +24,21 @@ from .._dbos_config import (
     load_config,
 )
 from .._docker_pg_helper import start_docker_pg, stop_docker_pg
+from .._logger import dbos_logger
 from .._sys_db import SystemDatabase
 from .._utils import GlobalParams
 from ..cli._github_init import create_template_from_github
 from ._template_init import copy_template, get_project_name, get_templates_directory
 
 
+class DefaultEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> str:
+        return str(obj)
+
+
 def _get_db_url(
     *, system_database_url: Optional[str], application_database_url: Optional[str]
-) -> Tuple[str, str]:
+) -> Tuple[str, str | None]:
     """
     Get the database URL to use for the DBOS application.
     Order of precedence:
@@ -47,6 +49,7 @@ def _get_db_url(
     Otherwise fallback to the same SQLite Postgres URL than the DBOS library.
     Note that for the latter to be possible, a configuration file must have been found, with an application name set.
     """
+    dbos_logger.setLevel(logging.WARNING)  # The CLI should not emit INFO logs
     if os.environ.get("DBOS__CLOUD") == "true":
         system_database_url = os.environ.get("DBOS_SYSTEM_DATABASE_URL")
         application_database_url = os.environ.get("DBOS_DATABASE_URL")
@@ -70,7 +73,7 @@ def _get_db_url(
                 _app_db_name = _app_name_to_db_name(config["name"])
                 # Fallback on the same defaults than the DBOS library
                 default_url = f"sqlite:///{_app_db_name}.sqlite"
-                return default_url, default_url
+                return default_url, None
         except (FileNotFoundError, OSError):
             typer.echo(
                 f"Error: Missing database URL: please set it using CLI flags or your dbos-config.yaml file.",
@@ -138,26 +141,12 @@ def start() -> None:
             Forward kill signals to children.
 
             When we receive a signal, send it to the entire process group of the child.
-            If that doesn't work, SIGKILL them then exit.
             """
             # Send the signal to the child's entire process group
             if process.poll() is None:
                 os.killpg(os.getpgid(process.pid), signum)
 
-            # Give some time for the child to terminate
-            for _ in range(10):  # Wait up to 1 second
-                if process.poll() is not None:
-                    break
-                time.sleep(0.1)
-
-            # If the child is still running, force kill it
-            if process.poll() is None:
-                try:
-                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-                except Exception:
-                    pass
-
-            # Exit immediately
+            # Exit
             os._exit(process.returncode if process.returncode is not None else 1)
 
         # Configure the single handler only on Unix-like systems.
@@ -201,7 +190,7 @@ def init(
                 path.join(templates_dir, template), project_name, config_mode=config
             )
     except Exception as e:
-        richprint(f"[red]{e}[/red]")
+        print(e)
 
 
 def _resolve_project_name_and_template(
@@ -222,27 +211,21 @@ def _resolve_project_name_and_template(
         if template not in templates:
             raise Exception(f"Template {template} not found in {templates_dir}")
     else:
-        richprint("\n[bold]Available templates:[/bold]")
+        print("\nAvailable templates:")
         for idx, template_name in enumerate(templates, 1):
-            richprint(f"  {idx}. {template_name}")
+            print(f"  {idx}. {template_name}")
         while True:
             try:
-                choice = IntPrompt.ask(
-                    "\nSelect template number",
-                    show_choices=False,
-                    show_default=False,
-                )
+                choice = int(input("\nSelect template number: "))
                 if 1 <= choice <= len(templates):
                     template = templates[choice - 1]
                     break
                 else:
-                    richprint(
-                        "[red]Invalid selection. Please choose a number from the list.[/red]"
-                    )
+                    print("Invalid selection. Please choose a number from the list.")
             except (KeyboardInterrupt, EOFError):
                 raise typer.Abort()
             except ValueError:
-                richprint("[red]Please enter a valid number.[/red]")
+                print("Please enter a valid number.")
 
     if template in git_templates:
         if project_name is None:
@@ -291,6 +274,13 @@ def migrate(
             help="The role with which you will run your DBOS application",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -298,23 +288,19 @@ def migrate(
     )
 
     typer.echo(f"Starting DBOS migrations")
-    typer.echo(f"Application database: {sa.make_url(application_database_url)}")
+    if application_database_url:
+        typer.echo(f"Application database: {sa.make_url(application_database_url)}")
     typer.echo(f"System database: {sa.make_url(system_database_url)}")
+    if schema is None:
+        schema = "dbos"
+    typer.echo(f"DBOS system schema: {schema}")
 
-    # First, run DBOS migrations on the system database and the application database
-    migrate_dbos_databases(
-        app_database_url=application_database_url,
+    run_dbos_database_migrations(
         system_database_url=system_database_url,
+        app_database_url=application_database_url,
+        schema=schema,
+        application_role=application_role,
     )
-
-    # Next, assign permissions on the DBOS schema to the application role, if any
-    if application_role:
-        grant_dbos_schema_permissions(
-            database_url=application_database_url, role_name=application_role
-        )
-        grant_dbos_schema_permissions(
-            database_url=system_database_url, role_name=application_role
-        )
 
     # Next, run any custom migration commands specified in the configuration
     if os.path.exists("dbos-config.yaml"):
@@ -379,22 +365,6 @@ def reset(
     except Exception as e:
         typer.echo(f"Error resetting system database: {str(e)}")
         return
-
-
-@app.command(help="Replay Debug a DBOS workflow")
-def debug(
-    workflow_id: Annotated[str, typer.Argument(help="Workflow ID to debug")],
-) -> None:
-    config = load_config(silent=True)
-    start = config["runtimeConfig"]["start"]
-    if not start:
-        typer.echo("No start commands found in 'dbos-config.yaml'")
-        raise typer.Exit(code=1)
-    if len(start) > 1:
-        typer.echo("Multiple start commands found in 'dbos-config.yaml'")
-        raise typer.Exit(code=1)
-    entrypoint = parse_start_command(start[0])
-    debug_workflow(workflow_id, entrypoint)
 
 
 @workflow.command(help="List workflows for your application")
@@ -479,6 +449,13 @@ def list(
             help="Offset for pagination",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -487,6 +464,7 @@ def list(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
     workflows = client.list_workflows(
         limit=limit,
@@ -499,7 +477,7 @@ def list(
         app_version=appversion,
         name=name,
     )
-    print(jsonpickle.encode(workflows, unpicklable=False))
+    print(json.dumps([w.__dict__ for w in workflows], cls=DefaultEncoder))
 
 
 @workflow.command(help="Retrieve the status of a workflow")
@@ -521,6 +499,13 @@ def get(
             help="Your DBOS system database URL",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -529,9 +514,10 @@ def get(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
     status = client.retrieve_workflow(workflow_id=workflow_id).get_status()
-    print(jsonpickle.encode(status, unpicklable=False))
+    print(json.dumps(status.__dict__, cls=DefaultEncoder))
 
 
 @workflow.command(help="List the steps of a workflow")
@@ -553,6 +539,13 @@ def steps(
             help="Your DBOS system database URL",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -561,13 +554,10 @@ def steps(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
-    print(
-        jsonpickle.encode(
-            client.list_workflow_steps(workflow_id=workflow_id),
-            unpicklable=False,
-        )
-    )
+    steps = client.list_workflow_steps(workflow_id=workflow_id)
+    print(json.dumps(steps, cls=DefaultEncoder))
 
 
 @workflow.command(
@@ -591,6 +581,13 @@ def cancel(
             help="Your DBOS system database URL",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -599,6 +596,7 @@ def cancel(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
     client.cancel_workflow(workflow_id=workflow_id)
 
@@ -622,6 +620,13 @@ def resume(
             help="Your DBOS system database URL",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -630,42 +635,9 @@ def resume(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
     client.resume_workflow(workflow_id=workflow_id)
-
-
-@workflow.command(
-    help="[DEPRECATED - Use fork instead] Restart a workflow from the beginning with a new id"
-)
-def restart(
-    workflow_id: Annotated[str, typer.Argument()],
-    application_database_url: Annotated[
-        typing.Optional[str],
-        typer.Option(
-            "--db-url",
-            "-D",
-            help="Your DBOS application database URL",
-        ),
-    ] = None,
-    system_database_url: Annotated[
-        typing.Optional[str],
-        typer.Option(
-            "--sys-db-url",
-            "-s",
-            help="Your DBOS system database URL",
-        ),
-    ] = None,
-) -> None:
-    system_database_url, application_database_url = _get_db_url(
-        system_database_url=system_database_url,
-        application_database_url=application_database_url,
-    )
-    client = DBOSClient(
-        application_database_url=application_database_url,
-        system_database_url=system_database_url,
-    )
-    status = client.fork_workflow(workflow_id=workflow_id, start_step=1).get_status()
-    print(jsonpickle.encode(status, unpicklable=False))
 
 
 @workflow.command(
@@ -713,6 +685,13 @@ def fork(
             help="Your DBOS system database URL",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -721,6 +700,7 @@ def fork(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
 
     if forked_workflow_id is not None:
@@ -736,7 +716,7 @@ def fork(
             start_step=step,
             application_version=application_version,
         ).get_status()
-    print(jsonpickle.encode(status, unpicklable=False))
+    print(json.dumps(status.__dict__, cls=DefaultEncoder))
 
 
 @queue.command(name="list", help="List enqueued functions for your application")
@@ -817,6 +797,13 @@ def list_queue(
             help="Offset for pagination",
         ),
     ] = None,
+    schema: Annotated[
+        typing.Optional[str],
+        typer.Option(
+            "--schema",
+            help='Schema name for DBOS system tables. Defaults to "dbos".',
+        ),
+    ] = "dbos",
 ) -> None:
     system_database_url, application_database_url = _get_db_url(
         system_database_url=system_database_url,
@@ -825,6 +812,7 @@ def list_queue(
     client = DBOSClient(
         application_database_url=application_database_url,
         system_database_url=system_database_url,
+        dbos_system_schema=schema,
     )
     workflows = client.list_queued_workflows(
         limit=limit,
@@ -836,7 +824,7 @@ def list_queue(
         status=status,
         name=name,
     )
-    print(jsonpickle.encode(workflows, unpicklable=False))
+    print(json.dumps([w.__dict__ for w in workflows], cls=DefaultEncoder))
 
 
 if __name__ == "__main__":

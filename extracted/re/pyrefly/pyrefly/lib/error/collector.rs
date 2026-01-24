@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use std::mem;
 
 use dupe::Dupe;
+use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_util::lock::Mutex;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
@@ -92,6 +93,8 @@ pub struct CollectedErrors {
     pub suppressed: Vec<Error>,
     /// Errors that are disabled with configuration options.
     pub disabled: Vec<Error>,
+    /// Errors that are suppressed by baseline file.
+    pub baseline: Vec<Error>,
 }
 
 /// Collects the user errors (e.g. type errors) associated with a module.
@@ -136,6 +139,22 @@ impl ErrorCollector {
         self.errors.lock().push(err);
     }
 
+    pub fn internal_error(&self, range: TextRange, mut msg: Vec1<String>) {
+        msg.push(
+            "Sorry, Pyrefly encountered an internal error, this is always a bug in Pyrefly itself"
+                .to_owned(),
+        );
+        if cfg!(fbcode_build) {
+            msg.push("Please report the bug at https://fb.workplace.com/groups/pyreqa".to_owned());
+        } else {
+            msg.push(
+                "Please report the bug at https://github.com/facebook/pyrefly/issues/new"
+                    .to_owned(),
+            );
+        }
+        self.add(range, ErrorInfo::Kind(ErrorKind::InternalError), msg);
+    }
+
     pub fn module(&self) -> &ModuleInfo {
         &self.module_info
     }
@@ -156,7 +175,7 @@ impl ErrorCollector {
         let mut errors = self.errors.lock();
         if !(self.module_info.is_generated() && error_config.ignore_errors_in_generated_code) {
             for err in errors.iter() {
-                if err.is_ignored(error_config.permissive_ignores) {
+                if err.is_ignored(&error_config.enabled_ignores) {
                     result.suppressed.push(err.clone());
                 } else {
                     match error_config.display_config.severity(err.error_kind()) {
@@ -184,6 +203,7 @@ mod tests {
     use std::path::PathBuf;
     use std::sync::Arc;
 
+    use pyrefly_python::ignore::Tool;
     use pyrefly_python::module_name::ModuleName;
     use pyrefly_python::module_path::ModulePath;
     use pyrefly_util::prelude::SliceExt;
@@ -243,7 +263,7 @@ mod tests {
                 .collect(&ErrorConfig::new(
                     &ErrorDisplayConfig::default(),
                     false,
-                    false
+                    Tool::default_enabled(),
                 ))
                 .shown
                 .map(|x| x.msg()),
@@ -268,7 +288,7 @@ mod tests {
         add(
             &errors,
             TextRange::new(TextSize::new(1), TextSize::new(3)),
-            ErrorKind::AsyncError,
+            ErrorKind::NotAsync,
             "b".to_owned(),
         );
         add(
@@ -280,7 +300,7 @@ mod tests {
         add(
             &errors,
             TextRange::new(TextSize::new(2), TextSize::new(3)),
-            ErrorKind::MatchError,
+            ErrorKind::BadMatch,
             "d".to_owned(),
         );
         add(
@@ -291,11 +311,11 @@ mod tests {
         );
 
         let display_config = ErrorDisplayConfig::new(HashMap::from([
-            (ErrorKind::AsyncError, Severity::Error),
+            (ErrorKind::NotAsync, Severity::Error),
             (ErrorKind::BadAssignment, Severity::Ignore),
             (ErrorKind::NotIterable, Severity::Ignore),
         ]));
-        let config = ErrorConfig::new(&display_config, false, false);
+        let config = ErrorConfig::new(&display_config, false, Tool::default_enabled());
 
         assert_eq!(
             errors.collect(&config).shown.map(|x| x.msg()),
@@ -319,10 +339,10 @@ mod tests {
         );
 
         let display_config = ErrorDisplayConfig::default();
-        let config0 = ErrorConfig::new(&display_config, false, false);
+        let config0 = ErrorConfig::new(&display_config, false, Tool::default_enabled());
         assert_eq!(errors.collect(&config0).shown.map(|x| x.msg()), vec!["a"]);
 
-        let config1 = ErrorConfig::new(&display_config, true, false);
+        let config1 = ErrorConfig::new(&display_config, true, Tool::default_enabled());
         assert!(errors.collect(&config1).shown.map(|x| x.msg()).is_empty());
     }
 
@@ -351,7 +371,7 @@ mod tests {
                 .collect(&ErrorConfig::new(
                     &ErrorDisplayConfig::default(),
                     false,
-                    false
+                    Tool::default_enabled(),
                 ))
                 .shown
                 .map(|x| x.msg()),

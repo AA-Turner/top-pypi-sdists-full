@@ -1,13 +1,14 @@
 """rio-tiler colormap functions and classes."""
 
+import itertools
 import json
 import os
 import pathlib
 import re
 import warnings
+from collections.abc import Sequence
 from importlib.resources import as_file
 from importlib.resources import files as resources_files
-from typing import Dict, List, Sequence, Tuple, Union
 
 import attr
 import numpy
@@ -136,7 +137,7 @@ def apply_cmap(data: numpy.ndarray, colormap: ColorMapType) -> DataMaskType:
 
 
 def apply_discrete_cmap(
-    data: numpy.ndarray, colormap: Union[GDALColorMapType, DiscreteColorMapType]
+    data: numpy.ndarray, colormap: GDALColorMapType | DiscreteColorMapType
 ) -> DataMaskType:
     """Apply discrete colormap.
 
@@ -166,9 +167,10 @@ def apply_discrete_cmap(
 
     data = numpy.transpose(res, [2, 0, 1])
 
-    # If the output data has values between 0-255
+    # If colormap values are between 0-255
     # we cast the output array to Uint8
-    if data.min() >= 0 and data.max() <= 255:
+    cmap_v = list(itertools.chain(*colormap.values()))
+    if min(cmap_v) >= 0 and max(cmap_v) <= 255:
         data = data.astype("uint8")
 
     return data[:-1], data[-1]
@@ -206,15 +208,16 @@ def apply_intervals_cmap(
 
     data = numpy.transpose(res, [2, 0, 1])
 
-    # If the output data has values between 0-255
+    # If colormap values are between 0-255
     # we cast the output array to Uint8
-    if data.min() >= 0 and data.max() <= 255:
+    cmap_v = list(itertools.chain(*[v for k, v in colormap]))
+    if min(cmap_v) >= 0 and max(cmap_v) <= 255:
         data = data.astype("uint8")
 
     return data[:-1], data[-1]
 
 
-def parse_color(rgba: Union[Sequence[int], str]) -> Tuple[int, int, int, int]:
+def parse_color(rgba: Sequence[int] | str | None) -> tuple[int, int, int, int]:
     """Parse RGB/RGBA color and return valid rio-tiler compatible RGBA colormap entry.
 
     Args:
@@ -287,7 +290,7 @@ class ColorMaps:
 
     """
 
-    data: Dict[str, Union[str, pathlib.Path, ColorMapType]] = attr.ib(
+    data: dict[str, str | pathlib.Path | ColorMapType | None] = attr.ib(
         default=attr.Factory(lambda: DEFAULT_CMAPS_FILES)
     )
 
@@ -328,7 +331,7 @@ class ColorMaps:
                 if isinstance(cmap_data, Sequence):
                     cmap_data = [
                         (tuple(inter), parse_color(v))  # type: ignore
-                        for (inter, v) in cmap_data
+                        for (inter, v) in cmap_data  # type: ignore
                     ]
 
             else:
@@ -341,7 +344,7 @@ class ColorMaps:
 
         return cmap
 
-    def list(self) -> List[str]:
+    def list(self) -> list[str]:
         """List registered Colormaps.
 
         Returns
@@ -352,7 +355,7 @@ class ColorMaps:
 
     def register(
         self,
-        custom_cmap: Dict[str, Union[str, pathlib.Path, ColorMapType]],
+        custom_cmap: dict[str, str | pathlib.Path | ColorMapType | None],
         overwrite: bool = False,
     ) -> "ColorMaps":
         """Register a custom colormap.

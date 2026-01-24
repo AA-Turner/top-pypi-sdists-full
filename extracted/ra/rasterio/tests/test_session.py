@@ -1,5 +1,6 @@
 """Tests of session module"""
 
+import os
 from unittest import mock
 
 import pytest
@@ -14,6 +15,7 @@ from rasterio.session import (
     AzureSession,
     parse_bool,
 )
+
 
 
 def test_base_session_hascreds_notimpl():
@@ -80,13 +82,13 @@ def test_aws_session_class_unsigned(monkeypatch):
     assert sesh.get_credential_options()['AWS_REGION'] == 'us-mountain-1'
     assert sesh.get_credential_options()['AWS_S3_ENDPOINT'] == 'http://localhost:9090'
 
-    # default to environment variable when not set 
+    # default to environment variable when not set
     monkeypatch.setenv("AWS_NO_SIGN_REQUEST", "YES")
     sesh = AWSSession()
     assert sesh.unsigned is True
     assert sesh.get_credential_options()['AWS_NO_SIGN_REQUEST'] == 'YES'
 
-    # Arguments override environment variable 
+    # Arguments override environment variable
     sesh = AWSSession(aws_access_key_id="fake", aws_secret_access_key="fake", aws_unsigned=False)
     assert sesh.unsigned is False
     assert 'AWS_NO_SIGN_REQUEST' not in sesh.get_credential_options()
@@ -255,8 +257,8 @@ def test_swift_session_class():
 
 
 def test_swift_session_by_user_key():
-    def mock_init(self, session=None, 
-                swift_storage_url=None, swift_auth_token=None, 
+    def mock_init(self, session=None,
+                swift_storage_url=None, swift_auth_token=None,
                 swift_auth_v1_url=None, swift_user=None, swift_key=None):
         self._creds = {'SWIFT_STORAGE_URL':'foo',
                        'SWIFT_AUTH_TOKEN':'bar'}
@@ -308,6 +310,7 @@ def test_azure_session_class():
     assert azure_session._creds
     assert azure_session.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
     assert azure_session.get_credential_options()['AZURE_STORAGE_ACCESS_KEY'] == 'bar'
+    assert azure_session.hascreds(azure_session.get_credential_options())
 
 
 def test_azure_session_class_connection_string():
@@ -318,6 +321,7 @@ def test_azure_session_class_connection_string():
         azure_session.get_credential_options()['AZURE_STORAGE_CONNECTION_STRING']
         == 'AccountName=myaccount;AccountKey=MY_ACCOUNT_KEY'
     )
+    assert azure_session.hascreds(azure_session.get_credential_options())
 
 
 def test_session_factory_az_kwargs():
@@ -326,6 +330,7 @@ def test_session_factory_az_kwargs():
     assert isinstance(sesh, AzureSession)
     assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
     assert sesh.get_credential_options()['AZURE_STORAGE_ACCESS_KEY'] == 'bar'
+    assert sesh.hascreds(sesh.get_credential_options())
 
 
 def test_session_factory_az_kwargs_connection_string():
@@ -333,22 +338,91 @@ def test_session_factory_az_kwargs_connection_string():
     sesh = Session.from_path("az://lol/wut", azure_storage_connection_string='AccountName=myaccount;AccountKey=MY_ACCOUNT_KEY')
     assert isinstance(sesh, AzureSession)
     assert sesh.get_credential_options()['AZURE_STORAGE_CONNECTION_STRING'] == 'AccountName=myaccount;AccountKey=MY_ACCOUNT_KEY'
+    assert sesh.hascreds(sesh.get_credential_options())
 
+def test_session_factory_az_kwargs_access_token():
+    """Get an AzureSession for az:// paths with keywords"""
+    sesh = Session.from_path("az://lol/wut", azure_storage_account='foo', azure_storage_access_token='bar')
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCESS_TOKEN'] == 'bar'
+    assert sesh.hascreds(sesh.get_credential_options())
+
+def test_session_factory_az_kwargs_sas_token():
+    """Get an AzureSession for az:// paths with keywords"""
+    sesh = Session.from_path("az://lol/wut", azure_storage_account='foo', azure_storage_sas_token='bar')
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
+    assert sesh.get_credential_options()['AZURE_STORAGE_SAS_TOKEN'] == 'bar'
+    assert sesh.hascreds(sesh.get_credential_options())
+
+def test_session_factory_az_kwargs_tenant_id():
+    """Get an AzureSession for az:// paths with keywords"""
+    sesh = Session.from_path("az://lol/wut", azure_storage_account='foo', azure_tenant_id='tenant', azure_client_id='client', azure_federated_token_file='file', azure_authority_host='host')
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
+    assert sesh.get_credential_options()['AZURE_TENANT_ID'] == 'tenant'
+    assert sesh.get_credential_options()['AZURE_CLIENT_ID'] == 'client'
+    assert sesh.get_credential_options()['AZURE_FEDERATED_TOKEN_FILE'] == 'file'
+    assert sesh.get_credential_options()['AZURE_AUTHORITY_HOST'] == 'host'
+    assert sesh.hascreds(sesh.get_credential_options())
 
 def test_session_factory_az_env(monkeypatch):
     """Get an AzureSession for az:// paths with environment variables"""
+    monkeypatch.setattr(os, "environ", {})
     monkeypatch.setenv('AZURE_STORAGE_ACCOUNT', 'foo')
     monkeypatch.setenv('AZURE_STORAGE_ACCESS_KEY', 'bar')
     sesh = Session.from_path("az://lol/wut")
     assert isinstance(sesh, AzureSession)
     assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
     assert sesh.get_credential_options()['AZURE_STORAGE_ACCESS_KEY'] == 'bar'
+    assert sesh.hascreds(sesh.get_credential_options())
 
+def test_session_factory_az_env_connection_string(monkeypatch):
+    """Get an AzureSession for az:// paths with environment variables"""
+    monkeypatch.setattr(os, "environ", {})
+    monkeypatch.setenv('AZURE_STORAGE_CONNECTION_STRING', 'foo')
+    sesh = Session.from_path("az://lol/wut")
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_CONNECTION_STRING'] == 'foo'
+    assert sesh.hascreds(sesh.get_credential_options())
+
+def test_session_factory_az_env_sas_token(monkeypatch):
+    """Get an AzureSession for az:// paths with environment variables"""
+    monkeypatch.setattr(os, "environ", {})
+    monkeypatch.setenv('AZURE_STORAGE_ACCOUNT', 'foo')
+    monkeypatch.setenv('AZURE_STORAGE_SAS_TOKEN', 'bar')
+    sesh = Session.from_path("az://lol/wut")
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
+    assert sesh.get_credential_options()['AZURE_STORAGE_SAS_TOKEN'] == 'bar'
+    assert sesh.hascreds(sesh.get_credential_options())
+
+def test_session_factory_az_env_tenant(monkeypatch):
+    """Get an AzureSession for az:// paths with environment variables"""
+    monkeypatch.setattr(os, "environ", {})
+    monkeypatch.setenv('AZURE_STORAGE_ACCOUNT', 'foo')
+    monkeypatch.setenv('AZURE_TENANT_ID', 'tenant')
+    monkeypatch.setenv('AZURE_CLIENT_ID', 'client')
+    monkeypatch.setenv('AZURE_FEDERATED_TOKEN_FILE', 'file')
+    monkeypatch.setenv('AZURE_AUTHORITY_HOST', 'host')
+    sesh = Session.from_path("az://lol/wut")
+    assert isinstance(sesh, AzureSession)
+    assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'foo'
+    assert sesh.get_credential_options()['AZURE_TENANT_ID'] == 'tenant'
+    assert sesh.get_credential_options()['AZURE_CLIENT_ID'] == 'client'
+    assert sesh.get_credential_options()['AZURE_FEDERATED_TOKEN_FILE'] == 'file'
+    assert sesh.get_credential_options()['AZURE_AUTHORITY_HOST'] == 'host'
+    assert sesh.hascreds(sesh.get_credential_options())
 
 def test_azure_no_sign_request(monkeypatch):
     """If AZURE_NO_SIGN_REQUEST is set do not default to azure_unsigned=False"""
+    monkeypatch.setattr(os, "environ", {})
+    monkeypatch.setenv('AZURE_STORAGE_ACCOUNT', 'foo')
     monkeypatch.setenv('AZURE_NO_SIGN_REQUEST', 'YES')
-    assert AzureSession().unsigned
+    sesh = AzureSession()
+    assert sesh.unsigned
+    assert sesh.hascreds(sesh.get_credential_options())
 
 
 def test_azure_session_class_unsigned():
@@ -356,3 +430,5 @@ def test_azure_session_class_unsigned():
     sesh = AzureSession(azure_unsigned=True, azure_storage_account='naipblobs')
     assert sesh.get_credential_options()['AZURE_NO_SIGN_REQUEST'] == 'YES'
     assert sesh.get_credential_options()['AZURE_STORAGE_ACCOUNT'] == 'naipblobs'
+    assert sesh.hascreds(sesh.get_credential_options())
+

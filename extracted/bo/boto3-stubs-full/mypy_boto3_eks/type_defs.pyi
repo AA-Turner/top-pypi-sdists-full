@@ -3,7 +3,7 @@ Type annotations for eks service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_eks/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -25,7 +26,11 @@ from .literals import (
     AddonIssueCodeType,
     AddonStatusType,
     AMITypesType,
+    ArgoCdRoleType,
     AuthenticationModeType,
+    CapabilityIssueCodeType,
+    CapabilityStatusType,
+    CapabilityTypeType,
     CapacityTypesType,
     CategoryType,
     ClusterIssueCodeType,
@@ -44,8 +49,10 @@ from .literals import (
     NodegroupIssueCodeType,
     NodegroupStatusType,
     NodegroupUpdateStrategiesType,
+    ProvisionedControlPlaneTierType,
     RepairActionType,
     ResolveConflictsType,
+    SsoIdentityTypeType,
     SupportTypeType,
     TaintEffectType,
     UpdateParamTypeType,
@@ -54,12 +61,6 @@ from .literals import (
     VersionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -82,6 +83,15 @@ __all__ = (
     "AddonPodIdentityConfigurationTypeDef",
     "AddonTypeDef",
     "AddonVersionInfoTypeDef",
+    "ArgoCdAwsIdcConfigRequestTypeDef",
+    "ArgoCdAwsIdcConfigResponseTypeDef",
+    "ArgoCdConfigRequestTypeDef",
+    "ArgoCdConfigResponseTypeDef",
+    "ArgoCdNetworkAccessConfigRequestTypeDef",
+    "ArgoCdNetworkAccessConfigResponseTypeDef",
+    "ArgoCdRoleMappingOutputTypeDef",
+    "ArgoCdRoleMappingTypeDef",
+    "ArgoCdRoleMappingUnionTypeDef",
     "AssociateAccessPolicyRequestTypeDef",
     "AssociateAccessPolicyResponseTypeDef",
     "AssociateEncryptionConfigRequestTypeDef",
@@ -91,6 +101,12 @@ __all__ = (
     "AssociatedAccessPolicyTypeDef",
     "AutoScalingGroupTypeDef",
     "BlockStorageTypeDef",
+    "CapabilityConfigurationRequestTypeDef",
+    "CapabilityConfigurationResponseTypeDef",
+    "CapabilityHealthTypeDef",
+    "CapabilityIssueTypeDef",
+    "CapabilitySummaryTypeDef",
+    "CapabilityTypeDef",
     "CertificateTypeDef",
     "ClientStatTypeDef",
     "ClusterHealthTypeDef",
@@ -104,11 +120,14 @@ __all__ = (
     "ConnectorConfigResponseTypeDef",
     "ControlPlanePlacementRequestTypeDef",
     "ControlPlanePlacementResponseTypeDef",
+    "ControlPlaneScalingConfigTypeDef",
     "CreateAccessConfigRequestTypeDef",
     "CreateAccessEntryRequestTypeDef",
     "CreateAccessEntryResponseTypeDef",
     "CreateAddonRequestTypeDef",
     "CreateAddonResponseTypeDef",
+    "CreateCapabilityRequestTypeDef",
+    "CreateCapabilityResponseTypeDef",
     "CreateClusterRequestTypeDef",
     "CreateClusterResponseTypeDef",
     "CreateEksAnywhereSubscriptionRequestTypeDef",
@@ -122,6 +141,8 @@ __all__ = (
     "DeleteAccessEntryRequestTypeDef",
     "DeleteAddonRequestTypeDef",
     "DeleteAddonResponseTypeDef",
+    "DeleteCapabilityRequestTypeDef",
+    "DeleteCapabilityResponseTypeDef",
     "DeleteClusterRequestTypeDef",
     "DeleteClusterResponseTypeDef",
     "DeleteEksAnywhereSubscriptionRequestTypeDef",
@@ -146,6 +167,8 @@ __all__ = (
     "DescribeAddonVersionsRequestPaginateTypeDef",
     "DescribeAddonVersionsRequestTypeDef",
     "DescribeAddonVersionsResponseTypeDef",
+    "DescribeCapabilityRequestTypeDef",
+    "DescribeCapabilityResponseTypeDef",
     "DescribeClusterRequestTypeDef",
     "DescribeClusterRequestWaitExtraTypeDef",
     "DescribeClusterRequestWaitTypeDef",
@@ -215,6 +238,9 @@ __all__ = (
     "ListAssociatedAccessPoliciesRequestPaginateTypeDef",
     "ListAssociatedAccessPoliciesRequestTypeDef",
     "ListAssociatedAccessPoliciesResponseTypeDef",
+    "ListCapabilitiesRequestPaginateTypeDef",
+    "ListCapabilitiesRequestTypeDef",
+    "ListCapabilitiesResponseTypeDef",
     "ListClustersRequestPaginateTypeDef",
     "ListClustersRequestTypeDef",
     "ListClustersResponseTypeDef",
@@ -279,6 +305,7 @@ __all__ = (
     "RemotePodNetworkTypeDef",
     "RemotePodNetworkUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "SsoIdentityTypeDef",
     "StartInsightsRefreshRequestTypeDef",
     "StartInsightsRefreshResponseTypeDef",
     "StorageConfigRequestTypeDef",
@@ -291,6 +318,10 @@ __all__ = (
     "UpdateAccessEntryResponseTypeDef",
     "UpdateAddonRequestTypeDef",
     "UpdateAddonResponseTypeDef",
+    "UpdateArgoCdConfigTypeDef",
+    "UpdateCapabilityConfigurationTypeDef",
+    "UpdateCapabilityRequestTypeDef",
+    "UpdateCapabilityResponseTypeDef",
     "UpdateClusterConfigRequestTypeDef",
     "UpdateClusterConfigResponseTypeDef",
     "UpdateClusterVersionRequestTypeDef",
@@ -305,6 +336,7 @@ __all__ = (
     "UpdateParamTypeDef",
     "UpdatePodIdentityAssociationRequestTypeDef",
     "UpdatePodIdentityAssociationResponseTypeDef",
+    "UpdateRoleMappingsTypeDef",
     "UpdateTaintsPayloadTypeDef",
     "UpdateTypeDef",
     "UpgradePolicyRequestTypeDef",
@@ -325,11 +357,11 @@ AccessEntryTypeDef = TypedDict(
     {
         "clusterName": NotRequired[str],
         "principalArn": NotRequired[str],
-        "kubernetesGroups": NotRequired[List[str]],
+        "kubernetesGroups": NotRequired[list[str]],
         "accessEntryArn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "modifiedAt": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "username": NotRequired[str],
         "type": NotRequired[str],
     },
@@ -343,7 +375,7 @@ AccessScopeOutputTypeDef = TypedDict(
     "AccessScopeOutputTypeDef",
     {
         "type": NotRequired[AccessScopeTypeType],
-        "namespaces": NotRequired[List[str]],
+        "namespaces": NotRequired[list[str]],
     },
 )
 AccessScopeTypeDef = TypedDict(
@@ -356,12 +388,12 @@ AccessScopeTypeDef = TypedDict(
 
 class AddonCompatibilityDetailTypeDef(TypedDict):
     name: NotRequired[str]
-    compatibleVersions: NotRequired[List[str]]
+    compatibleVersions: NotRequired[list[str]]
 
 class AddonIssueTypeDef(TypedDict):
     code: NotRequired[AddonIssueCodeType]
     message: NotRequired[str]
-    resourceIds: NotRequired[List[str]]
+    resourceIds: NotRequired[list[str]]
 
 class MarketplaceInformationTypeDef(TypedDict):
     productId: NotRequired[str]
@@ -379,17 +411,40 @@ class AddonPodIdentityAssociationsTypeDef(TypedDict):
 
 class AddonPodIdentityConfigurationTypeDef(TypedDict):
     serviceAccount: NotRequired[str]
-    recommendedManagedPolicies: NotRequired[List[str]]
+    recommendedManagedPolicies: NotRequired[list[str]]
 
 class CompatibilityTypeDef(TypedDict):
     clusterVersion: NotRequired[str]
-    platformVersions: NotRequired[List[str]]
+    platformVersions: NotRequired[list[str]]
     defaultVersion: NotRequired[bool]
+
+class ArgoCdAwsIdcConfigRequestTypeDef(TypedDict):
+    idcInstanceArn: str
+    idcRegion: NotRequired[str]
+
+class ArgoCdAwsIdcConfigResponseTypeDef(TypedDict):
+    idcInstanceArn: NotRequired[str]
+    idcRegion: NotRequired[str]
+    idcManagedApplicationArn: NotRequired[str]
+
+class ArgoCdNetworkAccessConfigRequestTypeDef(TypedDict):
+    vpceIds: NotRequired[Sequence[str]]
+
+class ArgoCdNetworkAccessConfigResponseTypeDef(TypedDict):
+    vpceIds: NotRequired[list[str]]
+
+SsoIdentityTypeDef = TypedDict(
+    "SsoIdentityTypeDef",
+    {
+        "id": str,
+        "type": SsoIdentityTypeType,
+    },
+)
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -409,6 +464,23 @@ class AutoScalingGroupTypeDef(TypedDict):
 class BlockStorageTypeDef(TypedDict):
     enabled: NotRequired[bool]
 
+class CapabilityIssueTypeDef(TypedDict):
+    code: NotRequired[CapabilityIssueCodeType]
+    message: NotRequired[str]
+
+CapabilitySummaryTypeDef = TypedDict(
+    "CapabilitySummaryTypeDef",
+    {
+        "capabilityName": NotRequired[str],
+        "arn": NotRequired[str],
+        "type": NotRequired[CapabilityTypeType],
+        "status": NotRequired[CapabilityStatusType],
+        "version": NotRequired[str],
+        "createdAt": NotRequired[datetime],
+        "modifiedAt": NotRequired[datetime],
+    },
+)
+
 class CertificateTypeDef(TypedDict):
     data: NotRequired[str]
 
@@ -420,11 +492,11 @@ class ClientStatTypeDef(TypedDict):
 class ClusterIssueTypeDef(TypedDict):
     code: NotRequired[ClusterIssueCodeType]
     message: NotRequired[str]
-    resourceIds: NotRequired[List[str]]
+    resourceIds: NotRequired[list[str]]
 
 class ComputeConfigResponseTypeDef(TypedDict):
     enabled: NotRequired[bool]
-    nodePools: NotRequired[List[str]]
+    nodePools: NotRequired[list[str]]
     nodeRoleArn: NotRequired[str]
 
 class ConnectorConfigResponseTypeDef(TypedDict):
@@ -434,17 +506,20 @@ class ConnectorConfigResponseTypeDef(TypedDict):
     provider: NotRequired[str]
     roleArn: NotRequired[str]
 
+class ControlPlaneScalingConfigTypeDef(TypedDict):
+    tier: NotRequired[ProvisionedControlPlaneTierType]
+
 class UpgradePolicyResponseTypeDef(TypedDict):
     supportType: NotRequired[SupportTypeType]
 
 class VpcConfigResponseTypeDef(TypedDict):
-    subnetIds: NotRequired[List[str]]
-    securityGroupIds: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
     clusterSecurityGroupId: NotRequired[str]
     vpcId: NotRequired[str]
     endpointPublicAccess: NotRequired[bool]
     endpointPrivateAccess: NotRequired[bool]
-    publicAccessCidrs: NotRequired[List[str]]
+    publicAccessCidrs: NotRequired[list[str]]
 
 class ZonalShiftConfigResponseTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -551,7 +626,7 @@ class PodIdentityAssociationTypeDef(TypedDict):
     roleArn: NotRequired[str]
     associationArn: NotRequired[str]
     associationId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     createdAt: NotRequired[datetime]
     modifiedAt: NotRequired[datetime]
     ownerArn: NotRequired[str]
@@ -567,6 +642,10 @@ class DeleteAddonRequestTypeDef(TypedDict):
     clusterName: str
     addonName: str
     preserve: NotRequired[bool]
+
+class DeleteCapabilityRequestTypeDef(TypedDict):
+    clusterName: str
+    capabilityName: str
 
 class DeleteClusterRequestTypeDef(TypedDict):
     name: str
@@ -627,6 +706,10 @@ DescribeAddonVersionsRequestTypeDef = TypedDict(
     },
 )
 
+class DescribeCapabilityRequestTypeDef(TypedDict):
+    clusterName: str
+    capabilityName: str
+
 class DescribeClusterRequestTypeDef(TypedDict):
     name: str
 
@@ -682,6 +765,7 @@ class DescribeUpdateRequestTypeDef(TypedDict):
     updateId: str
     nodegroupName: NotRequired[str]
     addonName: NotRequired[str]
+    capabilityName: NotRequired[str]
 
 class DisassociateAccessPolicyRequestTypeDef(TypedDict):
     clusterName: str
@@ -705,16 +789,16 @@ class ProviderTypeDef(TypedDict):
 class ErrorDetailTypeDef(TypedDict):
     errorCode: NotRequired[ErrorCodeType]
     errorMessage: NotRequired[str]
-    resourceIds: NotRequired[List[str]]
+    resourceIds: NotRequired[list[str]]
 
 class FargateProfileIssueTypeDef(TypedDict):
     code: NotRequired[FargateProfileIssueCodeType]
     message: NotRequired[str]
-    resourceIds: NotRequired[List[str]]
+    resourceIds: NotRequired[list[str]]
 
 class FargateProfileSelectorOutputTypeDef(TypedDict):
     namespace: NotRequired[str]
-    labels: NotRequired[Dict[str, str]]
+    labels: NotRequired[dict[str, str]]
 
 class FargateProfileSelectorTypeDef(TypedDict):
     namespace: NotRequired[str]
@@ -730,8 +814,8 @@ class OidcIdentityProviderConfigTypeDef(TypedDict):
     usernamePrefix: NotRequired[str]
     groupsClaim: NotRequired[str]
     groupsPrefix: NotRequired[str]
-    requiredClaims: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
+    requiredClaims: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     status: NotRequired[ConfigStatusType]
 
 class OIDCTypeDef(TypedDict):
@@ -749,7 +833,7 @@ class InsightsFilterTypeDef(TypedDict):
 class IssueTypeDef(TypedDict):
     code: NotRequired[NodegroupIssueCodeType]
     message: NotRequired[str]
-    resourceIds: NotRequired[List[str]]
+    resourceIds: NotRequired[list[str]]
 
 class ListAccessEntriesRequestTypeDef(TypedDict):
     clusterName: str
@@ -771,6 +855,11 @@ class ListAssociatedAccessPoliciesRequestTypeDef(TypedDict):
     principalArn: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListCapabilitiesRequestTypeDef(TypedDict):
+    clusterName: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
 
 class ListClustersRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -819,13 +908,14 @@ class ListUpdatesRequestTypeDef(TypedDict):
     name: str
     nodegroupName: NotRequired[str]
     addonName: NotRequired[str]
+    capabilityName: NotRequired[str]
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
 LogSetupOutputTypeDef = TypedDict(
     "LogSetupOutputTypeDef",
     {
-        "types": NotRequired[List[LogTypeType]],
+        "types": NotRequired[list[LogTypeType]],
         "enabled": NotRequired[bool],
     },
 )
@@ -845,17 +935,17 @@ class NodeRepairConfigOverridesTypeDef(TypedDict):
 
 class RemoteAccessConfigOutputTypeDef(TypedDict):
     ec2SshKey: NotRequired[str]
-    sourceSecurityGroups: NotRequired[List[str]]
+    sourceSecurityGroups: NotRequired[list[str]]
 
 class RemoteAccessConfigTypeDef(TypedDict):
     ec2SshKey: NotRequired[str]
     sourceSecurityGroups: NotRequired[Sequence[str]]
 
 class RemoteNodeNetworkOutputTypeDef(TypedDict):
-    cidrs: NotRequired[List[str]]
+    cidrs: NotRequired[list[str]]
 
 class RemotePodNetworkOutputTypeDef(TypedDict):
-    cidrs: NotRequired[List[str]]
+    cidrs: NotRequired[list[str]]
 
 class RemoteNodeNetworkTypeDef(TypedDict):
     cidrs: NotRequired[Sequence[str]]
@@ -928,7 +1018,7 @@ class AssociatedAccessPolicyTypeDef(TypedDict):
 AccessScopeUnionTypeDef = Union[AccessScopeTypeDef, AccessScopeOutputTypeDef]
 
 class AddonHealthTypeDef(TypedDict):
-    issues: NotRequired[List[AddonIssueTypeDef]]
+    issues: NotRequired[list[AddonIssueTypeDef]]
 
 class CreateAddonRequestTypeDef(TypedDict):
     clusterName: str
@@ -954,11 +1044,19 @@ class UpdateAddonRequestTypeDef(TypedDict):
 
 class AddonVersionInfoTypeDef(TypedDict):
     addonVersion: NotRequired[str]
-    architecture: NotRequired[List[str]]
-    computeTypes: NotRequired[List[str]]
-    compatibilities: NotRequired[List[CompatibilityTypeDef]]
+    architecture: NotRequired[list[str]]
+    computeTypes: NotRequired[list[str]]
+    compatibilities: NotRequired[list[CompatibilityTypeDef]]
     requiresConfiguration: NotRequired[bool]
     requiresIamPermissions: NotRequired[bool]
+
+class ArgoCdRoleMappingOutputTypeDef(TypedDict):
+    role: ArgoCdRoleType
+    identities: list[SsoIdentityTypeDef]
+
+class ArgoCdRoleMappingTypeDef(TypedDict):
+    role: ArgoCdRoleType
+    identities: Sequence[SsoIdentityTypeDef]
 
 class CreateAccessEntryResponseTypeDef(TypedDict):
     accessEntry: AccessEntryTypeDef
@@ -972,7 +1070,7 @@ class DescribeAddonConfigurationResponseTypeDef(TypedDict):
     addonName: str
     addonVersion: str
     configurationSchema: str
-    podIdentityConfiguration: List[AddonPodIdentityConfigurationTypeDef]
+    podIdentityConfiguration: list[AddonPodIdentityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeInsightsRefreshResponseTypeDef(TypedDict):
@@ -983,41 +1081,41 @@ class DescribeInsightsRefreshResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccessEntriesResponseTypeDef(TypedDict):
-    accessEntries: List[str]
+    accessEntries: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAccessPoliciesResponseTypeDef(TypedDict):
-    accessPolicies: List[AccessPolicyTypeDef]
+    accessPolicies: list[AccessPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAddonsResponseTypeDef(TypedDict):
-    addons: List[str]
+    addons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListClustersResponseTypeDef(TypedDict):
-    clusters: List[str]
+    clusters: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListFargateProfilesResponseTypeDef(TypedDict):
-    fargateProfileNames: List[str]
+    fargateProfileNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListNodegroupsResponseTypeDef(TypedDict):
-    nodegroups: List[str]
+    nodegroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUpdatesResponseTypeDef(TypedDict):
-    updateIds: List[str]
+    updateIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1037,7 +1135,7 @@ class AssociateIdentityProviderConfigRequestTypeDef(TypedDict):
     clientRequestToken: NotRequired[str]
 
 class NodegroupResourcesTypeDef(TypedDict):
-    autoScalingGroups: NotRequired[List[AutoScalingGroupTypeDef]]
+    autoScalingGroups: NotRequired[list[AutoScalingGroupTypeDef]]
     remoteAccessSecurityGroup: NotRequired[str]
 
 class StorageConfigRequestTypeDef(TypedDict):
@@ -1046,18 +1144,26 @@ class StorageConfigRequestTypeDef(TypedDict):
 class StorageConfigResponseTypeDef(TypedDict):
     blockStorage: NotRequired[BlockStorageTypeDef]
 
+class CapabilityHealthTypeDef(TypedDict):
+    issues: NotRequired[list[CapabilityIssueTypeDef]]
+
+class ListCapabilitiesResponseTypeDef(TypedDict):
+    capabilities: list[CapabilitySummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class DeprecationDetailTypeDef(TypedDict):
     usage: NotRequired[str]
     replacedWith: NotRequired[str]
     stopServingVersion: NotRequired[str]
     startServingReplacementVersion: NotRequired[str]
-    clientStats: NotRequired[List[ClientStatTypeDef]]
+    clientStats: NotRequired[list[ClientStatTypeDef]]
 
 class ClusterHealthTypeDef(TypedDict):
-    issues: NotRequired[List[ClusterIssueTypeDef]]
+    issues: NotRequired[list[ClusterIssueTypeDef]]
 
 class DescribeClusterVersionsResponseTypeDef(TypedDict):
-    clusterVersions: List[ClusterVersionInformationTypeDef]
+    clusterVersions: list[ClusterVersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1073,7 +1179,7 @@ class OutpostConfigRequestTypeDef(TypedDict):
     controlPlanePlacement: NotRequired[ControlPlanePlacementRequestTypeDef]
 
 class OutpostConfigResponseTypeDef(TypedDict):
-    outpostArns: List[str]
+    outpostArns: list[str]
     controlPlaneInstanceType: str
     controlPlanePlacement: NotRequired[ControlPlanePlacementResponseTypeDef]
 
@@ -1191,6 +1297,10 @@ class ListAssociatedAccessPoliciesRequestPaginateTypeDef(TypedDict):
     principalArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListCapabilitiesRequestPaginateTypeDef(TypedDict):
+    clusterName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListClustersRequestPaginateTypeDef(TypedDict):
     include: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1221,6 +1331,7 @@ class ListUpdatesRequestPaginateTypeDef(TypedDict):
     name: str
     nodegroupName: NotRequired[str]
     addonName: NotRequired[str]
+    capabilityName: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeIdentityProviderConfigRequestTypeDef(TypedDict):
@@ -1233,7 +1344,7 @@ class DisassociateIdentityProviderConfigRequestTypeDef(TypedDict):
     clientRequestToken: NotRequired[str]
 
 class ListIdentityProviderConfigsResponseTypeDef(TypedDict):
-    identityProviderConfigs: List[IdentityProviderConfigTypeDef]
+    identityProviderConfigs: list[IdentityProviderConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1250,9 +1361,9 @@ EksAnywhereSubscriptionTypeDef = TypedDict(
         "term": NotRequired[EksAnywhereSubscriptionTermTypeDef],
         "status": NotRequired[str],
         "autoRenew": NotRequired[bool],
-        "licenseArns": NotRequired[List[str]],
-        "licenses": NotRequired[List[LicenseTypeDef]],
-        "tags": NotRequired[Dict[str, str]],
+        "licenseArns": NotRequired[list[str]],
+        "licenses": NotRequired[list[LicenseTypeDef]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -1268,7 +1379,7 @@ class KubernetesNetworkConfigResponseTypeDef(TypedDict):
     elasticLoadBalancing: NotRequired[ElasticLoadBalancingTypeDef]
 
 class EncryptionConfigOutputTypeDef(TypedDict):
-    resources: NotRequired[List[str]]
+    resources: NotRequired[list[str]]
     provider: NotRequired[ProviderTypeDef]
 
 class EncryptionConfigTypeDef(TypedDict):
@@ -1276,7 +1387,7 @@ class EncryptionConfigTypeDef(TypedDict):
     provider: NotRequired[ProviderTypeDef]
 
 class FargateProfileHealthTypeDef(TypedDict):
-    issues: NotRequired[List[FargateProfileIssueTypeDef]]
+    issues: NotRequired[list[FargateProfileIssueTypeDef]]
 
 FargateProfileSelectorUnionTypeDef = Union[
     FargateProfileSelectorTypeDef, FargateProfileSelectorOutputTypeDef
@@ -1325,15 +1436,15 @@ ListInsightsRequestTypeDef = TypedDict(
 )
 
 class NodegroupHealthTypeDef(TypedDict):
-    issues: NotRequired[List[IssueTypeDef]]
+    issues: NotRequired[list[IssueTypeDef]]
 
 class ListPodIdentityAssociationsResponseTypeDef(TypedDict):
-    associations: List[PodIdentityAssociationSummaryTypeDef]
+    associations: list[PodIdentityAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class LoggingOutputTypeDef(TypedDict):
-    clusterLogging: NotRequired[List[LogSetupOutputTypeDef]]
+    clusterLogging: NotRequired[list[LogSetupOutputTypeDef]]
 
 class LoggingTypeDef(TypedDict):
     clusterLogging: NotRequired[Sequence[LogSetupTypeDef]]
@@ -1344,7 +1455,7 @@ class NodeRepairConfigOutputTypeDef(TypedDict):
     maxUnhealthyNodeThresholdPercentage: NotRequired[int]
     maxParallelNodesRepairedCount: NotRequired[int]
     maxParallelNodesRepairedPercentage: NotRequired[int]
-    nodeRepairConfigOverrides: NotRequired[List[NodeRepairConfigOverridesTypeDef]]
+    nodeRepairConfigOverrides: NotRequired[list[NodeRepairConfigOverridesTypeDef]]
 
 class NodeRepairConfigTypeDef(TypedDict):
     enabled: NotRequired[bool]
@@ -1357,8 +1468,8 @@ class NodeRepairConfigTypeDef(TypedDict):
 RemoteAccessConfigUnionTypeDef = Union[RemoteAccessConfigTypeDef, RemoteAccessConfigOutputTypeDef]
 
 class RemoteNetworkConfigResponseTypeDef(TypedDict):
-    remoteNodeNetworks: NotRequired[List[RemoteNodeNetworkOutputTypeDef]]
-    remotePodNetworks: NotRequired[List[RemotePodNetworkOutputTypeDef]]
+    remoteNodeNetworks: NotRequired[list[RemoteNodeNetworkOutputTypeDef]]
+    remotePodNetworks: NotRequired[list[RemotePodNetworkOutputTypeDef]]
 
 RemoteNodeNetworkUnionTypeDef = Union[RemoteNodeNetworkTypeDef, RemoteNodeNetworkOutputTypeDef]
 RemotePodNetworkUnionTypeDef = Union[RemotePodNetworkTypeDef, RemotePodNetworkOutputTypeDef]
@@ -1368,9 +1479,9 @@ UpdateTypeDef = TypedDict(
         "id": NotRequired[str],
         "status": NotRequired[UpdateStatusType],
         "type": NotRequired[UpdateTypeType],
-        "params": NotRequired[List[UpdateParamTypeDef]],
+        "params": NotRequired[list[UpdateParamTypeDef]],
         "createdAt": NotRequired[datetime],
-        "errors": NotRequired[List[ErrorDetailTypeDef]],
+        "errors": NotRequired[list[ErrorDetailTypeDef]],
     },
 )
 
@@ -1383,7 +1494,7 @@ class AssociateAccessPolicyResponseTypeDef(TypedDict):
 class ListAssociatedAccessPoliciesResponseTypeDef(TypedDict):
     clusterName: str
     principalArn: str
-    associatedAccessPolicies: List[AssociatedAccessPolicyTypeDef]
+    associatedAccessPolicies: list[AssociatedAccessPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1403,12 +1514,12 @@ class AddonTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     modifiedAt: NotRequired[datetime]
     serviceAccountRoleArn: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     publisher: NotRequired[str]
     owner: NotRequired[str]
     marketplaceInformation: NotRequired[MarketplaceInformationTypeDef]
     configurationValues: NotRequired[str]
-    podIdentityAssociations: NotRequired[List[str]]
+    podIdentityAssociations: NotRequired[list[str]]
     namespaceConfig: NotRequired[AddonNamespaceConfigResponseTypeDef]
 
 AddonInfoTypeDef = TypedDict(
@@ -1416,7 +1527,7 @@ AddonInfoTypeDef = TypedDict(
     {
         "addonName": NotRequired[str],
         "type": NotRequired[str],
-        "addonVersions": NotRequired[List[AddonVersionInfoTypeDef]],
+        "addonVersions": NotRequired[list[AddonVersionInfoTypeDef]],
         "publisher": NotRequired[str],
         "owner": NotRequired[str],
         "marketplaceInformation": NotRequired[MarketplaceInformationTypeDef],
@@ -1424,9 +1535,18 @@ AddonInfoTypeDef = TypedDict(
     },
 )
 
+class ArgoCdConfigResponseTypeDef(TypedDict):
+    namespace: NotRequired[str]
+    awsIdc: NotRequired[ArgoCdAwsIdcConfigResponseTypeDef]
+    rbacRoleMappings: NotRequired[list[ArgoCdRoleMappingOutputTypeDef]]
+    networkAccess: NotRequired[ArgoCdNetworkAccessConfigResponseTypeDef]
+    serverUrl: NotRequired[str]
+
+ArgoCdRoleMappingUnionTypeDef = Union[ArgoCdRoleMappingTypeDef, ArgoCdRoleMappingOutputTypeDef]
+
 class InsightCategorySpecificSummaryTypeDef(TypedDict):
-    deprecationDetails: NotRequired[List[DeprecationDetailTypeDef]]
-    addonCompatibilityDetails: NotRequired[List[AddonCompatibilityDetailTypeDef]]
+    deprecationDetails: NotRequired[list[DeprecationDetailTypeDef]]
+    addonCompatibilityDetails: NotRequired[list[AddonCompatibilityDetailTypeDef]]
 
 class CreateEksAnywhereSubscriptionResponseTypeDef(TypedDict):
     subscription: EksAnywhereSubscriptionTypeDef
@@ -1441,7 +1561,7 @@ class DescribeEksAnywhereSubscriptionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEksAnywhereSubscriptionsResponseTypeDef(TypedDict):
-    subscriptions: List[EksAnywhereSubscriptionTypeDef]
+    subscriptions: list[EksAnywhereSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1457,10 +1577,10 @@ class FargateProfileTypeDef(TypedDict):
     clusterName: NotRequired[str]
     createdAt: NotRequired[datetime]
     podExecutionRoleArn: NotRequired[str]
-    subnets: NotRequired[List[str]]
-    selectors: NotRequired[List[FargateProfileSelectorOutputTypeDef]]
+    subnets: NotRequired[list[str]]
+    selectors: NotRequired[list[FargateProfileSelectorOutputTypeDef]]
     status: NotRequired[FargateProfileStatusType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     health: NotRequired[FargateProfileHealthTypeDef]
 
 class CreateFargateProfileRequestTypeDef(TypedDict):
@@ -1477,7 +1597,7 @@ class DescribeIdentityProviderConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInsightsResponseTypeDef(TypedDict):
-    insights: List[InsightSummaryTypeDef]
+    insights: list[InsightSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1494,20 +1614,20 @@ class NodegroupTypeDef(TypedDict):
     status: NotRequired[NodegroupStatusType]
     capacityType: NotRequired[CapacityTypesType]
     scalingConfig: NotRequired[NodegroupScalingConfigTypeDef]
-    instanceTypes: NotRequired[List[str]]
-    subnets: NotRequired[List[str]]
+    instanceTypes: NotRequired[list[str]]
+    subnets: NotRequired[list[str]]
     remoteAccess: NotRequired[RemoteAccessConfigOutputTypeDef]
     amiType: NotRequired[AMITypesType]
     nodeRole: NotRequired[str]
-    labels: NotRequired[Dict[str, str]]
-    taints: NotRequired[List[TaintTypeDef]]
+    labels: NotRequired[dict[str, str]]
+    taints: NotRequired[list[TaintTypeDef]]
     resources: NotRequired[NodegroupResourcesTypeDef]
     diskSize: NotRequired[int]
     health: NotRequired[NodegroupHealthTypeDef]
     updateConfig: NotRequired[NodegroupUpdateConfigTypeDef]
     nodeRepairConfig: NotRequired[NodeRepairConfigOutputTypeDef]
     launchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 NodeRepairConfigUnionTypeDef = Union[NodeRepairConfigTypeDef, NodeRepairConfigOutputTypeDef]
 ClusterTypeDef = TypedDict(
@@ -1527,8 +1647,8 @@ ClusterTypeDef = TypedDict(
         "certificateAuthority": NotRequired[CertificateTypeDef],
         "clientRequestToken": NotRequired[str],
         "platformVersion": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
-        "encryptionConfig": NotRequired[List[EncryptionConfigOutputTypeDef]],
+        "tags": NotRequired[dict[str, str]],
+        "encryptionConfig": NotRequired[list[EncryptionConfigOutputTypeDef]],
         "connectorConfig": NotRequired[ConnectorConfigResponseTypeDef],
         "id": NotRequired[str],
         "health": NotRequired[ClusterHealthTypeDef],
@@ -1540,6 +1660,7 @@ ClusterTypeDef = TypedDict(
         "computeConfig": NotRequired[ComputeConfigResponseTypeDef],
         "storageConfig": NotRequired[StorageConfigResponseTypeDef],
         "deletionProtection": NotRequired[bool],
+        "controlPlaneScalingConfig": NotRequired[ControlPlaneScalingConfigTypeDef],
     },
 )
 
@@ -1553,7 +1674,7 @@ class AssociateEncryptionConfigResponseTypeDef(TypedDict):
 
 class AssociateIdentityProviderConfigResponseTypeDef(TypedDict):
     update: UpdateTypeDef
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeUpdateResponseTypeDef(TypedDict):
@@ -1565,6 +1686,10 @@ class DisassociateIdentityProviderConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAddonResponseTypeDef(TypedDict):
+    update: UpdateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateCapabilityResponseTypeDef(TypedDict):
     update: UpdateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1597,9 +1722,22 @@ class DescribeAddonResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAddonVersionsResponseTypeDef(TypedDict):
-    addons: List[AddonInfoTypeDef]
+    addons: list[AddonInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CapabilityConfigurationResponseTypeDef(TypedDict):
+    argoCd: NotRequired[ArgoCdConfigResponseTypeDef]
+
+class ArgoCdConfigRequestTypeDef(TypedDict):
+    awsIdc: ArgoCdAwsIdcConfigRequestTypeDef
+    namespace: NotRequired[str]
+    rbacRoleMappings: NotRequired[Sequence[ArgoCdRoleMappingUnionTypeDef]]
+    networkAccess: NotRequired[ArgoCdNetworkAccessConfigRequestTypeDef]
+
+class UpdateRoleMappingsTypeDef(TypedDict):
+    addOrUpdateRoleMappings: NotRequired[Sequence[ArgoCdRoleMappingUnionTypeDef]]
+    removeRoleMappings: NotRequired[Sequence[ArgoCdRoleMappingTypeDef]]
 
 InsightTypeDef = TypedDict(
     "InsightTypeDef",
@@ -1613,8 +1751,8 @@ InsightTypeDef = TypedDict(
         "description": NotRequired[str],
         "insightStatus": NotRequired[InsightStatusTypeDef],
         "recommendation": NotRequired[str],
-        "additionalInfo": NotRequired[Dict[str, str]],
-        "resources": NotRequired[List[InsightResourceDetailTypeDef]],
+        "additionalInfo": NotRequired[dict[str, str]],
+        "resources": NotRequired[list[InsightResourceDetailTypeDef]],
         "categorySpecificSummary": NotRequired[InsightCategorySpecificSummaryTypeDef],
     },
 )
@@ -1718,6 +1856,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     computeConfig: NotRequired[ComputeConfigRequestTypeDef]
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
     deletionProtection: NotRequired[bool]
+    controlPlaneScalingConfig: NotRequired[ControlPlaneScalingConfigTypeDef]
 
 class UpdateClusterConfigRequestTypeDef(TypedDict):
     name: str
@@ -1732,7 +1871,71 @@ class UpdateClusterConfigRequestTypeDef(TypedDict):
     storageConfig: NotRequired[StorageConfigRequestTypeDef]
     remoteNetworkConfig: NotRequired[RemoteNetworkConfigRequestTypeDef]
     deletionProtection: NotRequired[bool]
+    controlPlaneScalingConfig: NotRequired[ControlPlaneScalingConfigTypeDef]
+
+CapabilityTypeDef = TypedDict(
+    "CapabilityTypeDef",
+    {
+        "capabilityName": NotRequired[str],
+        "arn": NotRequired[str],
+        "clusterName": NotRequired[str],
+        "type": NotRequired[CapabilityTypeType],
+        "roleArn": NotRequired[str],
+        "status": NotRequired[CapabilityStatusType],
+        "version": NotRequired[str],
+        "configuration": NotRequired[CapabilityConfigurationResponseTypeDef],
+        "tags": NotRequired[dict[str, str]],
+        "health": NotRequired[CapabilityHealthTypeDef],
+        "createdAt": NotRequired[datetime],
+        "modifiedAt": NotRequired[datetime],
+        "deletePropagationPolicy": NotRequired[Literal["RETAIN"]],
+    },
+)
+
+class CapabilityConfigurationRequestTypeDef(TypedDict):
+    argoCd: NotRequired[ArgoCdConfigRequestTypeDef]
+
+class UpdateArgoCdConfigTypeDef(TypedDict):
+    rbacRoleMappings: NotRequired[UpdateRoleMappingsTypeDef]
+    networkAccess: NotRequired[ArgoCdNetworkAccessConfigRequestTypeDef]
 
 class DescribeInsightResponseTypeDef(TypedDict):
     insight: InsightTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCapabilityResponseTypeDef(TypedDict):
+    capability: CapabilityTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteCapabilityResponseTypeDef(TypedDict):
+    capability: CapabilityTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapabilityResponseTypeDef(TypedDict):
+    capability: CapabilityTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+CreateCapabilityRequestTypeDef = TypedDict(
+    "CreateCapabilityRequestTypeDef",
+    {
+        "capabilityName": str,
+        "clusterName": str,
+        "type": CapabilityTypeType,
+        "roleArn": str,
+        "deletePropagationPolicy": Literal["RETAIN"],
+        "clientRequestToken": NotRequired[str],
+        "configuration": NotRequired[CapabilityConfigurationRequestTypeDef],
+        "tags": NotRequired[Mapping[str, str]],
+    },
+)
+
+class UpdateCapabilityConfigurationTypeDef(TypedDict):
+    argoCd: NotRequired[UpdateArgoCdConfigTypeDef]
+
+class UpdateCapabilityRequestTypeDef(TypedDict):
+    clusterName: str
+    capabilityName: str
+    roleArn: NotRequired[str]
+    configuration: NotRequired[UpdateCapabilityConfigurationTypeDef]
+    clientRequestToken: NotRequired[str]
+    deletePropagationPolicy: NotRequired[Literal["RETAIN"]]

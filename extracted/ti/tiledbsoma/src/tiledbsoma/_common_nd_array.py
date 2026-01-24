@@ -6,7 +6,8 @@
 
 from __future__ import annotations
 
-from typing import Sequence, cast
+from collections.abc import Sequence
+from typing import cast
 
 import pyarrow as pa
 import somacore
@@ -46,10 +47,7 @@ class NDArray(SOMAArray, somacore.NDArray):
             shape:
                 The maximum capacity of each dimension, including room
                 for any intended future appends, as a sequence.  E.g. ``(100, 10)``.
-                All lengths must be in the positive int64 range, or ``None``.  It's
-                necessary to say ``shape=(None, None)`` or ``shape=(None, None,
-                None)``, as the sequence length determines the number of dimensions
-                N in the N-dimensional array.
+                All lengths must be in the positive int64 range.
 
                 For :class:`SparseNDArray` only, if a slot is None, then the minimum
                 possible range will be used.  This makes a :class:`SparseNDArray`
@@ -74,8 +72,6 @@ class NDArray(SOMAArray, somacore.NDArray):
                 If the ``shape`` is unsupported.
             tiledbsoma.AlreadyExistsError:
                 If the underlying object already exists at the given URI.
-            tiledbsoma.NotCreateableError:
-                If the URI is malformed for a particular storage backend.
             TileDBError:
                 If unable to create the underlying object.
 
@@ -84,9 +80,7 @@ class NDArray(SOMAArray, somacore.NDArray):
         """
         raise NotImplementedError("must be implemented by child class.")
 
-    def resize(
-        self, newshape: Sequence[int | None], check_only: bool = False
-    ) -> StatusAndReason:
+    def resize(self, newshape: Sequence[int | None], check_only: bool = False) -> StatusAndReason:
         """Increases the shape of the array as specfied. Raises an error if the new
         shape is less than the current shape in any dimension. Raises an error if
         the new shape exceeds maxshape in any dimension. Raises an error if the
@@ -99,23 +93,19 @@ class NDArray(SOMAArray, somacore.NDArray):
             Maturing.
         """
         if check_only:
-            return self._handle.tiledbsoma_can_resize(newshape)
-        else:
-            self._handle.resize(newshape)
-            return (True, "")
+            return cast("StatusAndReason", self._handle.can_resize(newshape))
+        self._handle.resize(newshape)
+        return (True, "")
 
-    def tiledbsoma_upgrade_shape(
-        self, newshape: Sequence[int | None], check_only: bool = False
-    ) -> StatusAndReason:
+    def tiledbsoma_upgrade_shape(self, newshape: Sequence[int | None], check_only: bool = False) -> StatusAndReason:
         """Allows the array to have a resizeable shape as described in the TileDB-SOMA
         1.15 release notes.  Raises an error if the new shape exceeds maxshape in
         any dimension. Raises an error if the array already has a shape.
         """
         if check_only:
-            return self._handle.tiledbsoma_can_upgrade_shape(newshape)
-        else:
-            self._handle.tiledbsoma_upgrade_shape(newshape)
-            return (True, "")
+            return cast("StatusAndReason", self._handle.tiledbsoma_can_upgrade_shape(newshape))
+        self._handle.tiledbsoma_upgrade_shape(newshape)
+        return (True, "")
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -126,7 +116,7 @@ class NDArray(SOMAArray, somacore.NDArray):
         Lifecycle:
             Maturing.
         """
-        return cast(tuple[int, ...], tuple(self._handle.shape))
+        return cast("tuple[int, ...]", tuple(self._handle.shape))
 
     @property
     def maxshape(self) -> tuple[int, ...]:
@@ -137,7 +127,7 @@ class NDArray(SOMAArray, somacore.NDArray):
         Lifecycle:
             Maturing.
         """
-        return cast(tuple[int, ...], tuple(self._handle.maxshape))
+        return cast("tuple[int, ...]", tuple(self._handle.maxshape))
 
     @property
     def tiledbsoma_has_upgraded_shape(self) -> bool:
@@ -148,7 +138,22 @@ class NDArray(SOMAArray, somacore.NDArray):
         Lifecycle:
             Maturing.
         """
-        return self._handle.tiledbsoma_has_upgraded_shape
+        return cast("bool", self._handle.tiledbsoma_has_upgraded_shape)
+
+    @property
+    def type(self) -> pa.DataType:
+        """Returns the data type of the array's soma_data attribute.
+
+        This is a read-only property that provides direct access to the Arrow data type
+        of the array's data, equivalent to ``self.schema.field("soma_data").type``.
+
+        Lifecycle:
+            Maturing.
+
+        Returns:
+            The Arrow data type of the array's data.
+        """
+        return self.schema.field("soma_data").type
 
     @classmethod
     def _dim_capacity_and_extent(

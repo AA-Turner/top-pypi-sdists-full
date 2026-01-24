@@ -23,6 +23,8 @@ __all__ = [
     'ListenerDefaultActionForward',
     'ListenerDefaultActionForwardStickiness',
     'ListenerDefaultActionForwardTargetGroup',
+    'ListenerDefaultActionJwtValidation',
+    'ListenerDefaultActionJwtValidationAdditionalClaim',
     'ListenerDefaultActionRedirect',
     'ListenerMutualAuthentication',
     'ListenerRuleAction',
@@ -32,6 +34,8 @@ __all__ = [
     'ListenerRuleActionForward',
     'ListenerRuleActionForwardStickiness',
     'ListenerRuleActionForwardTargetGroup',
+    'ListenerRuleActionJwtValidation',
+    'ListenerRuleActionJwtValidationAdditionalClaim',
     'ListenerRuleActionRedirect',
     'ListenerRuleCondition',
     'ListenerRuleConditionHostHeader',
@@ -40,8 +44,14 @@ __all__ = [
     'ListenerRuleConditionPathPattern',
     'ListenerRuleConditionQueryString',
     'ListenerRuleConditionSourceIp',
+    'ListenerRuleTransform',
+    'ListenerRuleTransformHostHeaderRewriteConfig',
+    'ListenerRuleTransformHostHeaderRewriteConfigRewrite',
+    'ListenerRuleTransformUrlRewriteConfig',
+    'ListenerRuleTransformUrlRewriteConfigRewrite',
     'LoadBalancerAccessLogs',
     'LoadBalancerConnectionLogs',
+    'LoadBalancerHealthCheckLogs',
     'LoadBalancerIpamPools',
     'LoadBalancerMinimumLoadBalancerCapacity',
     'LoadBalancerSubnetMapping',
@@ -59,6 +69,8 @@ __all__ = [
     'GetListenerDefaultActionForwardResult',
     'GetListenerDefaultActionForwardStickinessResult',
     'GetListenerDefaultActionForwardTargetGroupResult',
+    'GetListenerDefaultActionJwtValidationResult',
+    'GetListenerDefaultActionJwtValidationAdditionalClaimResult',
     'GetListenerDefaultActionRedirectResult',
     'GetListenerMutualAuthenticationResult',
     'GetListenerRuleActionResult',
@@ -68,6 +80,8 @@ __all__ = [
     'GetListenerRuleActionForwardResult',
     'GetListenerRuleActionForwardStickinessResult',
     'GetListenerRuleActionForwardTargetGroupResult',
+    'GetListenerRuleActionJwtValidationResult',
+    'GetListenerRuleActionJwtValidationAdditionalClaimResult',
     'GetListenerRuleActionRedirectResult',
     'GetListenerRuleConditionResult',
     'GetListenerRuleConditionHostHeaderResult',
@@ -77,8 +91,14 @@ __all__ = [
     'GetListenerRuleConditionQueryStringResult',
     'GetListenerRuleConditionQueryStringValueResult',
     'GetListenerRuleConditionSourceIpResult',
+    'GetListenerRuleTransformResult',
+    'GetListenerRuleTransformHostHeaderRewriteConfigResult',
+    'GetListenerRuleTransformHostHeaderRewriteConfigRewriteResult',
+    'GetListenerRuleTransformUrlRewriteConfigResult',
+    'GetListenerRuleTransformUrlRewriteConfigRewriteResult',
     'GetLoadBalancerAccessLogsResult',
     'GetLoadBalancerConnectionLogResult',
+    'GetLoadBalancerHealthCheckLogResult',
     'GetLoadBalancerIpamPoolResult',
     'GetLoadBalancerSubnetMappingResult',
     'GetTargetGroupHealthCheckResult',
@@ -96,6 +116,8 @@ class ListenerDefaultAction(dict):
             suggest = "authenticate_oidc"
         elif key == "fixedResponse":
             suggest = "fixed_response"
+        elif key == "jwtValidation":
+            suggest = "jwt_validation"
         elif key == "targetGroupArn":
             suggest = "target_group_arn"
 
@@ -116,17 +138,19 @@ class ListenerDefaultAction(dict):
                  authenticate_oidc: Optional['outputs.ListenerDefaultActionAuthenticateOidc'] = None,
                  fixed_response: Optional['outputs.ListenerDefaultActionFixedResponse'] = None,
                  forward: Optional['outputs.ListenerDefaultActionForward'] = None,
+                 jwt_validation: Optional['outputs.ListenerDefaultActionJwtValidation'] = None,
                  order: Optional[_builtins.int] = None,
                  redirect: Optional['outputs.ListenerDefaultActionRedirect'] = None,
                  target_group_arn: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: Type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito` and `authenticate-oidc`.
+        :param _builtins.str type: Type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito`, `authenticate-oidc` and `jwt-validation`.
                
                The following arguments are optional:
         :param 'ListenerDefaultActionAuthenticateCognitoArgs' authenticate_cognito: Configuration block for using Amazon Cognito to authenticate users. Specify only when `type` is `authenticate-cognito`. See below.
         :param 'ListenerDefaultActionAuthenticateOidcArgs' authenticate_oidc: Configuration block for an identity provider that is compliant with OpenID Connect (OIDC). Specify only when `type` is `authenticate-oidc`. See below.
         :param 'ListenerDefaultActionFixedResponseArgs' fixed_response: Information for creating an action that returns a custom HTTP response. Required if `type` is `fixed-response`.
         :param 'ListenerDefaultActionForwardArgs' forward: Configuration block for creating an action that distributes requests among one or more target groups. Specify only if `type` is `forward`. See below.
+        :param 'ListenerDefaultActionJwtValidationArgs' jwt_validation: Configuration block for creating a JWT validation action. Required if `type` is `jwt-validation`.
         :param _builtins.int order: Order for the action. The action with the lowest value for order is performed first. Valid values are between `1` and `50000`. Defaults to the position in the list of actions.
         :param 'ListenerDefaultActionRedirectArgs' redirect: Configuration block for creating a redirect action. Required if `type` is `redirect`. See below.
         :param _builtins.str target_group_arn: ARN of the Target Group to which to route traffic. Specify only if `type` is `forward` and you want to route to a single target group. To route to one or more target groups, use a `forward` block instead. Can be specified with `forward` but ARNs must match.
@@ -140,6 +164,8 @@ class ListenerDefaultAction(dict):
             pulumi.set(__self__, "fixed_response", fixed_response)
         if forward is not None:
             pulumi.set(__self__, "forward", forward)
+        if jwt_validation is not None:
+            pulumi.set(__self__, "jwt_validation", jwt_validation)
         if order is not None:
             pulumi.set(__self__, "order", order)
         if redirect is not None:
@@ -151,7 +177,7 @@ class ListenerDefaultAction(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        Type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito` and `authenticate-oidc`.
+        Type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito`, `authenticate-oidc` and `jwt-validation`.
 
         The following arguments are optional:
         """
@@ -188,6 +214,14 @@ class ListenerDefaultAction(dict):
         Configuration block for creating an action that distributes requests among one or more target groups. Specify only if `type` is `forward`. See below.
         """
         return pulumi.get(self, "forward")
+
+    @_builtins.property
+    @pulumi.getter(name="jwtValidation")
+    def jwt_validation(self) -> Optional['outputs.ListenerDefaultActionJwtValidation']:
+        """
+        Configuration block for creating a JWT validation action. Required if `type` is `jwt-validation`.
+        """
+        return pulumi.get(self, "jwt_validation")
 
     @_builtins.property
     @pulumi.getter
@@ -704,6 +738,110 @@ class ListenerDefaultActionForwardTargetGroup(dict):
 
 
 @pulumi.output_type
+class ListenerDefaultActionJwtValidation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "jwksEndpoint":
+            suggest = "jwks_endpoint"
+        elif key == "additionalClaims":
+            suggest = "additional_claims"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ListenerDefaultActionJwtValidation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ListenerDefaultActionJwtValidation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ListenerDefaultActionJwtValidation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 issuer: _builtins.str,
+                 jwks_endpoint: _builtins.str,
+                 additional_claims: Optional[Sequence['outputs.ListenerDefaultActionJwtValidationAdditionalClaim']] = None):
+        """
+        :param _builtins.str issuer: Issuer of the JWT.
+        :param _builtins.str jwks_endpoint: JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+               
+               The following arguments are optional:
+        :param Sequence['ListenerDefaultActionJwtValidationAdditionalClaimArgs'] additional_claims: Repeatable configuration block for additional claims to validate.
+        """
+        pulumi.set(__self__, "issuer", issuer)
+        pulumi.set(__self__, "jwks_endpoint", jwks_endpoint)
+        if additional_claims is not None:
+            pulumi.set(__self__, "additional_claims", additional_claims)
+
+    @_builtins.property
+    @pulumi.getter
+    def issuer(self) -> _builtins.str:
+        """
+        Issuer of the JWT.
+        """
+        return pulumi.get(self, "issuer")
+
+    @_builtins.property
+    @pulumi.getter(name="jwksEndpoint")
+    def jwks_endpoint(self) -> _builtins.str:
+        """
+        JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+
+        The following arguments are optional:
+        """
+        return pulumi.get(self, "jwks_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="additionalClaims")
+    def additional_claims(self) -> Optional[Sequence['outputs.ListenerDefaultActionJwtValidationAdditionalClaim']]:
+        """
+        Repeatable configuration block for additional claims to validate.
+        """
+        return pulumi.get(self, "additional_claims")
+
+
+@pulumi.output_type
+class ListenerDefaultActionJwtValidationAdditionalClaim(dict):
+    def __init__(__self__, *,
+                 format: _builtins.str,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str format: Format of the claim value. Valid values are `single-string`, `string-array` and `space-separated-values`.
+        :param _builtins.str name: Name of the claim to validate. `exp`, `iss`, `nbf`, or `iat` cannot be specified because they are validated by default.
+        :param Sequence[_builtins.str] values: List of expected values of the claim.
+        """
+        pulumi.set(__self__, "format", format)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> _builtins.str:
+        """
+        Format of the claim value. Valid values are `single-string`, `string-array` and `space-separated-values`.
+        """
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the claim to validate. `exp`, `iss`, `nbf`, or `iat` cannot be specified because they are validated by default.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        List of expected values of the claim.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class ListenerDefaultActionRedirect(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -890,6 +1028,8 @@ class ListenerRuleAction(dict):
             suggest = "authenticate_oidc"
         elif key == "fixedResponse":
             suggest = "fixed_response"
+        elif key == "jwtValidation":
+            suggest = "jwt_validation"
         elif key == "targetGroupArn":
             suggest = "target_group_arn"
 
@@ -910,17 +1050,19 @@ class ListenerRuleAction(dict):
                  authenticate_oidc: Optional['outputs.ListenerRuleActionAuthenticateOidc'] = None,
                  fixed_response: Optional['outputs.ListenerRuleActionFixedResponse'] = None,
                  forward: Optional['outputs.ListenerRuleActionForward'] = None,
+                 jwt_validation: Optional['outputs.ListenerRuleActionJwtValidation'] = None,
                  order: Optional[_builtins.int] = None,
                  redirect: Optional['outputs.ListenerRuleActionRedirect'] = None,
                  target_group_arn: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: The type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito` and `authenticate-oidc`.
+        :param _builtins.str type: The type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito`, `authenticate-oidc` and `jwt-validation`.
         :param 'ListenerRuleActionAuthenticateCognitoArgs' authenticate_cognito: Information for creating an authenticate action using Cognito. Required if `type` is `authenticate-cognito`.
         :param 'ListenerRuleActionAuthenticateOidcArgs' authenticate_oidc: Information for creating an authenticate action using OIDC. Required if `type` is `authenticate-oidc`.
         :param 'ListenerRuleActionFixedResponseArgs' fixed_response: Information for creating an action that returns a custom HTTP response. Required if `type` is `fixed-response`.
         :param 'ListenerRuleActionForwardArgs' forward: Configuration block for creating an action that distributes requests among one or more target groups.
                Specify only if `type` is `forward`.
                Cannot be specified with `target_group_arn`.
+        :param 'ListenerRuleActionJwtValidationArgs' jwt_validation: Information for creating a JWT validation action. Required if `type` is `jwt-validation`.
         :param _builtins.int order: Order for the action.
                The action with the lowest value for order is performed first.
                Valid values are between `1` and `50000`.
@@ -940,6 +1082,8 @@ class ListenerRuleAction(dict):
             pulumi.set(__self__, "fixed_response", fixed_response)
         if forward is not None:
             pulumi.set(__self__, "forward", forward)
+        if jwt_validation is not None:
+            pulumi.set(__self__, "jwt_validation", jwt_validation)
         if order is not None:
             pulumi.set(__self__, "order", order)
         if redirect is not None:
@@ -951,7 +1095,7 @@ class ListenerRuleAction(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito` and `authenticate-oidc`.
+        The type of routing action. Valid values are `forward`, `redirect`, `fixed-response`, `authenticate-cognito`, `authenticate-oidc` and `jwt-validation`.
         """
         return pulumi.get(self, "type")
 
@@ -988,6 +1132,14 @@ class ListenerRuleAction(dict):
         Cannot be specified with `target_group_arn`.
         """
         return pulumi.get(self, "forward")
+
+    @_builtins.property
+    @pulumi.getter(name="jwtValidation")
+    def jwt_validation(self) -> Optional['outputs.ListenerRuleActionJwtValidation']:
+        """
+        Information for creating a JWT validation action. Required if `type` is `jwt-validation`.
+        """
+        return pulumi.get(self, "jwt_validation")
 
     @_builtins.property
     @pulumi.getter
@@ -1486,6 +1638,106 @@ class ListenerRuleActionForwardTargetGroup(dict):
 
 
 @pulumi.output_type
+class ListenerRuleActionJwtValidation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "jwksEndpoint":
+            suggest = "jwks_endpoint"
+        elif key == "additionalClaims":
+            suggest = "additional_claims"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ListenerRuleActionJwtValidation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ListenerRuleActionJwtValidation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ListenerRuleActionJwtValidation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 issuer: _builtins.str,
+                 jwks_endpoint: _builtins.str,
+                 additional_claims: Optional[Sequence['outputs.ListenerRuleActionJwtValidationAdditionalClaim']] = None):
+        """
+        :param _builtins.str issuer: Issuer of the JWT.
+        :param _builtins.str jwks_endpoint: JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+        :param Sequence['ListenerRuleActionJwtValidationAdditionalClaimArgs'] additional_claims: Repeatable configuration block for additional claims to validate.
+        """
+        pulumi.set(__self__, "issuer", issuer)
+        pulumi.set(__self__, "jwks_endpoint", jwks_endpoint)
+        if additional_claims is not None:
+            pulumi.set(__self__, "additional_claims", additional_claims)
+
+    @_builtins.property
+    @pulumi.getter
+    def issuer(self) -> _builtins.str:
+        """
+        Issuer of the JWT.
+        """
+        return pulumi.get(self, "issuer")
+
+    @_builtins.property
+    @pulumi.getter(name="jwksEndpoint")
+    def jwks_endpoint(self) -> _builtins.str:
+        """
+        JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider. This must be a full URL, including the HTTPS protocol, the domain, and the path.
+        """
+        return pulumi.get(self, "jwks_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="additionalClaims")
+    def additional_claims(self) -> Optional[Sequence['outputs.ListenerRuleActionJwtValidationAdditionalClaim']]:
+        """
+        Repeatable configuration block for additional claims to validate.
+        """
+        return pulumi.get(self, "additional_claims")
+
+
+@pulumi.output_type
+class ListenerRuleActionJwtValidationAdditionalClaim(dict):
+    def __init__(__self__, *,
+                 format: _builtins.str,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str format: Format of the claim value. Valid values are `single-string`, `string-array` and `space-separated-values`.
+        :param _builtins.str name: Name of the claim to validate. `exp`, `iss`, `nbf`, or `iat` cannot be specified because they are validated by default.
+        :param Sequence[_builtins.str] values: List of expected values of the claim.
+        """
+        pulumi.set(__self__, "format", format)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> _builtins.str:
+        """
+        Format of the claim value. Valid values are `single-string`, `string-array` and `space-separated-values`.
+        """
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the claim to validate. `exp`, `iss`, `nbf`, or `iat` cannot be specified because they are validated by default.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        List of expected values of the claim.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class ListenerRuleActionRedirect(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -1617,10 +1869,10 @@ class ListenerRuleCondition(dict):
                  query_strings: Optional[Sequence['outputs.ListenerRuleConditionQueryString']] = None,
                  source_ip: Optional['outputs.ListenerRuleConditionSourceIp'] = None):
         """
-        :param 'ListenerRuleConditionHostHeaderArgs' host_header: Contains a single `values` item which is a list of host header patterns to match. The maximum size of each pattern is 128 characters. Comparison is case insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied.
+        :param 'ListenerRuleConditionHostHeaderArgs' host_header: Host header patterns to match. Host Header block fields documented below.
         :param 'ListenerRuleConditionHttpHeaderArgs' http_header: HTTP headers to match. HTTP Header block fields documented below.
         :param 'ListenerRuleConditionHttpRequestMethodArgs' http_request_method: Contains a single `values` item which is a list of HTTP request methods or verbs to match. Maximum size is 40 characters. Only allowed characters are A-Z, hyphen (-) and underscore (\\_). Comparison is case sensitive. Wildcards are not supported. Only one needs to match for the condition to be satisfied. AWS recommends that GET and HEAD requests are routed in the same way because the response to a HEAD request may be cached.
-        :param 'ListenerRuleConditionPathPatternArgs' path_pattern: Contains a single `values` item which is a list of path patterns to match against the request URL. Maximum size of each pattern is 128 characters. Comparison is case sensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Path pattern is compared only to the path of the URL, not to its query string. To compare against the query string, use a `query_string` condition.
+        :param 'ListenerRuleConditionPathPatternArgs' path_pattern: Path patterns to match against the request URL. Path Pattern block fields documented below.
         :param Sequence['ListenerRuleConditionQueryStringArgs'] query_strings: Query strings to match. Query String block fields documented below.
         :param 'ListenerRuleConditionSourceIpArgs' source_ip: Contains a single `values` item which is a list of source IP CIDR notations to match. You can use both IPv4 and IPv6 addresses. Wildcards are not supported. Condition is satisfied if the source IP address of the request matches one of the CIDR blocks. Condition is not satisfied by the addresses in the `X-Forwarded-For` header, use `http_header` condition instead.
                
@@ -1643,7 +1895,7 @@ class ListenerRuleCondition(dict):
     @pulumi.getter(name="hostHeader")
     def host_header(self) -> Optional['outputs.ListenerRuleConditionHostHeader']:
         """
-        Contains a single `values` item which is a list of host header patterns to match. The maximum size of each pattern is 128 characters. Comparison is case insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied.
+        Host header patterns to match. Host Header block fields documented below.
         """
         return pulumi.get(self, "host_header")
 
@@ -1667,7 +1919,7 @@ class ListenerRuleCondition(dict):
     @pulumi.getter(name="pathPattern")
     def path_pattern(self) -> Optional['outputs.ListenerRuleConditionPathPattern']:
         """
-        Contains a single `values` item which is a list of path patterns to match against the request URL. Maximum size of each pattern is 128 characters. Comparison is case sensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Path pattern is compared only to the path of the URL, not to its query string. To compare against the query string, use a `query_string` condition.
+        Path patterns to match against the request URL. Path Pattern block fields documented below.
         """
         return pulumi.get(self, "path_pattern")
 
@@ -1692,13 +1944,49 @@ class ListenerRuleCondition(dict):
 
 @pulumi.output_type
 class ListenerRuleConditionHostHeader(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "regexValues":
+            suggest = "regex_values"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ListenerRuleConditionHostHeader. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ListenerRuleConditionHostHeader.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ListenerRuleConditionHostHeader.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 values: Sequence[_builtins.str]):
-        pulumi.set(__self__, "values", values)
+                 regex_values: Optional[Sequence[_builtins.str]] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] regex_values: List of regular expressions to compare against the host header. The maximum length of each string is 128 characters. Conflicts with `values`.
+        :param Sequence[_builtins.str] values: List of host header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case-insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Conflicts with `regex_values`.
+        """
+        if regex_values is not None:
+            pulumi.set(__self__, "regex_values", regex_values)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of regular expressions to compare against the host header. The maximum length of each string is 128 characters. Conflicts with `values`.
+        """
+        return pulumi.get(self, "regex_values")
 
     @_builtins.property
     @pulumi.getter
-    def values(self) -> Sequence[_builtins.str]:
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of host header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case-insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Conflicts with `regex_values`.
+        """
         return pulumi.get(self, "values")
 
 
@@ -1709,6 +1997,8 @@ class ListenerRuleConditionHttpHeader(dict):
         suggest = None
         if key == "httpHeaderName":
             suggest = "http_header_name"
+        elif key == "regexValues":
+            suggest = "regex_values"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in ListenerRuleConditionHttpHeader. Access the value via the '{suggest}' property getter instead.")
@@ -1723,27 +2013,40 @@ class ListenerRuleConditionHttpHeader(dict):
 
     def __init__(__self__, *,
                  http_header_name: _builtins.str,
-                 values: Sequence[_builtins.str]):
+                 regex_values: Optional[Sequence[_builtins.str]] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
         """
-        :param _builtins.str http_header_name: Name of HTTP header to search. The maximum size is 40 characters. Comparison is case insensitive. Only RFC7240 characters are supported. Wildcards are not supported. You cannot use HTTP header condition to specify the host header, use a `host-header` condition instead.
-        :param Sequence[_builtins.str] values: List of header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request they will be searched in order until a match is found. Only one pattern needs to match for the condition to be satisfied. To require that all of the strings are a match, create one condition block per string.
+        :param _builtins.str http_header_name: Name of HTTP header to search. The maximum size is 40 characters. Comparison is case-insensitive. Only RFC7240 characters are supported. Wildcards are not supported. You cannot use HTTP header condition to specify the host header, use a `host-header` condition instead.
+        :param Sequence[_builtins.str] regex_values: List of regular expression to compare against the HTTP header. The maximum length of each string is 128 characters. Conflicts with `values`.
+        :param Sequence[_builtins.str] values: List of header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case-insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request they will be searched in order until a match is found. Only one pattern needs to match for the condition to be satisfied. To require that all of the strings are a match, create one condition block per string. Conflicts with `regex_values`.
         """
         pulumi.set(__self__, "http_header_name", http_header_name)
-        pulumi.set(__self__, "values", values)
+        if regex_values is not None:
+            pulumi.set(__self__, "regex_values", regex_values)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
 
     @_builtins.property
     @pulumi.getter(name="httpHeaderName")
     def http_header_name(self) -> _builtins.str:
         """
-        Name of HTTP header to search. The maximum size is 40 characters. Comparison is case insensitive. Only RFC7240 characters are supported. Wildcards are not supported. You cannot use HTTP header condition to specify the host header, use a `host-header` condition instead.
+        Name of HTTP header to search. The maximum size is 40 characters. Comparison is case-insensitive. Only RFC7240 characters are supported. Wildcards are not supported. You cannot use HTTP header condition to specify the host header, use a `host-header` condition instead.
         """
         return pulumi.get(self, "http_header_name")
 
     @_builtins.property
-    @pulumi.getter
-    def values(self) -> Sequence[_builtins.str]:
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Optional[Sequence[_builtins.str]]:
         """
-        List of header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request they will be searched in order until a match is found. Only one pattern needs to match for the condition to be satisfied. To require that all of the strings are a match, create one condition block per string.
+        List of regular expression to compare against the HTTP header. The maximum length of each string is 128 characters. Conflicts with `values`.
+        """
+        return pulumi.get(self, "regex_values")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of header value patterns to match. Maximum size of each pattern is 128 characters. Comparison is case-insensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). If the same header appears multiple times in the request they will be searched in order until a match is found. Only one pattern needs to match for the condition to be satisfied. To require that all of the strings are a match, create one condition block per string. Conflicts with `regex_values`.
         """
         return pulumi.get(self, "values")
 
@@ -1762,13 +2065,49 @@ class ListenerRuleConditionHttpRequestMethod(dict):
 
 @pulumi.output_type
 class ListenerRuleConditionPathPattern(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "regexValues":
+            suggest = "regex_values"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ListenerRuleConditionPathPattern. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ListenerRuleConditionPathPattern.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ListenerRuleConditionPathPattern.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 values: Sequence[_builtins.str]):
-        pulumi.set(__self__, "values", values)
+                 regex_values: Optional[Sequence[_builtins.str]] = None,
+                 values: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] regex_values: List of regular expressions to compare against the request URL. The maximum length of each string is 128 characters. Conflicts with `values`.
+        :param Sequence[_builtins.str] values: List of path patterns to compare against the request URL. Maximum size of each pattern is 128 characters. Comparison is case-sensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Path pattern is compared only to the path of the URL, not to its query string. To compare against the query string, use a `query_string` condition. Conflicts with `regex_values`.
+        """
+        if regex_values is not None:
+            pulumi.set(__self__, "regex_values", regex_values)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of regular expressions to compare against the request URL. The maximum length of each string is 128 characters. Conflicts with `values`.
+        """
+        return pulumi.get(self, "regex_values")
 
     @_builtins.property
     @pulumi.getter
-    def values(self) -> Sequence[_builtins.str]:
+    def values(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of path patterns to compare against the request URL. Maximum size of each pattern is 128 characters. Comparison is case-sensitive. Wildcard characters supported: * (matches 0 or more characters) and ? (matches exactly 1 character). Only one pattern needs to match for the condition to be satisfied. Path pattern is compared only to the path of the URL, not to its query string. To compare against the query string, use a `query_string` condition. Conflicts with `regex_values`.
+        """
         return pulumi.get(self, "values")
 
 
@@ -1812,6 +2151,163 @@ class ListenerRuleConditionSourceIp(dict):
     @pulumi.getter
     def values(self) -> Sequence[_builtins.str]:
         return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class ListenerRuleTransform(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "hostHeaderRewriteConfig":
+            suggest = "host_header_rewrite_config"
+        elif key == "urlRewriteConfig":
+            suggest = "url_rewrite_config"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ListenerRuleTransform. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ListenerRuleTransform.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ListenerRuleTransform.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 type: _builtins.str,
+                 host_header_rewrite_config: Optional['outputs.ListenerRuleTransformHostHeaderRewriteConfig'] = None,
+                 url_rewrite_config: Optional['outputs.ListenerRuleTransformUrlRewriteConfig'] = None):
+        """
+        :param _builtins.str type: Type of transform. Valid values are `host-header-rewrite` and `url-rewrite`.
+        :param 'ListenerRuleTransformHostHeaderRewriteConfigArgs' host_header_rewrite_config: Configuration block for host header rewrite. Required if `type` is `host-header-rewrite`. See Host Header Rewrite Config Blocks below.
+        :param 'ListenerRuleTransformUrlRewriteConfigArgs' url_rewrite_config: Configuration block for URL rewrite. Required if `type` is `url-rewrite`. See URL Rewrite Config Blocks below.
+        """
+        pulumi.set(__self__, "type", type)
+        if host_header_rewrite_config is not None:
+            pulumi.set(__self__, "host_header_rewrite_config", host_header_rewrite_config)
+        if url_rewrite_config is not None:
+            pulumi.set(__self__, "url_rewrite_config", url_rewrite_config)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Type of transform. Valid values are `host-header-rewrite` and `url-rewrite`.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="hostHeaderRewriteConfig")
+    def host_header_rewrite_config(self) -> Optional['outputs.ListenerRuleTransformHostHeaderRewriteConfig']:
+        """
+        Configuration block for host header rewrite. Required if `type` is `host-header-rewrite`. See Host Header Rewrite Config Blocks below.
+        """
+        return pulumi.get(self, "host_header_rewrite_config")
+
+    @_builtins.property
+    @pulumi.getter(name="urlRewriteConfig")
+    def url_rewrite_config(self) -> Optional['outputs.ListenerRuleTransformUrlRewriteConfig']:
+        """
+        Configuration block for URL rewrite. Required if `type` is `url-rewrite`. See URL Rewrite Config Blocks below.
+        """
+        return pulumi.get(self, "url_rewrite_config")
+
+
+@pulumi.output_type
+class ListenerRuleTransformHostHeaderRewriteConfig(dict):
+    def __init__(__self__, *,
+                 rewrite: Optional['outputs.ListenerRuleTransformHostHeaderRewriteConfigRewrite'] = None):
+        """
+        :param 'ListenerRuleTransformHostHeaderRewriteConfigRewriteArgs' rewrite: Block for host header rewrite configuration. Only one block is accepted. See Rewrite Blocks below.
+        """
+        if rewrite is not None:
+            pulumi.set(__self__, "rewrite", rewrite)
+
+    @_builtins.property
+    @pulumi.getter
+    def rewrite(self) -> Optional['outputs.ListenerRuleTransformHostHeaderRewriteConfigRewrite']:
+        """
+        Block for host header rewrite configuration. Only one block is accepted. See Rewrite Blocks below.
+        """
+        return pulumi.get(self, "rewrite")
+
+
+@pulumi.output_type
+class ListenerRuleTransformHostHeaderRewriteConfigRewrite(dict):
+    def __init__(__self__, *,
+                 regex: _builtins.str,
+                 replace: _builtins.str):
+        """
+        :param _builtins.str regex: Regular expression to match in the input string. Length constraints: Between 1 and 1024 characters.
+        :param _builtins.str replace: Replacement string to use when rewriting the matched input. Capture groups in the regular expression (for example, `$1` and `$2`) can be specified. Length constraints: Between 0 and 1024 characters.
+        """
+        pulumi.set(__self__, "regex", regex)
+        pulumi.set(__self__, "replace", replace)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> _builtins.str:
+        """
+        Regular expression to match in the input string. Length constraints: Between 1 and 1024 characters.
+        """
+        return pulumi.get(self, "regex")
+
+    @_builtins.property
+    @pulumi.getter
+    def replace(self) -> _builtins.str:
+        """
+        Replacement string to use when rewriting the matched input. Capture groups in the regular expression (for example, `$1` and `$2`) can be specified. Length constraints: Between 0 and 1024 characters.
+        """
+        return pulumi.get(self, "replace")
+
+
+@pulumi.output_type
+class ListenerRuleTransformUrlRewriteConfig(dict):
+    def __init__(__self__, *,
+                 rewrite: Optional['outputs.ListenerRuleTransformUrlRewriteConfigRewrite'] = None):
+        """
+        :param 'ListenerRuleTransformUrlRewriteConfigRewriteArgs' rewrite: Block for URL rewrite configuration. Only one block is accepted. See Rewrite Blocks below.
+        """
+        if rewrite is not None:
+            pulumi.set(__self__, "rewrite", rewrite)
+
+    @_builtins.property
+    @pulumi.getter
+    def rewrite(self) -> Optional['outputs.ListenerRuleTransformUrlRewriteConfigRewrite']:
+        """
+        Block for URL rewrite configuration. Only one block is accepted. See Rewrite Blocks below.
+        """
+        return pulumi.get(self, "rewrite")
+
+
+@pulumi.output_type
+class ListenerRuleTransformUrlRewriteConfigRewrite(dict):
+    def __init__(__self__, *,
+                 regex: _builtins.str,
+                 replace: _builtins.str):
+        """
+        :param _builtins.str regex: Regular expression to match in the input string. Length constraints: Between 1 and 1024 characters.
+        :param _builtins.str replace: Replacement string to use when rewriting the matched input. Capture groups in the regular expression (for example, `$1` and `$2`) can be specified. Length constraints: Between 0 and 1024 characters.
+        """
+        pulumi.set(__self__, "regex", regex)
+        pulumi.set(__self__, "replace", replace)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> _builtins.str:
+        """
+        Regular expression to match in the input string. Length constraints: Between 1 and 1024 characters.
+        """
+        return pulumi.get(self, "regex")
+
+    @_builtins.property
+    @pulumi.getter
+    def replace(self) -> _builtins.str:
+        """
+        Replacement string to use when rewriting the matched input. Capture groups in the regular expression (for example, `$1` and `$2`) can be specified. Length constraints: Between 0 and 1024 characters.
+        """
+        return pulumi.get(self, "replace")
 
 
 @pulumi.output_type
@@ -1886,6 +2382,48 @@ class LoadBalancerConnectionLogs(dict):
     def enabled(self) -> Optional[_builtins.bool]:
         """
         Boolean to enable / disable `connection_logs`. Defaults to `false`, even when `bucket` is specified.
+        """
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        S3 bucket prefix. Logs are stored in the root if not configured.
+        """
+        return pulumi.get(self, "prefix")
+
+
+@pulumi.output_type
+class LoadBalancerHealthCheckLogs(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 enabled: Optional[_builtins.bool] = None,
+                 prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str bucket: S3 bucket name to store the logs in.
+        :param _builtins.bool enabled: Boolean to enable / disable `health_check_logs`. Defaults to `false`, even when `bucket` is specified.
+        :param _builtins.str prefix: S3 bucket prefix. Logs are stored in the root if not configured.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        S3 bucket name to store the logs in.
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Boolean to enable / disable `health_check_logs`. Defaults to `false`, even when `bucket` is specified.
         """
         return pulumi.get(self, "enabled")
 
@@ -2544,6 +3082,7 @@ class GetListenerDefaultActionResult(dict):
                  authenticate_oidcs: Sequence['outputs.GetListenerDefaultActionAuthenticateOidcResult'],
                  fixed_responses: Sequence['outputs.GetListenerDefaultActionFixedResponseResult'],
                  forwards: Sequence['outputs.GetListenerDefaultActionForwardResult'],
+                 jwt_validations: Sequence['outputs.GetListenerDefaultActionJwtValidationResult'],
                  order: _builtins.int,
                  redirects: Sequence['outputs.GetListenerDefaultActionRedirectResult'],
                  target_group_arn: _builtins.str,
@@ -2552,6 +3091,7 @@ class GetListenerDefaultActionResult(dict):
         pulumi.set(__self__, "authenticate_oidcs", authenticate_oidcs)
         pulumi.set(__self__, "fixed_responses", fixed_responses)
         pulumi.set(__self__, "forwards", forwards)
+        pulumi.set(__self__, "jwt_validations", jwt_validations)
         pulumi.set(__self__, "order", order)
         pulumi.set(__self__, "redirects", redirects)
         pulumi.set(__self__, "target_group_arn", target_group_arn)
@@ -2576,6 +3116,11 @@ class GetListenerDefaultActionResult(dict):
     @pulumi.getter
     def forwards(self) -> Sequence['outputs.GetListenerDefaultActionForwardResult']:
         return pulumi.get(self, "forwards")
+
+    @_builtins.property
+    @pulumi.getter(name="jwtValidations")
+    def jwt_validations(self) -> Sequence['outputs.GetListenerDefaultActionJwtValidationResult']:
+        return pulumi.get(self, "jwt_validations")
 
     @_builtins.property
     @pulumi.getter
@@ -2831,6 +3376,58 @@ class GetListenerDefaultActionForwardTargetGroupResult(dict):
 
 
 @pulumi.output_type
+class GetListenerDefaultActionJwtValidationResult(dict):
+    def __init__(__self__, *,
+                 additional_claims: Sequence['outputs.GetListenerDefaultActionJwtValidationAdditionalClaimResult'],
+                 issuer: _builtins.str,
+                 jwks_endpoint: _builtins.str):
+        pulumi.set(__self__, "additional_claims", additional_claims)
+        pulumi.set(__self__, "issuer", issuer)
+        pulumi.set(__self__, "jwks_endpoint", jwks_endpoint)
+
+    @_builtins.property
+    @pulumi.getter(name="additionalClaims")
+    def additional_claims(self) -> Sequence['outputs.GetListenerDefaultActionJwtValidationAdditionalClaimResult']:
+        return pulumi.get(self, "additional_claims")
+
+    @_builtins.property
+    @pulumi.getter
+    def issuer(self) -> _builtins.str:
+        return pulumi.get(self, "issuer")
+
+    @_builtins.property
+    @pulumi.getter(name="jwksEndpoint")
+    def jwks_endpoint(self) -> _builtins.str:
+        return pulumi.get(self, "jwks_endpoint")
+
+
+@pulumi.output_type
+class GetListenerDefaultActionJwtValidationAdditionalClaimResult(dict):
+    def __init__(__self__, *,
+                 format: _builtins.str,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        pulumi.set(__self__, "format", format)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> _builtins.str:
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class GetListenerDefaultActionRedirectResult(dict):
     def __init__(__self__, *,
                  host: _builtins.str,
@@ -2925,10 +3522,11 @@ class GetListenerRuleActionResult(dict):
                  authenticate_oidcs: Optional[Sequence['outputs.GetListenerRuleActionAuthenticateOidcResult']] = None,
                  fixed_responses: Optional[Sequence['outputs.GetListenerRuleActionFixedResponseResult']] = None,
                  forwards: Optional[Sequence['outputs.GetListenerRuleActionForwardResult']] = None,
+                 jwt_validations: Optional[Sequence['outputs.GetListenerRuleActionJwtValidationResult']] = None,
                  redirects: Optional[Sequence['outputs.GetListenerRuleActionRedirectResult']] = None):
         """
         :param _builtins.int order: The evaluation order of the action.
-        :param _builtins.str type: The type of the action, indicates which sub-block will be populated.
+        :param _builtins.str type: Type of transform.
         :param Sequence['GetListenerRuleActionAuthenticateCognitoArgs'] authenticate_cognitos: An action to authenticate using Amazon Cognito.
                Detailed below.
         :param Sequence['GetListenerRuleActionAuthenticateOidcArgs'] authenticate_oidcs: An action to authenticate using OIDC.
@@ -2936,6 +3534,8 @@ class GetListenerRuleActionResult(dict):
         :param Sequence['GetListenerRuleActionFixedResponseArgs'] fixed_responses: An action to return a fixed response.
                Detailed below.
         :param Sequence['GetListenerRuleActionForwardArgs'] forwards: An action to forward the request.
+               Detailed below.
+        :param Sequence['GetListenerRuleActionJwtValidationArgs'] jwt_validations: An action to validate using JWT.
                Detailed below.
         :param Sequence['GetListenerRuleActionRedirectArgs'] redirects: An action to redirect the request.
                Detailed below.
@@ -2950,6 +3550,8 @@ class GetListenerRuleActionResult(dict):
             pulumi.set(__self__, "fixed_responses", fixed_responses)
         if forwards is not None:
             pulumi.set(__self__, "forwards", forwards)
+        if jwt_validations is not None:
+            pulumi.set(__self__, "jwt_validations", jwt_validations)
         if redirects is not None:
             pulumi.set(__self__, "redirects", redirects)
 
@@ -2965,7 +3567,7 @@ class GetListenerRuleActionResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of the action, indicates which sub-block will be populated.
+        Type of transform.
         """
         return pulumi.get(self, "type")
 
@@ -3004,6 +3606,15 @@ class GetListenerRuleActionResult(dict):
         Detailed below.
         """
         return pulumi.get(self, "forwards")
+
+    @_builtins.property
+    @pulumi.getter(name="jwtValidations")
+    def jwt_validations(self) -> Optional[Sequence['outputs.GetListenerRuleActionJwtValidationResult']]:
+        """
+        An action to validate using JWT.
+        Detailed below.
+        """
+        return pulumi.get(self, "jwt_validations")
 
     @_builtins.property
     @pulumi.getter
@@ -3130,7 +3741,7 @@ class GetListenerRuleActionAuthenticateOidcResult(dict):
                Detailed below.
         :param _builtins.str authorization_endpoint: The authorization endpoint of the IdP.
         :param _builtins.str client_id: OAuth 2.0 client identifier.
-        :param _builtins.str issuer: OIDC issuer identifier of the IdP.
+        :param _builtins.str issuer: Issuer of the JWT.
         :param _builtins.str on_unauthenticated_request: Behavior when the client is not authenticated.
         :param _builtins.str scope: Set of user claims requested.
         :param _builtins.str session_cookie_name: Name of the cookie used to maintain session information.
@@ -3178,7 +3789,7 @@ class GetListenerRuleActionAuthenticateOidcResult(dict):
     @pulumi.getter
     def issuer(self) -> _builtins.str:
         """
-        OIDC issuer identifier of the IdP.
+        Issuer of the JWT.
         """
         return pulumi.get(self, "issuer")
 
@@ -3367,6 +3978,87 @@ class GetListenerRuleActionForwardTargetGroupResult(dict):
 
 
 @pulumi.output_type
+class GetListenerRuleActionJwtValidationResult(dict):
+    def __init__(__self__, *,
+                 issuer: _builtins.str,
+                 jwks_endpoint: _builtins.str,
+                 additional_claims: Optional[Sequence['outputs.GetListenerRuleActionJwtValidationAdditionalClaimResult']] = None):
+        """
+        :param _builtins.str issuer: Issuer of the JWT.
+        :param _builtins.str jwks_endpoint: JSON Web Key Set (JWKS) endpoint.
+        :param Sequence['GetListenerRuleActionJwtValidationAdditionalClaimArgs'] additional_claims: Additional claims to validate.
+        """
+        pulumi.set(__self__, "issuer", issuer)
+        pulumi.set(__self__, "jwks_endpoint", jwks_endpoint)
+        if additional_claims is not None:
+            pulumi.set(__self__, "additional_claims", additional_claims)
+
+    @_builtins.property
+    @pulumi.getter
+    def issuer(self) -> _builtins.str:
+        """
+        Issuer of the JWT.
+        """
+        return pulumi.get(self, "issuer")
+
+    @_builtins.property
+    @pulumi.getter(name="jwksEndpoint")
+    def jwks_endpoint(self) -> _builtins.str:
+        """
+        JSON Web Key Set (JWKS) endpoint.
+        """
+        return pulumi.get(self, "jwks_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="additionalClaims")
+    def additional_claims(self) -> Optional[Sequence['outputs.GetListenerRuleActionJwtValidationAdditionalClaimResult']]:
+        """
+        Additional claims to validate.
+        """
+        return pulumi.get(self, "additional_claims")
+
+
+@pulumi.output_type
+class GetListenerRuleActionJwtValidationAdditionalClaimResult(dict):
+    def __init__(__self__, *,
+                 format: _builtins.str,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str format: Format of the claim value.
+        :param _builtins.str name: Name of the claim to validate.
+        :param Sequence[_builtins.str] values: Set of `key`-`value` pairs indicating the query string parameters to match.
+        """
+        pulumi.set(__self__, "format", format)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def format(self) -> _builtins.str:
+        """
+        Format of the claim value.
+        """
+        return pulumi.get(self, "format")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        Name of the claim to validate.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        Set of `key`-`value` pairs indicating the query string parameters to match.
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
 class GetListenerRuleActionRedirectResult(dict):
     def __init__(__self__, *,
                  host: _builtins.str,
@@ -3449,11 +4141,13 @@ class GetListenerRuleConditionResult(dict):
                  query_strings: Optional[Sequence['outputs.GetListenerRuleConditionQueryStringResult']] = None,
                  source_ips: Optional[Sequence['outputs.GetListenerRuleConditionSourceIpResult']] = None):
         """
-        :param Sequence['GetListenerRuleConditionHostHeaderArgs'] host_headers: Contains a single attribute `values`, which contains a set of host names.
+        :param Sequence['GetListenerRuleConditionHostHeaderArgs'] host_headers: Host header patterns to match.
+               Detailed below.
         :param Sequence['GetListenerRuleConditionHttpHeaderArgs'] http_headers: HTTP header and values to match.
                Detailed below.
         :param Sequence['GetListenerRuleConditionHttpRequestMethodArgs'] http_request_methods: Contains a single attribute `values`, which contains a set of HTTP request methods.
-        :param Sequence['GetListenerRuleConditionPathPatternArgs'] path_patterns: Contains a single attribute `values`, which contains a set of path patterns to compare against the request URL.
+        :param Sequence['GetListenerRuleConditionPathPatternArgs'] path_patterns: Path patterns to compare against the request URL.
+               Detailed below.
         :param Sequence['GetListenerRuleConditionQueryStringArgs'] query_strings: Query string parameters to match.
                Detailed below.
         :param Sequence['GetListenerRuleConditionSourceIpArgs'] source_ips: Contains a single attribute `values`, which contains a set of source IPs in CIDR notation.
@@ -3475,7 +4169,8 @@ class GetListenerRuleConditionResult(dict):
     @pulumi.getter(name="hostHeaders")
     def host_headers(self) -> Optional[Sequence['outputs.GetListenerRuleConditionHostHeaderResult']]:
         """
-        Contains a single attribute `values`, which contains a set of host names.
+        Host header patterns to match.
+        Detailed below.
         """
         return pulumi.get(self, "host_headers")
 
@@ -3500,7 +4195,8 @@ class GetListenerRuleConditionResult(dict):
     @pulumi.getter(name="pathPatterns")
     def path_patterns(self) -> Optional[Sequence['outputs.GetListenerRuleConditionPathPatternResult']]:
         """
-        Contains a single attribute `values`, which contains a set of path patterns to compare against the request URL.
+        Path patterns to compare against the request URL.
+        Detailed below.
         """
         return pulumi.get(self, "path_patterns")
 
@@ -3525,11 +4221,22 @@ class GetListenerRuleConditionResult(dict):
 @pulumi.output_type
 class GetListenerRuleConditionHostHeaderResult(dict):
     def __init__(__self__, *,
+                 regex_values: Sequence[_builtins.str],
                  values: Sequence[_builtins.str]):
         """
+        :param Sequence[_builtins.str] regex_values: Set of regular expressions to compare against the request URL.
         :param Sequence[_builtins.str] values: Set of `key`-`value` pairs indicating the query string parameters to match.
         """
+        pulumi.set(__self__, "regex_values", regex_values)
         pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Sequence[_builtins.str]:
+        """
+        Set of regular expressions to compare against the request URL.
+        """
+        return pulumi.get(self, "regex_values")
 
     @_builtins.property
     @pulumi.getter
@@ -3544,12 +4251,15 @@ class GetListenerRuleConditionHostHeaderResult(dict):
 class GetListenerRuleConditionHttpHeaderResult(dict):
     def __init__(__self__, *,
                  http_header_name: _builtins.str,
+                 regex_values: Sequence[_builtins.str],
                  values: Sequence[_builtins.str]):
         """
         :param _builtins.str http_header_name: Name of the HTTP header to match.
+        :param Sequence[_builtins.str] regex_values: Set of regular expressions to compare against the request URL.
         :param Sequence[_builtins.str] values: Set of `key`-`value` pairs indicating the query string parameters to match.
         """
         pulumi.set(__self__, "http_header_name", http_header_name)
+        pulumi.set(__self__, "regex_values", regex_values)
         pulumi.set(__self__, "values", values)
 
     @_builtins.property
@@ -3559,6 +4269,14 @@ class GetListenerRuleConditionHttpHeaderResult(dict):
         Name of the HTTP header to match.
         """
         return pulumi.get(self, "http_header_name")
+
+    @_builtins.property
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Sequence[_builtins.str]:
+        """
+        Set of regular expressions to compare against the request URL.
+        """
+        return pulumi.get(self, "regex_values")
 
     @_builtins.property
     @pulumi.getter
@@ -3590,11 +4308,22 @@ class GetListenerRuleConditionHttpRequestMethodResult(dict):
 @pulumi.output_type
 class GetListenerRuleConditionPathPatternResult(dict):
     def __init__(__self__, *,
+                 regex_values: Sequence[_builtins.str],
                  values: Sequence[_builtins.str]):
         """
+        :param Sequence[_builtins.str] regex_values: Set of regular expressions to compare against the request URL.
         :param Sequence[_builtins.str] values: Set of `key`-`value` pairs indicating the query string parameters to match.
         """
+        pulumi.set(__self__, "regex_values", regex_values)
         pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter(name="regexValues")
+    def regex_values(self) -> Sequence[_builtins.str]:
+        """
+        Set of regular expressions to compare against the request URL.
+        """
+        return pulumi.get(self, "regex_values")
 
     @_builtins.property
     @pulumi.getter
@@ -3672,6 +4401,144 @@ class GetListenerRuleConditionSourceIpResult(dict):
 
 
 @pulumi.output_type
+class GetListenerRuleTransformResult(dict):
+    def __init__(__self__, *,
+                 type: _builtins.str,
+                 host_header_rewrite_configs: Optional[Sequence['outputs.GetListenerRuleTransformHostHeaderRewriteConfigResult']] = None,
+                 url_rewrite_configs: Optional[Sequence['outputs.GetListenerRuleTransformUrlRewriteConfigResult']] = None):
+        """
+        :param _builtins.str type: Type of transform.
+        :param Sequence['GetListenerRuleTransformHostHeaderRewriteConfigArgs'] host_header_rewrite_configs: Block for host header rewrite. Detailed below.
+        :param Sequence['GetListenerRuleTransformUrlRewriteConfigArgs'] url_rewrite_configs: Block for URL rewrite. Detailed below.
+        """
+        pulumi.set(__self__, "type", type)
+        if host_header_rewrite_configs is not None:
+            pulumi.set(__self__, "host_header_rewrite_configs", host_header_rewrite_configs)
+        if url_rewrite_configs is not None:
+            pulumi.set(__self__, "url_rewrite_configs", url_rewrite_configs)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Type of transform.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="hostHeaderRewriteConfigs")
+    def host_header_rewrite_configs(self) -> Optional[Sequence['outputs.GetListenerRuleTransformHostHeaderRewriteConfigResult']]:
+        """
+        Block for host header rewrite. Detailed below.
+        """
+        return pulumi.get(self, "host_header_rewrite_configs")
+
+    @_builtins.property
+    @pulumi.getter(name="urlRewriteConfigs")
+    def url_rewrite_configs(self) -> Optional[Sequence['outputs.GetListenerRuleTransformUrlRewriteConfigResult']]:
+        """
+        Block for URL rewrite. Detailed below.
+        """
+        return pulumi.get(self, "url_rewrite_configs")
+
+
+@pulumi.output_type
+class GetListenerRuleTransformHostHeaderRewriteConfigResult(dict):
+    def __init__(__self__, *,
+                 rewrites: Optional[Sequence['outputs.GetListenerRuleTransformHostHeaderRewriteConfigRewriteResult']] = None):
+        """
+        :param Sequence['GetListenerRuleTransformHostHeaderRewriteConfigRewriteArgs'] rewrites: Block for URL rewrite configuration. Detailed below.
+        """
+        if rewrites is not None:
+            pulumi.set(__self__, "rewrites", rewrites)
+
+    @_builtins.property
+    @pulumi.getter
+    def rewrites(self) -> Optional[Sequence['outputs.GetListenerRuleTransformHostHeaderRewriteConfigRewriteResult']]:
+        """
+        Block for URL rewrite configuration. Detailed below.
+        """
+        return pulumi.get(self, "rewrites")
+
+
+@pulumi.output_type
+class GetListenerRuleTransformHostHeaderRewriteConfigRewriteResult(dict):
+    def __init__(__self__, *,
+                 regex: _builtins.str,
+                 replace: _builtins.str):
+        """
+        :param _builtins.str regex: Regular expression to match in the input string.
+        :param _builtins.str replace: Replacement string to use when rewriting the matched input.
+        """
+        pulumi.set(__self__, "regex", regex)
+        pulumi.set(__self__, "replace", replace)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> _builtins.str:
+        """
+        Regular expression to match in the input string.
+        """
+        return pulumi.get(self, "regex")
+
+    @_builtins.property
+    @pulumi.getter
+    def replace(self) -> _builtins.str:
+        """
+        Replacement string to use when rewriting the matched input.
+        """
+        return pulumi.get(self, "replace")
+
+
+@pulumi.output_type
+class GetListenerRuleTransformUrlRewriteConfigResult(dict):
+    def __init__(__self__, *,
+                 rewrites: Optional[Sequence['outputs.GetListenerRuleTransformUrlRewriteConfigRewriteResult']] = None):
+        """
+        :param Sequence['GetListenerRuleTransformUrlRewriteConfigRewriteArgs'] rewrites: Block for URL rewrite configuration. Detailed below.
+        """
+        if rewrites is not None:
+            pulumi.set(__self__, "rewrites", rewrites)
+
+    @_builtins.property
+    @pulumi.getter
+    def rewrites(self) -> Optional[Sequence['outputs.GetListenerRuleTransformUrlRewriteConfigRewriteResult']]:
+        """
+        Block for URL rewrite configuration. Detailed below.
+        """
+        return pulumi.get(self, "rewrites")
+
+
+@pulumi.output_type
+class GetListenerRuleTransformUrlRewriteConfigRewriteResult(dict):
+    def __init__(__self__, *,
+                 regex: _builtins.str,
+                 replace: _builtins.str):
+        """
+        :param _builtins.str regex: Regular expression to match in the input string.
+        :param _builtins.str replace: Replacement string to use when rewriting the matched input.
+        """
+        pulumi.set(__self__, "regex", regex)
+        pulumi.set(__self__, "replace", replace)
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> _builtins.str:
+        """
+        Regular expression to match in the input string.
+        """
+        return pulumi.get(self, "regex")
+
+    @_builtins.property
+    @pulumi.getter
+    def replace(self) -> _builtins.str:
+        """
+        Replacement string to use when rewriting the matched input.
+        """
+        return pulumi.get(self, "replace")
+
+
+@pulumi.output_type
 class GetLoadBalancerAccessLogsResult(dict):
     def __init__(__self__, *,
                  bucket: _builtins.str,
@@ -3699,6 +4566,32 @@ class GetLoadBalancerAccessLogsResult(dict):
 
 @pulumi.output_type
 class GetLoadBalancerConnectionLogResult(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 enabled: _builtins.bool,
+                 prefix: _builtins.str):
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "enabled", enabled)
+        pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> _builtins.bool:
+        return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        return pulumi.get(self, "prefix")
+
+
+@pulumi.output_type
+class GetLoadBalancerHealthCheckLogResult(dict):
     def __init__(__self__, *,
                  bucket: _builtins.str,
                  enabled: _builtins.bool,

@@ -151,7 +151,7 @@ options:
         - This requires vmware-tools (vmtoolsd) to properly work after creation.
         type: bool
 extends_documentation_fragment:
-- community.vmware.vmware.documentation
+- vmware.vmware.base_options
 
 '''
 
@@ -220,10 +220,9 @@ import xml.etree.ElementTree as ET
 
 from threading import Thread
 
-from ansible.module_utils._text import to_native
+from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six import string_types
-from ansible.module_utils.six.moves.urllib.request import Request, urlopen
+from urllib.request import Request, urlopen
 from ansible.module_utils.urls import generic_urlparse, open_url, urlparse, urlunparse
 from ansible_collections.community.vmware.plugins.module_utils.vmware import (
     find_all_networks_by_name,
@@ -233,7 +232,7 @@ from ansible_collections.community.vmware.plugins.module_utils.vmware import (
     wait_for_task,
     wait_for_vm_ip,
     set_vm_power_state)
-from ansible_collections.community.vmware.plugins.module_utils._argument_spec import base_argument_spec
+from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import base_argument_spec
 try:
     from ansible_collections.community.vmware.plugins.module_utils.vmware import vim
     from pyVmomi import vmodl
@@ -242,7 +241,7 @@ except ImportError:
 
 
 def path_exists(value):
-    if not isinstance(value, string_types):
+    if not isinstance(value, str):
         value = str(value)
     value = os.path.expanduser(os.path.expandvars(value))
     if not os.path.exists(value):

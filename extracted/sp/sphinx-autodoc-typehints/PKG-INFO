@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-autodoc-typehints
-Version: 3.2.0
+Version: 3.6.2
 Summary: Type hints (PEP 484) support for the Sphinx autodoc extension
 Project-URL: Changelog, https://github.com/tox-dev/sphinx-autodoc-typehints/releases
 Project-URL: Homepage, https://github.com/tox-dev/sphinx-autodoc-typehints
@@ -17,23 +17,23 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation :: Sphinx
-Requires-Python: >=3.11
-Requires-Dist: sphinx>=8.2
+Requires-Python: >=3.12
+Requires-Dist: sphinx>=9.1
 Provides-Extra: docs
-Requires-Dist: furo>=2024.8.6; extra == 'docs'
+Requires-Dist: furo>=2025.12.19; extra == 'docs'
 Provides-Extra: testing
 Requires-Dist: covdefaults>=2.3; extra == 'testing'
-Requires-Dist: coverage>=7.6.12; extra == 'testing'
+Requires-Dist: coverage>=7.13.1; extra == 'testing'
 Requires-Dist: defusedxml>=0.7.1; extra == 'testing'
-Requires-Dist: diff-cover>=9.2.3; extra == 'testing'
-Requires-Dist: pytest-cov>=6; extra == 'testing'
-Requires-Dist: pytest>=8.3.4; extra == 'testing'
-Requires-Dist: sphobjinv>=2.3.1.2; extra == 'testing'
-Requires-Dist: typing-extensions>=4.12.2; extra == 'testing'
+Requires-Dist: diff-cover>=10.1; extra == 'testing'
+Requires-Dist: pytest-cov>=7; extra == 'testing'
+Requires-Dist: pytest>=9.0.2; extra == 'testing'
+Requires-Dist: sphobjinv>=2.3.1.3; extra == 'testing'
+Requires-Dist: typing-extensions>=4.15; extra == 'testing'
 Description-Content-Type: text/markdown
 
 # sphinx-autodoc-typehints
@@ -102,7 +102,8 @@ The following configuration options are accepted:
   `True`, add stub documentation for undocumented parameters to be able to add type info.
 - `always_use_bars_union ` (default: `False`): If `True`, display Union's using the | operator described in PEP 604.
   (e.g `X` | `Y` or `int` | `None`). If `False`, Unions will display with the typing in brackets. (e.g. `Union[X, Y]`
-  or `Optional[int]`)
+  or `Optional[int]`). Note that on 3.14 and later this will always be `True` and not configurable due the interpreter
+  no longer differentiating between the two types, and we have no way to determine what the user used.
 - `typehints_document_rtype` (default: `True`): If `False`, never add an `:rtype:` directive. If `True`, add the
   `:rtype:` directive if no existing `:rtype:` is found.
 - `typehints_document_rtype_none` (default: `True`): If `False`, never add an `:rtype: None` directive. If `True`, add the `:rtype: None`.
@@ -112,7 +113,6 @@ The following configuration options are accepted:
   [napoleon_use_rtype](https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html#confval-napoleon_use_rtype)
   to avoid generation of duplicate or redundant return type information.
 - `typehints_defaults` (default: `None`): If `None`, defaults are not added. Otherwise, adds a default annotation:
-
   - `'comma'` adds it after the type, changing Sphinx’ default look to “**param** (_int_, default: `1`) -- text”.
   - `'braces'` adds `(default: ...)` after the type (useful for numpydoc like styles).
   - `'braces-after'` adds `(default: ...)` at the end of the parameter documentation text instead.
@@ -127,6 +127,13 @@ The following configuration options are accepted:
   code or `None` to fall back to the default formatter.
 - `typehints_use_signature` (default: `False`): If `True`, typehints for parameters in the signature are shown.
 - `typehints_use_signature_return` (default: `False`): If `True`, return annotations in the signature are shown.
+- `suppress_warnings`: sphinx-autodoc-typehints supports to suppress warning messages via Sphinx's `suppress_warnings`. It allows following additional warning types:
+  - `sphinx_autodoc_typehints`
+  - `sphinx_autodoc_typehints.comment`
+  - `sphinx_autodoc_typehints.forward_reference`
+  - `sphinx_autodoc_typehints.guarded_import`
+  - `sphinx_autodoc_typehints.local_function`
+  - `sphinx_autodoc_typehints.multiple_ast_nodes`
 
 ## How it works
 

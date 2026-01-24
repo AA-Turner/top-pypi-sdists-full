@@ -11,36 +11,6 @@ use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
-    test_tyvar_function,
-    r#"
-from typing import TypeVar, assert_type
-
-T = TypeVar("T")
-
-def foo(x: T) -> T:
-    y: T = x
-    return y
-
-assert_type(foo(1), int)
-"#,
-);
-
-testcase!(
-    test_tyvar_alias,
-    r#"
-from typing import assert_type
-import typing
-
-T = typing.TypeVar("T")
-
-def foo(x: T) -> T:
-    return x
-
-assert_type(foo(1), int)
-"#,
-);
-
-testcase!(
     bug =
         "We should use the bounds/constraints of the type var to determine the callable input type",
     test_tyvar_constructor,
@@ -58,394 +28,17 @@ def test2[T: A](cls: type[T]) -> T:
 );
 
 testcase!(
-    test_tyvar_quoted,
-    r#"
-from typing import assert_type
-import typing
-
-T = typing.TypeVar("T")
-
-def foo(x: "T") -> "T":
-    return x
-
-assert_type(foo(1), int)
-"#,
-);
-
-testcase!(
     test_tyvar_mix,
     r#"
 from typing import TypeVar, assert_type
 U = TypeVar("U")
 def foo[T](
       x: U  # E: Type parameter U is not included in the type parameter list
-    ) -> U:  # E: Type parameter U is not included in the type parameter list
+    ) -> U:
     return x
 
 assert_type(foo(1), int)
 "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax,
-    r#"
-from typing import Generic, TypeVar, assert_type
-
-T = TypeVar("T")
-
-class C(Generic[T]):
-    x: T
-
-c: C[int] = C()
-assert_type(c.x, int)
-    "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax_inheritance,
-    r#"
-from typing import Generic, TypeVar, assert_type
-
-T = TypeVar("T")
-S = TypeVar("S")
-
-class C(Generic[T]):
-    x: T
-
-class D(Generic[S], C[list[S]]):
-    pass
-
-d: D[int] = D()
-assert_type(d.x, list[int])
-    "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax_inherit_twice,
-    r#"
-from typing import Generic, TypeVar
-_T = TypeVar('_T')
-class A(Generic[_T]):
-    pass
-class B(A[_T]):
-    pass
-class C(B[int]):
-    pass
-    "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax_multiple_implicit_tparams,
-    r#"
-from typing import Generic, TypeVar, assert_type
-_T = TypeVar('_T')
-_U = TypeVar('_U')
-class A(Generic[_T]):
-    a: _T
-class B(Generic[_T]):
-    b: _T
-class C(Generic[_T]):
-    c: _T
-class D(A[_T], C[_U], B[_T]):
-    pass
-x: D[int, str] = D()
-assert_type(x.a, int)
-assert_type(x.b, int)
-assert_type(x.c, str)
-    "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax_filtered_tparams,
-    r#"
-from typing import Generic, TypeVar
-_T1 = TypeVar('_T1')
-_T2 = TypeVar('_T2')
-class A(Generic[_T1, _T2]):
-    pass
-class B(A[_T1, int]):
-    pass
-class C(B[str]):
-    pass
-    "#,
-);
-
-testcase!(
-    test_legacy_generic_syntax_duplicated_names,
-    r#"
-from typing import Any, Generic, Protocol, TypeVar, TypeVarTuple, ParamSpec
-T = TypeVar('T')
-Ts = TypeVarTuple('Ts')
-P = ParamSpec('P')
-
-class A(Generic[T, T]):  # E: Duplicated type parameter declaration
-    pass
-class B(Generic[*Ts, *Ts]):  # E: Duplicated type parameter declaration
-    pass
-class C(Generic[P, P]):  # E: Duplicated type parameter declaration
-    pass
-
-class D(Protocol[T, T]):  # E: Duplicated type parameter declaration
-    pass
-class E(Protocol[*Ts, *Ts]):  # E: Duplicated type parameter declaration
-    pass
-class F(Protocol[P, P]):  # E: Duplicated type parameter declaration
-    pass
-    "#,
-);
-
-testcase!(
-    bug = "The TODO here is because we implemented but have temporarily disabled a check for the use of a generic class without type arguments as a type annotation; this check needs to be configurable and we don't have the plumbing yet.",
-    test_legacy_generic_syntax_implicit_targs,
-    r#"
-from typing import Any, Generic, TypeVar, assert_type
-T = TypeVar('T')
-class A(Generic[T]):
-    x: T
-def f(a: A):  # TODO: The generic class `A` is missing type arguments.
-    assert_type(a.x, Any)
-    "#,
-);
-
-testcase!(
-    test_tvar_missing_name,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar()  # E: Missing `name` argument
-P = ParamSpec()  # E: Missing `name` argument
-Ts = TypeVarTuple()  # E: Missing `name` argument
-    "#,
-);
-
-testcase!(
-    test_tvar_wrong_name,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar("Z")  # E: TypeVar must be assigned to a variable named `Z`
-P = ParamSpec("Z")  # E: ParamSpec must be assigned to a variable named `Z`
-Ts = TypeVarTuple("Z")  # E: TypeVarTuple must be assigned to a variable named `Z
-    "#,
-);
-
-testcase!(
-    test_tvar_wrong_name_expr,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar(17)  # E: Expected first argument of TypeVar to be a string literal
-P = ParamSpec(17)  # E: Expected first argument of ParamSpec to be a string literal
-Ts = TypeVarTuple(17)  # E: Expected first argument of TypeVarTuple to be a string literal
-    "#,
-);
-
-testcase!(
-    test_tvar_wrong_name_bind,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-x = "test"
-T = TypeVar(x)  # E: Expected first argument of TypeVar to be a string literal
-P = ParamSpec(x)  # E: Expected first argument of ParamSpec to be a string literal
-Ts = TypeVarTuple(x)  # E: Expected first argument of TypeVarTuple to be a string literal
-    "#,
-);
-
-testcase!(
-    test_tvar_keyword_name,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar(name = "T")
-P = ParamSpec(name = "P")
-Ts = TypeVarTuple(name = "Ts")
-    "#,
-);
-
-testcase!(
-    test_tvar_unexpected_keyword,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar('T', foo=True)  # E: Unexpected keyword argument `foo`
-P = ParamSpec('P', foo=True)  # E: Unexpected keyword argument `foo`
-Ts = TypeVarTuple('Ts', foo=True)  # E: Unexpected keyword argument `foo`
-    "#,
-);
-
-testcase!(
-    test_tvar_kwargs,
-    r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar('T', **{'a': 'b'})  # E: Cannot pass unpacked keyword arguments to TypeVar
-P = ParamSpec('P', **{'a': 'b'})  # E: Cannot pass unpacked keyword arguments to ParamSpec
-Ts = TypeVarTuple('Ts', **{'a': 'b'})  # E: Cannot pass unpacked keyword arguments to TypeVarTuple
-    "#,
-);
-
-testcase!(
-    test_tvar_constraints_and_bound,
-    r#"
-from typing import TypeVar
-T = TypeVar('T', int, bound=int)  # E: TypeVar cannot have both constraints and bound
-    "#,
-);
-
-testcase!(
-    test_tvar_variance,
-    r#"
-from typing import TypeVar
-T1 = TypeVar('T1', covariant=True, contravariant=True)  # E: Contradictory variance specifications
-T2 = TypeVar('T2', covariant=True, contravariant=False)
-T3 = TypeVar('T3', covariant="lunch")  # E: Expected literal `True` or `False`
-    "#,
-);
-
-testcase!(
-    test_tvar_forward_ref,
-    r#"
-from typing import TypeVar
-T1 = TypeVar('T1', bound='A')
-T2 = TypeVar('T2', bound='B')  # E: Could not find name `B`
-T3 = TypeVar('T3', 'A', int)
-T4 = TypeVar('T4', 'B', int)  # E: Could not find name `B`
-T5 = TypeVar('T5', default='A')
-T6 = TypeVar('T6', default='B')  # E: Could not find name `B`
-
-class A:
-    pass
-    "#,
-);
-
-testcase!(
-    test_tvar_class_constraint,
-    r#"
-from typing import TypeVar
-class A:
-    pass
-T1 = TypeVar('T1', int, A)
-T2 = TypeVar('T2', int, B)  # E: Could not find name `B`
-    "#,
-);
-
-testcase!(
-    test_ordering_of_tparams_on_generic_base,
-    r#"
-from typing import Generic, TypeVar, assert_type
-
-T = TypeVar("T")
-S = TypeVar("S")
-
-class Base(Generic[T]):
-    x: T
-
-class Child(Base[S], Generic[T, S]):
-    y: T
-
-def f(c: Child[int, str]):
-    assert_type(c.x, str)
-    assert_type(c.y, int)
-    "#,
-);
-
-testcase!(
-    test_ordering_of_tparams_on_protocol_base,
-    r#"
-from typing import Protocol, TypeVar, assert_type
-
-T = TypeVar("T")
-S = TypeVar("S")
-
-class Base(Protocol[T]):
-    x: T
-
-class Child(Base[S], Protocol[T, S]):
-    y: T
-
-def f(c: Child[int, str]):
-    assert_type(c.x, str)
-    assert_type(c.y, int)
-    "#,
-);
-
-testcase!(
-    test_both_generic_and_protocol,
-    r#"
-from typing import Generic, Protocol, TypeVar, assert_type
-
-T = TypeVar("T")
-S = TypeVar("S")
-U = TypeVar("U")
-V = TypeVar("V")
-
-class C(Protocol[V, T], Generic[S, T, U]):  # E: Class `C` specifies type parameters in both `Generic` and `Protocol` bases
-    s: S
-    t: T
-    u: U
-    v: V
-
-def f(c: C[int, str, bool, bytes]):
-    assert_type(c.s, int)
-    assert_type(c.t, str)
-    assert_type(c.u, bool)
-    assert_type(c.v, bytes)
-    "#,
-);
-
-testcase!(
-    test_both_generic_and_implicit,
-    r#"
-from typing import Generic, Protocol, TypeVar, assert_type
-
-T = TypeVar("T")
-S = TypeVar("S")
-
-class C(Generic[T], list[S]):  # E: Class `C` uses type variables not specified in `Generic` or `Protocol` base
-    t: T
-
-def f(c: C[int, str]):
-    assert_type(c.t, int)
-    assert_type(c[0], str)
-    "#,
-);
-
-testcase!(
-    test_default,
-    r#"
-from typing import Generic, TypeVar, assert_type
-T1 = TypeVar('T1')
-T2 = TypeVar('T2', default=int)
-class C(Generic[T1, T2]):
-    pass
-def f9(c1: C[int, str], c2: C[str]):
-    assert_type(c1, C[int, str])
-    assert_type(c2, C[str, int])
-    "#,
-);
-
-testcase!(
-    test_bad_default_order,
-    r#"
-from typing import Generic, TypeVar
-T1 = TypeVar('T1', default=int)
-T2 = TypeVar('T2')
-class C(Generic[T1, T2]):  # E: Type parameter `T2` without a default cannot follow type parameter `T1` with a default
-    pass
-    "#,
-);
-
-testcase!(
-    test_variance,
-    r#"
-from typing import Generic, TypeVar
-T1 = TypeVar('T1', covariant=True)
-T2 = TypeVar('T2', contravariant=True)
-class C(Generic[T1, T2]):
-    pass
-class Parent:
-    pass
-class Child(Parent):
-    pass
-def f1(c: C[Parent, Child]):
-    f2(c)  # E: Argument `C[Parent, Child]` is not assignable to parameter `c` with type `C[Child, Parent]`
-def f2(c: C[Child, Parent]):
-    f1(c)
-    "#,
 );
 
 // This test exercises an edge case where naively using type analysis on base classes
@@ -475,49 +68,11 @@ class C[T](Generic[T]):  # E: Redundant
     "#,
 );
 
-fn env_exported_type_var() -> TestEnv {
-    TestEnv::one(
-        "lib",
-        r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple
-T = TypeVar("T")
-P = ParamSpec("P")
-Ts = TypeVarTuple("Ts")
-"#,
-    )
-}
-
 testcase!(
-    test_imported,
-    env_exported_type_var(),
+    test_class_type_params_can_reference_class,
     r#"
-from lib import T
-
-def f(x: T) -> T:
-    y: T = x
-    return y
-
-x1: int = f(0)
-x2: str = f("hello")
-"#,
-);
-
-testcase!(
-    bug = "TODO: We should raise an error on list[T] because T is unbounded",
-    test_unbounded_typevar,
-    r#"
-from typing import TypeVar
-T = TypeVar("T")
-x: list[T]
-    "#,
-);
-
-testcase!(
-    test_typevar_violates_annotation,
-    r#"
-from typing import TypeVar
-T: int = 0
-T = TypeVar('T')  # E: `TypeVar[T]` is not assignable to variable `T` with type `int`
+class C[T: C](set[object]):
+    pass
     "#,
 );
 
@@ -540,7 +95,7 @@ assert_type(C2[int], type[C2[int, *tuple[Any, ...]]])
 );
 
 testcase!(
-    bug = "same result in pyright, but revisit this once variance is implemented for properties",
+    bug = "T is pinned prematurely due to https://github.com/facebook/pyrefly/issues/105",
     test_generics,
     r#"
 from typing import Literal
@@ -548,36 +103,9 @@ class C[T]: ...
 def append[T](x: C[T], y: T):
     pass
 v: C[int] = C()
-append(v, "test") 
+append(v, "test")  # E: `Literal['test']` is not assignable to parameter `y` with type `int`
 "#,
 );
-
-testcase!(
-    test_generics_legacy_unqualified,
-    r#"
-from typing import TypeVar, Generic
-T = TypeVar("T")
-class C(Generic[T]): ...
-def append(x: C[T], y: T):
-    pass
-v: C[int] = C()
-append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
-"#,
-);
-
-testcase!(
-    test_generics_legacy_qualified,
-    r#"
-import typing
-T = typing.TypeVar("T")
-class C(typing.Generic[T]): ...
-def append(x: C[T], y: T):
-    pass
-v: C[int] = C()
-append(v, "test")  # E: Argument `Literal['test']` is not assignable to parameter `y` with type `int`
-"#,
-);
-
 testcase!(
     test_generic_default,
     r#"
@@ -599,76 +127,32 @@ class B: ...
 class C[T]: ...
 class D[T = A]: ...
 def f[E](e: type[E]) -> E: ...
-assert_type(f(A), A) 
-assert_type(f(B), B) 
-assert_type(f(C), C[Any]) 
-assert_type(f(D), D) 
+assert_type(f(A), A)
+assert_type(f(B), B)
+assert_type(f(C), C[Any])
+assert_type(f(D), D)
 "#,
 );
 
 testcase!(
-    bug = "This test is a placeholder, we've commented out the check for missing type arguments because until we have configurable errors it causes too many problems.",
-    test_untype_with_missing_targs,
+    test_untype_with_missing_targs_annotation,
+    TestEnv::new().enable_implicit_any_error(),
     r#"
 class C[T]: pass
 
-x: C        # TODO: The generic class `C` is missing type arguments.
-y: C | int  # TODO: The generic class `C` is missing type arguments.
+x: C        # E: Cannot determine the type parameter `T` for generic class `C`
+y: C | int  # E: Cannot determine the type parameter `T` for generic class `C`
+z: list[C]  # E: Cannot determine the type parameter `T` for generic class `C`
     "#,
 );
 
 testcase!(
-    test_typevar_default_is_typevar_legacy,
+    test_untype_with_missing_targs_base_class,
+    TestEnv::new().enable_implicit_any_error(),
     r#"
-from typing import Generic, TypeVar, assert_type
-
-T1 = TypeVar('T1', default=float)
-T2 = TypeVar('T2', default=T1)
-
-class A(Generic[T1, T2]):
-    x: T2
-
-def f(a: A[int]):
-    assert_type(a.x, int)
-
-def g(a: A):
-    assert_type(a.x, float)
-    "#,
-);
-
-testcase!(
-    test_typevar_default_is_out_of_scope_typevar,
-    r#"
-from typing import Any, Generic, TypeVar, assert_type
-
-T1 = TypeVar('T1')
-T2 = TypeVar('T2', default=T1)
-T3 = TypeVar('T3', default=T1 | T2)
-
-class A(Generic[T2]):  # E: Default of type parameter `T2` refers to out-of-scope type parameter `T1`
-    x: T2
-
-class B(Generic[T3]):  # E: Default of type parameter `T3` refers to out-of-scope type parameters `T1`, `T2`
-    pass
-
-def f(a: A):
-    assert_type(a.x, Any)
-    "#,
-);
-
-testcase!(
-    test_typevar_default_is_typevar,
-    r#"
-from typing import assert_type, TypeVar
-
-class A[T1 = float, T2 = T1]: pass
-
-T = TypeVar('T')
-class B[S = T]: pass # E: out-of-scope type parameter `T`
-
-def f(a1: A[int], a2: A):
-    assert_type(a1, A[int, int])
-    assert_type(a2, A[float, float])
+class C[T]: pass
+class D(C): pass  # E: Cannot determine the type parameter `T` for generic class `C`
+x: D
     "#,
 );
 
@@ -704,7 +188,7 @@ class A[*Ts, T = int]:  # E: TypeVar `T` with a default cannot follow TypeVarTup
     pass
 class B[*Ts, T1, T2 = T1]:  # E: TypeVar `T2` with a default cannot follow TypeVarTuple `Ts`
     pass
-assert_type(B[int](), B[*tuple[()], int, int]) 
+assert_type(B[int](), B[*tuple[()], int, int])
 assert_type(B[int, str](), B[*tuple[()], int, str])
 assert_type(B[int, str, float, bool, bytes](), B[int, str, float, bool, bytes])
 # It doesn't matter too much how we fill in the type arguments when they aren't
@@ -717,14 +201,14 @@ b: B[tuple[tuple[Any, ...], Any, Any]] = B()  # Here's one valid way to pin them
 testcase!(
     test_paramspec_with_default_after_typevartuple,
     r#"
-from typing import Any, reveal_type, assert_type
+from typing import Any, assert_type
 class A[*Ts, **P1, **P2 = P1]:
     pass
 class B[*Ts, T, **P = [int, str]]:
     pass
-assert_type(A[[int, str]](), A[*tuple[()], [int, str], [int, str]]) 
+assert_type(A[[int, str]](), A[*tuple[()], [int, str], [int, str]])
 assert_type(A[bool, [int, str]](),  A[bool, [int, str], [int, str]])
-assert_type(A[bool, bytes, [int, str]](), A[bool, bytes, [int, str], [int, str]]) 
+assert_type(A[bool, bytes, [int, str]](), A[bool, bytes, [int, str], [int, str]])
 assert_type(B[int, str, float](), B[int, str, float, [int, str]])
     "#,
 );
@@ -781,7 +265,7 @@ class A[*Ps, *Qs = *Ps]: # E: may not have more than one TypeVarTuple
 testcase!(
     test_specialize_error,
     r#"
-from nowhere import BrokenGeneric, BrokenTypeVar # E: Could not find import of `nowhere`
+from nowhere import BrokenGeneric, BrokenTypeVar # E: Cannot find module `nowhere`
 
 class MyClass(BrokenGeneric[BrokenTypeVar]):
     pass
@@ -835,40 +319,6 @@ from typing import Generic
 class C(Generic[oops]):  # E:
     pass
 def f(c: C[int]):
-    pass
-    "#,
-);
-
-testcase!(
-    test_generic_with_type_checking_constant,
-    r#"
-import typing
-if typing.TYPE_CHECKING: ...
-T = typing.TypeVar('T')
-class C(typing.Generic[T]):
-    pass
-    "#,
-);
-
-testcase!(
-    test_error_on_bad_legacy_tparam,
-    r#"
-from typing import Any, Generic
-
-# Explicit or implicit Any is not allowed.
-class C1(Generic[Any]):  # E: Expected a type variable, got `Any`
-    pass
-def f() -> Any: ...
-x = f()
-class C2(Generic[x]):  # E: Expected a type variable, got `Unknown`
-    pass
-
-# But Any(Error) is.
-T = oops()  # E:
-class C3(Generic[T]):
-    pass
-
-class C4(Generic[int]):  # E: Expected a type variable, got `int`
     pass
     "#,
 );
@@ -930,37 +380,6 @@ def f(x: T, y: TT):
 );
 
 testcase!(
-    bug = "We should error on out-of-scope typevars",
-    test_out_of_scope_old_typevar,
-    r#"
-from typing import Any, Callable, TypeVar
-T = TypeVar('T')
-def f() -> Any: ...
-def g():
-    x: T = f()  # this should be an error
-def h() -> Callable[[T], T]:
-    # This should be an error. Note that we treat `[T]() -> ((T) -> T)` as `() -> ([T](T) -> T)`,
-    # which makes `T` out-of-scope in the body.
-    x: T = f()
-    return lambda x: x
-    "#,
-);
-
-testcase!(
-    bug = "We should error on out-of-scope typevars",
-    test_out_of_scope_new_typevar,
-    r#"
-from typing import Any, Callable
-def f() -> Any: ...
-def g[T]() -> Callable[[T], T]:
-    # This should be an error. Note that we treat `[T]() -> ((T) -> T)` as `() -> ([T](T) -> T)`,
-    # which makes `T` out-of-scope in the body.
-    x: T = f()
-    return lambda x: x
-    "#,
-);
-
-testcase!(
     test_forall_matches_forall,
     r#"
 from typing import Callable, Protocol
@@ -983,60 +402,157 @@ class A[T]:  # E: Cannot use type parameter lists on Python 3.8 (syntax was adde
 );
 
 testcase!(
-    test_typevar_values,
+    test_shadowing_scoped_type_vars,
     r#"
-from typing import TypeVar, ParamSpec, TypeVarTuple, Callable, assert_type
-
+from typing import TypeVar, Generic
+class C0[T]:
+    def foo[T](self, x: T) -> T:  # E: Type parameter `T` shadows a type parameter of the same name from an enclosing scope
+        return x
 T = TypeVar("T")
-P = ParamSpec("P")
-Ts = TypeVarTuple("Ts")
-
-assert_type(T, TypeVar)
-assert_type(P, ParamSpec)
-assert_type(Ts, TypeVarTuple)
-
-def f(x: T, xs: tuple[*Ts], f: Callable[P, None]):
-    assert_type(T, TypeVar)
-    assert_type(P, ParamSpec)
-    assert_type(Ts, TypeVarTuple)
-
-    assert_type(x, T)
-    assert_type(xs, tuple[*Ts])
-    assert_type(f, Callable[P, None])
-
-def g[U, *Us, **Q](x: U, xs: tuple[*Us], f: Callable[Q, None]):
-    assert_type(U, TypeVar)
-    assert_type(Q, ParamSpec)
-    assert_type(Us, TypeVarTuple)
-
-    assert_type(x, U)
-    assert_type(xs, tuple[*Us])
-    assert_type(f, Callable[Q, None])
+class C1(Generic[T]):
+    def foo[T](self, x: T) -> T:  # E: Type parameter `T` shadows a type parameter of the same name from an enclosing scope
+        return x
     "#,
 );
 
 testcase!(
-    test_function_legacy_typevar_dotted_name,
-    env_exported_type_var(),
+    test_typevar_or_none,
     r#"
-import lib
 from typing import assert_type
-
-def f(x: lib.T) -> lib.T:
-    return x
-assert_type(f(0), int)
+def f[T1, T2](x: T1, y: T2 | None = None) -> T1 | T2: ...
+assert_type(f(1), int)
+assert_type(f(1, "2"), int | str)
+assert_type(f(1, None), int)
     "#,
 );
 
 testcase!(
-    test_class_legacy_typevar_dotted_name,
-    env_exported_type_var(),
+    test_typevar_solved_in_one_path,
     r#"
-import lib
-from typing import assert_type, Generic
+from typing import assert_type
+def f[T1, T2](x: T1, y: T2 | None, z: T2) -> T1 | T2: ...
+assert_type(f(1, None, ""), int | str)
+    "#,
+);
 
-class A(Generic[lib.T]):
-    x: lib.T
-assert_type(A[int]().x, int)
+testcase!(
+    test_return_only_unsolved_typevars,
+    r#"
+from typing import Any, assert_type
+
+def f1[T](x: T | None = None) -> T: ...
+assert_type(f1(), Any)
+
+def f2[T1, T2](x: T1 | None = None, y: T2 | None = None) -> T1 | T2: ...
+assert_type(f2(), Any)
+    "#,
+);
+
+testcase!(
+    test_unsolved_typevar_multiple_occurrences,
+    r#"
+from typing import Any, assert_type
+def f[T](x: T | None = None) -> tuple[T, T | int]: ...
+assert_type(f(), tuple[Any, int])
+    "#,
+);
+
+testcase!(
+    test_pass_tuple_literal_through_identity_function,
+    r#"
+def f[T](x: T) -> T:
+    return x
+def g() -> int:
+    return f((1, "hello world"))[0]
+    "#,
+);
+
+testcase!(
+    test_type_attr,
+    r#"
+from typing import assert_type
+def f[T](
+    config_type: type[T],
+) -> T:
+    assert_type(config_type.__name__, str)
+    return config_type()
+    "#,
+);
+
+testcase!(
+    test_nested_typevar,
+    r#"
+from typing import assert_type
+def f[T](x: list[T] | list[None], y: list[T]) -> T:
+    return y[0]
+assert_type(f([None], [0]), int)
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1675
+testcase!(
+    test_generic_should_equal_itself,
+    r#"
+from typing import cast, Iterator, Any
+def condition() -> bool: ...
+def f[T](iterator: Iterator[T]) -> T:
+    res = cast(T, None)
+    while condition():
+        for i in iterator:
+            res = i
+    return res
+    "#,
+);
+
+testcase!(
+    test_bounded_type_var_subscriptable,
+    r#"
+from collections.abc import Sequence
+
+def test[S: Sequence[int]](sequence: S) -> int:
+    return sequence[0]
+
+def test2[S](not_a_sequence: S) -> int:
+    return not_a_sequence[0]  # E: `S` is not subscriptable
+    "#,
+);
+
+testcase!(
+    test_generator_iterable,
+    r#"
+from typing import Any
+
+type TypeForm[T] = type[T] | Any
+
+def _to_list[T](
+    value: Any,
+    kind: type[list[T]] = list,
+) -> list[T]:
+    return kind(to_type(val, Any) for val in value)
+
+def to_type[T](value: Any, kind: TypeForm[T]) -> T: ...
+    "#,
+);
+
+// https://github.com/facebook/pyrefly/issues/1970
+testcase!(
+    test_implicit_any_for_special_forms,
+    TestEnv::new().enable_implicit_any_error(),
+    r#"
+from typing import Callable, Type
+
+def f(
+    x: list,      # E: Cannot determine the type parameter `_T` for generic class `list`
+    y: tuple,     # E: Cannot determine the type parameter for generic class `tuple`
+    z: Callable,  # E: Cannot determine the type parameter for generic class `Callable`
+    w: Type,      # E: Cannot determine the type parameter for generic class `type`
+):
+    pass
+
+# Note: bare builtin `type` annotation doesn't trigger implicit-any yet because
+# the `type` class is not defined as generic in typeshed. `typing.Type` works
+# because it's handled as a special form.
+def g(t: type):
+    pass
     "#,
 );

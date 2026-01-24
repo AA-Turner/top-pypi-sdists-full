@@ -2,7 +2,7 @@
 # This file is part of pygal
 #
 # A python svg graph plotting library
-# Copyright © 2012-2016 Kozea
+# Copyright © 2012-2025 Kozea
 #
 # This library is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -132,7 +132,10 @@ class Gauge(Graph):
             self.min_ -= 1
             self.max_ += 1
 
-        self._box.set_polar_box(0, 1, self.min_, self.max_)
+        if self.reverse_direction:
+            self._box.set_polar_box(0, 1, self.max_, self.min_)
+        else:
+            self._box.set_polar_box(0, 1, self.min_, self.max_)
 
     def _compute_x_labels(self):
         pass

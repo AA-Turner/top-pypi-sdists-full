@@ -1,6 +1,6 @@
 [project]
 name = "ffmpy"
-version = "0.6.1"
+version = "1.0.0"
 description = "A simple Python wrapper for FFmpeg"
 authors = [{ name = "Andrii Yurchuk", email = " <ay@mntw.re>" }]
 license = "MIT"
@@ -21,18 +21,20 @@ keywords = [
   "transcoding",
 ]
 classifiers = [
+  "Topic :: Multimedia",
   "Topic :: Multimedia :: Sound/Audio",
-  "Development Status :: 4 - Beta",
+  "Topic :: Multimedia :: Video",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Natural Language :: English",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "Operating System :: Microsoft :: Windows",
@@ -49,7 +51,12 @@ psutil = [
 ]
 
 [dependency-groups]
-dev = ["mypy>=1.16.0", "pytest>=8.3.5", "pytest-cov>=6.1.1"]
+dev = [
+  "mypy>=1.16.0",
+  "pytest>=8.3.5",
+  "pytest-cov>=6.1.1",
+  "types-psutil>=7.0.0.20251001",
+]
 
 [tool.ruff]
 line-length = 101
@@ -66,7 +73,7 @@ warn_unreachable = true
 show_column_numbers = true
 
 [build-system]
-requires = ["uv_build>=0.7.9,<0.9.0"]
+requires = ["uv_build>=0.7.9,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -61,7 +61,7 @@ class AccessDeniedException(ServiceException):
     code: str = "AccessDeniedException"
     sender_fault: bool = True
     status_code: int = 403
-    errorType: Optional[String]
+    errorType: String | None
 
 
 class ConflictException(ServiceException):
@@ -75,7 +75,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = True
     status_code: int = 409
-    errorType: Optional[String]
+    errorType: String | None
 
 
 class InternalServerException(ServiceException):
@@ -86,7 +86,7 @@ class InternalServerException(ServiceException):
     code: str = "InternalServerException"
     sender_fault: bool = False
     status_code: int = 500
-    errorType: Optional[String]
+    errorType: String | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -97,7 +97,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = True
     status_code: int = 404
-    errorType: Optional[String]
+    errorType: String | None
 
 
 class TooManyRequestsException(ServiceException):
@@ -108,7 +108,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = True
     status_code: int = 429
-    errorType: Optional[String]
+    errorType: String | None
 
 
 class ValidationExceptionField(TypedDict, total=False):
@@ -120,7 +120,7 @@ class ValidationExceptionField(TypedDict, total=False):
     name: String
 
 
-ValidationExceptionFieldList = List[ValidationExceptionField]
+ValidationExceptionFieldList = list[ValidationExceptionField]
 
 
 class ValidationException(ServiceException):
@@ -129,8 +129,8 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = True
     status_code: int = 400
-    fieldList: Optional[ValidationExceptionFieldList]
-    reason: Optional[ValidationExceptionReason]
+    fieldList: ValidationExceptionFieldList | None
+    reason: ValidationExceptionReason | None
 
 
 class AcceptPrimaryEmailUpdateRequest(ServiceRequest):
@@ -140,7 +140,7 @@ class AcceptPrimaryEmailUpdateRequest(ServiceRequest):
 
 
 class AcceptPrimaryEmailUpdateResponse(TypedDict, total=False):
-    Status: Optional[PrimaryEmailUpdateStatus]
+    Status: PrimaryEmailUpdateStatus | None
 
 
 AccountCreatedDate = datetime
@@ -151,11 +151,11 @@ class AlternateContact(TypedDict, total=False):
     with an Amazon Web Services account
     """
 
-    AlternateContactType: Optional[AlternateContactType]
-    EmailAddress: Optional[EmailAddress]
-    Name: Optional[Name]
-    PhoneNumber: Optional[PhoneNumber]
-    Title: Optional[Title]
+    AlternateContactType: AlternateContactType | None
+    EmailAddress: EmailAddress | None
+    Name: Name | None
+    PhoneNumber: PhoneNumber | None
+    Title: Title | None
 
 
 class ContactInformation(TypedDict, total=False):
@@ -164,59 +164,59 @@ class ContactInformation(TypedDict, total=False):
     """
 
     AddressLine1: AddressLine
-    AddressLine2: Optional[AddressLine]
-    AddressLine3: Optional[AddressLine]
+    AddressLine2: AddressLine | None
+    AddressLine3: AddressLine | None
     City: City
-    CompanyName: Optional[CompanyName]
+    CompanyName: CompanyName | None
     CountryCode: CountryCode
-    DistrictOrCounty: Optional[DistrictOrCounty]
+    DistrictOrCounty: DistrictOrCounty | None
     FullName: FullName
     PhoneNumber: ContactInformationPhoneNumber
     PostalCode: PostalCode
-    StateOrRegion: Optional[StateOrRegion]
-    WebsiteUrl: Optional[WebsiteUrl]
+    StateOrRegion: StateOrRegion | None
+    WebsiteUrl: WebsiteUrl | None
 
 
 class DeleteAlternateContactRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     AlternateContactType: AlternateContactType
 
 
 class DisableRegionRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     RegionName: RegionName
 
 
 class EnableRegionRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     RegionName: RegionName
 
 
 class GetAccountInformationRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
 
 
 class GetAccountInformationResponse(TypedDict, total=False):
-    AccountCreatedDate: Optional[AccountCreatedDate]
-    AccountId: Optional[AccountId]
-    AccountName: Optional[AccountName]
+    AccountCreatedDate: AccountCreatedDate | None
+    AccountId: AccountId | None
+    AccountName: AccountName | None
 
 
 class GetAlternateContactRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     AlternateContactType: AlternateContactType
 
 
 class GetAlternateContactResponse(TypedDict, total=False):
-    AlternateContact: Optional[AlternateContact]
+    AlternateContact: AlternateContact | None
 
 
 class GetContactInformationRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
 
 
 class GetContactInformationResponse(TypedDict, total=False):
-    ContactInformation: Optional[ContactInformation]
+    ContactInformation: ContactInformation | None
 
 
 class GetPrimaryEmailRequest(ServiceRequest):
@@ -224,27 +224,27 @@ class GetPrimaryEmailRequest(ServiceRequest):
 
 
 class GetPrimaryEmailResponse(TypedDict, total=False):
-    PrimaryEmail: Optional[PrimaryEmailAddress]
+    PrimaryEmail: PrimaryEmailAddress | None
 
 
 class GetRegionOptStatusRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     RegionName: RegionName
 
 
 class GetRegionOptStatusResponse(TypedDict, total=False):
-    RegionName: Optional[RegionName]
-    RegionOptStatus: Optional[RegionOptStatus]
+    RegionName: RegionName | None
+    RegionOptStatus: RegionOptStatus | None
 
 
-RegionOptStatusList = List[RegionOptStatus]
+RegionOptStatusList = list[RegionOptStatus]
 
 
 class ListRegionsRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
-    MaxResults: Optional[ListRegionsRequestMaxResultsInteger]
-    NextToken: Optional[ListRegionsRequestNextTokenString]
-    RegionOptStatusContains: Optional[RegionOptStatusList]
+    AccountId: AccountId | None
+    MaxResults: ListRegionsRequestMaxResultsInteger | None
+    NextToken: ListRegionsRequestNextTokenString | None
+    RegionOptStatusContains: RegionOptStatusList | None
 
 
 class Region(TypedDict, total=False):
@@ -252,25 +252,25 @@ class Region(TypedDict, total=False):
     consisting of a name and opt-in status.
     """
 
-    RegionName: Optional[RegionName]
-    RegionOptStatus: Optional[RegionOptStatus]
+    RegionName: RegionName | None
+    RegionOptStatus: RegionOptStatus | None
 
 
-RegionOptList = List[Region]
+RegionOptList = list[Region]
 
 
 class ListRegionsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Regions: Optional[RegionOptList]
+    NextToken: String | None
+    Regions: RegionOptList | None
 
 
 class PutAccountNameRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     AccountName: AccountName
 
 
 class PutAlternateContactRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     AlternateContactType: AlternateContactType
     EmailAddress: EmailAddress
     Name: Name
@@ -279,7 +279,7 @@ class PutAlternateContactRequest(ServiceRequest):
 
 
 class PutContactInformationRequest(ServiceRequest):
-    AccountId: Optional[AccountId]
+    AccountId: AccountId | None
     ContactInformation: ContactInformation
 
 
@@ -289,12 +289,12 @@ class StartPrimaryEmailUpdateRequest(ServiceRequest):
 
 
 class StartPrimaryEmailUpdateResponse(TypedDict, total=False):
-    Status: Optional[PrimaryEmailUpdateStatus]
+    Status: PrimaryEmailUpdateStatus | None
 
 
 class AccountApi:
-    service = "account"
-    version = "2021-02-01"
+    service: str = "account"
+    version: str = "2021-02-01"
 
     @handler("AcceptPrimaryEmailUpdate")
     def accept_primary_email_update(

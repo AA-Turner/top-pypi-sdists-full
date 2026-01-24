@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protovalidate
-Version: 1.0.0
+Version: 1.1.0
 Summary: Protocol Buffer Validation for Python
 Project-URL: Homepage, https://github.com/bufbuild/protovalidate-python
 Project-URL: Source, https://github.com/bufbuild/protovalidate-python
@@ -9,16 +9,17 @@ License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: protobuf,protocol buffer,validate
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: cel-python==0.2.*
 Requires-Dist: google-re2>=1
 Requires-Dist: google-re2>=1.1.20250722; python_version == '3.13'
+Requires-Dist: google-re2>=1.1.20251105; python_version == '3.14'
 Requires-Dist: google-re2>=1.1; python_version == '3.12'
 Requires-Dist: protobuf>=5
 Description-Content-Type: text/markdown
@@ -28,7 +29,6 @@ Description-Content-Type: text/markdown
 # protovalidate-python
 
 [![CI](https://github.com/bufbuild/protovalidate-python/actions/workflows/ci.yaml/badge.svg)](https://github.com/bufbuild/protovalidate-python/actions/workflows/ci.yaml)
-[![Conformance](https://github.com/bufbuild/protovalidate-python/actions/workflows/conformance.yaml/badge.svg)](https://github.com/bufbuild/protovalidate-python/actions/workflows/conformance.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/protovalidate)](https://pypi.org/project/protovalidate)
 
 [Protovalidate][protovalidate] is the semantic validation library for Protobuf. It provides standard annotations to validate common rules on messages and fields, as well as the ability to use [CEL][cel] to write custom rules. It's the next generation of [protoc-gen-validate][protoc-gen-validate].
@@ -57,7 +57,7 @@ message User {
 }
 ```
 
-Once you've added `protovalidate-python` to your project, validation is idiomatic Python:
+Once you've added `protovalidate` to your project, validation is idiomatic Python:
 
 ```python
 try:

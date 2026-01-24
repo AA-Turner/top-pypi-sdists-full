@@ -13,12 +13,12 @@
 import unittest
 from io import BytesIO
 from slixmpp.test import SlixTest
-from slixmpp.plugins.xep_0454 import XEP_0454
 
 
 class TestMediaSharing(SlixTest):
 
     def testEncryptDecryptSmall(self):
+        from slixmpp.plugins.xep_0454 import XEP_0454
         plain = b'qwertyuiop'
         ciphertext, fragment = XEP_0454.encrypt(input_file=BytesIO(plain))
         result = XEP_0454.decrypt(BytesIO(ciphertext), fragment)
@@ -26,6 +26,7 @@ class TestMediaSharing(SlixTest):
         self.assertEqual(plain, result)
 
     def testEncryptDecrypt(self):
+        from slixmpp.plugins.xep_0454 import XEP_0454
         plain = b'a' * 4096 + b'qwertyuiop'
         ciphertext, fragment = XEP_0454.encrypt(input_file=BytesIO(plain))
         result = XEP_0454.decrypt(BytesIO(ciphertext), fragment)
@@ -33,6 +34,7 @@ class TestMediaSharing(SlixTest):
         self.assertEqual(plain, result)
 
     def testFormatURL(self):
+        from slixmpp.plugins.xep_0454 import XEP_0454
         url = 'https://foo.bar'
         fragment = 'a' * 88
         result = XEP_0454.format_url(url, fragment)

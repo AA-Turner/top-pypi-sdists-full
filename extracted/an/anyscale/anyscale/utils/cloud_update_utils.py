@@ -339,9 +339,9 @@ def validate_stack_version(stack_parameters: List[Dict]) -> bool:
     # 1) cfn_stack_version is None
     # 2) cfn_stack_version is the different with the CLI version
     # 3) cfn_stack_version is the same as the CLI version but the CLI version is dev version
-    if cfn_stack_version == anyscale_version and anyscale_version != "0.0.0-dev":
-        return False
-    return True
+    return not (
+        cfn_stack_version == anyscale_version and anyscale_version != "0.0.0-dev"
+    )
 
 
 def is_template_policy_documents_up_to_date(stack_parameters: List[Dict]) -> bool:

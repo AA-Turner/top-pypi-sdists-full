@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from .discussion import DiscussionEvent
     from .discussion_comment import DiscussionCommentEvent
     from .dismissal_request_code_scanning import DismissalRequestCodeScanningEvent
+    from .dismissal_request_dependabot import DismissalRequestDependabotEvent
     from .dismissal_request_secret_scanning import DismissalRequestSecretScanningEvent
     from .exemption_request_push_ruleset import ExemptionRequestPushRulesetEvent
     from .exemption_request_secret_scanning import ExemptionRequestSecretScanningEvent
@@ -64,6 +65,10 @@ if TYPE_CHECKING:
     from .milestone import MilestoneEvent
     from .org_block import OrgBlockEvent
     from .organization import OrganizationEvent
+    from .organization_custom_property import OrganizationCustomPropertyEvent
+    from .organization_custom_property_values import (
+        OrganizationCustomPropertyValuesEvent,
+    )
     from .package import PackageEvent
     from .page_build import PageBuildEvent
     from .personal_access_token_request import PersonalAccessTokenRequestEvent
@@ -108,7 +113,6 @@ if TYPE_CHECKING:
 EventNameType: TypeAlias = Literal[
     "branch_protection_configuration",
     "branch_protection_rule",
-    "exemption_request_push_ruleset",
     "exemption_request_secret_scanning",
     "check_run",
     "check_suite",
@@ -127,7 +131,9 @@ EventNameType: TypeAlias = Literal[
     "discussion",
     "discussion_comment",
     "dismissal_request_code_scanning",
+    "dismissal_request_dependabot",
     "dismissal_request_secret_scanning",
+    "exemption_request_push_ruleset",
     "fork",
     "github_app_authorization",
     "gollum",
@@ -145,6 +151,8 @@ EventNameType: TypeAlias = Literal[
     "meta",
     "milestone",
     "org_block",
+    "organization_custom_property",
+    "organization_custom_property_values",
     "organization",
     "package",
     "page_build",
@@ -189,7 +197,6 @@ EventNameType: TypeAlias = Literal[
 VALID_EVENT_NAMES: set[EventNameType] = {
     "branch_protection_configuration",
     "branch_protection_rule",
-    "exemption_request_push_ruleset",
     "exemption_request_secret_scanning",
     "check_run",
     "check_suite",
@@ -208,7 +215,9 @@ VALID_EVENT_NAMES: set[EventNameType] = {
     "discussion",
     "discussion_comment",
     "dismissal_request_code_scanning",
+    "dismissal_request_dependabot",
     "dismissal_request_secret_scanning",
+    "exemption_request_push_ruleset",
     "fork",
     "github_app_authorization",
     "gollum",
@@ -226,6 +235,8 @@ VALID_EVENT_NAMES: set[EventNameType] = {
     "meta",
     "milestone",
     "org_block",
+    "organization_custom_property",
+    "organization_custom_property_values",
     "organization",
     "package",
     "page_build",
@@ -297,11 +308,6 @@ class WebhookNamespace:
     def parse(
         name: Literal["branch_protection_rule"], payload: Union[str, bytes]
     ) -> "BranchProtectionRuleEvent": ...
-    @overload
-    @staticmethod
-    def parse(
-        name: Literal["exemption_request_push_ruleset"], payload: Union[str, bytes]
-    ) -> "ExemptionRequestPushRulesetEvent": ...
     @overload
     @staticmethod
     def parse(
@@ -391,8 +397,18 @@ class WebhookNamespace:
     @overload
     @staticmethod
     def parse(
+        name: Literal["dismissal_request_dependabot"], payload: Union[str, bytes]
+    ) -> "DismissalRequestDependabotEvent": ...
+    @overload
+    @staticmethod
+    def parse(
         name: Literal["dismissal_request_secret_scanning"], payload: Union[str, bytes]
     ) -> "DismissalRequestSecretScanningEvent": ...
+    @overload
+    @staticmethod
+    def parse(
+        name: Literal["exemption_request_push_ruleset"], payload: Union[str, bytes]
+    ) -> "ExemptionRequestPushRulesetEvent": ...
     @overload
     @staticmethod
     def parse(name: Literal["fork"], payload: Union[str, bytes]) -> "ForkEvent": ...
@@ -466,6 +482,16 @@ class WebhookNamespace:
     def parse(
         name: Literal["org_block"], payload: Union[str, bytes]
     ) -> "OrgBlockEvent": ...
+    @overload
+    @staticmethod
+    def parse(
+        name: Literal["organization_custom_property"], payload: Union[str, bytes]
+    ) -> "OrganizationCustomPropertyEvent": ...
+    @overload
+    @staticmethod
+    def parse(
+        name: Literal["organization_custom_property_values"], payload: Union[str, bytes]
+    ) -> "OrganizationCustomPropertyValuesEvent": ...
     @overload
     @staticmethod
     def parse(
@@ -708,11 +734,6 @@ class WebhookNamespace:
     @overload
     @staticmethod
     def parse_obj(
-        name: Literal["exemption_request_push_ruleset"], payload: Mapping[str, Any]
-    ) -> "ExemptionRequestPushRulesetEvent": ...
-    @overload
-    @staticmethod
-    def parse_obj(
         name: Literal["exemption_request_secret_scanning"], payload: Mapping[str, Any]
     ) -> "ExemptionRequestSecretScanningEvent": ...
     @overload
@@ -803,8 +824,18 @@ class WebhookNamespace:
     @overload
     @staticmethod
     def parse_obj(
+        name: Literal["dismissal_request_dependabot"], payload: Mapping[str, Any]
+    ) -> "DismissalRequestDependabotEvent": ...
+    @overload
+    @staticmethod
+    def parse_obj(
         name: Literal["dismissal_request_secret_scanning"], payload: Mapping[str, Any]
     ) -> "DismissalRequestSecretScanningEvent": ...
+    @overload
+    @staticmethod
+    def parse_obj(
+        name: Literal["exemption_request_push_ruleset"], payload: Mapping[str, Any]
+    ) -> "ExemptionRequestPushRulesetEvent": ...
     @overload
     @staticmethod
     def parse_obj(name: Literal["fork"], payload: Mapping[str, Any]) -> "ForkEvent": ...
@@ -886,6 +917,16 @@ class WebhookNamespace:
     def parse_obj(
         name: Literal["org_block"], payload: Mapping[str, Any]
     ) -> "OrgBlockEvent": ...
+    @overload
+    @staticmethod
+    def parse_obj(
+        name: Literal["organization_custom_property"], payload: Mapping[str, Any]
+    ) -> "OrganizationCustomPropertyEvent": ...
+    @overload
+    @staticmethod
+    def parse_obj(
+        name: Literal["organization_custom_property_values"], payload: Mapping[str, Any]
+    ) -> "OrganizationCustomPropertyValuesEvent": ...
     @overload
     @staticmethod
     def parse_obj(

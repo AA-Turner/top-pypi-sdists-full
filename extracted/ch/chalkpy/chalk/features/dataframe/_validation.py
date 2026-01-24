@@ -8,6 +8,7 @@ import isodate
 from chalk.features._encoding.missing_value import MissingValueStrategy
 from chalk.features.feature_field import Feature, FeatureNotFoundException
 from chalk.utils.collections import get_unique_item
+from chalk.utils.pl_helpers import apply_compat, schema_compat, str_json_decode_compat
 
 if TYPE_CHECKING:
     import polars as pl
@@ -67,7 +68,7 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
     # This is called from within DataFrame.__init__, which validates that polars is installed
     import polars as pl
 
-    for root_fqn, actual_dtype in underlying.schema.items():
+    for root_fqn, actual_dtype in schema_compat(underlying).items():
         feature = Feature.from_root_fqn(root_fqn)
         if feature.is_has_one or feature.is_has_many:
             continue
@@ -87,7 +88,7 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
             isinstance(expected_dtype, pl.List)
             and actual_dtype == pl.Utf8  # pyright: ignore[reportUnnecessaryComparison]
         ):
-            col = pl.col(root_fqn).str.json_extract(expected_dtype)
+            col = str_json_decode_compat(pl.col(root_fqn), expected_dtype)
             try:
                 underlying = underlying.with_columns(col.cast(expected_dtype))
             except (Exception, pl.PolarsPanicError) as e:
@@ -123,21 +124,24 @@ def validate_df_schema(underlying: Union[pl.DataFrame, pl.LazyFrame]):
                     if isinstance(expected_dtype, pl.Datetime):
                         # tzinfo = None if expected_dtype.time_zone is None else zoneinfo.ZoneInfo(expected_dtype.time_zone)
                         underlying = underlying.with_columns(pl.col(root_fqn).str.strptime(pl.Datetime).alias(root_fqn))
-                        if cast(pl.Datetime, underlying.schema[root_fqn]).time_zone is not None:
+                        if cast(pl.Datetime, schema_compat(underlying)[root_fqn]).time_zone is not None:
                             assert expected_dtype.time_zone is not None
                             cast_expr = pl.col(root_fqn).dt.convert_time_zone(expected_dtype.time_zone)
                         else:
                             cast_expr = pl.col(root_fqn).dt.replace_time_zone(expected_dtype.time_zone)
                     elif expected_dtype == pl.Date:
-                        cast_expr = pl.col(root_fqn).apply(
+                        cast_expr = apply_compat(
+                            pl.col(root_fqn),
                             lambda x: None if x is None else isodate.parse_date(x),
                         )
                     elif expected_dtype == pl.Time:
-                        cast_expr = pl.col(root_fqn).apply(
+                        cast_expr = apply_compat(
+                            pl.col(root_fqn),
                             lambda x: None if x is None else isodate.parse_time(x),
                         )
                     elif expected_dtype == pl.Duration:
-                        cast_expr = pl.col(root_fqn).apply(
+                        cast_expr = apply_compat(
+                            pl.col(root_fqn),
                             lambda x: None if x is None else isodate.parse_duration(x),
                         )
                     else:
@@ -168,7 +172,7 @@ def validate_nulls(
 
     if isinstance(underlying, pl.LazyFrame):
         underlying = underlying.collect()
-    schema = underlying.schema
+    schema = schema_compat(underlying)
     null_count_rows = underlying.null_count().to_dicts()
     if len(null_count_rows) == 0:
         return underlying  # Empty dataframe

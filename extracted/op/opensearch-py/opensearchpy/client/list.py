@@ -35,13 +35,12 @@ class ListClient(NamespacedClient):
 
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -86,7 +85,7 @@ class ListClient(NamespacedClient):
         replicas, document counts, disk size.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg bytes: The unit used to display byte values. Valid choices
@@ -97,19 +96,18 @@ class ListClient(NamespacedClient):
             errors. Default is false.
         :arg expand_wildcards: The type of index that wildcard patterns
             can match. Valid choices are all, closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg format: A short version of the Accept header, such as
             `JSON`, `YAML`.
-        :arg h: Comma-separated list of column names to display.
+        :arg h: A comma-separated list of column names to display.
         :arg health: The health status used to limit returned indexes.
             By default, the response includes indexes of any health status. Valid
             choices are green, yellow, red.
         :arg help: Return help information. Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg include_unloaded_segments: If `true`, the response includes
             information from segments that are not loaded into memory. Default is
             false.
@@ -119,11 +117,11 @@ class ListClient(NamespacedClient):
             use `cluster_manager_timeout` instead.): Operation timeout for
             connection to cluster-manager node.
         :arg next_token: Token to retrieve next page of indexes.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg pri: If `true`, the response only includes information from
             primary shards. Default is false.
-        :arg s: Comma-separated list of column names or column aliases
+        :arg s: A comma-separated list of column names or column aliases
             to sort by.
         :arg size: Maximum number of indexes to be displayed in a page.
         :arg sort: Defines order in which indexes will be displayed.
@@ -179,25 +177,24 @@ class ListClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg format: A short version of the Accept header, such as
             `JSON`, `YAML`.
-        :arg h: Comma-separated list of column names to display.
+        :arg h: A comma-separated list of column names to display.
         :arg help: Return help information. Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg local: Return local information, do not retrieve the state
             from cluster-manager node. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Operation timeout for
             connection to cluster-manager node.
         :arg next_token: Token to retrieve next page of shards.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
-        :arg s: Comma-separated list of column names or column aliases
+        :arg s: A comma-separated list of column names or column aliases
             to sort by.
         :arg size: Maximum number of shards to be displayed in a page.
         :arg sort: Defines order in which shards will be displayed.

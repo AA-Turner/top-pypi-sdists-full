@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -21,7 +21,8 @@ class Quandl(QuantConnect.DataSource.NasdaqDataLink):
         """
         Constructor for creating customized Quandl instance which doesn't use close, price, settle or value as its value item.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param value_column_name: The name of the column we want to use as reference, the Value property
         """

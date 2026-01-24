@@ -1,5 +1,3 @@
-from __future__ import print_function, division
-
 try:
     unicode
 except:
@@ -42,7 +40,7 @@ for key in namespaces:
     reverse_namespaces[namespaces[key]] = key
 
 
-class AVMData(object):
+class AVMData:
     """
     Abstract AVM data class.  All other data classes inherit from AVMData.
     """
@@ -540,7 +538,7 @@ class AVMOrderedFloatList(AVMOrderedList):
         uri = reverse_namespaces[self.namespace]
         element = et.SubElement(parent, "{%s}%s" % (uri, self.tag))
 
-        subelement = et.SubElement(element, "rdf:Bag")
+        subelement = et.SubElement(element, "rdf:Seq")
 
         for item in values:
             li = et.SubElement(subelement, "rdf:li")

@@ -1293,6 +1293,23 @@ static PyObject *_EXECUTE_EMBEDDED_MODULE(PyThreadState *tstate, PyObject *modul
 
         result = loadModule(tstate, module, module_name, entry);
 
+#if !defined(_NUITKA_DEPLOYMENT_MODE) && !defined(_NUITKA_NO_DEPLOYMENT_PERFECT_SUPPORT)
+        if (unlikely(HAS_ERROR_OCCURRED(tstate))) {
+            if ((entry->flags & NUITKA_PERFECT_SUPPORTED_FLAG) != 0) {
+                struct Nuitka_ExceptionPreservationItem saved_exception;
+                FETCH_ERROR_OCCURRED_STATE(tstate, &saved_exception);
+
+                PyObject *exception_arg = PyUnicode_FromFormat("Nuitka: import of module '%s' failed unexpectedly "
+                                                               "despite intended perfect support, please raise a "
+                                                               "Nuitka issue and compile with an older version of "
+                                                               "the module in the meantime",
+                                                               name);
+
+                raiseReplacementRuntimeError(tstate, &saved_exception, exception_arg);
+            }
+        }
+#endif
+
 #ifdef _NUITKA_EXPERIMENTAL_FORCE_GC_COLLECT_ON_IMPORT
         PyGC_Collect();
 #endif
@@ -1482,7 +1499,7 @@ static PyObject *_nuitka_loader_iter_modules(struct Nuitka_LoaderObject *self, P
             continue;
         }
 
-        if (current->name[strlen(s)] == 0) {
+        if (current->name[strlen(s)] != '.') {
             current++;
             continue;
         }
@@ -1535,12 +1552,22 @@ static PyObject *getModuleDirectory(PyThreadState *tstate, struct Nuitka_MetaPat
     PyObject *dir_name = Nuitka_String_FromString(dirname(buffer));
 #endif
 #else
+#if _NUITKA_MODULE_MODE
+    char const *name = entry->compilation_name;
+    if (name == NULL) {
+        name = entry->name;
+    }
+#else
+    char const *name = entry->name;
+#endif
+
     PyObject *module_name;
+
     if ((entry->flags & NUITKA_PACKAGE_FLAG) != 0) {
-        module_name = Nuitka_String_FromString(entry->name);
+        module_name = Nuitka_String_FromString(name);
     } else {
         char buffer[1024];
-        copyStringSafe(buffer, entry->name, sizeof(buffer));
+        copyStringSafe(buffer, name, sizeof(buffer));
 
         char *dot = strrchr(buffer, '.');
         if (dot != NULL) {
@@ -2073,12 +2100,29 @@ static PyObject *_nuitka_loader_sys_path_hook(PyObject *self, PyObject *args, Py
 
             // Create the loader for the module.
             if (cmp_res == NUITKA_BOOL_TRUE) {
+#if 0
+                PRINT_STRING("Success:");
+                PRINT_STRING(entry->name);
+                PRINT_NEW_LINE();
+#endif
                 return Nuitka_Loader_New(entry);
             }
+        } else {
+#if 0
+            PRINT_STRING(entry->name);
+            PRINT_STRING(" not a package ");
+            PRINT_NEW_LINE();
+#endif
         }
 
         entry++;
     }
+
+#if 0
+    PRINT_STRING("Not responsible:");
+    PRINT_ITEM(path);
+    PRINT_NEW_LINE();
+#endif
 
     SET_CURRENT_EXCEPTION_TYPE0(tstate, PyExc_ImportError);
     return NULL;
@@ -2228,12 +2272,14 @@ void updateMetaPathBasedLoaderModuleRoot(char const *module_root_name) {
                 copyStringSafeN(name, module_root_name, last_dot - module_root_name + 1, sizeof(name));
                 appendStringSafe(name, current->name, sizeof(name));
 
+                current->compilation_name = current->name;
                 current->name = strdup(name);
             } else if (strncmp(last_dot + 1, current->name, strlen(last_dot + 1)) == 0 &&
                        current->name[strlen(last_dot + 1)] == '.') {
                 copyStringSafeN(name, module_root_name, last_dot - module_root_name + 1, sizeof(name));
                 appendStringSafe(name, current->name, sizeof(name));
 
+                current->compilation_name = current->name;
                 current->name = strdup(name);
             }
 

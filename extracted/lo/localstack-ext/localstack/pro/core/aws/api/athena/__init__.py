@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -22,6 +22,7 @@ CoordinatorDpuSize = int
 DatabaseString = str
 DefaultExecutorDpuSize = int
 DescriptionString = str
+DpuCount = float
 ErrorCategory = int
 ErrorCode = str
 ErrorMessage = str
@@ -35,6 +36,10 @@ IdentityCenterInstanceArn = str
 Integer = int
 KeyString = str
 KmsKey = str
+LogGroupName = str
+LogStreamNamePrefix = str
+LogTypeKey = str
+LogTypeValue = str
 MaxApplicationDPUSizesCount = int
 MaxCalculationsCount = int
 MaxCapacityReservationsCount = int
@@ -63,6 +68,7 @@ QueryExecutionId = str
 QueryString = str
 ResultOutputLocation = str
 RoleArn = str
+S3OutputLocation = str
 S3Uri = str
 SessionId = str
 SessionIdleTimeoutInMinutes = int
@@ -244,7 +250,7 @@ class InvalidRequestException(ServiceException):
     code: str = "InvalidRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    AthenaErrorCode: Optional[ErrorCode]
+    AthenaErrorCode: ErrorCode | None
 
 
 class MetadataException(ServiceException):
@@ -267,7 +273,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
 class SessionAlreadyExistsException(ServiceException):
@@ -284,7 +290,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[ThrottleReason]
+    Reason: ThrottleReason | None
 
 
 class AclConfiguration(TypedDict, total=False):
@@ -301,17 +307,17 @@ class AclConfiguration(TypedDict, total=False):
     S3AclOption: S3AclOption
 
 
-SupportedDPUSizeList = List[Integer]
+SupportedDPUSizeList = list[Integer]
 
 
 class ApplicationDPUSizes(TypedDict, total=False):
     """Contains the application runtime IDs and their supported DPU sizes."""
 
-    ApplicationRuntimeId: Optional[NameString]
-    SupportedDPUSizes: Optional[SupportedDPUSizeList]
+    ApplicationRuntimeId: NameString | None
+    SupportedDPUSizes: SupportedDPUSizeList | None
 
 
-ApplicationDPUSizesList = List[ApplicationDPUSizes]
+ApplicationDPUSizesList = list[ApplicationDPUSizes]
 
 
 class AthenaError(TypedDict, total=False):
@@ -323,13 +329,13 @@ class AthenaError(TypedDict, total=False):
     error, or other error.
     """
 
-    ErrorCategory: Optional[ErrorCategory]
-    ErrorType: Optional[ErrorType]
-    Retryable: Optional[Boolean]
-    ErrorMessage: Optional[String]
+    ErrorCategory: ErrorCategory | None
+    ErrorType: ErrorType | None
+    Retryable: Boolean | None
+    ErrorMessage: String | None
 
 
-NamedQueryIdList = List[NamedQueryId]
+NamedQueryIdList = list[NamedQueryId]
 
 
 class BatchGetNamedQueryInput(ServiceRequest):
@@ -341,12 +347,12 @@ class BatchGetNamedQueryInput(ServiceRequest):
 class UnprocessedNamedQueryId(TypedDict, total=False):
     """Information about a named query ID that could not be processed."""
 
-    NamedQueryId: Optional[NamedQueryId]
-    ErrorCode: Optional[ErrorCode]
-    ErrorMessage: Optional[ErrorMessage]
+    NamedQueryId: NamedQueryId | None
+    ErrorCode: ErrorCode | None
+    ErrorMessage: ErrorMessage | None
 
 
-UnprocessedNamedQueryIdList = List[UnprocessedNamedQueryId]
+UnprocessedNamedQueryIdList = list[UnprocessedNamedQueryId]
 
 
 class NamedQuery(TypedDict, total=False):
@@ -355,22 +361,22 @@ class NamedQuery(TypedDict, total=False):
     """
 
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Database: DatabaseString
     QueryString: QueryString
-    NamedQueryId: Optional[NamedQueryId]
-    WorkGroup: Optional[WorkGroupName]
+    NamedQueryId: NamedQueryId | None
+    WorkGroup: WorkGroupName | None
 
 
-NamedQueryList = List[NamedQuery]
+NamedQueryList = list[NamedQuery]
 
 
 class BatchGetNamedQueryOutput(TypedDict, total=False):
-    NamedQueries: Optional[NamedQueryList]
-    UnprocessedNamedQueryIds: Optional[UnprocessedNamedQueryIdList]
+    NamedQueries: NamedQueryList | None
+    UnprocessedNamedQueryIds: UnprocessedNamedQueryIdList | None
 
 
-PreparedStatementNameList = List[StatementName]
+PreparedStatementNameList = list[StatementName]
 
 
 class BatchGetPreparedStatementInput(ServiceRequest):
@@ -381,34 +387,34 @@ class BatchGetPreparedStatementInput(ServiceRequest):
 class UnprocessedPreparedStatementName(TypedDict, total=False):
     """The name of a prepared statement that could not be returned."""
 
-    StatementName: Optional[StatementName]
-    ErrorCode: Optional[ErrorCode]
-    ErrorMessage: Optional[ErrorMessage]
+    StatementName: StatementName | None
+    ErrorCode: ErrorCode | None
+    ErrorMessage: ErrorMessage | None
 
 
-UnprocessedPreparedStatementNameList = List[UnprocessedPreparedStatementName]
+UnprocessedPreparedStatementNameList = list[UnprocessedPreparedStatementName]
 Date = datetime
 
 
 class PreparedStatement(TypedDict, total=False):
     """A prepared SQL statement for use with Athena."""
 
-    StatementName: Optional[StatementName]
-    QueryStatement: Optional[QueryString]
-    WorkGroupName: Optional[WorkGroupName]
-    Description: Optional[DescriptionString]
-    LastModifiedTime: Optional[Date]
+    StatementName: StatementName | None
+    QueryStatement: QueryString | None
+    WorkGroupName: WorkGroupName | None
+    Description: DescriptionString | None
+    LastModifiedTime: Date | None
 
 
-PreparedStatementDetailsList = List[PreparedStatement]
+PreparedStatementDetailsList = list[PreparedStatement]
 
 
 class BatchGetPreparedStatementOutput(TypedDict, total=False):
-    PreparedStatements: Optional[PreparedStatementDetailsList]
-    UnprocessedPreparedStatementNames: Optional[UnprocessedPreparedStatementNameList]
+    PreparedStatements: PreparedStatementDetailsList | None
+    UnprocessedPreparedStatementNames: UnprocessedPreparedStatementNameList | None
 
 
-QueryExecutionIdList = List[QueryExecutionId]
+QueryExecutionIdList = list[QueryExecutionId]
 
 
 class BatchGetQueryExecutionInput(ServiceRequest):
@@ -420,23 +426,23 @@ class BatchGetQueryExecutionInput(ServiceRequest):
 class UnprocessedQueryExecutionId(TypedDict, total=False):
     """Describes a query execution that failed to process."""
 
-    QueryExecutionId: Optional[QueryExecutionId]
-    ErrorCode: Optional[ErrorCode]
-    ErrorMessage: Optional[ErrorMessage]
+    QueryExecutionId: QueryExecutionId | None
+    ErrorCode: ErrorCode | None
+    ErrorMessage: ErrorMessage | None
 
 
-UnprocessedQueryExecutionIdList = List[UnprocessedQueryExecutionId]
+UnprocessedQueryExecutionIdList = list[UnprocessedQueryExecutionId]
 
 
 class QueryResultsS3AccessGrantsConfiguration(TypedDict, total=False):
     """Specifies whether Amazon S3 access grants are enabled for query results."""
 
     EnableS3AccessGrants: BoxedBoolean
-    CreateUserLevelPrefix: Optional[BoxedBoolean]
+    CreateUserLevelPrefix: BoxedBoolean | None
     AuthenticationType: AuthenticationType
 
 
-ExecutionParameters = List[ExecutionParameter]
+ExecutionParameters = list[ExecutionParameter]
 
 
 class EngineVersion(TypedDict, total=False):
@@ -444,8 +450,8 @@ class EngineVersion(TypedDict, total=False):
     version for running sessions.
     """
 
-    SelectedEngineVersion: Optional[NameString]
-    EffectiveEngineVersion: Optional[NameString]
+    SelectedEngineVersion: NameString | None
+    EffectiveEngineVersion: NameString | None
 
 
 class ResultReuseInformation(TypedDict, total=False):
@@ -464,15 +470,16 @@ class QueryExecutionStatistics(TypedDict, total=False):
     time that it took to execute, and the type of statement that was run.
     """
 
-    EngineExecutionTimeInMillis: Optional[Long]
-    DataScannedInBytes: Optional[Long]
-    DataManifestLocation: Optional[String]
-    TotalExecutionTimeInMillis: Optional[Long]
-    QueryQueueTimeInMillis: Optional[Long]
-    ServicePreProcessingTimeInMillis: Optional[Long]
-    QueryPlanningTimeInMillis: Optional[Long]
-    ServiceProcessingTimeInMillis: Optional[Long]
-    ResultReuseInformation: Optional[ResultReuseInformation]
+    EngineExecutionTimeInMillis: Long | None
+    DataScannedInBytes: Long | None
+    DataManifestLocation: String | None
+    TotalExecutionTimeInMillis: Long | None
+    QueryQueueTimeInMillis: Long | None
+    ServicePreProcessingTimeInMillis: Long | None
+    QueryPlanningTimeInMillis: Long | None
+    ServiceProcessingTimeInMillis: Long | None
+    ResultReuseInformation: ResultReuseInformation | None
+    DpuCount: DpuCount | None
 
 
 class QueryExecutionStatus(TypedDict, total=False):
@@ -480,11 +487,11 @@ class QueryExecutionStatus(TypedDict, total=False):
     reason (if applicable) for the query execution.
     """
 
-    State: Optional[QueryExecutionState]
-    StateChangeReason: Optional[String]
-    SubmissionDateTime: Optional[Date]
-    CompletionDateTime: Optional[Date]
-    AthenaError: Optional[AthenaError]
+    State: QueryExecutionState | None
+    StateChangeReason: String | None
+    SubmissionDateTime: Date | None
+    CompletionDateTime: Date | None
+    AthenaError: AthenaError | None
 
 
 class QueryExecutionContext(TypedDict, total=False):
@@ -492,8 +499,8 @@ class QueryExecutionContext(TypedDict, total=False):
     occurs.
     """
 
-    Database: Optional[DatabaseString]
-    Catalog: Optional[CatalogNameString]
+    Database: DatabaseString | None
+    Catalog: CatalogNameString | None
 
 
 class ResultReuseByAgeConfiguration(TypedDict, total=False):
@@ -502,13 +509,13 @@ class ResultReuseByAgeConfiguration(TypedDict, total=False):
     """
 
     Enabled: Boolean
-    MaxAgeInMinutes: Optional[Age]
+    MaxAgeInMinutes: Age | None
 
 
 class ResultReuseConfiguration(TypedDict, total=False):
     """Specifies the query result reuse behavior for the query."""
 
-    ResultReuseByAgeConfiguration: Optional[ResultReuseByAgeConfiguration]
+    ResultReuseByAgeConfiguration: ResultReuseByAgeConfiguration | None
 
 
 class EncryptionConfiguration(TypedDict, total=False):
@@ -518,7 +525,7 @@ class EncryptionConfiguration(TypedDict, total=False):
     """
 
     EncryptionOption: EncryptionOption
-    KmsKey: Optional[String]
+    KmsKey: String | None
 
 
 class ResultConfiguration(TypedDict, total=False):
@@ -529,10 +536,10 @@ class ResultConfiguration(TypedDict, total=False):
     workgroup settings.
     """
 
-    OutputLocation: Optional[ResultOutputLocation]
-    EncryptionConfiguration: Optional[EncryptionConfiguration]
-    ExpectedBucketOwner: Optional[AwsAccountId]
-    AclConfiguration: Optional[AclConfiguration]
+    OutputLocation: ResultOutputLocation | None
+    EncryptionConfiguration: EncryptionConfiguration | None
+    ExpectedBucketOwner: AwsAccountId | None
+    AclConfiguration: AclConfiguration | None
 
 
 class ManagedQueryResultsEncryptionConfiguration(TypedDict, total=False):
@@ -551,34 +558,34 @@ class ManagedQueryResultsConfiguration(TypedDict, total=False):
     """
 
     Enabled: Boolean
-    EncryptionConfiguration: Optional[ManagedQueryResultsEncryptionConfiguration]
+    EncryptionConfiguration: ManagedQueryResultsEncryptionConfiguration | None
 
 
 class QueryExecution(TypedDict, total=False):
     """Information about a single instance of a query execution."""
 
-    QueryExecutionId: Optional[QueryExecutionId]
-    Query: Optional[QueryString]
-    StatementType: Optional[StatementType]
-    ManagedQueryResultsConfiguration: Optional[ManagedQueryResultsConfiguration]
-    ResultConfiguration: Optional[ResultConfiguration]
-    ResultReuseConfiguration: Optional[ResultReuseConfiguration]
-    QueryExecutionContext: Optional[QueryExecutionContext]
-    Status: Optional[QueryExecutionStatus]
-    Statistics: Optional[QueryExecutionStatistics]
-    WorkGroup: Optional[WorkGroupName]
-    EngineVersion: Optional[EngineVersion]
-    ExecutionParameters: Optional[ExecutionParameters]
-    SubstatementType: Optional[String]
-    QueryResultsS3AccessGrantsConfiguration: Optional[QueryResultsS3AccessGrantsConfiguration]
+    QueryExecutionId: QueryExecutionId | None
+    Query: QueryString | None
+    StatementType: StatementType | None
+    ManagedQueryResultsConfiguration: ManagedQueryResultsConfiguration | None
+    ResultConfiguration: ResultConfiguration | None
+    ResultReuseConfiguration: ResultReuseConfiguration | None
+    QueryExecutionContext: QueryExecutionContext | None
+    Status: QueryExecutionStatus | None
+    Statistics: QueryExecutionStatistics | None
+    WorkGroup: WorkGroupName | None
+    EngineVersion: EngineVersion | None
+    ExecutionParameters: ExecutionParameters | None
+    SubstatementType: String | None
+    QueryResultsS3AccessGrantsConfiguration: QueryResultsS3AccessGrantsConfiguration | None
 
 
-QueryExecutionList = List[QueryExecution]
+QueryExecutionList = list[QueryExecution]
 
 
 class BatchGetQueryExecutionOutput(TypedDict, total=False):
-    QueryExecutions: Optional[QueryExecutionList]
-    UnprocessedQueryExecutionIds: Optional[UnprocessedQueryExecutionIdList]
+    QueryExecutions: QueryExecutionList | None
+    UnprocessedQueryExecutionIds: UnprocessedQueryExecutionIdList | None
 
 
 BytesScannedCutoffValue = int
@@ -587,43 +594,43 @@ BytesScannedCutoffValue = int
 class CalculationConfiguration(TypedDict, total=False):
     """Contains configuration information for the calculation."""
 
-    CodeBlock: Optional[CodeBlock]
+    CodeBlock: CodeBlock | None
 
 
 class CalculationResult(TypedDict, total=False):
     """Contains information about an application-specific calculation result."""
 
-    StdOutS3Uri: Optional[S3Uri]
-    StdErrorS3Uri: Optional[S3Uri]
-    ResultS3Uri: Optional[S3Uri]
-    ResultType: Optional[CalculationResultType]
+    StdOutS3Uri: S3Uri | None
+    StdErrorS3Uri: S3Uri | None
+    ResultS3Uri: S3Uri | None
+    ResultType: CalculationResultType | None
 
 
 class CalculationStatistics(TypedDict, total=False):
     """Contains statistics for a notebook calculation."""
 
-    DpuExecutionInMillis: Optional[Long]
-    Progress: Optional[DescriptionString]
+    DpuExecutionInMillis: Long | None
+    Progress: DescriptionString | None
 
 
 class CalculationStatus(TypedDict, total=False):
     """Contains information about the status of a notebook calculation."""
 
-    SubmissionDateTime: Optional[Date]
-    CompletionDateTime: Optional[Date]
-    State: Optional[CalculationExecutionState]
-    StateChangeReason: Optional[DescriptionString]
+    SubmissionDateTime: Date | None
+    CompletionDateTime: Date | None
+    State: CalculationExecutionState | None
+    StateChangeReason: DescriptionString | None
 
 
 class CalculationSummary(TypedDict, total=False):
     """Summary information for a notebook calculation."""
 
-    CalculationExecutionId: Optional[CalculationExecutionId]
-    Description: Optional[DescriptionString]
-    Status: Optional[CalculationStatus]
+    CalculationExecutionId: CalculationExecutionId | None
+    Description: DescriptionString | None
+    Status: CalculationStatus | None
 
 
-CalculationsList = List[CalculationSummary]
+CalculationsList = list[CalculationSummary]
 
 
 class CancelCapacityReservationInput(ServiceRequest):
@@ -644,21 +651,21 @@ class CapacityAllocation(TypedDict, total=False):
     """
 
     Status: CapacityAllocationStatus
-    StatusMessage: Optional[String]
+    StatusMessage: String | None
     RequestTime: Timestamp
-    RequestCompletionTime: Optional[Timestamp]
+    RequestCompletionTime: Timestamp | None
 
 
-WorkGroupNamesList = List[WorkGroupName]
+WorkGroupNamesList = list[WorkGroupName]
 
 
 class CapacityAssignment(TypedDict, total=False):
     """A mapping between one or more workgroups and a capacity reservation."""
 
-    WorkGroupNames: Optional[WorkGroupNamesList]
+    WorkGroupNames: WorkGroupNamesList | None
 
 
-CapacityAssignmentsList = List[CapacityAssignment]
+CapacityAssignmentsList = list[CapacityAssignment]
 
 
 class CapacityAssignmentConfiguration(TypedDict, total=False):
@@ -670,8 +677,8 @@ class CapacityAssignmentConfiguration(TypedDict, total=False):
     that their workgroup is mapped to.
     """
 
-    CapacityReservationName: Optional[CapacityReservationName]
-    CapacityAssignments: Optional[CapacityAssignmentsList]
+    CapacityReservationName: CapacityReservationName | None
+    CapacityAssignments: CapacityAssignmentsList | None
 
 
 class CapacityReservation(TypedDict, total=False):
@@ -684,39 +691,63 @@ class CapacityReservation(TypedDict, total=False):
     Status: CapacityReservationStatus
     TargetDpus: TargetDpusInteger
     AllocatedDpus: AllocatedDpusInteger
-    LastAllocation: Optional[CapacityAllocation]
-    LastSuccessfulAllocationTime: Optional[Timestamp]
+    LastAllocation: CapacityAllocation | None
+    LastSuccessfulAllocationTime: Timestamp | None
     CreationTime: Timestamp
 
 
-CapacityReservationsList = List[CapacityReservation]
+CapacityReservationsList = list[CapacityReservation]
+ParametersMap = dict[KeyString, ParametersMapValue]
+
+
+class Classification(TypedDict, total=False):
+    """A classification refers to a set of specific configurations."""
+
+    Name: NameString | None
+    Properties: ParametersMap | None
+
+
+ClassificationList = list[Classification]
+LogTypeValuesList = list[LogTypeValue]
+LogTypesMap = dict[LogTypeKey, LogTypeValuesList]
+
+
+class CloudWatchLoggingConfiguration(TypedDict, total=False):
+    """Configuration settings for delivering logs to Amazon CloudWatch log
+    groups.
+    """
+
+    Enabled: BoxedBoolean
+    LogGroup: LogGroupName | None
+    LogStreamNamePrefix: LogStreamNamePrefix | None
+    LogTypes: LogTypesMap | None
 
 
 class Column(TypedDict, total=False):
     """Contains metadata for a column in a table."""
 
     Name: NameString
-    Type: Optional[TypeString]
-    Comment: Optional[CommentString]
+    Type: TypeString | None
+    Comment: CommentString | None
 
 
 class ColumnInfo(TypedDict, total=False):
     """Information about the columns in a query execution result."""
 
-    CatalogName: Optional[String]
-    SchemaName: Optional[String]
-    TableName: Optional[String]
+    CatalogName: String | None
+    SchemaName: String | None
+    TableName: String | None
     Name: String
-    Label: Optional[String]
+    Label: String | None
     Type: String
-    Precision: Optional[Integer]
-    Scale: Optional[Integer]
-    Nullable: Optional[ColumnNullable]
-    CaseSensitive: Optional[Boolean]
+    Precision: Integer | None
+    Scale: Integer | None
+    Nullable: ColumnNullable | None
+    CaseSensitive: Boolean | None
 
 
-ColumnInfoList = List[ColumnInfo]
-ColumnList = List[Column]
+ColumnInfoList = list[ColumnInfo]
+ColumnList = list[Column]
 
 
 class Tag(TypedDict, total=False):
@@ -735,32 +766,29 @@ class Tag(TypedDict, total=False):
     per resource. If you specify more than one tag, separate them by commas.
     """
 
-    Key: Optional[TagKey]
-    Value: Optional[TagValue]
+    Key: TagKey | None
+    Value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateCapacityReservationInput(ServiceRequest):
     TargetDpus: TargetDpusInteger
     Name: CapacityReservationName
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCapacityReservationOutput(TypedDict, total=False):
     pass
 
 
-ParametersMap = Dict[KeyString, ParametersMapValue]
-
-
 class CreateDataCatalogInput(ServiceRequest):
     Name: CatalogNameString
     Type: DataCatalogType
-    Description: Optional[DescriptionString]
-    Parameters: Optional[ParametersMap]
-    Tags: Optional[TagList]
+    Description: DescriptionString | None
+    Parameters: ParametersMap | None
+    Tags: TagList | None
 
 
 class DataCatalog(TypedDict, total=False):
@@ -772,46 +800,46 @@ class DataCatalog(TypedDict, total=False):
     """
 
     Name: CatalogNameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Type: DataCatalogType
-    Parameters: Optional[ParametersMap]
-    Status: Optional[DataCatalogStatus]
-    ConnectionType: Optional[ConnectionType]
-    Error: Optional[ErrorMessage]
+    Parameters: ParametersMap | None
+    Status: DataCatalogStatus | None
+    ConnectionType: ConnectionType | None
+    Error: ErrorMessage | None
 
 
 class CreateDataCatalogOutput(TypedDict, total=False):
-    DataCatalog: Optional[DataCatalog]
+    DataCatalog: DataCatalog | None
 
 
 class CreateNamedQueryInput(ServiceRequest):
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Database: DatabaseString
     QueryString: QueryString
-    ClientRequestToken: Optional[IdempotencyToken]
-    WorkGroup: Optional[WorkGroupName]
+    ClientRequestToken: IdempotencyToken | None
+    WorkGroup: WorkGroupName | None
 
 
 class CreateNamedQueryOutput(TypedDict, total=False):
-    NamedQueryId: Optional[NamedQueryId]
+    NamedQueryId: NamedQueryId | None
 
 
 class CreateNotebookInput(ServiceRequest):
     WorkGroup: WorkGroupName
     Name: NotebookName
-    ClientRequestToken: Optional[ClientRequestToken]
+    ClientRequestToken: ClientRequestToken | None
 
 
 class CreateNotebookOutput(TypedDict, total=False):
-    NotebookId: Optional[NotebookId]
+    NotebookId: NotebookId | None
 
 
 class CreatePreparedStatementInput(ServiceRequest):
     StatementName: StatementName
     WorkGroup: WorkGroupName
     QueryStatement: QueryString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
 
 
 class CreatePreparedStatementOutput(TypedDict, total=False):
@@ -831,8 +859,8 @@ class CreatePresignedNotebookUrlResponse(TypedDict, total=False):
 class IdentityCenterConfiguration(TypedDict, total=False):
     """Specifies whether the workgroup is IAM Identity Center supported."""
 
-    EnableIdentityCenter: Optional[BoxedBoolean]
-    IdentityCenterInstanceArn: Optional[IdentityCenterInstanceArn]
+    EnableIdentityCenter: BoxedBoolean | None
+    IdentityCenterInstanceArn: IdentityCenterInstanceArn | None
 
 
 class CustomerContentEncryptionConfiguration(TypedDict, total=False):
@@ -843,6 +871,44 @@ class CustomerContentEncryptionConfiguration(TypedDict, total=False):
     """
 
     KmsKey: KmsKey
+
+
+class EngineConfiguration(TypedDict, total=False):
+    """Contains data processing unit (DPU) configuration settings and parameter
+    mappings for a notebook engine.
+    """
+
+    CoordinatorDpuSize: CoordinatorDpuSize | None
+    MaxConcurrentDpus: MaxConcurrentDpus | None
+    DefaultExecutorDpuSize: DefaultExecutorDpuSize | None
+    AdditionalConfigs: ParametersMap | None
+    SparkProperties: ParametersMap | None
+    Classifications: ClassificationList | None
+
+
+class S3LoggingConfiguration(TypedDict, total=False):
+    """Configuration settings for delivering logs to Amazon S3 buckets."""
+
+    Enabled: BoxedBoolean
+    KmsKey: KmsKey | None
+    LogLocation: S3OutputLocation | None
+
+
+class ManagedLoggingConfiguration(TypedDict, total=False):
+    """Configuration settings for delivering logs to Amazon S3 buckets."""
+
+    Enabled: BoxedBoolean
+    KmsKey: KmsKey | None
+
+
+class MonitoringConfiguration(TypedDict, total=False):
+    """Contains the configuration settings for managed log persistence,
+    delivering logs to Amazon S3 buckets, Amazon CloudWatch log groups etc.
+    """
+
+    CloudWatchLoggingConfiguration: CloudWatchLoggingConfiguration | None
+    ManagedLoggingConfiguration: ManagedLoggingConfiguration | None
+    S3LoggingConfiguration: S3LoggingConfiguration | None
 
 
 class WorkGroupConfiguration(TypedDict, total=False):
@@ -857,26 +923,28 @@ class WorkGroupConfiguration(TypedDict, total=False):
     WorkGroupConfiguration$EnforceWorkGroupConfiguration.
     """
 
-    ResultConfiguration: Optional[ResultConfiguration]
-    ManagedQueryResultsConfiguration: Optional[ManagedQueryResultsConfiguration]
-    EnforceWorkGroupConfiguration: Optional[BoxedBoolean]
-    PublishCloudWatchMetricsEnabled: Optional[BoxedBoolean]
-    BytesScannedCutoffPerQuery: Optional[BytesScannedCutoffValue]
-    RequesterPaysEnabled: Optional[BoxedBoolean]
-    EngineVersion: Optional[EngineVersion]
-    AdditionalConfiguration: Optional[NameString]
-    ExecutionRole: Optional[RoleArn]
-    CustomerContentEncryptionConfiguration: Optional[CustomerContentEncryptionConfiguration]
-    EnableMinimumEncryptionConfiguration: Optional[BoxedBoolean]
-    IdentityCenterConfiguration: Optional[IdentityCenterConfiguration]
-    QueryResultsS3AccessGrantsConfiguration: Optional[QueryResultsS3AccessGrantsConfiguration]
+    ResultConfiguration: ResultConfiguration | None
+    ManagedQueryResultsConfiguration: ManagedQueryResultsConfiguration | None
+    EnforceWorkGroupConfiguration: BoxedBoolean | None
+    PublishCloudWatchMetricsEnabled: BoxedBoolean | None
+    BytesScannedCutoffPerQuery: BytesScannedCutoffValue | None
+    RequesterPaysEnabled: BoxedBoolean | None
+    EngineVersion: EngineVersion | None
+    AdditionalConfiguration: NameString | None
+    ExecutionRole: RoleArn | None
+    MonitoringConfiguration: MonitoringConfiguration | None
+    EngineConfiguration: EngineConfiguration | None
+    CustomerContentEncryptionConfiguration: CustomerContentEncryptionConfiguration | None
+    EnableMinimumEncryptionConfiguration: BoxedBoolean | None
+    IdentityCenterConfiguration: IdentityCenterConfiguration | None
+    QueryResultsS3AccessGrantsConfiguration: QueryResultsS3AccessGrantsConfiguration | None
 
 
 class CreateWorkGroupInput(ServiceRequest):
     Name: WorkGroupName
-    Configuration: Optional[WorkGroupConfiguration]
-    Description: Optional[WorkGroupDescriptionString]
-    Tags: Optional[TagList]
+    Configuration: WorkGroupConfiguration | None
+    Description: WorkGroupDescriptionString | None
+    Tags: TagList | None
 
 
 class CreateWorkGroupOutput(TypedDict, total=False):
@@ -888,31 +956,31 @@ class DataCatalogSummary(TypedDict, total=False):
     and type.
     """
 
-    CatalogName: Optional[CatalogNameString]
-    Type: Optional[DataCatalogType]
-    Status: Optional[DataCatalogStatus]
-    ConnectionType: Optional[ConnectionType]
-    Error: Optional[ErrorMessage]
+    CatalogName: CatalogNameString | None
+    Type: DataCatalogType | None
+    Status: DataCatalogStatus | None
+    ConnectionType: ConnectionType | None
+    Error: ErrorMessage | None
 
 
-DataCatalogSummaryList = List[DataCatalogSummary]
+DataCatalogSummaryList = list[DataCatalogSummary]
 
 
 class Database(TypedDict, total=False):
     """Contains metadata information for a database in a data catalog."""
 
     Name: NameString
-    Description: Optional[DescriptionString]
-    Parameters: Optional[ParametersMap]
+    Description: DescriptionString | None
+    Parameters: ParametersMap | None
 
 
-DatabaseList = List[Database]
+DatabaseList = list[Database]
 
 
 class Datum(TypedDict, total=False):
     """A piece of data (a field in the table)."""
 
-    VarCharValue: Optional[datumString]
+    VarCharValue: datumString | None
 
 
 class DeleteCapacityReservationInput(ServiceRequest):
@@ -925,11 +993,11 @@ class DeleteCapacityReservationOutput(TypedDict, total=False):
 
 class DeleteDataCatalogInput(ServiceRequest):
     Name: CatalogNameString
-    DeleteCatalogOnly: Optional[Boolean]
+    DeleteCatalogOnly: Boolean | None
 
 
 class DeleteDataCatalogOutput(TypedDict, total=False):
-    DataCatalog: Optional[DataCatalog]
+    DataCatalog: DataCatalog | None
 
 
 class DeleteNamedQueryInput(ServiceRequest):
@@ -959,40 +1027,28 @@ class DeletePreparedStatementOutput(TypedDict, total=False):
 
 class DeleteWorkGroupInput(ServiceRequest):
     WorkGroup: WorkGroupName
-    RecursiveDeleteOption: Optional[BoxedBoolean]
+    RecursiveDeleteOption: BoxedBoolean | None
 
 
 class DeleteWorkGroupOutput(TypedDict, total=False):
     pass
 
 
-class EngineConfiguration(TypedDict, total=False):
-    """Contains data processing unit (DPU) configuration settings and parameter
-    mappings for a notebook engine.
-    """
-
-    CoordinatorDpuSize: Optional[CoordinatorDpuSize]
-    MaxConcurrentDpus: MaxConcurrentDpus
-    DefaultExecutorDpuSize: Optional[DefaultExecutorDpuSize]
-    AdditionalConfigs: Optional[ParametersMap]
-    SparkProperties: Optional[ParametersMap]
-
-
-EngineVersionsList = List[EngineVersion]
+EngineVersionsList = list[EngineVersion]
 
 
 class ExecutorsSummary(TypedDict, total=False):
     """Contains summary information about an executor."""
 
     ExecutorId: ExecutorId
-    ExecutorType: Optional[ExecutorType]
-    StartDateTime: Optional[Long]
-    TerminationDateTime: Optional[Long]
-    ExecutorState: Optional[ExecutorState]
-    ExecutorSize: Optional[Long]
+    ExecutorType: ExecutorType | None
+    StartDateTime: Long | None
+    TerminationDateTime: Long | None
+    ExecutorState: ExecutorState | None
+    ExecutorSize: Long | None
 
 
-ExecutorsSummaryList = List[ExecutorsSummary]
+ExecutorsSummaryList = list[ExecutorsSummary]
 
 
 class ExportNotebookInput(ServiceRequest):
@@ -1004,23 +1060,23 @@ class NotebookMetadata(TypedDict, total=False):
     workgroup, and time created.
     """
 
-    NotebookId: Optional[NotebookId]
-    Name: Optional[NotebookName]
-    WorkGroup: Optional[WorkGroupName]
-    CreationTime: Optional[Date]
-    Type: Optional[NotebookType]
-    LastModifiedTime: Optional[Date]
+    NotebookId: NotebookId | None
+    Name: NotebookName | None
+    WorkGroup: WorkGroupName | None
+    CreationTime: Date | None
+    Type: NotebookType | None
+    LastModifiedTime: Date | None
 
 
 class ExportNotebookOutput(TypedDict, total=False):
-    NotebookMetadata: Optional[NotebookMetadata]
-    Payload: Optional[Payload]
+    NotebookMetadata: NotebookMetadata | None
+    Payload: Payload | None
 
 
 class FilterDefinition(TypedDict, total=False):
     """A string for searching notebook names."""
 
-    Name: Optional[NotebookName]
+    Name: NotebookName | None
 
 
 class GetCalculationExecutionCodeRequest(ServiceRequest):
@@ -1028,7 +1084,7 @@ class GetCalculationExecutionCodeRequest(ServiceRequest):
 
 
 class GetCalculationExecutionCodeResponse(TypedDict, total=False):
-    CodeBlock: Optional[CodeBlock]
+    CodeBlock: CodeBlock | None
 
 
 class GetCalculationExecutionRequest(ServiceRequest):
@@ -1036,13 +1092,13 @@ class GetCalculationExecutionRequest(ServiceRequest):
 
 
 class GetCalculationExecutionResponse(TypedDict, total=False):
-    CalculationExecutionId: Optional[CalculationExecutionId]
-    SessionId: Optional[SessionId]
-    Description: Optional[DescriptionString]
-    WorkingDirectory: Optional[S3Uri]
-    Status: Optional[CalculationStatus]
-    Statistics: Optional[CalculationStatistics]
-    Result: Optional[CalculationResult]
+    CalculationExecutionId: CalculationExecutionId | None
+    SessionId: SessionId | None
+    Description: DescriptionString | None
+    WorkingDirectory: S3Uri | None
+    Status: CalculationStatus | None
+    Statistics: CalculationStatistics | None
+    Result: CalculationResult | None
 
 
 class GetCalculationExecutionStatusRequest(ServiceRequest):
@@ -1050,8 +1106,8 @@ class GetCalculationExecutionStatusRequest(ServiceRequest):
 
 
 class GetCalculationExecutionStatusResponse(TypedDict, total=False):
-    Status: Optional[CalculationStatus]
-    Statistics: Optional[CalculationStatistics]
+    Status: CalculationStatus | None
+    Statistics: CalculationStatistics | None
 
 
 class GetCapacityAssignmentConfigurationInput(ServiceRequest):
@@ -1072,21 +1128,21 @@ class GetCapacityReservationOutput(TypedDict, total=False):
 
 class GetDataCatalogInput(ServiceRequest):
     Name: CatalogNameString
-    WorkGroup: Optional[WorkGroupName]
+    WorkGroup: WorkGroupName | None
 
 
 class GetDataCatalogOutput(TypedDict, total=False):
-    DataCatalog: Optional[DataCatalog]
+    DataCatalog: DataCatalog | None
 
 
 class GetDatabaseInput(ServiceRequest):
     CatalogName: CatalogNameString
     DatabaseName: NameString
-    WorkGroup: Optional[WorkGroupName]
+    WorkGroup: WorkGroupName | None
 
 
 class GetDatabaseOutput(TypedDict, total=False):
-    Database: Optional[Database]
+    Database: Database | None
 
 
 class GetNamedQueryInput(ServiceRequest):
@@ -1094,7 +1150,7 @@ class GetNamedQueryInput(ServiceRequest):
 
 
 class GetNamedQueryOutput(TypedDict, total=False):
-    NamedQuery: Optional[NamedQuery]
+    NamedQuery: NamedQuery | None
 
 
 class GetNotebookMetadataInput(ServiceRequest):
@@ -1102,7 +1158,7 @@ class GetNotebookMetadataInput(ServiceRequest):
 
 
 class GetNotebookMetadataOutput(TypedDict, total=False):
-    NotebookMetadata: Optional[NotebookMetadata]
+    NotebookMetadata: NotebookMetadata | None
 
 
 class GetPreparedStatementInput(ServiceRequest):
@@ -1111,7 +1167,7 @@ class GetPreparedStatementInput(ServiceRequest):
 
 
 class GetPreparedStatementOutput(TypedDict, total=False):
-    PreparedStatement: Optional[PreparedStatement]
+    PreparedStatement: PreparedStatement | None
 
 
 class GetQueryExecutionInput(ServiceRequest):
@@ -1119,14 +1175,14 @@ class GetQueryExecutionInput(ServiceRequest):
 
 
 class GetQueryExecutionOutput(TypedDict, total=False):
-    QueryExecution: Optional[QueryExecution]
+    QueryExecution: QueryExecution | None
 
 
 class GetQueryResultsInput(ServiceRequest):
     QueryExecutionId: QueryExecutionId
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxQueryResults]
-    QueryResultType: Optional[QueryResultType]
+    NextToken: Token | None
+    MaxResults: MaxQueryResults | None
+    QueryResultType: QueryResultType | None
 
 
 class ResultSetMetadata(TypedDict, total=False):
@@ -1135,19 +1191,19 @@ class ResultSetMetadata(TypedDict, total=False):
     GetQueryResults.
     """
 
-    ColumnInfo: Optional[ColumnInfoList]
+    ColumnInfo: ColumnInfoList | None
 
 
-datumList = List[Datum]
+datumList = list[Datum]
 
 
 class Row(TypedDict, total=False):
     """The rows that make up a query result table."""
 
-    Data: Optional[datumList]
+    Data: datumList | None
 
 
-RowList = List[Row]
+RowList = list[Row]
 
 
 class ResultSet(TypedDict, total=False):
@@ -1156,14 +1212,14 @@ class ResultSet(TypedDict, total=False):
     object, use GetQueryResults.
     """
 
-    Rows: Optional[RowList]
-    ResultSetMetadata: Optional[ResultSetMetadata]
+    Rows: RowList | None
+    ResultSetMetadata: ResultSetMetadata | None
 
 
 class GetQueryResultsOutput(TypedDict, total=False):
-    UpdateCount: Optional[Long]
-    ResultSet: Optional[ResultSet]
-    NextToken: Optional[Token]
+    UpdateCount: Long | None
+    ResultSet: ResultSet | None
+    NextToken: Token | None
 
 
 class GetQueryRuntimeStatisticsInput(ServiceRequest):
@@ -1176,19 +1232,19 @@ class QueryStage(TypedDict, total=False):
     stage plan.
     """
 
-    StageId: Optional["Long"]
-    State: Optional["String"]
-    OutputBytes: Optional["Long"]
-    OutputRows: Optional["Long"]
-    InputBytes: Optional["Long"]
-    InputRows: Optional["Long"]
-    ExecutionTime: Optional["Long"]
-    QueryStagePlan: Optional["QueryStagePlanNode"]
-    SubStages: Optional["QueryStages"]
+    StageId: "Long | None"
+    State: "String | None"
+    OutputBytes: "Long | None"
+    OutputRows: "Long | None"
+    InputBytes: "Long | None"
+    InputRows: "Long | None"
+    ExecutionTime: "Long | None"
+    QueryStagePlan: "QueryStagePlanNode | None"
+    SubStages: "QueryStages | None"
 
 
-QueryStages = List[QueryStage]
-StringList = List[String]
+QueryStages = list[QueryStage]
+StringList = list[String]
 
 
 class QueryStagePlanNode(TypedDict, total=False):
@@ -1196,13 +1252,13 @@ class QueryStagePlanNode(TypedDict, total=False):
     sources.
     """
 
-    Name: Optional["String"]
-    Identifier: Optional["String"]
-    Children: Optional["QueryStagePlanNodes"]
-    RemoteSources: Optional["StringList"]
+    Name: "String | None"
+    Identifier: "String | None"
+    Children: "QueryStagePlanNodes | None"
+    RemoteSources: "StringList | None"
 
 
-QueryStagePlanNodes = List[QueryStagePlanNode]
+QueryStagePlanNodes = list[QueryStagePlanNode]
 
 
 class QueryRuntimeStatisticsRows(TypedDict, total=False):
@@ -1210,10 +1266,10 @@ class QueryRuntimeStatisticsRows(TypedDict, total=False):
     bytes output by the query, and the number of rows written by the query.
     """
 
-    InputRows: Optional[Long]
-    InputBytes: Optional[Long]
-    OutputBytes: Optional[Long]
-    OutputRows: Optional[Long]
+    InputRows: Long | None
+    InputBytes: Long | None
+    OutputBytes: Long | None
+    OutputRows: Long | None
 
 
 class QueryRuntimeStatisticsTimeline(TypedDict, total=False):
@@ -1221,12 +1277,12 @@ class QueryRuntimeStatisticsTimeline(TypedDict, total=False):
     time, service processing time, and total execution time.
     """
 
-    QueryQueueTimeInMillis: Optional[Long]
-    ServicePreProcessingTimeInMillis: Optional[Long]
-    QueryPlanningTimeInMillis: Optional[Long]
-    EngineExecutionTimeInMillis: Optional[Long]
-    ServiceProcessingTimeInMillis: Optional[Long]
-    TotalExecutionTimeInMillis: Optional[Long]
+    QueryQueueTimeInMillis: Long | None
+    ServicePreProcessingTimeInMillis: Long | None
+    QueryPlanningTimeInMillis: Long | None
+    EngineExecutionTimeInMillis: Long | None
+    ServiceProcessingTimeInMillis: Long | None
+    TotalExecutionTimeInMillis: Long | None
 
 
 class QueryRuntimeStatistics(TypedDict, total=False):
@@ -1235,13 +1291,31 @@ class QueryRuntimeStatistics(TypedDict, total=False):
     plan.
     """
 
-    Timeline: Optional[QueryRuntimeStatisticsTimeline]
-    Rows: Optional[QueryRuntimeStatisticsRows]
-    OutputStage: Optional[QueryStage]
+    Timeline: QueryRuntimeStatisticsTimeline | None
+    Rows: QueryRuntimeStatisticsRows | None
+    OutputStage: QueryStage | None
 
 
 class GetQueryRuntimeStatisticsOutput(TypedDict, total=False):
-    QueryRuntimeStatistics: Optional[QueryRuntimeStatistics]
+    QueryRuntimeStatistics: QueryRuntimeStatistics | None
+
+
+class GetResourceDashboardRequest(ServiceRequest):
+    ResourceARN: AmazonResourceName
+
+
+class GetResourceDashboardResponse(TypedDict, total=False):
+    Url: String
+
+
+class GetSessionEndpointRequest(ServiceRequest):
+    SessionId: SessionId
+
+
+class GetSessionEndpointResponse(TypedDict, total=False):
+    EndpointUrl: String
+    AuthToken: String
+    AuthTokenExpirationTime: Timestamp
 
 
 class GetSessionRequest(ServiceRequest):
@@ -1251,39 +1325,41 @@ class GetSessionRequest(ServiceRequest):
 class SessionStatistics(TypedDict, total=False):
     """Contains statistics for a session."""
 
-    DpuExecutionInMillis: Optional[Long]
+    DpuExecutionInMillis: Long | None
 
 
 class SessionStatus(TypedDict, total=False):
     """Contains information about the status of a session."""
 
-    StartDateTime: Optional[Date]
-    LastModifiedDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
-    IdleSinceDateTime: Optional[Date]
-    State: Optional[SessionState]
-    StateChangeReason: Optional[DescriptionString]
+    StartDateTime: Date | None
+    LastModifiedDateTime: Date | None
+    EndDateTime: Date | None
+    IdleSinceDateTime: Date | None
+    State: SessionState | None
+    StateChangeReason: DescriptionString | None
 
 
 class SessionConfiguration(TypedDict, total=False):
     """Contains session configuration information."""
 
-    ExecutionRole: Optional[RoleArn]
-    WorkingDirectory: Optional[ResultOutputLocation]
-    IdleTimeoutSeconds: Optional[Long]
-    EncryptionConfiguration: Optional[EncryptionConfiguration]
+    ExecutionRole: RoleArn | None
+    WorkingDirectory: ResultOutputLocation | None
+    IdleTimeoutSeconds: Long | None
+    SessionIdleTimeoutInMinutes: SessionIdleTimeoutInMinutes | None
+    EncryptionConfiguration: EncryptionConfiguration | None
 
 
 class GetSessionResponse(TypedDict, total=False):
-    SessionId: Optional[SessionId]
-    Description: Optional[DescriptionString]
-    WorkGroup: Optional[WorkGroupName]
-    EngineVersion: Optional[NameString]
-    EngineConfiguration: Optional[EngineConfiguration]
-    NotebookVersion: Optional[NameString]
-    SessionConfiguration: Optional[SessionConfiguration]
-    Status: Optional[SessionStatus]
-    Statistics: Optional[SessionStatistics]
+    SessionId: SessionId | None
+    Description: DescriptionString | None
+    WorkGroup: WorkGroupName | None
+    EngineVersion: NameString | None
+    EngineConfiguration: EngineConfiguration | None
+    NotebookVersion: NameString | None
+    MonitoringConfiguration: MonitoringConfiguration | None
+    SessionConfiguration: SessionConfiguration | None
+    Status: SessionStatus | None
+    Statistics: SessionStatistics | None
 
 
 class GetSessionStatusRequest(ServiceRequest):
@@ -1291,31 +1367,31 @@ class GetSessionStatusRequest(ServiceRequest):
 
 
 class GetSessionStatusResponse(TypedDict, total=False):
-    SessionId: Optional[SessionId]
-    Status: Optional[SessionStatus]
+    SessionId: SessionId | None
+    Status: SessionStatus | None
 
 
 class GetTableMetadataInput(ServiceRequest):
     CatalogName: CatalogNameString
     DatabaseName: NameString
     TableName: NameString
-    WorkGroup: Optional[WorkGroupName]
+    WorkGroup: WorkGroupName | None
 
 
 class TableMetadata(TypedDict, total=False):
     """Contains metadata for a table."""
 
     Name: NameString
-    CreateTime: Optional[Timestamp]
-    LastAccessTime: Optional[Timestamp]
-    TableType: Optional[TableTypeString]
-    Columns: Optional[ColumnList]
-    PartitionKeys: Optional[ColumnList]
-    Parameters: Optional[ParametersMap]
+    CreateTime: Timestamp | None
+    LastAccessTime: Timestamp | None
+    TableType: TableTypeString | None
+    Columns: ColumnList | None
+    PartitionKeys: ColumnList | None
+    Parameters: ParametersMap | None
 
 
 class GetTableMetadataOutput(TypedDict, total=False):
-    TableMetadata: Optional[TableMetadata]
+    TableMetadata: TableMetadata | None
 
 
 class GetWorkGroupInput(ServiceRequest):
@@ -1337,243 +1413,243 @@ class WorkGroup(TypedDict, total=False):
     """
 
     Name: WorkGroupName
-    State: Optional[WorkGroupState]
-    Configuration: Optional[WorkGroupConfiguration]
-    Description: Optional[WorkGroupDescriptionString]
-    CreationTime: Optional[Date]
-    IdentityCenterApplicationArn: Optional[IdentityCenterApplicationArn]
+    State: WorkGroupState | None
+    Configuration: WorkGroupConfiguration | None
+    Description: WorkGroupDescriptionString | None
+    CreationTime: Date | None
+    IdentityCenterApplicationArn: IdentityCenterApplicationArn | None
 
 
 class GetWorkGroupOutput(TypedDict, total=False):
-    WorkGroup: Optional[WorkGroup]
+    WorkGroup: WorkGroup | None
 
 
 class ImportNotebookInput(ServiceRequest):
     WorkGroup: WorkGroupName
     Name: NotebookName
-    Payload: Optional[Payload]
+    Payload: Payload | None
     Type: NotebookType
-    NotebookS3LocationUri: Optional[S3Uri]
-    ClientRequestToken: Optional[ClientRequestToken]
+    NotebookS3LocationUri: S3Uri | None
+    ClientRequestToken: ClientRequestToken | None
 
 
 class ImportNotebookOutput(TypedDict, total=False):
-    NotebookId: Optional[NotebookId]
+    NotebookId: NotebookId | None
 
 
 class ListApplicationDPUSizesInput(ServiceRequest):
-    MaxResults: Optional[MaxApplicationDPUSizesCount]
-    NextToken: Optional[Token]
+    MaxResults: MaxApplicationDPUSizesCount | None
+    NextToken: Token | None
 
 
 class ListApplicationDPUSizesOutput(TypedDict, total=False):
-    ApplicationDPUSizes: Optional[ApplicationDPUSizesList]
-    NextToken: Optional[Token]
+    ApplicationDPUSizes: ApplicationDPUSizesList | None
+    NextToken: Token | None
 
 
 class ListCalculationExecutionsRequest(ServiceRequest):
     SessionId: SessionId
-    StateFilter: Optional[CalculationExecutionState]
-    MaxResults: Optional[MaxCalculationsCount]
-    NextToken: Optional[SessionManagerToken]
+    StateFilter: CalculationExecutionState | None
+    MaxResults: MaxCalculationsCount | None
+    NextToken: SessionManagerToken | None
 
 
 class ListCalculationExecutionsResponse(TypedDict, total=False):
-    NextToken: Optional[SessionManagerToken]
-    Calculations: Optional[CalculationsList]
+    NextToken: SessionManagerToken | None
+    Calculations: CalculationsList | None
 
 
 class ListCapacityReservationsInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxCapacityReservationsCount]
+    NextToken: Token | None
+    MaxResults: MaxCapacityReservationsCount | None
 
 
 class ListCapacityReservationsOutput(TypedDict, total=False):
-    NextToken: Optional[Token]
+    NextToken: Token | None
     CapacityReservations: CapacityReservationsList
 
 
 class ListDataCatalogsInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxDataCatalogsCount]
-    WorkGroup: Optional[WorkGroupName]
+    NextToken: Token | None
+    MaxResults: MaxDataCatalogsCount | None
+    WorkGroup: WorkGroupName | None
 
 
 class ListDataCatalogsOutput(TypedDict, total=False):
-    DataCatalogsSummary: Optional[DataCatalogSummaryList]
-    NextToken: Optional[Token]
+    DataCatalogsSummary: DataCatalogSummaryList | None
+    NextToken: Token | None
 
 
 class ListDatabasesInput(ServiceRequest):
     CatalogName: CatalogNameString
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxDatabasesCount]
-    WorkGroup: Optional[WorkGroupName]
+    NextToken: Token | None
+    MaxResults: MaxDatabasesCount | None
+    WorkGroup: WorkGroupName | None
 
 
 class ListDatabasesOutput(TypedDict, total=False):
-    DatabaseList: Optional[DatabaseList]
-    NextToken: Optional[Token]
+    DatabaseList: DatabaseList | None
+    NextToken: Token | None
 
 
 class ListEngineVersionsInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxEngineVersionsCount]
+    NextToken: Token | None
+    MaxResults: MaxEngineVersionsCount | None
 
 
 class ListEngineVersionsOutput(TypedDict, total=False):
-    EngineVersions: Optional[EngineVersionsList]
-    NextToken: Optional[Token]
+    EngineVersions: EngineVersionsList | None
+    NextToken: Token | None
 
 
 class ListExecutorsRequest(ServiceRequest):
     SessionId: SessionId
-    ExecutorStateFilter: Optional[ExecutorState]
-    MaxResults: Optional[MaxListExecutorsCount]
-    NextToken: Optional[SessionManagerToken]
+    ExecutorStateFilter: ExecutorState | None
+    MaxResults: MaxListExecutorsCount | None
+    NextToken: SessionManagerToken | None
 
 
 class ListExecutorsResponse(TypedDict, total=False):
     SessionId: SessionId
-    NextToken: Optional[SessionManagerToken]
-    ExecutorsSummary: Optional[ExecutorsSummaryList]
+    NextToken: SessionManagerToken | None
+    ExecutorsSummary: ExecutorsSummaryList | None
 
 
 class ListNamedQueriesInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxNamedQueriesCount]
-    WorkGroup: Optional[WorkGroupName]
+    NextToken: Token | None
+    MaxResults: MaxNamedQueriesCount | None
+    WorkGroup: WorkGroupName | None
 
 
 class ListNamedQueriesOutput(TypedDict, total=False):
-    NamedQueryIds: Optional[NamedQueryIdList]
-    NextToken: Optional[Token]
+    NamedQueryIds: NamedQueryIdList | None
+    NextToken: Token | None
 
 
 class ListNotebookMetadataInput(ServiceRequest):
-    Filters: Optional[FilterDefinition]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxNotebooksCount]
+    Filters: FilterDefinition | None
+    NextToken: Token | None
+    MaxResults: MaxNotebooksCount | None
     WorkGroup: WorkGroupName
 
 
-NotebookMetadataArray = List[NotebookMetadata]
+NotebookMetadataArray = list[NotebookMetadata]
 
 
 class ListNotebookMetadataOutput(TypedDict, total=False):
-    NextToken: Optional[Token]
-    NotebookMetadataList: Optional[NotebookMetadataArray]
+    NextToken: Token | None
+    NotebookMetadataList: NotebookMetadataArray | None
 
 
 class ListNotebookSessionsRequest(ServiceRequest):
     NotebookId: NotebookId
-    MaxResults: Optional[MaxSessionsCount]
-    NextToken: Optional[Token]
+    MaxResults: MaxSessionsCount | None
+    NextToken: Token | None
 
 
 class NotebookSessionSummary(TypedDict, total=False):
     """Contains the notebook session ID and notebook session creation time."""
 
-    SessionId: Optional[SessionId]
-    CreationTime: Optional[Date]
+    SessionId: SessionId | None
+    CreationTime: Date | None
 
 
-NotebookSessionsList = List[NotebookSessionSummary]
+NotebookSessionsList = list[NotebookSessionSummary]
 
 
 class ListNotebookSessionsResponse(TypedDict, total=False):
     NotebookSessionsList: NotebookSessionsList
-    NextToken: Optional[Token]
+    NextToken: Token | None
 
 
 class ListPreparedStatementsInput(ServiceRequest):
     WorkGroup: WorkGroupName
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxPreparedStatementsCount]
+    NextToken: Token | None
+    MaxResults: MaxPreparedStatementsCount | None
 
 
 class PreparedStatementSummary(TypedDict, total=False):
     """The name and last modified time of the prepared statement."""
 
-    StatementName: Optional[StatementName]
-    LastModifiedTime: Optional[Date]
+    StatementName: StatementName | None
+    LastModifiedTime: Date | None
 
 
-PreparedStatementsList = List[PreparedStatementSummary]
+PreparedStatementsList = list[PreparedStatementSummary]
 
 
 class ListPreparedStatementsOutput(TypedDict, total=False):
-    PreparedStatements: Optional[PreparedStatementsList]
-    NextToken: Optional[Token]
+    PreparedStatements: PreparedStatementsList | None
+    NextToken: Token | None
 
 
 class ListQueryExecutionsInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxQueryExecutionsCount]
-    WorkGroup: Optional[WorkGroupName]
+    NextToken: Token | None
+    MaxResults: MaxQueryExecutionsCount | None
+    WorkGroup: WorkGroupName | None
 
 
 class ListQueryExecutionsOutput(TypedDict, total=False):
-    QueryExecutionIds: Optional[QueryExecutionIdList]
-    NextToken: Optional[Token]
+    QueryExecutionIds: QueryExecutionIdList | None
+    NextToken: Token | None
 
 
 class ListSessionsRequest(ServiceRequest):
     WorkGroup: WorkGroupName
-    StateFilter: Optional[SessionState]
-    MaxResults: Optional[MaxSessionsCount]
-    NextToken: Optional[SessionManagerToken]
+    StateFilter: SessionState | None
+    MaxResults: MaxSessionsCount | None
+    NextToken: SessionManagerToken | None
 
 
 class SessionSummary(TypedDict, total=False):
     """Contains summary information about a session."""
 
-    SessionId: Optional[SessionId]
-    Description: Optional[DescriptionString]
-    EngineVersion: Optional[EngineVersion]
-    NotebookVersion: Optional[NameString]
-    Status: Optional[SessionStatus]
+    SessionId: SessionId | None
+    Description: DescriptionString | None
+    EngineVersion: EngineVersion | None
+    NotebookVersion: NameString | None
+    Status: SessionStatus | None
 
 
-SessionsList = List[SessionSummary]
+SessionsList = list[SessionSummary]
 
 
 class ListSessionsResponse(TypedDict, total=False):
-    NextToken: Optional[SessionManagerToken]
-    Sessions: Optional[SessionsList]
+    NextToken: SessionManagerToken | None
+    Sessions: SessionsList | None
 
 
 class ListTableMetadataInput(ServiceRequest):
     CatalogName: CatalogNameString
     DatabaseName: NameString
-    Expression: Optional[ExpressionString]
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxTableMetadataCount]
-    WorkGroup: Optional[WorkGroupName]
+    Expression: ExpressionString | None
+    NextToken: Token | None
+    MaxResults: MaxTableMetadataCount | None
+    WorkGroup: WorkGroupName | None
 
 
-TableMetadataList = List[TableMetadata]
+TableMetadataList = list[TableMetadata]
 
 
 class ListTableMetadataOutput(TypedDict, total=False):
-    TableMetadataList: Optional[TableMetadataList]
-    NextToken: Optional[Token]
+    TableMetadataList: TableMetadataList | None
+    NextToken: Token | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
     ResourceARN: AmazonResourceName
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxTagsCount]
+    NextToken: Token | None
+    MaxResults: MaxTagsCount | None
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
-    NextToken: Optional[Token]
+    Tags: TagList | None
+    NextToken: Token | None
 
 
 class ListWorkGroupsInput(ServiceRequest):
-    NextToken: Optional[Token]
-    MaxResults: Optional[MaxWorkGroupsCount]
+    NextToken: Token | None
+    MaxResults: MaxWorkGroupsCount | None
 
 
 class WorkGroupSummary(TypedDict, total=False):
@@ -1581,28 +1657,28 @@ class WorkGroupSummary(TypedDict, total=False):
     state, description, and the date and time it was created.
     """
 
-    Name: Optional[WorkGroupName]
-    State: Optional[WorkGroupState]
-    Description: Optional[WorkGroupDescriptionString]
-    CreationTime: Optional[Date]
-    EngineVersion: Optional[EngineVersion]
-    IdentityCenterApplicationArn: Optional[IdentityCenterApplicationArn]
+    Name: WorkGroupName | None
+    State: WorkGroupState | None
+    Description: WorkGroupDescriptionString | None
+    CreationTime: Date | None
+    EngineVersion: EngineVersion | None
+    IdentityCenterApplicationArn: IdentityCenterApplicationArn | None
 
 
-WorkGroupsList = List[WorkGroupSummary]
+WorkGroupsList = list[WorkGroupSummary]
 
 
 class ListWorkGroupsOutput(TypedDict, total=False):
-    WorkGroups: Optional[WorkGroupsList]
-    NextToken: Optional[Token]
+    WorkGroups: WorkGroupsList | None
+    NextToken: Token | None
 
 
 class ManagedQueryResultsConfigurationUpdates(TypedDict, total=False):
     """Updates the configuration for managed query results."""
 
-    Enabled: Optional[BoxedBoolean]
-    EncryptionConfiguration: Optional[ManagedQueryResultsEncryptionConfiguration]
-    RemoveEncryptionConfiguration: Optional[BoxedBoolean]
+    Enabled: BoxedBoolean | None
+    EncryptionConfiguration: ManagedQueryResultsEncryptionConfiguration | None
+    RemoveEncryptionConfiguration: BoxedBoolean | None
 
 
 class PutCapacityAssignmentConfigurationInput(ServiceRequest):
@@ -1619,55 +1695,60 @@ class ResultConfigurationUpdates(TypedDict, total=False):
     location and encryption configuration for the query results.
     """
 
-    OutputLocation: Optional[ResultOutputLocation]
-    RemoveOutputLocation: Optional[BoxedBoolean]
-    EncryptionConfiguration: Optional[EncryptionConfiguration]
-    RemoveEncryptionConfiguration: Optional[BoxedBoolean]
-    ExpectedBucketOwner: Optional[AwsAccountId]
-    RemoveExpectedBucketOwner: Optional[BoxedBoolean]
-    AclConfiguration: Optional[AclConfiguration]
-    RemoveAclConfiguration: Optional[BoxedBoolean]
+    OutputLocation: ResultOutputLocation | None
+    RemoveOutputLocation: BoxedBoolean | None
+    EncryptionConfiguration: EncryptionConfiguration | None
+    RemoveEncryptionConfiguration: BoxedBoolean | None
+    ExpectedBucketOwner: AwsAccountId | None
+    RemoveExpectedBucketOwner: BoxedBoolean | None
+    AclConfiguration: AclConfiguration | None
+    RemoveAclConfiguration: BoxedBoolean | None
 
 
 class StartCalculationExecutionRequest(ServiceRequest):
     SessionId: SessionId
-    Description: Optional[DescriptionString]
-    CalculationConfiguration: Optional[CalculationConfiguration]
-    CodeBlock: Optional[CodeBlock]
-    ClientRequestToken: Optional[IdempotencyToken]
+    Description: DescriptionString | None
+    CalculationConfiguration: CalculationConfiguration | None
+    CodeBlock: CodeBlock | None
+    ClientRequestToken: IdempotencyToken | None
 
 
 class StartCalculationExecutionResponse(TypedDict, total=False):
-    CalculationExecutionId: Optional[CalculationExecutionId]
-    State: Optional[CalculationExecutionState]
+    CalculationExecutionId: CalculationExecutionId | None
+    State: CalculationExecutionState | None
 
 
 class StartQueryExecutionInput(ServiceRequest):
     QueryString: QueryString
-    ClientRequestToken: Optional[IdempotencyToken]
-    QueryExecutionContext: Optional[QueryExecutionContext]
-    ResultConfiguration: Optional[ResultConfiguration]
-    WorkGroup: Optional[WorkGroupName]
-    ExecutionParameters: Optional[ExecutionParameters]
-    ResultReuseConfiguration: Optional[ResultReuseConfiguration]
+    ClientRequestToken: IdempotencyToken | None
+    QueryExecutionContext: QueryExecutionContext | None
+    ResultConfiguration: ResultConfiguration | None
+    WorkGroup: WorkGroupName | None
+    ExecutionParameters: ExecutionParameters | None
+    ResultReuseConfiguration: ResultReuseConfiguration | None
+    EngineConfiguration: EngineConfiguration | None
 
 
 class StartQueryExecutionOutput(TypedDict, total=False):
-    QueryExecutionId: Optional[QueryExecutionId]
+    QueryExecutionId: QueryExecutionId | None
 
 
 class StartSessionRequest(ServiceRequest):
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     WorkGroup: WorkGroupName
     EngineConfiguration: EngineConfiguration
-    NotebookVersion: Optional[NameString]
-    SessionIdleTimeoutInMinutes: Optional[SessionIdleTimeoutInMinutes]
-    ClientRequestToken: Optional[IdempotencyToken]
+    ExecutionRole: RoleArn | None
+    MonitoringConfiguration: MonitoringConfiguration | None
+    NotebookVersion: NameString | None
+    SessionIdleTimeoutInMinutes: SessionIdleTimeoutInMinutes | None
+    ClientRequestToken: IdempotencyToken | None
+    Tags: TagList | None
+    CopyWorkGroupTags: BoxedBoolean | None
 
 
 class StartSessionResponse(TypedDict, total=False):
-    SessionId: Optional[SessionId]
-    State: Optional[SessionState]
+    SessionId: SessionId | None
+    State: SessionState | None
 
 
 class StopCalculationExecutionRequest(ServiceRequest):
@@ -1675,7 +1756,7 @@ class StopCalculationExecutionRequest(ServiceRequest):
 
 
 class StopCalculationExecutionResponse(TypedDict, total=False):
-    State: Optional[CalculationExecutionState]
+    State: CalculationExecutionState | None
 
 
 class StopQueryExecutionInput(ServiceRequest):
@@ -1686,7 +1767,7 @@ class StopQueryExecutionOutput(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -1703,7 +1784,7 @@ class TerminateSessionRequest(ServiceRequest):
 
 
 class TerminateSessionResponse(TypedDict, total=False):
-    State: Optional[SessionState]
+    State: SessionState | None
 
 
 class UntagResourceInput(ServiceRequest):
@@ -1727,8 +1808,8 @@ class UpdateCapacityReservationOutput(TypedDict, total=False):
 class UpdateDataCatalogInput(ServiceRequest):
     Name: CatalogNameString
     Type: DataCatalogType
-    Description: Optional[DescriptionString]
-    Parameters: Optional[ParametersMap]
+    Description: DescriptionString | None
+    Parameters: ParametersMap | None
 
 
 class UpdateDataCatalogOutput(TypedDict, total=False):
@@ -1738,7 +1819,7 @@ class UpdateDataCatalogOutput(TypedDict, total=False):
 class UpdateNamedQueryInput(ServiceRequest):
     NamedQueryId: NamedQueryId
     Name: NameString
-    Description: Optional[NamedQueryDescriptionString]
+    Description: NamedQueryDescriptionString | None
     QueryString: QueryString
 
 
@@ -1750,13 +1831,13 @@ class UpdateNotebookInput(ServiceRequest):
     NotebookId: NotebookId
     Payload: Payload
     Type: NotebookType
-    SessionId: Optional[SessionId]
-    ClientRequestToken: Optional[ClientRequestToken]
+    SessionId: SessionId | None
+    ClientRequestToken: ClientRequestToken | None
 
 
 class UpdateNotebookMetadataInput(ServiceRequest):
     NotebookId: NotebookId
-    ClientRequestToken: Optional[ClientRequestToken]
+    ClientRequestToken: ClientRequestToken | None
     Name: NotebookName
 
 
@@ -1772,7 +1853,7 @@ class UpdatePreparedStatementInput(ServiceRequest):
     StatementName: StatementName
     WorkGroup: WorkGroupName
     QueryStatement: QueryString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
 
 
 class UpdatePreparedStatementOutput(TypedDict, total=False):
@@ -1789,27 +1870,29 @@ class WorkGroupConfigurationUpdates(TypedDict, total=False):
     query, if it is specified.
     """
 
-    EnforceWorkGroupConfiguration: Optional[BoxedBoolean]
-    ResultConfigurationUpdates: Optional[ResultConfigurationUpdates]
-    ManagedQueryResultsConfigurationUpdates: Optional[ManagedQueryResultsConfigurationUpdates]
-    PublishCloudWatchMetricsEnabled: Optional[BoxedBoolean]
-    BytesScannedCutoffPerQuery: Optional[BytesScannedCutoffValue]
-    RemoveBytesScannedCutoffPerQuery: Optional[BoxedBoolean]
-    RequesterPaysEnabled: Optional[BoxedBoolean]
-    EngineVersion: Optional[EngineVersion]
-    RemoveCustomerContentEncryptionConfiguration: Optional[BoxedBoolean]
-    AdditionalConfiguration: Optional[NameString]
-    ExecutionRole: Optional[RoleArn]
-    CustomerContentEncryptionConfiguration: Optional[CustomerContentEncryptionConfiguration]
-    EnableMinimumEncryptionConfiguration: Optional[BoxedBoolean]
-    QueryResultsS3AccessGrantsConfiguration: Optional[QueryResultsS3AccessGrantsConfiguration]
+    EnforceWorkGroupConfiguration: BoxedBoolean | None
+    ResultConfigurationUpdates: ResultConfigurationUpdates | None
+    ManagedQueryResultsConfigurationUpdates: ManagedQueryResultsConfigurationUpdates | None
+    PublishCloudWatchMetricsEnabled: BoxedBoolean | None
+    BytesScannedCutoffPerQuery: BytesScannedCutoffValue | None
+    RemoveBytesScannedCutoffPerQuery: BoxedBoolean | None
+    RequesterPaysEnabled: BoxedBoolean | None
+    EngineVersion: EngineVersion | None
+    RemoveCustomerContentEncryptionConfiguration: BoxedBoolean | None
+    AdditionalConfiguration: NameString | None
+    ExecutionRole: RoleArn | None
+    CustomerContentEncryptionConfiguration: CustomerContentEncryptionConfiguration | None
+    EnableMinimumEncryptionConfiguration: BoxedBoolean | None
+    QueryResultsS3AccessGrantsConfiguration: QueryResultsS3AccessGrantsConfiguration | None
+    MonitoringConfiguration: MonitoringConfiguration | None
+    EngineConfiguration: EngineConfiguration | None
 
 
 class UpdateWorkGroupInput(ServiceRequest):
     WorkGroup: WorkGroupName
-    Description: Optional[WorkGroupDescriptionString]
-    ConfigurationUpdates: Optional[WorkGroupConfigurationUpdates]
-    State: Optional[WorkGroupState]
+    Description: WorkGroupDescriptionString | None
+    ConfigurationUpdates: WorkGroupConfigurationUpdates | None
+    State: WorkGroupState | None
 
 
 class UpdateWorkGroupOutput(TypedDict, total=False):
@@ -1817,8 +1900,8 @@ class UpdateWorkGroupOutput(TypedDict, total=False):
 
 
 class AthenaApi:
-    service = "athena"
-    version = "2017-05-18"
+    service: str = "athena"
+    version: str = "2017-05-18"
 
     @handler("BatchGetNamedQuery")
     def batch_get_named_query(
@@ -2422,13 +2505,28 @@ class AthenaApi:
         FAILED state. The remaining non-timeline statistics in the response
         (like stage-level input and output row count and data size) are updated
         asynchronously and may not be available immediately after a query
-        completes. The non-timeline statistics are also not included when a
-        query has row-level filters defined in Lake Formation.
+        completes or, in some cases, may not be returned. The non-timeline
+        statistics are also not included when a query has row-level filters
+        defined in Lake Formation.
 
         :param query_execution_id: The unique ID of the query execution.
         :returns: GetQueryRuntimeStatisticsOutput
         :raises InternalServerException:
         :raises InvalidRequestException:
+        """
+        raise NotImplementedError
+
+    @handler("GetResourceDashboard")
+    def get_resource_dashboard(
+        self, context: RequestContext, resource_arn: AmazonResourceName, **kwargs
+    ) -> GetResourceDashboardResponse:
+        """Gets the Live UI/Persistence UI for a session.
+
+        :param resource_arn: The The Amazon Resource Name (ARN) for a session.
+        :returns: GetResourceDashboardResponse
+        :raises InternalServerException:
+        :raises InvalidRequestException:
+        :raises ResourceNotFoundException:
         """
         raise NotImplementedError
 
@@ -2441,6 +2539,21 @@ class AthenaApi:
 
         :param session_id: The session ID.
         :returns: GetSessionResponse
+        :raises InternalServerException:
+        :raises InvalidRequestException:
+        :raises ResourceNotFoundException:
+        """
+        raise NotImplementedError
+
+    @handler("GetSessionEndpoint")
+    def get_session_endpoint(
+        self, context: RequestContext, session_id: SessionId, **kwargs
+    ) -> GetSessionEndpointResponse:
+        """Gets a connection endpoint and authentication token for a given session
+        Id.
+
+        :param session_id: The session ID.
+        :returns: GetSessionEndpointResponse
         :raises InternalServerException:
         :raises InvalidRequestException:
         :raises ResourceNotFoundException:
@@ -2971,6 +3084,7 @@ class AthenaApi:
         work_group: WorkGroupName | None = None,
         execution_parameters: ExecutionParameters | None = None,
         result_reuse_configuration: ResultReuseConfiguration | None = None,
+        engine_configuration: EngineConfiguration | None = None,
         **kwargs,
     ) -> StartQueryExecutionOutput:
         """Runs the SQL query statements contained in the ``Query``. Requires you
@@ -2990,6 +3104,8 @@ class AthenaApi:
         :param work_group: The name of the workgroup in which the query is being started.
         :param execution_parameters: A list of values for the parameters in a query.
         :param result_reuse_configuration: Specifies the query result reuse behavior for the query.
+        :param engine_configuration: Contains data processing unit (DPU) configuration settings and parameter
+        mappings for a notebook engine.
         :returns: StartQueryExecutionOutput
         :raises InternalServerException:
         :raises InvalidRequestException:
@@ -3004,9 +3120,13 @@ class AthenaApi:
         work_group: WorkGroupName,
         engine_configuration: EngineConfiguration,
         description: DescriptionString | None = None,
+        execution_role: RoleArn | None = None,
+        monitoring_configuration: MonitoringConfiguration | None = None,
         notebook_version: NameString | None = None,
         session_idle_timeout_in_minutes: SessionIdleTimeoutInMinutes | None = None,
         client_request_token: IdempotencyToken | None = None,
+        tags: TagList | None = None,
+        copy_work_group_tags: BoxedBoolean | None = None,
         **kwargs,
     ) -> StartSessionResponse:
         """Creates a session for running calculations within a workgroup. The
@@ -3016,10 +3136,16 @@ class AthenaApi:
         :param engine_configuration: Contains engine data processing unit (DPU) configuration settings and
         parameter mappings.
         :param description: The session description.
+        :param execution_role: The ARN of the execution role used to access user resources for Spark
+        sessions and Identity Center enabled workgroups.
+        :param monitoring_configuration: Contains the configuration settings for managed log persistence,
+        delivering logs to Amazon S3 buckets, Amazon CloudWatch log groups etc.
         :param notebook_version: The notebook version.
         :param session_idle_timeout_in_minutes: The idle timeout in minutes for the session.
         :param client_request_token: A unique case-sensitive string used to ensure the request to create the
         session is idempotent (executes only once).
+        :param tags: A list of comma separated tags to add to the session that is created.
+        :param copy_work_group_tags: Copies the tags from the Workgroup to the Session when.
         :returns: StartSessionResponse
         :raises InternalServerException:
         :raises InvalidRequestException:

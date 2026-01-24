@@ -17,17 +17,19 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 from collections.abc import Sequence
 from typing import Any
 
 import pydantic
 import yaml
+from datahub.masking.bootstrap import initialize_secret_masking
+from datahub.masking.secret_registry import SecretRegistry
 
 from acryl.executor.common.config import PermissiveConfigModel
 from acryl.executor.context.execution_context import ExecutionContext
 from acryl.executor.context.executor_context import ExecutorContext
 from acryl.executor.execution import venv_utils
-from acryl.executor.execution.task import TaskError
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,31 @@ class SubProcessTaskUtil:
 
     # We want to truncate long lines so that we can show more lines in the logs.
     MAX_BYTES_PER_LINE = 2**12  # 4kb
+
+    @staticmethod
+    def format_subprocess_error(e: Exception) -> str:
+        """
+        Extract detailed error message from subprocess exceptions.
+
+        For CalledProcessError, includes captured subprocess output from stderr or output attributes.
+        For other exceptions, returns str(e).
+
+        Args:
+            e: The exception to format
+
+        Returns:
+            Formatted error message with subprocess output if available
+        """
+        if isinstance(e, subprocess.CalledProcessError):
+            base_msg = str(e)
+
+            # Try stderr first (formatted by runner.py), then output
+            error_details = getattr(e, "stderr", None) or getattr(e, "output", None)
+
+            if error_details:
+                return f"{base_msg}\n\n{error_details}"
+
+        return str(e)
 
     @staticmethod
     def _format_log_lines(lines: Sequence[str]) -> str:
@@ -81,22 +108,24 @@ class SubProcessTaskUtil:
 
     @staticmethod
     def _warn_on_bad_secret_value(ctx: ExecutionContext, key: str, val: str) -> None:
-        # Log a warning if the value is a valid JSON document
+        # Log a warning if the value is a valid JSON document (dict or list)
         # to hint AWS Secret Manager users of a wrong type.
+        # We only warn for complex structures, not simple scalar values like numbers.
         try:
-            if isinstance(json.loads(val), str):
-                raise
-            ctx.get_report().report_error(
-                f"Secret variable ${{{key}}} appears to contain a JSON document while string is expected. "
-                "If you are using AWS Secret Manager, make sure to pass secret as plain text and not as a key/value pair."
-            )
+            parsed = json.loads(val)
+            # Only warn if it's a dict or list (actual JSON documents), not scalars
+            if isinstance(parsed, (dict, list)):
+                ctx.get_report().report_error(
+                    f"Secret variable ${{{key}}} appears to contain a JSON document while string is expected. "
+                    "If you are using AWS Secret Manager, make sure to pass secret as plain text and not as a key/value pair."
+                )
         except Exception:
             pass
 
     @staticmethod
     def _resolve_recipe(
         recipe: str, execution_ctx: ExecutionContext, executor_ctx: ExecutorContext
-    ) -> dict:
+    ) -> tuple[dict, list[str], set[str]]:
         # Now attempt to find and replace all secrets inside the recipe.
         secret_pattern = re.compile(r".*?\${(\w+)}.*?")
 
@@ -114,30 +143,80 @@ class SubProcessTaskUtil:
             secrets_to_resolve, executor_ctx
         )
 
-        # 3. Substitute secrets into recipe file
-        if secret_matches:
-            for match in secret_matches:
-                # a. Check if secret was successfully resolved.
-                secret_value = secret_values_dict.get(match)
-                if secret_value is None:
-                    # Failed to resolve secret.
-                    raise TaskError(
-                        f"Failed to resolve secret with name {match}. Aborting recipe execution."
+        # 3. Fall back to os.environ for any secrets not found in secret stores
+        # Track which secrets we need to add (vs. already present)
+        secrets_to_add_to_environ = set()
+
+        for secret_name in secrets_to_resolve:
+            # Check if secret already exists in environment BEFORE we modify it
+            was_already_in_environ = secret_name in os.environ
+
+            if (
+                secret_name not in secret_values_dict
+                or secret_values_dict[secret_name] is None
+            ):
+                env_value = os.environ.get(secret_name)
+                if env_value is not None:
+                    logger.info(
+                        f"Secret '{secret_name}' not found in secret stores, using value from environment variable"
                     )
-                # b. Warn user if the secret is JSON string
-                SubProcessTaskUtil._warn_on_bad_secret_value(
-                    execution_ctx, match, secret_value
-                )
-                # c. Substitute secret value.
-                resolved_recipe = resolved_recipe.replace(f"${{{match}}}", secret_value)
+                    secret_values_dict[secret_name] = env_value
+                    # Don't add to cleanup - it was already in environment
+                else:
+                    logger.warning(
+                        f"Secret '{secret_name}' not found in secret stores or environment, using empty string"
+                    )
+                    secret_values_dict[secret_name] = ""
+                    secrets_to_add_to_environ.add(secret_name)
+            else:
+                # Secret came from secret store
+                # Only add to cleanup if it wasn't already in environment
+                if not was_already_in_environ:
+                    secrets_to_add_to_environ.add(secret_name)
 
-        json_recipe = json.loads(resolved_recipe, strict=False)
+        # Set environment variables for SecretRegistry and DataHub CLI
+        for name, value in secret_values_dict.items():
+            if value is not None and name in secrets_to_add_to_environ:
+                os.environ[name] = value
 
-        # Inject run_id into the recipe
-        json_recipe["run_id"] = execution_ctx.exec_id
+        # Ensure environment cleanup on error
+        try:
+            # Set up secret masking (must happen after env vars are set)
+            if secrets_to_resolve:
+                try:
+                    initialize_secret_masking(force=True)
+                    registry = SecretRegistry.get_instance()
+                    for secret_name in secrets_to_resolve:
+                        secret_value = os.environ.get(secret_name)
+                        if secret_value:
+                            registry.register_secret(secret_name, secret_value)
 
-        # For now expect that the recipe is complete, this may not be the case, however for hybrid deployments. Secret store!
-        return json_recipe
+                    logger.info(
+                        f"Secret masking enabled for {registry.get_count()} secret(s)"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to set up secret masking: {e}. Continuing without masking."
+                    )
+
+            # Validate secret values and warn on potential issues
+            if secret_matches:
+                for match in secret_matches:
+                    secret_value = secret_values_dict.get(match, "")
+                    SubProcessTaskUtil._warn_on_bad_secret_value(
+                        execution_ctx, match, secret_value
+                    )
+
+            json_recipe = json.loads(resolved_recipe, strict=False)
+            json_recipe["run_id"] = execution_ctx.exec_id
+
+            # Return recipe, all secret names, and secrets we added to environment
+            return json_recipe, secrets_to_resolve, secrets_to_add_to_environ
+        except Exception:
+            # Clean up only the secrets we added (not ones already in environment)
+            for secret_name in secrets_to_add_to_environ:
+                os.environ.pop(secret_name, None)
+            raise
 
     @staticmethod
     def _get_plugin_from_recipe(recipe: dict) -> str:
@@ -166,16 +245,6 @@ class SubProcessTaskUtil:
         shutil.rmtree(dir_path)
 
 
-def pydantic_parse_json(field: str, default_val: Any) -> Any:
-    def _parse_from_json(cls: type, v: Any) -> dict:
-        if isinstance(v, str):
-            # Handle corner case where UI passes an empty string
-            return default_val if v == "" else json.loads(v)
-        return v
-
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_parse_from_json)
-
-
 class SubProcessRecipeTaskArgs(PermissiveConfigModel):
     recipe: str
     version: str = "latest"
@@ -184,9 +253,23 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
     extra_pip_plugins: list[str] = []
     extra_env_vars: dict = {}
 
-    _json_extra_pip_requirements = pydantic_parse_json("extra_pip_requirements", [])
-    _json_extra_pip_plugins = pydantic_parse_json("extra_pip_plugins", [])
-    _json_extra_env_vars = pydantic_parse_json("extra_env_vars", {})
+    @pydantic.field_validator(
+        "extra_pip_requirements", "extra_pip_plugins", mode="before"
+    )
+    @classmethod
+    def parse_json_list_fields(cls, v: Any) -> list:
+        if isinstance(v, str):
+            # Handle corner case where UI passes an empty string
+            return [] if v == "" else json.loads(v)
+        return v
+
+    @pydantic.field_validator("extra_env_vars", mode="before")
+    @classmethod
+    def parse_json_dict_field(cls, v: Any) -> dict:
+        if isinstance(v, str):
+            # Handle corner case where UI passes an empty string
+            return {} if v == "" else json.loads(v)
+        return v
 
     def get_venv_name(self, plugin: str) -> str:
         """Generate venv name using venv utilities."""
@@ -202,10 +285,15 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
         return venv_utils.should_use_bundled_venv(self.version)
 
     def get_combined_env_vars(self) -> dict:
-        # Combines os.environ, custom PIP_ env vars, and user-provided custom env vars.
-        return {
-            **os.environ,
-            "PIP_EXTRA_PLUGINS": ",".join(self.extra_pip_plugins),
-            "PIP_EXTRA_PACKAGES": " ".join(self.extra_pip_requirements),
-            **self.extra_env_vars,
+        # Combines os.environ and user-provided custom env vars.
+        # User's extra_env_vars will override system environment variables to allow
+        # users to explicitly configure their ingestion environment.
+        # Filter out empty string values from extra_env_vars to prevent them from overriding
+        # non-empty system environment variables with empty values
+        filtered_extra_vars = {k: v for k, v in self.extra_env_vars.items() if v != ""}
+        combined = {
+            **os.environ,  # System vars as base
+            **filtered_extra_vars,  # User vars override (non-empty only)
         }
+
+        return combined

@@ -190,10 +190,10 @@ class RepositoryCustomProperty(pulumi.CustomResource):
 
         ## Import
 
-        GitHub Repository Custom Property can be imported using an ID made up of a comibnation of the names of the organization, repository, custom property separated by a `:` character, e.g.
+        GitHub Repository Custom Property can be imported using an ID made up of a combination of the names of the organization, repository, custom property separated by a `:` character, e.g.
 
         ```sh
-        $ pulumi import github:index/repositoryCustomProperty:RepositoryCustomProperty example <organization-name>:<repo-name>:<custom-property-name>
+        $ pulumi import github:index/repositoryCustomProperty:RepositoryCustomProperty example organization-name:repo-name:custom-property-name
         ```
 
         :param str resource_name: The name of the resource.
@@ -232,10 +232,10 @@ class RepositoryCustomProperty(pulumi.CustomResource):
 
         ## Import
 
-        GitHub Repository Custom Property can be imported using an ID made up of a comibnation of the names of the organization, repository, custom property separated by a `:` character, e.g.
+        GitHub Repository Custom Property can be imported using an ID made up of a combination of the names of the organization, repository, custom property separated by a `:` character, e.g.
 
         ```sh
-        $ pulumi import github:index/repositoryCustomProperty:RepositoryCustomProperty example <organization-name>:<repo-name>:<custom-property-name>
+        $ pulumi import github:index/repositoryCustomProperty:RepositoryCustomProperty example organization-name:repo-name:custom-property-name
         ```
 
         :param str resource_name: The name of the resource.

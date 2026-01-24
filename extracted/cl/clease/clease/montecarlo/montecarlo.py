@@ -1,11 +1,13 @@
 """Monte Carlo method for ase."""
+
 from collections import Counter
+from collections.abc import Iterator
 from datetime import datetime
 import logging
 import math
 import random
 import time
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Any
 
 from ase import Atoms
 from ase.units import kB
@@ -28,7 +30,7 @@ class Montecarlo(BaseMC):
     :class:`~clease.montecarlo.base.BaseMC`.
 
     Args:
-        system (Union[ase.Atoms, MCEvaluator]): Either an ASE Atoms object
+        system (ase.Atoms | MCEvaluator): Either an ASE Atoms object
             with an attached calculator, or a pre-initialized
             :class:`~clease.montecarlo.mc_evaluator.MCEvaluator`
             object.
@@ -42,9 +44,9 @@ class Montecarlo(BaseMC):
 
     def __init__(
         self,
-        system: Union[Atoms, MCEvaluator],
+        system: Atoms | MCEvaluator,
         temp: float,
-        generator: Optional[TrialMoveGenerator] = None,
+        generator: TrialMoveGenerator | None = None,
     ):
         # We cannot cause an energy calculation trigger in init,
         # so we defer these quantities until needed.
@@ -260,7 +262,7 @@ class Montecarlo(BaseMC):
         logger.debug("Reached end of MC iterator.")
 
     @property
-    def meta_info(self) -> Dict[str, str]:
+    def meta_info(self) -> dict[str, str]:
         """Return dict with meta info."""
         # Get the timestamp with millisecond precision
         timestamp = datetime.now().isoformat(timespec="milliseconds")
@@ -277,7 +279,7 @@ class Montecarlo(BaseMC):
             return 0.0
         return self.num_accepted / self.current_step
 
-    def get_thermodynamic_quantities(self) -> Dict[str, Any]:
+    def get_thermodynamic_quantities(self) -> dict[str, Any]:
         """Compute thermodynamic quantities."""
         quantities = {}
         mean_energy = self.mean_energy.mean
@@ -302,7 +304,7 @@ class Montecarlo(BaseMC):
         quantities.update(self._get_obs_averages())
         return quantities
 
-    def _get_obs_averages(self) -> Dict[str, Any]:
+    def _get_obs_averages(self) -> dict[str, Any]:
         """Get average measurements from observers"""
         obs_avgs = {}
         for obs in self.iter_observers():
@@ -364,7 +366,7 @@ class Montecarlo(BaseMC):
     def _move_rejected(self, system_changes: SystemChanges) -> None:
         self.generator.on_move_rejected(system_changes)
 
-    def count_atoms(self) -> Dict[str, int]:
+    def count_atoms(self) -> dict[str, int]:
         """Count the number of each element."""
         return dict(Counter(self.atoms.symbols))
 

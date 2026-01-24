@@ -29,19 +29,19 @@ IP_ADDR = Label(name="ipAddress", center=False)
 SUBNET = Label(name="subnet", center=True)
 AS = Label(name="as", center=False)
 MEDIA = Label(name="media", center=False)
-VALID_PROTOCOL_LABELS = dict(
-    dgw=Protocol(name="dgw", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    dgwIpv6=Protocol(name="dgwIpv6", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    ebgp=Protocol(name="ebgp", labels=[PROTOCOL, IP_ADDR, AS, Label(name="prefix", center=False)]),
-    eigrp=Protocol(name="eigrp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET, AS]),
-    fex=Protocol(name="fex", labels=[PROTOCOL, INT_NAME]),
-    ibgp=Protocol(name="ibgp", labels=[PROTOCOL, IP_ADDR, AS, Label(name="prefix", center=False)]),
-    ipsec=Protocol(name="ipsec", labels=[PROTOCOL, INT_NAME, IP_ADDR]),
-    isis=Protocol(name="isis", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    ldp=Protocol(name="ldp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    manualLinkL1=Protocol(name="manualLinkL1", labels=[PROTOCOL, INT_NAME]),
-    manualLinkL2=Protocol(name="manualLinkL2", labels=[PROTOCOL, INT_NAME]),
-    ospf=Protocol(
+VALID_PROTOCOL_LABELS = {
+    "dgw": Protocol(name="dgw", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "dgwIpv6": Protocol(name="dgwIpv6", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "ebgp": Protocol(name="ebgp", labels=[PROTOCOL, IP_ADDR, AS, Label(name="prefix", center=False)]),
+    "eigrp": Protocol(name="eigrp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET, AS]),
+    "fex": Protocol(name="fex", labels=[PROTOCOL, INT_NAME]),
+    "ibgp": Protocol(name="ibgp", labels=[PROTOCOL, IP_ADDR, AS, Label(name="prefix", center=False)]),
+    "ipsec": Protocol(name="ipsec", labels=[PROTOCOL, INT_NAME, IP_ADDR]),
+    "isis": Protocol(name="isis", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "ldp": Protocol(name="ldp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "manualLinkL1": Protocol(name="manualLinkL1", labels=[PROTOCOL, INT_NAME]),
+    "manualLinkL2": Protocol(name="manualLinkL2", labels=[PROTOCOL, INT_NAME]),
+    "ospf": Protocol(
         name="ospf",
         labels=[
             PROTOCOL,
@@ -52,7 +52,7 @@ VALID_PROTOCOL_LABELS = dict(
             Label(name="cost", center=False),
         ],
     ),
-    ospfv3=Protocol(
+    "ospfv3": Protocol(
         name="ospfv3",
         labels=[
             PROTOCOL,
@@ -63,17 +63,17 @@ VALID_PROTOCOL_LABELS = dict(
             Label(name="cost", center=False),
         ],
     ),
-    pim=Protocol(name="pim", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    rib=Protocol(name="rib", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    ribIpv6=Protocol(name="ribIpv6", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    rip=Protocol(name="rip", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    rsvp=Protocol(name="rsvp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    stp=Protocol(name="stp", labels=[PROTOCOL, INT_NAME, MEDIA]),
-    vxlan=Protocol(name="vxlan", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
-    wired=Protocol(name="wired", labels=[PROTOCOL, INT_NAME]),
-    wireless=Protocol(name="wireless", labels=[PROTOCOL, INT_NAME]),
-    xdp=Protocol(name="xdp", labels=[PROTOCOL, INT_NAME, MEDIA]),
-)
+    "pim": Protocol(name="pim", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "rib": Protocol(name="rib", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "ribIpv6": Protocol(name="ribIpv6", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "rip": Protocol(name="rip", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "rsvp": Protocol(name="rsvp", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "stp": Protocol(name="stp", labels=[PROTOCOL, INT_NAME, MEDIA]),
+    "vxlan": Protocol(name="vxlan", labels=[PROTOCOL, INT_NAME, IP_ADDR, SUBNET]),
+    "wired": Protocol(name="wired", labels=[PROTOCOL, INT_NAME]),
+    "wireless": Protocol(name="wireless", labels=[PROTOCOL, INT_NAME]),
+    "xdp": Protocol(name="xdp", labels=[PROTOCOL, INT_NAME, MEDIA]),
+}
 
 VALID_NET_PROTOCOLS = {p.lower(): p for p in VALID_PROTOCOL_LABELS.keys()}
 

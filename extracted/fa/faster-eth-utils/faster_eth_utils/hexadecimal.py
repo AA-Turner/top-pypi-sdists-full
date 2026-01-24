@@ -4,22 +4,18 @@ import binascii
 import re
 from typing import (
     Any,
-    AnyStr,
     Final,
-    Union,
+    TypeGuard,
 )
 
 from eth_typing import (
     HexStr,
 )
-from typing_extensions import (
-    TypeGuard,
-)
 
 _HEX_REGEXP_MATCH: Final = re.compile("(0[xX])?[0-9a-fA-F]*").fullmatch
 
-hexlify: Final = binascii.hexlify
-unhexlify: Final = binascii.unhexlify
+_hexlify: Final = binascii.hexlify
+_unhexlify: Final = binascii.unhexlify
 
 
 
@@ -29,11 +25,11 @@ def decode_hex(value: str) -> bytes:
     non_prefixed = remove_0x_prefix(HexStr(value))
     # unhexlify will only accept bytes type someday
     ascii_hex = non_prefixed.encode("ascii")
-    return unhexlify(ascii_hex)
+    return _unhexlify(ascii_hex)
 
 
-def encode_hex(value: AnyStr) -> HexStr:
-    ascii_bytes: Union[bytes, bytearray]
+def encode_hex(value: str | bytes | bytearray) -> HexStr:
+    ascii_bytes: bytes | bytearray
     if isinstance(value, (bytes, bytearray)):
         ascii_bytes = value
     elif isinstance(value, str):
@@ -41,7 +37,7 @@ def encode_hex(value: AnyStr) -> HexStr:
     else:
         raise TypeError("Value must be an instance of str or unicode")
 
-    binary_hex = hexlify(ascii_bytes)
+    binary_hex = _hexlify(ascii_bytes)
     return add_0x_prefix(HexStr(binary_hex.decode("ascii")))
 
 
@@ -51,7 +47,7 @@ def is_0x_prefixed(value: str) -> bool:
     #     raise TypeError(
     #         f"is_0x_prefixed requires text typed arguments. Got: {repr(value)}"
     #     )
-    return value.startswith(("0x", "0X"))
+    return value.startswith("0x") or value.startswith("0X")
 
 
 def remove_0x_prefix(value: HexStr) -> HexStr:

@@ -2,6 +2,8 @@ from enum import Enum
 from functools import partial
 from typing import Any, Dict, List, Optional, Union
 
+from pydantic import BaseModel
+
 
 class MessageFormat(Enum):
     """Enum for different message format types."""
@@ -32,7 +34,10 @@ MODEL_CONFIG = {
     "cohere2_vision": MessageFormat.LIST_WITH_IMAGE,
     "qwen2_vl": MessageFormat.LIST_WITH_IMAGE,
     "qwen2_5_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "qwen3_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "qwen3_vl_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "mistral3": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "glm4v": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "glm4v_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "internvl_chat": MessageFormat.LIST_WITH_IMAGE_TYPE,
     "kimi_vl": MessageFormat.LIST_WITH_IMAGE,
@@ -43,13 +48,15 @@ MODEL_CONFIG = {
     "llava": MessageFormat.LIST_WITH_IMAGE,
     "llava_next": MessageFormat.LIST_WITH_IMAGE,
     "mllama": MessageFormat.LIST_WITH_IMAGE,
-    "pixtral": MessageFormat.LIST_WITH_IMAGE_TYPE,
+    "pixtral": MessageFormat.LIST_WITH_IMAGE_TYPE_TEXT,
     # Token-based models
     "llava-qwen2": MessageFormat.IMAGE_TOKEN_NEWLINE,
+    "llava_qwen2": MessageFormat.IMAGE_TOKEN_NEWLINE,  # fastvlm
     "bunny-llama": MessageFormat.IMAGE_TOKEN_NEWLINE,
     "phi3_v": MessageFormat.NUMBERED_IMAGE_TOKENS,
     "multi_modality": MessageFormat.IMAGE_TOKEN,
     "deepseek_vl_v2": MessageFormat.IMAGE_TOKEN_NEWLINE,
+    "deepseekocr": MessageFormat.IMAGE_TOKEN_NEWLINE,
     # Prompt-only models
     "florence2": MessageFormat.PROMPT_ONLY,
     "molmo": MessageFormat.PROMPT_ONLY,
@@ -73,12 +80,12 @@ class MessageBuilder:
     @staticmethod
     def text_message(text: str) -> Dict[str, str]:
         """Create a simple text message."""
-        return {"type": "text", "text": text}
+        return {"type": "text", "text": text, "content": text}
 
     @staticmethod
     def content_message(content: str) -> Dict[str, str]:
         """Create a content-type text message."""
-        return {"type": "text", "content": content}
+        return {"type": "text", "text": content, "content": content}
 
     @staticmethod
     def image_message() -> Dict[str, str]:
@@ -132,7 +139,12 @@ class MessageFormatter:
             )
 
         # Handle video format for specific models
-        if self.model_name in ["qwen2_vl", "qwen2_5_vl"] and kwargs.get("video"):
+        if self.model_name in [
+            "qwen2_vl",
+            "qwen2_5_vl",
+            "qwen3_vl",
+            "qwen3_vl_moe",
+        ] and kwargs.get("video"):
             return self._format_video_message(prompt, kwargs)
 
         # Route to appropriate formatter
@@ -449,13 +461,20 @@ def apply_chat_template(
                         **kwargs,
                     )
                 )
-            elif isinstance(p, dict):
-                role = p.get("role", "user")
+            elif isinstance(p, dict) or isinstance(p, BaseModel):
+                role = "user"
+                content = ""
+                if isinstance(p, dict):
+                    role = p.get("role", "user")
+                    content = p.get("content")
+                else:
+                    role = p.role
+                    content = p.content
                 is_first = i == 0 or (i == 1 and role not in ["system", "assistant"])
                 messages.append(
                     get_message_json(
                         model_type,
-                        p["content"],
+                        content,
                         role,
                         skip_image_token=not is_first
                         or role in ["system", "assistant"],

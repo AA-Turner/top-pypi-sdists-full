@@ -3,33 +3,91 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import Optional
+from typing import Any, Optional
 
 import autograd.numpy as anp
 import numpy as np
 import pydantic.v1 as pydantic
 import shapely
+from pydantic.v1 import PrivateAttr
+from shapely.geometry.base import BaseGeometry
 
 from tidy3d.components.autograd import AutogradFieldMap, TracedSize1D
-from tidy3d.components.autograd.constants import PTS_PER_WVL_MAT_CYLINDER_DISCRETIZE
 from tidy3d.components.autograd.derivative_utils import DerivativeInfo
 from tidy3d.components.base import cached_property, skip_if_fields_missing
+from tidy3d.components.geometry import base
+from tidy3d.components.geometry.mesh import TriangleMesh
+from tidy3d.components.geometry.polyslab import PolySlab
 from tidy3d.components.types import Axis, Bound, Coordinate, MatrixReal4x4, Shapely
+from tidy3d.config import config
 from tidy3d.constants import LARGE_NUMBER, MICROMETER
 from tidy3d.exceptions import SetupError, ValidationError
+from tidy3d.log import log
 from tidy3d.packaging import verify_packages_import
-
-from . import base
-from .polyslab import PolySlab
 
 # for sampling conical frustum in visualization
 _N_SAMPLE_CURVE_SHAPELY = 40
 
 # for shapely circular shapes discretization in visualization
-_N_SHAPELY_QUAD_SEGS = 200
+_N_SHAPELY_QUAD_SEGS_VISUALIZATION = 200
 
 # Default number of points to discretize polyslab in `Cylinder.to_polyslab()`
 _N_PTS_CYLINDER_POLYSLAB = 51
+_MAX_ICOSPHERE_SUBDIVISIONS = 7  # this would have 164K vertices and 328K faces
+_DEFAULT_EDGE_FRACTION = 0.25
+
+
+def _base_icosahedron() -> tuple[np.ndarray, np.ndarray]:
+    """Return vertices and faces of a unit icosahedron."""
+
+    phi = (1.0 + np.sqrt(5.0)) / 2.0
+    vertices = np.array(
+        [
+            (-1, phi, 0),
+            (1, phi, 0),
+            (-1, -phi, 0),
+            (1, -phi, 0),
+            (0, -1, phi),
+            (0, 1, phi),
+            (0, -1, -phi),
+            (0, 1, -phi),
+            (phi, 0, -1),
+            (phi, 0, 1),
+            (-phi, 0, -1),
+            (-phi, 0, 1),
+        ],
+        dtype=float,
+    )
+    vertices /= np.linalg.norm(vertices, axis=1)[:, None]
+    faces = np.array(
+        [
+            (0, 11, 5),
+            (0, 5, 1),
+            (0, 1, 7),
+            (0, 7, 10),
+            (0, 10, 11),
+            (1, 5, 9),
+            (5, 11, 4),
+            (11, 10, 2),
+            (10, 7, 6),
+            (7, 1, 8),
+            (3, 9, 4),
+            (3, 4, 2),
+            (3, 2, 6),
+            (3, 6, 8),
+            (3, 8, 9),
+            (4, 9, 5),
+            (2, 4, 11),
+            (6, 2, 10),
+            (8, 6, 7),
+            (9, 8, 1),
+        ],
+        dtype=int,
+    )
+    return vertices, faces
+
+
+_ICOSAHEDRON_VERTS, _ICOSAHEDRON_FACES = _base_icosahedron()
 
 
 class Sphere(base.Centered, base.Circular):
@@ -39,6 +97,8 @@ class Sphere(base.Centered, base.Circular):
     -------
     >>> b = Sphere(center=(1,2,3), radius=2)
     """
+
+    _icosphere_cache: dict[int, tuple[np.ndarray, float]] = PrivateAttr(default_factory=dict)
 
     def inside(
         self, x: np.ndarray[float], y: np.ndarray[float], z: np.ndarray[float]
@@ -69,7 +129,12 @@ class Sphere(base.Centered, base.Circular):
         return (dist_x**2 + dist_y**2 + dist_z**2) <= (self.radius**2)
 
     def intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -81,6 +146,11 @@ class Sphere(base.Centered, base.Circular):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            ``_N_SHAPELY_QUAD_SEGS_VISUALIZATION`` for high-quality visualization.
 
         Returns
         -------
@@ -89,6 +159,9 @@ class Sphere(base.Centered, base.Circular):
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
+        if quad_segs is None:
+            quad_segs = _N_SHAPELY_QUAD_SEGS_VISUALIZATION
+
         normal = np.array(normal)
         unit_normal = normal / (np.sum(normal**2) ** 0.5)
         projection = np.dot(np.array(origin) - np.array(self.center), unit_normal)
@@ -104,14 +177,19 @@ class Sphere(base.Centered, base.Circular):
         u /= np.sum(u**2) ** 0.5
         v = np.cross(unit_normal, u)
 
-        angles = np.linspace(0, 2 * np.pi, _N_SHAPELY_QUAD_SEGS * 4 + 1)[:-1]
+        angles = np.linspace(0, 2 * np.pi, quad_segs * 4 + 1)[:-1]
         circ = center + np.outer(np.cos(angles), radius * u) + np.outer(np.sin(angles), radius * v)
         vertices = np.dot(np.hstack((circ, np.ones((angles.size, 1)))), to_2D.T)
         return [shapely.Polygon(vertices[:, :2])]
 
     def intersections_plane(
-        self, x: Optional[float] = None, y: Optional[float] = None, z: Optional[float] = None
-    ):
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        cleanup: bool = True,
+        quad_segs: Optional[int] = None,
+    ) -> list[BaseGeometry]:
         """Returns shapely geometry at plane specified by one non None value of x,y,z.
 
         Parameters
@@ -122,14 +200,22 @@ class Sphere(base.Centered, base.Circular):
             Position of plane in x direction, only one of x,y,z can be specified to define plane.
         z : float = None
             Position of plane in x direction, only one of x,y,z can be specified to define plane.
+        cleanup : bool = True
+            If True, removes extremely small features from each polygon's boundary.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            ``_N_SHAPELY_QUAD_SEGS_VISUALIZATION`` for high-quality visualization.
 
         Returns
         -------
         List[shapely.geometry.base.BaseGeometry]
             List of 2D shapes that intersect plane.
             For more details refer to
-            `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
+            `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>``.
         """
+        if quad_segs is None:
+            quad_segs = _N_SHAPELY_QUAD_SEGS_VISUALIZATION
+
         axis, position = self.parse_xyz_kwargs(x=x, y=y, z=z)
         if not self.intersects_axis_position(axis, position):
             return []
@@ -137,7 +223,7 @@ class Sphere(base.Centered, base.Circular):
         intersect_dist = self._intersect_dist(position, z0)
         if not intersect_dist:
             return []
-        return [shapely.Point(x0, y0).buffer(0.5 * intersect_dist, quad_segs=_N_SHAPELY_QUAD_SEGS)]
+        return [shapely.Point(x0, y0).buffer(0.5 * intersect_dist, quad_segs=quad_segs)]
 
     @cached_property
     def bounds(self) -> Bound:
@@ -176,6 +262,94 @@ class Sphere(base.Centered, base.Circular):
 
         return area
 
+    @classmethod
+    def unit_sphere_triangles(
+        cls,
+        *,
+        target_edge_length: Optional[float] = None,
+        subdivisions: Optional[int] = None,
+    ) -> np.ndarray:
+        """Return unit sphere triangles discretized via an icosphere."""
+
+        unit_tris = UNIT_SPHERE._unit_sphere_triangles(
+            target_edge_length=target_edge_length,
+            subdivisions=subdivisions,
+            copy_result=True,
+        )
+        return unit_tris
+
+    def _unit_sphere_triangles(
+        self,
+        *,
+        target_edge_length: Optional[float] = None,
+        subdivisions: Optional[int] = None,
+        copy_result: bool = True,
+    ) -> np.ndarray:
+        """Return cached unit-sphere triangles with optional copying."""
+        if target_edge_length is not None and subdivisions is not None:
+            raise ValueError("Specify either target_edge_length OR subdivisions, not both.")
+
+        if subdivisions is None:
+            subdivisions = self._subdivisions_for_edge(target_edge_length)
+
+        triangles, _ = self._icosphere_data(subdivisions)
+        return np.array(triangles, copy=copy_result)
+
+    def _subdivisions_for_edge(self, target_edge_length: Optional[float]) -> int:
+        if target_edge_length is None or target_edge_length <= 0.0:
+            return 0
+
+        for subdiv in range(_MAX_ICOSPHERE_SUBDIVISIONS + 1):
+            _, max_edge = self._icosphere_data(subdiv)
+            if max_edge <= target_edge_length:
+                return subdiv
+
+        log.warning(
+            f"Requested sphere mesh edge length {target_edge_length:.3e} μm requires more than "
+            f"{_MAX_ICOSPHERE_SUBDIVISIONS} subdivisions. "
+            "Clipping to the finest available mesh.",
+            log_once=True,
+        )
+        return _MAX_ICOSPHERE_SUBDIVISIONS
+
+    def _icosphere_data(self, subdivisions: int) -> tuple[np.ndarray, float]:
+        cache = self._icosphere_cache
+        if subdivisions in cache:
+            return cache[subdivisions]
+
+        vertices = np.asarray(_ICOSAHEDRON_VERTS, dtype=float)
+        faces = np.asarray(_ICOSAHEDRON_FACES, dtype=int)
+        if subdivisions > 0:
+            vertices = vertices.copy()
+            faces = faces.copy()
+            for _ in range(subdivisions):
+                vertices, faces = TriangleMesh.subdivide_faces(vertices, faces)
+
+        norms = np.linalg.norm(vertices, axis=1, keepdims=True)
+        norms = np.where(norms == 0.0, 1.0, norms)
+        vertices = vertices / norms
+
+        triangles = vertices[faces]
+        max_edge = self._max_edge_length(triangles)
+        cache[subdivisions] = (triangles, max_edge)
+        return triangles, max_edge
+
+    @staticmethod
+    def _max_edge_length(triangles: np.ndarray) -> float:
+        v = triangles
+        edges = np.stack(
+            [
+                v[:, 1] - v[:, 0],
+                v[:, 2] - v[:, 1],
+                v[:, 0] - v[:, 2],
+            ],
+            axis=1,
+        )
+        return float(np.linalg.norm(edges, axis=2).max())
+
+
+UNIT_SPHERE = Sphere(center=(0.0, 0.0, 0.0), radius=1.0)
+
 
 class Cylinder(base.Centered, base.Circular, base.Planar):
     """Cylindrical geometry with optional sidewall angle along axis
@@ -212,7 +386,9 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
 
     @pydantic.validator("length", always=True)
     @skip_if_fields_missing(["sidewall_angle", "reference_plane"])
-    def _only_middle_for_infinite_length_slanted_cylinder(cls, val, values):
+    def _only_middle_for_infinite_length_slanted_cylinder(
+        cls, val: float, values: dict[str, Any]
+    ) -> float:
         """For a slanted cylinder of infinite length, ``reference_plane`` can only
         be ``middle``; otherwise, the radius at ``center`` is either td.inf or 0.
         """
@@ -227,7 +403,7 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         return val
 
     def to_polyslab(
-        self, num_pts_circumference: int = _N_PTS_CYLINDER_POLYSLAB, **kwargs
+        self, num_pts_circumference: int = _N_PTS_CYLINDER_POLYSLAB, **kwargs: Any
     ) -> PolySlab:
         """Convert instance of ``Cylinder`` into a discretized version using ``PolySlab``.
 
@@ -278,27 +454,62 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         ys = np.sin(angles)
         return np.stack((xs, ys), axis=0)
 
+    def _discretization_wavelength(self, derivative_info: DerivativeInfo) -> float:
+        """Choose a reference wavelength for discretizing the cylinder into a `PolySlab`."""
+        wvl0_min = derivative_info.wavelength_min
+        wvl_mat = wvl0_min / np.max([1.0, np.max(np.sqrt(abs(derivative_info.eps_in)))])
+
+        grid_cfg = config.adjoint
+
+        min_wvl_mat = grid_cfg.min_wvl_fraction * wvl0_min
+        if wvl_mat < min_wvl_mat:
+            log.warning(
+                f"The minimum wavelength inside the cylinder material is {wvl_mat:.3e} μm, which would "
+                f"create a large number of discretization points for computing the gradient. "
+                f"To prevent performance degradation, the discretization wavelength has "
+                f"been clipped to {min_wvl_mat:.3e} μm.",
+                log_once=True,
+            )
+        wvl_mat = max(wvl_mat, min_wvl_mat)
+
+        return wvl_mat
+
     def _compute_derivatives(self, derivative_info: DerivativeInfo) -> AutogradFieldMap:
         """Compute the adjoint derivatives for this object."""
 
         # compute circumference discretization
-        wvl0_min = derivative_info.wavelength_min
-        wvl_mat = wvl0_min / np.max([1.0, np.max(np.sqrt(abs(derivative_info.eps_in)))])
+        wvl_mat = self._discretization_wavelength(derivative_info=derivative_info)
 
         circumference = 2 * np.pi * self.radius
         wvls_in_circumference = circumference / wvl_mat
 
-        num_pts_circumference = int(
-            np.ceil(PTS_PER_WVL_MAT_CYLINDER_DISCRETIZE * wvls_in_circumference)
-        )
+        grid_cfg = config.adjoint
+        num_pts_circumference = int(np.ceil(grid_cfg.points_per_wavelength * wvls_in_circumference))
         num_pts_circumference = max(3, num_pts_circumference)
 
         # construct equivalent polyslab and compute the derivatives
         polyslab = self.to_polyslab(num_pts_circumference=num_pts_circumference)
 
+        # build PolySlab derivative paths based on requested Cylinder paths
+        ps_paths = set()
+        for path in derivative_info.paths:
+            if path == ("length",):
+                ps_paths.update({("slab_bounds", 0), ("slab_bounds", 1)})
+            elif path == ("radius",):
+                ps_paths.add(("vertices",))
+            elif "center" in path:
+                _, center_index = path
+                _, (index_x, index_y) = self.pop_axis((0, 1, 2), axis=self.axis)
+                if center_index in (index_x, index_y):
+                    ps_paths.add(("vertices",))
+                else:
+                    ps_paths.update({("slab_bounds", 0), ("slab_bounds", 1)})
+            elif path == ("sidewall_angle",):
+                ps_paths.add(("sidewall_angle",))
+
         # pass interpolators to PolySlab if available to avoid redundant conversions
         update_kwargs = {
-            "paths": [("vertices",), ("slab_bounds", 0), ("slab_bounds", 1)],
+            "paths": list(ps_paths),
             "deep": False,
         }
         if derivative_info.interpolators is not None:
@@ -307,32 +518,47 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         derivative_info_polyslab = derivative_info.updated_copy(**update_kwargs)
         vjps_polyslab = polyslab._compute_derivatives(derivative_info_polyslab)
 
-        vjps_vertices_xs, vjps_vertices_ys = vjps_polyslab[("vertices",)].T
-        vjp_top = vjps_polyslab[("slab_bounds", 0)]
-        vjp_bot = vjps_polyslab[("slab_bounds", 1)]
-
-        # transform polyslab vertices derivatives into Cylinder parameter derivatives
-        xs_, ys_ = self._points_unit_circle(num_pts_circumference=num_pts_circumference)
-        vjp_xs = np.sum(xs_ * vjps_vertices_xs)
-        vjp_ys = np.sum(ys_ * vjps_vertices_ys)
-
         vjps = {}
         for path in derivative_info.paths:
             if path == ("length",):
+                vjp_top = vjps_polyslab.get(("slab_bounds", 0), 0.0)
+                vjp_bot = vjps_polyslab.get(("slab_bounds", 1), 0.0)
                 vjps[path] = vjp_top - vjp_bot
 
             elif path == ("radius",):
-                vjps[path] = vjp_xs + vjp_ys
+                # transform polyslab vertices derivatives into radius derivative
+                xs_, ys_ = self._points_unit_circle(num_pts_circumference=num_pts_circumference)
+                if ("vertices",) not in vjps_polyslab:
+                    vjps[path] = 0.0
+                else:
+                    vjps_vertices_xs, vjps_vertices_ys = vjps_polyslab[("vertices",)].T
+                    vjp_xs = np.sum(xs_ * vjps_vertices_xs)
+                    vjp_ys = np.sum(ys_ * vjps_vertices_ys)
+                    vjps[path] = vjp_xs + vjp_ys
 
             elif "center" in path:
                 _, center_index = path
                 _, (index_x, index_y) = self.pop_axis((0, 1, 2), axis=self.axis)
                 if center_index == index_x:
-                    vjps[path] = np.sum(vjps_vertices_xs)
+                    if ("vertices",) not in vjps_polyslab:
+                        vjps[path] = 0.0
+                    else:
+                        vjps_vertices_xs = vjps_polyslab[("vertices",)][:, 0]
+                        vjps[path] = np.sum(vjps_vertices_xs)
                 elif center_index == index_y:
-                    vjps[path] = np.sum(vjps_vertices_ys)
+                    if ("vertices",) not in vjps_polyslab:
+                        vjps[path] = 0.0
+                    else:
+                        vjps_vertices_ys = vjps_polyslab[("vertices",)][:, 1]
+                        vjps[path] = np.sum(vjps_vertices_ys)
                 else:
+                    vjp_top = vjps_polyslab.get(("slab_bounds", 0), 0.0)
+                    vjp_bot = vjps_polyslab.get(("slab_bounds", 1), 0.0)
                     vjps[path] = vjp_top + vjp_bot
+
+            elif path == ("sidewall_angle",):
+                # direct mapping: cylinder angle equals polyslab angle
+                vjps[path] = vjps_polyslab.get(("sidewall_angle",), 0.0)
 
             else:
                 raise NotImplementedError(
@@ -344,7 +570,7 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         return vjps
 
     @property
-    def center_axis(self):
+    def center_axis(self) -> Any:
         """Gets the position of the center of the geometry in the out of plane dimension."""
         z0, _ = self.pop_axis(self.center, axis=self.axis)
         return z0
@@ -376,7 +602,11 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
 
     @verify_packages_import(["trimesh"])
     def _do_intersections_tilted_plane(
-        self, normal: Coordinate, origin: Coordinate, to_2D: MatrixReal4x4
+        self,
+        normal: Coordinate,
+        origin: Coordinate,
+        to_2D: MatrixReal4x4,
+        quad_segs: Optional[int] = None,
     ) -> list[Shapely]:
         """Return a list of shapely geometries at the plane specified by normal and origin.
 
@@ -388,6 +618,9 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
             Vector defining the plane origin.
         to_2D : MatrixReal4x4
             Transformation matrix to apply to resulting shapes.
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            ``_N_SHAPELY_QUAD_SEGS_VISUALIZATION`` for high-quality visualization.
 
         Returns
         -------
@@ -397,6 +630,9 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
         import trimesh
+
+        if quad_segs is None:
+            quad_segs = _N_SHAPELY_QUAD_SEGS_VISUALIZATION
 
         z0, (x0, y0) = self.pop_axis(self.center, self.axis)
         half_length = self.finite_length_axis / 2
@@ -417,7 +653,7 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
                 r_bot = 0
                 z_bot = z0 + self._radius_z(z0) / self._tanq
 
-        angles = np.linspace(0, 2 * np.pi, _N_SHAPELY_QUAD_SEGS * 4 + 1)
+        angles = np.linspace(0, 2 * np.pi, quad_segs * 4 + 1)
 
         if r_bot > 0:
             x_bot = x0 + r_bot * np.cos(angles)
@@ -471,13 +707,18 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         path, _ = section.to_2D(to_2D=to_2D)
         return path.polygons_full
 
-    def _intersections_normal(self, z: float):
+    def _intersections_normal(
+        self, z: float, quad_segs: Optional[int] = None
+    ) -> list[BaseGeometry]:
         """Find shapely geometries intersecting cylindrical geometry with axis normal to slab.
 
         Parameters
         ----------
         z : float
             Position along the axis normal to slab
+        quad_segs : Optional[int] = None
+            Number of segments used to discretize circular shapes. If ``None``, uses
+            ``_N_SHAPELY_QUAD_SEGS_VISUALIZATION`` for high-quality visualization.
 
         Returns
         -------
@@ -486,6 +727,8 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
             For more details refer to
             `Shapely's Documentation <https://shapely.readthedocs.io/en/stable/project.html>`_.
         """
+        if quad_segs is None:
+            quad_segs = _N_SHAPELY_QUAD_SEGS_VISUALIZATION
 
         static_self = self.to_static()
 
@@ -496,9 +739,9 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
             return []
 
         _, (x0, y0) = self.pop_axis(static_self.center, axis=self.axis)
-        return [shapely.Point(x0, y0).buffer(radius_offset, quad_segs=_N_SHAPELY_QUAD_SEGS)]
+        return [shapely.Point(x0, y0).buffer(radius_offset, quad_segs=quad_segs)]
 
-    def _intersections_side(self, position, axis):
+    def _intersections_side(self, position: float, axis: int) -> list[BaseGeometry]:
         """Find shapely geometries intersecting cylindrical geometry with axis orthogonal to length.
         When ``sidewall_angle`` is nonzero, so that it's in fact a conical frustum or cone, the
         cross section can contain hyperbolic curves. This is currently approximated by a polygon
@@ -716,7 +959,7 @@ class Cylinder(base.Centered, base.Circular, base.Planar):
         """
         return min(self.radius_bottom, self.radius_top)
 
-    def _radius_z(self, z: float):
+    def _radius_z(self, z: float) -> float:
         """Compute the radius of the cross section at the position z.
 
         Parameters

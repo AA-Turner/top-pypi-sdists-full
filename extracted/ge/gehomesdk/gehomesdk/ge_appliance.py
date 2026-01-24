@@ -4,7 +4,6 @@ import enum
 import logging
 from weakref import WeakValueDictionary
 from typing import Any, List, Dict, Optional, Set, TYPE_CHECKING, Union
-from slixmpp import JID
 
 from .erd import ErdCode, ErdCodeType, ErdCodeClass, ErdApplianceType, ErdEncoder, ErdDataType
 from .exception import *
@@ -13,7 +12,7 @@ if TYPE_CHECKING:
     from .clients import GeBaseClient
 
 try:
-    import ujson as json
+    import ujson as json # pyright: ignore[reportMissingModuleSource]
 except ImportError:
     import json
 
@@ -26,9 +25,7 @@ class GeAppliance:
     # Registry of initialized appliances
     _appliance_cache = WeakValueDictionary()
 
-    def __new__(cls, mac_addr: Union[str, JID], client: "GeBaseClient", *args, **kwargs):
-        if isinstance(mac_addr, JID):
-            mac_addr = str(mac_addr.user).split('_')[0]
+    def __new__(cls, mac_addr: str, client: "GeBaseClient", *args, **kwargs):
         try:
             obj = cls._appliance_cache[mac_addr]  # type: "GeAppliance"
         except KeyError:
@@ -41,9 +38,7 @@ class GeAppliance:
                 obj.client = client
         return obj
 
-    def __init__(self, mac_addr: Union[str, JID], client: "GeBaseClient"):
-        if isinstance(mac_addr, JID):
-            mac_addr = str(mac_addr.user).split('_')[0]
+    def __init__(self, mac_addr: str, client: "GeBaseClient"):
         self._available = False
         self._mac_addr = mac_addr.upper()
         self._message_id = 0
@@ -82,11 +77,11 @@ class GeAppliance:
         await self.client.async_request_update(self)
 
     def set_available(self):
-        _LOGGER.debug(f'{self.mac_addr} marked available')
+        _LOGGER.info(f'{self.mac_addr} marked available')
         self._available = True
 
     def set_unavailable(self):
-        _LOGGER.debug(f'{self.mac_addr} marked unavailable')
+        _LOGGER.warning(f'{self.mac_addr} marked unavailable')
         self._available = False
 
     @property
@@ -113,7 +108,9 @@ class GeAppliance:
         :param erd_value: The raw ERD code value, usually a hex string without leading "0x"
         :return: The decoded value.
         """
-        return self._encoder.decode_value(erd_code, erd_value)
+        decoded_value = self._encoder.decode_value(erd_code, erd_value)
+        _LOGGER.debug("MAC:'%s', erd_code:'%s', value: '%s', decoded_value: '%s'", self._mac_addr, erd_code, erd_value, decoded_value)
+        return decoded_value
 
     def encode_erd_value(self, erd_code: ErdCodeType, value: Any) -> str:
         """
@@ -124,7 +121,9 @@ class GeAppliance:
         :param value: The value to re-encode
         :return: The encoded value as a hex string
         """
-        return self._encoder.encode_value(erd_code, value)
+        encoded_value = self._encoder.encode_value(erd_code, value)
+        _LOGGER.debug("MAC:'%s', erd_code:'%s', value: '%s', encoded_value: '%s'", self._mac_addr, erd_code, value, encoded_value)
+        return encoded_value
 
     def get_erd_value(self, erd_code: ErdCodeType) -> Any:
         """

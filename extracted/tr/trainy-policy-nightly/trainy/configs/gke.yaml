@@ -30,8 +30,6 @@ kubernetes:
            {"interfaceName":"eth8","network":"vpc8"}
          ]
    spec:
-     nodeSelector:
-       cloud.google.com/gke-nodepool: h100-mega-80gb-pool
      initContainers:
        - name: tcpxo-daemon
          image: "us-docker.pkg.dev/gce-ai-infra/gpudirect-tcpxo/tcpgpudmarxd-dev:v1.0.9"

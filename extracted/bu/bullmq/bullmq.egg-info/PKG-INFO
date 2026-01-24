@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bullmq
-Version: 2.16.1
+Version: 2.19.2
 Summary: BullMQ for Python
 Author-email: "Taskforce.sh Inc." <manast@taskforce.sh>
 Project-URL: Homepage, https://bullmq.io
@@ -13,12 +13,12 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
-Requires-Dist: redis<7,>=6.2.0
-Requires-Dist: msgpack<2,>=1.0.0
-Requires-Dist: semver<4,>=3.0.4
+Requires-Dist: redis==6.4.0
+Requires-Dist: msgpack==1.1.2
+Requires-Dist: semver==3.0.4
 Provides-Extra: dev
-Requires-Dist: pre-commit==3.3.3; extra == "dev"
-Requires-Dist: build==0.8.0; extra == "dev"
+Requires-Dist: pre-commit==3.8.0; extra == "dev"
+Requires-Dist: build==0.10.0; extra == "dev"
 Requires-Dist: types-redis==4.6.0.2; extra == "dev"
 
 # BullMQ For Python
@@ -36,6 +36,7 @@ have been ported so far:
 
   - [x] Regular jobs.
   - [x] Delayed jobs.
+  - [x] Job deduplication.
   - [ ] Job priority.
   - [ ] Repeatable.
 
@@ -54,14 +55,53 @@ pip install bullmq
 
 ## Usage
 
+### Basic Example
+
 ```python
 from bullmq import Queue
 
 queue = Queue('my-queue')
 
 job = await queue.add('my-job', {'foo': 'bar'})
-
 ```
+
+### Job Deduplication
+
+Prevent duplicate jobs from being added to the queue:
+
+```python
+from bullmq import Queue
+
+queue = Queue('my-queue')
+
+# Simple mode - deduplicates until job completes or fails
+job = await queue.add('paint', {'color': 'white'}, {
+    'deduplication': {
+        'id': 'custom-dedup-id'
+    }
+})
+
+# Throttle mode - deduplicates for a specific time window (in milliseconds)
+job = await queue.add('paint', {'color': 'white'}, {
+    'deduplication': {
+        'id': 'custom-dedup-id',
+        'ttl': 5000  # 5 seconds
+    }
+})
+
+# Debounce mode - replaces pending job with latest data
+job = await queue.add('paint', {'color': 'white'}, {
+    'deduplication': {
+        'id': 'custom-dedup-id',
+        'ttl': 5000,
+        'extend': True,  # Extend TTL on each duplicate attempt
+        'replace': True  # Replace job data with latest
+    },
+    'delay': 5000  # Must be delayed for replace to work
+})
+```
+
+
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 ///
 /// See [docs/md019.md](../../docs/md019.md) for full documentation, configuration, and examples.
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
-use crate::utils::range_utils::{LineIndex, calculate_single_line_range};
+use crate::utils::range_utils::calculate_single_line_range;
 
 #[derive(Clone)]
 pub struct MD019NoMultipleSpaceAtx;
@@ -37,15 +37,12 @@ impl Rule for MD019NoMultipleSpaceAtx {
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
 
-        // Create LineIndex once outside the loop
-        let line_index = LineIndex::new(ctx.content.to_string());
-
         // Check all ATX headings from cached info
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
             if let Some(heading) = &line_info.heading {
                 // Only check ATX headings
                 if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                    let line = &line_info.content;
+                    let line = line_info.content(ctx.content);
                     let trimmed = line.trim_start();
                     let marker_pos = line_info.indent + heading.marker.len();
 
@@ -62,10 +59,10 @@ impl Rule for MD019NoMultipleSpaceAtx {
                             );
 
                             // Calculate byte range for just the extra spaces
-                            let line_start_byte = line_index.get_line_start_byte(line_num + 1).unwrap_or(0);
+                            let line_start_byte = ctx.line_index.get_line_start_byte(line_num + 1).unwrap_or(0);
 
                             // We need to work with the original line, not trimmed
-                            let original_line = &line_info.content;
+                            let original_line = line_info.content(ctx.content);
                             let marker_byte_pos = line_start_byte + line_info.indent + heading.marker.len();
 
                             // Get the actual byte length of the spaces/tabs after the marker
@@ -81,7 +78,7 @@ impl Rule for MD019NoMultipleSpaceAtx {
                             let extra_spaces_end = marker_byte_pos + space_bytes;
 
                             warnings.push(LintWarning {
-                                rule_name: Some(self.name()),
+                                rule_name: Some(self.name().to_string()),
                                 message: format!(
                                     "Multiple spaces ({}) after {} in heading",
                                     space_count,
@@ -115,17 +112,18 @@ impl Rule for MD019NoMultipleSpaceAtx {
             if let Some(heading) = &line_info.heading {
                 // Fix ATX headings with multiple spaces
                 if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                    let line = &line_info.content;
+                    let line = line_info.content(ctx.content);
                     let trimmed = line.trim_start();
 
                     if trimmed.len() > heading.marker.len() {
                         let space_count = self.count_spaces_after_marker(trimmed, heading.marker.len());
 
                         if space_count > 1 {
-                            // Normalize to single space
+                            // Normalize to single space, preserving original indentation (including tabs)
+                            let line = line_info.content(ctx.content);
+                            let original_indent = &line[..line_info.indent];
                             lines.push(format!(
-                                "{}{} {}",
-                                " ".repeat(line_info.indent),
+                                "{original_indent}{} {}",
                                 heading.marker,
                                 trimmed[heading.marker.len()..].trim_start()
                             ));
@@ -136,7 +134,7 @@ impl Rule for MD019NoMultipleSpaceAtx {
             }
 
             if !fixed {
-                lines.push(line_info.content.clone());
+                lines.push(line_info.content(ctx.content).to_string());
             }
         }
 
@@ -156,7 +154,7 @@ impl Rule for MD019NoMultipleSpaceAtx {
 
     /// Check if this rule should be skipped
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        ctx.content.is_empty() || !ctx.content.contains('#')
+        ctx.content.is_empty() || !ctx.likely_has_headings()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -181,7 +179,7 @@ mod tests {
 
         // Test with heading that has multiple spaces
         let content = "#  Multiple Spaces\n\nRegular content\n\n##   More Spaces";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2); // Should flag both headings
         assert_eq!(result[0].line, 1);
@@ -189,7 +187,7 @@ mod tests {
 
         // Test with proper headings
         let content = "# Single Space\n\n## Also correct";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             result.is_empty(),

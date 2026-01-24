@@ -27,7 +27,8 @@ class TestSearchApi(unittest.TestCase):
         """Test case for find_all_artifacts
 
         """
-        pass
+        response = self.api.find_all_artifacts(payload={"name": ".License_info"})
+        assert len(response) > 0
 
     def test_find_first_artifact(self):
         """Test case for find_first_artifact

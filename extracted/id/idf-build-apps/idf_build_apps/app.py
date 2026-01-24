@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
@@ -109,6 +109,7 @@ class App(BaseModel):
     build_status: BuildStatus = BuildStatus.UNKNOWN
     build_comment: t.Optional[str] = None
     test_comment: t.Optional[str] = None
+    checked_should_build: bool = False
 
     _build_duration: float = 0
     _build_timestamp: t.Optional[datetime] = None
@@ -116,6 +117,7 @@ class App(BaseModel):
     __EQ_IGNORE_FIELDS__ = [
         'build_comment',
         'test_comment',
+        'checked_should_build',
     ]
     __EQ_TUNE_FIELDS__ = {
         'app_dir': lambda x: (os.path.realpath(os.path.expanduser(x))),
@@ -162,9 +164,6 @@ class App(BaseModel):
         )
         self._kwargs = kwargs
         self._initialize_hook(**kwargs)
-
-        # private attrs, won't be dumped to json
-        self._checked_should_build = False
 
         self._sdkconfig_files, self._sdkconfig_files_defined_target = self._process_sdkconfig_files()
 
@@ -512,7 +511,9 @@ class App(BaseModel):
             BuildStatus.UNKNOWN,
             BuildStatus.SHOULD_BE_BUILT,
         ):
-            self.build_comment = f'Build {self.build_status.value}. Skipping...'
+            if not self.build_comment:
+                self.build_comment = f'Build {self.build_status.value}. Skipping...'
+
             return
 
         # real build starts here
@@ -643,11 +644,28 @@ class App(BaseModel):
             return
 
         if IDF_VERSION >= Version('4.1'):
+            """
+            Starting from version 2.0.0 esp-idf-size uses new generation (NG) implementation.
+            In newest version `--format json` was changed to `--format json2`.
+            For different versions of IDF there are 4 scenarios:
+
+            1. 6.0 - NG is enforced until version 2.x will be fully incorporated.
+            2. >=5.3 <=5.5 - NG is enabled by default, but could be disabled using `-l/--legacy` argument.
+            3. 5.1 and 5.2 - only legacy mode is supported.
+            4. <5.1 - esp-idf-size package is not used, only `--json` argument is supported.
+            """
+            if IDF_VERSION >= Version('5.3'):
+                format_arg = ['--format', 'json2']
+            elif IDF_VERSION >= Version('5.1'):
+                format_arg = ['--format', 'json']
+            else:
+                format_arg = ['--json']
+
             subprocess_run(
                 [
                     sys.executable,
                     str(IDF_SIZE_PY),
-                    *(['--json'] if IDF_VERSION < Version('5.1') else ['--format', 'json']),
+                    *(format_arg),
                     '-o',
                     self.size_json_path,
                     *(self.size_json_extra_args or []),
@@ -710,8 +728,12 @@ class App(BaseModel):
                 if os.path.basename(_f_fullpath).endswith('.md'):
                     continue
 
-                if _f_fullpath.startswith(_app_dir_fullpath):
-                    return True
+                try:
+                    if os.path.commonpath([_f_fullpath, _app_dir_fullpath]) == _app_dir_fullpath:
+                        return True
+                except ValueError:
+                    # on Windows, if paths are on different drives, a ValueError will be raised
+                    continue
 
         return False
 
@@ -750,12 +772,12 @@ class App(BaseModel):
                         self.build_comment += '\n'.join(f'- {clause}' for clause in rule.enable)
 
             self.build_status = BuildStatus.DISABLED
-            self._checked_should_build = True
+            self.checked_should_build = True
             return
 
         if not check_app_dependencies:
             self.build_status = BuildStatus.SHOULD_BE_BUILT
-            self._checked_should_build = True
+            self.checked_should_build = True
             return
 
         if (
@@ -765,26 +787,26 @@ class App(BaseModel):
         ):
             self.build_status = BuildStatus.SHOULD_BE_BUILT
             self.build_comment = 'current build modifies the related manifest rules'
-            self._checked_should_build = True
+            self.checked_should_build = True
             return
 
         if self.is_modified(modified_files):
             self.build_status = BuildStatus.SHOULD_BE_BUILT
             self.build_comment = 'current build modifies this app'
-            self._checked_should_build = True
+            self.checked_should_build = True
             return
 
         # if didn't modify any components, and no `depends_filepatterns` defined, skip
         if modified_components == [] and not self.depends_filepatterns:
             self.build_status = BuildStatus.SKIPPED
             self.build_comment = 'current build does not modify any components'
-            self._checked_should_build = True
+            self.checked_should_build = True
             return
 
         # if no special rules defined, we left it unknown and decide with idf.py reconfigure
         if not self.depends_components and not self.depends_filepatterns:
             # keep unknown
-            self._checked_should_build = True
+            self.checked_should_build = True
             self.build_comment = 'no special rules defined, run idf.py reconfigure to decide'
             return
 
@@ -795,7 +817,7 @@ class App(BaseModel):
         # depends components?
         if self.depends_components and modified_components is not None:
             if set(self.depends_components).intersection(set(modified_components)):
-                self._checked_should_build = True
+                self.checked_should_build = True
                 self.build_status = BuildStatus.SHOULD_BE_BUILT
                 self.build_comment = (
                     f'Requires components: {", ".join(self.depends_components)}. '
@@ -806,7 +828,7 @@ class App(BaseModel):
         # or depends file patterns?
         if self.depends_filepatterns and modified_files is not None:
             if files_matches_patterns(modified_files, self.depends_filepatterns, manifest_rootpath):
-                self._checked_should_build = True
+                self.checked_should_build = True
                 self.build_status = BuildStatus.SHOULD_BE_BUILT
                 self.build_comment = (
                     f'Requires file patterns: {", ".join(self.depends_filepatterns)}. '
@@ -817,7 +839,7 @@ class App(BaseModel):
         # special rules defined, but not matched
         self.build_status = BuildStatus.SKIPPED
         self.build_comment = 'current build does not modify any components or files required by this app'
-        self._checked_should_build = True
+        self.checked_should_build = True
 
     def check_should_test(self) -> None:
         """Check if testing is disabled for this app and set test_disable_reason."""
@@ -955,7 +977,7 @@ class CMakeApp(App):
             check_app_dependencies=check_app_dependencies,
         )
 
-        if not self._checked_should_build:
+        if not self.checked_should_build:
             self.check_should_build(
                 manifest_rootpath=manifest_rootpath,
                 modified_components=modified_components,

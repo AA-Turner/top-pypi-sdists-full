@@ -36,6 +36,10 @@ __all__ = (
     "pebi",
     "peta",
     "pico",
+    "quecto",
+    "quetta",
+    "ronna",
+    "ronto",
     "tebi",
     "tera",
     "yobi",
@@ -50,8 +54,8 @@ __all__ = (
 # -----------------------------------------------------------------------------
 # SI prefixes
 # -----------------------------------------------------------------------------
-from typing import List
-
+quetta = 1.0e30
+ronna = 1.0e27
 yotta = 1.0e24
 zetta = 1.0e21
 exa = 1.0e18
@@ -72,6 +76,8 @@ femto = 1.0e-15
 atto = 1.0e-18
 zepto = 1.0e-21
 yocto = 1.0e-24
+ronto = 1.0e-27
+quecto = 1.0e-30
 
 # -----------------------------------------------------------------------------
 # Binary prefixes
@@ -91,5 +97,5 @@ yobi = 2.0**80
 googol = 1.0e100
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return list(__all__)

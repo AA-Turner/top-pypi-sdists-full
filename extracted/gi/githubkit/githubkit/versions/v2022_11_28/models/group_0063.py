@@ -9,7 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -17,105 +18,136 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0052 import PullRequestMinimal
 
-class SecurityAndAnalysis(GitHubModel):
-    """SecurityAndAnalysis"""
 
-    advanced_security: Missing[SecurityAndAnalysisPropAdvancedSecurity] = Field(
-        default=UNSET,
-        description="Enable or disable GitHub Advanced Security for the repository.\n\nFor standalone Code Scanning or Secret Protection products, this parameter cannot be used.\n",
+class PullRequestReviewCommentEvent(GitHubModel):
+    """PullRequestReviewCommentEvent"""
+
+    action: str = Field()
+    pull_request: PullRequestMinimal = Field(title="Pull Request Minimal")
+    comment: PullRequestReviewCommentEventPropComment = Field()
+
+
+class PullRequestReviewCommentEventPropComment(GitHubModel):
+    """PullRequestReviewCommentEventPropComment"""
+
+    id: int = Field()
+    node_id: str = Field()
+    url: str = Field()
+    pull_request_review_id: Union[int, None] = Field()
+    diff_hunk: str = Field()
+    path: str = Field()
+    position: Union[int, None] = Field()
+    original_position: int = Field()
+    subject_type: Missing[Union[str, None]] = Field(default=UNSET)
+    commit_id: str = Field()
+    user: Union[PullRequestReviewCommentEventPropCommentPropUser, None] = Field(
+        title="User"
     )
-    code_security: Missing[SecurityAndAnalysisPropCodeSecurity] = Field(default=UNSET)
-    dependabot_security_updates: Missing[
-        SecurityAndAnalysisPropDependabotSecurityUpdates
-    ] = Field(
-        default=UNSET,
-        description="Enable or disable Dependabot security updates for the repository.",
+    body: str = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    html_url: str = Field()
+    pull_request_url: str = Field()
+    links: PullRequestReviewCommentEventPropCommentPropLinks = Field(alias="_links")
+    original_commit_id: str = Field()
+    reactions: PullRequestReviewCommentEventPropCommentPropReactions = Field(
+        title="Reactions"
     )
-    secret_scanning: Missing[SecurityAndAnalysisPropSecretScanning] = Field(
-        default=UNSET
+    in_reply_to_id: Missing[int] = Field(default=UNSET)
+
+
+class PullRequestReviewCommentEventPropCommentPropUser(GitHubModel):
+    """User"""
+
+    avatar_url: Missing[str] = Field(default=UNSET)
+    deleted: Missing[bool] = Field(default=UNSET)
+    email: Missing[Union[str, None]] = Field(default=UNSET)
+    events_url: Missing[str] = Field(default=UNSET)
+    followers_url: Missing[str] = Field(default=UNSET)
+    following_url: Missing[str] = Field(default=UNSET)
+    gists_url: Missing[str] = Field(default=UNSET)
+    gravatar_id: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    id: Missing[int] = Field(default=UNSET)
+    login: Missing[str] = Field(default=UNSET)
+    name: Missing[str] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    organizations_url: Missing[str] = Field(default=UNSET)
+    received_events_url: Missing[str] = Field(default=UNSET)
+    repos_url: Missing[str] = Field(default=UNSET)
+    site_admin: Missing[bool] = Field(default=UNSET)
+    starred_url: Missing[str] = Field(default=UNSET)
+    subscriptions_url: Missing[str] = Field(default=UNSET)
+    type: Missing[Literal["Bot", "User", "Organization"]] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+    user_view_type: Missing[str] = Field(default=UNSET)
+
+
+class PullRequestReviewCommentEventPropCommentPropReactions(GitHubModel):
+    """Reactions"""
+
+    plus_one: Missing[int] = Field(default=UNSET, alias="+1")
+    minus_one: Missing[int] = Field(default=UNSET, alias="-1")
+    confused: Missing[int] = Field(default=UNSET)
+    eyes: Missing[int] = Field(default=UNSET)
+    heart: Missing[int] = Field(default=UNSET)
+    hooray: Missing[int] = Field(default=UNSET)
+    laugh: Missing[int] = Field(default=UNSET)
+    rocket: Missing[int] = Field(default=UNSET)
+    total_count: Missing[int] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
+
+
+class PullRequestReviewCommentEventPropCommentPropLinks(GitHubModel):
+    """PullRequestReviewCommentEventPropCommentPropLinks"""
+
+    html: PullRequestReviewCommentEventPropCommentPropLinksPropHtml = Field(
+        title="Link"
     )
-    secret_scanning_push_protection: Missing[
-        SecurityAndAnalysisPropSecretScanningPushProtection
-    ] = Field(default=UNSET)
-    secret_scanning_non_provider_patterns: Missing[
-        SecurityAndAnalysisPropSecretScanningNonProviderPatterns
-    ] = Field(default=UNSET)
-    secret_scanning_ai_detection: Missing[
-        SecurityAndAnalysisPropSecretScanningAiDetection
-    ] = Field(default=UNSET)
-
-
-class SecurityAndAnalysisPropAdvancedSecurity(GitHubModel):
-    """SecurityAndAnalysisPropAdvancedSecurity
-
-    Enable or disable GitHub Advanced Security for the repository.
-
-    For standalone Code Scanning or Secret Protection products, this parameter
-    cannot be used.
-    """
-
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
-
-
-class SecurityAndAnalysisPropCodeSecurity(GitHubModel):
-    """SecurityAndAnalysisPropCodeSecurity"""
-
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
-
-
-class SecurityAndAnalysisPropDependabotSecurityUpdates(GitHubModel):
-    """SecurityAndAnalysisPropDependabotSecurityUpdates
-
-    Enable or disable Dependabot security updates for the repository.
-    """
-
-    status: Missing[Literal["enabled", "disabled"]] = Field(
-        default=UNSET,
-        description="The enablement status of Dependabot security updates for the repository.",
+    pull_request: PullRequestReviewCommentEventPropCommentPropLinksPropPullRequest = (
+        Field(title="Link")
+    )
+    self_: PullRequestReviewCommentEventPropCommentPropLinksPropSelf = Field(
+        alias="self", title="Link"
     )
 
 
-class SecurityAndAnalysisPropSecretScanning(GitHubModel):
-    """SecurityAndAnalysisPropSecretScanning"""
+class PullRequestReviewCommentEventPropCommentPropLinksPropHtml(GitHubModel):
+    """Link"""
 
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
-
-
-class SecurityAndAnalysisPropSecretScanningPushProtection(GitHubModel):
-    """SecurityAndAnalysisPropSecretScanningPushProtection"""
-
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
+    href: str = Field()
 
 
-class SecurityAndAnalysisPropSecretScanningNonProviderPatterns(GitHubModel):
-    """SecurityAndAnalysisPropSecretScanningNonProviderPatterns"""
+class PullRequestReviewCommentEventPropCommentPropLinksPropPullRequest(GitHubModel):
+    """Link"""
 
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
-
-
-class SecurityAndAnalysisPropSecretScanningAiDetection(GitHubModel):
-    """SecurityAndAnalysisPropSecretScanningAiDetection"""
-
-    status: Missing[Literal["enabled", "disabled"]] = Field(default=UNSET)
+    href: str = Field()
 
 
-model_rebuild(SecurityAndAnalysis)
-model_rebuild(SecurityAndAnalysisPropAdvancedSecurity)
-model_rebuild(SecurityAndAnalysisPropCodeSecurity)
-model_rebuild(SecurityAndAnalysisPropDependabotSecurityUpdates)
-model_rebuild(SecurityAndAnalysisPropSecretScanning)
-model_rebuild(SecurityAndAnalysisPropSecretScanningPushProtection)
-model_rebuild(SecurityAndAnalysisPropSecretScanningNonProviderPatterns)
-model_rebuild(SecurityAndAnalysisPropSecretScanningAiDetection)
+class PullRequestReviewCommentEventPropCommentPropLinksPropSelf(GitHubModel):
+    """Link"""
+
+    href: str = Field()
+
+
+model_rebuild(PullRequestReviewCommentEvent)
+model_rebuild(PullRequestReviewCommentEventPropComment)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropUser)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropReactions)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropLinks)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropLinksPropHtml)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropLinksPropPullRequest)
+model_rebuild(PullRequestReviewCommentEventPropCommentPropLinksPropSelf)
 
 __all__ = (
-    "SecurityAndAnalysis",
-    "SecurityAndAnalysisPropAdvancedSecurity",
-    "SecurityAndAnalysisPropCodeSecurity",
-    "SecurityAndAnalysisPropDependabotSecurityUpdates",
-    "SecurityAndAnalysisPropSecretScanning",
-    "SecurityAndAnalysisPropSecretScanningAiDetection",
-    "SecurityAndAnalysisPropSecretScanningNonProviderPatterns",
-    "SecurityAndAnalysisPropSecretScanningPushProtection",
+    "PullRequestReviewCommentEvent",
+    "PullRequestReviewCommentEventPropComment",
+    "PullRequestReviewCommentEventPropCommentPropLinks",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropHtml",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropPullRequest",
+    "PullRequestReviewCommentEventPropCommentPropLinksPropSelf",
+    "PullRequestReviewCommentEventPropCommentPropReactions",
+    "PullRequestReviewCommentEventPropCommentPropUser",
 )

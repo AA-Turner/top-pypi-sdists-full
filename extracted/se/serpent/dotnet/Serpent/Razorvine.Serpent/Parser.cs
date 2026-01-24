@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace Razorvine.Serpent
@@ -27,11 +28,11 @@ namespace Razorvine.Serpent
 		/// </summary>
 		public Ast Parse(string expression)
 		{
-			Ast ast=new Ast();
+			var ast=new Ast();
 			if(string.IsNullOrEmpty(expression))
 				return ast;
 			
-			SeekableStringReader sr = new SeekableStringReader(expression);
+			var sr = new SeekableStringReader(expression);
 			if(sr.Peek()=='#')
 				sr.ReadUntil('\n');  // skip comment line
 			
@@ -49,8 +50,7 @@ namespace Razorvine.Serpent
 
 		private string ExtractFaultLocation(SeekableStringReader sr)
 		{
-			string left, right;
-			sr.Context(-1, 20, out left, out right);
+			sr.Context(-1, 20, out string left, out string right);
 			return $"...{left}>>><<<{right}...";
 		}
 
@@ -95,7 +95,7 @@ namespace Razorvine.Serpent
 						int bm = sr.Bookmark();
 						string betweenparens = sr.ReadUntil(')', '\n').TrimEnd();
 						sr.FlipBack(bm);
-						return betweenparens.EndsWith("j") ? (Ast.INode) ParseComplex(sr) : ParseTuple(sr);
+						return betweenparens.EndsWith("j") ? ParseComplex(sr) : ParseTuple(sr);
 					}
 				default:
 					throw new ParseException("invalid sequencetype char");
@@ -112,14 +112,14 @@ namespace Razorvine.Serpent
 
 			sr.Read();	// (
 			sr.SkipWhitespace();
-			Ast.TupleNode tuple = new Ast.TupleNode();
+			var tuple = new Ast.TupleNode();
 			if(sr.Peek() == ')')
 			{
 				sr.Read();
 				return tuple;		// empty tuple
 			}
 			
-			Ast.INode firstelement = ParseExpr(sr);
+			var firstelement = ParseExpr(sr);
 			if(sr.Peek() == ',')
 			{
 				sr.Read();
@@ -191,10 +191,10 @@ namespace Razorvine.Serpent
 		private Ast.KeyValueNode ParseKeyValue(SeekableStringReader sr)
 		{
 			//keyvalue        = expr ':' expr .
-			Ast.INode key = ParseExpr(sr);
+			var key = ParseExpr(sr);
 			if (!sr.HasMore() || sr.Peek() != ':') throw new ParseException("expected ':'");
 			sr.Read(); // :
-			Ast.INode value = ParseExpr(sr);
+			var value = ParseExpr(sr);
 			return new Ast.KeyValueNode
 			{
 				Key = key,
@@ -208,7 +208,7 @@ namespace Razorvine.Serpent
 			// trailing_comma  = '' | ',' .			
 			sr.Read();	// {
 			sr.SkipWhitespace();
-			Ast.SetNode setnode = new Ast.SetNode();
+			var setnode = new Ast.SetNode();
 			var elts = ParseExprList(sr);
 
 			// handle trailing comma if present
@@ -238,7 +238,7 @@ namespace Razorvine.Serpent
 			// trailing_comma  = '' | ',' .
 			sr.Read();	// [
 			sr.SkipWhitespace();
-			Ast.ListNode list = new Ast.ListNode();
+			var list = new Ast.ListNode();
 			if(sr.Peek() == ']')
 			{
 				sr.Read();
@@ -271,7 +271,7 @@ namespace Razorvine.Serpent
 			
 			sr.Read();	// {
 			sr.SkipWhitespace();
-			Ast.DictNode dict = new Ast.DictNode();
+			var dict = new Ast.DictNode();
 			if(sr.Peek() == '}')
 			{
 				sr.Read();
@@ -295,9 +295,8 @@ namespace Razorvine.Serpent
 			
 			// make sure it has dict semantics (remove duplicate keys)
 			var fixedDict = new Dictionary<Ast.INode, Ast.INode>(elts.Count);
-			foreach(var node in elts)
+			foreach (var kv in elts.Cast<Ast.KeyValueNode>())
 			{
-				var kv = (Ast.KeyValueNode) node;
 				fixedDict[kv.Key] = kv.Value;
 			}
 
@@ -486,18 +485,19 @@ namespace Razorvine.Serpent
 			} catch (ParseException) {
 				sr.FlipBack(bookmark);
 				var integerPart = ParseInt(sr);
-				var integerNode = integerPart as Ast.IntegerNode;
-				if (integerNode != null)
+				if (integerPart is Ast.IntegerNode integerNode)
 					doubleValue = integerNode.Value;
-				else {
-					var longNode = integerPart as Ast.LongNode;
-					if (longNode != null)
-						doubleValue = longNode.Value;
-					else {
-						var decimalNode = integerPart as Ast.DecimalNode;
-						if (decimalNode != null)
+				else
+				{
+					switch (integerPart)
+					{
+						case Ast.LongNode longNode:
+							doubleValue = longNode.Value;
+							break;
+						case Ast.DecimalNode decimalNode:
 							doubleValue = Convert.ToDouble(decimalNode.Value);
-						else
+							break;
+						default:
 							throw new ParseException("not an integer for the imaginary part");
 					}
 				}
@@ -518,7 +518,7 @@ namespace Razorvine.Serpent
 		private Ast.PrimitiveNode<string> ParseString(SeekableStringReader sr)
 		{
 			char quotechar = sr.Read();   // ' or "
-			StringBuilder sb = new StringBuilder(10);
+			var sb = new StringBuilder(10);
 			while(sr.HasMore())
 			{
 				char c = sr.Read();
@@ -693,54 +693,47 @@ namespace Razorvine.Serpent
     	/// If it is something else, throw an ArgumentException
 		/// </summary>
 		public static byte[] ToBytes(object obj) {
-			Hashtable hashtable  = obj as Hashtable;
-			if(hashtable!=null)
+			switch (obj)
 			{
-				string data = null;
-				string encoding = null;
-				if(hashtable.Contains("data")) data = (string)hashtable["data"];
-				if(hashtable.Contains("encoding")) encoding = (string)hashtable["encoding"];
-				if(data==null || "base64"!=encoding)
+				case Hashtable hashtable:
 				{
-					throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					string data = null;
+					string encoding = null;
+					if(hashtable.Contains("data")) data = (string)hashtable["data"];
+					if(hashtable.Contains("encoding")) encoding = (string)hashtable["encoding"];
+					if(data==null || "base64"!=encoding)
+					{
+						throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					}
+					return Convert.FromBase64String(data);
 				}
-				return Convert.FromBase64String(data);
-			}
-			
-			var dict = obj as IDictionary<string,string>;
-			if(dict!=null)
-			{
-				string data;
-				string encoding;
-				bool hasData = dict.TryGetValue("data", out data);
-				bool hasEncoding = dict.TryGetValue("encoding", out encoding);
-				if(!hasData || !hasEncoding || encoding!="base64")
+				case IDictionary<string, string> dict:
 				{
-					throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					bool hasData = dict.TryGetValue("data", out string data);
+					bool hasEncoding = dict.TryGetValue("encoding", out string encoding);
+					if(!hasData || !hasEncoding || encoding!="base64")
+					{
+						throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					}
+					return Convert.FromBase64String(data);
 				}
-				return Convert.FromBase64String(data);
-			}
-			var dict2 = obj as IDictionary<object,object>;
-			if(dict2!=null)
-			{
-				object dataobj;
-				object encodingobj;
-				bool hasData = dict2.TryGetValue("data", out dataobj);
-				bool hasEncoding = dict2.TryGetValue("encoding", out encodingobj);
-				string data = (string)dataobj;
-				string encoding = (string)encodingobj;
-				if(!hasData || !hasEncoding || encoding!="base64")
+				case IDictionary<object, object> dict2:
 				{
-					throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					bool hasData = dict2.TryGetValue("data", out object dataobj);
+					bool hasEncoding = dict2.TryGetValue("encoding", out object encodingobj);
+					string data = (string)dataobj;
+					string encoding = (string)encodingobj;
+					if(!hasData || !hasEncoding || encoding!="base64")
+					{
+						throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
+					}
+					return Convert.FromBase64String(data);
 				}
-				return Convert.FromBase64String(data);
-			}			
-			var bytearray = obj as byte[];
-			if(bytearray!=null)
-			{
-				return bytearray;
+				case byte[] bytearray:
+					return bytearray;
+				default:
+					throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
 			}
-			throw new ArgumentException("argument is neither bytearray nor serpent base64 encoded bytes dict");
 		}
 	}
 }

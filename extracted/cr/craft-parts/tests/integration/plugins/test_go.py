@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import platform
 import subprocess
 import textwrap
 from pathlib import Path
@@ -22,6 +24,8 @@ import pytest
 import yaml
 from craft_parts import LifecycleManager, Step
 from craft_parts.errors import PluginBuildError
+
+pytestmark = [pytest.mark.plugin]
 
 
 def test_go_plugin(new_dir, partitions, mocker):
@@ -122,6 +126,11 @@ def test_go_generate(new_dir, partitions):
     assert output == "This is a generated line\n"
 
 
+@pytest.mark.skipif(
+    (os.getenv("RUNNER_ENVIRONMENT"), platform.machine())
+    == ("github-hosted", "aarch64"),
+    reason="https://github.com/canonical/craft-parts/issues/1313",
+)
 def test_go_use(new_dir, partitions):
     # Ensure we're not using cached sources
     source_location = Path(__file__).parent / "test_go_workspace"

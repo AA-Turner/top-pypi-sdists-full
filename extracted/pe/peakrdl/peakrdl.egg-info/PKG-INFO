@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peakrdl
-Version: 1.4.0
+Version: 1.5.0
 Summary: Toolchain for control/status register automation and code generation.
 Author: Alex Mykyta
 License: LGPLv3
@@ -21,12 +21,12 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: peakrdl-cli
-Requires-Dist: peakrdl-html<3,>=2.10.1
-Requires-Dist: peakrdl-ipxact<4,>=3.4.1
-Requires-Dist: peakrdl-regblock<2,>=0.19.0
-Requires-Dist: peakrdl-systemrdl<2,>=0.3.0
-Requires-Dist: peakrdl-uvm<3,>=2.3.0
-Requires-Dist: peakrdl-cheader<2,>=1.0.0
+Requires-Dist: peakrdl-html~=2.10
+Requires-Dist: peakrdl-ipxact~=3.4
+Requires-Dist: peakrdl-regblock~=1.0
+Requires-Dist: peakrdl-systemrdl~=1.0
+Requires-Dist: peakrdl-uvm~=2.3
+Requires-Dist: peakrdl-cheader~=1.0
 Dynamic: license-file
 
 [![Documentation Status](https://readthedocs.org/projects/peakrdl/badge/?version=latest)](http://peakrdl.readthedocs.io)

@@ -72,6 +72,8 @@ class InstanceArgs:
                  option_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameter_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  performance_insights_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  performance_insights_kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  performance_insights_retention_period: Optional[pulumi.Input[_builtins.int]] = None,
@@ -198,6 +200,9 @@ class InstanceArgs:
         :param pulumi.Input[_builtins.str] option_group_name: Name of the DB option group to associate.
         :param pulumi.Input[_builtins.str] parameter_group_name: Name of the DB parameter group to associate.
         :param pulumi.Input[_builtins.str] password: Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.int] password_wo_version: Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
         :param pulumi.Input[_builtins.bool] performance_insights_enabled: Specifies whether Performance Insights are enabled. Defaults to false.
         :param pulumi.Input[_builtins.str] performance_insights_kms_key_id: The ARN for the KMS key to encrypt Performance Insights data. When specifying `performance_insights_kms_key_id`, `performance_insights_enabled` needs to be set to true. Once KMS key is set, it can never be changed.
         :param pulumi.Input[_builtins.int] performance_insights_retention_period: Amount of time in days to retain Performance Insights data. Valid values are `7`, `731` (2 years) or a multiple of `31`. When specifying `performance_insights_retention_period`, `performance_insights_enabled` needs to be set to true. Defaults to '7'.
@@ -345,6 +350,10 @@ class InstanceArgs:
             pulumi.set(__self__, "parameter_group_name", parameter_group_name)
         if password is not None:
             pulumi.set(__self__, "password", password)
+        if password_wo is not None:
+            pulumi.set(__self__, "password_wo", password_wo)
+        if password_wo_version is not None:
+            pulumi.set(__self__, "password_wo_version", password_wo_version)
         if performance_insights_enabled is not None:
             pulumi.set(__self__, "performance_insights_enabled", performance_insights_enabled)
         if performance_insights_kms_key_id is not None:
@@ -1041,6 +1050,31 @@ class InstanceArgs:
         pulumi.set(self, "password", value)
 
     @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        """
+        return pulumi.get(self, "password_wo")
+
+    @password_wo.setter
+    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="passwordWoVersion")
+    def password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
+        """
+        return pulumi.get(self, "password_wo_version")
+
+    @password_wo_version.setter
+    def password_wo_version(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "password_wo_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="performanceInsightsEnabled")
     def performance_insights_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -1369,6 +1403,8 @@ class _InstanceState:
                  option_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameter_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  performance_insights_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  performance_insights_kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  performance_insights_retention_period: Optional[pulumi.Input[_builtins.int]] = None,
@@ -1390,6 +1426,7 @@ class _InstanceState:
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  timezone: Optional[pulumi.Input[_builtins.str]] = None,
+                 upgrade_rollout_order: Optional[pulumi.Input[_builtins.str]] = None,
                  upgrade_storage_config: Optional[pulumi.Input[_builtins.bool]] = None,
                  username: Optional[pulumi.Input[_builtins.str]] = None,
                  vpc_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
@@ -1507,6 +1544,9 @@ class _InstanceState:
         :param pulumi.Input[_builtins.str] option_group_name: Name of the DB option group to associate.
         :param pulumi.Input[_builtins.str] parameter_group_name: Name of the DB parameter group to associate.
         :param pulumi.Input[_builtins.str] password: Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.int] password_wo_version: Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
         :param pulumi.Input[_builtins.bool] performance_insights_enabled: Specifies whether Performance Insights are enabled. Defaults to false.
         :param pulumi.Input[_builtins.str] performance_insights_kms_key_id: The ARN for the KMS key to encrypt Performance Insights data. When specifying `performance_insights_kms_key_id`, `performance_insights_enabled` needs to be set to true. Once KMS key is set, it can never be changed.
         :param pulumi.Input[_builtins.int] performance_insights_retention_period: Amount of time in days to retain Performance Insights data. Valid values are `7`, `731` (2 years) or a multiple of `31`. When specifying `performance_insights_retention_period`, `performance_insights_enabled` needs to be set to true. Defaults to '7'.
@@ -1551,6 +1591,7 @@ class _InstanceState:
                creation. See [MSSQL User
                Guide](http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_SQLServer.html#SQLServer.Concepts.General.TimeZone)
                for more information.
+        :param pulumi.Input[_builtins.str] upgrade_rollout_order: Order in which the instances are upgraded (`first`, `second`, `last`). See [the AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Maintenance.AMVU.UpgradeRollout.html) for details.
         :param pulumi.Input[_builtins.bool] upgrade_storage_config: Whether to upgrade the storage file system configuration on the read replica.
                Can only be set with `replicate_source_db`.
         :param pulumi.Input[_builtins.str] username: (Required unless a `snapshot_identifier` or `replicate_source_db`
@@ -1674,6 +1715,10 @@ class _InstanceState:
             pulumi.set(__self__, "parameter_group_name", parameter_group_name)
         if password is not None:
             pulumi.set(__self__, "password", password)
+        if password_wo is not None:
+            pulumi.set(__self__, "password_wo", password_wo)
+        if password_wo_version is not None:
+            pulumi.set(__self__, "password_wo_version", password_wo_version)
         if performance_insights_enabled is not None:
             pulumi.set(__self__, "performance_insights_enabled", performance_insights_enabled)
         if performance_insights_kms_key_id is not None:
@@ -1716,6 +1761,8 @@ class _InstanceState:
             pulumi.set(__self__, "tags_all", tags_all)
         if timezone is not None:
             pulumi.set(__self__, "timezone", timezone)
+        if upgrade_rollout_order is not None:
+            pulumi.set(__self__, "upgrade_rollout_order", upgrade_rollout_order)
         if upgrade_storage_config is not None:
             pulumi.set(__self__, "upgrade_storage_config", upgrade_storage_config)
         if username is not None:
@@ -2474,6 +2521,31 @@ class _InstanceState:
         pulumi.set(self, "password", value)
 
     @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        """
+        return pulumi.get(self, "password_wo")
+
+    @password_wo.setter
+    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "password_wo", value)
+
+    @_builtins.property
+    @pulumi.getter(name="passwordWoVersion")
+    def password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
+        """
+        return pulumi.get(self, "password_wo_version")
+
+    @password_wo_version.setter
+    def password_wo_version(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "password_wo_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="performanceInsightsEnabled")
     def performance_insights_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -2747,6 +2819,18 @@ class _InstanceState:
         pulumi.set(self, "timezone", value)
 
     @_builtins.property
+    @pulumi.getter(name="upgradeRolloutOrder")
+    def upgrade_rollout_order(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Order in which the instances are upgraded (`first`, `second`, `last`). See [the AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Maintenance.AMVU.UpgradeRollout.html) for details.
+        """
+        return pulumi.get(self, "upgrade_rollout_order")
+
+    @upgrade_rollout_order.setter
+    def upgrade_rollout_order(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "upgrade_rollout_order", value)
+
+    @_builtins.property
     @pulumi.getter(name="upgradeStorageConfig")
     def upgrade_storage_config(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -2842,6 +2926,8 @@ class Instance(pulumi.CustomResource):
                  option_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameter_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  performance_insights_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  performance_insights_kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  performance_insights_retention_period: Optional[pulumi.Input[_builtins.int]] = None,
@@ -3222,6 +3308,9 @@ class Instance(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] option_group_name: Name of the DB option group to associate.
         :param pulumi.Input[_builtins.str] parameter_group_name: Name of the DB parameter group to associate.
         :param pulumi.Input[_builtins.str] password: Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.int] password_wo_version: Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
         :param pulumi.Input[_builtins.bool] performance_insights_enabled: Specifies whether Performance Insights are enabled. Defaults to false.
         :param pulumi.Input[_builtins.str] performance_insights_kms_key_id: The ARN for the KMS key to encrypt Performance Insights data. When specifying `performance_insights_kms_key_id`, `performance_insights_enabled` needs to be set to true. Once KMS key is set, it can never be changed.
         :param pulumi.Input[_builtins.int] performance_insights_retention_period: Amount of time in days to retain Performance Insights data. Valid values are `7`, `731` (2 years) or a multiple of `31`. When specifying `performance_insights_retention_period`, `performance_insights_enabled` needs to be set to true. Defaults to '7'.
@@ -3594,6 +3683,8 @@ class Instance(pulumi.CustomResource):
                  option_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  parameter_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+                 password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  performance_insights_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  performance_insights_kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
                  performance_insights_retention_period: Optional[pulumi.Input[_builtins.int]] = None,
@@ -3675,6 +3766,8 @@ class Instance(pulumi.CustomResource):
             __props__.__dict__["option_group_name"] = option_group_name
             __props__.__dict__["parameter_group_name"] = parameter_group_name
             __props__.__dict__["password"] = None if password is None else pulumi.Output.secret(password)
+            __props__.__dict__["password_wo"] = None if password_wo is None else pulumi.Output.secret(password_wo)
+            __props__.__dict__["password_wo_version"] = password_wo_version
             __props__.__dict__["performance_insights_enabled"] = performance_insights_enabled
             __props__.__dict__["performance_insights_kms_key_id"] = performance_insights_kms_key_id
             __props__.__dict__["performance_insights_retention_period"] = performance_insights_retention_period
@@ -3707,7 +3800,8 @@ class Instance(pulumi.CustomResource):
             __props__.__dict__["resource_id"] = None
             __props__.__dict__["status"] = None
             __props__.__dict__["tags_all"] = None
-        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["password"])
+            __props__.__dict__["upgrade_rollout_order"] = None
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["password", "passwordWo"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(Instance, __self__).__init__(
             'aws:rds/instance:Instance',
@@ -3777,6 +3871,8 @@ class Instance(pulumi.CustomResource):
             option_group_name: Optional[pulumi.Input[_builtins.str]] = None,
             parameter_group_name: Optional[pulumi.Input[_builtins.str]] = None,
             password: Optional[pulumi.Input[_builtins.str]] = None,
+            password_wo: Optional[pulumi.Input[_builtins.str]] = None,
+            password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
             performance_insights_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             performance_insights_kms_key_id: Optional[pulumi.Input[_builtins.str]] = None,
             performance_insights_retention_period: Optional[pulumi.Input[_builtins.int]] = None,
@@ -3798,6 +3894,7 @@ class Instance(pulumi.CustomResource):
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             timezone: Optional[pulumi.Input[_builtins.str]] = None,
+            upgrade_rollout_order: Optional[pulumi.Input[_builtins.str]] = None,
             upgrade_storage_config: Optional[pulumi.Input[_builtins.bool]] = None,
             username: Optional[pulumi.Input[_builtins.str]] = None,
             vpc_security_group_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None) -> 'Instance':
@@ -3920,6 +4017,9 @@ class Instance(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] option_group_name: Name of the DB option group to associate.
         :param pulumi.Input[_builtins.str] parameter_group_name: Name of the DB parameter group to associate.
         :param pulumi.Input[_builtins.str] password: Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        :param pulumi.Input[_builtins.int] password_wo_version: Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
         :param pulumi.Input[_builtins.bool] performance_insights_enabled: Specifies whether Performance Insights are enabled. Defaults to false.
         :param pulumi.Input[_builtins.str] performance_insights_kms_key_id: The ARN for the KMS key to encrypt Performance Insights data. When specifying `performance_insights_kms_key_id`, `performance_insights_enabled` needs to be set to true. Once KMS key is set, it can never be changed.
         :param pulumi.Input[_builtins.int] performance_insights_retention_period: Amount of time in days to retain Performance Insights data. Valid values are `7`, `731` (2 years) or a multiple of `31`. When specifying `performance_insights_retention_period`, `performance_insights_enabled` needs to be set to true. Defaults to '7'.
@@ -3964,6 +4064,7 @@ class Instance(pulumi.CustomResource):
                creation. See [MSSQL User
                Guide](http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_SQLServer.html#SQLServer.Concepts.General.TimeZone)
                for more information.
+        :param pulumi.Input[_builtins.str] upgrade_rollout_order: Order in which the instances are upgraded (`first`, `second`, `last`). See [the AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Maintenance.AMVU.UpgradeRollout.html) for details.
         :param pulumi.Input[_builtins.bool] upgrade_storage_config: Whether to upgrade the storage file system configuration on the read replica.
                Can only be set with `replicate_source_db`.
         :param pulumi.Input[_builtins.str] username: (Required unless a `snapshot_identifier` or `replicate_source_db`
@@ -4033,6 +4134,8 @@ class Instance(pulumi.CustomResource):
         __props__.__dict__["option_group_name"] = option_group_name
         __props__.__dict__["parameter_group_name"] = parameter_group_name
         __props__.__dict__["password"] = password
+        __props__.__dict__["password_wo"] = password_wo
+        __props__.__dict__["password_wo_version"] = password_wo_version
         __props__.__dict__["performance_insights_enabled"] = performance_insights_enabled
         __props__.__dict__["performance_insights_kms_key_id"] = performance_insights_kms_key_id
         __props__.__dict__["performance_insights_retention_period"] = performance_insights_retention_period
@@ -4054,6 +4157,7 @@ class Instance(pulumi.CustomResource):
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
         __props__.__dict__["timezone"] = timezone
+        __props__.__dict__["upgrade_rollout_order"] = upgrade_rollout_order
         __props__.__dict__["upgrade_storage_config"] = upgrade_storage_config
         __props__.__dict__["username"] = username
         __props__.__dict__["vpc_security_group_ids"] = vpc_security_group_ids
@@ -4578,6 +4682,23 @@ class Instance(pulumi.CustomResource):
         return pulumi.get(self, "password")
 
     @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        Password for the master DB user. Note that this may show up in logs, and it will be stored in the state file. Cannot be set if `manage_master_user_password` is set to `true`.
+        """
+        return pulumi.get(self, "password_wo")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordWoVersion")
+    def password_wo_version(self) -> pulumi.Output[Optional[_builtins.int]]:
+        """
+        Used together with `password_wo` to trigger an update. Increment this value when an update to `password_wo` is required.
+        """
+        return pulumi.get(self, "password_wo_version")
+
+    @_builtins.property
     @pulumi.getter(name="performanceInsightsEnabled")
     def performance_insights_enabled(self) -> pulumi.Output[Optional[_builtins.bool]]:
         """
@@ -4765,6 +4886,14 @@ class Instance(pulumi.CustomResource):
         for more information.
         """
         return pulumi.get(self, "timezone")
+
+    @_builtins.property
+    @pulumi.getter(name="upgradeRolloutOrder")
+    def upgrade_rollout_order(self) -> pulumi.Output[_builtins.str]:
+        """
+        Order in which the instances are upgraded (`first`, `second`, `last`). See [the AWS documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Maintenance.AMVU.UpgradeRollout.html) for details.
+        """
+        return pulumi.get(self, "upgrade_rollout_order")
 
     @_builtins.property
     @pulumi.getter(name="upgradeStorageConfig")

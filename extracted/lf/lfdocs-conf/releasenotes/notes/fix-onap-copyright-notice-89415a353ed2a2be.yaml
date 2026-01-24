@@ -1,8 +1,0 @@
----
-fixes:
-  - |
-    Remove redundant "copyright" word from ONAP copyright notice.
-    (LF JIRA: RELENG-3929).
-
-    Ref:
-      https://wiki.onap.org/display/Meetings/TSC+2021-08-05

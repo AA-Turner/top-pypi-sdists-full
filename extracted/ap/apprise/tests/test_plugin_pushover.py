@@ -246,7 +246,7 @@ apprise_url_tests = (
         "pover://{}@{}".format("u" * 30, "a" * 30),
         {
             "instance": NotifyPushover,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -256,7 +256,7 @@ apprise_url_tests = (
         {
             "instance": NotifyPushover,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -287,7 +287,7 @@ def test_plugin_pushover_attachments(mock_post, tmpdir):
 
     # Prepare a bad response
     bad_response = mock.Mock()
-    response.content = dumps(
+    bad_response.content = dumps(
         {"status": 1, "request": "647d2300-702c-4b38-8b2f-d56326ae460b"}
     )
     bad_response.status_code = requests.codes.internal_server_error

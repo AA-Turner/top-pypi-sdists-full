@@ -11,15 +11,14 @@ from binascii import hexlify
 from collections.abc import AsyncIterable, Iterable
 from copy import deepcopy
 from hashlib import sha256
-from typing import TYPE_CHECKING, Required, TypedDict
+from typing import TYPE_CHECKING, Required, TypedDict, TypeGuard
 from urllib.parse import parse_qsl, quote
 
 from ._http import AWSRequest, Field, URI
-from ._identity import AWSCredentialIdentity
 from ._io import AsyncBytesReader
 from .exceptions import AWSSDKWarning, MissingExpectedParameterException
 from .interfaces.identity import AWSCredentialsIdentity as _AWSCredentialsIdentity
-from .interfaces.io import AsyncSeekable, Seekable
+from .interfaces.io import AsyncSeekable, ConditionallySeekable, Seekable
 
 if TYPE_CHECKING:
     from .interfaces.events import EventHeaderEncoder, EventMessage
@@ -37,6 +36,8 @@ DEFAULT_PORTS: dict[str, int] = {"http": 80, "https": 443}
 
 SIGV4_TIMESTAMP_FORMAT: str = "%Y%m%dT%H%M%SZ"
 UNSIGNED_PAYLOAD: str = "UNSIGNED-PAYLOAD"
+EVENT_STREAM_CONTENT_TYPE = "application/vnd.amazon.eventstream"
+EVENT_STREAM_HASH = "STREAMING-AWS4-HMAC-SHA256-EVENTS"
 EMPTY_SHA256_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 
@@ -55,27 +56,27 @@ class SigV4Signer:
     def sign(
         self,
         *,
-        signing_properties: SigV4SigningProperties,
-        http_request: AWSRequest,
-        identity: AWSCredentialIdentity,
+        request: AWSRequest,
+        identity: _AWSCredentialsIdentity,
+        properties: SigV4SigningProperties,
     ) -> AWSRequest:
         """Generate and apply a SigV4 Signature to a copy of the supplied request.
 
-        :param signing_properties: SigV4SigningProperties to define signing primitives
-            such as the target service, region, and date.
-        :param http_request: An AWSRequest to sign prior to sending to the service.
+        :param request: An AWSRequest to sign prior to sending to the service.
         :param identity: A set of credentials representing an AWS Identity or role
             capacity.
+        :param properties: SigV4SigningProperties to define signing primitives such as
+            the target service, region, and date.
         """
         # Copy and prepopulate any missing values in the
         # supplied request and signing properties.
         self._validate_identity(identity=identity)
         new_signing_properties = self._normalize_signing_properties(
-            signing_properties=signing_properties
+            signing_properties=properties
         )
         assert "date" in new_signing_properties
 
-        new_request = self._generate_new_request(request=http_request)
+        new_request = self._generate_new_request(request=request)
         self._apply_required_fields(
             request=new_request,
             signing_properties=new_signing_properties,
@@ -164,7 +165,7 @@ class SigV4Signer:
     def _hash(self, key: bytes, value: str) -> bytes:
         return hmac.new(key=key, msg=value.encode(), digestmod=sha256).digest()
 
-    def _validate_identity(self, *, identity: AWSCredentialIdentity) -> None:
+    def _validate_identity(self, *, identity: _AWSCredentialsIdentity) -> None:
         """Perform runtime and expiration checks before attempting signing."""
         if not isinstance(identity, _AWSCredentialsIdentity):  # pyright: ignore
             raise ValueError(
@@ -195,7 +196,7 @@ class SigV4Signer:
         *,
         request: AWSRequest,
         signing_properties: SigV4SigningProperties,
-        identity: AWSCredentialIdentity,
+        identity: _AWSCredentialsIdentity,
     ) -> None:
         # Apply required X-Amz-Date if neither X-Amz-Date nor Date are present.
         if "Date" not in request.fields and "X-Amz-Date" not in request.fields:
@@ -406,10 +407,10 @@ class SigV4Signer:
         )
 
         checksum = sha256()
-        if isinstance(body, Seekable):
+        if self._seekable(body):
             position = body.tell()
-            for chunk in body:
-                checksum.update(chunk)
+            for chunk in body:  # type: ignore
+                checksum.update(chunk)  # type: ignore
             body.seek(position)
         else:
             buffer = io.BytesIO()
@@ -420,6 +421,12 @@ class SigV4Signer:
             request.body = buffer
         return checksum.hexdigest()
 
+    def _seekable(self, body: Iterable[bytes]) -> TypeGuard[Seekable]:
+        if isinstance(body, ConditionallySeekable):
+            return body.seekable()
+
+        return isinstance(body, Seekable)
+
 
 class AsyncSigV4Signer:
     """Request signer for applying the AWS Signature Version 4 algorithm."""
@@ -427,26 +434,26 @@ class AsyncSigV4Signer:
     async def sign(
         self,
         *,
-        signing_properties: SigV4SigningProperties,
-        http_request: AWSRequest,
-        identity: AWSCredentialIdentity,
+        request: AWSRequest,
+        identity: _AWSCredentialsIdentity,
+        properties: SigV4SigningProperties,
     ) -> AWSRequest:
         """Generate and apply a SigV4 Signature to a copy of the supplied request.
 
-        :param signing_properties: SigV4SigningProperties to define signing primitives
-            such as the target service, region, and date.
-        :param http_request: An AWSRequest to sign prior to sending to the service.
+        :param request: An AWSRequest to sign prior to sending to the service.
         :param identity: A set of credentials representing an AWS Identity or role
             capacity.
+        :param properties: SigV4SigningProperties to define signing primitives such as
+            the target service, region, and date.
         """
         # Copy and prepopulate any missing values in the
         # supplied request and signing properties.
 
         await self._validate_identity(identity=identity)
         new_signing_properties = await self._normalize_signing_properties(
-            signing_properties=signing_properties
+            signing_properties=properties
         )
-        new_request = await self._generate_new_request(request=http_request)
+        new_request = await self._generate_new_request(request=request)
         await self._apply_required_fields(
             request=new_request,
             signing_properties=new_signing_properties,
@@ -455,7 +462,7 @@ class AsyncSigV4Signer:
 
         # Construct core signing components
         canonical_request = await self.canonical_request(
-            signing_properties=signing_properties,
+            signing_properties=properties,
             request=new_request,
         )
         string_to_sign = await self.string_to_sign(
@@ -535,7 +542,7 @@ class AsyncSigV4Signer:
     async def _hash(self, key: bytes, value: str) -> bytes:
         return hmac.new(key=key, msg=value.encode(), digestmod=sha256).digest()
 
-    async def _validate_identity(self, *, identity: AWSCredentialIdentity) -> None:
+    async def _validate_identity(self, *, identity: _AWSCredentialsIdentity) -> None:
         """Perform runtime and expiration checks before attempting signing."""
         if not isinstance(identity, _AWSCredentialsIdentity):  # pyright: ignore
             raise ValueError(
@@ -566,7 +573,7 @@ class AsyncSigV4Signer:
         *,
         request: AWSRequest,
         signing_properties: SigV4SigningProperties,
-        identity: AWSCredentialIdentity,
+        identity: _AWSCredentialsIdentity,
     ) -> None:
         # Apply required X-Amz-Date if neither X-Amz-Date nor Date are present.
         if "Date" not in request.fields and "X-Amz-Date" not in request.fields:
@@ -750,6 +757,12 @@ class AsyncSigV4Signer:
         ):
             return request.fields["X-Amz-Content-SHA256"].values[0]
 
+        if self._is_event_stream(request=request):
+            request.fields.set_field(
+                Field(name="X-Amz-Content-SHA256", values=[EVENT_STREAM_HASH])
+            )
+            return EVENT_STREAM_HASH
+
         payload_hash = await self._compute_payload_hash(
             request=request, signing_properties=signing_properties
         )
@@ -785,10 +798,10 @@ class AsyncSigV4Signer:
         )
 
         checksum = sha256()
-        if isinstance(body, AsyncSeekable) and iscoroutinefunction(body.seek):
+        if self._seekable(body):
             position = body.tell()
-            async for chunk in body:
-                checksum.update(chunk)
+            async for chunk in body:  # type: ignore
+                checksum.update(chunk)  # type: ignore
             await body.seek(position)
         else:
             buffer = io.BytesIO()
@@ -799,31 +812,42 @@ class AsyncSigV4Signer:
             request.body = AsyncBytesReader(buffer)
         return checksum.hexdigest()
 
+    def _is_event_stream(self, request: AWSRequest) -> bool:
+        if "Content-Type" not in request.fields:
+            return False
+        content_type = request.fields["Content-Type"].as_string()
+        return content_type == EVENT_STREAM_CONTENT_TYPE
+
+    def _seekable(self, body: AsyncIterable[bytes]) -> TypeGuard[AsyncSeekable]:
+        if isinstance(body, ConditionallySeekable):
+            return body.seekable()
+
+        return isinstance(body, AsyncSeekable) and iscoroutinefunction(body.seek)
+
 
 class AsyncEventSigner:
     def __init__(
         self,
         *,
-        signing_properties: SigV4SigningProperties,
-        identity: AWSCredentialIdentity,
         initial_signature: bytes,
+        event_encoder_cls: type["EventHeaderEncoder"],
     ):
-        self._signing_properties = signing_properties
-        self._identity = identity
         self._prior_signature = initial_signature
         self._signing_lock = asyncio.Lock()
+        self._event_encoder_cls = event_encoder_cls
 
-    async def sign_event(
+    async def sign(
         self,
         *,
-        event_message: "EventMessage",
-        event_encoder_cls: type["EventHeaderEncoder"],
+        event: "EventMessage",
+        identity: _AWSCredentialsIdentity,
+        properties: SigV4SigningProperties,
     ) -> "EventMessage":
         async with self._signing_lock:
             # Copy and prepopulate any missing values in the
             # signing properties.
             new_signing_properties = SigV4SigningProperties(  # type: ignore
-                **self._signing_properties
+                **properties
             )
             # TODO: If date is in properties, parse a datetime from it.
             date_obj = datetime.datetime.now(datetime.UTC)
@@ -834,11 +858,11 @@ class AsyncEventSigner:
 
             timestamp = new_signing_properties["date"]
             headers: dict[str, str | bytes | datetime.datetime] = {":date": date_obj}
-            encoder = event_encoder_cls()
+            encoder = self._event_encoder_cls()
             encoder.encode_headers(headers)
             encoded_headers = encoder.get_result()
 
-            payload = event_message.encode()
+            payload = event.encode()
 
             string_to_sign = await self._event_string_to_sign(
                 timestamp=timestamp,
@@ -848,19 +872,20 @@ class AsyncEventSigner:
                 prior_signature=self._prior_signature,
             )
             event_signature = await self._sign_event(
+                identity=identity,
                 timestamp=timestamp,
                 string_to_sign=string_to_sign,
-                signing_properties=new_signing_properties,
+                properties=new_signing_properties,
             )
             headers[":chunk-signature"] = event_signature
 
-            event_message.headers = headers
-            event_message.payload = payload
+            event.headers = headers
+            event.payload = payload
 
             # set new prior signature before releasing the lock
             self._prior_signature = hexlify(event_signature)
 
-        return event_message
+        return event
 
     async def _event_string_to_sign(
         self,
@@ -885,13 +910,14 @@ class AsyncEventSigner:
         *,
         timestamp: str,
         string_to_sign: str,
-        signing_properties: SigV4SigningProperties,
+        identity: _AWSCredentialsIdentity,
+        properties: SigV4SigningProperties,
     ) -> bytes:
-        key = self._identity.secret_access_key.encode("utf-8")
+        key = identity.secret_access_key.encode("utf-8")
         today = timestamp[:8].encode("utf-8")
         k_date = self._hash(b"AWS4" + key, today)
-        k_region = self._hash(k_date, signing_properties["region"].encode("utf-8"))
-        k_service = self._hash(k_region, signing_properties["service"].encode("utf-8"))
+        k_region = self._hash(k_date, properties["region"].encode("utf-8"))
+        k_service = self._hash(k_region, properties["service"].encode("utf-8"))
         k_signing = self._hash(k_service, b"aws4_request")
         return self._hash(k_signing, string_to_sign.encode("utf-8"))
 

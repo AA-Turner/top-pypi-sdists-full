@@ -1,11 +1,11 @@
 Metadata-Version: 2.2
 Name: blosc2
-Version: 3.8.0
+Version: 3.12.2
 Summary: A fast & compressed ndarray library with a flexible compute engine.
 Author-Email: Blosc Development Team <blosc@blosc.org>
 Maintainer-Email: Blosc Development Team <blosc@blosc.org>
 License: BSD-3-Clause
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: homepage, https://github.com/Blosc/python-blosc2
 Project-URL: documentation, https://www.blosc.org/python-blosc2/python-blosc2.html
 Requires-Python: >=3.10
@@ -26,7 +27,7 @@ Requires-Dist: numpy>=1.26
 Requires-Dist: ndindex
 Requires-Dist: msgpack
 Requires-Dist: platformdirs
-Requires-Dist: numexpr>=2.12.1; platform_machine != "wasm32"
+Requires-Dist: numexpr>=2.14.1; platform_machine != "wasm32"
 Requires-Dist: py-cpuinfo; platform_machine != "wasm32"
 Requires-Dist: requests
 Provides-Extra: dev
@@ -177,8 +178,8 @@ In addition, other people have participated to the project in different
 aspects:
 
 - Jan Sellner, contributed the mmap support for NDArray/SChunk objects.
-- Dimitri Papadopoulos, contributed a large bunch of improvements to the
-  in many aspects of the project.  His attention to detail is remarkable.
+- Dimitri Papadopoulos, contributed a large bunch of improvements to
+  many aspects of the project.  His attention to detail is remarkable.
 - And many others that have contributed with bug reports, suggestions and
   improvements.
 

@@ -45,16 +45,34 @@ class V1DataConnection(object):
         'accessible': 'bool',
         'aws': 'V1AwsDataConnection',
         'cluster_id': 'str',
+        'created_at': 'datetime',
+        'efs': 'V1EfsConfig',
+        'error': 'str',
+        'filestore': 'V1FilestoreDataConnection',
         'gcp': 'V1GcpDataConnection',
+        'gcs_folder': 'V1GCSFolderDataConnection',
         'id': 'str',
         'index': 'V1Index',
+        'is_billable_folder': 'bool',
+        'is_cache': 'bool',
+        'is_managed': 'bool',
+        'is_public': 'bool',
+        'lock_out': 'bool',
+        'lustre': 'V1LustreDataConnection',
         'name': 'str',
         'number_of_files': 'str',
         'project_id': 'str',
+        'r2': 'V1R2DataConnection',
         'run_cmds': 'list[str]',
+        's3_folder': 'V1S3FolderDataConnection',
         'snowflake': 'V1SnowflakeDataConnection',
+        'state': 'V1DataConnectionState',
+        'total_daily_read_bytes': 'str',
+        'total_daily_write_bytes': 'str',
         'total_size_bytes': 'str',
         'type': 'str',
+        'updated_at': 'datetime',
+        'weka': 'V1WekaDataConnection',
         'writable': 'bool'
     }
 
@@ -63,35 +81,71 @@ class V1DataConnection(object):
         'accessible': 'accessible',
         'aws': 'aws',
         'cluster_id': 'clusterId',
+        'created_at': 'createdAt',
+        'efs': 'efs',
+        'error': 'error',
+        'filestore': 'filestore',
         'gcp': 'gcp',
+        'gcs_folder': 'gcsFolder',
         'id': 'id',
         'index': 'index',
+        'is_billable_folder': 'isBillableFolder',
+        'is_cache': 'isCache',
+        'is_managed': 'isManaged',
+        'is_public': 'isPublic',
+        'lock_out': 'lockOut',
+        'lustre': 'lustre',
         'name': 'name',
         'number_of_files': 'numberOfFiles',
         'project_id': 'projectId',
+        'r2': 'r2',
         'run_cmds': 'runCmds',
+        's3_folder': 's3Folder',
         'snowflake': 'snowflake',
+        'state': 'state',
+        'total_daily_read_bytes': 'totalDailyReadBytes',
+        'total_daily_write_bytes': 'totalDailyWriteBytes',
         'total_size_bytes': 'totalSizeBytes',
         'type': 'type',
+        'updated_at': 'updatedAt',
+        'weka': 'weka',
         'writable': 'writable'
     }
 
-    def __init__(self, access_cluster_ids: 'list[str]' =None, accessible: 'bool' =None, aws: 'V1AwsDataConnection' =None, cluster_id: 'str' =None, gcp: 'V1GcpDataConnection' =None, id: 'str' =None, index: 'V1Index' =None, name: 'str' =None, number_of_files: 'str' =None, project_id: 'str' =None, run_cmds: 'list[str]' =None, snowflake: 'V1SnowflakeDataConnection' =None, total_size_bytes: 'str' =None, type: 'str' =None, writable: 'bool' =None):  # noqa: E501
+    def __init__(self, access_cluster_ids: 'list[str]' =None, accessible: 'bool' =None, aws: 'V1AwsDataConnection' =None, cluster_id: 'str' =None, created_at: 'datetime' =None, efs: 'V1EfsConfig' =None, error: 'str' =None, filestore: 'V1FilestoreDataConnection' =None, gcp: 'V1GcpDataConnection' =None, gcs_folder: 'V1GCSFolderDataConnection' =None, id: 'str' =None, index: 'V1Index' =None, is_billable_folder: 'bool' =None, is_cache: 'bool' =None, is_managed: 'bool' =None, is_public: 'bool' =None, lock_out: 'bool' =None, lustre: 'V1LustreDataConnection' =None, name: 'str' =None, number_of_files: 'str' =None, project_id: 'str' =None, r2: 'V1R2DataConnection' =None, run_cmds: 'list[str]' =None, s3_folder: 'V1S3FolderDataConnection' =None, snowflake: 'V1SnowflakeDataConnection' =None, state: 'V1DataConnectionState' =None, total_daily_read_bytes: 'str' =None, total_daily_write_bytes: 'str' =None, total_size_bytes: 'str' =None, type: 'str' =None, updated_at: 'datetime' =None, weka: 'V1WekaDataConnection' =None, writable: 'bool' =None):  # noqa: E501
         """V1DataConnection - a model defined in Swagger"""  # noqa: E501
         self._access_cluster_ids = None
         self._accessible = None
         self._aws = None
         self._cluster_id = None
+        self._created_at = None
+        self._efs = None
+        self._error = None
+        self._filestore = None
         self._gcp = None
+        self._gcs_folder = None
         self._id = None
         self._index = None
+        self._is_billable_folder = None
+        self._is_cache = None
+        self._is_managed = None
+        self._is_public = None
+        self._lock_out = None
+        self._lustre = None
         self._name = None
         self._number_of_files = None
         self._project_id = None
+        self._r2 = None
         self._run_cmds = None
+        self._s3_folder = None
         self._snowflake = None
+        self._state = None
+        self._total_daily_read_bytes = None
+        self._total_daily_write_bytes = None
         self._total_size_bytes = None
         self._type = None
+        self._updated_at = None
+        self._weka = None
         self._writable = None
         self.discriminator = None
         if access_cluster_ids is not None:
@@ -102,26 +156,62 @@ class V1DataConnection(object):
             self.aws = aws
         if cluster_id is not None:
             self.cluster_id = cluster_id
+        if created_at is not None:
+            self.created_at = created_at
+        if efs is not None:
+            self.efs = efs
+        if error is not None:
+            self.error = error
+        if filestore is not None:
+            self.filestore = filestore
         if gcp is not None:
             self.gcp = gcp
+        if gcs_folder is not None:
+            self.gcs_folder = gcs_folder
         if id is not None:
             self.id = id
         if index is not None:
             self.index = index
+        if is_billable_folder is not None:
+            self.is_billable_folder = is_billable_folder
+        if is_cache is not None:
+            self.is_cache = is_cache
+        if is_managed is not None:
+            self.is_managed = is_managed
+        if is_public is not None:
+            self.is_public = is_public
+        if lock_out is not None:
+            self.lock_out = lock_out
+        if lustre is not None:
+            self.lustre = lustre
         if name is not None:
             self.name = name
         if number_of_files is not None:
             self.number_of_files = number_of_files
         if project_id is not None:
             self.project_id = project_id
+        if r2 is not None:
+            self.r2 = r2
         if run_cmds is not None:
             self.run_cmds = run_cmds
+        if s3_folder is not None:
+            self.s3_folder = s3_folder
         if snowflake is not None:
             self.snowflake = snowflake
+        if state is not None:
+            self.state = state
+        if total_daily_read_bytes is not None:
+            self.total_daily_read_bytes = total_daily_read_bytes
+        if total_daily_write_bytes is not None:
+            self.total_daily_write_bytes = total_daily_write_bytes
         if total_size_bytes is not None:
             self.total_size_bytes = total_size_bytes
         if type is not None:
             self.type = type
+        if updated_at is not None:
+            self.updated_at = updated_at
+        if weka is not None:
+            self.weka = weka
         if writable is not None:
             self.writable = writable
 
@@ -210,6 +300,90 @@ class V1DataConnection(object):
         self._cluster_id = cluster_id
 
     @property
+    def created_at(self) -> 'datetime':
+        """Gets the created_at of this V1DataConnection.  # noqa: E501
+
+
+        :return: The created_at of this V1DataConnection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._created_at
+
+    @created_at.setter
+    def created_at(self, created_at: 'datetime'):
+        """Sets the created_at of this V1DataConnection.
+
+
+        :param created_at: The created_at of this V1DataConnection.  # noqa: E501
+        :type: datetime
+        """
+
+        self._created_at = created_at
+
+    @property
+    def efs(self) -> 'V1EfsConfig':
+        """Gets the efs of this V1DataConnection.  # noqa: E501
+
+
+        :return: The efs of this V1DataConnection.  # noqa: E501
+        :rtype: V1EfsConfig
+        """
+        return self._efs
+
+    @efs.setter
+    def efs(self, efs: 'V1EfsConfig'):
+        """Sets the efs of this V1DataConnection.
+
+
+        :param efs: The efs of this V1DataConnection.  # noqa: E501
+        :type: V1EfsConfig
+        """
+
+        self._efs = efs
+
+    @property
+    def error(self) -> 'str':
+        """Gets the error of this V1DataConnection.  # noqa: E501
+
+
+        :return: The error of this V1DataConnection.  # noqa: E501
+        :rtype: str
+        """
+        return self._error
+
+    @error.setter
+    def error(self, error: 'str'):
+        """Sets the error of this V1DataConnection.
+
+
+        :param error: The error of this V1DataConnection.  # noqa: E501
+        :type: str
+        """
+
+        self._error = error
+
+    @property
+    def filestore(self) -> 'V1FilestoreDataConnection':
+        """Gets the filestore of this V1DataConnection.  # noqa: E501
+
+
+        :return: The filestore of this V1DataConnection.  # noqa: E501
+        :rtype: V1FilestoreDataConnection
+        """
+        return self._filestore
+
+    @filestore.setter
+    def filestore(self, filestore: 'V1FilestoreDataConnection'):
+        """Sets the filestore of this V1DataConnection.
+
+
+        :param filestore: The filestore of this V1DataConnection.  # noqa: E501
+        :type: V1FilestoreDataConnection
+        """
+
+        self._filestore = filestore
+
+    @property
     def gcp(self) -> 'V1GcpDataConnection':
         """Gets the gcp of this V1DataConnection.  # noqa: E501
 
@@ -229,6 +403,27 @@ class V1DataConnection(object):
         """
 
         self._gcp = gcp
+
+    @property
+    def gcs_folder(self) -> 'V1GCSFolderDataConnection':
+        """Gets the gcs_folder of this V1DataConnection.  # noqa: E501
+
+
+        :return: The gcs_folder of this V1DataConnection.  # noqa: E501
+        :rtype: V1GCSFolderDataConnection
+        """
+        return self._gcs_folder
+
+    @gcs_folder.setter
+    def gcs_folder(self, gcs_folder: 'V1GCSFolderDataConnection'):
+        """Sets the gcs_folder of this V1DataConnection.
+
+
+        :param gcs_folder: The gcs_folder of this V1DataConnection.  # noqa: E501
+        :type: V1GCSFolderDataConnection
+        """
+
+        self._gcs_folder = gcs_folder
 
     @property
     def id(self) -> 'str':
@@ -271,6 +466,134 @@ class V1DataConnection(object):
         """
 
         self._index = index
+
+    @property
+    def is_billable_folder(self) -> 'bool':
+        """Gets the is_billable_folder of this V1DataConnection.  # noqa: E501
+
+        Identifies data connections that are folders such as gcs_folders, s3_folders, r2_folders and efs folders that we do bill for actually.  # noqa: E501
+
+        :return: The is_billable_folder of this V1DataConnection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_billable_folder
+
+    @is_billable_folder.setter
+    def is_billable_folder(self, is_billable_folder: 'bool'):
+        """Sets the is_billable_folder of this V1DataConnection.
+
+        Identifies data connections that are folders such as gcs_folders, s3_folders, r2_folders and efs folders that we do bill for actually.  # noqa: E501
+
+        :param is_billable_folder: The is_billable_folder of this V1DataConnection.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_billable_folder = is_billable_folder
+
+    @property
+    def is_cache(self) -> 'bool':
+        """Gets the is_cache of this V1DataConnection.  # noqa: E501
+
+
+        :return: The is_cache of this V1DataConnection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_cache
+
+    @is_cache.setter
+    def is_cache(self, is_cache: 'bool'):
+        """Sets the is_cache of this V1DataConnection.
+
+
+        :param is_cache: The is_cache of this V1DataConnection.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_cache = is_cache
+
+    @property
+    def is_managed(self) -> 'bool':
+        """Gets the is_managed of this V1DataConnection.  # noqa: E501
+
+
+        :return: The is_managed of this V1DataConnection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_managed
+
+    @is_managed.setter
+    def is_managed(self, is_managed: 'bool'):
+        """Sets the is_managed of this V1DataConnection.
+
+
+        :param is_managed: The is_managed of this V1DataConnection.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_managed = is_managed
+
+    @property
+    def is_public(self) -> 'bool':
+        """Gets the is_public of this V1DataConnection.  # noqa: E501
+
+
+        :return: The is_public of this V1DataConnection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._is_public
+
+    @is_public.setter
+    def is_public(self, is_public: 'bool'):
+        """Sets the is_public of this V1DataConnection.
+
+
+        :param is_public: The is_public of this V1DataConnection.  # noqa: E501
+        :type: bool
+        """
+
+        self._is_public = is_public
+
+    @property
+    def lock_out(self) -> 'bool':
+        """Gets the lock_out of this V1DataConnection.  # noqa: E501
+
+
+        :return: The lock_out of this V1DataConnection.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lock_out
+
+    @lock_out.setter
+    def lock_out(self, lock_out: 'bool'):
+        """Sets the lock_out of this V1DataConnection.
+
+
+        :param lock_out: The lock_out of this V1DataConnection.  # noqa: E501
+        :type: bool
+        """
+
+        self._lock_out = lock_out
+
+    @property
+    def lustre(self) -> 'V1LustreDataConnection':
+        """Gets the lustre of this V1DataConnection.  # noqa: E501
+
+
+        :return: The lustre of this V1DataConnection.  # noqa: E501
+        :rtype: V1LustreDataConnection
+        """
+        return self._lustre
+
+    @lustre.setter
+    def lustre(self, lustre: 'V1LustreDataConnection'):
+        """Sets the lustre of this V1DataConnection.
+
+
+        :param lustre: The lustre of this V1DataConnection.  # noqa: E501
+        :type: V1LustreDataConnection
+        """
+
+        self._lustre = lustre
 
     @property
     def name(self) -> 'str':
@@ -336,6 +659,27 @@ class V1DataConnection(object):
         self._project_id = project_id
 
     @property
+    def r2(self) -> 'V1R2DataConnection':
+        """Gets the r2 of this V1DataConnection.  # noqa: E501
+
+
+        :return: The r2 of this V1DataConnection.  # noqa: E501
+        :rtype: V1R2DataConnection
+        """
+        return self._r2
+
+    @r2.setter
+    def r2(self, r2: 'V1R2DataConnection'):
+        """Sets the r2 of this V1DataConnection.
+
+
+        :param r2: The r2 of this V1DataConnection.  # noqa: E501
+        :type: V1R2DataConnection
+        """
+
+        self._r2 = r2
+
+    @property
     def run_cmds(self) -> 'list[str]':
         """Gets the run_cmds of this V1DataConnection.  # noqa: E501
 
@@ -357,6 +701,27 @@ class V1DataConnection(object):
         self._run_cmds = run_cmds
 
     @property
+    def s3_folder(self) -> 'V1S3FolderDataConnection':
+        """Gets the s3_folder of this V1DataConnection.  # noqa: E501
+
+
+        :return: The s3_folder of this V1DataConnection.  # noqa: E501
+        :rtype: V1S3FolderDataConnection
+        """
+        return self._s3_folder
+
+    @s3_folder.setter
+    def s3_folder(self, s3_folder: 'V1S3FolderDataConnection'):
+        """Sets the s3_folder of this V1DataConnection.
+
+
+        :param s3_folder: The s3_folder of this V1DataConnection.  # noqa: E501
+        :type: V1S3FolderDataConnection
+        """
+
+        self._s3_folder = s3_folder
+
+    @property
     def snowflake(self) -> 'V1SnowflakeDataConnection':
         """Gets the snowflake of this V1DataConnection.  # noqa: E501
 
@@ -376,6 +741,73 @@ class V1DataConnection(object):
         """
 
         self._snowflake = snowflake
+
+    @property
+    def state(self) -> 'V1DataConnectionState':
+        """Gets the state of this V1DataConnection.  # noqa: E501
+
+
+        :return: The state of this V1DataConnection.  # noqa: E501
+        :rtype: V1DataConnectionState
+        """
+        return self._state
+
+    @state.setter
+    def state(self, state: 'V1DataConnectionState'):
+        """Sets the state of this V1DataConnection.
+
+
+        :param state: The state of this V1DataConnection.  # noqa: E501
+        :type: V1DataConnectionState
+        """
+
+        self._state = state
+
+    @property
+    def total_daily_read_bytes(self) -> 'str':
+        """Gets the total_daily_read_bytes of this V1DataConnection.  # noqa: E501
+
+        Used to track the daily read bytes for drive assets (like efs) that a customer utilizes. This will help us ensure that we're presenting the customer with the more accurate look at their EFS cost footprint.  # noqa: E501
+
+        :return: The total_daily_read_bytes of this V1DataConnection.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_daily_read_bytes
+
+    @total_daily_read_bytes.setter
+    def total_daily_read_bytes(self, total_daily_read_bytes: 'str'):
+        """Sets the total_daily_read_bytes of this V1DataConnection.
+
+        Used to track the daily read bytes for drive assets (like efs) that a customer utilizes. This will help us ensure that we're presenting the customer with the more accurate look at their EFS cost footprint.  # noqa: E501
+
+        :param total_daily_read_bytes: The total_daily_read_bytes of this V1DataConnection.  # noqa: E501
+        :type: str
+        """
+
+        self._total_daily_read_bytes = total_daily_read_bytes
+
+    @property
+    def total_daily_write_bytes(self) -> 'str':
+        """Gets the total_daily_write_bytes of this V1DataConnection.  # noqa: E501
+
+        Used to track the daily write bytes for drive assets (like write) that a customer utilizes. This will help us ensure that we're presenting the customer with the more accurate look at their EFS cost footprint.  # noqa: E501
+
+        :return: The total_daily_write_bytes of this V1DataConnection.  # noqa: E501
+        :rtype: str
+        """
+        return self._total_daily_write_bytes
+
+    @total_daily_write_bytes.setter
+    def total_daily_write_bytes(self, total_daily_write_bytes: 'str'):
+        """Sets the total_daily_write_bytes of this V1DataConnection.
+
+        Used to track the daily write bytes for drive assets (like write) that a customer utilizes. This will help us ensure that we're presenting the customer with the more accurate look at their EFS cost footprint.  # noqa: E501
+
+        :param total_daily_write_bytes: The total_daily_write_bytes of this V1DataConnection.  # noqa: E501
+        :type: str
+        """
+
+        self._total_daily_write_bytes = total_daily_write_bytes
 
     @property
     def total_size_bytes(self) -> 'str':
@@ -418,6 +850,48 @@ class V1DataConnection(object):
         """
 
         self._type = type
+
+    @property
+    def updated_at(self) -> 'datetime':
+        """Gets the updated_at of this V1DataConnection.  # noqa: E501
+
+
+        :return: The updated_at of this V1DataConnection.  # noqa: E501
+        :rtype: datetime
+        """
+        return self._updated_at
+
+    @updated_at.setter
+    def updated_at(self, updated_at: 'datetime'):
+        """Sets the updated_at of this V1DataConnection.
+
+
+        :param updated_at: The updated_at of this V1DataConnection.  # noqa: E501
+        :type: datetime
+        """
+
+        self._updated_at = updated_at
+
+    @property
+    def weka(self) -> 'V1WekaDataConnection':
+        """Gets the weka of this V1DataConnection.  # noqa: E501
+
+
+        :return: The weka of this V1DataConnection.  # noqa: E501
+        :rtype: V1WekaDataConnection
+        """
+        return self._weka
+
+    @weka.setter
+    def weka(self, weka: 'V1WekaDataConnection'):
+        """Sets the weka of this V1DataConnection.
+
+
+        :param weka: The weka of this V1DataConnection.  # noqa: E501
+        :type: V1WekaDataConnection
+        """
+
+        self._weka = weka
 
     @property
     def writable(self) -> 'bool':

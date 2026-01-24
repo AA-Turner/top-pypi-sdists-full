@@ -49,6 +49,7 @@ import os
 from datetime import datetime
 from functools import total_ordering
 from enum import Enum
+from decimal import Decimal
 
 from ctypes import (
     c_bool,
@@ -101,6 +102,7 @@ c_protocol_version = ctypes.c_int
 class ProtocolVersion(Enum):
     V1 = (c_protocol_version(1), '1')
     V2 = (c_protocol_version(2), '2')
+    V3 = (c_protocol_version(3), '3')
 
     @classmethod
     def from_int(cls, value: c_protocol_version):
@@ -289,6 +291,14 @@ def _setup_cdll():
         c_line_sender_buffer_p,
         c_line_sender_column_name,
         c_line_sender_utf8,
+        c_line_sender_error_p_p)
+    set_sig(
+        dll.line_sender_buffer_column_dec_str,
+        c_bool,
+        c_line_sender_buffer_p,
+        c_line_sender_column_name,
+        c_char_p,
+        c_size_t,
         c_line_sender_error_p_p)
     set_sig(
         dll.line_sender_buffer_column_f64_arr_byte_strides,
@@ -627,6 +637,11 @@ class TimestampMicros:
         self.value = micros
 
 
+class TimestampNanos:
+    def __init__(self, nanos: int):
+        self.value = nanos
+
+
 class Buffer:
     def __init__(self, protocol_version: ProtocolVersion, init_buf_size=65536, max_name_len=127, ):
         self._impl = _DLL.line_sender_buffer_with_max_name_len(
@@ -637,12 +652,8 @@ class Buffer:
     def __len__(self):
         return _DLL.line_sender_buffer_size(self._impl)
 
-    def peek(self) -> str:
-        #  This is a hacky way of doing it because it copies the whole buffer.
-        # Instead the `buffer` should be made to support the buffer protocol:
-        # https://docs.python.org/3/c-api/buffer.html
-        # This way we would not need to `bytes(..)` the object to keep it alive.
-        # Then we could call `PyMemoryView_FromObject`.
+    def peek(self) -> bytes:
+        # Copy buffer
         view = _DLL.line_sender_buffer_peek(self._impl)
         if view.len:
             c_buf = ctypes.cast(view.buf, c_char_p)  # uint8_t* → char*
@@ -676,6 +687,15 @@ class Buffer:
             _utf8(value))
         return self
 
+    def column_dec_str(self, name: str, value: str):
+        c_utf8 = value.encode('utf-8')
+        _error_wrapped_call(
+            _DLL.line_sender_buffer_column_dec_str,
+            self._impl,
+            _column_name(name),
+            c_utf8,
+            len(c_utf8))
+
     def column(
             self, name: str,
             value: Union[bool, int, float, str, TimestampMicros, datetime]):
@@ -703,9 +723,17 @@ class Buffer:
                 self._impl,
                 _column_name(name),
                 _utf8(value))
+        elif isinstance(value, Decimal):
+            self.column_dec_str(name, str(value))
         elif isinstance(value, TimestampMicros):
             _error_wrapped_call(
                 _DLL.line_sender_buffer_column_ts_micros,
+                self._impl,
+                _column_name(name),
+                value.value)
+        elif isinstance(value, TimestampNanos):
+            _error_wrapped_call(
+                _DLL.line_sender_buffer_column_ts_nanos,
                 self._impl,
                 _column_name(name),
                 value.value)
@@ -720,7 +748,7 @@ class Buffer:
             fqn = _fully_qual_name(value)
             raise ValueError(
                 f'Bad field value of type {fqn}: Expected one of '
-                '`bool`, `int`, `float` or `str`.')
+                '`bool`, `int`, `float`, `str`, `Decimal`, `TimestampMicros`, or `datetime`.')
         return self
 
     def column_f64_arr(self, name: str,
@@ -784,6 +812,12 @@ class Buffer:
     def at(self, timestamp: int):
         _error_wrapped_call(
             _DLL.line_sender_buffer_at_nanos,
+            self._impl,
+            timestamp)
+
+    def at_micros(self, timestamp: int):
+        _error_wrapped_call(
+            _DLL.line_sender_buffer_at_micros,
             self._impl,
             timestamp)
 
@@ -902,8 +936,14 @@ class Sender:
 
     def column(
             self, name: str,
-            value: Union[bool, int, float, str, TimestampMicros, datetime]):
+            value: Union[bool, int, float, str, Decimal, TimestampMicros, TimestampNanos, datetime]):
         self._buffer.column(name, value)
+        return self
+    
+    def column_dec_str(
+            self, name: str,
+            value: str):
+        self._buffer.column_dec_str(name, value)
         return self
 
     def column_f64_arr(
@@ -922,6 +962,9 @@ class Sender:
 
     def at(self, timestamp: int):
         self._buffer.at(timestamp)
+
+    def at_micros(self, timestamp: int):
+        self._buffer.at_micros(timestamp)
 
     def flush(self, buffer: Optional[Buffer] = None, clear=True, transactional=None):
         if (buffer is None) and not clear:

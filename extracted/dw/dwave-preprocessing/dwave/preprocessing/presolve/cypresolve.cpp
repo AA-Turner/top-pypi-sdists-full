@@ -1543,11 +1543,11 @@ static const char *__pyx_filename;
 static const char *__pyx_f[] = {
   "dwave/preprocessing/presolve/cypresolve.pyx",
   "<stringsource>",
-  "env/lib/python3.9/site-packages/dimod/cyvariables.pxd",
-  "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi",
-  "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_float64.pxd",
-  "env/lib/python3.9/site-packages/dimod/constrained/cyexpression.pxd",
-  "env/lib/python3.9/site-packages/dimod/constrained/cyconstrained.pxd",
+  "env/lib/python3.12/site-packages/dimod/cyvariables.pxd",
+  "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi",
+  "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_float64.pxd",
+  "env/lib/python3.12/site-packages/dimod/constrained/cyexpression.pxd",
+  "env/lib/python3.12/site-packages/dimod/constrained/cyconstrained.pxd",
 };
 /* #### Code section: utility_code_proto_before_types ### */
 /* ForceInitThreads.proto */
@@ -1813,7 +1813,7 @@ struct __pyx_obj_5dimod_11cyvariables_cyVariables {
 };
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<
@@ -2021,7 +2021,7 @@ struct __pyx_vtabstruct_5dimod_11cyvariables_cyVariables {
 static struct __pyx_vtabstruct_5dimod_11cyvariables_cyVariables *__pyx_vtabptr_5dimod_11cyvariables_cyVariables;
 
 
-/* "env/lib/python3.9/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
+/* "env/lib/python3.12/site-packages/dimod/cyqmbase/cyqmbase_template.pxd.pxi":22
  * 
  * 
  * cdef class cyQMBase_template:             # <<<<<<<<<<<<<<

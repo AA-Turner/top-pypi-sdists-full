@@ -1,8 +1,10 @@
+"""Tests for dataclass parameter options (frozen, keyword_only)."""
+
 from __future__ import annotations
 
 from datamodel_code_generator.model.dataclass import DataClass, DataModelField
 from datamodel_code_generator.reference import Reference
-from datamodel_code_generator.types import DataType, Types
+from datamodel_code_generator.types import DataType
 
 
 def test_dataclass_without_frozen() -> None:
@@ -10,7 +12,7 @@ def test_dataclass_without_frozen() -> None:
     reference = Reference(path="TestModel", name="TestModel")
     field = DataModelField(
         name="field1",
-        data_type=DataType(type=Types.string),
+        data_type=DataType(type="str"),
         required=True,
     )
 
@@ -31,7 +33,7 @@ def test_dataclass_with_frozen() -> None:
     reference = Reference(path="TestModel", name="TestModel")
     field = DataModelField(
         name="field1",
-        data_type=DataType(type=Types.string),
+        data_type=DataType(type="str"),
         required=True,
     )
 
@@ -51,7 +53,7 @@ def test_dataclass_with_keyword_only_and_frozen() -> None:
     reference = Reference(path="TestModel", name="TestModel")
     field = DataModelField(
         name="field1",
-        data_type=DataType(type=Types.string),
+        data_type=DataType(type="str"),
         required=True,
     )
 
@@ -74,7 +76,7 @@ def test_dataclass_with_only_keyword_only() -> None:
     reference = Reference(path="TestModel", name="TestModel")
     field = DataModelField(
         name="field1",
-        data_type=DataType(type=Types.string),
+        data_type=DataType(type="str"),
         required=True,
     )
 
@@ -121,12 +123,12 @@ def test_dataclass_kw_only_true_only() -> None:
     reference = Reference(path="TestModel", name="TestModel")
     field1 = DataModelField(
         name="field1",
-        data_type=DataType(type=Types.string),
+        data_type=DataType(type="str"),
         required=True,
     )
     field2 = DataModelField(
         name="field2",
-        data_type=DataType(type=Types.integer),
+        data_type=DataType(type="int"),
         required=False,
     )
 
@@ -145,3 +147,86 @@ def test_dataclass_kw_only_true_only() -> None:
     # Verify frozen attribute is False (default)
     assert dataclass.frozen is False
     assert dataclass.keyword_only is True
+
+
+def test_dataclass_legacy_keyword_only() -> None:
+    """Test that legacy 'frozen' argument is supported if dataclass_arguments is not set."""
+    reference = Reference(path="TestModel", name="TestModel")
+    field = DataModelField(
+        name="field1",
+        data_type=DataType(type="str"),
+        required=True,
+    )
+
+    dataclass = DataClass(
+        reference=reference,
+        fields=[field],
+        keyword_only=True,
+    )
+
+    rendered = dataclass.render()
+    assert "@dataclass(kw_only=True)" in rendered
+
+
+def test_dataclass_legacy_frozen() -> None:
+    """Test that legacy 'frozen' argument is supported if dataclass_arguments is not set."""
+    reference = Reference(path="TestModel", name="TestModel")
+    field = DataModelField(
+        name="field1",
+        data_type=DataType(type="str"),
+        required=True,
+    )
+
+    dataclass = DataClass(
+        reference=reference,
+        fields=[field],
+        frozen=True,
+    )
+
+    rendered = dataclass.render()
+    assert "@dataclass(frozen=True)" in rendered
+
+
+def test_dataclass_with_custom_dataclass_arguments() -> None:
+    """Test that custom dataclass_arguments are rendered correctly."""
+    reference = Reference(path="TestModel", name="TestModel")
+    field = DataModelField(
+        name="field1",
+        data_type=DataType(type="str"),
+        required=True,
+    )
+
+    dataclass = DataClass(
+        reference=reference,
+        fields=[field],
+        dataclass_arguments={"slots": True, "repr": False, "order": True},
+    )
+
+    rendered = dataclass.render()
+    assert "@dataclass(slots=True, order=True)" in rendered
+    assert "repr=False" not in rendered
+
+
+def test_dataclass_both_legacy_and_dataclass_arguments() -> None:
+    """Test that dataclass_arguments take precedence over legacy flags."""
+    reference = Reference(path="TestModel", name="TestModel")
+    field = DataModelField(
+        name="field1",
+        data_type=DataType(type="str"),
+        required=True,
+    )
+
+    dataclass = DataClass(
+        reference=reference,
+        fields=[field],
+        frozen=True,  # legacy flag
+        keyword_only=True,  # legacy flag
+        dataclass_arguments={"frozen": False, "order": True},
+    )
+
+    rendered = dataclass.render()
+    assert "@dataclass(order=True)" in rendered
+    assert "@dataclass(frozen=False)" not in rendered
+    assert "@dataclass(frozen=True)" not in rendered
+    assert "@dataclass(kw_only=False)" not in rendered
+    assert "@dataclass(kw_only=True)" not in rendered

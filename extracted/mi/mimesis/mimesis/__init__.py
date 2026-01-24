@@ -1,6 +1,6 @@
 """Mimesis: Fake Data Generator.
 
-Copyright (c) 2016 - 2024 Isaak Uchakaev (Likid Geimfari).
+Copyright (c) 2016 - Present Isaak Uchakaev (Likid Geimfari).
 Website: https://mimesis.name
 Email: <hey@isaak.dev>
 Repository: https://github.com/lk-geimfari/mimesis
@@ -18,7 +18,7 @@ from .enums import (
     DSNType,
     DurationUnit,
     EANFormat,
-    EmojyCategory,
+    EmojiCategory,
     FileType,
     Gender,
     ImageFile,
@@ -70,7 +70,7 @@ from .providers import (
     Text,
     Transport,
 )
-from .schema import Field, Fieldset, Schema
+from .schema import Field, Fieldset, Schema, SchemaBuilder
 
 __all__ = [
     # Providers:
@@ -103,6 +103,7 @@ __all__ = [
     "Field",
     "Fieldset",
     "Schema",
+    "SchemaBuilder",
     # Locale:
     "Locale",
     # Enums:
@@ -131,7 +132,7 @@ __all__ = [
     "TLDType",
     "URLScheme",
     "VideoFile",
-    "EmojyCategory",
+    "EmojiCategory",
     # Exceptions:
     "LocaleError",
     "SchemaError",
@@ -150,7 +151,7 @@ __all__ = [
     "__license__",
 ]
 
-__version__ = "18.0.0"
+__version__ = "19.1.0"
 __title__ = "mimesis"
 __description__ = "Mimesis: Fake Data Generator."
 __url__ = "https://github.com/lk-geimfari/mimesis"

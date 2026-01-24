@@ -30,8 +30,6 @@ DEFAULT_IGNORE_PATTERNS = [
     '*/.cache',
     '**/.cache/**',
 ]
-# Forbidden to commit these folders
-FORBIDDEN_FOLDERS = ['.git', '.cache']
 
 UploadMode = Literal['lfs', 'normal']
 
@@ -418,6 +416,7 @@ class UploadInfo:
         file_hash_info: dict = file_hash_info or get_file_hash(fileobj)
         fileobj.seek(0, os.SEEK_SET)
         sample = fileobj.read(512)
+        fileobj.seek(0, os.SEEK_SET)
         return cls(
             sha256=file_hash_info['file_hash'],
             size=file_hash_info['file_size'],
@@ -554,11 +553,7 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
             f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith('./'):
         path_in_repo = path_in_repo[2:]
-    for forbidden in FORBIDDEN_FOLDERS:
-        if any(part == forbidden for part in path_in_repo.split('/')):
-            raise ValueError(
-                f"Invalid `path_in_repo` in CommitOperation: cannot update files under a '{forbidden}/' folder (path:"
-                f" '{path_in_repo}').")
+
     return path_in_repo
 
 

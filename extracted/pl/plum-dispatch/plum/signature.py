@@ -1,14 +1,9 @@
 import inspect
 import operator
-import sys
+from collections.abc import Callable
 from copy import copy
-from typing import Any, Callable, ClassVar, List, Set, Tuple, Union
-
-# TODO: When minimum version required is 3.11, remove `typing_extensions`.
-if sys.version_info >= (3, 11):  # pragma: specific no cover 3.7 3.8 3.9 3.10
-    from typing import Self
-else:  # pragma: specific no cover 3.11
-    from typing_extensions import Self
+from typing import Any, ClassVar, get_type_hints
+from typing_extensions import Self
 
 from rich.segment import Segment
 
@@ -18,12 +13,9 @@ from beartype.peps import resolve_pep563 as beartype_resolve_pep563
 from . import _is_bearable
 from .repr import repr_short, rich_repr
 from .type import is_faithful, resolve_type_hint
-from .typing import get_type_hints
-from .util import Comparable, Missing, TypeHint, wrap_lambda
+from .util import Comparable, Missing, TypeHint, _MissingType, wrap_lambda
 
 __all__ = ["Signature", "append_default_args"]
-
-OptionalType = Union[TypeHint, type(Missing)]
 
 
 @rich_repr
@@ -50,12 +42,12 @@ class Signature(Comparable):
     _default_varargs: ClassVar = Missing
     _default_precedence: ClassVar[int] = 0
 
-    __slots__: Tuple[str, ...] = ("types", "varargs", "precedence", "is_faithful")
+    __slots__: tuple[str, ...] = ("types", "varargs", "precedence", "is_faithful")
 
     def __init__(
         self,
-        *types: Tuple[TypeHint, ...],
-        varargs: OptionalType = _default_varargs,
+        *types: tuple[TypeHint, ...],
+        varargs: TypeHint | _MissingType = _default_varargs,
         precedence: int = _default_precedence,
     ) -> None:
         """Instantiate a signature, which contains exactly the information necessary for
@@ -121,23 +113,33 @@ class Signature(Comparable):
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Signature):
+            if self.varargs is Missing:
+                self_varargs = Missing
+            else:
+                self_varargs = beartype.door.TypeHint(self.varargs)
+
+            if other.varargs is Missing:
+                other_varargs = Missing
+            else:
+                other_varargs = beartype.door.TypeHint(other.varargs)
+
+            # We don't need to check faithfulness, because that is automatically derived
+            # from the arguments.
             return (
-                self.types,
-                self.varargs,
+                tuple(beartype.door.TypeHint(t) for t in self.types),
+                self_varargs,
                 self.precedence,
-                self.is_faithful,
             ) == (
-                other.types,
-                other.varargs,
+                tuple(beartype.door.TypeHint(t) for t in other.types),
+                other_varargs,
                 other.precedence,
-                other.is_faithful,
             )
         return False
 
     def __hash__(self):
         return hash((Signature, *self.types, self.varargs))
 
-    def expand_varargs(self, n: int) -> Tuple[TypeHint, ...]:
+    def expand_varargs(self, n: int) -> tuple[TypeHint, ...]:
         """Expand variable arguments.
 
         Args:
@@ -169,7 +171,7 @@ class Signature(Comparable):
         if all(
             [
                 beartype.door.TypeHint(x) == beartype.door.TypeHint(y)
-                for x, y in zip(self_types, other_types)
+                for x, y in zip(self_types, other_types, strict=True)
             ]
         ):
             if self.has_varargs and other.has_varargs:
@@ -189,7 +191,7 @@ class Signature(Comparable):
         elif all(
             [
                 beartype.door.TypeHint(x) <= beartype.door.TypeHint(y)
-                for x, y in zip(self_types, other_types)
+                for x, y in zip(self_types, other_types, strict=True)
             ]
         ):
             # In this case, we have that `other >= self` is `False`, so returning `True`
@@ -230,7 +232,7 @@ class Signature(Comparable):
         else:
             return False
 
-    def match(self, values: Tuple) -> bool:
+    def match(self, values: tuple, /) -> bool:
         """Check whether values match the signature.
 
         Args:
@@ -248,9 +250,9 @@ class Signature(Comparable):
             return False
         else:
             types = self.expand_varargs(len(values))
-            return all(_is_bearable(v, t) for v, t in zip(values, types))
+            return all(_is_bearable(v, t) for v, t in zip(values, types, strict=True))
 
-    def compute_distance(self, values: Tuple[object, ...]) -> int:
+    def compute_distance(self, values: tuple[object, ...], /) -> int:
         """For given values, computes the edit distance between these vales and this
         signature.
 
@@ -260,21 +262,21 @@ class Signature(Comparable):
         Returns:
             int: Edit distance.
         """
-        types = self.expand_varargs(len(values))
-
-        distance = 0
+        n = len(values)
+        types = self.expand_varargs(n)
 
         # Count one for every extra or missing argument.
-        distance += abs(len(types) - len(values))
+        distance: int = abs(len(types) - n)
 
-        # Additionally count one for every mismatching value.
-        for v, t in zip(values, types):
+        # Additionally count one for every mismatching value above the
+        # extra/missing arguments. There can be fewer types than values.
+        for v, t in zip(values, types, strict=False):
             if not _is_bearable(v, t):
                 distance += 1
 
         return distance
 
-    def compute_mismatches(self, values: Tuple) -> Tuple[Set[int], bool]:
+    def compute_mismatches(self, values: tuple, /) -> tuple[set[int], bool]:
         """For given `values`, find the indices of the arguments that are mismatched.
         Also return whether the varargs is matched.
 
@@ -287,14 +289,15 @@ class Signature(Comparable):
         """
         types = self.expand_varargs(len(values))
 
+        n_types = len(self.types)
         mismatches = set()
         # By default, the varargs are matched. Only return that it is mismatched if
         # there is an explicit mismatch.
         varargs_matched = True
 
-        for i, (v, t) in enumerate(zip(values, types)):
+        for i, (v, t) in enumerate(zip(values, types, strict=False)):
             if not _is_bearable(v, t):
-                if i < len(self.types):
+                if i < n_types:
                     mismatches.add(i)
                 else:
                     varargs_matched = False
@@ -302,7 +305,7 @@ class Signature(Comparable):
         return mismatches, varargs_matched
 
 
-def inspect_signature(f: Callable) -> inspect.Signature:
+def inspect_signature(f: Callable, /) -> inspect.Signature:
     """Wrapper of :func:`inspect.signature` which adds support for certain non-function
     objects.
 
@@ -317,7 +320,7 @@ def inspect_signature(f: Callable) -> inspect.Signature:
     return inspect.signature(f)
 
 
-def resolve_pep563(f: Callable):
+def resolve_pep563(f: Callable, /) -> None:
     """Utility function to resolve PEP563-style annotations and make editable.
 
     This function mutates `f`.
@@ -333,7 +336,7 @@ def resolve_pep563(f: Callable):
             f.__annotations__[k] = v
 
 
-def _extract_signature(f: Callable, precedence: int = 0) -> Signature:
+def _extract_signature(f: Callable, /, precedence: int = 0) -> Signature:
     """Extract the signature from a function.
 
     Args:
@@ -382,7 +385,7 @@ def _extract_signature(f: Callable, precedence: int = 0) -> Signature:
     return types, varargs
 
 
-def append_default_args(signature: Signature, f: Callable) -> List[Signature]:
+def append_default_args(signature: Signature, f: Callable) -> list[Signature]:
     """Returns a list of signatures of function `f`, where those signatures are derived
     from the input arguments of `f` by treating every non-keyword-only argument with a
     default value as a keyword-only argument turn by turn.

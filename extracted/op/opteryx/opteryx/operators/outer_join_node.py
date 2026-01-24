@@ -20,9 +20,9 @@ from typing import List
 import pyarrow
 
 from opteryx import EOS
-from opteryx.compiled.joins.inner_join import build_side_hash_map
-from opteryx.compiled.joins.outer_join import probe_side_hash_map
-from opteryx.compiled.joins.outer_join import right_join
+from opteryx.compiled.joins import build_side_hash_map
+from opteryx.compiled.joins import probe_side_hash_map
+from opteryx.compiled.joins import right_join
 from opteryx.compiled.structures.bloom_filter import create_bloom_filter
 from opteryx.compiled.structures.buffers import IntBuffer
 from opteryx.compiled.structures.hash_table import HashTable
@@ -41,6 +41,7 @@ def left_join(
     right_columns: List[str],
     filter_index,
     left_hash,
+    columns=None,
 ):
     """
     Perform a LEFT OUTER JOIN using a prebuilt hash map and optional filter.
@@ -112,7 +113,12 @@ def left_join(
 
 
 def full_join(
-    left_relation, right_relation, left_columns: List[str], right_columns: List[str], **kwargs
+    left_relation,
+    right_relation,
+    left_columns: List[str],
+    right_columns: List[str],
+    columns=None,
+    **kwargs,
 ):
     hash_table = HashTable()
     non_null_right_values = right_relation.select(right_columns).itercolumns()
@@ -147,8 +153,9 @@ def full_join(
 
 class OuterJoinNode(JoinNode):
     def __init__(self, properties: QueryProperties, **parameters):
-        JoinNode.__init__(self, properties=properties, **parameters)
+        # Ensure `join_type` exists before the base initializer accesses `self.name`
         self.join_type = parameters["type"]
+        JoinNode.__init__(self, properties=properties, **parameters)
         self.on = parameters.get("on")
         self.using = parameters.get("using")
 
@@ -157,6 +164,8 @@ class OuterJoinNode(JoinNode):
 
         self.right_columns = parameters.get("right_columns")
         self.right_readers = parameters.get("right_readers")
+
+        self.columns = parameters.get("columns")
 
         self.left_buffer = []
         self.left_buffer_columns = None
@@ -170,7 +179,7 @@ class OuterJoinNode(JoinNode):
 
     @property
     def name(self):  # pragma: no cover
-        return self.join_type
+        return self.join_type.replace(" ", "_")
 
     @property
     def config(self) -> str:  # pragma: no cover
@@ -183,6 +192,8 @@ class OuterJoinNode(JoinNode):
         return f"{self.join_type.upper()}"
 
     def execute(self, morsel: pyarrow.Table, join_leg: str) -> pyarrow.Table:
+        morsel = self.ensure_arrow_table(morsel)
+
         if join_leg == "left":
             if morsel == EOS:
                 self.left_relation = pyarrow.concat_tables(self.left_buffer, promote_options="none")
@@ -215,14 +226,21 @@ class OuterJoinNode(JoinNode):
 
                 join_provider = providers.get(self.join_type)
 
-                yield from join_provider(
+                for result_table in join_provider(
                     left_relation=self.left_relation,
                     right_relation=right_relation,
                     left_columns=self.left_columns,
                     right_columns=self.right_columns,
                     left_hash=self.left_hash,
                     filter_index=self.filter_index,
-                )
+                    columns=self.columns,
+                ):
+                    # Project down to only the needed columns if specified
+                    if self.columns is not None:
+                        candidates = [c.schema_column.identity for c in self.columns]
+                        keep_columns = [c for c in candidates if c in result_table.schema.names]
+                        result_table = result_table.select(keep_columns)
+                    yield result_table
                 yield EOS
 
             else:

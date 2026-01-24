@@ -3,11 +3,14 @@ from __future__ import annotations
 import abc
 import copy
 import dataclasses
-import math
+import inspect
 import re
 import string
-import sys
 
+from collections.abc import Collection
+from collections.abc import Iterable
+from collections.abc import Iterator
+from collections.abc import Sequence
 from datetime import date
 from datetime import datetime
 from datetime import time
@@ -15,11 +18,6 @@ from datetime import tzinfo
 from enum import Enum
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
-from typing import Collection
-from typing import Iterable
-from typing import Iterator
-from typing import Sequence
 from typing import TypeVar
 from typing import cast
 from typing import overload
@@ -38,11 +36,17 @@ from tomlkit.exceptions import InvalidStringError
 
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
     from tomlkit import container
+
+    class Encoder(Protocol):
+        def __call__(
+            self, __value: Any, _parent: Item | None = None, _sort_keys: bool = False
+        ) -> Item: ...
 
 
 ItemT = TypeVar("ItemT", bound="Item")
-Encoder = Callable[[Any], "Item"]
 CUSTOM_ENCODERS: list[Encoder] = []
 AT = TypeVar("AT", bound="AbstractTable")
 
@@ -199,7 +203,16 @@ def item(value: Any, _parent: Item | None = None, _sort_keys: bool = False) -> I
     else:
         for encoder in CUSTOM_ENCODERS:
             try:
-                rv = encoder(value)
+                # Check if encoder accepts keyword arguments for backward compatibility
+                sig = inspect.signature(encoder)
+                if "_parent" in sig.parameters or any(
+                    p.kind == p.VAR_KEYWORD for p in sig.parameters.values()
+                ):
+                    # New style encoder that can accept additional parameters
+                    rv = encoder(value, _parent=_parent, _sort_keys=_sort_keys)
+                else:
+                    # Old style encoder that only accepts value
+                    rv = encoder(value)
             except ConvertError:
                 pass
             else:
@@ -740,12 +753,8 @@ class Float(Item, _CustomFloat):
     __truediv__ = wrap_method(float.__truediv__)
     __trunc__ = float.__trunc__
 
-    if sys.version_info >= (3, 9):
-        __ceil__ = float.__ceil__
-        __floor__ = float.__floor__
-    else:
-        __ceil__ = math.ceil
-        __floor__ = math.floor
+    __ceil__ = float.__ceil__
+    __floor__ = float.__floor__
 
 
 class Bool(Item):
@@ -1851,6 +1860,10 @@ class String(str, Item):
 
     def as_string(self) -> str:
         return f"{self._t.value}{decode(self._original)}{self._t.value}"
+
+    @property
+    def type(self) -> StringType:
+        return self._t
 
     def __add__(self: ItemT, other: str) -> ItemT:
         if not isinstance(other, str):

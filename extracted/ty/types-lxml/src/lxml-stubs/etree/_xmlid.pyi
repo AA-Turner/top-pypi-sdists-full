@@ -1,5 +1,10 @@
 import sys
-from typing import Collection, Generic, Iterator, overload
+from collections.abc import (
+    Collection,
+    Iterator,
+)
+from typing import Generic, overload
+from typing_extensions import disjoint_base
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -62,6 +67,7 @@ def parseid(
     base_url: str | bytes | None = None,
 ) -> tuple[_ElementTree, _IDDict]: ...
 
+@disjoint_base
 class _IDDict(Collection[str], Generic[_ET]):
     """Dictionary-like proxy class that maps ID attributes to elements
 
@@ -73,10 +79,7 @@ class _IDDict(Collection[str], Generic[_ET]):
     """
 
     # Key normalisation happens inside __contains__
-    def __contains__(  # pyright: ignore[reportIncompatibleMethodOverride]
-        self,
-        __k: _TextArg,  # type: ignore[override]
-    ) -> bool: ...
+    def __contains__(self, x: object, /) -> bool: ...
     def __getitem__(self, __k: _TextArg) -> _ET: ...
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...

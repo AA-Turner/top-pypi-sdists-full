@@ -17,8 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple, Ty
 
 import pyarrow as pa
 
+import chalk.functions as F
 from chalk._lsp.error_builder import DiagnosticBuilder, LSPErrorBuilder
-from chalk.features import Feature, Features, FeatureSetBase, Filter, unwrap_feature
+from chalk.features import Feature, Features, FeatureSetBase, Filter, Vector, unwrap_feature
 from chalk.features.feature_field import WindowConfigResolved
 from chalk.features.pseudofeatures import Now
 
@@ -89,6 +90,8 @@ supported_aggs = (
     "approx_top_k",
     "array_agg",
     "count",
+    "min_by_n",
+    "max_by_n",
     "max",
     "mean",
     "min",
@@ -99,6 +102,8 @@ supported_aggs = (
     "sum",
     "var",
     "var_sample",
+    "vector_sum",
+    "vector_mean",
 )
 
 
@@ -167,7 +172,16 @@ def _check_types(
         return
 
     joined_annotation = joined_feature.typ.parsed_annotation
-    if aggregation not in {"count", "approx_count_distinct", "approx_top_k", "array_agg"}:
+    if aggregation not in {
+        "count",
+        "approx_count_distinct",
+        "approx_top_k",
+        "min_by_n",
+        "max_by_n",
+        "array_agg",
+        "vector_sum",
+        "vector_mean",
+    }:
         _validate_types(
             annotation=joined_annotation,
             permitted_types=(int, float),
@@ -193,7 +207,6 @@ def _check_types(
             joined=False,
             feature_name=feature_name,
         )
-
     elif aggregation == "min" or aggregation == "max":
         if _get_underlying_type(this_annotation, feature_name) != _get_underlying_type(
             joined_annotation, joined_feature.name
@@ -279,18 +292,45 @@ def _parse_agg_function_call(expr: Underscore | None) -> Tuple[str, Underscore, 
     if aggregation not in supported_aggs:
         raise ChalkParseError(f"aggregation should be one of {', '.join(supported_aggs)}")
 
+    opts = FrozenOrderedSet()
     if aggregation == "approx_top_k":
-        # Special arg validation for approx_top_k.
+        # Special arg validation for approx_top_k, first_k, and last_k.
         if len(call_expr._chalk__args) > 0:
             raise ChalkParseError("should not have any positional arguments")
         elif {"k"} != call_expr._chalk__kwargs.keys():
             raise ChalkParseError("expecting exactly one required keyword argument 'k'")
-        elif (argtype := type(call_expr._chalk__kwargs.get("k"))) != int:
-            raise ChalkParseError(f"expecting 'int' type argument for 'k', but received arg of type '{argtype}'")
+        elif not isinstance(call_expr._chalk__kwargs.get("k"), int):
+            raise ChalkParseError(
+                f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__kwargs.get('k'))}'"
+            )
+        opts = FrozenOrderedSet(call_expr._chalk__kwargs.items())
+    elif aggregation == "approx_percentile":
+        if len(call_expr._chalk__args) > 0:
+            raise ChalkParseError("should not have any positional arguments")
+        elif {"quantile"} != call_expr._chalk__kwargs.keys():
+            raise ChalkParseError("expecting exactly one required keyword argument 'quantile'")
+        elif not isinstance(call_expr._chalk__kwargs.get("quantile"), float):
+            raise ChalkParseError(
+                f"expecting 'float' type argument for 'quantile', but received arg of type '{type(call_expr._chalk__kwargs.get('quantile'))}'"
+            )
+        # TODO: expand proto definition to accept kwargs that are not necessarily `k`
+        quantile = call_expr._chalk__kwargs["quantile"]
+        nano_quantile = int(round(quantile * 1_000_000_000))
+        opts = FrozenOrderedSet([("k", nano_quantile)])
+    elif aggregation in ("min_by_n", "max_by_n"):
+        if len(call_expr._chalk__kwargs) > 0:
+            raise ChalkParseError("should not have any keyword arguments")
+        if len(call_expr._chalk__args) != 2:
+            raise ChalkParseError("expecting exactly two positional arguments, 'by' and 'k'")
+        if not isinstance(call_expr._chalk__args[1], int):
+            raise ChalkParseError(
+                f"expecting 'int' type argument for 'k', but received arg of type '{type(call_expr._chalk__args[1])}'"
+            )
+        opts = FrozenOrderedSet([("k", call_expr._chalk__args[1])])
     elif len(call_expr._chalk__args) > 0 or len(call_expr._chalk__kwargs) > 0:
         raise ChalkParseError("should not have any arguments or keyword arguments")
 
-    return aggregation, function_attribute._chalk__parent, FrozenOrderedSet(call_expr._chalk__kwargs.items())
+    return aggregation, function_attribute._chalk__parent, opts
 
 
 def _parse_projection(expr: Underscore | None) -> str:
@@ -406,8 +446,6 @@ def run_post_import_fixups():
             #       "1m", "2m", materialization={...},
             #       expression=_.transactions[_.amount].sum(),
             #   )
-            assert f.underscore_expression is not None
-            assert f.window_materialization is not None
 
             try:
                 f.window_materialization_parsed = parse_windowed_materialization(f=f)
@@ -545,39 +583,51 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
         aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=pyarrow_dtype,
         filters=parsed_filters,
-        backfill_resolver=_try_parse_resolver_fqn(
-            "backfill_resolver",
-            f.window_materialization.get("backfill_resolver", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_schedule=f.window_materialization.get("backfill_schedule", None)
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_lookback_duration_seconds=_try_parse_duration(
-            "backfill_lookback_duration",
-            f.window_materialization.get("backfill_lookback_duration", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_start_time=_try_parse_datetime(
-            "backfill_start_time",
-            f.window_materialization.get("backfill_start_time", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        continuous_resolver=_try_parse_resolver_fqn(
-            "continuous_resolver",
-            f.window_materialization.get("continuous_resolver", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        continuous_buffer_duration_seconds=_try_parse_duration(
-            "continuous_buffer_duration",
-            f.window_materialization.get("continuous_buffer_duration", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
+        backfill_resolver=(
+            _try_parse_resolver_fqn(
+                "backfill_resolver",
+                f.window_materialization.get("backfill_resolver", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_schedule=(
+            f.window_materialization.get("backfill_schedule", None)
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_lookback_duration_seconds=(
+            _try_parse_duration(
+                "backfill_lookback_duration",
+                f.window_materialization.get("backfill_lookback_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_start_time=(
+            _try_parse_datetime(
+                "backfill_start_time",
+                f.window_materialization.get("backfill_start_time", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        continuous_resolver=(
+            _try_parse_resolver_fqn(
+                "continuous_resolver",
+                f.window_materialization.get("continuous_resolver", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        continuous_buffer_duration_seconds=(
+            _try_parse_duration(
+                "continuous_buffer_duration",
+                f.window_materialization.get("continuous_buffer_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
     )
 
     return cfg
@@ -694,6 +744,14 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         aggregated_feature_name=aggregated_value,
     )
 
+    if aggregation == "sum" or aggregation == "mean":
+        try:
+            if issubclass(f.typ.parsed_annotation, Vector):
+                aggregation = f"vector_{aggregation}"
+        except TypeError:
+            # Not a class so not a Vector, skip
+            pass
+
     _check_types(
         feature_name=f.window_stem,
         aggregation=aggregation,
@@ -765,39 +823,51 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         aggregation_kwargs=aggregation_kwargs,
         pyarrow_dtype=f.converter.pyarrow_dtype,
         filters=parsed_filters,
-        backfill_resolver=_try_parse_resolver_fqn(
-            "backfill_resolver",
-            f.window_materialization.get("backfill_resolver", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_schedule=f.window_materialization.get("backfill_schedule", None)
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_lookback_duration_seconds=_try_parse_duration(
-            "backfill_lookback_duration",
-            f.window_materialization.get("backfill_lookback_duration", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        backfill_start_time=_try_parse_datetime(
-            "backfill_start_time",
-            f.window_materialization.get("backfill_start_time", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        continuous_resolver=_try_parse_resolver_fqn(
-            "continuous_resolver",
-            f.window_materialization.get("continuous_resolver", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
-        continuous_buffer_duration_seconds=_try_parse_duration(
-            "continuous_buffer_duration",
-            f.window_materialization.get("continuous_buffer_duration", None),
-        )
-        if isinstance(f.window_materialization, dict)
-        else None,
+        backfill_resolver=(
+            _try_parse_resolver_fqn(
+                "backfill_resolver",
+                f.window_materialization.get("backfill_resolver", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_schedule=(
+            f.window_materialization.get("backfill_schedule", None)
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_lookback_duration_seconds=(
+            _try_parse_duration(
+                "backfill_lookback_duration",
+                f.window_materialization.get("backfill_lookback_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        backfill_start_time=(
+            _try_parse_datetime(
+                "backfill_start_time",
+                f.window_materialization.get("backfill_start_time", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        continuous_resolver=(
+            _try_parse_resolver_fqn(
+                "continuous_resolver",
+                f.window_materialization.get("continuous_resolver", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
+        continuous_buffer_duration_seconds=(
+            _try_parse_duration(
+                "continuous_buffer_duration",
+                f.window_materialization.get("continuous_buffer_duration", None),
+            )
+            if isinstance(f.window_materialization, dict)
+            else None
+        ),
     )
 
 
@@ -975,6 +1045,33 @@ class _UnderscoreValidationError(ValueError):
     ...
 
 
+def _has_group_by_in_parent_chain(underscore: Underscore) -> bool:
+    """
+    Traverse parent chain to check if .group_by() exists before .agg().
+
+    For valid group_by_windowed: _.x.group_by(_.y).agg(_.z.sum())
+    - Looks for: UnderscoreCall -> UnderscoreAttr("group_by")
+
+    Returns True if .group_by() found, False otherwise.
+    """
+    current: Optional[Any] = underscore
+
+    while current is not None:
+        # Check if current is a .group_by() call
+        if isinstance(current, UnderscoreCall):
+            parent = current._chalk__parent
+            if isinstance(parent, UnderscoreAttr) and parent._chalk__attr == "group_by":
+                return True
+
+        # Move to parent
+        if hasattr(current, "_chalk__parent"):
+            current = current._chalk__parent
+        else:
+            break
+
+    return False
+
+
 class ChalkImporter:
     def __init__(self):
         super().__init__()
@@ -1007,7 +1104,7 @@ class ChalkImporter:
                 frame = i
         if error_file in self.errors:
             return
-        error_message = f"""{(ex_type and ex_type.__name__) or 'Exception'} at '{error_file}{':' + str(line_number) if line_number is not None else ''}'"""
+        error_message = f"""{(ex_type and ex_type.__name__) or "Exception"} at '{error_file}{":" + str(line_number) if line_number is not None else ""}'"""
         full_traceback = f"""{error_message}:
 {os.linesep.join(traceback.format_tb(ex_traceback)[frame:])}
 {ex_type and ex_type.__name__}: {str(ex_value)}
@@ -1059,6 +1156,7 @@ class ChalkImporter:
         self,
         failed_imports: List[FailedImport],
         diagnostics: List[PublishDiagnosticsParams],
+        additional_diagnostics: Optional[List[PublishDiagnosticsParams]] = None,
     ) -> List[PublishDiagnosticsParams]:
         """
         :param failed_imports: Errors encountered when importing customer code. This method converts them into LSP errors.
@@ -1075,6 +1173,9 @@ class ChalkImporter:
         for feature_class in FeatureSetBase.registry.values():
             # Iterate through every class, to find every underscore definition.
             for f in feature_class.features:
+                if f.is_windowed_pseudofeature is True:
+                    # need one LSP just for the base
+                    continue
                 if f.underscore_expression is not None:
                     # Validate that the underscore expression is well-formed.
                     # If it is not well-formed, then an `_UnderscoreValidationError` will
@@ -1130,7 +1231,7 @@ class ChalkImporter:
                             )
                         )
 
-        return diagnostics
+        return diagnostics + (additional_diagnostics or [])
 
 
 CHALK_IMPORTER = ChalkImporter()
@@ -1195,7 +1296,7 @@ def import_all_python_files_from_dir(
                 start = time.perf_counter()
                 importlib.import_module(module_path)
                 end = time.perf_counter()
-                _import_logger.debug(f"Imported '{module_path}' in {end-start} seconds")
+                _import_logger.debug(f"Imported '{module_path}' in {end - start} seconds")
             except Exception as e:
                 if not LSPErrorBuilder.promote_exception(e):
                     ex_type, ex_value, ex_traceback = sys.exc_info()
@@ -1407,15 +1508,26 @@ def _supplemental_validate_underscore_expression(
 
     # TODO: Dominic - impl for UnderscoreCall args (we need some special casing for aggregate functions that take in UnderscoreItems)
     if isinstance(underscore, UnderscoreCall):
+        if not isinstance(underscore._chalk__parent, UnderscoreAttr):
+            # we only support calls on attrs, ie _.a.some_attr(*args, **kwargs)
+            raise _UnderscoreValidationError(f"Cannot call non-attribute {underscore._chalk__parent}.")
         caller = underscore._chalk__parent._chalk__parent
+        op_name = underscore._chalk__parent._chalk__attr
+
+        if (op := getattr(F, op_name, None)) is not None:
+            if getattr(op, "_chalk__method_chaining_predicate", lambda _: True)(underscore):
+                return _supplemental_validate_underscore_expression(
+                    state,
+                    class_namespace=class_namespace,
+                    underscore=op(caller, *underscore._chalk__args, **underscore._chalk__kwargs),
+                )
+
         maybe_parent_result = _supplemental_validate_underscore_expression(
             state=state,
             class_namespace=class_namespace,
             underscore=caller,
         )
-        if not isinstance(underscore._chalk__parent, UnderscoreAttr):
-            return None  # TODO: Dominic - is this ever valid?
-        if underscore._chalk__parent._chalk__attr == "where":
+        if op_name == "where":
             if maybe_parent_result is None:
                 return None
             if not isinstance(maybe_parent_result, _HasManyNamespaceExpr) or not isinstance(caller, UnderscoreItem):
@@ -1440,8 +1552,25 @@ def _supplemental_validate_underscore_expression(
                     raise _UnderscoreValidationError(
                         f"the input '{arg!r}' is a feature namespace '{expr.namespace}' which cannot be used as a scalar value"
                     )
+            return None
+
+        # Validate .agg() usage (addressing TODO at line 1522)
+        if op_name == "agg":
+            if not _has_group_by_in_parent_chain(caller):
+                raise _UnderscoreValidationError(
+                    "'.agg()' can only be used with '.group_by()' for group_by_windowed features. "
+                    + "For windowed features, use direct aggregation methods instead. "
+                    + "For example, instead of using '.agg(_.field.method())', use '.field.method()' directly on the filtered DataFrame"
+                )
 
         return None
+
+        # TODO: check that op_name is a supported agg or .agg/.group_by/etc
+        # if op_name in supported_aggs:
+        #     # TODO: typechecking for agg fns
+        #     return None
+        #
+        # raise _UnderscoreValidationError(f"unrecognized function '{op_name}' in expression '{underscore}'")
 
     if isinstance(underscore, UnderscoreItem):
         parent_result = _supplemental_validate_underscore_expression(

@@ -2,14 +2,21 @@ from __future__ import annotations
 
 import random
 from types import ModuleType
-from typing import TYPE_CHECKING, Final, List, Union
+from typing import TYPE_CHECKING, Callable, Final, List, Union
 from unittest.mock import create_autospec, patch
 
 import pytest
 from _pytest import monkeypatch
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 import great_expectations.exceptions as gx_exceptions
 from great_expectations.compatibility import sqlalchemy
+from great_expectations.compatibility.sqlalchemy import (
+    Dialect,
+    Engine,
+)
 from great_expectations.compatibility.sqlalchemy import (
     sqlalchemy as sa,
 )
@@ -22,7 +29,7 @@ from great_expectations.expectations.metrics.util import (
     get_dialect_like_pattern_expression,
     get_unexpected_indices_for_multiple_pandas_named_indices,
     get_unexpected_indices_for_single_pandas_named_index,
-    sql_statement_with_post_compile_to_string,
+    sqlalchemy_select_to_sql_string,
 )
 from tests.test_utils import (
     get_awsathena_connection_url,
@@ -57,12 +64,13 @@ def select_with_post_compile_statements() -> sqlalchemy.Select:
 
 def _compare_select_statement_with_converted_string(engine) -> None:
     """
-    Helper method used to do the call to sql_statement_with_post_compile_to_string() and compare with expected val
+    Helper method used to do the call to sqlalchemy_select_to_sql_string()
+    and compare with expected value.
     Args:
         engine (ExecutionEngine): SqlAlchemyExecutionEngine with connection to backend under test
-    """  # noqa: E501 # FIXME CoP
+    """
     select_statement: sqlalchemy.Select = select_with_post_compile_statements()
-    returned_string = sql_statement_with_post_compile_to_string(
+    returned_string = sqlalchemy_select_to_sql_string(
         engine=engine, select_statement=select_statement
     )
     assert returned_string == ("SELECT a.id, a.data \nFROM a \nWHERE a.data = '00000000';")
@@ -158,7 +166,7 @@ def test_sql_statement_conversion_to_string_bigquery(test_backends):
         connection_string = get_bigquery_connection_url()
         engine = SqlAlchemyExecutionEngine(connection_string=connection_string)
         select_statement: sqlalchemy.Select = select_with_post_compile_statements()
-        returned_string = sql_statement_with_post_compile_to_string(
+        returned_string = sqlalchemy_select_to_sql_string(
             engine=engine, select_statement=select_statement
         )
         assert returned_string == (
@@ -625,6 +633,140 @@ class TestCaseInsensitiveString:
 
 
 @pytest.mark.unit
+def test_get_sqlalchemy_column_metadata_includes_primary_key_field(
+    sql_data_connector_test_db_execution_engine,
+):
+    """Test that get_sqlalchemy_column_metadata includes primary_key field for all columns."""
+    from great_expectations.execution_engine.sqlalchemy_batch_data import SqlAlchemyBatchData
+    from great_expectations.expectations.metrics.util import get_sqlalchemy_column_metadata
+
+    engine = sql_data_connector_test_db_execution_engine
+
+    # Test table with single primary key
+    batch_data = SqlAlchemyBatchData(execution_engine=engine, table_name="table_with_single_pk")
+    engine.load_batch_data("__test_single_pk", batch_data)
+
+    columns = get_sqlalchemy_column_metadata(
+        execution_engine=engine,
+        table_selectable=sqlalchemy.quoted_name("table_with_single_pk", quote=False),
+        schema_name=None,
+    )
+
+    assert columns is not None
+    assert len(columns) == 3  # id, name, value
+
+    # All columns should have primary_key field
+    assert all("primary_key" in col for col in columns)
+
+    # Only 'id' should be marked as primary key
+    pk_columns = [col["name"] for col in columns if col["primary_key"]]
+    assert pk_columns == ["id"]
+
+    # Other columns should not be primary keys
+    non_pk_columns = [col["name"] for col in columns if not col["primary_key"]]
+    assert set(non_pk_columns) == {"name", "value"}
+
+
+@pytest.mark.unit
+def test_get_sqlalchemy_column_metadata_composite_primary_key(
+    sql_data_connector_test_db_execution_engine,
+):
+    """Test that composite primary keys are correctly identified."""
+    from great_expectations.execution_engine.sqlalchemy_batch_data import SqlAlchemyBatchData
+    from great_expectations.expectations.metrics.util import get_sqlalchemy_column_metadata
+
+    engine = sql_data_connector_test_db_execution_engine
+
+    batch_data = SqlAlchemyBatchData(execution_engine=engine, table_name="table_with_composite_pk")
+    engine.load_batch_data("__test_composite_pk", batch_data)
+
+    columns = get_sqlalchemy_column_metadata(
+        execution_engine=engine,
+        table_selectable=sqlalchemy.quoted_name("table_with_composite_pk", quote=False),
+        schema_name=None,
+    )
+
+    assert columns is not None
+    assert len(columns) == 4  # user_id, order_id, product, quantity
+
+    # All columns should have primary_key field
+    assert all("primary_key" in col for col in columns)
+
+    # Both user_id and order_id should be marked as primary keys
+    pk_columns = sorted([col["name"] for col in columns if col["primary_key"]])
+    assert pk_columns == ["order_id", "user_id"]
+
+    # Other columns should not be primary keys
+    non_pk_columns = sorted([col["name"] for col in columns if not col["primary_key"]])
+    assert non_pk_columns == ["product", "quantity"]
+
+
+@pytest.mark.unit
+def test_get_sqlalchemy_column_metadata_no_primary_key(
+    sql_data_connector_test_db_execution_engine,
+):
+    """Test that tables without primary keys don't break."""
+    from great_expectations.execution_engine.sqlalchemy_batch_data import SqlAlchemyBatchData
+    from great_expectations.expectations.metrics.util import get_sqlalchemy_column_metadata
+
+    engine = sql_data_connector_test_db_execution_engine
+
+    batch_data = SqlAlchemyBatchData(execution_engine=engine, table_name="table_without_pk")
+    engine.load_batch_data("__test_no_pk", batch_data)
+
+    columns = get_sqlalchemy_column_metadata(
+        execution_engine=engine,
+        table_selectable=sqlalchemy.quoted_name("table_without_pk", quote=False),
+        schema_name=None,
+    )
+
+    assert columns is not None
+    assert len(columns) == 2  # description, amount
+
+    # All columns should have primary_key field
+    assert all("primary_key" in col for col in columns)
+
+    # No columns should be marked as primary keys
+    pk_columns = [col["name"] for col in columns if col["primary_key"]]
+    assert pk_columns == []
+
+    # All columns should have primary_key=False
+    assert all(not col["primary_key"] for col in columns)
+
+
+@pytest.mark.unit
+def test_get_sqlalchemy_column_metadata_quoted_pk_column(
+    sql_data_connector_test_db_execution_engine,
+):
+    """Test that quoted column names as primary keys work correctly."""
+    from great_expectations.execution_engine.sqlalchemy_batch_data import SqlAlchemyBatchData
+    from great_expectations.expectations.metrics.util import get_sqlalchemy_column_metadata
+
+    engine = sql_data_connector_test_db_execution_engine
+
+    batch_data = SqlAlchemyBatchData(execution_engine=engine, table_name="table_with_quoted_pk")
+    engine.load_batch_data("__test_quoted_pk", batch_data)
+
+    columns = get_sqlalchemy_column_metadata(
+        execution_engine=engine,
+        table_selectable=sqlalchemy.quoted_name("table_with_quoted_pk", quote=False),
+        schema_name=None,
+    )
+
+    assert columns is not None
+    assert len(columns) == 2  # UserId, UserName
+
+    # All columns should have primary_key field
+    assert all("primary_key" in col for col in columns)
+
+    # UserId should be marked as primary key
+    pk_columns = [col["name"] for col in columns if col["primary_key"]]
+    assert len(pk_columns) == 1
+    # Case-insensitive check
+    assert pk_columns[0].lower() == "userid"
+
+
+@pytest.mark.unit
 @patch("great_expectations.expectations.metrics.util.sa")
 def test_get_dialect_like_pattern_expression_is_resilient_to_missing_dialects(mock_sqlalchemy):
     # arrange
@@ -647,3 +789,258 @@ def test_get_dialect_like_pattern_expression_is_resilient_to_missing_dialects(mo
 
     # assert
     assert expression is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "dialect_name,select_statement_factory,expected_sql,mock_params,should_fail_substitution",
+    [
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data).where(A.data == "test_value"),
+            "SELECT a.id, a.data FROM a WHERE a.data = 'test_value'",
+            {"data_1": "test_value"},
+            False,
+            id="string_param-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.data == "test_value"),
+            "SELECT a.id, a.data FROM a WHERE a.data = 'test_value'",
+            {"data_1": "test_value"},
+            False,
+            id="string_param-postgresql",
+        ),
+        pytest.param(
+            "databricks",
+            lambda: sa.select(A.id, A.data).where(A.data == "test_value"),
+            "SELECT a.id, a.data FROM a WHERE a.data = 'test_value'",
+            {"data_1": "test_value"},
+            False,
+            id="string_param-databricks",
+        ),
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data).where(A.id == 42),
+            "SELECT a.id, a.data FROM a WHERE a.id = 42",
+            {"id_1": 42},
+            False,
+            id="int_param-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.id == 42),
+            "SELECT a.id, a.data FROM a WHERE a.id = 42",
+            {"id_1": 42},
+            False,
+            id="int_param-postgresql",
+        ),
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data).where(A.id == 3.14),
+            "SELECT a.id, a.data FROM a WHERE a.id = 3.14",
+            {"id_1": 3.14},
+            False,
+            id="float_param-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.id == 3.14),
+            "SELECT a.id, a.data FROM a WHERE a.id = 3.14",
+            {"id_1": 3.14},
+            False,
+            id="float_param-postgresql",
+        ),
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data).where(A.id.is_(True)),
+            "SELECT a.id, a.data FROM a WHERE a.id = True",
+            {"id_1": True},
+            False,
+            id="bool_param-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.id.is_(True)),
+            "SELECT a.id, a.data FROM a WHERE a.id = True",
+            {"id_1": True},
+            False,
+            id="bool_param-postgresql",
+        ),
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data).where(A.data.is_(None)),
+            "SELECT a.id, a.data FROM a WHERE a.data = None",
+            {"data_1": None},
+            False,
+            id="none_param-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.data.is_(None)),
+            "SELECT a.id, a.data FROM a WHERE a.data = None",
+            {"data_1": None},
+            False,
+            id="none_param-postgresql",
+        ),
+        pytest.param(
+            "databricks",
+            lambda: sa.select(A.id, A.data).where(
+                sa.or_(A.data == "value1", sa.and_(A.id > 10, A.data.like("%end%")))
+            ),
+            "SELECT a.id, a.data FROM a WHERE a.data = 'value1' "
+            "OR (a.id > 10 AND a.data LIKE '%end%')",
+            {"data_1": "value1", "id_1": 10, "data_2": "%end%"},
+            False,
+            id="multiple_params-databricks",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(
+                sa.or_(A.data == "value1", sa.and_(A.id > 10, A.data.like("%end%")))
+            ),
+            "SELECT a.id, a.data FROM a WHERE a.data = 'value1' "
+            "OR (a.id > 10 AND a.data LIKE '%end%')",
+            {"data_1": "value1", "id_1": 10, "data_2": "%end%"},
+            False,
+            id="multiple_params-postgresql",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data).where(A.data.like("%test%")),
+            "SELECT a.id, a.data FROM a WHERE a.data LIKE '%test%'",
+            {"data_1": "%test%"},
+            True,
+            id="like_pattern-postgresql-fallback",
+        ),
+        pytest.param(
+            "mysql",
+            lambda: sa.select(A.id, A.data).where(A.data.like("%test%")),
+            "SELECT a.id, a.data FROM a WHERE a.data LIKE '%test%'",
+            {"data_1": "%test%"},
+            True,
+            id="like_pattern-mysql-fallback",
+        ),
+        pytest.param(
+            "redshift",
+            lambda: sa.select(A.id, A.data).where(A.data.like("%test%")),
+            "SELECT a.id, a.data FROM a WHERE a.data LIKE '%test%'",
+            {"data_1": "%test%"},
+            True,
+            id="like_pattern-redshift-fallback",
+        ),
+        pytest.param(
+            "snowflake",
+            lambda: sa.select(A.id, A.data).where(A.data.like("%test%")),
+            "SELECT a.id, a.data FROM a WHERE a.data LIKE '%test%'",
+            {"data_1": "%test%"},
+            False,
+            id="like_pattern-snowflake",
+        ),
+        pytest.param(
+            "sqlite",
+            lambda: sa.select(A.id, A.data),
+            "SELECT a.id, a.data FROM a",
+            {},
+            False,
+            id="no_params-sqlite",
+        ),
+        pytest.param(
+            "postgresql",
+            lambda: sa.select(A.id, A.data),
+            "SELECT a.id, a.data FROM a",
+            {},
+            False,
+            id="no_params-postgresql",
+        ),
+    ],
+)
+def test_sqlalchemy_select_to_sql_string_parameter_styles(
+    dialect_name: str,
+    select_statement_factory: Callable[[], sa.Select],
+    expected_sql: str,
+    mock_params: dict,
+    should_fail_substitution: bool,
+    mocker: MockerFixture,
+) -> None:
+    """
+    Test sqlalchemy_select_to_sql_string with to verify
+    different parameter styles work correctly.
+
+    Args:
+        should_fail_substitution: If True, the render_postcompile path will return
+            unsubstituted placeholders, forcing fallback to literal_binds. This tests
+            the dialect_name usage for %% unescaping.
+    """
+    # Arrange
+    select_statement = select_statement_factory()
+
+    # Track which compile call we're on
+    compile_call_count = [0]
+
+    def mock_compile(engine, compile_kwargs=None):
+        """Mock compile that returns different results based on compile_kwargs."""
+        compile_call_count[0] += 1
+
+        mock_compiled = mocker.MagicMock()
+        mock_compiled.params = mock_params
+
+        if compile_kwargs and compile_kwargs.get("render_postcompile"):
+            # First call with render_postcompile=True
+            if should_fail_substitution and mock_params:
+                # Return query with placeholder to force fallback
+                placeholder_query = expected_sql
+                for param_name, param_value in mock_params.items():
+                    # Replace first param value with placeholder to trigger fallback
+                    param_value_repr = repr(param_value)
+                    if param_value_repr in placeholder_query:
+                        placeholder_query = placeholder_query.replace(
+                            param_value_repr, f":{param_name}", 1
+                        )
+                        break
+                mock_compiled.__str__ = lambda self: placeholder_query
+            else:
+                # Successful render_postcompile - return fully substituted SQL
+                mock_compiled.__str__ = lambda self: expected_sql
+        # Second call with literal_binds=True (only happens on fallback)
+        # For dialects that escape %, return with %% to test unescaping
+        elif dialect_name in ("postgresql", "mysql", "redshift") and "%" in expected_sql:
+            escaped_sql = expected_sql.replace("%", "%%")
+            mock_compiled.__str__ = lambda self: escaped_sql
+        else:
+            mock_compiled.__str__ = lambda self: expected_sql
+
+        return mock_compiled
+
+    # Patch select_statement.compile
+    with patch.object(select_statement, "compile", side_effect=mock_compile):
+        # Create a mock engine with the specified dialect
+        mock_engine = create_autospec(SqlAlchemyExecutionEngine)
+        mock_engine.dialect_name = dialect_name
+
+        # Create a mock dialect and engine
+        mock_dialect = create_autospec(Dialect)
+        mock_dialect.name = dialect_name
+        mock_engine.dialect = mock_dialect
+
+        mock_sqlalchemy_engine = create_autospec(Engine)
+        mock_sqlalchemy_engine.dialect = mock_dialect
+        mock_engine.engine = mock_sqlalchemy_engine
+
+        # Act
+        result = sqlalchemy_select_to_sql_string(mock_engine, select_statement)
+
+        # Assert
+        assert result == expected_sql + ";"
+
+        # Verify compile call count based on whether fallback was expected
+        if should_fail_substitution:
+            assert compile_call_count[0] == 2, (
+                f"Expected 2 compile calls (render_postcompile + literal_binds fallback) "
+                f"but got {compile_call_count[0]}"
+            )
+        else:
+            assert compile_call_count[0] == 1, (
+                f"Expected 1 compile call (successful render_postcompile) "
+                f"but got {compile_call_count[0]}"
+            )

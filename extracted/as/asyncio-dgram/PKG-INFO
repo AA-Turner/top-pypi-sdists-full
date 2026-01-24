@@ -1,28 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asyncio-dgram
-Version: 2.2.0
+Version: 3.0.0
 Summary: Higher level Datagram support for Asyncio
-Home-page: https://github.com/jsbronder/asyncio-dgram
-Author: Justin Bronder
-Author-email: jsbronder@cold-front.org
-License: MIT
+Project-URL: Homepage, https://github.com/jsbronder/asyncio-dgram
+Project-URL: Repository, https://github.com/jsbronder/asyncio-dgram.git
+Project-URL: Issues, https://github.com/jsbronder/asyncio-dgram/issues
+Project-URL: Changelog, https://github.com/jsbronder/asyncio-dgram/blob/master/ChangeLog
+Author-email: Justin Bronder <jsbronder@cold-front.org>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: asyncio,datagram,udp
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
 Classifier: Framework :: AsyncIO
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: test
-License-File: LICENSE
 
-[![Build Status](https://github.com/jsbronder/asyncio-dgram/workflows/ci/badge.svg)](https://github.com/jsbronder/asyncio-dgram/actions)
+[![Build Status](https://github.com/jsbronder/asyncio-dgram/actions/workflows/weekly.yml/badge.svg)](
+https://github.com/jsbronder/asyncio-dgram/actions/workflows/weekly.yml)
 
 # Higher level Datagram support for Asyncio
 Simple wrappers that allow you to `await read()` from datagrams as suggested
@@ -43,7 +44,7 @@ only provides three functions for creating a stream:
 - `connect((host, port))`: Creates a datagram endpoint which can only
   communicate with the endpoint it connected to.
 - `bind((host, port))`: Creates a datagram endpoint that can communicate
-  with anyone, but must specified the destination address every time it
+  with anyone, but must specify the destination address every time it
   sends.
 - `from_socket(sock)`: If the above two functions are not sufficient, then
   `asyncio_dgram` simply lets the caller setup the socket as they see fit.

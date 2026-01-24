@@ -9,21 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing_extensions import TypedDict
 
 
-class SimpleInstallationType(TypedDict):
-    """Simple Installation
+class TrafficType(TypedDict):
+    """Traffic"""
 
-    The GitHub App installation. Webhook payloads contain the `installation`
-    property when the event is configured
-    for and sent to a GitHub App. For more information,
-    see "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-
-    github-apps/registering-a-github-app/using-webhooks-with-github-apps)."
-    """
-
-    id: int
-    node_id: str
+    timestamp: _dt.datetime
+    uniques: int
+    count: int
 
 
-__all__ = ("SimpleInstallationType",)
+class TrafficTypeForResponse(TypedDict):
+    """Traffic"""
+
+    timestamp: str
+    uniques: int
+    count: int
+
+
+__all__ = (
+    "TrafficType",
+    "TrafficTypeForResponse",
+)

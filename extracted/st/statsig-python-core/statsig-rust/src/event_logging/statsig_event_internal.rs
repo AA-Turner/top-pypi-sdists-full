@@ -1,3 +1,4 @@
+use crate::console_capture::console_log_line_levels::StatsigLogLineLevel;
 use crate::event_logging::statsig_event::StatsigEvent;
 use crate::sdk_diagnostics::diagnostics::DIAGNOSTICS_EVENT;
 use crate::user::StatsigUserLoggable;
@@ -12,29 +13,6 @@ pub const GATE_EXPOSURE_EVENT_NAME: &str = "statsig::gate_exposure";
 pub const CONFIG_EXPOSURE_EVENT_NAME: &str = "statsig::config_exposure";
 pub const LAYER_EXPOSURE_EVENT_NAME: &str = "statsig::layer_exposure";
 pub const STATSIG_LOG_LINE_EVENT_NAME: &str = "statsig::log_line";
-
-#[derive(Debug)]
-pub enum StatsigLogLineLevel {
-    Trace,
-    Debug,
-    Log,
-    Info,
-    Warn,
-    Error,
-}
-
-impl StatsigLogLineLevel {
-    pub fn to_status_string(&self) -> String {
-        match self {
-            StatsigLogLineLevel::Trace => "trace".to_string(),
-            StatsigLogLineLevel::Debug => "debug".to_string(),
-            StatsigLogLineLevel::Log => "info".to_string(), // info and log map to the same status
-            StatsigLogLineLevel::Info => "info".to_string(),
-            StatsigLogLineLevel::Warn => "warn".to_string(),
-            StatsigLogLineLevel::Error => "error".to_string(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -121,6 +99,7 @@ impl StatsigEventInternal {
         log_level: StatsigLogLineLevel,
         value: Option<String>,
         metadata: Option<HashMap<String, String>>,
+        timestamp_override: Option<u64>,
     ) -> Self {
         let mut populated_metadata = metadata.unwrap_or_default();
         populated_metadata.insert("status".to_string(), log_level.to_status_string());
@@ -138,7 +117,7 @@ impl StatsigEventInternal {
                 statsig_metadata: None,
             },
             user,
-            time: Utc::now().timestamp_millis() as u64,
+            time: timestamp_override.unwrap_or(Utc::now().timestamp_millis() as u64),
             secondary_exposures: None,
         }
     }

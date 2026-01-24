@@ -86,11 +86,21 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
         index: Optional[IndexConfig] = None,
         ttl: Optional[TTLConfig] = None,
         cluster_mode: Optional[bool] = None,
+        store_prefix: str = STORE_PREFIX,
+        vector_prefix: str = STORE_VECTOR_PREFIX,
     ) -> None:
         BaseStore.__init__(self)
         BaseRedisStore.__init__(
-            self, conn, index=index, ttl=ttl, cluster_mode=cluster_mode
+            self,
+            conn,
+            index=index,
+            ttl=ttl,
+            cluster_mode=cluster_mode,
+            store_prefix=store_prefix,
+            vector_prefix=vector_prefix,
         )
+        # Set client info for monitoring (sync store can call this safely)
+        self.set_client_info()
         # Detection will happen in setup()
 
     @classmethod
@@ -101,14 +111,22 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
         *,
         index: Optional[IndexConfig] = None,
         ttl: Optional[TTLConfig] = None,
+        store_prefix: str = STORE_PREFIX,
+        vector_prefix: str = STORE_VECTOR_PREFIX,
     ) -> Iterator[RedisStore]:
         """Create store from Redis connection string."""
         client = None
         try:
             client = RedisConnectionFactory.get_redis_connection(conn_string)
-            store = cls(client, index=index, ttl=ttl)
-            # Client info will already be set in __init__, but we set it up here
-            # to make the method behavior consistent with AsyncRedisStore
+            store = cls(
+                client,
+                index=index,
+                ttl=ttl,
+                store_prefix=store_prefix,
+                vector_prefix=vector_prefix,
+            )
+            # Client info is set in __init__, but set it again here to ensure
+            # it's available even if called before setup()
             store.set_client_info()
             yield store
         finally:
@@ -239,7 +257,9 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
             for idx, key in items:
                 if key in key_to_row:
                     data, doc_id = key_to_row[key]
-                    results[idx] = _row_to_item(namespace, data)
+                    results[idx] = _row_to_item(
+                        namespace, data, deserialize_fn=self._deserialize_value
+                    )
 
                     # Find the corresponding operation by looking it up in the operation list
                     # This is needed because idx is the index in the overall operation list
@@ -259,7 +279,7 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                             # Also add vector keys for the same document
                             doc_uuid = doc_id.split(":")[-1]
                             vector_key = (
-                                f"{STORE_VECTOR_PREFIX}{REDIS_KEY_SEPARATOR}{doc_uuid}"
+                                f"{self.vector_prefix}{REDIS_KEY_SEPARATOR}{doc_uuid}"
                             )
                             refresh_keys_by_idx[idx].append(vector_key)
 
@@ -338,7 +358,9 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                 doc_ids[(namespace, op.key)] = generated_doc_id
                 # Track TTL for this document if specified
                 if hasattr(op, "ttl") and op.ttl is not None:
-                    main_key = f"{STORE_PREFIX}{REDIS_KEY_SEPARATOR}{generated_doc_id}"
+                    main_key = (
+                        f"{self.store_prefix}{REDIS_KEY_SEPARATOR}{generated_doc_id}"
+                    )
                     ttl_tracking[main_key] = ([], op.ttl)
 
         # Load store docs with explicit keys
@@ -352,7 +374,7 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                 doc.pop("expires_at", None)
 
             store_docs.append(doc)
-            redis_key = f"{STORE_PREFIX}{REDIS_KEY_SEPARATOR}{doc_id}"
+            redis_key = f"{self.store_prefix}{REDIS_KEY_SEPARATOR}{doc_id}"
             store_keys.append(redis_key)
 
         if store_docs:
@@ -408,11 +430,11 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                         "updated_at": datetime.now(timezone.utc).timestamp(),
                     }
                 )
-                redis_vector_key = f"{STORE_VECTOR_PREFIX}{REDIS_KEY_SEPARATOR}{doc_id}"
+                redis_vector_key = f"{self.vector_prefix}{REDIS_KEY_SEPARATOR}{doc_id}"
                 vector_keys.append(redis_vector_key)
 
                 # Add this vector key to the related keys list for TTL
-                main_key = f"{STORE_PREFIX}{REDIS_KEY_SEPARATOR}{doc_id}"
+                main_key = f"{self.store_prefix}{REDIS_KEY_SEPARATOR}{doc_id}"
                 if main_key in ttl_tracking:
                     ttl_tracking[main_key][0].append(redis_vector_key)
 
@@ -472,7 +494,9 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                         )
                         if doc_id:
                             doc_uuid = doc_id.split(":")[1]
-                            store_key = f"{STORE_PREFIX}{REDIS_KEY_SEPARATOR}{doc_uuid}"
+                            store_key = (
+                                f"{self.store_prefix}{REDIS_KEY_SEPARATOR}{doc_uuid}"
+                            )
                             result_map[store_key] = doc
                             # Fetch individually in cluster mode
                             store_doc_item = self._redis.json().get(store_key)
@@ -489,7 +513,9 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                         if not doc_id:
                             continue
                         doc_uuid = doc_id.split(":")[1]
-                        store_key = f"{STORE_PREFIX}{REDIS_KEY_SEPARATOR}{doc_uuid}"
+                        store_key = (
+                            f"{self.store_prefix}{REDIS_KEY_SEPARATOR}{doc_uuid}"
+                        )
                         result_map[store_key] = doc
                         pipe.json().get(store_key)
                     # Execute all lookups in one batch
@@ -514,8 +540,9 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                         score = (1.0 - float(dist)) if dist is not None else 0.0
                         if not isinstance(store_doc, dict):
                             try:
+                                # Cast needed: redis-py types json().get() incorrectly
                                 store_doc = json.loads(
-                                    store_doc  # type: ignore[arg-type]
+                                    cast(str, store_doc)
                                 )  # Attempt to parse if it's a JSON string
                             except (json.JSONDecodeError, TypeError):
                                 logger.error(f"Failed to parse store_doc: {store_doc}")
@@ -554,7 +581,7 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                             # Also find associated vector keys with same ID
                             doc_id = store_key.split(":")[-1]
                             vector_key = (
-                                f"{STORE_VECTOR_PREFIX}{REDIS_KEY_SEPARATOR}{doc_id}"
+                                f"{self.vector_prefix}{REDIS_KEY_SEPARATOR}{doc_id}"
                             )
                             refresh_keys.append(vector_key)
 
@@ -563,6 +590,7 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                                 _decode_ns(store_doc["prefix"]),
                                 store_doc,
                                 score=score,
+                                deserialize_fn=self._deserialize_value,
                             )
                         )
 
@@ -625,11 +653,17 @@ class RedisStore(BaseStore, BaseRedisStore[Redis, SearchIndex]):
                         # Also find associated vector keys with same ID
                         doc_id = doc.id.split(":")[-1]
                         vector_key = (
-                            f"{STORE_VECTOR_PREFIX}{REDIS_KEY_SEPARATOR}{doc_id}"
+                            f"{self.vector_prefix}{REDIS_KEY_SEPARATOR}{doc_id}"
                         )
                         refresh_keys.append(vector_key)
 
-                    items.append(_row_to_search_item(_decode_ns(data["prefix"]), data))
+                    items.append(
+                        _row_to_search_item(
+                            _decode_ns(data["prefix"]),
+                            data,
+                            deserialize_fn=self._deserialize_value,
+                        )
+                    )
 
                 # Refresh TTL if requested
                 if op.refresh_ttl and refresh_keys and self.ttl_config:

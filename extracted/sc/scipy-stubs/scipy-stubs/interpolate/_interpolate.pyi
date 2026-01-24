@@ -1,3 +1,4 @@
+import types
 from typing import Any, Final, Generic, Literal, Never, Self, TypeAlias, overload
 from typing_extensions import TypeVar, deprecated
 
@@ -10,6 +11,7 @@ from ._polyint import _Interpolator1D
 
 __all__ = ["BPoly", "NdPPoly", "PPoly", "interp1d", "interp2d", "lagrange"]
 
+_NumberT = TypeVar("_NumberT", bound=npc.number, default=np.float64)
 _CT_co = TypeVar("_CT_co", bound=np.float64 | np.complex128, default=np.float64, covariant=True)
 
 _ToAxis: TypeAlias = int | npc.integer
@@ -17,6 +19,9 @@ _Extrapolate: TypeAlias = Literal["periodic"] | bool
 
 _Interp1dKind: TypeAlias = Literal["linear", "nearest", "nearest-up", "zero", "slinear", "quadratic", "cubic", "previous", "next"]
 _Interp1dFillValue: TypeAlias = onp.ToFloat | onp.ToFloatND | tuple[onp.ToFloat | onp.ToFloatND, onp.ToFloat | onp.ToFloatND]
+
+# https://github.com/microsoft/pyright/issues/11127
+_Array2ND: TypeAlias = onp.Array[tuple[int, int, *tuple[Any, ...]], _NumberT]  # pyright: ignore[reportInvalidTypeForm]
 
 ###
 
@@ -43,10 +48,10 @@ class interp2d:
         x: Never,
         y: Never,
         z: Never,
-        kind: object = ...,
-        copy: object = ...,
-        bounds_error: object = ...,
-        fill_value: object = ...,
+        kind: object = "linear",
+        copy: object = True,
+        bounds_error: object = False,
+        fill_value: object = None,
     ) -> Never: ...
 
 class interp1d(_Interpolator1D):  # legacy
@@ -77,11 +82,29 @@ class interp1d(_Interpolator1D):  # legacy
     ) -> None: ...
 
 class _PPolyBase(Generic[_CT_co]):
-    c: onp.Array[onp.AtLeast2D, _CT_co]
-    x: onp.Array1D[np.float64]
+    __slots__ = "_asarray", "_c", "_x", "axis", "extrapolate"
+
+    _c: _Array2ND[_CT_co]
+    _x: onp.Array1D[np.float64]
     extrapolate: Final[_Extrapolate]
     axis: Final[int]
 
+    @property
+    def c(self, /) -> _Array2ND[_CT_co]: ...
+    @c.setter
+    def c(self, c: onp.ToComplexND, /) -> None: ...
+
+    #
+    @property
+    def x(self, /) -> onp.Array1D[np.float64]: ...
+    @x.setter
+    def x(self, x: onp.ToFloat1D, /) -> None: ...
+
+    #
+    @classmethod
+    def __class_getitem__(cls, arg: type | object, /) -> types.GenericAlias: ...
+
+    #
     @classmethod
     def construct_fast(
         cls,
@@ -182,7 +205,7 @@ class BPoly(_PPolyBase[_CT_co], Generic[_CT_co]):
     def integrate(self, /, a: onp.ToFloat, b: onp.ToFloat, extrapolate: _Extrapolate | None = None) -> onp.ArrayND[_CT_co]: ...
 
 class NdPPoly(Generic[_CT_co]):
-    c: onp.Array[onp.AtLeast2D, _CT_co]
+    c: _Array2ND[_CT_co]
     x: tuple[onp.Array1D[np.float64], ...]
 
     @classmethod

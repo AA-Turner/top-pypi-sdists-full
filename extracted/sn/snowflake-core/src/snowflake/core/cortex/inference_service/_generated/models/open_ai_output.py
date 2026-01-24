@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from snowflake.core.cortex.inference_service._generated.models.open_ai_reasoning import (
     OpenAIReasoning,
@@ -40,9 +40,10 @@ class OpenAIOutput(BaseModel):
 
     __properties = ["reasoning"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -67,7 +68,7 @@ class OpenAIOutput(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of reasoning
         if self.reasoning:
@@ -90,9 +91,9 @@ class OpenAIOutput(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return OpenAIOutput.parse_obj(obj)
+            return OpenAIOutput.model_validate(obj)
 
-        _obj = OpenAIOutput.parse_obj(
+        _obj = OpenAIOutput.model_validate(
             {
                 "reasoning": OpenAIReasoning.from_dict(obj.get("reasoning"))
                 if obj.get("reasoning") is not None

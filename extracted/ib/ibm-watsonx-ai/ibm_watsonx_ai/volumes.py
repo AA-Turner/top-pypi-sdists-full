@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -8,10 +8,10 @@ from __future__ import annotations
 import shlex
 import subprocess
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from warnings import warn
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import VolumeMetaNames
 from ibm_watsonx_ai.utils.utils import raise_exception_about_unsupported_on_cloud
 from ibm_watsonx_ai.wml_client_error import UnsupportedOperation, WMLClientError
@@ -51,7 +51,7 @@ class Volume(WMLResource):
         """
         Volume._validate_type(volume_id, "volume_id", str, True)
 
-        response = requests.get(
+        response = self._client.httpx_client.get(
             self._client._href_definitions.volume_href(volume_id),
             headers=self._client._get_headers(zen=True),
         )
@@ -79,25 +79,25 @@ class Volume(WMLResource):
         .. code-block:: python
 
             metadata = {
-                client.volumes.ConfigurationMetaNames.NAME: 'volume-for-wml-test',
-                client.volumes.ConfigurationMetaNames.NAMESPACE: 'wmldev2',
-                client.volumes.ConfigurationMetaNames.STORAGE_CLASS: 'nfs-client'
-                client.volumes.ConfigurationMetaNames.STORAGE_SIZE: "2G"
+                client.volumes.ConfigurationMetaNames.NAME: "volume-for-wml-test",
+                client.volumes.ConfigurationMetaNames.NAMESPACE: "wmldev2",
+                client.volumes.ConfigurationMetaNames.STORAGE_CLASS: "nfs-client",
+                client.volumes.ConfigurationMetaNames.STORAGE_SIZE: "2G",
             }
 
-            asset_details = client.volumes.store(meta_props=metadata)
+            asset_details = client.volumes.create(meta_props=metadata)
 
         Provision an existing PVC volume:
 
         .. code-block:: python
 
             metadata = {
-                client.volumes.ConfigurationMetaNames.NAME: 'volume-for-wml-test',
-                client.volumes.ConfigurationMetaNames.NAMESPACE: 'wmldev2',
-                client.volumes.ConfigurationMetaNames.EXISTING_PVC_NAME: 'volume-for-wml-test'
+                client.volumes.ConfigurationMetaNames.NAME: "volume-for-wml-test",
+                client.volumes.ConfigurationMetaNames.NAMESPACE: "wmldev2",
+                client.volumes.ConfigurationMetaNames.EXISTING_PVC_NAME: "volume-for-wml-test",
             }
 
-            asset_details = client.volumes.store(meta_props=metadata)
+            asset_details = client.volumes.create(meta_props=metadata)
 
         """
 
@@ -174,8 +174,8 @@ class Volume(WMLResource):
             raise UnsupportedOperation("NFS Volume creation not supported for CLOUD!")
 
         else:  # CPD
-            creation_response = requests.post(
-                url=self._client._href_definitions.volumes_href(),
+            creation_response = self._client.httpx_client.post(
+                self._client._href_definitions.volumes_href(),
                 headers=self._client._get_headers(zen=True),
                 json=input_meta,
             )
@@ -220,7 +220,7 @@ class Volume(WMLResource):
 
         """
 
-        if self._client.CPD_version >= 4.5 and "::" not in name:
+        if "::" not in name:
             raise WMLClientError(
                 "Invalid name to start volume. Correct volume name format: `<namespace>::<name>`. Retrieve the correct name using `client.volumes.get_name(client.volumes.get_details(volume_id))` command."
             )
@@ -229,9 +229,10 @@ class Volume(WMLResource):
         # Start the volume  service
         start_data: dict = {}
         try:
-            start_data = {}
-            creation_response = requests.post(
-                start_url, headers=self._client._get_headers(zen=True), json=start_data
+            creation_response = self._client.httpx_client.post(
+                start_url,
+                headers=self._client._get_headers(zen=True),
+                json=start_data,
             )
             if creation_response.status_code == 200:
                 print("Volume Service started")
@@ -283,15 +284,16 @@ class Volume(WMLResource):
 
         """
 
-        if self._client.CPD_version >= 4.5 and "::" not in name:
+        if "::" not in name:
             raise WMLClientError(
                 "Invalid name to start volume. Correct volume name format: `<namespace>::<name>`. Retrieve the correct name using `client.volumes.get_name(client.volumes.get_details(volume_id))` command."
             )
 
         monitor_url = self._client._href_definitions.volume_monitor_href(name)
         try:
-            monitor_response = requests.get(
-                monitor_url, headers=self._client._get_headers(zen=True)
+            monitor_response = self._client.httpx_client.get(
+                monitor_url,
+                headers=self._client._get_headers(zen=True),
             )
             if monitor_response.status_code == 200:
                 return True
@@ -305,13 +307,15 @@ class Volume(WMLResource):
             raise WMLClientError("Cannot retrieve status of the volume.")
 
     @raise_exception_about_unsupported_on_cloud
-    def upload_file(self, name: str, file_path: str) -> Literal["SUCCESS", "FAILED"]:
+    def upload_file(
+        self, name: str, file_path: str | Path
+    ) -> Literal["SUCCESS", "FAILED"]:
         """Upload the data file into stored volume.
 
         :param name: unique name of the stored volume
         :type name: str
         :param file_path: file to be uploaded into the volume
-        :type file_path: str
+        :type file_path: str | Path
 
         :return: status ("SUCCESS" or "FAILED")
         :rtype: str
@@ -320,14 +324,16 @@ class Volume(WMLResource):
 
         .. code-block:: python
 
-            client.volumes.upload_file('testA', 'DRUG.csv')
+            client.volumes.upload_file("testA", "DRUG.csv")
 
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
 
         header_input = self._client._get_headers(zen=True)
-        zen_token = header_input.get("Authorization")
+        zen_token = header_input.get("Authorization", "")
 
-        filename_to_upload = file_path.split("/")[-1]
+        filename_to_upload = file_path.name
         upload_url_file = (
             self._client._href_definitions.volume_upload_href(name) + filename_to_upload
         )
@@ -338,7 +344,7 @@ class Volume(WMLResource):
             + "  -H 'Content-Type: multipart/form-data' -H 'Authorization: "
             + zen_token
             + "' -F upFile='@"
-            + file_path
+            + str(file_path)
             + "'"
         )
         args = shlex.split(cmd_str)
@@ -382,12 +388,14 @@ class Volume(WMLResource):
         params = {}
         params.update({"addon_type": "volumes"})
 
-        response = requests.get(
-            href, params=params, headers=self._client._get_headers(zen=True)
+        response = self._client.httpx_client.get(
+            href,
+            params=params,
+            headers=self._client._get_headers(zen=True),
         )
 
         asset_details = self._handle_response(200, "list volumes", response)
-        asset_list = asset_details.get("service_instances")
+        asset_list = asset_details.get("service_instances", [])
         volume_values = [
             (m["display_name"], m["id"], m["provision_status"]) for m in asset_list
         ]
@@ -424,12 +432,14 @@ class Volume(WMLResource):
             and volume_details.get("service_instance") is not None
         ):
             vol_details = volume_details.get("service_instance")
+            if vol_details is None:
+                raise WMLClientError("Missing service_instance in volume details")
             return WMLResource._get_required_element_from_dict(
-                vol_details, "volume_assets_details", ["id"]
+                vol_details, "volume_assets_details", ["id"], str
             )
         else:
             return WMLResource._get_required_element_from_dict(
-                volume_details, "volume_assets_details", ["id"]
+                volume_details, "volume_assets_details", ["id"], str
             )
 
     @staticmethod
@@ -455,12 +465,14 @@ class Volume(WMLResource):
             and volume_details.get("service_instance") is not None
         ):
             vol_details = volume_details.get("service_instance")
+            if vol_details is None:
+                raise WMLClientError("Missing service_instance in volume details")
             return WMLResource._get_required_element_from_dict(
-                vol_details, "volume_assets_details", ["display_name"]
+                vol_details, "volume_assets_details", ["display_name"], str
             )
         else:
             return WMLResource._get_required_element_from_dict(
-                volume_details, "volume_assets_details", ["display_name"]
+                volume_details, "volume_assets_details", ["display_name"], str
             )
 
     @raise_exception_about_unsupported_on_cloud
@@ -482,7 +494,7 @@ class Volume(WMLResource):
         """
         Volume._validate_type(volume_id, "volume_id", str, True)
 
-        response = requests.delete(
+        response = self._client.httpx_client.delete(
             self._client._href_definitions.volume_href(volume_id),
             headers=self._client._get_headers(zen=True),
         )
@@ -514,7 +526,7 @@ class Volume(WMLResource):
         """
         Volume._validate_type(volume_name, "volume_name", str, True)
 
-        response = requests.delete(
+        response = self._client.httpx_client.delete(
             self._client._href_definitions.volume_service_href(volume_name),
             headers=self._client._get_headers(zen=True),
         )

@@ -180,11 +180,13 @@ class AbstractCoordinates(Mapping[Hashable, "T_DataArray"]):
                     np.tile(np.repeat(code, repeat_counts[i]), tile_counts[i])
                     for code in codes
                 ]
-                level_list += [list(level) for level in levels]
+                level_list += levels
                 names += index.names
 
         return pd.MultiIndex(
-            levels=level_list, codes=[list(c) for c in code_list], names=names
+            levels=level_list,  # type: ignore[arg-type,unused-ignore]
+            codes=[list(c) for c in code_list],
+            names=names,
         )
 
 
@@ -1263,7 +1265,7 @@ def create_coords_with_default_indexes(
             variables.update(idx_vars)
             all_variables.update(idx_vars)
         else:
-            variables[name] = variable
+            variables[name] = variable.to_base_variable()
 
     new_coords = Coordinates._construct_direct(coords=variables, indexes=indexes)
 

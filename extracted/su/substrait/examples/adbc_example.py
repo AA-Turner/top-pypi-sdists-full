@@ -12,11 +12,12 @@
 
 import adbc_driver_duckdb.dbapi
 import pyarrow
-from substrait.builders.plan import read_named_table, filter
-from substrait.builders.extended_expression import scalar_function, column, literal
+import pyarrow.substrait as pa_substrait
+
+from substrait.builders.extended_expression import column, literal, scalar_function
+from substrait.builders.plan import filter, read_named_table
 from substrait.builders.type import i64
 from substrait.extension_registry import ExtensionRegistry
-import pyarrow.substrait as pa_substrait
 
 registry = ExtensionRegistry()
 
@@ -45,7 +46,7 @@ with adbc_driver_duckdb.dbapi.connect(":memory:") as conn:
         table = filter(
             table,
             expression=scalar_function(
-                "functions_comparison.yaml",
+                "extension:io.substrait:functions_comparison",
                 "gte",
                 expressions=[column("ints"), literal(3, i64())],
             ),

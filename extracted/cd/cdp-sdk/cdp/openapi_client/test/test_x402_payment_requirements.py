@@ -37,21 +37,22 @@ class TestX402PaymentRequirements(unittest.TestCase):
         if include_optional:
             return X402PaymentRequirements(
                 scheme = 'exact',
-                network = 'base',
+                network = 'eip155:1',
                 max_amount_required = '1000000',
                 resource = 'https://api.example.com/premium/resource/123',
                 description = 'Premium API access for data analysis',
                 mime_type = 'application/json',
-                output_schema = {"data":"string"},
+                output_schema = {data=string},
                 pay_to = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
                 max_timeout_seconds = 10,
                 asset = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-                extra = {"gasLimit":"1000000"}
+                extra = {name=USDC, version=2},
+                amount = '1000000'
             )
         else:
             return X402PaymentRequirements(
                 scheme = 'exact',
-                network = 'base',
+                network = 'eip155:1',
                 max_amount_required = '1000000',
                 resource = 'https://api.example.com/premium/resource/123',
                 description = 'Premium API access for data analysis',
@@ -59,6 +60,7 @@ class TestX402PaymentRequirements(unittest.TestCase):
                 pay_to = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
                 max_timeout_seconds = 10,
                 asset = '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+                amount = '1000000',
         )
         """
 

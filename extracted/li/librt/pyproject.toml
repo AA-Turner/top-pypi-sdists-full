@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "librt"
+description = "Mypyc runtime library"
+readme = {text = """
+Mypyc runtime library
+=====================
+
+This library contains efficient C implementations of various Python standard
+library classes and functions. Mypyc can use these fast implementations when
+compiling Python code to native extension modules.
+
+Mypyc compiler is a part of `mypy distribution <https://pypi.org/project/mypy>`__.
+""", content-type = "text/x-rst"}
+authors = [
+    {name = "Jukka Lehtosalo", email = "jukka.lehtosalo@iki.fi"},
+    {name = "Ivan Levkivskyi", email = "levkivskyi@gmail.com"},
+]
+version = "0.7.8"
+license = {text = "MIT"}
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development",
+  "Typing :: Typed",
+]
+requires-python = ">=3.9"
+[project.urls]
+Homepage = "https://github.com/mypyc/librt"
+Issues = "https://github.com/mypyc/mypyc/issues"
+
+[tool.setuptools.packages.find]
+include = ["librt"]
+
+[tool.setuptools.package-data]
+librt = ["py.typed", "**/*.pyi"]
+
+[tool.cibuildwheel]
+build-frontend = "build"
+linux.manylinux-x86_64-image = "manylinux_2_28"
+linux.manylinux-aarch64-image = "manylinux_2_28"
+linux.musllinux-x86_64-image = "musllinux_1_2"
+linux.musllinux-aarch64-image = "musllinux_1_2"
+
+build-verbosity = 1
+
+linux.before-all = [
+  "yum install -y llvm-toolset || yum -v install -y llvm-toolset",
+]
+
+before-test = [
+  "pip install pytest mypy_extensions",
+]
+
+test-sources = [
+    "smoke_tests.py",
+]
+
+test-command = "pytest smoke_tests.py"
+
+[tool.cibuildwheel.linux.environment]
+CC="clang"
+
+[[tool.cibuildwheel.overrides]]
+select = "*musllinux*"
+before-all = [
+  "apk add --no-cache clang",
+]

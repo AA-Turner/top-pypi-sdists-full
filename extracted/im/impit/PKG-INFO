@@ -1,29 +1,35 @@
 Metadata-Version: 2.4
 Name: impit
-Version: 0.7.1
+Version: 0.9.3
 Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
+License-File: LICENSE.md
 Summary: A library for making HTTP requests through browser impersonation
 Keywords: apify,http,requests,browser,impersonation
 Author: Jindřich Bär
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://apify.github.io/impit/
+Project-URL: Homepage, https://apify.github.io/impit/python
 Project-URL: Apify homepage, https://apify.com
 Project-URL: Changelog, https://github.com/apify/impit/blob/master/impit-python/CHANGELOG.md
-Project-URL: Documentation, https://apify.github.io/impit/
+Project-URL: Documentation, https://apify.github.io/impit/python
 Project-URL: Issue tracker, https://github.com/apify/impit/issues
 Project-URL: Repository, https://github.com/apify/impit
 
 # `impit` for Python
+
+> This documents the `impit` Python package, which provides bindings for the `impit` library.
+>
+> See documentation for the JavaScript/TypeScript version of `impit` [here](https://apify.github.io/impit/js/).
 
 `impit` is a Python package that provides bindings for the [`impit`](https://github.com/apify/impit) library.
 

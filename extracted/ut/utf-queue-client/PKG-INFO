@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: utf-queue-client
-Version: 1.20.1
+Version: 1.21.3
 Summary: No description provided
 Author-email: Joe Savage <joe.savage@silabs.com>
 Keywords: UTF
@@ -12,9 +12,11 @@ Requires-Dist: pydantic
 Requires-Dist: regex
 Requires-Dist: typing_extensions; python_version < "3.8"
 Requires-Dist: click
+Requires-Dist: certifi>=2020.4
 Requires-Dist: ubai-client>=1.2.0
 Requires-Dist: opentelemetry-distro[otlp]
 Requires-Dist: otel-extensions>=0.1.2
 Requires-Dist: retry>=0.9.2
 Requires-Dist: requests
 Requires-Dist: ndjson~=0.3
+Requires-Dist: urllib3<2.6.0,>=1.25.3

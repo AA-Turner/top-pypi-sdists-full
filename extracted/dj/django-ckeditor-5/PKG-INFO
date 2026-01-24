@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ckeditor-5
-Version: 0.2.18
+Version: 0.2.19
 Summary: CKEditor 5 for Django.
 Author-email: Vladislav Khoboko <vladislah@gmail.com>
 License: BSD-3-Clause
@@ -228,7 +228,7 @@ This allows users to customize the upload file logic by specifying their own vie
 Includes the following ckeditor5 plugins:
 
             Essentials,
-            UploadAdapter,
+            CKFinderUploadAdapter,
             CodeBlock,
             Autoformat,
             Bold,
@@ -269,16 +269,18 @@ Includes the following ckeditor5 plugins:
             ImageInsert,
             WordCount,
             Mention,
+            Markdown,
+            PageBreak,
             Style,
             HorizontalLine,
             LinkImage,
             HtmlEmbed,
             FullPage,
             SpecialCharacters,
+            SpecialCharactersEssentials,
             ShowBlocks,
             SelectAll,
-            FindAndReplace,
-            FullScreen
+            FindAndReplace
 
 
 Examples

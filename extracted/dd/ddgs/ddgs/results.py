@@ -1,12 +1,10 @@
 """Result classes."""
 
-from __future__ import annotations
-
 from abc import ABC
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 
 from .utils import _normalize_date, _normalize_text, _normalize_url
 
@@ -16,7 +14,7 @@ T = TypeVar("T")
 class BaseResult:
     """Base class for all results. Contains normalization functions."""
 
-    _normalizers: Mapping[str, Callable[[Any], str]] = {
+    _normalizers: ClassVar[Mapping[str, Callable[[Any], str]]] = {
         "title": _normalize_text,
         "body": _normalize_text,
         "href": _normalize_url,
@@ -101,7 +99,7 @@ class BooksResult(BaseResult):
     thumbnail: str = ""
 
 
-class ResultsAggregator(Generic[T], ABC):
+class ResultsAggregator(ABC, Generic[T]):
     """Aggregates incoming results.
 
     Items are deduplicated by `cache_field`. Append just increments a counter;
@@ -134,12 +132,10 @@ class ResultsAggregator(Generic[T], ABC):
         we store the item; every time we bump the counter.
         """
         key = self._get_key(item)
-        if key not in self._cache:
+        if key not in self._cache or len(item.__dict__.get("body", "")) > len(
+            self._cache[key].__dict__.get("body", ""),
+        ):
             self._cache[key] = item
-        else:
-            # prefer longer body
-            if len(item.__dict__.get("body", "")) > len(self._cache[key].__dict__.get("body", "")):
-                self._cache[key] = item
         self._counter[key] += 1
 
     def extend(self, items: list[T]) -> None:

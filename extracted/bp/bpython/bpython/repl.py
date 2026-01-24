@@ -41,9 +41,7 @@ from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import (
     Any,
-    Callable,
     Dict,
-    Iterable,
     List,
     Literal,
     Optional,
@@ -53,6 +51,7 @@ from typing import (
     Union,
     cast,
 )
+from collections.abc import Callable, Iterable
 
 from pygments.lexers import Python3Lexer
 from pygments.token import Token, _TokenType
@@ -85,9 +84,9 @@ class RuntimeTimer:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         self.last_command = time.monotonic() - self.start
         self.running_time += self.last_command
@@ -108,7 +107,7 @@ class Interpreter(code.InteractiveInterpreter):
 
     def __init__(
         self,
-        locals: Optional[Dict[str, Any]] = None,
+        locals: dict[str, Any] | None = None,
     ) -> None:
         """Constructor.
 
@@ -125,7 +124,7 @@ class Interpreter(code.InteractiveInterpreter):
         traceback.
         """
 
-        self.syntaxerror_callback: Optional[Callable] = None
+        self.syntaxerror_callback: Callable | None = None
 
         if locals is None:
             # instead of messing with sys.modules, we should modify sys.modules
@@ -139,7 +138,7 @@ class Interpreter(code.InteractiveInterpreter):
     def runsource(
         self,
         source: str,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         symbol: str = "single",
     ) -> bool:
         """Execute Python code.
@@ -152,9 +151,7 @@ class Interpreter(code.InteractiveInterpreter):
         with self.timer:
             return super().runsource(source, filename, symbol)
 
-    def showsyntaxerror(
-        self, filename: Optional[str] = None, **kwargs
-    ) -> None:
+    def showsyntaxerror(self, filename: str | None = None, **kwargs) -> None:
         """Override the regular handler, the code's copied and pasted from
         code.py, as per showtraceback, but with the syntaxerror callback called
         and the text in a pretty colour."""
@@ -221,7 +218,7 @@ class MatchesIterator:
         # word being replaced in the original line of text
         self.current_word = ""
         # possible replacements for current_word
-        self.matches: List[str] = []
+        self.matches: list[str] = []
         # which word is currently replacing the current word
         self.index = -1
         # cursor position in the original line
@@ -229,9 +226,9 @@ class MatchesIterator:
         # original line (before match replacements)
         self.orig_line = ""
         # class describing the current type of completion
-        self.completer: Optional[autocomplete.BaseCompletionType] = None
-        self.start: Optional[int] = None
-        self.end: Optional[int] = None
+        self.completer: autocomplete.BaseCompletionType | None = None
+        self.start: int | None = None
+        self.end: int | None = None
 
     def __nonzero__(self) -> bool:
         """MatchesIterator is False when word hasn't been replaced yet"""
@@ -265,12 +262,12 @@ class MatchesIterator:
 
         return self.matches[self.index]
 
-    def cur_line(self) -> Tuple[int, str]:
+    def cur_line(self) -> tuple[int, str]:
         """Returns a cursor offset and line with the current substitution
         made"""
         return self.substitute(self.current())
 
-    def substitute(self, match: str) -> Tuple[int, str]:
+    def substitute(self, match: str) -> tuple[int, str]:
         """Returns a cursor offset and line with match substituted in"""
         assert self.completer is not None
 
@@ -286,7 +283,7 @@ class MatchesIterator:
             os.path.commonprefix(self.matches)[len(self.current_word) :]
         )
 
-    def substitute_cseq(self) -> Tuple[int, str]:
+    def substitute_cseq(self) -> tuple[int, str]:
         """Returns a new line by substituting a common sequence in, and update
         matches"""
         assert self.completer is not None
@@ -307,7 +304,7 @@ class MatchesIterator:
         self,
         cursor_offset: int,
         current_line: str,
-        matches: List[str],
+        matches: list[str],
         completer: autocomplete.BaseCompletionType,
     ) -> None:
         """Called to reset the match index and update the word being replaced
@@ -354,7 +351,7 @@ class Interaction(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def file_prompt(self, s: str) -> Optional[str]:
+    def file_prompt(self, s: str) -> str | None:
         pass
 
 
@@ -370,7 +367,7 @@ class NoInteraction(Interaction):
     ) -> None:
         pass
 
-    def file_prompt(self, s: str) -> Optional[str]:
+    def file_prompt(self, s: str) -> str | None:
         return None
 
 
@@ -386,7 +383,7 @@ class _FuncExpr:
     function_expr: str
     arg_number: int
     opening: str
-    keyword: Optional[str] = None
+    keyword: str | None = None
 
 
 class Repl(metaclass=abc.ABCMeta):
@@ -428,7 +425,7 @@ class Repl(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def reprint_line(
-        self, lineno: int, tokens: List[Tuple[_TokenType, str]]
+        self, lineno: int, tokens: list[tuple[_TokenType, str]]
     ) -> None:
         pass
 
@@ -479,7 +476,7 @@ class Repl(metaclass=abc.ABCMeta):
         """
         self.config = config
         self.cut_buffer = ""
-        self.buffer: List[str] = []
+        self.buffer: list[str] = []
         self.interp = interp
         self.interp.syntaxerror_callback = self.clear_current_line
         self.match = False
@@ -488,19 +485,19 @@ class Repl(metaclass=abc.ABCMeta):
         )
         # all input and output, stored as old style format strings
         # (\x01, \x02, ...) for cli.py
-        self.screen_hist: List[str] = []
+        self.screen_hist: list[str] = []
         # commands executed since beginning of session
-        self.history: List[str] = []
-        self.redo_stack: List[str] = []
+        self.history: list[str] = []
+        self.redo_stack: list[str] = []
         self.evaluating = False
         self.matches_iter = MatchesIterator()
         self.funcprops = None
-        self.arg_pos: Union[str, int, None] = None
+        self.arg_pos: str | int | None = None
         self.current_func = None
-        self.highlighted_paren: Optional[
-            Tuple[Any, List[Tuple[_TokenType, str]]]
-        ] = None
-        self._C: Dict[str, int] = {}
+        self.highlighted_paren: None | (
+            tuple[Any, list[tuple[_TokenType, str]]]
+        ) = None
+        self._C: dict[str, int] = {}
         self.prev_block_finished: int = 0
         self.interact: Interaction = NoInteraction(self.config)
         # previous pastebin content to prevent duplicate pastes, filled on call
@@ -511,7 +508,7 @@ class Repl(metaclass=abc.ABCMeta):
         # Necessary to fix mercurial.ui.ui expecting sys.stderr to have this
         # attribute
         self.closed = False
-        self.paster: Union[PasteHelper, PastePinnwand]
+        self.paster: PasteHelper | PastePinnwand
 
         if self.config.hist_file.exists():
             try:
@@ -538,11 +535,17 @@ class Repl(metaclass=abc.ABCMeta):
 
     @property
     def ps1(self) -> str:
-        return cast(str, getattr(sys, "ps1", ">>> "))
+        if hasattr(sys, "ps1"):
+            # noop in most cases, but at least vscode injects a non-str ps1
+            # see #1041
+            return str(sys.ps1)
+        return ">>> "
 
     @property
     def ps2(self) -> str:
-        return cast(str, getattr(sys, "ps2", "... "))
+        if hasattr(sys, "ps2"):
+            return str(sys.ps2)
+        return "... "
 
     def startup(self) -> None:
         """
@@ -589,7 +592,7 @@ class Repl(metaclass=abc.ABCMeta):
 
     def get_object(self, name: str) -> Any:
         attributes = name.split(".")
-        obj = eval(attributes.pop(0), cast(Dict[str, Any], self.interp.locals))
+        obj = eval(attributes.pop(0), cast(dict[str, Any], self.interp.locals))
         while attributes:
             obj = inspection.getattr_safe(obj, attributes.pop(0))
         return obj
@@ -597,7 +600,7 @@ class Repl(metaclass=abc.ABCMeta):
     @classmethod
     def _funcname_and_argnum(
         cls, line: str
-    ) -> Tuple[Optional[str], Optional[Union[str, int]]]:
+    ) -> tuple[str | None, str | int | None]:
         """Parse out the current function name and arg from a line of code."""
         # each element in stack is a _FuncExpr instance
         # if keyword is not None, we've encountered a keyword and so we're done counting
@@ -717,7 +720,7 @@ class Repl(metaclass=abc.ABCMeta):
         current name in the current input line. Throw `SourceNotFound` if the
         source cannot be found."""
 
-        obj: Optional[Callable] = self.current_func
+        obj: Callable | None = self.current_func
         try:
             if obj is None:
                 line = self.current_line
@@ -763,7 +766,7 @@ class Repl(metaclass=abc.ABCMeta):
     # If exactly one match that is equal to current line, clear matches
     # If example one match and tab=True, then choose that and clear matches
 
-    def complete(self, tab: bool = False) -> Optional[bool]:
+    def complete(self, tab: bool = False) -> bool | None:
         """Construct a full list of possible completions and
         display them in a window. Also check if there's an available argspec
         (via the inspect module) and bang that on top of the completions too.
@@ -782,7 +785,7 @@ class Repl(metaclass=abc.ABCMeta):
             self.completers,
             cursor_offset=self.cursor_offset,
             line=self.current_line,
-            locals_=cast(Dict[str, Any], self.interp.locals),
+            locals_=cast(dict[str, Any], self.interp.locals),
             argspec=self.funcprops,
             current_block="\n".join(self.buffer + [self.current_line]),
             complete_magic_methods=self.config.complete_magic_methods,
@@ -819,7 +822,7 @@ class Repl(metaclass=abc.ABCMeta):
 
     def format_docstring(
         self, docstring: str, width: int, height: int
-    ) -> List[str]:
+    ) -> list[str]:
         """Take a string and try to format it into a sane list of strings to be
         put into the suggestion box."""
 
@@ -939,7 +942,7 @@ class Repl(metaclass=abc.ABCMeta):
         else:
             self.interact.notify(_("Copied content to clipboard."))
 
-    def pastebin(self, s=None) -> Optional[str]:
+    def pastebin(self, s=None) -> str | None:
         """Upload to a pastebin and display the URL in the status bar."""
 
         if s is None:
@@ -953,7 +956,7 @@ class Repl(metaclass=abc.ABCMeta):
         else:
             return self.do_pastebin(s)
 
-    def do_pastebin(self, s) -> Optional[str]:
+    def do_pastebin(self, s) -> str | None:
         """Actually perform the upload."""
         paste_url: str
         if s == self.prev_pastebin_content:
@@ -986,11 +989,11 @@ class Repl(metaclass=abc.ABCMeta):
 
         return paste_url
 
-    def push(self, s, insert_into_history=True) -> bool:
+    def push(self, line, insert_into_history=True) -> bool:
         """Push a line of code onto the buffer so it can process it all
         at once when a code block ends"""
         # This push method is used by cli and urwid, but not curtsies
-        s = s.rstrip("\n")
+        s = line.rstrip("\n")
         self.buffer.append(s)
 
         if insert_into_history:
@@ -1088,7 +1091,7 @@ class Repl(metaclass=abc.ABCMeta):
     def close(self):
         """See the flush() method docstring."""
 
-    def tokenize(self, s, newline=False) -> List[Tuple[_TokenType, str]]:
+    def tokenize(self, s, newline=False) -> list[tuple[_TokenType, str]]:
         """Tokenizes a line of code, returning pygments tokens
         with side effects/impurities:
         - reads self.cpos to see what parens should be highlighted
@@ -1105,7 +1108,7 @@ class Repl(metaclass=abc.ABCMeta):
         cursor = len(source) - self.cpos
         if self.cpos:
             cursor += 1
-        stack: List[Any] = list()
+        stack: list[Any] = list()
         all_tokens = list(Python3Lexer().get_tokens(source))
         # Unfortunately, Pygments adds a trailing newline and strings with
         # no size, so strip them
@@ -1114,8 +1117,8 @@ class Repl(metaclass=abc.ABCMeta):
         all_tokens[-1] = (all_tokens[-1][0], all_tokens[-1][1].rstrip("\n"))
         line = pos = 0
         parens = dict(zip("{([", "})]"))
-        line_tokens: List[Tuple[_TokenType, str]] = list()
-        saved_tokens: List[Tuple[_TokenType, str]] = list()
+        line_tokens: list[tuple[_TokenType, str]] = list()
+        saved_tokens: list[tuple[_TokenType, str]] = list()
         search_for_paren = True
         for token, value in split_lines(all_tokens):
             pos += len(value)
@@ -1213,6 +1216,10 @@ class Repl(metaclass=abc.ABCMeta):
         return subprocess.call(args) == 0
 
     def edit_config(self):
+        if self.config.config_path is None:
+            self.interact.notify(_("No config file specified."))
+            return
+
         if not self.config.config_path.is_file():
             if self.interact.confirm(
                 _("Config file does not exist - create new from default? (y/N)")
@@ -1298,7 +1305,7 @@ def token_is_any_of(token_types):
     return token_is_any_of
 
 
-def extract_exit_value(args: Tuple[Any, ...]) -> Any:
+def extract_exit_value(args: tuple[Any, ...]) -> Any:
     """Given the arguments passed to `SystemExit`, return the value that
     should be passed to `sys.exit`.
     """

@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=80,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modelsearch"
+dynamic = ["version"]
+authors = [
+  { name = "Wagtail core team + contributors", email = "hello@wagtail.org" },
+]
+requires-python = ">= 3.10"
+dependencies = [
+  "Django>=4.2",
+  "django-tasks>=0.7,<0.10",
+]
+description = "A library for indexing Django models with Elasicsearch, OpenSearch or database and searching them with the Django ORM."
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/wagtail/django-modelsearch"
+Documentation = "https://django-modelsearch.readthedocs.io/en/latest"
+Source = "https://github.com/wagtail/django-modelsearch"
+Repository = "https://github.com/wagtail/django-modelsearch"
+Issues = "https://github.com/wagtail/django-modelsearch/issues"
+Changelog = "https://github.com/wagtail/django-modelsearch/releases"
+
+[project.optional-dependencies]
+test = [
+  "dj-database-url (>=2.3.0,<3)",
+  "psycopg (>=3.2.6,<4)",
+  "mysqlclient (>=2.2.0,<3)",
+  "django-modelcluster (>=6.4,<7)",
+  "django-tasks (>=0.6.1,<1)",
+  "django-taggit (>=6.1.0,<7)",
+  "coverage (>=7.10.6,<8)",
+]
+docs = [
+  "sphinx (>=8.2.3,<9)",
+  "sphinx-rtd-theme (>=3.0.2,<4.0)",
+  "myst-parser (>=4.0.1,<5)",
+]
+dev = [
+  "ruff (==0.13.0)",
+  "pre-commit (==3.4.0)",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "modelsearch.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["modelsearch*"]

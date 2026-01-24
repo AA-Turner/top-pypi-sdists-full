@@ -5,17 +5,14 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Optional,
-    Union,
+    TypeGuard,
 )
-from typing_extensions import TypeGuard
 
-from lia import HTTPException, SanicHTTPRequestAdapter
-
+from cross_web import HTTPException, SanicHTTPRequestAdapter
 from sanic.request import Request
 from sanic.response import HTTPResponse, html
 from sanic.views import HTTPMethodView
+
 from strawberry.http.async_base_view import AsyncBaseHTTPView
 from strawberry.http.temporal_response import TemporalResponse
 from strawberry.http.typevars import (
@@ -24,7 +21,7 @@ from strawberry.http.typevars import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator
+    from collections.abc import AsyncGenerator, Callable
 
     from strawberry.http import GraphQLHTTPResponse
     from strawberry.http.ides import GraphQL_IDE
@@ -66,11 +63,11 @@ class GraphQLView(
     def __init__(
         self,
         schema: BaseSchema,
-        graphiql: Optional[bool] = None,
-        graphql_ide: Optional[GraphQL_IDE] = "graphiql",
+        graphiql: bool | None = None,
+        graphql_ide: GraphQL_IDE | None = "graphiql",
         allow_queries_via_get: bool = True,
-        json_encoder: Optional[type[json.JSONEncoder]] = None,
-        json_dumps_params: Optional[dict[str, Any]] = None,
+        json_encoder: type[json.JSONEncoder] | None = None,
+        json_dumps_params: dict[str, Any] | None = None,
         multipart_uploads_enabled: bool = False,
     ) -> None:
         self.schema = schema
@@ -105,7 +102,7 @@ class GraphQLView(
         else:
             self.graphql_ide = graphql_ide
 
-    async def get_root_value(self, request: Request) -> Optional[RootValue]:
+    async def get_root_value(self, request: Request) -> RootValue | None:
         return None
 
     async def get_context(
@@ -121,7 +118,7 @@ class GraphQLView(
 
     def create_response(
         self,
-        response_data: Union[GraphQLHTTPResponse, list[GraphQLHTTPResponse]],
+        response_data: GraphQLHTTPResponse | list[GraphQLHTTPResponse],
         sub_response: TemporalResponse,
     ) -> HTTPResponse:
         status_code = sub_response.status_code
@@ -141,7 +138,9 @@ class GraphQLView(
         try:
             return await self.run(request)
         except HTTPException as e:
-            return HTTPResponse(e.reason, status=e.status_code)
+            return HTTPResponse(
+                e.reason, status=e.status_code, content_type="text/plain"
+            )
 
     async def get(self, request: Request) -> HTTPResponse:
         self.request = request
@@ -149,7 +148,9 @@ class GraphQLView(
         try:
             return await self.run(request)
         except HTTPException as e:
-            return HTTPResponse(e.reason, status=e.status_code)
+            return HTTPResponse(
+                e.reason, status=e.status_code, content_type="text/plain"
+            )
 
     async def create_streaming_response(
         self,
@@ -180,11 +181,11 @@ class GraphQLView(
     def is_websocket_request(self, request: Request) -> TypeGuard[Request]:
         return False
 
-    async def pick_websocket_subprotocol(self, request: Request) -> Optional[str]:
+    async def pick_websocket_subprotocol(self, request: Request) -> str | None:
         raise NotImplementedError
 
     async def create_websocket_response(
-        self, request: Request, subprotocol: Optional[str]
+        self, request: Request, subprotocol: str | None
     ) -> TemporalResponse:
         raise NotImplementedError
 

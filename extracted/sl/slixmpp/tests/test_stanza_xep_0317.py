@@ -41,15 +41,32 @@ class TestStanzaHats(SlixTest):
             """,
         )
 
-    def test_set_multi_hat(self):
+    def test_set_single_hue(self):
         presence = Presence()
-        presence["hats"].add_hats([("uri1", "title1"), ("uri2", "title2")])
+        presence["hats"]["hat"]["uri"] = "test-uri"
+        presence["hats"]["hat"]["title"] = "test-title"
+        presence["hats"]["hat"]["hue"] = 154.1
         self.check(
             presence,  # language=XML
             """
             <presence>
               <hats xmlns='urn:xmpp:hats:0'>
-                <hat uri='uri1' title='title1'/>
+                <hat uri='test-uri' title='test-title' hue="154.1" />
+              </hats>
+            </presence>
+            """,
+        )
+        self.assertEqual(presence["hats"]["hat"]["hue"], 154.1)
+
+    def test_set_multi_hat(self):
+        presence = Presence()
+        presence["hats"].add_hats([("uri1", "title1", 44.2), ("uri2", "title2", None)])
+        self.check(
+            presence,  # language=XML
+            """
+            <presence>
+              <hats xmlns='urn:xmpp:hats:0'>
+                <hat uri='uri1' title='title1' hue='44.2'/>
                 <hat uri='uri2' title='title2'/>
               </hats>
             </presence>
@@ -58,10 +75,18 @@ class TestStanzaHats(SlixTest):
 
     def test_get_hats(self):
         presence = Presence()
-        presence["hats"].add_hats([("uri1", "title1"), ("uri2", "title2")])
+        presence["hats"].add_hats([("uri1", "title1", None), ("uri2", "title2", None)])
         for i, hat in enumerate(presence["hats"]["hats"], start=1):
             self.assertEqual(hat["uri"], f"uri{i}")
             self.assertEqual(hat["title"], f"title{i}")
+
+    def test_get_hats_hue(self):
+        presence = Presence()
+        presence["hats"].add_hats([("uri1", "title1", 1), ("uri2", "title2", 2)])
+        for i, hat in enumerate(presence["hats"]["hats"], start=1):
+            self.assertEqual(hat["uri"], f"uri{i}")
+            self.assertEqual(hat["title"], f"title{i}")
+            self.assertEqual(hat["hue"], i)
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStanzaHats)

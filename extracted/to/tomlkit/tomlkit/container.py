@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import copy
 
+from collections.abc import Iterator
 from typing import Any
-from typing import Iterator
 
 from tomlkit._compat import decode
 from tomlkit._types import _CustomDict
@@ -521,12 +521,19 @@ class Container(_CustomDict):
             if prefix is not None:
                 _key = prefix + "." + _key
 
-        if not table.is_super_table() or (
-            any(
-                not isinstance(v, (Table, AoT, Whitespace, Null))
-                for _, v in table.value.body
+        if (
+            not table.is_super_table()
+            or (
+                any(
+                    not isinstance(v, (Table, AoT, Whitespace, Null))
+                    for _, v in table.value.body
+                )
+                and not key.is_dotted()
             )
-            and not key.is_dotted()
+            or (
+                any(k.is_dotted() for k, v in table.value.body if isinstance(v, Table))
+                and not key.is_dotted()
+            )
         ):
             open_, close = "[", "]"
             if table.is_aot_element():

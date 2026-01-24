@@ -25,13 +25,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-from datetime import datetime, timezone
+from datetime import datetime
 from email.header import Header
 from email.mime.application import MIMEApplication
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formataddr, make_msgid
+from email.utils import format_datetime, formataddr, make_msgid
 import re
 import smtplib
 from typing import Optional
@@ -76,7 +76,7 @@ class NotifyEmail(NotifyBase):
     secure_protocol = "mailtos"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_email"
+    setup_url = "https://appriseit.com/services/email/"
 
     # Support attachments
     attachment_support = True
@@ -462,8 +462,9 @@ class NotifyEmail(NotifyBase):
 
         for i in range(len(templates.EMAIL_TEMPLATES)):  # pragma: no branch
             self.logger.trace(
-                f"Scanning {from_addr} "
-                f"against {templates.EMAIL_TEMPLATES[i][0]}")
+                "Scanning %s against %s",
+                from_addr, templates.EMAIL_TEMPLATES[i][0])
+
             match = templates.EMAIL_TEMPLATES[i][1].match(from_addr)
             if match:
                 self.logger.info(
@@ -598,6 +599,7 @@ class NotifyEmail(NotifyBase):
                 headers=headers,
                 names=self.names,
                 pgp=self.pgp if self.use_pgp else None,
+                tzinfo=self.tzinfo,
             ):
                 try:
                     socket.sendmail(
@@ -946,6 +948,9 @@ class NotifyEmail(NotifyBase):
         # Pretty Good Privacy Support; Pass in an
         # ApprisePGPController if you wish to use it
         pgp=None,
+        # Define our timezone; if one isn't provided, then we use
+        # the system time instead
+        tzinfo=None,
     ):
         """
         Generator for emails
@@ -1005,6 +1010,10 @@ class NotifyEmail(NotifyBase):
             # Generate a host identifier (used for Message-ID Creation)
             smtp_host = from_addr[1].split("@")[1]
 
+        if not tzinfo:
+            # use server time
+            tzinfo = datetime.now().astimezone().tzinfo
+
         logger.debug(f"SMTP Host: {smtp_host}")
 
         # Create a copy of the targets list
@@ -1034,11 +1043,11 @@ class NotifyEmail(NotifyBase):
                 for addr in _bcc
             ]
 
-            if reply_to:
+            if _reply_to:
                 # Format our reply-to addresses to support the Name field
                 reply_to = [
                     formataddr((names.get(addr, False), addr), charset="utf-8")
-                    for addr in reply_to
+                    for addr in _reply_to
                 ]
 
             logger.debug(
@@ -1162,15 +1171,13 @@ class NotifyEmail(NotifyBase):
             base["From"] = formataddr(from_addr, charset="utf-8")
             base["To"] = formataddr((to_name, to_addr), charset="utf-8")
             base["Message-ID"] = make_msgid(domain=smtp_host)
-            base["Date"] = datetime.now(timezone.utc).strftime(
-                "%a, %d %b %Y %H:%M:%S +0000"
-            )
+            base["Date"] = format_datetime(datetime.now(tz=tzinfo))
 
             if cc:
                 base["Cc"] = ",".join(_cc)
 
-            if reply_to:
-                base["Reply-To"] = ",".join(_reply_to)
+            if _reply_to:
+                base["Reply-To"] = ",".join(reply_to)
 
             yield EmailMessage(
                 recipient=to_addr,

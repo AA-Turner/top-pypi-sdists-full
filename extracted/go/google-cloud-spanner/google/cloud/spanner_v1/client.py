@@ -25,6 +25,7 @@ In the hierarchy of API concepts
 """
 import grpc
 import os
+import logging
 import warnings
 
 from google.api_core.gapic_v1 import client_info
@@ -51,7 +52,6 @@ from google.cloud.spanner_v1._helpers import _merge_query_options
 from google.cloud.spanner_v1._helpers import _metadata_with_prefix
 from google.cloud.spanner_v1.instance import Instance
 from google.cloud.spanner_v1.metrics.constants import (
-    ENABLE_SPANNER_METRICS_ENV_VAR,
     METRIC_EXPORT_INTERVAL_MS,
 )
 from google.cloud.spanner_v1.metrics.spanner_metrics_tracer_factory import (
@@ -74,7 +74,7 @@ from google.cloud.spanner_v1._helpers import AtomicCounter
 
 _CLIENT_INFO = client_info.ClientInfo(client_library_version=__version__)
 EMULATOR_ENV_VAR = "SPANNER_EMULATOR_HOST"
-ENABLE_BUILTIN_METRICS_ENV_VAR = "SPANNER_ENABLE_BUILTIN_METRICS"
+SPANNER_DISABLE_BUILTIN_METRICS_ENV_VAR = "SPANNER_DISABLE_BUILTIN_METRICS"
 _EMULATOR_HOST_HTTP_SCHEME = (
     "%s contains a http scheme. When used with a scheme it may cause gRPC's "
     "DNS resolver to endlessly attempt to resolve. %s is intended to be used "
@@ -97,8 +97,11 @@ def _get_spanner_optimizer_statistics_package():
     return os.getenv(OPTIMIZER_STATISITCS_PACKAGE_ENV_VAR, "")
 
 
-def _get_spanner_enable_builtin_metrics():
-    return os.getenv(ENABLE_SPANNER_METRICS_ENV_VAR) == "true"
+log = logging.getLogger(__name__)
+
+
+def _get_spanner_enable_builtin_metrics_env():
+    return os.getenv(SPANNER_DISABLE_BUILTIN_METRICS_ENV_VAR) != "true"
 
 
 class Client(ClientWithProject):
@@ -172,6 +175,15 @@ class Client(ClientWithProject):
         or :class:`dict`
     :param default_transaction_options: (Optional) Default options to use for all transactions.
 
+    :type experimental_host: str
+    :param experimental_host: (Optional) The endpoint for a spanner experimental host deployment.
+        This is intended only for experimental host spanner endpoints.
+        If set, this will override the `api_endpoint` in `client_options`.
+
+    :type disable_builtin_metrics: bool
+    :param disable_builtin_metrics: (Optional) Default False. Set to True to disable
+            the Spanner built-in metrics collection and exporting.
+
     :raises: :class:`ValueError <exceptions.ValueError>` if both ``read_only``
              and ``admin`` are :data:`True`
     """
@@ -196,8 +208,11 @@ class Client(ClientWithProject):
         directed_read_options=None,
         observability_options=None,
         default_transaction_options: Optional[DefaultTransactionOptions] = None,
+        experimental_host=None,
+        disable_builtin_metrics=False,
     ):
         self._emulator_host = _get_spanner_emulator_host()
+        self._experimental_host = experimental_host
 
         if client_options and type(client_options) is dict:
             self._client_options = google.api_core.client_options.from_dict(
@@ -207,6 +222,8 @@ class Client(ClientWithProject):
             self._client_options = client_options
 
         if self._emulator_host:
+            credentials = AnonymousCredentials()
+        elif self._experimental_host:
             credentials = AnonymousCredentials()
         elif isinstance(credentials, AnonymousCredentials):
             self._emulator_host = self._client_options.api_endpoint
@@ -236,23 +253,29 @@ class Client(ClientWithProject):
             warnings.warn(_EMULATOR_HOST_HTTP_SCHEME)
         # Check flag to enable Spanner builtin metrics
         if (
-            _get_spanner_enable_builtin_metrics()
+            _get_spanner_enable_builtin_metrics_env()
+            and not disable_builtin_metrics
             and HAS_GOOGLE_CLOUD_MONITORING_INSTALLED
         ):
             meter_provider = metrics.NoOpMeterProvider()
-            if not _get_spanner_emulator_host():
-                meter_provider = MeterProvider(
-                    metric_readers=[
-                        PeriodicExportingMetricReader(
-                            CloudMonitoringMetricsExporter(
-                                project_id=project, credentials=credentials
+            try:
+                if not _get_spanner_emulator_host():
+                    meter_provider = MeterProvider(
+                        metric_readers=[
+                            PeriodicExportingMetricReader(
+                                CloudMonitoringMetricsExporter(
+                                    project_id=project, credentials=credentials
+                                ),
+                                export_interval_millis=METRIC_EXPORT_INTERVAL_MS,
                             ),
-                            export_interval_millis=METRIC_EXPORT_INTERVAL_MS,
-                        )
-                    ]
+                        ]
+                    )
+                metrics.set_meter_provider(meter_provider)
+                SpannerMetricsTracerFactory()
+            except Exception as e:
+                log.warning(
+                    "Failed to initialize Spanner built-in metrics. Error: %s", e
                 )
-            metrics.set_meter_provider(meter_provider)
-            SpannerMetricsTracerFactory()
         else:
             SpannerMetricsTracerFactory(enabled=False)
 
@@ -315,6 +338,15 @@ class Client(ClientWithProject):
                     client_options=self._client_options,
                     transport=transport,
                 )
+            elif self._experimental_host:
+                transport = InstanceAdminGrpcTransport(
+                    channel=grpc.insecure_channel(target=self._experimental_host)
+                )
+                self._instance_admin_api = InstanceAdminClient(
+                    client_info=self._client_info,
+                    client_options=self._client_options,
+                    transport=transport,
+                )
             else:
                 self._instance_admin_api = InstanceAdminClient(
                     credentials=self.credentials,
@@ -330,6 +362,15 @@ class Client(ClientWithProject):
             if self._emulator_host is not None:
                 transport = DatabaseAdminGrpcTransport(
                     channel=grpc.insecure_channel(target=self._emulator_host)
+                )
+                self._database_admin_api = DatabaseAdminClient(
+                    client_info=self._client_info,
+                    client_options=self._client_options,
+                    transport=transport,
+                )
+            elif self._experimental_host:
+                transport = DatabaseAdminGrpcTransport(
+                    channel=grpc.insecure_channel(target=self._experimental_host)
                 )
                 self._database_admin_api = DatabaseAdminClient(
                     client_info=self._client_info,
@@ -476,6 +517,7 @@ class Client(ClientWithProject):
             self._emulator_host,
             labels,
             processing_units,
+            self._experimental_host,
         )
 
     def list_instances(self, filter_="", page_size=None):

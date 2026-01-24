@@ -1,0 +1,102 @@
+Metadata-Version: 2.1
+Name: reaction-network
+Version: 8.3.0
+Summary: Reaction-network is a Python package for synthesis planning and predicting chemical reaction pathways in inorganic materials synthesis.
+Author-email: Matthew McDermott <mcdermott@lbl.gov>
+License: modified BSD
+Project-URL: homepage, https://materialsproject.github.io/reaction-network/
+Project-URL: documentation, https://materialsproject.github.io/reaction-network/
+Project-URL: repository, https://github.com/materialsproject/reaction-network
+Project-URL: changelog, https://github.com/materialsproject/reaction-network/blob/main/docs/CHANGELOG.md
+Keywords: reaction,network,computational,graph,inorganic,materials,retrosynthesis,synthesis,planning
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering :: Information Analysis
+Classifier: Topic :: Scientific/Engineering :: Physics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pymatgen>=2023.11.12
+Requires-Dist: numba>=0.58.1
+Requires-Dist: jobflow>=0.1.15
+Requires-Dist: ray>=2.9.0
+Requires-Dist: rustworkx>=0.13.2
+Provides-Extra: docs
+Requires-Dist: autodoc_pydantic==2.0.1; extra == "docs"
+Requires-Dist: furo==2023.9.10; extra == "docs"
+Requires-Dist: ipython==8.16.1; extra == "docs"
+Requires-Dist: myst_parser==2.0.0; extra == "docs"
+Requires-Dist: nbsphinx==0.9.3; extra == "docs"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
+Requires-Dist: sphinx==7.2.6; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: mp-api==0.39.4; extra == "tests"
+Requires-Dist: pytest==7.4.3; extra == "tests"
+Requires-Dist: pytest-cov==4.1.0; extra == "tests"
+Requires-Dist: pytest-xdist==3.5.0; extra == "tests"
+Provides-Extra: strict
+Requires-Dist: pymatgen==2023.12.18; extra == "strict"
+Requires-Dist: numba==0.58.1; extra == "strict"
+Requires-Dist: jobflow==0.1.15; extra == "strict"
+Requires-Dist: ray==2.9.0; extra == "strict"
+Requires-Dist: rustworkx==0.13.2; extra == "strict"
+
+# ![Reaction Network](docs/_static/img/logo.png)
+
+![Codecov](https://img.shields.io/codecov/c/github/materialsproject/reaction-network?style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/materialsproject/reaction-network/testing.yml?style=for-the-badge)
+
+![PyPI - Python
+Version](https://img.shields.io/pypi/pyversions/reaction-network?style=for-the-badge)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/reaction-network?style=for-the-badge)
+![PyPI - License](https://img.shields.io/pypi/l/reaction-network?style=for-the-badge)
+
+Reaction Network (`rxn_network`) is a Python package for synthesis planning and predicting chemical reaction pathways in inorganic materials synthesis.
+
+## Installation
+
+We recommend installing using pip:
+
+```properties
+pip install -U reaction-network
+```
+
+The package will then be installed under the name `rxn_network`. The Materials Project
+API is not installed by default; to install it, run: `pip install -U mp-api`.
+
+> **Note**
+> As of version 7.0 and beyond, the `reaction-network` package no longer uses `graph-tool`. All network functionality is now implemented using `rustworkx`. This means it is no longer required to complete any extra installations.
+
+## Tutorials
+
+The `examples` folder contains two (2) demonstration notebooks:
+
+- **1_enumerators.ipynb**: how to enumerate reactions from a set of entries; running
+  enumerators using jobflow
+- **2_networks.ipynb**: how to build reaction networks from a list of enumerators and
+  entries; how to perform pathfinding to recommend balanced reaction pathways; running
+  reaction network analysis using jobflow
+
+## Citation
+
+If you use this code in your work, please consider citing the following paper (see
+`CITATION.bib`):
+
+> McDermott, M. J., Dwaraknath, S. S., and Persson, K. A. (2021). A graph-based network
+> for predicting chemical reaction pathways in solid-state materials synthesis. Nature
+> Communications, 12(1). <https://doi.org/10.1038/s41467-021-23339-x>
+
+## Acknowledgements
+
+This work was supported as part of GENESIS: A Next Generation Synthesis Center, an
+Energy Frontier Research Center funded by the U.S. Department of Energy, Office of
+Science, Basic Energy Sciences under Award Number DE-SC0019212.
+
+Learn more about the GENESIS EFRC here: <https://www.stonybrook.edu/genesis/>

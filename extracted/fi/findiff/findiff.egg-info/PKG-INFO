@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: findiff
-Version: 0.12.1
+Version: 0.12.2
 Summary: A Python package for finite difference derivatives in any number of dimensions.
 Author: Matthias Baer
 Maintainer-email: Matthias Baer <matthias.r.baer@googlemail.com>
@@ -26,6 +26,7 @@ License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: sympy
+Dynamic: license-file
 
 # <img src="docs/frontpage/findiff_logo.png" width="100px"> findiff
 

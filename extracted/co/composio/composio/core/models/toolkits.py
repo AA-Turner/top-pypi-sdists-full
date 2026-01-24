@@ -11,6 +11,7 @@ from composio.client.types import (
     toolkit_retrieve_response,
 )
 from composio.core.models.connected_accounts import ConnectedAccounts
+from composio.utils.pydantic import none_to_omit
 
 from .base import Resource
 
@@ -41,19 +42,17 @@ class Toolkits(Resource):
         *,
         category: t.Optional[str] = None,
         cursor: t.Optional[str] = None,
-        is_local: t.Optional[bool] = None,
         limit: t.Optional[float] = None,
         sort_by: t.Optional[t.Literal["usage", "alphabetically"]] = None,
         managed_by: t.Optional[t.Literal["composio", "all", "project"]] = None,
     ) -> toolkit_list_response.ToolkitListResponse:
         """List all toolkits."""
         return self._client.toolkits.list(
-            category=category if category is not None else self._client.not_given,
-            cursor=cursor if cursor is not None else self._client.not_given,
-            is_local=is_local if is_local is not None else self._client.not_given,
-            limit=limit if limit is not None else self._client.not_given,
-            managed_by=managed_by if managed_by is not None else self._client.not_given,
-            sort_by=sort_by if sort_by is not None else self._client.not_given,
+            category=none_to_omit(category),
+            cursor=none_to_omit(cursor),
+            limit=none_to_omit(limit),
+            managed_by=none_to_omit(managed_by),
+            sort_by=none_to_omit(sort_by),
         )
 
     @t.overload

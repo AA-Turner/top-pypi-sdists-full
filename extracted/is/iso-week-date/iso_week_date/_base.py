@@ -1,24 +1,15 @@
 from __future__ import annotations
 
 import re
-from abc import ABC
-from abc import abstractmethod
-from datetime import date
-from datetime import datetime
-from datetime import timedelta
+from abc import ABC, abstractmethod
+from datetime import date, datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING
-from typing import ClassVar
-from typing import Literal
-from typing import overload
+from typing import TYPE_CHECKING, ClassVar, Literal, overload
 
-from iso_week_date._utils import classproperty
-from iso_week_date._utils import format_err_msg
-from iso_week_date._utils import weeks_of_year
+from iso_week_date._utils import classproperty, format_err_msg, weeks_of_year
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
-    from collections.abc import Iterable
+    from collections.abc import Generator, Iterable
     from datetime import tzinfo
 
     from typing_extensions import Self
@@ -156,16 +147,12 @@ class BaseIsoWeek(ABC):
     # properties
 
     @classproperty
-    def _compact_pattern(  # type: ignore[misc]
-        cls: type[Self],  # noqa: N805
-    ) -> re.Pattern[str]:
+    def _compact_pattern(cls: type[Self]) -> re.Pattern[str]:  # type: ignore[misc] # noqa: N805
         """Returns compiled compact pattern."""
         return re.compile(cls._pattern.pattern.replace(")-(", ")("))  # pragma: no cover
 
     @classproperty
-    def _compact_format(  # type: ignore[misc]
-        cls: type[Self],  # noqa: N805
-    ) -> str:
+    def _compact_format(cls: type[Self]) -> str:  # type: ignore[misc]  # noqa: N805
         """Returns compact format as string."""
         return cls._format.replace("-", "")
 
@@ -212,8 +199,10 @@ class BaseIsoWeek(ABC):
             msg = f"Expected `str` type, found {type(_str)}"
             raise TypeError(msg)
 
-        if len(_str) != len(cls._compact_format):
-            raise ValueError(format_err_msg(cls._compact_format, _str))
+        compact_format = cls._compact_format  # type: ignore[arg-type]
+        if len(_str) != len(compact_format):
+            msg = format_err_msg(compact_format, _str)
+            raise ValueError(msg)
 
         split_idx = (0, 4, 7, None)
         value = "-".join(filter(None, (_str[i:j] for i, j in zip(split_idx[:-1], split_idx[1:]))))
@@ -301,12 +290,15 @@ class BaseIsoWeek(ABC):
         return tuple(int(v.replace("W", "")) for v in self.value_.split("-"))
 
     @overload
+    @abstractmethod
     def __add__(self: Self, other: int) -> Self: ...
 
     @overload
+    @abstractmethod
     def __add__(self: Self, other: Iterable[int]) -> Generator[Self, None, None]: ...
 
     @overload
+    @abstractmethod
     def __add__(self: Self, other: int | Iterable[int]) -> Self | Generator[Self, None, None]: ...
 
     @abstractmethod
@@ -319,18 +311,23 @@ class BaseIsoWeek(ABC):
         return self + 1
 
     @overload
+    @abstractmethod
     def __sub__(self: Self, other: int) -> Self: ...
 
     @overload
+    @abstractmethod
     def __sub__(self: Self, other: Self) -> int: ...
 
     @overload
+    @abstractmethod
     def __sub__(self: Self, other: Iterable[int]) -> Generator[Self, None, None]: ...
 
     @overload
+    @abstractmethod
     def __sub__(self: Self, other: Iterable[Self]) -> Generator[int, None, None]: ...
 
     @overload
+    @abstractmethod
     def __sub__(
         self: Self, other: int | Self | Iterable[int | Self]
     ) -> int | Self | Generator[int | Self, None, None]: ...
@@ -372,7 +369,7 @@ class BaseIsoWeek(ABC):
         upper_bound: Self,
         inclusive: Literal["both", "left", "right", "neither"] = "both",
     ) -> bool:
-        """Cbeck if `self` is between `lower_bound` and `upper_bound`.
+        """Check if `self` is between `lower_bound` and `upper_bound`.
 
         Arguments:
             lower_bound: Lower bound to compare with.
@@ -404,7 +401,7 @@ class BaseIsoWeek(ABC):
         *,
         step: int = 1,
         inclusive: Literal["both", "left", "right", "neither"] = "both",
-        as_str: Literal[True],
+        as_str: Literal[True] = True,
     ) -> Generator[str, None, None]: ...
 
     @overload

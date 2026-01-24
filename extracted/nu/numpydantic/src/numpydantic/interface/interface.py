@@ -137,6 +137,25 @@ class JsonDict(BaseModel):
             value = value.to_array_input()
         return value
 
+    @staticmethod
+    def reshape_input(value: T, shape: tuple[int, ...]) -> T:
+        """
+        If a `reshape` value is present on the array, and the array shape doesn't match,
+        attempt to reshape it.
+        """
+        if value.shape != shape:
+            try:
+                value = value.reshape(shape)
+            except ValueError:
+                warnings.warn(
+                    f"Input data has shape {value.shape}, "
+                    f"but roundtrip form specifies {shape},"
+                    f"and {value.shape} can't be cast to {shape}. "
+                    f"Attempting to proceed with validation without reshaping.",
+                    stacklevel=1,
+                )
+        return value
+
 
 class MarkedJson(BaseModel):
     """
@@ -270,7 +289,7 @@ class Interface(ABC, Generic[T]):
 
     def get_dtype(self, array: NDArrayType) -> DtypeType:
         """
-        Get the dtype from the input array
+        Get the dtype from the input array.
         """
         if hasattr(array.dtype, "type") and array.dtype.type is np.object_:
             return self.get_object_dtype(array)
@@ -281,8 +300,15 @@ class Interface(ABC, Generic[T]):
         """
         When an array contains an object, get the dtype of the object contained
         by the array.
+
+        If this method returns `Any`, the dtype validation passes -
+        used for e.g. empty arrays for which the dtype of the array can't be determined
+        (since there are no objects).
         """
-        return type(array.ravel()[0])
+        try:
+            return type(array.ravel()[0])
+        except IndexError:
+            return Any
 
     def validate_dtype(self, dtype: DtypeType) -> bool:
         """

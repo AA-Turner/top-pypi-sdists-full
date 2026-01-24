@@ -17,11 +17,15 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
+
+from bedrock_agentcore._utils.user_agent import build_user_agent_suffix
 
 from .constants import (
     CUSTOM_CONSOLIDATION_WRAPPER_KEYS,
     CUSTOM_EXTRACTION_WRAPPER_KEYS,
+    CUSTOM_REFLECTION_WRAPPER_KEYS,
     DEFAULT_NAMESPACES,
     EXTRACTION_WRAPPER_KEYS,
     MemoryStatus,
@@ -60,12 +64,17 @@ class MemoryClient:
         "list_memory_strategies",
     }
 
-    def __init__(self, region_name: Optional[str] = None):
+    def __init__(self, region_name: Optional[str] = None, integration_source: Optional[str] = None):
         """Initialize the Memory client."""
         self.region_name = region_name or boto3.Session().region_name or "us-west-2"
+        self.integration_source = integration_source
 
-        self.gmcp_client = boto3.client("bedrock-agentcore-control", region_name=self.region_name)
-        self.gmdp_client = boto3.client("bedrock-agentcore", region_name=self.region_name)
+        # Build config with user-agent for telemetry
+        user_agent_extra = build_user_agent_suffix(integration_source)
+        client_config = Config(user_agent_extra=user_agent_extra)
+
+        self.gmcp_client = boto3.client("bedrock-agentcore-control", region_name=self.region_name, config=client_config)
+        self.gmdp_client = boto3.client("bedrock-agentcore", region_name=self.region_name, config=client_config)
 
         logger.info(
             "Initialized MemoryClient for control plane: %s, data plane: %s",
@@ -761,7 +770,7 @@ class MemoryClient:
         actor_id: str,
         session_id: str,
         branch_name: Optional[str] = None,
-        include_parent_events: bool = False,
+        include_parent_branches: bool = False,
         max_results: int = 100,
         include_payload: bool = True,
     ) -> List[Dict[str, Any]]:
@@ -775,7 +784,7 @@ class MemoryClient:
             actor_id: Actor identifier
             session_id: Session identifier
             branch_name: Optional branch name to filter events (None for all branches)
-            include_parent_events: Whether to include parent branch events (only applies with branch_name)
+            include_parent_branches: Whether to include parent branch events (only applies with branch_name)
             max_results: Maximum number of events to return
             include_payload: Whether to include event payloads in response
 
@@ -810,7 +819,9 @@ class MemoryClient:
 
                 # Add branch filter if specified (but not for "main")
                 if branch_name and branch_name != "main":
-                    params["filter"] = {"branch": {"name": branch_name, "includeParentBranches": include_parent_events}}
+                    params["filter"] = {
+                        "branch": {"name": branch_name, "includeParentBranches": include_parent_branches}
+                    }
 
                 response = self.gmdp_client.list_events(**params)
 
@@ -907,7 +918,7 @@ class MemoryClient:
         actor_id: str,
         session_id: str,
         branch_name: Optional[str] = None,
-        include_parent_events: bool = False,
+        include_parent_branches: bool = False,
         max_results: int = 100,
     ) -> List[Dict[str, Any]]:
         """List events in a specific branch.
@@ -923,7 +934,7 @@ class MemoryClient:
             actor_id: Actor identifier
             session_id: Session identifier
             branch_name: Branch name (None for main branch)
-            include_parent_events: Whether to include events from parent branches
+            include_parent_branches: Whether to include events from parent branches
             max_results: Maximum events to return
 
         Returns:
@@ -939,7 +950,7 @@ class MemoryClient:
 
             # Only add filter when we have a specific branch name
             if branch_name:
-                params["filter"] = {"branch": {"name": branch_name, "includeParentBranches": include_parent_events}}
+                params["filter"] = {"branch": {"name": branch_name, "includeParentBranches": include_parent_branches}}
 
             response = self.gmdp_client.list_events(**params)
             events = response.get("events", [])
@@ -1051,7 +1062,7 @@ class MemoryClient:
             actor_id=actor_id,
             session_id=session_id,
             branch_name=branch_name,
-            include_parent_events=include_parent,
+            include_parent_branches=include_parent,
             max_results=100,
         )
 
@@ -1085,55 +1096,75 @@ class MemoryClient:
         k: int = 5,
         branch_name: Optional[str] = None,
         include_branches: bool = False,
-        max_results: int = 100,
+        max_results: Optional[int] = None,
     ) -> List[List[Dict[str, Any]]]:
         """Get the last K conversation turns.
 
         A "turn" typically consists of a user message followed by assistant response(s).
         This method groups messages into logical turns for easier processing.
 
+        If max_results is specified, fetches up to that many events and finds turns within them
+        (backward compatible behavior).
+        If max_results is None, automatically paginates until k turns are found.
+
         Returns:
             List of turns, where each turn is a list of message dictionaries
         """
+        base_params = {
+            "memoryId": memory_id,
+            "actorId": actor_id,
+            "sessionId": session_id,
+        }
+
+        if branch_name and branch_name != "main":
+            base_params["filter"] = {"branch": {"name": branch_name, "includeParentBranches": include_branches}}
+
         try:
-            # Use the new list_events method
-            events = self.list_events(
-                memory_id=memory_id,
-                actor_id=actor_id,
-                session_id=session_id,
-                branch_name=branch_name,
-                include_parent_events=False,
-                max_results=max_results,
-            )
+            turns: List[List[Dict[str, Any]]] = []
+            current_turn: List[Dict[str, Any]] = []
+            next_token = None
+            total_fetched = 0
 
-            if not events:
-                return []
+            while len(turns) < k:
+                if max_results is not None:
+                    remaining = max_results - total_fetched
+                    if remaining <= 0:
+                        break
+                    batch_size = min(100, remaining)
+                else:
+                    batch_size = 100
 
-            # Process events to group into turns
-            turns = []
-            current_turn = []
+                params = {**base_params, "maxResults": batch_size, "includePayloads": True}
+                if next_token:
+                    params["nextToken"] = next_token
 
-            for event in events:
-                if len(turns) >= k:
-                    break  # Only need last K turns
-                for payload_item in event.get("payload", []):
-                    if "conversational" in payload_item:
-                        role = payload_item["conversational"].get("role")
+                response = self.gmdp_client.list_events(**params)
+                events = response.get("events", [])
 
-                        # Start new turn on USER message
-                        if role == Role.USER.value and current_turn:
-                            turns.append(current_turn)
-                            current_turn = []
+                if not events:
+                    break
 
-                        current_turn.append(payload_item["conversational"])
+                total_fetched += len(events)
 
-            # Don't forget the last turn
-            if current_turn:
+                for event in events:
+                    if len(turns) >= k:
+                        break
+                    for payload_item in event.get("payload", []):
+                        if "conversational" in payload_item:
+                            role = payload_item["conversational"].get("role")
+                            if role == Role.USER.value and current_turn:
+                                turns.append(current_turn)
+                                current_turn = []
+                            current_turn.append(payload_item["conversational"])
+
+                next_token = response.get("nextToken")
+                if not next_token:
+                    break
+
+            if current_turn and len(turns) < k:
                 turns.append(current_turn)
 
-            # Return the last k turns
-            return turns[:k] if len(turns) > k else turns
-
+            return turns[:k]
         except ClientError as e:
             logger.error("Failed to get last K turns: %s", e)
             raise
@@ -1417,6 +1448,51 @@ class MemoryClient:
         self.add_user_preference_strategy(memory_id, name, description, namespaces)
         return self._wait_for_memory_active(memory_id, max_wait, poll_interval)
 
+    def add_episodic_strategy(
+        self,
+        memory_id: str,
+        name: str,
+        reflection_namespaces: List[str],
+        description: Optional[str] = None,
+        namespaces: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Add an episodic memory strategy.
+
+        Args:
+            memory_id: Memory resource ID
+            name: Strategy name
+            reflection_namespaces: Namespaces for reflections (can be less nested than episode namespaces)
+            description: Optional description
+            namespaces: Optional namespaces for episodes
+        """
+        strategy: Dict = {
+            StrategyType.EPISODIC.value: {
+                "name": name,
+                "reflectionConfiguration": {"namespaces": reflection_namespaces},
+            }
+        }
+
+        if description:
+            strategy[StrategyType.EPISODIC.value]["description"] = description
+        if namespaces:
+            strategy[StrategyType.EPISODIC.value]["namespaces"] = namespaces
+
+        return self._add_strategy(memory_id, strategy)
+
+    def add_episodic_strategy_and_wait(
+        self,
+        memory_id: str,
+        name: str,
+        reflection_namespaces: List[str],
+        description: Optional[str] = None,
+        namespaces: Optional[List[str]] = None,
+        max_wait: int = 300,
+        poll_interval: int = 10,
+    ) -> Dict[str, Any]:
+        """Add an episodic strategy and wait for memory to return to ACTIVE state."""
+        self.add_episodic_strategy(memory_id, name, reflection_namespaces, description, namespaces)
+        return self._wait_for_memory_active(memory_id, max_wait, poll_interval)
+
     def add_custom_semantic_strategy(
         self,
         memory_id: str,
@@ -1477,6 +1553,88 @@ class MemoryClient:
         """Add a custom semantic strategy and wait for memory to return to ACTIVE state."""
         self.add_custom_semantic_strategy(
             memory_id, name, extraction_config, consolidation_config, description, namespaces
+        )
+        return self._wait_for_memory_active(memory_id, max_wait, poll_interval)
+
+    def add_custom_episodic_strategy(
+        self,
+        memory_id: str,
+        name: str,
+        extraction_config: Dict[str, Any],
+        consolidation_config: Dict[str, Any],
+        reflection_config: Dict[str, Any],
+        description: Optional[str] = None,
+        namespaces: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Add a custom episodic strategy with prompts.
+
+        Args:
+            memory_id: Memory resource ID
+            name: Strategy name
+            extraction_config: {"prompt": "...", "modelId": "..."}
+            consolidation_config: {"prompt": "...", "modelId": "..."}
+            reflection_config: {"prompt": "...", "modelId": "...", "namespaces": [...]}
+            description: Optional description
+            namespaces: Optional namespaces list
+        """
+        for config, config_name in [
+            (extraction_config, "extraction_config"),
+            (consolidation_config, "consolidation_config"),
+            (reflection_config, "reflection_config"),
+        ]:
+            for key in ("prompt", "modelId"):
+                if key not in config:
+                    raise ValueError(f"{config_name} missing required key: {key}")
+
+        strategy = {
+            StrategyType.CUSTOM.value: {
+                "name": name,
+                "configuration": {
+                    "episodicOverride": {
+                        "extraction": {
+                            "appendToPrompt": extraction_config["prompt"],
+                            "modelId": extraction_config["modelId"],
+                        },
+                        "consolidation": {
+                            "appendToPrompt": consolidation_config["prompt"],
+                            "modelId": consolidation_config["modelId"],
+                        },
+                        "reflection": {
+                            "appendToPrompt": reflection_config["prompt"],
+                            "modelId": reflection_config["modelId"],
+                            **(
+                                {"namespaces": reflection_config["namespaces"]}
+                                if "namespaces" in reflection_config
+                                else {}
+                            ),
+                        },
+                    }
+                },
+            }
+        }
+
+        if description:
+            strategy[StrategyType.CUSTOM.value]["description"] = description
+        if namespaces:
+            strategy[StrategyType.CUSTOM.value]["namespaces"] = namespaces
+
+        return self._add_strategy(memory_id, strategy)
+
+    def add_custom_episodic_strategy_and_wait(
+        self,
+        memory_id: str,
+        name: str,
+        extraction_config: Dict[str, Any],
+        consolidation_config: Dict[str, Any],
+        reflection_config: Dict[str, Any],
+        description: Optional[str] = None,
+        namespaces: Optional[List[str]] = None,
+        max_wait: int = 300,
+        poll_interval: int = 10,
+    ) -> Dict[str, Any]:
+        """Add a custom episodic strategy and wait for memory to return to ACTIVE state."""
+        self.add_custom_episodic_strategy(
+            memory_id, name, extraction_config, consolidation_config, reflection_config, description, namespaces
         )
         return self._wait_for_memory_active(memory_id, max_wait, poll_interval)
 
@@ -1809,19 +1967,22 @@ class MemoryClient:
         if "extraction" in config:
             extraction = config["extraction"]
 
-            if any(key in extraction for key in ["triggerEveryNMessages", "historicalContextWindowSize"]):
-                strategy_type_enum = MemoryStrategyTypeEnum(strategy_type)
+            builtin_config_keys = ["triggerEveryNMessages", "historicalContextWindowSize"]
 
-                if strategy_type == "SEMANTIC":
+            if strategy_type == "CUSTOM" and override_type:
+                override_enum = OverrideType(override_type)
+                if override_enum in CUSTOM_EXTRACTION_WRAPPER_KEYS:
+                    wrapped_config["extraction"] = {
+                        "customExtractionConfiguration": {CUSTOM_EXTRACTION_WRAPPER_KEYS[override_enum]: extraction}
+                    }
+                else:
+                    wrapped_config["extraction"] = extraction
+            elif any(key in extraction for key in builtin_config_keys):
+                strategy_type_enum = MemoryStrategyTypeEnum(strategy_type)
+                if strategy_type in ("SEMANTIC", "USER_PREFERENCE"):
                     wrapped_config["extraction"] = {EXTRACTION_WRAPPER_KEYS[strategy_type_enum]: extraction}
-                elif strategy_type == "USER_PREFERENCE":
-                    wrapped_config["extraction"] = {EXTRACTION_WRAPPER_KEYS[strategy_type_enum]: extraction}
-                elif strategy_type == "CUSTOM" and override_type:
-                    override_enum = OverrideType(override_type)
-                    if override_type in ["SEMANTIC_OVERRIDE", "USER_PREFERENCE_OVERRIDE"]:
-                        wrapped_config["extraction"] = {
-                            "customExtractionConfiguration": {CUSTOM_EXTRACTION_WRAPPER_KEYS[override_enum]: extraction}
-                        }
+                else:
+                    wrapped_config["extraction"] = extraction
             else:
                 wrapped_config["extraction"] = extraction
 
@@ -1847,5 +2008,17 @@ class MemoryClient:
                         }
             else:
                 wrapped_config["consolidation"] = consolidation
+
+        if "reflection" in config:
+            reflection = config["reflection"]
+
+            if strategy_type == "CUSTOM" and override_type:
+                override_enum = OverrideType(override_type)
+                if override_enum in CUSTOM_REFLECTION_WRAPPER_KEYS:
+                    wrapped_config["reflection"] = {
+                        "customReflectionConfiguration": {CUSTOM_REFLECTION_WRAPPER_KEYS[override_enum]: reflection}
+                    }
+            else:
+                wrapped_config["reflection"] = reflection
 
         return wrapped_config

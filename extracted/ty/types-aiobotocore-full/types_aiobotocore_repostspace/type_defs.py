@@ -3,7 +3,7 @@ Type annotations for repostspace service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_repostspace/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     VanityDomainStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -107,7 +102,7 @@ class BatchErrorTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -179,7 +174,7 @@ class GetSpaceInputTypeDef(TypedDict):
 
 class SupportedEmailDomainsStatusTypeDef(TypedDict):
     enabled: NotRequired[FeatureEnableStatusType]
-    allowedDomains: NotRequired[List[str]]
+    allowedDomains: NotRequired[list[str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -233,26 +228,26 @@ class UpdateChannelInputTypeDef(TypedDict):
 
 
 class BatchAddChannelRoleToAccessorsOutputTypeDef(TypedDict):
-    addedAccessorIds: List[str]
-    errors: List[BatchErrorTypeDef]
+    addedAccessorIds: list[str]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchAddRoleOutputTypeDef(TypedDict):
-    addedAccessorIds: List[str]
-    errors: List[BatchErrorTypeDef]
+    addedAccessorIds: list[str]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchRemoveChannelRoleFromAccessorsOutputTypeDef(TypedDict):
-    removedAccessorIds: List[str]
-    errors: List[BatchErrorTypeDef]
+    removedAccessorIds: list[str]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchRemoveRoleOutputTypeDef(TypedDict):
-    removedAccessorIds: List[str]
-    errors: List[BatchErrorTypeDef]
+    removedAccessorIds: list[str]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -277,18 +272,18 @@ class GetChannelOutputTypeDef(TypedDict):
     channelDescription: str
     createDateTime: datetime
     deleteDateTime: datetime
-    channelRoles: Dict[str, List[ChannelRoleType]]
+    channelRoles: dict[str, list[ChannelRoleType]]
     channelStatus: ChannelStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListChannelsOutputTypeDef(TypedDict):
-    channels: List[ChannelDataTypeDef]
+    channels: list[ChannelDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -352,9 +347,9 @@ class GetSpaceOutputTypeDef(TypedDict):
     deleteDateTime: datetime
     tier: TierLevelType
     storageLimit: int
-    userAdmins: List[str]
-    groupAdmins: List[str]
-    roles: Dict[str, List[RoleType]]
+    userAdmins: list[str]
+    groupAdmins: list[str]
+    roles: dict[str, list[RoleType]]
     userKMSKey: str
     userCount: int
     contentSize: int
@@ -392,6 +387,6 @@ class ListSpacesInputPaginateTypeDef(TypedDict):
 
 
 class ListSpacesOutputTypeDef(TypedDict):
-    spaces: List[SpaceDataTypeDef]
+    spaces: list[SpaceDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

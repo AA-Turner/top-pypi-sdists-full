@@ -46,6 +46,10 @@ except ImportError:
 
 
 class HttpxAsyncHttpNode(BaseAsyncNode):
+    """
+    Async HTTP node using httpx. Supports both Trio and asyncio.
+    """
+
     _CLIENT_META_HTTP_CLIENT = ("hx", _HTTPX_META_VERSION)
 
     def __init__(self, config: NodeConfig):
@@ -102,7 +106,7 @@ class HttpxAsyncHttpNode(BaseAsyncNode):
                     ssl_context.load_cert_chain(config.client_cert)
 
         self.client = httpx.AsyncClient(
-            base_url=f"{config.scheme}://{config.host}:{config.port}",
+            base_url=f"{config.scheme}://{config.host}:{config.port}{config.path_prefix}",
             limits=httpx.Limits(max_connections=config.connections_per_node),
             verify=ssl_context or False,
             timeout=config.request_timeout,
@@ -175,11 +179,11 @@ class HttpxAsyncHttpNode(BaseAsyncNode):
                 body=body,
                 exception=err,
             )
-            raise err from None
+            raise err from e
 
         meta = ApiResponseMeta(
             resp.status_code,
-            resp.http_version,
+            resp.http_version.lstrip("HTTP/"),
             HttpHeaders(resp.headers),
             duration,
             self.config,

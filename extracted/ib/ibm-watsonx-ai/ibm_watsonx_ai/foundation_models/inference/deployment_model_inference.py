@@ -1,19 +1,22 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from typing import (
     TYPE_CHECKING,
+    Any,
     AsyncGenerator,
     Generator,
     Literal,
     cast,
-    overload,
 )
+
+import httpx
 
 from ibm_watsonx_ai.foundation_models.schema import (
     BaseSchema,
@@ -24,6 +27,7 @@ from ibm_watsonx_ai.foundation_models.utils.enums import DecodingMethods
 from ibm_watsonx_ai.foundation_models.utils.utils import _check_model_state
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     MissingValue,
     PromptVariablesError,
@@ -49,7 +53,6 @@ class DeploymentModelInference(BaseModelInference):
         api_client: APIClient,
         params: dict | TextChatParameters | TextGenParameters | None = None,
         validate: bool = True,
-        persistent_connection: bool = True,
         max_retries: int | None = None,
         delay_time: float | None = None,
         retry_status_codes: list[int] | None = None,
@@ -69,17 +72,13 @@ class DeploymentModelInference(BaseModelInference):
             )
             _check_model_state(
                 self._client,
-                self._deployment_details.get("entity", {}).get("base_model_id"),
+                get_from_json(self._deployment_details, ["entity", "base_model_id"]),
             )
-
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 4.8:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
 
         BaseModelInference.__init__(
             self,
             __name__,
             self._client,
-            persistent_connection,
             max_retries,
             delay_time,
             retry_status_codes,
@@ -102,7 +101,7 @@ class DeploymentModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> dict:
         self._validate_type(messages, "messages", list, True)
@@ -127,7 +126,7 @@ class DeploymentModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> Generator:
         self._validate_type(messages, "messages", list, True)
@@ -154,7 +153,7 @@ class DeploymentModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> dict:
         self._validate_type(messages, "messages", list, True)
@@ -179,7 +178,7 @@ class DeploymentModelInference(BaseModelInference):
         params: dict | TextChatParameters | None = None,
         tools: list | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: Literal["none", "auto"] | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
         context: str | None = None,
     ) -> AsyncGenerator:
         self._validate_type(messages, "messages", list, True)
@@ -199,48 +198,6 @@ class DeploymentModelInference(BaseModelInference):
             tool_choice=tool_choice,
             tool_choice_option=tool_choice_option,
         )
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: Literal[False] = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict]: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None,
-        params: dict | TextGenParameters | None,
-        guardrails: bool,
-        guardrails_hap_params: dict | None,
-        guardrails_pii_params: dict | None,
-        concurrency_limit: int,
-        async_mode: Literal[True],
-        validate_prompt_variables: bool,
-        guardrails_granite_guardian_params: dict | None,
-    ) -> Generator: ...
-
-    @overload
-    def generate(
-        self,
-        prompt: str | list | None = ...,
-        params: dict | TextGenParameters | None = ...,
-        guardrails: bool = ...,
-        guardrails_hap_params: dict | None = ...,
-        guardrails_pii_params: dict | None = ...,
-        concurrency_limit: int = ...,
-        async_mode: bool = ...,
-        validate_prompt_variables: bool = ...,
-        guardrails_granite_guardian_params: dict | None = ...,
-    ) -> dict | list[dict] | Generator: ...
 
     def generate(
         self,
@@ -278,30 +235,33 @@ class DeploymentModelInference(BaseModelInference):
             )
         )
 
-        if async_mode:
-            self.params = cast(dict | TextGenParameters, self.params)
+        prompts = prompt if isinstance(prompt, list) else [prompt]
 
-            return self._generate_with_url_async(
-                prompt=prompt,
-                params=params or self.params,
-                generate_url=generate_text_url,
+        payloads = [
+            self._prepare_inference_payload(
+                prompt=p,
+                params=params,
                 guardrails=guardrails,
                 guardrails_hap_params=guardrails_hap_params,
                 guardrails_pii_params=guardrails_pii_params,
                 guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+            )
+            for p in prompts
+        ]
+
+        if async_mode:
+            return self._generate_with_url_async(
+                payloads=payloads,
+                generate_url=generate_text_url,
                 concurrency_limit=concurrency_limit,
             )
         else:
-            return self._generate_with_url(
-                prompt=prompt,
-                params=params,
+            results = self._generate_with_url(
+                payloads=payloads,
                 generate_url=generate_text_url,
-                guardrails=guardrails,
-                guardrails_hap_params=guardrails_hap_params,
-                guardrails_pii_params=guardrails_pii_params,
-                guardrails_granite_guardian_params=guardrails_granite_guardian_params,
                 concurrency_limit=concurrency_limit,
             )
+            return results if isinstance(prompt, list) else list(results)[0]
 
     async def _agenerate_single(
         self,
@@ -335,19 +295,18 @@ class DeploymentModelInference(BaseModelInference):
             )
         )
 
-        async_params = params or self.params or {}
-
-        if isinstance(async_params, BaseSchema):
-            async_params = async_params.to_dict()
-
-        return await self._asend_inference_payload(
+        payload = self._prepare_inference_payload(
             prompt=prompt,
-            params=async_params,
-            generate_url=generate_text_url,
+            params=params,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+        )
+
+        return await self._asend_inference_payload(
+            payload=payload,
+            generate_url=generate_text_url,
         )
 
     async def agenerate_stream(
@@ -379,32 +338,24 @@ class DeploymentModelInference(BaseModelInference):
             False,
         )
 
-        if self._client._use_fm_ga_api:
-            generate_stream_url = (
-                self._client._href_definitions.get_fm_deployment_generation_stream_href(
-                    deployment_id=self.deployment_id
-                )
+        generate_stream_url = (
+            self._client._href_definitions.get_fm_deployment_generation_stream_href(
+                deployment_id=self.deployment_id
             )
-        else:  # Remove on CPD 5.0 release
-            generate_stream_url = (
-                self._client._href_definitions.get_fm_deployment_generation_href(
-                    deployment_id=self.deployment_id, item="text_stream"
-                )
-            )
+        )
 
-        async_params = params or self.params or {}
-
-        if isinstance(async_params, BaseSchema):
-            async_params = async_params.to_dict()
-
-        return self._agenerate_stream_with_url(
+        payload = self._prepare_inference_payload(
             prompt=prompt,
-            params=async_params,
-            generate_url=generate_stream_url,
+            params=params,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
+        )
+
+        return self._agenerate_stream_with_url(
+            payload=payload,
+            generate_url=generate_stream_url,
         )
 
     def generate_text_stream(
@@ -434,36 +385,25 @@ class DeploymentModelInference(BaseModelInference):
             dict,
             False,
         )
-        if self._client._use_fm_ga_api:
-            generate_text_stream_url = (
-                self._client._href_definitions.get_fm_deployment_generation_stream_href(
-                    deployment_id=self.deployment_id
-                )
+        generate_text_stream_url = (
+            self._client._href_definitions.get_fm_deployment_generation_stream_href(
+                deployment_id=self.deployment_id
             )
-        else:  # Remove on CPD 5.0 release
-            generate_text_stream_url = (
-                self._client._href_definitions.get_fm_deployment_generation_href(
-                    deployment_id=self.deployment_id, item="text_stream"
-                )
-            )
+        )
 
-        return self._generate_stream_with_url(
+        payload = self._prepare_inference_payload(
             prompt=prompt,
             params=params,
-            raw_response=raw_response,
-            generate_stream_url=generate_text_stream_url,
             guardrails=guardrails,
             guardrails_hap_params=guardrails_hap_params,
             guardrails_pii_params=guardrails_pii_params,
             guardrails_granite_guardian_params=guardrails_granite_guardian_params,
         )
 
-    def tokenize(self, prompt: str, return_tokens: bool = False) -> dict:
-        """
-        Given a text prompt as input, and return_tokens parameter will return tokenized input text.
-        """
-        raise UnsupportedOperation(
-            Messages.get_message(message_id="fm_tokenize_no_supported_deployment")
+        return self._generate_stream_with_url(
+            payload=payload,
+            generate_stream_url=generate_text_stream_url,
+            raw_response=raw_response,
         )
 
     def get_identifying_params(self) -> dict:
@@ -488,6 +428,7 @@ class DeploymentModelInference(BaseModelInference):
         guardrails_hap_params: dict | None = None,
         guardrails_pii_params: dict | None = None,
         guardrails_granite_guardian_params: dict | None = None,
+        **kwargs: Any,
     ) -> dict:
         payload: dict = {
             "input": prompt,
@@ -557,108 +498,16 @@ class DeploymentModelInference(BaseModelInference):
                     "parameters"
                 ][GenTextParamsMetaNames.DECODING_METHOD].value
 
-        if "parameters" in payload and "return_options" in payload["parameters"]:
-            if not (
-                payload["parameters"]["return_options"].get("input_text", False)
-                or payload["parameters"]["return_options"].get("input_tokens", False)
-            ):
-                raise WMLClientError(
-                    Messages.get_message(
-                        message_id="fm_required_parameters_not_provided"
-                    )
-                )
-
         return payload
 
-    def _prepare_beta_inference_payload(
-        self,  # Remove on CPD 5.0 release
-        prompt: str | None,
-        params: dict | TextGenParameters | None = None,
-        guardrails: bool = False,
-        guardrails_hap_params: dict | None = None,
-        guardrails_pii_params: dict | None = None,
-        guardrails_granite_guardian_params: dict | None = None,
-    ) -> dict:
-        payload: dict = {
-            "input": prompt,
-        }
-
-        if guardrails:
-            default_moderations_params = {"input": True, "output": True}
-            payload.update(
-                {
-                    "moderations": {
-                        "hap": (
-                            default_moderations_params | (guardrails_hap_params or {})
-                        )
-                    }
-                }
-            )
-
-            if guardrails_pii_params is not None:
-                payload["moderations"].update({"pii": guardrails_pii_params})
-            if guardrails_granite_guardian_params is not None:
-                payload["moderations"].update(
-                    {"granite_guardian": guardrails_granite_guardian_params}
-                )
-
-        if params is not None:
-            parameters = params
-
-            if isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
-
-        elif self.params is not None:
-            self.params = cast(dict | TextGenParameters, self.params)
-            parameters = deepcopy(self.params)
-
-            if isinstance(parameters, BaseSchema):
-                parameters = parameters.to_dict()
-
-            if isinstance(parameters, dict):
-                parameters = self._validate_and_overwrite_params(
-                    parameters, TextGenParameters()
-                )
-
-        else:
-            parameters = None
-
-        if parameters:
-            payload["parameters"] = parameters
-
-        if (
-            "parameters" in payload
-            and GenTextParamsMetaNames.DECODING_METHOD in payload["parameters"]
-        ):
-            if isinstance(
-                payload["parameters"][GenTextParamsMetaNames.DECODING_METHOD],
-                DecodingMethods,
-            ):
-                payload["parameters"][GenTextParamsMetaNames.DECODING_METHOD] = payload[
-                    "parameters"
-                ][GenTextParamsMetaNames.DECODING_METHOD].value
-
-        if "parameters" in payload and "return_options" in payload["parameters"]:
-            if not (
-                payload["parameters"]["return_options"].get("input_text", False)
-                or payload["parameters"]["return_options"].get("input_tokens", False)
-            ):
-                raise WMLClientError(
-                    Messages.get_message(
-                        message_id="fm_required_parameters_not_provided"
-                    )
-                )
-
-        return payload
-
-    def _prepare_chat_payload(  # type: ignore[override]
+    def _prepare_chat_payload(
         self,
         messages: list[dict],
         params: dict | TextChatParameters | None = None,
         context: str | None = None,
         tools: list[dict] | None = None,
         tool_choice: dict | None = None,
-        tool_choice_option: str | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
     ) -> dict:
         payload: dict = {"messages": messages}
 
@@ -682,9 +531,9 @@ class DeploymentModelInference(BaseModelInference):
             parameters = None
 
         if parameters:
-            if self._client.ICP_PLATFORM_SPACES:
+            if self._client.ICP_PLATFORM_SPACES and self._client.CPD_version <= 5.1:
                 raise WMLClientError(
-                    "Text chat parameters for Deployment Model Inference are not supported for IBM Cloud Pak® for Data."
+                    "Text chat parameters for Deployment Model Inference are not supported for IBM Cloud Pak® for Data 5.1 release and earlier."
                 )
             payload.update(parameters)
 
@@ -699,16 +548,92 @@ class DeploymentModelInference(BaseModelInference):
 
         return payload
 
+    def _send_deployment_chat_payload(
+        self,
+        deployment_chat_url: str,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> dict:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        post_params: dict[str, Any] = {
+            "url": deployment_chat_url,
+            "json": payload,
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+            "headers": self._client._get_headers(),
+        }
+
+        response_scoring = self._post(self._client.httpx_client, **post_params)
+
+        if response_scoring.status_code == 404:
+            raise UnsupportedOperation(
+                Messages.get_message(message_id="chat_deployment_not_supported")
+            )
+
+        return self._handle_response(
+            200,
+            "chat",
+            response_scoring,
+            _field_to_hide="choices",
+        )
+
+    async def _asend_deployment_chat_payload(
+        self,
+        deployment_chat_url: str,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> dict:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        post_params: dict[str, Any] = {
+            "url": deployment_chat_url,
+            "json": payload,
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+            "headers": await self._client._aget_headers(),
+        }
+
+        response = await self._apost(self._client.async_httpx_client, **post_params)
+
+        if response.status_code == 404:
+            raise UnsupportedOperation(
+                Messages.get_message(message_id="chat_deployment_not_supported")
+            )
+
+        return self._handle_response(
+            200,
+            "achat",
+            response,
+            _field_to_hide="choices",
+        )
+
     def _deployment_type_validation(
         self, params: dict | TextGenParameters | None, validate_prompt_variables: bool
     ) -> bool:
         prompt_required = False
         prompt_id = (
-            (
-                self._deployment_details.get("entity", {})
-                .get("prompt_template", {})
-                .get("id")
-            )
+            get_from_json(self._deployment_details, ["entity", "prompt_template", "id"])
             if self._validate
             else None
         )
@@ -762,3 +687,114 @@ class DeploymentModelInference(BaseModelInference):
                     )
 
         return prompt_required
+
+    def _generate_deployment_chat_stream_with_url(
+        self,
+        deployment_chat_stream_url: str,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> Generator:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        if hasattr(self._client.httpx_client, "post_stream"):
+            stream_function = self._client.httpx_client.post_stream
+        else:
+            stream_function = self._client.httpx_client.stream
+
+        kw_args: dict = {
+            "method": "POST",
+            "url": deployment_chat_stream_url,
+            "json": payload,
+            "headers": self._client._get_headers(),
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+        }
+
+        with self._stream(stream_function, **kw_args) as resp:
+            if resp.status_code == 200:
+                resp_iter = (
+                    resp.iter_lines()
+                    if isinstance(resp, httpx.Response)
+                    else resp.iter_lines(decode_unicode=False)
+                )
+                for chunk in resp_iter:
+                    field_name, _, response = chunk.partition(":")
+                    if field_name == "data" and response:
+                        try:
+                            parsed_response = json.loads(response)
+                        except json.JSONDecodeError:
+                            raise Exception(f"Could not parse {response} as json")
+                        yield parsed_response
+
+            elif resp.status_code == 404:
+                raise UnsupportedOperation(
+                    Messages.get_message(message_id="chat_deployment_not_supported")
+                )
+
+            else:
+                if isinstance(resp, httpx.Response):
+                    resp.read()
+                raise WMLClientError(
+                    f"Request failed with: {resp.text} ({resp.status_code})"
+                )
+
+    async def _agenerate_deployment_chat_stream_with_url(
+        self,
+        deployment_chat_stream_url: str,
+        messages: list[dict],
+        params: dict | TextChatParameters | None,
+        context: str | None = None,
+        tools: list | None = None,
+        tool_choice: dict | None = None,
+        tool_choice_option: Literal["none", "auto", "required"] | None = None,
+    ) -> AsyncGenerator:
+        payload = self._prepare_chat_payload(
+            messages,
+            params=params,
+            context=context,
+            tools=tools,
+            tool_choice=tool_choice,
+            tool_choice_option=tool_choice_option,
+        )
+
+        if hasattr(self._client.async_httpx_client, "post_stream"):
+            stream_function = self._client.async_httpx_client.post_stream
+        else:
+            stream_function = self._client.async_httpx_client.stream
+
+        kw_args: dict = {
+            "method": "POST",
+            "url": deployment_chat_stream_url,
+            "json": payload,
+            "headers": await self._client._aget_headers(),
+            "params": self._client._params(skip_for_create=True, skip_userfs=True),
+        }
+
+        async with self._astream(stream_function, **kw_args) as resp:
+            if resp.status_code == 200:
+                resp_iter = resp.aiter_lines()
+
+                async for chunk in resp_iter:
+                    field_name, _, response = chunk.partition(":")
+                    if field_name == "data" and response:
+                        try:
+                            parsed_response = json.loads(response)
+                        except json.JSONDecodeError:
+                            raise Exception(f"Could not parse {response} as json")
+                        yield parsed_response
+
+            elif resp.status_code != 200:
+                await resp.aread()
+                raise WMLClientError(
+                    f"Request failed with: ({resp.text} {resp.status_code})"
+                )

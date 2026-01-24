@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import json
 import warnings
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any, Final
 
 import attrs
 import pyarrow as pa
@@ -19,7 +20,7 @@ from somacore import (
     ScaleTransform,
     options,
 )
-from typing_extensions import Final, Self
+from typing_extensions import Self
 
 from . import _funcs, _tdb_handles
 from . import pytiledbsoma as clib
@@ -33,7 +34,7 @@ from ._constants import (
 from ._dense_nd_array import DenseNDArray
 from ._exception import SOMAError, map_exception_for_create
 from ._soma_group import SOMAGroup
-from ._soma_object import AnySOMAObject
+from ._soma_object import SOMAObject
 from ._spatial_util import (
     coordinate_space_from_json,
     coordinate_space_to_json,
@@ -69,7 +70,7 @@ class _MultiscaleImageMetadata:
                 "shape": self.shape,
                 "has_channel_axis": self.has_channel_axis,
                 "datatype": type_str,
-            }
+            },
         )
 
     @classmethod
@@ -80,9 +81,9 @@ class _MultiscaleImageMetadata:
         return cls(datatype=type, **kwargs)
 
 
-class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
+class MultiscaleImage(
     SOMAGroup[DenseNDArray],
-    somacore.MultiscaleImage[DenseNDArray, AnySOMAObject],
+    somacore.MultiscaleImage[DenseNDArray, SOMAObject],
 ):
     """A multiscale image represented as a collection of images at multiple resolution levels.
 
@@ -102,7 +103,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         "_has_channel_axis",
         "_levels",
     )
-    _wrapper_type = _tdb_handles.MultiscaleImageWrapper
+    _handle_type = clib.SOMAMultiscaleImage
 
     _level_prefix: Final = "soma_level_"
 
@@ -164,7 +165,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             Experimental.
         """
         # Warn about the experimental nature of the spatial classes.
-        warnings.warn(SPATIAL_DISCLAIMER)
+        warnings.warn(SPATIAL_DISCLAIMER, stacklevel=2)
 
         context = _validate_soma_tiledb_context(context)
 
@@ -181,13 +182,11 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             ndim += 1
 
         if len(level_shape) != ndim:
-            channel_descript = (
-                "with a channel axis" if has_channel_axis else "with no channel axis"
-            )
+            channel_descript = "with a channel axis" if has_channel_axis else "with no channel axis"
             raise ValueError(
                 f"Invalid shape {level_shape}. Expected {ndim} dimensions for a "
                 f"multiscale image {channel_descript} on a coordinate space with "
-                f"{len(coordinate_space)} dimensions."
+                f"{len(coordinate_space)} dimensions.",
             )
         if data_axis_order is None:
             axis_permutation = tuple(range(ndim - 1, -1, -1))
@@ -198,7 +197,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             if set(data_axis_order) != set(axis_indices.keys()):
                 raise ValueError(
                     f"Invalid data axis order '{data_axis_order}'. Must be a "
-                    f"permutation of the axes '{tuple(axis_indices.keys())}'."
+                    f"permutation of the axes '{tuple(axis_indices.keys())}'.",
                 )
             axis_permutation = tuple(axis_indices[name] for name in data_axis_order)
 
@@ -211,7 +210,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             datatype=type,
         )
 
-        _image_meta_str = image_meta.to_json()
+        image_meta_str_ = image_meta.to_json()
         try:
             timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
             clib.SOMAMultiscaleImage.create(
@@ -221,12 +220,16 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
                 ctx=context.native_context,
                 timestamp=(0, timestamp_ms),
             )
-            handle = _tdb_handles.MultiscaleImageWrapper.open(
-                uri, "w", context, tiledb_timestamp
+            handle = clib.SOMAMultiscaleImage.open(
+                uri, mode=clib.OpenMode.soma_write, context=context.native_context, timestamp=(0, timestamp_ms)
             )
-            handle.metadata[SOMA_MULTISCALE_IMAGE_SCHEMA] = _image_meta_str
+            metadata = _tdb_handles.MetadataWrapper.from_handle(handle)
+            metadata[SOMA_MULTISCALE_IMAGE_SCHEMA] = image_meta_str_
+            metadata._write()
             multiscale = cls(
                 handle,
+                uri=uri,
+                context=context,
                 _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
             )
         except SOMAError as e:
@@ -241,28 +244,17 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
 
         return multiscale
 
-    def __init__(
-        self,
-        handle: _tdb_handles.SOMAGroupWrapper[Any],
-        **kwargs: Any,
-    ):
-        # Do generic SOMA collection initialization.
-        super().__init__(handle, **kwargs)
-
+    def _parse_special_metadata(self) -> None:
         try:
             spatial_encoding_version = self.metadata[SOMA_SPATIAL_VERSION_METADATA_KEY]
             if isinstance(spatial_encoding_version, bytes):
                 spatial_encoding_version = str(spatial_encoding_version, "utf-8")
             if spatial_encoding_version not in {"0.1.0", "0.2.0"}:
                 raise ValueError(
-                    f"Unsupported MultiscaleImage with spatial encoding version "
-                    f"{spatial_encoding_version}"
+                    f"Unsupported MultiscaleImage with spatial encoding version {spatial_encoding_version}",
                 )
         except KeyError as ke:
-            raise SOMAError(
-                "Missing spatial encoding version. May be deprecated experimental "
-                "MultiscaleImage."
-            ) from ke
+            raise SOMAError("Missing spatial encoding version. May be deprecated experimental MultiscaleImage.") from ke
 
         # Get the coordinate space.
         try:
@@ -280,8 +272,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             metadata_json = str(metadata_json, "utf-8")
         if not isinstance(metadata_json, str):
             raise SOMAError(
-                f"Stored '{SOMA_MULTISCALE_IMAGE_SCHEMA}' metadata is unexpected "
-                f"type {type(metadata_json)!r}."
+                f"Stored '{SOMA_MULTISCALE_IMAGE_SCHEMA}' metadata is unexpected type {type(metadata_json)!r}.",
             )
         image_meta = _MultiscaleImageMetadata.from_json(metadata_json)
         self._data_axis_permutation = image_meta.data_axis_permutation
@@ -291,26 +282,20 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         # Get the image levels.
         # TODO: Optimize and push down to C++ level
         self._levels = [
-            _LevelProperties(
-                name=key[len(self._level_prefix) :], shape=tuple(json.loads(val))
-            )
+            _LevelProperties(name=key[len(self._level_prefix) :], shape=tuple(json.loads(val)))
             for key, val in self.metadata.items()
             if key.startswith(self._level_prefix)
         ]
-        self._levels.sort(
-            key=lambda level: tuple(-val for val in level.shape) + (level.name,)
-        )
+        self._levels.sort(key=lambda level: (*tuple(-val for val in level.shape), level.name))
 
-    @_funcs.forwards_kwargs_to(
-        DenseNDArray.create, exclude=("context", "shape", "tiledb_timestamp")
-    )
+    @_funcs.forwards_kwargs_to(DenseNDArray.create, exclude=("context", "shape", "tiledb_timestamp"))
     def add_new_level(
         self,
         key: str,
         *,
         uri: str | None = None,
         shape: Sequence[int],
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> DenseNDArray:
         """Adds a new resolution level to the ``MultiscaleImage``.
 
@@ -332,10 +317,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         shape = tuple(shape)
         ndim = len(self._data_axis_permutation)
         if len(shape) != ndim:
-            raise ValueError(
-                f"New level must have {ndim} dimensions, but shape {shape} has "
-                f"{len(shape)} dimensions."
-            )
+            raise ValueError(f"New level must have {ndim} dimensions, but shape {shape} has {len(shape)} dimensions.")
 
         if self._has_channel_axis and len(self._levels) > 0:
             channel_index = self._data_axis_permutation.index(len(self._coord_space))
@@ -343,8 +325,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             actual_nchannels = shape[channel_index]
             if actual_nchannels != expected_nchannels:
                 raise ValueError(
-                    f"New level must have {expected_nchannels}, but provided shape has "
-                    f"{actual_nchannels} channels."
+                    f"New level must have {expected_nchannels}, but provided shape has {actual_nchannels} channels.",
                 )
 
         # Add the level properties to level list.
@@ -353,9 +334,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         props = _LevelProperties(name=key, shape=shape)  # type: ignore[arg-type]
         for index, other in enumerate(self._levels):
             # Note: Name is unique, so guaranteed to be strict ordering.
-            if tuple(-val for val in props.shape) + (props.name,) < tuple(
-                -val for val in other.shape
-            ) + (other.name,):
+            if (*tuple(-val for val in props.shape), props.name) < (*tuple(-val for val in other.shape), other.name):
                 self._levels.insert(index, props)
                 break
         else:
@@ -408,8 +387,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         Lifecycle: experimental
         """
         raise NotImplementedError(
-            "Support for setting external DenseNDArray objects to a MultiscaleImage "
-            "is not yet implemented."
+            "Support for setting external DenseNDArray objects to a MultiscaleImage is not yet implemented.",
         )
 
     # Data operations
@@ -463,23 +441,15 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             Experimental.
         """
         if data_axis_order is not None:
-            raise NotImplementedError(
-                "Support for altering the data axis order on read is not yet "
-                "implemented."
-            )
+            raise NotImplementedError("Support for altering the data axis order on read is not yet implemented.")
 
         # Get reference level. Check image is 2D.
         if len(self._coord_space) > 2:
-            raise NotImplementedError(
-                "Support for reading the levels of 3D images it not yet implemented."
-            )
+            raise NotImplementedError("Support for reading the levels of 3D images it not yet implemented.")
 
         # Check channel coords input is valid.
         if channel_coords is not None and not self._has_channel_axis:
-            raise ValueError(
-                "Invalid channel coordinate provided. This image has no channel "
-                "dimension."
-            )
+            raise ValueError("Invalid channel coordinate provided. This image has no channel dimension.")
 
         # Get the transformation for the group and the data coordinate space.
         # We may want to revisit copying the units for the data coordinate space.
@@ -491,40 +461,32 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         # - Create or check the coordinate space for the input data region.
         if region_transform is None:
             if region_coord_space is not None:
-                raise ValueError(
-                    "Cannot specify the output coordinate space when region transform "
-                    "is ``None``."
-                )
+                raise ValueError("Cannot specify the output coordinate space when region transform is ``None``.")
             region_transform = group_to_level
             region_coord_space = data_coord_space
         else:
             if not isinstance(region_transform, ScaleTransform):
                 raise NotImplementedError(
                     f"Support for reading levels with a region transform of type "
-                    f"{type(region_transform)!r} is not yet supported."
+                    f"{type(region_transform)!r} is not yet supported.",
                 )
             # Create or check output coordinates.
             if region_coord_space is None:
-                region_coord_space = CoordinateSpace.from_axis_names(
-                    region_transform.input_axes
-                )
+                region_coord_space = CoordinateSpace.from_axis_names(region_transform.input_axes)
             elif len(region_coord_space) != len(data_coord_space):
-                raise ValueError(
-                    "The number of output coordinates must match the number of "
-                    "input coordinates."
-                )
+                raise ValueError("The number of output coordinates must match the number of input coordinates.")
             if region_transform.output_axes != self._coord_space.axis_names:
                 raise ValueError(
                     f"The output axes of '{region_transform.output_axes}' of the "
                     f"region transform must match the axes "
                     f"'{self._coord_space.axis_names}' of the coordinate space of "
-                    f"this multiscale image."
+                    f"this multiscale image.",
                 )
             region_transform = group_to_level @ region_transform
             assert isinstance(region_transform, ScaleTransform)
 
         # Convert coordinates to new coordinate system.
-        coords, data_region, inv_transform = process_image_region(
+        coords, _, inv_transform = process_image_region(
             region,
             region_transform,
             channel_coords,
@@ -536,9 +498,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         try:
             array = self[array_name]
         except KeyError as ke:
-            raise SOMAError(
-                f"Unable to open the dense array with name '{array_name}'."
-            ) from ke
+            raise SOMAError(f"Unable to open the dense array with name '{array_name}'.") from ke
         return somacore.SpatialRead(
             array.read(
                 coords,
@@ -560,8 +520,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             for val in self._levels:
                 if val.name == level:
                     return val
-            else:
-                raise KeyError("No level with name '{level}'")
+            raise KeyError(f"No level with name '{level}'")
 
         # by index
         return self._levels[level]
@@ -591,16 +550,13 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         Lifecycle:
             Experimental.
         """
-        if self._coord_space is not None:
-            if value.axis_names != self._coord_space.axis_names:
-                raise ValueError(
-                    f"Cannot change axis names of a multiscale image. Existing axis "
-                    f"names are {self._coord_space.axis_names}. New coordinate space "
-                    f"has axis names {value.axis_names}."
-                )
-        self.metadata[SOMA_COORDINATE_SPACE_METADATA_KEY] = coordinate_space_to_json(
-            value
-        )
+        if self._coord_space is not None and value.axis_names != self._coord_space.axis_names:
+            raise ValueError(
+                f"Cannot change axis names of a multiscale image. Existing axis "
+                f"names are {self._coord_space.axis_names}. New coordinate space "
+                f"has axis names {value.axis_names}.",
+            )
+        self.metadata[SOMA_COORDINATE_SPACE_METADATA_KEY] = coordinate_space_to_json(value)
         self._coord_space = value
 
     @property
@@ -611,11 +567,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             Experimental.
         """
         return tuple(
-            (
-                "soma_channel"
-                if index == len(self._coord_space)
-                else self._coord_space.axis_names[index]
-            )
+            ("soma_channel" if index == len(self._coord_space) else self._coord_space.axis_names[index])
             for index in self._data_axis_permutation
         )
 
@@ -634,9 +586,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         level_shape = self._level_properties(level).shape
         base_shape = self._levels[0].shape
         axis_indexer = self._axis_order()
-        scale_factors = [
-            base_shape[index] / level_shape[index] for index in axis_indexer
-        ]
+        scale_factors = [base_shape[index] / level_shape[index] for index in axis_indexer]
         return ScaleTransform(
             input_axes=self._coord_space.axis_names,
             output_axes=self._coord_space.axis_names,
@@ -658,9 +608,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         level_shape = self._level_properties(level).shape
         base_shape = self._levels[0].shape
         axis_indexer = self._axis_order()
-        scale_factors = [
-            level_shape[index] / base_shape[index] for index in axis_indexer
-        ]
+        scale_factors = [level_shape[index] / base_shape[index] for index in axis_indexer]
         return ScaleTransform(
             input_axes=self._coord_space.axis_names,
             output_axes=self._coord_space.axis_names,
@@ -678,10 +626,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
 
     def levels(self) -> dict[str, tuple[str, tuple[int, ...]]]:
         """Returns a mapping of {member_name: (uri, shape)}."""
-        return {
-            level.name: (self._contents[level.name].entry.uri, level.shape)
-            for level in self._levels
-        }
+        return {level.name: (self._contents[level.name].uri, level.shape) for level in self._levels}
 
     @property
     def level_count(self) -> int:
@@ -701,8 +646,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
             for val in self._levels:
                 if val.name == level:
                     return val.shape
-            else:
-                raise KeyError("No level with name '{level}'")
+            raise KeyError(f"No level with name '{level}'")
 
         # by index
         return self._levels[level].shape
@@ -714,7 +658,7 @@ class MultiscaleImage(  # type: ignore[misc]  # __eq__ false positive
         """
         if isinstance(level, int):
             level = self._levels[level].name
-        return self._contents[level].entry.uri
+        return self._contents[level].uri
 
     @property
     def nchannels(self) -> int:

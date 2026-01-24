@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cerebras_cloud_sdk
-Version: 1.50.1
+Version: 1.64.1
 Summary: The official Python library for the cerebras API
 Project-URL: Homepage, https://github.com/Cerebras/cerebras-cloud-sdk-python
 Project-URL: Repository, https://github.com/Cerebras/cerebras-cloud-sdk-python
@@ -13,15 +13,15 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx<1,>=0.23.0
@@ -30,7 +30,7 @@ Requires-Dist: sniffio
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp; extra == 'aiohttp'
-Requires-Dist: httpx-aiohttp>=0.1.8; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.9; extra == 'aiohttp'
 Description-Content-Type: text/markdown
 
 # Cerebras Python API library
@@ -38,7 +38,7 @@ Description-Content-Type: text/markdown
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/cerebras_cloud_sdk.svg?label=pypi%20(stable))](https://pypi.org/project/cerebras_cloud_sdk/)
 
-The Cerebras Python library provides convenient access to the Cerebras REST API from any Python 3.8+
+The Cerebras Python library provides convenient access to the Cerebras REST API from any Python 3.9+
 application. The library includes type definitions for all request params and response fields,
 and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
@@ -92,13 +92,13 @@ client = Cerebras(
 )
 
 chat_completion = client.chat.completions.create(
+    model="llama3.1-8b",
     messages=[
         {
             "role": "user",
             "content": "Why is fast inference important?",
         }
     ],
-    model="llama3.1-8b",
 )
 
 print(chat_completion)
@@ -146,13 +146,13 @@ client = AsyncCerebras(
 
 async def main() -> None:
     chat_completion = await client.chat.completions.create(
+        model="llama3.1-8b",
         messages=[
             {
                 "role": "user",
                 "content": "Why is fast inference important?",
             }
         ],
-        model="llama3.1-8b",
     )
     print(chat_completion)
 
@@ -175,6 +175,7 @@ pip install 'cerebras_cloud_sdk[aiohttp]'
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
 ```python
+import os
 import asyncio
 from cerebras.cloud.sdk import DefaultAioHttpClient
 from cerebras.cloud.sdk import AsyncCerebras
@@ -182,17 +183,17 @@ from cerebras.cloud.sdk import AsyncCerebras
 
 async def main() -> None:
     async with AsyncCerebras(
-        api_key="My API Key",
+        api_key=os.environ.get("CEREBRAS_API_KEY"),  # This is the default and can be omitted
         http_client=DefaultAioHttpClient(),
     ) as client:
         chat_completion = await client.chat.completions.create(
+            model="llama3.1-8b",
             messages=[
                 {
                     "role": "user",
                     "content": "Why is fast inference important?",
                 }
             ],
-            model="llama3.1-8b",
         )
 
 
@@ -305,16 +306,13 @@ from cerebras.cloud.sdk import Cerebras
 client = Cerebras()
 
 chat_completion = client.chat.completions.create(
-    messages=[
-        {
-            "content": "string",
-            "role": "system",
-        }
-    ],
     model="model",
-    stream_options={},
+    prediction={
+        "content": "string",
+        "type": "content",
+    },
 )
-print(chat_completion.stream_options)
+print(chat_completion.prediction)
 ```
 
 ## Handling errors
@@ -335,13 +333,13 @@ client = Cerebras()
 
 try:
     client.chat.completions.create(
+        model="some-model-that-doesnt-exist",
         messages=[
             {
                 "role": "user",
                 "content": "This should cause an error!",
             }
         ],
-        model="some-model-that-doesnt-exist",
     )
 except cerebras.cloud.sdk.APIConnectionError as e:
     print("The server could not be reached")
@@ -387,13 +385,13 @@ client = Cerebras(
 
 # Or, configure per-request:
 client.with_options(max_retries=5).chat.completions.create(
+    model="llama3.1-8b",
     messages=[
         {
             "role": "user",
             "content": "Why is fast inference important?",
         }
     ],
-    model="llama3.1-8b",
 )
 ```
 
@@ -420,13 +418,13 @@ client = Cerebras(
 
 # Override per-request:
 client.with_options(timeout=5.0).chat.completions.create(
+    model="llama3.1-8b",
     messages=[
         {
             "role": "user",
             "content": "Why is fast inference important?",
         }
     ],
-    model="llama3.1-8b",
 )
 ```
 
@@ -470,11 +468,11 @@ from cerebras.cloud.sdk import Cerebras
 
 client = Cerebras()
 response = client.chat.completions.with_raw_response.create(
+    model="llama3.1-8b",
     messages=[{
         "role": "user",
         "content": "Why is fast inference important?",
     }],
-    model="llama3.1-8b",
 )
 print(response.headers.get('X-My-Header'))
 
@@ -495,13 +493,13 @@ To stream the response body, use `.with_streaming_response` instead, which requi
 
 ```python
 with client.chat.completions.with_streaming_response.create(
+    model="llama3.1-8b",
     messages=[
         {
             "role": "user",
             "content": "Why is fast inference important?",
         }
     ],
-    model="llama3.1-8b",
 ) as response:
     print(response.headers.get("X-My-Header"))
 
@@ -613,7 +611,7 @@ print(cerebras.cloud.sdk.__version__)
 
 ## Requirements
 
-Python 3.8 or higher.
+Python 3.9 or higher.
 
 ## Contributing
 

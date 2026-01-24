@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imbalanced-learn
-Version: 0.14.0
+Version: 0.14.1
 Summary: Toolbox for imbalanced dataset in machine learning
 Author-email: "G. Lemaitre" <g.lemaitre58@gmail.com>, "C. Aridas" <ichkoar@gmail.com>
 Project-URL: Homepage, https://imbalanced-learn.org/
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
@@ -24,6 +25,7 @@ License-File: AUTHORS.rst
 Requires-Dist: numpy<3,>=1.25.2
 Requires-Dist: scipy<2,>=1.11.4
 Requires-Dist: scikit-learn<2,>=1.4.2
+Requires-Dist: sklearn-compat<0.2,>=0.1.5
 Requires-Dist: joblib<2,>=1.2.0
 Requires-Dist: threadpoolctl<4,>=2.0.0
 Provides-Extra: dev
@@ -45,7 +47,7 @@ Requires-Dist: pydata-sphinx-theme<1,>=0.15.4; extra == "docs"
 Requires-Dist: sphinx-design<1,>=0.6.1; extra == "docs"
 Provides-Extra: linters
 Requires-Dist: black==23.3.0; extra == "linters"
-Requires-Dist: ruff==0.4.8; extra == "linters"
+Requires-Dist: ruff==0.14.2; extra == "linters"
 Requires-Dist: pre-commit; extra == "linters"
 Provides-Extra: optional
 Requires-Dist: pandas<3,>=2.0.3; extra == "optional"

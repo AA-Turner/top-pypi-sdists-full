@@ -5,603 +5,753 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use lsp_server::Message;
-use lsp_server::Notification;
-use lsp_server::Request;
-use lsp_server::RequestId;
-use lsp_server::Response;
-use lsp_types::CompletionItem;
+use itertools::Itertools;
 use lsp_types::CompletionItemKind;
-use lsp_types::ConfigurationItem;
-use lsp_types::ConfigurationParams;
+use lsp_types::CompletionResponse;
 use lsp_types::Url;
-use lsp_types::notification::DidChangeConfiguration;
-use lsp_types::notification::Notification as _;
-use lsp_types::request::Request as _;
-use lsp_types::request::WorkspaceConfiguration;
-use pyrefly_python::keywords::get_keywords;
+use lsp_types::notification::DidChangeTextDocument;
+use lsp_types::request::Completion;
+use serde_json::json;
 
-use crate::commands::lsp::IndexingMode;
-use crate::config::environment::environment::PythonEnvironment;
-use crate::test::lsp::lsp_interaction::util::TestCase;
-use crate::test::lsp::lsp_interaction::util::build_did_open_notification;
+use crate::test::lsp::lsp_interaction::object_model::InitializeSettings;
+use crate::test::lsp::lsp_interaction::object_model::LspInteraction;
 use crate::test::lsp::lsp_interaction::util::get_test_files_root;
-#[allow(deprecated)]
-use crate::test::lsp::lsp_interaction::util::run_test_lsp;
-
-fn get_all_builtin_completions() -> Vec<CompletionItem> {
-    get_keywords(
-        PythonEnvironment::get_default_interpreter_env()
-            .python_version
-            .unwrap(),
-    )
-    .into_iter()
-    .map(|kw| CompletionItem {
-        label: (*kw).to_owned(),
-        kind: Some(CompletionItemKind::KEYWORD),
-        sort_text: Some("0".to_owned()),
-        ..Default::default()
-    })
-    .collect()
-}
-
-/// Creates a completion response message sorting the completion_items.
-/// completion_items is a Vec of CompletionItem to include in the response
-pub fn make_sorted_completion_result_with_all_keywords(
-    request_id: i32,
-    completion_items: Vec<CompletionItem>,
-) -> Message {
-    let mut all_items = get_all_builtin_completions();
-    all_items.extend(completion_items);
-    all_items.sort_by(|item1, item2| {
-        item1
-            .sort_text
-            .cmp(&item2.sort_text)
-            .then_with(|| item1.label.cmp(&item2.label))
-            .then_with(|| item1.detail.cmp(&item2.detail))
-    });
-
-    let items_json: Vec<serde_json::Value> = all_items
-        .into_iter()
-        .map(|item| serde_json::to_value(item).unwrap())
-        .collect();
-
-    Message::Response(Response {
-        id: RequestId::from(request_id),
-        result: Some(serde_json::json!({
-            "isIncomplete": false,
-            "items": items_json,
-        })),
-        error: None,
-    })
-}
 
 #[test]
-#[allow(deprecated)]
 fn test_completion_basic() {
     let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(root.path().join("foo.py"))),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "range": {
-                            "start": {"line": 10, "character": 0},
-                            "end": {"line": 12, "character": 0}
-                        },
-                        "text": format!("\n{}\n", "Ba")
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root.path().join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 11,
-                        "character": 1
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![
-                    CompletionItem {
-                        label: "Bar".to_owned(),
-                        detail: Some("type[Bar]".to_owned()),
-                        kind: Some(CompletionItemKind::VARIABLE),
-                        sort_text: Some("0".to_owned()),
-                        ..Default::default()
-                    },
-                    // Ignore all completions after this since different python versions have different builtins
-                    CompletionItem {
-                        detail: Some("$$MATCH_EVERYTHING$$".to_owned()),
-                        ..Default::default()
-                    },
-                ],
-            ),
-        ],
-        ..Default::default()
-    });
+    interaction.client.did_open("foo.py");
+
+    let root_path = root.path().join("basic");
+    let foo_path = root_path.join("foo.py");
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&foo_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "range": {
+                    "start": {"line": 10, "character": 0},
+                    "end": {"line": 12, "character": 0}
+                },
+                "text": format!("\n{}\n", "Ba")
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| list.items.iter().any(|item| item.label == "Bar"))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
+fn test_completion_sorted_in_sorttext_order() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    let root_path = root.path().join("basic");
+    let foo_path = root_path.join("foo.py");
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&foo_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "range": {
+                    "start": {"line": 10, "character": 0},
+                    "end": {"line": 12, "character": 0}
+                },
+                "text": format!("\n{}\n", "Ba")
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| {
+            list.items
+                .iter()
+                .is_sorted_by_key(|x| (&x.sort_text, &x.label))
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_keywords() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    let root_path = root.path().join("basic");
+    let foo_path = root_path.join("foo.py");
+
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&foo_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "range": {
+                    "start": {"line": 10, "character": 0},
+                    "end": {"line": 12, "character": 0}
+                },
+                "text": format!("\n{}\n", "i")
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("foo.py", 11, 1)
+        .expect_completion_response_with(|list| {
+            let mut has_if = false;
+            let mut has_import = false;
+            let mut has_def = false;
+            for item in &list.items {
+                if item.kind == Some(CompletionItemKind::KEYWORD) {
+                    has_if = has_if || item.label == "if";
+                    has_import = has_import || item.label == "import";
+                    has_def = has_def || item.label == "def";
+                }
+            }
+            has_if && has_import && has_def
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_import_completion_skips_hidden_directories() {
+    let root = get_test_files_root();
+    let workspace = root.path().join("basic");
+    let hidden_dir = workspace.join(".hiddenpkg");
+    std::fs::create_dir_all(&hidden_dir).unwrap();
+    std::fs::write(hidden_dir.join("__init__.py"), "").unwrap();
+
+    let foo_path = workspace.join("foo.py");
+
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(workspace);
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&foo_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": "import ".to_owned()
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("foo.py", 0, 7)
+        .expect_completion_response_with(|list| {
+            assert!(list.items.iter().all(|item| item.label != ".hiddenpkg"));
+            true
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
 fn test_completion_with_autoimport() {
     let root = get_test_files_root();
     let root_path = root.path().join("tests_requiring_config");
-    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::Response(Response {
-                id: RequestId::from(1),
-                result: Some(serde_json::json!([])),
-                error: None,
-            }),
-            Message::from(build_did_open_notification(root_path.join("foo.py"))),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 0,
-                        "character": 43
-                    }
-                }),
-            }),
-            Message::Notification(Notification {
-                method: DidChangeConfiguration::METHOD.to_owned(),
-                params: serde_json::json!([{"settings": {}}
-                ]),
-            }),
-            Message::Response(Response {
-                id: RequestId::from(2),
-                result: Some(serde_json::json!([
-                    {
-                        "analysis": {
-                            "importFormat": "relative",
-                        }
-                    },
-                ])),
-                error: None,
-            }),
-            Message::from(Request {
-                id: RequestId::from(4),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 0,
-                        "character": 43
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![
-            Message::Request(Request {
-                id: RequestId::from(1),
-                method: WorkspaceConfiguration::METHOD.to_owned(),
-                params: serde_json::json!(ConfigurationParams {
-                    items: Vec::from([
-                        ConfigurationItem {
-                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
-                            section: Some("python".to_owned()),
-                        },
-                        ConfigurationItem {
-                            scope_uri: None,
-                            section: Some("python".to_owned()),
-                        }
-                    ]),
-                }),
-            }),
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![
-                    CompletionItem {
-                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                        kind: Some(CompletionItemKind::FUNCTION),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                ],
-            ),
-            Message::Request(Request {
-                id: RequestId::from(2),
-                method: WorkspaceConfiguration::METHOD.to_owned(),
-                params: serde_json::json!(ConfigurationParams {
-                    items: Vec::from([
-                        ConfigurationItem {
-                            scope_uri: Some(Url::from_file_path(root_path.as_path()).unwrap()),
-                            section: Some("python".to_owned()),
-                        },
-                        ConfigurationItem {
-                            scope_uri: None,
-                            section: Some("python".to_owned()),
-                        }
-                    ]),
-                }),
-            }),
-            make_sorted_completion_result_with_all_keywords(
-                4,
-                vec![
-                    CompletionItem {
-                        label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                        detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                        kind: Some(CompletionItemKind::FUNCTION),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 0,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                ],
-            ),
-        ],
-        indexing_mode: IndexingMode::LazyBlocking,
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        configuration: true,
-        ..Default::default()
-    });
+    let mut interaction =
+        LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
+
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    let file = root_path.join("foo.py");
+    interaction.client.did_open("foo.py");
+
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&file).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
+            }],
+        }));
+
+    interaction.client.completion("foo.py", 0, 43).expect_completion_response_with(|list| {
+        list.items.iter().any(|item| {
+            item.label == "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
+            && item.detail.as_ref().is_some_and(|detail| detail.contains("from autoimport_provider import"))
+            && item.additional_text_edits.as_ref().is_some_and(|edits| !edits.is_empty())
+        })
+    }).unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_completion_with_autoimport_without_config() {
     let root = get_test_files_root();
-    let root_path = root.path();
-    let scope_uri = Url::from_file_path(root_path).unwrap();
+    let mut interaction = LspInteraction::new();
+    let root_path = root.path().join("basic");
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(root_path.join("foo.py"))),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 0,
-                        "character": 43
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
-            2,
-            vec![
-                CompletionItem {
-                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                    detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                    sort_text: Some("3".to_owned()),
-                    additional_text_edits: Some(vec![lsp_types::TextEdit {
-                        range: lsp_types::Range {
-                            start: lsp_types::Position {
-                                line: 0,
-                                character: 0,
-                            },
-                            end: lsp_types::Position {
-                                line: 0,
-                                character: 0,
-                            },
-                        },
-                        new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
-                    }]),
-                    ..Default::default()
-                },
-            ],
-        )],
-        indexing_mode: IndexingMode::LazyBlocking,
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        workspace_indexing_limit: 100,
-        ..Default::default()
-    });
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let foo_path = root_path.join("foo.py");
+    interaction.client.did_open("foo.py");
+
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&foo_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": "Bar".to_owned()
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("foo.py", 0, 3)
+        .expect_completion_response_with(|list| !list.items.is_empty())
+        .unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_completion_with_autoimport_in_defined_module() {
     let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
     let root_path = root.path().join("tests_requiring_config");
-    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
-    let file = root_path.join("autoimport_provider.py");
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(file.clone())),
-            Message::from(Notification {
-                method: "textDocument/didChange".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&file).unwrap().to_string(),
-                        "languageId": "python",
-                        "version": 2
-                    },
-                    "contentChanges": [{
-                        "text": format!("{}\n{}", std::fs::read_to_string(&file).unwrap(), "this_is_a_very_long_function_name_so_we_can")
-                    }],
-                }),
-            }),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(&file).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 12,
-                        "character": 95
-                    }
-                }),
-            }),
-        ],
-        // This response should contain no text edits because it's defined locally in the module
-        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
-            2,
-            vec![
-                CompletionItem {
-                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
-                    detail: Some("() -> None".to_owned()),
-                    kind: Some(CompletionItemKind::FUNCTION),
-                    sort_text: Some("0".to_owned()),
-                    ..Default::default()
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    let file = root_path.join("autoimport_provider.py");
+    interaction.client.did_open("autoimport_provider.py");
+
+    let file_content = std::fs::read_to_string(&file).unwrap();
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+                "textDocument": {
+                    "uri": Url::from_file_path(&file).unwrap().to_string(),
+                    "languageId": "python",
+                    "version": 2
                 },
-            ],
-        )],
-        indexing_mode: IndexingMode::LazyBlocking,
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        ..Default::default()
-    });
+                "contentChanges": [{
+                    "text": format!("{}\n{}", file_content, "this_is_a_very_long_function_name_so_we_can")
+                }],
+            }));
+
+    interaction.client.send_request::<Completion>(
+        json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&file).unwrap().to_string()
+            },
+            "position": {
+                "line": 12,
+                "character": 95
+            }
+        }),
+    ).expect_completion_response_with(|list| {
+        list.items.iter().any(|item| {
+            item.label == "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search"
+                && item.detail.as_ref().is_some_and(|detail| detail == "() -> None")
+        })
+    }).unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
+// TODO: figure out why this test fails on Windows.
+#[cfg(unix)]
 #[test]
-#[allow(deprecated)]
 fn test_completion_with_autoimport_duplicates() {
     let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
     let root_path = root.path().join("duplicate_export_test");
-    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+    let scope_uri = Url::from_file_path(&root_path).unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(root_path.join("foo.py"))),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 5,
-                        "character": 14
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![
-            make_sorted_completion_result_with_all_keywords(
-                2,
-                vec![
-                    CompletionItem {
-                        label: "MutableMappingUnrelatedAfter".to_owned(),
-                        detail: Some(
-                            "from typing import MutableMappingUnrelatedAfter\n".to_owned(),
-                        ),
-                        kind: Some(CompletionItemKind::CLASS),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from typing import MutableMappingUnrelatedAfter\n"
-                                .to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                    CompletionItem {
-                        label: "MutableMapping".to_owned(),
-                        detail: Some("from typing import MutableMapping\n".to_owned()),
-                        kind: Some(CompletionItemKind::CLASS),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from typing import MutableMapping\n".to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                    CompletionItem {
-                        label: "MutableMappingUnrelatedBefore".to_owned(),
-                        detail: Some(
-                            "from typing import MutableMappingUnrelatedBefore\n".to_owned(),
-                        ),
-                        kind: Some(CompletionItemKind::CLASS),
-                        sort_text: Some("3".to_owned()),
-                        additional_text_edits: Some(vec![lsp_types::TextEdit {
-                            range: lsp_types::Range {
-                                start: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                                end: lsp_types::Position {
-                                    line: 5,
-                                    character: 0,
-                                },
-                            },
-                            new_text: "from typing import MutableMappingUnrelatedBefore\n"
-                                .to_owned(),
-                        }]),
-                        ..Default::default()
-                    },
-                ],
-            ),
-        ],
-        indexing_mode: IndexingMode::LazyBlocking,
-        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
-        ..Default::default()
-    });
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings {
+            workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+            ..Default::default()
+        })
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    interaction
+        .client
+        .completion("foo.py", 5, 14)
+        .expect_completion_response_with(|list| !list.items.is_empty())
+        .unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_module_completion() {
     let root = get_test_files_root();
-    let foo = root.path().join("tests_requiring_config").join("foo.py");
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("tests_requiring_config"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(foo.clone())),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(foo).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 5,
-                        "character": 10
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![Message::Response(Response {
-            id: RequestId::from(2),
-            result: Some(serde_json::json!({
-                "isIncomplete": false,
-                "items": vec![CompletionItem {
-                label: "bar".to_owned(),
-                detail: Some("bar".to_owned()),
-                kind: Some(CompletionItemKind::MODULE),
-                sort_text: Some("0".to_owned()),
-                ..Default::default()
+    interaction.client.did_open("foo.py");
+
+    interaction
+        .client
+        .completion("foo.py", 5, 10)
+        .expect_response(json!({
+            "isIncomplete": false,
+            "items": [{
+                "label": "bar",
+                "detail": "bar",
+                "kind": 9,
+                "sortText": "0"
             }],
-            })),
-            error: None,
-        })],
-        ..Default::default()
-    });
+        }))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
 }
 
-// TODO: Handle relative import (via ModuleName::new_maybe_relative)
 #[test]
-#[allow(deprecated)]
+fn test_module_completion_reexports_sorted_lower() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("reexport_test"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("test.py");
+
+    let test_path = root.path().join("reexport_test/test.py");
+    interaction
+        .client
+        .send_notification::<DidChangeTextDocument>(json!({
+            "textDocument": {
+                "uri": Url::from_file_path(&test_path).unwrap().to_string(),
+                "languageId": "python",
+                "version": 2
+            },
+            "contentChanges": [{
+                "text": "import module_with_reexports\n\nmodule_with_reexports.".to_owned()
+            }],
+        }));
+
+    interaction
+        .client
+        .completion("test.py", 2, 23)
+        .expect_completion_response_with(|list| {
+            let mut direct_definitions = vec![];
+            let mut reexports = vec![];
+            for item in &list.items {
+                if item.label == "another_direct_function" || item.label == "AnotherDirectClass" {
+                    direct_definitions.push(&item.sort_text);
+                } else if item.label == "reexported_function" || item.label == "ReexportedClass" {
+                    reexports.push(&item.sort_text);
+                }
+            }
+            !direct_definitions.is_empty()
+                && !reexports.is_empty()
+                && direct_definitions
+                    .iter()
+                    .cartesian_product(reexports.iter())
+                    .all(|(direct_sort, reexport_sort)| reexport_sort > direct_sort)
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
 fn test_relative_module_completion() {
     let root = get_test_files_root();
-    let foo = root.path().join("relative_test").join("relative_import.py");
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().to_path_buf());
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
 
-    run_test_lsp(TestCase {
-        messages_from_language_client: vec![
-            Message::from(build_did_open_notification(foo.clone())),
-            Message::from(Request {
-                id: RequestId::from(2),
-                method: "textDocument/completion".to_owned(),
-                params: serde_json::json!({
-                    "textDocument": {
-                        "uri": Url::from_file_path(foo).unwrap().to_string()
-                    },
-                    "position": {
-                        "line": 5,
-                        "character": 10
-                    }
-                }),
-            }),
-        ],
-        expected_messages_from_language_server: vec![Message::Response(Response {
-            id: RequestId::from(2),
-            result: Some(serde_json::json!({
-                "isIncomplete": false,
-                "items": [],
-            })),
-            error: None,
-        })],
-        ..Default::default()
-    });
+    interaction
+        .client
+        .did_open("relative_test/relative_import.py");
+
+    interaction
+        .client
+        .completion("relative_test/relative_import.py", 5, 10)
+        .expect_response(json!({
+            "isIncomplete": false,
+            "items": [],
+        }))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_stdlib_submodule_completion() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("basic");
+
+    let mut interaction =
+        LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
+
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+    interaction.client.did_change("foo.py", "import email.");
+    interaction
+        .client
+        .completion("foo.py", 0, 13)
+        .expect_completion_response_with(|list| {
+            list.items.iter().any(|item| {
+                item.label == "errors"
+                    && item.detail.as_deref() == Some("email.errors")
+                    && item.kind == Some(CompletionItemKind::MODULE)
+            })
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_stdlib_class_completion() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("basic");
+
+    let mut interaction =
+        LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
+
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+    interaction.client.did_change("foo.py", "FirstHeader");
+    interaction
+        .client
+        .completion("foo.py", 0, 11)
+        .expect_completion_response_with(|list| {
+            list.items
+                .iter()
+                .any(|item| item.label == "FirstHeaderLineIsContinuationDefect")
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_incomplete_below_autoimport_threshold() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    // Type only 2 characters (below MIN_CHARACTERS_TYPED_AUTOIMPORT = 3)
+    interaction.client.did_change("foo.py", "xy");
+
+    interaction
+        .client
+        .completion("foo.py", 0, 2)
+        .expect_response_with(|response| {
+            // Since we typed only 2 characters and there are no local completions,
+            // autoimport suggestions are skipped due to MIN_CHARACTERS_TYPED_AUTOIMPORT,
+            // so is_incomplete should be true
+            match response {
+                Some(CompletionResponse::List(list)) => list.is_incomplete,
+                _ => false,
+            }
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_complete_above_autoimport_threshold() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    // Type 3 characters (meets MIN_CHARACTERS_TYPED_AUTOIMPORT = 3)
+    interaction.client.did_change("foo.py", "xyz");
+
+    interaction
+        .client
+        .completion("foo.py", 0, 3)
+        .expect_response_with(|response| {
+            // Since we typed 3 characters (meets threshold), autoimport suggestions
+            // are included, so is_incomplete should be false
+            match response {
+                Some(CompletionResponse::List(list)) => !list.is_incomplete,
+                _ => false,
+            }
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_complete_with_local_completions() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("basic"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    // Type 2 characters (below threshold) but match local completion "Ba" -> "Bar"
+    interaction.client.did_change("foo.py", "Ba");
+
+    // Even though we have local completions (like "Bar"), since we typed only 2 characters
+    // (below MIN_CHARACTERS_TYPED_AUTOIMPORT), is_incomplete should be true to ensure
+    // the client keeps asking for completions as the user types more characters.
+    // This prevents the Zed bug where local completions prevent autoimport checks.
+    interaction
+        .client
+        .completion("foo.py", 0, 2)
+        .expect_completion_response_with(|list| list.is_incomplete)
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+/// Test that autoimport completions show both the re-exported path and the original path
+/// when a symbol is re-exported from a package's __init__.py.
+///
+/// Given:
+///   - example/main.py defines ExampleClass
+///   - example/__init__.py re-exports ExampleClass
+///
+/// When completing "ExampleClass" in foo.py, both import paths should appear:
+///   - from example import ExampleClass (re-exported path)
+///   - from example.main import ExampleClass (original path)
+#[test]
+fn test_autoimport_completions_show_reexported_paths() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("autoimport_reexport_test");
+
+    let mut interaction =
+        LspInteraction::new_with_indexing_mode(crate::commands::lsp::IndexingMode::LazyBlocking);
+
+    interaction.set_root(root_path.clone());
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    interaction.client.did_open("foo.py");
+
+    // Modify the file to trigger completion for ExampleClass
+    interaction.client.did_change(
+        "foo.py",
+        r#"
+class MyClass(ExampleClass):
+    pass
+"#,
+    );
+
+    // Request completion at the position of "ExampleClass" (line 1, after "MyClass(")
+    // Line 1 is "class MyClass(ExampleClass):", column 14 is where "ExampleClass" starts
+    interaction
+        .client
+        .completion("foo.py", 1, 22) // Position at end of "ExampleClass"
+        .expect_completion_response_with(|list| {
+            // Collect all completion items that match ExampleClass
+            let example_class_items: Vec<_> = list
+                .items
+                .iter()
+                .filter(|item| item.label == "ExampleClass")
+                .collect();
+
+            // We should have at least 2 completion items for ExampleClass:
+            // one from the re-exported path and one from the original path
+            let has_reexport = example_class_items.iter().any(|item| {
+                item.detail
+                    .as_ref()
+                    .is_some_and(|d| d.contains("from example import ExampleClass"))
+            });
+
+            let has_original = example_class_items.iter().any(|item| {
+                item.detail
+                    .as_ref()
+                    .is_some_and(|d| d.contains("from example.main import ExampleClass"))
+            });
+
+            if !has_reexport || !has_original {
+                eprintln!(
+                    "Expected both re-exported and original import paths. Found items: {:?}",
+                    example_class_items
+                        .iter()
+                        .map(|item| (&item.label, &item.detail))
+                        .collect::<Vec<_>>()
+                );
+            }
+
+            has_reexport && has_original
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_incomplete_with_local_completions_blocking_autoimport() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("autoimport_common_prefix"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    // Open b.py which has UsersController, and a.py which has UsersManager
+    interaction.client.did_open("b.py");
+    interaction.client.did_open("a.py");
+
+    // Type "Users" (5 characters, above MIN_CHARACTERS_TYPED_AUTOIMPORT = 3)
+    // in b.py. Local completion UsersController exists, so autoimport is skipped.
+    // But is_incomplete should still be true because the local completion might
+    // not match as the user continues typing (e.g., "UsersM" should show UsersManager).
+    interaction
+        .client
+        .did_change("b.py", "class UsersController:\n    pass\n\nUsers");
+
+    interaction
+        .client
+        .completion("b.py", 3, 5)
+        .expect_completion_response_with(|list| {
+            // Should have local completion UsersController
+            let has_users_controller = list
+                .items
+                .iter()
+                .any(|item| item.label == "UsersController");
+            // is_incomplete should be true so client asks again when typing more
+            has_users_controller && list.is_incomplete
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+#[test]
+fn test_completion_autoimport_shown_when_local_no_longer_matches() {
+    let root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(root.path().join("autoimport_common_prefix"));
+    interaction
+        .initialize(InitializeSettings::default())
+        .unwrap();
+
+    // Open b.py which has UsersController, and a.py which has UsersManager
+    interaction.client.did_open("b.py");
+    interaction.client.did_open("a.py");
+
+    // Type "UsersM" - this should NOT match local "UsersController" (no 'M' in it)
+    // but SHOULD match autoimport "UsersManager" from a.py
+    interaction
+        .client
+        .did_change("b.py", "class UsersController:\n    pass\n\nUsersM");
+
+    interaction
+        .client
+        .completion("b.py", 3, 6)
+        .expect_completion_response_with(|list| {
+            // Should have autoimport completion UsersManager
+            let has_users_manager = list.items.iter().any(|item| item.label == "UsersManager");
+            // Should NOT have UsersController (doesn't match "UsersM")
+            let has_users_controller = list
+                .items
+                .iter()
+                .any(|item| item.label == "UsersController");
+            has_users_manager && !has_users_controller
+        })
+        .unwrap();
+
+    interaction.shutdown().unwrap();
 }

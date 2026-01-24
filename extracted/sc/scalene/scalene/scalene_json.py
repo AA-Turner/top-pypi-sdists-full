@@ -1,4 +1,5 @@
 import copy
+import linecache
 import math
 import random
 import re
@@ -87,6 +88,8 @@ class LineDetail(FunctionDetail):
     end_outermost_loop: PositiveInt
     start_region_line: PositiveInt
     end_region_line: PositiveInt
+    start_function_line: NonNegativeInt = 0
+    end_function_line: NonNegativeInt = 0
 
 
 class LeakInfo(BaseModel):
@@ -199,7 +202,16 @@ class ScaleneJSON:
     ) -> Dict[str, Any]:
         """Print at most one line of the profile (true == printed one)."""
 
-        if not force_print and not profile_this_code(fname, line_no):
+        # Check if this line has PyTorch profiler timing (for JIT-compiled code)
+        torch_cpu_time_sec = stats.cpu_stats.torch_cpu_time[fname][line_no]
+        torch_gpu_time_sec = stats.cpu_stats.torch_gpu_time[fname][line_no]
+        has_torch_timing = torch_cpu_time_sec > 0 or torch_gpu_time_sec > 0
+
+        if (
+            not force_print
+            and not profile_this_code(fname, line_no)
+            and not has_torch_timing
+        ):
             return {
                 "lineno": line_no,
                 "line": line,
@@ -232,7 +244,9 @@ class ScaleneJSON:
         n_gpu_samples = stats.gpu_stats.gpu_samples[fname][line_no]
         n_gpu_mem_samples = stats.gpu_stats.gpu_mem_samples[fname][line_no]
 
-        # Compute percentages of CPU time.
+        # torch_time_sec was already fetched above for the early return check
+
+        # Compute percentages of CPU time (from signal-based sampling).
         if stats.cpu_stats.total_cpu_samples:
             n_cpu_percent_c = n_cpu_samples_c * 100 / stats.cpu_stats.total_cpu_samples
             n_cpu_percent_python = (
@@ -284,13 +298,34 @@ class ScaleneJSON:
 
         n_cpu_percent = n_cpu_percent_c + n_cpu_percent_python
 
-        # Adjust CPU time by utilization.
+        # Adjust CPU time by utilization (for signal-based sampling).
         mean_cpu_util = stats.cpu_stats.cpu_utilization[fname][line_no].mean()
         mean_core_util = stats.cpu_stats.core_utilization[fname][line_no].mean()
         n_sys_percent = n_cpu_percent * (1.0 - mean_cpu_util)
         n_cpu_percent_python *= mean_cpu_util
         n_cpu_percent_c *= mean_cpu_util
         del mean_cpu_util
+
+        # Add PyTorch profiler timing for lines that have NO signal-based samples.
+        # This provides attribution for lines inside JIT-compiled functions that
+        # the signal sampler never sees. We only add torch timing when there are
+        # no signal samples to avoid double-counting (the call site already
+        # accounts for the time spent in the JIT function via signal sampling).
+        has_signal_samples = n_cpu_samples_c > 0 or n_cpu_samples_python > 0
+        if stats.elapsed_time > 0 and torch_cpu_time_sec > 0 and not has_signal_samples:
+            torch_cpu_percent = (torch_cpu_time_sec / stats.elapsed_time) * 100
+            n_cpu_percent_c = min(torch_cpu_percent, 100.0)
+
+        # Add PyTorch GPU timing for lines that have NO signal-based GPU samples.
+        # Similar to CPU timing, this attributes GPU time to JIT-compiled code.
+        has_gpu_signal_samples = n_gpu_samples > 0
+        if (
+            stats.elapsed_time > 0
+            and torch_gpu_time_sec > 0
+            and not has_gpu_signal_samples
+        ):
+            torch_gpu_percent = (torch_gpu_time_sec / stats.elapsed_time) * 100
+            n_gpu_percent = min(torch_gpu_percent, 100.0)
 
         n_copy_b = stats.memory_stats.memcpy_samples[fname][line_no]
         if stats.elapsed_time:
@@ -366,6 +401,8 @@ class ScaleneJSON:
             set(
                 list(stats.cpu_stats.cpu_samples_python.keys())
                 + list(stats.cpu_stats.cpu_samples_c.keys())
+                + list(stats.cpu_stats.torch_cpu_time.keys())
+                + list(stats.cpu_stats.torch_gpu_time.keys())
                 + list(stats.memory_stats.memory_free_samples.keys())
                 + list(stats.memory_stats.memory_malloc_samples.keys())
                 + list(stats.gpu_stats.gpu_samples.keys())
@@ -546,12 +583,19 @@ class ScaleneJSON:
                 )
 
             # Print out the the profile for the source, line by line.
+            # First try to read from the filesystem
             full_fname = fname
+            code_lines = None
             try:
                 with open(full_fname, encoding="utf-8") as source_file:
                     code_lines = source_file.readlines()
-
             except (FileNotFoundError, OSError):
+                # For exec'd code, the source may be in linecache
+                # (e.g., files named <exec_N> or <eval_N>)
+                cached_lines = linecache.getlines(fname)
+                if cached_lines:
+                    code_lines = cached_lines
+            if code_lines is None:
                 continue
             # Find all enclosing regions (loops or function defs) for each line of code.
 
@@ -559,6 +603,7 @@ class ScaleneJSON:
 
             enclosing_regions = ScaleneAnalysis.find_regions(code_str)
             outer_loop = ScaleneAnalysis.find_outermost_loop(code_str)
+            function_boundaries = ScaleneAnalysis.find_functions(code_str)
             imports = ScaleneAnalysis.get_native_imported_modules(code_str)
 
             output["files"][fname_print] = {
@@ -567,6 +612,9 @@ class ScaleneJSON:
                 "leaks": reported_leaks,
                 "imports": imports,
             }
+
+            # First pass: collect all line profile data
+            line_profiles = []
             for lineno, line in enumerate(code_lines, start=1):
                 # Protect against JS 'injection' in Python comments by replacing some characters with Unicode.
                 # This gets unescaped in scalene-gui.js.
@@ -588,21 +636,42 @@ class ScaleneJSON:
                     profile_line["end_region_line"] = enclosing_regions[lineno][1]
                     profile_line["start_outermost_loop"] = outer_loop[lineno][0]
                     profile_line["end_outermost_loop"] = outer_loop[lineno][1]
+                    profile_line["start_function_line"] = function_boundaries[lineno][0]
+                    profile_line["end_function_line"] = function_boundaries[lineno][1]
+                    line_profiles.append(profile_line)
 
-                    try:
-                        LineDetail(**profile_line)
-                    except ValidationError as e:
-                        print("Warning: JSON failed validation:")
-                        print(e)
+            # Second pass: normalize CPU percentages to sum to <= 100%
+            # This handles cases where torch profiler timing overlaps with
+            # signal-sampled timing (e.g., JIT function internals + call site)
+            total_cpu = sum(
+                p.get("n_cpu_percent_c", 0)
+                + p.get("n_cpu_percent_python", 0)
+                + p.get("n_sys_percent", 0)
+                for p in line_profiles
+            )
+            if total_cpu > 100.0:
+                scale_factor = 100.0 / total_cpu
+                for profile_line in line_profiles:
+                    profile_line["n_cpu_percent_c"] *= scale_factor
+                    profile_line["n_cpu_percent_python"] *= scale_factor
+                    profile_line["n_sys_percent"] *= scale_factor
 
-                    # When reduced-profile set, only output if the payload for the line is non-zero.
-                    if reduced_profile:
-                        profile_line_copy = copy.copy(profile_line)
-                        del profile_line_copy["line"]
-                        del profile_line_copy["lineno"]
-                        if not any(profile_line_copy.values()):
-                            continue
-                    output["files"][fname_print]["lines"].append(profile_line)
+            # Third pass: validate and add to output
+            for profile_line in line_profiles:
+                try:
+                    LineDetail(**profile_line)
+                except ValidationError as e:
+                    print("Warning: JSON failed validation:")
+                    print(e)
+
+                # When reduced-profile set, only output if the payload for the line is non-zero.
+                if reduced_profile:
+                    profile_line_copy = copy.copy(profile_line)
+                    del profile_line_copy["line"]
+                    del profile_line_copy["lineno"]
+                    if not any(profile_line_copy.values()):
+                        continue
+                output["files"][fname_print]["lines"].append(profile_line)
 
             fn_stats = stats.build_function_stats(fname)
             # Check CPU samples and memory samples.
@@ -610,6 +679,8 @@ class ScaleneJSON:
             all_samples = set()
             all_samples |= set(fn_stats.cpu_stats.cpu_samples_python.keys())
             all_samples |= set(fn_stats.cpu_stats.cpu_samples_c.keys())
+            all_samples |= set(fn_stats.cpu_stats.torch_cpu_time.keys())
+            all_samples |= set(fn_stats.cpu_stats.torch_gpu_time.keys())
             all_samples |= set(fn_stats.memory_stats.memory_malloc_samples.keys())
             all_samples |= set(fn_stats.memory_stats.memory_free_samples.keys())
             all_samples |= set(fn_stats.gpu_stats.gpu_samples.keys())

@@ -17,8 +17,10 @@ import pprint
 import re  # noqa: F401
 from aenum import Enum, no_arg
 
-
-
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 
 class PricingModel(str, Enum):
@@ -51,6 +53,7 @@ class PricingModel(str, Enum):
     CDSLOOKUPPRICER = 'CdsLookupPricer'
     LOANFACILITYPRICER = 'LoanFacilityPricer'
     OVERRIDEONLYPRICER = 'OverrideOnlyPricer'
+    FLEXIBLEREPOSIMPLEPRICER = 'FlexibleRepoSimplePricer'
 
     @classmethod
     def from_json(cls, json_str: str) -> PricingModel:

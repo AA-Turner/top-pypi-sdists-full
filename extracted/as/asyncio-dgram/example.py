@@ -1,0 +1,34 @@
+import asyncio
+
+import asyncio_dgram
+
+
+async def udp_echo_client() -> None:
+    stream = await asyncio_dgram.connect(("127.0.0.1", 8888))
+
+    await stream.send(b"Hello World!")
+    data, remote_addr = await stream.recv()
+    print(f"Client received: {data.decode()!r}")
+
+    stream.close()
+
+
+async def udp_echo_server() -> None:
+    stream = await asyncio_dgram.bind(("127.0.0.1", 8888))
+
+    print(f"Serving on {stream.sockname}")
+
+    data, remote_addr = await stream.recv()
+    print(f"Echoing {data.decode()!r}")
+    await stream.send(data, remote_addr)
+
+    await asyncio.sleep(0.5)
+    print("Shutting down server")
+
+
+async def main() -> None:
+    await asyncio.gather(udp_echo_server(), udp_echo_client())
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

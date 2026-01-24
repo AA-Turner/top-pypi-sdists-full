@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pydeps
-Version: 3.0.1
+Version: 3.0.2
 Summary: Display module dependencies
 Home-page: https://github.com/thebjorn/pydeps
 Author: bjorn
@@ -25,6 +25,7 @@ Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

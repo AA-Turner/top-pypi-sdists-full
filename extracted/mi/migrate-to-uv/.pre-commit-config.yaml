@@ -1,0 +1,53 @@
+repos:
+  # Switch to symlink once https://github.com/zensical/backlog/issues/55 is implemented.
+  - repo: local
+    hooks:
+      - id: copy-changelog-docs
+        name: copy changelog to docs
+        entry: ./scripts/copy-changelog.sh
+        language: system
+        pass_filenames: false
+        files: CHANGELOG\.md$
+      - id: copy-contributing-docs
+        name: copy contributing to docs
+        entry: ./scripts/copy-contributing.sh
+        language: system
+        pass_filenames: false
+        files: CONTRIBUTING\.md$
+
+  - repo: local
+    hooks:
+      - id: cargo-check-lock
+        name: check cargo lock file consistency
+        entry: cargo check
+        args: ["--locked", "--all-targets", "--all-features"]
+        language: system
+        pass_filenames: false
+        files: Cargo\.toml$
+
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt
+        args: ["--all", "--"]
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy
+        args: ["--all-targets", "--all-features", "--", "-D", "warnings"]
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: "0.9.22"
+    hooks:
+      - id: uv-lock
+        name: check uv lock file consistency
+        args: ["--locked"]

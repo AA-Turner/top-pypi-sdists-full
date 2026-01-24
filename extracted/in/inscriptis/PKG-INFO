@@ -1,32 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: inscriptis
-Version: 2.6.0
+Version: 2.7.0
 Summary: inscriptis - HTML to text converter.
-Home-page: https://github.com/weblyzard/inscriptis
-License: Apache-2.0
+Project-URL: Homepage, https://github.com/weblyzard/inscriptis
+Project-URL: Repository, https://github.com/weblyzard/inscriptis
+Project-URL: Documentation, https://inscriptis.readthedocs.io/en/latest/
+Author-email: Albert Weichselbraun <albert.weichselbraun@fhgr.ch>, Fabian Odoni <fabian.odoni@fhgr.ch>
+License-Expression: Apache-2.0
+License-File: AUTHORS
+License-File: LICENSE
 Keywords: HTML,converter,text
-Author: Albert Weichselbraun
-Author-email: albert.weichselbraun@fhgr.ch
-Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Utilities
+Requires-Python: <3.15,>=3.10
+Requires-Dist: lxml<6.0.0,>=5.4.0
+Requires-Dist: requests<3.0.0,>=2.32.3
 Provides-Extra: web-service
-Requires-Dist: fastapi (>=0.115.11,<0.116.0) ; extra == "web-service"
-Requires-Dist: lxml (>=4.9.3)
-Requires-Dist: requests (>=2.32.2)
-Requires-Dist: uvicorn (>=0.34.0,<0.35.0) ; extra == "web-service"
-Project-URL: Documentation, https://inscriptis.readthedocs.io/en
-Project-URL: Repository, https://github.com/weblyzard/inscriptis
+Requires-Dist: fastapi<1.0.0,>=0.115.11; extra == 'web-service'
+Requires-Dist: uvicorn<1.0.0,>=0.34.0; extra == 'web-service'
 Description-Content-Type: text/x-rst
 
 ==================================================================================
@@ -36,10 +36,6 @@ inscriptis -- HTML to text conversion library, command line client and Web servi
 .. image:: https://img.shields.io/pypi/pyversions/inscriptis   
    :target: https://badge.fury.io/py/inscriptis
    :alt: Supported python versions
-
-.. image:: https://api.codeclimate.com/v1/badges/f8ed73f8a764f2bc4eba/maintainability
-   :target: https://codeclimate.com/github/weblyzard/inscriptis/maintainability
-   :alt: Maintainability
 
 .. image:: https://codecov.io/gh/weblyzard/inscriptis/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/weblyzard/inscriptis/
@@ -523,41 +519,112 @@ be used within a program:
   print("Text:", output['text'])
   print("Annotations:", output['label'])
 
-Fine tuning
------------
+Fine-tuning the HTML rendering
+------------------------------
 
-The following options are available for fine tuning inscriptis' HTML rendering:
+Inscriptis provides the ``ParserConfig`` class to fine-tune the HTML rendering 
+(`see documentation <https://inscriptis.readthedocs.io/en/latest/api.html#inscriptis.model.config.ParserConfig>`_).
 
-1. **More rigorous indentation:** call ``inscriptis.get_text()`` with the
-   parameter ``indentation='extended'`` to also use indentation for tags such as
-   ``<div>`` and ``<span>`` that do not provide indentation in their standard
-   definition. This strategy is the default in ``inscript`` and many other
-   tools such as Lynx. If you do not want extended indentation you can use the
-   parameter ``indentation='standard'`` instead.
+It allows modifying the interpretation of HTML-tags and setting parameters that control the rendering of anchors,
+captions, images and links.
 
-2. **Overwriting the default CSS definition:** inscriptis uses CSS definitions
-   that are maintained in ``inscriptis.css.CSS`` for rendering HTML tags. You can
-   override these definitions (and therefore change the rendering) as outlined
-   below:
+1. **Firefox-like whitespace handling:** Use the more standard-conform `strict` CSS_PROFILE to render the page. 
+   (``<div>`` and ``<span>`` do not add whitespaces in the `strict` profile. Many text-based browsers such 
+   as Lynx and ``inscript``, add whitespaces per default to reduce the likelihood of words getting glued together).
 
-.. code-block:: python
+   .. code-block:: python
+   
+           from lxml.html import fromstring
+           
+           from inscriptis import Inscriptis
+           from inscriptis.css_profiles import CSS_PROFILES
+           from inscriptis.model.config import ParserConfig
+           
+           # create a ParserConfig that uses the strict CSS rendering profile
+           css = CSS_PROFILES['strict']
+           config = ParserConfig(css=css)
+           
+           html_tree = fromstring(html)
+           parser = Inscriptis(html_tree, config)
+           text = parser.get_text()
 
-      from lxml.html import fromstring
-      from inscriptis.css_profiles import CSS_PROFILES, HtmlElement
-      from inscriptis.html_properties import Display
-      from inscriptis.model.config import ParserConfig
-      
-      # create a custom CSS based on the default style sheet and change the
-      # rendering of `div` and `span` elements
-      css = CSS_PROFILES['strict'].copy()
-      css['div'] = HtmlElement(display=Display.block, padding=2)
-      css['span'] = HtmlElement(prefix=' ', suffix=' ')
-      
-      html_tree = fromstring(html)
-      # create a parser using a custom css
-      config = ParserConfig(css=css)
-      parser = Inscriptis(html_tree, config)
-      text = parser.get_text()
+2. **Firefox-like whitespace handling and fine-tuning of link handling:** Use the strict profile 
+   together with inline links and anchor URLs.
+
+   .. code-block:: python
+   
+           from lxml.html import fromstring
+           
+           from inscriptis import Inscriptis
+           from inscriptis.css_profiles import CSS_PROFILES
+           from inscriptis.model.config import ParserConfig
+           
+           # uses the strict CSS rendering profile and fine-tune link handling.
+           css = CSS_PROFILES['strict']
+           config = ParserConfig(css=css, display_links=True, 
+                                 display_anchors=True)
+           
+           html_tree = fromstring(html)
+           parser = Inscriptis(html_tree, config)
+           text = parser.get_text()
+
+
+3. **Overwriting the default CSS definition:** inscriptis uses CSS definitions
+   that are maintained in ``inscriptis.css_profiles_CSS_PROFILES`` for 
+   rendering HTML tags. You can override these definitions (and therefore 
+   change the rendering) as outlined below:
+
+   .. code-block:: python
+   
+           from lxml.html import fromstring
+           
+           from inscriptis import Inscriptis
+           from inscriptis.css_profiles import CSS_PROFILES
+           from inscriptis.html_properties import Display
+           from inscriptis.model.config import ParserConfig
+           from inscriptis.model.html_element import HtmlElement
+           
+           # Create a custom CSS based on the default style sheet and change the
+           # rendering of `div` and `span` elements.
+           css = CSS_PROFILES['strict'].copy()
+           css['div'] = HtmlElement(display=Display.block, padding=2)
+           css['span'] = HtmlElement(prefix=' ', suffix=' ')
+           
+           html_tree = fromstring(html)
+           # create a parser using a custom css
+           config = ParserConfig(css=css)
+           parser = Inscriptis(html_tree, config)
+           text = parser.get_text()
+
+4. **Ignore elements during parsing:**
+   Overwriting the default CSS profile also allows changing the rendering of selected elements. 
+   The snippet below, for example, removes forms from the parsed text by setting the definition of the ``form`` tag to ``Display.none``.
+   
+   .. code-block:: python
+   
+         from inscriptis import get_text
+         from inscriptis.css_profiles import CSS_PROFILES, HtmlElement
+         from inscriptis.html_properties import Display
+         from inscriptis.model.config import ParserConfig
+   
+         # create a custom CSS based on the default style sheet and change the
+         # rendering of `div` and `span` elements
+         css = CSS_PROFILES['strict'].copy()
+         css['form'] = HtmlElement(display=Display.none)
+   
+         # create a parser configuration using a custom css
+         html = """First line. 
+                   <form>
+                     User data
+                     <label for="name">Name:</label><br>
+                     <input type="text" id="name" name="name"><br>
+                     <label for="pass">Password:</label><br>
+                     <input type="hidden" id="pass" name="pass">
+                   </form>"""
+         config = ParserConfig(css=css)
+         text = get_text(html, config)
+         print(text)
+
 
 
 Custom HTML tag handling
@@ -601,55 +668,6 @@ The following code mitigates this problem on Unix systems by manually forcing lx
       return libc.malloc_trim(0)
 
 
-Examples
-========
-
-Strict indentation handling
----------------------------
-
-The following example demonstrates modifying ``ParserConfig`` for strict indentation handling.
-
-.. code-block:: python
-
-   from inscriptis import get_text
-   from inscriptis.css_profiles import CSS_PROFILES
-   from inscriptis.model.config import ParserConfig
-
-   config = ParserConfig(css=CSS_PROFILES['strict'].copy())
-   text = get_text('fi<span>r</span>st', config)
-   print(text)
-
-Ignore elements during parsing 
-------------------------------
-
-Overwriting the default CSS profile also allows changing the rendering of selected elements. 
-The snippet below, for example, removes forms from the parsed text by setting the definition of the ``form`` tag to ``Display.none``.
-
-.. code-block:: python
-
-      from inscriptis import get_text
-      from inscriptis.css_profiles import CSS_PROFILES, HtmlElement
-      from inscriptis.html_properties import Display
-      from inscriptis.model.config import ParserConfig
-
-      # create a custom CSS based on the default style sheet and change the
-      # rendering of `div` and `span` elements
-      css = CSS_PROFILES['strict'].copy()
-      css['form'] = HtmlElement(display=Display.none)
-
-      # create a parser configuration using a custom css
-      html = """First line. 
-                <form>
-                  User data
-                  <label for="name">Name:</label><br>
-                  <input type="text" id="name" name="name"><br>
-                  <label for="pass">Password:</label><br>
-                  <input type="hidden" id="pass" name="pass">
-                </form>"""
-      config = ParserConfig(css=css)
-      text = get_text(html, config)
-      print(text)
-
 
 Citation
 ========
@@ -677,5 +695,4 @@ Changelog
 
 A full list of changes can be found in the
 `release notes <https://github.com/weblyzard/inscriptis/releases>`_.
-
 

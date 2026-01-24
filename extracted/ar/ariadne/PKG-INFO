@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: ariadne
-Version: 0.26.2
+Version: 0.27.0
 Summary: Ariadne is a Python library for implementing GraphQL servers.
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne
 Project-URL: Bug Tracker, https://github.com/mirumee/ariadne/issues
 Project-URL: Community, https://github.com/mirumee/ariadne/discussions
 Project-URL: Twitter, https://twitter.com/AriadneGraphQL
-Author-email: Mirumee Software <hello@mirumee.com>
+Author-email: Mirumee Software <ariadne@mirumee.com>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -15,14 +15,14 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
-Requires-Dist: graphql-core<3.2.6,>=3.2.0
+Requires-Python: >=3.10
+Requires-Dist: graphql-core>=3.2.0
 Requires-Dist: starlette<1.0,>0.17
 Requires-Dist: typing-extensions>=3.6.0
 Provides-Extra: asgi-file-uploads
@@ -55,7 +55,10 @@ Description-Content-Type: text/markdown
 [![Ariadne](https://ariadnegraphql.org/img/logo-horizontal-sm.png)](https://ariadnegraphql.org)
 
 [![Documentation](https://img.shields.io/badge/docs-ariadnegraphql.org-brightgreen.svg)](https://ariadnegraphql.org)
-[![Codecov](https://codecov.io/gh/mirumee/ariadne/branch/master/graph/badge.svg)](https://codecov.io/gh/mirumee/ariadne)
+[![codecov](https://codecov.io/github/mirumee/ariadne/graph/badge.svg?token=8GSRgVxHd7)](https://codecov.io/github/mirumee/ariadne)
+![PyPI - Version](https://img.shields.io/pypi/v/ariadne)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/ariadne)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ariadne)
 
 - - - - -
 
@@ -68,6 +71,17 @@ Ariadne is a Python library for implementing [GraphQL](http://graphql.github.io/
 - **Open:** Ariadne was designed to be modular and open for customization. If you are missing or unhappy with something, extend or easily swap with your own.
 
 Documentation is available [here](https://ariadnegraphql.org).
+
+## Ariadne ecosystem
+
+| Repository | Description |
+| ---------- | ----------- |
+| [Ariadne](https://github.com/mirumee/ariadne) | Python library for implementing GraphQL servers using a schema-first approach. |
+| [Ariadne codegen](https://github.com/mirumee/ariadne-codegen) | GraphQL client code generator for Python. |
+| [Ariadne GraphQL modules](https://github.com/mirumee/ariadne-graphql-modules) | Ariadne package for implementing Ariadne GraphQL schemas using a modular approach. |
+| [Ariadne auth](https://github.com/mirumee/ariadne-auth) | A collection of authentication and authorization utilities for Ariadne. |
+| [Ariadne lambda](https://github.com/mirumee/ariadne-lambda) | Deploy Ariadne GraphQL applications as AWS Lambda functions. |
+| [Ariadne GraphQL proxy](https://github.com/mirumee/ariadne-graphql-proxy) | A GraphQL proxy for Ariadne that allows you to combine multiple GraphQL APIs into a single API. |
 
 
 ## Features
@@ -100,7 +114,7 @@ Ariadne can be installed with pip:
 pip install ariadne
 ```
 
-Ariadne requires Python 3.9 or higher.
+Ariadne requires Python 3.10 or higher.
 
 
 ## Quickstart
@@ -185,4 +199,4 @@ Website and the docs have their own GitHub repository: [mirumee/ariadne-website]
 Also make sure you follow [@AriadneGraphQL](https://twitter.com/AriadneGraphQL) on Twitter for latest updates, news and random musings!
 
 **Crafted with ❤️ by [Mirumee Software](http://mirumee.com)**
-hello@mirumee.com
+ariadne@mirumee.com

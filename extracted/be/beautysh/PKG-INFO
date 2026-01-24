@@ -1,34 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: beautysh
-Version: 6.2.1
+Version: 6.4.2
 Summary: A Bash beautifier for the masses.
-Home-page: https://github.com/lovesegfault/beautysh
+Project-URL: Homepage, https://github.com/lovesegfault/beautysh
+Project-URL: Repository, https://github.com/lovesegfault/beautysh
+Author-email: Bernardo Meurer <bernardo@meurer.org>
 License: MIT
-Keywords: beautify,bash,shell,beautifier,script,auto
-Author: Bernardo Meurer
-Author-email: bernardo@meurer.org
-Requires-Python: >=3.6.2,<4.0.0
+License-File: LICENSE
+Keywords: auto,bash,beautifier,beautify,script,shell
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Utilities
-Requires-Dist: colorama (>=0.4.4,<0.5.0)
-Requires-Dist: types-colorama (>=0.4.3,<0.5.0)
-Requires-Dist: types-setuptools (>=57.4.0,<58.0.0)
-Project-URL: Repository, https://github.com/lovesegfault/beautysh
+Requires-Python: >=3.9
+Requires-Dist: colorama>=0.4.4
+Requires-Dist: editorconfig>=0.12.0
+Requires-Dist: tomli>=1.0.0; python_version < '3.11'
 Description-Content-Type: text/markdown
 
-# Beautysh [![CI](https://github.com/lovesegfault/beautysh/actions/workflows/ci.yaml/badge.svg)](https://github.com/lovesegfault/beautysh/actions/workflows/ci.yaml)
+# beautysh [![CI](https://github.com/lovesegfault/beautysh/actions/workflows/ci.yaml/badge.svg)](https://github.com/lovesegfault/beautysh/actions/workflows/ci.yaml)
 
 This program takes upon itself the hard task of beautifying Bash scripts
 (yeesh). Processing Bash scripts is not trivial, they aren't like C or Java
@@ -39,6 +35,7 @@ program, I encountered this example:
 ```shell
 done=0;while (( $done <= 10 ));do echo done=$done;done=$((done+1));done
 ```
+
 Same name, but three distinct meanings (sigh). The Bash interpreter can sort out
 this perversity, but I decided not to try to recreate the Bash interpreter to
 beautify a script. This means there will be some border cases this Python
@@ -47,18 +44,33 @@ Bash scripts, its error-free score was ~99%.
 
 ## Installation
 
-If you have `pip` set up you can do
+### Using pip
 
 ```shell
 pip install beautysh
 ```
 
-or clone the repo and install:
+### Using Nix (recommended for development)
+
+```shell
+nix run github:lovesegfault/beautysh -- --help
+```
+
+Or add to your `flake.nix`:
+
+```nix
+{
+  inputs.beautysh.url = "github:lovesegfault/beautysh";
+  # ...
+}
+```
+
+### From source with uv
 
 ```shell
 git clone https://github.com/lovesegfault/beautysh
 cd beautysh
-poetry install
+uv sync
 ```
 
 ## Usage
@@ -70,6 +82,43 @@ beautysh file1.sh file2.sh file3.sh
 ```
 
 in which case it will beautify each one of the files.
+
+### Configuration
+
+Beautysh supports multiple configuration sources with the following priority (highest to lowest):
+
+1. **Command-line arguments** (highest priority)
+1. **pyproject.toml** - `[tool.beautysh]` section
+1. **EditorConfig** - `.editorconfig` files (lowest priority)
+
+#### pyproject.toml
+
+```toml
+[tool.beautysh]
+indent_size = 4
+tab = false
+backup = false
+check = false
+force_function_style = "fnpar"  # Options: fnpar, fnonly, paronly
+variable_style = "braces"  # Options: braces
+```
+
+#### EditorConfig
+
+Beautysh respects [EditorConfig](https://editorconfig.org/) settings:
+
+```ini
+[*.sh]
+indent_style = space  # or "tab"
+indent_size = 4
+```
+
+Supported EditorConfig properties:
+
+- `indent_style`: Maps to `--tab` flag (space/tab)
+- `indent_size`: Maps to `--indent-size` option
+
+### Command-Line Options
 
 Available flags are:
 
@@ -84,6 +133,8 @@ Available flags are:
   --force-function-style FORCE_FUNCTION_STYLE, -s FORCE_FUNCTION_STYLE
                         Force a specific Bash function formatting. See below
                         for more info.
+  --variable-style VARIABLE_STYLE
+                        Force a specific variable style. See below for options.
   --version, -v         Prints the version and exits.
   --help, -h            Print this help message.
 
@@ -91,16 +142,40 @@ Bash function styles that can be specified via --force-function-style are:
   fnpar: function keyword, open/closed parentheses, e.g.      function foo()
   fnonly: function keyword, no open/closed parentheses, e.g.  function foo
   paronly: no function keyword, open/closed parentheses, e.g. foo()
+
+Variable styles that can be specified via --variable-style are:
+  braces: transform $VAR to ${VAR} for consistency (e.g., $HOME becomes ${HOME})
+          Note: Special variables ($?, $1, etc.) and parameter expansions
+          (${VAR:-default}) are left unchanged.
 ```
 
 You can also call beautysh as a module:
 
 ```python3
-from beautysh import Beautify
+from beautysh import BashFormatter
 
 source = "my_string"
 
-result, error = Beautify().beautify_string(source)
+formatter = BashFormatter(indent_size=4)
+result, error = formatter.beautify_string(source)
+```
+
+For more control, you can use individual components:
+
+```python3
+from beautysh import BashParser, StyleTransformer, BashFormatter
+
+# Parse and analyze Bash syntax
+parser = BashParser()
+test_record = parser.get_test_record('if [ "$x" = "y" ]; then')
+
+# Transform styles
+transformer = StyleTransformer()
+transformed = transformer.apply_variable_style('echo $HOME', 'braces')  # -> 'echo ${HOME}'
+
+# Format complete scripts
+formatter = BashFormatter(indent_size=2, variable_style='braces')
+formatted, error = formatter.beautify_string(script)
 ```
 
 As written, beautysh can beautify large numbers of Bash scripts when called
@@ -130,7 +205,7 @@ $ beautysh *.sh
 
 Beautysh handles Bash here-docs with care(and there are probably some
 border cases it doesn't handle). The basic idea is that the originator knew what
- format he wanted in the here-doc, and a beautifier shouldn't try to outguess
+format he wanted in the here-doc, and a beautifier shouldn't try to outguess
 him. So Beautysh does all it can to pass along the here-doc content
 unchanged:
 
@@ -167,7 +242,79 @@ command \
 # @formatter:on
 
 ```
+
 This takes inspiration from the Eclipse feature.
+
+## Development
+
+### Using Nix (recommended)
+
+The easiest way to start developing is with Nix:
+
+```shell
+# Enter development shell with all dependencies
+nix develop
+
+# Run tests
+pytest tests/
+
+# Run type checker
+mypy beautysh/
+
+# Run linter and formatter
+ruff check beautysh/ tests/
+ruff format beautysh/ tests/
+
+# Format all code (Nix, YAML, Markdown, Python)
+nix fmt
+
+# Run all pre-commit checks
+pre-commit run --all-files
+```
+
+The development shell provides:
+
+- Python 3.12 with all dependencies
+- Editable install (changes to code are immediately reflected)
+- All development tools (pytest, mypy, ruff, hypothesis)
+- Pre-commit hooks automatically installed
+
+### Architecture
+
+Beautysh has a modular architecture for maintainability:
+
+- **`beautysh/parser.py`** - Bash syntax parsing and analysis
+- **`beautysh/formatter.py`** - Core formatting logic with indentation calculation
+- **`beautysh/transformers.py`** - Style transformations (function/variable styles)
+- **`beautysh/config.py`** - Configuration loading (pyproject.toml, EditorConfig)
+- **`beautysh/cli.py`** - Command-line interface
+- **`beautysh/diff.py`** - Diff output for check mode
+- **`beautysh/types.py`** - Type definitions and dataclasses
+- **`beautysh/constants.py`** - Pre-compiled regex patterns and constants
+
+### Performance Tools
+
+The `tools/` directory contains performance analysis scripts:
+
+```shell
+# Benchmark formatter performance
+python tools/benchmark.py
+
+# Profile with cProfile to identify hotspots
+python tools/profile_formatter.py
+```
+
+See [tools/README.md](tools/README.md) for details.
+
+### Using uv
+
+```shell
+# Install dependencies
+uv sync
+
+# Activate virtual environment and run tests
+uv run pytest tests/
+```
 
 ## Contributing
 
@@ -178,14 +325,33 @@ prevent regression. Adding a test case is easy, and involves the following:
    of your test case.
 1. Create a file `tests/fixtures/my_test_name_formatted.sh` containing the formatted version
    of your test case.
-1. Register your test case in `tests/test_integration.py`, It should look
+1. Register your test case in `tests/test_integration.py`. It should look
    something like this:
-  ```python3
-  def test_my_test_name(self):
-      self.assert_formatting("my_test_name")
-  ```
 
-________________________________________________________________________________
+```python
+def test_my_test_name(fixture_dir):
+    assert_formatting(fixture_dir, "my_test_name")
+```
+
+Before submitting a PR, please ensure:
+
+- All tests pass: `pytest tests/`
+- Code is formatted and linted: `ruff check --fix . && ruff format .`
+- Type checking passes: `mypy beautysh/`
+
+Or simply run all checks at once:
+
+```shell
+pre-commit run --all-files
+```
+
+This will run:
+
+- pytest (all 172 tests including property-based tests)
+- mypy (type checking)
+- ruff (linting and formatting)
+- treefmt (Nix, YAML, Markdown formatting)
+
+______________________________________________________________________
 
 Originally written by [Paul Lutus](http://arachnoid.com/python/beautify_bash_program.html)
-

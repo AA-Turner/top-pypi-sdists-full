@@ -1,16 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dataclass-wizard
-Version: 0.35.1
-Summary: Lightning-fast JSON wizardry for Python dataclasses — effortless serialization right out of the box!
-Home-page: https://github.com/rnag/dataclass-wizard
-Author: Ritvik Nag
-Author-email: me@ritviknag.com
-License: Apache 2.0
+Version: 0.39.1
+Summary: A wizard-like JSON serialization library for Python dataclasses
+Author-email: Ritvik Nag <me@ritviknag.com>
+License: Apache Software License 2.0
+        
+        Copyright (c) 2021, Ritvik Nag
+        
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
+        
+        http://www.apache.org/licenses/LICENSE-2.0
+        
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+        
+        
 Project-URL: Discussions, https://github.com/rnag/dataclass-wizard/discussions
-Project-URL: Changelog, https://dataclass-wizard.readthedocs.io/en/latest/history.html
+Project-URL: Changelog, https://dcw.ritviknag.com/en/latest/history.html
 Project-URL: Source, https://github.com/rnag/dataclass-wizard
 Project-URL: Download, https://pypi.org/project/dataclass-wizard
-Project-URL: Documentation, https://dataclass-wizard.readthedocs.io
+Project-URL: Documentation, https://dcw.ritviknag.com
 Project-URL: Bug Tracker, https://github.com/rnag/dataclass-wizard/issues
 Keywords: dataclasses,wizard,json,serialization,deserialization,dataclass serialization,type hints,performance,alias,python,env,dotenv,lightweight
 Classifier: Development Status :: 5 - Production/Stable
@@ -24,197 +38,275 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-Provides-Extra: dotenv
-Provides-Extra: timedelta
-Provides-Extra: toml
-Provides-Extra: yaml
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: typing-extensions>=4.13.0; python_version <= "3.12"
+Provides-Extra: dotenv
+Requires-Dist: python-dotenv<2,>=1; extra == "dotenv"
+Provides-Extra: timedelta
+Requires-Dist: pytimeparse>=1.1.7; extra == "timedelta"
+Provides-Extra: toml
+Requires-Dist: tomli<3,>=2; python_version == "3.9" and extra == "toml"
+Requires-Dist: tomli<3,>=2; python_version == "3.10" and extra == "toml"
+Requires-Dist: tomli-w<2,>=1; extra == "toml"
+Provides-Extra: tz
+Requires-Dist: tzdata>=2024.1; extra == "tz"
+Provides-Extra: yaml
+Requires-Dist: PyYAML<7,>=6; extra == "yaml"
+Provides-Extra: dev
+Requires-Dist: tzdata>=2024.1; platform_system == "Windows" and extra == "dev"
+Requires-Dist: mypy<2,>=1.19; extra == "dev"
+Requires-Dist: flake8>=3; extra == "dev"
+Requires-Dist: tox==4.23.2; extra == "dev"
+Requires-Dist: pytimeparse==1.1.8; extra == "dev"
+Requires-Dist: python-dotenv<2,>=1; extra == "dev"
+Requires-Dist: tomli<3,>=2; python_version == "3.9" and extra == "dev"
+Requires-Dist: tomli<3,>=2; python_version == "3.10" and extra == "dev"
+Requires-Dist: tomli-w<2,>=1; extra == "dev"
+Requires-Dist: coverage>=6.2; extra == "dev"
+Requires-Dist: pip>=21.3.1; extra == "dev"
+Requires-Dist: bump-my-version==1.2.5; extra == "dev"
+Requires-Dist: wheel==0.45.1; extra == "dev"
+Requires-Dist: watchdog[watchmedo]==6.0.0; extra == "dev"
+Requires-Dist: Sphinx==7.4.7; python_version == "3.9" and extra == "dev"
+Requires-Dist: Sphinx==8.1.3; python_version >= "3.10" and extra == "dev"
+Requires-Dist: twine==6.0.1; extra == "dev"
+Requires-Dist: dataclass-wizard[toml]; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx-issues==5.0.0; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints==2.5.0; python_version >= "3.10" and extra == "docs"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "docs"
+Requires-Dist: typing-extensions>=4.9.0; extra == "docs"
+Provides-Extra: test
+Requires-Dist: tzdata>=2024.1; platform_system == "Windows" and extra == "test"
+Requires-Dist: pytest==8.3.4; extra == "test"
+Requires-Dist: pytest-mock>=3.6.1; extra == "test"
+Requires-Dist: pytest-cov==6.0.0; extra == "test"
+Provides-Extra: bench
+Requires-Dist: matplotlib; extra == "bench"
+Requires-Dist: pytest-benchmark[histogram]; extra == "bench"
+Requires-Dist: dataclasses-json==0.6.7; extra == "bench"
+Requires-Dist: jsons==1.6.3; extra == "bench"
+Requires-Dist: dataclass-factory==2.16; extra == "bench"
+Requires-Dist: dacite==1.9.2; extra == "bench"
+Requires-Dist: mashumaro==3.17; extra == "bench"
+Requires-Dist: pydantic==2.12.5; extra == "bench"
+Requires-Dist: attrs==25.4.0; extra == "bench"
+Provides-Extra: all
+Requires-Dist: python-dotenv<2,>=1; extra == "all"
+Requires-Dist: pytimeparse>=1.1.7; extra == "all"
+Requires-Dist: tomli<3,>=2; python_version == "3.9" and extra == "all"
+Requires-Dist: tomli<3,>=2; python_version == "3.10" and extra == "all"
+Requires-Dist: tomli-w<2,>=1; extra == "all"
+Requires-Dist: PyYAML<7,>=6; extra == "all"
+Requires-Dist: tzdata>=2024.1; platform_system == "Windows" and extra == "all"
+Requires-Dist: mypy<2,>=1.19; extra == "all"
+Requires-Dist: flake8>=3; extra == "all"
+Requires-Dist: tox==4.23.2; extra == "all"
+Requires-Dist: pytimeparse==1.1.8; extra == "all"
+Requires-Dist: coverage>=6.2; extra == "all"
+Requires-Dist: bump-my-version==1.2.5; extra == "all"
+Requires-Dist: wheel==0.45.1; extra == "all"
+Requires-Dist: watchdog[watchmedo]==6.0.0; extra == "all"
+Requires-Dist: Sphinx==7.4.7; python_version == "3.9" and extra == "all"
+Requires-Dist: Sphinx==8.1.3; python_version >= "3.10" and extra == "all"
+Requires-Dist: twine==6.0.1; extra == "all"
+Requires-Dist: sphinx-issues==5.0.0; extra == "all"
+Requires-Dist: sphinx-autodoc-typehints==2.5.0; python_version >= "3.10" and extra == "all"
+Requires-Dist: sphinx-copybutton==0.5.2; extra == "all"
+Requires-Dist: typing-extensions>=4.9.0; extra == "all"
+Requires-Dist: pytest==8.3.4; extra == "all"
+Requires-Dist: pytest-mock>=3.6.1; extra == "all"
+Requires-Dist: pytest-cov==6.0.0; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Requires-Dist: pytest-benchmark[histogram]; extra == "all"
+Requires-Dist: dataclasses-json==0.6.7; extra == "all"
+Requires-Dist: jsons==1.6.3; extra == "all"
+Requires-Dist: dataclass-factory==2.16; extra == "all"
+Requires-Dist: dacite==1.9.2; extra == "all"
+Requires-Dist: mashumaro==3.17; extra == "all"
+Requires-Dist: pydantic==2.12.5; extra == "all"
+Requires-Dist: attrs==25.4.0; extra == "all"
+Dynamic: license-file
 
-================
-Dataclass Wizard
-================
 
-Release v\ 0.35.1 | 📚 Full docs on `Read the Docs`_ (`Installation`_).
+.. image:: https://raw.githubusercontent.com/rnag/dataclass-wizard/main/images/logo.png
+   :alt: Dataclass Wizard logo
+   :width: 160px
+   :align: center
+
+**Simple, elegant wizarding tools for Python’s** ``dataclasses``.
+
+📘 Docs → `dcw.ritviknag.com`_
 
 .. image:: https://github.com/rnag/dataclass-wizard/actions/workflows/dev.yml/badge.svg
-    :target: https://github.com/rnag/dataclass-wizard/actions/workflows/dev.yml
-    :alt: CI Status
+   :target: https://github.com/rnag/dataclass-wizard/actions/workflows/dev.yml
+   :alt: CI Status
+
+.. image:: https://img.shields.io/pypi/v/dataclass-wizard.svg
+   :target: https://pypi.org/project/dataclass-wizard/
+   :alt: PyPI Version
 
 .. image:: https://img.shields.io/pypi/pyversions/dataclass-wizard.svg
-    :target: https://pypi.org/project/dataclass-wizard
-    :alt: Supported Python Versions
+   :target: https://pypi.org/project/dataclass-wizard/
+   :alt: Supported Python Versions
 
-.. image:: https://img.shields.io/pypi/l/dataclass-wizard.svg
-    :target: https://pypi.org/project/dataclass-wizard/
-    :alt: License
+.. image:: https://static.pepy.tech/badge/dataclass-wizard
+   :target: https://pepy.tech/project/dataclass-wizard
+   :alt: Downloads per Month
 
-.. image:: https://static.pepy.tech/badge/dataclass-wizard/month
-    :target: https://pepy.tech/project/dataclass-wizard
-    :alt: Monthly Downloads
-
-**Dataclass Wizard** 🪄
-Simple, elegant *wizarding* tools for Python’s ``dataclasses``.
-
-Lightning-fast ⚡, pure Python, and lightweight — effortlessly
-convert dataclass instances to/from JSON, perfect
-for complex and *nested dataclass* models!
+**Dataclass Wizard** is a fast, well-tested serialization library for Python dataclasses.
 
 -------------------
 
-**Behold, the power of the Dataclass Wizard**::
+**Behold, the power of Dataclass Wizard**::
 
     >>> from __future__ import annotations
-    >>> from dataclasses import dataclass, field
-    >>> from dataclass_wizard import JSONWizard
+    >>> from dataclasses import field
+    >>> from dataclass_wizard import DataclassWizard
     ...
-    >>> @dataclass
-    ... class MyClass(JSONWizard):
+    >>> class MyClass(DataclassWizard, load_case='AUTO', dump_case='CAMEL'):
     ...     my_str: str | None
     ...     is_active_tuple: tuple[bool, ...]
     ...     list_of_int: list[int] = field(default_factory=list)
     ...
-    >>> string = """
-    ... {
-    ...   "my_str": 20,
-    ...   "ListOfInt": ["1", "2", 3],
-    ...   "isActiveTuple": ["true", false, 1]
-    ... }
-    ... """
-    ...
-    >>> instance = MyClass.from_json(string)
-    >>> instance
+    >>> MyClass.from_json(
+    ...     '{"my_str": 20, "ListOfInt": ["1", "2", 3], "isActiveTuple": [true, false, 1]}'
+    ... )
     MyClass(my_str='20', is_active_tuple=(True, False, True), list_of_int=[1, 2, 3])
-    >>> instance.to_json()
-    '{"myStr": "20", "isActiveTuple": [true, false, true], "listOfInt": [1, 2, 3]}'
-    >>> instance == MyClass.from_dict(instance.to_dict())
-    True
 
----
+.. note::
+   The example above demonstrates automatic type coercion, key casing
+   transforms, and support for nested dataclasses. ``DataclassWizard``
+   also auto-applies ``@dataclass`` to subclasses.
+
+.. tip::
+
+   A new **v1 engine** is available as an opt-in, offering explicit
+   environment precedence, nested dataclass support, and improved performance.
+
+   ``EnvWizard`` v1 adds field-level configuration on top of these improvements.
+
+   See the `Field Guide to V1 Opt-in`_ and the `hands-on quickstart`_ for details.
 
 .. contents:: Contents
    :depth: 1
    :local:
    :backlinks: none
 
-``v1`` Opt-In 🚀
-----------------
+Why Dataclass Wizard?
+---------------------
 
-Early access to **V1** is available! To opt in, simply enable ``v1=True`` in the ``Meta`` settings:
+Dataclass Wizard helps you turn Python dataclasses into robust,
+high-performance serialization schemas with minimal effort.
+
+- 🚀 Fast — code-generated loaders and dumpers
+- 🪶 Lightweight — pure Python, minimal dependencies
+- 🧠 Typed — powered by Python type hints
+- 🧙 Flexible — JSON, YAML, TOML, and environment variables
+- 🧪 Reliable — battle-tested with extensive test coverage
+
+Quick Examples
+--------------
+
+.. rubric:: JSON De/Serialization
 
 .. code-block:: python3
 
     from dataclasses import dataclass
-    from dataclass_wizard import JSONPyWizard
-    from dataclass_wizard.v1 import Alias
+    from dataclass_wizard import JSONWizard
 
     @dataclass
-    class A(JSONPyWizard):
-        class _(JSONPyWizard.Meta):
-            v1 = True
+    class Data(JSONWizard):
+        value: int
 
-        my_str: str
-        version_info: float = Alias(load='v-info')
+    data = Data.from_dict({"value": "123"})
+    assert data.value == 123
+    print(data.to_json())
 
-    # Alternatively, for simple dataclasses that don't subclass `JSONPyWizard`:
-    # LoadMeta(v1=True).bind_to(A)
+.. rubric:: Environment Variables
 
-    a = A.from_dict({'my_str': 'test', 'v-info': '1.0'})
-    assert a.version_info == 1.0
-    assert a.to_dict() == {'my_str': 'test', 'version_info': 1.0}
+.. code-block:: python3
 
-For more information, see the `Field Guide to V1 Opt-in`_.
+    import os
+    from dataclass_wizard import EnvWizard
 
-Performance Improvements
-~~~~~~~~~~~~~~~~~~~~~~~~
+    os.environ['DEBUG'] = 'true'
 
-The upcoming **V1** release brings significant performance improvements in de/serialization. Personal benchmarks show that **V1** can make Dataclass Wizard
-approximately **2x faster** than ``pydantic``!
+    class Config(EnvWizard):
+        debug: bool
 
-While some features are still being refined and fully supported, **v1** positions Dataclass Wizard alongside other high-performance serialization libraries in Python.
+    cfg = Config()
+    assert cfg.debug is True
 
-Why Use Dataclass Wizard?
--------------------------
+.. rubric:: EnvWizard v1 (Opt-in)
 
-Effortlessly handle complex data with one of the *fastest* and *lightweight* libraries available! Perfect for APIs, JSON wrangling, and more.
+.. code-block:: python3
 
-- 🚀 **Blazing Fast** — One of the fastest libraries out there!
-- 🪶 **Lightweight** — Pure Python, minimal dependencies
-- 👶 Easy Setup — Intuitive, hassle-free
-- ☝️ **Battle-Tested** — Proven reliability with solid test coverage
-- ⚙️ Highly Customizable — Endless de/serialization options to fit your needs
-- 🎉 Built-in Support — JSON, YAML, TOML, and environment/settings management
-- 📦 **Full Python Type Support** — Powered by type hints with full support for native types and ``typing-extensions``
-- 📝 Auto-Generate Schemas — JSON to Dataclass made easy
+    import os
+    from dataclass_wizard.v1 import EnvWizard, Env
 
-Key Features
-------------
+    os.environ['DEBUG_MODE'] = 'true'
 
-- 🔄 Flexible (de)serialization — Marshal dataclasses to/from JSON, TOML, YAML, or ``dict`` with ease.
-- 🌿 Environment Magic — Map env vars and ``.env`` files to strongly-typed class fields effortlessly.
-- 🧑‍💻 Field Properties Made Simple — Add properties with default values to your dataclasses.
-- 🧙‍♂️ JSON-to-Dataclass Wizardry — Auto-generate a dataclass schema from any JSON file or string instantly.
+
+    class Config(EnvWizard):
+        debug: bool = Env('DEBUG_MODE')
+
+
+    cfg = Config()
+    assert cfg.debug is True
+
+.. tip::
+   EnvWizard v1 introduces explicit environment precedence and nested
+   dataclass support. See `Field Guide to V1 Opt-in`_ for full details.
 
 Installation
 ------------
 
-*Dataclass Wizard* is available on `PyPI`_. You can install it with ``pip``:
+Install from `PyPI`_:
 
 .. code-block:: console
 
-    $ pip install dataclass-wizard
+    pip install dataclass-wizard
 
-Also available on `conda`_ via `conda-forge`_. To install via ``conda``:
+Or via `conda-forge`_:
 
 .. code-block:: console
 
-    $ conda install dataclass-wizard -c conda-forge
+    conda install -c conda-forge dataclass-wizard
 
-This library supports **Python 3.9+**. Support for Python 3.6 – 3.8 was
-available in earlier releases but is no longer maintained, as those
-versions no longer receive security updates.
+Dataclass Wizard supports **Python 3.9+**.
 
-For convenience, the table below outlines the last compatible release
-of *Dataclass Wizard* for unsupported Python versions (3.6 – 3.8):
+.. note::
+   Python 3.6–3.8 users should install the last supported release,
+   ``dataclass-wizard==0.26.1``.
+   See `PyPI`_ for historical versions and the `Changelog`_ for details.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 15 35 15
-
-   * - Python Version
-     - Last Version of ``dataclass-wizard``
-     - Python EOL
-   * - 3.8
-     - 0.26.1_
-     - 2024-10-07
-   * - 3.7
-     - 0.26.1_
-     - 2023-06-27
-   * - 3.6
-     - 0.26.1_
-     - 2021-12-23
-
-.. _0.26.1: https://pypi.org/project/dataclass-wizard/0.26.1/
 .. _PyPI: https://pypi.org/project/dataclass-wizard/
-.. _conda: https://anaconda.org/conda-forge/dataclass-wizard
 .. _conda-forge: https://conda-forge.org/
-.. _Changelog: https://dataclass-wizard.readthedocs.io/en/latest/history.html
-
-See the package on `PyPI`_ and the `Changelog`_ in the docs for the latest version details.
+.. _Changelog: https://dcw.ritviknag.com/en/latest/history.html
 
 Wizard Mixins ✨
 ----------------
 
-In addition to ``JSONWizard``, these `Mixin`_ classes simplify common tasks and make your data handling *spellbindingly* efficient:
+In addition to ``JSONWizard``, Dataclass Wizard provides a set of focused
+Mixin_ classes to simplify common serialization tasks:
 
-- 🪄 `EnvWizard`_ — Load environment variables and `.env` files into typed schemas, even supporting secret files (keys as file names).
-- 🎩 `JSONPyWizard`_ — A helper for ``JSONWizard`` that preserves your keys as-is (no camelCase changes).
-- 🔮 `JSONListWizard`_ — Extend ``JSONWizard`` to convert lists into `Container`_ objects.
-- 💼 `JSONFileWizard`_ — Convert dataclass instances to/from local JSON files with ease.
-- 🌳 `TOMLWizard`_ — Map your dataclasses to/from TOML format.
-- 🧙‍♂️ `YAMLWizard`_ — Convert between YAML and dataclass instances using ``PyYAML``.
+- 🪄 `EnvWizard`_ — Load environment variables and ``.env`` files into typed schemas,
+  including support for secret directories.
+- 🎩 `JSONPyWizard`_ — A helper for ``JSONWizard`` that preserves keys as-is
+  (no case transformations).
+- 🔮 `JSONListWizard`_ — Extend ``JSONWizard`` to convert lists into container objects.
+- 💼 `JSONFileWizard`_ — Load and save dataclass instances from local JSON files.
+
+Optional format support:
+
+- 🌳 `TOMLWizard`_ — Map dataclasses to and from TOML.
+- 🧙‍♂️ `YAMLWizard`_ — Convert between YAML and dataclasses using ``PyYAML``.
 
 Supported Types 🧑‍💻
 ---------------------
@@ -227,148 +319,24 @@ Supported Types 🧑‍💻
 
 For more info, check out the `Supported Types`_ section in the docs for detailed insights into each type and the load/dump process!
 
-Usage and Examples
-------------------
+Custom Type Hooks 🔌
+--------------------
 
-.. rubric:: Seamless JSON De/Serialization with ``JSONWizard``
+Dataclass Wizard allows you to extend serialization and deserialization
+to support custom or unsupported types via **type hooks**.
 
-.. code-block:: python3
+Type hooks define how a value is:
 
-    from __future__ import annotations  # Optional in Python 3.10+
+- **loaded** (parsed) from JSON or a dictionary
+- **dumped** (serialized) back into JSON-compatible data
 
-    from dataclasses import dataclass, field
-    from enum import Enum
-    from datetime import date
+This makes it easy to support standard-library types such as
+`ipaddress.IPv4Address`_ as well as user-defined classes.
 
-    from dataclass_wizard import JSONWizard
+Type hooks work with or without inheritance, and integrate seamlessly
+with the v1 code generation engine.
 
-
-    @dataclass
-    class Data(JSONWizard):
-        # Use Meta to customize JSON de/serialization
-        class _(JSONWizard.Meta):
-            key_transform_with_dump = 'LISP'  # Transform keys to LISP-case during dump
-
-        a_sample_bool: bool
-        values: list[Inner] = field(default_factory=list)
-
-
-    @dataclass
-    class Inner:
-        # Nested data with optional enums and typed dictionaries
-        vehicle: Car | None
-        my_dates: dict[int, date]
-
-
-    class Car(Enum):
-        SEDAN = 'BMW Coupe'
-        SUV = 'Toyota 4Runner'
-
-
-    # Input JSON-like dictionary
-    my_dict = {
-        'values': [{'vehicle': 'Toyota 4Runner', 'My-Dates': {'123': '2023-01-31'}}],
-        'aSampleBool': 'TRUE'
-    }
-
-    # Deserialize into strongly-typed dataclass instances
-    data = Data.from_dict(my_dict)
-    print((v := data.values[0]).vehicle)  # Prints: <Car.SUV: 'Toyota 4Runner'>
-    assert v.my_dates[123] == date(2023, 1, 31)  # > True
-
-    # Serialize back into pretty-printed JSON
-    print(data.to_json(indent=2))
-
-.. rubric:: Map Environment Variables with ``EnvWizard``
-
-Easily map environment variables to Python dataclasses:
-
-.. code-block:: python3
-
-    import os
-    from dataclass_wizard import EnvWizard
-
-    os.environ.update({
-        'APP_NAME': 'My App',
-        'MAX_CONNECTIONS': '10',
-        'DEBUG_MODE': 'true'
-    })
-
-    class AppConfig(EnvWizard):
-        app_name: str
-        max_connections: int
-        debug_mode: bool
-
-    config = AppConfig()
-    print(config.app_name)    # My App
-    print(config.debug_mode)  # True
-
-📖 See more `on EnvWizard`_ in the full documentation.
-
-.. rubric:: Dataclass Properties with ``property_wizard``
-
-Add field properties to your dataclasses with default values using ``property_wizard``:
-
-.. code-block:: python3
-
-    from __future__ import annotations  # This can be removed in Python 3.10+
-
-    from dataclasses import dataclass, field
-    from typing_extensions import Annotated
-
-    from dataclass_wizard import property_wizard
-
-
-    @dataclass
-    class Vehicle(metaclass=property_wizard):
-        wheels: Annotated[int | str, field(default=4)]
-        # or, alternatively:
-        #   _wheels: int | str = 4
-
-        @property
-        def wheels(self) -> int:
-            return self._wheels
-
-        @wheels.setter
-        def wheels(self, value: int | str):
-            self._wheels = int(value)
-
-
-    v = Vehicle()
-    print(v.wheels)  # 4
-    v.wheels = '6'
-    print(v.wheels)  # 6
-
-    assert v.wheels == 6, 'Setter correctly handles type conversion'
-
-📖 For a deeper dive, visit the documentation on `field properties`_.
-
-.. rubric:: Generate Dataclass Schemas with CLI
-
-Quickly generate Python dataclasses from JSON input using the ``wiz-cli`` tool:
-
-.. code-block:: console
-
-    $ echo '{"myFloat": "1.23", "Items": [{"created": "2021-01-01"}]}' | wiz gs - output.py
-
-.. code-block:: python3
-
-    from dataclasses import dataclass
-    from datetime import date
-    from typing import List, Union
-
-    from dataclass_wizard import JSONWizard
-
-    @dataclass
-    class Data(JSONWizard):
-        my_float: Union[float, str]
-        items: List['Item']
-
-    @dataclass
-    class Item:
-        created: date
-
-📖 Check out the full CLI documentation at wiz-cli_.
+See `Type Hooks`_ for details and examples.
 
 JSON Marshalling
 ----------------
@@ -416,7 +384,7 @@ debugging purposes. Whenever you invoke ``print(obj)`` or ``str(obj)``, for
 example, it'll call this method which will format the dataclass object as
 a prettified JSON string. If you prefer a ``__str__`` method to not be
 added, you can pass in ``str=False`` when extending from the Mixin class
-as mentioned `here <https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/skip_the_str.html>`_.
+as mentioned `here <https://dcw.ritviknag.com/en/latest/common_use_cases/skip_the_str.html>`_.
 
 Note that the ``__repr__`` method, which is implemented by the
 ``dataclass`` decorator, is also available. To invoke the Python object
@@ -1316,7 +1284,7 @@ Quick Examples
 
    Combine these helpers for flexible serialization rules!
 
-.. _conditional skipping: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/serialization_options.html#skip-if-functionality
+.. _conditional skipping: https://dcw.ritviknag.com/en/latest/common_use_cases/serialization_options.html#skip-if-functionality
 
 Serialization Options
 ---------------------
@@ -1465,7 +1433,7 @@ Easily map environment variables to Python dataclasses with ``EnvWizard``:
     - **Configurable**: Customize variable names, prefixes, and dotenv files.
     - **Validation**: Errors for missing or malformed variables.
 
-    📖 `Full Documentation <https://dataclass-wizard.readthedocs.io/en/latest/env_magic.html>`_
+    📖 `Full Documentation <https://dcw.ritviknag.com/en/latest/env_magic.html>`_
 
 Advanced Example: Dynamic Prefix Handling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1551,7 +1519,23 @@ What's New in v1.0
             print(MyModel(my_field="value").to_dict())
             # Output: {'my_field': 'value'}
 
-    - **Default __str__() Behavior Change**
+    - **String Coercion Change (None Handling)**
+
+      Starting with **v1.0**, ``None`` values for fields annotated as ``str`` are
+      converted using ``str(None)`` (i.e. ``'None'``) instead of being silently
+      coerced to the empty string.
+
+      ``Optional[str]`` fields continue to preserve ``None`` by default.
+
+      To restore the previous behavior and coerce ``None`` to ``''``, set:
+
+      .. code-block:: python3
+
+            class _(Meta):
+                v1 = True
+                v1_coerce_none_to_empty_str = True
+
+- **Default __str__() Behavior Change**
 
       Starting with **v1.0.0**, we no longer pretty-print the serialized JSON value with keys in ``camelCase``.
       Instead, we now use the ``pprint`` module to handle serialization formatting.
@@ -1631,43 +1615,46 @@ Credits
 
 This package was created with Cookiecutter_ and the `rnag/cookiecutter-pypackage`_ project template.
 
-.. _Read The Docs: https://dataclass-wizard.readthedocs.io
-.. _Installation: https://dataclass-wizard.readthedocs.io/en/latest/installation.html
+.. _dcw.ritviknag.com: https://dcw.ritviknag.com
 .. _Cookiecutter: https://github.com/cookiecutter/cookiecutter
 .. _`rnag/cookiecutter-pypackage`: https://github.com/rnag/cookiecutter-pypackage
-.. _`Contributing`: https://dataclass-wizard.readthedocs.io/en/latest/contributing.html
+.. _`Contributing`: https://dcw.ritviknag.com/en/latest/contributing.html
 .. _`open an issue`: https://github.com/rnag/dataclass-wizard/issues
-.. _`JSONPyWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#jsonpywizard
-.. _`EnvWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#envwizard
-.. _`on EnvWizard`: https://dataclass-wizard.readthedocs.io/en/latest/env_magic.html
-.. _`JSONListWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#jsonlistwizard
-.. _`JSONFileWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#jsonfilewizard
-.. _`TOMLWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#tomlwizard
-.. _`YAMLWizard`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/wizard_mixins.html#yamlwizard
-.. _`Container`: https://dataclass-wizard.readthedocs.io/en/latest/dataclass_wizard.html#dataclass_wizard.Container
-.. _`Supported Types`: https://dataclass-wizard.readthedocs.io/en/latest/overview.html#supported-types
+.. _`JSONPyWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#jsonpywizard
+.. _`EnvWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#envwizard
+.. _`on EnvWizard`: https://dcw.ritviknag.com/en/latest/env_magic.html
+.. _`JSONListWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#jsonlistwizard
+.. _`JSONFileWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#jsonfilewizard
+.. _`TOMLWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#tomlwizard
+.. _`YAMLWizard`: https://dcw.ritviknag.com/en/latest/common_use_cases/wizard_mixins.html#yamlwizard
+.. _`Container`: https://dcw.ritviknag.com/en/latest/dataclass_wizard.html#dataclass_wizard.Container
+.. _`Supported Types`: https://dcw.ritviknag.com/en/latest/overview.html#supported-types
 .. _`Mixin`: https://stackoverflow.com/a/547714/10237506
-.. _`Meta`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/meta.html
+.. _`Meta`: https://dcw.ritviknag.com/en/latest/common_use_cases/meta.html
 .. _`pydantic`: https://pydantic-docs.helpmanual.io/
-.. _`Using Field Properties`: https://dataclass-wizard.readthedocs.io/en/latest/using_field_properties.html
-.. _`field properties`: https://dataclass-wizard.readthedocs.io/en/latest/using_field_properties.html
-.. _`custom mapping`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/custom_key_mappings.html
-.. _`wiz-cli`: https://dataclass-wizard.readthedocs.io/en/latest/wiz_cli.html
+.. _`Using Field Properties`: https://dcw.ritviknag.com/en/latest/using_field_properties.html
+.. _`field properties`: https://dcw.ritviknag.com/en/latest/using_field_properties.html
+.. _`custom mapping`: https://dcw.ritviknag.com/en/latest/common_use_cases/custom_key_mappings.html
+.. _`wiz-cli`: https://dcw.ritviknag.com/en/latest/wiz_cli.html
 .. _`key limitations`: https://florimond.dev/en/posts/2018/10/reconciling-dataclasses-and-properties-in-python/
-.. _`more complete example`: https://dataclass-wizard.readthedocs.io/en/latest/examples.html#a-more-complete-example
+.. _`more complete example`: https://dcw.ritviknag.com/en/latest/examples.html#a-more-complete-example
 .. _custom formats: https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
-.. _`Patterned Date and Time`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/patterned_date_time.html
+.. _`Patterned Date and Time`: https://dcw.ritviknag.com/en/latest/common_use_cases/patterned_date_time.html
 .. _Union: https://docs.python.org/3/library/typing.html#typing.Union
-.. _`Dataclasses in Union Types`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/dataclasses_in_union_types.html
-.. _`Cyclic or "Recursive" Dataclasses`: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/cyclic_or_recursive_dataclasses.html
+.. _`Dataclasses in Union Types`: https://dcw.ritviknag.com/en/latest/common_use_cases/dataclasses_in_union_types.html
+.. _`Cyclic or "Recursive" Dataclasses`: https://dcw.ritviknag.com/en/latest/common_use_cases/cyclic_or_recursive_dataclasses.html
 .. _as milestones: https://github.com/rnag/dataclass-wizard/milestones
 .. _longstanding issue: https://github.com/rnag/dataclass-wizard/issues/62
-.. _Easier Debug Mode: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/easier_debug_mode.html
-.. _Handling Unknown JSON Keys: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/handling_unknown_json_keys.html
-.. _custom paths to access nested keys: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/nested_key_paths.html
+.. _Easier Debug Mode: https://dcw.ritviknag.com/en/latest/common_use_cases/easier_debug_mode.html
+.. _Handling Unknown JSON Keys: https://dcw.ritviknag.com/en/latest/common_use_cases/handling_unknown_json_keys.html
+.. _custom paths to access nested keys: https://dcw.ritviknag.com/en/latest/common_use_cases/nested_key_paths.html
 .. _annotations: https://docs.python.org/3/library/typing.html#typing.Annotated
 .. _typing: https://docs.python.org/3/library/typing.html
 .. _dataclasses: https://docs.python.org/3/library/dataclasses.html
-.. _V1 Opt-in documentation for Patterned Date and Time: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/v1_patterned_date_time.html
+.. _V1 Opt-in documentation for Patterned Date and Time: https://dcw.ritviknag.com/en/latest/common_use_cases/v1_patterned_date_time.html
 .. _`Field Guide to V1 Opt-in`: https://github.com/rnag/dataclass-wizard/wiki/Field-Guide-to-V1-Opt%E2%80%90in
-.. _V1 Alias: https://dataclass-wizard.readthedocs.io/en/latest/common_use_cases/v1_alias.html
+.. _hands-on quickstart: https://github.com/rnag/dataclass-wizard/wiki/EnvWizard-v1-%E2%80%94-Quickstart-(Opt%E2%80%90In)
+.. _V1 Alias: https://dcw.ritviknag.com/en/latest/common_use_cases/v1_alias.html
+.. _Type Hooks: https://dcw.ritviknag.com/en/latest/advanced_usage/type_hooks.html
+.. _`ipaddress.IPv4Address`: https://docs.python.org/3/library/ipaddress.html#ipaddress.IPv4Address
+.. _V1 Env Magic: https://dcw.ritviknag.com/en/latest/env_magic_v1.html

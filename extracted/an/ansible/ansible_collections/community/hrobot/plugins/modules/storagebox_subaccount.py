@@ -19,11 +19,11 @@ author:
 description:
   - Create, update, or delete a subaccount for a storage box.
 extends_documentation_fragment:
-  - community.hrobot.api._robot_compat_shim  # must come before api and robot
+  - community.hrobot.api._robot_compat_shim_deprecation  # must come before api and robot
   - community.hrobot.api
   - community.hrobot.robot
   - community.hrobot.attributes
-  - community.hrobot.attributes._actiongroup_robot_and_api  # must come before the other two!
+  - community.hrobot.attributes._actiongroup_robot_and_api_deprecation  # must come before the other two!
   - community.hrobot.attributes.actiongroup_api
   - community.hrobot.attributes.actiongroup_robot
 
@@ -57,6 +57,8 @@ options:
       - If C(update-if-provided), the password always updated if provided (default).
       - If C(ignore-if-exists), password is only used during creation.
       - If C(set-to-random), password is reset to a randomly generated one.
+        Note that this is not supported by the new API (when O(hetzner_token) is set).
+        The value has been deprecated in community.hrobot 2.7.0 and will be removed from community.hrobot 3.0.0.
       - When a new subaccount is created, the password is set to the specified one if O(password) is provided,
         and a random password is set if O(password) is not provided.
     type: str
@@ -270,18 +272,21 @@ subaccount:
   description:
     - The subaccount object returned by the API.
     - If O(hetzner_token) is provided, some extra fields are added to make this more compatible with the format returned by O(hetzner_user).
+    - B(This extra return values are deprecated and will be removed from community.hrobot 3.0.0.)
+      If you are using ansible-core 2.19 or newer, you will see a deprecation message when using these return values.
+      These return values are RV(ignore:homedirectory), RV(ignore:samba), RV(ignore:ssh), RV(ignore:webdav), RV(ignore:external_reachability),
+      RV(ignore:readonly), RV(ignore:createtime), and RV(ignore:comment).
   type: dict
   returned: if O(state=present)
 """
 
 from copy import deepcopy
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six.moves.urllib.parse import urlencode
 
 from ansible_collections.community.hrobot.plugins.module_utils.robot import (
     BASE_URL,
     ROBOT_DEFAULT_ARGUMENT_SPEC,
-    _ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT,
+    _ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT_DEPRECATED,
     fetch_url_json,
 )
 
@@ -293,6 +298,16 @@ from ansible_collections.community.hrobot.plugins.module_utils.api import (
     api_apply_action,
     api_fetch_url_json,
 )
+
+from ansible_collections.community.hrobot.plugins.module_utils._tagging import (
+    deprecate_value,
+)
+
+try:
+    from urllib.parse import urlencode
+except ImportError:
+    # Python 2.x fallback:
+    from urllib import urlencode
 
 
 def legacy_encode_data(data):
@@ -449,7 +464,6 @@ def create_subaccount(module, storagebox_id, subaccount):
 
 FIELDS = {
     "username": (["username"], None, None),
-    "homedirectory": (["home_directory"], None, "home_directory"),
     "samba": (["access_settings", "samba_enabled"], None, "samba_enabled"),
     "ssh": (["access_settings", "ssh_enabled"], None, "ssh_enabled"),
     "external_reachability": (["access_settings", "reachable_externally"], None, "reachable_externally"),
@@ -474,6 +488,8 @@ def merge_subaccounts_infos(original, updates):
         if value is not None:
             if key == 'password':
                 result[key] = value
+            elif key == 'homedirectory':
+                result["home_directory"] = value
             else:
                 set_value(result, FIELDS[key][0], value)
     return result
@@ -493,22 +509,16 @@ def get_subaccount_updates(before, after):
         # we assume we don't want to update that field
         if value is None:
             continue
-        # password aren't considered part of update check
+        # password and home directory aren't considered part of update check
         # due to being a different API call
-        if key == "password":
+        if key == "password" or key == "homedirectory":
             continue
         path, update_key, access_settings_key = FIELDS[key]
         current_value = get_value(before, path)
-        # Hetzner likes to strip leading '/' from the home directory
-        if key == "homedirectory" and current_value is not None and value.lstrip('/') == current_value.lstrip('/'):
-            continue
         if current_value != value:
             if update_key is not None:
                 update[update_key] = value
             if access_settings_key is not None:
-                if access_settings_key == 'home_directory':
-                    # For some reason, home_directory must not start with a slash
-                    value = value.lstrip('/')
                 access_settings[access_settings_key] = value
     return update, access_settings
 
@@ -575,8 +585,28 @@ def update_subaccount_password(module, storagebox_id, subaccount, new_password):
         module.fail_json(msg='Error while updating password: {0}'.format(exc))
 
 
-def get_subaccounts(module, storagebox_id):
+def update_subaccount_home_directory(module, storagebox_id, subaccount, new_home_directory):
+    action_url = "{0}/v1/storage_boxes/{1}/subaccounts/{2}/actions/change_home_directory".format(API_BASE_URL, storagebox_id, subaccount['id'])
+    action = {
+        'home_directory': new_home_directory,
+    }
+    try:
+        api_apply_action(
+            module,
+            action_url,
+            action,
+            lambda action_id: "{0}/v1/storage_boxes/actions/{1}".format(API_BASE_URL, action_id),
+            check_done_delay=1,
+            check_done_timeout=120,
+        )
+    except ApplyActionError as exc:
+        module.fail_json(msg='Error while updating home directory: {0}'.format(exc))
+
+
+def get_subaccounts(module, storagebox_id, username=None):
     url = "{0}/v1/storage_boxes/{1}/subaccounts".format(API_BASE_URL, storagebox_id)
+    if username is not None:
+        url = "{0}?{1}".format(url, urlencode({'username': username}))
     result, dummy, error = api_fetch_url_json(module, url, accept_errors=['not_found'])
     if error:
         module.fail_json(msg='Storagebox with ID {0} does not exist'.format(storagebox_id))
@@ -607,7 +637,11 @@ def adjust_legacy(subaccount):
     }.items():
         value, exists = get_value_opt(subaccount, path)
         if exists:
-            result[key] = value
+            result[key] = deprecate_value(
+                value,
+                "The return value `{0}` is deprecated; use `{1}` instead.".format(key, ".".join(path)),
+                version="3.0.0",
+            )
     return result
 
 
@@ -633,7 +667,7 @@ def main():
         idempotence=dict(type="str", choices=["username", "comment"], default="username"),
     )
     argument_spec.update(ROBOT_DEFAULT_ARGUMENT_SPEC)
-    argument_spec.update(_ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT)
+    argument_spec.update(_ROBOT_DEFAULT_ARGUMENT_SPEC_COMPAT_DEPRECATED)
     argument_spec.update(API_DEFAULT_ARGUMENT_SPEC)
     argument_spec.update(_API_DEFAULT_ARGUMENT_SPEC_COMPAT)
     module = AnsibleModule(
@@ -659,7 +693,19 @@ def main():
     }
     account_identifier = subaccount[idempotence]
 
+    if password_mode == 'set-to-random':
+        module.deprecate(
+            "password_mode=set-to-random is deprecated and will be removed in community.hrobot 3.0.0.",
+            collection_name="community.hrobot",
+            version="3.0.0",
+        )
+
     if module.params["hetzner_user"] is not None:
+        module.deprecate(
+            "The hetzner_token parameter will be required from community.hrobot 3.0.0 on.",
+            collection_name="community.hrobot",
+            version="3.0.0",
+        )
         # DEPRECATED: old API
 
         existing_subaccounts = legacy_get_subaccounts(module, storagebox_id)
@@ -730,7 +776,7 @@ def main():
         if idempotence == 'comment':
             idempotence = 'description'
 
-        existing_subaccounts = get_subaccounts(module, storagebox_id)
+        existing_subaccounts = get_subaccounts(module, storagebox_id, username=account_identifier if idempotence == "username" else None)
 
         matches = [
             sa for sa in existing_subaccounts
@@ -741,7 +787,7 @@ def main():
 
         existing = matches[0] if matches else None
 
-        created = deleted = updated = password_updated = False
+        created = deleted = updated = password_updated = homedir_updated = False
 
         if state == "absent":
             if existing:
@@ -758,6 +804,17 @@ def main():
                 if not check_mode:
                     update_subaccount_password(module, storagebox_id, existing, subaccount["password"])
                 password_updated = True
+
+            if subaccount["homedirectory"] is not None:
+                # Hetzner likes to strip leading '/' from the home directory
+                current_home_dir = existing["home_directory"]
+                if current_home_dir is not None:
+                    current_home_dir = current_home_dir.lstrip("/")
+                home_dir = subaccount["homedirectory"].lstrip("/")
+                if current_home_dir != home_dir:
+                    if not check_mode:
+                        update_subaccount_home_directory(module, storagebox_id, existing, home_dir)
+                    homedir_updated = True
 
             update, access_settings = get_subaccount_updates(existing, subaccount)
             if update:
@@ -786,10 +843,10 @@ def main():
         return_data = merge_subaccounts_infos(existing or {}, subaccount)
 
         module.exit_json(
-            changed=any([created, deleted, updated, password_updated]),
+            changed=any([created, deleted, updated, password_updated, homedir_updated]),
             created=created,
             deleted=deleted,
-            updated=updated,
+            updated=updated or homedir_updated,
             password_updated=password_updated,
             subaccount=adjust_legacy(return_data) if state != "absent" else None,
         )

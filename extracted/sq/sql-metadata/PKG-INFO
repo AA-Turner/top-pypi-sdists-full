@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sql_metadata
-Version: 2.17.0
+Version: 2.19.0
 Summary: Uses tokenized query returned by python-sqlparse and generates query metadata
 License: MIT
+License-File: LICENSE
 Author: Maciej Brencz
 Author-email: maciej.brencz@gmail.com
 Requires-Python: >=3.9,<4.0
@@ -13,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: sqlparse (>=0.4.1,<0.6.0)
 Project-URL: Homepage, https://github.com/macbre/sql-metadata
 Project-URL: Repository, https://github.com/macbre/sql-metadata

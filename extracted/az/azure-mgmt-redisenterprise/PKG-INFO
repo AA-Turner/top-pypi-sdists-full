@@ -1,33 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-redisenterprise
-Version: 3.0.0
-Summary: Microsoft Azure Redis Enterprise Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 3.1.0
+Summary: Microsoft Azure Redisenterprise Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: isodate<1.0.0,>=0.6.1
-Requires-Dist: azure-common~=1.1
-Requires-Dist: azure-mgmt-core<2.0.0,>=1.3.2
+Requires-Dist: msrest>=0.7.1
+Requires-Dist: azure-mgmt-core>=1.6.0
+Requires-Dist: typing-extensions>=4.6.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Redis Enterprise Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -38,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -50,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -86,8 +85,160 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
 # Release History
+
+## 3.1.0 (2025-10-20)
+
+### Features Added
+
+  - Model `RedisEnterpriseManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `RedisEnterpriseManagementClient` added operation group `access_policy_assignment`
+  - Model `Cluster` added property `kind`
+  - Model `Cluster` added property `high_availability`
+  - Model `Cluster` added property `redundancy_mode`
+  - Model `Cluster` added property `public_network_access`
+  - Model `ClusterUpdate` added property `high_availability`
+  - Model `ClusterUpdate` added property `redundancy_mode`
+  - Model `ClusterUpdate` added property `public_network_access`
+  - Enum `ClusteringPolicy` added member `NO_CLUSTER`
+  - Model `Database` added property `redis_version`
+  - Model `Database` added property `defer_upgrade`
+  - Model `Database` added property `access_keys_authentication`
+  - Model `Database` added property `system_data`
+  - Model `DatabaseUpdate` added property `redis_version`
+  - Model `DatabaseUpdate` added property `defer_upgrade`
+  - Model `DatabaseUpdate` added property `access_keys_authentication`
+  - Model `ProxyResource` added property `system_data`
+  - Enum `ResourceState` added member `MOVING`
+  - Enum `SkuName` added member `BALANCED_B0`
+  - Enum `SkuName` added member `BALANCED_B1`
+  - Enum `SkuName` added member `BALANCED_B10`
+  - Enum `SkuName` added member `BALANCED_B100`
+  - Enum `SkuName` added member `BALANCED_B1000`
+  - Enum `SkuName` added member `BALANCED_B150`
+  - Enum `SkuName` added member `BALANCED_B20`
+  - Enum `SkuName` added member `BALANCED_B250`
+  - Enum `SkuName` added member `BALANCED_B3`
+  - Enum `SkuName` added member `BALANCED_B350`
+  - Enum `SkuName` added member `BALANCED_B5`
+  - Enum `SkuName` added member `BALANCED_B50`
+  - Enum `SkuName` added member `BALANCED_B500`
+  - Enum `SkuName` added member `BALANCED_B700`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X10`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X100`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X150`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X20`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X250`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X3`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X350`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X5`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X50`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X500`
+  - Enum `SkuName` added member `COMPUTE_OPTIMIZED_X700`
+  - Enum `SkuName` added member `ENTERPRISE_E1`
+  - Enum `SkuName` added member `ENTERPRISE_E200`
+  - Enum `SkuName` added member `ENTERPRISE_E400`
+  - Enum `SkuName` added member `ENTERPRISE_E5`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A1000`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A1500`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A2000`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A250`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A4500`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A500`
+  - Enum `SkuName` added member `FLASH_OPTIMIZED_A700`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M10`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M100`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M1000`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M150`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M1500`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M20`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M2000`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M250`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M350`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M50`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M500`
+  - Enum `SkuName` added member `MEMORY_OPTIMIZED_M700`
+  - Added enum `AccessKeysAuthentication`
+  - Added model `AccessPolicyAssignment`
+  - Added model `AccessPolicyAssignmentList`
+  - Added model `AccessPolicyAssignmentPropertiesUser`
+  - Added model `ClusterCreateProperties`
+  - Added model `ClusterProperties`
+  - Added model `ClusterUpdateProperties`
+  - Added enum `CreatedByType`
+  - Added model `DatabaseCreateProperties`
+  - Added model `DatabaseProperties`
+  - Added model `DatabaseUpdateProperties`
+  - Added enum `DeferUpgradeSetting`
+  - Added model `ErrorDetailAutoGenerated`
+  - Added model `ErrorResponseAutoGenerated`
+  - Added model `ForceLinkParameters`
+  - Added model `ForceLinkParametersGeoReplication`
+  - Added enum `HighAvailability`
+  - Added enum `Kind`
+  - Added model `ProxyResourceAutoGenerated`
+  - Added enum `PublicNetworkAccess`
+  - Added enum `RedundancyMode`
+  - Added model `ResourceAutoGenerated`
+  - Added model `SkuDetails`
+  - Added model `SkuDetailsList`
+  - Added model `SystemData`
+  - Operation group `DatabasesOperations` added method `begin_force_link_to_replication_group`
+  - Operation group `DatabasesOperations` added method `begin_upgrade_db_redis_version`
+  - Operation group `RedisEnterpriseOperations` added method `list_skus_for_scaling`
+  - Added operation group `AccessPolicyAssignmentOperations`
+
+## 3.1.0b4 (2025-04-23)
+
+### Breaking Changes
+
+  - Model `SkuDetails` renamed its instance variable `customer_facing_size_in_gb` to `size_in_gb`
+
+## 3.1.0b3 (2025-04-20)
+
+### Features Added
+
+  - Model `Cluster` added property `kind`
+  - Enum `ClusteringPolicy` added member `NO_CLUSTER`
+  - Model `ForceLinkParameters` added property `geo_replication`
+  - Enum `ResourceState` added member `MOVING`
+  - Added model `ErrorDetailAutoGenerated`
+  - Added model `ErrorResponseAutoGenerated`
+  - Added model `ForceLinkParametersGeoReplication`
+  - Added enum `Kind`
+  - Added model `SkuDetails`
+  - Added model `SkuDetailsList`
+  - Operation group `RedisEnterpriseOperations` added method `list_skus_for_scaling`
+
+### Breaking Changes
+
+  - Model `ForceLinkParameters` deleted or renamed its instance variable `group_nickname`
+  - Model `ForceLinkParameters` deleted or renamed its instance variable `linked_databases`
+
+## 3.1.0b2 (2024-10-16)
+
+### Features Added
+
+  - Added operation group AccessPolicyAssignmentOperations
+  - Model Cluster has a new parameter high_availability
+  - Model Cluster has a new parameter redundancy_mode
+  - Model ClusterUpdate has a new parameter high_availability
+  - Model ClusterUpdate has a new parameter redundancy_mode
+  - Model Database has a new parameter access_keys_authentication
+  - Model Database has a new parameter system_data
+  - Model DatabaseUpdate has a new parameter access_keys_authentication
+  - Model ProxyResource has a new parameter system_data
+
+## 3.1.0b1 (2024-05-20)
+
+### Features Added
+
+  - Added operation DatabasesOperations.begin_force_link_to_replication_group
+  - Added operation DatabasesOperations.begin_upgrade_db_redis_version
+  - Model Database has a new parameter defer_upgrade
+  - Model Database has a new parameter redis_version
+  - Model DatabaseUpdate has a new parameter defer_upgrade
+  - Model DatabaseUpdate has a new parameter redis_version
 
 ## 3.0.0 (2024-03-04)
 

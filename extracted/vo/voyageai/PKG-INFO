@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: voyageai
-Version: 0.3.5
+Version: 0.3.7
 Summary: 
 Author: Yujie Qian
 Author-email: yujieq@voyageai.com
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: aiohttp
 Requires-Dist: aiolimiter
+Requires-Dist: ffmpeg-python
 Requires-Dist: langchain-text-splitters (>=0.3.8)
 Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13" and python_version < "3.14"
 Requires-Dist: numpy ; python_version >= "3.9" and python_version < "3.13"

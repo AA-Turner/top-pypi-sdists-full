@@ -1,23 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: langchain-neo4j
-Version: 0.5.0
+Version: 0.8.0
 Summary: An integration package connecting Neo4j and LangChain
-Home-page: https://github.com/langchain-ai/langchain-neo4j
-License: MIT
-Requires-Python: >=3.9,<3.14
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: langchain (>=0.3.7,<0.4.0)
-Requires-Dist: langchain-core (>=0.3.39,<0.4.0)
-Requires-Dist: neo4j (>=5.25.0,<6.0.0)
-Requires-Dist: neo4j-graphrag (>=1.9.0,<2.0.0)
-Project-URL: Repository, https://github.com/langchain-ai/langchain-neo4j
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-neo4j/releases
+Project-URL: Repository, https://github.com/langchain-ai/langchain-neo4j
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-neo4j/tree/main/libs/neo4j
+License: MIT
+License-File: LICENSE
+Requires-Python: <3.15,>=3.10
+Requires-Dist: langchain-classic<2.0.0,>=1.0.0
+Requires-Dist: langchain-core<2.0.0,>=1.0.0
+Requires-Dist: langgraph<1.1.0,>=1.0.2
+Requires-Dist: neo4j-graphrag<2.0.0,>=1.12.0
+Requires-Dist: neo4j<7.0.0,>=5.25.0
+Provides-Extra: mmr
+Requires-Dist: numpy<3.0.0,>=2.1.0; extra == 'mmr'
 Description-Content-Type: text/markdown
 
 # 🦜️🔗 LangChain Neo4j
@@ -69,10 +66,9 @@ The `Neo4jVector` class provides functionality for managing a Neo4j vector store
 It enables you to create new vector indexes, add vectors to existing indexes, and perform queries on indexes.
 
 ```python
-from langchain.docstore.document import Document
-from langchain_openai import OpenAIEmbeddings
-
+from langchain_classic.docstore.document import Document
 from langchain_neo4j import Neo4jVector
+from langchain_openai import OpenAIEmbeddings
 
 # Create a vector store from some documents and embeddings
 docs = [
@@ -105,9 +101,8 @@ It uses an LLM and the database's schema to translate a user's question into a C
 The resulting data is then sent along with the user's question to the LLM to generate a natural language response.
 
 ```python
-from langchain_openai import ChatOpenAI
-
 from langchain_neo4j import GraphCypherQAChain, Neo4jGraph
+from langchain_openai.chat_models import ChatOpenAI
 
 llm = ChatOpenAI(
     temperature=0,
@@ -115,16 +110,63 @@ llm = ChatOpenAI(
 )
 graph = Neo4jGraph(url="bolt://localhost:7687", username="neo4j", password="password")
 chain = GraphCypherQAChain.from_llm(llm=llm, graph=graph, allow_dangerous_requests=True)
-chain.run("Who starred in Top Gun?")
+chain.invoke({"query": "Who starred in Top Gun?"})
+```
+
+### Neo4jSaver
+
+The `Neo4jSaver` provides a synchronous Neo4j checkpoint saver for LangGraph.
+
+This class implements the `BaseCheckpointSaver` interface using Neo4j
+as the persistence backend with a proper graph model. It supports
+storing checkpoints, channel states, and pending writes using
+relationships for efficient traversal.
+
+```python
+from langchain_neo4j import Neo4jSaver
+# Using from_conn_string (recommended)
+with Neo4jSaver.from_conn_string(
+    uri="bolt://localhost:7687",
+    user="neo4j",
+    password="password"
+) as checkpointer:
+    checkpointer.setup()  # Create indexes (run once)
+    graph = builder.compile(checkpointer=checkpointer)
+    result = graph.invoke({"messages": [...]}, config)
+
+# Using existing driver
+driver = GraphDatabase.driver(uri, auth=(user, password))
+checkpointer = Neo4jSaver(driver)
+checkpointer.setup()
+```
+
+### AsyncNeo4jSaver
+
+The `AsyncNeo4jSaver` provides asynchronous Neo4j checkpoint saver for LangGraph.
+
+This class implements the `BaseCheckpointSaver` interface using Neo4j
+as the persistence backend with async support and a proper graph model.
+It supports storing checkpoints, channel states, and pending writes
+using relationships for efficient traversal.
+
+```python
+# Using from_conn_string (recommended)
+async with await AsyncNeo4jSaver.from_conn_string(
+    uri="bolt://localhost:7687",
+    user="neo4j",
+    password="password"
+) as checkpointer:
+    await checkpointer.setup()  # Create indexes (run once)
+    graph = builder.compile(checkpointer=checkpointer)
+    result = await graph.ainvoke({"messages": [...]}, config)
+
+# Using existing async driver
+driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
+checkpointer = AsyncNeo4jSaver(driver)
+await checkpointer.setup()
 ```
 
 ## 🧪 Tests
-
-Install the test dependencies to run the tests:
-
-```bash
-poetry install --with test,test_integration,mmr
-```
 
 ### Unit Tests
 
@@ -151,12 +193,6 @@ make tests
 
 ## 🧹 Code Formatting and Linting
 
-Install the codespell, lint, and typing dependencies to lint and format your code:
-
-```bash
-poetry install --with codespell,lint,typing,mmr
-```
-
 To format your code, run:
 
 ```bash
@@ -169,3 +205,8 @@ To lint it, run:
 make lint
 ```
 
+To format the `pyproject. ` file, run:
+
+```bash
+uv run pyprojectsort pyproject.toml
+```

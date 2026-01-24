@@ -174,6 +174,171 @@ def onnx2torch(onnx_path: str, torch_path: str = None, verbose: bool = False):
         return new_weights_dict
 
 
+def onnx2torch_v3(onnx_path: str,
+                  torch_path: str = None,
+                  verbose: bool = False):
+    """
+    Convert V3 ONNX to PyTorch format.
+    """
+    onnx_model = onnx.load(onnx_path)
+    weights_dict = {}
+    initializer_map = {
+        initializer.name: initializer
+        for initializer in onnx_model.graph.initializer
+    }
+
+    # Build node map for Constants to support biases stored as Constants
+    constant_map = {}
+    for node in onnx_model.graph.node:
+        if node.op_type == 'Constant':
+            for attr in node.attribute:
+                if attr.name == 'value':
+                    constant_map[node.output[0]] = onnx.numpy_helper.to_array(
+                        attr.t)
+
+    # Helper to load tensor from initializer or Constant
+    def get_tensor(name, transpose=False):
+        if name in initializer_map:
+            arr = onnx.numpy_helper.to_array(initializer_map[name]).copy()
+        elif name in constant_map:
+            arr = constant_map[name].copy()
+        else:
+            return None
+
+        t = torch.from_numpy(arr)
+        if transpose and t.ndim == 2:
+            t = t.t()
+        return t
+
+    def get_bias_tensor(node):
+        """Helper to find bias tensor for an Add node.
+        Checks both inputs to see which one is a parameter."""
+        for inp in node.input:
+            t = get_tensor(inp)
+            if t is not None:
+                return t
+        return None
+
+    # Iterate nodes to find mappings
+    for node in onnx_model.graph.node:
+        name = node.name
+        op = node.op_type
+        inputs = node.input
+
+        # 1. Conv layers
+        if name == '/conv1/Conv':
+            weights_dict['encoder.conv1.weight'] = get_tensor(inputs[1])
+            if len(inputs) > 2:
+                weights_dict['encoder.conv1.bias'] = get_tensor(inputs[2])
+        elif name == '/conv2/Conv':
+            weights_dict['encoder.conv2.weight'] = get_tensor(inputs[1])
+            if len(inputs) > 2:
+                weights_dict['encoder.conv2.bias'] = get_tensor(inputs[2])
+
+        # 2. Blocks
+        elif name.startswith('/blocks.'):
+            # Parse block index: /blocks.0/... -> 0
+            parts = name.split('/')  # ['', 'blocks.0', ...]
+            block_part = parts[1]  # blocks.0
+            block_idx = block_part.split('.')[1]  # 0
+            prefix = f"encoder.blocks.{block_idx}"
+
+            # LayerNorms (attn_ln, mlp_ln)
+            # Pattern: /blocks.0/attn_ln/Mul (weight)
+            if 'attn_ln/Mul' in name and op == 'Mul':
+                weights_dict[f"{prefix}.attn_ln.weight"] = get_tensor(
+                    inputs[1])
+            elif 'attn_ln/Add' in name and op == 'Add':
+                t = get_bias_tensor(node)
+                if t is not None and t.numel() > 1:
+                    weights_dict[f"{prefix}.attn_ln.bias"] = t
+            elif 'mlp_ln/Mul' in name and op == 'Mul':
+                weights_dict[f"{prefix}.mlp_ln.weight"] = get_tensor(inputs[1])
+            elif 'mlp_ln/Add' in name and op == 'Add':
+                t = get_bias_tensor(node)
+                if t is not None and t.numel() > 1:
+                    weights_dict[f"{prefix}.mlp_ln.bias"] = t
+
+            # Attn weights
+            # query
+            elif 'attn/query/MatMul' in name:
+                weights_dict[f"{prefix}.attn.query.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'attn/query/Add' in name:
+                weights_dict[f"{prefix}.attn.query.bias"] = get_bias_tensor(
+                    node)
+
+            # key
+            elif 'attn/key/MatMul' in name:
+                weights_dict[f"{prefix}.attn.key.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'attn/key/Add' in name:
+                weights_dict[f"{prefix}.attn.key.bias"] = get_bias_tensor(node)
+
+            # value
+            elif 'attn/value/MatMul' in name:
+                weights_dict[f"{prefix}.attn.value.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'attn/value/Add' in name:
+                weights_dict[f"{prefix}.attn.value.bias"] = get_bias_tensor(
+                    node)
+
+            # out (attn output)
+            elif 'attn/out/MatMul' in name:
+                weights_dict[f"{prefix}.attn.out.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'attn/out/Add' in name:
+                weights_dict[f"{prefix}.attn.out.bias"] = get_bias_tensor(node)
+
+            # MLP
+            elif 'mlp/mlp.0/MatMul' in name:
+                weights_dict[f"{prefix}.mlp.0.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'mlp/mlp.0/Add' in name:
+                weights_dict[f"{prefix}.mlp.0.bias"] = get_bias_tensor(node)
+            elif 'mlp/mlp.2/MatMul' in name:
+                weights_dict[f"{prefix}.mlp.2.weight"] = get_tensor(
+                    inputs[1], transpose=True)
+            elif 'mlp/mlp.2/Add' in name:
+                weights_dict[f"{prefix}.mlp.2.bias"] = get_bias_tensor(node)
+
+        # 3. FSMN weights
+        if 'fsmn_block/Conv' in name:
+            pass
+
+    # Handle explicit FSMN weights and Quantizer weights that might not be caught above
+    for init_name in initializer_map:
+        if 'fsmn_block.weight' in init_name:
+            weights_dict[f"encoder.{init_name}"] = get_tensor(init_name)
+
+        if 'quantizer.project_in.bias' in init_name:
+            weights_dict["quantizer._codebook.project_down.bias"] = get_tensor(
+                init_name)
+
+    # Scan for Quantizer project down MatMul
+    for node in onnx_model.graph.node:
+        if 'quantizer' in node.name and 'MatMul' in node.op_type:
+            # Likely project_down
+            weights_dict[
+                "quantizer._codebook.project_down.weight"] = get_tensor(
+                    node.input[1], transpose=True)
+
+    # Filter out None values
+    weights_dict = {k: v for k, v in weights_dict.items() if v is not None}
+
+    if verbose:
+        for k, v in weights_dict.items():
+            if v is not None:
+                print(f"{k} : {v.shape} {v.dtype}")
+        print(f"PyTorch weights saved to {torch_path}")
+
+    del onnx_model
+    if torch_path:
+        torch.save(weights_dict, torch_path)
+    else:
+        return weights_dict
+
+
 def load_audio(file: str, sr: int = 16000):
     """
     Open an audio file and read as mono waveform, resampling as necessary
@@ -383,7 +548,8 @@ def merge_tokenized_segments(tokenized_segments, overlap, token_rate):
 
     for i, tokens in enumerate(tokenized_segments):
         l = 0 if i == 0 else overlap_tokens
-        r = -overlap_tokens if i != len(tokenized_segments) - 1 else len(tokens)
+        r = -overlap_tokens if i != len(tokenized_segments) - 1 else len(
+            tokens)
         # Keep only the middle part (drop overlap / 2 from both sides)
         merged_tokens.extend(tokens[l:r])
 

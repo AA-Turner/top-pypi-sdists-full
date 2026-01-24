@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -30,12 +31,6 @@ from .literals import (
     VirtualClusterStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -163,7 +158,7 @@ CancelJobRunRequestTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -180,14 +175,14 @@ class CloudWatchMonitoringConfigurationTypeDef(TypedDict):
 
 class ConfigurationOutputTypeDef(TypedDict):
     classification: str
-    properties: NotRequired[Dict[str, str]]
-    configurations: NotRequired[List[Dict[str, Any]]]
+    properties: NotRequired[dict[str, str]]
+    configurations: NotRequired[list[dict[str, Any]]]
 
 
 class ConfigurationPaginatorTypeDef(TypedDict):
     classification: str
-    properties: NotRequired[Dict[str, str]]
-    configurations: NotRequired[List[Dict[str, Any]]]
+    properties: NotRequired[dict[str, str]]
+    configurations: NotRequired[list[dict[str, Any]]]
 
 
 class ConfigurationTypeDef(TypedDict):
@@ -286,7 +281,7 @@ class SparkSqlJobDriverTypeDef(TypedDict):
 
 class SparkSubmitJobDriverOutputTypeDef(TypedDict):
     entryPoint: str
-    entryPointArguments: NotRequired[List[str]]
+    entryPointArguments: NotRequired[list[str]]
     sparkSubmitParameters: NotRequired[str]
 
 
@@ -430,7 +425,7 @@ DeleteVirtualClusterResponseTypeDef = TypedDict(
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -606,12 +601,12 @@ JobDriverUnionTypeDef = Union[JobDriverTypeDef, JobDriverOutputTypeDef]
 
 
 class ConfigurationOverridesOutputTypeDef(TypedDict):
-    applicationConfiguration: NotRequired[List[ConfigurationOutputTypeDef]]
+    applicationConfiguration: NotRequired[list[ConfigurationOutputTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationTypeDef]
 
 
 class ConfigurationOverridesPaginatorTypeDef(TypedDict):
-    applicationConfiguration: NotRequired[List[ConfigurationPaginatorTypeDef]]
+    applicationConfiguration: NotRequired[list[ConfigurationPaginatorTypeDef]]
     monitoringConfiguration: NotRequired[MonitoringConfigurationTypeDef]
 
 
@@ -621,12 +616,12 @@ class ConfigurationOverridesTypeDef(TypedDict):
 
 
 class ParametricConfigurationOverridesOutputTypeDef(TypedDict):
-    applicationConfiguration: NotRequired[List[ConfigurationOutputTypeDef]]
+    applicationConfiguration: NotRequired[list[ConfigurationOutputTypeDef]]
     monitoringConfiguration: NotRequired[ParametricMonitoringConfigurationTypeDef]
 
 
 class ParametricConfigurationOverridesPaginatorTypeDef(TypedDict):
-    applicationConfiguration: NotRequired[List[ConfigurationPaginatorTypeDef]]
+    applicationConfiguration: NotRequired[list[ConfigurationPaginatorTypeDef]]
     monitoringConfiguration: NotRequired[ParametricMonitoringConfigurationTypeDef]
 
 
@@ -652,7 +647,7 @@ VirtualClusterTypeDef = TypedDict(
         "state": NotRequired[VirtualClusterStateType],
         "containerProvider": NotRequired[ContainerProviderTypeDef],
         "createdAt": NotRequired[datetime],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "securityConfigurationId": NotRequired[str],
     },
 )
@@ -680,10 +675,10 @@ EndpointTypeDef = TypedDict(
         "serverUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
-        "subnetIds": NotRequired[List[str]],
+        "subnetIds": NotRequired[list[str]],
         "stateDetails": NotRequired[str],
         "failureReason": NotRequired[FailureReasonType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 JobRunTypeDef = TypedDict(
@@ -704,7 +699,7 @@ JobRunTypeDef = TypedDict(
         "finishedAt": NotRequired[datetime],
         "stateDetails": NotRequired[str],
         "failureReason": NotRequired[FailureReasonType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "retryPolicyConfiguration": NotRequired[RetryPolicyConfigurationTypeDef],
         "retryPolicyExecution": NotRequired[RetryPolicyExecutionTypeDef],
     },
@@ -726,10 +721,10 @@ EndpointPaginatorTypeDef = TypedDict(
         "serverUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
-        "subnetIds": NotRequired[List[str]],
+        "subnetIds": NotRequired[list[str]],
         "stateDetails": NotRequired[str],
         "failureReason": NotRequired[FailureReasonType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 JobRunPaginatorTypeDef = TypedDict(
@@ -750,7 +745,7 @@ JobRunPaginatorTypeDef = TypedDict(
         "finishedAt": NotRequired[datetime],
         "stateDetails": NotRequired[str],
         "failureReason": NotRequired[FailureReasonType],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "retryPolicyConfiguration": NotRequired[RetryPolicyConfigurationTypeDef],
         "retryPolicyExecution": NotRequired[RetryPolicyExecutionTypeDef],
     },
@@ -765,8 +760,8 @@ class JobTemplateDataOutputTypeDef(TypedDict):
     releaseLabel: str
     jobDriver: JobDriverOutputTypeDef
     configurationOverrides: NotRequired[ParametricConfigurationOverridesOutputTypeDef]
-    parameterConfiguration: NotRequired[Dict[str, TemplateParameterConfigurationTypeDef]]
-    jobTags: NotRequired[Dict[str, str]]
+    parameterConfiguration: NotRequired[dict[str, TemplateParameterConfigurationTypeDef]]
+    jobTags: NotRequired[dict[str, str]]
 
 
 class JobTemplateDataPaginatorTypeDef(TypedDict):
@@ -774,8 +769,8 @@ class JobTemplateDataPaginatorTypeDef(TypedDict):
     releaseLabel: str
     jobDriver: JobDriverOutputTypeDef
     configurationOverrides: NotRequired[ParametricConfigurationOverridesPaginatorTypeDef]
-    parameterConfiguration: NotRequired[Dict[str, TemplateParameterConfigurationTypeDef]]
-    jobTags: NotRequired[Dict[str, str]]
+    parameterConfiguration: NotRequired[dict[str, TemplateParameterConfigurationTypeDef]]
+    jobTags: NotRequired[dict[str, str]]
 
 
 class JobTemplateDataTypeDef(TypedDict):
@@ -793,7 +788,7 @@ class DescribeVirtualClusterResponseTypeDef(TypedDict):
 
 
 class ListVirtualClustersResponseTypeDef(TypedDict):
-    virtualClusters: List[VirtualClusterTypeDef]
+    virtualClusters: list[VirtualClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -808,7 +803,7 @@ class DescribeManagedEndpointResponseTypeDef(TypedDict):
 
 
 class ListManagedEndpointsResponseTypeDef(TypedDict):
-    endpoints: List[EndpointTypeDef]
+    endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -819,19 +814,19 @@ class DescribeJobRunResponseTypeDef(TypedDict):
 
 
 class ListJobRunsResponseTypeDef(TypedDict):
-    jobRuns: List[JobRunTypeDef]
+    jobRuns: list[JobRunTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListManagedEndpointsResponsePaginatorTypeDef(TypedDict):
-    endpoints: List[EndpointPaginatorTypeDef]
+    endpoints: list[EndpointPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListJobRunsResponsePaginatorTypeDef(TypedDict):
-    jobRuns: List[JobRunPaginatorTypeDef]
+    jobRuns: list[JobRunPaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -875,7 +870,7 @@ JobTemplateTypeDef = TypedDict(
         "arn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "kmsKeyArn": NotRequired[str],
         "decryptionError": NotRequired[str],
     },
@@ -889,7 +884,7 @@ JobTemplatePaginatorTypeDef = TypedDict(
         "arn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "kmsKeyArn": NotRequired[str],
         "decryptionError": NotRequired[str],
     },
@@ -914,7 +909,7 @@ SecurityConfigurationTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
         "securityConfigurationData": NotRequired[SecurityConfigurationDataTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -925,13 +920,13 @@ class DescribeJobTemplateResponseTypeDef(TypedDict):
 
 
 class ListJobTemplatesResponseTypeDef(TypedDict):
-    templates: List[JobTemplateTypeDef]
+    templates: list[JobTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListJobTemplatesResponsePaginatorTypeDef(TypedDict):
-    templates: List[JobTemplatePaginatorTypeDef]
+    templates: list[JobTemplatePaginatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -950,6 +945,6 @@ class DescribeSecurityConfigurationResponseTypeDef(TypedDict):
 
 
 class ListSecurityConfigurationsResponseTypeDef(TypedDict):
-    securityConfigurations: List[SecurityConfigurationTypeDef]
+    securityConfigurations: list[SecurityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

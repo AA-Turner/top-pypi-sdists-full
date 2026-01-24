@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -7,8 +7,17 @@ import sys
 import webbrowser
 from pathlib import Path
 from shutil import which
-from typing import TYPE_CHECKING, Optional, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Optional,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 
+from marimo._runtime.commands import CommandMessage
+from marimo._server.models.models import SuccessResponse
+from marimo._types.ids import ConsumerId
 from marimo._utils.parse_dataclass import parse_raw
 
 if TYPE_CHECKING:
@@ -22,6 +31,36 @@ async def parse_request(
     return parse_raw(
         await request.body(), cls=cls, allow_unknown_keys=allow_unknown_keys
     )
+
+
+@runtime_checkable
+class RequestAsCommand(Protocol):
+    """Protocol for requests that can be converted to commands."""
+
+    def as_command(self) -> CommandMessage: ...
+
+
+async def dispatch_control_request(
+    request: Request,
+    cls: type[CommandMessage] | CommandMessage,
+) -> SuccessResponse:
+    """
+    Parse a request and dispatch it to the current session.
+    """
+    from marimo._server.api.deps import AppState
+
+    app_state = AppState(request)
+    if isinstance(cls, type):
+        body = await parse_request(request, cls)
+    else:
+        body = cls
+    if isinstance(body, RequestAsCommand):
+        body = body.as_command()
+    app_state.require_current_session().put_control_request(
+        body,
+        from_consumer_id=ConsumerId(app_state.require_current_session_id()),
+    )
+    return SuccessResponse()
 
 
 def parse_title(filepath: Optional[str]) -> str:

@@ -9,23 +9,27 @@ Shell Widget for the IPython Console
 """
 
 # Standard library imports
+from collections.abc import Callable
 import logging
 import os
 import os.path as osp
 import time
 from textwrap import dedent
+import typing
 
 # Third party imports
-from qtpy.QtCore import Qt, Signal, Slot
+from qtpy.QtCore import Qt, Signal, QEvent
 from qtpy.QtGui import QClipboard, QTextCursor, QTextFormat
 from qtpy.QtWidgets import QApplication, QMessageBox
 from spyder_kernels.comms.frontendcomm import CommError
+from spyder_kernels.utils.style import create_style_class
 from traitlets import observe
 
 # Local imports
 from spyder.api.plugins import Plugins
+from spyder.api.translations import _
 from spyder.api.widgets.mixins import SpyderWidgetMixin
-from spyder.config.base import _, is_conda_based_app, running_under_pytest
+from spyder.config.base import is_conda_based_app, running_under_pytest
 from spyder.config.gui import get_color_scheme, is_dark_interface
 from spyder.plugins.ipythonconsole.api import (
     IPythonConsoleWidgetCornerWidgets,
@@ -33,8 +37,7 @@ from spyder.plugins.ipythonconsole.api import (
     ClientContextMenuActions,
     ClientContextMenuSections
 )
-from spyder.plugins.ipythonconsole.utils.style import (
-    create_qss_style, create_style_class)
+from spyder.plugins.ipythonconsole.utils.style import create_qss_style
 from spyder.plugins.ipythonconsole.utils.kernel_handler import (
     KernelConnectionState)
 from spyder.plugins.ipythonconsole.widgets import (
@@ -44,6 +47,9 @@ from spyder.utils import syntaxhighlighters as sh
 from spyder.utils.palette import SpyderPalette
 from spyder.utils.clipboard_helper import CLIPBOARD_HELPER
 from spyder.widgets.helperwidgets import MessageCheckBox
+
+if typing.TYPE_CHECKING:
+    from spyder.plugins.ipythonconsole.widgets.client import ClientWidget
 
 
 logger = logging.getLogger(__name__)
@@ -119,7 +125,7 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
     sig_remote_execute = Signal()
 
     # For global working directory
-    sig_working_directory_changed = Signal(str)
+    sig_working_directory_changed = Signal(str, str)
 
     # For printing internal errors
     sig_exception_occurred = Signal(dict)
@@ -129,6 +135,19 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
 
     # Request plugins to send additional configuration to the Spyder kernel
     sig_config_spyder_kernel = Signal()
+
+    # Kernel ready
+    sig_kernel_is_ready = Signal()
+    """
+    Signal used to inform other Qt objects that the kernel is ready.
+
+    Notes
+    -----
+    * Do not connect directly to the `kernel_handler.sig_kernel_is_ready`
+      signal to receive updates about this because that object is replaced on
+      kernel restarts.
+    * See spyder-ide/spyder#24577 for more context.
+    """
 
     # To notify of kernel connection, disconnection and kernel errors
     sig_shellwidget_created = Signal(object)
@@ -156,7 +175,6 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         handlers,
         *args,
         special_kernel=None,
-        server_id=None,
         **kw,
     ):
         # To override the Qt widget used by RichJupyterWidget
@@ -165,10 +183,9 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         self.custom_edit = True
 
         super().__init__(*args, **kw)
-        self.ipyclient = ipyclient
+        self.ipyclient: ClientWidget = ipyclient
         self.additional_options = additional_options
         self.special_kernel = special_kernel
-        self.server_id = server_id
 
         # Keyboard shortcuts
         # Registered here to use shellwidget as the parent
@@ -221,6 +238,11 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         self.print_action.setShortcut('')
 
     # ---- Public API
+    @property
+    def server_id(self):
+        if self.is_remote():
+            return self.ipyclient.jupyter_api.server_id
+
     @property
     def is_spyder_kernel(self):
         if self.kernel_handler is None:
@@ -325,6 +347,7 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         ):
             self.setup_spyder_kernel()
             self._show_banner()
+            self.sig_kernel_is_ready.emit()
 
     def handle_kernel_connection_error(self):
         """An error occurred when connecting to the kernel."""
@@ -413,6 +436,15 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
 
         self.send_spyder_kernel_configuration()
 
+        # Update sys.path
+        paths = self.get_conf(
+            "spyder_pythonpath", section="pythonpath_manager"
+        )
+        prioritize = self.get_conf(
+            "prioritize", section="pythonpath_manager"
+        )
+        self.update_syspath(paths, prioritize)
+
         run_lines = self.get_conf('startup/run_lines')
         if run_lines:
             self.execute(run_lines, hidden=True)
@@ -476,6 +508,27 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
 
         self._kernel_configuration[key] = value
 
+    def register_kernel_call_handler(self, handler_id: str, handler: Callable):
+        """Register a comm handler."""
+        self.kernel_comm_handlers[handler_id] = handler
+
+        # When this class is initialized, not all handlers are passed to its
+        # constructor (i.e. some are registered afterwards). But after a kernel
+        # restart, all handlers should have been registered. So, this check
+        # prevents registering non-init handlers multiple times after a restart
+        if (
+            handler_id
+            not in self.kernel_handler.kernel_comm._remote_call_handlers
+        ):
+            self.kernel_handler.kernel_comm.register_call_handler(
+                handler_id, handler
+            )
+
+    def unregister_kernel_call_handler(self, handler_id: str):
+        """Unregister a comm handler."""
+        self.kernel_comm_handlers.pop(handler_id, None)
+        self.kernel_handler.kernel_comm.unregister_call_handler(handler_id)
+
     def kernel_configure_callback(self, dic):
         """Kernel configuration callback"""
         for key, value in dic.items():
@@ -505,9 +558,7 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
                 self.call_kernel(interrupt=True).raise_interrupt_signal()
             elif self.is_remote():
                 # Request an interrupt to the server for remote kernels
-                self.ipyclient.sig_interrupt_kernel_requested.emit(
-                    self.server_id, self.ipyclient.kernel_id
-                )
+                self.ipyclient.interrupt_remote_kernel()
             else:
                 self._append_html(
                     _("<br><br>The kernel appears to be dead, so it can't be "
@@ -533,7 +584,7 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         if self._executing:
             self._execute_queue.append((source, hidden, interactive))
             return
-        super(ShellWidget, self).execute(source, hidden, interactive)
+        super().execute(source, hidden, interactive)
 
     def is_running(self):
         """Check if shell is running."""
@@ -554,22 +605,20 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
             Whether to emit a Qt signal that informs other panes in Spyder that
             the current working directory has changed.
         """
-        if self.ipyclient.hostname is not None:
-            # Only sync for local kernels
-            return
-
         if dirname is None:
             if not self.get_cwd():
                 return
             dirname = self.get_cwd()
-        elif os.name == 'nt':
+        elif os.name == 'nt' and self.server_id is None:
             # Use normpath instead of replacing '\' with '\\'
             # See spyder-ide/spyder#10785
             dirname = osp.normpath(dirname)
+
+        logger.debug(f"Attempt to change cwd to {dirname}")
         self.set_kernel_configuration("cwd", dirname)
 
         if emit_cwd_change:
-            self.sig_working_directory_changed.emit(dirname)
+            self.sig_working_directory_changed.emit(dirname, self.server_id)
 
     def send_mpl_backend(self, option=None):
         """
@@ -682,10 +731,10 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         New state received from kernel.
         """
         cwd = state.pop("cwd", None)
-        if cwd and self.get_cwd() and cwd != self.get_cwd():
+        if cwd and cwd != self.get_cwd():
             # Only set it if self.get_cwd() is already set
             self._kernel_configuration["cwd"] = cwd
-            self.sig_working_directory_changed.emit(cwd)
+            self.sig_working_directory_changed.emit(cwd, self.server_id)
 
         if state:
             self.sig_kernel_state_arrived.emit(state)
@@ -701,25 +750,37 @@ class ShellWidget(NamepaceBrowserWidget, HelpWidget, DebuggingWidget,
         self.set_bracket_matcher_color_scheme(color_scheme)
         self.style_sheet, dark_color = create_qss_style(color_scheme)
         self.syntax_style = color_scheme
-        self._style_sheet_changed()
-        self._syntax_style_changed(changed={})
-        if reset:
-            self.reset(clear=True)
+
         if not self.spyder_kernel_ready:
             # Will be sent later
             return
+
+        if reset:
+            # Don't clear console and show a message instead to prevent
+            # removing important content from users' consoles.
+            # Fixes spyder-ide/spyder#9896
+            self.reset(clear=False)
+            self._append_plain_text(
+                "\n\nNote: Clearing the console is necessary to fully apply "
+                "the new syntax style you selected."
+            )
         self.set_kernel_configuration(
             "color scheme", "dark" if not dark_color else "light"
         )
+        color_scheme = get_color_scheme(self.syntax_style)
+        self.set_kernel_configuration(
+            "traceback_highlight_style",
+            color_scheme,
+        )
 
-    def update_syspath(self, path_dict, new_path_dict):
+    def update_syspath(self, new_paths, prioritize):
         """Update sys.path contents in the kernel."""
         # Prevent error when the kernel is not available and users open/close
         # projects or use the Python path manager.
         # Fixes spyder-ide/spyder#21563
         if self.kernel_handler is not None:
             self.call_kernel(interrupt=True, blocking=False).update_syspath(
-                path_dict, new_path_dict
+                new_paths, prioritize
             )
 
     def request_syspath(self):
@@ -856,11 +917,6 @@ overrided by the Sympy module (e.g. plot)
         # Stop reading as any input has been removed.
         self._reading = False
 
-    @Slot()
-    def _reset_namespace(self):
-        warning = self.get_conf('show_reset_namespace_warning')
-        self.reset_namespace(warning=warning)
-
     def reset_namespace(self, warning=False, message=False):
         """Reset the namespace by removing all names defined by the user."""
         # Don't show the warning when running our tests.
@@ -909,36 +965,6 @@ overrided by the Sympy module (e.g. plot)
         else:
             self._update_reset_options(message_box)
 
-    def _perform_reset(self, message):
-        """
-        Perform the reset namespace operation.
-
-        Parameters
-        ----------
-        message: bool
-            Whether to show a message in the console telling users the
-            namespace was reset.
-        """
-        try:
-            if self.is_waiting_pdb_input():
-                self.execute('%reset -f')
-            else:
-                if message:
-                    self.reset()
-                    self._append_html(
-                        _("<br><br>Removing all variables...<br>"),
-                        before_prompt=False
-                    )
-                    self.insert_horizontal_ruler()
-                self.silent_execute("%reset -f")
-                self.set_special_kernel()
-
-                if self.spyder_kernel_ready:
-                    self.call_kernel().close_all_mpl_figures()
-                    self.send_spyder_kernel_configuration()
-        except AttributeError:
-            pass
-
     def set_special_kernel(self):
         """Reset special kernel"""
         if not self.special_kernel:
@@ -948,17 +974,6 @@ overrided by the Sympy module (e.g. plot)
         self.set_kernel_configuration(
             "special_kernel", self.special_kernel
         )
-
-    def _update_reset_options(self, message_box):
-        """
-        Update options and variables based on the interaction in the
-        reset warning message box shown to the user.
-        """
-        self.set_conf(
-            'show_reset_namespace_warning',
-            not message_box.is_checked()
-        )
-        self.ipyclient.reset_warning = not message_box.is_checked()
 
     def regiter_shortcuts(self):
         """Register shortcuts for this widget."""
@@ -1087,7 +1102,7 @@ overrided by the Sympy module (e.g. plot)
 
     def is_remote(self):
         """Check if this shell is connected to a remote server."""
-        return self.server_id is not None
+        return self.ipyclient.is_remote()
 
     # ---- Public methods (overrode by us)
     def paste(self, mode=QClipboard.Clipboard):
@@ -1219,8 +1234,57 @@ overrided by the Sympy module (e.g. plot)
         # Fixes spyder-ide/spyder#22593
         self.banner = banner
 
+        # Ensure banner can not be undone after insertion
+        # See https://github.com/spyder-ide/spyder/pull/24726#discussion_r2229475275
+        self._control.document().clearUndoRedoStacks()
+
         # Only do this once
         self._is_banner_shown = True
+
+    def _reset_namespace(self):
+        warning = self.get_conf('show_reset_namespace_warning')
+        self.reset_namespace(warning=warning)
+
+    def _perform_reset(self, message):
+        """
+        Perform the reset namespace operation.
+
+        Parameters
+        ----------
+        message: bool
+            Whether to show a message in the console telling users the
+            namespace was reset.
+        """
+        try:
+            if self.is_waiting_pdb_input():
+                self.execute('%reset -f')
+            else:
+                if message:
+                    self.reset()
+                    self._append_html(
+                        _("<br><br>Removing all variables...<br>"),
+                        before_prompt=False
+                    )
+                    self.insert_horizontal_ruler()
+                self.silent_execute("%reset -f")
+                self.set_special_kernel()
+
+                if self.spyder_kernel_ready:
+                    self.call_kernel().close_all_mpl_figures()
+                    self.send_spyder_kernel_configuration()
+        except AttributeError:
+            pass
+
+    def _update_reset_options(self, message_box):
+        """
+        Update options and variables based on the interaction in the
+        reset warning message box shown to the user.
+        """
+        self.set_conf(
+            'show_reset_namespace_warning',
+            not message_box.is_checked()
+        )
+        self.ipyclient.reset_warning = not message_box.is_checked()
 
     # ---- Private API (overrode by us)
     def _event_filter_console_keypress(self, event):
@@ -1389,10 +1453,8 @@ overrided by the Sympy module (e.g. plot)
         stop_button.setEnabled(False)
 
         if self.is_remote():
-            # Inform that the kernel died to the Remote client plugin so that
-            # it can try to reconnect to it.
             self._kernel_restarted_message(died=True)
-            self.ipyclient.sig_kernel_died.emit()
+            self.ipyclient.reconnect_remote_kernel()
         else:
             super()._handle_kernel_died(since_last_heartbeat)
 
@@ -1440,14 +1502,9 @@ overrided by the Sympy module (e.g. plot)
             # ignore premature calls
             return
         if self.syntax_style:
-            self._highlighter._style = create_style_class(self.syntax_style)
+            color_scheme = get_color_scheme(self.syntax_style)
+            self._highlighter._style = create_style_class(color_scheme)
             self._highlighter._clear_caches()
-            if changed is None:
-                return
-            self.set_kernel_configuration(
-                "traceback_highlight_style",
-                get_color_scheme(self.syntax_style),
-            )
         else:
             self._highlighter.set_style_sheet(self.style_sheet)
 
@@ -1470,7 +1527,7 @@ overrided by the Sympy module (e.g. plot)
 
     def _handle_execute_input(self, msg):
         """Handle an execute_input message"""
-        super(ShellWidget, self)._handle_execute_input(msg)
+        super()._handle_execute_input(msg)
         self.sig_remote_execute.emit()
 
     def _process_execute_error(self, msg):
@@ -1478,7 +1535,7 @@ overrided by the Sympy module (e.g. plot)
         Display a message when using our installers to explain users
         how to use modules that doesn't come with them.
         """
-        super(ShellWidget, self)._process_execute_error(msg)
+        super()._process_execute_error(msg)
         if self.show_modules_message:
             error = msg['content']['traceback']
             if any(['ModuleNotFoundError' in frame or 'ImportError' in frame
@@ -1496,12 +1553,22 @@ overrided by the Sympy module (e.g. plot)
     def focusInEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(ShellWidget, self).focusInEvent(event)
+        return super().focusInEvent(event)
 
     def focusOutEvent(self, event):
         """Reimplement Qt method to send focus change notification"""
         self.sig_focus_changed.emit()
-        return super(ShellWidget, self).focusOutEvent(event)
+        return super().focusOutEvent(event)
+    
+    def eventFilter(self, obj, event):
+        if (
+            event.type() == QEvent.Wheel
+            and self._control_key_down(event.modifiers())
+            and self.get_conf('disable_zoom_mouse', section='main')
+        ):
+            return False
+
+        return super().eventFilter(obj, event)
 
     # ---- Python methods
     def __repr__(self):

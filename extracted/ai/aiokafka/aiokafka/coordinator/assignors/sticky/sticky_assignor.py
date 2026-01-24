@@ -13,7 +13,6 @@ from copy import deepcopy
 from typing import (
     Any,
     NamedTuple,
-    Optional,
 )
 
 from aiokafka.cluster import ClusterMetadata
@@ -519,8 +518,7 @@ class StickyAssignmentExecutor:
         max_assignment_size = len(self.consumer_to_all_potential_partitions[consumer])
         if current_assignment_size > max_assignment_size:
             log.error(
-                "The consumer %r is assigned more partitions than the maximum "
-                "possible",
+                "The consumer %r is assigned more partitions than the maximum possible",
                 consumer,
             )
         if current_assignment_size < max_assignment_size:
@@ -655,7 +653,7 @@ class StickyAssignmentExecutor:
             consumer_to_assignment[consumer_id] = len(partitions)
 
         consumers_to_explore = set(consumer_to_assignment.keys())
-        for consumer_id in consumer_to_assignment:
+        for consumer_id in consumer_to_assignment:  # noqa: PLC0206
             if consumer_id in consumers_to_explore:
                 consumers_to_explore.remove(consumer_id)
                 for other_consumer_id in consumers_to_explore:
@@ -745,10 +743,10 @@ class StickyPartitionAssignor(AbstractPartitionAssignor):
     name = "sticky"
     version = 0
 
-    member_assignment: Optional[list[TopicPartition]] = None
+    member_assignment: list[TopicPartition] | None = None
     generation: int = DEFAULT_GENERATION_ID
 
-    _latest_partition_movements: Optional[PartitionMovements] = None
+    _latest_partition_movements: PartitionMovements | None = None
 
     @classmethod
     def assign(
@@ -843,7 +841,7 @@ class StickyPartitionAssignor(AbstractPartitionAssignor):
     def _metadata(
         cls,
         topics: Iterable[str],
-        member_assignment_partitions: Optional[list[TopicPartition]],
+        member_assignment_partitions: list[TopicPartition] | None,
         generation: int = -1,
     ) -> ConsumerProtocolMemberMetadata:
         if member_assignment_partitions is None:

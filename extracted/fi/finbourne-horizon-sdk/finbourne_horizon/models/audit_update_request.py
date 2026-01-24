@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, constr 
 
 class AuditUpdateRequest(BaseModel):
     """
@@ -28,7 +30,7 @@ class AuditUpdateRequest(BaseModel):
     id:  StrictStr = Field(...,alias="id", description="A unique ID identifiying the source of the event") 
     user_id:  StrictStr = Field(...,alias="userId", description="A unique ID identifiying who owns the schedule") 
     scheduler_run_id:  StrictStr = Field(...,alias="schedulerRunId", description="The GUID of the schedule run") 
-    start_time: datetime = Field(..., alias="startTime", description="When the run was started in UTC")
+    start_time: datetime = Field(description="When the run was started in UTC", alias="startTime")
     message:  StrictStr = Field(...,alias="message", description="A descriptive message to accompany the status") 
     process_name_override:  Optional[StrictStr] = Field(None,alias="processNameOverride", description="Optional Name for how the process appears in Data Feed Monitoring") 
     __properties = ["id", "userId", "schedulerRunId", "startTime", "message", "processNameOverride"]
@@ -90,3 +92,5 @@ class AuditUpdateRequest(BaseModel):
             "process_name_override": obj.get("processNameOverride")
         })
         return _obj
+
+AuditUpdateRequest.update_forward_refs()

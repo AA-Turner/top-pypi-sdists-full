@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finnhub-python
-Version: 2.4.24
+Version: 2.4.26
 Summary: Finnhub API
 Home-page: https://finnhub.io/docs/api
 Author: Finnhub
@@ -25,7 +25,7 @@ Dynamic: summary
 
 - API documentation: https://finnhub.io/docs/api
 - API version: 1.0.0
-- Package version: 2.4.24
+- Package version: 2.4.25
 
 ## Installation
 

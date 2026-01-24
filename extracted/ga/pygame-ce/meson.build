@@ -34,11 +34,7 @@ elif host_machine.system() == 'android'
         'However it may be added in the future',
     )
 elif host_machine.system() == 'emscripten'
-    plat = 'emscripten'
-    error(
-        'The meson buildconfig of pygame-ce does not support emscripten for now. ',
-        'However it may be added in the future',
-    )
+    plat = 'emscripten-@0@'.format(get_option('emscripten_type'))
 else
     # here it one of: cygwin, dragonfly, freebsd, gnu, haiku, netbsd, openbsd, sunos
     plat = 'unix'
@@ -90,16 +86,99 @@ endif
 
 pg_inc_dirs = []
 pg_lib_dirs = []
+
+if plat == 'emscripten-pygbag'
+    sdl_dep = declare_dependency(
+        link_args: ['-lSDL2'],
+    )
+    sdl_image_dep = declare_dependency(
+        link_args: ['-lSDL2_image'],
+    )
+    sdl_mixer_dep = declare_dependency(
+        link_args: ['-lSDL2_mixer_ogg', '-logg', '-lvorbis'],
+    )
+    freetype_dep = declare_dependency(
+        link_args: ['-lfreetype', '-lharfbuzz']
+    )
+    sdl_ttf_dep = declare_dependency(
+        link_args: ['-lSDL2_ttf'],
+        dependencies: [freetype_dep]
+    )
+elif plat == 'emscripten-pyodide'
+    # Check out before-build attribute in [tool.cibuildwheel.pyodide] section
+    # of pyproject.toml to see how these dependencies were installed.
+    wasm_exceptions = ['-fwasm-exceptions', '-sSUPPORT_LONGJMP=wasm', '-sRELOCATABLE=1']
+    add_global_arguments(wasm_exceptions, language: 'c')
+    add_global_link_arguments(wasm_exceptions, language: 'c')
+
+    sdl_flags = ['-sUSE_SDL=2']
+    freetype_flags = ['-sUSE_FREETYPE=1']
+    sdl_dep = declare_dependency(
+        compile_args: sdl_flags,
+        link_args: sdl_flags + ['-lSDL2', '-lhtml5'],
+    )
+    sdl_image_dep = declare_dependency(
+        link_args: [
+            '-lSDL2_image-bmp-gif-jpg-lbm-pcx-png-pnm-qoi-svg-tga-xcf-xpm-xv-wasm-sjlj',
+            '-ljpeg',
+            '-lpng-legacysjlj',
+        ],
+    )
+    sdl_mixer_dep = declare_dependency(
+        link_args: [
+            '-lSDL2_mixer-mid-mod-mp3-ogg',
+            '-lmodplug',
+            '-lmpg123',
+            '-logg',
+            '-lvorbis'
+        ],
+    )
+    freetype_dep = declare_dependency(
+        compile_args: freetype_flags,
+        link_args: freetype_flags + ['-lfreetype-legacysjlj', '-lharfbuzz']
+    )
+    sdl_ttf_dep = declare_dependency(
+        link_args: ['-lSDL2_ttf'],
+        dependencies: [freetype_dep]
+    )
+else
+
 if plat == 'win' and host_machine.cpu_family().startswith('x86')
     # yes, this is a bit ugly and hardcoded but it is what it is
     # TODO (middle-term goal) - Should migrate away from this
     # consider meson wraps? Hopefully can also get the same build path as below
+    sdl_ver = (sdl_api == 3) ? '3.2.22' : '2.32.10'
+    sdl_image_ver = (sdl_api == 3) ? '3.2.4' : '2.8.8'
+    sdl_mixer_ver = '2.8.1'
+    sdl_ttf_ver = (sdl_api == 3) ? '3.2.2' : '2.24.0'
+
     arch_suffix = 'x' + host_machine.cpu_family().substring(-2)
     base_dir = meson.current_source_dir()
     prebuilt_dir = base_dir / 'prebuilt-' + arch_suffix
 
-    # download prebuilts (uses legacy builconfig code)
-    if not fs.is_dir(prebuilt_dir)
+    sdl_dir = prebuilt_dir / '@0@-@1@'.format(sdl, sdl_ver)
+    sdl_image_dir = prebuilt_dir / '@0@-@1@'.format(sdl_image, sdl_image_ver)
+    sdl_mixer_dir = prebuilt_dir / '@0@-@1@'.format(sdl_mixer, sdl_mixer_ver)
+    sdl_ttf_dir = prebuilt_dir / '@0@-@1@'.format(sdl_ttf, sdl_ttf_ver)
+    common_lib_dir = prebuilt_dir / 'lib'
+
+    # download prebuilts (uses legacy buildconfig code)
+    required_dirs = [
+        prebuilt_dir,
+        sdl_dir,
+        sdl_image_dir,
+        sdl_mixer_dir,
+        sdl_ttf_dir,
+        common_lib_dir,
+    ]
+    any_missing = false
+    foreach d : required_dirs
+        if not fs.is_dir(d)
+            any_missing = true
+            break
+        endif
+    endforeach
+    if any_missing
         run_command(
             [
                 find_program('python3', 'python'),
@@ -109,15 +188,9 @@ if plat == 'win' and host_machine.cpu_family().startswith('x86')
         )
     endif
 
-    sdl_ver = (sdl_api == 3) ? '3.2.10' : '2.32.6'
-    sdl_image_ver = (sdl_api == 3) ? '3.2.4' : '2.8.8'
-    sdl_mixer_ver = '2.8.1'
-    sdl_ttf_ver = (sdl_api == 3) ? '3.2.2' : '2.24.0'
-
     dlls = []
 
     # SDL
-    sdl_dir = prebuilt_dir / '@0@-@1@'.format(sdl, sdl_ver)
     sdl_lib_dir = sdl_dir / 'lib' / arch_suffix
     pg_inc_dirs += fs.relative_to(sdl_dir / 'include', base_dir)
     pg_lib_dirs += sdl_lib_dir
@@ -125,7 +198,6 @@ if plat == 'win' and host_machine.cpu_family().startswith('x86')
 
     # SDL_image
     if get_option('image').enabled()
-        sdl_image_dir = prebuilt_dir / '@0@-@1@'.format(sdl_image, sdl_image_ver)
         sdl_image_lib_dir = sdl_image_dir / 'lib' / arch_suffix
         pg_inc_dirs += fs.relative_to(sdl_image_dir / 'include', base_dir)
         pg_lib_dirs += sdl_image_lib_dir
@@ -147,7 +219,6 @@ if plat == 'win' and host_machine.cpu_family().startswith('x86')
 
     # SDL_mixer
     if get_option('mixer').enabled()
-        sdl_mixer_dir = prebuilt_dir / '@0@-@1@'.format(sdl_mixer, sdl_mixer_ver)
         sdl_mixer_lib_dir = sdl_mixer_dir / 'lib' / arch_suffix
         pg_inc_dirs += fs.relative_to(sdl_mixer_dir / 'include', base_dir)
         pg_lib_dirs += sdl_mixer_lib_dir
@@ -163,7 +234,6 @@ if plat == 'win' and host_machine.cpu_family().startswith('x86')
 
     # SDL_ttf
     if get_option('font').enabled()
-        sdl_ttf_dir = prebuilt_dir / '@0@-@1@'.format(sdl_ttf, sdl_ttf_ver)
         sdl_ttf_lib_dir = sdl_ttf_dir / 'lib' / arch_suffix
         pg_inc_dirs += fs.relative_to(sdl_ttf_dir / 'include', base_dir)
         pg_lib_dirs += sdl_ttf_lib_dir
@@ -172,7 +242,6 @@ if plat == 'win' and host_machine.cpu_family().startswith('x86')
 
     # freetype, portmidi and porttime
     if get_option('freetype').enabled() and get_option('midi').enabled()
-        common_lib_dir = prebuilt_dir / 'lib'
         pg_inc_dirs += fs.relative_to(prebuilt_dir / 'include', base_dir)
         pg_lib_dirs += common_lib_dir
         dlls += [common_lib_dir / 'freetype.dll', common_lib_dir / 'portmidi.dll']
@@ -295,8 +364,10 @@ if not freetype_dep.found()
     )
 endif
 
+endif # emscripten
+
 portmidi_dep = dependency('portmidi', required: false)
-if not portmidi_dep.found()
+if not portmidi_dep.found() and not plat.startswith('emscripten')
     portmidi_dep = declare_dependency(
         include_directories: pg_inc_dirs,
         dependencies: cc.find_library(
@@ -420,7 +491,7 @@ endif
 subdir('src_c')
 subdir('src_py')
 
-if not get_option('stripped')
+if not get_option('stripped') and not plat.startswith('emscripten')
     # run make_docs and make docs
     if not fs.is_dir('docs/generated')
         make_docs = files('buildconfig/make_docs.py')

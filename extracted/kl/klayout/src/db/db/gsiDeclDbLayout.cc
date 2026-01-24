@@ -297,6 +297,20 @@ static void dump_mem_statistics (const db::Layout *layout, bool detailed)
   ms.print ();
 }
 
+static void check_cell_index (const db::Layout *layout, db::cell_index_type ci)
+{
+  if (! layout->is_valid_cell_index (ci)) {
+    throw tl::Exception (tl::to_string (tr ("Not a valid cell index: ")) + tl::to_string (ci));
+  }
+}
+
+static void check_layer (const db::Layout *layout, unsigned int layer)
+{
+  if (! layout->is_valid_layer (layer) && ! layout->is_special_layer (layer)) {
+    throw tl::Exception (tl::to_string (tr ("Invalid layer index: ")) + tl::to_string (layer));
+  }
+}
+
 static bool layout_has_prop_id (const db::Layout *l)
 {
   return l->prop_id () != 0;
@@ -630,30 +644,45 @@ static tl::Variant get_property_from_id (db::properties_id_type id, const tl::Va
 static void
 delete_cells (db::Layout *layout, const std::vector<db::cell_index_type> &cell_indices)
 {
+  for (auto ci = cell_indices.begin (); ci != cell_indices.end (); ++ci) {
+    check_cell_index (layout, *ci);
+  }
   layout->delete_cells (cell_indices.begin (), cell_indices.end ());
+}
+
+static void
+delete_cell_rec (db::Layout *layout, db::cell_index_type cell_index)
+{
+  check_cell_index (layout, cell_index);
+  layout->delete_cell_rec (cell_index);
 }
 
 static void 
 prune_cell (db::Layout *layout, db::cell_index_type cell_index, int levels)
 {
+  check_cell_index (layout, cell_index);
   layout->prune_cell (cell_index, levels);
 }
 
 static void 
 prune_subcells (db::Layout *layout, db::cell_index_type cell_index, int levels)
 {
+  check_cell_index (layout, cell_index);
   layout->prune_subcells (cell_index, levels);
 }
 
 static void 
 flatten (db::Layout *layout, db::cell_index_type cell_index, int levels, bool prune)
 {
+  check_cell_index (layout, cell_index);
   layout->flatten (layout->cell (cell_index), levels, prune);
 }
 
 static void 
 flatten_into (db::Layout *layout, db::cell_index_type cell_index, db::cell_index_type target_cell_index, const db::ICplxTrans &t, int levels)
 {
+  check_cell_index (layout, cell_index);
+  check_cell_index (layout, target_cell_index);
   layout->flatten (layout->cell (cell_index), layout->cell (target_cell_index), t, levels);
 }
 
@@ -698,20 +727,11 @@ write_bytes (db::Layout *layout, const db::SaveLayoutOptions &options)
   return std::vector<char> (byte_stream.data (), byte_stream.data () + byte_stream.size ());
 }
 
-static void check_layer (const db::Layout *layout, unsigned int layer)
-{
-  if (! layout->is_valid_layer (layer) && ! layout->is_special_layer (layer)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid layer index")));
-  }
-}
-
 static db::RecursiveShapeIterator
 begin_shapes (const db::Layout *layout, db::cell_index_type starting_cell, unsigned int layer)
 {
-  if (! layout->is_valid_layer (layer)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid layer index")));
-  }
   check_layer (layout, layer);
+  check_cell_index (layout, starting_cell);
   return db::RecursiveShapeIterator (*layout, layout->cell (starting_cell), layer);
 }
 
@@ -725,9 +745,7 @@ static db::RecursiveShapeIterator
 begin_shapes_touching (const db::Layout *layout, db::cell_index_type starting_cell, unsigned int layer, db::Box region)
 {
   check_layer (layout, layer);
-  if (! layout->is_valid_cell_index (starting_cell)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid cell index")));
-  }
+  check_cell_index (layout, starting_cell);
   return db::RecursiveShapeIterator (*layout, layout->cell (starting_cell), layer, region, false);
 }
 
@@ -741,9 +759,7 @@ static db::RecursiveShapeIterator
 begin_shapes_overlapping (const db::Layout *layout, db::cell_index_type starting_cell, unsigned int layer, db::Box region)
 {
   check_layer (layout, layer);
-  if (! layout->is_valid_cell_index (starting_cell)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid cell index")));
-  }
+  check_cell_index (layout, starting_cell);
   return db::RecursiveShapeIterator (*layout, layout->cell (starting_cell), layer, region, true);
 }
 
@@ -757,9 +773,7 @@ static db::RecursiveShapeIterator
 begin_shapes_touching_um (const db::Layout *layout, db::cell_index_type starting_cell, unsigned int layer, db::DBox region)
 {
   check_layer (layout, layer);
-  if (! layout->is_valid_cell_index (starting_cell)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid cell index")));
-  }
+  check_cell_index (layout, starting_cell);
   return db::RecursiveShapeIterator (*layout, layout->cell (starting_cell), layer, db::CplxTrans (layout->dbu ()).inverted () * region, false);
 }
 
@@ -773,9 +787,7 @@ static db::RecursiveShapeIterator
 begin_shapes_overlapping_um (const db::Layout *layout, db::cell_index_type starting_cell, unsigned int layer, db::DBox region)
 {
   check_layer (layout, layer);
-  if (! layout->is_valid_cell_index (starting_cell)) {
-    throw tl::Exception (tl::to_string (tr ("Invalid cell index")));
-  }
+  check_cell_index (layout, starting_cell);
   return db::RecursiveShapeIterator (*layout, layout->cell (starting_cell), layer, db::CplxTrans (layout->dbu ()).inverted () * region, true);
 }
 
@@ -847,11 +859,21 @@ static std::vector<std::string> pcell_names (const db::Layout *layout)
   return res;
 }
 
+static void delete_cell (db::Layout *ly, db::cell_index_type ci)
+{
+  check_cell_index (ly, ci);
+  ly->delete_cell (ci);
+}
+
+static void rename_cell (db::Layout *ly, db::cell_index_type ci, const std::string &name)
+{
+  check_cell_index (ly, ci);
+  ly->rename_cell (ci, name.c_str ());
+}
+
 static db::Cell *cell_from_index (db::Layout *ly, db::cell_index_type ci)
 {
-  if (! ly->is_valid_cell_index (ci)) {
-    throw tl::Exception (tl::to_string (tr ("Not a valid cell index: ")) + tl::to_string (ci));
-  }
+  check_cell_index (ly, ci);
   return &ly->cell (ci);
 }
 
@@ -1094,17 +1116,17 @@ static void set_properties (db::Layout *layout, unsigned int index, const db::La
   }
 }
 
-void break_polygons2 (db::Layout *layout, unsigned int layer, size_t max_vertex_count, double max_area_ratio)
+static void break_polygons2 (db::Layout *layout, unsigned int layer, size_t max_vertex_count, double max_area_ratio)
 {
   db::break_polygons (*layout, layer, max_vertex_count, max_area_ratio);
 }
 
-void break_polygons1 (db::Layout *layout, size_t max_vertex_count, double max_area_ratio)
+static void break_polygons1 (db::Layout *layout, size_t max_vertex_count, double max_area_ratio)
 {
   db::break_polygons (*layout, max_vertex_count, max_area_ratio);
 }
 
-void delete_layer_from_info (db::Layout *layout, const db::LayerProperties &info)
+static void delete_layer_from_info (db::Layout *layout, const db::LayerProperties &info)
 {
   int li = layout->get_layer_maybe (info);
   if (li >= 0) {
@@ -1112,7 +1134,7 @@ void delete_layer_from_info (db::Layout *layout, const db::LayerProperties &info
   }
 }
 
-void clear_layer_from_info (db::Layout *layout, const db::LayerProperties &info)
+static void clear_layer_from_info (db::Layout *layout, const db::LayerProperties &info)
 {
   int li = layout->get_layer_maybe (info);
   if (li >= 0) {
@@ -1120,12 +1142,40 @@ void clear_layer_from_info (db::Layout *layout, const db::LayerProperties &info)
   }
 }
 
-void clear_layer_from_info_with_flags (db::Layout *layout, const db::LayerProperties &info, unsigned int flags)
+static void clear_layer_from_info_with_flags (db::Layout *layout, const db::LayerProperties &info, unsigned int flags)
 {
   int li = layout->get_layer_maybe (info);
   if (li >= 0) {
     layout->clear_layer ((unsigned int) li, flags);
   }
+}
+
+static void insert_region (db::Layout *layout, db::cell_index_type cell_index, int layer_index, const db::Region &r)
+{
+  check_cell_index (layout, cell_index);
+  check_layer (layout, layer_index);
+  layout->insert (cell_index, layer_index, r);
+}
+
+static void insert_edges (db::Layout *layout, db::cell_index_type cell_index, int layer_index, const db::Edges &e)
+{
+  check_cell_index (layout, cell_index);
+  check_layer (layout, layer_index);
+  layout->insert (cell_index, layer_index, e);
+}
+
+static void insert_texts (db::Layout *layout, db::cell_index_type cell_index, int layer_index, const db::Texts &t)
+{
+  check_cell_index (layout, cell_index);
+  check_layer (layout, layer_index);
+  layout->insert (cell_index, layer_index, t);
+}
+
+static void insert_edge_pairs (db::Layout *layout, db::cell_index_type cell_index, int layer_index, const db::EdgePairs &ep)
+{
+  check_cell_index (layout, cell_index);
+  check_layer (layout, layer_index);
+  layout->insert (cell_index, layer_index, ep);
 }
 
 Class<db::Layout> decl_Layout ("db", "Layout",
@@ -1584,13 +1634,13 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "From version 0.23 on this method is deprecated because another method exists which is more convenient because "
     "is returns a \\Cell object (\\create_cell).\n"
   ) +
-  gsi::method ("rename_cell", &db::Layout::rename_cell, gsi::arg ("index"), gsi::arg ("name"),
+  gsi::method_ext ("rename_cell", &rename_cell, gsi::arg ("index"), gsi::arg ("name"),
     "@brief Renames the cell with given index\n"
     "The cell with the given index is renamed to the given name. NOTE: it is not ensured that the name is unique. "
     "This method allows assigning identical names to different cells which usually breaks things.\n"
     "Consider using \\unique_cell_name to generate truely unique names.\n"
   ) +
-  gsi::method ("delete_cell", &db::Layout::delete_cell, gsi::arg ("cell_index"),
+  gsi::method_ext ("delete_cell", &delete_cell, gsi::arg ("cell_index"),
     "@brief Deletes a cell \n"
     "\n"
     "This deletes a cell but not the sub cells of the cell.\n"
@@ -1641,7 +1691,7 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "\n"
     "This method has been introduced in version 0.20.\n"
   ) +
-  gsi::method ("delete_cell_rec", &db::Layout::delete_cell_rec, gsi::arg ("cell_index"),
+  gsi::method_ext ("delete_cell_rec", &delete_cell_rec, gsi::arg ("cell_index"),
     "@brief Deletes a cell plus all subcells\n"
     "\n"
     "This deletes a cell and also all sub cells of the cell.\n"
@@ -1651,7 +1701,7 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "\n"
     "This method has been introduced in version 0.20.\n"
   ) +
-  gsi::method ("insert", (void (db::Layout::*) (db::cell_index_type, int, const db::Region &)) &db::Layout::insert,
+  gsi::method_ext ("insert", &insert_region,
     gsi::arg ("cell_index"), gsi::arg ("layer"), gsi::arg ("region"),
     "@brief Inserts a region into the given cell and layer\n"
     "If the region is (conceptionally) a flat region, it will be inserted into the cell's shapes "
@@ -1663,7 +1713,7 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "\n"
     "This method has been introduced in version 0.26.\n"
   ) +
-  gsi::method ("insert", (void (db::Layout::*) (db::cell_index_type, int, const db::Edges &)) &db::Layout::insert,
+  gsi::method_ext ("insert", &insert_edges,
     gsi::arg ("cell_index"), gsi::arg ("layer"), gsi::arg ("edges"),
     "@brief Inserts an edge collection into the given cell and layer\n"
     "If the edge collection is (conceptionally) flat, it will be inserted into the cell's shapes "
@@ -1675,7 +1725,7 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "\n"
     "This method has been introduced in version 0.26.\n"
   ) +
-  gsi::method ("insert", (void (db::Layout::*) (db::cell_index_type, int, const db::EdgePairs &)) &db::Layout::insert,
+  gsi::method_ext ("insert", &insert_edge_pairs,
     gsi::arg ("cell_index"), gsi::arg ("layer"), gsi::arg ("edge_pairs"),
     "@brief Inserts an edge pair collection into the given cell and layer\n"
     "If the edge pair collection is (conceptionally) flat, it will be inserted into the cell's shapes "
@@ -1687,7 +1737,7 @@ Class<db::Layout> decl_Layout ("db", "Layout",
     "\n"
     "This method has been introduced in version 0.27.\n"
   ) +
-  gsi::method ("insert", (void (db::Layout::*) (db::cell_index_type, int, const db::Texts &)) &db::Layout::insert,
+  gsi::method_ext ("insert", &insert_texts,
     gsi::arg ("cell_index"), gsi::arg ("layer"), gsi::arg ("texts"),
     "@brief Inserts an text collection into the given cell and layer\n"
     "If the text collection is (conceptionally) flat, it will be inserted into the cell's shapes "
@@ -2972,7 +3022,7 @@ Class<db::SaveLayoutOptions> decl_SaveLayoutOptions ("db", "SaveLayoutOptions",
     "This method was introduced in version 0.23.\n"
   ) +
   gsi::method ("dbu=", &db::SaveLayoutOptions::set_dbu, gsi::arg ("dbu"),
-    "@brief Set the database unit to be used in the stream file\n"
+    "@brief Sets the database unit to be used in the stream file\n"
     "\n"
     "By default, the database unit of the layout is used. This method allows one to explicitly use a different\n"
     "database unit. A scale factor is introduced automatically which scales all layout objects accordingly so their physical dimensions remain the same. "
@@ -2980,7 +3030,7 @@ Class<db::SaveLayoutOptions> decl_SaveLayoutOptions ("db", "SaveLayoutOptions",
     "layout may become slightly distorted."
   ) + 
   gsi::method ("dbu", &db::SaveLayoutOptions::dbu,
-    "@brief Get the explicit database unit if one is set\n"
+    "@brief Gets the explicit database unit if one is set\n"
     "\n"
     "See \\dbu= for a description of that attribute.\n"
   ) + 
@@ -2994,8 +3044,24 @@ Class<db::SaveLayoutOptions> decl_SaveLayoutOptions ("db", "SaveLayoutOptions",
   gsi::method ("no_empty_cells?", &db::SaveLayoutOptions::dont_write_empty_cells,
     "@brief Returns a flag indicating whether empty cells are not written.\n"
   ) + 
+  gsi::method ("libname=|#gds2_libname=", &db::SaveLayoutOptions::set_libname, gsi::arg ("libname"),
+    "@brief Sets the library name\n"
+    "\n"
+    "The library name is an attribute and specifies a formal name for a library, if the layout files is to be used as one.\n"
+    "Currently, this attribute is only supported by the GDS2 format. Hence the alias.\n"
+    "\n"
+    "By default or if the libname is an empty string, the current library name of the layout or 'LIB' is used.\n"
+    "\n"
+    "The 'libname' alias has been introduced in version 0.30.5. The original name \\gds2_libname= is still available."
+  ) +
+  gsi::method ("libname|#gds2_libname", &db::SaveLayoutOptions::libname,
+    "@brief Gets the library name\n"
+    "\n"
+    "See \\libname= for details.\n"
+    "The 'libname' alias has been introduced in version 0.30.5. The original name \\gds2_libname is still available."
+  ) +
   gsi::method ("scale_factor=", &db::SaveLayoutOptions::set_scale_factor, gsi::arg ("scale_factor"),
-    "@brief Set the scaling factor for the saving \n"
+    "@brief Sets the scaling factor for the saving \n"
     "\n"
     "Using a scaling factor will scale all objects accordingly. "
     "This scale factor adds to a potential scaling implied by using an explicit database unit.\n"

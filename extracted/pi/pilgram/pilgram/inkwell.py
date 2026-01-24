@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def inkwell(im):
+def inkwell(im: Image.Image) -> Image.Image:
     """Applies Inkwell filter.
 
     Arguments:
@@ -26,9 +27,9 @@ def inkwell(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cr = css.sepia(cb, .3)
+    cr = css.sepia(cb, 0.3)
     cr = css.contrast(cr, 1.1)
     cr = css.brightness(cr, 1.1)
     cr = css.grayscale(cr)

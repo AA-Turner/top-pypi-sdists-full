@@ -67,6 +67,10 @@ def snowpark():
     help="Schema for Snowpark Container Services.",
 )
 @click.option(
+    "--integration",
+    help="Outerbounds OAuth integration name for Snowpark Container Services. When set, uses OAuth authentication instead of password.",
+)
+@click.option(
     "--image",
     help="Docker image requirement for Snowpark Container Services. In name:version format.",
 )
@@ -119,6 +123,7 @@ def step(
     database=None,
     warehouse=None,
     schema=None,
+    integration=None,
     image=None,
     stage=None,
     compute_pool=None,
@@ -235,6 +240,7 @@ def step(
                 "database": database,
                 "warehouse": warehouse,
                 "schema": schema,
+                "integration": integration,
             },
         )
         with ctx.obj.monitor.measure("metaflow.snowpark.launch_job"):

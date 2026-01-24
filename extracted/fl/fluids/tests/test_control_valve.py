@@ -1,4 +1,4 @@
-'''Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
+"""Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
 Copyright (C) 2016, 2017 Caleb Bell <Caleb.Andrew.Bell@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,7 +18,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import pytest
 
@@ -27,6 +27,7 @@ from fluids.control_valve import (
     Reynolds_factor,
     Reynolds_valve,
     cavitation_index,
+    convert_flow_coefficient,
     control_valve_choke_P_g,
     control_valve_choke_P_l,
     control_valve_noise_g_2011,
@@ -63,6 +64,11 @@ def test_control_valve():
 
     with pytest.raises(Exception):
         is_choked_turbulent_g(0.544, 0.929)
+
+    with pytest.raises(ValueError):
+        control_valve_choke_P_g(1.0, 1.3)
+    with pytest.raises(ValueError):
+        control_valve_choke_P_g(1.0, 1.3, P1=1e5, P2=7e4)
 
     Rev = Reynolds_valve(3.26e-07, 360, 100.0, 0.6, 0.98, 238.05817216710483)
     assert_close(Rev, 6596953.826574914)
@@ -121,14 +127,14 @@ def test_control_valve_size_l():
 
     # Same, test intermediate values
     ans = size_control_valve_l(rho=965.4, Psat=70.1E3, Pc=22120E3, mu=3.1472E-4, P1=680E3, P2=220E3, Q=0.1, D1=0.1, D2=0.1, d=0.095, FL=0.6, Fd=0.98, full_output=True)
-    del ans['choked']
-    del ans['FR']
-    ans_expect = {'FF': 0.9442375225233299,
-                  'FLP': 0.5912597868996382,
-                  'FP': 0.9969139124178094,
-                  'Kv': 241.6812562245056,
-                  'Rev': 6596962.21111206,
-                  'laminar': False}
+    del ans["choked"]
+    del ans["FR"]
+    ans_expect = {"FF": 0.9442375225233299,
+                  "FLP": 0.5912597868996382,
+                  "FP": 0.9969139124178094,
+                  "Kv": 241.6812562245056,
+                  "Rev": 6596962.21111206,
+                  "laminar": False}
 
     for k in ans_expect.keys():
         assert_close(ans[k], ans_expect[k])
@@ -151,35 +157,44 @@ def test_control_valve_size_l():
 
     # Test the ignore choked option
     ans = size_control_valve_l(rho=965.4, Psat=70.1E3, Pc=22120E3, mu=3.1472E-4, P1=680E3, P2=220E3, Q=0.1, D1=0.1, D2=0.1, d=0.1, FL=0.6, Fd=0.98, allow_choked=False, full_output=True)
-    assert_close(ans['Kv'], 164.9954763704956)
-    assert_close(ans['Rev'], 7805019.992655547)
-    assert ans['choked'] is True # Still true even though the choke is ignored
-    assert ans['FF']
-    assert ans['FLP'] is None
-    assert ans['FP'] is None
-    assert ans['FR'] is None
+    assert_close(ans["Kv"], 164.9954763704956)
+    assert_close(ans["Rev"], 7805019.992655547)
+    assert ans["choked"] is True # Still true even though the choke is ignored
+    assert ans["FF"]
+    assert ans["FLP"] is None
+    assert ans["FP"] is None
+    assert ans["FR"] is None
 
     # Test the laminar switch
     for Kv, boolean in zip((0.014547698964079439, 0.011190537664676491), (True, False)):
         ans = size_control_valve_l(rho=965.4, Psat=70.1E3, Pc=22120E3, mu=3.1472E-4, P1=680E3, P2=670E3, Q=0.000001, D1=0.1, D2=0.1, d=0.1, FL=0.6, Fd=0.98, allow_laminar=boolean, full_output=True)
-        assert_close(ans['Kv'], Kv)
+        assert_close(ans["Kv"], Kv)
 
     # Test for too many iterations, does not converge
-    kwargs = {'allow_laminar': True, 'allow_choked': True, 'Fd': 1.0, 'FL': 1.0, 'D1': 0.1, 'D2': 0.1,
-              'd': 0.09, 'full_output': True, 'P1': 1000000.0, 'mu': 0.0008512512422708317,
-              'rho': 995.4212225776154, 'Pc': 22048320.0, 'Q': 0.004018399356246507,
-              'Psat': 3537.075987237396, 'P2': 999990.0}
+    kwargs = {"allow_laminar": True, "allow_choked": True, "Fd": 1.0, "FL": 1.0, "D1": 0.1, "D2": 0.1,
+              "d": 0.09, "full_output": True, "P1": 1000000.0, "mu": 0.0008512512422708317,
+              "rho": 995.4212225776154, "Pc": 22048320.0, "Q": 0.004018399356246507,
+              "Psat": 3537.075987237396, "P2": 999990.0}
     res = size_control_valve_l(**kwargs)
-    assert 'warning' in res
+    assert "warning" in res
 
     # Test 'choked' in results
-    kwargs = {'allow_laminar': True, 'allow_choked': True, 'Fd': 0.42, 'FL': 0.85,
-              'D1': 0.08, 'D2': 0.1, 'd': 0.05, 'full_output': True, 'P1': 680000.0,
-              'mu': 2.099826023627934e-05, 'T': 433.0, 'MW': 44.0095,
-              'gamma': 1.2567580165935908, 'Z': 0.9896087377962121, 'xT': 0.6,
-              'Q': 1.0632314140418966, 'P2': 313744.8065927219}
+    kwargs = {"allow_laminar": True, "allow_choked": True, "Fd": 0.42, "FL": 0.85,
+              "D1": 0.08, "D2": 0.1, "d": 0.05, "full_output": True, "P1": 680000.0,
+              "mu": 2.099826023627934e-05, "T": 433.0, "MW": 44.0095,
+              "gamma": 1.2567580165935908, "Z": 0.9896087377962121, "xT": 0.6,
+              "Q": 1.0632314140418966, "P2": 313744.8065927219}
     res = size_control_valve_g(**kwargs)
-    assert res['choked']
+    assert res["choked"]
+
+    with pytest.raises(ValueError):
+        size_control_valve_l(rho=965.4, Psat=70.1E3, Pc=22120E3, mu=3.1472E-4,
+                             P1=680E3, P2=220E3, Q=0.1, D1=0.1, d=0.1)
+
+    kv_branch = size_control_valve_l(rho=965.4, Psat=70.1E3, Pc=22120E3,
+                                     mu=3.1472E-4, P1=680E3, P2=220E3, Q=0.05,
+                                     D1=0.05, D2=0.08, d=0.09)
+    assert kv_branch > 0
 
 def test_control_valve_size_g():
     # From [1]_, matching example 3 for non-choked gas flow with attached
@@ -198,13 +213,16 @@ def test_control_valve_size_g():
     # Diameters removed
     Kv = size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0, P1=2.8E5, P2=1.3E5, Q=0.46/3600., xT=0.8)
     assert_close(Kv, 0.012691357950765944)
+    with pytest.raises(ValueError):
+        size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0,
+                             P1=2.8E5, P2=1.3E5, Q=0.46/3600., D1=0.015, d=0.015, xT=0.8)
     ans = size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0, P1=2.8E5, P2=1.3E5, Q=0.46/3600., xT=0.8, full_output=True)
-    assert ans['laminar'] is False
-    assert ans['choked'] is False
-    assert ans['FP'] is None
-    assert ans['FR'] is None
-    assert ans['xTP'] is None
-    assert ans['Rev'] is None
+    assert ans["laminar"] is False
+    assert ans["choked"] is False
+    assert ans["FP"] is None
+    assert ans["FR"] is None
+    assert ans["xTP"] is None
+    assert ans["Rev"] is None
 
     # Choked custom example
     Kv = size_control_valve_g(T=433., MW=44.01, mu=1.4665E-4, gamma=1.30, Z=0.988, P1=680E3, P2=30E3, Q=38/36., D1=0.08, D2=0.1, d=0.05, FL=0.85, Fd=0.42, xT=0.60)
@@ -222,34 +240,34 @@ def test_control_valve_size_g():
     # test not allowing chokes
     ans_choked = size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0, P1=2.8E5, P2=1e4, Q=0.46/3600., D1=0.015, D2=0.015, d=0.015, FL=0.98, Fd=0.07, xT=0.8, full_output=True, allow_choked=True)
     ans = size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0, P1=2.8E5, P2=1e4, Q=0.46/3600., D1=0.015, D2=0.015, d=0.015, FL=0.98, Fd=0.07, xT=0.8, full_output=True, allow_choked=False)
-    assert not isclose(ans_choked['Kv'], ans['Kv'], rel_tol=1E-4)
+    assert not isclose(ans_choked["Kv"], ans["Kv"], rel_tol=1E-4)
 
     # Test not allowing laminar
     for Kv, boolean in zip((0.001179609179354541, 0.00090739167642657), (True, False)):
         ans = size_control_valve_g(T=320., MW=39.95, mu=5.625E-5, gamma=1.67, Z=1.0, P1=2.8E5, P2=1e4, Q=1e-5, D1=0.015, D2=0.015, d=0.015, FL=0.98, Fd=0.07, xT=0.8, full_output=True, allow_laminar=boolean)
-        assert_close(Kv, ans['Kv'])
+        assert_close(Kv, ans["Kv"])
 
-    assert ans['choked'] # Still true even though the choke is ignored
-    assert ans['xTP'] is None
-    assert ans['Y']
-    assert ans['FP'] is None
-    assert ans['FR'] is None
-    assert ans['Rev']
+    assert ans["choked"] # Still true even though the choke is ignored
+    assert ans["xTP"] is None
+    assert ans["Y"]
+    assert ans["FP"] is None
+    assert ans["FR"] is None
+    assert ans["Rev"]
 
     # Test a warning is issued and a solution is still returned when in an unending loop
     # Ends with C ratio converged to 0.907207790871228
 
 
-    args = {'P1': 680000.0, 'full_output': True, 'allow_choked': True,
-            'Q': 0.24873053149856303, 'T': 433.0, 'Z': 0.9908749375670418,
-            'FL': 0.85, 'allow_laminar': True, 'd': 0.05, 'mu': 2.119519588834806e-05,
-            'MW': 44.0095, 'Fd': 0.42, 'gamma': 1.2431389717945152, 'D2': 0.1,
-            'xT': 0.6, 'D1': 0.08}
+    args = {"P1": 680000.0, "full_output": True, "allow_choked": True,
+            "Q": 0.24873053149856303, "T": 433.0, "Z": 0.9908749375670418,
+            "FL": 0.85, "allow_laminar": True, "d": 0.05, "mu": 2.119519588834806e-05,
+            "MW": 44.0095, "Fd": 0.42, "gamma": 1.2431389717945152, "D2": 0.1,
+            "xT": 0.6, "D1": 0.08}
     ans = size_control_valve_g(P2=678000., **args)
-    assert ans['warning']
+    assert ans["warning"]
 
     # Test Kv does not reach infinity
-    kwargs = {'P2': 310000.0028935982, 'P1': 680000.0, 'full_output': True, 'allow_choked': True, 'T': 433.0, 'Z': 0.9896087377962123, 'FL': 0.85, 'allow_laminar': True, 'd': 0.05, 'mu': 2.119519588834806e-05, 'MW': 44.0095, 'Fd': 0.42, 'gamma': 1.2431389717945152, 'D2': 0.1, 'xT': 0.6, 'D1': 0.08}
+    kwargs = {"P2": 310000.0028935982, "P1": 680000.0, "full_output": True, "allow_choked": True, "T": 433.0, "Z": 0.9896087377962123, "FL": 0.85, "allow_laminar": True, "d": 0.05, "mu": 2.119519588834806e-05, "MW": 44.0095, "Fd": 0.42, "gamma": 1.2431389717945152, "D2": 0.1, "xT": 0.6, "D1": 0.08}
     size_control_valve_g(Q=1000000000.0, **kwargs)
 
 
@@ -357,6 +375,38 @@ def test_control_valve_noise_g_2011():
                                rho_air=1.293, c_air=343.0, An=-3.8, Stp=0.2)
     assert_close(ans, 93.38835049261132)
 
+    with pytest.raises(ValueError):
+        control_valve_noise_g_2011(m=2.0, P1=1E6, P2=7E5, T1=450, rho=5.3,
+                                   gamma=1.22, MW=19.8, Kv=Cv_to_Kv(60.0),
+                                   d=0.1, Di=0.2031, FL=None, FLP=None, FP=None,
+                                   Fd=0.3, t_pipe=0.008, rho_pipe=8000.0,
+                                   c_pipe=5000.0, rho_air=1.293, c_air=343.0,
+                                   An=-3.8, Stp=0.2)
+
+def test_convert_flow_coefficient_invalid():
+    base_value = 10.0
+    # Round-trip each supported scale through Kv to ensure conversions invert
+    Cv_original = base_value
+    Kv_from_Cv = convert_flow_coefficient(Cv_original, "Cv", "Kv")
+    Cv_back = convert_flow_coefficient(Kv_from_Cv, "Kv", "Cv")
+    assert_close(Cv_back, Cv_original)
+
+    Kv_original = base_value
+    Cv_from_Kv = convert_flow_coefficient(Kv_original, "Kv", "Cv")
+    Kv_back = convert_flow_coefficient(Cv_from_Kv, "Cv", "Kv")
+    assert_close(Kv_back, Kv_original)
+
+    Av_original = convert_flow_coefficient(base_value, "Kv", "Av")
+    Kv_from_Av = convert_flow_coefficient(Av_original, "Av", "Kv")
+    Av_back = convert_flow_coefficient(Kv_from_Av, "Kv", "Av")
+    assert_close(Kv_from_Av, base_value)
+    assert_close(Av_back, Av_original)
+
+    with pytest.raises(NotImplementedError):
+        convert_flow_coefficient(1.0, "BAD", "Cv")
+    with pytest.raises(NotImplementedError):
+        convert_flow_coefficient(1.0, "Cv", "BAD")
+
 @pytest.mark.scipy
 def test_opening_quick_data():
     # Add some tolerance to tests after failures on arm64 https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=976558
@@ -374,3 +424,9 @@ def test_opening_equal_data():
     from fluids.control_valve import frac_CV_equal, opening_equal, opening_equal_tck
     tck_recalc = splrep(opening_equal, frac_CV_equal, k=3, s=0)
     [assert_close1d(i, j, atol=1e-10) for i, j in zip(opening_equal_tck[:-1], tck_recalc[:-1])]
+    with pytest.raises(ValueError):
+        control_valve_choke_P_l(69682.89291024722, 22048320.0, 0.6)
+    with pytest.raises(ValueError):
+        control_valve_choke_P_l(69682.89291024722, 22048320.0, 0.6, P1=680000.0, P2=220000.0)
+    with pytest.raises(ValueError):
+        control_valve_choke_P_l(69682.89291024722, 22048320.0, 0.6, P1=1e4, check_choking=True)

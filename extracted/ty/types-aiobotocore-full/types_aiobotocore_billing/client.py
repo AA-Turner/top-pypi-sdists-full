@@ -3,7 +3,7 @@ Type annotations for billing service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -30,10 +31,14 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import ListBillingViewsPaginator, ListSourceViewsForBillingViewPaginator
 from .type_defs import (
+    AssociateSourceViewsRequestTypeDef,
+    AssociateSourceViewsResponseTypeDef,
     CreateBillingViewRequestTypeDef,
     CreateBillingViewResponseTypeDef,
     DeleteBillingViewRequestTypeDef,
     DeleteBillingViewResponseTypeDef,
+    DisassociateSourceViewsRequestTypeDef,
+    DisassociateSourceViewsResponseTypeDef,
     GetBillingViewRequestTypeDef,
     GetBillingViewResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
@@ -50,12 +55,6 @@ from .type_defs import (
     UpdateBillingViewResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -66,14 +65,15 @@ __all__ = ("BillingClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BillingViewHealthStatusException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class BillingClient(AioBaseClient):
@@ -111,6 +111,16 @@ class BillingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#generate_presigned_url)
         """
 
+    async def associate_source_views(
+        self, **kwargs: Unpack[AssociateSourceViewsRequestTypeDef]
+    ) -> AssociateSourceViewsResponseTypeDef:
+        """
+        Associates one or more source billing views with an existing billing view.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/associate_source_views.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#associate_source_views)
+        """
+
     async def create_billing_view(
         self, **kwargs: Unpack[CreateBillingViewRequestTypeDef]
     ) -> CreateBillingViewResponseTypeDef:
@@ -129,6 +139,17 @@ class BillingClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/delete_billing_view.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#delete_billing_view)
+        """
+
+    async def disassociate_source_views(
+        self, **kwargs: Unpack[DisassociateSourceViewsRequestTypeDef]
+    ) -> DisassociateSourceViewsResponseTypeDef:
+        """
+        Removes the association between one or more source billing views and an
+        existing billing view.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/disassociate_source_views.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#disassociate_source_views)
         """
 
     async def get_billing_view(
@@ -183,7 +204,7 @@ class BillingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for adding one or more tags (key-value pairs) to a resource.
 
@@ -191,7 +212,7 @@ class BillingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_billing/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a resource.
 
@@ -239,7 +260,7 @@ class BillingClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

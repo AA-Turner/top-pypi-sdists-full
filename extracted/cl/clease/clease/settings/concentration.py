@@ -440,7 +440,7 @@ class Concentration:
             ref_col = reference_elements[variable]["col"]
 
             if ref_element is None:
-                raise RuntimeError(f"Did not find reference element for symbol" f" {variable}")
+                raise RuntimeError(f"Did not find reference element for symbol {variable}")
 
             # Extract the coefficients of other elements with their
             # concenctrations defined as multiples of the symbol
@@ -531,7 +531,7 @@ class Concentration:
             if variable_symbol in formula:
                 return basis
 
-        raise ValueError(f"Did not find any basis containing " f"{variable_symbol}")
+        raise ValueError(f"Did not find any basis containing {variable_symbol}")
 
     def _get_col_of_element_in_basis(self, basis, element):
         """Return column number in the matrix corresponding to element."""

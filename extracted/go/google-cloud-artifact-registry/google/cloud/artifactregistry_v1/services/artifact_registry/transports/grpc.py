@@ -37,6 +37,7 @@ from google.cloud.artifactregistry_v1.types import vpcsc_config as gda_vpcsc_con
 from google.cloud.artifactregistry_v1.types import apt_artifact, artifact
 from google.cloud.artifactregistry_v1.types import attachment
 from google.cloud.artifactregistry_v1.types import attachment as gda_attachment
+from google.cloud.artifactregistry_v1.types import export
 from google.cloud.artifactregistry_v1.types import file
 from google.cloud.artifactregistry_v1.types import file as gda_file
 from google.cloud.artifactregistry_v1.types import package
@@ -140,12 +141,12 @@ class ArtifactRegistryGrpcTransport(ArtifactRegistryTransport):
 
     The resources managed by this API are:
 
-    -  Repositories, which group packages and their data.
-    -  Packages, which group versions and their tags.
-    -  Versions, which are specific forms of a package.
-    -  Tags, which represent alternative names for versions.
-    -  Files, which contain content and are optionally associated with a
-       Package or Version.
+    - Repositories, which group packages and their data.
+    - Packages, which group versions and their tags.
+    - Versions, which are specific forms of a package.
+    - Tags, which represent alternative names for versions.
+    - Files, which contain content and are optionally associated with a
+      Package or Version.
 
     This class defines the same methods as the primary client, so the
     primary client can load the underlying transport implementation
@@ -185,9 +186,10 @@ class ArtifactRegistryGrpcTransport(ArtifactRegistryTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if a ``channel`` instance is provided.
             channel (Optional[Union[grpc.Channel, Callable[..., grpc.Channel]]]):
@@ -321,9 +323,10 @@ class ArtifactRegistryGrpcTransport(ArtifactRegistryTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials.  This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -1655,6 +1658,32 @@ class ArtifactRegistryGrpcTransport(ArtifactRegistryTransport):
                 response_deserializer=operations_pb2.Operation.FromString,
             )
         return self._stubs["delete_attachment"]
+
+    @property
+    def export_artifact(
+        self,
+    ) -> Callable[[export.ExportArtifactRequest], operations_pb2.Operation]:
+        r"""Return a callable for the export artifact method over gRPC.
+
+        Exports an artifact to a Cloud Storage bucket.
+
+        Returns:
+            Callable[[~.ExportArtifactRequest],
+                    ~.Operation]:
+                A function that, when called, will call the underlying RPC
+                on the server.
+        """
+        # Generate a "stub function" on-the-fly which will actually make
+        # the request.
+        # gRPC handles serialization and deserialization, so we just need
+        # to pass in the functions for each.
+        if "export_artifact" not in self._stubs:
+            self._stubs["export_artifact"] = self._logged_channel.unary_unary(
+                "/google.devtools.artifactregistry.v1.ArtifactRegistry/ExportArtifact",
+                request_serializer=export.ExportArtifactRequest.serialize,
+                response_deserializer=operations_pb2.Operation.FromString,
+            )
+        return self._stubs["export_artifact"]
 
     def close(self):
         self._logged_channel.close()

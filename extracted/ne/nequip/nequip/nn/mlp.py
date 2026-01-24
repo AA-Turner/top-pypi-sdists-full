@@ -22,6 +22,9 @@ _NONLINEARITY_MAP: Final[Dict[str, torch.nn.Module]] = {
     "gelu": torch.nn.GELU,
     "ssp": ShiftedSoftplus,
     "tanh": torch.nn.Tanh,
+    # not 0 -> 0
+    "sigmoid": torch.nn.Sigmoid,
+    "softplus": torch.nn.Softplus,
 }
 
 

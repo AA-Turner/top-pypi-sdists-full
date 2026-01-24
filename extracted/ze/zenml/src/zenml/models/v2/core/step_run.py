@@ -26,9 +26,9 @@ from typing import (
 )
 from uuid import UUID
 
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from zenml.config.step_configurations import StepConfiguration, StepSpec
+from zenml.config.step_configurations import Step, StepConfiguration, StepSpec
 from zenml.constants import STR_FIELD_MAX_LENGTH, TEXT_FIELD_MAX_LENGTH
 from zenml.enums import (
     ArtifactSaveType,
@@ -49,6 +49,7 @@ from zenml.models.v2.base.scoped import (
 from zenml.models.v2.core.artifact_version import ArtifactVersionResponse
 from zenml.models.v2.core.model_version import ModelVersionResponse
 from zenml.models.v2.misc.exception_info import ExceptionInfo
+from zenml.utils.time_utils import utc_now
 
 if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ColumnElement
@@ -66,6 +67,18 @@ class StepRunInputResponse(ArtifactVersionResponse):
     """Response model for step run inputs."""
 
     input_type: StepRunInputArtifactType
+    index: Optional[int] = Field(
+        title="The index of the input artifact in the step run.",
+        default=None,
+    )
+    chunk_index: Optional[int] = Field(
+        title="The index of the chunk in the input artifact.",
+        default=None,
+    )
+    chunk_size: Optional[int] = Field(
+        title="The size of the chunk in the input artifact.",
+        default=None,
+    )
 
     def get_hydrated_version(self) -> "StepRunInputResponse":
         """Get the hydrated version of this step run input.
@@ -91,9 +104,8 @@ class StepRunRequest(ProjectScopedRequest):
         title="The name of the pipeline run step.",
         max_length=STR_FIELD_MAX_LENGTH,
     )
-    start_time: Optional[datetime] = Field(
+    start_time: datetime = Field(
         title="The start time of the step run.",
-        default=None,
     )
     end_time: Optional[datetime] = Field(
         title="The end time of the step run.",
@@ -104,6 +116,11 @@ class StepRunRequest(ProjectScopedRequest):
         title="The cache key of the step run.",
         default=None,
         max_length=STR_FIELD_MAX_LENGTH,
+    )
+    cache_expires_at: Optional[datetime] = Field(
+        title="The time at which this step run should not be used for cached "
+        "results anymore. If not set, the result will never expire.",
+        default=None,
     )
     code_hash: Optional[str] = Field(
         title="The code hash of the step run.",
@@ -148,6 +165,10 @@ class StepRunRequest(ProjectScopedRequest):
         default=None,
         title="The exception information of the step run.",
     )
+    dynamic_config: Optional["Step"] = Field(
+        title="The dynamic configuration of the step run.",
+        default=None,
+    )
 
     model_config = ConfigDict(protected_namespaces=())
 
@@ -178,6 +199,14 @@ class StepRunUpdate(BaseUpdate):
         default=None,
         title="The exception information of the step run.",
     )
+    cache_expires_at: Optional[datetime] = Field(
+        title="The time at which this step run should not be used for cached "
+        "results anymore.",
+        default=None,
+    )
+    add_logs: Optional[List["LogsRequest"]] = Field(
+        default=None, title="New logs to add to the step run."
+    )
     model_config = ConfigDict(protected_namespaces=())
 
 
@@ -200,6 +229,10 @@ class StepRunResponseBody(ProjectScopedResponseBody):
         title="The end time of the step run.",
         default=None,
     )
+    latest_heartbeat: Optional[datetime] = Field(
+        title="The latest heartbeat of the step run.",
+        default=None,
+    )
     model_version_id: Optional[UUID] = Field(
         title="The ID of the model version that was "
         "configured by this step run explicitly.",
@@ -208,6 +241,10 @@ class StepRunResponseBody(ProjectScopedResponseBody):
     substitutions: Dict[str, str] = Field(
         title="The substitutions of the step run.",
         default={},
+    )
+    heartbeat_threshold: Optional[int] = Field(
+        title="The applied heartbeat healthiness threshold ",
+        default=None,
     )
     model_config = ConfigDict(protected_namespaces=())
 
@@ -231,6 +268,11 @@ class StepRunResponseMetadata(ProjectScopedResponseMetadata):
         default=None,
         max_length=STR_FIELD_MAX_LENGTH,
     )
+    cache_expires_at: Optional[datetime] = Field(
+        title="The time at which this step run should not be used for cached "
+        "results anymore. If not set, the result will never expire.",
+        default=None,
+    )
     code_hash: Optional[str] = Field(
         title="The code hash of the step run.",
         default=None,
@@ -252,12 +294,8 @@ class StepRunResponseMetadata(ProjectScopedResponseMetadata):
     )
 
     # References
-    logs: Optional["LogsResponse"] = Field(
-        title="Logs associated with this step run.",
-        default=None,
-    )
-    deployment_id: UUID = Field(
-        title="The deployment associated with the step run."
+    snapshot_id: UUID = Field(
+        title="The snapshot associated with the step run."
     )
     pipeline_run_id: UUID = Field(
         title="The ID of the pipeline run that this step run belongs to.",
@@ -278,6 +316,11 @@ class StepRunResponseMetadata(ProjectScopedResponseMetadata):
 
 class StepRunResponseResources(ProjectScopedResponseResources):
     """Class for all resource models associated with the step run entity."""
+
+    log_collection: Optional[List["LogsResponse"]] = Field(
+        title="Logs associated with this step run.",
+        default=None,
+    )
 
     model_version: Optional[ModelVersionResponse] = None
     inputs: Dict[str, List[StepRunInputResponse]] = Field(
@@ -365,15 +408,11 @@ class StepRunResponse(
         return next(iter(self.outputs.values()))[0]
 
     @property
-    def regular_inputs(self) -> Dict[str, StepRunInputResponse]:
+    def regular_inputs(self) -> Dict[str, List[StepRunInputResponse]]:
         """Returns the regular step inputs of the step run.
 
         Regular step inputs are the inputs that are defined in the step function
         signature, and are not manually loaded during the step execution.
-
-        Raises:
-            ValueError: If there were multiple regular input artifacts for the
-                same input name.
 
         Returns:
             The regular step inputs.
@@ -386,13 +425,8 @@ class StepRunResponse(
                 for input_artifact in input_artifacts
                 if input_artifact.input_type != StepRunInputArtifactType.MANUAL
             ]
-            if len(filtered) > 1:
-                raise ValueError(
-                    f"Expected 1 regular input artifact for {input_name}, got "
-                    f"{len(filtered)}."
-                )
             if filtered:
-                result[input_name] = filtered[0]
+                result[input_name] = filtered
 
         return result
 
@@ -521,6 +555,15 @@ class StepRunResponse(
         return self.get_metadata().cache_key
 
     @property
+    def cache_expires_at(self) -> Optional[datetime]:
+        """The `cache_expires_at` property.
+
+        Returns:
+            the value of the property.
+        """
+        return self.get_metadata().cache_expires_at
+
+    @property
     def code_hash(self) -> Optional[str]:
         """The `code_hash` property.
 
@@ -566,22 +609,31 @@ class StepRunResponse(
         return self.get_body().end_time
 
     @property
-    def logs(self) -> Optional["LogsResponse"]:
-        """The `logs` property.
+    def latest_heartbeat(self) -> Optional[datetime]:
+        """The `latest_heartbeat` property.
 
         Returns:
             the value of the property.
         """
-        return self.get_metadata().logs
+        return self.get_body().latest_heartbeat
 
     @property
-    def deployment_id(self) -> UUID:
-        """The `deployment_id` property.
+    def heartbeat_threshold(self) -> Optional[int]:
+        """The `heartbeat_threshold` property.
 
         Returns:
             the value of the property.
         """
-        return self.get_metadata().deployment_id
+        return self.get_body().heartbeat_threshold
+
+    @property
+    def snapshot_id(self) -> UUID:
+        """The `snapshot_id` property.
+
+        Returns:
+            the value of the property.
+        """
+        return self.get_metadata().snapshot_id
 
     @property
     def pipeline_run_id(self) -> UUID:
@@ -620,6 +672,15 @@ class StepRunResponse(
         return self.get_metadata().run_metadata
 
     @property
+    def log_collection(self) -> Optional[List["LogsResponse"]]:
+        """The `log_collection` property.
+
+        Returns:
+            the value of the property.
+        """
+        return self.get_resources().log_collection
+
+    @property
     def model_version(self) -> Optional[ModelVersionResponse]:
         """The `model_version` property.
 
@@ -640,6 +701,7 @@ class StepRunFilter(ProjectScopedFilter, RunMetadataFilterMixin):
         *RunMetadataFilterMixin.FILTER_EXCLUDE_FIELDS,
         "model",
         "exclude_retried",
+        "cache_expired",
     ]
     CLI_EXCLUDE_FIELDS: ClassVar[List[str]] = [
         *ProjectScopedFilter.CLI_EXCLUDE_FIELDS,
@@ -685,9 +747,9 @@ class StepRunFilter(ProjectScopedFilter, RunMetadataFilterMixin):
         description="Pipeline run of this step run",
         union_mode="left_to_right",
     )
-    deployment_id: Optional[Union[UUID, str]] = Field(
+    snapshot_id: Optional[Union[UUID, str]] = Field(
         default=None,
-        description="Deployment of this step run",
+        description="Snapshot of this step run",
         union_mode="left_to_right",
     )
     original_step_run_id: Optional[Union[UUID, str]] = Field(
@@ -708,6 +770,16 @@ class StepRunFilter(ProjectScopedFilter, RunMetadataFilterMixin):
         default=None,
         description="Whether to exclude retried step runs.",
     )
+    cache_expires_at: Optional[Union[datetime, str]] = Field(
+        default=None,
+        description="Cache expiration time of the step run.",
+        union_mode="left_to_right",
+    )
+    cache_expired: Optional[bool] = Field(
+        default=None,
+        description="Whether the cache expiration time of the step run has "
+        "passed.",
+    )
     model_config = ConfigDict(protected_namespaces=())
 
     def get_custom_filters(
@@ -723,7 +795,7 @@ class StepRunFilter(ProjectScopedFilter, RunMetadataFilterMixin):
         """
         custom_filters = super().get_custom_filters(table)
 
-        from sqlmodel import and_, col
+        from sqlmodel import and_, col, or_
 
         from zenml.zen_stores.schemas import (
             ModelSchema,
@@ -746,4 +818,30 @@ class StepRunFilter(ProjectScopedFilter, RunMetadataFilterMixin):
                 col(StepRunSchema.status) != ExecutionStatus.RETRIED.value
             )
 
+        if self.cache_expired is True:
+            cache_expiration_filter = and_(
+                col(StepRunSchema.cache_expires_at).is_not(None),
+                col(StepRunSchema.cache_expires_at) < utc_now(),
+            )
+            custom_filters.append(cache_expiration_filter)
+        elif self.cache_expired is False:
+            cache_expiration_filter = or_(
+                col(StepRunSchema.cache_expires_at) > utc_now(),
+                col(StepRunSchema.cache_expires_at).is_(None),
+            )
+            custom_filters.append(cache_expiration_filter)
+
         return custom_filters
+
+
+# ------------------ Heartbeat Model ---------------
+
+
+class StepHeartbeatResponse(BaseModel, use_enum_values=True):
+    """Light-weight model for Step Heartbeat responses."""
+
+    id: UUID
+    status: ExecutionStatus
+    latest_heartbeat: datetime
+    pipeline_run_status: ExecutionStatus | None = None
+    heartbeat_enabled: bool

@@ -10,4 +10,5 @@ dependencies:
   - mapclassify
   - quantecon
   - scipy
-  - splot
+  - seaborn
+  - matplotlib

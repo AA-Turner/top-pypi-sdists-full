@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional, Union
 
-from pydantic import BaseModel, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictFloat, StrictInt, StrictStr
 
 
 class ColumnQuery(BaseModel):
@@ -40,9 +40,10 @@ class ColumnQuery(BaseModel):
 
     __properties = ["text", "vector"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -67,7 +68,7 @@ class ColumnQuery(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -82,9 +83,9 @@ class ColumnQuery(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ColumnQuery.parse_obj(obj)
+            return ColumnQuery.model_validate(obj)
 
-        _obj = ColumnQuery.parse_obj(
+        _obj = ColumnQuery.model_validate(
             {
                 "text": obj.get("text"),
                 "vector": obj.get("vector"),

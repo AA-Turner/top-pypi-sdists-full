@@ -464,7 +464,7 @@ class PipeApi:
         # process the body parameter
         _body_params = None
 
-        if _params["pipe"]:
+        if _params["pipe"] is not None:
             _body_params = _params["pipe"]
 
         # set the HTTP header `Accept`

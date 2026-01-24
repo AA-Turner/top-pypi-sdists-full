@@ -67,10 +67,10 @@ from __future__ import division as _; del _  # noqa: E702 ;
 # from pygeodesy.albers import AlbersEqualAreaCylindrical  # _MODS
 from pygeodesy.basics import copysign0, isbool, _isin, isint,  typename
 from pygeodesy.constants import EPS, EPS_2, EPS0, EPS02, EPS1, INF, NINF, \
-                               _over, PI_2, PI_3, PI4, R_M, R_MA, R_FM, _EPSqrt, \
+                               _EPSqrt, PI_2, PI_3, PI2, PI4, R_M, R_MA, R_FM, \
                                _EPStol as _TOL, _floatuple as _T, _isfinite, \
-                               _0_0s, _0_0, _0_5, _1_0, _1_EPS, _2_0, _4_0, _90_0, \
-                               _0_25, _3_0  # PYCHOK used!
+                               _over, _0_0s, _0_0, _0_5, _1_0, _1_EPS, _2_0, \
+                               _4_0, _90_0, _0_25, _3_0  # PYCHOK used!
 from pygeodesy.errors import _AssertionError, IntersectionError, _ValueError, _xattr, _xkwds_not
 from pygeodesy.fmath import cbrt, cbrt2, fdot, Fhorner, fpowers, hypot, hypot_, \
                             hypot1, hypot2, sqrt3,  Fsum
@@ -88,7 +88,7 @@ from pygeodesy.namedTuples import Distance2Tuple, Vector3Tuple, Vector4Tuple
 from pygeodesy.props import deprecated_Property_RO, Property_RO, property_doc_, \
                             deprecated_property_RO, property_RO, property_ROver
 from pygeodesy.streprs import Fmt, fstr, instr, strs, unstr
-# from pygeodesy.triaxials import _hartzell3  # _MODS
+# from pygeodesy.triaxials.triaxial5 import _hartzell3, _plumbTo3  # _MODS
 from pygeodesy.units import Azimuth, Bearing, Distance, Float, Float_, Height, Lamd, Lat, \
                             Meter, Meter2, Meter3, Phi, Phid, Radius, Radius_, Scalar
 from pygeodesy.utily import atan1, atan1d, atan2b, degrees90, m2radians, radians2m, sincos2d
@@ -96,11 +96,12 @@ from pygeodesy.utily import atan1, atan1d, atan2b, degrees90, m2radians, radians
 from math import asinh, atan, atanh, cos, degrees, exp, fabs, radians, sin, sinh, sqrt, tan  # as _tan
 
 __all__ = _ALL_LAZY.ellipsoids
-__version__ = '25.08.31'
+__version__ = '26.01.13'
 
 _f_0_0    = Float(f =_0_0)  # zero flattening
 _f__0_0   = Float(f_=_0_0)  # zero inverse flattening
 # see U{WGS84_f<https://GeographicLib.SourceForge.io/C++/doc/classGeographicLib_1_1Constants.html>}
+# _f_WGS84  = Float(f =_1_0 / (298257223563 / 1000000000))  # 0.003_352_810_664_747_480_5
 _f__WGS84 = Float(f_=_1_0 / (1000000000 / 298257223563))  # 298.257223562_999_97 vs 298.257223563
 
 
@@ -110,19 +111,19 @@ def _aux(lat, inverse, auxLat, clip=90):
     return Lat(lat, clip=clip, name=_lat_ if inverse else typename(auxLat))
 
 
-def _s2_c2(phi):
+def _sin2cos2(rad):
     '''(INTERNAL) Return 2-tuple C{(sin(B{phi})**2, cos(B{phi})**2)}.
     '''
-    if phi:
-        s2 = sin(phi)**2
+    if rad:
+        s2 = sin(rad)**2
         if s2 > EPS:
             c2 = _1_0 - s2
             if c2 > EPS:
                 if c2 < EPS1:
                     return s2, c2
             else:
-                return _1_0, _0_0  # phi == PI_2
-    return _0_0, _1_0  # phi == 0
+                return _1_0, _0_0  # rad == PI_2
+    return _0_0, _1_0  # rad == 0
 
 
 class a_f2Tuple(_NamedTuple):
@@ -870,6 +871,12 @@ class Ellipsoid(_NamedEnumItem):
 
     equatoradius = a  # Requatorial
 
+    @Property_RO
+    def equatorimeter(self):
+        '''Get the ellipsoid's I{equatorial} perimeter (C{meter}).
+        '''
+        return Meter(equatorimeter=self.a * PI2)
+
     def e2s(self, s):
         '''Compute norm M{sqrt(1 - e2 * s**2)}.
 
@@ -1133,7 +1140,8 @@ class Ellipsoid(_NamedEnumItem):
                  methods L{Ellipsoid.height4} and L{Triaxial.hartzell4}.
         '''
         try:
-            v, d, i = _MODS.triaxials._hartzell3(pov, los, self._triaxial)
+            m = _MODS._triaxials_triaxial5
+            v, d, i = m._hartzell3(pov, los, self._triaxial)
         except Exception as x:
             raise IntersectionError(pov=pov, los=los, cause=x)
         return Vector4Tuple(v.x, v.y, v.z, d, iteration=i, name__=self.hartzell4)
@@ -1187,7 +1195,8 @@ class Ellipsoid(_NamedEnumItem):
                 v = v.times_(t, t, 0)  # force z=0.0
                 h = x - a  # equatorial
             else:  # normal in 1st quadrant
-                x, y, i = _MODS.triaxials._plumbTo3(x, y, self)
+                m = _MODS._triaxials_triaxial5
+                x, y, i = m._plumbTo3(x, y, self)
                 t, v = v, v.times_(x, x, y)
                 h = t.minus(v).length
 
@@ -1380,6 +1389,12 @@ class Ellipsoid(_NamedEnumItem):
 
     polaradius = b  # Rpolar
 
+    @property_RO
+    def polarimeter(self):
+        '''Get the ellipsoid's I{polar}, meridional perimeter (C{meter}).
+        '''
+        return Meter(polarimeter=self.L * _4_0)
+
 #   Q = A  # I{meridian arc unit} C{Q}, the mean, meridional length I{per radian}
 
     @deprecated_Property_RO
@@ -1483,7 +1498,7 @@ class Ellipsoid(_NamedEnumItem):
         r, p = self.a, Phid(lat)
         if p and self.f:
             if fabs(p) < PI_2:
-                s2, c2 = _s2_c2(p)
+                s2, c2 = _sin2cos2(p)
                 # R == sqrt((a2**2 * c2 + b2**2 * s2) / (a2 * c2 + b2 * s2))
                 #   == sqrt(a2**2 * (c2 + (b2 / a2)**2 * s2) / (a2 * (c2 + b2 / a2 * s2)))
                 #   == sqrt(a2 * (c2 + (b2 / a2)**2 * s2) / (c2 + (b2 / a2) * s2))
@@ -1708,7 +1723,7 @@ class Ellipsoid(_NamedEnumItem):
         '''(INTERNAL) Helper for C{rocAzimuth} and C{rocBearing}.
         '''
         if self.f:
-            s2, c2 = _s2_c2(radians(deg))
+            s2, c2 = _sin2cos2(radians(deg))
             m, n = self.roc2_(Phid(lat))
             if n < m:  # == n / (c2 * n / m + s2)
                 c2 *= n / m
@@ -1750,7 +1765,7 @@ class Ellipsoid(_NamedEnumItem):
         # ... requires 1 or 2 sqrt
         g = self.b
         if self.f:
-            s2, c2 = _s2_c2(Phid(lat))
+            s2, c2 = _sin2cos2(Phid(lat))
             g = _over(g, c2 + self.b2_a2 * s2)
         return Radius(rocGauss=g)
 
@@ -1897,8 +1912,8 @@ class Ellipsoid(_NamedEnumItem):
     def _triaxial(self):
         '''(INTERNAL) Get this ellipsoid's un-/ordered C{Triaxial/_}.
         '''
-        a, b, m = self.a, self.b, _MODS.triaxials
-        T = m.Triaxial if a > b else m.Triaxial_
+        a, b, t = self.a, self.b, _MODS.triaxials
+        T = t.Triaxial if a > b else t.Triaxial_
         return T(a, a, b, name=self.name)
 
     @Property_RO
@@ -2411,7 +2426,7 @@ Ellipsoids._assert(  # <https://WikiPedia.org/wiki/Earth_ellipsoid>
     WGS60          = _lazy('WGS60',          *_T(6378165.0,    6356783.28695944,  298.3)),
     WGS66          = _lazy('WGS66',          *_T(6378145.0,    6356759.76948868,  298.25)),
     WGS72          = _lazy(_WGS72_,          *_T(6378135.0,   _0_0,               298.26)),  # b=6356750.52
-    WGS84          = _lazy(_WGS84_,          *_T(R_MA,        _0_0,           _f__WGS84)),  # GPS b=6356752.3142451793
+    WGS84          = _lazy(_WGS84_,          *_T(R_MA,        _0_0,           _f__WGS84)),   # b=6356752.3142451793
 #   U{NOAA/NOS/NGS/inverse<https://GitHub.com/noaa-ngs/inverse/blob/main/invers3d.f>}
     WGS84_NGS      = _lazy('WGS84_NGS',      *_T(R_MA,        _0_0,               298.257222100882711243162836600094))
 )
@@ -2420,7 +2435,6 @@ _EWGS84 = Ellipsoids.WGS84  # (INTERNAL) shared
 
 if __name__ == _DMAIN_:
 
-    from pygeodesy.interns import _COMMA_, _NL_, _NLATvar_
     from pygeodesy import nameof, printf
 
     for E in (_EWGS84, Ellipsoids.GRS80,  # NAD83,
@@ -2437,9 +2451,9 @@ if __name__ == _DMAIN_:
         printf('# %s  %s', Ellipsoid.BetaKs.name, fstr(E.BetaKs,  prec=20))
         printf('# %s %s', nameof(Ellipsoid.KsOrder), E.KsOrder)  # property
 
+    from pygeodesy.internals import _pregistry
     # __doc__ of this file, force all into registry
-    t = [NN] + Ellipsoids.toRepr(all=True, asorted=True).split(_NL_)
-    printf(_NLATvar_.join(i.strip(_COMMA_) for i in t))
+    _pregistry(Ellipsoids)
 
 # % python3.13 -m pygeodesy.ellipsoids
 
@@ -2475,7 +2489,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

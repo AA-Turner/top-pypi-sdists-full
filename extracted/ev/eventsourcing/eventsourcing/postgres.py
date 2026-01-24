@@ -5,20 +5,30 @@ import logging
 from asyncio import CancelledError
 from contextlib import contextmanager
 from threading import Thread
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, NamedTuple, cast
 
 import psycopg
 import psycopg.errors
 import psycopg_pool
 from psycopg import Connection, Cursor, Error
+from psycopg.errors import DuplicateObject
 from psycopg.generators import notifies
 from psycopg.rows import DictRow, dict_row
 from psycopg.sql import SQL, Composed, Identifier
+from psycopg.types.composite import CompositeInfo, register_composite
+from psycopg_pool.abc import (
+    CT,
+    ConnectFailedCB,
+    ConnectionCB,
+    ConninfoParam,
+    KwargsParam,
+)
 from typing_extensions import TypeVar
 
 from eventsourcing.persistence import (
     AggregateRecorder,
     ApplicationRecorder,
+    BaseInfrastructureFactory,
     DatabaseError,
     DataError,
     InfrastructureFactory,
@@ -36,15 +46,18 @@ from eventsourcing.persistence import (
     Subscription,
     Tracking,
     TrackingRecorder,
+    TTrackingRecorder,
 )
 from eventsourcing.utils import Environment, EnvType, resolve_topic, retry, strtobool
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator, Sequence
+    from collections.abc import Callable, Iterator, Sequence
+    from types import TracebackType
     from uuid import UUID
 
     from psycopg.abc import Query
     from typing_extensions import Self
+
 
 logging.getLogger("psycopg.pool").setLevel(logging.ERROR)
 logging.getLogger("psycopg").setLevel(logging.ERROR)
@@ -58,18 +71,62 @@ logging.getLogger("psycopg").setLevel(logging.ERROR)
 NO_TRACEBACK = (Error, KeyboardInterrupt, CancelledError)
 
 
-class ConnectionPool(psycopg_pool.ConnectionPool[Any]):
-    def __init__(
+class PgStoredEvent(NamedTuple):
+    originator_id: UUID | str
+    originator_version: int
+    topic: str
+    state: bytes
+
+
+class ConnectionPool(psycopg_pool.ConnectionPool[CT], Generic[CT]):
+    def __init__(  # noqa: PLR0913
         self,
-        *args: Any,
+        conninfo: ConninfoParam = "",
+        *,
+        connection_class: type[CT] = cast(type[CT], Connection),  # noqa: B008
+        kwargs: KwargsParam | None = None,
+        min_size: int = 4,
+        max_size: int | None = None,
+        open: bool | None = None,  # noqa: A002
+        configure: ConnectionCB[CT] | None = None,
+        check: ConnectionCB[CT] | None = None,
+        reset: ConnectionCB[CT] | None = None,
+        name: str | None = None,
+        close_returns: bool = False,
+        timeout: float = 30.0,
+        max_waiting: int = 0,
+        max_lifetime: float = 60 * 60.0,
+        max_idle: float = 10 * 60.0,
+        reconnect_timeout: float = 5 * 60.0,
+        reconnect_failed: ConnectFailedCB | None = None,
+        num_workers: int = 3,
         get_password_func: Callable[[], str] | None = None,
-        **kwargs: Any,
     ) -> None:
         self.get_password_func = get_password_func
-        super().__init__(*args, **kwargs)
+        super().__init__(
+            conninfo,
+            connection_class=connection_class,
+            kwargs=kwargs,
+            min_size=min_size,
+            max_size=max_size,
+            open=open,
+            configure=configure,
+            check=check,
+            reset=reset,
+            name=name,
+            close_returns=close_returns,
+            timeout=timeout,
+            max_waiting=max_waiting,
+            max_lifetime=max_lifetime,
+            max_idle=max_idle,
+            reconnect_timeout=reconnect_timeout,
+            reconnect_failed=reconnect_failed,
+            num_workers=num_workers,
+        )
 
-    def _connect(self, timeout: float | None = None) -> Connection[Any]:
+    def _connect(self, timeout: float | None = None) -> CT:
         if self.get_password_func:
+            assert isinstance(self.kwargs, dict)
             self.kwargs["password"] = self.get_password_func()
         return super()._connect(timeout=timeout)
 
@@ -95,13 +152,29 @@ class PostgresDatastore:
         pool_open_timeout: float | None = None,
         get_password_func: Callable[[], str] | None = None,
         single_row_tracking: bool = True,
+        originator_id_type: Literal["uuid", "text"] = "uuid",
+        enable_db_functions: bool = False,
     ):
         self.idle_in_transaction_session_timeout = idle_in_transaction_session_timeout
         self.pre_ping = pre_ping
         self.pool_open_timeout = pool_open_timeout
         self.single_row_tracking = single_row_tracking
+        self.lock_timeout = lock_timeout
+        self.schema = schema.strip() or "public"
+        if originator_id_type.lower() not in ("uuid", "text"):
+            msg = (
+                f"Invalid originator_id_type '{originator_id_type}', "
+                f"must be 'uuid' or 'text'"
+            )
+            raise ValueError(msg)
+        self.originator_id_type = originator_id_type.lower()
+
+        self.enable_db_functions = enable_db_functions
 
         check = ConnectionPool.check_connection if pre_ping else None
+        self.db_type_names = set[str]()
+        self.psycopg_type_adapters: dict[str, CompositeInfo] = {}
+        self.psycopg_python_types: dict[str, Any] = {}
         self.pool = ConnectionPool(
             get_password_func=get_password_func,
             connection_class=Connection[DictRow],
@@ -120,21 +193,46 @@ class PostgresDatastore:
             timeout=connect_timeout,
             max_waiting=max_waiting,
             max_lifetime=conn_max_age,
-            check=check,
+            check=check,  # pyright: ignore [reportArgumentType]
         )
-        self.lock_timeout = lock_timeout
-        self.schema = schema.strip() or "public"
 
     def after_connect_func(self) -> Callable[[Connection[Any]], None]:
-        statement = SQL("SET idle_in_transaction_session_timeout = '{0}ms'").format(
-            int(self.idle_in_transaction_session_timeout * 1000)
-        )
+        set_idle_in_transaction_session_timeout_statement = SQL(
+            "SET idle_in_transaction_session_timeout = '{0}ms'"
+        ).format(int(self.idle_in_transaction_session_timeout * 1000))
 
+        # Avoid passing a bound method to the pool,
+        # to avoid creating a circular ref to self.
         def after_connect(conn: Connection[DictRow]) -> None:
+            # Put connection in auto-commit mode.
             conn.autocommit = True
-            conn.cursor().execute(statement)
+
+            # Set idle in transaction session timeout.
+            conn.cursor().execute(set_idle_in_transaction_session_timeout_statement)
 
         return after_connect
+
+    def register_type_adapters(self) -> None:
+        # Construct and/or register composite type adapters.
+        unregistered_names = [
+            name
+            for name in self.db_type_names
+            if name not in self.psycopg_type_adapters
+        ]
+        if not unregistered_names:
+            return
+        with self.get_connection() as conn:
+            for name in unregistered_names:
+                # Construct type adapter from database info.
+                info = CompositeInfo.fetch(conn, f"{self.schema}.{name}")
+                if info is None:
+                    continue
+                # Register the type adapter centrally.
+                register_composite(info, conn)
+                # Cache the python type for our own use.
+                self.psycopg_type_adapters[name] = info
+                assert info.python_type is not None, info
+                self.psycopg_python_types[name] = info.python_type
 
     @contextmanager
     def get_connection(self) -> Iterator[Connection[DictRow]]:
@@ -144,6 +242,11 @@ class PostgresDatastore:
             self.pool.open(wait, timeout)
 
             with self.pool.connection() as conn:
+                # Make sure the connection has the type adapters.
+                for info in self.psycopg_type_adapters.values():
+                    if not conn.adapters.types.get(info.oid):
+                        register_composite(info, conn)
+                # Yield connection.
                 yield conn
         except psycopg.InterfaceError as e:
             # conn.close()
@@ -171,18 +274,30 @@ class PostgresDatastore:
             raise
 
     @contextmanager
+    def cursor(self) -> Iterator[Cursor[DictRow]]:
+        with self.get_connection() as conn:
+            yield conn.cursor()
+
+    @contextmanager
     def transaction(self, *, commit: bool = False) -> Iterator[Cursor[DictRow]]:
         with self.get_connection() as conn, conn.transaction(force_rollback=not commit):
             yield conn.cursor()
 
     def close(self) -> None:
-        self.pool.close()
+        with contextlib.suppress(AttributeError):
+            self.pool.close()
 
     def __enter__(self) -> Self:
+        self.pool.__enter__()
         return self
 
-    def __exit__(self, *args: object, **kwargs: Any) -> None:
-        self.close()
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.pool.__exit__(exc_type, exc_val, exc_tb)
 
     def __del__(self) -> None:
         self.close()
@@ -202,24 +317,46 @@ class PostgresRecorder:
         datastore: PostgresDatastore,
     ):
         self.datastore = datastore
-        self.create_table_statements = self.construct_create_table_statements()
+        self.sql_create_statements: list[Composed] = []
 
     @staticmethod
-    def check_table_name_length(table_name: str) -> None:
+    def check_identifier_length(table_name: str) -> None:
         if len(table_name) > PostgresRecorder.MAX_IDENTIFIER_LEN:
-            msg = f"Table name too long: {table_name}"
+            msg = f"Identifier too long: {table_name}"
             raise ProgrammingError(msg)
 
-    def construct_create_table_statements(self) -> list[Composed]:
-        return []
-
     def create_table(self) -> None:
+        # Create composite types.
+        for statement in self.sql_create_statements:
+            if "CREATE TYPE" in statement.as_string():
+                # Do in own transaction, because there is no 'IF NOT EXISTS' option
+                # when creating types, and if exists, then a DuplicateObject error
+                # is raised, terminating the transaction and causing an opaque error.
+                with (
+                    self.datastore.transaction(commit=True) as curs,
+                    contextlib.suppress(DuplicateObject),
+                ):
+                    curs.execute(statement, prepare=False)
+                    # try:
+                    # except psycopg.errors.SyntaxError as e:
+                    #     msg = f"Syntax error: '{e}' in: {statement.as_string()}"
+                    #     raise ProgrammingError(msg) from e
+
+        # Create tables, indexes, types, functions, and procedures.
         with self.datastore.transaction(commit=True) as curs:
             self._create_table(curs)
 
+        # Register type adapters.
+        self.datastore.register_type_adapters()
+
     def _create_table(self, curs: Cursor[DictRow]) -> None:
-        for statement in self.create_table_statements:
-            curs.execute(statement, prepare=False)
+        for statement in self.sql_create_statements:
+            if "CREATE TYPE" not in statement.as_string():
+                try:
+                    curs.execute(statement, prepare=False)
+                except psycopg.errors.SyntaxError as e:
+                    msg = f"Syntax error: '{e}' in: {statement.as_string()}"
+                    raise ProgrammingError(msg) from e
 
 
 class PostgresAggregateRecorder(PostgresRecorder, AggregateRecorder):
@@ -230,82 +367,102 @@ class PostgresAggregateRecorder(PostgresRecorder, AggregateRecorder):
         events_table_name: str = "stored_events",
     ):
         super().__init__(datastore)
-        self.check_table_name_length(events_table_name)
+        self.check_identifier_length(events_table_name)
         self.events_table_name = events_table_name
         # Index names can't be qualified names, but
         # are created in the same schema as the table.
         self.notification_id_index_name = (
             f"{self.events_table_name}_notification_id_idx"
         )
-        self.create_table_statements.append(
+
+        self.stored_event_type_name = (
+            f"stored_event_{self.datastore.originator_id_type}"
+        )
+        self.datastore.db_type_names.add(self.stored_event_type_name)
+        self.datastore.register_type_adapters()
+        self.create_table_statement_index = len(self.sql_create_statements)
+        self.sql_create_statements.append(
             SQL(
-                "CREATE TABLE IF NOT EXISTS {0}.{1} ("
-                "originator_id uuid NOT NULL, "
+                "CREATE TABLE IF NOT EXISTS {schema}.{table} ("
+                "originator_id {originator_id_type} NOT NULL, "
                 "originator_version bigint NOT NULL, "
                 "topic text, "
                 "state bytea, "
                 "PRIMARY KEY "
                 "(originator_id, originator_version)) "
-                "WITH (autovacuum_enabled=false)"
+                "WITH ("
+                "    autovacuum_enabled = true,"
+                "    autovacuum_vacuum_threshold = 100000000,"
+                "    autovacuum_vacuum_scale_factor = 0.5,"
+                "    autovacuum_analyze_threshold = 1000,"
+                "    autovacuum_analyze_scale_factor = 0.01"
+                ")"
             ).format(
-                Identifier(self.datastore.schema),
-                Identifier(self.events_table_name),
+                schema=Identifier(self.datastore.schema),
+                table=Identifier(self.events_table_name),
+                originator_id_type=Identifier(self.datastore.originator_id_type),
             )
         )
 
         self.insert_events_statement = SQL(
-            "INSERT INTO {0}.{1} VALUES (%s, %s, %s, %s)"
+            "    INSERT INTO {schema}.{table} AS t ("
+            "    originator_id, originator_version, topic, state)"
+            "    SELECT originator_id, originator_version, topic, state"
+            "    FROM unnest(%s::{schema}.{stored_event_type}[])"
         ).format(
-            Identifier(self.datastore.schema),
-            Identifier(self.events_table_name),
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
+            stored_event_type=Identifier(self.stored_event_type_name),
         )
 
         self.select_events_statement = SQL(
-            "SELECT * FROM {0}.{1} WHERE originator_id = %s"
+            "SELECT * FROM {schema}.{table} WHERE originator_id = %s"
         ).format(
-            Identifier(self.datastore.schema),
-            Identifier(self.events_table_name),
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
         )
 
         self.lock_table_statements: list[Query] = []
+
+        self.sql_create_statements.append(
+            SQL(
+                "CREATE TYPE {schema}.{name} "
+                "AS (originator_id {originator_id_type}, "
+                "originator_version bigint, "
+                "topic text, "
+                "state bytea)"
+            ).format(
+                schema=Identifier(self.datastore.schema),
+                name=Identifier(self.stored_event_type_name),
+                originator_id_type=Identifier(self.datastore.originator_id_type),
+            )
+        )
+
+    def construct_pg_stored_event(
+        self,
+        originator_id: UUID | str,
+        originator_version: int,
+        topic: str,
+        state: bytes,
+    ) -> PgStoredEvent:
+        try:
+            return self.datastore.psycopg_python_types[self.stored_event_type_name](
+                originator_id, originator_version, topic, state
+            )
+        except KeyError:
+            msg = f"Composite type '{self.stored_event_type_name}' not found"
+            raise ProgrammingError(msg) from None
 
     @retry((InterfaceError, OperationalError), max_attempts=10, wait=0.2)
     def insert_events(
         self, stored_events: Sequence[StoredEvent], **kwargs: Any
     ) -> Sequence[int] | None:
-        exc: Exception | None = None
-        notification_ids: Sequence[int] | None = None
-        with self.datastore.get_connection() as conn:
-            with conn.pipeline() as pipeline, conn.transaction():
-                # Do other things first, so they can be pipelined too.
-                with conn.cursor() as curs:
-                    self._insert_events(curs, stored_events, **kwargs)
-                # Then use a different cursor for the executemany() call.
-                with conn.cursor() as curs:
-                    try:
-                        self._insert_stored_events(curs, stored_events, **kwargs)
-                        # Sync now, so any uniqueness constraint violation causes an
-                        # IntegrityError to be raised here, rather an InternalError
-                        # being raised sometime later e.g. when commit() is called.
-                        pipeline.sync()
-                        notification_ids = self._fetch_ids_after_insert_events(
-                            curs, stored_events, **kwargs
-                        )
-                    except Exception as e:
-                        # Avoid psycopg emitting a pipeline warning.
-                        exc = e
-            if exc:
-                # Reraise exception after pipeline context manager has exited.
-                raise exc
-        return notification_ids
-
-    def _insert_events(
-        self,
-        curs: Cursor[DictRow],
-        stored_events: Sequence[StoredEvent],
-        **_: Any,
-    ) -> None:
-        pass
+        # Only do something if there is something to do.
+        if len(stored_events) > 0:
+            with self.datastore.get_connection() as conn, conn.cursor() as curs:
+                assert conn.autocommit
+                self._insert_stored_events(curs, stored_events, **kwargs)
+        return None
 
     def _insert_stored_events(
         self,
@@ -313,40 +470,21 @@ class PostgresAggregateRecorder(PostgresRecorder, AggregateRecorder):
         stored_events: Sequence[StoredEvent],
         **_: Any,
     ) -> None:
-        # Only do something if there is something to do.
-        if len(stored_events) > 0:
-            self._lock_table(curs)
-
-            self._notify_channel(curs)
-
-            # Insert events.
-            curs.executemany(
-                query=self.insert_events_statement,
-                params_seq=[
-                    (
-                        stored_event.originator_id,
-                        stored_event.originator_version,
-                        stored_event.topic,
-                        stored_event.state,
-                    )
-                    for stored_event in stored_events
-                ],
-                returning="RETURNING" in self.insert_events_statement.as_string(),
+        # Construct composite type.
+        pg_stored_events = [
+            self.construct_pg_stored_event(
+                stored_event.originator_id,
+                stored_event.originator_version,
+                stored_event.topic,
+                stored_event.state,
             )
-
-    def _lock_table(self, curs: Cursor[DictRow]) -> None:
-        pass
-
-    def _notify_channel(self, curs: Cursor[DictRow]) -> None:
-        pass
-
-    def _fetch_ids_after_insert_events(
-        self,
-        curs: Cursor[DictRow],
-        stored_events: Sequence[StoredEvent],
-        **kwargs: Any,
-    ) -> Sequence[int] | None:
-        return None
+            for stored_event in stored_events
+        ]
+        # Insert events.
+        curs.execute(
+            query=self.insert_events_statement,
+            params=(pg_stored_events,),
+        )
 
     @retry((InterfaceError, OperationalError), max_attempts=10, wait=0.2)
     def select_events(
@@ -396,42 +534,47 @@ class PostgresApplicationRecorder(PostgresAggregateRecorder, ApplicationRecorder
         events_table_name: str = "stored_events",
     ):
         super().__init__(datastore, events_table_name=events_table_name)
-        self.create_table_statements[-1] = SQL(
-            "CREATE TABLE IF NOT EXISTS {0}.{1} ("
-            "originator_id uuid NOT NULL, "
+        self.sql_create_statements[self.create_table_statement_index] = SQL(
+            "CREATE TABLE IF NOT EXISTS {schema}.{table} ("
+            "originator_id {originator_id_type} NOT NULL, "
             "originator_version bigint NOT NULL, "
             "topic text, "
             "state bytea, "
             "notification_id bigserial, "
             "PRIMARY KEY "
             "(originator_id, originator_version)) "
-            "WITH (autovacuum_enabled=false)"
+            "WITH ("
+            "    autovacuum_enabled = true,"
+            "    autovacuum_vacuum_threshold = 100000000,"
+            "    autovacuum_vacuum_scale_factor = 0.5,"
+            "    autovacuum_analyze_threshold = 1000,"
+            "    autovacuum_analyze_scale_factor = 0.01"
+            ")"
         ).format(
-            Identifier(self.datastore.schema),
-            Identifier(self.events_table_name),
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
+            originator_id_type=Identifier(self.datastore.originator_id_type),
         )
 
-        self.create_table_statements.append(
+        self.sql_create_statements.append(
             SQL(
-                "CREATE UNIQUE INDEX IF NOT EXISTS {0} "
-                "ON {1}.{2} (notification_id ASC);"
+                "CREATE UNIQUE INDEX IF NOT EXISTS {index} "
+                "ON {schema}.{table} (notification_id ASC);"
             ).format(
-                Identifier(self.notification_id_index_name),
-                Identifier(self.datastore.schema),
-                Identifier(self.events_table_name),
+                index=Identifier(self.notification_id_index_name),
+                schema=Identifier(self.datastore.schema),
+                table=Identifier(self.events_table_name),
             )
         )
 
         self.channel_name = self.events_table_name.replace(".", "_")
-        self.insert_events_statement = self.insert_events_statement + SQL(
-            " RETURNING notification_id"
-        )
+        self.insert_events_statement += SQL(" RETURNING notification_id")
 
         self.max_notification_id_statement = SQL(
-            "SELECT MAX(notification_id) FROM {0}.{1}"
+            "SELECT MAX(notification_id) FROM {schema}.{table}"
         ).format(
-            Identifier(self.datastore.schema),
-            Identifier(self.events_table_name),
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
         )
 
         self.lock_table_statements = [
@@ -441,6 +584,108 @@ class PostgresApplicationRecorder(PostgresAggregateRecorder, ApplicationRecorder
                 Identifier(self.events_table_name),
             ),
         ]
+
+        self.pg_function_name_insert_events = (
+            f"es_insert_events_{self.datastore.originator_id_type}"
+        )
+        self.sql_invoke_pg_function_insert_events = SQL(
+            "SELECT * FROM {insert_events}((%s))"
+        ).format(insert_events=Identifier(self.pg_function_name_insert_events))
+
+        self.sql_create_pg_function_insert_events = SQL(
+            "CREATE OR REPLACE FUNCTION {insert_events}(events {schema}.{event}[]) "
+            "RETURNS SETOF bigint "
+            "LANGUAGE plpgsql "
+            "AS "
+            "$BODY$"
+            "BEGIN"
+            "    SET LOCAL lock_timeout = '{lock_timeout}s';"
+            "    NOTIFY {channel};"
+            "    RETURN QUERY"
+            "    INSERT INTO {schema}.{table} AS t ("
+            "    originator_id, originator_version, topic, state)"
+            "    SELECT originator_id, originator_version, topic, state"
+            "    FROM unnest(events)"
+            "    RETURNING notification_id;"
+            "END;"
+            "$BODY$"
+        ).format(
+            insert_events=Identifier(self.pg_function_name_insert_events),
+            lock_timeout=self.datastore.lock_timeout,
+            channel=Identifier(self.channel_name),
+            event=Identifier(self.stored_event_type_name),
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
+        )
+        self.create_insert_function_statement_index = len(self.sql_create_statements)
+        self.sql_create_statements.append(self.sql_create_pg_function_insert_events)
+
+    @retry((InterfaceError, OperationalError), max_attempts=10, wait=0.2)
+    def insert_events(
+        self, stored_events: Sequence[StoredEvent], **kwargs: Any
+    ) -> Sequence[int] | None:
+        if self.datastore.enable_db_functions:
+            pg_stored_events = [
+                self.construct_pg_stored_event(
+                    originator_id=e.originator_id,
+                    originator_version=e.originator_version,
+                    topic=e.topic,
+                    state=e.state,
+                )
+                for e in stored_events
+            ]
+            with self.datastore.get_connection() as conn, conn.cursor() as curs:
+                curs.execute(
+                    self.sql_invoke_pg_function_insert_events,
+                    (pg_stored_events,),
+                    prepare=True,
+                )
+                return [r[self.pg_function_name_insert_events] for r in curs.fetchall()]
+
+        exc: Exception | None = None
+        notification_ids: Sequence[int] | None = None
+        with self.datastore.get_connection() as conn:
+            with conn.pipeline() as pipeline, conn.transaction():
+                # Do other things first, so they can be pipelined too.
+                with conn.cursor() as curs:
+                    self._insert_events(curs, stored_events, **kwargs)
+                # Then use a different cursor for the executemany() call.
+                if len(stored_events) > 0:
+                    with conn.cursor() as curs:
+                        try:
+                            self._insert_stored_events(curs, stored_events, **kwargs)
+                            # Sync now, so any uniqueness constraint violation causes an
+                            # IntegrityError to be raised here, rather an InternalError
+                            # being raised sometime later e.g. when commit() is called.
+                            pipeline.sync()
+                            notification_ids = self._fetch_ids_after_insert_events(
+                                curs, stored_events, **kwargs
+                            )
+                        except Exception as e:
+                            # Avoid psycopg emitting a pipeline warning.
+                            exc = e
+            if exc:
+                # Reraise exception after pipeline context manager has exited.
+                raise exc
+        return notification_ids
+
+    def _insert_events(
+        self,
+        curs: Cursor[DictRow],
+        stored_events: Sequence[StoredEvent],
+        **_: Any,
+    ) -> None:
+        pass
+
+    def _insert_stored_events(
+        self,
+        curs: Cursor[DictRow],
+        stored_events: Sequence[StoredEvent],
+        **kwargs: Any,
+    ) -> None:
+        self._lock_table(curs)
+        self._notify_channel(curs)
+        super()._insert_stored_events(curs, stored_events, **kwargs)
 
     @retry((InterfaceError, OperationalError), max_attempts=10, wait=0.2)
     def select_notifications(
@@ -456,9 +701,9 @@ class PostgresApplicationRecorder(PostgresAggregateRecorder, ApplicationRecorder
         from 'start', limited by 'limit'.
         """
         params: list[int | str | Sequence[str]] = []
-        statement = SQL("SELECT * FROM {0}.{1}").format(
-            Identifier(self.datastore.schema),
-            Identifier(self.events_table_name),
+        statement = SQL("SELECT * FROM {schema}.{table}").format(
+            schema=Identifier(self.datastore.schema),
+            table=Identifier(self.events_table_name),
         )
         has_where = False
         if start is not None:
@@ -521,7 +766,7 @@ class PostgresApplicationRecorder(PostgresAggregateRecorder, ApplicationRecorder
     def _lock_table(self, curs: Cursor[DictRow]) -> None:
         # Acquire "EXCLUSIVE" table lock, to serialize transactions that insert
         # stored events, so that readers don't pass over gaps that are filled in
-        # later. We want each transaction that will be issued with notifications
+        # later. We want each transaction that will be issued with notification
         # IDs by the notification ID sequence to receive all its notification IDs
         # and then commit, before another transaction is issued with any notification
         # IDs. In other words, we want the insert order to be the same as the commit
@@ -549,20 +794,18 @@ class PostgresApplicationRecorder(PostgresAggregateRecorder, ApplicationRecorder
         self,
         curs: Cursor[DictRow],
         stored_events: Sequence[StoredEvent],
-        **kwargs: Any,
+        **_: Any,
     ) -> Sequence[int] | None:
         notification_ids: list[int] = []
-        len_events = len(stored_events)
-        if len_events:
-            while curs.nextset() and len(notification_ids) != len_events:
-                if curs.statusmessage and curs.statusmessage.startswith("INSERT"):
-                    row = curs.fetchone()
-                    assert row is not None
-                    notification_ids.append(row["notification_id"])
-            if len(notification_ids) != len(stored_events):
-                msg = "Couldn't get all notification IDs "
-                msg += f"(got {len(notification_ids)}, expected {len(stored_events)})"
-                raise ProgrammingError(msg)
+        assert curs.statusmessage and curs.statusmessage.startswith(
+            "INSERT"
+        ), curs.statusmessage
+        try:
+            notification_ids = [row["notification_id"] for row in curs.fetchall()]
+        except psycopg.ProgrammingError as e:
+            msg = "Couldn't get all notification IDs "
+            msg += f"(got {len(notification_ids)}, expected {len(stored_events)})"
+            raise ProgrammingError(msg) from e
         return notification_ids
 
     def subscribe(
@@ -584,8 +827,10 @@ class PostgresSubscription(ListenNotifySubscription[PostgresApplicationRecorder]
         self._listen_thread.start()
 
     def __exit__(self, *args: object, **kwargs: Any) -> None:
-        super().__exit__(*args, **kwargs)
-        self._listen_thread.join()
+        try:
+            super().__exit__(*args, **kwargs)
+        finally:
+            self._listen_thread.join()
 
     def _listen(self) -> None:
         try:
@@ -620,7 +865,7 @@ class PostgresTrackingRecorder(PostgresRecorder, TrackingRecorder):
         **kwargs: Any,
     ):
         super().__init__(datastore, **kwargs)
-        self.check_table_name_length(tracking_table_name)
+        self.check_identifier_length(tracking_table_name)
         self.tracking_table_name = tracking_table_name
         self.tracking_table_exists: bool = False
         self.tracking_migration_previous: int | None = None
@@ -629,13 +874,20 @@ class PostgresTrackingRecorder(PostgresRecorder, TrackingRecorder):
         self.has_checked_for_multi_row_tracking_table: bool = False
         if self.datastore.single_row_tracking:
             # For single-row tracking.
-            self.create_table_statements.append(
+            self.sql_create_statements.append(
                 SQL(
                     "CREATE TABLE IF NOT EXISTS {0}.{1} ("
                     "application_name text, "
                     "notification_id bigint, "
                     "PRIMARY KEY "
                     "(application_name))"
+                    "WITH ("
+                    "    autovacuum_enabled = true,"
+                    "    autovacuum_vacuum_threshold = 100000000,"
+                    "    autovacuum_vacuum_scale_factor = 0.5,"
+                    "    autovacuum_analyze_threshold = 1000,"
+                    "    autovacuum_analyze_scale_factor = 0.01"
+                    ")"
                 ).format(
                     Identifier(self.datastore.schema),
                     Identifier(self.tracking_table_name),
@@ -654,13 +906,20 @@ class PostgresTrackingRecorder(PostgresRecorder, TrackingRecorder):
             )
         else:
             # For legacy multi-row tracking.
-            self.create_table_statements.append(
+            self.sql_create_statements.append(
                 SQL(
                     "CREATE TABLE IF NOT EXISTS {0}.{1} ("
                     "application_name text, "
                     "notification_id bigint, "
                     "PRIMARY KEY "
                     "(application_name, notification_id))"
+                    "WITH ("
+                    "    autovacuum_enabled = true,"
+                    "    autovacuum_vacuum_threshold = 100000000,"
+                    "    autovacuum_vacuum_scale_factor = 0.5,"
+                    "    autovacuum_analyze_threshold = 1000,"
+                    "    autovacuum_analyze_scale_factor = 0.01"
+                    ")"
                 ).format(
                     Identifier(self.datastore.schema),
                     Identifier(self.tracking_table_name),
@@ -854,7 +1113,7 @@ class PostgresProcessRecorder(
         super()._insert_events(curs, stored_events, **kwargs)
 
 
-class PostgresFactory(InfrastructureFactory[PostgresTrackingRecorder]):
+class BasePostgresFactory(BaseInfrastructureFactory[TTrackingRecorder]):
     POSTGRES_DBNAME = "POSTGRES_DBNAME"
     POSTGRES_HOST = "POSTGRES_HOST"
     POSTGRES_PORT = "POSTGRES_PORT"
@@ -873,12 +1132,9 @@ class PostgresFactory(InfrastructureFactory[PostgresTrackingRecorder]):
     )
     POSTGRES_SCHEMA = "POSTGRES_SCHEMA"
     POSTGRES_SINGLE_ROW_TRACKING = "SINGLE_ROW_TRACKING"
+    ORIGINATOR_ID_TYPE = "ORIGINATOR_ID_TYPE"
+    POSTGRES_ENABLE_DB_FUNCTIONS = "POSTGRES_ENABLE_DB_FUNCTIONS"
     CREATE_TABLE = "CREATE_TABLE"
-
-    aggregate_recorder_class = PostgresAggregateRecorder
-    application_recorder_class = PostgresApplicationRecorder
-    tracking_recorder_class = PostgresTrackingRecorder
-    process_recorder_class = PostgresProcessRecorder
 
     def __init__(self, env: Environment | EnvType | None):
         super().__init__(env)
@@ -1038,6 +1294,21 @@ class PostgresFactory(InfrastructureFactory[PostgresTrackingRecorder]):
             self.env.get(self.POSTGRES_SINGLE_ROW_TRACKING, "t")
         )
 
+        originator_id_type = cast(
+            Literal["uuid", "text"],
+            self.env.get(self.ORIGINATOR_ID_TYPE, "uuid"),
+        )
+        if originator_id_type.lower() not in ("uuid", "text"):
+            msg = (
+                f"Invalid {self.ORIGINATOR_ID_TYPE} '{originator_id_type}', "
+                f"must be 'uuid' or 'text'"
+            )
+            raise OSError(msg)
+
+        enable_db_functions = strtobool(
+            self.env.get(self.POSTGRES_ENABLE_DB_FUNCTIONS) or "no"
+        )
+
         self.datastore = PostgresDatastore(
             dbname=dbname,
             host=host,
@@ -1055,10 +1326,38 @@ class PostgresFactory(InfrastructureFactory[PostgresTrackingRecorder]):
             schema=schema,
             get_password_func=get_password_func,
             single_row_tracking=single_row_tracking,
+            originator_id_type=originator_id_type,
+            enable_db_functions=enable_db_functions,
         )
 
     def env_create_table(self) -> bool:
         return strtobool(self.env.get(self.CREATE_TABLE) or "yes")
+
+    def __enter__(self) -> Self:
+        self.datastore.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.datastore.__exit__(exc_type, exc_val, exc_tb)
+
+    def close(self) -> None:
+        with contextlib.suppress(AttributeError):
+            self.datastore.close()
+
+
+class PostgresFactory(
+    BasePostgresFactory[PostgresTrackingRecorder],
+    InfrastructureFactory[PostgresTrackingRecorder],
+):
+    aggregate_recorder_class = PostgresAggregateRecorder
+    application_recorder_class = PostgresApplicationRecorder
+    tracking_recorder_class = PostgresTrackingRecorder
+    process_recorder_class = PostgresProcessRecorder
 
     def aggregate_recorder(self, purpose: str = "events") -> AggregateRecorder:
         prefix = self.env.name.lower() or "stored"
@@ -1137,10 +1436,6 @@ class PostgresFactory(InfrastructureFactory[PostgresTrackingRecorder]):
         if self.env_create_table():
             recorder.create_table()
         return recorder
-
-    def close(self) -> None:
-        with contextlib.suppress(AttributeError):
-            self.datastore.close()
 
 
 Factory = PostgresFactory

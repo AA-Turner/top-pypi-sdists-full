@@ -6,7 +6,7 @@ use rumdl_lib::rules::MD037NoSpaceInEmphasis;
 fn test_valid_emphasis() {
     let rule = MD037NoSpaceInEmphasis;
     let content = "*text* and **text** and _text_ and __text__";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -14,17 +14,22 @@ fn test_valid_emphasis() {
 #[test]
 fn test_spaces_inside_asterisk_emphasis() {
     let rule = MD037NoSpaceInEmphasis;
-    let content = "* text * and *text * and * text*";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Per CommonMark, "* text *" at line start is a list marker, not emphasis.
+    // Test patterns within text to verify MD037 detection.
+    // Note: markdownlint-cli only flags patterns with spaces on BOTH sides.
+    // Patterns like "*text *" or "* text*" (space on one side only) are NOT flagged.
+    let content = "Text with * bad * here";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    assert_eq!(result.len(), 3); // All three emphasis spans have spacing issues
+    // Only "* bad *" (spaces on both sides) is flagged
+    assert_eq!(result.len(), 1);
 }
 
 #[test]
 fn test_spaces_inside_double_asterisk() {
     let rule = MD037NoSpaceInEmphasis;
     let content = "** text ** and **text ** and ** text**";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 3); // All three have spacing issues
 }
@@ -33,7 +38,7 @@ fn test_spaces_inside_double_asterisk() {
 fn test_spaces_inside_underscore_emphasis() {
     let rule = MD037NoSpaceInEmphasis;
     let content = "_ text _ and _text _ and _ text_";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 3);
 }
@@ -42,7 +47,7 @@ fn test_spaces_inside_underscore_emphasis() {
 fn test_spaces_inside_double_underscore() {
     let rule = MD037NoSpaceInEmphasis;
     let content = "__ text __ and __text __ and __ text__";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 3); // All three emphasis spans have spacing issues
 }
@@ -50,18 +55,23 @@ fn test_spaces_inside_double_underscore() {
 #[test]
 fn test_emphasis_in_code_block() {
     let rule = MD037NoSpaceInEmphasis;
-    let content = "```\n* text *\n```\n* text *";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Emphasis-like pattern inside code block should be ignored
+    // Pattern outside code block but at line start is a list marker, not emphasis
+    // Use pattern within text to verify code block filtering
+    let content = "```\n* text *\n```\nText with * text * here";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
-    // The emphasis inside the code block should be ignored, but the one outside should be flagged
+    // Only the one outside the code block (within text) should be flagged
     assert_eq!(result.len(), 1);
 }
 
 #[test]
 fn test_multiple_emphasis_on_line() {
     let rule = MD037NoSpaceInEmphasis;
-    let content = "* text * and _ text _ in one line";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Per CommonMark, "* text *" at line start is a list marker.
+    // Move pattern within text to test emphasis detection.
+    let content = "Here is * text * and _ text _ in one line";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -69,8 +79,9 @@ fn test_multiple_emphasis_on_line() {
 #[test]
 fn test_mixed_emphasis() {
     let rule = MD037NoSpaceInEmphasis;
-    let content = "* text * and ** text ** mixed";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Per CommonMark, "* text *" at line start is a list marker.
+    let content = "Here is * text * and ** text ** mixed";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -78,8 +89,9 @@ fn test_mixed_emphasis() {
 #[test]
 fn test_emphasis_with_punctuation() {
     let rule = MD037NoSpaceInEmphasis;
-    let content = "* text! * and * text? * here";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Per CommonMark, "* text! *" at line start is a list marker.
+    let content = "Here is * text! * and * text? * end";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -90,25 +102,25 @@ fn test_code_span_handling() {
 
     // Test code spans containing emphasis-like content
     let content = "Use `*text*` as emphasis and `**text**` as strong emphasis";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test nested backticks with different counts
     let content = "This is ``code with ` inside`` and `code with *asterisks*`";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test code spans at start and end of line
     let content = "`*text*` at start and at end `*more text*`";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test mixed code spans and emphasis in same line
     let content = "Code `let x = 1;` and *emphasis* and more code `let y = 2;`";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -119,25 +131,25 @@ fn test_emphasis_edge_cases() {
 
     // Test emphasis next to punctuation
     let content = "*text*.and **text**!";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test emphasis at line boundaries
     let content = "*text*\n*text*";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test emphasis mixed with code spans on the same line
     let content = "*emphasis* with `code` and *more emphasis*";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Test complex mixed content
     let content = "**strong _with emph_** and `code *with* asterisks`";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -148,25 +160,25 @@ fn test_fix_preserves_structure_emphasis() {
 
     // Verify emphasis fix preserves code blocks
     let content = "* bad emphasis * and ```\n* text *\n```\n* more bad *";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
-    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&fixed_ctx).unwrap();
     assert!(result.is_empty()); // Fixed content should have no warnings
 
     // Verify preservation of complex content
     let content = "`code` with * bad * and **bad ** emphasis";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
-    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&fixed_ctx).unwrap();
     assert!(result.is_empty()); // Fixed content should have no warnings
 
     // Test multiple emphasis fixes on the same line
     let content = "* test * and ** strong ** emphasis";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let fixed = rule.fix(&ctx).unwrap();
-    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let fixed_ctx = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&fixed_ctx).unwrap();
     assert!(result.is_empty());
 }
@@ -177,7 +189,7 @@ fn test_nested_emphasis() {
 
     // Display results instead of asserting
     let content = "**This is *nested* emphasis**";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     println!("Nested emphasis test - expected 1 issue, found {} issues", result.len());
     for warning in &result {
@@ -195,7 +207,7 @@ fn test_emphasis_in_lists() {
 
     // Display results for valid list items
     let content = "- Item with *emphasis*\n- Item with **strong**";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     println!("\nValid list items - expected 0 issues, found {} issues", result.len());
     for warning in &result {
@@ -207,7 +219,7 @@ fn test_emphasis_in_lists() {
 
     // Display results for invalid list items
     let content = "- Item with * emphasis *\n- Item with ** strong **";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     println!("\nInvalid list items - expected 1 issue, found {} issues", result.len());
     for warning in &result {
@@ -226,13 +238,14 @@ fn test_emphasis_with_special_characters() {
 
     // Valid emphasis with special characters
     let content = "*Special: !@#$%^&*()* and **More: []{}<>\"'**";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Invalid emphasis with special characters
-    let content = "* Special: !@#$%^&() * and ** More: []{}<>\"' **";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Per CommonMark, "* Special:" at line start is a list marker.
+    let content = "Here is * Special: !@#$%^&() * and ** More: []{}<>\"' **";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -243,13 +256,13 @@ fn test_emphasis_near_html() {
 
     // Valid emphasis near HTML
     let content = "<div>*Emphasis*</div> and **Strong** <span>text</span>";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Invalid emphasis near HTML
     let content = "<div>* Emphasis *</div> and ** Strong ** <span>text</span>";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -259,8 +272,9 @@ fn test_emphasis_with_multiple_spaces() {
     let rule = MD037NoSpaceInEmphasis;
 
     // Emphasis with multiple spaces - these SHOULD be flagged
-    let content = "*   multiple spaces   * and **    more spaces    **";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    // Note: "*   multiple" at line start looks like a list marker per CommonMark
+    let content = "Here is *   multiple spaces   * and **    more spaces    **";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -271,7 +285,7 @@ fn test_non_emphasis_asterisks() {
 
     // Asterisks that aren't emphasis
     let content = "* Not emphasis\n* Also not emphasis\n2 * 3 = 6";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(
         result.len(),
@@ -281,7 +295,7 @@ fn test_non_emphasis_asterisks() {
 
     // Mix of emphasis and non-emphasis
     let content = "* List item with *emphasis*\n* List item with *incorrect * emphasis";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(
         result.len(),
@@ -296,7 +310,7 @@ fn test_emphasis_at_boundaries() {
 
     // Emphasis at word boundaries
     let content = "Text * emphasis * more text";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 1);
 }
@@ -307,13 +321,13 @@ fn test_emphasis_in_blockquotes() {
 
     // Valid emphasis in blockquotes
     let content = "> This is a *emphasized* text in a blockquote\n> And **strong** text too";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(result.is_empty());
 
     // Invalid emphasis in blockquotes
     let content = "> This is a * emphasized * text in a blockquote\n> And ** strong ** text too";
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert_eq!(result.len(), 2); // Both emphasis spans have spacing issues
 }
@@ -326,7 +340,7 @@ fn test_md037_in_text_code_block() {
 README.md:24:5: [MD037] Spaces inside emphasis markers: "* incorrect *" [*]
 ```
 "#;
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let result = rule.check(&ctx).unwrap();
     assert!(
         result.is_empty(),
@@ -348,7 +362,7 @@ fn test_false_positive_punctuation_after_emphasis() {
     ];
 
     for content in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Print results for debugging
@@ -382,7 +396,7 @@ fn test_false_positive_nested_emphasis() {
     ];
 
     for content in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Print results for debugging
@@ -416,7 +430,7 @@ fn test_false_positive_multiple_emphasis_same_line() {
     ];
 
     for content in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Print results for debugging
@@ -451,7 +465,7 @@ fn test_true_positive_spaces_in_emphasis() {
     ];
 
     for (content, expected_warnings) in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Print results for debugging
@@ -478,6 +492,8 @@ fn test_emphasis_boundary_detection() {
     let rule = MD037NoSpaceInEmphasis;
 
     // Test cases that should help identify the regex boundary issues
+    // Note: "* word *" at line start is a list marker per CommonMark
+    // We wrap in text to test actual emphasis detection
     let test_cases = vec![
         // Valid cases that should NOT be flagged
         ("*word*", 0),
@@ -490,14 +506,14 @@ fn test_emphasis_boundary_detection() {
         ("(*word*)", 0),
         ("[*word*]", 0),
         ("\"*word*\"", 0),
-        // Invalid cases that SHOULD be flagged
-        ("* word *", 1),
-        ("*word *", 1),
-        ("* word*", 1),
+        // Invalid cases that SHOULD be flagged - wrapped in text to avoid list marker interpretation
+        ("Here is * word * there", 1),
+        ("Here is *word * there", 1),
+        ("Here is * word* there", 1),
     ];
 
     for (content, expected_warnings) in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         println!(
@@ -535,7 +551,7 @@ fn test_math_expressions_not_flagged() {
     ];
 
     for content in test_cases {
-        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         println!("Testing math expression: {content}");
@@ -553,4 +569,213 @@ fn test_math_expressions_not_flagged() {
             result.len()
         );
     }
+}
+
+#[test]
+fn test_issue_186_list_item_with_asterisk_in_text() {
+    // Regression test for issue #186: List item with asterisk inside text
+    // The asterisk in "asterisk * inside" should not be paired with the list marker
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "* List item with asterisk * inside";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(
+        result.is_empty(),
+        "Issue #186: List item with asterisk in text incorrectly flagged as emphasis. Got: {result:?}"
+    );
+
+    // Test with different list markers
+    let content = "- List item with asterisk * inside text";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(result.is_empty(), "Dash list with asterisk in text incorrectly flagged");
+
+    let content = "+ List item with asterisk * inside text";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(result.is_empty(), "Plus list with asterisk in text incorrectly flagged");
+
+    // Ensure real emphasis issues in list content are still flagged
+    let content = "* List item with * bad emphasis * inside";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "Should flag actual emphasis spacing issue in list item content"
+    );
+}
+
+// =============================================================================
+// Inline Math Edge Cases - LaTeX/MathJax compatibility
+// =============================================================================
+// Rumdl protects content inside math spans ($...$, $$...$$) from being
+// flagged as emphasis. These tests verify edge cases with empty, minimal,
+// and complex math spans don't cause false positives.
+
+/// Test: Empty math span ($$) should not cause false positives
+/// Bug: [^$]+ requires ≥1 char, so $$ doesn't match, causing cross-line issues
+#[test]
+fn test_md037_empty_math_span_no_false_positives() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    // Empty $$ followed by real bad emphasis on same line
+    let content = "Empty $$ here and * bad emphasis *.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should flag the bad emphasis, not something weird
+    assert_eq!(result.len(), 1, "Should flag '* bad emphasis *' after empty $$");
+    assert!(
+        result[0].message.contains("bad emphasis"),
+        "Should flag the correct span, got: {}",
+        result[0].message
+    );
+}
+
+/// Test: Empty math span on one line, protected math on next
+/// This was the specific bug: empty $$ + $p * q$ created false match
+#[test]
+fn test_md037_empty_math_cross_line_bug() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "Empty $$ here and * bad emphasis *.\n\nMid-line $p * q$ and then * bad emphasis *.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should flag both bad emphasis spans (lines 1 and 3)
+    // Should NOT flag anything about "* q$" or cross-line matches
+    assert_eq!(
+        result.len(),
+        2,
+        "Should flag both '* bad emphasis *' spans, not cross-line artifacts"
+    );
+
+    // Verify the correct spans are flagged
+    for warning in &result {
+        assert!(
+            warning.message.contains("bad emphasis"),
+            "Should only flag bad emphasis, got: {}",
+            warning.message
+        );
+    }
+}
+
+/// Test: Minimal math content ($a$, $b$)
+#[test]
+fn test_md037_minimal_math_content() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "Math $a$ and $b$ should protect asterisks like $a * b$.\nBut * spaces * should flag.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Only '* spaces *' should flag, not content in math spans"
+    );
+    assert_eq!(result[0].line, 2);
+}
+
+/// Test: Multiple math spans on same line with empty $$
+#[test]
+fn test_md037_multiple_math_same_line_with_empty() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "Math $a * b$ and $c * d$ and $$ empty and * bad *.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Only real emphasis should flag, math protects asterisks"
+    );
+    assert!(result[0].message.contains("bad"));
+}
+
+/// Test: Display math ($$...$$) with content spanning patterns
+#[test]
+fn test_md037_display_math_protection() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = r#"Inline $x * y$ math.
+Display $$a * b$$ math.
+And * bad emphasis *."#;
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(
+        result.len(),
+        1,
+        "Only bad emphasis should flag, both inline and display math protect content"
+    );
+    assert_eq!(result[0].line, 3);
+}
+
+/// Test: Whitespace-only math spans ($  $, $ $)
+#[test]
+fn test_md037_whitespace_only_math() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = "Math $  $ and $ $ should not cause issues with * bad *.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(result.len(), 1, "Only real emphasis should flag");
+}
+
+/// Test: Math at line boundaries
+#[test]
+fn test_md037_math_at_line_boundaries() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    let content = r#"$start of line * with math$ and text.
+Text and $end of line$
+$entire line is math$
+Regular * bad emphasis * text."#;
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(result.len(), 1, "Only line 4 bad emphasis should flag");
+    assert_eq!(result[0].line, 4);
+}
+
+/// Test: Currency vs math (tricky case)
+#[test]
+fn test_md037_currency_not_math() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    // $5 * 10 = $50 - the $ signs here could be interpreted as math
+    // This is a tricky edge case where currency notation looks like math
+    let content = "The cost is $5 * 10 = $50 total, and * this should flag *.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // At minimum, should flag the real bad emphasis
+    assert!(
+        result.iter().any(|w| w.message.contains("should flag")),
+        "Should flag real emphasis even with currency notation"
+    );
+}
+
+/// Test: Unclosed math span doesn't break parsing
+#[test]
+fn test_md037_unclosed_math_graceful() {
+    let rule = MD037NoSpaceInEmphasis;
+
+    // Unclosed $ should not cause catastrophic backtracking or weird matches
+    let content = "This has $unclosed math and * bad emphasis * here.";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    // Should still flag the real bad emphasis
+    assert_eq!(
+        result.len(),
+        1,
+        "Unclosed math should not prevent flagging real emphasis"
+    );
 }

@@ -1,12 +1,10 @@
-from typing import Optional, Union, Any
+from typing import Any, TypeAlias
 
 import numpy as np
 
 from qdrant_client.http import models
 from qdrant_client.conversions import common_types as types
 from qdrant_client.local.distances import (
-    distance_to_order,
-    DistanceOrder,
     calculate_distance,
     scaled_fast_sigmoid,
     EPSILON,
@@ -17,9 +15,9 @@ from qdrant_client.local.distances import (
 class MultiRecoQuery:
     def __init__(
         self,
-        positive: Optional[list[list[list[float]]]] = None,  # list of matrices
-        negative: Optional[list[list[list[float]]]] = None,  # list of matrices
-        strategy: Optional[models.RecommendStrategy] = None,
+        positive: list[list[list[float]]] | None = None,  # list of matrices
+        negative: list[list[list[float]]] | None = None,  # list of matrices
+        strategy: models.RecommendStrategy | None = None,
     ):
         assert strategy is not None, "Recommend strategy must be provided"
 
@@ -59,11 +57,7 @@ class MultiContextQuery:
         self.context_pairs = context_pairs
 
 
-MultiQueryVector = Union[
-    MultiDiscoveryQuery,
-    MultiContextQuery,
-    MultiRecoQuery,
-]
+MultiQueryVector: TypeAlias = MultiDiscoveryQuery | MultiContextQuery | MultiRecoQuery
 
 
 def calculate_multi_distance(

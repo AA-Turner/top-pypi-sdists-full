@@ -16,7 +16,6 @@ short_description: Configure IPv6 firewall addresses.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -166,6 +168,7 @@ options:
                     - 'mac'
                     - 'geography'
                     - 'route-tag'
+                    - 'wildcard'
             uuid:
                 type: str
                 description: Uuid.
@@ -248,6 +251,9 @@ options:
                     - 'all'
                     - 'private'
                     - 'public'
+            wildcard:
+                type: str
+                description: IPv6 address and wildcard netmask.
 '''
 
 EXAMPLES = '''
@@ -270,14 +276,14 @@ EXAMPLES = '''
           _scope:
             - name: FGT_AWS # need a valid device name
               vdom: root # need a valid vdom name under the device
-          cache-ttl: 0
+          cache_ttl: 0
           color: 22
           comment: "ansible-test-comment"
-          end-ip: "::100"
+          end_ip: "::100"
           host: "::"
-          host-type: any # <value in [any, specific]>
+          host_type: any # <value in [any, specific]>
           ip6: "::/128"
-          start-ip: "::"
+          start_ip: "::"
           type: iprange # <value in [ipprefix, iprange, nsx, ...]>
           visibility: enable
 
@@ -355,6 +361,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'address6': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_address6_dynamicmapping': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -373,7 +380,10 @@ def main():
                 'start-ip': {'type': 'str'},
                 'tags': {'type': 'raw'},
                 'template': {'type': 'str'},
-                'type': {'choices': ['ipprefix', 'iprange', 'nsx', 'dynamic', 'fqdn', 'template', 'mac', 'geography', 'route-tag'], 'type': 'str'},
+                'type': {
+                    'choices': ['ipprefix', 'iprange', 'nsx', 'dynamic', 'fqdn', 'template', 'mac', 'geography', 'route-tag', 'wildcard'],
+                    'type': 'str'
+                },
                 'uuid': {'type': 'str'},
                 'visibility': {'choices': ['disable', 'enable'], 'type': 'str'},
                 'subnet-segment': {
@@ -397,8 +407,9 @@ def main():
                 'sdn-tag': {'v_range': [['7.2.1', '']], 'type': 'str'},
                 'tenant': {'v_range': [['7.2.1', '']], 'type': 'str'},
                 'route-tag': {'v_range': [['7.4.0', '']], 'type': 'int'},
-                'filter': {'v_range': [['7.4.4', '7.4.7'], ['7.6.2', '']], 'type': 'str'},
-                'sdn-addr-type': {'v_range': [['7.4.4', '7.4.7'], ['7.6.2', '']], 'choices': ['all', 'private', 'public'], 'type': 'str'}
+                'filter': {'v_range': [['7.4.4', '7.4.8'], ['7.6.2', '']], 'type': 'str'},
+                'sdn-addr-type': {'v_range': [['7.4.4', '7.4.8'], ['7.6.2', '']], 'choices': ['all', 'private', 'public'], 'type': 'str'},
+                'wildcard': {'v_range': [['7.6.4', '']], 'type': 'str'}
             }
         }
     }

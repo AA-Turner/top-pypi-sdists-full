@@ -6,6 +6,7 @@ use jiff::tz::OffsetArithmetic;
 use jiff::{SignedDuration, Span, TimestampArithmetic, ZonedArithmetic};
 use pyo3::prelude::*;
 use pyo3::types::PyDelta;
+use ryo3_macro_rules::py_type_err;
 use ryo3_std::time::PyDuration;
 
 enum RySpanishObject<'py> {
@@ -18,6 +19,7 @@ enum RySpanishObject<'py> {
 pub(crate) struct Spanish<'py> {
     inner: RySpanishObject<'py>,
 }
+
 impl<'py> TryFrom<&'py Bound<'py, PyAny>> for Spanish<'py> {
     type Error = PyErr;
 
@@ -32,9 +34,9 @@ impl<'py> TryFrom<&'py Bound<'py, PyAny>> for Spanish<'py> {
             let signed_duration = signed_duration.extract::<SignedDuration>()?;
             RySpanishObject::PyTimeDelta(signed_duration)
         } else {
-            return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "Expected a RySpan, PyDuration or Signed PyDuration",
-            ));
+            return py_type_err!(
+                "Expected a Timespan, Duration, SignedDuration, or datetime.timedelta object"
+            );
         };
         Ok(Spanish { inner })
     }

@@ -23,8 +23,8 @@ from inspect import getdoc
 
 import pytest
 
-from docstring_inheritance import NumpyDocstringInheritanceInitMeta
-from docstring_inheritance import NumpyDocstringInheritanceMeta
+from docstring_inheritance._internal import NumpyDocstringInheritanceInitMeta
+from docstring_inheritance._internal import NumpyDocstringInheritanceMeta
 
 parametrize_inheritance = pytest.mark.parametrize(
     "inheritance_class",
@@ -112,7 +112,7 @@ def test_missing_parent_attr_parent_meta(inheritance_class):
         pass
 
     class Child(Parent):
-        def method(self, xx, x, *args, yy=None, y=None, **kwargs):
+        def method(self):
             """Summary"""
 
         @classmethod
@@ -136,7 +136,7 @@ def test_missing_parent_attr_child_meta(inheritance_class):
         pass
 
     class Child(Parent, metaclass=inheritance_class):
-        def method(self, xx, x, *args, yy=None, y=None, **kwargs):
+        def method(self):
             """Summary"""
 
         @classmethod
@@ -173,7 +173,7 @@ def test_missing_parent_doc_for_attr_parent_meta(inheritance_class):
             pass
 
     class Child(Parent):
-        def method(self, xx, x, *args, yy=None, y=None, **kwargs):  # pragma: no cover
+        def method(self):  # pragma: no cover
             """Summary"""
 
         @classmethod
@@ -210,7 +210,7 @@ def test_missing_parent_doc_for_attr_child_meta(inheritance_class):
             pass
 
     class Child(Parent, metaclass=inheritance_class):
-        def method(self, xx, x, *args, yy=None, y=None, **kwargs):  # pragma: no cover
+        def method(self):  # pragma: no cover
             """Summary"""
 
         @classmethod
@@ -244,21 +244,53 @@ method2"""
 
 
 @parametrize_inheritance
-def test_multiple_inheritance_parent_meta(inheritance_class):
+def test_multiple_inheritance_parent1_meta(inheritance_class):
     class Parent1(metaclass=inheritance_class):
         """Parent summary
+
+        Methods
+        -------
+        method1
+        """
+
+    class Parent2:
+        """Parent2 summary
 
         Attributes
         ----------
         attr1
         """
 
-    class Parent2:
-        """Parent2 summary
+    class Child(Parent1, Parent2):
+        """
+        Attributes
+        ----------
+        attr2
+
+        Methods
+        -------
+        method2
+        """
+
+    assert_multiple_inheritance(Child)
+
+
+@parametrize_inheritance
+def test_multiple_inheritance_parent2_meta(inheritance_class):
+    class Parent1:
+        """Parent summary
 
         Methods
         -------
         method1
+        """
+
+    class Parent2(metaclass=inheritance_class):
+        """Parent2 summary
+
+        Attributes
+        ----------
+        attr1
         """
 
     class Child(Parent1, Parent2):
@@ -280,17 +312,17 @@ def test_multiple_inheritance_child_meta(inheritance_class):
     class Parent1:
         """Parent summary
 
-        Attributes
-        ----------
-        attr1
+        Methods
+        -------
+        method1
         """
 
     class Parent2:
         """Parent2 summary
 
-        Methods
-        -------
-        method1
+        Attributes
+        ----------
+        attr1
         """
 
     class Child(Parent1, Parent2, metaclass=inheritance_class):

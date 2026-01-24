@@ -128,7 +128,9 @@ __all__ = [
     'PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetails',
     'PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails',
     'PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeConfigDetails',
+    'PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList',
     'PipelineRunStepRun',
+    'PipelineRunStorageMountConfigurationOverrideDetailsList',
     'PipelineStepArtifact',
     'PipelineStepDetail',
     'PipelineStepDetailStepConfigurationDetails',
@@ -138,6 +140,8 @@ __all__ = [
     'PipelineStepDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetails',
     'PipelineStepDetailStepInfrastructureConfigurationDetails',
     'PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails',
+    'PipelineStepDetailStepParameters',
+    'PipelineStepDetailStepParametersOutput',
     'PipelineStepDetailStepStorageMountConfigurationDetailsList',
     'PipelineStorageMountConfigurationDetailsList',
     'ScheduleAction',
@@ -245,6 +249,17 @@ __all__ = [
     'GetMlApplicationImplementationLoggingTriggerLogResult',
     'GetMlApplicationImplementationMlApplicationPackageArgumentResult',
     'GetMlApplicationImplementationMlApplicationPackageArgumentArgumentResult',
+    'GetMlApplicationImplementationVersionApplicationComponentResult',
+    'GetMlApplicationImplementationVersionConfigurationSchemaResult',
+    'GetMlApplicationImplementationVersionMlApplicationPackageArgumentResult',
+    'GetMlApplicationImplementationVersionMlApplicationPackageArgumentArgumentResult',
+    'GetMlApplicationImplementationVersionsFilterResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemApplicationComponentResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemConfigurationSchemaResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentResult',
+    'GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgumentResult',
     'GetMlApplicationImplementationsFilterResult',
     'GetMlApplicationImplementationsMlApplicationImplementationCollectionResult',
     'GetMlApplicationImplementationsMlApplicationImplementationCollectionItemResult',
@@ -404,7 +419,9 @@ __all__ = [
     'GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult',
     'GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult',
     'GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult',
+    'GetPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult',
     'GetPipelineRunStepRunResult',
+    'GetPipelineRunStorageMountConfigurationOverrideDetailsListResult',
     'GetPipelineRunsFilterResult',
     'GetPipelineRunsPipelineRunResult',
     'GetPipelineRunsPipelineRunConfigurationDetailResult',
@@ -421,7 +438,9 @@ __all__ = [
     'GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult',
     'GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult',
     'GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult',
+    'GetPipelineRunsPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult',
     'GetPipelineRunsPipelineRunStepRunResult',
+    'GetPipelineRunsPipelineRunStorageMountConfigurationOverrideDetailsListResult',
     'GetPipelineStepArtifactResult',
     'GetPipelineStepDetailResult',
     'GetPipelineStepDetailStepConfigurationDetailResult',
@@ -431,6 +450,8 @@ __all__ = [
     'GetPipelineStepDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult',
     'GetPipelineStepDetailStepInfrastructureConfigurationDetailResult',
     'GetPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult',
+    'GetPipelineStepDetailStepParameterResult',
+    'GetPipelineStepDetailStepParameterOutputResult',
     'GetPipelineStepDetailStepStorageMountConfigurationDetailsListResult',
     'GetPipelineStorageMountConfigurationDetailsListResult',
     'GetPipelinesFilterResult',
@@ -448,6 +469,8 @@ __all__ = [
     'GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult',
     'GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailResult',
     'GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult',
+    'GetPipelinesPipelineStepDetailStepParameterResult',
+    'GetPipelinesPipelineStepDetailStepParameterOutputResult',
     'GetPipelinesPipelineStepDetailStepStorageMountConfigurationDetailsListResult',
     'GetPipelinesPipelineStorageMountConfigurationDetailsListResult',
     'GetPrivateEndpointsDataSciencePrivateEndpointResult',
@@ -1612,7 +1635,9 @@ class JobJobNodeConfigurationDetailsJobNodeGroupConfigurationDetailsListJobInfra
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "memoryInGbs":
+        if key == "cpuBaseline":
+            suggest = "cpu_baseline"
+        elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
 
         if suggest:
@@ -1627,16 +1652,28 @@ class JobJobNodeConfigurationDetailsJobNodeGroupConfigurationDetailsListJobInfra
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
                  ocpus: Optional[_builtins.float] = None):
         """
+        :param _builtins.str cpu_baseline: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the job run instance, in gigabytes.
         :param _builtins.float ocpus: The total number of OCPUs available to the job run instance.
         """
+        if cpu_baseline is not None:
+            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
@@ -4735,6 +4772,8 @@ class ModelDeploymentModelDeploymentConfigurationDetailsEnvironmentConfiguration
         suggest = None
         if key == "environmentConfigurationType":
             suggest = "environment_configuration_type"
+        elif key == "defaultEnvironmentVariables":
+            suggest = "default_environment_variables"
         elif key == "environmentVariables":
             suggest = "environment_variables"
         elif key == "healthCheckPort":
@@ -4758,6 +4797,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsEnvironmentConfiguration
     def __init__(__self__, *,
                  environment_configuration_type: _builtins.str,
                  cmds: Optional[Sequence[_builtins.str]] = None,
+                 default_environment_variables: Optional[Mapping[str, _builtins.str]] = None,
                  entrypoints: Optional[Sequence[_builtins.str]] = None,
                  environment_variables: Optional[Mapping[str, _builtins.str]] = None,
                  health_check_port: Optional[_builtins.int] = None,
@@ -4767,16 +4807,19 @@ class ModelDeploymentModelDeploymentConfigurationDetailsEnvironmentConfiguration
         """
         :param _builtins.str environment_configuration_type: (Updatable) The environment configuration type
         :param Sequence[_builtins.str] cmds: (Updatable) The container image run [CMD](https://docs.docker.com/engine/reference/builder/#cmd) as a list of strings. Use `CMD` as arguments to the `ENTRYPOINT` or the only command to run in the absence of an `ENTRYPOINT`. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes.
+        :param Mapping[str, _builtins.str] default_environment_variables: Service injected Environment variables set for the web server container and can not be set or modified by user.
         :param Sequence[_builtins.str] entrypoints: (Updatable) The container image run [ENTRYPOINT](https://docs.docker.com/engine/reference/builder/#entrypoint) as a list of strings. Accept the `CMD` as extra arguments. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes. More information on how `CMD` and `ENTRYPOINT` interact are [here](https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact).
         :param Mapping[str, _builtins.str] environment_variables: (Updatable) Environment variables to set for the web server container. The size of envVars must be less than 2048 bytes. Key should be under 32 characters. Key should contain only letters, digits and underscore (_) Key should start with a letter. Key should have at least 2 characters. Key should not end with underscore eg. `TEST_` Key if added cannot be empty. Value can be empty. No specific size limits on individual Values. But overall environment variables is limited to 2048 bytes. Key can't be reserved Model Deployment environment variables.
         :param _builtins.int health_check_port: (Updatable) The port on which the container [HEALTHCHECK](https://docs.docker.com/engine/reference/builder/#healthcheck) would listen. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
-        :param _builtins.str image: (Updatable) The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        :param _builtins.str image: (Updatable) The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         :param _builtins.str image_digest: (Updatable) The digest of the container image. For example, `sha256:881303a6b2738834d795a32b4a98eb0e5e3d1cad590a712d1e04f9b2fa90a030`
         :param _builtins.int server_port: (Updatable) The port on which the web server serving the inference is running. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
         """
         pulumi.set(__self__, "environment_configuration_type", environment_configuration_type)
         if cmds is not None:
             pulumi.set(__self__, "cmds", cmds)
+        if default_environment_variables is not None:
+            pulumi.set(__self__, "default_environment_variables", default_environment_variables)
         if entrypoints is not None:
             pulumi.set(__self__, "entrypoints", entrypoints)
         if environment_variables is not None:
@@ -4807,6 +4850,14 @@ class ModelDeploymentModelDeploymentConfigurationDetailsEnvironmentConfiguration
         return pulumi.get(self, "cmds")
 
     @_builtins.property
+    @pulumi.getter(name="defaultEnvironmentVariables")
+    def default_environment_variables(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Service injected Environment variables set for the web server container and can not be set or modified by user.
+        """
+        return pulumi.get(self, "default_environment_variables")
+
+    @_builtins.property
     @pulumi.getter
     def entrypoints(self) -> Optional[Sequence[_builtins.str]]:
         """
@@ -4834,7 +4885,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsEnvironmentConfiguration
     @pulumi.getter
     def image(self) -> Optional[_builtins.str]:
         """
-        (Updatable) The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        (Updatable) The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         """
         return pulumi.get(self, "image")
 
@@ -4972,7 +5023,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsInfrastructureConfigurat
                  private_endpoint_id: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
-        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param 'ModelDeploymentModelDeploymentConfigurationDetailsInfrastructureConfigurationDetailsInstanceConfigurationModelDeploymentInstanceShapeConfigDetailsArgs' model_deployment_instance_shape_config_details: Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -4989,7 +5040,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsInfrastructureConfigurat
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> _builtins.str:
         """
-        The shape used to launch the model deployment instances.
+        The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -5630,7 +5681,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsModelConfigurationDetail
                  private_endpoint_id: Optional[_builtins.str] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
-        :param _builtins.str instance_shape_name: (Updatable) The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: (Updatable) The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param 'ModelDeploymentModelDeploymentConfigurationDetailsModelConfigurationDetailsInstanceConfigurationModelDeploymentInstanceShapeConfigDetailsArgs' model_deployment_instance_shape_config_details: (Updatable) Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: (Updatable) The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: (Updatable) A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -5648,7 +5699,7 @@ class ModelDeploymentModelDeploymentConfigurationDetailsModelConfigurationDetail
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> Optional[_builtins.str]:
         """
-        (Updatable) The shape used to launch the model deployment instances.
+        (Updatable) The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -6251,6 +6302,8 @@ class ModelDeploymentModelDeploymentSystemData(dict):
         suggest = None
         if key == "currentInstanceCount":
             suggest = "current_instance_count"
+        elif key == "modelType":
+            suggest = "model_type"
         elif key == "systemInfraType":
             suggest = "system_infra_type"
 
@@ -6267,13 +6320,17 @@ class ModelDeploymentModelDeploymentSystemData(dict):
 
     def __init__(__self__, *,
                  current_instance_count: Optional[_builtins.int] = None,
+                 model_type: Optional[_builtins.str] = None,
                  system_infra_type: Optional[_builtins.str] = None):
         """
         :param _builtins.int current_instance_count: This value is the current count of the model deployment instances.
+        :param _builtins.str model_type: The type of the deployed model.
         :param _builtins.str system_infra_type: The infrastructure type of the model deployment.
         """
         if current_instance_count is not None:
             pulumi.set(__self__, "current_instance_count", current_instance_count)
+        if model_type is not None:
+            pulumi.set(__self__, "model_type", model_type)
         if system_infra_type is not None:
             pulumi.set(__self__, "system_infra_type", system_infra_type)
 
@@ -6284,6 +6341,14 @@ class ModelDeploymentModelDeploymentSystemData(dict):
         This value is the current count of the model deployment instances.
         """
         return pulumi.get(self, "current_instance_count")
+
+    @_builtins.property
+    @pulumi.getter(name="modelType")
+    def model_type(self) -> Optional[_builtins.str]:
+        """
+        The type of the deployed model.
+        """
+        return pulumi.get(self, "model_type")
 
     @_builtins.property
     @pulumi.getter(name="systemInfraType")
@@ -7687,6 +7752,8 @@ class PipelineInfrastructureConfigurationDetails(dict):
             suggest = "block_storage_size_in_gbs"
         elif key == "shapeName":
             suggest = "shape_name"
+        elif key == "blockStorageSizeInGbsParameterized":
+            suggest = "block_storage_size_in_gbs_parameterized"
         elif key == "shapeConfigDetails":
             suggest = "shape_config_details"
         elif key == "subnetId":
@@ -7706,16 +7773,20 @@ class PipelineInfrastructureConfigurationDetails(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
                  shape_name: _builtins.str,
+                 block_storage_size_in_gbs_parameterized: Optional[_builtins.str] = None,
                  shape_config_details: Optional['outputs.PipelineInfrastructureConfigurationDetailsShapeConfigDetails'] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.int block_storage_size_in_gbs: (Updatable) The size of the block storage volume to attach to the instance.
         :param _builtins.str shape_name: (Updatable) The shape used to launch the instance for all step runs in the pipeline.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: (Updatable) The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param 'PipelineInfrastructureConfigurationDetailsShapeConfigDetailsArgs' shape_config_details: (Updatable) Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str subnet_id: (Updatable) The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
         pulumi.set(__self__, "shape_name", shape_name)
+        if block_storage_size_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         if shape_config_details is not None:
             pulumi.set(__self__, "shape_config_details", shape_config_details)
         if subnet_id is not None:
@@ -7736,6 +7807,14 @@ class PipelineInfrastructureConfigurationDetails(dict):
         (Updatable) The shape used to launch the instance for all step runs in the pipeline.
         """
         return pulumi.get(self, "shape_name")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -7763,6 +7842,10 @@ class PipelineInfrastructureConfigurationDetailsShapeConfigDetails(dict):
             suggest = "cpu_baseline"
         elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineInfrastructureConfigurationDetailsShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -7778,18 +7861,26 @@ class PipelineInfrastructureConfigurationDetailsShapeConfigDetails(dict):
     def __init__(__self__, *,
                  cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
         :param _builtins.str cpu_baseline: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: (Updatable) The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: (Updatable) The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         if cpu_baseline is not None:
             pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -7803,17 +7894,33 @@ class PipelineInfrastructureConfigurationDetailsShapeConfigDetails(dict):
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        (Updatable) The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        (Updatable) The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -8054,6 +8161,8 @@ class PipelineRunInfrastructureConfigurationOverrideDetails(dict):
             suggest = "block_storage_size_in_gbs"
         elif key == "shapeName":
             suggest = "shape_name"
+        elif key == "blockStorageSizeInGbsParameterized":
+            suggest = "block_storage_size_in_gbs_parameterized"
         elif key == "shapeConfigDetails":
             suggest = "shape_config_details"
         elif key == "subnetId":
@@ -8073,16 +8182,20 @@ class PipelineRunInfrastructureConfigurationOverrideDetails(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
                  shape_name: _builtins.str,
+                 block_storage_size_in_gbs_parameterized: Optional[_builtins.str] = None,
                  shape_config_details: Optional['outputs.PipelineRunInfrastructureConfigurationOverrideDetailsShapeConfigDetails'] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param 'PipelineRunInfrastructureConfigurationOverrideDetailsShapeConfigDetailsArgs' shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
         pulumi.set(__self__, "shape_name", shape_name)
+        if block_storage_size_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         if shape_config_details is not None:
             pulumi.set(__self__, "shape_config_details", shape_config_details)
         if subnet_id is not None:
@@ -8103,6 +8216,14 @@ class PipelineRunInfrastructureConfigurationOverrideDetails(dict):
         The shape used to launch the instance for all step runs in the pipeline.
         """
         return pulumi.get(self, "shape_name")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -8126,8 +8247,14 @@ class PipelineRunInfrastructureConfigurationOverrideDetailsShapeConfigDetails(di
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "memoryInGbs":
+        if key == "cpuBaseline":
+            suggest = "cpu_baseline"
+        elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineRunInfrastructureConfigurationOverrideDetailsShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -8141,32 +8268,68 @@ class PipelineRunInfrastructureConfigurationOverrideDetailsShapeConfigDetails(di
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        if cpu_baseline is not None:
+            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> Optional[_builtins.str]:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -8312,6 +8475,8 @@ class PipelineRunStepOverrideDetail(dict):
             suggest = "step_dataflow_configuration_details"
         elif key == "stepInfrastructureConfigurationDetails":
             suggest = "step_infrastructure_configuration_details"
+        elif key == "stepStorageMountConfigurationDetailsLists":
+            suggest = "step_storage_mount_configuration_details_lists"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineRunStepOverrideDetail. Access the value via the '{suggest}' property getter instead.")
@@ -8329,13 +8494,15 @@ class PipelineRunStepOverrideDetail(dict):
                  step_name: _builtins.str,
                  step_container_configuration_details: Optional['outputs.PipelineRunStepOverrideDetailStepContainerConfigurationDetails'] = None,
                  step_dataflow_configuration_details: Optional['outputs.PipelineRunStepOverrideDetailStepDataflowConfigurationDetails'] = None,
-                 step_infrastructure_configuration_details: Optional['outputs.PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails'] = None):
+                 step_infrastructure_configuration_details: Optional['outputs.PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails'] = None,
+                 step_storage_mount_configuration_details_lists: Optional[Sequence['outputs.PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList']] = None):
         """
         :param 'PipelineRunStepOverrideDetailStepConfigurationDetailsArgs' step_configuration_details: The configuration details of a step.
         :param _builtins.str step_name: The name of the step.
         :param 'PipelineRunStepOverrideDetailStepContainerConfigurationDetailsArgs' step_container_configuration_details: Container Details for a step in pipeline.
         :param 'PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsArgs' step_dataflow_configuration_details: The configuration details of a Dataflow step.
         :param 'PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsArgs' step_infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
+        :param Sequence['PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: The storage mount details to mount to the instance running the pipeline step.
         """
         pulumi.set(__self__, "step_configuration_details", step_configuration_details)
         pulumi.set(__self__, "step_name", step_name)
@@ -8345,6 +8512,8 @@ class PipelineRunStepOverrideDetail(dict):
             pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         if step_infrastructure_configuration_details is not None:
             pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
+        if step_storage_mount_configuration_details_lists is not None:
+            pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
 
     @_builtins.property
     @pulumi.getter(name="stepConfigurationDetails")
@@ -8385,6 +8554,14 @@ class PipelineRunStepOverrideDetail(dict):
         The infrastructure configuration details of a pipeline or a step.
         """
         return pulumi.get(self, "step_infrastructure_configuration_details")
+
+    @_builtins.property
+    @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
+    def step_storage_mount_configuration_details_lists(self) -> Optional[Sequence['outputs.PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList']]:
+        """
+        The storage mount details to mount to the instance running the pipeline step.
+        """
+        return pulumi.get(self, "step_storage_mount_configuration_details_lists")
 
 
 @pulumi.output_type
@@ -8686,10 +8863,12 @@ class PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsDriverShapeCo
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "cpuBaseline":
-            suggest = "cpu_baseline"
-        elif key == "memoryInGbs":
+        if key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsDriverShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -8703,44 +8882,56 @@ class PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsDriverShapeCo
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        if cpu_baseline is not None:
-            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> Optional[_builtins.str]:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -8748,10 +8939,12 @@ class PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsExecutorShape
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "cpuBaseline":
-            suggest = "cpu_baseline"
-        elif key == "memoryInGbs":
+        if key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -8765,44 +8958,56 @@ class PipelineRunStepOverrideDetailStepDataflowConfigurationDetailsExecutorShape
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        if cpu_baseline is not None:
-            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> Optional[_builtins.str]:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -8814,6 +9019,8 @@ class PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails(dict):
             suggest = "block_storage_size_in_gbs"
         elif key == "shapeName":
             suggest = "shape_name"
+        elif key == "blockStorageSizeInGbsParameterized":
+            suggest = "block_storage_size_in_gbs_parameterized"
         elif key == "shapeConfigDetails":
             suggest = "shape_config_details"
         elif key == "subnetId":
@@ -8833,16 +9040,20 @@ class PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
                  shape_name: _builtins.str,
+                 block_storage_size_in_gbs_parameterized: Optional[_builtins.str] = None,
                  shape_config_details: Optional['outputs.PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeConfigDetails'] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param 'PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeConfigDetailsArgs' shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
         pulumi.set(__self__, "shape_name", shape_name)
+        if block_storage_size_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         if shape_config_details is not None:
             pulumi.set(__self__, "shape_config_details", shape_config_details)
         if subnet_id is not None:
@@ -8863,6 +9074,14 @@ class PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetails(dict):
         The shape used to launch the instance for all step runs in the pipeline.
         """
         return pulumi.get(self, "shape_name")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -8886,8 +9105,14 @@ class PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeCo
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "memoryInGbs":
+        if key == "cpuBaseline":
+            suggest = "cpu_baseline"
+        elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -8901,32 +9126,194 @@ class PipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailsShapeCo
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        if cpu_baseline is not None:
+            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> Optional[_builtins.str]:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "destinationDirectoryName":
+            suggest = "destination_directory_name"
+        elif key == "storageType":
+            suggest = "storage_type"
+        elif key == "destinationPath":
+            suggest = "destination_path"
+        elif key == "exportId":
+            suggest = "export_id"
+        elif key == "mountTargetId":
+            suggest = "mount_target_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsList.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 destination_directory_name: _builtins.str,
+                 storage_type: _builtins.str,
+                 bucket: Optional[_builtins.str] = None,
+                 destination_path: Optional[_builtins.str] = None,
+                 export_id: Optional[_builtins.str] = None,
+                 mount_target_id: Optional[_builtins.str] = None,
+                 namespace: Optional[_builtins.str] = None,
+                 prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str storage_type: The type of storage.
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        """
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "storage_type", storage_type)
+        if bucket is not None:
+            pulumi.set(__self__, "bucket", bucket)
+        if destination_path is not None:
+            pulumi.set(__self__, "destination_path", destination_path)
+        if export_id is not None:
+            pulumi.set(__self__, "export_id", export_id)
+        if mount_target_id is not None:
+            pulumi.set(__self__, "mount_target_id", mount_target_id)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> Optional[_builtins.str]:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> Optional[_builtins.str]:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> Optional[_builtins.str]:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> Optional[_builtins.str]:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
 
 
 @pulumi.output_type
@@ -8942,6 +9329,8 @@ class PipelineRunStepRun(dict):
             suggest = "lifecycle_details"
         elif key == "stepName":
             suggest = "step_name"
+        elif key == "stepRunName":
+            suggest = "step_run_name"
         elif key == "stepType":
             suggest = "step_type"
         elif key == "timeFinished":
@@ -8966,6 +9355,7 @@ class PipelineRunStepRun(dict):
                  lifecycle_details: Optional[_builtins.str] = None,
                  state: Optional[_builtins.str] = None,
                  step_name: Optional[_builtins.str] = None,
+                 step_run_name: Optional[_builtins.str] = None,
                  step_type: Optional[_builtins.str] = None,
                  time_finished: Optional[_builtins.str] = None,
                  time_started: Optional[_builtins.str] = None):
@@ -8975,6 +9365,7 @@ class PipelineRunStepRun(dict):
         :param _builtins.str lifecycle_details: Details of the state of the step run.
         :param _builtins.str state: The state of the step run.
         :param _builtins.str step_name: The name of the step.
+        :param _builtins.str step_run_name: Name used when creating the steprun.
         :param _builtins.str step_type: The type of step.
         :param _builtins.str time_finished: The date and time the pipeline run request was finished in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         :param _builtins.str time_started: The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
@@ -8989,6 +9380,8 @@ class PipelineRunStepRun(dict):
             pulumi.set(__self__, "state", state)
         if step_name is not None:
             pulumi.set(__self__, "step_name", step_name)
+        if step_run_name is not None:
+            pulumi.set(__self__, "step_run_name", step_run_name)
         if step_type is not None:
             pulumi.set(__self__, "step_type", step_type)
         if time_finished is not None:
@@ -9037,6 +9430,14 @@ class PipelineRunStepRun(dict):
         return pulumi.get(self, "step_name")
 
     @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> Optional[_builtins.str]:
+        """
+        Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
+
+    @_builtins.property
     @pulumi.getter(name="stepType")
     def step_type(self) -> Optional[_builtins.str]:
         """
@@ -9059,6 +9460,132 @@ class PipelineRunStepRun(dict):
         The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         """
         return pulumi.get(self, "time_started")
+
+
+@pulumi.output_type
+class PipelineRunStorageMountConfigurationOverrideDetailsList(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "destinationDirectoryName":
+            suggest = "destination_directory_name"
+        elif key == "storageType":
+            suggest = "storage_type"
+        elif key == "destinationPath":
+            suggest = "destination_path"
+        elif key == "exportId":
+            suggest = "export_id"
+        elif key == "mountTargetId":
+            suggest = "mount_target_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineRunStorageMountConfigurationOverrideDetailsList. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineRunStorageMountConfigurationOverrideDetailsList.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineRunStorageMountConfigurationOverrideDetailsList.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 destination_directory_name: _builtins.str,
+                 storage_type: _builtins.str,
+                 bucket: Optional[_builtins.str] = None,
+                 destination_path: Optional[_builtins.str] = None,
+                 export_id: Optional[_builtins.str] = None,
+                 mount_target_id: Optional[_builtins.str] = None,
+                 namespace: Optional[_builtins.str] = None,
+                 prefix: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str storage_type: The type of storage.
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        """
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "storage_type", storage_type)
+        if bucket is not None:
+            pulumi.set(__self__, "bucket", bucket)
+        if destination_path is not None:
+            pulumi.set(__self__, "destination_path", destination_path)
+        if export_id is not None:
+            pulumi.set(__self__, "export_id", export_id)
+        if mount_target_id is not None:
+            pulumi.set(__self__, "mount_target_id", mount_target_id)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+        if prefix is not None:
+            pulumi.set(__self__, "prefix", prefix)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> Optional[_builtins.str]:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> Optional[_builtins.str]:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> Optional[_builtins.str]:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> Optional[_builtins.str]:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> Optional[_builtins.str]:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
 
 
 @pulumi.output_type
@@ -9170,6 +9697,10 @@ class PipelineStepDetail(dict):
             suggest = "step_dataflow_configuration_details"
         elif key == "stepInfrastructureConfigurationDetails":
             suggest = "step_infrastructure_configuration_details"
+        elif key == "stepParameters":
+            suggest = "step_parameters"
+        elif key == "stepRunName":
+            suggest = "step_run_name"
         elif key == "stepStorageMountConfigurationDetailsLists":
             suggest = "step_storage_mount_configuration_details_lists"
 
@@ -9196,6 +9727,8 @@ class PipelineStepDetail(dict):
                  step_container_configuration_details: Optional['outputs.PipelineStepDetailStepContainerConfigurationDetails'] = None,
                  step_dataflow_configuration_details: Optional['outputs.PipelineStepDetailStepDataflowConfigurationDetails'] = None,
                  step_infrastructure_configuration_details: Optional['outputs.PipelineStepDetailStepInfrastructureConfigurationDetails'] = None,
+                 step_parameters: Optional['outputs.PipelineStepDetailStepParameters'] = None,
+                 step_run_name: Optional[_builtins.str] = None,
                  step_storage_mount_configuration_details_lists: Optional[Sequence['outputs.PipelineStepDetailStepStorageMountConfigurationDetailsList']] = None):
         """
         :param _builtins.str step_name: (Updatable) The name of the step. It must be unique within the pipeline. This is used to create the pipeline DAG.
@@ -9209,6 +9742,8 @@ class PipelineStepDetail(dict):
         :param 'PipelineStepDetailStepContainerConfigurationDetailsArgs' step_container_configuration_details: Container Details for a step in pipeline.
         :param 'PipelineStepDetailStepDataflowConfigurationDetailsArgs' step_dataflow_configuration_details: (Updatable) The configuration details of a Dataflow step.
         :param 'PipelineStepDetailStepInfrastructureConfigurationDetailsArgs' step_infrastructure_configuration_details: (Updatable) The infrastructure configuration details of a pipeline or a step.
+        :param 'PipelineStepDetailStepParametersArgs' step_parameters: (Updatable) Pipeline step parameter details
+        :param _builtins.str step_run_name: (Updatable) Name used when creating the steprun.
         :param Sequence['PipelineStepDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: (Updatable) The storage mount details to mount to the instance running the pipeline step.
         """
         pulumi.set(__self__, "step_name", step_name)
@@ -9231,6 +9766,10 @@ class PipelineStepDetail(dict):
             pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         if step_infrastructure_configuration_details is not None:
             pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
+        if step_parameters is not None:
+            pulumi.set(__self__, "step_parameters", step_parameters)
+        if step_run_name is not None:
+            pulumi.set(__self__, "step_run_name", step_run_name)
         if step_storage_mount_configuration_details_lists is not None:
             pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
 
@@ -9321,6 +9860,22 @@ class PipelineStepDetail(dict):
         (Updatable) The infrastructure configuration details of a pipeline or a step.
         """
         return pulumi.get(self, "step_infrastructure_configuration_details")
+
+    @_builtins.property
+    @pulumi.getter(name="stepParameters")
+    def step_parameters(self) -> Optional['outputs.PipelineStepDetailStepParameters']:
+        """
+        (Updatable) Pipeline step parameter details
+        """
+        return pulumi.get(self, "step_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
 
     @_builtins.property
     @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
@@ -9630,10 +10185,12 @@ class PipelineStepDetailStepDataflowConfigurationDetailsDriverShapeConfigDetails
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "cpuBaseline":
-            suggest = "cpu_baseline"
-        elif key == "memoryInGbs":
+        if key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineStepDetailStepDataflowConfigurationDetailsDriverShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -9647,44 +10204,56 @@ class PipelineStepDetailStepDataflowConfigurationDetailsDriverShapeConfigDetails
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.str cpu_baseline: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: (Updatable) The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: (Updatable) The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        if cpu_baseline is not None:
-            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> Optional[_builtins.str]:
-        """
-        (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        (Updatable) The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        (Updatable) The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -9692,10 +10261,12 @@ class PipelineStepDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetai
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "cpuBaseline":
-            suggest = "cpu_baseline"
-        elif key == "memoryInGbs":
+        if key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineStepDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -9709,44 +10280,56 @@ class PipelineStepDetailStepDataflowConfigurationDetailsExecutorShapeConfigDetai
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
-        :param _builtins.str cpu_baseline: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: (Updatable) The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: (Updatable) The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        if cpu_baseline is not None:
-            pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> Optional[_builtins.str]:
-        """
-        (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        (Updatable) The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        (Updatable) The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -9758,6 +10341,8 @@ class PipelineStepDetailStepInfrastructureConfigurationDetails(dict):
             suggest = "block_storage_size_in_gbs"
         elif key == "shapeName":
             suggest = "shape_name"
+        elif key == "blockStorageSizeInGbsParameterized":
+            suggest = "block_storage_size_in_gbs_parameterized"
         elif key == "shapeConfigDetails":
             suggest = "shape_config_details"
         elif key == "subnetId":
@@ -9777,16 +10362,20 @@ class PipelineStepDetailStepInfrastructureConfigurationDetails(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
                  shape_name: _builtins.str,
+                 block_storage_size_in_gbs_parameterized: Optional[_builtins.str] = None,
                  shape_config_details: Optional['outputs.PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails'] = None,
                  subnet_id: Optional[_builtins.str] = None):
         """
         :param _builtins.int block_storage_size_in_gbs: (Updatable) The size of the block storage volume to attach to the instance.
         :param _builtins.str shape_name: (Updatable) The shape used to launch the instance for all step runs in the pipeline.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: (Updatable) The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param 'PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetailsArgs' shape_config_details: (Updatable) Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str subnet_id: (Updatable) The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
         pulumi.set(__self__, "shape_name", shape_name)
+        if block_storage_size_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         if shape_config_details is not None:
             pulumi.set(__self__, "shape_config_details", shape_config_details)
         if subnet_id is not None:
@@ -9807,6 +10396,14 @@ class PipelineStepDetailStepInfrastructureConfigurationDetails(dict):
         (Updatable) The shape used to launch the instance for all step runs in the pipeline.
         """
         return pulumi.get(self, "shape_name")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -9834,6 +10431,10 @@ class PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails
             suggest = "cpu_baseline"
         elif key == "memoryInGbs":
             suggest = "memory_in_gbs"
+        elif key == "memoryInGbsParameterized":
+            suggest = "memory_in_gbs_parameterized"
+        elif key == "ocpusParameterized":
+            suggest = "ocpus_parameterized"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails. Access the value via the '{suggest}' property getter instead.")
@@ -9849,18 +10450,26 @@ class PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails
     def __init__(__self__, *,
                  cpu_baseline: Optional[_builtins.str] = None,
                  memory_in_gbs: Optional[_builtins.float] = None,
-                 ocpus: Optional[_builtins.float] = None):
+                 memory_in_gbs_parameterized: Optional[_builtins.str] = None,
+                 ocpus: Optional[_builtins.float] = None,
+                 ocpus_parameterized: Optional[_builtins.str] = None):
         """
         :param _builtins.str cpu_baseline: (Updatable) The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: (Updatable) The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: (Updatable) The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         if cpu_baseline is not None:
             pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         if memory_in_gbs is not None:
             pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        if memory_in_gbs_parameterized is not None:
+            pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         if ocpus is not None:
             pulumi.set(__self__, "ocpus", ocpus)
+        if ocpus_parameterized is not None:
+            pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -9874,17 +10483,140 @@ class PipelineStepDetailStepInfrastructureConfigurationDetailsShapeConfigDetails
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        (Updatable) The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> Optional[_builtins.float]:
         """
-        (Updatable) A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        (Updatable) The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> Optional[_builtins.str]:
+        """
+        (Updatable) The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class PipelineStepDetailStepParameters(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "parameterType":
+            suggest = "parameter_type"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineStepDetailStepParameters. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineStepDetailStepParameters.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineStepDetailStepParameters.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 output: 'outputs.PipelineStepDetailStepParametersOutput',
+                 parameter_type: _builtins.str):
+        """
+        :param 'PipelineStepDetailStepParametersOutputArgs' output: (Updatable) Pipeline output parameter details
+        :param _builtins.str parameter_type: (Updatable) Type of step parameter
+        """
+        pulumi.set(__self__, "output", output)
+        pulumi.set(__self__, "parameter_type", parameter_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def output(self) -> 'outputs.PipelineStepDetailStepParametersOutput':
+        """
+        (Updatable) Pipeline output parameter details
+        """
+        return pulumi.get(self, "output")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterType")
+    def parameter_type(self) -> _builtins.str:
+        """
+        (Updatable) Type of step parameter
+        """
+        return pulumi.get(self, "parameter_type")
+
+
+@pulumi.output_type
+class PipelineStepDetailStepParametersOutput(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "outputFile":
+            suggest = "output_file"
+        elif key == "outputParameterType":
+            suggest = "output_parameter_type"
+        elif key == "parameterNames":
+            suggest = "parameter_names"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in PipelineStepDetailStepParametersOutput. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        PipelineStepDetailStepParametersOutput.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        PipelineStepDetailStepParametersOutput.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 output_file: _builtins.str,
+                 output_parameter_type: _builtins.str,
+                 parameter_names: Sequence[_builtins.str]):
+        """
+        :param _builtins.str output_file: (Updatable) Output file name
+        :param _builtins.str output_parameter_type: (Updatable) Type of output parameters
+        :param Sequence[_builtins.str] parameter_names: (Updatable) The list of parameter names that will be output by this step
+        """
+        pulumi.set(__self__, "output_file", output_file)
+        pulumi.set(__self__, "output_parameter_type", output_parameter_type)
+        pulumi.set(__self__, "parameter_names", parameter_names)
+
+    @_builtins.property
+    @pulumi.getter(name="outputFile")
+    def output_file(self) -> _builtins.str:
+        """
+        (Updatable) Output file name
+        """
+        return pulumi.get(self, "output_file")
+
+    @_builtins.property
+    @pulumi.getter(name="outputParameterType")
+    def output_parameter_type(self) -> _builtins.str:
+        """
+        (Updatable) Type of output parameters
+        """
+        return pulumi.get(self, "output_parameter_type")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterNames")
+    def parameter_names(self) -> Sequence[_builtins.str]:
+        """
+        (Updatable) The list of parameter names that will be output by this step
+        """
+        return pulumi.get(self, "parameter_names")
 
 
 @pulumi.output_type
@@ -12680,14 +13412,25 @@ class GetJobJobNodeConfigurationDetailJobNodeGroupConfigurationDetailsListJobInf
 @pulumi.output_type
 class GetJobJobNodeConfigurationDetailJobNodeGroupConfigurationDetailsListJobInfrastructureConfigurationDetailJobShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
                  ocpus: _builtins.float):
         """
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the job run instance, in gigabytes.
         :param _builtins.float ocpus: The total number of OCPUs available to the job run instance.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "ocpus", ocpus)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
@@ -16347,14 +17090,25 @@ class GetJobsJobJobNodeConfigurationDetailJobNodeGroupConfigurationDetailsListJo
 @pulumi.output_type
 class GetJobsJobJobNodeConfigurationDetailJobNodeGroupConfigurationDetailsListJobInfrastructureConfigurationDetailJobShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
                  ocpus: _builtins.float):
         """
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
         :param _builtins.float memory_in_gbs: The total amount of memory available to the job run instance, in gigabytes.
         :param _builtins.float ocpus: The total number of OCPUs available to the job run instance.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
         pulumi.set(__self__, "ocpus", ocpus)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
@@ -16838,6 +17592,785 @@ class GetMlApplicationImplementationMlApplicationPackageArgumentResult(dict):
 
 @pulumi.output_type
 class GetMlApplicationImplementationMlApplicationPackageArgumentArgumentResult(dict):
+    def __init__(__self__, *,
+                 description: _builtins.str,
+                 is_mandatory: _builtins.bool,
+                 name: _builtins.str,
+                 type: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str description: short description of the argument
+        :param _builtins.bool is_mandatory: argument is mandatory or not
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        :param _builtins.str type: type of the argument
+        :param _builtins.str value: Argument value
+        """
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "is_mandatory", is_mandatory)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        short description of the argument
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="isMandatory")
+    def is_mandatory(self) -> _builtins.bool:
+        """
+        argument is mandatory or not
+        """
+        return pulumi.get(self, "is_mandatory")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        type of the argument
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        Argument value
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionApplicationComponentResult(dict):
+    def __init__(__self__, *,
+                 application_id: _builtins.str,
+                 component_name: _builtins.str,
+                 id: _builtins.str,
+                 job_id: _builtins.str,
+                 model_id: _builtins.str,
+                 name: _builtins.str,
+                 pipeline_id: _builtins.str,
+                 resource_type: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str application_id: OCID of Data Flow Application
+        :param _builtins.str component_name: Name of application component
+        :param _builtins.str id: The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        :param _builtins.str job_id: OCID of Data Science Job
+        :param _builtins.str model_id: OCID of Data Science Model
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        :param _builtins.str pipeline_id: OCID of Data Science Pipeline
+        :param _builtins.str resource_type: Type of the resource
+        :param _builtins.str type: type of the argument
+        """
+        pulumi.set(__self__, "application_id", application_id)
+        pulumi.set(__self__, "component_name", component_name)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "job_id", job_id)
+        pulumi.set(__self__, "model_id", model_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "pipeline_id", pipeline_id)
+        pulumi.set(__self__, "resource_type", resource_type)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter(name="applicationId")
+    def application_id(self) -> _builtins.str:
+        """
+        OCID of Data Flow Application
+        """
+        return pulumi.get(self, "application_id")
+
+    @_builtins.property
+    @pulumi.getter(name="componentName")
+    def component_name(self) -> _builtins.str:
+        """
+        Name of application component
+        """
+        return pulumi.get(self, "component_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="jobId")
+    def job_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Job
+        """
+        return pulumi.get(self, "job_id")
+
+    @_builtins.property
+    @pulumi.getter(name="modelId")
+    def model_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Model
+        """
+        return pulumi.get(self, "model_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Pipeline
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceType")
+    def resource_type(self) -> _builtins.str:
+        """
+        Type of the resource
+        """
+        return pulumi.get(self, "resource_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        type of the argument
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionConfigurationSchemaResult(dict):
+    def __init__(__self__, *,
+                 default_value: _builtins.str,
+                 description: _builtins.str,
+                 is_mandatory: _builtins.bool,
+                 key_name: _builtins.str,
+                 sample_value: _builtins.str,
+                 validation_regexp: _builtins.str,
+                 value_type: _builtins.str):
+        """
+        :param _builtins.str default_value: The default value for the optional configuration property (it must not be specified for mandatory configuration properties)
+        :param _builtins.str description: short description of the argument
+        :param _builtins.bool is_mandatory: argument is mandatory or not
+        :param _builtins.str key_name: Name of key (parameter name)
+        :param _builtins.str sample_value: Sample property value (it must match validationRegexp if it is specified)
+        :param _builtins.str validation_regexp: A regular expression will be used for the validation of property value.
+        :param _builtins.str value_type: Type of value
+        """
+        pulumi.set(__self__, "default_value", default_value)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "is_mandatory", is_mandatory)
+        pulumi.set(__self__, "key_name", key_name)
+        pulumi.set(__self__, "sample_value", sample_value)
+        pulumi.set(__self__, "validation_regexp", validation_regexp)
+        pulumi.set(__self__, "value_type", value_type)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultValue")
+    def default_value(self) -> _builtins.str:
+        """
+        The default value for the optional configuration property (it must not be specified for mandatory configuration properties)
+        """
+        return pulumi.get(self, "default_value")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        short description of the argument
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="isMandatory")
+    def is_mandatory(self) -> _builtins.bool:
+        """
+        argument is mandatory or not
+        """
+        return pulumi.get(self, "is_mandatory")
+
+    @_builtins.property
+    @pulumi.getter(name="keyName")
+    def key_name(self) -> _builtins.str:
+        """
+        Name of key (parameter name)
+        """
+        return pulumi.get(self, "key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="sampleValue")
+    def sample_value(self) -> _builtins.str:
+        """
+        Sample property value (it must match validationRegexp if it is specified)
+        """
+        return pulumi.get(self, "sample_value")
+
+    @_builtins.property
+    @pulumi.getter(name="validationRegexp")
+    def validation_regexp(self) -> _builtins.str:
+        """
+        A regular expression will be used for the validation of property value.
+        """
+        return pulumi.get(self, "validation_regexp")
+
+    @_builtins.property
+    @pulumi.getter(name="valueType")
+    def value_type(self) -> _builtins.str:
+        """
+        Type of value
+        """
+        return pulumi.get(self, "value_type")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionMlApplicationPackageArgumentResult(dict):
+    def __init__(__self__, *,
+                 arguments: Sequence['outputs.GetMlApplicationImplementationVersionMlApplicationPackageArgumentArgumentResult']):
+        """
+        :param Sequence['GetMlApplicationImplementationVersionMlApplicationPackageArgumentArgumentArgs'] arguments: Array of the ML Application package arguments
+        """
+        pulumi.set(__self__, "arguments", arguments)
+
+    @_builtins.property
+    @pulumi.getter
+    def arguments(self) -> Sequence['outputs.GetMlApplicationImplementationVersionMlApplicationPackageArgumentArgumentResult']:
+        """
+        Array of the ML Application package arguments
+        """
+        return pulumi.get(self, "arguments")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionMlApplicationPackageArgumentArgumentResult(dict):
+    def __init__(__self__, *,
+                 description: _builtins.str,
+                 is_mandatory: _builtins.bool,
+                 name: _builtins.str,
+                 type: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str description: short description of the argument
+        :param _builtins.bool is_mandatory: argument is mandatory or not
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        :param _builtins.str type: type of the argument
+        :param _builtins.str value: Argument value
+        """
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "is_mandatory", is_mandatory)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        short description of the argument
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="isMandatory")
+    def is_mandatory(self) -> _builtins.bool:
+        """
+        argument is mandatory or not
+        """
+        return pulumi.get(self, "is_mandatory")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        type of the argument
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        Argument value
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsFilterResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str],
+                 regex: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+        if regex is not None:
+            pulumi.set(__self__, "regex", regex)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "values")
+
+    @_builtins.property
+    @pulumi.getter
+    def regex(self) -> Optional[_builtins.bool]:
+        return pulumi.get(self, "regex")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionResult(dict):
+    def __init__(__self__, *,
+                 items: Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemResult']):
+        pulumi.set(__self__, "items", items)
+
+    @_builtins.property
+    @pulumi.getter
+    def items(self) -> Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemResult']:
+        return pulumi.get(self, "items")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemResult(dict):
+    def __init__(__self__, *,
+                 allowed_migration_destinations: Sequence[_builtins.str],
+                 application_components: Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemApplicationComponentResult'],
+                 configuration_schemas: Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemConfigurationSchemaResult'],
+                 defined_tags: Mapping[str, _builtins.str],
+                 description: _builtins.str,
+                 freeform_tags: Mapping[str, _builtins.str],
+                 id: _builtins.str,
+                 lifecycle_details: _builtins.str,
+                 ml_application_id: _builtins.str,
+                 ml_application_implementation_id: _builtins.str,
+                 ml_application_name: _builtins.str,
+                 ml_application_package_arguments: Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentResult'],
+                 name: _builtins.str,
+                 package_version: _builtins.str,
+                 state: _builtins.str,
+                 system_tags: Mapping[str, _builtins.str],
+                 time_created: _builtins.str):
+        """
+        :param Sequence[_builtins.str] allowed_migration_destinations: List of ML Application Implementation OCIDs for which migration from this implementation is allowed. Migration means that if consumers change implementation for their instances to implementation with OCID from this list, instance components will be updated in place otherwise new instance components are created based on the new implementation and old instance components are removed.
+        :param Sequence['GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemApplicationComponentArgs'] application_components: List of application components (OCI resources shared for all MlApplicationInstances). These have been created automatically based on their definitions in the ML Application package.
+        :param Sequence['GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemConfigurationSchemaArgs'] configuration_schemas: Schema of configuration which needs to be provided for each ML Application Instance. It is defined in the ML Application package descriptor.
+        :param Mapping[str, _builtins.str] defined_tags: Defined tags for this resource. Each key is predefined and scoped to a namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Operations.CostCenter": "42"}`
+        :param _builtins.str description: short description of the argument
+        :param Mapping[str, _builtins.str] freeform_tags: Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Department": "Finance"}`
+        :param _builtins.str id: The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        :param _builtins.str lifecycle_details: A message describing the current state in more detail. For example, can be used to provide actionable information for a resource in Failed state.
+        :param _builtins.str ml_application_id: The OCID of the ML Application implemented by this ML Application Implementation.
+        :param _builtins.str ml_application_implementation_id: unique MlApplicationImplementation identifier
+        :param _builtins.str ml_application_name: The name of ML Application (based on mlApplicationId)
+        :param Sequence['GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgs'] ml_application_package_arguments: List of ML Application package arguments provided during ML Application package upload.
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        :param _builtins.str package_version: The version of ML Application Package (e.g. "1.2" or "2.0.4") defined in ML Application package descriptor. Value is not mandatory only for CREATING state otherwise it must be always presented.
+        :param _builtins.str state: A filter to return only resources matching the given lifecycleState.
+        :param Mapping[str, _builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        :param _builtins.str time_created: Creation time of MlApplicationImplementationVersion in the format defined by RFC 3339.
+        """
+        pulumi.set(__self__, "allowed_migration_destinations", allowed_migration_destinations)
+        pulumi.set(__self__, "application_components", application_components)
+        pulumi.set(__self__, "configuration_schemas", configuration_schemas)
+        pulumi.set(__self__, "defined_tags", defined_tags)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "freeform_tags", freeform_tags)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "lifecycle_details", lifecycle_details)
+        pulumi.set(__self__, "ml_application_id", ml_application_id)
+        pulumi.set(__self__, "ml_application_implementation_id", ml_application_implementation_id)
+        pulumi.set(__self__, "ml_application_name", ml_application_name)
+        pulumi.set(__self__, "ml_application_package_arguments", ml_application_package_arguments)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "package_version", package_version)
+        pulumi.set(__self__, "state", state)
+        pulumi.set(__self__, "system_tags", system_tags)
+        pulumi.set(__self__, "time_created", time_created)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedMigrationDestinations")
+    def allowed_migration_destinations(self) -> Sequence[_builtins.str]:
+        """
+        List of ML Application Implementation OCIDs for which migration from this implementation is allowed. Migration means that if consumers change implementation for their instances to implementation with OCID from this list, instance components will be updated in place otherwise new instance components are created based on the new implementation and old instance components are removed.
+        """
+        return pulumi.get(self, "allowed_migration_destinations")
+
+    @_builtins.property
+    @pulumi.getter(name="applicationComponents")
+    def application_components(self) -> Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemApplicationComponentResult']:
+        """
+        List of application components (OCI resources shared for all MlApplicationInstances). These have been created automatically based on their definitions in the ML Application package.
+        """
+        return pulumi.get(self, "application_components")
+
+    @_builtins.property
+    @pulumi.getter(name="configurationSchemas")
+    def configuration_schemas(self) -> Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemConfigurationSchemaResult']:
+        """
+        Schema of configuration which needs to be provided for each ML Application Instance. It is defined in the ML Application package descriptor.
+        """
+        return pulumi.get(self, "configuration_schemas")
+
+    @_builtins.property
+    @pulumi.getter(name="definedTags")
+    def defined_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Defined tags for this resource. Each key is predefined and scoped to a namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Operations.CostCenter": "42"}`
+        """
+        return pulumi.get(self, "defined_tags")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        short description of the argument
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="freeformTags")
+    def freeform_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Department": "Finance"}`
+        """
+        return pulumi.get(self, "freeform_tags")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="lifecycleDetails")
+    def lifecycle_details(self) -> _builtins.str:
+        """
+        A message describing the current state in more detail. For example, can be used to provide actionable information for a resource in Failed state.
+        """
+        return pulumi.get(self, "lifecycle_details")
+
+    @_builtins.property
+    @pulumi.getter(name="mlApplicationId")
+    def ml_application_id(self) -> _builtins.str:
+        """
+        The OCID of the ML Application implemented by this ML Application Implementation.
+        """
+        return pulumi.get(self, "ml_application_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mlApplicationImplementationId")
+    def ml_application_implementation_id(self) -> _builtins.str:
+        """
+        unique MlApplicationImplementation identifier
+        """
+        return pulumi.get(self, "ml_application_implementation_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mlApplicationName")
+    def ml_application_name(self) -> _builtins.str:
+        """
+        The name of ML Application (based on mlApplicationId)
+        """
+        return pulumi.get(self, "ml_application_name")
+
+    @_builtins.property
+    @pulumi.getter(name="mlApplicationPackageArguments")
+    def ml_application_package_arguments(self) -> Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentResult']:
+        """
+        List of ML Application package arguments provided during ML Application package upload.
+        """
+        return pulumi.get(self, "ml_application_package_arguments")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="packageVersion")
+    def package_version(self) -> _builtins.str:
+        """
+        The version of ML Application Package (e.g. "1.2" or "2.0.4") defined in ML Application package descriptor. Value is not mandatory only for CREATING state otherwise it must be always presented.
+        """
+        return pulumi.get(self, "package_version")
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> _builtins.str:
+        """
+        A filter to return only resources matching the given lifecycleState.
+        """
+        return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter(name="systemTags")
+    def system_tags(self) -> Mapping[str, _builtins.str]:
+        """
+        Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
+        """
+        return pulumi.get(self, "system_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="timeCreated")
+    def time_created(self) -> _builtins.str:
+        """
+        Creation time of MlApplicationImplementationVersion in the format defined by RFC 3339.
+        """
+        return pulumi.get(self, "time_created")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemApplicationComponentResult(dict):
+    def __init__(__self__, *,
+                 application_id: _builtins.str,
+                 component_name: _builtins.str,
+                 id: _builtins.str,
+                 job_id: _builtins.str,
+                 model_id: _builtins.str,
+                 name: _builtins.str,
+                 pipeline_id: _builtins.str,
+                 resource_type: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str application_id: OCID of Data Flow Application
+        :param _builtins.str component_name: Name of application component
+        :param _builtins.str id: The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        :param _builtins.str job_id: OCID of Data Science Job
+        :param _builtins.str model_id: OCID of Data Science Model
+        :param _builtins.str name: ML Application Implementation name which is unique for given ML Application.
+        :param _builtins.str pipeline_id: OCID of Data Science Pipeline
+        :param _builtins.str resource_type: Type of the resource
+        :param _builtins.str type: type of the argument
+        """
+        pulumi.set(__self__, "application_id", application_id)
+        pulumi.set(__self__, "component_name", component_name)
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "job_id", job_id)
+        pulumi.set(__self__, "model_id", model_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "pipeline_id", pipeline_id)
+        pulumi.set(__self__, "resource_type", resource_type)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter(name="applicationId")
+    def application_id(self) -> _builtins.str:
+        """
+        OCID of Data Flow Application
+        """
+        return pulumi.get(self, "application_id")
+
+    @_builtins.property
+    @pulumi.getter(name="componentName")
+    def component_name(self) -> _builtins.str:
+        """
+        Name of application component
+        """
+        return pulumi.get(self, "component_name")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        The OCID of the MlApplicationImplementationVersion. Unique identifier that is immutable after creation.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter(name="jobId")
+    def job_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Job
+        """
+        return pulumi.get(self, "job_id")
+
+    @_builtins.property
+    @pulumi.getter(name="modelId")
+    def model_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Model
+        """
+        return pulumi.get(self, "model_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        ML Application Implementation name which is unique for given ML Application.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> _builtins.str:
+        """
+        OCID of Data Science Pipeline
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceType")
+    def resource_type(self) -> _builtins.str:
+        """
+        Type of the resource
+        """
+        return pulumi.get(self, "resource_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        type of the argument
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemConfigurationSchemaResult(dict):
+    def __init__(__self__, *,
+                 default_value: _builtins.str,
+                 description: _builtins.str,
+                 is_mandatory: _builtins.bool,
+                 key_name: _builtins.str,
+                 sample_value: _builtins.str,
+                 validation_regexp: _builtins.str,
+                 value_type: _builtins.str):
+        """
+        :param _builtins.str default_value: The default value for the optional configuration property (it must not be specified for mandatory configuration properties)
+        :param _builtins.str description: short description of the argument
+        :param _builtins.bool is_mandatory: argument is mandatory or not
+        :param _builtins.str key_name: Name of key (parameter name)
+        :param _builtins.str sample_value: Sample property value (it must match validationRegexp if it is specified)
+        :param _builtins.str validation_regexp: A regular expression will be used for the validation of property value.
+        :param _builtins.str value_type: Type of value
+        """
+        pulumi.set(__self__, "default_value", default_value)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "is_mandatory", is_mandatory)
+        pulumi.set(__self__, "key_name", key_name)
+        pulumi.set(__self__, "sample_value", sample_value)
+        pulumi.set(__self__, "validation_regexp", validation_regexp)
+        pulumi.set(__self__, "value_type", value_type)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultValue")
+    def default_value(self) -> _builtins.str:
+        """
+        The default value for the optional configuration property (it must not be specified for mandatory configuration properties)
+        """
+        return pulumi.get(self, "default_value")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        short description of the argument
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="isMandatory")
+    def is_mandatory(self) -> _builtins.bool:
+        """
+        argument is mandatory or not
+        """
+        return pulumi.get(self, "is_mandatory")
+
+    @_builtins.property
+    @pulumi.getter(name="keyName")
+    def key_name(self) -> _builtins.str:
+        """
+        Name of key (parameter name)
+        """
+        return pulumi.get(self, "key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="sampleValue")
+    def sample_value(self) -> _builtins.str:
+        """
+        Sample property value (it must match validationRegexp if it is specified)
+        """
+        return pulumi.get(self, "sample_value")
+
+    @_builtins.property
+    @pulumi.getter(name="validationRegexp")
+    def validation_regexp(self) -> _builtins.str:
+        """
+        A regular expression will be used for the validation of property value.
+        """
+        return pulumi.get(self, "validation_regexp")
+
+    @_builtins.property
+    @pulumi.getter(name="valueType")
+    def value_type(self) -> _builtins.str:
+        """
+        Type of value
+        """
+        return pulumi.get(self, "value_type")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentResult(dict):
+    def __init__(__self__, *,
+                 arguments: Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgumentResult']):
+        """
+        :param Sequence['GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgumentArgs'] arguments: Array of the ML Application package arguments
+        """
+        pulumi.set(__self__, "arguments", arguments)
+
+    @_builtins.property
+    @pulumi.getter
+    def arguments(self) -> Sequence['outputs.GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgumentResult']:
+        """
+        Array of the ML Application package arguments
+        """
+        return pulumi.get(self, "arguments")
+
+
+@pulumi.output_type
+class GetMlApplicationImplementationVersionsMlApplicationImplementationVersionCollectionItemMlApplicationPackageArgumentArgumentResult(dict):
     def __init__(__self__, *,
                  description: _builtins.str,
                  is_mandatory: _builtins.bool,
@@ -18712,6 +20245,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailResult(dict):
 class GetModelDeploymentModelDeploymentConfigurationDetailEnvironmentConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  cmds: Sequence[_builtins.str],
+                 default_environment_variables: Mapping[str, _builtins.str],
                  entrypoints: Sequence[_builtins.str],
                  environment_configuration_type: _builtins.str,
                  environment_variables: Mapping[str, _builtins.str],
@@ -18721,15 +20255,17 @@ class GetModelDeploymentModelDeploymentConfigurationDetailEnvironmentConfigurati
                  server_port: _builtins.int):
         """
         :param Sequence[_builtins.str] cmds: The container image run [CMD](https://docs.docker.com/engine/reference/builder/#cmd) as a list of strings. Use `CMD` as arguments to the `ENTRYPOINT` or the only command to run in the absence of an `ENTRYPOINT`. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes.
+        :param Mapping[str, _builtins.str] default_environment_variables: Service injected Environment variables set for the web server container and can not be set or modified by user.
         :param Sequence[_builtins.str] entrypoints: The container image run [ENTRYPOINT](https://docs.docker.com/engine/reference/builder/#entrypoint) as a list of strings. Accept the `CMD` as extra arguments. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes. More information on how `CMD` and `ENTRYPOINT` interact are [here](https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact).
         :param _builtins.str environment_configuration_type: The environment configuration type
         :param Mapping[str, _builtins.str] environment_variables: Environment variables to set for the web server container. The size of envVars must be less than 2048 bytes. Key should be under 32 characters. Key should contain only letters, digits and underscore (_) Key should start with a letter. Key should have at least 2 characters. Key should not end with underscore eg. `TEST_` Key if added cannot be empty. Value can be empty. No specific size limits on individual Values. But overall environment variables is limited to 2048 bytes. Key can't be reserved Model Deployment environment variables.
         :param _builtins.int health_check_port: The port on which the container [HEALTHCHECK](https://docs.docker.com/engine/reference/builder/#healthcheck) would listen. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
-        :param _builtins.str image: The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        :param _builtins.str image: The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         :param _builtins.str image_digest: The digest of the container image. For example, `sha256:881303a6b2738834d795a32b4a98eb0e5e3d1cad590a712d1e04f9b2fa90a030`
         :param _builtins.int server_port: The port on which the web server serving the inference is running. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
         """
         pulumi.set(__self__, "cmds", cmds)
+        pulumi.set(__self__, "default_environment_variables", default_environment_variables)
         pulumi.set(__self__, "entrypoints", entrypoints)
         pulumi.set(__self__, "environment_configuration_type", environment_configuration_type)
         pulumi.set(__self__, "environment_variables", environment_variables)
@@ -18745,6 +20281,14 @@ class GetModelDeploymentModelDeploymentConfigurationDetailEnvironmentConfigurati
         The container image run [CMD](https://docs.docker.com/engine/reference/builder/#cmd) as a list of strings. Use `CMD` as arguments to the `ENTRYPOINT` or the only command to run in the absence of an `ENTRYPOINT`. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes.
         """
         return pulumi.get(self, "cmds")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultEnvironmentVariables")
+    def default_environment_variables(self) -> Mapping[str, _builtins.str]:
+        """
+        Service injected Environment variables set for the web server container and can not be set or modified by user.
+        """
+        return pulumi.get(self, "default_environment_variables")
 
     @_builtins.property
     @pulumi.getter
@@ -18782,7 +20326,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailEnvironmentConfigurati
     @pulumi.getter
     def image(self) -> _builtins.str:
         """
-        The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         """
         return pulumi.get(self, "image")
 
@@ -18873,7 +20417,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailInfrastructureConfigur
                  private_endpoint_id: _builtins.str,
                  subnet_id: _builtins.str):
         """
-        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param Sequence['GetModelDeploymentModelDeploymentConfigurationDetailInfrastructureConfigurationDetailInstanceConfigurationModelDeploymentInstanceShapeConfigDetailArgs'] model_deployment_instance_shape_config_details: Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -18887,7 +20431,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailInfrastructureConfigur
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> _builtins.str:
         """
-        The shape used to launch the model deployment instances.
+        The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -19325,7 +20869,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailModelConfigurationDeta
                  private_endpoint_id: _builtins.str,
                  subnet_id: _builtins.str):
         """
-        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param Sequence['GetModelDeploymentModelDeploymentConfigurationDetailModelConfigurationDetailInstanceConfigurationModelDeploymentInstanceShapeConfigDetailArgs'] model_deployment_instance_shape_config_details: Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -19339,7 +20883,7 @@ class GetModelDeploymentModelDeploymentConfigurationDetailModelConfigurationDeta
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> _builtins.str:
         """
-        The shape used to launch the model deployment instances.
+        The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -19729,12 +21273,15 @@ class GetModelDeploymentModelDeploymentConfigurationDetailModelGroupConfiguratio
 class GetModelDeploymentModelDeploymentSystemDataResult(dict):
     def __init__(__self__, *,
                  current_instance_count: _builtins.int,
+                 model_type: _builtins.str,
                  system_infra_type: _builtins.str):
         """
         :param _builtins.int current_instance_count: This value is the current count of the model deployment instances.
+        :param _builtins.str model_type: The type of the deployed model.
         :param _builtins.str system_infra_type: The infrastructure type of the model deployment.
         """
         pulumi.set(__self__, "current_instance_count", current_instance_count)
+        pulumi.set(__self__, "model_type", model_type)
         pulumi.set(__self__, "system_infra_type", system_infra_type)
 
     @_builtins.property
@@ -19744,6 +21291,14 @@ class GetModelDeploymentModelDeploymentSystemDataResult(dict):
         This value is the current count of the model deployment instances.
         """
         return pulumi.get(self, "current_instance_count")
+
+    @_builtins.property
+    @pulumi.getter(name="modelType")
+    def model_type(self) -> _builtins.str:
+        """
+        The type of the deployed model.
+        """
+        return pulumi.get(self, "model_type")
 
     @_builtins.property
     @pulumi.getter(name="systemInfraType")
@@ -20319,6 +21874,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailResult
 class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailEnvironmentConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  cmds: Sequence[_builtins.str],
+                 default_environment_variables: Mapping[str, _builtins.str],
                  entrypoints: Sequence[_builtins.str],
                  environment_configuration_type: _builtins.str,
                  environment_variables: Mapping[str, _builtins.str],
@@ -20328,15 +21884,17 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailEnviro
                  server_port: _builtins.int):
         """
         :param Sequence[_builtins.str] cmds: The container image run [CMD](https://docs.docker.com/engine/reference/builder/#cmd) as a list of strings. Use `CMD` as arguments to the `ENTRYPOINT` or the only command to run in the absence of an `ENTRYPOINT`. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes.
+        :param Mapping[str, _builtins.str] default_environment_variables: Service injected Environment variables set for the web server container and can not be set or modified by user.
         :param Sequence[_builtins.str] entrypoints: The container image run [ENTRYPOINT](https://docs.docker.com/engine/reference/builder/#entrypoint) as a list of strings. Accept the `CMD` as extra arguments. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes. More information on how `CMD` and `ENTRYPOINT` interact are [here](https://docs.docker.com/engine/reference/builder/#understand-how-cmd-and-entrypoint-interact).
         :param _builtins.str environment_configuration_type: The environment configuration type
         :param Mapping[str, _builtins.str] environment_variables: Environment variables to set for the web server container. The size of envVars must be less than 2048 bytes. Key should be under 32 characters. Key should contain only letters, digits and underscore (_) Key should start with a letter. Key should have at least 2 characters. Key should not end with underscore eg. `TEST_` Key if added cannot be empty. Value can be empty. No specific size limits on individual Values. But overall environment variables is limited to 2048 bytes. Key can't be reserved Model Deployment environment variables.
         :param _builtins.int health_check_port: The port on which the container [HEALTHCHECK](https://docs.docker.com/engine/reference/builder/#healthcheck) would listen. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
-        :param _builtins.str image: The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        :param _builtins.str image: The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         :param _builtins.str image_digest: The digest of the container image. For example, `sha256:881303a6b2738834d795a32b4a98eb0e5e3d1cad590a712d1e04f9b2fa90a030`
         :param _builtins.int server_port: The port on which the web server serving the inference is running. The port can be anything between `1024` and `65535`. The following ports cannot be used `24224`, `8446`, `8447`.
         """
         pulumi.set(__self__, "cmds", cmds)
+        pulumi.set(__self__, "default_environment_variables", default_environment_variables)
         pulumi.set(__self__, "entrypoints", entrypoints)
         pulumi.set(__self__, "environment_configuration_type", environment_configuration_type)
         pulumi.set(__self__, "environment_variables", environment_variables)
@@ -20352,6 +21910,14 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailEnviro
         The container image run [CMD](https://docs.docker.com/engine/reference/builder/#cmd) as a list of strings. Use `CMD` as arguments to the `ENTRYPOINT` or the only command to run in the absence of an `ENTRYPOINT`. The combined size of `CMD` and `ENTRYPOINT` must be less than 2048 bytes.
         """
         return pulumi.get(self, "cmds")
+
+    @_builtins.property
+    @pulumi.getter(name="defaultEnvironmentVariables")
+    def default_environment_variables(self) -> Mapping[str, _builtins.str]:
+        """
+        Service injected Environment variables set for the web server container and can not be set or modified by user.
+        """
+        return pulumi.get(self, "default_environment_variables")
 
     @_builtins.property
     @pulumi.getter
@@ -20389,7 +21955,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailEnviro
     @pulumi.getter
     def image(self) -> _builtins.str:
         """
-        The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
+        The full path to the Oracle Container Repository (OCIR) registry, image, and tag in a canonical format. The container image is optional while using service managed open source foundation model. Acceptable format: `<region>.ocir.io/<registry>/<image>:<tag>` `<region>.ocir.io/<registry>/<image>:<tag>@digest`
         """
         return pulumi.get(self, "image")
 
@@ -20480,7 +22046,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailInfras
                  private_endpoint_id: _builtins.str,
                  subnet_id: _builtins.str):
         """
-        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param Sequence['GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailInfrastructureConfigurationDetailInstanceConfigurationModelDeploymentInstanceShapeConfigDetailArgs'] model_deployment_instance_shape_config_details: Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -20494,7 +22060,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailInfras
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> _builtins.str:
         """
-        The shape used to launch the model deployment instances.
+        The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -20932,7 +22498,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailModelC
                  private_endpoint_id: _builtins.str,
                  subnet_id: _builtins.str):
         """
-        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.
+        :param _builtins.str instance_shape_name: The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         :param Sequence['GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailModelConfigurationDetailInstanceConfigurationModelDeploymentInstanceShapeConfigDetailArgs'] model_deployment_instance_shape_config_details: Details for the model-deployment instance shape configuration.
         :param _builtins.str private_endpoint_id: The OCID of a Data Science private endpoint.
         :param _builtins.str subnet_id: A model deployment instance is provided with a VNIC for network access.  This specifies the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the subnet to create a VNIC in.  The subnet should be in a VCN with a NAT/SGW gateway for egress.
@@ -20946,7 +22512,7 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailModelC
     @pulumi.getter(name="instanceShapeName")
     def instance_shape_name(self) -> _builtins.str:
         """
-        The shape used to launch the model deployment instances.
+        The shape used to launch the model deployment instances.  When using service managed open source foundation model, the supported shapes can be retrieved using get model api /models/{modelId}/definedMetadata/deploymentConfiguration/artifact/content.
         """
         return pulumi.get(self, "instance_shape_name")
 
@@ -21336,12 +22902,15 @@ class GetModelDeploymentsModelDeploymentModelDeploymentConfigurationDetailModelG
 class GetModelDeploymentsModelDeploymentModelDeploymentSystemDataResult(dict):
     def __init__(__self__, *,
                  current_instance_count: _builtins.int,
+                 model_type: _builtins.str,
                  system_infra_type: _builtins.str):
         """
         :param _builtins.int current_instance_count: This value is the current count of the model deployment instances.
+        :param _builtins.str model_type: The type of the deployed model.
         :param _builtins.str system_infra_type: The infrastructure type of the model deployment.
         """
         pulumi.set(__self__, "current_instance_count", current_instance_count)
+        pulumi.set(__self__, "model_type", model_type)
         pulumi.set(__self__, "system_infra_type", system_infra_type)
 
     @_builtins.property
@@ -21351,6 +22920,14 @@ class GetModelDeploymentsModelDeploymentModelDeploymentSystemDataResult(dict):
         This value is the current count of the model deployment instances.
         """
         return pulumi.get(self, "current_instance_count")
+
+    @_builtins.property
+    @pulumi.getter(name="modelType")
+    def model_type(self) -> _builtins.str:
+        """
+        The type of the deployed model.
+        """
+        return pulumi.get(self, "model_type")
 
     @_builtins.property
     @pulumi.getter(name="systemInfraType")
@@ -24913,16 +26490,19 @@ class GetPipelineConfigurationDetailResult(dict):
 class GetPipelineInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -24934,6 +26514,14 @@ class GetPipelineInfrastructureConfigurationDetailResult(dict):
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -24965,15 +26553,21 @@ class GetPipelineInfrastructureConfigurationDetailShapeConfigDetailResult(dict):
     def __init__(__self__, *,
                  cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
         :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -24987,17 +26581,33 @@ class GetPipelineInfrastructureConfigurationDetailShapeConfigDetailResult(dict):
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -25157,16 +26767,19 @@ class GetPipelineRunConfigurationOverrideDetailResult(dict):
 class GetPipelineRunInfrastructureConfigurationOverrideDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -25178,6 +26791,14 @@ class GetPipelineRunInfrastructureConfigurationOverrideDetailResult(dict):
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -25207,30 +26828,63 @@ class GetPipelineRunInfrastructureConfigurationOverrideDetailResult(dict):
 @pulumi.output_type
 class GetPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -25320,19 +26974,22 @@ class GetPipelineRunStepOverrideDetailResult(dict):
                  step_container_configuration_details: Sequence['outputs.GetPipelineRunStepOverrideDetailStepContainerConfigurationDetailResult'],
                  step_dataflow_configuration_details: Sequence['outputs.GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailResult'],
                  step_infrastructure_configuration_details: Sequence['outputs.GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult'],
-                 step_name: _builtins.str):
+                 step_name: _builtins.str,
+                 step_storage_mount_configuration_details_lists: Sequence['outputs.GetPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult']):
         """
         :param Sequence['GetPipelineRunStepOverrideDetailStepConfigurationDetailArgs'] step_configuration_details: The configuration details of a step.
         :param Sequence['GetPipelineRunStepOverrideDetailStepContainerConfigurationDetailArgs'] step_container_configuration_details: Container Details for a step in pipeline.
         :param Sequence['GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailArgs'] step_dataflow_configuration_details: The configuration details of a Dataflow step.
         :param Sequence['GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailArgs'] step_infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
         :param _builtins.str step_name: The name of the step.
+        :param Sequence['GetPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: The storage mount details to mount to the instance running the pipeline step.
         """
         pulumi.set(__self__, "step_configuration_details", step_configuration_details)
         pulumi.set(__self__, "step_container_configuration_details", step_container_configuration_details)
         pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
 
     @_builtins.property
     @pulumi.getter(name="stepConfigurationDetails")
@@ -25373,6 +27030,14 @@ class GetPipelineRunStepOverrideDetailResult(dict):
         The name of the step.
         """
         return pulumi.get(self, "step_name")
+
+    @_builtins.property
+    @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
+    def step_storage_mount_configuration_details_lists(self) -> Sequence['outputs.GetPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult']:
+        """
+        The storage mount details to mount to the instance running the pipeline step.
+        """
+        return pulumi.get(self, "step_storage_mount_configuration_details_lists")
 
 
 @pulumi.output_type
@@ -25586,97 +27251,122 @@ class GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailResult(dict
 @pulumi.output_type
 class GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailDriverShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineRunStepOverrideDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -25688,6 +27378,14 @@ class GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResul
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -25717,30 +27415,158 @@ class GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResul
 @pulumi.output_type
 class GetPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class GetPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 destination_directory_name: _builtins.str,
+                 destination_path: _builtins.str,
+                 export_id: _builtins.str,
+                 mount_target_id: _builtins.str,
+                 namespace: _builtins.str,
+                 prefix: _builtins.str,
+                 storage_type: _builtins.str):
+        """
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        :param _builtins.str storage_type: The type of storage.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "destination_path", destination_path)
+        pulumi.set(__self__, "export_id", export_id)
+        pulumi.set(__self__, "mount_target_id", mount_target_id)
+        pulumi.set(__self__, "namespace", namespace)
+        pulumi.set(__self__, "prefix", prefix)
+        pulumi.set(__self__, "storage_type", storage_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> _builtins.str:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> _builtins.str:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> _builtins.str:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
 
 
 @pulumi.output_type
@@ -25751,6 +27577,7 @@ class GetPipelineRunStepRunResult(dict):
                  lifecycle_details: _builtins.str,
                  state: _builtins.str,
                  step_name: _builtins.str,
+                 step_run_name: _builtins.str,
                  step_type: _builtins.str,
                  time_finished: _builtins.str,
                  time_started: _builtins.str):
@@ -25760,6 +27587,7 @@ class GetPipelineRunStepRunResult(dict):
         :param _builtins.str lifecycle_details: Details of the state of the step run.
         :param _builtins.str state: The state of the step run.
         :param _builtins.str step_name: The name of the step.
+        :param _builtins.str step_run_name: Name used when creating the steprun.
         :param _builtins.str step_type: The type of step.
         :param _builtins.str time_finished: The date and time the pipeline run request was finished in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         :param _builtins.str time_started: The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
@@ -25769,6 +27597,7 @@ class GetPipelineRunStepRunResult(dict):
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_run_name", step_run_name)
         pulumi.set(__self__, "step_type", step_type)
         pulumi.set(__self__, "time_finished", time_finished)
         pulumi.set(__self__, "time_started", time_started)
@@ -25814,6 +27643,14 @@ class GetPipelineRunStepRunResult(dict):
         return pulumi.get(self, "step_name")
 
     @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> _builtins.str:
+        """
+        Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
+
+    @_builtins.property
     @pulumi.getter(name="stepType")
     def step_type(self) -> _builtins.str:
         """
@@ -25836,6 +27673,101 @@ class GetPipelineRunStepRunResult(dict):
         The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         """
         return pulumi.get(self, "time_started")
+
+
+@pulumi.output_type
+class GetPipelineRunStorageMountConfigurationOverrideDetailsListResult(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 destination_directory_name: _builtins.str,
+                 destination_path: _builtins.str,
+                 export_id: _builtins.str,
+                 mount_target_id: _builtins.str,
+                 namespace: _builtins.str,
+                 prefix: _builtins.str,
+                 storage_type: _builtins.str):
+        """
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        :param _builtins.str storage_type: The type of storage.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "destination_path", destination_path)
+        pulumi.set(__self__, "export_id", export_id)
+        pulumi.set(__self__, "mount_target_id", mount_target_id)
+        pulumi.set(__self__, "namespace", namespace)
+        pulumi.set(__self__, "prefix", prefix)
+        pulumi.set(__self__, "storage_type", storage_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> _builtins.str:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> _builtins.str:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> _builtins.str:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
 
 
 @pulumi.output_type
@@ -25882,11 +27814,13 @@ class GetPipelineRunsPipelineRunResult(dict):
                  log_configuration_override_details: Sequence['outputs.GetPipelineRunsPipelineRunLogConfigurationOverrideDetailResult'],
                  log_details: Sequence['outputs.GetPipelineRunsPipelineRunLogDetailResult'],
                  opc_parent_rpt_url: _builtins.str,
+                 parameters_override: Mapping[str, _builtins.str],
                  pipeline_id: _builtins.str,
                  project_id: _builtins.str,
                  state: _builtins.str,
                  step_override_details: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailResult'],
                  step_runs: Sequence['outputs.GetPipelineRunsPipelineRunStepRunResult'],
+                 storage_mount_configuration_override_details_lists: Sequence['outputs.GetPipelineRunsPipelineRunStorageMountConfigurationOverrideDetailsListResult'],
                  system_tags: Mapping[str, _builtins.str],
                  time_accepted: _builtins.str,
                  time_finished: _builtins.str,
@@ -25905,11 +27839,13 @@ class GetPipelineRunsPipelineRunResult(dict):
         :param _builtins.str lifecycle_details: Details of the state of the step run.
         :param Sequence['GetPipelineRunsPipelineRunLogConfigurationOverrideDetailArgs'] log_configuration_override_details: The pipeline log configuration details.
         :param Sequence['GetPipelineRunsPipelineRunLogDetailArgs'] log_details: Customer logging details for pipeline run.
+        :param Mapping[str, _builtins.str] parameters_override: Parameters override used in the pipeline run.
         :param _builtins.str pipeline_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the pipeline.
         :param _builtins.str project_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the project to associate the pipeline run with.
         :param _builtins.str state: The current state of the PipelineRun.
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailArgs'] step_override_details: Array of step override details. Only Step Configuration is allowed to be overridden.
         :param Sequence['GetPipelineRunsPipelineRunStepRunArgs'] step_runs: Array of StepRun object for each step.
+        :param Sequence['GetPipelineRunsPipelineRunStorageMountConfigurationOverrideDetailsListArgs'] storage_mount_configuration_override_details_lists: The storage mount override details to mount to the instance running the pipeline step.
         :param Mapping[str, _builtins.str] system_tags: Usage of system tag keys. These predefined keys are scoped to namespaces. Example: `{"orcl-cloud.free-tier-retained": "true"}`
         :param _builtins.str time_accepted: The date and time the pipeline run was accepted in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         :param _builtins.str time_finished: The date and time the pipeline run request was finished in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
@@ -25930,11 +27866,13 @@ class GetPipelineRunsPipelineRunResult(dict):
         pulumi.set(__self__, "log_configuration_override_details", log_configuration_override_details)
         pulumi.set(__self__, "log_details", log_details)
         pulumi.set(__self__, "opc_parent_rpt_url", opc_parent_rpt_url)
+        pulumi.set(__self__, "parameters_override", parameters_override)
         pulumi.set(__self__, "pipeline_id", pipeline_id)
         pulumi.set(__self__, "project_id", project_id)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "step_override_details", step_override_details)
         pulumi.set(__self__, "step_runs", step_runs)
+        pulumi.set(__self__, "storage_mount_configuration_override_details_lists", storage_mount_configuration_override_details_lists)
         pulumi.set(__self__, "system_tags", system_tags)
         pulumi.set(__self__, "time_accepted", time_accepted)
         pulumi.set(__self__, "time_finished", time_finished)
@@ -26048,6 +27986,14 @@ class GetPipelineRunsPipelineRunResult(dict):
         return pulumi.get(self, "opc_parent_rpt_url")
 
     @_builtins.property
+    @pulumi.getter(name="parametersOverride")
+    def parameters_override(self) -> Mapping[str, _builtins.str]:
+        """
+        Parameters override used in the pipeline run.
+        """
+        return pulumi.get(self, "parameters_override")
+
+    @_builtins.property
     @pulumi.getter(name="pipelineId")
     def pipeline_id(self) -> _builtins.str:
         """
@@ -26086,6 +28032,14 @@ class GetPipelineRunsPipelineRunResult(dict):
         Array of StepRun object for each step.
         """
         return pulumi.get(self, "step_runs")
+
+    @_builtins.property
+    @pulumi.getter(name="storageMountConfigurationOverrideDetailsLists")
+    def storage_mount_configuration_override_details_lists(self) -> Sequence['outputs.GetPipelineRunsPipelineRunStorageMountConfigurationOverrideDetailsListResult']:
+        """
+        The storage mount override details to mount to the instance running the pipeline step.
+        """
+        return pulumi.get(self, "storage_mount_configuration_override_details_lists")
 
     @_builtins.property
     @pulumi.getter(name="systemTags")
@@ -26234,16 +28188,19 @@ class GetPipelineRunsPipelineRunConfigurationOverrideDetailResult(dict):
 class GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -26255,6 +28212,14 @@ class GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailResult(
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -26284,30 +28249,63 @@ class GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailResult(
 @pulumi.output_type
 class GetPipelineRunsPipelineRunInfrastructureConfigurationOverrideDetailShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -26397,19 +28395,22 @@ class GetPipelineRunsPipelineRunStepOverrideDetailResult(dict):
                  step_container_configuration_details: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepContainerConfigurationDetailResult'],
                  step_dataflow_configuration_details: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetailResult'],
                  step_infrastructure_configuration_details: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult'],
-                 step_name: _builtins.str):
+                 step_name: _builtins.str,
+                 step_storage_mount_configuration_details_lists: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult']):
         """
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepConfigurationDetailArgs'] step_configuration_details: The configuration details of a step.
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepContainerConfigurationDetailArgs'] step_container_configuration_details: Container Details for a step in pipeline.
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetailArgs'] step_dataflow_configuration_details: The configuration details of a Dataflow step.
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailArgs'] step_infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
         :param _builtins.str step_name: The name of the step.
+        :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: The storage mount details to mount to the instance running the pipeline step.
         """
         pulumi.set(__self__, "step_configuration_details", step_configuration_details)
         pulumi.set(__self__, "step_container_configuration_details", step_container_configuration_details)
         pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
 
     @_builtins.property
     @pulumi.getter(name="stepConfigurationDetails")
@@ -26450,6 +28451,14 @@ class GetPipelineRunsPipelineRunStepOverrideDetailResult(dict):
         The name of the step.
         """
         return pulumi.get(self, "step_name")
+
+    @_builtins.property
+    @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
+    def step_storage_mount_configuration_details_lists(self) -> Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult']:
+        """
+        The storage mount details to mount to the instance running the pipeline step.
+        """
+        return pulumi.get(self, "step_storage_mount_configuration_details_lists")
 
 
 @pulumi.output_type
@@ -26663,97 +28672,122 @@ class GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetai
 @pulumi.output_type
 class GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetailDriverShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineRunsPipelineRunStepOverrideDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -26765,6 +28799,14 @@ class GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfiguratio
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -26794,30 +28836,158 @@ class GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfiguratio
 @pulumi.output_type
 class GetPipelineRunsPipelineRunStepOverrideDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult(dict):
     def __init__(__self__, *,
+                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
+        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
+
+    @_builtins.property
+    @pulumi.getter(name="cpuBaseline")
+    def cpu_baseline(self) -> _builtins.str:
+        """
+        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
+        """
+        return pulumi.get(self, "cpu_baseline")
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class GetPipelineRunsPipelineRunStepOverrideDetailStepStorageMountConfigurationDetailsListResult(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 destination_directory_name: _builtins.str,
+                 destination_path: _builtins.str,
+                 export_id: _builtins.str,
+                 mount_target_id: _builtins.str,
+                 namespace: _builtins.str,
+                 prefix: _builtins.str,
+                 storage_type: _builtins.str):
+        """
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        :param _builtins.str storage_type: The type of storage.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "destination_path", destination_path)
+        pulumi.set(__self__, "export_id", export_id)
+        pulumi.set(__self__, "mount_target_id", mount_target_id)
+        pulumi.set(__self__, "namespace", namespace)
+        pulumi.set(__self__, "prefix", prefix)
+        pulumi.set(__self__, "storage_type", storage_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> _builtins.str:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> _builtins.str:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> _builtins.str:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
 
 
 @pulumi.output_type
@@ -26828,6 +28998,7 @@ class GetPipelineRunsPipelineRunStepRunResult(dict):
                  lifecycle_details: _builtins.str,
                  state: _builtins.str,
                  step_name: _builtins.str,
+                 step_run_name: _builtins.str,
                  step_type: _builtins.str,
                  time_finished: _builtins.str,
                  time_started: _builtins.str):
@@ -26837,6 +29008,7 @@ class GetPipelineRunsPipelineRunStepRunResult(dict):
         :param _builtins.str lifecycle_details: Details of the state of the step run.
         :param _builtins.str state: The current state of the PipelineRun.
         :param _builtins.str step_name: The name of the step.
+        :param _builtins.str step_run_name: Name used when creating the steprun.
         :param _builtins.str step_type: The type of step.
         :param _builtins.str time_finished: The date and time the pipeline run request was finished in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         :param _builtins.str time_started: The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
@@ -26846,6 +29018,7 @@ class GetPipelineRunsPipelineRunStepRunResult(dict):
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_run_name", step_run_name)
         pulumi.set(__self__, "step_type", step_type)
         pulumi.set(__self__, "time_finished", time_finished)
         pulumi.set(__self__, "time_started", time_started)
@@ -26891,6 +29064,14 @@ class GetPipelineRunsPipelineRunStepRunResult(dict):
         return pulumi.get(self, "step_name")
 
     @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> _builtins.str:
+        """
+        Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
+
+    @_builtins.property
     @pulumi.getter(name="stepType")
     def step_type(self) -> _builtins.str:
         """
@@ -26913,6 +29094,101 @@ class GetPipelineRunsPipelineRunStepRunResult(dict):
         The date and time the pipeline run request was started in the timestamp format defined by [RFC3339](https://tools.ietf.org/html/rfc3339).
         """
         return pulumi.get(self, "time_started")
+
+
+@pulumi.output_type
+class GetPipelineRunsPipelineRunStorageMountConfigurationOverrideDetailsListResult(dict):
+    def __init__(__self__, *,
+                 bucket: _builtins.str,
+                 destination_directory_name: _builtins.str,
+                 destination_path: _builtins.str,
+                 export_id: _builtins.str,
+                 mount_target_id: _builtins.str,
+                 namespace: _builtins.str,
+                 prefix: _builtins.str,
+                 storage_type: _builtins.str):
+        """
+        :param _builtins.str bucket: The object storage bucket
+        :param _builtins.str destination_directory_name: The local directory name to be mounted
+        :param _builtins.str destination_path: The local path of the mounted directory, excluding directory name.
+        :param _builtins.str export_id: OCID of the export
+        :param _builtins.str mount_target_id: OCID of the mount target
+        :param _builtins.str namespace: The object storage namespace
+        :param _builtins.str prefix: Prefix in the bucket to mount
+        :param _builtins.str storage_type: The type of storage.
+        """
+        pulumi.set(__self__, "bucket", bucket)
+        pulumi.set(__self__, "destination_directory_name", destination_directory_name)
+        pulumi.set(__self__, "destination_path", destination_path)
+        pulumi.set(__self__, "export_id", export_id)
+        pulumi.set(__self__, "mount_target_id", mount_target_id)
+        pulumi.set(__self__, "namespace", namespace)
+        pulumi.set(__self__, "prefix", prefix)
+        pulumi.set(__self__, "storage_type", storage_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def bucket(self) -> _builtins.str:
+        """
+        The object storage bucket
+        """
+        return pulumi.get(self, "bucket")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationDirectoryName")
+    def destination_directory_name(self) -> _builtins.str:
+        """
+        The local directory name to be mounted
+        """
+        return pulumi.get(self, "destination_directory_name")
+
+    @_builtins.property
+    @pulumi.getter(name="destinationPath")
+    def destination_path(self) -> _builtins.str:
+        """
+        The local path of the mounted directory, excluding directory name.
+        """
+        return pulumi.get(self, "destination_path")
+
+    @_builtins.property
+    @pulumi.getter(name="exportId")
+    def export_id(self) -> _builtins.str:
+        """
+        OCID of the export
+        """
+        return pulumi.get(self, "export_id")
+
+    @_builtins.property
+    @pulumi.getter(name="mountTargetId")
+    def mount_target_id(self) -> _builtins.str:
+        """
+        OCID of the mount target
+        """
+        return pulumi.get(self, "mount_target_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> _builtins.str:
+        """
+        The object storage namespace
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter
+    def prefix(self) -> _builtins.str:
+        """
+        Prefix in the bucket to mount
+        """
+        return pulumi.get(self, "prefix")
+
+    @_builtins.property
+    @pulumi.getter(name="storageType")
+    def storage_type(self) -> _builtins.str:
+        """
+        The type of storage.
+        """
+        return pulumi.get(self, "storage_type")
 
 
 @pulumi.output_type
@@ -26981,6 +29257,8 @@ class GetPipelineStepDetailResult(dict):
                  step_dataflow_configuration_details: Sequence['outputs.GetPipelineStepDetailStepDataflowConfigurationDetailResult'],
                  step_infrastructure_configuration_details: Sequence['outputs.GetPipelineStepDetailStepInfrastructureConfigurationDetailResult'],
                  step_name: _builtins.str,
+                 step_parameters: Sequence['outputs.GetPipelineStepDetailStepParameterResult'],
+                 step_run_name: _builtins.str,
                  step_storage_mount_configuration_details_lists: Sequence['outputs.GetPipelineStepDetailStepStorageMountConfigurationDetailsListResult'],
                  step_type: _builtins.str):
         """
@@ -26994,6 +29272,8 @@ class GetPipelineStepDetailResult(dict):
         :param Sequence['GetPipelineStepDetailStepDataflowConfigurationDetailArgs'] step_dataflow_configuration_details: The configuration details of a Dataflow step.
         :param Sequence['GetPipelineStepDetailStepInfrastructureConfigurationDetailArgs'] step_infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
         :param _builtins.str step_name: The name of the step. It must be unique within the pipeline. This is used to create the pipeline DAG.
+        :param Sequence['GetPipelineStepDetailStepParameterArgs'] step_parameters: Pipeline step parameter details
+        :param _builtins.str step_run_name: Name used when creating the steprun.
         :param Sequence['GetPipelineStepDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: The storage mount details to mount to the instance running the pipeline step.
         :param _builtins.str step_type: The type of step.
         """
@@ -27007,6 +29287,8 @@ class GetPipelineStepDetailResult(dict):
         pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_parameters", step_parameters)
+        pulumi.set(__self__, "step_run_name", step_run_name)
         pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
         pulumi.set(__self__, "step_type", step_type)
 
@@ -27089,6 +29371,22 @@ class GetPipelineStepDetailResult(dict):
         The name of the step. It must be unique within the pipeline. This is used to create the pipeline DAG.
         """
         return pulumi.get(self, "step_name")
+
+    @_builtins.property
+    @pulumi.getter(name="stepParameters")
+    def step_parameters(self) -> Sequence['outputs.GetPipelineStepDetailStepParameterResult']:
+        """
+        Pipeline step parameter details
+        """
+        return pulumi.get(self, "step_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> _builtins.str:
+        """
+        Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
 
     @_builtins.property
     @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
@@ -27318,97 +29616,122 @@ class GetPipelineStepDetailStepDataflowConfigurationDetailResult(dict):
 @pulumi.output_type
 class GetPipelineStepDetailStepDataflowConfigurationDetailDriverShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineStepDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelineStepDetailStepInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -27420,6 +29743,14 @@ class GetPipelineStepDetailStepInfrastructureConfigurationDetailResult(dict):
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -27451,15 +29782,21 @@ class GetPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetai
     def __init__(__self__, *,
                  cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
         :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -27473,17 +29810,102 @@ class GetPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetai
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class GetPipelineStepDetailStepParameterResult(dict):
+    def __init__(__self__, *,
+                 outputs: Sequence['outputs.GetPipelineStepDetailStepParameterOutputResult'],
+                 parameter_type: _builtins.str):
+        """
+        :param Sequence['GetPipelineStepDetailStepParameterOutputArgs'] outputs: Pipeline output parameter details
+        :param _builtins.str parameter_type: Type of step parameter
+        """
+        pulumi.set(__self__, "outputs", outputs)
+        pulumi.set(__self__, "parameter_type", parameter_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def outputs(self) -> Sequence['outputs.GetPipelineStepDetailStepParameterOutputResult']:
+        """
+        Pipeline output parameter details
+        """
+        return pulumi.get(self, "outputs")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterType")
+    def parameter_type(self) -> _builtins.str:
+        """
+        Type of step parameter
+        """
+        return pulumi.get(self, "parameter_type")
+
+
+@pulumi.output_type
+class GetPipelineStepDetailStepParameterOutputResult(dict):
+    def __init__(__self__, *,
+                 output_file: _builtins.str,
+                 output_parameter_type: _builtins.str,
+                 parameter_names: Sequence[_builtins.str]):
+        """
+        :param _builtins.str output_file: Output file name
+        :param _builtins.str output_parameter_type: Type of output parameters
+        :param Sequence[_builtins.str] parameter_names: The list of parameter names that will be output by this step
+        """
+        pulumi.set(__self__, "output_file", output_file)
+        pulumi.set(__self__, "output_parameter_type", output_parameter_type)
+        pulumi.set(__self__, "parameter_names", parameter_names)
+
+    @_builtins.property
+    @pulumi.getter(name="outputFile")
+    def output_file(self) -> _builtins.str:
+        """
+        Output file name
+        """
+        return pulumi.get(self, "output_file")
+
+    @_builtins.property
+    @pulumi.getter(name="outputParameterType")
+    def output_parameter_type(self) -> _builtins.str:
+        """
+        Type of output parameters
+        """
+        return pulumi.get(self, "output_parameter_type")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterNames")
+    def parameter_names(self) -> Sequence[_builtins.str]:
+        """
+        The list of parameter names that will be output by this step
+        """
+        return pulumi.get(self, "parameter_names")
 
 
 @pulumi.output_type
@@ -27718,6 +30140,7 @@ class GetPipelinesPipelineResult(dict):
                  infrastructure_configuration_details: Sequence['outputs.GetPipelinesPipelineInfrastructureConfigurationDetailResult'],
                  lifecycle_details: _builtins.str,
                  log_configuration_details: Sequence['outputs.GetPipelinesPipelineLogConfigurationDetailResult'],
+                 parameters: Mapping[str, _builtins.str],
                  project_id: _builtins.str,
                  state: _builtins.str,
                  step_artifacts: Sequence['outputs.GetPipelinesPipelineStepArtifactResult'],
@@ -27738,6 +30161,7 @@ class GetPipelinesPipelineResult(dict):
         :param Sequence['GetPipelinesPipelineInfrastructureConfigurationDetailArgs'] infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
         :param _builtins.str lifecycle_details: A message describing the current state in more detail. For example, can be used to provide actionable information for a resource in 'Failed' state.
         :param Sequence['GetPipelinesPipelineLogConfigurationDetailArgs'] log_configuration_details: The pipeline log configuration details.
+        :param Mapping[str, _builtins.str] parameters: Parameters used in the pipeline.
         :param _builtins.str project_id: <b>Filter</b> results by the [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the project.
         :param _builtins.str state: The current state of the Pipeline.
         :param Sequence['GetPipelinesPipelineStepDetailArgs'] step_details: Array of step details for each step.
@@ -27758,6 +30182,7 @@ class GetPipelinesPipelineResult(dict):
         pulumi.set(__self__, "infrastructure_configuration_details", infrastructure_configuration_details)
         pulumi.set(__self__, "lifecycle_details", lifecycle_details)
         pulumi.set(__self__, "log_configuration_details", log_configuration_details)
+        pulumi.set(__self__, "parameters", parameters)
         pulumi.set(__self__, "project_id", project_id)
         pulumi.set(__self__, "state", state)
         pulumi.set(__self__, "step_artifacts", step_artifacts)
@@ -27859,6 +30284,14 @@ class GetPipelinesPipelineResult(dict):
         The pipeline log configuration details.
         """
         return pulumi.get(self, "log_configuration_details")
+
+    @_builtins.property
+    @pulumi.getter
+    def parameters(self) -> Mapping[str, _builtins.str]:
+        """
+        Parameters used in the pipeline.
+        """
+        return pulumi.get(self, "parameters")
 
     @_builtins.property
     @pulumi.getter(name="projectId")
@@ -27977,16 +30410,19 @@ class GetPipelinesPipelineConfigurationDetailResult(dict):
 class GetPipelinesPipelineInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelinesPipelineInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelinesPipelineInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -27998,6 +30434,14 @@ class GetPipelinesPipelineInfrastructureConfigurationDetailResult(dict):
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -28029,15 +30473,21 @@ class GetPipelinesPipelineInfrastructureConfigurationDetailShapeConfigDetailResu
     def __init__(__self__, *,
                  cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
         :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -28051,17 +30501,33 @@ class GetPipelinesPipelineInfrastructureConfigurationDetailShapeConfigDetailResu
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
@@ -28181,6 +30647,8 @@ class GetPipelinesPipelineStepDetailResult(dict):
                  step_dataflow_configuration_details: Sequence['outputs.GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailResult'],
                  step_infrastructure_configuration_details: Sequence['outputs.GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailResult'],
                  step_name: _builtins.str,
+                 step_parameters: Sequence['outputs.GetPipelinesPipelineStepDetailStepParameterResult'],
+                 step_run_name: _builtins.str,
                  step_storage_mount_configuration_details_lists: Sequence['outputs.GetPipelinesPipelineStepDetailStepStorageMountConfigurationDetailsListResult'],
                  step_type: _builtins.str):
         """
@@ -28194,6 +30662,8 @@ class GetPipelinesPipelineStepDetailResult(dict):
         :param Sequence['GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailArgs'] step_dataflow_configuration_details: The configuration details of a Dataflow step.
         :param Sequence['GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailArgs'] step_infrastructure_configuration_details: The infrastructure configuration details of a pipeline or a step.
         :param _builtins.str step_name: The name of the step. It must be unique within the pipeline. This is used to create the pipeline DAG.
+        :param Sequence['GetPipelinesPipelineStepDetailStepParameterArgs'] step_parameters: Pipeline step parameter details
+        :param _builtins.str step_run_name: Name used when creating the steprun.
         :param Sequence['GetPipelinesPipelineStepDetailStepStorageMountConfigurationDetailsListArgs'] step_storage_mount_configuration_details_lists: The storage mount details to mount to the instance running the pipeline step.
         :param _builtins.str step_type: The type of step.
         """
@@ -28207,6 +30677,8 @@ class GetPipelinesPipelineStepDetailResult(dict):
         pulumi.set(__self__, "step_dataflow_configuration_details", step_dataflow_configuration_details)
         pulumi.set(__self__, "step_infrastructure_configuration_details", step_infrastructure_configuration_details)
         pulumi.set(__self__, "step_name", step_name)
+        pulumi.set(__self__, "step_parameters", step_parameters)
+        pulumi.set(__self__, "step_run_name", step_run_name)
         pulumi.set(__self__, "step_storage_mount_configuration_details_lists", step_storage_mount_configuration_details_lists)
         pulumi.set(__self__, "step_type", step_type)
 
@@ -28289,6 +30761,22 @@ class GetPipelinesPipelineStepDetailResult(dict):
         The name of the step. It must be unique within the pipeline. This is used to create the pipeline DAG.
         """
         return pulumi.get(self, "step_name")
+
+    @_builtins.property
+    @pulumi.getter(name="stepParameters")
+    def step_parameters(self) -> Sequence['outputs.GetPipelinesPipelineStepDetailStepParameterResult']:
+        """
+        Pipeline step parameter details
+        """
+        return pulumi.get(self, "step_parameters")
+
+    @_builtins.property
+    @pulumi.getter(name="stepRunName")
+    def step_run_name(self) -> _builtins.str:
+        """
+        Name used when creating the steprun.
+        """
+        return pulumi.get(self, "step_run_name")
 
     @_builtins.property
     @pulumi.getter(name="stepStorageMountConfigurationDetailsLists")
@@ -28518,97 +31006,122 @@ class GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailResult(dict):
 @pulumi.output_type
 class GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailDriverShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelinesPipelineStepDetailStepDataflowConfigurationDetailExecutorShapeConfigDetailResult(dict):
     def __init__(__self__, *,
-                 cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
-        :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
-        pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
-
-    @_builtins.property
-    @pulumi.getter(name="cpuBaseline")
-    def cpu_baseline(self) -> _builtins.str:
-        """
-        The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        """
-        return pulumi.get(self, "cpu_baseline")
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
 
 
 @pulumi.output_type
 class GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailResult(dict):
     def __init__(__self__, *,
                  block_storage_size_in_gbs: _builtins.int,
+                 block_storage_size_in_gbs_parameterized: _builtins.str,
                  shape_config_details: Sequence['outputs.GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailResult'],
                  shape_name: _builtins.str,
                  subnet_id: _builtins.str):
         """
         :param _builtins.int block_storage_size_in_gbs: The size of the block storage volume to attach to the instance.
+        :param _builtins.str block_storage_size_in_gbs_parameterized: The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
         :param Sequence['GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailShapeConfigDetailArgs'] shape_config_details: Details for the pipeline step run shape configuration. Specify only when a flex shape is selected.
         :param _builtins.str shape_name: The shape used to launch the instance for all step runs in the pipeline.
         :param _builtins.str subnet_id: The subnet to create a secondary vnic in to attach to the instance running the pipeline step.
         """
         pulumi.set(__self__, "block_storage_size_in_gbs", block_storage_size_in_gbs)
+        pulumi.set(__self__, "block_storage_size_in_gbs_parameterized", block_storage_size_in_gbs_parameterized)
         pulumi.set(__self__, "shape_config_details", shape_config_details)
         pulumi.set(__self__, "shape_name", shape_name)
         pulumi.set(__self__, "subnet_id", subnet_id)
@@ -28620,6 +31133,14 @@ class GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailResult(
         The size of the block storage volume to attach to the instance.
         """
         return pulumi.get(self, "block_storage_size_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="blockStorageSizeInGbsParameterized")
+    def block_storage_size_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The size of the block storage volume to attach to the pipeline step run instance specified as a parameter. This overrides the blockStorageSizeInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "block_storage_size_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter(name="shapeConfigDetails")
@@ -28651,15 +31172,21 @@ class GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailShapeCo
     def __init__(__self__, *,
                  cpu_baseline: _builtins.str,
                  memory_in_gbs: _builtins.float,
-                 ocpus: _builtins.float):
+                 memory_in_gbs_parameterized: _builtins.str,
+                 ocpus: _builtins.float,
+                 ocpus_parameterized: _builtins.str):
         """
         :param _builtins.str cpu_baseline: The baseline OCPU utilization for a subcore burstable VM instance. If this attribute is left blank, it will default to `BASELINE_1_1`. The following values are supported: BASELINE_1_8 - baseline usage is 1/8 of an OCPU. BASELINE_1_2 - baseline usage is 1/2 of an OCPU. BASELINE_1_1 - baseline usage is an entire OCPU. This represents a non-burstable instance.
-        :param _builtins.float memory_in_gbs: A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
-        :param _builtins.float ocpus: A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        :param _builtins.float memory_in_gbs: The total amount of memory available to the pipeline step run instance GBs.
+        :param _builtins.str memory_in_gbs_parameterized: The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        :param _builtins.float ocpus: The total number of OCPUs available to the pipeline step run instance.
+        :param _builtins.str ocpus_parameterized: The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
         """
         pulumi.set(__self__, "cpu_baseline", cpu_baseline)
         pulumi.set(__self__, "memory_in_gbs", memory_in_gbs)
+        pulumi.set(__self__, "memory_in_gbs_parameterized", memory_in_gbs_parameterized)
         pulumi.set(__self__, "ocpus", ocpus)
+        pulumi.set(__self__, "ocpus_parameterized", ocpus_parameterized)
 
     @_builtins.property
     @pulumi.getter(name="cpuBaseline")
@@ -28673,17 +31200,102 @@ class GetPipelinesPipelineStepDetailStepInfrastructureConfigurationDetailShapeCo
     @pulumi.getter(name="memoryInGbs")
     def memory_in_gbs(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows memory to be specified. This specifies the size of the memory in GBs.
+        The total amount of memory available to the pipeline step run instance GBs.
         """
         return pulumi.get(self, "memory_in_gbs")
+
+    @_builtins.property
+    @pulumi.getter(name="memoryInGbsParameterized")
+    def memory_in_gbs_parameterized(self) -> _builtins.str:
+        """
+        The total amount of memory available to the pipeline step run instance in GBs specified as a parameter. This overrides the memoryInGBs value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "memory_in_gbs_parameterized")
 
     @_builtins.property
     @pulumi.getter
     def ocpus(self) -> _builtins.float:
         """
-        A pipeline step run instance of type VM.Standard.E3.Flex allows the ocpu count to be specified.
+        The total number of OCPUs available to the pipeline step run instance.
         """
         return pulumi.get(self, "ocpus")
+
+    @_builtins.property
+    @pulumi.getter(name="ocpusParameterized")
+    def ocpus_parameterized(self) -> _builtins.str:
+        """
+        The total number of OCPUs available to the pipeline step run instance specified as a parameter. This overrides the ocpus value. The request will fail if the parameters used are null or invalid.
+        """
+        return pulumi.get(self, "ocpus_parameterized")
+
+
+@pulumi.output_type
+class GetPipelinesPipelineStepDetailStepParameterResult(dict):
+    def __init__(__self__, *,
+                 outputs: Sequence['outputs.GetPipelinesPipelineStepDetailStepParameterOutputResult'],
+                 parameter_type: _builtins.str):
+        """
+        :param Sequence['GetPipelinesPipelineStepDetailStepParameterOutputArgs'] outputs: Pipeline output parameter details
+        :param _builtins.str parameter_type: Type of step parameter
+        """
+        pulumi.set(__self__, "outputs", outputs)
+        pulumi.set(__self__, "parameter_type", parameter_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def outputs(self) -> Sequence['outputs.GetPipelinesPipelineStepDetailStepParameterOutputResult']:
+        """
+        Pipeline output parameter details
+        """
+        return pulumi.get(self, "outputs")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterType")
+    def parameter_type(self) -> _builtins.str:
+        """
+        Type of step parameter
+        """
+        return pulumi.get(self, "parameter_type")
+
+
+@pulumi.output_type
+class GetPipelinesPipelineStepDetailStepParameterOutputResult(dict):
+    def __init__(__self__, *,
+                 output_file: _builtins.str,
+                 output_parameter_type: _builtins.str,
+                 parameter_names: Sequence[_builtins.str]):
+        """
+        :param _builtins.str output_file: Output file name
+        :param _builtins.str output_parameter_type: Type of output parameters
+        :param Sequence[_builtins.str] parameter_names: The list of parameter names that will be output by this step
+        """
+        pulumi.set(__self__, "output_file", output_file)
+        pulumi.set(__self__, "output_parameter_type", output_parameter_type)
+        pulumi.set(__self__, "parameter_names", parameter_names)
+
+    @_builtins.property
+    @pulumi.getter(name="outputFile")
+    def output_file(self) -> _builtins.str:
+        """
+        Output file name
+        """
+        return pulumi.get(self, "output_file")
+
+    @_builtins.property
+    @pulumi.getter(name="outputParameterType")
+    def output_parameter_type(self) -> _builtins.str:
+        """
+        Type of output parameters
+        """
+        return pulumi.get(self, "output_parameter_type")
+
+    @_builtins.property
+    @pulumi.getter(name="parameterNames")
+    def parameter_names(self) -> Sequence[_builtins.str]:
+        """
+        The list of parameter names that will be output by this step
+        """
+        return pulumi.get(self, "parameter_names")
 
 
 @pulumi.output_type

@@ -1,0 +1,632 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2021-2026
+"""
+Client coordinator for managing client lifecycle and operations.
+
+This module provides centralized client management including creation,
+initialization, connection management, and lifecycle operations.
+
+The ClientCoordinator provides:
+- Client creation and registration
+- Client initialization and deinitialization
+- Primary client selection
+- Client lifecycle management (start/stop)
+- Client availability checking
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import Final
+
+from aiohomematic import client as hmcl, i18n
+from aiohomematic.central.events.types import HealthRecordedEvent
+from aiohomematic.client._rpc_errors import exception_to_failure_reason
+from aiohomematic.const import PRIMARY_CLIENT_CANDIDATE_INTERFACES, FailureReason, Interface, ProxyInitState
+from aiohomematic.exceptions import AioHomematicException, AuthFailure, BaseHomematicException
+from aiohomematic.interfaces import (
+    CentralInfoProtocol,
+    ClientFactoryProtocol,
+    ClientProtocol,
+    ClientProviderProtocol,
+    ConfigProviderProtocol,
+    CoordinatorProviderProtocol,
+    EventBusProviderProtocol,
+    HealthTrackerProtocol,
+    SystemInfoProviderProtocol,
+)
+from aiohomematic.property_decorators import DelegatedProperty
+from aiohomematic.support import extract_exc_args
+
+_LOGGER: Final = logging.getLogger(__name__)
+
+
+class ClientCoordinator(ClientProviderProtocol):
+    """Coordinator for client lifecycle and operations."""
+
+    __slots__ = (
+        "_central_info",
+        "_client_factory",
+        "_clients",
+        "_clients_started",
+        "_config_provider",
+        "_coordinator_provider",
+        "_event_bus_provider",
+        "_health_tracker",
+        "_last_failure_interface_id",
+        "_last_failure_reason",
+        "_primary_client",
+        "_system_info_provider",
+        "_unsubscribe_health_record",
+    )
+
+    def __init__(
+        self,
+        *,
+        client_factory: ClientFactoryProtocol,
+        central_info: CentralInfoProtocol,
+        config_provider: ConfigProviderProtocol,
+        coordinator_provider: CoordinatorProviderProtocol,
+        event_bus_provider: EventBusProviderProtocol,
+        health_tracker: HealthTrackerProtocol,
+        system_info_provider: SystemInfoProviderProtocol,
+    ) -> None:
+        """
+        Initialize the client coordinator.
+
+        Args:
+        ----
+            client_factory: Factory for creating client instances
+            central_info: Provider for central system information
+            config_provider: Provider for configuration access
+            coordinator_provider: Provider for accessing other coordinators
+            event_bus_provider: Provider for EventBus access
+            health_tracker: Health tracker for client health monitoring
+            system_info_provider: Provider for system information
+
+        """
+        self._client_factory: Final = client_factory
+        self._central_info: Final = central_info
+        self._config_provider: Final = config_provider
+        self._coordinator_provider: Final = coordinator_provider
+        self._event_bus_provider: Final = event_bus_provider
+        self._health_tracker: Final = health_tracker
+        self._system_info_provider: Final = system_info_provider
+
+        # {interface_id, client}
+        self._clients: Final[dict[str, ClientProtocol]] = {}
+        self._clients_started: bool = False
+        self._primary_client: ClientProtocol | None = None
+
+        # Track last failure for propagation to central state machine
+        self._last_failure_reason: FailureReason = FailureReason.NONE
+        self._last_failure_interface_id: str | None = None
+
+        # Subscribe to health record events from circuit breakers
+        self._unsubscribe_health_record = self._event_bus_provider.event_bus.subscribe(
+            event_type=HealthRecordedEvent,
+            event_key=None,
+            handler=self._on_health_record_event,
+        )
+
+    clients_started: Final = DelegatedProperty[bool](path="_clients_started")
+    last_failure_interface_id: Final = DelegatedProperty[str | None](path="_last_failure_interface_id")
+    last_failure_reason: Final = DelegatedProperty[FailureReason](path="_last_failure_reason")
+
+    @property
+    def all_clients_active(self) -> bool:
+        """Check if all configured clients exist and are active."""
+        count_client = len(self._clients)
+        return count_client > 0 and count_client == len(self._config_provider.config.enabled_interface_configs)
+
+    @property
+    def available(self) -> bool:
+        """Return if all clients are available."""
+        return all(client.available for client in self._clients.values())
+
+    @property
+    def clients(self) -> tuple[ClientProtocol, ...]:
+        """Return all clients."""
+        return tuple(self._clients.values())
+
+    @property
+    def has_clients(self) -> bool:
+        """Check if any clients exist."""
+        return len(self._clients) > 0
+
+    @property
+    def interface_ids(self) -> frozenset[str]:
+        """Return all associated interface IDs."""
+        return frozenset(self._clients)
+
+    @property
+    def interfaces(self) -> frozenset[Interface]:
+        """Return all associated interfaces."""
+        return frozenset(client.interface for client in self._clients.values())
+
+    @property
+    def is_alive(self) -> bool:
+        """Return if all clients have alive callbacks."""
+        return all(client.is_callback_alive() for client in self._clients.values())
+
+    @property
+    def poll_clients(self) -> tuple[ClientProtocol, ...]:
+        """Return clients that need to poll data."""
+        return tuple(client for client in self._clients.values() if not client.capabilities.push_updates)
+
+    @property
+    def primary_client(self) -> ClientProtocol | None:
+        """Return the primary client of the backend."""
+        if self._primary_client is not None:
+            return self._primary_client
+        if client := self._get_primary_client():
+            self._primary_client = client
+        return self._primary_client
+
+    def get_client(self, *, interface_id: str | None = None, interface: Interface | None = None) -> ClientProtocol:
+        """
+        Return a client by interface_id or interface.
+
+        Args:
+        ----
+            interface_id: Interface identifier (e.g., "ccu-main-BidCos-RF")
+            interface: Interface type (e.g., Interface.BIDCOS_RF)
+
+        Returns:
+        -------
+            Client instance
+
+        Raises:
+        ------
+            AioHomematicException: If neither parameter is provided or client not found
+
+        """
+        if interface_id is None and interface is None:
+            raise AioHomematicException(
+                i18n.tr(
+                    key="exception.central.get_client.no_parameter",
+                    name=self._central_info.name,
+                )
+            )
+
+        # If interface_id is provided, use it directly
+        if interface_id is not None:
+            if not self.has_client(interface_id=interface_id):
+                raise AioHomematicException(
+                    i18n.tr(
+                        key="exception.central.get_client.interface_missing",
+                        interface_id=interface_id,
+                        name=self._central_info.name,
+                    )
+                )
+            return self._clients[interface_id]
+
+        # If interface is provided, find client by interface type
+        for client in self._clients.values():
+            if client.interface == interface:
+                return client
+
+        raise AioHomematicException(
+            i18n.tr(
+                key="exception.central.get_client.interface_type_missing",
+                interface=interface,
+                name=self._central_info.name,
+            )
+        )
+
+    def has_client(self, *, interface_id: str) -> bool:
+        """
+        Check if client exists.
+
+        Args:
+        ----
+            interface_id: Interface identifier
+
+        Returns:
+        -------
+            True if client exists, False otherwise
+
+        """
+        return interface_id in self._clients
+
+    async def restart_clients(self) -> None:
+        """Restart all clients."""
+        _LOGGER.debug("RESTART_CLIENTS: Restarting clients for %s", self._central_info.name)
+        await self.stop_clients()
+        if await self.start_clients():
+            _LOGGER.info(
+                i18n.tr(
+                    key="log.central.restart_clients.restarted",
+                    name=self._central_info.name,
+                )
+            )
+
+    async def start_clients(self) -> bool:
+        """
+        Start all clients.
+
+        Returns
+        -------
+            True if all clients started successfully, False otherwise
+
+        """
+        # Clear previous failure info before attempting to start
+        self._last_failure_reason = FailureReason.NONE
+        self._last_failure_interface_id = None
+
+        if not await self._create_clients():
+            return False
+
+        # Set primary interface on health tracker after all clients are created
+        if primary_client := self.primary_client:
+            self._health_tracker.set_primary_interface(interface=primary_client.interface)
+            _LOGGER.debug(
+                "START_CLIENTS: Set primary interface to %s on health tracker",
+                primary_client.interface,
+            )
+
+        # Load caches after clients are created
+        await self._coordinator_provider.cache_coordinator.load_all()
+
+        # Initialize clients (sets them to CONNECTED state)
+        await self._init_clients()
+
+        # Create devices from cache BEFORE hub init - required for sysvar-to-channel association
+        await self._coordinator_provider.device_coordinator.check_and_create_devices_from_cache()
+
+        # Enable cache expiration now that device creation is complete.
+        # During device creation, cache expiration was disabled to prevent getValue
+        # calls when device creation takes longer than MAX_CACHE_AGE (10 seconds).
+        self._coordinator_provider.cache_coordinator.set_data_cache_initialization_complete()
+
+        # Initialize hub (requires connected clients and devices to fetch programs/sysvars)
+        await self._coordinator_provider.hub_coordinator.init_hub()
+
+        self._clients_started = True
+        return True
+
+    async def stop_clients(self) -> None:
+        """Stop all clients."""
+        _LOGGER.debug("STOP_CLIENTS: Stopping clients for %s", self._central_info.name)
+
+        # Unsubscribe from health record events
+        self._unsubscribe_health_record()
+        _LOGGER.debug("STOP_CLIENTS: Unsubscribed from health record events")
+
+        await self._de_init_clients()
+
+        # Unregister clients from health tracker before stopping
+        for client in self._clients.values():
+            self._health_tracker.unregister_client(interface_id=client.interface_id)
+            _LOGGER.debug("STOP_CLIENTS: Unregistered client %s from health tracker", client.interface_id)
+
+        for client in self._clients.values():
+            _LOGGER.debug("STOP_CLIENTS: Stopping %s", client.interface_id)
+            await client.stop()
+
+        _LOGGER.debug("STOP_CLIENTS: Clearing existing clients.")
+        self._clients.clear()
+        self._clients_started = False
+
+    def _calculate_startup_retry_delay(self, *, attempt: int) -> float:
+        """
+        Calculate exponential backoff delay for startup retry attempts.
+
+        Args:
+        ----
+            attempt: Current attempt number (1-indexed)
+
+        Returns:
+        -------
+            Delay in seconds, capped at startup_max_init_retry_delay
+
+        """
+        timeout_config = self._config_provider.config.timeout_config
+        delay = timeout_config.startup_init_retry_delay * (timeout_config.reconnect_backoff_factor ** (attempt - 1))
+        return min(delay, timeout_config.startup_max_init_retry_delay)
+
+    async def _create_client(self, *, interface_config: hmcl.InterfaceConfig) -> bool:
+        """
+        Create a single client with retry logic for startup resilience.
+
+        This method implements a 3-stage defensive validation approach:
+        1. TCP Pre-Flight Check (first attempt only): Wait for port availability
+        2. Client Creation & RPC Validation: Create client and verify backend communication
+        3. Retry with Exponential Backoff: Retry on transient errors before failing
+
+        Args:
+        ----
+            interface_config: Interface configuration
+
+        Returns:
+        -------
+            True if client was created successfully, False otherwise
+
+        """
+        timeout_config = self._config_provider.config.timeout_config
+        max_attempts = timeout_config.startup_max_init_attempts
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                # Stage 1: TCP Pre-Flight Check (first attempt only)
+                if attempt == 1:
+                    tcp_ready = await self._wait_for_tcp_ready(
+                        host=self._config_provider.config.host,
+                        port=interface_config.port,
+                        max_wait_seconds=timeout_config.reconnect_tcp_check_timeout,
+                        check_interval=timeout_config.reconnect_tcp_check_interval,
+                    )
+                    if not tcp_ready:
+                        _LOGGER.warning(
+                            i18n.tr(
+                                key="log.central.startup.tcp_not_ready",
+                                interface_id=interface_config.interface_id,
+                            )
+                        )
+                        # Don't retry if TCP never becomes available
+                        self._last_failure_reason = FailureReason.NETWORK
+                        self._last_failure_interface_id = interface_config.interface_id
+                        return False
+
+                # Stage 2: Client Creation & RPC Validation
+                if client := await self._client_factory.create_client_instance(
+                    interface_config=interface_config,
+                ):
+                    _LOGGER.debug(
+                        "CREATE_CLIENT: Adding client %s to %s (attempt %d/%d)",
+                        client.interface_id,
+                        self._central_info.name,
+                        attempt,
+                        max_attempts,
+                    )
+                    self._clients[client.interface_id] = client
+
+                    # Register client with health tracker
+                    self._health_tracker.register_client(
+                        interface_id=client.interface_id,
+                        interface=client.interface,
+                    )
+                    _LOGGER.debug(
+                        "CREATE_CLIENT: Registered client %s with health tracker",
+                        client.interface_id,
+                    )
+                    return True
+
+            except AuthFailure as auth_exc:
+                # Stage 3: Retry with Exponential Backoff
+                if attempt < max_attempts:
+                    retry_delay = self._calculate_startup_retry_delay(attempt=attempt)
+                    _LOGGER.warning(
+                        i18n.tr(
+                            key="log.central.startup.auth_retry",
+                            interface_id=interface_config.interface_id,
+                            attempt=attempt,
+                            max_attempts=max_attempts,
+                            delay=retry_delay,
+                            reason=extract_exc_args(exc=auth_exc),
+                        )
+                    )
+                    await asyncio.sleep(retry_delay)
+                    continue
+
+                # Last attempt exhausted - true auth error
+                _LOGGER.error(
+                    i18n.tr(
+                        key="log.central.startup.auth_failed",
+                        interface_id=interface_config.interface_id,
+                        max_attempts=max_attempts,
+                        reason=extract_exc_args(exc=auth_exc),
+                    )
+                )
+                self._last_failure_reason = FailureReason.AUTH
+                self._last_failure_interface_id = interface_config.interface_id
+                return False
+
+            except BaseHomematicException as bhexc:  # pragma: no cover
+                # Non-auth errors: fail immediately without retry
+                self._last_failure_reason = exception_to_failure_reason(exc=bhexc)
+                self._last_failure_interface_id = interface_config.interface_id
+                _LOGGER.error(
+                    i18n.tr(
+                        key="log.central.create_client.no_connection",
+                        interface_id=interface_config.interface_id,
+                        reason=extract_exc_args(exc=bhexc),
+                    )
+                )
+                return False
+
+        return False
+
+    async def _create_clients(self) -> bool:
+        """
+        Create all configured clients.
+
+        Returns
+        -------
+            True if all clients were created successfully, False otherwise
+
+        """
+        if len(self._clients) > 0:
+            _LOGGER.error(
+                i18n.tr(
+                    key="log.central.create_clients.already_created",
+                    name=self._central_info.name,
+                )
+            )
+            return False
+
+        if len(self._config_provider.config.enabled_interface_configs) == 0:
+            _LOGGER.error(
+                i18n.tr(
+                    key="log.central.create_clients.no_interfaces",
+                    name=self._central_info.name,
+                )
+            )
+            return False
+
+        # Create primary clients first
+        for interface_config in self._config_provider.config.enabled_interface_configs:
+            if interface_config.interface in PRIMARY_CLIENT_CANDIDATE_INTERFACES:
+                await self._create_client(interface_config=interface_config)
+
+        # Create secondary clients
+        for interface_config in self._config_provider.config.enabled_interface_configs:
+            if interface_config.interface not in PRIMARY_CLIENT_CANDIDATE_INTERFACES:
+                if (
+                    self.primary_client is not None
+                    and interface_config.interface not in self.primary_client.system_information.available_interfaces
+                ):
+                    _LOGGER.error(
+                        i18n.tr(
+                            key="log.central.create_clients.interface_not_available",
+                            interface=interface_config.interface,
+                            name=self._central_info.name,
+                        )
+                    )
+                    interface_config.disable()
+                    continue
+                await self._create_client(interface_config=interface_config)
+
+        if not self.all_clients_active:
+            _LOGGER.warning(
+                i18n.tr(
+                    key="log.central.create_clients.created_count_failed",
+                    created=len(self._clients),
+                    total=len(self._config_provider.config.enabled_interface_configs),
+                )
+            )
+            return False
+
+        if self.primary_client is None:
+            _LOGGER.warning(
+                i18n.tr(
+                    key="log.central.create_clients.no_primary_identified",
+                    name=self._central_info.name,
+                )
+            )
+            return True
+
+        _LOGGER.debug("CREATE_CLIENTS successful for %s", self._central_info.name)
+        return True
+
+    async def _de_init_clients(self) -> None:
+        """De-initialize all clients."""
+        for name, client in self._clients.items():
+            if await client.deinitialize_proxy():
+                _LOGGER.debug("DE_INIT_CLIENTS: Proxy de-initialized: %s", name)
+
+    def _get_primary_client(self) -> ClientProtocol | None:
+        """
+        Get the primary client.
+
+        Returns
+        -------
+            Primary client or None if not found
+
+        """
+        client: ClientProtocol | None = None
+        for client in self._clients.values():
+            if client.interface in PRIMARY_CLIENT_CANDIDATE_INTERFACES and client.available:
+                return client
+        return client
+
+    async def _init_clients(self) -> None:
+        """Initialize all clients."""
+        for client in self._clients.copy().values():
+            if client.interface not in self._system_info_provider.system_information.available_interfaces:
+                _LOGGER.debug(
+                    "INIT_CLIENTS failed: Interface: %s is not available for the backend %s",
+                    client.interface,
+                    self._central_info.name,
+                )
+                del self._clients[client.interface_id]
+                continue
+
+            if await client.initialize_proxy() == ProxyInitState.INIT_SUCCESS:
+                _LOGGER.debug(
+                    "INIT_CLIENTS: client %s initialized for %s", client.interface_id, self._central_info.name
+                )
+
+    def _on_health_record_event(self, *, event: HealthRecordedEvent) -> None:
+        """
+        Handle health record events from circuit breakers.
+
+        Args:
+        ----
+            event: Health record event with interface_id and success status
+
+        """
+        if event.success:
+            self._health_tracker.record_successful_request(interface_id=event.interface_id)
+        else:
+            self._health_tracker.record_failed_request(interface_id=event.interface_id)
+
+    async def _wait_for_tcp_ready(
+        self,
+        *,
+        host: str,
+        port: int,
+        max_wait_seconds: float,
+        check_interval: float,
+    ) -> bool:
+        """
+        Wait for TCP port to become available during startup.
+
+        Args:
+        ----
+            host: Host to check
+            port: Port to check
+            max_wait_seconds: Maximum time to wait (from TimeoutConfig.reconnect_tcp_check_timeout)
+            check_interval: Interval between checks (from TimeoutConfig.reconnect_tcp_check_interval)
+
+        Returns:
+        -------
+            True if port is available, False if timeout exceeded
+
+        """
+        start_time = asyncio.get_event_loop().time()
+        attempt = 0
+
+        while (asyncio.get_event_loop().time() - start_time) < max_wait_seconds:
+            attempt += 1
+            try:
+                # Attempt TCP connection
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host, port),
+                    timeout=check_interval,
+                )
+                writer.close()
+                await writer.wait_closed()
+
+            except (OSError, TimeoutError) as exc:
+                _LOGGER.debug(
+                    i18n.tr(
+                        key="log.central.startup.tcp_check_failed",
+                        host=host,
+                        port=port,
+                        attempt=attempt,
+                        reason=str(exc),
+                    )
+                )
+                await asyncio.sleep(check_interval)
+            else:
+                _LOGGER.debug(
+                    i18n.tr(
+                        key="log.central.startup.tcp_ready",
+                        host=host,
+                        port=port,
+                        attempt=attempt,
+                    )
+                )
+                return True
+
+        _LOGGER.warning(
+            i18n.tr(
+                key="log.central.startup.tcp_timeout",
+                host=host,
+                port=port,
+                timeout=max_wait_seconds,
+            )
+        )
+        return False

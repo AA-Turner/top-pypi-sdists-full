@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: async_upnp_client
-Version: 0.45.0
+Version: 0.46.2
 Summary: Async UPnP Client
 Author-email: Steven Looman <steven.looman@gmail.com>
 License-Expression: Apache-2.0
@@ -12,18 +12,17 @@ Classifier: Framework :: AsyncIO
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: aiohttp<4.0,>3.9.0
-Requires-Dist: async-timeout<6.0,>=3.0
 Requires-Dist: defusedxml>=0.6.0
-Requires-Dist: python-didl-lite~=1.4.0
+Requires-Dist: python-didl-lite~=1.5.0
 Requires-Dist: voluptuous>=0.15.2
 Dynamic: license-file
 
@@ -299,8 +298,6 @@ Or on macOS using the ``ifconfig`` command::
 
 The ``scope_id`` is ``4`` in this example, as shown by ``scopeid 0x4``. Note that this is a hexadecimal value.
 
-Be aware that Python ``<3.9`` does not support the ``IPv6Address.scope_id`` attribute. As such, a ``AddressTupleVXType`` is used to specify the ``source``- and ``target``-addresses. In case of IPv4, ``AddressTupleV4Type`` is a 2-tuple with ``address``, ``port``. ``AddressTupleV6Type`` is used for IPv6 and is a 4-tuple with ``address``, ``port``, ``flowinfo``, ``scope_id``. More information can be found in the Python ``socket`` module documentation.
+All functionality regarding SSDP uses ``AddressTupleVXType`` to specify addresses.
 
-All functionality regarding SSDP uses ``AddressTupleVXType`` the specify addresses.
-
-For consistency, the ``AiohttpNotifyServer`` also uses a tuple the specify the ``source`` (the address and port the notify server listens on.)
+For consistency, the ``AiohttpNotifyServer`` also uses ``AddressTupleVXType`` to specify the ``source`` (the address and port the notify server listens on.)

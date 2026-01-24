@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eccodes
-Version: 2.43.0
+Version: 2.45.0
 Summary: Python interface to the ecCodes GRIB and BUFR decoder/encoder
 Home-page: https://github.com/ecmwf/eccodes-python
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
@@ -148,7 +148,7 @@ You may run a simple selfcheck command to ensure that your system is set
 up correctly::
 
     $ python -m eccodes selfcheck
-    Found: ecCodes v2.39.0.
+    Found: ecCodes v2.42.0.
     Your system is ready.
 
 
@@ -163,6 +163,9 @@ the following environment variable before importing eccodes::
 
 Usage
 -----
+
+See examples of how to use the high-level BUFR interface: `BUFR_Tour.md <eccodes/highlevel/_bufr/BUFR_Tour.md>`_
+and `BUFR_Snippets.md <eccodes/highlevel/_bufr/BUFR_Snippets.md>`_.
 
 Refer to the *ecCodes* `documentation pages <https://confluence.ecmwf.int/display/ECC/Documentation>`_
 for usage.
@@ -238,6 +241,22 @@ does it submit to any jurisdiction.
 
 Changelog for eccodes-python
 ============================
+
+2.45.0 (2025-01-16)
+--------------------
+
+- GitHub issue 372: Option "--no-binary" does not work
+  See: `#372 <https://github.com/ecmwf/eccodes/issues/372>`_.
+- GitHub issue 145: test run fails
+  See: `#145 <https://github.com/ecmwf/eccodes/issues/145>`_.
+
+2.44.0 (2025-10-03)
+--------------------
+
+- ECC-2102: Improved high-level interface for BUFR
+- ECC-2108: Implement a way of switching off error output to stderr
+- GitHub pull request #129: Update MemoryReader to read more than one field
+
 
 2.43.0 (2025-07-24)
 --------------------

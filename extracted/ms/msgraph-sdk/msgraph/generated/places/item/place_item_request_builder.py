@@ -16,8 +16,15 @@ from warnings import warn
 if TYPE_CHECKING:
     from ...models.o_data_errors.o_data_error import ODataError
     from ...models.place import Place
+    from .check_ins.check_ins_request_builder import CheckInsRequestBuilder
+    from .descendants.descendants_request_builder import DescendantsRequestBuilder
+    from .graph_building.graph_building_request_builder import GraphBuildingRequestBuilder
+    from .graph_desk.graph_desk_request_builder import GraphDeskRequestBuilder
+    from .graph_floor.graph_floor_request_builder import GraphFloorRequestBuilder
     from .graph_room.graph_room_request_builder import GraphRoomRequestBuilder
     from .graph_room_list.graph_room_list_request_builder import GraphRoomListRequestBuilder
+    from .graph_section.graph_section_request_builder import GraphSectionRequestBuilder
+    from .graph_workspace.graph_workspace_request_builder import GraphWorkspaceRequestBuilder
 
 class PlaceItemRequestBuilder(BaseRequestBuilder):
     """
@@ -34,9 +41,10 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
     
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
-        Delete entity from places
+        Delete a place object. You can also use this method to delete the following child object types: building, floor, section, or desk.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: None
+        Find more info here: https://learn.microsoft.com/graph/api/place-delete?view=graph-rest-1.0
         """
         request_info = self.to_delete_request_information(
             request_configuration
@@ -52,7 +60,7 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
     
     async def patch(self,body: Place, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[Place]:
         """
-        Update the properties of place object, which can be a room or roomList. You can identify the room or roomList by specifying the id or emailAddress property.
+        Update the properties of place object that can be a building, floor, section, desk, room, workspace, or roomList. You can identify the place by specifying the id property.
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[Place]
@@ -76,7 +84,7 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
     
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        Delete entity from places
+        Delete a place object. You can also use this method to delete the following child object types: building, floor, section, or desk.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -87,7 +95,7 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
     
     def to_patch_request_information(self,body: Place, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        Update the properties of place object, which can be a room or roomList. You can identify the room or roomList by specifying the id or emailAddress property.
+        Update the properties of place object that can be a building, floor, section, desk, room, workspace, or roomList. You can identify the place by specifying the id property.
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -111,6 +119,51 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
         return PlaceItemRequestBuilder(self.request_adapter, raw_url)
     
     @property
+    def check_ins(self) -> CheckInsRequestBuilder:
+        """
+        Provides operations to manage the checkIns property of the microsoft.graph.place entity.
+        """
+        from .check_ins.check_ins_request_builder import CheckInsRequestBuilder
+
+        return CheckInsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def descendants(self) -> DescendantsRequestBuilder:
+        """
+        Provides operations to call the descendants method.
+        """
+        from .descendants.descendants_request_builder import DescendantsRequestBuilder
+
+        return DescendantsRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def graph_building(self) -> GraphBuildingRequestBuilder:
+        """
+        Casts the previous resource to building.
+        """
+        from .graph_building.graph_building_request_builder import GraphBuildingRequestBuilder
+
+        return GraphBuildingRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def graph_desk(self) -> GraphDeskRequestBuilder:
+        """
+        Casts the previous resource to desk.
+        """
+        from .graph_desk.graph_desk_request_builder import GraphDeskRequestBuilder
+
+        return GraphDeskRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def graph_floor(self) -> GraphFloorRequestBuilder:
+        """
+        Casts the previous resource to floor.
+        """
+        from .graph_floor.graph_floor_request_builder import GraphFloorRequestBuilder
+
+        return GraphFloorRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def graph_room(self) -> GraphRoomRequestBuilder:
         """
         Casts the previous resource to room.
@@ -127,6 +180,24 @@ class PlaceItemRequestBuilder(BaseRequestBuilder):
         from .graph_room_list.graph_room_list_request_builder import GraphRoomListRequestBuilder
 
         return GraphRoomListRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def graph_section(self) -> GraphSectionRequestBuilder:
+        """
+        Casts the previous resource to section.
+        """
+        from .graph_section.graph_section_request_builder import GraphSectionRequestBuilder
+
+        return GraphSectionRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def graph_workspace(self) -> GraphWorkspaceRequestBuilder:
+        """
+        Casts the previous resource to workspace.
+        """
+        from .graph_workspace.graph_workspace_request_builder import GraphWorkspaceRequestBuilder
+
+        return GraphWorkspaceRequestBuilder(self.request_adapter, self.path_parameters)
     
     @dataclass
     class PlaceItemRequestBuilderDeleteRequestConfiguration(RequestConfiguration[QueryParameters]):

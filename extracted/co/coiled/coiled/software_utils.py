@@ -55,6 +55,7 @@ subdir_datas = {}
 
 ANY_AVAILABLE = "ANY-AVAILABLE"
 AUTH_BEARER_USERNAME = "AUTH_BEARER_TOKEN"
+CONDA_TOKEN_USERNAME = "CONDA_TOKEN"
 COILED_LOCAL_PACKAGE_PREFIX = "coiled_local_"
 DEFAULT_JSON_PYPI_URL = "https://pypi.org/pypi"
 DEFAULT_PYPI_URL = "https://pypi.org/simple"
@@ -476,11 +477,10 @@ async def check_pip_happy(progress: Progress | None = None) -> Dict[str, List[st
         return faulty_packages
 
 
-def _load_toml(path: Union[Path, str]) -> Dict:
+def _find_file_in_hierarchy(path: Union[Path, str]) -> Path | None:
     path = Path(path)
     filename = path.name
     dir_path = safe_path_resolve(path.parent)
-    toml_dict = {}
     # Walk up the directory tree to find the first toml file (up to 10 levels above)
     for _ in range(10):
         path = dir_path / filename
@@ -489,13 +489,21 @@ def _load_toml(path: Union[Path, str]) -> Dict:
                 break
             dir_path = dir_path.parent
             continue
-        try:
-            with path.open() as f:
-                toml_dict = toml.load(f)
-        except (toml.TomlDecodeError, FileNotFoundError, IndexError) as e:
-            logger.debug(f"Failed to load {path}: {e}", exc_info=True)
-        break
-    return toml_dict
+        return path
+    return None
+
+
+def _load_toml(path: Union[Path, str]) -> Dict:
+    resolved_path = _find_file_in_hierarchy(path)
+    if not resolved_path:
+        logger.debug(f"Failed to find {path}")
+        return {}
+    try:
+        with resolved_path.open() as f:
+            return toml.load(f)
+    except Exception as e:
+        logger.debug(f"Failed to load {path}: {e}", exc_info=True)
+    return {}
 
 
 def _get_pip_index_urls() -> List[str]:
@@ -571,9 +579,14 @@ def get_mamba_auth_dict(home_dir: Path | None = None) -> dict[str, tuple[str, st
     if auth_file.exists():
         with auth_file.open("r") as f:
             auth_data = json.load(f)
+            if not isinstance(auth_data, dict):
+                logger.debug(f"Mamba auth file {auth_file} does not contain a dictionary at top level")
+                return domain_auth
             for domain, auth in auth_data.items():
                 auth_type = auth.get("type")
-                if auth_type == "CondaToken" or auth_type == "BearerToken":
+                if auth_type == "CondaToken":
+                    domain_auth[domain] = (CONDA_TOKEN_USERNAME, auth["token"])
+                elif auth_type == "BearerToken":
                     domain_auth[domain] = (AUTH_BEARER_USERNAME, auth["token"])
                 elif auth_type == "BasicHTTPAuthentication":
                     domain_auth[domain] = (
@@ -590,6 +603,129 @@ def get_mamba_auth(netloc: str) -> tuple[str, str] | None:
     """Returns the Requests tuple auth for a given domain from the mamba auth file."""
     # mamba uses the domain as the key
     return get_mamba_auth_dict().get(netloc, None)
+
+
+def _parse_rattler_auth_data(auth_data: dict) -> tuple[str, str] | None:
+    """Parse rattler authentication data into username/password tuple.
+
+    Handles rattler Authentication variants:
+    - {"BearerToken": "token"}
+    - {"CondaToken": "token"}
+    - {"BasicHTTP": {"username": "user", "password": "pass"}}
+
+    Returns:
+        Tuple of (username, password) or None if unknown auth type
+    """
+    if "BearerToken" in auth_data:
+        return (AUTH_BEARER_USERNAME, auth_data["BearerToken"])
+    elif "CondaToken" in auth_data:
+        return (CONDA_TOKEN_USERNAME, auth_data["CondaToken"])
+    elif "BasicHTTP" in auth_data:
+        basic_auth = auth_data["BasicHTTP"]
+        return (
+            basic_auth.get("username", ""),
+            basic_auth.get("password", ""),
+        )
+    else:
+        return None
+
+
+@functools.lru_cache
+def get_rattler_auth_dict(home_dir: Path | None = None) -> dict[str, tuple[str, str]]:
+    # RATTLER_AUTH_FILE is an env var that can override the default location
+    env_auth_file = os.environ.get("RATTLER_AUTH_FILE")
+    if env_auth_file:
+        auth_file = Path(env_auth_file)
+    else:
+        if home_dir is None:
+            home_dir = Path.home()
+        auth_file = home_dir / ".rattler" / "credentials.json"
+    domain_auth = {}
+    if auth_file.exists():
+        with auth_file.open("r") as f:
+            auth_data = json.load(f)
+            if not isinstance(auth_data, dict):
+                logger.debug(f"Rattler auth file {auth_file} does not contain a dictionary at top level")
+                return domain_auth
+            for domain, auth in auth_data.items():
+                parsed_auth = _parse_rattler_auth_data(auth)
+                if parsed_auth:
+                    domain_auth[domain] = parsed_auth
+                else:
+                    logger.debug(f"Encountered unknown rattler auth type {list(auth.keys())} for domain {domain}")
+    return domain_auth
+
+
+def get_rattler_keyring_auth(netloc: str) -> tuple[str, str] | None:
+    """Returns the Requests tuple auth for a given domain from rattler keyring storage."""
+    if not HAVE_KEYRING:
+        logger.debug("keyring not available, skipping rattler keyring auth")
+        return None
+
+    def try_keyring_auth(host: str) -> tuple[str, str] | None:
+        """Try to get auth from keyring for a specific host using rattler's storage format."""
+        try:
+            # Use the existing get_keyring_auth function with "rattler" as the URL
+            # and the host as the username to get rattler-stored credentials
+            auth_parts = get_keyring_auth("rattler", host)
+            if auth_parts:
+                username, password = auth_parts
+                if password:
+                    try:
+                        auth_data = json.loads(password)
+                        parsed_auth = _parse_rattler_auth_data(auth_data)
+                        if parsed_auth:
+                            return parsed_auth
+                    except json.JSONDecodeError:
+                        # If it's not JSON, treat it as a simple username/password
+                        return (username or host, password)
+
+        except Exception as e:
+            logger.debug(f"Error getting rattler keyring auth for {host}: {e}")
+            return None
+
+        return None
+
+    # Try exact match first
+    auth_parts = try_keyring_auth(netloc)
+    if auth_parts:
+        logger.debug(f"Found rattler keyring auth for {netloc}")
+        return auth_parts
+
+    # Try parent domain matches if exact match failed
+    # If looking for foo.example.com, try example.com (but not com)
+    parts = netloc.split(".")
+    for i in range(1, len(parts) - 1):  # Stop before single TLD
+        parent_domain = ".".join(parts[i:])
+
+        auth_parts = try_keyring_auth(parent_domain)
+        if auth_parts:
+            logger.debug(f"Found rattler keyring auth for {parent_domain} (matching {netloc})")
+            return auth_parts
+
+    logger.debug(f"No rattler keyring auth found for {netloc}")
+    return None
+
+
+def get_rattler_auth(netloc: str) -> tuple[str, str] | None:
+    """Returns the Requests tuple auth for a given domain from rattler keyring or auth file."""
+    # Try keyring first (primary storage method for rattler/pixi)
+    auth_parts = get_rattler_keyring_auth(netloc)
+    if auth_parts:
+        return auth_parts
+
+    # Fall back to file-based storage
+    # rattler allows wildcards, so we have to check for exact matches first
+    auth_parts = get_rattler_auth_dict().get(netloc, None)
+    if auth_parts:
+        return auth_parts
+
+    # then check for wildcard matches in file storage
+    for domain, auth in get_rattler_auth_dict().items():
+        if domain.startswith("*.") and netloc.endswith(domain[1:]):
+            return auth
+
+    return None
 
 
 @functools.lru_cache
@@ -706,7 +842,7 @@ print(json.dumps(auth_parts))
                 return None
 
     if auth_type == "token":
-        username = AUTH_BEARER_USERNAME
+        username = CONDA_TOKEN_USERNAME
 
     if not username and not password:
         return None
@@ -743,6 +879,7 @@ def set_auth_for_url(url: Url | str) -> str:
         use_keyring = dask.config.get("coiled.package_sync.conda.cred_sources.keyring", True)
         use_conda_auth = dask.config.get("coiled.package_sync.conda.cred_sources.conda", True)
         use_mamba_auth = dask.config.get("coiled.package_sync.conda.cred_sources.mamba", True)
+        use_rattler_auth = dask.config.get("coiled.package_sync.conda.cred_sources.rattler", True)
 
         no_auth_url = parsed_url._replace(auth=None).url
         auth_parts = (
@@ -756,10 +893,12 @@ def set_auth_for_url(url: Url | str) -> str:
             or (get_conda_auth(no_auth_url) if use_conda_auth else None)
             # mamba could have URL stored by netloc/path or netloc
             or ((get_mamba_auth(f"{netloc}{path}") or get_mamba_auth(netloc)) if use_mamba_auth else None)
+            # rattler/pixi could store netloc or *.netloc in keyring or a fallback file
+            or ((get_rattler_auth(netloc) or get_rattler_auth(f"*.{netloc}")) if use_rattler_auth else None)
         )
         if auth_parts is not None:
             username, password = auth_parts
-        if username == AUTH_BEARER_USERNAME:
+        if username == CONDA_TOKEN_USERNAME:
             # If the username indicates this is a token (which only happens for mamba auth)
             # the token should be embedded directly in the URL and not in the auth portion
 
@@ -775,8 +914,11 @@ def set_auth_for_url(url: Url | str) -> str:
         elif username or password:
             parsed_url = parsed_url._replace(auth=f"{username or ''}:{password or ''}")
 
-        if username and username != AUTH_BEARER_USERNAME and not password:
-            logger.info(f"No password found for {parsed_url.url}")
+        if username and username != CONDA_TOKEN_USERNAME and not password:
+            if username == AUTH_BEARER_USERNAME:
+                logger.warning(f"No bearer token found for {parsed_url.url}")
+            else:
+                logger.info(f"No password found for {parsed_url.url}")
         elif not username:
             logger.info(f"No username or password found for {parsed_url.url}")
 
@@ -906,3 +1048,12 @@ def make_coiled_local_name(dirname: str):
     if not cleaned_name:
         cleaned_name = "rootdir"
     return COILED_LOCAL_PACKAGE_PREFIX + cleaned_name
+
+
+def get_lockfile() -> Path | None:
+    """Search for a supported lockfile and return its path"""
+    # TODO: Add support for other lockfiles
+    lockfile = None
+    if dask.config.get("coiled.package_sync.use_lockfile.uv", True):
+        lockfile = _find_file_in_hierarchy("uv.lock")
+    return lockfile

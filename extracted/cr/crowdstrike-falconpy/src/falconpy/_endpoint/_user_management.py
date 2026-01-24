@@ -201,6 +201,27 @@ _user_management_endpoints = [
     ]
   ],
   [
+    "entitiesRolesGETV2",
+    "POST",
+    "/user-management/entities/roles/GET/v2",
+    "Get info about a role",
+    "user_management",
+    [
+      {
+        "type": "string",
+        "description": "Customer ID to get available roles for. Empty CID would result in Role IDs for current CID in view.",
+        "name": "cid",
+        "in": "query"
+      },
+      {
+        "description": "Maximum of 5000 Role IDs can be specified per request.",
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
     "entitiesRolesV1",
     "GET",
     "/user-management/entities/roles/v1",
@@ -382,7 +403,7 @@ _user_management_endpoints = [
         "type": "string",
         "description": "Filter using a query in Falcon Query Language (FQL). Supported filters: assigned_cids, "
         " cid, direct_assigned_cids, factors, first_name, has_temporary_roles, last_name, name, status, "
-        "temporarily_assigned_cids, uid",
+        "temporarily_assigned_cids, uid, uuid",
         "name": "filter",
         "in": "query"
       },

@@ -14,6 +14,7 @@
 
 import os
 import pathlib
+import sys
 import tempfile
 
 from absl.testing import absltest
@@ -32,6 +33,8 @@ class InputPipelineTest(absltest.TestCase):
 
   def setUp(self):
     super().setUp()
+    if sys.version_info >= (3, 13):
+      self.skipTest('Test (and tensorflow-text) does not suport Python 3.13+')
     self.train_ds, self.eval_ds = self._get_datasets()
 
   def _get_datasets(self):
@@ -46,7 +49,7 @@ class InputPipelineTest(absltest.TestCase):
     vocab_path = os.path.join(tempfile.mkdtemp(), 'sentencepiece_model')
 
     # Go two directories up to the root of the flax directory.
-    # "/path/to/flax/examples/lm1b_nnx/models_test.py" -> "/path/to/flax"
+    # "/path/to/flax/examples/gemma/input_pipeline_test.py" -> "/path/to/flax"
     flax_root_dir = pathlib.Path(__file__).absolute().parents[2]
     data_dir = str(flax_root_dir) + '/.tfds/metadata'  # pylint: disable=unused-variable
 

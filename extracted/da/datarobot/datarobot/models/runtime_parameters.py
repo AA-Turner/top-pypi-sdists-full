@@ -58,20 +58,18 @@ class RuntimeParameter(APIObject):
         Describes the type of credential, used only for credentials parameters.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("field_name"): String(),
-            t.Key("type"): String(),
-            t.Key("description", optional=True): String(allow_blank=True),
-            t.Key("allow_empty", optional=True): t.Bool(),
-            t.Key("min_value", optional=True): t.Float(),
-            t.Key("max_value", optional=True): t.Float(),
-            t.Key("credential_type", optional=True): String(),
-            t.Key("default_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
-            t.Key("override_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
-            t.Key("current_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("field_name"): String(),
+        t.Key("type"): String(),
+        t.Key("description", optional=True): String(allow_blank=True),
+        t.Key("allow_empty", optional=True): t.Bool(),
+        t.Key("min_value", optional=True): t.Float(),
+        t.Key("max_value", optional=True): t.Float(),
+        t.Key("credential_type", optional=True): String(),
+        t.Key("default_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
+        t.Key("override_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
+        t.Key("current_value", optional=True): t.Or(t.Bool(), t.Float(), String(), t.Null()),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -122,13 +120,11 @@ class RuntimeParameterValue(APIObject):
         runtime parameter.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("field_name"): String(),
-            t.Key("type"): String(),
-            t.Key("value"): t.Or(t.Bool(), t.Float(), String(), t.Null()),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("field_name"): String(),
+        t.Key("type"): String(),
+        t.Key("value"): t.Or(t.Bool(), t.Float(), String(), t.Null()),
+    })
 
     schema = _converter
 
@@ -151,7 +147,5 @@ class RuntimeParameterValue(APIObject):
     def to_dict(self) -> RuntimeParameterValueDict:
         return cast(
             RuntimeParameterValueDict,
-            self._converter.check(
-                {"field_name": self.field_name, "type": self.type, "value": self.value}
-            ),
+            self._converter.check({"field_name": self.field_name, "type": self.type, "value": self.value}),
         )

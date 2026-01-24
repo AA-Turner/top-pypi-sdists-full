@@ -1,6 +1,6 @@
-from maggma.api.resource.core import HeaderProcessor
+from emmet.api.resource.core import HeaderProcessor
 from fastapi import Response, Request
-from maggma.api.utils import STORE_PARAMS
+from emmet.api.utils import STORE_PARAMS
 from emmet.api.routes.materials.materials.query_operators import LicenseQuery
 
 
@@ -15,6 +15,9 @@ class GlobalHeaderProcessor(HeaderProcessor):
         # forward Consumer Id header in response
         consumer_id = request.headers.get("X-Consumer-Id", "-")
         response.headers["X-Consumer-Id"] = consumer_id
+
+        if "Content-Type" not in response.headers:
+            response.headers["Content-Type"] = "application/json"
 
     def configure_query_on_request(
         self, request: Request, query_operator: LicenseQuery

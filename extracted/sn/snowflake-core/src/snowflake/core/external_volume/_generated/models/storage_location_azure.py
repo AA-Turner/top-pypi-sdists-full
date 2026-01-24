@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.external_volume._generated.models.storage_location import StorageLocation
 
@@ -45,9 +45,10 @@ class StorageLocationAzure(StorageLocation):
 
     __properties = ["name", "storage_provider"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -72,7 +73,7 @@ class StorageLocationAzure(StorageLocation):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["storage_provider"] = StorageLocation.get_child_model_discriminator_value("StorageLocationAzure")
 
@@ -89,9 +90,9 @@ class StorageLocationAzure(StorageLocation):
             return None
 
         if type(obj) is not dict:
-            return StorageLocationAzure.parse_obj(obj)
+            return StorageLocationAzure.model_validate(obj)
 
-        _obj = StorageLocationAzure.parse_obj(
+        _obj = StorageLocationAzure.model_validate(
             {
                 "name": obj.get("name"),
                 "azure_tenant_id": obj.get("azure_tenant_id"),

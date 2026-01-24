@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag Converter Tests."""
 
-# pyright: strict, reportAny=false
-
 from __future__ import annotations
 
 import sys
@@ -46,7 +44,7 @@ def test_command(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out)
     cvrt.assert_called_once()
-    assert cvrt.call_args.args[3] == 8
+    assert cvrt.call_args.args[3] == 9
 
     with patch('rosbags.convert.commands.convert') as cvrt:
         _ = command([bag1, bag2], out, compress='none')

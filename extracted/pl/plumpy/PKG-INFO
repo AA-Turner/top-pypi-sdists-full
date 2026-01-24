@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plumpy
-Version: 0.25.0
+Version: 0.25.1
 Summary: A Python workflow library.
 Keywords: workflow,multithreaded,rabbitmq
 Author: Sebastiaan Huber, Jason Yu, Leopold Talirz, Dominik Gresch
@@ -17,21 +17,21 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE.txt
-Requires-Dist: kiwipy[rmq]~=0.8.5
+Requires-Dist: kiwipy[rmq]~=0.9.0
 Requires-Dist: nest_asyncio~=1.5,>=1.5.1
 Requires-Dist: pyyaml~=6.0
 Requires-Dist: ipython~=7.0 ; extra == "docs"
-Requires-Dist: kiwipy[docs]~=0.8.3 ; extra == "docs"
+Requires-Dist: kiwipy[docs]~=0.9.0 ; extra == "docs"
 Requires-Dist: markupsafe==2.0.1 ; extra == "docs"
 Requires-Dist: myst-nb~=1.2.0 ; extra == "docs"
 Requires-Dist: sphinx~=7.2.0 ; extra == "docs"
 Requires-Dist: sphinx-book-theme~=1.1.4 ; extra == "docs"
 Requires-Dist: importlib-metadata~=4.12.0 ; extra == "docs"
-Requires-Dist: mypy==1.13.0 ; extra == "pre-commit"
-Requires-Dist: pre-commit~=2.2 ; extra == "pre-commit"
-Requires-Dist: types-pyyaml ; extra == "pre-commit"
+Requires-Dist: mypy==1.18.2 ; extra == "pre-commit"
+Requires-Dist: pre-commit~=3.6 ; extra == "pre-commit"
+Requires-Dist: types-pyyaml~=6.0 ; extra == "pre-commit"
 Requires-Dist: ipykernel==6.12.1 ; extra == "tests"
-Requires-Dist: pytest~=7.0 ; extra == "tests"
+Requires-Dist: pytest~=8.4 ; extra == "tests"
 Requires-Dist: pytest-asyncio~=0.12,<0.17 ; extra == "tests"
 Requires-Dist: pytest-cov~=4.1 ; extra == "tests"
 Requires-Dist: pytest-notebook>=0.8.0 ; extra == "tests"

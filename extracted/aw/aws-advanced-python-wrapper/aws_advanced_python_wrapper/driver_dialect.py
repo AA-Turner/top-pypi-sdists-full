@@ -21,11 +21,14 @@ if TYPE_CHECKING:
     from aws_advanced_python_wrapper.pep249 import Connection, Cursor
 
 from abc import ABC
-from concurrent.futures import Executor, ThreadPoolExecutor, TimeoutError
+from concurrent.futures import TimeoutError
 
 from aws_advanced_python_wrapper.driver_dialect_codes import DriverDialectCodes
 from aws_advanced_python_wrapper.errors import (QueryTimeoutError,
                                                 UnsupportedOperationError)
+from aws_advanced_python_wrapper.pep249_methods import DbApiMethod
+from aws_advanced_python_wrapper.thread_pool_container import \
+    ThreadPoolContainer
 from aws_advanced_python_wrapper.utils.decorators import timeout
 from aws_advanced_python_wrapper.utils.messages import Messages
 from aws_advanced_python_wrapper.utils.properties import (Properties,
@@ -39,9 +42,9 @@ class DriverDialect(ABC):
     """
     _QUERY = "SELECT 1"
 
-    _executor: ClassVar[Executor] = ThreadPoolExecutor()
+    _executor_name: ClassVar[str] = "DriverDialectExecutor"
     _dialect_code: str = DriverDialectCodes.GENERIC
-    _network_bound_methods: Set[str] = {"*"}
+    _network_bound_methods: Set[str] = {DbApiMethod.ALL.method_name}
     _read_only: bool = False
     _autocommit: bool = False
     _driver_name: str = "Generic"
@@ -127,7 +130,7 @@ class DriverDialect(ABC):
             *args: Any,
             exec_timeout: Optional[float] = None,
             **kwargs: Any) -> Cursor:
-        if method_name not in self._network_bound_methods:
+        if DbApiMethod.ALL.method_name not in self.network_bound_methods and method_name not in self.network_bound_methods:
             return exec_func()
 
         if exec_timeout is None:
@@ -135,7 +138,7 @@ class DriverDialect(ABC):
 
         if exec_timeout > 0:
             try:
-                execute_with_timeout = timeout(DriverDialect._executor, exec_timeout)(exec_func)
+                execute_with_timeout = timeout(ThreadPoolContainer.get_thread_pool(DriverDialect._executor_name), exec_timeout)(exec_func)
                 return execute_with_timeout()
             except TimeoutError as e:
                 raise QueryTimeoutError(Messages.get_formatted("DriverDialect.ExecuteTimeout", method_name)) from e
@@ -158,7 +161,7 @@ class DriverDialect(ABC):
         try:
             with conn.cursor() as cursor:
                 query = DriverDialect._QUERY
-                self.execute("Cursor.execute", lambda: cursor.execute(query), query, exec_timeout=10)
+                self.execute(DbApiMethod.CURSOR_EXECUTE.method_name, lambda: cursor.execute(query), query, exec_timeout=10)
                 cursor.fetchone()
                 return True
         except Exception:

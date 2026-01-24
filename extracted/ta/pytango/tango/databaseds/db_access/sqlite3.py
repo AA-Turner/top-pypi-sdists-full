@@ -904,17 +904,15 @@ class SqlDatabase:
         for row in cursor.fetchall():
             idr = row[0]
 
-            stmt = "SELECT strftime('%Y-%m-%d %H:%M:%S', date),value,attribute,name,count FROM property_attribute_device_hist WHERE id =? AND device =? ORDER BY count ASC"
+            stmt = "SELECT attribute,name,strftime('%Y-%m-%d %H:%M:%S', date),value FROM property_attribute_device_hist WHERE id =? AND device =? ORDER BY count ASC"
 
             cursor.execute(stmt, (idr, dev_name))
-
             rows = cursor.fetchall()
 
-            result.append(rows[2])
-            result.append(rows[3])
-            result.append(rows[0])
-            result.append(str(rows[4]))
-            for value in rows[1]:
+            attribute, name, date = rows[0][:3]
+            count = len(rows)
+            result.extend([attribute, name, date, str(count)])
+            for *_, value in rows:
                 result.append(value)
 
         return result
@@ -1252,12 +1250,14 @@ class SqlDatabase:
     def get_server_info(self, server_name):
         cursor = self.cursor
         cursor.execute(
-            "SELECT host,mode,level FROM server WHERE name =?", (server_name,)
+            "SELECT host, mode, level FROM server WHERE name = ?", (server_name,)
         )
         result = []
         result.append(server_name)
         row = cursor.fetchone()
         if row is None:
+            # TODO would it not make more sense to throw an error if no server was found,
+            # instead of returning made up data?
             result.append(" ")
             result.append(" ")
             result.append(" ")

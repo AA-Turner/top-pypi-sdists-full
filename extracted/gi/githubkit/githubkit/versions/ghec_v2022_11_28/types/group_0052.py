@@ -11,16 +11,42 @@ from __future__ import annotations
 
 from typing_extensions import NotRequired, TypedDict
 
+from .group_0051 import RunnerLabelType, RunnerLabelTypeForResponse
 
-class InstallableOrganizationType(TypedDict):
-    """Installable Organization
 
-    A GitHub organization on which a GitHub App can be installed.
+class RunnerType(TypedDict):
+    """Self hosted runners
+
+    A self hosted runner
     """
 
     id: int
-    login: str
-    accessible_repositories_url: NotRequired[str]
+    runner_group_id: NotRequired[int]
+    name: str
+    os: str
+    status: str
+    busy: bool
+    labels: list[RunnerLabelType]
+    ephemeral: NotRequired[bool]
 
 
-__all__ = ("InstallableOrganizationType",)
+class RunnerTypeForResponse(TypedDict):
+    """Self hosted runners
+
+    A self hosted runner
+    """
+
+    id: int
+    runner_group_id: NotRequired[int]
+    name: str
+    os: str
+    status: str
+    busy: bool
+    labels: list[RunnerLabelTypeForResponse]
+    ephemeral: NotRequired[bool]
+
+
+__all__ = (
+    "RunnerType",
+    "RunnerTypeForResponse",
+)

@@ -250,15 +250,15 @@ impl From<EvaluationError> for BanditEvaluationCode {
 mod pyo3_impl {
     use pyo3::prelude::*;
 
-    use crate::pyo3::TryToPyObject;
-
     use super::EvaluationDetails;
 
-    impl TryToPyObject for EvaluationDetails {
-        fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
-            serde_pyobject::to_pyobject(py, self)
-                .map(|it| it.unbind())
-                .map_err(|err| err.0)
+    impl<'py> IntoPyObject<'py> for &EvaluationDetails {
+        type Target = PyAny;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            serde_pyobject::to_pyobject(py, self).map_err(|err| err.0)
         }
     }
 }
@@ -270,8 +270,8 @@ mod magnus_impl {
     use super::{EvaluationDetails, EvaluationResultWithDetails};
 
     impl IntoValue for &EvaluationDetails {
-        fn into_value_with(self, _handle: &magnus::Ruby) -> magnus::Value {
-            serde_magnus::serialize(self)
+        fn into_value_with(self, handle: &magnus::Ruby) -> magnus::Value {
+            serde_magnus::serialize(handle, self)
                 .expect("EvaluationDetails should always be serializable to Ruby")
         }
     }
@@ -282,7 +282,7 @@ mod magnus_impl {
             let _ = hash.aset(handle.sym_new("variation"), self.variation);
             let _ = hash.aset(handle.sym_new("action"), self.action);
             let _ = hash.aset(
-                handle.sym_new("evaluation_details"),
+                handle.sym_new("evaluationDetails"),
                 self.evaluation_details.as_ref(),
             );
             hash.as_value()

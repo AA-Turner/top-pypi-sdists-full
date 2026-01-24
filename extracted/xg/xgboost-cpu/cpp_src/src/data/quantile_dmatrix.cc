@@ -1,5 +1,5 @@
 /**
- * Copyright 2024, XGBoost Contributors
+ * Copyright 2024-2025, XGBoost Contributors
  */
 #include "quantile_dmatrix.h"
 
@@ -7,7 +7,10 @@
 
 #include "../collective/allreduce.h"         // for Allreduce
 #include "../collective/communicator-inl.h"  // for IsDistributed
+#include "../common/error_msg.h"             // for InconsistentCategories
 #include "../common/threading_utils.h"       // for ParallelFor
+#include "proxy_dmatrix.h"                   // for DispatchAny
+#include "cat_container.h"                   // for CatContainer
 #include "gradient_index.h"                  // for GHistIndexMatrix
 #include "xgboost/collective/result.h"       // for SafeColl
 #include "xgboost/linalg.h"                  // for Tensor
@@ -57,9 +60,7 @@ void GetCutsFromRef(Context const* ctx, std::shared_ptr<DMatrix> ref, bst_featur
 }
 
 #if !defined(XGBOOST_USE_CUDA)
-void GetCutsFromEllpack(EllpackPage const&, common::HistogramCuts*) {
-  common::AssertGPUSupport();
-}
+void GetCutsFromEllpack(EllpackPage const&, common::HistogramCuts*) { common::AssertGPUSupport(); }
 #endif
 
 namespace cpu_impl {
@@ -84,13 +85,13 @@ void SyncFeatureType(Context const* ctx, std::vector<FeatureType>* p_h_ft) {
 }
 
 void GetDataShape(Context const* ctx, DMatrixProxy* proxy,
-                  DataIterProxy<DataIterResetCallback, XGDMatrixCallbackNext> iter, float missing,
+                  DataIterProxy<DataIterResetCallback, XGDMatrixCallbackNext>* iter, float missing,
                   ExternalDataInfo* p_info) {
   auto& info = *p_info;
 
   auto const is_valid = data::IsValidFunctor{missing};
   auto nnz_cnt = [&]() {
-    return HostAdapterDispatch(proxy, [&](auto const& value) {
+    return DispatchAny(proxy, [&](auto const& value) {
       bst_idx_t n_threads = ctx->Threads();
       bst_idx_t n_features = info.column_sizes.size();
       linalg::Tensor<bst_idx_t, 2> column_sizes_tloc({n_threads, n_features}, DeviceOrd::CPU());
@@ -126,8 +127,12 @@ void GetDataShape(Context const* ctx, DMatrixProxy* proxy,
       collective::SafeColl(collective::Allreduce(ctx, &info.n_features, collective::Op::kMax));
       info.column_sizes.clear();
       info.column_sizes.resize(info.n_features, 0);
+      p_info->cats =
+          std::make_shared<CatContainer>(cpu_impl::BatchCats(proxy), BatchCatsIsRef(proxy));
     } else {
       CHECK_EQ(info.n_features, BatchColumns(proxy)) << "Inconsistent number of columns.";
+      auto cats = cpu_impl::BatchCats(proxy);
+      CHECK_EQ(cats.n_total_cats, p_info->cats->NumCatsTotal()) << error::InconsistentCategories();
     }
     bst_idx_t batch_size = BatchSamples(proxy);
     info.batch_nnz.push_back(nnz_cnt());
@@ -135,8 +140,8 @@ void GetDataShape(Context const* ctx, DMatrixProxy* proxy,
     info.nnz += info.batch_nnz.back();
     info.accumulated_rows += batch_size;
     info.n_batches++;
-  } while (iter.Next());
-  iter.Reset();
+  } while (iter->Next());
+  iter->Reset();
 
   std::partial_sum(info.base_rowids.cbegin(), info.base_rowids.cend(), info.base_rowids.begin());
 }
@@ -161,7 +166,7 @@ void MakeSketches(Context const* ctx,
         p_sketch = std::make_unique<common::HostSketchContainer>(
             ctx, p.max_bin, h_ft, ext_info.column_sizes, !proxy->Info().group_ptr_.empty());
       }
-      HostAdapterDispatch(proxy, [&](auto const& batch) {
+      DispatchAny(proxy, [&](auto const& batch) {
         proxy->Info().num_nonzero_ = ext_info.batch_nnz[i];
         // We don't need base row idx here as Info is from proxy and the number of rows in
         // it is consistent with data batch.

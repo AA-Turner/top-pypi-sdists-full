@@ -1,23 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fluids
-Version: 1.1.0
+Version: 1.3.0
 Summary: Fluid dynamics component of Chemical Engineering Design Library (ChEDL)
-Home-page: https://github.com/CalebBell/fluids
-Download-URL: https://github.com/CalebBell/fluids/tarball/1.1.0
-Author: Caleb Bell
-Author-email: Caleb.Andrew.Bell@gmail.com
-License: MIT
-Keywords: fluid dynamics atmosphere pipe fluids compressible fluid dynamics chemical engineering mechanical engineering valve open channel tank friction pressure drop two phase pump drag reynolds sedimentation engineering pipeline process simulation particle size distribution
-Platform: Windows
-Platform: Linux
-Platform: Mac OS
-Platform: Unix
+Author-email: Caleb Bell <Caleb.Andrew.Bell@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/CalebBell/fluids
+Project-URL: Download, https://github.com/CalebBell/fluids/tarball/1.3.0
+Keywords: fluid dynamics,atmosphere,pipe,fluids,compressible,chemical engineering,mechanical engineering,valve,open channel,tank,friction,pressure drop,two phase,pump,drag,reynolds,sedimentation,engineering,pipeline,process simulation,particle size distribution
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Manufacturing
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
@@ -27,30 +21,82 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: MicroPython
-Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Topic :: Education
 Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
 Classifier: Topic :: Scientific/Engineering :: Chemistry
 Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS
 Requires-Dist: numpy>=1.5.0
 Requires-Dist: scipy>=1.6.0
-Provides-Extra: coverage-documentation
-Requires-Dist: wsgiref>=0.1.2; extra == "coverage-documentation"
-Requires-Dist: coverage>=4.0.3; extra == "coverage-documentation"
-Requires-Dist: pint; extra == "coverage-documentation"
+Provides-Extra: test
+Requires-Dist: pytest>=6.0; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: sympy; extra == "test"
+Requires-Dist: thefuzz; extra == "test"
+Requires-Dist: pint; extra == "test"
+Requires-Dist: pytz; extra == "test"
+Requires-Dist: pandas; extra == "test"
+Requires-Dist: IPython; extra == "test"
+Requires-Dist: matplotlib; extra == "test"
+Requires-Dist: coveralls; extra == "test"
+Provides-Extra: test-multiarch
+Requires-Dist: pytest>=6.0; extra == "test-multiarch"
+Requires-Dist: thefuzz; extra == "test-multiarch"
+Requires-Dist: pint; extra == "test-multiarch"
+Requires-Dist: pytz; extra == "test-multiarch"
+Requires-Dist: wheel; extra == "test-multiarch"
+Provides-Extra: numba
+Requires-Dist: numba; extra == "numba"
+Requires-Dist: coverage>=7.6.1; extra == "numba"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: ipython; extra == "docs"
+Requires-Dist: numba; extra == "docs"
+Requires-Dist: sphinxcontrib-katex; extra == "docs"
+Requires-Dist: sphinx-sitemap; extra == "docs"
+Requires-Dist: sphinxcontrib-applehelp; extra == "docs"
+Requires-Dist: sphinxcontrib-devhelp; extra == "docs"
+Requires-Dist: sphinxcontrib-htmlhelp; extra == "docs"
+Requires-Dist: sphinxcontrib-qthelp; extra == "docs"
+Requires-Dist: sphinxcontrib-serializinghtml; extra == "docs"
+Requires-Dist: sphinxcontrib.googleanalytics; extra == "docs"
+Requires-Dist: matplotlib; extra == "docs"
+Requires-Dist: pint; extra == "docs"
+Provides-Extra: lint
+Requires-Dist: ruff; extra == "lint"
+Requires-Dist: mypy; extra == "lint"
+Provides-Extra: prerelease
+Requires-Dist: fluids[test]; extra == "prerelease"
+Requires-Dist: fluids[docs]; extra == "prerelease"
+Requires-Dist: nbval; extra == "prerelease"
+Requires-Dist: jacobi; extra == "prerelease"
+Requires-Dist: numdifftools; extra == "prerelease"
+Requires-Dist: mpmath; extra == "prerelease"
+Provides-Extra: security
+Requires-Dist: pip-audit; extra == "security"
+Requires-Dist: bandit; extra == "security"
+Provides-Extra: dev
+Requires-Dist: fluids[docs,lint,numba,security,test]; extra == "dev"
+Requires-Dist: prek; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
 
 ======
 fluids
@@ -74,9 +120,6 @@ fluids
 .. image:: https://img.shields.io/pypi/pyversions/fluids.svg?
    :target: https://pypi.python.org/pypi/fluids
    :alt: Supported_versions
-.. image:: http://img.shields.io/appveyor/ci/calebbell/fluids.svg?
-   :target: https://ci.appveyor.com/project/calebbell/fluids/branch/master
-   :alt: Build_status
 .. image:: https://zenodo.org/badge/48924523.svg?
    :alt: Zendo
    :target: https://zenodo.org/badge/latestdoi/48924523
@@ -100,9 +143,8 @@ of engineering knowledge and utilities that relate to fluid dynamics.
 Fluids was originally tightly integrated with SciPy and NumPy; today they
 are optional components used for only a small amount of functionality
 which do not have pure-Python numerical methods implemented.
-Fluids targets Python 3.6 and up as well as PyPy3. Additionally,
-fluids has been tested by the author to load in IronPython,
-and micropython.
+Fluids targets Python 3.9 and up as well as PyPy3. Additionally,
+fluids has been tested by the author to load in micropython.
 
 While the routines in Fluids are normally quite fast and as efficiently
 coded as possible, depending on the application there can still be a need
@@ -181,5 +223,5 @@ Citation
 
 To cite fluids in publications use::
 
-    Caleb Bell and Contributors (2016-2024). fluids: Fluid dynamics component of Chemical Engineering Design Library (ChEDL)
+    Caleb Bell and Contributors (2016-2025). fluids: Fluid dynamics component of Chemical Engineering Design Library (ChEDL)
     https://github.com/CalebBell/fluids.

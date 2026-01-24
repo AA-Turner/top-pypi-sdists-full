@@ -31,6 +31,7 @@ from hatchet_sdk.clients.rest.models.cancel_event_request import CancelEventRequ
 from hatchet_sdk.clients.rest.models.concurrency_limit_strategy import (
     ConcurrencyLimitStrategy,
 )
+from hatchet_sdk.clients.rest.models.concurrency_stat import ConcurrencyStat
 from hatchet_sdk.clients.rest.models.create_api_token_request import (
     CreateAPITokenRequest,
 )
@@ -112,6 +113,7 @@ from hatchet_sdk.clients.rest.models.rate_limit_order_by_field import (
     RateLimitOrderByField,
 )
 from hatchet_sdk.clients.rest.models.recent_step_runs import RecentStepRuns
+from hatchet_sdk.clients.rest.models.registered_workflow import RegisteredWorkflow
 from hatchet_sdk.clients.rest.models.reject_invite_request import RejectInviteRequest
 from hatchet_sdk.clients.rest.models.replay_event_request import ReplayEventRequest
 from hatchet_sdk.clients.rest.models.replay_workflow_runs_request import (
@@ -126,6 +128,27 @@ from hatchet_sdk.clients.rest.models.schedule_workflow_run_request import (
 )
 from hatchet_sdk.clients.rest.models.scheduled_run_status import ScheduledRunStatus
 from hatchet_sdk.clients.rest.models.scheduled_workflows import ScheduledWorkflows
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_delete_filter import (
+    ScheduledWorkflowsBulkDeleteFilter,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_delete_request import (
+    ScheduledWorkflowsBulkDeleteRequest,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_delete_response import (
+    ScheduledWorkflowsBulkDeleteResponse,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_error import (
+    ScheduledWorkflowsBulkError,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_update_item import (
+    ScheduledWorkflowsBulkUpdateItem,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_update_request import (
+    ScheduledWorkflowsBulkUpdateRequest,
+)
+from hatchet_sdk.clients.rest.models.scheduled_workflows_bulk_update_response import (
+    ScheduledWorkflowsBulkUpdateResponse,
+)
 from hatchet_sdk.clients.rest.models.scheduled_workflows_list import (
     ScheduledWorkflowsList,
 )
@@ -148,6 +171,8 @@ from hatchet_sdk.clients.rest.models.step_run_event_list import StepRunEventList
 from hatchet_sdk.clients.rest.models.step_run_event_reason import StepRunEventReason
 from hatchet_sdk.clients.rest.models.step_run_event_severity import StepRunEventSeverity
 from hatchet_sdk.clients.rest.models.step_run_status import StepRunStatus
+from hatchet_sdk.clients.rest.models.task_stat import TaskStat
+from hatchet_sdk.clients.rest.models.task_status_stat import TaskStatusStat
 from hatchet_sdk.clients.rest.models.tenant import Tenant
 from hatchet_sdk.clients.rest.models.tenant_alert_email_group import (
     TenantAlertEmailGroup,
@@ -158,6 +183,7 @@ from hatchet_sdk.clients.rest.models.tenant_alert_email_group_list import (
 from hatchet_sdk.clients.rest.models.tenant_alerting_settings import (
     TenantAlertingSettings,
 )
+from hatchet_sdk.clients.rest.models.tenant_environment import TenantEnvironment
 from hatchet_sdk.clients.rest.models.tenant_invite import TenantInvite
 from hatchet_sdk.clients.rest.models.tenant_invite_list import TenantInviteList
 from hatchet_sdk.clients.rest.models.tenant_list import TenantList
@@ -171,16 +197,24 @@ from hatchet_sdk.clients.rest.models.tenant_resource_policy import TenantResourc
 from hatchet_sdk.clients.rest.models.tenant_step_run_queue_metrics import (
     TenantStepRunQueueMetrics,
 )
-from hatchet_sdk.clients.rest.models.tenant_ui_version import TenantUIVersion
 from hatchet_sdk.clients.rest.models.tenant_version import TenantVersion
 from hatchet_sdk.clients.rest.models.trigger_workflow_run_request import (
     TriggerWorkflowRunRequest,
+)
+from hatchet_sdk.clients.rest.models.update_cron_workflow_trigger_request import (
+    UpdateCronWorkflowTriggerRequest,
+)
+from hatchet_sdk.clients.rest.models.update_scheduled_workflow_run_request import (
+    UpdateScheduledWorkflowRunRequest,
 )
 from hatchet_sdk.clients.rest.models.update_tenant_alert_email_group_request import (
     UpdateTenantAlertEmailGroupRequest,
 )
 from hatchet_sdk.clients.rest.models.update_tenant_invite_request import (
     UpdateTenantInviteRequest,
+)
+from hatchet_sdk.clients.rest.models.update_tenant_member_request import (
+    UpdateTenantMemberRequest,
 )
 from hatchet_sdk.clients.rest.models.update_tenant_request import UpdateTenantRequest
 from hatchet_sdk.clients.rest.models.update_worker_request import UpdateWorkerRequest
@@ -252,6 +286,9 @@ from hatchet_sdk.clients.rest.models.v1_trigger_workflow_run_request import (
 from hatchet_sdk.clients.rest.models.v1_update_filter_request import (
     V1UpdateFilterRequest,
 )
+from hatchet_sdk.clients.rest.models.v1_update_webhook_request import (
+    V1UpdateWebhookRequest,
+)
 from hatchet_sdk.clients.rest.models.v1_webhook import V1Webhook
 from hatchet_sdk.clients.rest.models.v1_webhook_api_key_auth import V1WebhookAPIKeyAuth
 from hatchet_sdk.clients.rest.models.v1_webhook_auth_type import V1WebhookAuthType
@@ -264,9 +301,6 @@ from hatchet_sdk.clients.rest.models.v1_webhook_hmac_encoding import (
     V1WebhookHMACEncoding,
 )
 from hatchet_sdk.clients.rest.models.v1_webhook_list import V1WebhookList
-from hatchet_sdk.clients.rest.models.v1_webhook_receive200_response import (
-    V1WebhookReceive200Response,
-)
 from hatchet_sdk.clients.rest.models.v1_webhook_source_name import V1WebhookSourceName
 from hatchet_sdk.clients.rest.models.v1_workflow_run import V1WorkflowRun
 from hatchet_sdk.clients.rest.models.v1_workflow_run_details import V1WorkflowRunDetails

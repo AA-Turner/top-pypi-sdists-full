@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 from functools import partial
 import itertools
+import json
 import logging
 import socket
 from typing import Any
@@ -51,9 +52,13 @@ from aioesphomeapi.api_pb2 import (
     DisconnectResponse,
     ExecuteServiceArgument,
     ExecuteServiceRequest,
+    ExecuteServiceResponse as ExecuteServiceResponsePb,
     FanCommandRequest,
     HomeassistantActionRequest,
+    HomeassistantActionResponse,
     HomeAssistantStateResponse,
+    InfraredRFReceiveEvent as InfraredRFReceiveEventPb,
+    InfraredRFTransmitRawTimingsRequest as InfraredRFTransmitRawTimingsRequestPb,
     LightCommandRequest,
     ListEntitiesBinarySensorResponse,
     ListEntitiesDoneResponse,
@@ -85,11 +90,14 @@ from aioesphomeapi.api_pb2 import (
     VoiceAssistantConfigurationResponse,
     VoiceAssistantEventData,
     VoiceAssistantEventResponse,
+    VoiceAssistantExternalWakeWord,
     VoiceAssistantRequest,
     VoiceAssistantResponse,
     VoiceAssistantSetConfiguration,
     VoiceAssistantTimerEventResponse,
     VoiceAssistantWakeWord,
+    WaterHeaterCommandRequest,
+    ZWaveProxyRequest as ZWaveProxyRequestPb,
 )
 from aioesphomeapi.client import APIClient, BluetoothConnectionDroppedError
 from aioesphomeapi.connection import APIConnection
@@ -119,7 +127,9 @@ from aioesphomeapi.model import (
     ESPHomeBluetoothGATTServices,
     FanDirection,
     FanSpeed,
+    HomeassistantActionResponse as HomeassistantActionResponseModel,
     HomeassistantServiceCall,
+    InfraredRFReceiveEvent,
     LegacyCoverCommand,
     LightColorCapability,
     LockCommand,
@@ -133,7 +143,12 @@ from aioesphomeapi.model import (
     VoiceAssistantAudioSettings as VoiceAssistantAudioSettingsModel,
     VoiceAssistantConfigurationResponse as VoiceAssistantConfigurationResponseModel,
     VoiceAssistantEventType as VoiceAssistantEventModelType,
+    VoiceAssistantExternalWakeWord as VoiceAssistantExternalWakeWordModel,
     VoiceAssistantTimerEventType as VoiceAssistantTimerEventModelType,
+    WaterHeaterCommandField,
+    WaterHeaterMode,
+    WaterHeaterStateFlag,
+    ZWaveProxyRequest,
 )
 from aioesphomeapi.reconnect_logic import ReconnectLogic, ReconnectLogicState
 
@@ -160,6 +175,15 @@ def patch_response_complex(client: APIClient, messages):
         return resp
 
     client._connection.send_messages_await_response_complex = patched
+
+
+def patch_response_simple(client: APIClient, response):
+    """Patch send_message_await_response to return a single response."""
+
+    async def patched(req, response_type):
+        return response
+
+    client._connection.send_message_await_response = patched
 
 
 def patch_response_callback(client: APIClient):
@@ -333,11 +357,22 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
     ("input", "output"),
     [
         (
-            [ListEntitiesBinarySensorResponse(), ListEntitiesDoneResponse()],
-            ([BinarySensorInfo()], []),
+            # When not cached, delegates to device_info_and_list_entities
+            # which expects DeviceInfoResponse + entity responses + ListEntitiesDoneResponse
+            [
+                DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
+                ListEntitiesBinarySensorResponse(),
+                ListEntitiesDoneResponse(),
+            ],
+            # Empty-name entity gets object_id from device name
+            ([BinarySensorInfo(object_id="test-device")], []),
         ),
         (
-            [ListEntitiesServicesResponse(), ListEntitiesDoneResponse()],
+            [
+                DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
+                ListEntitiesServicesResponse(),
+                ListEntitiesDoneResponse(),
+            ],
             ([], [UserService()]),
         ),
     ],
@@ -345,9 +380,102 @@ async def test_connect_while_already_connected(auth_client: APIClient) -> None:
 async def test_list_entities(
     auth_client: APIClient, input: dict[str, Any], output: dict[str, Any]
 ) -> None:
+    # list_entities_services delegates to device_info_and_list_entities when not cached
+    patch_api_version(auth_client, APIVersion(1, 14))
     patch_response_complex(auth_client, input)
     resp = await auth_client.list_entities_services()
     assert resp == output
+
+
+async def test_list_entities_auto_fetches_device_info(auth_client: APIClient) -> None:
+    """Test list_entities_services delegates to device_info_and_list_entities when not cached."""
+    # Verify _cached_device_info is initially None
+    assert auth_client._cached_device_info is None
+    patch_api_version(auth_client, APIVersion(1, 14))
+
+    # Patch combined response (device_info_and_list_entities sends both in one packet)
+    patch_response_complex(
+        auth_client,
+        [
+            DeviceInfoResponse(name="auto-device", mac_address="AA:BB:CC:DD:EE:FF"),
+            ListEntitiesBinarySensorResponse(name="My Sensor"),
+            ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesDoneResponse(),
+        ],
+    )
+
+    # Call list_entities_services WITHOUT calling device_info first
+    entities, _services = await auth_client.list_entities_services()
+
+    # Verify device_info was fetched and cached
+    assert auth_client._cached_device_info is not None
+    assert auth_client._cached_device_info.name == "auto-device"
+
+    # Verify object_id was filled in correctly
+    assert len(entities) == 2
+    # Named entity gets object_id from its name
+    assert entities[0].object_id == "my_sensor"
+    # Empty-name entity gets object_id from device name
+    assert entities[1].object_id == "auto-device"
+
+
+async def test_list_entities_with_cached_device_info(auth_client: APIClient) -> None:
+    """Test list_entities_services uses cached device_info without re-fetching."""
+    patch_api_version(auth_client, APIVersion(1, 14))
+    # First call device_info() to populate the cache
+    patch_response_simple(
+        auth_client,
+        DeviceInfoResponse(name="my-device", mac_address="AA:BB:CC:DD:EE:FF"),
+    )
+    device_info = await auth_client.device_info()
+    assert device_info.name == "my-device"
+
+    # Clear the simple response patch - list_entities_services should NOT call device_info again
+    auth_client._connection.send_message_await_response = None
+
+    # Now call list_entities_services - it should use cached device_info
+    # to fill in missing object_id values
+    patch_response_complex(
+        auth_client,
+        [
+            ListEntitiesBinarySensorResponse(name="My Sensor"),
+            ListEntitiesSensorResponse(name=""),  # Empty name, should use device name
+            ListEntitiesServicesResponse(),  # Also test services in cached path
+            ListEntitiesDoneResponse(),
+        ],
+    )
+    entities, services = await auth_client.list_entities_services()
+
+    assert len(entities) == 2
+    # Named entity gets object_id from its name
+    assert entities[0].object_id == "my_sensor"
+    # Empty-name entity gets object_id from device name
+    assert entities[1].object_id == "my-device"
+    # Verify services were parsed
+    assert len(services) == 1
+
+
+async def test_list_entities_no_object_id_fill_before_1_14(
+    auth_client: APIClient,
+) -> None:
+    """Test object_id is NOT filled for API version < 1.14."""
+    patch_api_version(auth_client, APIVersion(1, 13))
+
+    # Patch combined response
+    patch_response_complex(
+        auth_client,
+        [
+            DeviceInfoResponse(name="test-device", mac_address="AA:BB:CC:DD:EE:FF"),
+            ListEntitiesBinarySensorResponse(name=""),  # Empty name, no object_id
+            ListEntitiesDoneResponse(),
+        ],
+    )
+
+    entities, _services = await auth_client.list_entities_services()
+
+    # object_id should NOT be filled for API version < 1.14
+    assert len(entities) == 1
+    assert entities[0].object_id == ""  # Remains empty
 
 
 @pytest.mark.parametrize(
@@ -361,7 +489,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test", mac_address="AA:BB:CC:DD:EE:FF"),
-                [BinarySensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [BinarySensorInfo(object_id="test")],
                 [],
             ),
         ),
@@ -374,7 +503,8 @@ async def test_list_entities(
             ],
             (
                 DeviceInfo(name="test2", mac_address="11:22:33:44:55:66"),
-                [SensorInfo()],
+                # Empty-name entity gets object_id from device name
+                [SensorInfo(object_id="test2")],
                 [UserService()],
             ),
         ),
@@ -383,6 +513,7 @@ async def test_list_entities(
 async def test_device_info_and_list_entities(
     auth_client: APIClient, input: list[Any], output: tuple[Any, Any, Any]
 ) -> None:
+    patch_api_version(auth_client, APIVersion(1, 14))
     patch_response_complex(auth_client, input)
     resp = await auth_client.device_info_and_list_entities()
     assert resp == output
@@ -601,6 +732,108 @@ async def test_switch_command(
 
     auth_client.switch_command(**cmd)
     send.assert_called_once_with(SwitchCommandRequest(**req))
+
+
+@pytest.mark.parametrize(
+    ("cmd", "req"),
+    [
+        (
+            {"key": 1, "mode": WaterHeaterMode.ECO},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.MODE,
+                "mode": WaterHeaterMode.ECO,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature": 55.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE,
+                "target_temperature": 55.0,
+            },
+        ),
+        (
+            {"key": 1, "away": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY,
+            },
+        ),
+        (
+            {"key": 1, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": True, "on": True},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag.AWAY | WaterHeaterStateFlag.ON,
+            },
+        ),
+        (
+            {"key": 1, "away": False, "on": False},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.STATE,
+                "state": WaterHeaterStateFlag(0),
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_low": 40.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW,
+                "target_temperature_low": 40.0,
+            },
+        ),
+        (
+            {"key": 1, "target_temperature_high": 60.0},
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
+                "target_temperature_high": 60.0,
+            },
+        ),
+        (
+            {
+                "key": 1,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
+            {
+                "key": 1,
+                "device_id": 0,
+                "has_fields": WaterHeaterCommandField.TARGET_TEMPERATURE_LOW
+                | WaterHeaterCommandField.TARGET_TEMPERATURE_HIGH,
+                "target_temperature_low": 40.0,
+                "target_temperature_high": 60.0,
+            },
+        ),
+    ],
+)
+async def test_water_heater_command(
+    auth_client: APIClient, cmd: dict[str, Any], req: dict[str, Any]
+) -> None:
+    send = patch_send(auth_client)
+
+    auth_client.water_heater_command(**cmd)
+
+    send.assert_called_once_with(WaterHeaterCommandRequest(**req))
 
 
 @pytest.mark.parametrize(
@@ -954,9 +1187,9 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     with pytest.raises(KeyError):
-        auth_client.execute_service(service, data={})
+        await auth_client.execute_service(service, data={})
 
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -997,7 +1230,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     )
 
     # Test legacy_int
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg1": False,
@@ -1016,7 +1249,7 @@ async def test_execute_service(auth_client: APIClient) -> None:
     send.reset_mock()
 
     # Test arg order
-    auth_client.execute_service(
+    await auth_client.execute_service(
         service,
         data={
             "arg2": 42,
@@ -1032,6 +1265,91 @@ async def test_execute_service(auth_client: APIClient) -> None:
             ],
         )
     )
+    send.reset_mock()
+
+
+async def test_execute_service_with_call_id(auth_client: APIClient) -> None:
+    """Test that call_id is auto-generated when return_response is set."""
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Test without return_response - call_id should be 0
+    await auth_client.execute_service(
+        service,
+        data={"arg1": True},
+    )
+    req = send.call_args[0][0]
+    assert req.call_id == 0
+    send.reset_mock()
+
+    # Test with return_response=True - call_id should be auto-generated (non-zero)
+    # Use short timeout since no response will come, we just want to verify the request
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service,
+            data={"arg1": False},
+            return_response=True,
+            timeout=0.01,
+        )
+    req = send.call_args[0][0]
+    assert req.call_id != 0  # Auto-generated
+    first_call_id = req.call_id
+    send.reset_mock()
+
+    # Test that call_id increments
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service,
+            data={"arg1": True},
+            return_response=True,
+            timeout=0.01,
+        )
+    req = send.call_args[0][0]
+    assert req.call_id == first_call_id + 1
+
+
+async def test_execute_service_return_response_combinations(
+    auth_client: APIClient,
+) -> None:
+    """Test return_response behavior and call_id generation."""
+    send = patch_send(auth_client)
+    patch_api_version(auth_client, APIVersion(1, 3))
+
+    service = UserService(
+        name="test_service",
+        key=1,
+        args=[],
+    )
+
+    # Case 1: return_response=None (default) -> call_id=0, no waiting
+    await auth_client.execute_service(service, data={})
+    assert send.call_args[0][0].call_id == 0
+    send.reset_mock()
+
+    # Case 2: return_response=True -> generates call_id, waits for response
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service, data={}, return_response=True, timeout=0.01
+        )
+    assert send.call_args[0][0].return_response is True
+    assert send.call_args[0][0].call_id != 0
+    send.reset_mock()
+
+    # Case 3: return_response=False -> generates call_id, waits for response
+    with pytest.raises(asyncio.TimeoutError):
+        await auth_client.execute_service(
+            service, data={}, return_response=False, timeout=0.01
+        )
+    assert send.call_args[0][0].return_response is False
+    assert send.call_args[0][0].call_id != 0
     send.reset_mock()
 
 
@@ -2120,6 +2438,189 @@ async def test_send_home_assistant_state(auth_client: APIClient) -> None:
     )
 
 
+async def test_subscribe_zwave_proxy_request(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_zwave_proxy_request."""
+    client, _connection, _transport, protocol = api_client
+    test_msg = []
+
+    def on_zwave_proxy_request(msg: ZWaveProxyRequest) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_zwave_proxy_request(on_zwave_proxy_request)
+    await asyncio.sleep(0)
+    response: message.Message = ZWaveProxyRequestPb(type=2, data=b"\x00\x01\x02\x03")
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.type == 2
+    assert first_msg.data == b"\x00\x01\x02\x03"
+
+
+async def test_subscribe_infrared_rf_receive(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test subscribe_infrared_rf_receive."""
+    client, _connection, _transport, protocol = api_client
+    test_msg = []
+
+    def on_infrared_rf_receive(msg: InfraredRFReceiveEvent) -> None:
+        test_msg.append(msg)
+
+    client.subscribe_infrared_rf_receive(on_infrared_rf_receive)
+    await asyncio.sleep(0)
+    response: message.Message = InfraredRFReceiveEventPb(
+        key=123, device_id=5, timings=[9000, -4500, 560, -560, 560, -1690]
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+
+    assert len(test_msg) == 1
+    first_msg = test_msg[0]
+    assert first_msg.key == 123
+    assert first_msg.device_id == 5
+    assert first_msg.timings == [9000, -4500, 560, -560, 560, -1690]
+
+
+async def test_infrared_rf_transmit_raw_timings(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test infrared_rf_transmit_raw_timings."""
+    client, connection, _transport, _protocol = api_client
+    sent_messages: list[InfraredRFTransmitRawTimingsRequestPb] = []
+
+    # Capture sent messages
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, InfraredRFTransmitRawTimingsRequestPb):
+            sent_messages.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    # Send raw timings transmit request with repeat_count
+    timings = [9000, 4500, 560, 560, 560, 1690, 560, 560]
+    client.infrared_rf_transmit_raw_timings(
+        key=999, carrier_frequency=38000, timings=timings, repeat_count=3, device_id=7
+    )
+
+    # Verify the message was sent
+    assert len(sent_messages) == 1
+    sent_msg = sent_messages[0]
+    assert sent_msg.key == 999
+    assert sent_msg.device_id == 7
+    assert sent_msg.carrier_frequency == 38000
+    assert sent_msg.repeat_count == 3
+    assert list(sent_msg.timings) == timings
+
+
+async def test_execute_service_with_response(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    """Test execute_service with return_response returns response directly."""
+    client, connection, _transport, protocol = api_client
+    patch_api_version(client, APIVersion(1, 3))
+    sent_requests: list[ExecuteServiceRequest] = []
+
+    # Capture sent requests to get auto-generated call_id
+    original_send = connection.send_message
+
+    def capture_send(msg: Any) -> None:
+        if isinstance(msg, ExecuteServiceRequest):
+            sent_requests.append(msg)
+        original_send(msg)
+
+    connection.send_message = capture_send
+
+    service = UserService(
+        name="my_service",
+        key=1,
+        args=[
+            UserServiceArg(name="arg1", type=UserServiceArgType.BOOL),
+        ],
+    )
+
+    # Execute service with return_response - start as task so we can simulate response
+    task = asyncio.create_task(
+        client.execute_service(
+            service,
+            data={"arg1": True},
+            return_response=True,
+        )
+    )
+    await asyncio.sleep(0)  # Let task start and send request
+
+    # Get the auto-generated call_id
+    assert len(sent_requests) == 1
+    first_call_id = sent_requests[0].call_id
+    assert first_call_id != 0  # Should be auto-generated
+
+    # Simulate response from device
+    response: message.Message = ExecuteServiceResponsePb(
+        call_id=first_call_id,
+        success=True,
+        error_message="",
+        response_data=b'{"result": "ok"}',
+    )
+    mock_data_received(protocol, generate_plaintext_packet(response))
+    result = await task  # Task should complete now that response was received
+
+    assert result is not None
+    assert result.call_id == first_call_id
+    assert result.success is True
+    assert result.error_message == ""
+    assert result.response_data == b'{"result": "ok"}'
+
+    # Test that responses with different call_id are ignored until correct one arrives
+    sent_requests.clear()
+    task2 = asyncio.create_task(
+        client.execute_service(
+            service,
+            data={"arg1": False},
+            return_response=True,
+        )
+    )
+    await asyncio.sleep(0)
+
+    # Get second auto-generated call_id
+    assert len(sent_requests) == 1
+    second_call_id = sent_requests[0].call_id
+    assert second_call_id == first_call_id + 1  # Should increment
+
+    # Response with wrong call_id should be ignored
+    wrong_response: message.Message = ExecuteServiceResponsePb(
+        call_id=11111,
+        success=False,
+        error_message="Wrong call",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(wrong_response))
+    await asyncio.sleep(0)
+    assert not task2.done()  # Task still waiting
+
+    # Correct call_id should be received
+    correct_response: message.Message = ExecuteServiceResponsePb(
+        call_id=second_call_id,
+        success=True,
+        error_message="",
+        response_data=b"",
+    )
+    mock_data_received(protocol, generate_plaintext_packet(correct_response))
+    result2 = await task2  # Task should complete now
+    assert result2 is not None
+    assert result2.call_id == second_call_id
+
+
 async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     send = patch_response_callback(auth_client)
     on_service_call = MagicMock()
@@ -2127,6 +2628,84 @@ async def test_subscribe_service_calls(auth_client: APIClient) -> None:
     service_msg = HomeassistantActionRequest(service="bob")
     await send(service_msg)
     on_service_call.assert_called_with(HomeassistantServiceCall.from_pb(service_msg))
+
+
+async def test_send_homeassistant_service_call_response(auth_client: APIClient) -> None:
+    """Test sending a service call response back to ESPHome."""
+    send = patch_send(auth_client)
+
+    response_data = json.dumps({"result": "success", "value": "42"}).encode("utf-8")
+
+    # Test successful response
+    auth_client.send_homeassistant_action_response(
+        call_id=123,
+        response_data=response_data,
+        success=True,
+        error_message="",
+    )
+
+    expected_response = HomeassistantActionResponse()
+    expected_response.call_id = 123
+    expected_response.response_data = response_data
+    expected_response.success = True
+    expected_response.error_message = ""
+
+    send.assert_called_once_with(expected_response)
+
+
+async def test_send_homeassistant_service_call_response_error(
+    auth_client: APIClient,
+) -> None:
+    """Test sending an error service call response."""
+    send = patch_send(auth_client)
+
+    # Test error response
+    auth_client.send_homeassistant_action_response(
+        call_id=456,
+        response_data=b"",
+        success=False,
+        error_message="Service not found",
+    )
+
+    expected_response = HomeassistantActionResponse()
+    expected_response.call_id = 456
+    expected_response.response_data = b""
+    expected_response.success = False
+    expected_response.error_message = "Service not found"
+
+    send.assert_called_once_with(expected_response)
+
+
+async def test_homeassistant_service_call_with_new_fields(
+    auth_client: APIClient,
+) -> None:
+    """Test HomeassistantServiceCall model with new fields."""
+    service_call = HomeassistantServiceCall(
+        service="test.service",
+        is_event=False,
+        data={"param": "value"},
+        data_template={"template": "{{ state }}"},
+        variables={"var": "data"},
+        call_id=789,
+        response_template="Response: {{ response }}",
+    )
+
+    assert service_call.service == "test.service"
+    assert service_call.call_id == 789
+    assert service_call.response_template == "Response: {{ response }}"
+
+
+async def test_homeassistant_service_call_response_model() -> None:
+    """Test HomeassistantServiceCallResponse model."""
+    response_data = json.dumps({"result": "success", "value": 42}).encode("utf-8")
+    response = HomeassistantActionResponseModel(
+        call_id=123, response_data=response_data, success=True, error_message=""
+    )
+
+    assert response.call_id == 123
+    assert response.response_data == response_data
+    assert response.success is True
+    assert response.error_message == ""
 
 
 async def test_set_debug(
@@ -2904,13 +3483,13 @@ async def test_get_voice_assistant_configuration(
     ],
 ) -> None:
     client, connection, _transport, protocol = api_client
-    original_send_message = connection.send_message
+    original_send_messages = connection.send_messages
 
-    def send_message(msg):
-        assert msg == VoiceAssistantConfigurationRequest()
-        original_send_message(msg)
+    def send_messages(msgs):
+        assert msgs == (VoiceAssistantConfigurationRequest(),)
+        original_send_messages(msgs)
 
-    with patch.object(connection, "send_message", new=send_message):
+    with patch.object(connection, "send_messages", new=send_messages):
         config_task = asyncio.create_task(
             client.get_voice_assistant_configuration(timeout=1.0)
         )
@@ -2929,6 +3508,84 @@ async def test_get_voice_assistant_configuration(
         mock_data_received(protocol, generate_plaintext_packet(response))
         config = await config_task
         assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_get_voice_assistant_configuration_external_wake_words(
+    api_client: tuple[
+        APIClient, APIConnection, asyncio.Transport, APIPlaintextFrameHelper
+    ],
+) -> None:
+    client, connection, _transport, protocol = api_client
+    original_send_messages = connection.send_messages
+
+    def send_messages(msgs):
+        assert msgs == (
+            VoiceAssistantConfigurationRequest(
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWord(
+                        id="5678",
+                        wake_word="hey jarvis",
+                        trained_languages=["en"],
+                        model_type="micro",
+                        model_size=12345,
+                        model_hash="test hash",
+                        url="http://test.com/hey_jarvis.json",
+                    )
+                ]
+            ),
+        )
+        original_send_messages(msgs)
+
+    with patch.object(connection, "send_messages", new=send_messages):
+        config_task = asyncio.create_task(
+            client.get_voice_assistant_configuration(
+                timeout=1.0,
+                external_wake_words=[
+                    VoiceAssistantExternalWakeWordModel(
+                        id="5678",
+                        wake_word="hey jarvis",
+                        trained_languages=["en"],
+                        model_type="micro",
+                        model_size=12345,
+                        model_hash="test hash",
+                        url="http://test.com/hey_jarvis.json",
+                    )
+                ],
+            )
+        )
+        await asyncio.sleep(0)
+        response: message.Message = VoiceAssistantConfigurationResponse(
+            available_wake_words=[
+                VoiceAssistantWakeWord(
+                    id="1234",
+                    wake_word="okay nabu",
+                    trained_languages=["en"],
+                )
+            ],
+            active_wake_words=["1234"],
+            max_active_wake_words=1,
+        )
+        mock_data_received(protocol, generate_plaintext_packet(response))
+        config = await config_task
+        assert isinstance(config, VoiceAssistantConfigurationResponseModel)
+
+
+async def test_external_wake_words_convert_list() -> None:
+    wake_word_dict = {
+        "id": "5678",
+        "wake_word": "hey jarvis",
+        "trained_languages": ["en"],
+        "model_type": "micro",
+        "model_size": 12345,
+        "model_hash": "test hash",
+        "url": "http://test.com/hey_jarvis.json",
+    }
+
+    expected_wake_word = VoiceAssistantExternalWakeWordModel(**wake_word_dict)
+    for value in (wake_word_dict, VoiceAssistantExternalWakeWord(**wake_word_dict)):
+        assert VoiceAssistantExternalWakeWordModel.convert_list([value]) == [
+            expected_wake_word
+        ]
 
 
 async def test_set_voice_assistant_configuration(
@@ -2975,7 +3632,7 @@ async def test_calls_after_connection_closed(
         args=[],
     )
     with pytest.raises(APIConnectionError):
-        client.execute_service(service, {})
+        await client.execute_service(service, {})
     for method in (
         client.button_command,
         client.climate_command,
@@ -2985,6 +3642,7 @@ async def test_calls_after_connection_closed(
         client.valve_command,
         client.media_player_command,
         client.siren_command,
+        client.water_heater_command,
     ):
         with pytest.raises(APIConnectionError):
             await method(1)
@@ -3272,6 +3930,27 @@ async def test_bluetooth_scanner_set_mode(
             {"key": 18, "command": AlarmControlPanelCommand.DISARM, "device_id": 90},
             AlarmControlPanelCommandRequest(
                 key=18, command=AlarmControlPanelCommand.DISARM, device_id=90
+            ),
+        ),
+        # Water Heater command
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=0,
+                has_fields=WaterHeaterCommandField.MODE,
+                mode=WaterHeaterMode.ECO,
+            ),
+        ),
+        (
+            "water_heater_command",
+            {"key": 19, "mode": WaterHeaterMode.ECO, "device_id": 95},
+            WaterHeaterCommandRequest(
+                key=19,
+                device_id=95,
+                has_fields=WaterHeaterCommandField.MODE,
+                mode=WaterHeaterMode.ECO,
             ),
         ),
     ],

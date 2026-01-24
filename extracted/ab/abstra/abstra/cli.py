@@ -3,7 +3,9 @@ from typing import Optional
 import fire
 
 from abstra_internals.consts.filepaths import ABSTRA_TABLES_FILEPATH
-from abstra_internals.interface.cli.deploy import deploy
+from abstra_internals.controllers.git import GitController
+from abstra_internals.interface.cli.components import install, uninstall
+from abstra_internals.interface.cli.deploy import deploy_without_git
 from abstra_internals.interface.cli.dir import select_dir
 from abstra_internals.interface.cli.editor import editor
 from abstra_internals.interface.cli.tables import dump, restore
@@ -21,14 +23,25 @@ class CLI(object):
     def version(self):
         version()
 
-    def deploy(self, root_dir: Optional[str] = None):
+    def deploy(self, root_dir: Optional[str] = None, use_git=False):
         SettingsController.set_root_path(root_dir or select_dir())
-        deploy()
+        if use_git:
+            git_controller = GitController()
+            git_controller.push_and_deploy()
+        else:
+            deploy_without_git()
 
-    def editor(self, root_dir: Optional[str] = None, port: int = 3000, headless=False):
+    def editor(
+        self,
+        root_dir: Optional[str] = None,
+        port: int = 3000,
+        headless=False,
+        verbose=False,
+        debug_mode=False,
+    ):
         SettingsController.set_root_path(root_dir or select_dir())
         SettingsController.set_server_port(port)
-        editor(headless=headless)
+        editor(headless=headless, verbose=verbose, debug_mode=debug_mode)
 
     def serve(self, root_dir: Optional[str] = None, port: int = 3000, headless=False):
         print("This command is deprecated. Please use 'abstra editor' instead.")
@@ -46,6 +59,12 @@ class CLI(object):
     ):
         SettingsController.set_root_path(root_dir)
         restore(dry_run=dry_run, file=file)
+
+    def install(self, github_url: str, root_dir: Optional[str] = None):
+        install(github_url, root_dir)
+
+    def uninstall(self, component_name: str, root_dir: Optional[str] = None):
+        uninstall(component_name, root_dir)
 
 
 def _SeparateFlagArgs(args):

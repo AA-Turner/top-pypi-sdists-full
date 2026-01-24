@@ -25,7 +25,7 @@ async def create_test_client(app: FastA2A):
 async def test_agent_card():
     app = FastA2A(storage=InMemoryStorage(), broker=InMemoryBroker())
     async with create_test_client(app) as client:
-        response = await client.get('/.well-known/agent.json')
+        response = await client.get('/.well-known/agent-card.json')
         assert response.status_code == 200
         assert response.json() == snapshot(
             {
@@ -33,7 +33,7 @@ async def test_agent_card():
                 'description': 'An AI agent exposed as an A2A agent.',
                 'url': 'http://localhost:8000',
                 'version': '1.0.0',
-                'protocolVersion': '0.2.5',
+                'protocolVersion': '0.3.0',
                 'skills': [],
                 'defaultInputModes': ['application/json'],
                 'defaultOutputModes': ['application/json'],

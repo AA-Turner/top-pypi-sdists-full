@@ -132,8 +132,19 @@ prop_compose! {
             anonymous: false,
             allow_http: false,
             force_path_style: false,
-            network_stream_timeout_seconds
+            network_stream_timeout_seconds,
+            requester_pays: false,
         }
+    }
+}
+
+prop_compose! {
+    pub fn azure_options()
+    (account in string_regex("[a-zA-Z0-9\\-_]+").unwrap(),
+     mut config in any::<HashMap<String, String>>()
+    ) -> HashMap<String, String> {
+        config.insert("account".to_string(), account.clone());
+        config
     }
 }
 
@@ -197,7 +208,7 @@ pub fn object_store_config() -> BoxedStrategy<ObjectStoreConfig> {
         s3_options().prop_map(Tigris),
         any::<HashMap<String, String>>().prop_map(Gcs),
         any::<HashMap<String, String>>().prop_map(Http),
-        any::<HashMap<String, String>>().prop_map(Azure),
+        azure_options().prop_map(Azure),
     ]
     .boxed()
 }

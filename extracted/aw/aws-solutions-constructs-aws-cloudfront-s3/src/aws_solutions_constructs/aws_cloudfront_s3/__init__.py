@@ -63,11 +63,11 @@ class CloudFrontToS3(
         '''
         :param scope: - represents the scope for all the resources.
         :param id: - this is a a scope-unique id.
-        :param bucket_props: Optional user provided props to override the default props for the S3 Content Bucket. Default: - Default props are used
+        :param bucket_props: Optional user provided props to override the default props for the S3 Content Bucket, providing both this and ``existingBucketObj`` will cause an error. Note - to log S3 access for this bucket to an existing S3 bucket, put the existing log bucket in bucketProps: ``serverAccessLogsBucket`` Default: - Default props are used
         :param cloud_front_distribution_props: Optional user provided props to override the default props. Default: - Default props are used
         :param cloud_front_logging_bucket_access_log_bucket_props: Optional user provided props to override the default props for the CloudFront Log Bucket Access Log bucket. Providing both this and ``existingcloudFrontLoggingBucketAccessLogBucket`` will cause an error Default: - Default props are used
         :param cloud_front_logging_bucket_props: Optional user provided props to override the default props for the CloudFront Log Bucket. Default: - Default props are used
-        :param existing_bucket_obj: Existing instance of S3 Content Bucket object, providing both this and ``bucketProps`` will cause an error. Default: - None
+        :param existing_bucket_obj: Optional - existing instance of S3 Bucket. If this is provided, then also providing bucketProps is an error. Default: - None
         :param insert_http_security_headers: Optional user provided props to turn on/off the automatic injection of best practice HTTP security headers in all responses from cloudfront. Turning this on will inject default headers and is mutually exclusive with passing custom security headers via the responseHeadersPolicyProps parameter. Default: - true
         :param log_cloud_front_access_log: Optional - Whether to maintain access logs for the CloudFront Logging bucket. Specifying false for this while providing info about the log bucket will cause an error. Default: - true
         :param logging_bucket_props: Optional user provided props to override the default props for the S3 Content Bucket Access Log Bucket. Default: - Default props are used
@@ -184,11 +184,11 @@ class CloudFrontToS3Props:
         response_headers_policy_props: typing.Optional[typing.Union[_aws_cdk_aws_cloudfront_ceddda9d.ResponseHeadersPolicyProps, typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param bucket_props: Optional user provided props to override the default props for the S3 Content Bucket. Default: - Default props are used
+        :param bucket_props: Optional user provided props to override the default props for the S3 Content Bucket, providing both this and ``existingBucketObj`` will cause an error. Note - to log S3 access for this bucket to an existing S3 bucket, put the existing log bucket in bucketProps: ``serverAccessLogsBucket`` Default: - Default props are used
         :param cloud_front_distribution_props: Optional user provided props to override the default props. Default: - Default props are used
         :param cloud_front_logging_bucket_access_log_bucket_props: Optional user provided props to override the default props for the CloudFront Log Bucket Access Log bucket. Providing both this and ``existingcloudFrontLoggingBucketAccessLogBucket`` will cause an error Default: - Default props are used
         :param cloud_front_logging_bucket_props: Optional user provided props to override the default props for the CloudFront Log Bucket. Default: - Default props are used
-        :param existing_bucket_obj: Existing instance of S3 Content Bucket object, providing both this and ``bucketProps`` will cause an error. Default: - None
+        :param existing_bucket_obj: Optional - existing instance of S3 Bucket. If this is provided, then also providing bucketProps is an error. Default: - None
         :param insert_http_security_headers: Optional user provided props to turn on/off the automatic injection of best practice HTTP security headers in all responses from cloudfront. Turning this on will inject default headers and is mutually exclusive with passing custom security headers via the responseHeadersPolicyProps parameter. Default: - true
         :param log_cloud_front_access_log: Optional - Whether to maintain access logs for the CloudFront Logging bucket. Specifying false for this while providing info about the log bucket will cause an error. Default: - true
         :param logging_bucket_props: Optional user provided props to override the default props for the S3 Content Bucket Access Log Bucket. Default: - Default props are used
@@ -247,7 +247,10 @@ class CloudFrontToS3Props:
 
     @builtins.property
     def bucket_props(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
-        '''Optional user provided props to override the default props for the S3 Content Bucket.
+        '''Optional user provided props to override the default props for the S3 Content Bucket, providing both this and ``existingBucketObj`` will cause an error.
+
+        Note - to log S3 access for this bucket to an existing S3 bucket, put the existing log bucket in bucketProps:
+        ``serverAccessLogsBucket``
 
         :default: - Default props are used
         '''
@@ -289,7 +292,9 @@ class CloudFrontToS3Props:
 
     @builtins.property
     def existing_bucket_obj(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
-        '''Existing instance of S3 Content Bucket object, providing both this and ``bucketProps`` will cause an error.
+        '''Optional - existing instance of S3 Bucket.
+
+        If this is provided, then also providing bucketProps is an error.
 
         :default: - None
         '''

@@ -11,13 +11,15 @@ from vellum.workflows.nodes.core.try_node.node import TryNode
 from vellum.workflows.nodes.displayable.final_output_node.node import FinalOutputNode
 from vellum.workflows.references.lazy import LazyReference
 from vellum.workflows.state.base import BaseState
+from vellum.workflows.triggers.integration import IntegrationTrigger
 from vellum.workflows.types.core import JsonObject
 from vellum.workflows.workflows.base import BaseWorkflow
 from vellum_ee.workflows.display.editor.types import NodeDisplayData, NodeDisplayPosition
-from vellum_ee.workflows.display.nodes import BaseNodeDisplay
+from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
 from vellum_ee.workflows.display.nodes.vellum.retry_node import BaseRetryNodeDisplay
 from vellum_ee.workflows.display.nodes.vellum.try_node import BaseTryNodeDisplay
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
+from vellum_ee.workflows.display.utils.exceptions import UserFacingException
 from vellum_ee.workflows.display.workflows.get_vellum_workflow_display_class import get_workflow_display
 
 
@@ -41,7 +43,7 @@ def test_serialize_workflow__node_referenced_in_workflow_outputs_not_in_graph():
     workflow_display = get_workflow_display(workflow_class=Workflow)
 
     # THEN it should raise an error
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(UserFacingException) as exc_info:
         workflow_display.serialize()
 
     # AND the error message should be user friendly
@@ -61,17 +63,31 @@ def test_serialize_workflow__workflow_outputs_reference_non_node_outputs():
 
     # WHEN we serialize it
     workflow_display = get_workflow_display(workflow_class=Workflow)
+    serialized_workflow = workflow_display.serialize()
 
-    # THEN it should raise an error
-    with pytest.raises(ValueError) as exc_info:
-        workflow_display.serialize()
+    # THEN it should successfully serialize the workflow output reference to a constant
+    assert isinstance(serialized_workflow, dict)
+    output_variables = serialized_workflow["output_variables"]
+    assert isinstance(output_variables, list)
+    assert output_variables == [{"id": "2b32416b-ccfc-4231-a3a6-d08e76327815", "key": "final", "type": "STRING"}]
 
-    # AND the error message should be user friendly
-    assert (
-        str(exc_info.value)
-        == """Failed to serialize output 'final': Reference to outputs \
-'test_serialize_workflow__workflow_outputs_reference_non_node_outputs.<locals>.FirstWorkflow.Outputs' is invalid."""
-    )
+    # AND the output value should be a constant value
+    workflow_raw_data = serialized_workflow["workflow_raw_data"]
+    assert isinstance(workflow_raw_data, dict)
+    output_values = workflow_raw_data["output_values"]
+    assert isinstance(output_values, list)
+    assert output_values == [
+        {
+            "output_variable_id": "2b32416b-ccfc-4231-a3a6-d08e76327815",
+            "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "bar"}},
+        }
+    ]
+
+    first_output_variable = output_variables[0]
+    assert isinstance(first_output_variable, dict)
+    first_output_value = output_values[0]
+    assert isinstance(first_output_value, dict)
+    assert first_output_variable["id"] == first_output_value["output_variable_id"]
 
 
 def test_serialize_workflow__node_display_class_not_registered():
@@ -288,6 +304,38 @@ def test_get_event_display_context__workflow_output_display_with_none():
     assert display_context.workflow_outputs.keys() == {"foo", "bar"}
 
 
+def test_get_event_display_context__trigger_attributes_included():
+    """Trigger attributes should be included in workflow_inputs for display in executions list."""
+
+    # GIVEN a workflow with an integration trigger that has attributes
+    class SlackTrigger(IntegrationTrigger):
+        message: str
+        channel: str
+
+        class Config:
+            provider = "COMPOSIO"
+            integration_name = "SLACK"
+            slug = "slack_new_message"
+
+    class ProcessNode(BaseNode):
+        pass
+
+    class MyWorkflow(BaseWorkflow):
+        graph = SlackTrigger >> ProcessNode
+
+    # WHEN we gather the event display context
+    display_context = get_workflow_display(workflow_class=MyWorkflow).get_event_display_context()
+
+    # THEN the trigger attributes should be included in workflow_inputs
+    assert "message" in display_context.workflow_inputs
+    assert "channel" in display_context.workflow_inputs
+
+    # AND the IDs should match the trigger attribute IDs
+    trigger_attr_refs = SlackTrigger.attribute_references()
+    assert display_context.workflow_inputs["message"] == trigger_attr_refs["message"].id
+    assert display_context.workflow_inputs["channel"] == trigger_attr_refs["channel"].id
+
+
 def test_serialize_workflow__inherited_node_display_class_not_registered():
     # GIVEN a node meant to be used as a base
     class StartNode(BaseNode):
@@ -401,6 +449,7 @@ def test_serialize_workflow__nested_lazy_reference():
 
     # AND the outer node
     class OuterNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             bar: str
 
@@ -500,11 +549,13 @@ def test_serialize_workflow__array_values():
 def test_serialize_workflow__array_reference():
     # GIVEN a node with array containing non-constant values (node references)
     class FirstNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             value1: str
             value2: str
 
     class SecondNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             # Array containing a mix of constants and node references
             mixed_array = ["constant1", FirstNode.Outputs.value1, "constant2", FirstNode.Outputs.value2]
@@ -525,8 +576,14 @@ def test_serialize_workflow__array_reference():
     # THEN it should serialize as an ARRAY_REFERENCE
     assert isinstance(data["workflow_raw_data"], dict)
     assert isinstance(data["workflow_raw_data"]["nodes"], list)
-    assert len(data["workflow_raw_data"]["nodes"]) == 5
-    second_node = data["workflow_raw_data"]["nodes"][2]
+    second_node = next(
+        node
+        for node in data["workflow_raw_data"]["nodes"]
+        if isinstance(node, dict)
+        and "definition" in node
+        and isinstance(node["definition"], dict)
+        and node["definition"]["name"] == "SecondNode"
+    )
     assert isinstance(second_node, dict)
 
     assert "outputs" in second_node
@@ -545,14 +602,14 @@ def test_serialize_workflow__array_reference():
             {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant1"}},
             {
                 "type": "NODE_OUTPUT",
-                "node_id": "702a08b5-61e8-4a7a-a83d-77f49e39c5be",
-                "node_output_id": "419b6afa-fab5-493a-ba1e-4606f4641616",
+                "node_id": "9a6037fd-e023-4331-8097-5144bacfc110",
+                "node_output_id": "37521463-db12-41a3-ad6f-753165880356",
             },
             {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant2"}},
             {
                 "type": "NODE_OUTPUT",
-                "node_id": "702a08b5-61e8-4a7a-a83d-77f49e39c5be",
-                "node_output_id": "d1cacc41-478d-49a3-a6b3-1ba2d51291e2",
+                "node_id": "9a6037fd-e023-4331-8097-5144bacfc110",
+                "node_output_id": "b033bddf-987d-488d-8426-c5bb2dac7501",
             },
         ],
     }
@@ -574,8 +631,8 @@ def test_serialize_workflow__array_reference():
                     {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant1"}},
                     {
                         "type": "NODE_OUTPUT",
-                        "node_id": "702a08b5-61e8-4a7a-a83d-77f49e39c5be",
-                        "node_output_id": "419b6afa-fab5-493a-ba1e-4606f4641616",
+                        "node_id": "9a6037fd-e023-4331-8097-5144bacfc110",
+                        "node_output_id": "37521463-db12-41a3-ad6f-753165880356",
                     },
                 ],
             },
@@ -585,8 +642,8 @@ def test_serialize_workflow__array_reference():
                     {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant2"}},
                     {
                         "type": "NODE_OUTPUT",
-                        "node_id": "702a08b5-61e8-4a7a-a83d-77f49e39c5be",
-                        "node_output_id": "d1cacc41-478d-49a3-a6b3-1ba2d51291e2",
+                        "node_id": "9a6037fd-e023-4331-8097-5144bacfc110",
+                        "node_output_id": "b033bddf-987d-488d-8426-c5bb2dac7501",
                     },
                 ],
             },
@@ -660,10 +717,12 @@ def test_serialize_workflow__dict_values():
 def test_serialize_workflow__dict_reference():
     # GIVEN a node with a dictionary containing non-constant values (node references)
     class FirstNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             value1: str
 
     class SecondNode(BaseNode):
+
         class Outputs(BaseNode.Outputs):
             # Dictionary containing a mix of constants and node references
             mixed_dict = {
@@ -706,31 +765,31 @@ def test_serialize_workflow__dict_reference():
         "type": "DICTIONARY_REFERENCE",
         "entries": [
             {
-                "id": "7689f0df-e0bc-4e53-a63f-dbee027f58b9",
+                "id": "c717464d-127e-4970-a3d8-31761dd83deb",
                 "key": "key1",
                 "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant1"}},
             },
             {
-                "id": "89e01555-b0b5-42d5-a0a7-bce72716cf65",
+                "id": "ca19400f-9cce-4b4f-860f-63c98f43ad88",
                 "key": "key2",
                 "value": {
                     "type": "NODE_OUTPUT",
-                    "node_id": "13b4f5c0-e6aa-4ef9-9a1a-79476bc32500",
-                    "node_output_id": "50a6bc11-afb3-49f2-879c-b28f5e16d974",
+                    "node_id": "0f81f7b9-392b-4f0e-8584-0ff040fba961",
+                    "node_output_id": "0b63e869-e978-4ec9-9f47-0cc1c7e22076",
                 },
             },
             {
-                "id": "2dc84109-b85c-4732-aa60-8c10a1a377d2",
+                "id": "10df74b1-56f8-4414-8042-3d4f5a51314d",
                 "key": "key3",
                 "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant2"}},
             },
             {
-                "id": "d1b3ce75-1b1e-45e3-b798-beafe6c4826f",
+                "id": "4803c0f8-e582-4693-b9c3-1d6d54f999b1",
                 "key": "key4",
                 "value": {
                     "type": "NODE_OUTPUT",
-                    "node_id": "13b4f5c0-e6aa-4ef9-9a1a-79476bc32500",
-                    "node_output_id": "50a6bc11-afb3-49f2-879c-b28f5e16d974",
+                    "node_id": "0f81f7b9-392b-4f0e-8584-0ff040fba961",
+                    "node_output_id": "0b63e869-e978-4ec9-9f47-0cc1c7e22076",
                 },
             },
         ],
@@ -745,46 +804,46 @@ def test_serialize_workflow__dict_reference():
         "type": "DICTIONARY_REFERENCE",
         "entries": [
             {
-                "id": "7689f0df-e0bc-4e53-a63f-dbee027f58b9",
+                "id": "c717464d-127e-4970-a3d8-31761dd83deb",
                 "key": "key1",
                 "value": {
                     "type": "DICTIONARY_REFERENCE",
                     "entries": [
                         {
-                            "id": "7689f0df-e0bc-4e53-a63f-dbee027f58b9",
+                            "id": "c717464d-127e-4970-a3d8-31761dd83deb",
                             "key": "key1",
                             "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant1"}},
                         },
                         {
-                            "id": "89e01555-b0b5-42d5-a0a7-bce72716cf65",
+                            "id": "ca19400f-9cce-4b4f-860f-63c98f43ad88",
                             "key": "key2",
                             "value": {
                                 "type": "NODE_OUTPUT",
-                                "node_id": "13b4f5c0-e6aa-4ef9-9a1a-79476bc32500",
-                                "node_output_id": "50a6bc11-afb3-49f2-879c-b28f5e16d974",
+                                "node_id": "0f81f7b9-392b-4f0e-8584-0ff040fba961",
+                                "node_output_id": "0b63e869-e978-4ec9-9f47-0cc1c7e22076",
                             },
                         },
                     ],
                 },
             },
             {
-                "id": "89e01555-b0b5-42d5-a0a7-bce72716cf65",
+                "id": "ca19400f-9cce-4b4f-860f-63c98f43ad88",
                 "key": "key2",
                 "value": {
                     "type": "DICTIONARY_REFERENCE",
                     "entries": [
                         {
-                            "id": "7689f0df-e0bc-4e53-a63f-dbee027f58b9",
+                            "id": "c717464d-127e-4970-a3d8-31761dd83deb",
                             "key": "key1",
                             "value": {"type": "CONSTANT_VALUE", "value": {"type": "STRING", "value": "constant2"}},
                         },
                         {
-                            "id": "89e01555-b0b5-42d5-a0a7-bce72716cf65",
+                            "id": "ca19400f-9cce-4b4f-860f-63c98f43ad88",
                             "key": "key2",
                             "value": {
                                 "type": "NODE_OUTPUT",
-                                "node_id": "13b4f5c0-e6aa-4ef9-9a1a-79476bc32500",
-                                "node_output_id": "50a6bc11-afb3-49f2-879c-b28f5e16d974",
+                                "node_id": "0f81f7b9-392b-4f0e-8584-0ff040fba961",
+                                "node_output_id": "0b63e869-e978-4ec9-9f47-0cc1c7e22076",
                             },
                         },
                     ],
@@ -823,21 +882,11 @@ def test_serialize_workflow__empty_rules_indexerror():
     assert len(output_variables) == 1
     assert output_variables[0]["key"] == "problematic_output"
 
-    # AND the workflow raw data should contain nodes including terminal node
-    workflow_raw_data = result["workflow_raw_data"]
-    assert "nodes" in workflow_raw_data
-    nodes = workflow_raw_data["nodes"]
-
-    assert len(nodes) >= 3
-
-    terminal_nodes = [node for node in nodes if node.get("type") == "TERMINAL"]
-    assert len(terminal_nodes) == 1
-    assert terminal_nodes[0]["data"]["name"] == "problematic_output"
-
 
 def test_serialize_workflow__input_variables():
     # GIVEN a workflow with inputs
     class Inputs(BaseInputs):
+        empty_string: str = ""
         input_1: str
         input_2: Optional[str]
         input_3: int = 1
@@ -854,7 +903,18 @@ def test_serialize_workflow__input_variables():
     assert "input_variables" in data
     input_variables = data["input_variables"]
     assert isinstance(input_variables, list)
-    assert len(input_variables) == 4
+    assert len(input_variables) == 5
+
+    empty_string = next(var for var in input_variables if isinstance(var, dict) and var["key"] == "empty_string")
+    assert empty_string == {
+        "id": "09c3e825-8932-4d37-990a-b8a7c2a3bdec",
+        "key": "empty_string",
+        "type": "STRING",
+        "default": {"type": "STRING", "value": ""},
+        "required": False,
+        "extensions": {"color": None},
+        "schema": {"type": "string"},
+    }
 
     input_1 = next(var for var in input_variables if isinstance(var, dict) and var["key"] == "input_1")
     assert input_1 == {
@@ -864,6 +924,7 @@ def test_serialize_workflow__input_variables():
         "default": None,
         "required": True,
         "extensions": {"color": None},
+        "schema": {"type": "string"},
     }
 
     input_2 = next(var for var in input_variables if isinstance(var, dict) and var["key"] == "input_2")
@@ -874,6 +935,7 @@ def test_serialize_workflow__input_variables():
         "default": None,
         "required": False,
         "extensions": {"color": None},
+        "schema": {"anyOf": [{"type": "string"}, {"type": "null"}]},
     }
 
     input_3 = next(var for var in input_variables if isinstance(var, dict) and var["key"] == "input_3")
@@ -884,6 +946,7 @@ def test_serialize_workflow__input_variables():
         "default": {"type": "NUMBER", "value": 1.0},
         "required": False,
         "extensions": {"color": None},
+        "schema": {"type": "integer"},
     }
 
     input_4 = next(var for var in input_variables if isinstance(var, dict) and var["key"] == "input_4")
@@ -894,12 +957,14 @@ def test_serialize_workflow__input_variables():
         "default": {"type": "NUMBER", "value": 2.0},
         "required": False,
         "extensions": {"color": None},
+        "schema": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
     }
 
 
 def test_serialize_workflow__state_variables():
     # GIVEN a workflow with state variables
     class State(BaseState):
+        empty_string: str = ""
         state_1: str = "hello"
         state_2: Optional[str] = None
         state_3: int = 1
@@ -916,11 +981,21 @@ def test_serialize_workflow__state_variables():
     assert "state_variables" in data
     state_variables = data["state_variables"]
     assert isinstance(state_variables, list)
-    assert len(state_variables) == 4
+    assert len(state_variables) == 5
+
+    empty_string = next(var for var in state_variables if isinstance(var, dict) and var["key"] == "empty_string")
+    assert empty_string == {
+        "id": "c69e2507-f610-4a6f-84cc-a5bc2aa48551",
+        "key": "empty_string",
+        "type": "STRING",
+        "default": {"type": "STRING", "value": ""},
+        "required": False,
+        "extensions": {"color": None},
+    }
 
     state_1 = next(var for var in state_variables if isinstance(var, dict) and var["key"] == "state_1")
     assert state_1 == {
-        "id": "83c5b71d-56eb-42a5-84df-97e3591370c2",
+        "id": "151113d2-9bbf-428d-a1c1-0a9cf4fdedf3",
         "key": "state_1",
         "type": "STRING",
         "default": {"type": "STRING", "value": "hello"},
@@ -930,7 +1005,7 @@ def test_serialize_workflow__state_variables():
 
     state_2 = next(var for var in state_variables if isinstance(var, dict) and var["key"] == "state_2")
     assert state_2 == {
-        "id": "9b0cfeec-aa66-42b3-8f31-aa7eb8ac30ea",
+        "id": "9a8d7a55-8bd2-497d-820c-dee665144a48",
         "key": "state_2",
         "type": "STRING",
         "default": None,
@@ -940,7 +1015,7 @@ def test_serialize_workflow__state_variables():
 
     state_3 = next(var for var in state_variables if isinstance(var, dict) and var["key"] == "state_3")
     assert state_3 == {
-        "id": "3e19c570-6b46-4eab-ad81-d8d97028496f",
+        "id": "ffde4327-12c4-4c55-82d6-3ab88f0b1037",
         "key": "state_3",
         "type": "NUMBER",
         "default": {"type": "NUMBER", "value": 1.0},
@@ -950,7 +1025,7 @@ def test_serialize_workflow__state_variables():
 
     state_4 = next(var for var in state_variables if isinstance(var, dict) and var["key"] == "state_4")
     assert state_4 == {
-        "id": "50c735de-f269-4d0a-b511-c9a1104451bb",
+        "id": "2467c1e6-b6aa-42d7-b079-84c8a650fbca",
         "key": "state_4",
         "type": "NUMBER",
         "default": {"type": "NUMBER", "value": 2.0},
@@ -997,3 +1072,56 @@ def test_serialize_workflow__with_complete_node_failure_prunes_edges():
     node_types = [node["type"] for node in data["workflow_raw_data"]["nodes"]]
     assert "ENTRYPOINT" in node_types
     assert "GENERIC" in node_types  # This is the WorkingNode that should still be serialized
+
+
+def test_serialize_workflow__node_with_invalid_input_reference():
+    """Test that serialization captures errors when nodes reference a non-existent input attribute."""
+
+    # GIVEN a workflow with defined inputs
+    class Inputs(BaseInputs):
+        valid_input: str
+
+    # AND a templating node that references a non-existent input
+    class MyTemplatingNode(TemplatingNode):
+        class Outputs(TemplatingNode.Outputs):
+            pass
+
+        template = "valid: {{ valid_input }}, invalid: {{ invalid_ref }}"
+        inputs = {
+            "valid_input": Inputs.valid_input,
+            "invalid_ref": Inputs.invalid_ref,
+        }
+
+    # AND a base node that also references the non-existent input
+    class MyBaseNode(BaseNode):
+        invalid_ref = Inputs.invalid_ref
+
+        class Outputs(BaseNode.Outputs):
+            result: str
+
+        def run(self) -> BaseNode.Outputs:
+            return self.Outputs(result="done")
+
+    class MyBaseNodeDisplay(BaseNodeDisplay[MyBaseNode]):
+        __serializable_inputs__ = {MyBaseNode.invalid_ref}
+
+    # WHEN we create a workflow with both nodes and serialize with dry_run=True
+    class MyWorkflow(BaseWorkflow[Inputs, BaseState]):
+        graph = MyTemplatingNode >> MyBaseNode
+
+    workflow_display = get_workflow_display(workflow_class=MyWorkflow, dry_run=True)
+    serialized = workflow_display.serialize()
+
+    # THEN the serialization should succeed without raising an exception
+    assert serialized is not None
+    assert "workflow_raw_data" in serialized
+
+    errors = list(workflow_display.display_context.errors)
+    assert len(errors) > 0
+
+    # AND the error messages should reference the missing attribute
+    error_messages = [str(e) for e in errors]
+    assert any("invalid_ref" in msg for msg in error_messages)
+
+    invalid_nodes = list(workflow_display.display_context.invalid_nodes)
+    assert len(invalid_nodes) >= 2

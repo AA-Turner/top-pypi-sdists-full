@@ -70,9 +70,10 @@ class ReservationSubBlocksTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -142,6 +143,11 @@ class ReservationSubBlocksTransport(abc.ABC):
                 default_timeout=None,
                 client_info=client_info,
             ),
+            self.get_iam_policy: gapic_v1.method.wrap_method(
+                self.get_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
             self.list: gapic_v1.method.wrap_method(
                 self.list,
                 default_timeout=None,
@@ -149,6 +155,21 @@ class ReservationSubBlocksTransport(abc.ABC):
             ),
             self.perform_maintenance: gapic_v1.method.wrap_method(
                 self.perform_maintenance,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.report_faulty: gapic_v1.method.wrap_method(
+                self.report_faulty,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.set_iam_policy: gapic_v1.method.wrap_method(
+                self.set_iam_policy,
+                default_timeout=None,
+                client_info=client_info,
+            ),
+            self.test_iam_permissions: gapic_v1.method.wrap_method(
+                self.test_iam_permissions,
                 default_timeout=None,
                 client_info=client_info,
             ),
@@ -176,6 +197,15 @@ class ReservationSubBlocksTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def get_iam_policy(
+        self,
+    ) -> Callable[
+        [compute.GetIamPolicyReservationSubBlockRequest],
+        Union[compute.Policy, Awaitable[compute.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def list(
         self,
     ) -> Callable[
@@ -193,6 +223,35 @@ class ReservationSubBlocksTransport(abc.ABC):
     ) -> Callable[
         [compute.PerformMaintenanceReservationSubBlockRequest],
         Union[compute.Operation, Awaitable[compute.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def report_faulty(
+        self,
+    ) -> Callable[
+        [compute.ReportFaultyReservationSubBlockRequest],
+        Union[compute.Operation, Awaitable[compute.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def set_iam_policy(
+        self,
+    ) -> Callable[
+        [compute.SetIamPolicyReservationSubBlockRequest],
+        Union[compute.Policy, Awaitable[compute.Policy]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def test_iam_permissions(
+        self,
+    ) -> Callable[
+        [compute.TestIamPermissionsReservationSubBlockRequest],
+        Union[
+            compute.TestPermissionsResponse, Awaitable[compute.TestPermissionsResponse]
+        ],
     ]:
         raise NotImplementedError()
 

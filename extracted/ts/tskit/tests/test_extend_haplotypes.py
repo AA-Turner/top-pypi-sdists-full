@@ -6,7 +6,7 @@ import _tskit
 import tests.test_wright_fisher as wf
 import tskit
 from tests import tsutil
-from tests.test_highlevel import get_example_tree_sequences
+from tests.tsutil import get_example_tree_sequences
 
 # ↑ See https://github.com/tskit-dev/tskit/issues/1804 for when
 # we can remove this.
@@ -414,7 +414,7 @@ class HaplotypeExtender:
         self.add_or_extend_edge(p_out, child, left, right)
 
     def extend_haplotypes(self):
-        tree_pos = tsutil.TreePosition(self.ts)
+        tree_pos = tsutil.TreeIndexes(self.ts)
         if self.direction == 1:
             valid = tree_pos.next()
         else:
@@ -482,7 +482,7 @@ def extend_haplotypes(ts, max_iter=10):
             extender = HaplotypeExtender(ts, forwards=forwards)
             extender.extend_haplotypes()
             tables.edges.replace_with(extender.edges)
-            tables.sort()
+            tables.sort(mutation_start=tables.mutations.num_rows)
             tables.build_index()
             ts = tables.tree_sequence()
         if ts.num_edges == last_num_edges:
@@ -493,7 +493,6 @@ def extend_haplotypes(ts, max_iter=10):
     tables = ts.dump_tables()
     mutations = _slide_mutation_nodes_up(ts, mutations)
     tables.mutations.replace_with(mutations)
-    tables.sort()
     ts = tables.tree_sequence()
     return ts
 

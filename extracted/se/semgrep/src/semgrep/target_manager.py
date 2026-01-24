@@ -42,6 +42,7 @@ import semgrep.rpc_call
 import semgrep.semgrep_interfaces.semgrep_output_v1 as out
 from semdep.subproject_matchers import filter_dependency_source_files
 from semgrep.git import BaselineHandler
+from semgrep.simple_profiling import simple_profiling
 from semgrep.util import IS_WINDOWS
 
 
@@ -535,19 +536,24 @@ class FileTargetingLog:
             }
 
 
-# This used to patch the targeting_conf just before using it.
-# We could the same mechanism with the list of excludes that depend
+# This is used to patch the targeting_conf just before using it.
+# We could use the same mechanism with the list of excludes that depend
 # on the "product". It might clarify the code a bit.
 #
-# Current status: this is unused because baseline_commit isn't supported
-# by the OCaml implementation.
-#
 def copy_and_update_targeting_conf(
-    *, conf: out.TargetingConf, force_novcs_project: bool = False
+    *,
+    conf: out.TargetingConf,
+    baseline_commit: Optional[str],
+    respect_gitignore: bool,
+    extra_gitignore_patterns_to_exclude_git_untracked_files: Iterable[str] = (),
 ) -> out.TargetingConf:
     # Not sure if a shallow copy (copy.copy) would work or would be preferable
     conf = copy.deepcopy(conf)
-    conf.force_novcs_project = force_novcs_project
+    conf.baseline_commit = baseline_commit
+    conf.respect_gitignore = respect_gitignore
+    conf.extra_gitignore_patterns_to_exclude_git_untracked_files = list(
+        extra_gitignore_patterns_to_exclude_git_untracked_files
+    )
     return conf
 
 
@@ -558,6 +564,21 @@ class TargetScanResult:
     files_with_insufficient_permissions: FrozenSet[Path]
     # semgrepignore v2 only:
     skipped_targets: List[out.SkippedTarget]
+
+
+def convert_filename_includes_to_gitignore(includes: Iterable[str]) -> List[str]:
+    """Convert a list of glob patterns over file names into a list of
+    Gitignore patterns such that they select the paths matching at least
+    one of the original patterns.
+
+    The input patterns may not be negated (may not start with '!')
+    and may not match multiple path segments (may not contain slashes
+    or '**').
+    """
+    negated_patterns = ["!" + pat for pat in includes]
+    # Exclude all the files except those matching one or more patterns.
+    # Folders are not affected by this filter.
+    return ["*", "!*/", *negated_patterns]
 
 
 @frozen(eq=False)  #
@@ -672,7 +693,14 @@ class ScanningRoot:
 
     @lru_cache(maxsize=None)
     def target_files_full(
-        self, *, product: out.Product, ignore_baseline_handler: bool = False
+        self,
+        *,
+        product: out.Product,
+        ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> TargetScanResult:
         """
         Recursively go through a directory and return list of all files with
@@ -680,14 +708,26 @@ class ScanningRoot:
         Return the selected files, the files with insufficient permissions
         (legacy), and the full list of skipped files (semgrepignore v2 only).
 
-        ignore_baseline_handler: if True, will ignore the baseline handler and scan all files. Used in the context of scanning unchanged lockfiles for their dependencies and doing reachability analysis.
+        :param ignore_baseline_handler: if True, will ignore the baseline handler and scan all files. Used in the context of scanning unchanged lockfiles for their dependencies and doing reachability analysis.
+        :param git_includes: glob patterns
         """
         # New: Use semgrep-core to discover target files
         targeting_conf = self.targeting_conf[product]
-        if ignore_baseline_handler:
-            targeting_conf = copy_and_update_targeting_conf(
-                conf=targeting_conf, force_novcs_project=True
-            )
+        baseline_commit = (
+            None if ignore_baseline_handler else targeting_conf.baseline_commit
+        )
+        targeting_conf = copy_and_update_targeting_conf(
+            conf=targeting_conf,
+            baseline_commit=baseline_commit,
+            respect_gitignore=respect_gitignore,
+            extra_gitignore_patterns_to_exclude_git_untracked_files=(
+                []
+                if extra_glob_patterns_to_include_git_untracked_files is None
+                else convert_filename_includes_to_gitignore(
+                    extra_glob_patterns_to_include_git_untracked_files
+                )
+            ),
+        )
         arg = out.ScanningRoots(
             root_paths=[out.Fpath(str(self.path))], targeting_conf=targeting_conf
         )
@@ -711,11 +751,21 @@ class ScanningRoot:
 
     # cached (see _target_files())
     def target_files(
-        self, *, product: out.Product, ignore_baseline_handler: bool = False
+        self,
+        *,
+        product: out.Product,
+        ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> FrozenSet[Target]:
         """Discover target files from the scanning root and cache the result"""
         return self.target_files_full(
-            product=product, ignore_baseline_handler=ignore_baseline_handler
+            product=product,
+            ignore_baseline_handler=ignore_baseline_handler,
+            respect_gitignore=respect_gitignore,
+            extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
         ).selected_files
 
 
@@ -922,16 +972,10 @@ class TargetManager:
         path = target.fpath
         if not path.is_file():
             return False
-        try:
-            hline = self.get_shebang_line(path)
-            if hline is None:
-                return False
-            return any(_is_shebang_pattern_for_executable(hline, s) for s in shebangs)
-        except UnicodeDecodeError:
-            logger.debug(
-                f"Encountered likely binary file {path} while reading shebang; skipping this file"
-            )
+        hline = self.get_shebang_line(path)
+        if hline is None:
             return False
+        return any(_is_shebang_pattern_for_executable(hline, s) for s in shebangs)
 
     @lru_cache(maxsize=100_000)  # size aims to be 100x of fully caching this repo
     def get_shebang_line(self, path: Path) -> Optional[str]:
@@ -943,8 +987,14 @@ class TargetManager:
         elif not path_has_permissions(path, stat.S_IRUSR | stat.S_IXUSR):
             return None
 
-        with path.open() as f:
-            return f.readline(MAX_CHARS_TO_READ_FOR_SHEBANG).rstrip()
+        try:
+            with path.open() as f:
+                return f.readline(MAX_CHARS_TO_READ_FOR_SHEBANG).rstrip()
+        except UnicodeDecodeError:
+            logger.debug(
+                f"Encountered likely binary file {path} while reading shebang; skipping this file"
+            )
+            return None
 
     @staticmethod
     def _globmatch(path: str, pattern: str) -> bool:
@@ -1053,6 +1103,10 @@ class TargetManager:
         *,
         product: out.Product,
         ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> FrozenSet[Target]:
         scanning_roots = self.scanning_roots
         return frozenset(
@@ -1061,12 +1115,21 @@ class TargetManager:
             for selected_file in root.target_files(
                 ignore_baseline_handler=ignore_baseline_handler,
                 product=product,
+                respect_gitignore=respect_gitignore,
+                extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
             )
         )
 
     @lru_cache(maxsize=None)
     def get_skipped_files(
-        self, *, product: out.Product, ignore_baseline_handler: bool = False
+        self,
+        *,
+        product: out.Product,
+        ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> List[out.SkippedTarget]:
         """
         Return all the skipped files reported by the RPC to semgrep-core.
@@ -1076,7 +1139,10 @@ class TargetManager:
             for root in self.scanning_roots
             for f in (
                 root.target_files_full(
-                    product=product, ignore_baseline_handler=ignore_baseline_handler
+                    product=product,
+                    ignore_baseline_handler=ignore_baseline_handler,
+                    respect_gitignore=respect_gitignore,
+                    extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
                 )
             ).skipped_targets
         ]
@@ -1088,6 +1154,10 @@ class TargetManager:
         lang: Union[None, Language, Literal["dependency_source_files"]],
         product: out.Product,
         ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> FilteredFiles:
         """
         Return all files that are descendants of any directory in TARGET that have
@@ -1108,6 +1178,8 @@ class TargetManager:
         all_files = self.get_all_files(
             ignore_baseline_handler=ignore_baseline_handler,
             product=product,
+            respect_gitignore=respect_gitignore,
+            extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
         )
         if isinstance(lang, Language):
             files = self.filter_by_language(lang, candidates=all_files)
@@ -1129,8 +1201,13 @@ class TargetManager:
 
         # Populate the ignore_log with the skipped files so they can
         # be printed out.
+        # COUPLING: same arguments as the call to get_all_files() above
+        # (the result is assumed to be cached so it's not too wasteful)
         skipped_files = self.get_skipped_files(
-            product=product, ignore_baseline_handler=ignore_baseline_handler
+            ignore_baseline_handler=ignore_baseline_handler,
+            product=product,
+            respect_gitignore=respect_gitignore,
+            extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
         )
         includes = []
         excludes = []
@@ -1231,9 +1308,14 @@ class TargetManager:
 
         return SelectedTargets(paths.kept)
 
+    @simple_profiling
     def get_all_dependency_source_files(
         self,
         ignore_baseline_handler: bool = False,
+        respect_gitignore: bool = True,
+        extra_glob_patterns_to_include_git_untracked_files: Optional[
+            FrozenSet[str]
+        ] = None,
     ) -> FrozenSet[Target]:
         """
         Return all files that might be used as a source of dependency information
@@ -1242,5 +1324,7 @@ class TargetManager:
             lang="dependency_source_files",
             product=out.Product(out.SCA()),
             ignore_baseline_handler=ignore_baseline_handler,
+            respect_gitignore=respect_gitignore,
+            extra_glob_patterns_to_include_git_untracked_files=extra_glob_patterns_to_include_git_untracked_files,
         )
         return all_files.kept

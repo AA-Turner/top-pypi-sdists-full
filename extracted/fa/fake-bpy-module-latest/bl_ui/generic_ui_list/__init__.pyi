@@ -44,14 +44,12 @@ class UILIST_OT_entry_add(GenericUIListOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -73,14 +71,12 @@ class UILIST_OT_entry_move(GenericUIListOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -102,14 +98,12 @@ class UILIST_OT_entry_remove(GenericUIListOperator, _bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -134,24 +128,14 @@ def draw_ui_list(
     """Draw a UIList with Add/Remove/Move buttons and a menu.Additional keyword arguments are passed to `UIList.template_list`.
 
         :param layout: UILayout to draw the list in.
-        :type layout: bpy.types.UILayout
         :param context: Blender context to get the list data from.
-        :type context: bpy.types.Context
         :param class_name: Name of the UIList class to draw. The default is the UIList class that ships with Blender.
-        :type class_name: str
         :param unique_id: Unique identifier to differentiate this from other UI lists.
-        :type unique_id: str
         :param list_path: Data path of the list relative to context, eg. "object.vertex_groups".
-        :type list_path: str
         :param active_index_path: Data path of the list active index integer relative to context,
     eg. "object.vertex_groups.active_index".
-        :type active_index_path: str
         :param insertion_operators: Whether to draw Add/Remove buttons.
-        :type insertion_operators: bool
         :param move_operators: Whether to draw Move Up/Down buttons.
-        :type move_operators: str
         :param menu_class_name: Identifier of a Menu that should be drawn as a drop-down.
-        :type menu_class_name: str
         :return: The right side column.
-        :rtype: bpy.types.UILayout
     """

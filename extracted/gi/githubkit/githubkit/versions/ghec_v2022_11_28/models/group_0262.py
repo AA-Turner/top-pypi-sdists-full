@@ -9,28 +9,40 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0003 import SimpleUser
+from .group_0236 import MinimalRepository
 
 
-class TeamMembership(GitHubModel):
-    """Team Membership
+class Package(GitHubModel):
+    """Package
 
-    Team Membership
+    A software package
     """
 
+    id: int = Field(description="Unique identifier of the package.")
+    name: str = Field(description="The name of the package.")
+    package_type: Literal[
+        "npm", "maven", "rubygems", "docker", "nuget", "container"
+    ] = Field()
     url: str = Field()
-    role: Literal["member", "maintainer"] = Field(
-        default="member", description="The role of the user in the team."
-    )
-    state: Literal["active", "pending"] = Field(
-        description="The state of the user's membership in the team."
-    )
+    html_url: str = Field()
+    version_count: int = Field(description="The number of versions of the package.")
+    visibility: Literal["private", "public"] = Field()
+    owner: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
+    repository: Missing[Union[None, MinimalRepository]] = Field(default=UNSET)
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
 
 
-model_rebuild(TeamMembership)
+model_rebuild(Package)
 
-__all__ = ("TeamMembership",)
+__all__ = ("Package",)

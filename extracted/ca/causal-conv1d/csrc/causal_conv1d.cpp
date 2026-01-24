@@ -2,12 +2,31 @@
  * Copyright (c) 2024, Tri Dao.
  ******************************************************************************/
 
+#include <torch/extension.h>
+#if TORCH_VERSION_MAJOR > 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 6)
+#include <c10/core/DeviceGuard.h>
+#else
 #include <c10/cuda/CUDAGuard.h>
+#endif
+
 #include <c10/cuda/CUDAStream.h>
+#include <ATen/Context.h>
 #include <torch/python.h>
 #include <vector>
+#include <cstdlib>
 
 #include "causal_conv1d.h"
+
+namespace {
+bool use_deterministic_mode() {
+    const char* env = std::getenv("CAUSAL_CONV1D_DETERMINISTIC");
+    if (env) {
+        if (*env == '1') return true;
+        if (*env == '0') return false;
+    }
+    return at::globalContext().deterministicAlgorithms();
+}
+}
 
 #define CHECK_SHAPE(x, ...) TORCH_CHECK(x.sizes() == torch::IntArrayRef({__VA_ARGS__}), #x " must have shape (" #__VA_ARGS__ ")")
 
@@ -221,7 +240,11 @@ causal_conv1d_fwd(const at::Tensor &x,
     }
 
     // Otherwise the kernel will be launched from cuda:0 device
+#if TORCH_VERSION_MAJOR > 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 6)
+    c10::DeviceGuard device_guard(x.device());
+#else
     at::cuda::CUDAGuard device_guard{x.device()};
+#endif
     auto stream = at::cuda::getCurrentCUDAStream().stream();
     DISPATCH_ITYPE_FLOAT_AND_HALF_AND_BF16(x.scalar_type(), "causal_conv1d_fwd", [&] {
         DISPATCH_WTYPE_FLOAT_AND_HALF_AND_BF16(weight.scalar_type(), "causal_conv1d_fwd", [&] {
@@ -304,8 +327,12 @@ causal_conv1d_bwd(const at::Tensor &x,
     if (is_channel_last) { TORCH_CHECK(dx.stride(1) == 1); }
 
     // Otherwise the kernel will be launched from cuda:0 device
+#if TORCH_VERSION_MAJOR > 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 6)
+    c10::Device device = x.device();
+    c10::DeviceGuard device_guard(device);
+#else
     at::cuda::CUDAGuard device_guard{x.device()};
-
+#endif
     ConvParamsBwd params;
     set_conv_params_bwd(params, batch_size, dim, seqlen, width,
                         x, weight, bias_.has_value() ? bias_.value().data_ptr() : nullptr,
@@ -358,6 +385,57 @@ causal_conv1d_bwd(const at::Tensor &x,
         params.dinitial_states_ptr = nullptr;
     }
 
+    const bool deterministic = use_deterministic_mode();
+    params.deterministic = deterministic;
+
+    at::Tensor dweight_workspace;
+    at::Tensor dbias_workspace;
+
+    if (deterministic) {
+        if (!is_channel_last) {
+            dweight_workspace = at::zeros({batch_size, dim, width},
+                at::TensorOptions().dtype(at::kFloat).device(x.device()));
+            params.dweight_workspace_ptr = dweight_workspace.data_ptr();
+            params.dweight_workspace_batch_stride = dweight_workspace.stride(0);
+            params.dweight_workspace_dim_stride = dweight_workspace.stride(1);
+
+            if (dbias_.has_value()) {
+                dbias_workspace = at::zeros({batch_size, dim},
+                    at::TensorOptions().dtype(at::kFloat).device(x.device()));
+                params.dbias_workspace_ptr = dbias_workspace.data_ptr();
+                params.dbias_workspace_batch_stride = dbias_workspace.stride(0);
+            } else {
+                params.dbias_workspace_ptr = nullptr;
+                params.dbias_workspace_batch_stride = 0;
+            }
+        } else {
+            const int kChunkSizeL = seqlen <= 128 ? 64 : 128;
+            const int n_chunks_L = (seqlen + kChunkSizeL - 1) / kChunkSizeL;
+
+            dweight_workspace = at::zeros({batch_size, n_chunks_L, dim, width},
+                at::TensorOptions().dtype(at::kFloat).device(x.device()));
+            params.dweight_workspace_ptr = dweight_workspace.data_ptr();
+            params.dweight_workspace_batch_stride = dweight_workspace.stride(0);
+            params.dweight_workspace_dim_stride = dweight_workspace.stride(2);
+
+            if (dbias_.has_value()) {
+                dbias_workspace = at::zeros({batch_size, n_chunks_L, dim},
+                    at::TensorOptions().dtype(at::kFloat).device(x.device()));
+                params.dbias_workspace_ptr = dbias_workspace.data_ptr();
+                params.dbias_workspace_batch_stride = dbias_workspace.stride(0);
+            } else {
+                params.dbias_workspace_ptr = nullptr;
+                params.dbias_workspace_batch_stride = 0;
+            }
+        }
+    } else {
+        params.dweight_workspace_ptr = nullptr;
+        params.dbias_workspace_ptr = nullptr;
+        params.dweight_workspace_batch_stride = 0;
+        params.dweight_workspace_dim_stride = 0;
+        params.dbias_workspace_batch_stride = 0;
+    }
+
     auto stream = at::cuda::getCurrentCUDAStream().stream();
     DISPATCH_ITYPE_FLOAT_AND_HALF_AND_BF16(x.scalar_type(), "causal_conv1d_bwd", [&] {
         DISPATCH_WTYPE_FLOAT_AND_HALF_AND_BF16(weight.scalar_type(), "causal_conv1d_bwd", [&] {
@@ -368,6 +446,20 @@ causal_conv1d_bwd(const at::Tensor &x,
             }
         });
     });
+
+    if (deterministic) {
+        if (!is_channel_last) {
+            dweight.add_(dweight_workspace.sum(0));
+            if (dbias_.has_value()) {
+                dbias_.value().add_(dbias_workspace.sum(0));
+            }
+        } else {
+            dweight.add_(dweight_workspace.sum(at::IntArrayRef({0, 1})));
+            if (dbias_.has_value()) {
+                dbias_.value().add_(dbias_workspace.sum(at::IntArrayRef({0, 1})));
+            }
+        }
+    }
 }
 
 void
@@ -450,7 +542,12 @@ causal_conv1d_update(const at::Tensor &x,
     }
 
     // Otherwise the kernel will be launched from cuda:0 device
+#if TORCH_VERSION_MAJOR > 2 || (TORCH_VERSION_MAJOR == 2 && TORCH_VERSION_MINOR >= 6)
+    c10::Device device = x.device();
+    c10::DeviceGuard device_guard(device);
+#else
     at::cuda::CUDAGuard device_guard{x.device()};
+#endif
     auto stream = at::cuda::getCurrentCUDAStream().stream();
     DISPATCH_ITYPE_FLOAT_AND_HALF_AND_BF16(x.scalar_type(), "causal_conv1d_update", [&] {
         DISPATCH_WTYPE_FLOAT_AND_HALF_AND_BF16(weight.scalar_type(), "causal_conv1d_update", [&] {

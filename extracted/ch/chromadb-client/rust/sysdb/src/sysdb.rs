@@ -8,23 +8,28 @@ use chroma_error::{ChromaError, ErrorCodes, TonicError, TonicMissingFieldError};
 use chroma_types::chroma_proto::sys_db_client::SysDbClient;
 use chroma_types::chroma_proto::VersionListForCollection;
 use chroma_types::{
-    chroma_proto, chroma_proto::CollectionVersionInfo, CollectionAndSegments,
-    CollectionMetadataUpdate, CountCollectionsError, CreateCollectionError, CreateDatabaseError,
-    CreateDatabaseResponse, CreateTenantError, CreateTenantResponse, Database,
-    DeleteCollectionError, DeleteDatabaseError, DeleteDatabaseResponse, GetCollectionByCrnError,
-    GetCollectionSizeError, GetCollectionWithSegmentsError, GetCollectionsError, GetDatabaseError,
-    GetDatabaseResponse, GetSegmentsError, GetTenantError, GetTenantResponse,
-    InternalCollectionConfiguration, InternalUpdateCollectionConfiguration,
-    ListCollectionVersionsError, ListDatabasesError, ListDatabasesResponse, Metadata, ResetError,
-    ResetResponse, SegmentFlushInfo, SegmentFlushInfoConversionError, SegmentUuid,
-    UpdateCollectionError, UpdateTenantError, UpdateTenantResponse, VectorIndexConfiguration,
+    chroma_proto, chroma_proto::CollectionVersionInfo, CollectionAndSegments, CollectionFlushInfo,
+    CollectionFlushInfoConversionError, CollectionMetadataUpdate, CountCollectionsError,
+    CreateCollectionError, CreateDatabaseError, CreateDatabaseResponse, CreateTenantError,
+    CreateTenantResponse, Database, DeleteCollectionError, DeleteDatabaseError,
+    DeleteDatabaseResponse, GetCollectionByCrnError, GetCollectionSizeError,
+    GetCollectionWithSegmentsError, GetCollectionsError, GetDatabaseError, GetDatabaseResponse,
+    GetSegmentsError, GetTenantError, GetTenantResponse, InternalCollectionConfiguration,
+    InternalUpdateCollectionConfiguration, ListAttachedFunctionsError, ListCollectionVersionsError,
+    ListDatabasesError, ListDatabasesResponse, Metadata, ResetError, ResetResponse,
+    SegmentFlushInfo, SegmentFlushInfoConversionError, SegmentUuid, UpdateCollectionError,
+    UpdateTenantError, UpdateTenantResponse,
 };
 use chroma_types::{
-    BatchGetCollectionSoftDeleteStatusError, BatchGetCollectionVersionFilePathsError, Collection,
+    AttachedFunctionUpdateInfo, AttachedFunctionUuid, BatchGetCollectionSoftDeleteStatusError,
+    BatchGetCollectionVersionFilePathsError, ClientResolutionError, Collection,
     CollectionConversionError, CollectionUuid, CountForksError, DatabaseUuid,
-    FinishDatabaseDeletionError, FlushCompactionResponse, FlushCompactionResponseConversionError,
-    ForkCollectionError, Segment, SegmentConversionError, SegmentScope, Tenant,
+    FinishCreateAttachedFunctionError, FinishDatabaseDeletionError,
+    FlushCompactionAndAttachedFunctionResponse, FlushCompactionResponse,
+    FlushCompactionResponseConversionError, ForkCollectionError, Schema, SchemaError, Segment,
+    SegmentConversionError, SegmentScope, Tenant,
 };
+use prost_types;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -37,7 +42,63 @@ use uuid::{Error, Uuid};
 
 pub const VERSION_FILE_S3_PREFIX: &str = "sysdb/version_files/";
 
+// Helper function to convert serde_json::Value to prost_types::Value
+pub(crate) fn json_to_prost_value(json: serde_json::Value) -> prost_types::Value {
+    use prost_types::value::Kind;
+    let kind = match json {
+        serde_json::Value::Null => Kind::NullValue(0),
+        serde_json::Value::Bool(b) => Kind::BoolValue(b),
+        serde_json::Value::Number(n) => {
+            if let Some(f) = n.as_f64() {
+                Kind::NumberValue(f)
+            } else {
+                Kind::NullValue(0)
+            }
+        }
+        serde_json::Value::String(s) => Kind::StringValue(s),
+        serde_json::Value::Array(arr) => Kind::ListValue(prost_types::ListValue {
+            values: arr.into_iter().map(json_to_prost_value).collect(),
+        }),
+        serde_json::Value::Object(map) => Kind::StructValue(prost_types::Struct {
+            fields: map
+                .into_iter()
+                .map(|(k, v)| (k, json_to_prost_value(v)))
+                .collect(),
+        }),
+    };
+    prost_types::Value { kind: Some(kind) }
+}
+
+// Helper function to convert prost_types::Value to serde_json::Value
+fn prost_value_to_json(value: prost_types::Value) -> serde_json::Value {
+    use prost_types::value::Kind;
+    match value.kind {
+        Some(Kind::NullValue(_)) => serde_json::Value::Null,
+        Some(Kind::BoolValue(b)) => serde_json::Value::Bool(b),
+        Some(Kind::NumberValue(n)) => serde_json::Number::from_f64(n)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        Some(Kind::StringValue(s)) => serde_json::Value::String(s),
+        Some(Kind::ListValue(list)) => {
+            serde_json::Value::Array(list.values.into_iter().map(prost_value_to_json).collect())
+        }
+        Some(Kind::StructValue(s)) => prost_struct_to_json(s),
+        None => serde_json::Value::Null,
+    }
+}
+
+// Helper function to convert prost_types::Struct to serde_json::Value
+fn prost_struct_to_json(s: prost_types::Struct) -> serde_json::Value {
+    serde_json::Value::Object(
+        s.fields
+            .into_iter()
+            .map(|(k, v)| (k, prost_value_to_json(v)))
+            .collect(),
+    )
+}
+
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum SysDb {
     Grpc(GrpcSysDb),
     Sqlite(SqliteSysDb),
@@ -229,27 +290,11 @@ impl SysDb {
         name: String,
         segments: Vec<Segment>,
         configuration: Option<InternalCollectionConfiguration>,
+        schema: Option<Schema>,
         metadata: Option<Metadata>,
         dimension: Option<i32>,
         get_or_create: bool,
     ) -> Result<Collection, CreateCollectionError> {
-        let configuration = match configuration {
-            Some(mut config) => {
-                let hnsw_params = config.get_hnsw_config_from_legacy_metadata(&metadata)?;
-                if let Some(hnsw_params) = hnsw_params {
-                    config.vector_index = VectorIndexConfiguration::Hnsw(hnsw_params);
-                }
-                config
-            }
-            None => metadata
-                .clone()
-                .map(|m| {
-                    InternalCollectionConfiguration::from_legacy_metadata(m).map_err(|e| e.boxed())
-                })
-                .transpose()?
-                .unwrap_or(InternalCollectionConfiguration::default_hnsw()),
-        };
-
         match self {
             SysDb::Grpc(grpc) => {
                 grpc.create_collection(
@@ -259,6 +304,7 @@ impl SysDb {
                     name,
                     segments,
                     configuration,
+                    schema,
                     metadata,
                     dimension,
                     get_or_create,
@@ -274,6 +320,7 @@ impl SysDb {
                         name,
                         segments,
                         configuration,
+                        schema.clone(),
                         metadata,
                         dimension,
                         get_or_create,
@@ -284,7 +331,9 @@ impl SysDb {
                 let collection = Collection {
                     collection_id,
                     name,
-                    config: configuration,
+                    config: configuration
+                        .unwrap_or(InternalCollectionConfiguration::default_hnsw()),
+                    schema,
                     metadata,
                     dimension,
                     tenant: tenant.clone(),
@@ -299,6 +348,7 @@ impl SysDb {
                     lineage_file_path: None,
                     updated_at: SystemTime::now(),
                     database_id: DatabaseUuid::new(),
+                    compaction_failure_count: 0,
                 };
 
                 test_sysdb.add_collection(collection.clone());
@@ -411,6 +461,17 @@ impl SysDb {
         }
     }
 
+    pub async fn list_attached_functions(
+        &mut self,
+        collection_id: CollectionUuid,
+    ) -> Result<Vec<chroma_proto::AttachedFunction>, ListAttachedFunctionsError> {
+        match self {
+            SysDb::Grpc(grpc) => grpc.list_attached_functions(collection_id).await,
+            SysDb::Sqlite(_) => Err(ListAttachedFunctionsError::NotImplemented),
+            SysDb::Test(test) => test.list_attached_functions(collection_id).await,
+        }
+    }
+
     pub async fn get_collections_to_gc(
         &mut self,
         cutoff_time: Option<SystemTime>,
@@ -472,6 +533,17 @@ impl SysDb {
         }
     }
 
+    // Only meant for testing.
+    pub async fn get_all_functions(
+        &mut self,
+    ) -> Result<Vec<(String, uuid::Uuid)>, Box<dyn std::error::Error>> {
+        match self {
+            SysDb::Grpc(grpc) => grpc.get_all_functions().await,
+            SysDb::Sqlite(_) => unimplemented!("get_all_functions not implemented for sqlite"),
+            SysDb::Test(_) => unimplemented!("get_all_functions not implemented for test"),
+        }
+    }
+
     pub async fn batch_get_collection_version_file_paths(
         &mut self,
         collection_ids: Vec<CollectionUuid>,
@@ -527,6 +599,7 @@ impl SysDb {
         segment_flush_info: Arc<[SegmentFlushInfo]>,
         total_records_post_compaction: u64,
         size_bytes_post_compaction: u64,
+        schema: Option<Schema>,
     ) -> Result<FlushCompactionResponse, FlushCompactionError> {
         match self {
             SysDb::Grpc(grpc) => {
@@ -538,6 +611,7 @@ impl SysDb {
                     segment_flush_info,
                     total_records_post_compaction,
                     size_bytes_post_compaction,
+                    schema,
                 )
                 .await
             }
@@ -554,6 +628,21 @@ impl SysDb {
                 )
                 .await
             }
+        }
+    }
+
+    pub async fn flush_compaction_and_attached_function(
+        &mut self,
+        collections: Vec<CollectionFlushInfo>,
+        attached_function_update: AttachedFunctionUpdateInfo,
+    ) -> Result<FlushCompactionAndAttachedFunctionResponse, FlushCompactionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.flush_compaction_and_attached_function(collections, attached_function_update)
+                    .await
+            }
+            SysDb::Sqlite(_) => todo!(),
+            SysDb::Test(_) => todo!(),
         }
     }
 
@@ -608,11 +697,44 @@ impl SysDb {
         }
     }
 
+    /// Increment the compaction failure count for a collection.
+    pub async fn increment_compaction_failure_count(
+        &mut self,
+        collection_id: CollectionUuid,
+    ) -> Result<(), IncrementCompactionFailureCountError> {
+        match self {
+            SysDb::Grpc(grpc) => grpc.increment_compaction_failure_count(collection_id).await,
+            SysDb::Test(test) => {
+                test.increment_compaction_failure_count(collection_id);
+                Ok(())
+            }
+            SysDb::Sqlite(_) => Err(IncrementCompactionFailureCountError::Unimplemented),
+        }
+    }
+
     pub async fn reset(&mut self) -> Result<ResetResponse, ResetError> {
         match self {
             SysDb::Grpc(grpc) => grpc.reset().await,
             SysDb::Sqlite(sqlite) => sqlite.reset().await,
             SysDb::Test(_) => todo!(),
+        }
+    }
+
+    pub async fn finish_create_attached_function(
+        &mut self,
+        attached_function_id: AttachedFunctionUuid,
+        output_collection_schema_str: String,
+    ) -> Result<bool, FinishCreateAttachedFunctionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.finish_create_attached_function(
+                    attached_function_id,
+                    output_collection_schema_str,
+                )
+                .await
+            }
+            SysDb::Sqlite(_) => unimplemented!(),
+            SysDb::Test(_) => unimplemented!(),
         }
     }
 }
@@ -623,6 +745,9 @@ impl SysDb {
 pub struct GrpcSysDb {
     #[allow(clippy::type_complexity)]
     client: SysDbClient<chroma_tracing::GrpcClientTraceService<tonic::transport::Channel>>,
+    #[allow(clippy::type_complexity)]
+    _mcmr_client:
+        Option<SysDbClient<chroma_tracing::GrpcClientTraceService<tonic::transport::Channel>>>,
 }
 
 #[derive(Error, Debug)]
@@ -640,11 +765,12 @@ impl ChromaError for GrpcSysDbError {
 }
 
 #[async_trait]
-impl Configurable<GrpcSysDbConfig> for GrpcSysDb {
+impl Configurable<(GrpcSysDbConfig, Option<GrpcSysDbConfig>)> for GrpcSysDb {
     async fn try_from_config(
-        my_config: &GrpcSysDbConfig,
+        config: &(GrpcSysDbConfig, Option<GrpcSysDbConfig>),
         _registry: &Registry,
     ) -> Result<Self, Box<dyn ChromaError>> {
+        let my_config = &config.0;
         let host = &my_config.host;
         let port = &my_config.port;
         tracing::info!("Connecting to sysdb at {}:{}", host, port);
@@ -664,7 +790,30 @@ impl Configurable<GrpcSysDbConfig> for GrpcSysDb {
             .layer(chroma_tracing::GrpcClientTraceLayer)
             .service(channel);
         let client = SysDbClient::new(channel);
-        Ok(GrpcSysDb { client })
+        let mcmr_client = if let Some(mcmr_config) = &config.1 {
+            let host = &mcmr_config.host;
+            let port = &mcmr_config.port;
+            let connection_string = format!("http://{}:{}", host, port);
+            let endpoint = match Endpoint::from_shared(connection_string) {
+                Ok(endpoint) => endpoint,
+                Err(e) => return Err(Box::new(GrpcSysDbError::FailedToConnect(e))),
+            };
+            let endpoint = endpoint
+                .connect_timeout(Duration::from_millis(mcmr_config.connect_timeout_ms))
+                .timeout(Duration::from_millis(mcmr_config.request_timeout_ms));
+            let channel =
+                Channel::balance_list((0..mcmr_config.num_channels).map(|_| endpoint.clone()));
+            let channel = ServiceBuilder::new()
+                .layer(chroma_tracing::GrpcClientTraceLayer)
+                .service(channel);
+            Some(SysDbClient::new(channel))
+        } else {
+            None
+        };
+        Ok(GrpcSysDb {
+            client,
+            _mcmr_client: mcmr_client,
+        })
     }
 }
 
@@ -720,6 +869,32 @@ impl TryFrom<chroma_proto::CollectionToGcInfo> for CollectionToGcInfo {
 }
 
 impl GrpcSysDb {
+    fn client(
+        &self,
+        database_name: &str,
+    ) -> Result<
+        SysDbClient<chroma_tracing::GrpcClientTraceService<tonic::transport::Channel>>,
+        ClientResolutionError,
+    > {
+        // Extract prefix from database name. For now if it begins with topo then mcmr
+        // client otherwise use single region client. # is the delimiter.
+        // TODO(Sanket): Config for regions and handle prefix accordingly here.
+        // Only extract the beginning of the string up to the first #.
+        let prefix = database_name
+            .split('#')
+            .next()
+            .ok_or(ClientResolutionError::DatabaseNotFound)?;
+        if prefix.starts_with("topo") {
+            if let Some(mcmr_client) = &self._mcmr_client {
+                Ok(mcmr_client.clone())
+            } else {
+                Err(ClientResolutionError::McmrNotSupported)
+            }
+        } else {
+            Ok(self.client.clone())
+        }
+    }
+
     pub async fn create_tenant(
         &mut self,
         tenant_name: String,
@@ -727,13 +902,24 @@ impl GrpcSysDb {
         let req = chroma_proto::CreateTenantRequest {
             name: tenant_name.clone(),
         };
-        match self.client.create_tenant(req).await {
+        // TODO(Sanket): More sophisticated error handling here.
+        match self.client.create_tenant(req.clone()).await {
             Ok(_) => Ok(CreateTenantResponse {}),
             Err(err) if matches!(err.code(), Code::AlreadyExists) => {
-                Err(CreateTenantError::AlreadyExists(tenant_name))
+                Err(CreateTenantError::AlreadyExists(tenant_name.clone()))
             }
             Err(err) => Err(CreateTenantError::Internal(err.into())),
+        }?;
+        if let Some(mut mcmr_client) = self._mcmr_client.clone() {
+            return match mcmr_client.create_tenant(req).await {
+                Ok(_) => Ok(CreateTenantResponse {}),
+                Err(err) if matches!(err.code(), Code::AlreadyExists) => {
+                    Err(CreateTenantError::AlreadyExists(tenant_name))
+                }
+                Err(err) => Err(CreateTenantError::Internal(err.into())),
+            };
         }
+        Ok(CreateTenantResponse {})
     }
 
     pub async fn get_tenant(
@@ -769,7 +955,10 @@ impl GrpcSysDb {
             name: database_name.clone(),
             tenant,
         };
-        let res = self.client.create_database(req).await;
+        let res = self
+            .client(database_name.as_str())?
+            .create_database(req)
+            .await;
         match res {
             Ok(_) => Ok(CreateDatabaseResponse {}),
             Err(e) => {
@@ -822,7 +1011,7 @@ impl GrpcSysDb {
             name: database_name.clone(),
             tenant,
         };
-        let res = self.client.get_database(req).await;
+        let res = self.client(database_name.as_str())?.get_database(req).await;
         match res {
             Ok(res) => {
                 let res = match res.into_inner().database {
@@ -1009,11 +1198,17 @@ impl GrpcSysDb {
         collection_id: CollectionUuid,
         name: String,
         segments: Vec<Segment>,
-        configuration: InternalCollectionConfiguration,
+        configuration: Option<InternalCollectionConfiguration>,
+        schema: Option<Schema>,
         metadata: Option<Metadata>,
         dimension: Option<i32>,
         get_or_create: bool,
     ) -> Result<Collection, CreateCollectionError> {
+        let configuration_json_str = match configuration {
+            Some(configuration) => serde_json::to_string(&configuration)
+                .map_err(CreateCollectionError::Configuration)?,
+            None => "{}".to_string(),
+        };
         let res = self
             .client
             .create_collection(chroma_proto::CreateCollectionRequest {
@@ -1025,11 +1220,18 @@ impl GrpcSysDb {
                     .into_iter()
                     .map(chroma_proto::Segment::from)
                     .collect(),
-                configuration_json_str: serde_json::to_string(&configuration)
-                    .map_err(CreateCollectionError::Configuration)?,
+                configuration_json_str,
                 metadata: metadata.map(|metadata| metadata.into()),
                 dimension,
                 get_or_create: Some(get_or_create),
+                schema_str: schema
+                    .map(|s| serde_json::to_string(&s))
+                    .transpose()
+                    .map_err(|e| {
+                        CreateCollectionError::Schema(SchemaError::InvalidSchema {
+                            reason: e.to_string(),
+                        })
+                    })?,
             })
             .await
             .map_err(|err| match err.code() {
@@ -1046,7 +1248,6 @@ impl GrpcSysDb {
             ))?
             .try_into()
             .map_err(|e: CollectionConversionError| CreateCollectionError::Internal(e.boxed()))?;
-
         Ok(collection)
     }
 
@@ -1210,6 +1411,28 @@ impl GrpcSysDb {
         Ok(res.count as usize)
     }
 
+    pub async fn list_attached_functions(
+        &mut self,
+        collection_id: CollectionUuid,
+    ) -> Result<Vec<chroma_proto::AttachedFunction>, ListAttachedFunctionsError> {
+        let res = self
+            .client
+            .get_attached_functions(chroma_proto::GetAttachedFunctionsRequest {
+                id: None,
+                name: None,
+                input_collection_id: Some(collection_id.0.to_string()),
+                only_ready: Some(true),
+            })
+            .await
+            .map_err(|err| match err.code() {
+                Code::NotFound => ListAttachedFunctionsError::NotFound(collection_id.0.to_string()),
+                _ => ListAttachedFunctionsError::Internal(err.into()),
+            })?
+            .into_inner();
+
+        Ok(res.attached_functions)
+    }
+
     pub async fn get_collections_to_gc(
         &mut self,
         cutoff_time: Option<SystemTime>,
@@ -1356,6 +1579,23 @@ impl GrpcSysDb {
         })
     }
 
+    async fn get_all_functions(
+        &mut self,
+    ) -> Result<Vec<(String, uuid::Uuid)>, Box<dyn std::error::Error>> {
+        let res = self
+            .client
+            .get_functions(chroma_proto::GetFunctionsRequest {})
+            .await?;
+
+        let operators = res.into_inner().functions;
+        let mut result = Vec::new();
+        for op in operators {
+            let id = uuid::Uuid::parse_str(&op.id)?;
+            result.push((op.name, id));
+        }
+        Ok(result)
+    }
+
     async fn batch_get_collection_version_file_paths(
         &mut self,
         collection_ids: Vec<CollectionUuid>,
@@ -1445,6 +1685,7 @@ impl GrpcSysDb {
         segment_flush_info: Arc<[SegmentFlushInfo]>,
         total_records_post_compaction: u64,
         size_bytes_post_compaction: u64,
+        schema: Option<Schema>,
     ) -> Result<FlushCompactionResponse, FlushCompactionError> {
         let segment_compaction_info =
             segment_flush_info
@@ -1462,6 +1703,14 @@ impl GrpcSysDb {
             }
         };
 
+        let schema_str = schema
+            .map(|s| serde_json::to_string(&s))
+            .transpose()
+            .map_err(|e| {
+                FlushCompactionError::Schema(SchemaError::InvalidSchema {
+                    reason: e.to_string(),
+                })
+            })?;
         let req = chroma_proto::FlushCollectionCompactionRequest {
             tenant_id,
             collection_id: collection_id.0.to_string(),
@@ -1470,9 +1719,55 @@ impl GrpcSysDb {
             segment_compaction_info,
             total_records_post_compaction,
             size_bytes_post_compaction,
+            schema_str,
         };
 
         let res = self.client.flush_collection_compaction(req).await;
+        match res {
+            Ok(res) => {
+                let res = res.into_inner();
+                // Convert proto response to our type
+                let collection_id =
+                    CollectionUuid(uuid::Uuid::parse_str(&res.collection_id).map_err(|_| {
+                        FlushCompactionError::FlushCompactionResponseConversionError(
+                            FlushCompactionResponseConversionError::InvalidUuid,
+                        )
+                    })?);
+                Ok(FlushCompactionResponse {
+                    collection_id,
+                    collection_version: res.collection_version,
+                    last_compaction_time: res.last_compaction_time,
+                })
+            }
+            Err(e) => Err(FlushCompactionError::FailedToFlushCompaction(e)),
+        }
+    }
+
+    async fn flush_compaction_and_attached_function(
+        &mut self,
+        collections: Vec<CollectionFlushInfo>,
+        attached_function_update: AttachedFunctionUpdateInfo,
+    ) -> Result<FlushCompactionAndAttachedFunctionResponse, FlushCompactionError> {
+        // Process all collections into flush compaction requests
+        let flush_compactions = collections
+            .into_iter()
+            .map(|collection| collection.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let attached_function_update_proto = Some(chroma_proto::AttachedFunctionUpdateInfo {
+            id: attached_function_update.attached_function_id.0.to_string(),
+            completion_offset: attached_function_update.completion_offset,
+        });
+
+        let req = chroma_proto::FlushCollectionCompactionAndAttachedFunctionRequest {
+            flush_compactions,
+            attached_function_update: attached_function_update_proto,
+        };
+
+        let res = self
+            .client
+            .flush_collection_compaction_and_attached_function(req)
+            .await;
         match res {
             Ok(res) => {
                 let res = res.into_inner();
@@ -1486,7 +1781,12 @@ impl GrpcSysDb {
                 };
                 Ok(res)
             }
-            Err(e) => Err(FlushCompactionError::FailedToFlushCompaction(e)),
+            Err(e) => {
+                if e.code() == Code::FailedPrecondition {
+                    return Err(FlushCompactionError::FailedToFlushCompaction(e));
+                }
+                Err(FlushCompactionError::FailedToFlushCompaction(e))
+            }
         }
     }
 
@@ -1514,6 +1814,18 @@ impl GrpcSysDb {
         Ok(res.into_inner().collection_id_to_success)
     }
 
+    async fn increment_compaction_failure_count(
+        &mut self,
+        collection_id: CollectionUuid,
+    ) -> Result<(), IncrementCompactionFailureCountError> {
+        let req = chroma_proto::IncrementCompactionFailureCountRequest {
+            collection_id: collection_id.0.to_string(),
+        };
+
+        self.client.increment_compaction_failure_count(req).await?;
+        Ok(())
+    }
+
     async fn update_tenant(
         &mut self,
         tenant_id: String,
@@ -1523,8 +1835,11 @@ impl GrpcSysDb {
             id: tenant_id,
             resource_name,
         };
-
-        self.client.set_tenant_resource_name(req).await?;
+        // TODO(Sanket): More sophisticated error handling here.
+        self.client.set_tenant_resource_name(req.clone()).await?;
+        if let Some(mut mcmr_client) = self._mcmr_client.clone() {
+            mcmr_client.set_tenant_resource_name(req).await?;
+        }
         Ok(UpdateTenantResponse {})
     }
 
@@ -1534,6 +1849,339 @@ impl GrpcSysDb {
             .await
             .map_err(|e| TonicError(e).boxed())?;
         Ok(ResetResponse {})
+    }
+
+    async fn finish_create_attached_function(
+        &mut self,
+        attached_function_id: AttachedFunctionUuid,
+        output_collection_schema_str: String,
+    ) -> Result<bool, FinishCreateAttachedFunctionError> {
+        let req = chroma_proto::FinishCreateAttachedFunctionRequest {
+            id: attached_function_id.0.to_string(),
+            output_collection_schema_str,
+        };
+        let response = self
+            .client
+            .finish_create_attached_function(req)
+            .await
+            .map_err(|e| match e.code() {
+                Code::NotFound => FinishCreateAttachedFunctionError::AttachedFunctionNotFound,
+                Code::AlreadyExists => FinishCreateAttachedFunctionError::OutputCollectionExists,
+                _ => FinishCreateAttachedFunctionError::FailedToFinishCreateAttachedFunction(e),
+            })?;
+        Ok(response.into_inner().created)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_attached_function(
+        &mut self,
+        name: String,
+        operator_name: String,
+        input_collection_id: chroma_types::CollectionUuid,
+        output_collection_name: String,
+        params: serde_json::Value,
+        tenant_name: String,
+        database_name: String,
+        min_records_for_invocation: u64,
+    ) -> Result<(chroma_types::AttachedFunctionUuid, bool), AttachFunctionError> {
+        // Convert serde_json::Value to prost_types::Struct for gRPC
+        // Params must be an object (or null/empty object)
+        let params_struct = match params {
+            serde_json::Value::Object(map) => Some(prost_types::Struct {
+                fields: map
+                    .into_iter()
+                    .map(|(k, v)| (k, json_to_prost_value(v)))
+                    .collect(),
+            }),
+            serde_json::Value::Null => None,
+            _ => {
+                return Err(AttachFunctionError::InvalidArgument(
+                    "params must be a json object".to_string(),
+                ))
+            }
+        };
+        let req = chroma_proto::AttachFunctionRequest {
+            name: name.clone(),
+            function_name: operator_name.clone(),
+            input_collection_id: input_collection_id.to_string(),
+            output_collection_name: output_collection_name.clone(),
+            params: params_struct,
+            tenant_id: tenant_name.clone(),
+            database: database_name.clone(),
+            min_records_for_invocation,
+        };
+        let response = self
+            .client
+            .attach_function(req)
+            .await
+            .map_err(|e| match e.code() {
+                Code::AlreadyExists => AttachFunctionError::AlreadyExists(e.message().to_string()),
+                Code::FailedPrecondition => {
+                    AttachFunctionError::CollectionAlreadyHasFunction(e.message().to_string())
+                }
+                Code::InvalidArgument => {
+                    AttachFunctionError::InvalidArgument(e.message().to_string())
+                }
+                Code::NotFound => AttachFunctionError::FunctionNotFound(e.message().to_string()),
+                _ => AttachFunctionError::InternalError(e),
+            })?
+            .into_inner();
+        // Parse the returned attached_function_id - this should always succeed since the server generated it
+        // If this fails, it indicates a serious server bug or protocol corruption
+        let attached_function = response.attached_function.ok_or_else(|| {
+            tracing::error!("Server did not return attached function in response");
+            AttachFunctionError::ServerReturnedInvalidData
+        })?;
+
+        let attached_function_id = chroma_types::AttachedFunctionUuid(
+            uuid::Uuid::parse_str(&attached_function.id).map_err(|e| {
+                tracing::error!(
+                    attached_function_id = %attached_function.id,
+                    error = %e,
+                    "Server returned invalid attached_function_id UUID - attached function was created but response is corrupt"
+                );
+                AttachFunctionError::ServerReturnedInvalidData
+            })?,
+        );
+        Ok((attached_function_id, response.created))
+    }
+
+    /// Helper function to convert a proto AttachedFunction to a chroma_types::AttachedFunction
+    #[allow(clippy::result_large_err)]
+    fn attached_function_from_proto(
+        attached_function: chroma_proto::AttachedFunction,
+    ) -> Result<chroma_types::AttachedFunction, GetAttachedFunctionError> {
+        // Parse attached_function_id
+        let attached_function_id = chroma_types::AttachedFunctionUuid(
+            uuid::Uuid::parse_str(&attached_function.id).map_err(|e| {
+                tracing::error!(
+                    attached_function_id = %attached_function.id,
+                    error = %e,
+                    "Server returned invalid attached_function_id UUID"
+                );
+                GetAttachedFunctionError::ServerReturnedInvalidData
+            })?,
+        );
+
+        // Parse input_collection_id
+        let parsed_input_collection_id = chroma_types::CollectionUuid(
+            uuid::Uuid::parse_str(&attached_function.input_collection_id).map_err(|e| {
+                tracing::error!(
+                    input_collection_id = %attached_function.input_collection_id,
+                    error = %e,
+                    "Server returned invalid input_collection_id UUID"
+                );
+                GetAttachedFunctionError::ServerReturnedInvalidData
+            })?,
+        );
+
+        // Convert params from Struct to JSON string
+        let params_str = attached_function.params.map(|s| {
+            let json_value = prost_struct_to_json(s);
+            serde_json::to_string(&json_value).unwrap_or_else(|_| "{}".to_string())
+        });
+
+        // Parse output_collection_id if present
+        let parsed_output_collection_id =
+            if let Some(id_str) = attached_function.output_collection_id.as_ref() {
+                if id_str.is_empty() {
+                    None
+                } else {
+                    Some(chroma_types::CollectionUuid(
+                        uuid::Uuid::parse_str(id_str).map_err(|e| {
+                            tracing::error!(
+                                output_collection_id = %id_str,
+                                error = %e,
+                                "Server returned invalid output_collection_id UUID"
+                            );
+                            GetAttachedFunctionError::ServerReturnedInvalidData
+                        })?,
+                    ))
+                }
+            } else {
+                None
+            };
+
+        // Parse function_id from the dedicated UUID field
+        let function_id = uuid::Uuid::parse_str(&attached_function.function_id).map_err(|e| {
+            tracing::error!(
+                function_id = %attached_function.function_id,
+                error = %e,
+                "Server returned invalid function_id UUID"
+            );
+            GetAttachedFunctionError::ServerReturnedInvalidData
+        })?;
+
+        Ok(chroma_types::AttachedFunction {
+            id: attached_function_id,
+            name: attached_function.name,
+            function_id,
+            input_collection_id: parsed_input_collection_id,
+            output_collection_name: attached_function.output_collection_name,
+            output_collection_id: parsed_output_collection_id,
+            params: params_str,
+            tenant_id: attached_function.tenant_id,
+            database_id: attached_function.database_id,
+            last_run: None,
+            completion_offset: attached_function.completion_offset,
+            min_records_for_invocation: attached_function.min_records_for_invocation,
+            is_deleted: false,
+            created_at: std::time::SystemTime::UNIX_EPOCH
+                + std::time::Duration::from_micros(attached_function.created_at),
+            updated_at: std::time::SystemTime::UNIX_EPOCH
+                + std::time::Duration::from_micros(attached_function.updated_at),
+        })
+    }
+
+    /// Get attached functions using flexible query parameters
+    /// All parameters are optional - None means don't filter on that field
+    pub async fn get_attached_functions(
+        &mut self,
+        id: Option<chroma_types::AttachedFunctionUuid>,
+        name: Option<String>,
+        input_collection_id: Option<chroma_types::CollectionUuid>,
+        only_ready: bool,
+    ) -> Result<Vec<chroma_types::AttachedFunction>, GetAttachedFunctionError> {
+        let req = chroma_proto::GetAttachedFunctionsRequest {
+            id: id.map(|id| id.0.to_string()),
+            name,
+            input_collection_id: input_collection_id.map(|id| id.to_string()),
+            only_ready: Some(only_ready),
+        };
+
+        let response = match self.client.get_attached_functions(req).await {
+            Ok(resp) => resp,
+            Err(status) => {
+                return Err(GetAttachedFunctionError::FailedToGetAttachedFunction(
+                    status,
+                ));
+            }
+        };
+        let response = response.into_inner();
+
+        let mut result = Vec::with_capacity(response.attached_functions.len());
+        for attached_function in response.attached_functions {
+            result.push(Self::attached_function_from_proto(attached_function)?);
+        }
+
+        Ok(result)
+    }
+
+    pub async fn soft_delete_attached_function(
+        &mut self,
+        name: String,
+        input_collection_id: chroma_types::CollectionUuid,
+        delete_output: bool,
+    ) -> Result<(), DeleteAttachedFunctionError> {
+        let req = chroma_proto::DetachFunctionRequest {
+            name,
+            delete_output,
+            input_collection_id: input_collection_id.to_string(),
+        };
+
+        match self.client.detach_function(req).await {
+            Ok(_) => Ok(()),
+            Err(status) => {
+                if status.code() == tonic::Code::NotFound {
+                    Err(DeleteAttachedFunctionError::NotFound)
+                } else {
+                    Err(DeleteAttachedFunctionError::FailedToDeleteAttachedFunction(
+                        status,
+                    ))
+                }
+            }
+        }
+    }
+
+    async fn get_attached_functions_to_gc(
+        &mut self,
+        cutoff_time: SystemTime,
+        limit: i32,
+    ) -> Result<Vec<chroma_types::AttachedFunctionUuid>, GetAttachedFunctionsToGcError> {
+        let cutoff_timestamp = prost_types::Timestamp {
+            seconds: cutoff_time
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+            nanos: 0,
+        };
+
+        let req = chroma_proto::GetAttachedFunctionsToGcRequest {
+            cutoff_time: Some(cutoff_timestamp),
+            limit,
+        };
+
+        let res = self
+            .client
+            .get_attached_functions_to_gc(req)
+            .await
+            .map_err(GetAttachedFunctionsToGcError::FailedToGetAttachedFunctionsToGc)?;
+
+        let attached_function_ids: Result<Vec<chroma_types::AttachedFunctionUuid>, _> = res
+            .into_inner()
+            .attached_functions
+            .into_iter()
+            .map(|af| {
+                uuid::Uuid::parse_str(&af.id)
+                    .map(chroma_types::AttachedFunctionUuid)
+                    .map_err(|e| {
+                        tracing::error!(
+                            attached_function_id = %af.id,
+                            error = %e,
+                            "Server returned invalid attached_function_id UUID"
+                        );
+                        GetAttachedFunctionsToGcError::ServerReturnedInvalidData
+                    })
+            })
+            .collect();
+
+        attached_function_ids
+    }
+
+    async fn finish_attached_function_deletion(
+        &mut self,
+        attached_function_id: chroma_types::AttachedFunctionUuid,
+    ) -> Result<(), FinishAttachedFunctionDeletionError> {
+        let req = chroma_proto::FinishAttachedFunctionDeletionRequest {
+            attached_function_id: attached_function_id.to_string(),
+        };
+
+        self.client
+            .finish_attached_function_deletion(req)
+            .await
+            .map_err(FinishAttachedFunctionDeletionError::FailedToFinishDeletion)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum GetAttachedFunctionsToGcError {
+    #[error("Failed to get attached functions to gc: {0}")]
+    FailedToGetAttachedFunctionsToGc(#[from] tonic::Status),
+    #[error("Server returned invalid data - response contains corrupt attached function IDs")]
+    ServerReturnedInvalidData,
+    #[error("Not implemented for this SysDb backend")]
+    NotImplemented,
+}
+
+impl ChromaError for GetAttachedFunctionsToGcError {
+    fn code(&self) -> ErrorCodes {
+        ErrorCodes::Internal
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum FinishAttachedFunctionDeletionError {
+    #[error("Failed to finish attached function deletion: {0}")]
+    FailedToFinishDeletion(#[from] tonic::Status),
+    #[error("Not implemented for this SysDb backend")]
+    NotImplemented,
+}
+
+impl ChromaError for FinishAttachedFunctionDeletionError {
+    fn code(&self) -> ErrorCodes {
+        ErrorCodes::Internal
     }
 }
 
@@ -1561,12 +2209,16 @@ pub enum FlushCompactionError {
     FailedToFlushCompaction(#[from] tonic::Status),
     #[error("Failed to convert segment flush info")]
     SegmentFlushInfoConversionError(#[from] SegmentFlushInfoConversionError),
+    #[error("Failed to convert collection flush info")]
+    CollectionFlushInfoConversionError(#[from] CollectionFlushInfoConversionError),
     #[error("Failed to convert flush compaction response")]
     FlushCompactionResponseConversionError(#[from] FlushCompactionResponseConversionError),
     #[error("Collection not found in sysdb")]
     CollectionNotFound,
     #[error("Segment not found in sysdb")]
     SegmentNotFound,
+    #[error("Failed to serialize schema")]
+    Schema(#[from] SchemaError),
 }
 
 impl ChromaError for FlushCompactionError {
@@ -1580,9 +2232,11 @@ impl ChromaError for FlushCompactionError {
                 }
             }
             FlushCompactionError::SegmentFlushInfoConversionError(_) => ErrorCodes::Internal,
+            FlushCompactionError::CollectionFlushInfoConversionError(_) => ErrorCodes::Internal,
             FlushCompactionError::FlushCompactionResponseConversionError(_) => ErrorCodes::Internal,
             FlushCompactionError::CollectionNotFound => ErrorCodes::Internal,
             FlushCompactionError::SegmentNotFound => ErrorCodes::Internal,
+            FlushCompactionError::Schema(e) => e.code(),
         }
     }
 
@@ -1615,6 +2269,246 @@ impl ChromaError for DeleteCollectionVersionError {
     fn code(&self) -> ErrorCodes {
         match self {
             DeleteCollectionVersionError::FailedToDeleteVersion(e) => e.code().into(),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum IncrementCompactionFailureCountError {
+    #[error("Failed to increment compaction failure count: {0}")]
+    FailedToIncrement(#[from] tonic::Status),
+    #[error("SQLite error: {0}")]
+    Sqlite(#[from] sqlx::Error),
+    #[error("Unimplemented: increment_compaction_failure_count is not supported for SqliteSysDb")]
+    Unimplemented,
+}
+
+impl ChromaError for IncrementCompactionFailureCountError {
+    fn code(&self) -> ErrorCodes {
+        match self {
+            IncrementCompactionFailureCountError::FailedToIncrement(_) => ErrorCodes::Internal,
+            IncrementCompactionFailureCountError::Sqlite(_) => ErrorCodes::Internal,
+            IncrementCompactionFailureCountError::Unimplemented => ErrorCodes::Internal,
+        }
+    }
+}
+
+//////////////////////////  Attached Function Operations //////////////////////////
+
+impl SysDb {
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create_attached_function(
+        &mut self,
+        name: String,
+        operator_name: String,
+        input_collection_id: chroma_types::CollectionUuid,
+        output_collection_name: String,
+        params: serde_json::Value,
+        tenant_name: String,
+        database_name: String,
+        min_records_for_invocation: u64,
+    ) -> Result<(chroma_types::AttachedFunctionUuid, bool), AttachFunctionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.create_attached_function(
+                    name,
+                    operator_name,
+                    input_collection_id,
+                    output_collection_name,
+                    params,
+                    tenant_name,
+                    database_name,
+                    min_records_for_invocation,
+                )
+                .await
+            }
+            SysDb::Sqlite(sqlite) => {
+                sqlite
+                    .create_attached_function(
+                        name,
+                        operator_name,
+                        input_collection_id,
+                        output_collection_name,
+                        params,
+                        tenant_name,
+                        database_name,
+                        min_records_for_invocation,
+                    )
+                    .await
+            }
+            SysDb::Test(_) => {
+                todo!()
+            }
+        }
+    }
+
+    /// Get attached functions using flexible query parameters
+    /// All parameters are optional - None means don't filter on that field
+    pub async fn get_attached_functions(
+        &mut self,
+        id: Option<chroma_types::AttachedFunctionUuid>,
+        name: Option<String>,
+        input_collection_id: Option<chroma_types::CollectionUuid>,
+        only_ready: bool,
+    ) -> Result<Vec<chroma_types::AttachedFunction>, GetAttachedFunctionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.get_attached_functions(id, name, input_collection_id, only_ready)
+                    .await
+            }
+            SysDb::Sqlite(_) => {
+                // TODO: Implement for Sqlite
+                Ok(vec![])
+            }
+            SysDb::Test(_) => {
+                // TODO: Implement for TestSysDb
+                Ok(vec![])
+            }
+        }
+    }
+
+    pub async fn soft_delete_attached_function(
+        &mut self,
+        name: String,
+        input_collection_id: chroma_types::CollectionUuid,
+        delete_output: bool,
+    ) -> Result<(), DeleteAttachedFunctionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.soft_delete_attached_function(name, input_collection_id, delete_output)
+                    .await
+            }
+            SysDb::Sqlite(_) => Err(DeleteAttachedFunctionError::NotImplemented),
+            SysDb::Test(_) => Err(DeleteAttachedFunctionError::NotImplemented),
+        }
+    }
+
+    pub async fn get_attached_functions_to_gc(
+        &mut self,
+        cutoff_time: SystemTime,
+        limit: i32,
+    ) -> Result<Vec<chroma_types::AttachedFunctionUuid>, GetAttachedFunctionsToGcError> {
+        match self {
+            SysDb::Grpc(grpc) => grpc.get_attached_functions_to_gc(cutoff_time, limit).await,
+            SysDb::Sqlite(_) => Err(GetAttachedFunctionsToGcError::NotImplemented),
+            SysDb::Test(_) => Err(GetAttachedFunctionsToGcError::NotImplemented),
+        }
+    }
+
+    pub async fn finish_attached_function_deletion(
+        &mut self,
+        attached_function_id: chroma_types::AttachedFunctionUuid,
+    ) -> Result<(), FinishAttachedFunctionDeletionError> {
+        match self {
+            SysDb::Grpc(grpc) => {
+                grpc.finish_attached_function_deletion(attached_function_id)
+                    .await
+            }
+            SysDb::Sqlite(_) => Err(FinishAttachedFunctionDeletionError::NotImplemented),
+            SysDb::Test(_) => Err(FinishAttachedFunctionDeletionError::NotImplemented),
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum AttachFunctionError {
+    #[error("AlreadyExistsError: {0}")]
+    AlreadyExists(String),
+    #[error("CollectionAlreadyHasFunctionError: {0}")]
+    CollectionAlreadyHasFunction(String),
+    #[error("InvalidArgumentError: {0}")]
+    InvalidArgument(String),
+    #[error("FunctionNotFoundError: {0}")]
+    FunctionNotFound(String),
+    #[error("InternalError: {0}")]
+    InternalError(#[from] tonic::Status),
+    #[error(
+        "Server returned invalid data - attached function was created but response is corrupt"
+    )]
+    ServerReturnedInvalidData,
+}
+
+impl ChromaError for AttachFunctionError {
+    fn code(&self) -> ErrorCodes {
+        match self {
+            AttachFunctionError::AlreadyExists(_) => ErrorCodes::AlreadyExists,
+            AttachFunctionError::CollectionAlreadyHasFunction(_) => ErrorCodes::FailedPrecondition,
+            AttachFunctionError::InvalidArgument(_) => ErrorCodes::InvalidArgument,
+            AttachFunctionError::FunctionNotFound(_) => ErrorCodes::NotFound,
+            AttachFunctionError::InternalError(e) => e.code().into(),
+            AttachFunctionError::ServerReturnedInvalidData => ErrorCodes::Internal,
+        }
+    }
+}
+
+impl From<AttachFunctionError> for chroma_types::AttachFunctionError {
+    fn from(e: AttachFunctionError) -> Self {
+        match e {
+            AttachFunctionError::AlreadyExists(msg) => {
+                chroma_types::AttachFunctionError::AlreadyExists(msg)
+            }
+            AttachFunctionError::CollectionAlreadyHasFunction(msg) => {
+                chroma_types::AttachFunctionError::CollectionAlreadyHasFunction(msg)
+            }
+            AttachFunctionError::InvalidArgument(msg) => {
+                chroma_types::AttachFunctionError::InvalidArgument(msg)
+            }
+            AttachFunctionError::FunctionNotFound(msg) => {
+                chroma_types::AttachFunctionError::FunctionNotFound(msg)
+            }
+            AttachFunctionError::InternalError(status) => {
+                chroma_types::AttachFunctionError::Internal(Box::new(chroma_error::TonicError(
+                    status,
+                )))
+            }
+            AttachFunctionError::ServerReturnedInvalidData => {
+                chroma_types::AttachFunctionError::Internal(Box::new(
+                    AttachFunctionError::ServerReturnedInvalidData,
+                ))
+            }
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum GetAttachedFunctionError {
+    #[error("Attached function not found")]
+    NotFound,
+    #[error("Attached function not ready - still initializing")]
+    NotReady,
+    #[error("Failed to get attached function: {0}")]
+    FailedToGetAttachedFunction(tonic::Status),
+    #[error("Server returned invalid data")]
+    ServerReturnedInvalidData,
+}
+
+impl ChromaError for GetAttachedFunctionError {
+    fn code(&self) -> ErrorCodes {
+        match self {
+            GetAttachedFunctionError::NotFound => ErrorCodes::NotFound,
+            GetAttachedFunctionError::NotReady => ErrorCodes::FailedPrecondition,
+            GetAttachedFunctionError::FailedToGetAttachedFunction(e) => e.code().into(),
+            GetAttachedFunctionError::ServerReturnedInvalidData => ErrorCodes::Internal,
+        }
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum DeleteAttachedFunctionError {
+    #[error("Attached function not found")]
+    NotFound,
+    #[error("Failed to delete attached function: {0}")]
+    FailedToDeleteAttachedFunction(#[from] tonic::Status),
+    #[error("Not implemented for this SysDb backend")]
+    NotImplemented,
+}
+
+impl ChromaError for DeleteAttachedFunctionError {
+    fn code(&self) -> ErrorCodes {
+        match self {
+            DeleteAttachedFunctionError::NotFound => ErrorCodes::NotFound,
+            DeleteAttachedFunctionError::FailedToDeleteAttachedFunction(e) => e.code().into(),
+            DeleteAttachedFunctionError::NotImplemented => ErrorCodes::Internal,
         }
     }
 }

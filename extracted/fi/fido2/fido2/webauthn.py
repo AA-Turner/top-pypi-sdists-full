@@ -405,7 +405,7 @@ class _StringEnumMeta(EnumMeta):
     def _get_value(cls, value):
         return None
 
-    def __call__(cls, value, *args, **kwargs):
+    def __call__(cls, value, *args, **kwargs):  # type: ignore
         try:
             return super().__call__(value, *args, **kwargs)
         except ValueError:
@@ -483,9 +483,11 @@ class PublicKeyCredentialRpEntity(_JsonDataObject):
         return sha256(self.id.encode("utf8")) if self.id else None
 
 
+# Note that name and display_name are required in the WebAuthn spec, but CTAP2
+# allows them to be omitted, so we make them optional here.
 @dataclass(eq=False, frozen=True, kw_only=True)
 class PublicKeyCredentialUserEntity(_JsonDataObject):
-    name: str
+    name: str | None = None
     id: bytes
     display_name: str | None = None
 
@@ -637,13 +639,14 @@ class RegistrationResponse(_JsonDataObject):
         return super()._parse_value(t, value)
 
     @classmethod
-    def from_dict(cls, data):
-        if data and "id" in data:
+    def _parse_from_dict(cls, data):
+        if "id" in data:
             data = dict(data)
             credential_id = data.pop("id")
             if credential_id != data["rawId"]:
                 raise ValueError("id does not match rawId")
-        return super().from_dict(data)
+
+        return super()._parse_from_dict(data)
 
 
 @dataclass(eq=False, frozen=True, kw_only=True)
@@ -678,13 +681,13 @@ class AuthenticationResponse(_JsonDataObject):
         return super()._parse_value(t, value)
 
     @classmethod
-    def from_dict(cls, data):
-        if data and "id" in data:
+    def _parse_from_dict(cls, data):
+        if "id" in data:
             data = dict(data)
             credential_id = data.pop("id")
             if credential_id != data["rawId"]:
                 raise ValueError("id does not match rawId")
-        return super().from_dict(data)
+        return super()._parse_from_dict(data)
 
 
 @dataclass(eq=False, frozen=True, kw_only=True)

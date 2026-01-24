@@ -2,15 +2,93 @@ import re
 import warnings
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    TypedDict,
+    Union,
+)
 
-from packaging.version import Version
-from typing_extensions import NotRequired, TypeAlias
+try:
+    from typing import TypeAlias  # py3.10+
+except ImportError:
+    try:
+        from typing_extensions import TypeAlias  # type: ignore
+    except ImportError:
+        if TYPE_CHECKING:
+            raise
+        TypeAlias = Any  # type: ignore
+
+try:
+    from typing import NotRequired, Unpack  # py3.11+
+except ImportError:
+    try:
+        from typing_extensions import NotRequired, Unpack  # type: ignore
+    except ImportError:
+        if TYPE_CHECKING:
+            raise
+
+        class _SubscriptableFallback:
+            def __getitem__(self, item):
+                return Any
+
+        NotRequired = _SubscriptableFallback()  # type: ignore
+        Unpack = _SubscriptableFallback()  # type: ignore
+
+__all__ = [
+    "NotRequired",
+    "TypeAlias",
+    "Unpack",
+    "DataFrameModuleName",
+    "DataFrameTypeName",
+    "DataFrameOrSeries",
+]
+
+DataFrameModuleName: TypeAlias = Optional[str]
+DataFrameTypeName: TypeAlias = Optional[str]
 
 """
 A Pandas or Polars DataFrame or Series, a numpy array, or a Pandas Style object.
 """
 DataFrameOrSeries: TypeAlias = Any
+
+
+def get_dataframe_type_description(df: DataFrameOrSeries) -> str:
+    """
+    Return a string description of the type of the given DataFrame or Series.
+    """
+    if df is None:
+        return "None"
+    module = type(df).__module__
+    if module.startswith("modin.pandas."):
+        return f"modin.pandas.{type(df).__name__}"
+    if module.startswith("narwhals."):
+        return f"{get_dataframe_type_description(df.to_native())} (narwhalified)"
+    return f"{type(df).__module__.split('.', 1)[0]}.{type(df).__name__}"
+
+
+def get_dataframe_module_and_type_name(
+    df: DataFrameOrSeries,
+) -> tuple[DataFrameModuleName, DataFrameTypeName]:
+    """
+    Return the module and type name of the given DataFrame or Series.
+    """
+    if df is None:
+        return None, None
+    return type(df).__module__.split(".", 1)[0], type(df).__name__
+
+
+def get_dataframe_module_name(df: DataFrameOrSeries) -> DataFrameModuleName:
+    """
+    Return the module name of the given DataFrame or Series.
+    """
+    if df is None:
+        return None
+    return type(df).__module__.split(".", 1)[0]
 
 
 class JavascriptFunction(str):
@@ -96,7 +174,9 @@ class ITableOptions(DataTableOptions):
     style: NotRequired[Union[str, dict[str, str]]]
     selected_rows: NotRequired[Sequence[int]]
 
-    showIndex: NotRequired[Union[bool, str]]
+    showIndex: NotRequired[Union[bool, Literal["auto"]]]
+    show_dtypes: NotRequired[Union[bool, Literal["auto"]]]
+    show_df_type: NotRequired[bool]
 
     maxBytes: NotRequired[Union[int, str]]
     maxRows: NotRequired[int]
@@ -160,7 +240,15 @@ def is_typeguard_available() -> bool:
     except PackageNotFoundError:
         return False
     else:
-        return Version(typeguard_version) >= Version("4.4.1")
+        major, minor, bugfix = typeguard_version.split(".", 2)
+        bugfix_int = int(
+            re.match(
+                r"(\d+)", bugfix
+            ).group(  # pyright: ignore[reportOptionalMemberAccess]
+                1
+            )
+        )
+        return (int(major), int(minor), bugfix_int) >= (4, 4, 1)
 
 
 def check_itable_arguments(kwargs: dict[str, Any], typed_dict: type) -> None:

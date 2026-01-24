@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacontract-specification
-Version: 1.2.0
+Version: 1.2.3
 Summary: The Pydantic Model of the Data Contract Specification
 Project-URL: Homepage, https://github.com/datacontract/datacontract-specification-python
 Project-URL: Issues, https://github.com/datacontract/datacontract-specification-python/issues

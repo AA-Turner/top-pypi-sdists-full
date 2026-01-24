@@ -10,8 +10,10 @@
 #include "include/core/SkFont.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkSurface.h"
 #include "include/private/base/SkTArray.h"
+#include "tools/fonts/FontToolUtils.h"
 #include "tools/viewer/Slide.h"
 
 using namespace skia_private;
@@ -104,7 +106,7 @@ public:
     }
 
     void draw(SkCanvas* canvas, SkPaint* paint, SkScalar tx, SkScalar ty, SkScalar angle) override {
-        SkPath path;
+        SkPathBuilder path;
         path.moveTo(kTileWidth / 2.f, 2.f);
 
         if (fDepth > 0.f) {
@@ -138,7 +140,7 @@ public:
         paint->setStyle(SkPaint::kStroke_Style);
 
         this->applyLocalTransform(canvas, tx, ty, angle);
-        canvas->drawPath(path, *paint);
+        canvas->drawPath(path.detach(), *paint);
     }
 
 private:
@@ -185,8 +187,7 @@ public:
         auto info = SkImageInfo::Make(fSupersampleFactor * kTileWidth,
                                       fSupersampleFactor * kTileHeight,
                                       kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-        auto surface = fForceRasterBackend ? SkSurface::MakeRaster(info)
-                                           : canvas->makeSurface(info);
+        auto surface = fForceRasterBackend ? SkSurfaces::Raster(info) : canvas->makeSurface(info);
 
         surface->getCanvas()->save();
         // Make fully transparent so it is easy to determine pixels that are touched by partial cov.
@@ -282,7 +283,7 @@ public:
         canvas->clear(0xFFFFFFFF);
         // Move away from screen edge and add instructions
         SkPaint text;
-        SkFont font(nullptr, 12);
+        SkFont font(ToolUtils::DefaultTypeface(), 12);
         canvas->translate(60.f, 20.f);
         canvas->drawString("Each row features a rendering command under different AA strategies. "
                            "Native refers to the current backend of the viewer, e.g. OpenGL.",
@@ -473,7 +474,7 @@ private:
         // Labeling per shape and detailed labeling that isn't per-stroke
         canvas->save();
         SkPaint text;
-        SkFont font(nullptr, 12);
+        SkFont font(ToolUtils::DefaultTypeface(), 12);
 
         if (gridX == 0) {
             SkScalar centering = shape->name().size() * 4.f; // ad-hoc

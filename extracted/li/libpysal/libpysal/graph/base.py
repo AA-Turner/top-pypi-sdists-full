@@ -1,10 +1,9 @@
 import math
+import os
 from functools import cached_property
 
 import numpy as np
 import pandas as pd
-from packaging.version import Version
-from scipy import __version__ as scipy_version
 from scipy import sparse
 
 from libpysal.weights import W
@@ -37,6 +36,9 @@ from ._utils import (
 from .io._gal import _read_gal, _to_gal
 from .io._gwt import _read_gwt, _to_gwt
 from .io._parquet import _read_parquet, _to_parquet
+
+if os.environ.get("ASV", "false") == "true":
+    cached_property = property  # remove cache for benchmark purposes  # noqa: F811
 
 ALLOWED_TRANSFORMATIONS = ("O", "B", "R", "D", "V", "C")
 
@@ -164,8 +166,12 @@ class Graph(SetOpsMixin):
             return self.unique_ids.tolist()
 
     def __repr__(self):
+        n_isolates = len(self.isolates)
+
         return (
-            f"<Graph of {self.n} nodes and {self.nonzero} nonzero edges indexed by\n"
+            f"<Graph of {self.n} nodes and {self.nonzero} nonzero edges "
+            f"({self.n_components} component{'s'[: self.n_components ^ 1]}, "
+            f"{n_isolates} isolate{'s'[: n_isolates ^ 1]}) indexed by\n"
             f" {self._get_ids_repr()}>"
         )
 
@@ -661,7 +667,15 @@ class Graph(SetOpsMixin):
 
     @classmethod
     def build_distance_band(
-        cls, data, threshold, binary=True, alpha=-1.0, kernel=None, bandwidth=None
+        cls,
+        data,
+        threshold,
+        binary=True,
+        alpha=-1.0,
+        kernel=None,
+        bandwidth=None,
+        taper=True,
+        decay=False,
     ):
         """Generate Graph from geometry based on a distance band
 
@@ -690,7 +704,16 @@ class Graph(SetOpsMixin):
         bandwidth : float (default: None)
             distance to use in the kernel computation. Should be on the same scale as
             the input coordinates. Ignored if ``binary=True`` or ``kernel=None``.
-
+        taper : bool (default: True)
+            remove links with a weight equal to zero
+        decay : bool (default: False)
+            whether to calculate the kernel using the decay formulation.
+            In the decay form, a kernel measures the distance decay in
+            similarity between observations. It varies from from maximal
+            similarity (1) at a distance of zero to minimal similarity (0
+            or negative) at some very large (possibly infinite) distance.
+            Otherwise, kernel functions are treated as proper
+            volume-preserving probability distributions.
         Returns
         -------
         Graph
@@ -797,6 +820,8 @@ class Graph(SetOpsMixin):
                 metric="precomputed",
                 ids=ids,
                 bandwidth=np.inf,
+                taper=taper,
+                decay=decay,
             )
         elif kernel is not None:
             head, tail, weight = _kernel(
@@ -805,6 +830,8 @@ class Graph(SetOpsMixin):
                 metric="precomputed",
                 ids=ids,
                 bandwidth=bandwidth,
+                taper=taper,
+                decay=decay,
             )
         else:
             head, tail, weight = _kernel(
@@ -813,6 +840,8 @@ class Graph(SetOpsMixin):
                 metric="precomputed",
                 ids=ids,
                 bandwidth=alpha,
+                taper=taper,
+                decay=decay,
             )
 
         adjacency = pd.DataFrame.from_dict(
@@ -1023,6 +1052,8 @@ class Graph(SetOpsMixin):
         metric="euclidean",
         p=2,
         coplanar="raise",
+        taper=True,
+        decay=False,
     ):
         """Generate Graph from geometry data based on a kernel function
 
@@ -1068,6 +1099,16 @@ class Graph(SetOpsMixin):
             ``'raise'`` (raising an exception when coplanar points are present),
             ``'jitter'`` (randomly displace coplanar points to produce uniqueness), &
             ``'clique'`` (induce fully-connected sub cliques for coplanar points).
+        taper : bool (default: True)
+            remove links with a weight equal to zero
+        decay : bool (default: False)
+            whether to calculate the kernel using the decay formulation.
+            In the decay form, a kernel measures the distance decay in
+            similarity between observations. It varies from from maximal
+            similarity (1) at a distance of zero to minimal similarity (0
+            or negative) at some very large (possibly infinite) distance.
+            Otherwise, kernel functions are treated as proper
+            volume-preserving probability distributions.
 
         Returns
         -------
@@ -1085,12 +1126,23 @@ class Graph(SetOpsMixin):
             p=p,
             ids=ids,
             coplanar=coplanar,
+            decay=decay,
+            taper=taper,
         )
 
         return cls.from_arrays(head, tail, weight)
 
     @classmethod
-    def build_knn(cls, data, k, metric="euclidean", p=2, coplanar="raise"):
+    def build_knn(
+        cls,
+        data,
+        k,
+        metric="euclidean",
+        p=2,
+        coplanar="raise",
+        taper=True,
+        decay=False,
+    ):
         """Generate Graph from geometry data based on k-nearest neighbors search
 
         Parameters
@@ -1115,6 +1167,16 @@ class Graph(SetOpsMixin):
             ``'raise'`` (raising an exception when coplanar points are present),
             ``'jitter'`` (randomly displace coplanar points to produce uniqueness), &
             ``'clique'`` (induce fully-connected sub cliques for coplanar points).
+        taper : bool (default: True)
+            remove links with a weight equal to zero
+        decay : bool (default: False)
+            whether to calculate the kernel using the decay formulation.
+            In the decay form, a kernel measures the distance decay in
+            similarity between observations. It varies from from maximal
+            similarity (1) at a distance of zero to minimal similarity (0
+            or negative) at some very large (possibly infinite) distance.
+            Otherwise, kernel functions are treated as proper
+            volume-preserving probability distributions.
 
 
         Returns
@@ -1180,6 +1242,8 @@ class Graph(SetOpsMixin):
             p=p,
             ids=ids,
             coplanar=coplanar,
+            taper=taper,
+            decay=decay,
         )
 
         return cls.from_arrays(head, tail, weight)
@@ -1266,6 +1330,8 @@ class Graph(SetOpsMixin):
         clip="bounding_box",
         rook=True,
         coplanar="raise",
+        taper=True,
+        decay=False,
     ):
         """Generate Graph from geometry based on triangulation
 
@@ -1321,6 +1387,16 @@ class Graph(SetOpsMixin):
             ``'raise'`` (raising an exception when coplanar points are present),
             ``'jitter'`` (randomly displace coplanar points to produce uniqueness), &
             ``'clique'`` (induce fully-connected sub cliques for coplanar points).
+        taper : bool (default: True)
+            remove links with a weight equal to zero
+        decay : bool (default: False)
+            whether to calculate the kernel using the decay formulation.
+            In the decay form, a kernel measures the distance decay in
+            similarity between observations. It varies from from maximal
+            similarity (1) at a distance of zero to minimal similarity (0
+            or negative) at some very large (possibly infinite) distance.
+            Otherwise, kernel functions are treated as proper
+            volume-preserving probability distributions.
 
         Returns
         -------
@@ -1369,19 +1445,43 @@ class Graph(SetOpsMixin):
 
         if method == "delaunay":
             head, tail, weights = _delaunay(
-                data, ids=ids, bandwidth=bandwidth, kernel=kernel, coplanar=coplanar
+                data,
+                ids=ids,
+                bandwidth=bandwidth,
+                kernel=kernel,
+                coplanar=coplanar,
+                decay=decay,
+                taper=taper,
             )
         elif method == "gabriel":
             head, tail, weights = _gabriel(
-                data, ids=ids, bandwidth=bandwidth, kernel=kernel, coplanar=coplanar
+                data,
+                ids=ids,
+                bandwidth=bandwidth,
+                kernel=kernel,
+                coplanar=coplanar,
+                decay=decay,
+                taper=taper,
             )
         elif method == "relative_neighborhood":
             head, tail, weights = _relative_neighborhood(
-                data, ids=ids, bandwidth=bandwidth, kernel=kernel, coplanar=coplanar
+                data,
+                ids=ids,
+                bandwidth=bandwidth,
+                kernel=kernel,
+                coplanar=coplanar,
+                decay=decay,
+                taper=taper,
             )
         elif method == "voronoi":
             head, tail, weights = _voronoi(
-                data, ids=ids, clip=clip, rook=rook, coplanar=coplanar
+                data,
+                ids=ids,
+                clip=clip,
+                rook=rook,
+                coplanar=coplanar,
+                decay=decay,
+                taper=taper,
             )
         else:
             raise ValueError(
@@ -1457,7 +1557,14 @@ class Graph(SetOpsMixin):
 
     @classmethod
     def build_travel_cost(
-        cls, df, network, threshold, kernel=None, mapping_distance=None
+        cls,
+        df,
+        network,
+        threshold,
+        kernel=None,
+        mapping_distance=None,
+        taper=True,
+        decay=False,
     ):
         """Generate a Graph based on shortest travel costs from a pandana.Network
 
@@ -1487,6 +1594,16 @@ class Graph(SetOpsMixin):
             snapping tolerance passed to ``pandana.Network.get_node_ids`` that defines
             the maximum range at which observations are snapped to nearest nodes in the
             network. Default is None
+        taper : bool (default: True)
+            remove links with a weight equal to zero
+        decay : bool (default: False)
+            whether to calculate the kernel using the decay formulation.
+            In the decay form, a kernel measures the distance decay in
+            similarity between observations. It varies from from maximal
+            similarity (1) at a distance of zero to minimal similarity (0
+            or negative) at some very large (possibly infinite) distance.
+            Otherwise, kernel functions are treated as proper
+            volume-preserving probability distributions.
 
         Returns
         -------
@@ -1531,19 +1648,17 @@ class Graph(SetOpsMixin):
                 117         333.639008
         Name: weight, dtype: float64
         """
-        adj = _build_travel_graph(df, network, threshold, mapping_distance)
-        g = cls.from_adjacency(adj)
-        if kernel is not None:
-            arrays = _kernel(
-                g.sparse,
-                metric="precomputed",
-                kernel=kernel,
-                bandwidth=threshold,
-                resolve_isolates=False,
-                ids=df.index.values,
-            )
-            return cls.from_arrays(*arrays)
-        return g
+        adj = _build_travel_graph(
+            df,
+            network,
+            threshold,
+            mapping_distance,
+            kernel=kernel,
+            decay=decay,
+            taper=taper,
+        )
+
+        return cls.from_adjacency(adj)
 
     @cached_property
     def neighbors(self):
@@ -1859,8 +1974,13 @@ class Graph(SetOpsMixin):
                 zip(np.arange(self.unique_ids.shape[0]), self.unique_ids, strict=True)
             )
             focal, neighbor = np.nonzero(wd)
-            focal = focal.astype(self._adjacency.index.dtypes["focal"])
-            neighbor = neighbor.astype(self._adjacency.index.dtypes["focal"])
+            dtype = (
+                self._adjacency.index.dtypes["focal"]
+                if self._adjacency.index.dtypes["focal"] != "str"
+                else "object"
+            )
+            focal = focal.astype(dtype)
+            neighbor = neighbor.astype(dtype)
             for i in i2id:
                 focal[focal == i] = i2id[i]
                 neighbor[neighbor == i] = i2id[i]
@@ -2000,9 +2120,6 @@ class Graph(SetOpsMixin):
         <Graph of 85 nodes and 1176 nonzero edges indexed by
          [0, 1, 2, 3, 4, ...]>
         """
-        if not Version(scipy_version) >= Version("1.12.0"):
-            raise ImportError("Graph.higher_order() requires scipy>=1.12.0.")
-
         binary = self.transform("B")
         sp = binary.sparse
 
@@ -2039,7 +2156,7 @@ class Graph(SetOpsMixin):
 
         return higher
 
-    def lag(self, y, categorical=False, ties="raise"):
+    def lag(self, y, categorical=None, ties="raise"):
         """Spatial lag operator
 
         Constructs spatial lag based on neighbor relations of the graph.
@@ -2047,10 +2164,12 @@ class Graph(SetOpsMixin):
 
         Parameters
         ----------
-        y : array
-            numpy array with dimensionality conforming to w
+        y : array_like
+            Array-like aligned with the graph. Can be 2-dimensional if
+            all columns are numerical.
         categorical : bool
-            True if y is categorical, False if y is continuous.
+            True if y is categorical, False if y is continuous. If None, it is
+            derived from the dtype of ``y``.
         ties : {'raise', 'random', 'tryself'}, optional
             Policy on how to break ties when a focal unit has multiple
             modes for a categorical lag.

@@ -10,7 +10,7 @@ def test_target_counter():
         div:first-child { counter-reset: div }
         div { counter-increment: div }
         #id1::before { content: target-counter('#id4', div) }
-        #id2::before { content: 'test ' target-counter('#id1' div) }
+        #id2::before { content: 'test ' target-counter('#id1', div) }
         #id3::before { content: target-counter(url(#id4), div, lower-roman) }
         #id4::before { content: target-counter('#id3', div) }
       </style>
@@ -40,7 +40,7 @@ def test_target_counter_attr():
         div:first-child { counter-reset: div }
         div { counter-increment: div }
         div::before { content: target-counter(attr(data-count), div) }
-        #id2::before { content: target-counter(attr(data-count, url), div) }
+        #id2::before { content: target-counter(attr(data-count url), div) }
         #id4::before {
           content: target-counter(attr(data-count), div, lower-alpha) }
       </style>
@@ -130,6 +130,26 @@ def test_target_text():
     assert len(a3.children[0].children[0].children) == 0
     before = a4.children[0].children[0].children[0]
     assert before.text == '1'
+
+
+@assert_no_logs
+def test_target_text_whitespace_around_target():
+    # Regression test for #1875.
+    page, = render_pages('''
+      <style>
+        a::before { content: target-text(attr(href)) }
+      </style>
+      <p>before <a href="#ref"></a> after</p>
+      <h2 id="ref">text</h2>
+    ''')
+    html, = page.children
+    body, = html.children
+    p, h2 = body.children
+    line, = p.children
+    before, a, after = line.children
+    assert before.text == 'before '
+    assert after.text == ' after'
+    assert a.children[0].children[0].text == 'text'
 
 
 @assert_no_logs

@@ -463,10 +463,6 @@ class DrProtectionGroup(pulumi.CustomResource):
                  members: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DrProtectionGroupMemberArgs', 'DrProtectionGroupMemberArgsDict']]]]] = None,
                  __props__=None):
         """
-        This resource provides the Dr Protection Group resource in Oracle Cloud Infrastructure Disaster Recovery service.
-
-        Create a DR protection group.
-
         ## Example Usage
 
         ```python
@@ -599,6 +595,10 @@ class DrProtectionGroup(pulumi.CustomResource):
                 }],
                 "peer_cluster_id": test_cluster["id"],
                 "peer_db_system_id": test_db_system["id"],
+                "resource_modifier_mappings": [{
+                    "config_map": dr_protection_group_members_resource_modifier_mappings_config_map,
+                    "namespace": dr_protection_group_members_resource_modifier_mappings_namespace,
+                }],
                 "source_volume_to_destination_encryption_key_mappings": [{
                     "destination_encryption_key": {
                         "encryption_key_id": test_key["id"],
@@ -673,10 +673,6 @@ class DrProtectionGroup(pulumi.CustomResource):
                  args: DrProtectionGroupArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Dr Protection Group resource in Oracle Cloud Infrastructure Disaster Recovery service.
-
-        Create a DR protection group.
-
         ## Example Usage
 
         ```python
@@ -809,6 +805,10 @@ class DrProtectionGroup(pulumi.CustomResource):
                 }],
                 "peer_cluster_id": test_cluster["id"],
                 "peer_db_system_id": test_db_system["id"],
+                "resource_modifier_mappings": [{
+                    "config_map": dr_protection_group_members_resource_modifier_mappings_config_map,
+                    "namespace": dr_protection_group_members_resource_modifier_mappings_namespace,
+                }],
                 "source_volume_to_destination_encryption_key_mappings": [{
                     "destination_encryption_key": {
                         "encryption_key_id": test_key["id"],

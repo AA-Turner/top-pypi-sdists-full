@@ -3,14 +3,14 @@ Type annotations for payment-cryptography service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_payment_cryptography.literals import DeriveKeyUsageType
+    from types_boto3_payment_cryptography.literals import As2805KeyVariantType
 
-    data: DeriveKeyUsageType = "TR31_B0_BASE_DERIVATION_KEY"
+    data: As2805KeyVariantType = "DATA_ENCRYPTION_KEY_VARIANT_22"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "As2805KeyVariantType",
     "DeriveKeyUsageType",
     "KeyAlgorithmType",
     "KeyCheckValueAlgorithmType",
@@ -51,6 +52,12 @@ __all__ = (
 )
 
 
+As2805KeyVariantType = Literal[
+    "DATA_ENCRYPTION_KEY_VARIANT_22",
+    "MESSAGE_AUTHENTICATION_KEY_VARIANT_24",
+    "PIN_ENCRYPTION_KEY_VARIANT_28",
+    "TERMINAL_MAJOR_KEY_VARIANT_00",
+]
 DeriveKeyUsageType = Literal[
     "TR31_B0_BASE_DERIVATION_KEY",
     "TR31_C0_CARD_VERIFICATION_KEY",
@@ -119,6 +126,7 @@ KeyUsageType = Literal[
     "TR31_K1_KEY_BLOCK_PROTECTION_KEY",
     "TR31_K2_TR34_ASYMMETRIC_KEY",
     "TR31_K3_ASYMMETRIC_KEY_FOR_KEY_AGREEMENT",
+    "TR31_M0_ISO_16609_MAC_KEY",
     "TR31_M1_ISO_9797_1_MAC_KEY",
     "TR31_M3_ISO_9797_3_MAC_KEY",
     "TR31_M6_ISO_9797_5_CMAC_KEY",
@@ -175,7 +183,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -245,6 +252,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -290,7 +298,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -343,7 +350,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -382,8 +388,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -418,6 +422,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -427,6 +432,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -437,6 +443,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -458,8 +467,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -474,15 +481,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -513,6 +521,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -553,6 +562,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

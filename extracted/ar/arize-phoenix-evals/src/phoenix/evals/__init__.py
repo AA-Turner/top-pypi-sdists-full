@@ -1,18 +1,19 @@
 from importlib.metadata import version
 
-from . import llm, metrics, templating, tracing
+from . import llm, metrics, templating, tracing, utils
 from .evaluators import (
     ClassificationEvaluator,
     EvalInput,
     Evaluator,
+    KindType,
     LLMEvaluator,
     Score,
-    SourceType,
     ToolSchema,
+    async_evaluate_dataframe,
     bind_evaluator,
     create_classifier,
     create_evaluator,
-    list_evaluators,
+    evaluate_dataframe,
 )
 from .legacy import (
     CODE_FUNCTIONALITY_PROMPT_BASE_TEMPLATE,
@@ -85,6 +86,7 @@ from .legacy import (
     llm_generate,
     run_evals,
 )
+from .llm import LLM
 
 __version__ = version("arize-phoenix-evals")
 
@@ -167,13 +169,16 @@ __all__ = [
     "LLMEvaluator",
     "Score",
     "ToolSchema",
-    "SourceType",
+    "KindType",
     "create_classifier",
-    "list_evaluators",
     "create_evaluator",
+    "async_evaluate_dataframe",
+    "evaluate_dataframe",
     "metrics",
     "templating",
     "llm",
+    "LLM",
     "bind_evaluator",
     "tracing",
+    "utils",
 ]

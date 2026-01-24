@@ -465,7 +465,7 @@ class AlertApi:
         # process the body parameter
         _body_params = None
 
-        if _params["alert"]:
+        if _params["alert"] is not None:
             _body_params = _params["alert"]
 
         # set the HTTP header `Accept`
@@ -863,7 +863,7 @@ class AlertApi:
         # process the body parameter
         _body_params = None
 
-        if _params["alert_clone"]:
+        if _params["alert_clone"] is not None:
             _body_params = _params["alert_clone"]
 
         # set the HTTP header `Accept`

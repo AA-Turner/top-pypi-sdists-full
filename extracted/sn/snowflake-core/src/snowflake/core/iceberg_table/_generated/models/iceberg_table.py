@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.iceberg_table._generated.models.constraint import Constraint, ConstraintModel
@@ -55,23 +55,23 @@ class IcebergTable(BaseModel):
     storage_serialization_policy : str, optional
         Storage serialization policy used for managed Iceberg table. This include encodings and compressions
     created_on : datetime, optional
-        Date and time when the iceberg table was created.
+        Date and time when the iceberg table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the iceberg table is stored
+        Database in which the iceberg table is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the iceberg table is stored
+        Schema in which the iceberg table is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the iceberg table
+        Role that owns the iceberg table — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the iceberg table
+        The type of role that owns the iceberg table — **Read-only:** *any user-provided value will be ignored.*
     iceberg_table_type : str, optional
-        Type of Iceberg table. UNMANAGED if the table is not managed by Snowflake. NOT ICEBERG otherwise.
+        Type of Iceberg table. UNMANAGED if the table is not managed by Snowflake. NOT ICEBERG otherwise — **Read-only:** *any user-provided value will be ignored.*
     catalog_table_name : str, optional
         Name of the table as recognized by the catalog.
     catalog_namespace : str, optional
         Catalog namespace for the table. The namespace defined when the table was created. Otherwise, the default namespace associated with the catalog integration used by the table. If you’re syncing the table to Snowflake Open Catalog, the default is null.
     can_write_metadata : str, optional
-        Signifies whether Snowflake can write metadata to the location specified by the file_path.
+        Signifies whether Snowflake can write metadata to the location specified by the file_path — **Read-only:** *any user-provided value will be ignored.*
     cluster_by : list[str], optional
         Specifies one or more columns or column expressions in the table as the clustering key.
     columns : list[IcebergTableColumn], optional
@@ -81,7 +81,7 @@ class IcebergTable(BaseModel):
     replace_invalid_characters : bool, optional
         Specifies whether to replace invalid characters in the column names
     auto_refresh : bool, optional
-        Specifies whether to automatically refresh the table metadata
+        Specifies whether to automatically refresh the table metadata — **Read-only:** *any user-provided value will be ignored.*
     metadata_file_path : str, optional
         Specifies the relative path of the Iceberg metadata file to use for column definitions.
     constraints : list[Constraint], optional
@@ -211,9 +211,10 @@ class IcebergTable(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -249,7 +250,7 @@ class IcebergTable(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -280,9 +281,9 @@ class IcebergTable(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return IcebergTable.parse_obj(obj)
+            return IcebergTable.model_validate(obj)
 
-        _obj = IcebergTable.parse_obj(
+        _obj = IcebergTable.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

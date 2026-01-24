@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.734903                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.905483                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ TIME_FORMAT: str
 MAX_ARTIFACT_SIZE: int
 
 class TaskToDict(object, metaclass=type):
-    def __init__(self, only_repr = False, runtime = False):
+    def __init__(self, only_repr = False, runtime = False, max_artifact_size = None):
         ...
     def __call__(self, task, graph = None):
         ...

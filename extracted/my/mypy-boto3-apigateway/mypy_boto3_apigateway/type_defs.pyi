@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -24,6 +25,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     ApiKeySourceTypeType,
+    ApiStatusType,
     AuthorizerTypeType,
     CacheClusterSizeType,
     CacheClusterStatusType,
@@ -31,6 +33,7 @@ from .literals import (
     ContentHandlingStrategyType,
     DocumentationPartTypeType,
     DomainNameStatusType,
+    EndpointAccessModeType,
     EndpointTypeType,
     GatewayResponseTypeType,
     IntegrationTypeType,
@@ -40,18 +43,13 @@ from .literals import (
     PutModeType,
     QuotaPeriodTypeType,
     ResourceOwnerType,
+    ResponseTransferModeType,
     RoutingModeType,
     SecurityPolicyType,
     UnauthorizedCacheControlHeaderStrategyType,
     VpcLinkStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -313,7 +311,7 @@ AccessLogSettingsTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -332,8 +330,8 @@ ApiKeyTypeDef = TypedDict(
         "enabled": NotRequired[bool],
         "createdDate": NotRequired[datetime],
         "lastUpdatedDate": NotRequired[datetime],
-        "stageKeys": NotRequired[List[str]],
-        "tags": NotRequired[Dict[str, str]],
+        "stageKeys": NotRequired[list[str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 AuthorizerTypeDef = TypedDict(
@@ -342,7 +340,7 @@ AuthorizerTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "type": NotRequired[AuthorizerTypeType],
-        "providerARNs": NotRequired[List[str]],
+        "providerARNs": NotRequired[list[str]],
         "authType": NotRequired[str],
         "authorizerUri": NotRequired[str],
         "authorizerCredentials": NotRequired[str],
@@ -362,7 +360,7 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 class CanarySettingsOutputTypeDef(TypedDict):
     percentTraffic: NotRequired[float]
     deploymentId: NotRequired[str]
-    stageVariableOverrides: NotRequired[Dict[str, str]]
+    stageVariableOverrides: NotRequired[dict[str, str]]
     useStageCache: NotRequired[bool]
 
 class CanarySettingsTypeDef(TypedDict):
@@ -377,7 +375,7 @@ class ClientCertificateTypeDef(TypedDict):
     pemEncodedCertificate: NotRequired[str]
     createdDate: NotRequired[datetime]
     expirationDate: NotRequired[datetime]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class StageKeyTypeDef(TypedDict):
     restApiId: NotRequired[str]
@@ -575,21 +573,21 @@ class DomainNameAccessAssociationTypeDef(TypedDict):
     domainNameArn: NotRequired[str]
     accessAssociationSourceType: NotRequired[Literal["VPCE"]]
     accessAssociationSource: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 EndpointConfigurationOutputTypeDef = TypedDict(
     "EndpointConfigurationOutputTypeDef",
     {
-        "types": NotRequired[List[EndpointTypeType]],
+        "types": NotRequired[list[EndpointTypeType]],
         "ipAddressType": NotRequired[IpAddressTypeType],
-        "vpcEndpointIds": NotRequired[List[str]],
+        "vpcEndpointIds": NotRequired[list[str]],
     },
 )
 
 class MutualTlsAuthenticationTypeDef(TypedDict):
     truststoreUri: NotRequired[str]
     truststoreVersion: NotRequired[str]
-    truststoreWarnings: NotRequired[List[str]]
+    truststoreWarnings: NotRequired[list[str]]
 
 EndpointConfigurationTypeDef = TypedDict(
     "EndpointConfigurationTypeDef",
@@ -611,8 +609,8 @@ class FlushStageCacheRequestTypeDef(TypedDict):
 class GatewayResponseTypeDef(TypedDict):
     responseType: NotRequired[GatewayResponseTypeType]
     statusCode: NotRequired[str]
-    responseParameters: NotRequired[Dict[str, str]]
-    responseTemplates: NotRequired[Dict[str, str]]
+    responseParameters: NotRequired[dict[str, str]]
+    responseTemplates: NotRequired[dict[str, str]]
     defaultResponse: NotRequired[bool]
 
 class GenerateClientCertificateRequestTypeDef(TypedDict):
@@ -857,8 +855,8 @@ class GetVpcLinksRequestTypeDef(TypedDict):
 class IntegrationResponseTypeDef(TypedDict):
     statusCode: NotRequired[str]
     selectionPattern: NotRequired[str]
-    responseParameters: NotRequired[Dict[str, str]]
-    responseTemplates: NotRequired[Dict[str, str]]
+    responseParameters: NotRequired[dict[str, str]]
+    responseTemplates: NotRequired[dict[str, str]]
     contentHandling: NotRequired[ContentHandlingStrategyType]
 
 class TlsConfigTypeDef(TypedDict):
@@ -866,8 +864,8 @@ class TlsConfigTypeDef(TypedDict):
 
 class MethodResponseTypeDef(TypedDict):
     statusCode: NotRequired[str]
-    responseParameters: NotRequired[Dict[str, bool]]
-    responseModels: NotRequired[Dict[str, str]]
+    responseParameters: NotRequired[dict[str, bool]]
+    responseModels: NotRequired[dict[str, str]]
 
 class MethodSettingTypeDef(TypedDict):
     metricsEnabled: NotRequired[bool]
@@ -1004,16 +1002,16 @@ VpcLinkTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "description": NotRequired[str],
-        "targetArns": NotRequired[List[str]],
+        "targetArns": NotRequired[list[str]],
         "status": NotRequired[VpcLinkStatusType],
         "statusMessage": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 
 class ApiKeyIdsTypeDef(TypedDict):
-    ids: List[str]
-    warnings: List[str]
+    ids: list[str]
+    warnings: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ApiKeyResponseTypeDef = TypedDict(
@@ -1027,8 +1025,8 @@ ApiKeyResponseTypeDef = TypedDict(
         "enabled": bool,
         "createdDate": datetime,
         "lastUpdatedDate": datetime,
-        "stageKeys": List[str],
-        "tags": Dict[str, str],
+        "stageKeys": list[str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1038,7 +1036,7 @@ AuthorizerResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "type": AuthorizerTypeType,
-        "providerARNs": List[str],
+        "providerARNs": list[str],
         "authType": str,
         "authorizerUri": str,
         "authorizerCredentials": str,
@@ -1061,12 +1059,12 @@ class ClientCertificateResponseTypeDef(TypedDict):
     pemEncodedCertificate: str
     createdDate: datetime
     expirationDate: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DocumentationPartIdsTypeDef(TypedDict):
-    ids: List[str]
-    warnings: List[str]
+    ids: list[str]
+    warnings: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DocumentationVersionResponseTypeDef(TypedDict):
@@ -1080,7 +1078,7 @@ class DomainNameAccessAssociationResponseTypeDef(TypedDict):
     domainNameArn: str
     accessAssociationSourceType: Literal["VPCE"]
     accessAssociationSource: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -1095,23 +1093,23 @@ class ExportResponseTypeDef(TypedDict):
 class GatewayResponseResponseTypeDef(TypedDict):
     responseType: GatewayResponseTypeType
     statusCode: str
-    responseParameters: Dict[str, str]
-    responseTemplates: Dict[str, str]
+    responseParameters: dict[str, str]
+    responseTemplates: dict[str, str]
     defaultResponse: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IntegrationResponseResponseTypeDef(TypedDict):
     statusCode: str
     selectionPattern: str
-    responseParameters: Dict[str, str]
-    responseTemplates: Dict[str, str]
+    responseParameters: dict[str, str]
+    responseTemplates: dict[str, str]
     contentHandling: ContentHandlingStrategyType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class MethodResponseResponseTypeDef(TypedDict):
     statusCode: str
-    responseParameters: Dict[str, bool]
-    responseModels: Dict[str, str]
+    responseParameters: dict[str, bool]
+    responseModels: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ModelResponseTypeDef = TypedDict(
@@ -1143,7 +1141,7 @@ class SdkResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagsTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TemplateTypeDef(TypedDict):
@@ -1156,15 +1154,15 @@ class TestInvokeAuthorizerResponseTypeDef(TypedDict):
     latency: int
     principalId: str
     policy: str
-    authorization: Dict[str, List[str]]
-    claims: Dict[str, str]
+    authorization: dict[str, list[str]]
+    claims: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TestInvokeMethodResponseTypeDef(TypedDict):
     status: int
     body: str
-    headers: Dict[str, str]
-    multiValueHeaders: Dict[str, List[str]]
+    headers: dict[str, str]
+    multiValueHeaders: dict[str, list[str]]
     log: str
     latency: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1185,7 +1183,7 @@ class UsageTypeDef(TypedDict):
     startDate: str
     endDate: str
     position: str
-    items: Dict[str, List[List[int]]]
+    items: dict[str, list[list[int]]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 VpcLinkResponseTypeDef = TypedDict(
@@ -1194,10 +1192,10 @@ VpcLinkResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "description": str,
-        "targetArns": List[str],
+        "targetArns": list[str],
         "status": VpcLinkStatusType,
         "statusMessage": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1205,14 +1203,14 @@ VpcLinkResponseTypeDef = TypedDict(
 class AccountTypeDef(TypedDict):
     cloudwatchRoleArn: str
     throttleSettings: ThrottleSettingsTypeDef
-    features: List[str]
+    features: list[str]
     apiKeyVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ApiStageOutputTypeDef(TypedDict):
     apiId: NotRequired[str]
     stage: NotRequired[str]
-    throttle: NotRequired[Dict[str, ThrottleSettingsTypeDef]]
+    throttle: NotRequired[dict[str, ThrottleSettingsTypeDef]]
 
 class ApiStageTypeDef(TypedDict):
     apiId: NotRequired[str]
@@ -1220,19 +1218,19 @@ class ApiStageTypeDef(TypedDict):
     throttle: NotRequired[Mapping[str, ThrottleSettingsTypeDef]]
 
 class ApiKeysTypeDef(TypedDict):
-    warnings: List[str]
+    warnings: list[str]
     position: str
-    items: List[ApiKeyTypeDef]
+    items: list[ApiKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AuthorizersTypeDef(TypedDict):
     position: str
-    items: List[AuthorizerTypeDef]
+    items: list[AuthorizerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BasePathMappingsTypeDef(TypedDict):
     position: str
-    items: List[BasePathMappingTypeDef]
+    items: list[BasePathMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ImportApiKeysRequestTypeDef = TypedDict(
@@ -1266,7 +1264,7 @@ CanarySettingsUnionTypeDef = Union[CanarySettingsTypeDef, CanarySettingsOutputTy
 
 class ClientCertificatesTypeDef(TypedDict):
     position: str
-    items: List[ClientCertificateTypeDef]
+    items: list[ClientCertificateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateApiKeyRequestTypeDef(TypedDict):
@@ -1318,7 +1316,7 @@ DeploymentResponseTypeDef = TypedDict(
         "id": str,
         "description": str,
         "createdDate": datetime,
-        "apiSummary": Dict[str, Dict[str, MethodSnapshotTypeDef]],
+        "apiSummary": dict[str, dict[str, MethodSnapshotTypeDef]],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1328,18 +1326,18 @@ DeploymentTypeDef = TypedDict(
         "id": NotRequired[str],
         "description": NotRequired[str],
         "createdDate": NotRequired[datetime],
-        "apiSummary": NotRequired[Dict[str, Dict[str, MethodSnapshotTypeDef]]],
+        "apiSummary": NotRequired[dict[str, dict[str, MethodSnapshotTypeDef]]],
     },
 )
 
 class DocumentationVersionsTypeDef(TypedDict):
     position: str
-    items: List[DocumentationVersionTypeDef]
+    items: list[DocumentationVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainNameAccessAssociationsTypeDef(TypedDict):
     position: str
-    items: List[DomainNameAccessAssociationTypeDef]
+    items: list[DomainNameAccessAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 RestApiResponseTypeDef = TypedDict(
@@ -1350,15 +1348,19 @@ RestApiResponseTypeDef = TypedDict(
         "description": str,
         "createdDate": datetime,
         "version": str,
-        "warnings": List[str],
-        "binaryMediaTypes": List[str],
+        "warnings": list[str],
+        "binaryMediaTypes": list[str],
         "minimumCompressionSize": int,
         "apiKeySource": ApiKeySourceTypeType,
         "endpointConfiguration": EndpointConfigurationOutputTypeDef,
         "policy": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "disableExecuteApiEndpoint": bool,
         "rootResourceId": str,
+        "securityPolicy": SecurityPolicyType,
+        "endpointAccessMode": EndpointAccessModeType,
+        "apiStatus": ApiStatusType,
+        "apiStatusMessage": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1370,15 +1372,19 @@ RestApiTypeDef = TypedDict(
         "description": NotRequired[str],
         "createdDate": NotRequired[datetime],
         "version": NotRequired[str],
-        "warnings": NotRequired[List[str]],
-        "binaryMediaTypes": NotRequired[List[str]],
+        "warnings": NotRequired[list[str]],
+        "binaryMediaTypes": NotRequired[list[str]],
         "minimumCompressionSize": NotRequired[int],
         "apiKeySource": NotRequired[ApiKeySourceTypeType],
         "endpointConfiguration": NotRequired[EndpointConfigurationOutputTypeDef],
         "policy": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "disableExecuteApiEndpoint": NotRequired[bool],
         "rootResourceId": NotRequired[str],
+        "securityPolicy": NotRequired[SecurityPolicyType],
+        "endpointAccessMode": NotRequired[EndpointAccessModeType],
+        "apiStatus": NotRequired[ApiStatusType],
+        "apiStatusMessage": NotRequired[str],
     },
 )
 
@@ -1399,7 +1405,8 @@ class DomainNameResponseTypeDef(TypedDict):
     domainNameStatus: DomainNameStatusType
     domainNameStatusMessage: str
     securityPolicy: SecurityPolicyType
-    tags: Dict[str, str]
+    endpointAccessMode: EndpointAccessModeType
+    tags: dict[str, str]
     mutualTlsAuthentication: MutualTlsAuthenticationTypeDef
     ownershipVerificationCertificateArn: str
     managementPolicy: str
@@ -1424,7 +1431,8 @@ class DomainNameTypeDef(TypedDict):
     domainNameStatus: NotRequired[DomainNameStatusType]
     domainNameStatusMessage: NotRequired[str]
     securityPolicy: NotRequired[SecurityPolicyType]
-    tags: NotRequired[Dict[str, str]]
+    endpointAccessMode: NotRequired[EndpointAccessModeType]
+    tags: NotRequired[dict[str, str]]
     mutualTlsAuthentication: NotRequired[MutualTlsAuthenticationTypeDef]
     ownershipVerificationCertificateArn: NotRequired[str]
     managementPolicy: NotRequired[str]
@@ -1437,7 +1445,7 @@ EndpointConfigurationUnionTypeDef = Union[
 
 class GatewayResponsesTypeDef(TypedDict):
     position: str
-    items: List[GatewayResponseTypeDef]
+    items: list[GatewayResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetApiKeysRequestPaginateTypeDef(TypedDict):
@@ -1533,15 +1541,17 @@ IntegrationResponseExtraTypeDef = TypedDict(
         "connectionType": ConnectionTypeType,
         "connectionId": str,
         "credentials": str,
-        "requestParameters": Dict[str, str],
-        "requestTemplates": Dict[str, str],
+        "requestParameters": dict[str, str],
+        "requestTemplates": dict[str, str],
         "passthroughBehavior": str,
         "contentHandling": ContentHandlingStrategyType,
         "timeoutInMillis": int,
         "cacheNamespace": str,
-        "cacheKeyParameters": List[str],
-        "integrationResponses": Dict[str, IntegrationResponseTypeDef],
+        "cacheKeyParameters": list[str],
+        "integrationResponses": dict[str, IntegrationResponseTypeDef],
         "tlsConfig": TlsConfigTypeDef,
+        "responseTransferMode": ResponseTransferModeType,
+        "integrationTarget": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1554,15 +1564,17 @@ IntegrationTypeDef = TypedDict(
         "connectionType": NotRequired[ConnectionTypeType],
         "connectionId": NotRequired[str],
         "credentials": NotRequired[str],
-        "requestParameters": NotRequired[Dict[str, str]],
-        "requestTemplates": NotRequired[Dict[str, str]],
+        "requestParameters": NotRequired[dict[str, str]],
+        "requestTemplates": NotRequired[dict[str, str]],
         "passthroughBehavior": NotRequired[str],
         "contentHandling": NotRequired[ContentHandlingStrategyType],
         "timeoutInMillis": NotRequired[int],
         "cacheNamespace": NotRequired[str],
-        "cacheKeyParameters": NotRequired[List[str]],
-        "integrationResponses": NotRequired[Dict[str, IntegrationResponseTypeDef]],
+        "cacheKeyParameters": NotRequired[list[str]],
+        "integrationResponses": NotRequired[dict[str, IntegrationResponseTypeDef]],
         "tlsConfig": NotRequired[TlsConfigTypeDef],
+        "responseTransferMode": NotRequired[ResponseTransferModeType],
+        "integrationTarget": NotRequired[str],
     },
 )
 PutIntegrationRequestTypeDef = TypedDict(
@@ -1585,6 +1597,8 @@ PutIntegrationRequestTypeDef = TypedDict(
         "contentHandling": NotRequired[ContentHandlingStrategyType],
         "timeoutInMillis": NotRequired[int],
         "tlsConfig": NotRequired[TlsConfigTypeDef],
+        "responseTransferMode": NotRequired[ResponseTransferModeType],
+        "integrationTarget": NotRequired[str],
     },
 )
 
@@ -1596,14 +1610,14 @@ class StageResponseTypeDef(TypedDict):
     cacheClusterEnabled: bool
     cacheClusterSize: CacheClusterSizeType
     cacheClusterStatus: CacheClusterStatusType
-    methodSettings: Dict[str, MethodSettingTypeDef]
-    variables: Dict[str, str]
+    methodSettings: dict[str, MethodSettingTypeDef]
+    variables: dict[str, str]
     documentationVersion: str
     accessLogSettings: AccessLogSettingsTypeDef
     canarySettings: CanarySettingsOutputTypeDef
     tracingEnabled: bool
     webAclArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     createdDate: datetime
     lastUpdatedDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1616,20 +1630,20 @@ class StageTypeDef(TypedDict):
     cacheClusterEnabled: NotRequired[bool]
     cacheClusterSize: NotRequired[CacheClusterSizeType]
     cacheClusterStatus: NotRequired[CacheClusterStatusType]
-    methodSettings: NotRequired[Dict[str, MethodSettingTypeDef]]
-    variables: NotRequired[Dict[str, str]]
+    methodSettings: NotRequired[dict[str, MethodSettingTypeDef]]
+    variables: NotRequired[dict[str, str]]
     documentationVersion: NotRequired[str]
     accessLogSettings: NotRequired[AccessLogSettingsTypeDef]
     canarySettings: NotRequired[CanarySettingsOutputTypeDef]
     tracingEnabled: NotRequired[bool]
     webAclArn: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     createdDate: NotRequired[datetime]
     lastUpdatedDate: NotRequired[datetime]
 
 class ModelsTypeDef(TypedDict):
     position: str
-    items: List[ModelTypeDef]
+    items: list[ModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAccountRequestTypeDef(TypedDict):
@@ -1744,7 +1758,7 @@ class UpdateVpcLinkRequestTypeDef(TypedDict):
 
 class RequestValidatorsTypeDef(TypedDict):
     position: str
-    items: List[RequestValidatorTypeDef]
+    items: list[RequestValidatorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 SdkTypeResponseTypeDef = TypedDict(
@@ -1753,7 +1767,7 @@ SdkTypeResponseTypeDef = TypedDict(
         "id": str,
         "friendlyName": str,
         "description": str,
-        "configurationProperties": List[SdkConfigurationPropertyTypeDef],
+        "configurationProperties": list[SdkConfigurationPropertyTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1763,18 +1777,18 @@ SdkTypeTypeDef = TypedDict(
         "id": NotRequired[str],
         "friendlyName": NotRequired[str],
         "description": NotRequired[str],
-        "configurationProperties": NotRequired[List[SdkConfigurationPropertyTypeDef]],
+        "configurationProperties": NotRequired[list[SdkConfigurationPropertyTypeDef]],
     },
 )
 
 class UsagePlanKeysTypeDef(TypedDict):
     position: str
-    items: List[UsagePlanKeyTypeDef]
+    items: list[UsagePlanKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VpcLinksTypeDef(TypedDict):
     position: str
-    items: List[VpcLinkTypeDef]
+    items: list[VpcLinkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 UsagePlanResponseTypeDef = TypedDict(
@@ -1783,11 +1797,11 @@ UsagePlanResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "description": str,
-        "apiStages": List[ApiStageOutputTypeDef],
+        "apiStages": list[ApiStageOutputTypeDef],
         "throttle": ThrottleSettingsTypeDef,
         "quota": QuotaSettingsTypeDef,
         "productCode": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1797,11 +1811,11 @@ UsagePlanTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "description": NotRequired[str],
-        "apiStages": NotRequired[List[ApiStageOutputTypeDef]],
+        "apiStages": NotRequired[list[ApiStageOutputTypeDef]],
         "throttle": NotRequired[ThrottleSettingsTypeDef],
         "quota": NotRequired[QuotaSettingsTypeDef],
         "productCode": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 ApiStageUnionTypeDef = Union[ApiStageTypeDef, ApiStageOutputTypeDef]
@@ -1821,22 +1835,22 @@ class CreateStageRequestTypeDef(TypedDict):
 
 class DocumentationPartsTypeDef(TypedDict):
     position: str
-    items: List[DocumentationPartTypeDef]
+    items: list[DocumentationPartTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeploymentsTypeDef(TypedDict):
     position: str
-    items: List[DeploymentTypeDef]
+    items: list[DeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RestApisTypeDef(TypedDict):
     position: str
-    items: List[RestApiTypeDef]
+    items: list[RestApiTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainNamesTypeDef(TypedDict):
     position: str
-    items: List[DomainNameTypeDef]
+    items: list[DomainNameTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDomainNameRequestTypeDef(TypedDict):
@@ -1851,6 +1865,7 @@ class CreateDomainNameRequestTypeDef(TypedDict):
     endpointConfiguration: NotRequired[EndpointConfigurationUnionTypeDef]
     tags: NotRequired[Mapping[str, str]]
     securityPolicy: NotRequired[SecurityPolicyType]
+    endpointAccessMode: NotRequired[EndpointAccessModeType]
     mutualTlsAuthentication: NotRequired[MutualTlsAuthenticationInputTypeDef]
     ownershipVerificationCertificateArn: NotRequired[str]
     policy: NotRequired[str]
@@ -1868,6 +1883,8 @@ class CreateRestApiRequestTypeDef(TypedDict):
     policy: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
     disableExecuteApiEndpoint: NotRequired[bool]
+    securityPolicy: NotRequired[SecurityPolicyType]
+    endpointAccessMode: NotRequired[EndpointAccessModeType]
 
 class MethodResponseExtraTypeDef(TypedDict):
     httpMethod: str
@@ -1876,11 +1893,11 @@ class MethodResponseExtraTypeDef(TypedDict):
     apiKeyRequired: bool
     requestValidatorId: str
     operationName: str
-    requestParameters: Dict[str, bool]
-    requestModels: Dict[str, str]
-    methodResponses: Dict[str, MethodResponseTypeDef]
+    requestParameters: dict[str, bool]
+    requestModels: dict[str, str]
+    methodResponses: dict[str, MethodResponseTypeDef]
     methodIntegration: IntegrationTypeDef
-    authorizationScopes: List[str]
+    authorizationScopes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class MethodTypeDef(TypedDict):
@@ -1890,24 +1907,24 @@ class MethodTypeDef(TypedDict):
     apiKeyRequired: NotRequired[bool]
     requestValidatorId: NotRequired[str]
     operationName: NotRequired[str]
-    requestParameters: NotRequired[Dict[str, bool]]
-    requestModels: NotRequired[Dict[str, str]]
-    methodResponses: NotRequired[Dict[str, MethodResponseTypeDef]]
+    requestParameters: NotRequired[dict[str, bool]]
+    requestModels: NotRequired[dict[str, str]]
+    methodResponses: NotRequired[dict[str, MethodResponseTypeDef]]
     methodIntegration: NotRequired[IntegrationTypeDef]
-    authorizationScopes: NotRequired[List[str]]
+    authorizationScopes: NotRequired[list[str]]
 
 class StagesTypeDef(TypedDict):
-    item: List[StageTypeDef]
+    item: list[StageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SdkTypesTypeDef(TypedDict):
     position: str
-    items: List[SdkTypeTypeDef]
+    items: list[SdkTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UsagePlansTypeDef(TypedDict):
     position: str
-    items: List[UsagePlanTypeDef]
+    items: list[UsagePlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateUsagePlanRequestTypeDef(TypedDict):
@@ -1925,7 +1942,7 @@ ResourceResponseTypeDef = TypedDict(
         "parentId": str,
         "pathPart": str,
         "path": str,
-        "resourceMethods": Dict[str, MethodTypeDef],
+        "resourceMethods": dict[str, MethodTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1936,11 +1953,11 @@ ResourceTypeDef = TypedDict(
         "parentId": NotRequired[str],
         "pathPart": NotRequired[str],
         "path": NotRequired[str],
-        "resourceMethods": NotRequired[Dict[str, MethodTypeDef]],
+        "resourceMethods": NotRequired[dict[str, MethodTypeDef]],
     },
 )
 
 class ResourcesTypeDef(TypedDict):
     position: str
-    items: List[ResourceTypeDef]
+    items: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

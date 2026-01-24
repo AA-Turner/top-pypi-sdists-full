@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import re
 
-from ansible.module_utils.six import iteritems
+from ansible.module_utils._internal import _no_six
 
 SIZE_RANGES = {
     'Y': 1 << 80,
@@ -60,7 +60,7 @@ def human_to_bytes(number, default_unit=None, isbits=False):
         if 'Mb'/'Kb'/... is passed, the ValueError will be rased.
 
     When isbits is True, converts bits from a human-readable format to integer.
-        example: human_to_bytes('1Mb', isbits=True) returns 8388608 (int) -
+        example: human_to_bytes('1Mb', isbits=True) returns 1048576 (int) -
         string bits representation was passed and return as a number or bits.
         The function expects 'b' (lowercase) as a bit identifier, e.g. 'Mb'/'Kb'/etc.
         if 'MB'/'KB'/... is passed, the ValueError will be rased.
@@ -117,7 +117,7 @@ def bytes_to_human(size, isbits=False, unit=None):
         base = 'bits'
     suffix = ''
 
-    for suffix, limit in sorted(iteritems(SIZE_RANGES), key=lambda item: -item[1]):
+    for suffix, limit in sorted(SIZE_RANGES.items(), key=lambda item: -item[1]):
         if (unit is None and size >= limit) or unit is not None and unit.upper() == suffix[0]:
             break
 
@@ -127,3 +127,7 @@ def bytes_to_human(size, isbits=False, unit=None):
         suffix = base
 
     return '%.2f %s' % (size / limit, suffix)
+
+
+def __getattr__(importable_name):
+    return _no_six.deprecate(importable_name, __name__, "iteritems")

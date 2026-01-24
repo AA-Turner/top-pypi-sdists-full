@@ -80,6 +80,7 @@ _SERVICE_CONFIG = {
         None,
     ),
     s.Optional("extra_ports"): s.Or([int], None),
+    s.Optional("replicate_process"): bool,
     s.Optional("workers"): s.Or(
         lambda s: s == "cpu_count",
         s.And(int, ensure_larger_than_zero),
@@ -94,6 +95,10 @@ _SERVICE_CONFIG = {
     },
     s.Optional("backlog"): s.And(int, ensure_larger_than(64)),
     s.Optional("max_runner_connections"): s.And(int, ensure_larger_than_zero),
+    s.Optional("runner_connection"): {
+        s.Optional("max_requests"): s.And(int, ensure_larger_than_zero),
+        s.Optional("max_age"): s.And(float, ensure_larger_than_zero),
+    },
     s.Optional("metrics"): {
         "enabled": bool,
         "namespace": str,

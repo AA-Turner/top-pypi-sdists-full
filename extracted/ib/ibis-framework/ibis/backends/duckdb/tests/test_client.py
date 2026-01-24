@@ -418,14 +418,6 @@ lat,lon,geom
     assert t.schema()["geom"].is_geospatial()
 
 
-def test_memtable_doesnt_leak(con):
-    name = gen_name("memtable_doesnt_leak")
-    assert name not in con.list_tables()
-    df = con.execute(ibis.memtable({"a": [1, 2, 3]}, name=name))
-    assert name not in con.list_tables()
-    assert len(df) == 3
-
-
 def test_pyarrow_batches_chunk_size(con):  # 10443
     t = ibis.memtable(
         {
@@ -475,6 +467,15 @@ def test_create_temp_table_in_nondefault_schema():
     con.create_database(database)
     con.con.execute(f"USE {database}")
     con.create_table("foo", {"id": [1, 2, 3]}, temp=True)
+
+
+def test_create_table_with_quoted_columns():
+    con = ibis.duckdb.connect()
+    name = gen_name("quoted_columns_table")
+    df = pd.DataFrame(
+        {"group": ["G1"], "value": ["E1"], "id": [1], "date": [datetime(2025, 5, 13)]}
+    )
+    con.create_table(name, df, temp=True)
 
 
 def test_create_table_with_out_of_order_columns(con):

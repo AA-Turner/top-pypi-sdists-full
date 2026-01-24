@@ -8,13 +8,13 @@ import functools
 import glob
 import hashlib
 import itertools
+import json
 import os
-import tarfile
 import zipfile
 from abc import abstractmethod
 from collections import OrderedDict, defaultdict
 
-from pex import targets
+from pex import sdist, targets
 from pex.atomic_directory import AtomicDirectory, atomic_directory
 from pex.cache.dirs import BuiltWheelDir, CacheDir
 from pex.common import (
@@ -30,6 +30,7 @@ from pex.dependency_configuration import DependencyConfiguration
 from pex.dist_metadata import (
     DistMetadata,
     Distribution,
+    ProjectMetadata,
     Requirement,
     is_tar_sdist,
     is_wheel,
@@ -37,15 +38,17 @@ from pex.dist_metadata import (
 )
 from pex.exceptions import production_assert
 from pex.fingerprinted_distribution import FingerprintedDistribution
+from pex.installed_wheel import InstalledWheel
 from pex.jobs import Raise, SpawnedJob, execute_parallel, iter_map_parallel
 from pex.network_configuration import NetworkConfiguration
 from pex.orderedset import OrderedSet
-from pex.pep_376 import InstalledWheel
 from pex.pep_425 import CompatibilityTags
 from pex.pep_427 import InstallableType, WheelError, install_wheel_chroot
+from pex.pep_440 import Version
 from pex.pep_503 import ProjectName
 from pex.pip.download_observer import DownloadObserver
 from pex.pip.installation import get_pip
+from pex.pip.local_project import digest_local_project
 from pex.pip.tool import PackageIndexConfiguration
 from pex.pip.version import PipVersionValue
 from pex.requirements import LocalProjectRequirement, URLRequirement
@@ -61,7 +64,9 @@ from pex.resolve.resolvers import (
     check_resolve,
 )
 from pex.resolve.target_system import TargetSystem, UniversalTarget
+from pex.result import Error
 from pex.targets import AbbreviatedPlatform, CompletePlatform, LocalInterpreter, Target, Targets
+from pex.third_party.packaging.specifiers import SpecifierSet
 from pex.third_party.packaging.tags import Tag
 from pex.tracer import TRACER
 from pex.typing import TYPE_CHECKING
@@ -149,9 +154,9 @@ class DownloadTarget(object):
         return self.target.id
 
 
-def _uniqued_targets(targets=None):
-    # type: (Optional[Iterable[DownloadTarget]]) -> Tuple[DownloadTarget, ...]
-    return tuple(OrderedSet(targets)) if targets is not None else ()
+def _uniqued_download_requests(requests=None):
+    # type: (Optional[Iterable[DownloadRequest]]) -> Tuple[DownloadRequest, ...]
+    return tuple(OrderedSet(requests)) if requests is not None else ()
 
 
 @attr.s(frozen=True)
@@ -238,12 +243,54 @@ class PipLogManager(object):
 
 
 @attr.s(frozen=True)
-class DownloadRequest(object):
-    download_targets = attr.ib(converter=_uniqued_targets)  # type: Tuple[DownloadTarget, ...]
+class Report(object):
+    @classmethod
+    def parse(
+        cls,
+        download_target,  # type: DownloadTarget
+        report,  # type: str
+    ):
+        # type: (...) -> Report
+
+        with open(report) as fp:
+            data = json.load(fp)
+
+        project_metadata = []  # type: List[ProjectMetadata]
+        for distribution in data["install"]:
+            metadata = distribution["metadata"]
+            project_metadata.append(
+                ProjectMetadata(
+                    project_name=ProjectName(metadata["name"]),
+                    version=Version(metadata["version"]),
+                    requires_python=SpecifierSet(metadata.get("requires_python", "")),
+                    requires_dists=tuple(
+                        Requirement.parse(requirement)
+                        for requirement in metadata.get("requires_dist", ())
+                    ),
+                )
+            )
+        return cls(
+            download_target=download_target,
+            metadata={metadata.project_name: metadata for metadata in project_metadata},
+        )
+
+    download_target = attr.ib()  # type: DownloadTarget
+    metadata = attr.ib()  # type: Mapping[ProjectName, ProjectMetadata]
+
+
+@attr.s(frozen=True)
+class Reports(object):
+    reports = attr.ib(default=())  # type: Tuple[Report, ...]
+
+    def __iter__(self):
+        # type: () -> Iterator[Report]
+        return iter(self.reports)
+
+
+@attr.s(frozen=True)
+class _PipSession(object):
+    requests = attr.ib(converter=_uniqued_download_requests)  # type: Tuple[DownloadRequest, ...]
     direct_requirements = attr.ib()  # type: Iterable[ParsedRequirement]
-    requirements = attr.ib(default=None)  # type: Optional[Iterable[str]]
-    requirement_files = attr.ib(default=None)  # type: Optional[Iterable[str]]
-    constraint_files = attr.ib(default=None)  # type: Optional[Iterable[str]]
     allow_prereleases = attr.ib(default=False)  # type: bool
     transitive = attr.ib(default=True)  # type: bool
     package_index_configuration = attr.ib(default=None)  # type: Optional[PackageIndexConfiguration]
@@ -260,14 +307,114 @@ class DownloadRequest(object):
         # type: () -> Iterator[BuildRequest]
         for requirement in self.direct_requirements:
             if isinstance(requirement, LocalProjectRequirement):
-                for download_target in self.download_targets:
-                    yield BuildRequest.create(
-                        target=download_target.target, source_path=requirement.path
+                for request in self.requests:
+                    yield BuildRequest.for_directory(
+                        target=request.target, source_path=requirement.path
                     )
+
+    def generate_reports(self, max_parallel_jobs=None):
+        # type: (Optional[int]) -> Reports
+
+        if not self.requests or not any(request.has_requirements for request in self.requests):
+            # Nothing to report.
+            return Reports()
+
+        dest = safe_mkdtemp(
+            prefix="resolver_report.", dir=safe_mkdir(CacheDir.DOWNLOADS.path(".tmp"))
+        )
+
+        log_manager = PipLogManager.create(
+            self.pip_log,
+            download_targets=tuple(request.download_target for request in self.requests),
+        )
+        if self.pip_log and not self.pip_log.user_specified:
+            TRACER.log(
+                "Preserving `pip install --dry-run` log at {log_path}".format(
+                    log_path=self.pip_log.path
+                ),
+                V=ENV.PEX_VERBOSE,
+            )
+
+        spawn_report = functools.partial(
+            self._spawn_report, resolved_target_dir=dest, log_manager=log_manager
+        )
+        with TRACER.timed(
+            "Resolving for:\n  {}".format(
+                "\n  ".join(request.render_description() for request in self.requests)
+            )
+        ):
+            try:
+                return Reports(
+                    reports=tuple(
+                        Report.parse(download_request.download_target, report)
+                        for download_request, report in zip(
+                            self.requests,
+                            execute_parallel(
+                                inputs=self.requests,
+                                spawn_func=spawn_report,
+                                error_handler=Raise[DownloadRequest, str](Unsatisfiable),
+                                max_jobs=max_parallel_jobs,
+                            ),
+                        )
+                    )
+                )
+            finally:
+                log_manager.finalize_log()
+
+    def _spawn_report(
+        self,
+        request,  # type: DownloadRequest
+        resolved_target_dir,  # type: str
+        log_manager,  # type: PipLogManager
+    ):
+        # type: (...) -> SpawnedJob[str]
+
+        report_dir = safe_mkdir(
+            os.path.join(resolved_target_dir, request.download_target.id(complete=True))
+        )
+        report = os.path.join(report_dir, "pip-report.json")
+        download_target = request.download_target
+        observer = (
+            self.observer.observe_download(
+                download_target=download_target, download_dir=resolved_target_dir
+            )
+            if self.observer
+            else None
+        )
+
+        target = download_target.target
+
+        download_job = get_pip(
+            interpreter=target.get_interpreter(),
+            version=self.pip_version,
+            resolver=self.resolver,
+            extra_requirements=(
+                self.package_index_configuration.extra_pip_requirements
+                if self.package_index_configuration
+                else ()
+            ),
+        ).spawn_report(
+            report_path=report,
+            requirements=request.requirements,
+            requirement_files=request.requirement_files,
+            constraint_files=request.constraint_files,
+            allow_prereleases=self.allow_prereleases,
+            transitive=self.transitive,
+            target=target,
+            package_index_configuration=self.package_index_configuration,
+            build_configuration=self.build_configuration,
+            observer=observer,
+            dependency_configuration=self.dependency_configuration,
+            universal_target=download_target.universal_target,
+            log=log_manager.get_log(download_target),
+        )
+
+        return SpawnedJob.wait(job=download_job, result=report)
 
     def download_distributions(self, dest=None, max_parallel_jobs=None):
         # type: (...) -> List[DownloadResult]
-        if not self.requirements and not self.requirement_files:
+
+        if not self.requests or not any(request.has_requirements for request in self.requests):
             # Nothing to resolve.
             return []
 
@@ -275,17 +422,50 @@ class DownloadRequest(object):
             prefix="resolver_download.", dir=safe_mkdir(CacheDir.DOWNLOADS.path(".tmp"))
         )
 
-        log_manager = PipLogManager.create(self.pip_log, self.download_targets)
+        log_manager = PipLogManager.create(
+            self.pip_log,
+            download_targets=tuple(request.download_target for request in self.requests),
+        )
         if self.pip_log and not self.pip_log.user_specified:
             TRACER.log(
                 "Preserving `pip download` log at {log_path}".format(log_path=self.pip_log.path),
                 V=ENV.PEX_VERBOSE,
             )
 
+        spawn_download = functools.partial(
+            self._spawn_download,
+            resolved_dists_dir=dest,
+            log_manager=log_manager,
+        )
+        with TRACER.timed(
+            "Resolving for:\n  {}".format(
+                "\n  ".join(request.render_description() for request in self.requests)
+            )
+        ):
+            try:
+                return list(
+                    execute_parallel(
+                        inputs=self.requests,
+                        spawn_func=spawn_download,
+                        error_handler=Raise[DownloadRequest, DownloadResult](Unsatisfiable),
+                        max_jobs=max_parallel_jobs,
+                    )
+                )
+            finally:
+                log_manager.finalize_log()
+
+    def _spawn_download(
+        self,
+        request,  # type: DownloadRequest
+        resolved_dists_dir,  # type: str
+        log_manager,  # type: PipLogManager
+    ):
+        # type: (...) -> SpawnedJob[DownloadResult]
+
         requirement_config = RequirementConfiguration(
-            requirements=self.requirements,
-            requirement_files=self.requirement_files,
-            constraint_files=self.constraint_files,
+            requirements=request.requirements,
+            requirement_files=request.requirement_files,
+            constraint_files=request.constraint_files,
         )
         network_configuration = (
             self.package_index_configuration.network_configuration
@@ -300,38 +480,7 @@ class DownloadRequest(object):
             if subdirectory:
                 subdirectory_by_filename[parsed_requirement.filename] = subdirectory
 
-        spawn_download = functools.partial(
-            self._spawn_download,
-            resolved_dists_dir=dest,
-            log_manager=log_manager,
-            subdirectory_by_filename=subdirectory_by_filename,
-        )
-        with TRACER.timed(
-            "Resolving for:\n  {}".format(
-                "\n  ".join(target.render_description() for target in self.download_targets)
-            )
-        ):
-            try:
-                return list(
-                    execute_parallel(
-                        inputs=self.download_targets,
-                        spawn_func=spawn_download,
-                        error_handler=Raise[DownloadTarget, DownloadResult](Unsatisfiable),
-                        max_jobs=max_parallel_jobs,
-                    )
-                )
-            finally:
-                log_manager.finalize_log()
-
-    def _spawn_download(
-        self,
-        download_target,  # type: DownloadTarget
-        resolved_dists_dir,  # type: str
-        log_manager,  # type: PipLogManager
-        subdirectory_by_filename,  # type: Mapping[str, str]
-    ):
-        # type: (...) -> SpawnedJob[DownloadResult]
-
+        download_target = request.download_target
         download_dir = os.path.join(resolved_dists_dir, download_target.id(complete=True))
         observer = (
             self.observer.observe_download(
@@ -354,9 +503,9 @@ class DownloadRequest(object):
             ),
         ).spawn_download_distributions(
             download_dir=download_dir,
-            requirements=self.requirements,
-            requirement_files=self.requirement_files,
-            constraint_files=self.constraint_files,
+            requirements=request.requirements,
+            requirement_files=request.requirement_files,
+            constraint_files=request.constraint_files,
             allow_prereleases=self.allow_prereleases,
             transitive=self.transitive,
             target=target,
@@ -396,7 +545,14 @@ class DownloadResult(object):
                 subdirectory = self.subdirectory_by_filename.get(
                     os.path.basename(distribution_path)
                 )
-                yield BuildRequest.create(
+                production_assert(
+                    os.path.isfile(distribution_path),
+                    (
+                        "Pip download results should always be files and never local project "
+                        "directories."
+                    ),
+                )
+                yield BuildRequest.for_file(
                     target=self.download_target,
                     source_path=distribution_path,
                     subdirectory=subdirectory,
@@ -415,30 +571,58 @@ class IntegrityError(Exception):
     pass
 
 
-def fingerprint_path(path):
+if TYPE_CHECKING:
+    from pex.hashing import Hasher
+
+
+def _hasher():
+    # type: () -> Hasher
+
+    return hashlib.sha256()
+
+
+def _fingerprint_file(path):
     # type: (str) -> str
+    return CacheHelper.hash(path, digest=_hasher())
 
-    # We switched from sha1 to sha256 at the transition from using `pip install --target` to
-    # `pip install --prefix` to serve two purposes:
-    # 1. Insulate the new installation scheme from the old.
-    # 2. Move past sha1 which was shown to have practical collision attacks in 2019.
-    #
-    # The installation scheme switch was the primary purpose and switching hashes proved a pragmatic
-    # insulation. If the `pip install --prefix` re-arrangement scheme evolves, then some other
-    # option than switching hashing algorithms will be needed, like post-fixing a running version
-    # integer or just mixing one into the hashed content.
-    #
-    # See: https://github.com/pex-tool/pex/issues/1655 for a general overview of these cache
-    # structure concerns.
-    hasher = hashlib.sha256
 
-    if os.path.isdir(path):
-        return CacheHelper.dir_hash(path, hasher=hasher)
-    return CacheHelper.hash(path, hasher=hasher)
+def _fingerprint_directory(path):
+    # type: (str) -> str
+    return CacheHelper.dir_hash(path, digest=_hasher())
 
 
 class BuildError(Exception):
     pass
+
+
+def _fingerprint_local_project(
+    path,  # type: str
+    target,  # type: Target
+    resolver=None,  # type: Optional[Resolver]
+    pip_version=None,  # type: Optional[PipVersionValue]
+):
+    # type: (...) -> str
+    if resolver:
+        build_system_resolver = resolver
+    else:
+        from pex.resolve.configured_resolver import ConfiguredResolver
+
+        build_system_resolver = ConfiguredResolver.default()
+
+    hasher = _hasher()
+    result = digest_local_project(
+        directory=path,
+        digest=hasher,
+        target=target,
+        resolver=build_system_resolver,
+        pip_version=pip_version,
+    )
+    if isinstance(result, Error):
+        raise BuildError(
+            "Failed to create an sdist for hashing from the local project at {path}: "
+            "{err}".format(path=path, err=result)
+        )
+    return hasher.hexdigest()
 
 
 def _as_download_target(target):
@@ -449,14 +633,14 @@ def _as_download_target(target):
 @attr.s(frozen=True)
 class BuildRequest(object):
     @classmethod
-    def create(
+    def for_file(
         cls,
         target,  # type: Union[DownloadTarget, Target]
         source_path,  # type: str
         subdirectory=None,  # type: Optional[str]
     ):
         # type: (...) -> BuildRequest
-        fingerprint = fingerprint_path(source_path)
+        fingerprint = _fingerprint_file(source_path)
         return cls(
             download_target=_as_download_target(target),
             source_path=source_path,
@@ -464,9 +648,25 @@ class BuildRequest(object):
             subdirectory=subdirectory,
         )
 
+    @classmethod
+    def for_directory(
+        cls,
+        target,  # type: Union[DownloadTarget, Target]
+        source_path,  # type: str
+        subdirectory=None,  # type: Optional[str]
+    ):
+        # type: (...) -> BuildRequest
+        download_target = _as_download_target(target)
+        return cls(
+            download_target=download_target,
+            source_path=source_path,
+            fingerprint=None,
+            subdirectory=subdirectory,
+        )
+
     download_target = attr.ib(converter=_as_download_target)  # type: DownloadTarget
     source_path = attr.ib()  # type: str
-    fingerprint = attr.ib()  # type: str
+    fingerprint = attr.ib()  # type: Optional[str]
     subdirectory = attr.ib()  # type: Optional[str]
 
     @property
@@ -486,26 +686,26 @@ class BuildRequest(object):
         if is_zip_sdist(self.source_path):
             with open_zip(self.source_path) as zf:
                 zf.extractall(extract_dir)
-        elif is_tar_sdist(self.source_path):
-            with tarfile.open(self.source_path) as tf:
-                tf.extractall(extract_dir)
-        else:
-            raise BuildError(
-                "Unexpected archive type for sdist {project}".format(project=self.source_path)
-            )
 
-        listing = os.listdir(extract_dir)
-        if len(listing) != 1:
-            raise BuildError(
-                "Expected one top-level project directory to be extracted from {project}, "
-                "found {count}: {listing}".format(
-                    project=self.source_path, count=len(listing), listing=", ".join(listing)
+            listing = os.listdir(extract_dir)
+            if len(listing) != 1:
+                raise BuildError(
+                    "Expected one top-level project directory to be extracted from {project}, "
+                    "found {count}: {listing}".format(
+                        project=self.source_path, count=len(listing), listing=", ".join(listing)
+                    )
                 )
-            )
-        project_directory = os.path.join(extract_dir, listing[0])
-        if self.subdirectory:
-            project_directory = os.path.join(project_directory, self.subdirectory)
-        return project_directory
+            project_directory = os.path.join(extract_dir, listing[0])
+            if self.subdirectory:
+                project_directory = os.path.join(project_directory, self.subdirectory)
+            return project_directory
+
+        if is_tar_sdist(self.source_path):
+            return sdist.extract_tarball(self.source_path, dest_dir=extract_dir)
+
+        raise BuildError(
+            "Unexpected archive type for sdist {project}".format(project=self.source_path)
+        )
 
     def result(self, source_path=None):
         # type: (Optional[str]) -> BuildResult
@@ -521,12 +721,16 @@ class BuildResult(object):
         source_path=None,  # type: Optional[str]
     ):
         # type: (...) -> BuildResult
-        built_wheel = BuiltWheelDir.create(
-            sdist=source_path or build_request.source_path,
-            fingerprint=build_request.fingerprint,
-            target=build_request.target,
-        )
-        return cls(request=build_request, atomic_dir=AtomicDirectory(built_wheel.dist_dir))
+        if build_request.fingerprint:
+            built_wheel = BuiltWheelDir.create(
+                sdist=source_path or build_request.source_path,
+                fingerprint=build_request.fingerprint,
+                target=build_request.target,
+            )
+            target_dir = built_wheel.dist_dir
+        else:
+            target_dir = os.path.join(safe_mkdtemp(), "build")
+        return cls(request=build_request, atomic_dir=AtomicDirectory(target_dir))
 
     request = attr.ib()  # type: BuildRequest
     _atomic_dir = attr.ib()  # type: AtomicDirectory
@@ -622,7 +826,7 @@ class BuildResult(object):
                         target=self.request.target.render_description(),
                     )
                 )
-        return InstallRequest.create(self.request.target, wheel_path)
+        return InstallRequest.create(self.request.target, wheel_path, was_built_locally=True)
 
 
 @attr.s(frozen=True)
@@ -632,18 +836,21 @@ class InstallRequest(object):
         cls,
         target,  # type: Union[DownloadTarget, Target]
         wheel_path,  # type: str
+        was_built_locally=False,  # type: bool
     ):
         # type: (...) -> InstallRequest
-        fingerprint = fingerprint_path(wheel_path)
+        fingerprint = _fingerprint_file(wheel_path)
         return cls(
             download_target=_as_download_target(target),
             wheel_path=wheel_path,
             fingerprint=fingerprint,
+            was_built_locally=was_built_locally,
         )
 
     download_target = attr.ib(converter=_as_download_target)  # type: DownloadTarget
     wheel_path = attr.ib()  # type: str
     fingerprint = attr.ib()  # type: str
+    was_built_locally = attr.ib(default=False)  # type: bool
 
     @property
     def target(self):
@@ -765,7 +972,7 @@ class InstallResult(object):
         else:
             cached_fingerprint = installed_wheel.fingerprint
 
-        wheel_dir_hash = cached_fingerprint or fingerprint_path(self.install_chroot)
+        wheel_dir_hash = cached_fingerprint or _fingerprint_directory(self.install_chroot)
         runtime_key_dir = os.path.join(self._installation_root, wheel_dir_hash)
         with atomic_directory(runtime_key_dir) as atomic_dir:
             if not atomic_dir.is_finalized():
@@ -851,7 +1058,7 @@ class WheelBuilder(object):
                 else ()
             ),
         ).spawn_build_wheels(
-            distributions=[source_path],
+            requirements=[source_path],
             wheel_dir=build_result.build_dir,
             package_index_configuration=self._package_index_configuration,
             interpreter=build_request.target.get_interpreter(),
@@ -987,7 +1194,11 @@ def _perform_install(
 ):
     # type: (...) -> InstallResult
     install_result = install_request.result(installed_wheels_dir)
-    install_wheel_chroot(wheel=install_request.wheel_path, destination=install_result.build_chroot)
+    install_wheel_chroot(
+        wheel=install_request.wheel_path,
+        destination=install_result.build_chroot,
+        normalize_file_stat=install_request.was_built_locally,
+    )
     return install_result
 
 
@@ -1079,8 +1290,10 @@ class BuildAndInstallRequest(object):
                     )
                 if is_wheel(dist_path):
                     to_install.add(InstallRequest.create(install_request.target, dist_path))
+                elif os.path.isdir(dist_path):
+                    to_build.add(BuildRequest.for_directory(install_request.target, dist_path))
                 else:
-                    to_build.add(BuildRequest.create(install_request.target, dist_path))
+                    to_build.add(BuildRequest.for_file(install_request.target, dist_path))
             already_analyzed.add(metadata.project_name)
 
         all_install_requests = OrderedSet(install_requests)
@@ -1244,7 +1457,7 @@ def _parse_reqs(
     requirement_files=None,  # type: Optional[Iterable[str]]
     network_configuration=None,  # type: Optional[NetworkConfiguration]
 ):
-    # type: (...) -> Iterable[ParsedRequirement]
+    # type: (...) -> Tuple[ParsedRequirement, ...]
     requirement_configuration = RequirementConfiguration(
         requirements=requirements, requirement_files=requirement_files
     )
@@ -1311,6 +1524,23 @@ def resolve(
     :raises ValueError: If `build=False` and `use_wheel=False`.
     """
 
+    if not build_configuration.allow_wheels:
+        foreign_targets = [
+            target
+            for target in targets.unique_targets()
+            if not isinstance(target, LocalInterpreter)
+        ]
+        if foreign_targets:
+            raise ValueError(
+                "Cannot ignore wheels (use_wheel=False) when resolving for foreign {platforms}: "
+                "{foreign_platforms}".format(
+                    platforms=pluralize(foreign_targets, "platform"),
+                    foreign_platforms=", ".join(
+                        target.render_description() for target in foreign_targets
+                    ),
+                )
+            )
+
     # A resolve happens in four stages broken into two phases:
     # 1. Download phase: resolves sdists and wheels in a single operation per distribution target.
     # 2. Install phase:
@@ -1352,29 +1582,19 @@ def resolve(
         keyring_provider=keyring_provider,
     )
 
-    if not build_configuration.allow_wheels:
-        foreign_targets = [
-            target
-            for target in targets.unique_targets()
-            if not isinstance(target, LocalInterpreter)
-        ]
-        if foreign_targets:
-            raise ValueError(
-                "Cannot ignore wheels (use_wheel=False) when resolving for foreign {platforms}: "
-                "{foreign_platforms}".format(
-                    platforms=pluralize(foreign_targets, "platform"),
-                    foreign_platforms=", ".join(
-                        target.render_description() for target in foreign_targets
-                    ),
-                )
-            )
+    requests = tuple(
+        DownloadRequest(
+            download_target=DownloadTarget(target=target),
+            requirements=requirements,
+            requirement_files=requirement_files,
+            constraint_files=constraint_files,
+        )
+        for target in targets.unique_targets()
+    )
 
     build_requests, download_results = _download_internal(
-        targets=targets,
+        requests=requests,
         direct_requirements=direct_requirements,
-        requirements=requirements,
-        requirement_files=requirement_files,
-        constraint_files=constraint_files,
         allow_prereleases=allow_prereleases,
         transitive=transitive,
         package_index_configuration=package_index_configuration,
@@ -1422,11 +1642,8 @@ def resolve(
 
 
 def _download_internal(
-    targets,  # type: Targets
+    requests,  # type: Tuple[DownloadRequest, ...]
     direct_requirements,  # type: Iterable[ParsedRequirement]
-    requirements=None,  # type: Optional[Iterable[str]]
-    requirement_files=None,  # type: Optional[Iterable[str]]
-    constraint_files=None,  # type: Optional[Iterable[str]]
     allow_prereleases=False,  # type: bool
     transitive=True,  # type: bool
     package_index_configuration=None,  # type: Optional[PackageIndexConfiguration]
@@ -1438,27 +1655,12 @@ def _download_internal(
     pip_version=None,  # type: Optional[PipVersionValue]
     resolver=None,  # type: Optional[Resolver]
     dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
-    universal_targets=(),  # type: Iterable[UniversalTarget]
 ):
     # type: (...) -> Tuple[List[BuildRequest], List[DownloadResult]]
 
-    unique_targets = targets.unique_targets()
-    if universal_targets:
-        production_assert(len(unique_targets) == 1)
-        target = unique_targets.pop()
-        download_targets = tuple(
-            DownloadTarget(target, universal_target=universal_target)
-            for universal_target in universal_targets
-        )
-    else:
-        download_targets = tuple(DownloadTarget(target) for target in unique_targets)
-
-    download_request = DownloadRequest(
-        download_targets=download_targets,
+    pip_session = _PipSession(
+        requests=requests,
         direct_requirements=direct_requirements,
-        requirements=requirements,
-        requirement_files=requirement_files,
-        constraint_files=constraint_files,
         allow_prereleases=allow_prereleases,
         transitive=transitive,
         package_index_configuration=package_index_configuration,
@@ -1470,8 +1672,8 @@ def _download_internal(
         dependency_configuration=dependency_configuration,
     )
 
-    local_projects = list(download_request.iter_local_projects())
-    download_results = download_request.download_distributions(
+    local_projects = list(pip_session.iter_local_projects())
+    download_results = pip_session.download_distributions(
         dest=dest, max_parallel_jobs=max_parallel_jobs
     )
     return local_projects, download_results
@@ -1488,10 +1690,6 @@ class LocalDistribution(object):
     def target(self):
         # type: () -> Target
         return self.download_target.target
-
-    @fingerprint.default
-    def _calculate_fingerprint(self):
-        return fingerprint_path(self.path)
 
     @property
     def is_wheel(self):
@@ -1535,7 +1733,6 @@ def download(
     extra_pip_requirements=(),  # type: Tuple[Requirement, ...]
     keyring_provider=None,  # type: Optional[str]
     dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
-    universal_targets=(),  # type: Iterable[UniversalTarget]
 ):
     # type: (...) -> Downloaded
     """Downloads all distributions needed to meet requirements for multiple distribution targets.
@@ -1565,7 +1762,114 @@ def download(
     :raises ValueError: If a foreign platform was provided in `platforms`, and `use_wheel=False`.
     :raises ValueError: If `build=False` and `use_wheel=False`.
     """
-    direct_requirements = _parse_reqs(requirements, requirement_files, network_configuration)
+    return download_requests(
+        requests=tuple(
+            DownloadRequest(
+                download_target=DownloadTarget(target),
+                requirements=requirements,
+                requirement_files=requirement_files,
+                constraint_files=constraint_files,
+            )
+            for target in targets.unique_targets()
+        ),
+        direct_requirements=_parse_reqs(requirements, requirement_files, network_configuration),
+        allow_prereleases=allow_prereleases,
+        transitive=transitive,
+        repos_configuration=repos_configuration,
+        resolver_version=resolver_version,
+        network_configuration=network_configuration,
+        build_configuration=build_configuration,
+        dest=dest,
+        max_parallel_jobs=max_parallel_jobs,
+        observer=observer,
+        pip_log=pip_log,
+        pip_version=pip_version,
+        resolver=resolver,
+        use_pip_config=use_pip_config,
+        extra_pip_requirements=extra_pip_requirements,
+        keyring_provider=keyring_provider,
+        dependency_configuration=dependency_configuration,
+    )
+
+
+def _as_str_tuple(items):
+    # type: (Optional[Iterable[str]]) -> Tuple[str, ...]
+    if not items:
+        return ()
+    return items if isinstance(items, tuple) else tuple(items)
+
+
+@attr.s(frozen=True)
+class DownloadRequest(object):
+    @classmethod
+    def create(
+        cls,
+        target,  # type: Target
+        universal_target=None,  # type: Optional[UniversalTarget]
+        requirement_configuration=RequirementConfiguration(),  # type: RequirementConfiguration
+        provenance=None,  # type: Optional[str]
+    ):
+        # type: (...) -> DownloadRequest
+        return cls(
+            download_target=DownloadTarget(target=target, universal_target=universal_target),
+            requirements=requirement_configuration.requirements,
+            requirement_files=requirement_configuration.requirement_files,
+            constraint_files=requirement_configuration.constraint_files,
+            provenance=provenance,
+        )
+
+    download_target = attr.ib()  # type: DownloadTarget
+    requirements = attr.ib(default=(), converter=_as_str_tuple)  # type: Tuple[str, ...]
+    requirement_files = attr.ib(default=(), converter=_as_str_tuple)  # type: Tuple[str, ...]
+    constraint_files = attr.ib(default=(), converter=_as_str_tuple)  # type: Tuple[str, ...]
+    provenance = attr.ib(default=None)  # type: Optional[str]
+
+    def render_description(self):
+        # type: () -> str
+        description = self.download_target.render_description()
+        if not self.provenance:
+            return description
+        return "{description} from {provenance}".format(
+            description=description, provenance=self.provenance
+        )
+
+    @property
+    def target(self):
+        # type: () -> Target
+        return self.download_target.target
+
+    @property
+    def universal_target(self):
+        # type: () -> Optional[UniversalTarget]
+        return self.download_target.universal_target
+
+    @property
+    def has_requirements(self):
+        return bool(self.requirements) or bool(self.requirement_files)
+
+
+def download_requests(
+    requests,  # type: Tuple[DownloadRequest, ...]
+    direct_requirements,  # type: Tuple[ParsedRequirement, ...]
+    allow_prereleases=False,  # type: bool
+    transitive=True,  # type: bool
+    repos_configuration=ReposConfiguration(),  # type: ReposConfiguration
+    resolver_version=None,  # type: Optional[ResolverVersion.Value]
+    network_configuration=None,  # type: Optional[NetworkConfiguration]
+    build_configuration=BuildConfiguration(),  # type: BuildConfiguration
+    dest=None,  # type: Optional[str]
+    max_parallel_jobs=None,  # type: Optional[int]
+    observer=None,  # type: Optional[ResolveObserver]
+    pip_log=None,  # type: Optional[PipLog]
+    pip_version=None,  # type: Optional[PipVersionValue]
+    resolver=None,  # type: Optional[Resolver]
+    use_pip_config=False,  # type: bool
+    extra_pip_requirements=(),  # type: Tuple[Requirement, ...]
+    keyring_provider=None,  # type: Optional[str]
+    dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
+):
+    # type: (...) -> Downloaded
+
     package_index_configuration = PackageIndexConfiguration.create(
         pip_version=pip_version,
         resolver_version=resolver_version,
@@ -1575,12 +1879,10 @@ def download(
         extra_pip_requirements=extra_pip_requirements,
         keyring_provider=keyring_provider,
     )
+
     build_requests, download_results = _download_internal(
-        targets=targets,
+        requests=requests,
         direct_requirements=direct_requirements,
-        requirements=requirements,
-        requirement_files=requirement_files,
-        constraint_files=constraint_files,
         allow_prereleases=allow_prereleases,
         transitive=transitive,
         package_index_configuration=package_index_configuration,
@@ -1592,7 +1894,6 @@ def download(
         pip_version=pip_version,
         resolver=resolver,
         dependency_configuration=dependency_configuration,
-        universal_targets=universal_targets,
     )
 
     local_distributions = []
@@ -1600,11 +1901,21 @@ def download(
     def add_build_requests(requests):
         # type: (Iterable[BuildRequest]) -> None
         for request in requests:
+            if request.fingerprint:
+                fingerprint = request.fingerprint
+            else:
+                production_assert(os.path.isdir(request.source_path))
+                fingerprint = _fingerprint_local_project(
+                    path=request.source_path,
+                    target=request.target,
+                    resolver=resolver,
+                    pip_version=pip_version,
+                )
             local_distributions.append(
                 LocalDistribution(
                     download_target=request.download_target,
                     path=request.source_path,
-                    fingerprint=request.fingerprint,
+                    fingerprint=fingerprint,
                     subdirectory=request.subdirectory,
                 )
             )
@@ -1622,3 +1933,51 @@ def download(
             )
 
     return Downloaded(local_distributions=tuple(local_distributions))
+
+
+def reports(
+    requests,  # type: Tuple[DownloadRequest, ...]
+    direct_requirements,  # type: Tuple[ParsedRequirement, ...]
+    allow_prereleases=False,  # type: bool
+    transitive=True,  # type: bool
+    repos_configuration=ReposConfiguration(),  # type: ReposConfiguration
+    resolver_version=None,  # type: Optional[ResolverVersion.Value]
+    network_configuration=None,  # type: Optional[NetworkConfiguration]
+    build_configuration=BuildConfiguration(),  # type: BuildConfiguration
+    max_parallel_jobs=None,  # type: Optional[int]
+    observer=None,  # type: Optional[ResolveObserver]
+    pip_log=None,  # type: Optional[PipLog]
+    pip_version=None,  # type: Optional[PipVersionValue]
+    resolver=None,  # type: Optional[Resolver]
+    use_pip_config=False,  # type: bool
+    extra_pip_requirements=(),  # type: Tuple[Requirement, ...]
+    keyring_provider=None,  # type: Optional[str]
+    dependency_configuration=DependencyConfiguration(),  # type: DependencyConfiguration
+):
+    # type: (...) -> Reports
+
+    package_index_configuration = PackageIndexConfiguration.create(
+        pip_version=pip_version,
+        resolver_version=resolver_version,
+        repos_configuration=repos_configuration,
+        network_configuration=network_configuration,
+        use_pip_config=use_pip_config,
+        extra_pip_requirements=extra_pip_requirements,
+        keyring_provider=keyring_provider,
+    )
+
+    pip_session = _PipSession(
+        requests=requests,
+        direct_requirements=direct_requirements,
+        allow_prereleases=allow_prereleases,
+        transitive=transitive,
+        package_index_configuration=package_index_configuration,
+        build_configuration=build_configuration,
+        observer=observer,
+        pip_log=pip_log,
+        pip_version=pip_version,
+        resolver=resolver,
+        dependency_configuration=dependency_configuration,
+    )
+
+    return pip_session.generate_reports(max_parallel_jobs=max_parallel_jobs)

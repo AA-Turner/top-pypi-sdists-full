@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// Copyright ijl (2018-2025)
 
 use crate::serialize::error::SerializeError;
 use crate::str::{PyStr, PyStrSubclass};
@@ -7,11 +8,11 @@ use serde::ser::{Serialize, Serializer};
 
 #[repr(transparent)]
 pub(crate) struct StrSerializer {
-    ptr: *mut pyo3_ffi::PyObject,
+    ptr: *mut crate::ffi::PyObject,
 }
 
 impl StrSerializer {
-    pub fn new(ptr: *mut pyo3_ffi::PyObject) -> Self {
+    pub fn new(ptr: *mut crate::ffi::PyObject) -> Self {
         StrSerializer { ptr: ptr }
     }
 }
@@ -31,11 +32,11 @@ impl Serialize for StrSerializer {
 
 #[repr(transparent)]
 pub(crate) struct StrSubclassSerializer {
-    ptr: *mut pyo3_ffi::PyObject,
+    ptr: *mut crate::ffi::PyObject,
 }
 
 impl StrSubclassSerializer {
-    pub fn new(ptr: *mut pyo3_ffi::PyObject) -> Self {
+    pub fn new(ptr: *mut crate::ffi::PyObject) -> Self {
         StrSubclassSerializer { ptr: ptr }
     }
 }

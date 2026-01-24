@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -10,9 +10,15 @@
 
 #pragma once
 
-#include "ir/QuantumComputation.hpp"
+#include "mlir/Dialect/MQTOpt/IR/MQTOptDialect.h"
 
+#include <cstdint>
+#include <mlir/Dialect/SCF/IR/SCF.h>
 #include <mlir/Pass/Pass.h>
+
+namespace qc {
+class QuantumComputation;
+}
 
 namespace mlir {
 
@@ -22,13 +28,25 @@ class RewritePatternSet;
 
 namespace mqt::ir::opt {
 
+enum class PlacementStrategy : std::uint8_t { Random, Identity };
+
 #define GEN_PASS_DECL
 #include "mlir/Dialect/MQTOpt/Transforms/Passes.h.inc" // IWYU pragma: export
 
-void populateCancelInversesPatterns(mlir::RewritePatternSet& patterns);
+void populateGateEliminationPatterns(mlir::RewritePatternSet& patterns);
 void populateMergeRotationGatesPatterns(mlir::RewritePatternSet& patterns);
+void populateSwapReconstructionAndElisionPatterns(
+    mlir::RewritePatternSet& patterns);
 void populateQuantumSinkShiftPatterns(mlir::RewritePatternSet& patterns);
 void populateQuantumSinkPushPatterns(mlir::RewritePatternSet& patterns);
+void populateLiftMeasurementsAboveControlsPatterns(
+    mlir::RewritePatternSet& patterns);
+void populateReplaceBasisStateControlsWithIfPatterns(
+    mlir::RewritePatternSet& patterns);
+void populateLiftMeasurementsAboveGatesPatterns(
+    mlir::RewritePatternSet& patterns);
+void populateDeadGateEliminationPatterns(mlir::RewritePatternSet& patterns);
+void populateReuseQubitsPatterns(mlir::RewritePatternSet& patterns);
 void populateToQuantumComputationPatterns(mlir::RewritePatternSet& patterns,
                                           qc::QuantumComputation& circuit);
 void populateFromQuantumComputationPatterns(mlir::RewritePatternSet& patterns,

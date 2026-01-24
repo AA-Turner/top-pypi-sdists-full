@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Rosbag1 v2.0 reader."""
 
-# pyright: strict, reportUnreachable=false
-
 from __future__ import annotations
 
 import heapq
@@ -25,7 +23,10 @@ if sys.version_info >= (3, 12):  # pragma: no cover
 else:  # pragma: no cover
     from typing_extensions import override
 
-from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
+if sys.version_info >= (3, 14):  # pragma: no cover
+    from safelz4.frame import decompress as lz4_decompress
+else:  # pragma: no cover
+    from lz4.frame import decompress as lz4_decompress  # type: ignore[import-untyped]
 
 from rosbags.interfaces import (
     Connection,
@@ -132,6 +133,10 @@ class IndexData(NamedTuple):
         if isinstance(other, IndexData):
             return self.time != other[0]
         return NotImplemented  # pragma: no cover
+
+    def __hash__(self) -> int:
+        """Use normal tuple hash."""
+        return hash(tuple(self))  # pragma: no cover
 
 
 decompressors: dict[str, Callable[[bytes], bytes]] = {

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
@@ -38,12 +39,6 @@ from .literals import (
     UnlabeledEventsTreatmentType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -243,11 +238,11 @@ class ATIModelPerformanceTypeDef(TypedDict):
     asi: NotRequired[float]
 
 class AggregatedLogOddsMetricTypeDef(TypedDict):
-    variableNames: List[str]
+    variableNames: list[str]
     aggregatedVariablesImportance: float
 
 class AggregatedVariablesImpactExplanationTypeDef(TypedDict):
-    eventVariableNames: NotRequired[List[str]]
+    eventVariableNames: NotRequired[list[str]]
     relativeImpact: NotRequired[str]
     logOddsImpact: NotRequired[float]
 
@@ -279,7 +274,7 @@ class VariableEntryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -467,15 +462,15 @@ class EntityTypeTypeDef(TypedDict):
 class EvaluatedExternalModelTypeDef(TypedDict):
     modelEndpoint: NotRequired[str]
     useEventVariables: NotRequired[bool]
-    inputVariables: NotRequired[Dict[str, str]]
-    outputVariables: NotRequired[Dict[str, str]]
+    inputVariables: NotRequired[dict[str, str]]
+    outputVariables: NotRequired[dict[str, str]]
 
 class EvaluatedRuleTypeDef(TypedDict):
     ruleId: NotRequired[str]
     ruleVersion: NotRequired[str]
     expression: NotRequired[str]
     expressionWithValues: NotRequired[str]
-    outcomes: NotRequired[List[str]]
+    outcomes: NotRequired[list[str]]
     evaluated: NotRequired[bool]
     matched: NotRequired[bool]
 
@@ -520,8 +515,8 @@ ModelOutputConfigurationOutputTypeDef = TypedDict(
     "ModelOutputConfigurationOutputTypeDef",
     {
         "format": ModelOutputDataFormatType,
-        "jsonKeyToVariableMap": NotRequired[Dict[str, str]],
-        "csvIndexToVariableMap": NotRequired[Dict[str, str]],
+        "jsonKeyToVariableMap": NotRequired[dict[str, str]],
+        "csvIndexToVariableMap": NotRequired[dict[str, str]],
     },
 )
 
@@ -564,7 +559,7 @@ class GetEventPredictionMetadataRequestTypeDef(TypedDict):
 
 class RuleResultTypeDef(TypedDict):
     ruleId: NotRequired[str]
-    outcomes: NotRequired[List[str]]
+    outcomes: NotRequired[list[str]]
 
 class GetEventRequestTypeDef(TypedDict):
     eventId: str
@@ -651,7 +646,7 @@ class RuleDetailTypeDef(TypedDict):
     ruleVersion: NotRequired[str]
     expression: NotRequired[str]
     language: NotRequired[Literal["DETECTORPL"]]
-    outcomes: NotRequired[List[str]]
+    outcomes: NotRequired[list[str]]
     lastUpdatedTime: NotRequired[str]
     createdTime: NotRequired[str]
     arn: NotRequired[str]
@@ -666,7 +661,7 @@ class IngestedEventsTimeWindowTypeDef(TypedDict):
     endTime: str
 
 class LabelSchemaOutputTypeDef(TypedDict):
-    labelMapper: NotRequired[Dict[str, List[str]]]
+    labelMapper: NotRequired[dict[str, list[str]]]
     unlabeledEventsTreatment: NotRequired[UnlabeledEventsTreatmentType]
 
 class LabelSchemaTypeDef(TypedDict):
@@ -771,11 +766,11 @@ class UpdateVariableRequestTypeDef(TypedDict):
     variableType: NotRequired[str]
 
 class ATITrainingMetricsValueTypeDef(TypedDict):
-    metricDataPoints: NotRequired[List[ATIMetricDataPointTypeDef]]
+    metricDataPoints: NotRequired[list[ATIMetricDataPointTypeDef]]
     modelPerformance: NotRequired[ATIModelPerformanceTypeDef]
 
 class AggregatedVariablesImportanceMetricsTypeDef(TypedDict):
-    logOddsMetrics: NotRequired[List[AggregatedLogOddsMetricTypeDef]]
+    logOddsMetrics: NotRequired[list[AggregatedLogOddsMetricTypeDef]]
 
 class CreateBatchImportJobRequestTypeDef(TypedDict):
     jobId: str
@@ -857,7 +852,7 @@ class BatchCreateVariableRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class BatchCreateVariableResultTypeDef(TypedDict):
-    errors: List[BatchCreateVariableErrorTypeDef]
+    errors: list[BatchCreateVariableErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateDetectorVersionResultTypeDef(TypedDict):
@@ -884,17 +879,17 @@ class GetDeleteEventsByEventTypeStatusResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetListElementsResultTypeDef(TypedDict):
-    elements: List[str]
+    elements: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetListsMetadataResultTypeDef(TypedDict):
-    lists: List[AllowDenyListTypeDef]
+    lists: list[AllowDenyListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -906,22 +901,22 @@ class UpdateModelVersionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetVariableResultTypeDef(TypedDict):
-    variables: List[VariableTypeDef]
-    errors: List[BatchGetVariableErrorTypeDef]
+    variables: list[VariableTypeDef]
+    errors: list[BatchGetVariableErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetVariablesResultTypeDef(TypedDict):
-    variables: List[VariableTypeDef]
+    variables: list[VariableTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBatchImportJobsResultTypeDef(TypedDict):
-    batchImports: List[BatchImportTypeDef]
+    batchImports: list[BatchImportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetBatchPredictionJobsResultTypeDef(TypedDict):
-    batchPredictions: List[BatchPredictionTypeDef]
+    batchPredictions: list[BatchPredictionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -931,7 +926,7 @@ class ModelEndpointDataBlobTypeDef(TypedDict):
 
 class ModelScoresTypeDef(TypedDict):
     modelVersion: NotRequired[ModelVersionTypeDef]
-    scores: NotRequired[Dict[str, float]]
+    scores: NotRequired[dict[str, float]]
 
 class CreateDetectorVersionRequestTypeDef(TypedDict):
     detectorId: str
@@ -953,9 +948,9 @@ class GetDetectorVersionResultTypeDef(TypedDict):
     detectorId: str
     detectorVersionId: str
     description: str
-    externalModelEndpoints: List[str]
-    modelVersions: List[ModelVersionTypeDef]
-    rules: List[RuleTypeDef]
+    externalModelEndpoints: list[str]
+    modelVersions: list[ModelVersionTypeDef]
+    rules: list[RuleTypeDef]
     status: DetectorVersionStatusType
     lastUpdatedTime: str
     createdTime: str
@@ -989,18 +984,18 @@ class UpdateRuleVersionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DataValidationMetricsTypeDef(TypedDict):
-    fileLevelMessages: NotRequired[List[FileValidationMessageTypeDef]]
-    fieldLevelMessages: NotRequired[List[FieldValidationMessageTypeDef]]
+    fileLevelMessages: NotRequired[list[FileValidationMessageTypeDef]]
+    fieldLevelMessages: NotRequired[list[FieldValidationMessageTypeDef]]
 
 class DescribeDetectorResultTypeDef(TypedDict):
     detectorId: str
-    detectorVersionSummaries: List[DetectorVersionSummaryTypeDef]
+    detectorVersionSummaries: list[DetectorVersionSummaryTypeDef]
     arn: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetDetectorsResultTypeDef(TypedDict):
-    detectors: List[DetectorTypeDef]
+    detectors: list[DetectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1008,10 +1003,10 @@ class EventTypeDef(TypedDict):
     eventId: NotRequired[str]
     eventTypeName: NotRequired[str]
     eventTimestamp: NotRequired[str]
-    eventVariables: NotRequired[Dict[str, str]]
+    eventVariables: NotRequired[dict[str, str]]
     currentLabel: NotRequired[str]
     labelTimestamp: NotRequired[str]
-    entities: NotRequired[List[EntityTypeDef]]
+    entities: NotRequired[list[EntityTypeDef]]
 
 class SendEventRequestTypeDef(TypedDict):
     eventId: str
@@ -1023,7 +1018,7 @@ class SendEventRequestTypeDef(TypedDict):
     labelTimestamp: NotRequired[str]
 
 class GetEntityTypesResultTypeDef(TypedDict):
-    entityTypes: List[EntityTypeTypeDef]
+    entityTypes: list[EntityTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1038,16 +1033,16 @@ class PutEventTypeRequestTypeDef(TypedDict):
     eventOrchestration: NotRequired[EventOrchestrationTypeDef]
 
 class ListEventPredictionsResultTypeDef(TypedDict):
-    eventPredictionSummaries: List[EventPredictionSummaryTypeDef]
+    eventPredictionSummaries: list[EventPredictionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class EventTypeTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
-    eventVariables: NotRequired[List[str]]
-    labels: NotRequired[List[str]]
-    entityTypes: NotRequired[List[str]]
+    eventVariables: NotRequired[list[str]]
+    labels: NotRequired[list[str]]
+    entityTypes: NotRequired[list[str]]
     eventIngestion: NotRequired[EventIngestionType]
     ingestedEventStatistics: NotRequired[IngestedEventStatisticsTypeDef]
     lastUpdatedTime: NotRequired[str]
@@ -1057,7 +1052,7 @@ class EventTypeTypeDef(TypedDict):
 
 class ExternalModelOutputsTypeDef(TypedDict):
     externalModel: NotRequired[ExternalModelSummaryTypeDef]
-    outputs: NotRequired[Dict[str, str]]
+    outputs: NotRequired[dict[str, str]]
 
 class ExternalModelTypeDef(TypedDict):
     modelEndpoint: NotRequired[str]
@@ -1075,22 +1070,22 @@ class GetKMSEncryptionKeyResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetLabelsResultTypeDef(TypedDict):
-    labels: List[LabelTypeDef]
+    labels: list[LabelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetModelsResultTypeDef(TypedDict):
-    models: List[ModelTypeDef]
+    models: list[ModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetOutcomesResultTypeDef(TypedDict):
-    outcomes: List[OutcomeTypeDef]
+    outcomes: list[OutcomeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetRulesResultTypeDef(TypedDict):
-    ruleDetails: List[RuleDetailTypeDef]
+    ruleDetails: list[RuleDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1098,7 +1093,7 @@ class IngestedEventsDetailTypeDef(TypedDict):
     ingestedEventsTimeWindow: IngestedEventsTimeWindowTypeDef
 
 class TrainingDataSchemaOutputTypeDef(TypedDict):
-    modelVariables: List[str]
+    modelVariables: list[str]
     labelSchema: NotRequired[LabelSchemaOutputTypeDef]
 
 class TrainingDataSchemaTypeDef(TypedDict):
@@ -1115,11 +1110,11 @@ class ListEventPredictionsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class VariableImportanceMetricsTypeDef(TypedDict):
-    logOddsMetrics: NotRequired[List[LogOddsMetricTypeDef]]
+    logOddsMetrics: NotRequired[list[LogOddsMetricTypeDef]]
 
 class TrainingMetricsTypeDef(TypedDict):
     auc: NotRequired[float]
-    metricDataPoints: NotRequired[List[MetricDataPointTypeDef]]
+    metricDataPoints: NotRequired[list[MetricDataPointTypeDef]]
 
 ModelOutputConfigurationUnionTypeDef = Union[
     ModelOutputConfigurationTypeDef, ModelOutputConfigurationOutputTypeDef
@@ -1134,9 +1129,9 @@ class TFIModelPerformanceTypeDef(TypedDict):
     uncertaintyRange: NotRequired[UncertaintyRangeTypeDef]
 
 class PredictionExplanationsTypeDef(TypedDict):
-    variableImpactExplanations: NotRequired[List[VariableImpactExplanationTypeDef]]
+    variableImpactExplanations: NotRequired[list[VariableImpactExplanationTypeDef]]
     aggregatedVariablesImpactExplanations: NotRequired[
-        List[AggregatedVariablesImpactExplanationTypeDef]
+        list[AggregatedVariablesImpactExplanationTypeDef]
     ]
 
 class GetEventPredictionRequestTypeDef(TypedDict):
@@ -1154,18 +1149,18 @@ class GetEventResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetEventTypesResultTypeDef(TypedDict):
-    eventTypes: List[EventTypeTypeDef]
+    eventTypes: list[EventTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetEventPredictionResultTypeDef(TypedDict):
-    modelScores: List[ModelScoresTypeDef]
-    ruleResults: List[RuleResultTypeDef]
-    externalModelOutputs: List[ExternalModelOutputsTypeDef]
+    modelScores: list[ModelScoresTypeDef]
+    ruleResults: list[RuleResultTypeDef]
+    externalModelOutputs: list[ExternalModelOutputsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetExternalModelsResultTypeDef(TypedDict):
-    externalModels: List[ExternalModelTypeDef]
+    externalModels: list[ExternalModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1206,11 +1201,11 @@ class PutExternalModelRequestTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class OFITrainingMetricsValueTypeDef(TypedDict):
-    metricDataPoints: NotRequired[List[OFIMetricDataPointTypeDef]]
+    metricDataPoints: NotRequired[list[OFIMetricDataPointTypeDef]]
     modelPerformance: NotRequired[OFIModelPerformanceTypeDef]
 
 class TFITrainingMetricsValueTypeDef(TypedDict):
-    metricDataPoints: NotRequired[List[TFIMetricDataPointTypeDef]]
+    metricDataPoints: NotRequired[list[TFIMetricDataPointTypeDef]]
     modelPerformance: NotRequired[TFIModelPerformanceTypeDef]
 
 class ModelVersionEvaluationTypeDef(TypedDict):
@@ -1236,7 +1231,7 @@ class EvaluatedModelVersionTypeDef(TypedDict):
     modelId: NotRequired[str]
     modelVersion: NotRequired[str]
     modelType: NotRequired[str]
-    evaluations: NotRequired[List[ModelVersionEvaluationTypeDef]]
+    evaluations: NotRequired[list[ModelVersionEvaluationTypeDef]]
 
 class TrainingResultV2TypeDef(TypedDict):
     dataValidationMetrics: NotRequired[DataValidationMetricsTypeDef]
@@ -1253,12 +1248,12 @@ class GetEventPredictionMetadataResultTypeDef(TypedDict):
     detectorId: str
     detectorVersionId: str
     detectorVersionStatus: str
-    eventVariables: List[EventVariableSummaryTypeDef]
-    rules: List[EvaluatedRuleTypeDef]
+    eventVariables: list[EventVariableSummaryTypeDef]
+    rules: list[EvaluatedRuleTypeDef]
     ruleExecutionMode: RuleExecutionModeType
-    outcomes: List[str]
-    evaluatedModelVersions: List[EvaluatedModelVersionTypeDef]
-    evaluatedExternalModels: List[EvaluatedExternalModelTypeDef]
+    outcomes: list[str]
+    evaluatedModelVersions: list[EvaluatedModelVersionTypeDef]
+    evaluatedExternalModels: list[EvaluatedExternalModelTypeDef]
     predictionTimestamp: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1278,6 +1273,6 @@ class ModelVersionDetailTypeDef(TypedDict):
     trainingResultV2: NotRequired[TrainingResultV2TypeDef]
 
 class DescribeModelVersionsResultTypeDef(TypedDict):
-    modelVersionDetails: List[ModelVersionDetailTypeDef]
+    modelVersionDetails: list[ModelVersionDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

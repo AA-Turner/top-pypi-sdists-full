@@ -74,7 +74,8 @@ class ToolsResource(SyncAPIResource):
         parameters, versions, and toolkit information.
 
         Args:
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           version: Optional version of the tool to retrieve
 
@@ -109,7 +110,7 @@ class ToolsResource(SyncAPIResource):
     def list(
         self,
         *,
-        auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        auth_config_ids: Union[str, SequenceNotStr[str]] | Omit = omit,
         cursor: str | Omit = omit,
         important: Literal["true", "false"] | Omit = omit,
         include_deprecated: bool | Omit = omit,
@@ -133,7 +134,7 @@ class ToolsResource(SyncAPIResource):
         toolkit, tags, or search terms.
 
         Args:
-          auth_config_ids: Filter tools by auth config id
+          auth_config_ids: Comma-separated list of auth config IDs to filter tools by
 
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
               limit. The page is the page number and the limit is the number of items per
@@ -144,7 +145,7 @@ class ToolsResource(SyncAPIResource):
 
           include_deprecated: Include deprecated tools in the response
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           scopes: Array of scopes to filter tools by)
 
@@ -157,7 +158,8 @@ class ToolsResource(SyncAPIResource):
 
           toolkit_slug: The slug of the toolkit to filter by
 
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -203,6 +205,7 @@ class ToolsResource(SyncAPIResource):
         connected_account_id: str | Omit = omit,
         custom_auth_params: tool_execute_params.CustomAuthParams | Omit = omit,
         custom_connection_data: tool_execute_params.CustomConnectionData | Omit = omit,
+        entity_id: str | Omit = omit,
         text: str | Omit = omit,
         user_id: str | Omit = omit,
         version: str | Omit = omit,
@@ -231,12 +234,15 @@ class ToolsResource(SyncAPIResource):
 
           custom_connection_data: Custom connection data for tools that support custom connection data
 
+          entity_id: Deprecated: please use user_id instead. Entity identifier for multi-entity
+              connected accounts (e.g. multiple repositories, organizations)
+
           text: Natural language description of the task to perform (mutually exclusive with
               arguments)
 
           user_id: User id for multi-user connected accounts (e.g. multiple users, organizations)
 
-          version: Tool version to execute (defaults to "latest" if not specified)
+          version: Tool version to execute (defaults to "00000000_00" if not specified)
 
           extra_headers: Send extra headers
 
@@ -257,6 +263,7 @@ class ToolsResource(SyncAPIResource):
                     "connected_account_id": connected_account_id,
                     "custom_auth_params": custom_auth_params,
                     "custom_connection_data": custom_connection_data,
+                    "entity_id": entity_id,
                     "text": text,
                     "user_id": user_id,
                     "version": version,
@@ -334,6 +341,7 @@ class ToolsResource(SyncAPIResource):
         *,
         endpoint: str,
         method: Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+        binary_body: tool_proxy_params.BinaryBody | Omit = omit,
         body: object | Omit = omit,
         connected_account_id: str | Omit = omit,
         custom_connection_data: tool_proxy_params.CustomConnectionData | Omit = omit,
@@ -356,6 +364,10 @@ class ToolsResource(SyncAPIResource):
 
           method: The HTTP method to use for the request
 
+          binary_body: Binary body to send. For binary upload via URL: use {url: "https://...",
+              content_type?: "..."}. For binary upload via base64: use {base64: "...",
+              content_type?: "..."}.
+
           body: The request body (for POST, PUT, and PATCH requests)
 
           connected_account_id: The ID of the connected account to use for authentication (if not provided, will
@@ -377,6 +389,7 @@ class ToolsResource(SyncAPIResource):
                 {
                     "endpoint": endpoint,
                     "method": method,
+                    "binary_body": binary_body,
                     "body": body,
                     "connected_account_id": connected_account_id,
                     "custom_connection_data": custom_connection_data,
@@ -401,9 +414,9 @@ class ToolsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolRetrieveEnumResponse:
         """
-        Retrieve a list of all available tool enumeration values (tool slugs) for the
-        project. This endpoint returns a comma-separated string of tool slugs that can
-        be used in other API calls.
+        Retrieve a list of all available tool enumeration values (tool slugs) from
+        latest version of each toolkit. This endpoint returns a comma-separated string
+        of tool slugs that can be used in other API calls.
         """
         return self._get(
             "/api/v3/tools/enum",
@@ -453,7 +466,8 @@ class AsyncToolsResource(AsyncAPIResource):
         parameters, versions, and toolkit information.
 
         Args:
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           version: Optional version of the tool to retrieve
 
@@ -488,7 +502,7 @@ class AsyncToolsResource(AsyncAPIResource):
     async def list(
         self,
         *,
-        auth_config_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        auth_config_ids: Union[str, SequenceNotStr[str]] | Omit = omit,
         cursor: str | Omit = omit,
         important: Literal["true", "false"] | Omit = omit,
         include_deprecated: bool | Omit = omit,
@@ -512,7 +526,7 @@ class AsyncToolsResource(AsyncAPIResource):
         toolkit, tags, or search terms.
 
         Args:
-          auth_config_ids: Filter tools by auth config id
+          auth_config_ids: Comma-separated list of auth config IDs to filter tools by
 
           cursor: Cursor for pagination. The cursor is a base64 encoded string of the page and
               limit. The page is the page number and the limit is the number of items per
@@ -523,7 +537,7 @@ class AsyncToolsResource(AsyncAPIResource):
 
           include_deprecated: Include deprecated tools in the response
 
-          limit: Number of items per page
+          limit: Number of items per page, max allowed is 1000
 
           scopes: Array of scopes to filter tools by)
 
@@ -536,7 +550,8 @@ class AsyncToolsResource(AsyncAPIResource):
 
           toolkit_slug: The slug of the toolkit to filter by
 
-          toolkit_versions: Can be omitted, null, a string, or an object mapping toolkit names to versions
+          toolkit_versions: Toolkit version specification. Use "latest" for latest versions or bracket
+              notation for specific versions per toolkit.
 
           extra_headers: Send extra headers
 
@@ -582,6 +597,7 @@ class AsyncToolsResource(AsyncAPIResource):
         connected_account_id: str | Omit = omit,
         custom_auth_params: tool_execute_params.CustomAuthParams | Omit = omit,
         custom_connection_data: tool_execute_params.CustomConnectionData | Omit = omit,
+        entity_id: str | Omit = omit,
         text: str | Omit = omit,
         user_id: str | Omit = omit,
         version: str | Omit = omit,
@@ -610,12 +626,15 @@ class AsyncToolsResource(AsyncAPIResource):
 
           custom_connection_data: Custom connection data for tools that support custom connection data
 
+          entity_id: Deprecated: please use user_id instead. Entity identifier for multi-entity
+              connected accounts (e.g. multiple repositories, organizations)
+
           text: Natural language description of the task to perform (mutually exclusive with
               arguments)
 
           user_id: User id for multi-user connected accounts (e.g. multiple users, organizations)
 
-          version: Tool version to execute (defaults to "latest" if not specified)
+          version: Tool version to execute (defaults to "00000000_00" if not specified)
 
           extra_headers: Send extra headers
 
@@ -636,6 +655,7 @@ class AsyncToolsResource(AsyncAPIResource):
                     "connected_account_id": connected_account_id,
                     "custom_auth_params": custom_auth_params,
                     "custom_connection_data": custom_connection_data,
+                    "entity_id": entity_id,
                     "text": text,
                     "user_id": user_id,
                     "version": version,
@@ -713,6 +733,7 @@ class AsyncToolsResource(AsyncAPIResource):
         *,
         endpoint: str,
         method: Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"],
+        binary_body: tool_proxy_params.BinaryBody | Omit = omit,
         body: object | Omit = omit,
         connected_account_id: str | Omit = omit,
         custom_connection_data: tool_proxy_params.CustomConnectionData | Omit = omit,
@@ -735,6 +756,10 @@ class AsyncToolsResource(AsyncAPIResource):
 
           method: The HTTP method to use for the request
 
+          binary_body: Binary body to send. For binary upload via URL: use {url: "https://...",
+              content_type?: "..."}. For binary upload via base64: use {base64: "...",
+              content_type?: "..."}.
+
           body: The request body (for POST, PUT, and PATCH requests)
 
           connected_account_id: The ID of the connected account to use for authentication (if not provided, will
@@ -756,6 +781,7 @@ class AsyncToolsResource(AsyncAPIResource):
                 {
                     "endpoint": endpoint,
                     "method": method,
+                    "binary_body": binary_body,
                     "body": body,
                     "connected_account_id": connected_account_id,
                     "custom_connection_data": custom_connection_data,
@@ -780,9 +806,9 @@ class AsyncToolsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolRetrieveEnumResponse:
         """
-        Retrieve a list of all available tool enumeration values (tool slugs) for the
-        project. This endpoint returns a comma-separated string of tool slugs that can
-        be used in other API calls.
+        Retrieve a list of all available tool enumeration values (tool slugs) from
+        latest version of each toolkit. This endpoint returns a comma-separated string
+        of tool slugs that can be used in other API calls.
         """
         return await self._get(
             "/api/v3/tools/enum",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optuna-dashboard
-Version: 0.19.0
+Version: 0.20.0
 Summary: Real-time dashboard for Optuna
 Author-email: Masashi Shibata <mshibata@preferred.jp>
 License: MIT License
@@ -24,28 +24,19 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: bottle>=0.13.0
-Requires-Dist: optuna>=3.1.0
-Requires-Dist: packaging
-Requires-Dist: scikit-learn
+Requires-Dist: optuna>=3.6.0
+Requires-Dist: tomli; python_version < "3.11"
+Provides-Extra: preferential
+Requires-Dist: torch; extra == "preferential"
+Requires-Dist: botorch; extra == "preferential"
 Provides-Extra: docs
 Requires-Dist: boto3; extra == "docs"
-Requires-Dist: botorch; extra == "docs"
+Requires-Dist: torch; python_version >= "3.9" and extra == "docs"
+Requires-Dist: botorch; python_version >= "3.9" and extra == "docs"
+Requires-Dist: openai; extra == "docs"
 Requires-Dist: streamlit; extra == "docs"
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
-Provides-Extra: test
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: plotly; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: moto[s3]; extra == "test"
-Provides-Extra: optional
-Requires-Dist: streamlit; extra == "optional"
-Requires-Dist: boto3; extra == "optional"
-Requires-Dist: botorch>=0.8.1; python_version >= "3.8" and extra == "optional"
-Provides-Extra: preferential
-Requires-Dist: botorch>=0.8.1; extra == "preferential"
-Provides-Extra: plotlypy
-Requires-Dist: plotly; extra == "plotlypy"
 Dynamic: license-file
 
 # optuna-dashboard
@@ -53,7 +44,6 @@ Dynamic: license-file
 ![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/optuna-dashboard)](https://pypistats.org/packages/optuna-dashboard)
 [![Read the Docs](https://readthedocs.org/projects/optuna-dashboard/badge/?version=latest)](https://optuna-dashboard.readthedocs.io/en/latest/?badge=latest)
-[![Codecov](https://codecov.io/gh/optuna/optuna-dashboard/branch/main/graph/badge.svg)](https://codecov.io/gh/optuna/optuna-dashboard)
 
 :link: [**Website**](https://optuna.org/)
 | :page_with_curl: [**Docs**](https://optuna-dashboard.readthedocs.io/en/stable/)
@@ -111,7 +101,7 @@ You can also use [an official Docker image](https://github.com/optuna/optuna-das
 The Docker image only supports SQLite3, MySQL(PyMySQL), and PostgreSQL(Psycopg2).
 
 ```
-$ docker run -it --rm -p 8080:8080 -v `pwd`:/app -w /app \
+$ docker run -it --rm -p 127.0.0.1:8080:8080 -v `pwd`:/app -w /app \
 > ghcr.io/optuna/optuna-dashboard sqlite:///db.sqlite3
 ```
 
@@ -119,7 +109,7 @@ $ docker run -it --rm -p 8080:8080 -v `pwd`:/app -w /app \
 <summary>MySQL (PyMySQL)</summary>
 
 ```
-$ docker run -it --rm -p 8080:8080 ghcr.io/optuna/optuna-dashboard mysql+pymysql://username:password@hostname:3306/dbname
+$ docker run -it --rm -p 127.0.0.1:8080:8080 ghcr.io/optuna/optuna-dashboard mysql+pymysql://username:password@hostname:3306/dbname
 ```
 
 </details>
@@ -128,7 +118,7 @@ $ docker run -it --rm -p 8080:8080 ghcr.io/optuna/optuna-dashboard mysql+pymysql
 <summary>PostgreSQL (Psycopg2)</summary>
 
 ```
-$ docker run -it --rm -p 8080:8080 ghcr.io/optuna/optuna-dashboard postgresql+psycopg2://username:password@hostname:5432/dbname
+$ docker run -it --rm -p 127.0.0.1:8080:8080 ghcr.io/optuna/optuna-dashboard postgresql+psycopg2://username:password@hostname:5432/dbname
 ```
 
 </details>

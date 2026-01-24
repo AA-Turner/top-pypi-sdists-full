@@ -10,6 +10,7 @@ class MessageType(str, Enum):
     EXECUTOR_INFO = "executor_info"
     RECOVERY = "recovery"
     CANCEL = "cancel"
+    DELETE = "delete"
     LIST_WORKFLOWS = "list_workflows"
     LIST_QUEUED_WORKFLOWS = "list_queued_workflows"
     RESUME = "resume"
@@ -19,6 +20,9 @@ class MessageType(str, Enum):
     LIST_STEPS = "list_steps"
     FORK_WORKFLOW = "fork_workflow"
     RETENTION = "retention"
+    GET_METRICS = "get_metrics"
+    EXPORT_WORKFLOW = "export_workflow"
+    IMPORT_WORKFLOW = "import_workflow"
 
 
 T = TypeVar("T", bound="BaseMessage")
@@ -63,6 +67,8 @@ class ExecutorInfoResponse(BaseMessage):
     executor_id: str
     application_version: str
     hostname: Optional[str]
+    language: Optional[str]
+    dbos_version: Optional[str]
     error_message: Optional[str] = None
 
 
@@ -84,6 +90,18 @@ class CancelRequest(BaseMessage):
 
 @dataclass
 class CancelResponse(BaseMessage):
+    success: bool
+    error_message: Optional[str] = None
+
+
+@dataclass
+class DeleteRequest(BaseMessage):
+    workflow_id: str
+    delete_children: bool
+
+
+@dataclass
+class DeleteResponse(BaseMessage):
     success: bool
     error_message: Optional[str] = None
 
@@ -118,11 +136,16 @@ class ListWorkflowsBody(TypedDict, total=False):
     end_time: Optional[str]
     status: Optional[str]
     application_version: Optional[str]
+    forked_from: Optional[str]
+    queue_name: Optional[str]
     limit: Optional[int]
     offset: Optional[int]
     sort_desc: bool
+    workflow_id_prefix: Optional[str]
     load_input: bool
     load_output: bool
+    executor_id: Optional[str]
+    queues_only: bool
 
 
 @dataclass
@@ -143,6 +166,12 @@ class WorkflowsOutput:
     QueueName: Optional[str]
     ApplicationVersion: Optional[str]
     ExecutorID: Optional[str]
+    WorkflowTimeoutMS: Optional[str]
+    WorkflowDeadlineEpochMS: Optional[str]
+    DeduplicationID: Optional[str]
+    Priority: Optional[str]
+    QueuePartitionKey: Optional[str]
+    ForkedFrom: Optional[str]
 
     @classmethod
     def from_workflow_information(cls, info: WorkflowStatus) -> "WorkflowsOutput":
@@ -152,12 +181,22 @@ class WorkflowsOutput:
         inputs_str = str(info.input) if info.input is not None else None
         outputs_str = str(info.output) if info.output is not None else None
         error_str = str(info.error) if info.error is not None else None
-        request_str = None
         roles_str = (
             str(info.authenticated_roles)
             if info.authenticated_roles is not None
             else None
         )
+        workflow_timeout_ms_str = (
+            str(info.workflow_timeout_ms)
+            if info.workflow_timeout_ms is not None
+            else None
+        )
+        workflow_deadline_epoch_ms_str = (
+            str(info.workflow_deadline_epoch_ms)
+            if info.workflow_deadline_epoch_ms is not None
+            else None
+        )
+        priority_str = str(info.priority) if info.priority is not None else None
 
         return cls(
             WorkflowUUID=info.workflow_id,
@@ -176,6 +215,12 @@ class WorkflowsOutput:
             QueueName=info.queue_name,
             ApplicationVersion=info.app_version,
             ExecutorID=info.executor_id,
+            WorkflowTimeoutMS=workflow_timeout_ms_str,
+            WorkflowDeadlineEpochMS=workflow_deadline_epoch_ms_str,
+            DeduplicationID=info.deduplication_id,
+            Priority=priority_str,
+            QueuePartitionKey=info.queue_partition_key,
+            ForkedFrom=info.forked_from,
         )
 
 
@@ -186,14 +231,28 @@ class WorkflowSteps:
     output: Optional[str]
     error: Optional[str]
     child_workflow_id: Optional[str]
+    started_at_epoch_ms: Optional[str]
+    completed_at_epoch_ms: Optional[str]
 
     @classmethod
     def from_step_info(cls, info: StepInfo) -> "WorkflowSteps":
         output_str = str(info["output"]) if info["output"] is not None else None
         error_str = str(info["error"]) if info["error"] is not None else None
+        started_at_str = (
+            str(info["started_at_epoch_ms"])
+            if info["started_at_epoch_ms"] is not None
+            else None
+        )
+        completed_at_str = (
+            str(info["completed_at_epoch_ms"])
+            if info["completed_at_epoch_ms"] is not None
+            else None
+        )
         return cls(
             function_id=info["function_id"],
             function_name=info["function_name"],
+            started_at_epoch_ms=started_at_str,
+            completed_at_epoch_ms=completed_at_str,
             output=output_str,
             error=error_str,
             child_workflow_id=info["child_workflow_id"],
@@ -212,15 +271,22 @@ class ListWorkflowsResponse(BaseMessage):
 
 
 class ListQueuedWorkflowsBody(TypedDict, total=False):
+    workflow_uuids: List[str]
     workflow_name: Optional[str]
+    authenticated_user: Optional[str]
     start_time: Optional[str]
     end_time: Optional[str]
     status: Optional[str]
+    application_version: Optional[str]
+    forked_from: Optional[str]
     queue_name: Optional[str]
     limit: Optional[int]
     offset: Optional[int]
     sort_desc: bool
+    workflow_id_prefix: Optional[str]
     load_input: bool
+    load_output: bool
+    executor_id: Optional[str]
 
 
 @dataclass
@@ -299,5 +365,48 @@ class RetentionRequest(BaseMessage):
 
 @dataclass
 class RetentionResponse(BaseMessage):
+    success: bool
+    error_message: Optional[str] = None
+
+
+@dataclass
+class GetMetricsRequest(BaseMessage):
+    start_time: str  # ISO 8601
+    end_time: str  # ISO 8601
+    metric_class: str
+
+
+@dataclass
+class MetricData:
+    metric_type: str
+    metric_name: str
+    value: int
+
+
+@dataclass
+class GetMetricsResponse(BaseMessage):
+    metrics: List[MetricData]
+    error_message: Optional[str] = None
+
+
+@dataclass
+class ExportWorkflowRequest(BaseMessage):
+    workflow_id: str
+    export_children: bool
+
+
+@dataclass
+class ExportWorkflowResponse(BaseMessage):
+    serialized_workflow: Optional[str]
+    error_message: Optional[str] = None
+
+
+@dataclass
+class ImportWorkflowRequest(BaseMessage):
+    serialized_workflow: str
+
+
+@dataclass
+class ImportWorkflowResponse(BaseMessage):
     success: bool
     error_message: Optional[str] = None

@@ -18,9 +18,9 @@ __all__ = [
     "Always",
     "Annotate",
     "AnyMatch",
+    "ContainedByDict",
     "Contains",
     "ContainsAll",
-    "ContainedByDict",
     "ContainsDict",
     "DirContains",
     "DirExists",
@@ -47,18 +47,19 @@ __all__ = [
     "MatchesRegex",
     "MatchesSetwise",
     "MatchesStructure",
+    "Nearly",
     "Never",
-    "NotEquals",
     "Not",
+    "NotEquals",
     "PathExists",
     "Raises",
-    "raises",
     "SameMembers",
     "SamePath",
     "StartsWith",
     "TarballContains",
-    "Warnings",
     "WarningMessage",
+    "Warnings",
+    "raises",
 ]
 
 from ._basic import (
@@ -71,6 +72,7 @@ from ._basic import (
     IsInstance,
     LessThan,
     MatchesRegex,
+    Nearly,
     NotEquals,
     SameMembers,
     StartsWith,
@@ -120,11 +122,6 @@ from ._higherorder import (
     MatchesPredicateWithParams,
     Not,
 )
-from ._warnings import (
-    IsDeprecated,
-    WarningMessage,
-    Warnings,
-)
 
 # XXX: These are not explicitly included in __all__.  It's unclear how much of
 # the public interface they really are.
@@ -132,4 +129,9 @@ from ._impl import (  # noqa: F401
     Matcher,
     Mismatch,
     MismatchError,
+)
+from ._warnings import (
+    IsDeprecated,
+    WarningMessage,
+    Warnings,
 )

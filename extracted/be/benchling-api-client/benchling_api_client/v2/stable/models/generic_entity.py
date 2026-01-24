@@ -454,7 +454,7 @@ class GenericEntity:
 
     @property
     def authors(self) -> List[UserSummary]:
-        """Array of UserSummary Resources of the authors of the entry. This defaults to the creator but can be manually changed."""
+        """Array of UserSummary Resources of the authors of the entity. This defaults to the creator but can be manually changed."""
         if isinstance(self._authors, Unset):
             raise NotPresentError(self, "authors")
         return self._authors

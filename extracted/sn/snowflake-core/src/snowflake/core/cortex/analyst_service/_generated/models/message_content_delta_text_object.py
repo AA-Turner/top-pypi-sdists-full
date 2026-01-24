@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.cortex.analyst_service._generated.models.message_content_delta import (
     MessageContentDelta,
@@ -43,9 +43,10 @@ class MessageContentDeltaTextObject(MessageContentDelta):
 
     __properties = ["type", "index", "text_delta"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -70,7 +71,7 @@ class MessageContentDeltaTextObject(MessageContentDelta):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         _dict["type"] = MessageContentDelta.get_child_model_discriminator_value("MessageContentDeltaTextObject")
 
@@ -87,9 +88,9 @@ class MessageContentDeltaTextObject(MessageContentDelta):
             return None
 
         if type(obj) is not dict:
-            return MessageContentDeltaTextObject.parse_obj(obj)
+            return MessageContentDeltaTextObject.model_validate(obj)
 
-        _obj = MessageContentDeltaTextObject.parse_obj(
+        _obj = MessageContentDeltaTextObject.model_validate(
             {
                 "index": obj.get("index"),
                 "text_delta": obj.get("text_delta"),

@@ -10,6 +10,7 @@ class SimpleFieldDefinitionType(Enums.KnownString):
     AA_SEQUENCE_LINK = "aa_sequence_link"
     CUSTOM_ENTITY_LINK = "custom_entity_link"
     MIXTURE_LINK = "mixture_link"
+    MOLECULE_LINK = "molecule_link"
     BLOB_LINK = "blob_link"
     TEXT = "text"
     LONG_TEXT = "long_text"

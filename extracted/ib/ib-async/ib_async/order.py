@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import dataclasses
-
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import ClassVar, NamedTuple
@@ -12,7 +11,7 @@ from eventkit import Event
 
 from .contract import Contract, TagValue
 from .objects import Fill, SoftDollarTier, TradeLogEntry
-from .util import dataclassNonDefaults, UNSET_DOUBLE, UNSET_INTEGER
+from .util import UNSET_DOUBLE, UNSET_INTEGER, dataclassNonDefaults
 
 
 @dataclass

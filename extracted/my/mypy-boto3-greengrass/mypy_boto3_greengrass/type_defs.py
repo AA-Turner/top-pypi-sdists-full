@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -36,12 +37,6 @@ from .literals import (
     UpdateTargetsOperatingSystemType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -315,7 +310,7 @@ class AssociateRoleToGroupRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -351,7 +346,7 @@ class ConnectivityInfoTypeDef(TypedDict):
 class ConnectorOutputTypeDef(TypedDict):
     ConnectorArn: str
     Id: str
-    Parameters: NotRequired[Dict[str, str]]
+    Parameters: NotRequired[dict[str, str]]
 
 
 class ConnectorTypeDef(TypedDict):
@@ -446,7 +441,7 @@ class DefinitionInformationTypeDef(TypedDict):
     LatestVersion: NotRequired[str]
     LatestVersionArn: NotRequired[str]
     Name: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class DeleteConnectorDefinitionRequestTypeDef(TypedDict):
@@ -764,7 +759,7 @@ class ResetDeploymentsRequestTypeDef(TypedDict):
 
 class SecretsManagerSecretResourceDataOutputTypeDef(TypedDict):
     ARN: NotRequired[str]
-    AdditionalStagingLabelsToDownload: NotRequired[List[str]]
+    AdditionalStagingLabelsToDownload: NotRequired[list[str]]
 
 
 class ResourceDownloadOwnerSettingTypeDef(TypedDict):
@@ -1060,7 +1055,7 @@ class GetConnectorDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1072,7 +1067,7 @@ class GetCoreDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1084,7 +1079,7 @@ class GetDeviceDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1096,7 +1091,7 @@ class GetFunctionDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1122,7 +1117,7 @@ class GetGroupResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1134,7 +1129,7 @@ class GetLoggerDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1146,7 +1141,7 @@ class GetResourceDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1164,12 +1159,12 @@ class GetSubscriptionDefinitionResponseTypeDef(TypedDict):
     LatestVersion: str
     LatestVersionArn: str
     Name: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1204,7 +1199,7 @@ class BulkDeploymentResultTypeDef(TypedDict):
     DeploymentId: NotRequired[str]
     DeploymentStatus: NotRequired[str]
     DeploymentType: NotRequired[DeploymentTypeType]
-    ErrorDetails: NotRequired[List[ErrorDetailTypeDef]]
+    ErrorDetails: NotRequired[list[ErrorDetailTypeDef]]
     ErrorMessage: NotRequired[str]
     GroupArn: NotRequired[str]
 
@@ -1213,29 +1208,29 @@ class GetBulkDeploymentStatusResponseTypeDef(TypedDict):
     BulkDeploymentMetrics: BulkDeploymentMetricsTypeDef
     BulkDeploymentStatus: BulkDeploymentStatusType
     CreatedAt: str
-    ErrorDetails: List[ErrorDetailTypeDef]
+    ErrorDetails: list[ErrorDetailTypeDef]
     ErrorMessage: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetDeploymentStatusResponseTypeDef(TypedDict):
     DeploymentStatus: str
     DeploymentType: DeploymentTypeType
-    ErrorDetails: List[ErrorDetailTypeDef]
+    ErrorDetails: list[ErrorDetailTypeDef]
     ErrorMessage: str
     UpdatedAt: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBulkDeploymentsResponseTypeDef(TypedDict):
-    BulkDeployments: List[BulkDeploymentTypeDef]
+    BulkDeployments: list[BulkDeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GetConnectivityInfoResponseTypeDef(TypedDict):
-    ConnectivityInfo: List[ConnectivityInfoTypeDef]
+    ConnectivityInfo: list[ConnectivityInfoTypeDef]
     Message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1246,7 +1241,7 @@ class UpdateConnectivityInfoRequestTypeDef(TypedDict):
 
 
 class ConnectorDefinitionVersionOutputTypeDef(TypedDict):
-    Connectors: NotRequired[List[ConnectorOutputTypeDef]]
+    Connectors: NotRequired[list[ConnectorOutputTypeDef]]
 
 
 class ConnectorDefinitionVersionTypeDef(TypedDict):
@@ -1257,7 +1252,7 @@ ConnectorUnionTypeDef = Union[ConnectorTypeDef, ConnectorOutputTypeDef]
 
 
 class CoreDefinitionVersionOutputTypeDef(TypedDict):
-    Cores: NotRequired[List[CoreTypeDef]]
+    Cores: NotRequired[list[CoreTypeDef]]
 
 
 class CoreDefinitionVersionTypeDef(TypedDict):
@@ -1277,7 +1272,7 @@ class CreateDeviceDefinitionVersionRequestTypeDef(TypedDict):
 
 
 class DeviceDefinitionVersionOutputTypeDef(TypedDict):
-    Devices: NotRequired[List[DeviceTypeDef]]
+    Devices: NotRequired[list[DeviceTypeDef]]
 
 
 class DeviceDefinitionVersionTypeDef(TypedDict):
@@ -1307,7 +1302,7 @@ class CreateLoggerDefinitionVersionRequestTypeDef(TypedDict):
 
 
 class LoggerDefinitionVersionOutputTypeDef(TypedDict):
-    Loggers: NotRequired[List[LoggerTypeDef]]
+    Loggers: NotRequired[list[LoggerTypeDef]]
 
 
 class LoggerDefinitionVersionTypeDef(TypedDict):
@@ -1321,7 +1316,7 @@ class CreateSubscriptionDefinitionVersionRequestTypeDef(TypedDict):
 
 
 class SubscriptionDefinitionVersionOutputTypeDef(TypedDict):
-    Subscriptions: NotRequired[List[SubscriptionTypeDef]]
+    Subscriptions: NotRequired[list[SubscriptionTypeDef]]
 
 
 class SubscriptionDefinitionVersionTypeDef(TypedDict):
@@ -1329,49 +1324,49 @@ class SubscriptionDefinitionVersionTypeDef(TypedDict):
 
 
 class ListConnectorDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCoreDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeviceDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFunctionDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLoggerDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourceDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSubscriptionDefinitionsResponseTypeDef(TypedDict):
-    Definitions: List[DefinitionInformationTypeDef]
+    Definitions: list[DefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeploymentsResponseTypeDef(TypedDict):
-    Deployments: List[DeploymentTypeDef]
+    Deployments: list[DeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1387,12 +1382,12 @@ class FunctionExecutionConfigTypeDef(TypedDict):
 
 
 class ListGroupCertificateAuthoritiesResponseTypeDef(TypedDict):
-    GroupCertificateAuthorities: List[GroupCertificateAuthorityPropertiesTypeDef]
+    GroupCertificateAuthorities: list[GroupCertificateAuthorityPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupInformationTypeDef]
+    Groups: list[GroupInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1495,49 +1490,49 @@ class ListSubscriptionDefinitionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListConnectorDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCoreDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeviceDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFunctionDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListGroupVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListLoggerDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourceDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSubscriptionDefinitionVersionsResponseTypeDef(TypedDict):
-    Versions: List[VersionInformationTypeDef]
+    Versions: list[VersionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1569,7 +1564,7 @@ class UpdateThingRuntimeConfigurationRequestTypeDef(TypedDict):
 
 
 class ListBulkDeploymentDetailedReportsResponseTypeDef(TypedDict):
-    Deployments: List[BulkDeploymentResultTypeDef]
+    Deployments: list[BulkDeploymentResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1661,8 +1656,8 @@ class FunctionDefaultConfigTypeDef(TypedDict):
 class FunctionConfigurationEnvironmentOutputTypeDef(TypedDict):
     AccessSysfs: NotRequired[bool]
     Execution: NotRequired[FunctionExecutionConfigTypeDef]
-    ResourceAccessPolicies: NotRequired[List[ResourceAccessPolicyTypeDef]]
-    Variables: NotRequired[Dict[str, str]]
+    ResourceAccessPolicies: NotRequired[list[ResourceAccessPolicyTypeDef]]
+    Variables: NotRequired[dict[str, str]]
 
 
 class FunctionConfigurationEnvironmentTypeDef(TypedDict):
@@ -1777,7 +1772,7 @@ class FunctionConfigurationTypeDef(TypedDict):
 
 
 class ResourceDefinitionVersionOutputTypeDef(TypedDict):
-    Resources: NotRequired[List[ResourceOutputTypeDef]]
+    Resources: NotRequired[list[ResourceOutputTypeDef]]
 
 
 class ResourceTypeDef(TypedDict):
@@ -1788,7 +1783,7 @@ class ResourceTypeDef(TypedDict):
 
 class FunctionDefinitionVersionOutputTypeDef(TypedDict):
     DefaultConfig: NotRequired[FunctionDefaultConfigTypeDef]
-    Functions: NotRequired[List[FunctionOutputTypeDef]]
+    Functions: NotRequired[list[FunctionOutputTypeDef]]
 
 
 FunctionConfigurationUnionTypeDef = Union[

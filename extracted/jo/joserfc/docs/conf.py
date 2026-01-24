@@ -28,9 +28,11 @@ extensions = [
     "sphinx_sitemap",
     "sphinx_contributors",
     "sphinx_iconify",
+    "shibuya.sponsors",
 ]
 
 iconify_script_url = ""
+sponsors_json_url = "https://cdn.jsdelivr.net/gh/lepture/lepture/sponsors.json"
 
 extlinks = {
     "user": ("https://github.com/%s", "@%s"),
@@ -68,7 +70,7 @@ html_theme_options = {
                 },
             ],
         },
-        {"title": "Sponsor me", "url": "https://github.com/sponsors/authlib"},
+        {"title": "Support us", "url": "/en/sponsors"},
     ],
 }
 
@@ -94,6 +96,12 @@ def setup(app):
     if language != "en":
         sitemap_filename = "sitemap.xml"
         sitemap_locales = [None]
+
+    if language == "zh":
+        nav_links = html_theme_options["nav_links"]
+        nav_links[0]["title"] = "项目"
+        nav_links[1]["title"] = "赞助我们"
+        nav_links[1]["url"] = "/zh/sponsors"
 
     html_baseurl = f"https://jose.authlib.org/{language}/"
     html_context["languages"] = [

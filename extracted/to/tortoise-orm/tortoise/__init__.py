@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import asyncio
 import importlib
-import importlib.metadata as importlib_metadata
 import json
 import logging
 import os
@@ -13,6 +11,7 @@ from inspect import isclass
 from types import ModuleType
 from typing import Any, cast
 
+from anyio import from_thread
 from pypika_tortoise import Query, Table
 
 from tortoise.backends.base.client import BaseDBAsyncClient
@@ -172,7 +171,7 @@ class Tortoise:
                 fk_object.to_field = related_model._meta.pk_attr
                 related_field = related_model._meta.pk
             key_fk_object = deepcopy(related_field)
-            fk_object.to_field_instance = related_field  # type:ignore[arg-type,call-overload]
+            fk_object.to_field_instance = related_field
             fk_object.field_type = fk_object.to_field_instance.field_type
 
             key_field = f"{field}_id"
@@ -215,7 +214,7 @@ class Tortoise:
                         description=fk_object.description,
                     )
                 )
-                fk_relation.to_field_instance = fk_object.to_field_instance  # type:ignore
+                fk_relation.to_field_instance = fk_object.to_field_instance
                 related_model._meta.add_field(backward_relation_name, fk_relation)
             if is_o2o and fk_object.pk:
                 model._meta.pk_attr = key_field
@@ -481,8 +480,8 @@ class Tortoise:
             if not modules:
                 raise ConfigurationError('You must specify "db_url" and "modules" together')
             config = generate_config(db_url, modules)
-        else:
-            assert config is not None  # To improve type hints
+        elif config is None:
+            raise ConfigurationError('You must specify "config" or "config_file" or "db_url"')
 
         try:
             connections_config = config["connections"]
@@ -638,14 +637,18 @@ def run_async(coro: Coroutine) -> None:
 
         run_async(do_stuff())
     """
-    loop = asyncio.get_event_loop()
-    try:
-        loop.run_until_complete(coro)
-    finally:
-        loop.run_until_complete(connections.close_all(discard=True))
+
+    async def main() -> None:
+        try:
+            await coro
+        finally:
+            await connections.close_all(discard=True)
+
+    with from_thread.start_blocking_portal() as portal:
+        portal.call(main)
 
 
-__version__ = importlib_metadata.version("tortoise-orm")
+__version__ = "0.25.3"
 
 __all__ = [
     "Model",

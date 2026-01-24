@@ -10,11 +10,31 @@ from decimal import Decimal, InvalidOperation
 from functools import wraps
 
 from voluptuous.error import (
-    AllInvalid, AnyInvalid, BooleanInvalid, CoerceInvalid, ContainsInvalid, DateInvalid,
-    DatetimeInvalid, DirInvalid, EmailInvalid, ExactSequenceInvalid, FalseInvalid,
-    FileInvalid, InInvalid, Invalid, LengthInvalid, MatchInvalid, MultipleInvalid,
-    NotEnoughValid, NotInInvalid, PathInvalid, RangeInvalid, TooManyValid, TrueInvalid,
-    TypeInvalid, UrlInvalid,
+    AllInvalid,
+    AnyInvalid,
+    BooleanInvalid,
+    CoerceInvalid,
+    ContainsInvalid,
+    DateInvalid,
+    DatetimeInvalid,
+    DirInvalid,
+    EmailInvalid,
+    ExactSequenceInvalid,
+    FalseInvalid,
+    FileInvalid,
+    InInvalid,
+    Invalid,
+    LengthInvalid,
+    MatchInvalid,
+    MultipleInvalid,
+    NotEnoughValid,
+    NotInInvalid,
+    PathInvalid,
+    RangeInvalid,
+    TooManyValid,
+    TrueInvalid,
+    TypeInvalid,
+    UrlInvalid,
 )
 
 # F401: flake8 complains about 'raises' not being used, but it is used in doctests
@@ -812,7 +832,9 @@ class In(object):
     """Validate that a value is in a collection."""
 
     def __init__(
-        self, container: typing.Container, msg: typing.Optional[str] = None
+        self,
+        container: typing.Container | typing.Iterable,
+        msg: typing.Optional[str] = None,
     ) -> None:
         self.container = container
         self.msg = msg

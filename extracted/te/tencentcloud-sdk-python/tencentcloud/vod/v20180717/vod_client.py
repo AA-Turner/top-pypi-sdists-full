@@ -225,6 +225,75 @@ class VodClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateAigcCustomElement(self, request):
+        r"""调用该接口，针对指定模型进行主体创建。
+
+        :param request: Request instance for CreateAigcCustomElement.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateAigcCustomElementRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateAigcCustomElementResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcCustomElement", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcCustomElementResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateAigcImageTask(self, request):
+        r"""该接口用于[生成 AIGC 图片](https://cloud.tencent.com/document/product/266/124473)。<b>接口处于内测阶段，如需使用请[联系我们](https://cloud.tencent.com/online-service?from=sales_sales&source=PRESALE)，接口调用会产生实际费用，</b>请参考点播 [AIGC 生图片计费文档](https://cloud.tencent.com/document/product/266/95125#9c4dc6ff-4b3f-4b25-bf2d-393889dfb9ac)。该功能结算模式为[后付费](https://cloud.tencent.com/document/product/266/2838)，日结客户当天使用将在第二天出账，月结客户将在次月1日统一出上月使用费用。
+
+        :param request: Request instance for CreateAigcImageTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcImageTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateAigcVideoTask(self, request):
+        r"""该接口用于[生成 AIGC 视频](https://cloud.tencent.com/document/product/266/124474)。<b>接口处于内测阶段，如需使用请[联系我们](https://cloud.tencent.com/online-service?from=sales_sales&source=PRESALE)，接口调用会产生实际费用</b>，请参考点播 [AIGC 生视频计费文档](https://cloud.tencent.com/document/product/266/95125#96b3b59a-f9e1-49e9-966a-bedb70a4bf12)。该功能结算模式为[后付费](https://cloud.tencent.com/document/product/266/2838)，日结客户当天使用将在第二天出账，月结客户将在次月1日统一出上月使用费用。
+
+        :param request: Request instance for CreateAigcVideoTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateAigcVideoTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateAigcVideoTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcVideoTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcVideoTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateAnimatedGraphicsTemplate(self, request):
         r"""创建用户自定义转动图模板，数量上限：16。
 
@@ -704,6 +773,52 @@ class VodClient(AbstractClient):
             body = self.call("CreateSampleSnapshotTemplate", params, headers=headers)
             response = json.loads(body)
             model = models.CreateSampleSnapshotTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateSceneAigcImageTask(self, request):
+        r"""该接口用于生成场景化 AIGC 图片。<b>接口处于内测阶段，如需使用请[联系我们](https://cloud.tencent.com/online-service?from=sales_sales&source=PRESALE)，接口调用会产生实际费用。</b>
+
+        :param request: Request instance for CreateSceneAigcImageTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSceneAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSceneAigcImageTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateSceneAigcVideoTask(self, request):
+        r"""该接口用于生成场景化 AIGC 图片。<b>接口处于内测阶段，如需使用请[联系我们](https://cloud.tencent.com/online-service?from=sales_sales&source=PRESALE)，接口调用会产生实际费用。</b>
+
+        :param request: Request instance for CreateSceneAigcVideoTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcVideoTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcVideoTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSceneAigcVideoTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSceneAigcVideoTaskResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1603,6 +1718,32 @@ class VodClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeAigcUsageData(self, request):
+        r"""该接口返回查询时间范围内AIGC的统计信息。
+           1. 可以查询最近365天内的AIGC统计数据。
+           2. 查询时间跨度不超过90天。
+           3. 查询时间跨度超过1天的，返回以天为粒度的数据，否则，返回以5分钟为粒度的数据。
+
+        :param request: Request instance for DescribeAigcUsageData.
+        :type request: :class:`tencentcloud.vod.v20180717.models.DescribeAigcUsageDataRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.DescribeAigcUsageDataResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAigcUsageData", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAigcUsageDataResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAllClass(self, request):
         r"""* 获得用户的所有分类信息。
 
@@ -1678,7 +1819,7 @@ class VodClient(AbstractClient):
 
     def DescribeCDNUsageData(self, request):
         r"""该接口用于查询点播 CDN 的流量、带宽等统计数据。
-           1. 可以查询最近365天内的 CDN 用量数据。
+           1. CDN 用量数据系统侧保留 13 个月，您通过接口仅可查询最近 365 天内的用量数据。如需调取超出 365 天的历史用量数据，请联系我们。
            2. 查询时间跨度不超过90天。
            3. 可以指定用量数据的时间粒度，支持5分钟、1小时、1天的时间粒度。
            4. 流量为查询时间粒度内的总流量，带宽为查询时间粒度内的峰值带宽。
@@ -2361,7 +2502,7 @@ class VodClient(AbstractClient):
 
     def DescribeMediaProcessUsageData(self, request):
         r"""该接口返回查询时间范围内每天使用的视频处理用量信息。
-           1. 可以查询最近365天内的视频处理统计数据。
+           1. 视频处理用量数据系统侧保留 13 个月，您通过接口仅可查询最近 365 天内的用量数据。如需调取超出 365 天的历史用量数据，请联系我们。
            2. 查询时间跨度不超过90天。
 
         :param request: Request instance for DescribeMediaProcessUsageData.
@@ -2648,7 +2789,7 @@ class VodClient(AbstractClient):
 
     def DescribeStorageDetails(self, request):
         r"""该接口返回查询时间范围内使用的点播存储空间，单位：字节。
-            1. 可以查询最近365天内的存储空间数据；
+            1. 存储用量数据系统侧保留 13 个月，您通过接口仅可查询最近 365 天内的用量数据。如需调取超出 365 天的历史用量数据，请联系我们；
             2. 查询时间跨度不超过90天；
             3. 分钟粒度查询跨度不超过7天；
 
@@ -3113,6 +3254,29 @@ class VodClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ImportMediaKnowledge(self, request):
+        r"""用于将智能分析的结果导入到知识库中。
+
+        :param request: Request instance for ImportMediaKnowledge.
+        :type request: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ImportMediaKnowledge", params, headers=headers)
+            response = json.loads(body)
+            model = models.ImportMediaKnowledgeResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def InspectMediaQuality(self, request):
         r"""对点播中的音视频媒体发起音画质检测任务。
 
@@ -3127,6 +3291,31 @@ class VodClient(AbstractClient):
             body = self.call("InspectMediaQuality", params, headers=headers)
             response = json.loads(body)
             model = models.InspectMediaQualityResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ListFiles(self, request):
+        r"""用于列出子应用下存储的文件条目。
+
+        **此API只在“FileID+Path模式”下可用**
+
+        :param request: Request instance for ListFiles.
+        :type request: :class:`tencentcloud.vod.v20180717.models.ListFilesRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ListFilesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ListFiles", params, headers=headers)
+            response = json.loads(body)
+            model = models.ListFilesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4449,6 +4638,29 @@ class VodClient(AbstractClient):
             body = self.call("SearchMedia", params, headers=headers)
             response = json.loads(body)
             model = models.SearchMediaResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SearchMediaBySemantics(self, request):
+        r"""使用自然语言对媒体进行语义搜索。
+
+        :param request: Request instance for SearchMediaBySemantics.
+        :type request: :class:`tencentcloud.vod.v20180717.models.SearchMediaBySemanticsRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SearchMediaBySemanticsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SearchMediaBySemantics", params, headers=headers)
+            response = json.loads(body)
+            model = models.SearchMediaBySemanticsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

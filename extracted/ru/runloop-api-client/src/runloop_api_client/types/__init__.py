@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from . import devboxes
-from .. import _compat
 from .shared import (
+    Mount as Mount,
     AfterIdle as AfterIdle,
+    AgentMount as AgentMount,
     RunProfile as RunProfile,
+    AgentSource as AgentSource,
+    ObjectMount as ObjectMount,
     LaunchParameters as LaunchParameters,
     CodeMountParameters as CodeMountParameters,
 )
+from .agent_view import AgentView as AgentView
 from .devbox_view import DevboxView as DevboxView
 from .object_view import ObjectView as ObjectView
 from .secret_view import SecretView as SecretView
@@ -17,20 +20,24 @@ from .input_context import InputContext as InputContext
 from .scenario_view import ScenarioView as ScenarioView
 from .benchmark_view import BenchmarkView as BenchmarkView
 from .blueprint_view import BlueprintView as BlueprintView
+from .agent_list_view import AgentListView as AgentListView
 from .devbox_list_view import DevboxListView as DevboxListView
 from .object_list_view import ObjectListView as ObjectListView
 from .scoring_contract import ScoringContract as ScoringContract
 from .scoring_function import ScoringFunction as ScoringFunction
 from .secret_list_view import SecretListView as SecretListView
+from .agent_list_params import AgentListParams as AgentListParams
 from .scenario_run_view import ScenarioRunView as ScenarioRunView
 from .benchmark_run_view import BenchmarkRunView as BenchmarkRunView
 from .devbox_list_params import DevboxListParams as DevboxListParams
 from .devbox_tunnel_view import DevboxTunnelView as DevboxTunnelView
 from .object_list_params import ObjectListParams as ObjectListParams
 from .secret_list_params import SecretListParams as SecretListParams
+from .agent_create_params import AgentCreateParams as AgentCreateParams
 from .blueprint_build_log import BlueprintBuildLog as BlueprintBuildLog
 from .blueprint_list_view import BlueprintListView as BlueprintListView
 from .input_context_param import InputContextParam as InputContextParam
+from .network_policy_view import NetworkPolicyView as NetworkPolicyView
 from .devbox_create_params import DevboxCreateParams as DevboxCreateParams
 from .devbox_snapshot_view import DevboxSnapshotView as DevboxSnapshotView
 from .devbox_update_params import DevboxUpdateParams as DevboxUpdateParams
@@ -54,19 +61,25 @@ from .benchmark_create_params import BenchmarkCreateParams as BenchmarkCreatePar
 from .benchmark_run_list_view import BenchmarkRunListView as BenchmarkRunListView
 from .benchmark_update_params import BenchmarkUpdateParams as BenchmarkUpdateParams
 from .blueprint_create_params import BlueprintCreateParams as BlueprintCreateParams
+from .inspection_source_param import InspectionSourceParam as InspectionSourceParam
 from .blueprint_preview_params import BlueprintPreviewParams as BlueprintPreviewParams
+from .network_policy_list_view import NetworkPolicyListView as NetworkPolicyListView
 from .object_download_url_view import ObjectDownloadURLView as ObjectDownloadURLView
 from .repository_create_params import RepositoryCreateParams as RepositoryCreateParams
 from .repository_manifest_view import RepositoryManifestView as RepositoryManifestView
+from .benchmark_run_list_params import BenchmarkRunListParams as BenchmarkRunListParams
+from .devbox_send_std_in_result import DevboxSendStdInResult as DevboxSendStdInResult
 from .devbox_snapshot_list_view import DevboxSnapshotListView as DevboxSnapshotListView
 from .devbox_upload_file_params import DevboxUploadFileParams as DevboxUploadFileParams
 from .object_list_public_params import ObjectListPublicParams as ObjectListPublicParams
+from .repository_inspect_params import RepositoryInspectParams as RepositoryInspectParams
 from .repository_refresh_params import RepositoryRefreshParams as RepositoryRefreshParams
 from .scenario_start_run_params import ScenarioStartRunParams as ScenarioStartRunParams
 from .benchmark_start_run_params import BenchmarkStartRunParams as BenchmarkStartRunParams
 from .blueprint_build_parameters import BlueprintBuildParameters as BlueprintBuildParameters
 from .devbox_execute_sync_params import DevboxExecuteSyncParams as DevboxExecuteSyncParams
 from .input_context_update_param import InputContextUpdateParam as InputContextUpdateParam
+from .network_policy_list_params import NetworkPolicyListParams as NetworkPolicyListParams
 from .repository_connection_view import RepositoryConnectionView as RepositoryConnectionView
 from .scenario_environment_param import ScenarioEnvironmentParam as ScenarioEnvironmentParam
 from .devbox_create_tunnel_params import DevboxCreateTunnelParams as DevboxCreateTunnelParams
@@ -79,6 +92,8 @@ from .benchmark_definitions_params import BenchmarkDefinitionsParams as Benchmar
 from .benchmark_list_public_params import BenchmarkListPublicParams as BenchmarkListPublicParams
 from .blueprint_list_public_params import BlueprintListPublicParams as BlueprintListPublicParams
 from .devbox_execution_detail_view import DevboxExecutionDetailView as DevboxExecutionDetailView
+from .network_policy_create_params import NetworkPolicyCreateParams as NetworkPolicyCreateParams
+from .network_policy_update_params import NetworkPolicyUpdateParams as NetworkPolicyUpdateParams
 from .scoring_contract_result_view import ScoringContractResultView as ScoringContractResultView
 from .scoring_function_result_view import ScoringFunctionResultView as ScoringFunctionResultView
 from .repository_inspection_details import RepositoryInspectionDetails as RepositoryInspectionDetails
@@ -90,19 +105,15 @@ from .devbox_wait_for_command_params import DevboxWaitForCommandParams as Devbox
 from .repository_connection_list_view import RepositoryConnectionListView as RepositoryConnectionListView
 from .repository_inspection_list_view import RepositoryInspectionListView as RepositoryInspectionListView
 from .devbox_read_file_contents_params import DevboxReadFileContentsParams as DevboxReadFileContentsParams
+from .benchmark_update_scenarios_params import BenchmarkUpdateScenariosParams as BenchmarkUpdateScenariosParams
 from .devbox_list_disk_snapshots_params import DevboxListDiskSnapshotsParams as DevboxListDiskSnapshotsParams
 from .devbox_snapshot_disk_async_params import DevboxSnapshotDiskAsyncParams as DevboxSnapshotDiskAsyncParams
 from .devbox_write_file_contents_params import DevboxWriteFileContentsParams as DevboxWriteFileContentsParams
 from .devbox_async_execution_detail_view import DevboxAsyncExecutionDetailView as DevboxAsyncExecutionDetailView
 from .devbox_read_file_contents_response import DevboxReadFileContentsResponse as DevboxReadFileContentsResponse
-
-# Rebuild cyclical models only after all modules are imported.
-# This ensures that, when building the deferred (due to cyclical references) model schema,
-# Pydantic can resolve the necessary references.
-# See: https://github.com/pydantic/pydantic/issues/11250 for more context.
-if _compat.PYDANTIC_V1:
-    devboxes.code_segment_info_response.CodeSegmentInfoResponse.update_forward_refs()  # type: ignore
-    devboxes.document_symbol.DocumentSymbol.update_forward_refs()  # type: ignore
-else:
-    devboxes.code_segment_info_response.CodeSegmentInfoResponse.model_rebuild(_parent_namespace_depth=0)
-    devboxes.document_symbol.DocumentSymbol.model_rebuild(_parent_namespace_depth=0)
+from .benchmark_run_list_scenario_runs_params import (
+    BenchmarkRunListScenarioRunsParams as BenchmarkRunListScenarioRunsParams,
+)
+from .blueprint_create_from_inspection_params import (
+    BlueprintCreateFromInspectionParams as BlueprintCreateFromInspectionParams,
+)

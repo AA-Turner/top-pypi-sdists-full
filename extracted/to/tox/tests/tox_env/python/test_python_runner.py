@@ -112,7 +112,7 @@ def test_package_temp_dir_view(tox_project: ToxProjectCreator, demo_pkg_inline: 
     result.assert_success()
     wheel_name = "demo_pkg_inline-1.0.0-py3-none-any.whl"
     session_path = Path(".tmp") / "package" / "1" / wheel_name
-    msg = f" D package {session_path} links to {Path('.pkg') / 'dist' / wheel_name} ({project.path / '.tox'}) "
+    msg = f" D package {session_path} copied to {Path('.pkg') / 'dist' / wheel_name} ({project.path / '.tox'}) "
     assert msg in result.out
     assert f" D delete package {project.path / '.tox' / session_path}" in result.out
 
@@ -208,6 +208,181 @@ def test_dependency_groups_single(tox_project: ToxProjectCreator) -> None:
     found_calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
     assert found_calls == [
         ("py", "install_dependency-groups", ["python", "-I", "-m", "pip", "install", "furo>=2024.8.6", "sphinx>=8.0.2"])
+    ]
+
+
+def test_dependency_groups_extras(tox_project: ToxProjectCreator) -> None:
+    project = tox_project(
+        {
+            "tox.toml": """
+            [env_run_base]
+            skip_install = true
+            dependency_groups = ["test"]
+            """,
+            "pyproject.toml": """
+            [project]
+            name = "demo_pkg"
+
+            [project.optional-dependencies]
+            extra1 = ["extra_pkg>=1.0"]
+            [dependency-groups]
+            test = [
+              "furo>=2024.8.6",
+              "sphinx>=8.0.2",
+              "demo_pkg[extra1]",
+            ]
+            """,
+        },
+    )
+    execute_calls = project.patch_execute()
+    result = project.run("r", "-e", "py")
+
+    result.assert_success()
+
+    found_calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    assert found_calls == [
+        (
+            "py",
+            "install_dependency-groups",
+            ["python", "-I", "-m", "pip", "install", "extra_pkg>=1.0", "furo>=2024.8.6", "sphinx>=8.0.2"],
+        )
+    ]
+
+
+def test_dependency_groups_nested_extras(tox_project: ToxProjectCreator) -> None:
+    project = tox_project(
+        {
+            "tox.toml": """
+            [env_run_base]
+            skip_install = true
+            dependency_groups = ["test"]
+            """,
+            "pyproject.toml": """
+            [project]
+            name = "demo_pkg"
+
+            [project.optional-dependencies]
+            extra1 = ["extra_pkg>=1.0"]
+            extra2 = ["demo_pkg[extra1]"]
+            [dependency-groups]
+            test = [
+              "furo>=2024.8.6",
+              "sphinx>=8.0.2",
+              "demo_pkg[extra2]",
+            ]
+            """,
+        },
+    )
+    execute_calls = project.patch_execute()
+    result = project.run("r", "-e", "py")
+
+    result.assert_success()
+
+    found_calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    assert found_calls == [
+        (
+            "py",
+            "install_dependency-groups",
+            ["python", "-I", "-m", "pip", "install", "extra_pkg>=1.0", "furo>=2024.8.6", "sphinx>=8.0.2"],
+        )
+    ]
+
+
+def test_dependency_groups_double_extras(tox_project: ToxProjectCreator) -> None:
+    project = tox_project(
+        {
+            "tox.toml": """
+            [env_run_base]
+            skip_install = true
+            dependency_groups = ["test"]
+            """,
+            "pyproject.toml": """
+            [project]
+            name = "demo_pkg"
+
+            [project.optional-dependencies]
+            extra1 = ["extra_pkg>=1.0"]
+            extra2 = ["extra_pkg2>=1.0"]
+            [dependency-groups]
+            test = [
+              "furo>=2024.8.6",
+              "sphinx>=8.0.2",
+              "demo_pkg[extra1,extra2]",
+            ]
+            """,
+        },
+    )
+    execute_calls = project.patch_execute()
+    result = project.run("r", "-e", "py")
+
+    result.assert_success()
+
+    found_calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    assert found_calls == [
+        (
+            "py",
+            "install_dependency-groups",
+            [
+                "python",
+                "-I",
+                "-m",
+                "pip",
+                "install",
+                "extra_pkg2>=1.0",
+                "extra_pkg>=1.0",
+                "furo>=2024.8.6",
+                "sphinx>=8.0.2",
+            ],
+        )
+    ]
+
+
+def test_dependency_groups_duplicate_extras(tox_project: ToxProjectCreator) -> None:
+    project = tox_project(
+        {
+            "tox.toml": """
+            [env_run_base]
+            skip_install = true
+            dependency_groups = ["test"]
+            """,
+            "pyproject.toml": """
+            [project]
+            name = "demo_pkg"
+
+            [project.optional-dependencies]
+            extra1 = ["extra_pkg>=1.0"]
+            extra2 = ["extra_pkg2>=1.0", "demo_pkg[extra1]"]
+            [dependency-groups]
+            test = [
+              "furo>=2024.8.6",
+              "sphinx>=8.0.2",
+              "demo_pkg[extra1,extra2]",
+            ]
+            """,
+        },
+    )
+    execute_calls = project.patch_execute()
+    result = project.run("r", "-e", "py")
+
+    result.assert_success()
+
+    found_calls = [(i[0][0].conf.name, i[0][3].run_id, i[0][3].cmd) for i in execute_calls.call_args_list]
+    assert found_calls == [
+        (
+            "py",
+            "install_dependency-groups",
+            [
+                "python",
+                "-I",
+                "-m",
+                "pip",
+                "install",
+                "extra_pkg2>=1.0",
+                "extra_pkg>=1.0",
+                "furo>=2024.8.6",
+                "sphinx>=8.0.2",
+            ],
+        )
     ]
 
 

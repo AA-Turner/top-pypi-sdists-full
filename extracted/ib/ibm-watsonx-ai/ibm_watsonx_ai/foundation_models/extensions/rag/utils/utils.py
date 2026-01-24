@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -16,7 +16,7 @@ import pandas as pd
 
 from ibm_watsonx_ai.foundation_models.schema import BaseSchema
 from ibm_watsonx_ai.metanames import GenTextParamsMetaNames
-from ibm_watsonx_ai.utils.utils import _get_default_args
+from ibm_watsonx_ai.utils.utils import _get_default_args, get_from_json
 from ibm_watsonx_ai.wml_client_error import MissingValue, UnexpectedKeyWordArgument
 
 if TYPE_CHECKING:
@@ -123,7 +123,7 @@ def get_ssl_certificate(cert: str) -> str:
                 raise ValueError("Not a valid SSL certificate.")
         except Exception as e:
             raise ValueError(
-                f"Error occured when trying to get the SSL certificate: {e}"
+                f"Error occurred when trying to get the SSL certificate: {e}"
             )
 
 
@@ -163,8 +163,8 @@ def get_max_input_tokens(
                 reason=f"{kword} is not supported as a keyword argument. Supported kwargs: {supported_kwargs}",
             )
 
-    model_max_sequence_length = (
-        model.get_details().get("model_limits", {}).get("max_sequence_length")
+    model_max_sequence_length = get_from_json(
+        model.get_details(), ["model_limits", "max_sequence_length"]
     )
 
     warn_msg = f"Model `{model.model_id}` limits cannot be found in the model details"
@@ -305,7 +305,7 @@ class FunctionVisitor(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """
-        Helper fo visits node of type functionDef.
+        Helper for visits node of type functionDef.
 
         :param node: FunctionDef node
         :type node: ast.FunctionDef

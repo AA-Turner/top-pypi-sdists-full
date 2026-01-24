@@ -2,19 +2,19 @@
 Utilities for generating Click options.
 """
 
-from collections.abc import Collection, Iterable, Mapping, Sequence
+import re
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from enum import Enum
 from functools import partial, update_wrapper
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
-    Optional,
     Protocol,
     TypeVar,
-    Union,
     cast,
+    get_args,
+    get_origin,
     overload,
 )
 
@@ -44,6 +44,7 @@ from .types import (
     MergedSettings,
     OptionInfo,
     OptionList,
+    Secret,
     SecretStr,
     SettingsClass,
 )
@@ -67,6 +68,8 @@ __all__ = [
     "handle_enum",
     "handle_enum_by_name",
     "handle_enum_by_value",
+    "handle_pattern",
+    "handle_secret",
     "pass_settings",
 ]
 
@@ -82,19 +85,19 @@ Decorator = Callable[[F], F]
 
 def click_options(
     settings_cls: type[ST],
-    loaders: Union[str, Sequence[Loader]],
+    loaders: str | Sequence[Loader],
     *,
     processors: Sequence[Processor] = (),
-    converter: Optional[Converter] = None,
+    converter: Converter | None = None,
     base_dir: Path = Path(),
-    type_args_maker: Optional[TypeArgsMaker] = None,
-    argname: Optional[str] = None,
-    decorator_factory: "Optional[DecoratorFactory]" = None,
+    type_args_maker: TypeArgsMaker | None = None,
+    argname: str | None = None,
+    decorator_factory: "DecoratorFactory | None" = None,
     show_envvars_in_help: bool = False,
     reload_settings_on_invoke: bool = False,
 ) -> Callable[[F], F]:
     r"""
-    **Decorator:** Generate :mod:`click` options for a CLI which override
+    **Decorator:** Generate :program:`Click` options for a CLI which override
     settings loaded via :func:`.load_settings()`.
 
     Args:
@@ -187,7 +190,7 @@ def click_options(
     if isinstance(loaders, str):
         loaders = _core.default_loaders(loaders)
 
-    env_loader: Optional[EnvLoader] = None
+    env_loader: EnvLoader | None = None
     if show_envvars_in_help:
         _loaders = [ldr for ldr in loaders if isinstance(ldr, EnvLoader)]
         if _loaders:
@@ -215,9 +218,9 @@ def _get_ts_decorator(  # noqa: C901
     state: _core.SettingsState[ST],
     grouped_options: list[tuple[type, OptionList]],
     type_args_maker: TypeArgsMaker,
-    argname: Optional[str],
+    argname: str | None,
     decorator_factory: "DecoratorFactory",
-    env_loader: Optional[EnvLoader],
+    env_loader: EnvLoader | None,
     reload_settings_on_invoke: bool,
 ) -> Callable[[F], F]:
     """
@@ -225,52 +228,43 @@ def _get_ts_decorator(  # noqa: C901
     decorators.
     """
 
-    def ts_decorator(orig_f: F) -> F:
+    def _load_cli_settings(
+        ctx: click.Context, initial_default_settings: dict[str, LoadedValue]
+    ) -> ST:
         """
-        The wrapper that actually decorates a function with all options.
+        Load settings for loaders, update them with CLI args and return the settings
+        cls.
         """
-        # If "reload_settings_on_invoke" is True, these initial default settings will
-        # be reloaded on each invocation.  The help texts remain unchanged, though.
-        initial_default_settings = _core._load_settings(state)
+        if reload_settings_on_invoke:
+            default_settings = _core._load_settings(state)
+        else:
+            default_settings = initial_default_settings
+        meta = LoaderMeta("Command line args")
+        cli_options = ctx.obj.get(CTX_KEY, {})
+        cli_settings: MergedSettings = {}
+        for option in state.options:
+            path = option.path
+            if path in cli_options:  # pragma: no cover
+                # "path" *should* always be in "cli_options", b/c we *currently*
+                # generate CLI options for all options.  But let's stay safe here
+                # in case the behavior changes in the future.
+                cli_settings[path] = LoadedValue(cli_options[path], meta)
+            elif path in default_settings:
+                cli_settings[path] = default_settings[path]
+            # else:
+            #     This is the case, when the default should be used and it is a
+            #     factory function.  The _DefaultsLoader did not invoke it yet.
+        settings = _core.convert(cli_settings, state)
+        return settings
 
-        # Create a *cls* instances from the settings dict stored in
-        # :attr:`click.Context.obj` and passes it to the decorated function *orig_f*.
-        # def new_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
-        def new_func(*args: Any, **kwargs: Any) -> Any:
-            if reload_settings_on_invoke:
-                default_settings = _core._load_settings(state)
-            else:
-                default_settings = initial_default_settings
-            ctx = click.get_current_context()
-            if ctx.obj is None:
-                ctx.obj = {}
-            meta = LoaderMeta("Command line args")
-            cli_options = ctx.obj.get(CTX_KEY, {})
-            cli_settings: MergedSettings = {}
-            for option in state.options:
-                path = option.path
-                if path in cli_options:  # pragma: no cover
-                    # "path" *should* always be in "cli_options", b/c we *currently*
-                    # generate CLI options for all options.  But let's stay safe here
-                    # in case the behavior changes in the future.
-                    cli_settings[path] = LoadedValue(cli_options[path], meta)
-                elif path in default_settings:
-                    cli_settings[path] = default_settings[path]
-                # else:
-                #     This is the case, when the default should be used and it is a
-                #     factory function.  The _DefaultsLoader did not invoke it yet.
-            settings = _core.convert(cli_settings, state)
-            if argname:
-                ctx_key = argname
-                kwargs = {argname: settings, **kwargs}  # type: ignore
-            else:
-                ctx_key = CTX_KEY
-                args = (settings, *args)  # type: ignore
-            ctx.obj[ctx_key] = settings
-            return orig_f(*args, **kwargs)
-
-        wrapped_f = cast(F, update_wrapper(new_func, orig_f))
-
+    def _add_option_decorators(
+        wrapped_f: F,
+        state: _core.SettingsState[ST],
+        initial_default_settings: dict[str, LoadedValue],
+    ) -> F:
+        """
+        Generate "click.option()" decorators and decorate the *wrapped_f* with them.
+        """
         option_decorator = decorator_factory.get_option_decorator()
         for g_cls, g_opts in reversed(grouped_options):
             for oinfo in reversed(g_opts):
@@ -287,27 +281,62 @@ def _get_ts_decorator(  # noqa: C901
             wrapped_f = decorator_factory.get_group_decorator(g_cls)(
                 wrapped_f  # type: ignore[arg-type]
             )
+        return wrapped_f
 
+    def ts_decorator(orig_f: F) -> F:
+        """
+        The wrapper that actually decorates a function with all options.
+        """
+        # If "reload_settings_on_invoke" is True, these initial default settings will
+        # be reloaded on each invocation.  The help texts remain unchanged, though.
+        initial_default_settings = _core._load_settings(state)
+
+        # Create a *cls* instances from the settings dict stored in
+        # :attr:`click.Context.obj` and passes it to the decorated function *orig_f*.
+        # def new_func(*args: "P.args", **kwargs: "P.kwargs") -> "R":
+        def new_func(*args: Any, **kwargs: Any) -> Any:
+            ctx = click.get_current_context()
+            if ctx.obj is None:
+                ctx.obj = {}
+            elif not isinstance(ctx.obj, dict):
+                raise RuntimeError(
+                    f"'ctx.obj' must be a dict when you use Typed Settings, got: "
+                    f"{type(ctx.obj).__name__}"
+                )
+
+            # Load settings and determine how to pass them to "orig_f()"
+            settings = _load_cli_settings(ctx, initial_default_settings)
+            if argname:
+                ctx_key = argname
+                kwargs = {argname: settings, **kwargs}  # type: ignore
+            else:
+                ctx_key = CTX_KEY
+                args = (settings, *args)  # type: ignore
+
+            ctx.obj[ctx_key] = settings
+
+            return orig_f(*args, **kwargs)
+
+        wrapped_f = cast(F, update_wrapper(new_func, orig_f))
+        wrapped_f = _add_option_decorators(wrapped_f, state, initial_default_settings)
         return wrapped_f
 
     return ts_decorator
 
 
 @overload
-def pass_settings(
-    f: None = None, *, argname: Optional[str] = ...
-) -> Callable[[F], F]: ...
+def pass_settings(f: None = None, *, argname: str | None = ...) -> Callable[[F], F]: ...
 
 
 @overload
-def pass_settings(f: F, *, argname: Optional[str] = ...) -> F: ...
+def pass_settings(f: F, *, argname: str | None = ...) -> F: ...
 
 
 def pass_settings(
-    f: Optional[F] = None,
+    f: F | None = None,
     *,
-    argname: Optional[str] = None,
-) -> Union[F, Callable[[F], F]]:
+    argname: str | None = None,
+) -> F | Callable[[F], F]:
     """
     **Decorator:** Mark a callback as wanting to receive the innermost settings
     instance as first argument.
@@ -354,7 +383,7 @@ def pass_settings(
     def decorator(f: F) -> F:
         def new_func(*args: Any, **kwargs: Any) -> Any:
             ctx = click.get_current_context()
-            node: Optional[click.Context] = ctx
+            node: click.Context | None = ctx
             settings = None
             while node is not None:
                 if isinstance(node.obj, dict) and ctx_key in node.obj:
@@ -378,7 +407,7 @@ def pass_settings(
 
 
 class TSOption(click.Option):
-    def value_from_envvar(self, ctx: click.Context) -> Optional[Any]:
+    def value_from_envvar(self, ctx: click.Context) -> Any | None:
         return None
 
 
@@ -444,7 +473,7 @@ class OptionGroupFactory:
         self.optgroup = optgroup
 
         class TSGroupedOption(GroupedOption):
-            def value_from_envvar(self, ctx: click.Context) -> Optional[Any]:
+            def value_from_envvar(self, ctx: click.Context) -> Any | None:
                 return None
 
         self.opt_cls = TSGroupedOption
@@ -467,7 +496,7 @@ class OptionGroupFactory:
         return cast(Decorator[F], self.optgroup.group(name))
 
 
-def handle_datetime(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_datetime(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Use :class:`click.DateTime` as option type and convert the default value
     to an ISO string.
@@ -484,15 +513,15 @@ def handle_datetime(type: type, default: Default, is_optional: bool) -> StrDict:
     return kwargs
 
 
-def handle_date(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_date(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Use :class:`click.DateTime` as option type and convert the default value
     to an ISO string.
     """
-    typ = partial(converters.to_date, cls=date)
-    typ.__name__ = converters.to_date.__name__  # type: ignore[attr-defined]
+    cli_typ = partial(converters.to_date, cls=date)
+    cli_typ.__name__ = converters.to_date.__name__  # type: ignore[attr-defined]
     kwargs: StrDict = {
-        "type": typ,
+        "type": cli_typ,
         "metavar": "[%Y-%m-%d]",
     }
     if isinstance(default, date):
@@ -502,15 +531,15 @@ def handle_date(type: type, default: Default, is_optional: bool) -> StrDict:
     return kwargs
 
 
-def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_timedelta(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Use :class:`click.DateTime` as option type and convert the default value
     to an ISO string.
     """
-    typ = partial(converters.to_timedelta, cls=timedelta)
-    typ.__name__ = converters.to_timedelta.__name__  # type: ignore[attr-defined]
+    cli_typ = partial(converters.to_timedelta, cls=timedelta)
+    cli_typ.__name__ = converters.to_timedelta.__name__  # type: ignore[attr-defined]
     kwargs: StrDict = {
-        "type": typ,
+        "type": cli_typ,
         "metavar": "[-][Dd][HHh][MMm][SS[.ffffff]s]",
     }
     if isinstance(default, timedelta):
@@ -521,14 +550,14 @@ def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict
 
 
 def handle_enum_by_name(
-    type: type[Enum], default: Default, is_optional: bool
+    typ: type[Enum], default: Default, is_optional: bool
 ) -> StrDict:
     """
     Use :class:`click.Choice` as option type and use the enum value's name as
     default.
     """
-    kwargs: StrDict = {"type": click.Choice([str(k) for k in type.__members__])}
-    if isinstance(default, type):
+    kwargs: StrDict = {"type": click.Choice([str(k) for k in typ.__members__])}
+    if isinstance(default, typ):
         # Convert Enum instance to string
         kwargs["default"] = default.name
     elif is_optional:
@@ -541,18 +570,70 @@ handle_enum = handle_enum_by_name
 
 
 def handle_enum_by_value(
-    type: type[Enum], default: Default, is_optional: bool
+    typ: type[Enum], default: Default, is_optional: bool
 ) -> StrDict:
     """
     Use :class:`click.Choice` as option type and use the enum value's name as
     default.
     """
-    kwargs: StrDict = {
-        "type": click.Choice([str(v) for v in type.__members__.values()])
-    }
-    if isinstance(default, type):
+    kwargs: StrDict = {"type": click.Choice([str(v) for v in typ.__members__.values()])}
+    if isinstance(default, typ):
         # Convert Enum instance to string
         kwargs["default"] = str(default.value)
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+def handle_pattern(
+    typ: type[re.Pattern], default: Default, is_optional: bool
+) -> StrDict:
+    """
+    Use "re.compile()" as func param type so that the resulting value is a
+    :class:`re.Pattern`.
+    """
+    kwargs: StrDict = {
+        "type": re.compile,
+        "metavar": "PATTERN",
+    }
+    if isinstance(default, typ):
+        # Convert Enum instance to string
+        kwargs["default"] = default.pattern
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+def handle_secret(typ: type[Secret], default: Default, is_optional: bool) -> StrDict:
+    """
+    Handle :class:`typed_settings.types.Secret` types.
+    """
+    metavar = "SECRET"
+    if isinstance(typ, type):
+        cli_type = str
+        has_default = isinstance(default, typ)
+    else:
+        args = get_args(typ)
+        cli_type = args[0]
+        if cli_type is not str:
+            metavar = f"SECRET_{cli_type.__name__.upper()}"
+        has_default = isinstance(default, get_origin(typ))
+
+    def cb(c: click.Context, p: click.Parameter, v: Any) -> Secret | None:
+        if v is not None:
+            return Secret(v)
+        return None
+
+    kwargs: StrDict = {
+        "type": cli_type,
+        "metavar": metavar,
+        "callback": cb,
+    }
+    if has_default:
+        kwargs["default"] = default.get_secret_value()  # type: ignore[union-attr]
+        kwargs["is_secret"] = True
     elif is_optional:
         kwargs["default"] = None
 
@@ -573,6 +654,8 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
         else {}
     ),
     Enum: handle_enum_by_name,
+    re.Pattern: handle_pattern,
+    Secret: handle_secret,
 }
 
 
@@ -588,9 +671,7 @@ class ClickHandler:
     .. versionadded:: 2.0.0
     """
 
-    def __init__(
-        self, extra_types: Optional[dict[type, TypeHandlerFunc]] = None
-    ) -> None:
+    def __init__(self, extra_types: dict[type, TypeHandlerFunc] | None = None) -> None:
         self.extra_types = extra_types or DEFAULT_TYPES
 
     def get_scalar_handlers(self) -> dict[type, TypeHandlerFunc]:
@@ -598,7 +679,7 @@ class ClickHandler:
 
     def handle_scalar(
         self,
-        type: Optional[type],
+        type: type | None,
         default: Default,
         is_optional: bool,
     ) -> StrDict:
@@ -615,11 +696,29 @@ class ClickHandler:
 
         return kwargs
 
+    def handle_literal(
+        self, type: type | None, default: Default, is_optional: bool
+    ) -> StrDict:
+        """
+        Use :class:`click.Choice` as option type and use the literal's values as
+        choices.
+        """
+        values = get_args(type)
+        if not all(isinstance(v, str) for v in values):
+            raise ValueError(f"All Literal values must be strings: {values!r}")
+        kwargs: StrDict = {"type": click.Choice([str(v) for v in values])}
+        if default in values:
+            kwargs["default"] = default
+        elif is_optional:
+            kwargs["default"] = None
+
+        return kwargs
+
     def handle_tuple(
         self,
         type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[tuple],
+        default: tuple | None,
         is_optional: bool,
     ) -> StrDict:
         kwargs = {
@@ -633,7 +732,7 @@ class ClickHandler:
         self,
         type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[Collection[Any]],
+        default: Collection[Any] | None,
         is_optional: bool,
     ) -> StrDict:
         kwargs = type_args_maker.get_kwargs(types[0], NO_DEFAULT)
@@ -651,8 +750,8 @@ class ClickHandler:
         def cb(
             ctx: click.Context,
             param: click.Option,
-            value: Optional[Iterable[str]],
-        ) -> Optional[dict[str, str]]:
+            value: Iterable[str] | None,
+        ) -> dict[str, str] | None:
             if not value:
                 return {}
             splitted = [v.partition("=") for v in value]
@@ -676,7 +775,7 @@ def _mk_option(
     oinfo: OptionInfo,
     default: Default,
     type_args_maker: TypeArgsMaker,
-    envvar: Optional[str],
+    envvar: str | None,
 ) -> Decorator[F]:
     """
     Recursively creates click options and returns them as a list.
@@ -690,7 +789,7 @@ def _mk_option(
         kwargs["show_envvar"] = True
 
     param_decls: tuple[str, ...]
-    user_param_decls: Union[str, Sequence[str]]
+    user_param_decls: str | Sequence[str]
     user_param_decls = user_config.pop("param_decls", ())
     if not user_param_decls:
         option_name = oinfo.path.replace(".", "-").replace("_", "-")
@@ -715,8 +814,9 @@ def _mk_option(
     # below.  Also replace "None" with "".
     kwargs["help"] = user_config.pop("help", None) or ""
 
+    is_secret = any([oinfo.is_secret, kwargs.pop("is_secret", False)])
     if "default" in kwargs:  # pragma: no cover
-        if oinfo.is_secret:
+        if is_secret:
             kwargs["show_default"] = SECRET_REPR
     else:
         kwargs["required"] = True
@@ -729,8 +829,8 @@ def _mk_option(
 
 def _make_callback(
     path: str,
-    type_callback: Optional[Callback],
-    user_callback: Optional[Callback],
+    type_callback: Callback | None,
+    user_callback: Callback | None,
 ) -> Callback:
     """
     Generate a callback that adds option values to the settings instance in the
@@ -762,6 +862,13 @@ def _make_callback(
 
         if ctx.obj is None:
             ctx.obj = {}
+
+        elif not isinstance(ctx.obj, dict):
+            raise RuntimeError(
+                f"'ctx.obj' must be a dict when you use Typed Settings, got: "
+                f"{type(ctx.obj).__name__}"
+            )
+
         settings = ctx.obj.setdefault(CTX_KEY, {})
         settings[path] = value
 

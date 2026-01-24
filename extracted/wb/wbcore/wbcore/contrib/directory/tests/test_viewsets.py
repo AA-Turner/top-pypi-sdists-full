@@ -7,7 +7,7 @@ from rest_framework.test import APIRequestFactory
 
 from wbcore.contrib.authentication.factories import SuperUserFactory, UserFactory
 from wbcore.contrib.authentication.models import User
-from wbcore.contrib.directory.models import ClientManagerRelationship as CMR
+from wbcore.contrib.directory.models import ClientManagerRelationship
 from wbcore.test.utils import (
     get_data_from_factory,
     get_kwargs,
@@ -580,15 +580,15 @@ class TestRelationshipViewSets:
     def test_relationship_partial_update(self, api_request_factory, super_user, relationship_factory, person_factory):
         # Arrange
         relationship = relationship_factory()
-        new_Person = person_factory()
-        request = api_request_factory.patch("", data={"to_entry": new_Person.id})
+        new_person = person_factory()
+        request = api_request_factory.patch("", data={"to_entry": new_person.id})
         request.user = super_user
         view = RelationshipModelViewSet.as_view({"patch": "partial_update"})
         # Act
         response = view(request, pk=relationship.id).render()
         # Assert
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["instance"]["to_entry"] == new_Person.id
+        assert response.data["instance"]["to_entry"] == new_person.id
 
 
 # =====================================================================================================================
@@ -601,7 +601,7 @@ class TestRelationshipViewSets:
 @pytest.mark.django_db
 class TestClientManagerViewSet:
     @pytest.mark.parametrize("mvs", [ClientManagerViewSet])
-    def test_None_qs(self, api_request_factory, normal_user, mvs):
+    def test_none_qs(self, api_request_factory, normal_user, mvs):
         request = api_request_factory.get("")
         request.user = normal_user
         obj = ClientManagerRelationshipFactory()
@@ -615,7 +615,7 @@ class TestClientManagerViewSet:
         request = api_request_factory.delete("")
         request.user = super_user
         obj1 = ClientManagerRelationshipFactory()
-        obj2 = ClientManagerRelationshipFactory(client=obj1.client, status=CMR.Status.DRAFT)
+        obj2 = ClientManagerRelationshipFactory(client=obj1.client, status=ClientManagerRelationship.Status.DRAFT)
         view = mvs.as_view({"delete": "destroy"})
         response = view(request, pk=obj2.id).render()
         assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -645,7 +645,7 @@ class TestClientManagerViewSet:
 
     @pytest.mark.parametrize("mvs", [ClientManagerViewSet])
     def test_put(self, api_request_factory, super_user, mvs):
-        obj_old = ClientManagerRelationshipFactory(status=CMR.Status.DRAFT)
+        obj_old = ClientManagerRelationshipFactory(status=ClientManagerRelationship.Status.DRAFT)
         obj_new = ClientManagerRelationshipFactory()
         user = super_user
         data = get_data_from_factory(obj_new, mvs, superuser=user, delete=True)
@@ -822,7 +822,7 @@ class TestContactViewsets:
             SocialMediaContactEntryViewSet,
         ],
     )
-    def test_primary_DeleteEndpointMixin(self, api_request_factory, super_user, mvs):
+    def test_primary_deleteendpointmixin(self, api_request_factory, super_user, mvs):
         request = api_request_factory.delete("")
         request.user = super_user
         factory = get_model_factory(mvs.queryset.model)

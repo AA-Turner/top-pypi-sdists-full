@@ -1,6 +1,7 @@
+# pylint: disable=invalid-name
 """Tests for dask shared by different test modules."""
 
-from typing import Any, List, Literal, Tuple, cast
+from typing import Any, List, Literal, Tuple, Type, cast
 
 import numpy as np
 import pandas as pd
@@ -16,7 +17,13 @@ from xgboost.compat import concat
 from xgboost.testing.updater import get_basescore
 
 from .. import dask as dxgb
-from ..dask import _DASK_VERSION, _get_rabit_args
+from .._typing import EvalsLog
+from ..dask import _get_rabit_args
+from ..dask.utils import _DASK_VERSION
+from .data import make_batches
+from .data import make_categorical as make_cat_local
+from .ordinal import make_recoded
+from .utils import Device, assert_allclose
 
 
 def check_init_estimation_clf(
@@ -114,7 +121,7 @@ def check_external_memory(  # pylint: disable=too-many-locals
     n_threads = get_worker().state.nthreads
     with xgb.collective.CommunicatorContext(dmlc_communicator="rabit", **comm_args):
         it = tm.IteratorForTest(
-            *tm.make_batches(
+            *make_batches(
                 n_samples_per_batch,
                 n_features,
                 n_batches,
@@ -127,7 +134,7 @@ def check_external_memory(  # pylint: disable=too-many-locals
             Xy: xgb.DMatrix = xgb.ExtMemQuantileDMatrix(it, nthread=n_threads)
         else:
             Xy = xgb.DMatrix(it, nthread=n_threads)
-        results: xgb.callback.TrainingCallback.EvalsLog = {}
+        results: EvalsLog = {}
         xgb.train(
             {"tree_method": "hist", "nthread": n_threads, "device": device},
             Xy,
@@ -139,7 +146,7 @@ def check_external_memory(  # pylint: disable=too-many-locals
 
     lx, ly, lw = [], [], []
     for i in range(n_workers):
-        x, y, w = tm.make_batches(
+        x, y, w = make_batches(
             n_samples_per_batch,
             n_features,
             n_batches,
@@ -158,7 +165,7 @@ def check_external_memory(  # pylint: disable=too-many-locals
     else:
         Xy = xgb.DMatrix(X, yconcat, weight=wconcat, nthread=n_threads)
 
-    results_local: xgb.callback.TrainingCallback.EvalsLog = {}
+    results_local: EvalsLog = {}
     xgb.train(
         {"tree_method": "hist", "nthread": n_threads, "device": device},
         Xy,
@@ -241,7 +248,12 @@ def check_no_group_split(client: Client, device: str) -> None:
         client, 1024, 128, n_query_groups=4, max_rel=5, device=device
     )
 
-    ltr = dxgb.DaskXGBRanker(allow_group_split=False, n_estimators=36, device=device)
+    ltr = dxgb.DaskXGBRanker(
+        allow_group_split=False,
+        n_estimators=36,
+        device=device,
+        objective="rank:pairwise",
+    )
     ltr.fit(
         X_tr,
         y_tr,
@@ -256,3 +268,131 @@ def check_no_group_split(client: Client, device: str) -> None:
     ndcg = ltr.evals_result()["validation_0"]["ndcg@32"]
     assert tm.non_decreasing(ndcg[:16], tolerance=1e-2), ndcg
     np.testing.assert_allclose(ndcg[-1], 1.0, rtol=1e-2)
+
+
+def make_categorical(  # pylint: disable=too-many-locals, too-many-arguments
+    client: Client,
+    n_samples: int,
+    n_features: int,
+    n_categories: int,
+    *,
+    onehot: bool = False,
+    cat_dtype: np.typing.DTypeLike = np.int64,
+) -> Tuple[dd.DataFrame, dd.Series]:
+    """Synthesize categorical data with dask."""
+    workers = get_client_workers(client)
+    n_workers = len(workers)
+    dfs = []
+
+    def pack(**kwargs: Any) -> dd.DataFrame:
+        X, y = make_cat_local(**kwargs)
+        X["label"] = y
+        return X
+
+    meta = pack(
+        n_samples=1,
+        n_features=n_features,
+        n_categories=n_categories,
+        onehot=False,
+        cat_dtype=cat_dtype,
+    )
+
+    for i, worker in enumerate(workers):
+        l_n_samples = min(
+            n_samples // n_workers, n_samples - i * (n_samples // n_workers)
+        )
+        # make sure there's at least one sample for testing empty DMatrix
+        if n_samples == 1 and i == 0:
+            l_n_samples = 1
+        future = client.submit(
+            pack,
+            n_samples=l_n_samples,
+            n_features=n_features,
+            n_categories=n_categories,
+            cat_dtype=cat_dtype,
+            onehot=False,
+            workers=[worker],
+        )
+        dfs.append(future)
+
+    df: dd.DataFrame = cast(dd.DataFrame, dd.from_delayed(dfs, meta=meta))
+    y = df["label"]
+    X = df[df.columns.difference(["label"])]
+
+    if onehot:
+        return dd.get_dummies(X), y
+    return X, y
+
+
+# pylint: disable=too-many-locals
+def run_recode(client: Client, device: Device) -> None:
+    """Run re-coding test with the Dask interface."""
+
+    def create_dmatrix(
+        DMatrixT: Type[dxgb.DaskDMatrix], *args: Any, **kwargs: Any
+    ) -> dxgb.DaskDMatrix:
+        if DMatrixT is dxgb.DaskQuantileDMatrix:
+            ref = kwargs.pop("ref", None)
+            return DMatrixT(*args, ref=ref, **kwargs)
+
+        kwargs.pop("ref", None)
+        return DMatrixT(*args, **kwargs)
+
+    def run(DMatrixT: Type[dxgb.DaskDMatrix]) -> None:
+        enc, reenc, y, _, _ = make_recoded(device, n_features=96)
+        to = get_client_workers(client)
+
+        denc, dreenc, dy = (
+            dd.from_pandas(enc, npartitions=8).persist(workers=to),
+            dd.from_pandas(reenc, npartitions=8).persist(workers=to),
+            da.from_array(y, chunks=(y.shape[0] // 8,)).persist(workers=to),
+        )
+
+        Xy = create_dmatrix(DMatrixT, client, denc, dy, enable_categorical=True)
+        Xy_valid = create_dmatrix(
+            DMatrixT, client, dreenc, dy, enable_categorical=True, ref=Xy
+        )
+        # Base model
+        results = dxgb.train(
+            client, {"device": device}, Xy, evals=[(Xy_valid, "Valid")]
+        )
+
+        # Training continuation
+        Xy = create_dmatrix(DMatrixT, client, denc, dy, enable_categorical=True)
+        Xy_valid = create_dmatrix(
+            DMatrixT, client, dreenc, dy, enable_categorical=True, ref=Xy
+        )
+        results_1 = dxgb.train(
+            client,
+            {"device": device},
+            Xy,
+            evals=[(Xy_valid, "Valid")],
+            xgb_model=results["booster"],
+        )
+
+        # Reversed training continuation
+        Xy = create_dmatrix(DMatrixT, client, dreenc, dy, enable_categorical=True)
+        Xy_valid = create_dmatrix(
+            DMatrixT, client, denc, dy, enable_categorical=True, ref=Xy
+        )
+        results_2 = dxgb.train(
+            client,
+            {"device": device},
+            Xy,
+            evals=[(Xy_valid, "Valid")],
+            xgb_model=results["booster"],
+        )
+        np.testing.assert_allclose(
+            results_1["history"]["Valid"]["rmse"], results_2["history"]["Valid"]["rmse"]
+        )
+
+        predt_0 = dxgb.inplace_predict(client, results, denc).compute()
+        predt_1 = dxgb.inplace_predict(client, results, dreenc).compute()
+        assert_allclose(device, predt_0, predt_1)
+
+        predt_0 = dxgb.predict(client, results, Xy).compute()
+        predt_1 = dxgb.predict(client, results, Xy_valid).compute()
+        assert_allclose(device, predt_0, predt_1)
+
+    for DMatrixT in [dxgb.DaskDMatrix, dxgb.DaskQuantileDMatrix]:
+        run(DMatrixT)

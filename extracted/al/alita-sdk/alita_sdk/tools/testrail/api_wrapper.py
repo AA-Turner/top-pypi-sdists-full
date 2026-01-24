@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import tempfile
+from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union, Any, Generator
 
 import pandas as pd
@@ -10,7 +13,7 @@ from pydantic import SecretStr, create_model, model_validator
 from pydantic.fields import Field, PrivateAttr
 from testrail_api import StatusCodeError, TestRailAPI
 
-from ..chunkers.code.constants import get_file_extension
+from ..chunkers.code.constants import get_file_extension, image_extensions
 from ..non_code_indexer_toolkit import NonCodeIndexerToolkit
 from ..utils.available_tools_decorator import extend_with_parent_available_tools
 from ...runtime.utils.utils import IndexerKeywords
@@ -117,6 +120,13 @@ getCases = create_model(
             description="A list of case field keys to include in the data output. If None, defaults to ['title', 'id'].",
         ),
     ),
+    suite_id=(Optional[str],
+              Field(
+                  default=None,
+                  description="[Optional] Suite id for test cases extraction in case "
+                              "project is in multiple suite mode (setting 3)",
+              ),
+              ),
 )
 
 getCasesByFilter = create_model(
@@ -199,6 +209,13 @@ addCases = create_model(
                                            "title (required) - Title"
                                            "case_properties (optional) - " + _case_properties_description + "default: {}"))
                          )
+)
+
+addFileToCase = create_model(
+    "addFileToCase",
+    case_id=(str, Field(description="The ID of the test case to attach the file to")),
+    artifact_id=(str, Field(description="The artifact ID of the file to upload from artifact storage")),
+    filename=(Optional[str], Field(description="The name of the file to upload. If not provided, uses the original filename from artifact.", default=None)),
 )
 
 updateCase = create_model(
@@ -291,6 +308,18 @@ updateCase = create_model(
     ),
 )
 
+getSuites = create_model(
+    "getSuites",
+    project_id=(str, Field(description="Project id")),
+    output_format=(
+        str,
+        Field(
+            default="json",
+            description="Desired output format. Supported values: 'json', 'csv', 'markdown'. Defaults to 'json'.",
+        ),
+    ),
+)
+
 SUPPORTED_KEYS = {
     "id", "title", "section_id", "template_id", "type_id", "priority_id", "milestone_id",
     "refs", "created_by", "created_on", "updated_by", "updated_on", "estimate",
@@ -322,6 +351,75 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
         email = values.get("email")
         cls._client = TestRailAPI(url, email, password)
         return super().validate_toolkit(values)
+
+    def _is_suite_id_required(self, project_id: str) -> bool:
+        """
+        Returns True if project requires suite_id (multiple suite or baselines mode), otherwise False.
+        Args:
+            project_id: The TestRail project ID to check
+        """
+        try:
+            project = self._client.projects.get_project(project_id=project_id)
+            # 1 for single suite mode, 2 for single suite + baselines, 3 for multiple suites
+            suite_mode = project.get('suite_mode', 1)
+            return suite_mode == 2 or suite_mode == 3
+        except StatusCodeError:
+            return False
+
+    def _fetch_cases_with_suite_handling(
+        self, 
+        project_id: str, 
+        suite_id: Optional[str] = None, 
+        **api_params
+    ) -> List[Dict]:
+        """
+        Unified method to fetch test cases with proper TestRail suite mode handling.
+        
+        Args:
+            project_id: The TestRail project ID
+            suite_id: Optional suite ID to filter by
+            **api_params: Additional parameters to pass to the get_cases API call
+            
+        Returns:
+            List of test case dictionaries
+        """
+        def _extract_cases_from_response(response):
+            """Extract cases from API response, supporting both old and new testrail_api versions."""
+            return response.get('cases', []) if isinstance(response, dict) else response
+
+        suite_required = self._is_suite_id_required(project_id=project_id)
+        all_cases = []
+
+        if suite_required:
+            # Suite modes 2 & 3: Require suite_id parameter
+            if suite_id:
+                response = self._client.cases.get_cases(
+                    project_id=project_id, suite_id=int(suite_id), **api_params
+                )
+                cases_from_suite = _extract_cases_from_response(response)
+                all_cases.extend(cases_from_suite)
+            else:
+                suites = self._get_raw_suites(project_id)
+                suite_ids = [suite['id'] for suite in suites if 'id' in suite]
+                for current_suite_id in suite_ids:
+                    try:
+                        response = self._client.cases.get_cases(
+                            project_id=project_id, suite_id=int(current_suite_id), **api_params
+                        )
+                        cases_from_suite = _extract_cases_from_response(response)
+                        all_cases.extend(cases_from_suite)
+                    except StatusCodeError:
+                        continue
+        else:
+            # Suite mode 1: Can fetch all cases directly without suite_id
+            try:
+                response = self._client.cases.get_cases(project_id=project_id, **api_params)
+                cases_from_project = _extract_cases_from_response(response)
+                all_cases.extend(cases_from_project)
+            except StatusCodeError as e:
+                logger.warning(f"Unable to fetch cases at project level: {e}")
+
+        return all_cases
 
     def add_cases(self, add_test_cases_data: str):
         """Adds new test cases into Testrail per defined parameters.
@@ -389,7 +487,8 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
         return f"Extracted test case:\n{str(extracted_case)}"
 
     def get_cases(
-        self, project_id: str, output_format: str = "json", keys: Optional[List[str]] = None
+        self, project_id: str, output_format: str = "json", keys: Optional[List[str]] = None,
+            suite_id: Optional[str] = None
     ) -> Union[str, ToolException]:
         """
         Extracts a list of test cases in the specified format: `json`, `csv`, or `markdown`.
@@ -410,10 +509,10 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
         invalid_keys = [key for key in keys if key not in SUPPORTED_KEYS]
 
         try:
-            extracted_cases = self._client.cases.get_cases(project_id=project_id)
-            cases = extracted_cases.get("cases")
+            # Use unified suite handling method
+            cases = self._fetch_cases_with_suite_handling(project_id=project_id, suite_id=suite_id)
 
-            if cases is None:
+            if not cases:
                 return ToolException("No test cases found in the extracted data.")
 
             extracted_cases_data = [
@@ -466,24 +565,36 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
                     "json_case_arguments must be a JSON string or dictionary."
                 )
             self._log_tool_event(message=f"Extract test cases per filter {params}", tool_name='get_cases_by_filter')
-            extracted_cases = self._client.cases.get_cases(
-                project_id=project_id, **params
+            
+            # Extract suite_id from params for unified handling
+            suite_id_in_params = params.pop('suite_id', None)
+            suite_id = str(suite_id_in_params) if suite_id_in_params else None
+            
+            # Use unified suite handling method with remaining filter parameters
+            cases = self._fetch_cases_with_suite_handling(
+                project_id=project_id, 
+                suite_id=suite_id, 
+                **params
             )
-            self._log_tool_event(message=f"Test cases were extracted", tool_name='get_cases_by_filter')
-            # support old versions of testrail_api
-            cases = extracted_cases.get("cases") if isinstance(extracted_cases, dict) else extracted_cases
 
-            if cases is None:
+            self._log_tool_event(message="Test cases were extracted", tool_name='get_cases_by_filter')
+
+            if not cases:
                 return ToolException("No test cases found in the extracted data.")
 
             if keys is None:
                 return self._to_markup(cases, output_format)
 
-            extracted_cases_data = [
-                {key: case.get(key, "N/A") for key in keys} for case in cases
-            ]
+            extracted_cases_data = []
+            for case in cases:
+                case_dict = {}
+                for key in keys:
+                    if key in case:
+                        case_dict[key] = case[key]
+                if case_dict:
+                    extracted_cases_data.append(case_dict)
 
-            if extracted_cases_data is None:
+            if not extracted_cases_data:
                 return ToolException("No valid test case data found to format.")
 
             result = self._to_markup(extracted_cases_data, output_format)
@@ -532,6 +643,77 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
             f"Test case #{case_id} has been updated at '{updated_case['updated_on']}')"
         )
 
+    def add_file_to_case(self, case_id: str, artifact_id: str, filename: str = None) -> str:
+        """Upload file from artifact and attach to TestRail test case."""
+        try:
+            artifact_client = self.alita.artifact('__temp__')
+            file_bytes, artifact_filename = artifact_client.get_raw_content_by_artifact_id(artifact_id)
+            
+            # Use provided filename or fallback to artifact filename
+            filename = filename or artifact_filename
+
+            if not file_bytes:
+                raise ToolException(f"Failed to download artifact {artifact_id}")
+
+            suffix = Path(filename).suffix
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(file_bytes)
+                tmp_path = tmp.name
+
+            try:
+                result = self._client.attachments.add_attachment_to_case(
+                    case_id=int(case_id),
+                    path=tmp_path
+                )
+
+                attachment_id = result.get('attachment_id')
+                return f"File '{filename}' successfully attached to test case {case_id}. Attachment ID: {attachment_id}"
+
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception as e:
+                    logger.warning(f"Failed to delete temp file {tmp_path}: {e}")
+
+        except StatusCodeError as e:
+            raise ToolException(f"Failed to attach file to test case {case_id}: {e}")
+        except Exception as e:
+            raise ToolException(f"Error attaching file to test case {case_id}: {str(e)}")
+
+    def _get_raw_suites(self, project_id: str) -> List[Dict]:
+        """
+        Internal helper to get raw suite data from TestRail API.
+        Handles both old and new testrail_api response formats.
+        """
+        suites_response = self._client.suites.get_suites(project_id=project_id)
+        if isinstance(suites_response, dict) and 'suites' in suites_response:
+            return suites_response['suites']
+        else:
+            return suites_response if isinstance(suites_response, list) else []
+    
+    def get_suites(self, project_id: str, output_format: str = "json",) -> Union[str, ToolException]:
+        """Extracts a list of test suites for a given project from Testrail"""
+        try:
+            suites = self._get_raw_suites(project_id)
+
+            if not suites:
+                return ToolException("No test suites found for the specified project.")
+
+            suite_dicts = []
+            for suite in suites:
+                if isinstance(suite, dict):
+                    suite_dict = {}
+                    for field in ["id", "name", "description", "project_id", "is_baseline", 
+                                 "completed_on", "url", "is_master", "is_completed"]:
+                        if field in suite:
+                            suite_dict[field] = suite[field]
+                    suite_dicts.append(suite_dict)
+                else:
+                    suite_dicts.append({"suite": str(suite)})
+            return self._to_markup(suite_dicts, output_format)
+        except StatusCodeError as e:
+            return ToolException(f"Unable to extract test suites: {e}")
+
     def _base_loader(self, project_id: str,
                      suite_id: Optional[str] = None,
                      section_id: Optional[int] = None,
@@ -543,15 +725,12 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
         self._skip_attachment_extensions = kwargs.get('skip_attachment_extensions', [])
 
         try:
-            if suite_id:
-                resp = self._client.cases.get_cases(project_id=project_id, suite_id=int(suite_id))
-                cases = resp.get('cases', [])
-            else:
-                resp = self._client.cases.get_cases(project_id=project_id)
-                cases = resp.get('cases', [])
+            # Use unified suite handling method
+            cases = self._fetch_cases_with_suite_handling(project_id=project_id, suite_id=suite_id)
         except StatusCodeError as e:
             raise ToolException(f"Unable to extract test cases: {e}")
-            # Apply filters
+
+        # Apply filters
         if section_id is not None:
             cases = [case for case in cases if case.get('section_id') == section_id]
         if title_keyword is not None:
@@ -565,7 +744,7 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
                 'id': str(case.get('id', '')),
                 IndexerKeywords.UPDATED_ON.value: case.get('updated_on') or -1,
                 'labels': [lbl['title'] for lbl in case.get('labels', [])],
-                'type': case.get('type_id') or -1,
+                'type': "testrail_test_case",
                 'priority': case.get('priority_id') or -1,
                 'milestone': case.get('milestone_id') or -1,
                 'estimate': case.get('estimate') or '',
@@ -603,11 +782,30 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
             case_id = base_data.get("id")
 
             # get a list of attachments for the case
-            attachments = self._client.attachments.get_attachments_for_case_bulk(case_id=case_id)
+            attachments_response = self._client.attachments.get_attachments_for_case(case_id=case_id)
+
+            # Extract attachments from response - handle both old and new API response formats
+            if isinstance(attachments_response, dict) and 'attachments' in attachments_response:
+                attachments = attachments_response['attachments']
+            else:
+                attachments = attachments_response if isinstance(attachments_response, list) else []
 
             # process each attachment to extract its content
             for attachment in attachments:
-                if get_file_extension(attachment['filename']) in self._skip_attachment_extensions:
+                attachment_name = attachment.get('filename') or attachment.get('name')
+                attachment['filename'] = attachment_name
+                
+                # Handle filetype: use existing field if present, otherwise extract from filename
+                if 'filetype' not in attachment or not attachment['filetype']:
+                    file_extension = get_file_extension(attachment_name)
+                    attachment['filetype'] = file_extension.lstrip('.')
+                
+                # Handle is_image: use existing field if present, otherwise check file extension
+                if 'is_image' not in attachment:
+                    file_extension = get_file_extension(attachment_name)
+                    attachment['is_image'] = file_extension in image_extensions
+                
+                if get_file_extension(attachment_name) in self._skip_attachment_extensions:
                     logger.info(f"Skipping attachment {attachment['filename']} with unsupported extension.")
                     continue
 
@@ -736,6 +934,18 @@ class TestrailAPIWrapper(NonCodeIndexerToolkit):
                 "ref": self.update_case,
                 "description": self.update_case.__doc__,
                 "args_schema": updateCase,
+            },
+            {
+                "name": "add_file_to_case",
+                "ref": self.add_file_to_case,
+                "description": self.add_file_to_case.__doc__,
+                "args_schema": addFileToCase,
+            },
+            {
+                "name": "get_suites",
+                "ref": self.get_suites,
+                "description": self.get_suites.__doc__,
+                "args_schema": getSuites,
             }
         ]
         return tools

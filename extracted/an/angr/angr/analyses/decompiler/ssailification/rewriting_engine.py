@@ -42,7 +42,6 @@ from angr.engines.light.engine import SimEngineNostmtAIL
 from angr.utils.ssa import get_reg_offset_base_and_size
 from .rewriting_state import RewritingState
 
-
 _l = logging.getLogger(__name__)
 
 
@@ -98,6 +97,19 @@ class SimEngineSSARewriting(
         return self._current_vvar_id
 
     #
+    # Util functions
+    #
+
+    @staticmethod
+    def _is_head_controlled_loop_jump(block, jump_stmt: ConditionalJump) -> bool:
+        concrete_targets = []
+        if isinstance(jump_stmt.true_target, Const):
+            concrete_targets.append(jump_stmt.true_target.value)
+        if isinstance(jump_stmt.false_target, Const):
+            concrete_targets.append(jump_stmt.false_target.value)
+        return not all(block.addr <= t < block.addr + block.original_size for t in concrete_targets)
+
+    #
     # Handlers
     #
 
@@ -140,7 +152,7 @@ class SimEngineSSARewriting(
         else:
             new_dst = self._replace_def_expr(self.block.addr, self.block.idx, self.stmt_idx, stmt.dst)
 
-        stmt_base_reg = None
+        additional_stmts = []
         if new_dst is not None:
             if isinstance(stmt.dst, Register):
                 # remove everything else that is an alias
@@ -150,10 +162,11 @@ class SimEngineSSARewriting(
 
                 self.state.registers[stmt.dst.reg_offset][stmt.dst.size] = new_dst
 
-                # generate an assignment that updates the base register if needed
                 base_offset, base_size = get_reg_offset_base_and_size(
                     stmt.dst.reg_offset, self.arch, size=stmt.dst.size
                 )
+
+                # generate an assignment that updates the base register if needed
                 if base_offset != stmt.dst.reg_offset or base_size != stmt.dst.size:
                     base_reg_expr = Register(
                         self.ail_manager.next_atom(),
@@ -167,15 +180,25 @@ class SimEngineSSARewriting(
                         self.block.addr, self.block.idx, self.stmt_idx, base_reg_expr
                     )
                     assert base_reg_vvar is not None
+                    base_reg_value = self._partial_update_expr(
+                        existing_base_reg_vvar,
+                        base_offset,
+                        base_size,
+                        new_dst,
+                        stmt.dst.reg_offset,
+                        stmt.dst.size,
+                    )
                     stmt_base_reg = Assignment(
                         self.ail_manager.next_atom(),
                         base_reg_vvar,
-                        self._partial_update_expr(
-                            existing_base_reg_vvar, base_offset, base_size, new_dst, stmt.dst.reg_offset, stmt.dst.size
-                        ),
+                        base_reg_value,
                         **stmt.tags,
                     )
+                    additional_stmts.append(stmt_base_reg)
                     self.state.registers[base_offset][base_size] = base_reg_vvar
+                else:
+                    base_reg_vvar = new_dst
+
             elif isinstance(stmt.dst, Tmp):
                 pass
             else:
@@ -188,8 +211,8 @@ class SimEngineSSARewriting(
                 stmt.src if new_src is None else new_src,
                 **stmt.tags,
             )
-            if stmt_base_reg is not None:
-                return new_stmt, stmt_base_reg
+            if additional_stmts:
+                return new_stmt, *additional_stmts
             return new_stmt
         return None
 
@@ -248,10 +271,12 @@ class SimEngineSSARewriting(
             if vvar is not None:
                 assert isinstance(stmt.addr, StackBaseOffset) and isinstance(stmt.addr.offset, int)
 
-                # remove everything else that overlaps with the full (base) stack variable
+                # remove everything else that overlaps with the current stack variable
                 # the full stack variable is kept around because it's always updated immediately and will be used in
                 # case of partial stack variable update
-                self._clear_overlapping_stackvars(stmt.addr.offset, stmt.size, remove_base_stackvar=False)
+                self._clear_overlapping_stackvars(
+                    stmt.addr.offset, stmt.size, remove_base_stackvar=False, remove_current_stackvar=False
+                )
 
                 data = stmt.data if new_data is None else new_data
                 vvar_assignment = Assignment(stmt.idx, vvar, data, **stmt.tags)
@@ -262,17 +287,20 @@ class SimEngineSSARewriting(
                     return vvar_assignment
 
                 # update the full variable
-                existing_full_vvar = self._replace_use_load(Load(None, stmt.addr, full_size, stmt.endness))
-                vvar_full = self._replace_def_store(
-                    self.block.addr, self.block.idx, self.stmt_idx, stmt, force_size=full_size
+                existing_full_vvar = self._replace_use_load(
+                    Load(None, stmt.addr, full_size, stmt.endness), create=False
                 )
-                if existing_full_vvar is not None and vvar_full is not None:
-                    self.secondary_stackvars.add(vvar_full.varid)
-                    full_data = self._partial_update_expr(
-                        existing_full_vvar, stmt.addr.offset, full_size, vvar, stmt.addr.offset, stmt.size
+                if existing_full_vvar is not None:
+                    vvar_full = self._replace_def_store(
+                        self.block.addr, self.block.idx, self.stmt_idx, stmt, force_size=full_size
                     )
-                    full_assignment = Assignment(stmt.idx, vvar_full, full_data, **stmt.tags)
-                    return vvar_assignment, full_assignment
+                    if vvar_full is not None:
+                        self.secondary_stackvars.add(vvar_full.varid)
+                        full_data = self._partial_update_expr(
+                            existing_full_vvar, stmt.addr.offset, full_size, vvar, stmt.addr.offset, stmt.size
+                        )
+                        full_assignment = Assignment(stmt.idx, vvar_full, full_data, **stmt.tags)
+                        return vvar_assignment, full_assignment
                 return vvar_assignment
 
         # fall back to Store
@@ -303,7 +331,7 @@ class SimEngineSSARewriting(
         new_true_target = self._expr(stmt.true_target) if stmt.true_target is not None else None
         new_false_target = self._expr(stmt.false_target) if stmt.false_target is not None else None
 
-        if self.stmt_idx != len(self.block.statements) - 1:
+        if self.stmt_idx != len(self.block.statements) - 1 and self._is_head_controlled_loop_jump(self.block, stmt):
             # the conditional jump is in the middle of the block (e.g., the block generated from lifting rep stosq).
             # we need to make a copy of the state and use the state of this point in its successor
             self.head_controlled_loop_outstate = self.state.copy()
@@ -599,12 +627,12 @@ class SimEngineSSARewriting(
         existing_vvar: Expression,
         base_offset: int,
         base_size: int,
-        new_vvar: VirtualVariable,
+        new_value: Expression,
         offset: int,
         size: int,
     ) -> VirtualVariable | Expression:
         if offset == base_offset and base_size == size:
-            return new_vvar
+            return new_value
         if base_offset > offset:
             raise ValueError(f"Base offset {base_offset} is greater than expression offset {offset}")
 
@@ -626,8 +654,8 @@ class SimEngineSSARewriting(
             size * self.arch.byte_width,
             base_size * self.arch.byte_width,
             False,
-            new_vvar,
-            **new_vvar.tags,
+            new_value,
+            **new_value.tags,
         )
         if base_offset < offset:
             shift_amount = Const(
@@ -729,13 +757,13 @@ class SimEngineSSARewriting(
     def _replace_def_store(
         self, block_addr: int, block_idx: int | None, stmt_idx: int, stmt: Store, force_size: int | None = None
     ) -> VirtualVariable | None:
+        size = stmt.size if force_size is None else force_size
         if (
             isinstance(stmt.addr, StackBaseOffset)
             and isinstance(stmt.addr.offset, int)
             and stmt.addr.offset in self.stackvar_locs
-            and stmt.size in self.stackvar_locs[stmt.addr.offset]
+            and size in self.stackvar_locs[stmt.addr.offset]
         ):
-            size = stmt.size if force_size is None else force_size
             vvar_id = self.get_vvid_by_def(
                 block_addr,
                 block_idx,
@@ -844,7 +872,7 @@ class SimEngineSSARewriting(
         vvar = self._get_full_reg_vvar(
             reg_expr.reg_offset,
             reg_expr.size,
-            ins_addr=reg_expr.ins_addr,
+            ins_addr=reg_expr.tags["ins_addr"],
         )
         # extract
         if reg_expr.reg_offset == vvar.oident:
@@ -879,7 +907,7 @@ class SimEngineSSARewriting(
             **reg_expr.tags,
         )
 
-    def _replace_use_load(self, expr: Load) -> VirtualVariable | None:
+    def _replace_use_load(self, expr: Load, create: bool = True) -> VirtualVariable | None:
         if (
             isinstance(expr.addr, StackBaseOffset)
             and isinstance(expr.addr.offset, int)
@@ -887,6 +915,8 @@ class SimEngineSSARewriting(
             and expr.size in self.stackvar_locs[expr.addr.offset]
         ):
             if expr.size not in self.state.stackvars[expr.addr.offset]:
+                if not create:
+                    return None
                 # we have not seen its use before (which does not necessarily mean it's never created!), so we create
                 # it on the fly and record it in self.state.stackvars
                 vvar_id = self.get_vvid_by_def(
@@ -966,20 +996,26 @@ class SimEngineSSARewriting(
                 else:
                     del self.state.registers[off]
 
-    def _clear_overlapping_stackvars(self, stack_offset: int, size: int, remove_base_stackvar: bool = True) -> None:
-        for off in range(stack_offset, stack_offset + size):
+    def _clear_overlapping_stackvars(
+        self, stack_offset: int, size: int, remove_base_stackvar: bool = True, remove_current_stackvar: bool = True
+    ) -> None:
+        if self.state.stackvars.get(stack_offset):
+            base_size = max(self.stackvar_locs[stack_offset])
+            remaining_sizes = list(self.state.stackvars[stack_offset])
+            if remove_current_stackvar and size in remaining_sizes:
+                remaining_sizes.remove(size)
+            if remove_base_stackvar and base_size in remaining_sizes:
+                remaining_sizes.remove(base_size)
+            if not remaining_sizes:
+                del self.state.stackvars[stack_offset]
+            else:
+                self.state.stackvars[stack_offset] = {
+                    sz: self.state.stackvars[stack_offset][sz] for sz in remaining_sizes
+                }
+
+        for off in range(stack_offset + 1, stack_offset + size):
             if off in self.state.stackvars:
-                if (
-                    not remove_base_stackvar
-                    and off in self.stackvar_locs
-                    and off == stack_offset
-                    and (base_size := max(self.stackvar_locs[off])) == size
-                    and base_size in self.state.stackvars[off]
-                ):
-                    if len(self.state.stackvars[off]) > 1:
-                        self.state.stackvars[off] = {base_size: self.state.stackvars[off][base_size]}
-                else:
-                    del self.state.stackvars[off]
+                del self.state.stackvars[off]
 
     def _unreachable(self, *args, **kwargs):
         assert False
@@ -996,6 +1032,7 @@ class SimEngineSSARewriting(
     _handle_binop_CmpLE = _unreachable
     _handle_binop_CmpLT = _unreachable
     _handle_binop_CmpNE = _unreachable
+    _handle_binop_CmpORD = _unreachable
     _handle_binop_Concat = _unreachable
     _handle_binop_Div = _unreachable
     _handle_binop_DivF = _unreachable

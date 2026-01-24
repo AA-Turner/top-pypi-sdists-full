@@ -1,7 +1,9 @@
+import io
 import math
 import os
 import tempfile
 from datetime import datetime, timezone
+from typing import Literal
 
 import pytest
 from pydantic_core import PydanticSerializationError
@@ -9,15 +11,15 @@ from pydantic_core import PydanticSerializationError
 from inspect_ai import Task, eval
 from inspect_ai._util.file import filesystem
 from inspect_ai.dataset import Sample
+from inspect_ai.event._model import ModelEvent
+from inspect_ai.event._sandbox import SandboxEvent
+from inspect_ai.event._score_edit import ScoreEditEvent
+from inspect_ai.event._subtask import SubtaskEvent
+from inspect_ai.event._tool import ToolEvent
 from inspect_ai.log import read_eval_log
+from inspect_ai.log._edit import ProvenanceData
 from inspect_ai.log._file import read_eval_log_sample, write_eval_log
 from inspect_ai.log._log import EvalLog
-from inspect_ai.log._transcript import (
-    ModelEvent,
-    SandboxEvent,
-    SubtaskEvent,
-    ToolEvent,
-)
 from inspect_ai.model import get_model
 from inspect_ai.model._generate_config import GenerateConfig
 from inspect_ai.model._model_output import ModelOutput
@@ -229,6 +231,21 @@ def test_can_round_trip_serialize_subtask_event():
     assert original == deserialized
 
 
+def test_can_round_trip_serialize_score_edit_event():
+    from inspect_ai.scorer._metric import ScoreEdit
+
+    provenance = ProvenanceData(author="test_user", reason="Test edit")
+    edit = ScoreEdit(value="I", provenance=provenance)
+    original = ScoreEditEvent(
+        score_name="test_scorer", edit=edit, timestamp=datetime.now(timezone.utc)
+    )
+
+    serialized = original.model_dump_json()
+    deserialized = ScoreEditEvent.model_validate_json(serialized)
+
+    assert original == deserialized
+
+
 def test_can_load_log_with_all_tool_call_errors():
     # Log file contains all supported tool call errors.
     log_file = os.path.join("tests", "log", "test_eval_log", "log_tool_call_error.json")
@@ -280,3 +297,82 @@ def test_unicode_surrogates_are_escaped():
     sample = log.samples[0]
     assert sample.output.message.text == "\\udc00\\udc00\\udc00"
     assert sample.scores["exact"].answer == "\\udc00\\udc00\\udc00"
+
+
+@pytest.mark.parametrize("resolve_attachments", [True, False, "full", "core"])
+def test_message_deduplication(
+    resolve_attachments: bool | Literal["full", "core"],
+):
+    log_file = os.path.join(
+        "tests", "log", "test_eval_log", "log_message_deduplication.eval"
+    )
+
+    sample = read_eval_log_sample(
+        log_file, id=0, epoch=1, resolve_attachments=resolve_attachments
+    )
+
+    messages_by_id = {}
+    if resolve_attachments != "core":
+        for message in sample.messages:
+            if message.id not in messages_by_id:
+                messages_by_id[message.id] = message
+            else:
+                assert message is messages_by_id[message.id]
+    for event in sample.events:
+        if isinstance(event, ModelEvent):
+            for message in event.input:
+                if message.id is None:
+                    continue
+                if message.id not in messages_by_id:
+                    messages_by_id[message.id] = message
+                else:
+                    assert message is messages_by_id[message.id]
+
+
+@pytest.mark.parametrize("format", ["json", "eval"])
+def test_read_bytes_format(format):
+    file_path = os.path.join("tests", "log", "test_eval_log", f"log_formats.{format}")
+
+    log = read_eval_log(file_path)
+
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    bytesio = io.BytesIO(file_bytes)
+    log2 = read_eval_log(bytesio, format=format)
+
+    assert not log2.location
+    assert log.eval.task == log2.eval.task
+    assert log2.samples
+
+
+@pytest.mark.parametrize("format", ["json", "eval"])
+def test_read_bytes_format_detection(format):
+    file_path = os.path.join("tests", "log", "test_eval_log", f"log_formats.{format}")
+
+    log = read_eval_log(file_path)
+
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    bytesio = io.BytesIO(file_bytes)
+    log2 = read_eval_log(bytesio, format="auto")
+
+    assert log.eval.task == log2.eval.task
+    assert log2.samples
+
+
+@pytest.mark.parametrize("format", ["json", "eval"])
+def test_read_bytes_header(format):
+    file_path = os.path.join("tests", "log", "test_eval_log", f"log_formats.{format}")
+
+    log = read_eval_log(file_path, header_only=True)
+
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    bytesio = io.BytesIO(file_bytes)
+    log2 = read_eval_log(bytesio, header_only=True, format=format)
+
+    assert log2.samples is None
+    assert log.eval.task == log2.eval.task

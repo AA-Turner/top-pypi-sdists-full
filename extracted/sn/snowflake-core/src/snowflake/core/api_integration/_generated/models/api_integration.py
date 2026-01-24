@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.api_integration._generated.models.api_hook import ApiHook, ApiHookModel
@@ -45,7 +45,7 @@ class ApiIntegration(BaseModel):
     comment : str, optional
         Comment for the API integration.
     created_on : datetime, optional
-        Date and time when the API integration was created.
+        Date and time when the API integration was created — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -78,9 +78,10 @@ class ApiIntegration(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -109,7 +110,7 @@ class ApiIntegration(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of api_hook
         if self.api_hook:
@@ -136,9 +137,9 @@ class ApiIntegration(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ApiIntegration.parse_obj(obj)
+            return ApiIntegration.model_validate(obj)
 
-        _obj = ApiIntegration.parse_obj(
+        _obj = ApiIntegration.model_validate(
             {
                 "name": obj.get("name"),
                 "api_hook": ApiHook.from_dict(obj.get("api_hook")) if obj.get("api_hook") is not None else None,

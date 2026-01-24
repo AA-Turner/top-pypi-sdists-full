@@ -11,6 +11,7 @@ from pytensor.gradient import (
     DisconnectedType,
     GradClip,
     GradScale,
+    Lop,
     NullTypeGradError,
     Rop,
     UndefinedGrad,
@@ -28,9 +29,11 @@ from pytensor.gradient import (
     zero_grad,
     zero_grad_,
 )
-from pytensor.graph.basic import Apply, graph_inputs
+from pytensor.graph.basic import Apply
 from pytensor.graph.null_type import NullType
 from pytensor.graph.op import Op
+from pytensor.graph.traversal import graph_inputs
+from pytensor.scalar import float64
 from pytensor.scan.op import Scan
 from pytensor.tensor.math import add, dot, exp, outer, sigmoid, sqr, sqrt, tanh
 from pytensor.tensor.math import sum as pt_sum
@@ -87,8 +90,8 @@ class TestGradSourcesInputs:
                 return Apply(self, inputs, outputs)
 
             def grad(self, inp, grads):
-                (x,) = inp
-                (gz,) = grads
+                (_x,) = inp
+                (_gz,) = grads
 
             def perform(self, *args, **kwargs):
                 raise NotImplementedError()
@@ -156,8 +159,8 @@ class TestGradSourcesInputs:
                 return Apply(self, inputs, outputs)
 
             def grad(self, inp, grads):
-                (x,) = inp
-                gz1, gz2 = grads
+                (_x,) = inp
+                _gz1, _gz2 = grads
                 return (gval,)
 
             def perform(self, *args, **kwargs):
@@ -181,8 +184,8 @@ class TestGradSourcesInputs:
                 return Apply(self, inputs, outputs)
 
             def grad(self, inp, grads):
-                x0, x1 = inp
-                (gz,) = grads
+                _x0, _x1 = inp
+                (_gz,) = grads
                 return (gval0, gval1)
 
             def perform(self, *args, **kwargs):
@@ -230,8 +233,8 @@ class TestGrad:
             return Apply(self, inputs, outputs)
 
         def grad(self, inp, grads):
-            x0, x1 = inp
-            gz0, gz1 = grads
+            _x0, _x1 = inp
+            _gz0, _gz1 = grads
             return self.gval0, self.gval1
 
         def perform(self, *args, **kwargs):
@@ -1206,3 +1209,13 @@ class TestHessianVectorProduct:
         hessp_x_eval, hessp_y_eval = hessp_fn(**test)
         np.testing.assert_allclose(hessp_x_eval, [2, 4, 6])
         np.testing.assert_allclose(hessp_y_eval, [-6, -4, -2])
+
+
+def test_scalar_Lop():
+    xtm1 = float64("xtm1")
+    xt = xtm1**2
+
+    dout_dxt = float64("dout_dxt")
+    dout_dxtm1 = Lop(xt, wrt=xtm1, eval_points=dout_dxt)
+    assert dout_dxtm1.type == dout_dxt.type
+    assert dout_dxtm1.eval({xtm1: 3.0, dout_dxt: 1.5}) == 2 * 3.0 * 1.5

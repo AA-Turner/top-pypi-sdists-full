@@ -131,7 +131,7 @@ int prm_get_primitive_with_pure_trans(Primitive *primitive, Cell const *cell,
     primitive->tolerance = symprec;
     primitive->angle_tolerance = angle_tolerance;
     if ((primitive->orig_lattice =
-             (double(*)[3])malloc(sizeof(double[3]) * 3)) == NULL) {
+             (double (*)[3])malloc(sizeof(double[3]) * 3)) == NULL) {
         warning_memory("primitive->orig_lattice");
         return 0;
     }
@@ -652,6 +652,10 @@ static int get_primitive_in_translation_space(double t_mat_inv[3][3],
     primitive = get_primitive(cell, symprec, -1.0);
     cel_free_cell(cell);
     cell = NULL;
+
+    if (primitive == NULL) {
+        return 0;
+    }
 
     if (primitive->cell->size != 1) {
         prm_free_primitive(primitive);

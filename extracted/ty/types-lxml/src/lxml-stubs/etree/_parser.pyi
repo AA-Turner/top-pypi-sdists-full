@@ -1,12 +1,15 @@
 import sys
+from collections.abc import (
+    Iterable,
+    Iterator,
+)
 from typing import (
     Any,
     Generic,
-    Iterable,
-    Iterator,
     Literal,
     TypeVar,
     overload,
+    type_check_only,
 )
 
 from .._types import (
@@ -54,6 +57,7 @@ class ParseError(LxmlSyntaxError):
 class XMLSyntaxError(ParseError): ...
 class ParserError(LxmlError): ...
 
+@type_check_only
 class _PullParserMixin:
     # The iterated items from pull parser events may return anything.
     # Even etree.TreeBuilder, which produce element nodes by default, allows
@@ -61,6 +65,7 @@ class _PullParserMixin:
     def read_events(self) -> Iterator[tuple[str, _Element | Any]]: ...
 
 # TODO Write wiki page and add link to this docstring
+@type_check_only
 class CustomTargetParser(Generic[_T]):
     """This is a stub-only class (docstring pending)"""
     @property
@@ -105,9 +110,18 @@ class CustomTargetParser(Generic[_T]):
         - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.XMLParser.close)
         """
 
-# subscripted element typevar needs to be casted manually for type
+# XMLParser:
+# 1. Subscripted element typevar needs to be casted manually for type
 # checking, and use .set_element_class_lookup() to set the element class
 # lookup for runtime.
+# https://github.com/abelcheung/types-lxml/wiki/Using-specialised-class-directly#no-automatic-change-of-subscript
+#
+# 2. (#100) Due to usage of __new__, pyright no more handles
+# subclassing of XMLParsers, treating all instances of subclasses as
+# etree.XMLParser. The band-aid for now is to add __new__ to each
+# and every subclass to override the behavior. mypy is unaffected
+# (due to non-support of __new__ here)
+#
 class XMLParser(Generic[_ET_co]):
     """The XML Parser. Parsers can be supplied as additional argument
     to various parse functions of the lxml API.
@@ -243,8 +257,10 @@ class XMLPullParser(_PullParserMixin, XMLParser[_ET_co]):
     --------
     - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.XMLPullParser)
     """
-    def __init__(
-        self,
+    # HACK: Suppress superclass .__new__(), otherwise pyright thinks
+    # this class always generate etree.XMLParser instances (#100)
+    def __new__(
+        cls,
         events: Iterable[_SaxEventNames] | None = None,
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -268,15 +284,17 @@ class XMLPullParser(_PullParserMixin, XMLParser[_ET_co]):
         strip_cdata: bool = True,
         collect_ids: bool = True,
         compact: bool = True,
-    ) -> None: ...
+    ) -> XMLPullParser[_ET_co]: ...
 
 # This is XMLParser with some preset keyword arguments, and without
 # 'collect_ids' argument. Removing those keywords here, otherwise
 # ETCompatXMLParser has no reason to exist. 'target' argument
 # is likewise removed.
 class ETCompatXMLParser(XMLParser[_ET_co]):
-    def __init__(
-        self,
+    # HACK: Suppress superclass .__new__(), otherwise pyright thinks
+    # this class always generate etree.XMLParser instances (#100)
+    def __new__(
+        cls,
         *,
         encoding: _TextArg | None = None,
         attribute_defaults: bool = False,
@@ -291,14 +309,14 @@ class ETCompatXMLParser(XMLParser[_ET_co]):
         resolve_entities: bool | Literal["internal"] = True,
         strip_cdata: bool = True,
         compact: bool = True,
-    ) -> None: ...
+    ) -> ETCompatXMLParser[_ET_co]: ...
 
 def set_default_parser(parser: _DefEtreeParsers[Any] | None = None) -> None: ...
 def get_default_parser() -> _DefEtreeParsers[Any]: ...
 
-# subscripted element typevar needs to be casted manually for type
-# checking, and use set_element_class_lookup() to set the element class
-# lookup for runtime.
+#
+# See comment above etree.XMLParser. They also apply to HTMLParser here.
+#
 class HTMLParser(Generic[_ET_co]):
     """This parser allows reading HTML into a normal XML tree. By default, it
     can read broken (non well-formed) HTML, depending on the capabilities of
@@ -447,9 +465,11 @@ class HTMLPullParser(_PullParserMixin, HTMLParser[_ET_co]):
     --------
     - [API Documentation](https://lxml.de/apidoc/lxml.etree.html#lxml.etree.HTMLPullParser)
     """
+    # HACK: Suppress superclass .__new__(), otherwise pyright thinks
+    # this class always generate etree.HTMLParser instances (#100)
     @overload
-    def __init__(
-        self,
+    def __new__(
+        cls,
         events: Iterable[_SaxEventNames] | None = None,
         *,
         tag: _TagSelector | Iterable[_TagSelector] | None = None,
@@ -468,11 +488,11 @@ class HTMLPullParser(_PullParserMixin, HTMLParser[_ET_co]):
         default_doctype: bool = True,
         collect_ids: bool = True,
         huge_tree: bool = False,
-    ) -> None: ...
+    ) -> HTMLPullParser[_ET_co]: ...
     @overload
     @deprecated("strip_cdata argument was always useless, and dropped after 5.2.2")
-    def __init__(
-        self,
+    def __new__(
+        cls,
         *,
         strip_cdata: bool,
         **__kw: Any,

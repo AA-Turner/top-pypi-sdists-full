@@ -15,19 +15,17 @@ class MutableValue(Generic[T]):
     Args:
         value: The initial value.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord.utils.value import MutableValue
+        >>> value = MutableValue(10)
+        >>> value.get_value()
+        10
+        >>> value.set_value(42)
+        >>> value.get_value()
+        42
 
-    ```pycon
-
-    >>> from minrecord.utils.value import MutableValue
-    >>> value = MutableValue(10)
-    >>> value.get_value()
-    10
-    >>> value.set_value(42)
-    >>> value.get_value()
-    42
-
-    ```
+        ```
     """
 
     def __init__(self, value: T) -> None:

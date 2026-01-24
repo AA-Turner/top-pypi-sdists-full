@@ -1,5 +1,5 @@
 import linecache
-from typing import Any, List, Tuple, Optional
+from typing import Any
 
 
 class BPythonLinecache(dict):
@@ -8,9 +8,7 @@ class BPythonLinecache(dict):
 
     def __init__(
         self,
-        bpython_history: Optional[
-            List[Tuple[int, None, List[str], str]]
-        ] = None,
+        bpython_history: None | (list[tuple[int, None, list[str], str]]) = None,
         *args,
         **kwargs,
     ) -> None:
@@ -20,7 +18,7 @@ class BPythonLinecache(dict):
     def is_bpython_filename(self, fname: Any) -> bool:
         return isinstance(fname, str) and fname.startswith("<bpython-input-")
 
-    def get_bpython_history(self, key: str) -> Tuple[int, None, List[str], str]:
+    def get_bpython_history(self, key: str) -> tuple[int, None, list[str], str]:
         """Given a filename provided by remember_bpython_input,
         returns the associated source string."""
         try:

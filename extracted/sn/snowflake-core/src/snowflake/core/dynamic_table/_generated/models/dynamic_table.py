@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr, field_validator
 
 from snowflake.core.dynamic_table._generated.models.dynamic_table_column import (
     DynamicTableColumn,
@@ -60,25 +60,25 @@ class DynamicTable(BaseModel):
     comment : str, optional
         Specifies a comment for the dynamic table.
     created_on : datetime, optional
-        Date and time when the dynamic table was created.
+        Date and time when the dynamic table was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the dynamic table is stored
+        Database in which the dynamic table is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the dynamic table is stored
+        Schema in which the dynamic table is stored — **Read-only:** *any user-provided value will be ignored.*
     rows : int, optional
-        Number of rows in the dynamic table.
+        Number of rows in the dynamic table — **Read-only:** *any user-provided value will be ignored.*
     bytes : int, optional
-        Number of bytes that will be scanned if the entire table is scanned in a query. Note that this number may be different than the number of actual physical bytes stored on-disk for the table
+        Number of bytes that will be scanned if the entire table is scanned in a query. Note that this number may be different than the number of actual physical bytes stored on-disk for the table — **Read-only:** *any user-provided value will be ignored.*
     scheduling_state : str, optional
-        Scheduling state (RUNNING or SUSPENDED)
+        Scheduling state (RUNNING or SUSPENDED) — **Read-only:** *any user-provided value will be ignored.*
     automatic_clustering : bool, optional
-        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the dynamic table.
+        If Automatic Clustering is enabled for your account, specifies whether it is explicitly enabled or disabled for the dynamic table — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the table
+        Role that owns the table — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the object.
+        The type of role that owns the object — **Read-only:** *any user-provided value will be ignored.*
     budget : str, optional
-        Name of the budget if the object is monitored by a budget
+        Name of the budget if the object is monitored by a budget — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -182,9 +182,10 @@ class DynamicTable(BaseModel):
             raise ValueError("must validate the enum values ('RUNNING','SUSPENDED')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -222,7 +223,7 @@ class DynamicTable(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -249,9 +250,9 @@ class DynamicTable(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return DynamicTable.parse_obj(obj)
+            return DynamicTable.model_validate(obj)
 
-        _obj = DynamicTable.parse_obj(
+        _obj = DynamicTable.model_validate(
             {
                 "name": obj.get("name"),
                 "kind": obj.get("kind") if obj.get("kind") is not None else "PERMANENT",

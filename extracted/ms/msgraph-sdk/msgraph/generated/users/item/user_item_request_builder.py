@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from ...models.o_data_errors.o_data_error import ODataError
     from ...models.user import User
     from .activities.activities_request_builder import ActivitiesRequestBuilder
+    from .adhoc_calls.adhoc_calls_request_builder import AdhocCallsRequestBuilder
     from .agreement_acceptances.agreement_acceptances_request_builder import AgreementAcceptancesRequestBuilder
     from .app_role_assignments.app_role_assignments_request_builder import AppRoleAssignmentsRequestBuilder
     from .assign_license.assign_license_request_builder import AssignLicenseRequestBuilder
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from .check_member_groups.check_member_groups_request_builder import CheckMemberGroupsRequestBuilder
     from .check_member_objects.check_member_objects_request_builder import CheckMemberObjectsRequestBuilder
     from .cloud_clipboard.cloud_clipboard_request_builder import CloudClipboardRequestBuilder
+    from .cloud_p_cs.cloud_p_cs_request_builder import CloudPCsRequestBuilder
     from .contacts.contacts_request_builder import ContactsRequestBuilder
     from .contact_folders.contact_folders_request_builder import ContactFoldersRequestBuilder
     from .created_objects.created_objects_request_builder import CreatedObjectsRequestBuilder
@@ -66,6 +68,7 @@ if TYPE_CHECKING:
     from .oauth2_permission_grants.oauth2_permission_grants_request_builder import Oauth2PermissionGrantsRequestBuilder
     from .onenote.onenote_request_builder import OnenoteRequestBuilder
     from .online_meetings.online_meetings_request_builder import OnlineMeetingsRequestBuilder
+    from .on_premises_sync_behavior.on_premises_sync_behavior_request_builder import OnPremisesSyncBehaviorRequestBuilder
     from .outlook.outlook_request_builder import OutlookRequestBuilder
     from .owned_devices.owned_devices_request_builder import OwnedDevicesRequestBuilder
     from .owned_objects.owned_objects_request_builder import OwnedObjectsRequestBuilder
@@ -109,10 +112,10 @@ class UserItemRequestBuilder(BaseRequestBuilder):
     
     async def delete(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> None:
         """
-        Deletes a user.
+        Delete a user object.   When deleted, user resources, including their mailbox and license assignments, are moved to a temporary container and if the user is restored within 30 days, these objects are restored to them. The user is also restored to any groups they were a member of. After 30 days and if not restored, the user object is permanently deleted and their assigned resources freed. To manage the deleted user object, see deletedItems.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: None
-        Find more info here: https://learn.microsoft.com/graph/api/intune-mam-user-delete?view=graph-rest-1.0
+        Find more info here: https://learn.microsoft.com/graph/api/user-delete?view=graph-rest-1.0
         """
         request_info = self.to_delete_request_information(
             request_configuration
@@ -143,10 +146,10 @@ class UserItemRequestBuilder(BaseRequestBuilder):
     
     async def get(self,request_configuration: Optional[RequestConfiguration[UserItemRequestBuilderGetQueryParameters]] = None) -> Optional[User]:
         """
-        Read properties and relationships of the user object.
+        Retrieve the properties and relationships of user object. This operation returns by default only a subset of the more commonly used properties for each user. These default properties are noted in the Properties section. To get properties that are not returned by default, do a GET operation for the user and specify the properties in a $select OData query option. Because the user resource supports extensions, you can also use the GET operation to get custom properties and extension data in a user instance. Customers through Microsoft Entra ID for customers can also use this API operation to retrieve their details.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[User]
-        Find more info here: https://learn.microsoft.com/graph/api/intune-onboarding-user-get?view=graph-rest-1.0
+        Find more info here: https://learn.microsoft.com/graph/api/user-get?view=graph-rest-1.0
         """
         request_info = self.to_get_request_information(
             request_configuration
@@ -203,7 +206,7 @@ class UserItemRequestBuilder(BaseRequestBuilder):
     
     def to_delete_request_information(self,request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        Deletes a user.
+        Delete a user object.   When deleted, user resources, including their mailbox and license assignments, are moved to a temporary container and if the user is restored within 30 days, these objects are restored to them. The user is also restored to any groups they were a member of. After 30 days and if not restored, the user object is permanently deleted and their assigned resources freed. To manage the deleted user object, see deletedItems.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -214,7 +217,7 @@ class UserItemRequestBuilder(BaseRequestBuilder):
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[UserItemRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
-        Read properties and relationships of the user object.
+        Retrieve the properties and relationships of user object. This operation returns by default only a subset of the more commonly used properties for each user. These default properties are noted in the Properties section. To get properties that are not returned by default, do a GET operation for the user and specify the properties in a $select OData query option. Because the user resource supports extensions, you can also use the GET operation to get custom properties and extension data in a user instance. Customers through Microsoft Entra ID for customers can also use this API operation to retrieve their details.
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -256,6 +259,15 @@ class UserItemRequestBuilder(BaseRequestBuilder):
         from .activities.activities_request_builder import ActivitiesRequestBuilder
 
         return ActivitiesRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def adhoc_calls(self) -> AdhocCallsRequestBuilder:
+        """
+        Provides operations to manage the adhocCalls property of the microsoft.graph.user entity.
+        """
+        from .adhoc_calls.adhoc_calls_request_builder import AdhocCallsRequestBuilder
+
+        return AdhocCallsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def agreement_acceptances(self) -> AgreementAcceptancesRequestBuilder:
@@ -373,6 +385,15 @@ class UserItemRequestBuilder(BaseRequestBuilder):
         from .cloud_clipboard.cloud_clipboard_request_builder import CloudClipboardRequestBuilder
 
         return CloudClipboardRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
+    def cloud_p_cs(self) -> CloudPCsRequestBuilder:
+        """
+        Provides operations to manage the cloudPCs property of the microsoft.graph.user entity.
+        """
+        from .cloud_p_cs.cloud_p_cs_request_builder import CloudPCsRequestBuilder
+
+        return CloudPCsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def contact_folders(self) -> ContactFoldersRequestBuilder:
@@ -672,6 +693,15 @@ class UserItemRequestBuilder(BaseRequestBuilder):
         return Oauth2PermissionGrantsRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
+    def on_premises_sync_behavior(self) -> OnPremisesSyncBehaviorRequestBuilder:
+        """
+        Provides operations to manage the onPremisesSyncBehavior property of the microsoft.graph.user entity.
+        """
+        from .on_premises_sync_behavior.on_premises_sync_behavior_request_builder import OnPremisesSyncBehaviorRequestBuilder
+
+        return OnPremisesSyncBehaviorRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def onenote(self) -> OnenoteRequestBuilder:
         """
         Provides operations to manage the onenote property of the microsoft.graph.user entity.
@@ -933,7 +963,7 @@ class UserItemRequestBuilder(BaseRequestBuilder):
     @dataclass
     class UserItemRequestBuilderGetQueryParameters():
         """
-        Read properties and relationships of the user object.
+        Retrieve the properties and relationships of user object. This operation returns by default only a subset of the more commonly used properties for each user. These default properties are noted in the Properties section. To get properties that are not returned by default, do a GET operation for the user and specify the properties in a $select OData query option. Because the user resource supports extensions, you can also use the GET operation to get custom properties and extension data in a user instance. Customers through Microsoft Entra ID for customers can also use this API operation to retrieve their details.
         """
         def get_query_parameter(self,original_name: str) -> str:
             """

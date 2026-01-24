@@ -1,7 +1,7 @@
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::{PyRecursionError, PyTypeError};
 use pyo3::prelude::*;
-use ryo3_serde::SerializePyAny;
+use ryo3_serde::PyAnySerializer;
 
 fn map_serde_json_err<E: std::fmt::Display>(e: E) -> PyErr {
     if e.to_string().starts_with("recursion") {
@@ -11,14 +11,14 @@ fn map_serde_json_err<E: std::fmt::Display>(e: E) -> PyErr {
     }
 }
 
-#[expect(clippy::struct_excessive_bools)]
+#[derive(Clone, Copy, Debug, Default)]
 struct JsonOptions {
     fmt: bool,
     sort_keys: bool,
     append_newline: bool,
-    pybytes: bool,
 }
 
+#[derive(Debug, Default)]
 struct JsonSerializer<'py> {
     default: Option<&'py Bound<'py, PyAny>>,
     opts: JsonOptions,
@@ -32,6 +32,13 @@ impl<'py> JsonSerializer<'py> {
         };
         slf.check_default()?;
         Ok(slf)
+    }
+
+    fn new_no_default(options: JsonOptions) -> Self {
+        JsonSerializer {
+            default: None,
+            opts: options,
+        }
     }
 
     fn check_default(&self) -> PyResult<()> {
@@ -49,8 +56,8 @@ impl<'py> JsonSerializer<'py> {
         Ok(())
     }
 
-    fn serialize(&self, py: Python<'py>, obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
-        let s = SerializePyAny::new(obj, self.default);
+    pub(crate) fn serialize_to_vec(&self, obj: &Bound<'py, PyAny>) -> PyResult<Vec<u8>> {
+        let s = PyAnySerializer::new(obj.as_borrowed(), self.default);
         let mut bytes: Vec<u8> = Vec::with_capacity(4096);
         if self.opts.sort_keys {
             // TODO: This is a very hacky way of handling sorting the keys...
@@ -74,62 +81,55 @@ impl<'py> JsonSerializer<'py> {
         if self.opts.append_newline {
             bytes.push(b'\n');
         }
-        if self.opts.pybytes {
-            pyo3::types::PyBytes::new(py, &bytes).into_bound_py_any(py)
-        } else {
-            ryo3_bytes::PyBytes::from(bytes).into_bound_py_any(py)
-        }
-    }
-
-    #[expect(clippy::unused_self)]
-    fn serialize_unsafe(
-        &self,
-        _py: Python<'py>,
-        _obj: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
-        Err(pyo3::exceptions::PyNotImplementedError::new_err(
-            "Unsafe serialization is not implemented yet",
-        ))
+        Ok(bytes)
     }
 }
 
-// MACRO TO CREATE THE STRINGIFY FUNCTION (USED TO CREATE "ALIASES" eg `stringify`/`loads`)
-macro_rules! stringify_fn {
-    ($name:ident) => {
-        #[pyfunction(
-            signature = (obj,*, default = None, fmt = false, sort_keys = false, append_newline = false, pybytes = false))
-        ]
-        pub fn $name<'py>(
-            py: Python<'py>,
-            obj: &Bound<'py, PyAny>,
-            default: Option<&'py Bound<'py, PyAny>>,
-            fmt: bool,
-            sort_keys: bool,
-            append_newline: bool,
-            pybytes: bool,
-        ) -> PyResult<Bound<'py, PyAny>> {
-            let serializer = JsonSerializer::new(
-                default,
-                JsonOptions {
-                    fmt,
-                    sort_keys,
-                    append_newline,
-                    pybytes,
-                },
-            )?;
-            serializer.serialize(py, obj)
-        }
-    };
-}
+// **retired**
+// MACRO TO CREATE THE STRINGIFY FUNCTION (USED TO CREATE "ALIASES" eg `stringify`/`dumps`)
+// macro_rules! stringify_fn {
+//     ($name:ident) => {
+//         #[pyfunction(
+//             signature = (obj,*, default = None, fmt = false, sort_keys = false, append_newline = false, pybytes = false))
+//         ]
+//         pub fn $name<'py>(
+//             py: Python<'py>,
+//             obj: &Bound<'py, PyAny>,
+//             default: Option<&'py Bound<'py, PyAny>>,
+//             fmt: bool,
+//             sort_keys: bool,
+//             append_newline: bool,
+//             pybytes: bool,
+//         ) -> PyResult<Bound<'py, PyAny>> {
+//             let serializer = JsonSerializer::new(
+//                 default,
+//                 JsonOptions {
+//                     fmt,
+//                     sort_keys,
+//                     append_newline,
+//                     pybytes,
+//                 },
+//             )?;
+//             serializer.serialize(py, obj)
+//         }
+//     };
+// }
+// stringify_fn!(stringify);
+// stringify_fn!(dumps);
 
-stringify_fn!(stringify);
-stringify_fn!(dumps);
-
-#[pyfunction(
-    signature = (obj, *, default = None, fmt = false, sort_keys = false, append_newline = false, pybytes = false)
-)]
 #[expect(clippy::fn_params_excessive_bools)]
-pub(crate) fn stringify_unsafe<'py>(
+#[pyfunction(
+    signature=(
+        obj,
+        *,
+        default = None,
+        fmt = false,
+        sort_keys = false,
+        append_newline = false,
+        pybytes = false
+    )
+)]
+pub fn stringify<'py>(
     py: Python<'py>,
     obj: &Bound<'py, PyAny>,
     default: Option<&'py Bound<'py, PyAny>>,
@@ -144,8 +144,46 @@ pub(crate) fn stringify_unsafe<'py>(
             fmt,
             sort_keys,
             append_newline,
-            pybytes,
         },
     )?;
-    serializer.serialize_unsafe(py, obj)
+    serializer.serialize_to_vec(obj).map(|v| {
+        if pybytes {
+            pyo3::types::PyBytes::new(py, &v).into_bound_py_any(py)
+        } else {
+            ryo3_bytes::PyBytes::from(v).into_bound_py_any(py)
+        }
+    })?
+}
+
+pub fn to_vec(obj: &Bound<'_, PyAny>) -> PyResult<Vec<u8>> {
+    JsonSerializer::new_no_default(JsonOptions {
+        fmt: false,
+        sort_keys: false,
+        append_newline: false,
+    })
+    .serialize_to_vec(obj)
+}
+
+#[expect(clippy::fn_params_excessive_bools)]
+#[pyfunction(
+    signature=(
+        obj,
+        *,
+        default = None,
+        fmt = false,
+        sort_keys = false,
+        append_newline = false,
+        pybytes = false
+    )
+)]
+pub fn dumps<'py>(
+    py: Python<'py>,
+    obj: &Bound<'py, PyAny>,
+    default: Option<&'py Bound<'py, PyAny>>,
+    fmt: bool,
+    sort_keys: bool,
+    append_newline: bool,
+    pybytes: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    stringify(py, obj, default, fmt, sort_keys, append_newline, pybytes)
 }

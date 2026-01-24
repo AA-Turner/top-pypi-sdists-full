@@ -41,11 +41,20 @@ class ContentReasoning(ContentBase):
     reasoning: str
     """Reasoning content."""
 
+    summary: str | None = Field(default=None)
+    """Reasoning summary."""
+
     signature: str | None = Field(default=None)
     """Signature for reasoning content (used by some models to ensure that reasoning content is not modified for replay)"""
 
     redacted: bool = Field(default=False)
     """Indicates that the explicit content of this reasoning block has been redacted."""
+
+    @property
+    def text(self) -> str:
+        """Pure text rendering of reasoning (used for replay/interop)."""
+        thinking = self.reasoning if not self.redacted else (self.summary or "")
+        return f"<think>{thinking}</think>"
 
 
 class ContentToolUse(ContentBase):
@@ -54,7 +63,7 @@ class ContentToolUse(ContentBase):
     type: Literal["tool_use"] = Field(default="tool_use")
     """Type."""
 
-    tool_type: Literal["web_search", "mcp_call"]
+    tool_type: Literal["web_search", "mcp_call", "code_execution"]
     """The type of the tool call."""
 
     id: str
@@ -135,8 +144,10 @@ class ContentDocument(ContentBase):
 
     @model_validator(mode="before")
     @classmethod
-    def set_name_and_mime_type(cls, data: dict[str, Any]) -> dict[str, Any]:
+    def set_name_and_mime_type(cls, data: Any) -> Any:
         """Automatically set name and mime_type if not provided."""
+        if not isinstance(data, dict):
+            return data
         document: str | None = data.get("document")
         filename: str | None = data.get("filename")
         mime_type: str | None = data.get("mime_type")

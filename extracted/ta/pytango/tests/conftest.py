@@ -9,15 +9,13 @@ import json
 import shutil
 from functools import partial
 from subprocess import Popen
-from time import sleep
 
 import pytest
 
-from tango import DevFailed, DeviceProxy, GreenMode, Util
+from tango import DeviceProxy, GreenMode, Util
 from tango.asyncio import DeviceProxy as asyncio_DeviceProxy
 from tango.gevent import DeviceProxy as gevent_DeviceProxy
 from tango.futures import DeviceProxy as futures_DeviceProxy
-from tango.test_context import get_server_port_via_pid
 from tango.test_utils import (
     ClassicAPISimpleDeviceClass,
     ClassicAPISimpleDeviceImpl,
@@ -34,6 +32,7 @@ from tango.test_utils import (
     server_green_mode,
     server_serial_model,
     state,
+    wait_for_nodb_proxy_via_pid,
 )
 
 from tango._tango import _dump_cpp_coverage
@@ -101,15 +100,43 @@ def pytest_sessionfinish(session):
     if "--collect-only" in sys.argv and "-q" in sys.argv and "nt" in os.name:
         print("Generating windows test script...")
         script_path = os.path.join(os.path.dirname(__file__), "run_tests_win.bat")
+
+        total_tests = len(session.items)
+
         with open(script_path, "w") as f:
-            f.write("REM this script will run all tests separately.\r\n")
+            f.write("@echo off\r\n")
+            f.write("setlocal enabledelayedexpansion\r\n")
+            f.write("REM This script will run all tests separately.\r\n")
+            f.write(f"set TOTAL_TESTS={total_tests}\r\n")
+            f.write("set CURRENT_TEST=0\r\n")
+            f.write("\r\n")
+
             for item in session.items:
+                # Escape special characters for batch file
+                nodeid = item.nodeid
+                nodeid_escaped = nodeid.replace("(", "^(").replace(")", "^)")
+
                 lines = [
-                    # First attempt for a single test
-                    f'pytest -c pytest_win_config.toml "{item.nodeid}"',
-                    # Retry test once, if it failed
-                    "if %errorlevel% equ 1 (",
-                    f'    pytest --lf -c pytest_win_config.toml "{item.nodeid}"',
+                    # Progress counter
+                    "set /a CURRENT_TEST+=1",
+                    f"echo [!CURRENT_TEST!/%TOTAL_TESTS%] Running: {nodeid_escaped}",
+                    "",
+                    # Run a single test
+                    f'pytest -c pytest_win_config.toml "{nodeid}"',
+                    "set FIRST_RUN_ERROR=!errorlevel!",
+                    "",
+                    # Check if test failed (exit code 1)
+                    "if !FIRST_RUN_ERROR! equ 1 (",
+                    # we retry ones
+                    f"    echo [!CURRENT_TEST!/%TOTAL_TESTS%] FAILED - Retrying: {nodeid_escaped}",
+                    f'    pytest --lf -c pytest_win_config.toml "{nodeid}"',
+                    "    set RETRY_ERROR=!errorlevel!",
+                    "    if !RETRY_ERROR! equ 1 (",
+                    f'        echo {nodeid_escaped} >> "%~dp0failed_tests.txt"',
+                    f"        echo [!CURRENT_TEST!/%TOTAL_TESTS%] FAILED after retry: {nodeid_escaped}",
+                    "    ) else if !RETRY_ERROR! equ 0 (",
+                    f"        echo [!CURRENT_TEST!/%TOTAL_TESTS%] PASSED on retry: {nodeid_escaped}",
+                    "    ) else if !RETRY_ERROR! geq 2 if !RETRY_ERROR! leq 5 (",
                     # Abort if pytest could not execute properly
                     # From: https://docs.pytest.org/en/7.1.x/reference/exit-codes.html
                     #   Exit code 0: All tests were collected and passed successfully
@@ -118,9 +145,15 @@ def pytest_sessionfinish(session):
                     #   Exit code 3: Internal error happened while executing tests
                     #   Exit code 4: pytest command line usage error
                     #   Exit code 5: No tests were collected
-                    ") else if %errorlevel% geq 2 if %errorlevel% leq 5 (",
-                    "    exit /b %errorlevel%",
+                    "        exit /b !RETRY_ERROR!",
+                    "    )",
+                    ") else if !FIRST_RUN_ERROR! equ 0 (",
+                    f"    echo [!CURRENT_TEST!/%TOTAL_TESTS%] PASSED: {nodeid_escaped}",
+                    # Abort if pytest could not execute properly (exit codes 2-5)
+                    ") else if !FIRST_RUN_ERROR! geq 2 if !FIRST_RUN_ERROR! leq 5 (",
+                    "    exit /b !FIRST_RUN_ERROR!",
                     ")",
+                    "",
                 ]
                 f.writelines([f"{line}\r\n" for line in lines])
 
@@ -162,33 +195,9 @@ def start_server(host, server, inst, device):
     return proc
 
 
-def get_proxy(host, port, device, green_mode):
-    access = f"tango://{host}:{port}/{device}#dbase=no"
-    return device_proxy_map[green_mode](access)
-
-
-def wait_for_proxy(host, proc, device, green_mode, retries=400, delay=0.03):
-    port = get_server_port_via_pid(proc.pid, host, retries, delay)
-    if port is not None:
-        count = 0
-        while count < retries:
-            try:
-                proxy = get_proxy(host, port, device, green_mode)
-                proxy.ping()
-                proxy.state()
-                return proxy
-            except DevFailed as exc:
-                last_error = str(exc)
-                sleep(delay)
-            count += 1
-    raise RuntimeError(
-        f"Device {device} did not start up within {count * delay:.1f} sec!\n"
-        f"Last error: {last_error}."
-    )
-
-
 @pytest.fixture(
     params=GreenMode.values.values(),
+    ids=str,
     scope="module",
 )
 def tango_test_with_green_modes(request):
@@ -198,7 +207,9 @@ def tango_test_with_green_modes(request):
     device = "sys/tg_test/17"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_proxy(host, proc, device, green_mode)
+    proxy = wait_for_nodb_proxy_via_pid(
+        proc.pid, host, device, device_proxy_map[green_mode]
+    )
 
     yield proxy
 
@@ -214,7 +225,9 @@ def tango_test():
     device = "sys/tg_test/17"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_proxy(host, proc, device, green_mode)
+    proxy = wait_for_nodb_proxy_via_pid(
+        proc.pid, host, device, device_proxy_map[green_mode]
+    )
 
     yield proxy
 
@@ -229,7 +242,9 @@ def tango_test_process_device_trl_with_function_scope():
     device = "sys/tg_test/18"
     host = "127.0.0.1"
     proc = start_server(host, server, inst, device)
-    proxy = wait_for_proxy(host, proc, device, green_mode)
+    proxy = wait_for_nodb_proxy_via_pid(
+        proc.pid, host, device, device_proxy_map[green_mode]
+    )
 
     device_trl = (
         f"tango://{proxy.get_dev_host()}:{proxy.get_dev_port()}/"
@@ -242,6 +257,7 @@ def tango_test_process_device_trl_with_function_scope():
 
 @pytest.fixture(
     params=GreenMode.values.values(),
+    ids=str,
     scope="module",
 )
 def green_mode_device_proxy(request):
@@ -292,11 +308,11 @@ def mixed_tango_test_server():
     process.start()
 
     proxy_waiter = partial(
-        wait_for_proxy,
+        wait_for_nodb_proxy_via_pid,
+        process.pid,
         "127.0.0.1",
-        process,
         "dserver/mixedserver/1",
-        GreenMode.Synchronous,
+        device_proxy_map[GreenMode.Synchronous],
     )
     yield process, proxy_waiter
 

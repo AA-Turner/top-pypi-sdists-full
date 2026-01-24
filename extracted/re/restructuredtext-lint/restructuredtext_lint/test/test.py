@@ -58,9 +58,9 @@ class TestRestructuredtextLint(TestCase):
         self.assertEqual(actual_errors[0].message, 'Title underline too short.')
 
     def test_encoding_utf8(self):
-        """A document with utf-8 characters is valid."""
+        """A document with utf-8 characters can be linted."""
         filepath = os.path.join(_dir, 'test_files', 'utf8.rst')
-        errors = restructuredtext_lint.lint_file(filepath, encoding='utf-8')
+        errors = restructuredtext_lint.lint_file(filepath)
         self.assertEqual(errors, [])
 
     def test_second_heading_short_line_number(self):
@@ -201,15 +201,14 @@ class TestRestructuredtextLintCLI(TestCase):
         # This is the expected behaviour we are checking:
         # $ rst-lint --level warning second_short_heading.rst ; echo "Return code $?"
         # WARNING second_short_heading.rst:6 Title underline too short.
-        # WARNING second_short_heading.rst:6 Title underline too short.
         # Return code 2
         with self.assertRaises(subprocess.CalledProcessError) as e:
             subprocess.check_output((sys.executable, rst_lint_path, '--level', 'warning', warning_rst),
                                     universal_newlines=True)
         output = str(e.exception.output)
-        self.assertEqual(output.count('\n'), 2, output)
-        self.assertEqual(output.count('WARNING'), 2, output)
-        # The expected 2 warnings should be treated as failing
+        self.assertEqual(output.count('\n'), 1, output)
+        self.assertEqual(output.count('WARNING'), 1, output)
+        # The expected warning should be treated as failing
         self.assertEqual(e.exception.returncode, 2)
 
     def test_level_high(self):

@@ -12,7 +12,7 @@ __all__ = ['empty', 'htmx_hdrs', 'fh_cfg', 'htmx_resps', 'htmx_exts', 'htmxsrc',
            'unqid']
 
 # %% ../nbs/api/00_core.ipynb
-import json,uuid,inspect,types,signal,asyncio,threading,inspect,random,contextlib
+import json,uuid,inspect,types,signal,asyncio,threading,inspect,random,contextlib,httpx,itsdangerous
 
 from fastcore.utils import *
 from fastcore.xml import *
@@ -30,7 +30,6 @@ from urllib.parse import urlencode, parse_qs, quote, unquote
 from copy import copy,deepcopy
 from warnings import warn
 from dateutil import parser as dtparse
-from httpx import ASGITransport, AsyncClient
 from anyio import from_thread
 from uuid import uuid4, UUID
 from base64 import b85encode,b64encode
@@ -336,7 +335,7 @@ def url_path_for(self:HTTPConnection, name: str, **path_params):
     return URLPath(f"{self.scope['root_path']}{lp}", lp.protocol, lp.host)
 
 # %% ../nbs/api/00_core.ipynb
-_verbs = dict(get='hx-get', post='hx-post', put='hx-post', delete='hx-delete', patch='hx-patch', link='href')
+_verbs = dict(get='hx-get', post='hx-post', put='hx-put', delete='hx-delete', patch='hx-patch', link='href')
 
 def _url_for(req, t):
     "Generate URL for route `t` using request `req`"
@@ -421,6 +420,11 @@ def _part_resp(req, resp):
     return resp,kw
 
 # %% ../nbs/api/00_core.ipynb
+def _canonical(req):
+    if not req.app.canonical: return []
+    url = str(getattr(req, 'canonical', req.url)).replace('http://', 'https://', 1)
+    return [Link(rel="canonical", href=url)]
+
 def _xt_cts(req, resp):
     "Extract content and headers, render as full page or fragment"
     hdr_tags = 'title','meta','link','style','base'
@@ -428,8 +432,7 @@ def _xt_cts(req, resp):
     heads,bdy = partition(resp, lambda o: getattr(o, 'tag', '') in hdr_tags)
     if not is_full_page(req, resp):
         title = [] if any(getattr(o, 'tag', '')=='title' for o in heads) else [Title(req.app.title)]
-        canonical = [Link(rel="canonical", href=getattr(req, 'canonical', req.url))] if req.app.canonical else []
-        resp = respond(req, [*heads, *title, *canonical], bdy)
+        resp = respond(req, [*heads, *title, *_canonical(req)], bdy)
     return _to_xml(req, resp, indent=fh_cfg.indent)
 
 # %% ../nbs/api/00_core.ipynb
@@ -445,8 +448,8 @@ def _resp(req, resp, cls=empty, status_code=200):
     if cls in (Any,FT): cls=empty
     if isinstance(resp, FileResponse) and not os.path.exists(resp.path): raise HTTPException(404, resp.path)
     resp,kw = _part_resp(req, resp)
-    if cls is not empty: return cls(resp, status_code=status_code, **kw)
     if isinstance(resp, Response): return resp
+    if cls is not empty: return cls(resp, status_code=status_code, **kw)
     if _is_ft_resp(resp):
         cts = _xt_cts(req, resp)
         return HTMLResponse(cts, status_code=status_code, **kw)
@@ -481,12 +484,13 @@ htmx_exts = {
     "multi-swap": "https://cdn.jsdelivr.net/npm/htmx-ext-multi-swap@2.0.0/multi-swap.js",
     "path-deps": "https://cdn.jsdelivr.net/npm/htmx-ext-path-deps@2.0.0/path-deps.js",
     "remove-me": "https://cdn.jsdelivr.net/npm/htmx-ext-remove-me@2.0.0/remove-me.js",
+    "debug": "https://unpkg.com/htmx.org@1.9.12/dist/ext/debug.js",
     "ws": "https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.3/ws.js",
     "chunked-transfer": "https://cdn.jsdelivr.net/npm/htmx-ext-transfer-encoding-chunked@0.4.0/transfer-encoding-chunked.js"
 }
 
 # %% ../nbs/api/00_core.ipynb
-htmxsrc   = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.6/dist/htmx.min.js")
+htmxsrc   = Script(src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.js")
 fhjsscr   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/fasthtml-js@1.0.12/fasthtml.js")
 surrsrc   = Script(src="https://cdn.jsdelivr.net/gh/answerdotai/surreal@main/surreal.js")
 scopesrc  = Script(src="https://cdn.jsdelivr.net/gh/gnat/css-scope-inline@main/script.js")
@@ -561,7 +565,7 @@ class FastHTML(Starlette):
                  same_site='lax', sess_https_only=False, sess_domain=None, key_fname='.sesskey',
                  body_wrap=noop_body, htmlkw=None, nb_hdrs=False, canonical=True, **bodykw):
         middleware,before,after = map(_list, (middleware,before,after))
-        self.title,self.canonical = title,canonical
+        self.title,self.canonical,self.session_cookie,self.key_fname = title,canonical,session_cookie,key_fname
         hdrs,ftrs,exts = map(listify, (hdrs,ftrs,exts))
         exts = {k:htmx_exts[k] for k in exts}
         htmlkw = htmlkw or {}
@@ -575,9 +579,9 @@ class FastHTML(Starlette):
         on_startup,on_shutdown = listify(on_startup) or None,listify(on_shutdown) or None
         self.lifespan,self.hdrs,self.ftrs = lifespan,hdrs,ftrs
         self.body_wrap,self.before,self.after,self.htmlkw,self.bodykw = body_wrap,before,after,htmlkw,bodykw
-        secret_key = get_key(secret_key, key_fname)
+        self.secret_key = get_key(secret_key, key_fname)
         if sess_cls:
-            sess = Middleware(sess_cls, secret_key=secret_key,session_cookie=session_cookie,
+            sess = Middleware(sess_cls, secret_key=self.secret_key,session_cookie=session_cookie,
                               max_age=max_age, path=sess_path, same_site=same_site,
                               https_only=sess_https_only, domain=sess_domain)
             middleware.append(sess)
@@ -645,13 +649,17 @@ def ws(self:FastHTML, path:str, conn=None, disconn=None, name=None, middleware=N
     return f
 
 # %% ../nbs/api/00_core.ipynb
-def _mk_locfunc(f,p):
+def _mk_locfunc(f, p, app=None):
     "Create a location function wrapper with route path and to() method"
     class _lf:
-        def __init__(self): update_wrapper(self, f)
+        def __init__(self):
+            update_wrapper(self, f)
+            self.app = app
+
         def __call__(self, *args, **kw): return f(*args, **kw)
         def to(self, **kw): return qp(p, **kw)
         def __str__(self): return p
+
     return _lf()
 
 # %% ../nbs/api/00_core.ipynb
@@ -671,7 +679,7 @@ def _add_route(self:FastHTML, func, path, methods, name, include_in_schema, body
     if not p: p = '/'+('' if fn=='index' else fn)
     route = Route(p, endpoint=self._endp(func, body_wrap or self.body_wrap), methods=m, name=n, include_in_schema=include_in_schema)
     self.add_route(route)
-    lf = _mk_locfunc(func, p)
+    lf = _mk_locfunc(func, p, app=self)
     lf.__routename__ = n
     return lf
 
@@ -718,7 +726,7 @@ def serve(
 class Client:
     "A simple httpx ASGI client that doesn't require `async`"
     def __init__(self, app, url="http://testserver"):
-        self.cli = AsyncClient(transport=ASGITransport(app), base_url=url)
+        self.cli = httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url=url)
 
     def _sync(self, method, url, **kwargs):
         async def _request(): return await self.cli.request(method, url, **kwargs)
@@ -885,3 +893,14 @@ def devtools_json(self:FastHTML, path=None, uuid=None):
     @self.route(devtools_loc)
     def devtools():
         return dict(workspace=dict(root=path, uuid=uuid))
+
+# %% ../nbs/api/00_core.ipynb
+@patch
+def get_client(self:FastHTML, asink=False, **kw):
+    "Get an httpx client with session cookes set from `**kw`"
+    signer = itsdangerous.TimestampSigner(self.secret_key)
+    data = b64encode(dumps(kw).encode())
+    data = signer.sign(data)
+    client = httpx.AsyncClient() if asink else httpx.Client()
+    client.cookies.update({self.session_cookie: data.decode()})
+    return client

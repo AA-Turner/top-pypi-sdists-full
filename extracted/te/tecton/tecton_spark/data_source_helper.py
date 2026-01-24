@@ -367,7 +367,12 @@ def apply_partition_and_timestamp_filter(
     """
 
     # add datetime partition filters
-    if isinstance(batch_source, specs.HiveSourceSpec) and batch_source.datetime_partition_columns:
+    # NOTE: FileSourceSpec is intentionally left off because datetime_partition_columns are only supported
+    # for Rift compute (and this file is Spark)
+    if (
+        isinstance(batch_source, (specs.HiveSourceSpec, specs.UnitySourceSpec))
+        and batch_source.datetime_partition_columns
+    ):
         partition_filter = _build_partition_filter(batch_source.datetime_partition_columns, start_time, end_time)
         if partition_filter is not None:
             df = df.where(partition_filter)

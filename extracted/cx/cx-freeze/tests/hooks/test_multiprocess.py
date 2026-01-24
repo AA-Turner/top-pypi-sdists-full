@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING
 
 import pytest
@@ -11,7 +12,7 @@ from cx_Freeze._compat import IS_ARM_64, IS_CONDA, IS_LINUX, IS_WINDOWS
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 60
+TIMEOUT_ULTRA_VERY_SLOW = 240 if IS_CONDA else 120
 
 SOURCE = """\
 sample0.py
@@ -89,7 +90,7 @@ EXPECTED_OUTPUT = [
 
 
 def _parameters_data() -> Iterator:
-    import multiprocessing as mp
+    import multiprocessing as mp  # noqa: PLC0415
 
     methods = mp.get_all_start_methods()
     for method in methods:
@@ -104,6 +105,10 @@ def _parameters_data() -> Iterator:
 
 
 @pytest.mark.skipif(not IS_LINUX, reason="Disabled test")
+@pytest.mark.skipif(
+    sys.version_info[:2] >= (3, 14),
+    reason="multiprocess does not support Python 3.14+",
+)
 @pytest.mark.xfail(
     IS_WINDOWS and IS_ARM_64,
     raises=ModuleNotFoundError,

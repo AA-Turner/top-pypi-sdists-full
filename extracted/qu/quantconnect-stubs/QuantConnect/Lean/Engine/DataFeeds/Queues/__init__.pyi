@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect
@@ -8,6 +8,7 @@ import QuantConnect.Data.Market
 import QuantConnect.Interfaces
 import QuantConnect.Lean.Engine.DataFeeds.Queues
 import QuantConnect.Packets
+import QuantConnect.Securities
 import System
 import System.Collections.Generic
 
@@ -49,7 +50,8 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         """
         Continuous UTC time provider
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -76,7 +78,7 @@ class FakeDataQueue(System.Object, QuantConnect.Interfaces.IDataQueueHandler, Qu
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
-    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
+    def lookup_symbols(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], include_expired: bool, security_currency: str = None) -> typing.Iterable[QuantConnect.Symbol]:
         """
         Method returns a collection of Symbols that are available at the data source.
         

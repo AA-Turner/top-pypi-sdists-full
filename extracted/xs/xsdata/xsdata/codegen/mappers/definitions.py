@@ -1,6 +1,5 @@
 import itertools
 from collections.abc import Iterator
-from typing import Optional
 
 from xsdata.codegen.models import Attr, AttrType, Class, Restrictions, Status
 from xsdata.formats.dataclass.models.generics import AnyElement
@@ -171,7 +170,7 @@ class DefinitionsMapper:
         port_type_operation: PortTypeOperation,
         name: str,
         style: str,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> Iterator[Class]:
         """Map the binding operation messages to binding classes.
 
@@ -186,7 +185,7 @@ class DefinitionsMapper:
         Yields:
             An iterator of class instances.
         """
-        messages: list[tuple[str, BindingMessage, PortTypeMessage, Optional[str]]] = []
+        messages: list[tuple[str, BindingMessage, PortTypeMessage, str | None]] = []
 
         if binding_operation.input:
             messages.append(
@@ -245,18 +244,36 @@ class DefinitionsMapper:
             message = definitions.find_message(text.suffix(fault.message))
             detail_attrs.extend(cls.build_parts_attributes(message.parts, ns_map))
 
-        default_fields = ["faultcode", "faultstring", "faultactor"]
+        # faultcode and faultstring are required, faultactor and detail are optional
+        required_fields = ["faultcode", "faultstring"]
+        optional_fields = ["faultactor"]
         if detail_attrs:
             detail = cls.build_inner_class(fault_class, "detail", namespace="")
             detail.attrs.extend(detail_attrs)
+            # Make detail attr optional
+            detail_attr = fault_class.attrs[
+                -1
+            ]  # Last added attr is the detail forward ref
+            detail_attr.restrictions.min_occurs = 0
+            # Make detail attributes optional since SOAP faults contain one fault type
+            for attr in detail_attrs:
+                attr.restrictions.min_occurs = 0
         else:
-            default_fields.append("detail")
+            optional_fields.append("detail")
 
+        optional_attrs = [
+            cls.build_attr(f, str(DataType.STRING), native=True, namespace="")
+            for f in optional_fields
+        ]
+        for attr in optional_attrs:
+            attr.restrictions.min_occurs = 0
+
+        collections.prepend(fault_class.attrs, *optional_attrs)
         collections.prepend(
             fault_class.attrs,
             *(
                 cls.build_attr(f, str(DataType.STRING), native=True, namespace="")
-                for f in default_fields
+                for f in required_fields
             ),
         )
 
@@ -271,8 +288,8 @@ class DefinitionsMapper:
         port_type_message: PortTypeMessage,
         name: str,
         style: str,
-        namespace: Optional[str],
-        operation: Optional[str],
+        namespace: str | None,
+        operation: str | None,
     ) -> Class:
         """Map the binding message to an envelope class.
 
@@ -355,7 +372,7 @@ class DefinitionsMapper:
 
     @classmethod
     def build_inner_class(
-        cls, target: Class, name: str, namespace: Optional[str] = None
+        cls, target: Class, name: str, namespace: str | None = None
     ) -> Class:
         """Build or retrieve an inner class.
 
@@ -389,9 +406,9 @@ class DefinitionsMapper:
     @classmethod
     def map_port_type_message(
         cls,
-        operation: Optional[str],
+        operation: str | None,
         message: PortTypeMessage,
-        namespace: Optional[str],
+        namespace: str | None,
     ) -> Iterator[Attr]:
         """Build an attribute for the given port type message.
 
@@ -483,7 +500,7 @@ class DefinitionsMapper:
             yield cls.build_attr(name, type_qname, namespace=namespace, native=native)
 
     @classmethod
-    def operation_namespace(cls, config: dict) -> Optional[str]:
+    def operation_namespace(cls, config: dict) -> str | None:
         """Return the operation namespace by the operation transport.
 
         Args:
@@ -523,8 +540,8 @@ class DefinitionsMapper:
         qname: str,
         native: bool = False,
         forward: bool = False,
-        namespace: Optional[str] = None,
-        default: Optional[str] = None,
+        namespace: str | None = None,
+        default: str | None = None,
         reference: int = 0,
     ) -> Attr:
         """Helper method to build an attr instance.

@@ -5,23 +5,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use std::path::Path;
 use std::path::PathBuf;
 
-use dupe::Dupe as _;
-use lsp_types::Location;
-use lsp_types::Url;
-use pyrefly_build::handle::Handle;
-use pyrefly_python::module::TextRangeWithModule;
-use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
-use pyrefly_util::absolutize::Absolutize as _;
+use pyrefly_python::qname::QName;
+use pyrefly_types::types::Type;
+use starlark_map::small_set::SmallSet;
 use tracing::warn;
 
-use crate::module::module_info::ModuleInfo;
+use crate::module::bundled::BundledStub;
+use crate::module::third_party::get_bundled_third_party;
 use crate::module::typeshed::typeshed;
-use crate::state::state::State;
+use crate::module::typeshed_third_party::typeshed_third_party;
 
 /// Convert to a path we can show to the user. The contents may not match the disk, but it has
 /// to be basically right.
@@ -39,44 +35,52 @@ pub fn to_real_path(path: &ModulePath) -> Option<PathBuf> {
                     None
                 }
             }?;
-            Some(typeshed_path.join(path))
+            Some(typeshed_path.join(&**path))
+        }
+        ModulePathDetails::BundledTypeshedThirdParty(path) => {
+            let typeshed_third_party = typeshed_third_party().ok()?;
+            let typeshed_path = match typeshed_third_party.materialized_path_on_disk() {
+                Ok(typeshed_path) => Some(typeshed_path),
+                Err(err) => {
+                    warn!("Third Party Stubs unable to be loaded on disk, {}", err);
+                    None
+                }
+            }?;
+            Some(typeshed_path.join(&**path))
+        }
+        ModulePathDetails::BundledThirdParty(path) => {
+            let bundled_third_party = get_bundled_third_party().ok()?;
+            let bundled_path = match bundled_third_party.materialized_path_on_disk() {
+                Ok(bundled_path) => Some(bundled_path),
+                Err(err) => {
+                    warn!(
+                        "Bundled Third Party Stubs unable to be loaded on disk, {}",
+                        err
+                    );
+                    None
+                }
+            }?;
+            Some(bundled_path.join(&**path))
         }
     }
 }
 
-pub fn module_info_to_uri(module_info: &ModuleInfo) -> Option<Url> {
-    let path = to_real_path(module_info.path())?;
-    let abs_path = path.absolutize();
-    Some(Url::from_file_path(abs_path).unwrap())
-}
-
-pub fn handle_from_module_path(state: &State, path: ModulePath) -> Handle {
-    let unknown = ModuleName::unknown();
-    let config = state.config_finder().python_file(unknown, &path);
-    match path.details() {
-        ModulePathDetails::BundledTypeshed(_) => {
-            let module_name = to_real_path(&path)
-                .and_then(|path| ModuleName::from_path(&path, config.search_path()))
-                .unwrap_or(unknown);
-            Handle::new(module_name, path, config.get_sys_info())
-        }
-        _ => config.handle_from_module_path(path.dupe()),
-    }
-}
-
-pub fn make_open_handle(state: &State, path: &Path) -> Handle {
-    let path = ModulePath::memory(path.to_owned());
-    handle_from_module_path(state, path)
-}
-
-pub fn to_lsp_location(location: &TextRangeWithModule) -> Option<Location> {
-    let TextRangeWithModule {
-        module: definition_module_info,
-        range,
-    } = location;
-    let uri = module_info_to_uri(definition_module_info)?;
-    Some(Location {
-        uri,
-        range: definition_module_info.lined_buffer().to_lsp_range(*range),
-    })
+pub fn collect_symbol_def_paths(t: &Type) -> Vec<(QName, PathBuf)> {
+    let mut tracked_def_locs = SmallSet::new();
+    t.universe(&mut |t| tracked_def_locs.extend(t.qname()));
+    tracked_def_locs
+        .into_iter()
+        .map(|qname| {
+            let module_path = qname.module_path();
+            let file_path = match module_path.details() {
+                ModulePathDetails::BundledTypeshed(_)
+                | ModulePathDetails::BundledTypeshedThirdParty(_)
+                | ModulePathDetails::BundledThirdParty(_) => {
+                    to_real_path(module_path).unwrap_or_else(|| module_path.as_path().to_path_buf())
+                }
+                _ => module_path.as_path().to_path_buf(),
+            };
+            (qname.clone(), file_path)
+        })
+        .collect()
 }

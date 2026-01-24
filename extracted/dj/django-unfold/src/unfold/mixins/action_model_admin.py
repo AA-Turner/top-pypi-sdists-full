@@ -1,4 +1,5 @@
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 from django.db.models import Model
 from django.forms import Form
@@ -17,12 +18,14 @@ class ActionModelAdminMixin:
     """
 
     actions_list = ()  # Displayed in changelist at the top
+    actions_list_hide_default = False
     actions_row = ()  # Displayed in changelist for each row in the table
     actions_detail = ()  # Displayed in changeform at the top
+    actions_detail_hide_default = False
     actions_submit_line = ()  # Displayed in changeform in the submit line (form buttons)
 
     def changelist_view(
-        self, request: HttpRequest, extra_context: Optional[dict[str, str]] = None
+        self, request: HttpRequest, extra_context: dict[str, str] | None = None
     ) -> TemplateResponse:
         """
         Changelist contains `actions_list` and `actions_row` custom actions. In case of `actions_row` they
@@ -50,6 +53,7 @@ class ActionModelAdminMixin:
 
         extra_context.update(
             {
+                "actions_list_hide_default": self.actions_list_hide_default,
                 "actions_list": actions_list,
                 "actions_row": actions_row,
             }
@@ -60,9 +64,9 @@ class ActionModelAdminMixin:
     def changeform_view(
         self,
         request: HttpRequest,
-        object_id: Optional[str] = None,
+        object_id: str | None = None,
         form_url: str = "",
-        extra_context: Optional[dict[str, bool]] = None,
+        extra_context: dict[str, Any] | None = None,
     ) -> Any:
         """
         Changeform contains `actions_submit_line` and `actions_detail` custom actions.
@@ -84,6 +88,7 @@ class ActionModelAdminMixin:
 
             extra_context.update(
                 {
+                    "actions_detail_hide_default": self.actions_detail_hide_default,
                     "actions_submit_line": actions_submit_line,
                     "actions_detail": actions_detail,
                 }
@@ -159,7 +164,7 @@ class ActionModelAdminMixin:
             request, self._get_base_actions_submit_line(), object_id
         )
 
-    def _extract_action_names(self, actions: list[Union[str, dict]]) -> list[str]:
+    def _extract_action_names(self, actions: list[str | dict]) -> list[str]:
         """
         Gets the list of only actions names from the actions structure provided in ModelAdmin
         """
@@ -228,10 +233,10 @@ class ActionModelAdminMixin:
 
     def _get_actions_navigation(
         self,
-        provided_actions: list[Union[str, dict]],
+        provided_actions: list[str | dict],
         allowed_actions: list[UnfoldAction],
-        object_id: Optional[str] = None,
-    ) -> list[Union[str, dict]]:
+        object_id: str | None = None,
+    ) -> list[str | dict]:
         """
         Builds navigation structure for the actions which is going to be provided to the template.
         """
@@ -272,7 +277,7 @@ class ActionModelAdminMixin:
                 "path": get_action_path(action),
             }
 
-        def build_dropdown(nav_item: dict) -> Optional[dict]:
+        def build_dropdown(nav_item: dict) -> dict | None:
             """
             Builds a dropdown structure for the action.
             """
@@ -304,7 +309,7 @@ class ActionModelAdminMixin:
         self,
         request: HttpRequest,
         actions: list[UnfoldAction],
-        object_id: Optional[Union[int, str]] = None,
+        object_id: int | str | None = None,
     ) -> list[UnfoldAction]:
         """
         Filters out actions that the user doesn't have access to.

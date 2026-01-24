@@ -27,7 +27,6 @@ Output:
         (Example: Translating "test_1.py" into Japanese with
         "-c" will create a new file called "test_1_ja.py".)
 """
-import codecs
 import colorama
 import os
 import re
@@ -485,7 +484,7 @@ def main():
         print("")
         raise Exception(message)
 
-    with open(seleniumbase_file, "r", encoding="utf-8") as f:
+    with open(seleniumbase_file, mode="r", encoding="utf-8") as f:
         all_code = f.read()
     if "def test_" not in all_code and "from seleniumbase" not in all_code:
         print("")
@@ -1043,7 +1042,7 @@ def main():
         pass  # Print-only run already done
 
     if new_file_name:
-        out_file = codecs.open(new_file_name, "w+", encoding="utf-8")
+        out_file = open(new_file_name, mode="w+", encoding="utf-8")
         out_file.writelines("\r\n".join(seleniumbase_lines))
         out_file.close()
         results_saved = (

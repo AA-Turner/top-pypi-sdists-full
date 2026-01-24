@@ -16,7 +16,6 @@ short_description: Web content filtering settings.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -168,6 +170,14 @@ options:
                 aliases: ['vimeo-restrict']
                 type: str
                 description: Set Vimeo-restrict
+            qwant_restrict:
+                aliases: ['qwant-restrict']
+                type: str
+                description: Qwant restrict.
+                choices:
+                    - 'strict'
+                    - 'none'
+                    - 'moderate'
 '''
 
 EXAMPLES = '''
@@ -183,8 +193,8 @@ EXAMPLES = '''
     - name: Web content filtering settings.
       fortinet.fortimanager.fmgr_webfilter_profile_web:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -220,6 +230,7 @@ EXAMPLES = '''
           #   - "extended-log-others"
           # blocklist: <value in [disable, enable]>
           # vimeo_restrict: <string>
+          # qwant_restrict: <value in [strict, none, moderate]>
 '''
 
 RETURN = '''
@@ -277,6 +288,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'profile': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'webfilter_profile_web': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -302,7 +314,8 @@ def main():
                     'elements': 'str'
                 },
                 'blocklist': {'v_range': [['7.0.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'vimeo-restrict': {'v_range': [['7.0.1', '']], 'type': 'str'}
+                'vimeo-restrict': {'v_range': [['7.0.1', '']], 'type': 'str'},
+                'qwant-restrict': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['strict', 'none', 'moderate'], 'type': 'str'}
             }
         }
     }

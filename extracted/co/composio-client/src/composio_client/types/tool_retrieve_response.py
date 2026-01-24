@@ -53,6 +53,9 @@ class ToolRetrieveResponse(BaseModel):
     input_parameters: Dict[str, Optional[object]]
     """Schema definition of required input parameters for the tool"""
 
+    is_deprecated: bool
+    """Indicates if this tool is deprecated and may be removed in the future"""
+
     name: str
     """Human-readable display name of the tool"""
 
@@ -67,6 +70,9 @@ class ToolRetrieveResponse(BaseModel):
 
     slug: str
     """Unique identifier for the tool"""
+
+    status: str
+    """Lifecycle status of the tool"""
 
     tags: List[str]
     """List of tags associated with the tool for categorization and filtering"""

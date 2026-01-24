@@ -22,20 +22,23 @@ import itertools
 import logging
 import os
 import sys
-from typing import Any, Generic, NoReturn, Optional, Protocol, TypeVar, cast
+from typing import Any, Generic, NoReturn, Optional, Protocol, Type, TypeVar, cast
+import warnings
 
 from jax._src import deprecations
+from jax._src import logging_config
+from jax._src.lib import _jax
 from jax._src.lib import guard_lib
 from jax._src.lib import jax_jit
+from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import xla_client
-from jax._src import logging_config
 
 config_ext = xla_client._xla.config
 
 logger = logging.getLogger(__name__)
 
 _T = TypeVar('_T')
-
+_ET = TypeVar('_ET', bound=enum.Enum)
 
 class EffortLevel(enum.Enum):
   """Effort level enum, mirroring the XLA effort options."""
@@ -162,11 +165,14 @@ class Config:
 
     self.use_absl = True
     self.absl_flags = absl_flags
-    absl_defs = { bool: absl_flags.DEFINE_bool,
-                  int:  absl_flags.DEFINE_integer,
-                  float: absl_flags.DEFINE_float,
-                  str:  absl_flags.DEFINE_string,
-                  'enum': absl_flags.DEFINE_enum }
+    absl_defs = {
+        bool: absl_flags.DEFINE_bool,
+        int: absl_flags.DEFINE_integer,
+        float: absl_flags.DEFINE_float,
+        str: absl_flags.DEFINE_string,
+        'enum': absl_flags.DEFINE_enum,
+        'enum_class': absl_flags.DEFINE_enum_class,
+    }
 
     for name, (flag_type, meta_args, meta_kwargs) in self.meta.items():
       holder = self._value_holders[name]
@@ -217,51 +223,7 @@ class Config:
 
 register_trace_context_callback = []  # type: ignore
 
-def trace_context():
-  """Returns a tuple of configuration values that affect tracing.
-
-  These values are included in the cache key for linear_util.cache.
-
-  Values included in this set should also most likely be included in
-  the C++ JIT state, which is handled separately.
-  """
-  out = (axis_env_state.value, mesh_context_manager.value,
-         xla_metadata_context_manager.value,
-         abstract_mesh_context_manager.value,
-         compute_on_context_manager.value,
-         enable_x64.value,
-         numpy_rank_promotion.value,
-         default_matmul_precision.value,
-         dynamic_shapes.value,
-         eager_constant_folding.value,
-         numpy_dtype_promotion.value,
-         default_device.value,
-         random_seed_offset.value,
-         remove_size_one_mesh_axis_from_type.value,
-         threefry_partitionable.value,
-         threefry_gpu_kernel_lowering.value,
-         use_direct_linearize.value,
-         softmax_custom_jvp.value,
-         disable_jit.value,
-         debug_key_reuse.value,
-         jax_xla_profile_version.value,
-         _check_vma.value,
-         mutable_array_checks.value,  # pallas may need to disable locally
-         no_execution.value,
-          # Technically this affects jaxpr->stablehlo lowering, not tracing.
-         hlo_source_file_canonicalization_regex.value,
-         pgle_profiling_runs.value,
-         enable_pgle.value,
-         use_shardy_partitioner.value,
-         use_high_dynamic_range_gumbel.value,
-         error_checking_behavior_nan.value,
-         error_checking_behavior_divide.value,
-         error_checking_behavior_oob.value,
-         use_simplified_jaxpr_constants.value,
-         pallas_tpu_interpret_mode_context_manager.value)
-  if register_trace_context_callback:
-    out = out + tuple(r() for r in register_trace_context_callback)
-  return out
+trace_context = config_ext.trace_context
 
 config = Config()
 
@@ -279,7 +241,7 @@ class State(config_ext.Config[_T]):
 
   __slots__ = (
       '_name', '_update_thread_local_hook', '_update_global_hook',
-      '_validator', '_default_context_manager_value', '__doc__', '__name__',
+      '_parser', '_default_context_manager_value', '__doc__', '__name__',
   )
 
   def __init__(
@@ -289,22 +251,24 @@ class State(config_ext.Config[_T]):
       help,
       update_global_hook: Callable[[_T], None] | None = None,
       update_thread_local_hook: Callable[[_T | None], None] | None = None,
-      validator: Callable[[Any], None] | None = None,
+      parser: Callable[[Any], Any] | None = None,
       extra_description: str = '',
       default_context_manager_value: Any = no_default,
       include_in_jit_key: bool = False,
+      include_in_trace_context: bool = False,
   ):
-    super().__init__(default, include_in_jit_key)
+    if parser is not None:
+      default = parser(default)
+    super().__init__(name, default, include_in_jit_key=include_in_jit_key,
+                     include_in_trace_context=include_in_trace_context)
     self._name = name
     self.__name__ = name[4:] if name.startswith('jax_') else name
     self.__doc__ = (f"Context manager for `{name}` config option"
                     f"{extra_description}.\n\n{help}")
     self._update_global_hook = update_global_hook
     self._update_thread_local_hook = update_thread_local_hook
-    self._validator = validator
+    self._parser = parser
     self._default_context_manager_value = default_context_manager_value
-    if self._validator:
-      self._validator(default)
     if self._update_global_hook:
       self._update_global_hook(default)
     config_states[name] = self
@@ -316,8 +280,8 @@ class State(config_ext.Config[_T]):
             type(self).__name__))
 
   def _set(self, value: _T) -> None:
-    if self._validator:
-      self._validator(value)
+    if self._parser:
+      value = self._parser(value)
     self.set_global(value)
     if self._update_global_hook:
       self._update_global_hook(value)
@@ -339,7 +303,6 @@ class StateContextManager(contextlib.ContextDecorator):
 
   def __init__(self, state, new_val):
     self.state = state
-    self.new_val = new_val
 
     if new_val is no_default:
       if state._default_context_manager_value is not no_default:
@@ -350,8 +313,10 @@ class StateContextManager(contextlib.ContextDecorator):
         raise TypeError(f"Context manager for {state.__name__} config option "
                         "requires an argument representing the new value for "
                         "the config option.")
-    if state._validator:
-      state._validator(new_val)
+    if state._parser:
+      self.new_val = state._parser(new_val)
+    else:
+      self.new_val = new_val
 
 
   def __enter__(self):
@@ -387,6 +352,7 @@ def bool_state(
     upgrade: bool = False,
     extra_description: str = '',
     include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
     validator: Callable[[str], None] | None = None,
 ) -> State[bool]:
   """Set up thread-local state and return a contextmanager for managing it.
@@ -417,6 +383,8 @@ def bool_state(
       summary description.
     include_in_jit_key: bool, optional: whether to include the state in the
       JIT cache key.
+    include_in_trace_context: bool, optional: whether to include the state in
+      the trace context.
     validator: optional function to validate the value of the config option.
 
   Returns:
@@ -452,11 +420,17 @@ def bool_state(
     extra_description += UPGRADE_BOOL_EXTRA_DESC
   config._contextmanager_flags.add(name)
 
+  def parser(val):
+    if validator:
+      validator(val)
+    return bool(val)
+
   s = State[bool](
       name, default, help, update_global_hook=update_global_hook,
       update_thread_local_hook=update_thread_local_hook,
       extra_description=extra_description, default_context_manager_value=True,
-      validator=validator, include_in_jit_key=include_in_jit_key)
+      parser=parser, include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context)
   config.add_option(name, s, bool, meta_args=[], meta_kwargs={"help": help})
   setattr(Config, name, property(lambda _: s.value))
   return s
@@ -471,6 +445,7 @@ def enum_state(
     update_global_hook: Callable[[str], None] | None = None,
     update_thread_local_hook: Callable[[str | None], None] | None = None,
     include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
     extra_validator: Callable[[str], None] | None = None,
 ) -> State[str]:
   """Set up thread-local state and return a contextmanager for managing it.
@@ -503,12 +478,13 @@ def enum_state(
     raise ValueError(f"Invalid value \"{default}\" for JAX flag {name}")
   config._contextmanager_flags.add(name)
 
-  def validator(new_val):
+  def parser(new_val):
     if type(new_val) is not str or new_val not in enum_values:
       raise ValueError(f"new enum value must be in {enum_values}, "
                        f"got {new_val} of type {type(new_val)}.")
     if extra_validator is not None:
       extra_validator(new_val)
+    return new_val
 
   s = State[str](
       name,
@@ -516,8 +492,9 @@ def enum_state(
       help,
       update_global_hook=update_global_hook,
       update_thread_local_hook=update_thread_local_hook,
-      validator=validator,
+      parser=parser,
       include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context,
   )
   config.add_option(
       name, s, 'enum',
@@ -537,6 +514,7 @@ def optional_enum_state(
     update_global_hook: Callable[[str | None], None] | None = None,
     update_thread_local_hook: Callable[[str | None], None] | None = None,
     include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
 ) -> State[str | None]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -564,20 +542,101 @@ def optional_enum_state(
     raise ValueError(f"Invalid value \"{default}\" for JAX flag {name}")
   config._contextmanager_flags.add(name)
 
-  def validate(new_val):
+  def parser(new_val):
     if (new_val is not None and
       (type(new_val) is not str or new_val not in enum_values)):
       raise ValueError(f"new enum value must be None or in {enum_values}, "
                        f"got {new_val} of type {type(new_val)}.")
+    return new_val
 
   s = State['str | None'](
       name, default, help, update_global_hook, update_thread_local_hook,
-      validate, include_in_jit_key=include_in_jit_key,
+      parser, include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context,
   )
   config.add_option(
       name, s, 'enum',
       meta_args=[],
       meta_kwargs={"enum_values": enum_values, "help": help}
+  )
+  setattr(Config, name, property(lambda _: s.value))
+  return s
+
+
+def enum_class_state(
+    name: str,
+    enum_class: Type[_ET],
+    default: _ET,
+    help: str,
+    *,
+    update_global_hook: Callable[[_ET], None] | None = None,
+    update_thread_local_hook: Callable[[_ET | None], None] | None = None,
+    include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
+    extra_validator: Callable[[_ET], None] | None = None,
+) -> State[_ET]:
+  """Set up thread-local state and return a contextmanager for managing it.
+
+  See docstring for ``bool_state``.
+
+  Args:
+    name: string, converted to lowercase to define the name of the config
+      option (and absl flag). It is converted to uppercase to define the
+      corresponding shell environment variable.
+    enum_class: a subtype of enum.Enum.
+    default: an instance of enum_class that is the default value.
+    help: string, used to populate the flag help information as well as the
+      docstring of the returned context manager.
+    include_in_jit_key: bool, optional: whether to include the state in the
+      JIT cache key.
+    include_in_trace_context: bool, optional: whether to include the state in
+      the trace context.
+    extra_validator: optional function to validate the value of the config
+      option.
+
+  Returns:
+    A contextmanager to control the thread-local state value.
+  """
+  if not isinstance(default, enum_class):
+    raise TypeError(
+        f'Default value must be of type {enum_class}, got {default} '
+        f"of type {getattr(type(default), '__name__', type(default))}"
+    )
+  name = name.lower()
+  default_str = os.getenv(name.upper(), None)
+  if default_str is not None:
+    try:
+      default = enum_class(default_str)
+    except ValueError as e:
+      raise ValueError(f"Invalid value \"{default_str}\" for JAX flag {name}") from e
+  config._contextmanager_flags.add(name)
+
+  def parser(new_val):
+    if isinstance(new_val, str):
+      return enum_class(new_val)
+    if not isinstance(new_val, enum_class):
+      raise TypeError(
+          f'new enum value must be an instance of {enum_class}, got'
+          f' {new_val} of type {type(new_val)}.'
+      )
+    if extra_validator is not None:
+      extra_validator(new_val)
+    return new_val
+
+  s = State[_ET](
+      name,
+      default,
+      help,
+      update_global_hook=update_global_hook,
+      update_thread_local_hook=update_thread_local_hook,
+      parser=parser,
+      include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context,
+  )
+  config.add_option(
+      name, s, 'enum_class',
+      meta_args=[],
+      meta_kwargs={"enum_class": enum_class, "help": help}
   )
   setattr(Config, name, property(lambda _: s.value))
   return s
@@ -591,6 +650,7 @@ def int_state(
     update_global_hook: Callable[[int], None] | None = None,
     update_thread_local_hook: Callable[[int | None], None] | None = None,
     include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
     validator: Callable[[Any], None] | None = None,
 ) -> State[int]:
   """Set up thread-local state and return a contextmanager for managing it.
@@ -620,16 +680,18 @@ def int_state(
       raise ValueError(f"Invalid value \"{default_env}\" for JAX flag {name}")
   config._contextmanager_flags.add(name)
 
-  def validate(new_val):
+  def parser(new_val):
     if new_val is not None and not isinstance(new_val, int):
       raise ValueError(f'new int config value must be None or of type int, '
                        f'got {new_val} of type {type(new_val)}')
     if new_val is not None and validator is not None:
       validator(new_val)
+    return new_val
 
   s = State[int](name, default, help, update_global_hook,
-                 update_thread_local_hook, validate,
-                 include_in_jit_key=include_in_jit_key)
+                 update_thread_local_hook, parser,
+                 include_in_jit_key=include_in_jit_key,
+                 include_in_trace_context=include_in_trace_context)
   config.add_option(name, s, int, meta_args=[], meta_kwargs={"help": help})
   setattr(Config, name, property(lambda _: s.value))
   return s
@@ -670,14 +732,15 @@ def float_state(
       raise ValueError(f"Invalid value \"{default_env}\" for JAX flag {name}")
   config._contextmanager_flags.add(name)
 
-  def validate(new_val):
+  def parser(new_val):
     if new_val is not None and not isinstance(new_val, (float, int)):
       raise ValueError(
         f'new float config value must be None or of type float, '
         f'got {new_val} of type {type(new_val)}')
+    return new_val
 
   s = State[float](name, default, help, update_global_hook,
-                   update_thread_local_hook, validate)
+                   update_thread_local_hook, parser)
   config.add_option(name, s, float, meta_args=[], meta_kwargs={"help": help})
   setattr(Config, name, property(lambda _: s.value))
   return s
@@ -734,6 +797,7 @@ def optional_string_state(
     *,
     update_global_hook: Callable[[str], None] | None = None,
     update_thread_local_hook: Callable[[str | None], None] | None = None,
+    include_in_trace_context: bool = False,
 ) -> State[str | None]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -768,7 +832,8 @@ def optional_string_state(
       name, default, help,
       update_global_hook=update_global_hook,
       update_thread_local_hook=update_thread_local_hook,
-      validator=validator)
+      validator=validator,
+      include_in_trace_context=include_in_trace_context)
 
 def string_or_object_state(
     name: str,
@@ -779,6 +844,7 @@ def string_or_object_state(
     update_thread_local_hook: Callable[[Any], None] | None = None,
     validator: Callable[[Any], None] | None = None,
     include_in_jit_key: bool = False,
+    include_in_trace_context: bool = False,
 ) -> State[Any]:
   """Set up thread-local state and return a contextmanager for managing it.
 
@@ -809,9 +875,15 @@ def string_or_object_state(
   default = os.getenv(name.upper(), default)
   config._contextmanager_flags.add(name)
 
+  def parser(new_val):
+    if validator is not None:
+      validator(new_val)
+    return new_val
+
   s = State[Any](
       name, default, help, update_global_hook, update_thread_local_hook,
-      validator, include_in_jit_key=include_in_jit_key)
+      parser, include_in_jit_key=include_in_jit_key,
+      include_in_trace_context=include_in_trace_context)
   setattr(Config, name, property(lambda _: s.value))
   config.add_option(name, s, str, meta_args=[], meta_kwargs={"help": help})
   return s
@@ -881,20 +953,51 @@ def enum_flag(name, default, *args, **kwargs) -> Flag[str]:
 already_configured_with_absl = False
 
 
-trace_state = config_ext.Config(None, include_in_jit_key=True)
-axis_env_state = config_ext.Config((), include_in_jit_key=True)
-mesh_context_manager = config_ext.Config((), include_in_jit_key=True)
-abstract_mesh_context_manager = config_ext.Config(None, include_in_jit_key=True)
-device_context = config_ext.Config(None, include_in_jit_key=True)
-compute_on_context_manager = config_ext.Config(None, include_in_jit_key=True)
-xla_metadata_context_manager = config_ext.Config(None, include_in_jit_key=True)
+trace_state = config_ext.Config('trace_state', None, include_in_jit_key=True)
+axis_env_state = config_ext.Config(
+    'axis_env_state',
+    (),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+mesh_context_manager = config_ext.Config(
+    'mesh_context_manager',
+    (),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+abstract_mesh_context_manager = config_ext.Config(
+    'abstract_mesh_context_manager',
+    None,
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+device_context = config_ext.Config(
+    'device_context', None, include_in_jit_key=True
+)
+compute_on_context_manager = config_ext.Config(
+    'compute_on_context_manager',
+    None,
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+xla_metadata_context_manager = config_ext.Config(
+    'xla_metadata_context_manager',
+    None,
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
 pallas_tpu_interpret_mode_context_manager = config_ext.Config(
-    None, include_in_jit_key=True)
-
+    'pallas_tpu_interpret_mode_context_manager',
+    None,
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
 
 class UserConfig:
   def __init__(self, default_value):
-    self._obj = config_ext.Config(default_value, include_in_jit_key=True)
+    self._obj = config_ext.Config("user_context", default_value, include_in_jit_key=True,
+                                  include_in_trace_context=True)
 
   @property
   def value(self):
@@ -923,6 +1026,9 @@ def make_user_context(default_value=None):
   cache won't get a hit and the jitted function will be re-traced, re-lowered
   and re-compiled.
 
+  This function is not thread-safe. Do not call it concurrently with other JAX
+  APIs.
+
   Example:
 
   ```
@@ -938,7 +1044,6 @@ def make_user_context(default_value=None):
   ```
   """
   obj = UserConfig(default_value)
-  register_trace_context_callback.append(lambda: obj.value)
   return obj
 
 
@@ -1041,7 +1146,8 @@ debug_key_reuse = bool_state(
           ' typed PRNG keys (i.e. keys created with jax.random.key()) will have their'
           ' usage tracked, and incorrect reuse of a previously-used key will lead to'
           ' an error. Currently enabling this leads to a small Python overhead on'
-          ' every call to a JIT-compiled function with keys as inputs or outputs.'))
+          ' every call to a JIT-compiled function with keys as inputs or outputs.'),
+    include_in_trace_context=True)
 
 check_tracer_leaks = bool_state(
     name='jax_check_tracer_leaks',
@@ -1053,6 +1159,15 @@ check_tracer_leaks = bool_state(
           'to disable any debuggers while leak checking is enabled.'))
 checking_leaks = functools.partial(check_tracer_leaks, True)
 
+check_static_indices = bool_state(
+    name='jax_check_static_indices',
+    default=False,
+    help=('Turn on bounds checks for static indices during array indexing operations.'
+          ' These will only be checked when indexing mode is PROMISE_IN_BOUNDS, which'
+          ' is the default for gather-type operations.'),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
 
 captured_constants_warn_bytes = int_state(
     name='jax_captured_constants_warn_bytes',
@@ -1114,11 +1229,32 @@ log_checkpoint_residuals = bool_state(
           'partially evaluated (e.g. for autodiff), printing what residuals '
           'are saved.'))
 
+# Since we want a deprecation warning regardless of value, we need an
+# exemption for when config.py is first loaded.
+_pmap_shmap_merge_initialized = False
+
+
+def _default_pmap_shmap_merge(new_val):
+  del new_val
+  global _pmap_shmap_merge_initialized
+  if _pmap_shmap_merge_initialized:
+    deprecations.warn(
+        'jax-pmap-shmap-merge',
+        (
+            'Setting `jax_pmap_shmap_merge` is deprecated in JAX v0.9.0 and '
+            'will be removed in JAX v0.10.0.'
+        ),
+        stacklevel=3,
+    )
+  _pmap_shmap_merge_initialized = True
+
 pmap_shmap_merge = bool_state(
     name='jax_pmap_shmap_merge',
-    default=False,
+    default=True,
     upgrade=True,
-    help='If True, pmap and shard_map API will be merged.')
+    help='If True, pmap and shard_map API will be merged.',
+    validator=_default_pmap_shmap_merge,
+)
 
 
 distributed_debug = bool_state(
@@ -1133,33 +1269,18 @@ random_seed_offset = int_state(
     default=0,
     help=('Offset to all random seeds (e.g. argument to jax.random.key()).'),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
-def _safer_randint_deprecation(new_val):
-  if not new_val:
-    deprecations.warn(
-      'safer-randint-config',
-      (
-        'The jax_safer_randint configuration is deprecated in JAX v0.7.2'
-        ' and will be removed in JAX v0.9.0.'
-      ),
-      stacklevel=4
-    )
+class LegacyPrngKeyState(enum.StrEnum):
+  ALLOW = 'allow'
+  WARN = 'warn'
+  ERROR = 'error'
 
-# TODO(jakevdp): remove this flag.
-safer_randint = bool_state(
-    name='jax_safer_randint',
-    default=True,
-    help='Use a safer randint algorithm for 8-bit and 16-bit dtypes.',
-    include_in_jit_key=True,
-    upgrade=True,
-    validator=_safer_randint_deprecation
-)
-
-legacy_prng_key = enum_state(
+legacy_prng_key = enum_class_state(
     name='jax_legacy_prng_key',
-    enum_values=['allow', 'warn', 'error'],
-    default='allow',
+    enum_class=LegacyPrngKeyState,
+    default=LegacyPrngKeyState.ALLOW,
     help=('Specify the behavior when raw PRNG keys are passed to '
           'jax.random APIs.')
 )
@@ -1188,7 +1309,8 @@ threefry_partitionable = bool_state(
           'may result in extraneous communication and/or redundant distributed '
           'computation. With this flag, the communication overheads disappear '
           'in some cases.'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 threefry_gpu_kernel_lowering = bool_state(
     name='jax_threefry_gpu_kernel_lowering',
@@ -1196,13 +1318,15 @@ threefry_gpu_kernel_lowering = bool_state(
     help=('On GPU, lower threefry PRNG operations to a kernel implementation. '
           'This makes compile times faster at a potential runtime memory '
           'cost.'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 use_direct_linearize = bool_state(
     name='jax_use_direct_linearize',
     default=True,
     help=('Use direct linearization instead JVP followed by partial eval'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 use_simplified_jaxpr_constants = bool_state(
     name='jax_use_simplified_jaxpr_constants',
@@ -1212,21 +1336,27 @@ use_simplified_jaxpr_constants = bool_state(
           'This flag will exist only briefly, while we transition '
           'users. See https://github.com/jax-ml/jax/pull/29679.'
           'DO NOT RELY ON THIS FLAG.'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
+# This config is temporary and should go away since this is a user problem.
+# If they don't want 1 sized mesh axis names to show up in sharding and vma
+# bits on ShapedArray, then their mesh (which they pass to set_mesh) should not
+# contain those axes at all.
 remove_size_one_mesh_axis_from_type = bool_state(
     name='jax_remove_size_one_mesh_axis_from_type',
     default=False,
-    upgrade=True,
-    help="Removes mesh axes of size 1 from ShapedArray.sharding",
-    include_in_jit_key=True)
+    help="Removes mesh axes of size 1 from ShapedArray.sharding and vma",
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 # TODO make it so people don't use this, this is internal...
 _check_vma = bool_state(
     name='check_vma',
     default=False,
     help='internal implementation detail of shard_map, DO NOT USE',
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 softmax_custom_jvp = bool_state(
     name='jax_softmax_custom_jvp',
@@ -1235,7 +1365,8 @@ softmax_custom_jvp = bool_state(
     help=('Use a new custom_jvp rule for jax.nn.softmax. The new rule should '
           'improve memory usage and stability. Set True to use new '
           'behavior. See https://github.com/jax-ml/jax/pull/15677'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 
 enable_custom_vjp_by_custom_transpose = bool_state(
@@ -1302,7 +1433,8 @@ hlo_source_file_canonicalization_regex = optional_string_state(
           'source_file with the given regex, and all matches are removed. '
           'This can be used to avoid spurious cache misses when using the '
           'persistent compilation cache, which includes HLO metadata in the '
-          'cache key.'))
+          'cache key.'),
+    include_in_trace_context=True)
 
 include_full_tracebacks_in_locations = bool_state(
     name='jax_include_full_tracebacks_in_locations',
@@ -1347,6 +1479,7 @@ enable_pgle = bool_state(
       'estimator.'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 pgle_profiling_runs = int_state(
@@ -1357,6 +1490,7 @@ pgle_profiling_runs = int_state(
         'PGLE is used.'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 pgle_aggregation_percentile = int_state(
@@ -1416,37 +1550,69 @@ remove_custom_partitioning_ptr_from_cache_key = bool_state(
           'what they are trying to achieve should set it.'),
 )
 
-def _default_dtype_bits_deprecation(new_val):
-  if new_val != '64':
-    deprecations.warn(
-      'default-dtype-bits-config',
-      (
-        'The jax_default_dtype_bits configuration is deprecated in JAX v0.7.1'
-        ' and will be removed in JAX v0.9.0.'
-      ),
-      stacklevel=4
-    )
+def _default_dtype_bits_deprecation(val):
+  if val != '_default':
+    warnings.warn(
+        (
+          'The jax_default_dtype_bits configuration is deprecated in JAX v0.7.1'
+          ' and has no effect as of JAX v0.9.0. It will be removed in JAX v0.10.0.'
+        ),
+        category=DeprecationWarning,
+        stacklevel=4)
 
 
 default_dtype_bits = enum_state(
     name='jax_default_dtype_bits',
-    enum_values=['32', '64'],
-    default='64',
-    help=('[deprecated]. This flag was an experiment in allowing users to specify the'
-          ' default bit width. It was never fully supported or tested. It will '
-          ' have no effect after JAX v0.9.0, and be removed entirely in JAX v0.10.0.'),
+    enum_values=['_default', '32', '64'],
+    default='_default',
+    help=('[deprecated]. This has no effect starting with JAX v0.9.0, and'
+          ' will be removed in JAX v0.10.0.'),
     extra_validator=_default_dtype_bits_deprecation)
 
 
-numpy_dtype_promotion = enum_state(
+class ExplicitX64Mode(enum.IntEnum):
+  WARN = enum.auto()
+  ERROR = enum.auto()
+  ALLOW = enum.auto()
+
+  @classmethod
+  def _missing_(cls, value: object) -> ExplicitX64Mode | None:
+    if value == "warn":
+      return cls.WARN
+    if value == "error":
+      return cls.ERROR
+    if value == "allow":
+      return cls.ALLOW
+    return None
+
+
+explicit_x64_dtypes = enum_class_state(
+    name='jax_explicit_x64_dtypes',
+    enum_class=ExplicitX64Mode,
+    default=ExplicitX64Mode.WARN,
+    help=(
+        'If set to ALLOW, explicit specification of 64-bit types will be '
+        'respected even if enable_x64 is false. If set to WARN, a warning will '
+        'be issued, and if set to ERROR, an error will be raised.'
+    ),
+    include_in_jit_key=True,
+    include_in_trace_context=True,
+)
+
+class NumpyDtypePromotion(enum.StrEnum):
+  STANDARD = 'standard'
+  STRICT = 'strict'
+
+numpy_dtype_promotion = enum_class_state(
     name='jax_numpy_dtype_promotion',
-    enum_values=['standard', 'strict'],
-    default='standard',
+    enum_class=NumpyDtypePromotion,
+    default=NumpyDtypePromotion.STANDARD,
     help=('Specify the rules used for implicit type promotion in operations '
           'between arrays. Options are "standard" or "strict"; in strict-mode, '
           'binary operations between arrays of differing strongly-specified '
           'dtypes will result in an error.'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 disallow_mesh_context_manager = bool_state(
     name='jax_disallow_mesh_context_manager',
@@ -1468,6 +1634,7 @@ error_checking_behavior_nan = enum_state(
         ' or "raise".'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 error_checking_behavior_divide = enum_state(
@@ -1479,6 +1646,7 @@ error_checking_behavior_divide = enum_state(
         ' "ignore" or "raise".'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 error_checking_behavior_oob = enum_state(
@@ -1490,20 +1658,17 @@ error_checking_behavior_oob = enum_state(
         ' Options are "ignore" or "raise".'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
-
-def _update_x64_global(val):
-  jax_jit.global_state().enable_x64 = val
-
-def _update_x64_thread_local(val):
-  jax_jit.thread_local_state().enable_x64 = val
 
 enable_x64 = bool_state(
     name='jax_enable_x64',
     default=False,
     help='Enable 64-bit types to be used',
-    update_global_hook=_update_x64_global,
-    update_thread_local_hook=_update_x64_thread_local)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
+
+jax_jit.set_enable_x64_state(enable_x64)
 
 # TODO(phawkins): remove after fixing users of FLAGS.x64_enabled.
 config._contextmanager_flags.remove('jax_enable_x64')
@@ -1537,21 +1702,16 @@ default_device = string_or_object_state(
         'Set to None to use the system default device. See '
         ':ref:`faq-data-placement` for more information on device placement.'),
     validator=_validate_default_device,
-    include_in_jit_key=True)
-
-def _update_disable_jit_global(val):
-  jax_jit.global_state().disable_jit = val
-
-def _update_disable_jit_thread_local(val):
-  jax_jit.thread_local_state().disable_jit = val
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 disable_jit = bool_state(
     name='jax_disable_jit',
     default=False,
     help=('Disable JIT compilation and just call original Python.'),
-    update_global_hook=_update_disable_jit_global,
-    update_thread_local_hook=_update_disable_jit_thread_local)
+    include_in_trace_context=True)
 
+jax_jit.set_disable_jit_state(disable_jit)
 
 numpy_rank_promotion = enum_state(
     name='jax_numpy_rank_promotion',
@@ -1559,7 +1719,8 @@ numpy_rank_promotion = enum_state(
     default='allow',
     help=('Control NumPy-style automatic rank promotion broadcasting '
           '("allow", "warn", or "raise").'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 default_matmul_precision = optional_enum_state(
     name='jax_default_matmul_precision',
@@ -1595,7 +1756,8 @@ default_matmul_precision = optional_enum_state(
           '"algorithm" for functions that perform matrix multiplications, like '
           ':func:`jax.lax.dot`. To specify an algorithm, set this option to '
           'the name of a :class:`~jax.lax.DotAlgorithmPreset`.\n\n'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 
 traceback_filtering = enum_state(
@@ -1623,21 +1785,13 @@ bcoo_cusparse_lowering = bool_state(
     default=False,
     help=('Enables lowering BCOO ops to cuSparse.'))
 
-# TODO(mattjj): remove this flag when we ensure we only succeed at trace-staging
-# if the intended backend can handle lowering the result
-dynamic_shapes = bool_state(
-    name='jax_dynamic_shapes',
-    default=False,
-    help=('Enables experimental features for staging out computations with '
-          'dynamic shapes.'),
-    include_in_jit_key=True)
-
 # This is for stackless backward compat with e.g. equinox
 eager_constant_folding = bool_state(
     name='eager_constant_folding',
     default=False,
     help=('Attempt constant folding during staging.'),
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 enable_remat_opt_pass = bool_state(
     name='jax_compiler_enable_remat_pass',
@@ -1656,7 +1810,8 @@ no_execution = bool_state(
     name='jax_no_execution',
     default=False,
     help='Disallow JAX executions.',
-    include_in_jit_key=True)
+    include_in_jit_key=True,
+    include_in_trace_context=True)
 
 disable_vmap_shmap_error = bool_state(
     name='jax_disable_vmap_shmap_error',
@@ -1664,24 +1819,25 @@ disable_vmap_shmap_error = bool_state(
     upgrade=False,
     help='Temporary workaround to disable an error check in vmap-of-shmap.')
 
-# TODO(mattjj): remove once we land mutable array plumbing, or face great shame
-custom_vjp_disable_shape_check = bool_state(
-    name='jax_custom_vjp_disable_shape_check',
-    default=False,
-    upgrade=True,
-    help='Disable the check from #19009 to enable some custom_vjp hacks.')
-
 mutable_array_checks = bool_state(
     name='jax_mutable_array_checks',
     default=True,
     upgrade=True,
-    help='Enable error checks for mutable arrays that rule out aliasing.')
+    help='Enable error checks for mutable arrays that rule out aliasing.',
+    include_in_trace_context=True)
 
-vjp3 = bool_state(
-    name='jax_vjp3',
+refs_to_pins = bool_state(
+    name='jax_refs_to_pins',
     default=False,
     upgrade=True,
-    help='Use new backward-pass code in jax.vjp')
+    help='Lower refs to pinned buffers in HLO.')
+
+# TODO(mattjj, yashkatariya): remove once we land box plumbing
+disable_bwd_checks = bool_state(
+    name='jax_disable_bwd_checks',
+    default=False,
+    upgrade=True,
+    help='Disables all bwd pass checks')
 
 xla_runtime_errors = bool_state(
     name='jax_experimental_unsafe_xla_runtime_errors',
@@ -1701,6 +1857,7 @@ jax_xla_profile_version = int_state(
         'only when XLA is configured to support the remote compilation '
         'profile feature.'),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 @contextlib.contextmanager
@@ -1868,6 +2025,59 @@ array_garbage_collection_guard = optional_enum_state(
     ),
 )
 
+if jaxlib_extension_version >= 395:
+  thread_guard = bool_state(
+      name='jax_thread_guard',
+      default=False,
+      help=(
+          'If True, an error will be raised at runtime if a multi-process JAX '
+          'operation is called from a thread other than the one in which the '
+          'thread guard was set. This is useful for detecting cases where '
+          'threads may schedule operations in different orders in different '
+          'processes, leading to non-deterministic crashes.'
+      ),
+      update_thread_local_hook=(
+          # If the state is None, set it to False.
+          lambda val: guard_lib.update_thread_guard_global_state(val or False)),
+  )
+
+# TODO(nbasile): Remove hasattr checks after jaxlib 0.8.1 release
+if hasattr(_jax, 'RuntimeTracebackMode'):
+  class RuntimeTracebackMode(enum.StrEnum):
+    OFF = 'off'
+    ON = 'on'
+    FULL = 'full'
+
+    @classmethod
+    def _missing_(cls, value):
+      if isinstance(value, str):
+        try:
+          return cls[value.upper()]
+        except KeyError:
+          pass
+      return None
+
+    def as_cpp_enum(self):
+      return getattr(_jax.RuntimeTracebackMode, self.name)
+
+  send_traceback_to_runtime = enum_class_state(
+      name='jax_send_traceback_to_runtime',
+      enum_class=RuntimeTracebackMode,
+      default=RuntimeTracebackMode.OFF,
+      help=(
+          'Controls the level of Python traceback information sent to the'
+          ' runtime at dispatch time:\n- "OFF": (default) No Python traceback'
+          ' information is sent.\n- "ON": Only the most recent user frame call'
+          ' location is sent.\n- "FULL": The full Python traceback of the call'
+          ' location is sent. This has a high fixed cost on the dispatch path'
+          ' and should be used only for debugging.'
+      ),
+      update_global_hook=lambda val: _jax.set_send_traceback_to_runtime_global(
+          val.as_cpp_enum() if val is not None else _jax.RuntimeTracebackMode.OFF),
+      update_thread_local_hook=lambda val: _jax.set_send_traceback_to_runtime_thread_local(
+          val.as_cpp_enum() if val is not None else None),
+  )
+
 # Don't define a context manager since this isn't threadsafe.
 string_state(
     name='jax_debug_log_modules',
@@ -1890,27 +2100,7 @@ optional_enum_state(
       logging_config.update_logging_level_global(logging_level=logging_level)
 )
 
-def _default_pmap_no_rank_reduction(new_val):
-  if not new_val:
-    deprecations.warn(
-        'jax-pmap-no-rank-reduction',
-        (
-            'Setting `jax_pmap_no_rank_reduction` to `False` is deprecated in '
-            'JAX v0.7.2 and will be removed in JAX v0.9.0.'
-        ),
-        stacklevel=3,
-    )
 
-pmap_no_rank_reduction = bool_state(
-    name='jax_pmap_no_rank_reduction',
-    default=True,
-    help=(
-        '[deprecated] If True, pmap shards have the same rank as their '
-        'enclosing array. Setting to `False` is deprecated and in the future '
-        'all `pmap` calls will proceed without rank reduction.'
-    ),
-    validator=_default_pmap_no_rank_reduction,
-)
 
 use_shardy_partitioner = bool_state(
     name='jax_use_shardy_partitioner',
@@ -1921,6 +2111,7 @@ use_shardy_partitioner = bool_state(
         'information: https://docs.jax.dev/en/latest/shardy_jax_migration.html.'
     ),
     include_in_jit_key=True,
+    include_in_trace_context=True,
 )
 
 gpu_use_magma = enum_state(
@@ -1993,6 +2184,7 @@ use_high_dynamic_range_gumbel = bool_state(
     default=False,
     help='If True, gumble noise draws two samples to cover low probability '
          'events with more precision.',
+    include_in_trace_context=True,
 )
 
 jax_dump_ir_to = string_flag(
@@ -2022,11 +2214,16 @@ jax_dump_ir_modes = string_flag(
 
 jax_ragged_dot_use_ragged_dot_instruction = bool_state(
     name='jax_ragged_dot_use_ragged_dot_instruction',
-    default=False,
-    upgrade=True,
+    default=True,
     help=(
         '(TPU only) If True, use chlo.ragged_dot instruction for ragged_dot()'
         ' lowering. Otherwise, rely on the rollout logic in lowering rule for'
         ' ragged_dot_general_p.'
     ),
+)
+
+jax_pallas_verbose_errors = bool_flag(
+    "jax_pallas_verbose_errors",
+    default=bool_env("JAX_PALLAS_VERBOSE_ERRORS", False),
+    help="If True, print verbose error messages for Pallas kernels.",
 )

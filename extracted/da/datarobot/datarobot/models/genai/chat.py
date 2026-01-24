@@ -37,18 +37,16 @@ def get_entity_id(entity: Union[Chat, LLMBlueprint, str]) -> str:
     return entity if isinstance(entity, str) else entity.id
 
 
-chat_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("is_frozen"): t.Bool,
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("warning", optional=True): t.Or(t.String, t.Null),
-        t.Key("prompts_count"): t.Int,
-    }
-).ignore_extra("*")
+chat_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("is_frozen"): t.Bool,
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("warning", optional=True): t.Or(t.String, t.Null),
+    t.Key("prompts_count"): t.Int,
+}).ignore_extra("*")
 
 
 class Chat(APIObject):

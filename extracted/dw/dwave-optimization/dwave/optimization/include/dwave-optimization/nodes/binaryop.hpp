@@ -78,7 +78,8 @@ class BinaryOpNode : public ArrayOutputMixin<ArrayNode> {
     // predecessors(), but this is more performant
     std::array<Array* const, 2> operands_;
 
-    const std::pair<double, double> minmax_;
+    const ValuesInfo values_info_;
+    const SizeInfo sizeinfo_;
 };
 
 // We follow NumPy naming convention rather than C++ to distinguish between

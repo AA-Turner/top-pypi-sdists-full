@@ -16,7 +16,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="qiskit-connector",
-    version = "2.4.4",
+    version = "2.4.6",
     author="Dr. Jeffrey Chijioke-Uche",
     author_email="sj@chijioke-uche.com",
     description="Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime",

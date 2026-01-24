@@ -50,24 +50,24 @@ def mail_managers(
     html_message: str | None = None,
 ) -> None: ...
 
-outbox: list[EmailMessage]
+outbox: list[EmailMessage | EmailMultiAlternatives]
 
 __all__ = [
-    "CachedDnsName",
-    "DNS_NAME",
-    "EmailMessage",
-    "EmailMultiAlternatives",
-    "SafeMIMEText",
-    "SafeMIMEMultipart",
     "DEFAULT_ATTACHMENT_MIME_TYPE",
-    "make_msgid",
+    "DNS_NAME",
     "BadHeaderError",
-    "forbid_multi_line_headers",
-    "get_connection",
-    "send_mail",
-    "send_mass_mail",
-    "mail_admins",
-    "mail_managers",
+    "CachedDnsName",
     "EmailAlternative",
     "EmailAttachment",
+    "EmailMessage",
+    "EmailMultiAlternatives",
+    "SafeMIMEMultipart",
+    "SafeMIMEText",
+    "forbid_multi_line_headers",
+    "get_connection",
+    "mail_admins",
+    "mail_managers",
+    "make_msgid",
+    "send_mail",
+    "send_mass_mail",
 ]

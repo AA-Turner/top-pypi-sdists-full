@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
 
 namespace Razorvine.Serpent
 {
@@ -9,7 +10,7 @@ namespace Razorvine.Serpent
 	/// </summary>
 	public class ObjectifyVisitor: Ast.INodeVisitor
 	{
-		private readonly Stack<object> _generated = new Stack<object>();
+		private readonly Stack<object> _generated = new();
 		private readonly Func<IDictionary, object> _dictToInstance;
 
 		/// <summary>
@@ -46,9 +47,8 @@ namespace Razorvine.Serpent
 		public void Visit(Ast.DictNode dict)
 		{
 			IDictionary obj = new Dictionary<object, object>(dict.Elements.Count);
-			foreach(var node in dict.Elements)
+			foreach (var kv in dict.Elements.Cast<Ast.KeyValueNode>())
 			{
-				var kv = (Ast.KeyValueNode) node;
 				kv.Key.Accept(this);
 				object key = _generated.Pop();
 				kv.Value.Accept(this);
@@ -70,7 +70,7 @@ namespace Razorvine.Serpent
 		public void Visit(Ast.ListNode list)
 		{
 			IList<object> obj = new List<object>(list.Elements.Count);
-			foreach(Ast.INode node in list.Elements)
+			foreach(var node in list.Elements)
 			{
 				node.Accept(this);
 				obj.Add(_generated.Pop());
@@ -121,7 +121,7 @@ namespace Razorvine.Serpent
 		public void Visit(Ast.SetNode setnode)
 		{
 			var obj = new HashSet<object>();
-			foreach(Ast.INode node in setnode.Elements)
+			foreach(var node in setnode.Elements)
 			{
 				node.Accept(this);
 				obj.Add(_generated.Pop());
@@ -133,7 +133,7 @@ namespace Razorvine.Serpent
 		{
 			var array = new object[tuple.Elements.Count];
 			int index=0;
-			foreach(Ast.INode node in tuple.Elements)
+			foreach(var node in tuple.Elements)
 			{
 				node.Accept(this);
 				array[index++] = _generated.Pop();

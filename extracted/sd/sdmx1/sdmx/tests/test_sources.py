@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 import pytest
 
@@ -37,7 +37,7 @@ class DataSourceTest:
 
     #: Mapping of endpoint → Exception subclass. Tests of these endpoints are expected
     #: to fail with the given kind of exception.
-    xfail: ClassVar[dict[str, Union[type[Exception], tuple[type[Exception], str]]]] = {}
+    xfail: ClassVar[dict[str, type[Exception] | tuple[type[Exception], str]]] = {}
 
     #: Failures affecting **all** data sources, internal to :mod:`sdmx`.
     xfail_common: ClassVar[dict[str, Any]] = {}
@@ -321,6 +321,10 @@ class TestEMPL(DataSourceTest):
         "dataflow": dict(resource_id="LMP_IND_EXP"),
     }
 
+    def test_gh_259(self, client):
+        """Test of https://github.com/khaeru/sdmx/issues/259."""
+        client.dataflow("LMP_EXPME", references="children")
+
 
 class TestGROW(DataSourceTest):
     source_id = "GROW"
@@ -348,13 +352,13 @@ class TestILO(DataSourceTest):
         "structureset": NotImplementedError,  # 501
     }
 
-    @pytest.mark.network
-    def test_gh_96(self, caplog, client):
+    def test_gh_96(self, caplog, client_with_stored_responses) -> None:
         """Test of https://github.com/khaeru/sdmx/issues/96.
 
         As of 2024-02-13, the web service no longer has the prior limitations on
         the `references` query parameter, so the special handling is removed.
         """
+        client = client_with_stored_responses
         client.get("codelist", "CL_ECO", params=dict(references="parentsandsiblings"))
 
         # As of 2024-02-13, no longer needed

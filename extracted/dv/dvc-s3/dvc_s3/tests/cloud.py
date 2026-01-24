@@ -1,40 +1,40 @@
 import locale
-import os
-import uuid
-
-from funcy import cached_property
+from functools import cached_property
 
 from dvc.testing.cloud import Cloud
 from dvc.testing.path_info import CloudURLInfo
 
 
 class S3(Cloud, CloudURLInfo):
+    def __init__(self, url: str, config=None):
+        super().__init__(url)
+        self._config = config or {}
+
+    def __truediv__(self, key):
+        ret = super().__truediv__(key)
+        ret._config = self._config
+        ret._s3 = self._s3
+        return ret
+
     @property
     def config(self):
-        return {"url": self.url}
-
-    @staticmethod
-    def _get_storagepath():
-        bucket = os.environ.get("DVC_TEST_AWS_REPO_BUCKET")
-        assert bucket
-        return bucket + "/" + "dvc_test_caches" + "/" + str(uuid.uuid4())
-
-    @staticmethod
-    def get_url():
-        return "s3://" + S3._get_storagepath()
+        ret = {"url": str(self)}
+        config_map = {
+            "access_key_id": "aws_access_key_id",
+            "secret_access_key": "aws_secret_access_key",
+            "endpointurl": "endpoint_url",
+        }
+        for key, config_key in config_map.items():
+            value = self._config.get(config_key)
+            if value is not None:
+                ret[key] = value
+        return ret
 
     @cached_property
     def _s3(self):
         import boto3
 
-        return boto3.client(
-            "s3",
-            aws_access_key_id=self.config.get("access_key_id"),
-            aws_secret_access_key=self.config.get("secret_access_key"),
-            aws_session_token=self.config.get("session_token"),
-            endpoint_url=self.config.get("endpointurl"),
-            region_name=self.config.get("region"),
-        )
+        return boto3.client("s3", **self._config)
 
     def is_file(self):
         from botocore.exceptions import ClientError
@@ -86,8 +86,9 @@ class S3(Cloud, CloudURLInfo):
         if not recursive:
             raise OSError(f"Not recursive and directory not empty: {self}")
 
-        for entry in entries:
-            self._s3.delete_object(Bucket=self.bucket, Key=entry["Key"])
+        self._s3.delete_objects(
+            Bucket=self.bucket, Delete={"Objects": [{"Key": e["Key"]} for e in entries]}
+        )
 
     def read_bytes(self):
         data = self._s3.get_object(Bucket=self.bucket, Key=self.path)
@@ -102,30 +103,3 @@ class S3(Cloud, CloudURLInfo):
     @property
     def fs_path(self):
         return self.bucket + "/" + self.path.lstrip("/")
-
-
-class FakeS3(S3):
-    """Fake S3 client that is supposed to be using a mock server's endpoint"""
-
-    def __init__(self, *args, config: dict, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._config = config
-
-    def __truediv__(self, key):
-        ret = super().__truediv__(key)
-        ret._config = self._config
-        return ret
-
-    @property
-    def config(self):
-        return {
-            "url": self.url,
-            "endpointurl": self._config["endpoint_url"],
-            "access_key_id": self._config["aws_access_key_id"],
-            "secret_access_key": self._config["aws_secret_access_key"],
-            "session_token": self._config["aws_session_token"],
-            "region": self._config["region_name"],
-        }
-
-    def get_url(self):  # pylint: disable=arguments-differ
-        return str(self)

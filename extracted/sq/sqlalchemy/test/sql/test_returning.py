@@ -26,6 +26,7 @@ from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_false
+from sqlalchemy.testing import is_not_none
 from sqlalchemy.testing import is_true
 from sqlalchemy.testing import mock
 from sqlalchemy.testing import provision
@@ -234,10 +235,83 @@ class ReturnCombinationTests(fixtures.TestBase, AssertsCompiledSQL):
             "RETURNING t.x, t.y, t.z) SELECT c.z FROM c",
         )
 
+    def test_dml_returning_c_labels_one(self):
+        """tests for #12271"""
+
+        tbl = table("tbl", column("id"))
+
+        stmt = (
+            update(tbl)
+            .values(id=20)
+            .returning(tbl.c.id, (tbl.c.id * -1).label("smth"))
+            .cte()
+        )
+
+        self.assert_compile(
+            select(stmt.c.id, stmt.c.smth),
+            "WITH anon_1 AS (UPDATE tbl SET id=:param_1 "
+            "RETURNING tbl.id, tbl.id * :id_1 AS smth) "
+            "SELECT anon_1.id, anon_1.smth FROM anon_1",
+            dialect="default",
+        )
+
+    def test_dml_returning_c_labels_two(self):
+        """tests for #12271"""
+
+        tbl = table("tbl", column("id"))
+
+        stmt = insert(tbl).returning(tbl.c.id, (tbl.c.id * -1)).cte()
+
+        self.assert_compile(
+            select(stmt.c.id),
+            "WITH anon_1 AS (INSERT INTO tbl (id) VALUES (:id) "
+            "RETURNING tbl.id, tbl.id * :id_1 AS anon_2) "
+            "SELECT anon_1.id FROM anon_1",
+            dialect="default",
+        )
+
+    def test_dml_returning_c_labels_three(self, table_fixture):
+        """tests for #12271"""
+        t = table_fixture
+
+        stmt = (
+            delete(t)
+            .returning(t.c.id, (t.c.id * -1).label("negative_id"))
+            .cte()
+        )
+
+        eq_(list(stmt.c.keys()), ["id", "negative_id"])
+        eq_(stmt.c.negative_id.name, "negative_id")
+
+    def test_dml_returning_c_labels_four(self, table_fixture):
+        """tests for #12271"""
+        t = table_fixture
+
+        stmt = (
+            delete(t)
+            .returning(
+                t.c.id, t.c.id * -1, t.c.id + 10, t.c.id - 10, -1 * t.c.id
+            )
+            .cte()
+        )
+
+        eq_(len(stmt.c), 5)
+        is_not_none(stmt.c.id)
+        assert all(col is not None for col in stmt.c)
+        self.assert_compile(
+            select(stmt),
+            "WITH anon_1 AS (DELETE FROM foo RETURNING foo.id, "
+            "foo.id * :id_1 AS anon_2, foo.id + :id_2 AS anon_3, "
+            "foo.id - :id_3 AS anon_4, :id_4 * foo.id AS anon_5) "
+            "SELECT anon_1.id, anon_1.anon_2, anon_1.anon_3, anon_1.anon_4, "
+            "anon_1.anon_5 FROM anon_1",
+            dialect="default",
+        )
+
 
 class InsertReturningTest(fixtures.TablesTest, AssertsExecutionResults):
     __requires__ = ("insert_returning",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     run_create_tables = "each"
 
@@ -510,7 +584,7 @@ class InsertReturningTest(fixtures.TablesTest, AssertsExecutionResults):
 
 class UpdateReturningTest(fixtures.TablesTest, AssertsExecutionResults):
     __requires__ = ("update_returning",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     run_create_tables = "each"
 
@@ -603,7 +677,7 @@ class UpdateReturningTest(fixtures.TablesTest, AssertsExecutionResults):
 
 class DeleteReturningTest(fixtures.TablesTest, AssertsExecutionResults):
     __requires__ = ("delete_returning",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     run_create_tables = "each"
 
@@ -629,7 +703,7 @@ class DeleteReturningTest(fixtures.TablesTest, AssertsExecutionResults):
 
 class CompositeStatementTest(fixtures.TestBase):
     __requires__ = ("insert_returning",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @testing.provide_metadata
     def test_select_doesnt_pollute_result(self, connection):
@@ -659,7 +733,7 @@ class CompositeStatementTest(fixtures.TestBase):
 
 class SequenceReturningTest(fixtures.TablesTest):
     __requires__ = "insert_returning", "sequences"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -693,7 +767,7 @@ class KeyReturningTest(fixtures.TablesTest, AssertsExecutionResults):
     """test returning() works with columns that define 'key'."""
 
     __requires__ = ("insert_returning",)
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -726,7 +800,7 @@ class KeyReturningTest(fixtures.TablesTest, AssertsExecutionResults):
 class InsertReturnDefaultsTest(fixtures.TablesTest):
     __requires__ = ("insert_returning",)
     run_define_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):
@@ -892,7 +966,7 @@ class InsertReturnDefaultsTest(fixtures.TablesTest):
 class UpdatedReturnDefaultsTest(fixtures.TablesTest):
     __requires__ = ("update_returning",)
     run_define_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     define_tables = InsertReturnDefaultsTest.define_tables
 
@@ -1033,7 +1107,7 @@ class UpdatedReturnDefaultsTest(fixtures.TablesTest):
 class DeleteReturnDefaultsTest(fixtures.TablesTest):
     __requires__ = ("delete_returning",)
     run_define_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     define_tables = InsertReturnDefaultsTest.define_tables
 
@@ -1102,7 +1176,7 @@ class DeleteReturnDefaultsTest(fixtures.TablesTest):
 class InsertManyReturnDefaultsTest(fixtures.TablesTest):
     __requires__ = ("insert_executemany_returning",)
     run_define_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     define_tables = InsertReturnDefaultsTest.define_tables
 
@@ -1239,7 +1313,7 @@ class InsertManyReturnDefaultsTest(fixtures.TablesTest):
 class InsertManyReturningTest(fixtures.TablesTest):
     __requires__ = ("insert_executemany_returning",)
     run_define_tables = "each"
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @classmethod
     def define_tables(cls, metadata):

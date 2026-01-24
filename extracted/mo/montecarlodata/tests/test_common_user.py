@@ -155,6 +155,7 @@ class UserServiceTest(TestCase):
             ).resource_identifiers.get("d758a8a5-1c45-40a6-9ff2-9933616cd8b4"),
             "wh-one",
         )
+        # resource_identifiers only supports warehouses
         self.assertIsNone(
             UserService(
                 _SAMPLE_CONFIG,
@@ -168,4 +169,21 @@ class UserServiceTest(TestCase):
                 command_name="test",
                 request_wrapper=self._request_wrapper_mock,
             ).resource_identifiers.get("17c1c8be-271e-48c1-ae41-c6a3c8a84949"),
+        )
+        # all_resource_identifiers supports both warehouses and BI containers
+        self.assertEqual(
+            UserService(
+                _SAMPLE_CONFIG,
+                command_name="test",
+                request_wrapper=self._request_wrapper_mock,
+            ).all_resource_identifiers.get("bi-one"),
+            "17c1c8be-271e-48c1-ae41-c6a3c8a84949",
+        )
+        self.assertEqual(
+            UserService(
+                _SAMPLE_CONFIG,
+                command_name="test",
+                request_wrapper=self._request_wrapper_mock,
+            ).all_resource_identifiers.get("17c1c8be-271e-48c1-ae41-c6a3c8a84949"),
+            "bi-one",
         )

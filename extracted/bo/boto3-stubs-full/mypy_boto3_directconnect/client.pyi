@@ -3,7 +3,7 @@ Type annotations for directconnect service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -138,12 +139,6 @@ from .type_defs import (
     VirtualInterfacesTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -152,11 +147,11 @@ else:
 __all__ = ("DirectConnectClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DirectConnectClientException: Type[BotocoreClientError]
-    DirectConnectServerException: Type[BotocoreClientError]
-    DuplicateTagKeysException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DirectConnectClientException: type[BotocoreClientError]
+    DirectConnectServerException: type[BotocoreClientError]
+    DuplicateTagKeysException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 class DirectConnectClient(BaseClient):
     """
@@ -772,7 +767,7 @@ class DirectConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#stop_bgp_failover_test)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified Direct Connect resource.
 
@@ -780,7 +775,7 @@ class DirectConnectClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_directconnect/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified Direct Connect resource.
 

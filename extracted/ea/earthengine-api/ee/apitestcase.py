@@ -2,19 +2,21 @@
 
 from collections.abc import Iterable
 import contextlib
+import copy
 import json
 import os
-from typing import Any, Optional
+from typing import Any
 
 from googleapiclient import discovery
 
 import unittest
 import ee
 from ee import _cloud_api_utils
+from ee import _state
 
 
 # Cached algorithms list
-_algorithms_cache: Optional[dict[str, Any]] = None
+_algorithms_cache: dict[str, Any] | None = None
 
 
 def GetAlgorithms() -> dict[str, Any]:
@@ -38,10 +40,10 @@ def GetAlgorithms() -> dict[str, Any]:
 
 class ApiTestCase(unittest.TestCase):
   """A TestCase that initializes the library with standard API methods."""
-  last_download_call: Optional[Any]
-  last_thumb_call: Optional[Any]
-  last_table_call: Optional[Any]
-  last_mapid_call: Optional[Any]
+  last_download_call: Any | None
+  last_thumb_call: Any | None
+  last_table_call: Any | None
+  last_mapid_call: Any | None
 
   def setUp(self):
     super().setUp()
@@ -53,13 +55,8 @@ class ApiTestCase(unittest.TestCase):
     self.old_get_download_id = ee.data.getDownloadId
     self.old_get_thumb_id = ee.data.getThumbId
     self.old_get_table_download_id = ee.data.getTableDownloadId
-    # pylint: disable=protected-access
-    self.old_install_cloud_api_resource = ee.data._install_cloud_api_resource
-    self.old_cloud_api_resource = ee.data._cloud_api_resource
-    self.old_cloud_api_resource_raw = ee.data._cloud_api_resource_raw
-    self.old_initialized = ee.data._initialized
+    # pylint: disable-next=protected-access
     self.old_fetch_data_catalog_stac = ee.deprecation._FetchDataCatalogStac
-    # pylint: enable=protected-access
     self.InitializeApi()
 
   def tearDown(self):
@@ -70,13 +67,9 @@ class ApiTestCase(unittest.TestCase):
     ee.data.getDownloadId = self.old_get_download_id
     ee.data.getThumbId = self.old_get_thumb_id
     ee.data.getTableDownloadId = self.old_get_table_download_id
-    # pylint: disable=protected-access
-    ee.data._install_cloud_api_resource = self.old_install_cloud_api_resource
-    ee.data._cloud_api_resource = self.old_cloud_api_resource
-    ee.data._cloud_api_resource_raw = self.old_cloud_api_resource_raw
-    ee.data._initialized = self.old_initialized
+    _state.reset_state()
+    # pylint: disable-next=protected-access
     ee.deprecation._FetchDataCatalogStac = self.old_fetch_data_catalog_stac
-    # pylint: enable=protected-access
 
   def InitializeApi(self):
     """Initializes the library with standard API methods.
@@ -96,7 +89,6 @@ class ApiTestCase(unittest.TestCase):
     ee.data.computeValue = lambda x: {'value': 'fakeValue'}
     ee.data.getMapId = self._MockMapId
     ee.data.getDownloadId = self._MockDownloadUrl
-    ee.data.getThumbId = self._MockThumbUrl
     ee.data.getTableDownloadId = self._MockTableDownload
     # pylint: disable-next=protected-access
     ee.deprecation._FetchDataCatalogStac = self._MockFetchDataCatalogStac
@@ -110,17 +102,6 @@ class ApiTestCase(unittest.TestCase):
   def _MockDownloadUrl(self, params: dict[str, Any]) -> dict[str, str]:
     self.last_download_call = {'url': '/download', 'data': params}
     return {'docid': '1', 'token': '2'}
-
-  def _MockThumbUrl(
-      self,
-      params: dict[str, Any],
-      # pylint: disable-next=invalid-name
-      thumbType: Optional[str] = None,
-  ) -> dict[str, str]:
-    del thumbType  # Unused.
-    # Hang on to the call arguments.
-    self.last_thumb_call = {'url': '/thumb', 'data': params}
-    return {'thumbid': '3', 'token': '4'}
 
   def _MockTableDownload(self, params: dict[str, Any]) -> dict[str, str]:
     self.last_table_call = {'url': '/table', 'data': params}
@@ -148,27 +129,28 @@ def _GenerateCloudApiResource(mock_http: Any, raw: Any) -> discovery.Resource:
 
 @contextlib.contextmanager  # pytype: disable=wrong-arg-types
 def UsingCloudApi(
-    cloud_api_resource: Optional[Any] = None,
-    cloud_api_resource_raw: Optional[Any] = None,
-    mock_http: Optional[Any] = None,
+    cloud_api_resource: Any | None = None,
+    cloud_api_resource_raw: Any | None = None,
+    mock_http: Any | None = None,
 ) -> Iterable[Any]:  # pytype: disable=wrong-arg-types
   """Returns a context manager under which the Cloud API is enabled."""
-  old_cloud_api_resource = ee.data._cloud_api_resource  # pylint: disable=protected-access
-  old_cloud_api_resource_raw = ee.data._cloud_api_resource_raw  # pylint: disable=protected-access
-  old_initialized = ee.data._initialized  # pylint: disable=protected-access
+  # pylint: disable=protected-access
+  old_state = copy.copy(_state._state)
+  # pylint: enable=protected-access
   try:
     if cloud_api_resource is None:
       cloud_api_resource = _GenerateCloudApiResource(mock_http, False)
     if cloud_api_resource_raw is None:
       cloud_api_resource_raw = _GenerateCloudApiResource(mock_http, True)
-    ee.data._cloud_api_resource = cloud_api_resource  # pylint: disable=protected-access
-    ee.data._cloud_api_resource_raw = cloud_api_resource_raw  # pylint: disable=protected-access
-    ee.data._initialized = True  # pylint: disable=protected-access
+    state = _state.get_state()
+    state.cloud_api_resource = cloud_api_resource
+    state.cloud_api_resource_raw = cloud_api_resource_raw
+    state.initialized = True
     yield
   finally:
-    ee.data._cloud_api_resource = old_cloud_api_resource  # pylint: disable=protected-access
-    ee.data._cloud_api_resource_raw = old_cloud_api_resource_raw  # pylint: disable=protected-access
-    ee.data._initialized = old_initialized  # pylint: disable=protected-access
+    # pylint: disable=protected-access
+    _state._state = old_state
+    # pylint: enable=protected-access
 
 
 # A sample of encoded EE API JSON, used by SerializerTest and DeserializerTest.

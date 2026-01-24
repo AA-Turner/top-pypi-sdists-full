@@ -3,7 +3,7 @@ Type annotations for emr service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -142,12 +143,6 @@ from .type_defs import (
 )
 from .waiter import ClusterRunningWaiter, ClusterTerminatedWaiter, StepCompleteWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -156,10 +151,10 @@ else:
 __all__ = ("EMRClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
 
 class EMRClient(AioBaseClient):
     """
@@ -226,7 +221,7 @@ class EMRClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr/client/#add_job_flow_steps)
         """
 
-    async def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> Dict[str, Any]:
+    async def add_tags(self, **kwargs: Unpack[AddTagsInputTypeDef]) -> dict[str, Any]:
         """
         Adds tags to an Amazon EMR resource, such as a cluster or an Amazon EMR Studio.
 
@@ -289,7 +284,7 @@ class EMRClient(AioBaseClient):
 
     async def delete_security_configuration(
         self, **kwargs: Unpack[DeleteSecurityConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a security configuration.
 
@@ -647,7 +642,7 @@ class EMRClient(AioBaseClient):
 
     async def put_auto_termination_policy(
         self, **kwargs: Unpack[PutAutoTerminationPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Auto-termination is supported in Amazon EMR releases 5.30.0 and 6.1.0 and later.
 
@@ -657,7 +652,7 @@ class EMRClient(AioBaseClient):
 
     async def put_block_public_access_configuration(
         self, **kwargs: Unpack[PutBlockPublicAccessConfigurationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates an Amazon EMR block public access configuration for your
         Amazon Web Services account in the current Region.
@@ -668,7 +663,7 @@ class EMRClient(AioBaseClient):
 
     async def put_managed_scaling_policy(
         self, **kwargs: Unpack[PutManagedScalingPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a managed scaling policy for an Amazon EMR cluster.
 
@@ -678,7 +673,7 @@ class EMRClient(AioBaseClient):
 
     async def remove_auto_scaling_policy(
         self, **kwargs: Unpack[RemoveAutoScalingPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an automatic scaling policy from a specified instance group within an
         Amazon EMR cluster.
@@ -689,7 +684,7 @@ class EMRClient(AioBaseClient):
 
     async def remove_auto_termination_policy(
         self, **kwargs: Unpack[RemoveAutoTerminationPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an auto-termination policy from an Amazon EMR cluster.
 
@@ -699,7 +694,7 @@ class EMRClient(AioBaseClient):
 
     async def remove_managed_scaling_policy(
         self, **kwargs: Unpack[RemoveManagedScalingPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a managed scaling policy from a specified Amazon EMR cluster.
 
@@ -707,7 +702,7 @@ class EMRClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr/client/#remove_managed_scaling_policy)
         """
 
-    async def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> Dict[str, Any]:
+    async def remove_tags(self, **kwargs: Unpack[RemoveTagsInputTypeDef]) -> dict[str, Any]:
         """
         Removes tags from an Amazon EMR resource, such as a cluster or Amazon EMR
         Studio.
@@ -974,7 +969,7 @@ class EMRClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

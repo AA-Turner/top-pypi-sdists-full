@@ -352,6 +352,7 @@ class BatchJobDataDetails(google.protobuf.message.Message):
     DESTINATION_PATH_FIELD_NUMBER: builtins.int
     TOKEN_SECRET_FIELD_NUMBER: builtins.int
     SECRET_SECRET_FIELD_NUMBER: builtins.int
+    SESSION_TOKEN_FIELD_NUMBER: builtins.int
     SERVICE_ACCOUNT_JSON_KEY_SECRET_FIELD_NUMBER: builtins.int
     @property
     def source_path(self) -> global___BatchJobSourcePath:
@@ -363,6 +364,8 @@ class BatchJobDataDetails(google.protobuf.message.Message):
     """The access token's secret name in secret service"""
     secret_secret: builtins.str
     """The access secret's secret name in secret service"""
+    session_token: builtins.str
+    """The session token required to use the bucket for batch inference."""
     service_account_json_key_secret: builtins.str
     """The service account json key secret name"""
     def __init__(
@@ -372,10 +375,11 @@ class BatchJobDataDetails(google.protobuf.message.Message):
         destination_path: global___BatchJobDestinationPath | None = ...,
         token_secret: builtins.str = ...,
         secret_secret: builtins.str = ...,
+        session_token: builtins.str = ...,
         service_account_json_key_secret: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["destination_path", b"destination_path", "source_path", b"source_path"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["destination_path", b"destination_path", "secret_secret", b"secret_secret", "service_account_json_key_secret", b"service_account_json_key_secret", "source_path", b"source_path", "token_secret", b"token_secret"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["destination_path", b"destination_path", "secret_secret", b"secret_secret", "service_account_json_key_secret", b"service_account_json_key_secret", "session_token", b"session_token", "source_path", b"source_path", "token_secret", b"token_secret"]) -> None: ...
 
 global___BatchJobDataDetails = BatchJobDataDetails
 

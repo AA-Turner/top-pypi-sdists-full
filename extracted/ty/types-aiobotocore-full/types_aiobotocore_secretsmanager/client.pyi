@@ -3,7 +3,7 @@ Type annotations for secretsmanager service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_secretsmanager/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -77,11 +78,6 @@ from .type_defs import (
     ValidateResourcePolicyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -90,19 +86,19 @@ else:
 __all__ = ("SecretsManagerClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DecryptionFailure: Type[BotocoreClientError]
-    EncryptionFailure: Type[BotocoreClientError]
-    InternalServiceError: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    PreconditionNotMetException: Type[BotocoreClientError]
-    PublicPolicyException: Type[BotocoreClientError]
-    ResourceExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DecryptionFailure: type[BotocoreClientError]
+    EncryptionFailure: type[BotocoreClientError]
+    InternalServiceError: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    PreconditionNotMetException: type[BotocoreClientError]
+    PublicPolicyException: type[BotocoreClientError]
+    ResourceExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class SecretsManagerClient(AioBaseClient):
     """
@@ -269,8 +265,8 @@ class SecretsManagerClient(AioBaseClient):
         self, **kwargs: Unpack[PutSecretValueRequestTypeDef]
     ) -> PutSecretValueResponseTypeDef:
         """
-        Creates a new version with a new encrypted secret value and attaches it to the
-        secret.
+        Creates a new version of your secret by creating a new encrypted value and
+        attaching it to the secret.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/secretsmanager/client/put_secret_value.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_secretsmanager/client/#put_secret_value)
@@ -398,7 +394,7 @@ class SecretsManagerClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

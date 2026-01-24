@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -19,11 +19,10 @@ from typing import Any, Callable
 
 import numpy as np
 from qiskit.circuit import QuantumCircuit
+from qiskit.primitives import BaseSamplerV2
 
-from qiskit.primitives import BaseSampler
 from ..state_fidelities import ComputeUncompute
-
-from .spsa import SPSA, CALLBACK, TERMINATIONCHECKER, _batch_evaluate
+from .spsa import CALLBACK, SPSA, TERMINATIONCHECKER, _batch_evaluate
 
 # the function to compute the fidelity
 FIDELITY = Callable[[np.ndarray, np.ndarray], float]
@@ -51,23 +50,23 @@ class QNSPSA(SPSA):
 
         This component has some function that is normally random. If you want to reproduce behavior
         then you should set the random number generator seed in the algorithm_globals
-        (``qiskit_machine_learning.utils.algorithm_globals.random_seed = seed``).
+        (`` qiskit_machine_learning.utils.algorithm_globals.random_seed = seed``).
 
     Examples:
 
         This short example runs QN-SPSA for the ground state calculation of the ``Z ^ Z``
-        observable where the ansatz is a ``PauliTwoDesign`` circuit.
+        observable where the ansatz is a ``pauli_two_design`` circuit.
 
         .. code-block:: python
 
             import numpy as np
             from qiskit_machine_learning.optimizers import QNSPSA
-            from qiskit.circuit.library import PauliTwoDesign
+            from qiskit.circuit.library import pauli_two_design
             from qiskit.primitives import Estimator, Sampler
             from qiskit.quantum_info import Pauli
 
             # problem setup
-            ansatz = PauliTwoDesign(2, reps=1, seed=2)
+            ansatz = pauli_two_design(2, reps=1, seed=2)
             observable = Pauli("ZZ")
             initial_point = np.random.random(ansatz.num_parameters)
 
@@ -233,7 +232,7 @@ class QNSPSA(SPSA):
     def get_fidelity(
         circuit: QuantumCircuit,
         *,
-        sampler: BaseSampler | None = None,
+        sampler: BaseSamplerV2 | None = None,
     ) -> Callable[[np.ndarray, np.ndarray], float]:
         r"""Get a function to compute the fidelity of ``circuit`` with itself.
 

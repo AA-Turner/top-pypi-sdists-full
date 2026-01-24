@@ -1,89 +1,39 @@
-use crate::auditwheel::{get_policy_and_libs, patchelf, relpath, AuditWheelMode};
+use crate::auditwheel::{AuditWheelMode, get_policy_and_libs, patchelf, relpath};
 use crate::auditwheel::{PlatformTag, Policy};
+use crate::binding_generator::{
+    BinBindingGenerator, CffiBindingGenerator, Pyo3BindingGenerator, UniFfiBindingGenerator,
+    generate_binding,
+};
 use crate::bridge::Abi3Version;
 use crate::build_options::CargoOptions;
-use crate::compile::{warn_missing_py_init, CompileTarget};
+use crate::compile::{CompileTarget, warn_missing_py_init};
 use crate::compression::CompressionOptions;
-use crate::module_writer::{
-    add_data, write_bin, write_bindings_module, write_cffi_module, write_python_part,
-    write_uniffi_module, write_wasm_launcher, WheelWriter,
-};
+use crate::module_writer::{WheelWriter, add_data, write_pth};
 use crate::project_layout::ProjectLayout;
 use crate::source_distribution::source_distribution;
 use crate::target::validate_wheel_filename_for_pypi;
 use crate::target::{Arch, Os};
 use crate::{
-    compile, pyproject_toml::Format, BridgeModel, BuildArtifact, Metadata24, ModuleWriter,
-    PyProjectToml, PythonInterpreter, Target,
+    BridgeModel, BuildArtifact, Metadata24, PyProjectToml, PythonInterpreter, Target,
+    VirtualWriter, compile, pyproject_toml::Format,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use cargo_metadata::CrateType;
 use cargo_metadata::Metadata;
 use fs_err as fs;
 use ignore::overrides::{Override, OverrideBuilder};
-use indexmap::IndexMap;
 use lddtree::Library;
 use normpath::PathExt;
-use pep508_rs::Requirement;
 use platform_info::*;
+use regex::Regex;
 use sha2::{Digest, Sha256};
+use std::borrow::Borrow;
 use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use tracing::instrument;
-
-/// Insert wasm launcher scripts as entrypoints and the wasmtime dependency
-fn bin_wasi_helper(
-    artifacts_and_files: &[(&BuildArtifact, String)],
-    mut metadata24: Metadata24,
-) -> Result<Metadata24> {
-    eprintln!("⚠️  Warning: wasi support is experimental");
-    // escaped can contain [\w\d.], but i don't know how we'd handle dots correctly here
-    if metadata24.get_distribution_escaped().contains('.') {
-        bail!(
-            "Can't build wasm wheel if there is a dot in the name ('{}')",
-            metadata24.get_distribution_escaped()
-        )
-    }
-    if !metadata24.entry_points.is_empty() {
-        bail!("You can't define entrypoints yourself for a binary project");
-    }
-
-    let mut console_scripts = IndexMap::new();
-    for (_, bin_name) in artifacts_and_files {
-        let base_name = bin_name
-            .strip_suffix(".wasm")
-            .context("No .wasm suffix in wasi binary")?;
-        console_scripts.insert(
-            base_name.to_string(),
-            format!(
-                "{}.{}:main",
-                metadata24.get_distribution_escaped(),
-                base_name.replace('-', "_")
-            ),
-        );
-    }
-
-    metadata24
-        .entry_points
-        .insert("console_scripts".to_string(), console_scripts);
-
-    // Add our wasmtime default version if the user didn't provide one
-    if !metadata24
-        .requires_dist
-        .iter()
-        .any(|requirement| requirement.name.as_ref() == "wasmtime")
-    {
-        // Having the wasmtime version hardcoded is not ideal, it's easy enough to overwrite
-        metadata24
-            .requires_dist
-            .push(Requirement::from_str("wasmtime>=11.0.0,<12.0.0").unwrap());
-    }
-
-    Ok(metadata24)
-}
+use zip::DateTime;
 
 /// Contains all the metadata required to build the crate
 #[derive(Clone)]
@@ -113,8 +63,6 @@ pub struct BuildContext {
     /// The directory to store the built wheels in. Defaults to a new "wheels"
     /// directory in the project's target directory
     pub out: PathBuf,
-    /// Build artifacts in release mode, with optimizations
-    pub release: bool,
     /// Strip the library for minimum file size
     pub strip: bool,
     /// Checking the linked libraries for manylinux/musllinux compliance
@@ -361,9 +309,13 @@ impl BuildContext {
     }
 
     /// Add library search paths in Cargo target directory rpath when building in editable mode
-    fn add_rpath(&self, artifacts: &[&BuildArtifact]) -> Result<()> {
+    fn add_rpath<A>(&self, artifacts: &[A]) -> Result<()>
+    where
+        A: Borrow<BuildArtifact>,
+    {
         if self.editable && self.target.is_linux() && !artifacts.is_empty() {
             for artifact in artifacts {
+                let artifact = artifact.borrow();
                 if artifact.linked_paths.is_empty() {
                     continue;
                 }
@@ -387,12 +339,15 @@ impl BuildContext {
         Ok(())
     }
 
-    fn add_external_libs(
+    fn add_external_libs<A>(
         &self,
-        writer: &mut WheelWriter,
-        artifacts: &[&BuildArtifact],
+        writer: &mut VirtualWriter<WheelWriter>,
+        artifacts: &[A],
         ext_libs: &[Vec<Library>],
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        A: Borrow<BuildArtifact>,
+    {
         if self.editable {
             return self.add_rpath(artifacts);
         }
@@ -401,7 +356,9 @@ impl BuildContext {
         }
 
         if matches!(self.auditwheel, AuditWheelMode::Check) {
-            eprintln!("🖨️ Your library is not manylinux/musllinux compliant because it requires copying the following libraries:");
+            eprintln!(
+                "🖨️ Your library is not manylinux/musllinux compliant because it requires copying the following libraries:"
+            );
             for lib in ext_libs.iter().flatten() {
                 if let Some(path) = lib.realpath.as_ref() {
                     eprintln!("    {} => {}", lib.name, path.display())
@@ -409,7 +366,9 @@ impl BuildContext {
                     eprintln!("    {} => not found", lib.name)
                 };
             }
-            bail!("Can not repair the wheel because `--auditwheel=check` is specified, re-run with `--auditwheel=repair` to copy the libraries.");
+            bail!(
+                "Can not repair the wheel because `--auditwheel=check` is specified, re-run with `--auditwheel=repair` to copy the libraries."
+            );
         }
 
         patchelf::verify_patchelf()?;
@@ -424,9 +383,8 @@ impl BuildContext {
             .unwrap_or_else(|| self.module_name.clone().into());
         libs_dir.push(".libs");
         let libs_dir = PathBuf::from(libs_dir);
-        writer.add_directory(&libs_dir)?;
 
-        let temp_dir = tempfile::tempdir()?;
+        let temp_dir = writer.temp_dir()?;
         let mut soname_map = BTreeMap::new();
         let mut libs_copied = HashSet::new();
         for lib in ext_libs.iter().flatten() {
@@ -469,6 +427,7 @@ impl BuildContext {
         }
 
         for (artifact, artifact_ext_libs) in artifacts.iter().zip(ext_libs) {
+            let artifact = artifact.borrow();
             let artifact_deps: HashSet<_> = artifact_ext_libs.iter().map(|lib| &lib.name).collect();
             let replacements = soname_map
                 .iter()
@@ -499,7 +458,8 @@ impl BuildContext {
             if !replacements.is_empty() {
                 patchelf::replace_needed(path, &replacements[..])?;
             }
-            writer.add_file_with_permissions(libs_dir.join(new_soname), path, 0o755)?;
+            // Use add_file_force to bypass exclusion checks for external shared libraries
+            writer.add_file_force(libs_dir.join(new_soname), path, true)?;
         }
 
         eprintln!(
@@ -525,6 +485,7 @@ impl BuildContext {
             _ => PathBuf::from(&self.module_name),
         };
         for artifact in artifacts {
+            let artifact = artifact.borrow();
             let mut new_rpaths = patchelf::get_rpath(&artifact.path)?;
             // TODO: clean existing rpath entries if it's not pointed to a location within the wheel
             // See https://github.com/pypa/auditwheel/blob/353c24250d66951d5ac7e60b97471a6da76c123f/src/auditwheel/repair.py#L160
@@ -536,9 +497,9 @@ impl BuildContext {
         Ok(())
     }
 
-    fn add_pth(&self, writer: &mut WheelWriter) -> Result<()> {
+    fn add_pth(&self, writer: &mut VirtualWriter<WheelWriter>) -> Result<()> {
         if self.editable {
-            writer.add_pth(&self.project_layout, &self.metadata24)?;
+            write_pth(writer, &self.project_layout, &self.metadata24)?;
         }
         Ok(())
     }
@@ -576,7 +537,9 @@ impl BuildContext {
     pub fn get_platform_tag(&self, platform_tags: &[PlatformTag]) -> Result<String> {
         if let Ok(host_platform) = env::var("_PYTHON_HOST_PLATFORM") {
             let override_platform = host_platform.replace(['.', '-'], "_");
-            eprintln!("🚉 Overriding platform tag from _PYTHON_HOST_PLATFORM environment variable as {override_platform}.");
+            eprintln!(
+                "🚉 Overriding platform tag from _PYTHON_HOST_PLATFORM environment variable as {override_platform}."
+            );
             return Ok(override_platform);
         }
 
@@ -589,16 +552,28 @@ impl BuildContext {
             // Linux
             (Os::Linux, _) => {
                 let arch = target.get_platform_arch()?;
-                let mut platform_tags = platform_tags.to_vec();
-                platform_tags.sort();
-                let mut tags = vec![];
-                for platform_tag in platform_tags {
-                    tags.push(format!("{platform_tag}_{arch}"));
-                    for alias in platform_tag.aliases() {
-                        tags.push(format!("{alias}_{arch}"));
+                if target.target_triple().contains("android") {
+                    let android_arch = match arch.as_str() {
+                        "armv7l" => "armeabi_v7a",
+                        "aarch64" => "arm64_v8a",
+                        "i686" => "x86",
+                        "x86_64" => "x86_64",
+                        _ => bail!("Unsupported Android architecture: {}", arch),
+                    };
+                    let api_level = find_android_api_level(target.target_triple(), &self.manifest_path)?;
+                    format!("android_{}_{}", api_level, android_arch)
+                } else {
+                    let mut platform_tags = platform_tags.to_vec();
+                    platform_tags.sort();
+                    let mut tags = vec![];
+                    for platform_tag in platform_tags {
+                        tags.push(format!("{platform_tag}_{arch}"));
+                        for alias in platform_tag.aliases() {
+                            tags.push(format!("{alias}_{arch}"));
+                        }
                     }
+                    tags.join(".")
                 }
-                tags.join(".")
             }
             // macOS
             (Os::Macos, Arch::X86_64) | (Os::Macos, Arch::Aarch64) => {
@@ -622,6 +597,21 @@ impl BuildContext {
                 } else {
                     format!("macosx_{x86_64_tag}_x86_64")
                 }
+            }
+            // iOS (simulator and device)
+            (Os::Ios, Arch::X86_64) | (Os::Ios, Arch::Aarch64) => {
+                let arch = if target.target_arch() == Arch::Aarch64 {
+                    "arm64"
+                } else {
+                    "x86_64"
+                };
+                let abi = if target.target_arch() == Arch::X86_64 || self.target.target_triple().ends_with("-sim") {
+                    "iphonesimulator"
+                } else {
+                    "iphoneos"
+                };
+                let (min_sdk_major, min_sdk_minor) = iphoneos_deployment_target(env::var("IPHONEOS_DEPLOYMENT_TARGET").ok().as_deref())?;
+                format!("ios_{min_sdk_major}_{min_sdk_minor}_{arch}_{abi}")
             }
             // FreeBSD
             | (Os::FreeBsd, _) => {
@@ -663,6 +653,14 @@ impl BuildContext {
             }
             (Os::Wasi, Arch::Wasm32) => {
                 "any".to_string()
+            }
+            // Cygwin
+            (Os::Cygwin, _) => {
+                format!(
+                    "{}_{}",
+                    target.target_os().to_string().to_ascii_lowercase(),
+                    target.get_platform_arch()?,
+                )
             }
             // osname_release_machine fallback for any POSIX system
             (_, _) => {
@@ -726,28 +724,19 @@ impl BuildContext {
         let platform = self.get_platform_tag(platform_tags)?;
         let tag = format!("cp{major}{min_minor}-abi3-{platform}");
 
-        let mut writer = WheelWriter::new(
-            &tag,
-            &self.out,
-            &self.project_layout.project_root,
-            &self.metadata24,
-            std::slice::from_ref(&tag),
-            self.excludes(Format::Wheel)?,
-            self.compression,
-        )?;
+        let file_options = self
+            .compression
+            .get_file_options()
+            .last_modified_time(zip_mtime());
+        let writer = WheelWriter::new(&tag, &self.out, &self.metadata24, file_options)?;
+        let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
-        write_bindings_module(
-            &mut writer,
-            &self.project_layout,
-            &artifact.path,
-            self.interpreter.first(),
-            true,
-            &self.target,
-            self.editable,
-            self.pyproject_toml.as_ref(),
-        )
-        .context("Failed to add the files to the wheel")?;
+        let mut generator =
+            Pyo3BindingGenerator::new(true, self.interpreter.first(), writer.temp_dir()?)
+                .context("Failed to initialize PyO3 binding generator")?;
+        generate_binding(&mut writer, &mut generator, self, &[&artifact])
+            .context("Failed to add the files to the wheel")?;
 
         self.add_pth(&mut writer)?;
         add_data(
@@ -755,7 +744,11 @@ impl BuildContext {
             &self.metadata24,
             self.project_layout.data.as_deref(),
         )?;
-        let wheel_path = writer.finish()?;
+        let wheel_path = writer.finish(
+            &self.metadata24,
+            &self.project_layout.project_root,
+            std::slice::from_ref(&tag),
+        )?;
         Ok((wheel_path, format!("cp{major}{min_minor}")))
     }
 
@@ -805,28 +798,19 @@ impl BuildContext {
     ) -> Result<BuiltWheelMetadata> {
         let tag = python_interpreter.get_tag(self, platform_tags)?;
 
-        let mut writer = WheelWriter::new(
-            &tag,
-            &self.out,
-            &self.project_layout.project_root,
-            &self.metadata24,
-            std::slice::from_ref(&tag),
-            self.excludes(Format::Wheel)?,
-            self.compression,
-        )?;
+        let file_options = self
+            .compression
+            .get_file_options()
+            .last_modified_time(zip_mtime());
+        let writer = WheelWriter::new(&tag, &self.out, &self.metadata24, file_options)?;
+        let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
-        write_bindings_module(
-            &mut writer,
-            &self.project_layout,
-            &artifact.path,
-            Some(python_interpreter),
-            false,
-            &self.target,
-            self.editable,
-            self.pyproject_toml.as_ref(),
-        )
-        .context("Failed to add the files to the wheel")?;
+        let mut generator =
+            Pyo3BindingGenerator::new(false, Some(python_interpreter), writer.temp_dir()?)
+                .context("Failed to initialize PyO3 binding generator")?;
+        generate_binding(&mut writer, &mut generator, self, &[&artifact])
+            .context("Failed to add the files to the wheel")?;
 
         self.add_pth(&mut writer)?;
         add_data(
@@ -834,7 +818,11 @@ impl BuildContext {
             &self.metadata24,
             self.project_layout.data.as_deref(),
         )?;
-        let wheel_path = writer.finish()?;
+        let wheel_path = writer.finish(
+            &self.metadata24,
+            &self.project_layout.project_root,
+            std::slice::from_ref(&tag),
+        )?;
         Ok((
             wheel_path,
             format!("cp{}{}", python_interpreter.major, python_interpreter.minor),
@@ -929,29 +917,20 @@ impl BuildContext {
     ) -> Result<BuiltWheelMetadata> {
         let (tag, tags) = self.get_universal_tags(platform_tags)?;
 
-        let mut writer = WheelWriter::new(
-            &tag,
-            &self.out,
-            &self.project_layout.project_root,
-            &self.metadata24,
-            &tags,
-            self.excludes(Format::Wheel)?,
-            self.compression,
-        )?;
+        let file_options = self
+            .compression
+            .get_file_options()
+            .last_modified_time(zip_mtime());
+        let writer = WheelWriter::new(&tag, &self.out, &self.metadata24, file_options)?;
+        let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
-        write_cffi_module(
-            &mut writer,
-            &self.target,
-            &self.project_layout,
-            self.manifest_path.parent().unwrap(),
-            &self.target_dir,
-            &self.module_name,
-            &artifact.path,
-            &self.interpreter[0].executable,
-            self.editable,
-            self.pyproject_toml.as_ref(),
-        )?;
+        let interpreter = self.interpreter.first().ok_or_else(|| {
+            anyhow!("A python interpreter is required for cffi builds but one was not provided")
+        })?;
+        let mut generator = CffiBindingGenerator::new(interpreter, writer.temp_dir()?)
+            .context("Failed to initialize Cffi binding generator")?;
+        generate_binding(&mut writer, &mut generator, self, &[&artifact])?;
 
         self.add_pth(&mut writer)?;
         add_data(
@@ -959,7 +938,8 @@ impl BuildContext {
             &self.metadata24,
             self.project_layout.data.as_deref(),
         )?;
-        let wheel_path = writer.finish()?;
+        let wheel_path =
+            writer.finish(&self.metadata24, &self.project_layout.project_root, &tags)?;
         Ok((wheel_path, "py3".to_string()))
     }
 
@@ -1002,28 +982,16 @@ impl BuildContext {
     ) -> Result<BuiltWheelMetadata> {
         let (tag, tags) = self.get_universal_tags(platform_tags)?;
 
-        let mut writer = WheelWriter::new(
-            &tag,
-            &self.out,
-            &self.project_layout.project_root,
-            &self.metadata24,
-            &tags,
-            self.excludes(Format::Wheel)?,
-            self.compression,
-        )?;
+        let file_options = self
+            .compression
+            .get_file_options()
+            .last_modified_time(zip_mtime());
+        let writer = WheelWriter::new(&tag, &self.out, &self.metadata24, file_options)?;
+        let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
         self.add_external_libs(&mut writer, &[&artifact], &[ext_libs])?;
 
-        write_uniffi_module(
-            &mut writer,
-            &self.project_layout,
-            self.manifest_path.parent().unwrap(),
-            &self.target_dir,
-            &self.module_name,
-            &artifact.path,
-            self.target.target_os(),
-            self.editable,
-            self.pyproject_toml.as_ref(),
-        )?;
+        let mut generator = UniFfiBindingGenerator::default();
+        generate_binding(&mut writer, &mut generator, self, &[&artifact])?;
 
         self.add_pth(&mut writer)?;
         add_data(
@@ -1031,7 +999,8 @@ impl BuildContext {
             &self.metadata24,
             self.project_layout.data.as_deref(),
         )?;
-        let wheel_path = writer.finish()?;
+        let wheel_path =
+            writer.finish(&self.metadata24, &self.project_layout.project_root, &tags)?;
         Ok((wheel_path, "py3".to_string()))
     }
 
@@ -1060,6 +1029,31 @@ impl BuildContext {
         platform_tags: &[PlatformTag],
         ext_libs: &[Vec<Library>],
     ) -> Result<BuiltWheelMetadata> {
+        if !self.metadata24.scripts.is_empty() {
+            bail!("Defining scripts and working with a binary doesn't mix well");
+        }
+
+        if self.target.is_wasi() {
+            eprintln!("⚠️  Warning: wasi support is experimental");
+            // escaped can contain [\w\d.], but i don't know how we'd handle dots correctly here
+            if self.metadata24.get_distribution_escaped().contains('.') {
+                bail!(
+                    "Can't build wasm wheel if there is a dot in the name ('{}')",
+                    self.metadata24.get_distribution_escaped()
+                )
+            }
+
+            if !self.metadata24.entry_points.is_empty() {
+                bail!("You can't define entrypoints yourself for a binary project");
+            }
+
+            if self.project_layout.python_module.is_some() {
+                // TODO: Can we have python code and the wasm launchers coexisting
+                // without clashes?
+                bail!("Sorry, adding python code to a wasm binary is currently not supported")
+            }
+        }
+
         let (tag, tags) = match (self.bridge(), python_interpreter) {
             (BridgeModel::Bin(None), _) => self.get_universal_tags(platform_tags)?,
             (BridgeModel::Bin(Some(..)), Some(python_interpreter)) => {
@@ -1069,80 +1063,27 @@ impl BuildContext {
             _ => unreachable!(),
         };
 
-        if !self.metadata24.scripts.is_empty() {
-            bail!("Defining scripts and working with a binary doesn't mix well");
-        }
+        let mut metadata24 = self.metadata24.clone();
+        let file_options = self
+            .compression
+            .get_file_options()
+            .last_modified_time(zip_mtime());
+        let writer = WheelWriter::new(&tag, &self.out, &metadata24, file_options)?;
+        let mut writer = VirtualWriter::new(writer, self.excludes(Format::Wheel)?);
 
-        let mut artifacts_and_files = Vec::new();
-        for artifact in artifacts {
-            // I wouldn't know of any case where this would be the wrong (and neither do
-            // I know a better alternative)
-            let bin_name = artifact
-                .path
-                .file_name()
-                .context("Couldn't get the filename from the binary produced by cargo")?
-                .to_str()
-                .context("binary produced by cargo has non-utf8 filename")?
-                .to_string();
+        self.add_external_libs(&mut writer, artifacts, ext_libs)?;
 
-            // From https://packaging.python.org/en/latest/specifications/entry-points/
-            // > The name may contain any characters except =, but it cannot start or end with any
-            // > whitespace character, or start with [. For new entry points, it is recommended to
-            // > use only letters, numbers, underscores, dots and dashes (regex [\w.-]+).
-            // All of these rules are already enforced by cargo:
-            // https://github.com/rust-lang/cargo/blob/58a961314437258065e23cb6316dfc121d96fb71/src/cargo/util/restricted_names.rs#L39-L84
-            // i.e. we don't need to do any bin name validation here anymore
-
-            artifacts_and_files.push((artifact, bin_name))
-        }
-
-        let metadata24 = if self.target.is_wasi() {
-            bin_wasi_helper(&artifacts_and_files, self.metadata24.clone())?
-        } else {
-            self.metadata24.clone()
-        };
-
-        let mut writer = WheelWriter::new(
-            &tag,
-            &self.out,
-            &self.project_layout.project_root,
-            &metadata24,
-            &tags,
-            self.excludes(Format::Wheel)?,
-            self.compression,
-        )?;
-
-        if self.project_layout.python_module.is_some() && self.target.is_wasi() {
-            // TODO: Can we have python code and the wasm launchers coexisting
-            // without clashes?
-            bail!("Sorry, adding python code to a wasm binary is currently not supported")
-        }
-        if !self.editable {
-            write_python_part(
-                &mut writer,
-                &self.project_layout,
-                self.pyproject_toml.as_ref(),
-            )
-            .context("Failed to add the python module to the package")?;
-        }
-
-        let mut artifacts_ref = Vec::with_capacity(artifacts.len());
-        for (artifact, bin_name) in &artifacts_and_files {
-            artifacts_ref.push(*artifact);
-            write_bin(&mut writer, &artifact.path, &self.metadata24, bin_name)?;
-            if self.target.is_wasi() {
-                write_wasm_launcher(&mut writer, &self.metadata24, bin_name)?;
-            }
-        }
-        self.add_external_libs(&mut writer, &artifacts_ref, ext_libs)?;
+        let mut generator = BinBindingGenerator::new(&mut metadata24);
+        generate_binding(&mut writer, &mut generator, self, artifacts)
+            .context("Failed to add the files to the wheel")?;
 
         self.add_pth(&mut writer)?;
         add_data(
             &mut writer,
-            &self.metadata24,
+            &metadata24,
             self.project_layout.data.as_deref(),
         )?;
-        let wheel_path = writer.finish()?;
+        let wheel_path = writer.finish(&metadata24, &self.project_layout.project_root, &tags)?;
         Ok((wheel_path, "py3".to_string()))
     }
 
@@ -1251,6 +1192,23 @@ fn macosx_deployment_target(
     ))
 }
 
+/// Get the iOS deployment target version
+fn iphoneos_deployment_target(deploy_target: Option<&str>) -> Result<(u16, u16)> {
+    let (major, minor) = if let Some(deploy_target) = deploy_target {
+        let err_ctx = "IPHONEOS_DEPLOYMENT_TARGET is invalid";
+        let mut parts = deploy_target.split('.');
+        let major = parts.next().context(err_ctx)?;
+        let major: u16 = major.parse().context(err_ctx)?;
+        let minor = parts.next().context(err_ctx)?;
+        let minor: u16 = minor.parse().context(err_ctx)?;
+        (major, minor)
+    } else {
+        (13, 0)
+    };
+
+    Ok((major, minor))
+}
+
 #[inline]
 fn python_macosx_target_version(version: (u16, u16)) -> (u16, u16) {
     let (major, minor) = version;
@@ -1353,9 +1311,61 @@ fn emcc_version() -> Result<String> {
     Ok(trimmed.into())
 }
 
+fn find_android_api_level(target_triple: &str, manifest_path: &Path) -> Result<String> {
+    if let Ok(val) = env::var("ANDROID_API_LEVEL") {
+        return Ok(val);
+    }
+
+    let mut clues = Vec::new();
+
+    // 1. Linker from cargo-config2
+    if let Some(manifest_dir) = manifest_path.parent() {
+        if let Ok(config) = cargo_config2::Config::load_with_cwd(manifest_dir) {
+            if let Ok(Some(linker)) = config.linker(target_triple) {
+                clues.push(linker.to_string_lossy().into_owned());
+            }
+        }
+    }
+
+    // 2. CC env vars
+    if let Ok(cc) = env::var(format!("CC_{}", target_triple.replace('-', "_"))) {
+        clues.push(cc);
+    }
+    if let Ok(cc) = env::var("CC") {
+        clues.push(cc);
+    }
+
+    // Search for android(\d+) in clues
+    let re = Regex::new(r"android(\d+)")?;
+    for clue in clues {
+        if let Some(caps) = re.captures(&clue) {
+            return Ok(caps[1].to_string());
+        }
+    }
+
+    bail!(
+        "Failed to determine Android API level. Please set the ANDROID_API_LEVEL environment variable."
+    );
+}
+
+/// Returns a DateTime representing the value SOURCE_DATE_EPOCH environment variable
+/// Note that the earliest timestamp a zip file can represent is 1980-01-01
+fn zip_mtime() -> DateTime {
+    let res = env::var("SOURCE_DATE_EPOCH")
+        .context("") // Only using context() to unify the error types
+        .and_then(|epoch| {
+            let epoch: i64 = epoch.parse()?;
+            let dt = time::OffsetDateTime::from_unix_timestamp(epoch)?;
+            let dt = DateTime::try_from(dt)?;
+            Ok(dt)
+        });
+
+    res.unwrap_or_default()
+}
+
 #[cfg(test)]
-mod test {
-    use super::macosx_deployment_target;
+mod tests {
+    use super::{iphoneos_deployment_target, macosx_deployment_target};
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -1392,5 +1402,27 @@ mod test {
             macosx_deployment_target(Some("11.1"), false).unwrap(),
             ((11, 0), (11, 0))
         );
+    }
+
+    #[test]
+    fn test_iphoneos_deployment_target() {
+        // Use default when no value is provided
+        assert_eq!(iphoneos_deployment_target(None).unwrap(), (13, 0));
+
+        // Valid version strings
+        assert_eq!(iphoneos_deployment_target(Some("13.0")).unwrap(), (13, 0));
+        assert_eq!(iphoneos_deployment_target(Some("14.5")).unwrap(), (14, 5));
+        assert_eq!(iphoneos_deployment_target(Some("15.0")).unwrap(), (15, 0));
+        // Extra parts are ignored
+        assert_eq!(iphoneos_deployment_target(Some("14.5.1")).unwrap(), (14, 5));
+
+        // Invalid formats
+        assert!(iphoneos_deployment_target(Some("invalid")).is_err());
+        assert!(iphoneos_deployment_target(Some("13")).is_err());
+        assert!(iphoneos_deployment_target(Some("13.")).is_err());
+        assert!(iphoneos_deployment_target(Some(".0")).is_err());
+        assert!(iphoneos_deployment_target(Some("abc.def")).is_err());
+        assert!(iphoneos_deployment_target(Some("13.abc")).is_err());
+        assert!(iphoneos_deployment_target(Some("")).is_err());
     }
 }

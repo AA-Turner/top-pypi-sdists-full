@@ -3,7 +3,7 @@ Main interface for ce service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,14 @@ Usage::
         GetAnomalySubscriptionsPaginator,
         GetCostAndUsageComparisonsPaginator,
         GetCostComparisonDriversPaginator,
+        GetReservationPurchaseRecommendationPaginator,
+        GetRightsizingRecommendationPaginator,
+        ListCommitmentPurchaseAnalysesPaginator,
+        ListCostAllocationTagBackfillHistoryPaginator,
+        ListCostAllocationTagsPaginator,
+        ListCostCategoryDefinitionsPaginator,
+        ListCostCategoryResourceAssociationsPaginator,
+        ListSavingsPlansPurchaseRecommendationGenerationPaginator,
     )
 
     session = Session()
@@ -27,6 +35,14 @@ Usage::
     get_anomaly_subscriptions_paginator: GetAnomalySubscriptionsPaginator = client.get_paginator("get_anomaly_subscriptions")
     get_cost_and_usage_comparisons_paginator: GetCostAndUsageComparisonsPaginator = client.get_paginator("get_cost_and_usage_comparisons")
     get_cost_comparison_drivers_paginator: GetCostComparisonDriversPaginator = client.get_paginator("get_cost_comparison_drivers")
+    get_reservation_purchase_recommendation_paginator: GetReservationPurchaseRecommendationPaginator = client.get_paginator("get_reservation_purchase_recommendation")
+    get_rightsizing_recommendation_paginator: GetRightsizingRecommendationPaginator = client.get_paginator("get_rightsizing_recommendation")
+    list_commitment_purchase_analyses_paginator: ListCommitmentPurchaseAnalysesPaginator = client.get_paginator("list_commitment_purchase_analyses")
+    list_cost_allocation_tag_backfill_history_paginator: ListCostAllocationTagBackfillHistoryPaginator = client.get_paginator("list_cost_allocation_tag_backfill_history")
+    list_cost_allocation_tags_paginator: ListCostAllocationTagsPaginator = client.get_paginator("list_cost_allocation_tags")
+    list_cost_category_definitions_paginator: ListCostCategoryDefinitionsPaginator = client.get_paginator("list_cost_category_definitions")
+    list_cost_category_resource_associations_paginator: ListCostCategoryResourceAssociationsPaginator = client.get_paginator("list_cost_category_resource_associations")
+    list_savings_plans_purchase_recommendation_generation_paginator: ListSavingsPlansPurchaseRecommendationGenerationPaginator = client.get_paginator("list_savings_plans_purchase_recommendation_generation")
     ```
 """
 
@@ -37,6 +53,14 @@ from .paginator import (
     GetAnomalySubscriptionsPaginator,
     GetCostAndUsageComparisonsPaginator,
     GetCostComparisonDriversPaginator,
+    GetReservationPurchaseRecommendationPaginator,
+    GetRightsizingRecommendationPaginator,
+    ListCommitmentPurchaseAnalysesPaginator,
+    ListCostAllocationTagBackfillHistoryPaginator,
+    ListCostAllocationTagsPaginator,
+    ListCostCategoryDefinitionsPaginator,
+    ListCostCategoryResourceAssociationsPaginator,
+    ListSavingsPlansPurchaseRecommendationGenerationPaginator,
 )
 
 Client = CostExplorerClient
@@ -50,4 +74,12 @@ __all__ = (
     "GetAnomalySubscriptionsPaginator",
     "GetCostAndUsageComparisonsPaginator",
     "GetCostComparisonDriversPaginator",
+    "GetReservationPurchaseRecommendationPaginator",
+    "GetRightsizingRecommendationPaginator",
+    "ListCommitmentPurchaseAnalysesPaginator",
+    "ListCostAllocationTagBackfillHistoryPaginator",
+    "ListCostAllocationTagsPaginator",
+    "ListCostCategoryDefinitionsPaginator",
+    "ListCostCategoryResourceAssociationsPaginator",
+    "ListSavingsPlansPurchaseRecommendationGenerationPaginator",
 )

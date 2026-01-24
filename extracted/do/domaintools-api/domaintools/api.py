@@ -1,12 +1,22 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha1, sha256
 from hmac import new as hmac
+from pathlib import Path
 from typing import Union
 
 import re
 import ssl
+import yaml
 
-from domaintools.constants import Endpoint, ENDPOINT_TO_SOURCE_MAP, FEEDS_PRODUCTS_LIST, OutputFormat
+
+from domaintools.constants import (
+    Endpoint,
+    OutputFormat,
+    ENDPOINT_TO_SOURCE_MAP,
+    RTTF_PRODUCTS_LIST,
+    RTTF_PRODUCTS_CMD_MAPPING,
+    SPECS_MAPPING,
+)
 from domaintools._version import current as version
 from domaintools.results import (
     GroupedIterable,
@@ -16,6 +26,7 @@ from domaintools.results import (
     Results,
     FeedsResults,
 )
+from domaintools.decorators import api_endpoint, auto_patch_docstrings
 from domaintools.filters import (
     filter_by_riskscore,
     filter_by_expire_date,
@@ -34,6 +45,7 @@ def delimited(items, character="|"):
     return character.join(items) if type(items) in (list, tuple, set) else items
 
 
+@auto_patch_docstrings
 class API(object):
     """Enables interacting with the DomainTools API via Python:
 
@@ -63,7 +75,8 @@ class API(object):
         verify_ssl=True,
         rate_limit=True,
         proxy_url=None,
-        always_sign_api_key=True,
+        always_sign_api_key=None,
+        header_authentication=None,
         key_sign_hash="sha256",
         app_name="python_wrapper",
         app_version=version,
@@ -83,19 +96,43 @@ class API(object):
         self.proxy_url = proxy_url
         self.extra_request_params = {}
         self.always_sign_api_key = always_sign_api_key
+        self.header_authentication = header_authentication
         self.key_sign_hash = key_sign_hash
         self.default_parameters["app_name"] = app_name
         self.default_parameters["app_version"] = app_version
+        self.specs = {}
 
         self._build_api_url(api_url, api_port)
+        self._initialize_specs()
 
         if not https:
-            raise Exception("The DomainTools API endpoints no longer support http traffic. Please make sure https=True.")
+            raise Exception(
+                "The DomainTools API endpoints no longer support http traffic. Please make sure https=True."
+            )
         if proxy_url and not isinstance(proxy_url, str):
             raise Exception("Proxy URL must be a string. For example: '127.0.0.1:8888'")
 
+    def _initialize_specs(self):
+        package_root = Path(__file__).parent
+        for spec_name, file_path in SPECS_MAPPING.items():
+            specs_file_path = f"{package_root}/specs/{file_path}"
+            try:
+                with open(specs_file_path, "r", encoding="utf-8") as f:
+                    spec_content = yaml.safe_load(f)
+                if not spec_content:
+                    raise ValueError("Spec file is empty or invalid.")
+
+                self.specs[spec_name] = spec_content
+
+            except Exception as e:
+                print(f"Error loading {specs_file_path}: {e}")
+
     def _get_ssl_default_context(self, verify_ssl: Union[str, bool]):
-        return ssl.create_default_context(cafile=verify_ssl) if isinstance(verify_ssl, str) else verify_ssl
+        return (
+            ssl.create_default_context(cafile=verify_ssl)
+            if isinstance(verify_ssl, str)
+            else verify_ssl
+        )
 
     def _build_api_url(self, api_url=None, api_port=None):
         """Build the API url based on the given url and port. Defaults to `https://api.domaintools.com`"""
@@ -108,8 +145,12 @@ class API(object):
 
         self._rest_api_url = rest_api_url
 
-    def _rate_limit(self):
+    def _rate_limit(self, product):
         """Pulls in and enforces the latest rate limits for the specified user"""
+        if product in RTTF_PRODUCTS_LIST:
+            self.limits_set = False
+            return
+
         self.limits_set = True
         for product in self.account_information():
             limit_minutes = product["per_minute_limit"] or None
@@ -119,35 +160,64 @@ class API(object):
             hours = limit_hours and 3600 / float(limit_hours)
             minutes = limit_minutes and 60 / float(limit_minutes)
 
-            self.limits[product["id"]] = {"interval": timedelta(seconds=minutes or hours or default)}
+            self.limits[product["id"]] = {
+                "interval": timedelta(seconds=minutes or hours or default)
+            }
 
     def _results(self, product, path, cls=Results, **kwargs):
         """Returns _results for the specified API path with the specified **kwargs parameters"""
-        if product != "account-information" and self.rate_limit and not self.limits_set and not self.limits:
-            self._rate_limit()
+        if (
+            product != "account-information"
+            and self.rate_limit
+            and not self.limits_set
+            and not self.limits
+        ):
+            always_sign_api_key_previous_value = self.always_sign_api_key
+            header_authentication_previous_value = self.header_authentication
+            self._rate_limit(product)
+            # Reset always_sign_api_key and header_authentication to its original
+            # User-set values as these might be affected when self.account_information() was executed
+            self.always_sign_api_key = always_sign_api_key_previous_value
+            self.header_authentication = header_authentication_previous_value
 
         uri = "/".join((self._rest_api_url, path.lstrip("/")))
         parameters = self.default_parameters.copy()
         parameters["api_username"] = self.username
-        header_authentication = kwargs.pop("header_authentication", True)  # Used only by Real-Time Threat Intelligence Feeds endpoints for now
-        self.handle_api_key(product, path, parameters, header_authentication)
-        parameters.update({key: str(value).lower() if value in (True, False) else value for key, value in kwargs.items() if value is not None})
+        is_rttf_product = product in RTTF_PRODUCTS_LIST
+        self._handle_api_key_parameters(is_rttf_product)
+        self.handle_api_key(is_rttf_product, path, parameters)
+        parameters.update(
+            {
+                key: str(value).lower() if value in (True, False) else value
+                for key, value in kwargs.items()
+                if value is not None
+            }
+        )
 
         return cls(self, product, uri, **parameters)
 
-    def handle_api_key(self, product, path, parameters, header_authentication):
+    def _handle_api_key_parameters(self, is_rttf_product):
+        if self.always_sign_api_key is None:
+            self.always_sign_api_key = not is_rttf_product
+
+        if self.header_authentication is None:
+            self.header_authentication = is_rttf_product
+
+    def handle_api_key(self, is_rttf_product, path, parameters):
         if self.https and not self.always_sign_api_key:
-            if product in FEEDS_PRODUCTS_LIST and header_authentication:
-                parameters["X-Api-Key"] = self.key
-            else:
-                parameters["api_key"] = self.key
+            parameters["api_key"] = self.key
         else:
+            if is_rttf_product:
+                # As per requirement in IDEV-2272, raise this error when the user explicitly sets signing of API key for RTTF endpoints
+                raise ValueError("Real Time Threat Feeds do not support signed API keys.")
             if self.key_sign_hash and self.key_sign_hash in AVAILABLE_KEY_SIGN_HASHES:
                 signing_hash = eval(self.key_sign_hash)
             else:
                 raise ValueError(
                     "Invalid value '{0}' for 'key_sign_hash'. "
-                    "Values available are {1}".format(self.key_sign_hash, ",".join(AVAILABLE_KEY_SIGN_HASHES))
+                    "Values available are {1}".format(
+                        self.key_sign_hash, ",".join(AVAILABLE_KEY_SIGN_HASHES)
+                    )
                 )
 
             parameters["timestamp"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -159,7 +229,9 @@ class API(object):
 
     def account_information(self, **kwargs):
         """Provides a snapshot of your accounts current API usage"""
-        return self._results("account-information", "/v1/account", items_path=("products",), **kwargs)
+        return self._results(
+            "account-information", "/v1/account", items_path=("products",), **kwargs
+        )
 
     def available_api_calls(self):
         """Provides a list of api calls that you can use based on your account information."""
@@ -174,8 +246,30 @@ class API(object):
                 string[1:],
             )
 
-        api_calls = tuple((api_call for api_call in dir(API) if not api_call.startswith("_") and callable(getattr(API, api_call, None))))
-        return sorted([snakecase(p["id"]) for p in self.account_information()["products"] if snakecase(p["id"]) in api_calls])
+        api_calls = tuple(
+            (
+                api_call
+                for api_call in dir(API)
+                if not api_call.startswith("_") and callable(getattr(API, api_call, None))
+            )
+        )
+
+        account_information = self.account_information()
+
+        available_calls = set()
+        for product in self.account_information():
+            product_id = product["id"]
+            # for RTUF endpoints as we use different func name in our wrapper
+            if product_id in RTTF_PRODUCTS_LIST:
+                if rttf_api_command := RTTF_PRODUCTS_CMD_MAPPING.get(product_id):
+                    available_calls.add(rttf_api_command)
+
+            # for IRIS endpoints
+            snakecase_pid = snakecase(product_id)
+            if snakecase_pid in api_calls:
+                available_calls.add(snakecase_pid)
+
+        return sorted(available_calls)
 
     def brand_monitor(self, query, exclude=None, domain_status=None, days_back=None, **kwargs):
         """Pass in one or more terms as a list or separated by the pipe character ( | )"""
@@ -340,7 +434,9 @@ class API(object):
 
     def reverse_ip(self, domain=None, limit=None, **kwargs):
         """Pass in a domain name."""
-        return self._results("reverse-ip", "/v1/{0}/reverse-ip".format(domain), limit=limit, **kwargs)
+        return self._results(
+            "reverse-ip", "/v1/{0}/reverse-ip".format(domain), limit=limit, **kwargs
+        )
 
     def host_domains(self, ip=None, limit=None, **kwargs):
         """Pass in an IP address."""
@@ -430,7 +526,16 @@ class API(object):
         """Performs a search for the provided search terms ANDed together,
         returning the pivot engine row data for the resulting domains.
         """
-        if not domain and not ip and not email and not nameserver and not registrar and not registrant and not registrant_org and not kwargs:
+        if (
+            not domain
+            and not ip
+            and not email
+            and not nameserver
+            and not registrar
+            and not registrant
+            and not registrant_org
+            and not kwargs
+        ):
             raise ValueError("At least one search term must be specified")
 
         return self._results(
@@ -505,8 +610,12 @@ class API(object):
         younger_than_date = kwargs.pop("younger_than_date", {}) or None
         older_than_date = kwargs.pop("older_than_date", {}) or None
         updated_after = kwargs.pop("updated_after", {}) or None
-        include_domains_with_missing_field = kwargs.pop("include_domains_with_missing_field", {}) or None
-        exclude_domains_with_missing_field = kwargs.pop("exclude_domains_with_missing_field", {}) or None
+        include_domains_with_missing_field = (
+            kwargs.pop("include_domains_with_missing_field", {}) or None
+        )
+        exclude_domains_with_missing_field = (
+            kwargs.pop("exclude_domains_with_missing_field", {}) or None
+        )
 
         filtered_results = DTResultFilter(result_set=results).by(
             [
@@ -559,6 +668,7 @@ class API(object):
             **kwargs,
         )
 
+    @api_endpoint(spec_name="iris", path="/v1/iris-investigate/", methods="post")
     def iris_investigate(
         self,
         domains=None,
@@ -576,29 +686,6 @@ class API(object):
         **kwargs,
     ):
         """Returns back a list of domains based on the provided filters.
-        The following filters are available beyond what is parameterized as kwargs:
-
-            - ip: Search for domains having this IP.
-            - email: Search for domains with this email in their data.
-            - email_domain: Search for domains where the email address uses this domain.
-            - nameserver_host: Search for domains with this nameserver.
-            - nameserver_domain: Search for domains with a nameserver that has this domain.
-            - nameserver_ip: Search for domains with a nameserver on this IP.
-            - registrar: Search for domains with this registrar.
-            - registrant: Search for domains with this registrant name.
-            - registrant_org: Search for domains with this registrant organization.
-            - mailserver_host: Search for domains with this mailserver.
-            - mailserver_domain: Search for domains with a mailserver that has this domain.
-            - mailserver_ip: Search for domains with a mailserver on this IP.
-            - redirect_domain: Search for domains which redirect to this domain.
-            - ssl_hash: Search for domains which have an SSL certificate with this hash.
-            - ssl_subject: Search for domains which have an SSL certificate with this subject string.
-            - ssl_email: Search for domains which have an SSL certificate with this email in it.
-            - ssl_org: Search for domains which have an SSL certificate with this organization in it.
-            - google_analytics: Search for domains which have this Google Analytics code.
-            - adsense: Search for domains which have this AdSense code.
-            - tld: Filter by TLD. Must be combined with another parameter.
-            - search_hash: Use search hash from Iris to bring back domains.
 
         You can loop over results of your investigation as if it was a native Python list:
 
@@ -1054,7 +1141,10 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint)
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
@@ -1086,7 +1176,10 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint).value
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
@@ -1147,7 +1240,10 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint).value
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
@@ -1179,7 +1275,10 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint).value
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
@@ -1210,12 +1309,15 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint).value
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
         return self._results(
-            f"domain-risk-feed-({source})",
+            f"real-time-domain-risk-({source})",
             f"v1/{endpoint}/domainrisk/",
             response_path=(),
             cls=FeedsResults,
@@ -1241,12 +1343,15 @@ class API(object):
         validate_feeds_parameters(kwargs)
         endpoint = kwargs.pop("endpoint", Endpoint.FEED.value)
         source = ENDPOINT_TO_SOURCE_MAP.get(endpoint).value
-        if endpoint == Endpoint.DOWNLOAD.value or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value:
+        if (
+            endpoint == Endpoint.DOWNLOAD.value
+            or kwargs.get("output_format", OutputFormat.JSONL.value) != OutputFormat.CSV.value
+        ):
             # headers param is allowed only in Feed API and CSV format
             kwargs.pop("headers", None)
 
         return self._results(
-            f"domain-hotlist-feed-({source})",
+            f"real-time-domain-hotlist-({source})",
             f"v1/{endpoint}/domainhotlist/",
             response_path=(),
             cls=FeedsResults,

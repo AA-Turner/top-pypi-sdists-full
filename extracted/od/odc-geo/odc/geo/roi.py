@@ -77,8 +77,6 @@ class RoiTiles(Protocol):
 
     def locate(self, pix: SomeIndex2d) -> Tuple[int, int]: ...
 
-    def __dask_tokenize__(self): ...
-
 
 def norm_slice_2d(
     idx: Union[SomeIndex2d, ROI], shape: Tuple[int, int]
@@ -88,7 +86,7 @@ def norm_slice_2d(
     return roi_normalise(iyx_(idx).yx, shape)
 
 
-def _fmt_shape(shape):
+def _fmt_shape(shape) -> str:
     n1, n2 = shape.yx
     if max(n1, n2) > 10_000:
         return f"{n1:_d}x{n2:_d}"

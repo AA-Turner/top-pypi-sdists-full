@@ -3,7 +3,7 @@ Type annotations for pinpoint-sms-voice-v2 service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pinpoint_sms_voice_v2/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

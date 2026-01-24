@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, NoReturn, Self
 
 from dda.cli.terminal import Terminal
 from dda.config.constants import AppEnvVars
+from dda.utils.ci import running_in_ci
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -16,6 +17,8 @@ if TYPE_CHECKING:
 
     from dda.config.file import ConfigFile
     from dda.config.model import RootConfig
+    from dda.feature_flags.manager import FeatureFlagManager
+    from dda.github.core import GitHub
     from dda.telemetry.manager import TelemetryManager
     from dda.tools import Tools
     from dda.utils.network.http.manager import HTTPClientManager
@@ -96,6 +99,12 @@ class Application(Terminal):
         return self.__config_file.model
 
     @cached_property
+    def tools(self) -> Tools:
+        from dda.tools import Tools
+
+        return Tools(self)
+
+    @cached_property
     def subprocess(self) -> SubprocessRunner:
         from dda.utils.process import SubprocessRunner
 
@@ -108,16 +117,26 @@ class Application(Terminal):
         return HTTPClientManager(self)
 
     @cached_property
-    def tools(self) -> Tools:
-        from dda.tools import Tools
+    def github(self) -> GitHub:
+        from dda.github.core import GitHub
 
-        return Tools(self)
+        return GitHub(self)
 
     @cached_property
     def telemetry(self) -> TelemetryManager:
         from dda.telemetry.manager import TelemetryManager
 
         return TelemetryManager(self)
+
+    @cached_property
+    def features(self) -> FeatureFlagManager:
+        if running_in_ci():
+            from dda.feature_flags.manager import CIFeatureFlagManager
+
+            return CIFeatureFlagManager(self)
+        from dda.feature_flags.manager import LocalFeatureFlagManager
+
+        return LocalFeatureFlagManager(self)
 
     @cached_property
     def dynamic_deps_allowed(self) -> bool:
@@ -177,14 +196,31 @@ class UpdateChecker:
         return now - last_check >= self.__app.config.update.check.get_period_seconds()
 
     def new_release(self) -> tuple[str, str] | None:
+        import httpx
         from packaging.version import Version
 
         from dda._version import __version__
 
         current_version = Version(__version__)
-        with self.__app.http.client() as client:
-            response = client.get("https://api.github.com/repos/DataDog/datadog-agent-dev/releases/latest")
-            response.raise_for_status()
+        with self.__app.github.http.client(timeout=5) as client:
+            try:
+                response = client.get("https://api.github.com/repos/DataDog/datadog-agent-dev/releases/latest")
+            except httpx.HTTPStatusError as e:
+                # Rate limiting
+                if e.response.headers.get("Retry-After") is not None:
+                    github_auth = self.__app.config.github.auth
+                    if not (github_auth.user and github_auth.token):
+                        self.__app.display_warning(
+                            "The GitHub API rate limit was exceeded while checking for new releases."
+                        )
+                        self.__app.display_info("Run the following commands to authenticate:")
+                        self.__app.display_info("dda config set github.auth.user <user>")
+                        self.__app.display_info("dda config set github.auth.token")
+
+                    return None
+
+                raise
+
             release = response.json()
 
         latest_version = Version(release["tag_name"].lstrip("v"))

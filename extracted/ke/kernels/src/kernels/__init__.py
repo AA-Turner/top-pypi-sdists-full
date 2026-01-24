@@ -1,18 +1,23 @@
 import importlib.metadata
 
+
 __version__ = importlib.metadata.version("kernels")
 
 from kernels.layer import (
     CUDAProperties,
     Device,
+    FuncRepository,
     LayerRepository,
+    LocalFuncRepository,
     LocalLayerRepository,
+    LockedFuncRepository,
     LockedLayerRepository,
     Mode,
     kernelize,
     register_kernel_mapping,
     replace_kernel_forward_from_hub,
     use_kernel_forward_from_hub,
+    use_kernel_func_from_hub,
     use_kernel_mapping,
 )
 from kernels.utils import (
@@ -24,12 +29,20 @@ from kernels.utils import (
     load_kernel,
 )
 
+
+from kernels._windows import _add_additional_dll_paths
+
+_add_additional_dll_paths()
+
 __all__ = [
     "__version__",
     "CUDAProperties",
     "Device",
+    "FuncRepository",
     "LayerRepository",
+    "LocalFuncRepository",
     "LocalLayerRepository",
+    "LockedFuncRepository",
     "LockedLayerRepository",
     "Mode",
     "get_kernel",
@@ -42,5 +55,6 @@ __all__ = [
     "register_kernel_mapping",
     "replace_kernel_forward_from_hub",
     "use_kernel_forward_from_hub",
+    "use_kernel_func_from_hub",
     "use_kernel_mapping",
 ]

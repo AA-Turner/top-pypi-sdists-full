@@ -1,7 +1,0 @@
-from __future__ import annotations
-
-from typing import List
-
-from .RayleighDampingByFrequencyComponent import RayleighDampingByFrequencyComponent
-
-RayleighDampingByFrequencyComponentArray = List[RayleighDampingByFrequencyComponent]

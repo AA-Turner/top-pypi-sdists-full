@@ -3,6 +3,7 @@ from typing import Optional
 import torch
 
 from liger_kernel.ops.fused_linear_cross_entropy import LigerFusedLinearCrossEntropyFunction
+from liger_kernel.transformers.functional import CrossEntropyOutput
 
 
 class LigerFusedLinearCrossEntropyLoss(torch.nn.Module):
@@ -16,6 +17,8 @@ class LigerFusedLinearCrossEntropyLoss(torch.nn.Module):
         softcap: Optional[float] = None,
         return_z_loss: bool = False,
         accum_dtype: Optional[torch.dtype] = None,
+        use_token_scaling: bool = False,
+        return_token_accuracy: bool = False,
     ):
         super().__init__()
         assert (label_smoothing >= 0) and (label_smoothing <= 1), (
@@ -24,7 +27,8 @@ class LigerFusedLinearCrossEntropyLoss(torch.nn.Module):
         assert reduction in {
             "mean",
             "sum",
-        }, f"reduction must be 'mean' or 'sum'. Got: {reduction}"
+            "none",
+        }, f"reduction must be 'mean' or 'sum' or 'none'. Got: {reduction}"
         assert softcap is None or softcap > 0, f"softcap must greater than 0.0 or None. Got: {softcap}"
         self.ce_weight = ce_weight
         self.ignore_index = ignore_index
@@ -34,9 +38,11 @@ class LigerFusedLinearCrossEntropyLoss(torch.nn.Module):
         self.softcap = softcap
         self.return_z_loss = return_z_loss
         self.accum_dtype = accum_dtype
+        self.use_token_scaling = use_token_scaling
+        self.return_token_accuracy = return_token_accuracy
 
     def forward(self, lin_weight, _input, target, bias=None):
-        loss, z_loss = LigerFusedLinearCrossEntropyFunction.apply(
+        loss, z_loss, token_accuracy = LigerFusedLinearCrossEntropyFunction.apply(
             _input,
             lin_weight,
             target,
@@ -49,7 +55,10 @@ class LigerFusedLinearCrossEntropyLoss(torch.nn.Module):
             self.softcap,
             self.return_z_loss,
             self.accum_dtype,
+            self.use_token_scaling,
+            self.return_token_accuracy,
         )
-        if not self.return_z_loss:
+        if not self.return_z_loss and not self.return_token_accuracy:
             return loss
-        return loss, z_loss
+
+        return CrossEntropyOutput(loss=loss, z_loss=z_loss, token_accuracy=token_accuracy)

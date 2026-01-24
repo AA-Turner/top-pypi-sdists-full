@@ -1,20 +1,14 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from tempfile import NamedTemporaryFile, TemporaryDirectory
-from typing import Any
+from tempfile import NamedTemporaryFile
 from unittest.mock import patch
 
-import numpy as np
 import pytest
-import safetensors
-import safetensors.numpy
-from tokenizers import Tokenizer
 
 from model2vec.distill.utils import select_optimal_device
 from model2vec.hf_utils import _get_metadata_from_readme
-from model2vec.utils import get_package_extras, importable, load_local_model
+from model2vec.utils import get_package_extras, importable
 
 
 def test__get_metadata_from_readme_not_exists() -> None:
@@ -39,26 +33,36 @@ def test__get_metadata_from_readme_mocked_file_keys() -> None:
 
 
 @pytest.mark.parametrize(
-    "device, expected, cuda, mps",
+    "torch_version, device, expected, cuda, mps, should_raise",
     [
-        ("cpu", "cpu", True, True),
-        ("cpu", "cpu", True, False),
-        ("cpu", "cpu", False, True),
-        ("cpu", "cpu", False, False),
-        ("clown", "clown", False, False),
-        (None, "cuda", True, True),
-        (None, "cuda", True, False),
-        (None, "mps", False, True),
-        (None, "cpu", False, False),
+        ("2.7.0", "cpu", "cpu", True, True, False),
+        ("2.8.0", "cpu", "cpu", True, True, False),
+        ("2.7.0", "clown", "clown", False, False, False),
+        ("2.8.0", "clown", "clown", False, False, False),
+        ("2.7.0", "mps", "mps", False, True, False),
+        ("2.8.0", "mps", None, False, True, True),
+        ("2.7.0", None, "cuda", True, True, False),
+        ("2.7.0", None, "mps", False, True, False),
+        ("2.7.0", None, "cpu", False, False, False),
+        ("2.8.0", None, "cuda", True, True, False),
+        ("2.8.0", None, "cpu", False, True, False),
+        ("2.8.0", None, "cpu", False, False, False),
+        ("2.9.0", None, "cpu", False, True, False),
+        ("3.0.0", None, "cpu", False, True, False),
     ],
 )
-def test_select_optimal_device(device: str | None, expected: str, cuda: bool, mps: bool) -> None:
-    """Test whether the optimal device is selected."""
+def test_select_optimal_device(torch_version, device, expected, cuda, mps, should_raise) -> None:
+    """Test whether the optimal device is selected across versions and backends."""
     with (
         patch("torch.cuda.is_available", return_value=cuda),
         patch("torch.backends.mps.is_available", return_value=mps),
+        patch("torch.__version__", torch_version),
     ):
-        assert select_optimal_device(device) == expected
+        if should_raise:
+            with pytest.raises(RuntimeError):
+                select_optimal_device(device)
+        else:
+            assert select_optimal_device(device) == expected
 
 
 def test_importable() -> None:
@@ -78,44 +82,3 @@ def test_get_package_extras() -> None:
 def test_get_package_extras_empty() -> None:
     """Test package extras with an empty package."""
     assert not list(get_package_extras("tqdm", ""))
-
-
-@pytest.mark.parametrize(
-    "config, expected",
-    [
-        ({"dog": "cat"}, {"dog": "cat"}),
-        ({}, {}),
-        (None, {}),
-    ],
-)
-def test_local_load(mock_tokenizer: Tokenizer, config: dict[str, Any], expected: dict[str, Any]) -> None:
-    """Test local loading."""
-    x = np.ones((mock_tokenizer.get_vocab_size(), 2))
-
-    with TemporaryDirectory() as tempdir:
-        tempdir_path = Path(tempdir)
-        safetensors.numpy.save_file({"embeddings": x}, Path(tempdir) / "model.safetensors")
-        mock_tokenizer.save(str(Path(tempdir) / "tokenizer.json"))
-        if config is not None:
-            json.dump(config, open(tempdir_path / "config.json", "w"))
-        arr, tokenizer, config = load_local_model(tempdir_path)
-        assert config == expected
-        assert tokenizer.to_str() == mock_tokenizer.to_str()
-        assert arr.shape == x.shape
-
-
-def test_local_load_mismatch(mock_tokenizer: Tokenizer, caplog: pytest.LogCaptureFixture) -> None:
-    """Test local loading."""
-    x = np.ones((10, 2))
-
-    with TemporaryDirectory() as tempdir:
-        tempdir_path = Path(tempdir)
-        safetensors.numpy.save_file({"embeddings": x}, Path(tempdir) / "model.safetensors")
-        mock_tokenizer.save(str(Path(tempdir) / "tokenizer.json"))
-
-        load_local_model(tempdir_path)
-        expected = (
-            f"Number of tokens does not match number of embeddings: `{len(mock_tokenizer.get_vocab())}` vs `{len(x)}`"
-        )
-        assert len(caplog.records) == 1
-        assert caplog.records[0].message == expected

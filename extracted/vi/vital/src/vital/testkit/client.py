@@ -72,12 +72,34 @@ class TestkitClient:
 
         Examples
         --------
-        from vital import Vital
-        from vital import PatientDetailsWithValidation
-        from vital import Gender
-        from vital import PatientAddressWithValidation
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.testkit.register(sample_id='sample_id', patient_details=PatientDetailsWithValidation(first_name='first_name', last_name='last_name', dob='dob', gender=Gender.FEMALE, phone_number='phone_number', email='email', ), patient_address=PatientAddressWithValidation(first_line='first_line', city='city', state='state', zip='zip', country='country', ), )
+        from vital import (
+            Gender,
+            PatientAddressWithValidation,
+            PatientDetailsWithValidation,
+            Vital,
+        )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.testkit.register(
+            sample_id="sample_id",
+            patient_details=PatientDetailsWithValidation(
+                first_name="first_name",
+                last_name="last_name",
+                dob="dob",
+                gender=Gender.FEMALE,
+                phone_number="phone_number",
+                email="email",
+            ),
+            patient_address=PatientAddressWithValidation(
+                first_line="first_line",
+                city="city",
+                state="state",
+                zip="zip",
+                country="country",
+            ),
+        )
         """
         _response = self._raw_client.register(
             sample_id=sample_id,
@@ -98,6 +120,7 @@ class TestkitClient:
         lab_test_id: str,
         shipping_details: ShippingAddressWithValidation,
         passthrough: typing.Optional[str] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PostOrderResponse:
         """
@@ -113,6 +136,8 @@ class TestkitClient:
 
         passthrough : typing.Optional[str]
 
+        lab_account_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -123,16 +148,31 @@ class TestkitClient:
 
         Examples
         --------
-        from vital import Vital
-        from vital import ShippingAddressWithValidation
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.testkit.create_order(user_id='user_id', lab_test_id='lab_test_id', shipping_details=ShippingAddressWithValidation(receiver_name='receiver_name', first_line='first_line', city='city', state='state', zip='zip', country='country', phone_number='phone_number', ), )
+        from vital import ShippingAddressWithValidation, Vital
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.testkit.create_order(
+            user_id="user_id",
+            lab_test_id="lab_test_id",
+            shipping_details=ShippingAddressWithValidation(
+                receiver_name="receiver_name",
+                first_line="first_line",
+                city="city",
+                state="state",
+                zip="zip",
+                country="country",
+                phone_number="phone_number",
+            ),
+        )
         """
         _response = self._raw_client.create_order(
             user_id=user_id,
             lab_test_id=lab_test_id,
             shipping_details=shipping_details,
             passthrough=passthrough,
+            lab_account_id=lab_account_id,
             request_options=request_options,
         )
         return _response.data
@@ -193,14 +233,41 @@ class AsyncTestkitClient:
 
         Examples
         --------
-        from vital import AsyncVital
-        from vital import PatientDetailsWithValidation
-        from vital import Gender
-        from vital import PatientAddressWithValidation
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import (
+            AsyncVital,
+            Gender,
+            PatientAddressWithValidation,
+            PatientDetailsWithValidation,
+        )
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.testkit.register(sample_id='sample_id', patient_details=PatientDetailsWithValidation(first_name='first_name', last_name='last_name', dob='dob', gender=Gender.FEMALE, phone_number='phone_number', email='email', ), patient_address=PatientAddressWithValidation(first_line='first_line', city='city', state='state', zip='zip', country='country', ), )
+            await client.testkit.register(
+                sample_id="sample_id",
+                patient_details=PatientDetailsWithValidation(
+                    first_name="first_name",
+                    last_name="last_name",
+                    dob="dob",
+                    gender=Gender.FEMALE,
+                    phone_number="phone_number",
+                    email="email",
+                ),
+                patient_address=PatientAddressWithValidation(
+                    first_line="first_line",
+                    city="city",
+                    state="state",
+                    zip="zip",
+                    country="country",
+                ),
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.register(
@@ -222,6 +289,7 @@ class AsyncTestkitClient:
         lab_test_id: str,
         shipping_details: ShippingAddressWithValidation,
         passthrough: typing.Optional[str] = OMIT,
+        lab_account_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PostOrderResponse:
         """
@@ -237,6 +305,8 @@ class AsyncTestkitClient:
 
         passthrough : typing.Optional[str]
 
+        lab_account_id : typing.Optional[str]
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -247,12 +317,31 @@ class AsyncTestkitClient:
 
         Examples
         --------
-        from vital import AsyncVital
-        from vital import ShippingAddressWithValidation
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital, ShippingAddressWithValidation
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.testkit.create_order(user_id='user_id', lab_test_id='lab_test_id', shipping_details=ShippingAddressWithValidation(receiver_name='receiver_name', first_line='first_line', city='city', state='state', zip='zip', country='country', phone_number='phone_number', ), )
+            await client.testkit.create_order(
+                user_id="user_id",
+                lab_test_id="lab_test_id",
+                shipping_details=ShippingAddressWithValidation(
+                    receiver_name="receiver_name",
+                    first_line="first_line",
+                    city="city",
+                    state="state",
+                    zip="zip",
+                    country="country",
+                    phone_number="phone_number",
+                ),
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.create_order(
@@ -260,6 +349,7 @@ class AsyncTestkitClient:
             lab_test_id=lab_test_id,
             shipping_details=shipping_details,
             passthrough=passthrough,
+            lab_account_id=lab_account_id,
             request_options=request_options,
         )
         return _response.data

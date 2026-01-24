@@ -9,6 +9,7 @@ import pytest
 
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
+from telnyx.pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
 from telnyx.types.queues import CallListResponse, CallRetrieveResponse
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -71,11 +72,73 @@ class TestCalls:
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
+    def test_method_update(self, client: Telnyx) -> None:
+        call = client.queues.calls.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_update_with_all_params(self, client: Telnyx) -> None:
+        call = client.queues.calls.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+            keep_after_hangup=True,
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_raw_response_update(self, client: Telnyx) -> None:
+        response = client.queues.calls.with_raw_response.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        call = response.parse()
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_streaming_response_update(self, client: Telnyx) -> None:
+        with client.queues.calls.with_streaming_response.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            call = response.parse()
+            assert call is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_path_params_update(self, client: Telnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
+            client.queues.calls.with_raw_response.update(
+                call_control_id="call_control_id",
+                queue_name="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            client.queues.calls.with_raw_response.update(
+                call_control_id="",
+                queue_name="queue_name",
+            )
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         call = client.queues.calls.list(
             queue_name="queue_name",
         )
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -86,11 +149,11 @@ class TestCalls:
                 "after": "after",
                 "before": "before",
                 "limit": 1,
-                "number": 1,
-                "size": 1,
             },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -102,7 +165,7 @@ class TestCalls:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         call = response.parse()
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(SyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -114,7 +177,7 @@ class TestCalls:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             call = response.parse()
-            assert_matches_type(CallListResponse, call, path=["response"])
+            assert_matches_type(SyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -124,6 +187,58 @@ class TestCalls:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
             client.queues.calls.with_raw_response.list(
                 queue_name="",
+            )
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_remove(self, client: Telnyx) -> None:
+        call = client.queues.calls.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_raw_response_remove(self, client: Telnyx) -> None:
+        response = client.queues.calls.with_raw_response.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        call = response.parse()
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_streaming_response_remove(self, client: Telnyx) -> None:
+        with client.queues.calls.with_streaming_response.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            call = response.parse()
+            assert call is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_path_params_remove(self, client: Telnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
+            client.queues.calls.with_raw_response.remove(
+                call_control_id="call_control_id",
+                queue_name="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            client.queues.calls.with_raw_response.remove(
+                call_control_id="",
+                queue_name="queue_name",
             )
 
 
@@ -186,11 +301,73 @@ class TestAsyncCalls:
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
+    async def test_method_update(self, async_client: AsyncTelnyx) -> None:
+        call = await async_client.queues.calls.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_update_with_all_params(self, async_client: AsyncTelnyx) -> None:
+        call = await async_client.queues.calls.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+            keep_after_hangup=True,
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_raw_response_update(self, async_client: AsyncTelnyx) -> None:
+        response = await async_client.queues.calls.with_raw_response.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        call = await response.parse()
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_streaming_response_update(self, async_client: AsyncTelnyx) -> None:
+        async with async_client.queues.calls.with_streaming_response.update(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            call = await response.parse()
+            assert call is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_path_params_update(self, async_client: AsyncTelnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
+            await async_client.queues.calls.with_raw_response.update(
+                call_control_id="call_control_id",
+                queue_name="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            await async_client.queues.calls.with_raw_response.update(
+                call_control_id="",
+                queue_name="queue_name",
+            )
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.queues.calls.list(
             queue_name="queue_name",
         )
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -201,11 +378,11 @@ class TestAsyncCalls:
                 "after": "after",
                 "before": "before",
                 "limit": 1,
-                "number": 1,
-                "size": 1,
             },
+            page_number=0,
+            page_size=0,
         )
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -217,7 +394,7 @@ class TestAsyncCalls:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         call = await response.parse()
-        assert_matches_type(CallListResponse, call, path=["response"])
+        assert_matches_type(AsyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -229,7 +406,7 @@ class TestAsyncCalls:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             call = await response.parse()
-            assert_matches_type(CallListResponse, call, path=["response"])
+            assert_matches_type(AsyncDefaultFlatPagination[CallListResponse], call, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -239,4 +416,56 @@ class TestAsyncCalls:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
             await async_client.queues.calls.with_raw_response.list(
                 queue_name="",
+            )
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_remove(self, async_client: AsyncTelnyx) -> None:
+        call = await async_client.queues.calls.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_raw_response_remove(self, async_client: AsyncTelnyx) -> None:
+        response = await async_client.queues.calls.with_raw_response.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        call = await response.parse()
+        assert call is None
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_streaming_response_remove(self, async_client: AsyncTelnyx) -> None:
+        async with async_client.queues.calls.with_streaming_response.remove(
+            call_control_id="call_control_id",
+            queue_name="queue_name",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            call = await response.parse()
+            assert call is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_path_params_remove(self, async_client: AsyncTelnyx) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `queue_name` but received ''"):
+            await async_client.queues.calls.with_raw_response.remove(
+                call_control_id="call_control_id",
+                queue_name="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `call_control_id` but received ''"):
+            await async_client.queues.calls.with_raw_response.remove(
+                call_control_id="",
+                queue_name="queue_name",
             )

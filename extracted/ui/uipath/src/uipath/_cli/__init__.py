@@ -1,22 +1,91 @@
 import importlib.metadata
+import os
 import sys
 
 import click
+from dotenv import load_dotenv
 
-from ._utils._common import load_environment_variables
-from .cli_auth import auth as auth
-from .cli_deploy import deploy as deploy  # type: ignore
-from .cli_dev import dev as dev
-from .cli_eval import eval as eval  # type: ignore
-from .cli_init import generate_agents_md as generate_agents_md  # type: ignore
-from .cli_init import init as init  # type: ignore
-from .cli_invoke import invoke as invoke  # type: ignore
-from .cli_new import new as new  # type: ignore
-from .cli_pack import pack as pack  # type: ignore
-from .cli_publish import publish as publish  # type: ignore
-from .cli_pull import pull as pull  # type: ignore
-from .cli_push import push as push  # type: ignore
-from .cli_run import run as run  # type: ignore
+from uipath._cli._utils._context import CliContext
+from uipath._utils._logs import setup_logging
+from uipath._utils.constants import DOTENV_FILE
+
+# DO NOT ADD HEAVY IMPORTS HERE
+#
+# Every import at the top of this file runs on EVERY command.
+# Yes, even `--version`. Yes, even `--help`.
+#
+# We spent hours getting startup from 1.7s → 0.5s.
+# If you add `import pandas` here, I will find you.
+
+_LAZY_COMMANDS = {
+    "new": "cli_new",
+    "init": "cli_init",
+    "pack": "cli_pack",
+    "publish": "cli_publish",
+    "run": "cli_run",
+    "deploy": "cli_deploy",
+    "auth": "cli_auth",
+    "invoke": "cli_invoke",
+    "push": "cli_push",
+    "pull": "cli_pull",
+    "eval": "cli_eval",
+    "dev": "cli_dev",
+    "add": "cli_add",
+    "register": "cli_register",
+    "debug": "cli_debug",
+    "assets": "services.cli_assets",
+    "buckets": "services.cli_buckets",
+}
+
+_RUNTIME_COMMANDS = {"init", "dev", "run", "eval", "debug"}
+
+_runtime_initialized = False
+
+
+def _ensure_runtime_initialized():
+    """Initialize runtime factories once, only when needed."""
+    global _runtime_initialized
+    if _runtime_initialized:
+        return
+    _runtime_initialized = True
+
+    from uipath._cli.runtimes import load_runtime_factories
+    from uipath.functions import register_default_runtime_factory
+
+    register_default_runtime_factory()
+    load_runtime_factories()
+
+
+def _load_command(name: str):
+    """Load a CLI command by name."""
+    if name not in _LAZY_COMMANDS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    if name in _RUNTIME_COMMANDS:
+        _ensure_runtime_initialized()
+
+    module_name = _LAZY_COMMANDS[name]
+    mod = __import__(f"uipath._cli.{module_name}", fromlist=[name])
+    return getattr(mod, name)
+
+
+def __getattr__(name: str):
+    """Lazy load CLI commands for mkdocs-click compatibility."""
+    return _load_command(name)
+
+
+def add_cwd_to_path():
+    cwd = os.getcwd()
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+
+
+def load_environment_variables():
+    load_dotenv(dotenv_path=os.path.join(os.getcwd(), DOTENV_FILE), override=True)
+
+
+load_environment_variables()
+add_cwd_to_path()
 
 
 def _get_safe_version() -> str:
@@ -28,7 +97,40 @@ def _get_safe_version() -> str:
         return "unknown"
 
 
-@click.group(invoke_without_command=True)
+def _get_format_from_argv() -> str | None:
+    for i, arg in enumerate(sys.argv):
+        if arg == "--format" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+        elif arg.startswith("--format="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+class LazyGroup(click.Group):
+    """Lazy-load commands only when invoked."""
+
+    def list_commands(self, ctx):
+        return sorted(_LAZY_COMMANDS.keys())
+
+    def get_command(self, ctx, cmd_name):
+        if cmd_name in _LAZY_COMMANDS:
+            return _load_command(cmd_name)
+        return None
+
+    def format_help(self, ctx, formatter):
+        format_value = _get_format_from_argv()
+
+        if format_value == "json":
+            from uipath._cli._utils._help_json import get_help_json
+
+            json_output = get_help_json(self, ctx, _get_safe_version())
+            click.echo(json_output)
+            ctx.exit(0)
+        else:
+            super().format_help(ctx, formatter)
+
+
+@click.command(cls=LazyGroup, invoke_without_command=True)
 @click.version_option(
     _get_safe_version(),
     prog_name="uipath",
@@ -44,8 +146,41 @@ def _get_safe_version() -> str:
     is_flag=True,
     help="Display the current version of uipath.",
 )
-def cli(lv: bool, v: bool) -> None:
-    load_environment_variables()
+@click.option(
+    "--format",
+    type=click.Choice(["json", "table", "csv"]),
+    default="table",
+    help="Output format for commands",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging and show stack traces",
+)
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    lv: bool,
+    v: bool,
+    format: str,
+    debug: bool,
+) -> None:
+    """UiPath CLI - Automate everything.
+
+    \b
+    Examples:
+        uipath new my-project
+        uipath dev
+        uipath deploy
+        uipath buckets list --folder-path "Shared"
+    """  # noqa: D301
+    ctx.obj = CliContext(
+        output_format=format,
+        debug=debug,
+    )
+
+    setup_logging(should_debug=debug)
+
     if lv:
         try:
             version = importlib.metadata.version("uipath-langchain")
@@ -61,16 +196,6 @@ def cli(lv: bool, v: bool) -> None:
             click.echo("uipath is not installed", err=True)
             sys.exit(1)
 
-
-cli.add_command(new)
-cli.add_command(init)
-cli.add_command(pack)
-cli.add_command(publish)
-cli.add_command(run)
-cli.add_command(deploy)
-cli.add_command(auth)
-cli.add_command(invoke)
-cli.add_command(push)
-cli.add_command(pull)
-cli.add_command(eval)
-cli.add_command(dev)
+    # Show help if no command was provided (matches docker, kubectl, git behavior)
+    if ctx.invoked_subcommand is None and not lv and not v:
+        click.echo(ctx.get_help())

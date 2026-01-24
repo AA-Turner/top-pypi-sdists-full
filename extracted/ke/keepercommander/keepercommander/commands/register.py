@@ -68,7 +68,6 @@ def register_command_info(aliases, command_info):
         command_info[p.prog] = p.description
 
     command_info['one-time-share'] = 'Manage and create One-Time Shares'
-    command_info['share'] = 'Manage and create One-Time Shares'
 
 
 share_record_parser = argparse.ArgumentParser(prog='share-record', description='Change the sharing permissions of an individual record')
@@ -142,7 +141,7 @@ share_report_parser.add_argument('container', nargs='*', type=str, action='store
 record_permission_parser = argparse.ArgumentParser(prog='record-permission', description='Modify the permissions of a record')
 record_permission_parser.add_argument('--dry-run', dest='dry_run', action='store_true',
                                       help='Display the permissions changes without committing them')
-record_permission_parser.add_argument('--force', dest='force', action='store_true',
+record_permission_parser.add_argument('-f', '--force', dest='force', action='store_true',
                                       help='Apply permission changes without any confirmation')
 record_permission_parser.add_argument('-R', '--recursive', dest='recursive', action='store_true',
                                       help='Apply permission changes to all sub-folders')
@@ -160,7 +159,7 @@ record_permission_parser.add_argument('folder', nargs='?', type=str, action='sto
 record_permission_parser.error = raise_parse_exception
 record_permission_parser.exit = suppress_exit
 
-find_ownerless_desc = 'List (and, optionally, claim) records in the user\'s vault that currently do not have an owner'
+find_ownerless_desc = 'List (and, optionally, claim) ownerless records in the vault'
 find_ownerless_parser = argparse.ArgumentParser(prog='find-ownerless', description=find_ownerless_desc,
                                                 parents=[base.report_output_parser])
 find_ownerless_parser.add_argument('--claim', dest='claim', action='store_true', help='claim records found')
@@ -244,6 +243,10 @@ class ShareFolderCommand(Command):
         return share_folder_parser
 
     def execute(self, params, **kwargs):
+        from ..enforcement import MasterPasswordReentryEnforcer
+        if not MasterPasswordReentryEnforcer.check_and_enforce(params, "record_level"):
+            raise CommandError('share-folder', 'Operation cancelled: Re-authentication failed')
+
         def get_share_admin_obj_uids(obj_names, obj_type):
             # type: (List[Optional[str], int], int) -> Optional[Set[str]]
             if not obj_names:
@@ -457,7 +460,7 @@ class ShareFolderCommand(Command):
                             logging.warning('Share invitation has been sent to \'%s\'', username)
                         logging.warning('Please repeat this command when invitation is accepted.')
                     keys = params.key_cache.get(email)
-                    if keys and keys.rsa or keys.ec:
+                    if keys and (keys.rsa or keys.ec):
                         uo.manageRecords = curr_sf.get('default_manage_records') is True if mr is None else folder_pb2.BOOLEAN_TRUE if mr == 'on' else folder_pb2.BOOLEAN_FALSE
                         uo.manageUsers = curr_sf.get('default_manage_users') is True if mu is None else folder_pb2.BOOLEAN_TRUE if mu == 'on' else folder_pb2.BOOLEAN_FALSE
                         sf_key = curr_sf.get('shared_folder_key_unencrypted')  # type: Optional[bytes]
@@ -747,9 +750,17 @@ class ShareRecordCommand(Command):
             raise CommandError('share-record', 'You can transfer ownership to a single account only')
 
         all_users = set((x.casefold() for x in emails))
+        
+        # Validate email format before attempting to share or send invitations
+        invalid_emails = [email for email in all_users if not is_email(email)]
+        if invalid_emails:
+            raise CommandError('share-record', f'Invalid email format: {", ".join(invalid_emails)}')
+        
+        invitations_sent = False
         if not dry_run and action in ('grant', 'owner'):
             invited = api.load_user_public_keys(params, list(all_users), send_invites=True)
             if invited:
+                invitations_sent = True
                 for email in invited:
                     logging.warning('Share invitation has been sent to \'%s\'', email)
                 logging.warning('Please repeat this command when invitation is accepted.')
@@ -757,6 +768,9 @@ class ShareRecordCommand(Command):
             all_users.intersection_update(params.key_cache.keys())
 
         if len(all_users) == 0:
+            if invitations_sent:
+                # Invitations were sent, this is a success case - return None to indicate no further action needed
+                return None
             raise CommandError('share-record', 'Nothing to do.')
 
         can_edit = kwargs.get('can_edit') or False
@@ -908,6 +922,10 @@ class ShareRecordCommand(Command):
         if not emails:
             raise CommandError('share-record', '\'email\' parameter is missing')
 
+        from ..enforcement import MasterPasswordReentryEnforcer
+        if not MasterPasswordReentryEnforcer.check_and_enforce(params, "record_level"):
+            raise CommandError('share-record', 'Operation cancelled: Re-authentication failed')
+
         force = kwargs.get('force') is True
         action = kwargs.get('action') or 'grant'
         use_contacts = kwargs.get('contacts_only')
@@ -916,7 +934,7 @@ class ShareRecordCommand(Command):
             get_username = lambda addr: next(iter(addr.split('@')), '').casefold()
             matches = [c for c in contacts if get_username(user) == get_username(c)]
             if len(matches) > 1:
-                raise CommandError('More than 1 matching usernames found. Aborting')
+                raise CommandError('share-record', 'More than 1 matching usernames found. Aborting')
             return next(iter(matches), None)
 
         if use_contacts:
@@ -936,9 +954,12 @@ class ShareRecordCommand(Command):
                     emails = [*good_emails, *replacements]
 
         if action == 'cancel':
-            answer = base.user_choice(
-                bcolors.FAIL + bcolors.BOLD + '\nALERT!\n' + bcolors.ENDC + 'This action cannot be undone.\n\n' +
-                'Do you want to cancel all shares with user(s): ' + ', '.join(emails) + ' ?', 'yn', 'n')
+            if not force:
+                answer = base.user_choice(
+                    bcolors.FAIL + bcolors.BOLD + '\nALERT!\n' + bcolors.ENDC + 'This action cannot be undone.\n\n' +
+                    'Do you want to cancel all shares with user(s): ' + ', '.join(emails) + ' ?', 'yn', 'n')
+            else:
+                answer = 'y'
             if answer.lower() in {'y', 'yes'}:
                 for email in emails:
                     rq = {
@@ -1869,14 +1890,15 @@ class FindOwnerlessCommand(Command):
         verbose = kwargs.get('verbose') or not claim_records or out
         records_dump = None
         if ownerless_records:
-            logging.info(f'Found [{len(ownerless_records)}] ownerless record(s)')
+            count = len(ownerless_records)
+            logging.info(f'Found {count} ownerless {"record" if count == 1 else "records"}')
             if verbose:
                 records_dump = dump_record_details(ownerless_records, out, fmt)
             if claim_records:
                 claim_ownerless_records(ownerless_records)
                 SyncDownCommand().execute(params, force=True)
             else:
-                logging.info('To claim the record(s) found above, re-run this command with the --claim flag.')
+                logging.info('To claim the records found above, re-run this command with the --claim flag.')
         else:
             logging.info('No ownerless records found')
         return records_dump
@@ -2394,7 +2416,11 @@ class OneTimeShareCreateCommand(Command):
                 query = 'editable=true'
 
             api.communicate_rest(params, rq, 'vault/external_share_add', rs_type=APIRequest_pb2.Device)
-            url = urlunparse(('https', params.server, '/vault/share/', None, query, utils.base64_url_encode(client_key)))
+            # Extract hostname from params.server in case it contains full URL with protocol
+            from urllib.parse import urlparse
+            parsed = urlparse(params.server)
+            server_netloc = parsed.netloc if parsed.netloc else parsed.path  # parsed.path for plain hostname
+            url = urlunparse(('https', server_netloc, '/vault/share/', None, query, utils.base64_url_encode(client_key)))
             urls[record_uid] = str(url)
 
         if params.batch_mode:

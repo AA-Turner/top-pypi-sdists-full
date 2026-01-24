@@ -22,7 +22,7 @@ class MissingDocKeywordRule(Rule):
     Keyword documentation is displayed in a tooltip in most code editors,
     so it is recommended to write it for each keyword.
 
-    You can add documentation to keyword using following syntax::
+    You can add documentation to keyword using following syntax:
 
         *** Keywords ***
         Keyword
@@ -40,13 +40,15 @@ class MissingDocKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0201",)
+    fix_suggestion = "Add a [Documentation] setting to the keyword."
 
 
 class MissingDocTestCaseRule(Rule):
     """
     Test case without documentation.
 
-    You can add documentation to test case using following syntax::
+    You can add documentation to test case using following syntax:
 
         *** Test Cases ***
         Test
@@ -54,7 +56,7 @@ class MissingDocTestCaseRule(Rule):
             Keyword Step
             Other Step
 
-    The rule by default ignores templated test cases but it can be configured with::
+    The rule by default ignores templated test cases but it can be configured with:
 
         robocop check --configure missing-doc-test-case.ignore_templated=False
 
@@ -79,13 +81,15 @@ class MissingDocTestCaseRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0202",)
+    fix_suggestion = "Add a [Documentation] setting to the test case."
 
 
 class MissingDocTestSuiteRule(Rule):
     """
     Test suite without documentation.
 
-    You can add documentation to suite using following syntax::
+    You can add documentation to suite using following syntax:
 
         *** Settings ***
         Documentation    Suite documentation
@@ -101,13 +105,14 @@ class MissingDocTestSuiteRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0203",)
 
 
 class MissingDocResourceFileRule(Rule):
     """
     Resource file without documentation.
 
-    You can add documentation to resource file using following syntax::
+    You can add documentation to resource file using following syntax:
 
         *** Settings ***
         Documentation    Resource file documentation
@@ -123,6 +128,7 @@ class MissingDocResourceFileRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0204",)
 
 
 class MissingDocumentationChecker(VisitorChecker):

@@ -21,7 +21,7 @@ from compressed_tensors.quantization.quant_args import (
     DynamicType,
     QuantizationArgs,
     QuantizationStrategy,
-    round_to_quantized_type,
+    round_to_quantized_type_args,
 )
 from compressed_tensors.quantization.quant_config import QuantizationStatus
 from compressed_tensors.quantization.quant_scheme import QuantizationScheme
@@ -29,7 +29,6 @@ from compressed_tensors.quantization.utils import (
     calculate_range,
     compute_dynamic_scales_and_zp,
 )
-from compressed_tensors.utils import safe_permute
 from torch.nn import Module
 
 
@@ -205,7 +204,8 @@ def _process_quantization(
     q_min, q_max = calculate_range(args, x.device)
     group_size = args.group_size
 
-    # blockwise FP8: quantize per 2D block, supports block_structure for static block quant
+    # blockwise FP8: quantize per 2D block, supports block_structure for static block
+    # quantization
     if args.strategy == QuantizationStrategy.BLOCK:
         original_shape = x.shape
         rows, cols = x.shape[-2], x.shape[-1]
@@ -214,8 +214,8 @@ def _process_quantization(
         # Ensure exact division (tensor dimensions must be divisible by block size)
         if rows % block_height != 0:
             raise ValueError(
-                f"Tensor height {rows} is not divisible by block_height {block_height}. "
-                f"Block quantization requires exact division."
+                f"Tensor height {rows} is not divisible by block_height {block_height}."
+                f" Block quantization requires exact division."
             )
         if cols % block_width != 0:
             raise ValueError(
@@ -278,7 +278,7 @@ def _process_quantization(
             if columns % group_size != 0:
                 raise ValueError(
                     "tensor column shape must be divisble "
-                    f"by the given group_size {group_size}"
+                    f"by the given group_size {group_size} but got {columns}"
                 )
 
         # support column-order (default) quantization as well as other orderings
@@ -293,9 +293,9 @@ def _process_quantization(
             group_sizes = group_sizes[torch.argsort(group_indices)]
 
             perm = torch.argsort(g_idx)
-            x = safe_permute(x, perm, dim=1)
+            x = x.index_select(-1, perm)
 
-        # Maintain all dimensions apart from the last dim, which is divided by the group_size
+        # Maintain all dimensions except the last dim, which is divided by group_size
         reshaped_dims = (
             ceil(x.shape[-1] / group_size),
             group_size,
@@ -327,9 +327,10 @@ def _process_quantization(
         output = output.to(output_dtype)
 
         if not is_column_order:
-            output = safe_permute(output, torch.argsort(perm), dim=1)
+            inv_perm = torch.argsort(perm)
+            output = output.index_select(-1, inv_perm)
 
-    else:  # covers channel, token and tensor strategies
+    else:  # covers tensor, channel, token, and attn_head strategies
         if do_quantize:
             output = _quantize(
                 x=x,
@@ -465,20 +466,17 @@ def _quantize(
     # if a global scale is optionally provided, use it
     # to further scale the local `scale` parameter
     if global_scale is not None:
-        scale = scale.to(global_scale.dtype) / global_scale
+        scale = scale / global_scale
 
     scaled = x / scale
 
     if zero_point is not None:
         scaled += zero_point.to(x.dtype)
 
-    # clamp first because cast isn't guaranteed to be saturated (ie for fp8)
-    clamped_value = torch.clamp(
-        scaled,
-        q_min,
-        q_max,
+    # clamp and round
+    quantized_value = round_to_quantized_type_args(
+        tensor=scaled, args=args, min=q_min, max=q_max
     )
-    quantized_value = round_to_quantized_type(clamped_value, args)
 
     if dtype is not None:
         quantized_value = quantized_value.to(dtype)
@@ -498,7 +496,7 @@ def _dequantize(
     # if a global scale is optionally provided, use it
     # to further scale the local `scale` parameter
     if global_scale is not None:
-        scale = scale.to(global_scale.dtype) / global_scale
+        scale = scale / global_scale
 
     dequant_value = x_q.to(scale.dtype)
 

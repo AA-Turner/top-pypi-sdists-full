@@ -93,7 +93,7 @@ class AddClusterCIDRRequest(AbstractModel):
         :type ClusterId: str
         :param _ClusterCIDRs: 增加的ClusterCIDR
         :type ClusterCIDRs: list of str
-        :param _IgnoreClusterCIDRConflict: 是否忽略ClusterCIDR与VPC路由表的冲突
+        :param _IgnoreClusterCIDRConflict: 是否忽略ClusterCIDR与VPC路由表的冲突，默认false，为true时忽略冲突
         :type IgnoreClusterCIDRConflict: bool
         """
         self._ClusterId = None
@@ -124,7 +124,7 @@ class AddClusterCIDRRequest(AbstractModel):
 
     @property
     def IgnoreClusterCIDRConflict(self):
-        r"""是否忽略ClusterCIDR与VPC路由表的冲突
+        r"""是否忽略ClusterCIDR与VPC路由表的冲突，默认false，为true时忽略冲突
         :rtype: bool
         """
         return self._IgnoreClusterCIDRConflict
@@ -183,9 +183,9 @@ class AddExistedInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
-        :param _InstanceIds: 实例列表，不支持竞价实例
+        :param _InstanceIds: 实例列表，不支持竞价实例（请登录 [CVM控制台](https://console.cloud.tencent.com/cvm) 获取待添加节点ID ）
         :type InstanceIds: list of str
         :param _InstanceAdvancedSettings: 实例额外需要设置参数信息(默认值)
         :type InstanceAdvancedSettings: :class:`tencentcloud.tke.v20180525.models.InstanceAdvancedSettings`
@@ -220,7 +220,7 @@ class AddExistedInstancesRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -231,7 +231,7 @@ class AddExistedInstancesRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        r"""实例列表，不支持竞价实例
+        r"""实例列表，不支持竞价实例（请登录 [CVM控制台](https://console.cloud.tencent.com/cvm) 获取待添加节点ID ）
         :rtype: list of str
         """
         return self._InstanceIds
@@ -482,7 +482,7 @@ class AddNodeToNodePoolRequest(AbstractModel):
         :type ClusterId: str
         :param _NodePoolId: 节点池id
         :type NodePoolId: str
-        :param _InstanceIds: 节点id
+        :param _InstanceIds: 节点id，获取参考 https://cloud.tencent.com/document/product/213/15728
         :type InstanceIds: list of str
         """
         self._ClusterId = None
@@ -513,7 +513,7 @@ class AddNodeToNodePoolRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        r"""节点id
+        r"""节点id，获取参考 https://cloud.tencent.com/document/product/213/15728
         :rtype: list of str
         """
         return self._InstanceIds
@@ -572,7 +572,7 @@ class AddVpcCniSubnetsRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群 ID，请[登录控制台](https://console.cloud.tencent.com/tke2/cluster)在集群列表复制ID
         :type ClusterId: str
         :param _SubnetIds: 为集群容器网络增加的子网列表
         :type SubnetIds: list of str
@@ -588,7 +588,7 @@ class AddVpcCniSubnetsRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群 ID，请[登录控制台](https://console.cloud.tencent.com/tke2/cluster)在集群列表复制ID
         :rtype: str
         """
         return self._ClusterId
@@ -687,7 +687,13 @@ class Addon(AbstractModel):
         :type AddonVersion: str
         :param _RawValues: addon的参数，是一个json格式的base64转码后的字符串
         :type RawValues: str
-        :param _Phase: addon的状态
+        :param _Phase: addon的状态：
+- Installing：安装中
+- Upgrading：升级中
+- Terminating：删除中
+- Succeeded：安装/升级成功
+- InstallFailed：安装失败
+- UpgradFailed：升级失败
         :type Phase: str
         :param _Reason: addon失败的原因
         :type Reason: str
@@ -736,7 +742,13 @@ class Addon(AbstractModel):
 
     @property
     def Phase(self):
-        r"""addon的状态
+        r"""addon的状态：
+- Installing：安装中
+- Upgrading：升级中
+- Terminating：删除中
+- Succeeded：安装/升级成功
+- InstallFailed：安装失败
+- UpgradFailed：升级失败
         :rtype: str
         """
         return self._Phase
@@ -1070,6 +1082,115 @@ class AutoscalingAdded(AbstractModel):
         
 
 
+class AvailableExtraArgs(AbstractModel):
+    r"""集群可用的自定义参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _KubeAPIServer: kube-apiserver可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type KubeAPIServer: list of Flag
+        :param _KubeControllerManager: kube-controller-manager可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type KubeControllerManager: list of Flag
+        :param _KubeScheduler: kube-scheduler可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type KubeScheduler: list of Flag
+        :param _Kubelet: kubelet可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Kubelet: list of Flag
+        """
+        self._KubeAPIServer = None
+        self._KubeControllerManager = None
+        self._KubeScheduler = None
+        self._Kubelet = None
+
+    @property
+    def KubeAPIServer(self):
+        r"""kube-apiserver可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Flag
+        """
+        return self._KubeAPIServer
+
+    @KubeAPIServer.setter
+    def KubeAPIServer(self, KubeAPIServer):
+        self._KubeAPIServer = KubeAPIServer
+
+    @property
+    def KubeControllerManager(self):
+        r"""kube-controller-manager可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Flag
+        """
+        return self._KubeControllerManager
+
+    @KubeControllerManager.setter
+    def KubeControllerManager(self, KubeControllerManager):
+        self._KubeControllerManager = KubeControllerManager
+
+    @property
+    def KubeScheduler(self):
+        r"""kube-scheduler可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Flag
+        """
+        return self._KubeScheduler
+
+    @KubeScheduler.setter
+    def KubeScheduler(self, KubeScheduler):
+        self._KubeScheduler = KubeScheduler
+
+    @property
+    def Kubelet(self):
+        r"""kubelet可用的自定义参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Flag
+        """
+        return self._Kubelet
+
+    @Kubelet.setter
+    def Kubelet(self, Kubelet):
+        self._Kubelet = Kubelet
+
+
+    def _deserialize(self, params):
+        if params.get("KubeAPIServer") is not None:
+            self._KubeAPIServer = []
+            for item in params.get("KubeAPIServer"):
+                obj = Flag()
+                obj._deserialize(item)
+                self._KubeAPIServer.append(obj)
+        if params.get("KubeControllerManager") is not None:
+            self._KubeControllerManager = []
+            for item in params.get("KubeControllerManager"):
+                obj = Flag()
+                obj._deserialize(item)
+                self._KubeControllerManager.append(obj)
+        if params.get("KubeScheduler") is not None:
+            self._KubeScheduler = []
+            for item in params.get("KubeScheduler"):
+                obj = Flag()
+                obj._deserialize(item)
+                self._KubeScheduler.append(obj)
+        if params.get("Kubelet") is not None:
+            self._Kubelet = []
+            for item in params.get("Kubelet"):
+                obj = Flag()
+                obj._deserialize(item)
+                self._Kubelet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class BackupStorageLocation(AbstractModel):
     r"""仓储仓库信息
 
@@ -1088,6 +1209,8 @@ class BackupStorageLocation(AbstractModel):
         :param _Path: 对象存储桶路径
         :type Path: str
         :param _State: 存储仓库状态
+- Available: 可用
+- Unavailable: 不可用
         :type State: str
         :param _Message: 详细状态信息	
         :type Message: str
@@ -1161,6 +1284,8 @@ class BackupStorageLocation(AbstractModel):
     @property
     def State(self):
         r"""存储仓库状态
+- Available: 可用
+- Unavailable: 不可用
         :rtype: str
         """
         return self._State
@@ -1303,7 +1428,7 @@ class CancelClusterReleaseRequest(AbstractModel):
         :type ID: str
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，支持传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :type ClusterType: str
         """
         self._ID = None
@@ -1334,7 +1459,7 @@ class CancelClusterReleaseRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，支持传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -1400,6 +1525,85 @@ class CancelClusterReleaseResponse(AbstractModel):
         if params.get("Release") is not None:
             self._Release = PendingRelease()
             self._Release._deserialize(params.get("Release"))
+        self._RequestId = params.get("RequestId")
+
+
+class CancelUpgradePlanRequest(AbstractModel):
+    r"""CancelUpgradePlan请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _PlanID: 升级计划ID
+        :type PlanID: int
+        """
+        self._ClusterID = None
+        self._PlanID = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def PlanID(self):
+        r"""升级计划ID
+        :rtype: int
+        """
+        return self._PlanID
+
+    @PlanID.setter
+    def PlanID(self, PlanID):
+        self._PlanID = PlanID
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        self._PlanID = params.get("PlanID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CancelUpgradePlanResponse(AbstractModel):
+    r"""CancelUpgradePlan返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -1650,17 +1854,22 @@ class CheckInstancesUpgradeAbleRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
         :param _InstanceIds: 节点列表，空为全部节点
         :type InstanceIds: list of str
         :param _UpgradeType: 升级类型，枚举值：reset(重装升级，支持大版本和小版本)，hot(原地滚动小版本升级)，major(原地滚动大版本升级)
         :type UpgradeType: str
-        :param _Offset: 分页Offset
+        :param _Offset: 偏移量，默认为0。关于 Offset 的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :type Offset: int
-        :param _Limit: 分页Limit
+        :param _Limit: 返回数量，默认为20，最大值为100。关于Limit的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :type Limit: int
-        :param _Filter: 过滤
+        :param _Filter: 过滤条件列表，Name 可选值为ip、instanceId、hostname、label
+
+- Name 为 ip 时，Value 为待查询节点 ip
+- Name 为 hostname 时，Value 为待查询节点名称
+- Name 为 label 时，Value 为待查询 K8S 节点 label
+- Name 为 instanceId 时，Value 为 待查询节点 id
         :type Filter: list of Filter
         """
         self._ClusterId = None
@@ -1672,7 +1881,7 @@ class CheckInstancesUpgradeAbleRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -1705,7 +1914,7 @@ class CheckInstancesUpgradeAbleRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""分页Offset
+        r"""偏移量，默认为0。关于 Offset 的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :rtype: int
         """
         return self._Offset
@@ -1716,7 +1925,7 @@ class CheckInstancesUpgradeAbleRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""分页Limit
+        r"""返回数量，默认为20，最大值为100。关于Limit的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :rtype: int
         """
         return self._Limit
@@ -1727,7 +1936,12 @@ class CheckInstancesUpgradeAbleRequest(AbstractModel):
 
     @property
     def Filter(self):
-        r"""过滤
+        r"""过滤条件列表，Name 可选值为ip、instanceId、hostname、label
+
+- Name 为 ip 时，Value 为待查询节点 ip
+- Name 为 hostname 时，Value 为待查询节点名称
+- Name 为 label 时，Value 为待查询 K8S 节点 label
+- Name 为 instanceId 时，Value 为 待查询节点 id
         :rtype: list of Filter
         """
         return self._Filter
@@ -1916,15 +2130,15 @@ class Cluster(AbstractModel):
         :type ContainerRuntime: str
         :param _CreatedTime: 创建时间
         :type CreatedTime: str
-        :param _DeletionProtection: 删除保护开关
+        :param _DeletionProtection: 集群删除保护开关，打开：true，关闭：false
         :type DeletionProtection: bool
-        :param _EnableExternalNode: 集群是否开启第三方节点支持
+        :param _EnableExternalNode: 集群是否开启第三方节点支持，开启：true，关闭：false
         :type EnableExternalNode: bool
         :param _ClusterLevel: 集群等级，针对托管集群生效
         :type ClusterLevel: str
-        :param _AutoUpgradeClusterLevel: 自动变配集群等级，针对托管集群生效
+        :param _AutoUpgradeClusterLevel: 自动变配集群等级，针对托管集群生效。开启：true，关闭：false
         :type AutoUpgradeClusterLevel: bool
-        :param _QGPUShareEnable: 是否开启QGPU共享
+        :param _QGPUShareEnable: 是否开启QGPU共享，开启：true，关闭：false
         :type QGPUShareEnable: bool
         :param _RuntimeVersion: 运行时版本
         :type RuntimeVersion: str
@@ -2149,7 +2363,7 @@ class Cluster(AbstractModel):
 
     @property
     def DeletionProtection(self):
-        r"""删除保护开关
+        r"""集群删除保护开关，打开：true，关闭：false
         :rtype: bool
         """
         return self._DeletionProtection
@@ -2160,7 +2374,7 @@ class Cluster(AbstractModel):
 
     @property
     def EnableExternalNode(self):
-        r"""集群是否开启第三方节点支持
+        r"""集群是否开启第三方节点支持，开启：true，关闭：false
         :rtype: bool
         """
         return self._EnableExternalNode
@@ -2182,7 +2396,7 @@ class Cluster(AbstractModel):
 
     @property
     def AutoUpgradeClusterLevel(self):
-        r"""自动变配集群等级，针对托管集群生效
+        r"""自动变配集群等级，针对托管集群生效。开启：true，关闭：false
         :rtype: bool
         """
         return self._AutoUpgradeClusterLevel
@@ -2193,7 +2407,7 @@ class Cluster(AbstractModel):
 
     @property
     def QGPUShareEnable(self):
-        r"""是否开启QGPU共享
+        r"""是否开启QGPU共享，开启：true，关闭：false
         :rtype: bool
         """
         return self._QGPUShareEnable
@@ -2324,7 +2538,10 @@ ipvs-bpf模式: 设置KubeProxyMode为kube-proxy-bpf
 1. 集群版本必须为1.14及以上；
 2. 系统镜像必须是: Tencent Linux 2.4；
         :type KubeProxyMode: str
-        :param _NetworkType: 集群网络类型。包括GR（全局路由）和VPC-CNI两种模式，默认为GR。
+        :param _NetworkType: 集群网络类型，默认为GR。
+- GR: 全局路由
+- VPC-CNI: VPC-CNI模式
+- CiliumOverlay: CiliumOverlay模式
         :type NetworkType: str
         :param _NodeNameType: 集群中节点NodeName类型（包括 hostname,lan-ip两种形式，默认为lan-ip。如果开启了hostname模式，创建节点时需要设置HostName参数，并且InstanceName需要和HostName一致）
         :type NodeNameType: str
@@ -2541,7 +2758,10 @@ ipvs-bpf模式: 设置KubeProxyMode为kube-proxy-bpf
 
     @property
     def NetworkType(self):
-        r"""集群网络类型。包括GR（全局路由）和VPC-CNI两种模式，默认为GR。
+        r"""集群网络类型，默认为GR。
+- GR: 全局路由
+- VPC-CNI: VPC-CNI模式
+- CiliumOverlay: CiliumOverlay模式
         :rtype: str
         """
         return self._NetworkType
@@ -2842,10 +3062,10 @@ class ClusterAsGroupOption(AbstractModel):
         :param _MaxTotalUnreadyPercentage: 未就绪节点的最大百分比，此后CA会停止操作
 注意：此字段可能返回 null，表示取不到有效值。
         :type MaxTotalUnreadyPercentage: int
-        :param _ScaleDownUnreadyTime: 表示未准备就绪的节点在有资格进行缩减之前应该停留多长时间
+        :param _ScaleDownUnreadyTime: 表示未准备就绪的节点在有资格进行缩减之前应该停留多少分钟
 注意：此字段可能返回 null，表示取不到有效值。
         :type ScaleDownUnreadyTime: int
-        :param _UnregisteredNodeRemovalTime: CA删除未在Kubernetes中注册的节点之前等待的时间
+        :param _UnregisteredNodeRemovalTime: CA删除未在Kubernetes中注册的节点之前等待的分钟数
 注意：此字段可能返回 null，表示取不到有效值。
         :type UnregisteredNodeRemovalTime: int
         """
@@ -2996,7 +3216,7 @@ class ClusterAsGroupOption(AbstractModel):
 
     @property
     def ScaleDownUnreadyTime(self):
-        r"""表示未准备就绪的节点在有资格进行缩减之前应该停留多长时间
+        r"""表示未准备就绪的节点在有资格进行缩减之前应该停留多少分钟
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -3008,7 +3228,7 @@ class ClusterAsGroupOption(AbstractModel):
 
     @property
     def UnregisteredNodeRemovalTime(self):
-        r"""CA删除未在Kubernetes中注册的节点之前等待的时间
+        r"""CA删除未在Kubernetes中注册的节点之前等待的分钟数
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -4428,6 +4648,92 @@ class ClusterPublicLB(AbstractModel):
         
 
 
+class ClusterRollOutSequenceTag(AbstractModel):
+    r"""集群发布序列标签
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _ClusterName: 集群名称
+        :type ClusterName: str
+        :param _Tags: 集群发布序列标签
+        :type Tags: list of Tag
+        :param _Region: 地域
+        :type Region: str
+        """
+        self._ClusterID = None
+        self._ClusterName = None
+        self._Tags = None
+        self._Region = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def ClusterName(self):
+        r"""集群名称
+        :rtype: str
+        """
+        return self._ClusterName
+
+    @ClusterName.setter
+    def ClusterName(self, ClusterName):
+        self._ClusterName = ClusterName
+
+    @property
+    def Tags(self):
+        r"""集群发布序列标签
+        :rtype: list of Tag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        self._ClusterName = params.get("ClusterName")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._Region = params.get("Region")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ClusterStatus(AbstractModel):
     r"""集群状态信息
 
@@ -4706,6 +5012,102 @@ class CommonName(AbstractModel):
     def _deserialize(self, params):
         self._SubaccountUin = params.get("SubaccountUin")
         self._CN = params.get("CN")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ComponentLogConfig(AbstractModel):
+    r"""组件日志采集配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 组件名称
+        :type Name: str
+        :param _LogLevel: 日志级别，对于支持动态调整日志级别的组件，开启日志时可指定该参数
+        :type LogLevel: int
+        :param _LogSetId: 日志集ID。如果不指定，则自动创建
+        :type LogSetId: str
+        :param _TopicId: 日志主题ID。如果不指定，则自动创建
+        :type TopicId: str
+        :param _TopicRegion: topic 所属region。 该参数可实现日志跨地域投递
+        :type TopicRegion: str
+        """
+        self._Name = None
+        self._LogLevel = None
+        self._LogSetId = None
+        self._TopicId = None
+        self._TopicRegion = None
+
+    @property
+    def Name(self):
+        r"""组件名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def LogLevel(self):
+        r"""日志级别，对于支持动态调整日志级别的组件，开启日志时可指定该参数
+        :rtype: int
+        """
+        return self._LogLevel
+
+    @LogLevel.setter
+    def LogLevel(self, LogLevel):
+        self._LogLevel = LogLevel
+
+    @property
+    def LogSetId(self):
+        r"""日志集ID。如果不指定，则自动创建
+        :rtype: str
+        """
+        return self._LogSetId
+
+    @LogSetId.setter
+    def LogSetId(self, LogSetId):
+        self._LogSetId = LogSetId
+
+    @property
+    def TopicId(self):
+        r"""日志主题ID。如果不指定，则自动创建
+        :rtype: str
+        """
+        return self._TopicId
+
+    @TopicId.setter
+    def TopicId(self, TopicId):
+        self._TopicId = TopicId
+
+    @property
+    def TopicRegion(self):
+        r"""topic 所属region。 该参数可实现日志跨地域投递
+        :rtype: str
+        """
+        return self._TopicRegion
+
+    @TopicRegion.setter
+    def TopicRegion(self, TopicRegion):
+        self._TopicRegion = TopicRegion
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._LogLevel = params.get("LogLevel")
+        self._LogSetId = params.get("LogSetId")
+        self._TopicId = params.get("TopicId")
+        self._TopicRegion = params.get("TopicRegion")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5190,9 +5592,9 @@ class CreateBackupStorageLocationRequest(AbstractModel):
         r"""
         :param _StorageRegion: 存储仓库所属地域，比如COS广州(ap-guangzhou)
         :type StorageRegion: str
-        :param _Bucket: 对象存储桶名称，如果是COS必须是tke-backup前缀开头
+        :param _Bucket: 对象存储桶名称，如果是COS必须是tke-backup前缀开头，字符长度是19
         :type Bucket: str
-        :param _Name: 备份仓库名称
+        :param _Name: 备份仓库名称，字符长度为63
         :type Name: str
         :param _Provider: 存储服务提供方，默认腾讯云
         :type Provider: str
@@ -5218,7 +5620,7 @@ class CreateBackupStorageLocationRequest(AbstractModel):
 
     @property
     def Bucket(self):
-        r"""对象存储桶名称，如果是COS必须是tke-backup前缀开头
+        r"""对象存储桶名称，如果是COS必须是tke-backup前缀开头，字符长度是19
         :rtype: str
         """
         return self._Bucket
@@ -5229,7 +5631,7 @@ class CreateBackupStorageLocationRequest(AbstractModel):
 
     @property
     def Name(self):
-        r"""备份仓库名称
+        r"""备份仓库名称，字符长度为63
         :rtype: str
         """
         return self._Name
@@ -5318,7 +5720,7 @@ class CreateCLSLogConfigRequest(AbstractModel):
         :type ClusterId: str
         :param _LogsetId: CLS日志集ID
         :type LogsetId: str
-        :param _ClusterType: 当前集群类型支持tke、eks
+        :param _ClusterType: 当前集群类型支持tke（标准集群）、eks（serverless集群）
         :type ClusterType: str
         """
         self._LogConfig = None
@@ -5361,7 +5763,7 @@ class CreateCLSLogConfigRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""当前集群类型支持tke、eks
+        r"""当前集群类型支持tke（标准集群）、eks（serverless集群）
         :rtype: str
         """
         return self._ClusterType
@@ -5423,13 +5825,14 @@ class CreateClusterEndpointRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _SubnetId: 集群端口所在的子网ID  (仅在开启非外网访问时需要填，必须为集群所在VPC内的子网)
+        :param _SubnetId: 集群端口所在的子网ID  (仅在开启非外网访问时需要填，必须为集群所在VPC内的子网)。获取方式：https://cloud.tencent.com/document/product/215/15784
+
         :type SubnetId: str
         :param _IsExtranet: 是否为外网访问（TRUE 外网访问 FALSE 内网访问，默认值： FALSE）
         :type IsExtranet: bool
         :param _Domain: 设置域名
         :type Domain: str
-        :param _SecurityGroup: 使用的安全组，只有外网访问需要传递（开启外网访问且不使用已有clb时必传）
+        :param _SecurityGroup: 使用的安全组，只有外网访问需要传递（开启外网访问且不使用已有clb时必传）。获取方式：https://cloud.tencent.com/document/api/215/15808
         :type SecurityGroup: str
         :param _ExtensiveParameters: 创建lb参数，只有外网访问需要设置，是一个json格式化后的字符串：{"InternetAccessible":{"InternetChargeType":"TRAFFIC_POSTPAID_BY_HOUR","InternetMaxBandwidthOut":200},"VipIsp":"","BandwidthPackageId":""}。
 各个参数意义：
@@ -5462,7 +5865,8 @@ BandwidthPackageId含义：带宽包ID，指定此参数时，网络计费方式
 
     @property
     def SubnetId(self):
-        r"""集群端口所在的子网ID  (仅在开启非外网访问时需要填，必须为集群所在VPC内的子网)
+        r"""集群端口所在的子网ID  (仅在开启非外网访问时需要填，必须为集群所在VPC内的子网)。获取方式：https://cloud.tencent.com/document/product/215/15784
+
         :rtype: str
         """
         return self._SubnetId
@@ -5495,7 +5899,7 @@ BandwidthPackageId含义：带宽包ID，指定此参数时，网络计费方式
 
     @property
     def SecurityGroup(self):
-        r"""使用的安全组，只有外网访问需要传递（开启外网访问且不使用已有clb时必传）
+        r"""使用的安全组，只有外网访问需要传递（开启外网访问且不使用已有clb时必传）。获取方式：https://cloud.tencent.com/document/api/215/15808
         :rtype: str
         """
         return self._SecurityGroup
@@ -5795,6 +6199,151 @@ class CreateClusterInstancesResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._InstanceIdSet = params.get("InstanceIdSet")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateClusterMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""CreateClusterMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID，可以从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
+        :type ClusterID: str
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长（小时）
+        :type Duration: int
+        :param _DayOfWeek: 维护周期（一周中的哪几天），支持的参数值如下：
+
+- MO：周一
+- TU：周二
+- WE：周三
+- TH：周四
+- FR：周五
+- SA：周六
+- SU：周日
+        :type DayOfWeek: list of str
+        :param _Exclusions: 维护排除项
+        :type Exclusions: list of MaintenanceExclusion
+        """
+        self._ClusterID = None
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._DayOfWeek = None
+        self._Exclusions = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID，可以从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长（小时）
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天），支持的参数值如下：
+
+- MO：周一
+- TU：周二
+- WE：周三
+- TH：周四
+- FR：周五
+- SA：周六
+- SU：周日
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def Exclusions(self):
+        r"""维护排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._DayOfWeek = params.get("DayOfWeek")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateClusterMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""CreateClusterMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -6118,11 +6667,11 @@ class CreateClusterReleaseRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _Name: 应用名称
+        :param _Name: 应用名称，最长63个字符，只能包含小写字母、数字及分隔符“-”，且必须以小写字母开头，数字或小写字母结尾
         :type Name: str
-        :param _Namespace: 应用命名空间
+        :param _Namespace: 应用命名空间，从集群详情命名空间获取
         :type Namespace: str
-        :param _Chart: 制品名称或从第三方repo 安装chart时，制品压缩包下载地址, 不支持重定向类型chart 地址，结尾为*.tgz
+        :param _Chart: 制品名称(从应用市场获取)或从第三方repo 安装chart时，制品压缩包下载地址, 不支持重定向类型chart 地址，结尾为*.tgz
         :type Chart: str
         :param _Values: 自定义参数
         :type Values: :class:`tencentcloud.tke.v20180525.models.ReleaseValues`
@@ -6167,7 +6716,7 @@ class CreateClusterReleaseRequest(AbstractModel):
 
     @property
     def Name(self):
-        r"""应用名称
+        r"""应用名称，最长63个字符，只能包含小写字母、数字及分隔符“-”，且必须以小写字母开头，数字或小写字母结尾
         :rtype: str
         """
         return self._Name
@@ -6178,7 +6727,7 @@ class CreateClusterReleaseRequest(AbstractModel):
 
     @property
     def Namespace(self):
-        r"""应用命名空间
+        r"""应用命名空间，从集群详情命名空间获取
         :rtype: str
         """
         return self._Namespace
@@ -6189,7 +6738,7 @@ class CreateClusterReleaseRequest(AbstractModel):
 
     @property
     def Chart(self):
-        r"""制品名称或从第三方repo 安装chart时，制品压缩包下载地址, 不支持重定向类型chart 地址，结尾为*.tgz
+        r"""制品名称(从应用市场获取)或从第三方repo 安装chart时，制品压缩包下载地址, 不支持重定向类型chart 地址，结尾为*.tgz
         :rtype: str
         """
         return self._Chart
@@ -6828,10 +7377,10 @@ class CreateClusterVirtualNodePoolRequest(AbstractModel):
         :type ClusterId: str
         :param _Name: 节点池名称
         :type Name: str
+        :param _SecurityGroupIds: 安全组ID列表
+        :type SecurityGroupIds: list of str
         :param _SubnetIds: 子网ID列表
         :type SubnetIds: list of str
-        :param _SecurityGroupIds: 安全组ID列表，必选参数
-        :type SecurityGroupIds: list of str
         :param _Labels: 虚拟节点label
         :type Labels: list of Label
         :param _Taints: 虚拟节点taint
@@ -6847,8 +7396,8 @@ class CreateClusterVirtualNodePoolRequest(AbstractModel):
         """
         self._ClusterId = None
         self._Name = None
-        self._SubnetIds = None
         self._SecurityGroupIds = None
+        self._SubnetIds = None
         self._Labels = None
         self._Taints = None
         self._VirtualNodes = None
@@ -6878,6 +7427,17 @@ class CreateClusterVirtualNodePoolRequest(AbstractModel):
         self._Name = Name
 
     @property
+    def SecurityGroupIds(self):
+        r"""安全组ID列表
+        :rtype: list of str
+        """
+        return self._SecurityGroupIds
+
+    @SecurityGroupIds.setter
+    def SecurityGroupIds(self, SecurityGroupIds):
+        self._SecurityGroupIds = SecurityGroupIds
+
+    @property
     def SubnetIds(self):
         r"""子网ID列表
         :rtype: list of str
@@ -6887,17 +7447,6 @@ class CreateClusterVirtualNodePoolRequest(AbstractModel):
     @SubnetIds.setter
     def SubnetIds(self, SubnetIds):
         self._SubnetIds = SubnetIds
-
-    @property
-    def SecurityGroupIds(self):
-        r"""安全组ID列表，必选参数
-        :rtype: list of str
-        """
-        return self._SecurityGroupIds
-
-    @SecurityGroupIds.setter
-    def SecurityGroupIds(self, SecurityGroupIds):
-        self._SecurityGroupIds = SecurityGroupIds
 
     @property
     def Labels(self):
@@ -6960,8 +7509,8 @@ class CreateClusterVirtualNodePoolRequest(AbstractModel):
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
         self._Name = params.get("Name")
-        self._SubnetIds = params.get("SubnetIds")
         self._SecurityGroupIds = params.get("SecurityGroupIds")
+        self._SubnetIds = params.get("SubnetIds")
         if params.get("Labels") is not None:
             self._Labels = []
             for item in params.get("Labels"):
@@ -8453,6 +9002,150 @@ class CreateEksLogConfigResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateGlobalMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""CreateGlobalMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长(小时)
+        :type Duration: int
+        :param _DayOfWeek: 维护周期（一周中的哪几天）
+        :type DayOfWeek: list of str
+        :param _TargetRegions: 地域
+        :type TargetRegions: list of str
+        :param _Exclusions: 维护排除项
+        :type Exclusions: list of MaintenanceExclusion
+        """
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._DayOfWeek = None
+        self._TargetRegions = None
+        self._Exclusions = None
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长(小时)
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天）
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def TargetRegions(self):
+        r"""地域
+        :rtype: list of str
+        """
+        return self._TargetRegions
+
+    @TargetRegions.setter
+    def TargetRegions(self, TargetRegions):
+        self._TargetRegions = TargetRegions
+
+    @property
+    def Exclusions(self):
+        r"""维护排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+
+    def _deserialize(self, params):
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._DayOfWeek = params.get("DayOfWeek")
+        self._TargetRegions = params.get("TargetRegions")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateGlobalMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""CreateGlobalMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 维护窗口ID
+        :type ID: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ID = None
+        self._RequestId = None
+
+    @property
+    def ID(self):
+        r"""维护窗口ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateImageCacheRequest(AbstractModel):
     r"""CreateImageCache请求参数结构体
 
@@ -9660,12 +10353,16 @@ class CreateReservedInstancesRequest(AbstractModel):
         :type InstanceName: str
         :param _ClientToken: 用于保证请求幂等性的字符串。该字符串由客户生成，需保证不同请求之间唯一，最大值不超过64个ASCII字符。若不指定该参数，则无法保证请求的幂等性。
         :type ClientToken: str
+        :param _DryRun: 是否只预检此次请求。
+true：只预检，不会创建实例。默认值为：false。
+        :type DryRun: bool
         """
         self._ReservedInstanceSpec = None
         self._InstanceCount = None
         self._InstanceChargePrepaid = None
         self._InstanceName = None
         self._ClientToken = None
+        self._DryRun = None
 
     @property
     def ReservedInstanceSpec(self):
@@ -9722,6 +10419,18 @@ class CreateReservedInstancesRequest(AbstractModel):
     def ClientToken(self, ClientToken):
         self._ClientToken = ClientToken
 
+    @property
+    def DryRun(self):
+        r"""是否只预检此次请求。
+true：只预检，不会创建实例。默认值为：false。
+        :rtype: bool
+        """
+        return self._DryRun
+
+    @DryRun.setter
+    def DryRun(self, DryRun):
+        self._DryRun = DryRun
+
 
     def _deserialize(self, params):
         if params.get("ReservedInstanceSpec") is not None:
@@ -9733,6 +10442,7 @@ class CreateReservedInstancesRequest(AbstractModel):
             self._InstanceChargePrepaid._deserialize(params.get("InstanceChargePrepaid"))
         self._InstanceName = params.get("InstanceName")
         self._ClientToken = params.get("ClientToken")
+        self._DryRun = params.get("DryRun")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9783,6 +10493,105 @@ class CreateReservedInstancesResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._ReservedInstanceIds = params.get("ReservedInstanceIds")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRollOutSequenceRequest(AbstractModel):
+    r"""CreateRollOutSequence请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 发布序列名称
+        :type Name: str
+        :param _SequenceFlows: 发布序列步骤
+        :type SequenceFlows: list of SequenceFlow
+        :param _Enabled: 是否启用
+        :type Enabled: bool
+        """
+        self._Name = None
+        self._SequenceFlows = None
+        self._Enabled = None
+
+    @property
+    def Name(self):
+        r"""发布序列名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def SequenceFlows(self):
+        r"""发布序列步骤
+        :rtype: list of SequenceFlow
+        """
+        return self._SequenceFlows
+
+    @SequenceFlows.setter
+    def SequenceFlows(self, SequenceFlows):
+        self._SequenceFlows = SequenceFlows
+
+    @property
+    def Enabled(self):
+        r"""是否启用
+        :rtype: bool
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        if params.get("SequenceFlows") is not None:
+            self._SequenceFlows = []
+            for item in params.get("SequenceFlows"):
+                obj = SequenceFlow()
+                obj._deserialize(item)
+                self._SequenceFlows.append(obj)
+        self._Enabled = params.get("Enabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRollOutSequenceResponse(AbstractModel):
+    r"""CreateRollOutSequence返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -10361,9 +11170,9 @@ class DeleteAddonRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
-        :param _AddonName: addon名称
+        :param _AddonName: addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :type AddonName: str
         """
         self._ClusterId = None
@@ -10371,7 +11180,7 @@ class DeleteAddonRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -10382,7 +11191,7 @@ class DeleteAddonRequest(AbstractModel):
 
     @property
     def AddonName(self):
-        r"""addon名称
+        r"""addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :rtype: str
         """
         return self._AddonName
@@ -10741,23 +11550,26 @@ class DeleteClusterInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
-        :param _InstanceIds: 主机InstanceId列表
+        :param _InstanceIds: 主机 InstanceId 列表
         :type InstanceIds: list of str
         :param _InstanceDeleteMode: 集群实例删除时的策略：terminate（销毁实例，仅支持按量计费云主机实例） retain （仅移除，保留实例）
         :type InstanceDeleteMode: str
         :param _ForceDelete: 是否强制删除(当节点在初始化时，可以指定参数为TRUE)
         :type ForceDelete: bool
+        :param _ResourceDeleteOptions: 集群删除时资源的删除策略，目前支持CBS（默认保留CBS）
+        :type ResourceDeleteOptions: list of ResourceDeleteOption
         """
         self._ClusterId = None
         self._InstanceIds = None
         self._InstanceDeleteMode = None
         self._ForceDelete = None
+        self._ResourceDeleteOptions = None
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -10768,7 +11580,7 @@ class DeleteClusterInstancesRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        r"""主机InstanceId列表
+        r"""主机 InstanceId 列表
         :rtype: list of str
         """
         return self._InstanceIds
@@ -10799,12 +11611,29 @@ class DeleteClusterInstancesRequest(AbstractModel):
     def ForceDelete(self, ForceDelete):
         self._ForceDelete = ForceDelete
 
+    @property
+    def ResourceDeleteOptions(self):
+        r"""集群删除时资源的删除策略，目前支持CBS（默认保留CBS）
+        :rtype: list of ResourceDeleteOption
+        """
+        return self._ResourceDeleteOptions
+
+    @ResourceDeleteOptions.setter
+    def ResourceDeleteOptions(self, ResourceDeleteOptions):
+        self._ResourceDeleteOptions = ResourceDeleteOptions
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
         self._InstanceIds = params.get("InstanceIds")
         self._InstanceDeleteMode = params.get("InstanceDeleteMode")
         self._ForceDelete = params.get("ForceDelete")
+        if params.get("ResourceDeleteOptions") is not None:
+            self._ResourceDeleteOptions = []
+            for item in params.get("ResourceDeleteOptions"):
+                obj = ResourceDeleteOption()
+                obj._deserialize(item)
+                self._ResourceDeleteOptions.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10891,6 +11720,70 @@ class DeleteClusterInstancesResponse(AbstractModel):
         self._SuccInstanceIds = params.get("SuccInstanceIds")
         self._FailedInstanceIds = params.get("FailedInstanceIds")
         self._NotFoundInstanceIds = params.get("NotFoundInstanceIds")
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteClusterMaintenanceWindowAndExclusionRequest(AbstractModel):
+    r"""DeleteClusterMaintenanceWindowAndExclusion请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID，可以从容器服务控制台计划升级功能集群维护窗口页面获取（https://console.cloud.tencent.com/tke2/upgrade-plan）。
+        :type ClusterID: str
+        """
+        self._ClusterID = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID，可以从容器服务控制台计划升级功能集群维护窗口页面获取（https://console.cloud.tencent.com/tke2/upgrade-plan）。
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteClusterMaintenanceWindowAndExclusionResponse(AbstractModel):
+    r"""DeleteClusterMaintenanceWindowAndExclusion返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -11787,6 +12680,70 @@ class DeleteEdgeClusterInstancesRequest(AbstractModel):
 
 class DeleteEdgeClusterInstancesResponse(AbstractModel):
     r"""DeleteEdgeClusterInstances返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteGlobalMaintenanceWindowAndExclusionRequest(AbstractModel):
+    r"""DeleteGlobalMaintenanceWindowAndExclusion请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 全局维护时间窗口ID
+        :type ID: int
+        """
+        self._ID = None
+
+    @property
+    def ID(self):
+        r"""全局维护时间窗口ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteGlobalMaintenanceWindowAndExclusionResponse(AbstractModel):
+    r"""DeleteGlobalMaintenanceWindowAndExclusion返回参数结构体
 
     """
 
@@ -12851,6 +13808,70 @@ class DeleteReservedInstancesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteRollOutSequenceRequest(AbstractModel):
+    r"""DeleteRollOutSequence请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 发布序列ID
+        :type ID: int
+        """
+        self._ID = None
+
+    @property
+    def ID(self):
+        r"""发布序列ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRollOutSequenceResponse(AbstractModel):
+    r"""DeleteRollOutSequence返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DeleteTKEEdgeClusterRequest(AbstractModel):
     r"""DeleteTKEEdgeCluster请求参数结构体
 
@@ -12915,6 +13936,90 @@ class DeleteTKEEdgeClusterResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteUserPermissionsRequest(AbstractModel):
+    r"""DeleteUserPermissions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetUin: 要授权的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :type TargetUin: str
+        :param _Permissions: 用户最终应拥有的完整权限列表。采用声明式语义，传入的列表代表用户最终应该拥有的全部权限，系统会自动计算差异并执行必要的创建/删除操作。为空或不提供时将清除该用户的所有权限。最大支持 100 个权限项。
+        :type Permissions: list of PermissionItem
+        """
+        self._TargetUin = None
+        self._Permissions = None
+
+    @property
+    def TargetUin(self):
+        r"""要授权的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :rtype: str
+        """
+        return self._TargetUin
+
+    @TargetUin.setter
+    def TargetUin(self, TargetUin):
+        self._TargetUin = TargetUin
+
+    @property
+    def Permissions(self):
+        r"""用户最终应拥有的完整权限列表。采用声明式语义，传入的列表代表用户最终应该拥有的全部权限，系统会自动计算差异并执行必要的创建/删除操作。为空或不提供时将清除该用户的所有权限。最大支持 100 个权限项。
+        :rtype: list of PermissionItem
+        """
+        return self._Permissions
+
+    @Permissions.setter
+    def Permissions(self, Permissions):
+        self._Permissions = Permissions
+
+
+    def _deserialize(self, params):
+        self._TargetUin = params.get("TargetUin")
+        if params.get("Permissions") is not None:
+            self._Permissions = []
+            for item in params.get("Permissions"):
+                obj = PermissionItem()
+                obj._deserialize(item)
+                self._Permissions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteUserPermissionsResponse(AbstractModel):
+    r"""DeleteUserPermissions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeAddonRequest(AbstractModel):
     r"""DescribeAddon请求参数结构体
 
@@ -12922,7 +14027,7 @@ class DescribeAddonRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
         :param _AddonName: addon名称（不传时会返回集群下全部的addon）
         :type AddonName: str
@@ -12932,7 +14037,7 @@ class DescribeAddonRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -13021,9 +14126,9 @@ class DescribeAddonValuesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
-        :param _AddonName: addon名称
+        :param _AddonName: addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :type AddonName: str
         """
         self._ClusterId = None
@@ -13031,7 +14136,7 @@ class DescribeAddonValuesRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -13042,7 +14147,7 @@ class DescribeAddonValuesRequest(AbstractModel):
 
     @property
     def AddonName(self):
-        r"""addon名称
+        r"""addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :rtype: str
         """
         return self._AddonName
@@ -13130,9 +14235,9 @@ class DescribeAvailableClusterVersionRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群 Id。若只查询某个集群可升级的版本，需填写此项。
+        :param _ClusterId: 集群 Id。若只查询某个集群可升级的版本，需填写此项，与ClusterIds 参数二选一。
         :type ClusterId: str
-        :param _ClusterIds: 集群 Id 列表。若查询多个集群可升级的版本，需填写此项。
+        :param _ClusterIds: 集群 Id 列表。若查询多个集群可升级的版本，需填写此项，与ClusterId 参数二选一。
         :type ClusterIds: list of str
         """
         self._ClusterId = None
@@ -13140,7 +14245,7 @@ class DescribeAvailableClusterVersionRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群 Id。若只查询某个集群可升级的版本，需填写此项。
+        r"""集群 Id。若只查询某个集群可升级的版本，需填写此项，与ClusterIds 参数二选一。
         :rtype: str
         """
         return self._ClusterId
@@ -13151,7 +14256,7 @@ class DescribeAvailableClusterVersionRequest(AbstractModel):
 
     @property
     def ClusterIds(self):
-        r"""集群 Id 列表。若查询多个集群可升级的版本，需填写此项。
+        r"""集群 Id 列表。若查询多个集群可升级的版本，需填写此项，与ClusterId 参数二选一。
         :rtype: list of str
         """
         return self._ClusterIds
@@ -13912,6 +15017,132 @@ class DescribeClusterAuthenticationOptionsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeClusterAvailableExtraArgsRequest(AbstractModel):
+    r"""DescribeClusterAvailableExtraArgs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterVersion: 集群版本
+        :type ClusterVersion: str
+        :param _ClusterType: 集群类型(MANAGED_CLUSTER或INDEPENDENT_CLUSTER)
+        :type ClusterType: str
+        """
+        self._ClusterVersion = None
+        self._ClusterType = None
+
+    @property
+    def ClusterVersion(self):
+        r"""集群版本
+        :rtype: str
+        """
+        return self._ClusterVersion
+
+    @ClusterVersion.setter
+    def ClusterVersion(self, ClusterVersion):
+        self._ClusterVersion = ClusterVersion
+
+    @property
+    def ClusterType(self):
+        r"""集群类型(MANAGED_CLUSTER或INDEPENDENT_CLUSTER)
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+
+    def _deserialize(self, params):
+        self._ClusterVersion = params.get("ClusterVersion")
+        self._ClusterType = params.get("ClusterType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeClusterAvailableExtraArgsResponse(AbstractModel):
+    r"""DescribeClusterAvailableExtraArgs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterVersion: 集群版本
+        :type ClusterVersion: str
+        :param _AvailableExtraArgs: 可用的自定义参数
+        :type AvailableExtraArgs: :class:`tencentcloud.tke.v20180525.models.AvailableExtraArgs`
+        :param _ClusterType: 集群类型
+        :type ClusterType: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ClusterVersion = None
+        self._AvailableExtraArgs = None
+        self._ClusterType = None
+        self._RequestId = None
+
+    @property
+    def ClusterVersion(self):
+        r"""集群版本
+        :rtype: str
+        """
+        return self._ClusterVersion
+
+    @ClusterVersion.setter
+    def ClusterVersion(self, ClusterVersion):
+        self._ClusterVersion = ClusterVersion
+
+    @property
+    def AvailableExtraArgs(self):
+        r"""可用的自定义参数
+        :rtype: :class:`tencentcloud.tke.v20180525.models.AvailableExtraArgs`
+        """
+        return self._AvailableExtraArgs
+
+    @AvailableExtraArgs.setter
+    def AvailableExtraArgs(self, AvailableExtraArgs):
+        self._AvailableExtraArgs = AvailableExtraArgs
+
+    @property
+    def ClusterType(self):
+        r"""集群类型
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ClusterVersion = params.get("ClusterVersion")
+        if params.get("AvailableExtraArgs") is not None:
+            self._AvailableExtraArgs = AvailableExtraArgs()
+            self._AvailableExtraArgs._deserialize(params.get("AvailableExtraArgs"))
+        self._ClusterType = params.get("ClusterType")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeClusterCommonNamesRequest(AbstractModel):
     r"""DescribeClusterCommonNames请求参数结构体
 
@@ -14168,7 +15399,7 @@ class DescribeClusterEndpointStatusResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Status: 查询集群访问端口状态（Created 开启成功，Creating 开启中，NotFound 未开启）
+        :param _Status: 查询集群访问端口状态（Created 开启成功，Creating 开启中，NotFound 未开启，CreateFailed 开启失败）
         :type Status: str
         :param _ErrorMsg: 开启访问入口失败信息
         :type ErrorMsg: str
@@ -14181,7 +15412,7 @@ class DescribeClusterEndpointStatusResponse(AbstractModel):
 
     @property
     def Status(self):
-        r"""查询集群访问端口状态（Created 开启成功，Creating 开启中，NotFound 未开启）
+        r"""查询集群访问端口状态（Created 开启成功，Creating 开启中，NotFound 未开启，CreateFailed 开启失败）
         :rtype: str
         """
         return self._Status
@@ -14753,15 +15984,21 @@ class DescribeClusterInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
         :param _Offset: 偏移量，默认为0。关于Offset的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :type Offset: int
         :param _Limit: 返回数量，默认为20，最大值为100。关于Limit的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/api/213/15688)中的相关小节。
         :type Limit: int
-        :param _InstanceIds: 需要获取的节点实例Id列表。如果为空，表示拉取集群下所有节点实例。
+        :param _InstanceIds: 需要获取的节点实例 ID 列表。如果为空，表示拉取集群下所有节点实例。普通节点用 CVM ID（如 ins-1cghhuuu ），原生节点用节点池内机器 ID （如 np-1ade4uid-0a2dc ）。
         :type InstanceIds: list of str
-        :param _InstanceRole: 节点角色, MASTER, WORKER, ETCD, MASTER_ETCD,ALL, 默认为WORKER。默认为WORKER类型。
+        :param _InstanceRole: 节点角色，默认为WORKER类型
+
+- WOKRER 集群内常规计算节点
+- MASTER 独立集群控制面组件节点
+- ETCD 独立集群 etcd 存储节点
+- MASTER_ETCD 独立集群控制面、etcd 共同部署的 master 节点
+
         :type InstanceRole: str
         :param _Filters: 过滤条件列表；Name的可选值为nodepool-id、nodepool-instance-type；Name为nodepool-id表示根据节点池id过滤机器，Value的值为具体的节点池id，Name为nodepool-instance-type表示节点加入节点池的方式，Value的值为MANUALLY_ADDED（手动加入节点池）、AUTOSCALING_ADDED（伸缩组扩容方式加入节点池）、ALL（手动加入节点池 和 伸缩组扩容方式加入节点池）
         :type Filters: list of Filter
@@ -14775,7 +16012,7 @@ class DescribeClusterInstancesRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -14808,7 +16045,7 @@ class DescribeClusterInstancesRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        r"""需要获取的节点实例Id列表。如果为空，表示拉取集群下所有节点实例。
+        r"""需要获取的节点实例 ID 列表。如果为空，表示拉取集群下所有节点实例。普通节点用 CVM ID（如 ins-1cghhuuu ），原生节点用节点池内机器 ID （如 np-1ade4uid-0a2dc ）。
         :rtype: list of str
         """
         return self._InstanceIds
@@ -14819,7 +16056,13 @@ class DescribeClusterInstancesRequest(AbstractModel):
 
     @property
     def InstanceRole(self):
-        r"""节点角色, MASTER, WORKER, ETCD, MASTER_ETCD,ALL, 默认为WORKER。默认为WORKER类型。
+        r"""节点角色，默认为WORKER类型
+
+- WOKRER 集群内常规计算节点
+- MASTER 独立集群控制面组件节点
+- ETCD 独立集群 etcd 存储节点
+- MASTER_ETCD 独立集群控制面、etcd 共同部署的 master 节点
+
         :rtype: str
         """
         return self._InstanceRole
@@ -15277,6 +16520,140 @@ class DescribeClusterLevelChangeRecordsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeClusterMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""DescribeClusterMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        :param _Filters: 过滤项
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤项
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeClusterMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""DescribeClusterMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MaintenanceWindowAndExclusions: 维护时间窗口和排除项
+        :type MaintenanceWindowAndExclusions: list of MaintenanceWindowAndExclusion
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._MaintenanceWindowAndExclusions = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def MaintenanceWindowAndExclusions(self):
+        r"""维护时间窗口和排除项
+        :rtype: list of MaintenanceWindowAndExclusion
+        """
+        return self._MaintenanceWindowAndExclusions
+
+    @MaintenanceWindowAndExclusions.setter
+    def MaintenanceWindowAndExclusions(self, MaintenanceWindowAndExclusions):
+        self._MaintenanceWindowAndExclusions = MaintenanceWindowAndExclusions
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("MaintenanceWindowAndExclusions") is not None:
+            self._MaintenanceWindowAndExclusions = []
+            for item in params.get("MaintenanceWindowAndExclusions"):
+                obj = MaintenanceWindowAndExclusion()
+                obj._deserialize(item)
+                self._MaintenanceWindowAndExclusions.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeClusterNodePoolDetailRequest(AbstractModel):
     r"""DescribeClusterNodePoolDetail请求参数结构体
 
@@ -15531,7 +16908,7 @@ class DescribeClusterPendingReleasesRequest(AbstractModel):
         :type Limit: int
         :param _Offset: 偏移量，默认0
         :type Offset: int
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，支持传入tke（标准集群），eks（Serverless集群)，external（注册集群）
         :type ClusterType: str
         """
         self._ClusterId = None
@@ -15574,7 +16951,7 @@ class DescribeClusterPendingReleasesRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，支持传入tke（标准集群），eks（Serverless集群)，external（注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -15705,7 +17082,7 @@ class DescribeClusterReleaseDetailsRequest(AbstractModel):
         :type Name: str
         :param _Namespace: 应用所在命名空间
         :type Namespace: str
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :type ClusterType: str
         """
         self._ClusterId = None
@@ -15748,7 +17125,7 @@ class DescribeClusterReleaseDetailsRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -15831,7 +17208,7 @@ class DescribeClusterReleaseHistoryRequest(AbstractModel):
         :type Name: str
         :param _Namespace: 应用所在命名空间
         :type Namespace: str
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :type ClusterType: str
         """
         self._ClusterId = None
@@ -15874,7 +17251,7 @@ class DescribeClusterReleaseHistoryRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，传入 tke(标准集群), eks(Serverless集群), external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -15971,11 +17348,11 @@ class DescribeClusterReleasesRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群id
         :type ClusterId: str
-        :param _Limit: 每页数量限制
+        :param _Limit: 每页数量限制，默认值为20
         :type Limit: int
-        :param _Offset: 页偏移量
+        :param _Offset: 页偏移量，默认值为0
         :type Offset: int
-        :param _ClusterType: 集群类型, 目前支持传入 tke, eks, tkeedge, external 
+        :param _ClusterType: 集群类型，传入 tke(标准集群)，eks(Serverless集群)，external(注册集群）
         :type ClusterType: str
         :param _Namespace: helm Release 安装的namespace
         :type Namespace: str
@@ -16005,7 +17382,7 @@ class DescribeClusterReleasesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""每页数量限制
+        r"""每页数量限制，默认值为20
         :rtype: int
         """
         return self._Limit
@@ -16016,7 +17393,7 @@ class DescribeClusterReleasesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""页偏移量
+        r"""页偏移量，默认值为0
         :rtype: int
         """
         return self._Offset
@@ -16027,7 +17404,7 @@ class DescribeClusterReleasesRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型, 目前支持传入 tke, eks, tkeedge, external 
+        r"""集群类型，传入 tke(标准集群)，eks(Serverless集群)，external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -16181,6 +17558,140 @@ class DescribeClusterReleasesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeClusterRollOutSequenceTagsRequest(AbstractModel):
+    r"""DescribeClusterRollOutSequenceTags请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        :param _Filters: 过滤项
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""过滤项
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeClusterRollOutSequenceTagsResponse(AbstractModel):
+    r"""DescribeClusterRollOutSequenceTags返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterTags: 集群发布序列标签
+        :type ClusterTags: list of ClusterRollOutSequenceTag
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ClusterTags = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def ClusterTags(self):
+        r"""集群发布序列标签
+        :rtype: list of ClusterRollOutSequenceTag
+        """
+        return self._ClusterTags
+
+    @ClusterTags.setter
+    def ClusterTags(self, ClusterTags):
+        self._ClusterTags = ClusterTags
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ClusterTags") is not None:
+            self._ClusterTags = []
+            for item in params.get("ClusterTags"):
+                obj = ClusterRollOutSequenceTag()
+                obj._deserialize(item)
+                self._ClusterTags.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeClusterRouteTablesRequest(AbstractModel):
     r"""DescribeClusterRouteTables请求参数结构体
 
@@ -16257,7 +17768,7 @@ class DescribeClusterRoutesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RouteTableName: 路由表名称。
+        :param _RouteTableName: 路由表名称。与集群 ID 一致，可以到[集群控制台](https://console.cloud.tencent.com/tke2)进行复制。
         :type RouteTableName: str
         :param _Filters: 过滤条件,当前只支持按照单个条件GatewayIP进行过滤（可选）
         :type Filters: list of Filter
@@ -16267,7 +17778,7 @@ class DescribeClusterRoutesRequest(AbstractModel):
 
     @property
     def RouteTableName(self):
-        r"""路由表名称。
+        r"""路由表名称。与集群 ID 一致，可以到[集群控制台](https://console.cloud.tencent.com/tke2)进行复制。
         :rtype: str
         """
         return self._RouteTableName
@@ -16915,7 +18426,7 @@ class DescribeClustersRequest(AbstractModel):
         :type Limit: int
         :param _Filters: · "Name":"ClusterName","Values": ["test"] 按照【集群名】进行过滤。 类型：String 必选：否 · "Name":"ClusterType","Values": ["MANAGED_CLUSTER"] 按照【集群类型】进行过滤。 类型：String 必选：否 · "Name":"ClusterStatus","Values": ["Running"] 按照【集群状态】进行过滤。 类型：String 必选：否 · "Name":"vpc-id","Values": ["vpc-2wds9k9p"] 按照【VPC】进行过滤。 类型：String 必选：否 · "Name":"tag-key","Values": ["testKey"] 按照【标签键】进行过滤。 类型：String 必选：否 · "Name":"tag-value","Values": ["testValue"] 按照【标签值】进行过滤。 类型：String 必选：否 · "Name":"Tags","Values": ["product:tke"] 按照【标签键值对】进行过滤。 类型：String 必选：否
         :type Filters: list of Filter
-        :param _ClusterType: 集群类型，例如：MANAGED_CLUSTER
+        :param _ClusterType: 集群类型，托管集群：MANAGED_CLUSTER，独立集群：INDEPENDENT_CLUSTER。
         :type ClusterType: str
         """
         self._ClusterIds = None
@@ -16971,7 +18482,7 @@ class DescribeClustersRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型，例如：MANAGED_CLUSTER
+        r"""集群类型，托管集群：MANAGED_CLUSTER，独立集群：INDEPENDENT_CLUSTER。
         :rtype: str
         """
         return self._ClusterType
@@ -17062,6 +18573,105 @@ class DescribeClustersResponse(AbstractModel):
                 obj = Cluster()
                 obj._deserialize(item)
                 self._Clusters.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeControlPlaneLogsRequest(AbstractModel):
+    r"""DescribeControlPlaneLogs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _ClusterType: 集群类型。当前只支持tke
+        :type ClusterType: str
+        """
+        self._ClusterId = None
+        self._ClusterType = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def ClusterType(self):
+        r"""集群类型。当前只支持tke
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._ClusterType = params.get("ClusterType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeControlPlaneLogsResponse(AbstractModel):
+    r"""DescribeControlPlaneLogs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Details: 日志采集配置查询结果
+        :type Details: list of ComponentLogConfig
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Details = None
+        self._RequestId = None
+
+    @property
+    def Details(self):
+        r"""日志采集配置查询结果
+        :rtype: list of ComponentLogConfig
+        """
+        return self._Details
+
+    @Details.setter
+    def Details(self, Details):
+        self._Details = Details
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Details") is not None:
+            self._Details = []
+            for item in params.get("Details"):
+                obj = ComponentLogConfig()
+                obj._deserialize(item)
+                self._Details.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -18863,6 +20473,10 @@ class DescribeEncryptionStatusResponse(AbstractModel):
     def __init__(self):
         r"""
         :param _Status: 加密状态
+- Opening: 开启中
+- Opened: 已开启
+- Closing: 关闭中
+- Closed: 已关闭
         :type Status: str
         :param _ErrorMsg: 加密错误信息
         :type ErrorMsg: str
@@ -18876,6 +20490,10 @@ class DescribeEncryptionStatusResponse(AbstractModel):
     @property
     def Status(self):
         r"""加密状态
+- Opening: 开启中
+- Opened: 已开启
+- Closing: 关闭中
+- Closed: 已关闭
         :rtype: str
         """
         return self._Status
@@ -19403,6 +21021,142 @@ class DescribeExternalNodeSupportConfigResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeGlobalMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""DescribeGlobalMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        :param _Filters: 筛选项，支持按照以下字段过滤：
+- "ID"：维护窗口ID，如：10
+        :type Filters: list of Filter
+        """
+        self._Offset = None
+        self._Limit = None
+        self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Filters(self):
+        r"""筛选项，支持按照以下字段过滤：
+- "ID"：维护窗口ID，如：10
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeGlobalMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""DescribeGlobalMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _MaintenanceWindowAndExclusions: 维护时间窗口
+        :type MaintenanceWindowAndExclusions: list of GlobalMaintenanceWindowAndExclusion
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._MaintenanceWindowAndExclusions = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def MaintenanceWindowAndExclusions(self):
+        r"""维护时间窗口
+        :rtype: list of GlobalMaintenanceWindowAndExclusion
+        """
+        return self._MaintenanceWindowAndExclusions
+
+    @MaintenanceWindowAndExclusions.setter
+    def MaintenanceWindowAndExclusions(self, MaintenanceWindowAndExclusions):
+        self._MaintenanceWindowAndExclusions = MaintenanceWindowAndExclusions
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("MaintenanceWindowAndExclusions") is not None:
+            self._MaintenanceWindowAndExclusions = []
+            for item in params.get("MaintenanceWindowAndExclusions"):
+                obj = GlobalMaintenanceWindowAndExclusion()
+                obj._deserialize(item)
+                self._MaintenanceWindowAndExclusions.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeIPAMDRequest(AbstractModel):
     r"""DescribeIPAMD请求参数结构体
 
@@ -19410,14 +21164,14 @@ class DescribeIPAMDRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群 ID，请[登录控制台](https://console.cloud.tencent.com/tke2/cluster)在集群列表复制ID
         :type ClusterId: str
         """
         self._ClusterId = None
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群 ID，请[登录控制台](https://console.cloud.tencent.com/tke2/cluster)在集群列表复制ID
         :rtype: str
         """
         return self._ClusterId
@@ -20283,7 +22037,7 @@ class DescribeOpenPolicyListRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务集群列表获取（https://console.cloud.tencent.com/tke2/cluster）
         :type ClusterId: str
         :param _Category: 策略分类 基线：baseline 优选：priority 可选：optional
         :type Category: str
@@ -20293,7 +22047,7 @@ class DescribeOpenPolicyListRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务集群列表获取（https://console.cloud.tencent.com/tke2/cluster）
         :rtype: str
         """
         return self._ClusterId
@@ -24295,11 +26049,11 @@ class DescribeResourceUsageResponse(AbstractModel):
         r"""
         :param _CRDUsage: CRD使用量
         :type CRDUsage: :class:`tencentcloud.tke.v20180525.models.ResourceUsage`
-        :param _PodUsage: Pod使用量
+        :param _PodUsage: Pod使用量，单位：个数
         :type PodUsage: int
-        :param _RSUsage: ReplicaSet使用量
+        :param _RSUsage: ReplicaSet使用量，单位：个数
         :type RSUsage: int
-        :param _ConfigMapUsage: ConfigMap使用量
+        :param _ConfigMapUsage: ConfigMap使用量，单位：个数
         :type ConfigMapUsage: int
         :param _OtherUsage: 其他资源使用量
         :type OtherUsage: :class:`tencentcloud.tke.v20180525.models.ResourceUsage`
@@ -24326,7 +26080,7 @@ class DescribeResourceUsageResponse(AbstractModel):
 
     @property
     def PodUsage(self):
-        r"""Pod使用量
+        r"""Pod使用量，单位：个数
         :rtype: int
         """
         return self._PodUsage
@@ -24337,7 +26091,7 @@ class DescribeResourceUsageResponse(AbstractModel):
 
     @property
     def RSUsage(self):
-        r"""ReplicaSet使用量
+        r"""ReplicaSet使用量，单位：个数
         :rtype: int
         """
         return self._RSUsage
@@ -24348,7 +26102,7 @@ class DescribeResourceUsageResponse(AbstractModel):
 
     @property
     def ConfigMapUsage(self):
-        r"""ConfigMap使用量
+        r"""ConfigMap使用量，单位：个数
         :rtype: int
         """
         return self._ConfigMapUsage
@@ -24393,6 +26147,120 @@ class DescribeResourceUsageResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeRollOutSequencesRequest(AbstractModel):
+    r"""DescribeRollOutSequences请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        """
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRollOutSequencesResponse(AbstractModel):
+    r"""DescribeRollOutSequences返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Sequences: 发布序列
+        :type Sequences: list of RollOutSequence
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Sequences = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def Sequences(self):
+        r"""发布序列
+        :rtype: list of RollOutSequence
+        """
+        return self._Sequences
+
+    @Sequences.setter
+    def Sequences(self, Sequences):
+        self._Sequences = Sequences
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Sequences") is not None:
+            self._Sequences = []
+            for item in params.get("Sequences"):
+                obj = RollOutSequence()
+                obj._deserialize(item)
+                self._Sequences.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeRouteTableConflictsRequest(AbstractModel):
     r"""DescribeRouteTableConflicts请求参数结构体
 
@@ -24402,7 +26270,7 @@ class DescribeRouteTableConflictsRequest(AbstractModel):
         r"""
         :param _RouteTableCidrBlock: 路由表CIDR
         :type RouteTableCidrBlock: str
-        :param _VpcId: 路由表绑定的VPC
+        :param _VpcId: 路由表绑定的VPC，请到 [VPC 控制台](https://console.cloud.tencent.com/vpc/vpc)复制 VPC ID
         :type VpcId: str
         """
         self._RouteTableCidrBlock = None
@@ -24421,7 +26289,7 @@ class DescribeRouteTableConflictsRequest(AbstractModel):
 
     @property
     def VpcId(self):
-        r"""路由表绑定的VPC
+        r"""路由表绑定的VPC，请到 [VPC 控制台](https://console.cloud.tencent.com/vpc/vpc)复制 VPC ID
         :rtype: str
         """
         return self._VpcId
@@ -25318,6 +27186,454 @@ class DescribeTKEEdgeScriptResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeTasksRequest(AbstractModel):
+    r"""DescribeTasks请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Filter: 根据filter做过滤，支持ClusterId（取值示例：cls-xxxx）、TaskType（任务类型，取值示例：add_cluster_cidr、node_upgrade、node_upgrade_ctl等）其中任务类型必传
+        :type Filter: list of Filter
+        :param _Latest: 表示最新的任务条目，此值为true的话，输出任务列表中只会有最新的一条
+        :type Latest: bool
+        """
+        self._Filter = None
+        self._Latest = None
+
+    @property
+    def Filter(self):
+        r"""根据filter做过滤，支持ClusterId（取值示例：cls-xxxx）、TaskType（任务类型，取值示例：add_cluster_cidr、node_upgrade、node_upgrade_ctl等）其中任务类型必传
+        :rtype: list of Filter
+        """
+        return self._Filter
+
+    @Filter.setter
+    def Filter(self, Filter):
+        self._Filter = Filter
+
+    @property
+    def Latest(self):
+        r"""表示最新的任务条目，此值为true的话，输出任务列表中只会有最新的一条
+        :rtype: bool
+        """
+        return self._Latest
+
+    @Latest.setter
+    def Latest(self, Latest):
+        self._Latest = Latest
+
+
+    def _deserialize(self, params):
+        if params.get("Filter") is not None:
+            self._Filter = []
+            for item in params.get("Filter"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filter.append(obj)
+        self._Latest = params.get("Latest")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTasksResponse(AbstractModel):
+    r"""DescribeTasks返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Tasks: 任务步骤信息
+        :type Tasks: list of Task
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Tasks = None
+        self._RequestId = None
+
+    @property
+    def Tasks(self):
+        r"""任务步骤信息
+        :rtype: list of Task
+        """
+        return self._Tasks
+
+    @Tasks.setter
+    def Tasks(self, Tasks):
+        self._Tasks = Tasks
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Tasks") is not None:
+            self._Tasks = []
+            for item in params.get("Tasks"):
+                obj = Task()
+                obj._deserialize(item)
+                self._Tasks.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeUpgradeTaskDetailRequest(AbstractModel):
+    r"""DescribeUpgradeTaskDetail请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 升级任务ID
+        :type ID: int
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        """
+        self._ID = None
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def ID(self):
+        r"""升级任务ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeUpgradeTaskDetailResponse(AbstractModel):
+    r"""DescribeUpgradeTaskDetail返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UpgradePlans: 升级计划
+        :type UpgradePlans: list of UpgradePlan
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._UpgradePlans = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def UpgradePlans(self):
+        r"""升级计划
+        :rtype: list of UpgradePlan
+        """
+        return self._UpgradePlans
+
+    @UpgradePlans.setter
+    def UpgradePlans(self, UpgradePlans):
+        self._UpgradePlans = UpgradePlans
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("UpgradePlans") is not None:
+            self._UpgradePlans = []
+            for item in params.get("UpgradePlans"):
+                obj = UpgradePlan()
+                obj._deserialize(item)
+                self._UpgradePlans.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeUpgradeTasksRequest(AbstractModel):
+    r"""DescribeUpgradeTasks请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Offset: 偏移量，默认为0
+        :type Offset: int
+        :param _Limit: 最大输出条目数，默认为20
+        :type Limit: int
+        """
+        self._Offset = None
+        self._Limit = None
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""最大输出条目数，默认为20
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+
+    def _deserialize(self, params):
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeUpgradeTasksResponse(AbstractModel):
+    r"""DescribeUpgradeTasks返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UpgradeTasks: 升级任务
+        :type UpgradeTasks: list of UpgradeTask
+        :param _TotalCount: 总条目数
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._UpgradeTasks = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def UpgradeTasks(self):
+        r"""升级任务
+        :rtype: list of UpgradeTask
+        """
+        return self._UpgradeTasks
+
+    @UpgradeTasks.setter
+    def UpgradeTasks(self, UpgradeTasks):
+        self._UpgradeTasks = UpgradeTasks
+
+    @property
+    def TotalCount(self):
+        r"""总条目数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("UpgradeTasks") is not None:
+            self._UpgradeTasks = []
+            for item in params.get("UpgradeTasks"):
+                obj = UpgradeTask()
+                obj._deserialize(item)
+                self._UpgradeTasks.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeUserPermissionsRequest(AbstractModel):
+    r"""DescribeUserPermissions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetUin: 要查询的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :type TargetUin: str
+        """
+        self._TargetUin = None
+
+    @property
+    def TargetUin(self):
+        r"""要查询的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :rtype: str
+        """
+        return self._TargetUin
+
+    @TargetUin.setter
+    def TargetUin(self, TargetUin):
+        self._TargetUin = TargetUin
+
+
+    def _deserialize(self, params):
+        self._TargetUin = params.get("TargetUin")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeUserPermissionsResponse(AbstractModel):
+    r"""DescribeUserPermissions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Permissions: 用户在当前地域下所有集群中的权限列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Permissions: list of PermissionItem
+        :param _TargetUin: 用户唯一标识符
+        :type TargetUin: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Permissions = None
+        self._TargetUin = None
+        self._RequestId = None
+
+    @property
+    def Permissions(self):
+        r"""用户在当前地域下所有集群中的权限列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of PermissionItem
+        """
+        return self._Permissions
+
+    @Permissions.setter
+    def Permissions(self, Permissions):
+        self._Permissions = Permissions
+
+    @property
+    def TargetUin(self):
+        r"""用户唯一标识符
+        :rtype: str
+        """
+        return self._TargetUin
+
+    @TargetUin.setter
+    def TargetUin(self, TargetUin):
+        self._TargetUin = TargetUin
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Permissions") is not None:
+            self._Permissions = []
+            for item in params.get("Permissions"):
+                obj = PermissionItem()
+                obj._deserialize(item)
+                self._Permissions.append(obj)
+        self._TargetUin = params.get("TargetUin")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeVersionsRequest(AbstractModel):
     r"""DescribeVersions请求参数结构体
 
@@ -25633,6 +27949,115 @@ class DisableClusterDeletionProtectionRequest(AbstractModel):
 
 class DisableClusterDeletionProtectionResponse(AbstractModel):
     r"""DisableClusterDeletionProtection返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DisableControlPlaneLogsRequest(AbstractModel):
+    r"""DisableControlPlaneLogs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _ClusterType: 集群类型。当前只支持tke
+        :type ClusterType: str
+        :param _ComponentNames: 组件名称列表，目前支持的组件有：cluster-autoscaler、kapenter
+        :type ComponentNames: list of str
+        :param _DeleteLogSetAndTopic: 是否删除日志集和topic。 如果日志集和topic被其他采集规则使用，则不会被删除
+        :type DeleteLogSetAndTopic: bool
+        """
+        self._ClusterId = None
+        self._ClusterType = None
+        self._ComponentNames = None
+        self._DeleteLogSetAndTopic = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def ClusterType(self):
+        r"""集群类型。当前只支持tke
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+    @property
+    def ComponentNames(self):
+        r"""组件名称列表，目前支持的组件有：cluster-autoscaler、kapenter
+        :rtype: list of str
+        """
+        return self._ComponentNames
+
+    @ComponentNames.setter
+    def ComponentNames(self, ComponentNames):
+        self._ComponentNames = ComponentNames
+
+    @property
+    def DeleteLogSetAndTopic(self):
+        r"""是否删除日志集和topic。 如果日志集和topic被其他采集规则使用，则不会被删除
+        :rtype: bool
+        """
+        return self._DeleteLogSetAndTopic
+
+    @DeleteLogSetAndTopic.setter
+    def DeleteLogSetAndTopic(self, DeleteLogSetAndTopic):
+        self._DeleteLogSetAndTopic = DeleteLogSetAndTopic
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._ClusterType = params.get("ClusterType")
+        self._ComponentNames = params.get("ComponentNames")
+        self._DeleteLogSetAndTopic = params.get("DeleteLogSetAndTopic")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DisableControlPlaneLogsResponse(AbstractModel):
+    r"""DisableControlPlaneLogs返回参数结构体
 
     """
 
@@ -27818,9 +30243,9 @@ class EnableClusterAuditRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _LogsetId: CLS日志集ID
+        :param _LogsetId: CLS日志集ID，可以通过cls接口或者控制台获取
         :type LogsetId: str
-        :param _TopicId: CLS日志主题ID
+        :param _TopicId: CLS日志主题ID，可以通过cls接口或者控制台获取
         :type TopicId: str
         :param _TopicRegion: topic所在region，默认为集群当前region
         :type TopicRegion: str
@@ -27843,7 +30268,7 @@ class EnableClusterAuditRequest(AbstractModel):
 
     @property
     def LogsetId(self):
-        r"""CLS日志集ID
+        r"""CLS日志集ID，可以通过cls接口或者控制台获取
         :rtype: str
         """
         return self._LogsetId
@@ -27854,7 +30279,7 @@ class EnableClusterAuditRequest(AbstractModel):
 
     @property
     def TopicId(self):
-        r"""CLS日志主题ID
+        r"""CLS日志主题ID，可以通过cls接口或者控制台获取
         :rtype: str
         """
         return self._TopicId
@@ -27982,6 +30407,105 @@ class EnableClusterDeletionProtectionResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class EnableControlPlaneLogsRequest(AbstractModel):
+    r"""EnableControlPlaneLogs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _ClusterType: 集群类型。当前只支持tke
+        :type ClusterType: str
+        :param _Components: 组件名称列表，目前支持的组件有：cluster-autoscaler、kapenter
+        :type Components: list of ComponentLogConfig
+        """
+        self._ClusterId = None
+        self._ClusterType = None
+        self._Components = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def ClusterType(self):
+        r"""集群类型。当前只支持tke
+        :rtype: str
+        """
+        return self._ClusterType
+
+    @ClusterType.setter
+    def ClusterType(self, ClusterType):
+        self._ClusterType = ClusterType
+
+    @property
+    def Components(self):
+        r"""组件名称列表，目前支持的组件有：cluster-autoscaler、kapenter
+        :rtype: list of ComponentLogConfig
+        """
+        return self._Components
+
+    @Components.setter
+    def Components(self, Components):
+        self._Components = Components
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._ClusterType = params.get("ClusterType")
+        if params.get("Components") is not None:
+            self._Components = []
+            for item in params.get("Components"):
+                obj = ComponentLogConfig()
+                obj._deserialize(item)
+                self._Components.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class EnableControlPlaneLogsResponse(AbstractModel):
+    r"""EnableControlPlaneLogs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class EnableEncryptionProtectionRequest(AbstractModel):
     r"""EnableEncryptionProtection请求参数结构体
 
@@ -28072,9 +30596,9 @@ class EnableEventPersistenceRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _LogsetId: cls服务的logsetID
+        :param _LogsetId: cls服务的logsetID，通过cls接口或者控制台获取
         :type LogsetId: str
-        :param _TopicId: cls服务的topicID
+        :param _TopicId: cls服务的topicID，通过cls接口或者控制台获取
         :type TopicId: str
         :param _TopicRegion: topic所在地域，默认为集群所在地域
         :type TopicRegion: str
@@ -28097,7 +30621,7 @@ class EnableEventPersistenceRequest(AbstractModel):
 
     @property
     def LogsetId(self):
-        r"""cls服务的logsetID
+        r"""cls服务的logsetID，通过cls接口或者控制台获取
         :rtype: str
         """
         return self._LogsetId
@@ -28108,7 +30632,7 @@ class EnableEventPersistenceRequest(AbstractModel):
 
     @property
     def TopicId(self):
-        r"""cls服务的topicID
+        r"""cls服务的topicID，通过cls接口或者控制台获取
         :rtype: str
         """
         return self._TopicId
@@ -29245,6 +31769,102 @@ class Filter(AbstractModel):
         
 
 
+class Flag(AbstractModel):
+    r"""参数描述
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 参数名
+        :type Name: str
+        :param _Type: 参数类型
+        :type Type: str
+        :param _Usage: 参数描述
+        :type Usage: str
+        :param _Default: 参数默认值
+        :type Default: str
+        :param _Constraint: 参数可选范围（目前包含range和in两种，"[]"代表range，如"[1, 5]"表示参数必须>=1且 <=5, "()"代表in， 如"('aa', 'bb')"表示参数只能为字符串'aa'或者'bb'，该参数为空表示不校验）
+        :type Constraint: str
+        """
+        self._Name = None
+        self._Type = None
+        self._Usage = None
+        self._Default = None
+        self._Constraint = None
+
+    @property
+    def Name(self):
+        r"""参数名
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Type(self):
+        r"""参数类型
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Usage(self):
+        r"""参数描述
+        :rtype: str
+        """
+        return self._Usage
+
+    @Usage.setter
+    def Usage(self, Usage):
+        self._Usage = Usage
+
+    @property
+    def Default(self):
+        r"""参数默认值
+        :rtype: str
+        """
+        return self._Default
+
+    @Default.setter
+    def Default(self, Default):
+        self._Default = Default
+
+    @property
+    def Constraint(self):
+        r"""参数可选范围（目前包含range和in两种，"[]"代表range，如"[1, 5]"表示参数必须>=1且 <=5, "()"代表in， 如"('aa', 'bb')"表示参数只能为字符串'aa'或者'bb'，该参数为空表示不校验）
+        :rtype: str
+        """
+        return self._Constraint
+
+    @Constraint.setter
+    def Constraint(self, Constraint):
+        self._Constraint = Constraint
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._Type = params.get("Type")
+        self._Usage = params.get("Usage")
+        self._Default = params.get("Default")
+        self._Constraint = params.get("Constraint")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ForwardTKEEdgeApplicationRequestV3Request(AbstractModel):
     r"""ForwardTKEEdgeApplicationRequestV3请求参数结构体
 
@@ -29525,14 +32145,14 @@ class GetClusterLevelPriceRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterLevel: 集群规格，托管集群询价
+        :param _ClusterLevel: 集群规格，托管集群询价，集群等级：L20、L50、L100、L200、L500、L1000、L3000、L5000
         :type ClusterLevel: str
         """
         self._ClusterLevel = None
 
     @property
     def ClusterLevel(self):
-        r"""集群规格，托管集群询价
+        r"""集群规格，托管集群询价，集群等级：L20、L50、L100、L200、L500、L1000、L3000、L5000
         :rtype: str
         """
         return self._ClusterLevel
@@ -29846,7 +32466,7 @@ class GetUpgradeInstanceProgressRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
         :param _Limit: 最多获取多少个节点的进度
         :type Limit: int
@@ -29859,7 +32479,7 @@ class GetUpgradeInstanceProgressRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -29917,12 +32537,15 @@ class GetUpgradeInstanceProgressResponse(AbstractModel):
         :param _Done: 已升级节点总数
         :type Done: int
         :param _LifeState: 升级任务生命周期
+
+pending 还未开始
 process 运行中
 paused 已停止
 pauing 正在停止
 done  已完成
 timeout 已超时
 aborted 已取消
+
         :type LifeState: str
         :param _Instances: 各节点升级进度详情
         :type Instances: list of InstanceUpgradeProgressItem
@@ -29963,12 +32586,15 @@ aborted 已取消
     @property
     def LifeState(self):
         r"""升级任务生命周期
+
+pending 还未开始
 process 运行中
 paused 已停止
 pauing 正在停止
 done  已完成
 timeout 已超时
 aborted 已取消
+
         :rtype: str
         """
         return self._LifeState
@@ -30024,6 +32650,206 @@ aborted 已取消
         if params.get("ClusterStatus") is not None:
             self._ClusterStatus = InstanceUpgradeClusterStatus()
             self._ClusterStatus._deserialize(params.get("ClusterStatus"))
+        self._RequestId = params.get("RequestId")
+
+
+class GlobalMaintenanceWindowAndExclusion(AbstractModel):
+    r"""全局维护时间窗口和排除项
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetRegions: 地域
+        :type TargetRegions: list of str
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长（小时）
+        :type Duration: int
+        :param _DayOfWeek: 维护周期（一周中的哪几天）
+        :type DayOfWeek: list of str
+        :param _Exclusions: 排除项
+        :type Exclusions: list of MaintenanceExclusion
+        :param _ID: 维护窗口ID
+        :type ID: int
+        """
+        self._TargetRegions = None
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._DayOfWeek = None
+        self._Exclusions = None
+        self._ID = None
+
+    @property
+    def TargetRegions(self):
+        r"""地域
+        :rtype: list of str
+        """
+        return self._TargetRegions
+
+    @TargetRegions.setter
+    def TargetRegions(self, TargetRegions):
+        self._TargetRegions = TargetRegions
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长（小时）
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天）
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def Exclusions(self):
+        r"""排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+    @property
+    def ID(self):
+        r"""维护窗口ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+
+    def _deserialize(self, params):
+        self._TargetRegions = params.get("TargetRegions")
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._DayOfWeek = params.get("DayOfWeek")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        self._ID = params.get("ID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GrantUserPermissionsRequest(AbstractModel):
+    r"""GrantUserPermissions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetUin: 要授权的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :type TargetUin: str
+        :param _Permissions: 用户最终应拥有的完整权限列表。采用声明式语义，传入的列表代表用户最终应该拥有的全部权限，系统会自动计算差异并执行必要的创建/删除操作。为空或不提供时将清除该用户的所有权限。最大支持 100 个权限项。
+        :type Permissions: list of PermissionItem
+        """
+        self._TargetUin = None
+        self._Permissions = None
+
+    @property
+    def TargetUin(self):
+        r"""要授权的用户的唯一标识符（支持子账号 UIN和角色UIN）
+        :rtype: str
+        """
+        return self._TargetUin
+
+    @TargetUin.setter
+    def TargetUin(self, TargetUin):
+        self._TargetUin = TargetUin
+
+    @property
+    def Permissions(self):
+        r"""用户最终应拥有的完整权限列表。采用声明式语义，传入的列表代表用户最终应该拥有的全部权限，系统会自动计算差异并执行必要的创建/删除操作。为空或不提供时将清除该用户的所有权限。最大支持 100 个权限项。
+        :rtype: list of PermissionItem
+        """
+        return self._Permissions
+
+    @Permissions.setter
+    def Permissions(self, Permissions):
+        self._Permissions = Permissions
+
+
+    def _deserialize(self, params):
+        self._TargetUin = params.get("TargetUin")
+        if params.get("Permissions") is not None:
+            self._Permissions = []
+            for item in params.get("Permissions"):
+                obj = PermissionItem()
+                obj._deserialize(item)
+                self._Permissions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GrantUserPermissionsResponse(AbstractModel):
+    r"""GrantUserPermissions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -30688,15 +33514,15 @@ class InstallAddonRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID（仅支持标准tke集群）
+        :param _ClusterId: 集群ID（仅支持标准tke集群），请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
-        :param _AddonName: addon名称
+        :param _AddonName: addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :type AddonName: str
         :param _AddonVersion: addon版本（不传默认安装最新版本）
         :type AddonVersion: str
         :param _RawValues: addon的参数，是一个json格式的base64转码后的字符串（addon参数由DescribeAddonValues获取）
         :type RawValues: str
-        :param _DryRun: 是否仅做安装检查，设置为true时仅做检查，不会安装组件
+        :param _DryRun: 是否仅做安装检查，设置为true时仅做检查，不会安装组件。默认值为 false。
         :type DryRun: bool
         """
         self._ClusterId = None
@@ -30707,7 +33533,7 @@ class InstallAddonRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID（仅支持标准tke集群）
+        r"""集群ID（仅支持标准tke集群），请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -30718,7 +33544,7 @@ class InstallAddonRequest(AbstractModel):
 
     @property
     def AddonName(self):
-        r"""addon名称
+        r"""addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :rtype: str
         """
         return self._AddonName
@@ -30751,7 +33577,7 @@ class InstallAddonRequest(AbstractModel):
 
     @property
     def DryRun(self):
-        r"""是否仅做安装检查，设置为true时仅做检查，不会安装组件
+        r"""是否仅做安装检查，设置为true时仅做检查，不会安装组件。默认值为 false。
         :rtype: bool
         """
         return self._DryRun
@@ -31905,7 +34731,7 @@ class KMSConfiguration(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _KeyId: kms id
+        :param _KeyId: kms id，可以在密钥管理控制台获取
         :type KeyId: str
         :param _KmsRegion: kms 地域
         :type KmsRegion: str
@@ -31915,7 +34741,7 @@ class KMSConfiguration(AbstractModel):
 
     @property
     def KeyId(self):
-        r"""kms id
+        r"""kms id，可以在密钥管理控制台获取
         :rtype: str
         """
         return self._KeyId
@@ -32429,9 +35255,15 @@ class KubeJarvisStateInspectionResultsItem(AbstractModel):
         :type Name: str
         :param _Statistics: 诊断结果统计
         :type Statistics: list of KubeJarvisStateStatistic
+        :param _StartTime: 诊断数据开始时间
+        :type StartTime: str
+        :param _EndTime: 诊断数据结束时间
+        :type EndTime: str
         """
         self._Name = None
         self._Statistics = None
+        self._StartTime = None
+        self._EndTime = None
 
     @property
     def Name(self):
@@ -32455,6 +35287,28 @@ class KubeJarvisStateInspectionResultsItem(AbstractModel):
     def Statistics(self, Statistics):
         self._Statistics = Statistics
 
+    @property
+    def StartTime(self):
+        r"""诊断数据开始时间
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""诊断数据结束时间
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -32464,6 +35318,8 @@ class KubeJarvisStateInspectionResultsItem(AbstractModel):
                 obj = KubeJarvisStateStatistic()
                 obj._deserialize(item)
                 self._Statistics.append(obj)
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -32682,7 +35538,12 @@ class KubeJarvisStateStatistic(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _HealthyLevel: 诊断结果的健康水平
+        :param _HealthyLevel: 诊断结果的健康水平，健康水平取值：
+serious：高风险
+risk：中风险
+warn：低风险
+good：健康
+failed：诊断流程异常
         :type HealthyLevel: str
         :param _Count: 诊断结果的统计
         :type Count: int
@@ -32692,7 +35553,12 @@ class KubeJarvisStateStatistic(AbstractModel):
 
     @property
     def HealthyLevel(self):
-        r"""诊断结果的健康水平
+        r"""诊断结果的健康水平，健康水平取值：
+serious：高风险
+risk：中风险
+warn：低风险
+good：健康
+failed：诊断流程异常
         :rtype: str
         """
         return self._HealthyLevel
@@ -32785,6 +35651,9 @@ class ListClusterInspectionResultsItemsRequest(AbstractModel):
     def __init__(self):
         r"""
         :param _ClusterId: 目标集群ID
+
+取值可参考：
+[查询TKE集群列表](https://cloud.tencent.com/document/api/457/31862)
         :type ClusterId: str
         :param _StartTime: 查询历史结果的开始时间，Unix时间戳
         :type StartTime: str
@@ -32798,6 +35667,9 @@ class ListClusterInspectionResultsItemsRequest(AbstractModel):
     @property
     def ClusterId(self):
         r"""目标集群ID
+
+取值可参考：
+[查询TKE集群列表](https://cloud.tencent.com/document/api/457/31862)
         :rtype: str
         """
         return self._ClusterId
@@ -33174,6 +36046,233 @@ class LoginSettings(AbstractModel):
         
 
 
+class MaintenanceExclusion(AbstractModel):
+    r"""维护时间排除项
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 维护排除项名称
+        :type Name: str
+        :param _StartAt: 维护排除项开始时间
+        :type StartAt: str
+        :param _EndAt: 维护排除项结束时间
+        :type EndAt: str
+        :param _ID: 维护排除项ID
+        :type ID: int
+        """
+        self._Name = None
+        self._StartAt = None
+        self._EndAt = None
+        self._ID = None
+
+    @property
+    def Name(self):
+        r"""维护排除项名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def StartAt(self):
+        r"""维护排除项开始时间
+        :rtype: str
+        """
+        return self._StartAt
+
+    @StartAt.setter
+    def StartAt(self, StartAt):
+        self._StartAt = StartAt
+
+    @property
+    def EndAt(self):
+        r"""维护排除项结束时间
+        :rtype: str
+        """
+        return self._EndAt
+
+    @EndAt.setter
+    def EndAt(self, EndAt):
+        self._EndAt = EndAt
+
+    @property
+    def ID(self):
+        r"""维护排除项ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._StartAt = params.get("StartAt")
+        self._EndAt = params.get("EndAt")
+        self._ID = params.get("ID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MaintenanceWindowAndExclusion(AbstractModel):
+    r"""维护时间窗口和排除项
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长（小时）
+        :type Duration: int
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _DayOfWeek: 维护周期（一周中的哪几天）
+        :type DayOfWeek: list of str
+        :param _Region: 地域
+        :type Region: str
+        :param _ClusterName: 集群名称
+        :type ClusterName: str
+        :param _ClusterVersion: 集群版本
+        :type ClusterVersion: str
+        :param _Exclusions: 排除项
+        :type Exclusions: list of MaintenanceExclusion
+        """
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._ClusterID = None
+        self._DayOfWeek = None
+        self._Region = None
+        self._ClusterName = None
+        self._ClusterVersion = None
+        self._Exclusions = None
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长（小时）
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天）
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def ClusterName(self):
+        r"""集群名称
+        :rtype: str
+        """
+        return self._ClusterName
+
+    @ClusterName.setter
+    def ClusterName(self, ClusterName):
+        self._ClusterName = ClusterName
+
+    @property
+    def ClusterVersion(self):
+        r"""集群版本
+        :rtype: str
+        """
+        return self._ClusterVersion
+
+    @ClusterVersion.setter
+    def ClusterVersion(self, ClusterVersion):
+        self._ClusterVersion = ClusterVersion
+
+    @property
+    def Exclusions(self):
+        r"""排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+
+    def _deserialize(self, params):
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._ClusterID = params.get("ClusterID")
+        self._DayOfWeek = params.get("DayOfWeek")
+        self._Region = params.get("Region")
+        self._ClusterName = params.get("ClusterName")
+        self._ClusterVersion = params.get("ClusterVersion")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ManuallyAdded(AbstractModel):
     r"""手动加入的节点
 
@@ -33428,11 +36527,11 @@ class ModifyClusterAttributeRequest(AbstractModel):
         :type ClusterId: str
         :param _ProjectId: 集群所属项目
         :type ProjectId: int
-        :param _ClusterName: 集群名称
+        :param _ClusterName: 集群名称,字符长度50
         :type ClusterName: str
         :param _ClusterDesc: 集群描述
         :type ClusterDesc: str
-        :param _ClusterLevel: 集群等级
+        :param _ClusterLevel: 集群等级，等级类型：L20、L50、L100、L200、L500、L1000、L3000、L5000
         :type ClusterLevel: str
         :param _AutoUpgradeClusterLevel: 自动变配集群等级
         :type AutoUpgradeClusterLevel: :class:`tencentcloud.tke.v20180525.models.AutoUpgradeClusterLevel`
@@ -33474,7 +36573,7 @@ class ModifyClusterAttributeRequest(AbstractModel):
 
     @property
     def ClusterName(self):
-        r"""集群名称
+        r"""集群名称,字符长度50
         :rtype: str
         """
         return self._ClusterName
@@ -33496,7 +36595,7 @@ class ModifyClusterAttributeRequest(AbstractModel):
 
     @property
     def ClusterLevel(self):
-        r"""集群等级
+        r"""集群等级，等级类型：L20、L50、L100、L200、L500、L1000、L3000、L5000
         :rtype: str
         """
         return self._ClusterLevel
@@ -33891,6 +36990,168 @@ class ModifyClusterEndpointSPResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyClusterExtraArgsRequest(AbstractModel):
+    r"""ModifyClusterExtraArgs请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 目标集群ID
+        :type ClusterId: str
+        :param _ClusterExtraArgs: 集群自定义参数
+        :type ClusterExtraArgs: :class:`tencentcloud.tke.v20180525.models.ClusterExtraArgs`
+        """
+        self._ClusterId = None
+        self._ClusterExtraArgs = None
+
+    @property
+    def ClusterId(self):
+        r"""目标集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def ClusterExtraArgs(self):
+        r"""集群自定义参数
+        :rtype: :class:`tencentcloud.tke.v20180525.models.ClusterExtraArgs`
+        """
+        return self._ClusterExtraArgs
+
+    @ClusterExtraArgs.setter
+    def ClusterExtraArgs(self, ClusterExtraArgs):
+        self._ClusterExtraArgs = ClusterExtraArgs
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        if params.get("ClusterExtraArgs") is not None:
+            self._ClusterExtraArgs = ClusterExtraArgs()
+            self._ClusterExtraArgs._deserialize(params.get("ClusterExtraArgs"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterExtraArgsResponse(AbstractModel):
+    r"""ModifyClusterExtraArgs返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyClusterExtraArgsTaskStateRequest(AbstractModel):
+    r"""ModifyClusterExtraArgsTaskState请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群实例ID
+        :type ClusterId: str
+        :param _Operation: 操作类型：
+abort 取消并回退任务
+        :type Operation: str
+        """
+        self._ClusterId = None
+        self._Operation = None
+
+    @property
+    def ClusterId(self):
+        r"""集群实例ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def Operation(self):
+        r"""操作类型：
+abort 取消并回退任务
+        :rtype: str
+        """
+        return self._Operation
+
+    @Operation.setter
+    def Operation(self, Operation):
+        self._Operation = Operation
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._Operation = params.get("Operation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterExtraArgsTaskStateResponse(AbstractModel):
+    r"""ModifyClusterExtraArgsTaskState返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyClusterImageRequest(AbstractModel):
     r"""ModifyClusterImage请求参数结构体
 
@@ -33970,6 +37231,151 @@ class ModifyClusterImageResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyClusterMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""ModifyClusterMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长（小时）
+        :type Duration: int
+        :param _DayOfWeek: 维护周期（一周中的哪几天），支持的参数值如下：
+
+- MO：周一
+- TU：周二
+- WE：周三
+- TH：周四
+- FR：周五
+- SA：周六
+- SU：周日
+        :type DayOfWeek: list of str
+        :param _Exclusions: 维护排除项
+        :type Exclusions: list of MaintenanceExclusion
+        """
+        self._ClusterID = None
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._DayOfWeek = None
+        self._Exclusions = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长（小时）
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天），支持的参数值如下：
+
+- MO：周一
+- TU：周二
+- WE：周三
+- TH：周四
+- FR：周五
+- SA：周六
+- SU：周日
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def Exclusions(self):
+        r"""维护排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._DayOfWeek = params.get("DayOfWeek")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""ModifyClusterMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyClusterNodePoolRequest(AbstractModel):
     r"""ModifyClusterNodePool请求参数结构体
 
@@ -33981,7 +37387,7 @@ class ModifyClusterNodePoolRequest(AbstractModel):
         :type ClusterId: str
         :param _NodePoolId: 节点池ID
         :type NodePoolId: str
-        :param _Name: 名称
+        :param _Name: 名称，最长63个字符，只能包含小写字母、数字及分隔符“_”，且必须以小写字母开头，数字或小写字母结尾
         :type Name: str
         :param _MaxNodesNum: 最大节点数
         :type MaxNodesNum: int
@@ -34063,7 +37469,7 @@ class ModifyClusterNodePoolRequest(AbstractModel):
 
     @property
     def Name(self):
-        r"""名称
+        r"""名称，最长63个字符，只能包含小写字母、数字及分隔符“_”，且必须以小写字母开头，数字或小写字母结尾
         :rtype: str
         """
         return self._Name
@@ -34343,6 +37749,94 @@ class ModifyClusterNodePoolResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyClusterRollOutSequenceTagsRequest(AbstractModel):
+    r"""ModifyClusterRollOutSequenceTags请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterID: 集群ID，可以从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
+        :type ClusterID: str
+        :param _Tags: 集群发布序列标签（为空时表示移除集群标签）。支持以下集群标签：
+- 标签键："Env"，支持的标签值：["Test","Pre-Production","Production"]
+- 标签键："Protection-Level"，支持的标签值：["Low","Medium","High"]
+        :type Tags: list of Tag
+        """
+        self._ClusterID = None
+        self._Tags = None
+
+    @property
+    def ClusterID(self):
+        r"""集群ID，可以从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def Tags(self):
+        r"""集群发布序列标签（为空时表示移除集群标签）。支持以下集群标签：
+- 标签键："Env"，支持的标签值：["Test","Pre-Production","Production"]
+- 标签键："Protection-Level"，支持的标签值：["Low","Medium","High"]
+        :rtype: list of Tag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+
+    def _deserialize(self, params):
+        self._ClusterID = params.get("ClusterID")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterRollOutSequenceTagsResponse(AbstractModel):
+    r"""ModifyClusterRollOutSequenceTags返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyClusterRuntimeConfigRequest(AbstractModel):
     r"""ModifyClusterRuntimeConfig请求参数结构体
 
@@ -34352,11 +37846,11 @@ class ModifyClusterRuntimeConfigRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID，必填
         :type ClusterId: str
-        :param _DstK8SVersion: 当需要修改运行时版本是根据另外的K8S版本获取时，需填写。例如升级校验有冲突后修改场景
+        :param _DstK8SVersion: 运行时版本需依据指定的Kubernetes版本进行设置。典型情况为，在升级过程中因版本冲突而需要调整运行时版本时。
         :type DstK8SVersion: str
-        :param _ClusterRuntimeConfig: 需要修改集群运行时时填写
+        :param _ClusterRuntimeConfig: 需要修改集群运行时填写
         :type ClusterRuntimeConfig: :class:`tencentcloud.tke.v20180525.models.RuntimeConfig`
-        :param _NodePoolRuntimeConfig: 需要修改节点池运行时时，填需要修改的部分
+        :param _NodePoolRuntimeConfig: 需要修改节点池运行时，填需要修改的部分
         :type NodePoolRuntimeConfig: list of NodePoolRuntime
         """
         self._ClusterId = None
@@ -34377,7 +37871,7 @@ class ModifyClusterRuntimeConfigRequest(AbstractModel):
 
     @property
     def DstK8SVersion(self):
-        r"""当需要修改运行时版本是根据另外的K8S版本获取时，需填写。例如升级校验有冲突后修改场景
+        r"""运行时版本需依据指定的Kubernetes版本进行设置。典型情况为，在升级过程中因版本冲突而需要调整运行时版本时。
         :rtype: str
         """
         return self._DstK8SVersion
@@ -34388,7 +37882,7 @@ class ModifyClusterRuntimeConfigRequest(AbstractModel):
 
     @property
     def ClusterRuntimeConfig(self):
-        r"""需要修改集群运行时时填写
+        r"""需要修改集群运行时填写
         :rtype: :class:`tencentcloud.tke.v20180525.models.RuntimeConfig`
         """
         return self._ClusterRuntimeConfig
@@ -34399,7 +37893,7 @@ class ModifyClusterRuntimeConfigRequest(AbstractModel):
 
     @property
     def NodePoolRuntimeConfig(self):
-        r"""需要修改节点池运行时时，填需要修改的部分
+        r"""需要修改节点池运行时，填需要修改的部分
         :rtype: list of NodePoolRuntime
         """
         return self._NodePoolRuntimeConfig
@@ -34468,7 +37962,8 @@ class ModifyClusterTagsRequest(AbstractModel):
         r"""
         :param _ClusterId: 集群ID
         :type ClusterId: str
-        :param _Tags: 集群标签
+        :param _Tags: 集群标签:
+[{"TagKey":"env","TagValue":"dev"}]}]
         :type Tags: list of Tag
         :param _SyncSubresource: 是否同步集群内子资源标签
         :type SyncSubresource: bool
@@ -34490,7 +37985,8 @@ class ModifyClusterTagsRequest(AbstractModel):
 
     @property
     def Tags(self):
-        r"""集群标签
+        r"""集群标签:
+[{"TagKey":"env","TagValue":"dev"}]}]
         :rtype: list of Tag
         """
         return self._Tags
@@ -34744,6 +38240,150 @@ class ModifyClusterVirtualNodePoolResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyGlobalMaintenanceWindowAndExclusionsRequest(AbstractModel):
+    r"""ModifyGlobalMaintenanceWindowAndExclusions请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 维护窗口ID
+        :type ID: int
+        :param _TargetRegions: 地域
+        :type TargetRegions: list of str
+        :param _MaintenanceTime: 维护开始时间
+        :type MaintenanceTime: str
+        :param _Duration: 维护时长（小时）
+        :type Duration: int
+        :param _DayOfWeek: 维护周期（一周中的哪几天）
+        :type DayOfWeek: list of str
+        :param _Exclusions: 维护排除项
+        :type Exclusions: list of MaintenanceExclusion
+        """
+        self._ID = None
+        self._TargetRegions = None
+        self._MaintenanceTime = None
+        self._Duration = None
+        self._DayOfWeek = None
+        self._Exclusions = None
+
+    @property
+    def ID(self):
+        r"""维护窗口ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def TargetRegions(self):
+        r"""地域
+        :rtype: list of str
+        """
+        return self._TargetRegions
+
+    @TargetRegions.setter
+    def TargetRegions(self, TargetRegions):
+        self._TargetRegions = TargetRegions
+
+    @property
+    def MaintenanceTime(self):
+        r"""维护开始时间
+        :rtype: str
+        """
+        return self._MaintenanceTime
+
+    @MaintenanceTime.setter
+    def MaintenanceTime(self, MaintenanceTime):
+        self._MaintenanceTime = MaintenanceTime
+
+    @property
+    def Duration(self):
+        r"""维护时长（小时）
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def DayOfWeek(self):
+        r"""维护周期（一周中的哪几天）
+        :rtype: list of str
+        """
+        return self._DayOfWeek
+
+    @DayOfWeek.setter
+    def DayOfWeek(self, DayOfWeek):
+        self._DayOfWeek = DayOfWeek
+
+    @property
+    def Exclusions(self):
+        r"""维护排除项
+        :rtype: list of MaintenanceExclusion
+        """
+        return self._Exclusions
+
+    @Exclusions.setter
+    def Exclusions(self, Exclusions):
+        self._Exclusions = Exclusions
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._TargetRegions = params.get("TargetRegions")
+        self._MaintenanceTime = params.get("MaintenanceTime")
+        self._Duration = params.get("Duration")
+        self._DayOfWeek = params.get("DayOfWeek")
+        if params.get("Exclusions") is not None:
+            self._Exclusions = []
+            for item in params.get("Exclusions"):
+                obj = MaintenanceExclusion()
+                obj._deserialize(item)
+                self._Exclusions.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyGlobalMaintenanceWindowAndExclusionsResponse(AbstractModel):
+    r"""ModifyGlobalMaintenanceWindowAndExclusions返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyMasterComponentRequest(AbstractModel):
     r"""ModifyMasterComponent请求参数结构体
 
@@ -34958,7 +38598,7 @@ class ModifyNodePoolInstanceTypesRequest(AbstractModel):
         :type ClusterId: str
         :param _NodePoolId: 节点池id
         :type NodePoolId: str
-        :param _InstanceTypes: 机型列表，主实例机型不支持修改
+        :param _InstanceTypes: 机型列表，参考 https://cloud.tencent.com/document/product/213/11518，主实例机型不支持修改
         :type InstanceTypes: list of str
         """
         self._ClusterId = None
@@ -34989,7 +38629,7 @@ class ModifyNodePoolInstanceTypesRequest(AbstractModel):
 
     @property
     def InstanceTypes(self):
-        r"""机型列表，主实例机型不支持修改
+        r"""机型列表，参考 https://cloud.tencent.com/document/product/213/11518，主实例机型不支持修改
         :rtype: list of str
         """
         return self._InstanceTypes
@@ -35048,7 +38688,7 @@ class ModifyOpenPolicyListRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
         :param _OpenPolicyInfoList: 修改的策略列表，目前仅支持修改EnforcementAction字段
         :type OpenPolicyInfoList: list of OpenPolicySwitch
@@ -35061,7 +38701,7 @@ class ModifyOpenPolicyListRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务集群控制台获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -35993,6 +39633,120 @@ class ModifyReservedInstanceScopeResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyRollOutSequenceRequest(AbstractModel):
+    r"""ModifyRollOutSequence请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 发布序列ID
+        :type ID: int
+        :param _Name: 发布序列名称
+        :type Name: str
+        :param _SequenceFlows: 发布序列步骤
+        :type SequenceFlows: list of SequenceFlow
+        :param _Enabled: 是否启用
+        :type Enabled: bool
+        """
+        self._ID = None
+        self._Name = None
+        self._SequenceFlows = None
+        self._Enabled = None
+
+    @property
+    def ID(self):
+        r"""发布序列ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def Name(self):
+        r"""发布序列名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def SequenceFlows(self):
+        r"""发布序列步骤
+        :rtype: list of SequenceFlow
+        """
+        return self._SequenceFlows
+
+    @SequenceFlows.setter
+    def SequenceFlows(self, SequenceFlows):
+        self._SequenceFlows = SequenceFlows
+
+    @property
+    def Enabled(self):
+        r"""是否启用
+        :rtype: bool
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._Name = params.get("Name")
+        if params.get("SequenceFlows") is not None:
+            self._SequenceFlows = []
+            for item in params.get("SequenceFlows"):
+                obj = SequenceFlow()
+                obj._deserialize(item)
+                self._SequenceFlows.append(obj)
+        self._Enabled = params.get("Enabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyRollOutSequenceResponse(AbstractModel):
+    r"""ModifyRollOutSequence返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class NfsVolume(AbstractModel):
     r"""EKS Instance Nfs Volume
 
@@ -36688,11 +40442,11 @@ class NodePoolRuntime(AbstractModel):
         r"""
         :param _NodePoolId: 节点池ID
         :type NodePoolId: str
-        :param _RuntimeType: 运行时类型
+        :param _RuntimeType: 运行时类型，参考：https://cloud.tencent.com/document/api/457/105241
         :type RuntimeType: str
-        :param _RuntimeVersion: 运行时版本
+        :param _RuntimeVersion: 运行时版本，参考：https://cloud.tencent.com/document/api/457/105241
         :type RuntimeVersion: str
-        :param _NodePoolName: 节点池名称
+        :param _NodePoolName: 节点池名称，限制 255 字符
         :type NodePoolName: str
         """
         self._NodePoolId = None
@@ -36713,7 +40467,7 @@ class NodePoolRuntime(AbstractModel):
 
     @property
     def RuntimeType(self):
-        r"""运行时类型
+        r"""运行时类型，参考：https://cloud.tencent.com/document/api/457/105241
         :rtype: str
         """
         return self._RuntimeType
@@ -36724,7 +40478,7 @@ class NodePoolRuntime(AbstractModel):
 
     @property
     def RuntimeVersion(self):
-        r"""运行时版本
+        r"""运行时版本，参考：https://cloud.tencent.com/document/api/457/105241
         :rtype: str
         """
         return self._RuntimeVersion
@@ -36735,7 +40489,7 @@ class NodePoolRuntime(AbstractModel):
 
     @property
     def NodePoolName(self):
-        r"""节点池名称
+        r"""节点池名称，限制 255 字符
         :rtype: str
         """
         return self._NodePoolName
@@ -37028,7 +40782,63 @@ class OpenPolicyInfo(AbstractModel):
         :type EventNums: int
         :param _Name: 策略英文名称
         :type Name: str
-        :param _Kind: 策略模板类型
+        :param _Kind: 策略模板类型，支持的类型如下：
+优选策略：
+blocknamespacedeletion：存在pod的命名空间不允许删除
+blockcrddeletion：存在cr的crd不允许删除
+blockmountablevolumetype：禁止挂载指定的volume类型
+disallowalwayspullimage：禁止镜像拉取策略使用Always
+tkeallowedrepos：容器镜像来源限制
+blockunknowndaemonset：禁止未知的DaemonSet部署
+blockpvdeletion：PV处于绑定状态则不允许删除
+corednsprotect：CoreDNS组件删除保护
+blockschedulablenodedelete：非封锁状态的Node不允许删除
+resourcesdeletionprotection：资源删除保护
+tkeenirequest：弹性网卡资源配置限制
+blockworkloadcrossversionupgrade：工作负载镜像版本升级策略管控
+blockserviceaccountgranthighprivilegepermission：ServiceAccount权限管控
+blockclusteripserviceexist：不允许Service为ClusterIP类型
+blockinternetaccess：禁止公网访问
+assign：禁止访问Metadata Server
+blockhostnetworkpod：禁止创建HostNetwork类型Pod
+
+可选策略：
+blockvolumemountpath：禁止容器挂载指定的目录
+k8sallowedrepos：容器镜像必须以指定字符串列表中的字符串开头
+k8sblockendpointeditdefaultrole：禁止默认ClusterRole修改Endpoints
+k8sblockloadbalancer：不允许Service为LoadBalancer类型
+k8sblocknodeport：不允许Service为NodePort类型
+k8sblockwildcardingress：禁止ingress配置空白或通配符类型的hostname
+k8scontainerlimits：限制容器必须设置CPU和内存Limit
+k8scontainerratios：限制CPU和内存的Request与Limit的最大比率
+k8scontainerrequests：限制CPU和内存的Request必须设置且小于配置的最大值
+k8srequiredresources：必须配置内存的Limit，CPU和内存的Request
+k8sdisallowanonymous：不允许将白名单以外的ClusterRole和Role关联到system:anonymous User和system:unauthenticated Group
+k8sdisallowedtags：约束容器镜像tag
+k8sexternalips：限制服务externalIP仅为允许的IP地址列表
+k8simagedigests：容器镜像必须包含digest
+noupdateserviceaccount：拒绝白名单外的资源更新ServiceAccount
+k8sreplicalimits：要求具有spec.replicas字段的对象（Deployments、ReplicaSets等）在定义的范围内
+k8srequiredannotations：要求资源包含指定的annotations，其值与提供的正则表达式匹配
+k8srequiredlabels：要求资源包含指定的标签，其值与提供的正则表达式匹配
+k8srequiredprobes：要求Pod具有Readiness或Liveness Probe
+k8spspautomountserviceaccounttokenpod：约束容器不能设置automountServiceAccountToken为true
+k8spspallowprivilegeescalationcontainer：约束PodSecurityPolicy中的allowPrivilegeEscalation字段为false
+k8spspapparmor：约束AppArmor字段列表
+k8spspcapabilities：限制PodSecurityPolicy中的allowedCapabilities和requiredDropCapabilities字段
+k8spspflexvolumes：约束PodSecurityPolicy中的allowedFlexVolumes字段类型
+k8spspforbiddensysctls：约束PodSecurityPolicy中的sysctls字段不能使用的name
+k8spspfsgroup：控制PodSecurityPolicy中的fsGroup字段在限制范围内
+k8spsphostfilesystem：约束PodSecurityPolicy中的hostPath字段的参数
+k8spsphostnamespace：限制PodSecurityPolicy中的hostPID和hostIPC字段
+k8spsphostnetworkingports：约束PodSecurityPolicy中的hostNetwork和hostPorts字段
+k8spspprivilegedcontainer：禁止PodSecurityPolicy中的privileged字段为true
+k8spspprocmount：约束PodSecurityPolicy中的allowedProcMountTypes字段
+k8spspreadonlyrootfilesystem：约束PodSecurityPolicy中的readOnlyRootFilesystem字段
+k8spspseccomp：约束PodSecurityPolicy上的seccomp.security.alpha.kubernetes.io/allowedProfileNames注解
+k8spspselinuxv2：约束Pod定义SELinux配置的允许列表
+k8spspallowedusers：约束PodSecurityPolicy中的runAsUser、runAsGroup、supplementalGroups和fsGroup字段
+k8spspvolumetypes：约束PodSecurityPolicy中的volumes字段类型
         :type Kind: str
         :param _EnabledStatus: 策略开关状态：open打开，close关闭
         :type EnabledStatus: str
@@ -37117,7 +40927,63 @@ class OpenPolicyInfo(AbstractModel):
 
     @property
     def Kind(self):
-        r"""策略模板类型
+        r"""策略模板类型，支持的类型如下：
+优选策略：
+blocknamespacedeletion：存在pod的命名空间不允许删除
+blockcrddeletion：存在cr的crd不允许删除
+blockmountablevolumetype：禁止挂载指定的volume类型
+disallowalwayspullimage：禁止镜像拉取策略使用Always
+tkeallowedrepos：容器镜像来源限制
+blockunknowndaemonset：禁止未知的DaemonSet部署
+blockpvdeletion：PV处于绑定状态则不允许删除
+corednsprotect：CoreDNS组件删除保护
+blockschedulablenodedelete：非封锁状态的Node不允许删除
+resourcesdeletionprotection：资源删除保护
+tkeenirequest：弹性网卡资源配置限制
+blockworkloadcrossversionupgrade：工作负载镜像版本升级策略管控
+blockserviceaccountgranthighprivilegepermission：ServiceAccount权限管控
+blockclusteripserviceexist：不允许Service为ClusterIP类型
+blockinternetaccess：禁止公网访问
+assign：禁止访问Metadata Server
+blockhostnetworkpod：禁止创建HostNetwork类型Pod
+
+可选策略：
+blockvolumemountpath：禁止容器挂载指定的目录
+k8sallowedrepos：容器镜像必须以指定字符串列表中的字符串开头
+k8sblockendpointeditdefaultrole：禁止默认ClusterRole修改Endpoints
+k8sblockloadbalancer：不允许Service为LoadBalancer类型
+k8sblocknodeport：不允许Service为NodePort类型
+k8sblockwildcardingress：禁止ingress配置空白或通配符类型的hostname
+k8scontainerlimits：限制容器必须设置CPU和内存Limit
+k8scontainerratios：限制CPU和内存的Request与Limit的最大比率
+k8scontainerrequests：限制CPU和内存的Request必须设置且小于配置的最大值
+k8srequiredresources：必须配置内存的Limit，CPU和内存的Request
+k8sdisallowanonymous：不允许将白名单以外的ClusterRole和Role关联到system:anonymous User和system:unauthenticated Group
+k8sdisallowedtags：约束容器镜像tag
+k8sexternalips：限制服务externalIP仅为允许的IP地址列表
+k8simagedigests：容器镜像必须包含digest
+noupdateserviceaccount：拒绝白名单外的资源更新ServiceAccount
+k8sreplicalimits：要求具有spec.replicas字段的对象（Deployments、ReplicaSets等）在定义的范围内
+k8srequiredannotations：要求资源包含指定的annotations，其值与提供的正则表达式匹配
+k8srequiredlabels：要求资源包含指定的标签，其值与提供的正则表达式匹配
+k8srequiredprobes：要求Pod具有Readiness或Liveness Probe
+k8spspautomountserviceaccounttokenpod：约束容器不能设置automountServiceAccountToken为true
+k8spspallowprivilegeescalationcontainer：约束PodSecurityPolicy中的allowPrivilegeEscalation字段为false
+k8spspapparmor：约束AppArmor字段列表
+k8spspcapabilities：限制PodSecurityPolicy中的allowedCapabilities和requiredDropCapabilities字段
+k8spspflexvolumes：约束PodSecurityPolicy中的allowedFlexVolumes字段类型
+k8spspforbiddensysctls：约束PodSecurityPolicy中的sysctls字段不能使用的name
+k8spspfsgroup：控制PodSecurityPolicy中的fsGroup字段在限制范围内
+k8spsphostfilesystem：约束PodSecurityPolicy中的hostPath字段的参数
+k8spsphostnamespace：限制PodSecurityPolicy中的hostPID和hostIPC字段
+k8spsphostnetworkingports：约束PodSecurityPolicy中的hostNetwork和hostPorts字段
+k8spspprivilegedcontainer：禁止PodSecurityPolicy中的privileged字段为true
+k8spspprocmount：约束PodSecurityPolicy中的allowedProcMountTypes字段
+k8spspreadonlyrootfilesystem：约束PodSecurityPolicy中的readOnlyRootFilesystem字段
+k8spspseccomp：约束PodSecurityPolicy上的seccomp.security.alpha.kubernetes.io/allowedProfileNames注解
+k8spspselinuxv2：约束Pod定义SELinux配置的允许列表
+k8spspallowedusers：约束PodSecurityPolicy中的runAsUser、runAsGroup、supplementalGroups和fsGroup字段
+k8spspvolumetypes：约束PodSecurityPolicy中的volumes字段类型
         :rtype: str
         """
         return self._Kind
@@ -37198,7 +41064,63 @@ class OpenPolicySwitch(AbstractModel):
         :type EnforcementAction: str
         :param _Name: 策略英文名称
         :type Name: str
-        :param _Kind: 策略模板类型
+        :param _Kind: 策略模板类型，可选值：
+优选策略：
+blocknamespacedeletion：存在pod的命名空间不允许删除
+blockcrddeletion：存在cr的crd不允许删除
+blockmountablevolumetype：禁止挂载指定的volume类型
+disallowalwayspullimage：禁止镜像拉取策略使用Always
+tkeallowedrepos：容器镜像来源限制
+blockunknowndaemonset：禁止未知的DaemonSet部署
+blockpvdeletion：PV处于绑定状态则不允许删除
+corednsprotect：CoreDNS组件删除保护
+blockschedulablenodedelete：非封锁状态的Node不允许删除
+resourcesdeletionprotection：资源删除保护
+tkeenirequest：弹性网卡资源配置限制
+blockworkloadcrossversionupgrade：工作负载镜像版本升级策略管控
+blockserviceaccountgranthighprivilegepermission：ServiceAccount权限管控
+blockclusteripserviceexist：不允许Service为ClusterIP类型
+blockinternetaccess：禁止公网访问
+assign：禁止访问Metadata Server
+blockhostnetworkpod：禁止创建HostNetwork类型Pod
+
+可选策略：
+blockvolumemountpath：禁止容器挂载指定的目录
+k8sallowedrepos：容器镜像必须以指定字符串列表中的字符串开头
+k8sblockendpointeditdefaultrole：禁止默认ClusterRole修改Endpoints
+k8sblockloadbalancer：不允许Service为LoadBalancer类型
+k8sblocknodeport：不允许Service为NodePort类型
+k8sblockwildcardingress：禁止ingress配置空白或通配符类型的hostname
+k8scontainerlimits：限制容器必须设置CPU和内存Limit
+k8scontainerratios：限制CPU和内存的Request与Limit的最大比率
+k8scontainerrequests：限制CPU和内存的Request必须设置且小于配置的最大值
+k8srequiredresources：必须配置内存的Limit，CPU和内存的Request
+k8sdisallowanonymous：不允许将白名单以外的ClusterRole和Role关联到system:anonymous User和system:unauthenticated Group
+k8sdisallowedtags：约束容器镜像tag
+k8sexternalips：限制服务externalIP仅为允许的IP地址列表
+k8simagedigests：容器镜像必须包含digest
+noupdateserviceaccount：拒绝白名单外的资源更新ServiceAccount
+k8sreplicalimits：要求具有spec.replicas字段的对象（Deployments、ReplicaSets等）在定义的范围内
+k8srequiredannotations：要求资源包含指定的annotations，其值与提供的正则表达式匹配
+k8srequiredlabels：要求资源包含指定的标签，其值与提供的正则表达式匹配
+k8srequiredprobes：要求Pod具有Readiness或Liveness Probe
+k8spspautomountserviceaccounttokenpod：约束容器不能设置automountServiceAccountToken为true
+k8spspallowprivilegeescalationcontainer：约束PodSecurityPolicy中的allowPrivilegeEscalation字段为false
+k8spspapparmor：约束AppArmor字段列表
+k8spspcapabilities：限制PodSecurityPolicy中的allowedCapabilities和requiredDropCapabilities字段
+k8spspflexvolumes：约束PodSecurityPolicy中的allowedFlexVolumes字段类型
+k8spspforbiddensysctls：约束PodSecurityPolicy中的sysctls字段不能使用的name
+k8spspfsgroup：控制PodSecurityPolicy中的fsGroup字段在限制范围内
+k8spsphostfilesystem：约束PodSecurityPolicy中的hostPath字段的参数
+k8spsphostnamespace：限制PodSecurityPolicy中的hostPID和hostIPC字段
+k8spsphostnetworkingports：约束PodSecurityPolicy中的hostNetwork和hostPorts字段
+k8spspprivilegedcontainer：禁止PodSecurityPolicy中的privileged字段为true
+k8spspprocmount：约束PodSecurityPolicy中的allowedProcMountTypes字段
+k8spspreadonlyrootfilesystem：约束PodSecurityPolicy中的readOnlyRootFilesystem字段
+k8spspseccomp：约束PodSecurityPolicy上的seccomp.security.alpha.kubernetes.io/allowedProfileNames注解
+k8spspselinuxv2：约束Pod定义SELinux配置的允许列表
+k8spspallowedusers：约束PodSecurityPolicy中的runAsUser、runAsGroup、supplementalGroups和fsGroup字段
+k8spspvolumetypes：约束PodSecurityPolicy中的volumes字段类型
         :type Kind: str
         :param _EnabledStatus: 策略开关状态：open打开，close关闭
         :type EnabledStatus: str
@@ -37235,7 +41157,63 @@ class OpenPolicySwitch(AbstractModel):
 
     @property
     def Kind(self):
-        r"""策略模板类型
+        r"""策略模板类型，可选值：
+优选策略：
+blocknamespacedeletion：存在pod的命名空间不允许删除
+blockcrddeletion：存在cr的crd不允许删除
+blockmountablevolumetype：禁止挂载指定的volume类型
+disallowalwayspullimage：禁止镜像拉取策略使用Always
+tkeallowedrepos：容器镜像来源限制
+blockunknowndaemonset：禁止未知的DaemonSet部署
+blockpvdeletion：PV处于绑定状态则不允许删除
+corednsprotect：CoreDNS组件删除保护
+blockschedulablenodedelete：非封锁状态的Node不允许删除
+resourcesdeletionprotection：资源删除保护
+tkeenirequest：弹性网卡资源配置限制
+blockworkloadcrossversionupgrade：工作负载镜像版本升级策略管控
+blockserviceaccountgranthighprivilegepermission：ServiceAccount权限管控
+blockclusteripserviceexist：不允许Service为ClusterIP类型
+blockinternetaccess：禁止公网访问
+assign：禁止访问Metadata Server
+blockhostnetworkpod：禁止创建HostNetwork类型Pod
+
+可选策略：
+blockvolumemountpath：禁止容器挂载指定的目录
+k8sallowedrepos：容器镜像必须以指定字符串列表中的字符串开头
+k8sblockendpointeditdefaultrole：禁止默认ClusterRole修改Endpoints
+k8sblockloadbalancer：不允许Service为LoadBalancer类型
+k8sblocknodeport：不允许Service为NodePort类型
+k8sblockwildcardingress：禁止ingress配置空白或通配符类型的hostname
+k8scontainerlimits：限制容器必须设置CPU和内存Limit
+k8scontainerratios：限制CPU和内存的Request与Limit的最大比率
+k8scontainerrequests：限制CPU和内存的Request必须设置且小于配置的最大值
+k8srequiredresources：必须配置内存的Limit，CPU和内存的Request
+k8sdisallowanonymous：不允许将白名单以外的ClusterRole和Role关联到system:anonymous User和system:unauthenticated Group
+k8sdisallowedtags：约束容器镜像tag
+k8sexternalips：限制服务externalIP仅为允许的IP地址列表
+k8simagedigests：容器镜像必须包含digest
+noupdateserviceaccount：拒绝白名单外的资源更新ServiceAccount
+k8sreplicalimits：要求具有spec.replicas字段的对象（Deployments、ReplicaSets等）在定义的范围内
+k8srequiredannotations：要求资源包含指定的annotations，其值与提供的正则表达式匹配
+k8srequiredlabels：要求资源包含指定的标签，其值与提供的正则表达式匹配
+k8srequiredprobes：要求Pod具有Readiness或Liveness Probe
+k8spspautomountserviceaccounttokenpod：约束容器不能设置automountServiceAccountToken为true
+k8spspallowprivilegeescalationcontainer：约束PodSecurityPolicy中的allowPrivilegeEscalation字段为false
+k8spspapparmor：约束AppArmor字段列表
+k8spspcapabilities：限制PodSecurityPolicy中的allowedCapabilities和requiredDropCapabilities字段
+k8spspflexvolumes：约束PodSecurityPolicy中的allowedFlexVolumes字段类型
+k8spspforbiddensysctls：约束PodSecurityPolicy中的sysctls字段不能使用的name
+k8spspfsgroup：控制PodSecurityPolicy中的fsGroup字段在限制范围内
+k8spsphostfilesystem：约束PodSecurityPolicy中的hostPath字段的参数
+k8spsphostnamespace：限制PodSecurityPolicy中的hostPID和hostIPC字段
+k8spsphostnetworkingports：约束PodSecurityPolicy中的hostNetwork和hostPorts字段
+k8spspprivilegedcontainer：禁止PodSecurityPolicy中的privileged字段为true
+k8spspprocmount：约束PodSecurityPolicy中的allowedProcMountTypes字段
+k8spspreadonlyrootfilesystem：约束PodSecurityPolicy中的readOnlyRootFilesystem字段
+k8spspseccomp：约束PodSecurityPolicy上的seccomp.security.alpha.kubernetes.io/allowedProfileNames注解
+k8spspselinuxv2：约束Pod定义SELinux配置的允许列表
+k8spspallowedusers：约束PodSecurityPolicy中的runAsUser、runAsGroup、supplementalGroups和fsGroup字段
+k8spspvolumetypes：约束PodSecurityPolicy中的volumes字段类型
         :rtype: str
         """
         return self._Kind
@@ -37371,7 +41349,17 @@ class PendingRelease(AbstractModel):
         :type Name: str
         :param _Namespace: 应用命名空间
         :type Namespace: str
-        :param _Status: 应用状态(参考helm的发布状态： unknown, deployed, uninstalled, superseded, failed, uninstalling, pending-install, pending-upgrade 或 pending-rollback)
+        :param _Status: 应用状态，参考 Helm 发布状态。
+可选值及其释义如下：
+• ​​unknown​​: 状态未知
+• ​​deployed​​: 已成功部署
+• ​​uninstalled​​: 已卸载
+• ​​superseded​​: 已被新版本替代
+• ​​failed​​: 部署失败
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :type Status: str
         :param _UpdatedTime: 更新时间
         :type UpdatedTime: str
@@ -37441,7 +41429,17 @@ class PendingRelease(AbstractModel):
 
     @property
     def Status(self):
-        r"""应用状态(参考helm的发布状态： unknown, deployed, uninstalled, superseded, failed, uninstalling, pending-install, pending-upgrade 或 pending-rollback)
+        r"""应用状态，参考 Helm 发布状态。
+可选值及其释义如下：
+• ​​unknown​​: 状态未知
+• ​​deployed​​: 已成功部署
+• ​​uninstalled​​: 已卸载
+• ​​superseded​​: 已被新版本替代
+• ​​failed​​: 部署失败
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :rtype: str
         """
         return self._Status
@@ -37470,6 +41468,104 @@ class PendingRelease(AbstractModel):
         self._Namespace = params.get("Namespace")
         self._Status = params.get("Status")
         self._UpdatedTime = params.get("UpdatedTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class PermissionItem(AbstractModel):
+    r"""用户权限项，定义用户在集群中的 RBAC 权限绑定
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群 ID
+        :type ClusterId: str
+        :param _RoleName: 角色名称。预置角色包括：tke:admin（集群管理员）、tke:ops（运维人员）、tke:dev（开发人员）、tke:ro（只读用户）、tke:ns:dev（命名空间开发人员）、tke:ns:ro（命名空间只读用户），其余为用户自定义角色
+        :type RoleName: str
+        :param _RoleType: 授权类型。枚举值：cluster（集群级别权限，对应 ClusterRoleBinding）、namespace（命名空间级别权限，对应 RoleBinding）
+        :type RoleType: str
+        :param _IsCustom: 是否为自定义角色，默认 false
+        :type IsCustom: bool
+        :param _Namespace: 命名空间。当 RoleType 为 namespace 时必填
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Namespace: str
+        """
+        self._ClusterId = None
+        self._RoleName = None
+        self._RoleType = None
+        self._IsCustom = None
+        self._Namespace = None
+
+    @property
+    def ClusterId(self):
+        r"""集群 ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def RoleName(self):
+        r"""角色名称。预置角色包括：tke:admin（集群管理员）、tke:ops（运维人员）、tke:dev（开发人员）、tke:ro（只读用户）、tke:ns:dev（命名空间开发人员）、tke:ns:ro（命名空间只读用户），其余为用户自定义角色
+        :rtype: str
+        """
+        return self._RoleName
+
+    @RoleName.setter
+    def RoleName(self, RoleName):
+        self._RoleName = RoleName
+
+    @property
+    def RoleType(self):
+        r"""授权类型。枚举值：cluster（集群级别权限，对应 ClusterRoleBinding）、namespace（命名空间级别权限，对应 RoleBinding）
+        :rtype: str
+        """
+        return self._RoleType
+
+    @RoleType.setter
+    def RoleType(self, RoleType):
+        self._RoleType = RoleType
+
+    @property
+    def IsCustom(self):
+        r"""是否为自定义角色，默认 false
+        :rtype: bool
+        """
+        return self._IsCustom
+
+    @IsCustom.setter
+    def IsCustom(self, IsCustom):
+        self._IsCustom = IsCustom
+
+    @property
+    def Namespace(self):
+        r"""命名空间。当 RoleType 为 namespace 时必填
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Namespace
+
+    @Namespace.setter
+    def Namespace(self, Namespace):
+        self._Namespace = Namespace
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._RoleName = params.get("RoleName")
+        self._RoleType = params.get("RoleType")
+        self._IsCustom = params.get("IsCustom")
+        self._Namespace = params.get("Namespace")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -41927,7 +46023,7 @@ class RegionInstance(AbstractModel):
         :type RegionName: str
         :param _RegionId: 地域ID
         :type RegionId: int
-        :param _Status: 地域状态
+        :param _Status: 地域状态\n- alluser: 所有用户可见
         :type Status: str
         :param _FeatureGates: 地域特性开关(按照JSON的形式返回所有属性)
         :type FeatureGates: str
@@ -41967,7 +46063,7 @@ class RegionInstance(AbstractModel):
 
     @property
     def Status(self):
-        r"""地域状态
+        r"""地域状态\n- alluser: 所有用户可见
         :rtype: str
         """
         return self._Status
@@ -42040,7 +46136,17 @@ class Release(AbstractModel):
         :type Namespace: str
         :param _Revision: 应用当前版本
         :type Revision: str
-        :param _Status: 应用状态
+        :param _Status: 应用状态，参考 Helm 发布状态。
+可选值及其释义如下：
+• ​​unknown​​: 状态未知
+• ​​deployed​​: 已成功部署
+• ​​uninstalled​​: 已卸载
+• ​​superseded​​: 已被新版本替代
+• ​​failed​​: 部署失败
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :type Status: str
         :param _ChartName: 制品名称
         :type ChartName: str
@@ -42098,7 +46204,17 @@ class Release(AbstractModel):
 
     @property
     def Status(self):
-        r"""应用状态
+        r"""应用状态，参考 Helm 发布状态。
+可选值及其释义如下：
+• ​​unknown​​: 状态未知
+• ​​deployed​​: 已成功部署
+• ​​uninstalled​​: 已卸载
+• ​​superseded​​: 已被新版本替代
+• ​​failed​​: 部署失败
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :rtype: str
         """
         return self._Status
@@ -42196,7 +46312,17 @@ class ReleaseDetails(AbstractModel):
         :type Namespace: str
         :param _Version: 应用当前版本
         :type Version: int
-        :param _Status: 应用状态
+        :param _Status: 应用状态，参考 Helm 发布状态。 
+可选值及其释义如下：
+• ​​unknown​​: 状态未知 
+• ​​deployed​​: 已成功部署 
+• ​​uninstalled​​: 已卸载 
+• ​​superseded​​: 已被新版本替代 
+• ​​failed​​: 部署失败 
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中 
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :type Status: str
         :param _Description: 应用描述
         :type Description: str
@@ -42281,7 +46407,17 @@ class ReleaseDetails(AbstractModel):
 
     @property
     def Status(self):
-        r"""应用状态
+        r"""应用状态，参考 Helm 发布状态。 
+可选值及其释义如下：
+• ​​unknown​​: 状态未知 
+• ​​deployed​​: 已成功部署 
+• ​​uninstalled​​: 已卸载 
+• ​​superseded​​: 已被新版本替代 
+• ​​failed​​: 部署失败 
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中 
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :rtype: str
         """
         return self._Status
@@ -42487,7 +46623,17 @@ class ReleaseHistory(AbstractModel):
         :type Namespace: str
         :param _Revision: 应用版本
         :type Revision: int
-        :param _Status: 应用状态
+        :param _Status: 应用状态，参考 Helm 发布状态。 
+可选值及其释义如下：
+• ​​unknown​​: 状态未知 
+• ​​deployed​​: 已成功部署 
+• ​​uninstalled​​: 已卸载 
+• ​​superseded​​: 已被新版本替代 
+• ​​failed​​: 部署失败 
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中 
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :type Status: str
         :param _Chart: 应用制品名称
         :type Chart: str
@@ -42542,7 +46688,17 @@ class ReleaseHistory(AbstractModel):
 
     @property
     def Status(self):
-        r"""应用状态
+        r"""应用状态，参考 Helm 发布状态。 
+可选值及其释义如下：
+• ​​unknown​​: 状态未知 
+• ​​deployed​​: 已成功部署 
+• ​​uninstalled​​: 已卸载 
+• ​​superseded​​: 已被新版本替代 
+• ​​failed​​: 部署失败 
+• ​​uninstalling​​: 正在卸载中
+• ​​pending-install​​: 等待安装/安装进行中
+• ​​pending-upgrade​​: 等待升级/升级进行中 
+• ​​pending-rollback​​: 等待回滚/回滚进行中
         :rtype: str
         """
         return self._Status
@@ -43523,9 +47679,9 @@ class ResourceUsage(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Name: 资源类型
+        :param _Name: 资源类型，参考k8s 官方资源
         :type Name: str
-        :param _Usage: 资源使用量
+        :param _Usage: 资源使用量，单位：个数
         :type Usage: int
         :param _Details: 资源使用详情
         :type Details: list of ResourceUsageDetail
@@ -43536,7 +47692,7 @@ class ResourceUsage(AbstractModel):
 
     @property
     def Name(self):
-        r"""资源类型
+        r"""资源类型，参考k8s 官方资源
         :rtype: str
         """
         return self._Name
@@ -43547,7 +47703,7 @@ class ResourceUsage(AbstractModel):
 
     @property
     def Usage(self):
-        r"""资源使用量
+        r"""资源使用量，单位：个数
         :rtype: int
         """
         return self._Usage
@@ -43702,6 +47858,92 @@ class RestartEKSContainerInstancesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class RollOutSequence(AbstractModel):
+    r"""发布序列
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 发布序列名称
+        :type Name: str
+        :param _SequenceFlows: 发布序列步骤
+        :type SequenceFlows: list of SequenceFlow
+        :param _Enabled: 是否启用
+        :type Enabled: bool
+        :param _ID: 发布序列ID
+        :type ID: int
+        """
+        self._Name = None
+        self._SequenceFlows = None
+        self._Enabled = None
+        self._ID = None
+
+    @property
+    def Name(self):
+        r"""发布序列名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def SequenceFlows(self):
+        r"""发布序列步骤
+        :rtype: list of SequenceFlow
+        """
+        return self._SequenceFlows
+
+    @SequenceFlows.setter
+    def SequenceFlows(self, SequenceFlows):
+        self._SequenceFlows = SequenceFlows
+
+    @property
+    def Enabled(self):
+        r"""是否启用
+        :rtype: bool
+        """
+        return self._Enabled
+
+    @Enabled.setter
+    def Enabled(self, Enabled):
+        self._Enabled = Enabled
+
+    @property
+    def ID(self):
+        r"""发布序列ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        if params.get("SequenceFlows") is not None:
+            self._SequenceFlows = []
+            for item in params.get("SequenceFlows"):
+                obj = SequenceFlow()
+                obj._deserialize(item)
+                self._SequenceFlows.append(obj)
+        self._Enabled = params.get("Enabled")
+        self._ID = params.get("ID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class RollbackClusterReleaseRequest(AbstractModel):
     r"""RollbackClusterRelease请求参数结构体
 
@@ -43717,7 +47959,7 @@ class RollbackClusterReleaseRequest(AbstractModel):
         :type Namespace: str
         :param _Revision: 回滚版本号
         :type Revision: int
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，传入 tke(标准集群)，eks(Serverless集群)，external(注册集群）
         :type ClusterType: str
         """
         self._ClusterId = None
@@ -43772,7 +48014,7 @@ class RollbackClusterReleaseRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，传入 tke(标准集群)，eks(Serverless集群)，external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -43917,6 +48159,7 @@ class RouteTableConflict(AbstractModel):
     def __init__(self):
         r"""
         :param _RouteTableType: 路由表类型。
+枚举值：CcsCluster、Vpc、VpcRouteTable、CcsClusterRouteTable
         :type RouteTableType: str
         :param _RouteTableCidrBlock: 路由表CIDR。
         :type RouteTableCidrBlock: str
@@ -43933,6 +48176,7 @@ class RouteTableConflict(AbstractModel):
     @property
     def RouteTableType(self):
         r"""路由表类型。
+枚举值：CcsCluster、Vpc、VpcRouteTable、CcsClusterRouteTable
         :rtype: str
         """
         return self._RouteTableType
@@ -44321,9 +48565,9 @@ class RuntimeConfig(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _RuntimeType: 运行时类型
+        :param _RuntimeType: 运行时类型，支持的类型有 docker、containerd
         :type RuntimeType: str
-        :param _RuntimeVersion: 运行时版本
+        :param _RuntimeVersion: 运行时版本，参考：https://cloud.tencent.com/document/api/457/105241
         :type RuntimeVersion: str
         """
         self._RuntimeType = None
@@ -44331,7 +48575,7 @@ class RuntimeConfig(AbstractModel):
 
     @property
     def RuntimeType(self):
-        r"""运行时类型
+        r"""运行时类型，支持的类型有 docker、containerd
         :rtype: str
         """
         return self._RuntimeType
@@ -44342,7 +48586,7 @@ class RuntimeConfig(AbstractModel):
 
     @property
     def RuntimeVersion(self):
-        r"""运行时版本
+        r"""运行时版本，参考：https://cloud.tencent.com/document/api/457/105241
         :rtype: str
         """
         return self._RuntimeVersion
@@ -44683,6 +48927,113 @@ class SecurityContext(AbstractModel):
         if params.get("Capabilities") is not None:
             self._Capabilities = Capabilities()
             self._Capabilities._deserialize(params.get("Capabilities"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SequenceFlow(AbstractModel):
+    r"""发布序列步骤
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Tags: 发布序列步骤标签
+        :type Tags: list of SequenceTag
+        :param _SoakTime: 等待时间（秒）
+        :type SoakTime: int
+        """
+        self._Tags = None
+        self._SoakTime = None
+
+    @property
+    def Tags(self):
+        r"""发布序列步骤标签
+        :rtype: list of SequenceTag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def SoakTime(self):
+        r"""等待时间（秒）
+        :rtype: int
+        """
+        return self._SoakTime
+
+    @SoakTime.setter
+    def SoakTime(self, SoakTime):
+        self._SoakTime = SoakTime
+
+
+    def _deserialize(self, params):
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = SequenceTag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._SoakTime = params.get("SoakTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SequenceTag(AbstractModel):
+    r"""发布序列标签
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Key: 标签键
+        :type Key: str
+        :param _Value: 标签值
+        :type Value: list of str
+        """
+        self._Key = None
+        self._Value = None
+
+    @property
+    def Key(self):
+        r"""标签键
+        :rtype: str
+        """
+        return self._Key
+
+    @Key.setter
+    def Key(self, Key):
+        self._Key = Key
+
+    @property
+    def Value(self):
+        r"""标签值
+        :rtype: list of str
+        """
+        return self._Value
+
+    @Value.setter
+    def Value(self, Value):
+        self._Value = Value
+
+
+    def _deserialize(self, params):
+        self._Key = params.get("Key")
+        self._Value = params.get("Value")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -45140,6 +49491,8 @@ class SuperNodeResource(AbstractModel):
         :type ResourceType: str
         :param _DisasterRecoverGroupId: 置放群组 ID，QuotaType为 exact 时有效，表示购买的精确配额需满足置放群组。可通过 [DescribeDisasterRecoverGroups](https://cloud.tencent.com/document/product/213/17810) 接口返回值中的DisasterRecoverGroupId获取。
         :type DisasterRecoverGroupId: str
+        :param _PriceType: 定价类型
+        :type PriceType: str
         """
         self._NodeName = None
         self._Num = None
@@ -45150,6 +49503,7 @@ class SuperNodeResource(AbstractModel):
         self._ChargeType = None
         self._ResourceType = None
         self._DisasterRecoverGroupId = None
+        self._PriceType = None
 
     @property
     def NodeName(self):
@@ -45250,6 +49604,17 @@ class SuperNodeResource(AbstractModel):
     def DisasterRecoverGroupId(self, DisasterRecoverGroupId):
         self._DisasterRecoverGroupId = DisasterRecoverGroupId
 
+    @property
+    def PriceType(self):
+        r"""定价类型
+        :rtype: str
+        """
+        return self._PriceType
+
+    @PriceType.setter
+    def PriceType(self, PriceType):
+        self._PriceType = PriceType
+
 
     def _deserialize(self, params):
         self._NodeName = params.get("NodeName")
@@ -45261,6 +49626,7 @@ class SuperNodeResource(AbstractModel):
         self._ChargeType = params.get("ChargeType")
         self._ResourceType = params.get("ResourceType")
         self._DisasterRecoverGroupId = params.get("DisasterRecoverGroupId")
+        self._PriceType = params.get("PriceType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -45373,6 +49739,100 @@ class Switch(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class SwitchClusterEndpointRequest(AbstractModel):
+    r"""SwitchClusterEndpoint请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群ID
+        :type ClusterId: str
+        :param _IsExtranet: 是否为外网访问（TRUE 外网访问 FALSE 内网访问，默认值： FALSE）
+        :type IsExtranet: bool
+        :param _Rollback: 切换回滚至非直连
+        :type Rollback: bool
+        """
+        self._ClusterId = None
+        self._IsExtranet = None
+        self._Rollback = None
+
+    @property
+    def ClusterId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def IsExtranet(self):
+        r"""是否为外网访问（TRUE 外网访问 FALSE 内网访问，默认值： FALSE）
+        :rtype: bool
+        """
+        return self._IsExtranet
+
+    @IsExtranet.setter
+    def IsExtranet(self, IsExtranet):
+        self._IsExtranet = IsExtranet
+
+    @property
+    def Rollback(self):
+        r"""切换回滚至非直连
+        :rtype: bool
+        """
+        return self._Rollback
+
+    @Rollback.setter
+    def Rollback(self, Rollback):
+        self._Rollback = Rollback
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._IsExtranet = params.get("IsExtranet")
+        self._Rollback = params.get("Rollback")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SwitchClusterEndpointResponse(AbstractModel):
+    r"""SwitchClusterEndpoint返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class SwitchInfo(AbstractModel):
@@ -45859,6 +50319,180 @@ class Taint(AbstractModel):
         
 
 
+class Task(AbstractModel):
+    r"""任务信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LifeState: 任务状态（process(运行中)、pause(暂停)、pausing(暂停中)、paused(已暂停)、done(已完成)、abort(中止)、aborted(已中止)、resume(重新执行)）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LifeState: str
+        :param _TargetObj: 任务目标ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TargetObj: str
+        :param _Param: 任务参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Param: str
+        :param _TaskType: 任务类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TaskType: str
+        :param _LastError: 任务失败原因
+注意：此字段可能返回 null，表示取不到有效值。
+        :type LastError: str
+        :param _ClusterID: 任务所属集群ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ClusterID: str
+        :param _CreatedAt: 任务开始时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreatedAt: str
+        :param _UpdatedAt: 任务更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UpdatedAt: str
+        :param _TaskID: 创建任务唯一请求ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TaskID: str
+        """
+        self._LifeState = None
+        self._TargetObj = None
+        self._Param = None
+        self._TaskType = None
+        self._LastError = None
+        self._ClusterID = None
+        self._CreatedAt = None
+        self._UpdatedAt = None
+        self._TaskID = None
+
+    @property
+    def LifeState(self):
+        r"""任务状态（process(运行中)、pause(暂停)、pausing(暂停中)、paused(已暂停)、done(已完成)、abort(中止)、aborted(已中止)、resume(重新执行)）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LifeState
+
+    @LifeState.setter
+    def LifeState(self, LifeState):
+        self._LifeState = LifeState
+
+    @property
+    def TargetObj(self):
+        r"""任务目标ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._TargetObj
+
+    @TargetObj.setter
+    def TargetObj(self, TargetObj):
+        self._TargetObj = TargetObj
+
+    @property
+    def Param(self):
+        r"""任务参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Param
+
+    @Param.setter
+    def Param(self, Param):
+        self._Param = Param
+
+    @property
+    def TaskType(self):
+        r"""任务类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._TaskType
+
+    @TaskType.setter
+    def TaskType(self, TaskType):
+        self._TaskType = TaskType
+
+    @property
+    def LastError(self):
+        r"""任务失败原因
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._LastError
+
+    @LastError.setter
+    def LastError(self, LastError):
+        self._LastError = LastError
+
+    @property
+    def ClusterID(self):
+        r"""任务所属集群ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def CreatedAt(self):
+        r"""任务开始时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+    @property
+    def UpdatedAt(self):
+        r"""任务更新时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UpdatedAt
+
+    @UpdatedAt.setter
+    def UpdatedAt(self, UpdatedAt):
+        self._UpdatedAt = UpdatedAt
+
+    @property
+    def TaskID(self):
+        r"""创建任务唯一请求ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._TaskID
+
+    @TaskID.setter
+    def TaskID(self, TaskID):
+        self._TaskID = TaskID
+
+
+    def _deserialize(self, params):
+        self._LifeState = params.get("LifeState")
+        self._TargetObj = params.get("TargetObj")
+        self._Param = params.get("Param")
+        self._TaskType = params.get("TaskType")
+        self._LastError = params.get("LastError")
+        self._ClusterID = params.get("ClusterID")
+        self._CreatedAt = params.get("CreatedAt")
+        self._UpdatedAt = params.get("UpdatedAt")
+        self._TaskID = params.get("TaskID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class TaskStepInfo(AbstractModel):
     r"""任务步骤信息
 
@@ -46129,7 +50763,7 @@ class UninstallClusterReleaseRequest(AbstractModel):
         :type Name: str
         :param _Namespace: 应用命名空间
         :type Namespace: str
-        :param _ClusterType: 集群类型
+        :param _ClusterType: 集群类型，传入 tke(标准集群)， eks(Serverless集群)，external(注册集群）
         :type ClusterType: str
         """
         self._ClusterId = None
@@ -46172,7 +50806,7 @@ class UninstallClusterReleaseRequest(AbstractModel):
 
     @property
     def ClusterType(self):
-        r"""集群类型
+        r"""集群类型，传入 tke(标准集群)， eks(Serverless集群)，external(注册集群）
         :rtype: str
         """
         return self._ClusterType
@@ -46377,17 +51011,17 @@ class UpdateAddonRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :type ClusterId: str
-        :param _AddonName: addon名称
+        :param _AddonName: addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :type AddonName: str
         :param _AddonVersion: addon版本（不传默认不更新，不传AddonVersion时RawValues必传）
         :type AddonVersion: str
-        :param _RawValues: addon的参数，是一个json格式的base64转码后的字符串（addon参数由DescribeAddonValues获取，不传RawValues时AddonVersion必传））
+        :param _RawValues: addon的参数，是一个json格式的base64转码后的字符串（addon参数由DescribeAddonValues获取，不传RawValues时AddonVersion必传）。
         :type RawValues: str
         :param _UpdateStrategy: addon参数的更新策略，支持replace和merge两种策略，默认值为merge，兼容旧版本API。replace：使用新RawValues全量替换addon原RawValues，merge：根据新RawValues新增或更新addon原RawValues中对应参数。
         :type UpdateStrategy: str
-        :param _DryRun: 是否仅做更新检查，设置为true时仅做检查，不会更新组件
+        :param _DryRun: 是否仅做更新检查，设置为true时仅做检查，不会更新组件。默认值为 false。
         :type DryRun: bool
         """
         self._ClusterId = None
@@ -46399,7 +51033,7 @@ class UpdateAddonRequest(AbstractModel):
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID，请从容器服务控制台集群列表中获取（https://console.cloud.tencent.com/tke2/cluster）。
         :rtype: str
         """
         return self._ClusterId
@@ -46410,7 +51044,7 @@ class UpdateAddonRequest(AbstractModel):
 
     @property
     def AddonName(self):
-        r"""addon名称
+        r"""addon名称，请从容器服务控制台进入集群详情页后，在组件管理页面中获取。
         :rtype: str
         """
         return self._AddonName
@@ -46432,7 +51066,7 @@ class UpdateAddonRequest(AbstractModel):
 
     @property
     def RawValues(self):
-        r"""addon的参数，是一个json格式的base64转码后的字符串（addon参数由DescribeAddonValues获取，不传RawValues时AddonVersion必传））
+        r"""addon的参数，是一个json格式的base64转码后的字符串（addon参数由DescribeAddonValues获取，不传RawValues时AddonVersion必传）。
         :rtype: str
         """
         return self._RawValues
@@ -46454,7 +51088,7 @@ class UpdateAddonRequest(AbstractModel):
 
     @property
     def DryRun(self):
-        r"""是否仅做更新检查，设置为true时仅做检查，不会更新组件
+        r"""是否仅做更新检查，设置为true时仅做检查，不会更新组件。默认值为 false。
         :rtype: bool
         """
         return self._DryRun
@@ -46616,9 +51250,9 @@ class UpdateClusterVersionRequest(AbstractModel):
         :type DstVersion: str
         :param _ExtraArgs: 集群自定义参数
         :type ExtraArgs: :class:`tencentcloud.tke.v20180525.models.ClusterExtraArgs`
-        :param _MaxNotReadyPercent: 可容忍的最大不可用pod数目
+        :param _MaxNotReadyPercent: 可容忍的最大不可用pod数目。默认0
         :type MaxNotReadyPercent: float
-        :param _SkipPreCheck: 是否跳过预检查阶段
+        :param _SkipPreCheck: 是否跳过预检查阶段，默认false
         :type SkipPreCheck: bool
         """
         self._ClusterId = None
@@ -46662,7 +51296,7 @@ class UpdateClusterVersionRequest(AbstractModel):
 
     @property
     def MaxNotReadyPercent(self):
-        r"""可容忍的最大不可用pod数目
+        r"""可容忍的最大不可用pod数目。默认0
         :rtype: float
         """
         return self._MaxNotReadyPercent
@@ -46673,7 +51307,7 @@ class UpdateClusterVersionRequest(AbstractModel):
 
     @property
     def SkipPreCheck(self):
-        r"""是否跳过预检查阶段
+        r"""是否跳过预检查阶段，默认false
         :rtype: bool
         """
         return self._SkipPreCheck
@@ -47792,7 +52426,7 @@ class UpgradeClusterInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :type ClusterId: str
         :param _Operation: create 表示开始一次升级任务
 pause 表示停止任务
@@ -47804,11 +52438,12 @@ reset 大版本重装升级
 hot 小版本热升级
 major 大版本原地升级
         :type UpgradeType: str
-        :param _InstanceIds: 需要升级的节点列表
+        :param _InstanceIds: 需要升级的节点列表，可以通过控制台或 [查询待升级节点接口
+](https://cloud.tencent.com/document/api/457/50366) 获取
         :type InstanceIds: list of str
         :param _ResetParam: 当节点重新加入集群时候所使用的参数，参考添加已有节点接口
         :type ResetParam: :class:`tencentcloud.tke.v20180525.models.UpgradeNodeResetParam`
-        :param _SkipPreCheck: 是否忽略节点升级前检查
+        :param _SkipPreCheck: 是否忽略节点升级前检查，默认值 false
         :type SkipPreCheck: bool
         :param _MaxNotReadyPercent: 最大可容忍的不可用Pod比例
         :type MaxNotReadyPercent: float
@@ -47826,7 +52461,7 @@ major 大版本原地升级
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群ID（请登录 [TKE 控制台](https://console.cloud.tencent.com/tke2) 获取集群 ID ）
         :rtype: str
         """
         return self._ClusterId
@@ -47865,7 +52500,8 @@ major 大版本原地升级
 
     @property
     def InstanceIds(self):
-        r"""需要升级的节点列表
+        r"""需要升级的节点列表，可以通过控制台或 [查询待升级节点接口
+](https://cloud.tencent.com/document/api/457/50366) 获取
         :rtype: list of str
         """
         return self._InstanceIds
@@ -47887,7 +52523,7 @@ major 大版本原地升级
 
     @property
     def SkipPreCheck(self):
-        r"""是否忽略节点升级前检查
+        r"""是否忽略节点升级前检查，默认值 false
         :rtype: bool
         """
         return self._SkipPreCheck
@@ -48303,6 +52939,288 @@ class UpgradeNodeResetParam(AbstractModel):
         
 
 
+class UpgradePlan(AbstractModel):
+    r"""升级计划
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 升级计划ID
+        :type ID: int
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _ClusterName: 集群名称
+        :type ClusterName: str
+        :param _Region: 集群地域
+        :type Region: str
+        :param _PlanedStartAt: 预计开始时间
+        :type PlanedStartAt: str
+        :param _UpgradeStartAt: 升级开始时间
+        :type UpgradeStartAt: str
+        :param _UpgradeEndAt: 升级结束时间
+        :type UpgradeEndAt: str
+        :param _Status: 升级状态
+        :type Status: str
+        :param _Reason: 原因
+        :type Reason: str
+        """
+        self._ID = None
+        self._ClusterID = None
+        self._ClusterName = None
+        self._Region = None
+        self._PlanedStartAt = None
+        self._UpgradeStartAt = None
+        self._UpgradeEndAt = None
+        self._Status = None
+        self._Reason = None
+
+    @property
+    def ID(self):
+        r"""升级计划ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def ClusterName(self):
+        r"""集群名称
+        :rtype: str
+        """
+        return self._ClusterName
+
+    @ClusterName.setter
+    def ClusterName(self, ClusterName):
+        self._ClusterName = ClusterName
+
+    @property
+    def Region(self):
+        r"""集群地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def PlanedStartAt(self):
+        r"""预计开始时间
+        :rtype: str
+        """
+        return self._PlanedStartAt
+
+    @PlanedStartAt.setter
+    def PlanedStartAt(self, PlanedStartAt):
+        self._PlanedStartAt = PlanedStartAt
+
+    @property
+    def UpgradeStartAt(self):
+        r"""升级开始时间
+        :rtype: str
+        """
+        return self._UpgradeStartAt
+
+    @UpgradeStartAt.setter
+    def UpgradeStartAt(self, UpgradeStartAt):
+        self._UpgradeStartAt = UpgradeStartAt
+
+    @property
+    def UpgradeEndAt(self):
+        r"""升级结束时间
+        :rtype: str
+        """
+        return self._UpgradeEndAt
+
+    @UpgradeEndAt.setter
+    def UpgradeEndAt(self, UpgradeEndAt):
+        self._UpgradeEndAt = UpgradeEndAt
+
+    @property
+    def Status(self):
+        r"""升级状态
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Reason(self):
+        r"""原因
+        :rtype: str
+        """
+        return self._Reason
+
+    @Reason.setter
+    def Reason(self, Reason):
+        self._Reason = Reason
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._ClusterID = params.get("ClusterID")
+        self._ClusterName = params.get("ClusterName")
+        self._Region = params.get("Region")
+        self._PlanedStartAt = params.get("PlanedStartAt")
+        self._UpgradeStartAt = params.get("UpgradeStartAt")
+        self._UpgradeEndAt = params.get("UpgradeEndAt")
+        self._Status = params.get("Status")
+        self._Reason = params.get("Reason")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpgradeTask(AbstractModel):
+    r"""升级任务
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 任务ID
+        :type ID: int
+        :param _Name: 任务名称
+        :type Name: str
+        :param _Component: 组件名称
+        :type Component: str
+        :param _RelatedResources: 关联资源
+        :type RelatedResources: list of str
+        :param _UpgradeImpact: 升级影响
+        :type UpgradeImpact: str
+        :param _PlanedStartAt: 预计开始时间
+        :type PlanedStartAt: str
+        :param _CreatedAt: 创建时间
+        :type CreatedAt: str
+        """
+        self._ID = None
+        self._Name = None
+        self._Component = None
+        self._RelatedResources = None
+        self._UpgradeImpact = None
+        self._PlanedStartAt = None
+        self._CreatedAt = None
+
+    @property
+    def ID(self):
+        r"""任务ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def Name(self):
+        r"""任务名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Component(self):
+        r"""组件名称
+        :rtype: str
+        """
+        return self._Component
+
+    @Component.setter
+    def Component(self, Component):
+        self._Component = Component
+
+    @property
+    def RelatedResources(self):
+        r"""关联资源
+        :rtype: list of str
+        """
+        return self._RelatedResources
+
+    @RelatedResources.setter
+    def RelatedResources(self, RelatedResources):
+        self._RelatedResources = RelatedResources
+
+    @property
+    def UpgradeImpact(self):
+        r"""升级影响
+        :rtype: str
+        """
+        return self._UpgradeImpact
+
+    @UpgradeImpact.setter
+    def UpgradeImpact(self, UpgradeImpact):
+        self._UpgradeImpact = UpgradeImpact
+
+    @property
+    def PlanedStartAt(self):
+        r"""预计开始时间
+        :rtype: str
+        """
+        return self._PlanedStartAt
+
+    @PlanedStartAt.setter
+    def PlanedStartAt(self, PlanedStartAt):
+        self._PlanedStartAt = PlanedStartAt
+
+    @property
+    def CreatedAt(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreatedAt
+
+    @CreatedAt.setter
+    def CreatedAt(self, CreatedAt):
+        self._CreatedAt = CreatedAt
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._Name = params.get("Name")
+        self._Component = params.get("Component")
+        self._RelatedResources = params.get("RelatedResources")
+        self._UpgradeImpact = params.get("UpgradeImpact")
+        self._PlanedStartAt = params.get("PlanedStartAt")
+        self._CreatedAt = params.get("CreatedAt")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class VersionInstance(AbstractModel):
     r"""版本信息
 
@@ -48314,7 +53232,7 @@ class VersionInstance(AbstractModel):
         :type Name: str
         :param _Version: 版本信息
         :type Version: str
-        :param _Remark: Remark
+        :param _Remark: 备注
         :type Remark: str
         """
         self._Name = None
@@ -48345,7 +53263,7 @@ class VersionInstance(AbstractModel):
 
     @property
     def Remark(self):
-        r"""Remark
+        r"""备注
         :rtype: str
         """
         return self._Remark
@@ -48596,10 +53514,13 @@ class VirtualNodeSpec(AbstractModel):
         :type SubnetId: str
         :param _Tags: 腾讯云标签
         :type Tags: list of Tag
+        :param _Quota: 按量配额
+        :type Quota: :class:`tencentcloud.tke.v20180525.models.SuperNodeResource`
         """
         self._DisplayName = None
         self._SubnetId = None
         self._Tags = None
+        self._Quota = None
 
     @property
     def DisplayName(self):
@@ -48634,6 +53555,17 @@ class VirtualNodeSpec(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def Quota(self):
+        r"""按量配额
+        :rtype: :class:`tencentcloud.tke.v20180525.models.SuperNodeResource`
+        """
+        return self._Quota
+
+    @Quota.setter
+    def Quota(self, Quota):
+        self._Quota = Quota
+
 
     def _deserialize(self, params):
         self._DisplayName = params.get("DisplayName")
@@ -48644,6 +53576,9 @@ class VirtualNodeSpec(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        if params.get("Quota") is not None:
+            self._Quota = SuperNodeResource()
+            self._Quota._deserialize(params.get("Quota"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

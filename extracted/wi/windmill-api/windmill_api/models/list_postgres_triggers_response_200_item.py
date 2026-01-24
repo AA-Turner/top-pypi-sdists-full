@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.list_postgres_triggers_response_200_item_mode import ListPostgresTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -24,7 +25,6 @@ T = TypeVar("T", bound="ListPostgresTriggersResponse200Item")
 class ListPostgresTriggersResponse200Item:
     """
     Attributes:
-        enabled (bool):
         postgres_resource_path (str):
         publication_name (str):
         replication_slot_name (str):
@@ -36,16 +36,16 @@ class ListPostgresTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListPostgresTriggersResponse200ItemMode): job trigger mode
         server_id (Union[Unset, str]):
         error (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListPostgresTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to
             the script or flow
-        retry (Union[Unset, ListPostgresTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListPostgresTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
-    enabled: bool
     postgres_resource_path: str
     publication_name: str
     replication_slot_name: str
@@ -57,6 +57,7 @@ class ListPostgresTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListPostgresTriggersResponse200ItemMode
     server_id: Union[Unset, str] = UNSET
     error: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -66,7 +67,6 @@ class ListPostgresTriggersResponse200Item:
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        enabled = self.enabled
         postgres_resource_path = self.postgres_resource_path
         publication_name = self.publication_name
         replication_slot_name = self.replication_slot_name
@@ -80,6 +80,8 @@ class ListPostgresTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         error = self.error
         last_server_ping: Union[Unset, str] = UNSET
@@ -99,7 +101,6 @@ class ListPostgresTriggersResponse200Item:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "enabled": enabled,
                 "postgres_resource_path": postgres_resource_path,
                 "publication_name": publication_name,
                 "replication_slot_name": replication_slot_name,
@@ -111,6 +112,7 @@ class ListPostgresTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -139,8 +141,6 @@ class ListPostgresTriggersResponse200Item:
         from ..models.list_postgres_triggers_response_200_item_retry import ListPostgresTriggersResponse200ItemRetry
 
         d = src_dict.copy()
-        enabled = d.pop("enabled")
-
         postgres_resource_path = d.pop("postgres_resource_path")
 
         publication_name = d.pop("publication_name")
@@ -162,6 +162,8 @@ class ListPostgresTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListPostgresTriggersResponse200ItemMode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -191,7 +193,6 @@ class ListPostgresTriggersResponse200Item:
             retry = ListPostgresTriggersResponse200ItemRetry.from_dict(_retry)
 
         list_postgres_triggers_response_200_item = cls(
-            enabled=enabled,
             postgres_resource_path=postgres_resource_path,
             publication_name=publication_name,
             replication_slot_name=replication_slot_name,
@@ -203,6 +204,7 @@ class ListPostgresTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             error=error,
             last_server_ping=last_server_ping,

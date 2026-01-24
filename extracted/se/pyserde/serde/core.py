@@ -7,22 +7,21 @@ import dataclasses
 import enum
 import functools
 import logging
-import sys
 import re
 import casefy
 from dataclasses import dataclass
 
 from beartype.door import is_bearable
-from collections.abc import Mapping, Sequence, Callable, Hashable
+from collections import deque, Counter
+from collections.abc import Mapping, Sequence, MutableSequence, Set, Callable, Hashable
 from typing import (
     overload,
     TypeVar,
     Generic,
-    Optional,
     Any,
     Protocol,
     get_type_hints,
-    Union,
+    cast,
 )
 
 from .compat import (
@@ -30,11 +29,15 @@ from .compat import (
     SerdeError,
     dataclass_fields,
     get_origin,
+    is_bare_counter,
+    is_bare_deque,
     is_bare_dict,
     is_bare_list,
     is_bare_set,
     is_bare_tuple,
     is_class_var,
+    is_counter,
+    is_deque,
     is_dict,
     is_generic,
     is_list,
@@ -169,7 +172,7 @@ class Cache:
         scope: Scope = getattr(wrapper, SERDE_SCOPE)
         return scope.funcs[FROM_DICT](data={"v": obj}).v  # type: ignore
 
-    def _get_union_class(self, cls: type[Any]) -> Optional[type[Any]]:
+    def _get_union_class(self, cls: type[Any]) -> type[Any] | None:
         """
         Get a wrapper class from the the cache. If not found, it will generate
         the class and store it in the cache.
@@ -206,7 +209,12 @@ class Cache:
         func_name = union_func_name(UNION_SE_PREFIX, list(type_args(union_cls)))
         return scope.funcs[func_name](obj, False, False)
 
-    def deserialize_union(self, cls: type[T], data: Any) -> T:
+    def deserialize_union(
+        self,
+        cls: type[T],
+        data: Any,
+        deserialize_numbers: Callable[[str | int], float] | None = None,
+    ) -> T:
         """
         Deserialize from dict or tuple into the specified Union.
         """
@@ -214,7 +222,12 @@ class Cache:
         wrapper = self._get_union_class(cls)
         scope: Scope = getattr(wrapper, SERDE_SCOPE)
         func_name = union_func_name(UNION_DE_PREFIX, list(type_args(union_cls)))
-        return scope.funcs[func_name](cls=union_cls, data=data)  # type: ignore
+        return cast(
+            T,
+            scope.funcs[func_name](
+                cls=union_cls, data=data, deserialize_numbers=deserialize_numbers
+            ),
+        )
 
 
 def _extract_from_with_tagging(maybe_with_tagging: Any) -> tuple[Any, Tagging]:
@@ -241,7 +254,7 @@ class Scope:
     funcs: dict[str, Callable[..., Any]] = dataclasses.field(default_factory=dict)
     """ Generated serialize and deserialize functions """
 
-    defaults: dict[str, Union[Callable[..., Any], Any]] = dataclasses.field(default_factory=dict)
+    defaults: dict[str, Callable[..., Any] | Any] = dataclasses.field(default_factory=dict)
     """ Default values of the dataclass fields (factories & normal values) """
 
     code: dict[str, str] = dataclasses.field(default_factory=dict)
@@ -254,6 +267,9 @@ class Scope:
     """ Default values for to_dict & from_dict arguments """
 
     convert_sets_default: bool = False
+
+    transparent: bool = False
+    """If True, serialize/deserialize as the single inner field (serde-rs `transparent`)."""
 
     def __repr__(self) -> str:
         res: list[str] = []
@@ -307,7 +323,7 @@ def raise_unsupported_type(obj: Any) -> None:
 
 
 def gen(
-    code: str, globals: Optional[dict[str, Any]] = None, locals: Optional[dict[str, Any]] = None
+    code: str, globals: dict[str, Any] | None = None, locals: dict[str, Any] | None = None
 ) -> str:
     """
     A wrapper of builtin `exec` function.
@@ -360,8 +376,13 @@ def is_instance(obj: Any, typ: Any) -> bool:
         return is_set_instance(obj, typ)
     elif is_tuple(typ):
         return is_tuple_instance(obj, typ)
+    elif is_counter(typ):
+        # Counter must be checked before dict since Counter is a subclass of dict
+        return is_counter_instance(obj, typ)
     elif is_dict(typ):
         return is_dict_instance(obj, typ)
+    elif is_deque(typ):
+        return is_deque_instance(obj, typ)
     elif is_generic(typ):
         return is_generic_instance(obj, typ)
     elif is_literal(typ):
@@ -395,8 +416,20 @@ def is_union_instance(obj: Any, typ: type[Any]) -> bool:
 
 
 def is_list_instance(obj: Any, typ: type[Any]) -> bool:
-    if not isinstance(obj, list):
-        return False
+    origin = get_origin(typ) or typ
+    if origin is list:
+        if not isinstance(obj, list):
+            return False
+    elif origin is MutableSequence:
+        if isinstance(obj, (str, bytes, bytearray)):
+            return False
+        if not isinstance(obj, MutableSequence):
+            return False
+    else:
+        if isinstance(obj, (str, bytes, bytearray)):
+            return False
+        if not isinstance(obj, Sequence):
+            return False
     if len(obj) == 0 or is_bare_list(typ):
         return True
     list_arg = type_args(typ)[0]
@@ -405,7 +438,7 @@ def is_list_instance(obj: Any, typ: type[Any]) -> bool:
 
 
 def is_set_instance(obj: Any, typ: type[Any]) -> bool:
-    if not isinstance(obj, (set, frozenset)):
+    if not isinstance(obj, Set):
         return False
     if len(obj) == 0 or is_bare_set(typ):
         return True
@@ -440,7 +473,7 @@ def is_tuple_instance(obj: Any, typ: type[Any]) -> bool:
 
     # All the other tuples e.g. tuple[int, str]
     if len(obj) == len(args):
-        for element, arg in zip(obj, args):
+        for element, arg in zip(obj, args, strict=False):
             if not is_instance(element, arg):
                 return False
     else:
@@ -450,7 +483,7 @@ def is_tuple_instance(obj: Any, typ: type[Any]) -> bool:
 
 
 def is_dict_instance(obj: Any, typ: type[Any]) -> bool:
-    if not isinstance(obj, dict):
+    if not isinstance(obj, Mapping):
         return False
     if len(obj) == 0 or is_bare_dict(typ):
         return True
@@ -460,6 +493,26 @@ def is_dict_instance(obj: Any, typ: type[Any]) -> bool:
         # for speed reasons we just check the type of the 1st element
         return is_instance(k, ktyp) and is_instance(v, vtyp)
     return False
+
+
+def is_deque_instance(obj: Any, typ: type[Any]) -> bool:
+    if not isinstance(obj, deque):
+        return False
+    if len(obj) == 0 or is_bare_deque(typ):
+        return True
+    deque_arg = type_args(typ)[0]
+    # for speed reasons we just check the type of the 1st element
+    return is_instance(obj[0], deque_arg)
+
+
+def is_counter_instance(obj: Any, typ: type[Any]) -> bool:
+    if not isinstance(obj, Counter):
+        return False
+    if len(obj) == 0 or is_bare_counter(typ):
+        return True
+    counter_arg = type_args(typ)[0]
+    # for speed reasons we just check the type of the 1st key
+    return is_instance(next(iter(obj.keys())), counter_arg)
 
 
 def is_generic_instance(obj: Any, typ: type[Any]) -> bool:
@@ -498,7 +551,7 @@ def skip_if_false(v: Any) -> Any:
     return not bool(v)
 
 
-def skip_if_default(v: Any, default: Optional[Any] = None) -> Any:
+def skip_if_default(v: Any, default: Any | None = None) -> Any:
     return v == default  # Why return type is deduced to be Any?
 
 
@@ -511,16 +564,16 @@ class FlattenOpts:
 
 def field(
     *args: Any,
-    rename: Optional[str] = None,
-    alias: Optional[list[str]] = None,
-    skip: Optional[bool] = None,
-    skip_if: Optional[Callable[[Any], Any]] = None,
-    skip_if_false: Optional[bool] = None,
-    skip_if_default: Optional[bool] = None,
-    serializer: Optional[Callable[..., Any]] = None,
-    deserializer: Optional[Callable[..., Any]] = None,
-    flatten: Optional[Union[FlattenOpts, bool]] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    rename: str | None = None,
+    alias: list[str] | None = None,
+    skip: bool | None = None,
+    skip_if: Callable[[Any], Any] | None = None,
+    skip_if_false: bool | None = None,
+    skip_if_default: bool | None = None,
+    serializer: Callable[..., Any] | None = None,
+    deserializer: Callable[..., Any] | None = None,
+    flatten: FlattenOpts | bool | None = None,
+    metadata: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -563,7 +616,7 @@ class Field(Generic[T]):
 
     type: type[T]
     """ Type of Field """
-    name: Optional[str]
+    name: str | None
     """ Name of Field """
     default: Any = field(default_factory=dataclasses._MISSING_TYPE)
     """ Default value of Field """
@@ -575,45 +628,45 @@ class Field(Generic[T]):
     compare: Any = field(default_factory=dataclasses._MISSING_TYPE)
     metadata: Mapping[str, Any] = field(default_factory=dict)
     kw_only: bool = False
-    case: Optional[str] = None
+    case: str | None = None
     alias: list[str] = field(default_factory=list)
-    rename: Optional[str] = None
-    skip: Optional[bool] = None
-    skip_if: Optional[Func] = None
-    skip_if_false: Optional[bool] = None
-    skip_if_default: Optional[bool] = None
-    serializer: Optional[Func] = None  # Custom field serializer.
-    deserializer: Optional[Func] = None  # Custom field deserializer.
-    flatten: Optional[FlattenOpts] = None
-    parent: Optional[Any] = None
-    type_args: Optional[list[str]] = None
+    rename: str | None = None
+    skip: bool | None = None
+    skip_if: Func | None = None
+    skip_if_false: bool | None = None
+    skip_if_default: bool | None = None
+    serializer: Func | None = None  # Custom field serializer.
+    deserializer: Func | None = None  # Custom field deserializer.
+    flatten: FlattenOpts | None = None
+    parent: Any | None = None
+    type_args: list[str] | None = None
 
     @classmethod
-    def from_dataclass(cls, f: dataclasses.Field[T], parent: Optional[Any] = None) -> Field[T]:
+    def from_dataclass(cls, f: dataclasses.Field[T], parent: Any | None = None) -> Field[T]:
         """
         Create `Field` object from `dataclasses.Field`.
         """
-        skip_if_false_func: Optional[Func] = None
+        skip_if_false_func: Func | None = None
         if f.metadata.get("serde_skip_if_false"):
             skip_if_false_func = Func(skip_if_false, cls.mangle(f, "skip_if_false"))
 
-        skip_if_default_func: Optional[Func] = None
+        skip_if_default_func: Func | None = None
         if f.metadata.get("serde_skip_if_default"):
             skip_if_def = functools.partial(skip_if_default, default=f.default)
             skip_if_default_func = Func(skip_if_def, cls.mangle(f, "skip_if_default"))
 
-        skip_if: Optional[Func] = None
+        skip_if: Func | None = None
         if f.metadata.get("serde_skip_if"):
             func = f.metadata.get("serde_skip_if")
             if callable(func):
                 skip_if = Func(func, cls.mangle(f, "skip_if"))
 
-        serializer: Optional[Func] = None
+        serializer: Func | None = None
         func = f.metadata.get("serde_serializer")
         if func:
             serializer = Func(func, cls.mangle(f, "serializer"))
 
-        deserializer: Optional[Func] = None
+        deserializer: Func | None = None
         func = f.metadata.get("serde_deserializer")
         if func:
             deserializer = Func(func, cls.mangle(f, "deserializer"))
@@ -624,7 +677,7 @@ class Field(Generic[T]):
         if flatten and not (dataclasses.is_dataclass(f.type) or is_opt_dataclass(f.type)):
             raise SerdeError(f"pyserde does not support flatten attribute for {typename(f.type)}")
 
-        kw_only = bool(f.kw_only) if sys.version_info >= (3, 10) else False
+        kw_only = bool(f.kw_only)
 
         return cls(
             f.type,  # type: ignore
@@ -648,16 +701,18 @@ class Field(Generic[T]):
         )
 
     def to_dataclass(self) -> dataclasses.Field[T]:
-        f = dataclasses.Field(
-            default=self.default,
-            default_factory=self.default_factory,
-            init=self.init,
-            repr=self.repr,
-            hash=self.hash,
-            compare=self.compare,
-            metadata=self.metadata,
-            kw_only=self.kw_only,
-        )
+        base_kwargs = {
+            "init": self.init,
+            "repr": self.repr,
+            "hash": self.hash,
+            "compare": self.compare,
+            "metadata": self.metadata,
+            "kw_only": self.kw_only,
+            "default": self.default,
+            "default_factory": self.default_factory,
+        }
+
+        f = cast(dataclasses.Field[T], dataclasses.field(**base_kwargs))
         assert self.name
         f.name = self.name
         f.type = self.type
@@ -677,7 +732,7 @@ class Field(Generic[T]):
         """
         return f"{field.name}_{name}"
 
-    def conv_name(self, case: Optional[str] = None) -> str:
+    def conv_name(self, case: str | None = None) -> str:
         """
         Get an actual field name which `rename` and `rename_all` conversions
         are made. Use `name` property to get a field name before conversion.
@@ -707,7 +762,41 @@ def fields(field_cls: type[F], cls: type[Any], serialize_class_var: bool = False
     return fields  # type: ignore
 
 
-def conv(f: Field[Any], case: Optional[str] = None) -> str:
+def get_transparent_field(cls: type[Any]) -> Field[Any]:
+    """
+    Return the single "transparent" field for `cls`.
+
+    A transparent class must have exactly one init=True field that is not skipped.
+    Any other dataclass fields must be both init=False and skipped.
+    """
+    all_fields: list[Field[Any]] = fields(Field, cls)
+
+    candidates = [f for f in all_fields if f.init and not f.skip]
+    if len(candidates) != 1:
+        raise SerdeError(
+            f"{typename(cls)} with `transparent=True` must have exactly one init=True, "
+            "non-skipped field"
+        )
+
+    chosen = candidates[0]
+    for f in all_fields:
+        if f.name == chosen.name:
+            continue
+        if f.init:
+            raise SerdeError(
+                f"{typename(cls)} with `transparent=True` can not have additional init=True fields "
+                f"(found {f.name!r})"
+            )
+        if not f.skip:
+            raise SerdeError(
+                f"{typename(cls)} with `transparent=True` requires non-transparent fields to be "
+                f"skipped (set `serde.field(skip=True)`) (found {f.name!r})"
+            )
+
+    return chosen
+
+
+def conv(f: Field[Any], case: str | None = None) -> str:
     """
     Convert field name.
     """
@@ -770,8 +859,8 @@ class Tagging:
         Adjacent = enum.auto()
         Untagged = enum.auto()
 
-    tag: Optional[str] = None
-    content: Optional[str] = None
+    tag: str | None = None
+    content: str | None = None
     kind: Kind = Kind.External
 
     def is_external(self) -> bool:
@@ -829,7 +918,7 @@ def InternalTagging(tag: str) -> Tagging: ...
 def InternalTagging(tag: str, cls: T) -> _WithTagging[T]: ...
 
 
-def InternalTagging(tag: str, cls: Optional[T] = None) -> Union[Tagging, _WithTagging[T]]:
+def InternalTagging(tag: str, cls: T | None = None) -> Tagging | _WithTagging[T]:
     tagging = Tagging(tag, kind=Tagging.Kind.Internal)
     if cls:
         return tagging(cls)
@@ -845,9 +934,7 @@ def AdjacentTagging(tag: str, content: str) -> Tagging: ...
 def AdjacentTagging(tag: str, content: str, cls: T) -> _WithTagging[T]: ...
 
 
-def AdjacentTagging(
-    tag: str, content: str, cls: Optional[T] = None
-) -> Union[Tagging, _WithTagging[T]]:
+def AdjacentTagging(tag: str, content: str, cls: T | None = None) -> Tagging | _WithTagging[T]:
     tagging = Tagging(tag, content, kind=Tagging.Kind.Adjacent)
     if cls:
         return tagging(cls)

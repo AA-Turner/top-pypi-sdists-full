@@ -371,11 +371,11 @@ class BackupPolicy(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.NetApp` - 2025-01-01
+        * `Microsoft.NetApp` - 2025-06-01
 
         ## Import
 
-        NetApp Backup Policy can be imported using the `resource id`, e.g.
+        NetApp Backup Policies can be imported using the `resource id`, e.g.
 
         ```sh
         $ pulumi import azure:netapp/backupPolicy:BackupPolicy example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.NetApp/netAppAccounts/account1/backupPolicies/backuppolicy1
@@ -430,11 +430,11 @@ class BackupPolicy(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.NetApp` - 2025-01-01
+        * `Microsoft.NetApp` - 2025-06-01
 
         ## Import
 
-        NetApp Backup Policy can be imported using the `resource id`, e.g.
+        NetApp Backup Policies can be imported using the `resource id`, e.g.
 
         ```sh
         $ pulumi import azure:netapp/backupPolicy:BackupPolicy example /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/group1/providers/Microsoft.NetApp/netAppAccounts/account1/backupPolicies/backuppolicy1

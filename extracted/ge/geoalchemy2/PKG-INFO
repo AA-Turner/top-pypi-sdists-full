@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: GeoAlchemy2
-Version: 0.18.0
+Version: 0.18.1
 Summary: Using SQLAlchemy with Spatial Databases
 Home-page: https://geoalchemy-2.readthedocs.io/en/stable/
 Author: Eric Lemoine

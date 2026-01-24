@@ -54,15 +54,45 @@ impl ExcelSheetData<'_> {
         end_row: usize,
         col: usize,
         dtype_coercion: &DTypeCoercion,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<DType> {
         match self {
+            ExcelSheetData::Owned(data) => get_dtype_for_column(
+                data,
+                start_row,
+                end_row,
+                col,
+                dtype_coercion,
+                whitespace_as_null,
+            ),
+            ExcelSheetData::Ref(data) => get_dtype_for_column(
+                data,
+                start_row,
+                end_row,
+                col,
+                dtype_coercion,
+                whitespace_as_null,
+            ),
+        }
+    }
+
+    pub(crate) fn height_without_tail_whitespace(&self) -> usize {
+        match self {
             ExcelSheetData::Owned(data) => {
-                get_dtype_for_column(data, start_row, end_row, col, dtype_coercion)
+                height_without_tail_whitespace(data).unwrap_or_else(|| data.height())
             }
             ExcelSheetData::Ref(data) => {
-                get_dtype_for_column(data, start_row, end_row, col, dtype_coercion)
+                height_without_tail_whitespace(data).unwrap_or_else(|| data.height())
             }
         }
+    }
+
+    pub(crate) fn start(&self) -> Option<(usize, usize)> {
+        let start = match self {
+            ExcelSheetData::Owned(range) => range.start(),
+            ExcelSheetData::Ref(range) => range.start(),
+        };
+        start.map(|(r, c)| (r as usize, c as usize))
     }
 }
 
@@ -76,6 +106,55 @@ impl<'a> From<Range<CalDataRef<'a>>> for ExcelSheetData<'a> {
     fn from(range: Range<CalDataRef<'a>>) -> Self {
         Self::Ref(range)
     }
+}
+
+trait CellIsWhiteSpace {
+    fn is_whitespace(&self) -> bool;
+}
+
+impl<T> CellIsWhiteSpace for T
+where
+    T: DataType,
+{
+    fn is_whitespace(&self) -> bool {
+        if self.is_empty() {
+            true
+        } else if self.is_string()
+            && let Some(s) = self.get_string()
+        {
+            s.trim().is_empty()
+        } else {
+            false
+        }
+    }
+}
+
+pub(crate) fn height_without_tail_whitespace<CT: CellType + DataType + std::fmt::Debug>(
+    data: &Range<CT>,
+) -> Option<usize> {
+    let height = data.height();
+    let width = data.width();
+    if height < 1 {
+        return Some(0);
+    }
+    if width < 1 {
+        return None;
+    }
+    (0..width)
+        .map(|col_idx| {
+            let mut row_idx = height - 1;
+            // Start at the bottom of the column and work upwards until we find a non-empty cell
+            while row_idx > 0
+                && data
+                    .get((row_idx, col_idx))
+                    .map(CellIsWhiteSpace::is_whitespace)
+                    .unwrap_or(true)
+            {
+                row_idx -= 1;
+            }
+            row_idx + 1
+        })
+        .max()
 }
 
 /// A container for a typed vector of values. Used to represent a column of data in an Excel sheet.
@@ -135,6 +214,12 @@ macro_rules! impl_series_variant {
         impl From<&[$type]> for FastExcelSeries {
             fn from(arr: &[$type]) -> Self {
                 Self::$variant(arr.into_iter().map(|it| Some(it.to_owned())).collect())
+            }
+        }
+
+        impl From<&[Option<$type>]> for FastExcelSeries {
+            fn from(arr: &[Option<$type>]) -> Self {
+                Self::$variant(arr.into_iter().map(ToOwned::to_owned).collect())
             }
         }
 
@@ -231,6 +316,7 @@ impl FastExcelColumn {
         data: &Range<CT>,
         offset: usize,
         limit: usize,
+        whitespace_as_null: bool,
     ) -> FastExcelResult<Self> {
         let len = limit.checked_sub(offset).ok_or_else(|| {
             FastExcelErrorKind::InvalidParameters(format!(
@@ -245,9 +331,13 @@ impl FastExcelColumn {
             DType::Float => {
                 FastExcelSeries::Float(create_float_vec(data, column_info.index, offset, limit))
             }
-            DType::String => {
-                FastExcelSeries::String(create_string_vec(data, column_info.index, offset, limit))
-            }
+            DType::String => FastExcelSeries::String(create_string_vec(
+                data,
+                column_info.index,
+                offset,
+                limit,
+                whitespace_as_null,
+            )),
             DType::Bool => {
                 FastExcelSeries::Bool(create_boolean_vec(data, column_info.index, offset, limit))
             }
@@ -347,7 +437,7 @@ pub(crate) fn generate_row_selector(
         SkipRows::Callable(_func) => {
             // Call the Python function for each row to determine if it should be skipped
             // The callable should receive data-relative row indices (0, 1, 2, ...)
-            pyo3::Python::with_gil(|py| {
+            pyo3::Python::attach(|py| {
                 Ok(RowSelector::Filtered(
                     (offset..limit)
                         .enumerate()

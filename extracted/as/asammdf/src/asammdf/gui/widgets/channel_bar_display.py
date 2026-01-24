@@ -172,9 +172,9 @@ class ChannelBarDisplay(Ui_ChannelBarDisplay, QtWidgets.QWidget):
 
     def mouseDoubleClickEvent(self, event):
         dlg = RangeEditor(self.unit, self.ranges)
-        dlg.exec_()
+        dlg.exec()
         if dlg.pressed_button == "apply":
-            self.ranges = dlg.result
+            self.ranges = dlg.payload
 
     def select_color(self):
         color = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.color))

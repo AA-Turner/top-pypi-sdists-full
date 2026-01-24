@@ -4,7 +4,16 @@ from pathlib import Path
 from sys import version_info
 from unittest import TestCase, skipIf
 
-from datetype import AwareDateTime, NaiveDateTime, NaiveTime, Time, aware, naive
+from datetype import (
+    AwareDateTime,
+    NaiveDateTime,
+    NaiveTime,
+    Time,
+    aware,
+    naive,
+    DateTime,
+    date_only,
+)
 
 TEST_DATA = (Path(__file__) / "..").resolve()
 while not (TEST_DATA / ".git").is_dir():
@@ -87,3 +96,45 @@ class DateTypeTests(TestCase):
         awareified = aware(stddt)
         self.assertIs(awareified.tzinfo, zi)
         self.assertEqual(awareified.tzinfo.dst(stddt), timedelta(0))
+
+    @skipIf(version_info < (3, 9), "ZoneInfo")
+    def test_differing_zone_subtract(self) -> None:
+        from zoneinfo import ZoneInfo
+
+        zi = ZoneInfo("US/Pacific")
+        stddt = datetime(2025, 2, 13, 15, 35, 13, 574354, tzinfo=zi)
+        inutc = stddt.astimezone(timezone.utc)
+
+        dtzi: DateTime[ZoneInfo] = aware(stddt, ZoneInfo)
+        dttz: DateTime[timezone] = aware(inutc, timezone)
+
+        self.assertEqual(dtzi - dttz, timedelta(0))
+        self.assertEqual(dttz - dtzi, timedelta(0))
+
+    def test_combine(self) -> None:
+        from zoneinfo import ZoneInfo
+
+        d = date_only(date(2025, 2, 13))
+        aware_time = aware(
+            time(hour=15, minute=35, second=13, tzinfo=timezone.utc), timezone
+        )
+        naive_time = naive(time(hour=15, minute=35, second=13))
+
+        combined_aware: DateTime[timezone] = DateTime.combine(d, aware_time)
+        combined_naive: DateTime[None] = DateTime.combine(d, naive_time)
+
+        self.assertIsInstance(combined_naive, NaiveDateTime)
+        self.assertIsInstance(combined_aware, AwareDateTime)
+        self.assertIs(combined_aware.tzinfo, timezone.utc)
+
+        zi = ZoneInfo("Europe/Berlin")
+
+        adt_zi: DateTime[ZoneInfo] = DateTime.combine(d, aware_time, zi)
+        self.assertIsInstance(adt_zi, AwareDateTime)
+        adt_naive: DateTime[None] = DateTime.combine(d, aware_time, tzinfo=None)
+        self.assertIsInstance(adt_naive, NaiveDateTime)
+
+        ndt_zi: DateTime[ZoneInfo] = DateTime.combine(d, naive_time, zi)
+        self.assertIsInstance(ndt_zi, AwareDateTime)
+        ndt_naive: DateTime[None] = DateTime.combine(d, naive_time, tzinfo=None)
+        self.assertIsInstance(ndt_naive, NaiveDateTime)

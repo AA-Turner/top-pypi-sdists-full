@@ -43,7 +43,7 @@ class Connection(object):
     The `host` and `port` arguments specify the host name and TCP port
     of the HBase Thrift server to connect to. If omitted or ``None``,
     a connection to the default port on ``localhost`` is made. If
-    specifed, the `timeout` argument specifies the socket timeout in
+    specified, the `timeout` argument specifies the socket timeout in
     milliseconds.
 
     If `autoconnect` is `True` (the default) the connection is made
@@ -176,7 +176,7 @@ class Connection(object):
         self.transport.open()
 
     def close(self):
-        """Close the underyling transport to the HBase instance.
+        """Close the underlying transport to the HBase instance.
 
         This method closes the underlying Thrift transport (TCP connection).
         """

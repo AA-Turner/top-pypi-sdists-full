@@ -1,15 +1,8 @@
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::utils::regex_cache::get_cached_regex;
 
-lazy_static! {
-    // Pre-compiled regex patterns for performance - using DOTALL flag to match newlines
-    static ref LINK_PATTERN: Regex = Regex::new(r"(?s)!?\[([^\]]*)\]\(([^)]*)\)").unwrap();
-
-    // Fast check patterns - simple string-based checks are faster than complex regex
-    static ref WHITESPACE_CHECK: Regex = Regex::new(r"^\s+|\s+$").unwrap();
-    static ref ALL_WHITESPACE: Regex = Regex::new(r"^\s*$").unwrap();
-}
+// Regex patterns
+const ALL_WHITESPACE_STR: &str = r"^\s*$";
 
 /// Rule MD039: No space inside link text
 ///
@@ -26,12 +19,6 @@ const WARNING_MESSAGE: &str = "Remove spaces inside link text";
 impl MD039NoSpaceInLinks {
     pub fn new() -> Self {
         Self
-    }
-
-    /// Optimized fast check to see if content has any potential links or images
-    #[inline]
-    fn has_links_or_images(&self, content: &str) -> bool {
-        LINK_PATTERN.is_match(content)
     }
 
     #[inline]
@@ -98,8 +85,7 @@ impl Rule for MD039NoSpaceInLinks {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        let content = ctx.content;
-        content.is_empty() || !self.has_links_or_images(content)
+        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
@@ -112,6 +98,16 @@ impl Rule for MD039NoSpaceInLinks {
                 continue;
             }
 
+            // Skip links inside Jinja templates
+            if ctx.is_in_jinja_range(link.byte_offset) {
+                continue;
+            }
+
+            // Skip links inside JSX expressions or MDX comments
+            if ctx.is_in_jsx_expression(link.byte_offset) || ctx.is_in_mdx_comment(link.byte_offset) {
+                continue;
+            }
+
             // Fast check if trimming is needed
             if !self.needs_trimming(&link.text) {
                 continue;
@@ -120,11 +116,14 @@ impl Rule for MD039NoSpaceInLinks {
             // Optimized unescaping for whitespace check
             let unescaped = self.unescape_fast(&link.text);
 
-            let needs_warning = if ALL_WHITESPACE.is_match(&unescaped) {
+            let needs_warning = if get_cached_regex(ALL_WHITESPACE_STR)
+                .map(|re| re.is_match(&unescaped))
+                .unwrap_or(false)
+            {
                 true
             } else {
                 let trimmed = link.text.trim_matches(|c: char| c.is_whitespace());
-                link.text.as_str() != trimmed
+                link.text.as_ref() != trimmed
             };
 
             if needs_warning {
@@ -138,7 +137,10 @@ impl Rule for MD039NoSpaceInLinks {
                     format!("({})", link.url)
                 };
 
-                let fixed = if ALL_WHITESPACE.is_match(&unescaped) {
+                let fixed = if get_cached_regex(ALL_WHITESPACE_STR)
+                    .map(|re| re.is_match(&unescaped))
+                    .unwrap_or(false)
+                {
                     format!("[]{url}")
                 } else {
                     let trimmed = Self::trim_link_text_preserve_escapes(&link.text);
@@ -146,7 +148,7 @@ impl Rule for MD039NoSpaceInLinks {
                 };
 
                 warnings.push(LintWarning {
-                    rule_name: Some(self.name()),
+                    rule_name: Some(self.name().to_string()),
                     line: link.line,
                     column: link.start_col + 1, // Convert to 1-indexed
                     end_line: link.line,
@@ -168,6 +170,16 @@ impl Rule for MD039NoSpaceInLinks {
                 continue;
             }
 
+            // Skip images inside JSX expressions or MDX comments
+            if ctx.is_in_jsx_expression(image.byte_offset) || ctx.is_in_mdx_comment(image.byte_offset) {
+                continue;
+            }
+
+            // Skip images inside Jinja templates
+            if ctx.is_in_jinja_range(image.byte_offset) {
+                continue;
+            }
+
             // Fast check if trimming is needed
             if !self.needs_trimming(&image.alt_text) {
                 continue;
@@ -176,11 +188,14 @@ impl Rule for MD039NoSpaceInLinks {
             // Optimized unescaping for whitespace check
             let unescaped = self.unescape_fast(&image.alt_text);
 
-            let needs_warning = if ALL_WHITESPACE.is_match(&unescaped) {
+            let needs_warning = if get_cached_regex(ALL_WHITESPACE_STR)
+                .map(|re| re.is_match(&unescaped))
+                .unwrap_or(false)
+            {
                 true
             } else {
                 let trimmed = image.alt_text.trim_matches(|c: char| c.is_whitespace());
-                image.alt_text.as_str() != trimmed
+                image.alt_text.as_ref() != trimmed
             };
 
             if needs_warning {
@@ -194,7 +209,10 @@ impl Rule for MD039NoSpaceInLinks {
                     format!("({})", image.url)
                 };
 
-                let fixed = if ALL_WHITESPACE.is_match(&unescaped) {
+                let fixed = if get_cached_regex(ALL_WHITESPACE_STR)
+                    .map(|re| re.is_match(&unescaped))
+                    .unwrap_or(false)
+                {
                     format!("![]{url}")
                 } else {
                     let trimmed = Self::trim_link_text_preserve_escapes(&image.alt_text);
@@ -202,7 +220,7 @@ impl Rule for MD039NoSpaceInLinks {
                 };
 
                 warnings.push(LintWarning {
-                    rule_name: Some(self.name()),
+                    rule_name: Some(self.name().to_string()),
                     line: image.line,
                     column: image.start_col + 1, // Convert to 1-indexed
                     end_line: image.line,
@@ -231,17 +249,25 @@ impl Rule for MD039NoSpaceInLinks {
                 continue;
             }
 
+            // Skip links inside Jinja templates
+            if ctx.is_in_jinja_range(link.byte_offset) {
+                continue;
+            }
+
             if !self.needs_trimming(&link.text) {
                 continue;
             }
 
             let unescaped = self.unescape_fast(&link.text);
 
-            let needs_fix = if ALL_WHITESPACE.is_match(&unescaped) {
+            let needs_fix = if get_cached_regex(ALL_WHITESPACE_STR)
+                .map(|re| re.is_match(&unescaped))
+                .unwrap_or(false)
+            {
                 true
             } else {
                 let trimmed = link.text.trim_matches(|c: char| c.is_whitespace());
-                link.text.as_str() != trimmed
+                link.text.as_ref() != trimmed
             };
 
             if needs_fix {
@@ -255,7 +281,10 @@ impl Rule for MD039NoSpaceInLinks {
                     format!("({})", link.url)
                 };
 
-                let replacement = if ALL_WHITESPACE.is_match(&unescaped) {
+                let replacement = if get_cached_regex(ALL_WHITESPACE_STR)
+                    .map(|re| re.is_match(&unescaped))
+                    .unwrap_or(false)
+                {
                     format!("[]{url_part}")
                 } else {
                     let trimmed = Self::trim_link_text_preserve_escapes(&link.text);
@@ -273,17 +302,25 @@ impl Rule for MD039NoSpaceInLinks {
                 continue;
             }
 
+            // Skip images inside Jinja templates
+            if ctx.is_in_jinja_range(image.byte_offset) {
+                continue;
+            }
+
             if !self.needs_trimming(&image.alt_text) {
                 continue;
             }
 
             let unescaped = self.unescape_fast(&image.alt_text);
 
-            let needs_fix = if ALL_WHITESPACE.is_match(&unescaped) {
+            let needs_fix = if get_cached_regex(ALL_WHITESPACE_STR)
+                .map(|re| re.is_match(&unescaped))
+                .unwrap_or(false)
+            {
                 true
             } else {
                 let trimmed = image.alt_text.trim_matches(|c: char| c.is_whitespace());
-                image.alt_text.as_str() != trimmed
+                image.alt_text.as_ref() != trimmed
             };
 
             if needs_fix {
@@ -297,7 +334,10 @@ impl Rule for MD039NoSpaceInLinks {
                     format!("({})", image.url)
                 };
 
-                let replacement = if ALL_WHITESPACE.is_match(&unescaped) {
+                let replacement = if get_cached_regex(ALL_WHITESPACE_STR)
+                    .map(|re| re.is_match(&unescaped))
+                    .unwrap_or(false)
+                {
                     format!("![]{url_part}")
                 } else {
                     let trimmed = Self::trim_link_text_preserve_escapes(&image.alt_text);
@@ -355,7 +395,7 @@ mod tests {
     fn test_valid_links() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[link](url) and [another link](url) here";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -364,7 +404,7 @@ mod tests {
     fn test_spaces_both_ends() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[ link ](url) and [ another link ](url) here";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         let fixed = rule.fix(&ctx).unwrap();
@@ -375,7 +415,7 @@ mod tests {
     fn test_space_at_start() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[ link](url) and [ another link](url) here";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         let fixed = rule.fix(&ctx).unwrap();
@@ -386,7 +426,7 @@ mod tests {
     fn test_space_at_end() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[link ](url) and [another link ](url) here";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         let fixed = rule.fix(&ctx).unwrap();
@@ -400,7 +440,7 @@ mod tests {
 [ link ](url)
 ```
 [ link ](url)";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
         let fixed = rule.fix(&ctx).unwrap();
@@ -417,7 +457,7 @@ mod tests {
     fn test_multiple_links() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[ link ](url) and [ another ](url) in one line";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         let fixed = rule.fix(&ctx).unwrap();
@@ -428,7 +468,7 @@ mod tests {
     fn test_link_with_internal_spaces() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[this is link](url) and [ this is also link ](url)";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
         let fixed = rule.fix(&ctx).unwrap();
@@ -439,7 +479,7 @@ mod tests {
     fn test_link_with_punctuation() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[ link! ](url) and [ link? ](url) here";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         let fixed = rule.fix(&ctx).unwrap();
@@ -450,7 +490,7 @@ mod tests {
     fn test_parity_only_whitespace_and_newlines_minimal() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[   \n  ](url) and [\t\n\t](url)";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         // markdownlint removes all whitespace, resulting in empty link text
         assert_eq!(fixed, "[](url) and [](url)");
@@ -460,7 +500,7 @@ mod tests {
     fn test_parity_internal_newlines_minimal() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[link\ntext](url) and [ another\nlink ](url)";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         // markdownlint trims only leading/trailing whitespace, preserves internal newlines
         assert_eq!(fixed, "[link\ntext](url) and [another\nlink](url)");
@@ -470,7 +510,7 @@ mod tests {
     fn test_parity_escaped_brackets_minimal() {
         let rule = MD039NoSpaceInLinks::new();
         let content = "[link\\]](url) and [link\\[]](url)";
-        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         // markdownlint does not trim or remove escapes, so output should be unchanged
         assert_eq!(fixed, "[link\\]](url) and [link\\[]](url)");
@@ -506,7 +546,7 @@ mod tests {
             content.lines().count()
         );
 
-        let ctx = crate::lint_context::LintContext::new(&content, crate::config::MarkdownFlavor::Standard);
+        let ctx = crate::lint_context::LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
 
         // Warm up
         let _ = rule.check(&ctx).unwrap();

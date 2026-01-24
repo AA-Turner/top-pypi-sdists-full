@@ -11,10 +11,10 @@ L{pygeodesy.isnon0} and L{pygeodesy.remainder}.
 from __future__ import division as _; del _  # noqa: E702 ;
 
 from pygeodesy.basics import _copysign, isbool, iscomplex, isint, signBit
-from pygeodesy.errors import _xError, _xError2, _xkwds_get1, _xkwds_item2
+from pygeodesy.errors import _ValueError, _xError, _xkwds_get1, _xkwds_item2
 # from pygeodesy.fsums import _isFsum_2Tuple  # _MODS
 from pygeodesy.internals import _0_0, _100_0, typename
-from pygeodesy.interns import _DMAIN_, _INF_, _NAN_
+from pygeodesy.interns import _INF_, _NAN_,  _DMAIN_  # PYCHOK used!
 from pygeodesy.lazily import _ALL_MODS as _MODS, _ALL_LAZY
 # from pygeodesy.streprs import Fmt  # from .unitsBase
 from pygeodesy.unitsBase import Float, Int, Radius,  Fmt
@@ -26,7 +26,7 @@ except ImportError:  # Python 2-
     _inf, _nan = float(_INF_), float(_NAN_)
 
 __all__ = _ALL_LAZY.constants
-__version__ = '25.09.09'
+__version__ = '26.01.14'
 
 
 def _copysign_0_0(y):
@@ -47,7 +47,7 @@ def _copysignINF(y):
     return NINF if signBit(y) else INF
 
 
-def _flipsign(x, y):
+def _flipsign(x, y=-1):
     '''(INTERNAL) Negate C{x} for negative C{y}.
     '''
     return (-x) if signBit(y) else x
@@ -60,63 +60,76 @@ def _Float(**name_arg):
     return Float(_float(arg), name=n)
 
 
-def _Radius(**name_arg):
-    '''(INTERNAL) New named, cached C{Radius}.
-    '''
-    n, arg = _xkwds_item2(name_arg)
-    return Radius(_float(arg), name=n)
-
-
-def float_(*fs, **sets):  # sets=False
-    '''Get scalars as C{float} or I{intern}'ed C{float}.
-
-       @arg fs: One more values (C{scalar}), all positional.
-       @kwarg sets: Use C{B{sets}=True} to C{intern} each
-                    B{C{fs}}, otherwise don't C{intern}.
-
-       @return: A single C{float} if only one B{C{fs}} is
-                given, otherwise a tuple of C{float}s.
-
-       @raise TypeError: Some B{C{fs}} is not C{scalar}.
-    '''
-    fl = []
-    _a =  fl.append
-    _f = _floats.setdefault if _xkwds_get1(sets, sets=False) else \
-         _floats.get
-    try:
-        for i, f in enumerate(fs):
-            f = float(f)
-            _a(_f(f, f))
-    except Exception as x:
-        E, t = _xError2(x)
-        fs_i =  Fmt.SQUARE(fs=i)
-        raise E(fs_i, f, txt=t)
-    return fl[0] if len(fl) == 1 else tuple(fl)
-
-
-def _float(f):  # in .datums, .ellipsoids, ...
+def _float(x):  # in .datums, .ellipsoids, ...
     '''(INTERNAL) Cache initial C{float}s.
     '''
-    f = float(f)
+    f = float(x)
     return _floats.setdefault(f, f)  # PYCHOK del _floats
+
+
+def float_(x, sets=False):
+    '''Get scalar as C{float} or I{intern}'ed C{float}.
+
+       @arg x: The scalar (C{scalar}).
+       @kwarg sets: Use C{True} to C{intern} the B{C{f}},
+                    otherwise don't (C{bool}).
+
+       @return: A C{float}.
+
+       @raise ValueError: Invalid B{C{x}}.
+    '''
+    try:
+        f = float(x)
+        if f:
+            _f = _floats.setdefault if sets else _floats.get
+            f  = _f(f, f)
+        else:
+            f  = _N_0_0 if signBit(f) else _0_0
+    except Exception as X:
+        raise _ValueError(x=x, cause=X)
+    return f
 
 
 def float0_(*xs):
     '''Yield C{B{x}s} as a non-NEG0 C{float}.
     '''
     for x in xs:
-        yield float(x) if x else _0_0
+        yield float(x) or _0_0  # if x else _0_0
 
 
-def _float0(f):  # in .auxilats.auxily, .resections, .vector3dBase, ...
+def _float0(x):  # in .auxilats.auxily, .resections, .vector3dBase, ...
     '''(INTERNAL) Return C{float(B{f})} or C{INT0}.
     '''
-    if f:
-        f =  float(f)
+    if x:
+        f =  float(x)
         f = _floats.get(f, f)
-    elif f is not INT0:
-        f =  float(f) or _0_0  # force None, NN error
+    elif x is INT0:
+        f =  x
+    else:
+        f =  float(x) or _0_0  # force None, NN error
     return f
+
+
+def floats_(*xs, **sets):  # sets=False
+    '''Yield each scalar as C{float} or I{intern}'ed C{float}.
+
+       @arg xs: One more values (C{scalar}), all positional.
+       @kwarg sets: Use C{B{sets}=True} to C{intern} each
+                    B{C{fs}}, otherwise don't C{intern}.
+
+       @raise ValueError: Some B{C{xs}} is not C{scalar}.
+    '''
+    if sets:
+        sets = _xkwds_get1(sets, sets=False)
+    _f = _floats.setdefault if sets else _floats.get
+    try:
+        for i, x in enumerate(xs):
+            f = float(x)
+            yield _f(f, f) if f else \
+                  (_N_0_0 if signBit(f) else _0_0)  # preserve NEG0
+    except Exception as X:
+        xs_i = Fmt.SQUARE(xs=i)
+        raise _ValueError(xs_i, x, cause=X)
 
 
 def _floatuple(*fs):
@@ -172,6 +185,13 @@ def _1_over(x):
         return  NINF if isneg0(x) else INF
 
 
+def _Radius(**name_arg):
+    '''(INTERNAL) New named, cached C{Radius}.
+    '''
+    n, arg = _xkwds_item2(name_arg)
+    return Radius(_float(arg), name=n)
+
+
 _floats  = {}     # PYCHOK floats cache, in .__main__
 # _float = float  # PYCHOK expected
 # del _floats     # XXX zap floats cache never
@@ -186,6 +206,7 @@ _0_1     = _float(   0.1)     # PYCHOK expected
 _0_125   = _float(   0.125)   # PYCHOK expected
 _0_25    = _float(   0.25)    # PYCHOK expected
 _0_5     = _float(   0.5)     # PYCHOK expected
+_0_75    = _float(   0.75)     # PYCHOK expected
 _1_0     = _float(   1)       # PYCHOK expected
 _1_0_1T  = _1_0,              # PYCHOK 1-tuple
 _1_5     = _float(   1.5)     # PYCHOK expected
@@ -236,46 +257,49 @@ try:
 #   RADIX    =  Int(  RADIX   =_f_i.radix)     # PYTHON system's float base
     del _f_i
 except ImportError:  # PYCHOK no cover
-    DIG      =  Int(  DIG     =15)          # PYCHOK system's 64-bit float decimal digits
+    DIG      =  Int(  DIG     =15)           # PYCHOK system's 64-bit float decimal digits
     EPS      = _Float(EPS     =2.220446049250313e-16)  # PYCHOK EPSilon 2**-52, M{EPS +/- 1 != 1}
-    MANT_DIG =  Int(  MANT_DIG=53)          # PYCHOK float mantissa bits ≈ 53 (C{int})
+    MANT_DIG =  Int(  MANT_DIG=53)           # PYCHOK float mantissa bits ≈ 53 (C{int})
     MAX      = _Float(MAX     =pow(_2_0,  1023) * (_2_0 - EPS))  # PYCHOK ≈ 10**308
-    MAX_EXP  =  Int(  MAX_ESP =_log2(MAX))  # 308 base 10
+    MAX_EXP  =  Int(  MAX_ESP =_log2(MAX))   # 308 base 10
     MIN      = _Float(MIN     =pow(_2_0, -1021))  # PYCHOK ≈ 10**-308
-    MIN_EXP  =  Int(MIN_EXP   =_log2(MIN))  # -307 base 10
-#   RADIX    =  Int(Radix     =2)           # base
+    MIN_EXP  =  Int(MIN_EXP   =_log2(MIN))   # -307 base 10
+#   RADIX    =  Int(Radix     =2)            # base
 
-EPS0     = _Float( EPS0  = EPS**2)          # PYCHOK near-/non-zero comparison 4.930381e-32, or EPS or EPS_2
-EPS02    = _Float( EPS02 = EPS**4)          # PYCHOK near-zero-squared comparison 2.430865e-63
-EPS_2    = _Float( EPS_2 = EPS / _2_0)      # PYCHOK ≈ 1.110223024625e-16
-EPS1     = _Float( EPS1  =_1_0 - EPS)       # PYCHOK ≈ 0.9999999999999998
-EPS2     = _Float( EPS2  = EPS * _2_0)      # PYCHOK ≈ 4.440892098501e-16
-EPS4     = _Float( EPS4  = EPS * _4_0)      # PYCHOK ≈ 8.881784197001e-16
-# _1EPS  = _Float(_1EPS  =_1_0 + EPS)       # PYCHOK ≈ 1.0000000000000002
-_1_EPS   = _Float(_1_EPS =_1_0 / EPS)       # PYCHOK = 4503599627370496.0
-# _2_EPS = _Float(_2_EPS =_2_0 / EPS)       # PYCHOK = 9007199254740992.0
-_EPS2e4  = _Float(_EPS2e4= EPS2 * 1.e4)     # PYCHOK ≈ 4.440892098501e-12
-_EPS4e8  = _Float(_EPS4e8= EPS4 * 1.e8)     # PYCHOK ≈ 8.881784197001e-08
-_EPSjam  = _Float(_EPSjam= pow(EPS, 0.75))  # PYCHOK = 1.818989403546e-12
-_EPSmin  = _Float(_EPSmin= sqrt(MIN))       # PYCHOK = 1.49166814624e-154
-_EPSqrt  = _Float(_EPSqrt= sqrt(EPS))       # PYCHOK = 1.49011611938e5-08
-_EPStol  = _Float(_EPStol=_EPSqrt * _0_1)   # PYCHOK = 1.49011611938e5-09 == sqrt(EPS * _0_01)
+EPS0     = _Float( EPS0   = EPS**2)           # PYCHOK near-/non-zero comparison 4.930381e-32, or EPS or EPS_2
+EPS02    = _Float( EPS02  = EPS**4)           # PYCHOK near-zero-squared comparison 2.430865e-63
+EPS_2    = _Float( EPS_2  = EPS / _2_0)       # PYCHOK ≈ 1.110223024625e-16
+EPS1     = _Float( EPS1   =_1_0 - EPS)        # PYCHOK ≈ 0.9999999999999998
+EPS2     = _Float( EPS2   = EPS * _2_0)       # PYCHOK ≈ 4.440892098501e-16
+EPS4     = _Float( EPS4   = EPS * _4_0)       # PYCHOK ≈ 8.881784197001e-16
+EPS8     = _Float( EPS8   = EPS * _8_0)       # PYCHOK ≈ 1.776356839400e-15
+# _1EPS  = _Float(_1EPS   =_1_0 + EPS)        # PYCHOK ≈ 1.0000000000000002
+_1_EPS   = _Float(_1_EPS  =_1_0 / EPS)        # PYCHOK = 4503599627370496.0
+# _2_EPS = _Float(_2_EPS  =_2_0 / EPS)        # PYCHOK = 9007199254740992.0
+_EPS2e4  = _Float(_EPS2e4 = EPS2 * 1.e4)      # PYCHOK ≈ 4.440892098501e-12
+_EPS4e8  = _Float(_EPS4e8 = EPS4 * 1.e8)      # PYCHOK ≈ 8.881784197001e-08
+_EPSjam  = _Float(_EPSjam = pow(EPS, _0_75))  # PYCHOK = 1.818989403546e-12
+_EPSmin  = _Float(_EPSmin = sqrt(MIN))        # PYCHOK = 1.49166814624e-154
+_EPSqrt  = _Float(_EPSqrt = sqrt(EPS))        # PYCHOK = 1.490116119385e-08
+_EPStol  = _Float(_EPStol =_EPSqrt * _0_1)    # PYCHOK = 1.490116119385e-09 == sqrt(EPS * _0_01)
 
-_89_999  = _Float(_89_999=_90_0 * EPS1)  # just below 90.0
+_89_999  = _Float(_89_999 =_90_0 * EPS1)  # just below 90.0
 # <https://Numbers.Computation.Free.FR/Constants/Miscellaneous/digits.html>
-# _1__90 = _Float(_1__90 =_1_0 / _90_0)  # PYCHOK = 0.011_111_111_111_111_111_111_111_111_111_111_111_111_111_111_11111
-_2__PI   = _Float(_2__PI =_2_0 / _pi)    # PYCHOK = 0.636_619_772_367_581_343_075_535_053_490_057_448_137_838_582_96182
-
-_1_16th  = _Float(_1_16th=_1_0 / _16_0)  # PYCHOK in .ellipsoids, .karney
-_1_3rd   = _Float(_1_3rd =_1_0 /  _3_0)  # PYCHOK in .fmath
-_1_6th   = _Float(_1_6th =_1_0 /  _6_0)  # PYCHOK in .fmath
-
-_K0_UTM  = _Float(_K0_UTM = 0.9996)  # PYCHOK in .etm, .ktm, .utm, UTM scale at central meridian
+# _1__90 = _Float(_1__90  =_1_0 / _90_0)  # PYCHOK = 0.011_111_111_111_111_111_111_111_111_111_111_111_111_111_111_11111
+_2__PI   = _Float(_2__PI  =_2_0 / _pi)    # PYCHOK = 0.636_619_772_367_581_343_075_535_053_490_057_448_137_838_582_96182
+_K0_UTM  = _Float(_K0_UTM = 0.9996)       # PYCHOK in .etm, .ktm, .utm, UTM scale at central meridian
+_K0_UPS  = _Float(_K0_UPS = 0.994)        # PYCHOK in .ups, scale factor at central meridian
+OVERFLOW = _Float(OVERFLOW=_1_0 / EPS0)   # PYCHOK = 2.028240960365e+31
 # sqrt(2) <https://WikiPedia.org/wiki/Square_root_of_2>
 # 1.414213562373095_048_801_688_724_209_698_078_569_671_875_376_948_073_176_679_737_99
 # _1SQRT2= _Float(_1SQRT2 =sqrt(_2_0) + 1)
 # 0.707106781186547_524_400_844_362_104_849_039_284_835_937_688_474_036_588_339_868_99
 _SQRT2_2 = _Float(_SQRT2_2=sqrt(_0_5))  # PYCHOK = 0.707106781186547_5 == sqrt(2) / 2
+# sqrt(3) <https://WikiPedia.org/wiki/Square_root_of_3>
+# 1.732050807568877_293_527_446_341_505_872_366_942_805_253_810_380_628_055_806
+_SQRT3   = _Float(_SQRT3  =sqrt(_3_0))  # PYCHOK = 1.732050807568877_2 == sqrt(3)
+# 0.866025403784438_646_763_723_170_752_936_183_471_402_626_905_190_314_027_903
+_SQRT3_2 = _Float(_SQRT3_2=sqrt(_0_75))  # PYCHOK = 0.866025403784438_6 == sqrt(3) / 2
 
 INF   =  Float(INF =_inf)    # PYCHOK INFinity, see function L{isinf}, L{isfinite}, NOT _Float!
 INT0  =  Int(  INT0= 0)      # PYCHOK unique int(0) instance, see .fsums, useZ=False
@@ -311,8 +335,10 @@ R_QM  = _Radius(R_QM=6372797.560856)   # PYCHOK earth' quadratic mean radius (C{
 R_VM  = _Radius(R_VM=6366707.0194937)  # PYCHOK aViation/naVigation earth radius (C{meter})
 # R_AU=  Meter( R_AU=149597870700.0)   # PYCHOK <https://WikiPedia.org/wiki/Astronomical_unit>
 
-_INF_NAN_NINF =  INF, NAN, NINF
+_INF_NAN_NINF = {INF, NAN, NINF, _inf, _nan}
 _pos_self     = _1_0.__pos__() is _1_0  # PYCHOK in .fsums, .vector3dBase
+_1_3rd        =  1 / 3  # in .fmath
+_2_3rd        =  2 / 3  # in .fmath, .formy
 
 
 def _0_0s(n):
@@ -546,7 +572,7 @@ if __name__ == _DMAIN_:
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

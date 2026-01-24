@@ -301,7 +301,11 @@ struct assoc_legendre_p_recurrence_n<T, assoc_legendre_norm_policy> {
 template <typename NormPolicy, typename T>
 void assoc_legendre_p_pm1(NormPolicy norm, int n, int m, T z, int branch_cut, T &res) {
     if (m == 0) {
-        res = T(1);
+        if (real(z) >= 0) {
+            res = T(1);
+        } else {
+            res = T(std::pow(-1, n));
+        }
     } else {
         res = T(0);
     }
@@ -310,7 +314,11 @@ void assoc_legendre_p_pm1(NormPolicy norm, int n, int m, T z, int branch_cut, T 
 template <typename NormPolicy, typename T, size_t Order>
 void assoc_legendre_p_pm1(NormPolicy norm, int n, int m, dual<T, Order> z, int branch_cut, dual<T, Order> &res) {
     if (m == 0) {
-        res[0] = T(1);
+        if (real(z[0]) >= 0) {
+            res[0] = T(1);
+        } else {
+            res[0] = T(std::pow(-1, n));
+        }
     } else {
         res[0] = T(0);
     }
@@ -1046,17 +1054,17 @@ void lqmn(std::complex<T> z, OutputMat1 cqm, OutputMat2 cqd) {
                 cq1 = cqf;
             }
         }
+    }
 
-        cqd(0, 0) = static_cast<T>(ls) / zs;
-        for (j = 1; j <= n; j++) {
-            cqd(0, j) = ls * static_cast<T>(j) * (cqm(0, j - 1) - z * cqm(0, j)) / zs;
-        }
+    cqd(0, 0) = static_cast<T>(ls) / zs;
+    for (j = 1; j <= n; j++) {
+        cqd(0, j) = ls * static_cast<T>(j) * (cqm(0, j - 1) - z * cqm(0, j)) / zs;
+    }
 
-        for (i = 1; i <= m; i++) {
-            for (j = 0; j <= n; j++) {
-                cqd(i, j) = static_cast<T>(ls * i) * z / zs * cqm(i, j) +
-                            static_cast<T>((i + j) * (j - i + 1)) / zq * cqm(i - 1, j);
-            }
+    for (i = 1; i <= m; i++) {
+        for (j = 0; j <= n; j++) {
+            cqd(i, j) = static_cast<T>(ls * i) * z / zs * cqm(i, j) +
+                        static_cast<T>((i + j) * (j - i + 1)) / zq * cqm(i - 1, j);
         }
     }
 }

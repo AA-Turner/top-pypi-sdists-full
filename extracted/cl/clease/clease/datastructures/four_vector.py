@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 import copy
 from itertools import product
-from typing import List, NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 from ase import Atoms
 from ase.atoms import Cell
@@ -30,7 +30,7 @@ class FourVector(AttrSavable):
     iz: int = attr.field()
     sublattice: int = attr.field()
 
-    def to_cartesian(self, prim: Atoms, transposed_cell: Optional[np.ndarray] = None) -> np.ndarray:
+    def to_cartesian(self, prim: Atoms, transposed_cell: np.ndarray | None = None) -> np.ndarray:
         """Convert the four vector into cartesian coordinates
 
         Args:
@@ -62,7 +62,7 @@ class FourVector(AttrSavable):
         """Return the [ix, iy, iz] component of the four-vector as a NumPy array."""
         return np.array([self.ix, self.iy, self.iz], dtype=int)
 
-    def to_tuple(self) -> Tuple[int]:
+    def to_tuple(self) -> tuple[int]:
         """Get the tuple representation of the four-vector"""
         return attr.astuple(self)
 
@@ -130,7 +130,7 @@ def _supercell_is_integer_multiple(prim: Cell, supercell: Cell, tol: float = 1e-
     return np.max(np.abs(P - P_int)) < tol
 
 
-def _make_grid(bbox: _Box, prim: Atoms) -> Tuple[List[FourVector], np.ndarray]:
+def _make_grid(bbox: _Box, prim: Atoms) -> tuple[list[FourVector], np.ndarray]:
     """
     Make a grid bounded by bbox using repetitions of the atomic positions in prim
 
@@ -158,7 +158,7 @@ def _make_grid(bbox: _Box, prim: Atoms) -> Tuple[List[FourVector], np.ndarray]:
     return four_vecs, scaled_pos
 
 
-def construct_four_vectors(prim: Atoms, supercell: Atoms) -> List[FourVector]:
+def construct_four_vectors(prim: Atoms, supercell: Atoms) -> list[FourVector]:
     """
     Calculate the all four vector corresponding to the passed Atoms object. A four-vector u is
     defined by such that the position of an atom is given by C.dot(u[:3]) + prim[u[3]].position

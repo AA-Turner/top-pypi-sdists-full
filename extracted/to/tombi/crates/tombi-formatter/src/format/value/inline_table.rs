@@ -5,12 +5,20 @@ use tombi_ast::AstNode;
 use tombi_config::TomlVersion;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::Format;
+use crate::{Format, format::write_trailing_comment_alignment_space, types::WithAlignmentHint};
 
 impl Format for tombi_ast::InlineTable {
+    #[inline]
+    fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        WithAlignmentHint::new(self).format(f)
+    }
+}
+
+impl Format for WithAlignmentHint<'_, tombi_ast::InlineTable> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         if !f.single_line_mode()
-            && (self.should_be_multiline(f.toml_version()) || exceeds_line_width(self, f)?)
+            && (self.value.should_be_multiline(f.toml_version())
+                || exceeds_line_width(self.value, f)?)
         {
             format_multiline_inline_table(self, f)
         } else {
@@ -23,13 +31,13 @@ pub(crate) fn exceeds_line_width(
     node: &tombi_ast::InlineTable,
     f: &mut crate::Formatter,
 ) -> Result<bool, std::fmt::Error> {
-    if f.toml_version() < TomlVersion::V1_1_0_Preview {
+    if f.toml_version() == TomlVersion::V1_0_0 {
         return Ok(false);
     }
 
     let mut length = f.current_line_width();
     length += 2; // '{' and '}'
-    length += f.singleline_inline_table_brace_inner_space().len() * 2;
+    length += f.inline_table_brace_space().len() * 2;
     let mut first = true;
 
     for key_value in node.key_values() {
@@ -53,7 +61,7 @@ pub(crate) fn exceeds_line_width(
 
         if !first {
             length += 1; // ","
-            length += f.singleline_inline_table_space_after_comma().len();
+            length += f.inline_table_comma_space().len();
         }
         length += f.format_to_string(&key_value)?.graphemes(true).count();
         first = false;
@@ -71,7 +79,11 @@ pub(crate) fn exceeds_line_width(
 }
 
 fn format_multiline_inline_table(
-    table: &tombi_ast::InlineTable,
+    WithAlignmentHint {
+        value: table,
+        trailing_comment_alignment_width,
+        ..
+    }: &WithAlignmentHint<'_, tombi_ast::InlineTable>,
     f: &mut crate::Formatter,
 ) -> Result<(), std::fmt::Error> {
     table.leading_comments().collect_vec().format(f)?;
@@ -88,13 +100,24 @@ fn format_multiline_inline_table(
     } else {
         table.inner_begin_dangling_comments().format(f)?;
 
+        let has_last_key_value_trailing_comma = table.has_last_key_value_trailing_comma();
+        let key_values_len = key_values_with_comma.len();
+
+        let equal_alignment_width = f.key_value_equal_alignment_width(
+            key_values_with_comma.iter().map(|(key_value, _)| key_value),
+        );
         for (i, (key_value, comma)) in key_values_with_comma.into_iter().enumerate() {
             // value format
             {
                 if i > 0 {
                     write!(f, "{}", f.line_ending())?;
                 }
-                key_value.format(f)?;
+                WithAlignmentHint {
+                    value: &key_value,
+                    equal_alignment_width,
+                    trailing_comment_alignment_width: *trailing_comment_alignment_width,
+                }
+                .format(f)?;
             }
 
             // comma format
@@ -116,11 +139,18 @@ fn format_multiline_inline_table(
                     write!(f, "{}", f.line_ending())?;
                     f.write_indent()?;
                     write!(f, ",")?;
-                } else {
+                } else if has_last_key_value_trailing_comma || i + 1 != key_values_len {
                     write!(f, ",")?;
                 }
 
                 if let Some(comment) = comma_trailing_comment {
+                    if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width
+                    {
+                        write_trailing_comment_alignment_space(
+                            f,
+                            *trailing_comment_alignment_width,
+                        )?;
+                    }
                     comment.format(f)?;
                 }
             }
@@ -136,6 +166,9 @@ fn format_multiline_inline_table(
     write!(f, "}}")?;
 
     if let Some(comment) = table.trailing_comment() {
+        if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width {
+            write_trailing_comment_alignment_space(f, *trailing_comment_alignment_width)?;
+        }
         comment.format(f)?;
     }
 
@@ -143,25 +176,36 @@ fn format_multiline_inline_table(
 }
 
 fn format_singleline_inline_table(
-    table: &tombi_ast::InlineTable,
+    WithAlignmentHint {
+        value: table,
+        trailing_comment_alignment_width,
+        ..
+    }: &WithAlignmentHint<'_, tombi_ast::InlineTable>,
     f: &mut crate::Formatter,
 ) -> Result<(), std::fmt::Error> {
     table.leading_comments().collect_vec().format(f)?;
 
     f.write_indent()?;
-    write!(f, "{{{}", f.singleline_inline_table_brace_inner_space())?;
+    write!(f, "{{{}", f.inline_table_brace_space())?;
 
     for (i, key_value) in table.key_values().enumerate() {
         if i > 0 {
-            write!(f, ",{}", f.singleline_inline_table_space_after_comma())?;
+            write!(f, ",{}", f.inline_table_comma_space())?;
         }
         f.skip_indent();
-        key_value.format(f)?;
+        WithAlignmentHint::new_with_trailing_comment_alignment_width(
+            &key_value,
+            *trailing_comment_alignment_width,
+        )
+        .format(f)?;
     }
 
-    write!(f, "{}}}", f.singleline_inline_table_brace_inner_space())?;
+    write!(f, "{}}}", f.inline_table_brace_space())?;
 
     if let Some(comment) = table.trailing_comment() {
+        if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width {
+            write_trailing_comment_alignment_space(f, *trailing_comment_alignment_width)?;
+        }
         comment.format(f)?;
     }
 
@@ -170,40 +214,40 @@ fn format_singleline_inline_table(
 
 #[cfg(test)]
 mod tests {
-    use tombi_config::TomlVersion;
+    use tombi_config::format::FormatRules;
 
-    use crate::{formatter::definitions::FormatDefinitions, test_format};
+    use crate::{Formatter, test_format};
 
     test_format! {
-        #[test]
-        fn inline_table_key_value1(r#"name = { first = "Tom", last = "Preston-Werner" }"#) -> Ok(source);
+        #[tokio::test]
+        async fn inline_table_key_value1(r#"name = { first = "Tom", last = "Preston-Werner" }"#) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn inline_table_key_value2(r#"point = { x = 1, y = 2 }"#) -> Ok(source);
+        #[tokio::test]
+        async fn inline_table_key_value2(r#"point = { x = 1, y = 2 }"#) -> Ok(source)
 
     }
 
     test_format! {
-        #[test]
-        fn inline_table_key_value3(r#"animal = { type.name = "pug" }"#) -> Ok(source);
+        #[tokio::test]
+        async fn inline_table_key_value3(r#"animal = { type.name = "pug" }"#) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn inline_table_inner_comment_only1(
+        #[tokio::test]
+        async fn inline_table_inner_comment_only1(
             r#"
             inline_table = {
               # comment
             }"#,
-            TomlVersion::V1_1_0_Preview
-        ) -> Ok(source);
+            TomlVersion::V1_1_0
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn inline_table_inner_comment_only2(
+        #[tokio::test]
+        async fn inline_table_inner_comment_only2(
             r#"
             inline_table = {
               # comment 1-1
@@ -215,69 +259,77 @@ mod tests {
 
               # comment 3-1
             }"#,
-            TomlVersion::V1_1_0_Preview
-        ) -> Ok(source);
+            TomlVersion::V1_1_0
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn inline_table_exceeds_line_width_v1_0_0(
+        #[tokio::test]
+        async fn inline_table_exceeds_line_width_v1_0_0(
             r#"table = { key1 = 1111111111, key2 = 2222222222, key3 = 3333333333 }"#,
             TomlVersion::V1_0_0,
-            &FormatDefinitions {
-                line_width: Some(30.try_into().unwrap()),
-                ..Default::default()
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(30.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn inline_table_exceeds_line_width_v1_1_0(
+        #[tokio::test]
+        async fn inline_table_exceeds_line_width_v1_1_0(
             r#"table = { key1 = 1111111111, key2 = 2222222222, key3 = 3333333333 }"#,
-            TomlVersion::V1_1_0_Preview,
-            &FormatDefinitions {
-                line_width: Some(30.try_into().unwrap()),
-                ..Default::default()
+            TomlVersion::V1_1_0,
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(30.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
             table = {
               key1 = 1111111111,
               key2 = 2222222222,
-              key3 = 3333333333,
+              key3 = 3333333333
             }
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn inline_table_with_nested_array_exceeds_line_width(
+        #[tokio::test]
+        async fn inline_table_with_nested_array_exceeds_line_width(
             r#"table = { key1 = [1111111111, 2222222222], key2 = [3333333333, 4444444444] }"#,
-            TomlVersion::V1_1_0_Preview,
-            &FormatDefinitions {
-                line_width: Some(35.try_into().unwrap()),
-                ..Default::default()
+            TomlVersion::V1_1_0,
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(35.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
             table = {
               key1 = [1111111111, 2222222222],
-              key2 = [3333333333, 4444444444],
+              key2 = [3333333333, 4444444444]
             }
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn inline_table_with_nested_inline_table_exceeds_line_width(
-            r#"table = { t1 = { key1 = 1111111111, key2 = 2222222222 }, t2 = { key3 = 3333333333, key4 = 4444444444 } }"#,
-            TomlVersion::V1_1_0_Preview,
-            &FormatDefinitions {
-                line_width: Some(30.try_into().unwrap()),
-                ..Default::default()
+        #[tokio::test]
+        async fn inline_table_with_nested_inline_table_exceeds_line_width(
+            r#"table = { t1 = { key1 = 1111111111, key2 = 2222222222, }, t2 = { key3 = 3333333333, key4 = 4444444444 } }"#,
+            TomlVersion::V1_1_0,
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(30.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
@@ -288,10 +340,37 @@ mod tests {
               },
               t2 = {
                 key3 = 3333333333,
-                key4 = 4444444444,
-              },
+                key4 = 4444444444
+              }
             }
             "#
-        );
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn inline_table_with_nested_inline_table_exceeds_line_width_v1_0_0(
+            r#"
+            table = {
+              t1 = {
+                key1 = 1111111111,
+                key2 = 2222222222,
+              },
+              t2 = {
+                key3 = 3333333333,
+                key4 = 4444444444
+              }
+            }
+            "#,
+            TomlVersion::V1_0_0,
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(30.try_into().unwrap()),
+                    ..Default::default()
+                }),
+            }
+        ) -> Ok(
+            r#"table = { t1 = { key1 = 1111111111, key2 = 2222222222 }, t2 = { key3 = 3333333333, key4 = 4444444444 } }"#
+        )
     }
 }

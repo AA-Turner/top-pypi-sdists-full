@@ -1,29 +1,28 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 from xsdata.models.datatype import XmlDate
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Country:
     class Meta:
         name = "country"
 
-    name: Optional[str] = field(
-        default=None,
+    name: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    code: Optional[str] = field(
-        default=None,
+    code: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    timezone: Optional[str] = field(
+    timezone: None | str = field(
         default=None,
         metadata={
             "type": "Element",
@@ -31,93 +30,86 @@ class Country:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Externals:
     class Meta:
         name = "externals"
 
-    tvrage: Optional[int] = field(
-        default=None,
+    tvrage: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    thetvdb: Optional[int] = field(
+    thetvdb: None | int = field(
         default=None,
         metadata={
             "type": "Element",
         },
     )
-    imdb: Optional[str] = field(
-        default=None,
+    imdb: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Image:
     class Meta:
         name = "image"
 
-    medium: Optional[str] = field(
-        default=None,
+    medium: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    original: Optional[str] = field(
-        default=None,
+    original: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Previousepisode:
     class Meta:
         name = "previousepisode"
 
-    href: Optional[str] = field(
-        default=None,
+    href: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Rating:
     class Meta:
         name = "rating"
 
-    average: Optional[float] = field(
-        default=None,
+    average: float = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Schedule:
     class Meta:
         name = "schedule"
 
-    time: Optional[str] = field(
-        default=None,
+    time: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
     days: list[str] = field(
         default_factory=list,
@@ -128,108 +120,99 @@ class Schedule:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Self:
     class Meta:
         name = "self"
 
-    href: Optional[str] = field(
-        default=None,
+    href: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Links:
     class Meta:
         name = "_links"
 
-    self_value: Optional[Self] = field(
-        default=None,
+    self_value: Self = field(
         metadata={
             "name": "self",
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    previousepisode: Optional[Previousepisode] = field(
-        default=None,
+    previousepisode: Previousepisode = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Network:
     class Meta:
         name = "network"
 
-    id: Optional[int] = field(
+    id: None | int = field(
         default=None,
         metadata={
             "type": "Element",
         },
     )
-    name: Optional[str] = field(
-        default=None,
-        metadata={
-            "type": "Element",
-            "required": True,
-        },
-    )
-    country: Optional[Country] = field(
-        default=None,
+    name: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
+    )
+    country: Country = field(
+        metadata={
+            "type": "Element",
+            "required": True,
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Series:
     class Meta:
         name = "series"
 
-    id: Optional[int] = field(
-        default=None,
+    id: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    url: Optional[str] = field(
+    url: None | str = field(
         default=None,
         metadata={
             "type": "Element",
         },
     )
-    name: Optional[str] = field(
-        default=None,
+    name: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    type_value: Optional[str] = field(
-        default=None,
+    type_value: str = field(
         metadata={
             "name": "type",
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    language: Optional[str] = field(
-        default=None,
+    language: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
     genres: list[str] = field(
         default_factory=list,
@@ -238,97 +221,87 @@ class Series:
             "min_occurs": 1,
         },
     )
-    status: Optional[str] = field(
-        default=None,
+    status: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    runtime: Optional[int] = field(
-        default=None,
+    runtime: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    premiered: Optional[XmlDate] = field(
-        default=None,
+    premiered: XmlDate = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    official_site: Optional[str] = field(
-        default=None,
+    official_site: str = field(
         metadata={
             "name": "officialSite",
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    schedule: Optional[Schedule] = field(
-        default=None,
+    schedule: Schedule = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    rating: Optional[Rating] = field(
-        default=None,
+    rating: Rating = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    weight: Optional[int] = field(
+    weight: None | int = field(
         default=None,
         metadata={
             "type": "Element",
         },
     )
-    network: Optional[Network] = field(
-        default=None,
+    network: Network = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    web_channel: Optional[object] = field(
+    web_channel: None | object = field(
         default=None,
         metadata={
             "name": "webChannel",
             "type": "Element",
         },
     )
-    externals: Optional[Externals] = field(
-        default=None,
+    externals: Externals = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    image: Optional[Image] = field(
+    image: None | Image = field(
         default=None,
         metadata={
             "type": "Element",
         },
     )
-    summary: Optional[str] = field(
-        default=None,
-        metadata={
-            "type": "Element",
-            "required": True,
-        },
-    )
-    updated: Optional[int] = field(
-        default=None,
+    summary: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    links: Optional[Links] = field(
+    updated: int = field(
+        metadata={
+            "type": "Element",
+            "required": True,
+        }
+    )
+    links: None | Links = field(
         default=None,
         metadata={
             "name": "_links",

@@ -5,7 +5,6 @@ from stripe._expandable_field import ExpandableField
 from stripe._list_object import ListObject
 from stripe._listable_api_resource import ListableAPIResource
 from stripe._nested_resource_class_methods import nested_resource_class_methods
-from stripe._request_options import RequestOptions
 from stripe._search_result_object import SearchResultObject
 from stripe._searchable_api_resource import SearchableAPIResource
 from stripe._stripe_object import StripeObject
@@ -22,13 +21,7 @@ from typing import (
     cast,
     overload,
 )
-from typing_extensions import (
-    Literal,
-    NotRequired,
-    TypedDict,
-    Unpack,
-    TYPE_CHECKING,
-)
+from typing_extensions import Literal, Unpack, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stripe._account import Account
@@ -45,6 +38,18 @@ if TYPE_CHECKING:
     from stripe._review import Review
     from stripe._source import Source
     from stripe._transfer import Transfer
+    from stripe.params._charge_capture_params import ChargeCaptureParams
+    from stripe.params._charge_create_params import ChargeCreateParams
+    from stripe.params._charge_list_params import ChargeListParams
+    from stripe.params._charge_list_refunds_params import (
+        ChargeListRefundsParams,
+    )
+    from stripe.params._charge_modify_params import ChargeModifyParams
+    from stripe.params._charge_retrieve_params import ChargeRetrieveParams
+    from stripe.params._charge_retrieve_refund_params import (
+        ChargeRetrieveRefundParams,
+    )
+    from stripe.params._charge_search_params import ChargeSearchParams
 
 
 @nested_resource_class_methods("refund")
@@ -56,8 +61,7 @@ class Charge(
 ):
     """
     The `Charge` object represents a single attempt to move money into your Stripe account.
-    PaymentIntent confirmation is the most common way to create Charges, but transferring
-    money to a different Stripe account through Connect also creates Charges.
+    PaymentIntent confirmation is the most common way to create Charges, but [Account Debits](https://docs.stripe.com/connect/account-debits) may also create Charges.
     Some legacy payment flows create Charges directly, which is not recommended for new integrations.
     """
 
@@ -75,11 +79,11 @@ class Charge(
             """
             line1: Optional[str]
             """
-            Address line 1 (e.g., street, PO Box, or company name).
+            Address line 1, such as the street, PO Box, or company name.
             """
             line2: Optional[str]
             """
-            Address line 2 (e.g., apartment, suite, unit, or building).
+            Address line 2, such as the apartment, suite, unit, or building.
             """
             postal_code: Optional[str]
             """
@@ -87,7 +91,7 @@ class Charge(
             """
             state: Optional[str]
             """
-            State, county, province, or region.
+            State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
             """
 
         address: Optional[Address]
@@ -158,7 +162,7 @@ class Charge(
             Literal["confirm_card_data", "do_not_try_again", "try_again_later"]
         ]
         """
-        An enumerated value providing a more detailed explanation on [how to proceed with an error](https://stripe.com/docs/declines#retrying-issuer-declines).
+        An enumerated value providing a more detailed explanation on [how to proceed with an error](https://docs.stripe.com/declines#retrying-issuer-declines).
         """
         network_advice_code: Optional[str]
         """
@@ -170,11 +174,11 @@ class Charge(
         """
         network_status: Optional[str]
         """
-        Possible values are `approved_by_network`, `declined_by_network`, `not_sent_to_network`, and `reversed_after_approval`. The value `reversed_after_approval` indicates the payment was [blocked by Stripe](https://stripe.com/docs/declines#blocked-payments) after bank authorization, and may temporarily appear as "pending" on a cardholder's statement.
+        Possible values are `approved_by_network`, `declined_by_network`, `not_sent_to_network`, and `reversed_after_approval`. The value `reversed_after_approval` indicates the payment was [blocked by Stripe](https://docs.stripe.com/declines#blocked-payments) after bank authorization, and may temporarily appear as "pending" on a cardholder's statement.
         """
         reason: Optional[str]
         """
-        An enumerated value providing a more detailed explanation of the outcome's `type`. Charges blocked by Radar's default block rule have the value `highest_risk_level`. Charges placed in review by Radar's default review rule have the value `elevated_risk_level`. Charges blocked because the payment is unlikely to be authorized have the value `low_probability_of_authorization`. Charges authorized, blocked, or placed in review by custom rules have the value `rule`. See [understanding declines](https://stripe.com/docs/declines) for more details.
+        An enumerated value providing a more detailed explanation of the outcome's `type`. Charges blocked by Radar's default block rule have the value `highest_risk_level`. Charges placed in review by Radar's default review rule have the value `elevated_risk_level`. Charges blocked because the payment is unlikely to be authorized have the value `low_probability_of_authorization`. Charges authorized, blocked, or placed in review by custom rules have the value `rule`. See [understanding declines](https://docs.stripe.com/declines) for more details.
         """
         risk_level: Optional[str]
         """
@@ -194,7 +198,7 @@ class Charge(
         """
         type: str
         """
-        Possible values are `authorized`, `manual_review`, `issuer_declined`, `blocked`, and `invalid`. See [understanding declines](https://stripe.com/docs/declines) and [Radar reviews](https://stripe.com/docs/radar/reviews) for details.
+        Possible values are `authorized`, `manual_review`, `issuer_declined`, `blocked`, and `invalid`. See [understanding declines](https://docs.stripe.com/declines) and [Radar reviews](https://docs.stripe.com/radar/reviews) for details.
         """
         _inner_class_types = {"rule": Rule}
 
@@ -248,6 +252,10 @@ class Charge(
             """
             Name of the bank associated with the bank account.
             """
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
+            """
             fingerprint: Optional[str]
             """
             Uniquely identifies this particular bank account. You can use this attribute to check whether two bank accounts are the same.
@@ -272,11 +280,11 @@ class Charge(
         class Affirm(StripeObject):
             location: Optional[str]
             """
-            ID of the [location](https://stripe.com/docs/api/terminal/locations) that this transaction's reader is assigned to.
+            ID of the [location](https://docs.stripe.com/api/terminal/locations) that this transaction's reader is assigned to.
             """
             reader: Optional[str]
             """
-            ID of the [reader](https://stripe.com/docs/api/terminal/readers) this transaction was made on.
+            ID of the [reader](https://docs.stripe.com/api/terminal/readers) this transaction was made on.
             """
             transaction_id: Optional[str]
             """
@@ -368,6 +376,10 @@ class Charge(
             """
             Bank-State-Branch number of the bank account.
             """
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
+            """
             fingerprint: Optional[str]
             """
             Uniquely identifies this particular bank account. You can use this attribute to check whether two bank accounts are the same.
@@ -382,6 +394,10 @@ class Charge(
             """
 
         class BacsDebit(StripeObject):
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
+            """
             fingerprint: Optional[str]
             """
             Uniquely identifies this particular bank account. You can use this attribute to check whether two bank accounts are the same.
@@ -611,11 +627,11 @@ class Charge(
                         """
                         line1: Optional[str]
                         """
-                        Address line 1 (e.g., street, PO Box, or company name).
+                        Address line 1, such as the street, PO Box, or company name.
                         """
                         line2: Optional[str]
                         """
-                        Address line 2 (e.g., apartment, suite, unit, or building).
+                        Address line 2, such as the apartment, suite, unit, or building.
                         """
                         postal_code: Optional[str]
                         """
@@ -623,7 +639,7 @@ class Charge(
                         """
                         state: Optional[str]
                         """
-                        State, county, province, or region.
+                        State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
                         """
 
                     class ShippingAddress(StripeObject):
@@ -637,11 +653,11 @@ class Charge(
                         """
                         line1: Optional[str]
                         """
-                        Address line 1 (e.g., street, PO Box, or company name).
+                        Address line 1, such as the street, PO Box, or company name.
                         """
                         line2: Optional[str]
                         """
-                        Address line 2 (e.g., apartment, suite, unit, or building).
+                        Address line 2, such as the apartment, suite, unit, or building.
                         """
                         postal_code: Optional[str]
                         """
@@ -649,7 +665,7 @@ class Charge(
                         """
                         state: Optional[str]
                         """
-                        State, county, province, or region.
+                        State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
                         """
 
                     billing_address: Optional[BillingAddress]
@@ -688,11 +704,11 @@ class Charge(
                         """
                         line1: Optional[str]
                         """
-                        Address line 1 (e.g., street, PO Box, or company name).
+                        Address line 1, such as the street, PO Box, or company name.
                         """
                         line2: Optional[str]
                         """
-                        Address line 2 (e.g., apartment, suite, unit, or building).
+                        Address line 2, such as the apartment, suite, unit, or building.
                         """
                         postal_code: Optional[str]
                         """
@@ -700,7 +716,7 @@ class Charge(
                         """
                         state: Optional[str]
                         """
-                        State, county, province, or region.
+                        State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
                         """
 
                     class ShippingAddress(StripeObject):
@@ -714,11 +730,11 @@ class Charge(
                         """
                         line1: Optional[str]
                         """
-                        Address line 1 (e.g., street, PO Box, or company name).
+                        Address line 1, such as the street, PO Box, or company name.
                         """
                         line2: Optional[str]
                         """
-                        Address line 2 (e.g., apartment, suite, unit, or building).
+                        Address line 2, such as the apartment, suite, unit, or building.
                         """
                         postal_code: Optional[str]
                         """
@@ -726,7 +742,7 @@ class Charge(
                         """
                         state: Optional[str]
                         """
-                        State, county, province, or region.
+                        State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
                         """
 
                     billing_address: Optional[BillingAddress]
@@ -839,7 +855,7 @@ class Charge(
             """
             Installment details for this payment.
 
-            For more information, see the [installments integration guide](https://stripe.com/docs/payments/installments).
+            For more information, see the [installments integration guide](https://docs.stripe.com/payments/installments).
             """
             issuer: Optional[str]
             """
@@ -1014,7 +1030,7 @@ class Charge(
             """
             incremental_authorization_supported: bool
             """
-            Whether this [PaymentIntent](https://stripe.com/docs/api/payment_intents) is eligible for incremental authorizations. Request support using [request_incremental_authorization_support](https://stripe.com/docs/api/payment_intents/create#create_payment_intent-payment_method_options-card_present-request_incremental_authorization_support).
+            Whether this [PaymentIntent](https://docs.stripe.com/api/payment_intents) is eligible for incremental authorizations. Request support using [request_incremental_authorization_support](https://docs.stripe.com/api/payment_intents/create#create_payment_intent-payment_method_options-card_present-request_incremental_authorization_support).
             """
             issuer: Optional[str]
             """
@@ -1086,7 +1102,7 @@ class Charge(
             """
             The wallet address of the customer.
             """
-            network: Optional[Literal["base", "ethereum", "polygon"]]
+            network: Optional[Literal["base", "ethereum", "polygon", "solana"]]
             """
             The blockchain network that the transaction was sent on.
             """
@@ -1215,9 +1231,11 @@ class Charge(
                     "asn_bank",
                     "bunq",
                     "buut",
+                    "finom",
                     "handelsbanken",
                     "ing",
                     "knab",
+                    "mollie",
                     "moneyou",
                     "n26",
                     "nn",
@@ -1231,7 +1249,7 @@ class Charge(
                 ]
             ]
             """
-            The customer's bank. Can be one of `abn_amro`, `asn_bank`, `bunq`, `buut`, `handelsbanken`, `ing`, `knab`, `moneyou`, `n26`, `nn`, `rabobank`, `regiobank`, `revolut`, `sns_bank`, `triodos_bank`, `van_lanschot`, or `yoursafe`.
+            The customer's bank. Can be one of `abn_amro`, `asn_bank`, `bunq`, `buut`, `finom`, `handelsbanken`, `ing`, `knab`, `mollie`, `moneyou`, `n26`, `nn`, `rabobank`, `regiobank`, `revolut`, `sns_bank`, `triodos_bank`, `van_lanschot`, or `yoursafe`.
             """
             bic: Optional[
                 Literal[
@@ -1240,10 +1258,12 @@ class Charge(
                     "BITSNL2A",
                     "BUNQNL2A",
                     "BUUTNL2A",
+                    "FNOMNL22",
                     "FVLBNL22",
                     "HANDNL2A",
                     "INGBNL2A",
                     "KNABNL2H",
+                    "MLLENL2A",
                     "MOYONL21",
                     "NNBANL2G",
                     "NTSBDEB1",
@@ -1269,6 +1289,10 @@ class Charge(
             iban_last4: Optional[str]
             """
             Last four characters of the IBAN.
+            """
+            transaction_id: Optional[str]
+            """
+            Unique transaction ID generated by iDEAL.
             """
             verified_name: Optional[str]
             """
@@ -1506,6 +1530,9 @@ class Charge(
             You could use this attribute to get a sense of international fees.
             """
 
+        class MbWay(StripeObject):
+            pass
+
         class Mobilepay(StripeObject):
             class Card(StripeObject):
                 brand: Optional[str]
@@ -1571,6 +1598,10 @@ class Charge(
             branch_code: str
             """
             The numeric code for the bank account's bank branch.
+            """
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
             """
             last4: str
             """
@@ -1648,11 +1679,11 @@ class Charge(
         class Paynow(StripeObject):
             location: Optional[str]
             """
-            ID of the [location](https://stripe.com/docs/api/terminal/locations) that this transaction's reader is assigned to.
+            ID of the [location](https://docs.stripe.com/api/terminal/locations) that this transaction's reader is assigned to.
             """
             reader: Optional[str]
             """
-            ID of the [reader](https://stripe.com/docs/api/terminal/readers) this transaction was made on.
+            ID of the [reader](https://docs.stripe.com/api/terminal/readers) this transaction was made on.
             """
             reference: Optional[str]
             """
@@ -1701,6 +1732,24 @@ class Charge(
             A unique ID generated by PayPal for this transaction.
             """
             _inner_class_types = {"seller_protection": SellerProtection}
+
+        class Payto(StripeObject):
+            bsb_number: Optional[str]
+            """
+            Bank-State-Branch number of the bank account.
+            """
+            last4: Optional[str]
+            """
+            Last four digits of the bank account number.
+            """
+            mandate: Optional[str]
+            """
+            ID of the mandate used to make this payment.
+            """
+            pay_id: Optional[str]
+            """
+            The PayID alias for the bank account.
+            """
 
         class Pix(StripeObject):
             bank_transaction_id: Optional[str]
@@ -1799,6 +1848,10 @@ class Charge(
             """
             Two-letter ISO code representing the country the bank account is located in.
             """
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
+            """
             fingerprint: Optional[str]
             """
             Uniquely identifies this particular bank account. You can use this attribute to check whether two bank accounts are the same.
@@ -1809,7 +1862,7 @@ class Charge(
             """
             mandate: Optional[str]
             """
-            Find the ID of the mandate used for this payment under the [payment_method_details.sepa_debit.mandate](https://stripe.com/docs/api/charges/object#charge_object-payment_method_details-sepa_debit-mandate) property on the Charge. Use this mandate ID to [retrieve the Mandate](https://stripe.com/docs/api/mandates/retrieve).
+            Find the ID of the mandate used for this payment under the [payment_method_details.sepa_debit.mandate](https://docs.stripe.com/api/charges/object#charge_object-payment_method_details-sepa_debit-mandate) property on the Charge. Use this mandate ID to [retrieve the Mandate](https://docs.stripe.com/api/mandates/retrieve).
             """
 
         class Sofort(StripeObject):
@@ -1887,6 +1940,10 @@ class Charge(
             """
             Name of the bank associated with the bank account.
             """
+            expected_debit_date: Optional[str]
+            """
+            Estimated date to debit the customer's bank account. A date string in YYYY-MM-DD format.
+            """
             fingerprint: Optional[str]
             """
             Uniquely identifies this particular bank account. You can use this attribute to check whether two bank accounts are the same.
@@ -1918,11 +1975,11 @@ class Charge(
             """
             location: Optional[str]
             """
-            ID of the [location](https://stripe.com/docs/api/terminal/locations) that this transaction's reader is assigned to.
+            ID of the [location](https://docs.stripe.com/api/terminal/locations) that this transaction's reader is assigned to.
             """
             reader: Optional[str]
             """
-            ID of the [reader](https://stripe.com/docs/api/terminal/readers) this transaction was made on.
+            ID of the [reader](https://docs.stripe.com/api/terminal/readers) this transaction was made on.
             """
             transaction_id: Optional[str]
             """
@@ -1962,6 +2019,7 @@ class Charge(
         konbini: Optional[Konbini]
         kr_card: Optional[KrCard]
         link: Optional[Link]
+        mb_way: Optional[MbWay]
         mobilepay: Optional[Mobilepay]
         multibanco: Optional[Multibanco]
         naver_pay: Optional[NaverPay]
@@ -1972,6 +2030,7 @@ class Charge(
         payco: Optional[Payco]
         paynow: Optional[Paynow]
         paypal: Optional[Paypal]
+        payto: Optional[Payto]
         pix: Optional[Pix]
         promptpay: Optional[Promptpay]
         revolut_pay: Optional[RevolutPay]
@@ -1985,7 +2044,7 @@ class Charge(
         twint: Optional[Twint]
         type: str
         """
-        The type of transaction-specific details of the payment method used in the payment. See [PaymentMethod.type](https://stripe.com/docs/api/payment_methods/object#payment_method_object-type) for the full list of possible types.
+        The type of transaction-specific details of the payment method used in the payment. See [PaymentMethod.type](https://docs.stripe.com/api/payment_methods/object#payment_method_object-type) for the full list of possible types.
         An additional hash is included on `payment_method_details` with a name matching this value.
         It contains information specific to the payment method.
         """
@@ -2024,6 +2083,7 @@ class Charge(
             "konbini": Konbini,
             "kr_card": KrCard,
             "link": Link,
+            "mb_way": MbWay,
             "mobilepay": Mobilepay,
             "multibanco": Multibanco,
             "naver_pay": NaverPay,
@@ -2034,6 +2094,7 @@ class Charge(
             "payco": Payco,
             "paynow": Paynow,
             "paypal": Paypal,
+            "payto": Payto,
             "pix": Pix,
             "promptpay": Promptpay,
             "revolut_pay": RevolutPay,
@@ -2064,7 +2125,7 @@ class Charge(
     class RadarOptions(StripeObject):
         session: Optional[str]
         """
-        A [Radar Session](https://stripe.com/docs/radar/radar-session) is a snapshot of the browser metadata and device details that help Radar make more accurate predictions on your payments.
+        A [Radar Session](https://docs.stripe.com/radar/radar-session) is a snapshot of the browser metadata and device details that help Radar make more accurate predictions on your payments.
         """
 
     class Shipping(StripeObject):
@@ -2079,11 +2140,11 @@ class Charge(
             """
             line1: Optional[str]
             """
-            Address line 1 (e.g., street, PO Box, or company name).
+            Address line 1, such as the street, PO Box, or company name.
             """
             line2: Optional[str]
             """
-            Address line 2 (e.g., apartment, suite, unit, or building).
+            Address line 2, such as the apartment, suite, unit, or building.
             """
             postal_code: Optional[str]
             """
@@ -2091,7 +2152,7 @@ class Charge(
             """
             state: Optional[str]
             """
-            State, county, province, or region.
+            State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
             """
 
         address: Optional[Address]
@@ -2123,391 +2184,9 @@ class Charge(
         ID of an existing, connected Stripe account to transfer funds to if `transfer_data` was specified in the charge request.
         """
 
-    class CaptureParams(RequestOptions):
-        amount: NotRequired[int]
-        """
-        The amount to capture, which must be less than or equal to the original amount.
-        """
-        application_fee: NotRequired[int]
-        """
-        An application fee to add on to this charge.
-        """
-        application_fee_amount: NotRequired[int]
-        """
-        An application fee amount to add on to this charge, which must be less than or equal to the original amount.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        receipt_email: NotRequired[str]
-        """
-        The email address to send this charge's receipt to. This will override the previously-specified email address for this charge, if one was set. Receipts will not be sent in test mode.
-        """
-        statement_descriptor: NotRequired[str]
-        """
-        For a non-card charge, text that appears on the customer's statement as the statement descriptor. This value overrides the account's default statement descriptor. For information about requirements, including the 22-character limit, see [the Statement Descriptor docs](https://docs.stripe.com/get-started/account/statement-descriptors).
-
-        For a card charge, this value is ignored unless you don't specify a `statement_descriptor_suffix`, in which case this value is used as the suffix.
-        """
-        statement_descriptor_suffix: NotRequired[str]
-        """
-        Provides information about a card charge. Concatenated to the account's [statement descriptor prefix](https://docs.stripe.com/get-started/account/statement-descriptors#static) to form the complete statement descriptor that appears on the customer's statement. If the account has no prefix value, the suffix is concatenated to the account's statement descriptor.
-        """
-        transfer_data: NotRequired["Charge.CaptureParamsTransferData"]
-        """
-        An optional dictionary including the account to automatically transfer to as part of a destination charge. [See the Connect documentation](https://stripe.com/docs/connect/destination-charges) for details.
-        """
-        transfer_group: NotRequired[str]
-        """
-        A string that identifies this transaction as part of a group. `transfer_group` may only be provided if it has not been set. See the [Connect documentation](https://stripe.com/docs/connect/separate-charges-and-transfers#transfer-options) for details.
-        """
-
-    class CaptureParamsTransferData(TypedDict):
-        amount: NotRequired[int]
-        """
-        The amount transferred to the destination account, if specified. By default, the entire charge amount is transferred to the destination account.
-        """
-
-    class CreateParams(RequestOptions):
-        amount: NotRequired[int]
-        """
-        Amount intended to be collected by this payment. A positive integer representing how much to charge in the [smallest currency unit](https://stripe.com/docs/currencies#zero-decimal) (e.g., 100 cents to charge $1.00 or 100 to charge ¥100, a zero-decimal currency). The minimum amount is $0.50 US or [equivalent in charge currency](https://stripe.com/docs/currencies#minimum-and-maximum-charge-amounts). The amount value supports up to eight digits (e.g., a value of 99999999 for a USD charge of $999,999.99).
-        """
-        application_fee: NotRequired[int]
-        application_fee_amount: NotRequired[int]
-        """
-        A fee in cents (or local equivalent) that will be applied to the charge and transferred to the application owner's Stripe account. The request must be made with an OAuth key or the `Stripe-Account` header in order to take an application fee. For more information, see the application fees [documentation](https://stripe.com/docs/connect/direct-charges#collect-fees).
-        """
-        capture: NotRequired[bool]
-        """
-        Whether to immediately capture the charge. Defaults to `true`. When `false`, the charge issues an authorization (or pre-authorization), and will need to be [captured](https://stripe.com/docs/api#capture_charge) later. Uncaptured charges expire after a set number of days (7 by default). For more information, see the [authorizing charges and settling later](https://stripe.com/docs/charges/placing-a-hold) documentation.
-        """
-        currency: NotRequired[str]
-        """
-        Three-letter [ISO currency code](https://www.iso.org/iso-4217-currency-codes.html), in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
-        """
-        customer: NotRequired[str]
-        """
-        The ID of an existing customer that will be charged in this request.
-        """
-        description: NotRequired[str]
-        """
-        An arbitrary string which you can attach to a `Charge` object. It is displayed when in the web interface alongside the charge. Note that if you use Stripe to send automatic email receipts to your customers, your receipt emails will include the `description` of the charge(s) that they are describing.
-        """
-        destination: NotRequired["Charge.CreateParamsDestination"]
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        metadata: NotRequired["Literal['']|Dict[str, str]"]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-        on_behalf_of: NotRequired[str]
-        """
-        The Stripe account ID for which these funds are intended. Automatically set if you use the `destination` parameter. For details, see [Creating Separate Charges and Transfers](https://stripe.com/docs/connect/separate-charges-and-transfers#settlement-merchant).
-        """
-        radar_options: NotRequired["Charge.CreateParamsRadarOptions"]
-        """
-        Options to configure Radar. See [Radar Session](https://stripe.com/docs/radar/radar-session) for more information.
-        """
-        receipt_email: NotRequired[str]
-        """
-        The email address to which this charge's [receipt](https://stripe.com/docs/dashboard/receipts) will be sent. The receipt will not be sent until the charge is paid, and no receipts will be sent for test mode charges. If this charge is for a [Customer](https://stripe.com/docs/api/customers/object), the email address specified here will override the customer's email address. If `receipt_email` is specified for a charge in live mode, a receipt will be sent regardless of your [email settings](https://dashboard.stripe.com/account/emails).
-        """
-        shipping: NotRequired["Charge.CreateParamsShipping"]
-        """
-        Shipping information for the charge. Helps prevent fraud on charges for physical goods.
-        """
-        source: NotRequired[str]
-        """
-        A payment source to be charged. This can be the ID of a [card](https://stripe.com/docs/api#cards) (i.e., credit or debit card), a [bank account](https://stripe.com/docs/api#bank_accounts), a [source](https://stripe.com/docs/api#sources), a [token](https://stripe.com/docs/api#tokens), or a [connected account](https://stripe.com/docs/connect/account-debits#charging-a-connected-account). For certain sources---namely, [cards](https://stripe.com/docs/api#cards), [bank accounts](https://stripe.com/docs/api#bank_accounts), and attached [sources](https://stripe.com/docs/api#sources)---you must also pass the ID of the associated customer.
-        """
-        statement_descriptor: NotRequired[str]
-        """
-        For a non-card charge, text that appears on the customer's statement as the statement descriptor. This value overrides the account's default statement descriptor. For information about requirements, including the 22-character limit, see [the Statement Descriptor docs](https://docs.stripe.com/get-started/account/statement-descriptors).
-
-        For a card charge, this value is ignored unless you don't specify a `statement_descriptor_suffix`, in which case this value is used as the suffix.
-        """
-        statement_descriptor_suffix: NotRequired[str]
-        """
-        Provides information about a card charge. Concatenated to the account's [statement descriptor prefix](https://docs.stripe.com/get-started/account/statement-descriptors#static) to form the complete statement descriptor that appears on the customer's statement. If the account has no prefix value, the suffix is concatenated to the account's statement descriptor.
-        """
-        transfer_data: NotRequired["Charge.CreateParamsTransferData"]
-        """
-        An optional dictionary including the account to automatically transfer to as part of a destination charge. [See the Connect documentation](https://stripe.com/docs/connect/destination-charges) for details.
-        """
-        transfer_group: NotRequired[str]
-        """
-        A string that identifies this transaction as part of a group. For details, see [Grouping transactions](https://stripe.com/docs/connect/separate-charges-and-transfers#transfer-options).
-        """
-
-    class CreateParamsDestination(TypedDict):
-        account: str
-        """
-        ID of an existing, connected Stripe account.
-        """
-        amount: NotRequired[int]
-        """
-        The amount to transfer to the destination account without creating an `Application Fee` object. Cannot be combined with the `application_fee` parameter. Must be less than or equal to the charge amount.
-        """
-
-    class CreateParamsRadarOptions(TypedDict):
-        session: NotRequired[str]
-        """
-        A [Radar Session](https://stripe.com/docs/radar/radar-session) is a snapshot of the browser metadata and device details that help Radar make more accurate predictions on your payments.
-        """
-
-    class CreateParamsShipping(TypedDict):
-        address: "Charge.CreateParamsShippingAddress"
-        """
-        Shipping address.
-        """
-        carrier: NotRequired[str]
-        """
-        The delivery service that shipped a physical product, such as Fedex, UPS, USPS, etc.
-        """
-        name: str
-        """
-        Recipient name.
-        """
-        phone: NotRequired[str]
-        """
-        Recipient phone (including extension).
-        """
-        tracking_number: NotRequired[str]
-        """
-        The tracking number for a physical product, obtained from the delivery service. If multiple tracking numbers were generated for this purchase, please separate them with commas.
-        """
-
-    class CreateParamsShippingAddress(TypedDict):
-        city: NotRequired[str]
-        """
-        City, district, suburb, town, or village.
-        """
-        country: NotRequired[str]
-        """
-        Two-letter country code ([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)).
-        """
-        line1: NotRequired[str]
-        """
-        Address line 1 (e.g., street, PO Box, or company name).
-        """
-        line2: NotRequired[str]
-        """
-        Address line 2 (e.g., apartment, suite, unit, or building).
-        """
-        postal_code: NotRequired[str]
-        """
-        ZIP or postal code.
-        """
-        state: NotRequired[str]
-        """
-        State, county, province, or region.
-        """
-
-    class CreateParamsTransferData(TypedDict):
-        amount: NotRequired[int]
-        """
-        The amount transferred to the destination account, if specified. By default, the entire charge amount is transferred to the destination account.
-        """
-        destination: str
-        """
-        ID of an existing, connected Stripe account.
-        """
-
-    class ListParams(RequestOptions):
-        created: NotRequired["Charge.ListParamsCreated|int"]
-        """
-        Only return charges that were created during the given date interval.
-        """
-        customer: NotRequired[str]
-        """
-        Only return charges for the customer specified by this customer ID.
-        """
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        payment_intent: NotRequired[str]
-        """
-        Only return charges that were created by the PaymentIntent specified by this PaymentIntent ID.
-        """
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-        transfer_group: NotRequired[str]
-        """
-        Only return charges for this transfer group, limited to 100.
-        """
-
-    class ListParamsCreated(TypedDict):
-        gt: NotRequired[int]
-        """
-        Minimum value to filter by (exclusive)
-        """
-        gte: NotRequired[int]
-        """
-        Minimum value to filter by (inclusive)
-        """
-        lt: NotRequired[int]
-        """
-        Maximum value to filter by (exclusive)
-        """
-        lte: NotRequired[int]
-        """
-        Maximum value to filter by (inclusive)
-        """
-
-    class ListRefundsParams(RequestOptions):
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-
-    class ModifyParams(RequestOptions):
-        customer: NotRequired[str]
-        """
-        The ID of an existing customer that will be associated with this request. This field may only be updated if there is no existing associated customer with this charge.
-        """
-        description: NotRequired[str]
-        """
-        An arbitrary string which you can attach to a charge object. It is displayed when in the web interface alongside the charge. Note that if you use Stripe to send automatic email receipts to your customers, your receipt emails will include the `description` of the charge(s) that they are describing.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        fraud_details: NotRequired["Charge.ModifyParamsFraudDetails"]
-        """
-        A set of key-value pairs you can attach to a charge giving information about its riskiness. If you believe a charge is fraudulent, include a `user_report` key with a value of `fraudulent`. If you believe a charge is safe, include a `user_report` key with a value of `safe`. Stripe will use the information you send to improve our fraud detection algorithms.
-        """
-        metadata: NotRequired["Literal['']|Dict[str, str]"]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-        receipt_email: NotRequired[str]
-        """
-        This is the email address that the receipt for this charge will be sent to. If this field is updated, then a new email receipt will be sent to the updated address.
-        """
-        shipping: NotRequired["Charge.ModifyParamsShipping"]
-        """
-        Shipping information for the charge. Helps prevent fraud on charges for physical goods.
-        """
-        transfer_group: NotRequired[str]
-        """
-        A string that identifies this transaction as part of a group. `transfer_group` may only be provided if it has not been set. See the [Connect documentation](https://stripe.com/docs/connect/separate-charges-and-transfers#transfer-options) for details.
-        """
-
-    class ModifyParamsFraudDetails(TypedDict):
-        user_report: Union[Literal[""], Literal["fraudulent", "safe"]]
-        """
-        Either `safe` or `fraudulent`.
-        """
-
-    class ModifyParamsShipping(TypedDict):
-        address: "Charge.ModifyParamsShippingAddress"
-        """
-        Shipping address.
-        """
-        carrier: NotRequired[str]
-        """
-        The delivery service that shipped a physical product, such as Fedex, UPS, USPS, etc.
-        """
-        name: str
-        """
-        Recipient name.
-        """
-        phone: NotRequired[str]
-        """
-        Recipient phone (including extension).
-        """
-        tracking_number: NotRequired[str]
-        """
-        The tracking number for a physical product, obtained from the delivery service. If multiple tracking numbers were generated for this purchase, please separate them with commas.
-        """
-
-    class ModifyParamsShippingAddress(TypedDict):
-        city: NotRequired[str]
-        """
-        City, district, suburb, town, or village.
-        """
-        country: NotRequired[str]
-        """
-        Two-letter country code ([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)).
-        """
-        line1: NotRequired[str]
-        """
-        Address line 1 (e.g., street, PO Box, or company name).
-        """
-        line2: NotRequired[str]
-        """
-        Address line 2 (e.g., apartment, suite, unit, or building).
-        """
-        postal_code: NotRequired[str]
-        """
-        ZIP or postal code.
-        """
-        state: NotRequired[str]
-        """
-        State, county, province, or region.
-        """
-
-    class RetrieveParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class RetrieveRefundParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class SearchParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        page: NotRequired[str]
-        """
-        A cursor for pagination across multiple pages of results. Don't include this parameter on the first call. Use the next_page value returned in a previous response to request subsequent results.
-        """
-        query: str
-        """
-        The search query string. See [search query language](https://stripe.com/docs/search#search-query-language) and the list of supported [query fields for charges](https://stripe.com/docs/search#query-fields-for-charges).
-        """
-
     amount: int
     """
-    Amount intended to be collected by this payment. A positive integer representing how much to charge in the [smallest currency unit](https://stripe.com/docs/currencies#zero-decimal) (e.g., 100 cents to charge $1.00 or 100 to charge ¥100, a zero-decimal currency). The minimum amount is $0.50 US or [equivalent in charge currency](https://stripe.com/docs/currencies#minimum-and-maximum-charge-amounts). The amount value supports up to eight digits (e.g., a value of 99999999 for a USD charge of $999,999.99).
+    Amount intended to be collected by this payment. A positive integer representing how much to charge in the [smallest currency unit](https://docs.stripe.com/currencies#zero-decimal) (e.g., 100 cents to charge $1.00 or 100 to charge ¥100, a zero-decimal currency). The minimum amount is $0.50 US or [equivalent in charge currency](https://docs.stripe.com/currencies#minimum-and-maximum-charge-amounts). The amount value supports up to eight digits (e.g., a value of 99999999 for a USD charge of $999,999.99).
     """
     amount_captured: int
     """
@@ -2523,11 +2202,11 @@ class Charge(
     """
     application_fee: Optional[ExpandableField["ApplicationFee"]]
     """
-    The application fee (if any) for the charge. [See the Connect documentation](https://stripe.com/docs/connect/direct-charges#collect-fees) for details.
+    The application fee (if any) for the charge. [See the Connect documentation](https://docs.stripe.com/connect/direct-charges#collect-fees) for details.
     """
     application_fee_amount: Optional[int]
     """
-    The amount of the application fee (if any) requested for the charge. [See the Connect documentation](https://stripe.com/docs/connect/direct-charges#collect-fees) for details.
+    The amount of the application fee (if any) requested for the charge. [See the Connect documentation](https://docs.stripe.com/connect/direct-charges#collect-fees) for details.
     """
     authorization_code: Optional[str]
     """
@@ -2574,7 +2253,7 @@ class Charge(
     """
     failure_code: Optional[str]
     """
-    Error code explaining reason for charge failure if available (see [the errors section](https://stripe.com/docs/error-codes) for a list of codes).
+    Error code explaining reason for charge failure if available (see [the errors section](https://docs.stripe.com/error-codes) for a list of codes).
     """
     failure_message: Optional[str]
     """
@@ -2595,7 +2274,7 @@ class Charge(
     """
     metadata: Dict[str, str]
     """
-    Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
     """
     object: Literal["charge"]
     """
@@ -2603,11 +2282,11 @@ class Charge(
     """
     on_behalf_of: Optional[ExpandableField["Account"]]
     """
-    The account (if any) the charge was made on behalf of without triggering an automatic transfer. See the [Connect documentation](https://stripe.com/docs/connect/separate-charges-and-transfers) for details.
+    The account (if any) the charge was made on behalf of without triggering an automatic transfer. See the [Connect documentation](https://docs.stripe.com/connect/separate-charges-and-transfers) for details.
     """
     outcome: Optional[Outcome]
     """
-    Details about whether the payment was accepted, and why. See [understanding declines](https://stripe.com/docs/declines) for details.
+    Details about whether the payment was accepted, and why. See [understanding declines](https://docs.stripe.com/declines) for details.
     """
     paid: bool
     """
@@ -2628,7 +2307,7 @@ class Charge(
     presentment_details: Optional[PresentmentDetails]
     radar_options: Optional[RadarOptions]
     """
-    Options to configure Radar. See [Radar Session](https://stripe.com/docs/radar/radar-session) for more information.
+    Options to configure Radar. See [Radar Session](https://docs.stripe.com/radar/radar-session) for more information.
     """
     receipt_email: Optional[str]
     """
@@ -2686,16 +2365,16 @@ class Charge(
     """
     transfer_data: Optional[TransferData]
     """
-    An optional dictionary including the account to automatically transfer to as part of a destination charge. [See the Connect documentation](https://stripe.com/docs/connect/destination-charges) for details.
+    An optional dictionary including the account to automatically transfer to as part of a destination charge. [See the Connect documentation](https://docs.stripe.com/connect/destination-charges) for details.
     """
     transfer_group: Optional[str]
     """
-    A string that identifies this transaction as part of a group. See the [Connect documentation](https://stripe.com/docs/connect/separate-charges-and-transfers#transfer-options) for details.
+    A string that identifies this transaction as part of a group. See the [Connect documentation](https://docs.stripe.com/connect/separate-charges-and-transfers#transfer-options) for details.
     """
 
     @classmethod
     def _cls_capture(
-        cls, charge: str, **params: Unpack["Charge.CaptureParams"]
+        cls, charge: str, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2718,7 +2397,7 @@ class Charge(
     @overload
     @staticmethod
     def capture(
-        charge: str, **params: Unpack["Charge.CaptureParams"]
+        charge: str, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2730,7 +2409,7 @@ class Charge(
         ...
 
     @overload
-    def capture(self, **params: Unpack["Charge.CaptureParams"]) -> "Charge":
+    def capture(self, **params: Unpack["ChargeCaptureParams"]) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
 
@@ -2742,7 +2421,7 @@ class Charge(
 
     @class_method_variant("_cls_capture")
     def capture(  # pyright: ignore[reportGeneralTypeIssues]
-        self, **params: Unpack["Charge.CaptureParams"]
+        self, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2764,7 +2443,7 @@ class Charge(
 
     @classmethod
     async def _cls_capture_async(
-        cls, charge: str, **params: Unpack["Charge.CaptureParams"]
+        cls, charge: str, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2787,7 +2466,7 @@ class Charge(
     @overload
     @staticmethod
     async def capture_async(
-        charge: str, **params: Unpack["Charge.CaptureParams"]
+        charge: str, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2800,7 +2479,7 @@ class Charge(
 
     @overload
     async def capture_async(
-        self, **params: Unpack["Charge.CaptureParams"]
+        self, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2813,7 +2492,7 @@ class Charge(
 
     @class_method_variant("_cls_capture_async")
     async def capture_async(  # pyright: ignore[reportGeneralTypeIssues]
-        self, **params: Unpack["Charge.CaptureParams"]
+        self, **params: Unpack["ChargeCaptureParams"]
     ) -> "Charge":
         """
         Capture the payment of an existing, uncaptured charge that was created with the capture option set to false.
@@ -2834,7 +2513,7 @@ class Charge(
         )
 
     @classmethod
-    def create(cls, **params: Unpack["Charge.CreateParams"]) -> "Charge":
+    def create(cls, **params: Unpack["ChargeCreateParams"]) -> "Charge":
         """
         This method is no longer recommended—use the [Payment Intents API](https://docs.stripe.com/docs/api/payment_intents)
         to initiate a new payment instead. Confirmation of the PaymentIntent creates the Charge
@@ -2851,7 +2530,7 @@ class Charge(
 
     @classmethod
     async def create_async(
-        cls, **params: Unpack["Charge.CreateParams"]
+        cls, **params: Unpack["ChargeCreateParams"]
     ) -> "Charge":
         """
         This method is no longer recommended—use the [Payment Intents API](https://docs.stripe.com/docs/api/payment_intents)
@@ -2869,7 +2548,7 @@ class Charge(
 
     @classmethod
     def list(
-        cls, **params: Unpack["Charge.ListParams"]
+        cls, **params: Unpack["ChargeListParams"]
     ) -> ListObject["Charge"]:
         """
         Returns a list of charges you've previously created. The charges are returned in sorted order, with the most recent charges appearing first.
@@ -2889,7 +2568,7 @@ class Charge(
 
     @classmethod
     async def list_async(
-        cls, **params: Unpack["Charge.ListParams"]
+        cls, **params: Unpack["ChargeListParams"]
     ) -> ListObject["Charge"]:
         """
         Returns a list of charges you've previously created. The charges are returned in sorted order, with the most recent charges appearing first.
@@ -2909,7 +2588,7 @@ class Charge(
 
     @classmethod
     def modify(
-        cls, id: str, **params: Unpack["Charge.ModifyParams"]
+        cls, id: str, **params: Unpack["ChargeModifyParams"]
     ) -> "Charge":
         """
         Updates the specified charge by setting the values of the parameters passed. Any parameters not provided will be left unchanged.
@@ -2926,7 +2605,7 @@ class Charge(
 
     @classmethod
     async def modify_async(
-        cls, id: str, **params: Unpack["Charge.ModifyParams"]
+        cls, id: str, **params: Unpack["ChargeModifyParams"]
     ) -> "Charge":
         """
         Updates the specified charge by setting the values of the parameters passed. Any parameters not provided will be left unchanged.
@@ -2943,7 +2622,7 @@ class Charge(
 
     @classmethod
     def retrieve(
-        cls, id: str, **params: Unpack["Charge.RetrieveParams"]
+        cls, id: str, **params: Unpack["ChargeRetrieveParams"]
     ) -> "Charge":
         """
         Retrieves the details of a charge that has previously been created. Supply the unique charge ID that was returned from your previous request, and Stripe will return the corresponding charge information. The same information is returned when creating or refunding the charge.
@@ -2954,7 +2633,7 @@ class Charge(
 
     @classmethod
     async def retrieve_async(
-        cls, id: str, **params: Unpack["Charge.RetrieveParams"]
+        cls, id: str, **params: Unpack["ChargeRetrieveParams"]
     ) -> "Charge":
         """
         Retrieves the details of a charge that has previously been created. Supply the unique charge ID that was returned from your previous request, and Stripe will return the corresponding charge information. The same information is returned when creating or refunding the charge.
@@ -2965,7 +2644,7 @@ class Charge(
 
     @classmethod
     def search(
-        cls, *args, **kwargs: Unpack["Charge.SearchParams"]
+        cls, *args, **kwargs: Unpack["ChargeSearchParams"]
     ) -> SearchResultObject["Charge"]:
         """
         Search for charges you've previously created using Stripe's [Search Query Language](https://docs.stripe.com/docs/search#search-query-language).
@@ -2977,7 +2656,7 @@ class Charge(
 
     @classmethod
     async def search_async(
-        cls, *args, **kwargs: Unpack["Charge.SearchParams"]
+        cls, *args, **kwargs: Unpack["ChargeSearchParams"]
     ) -> SearchResultObject["Charge"]:
         """
         Search for charges you've previously created using Stripe's [Search Query Language](https://docs.stripe.com/docs/search#search-query-language).
@@ -2991,13 +2670,13 @@ class Charge(
 
     @classmethod
     def search_auto_paging_iter(
-        cls, *args, **kwargs: Unpack["Charge.SearchParams"]
+        cls, *args, **kwargs: Unpack["ChargeSearchParams"]
     ) -> Iterator["Charge"]:
         return cls.search(*args, **kwargs).auto_paging_iter()
 
     @classmethod
     async def search_auto_paging_iter_async(
-        cls, *args, **kwargs: Unpack["Charge.SearchParams"]
+        cls, *args, **kwargs: Unpack["ChargeSearchParams"]
     ) -> AsyncIterator["Charge"]:
         return (await cls.search_async(*args, **kwargs)).auto_paging_iter()
 
@@ -3024,7 +2703,7 @@ class Charge(
         cls,
         charge: str,
         refund: str,
-        **params: Unpack["Charge.RetrieveRefundParams"],
+        **params: Unpack["ChargeRetrieveRefundParams"],
     ) -> "Refund":
         """
         Retrieves the details of an existing refund.
@@ -3045,7 +2724,7 @@ class Charge(
         cls,
         charge: str,
         refund: str,
-        **params: Unpack["Charge.RetrieveRefundParams"],
+        **params: Unpack["ChargeRetrieveRefundParams"],
     ) -> "Refund":
         """
         Retrieves the details of an existing refund.
@@ -3063,7 +2742,7 @@ class Charge(
 
     @classmethod
     def list_refunds(
-        cls, charge: str, **params: Unpack["Charge.ListRefundsParams"]
+        cls, charge: str, **params: Unpack["ChargeListRefundsParams"]
     ) -> ListObject["Refund"]:
         """
         You can see a list of the refunds belonging to a specific charge. Note that the 10 most recent refunds are always available by default on the charge object. If you need more than those 10, you can use this API method and the limit and starting_after parameters to page through additional refunds.
@@ -3081,7 +2760,7 @@ class Charge(
 
     @classmethod
     async def list_refunds_async(
-        cls, charge: str, **params: Unpack["Charge.ListRefundsParams"]
+        cls, charge: str, **params: Unpack["ChargeListRefundsParams"]
     ) -> ListObject["Refund"]:
         """
         You can see a list of the refunds belonging to a specific charge. Note that the 10 most recent refunds are always available by default on the charge object. If you need more than those 10, you can use this API method and the limit and starting_after parameters to page through additional refunds.

@@ -23,18 +23,18 @@ setup(
     description="Package for Databricks-specific Dagster framework op and resource components.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-databricks",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_databricks_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
-        "dagster==1.11.11",
-        "dagster-pipes==1.11.11",
-        "dagster-pyspark==0.27.11",
+        "dagster==1.12.12",
+        "dagster-pipes==1.12.12",
+        "dagster-pyspark==0.28.12",
+        "aiohttp",
         "databricks-sdk>=0.41,<0.61.0",  # dbt-databricks is pinned to this version
     ],
     zip_safe=False,

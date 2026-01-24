@@ -106,8 +106,7 @@ def main(args=None) -> None:
     elif args.graph_visualization:
         return draw_lineage_graph(**{"host": args.host, "port": args.port})
     elif args.dialects:
-        print(
-            """non-validating
+        print("""non-validating
 ansi
 athena
 bigquery
@@ -126,8 +125,7 @@ soql
 sparksql
 sqlite
 teradata
-tsql"""
-        )
+tsql""")
     else:
         parser.print_help()
 

@@ -1,3 +1,5 @@
+use crate::proto::control::v1::field_type_matrix::MatrixValueType;
+
 use super::*;
 
 impl field_type::DataType {
@@ -23,6 +25,17 @@ impl field_type::DataType {
 
     pub fn u8_vector(dimension: u32) -> Self {
         field_type::DataType::U8Vector(FieldTypeU8Vector { dimension })
+    }
+
+    pub fn i8_vector(dimension: u32) -> Self {
+        field_type::DataType::I8Vector(FieldTypeI8Vector { dimension })
+    }
+
+    pub fn matrix(dimension: u32, value_type: MatrixValueType) -> Self {
+        field_type::DataType::Matrix(FieldTypeMatrix {
+            dimension,
+            value_type: value_type.into(),
+        })
     }
 
     pub fn binary_vector(dimension: u32) -> Self {

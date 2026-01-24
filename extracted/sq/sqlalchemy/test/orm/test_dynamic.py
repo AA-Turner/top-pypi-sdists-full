@@ -1529,7 +1529,7 @@ class WriteOnlyUOWTest(
     _fixtures.FixtureTest,
     testing.AssertsExecutionResults,
 ):
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @testing.fixture
     def passive_deletes_fixture(self, decl_base, connection):
@@ -1703,7 +1703,7 @@ class WriteOnlyBulkTest(
     testing.AssertsExecutionResults,
 ):
     run_inserts = None
-    __backend__ = True
+    __sparse_driver_backend__ = True
 
     @testing.requires.insert_executemany_returning
     @testing.combinations(True, False, argnames="flush_user_first")
@@ -1716,7 +1716,7 @@ class WriteOnlyBulkTest(
         u1 = User(name="x")
         sess.add(u1)
 
-        # ha ha!  u1 is not persistent yet.  autoflush wont happen
+        # ha ha!  u1 is not persistent yet.  autoflush won't happen
         # until sess.scalars() actually runs.  statement has to be
         # created with a pending parameter, not actual parameter
         assert inspect(u1).pending
@@ -1787,7 +1787,7 @@ class WriteOnlyBulkTest(
         )
         sess.add(u1)
 
-        # ha ha!  u1 is not persistent yet.  autoflush wont happen
+        # ha ha!  u1 is not persistent yet.  autoflush won't happen
         # until sess.scalars() actually runs.  statement has to be
         # created with a pending parameter, not actual parameter
         assert inspect(u1).pending
@@ -1880,7 +1880,7 @@ class WriteOnlyBulkTest(
         )
         sess.add(u1)
 
-        # ha ha!  u1 is not persistent yet.  autoflush wont happen
+        # ha ha!  u1 is not persistent yet.  autoflush won't happen
         # until sess.scalars() actually runs.  statement has to be
         # created with a pending parameter, not actual parameter
         assert inspect(u1).pending

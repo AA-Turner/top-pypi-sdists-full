@@ -5,11 +5,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import cast
 
 import regex
 
-from arelle.ModelInstanceObject import ModelFact, ModelContext
+from arelle.ModelInstanceObject import ModelContext, ModelFact
 from arelle.ModelValue import QName
 from arelle.ModelXbrl import ModelXbrl
 from arelle.utils.PluginData import PluginData
@@ -46,7 +45,7 @@ class PluginValidationDataExtension(PluginData):
     disclosureOfEquityQns: frozenset[QName]
     consolidatedMemberQn: QName
     consolidatedSoloDimensionQn: QName
-    cpr_regex: regex.regex.Pattern[str]
+    cpr_regex: regex.Pattern[str]
     dateOfApprovalOfAnnualReportQn: QName
     dateOfExtraordinaryDividendDistributedAfterEndOfReportingPeriod: QName
     dateOfGeneralMeetingQn: QName
@@ -58,6 +57,8 @@ class PluginValidationDataExtension(PluginData):
     distributionOfResultsQns: frozenset[QName]
     employeeBenefitsExpenseQn: QName
     equityQn: QName
+    endDateForUseOfDigitalNonregisteredBookkeepingSystemQn: QName
+    endDateForUseOfDigitalStandardBookkeepingSystemQn: QName
     extraordinaryCostsQn: QName
     extraordinaryIncomeQn: QName
     extraordinaryResultBeforeTaxQn: QName
@@ -89,6 +90,7 @@ class PluginValidationDataExtension(PluginData):
     proposedDividendRecognisedInEquityQn: QName
     proposedExtraordinaryDividendRecognisedInLiabilitiesQn: QName
     provisionsQn: QName
+    registrationNumberOfTheDigitalStandardBookkeepingSystemUsedQn: QName
     registeredReportingPeriodDeviatingFromReportedReportingPeriodDueArbitraryDatesMemberQn: QName
     reportingClassCLargeDanish: str
     reportingClassCLargeEnglish: str
@@ -107,6 +109,8 @@ class PluginValidationDataExtension(PluginData):
     shorttermLiabilitiesOtherThanProvisionsQn: QName
     signatureOfAuditorsDateQn: QName
     soloMemberQn: QName
+    startDateForUseOfDigitalNonregisteredBookkeepingSystemQn: QName
+    startDateForUseOfDigitalStandardBookkeepingSystemQn: QName
     statementOfChangesInEquityQns: frozenset[QName]
     taxExpenseOnOrdinaryActivitiesQn: QName
     taxExpenseQn: QName
@@ -114,6 +118,7 @@ class PluginValidationDataExtension(PluginData):
     typeOfAuditorAssistanceEnglish: str
     typeOfAuditorAssistanceQn: QName
     typeOfBasisForModifiedOpinionOnFinancialStatementsReviewQn: QName
+    typeOfDigitalNonregisteredBookkeepingSystemQn: QName
     typeOfReportingPeriodDimensionQn: QName
     wagesAndSalariesQn: QName
 
@@ -148,6 +153,8 @@ class PluginValidationDataExtension(PluginData):
         for context in modelXbrl.contexts.values():
             if context.isInstantPeriod or context.isForeverPeriod:
                 continue  # Reporting period contexts can't be instant/forever contexts
+            if context.startDatetime is None or context.endDatetime is None:
+                continue  # Incomplete context
             if len(context.qnameDims) > 0:
                 if context.qnameDims.keys() != {self.consolidatedSoloDimensionQn}:
                     continue  # Context is dimensionalized with something other than consolidatedSoloDimensionQn

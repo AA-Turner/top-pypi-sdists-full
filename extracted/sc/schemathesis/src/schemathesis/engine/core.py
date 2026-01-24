@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from schemathesis import auths
 from schemathesis.core import SpecificationFeature
+from schemathesis.core.errors import HookExecutionError
 from schemathesis.engine import Status, events, phases
 from schemathesis.engine.observations import Observations
 from schemathesis.schemas import BaseSchema
@@ -44,6 +45,11 @@ class Engine:
         """Create execution plan based on configuration."""
         phases = [
             self.get_phase_config(PhaseName.PROBING, is_supported=True, requires_links=False),
+            self.get_phase_config(
+                PhaseName.SCHEMA_ANALYSIS,
+                is_supported=self.schema.specification.supports_feature(SpecificationFeature.SCHEMA_ANALYSIS),
+                requires_links=False,
+            ),
             self.get_phase_config(
                 PhaseName.EXAMPLES,
                 is_supported=self.schema.specification.supports_feature(SpecificationFeature.EXAMPLES),
@@ -130,7 +136,14 @@ class ExecutionPlan:
 
             # Run main phases
             for phase in self.phases:
-                payload = self._adapt_execution(engine, phase)
+                try:
+                    payload = self._adapt_execution(engine, phase)
+                except HookExecutionError as exc:
+                    yield events.NonFatalError(
+                        error=exc, phase=phase.name, label=f"`{exc.hook_name}` hook", related_to_operation=False
+                    )
+                    yield events.PhaseFinished(phase=phase, status=Status.ERROR, payload=None)
+                    continue
                 yield events.PhaseStarted(phase=phase, payload=payload)
                 if phase.should_execute(engine):
                     yield from phases.execute(engine, phase)

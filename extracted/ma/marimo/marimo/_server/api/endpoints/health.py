@@ -1,8 +1,7 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from functools import lru_cache
-from multiprocessing import Process
 from typing import TYPE_CHECKING, Any, Optional
 
 from starlette.authentication import requires
@@ -13,6 +12,8 @@ from marimo._dependencies.dependencies import DependencyManager
 from marimo._server.api.deps import AppState
 from marimo._server.router import APIRouter
 from marimo._utils.health import (
+    get_cgroup_cpu_percent,
+    get_cgroup_mem_stats,
     get_node_version,
     get_python_version,
     get_required_modules_list,
@@ -131,12 +132,15 @@ async def usage(request: Request) -> JSONResponse:
                                         type: integer
                                     free:
                                         type: integer
+                                    has_cgroup_mem_limit:
+                                        type: boolean
                                 required:
                                     - total
                                     - available
                                     - percent
                                     - used
                                     - free
+                                    - has_cgroup_mem_limit
                             server:
                                 type: object
                                 properties:
@@ -194,10 +198,28 @@ async def usage(request: Request) -> JSONResponse:
 
     import psutil
 
-    memory = psutil.virtual_memory()
-    # interval=None is nonblocking; first value is meaningless but after
-    # that it's useful.
-    cpu = psutil.cpu_percent(interval=None)
+    if cgroup_mem_stats := get_cgroup_mem_stats():
+        memory_stats = {
+            "has_cgroup_mem_limit": True,
+            **cgroup_mem_stats,
+        }
+    else:
+        # Use host memory stats
+        memory = psutil.virtual_memory()
+        memory_stats = {
+            "total": memory.total,
+            "available": memory.available,
+            "percent": memory.percent,
+            "used": memory.used,
+            "free": memory.free,
+            "has_cgroup_mem_limit": False,
+        }
+
+    cpu = get_cgroup_cpu_percent()
+    if cpu is None:
+        # interval=None is nonblocking; first call returns meaningless value
+        # subsequent calls return delta since last call
+        cpu = psutil.cpu_percent(interval=None)
 
     # Server memory (and children)
     main_process = psutil.Process()
@@ -213,10 +235,8 @@ async def usage(request: Request) -> JSONResponse:
     kernel_memory: Optional[int] = None
     session = AppState(request).get_current_session()
     try:
-        if session and isinstance(session.kernel_manager.kernel_task, Process):
-            kernel_process = psutil.Process(
-                session.kernel_manager.kernel_task.pid
-            )
+        if session and (pid := session.kernel_pid()) is not None:
+            kernel_process = psutil.Process(pid)
             kernel_memory = kernel_process.memory_info().rss
             kernel_children = kernel_process.children(recursive=True)
             for child in kernel_children:
@@ -241,6 +261,13 @@ async def usage(request: Request) -> JSONResponse:
                 index_str, name, total_str, used_str, free_str = line.split(
                     ", "
                 )
+                # This is what you get on a DGX Spark
+                if total_str == "[N/A]":
+                    total_str = "0"
+                if used_str == "[N/A]":
+                    used_str = "0"
+                if free_str == "[N/A]":
+                    free_str = "0"
                 total = int(total_str) * 1024 * 1024  # Convert MB to bytes
                 used = int(used_str) * 1024 * 1024
                 free = int(free_str) * 1024 * 1024
@@ -263,14 +290,8 @@ async def usage(request: Request) -> JSONResponse:
 
     return JSONResponse(
         {
-            # computer memory
-            "memory": {
-                "total": memory.total,
-                "available": memory.available,
-                "percent": memory.percent,
-                "used": memory.used,
-                "free": memory.free,
-            },
+            # computer memory or container memory
+            "memory": memory_stats,
             # marimo server
             "server": {
                 "memory": server_memory,

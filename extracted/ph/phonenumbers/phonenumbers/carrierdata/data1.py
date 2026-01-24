@@ -4,7 +4,7 @@ Auto-generated file, do not edit by hand.
 """
 from ..util import u
 
-# Copyright (C) 2011-2025 The Libphonenumber Authors
+# Copyright (C) 2011-2026 The Libphonenumber Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from ..util import u
 # limitations under the License.
 
 data = {
+ '553199789':{'en': 'Telemig Celular'},
  '553199791':{'en': 'Telemig Celular'},
  '553199792':{'en': 'Telemig Celular'},
  '553199793':{'en': 'Telemig Celular'},
@@ -9389,6 +9390,7 @@ data = {
  '5675298':{'en': 'Vtr Banda Ancha (Chile) S.A.'},
  '569100':{'en': 'WOM'},
  '569101':{'en': 'Pacifico Cable S.P.A.'},
+ '569102':{'en': 'Pacifico Cable S.P.A.'},
  '56930':{'en': 'WOM'},
  '569304':{'en': 'Claro'},
  '569310':{'en': 'WOM'},
@@ -9879,6 +9881,7 @@ data = {
  '569998':{'en': 'Claro'},
  '569999':{'en': 'Entel'},
  '5699990':{'en': 'Tesacom'},
+ '573000':{'en': 'Tigo'},
  '573002':{'en': 'Tigo'},
  '573003':{'en': 'Tigo'},
  '573004':{'en': 'Tigo'},
@@ -9887,12 +9890,14 @@ data = {
  '573007':{'en': 'Tigo'},
  '573008':{'en': 'Tigo'},
  '573009':{'en': 'Tigo'},
+ '573010':{'en': 'Tigo'},
  '573012':{'en': 'Tigo'},
  '573013':{'en': 'Tigo'},
  '573014':{'en': 'Tigo'},
  '573015':{'en': 'Tigo'},
  '573016':{'en': 'Tigo'},
  '573017':{'en': 'Tigo'},
+ '573020':{'en': 'Tigo'},
  '573022':{'en': 'Tigo'},
  '573023':{'en': 'Tigo'},
  '573024':{'en': 'Tigo'},
@@ -9902,13 +9907,11 @@ data = {
  '573025':{'en': 'Partners Telecom Colombia'},
  '573026':{'en': 'Partners Telecom Colombia'},
  '573027':{'en': 'Partners Telecom Colombia'},
- '5730280':{'en': 'Partners Telecom Colombia'},
- '5730281':{'en': 'Partners Telecom Colombia'},
- '5730282':{'en': 'Partners Telecom Colombia'},
- '5730283':{'en': 'Partners Telecom Colombia'},
- '5730284':{'en': 'Partners Telecom Colombia'},
- '5730285':{'en': 'Partners Telecom Colombia'},
- '5730286':{'en': 'Partners Telecom Colombia'},
+ '573028':{'en': 'Partners Telecom Colombia'},
+ '5730287':{'en': 'Tigo'},
+ '5730288':{'en': 'Tigo'},
+ '5730289':{'en': 'Tigo'},
+ '573029':{'en': 'Tigo'},
  '57303':{'en': 'Uff!'},
  '5730410':{'en': 'Tigo'},
  '5730411':{'en': 'Tigo'},
@@ -10016,7 +10019,4 @@ data = {
  '5730592':{'en': 'Tigo'},
  '5730593':{'en': 'Tigo'},
  '5730594':{'en': 'Tigo'},
- '5730595':{'en': 'Tigo'},
- '573102':{'en': 'Claro'},
- '573103':{'en': 'Claro'},
 }

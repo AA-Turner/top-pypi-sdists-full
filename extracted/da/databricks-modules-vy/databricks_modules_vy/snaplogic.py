@@ -5,7 +5,7 @@ import requests
 import sys
 
 
-def _start_snaplogic_task(url, bearer_token, params={}):
+def _start_snaplogic_task(url, bearer_token, params={}, timeout=60):
     """
     The function starts a SnapLogic task using the API described here:
     https://docs-snaplogic.atlassian.net/wiki/spaces/SD/pages/993296417/Running+a+Triggered+Task
@@ -24,13 +24,14 @@ def _start_snaplogic_task(url, bearer_token, params={}):
         url (string):           The url of the task to be started
         bearer_token (string):  The bearer_token of the Snaplogic task
         params (dict):          The pipeline parameters to send to the SnapLogic task
+        timeout (int):          Timeout in seconds for the HTTP request (default: 60)
 
     Returns:
         ruuid (string):         The id of the task run
     """
     lp("Starting SnapLogic task...")
     response = requests.get(
-        url, headers={"Authorization": f"Bearer {bearer_token}"}, timeout=60, params=params
+        url, headers={"Authorization": f"Bearer {bearer_token}"}, timeout=timeout, params=params
     )
     lp(response.json())  # Log the response object for debugging purposes
 
@@ -141,7 +142,7 @@ def _wait_for_snaplogic_task_to_finish(org_name, snaplogic_basic_token, ruuid):
         raise Exception("The snaplogic pipeline suspended")
 
 
-def execute_snaplogic_task(url, bearer_token, org_name, snaplogic_basic_token, params={}):
+def execute_snaplogic_task(url, bearer_token, org_name, snaplogic_basic_token, params={}, timeout=60):
     """
     The function starts a SnapLogic task, and then waits for the task to finish.
     In order to start a snaplogic pipeline using a triggered task with a GET request
@@ -161,7 +162,7 @@ def execute_snaplogic_task(url, bearer_token, org_name, snaplogic_basic_token, p
         org_name (string):              The name of the SnapLogic environment
         params (dict):                  The pipeline parameters to send to the SnapLogic task
     """
-    ruuid = _start_snaplogic_task(url, bearer_token, params)
+    ruuid = _start_snaplogic_task(url, bearer_token, params, timeout=timeout)
     _wait_for_snaplogic_task_to_finish(org_name, snaplogic_basic_token, ruuid)
 
 

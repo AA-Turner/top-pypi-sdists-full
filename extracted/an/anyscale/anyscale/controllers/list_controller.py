@@ -116,7 +116,7 @@ class ListController(BaseController):
                         else:
                             # If we have MORE than a minute left till auto-suspend
                             idle_time_remaining_message = " ({} min left)".format(
-                                int(round(idle_time_remaining_seconds / 60))
+                                round(idle_time_remaining_seconds / 60)
                             )
                     else:
                         # Even if the idle_timeout_minutes >= 0, the

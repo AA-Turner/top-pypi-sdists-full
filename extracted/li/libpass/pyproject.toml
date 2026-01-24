@@ -1,6 +1,6 @@
 [project]
 name = "libpass"
-version = "1.9.1.post0"
+version = "1.9.3"
 description = "Fork of passlib, a comprehensive password hashing framework supporting over 30 schemes"
 authors = [
     { name = "Eli Collins", email = "elic@assurancetechnologies.com" },
@@ -183,6 +183,7 @@ ignore = [
     "FLY",
     "UP031",
     "PLW2901",
+    "PLC0415", # `import` should be at the top-level of a file
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -194,7 +195,7 @@ ignore = [
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.9.1.post0"
+version = "1.9.3"
 tag_format = "$version"
 update_changelog_on_bump = true
 version_files = [

@@ -1,5 +1,5 @@
 [build-system]
-# NOTE: Keep this in sync with `requirements/dist-build-constraints.in`
+# NOTE: Keep this in sync with `dependencies/dist-build-constraints.in`
 # NOTE: at all times.
 requires = [
   # Essentials
@@ -87,5 +87,11 @@ docs = [
 
 [project.scripts]
 cheroot = "cheroot.cli:main"
+
+[tool.setuptools.packages.find]
+include = [
+  "cheroot",
+  "cheroot.*",
+]
 
 [tool.setuptools_scm]

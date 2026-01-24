@@ -72,6 +72,12 @@ class OptimizationConstraintUnit(Enum):
     PERCENT = 'Percent'
 
 
+class HedgeTarget(Enum):
+    HEDGED_TARGET = "hedgeTarget"
+    HEDGE = "hedge"
+    TARGET = "target"
+
+
 class OptimizerObjective(Enum):
     MINIMIZE_FACTOR_RISK = 'Minimize Factor Risk'
 
@@ -120,9 +126,9 @@ class OptimizerObjectiveTerm:
 class OptimizerObjectiveParameters:
 
     def __init__(
-        self,
-        objective: OptimizerObjective = OptimizerObjective.MINIMIZE_FACTOR_RISK,
-        terms: List[OptimizerObjectiveTerm] = [OptimizerObjectiveTerm.DEFAULT_RISK_PARAMS]
+            self,
+            objective: OptimizerObjective = OptimizerObjective.MINIMIZE_FACTOR_RISK,
+            terms: List[OptimizerObjectiveTerm] = [OptimizerObjectiveTerm.DEFAULT_RISK_PARAMS]
     ):
         self.__objective = objective
         self.__terms = terms
@@ -1192,6 +1198,8 @@ class OptimizerSettings:
     def __init__(self,
                  notional: float = 10000000,
                  allow_long_short: bool = False,
+                 gross_notional: float = None,
+                 net_notional: float = None,
                  min_names: float = 0,
                  max_names: float = 100,
                  min_weight_per_constituent: float = None,
@@ -1199,25 +1207,109 @@ class OptimizerSettings:
                  max_adv: float = 15,
                  constraint_priorities: ConstraintPriorities = None):
         """
-        Optimizer settings
+        Optimizer settings for factor hedging.
 
-        :param notional: the max gross notional of the optimization
-        :param allow_long_short: allow a long/short optimization
-        :param min_names: minimum number of assets in the optimization
-        :param max_names: maximum number of assets in the optimization
-        :param min_weight_per_constituent: minimum weight of each constituent in the optimization
-        :param max_weight_per_constituent: maximum weight of each constituent in the optimization
-        :param max_adv: maximum average daily volume of each constituent in the optimization (in percent)
-        :param constraint_priorities: constraint priorities
+        **Unidirectional Hedger** (default):
+        - Returns only short positions to hedge the target portfolio
+        - Use when you want to add short-only positions to reduce factor risk
+        - Set `allow_long_short=False` (default)
+        - Only `notional` parameter is used (gross = net for short-only positions)
+
+        **Bidirectional Hedger**:
+        - Returns both long and short positions to hedge the target portfolio
+        - Provides more flexibility in hedging factor exposures
+        - Set `allow_long_short=True`
+        - Specify `gross_notional` to control total hedge size
+        - Must specify `net_notional` for target net exposure (use 0 for market neutral)
+
+        :param notional: For unidirectional hedger: the notional of the hedge (all short positions).
+                        For bidirectional hedger: will be overridden by gross_notional if
+                        allow_long_short=True.
+        :param allow_long_short: Enable bidirectional hedge mode. When True, the hedge can contain both
+                                long and short positions. When False (default), hedge contains only
+                                short positions.
+        :param gross_notional: Total absolute notional (|long| + |short|) for the hedge.
+                              Only applicable when allow_long_short=True. If not specified when
+                              allow_long_short=True, defaults to the value of `notional`.
+                              Example: gross_notional=20M with net_notional=10M means 15M long + 5M
+                              short
+        :param net_notional: Net notional (long - short) for the hedge. Required when
+                            allow_long_short=True. Use 0 for market neutral hedge.
+        :param min_names: Minimum number of assets in the hedge.
+        :param max_names: Maximum number of assets in the hedge.
+        :param min_weight_per_constituent: Minimum absolute weight of each constituent in the hedge
+                                          (as decimal, positive value). The optimizer uses this as
+                                          an absolute value constraint. Example: 0.01 means each
+                                          position must be at least 1% (in absolute value)
+        :param max_weight_per_constituent: Maximum absolute weight of each constituent in the hedge
+                                          (as decimal, positive value). The optimizer uses this as
+                                          an absolute value constraint. Example: 0.05 means each
+                                          position cannot exceed 5% (in absolute value)
+        :param max_adv: Maximum percentage of average daily volume that can be traded for any constituent.
+        :param constraint_priorities: Priority settings for classification constraints (sectors, countries, etc.)
         """
         self.__notional = notional
         self.__allow_long_short = allow_long_short
+        self.__gross_notional = gross_notional
+        self.__net_notional = net_notional
         self.__min_names = min_names
         self.__max_names = max_names
         self.__min_weight_per_constituent = min_weight_per_constituent
         self.__max_weight_per_constituent = max_weight_per_constituent
         self.__max_adv = max_adv
         self.__constraint_priorities = constraint_priorities
+
+        # Validate settings
+        self._validate_settings()
+
+    def _validate_settings(self):
+        """Validate optimizer settings for consistency and proper usage"""
+
+        # Validate weight constraints are positive
+        if self.__min_weight_per_constituent is not None and self.__min_weight_per_constituent < 0:
+            self.__min_weight_per_constituent = 0
+            raise Warning(
+                "min_weight_per_constituent cannot be negative. Setting to 0."
+            )
+
+        if self.__max_weight_per_constituent is not None and self.__max_weight_per_constituent < 0:
+            raise MqValueError(
+                "max_weight_per_constituent must be a positive value (absolute weight constraint). "
+                f"Current value: {self.__max_weight_per_constituent}. "
+                "The optimizer interprets weight constraints as absolute values."
+            )
+
+        if (self.__min_weight_per_constituent is not None and
+                self.__max_weight_per_constituent is not None and
+                self.__min_weight_per_constituent > self.__max_weight_per_constituent):
+            raise MqValueError(
+                f"min_weight_per_constituent ({self.__min_weight_per_constituent}) cannot be greater than "
+                f"max_weight_per_constituent ({self.__max_weight_per_constituent})"
+            )
+
+        # Validation for bidirectional mode
+        if self.__allow_long_short:
+            # When both gross_notional and net_notional are set, validate the relationship
+            if self.__gross_notional is not None and self.__net_notional is not None:
+                if abs(self.__net_notional) > self.__gross_notional:
+                    raise MqValueError(
+                        "Invalid notional configuration: |net_notional| ({abs(self.__net_notional)}) "
+                        f"cannot be greater than gross_notional ({self.__gross_notional}). "
+                        "Formula: gross_notional = |long| + |short|, net_notional = long - short"
+                    )
+            # Allow bidirectional mode with only notional set (hedge notional use case)
+            # No additional validation needed for this case
+
+        else:
+            # Unidirectional hedger mode validation
+            # Prevent setting long/short parameters in unidirectional mode
+            if (self.__gross_notional is not None and self.__net_notional is not None and
+                    self.__gross_notional != self.__net_notional):
+                raise MqValueError(
+                    "Cannot set gross_notional != net_notional when allow_long_short=False. "
+                    "Use 'notional' parameter for unidirectional hedger mode, or set allow_long_short=True "
+                    "to enable bidirectional hedging with gross_notional and net_notional."
+                )
 
     @property
     def notional(self) -> float:
@@ -1226,6 +1318,7 @@ class OptimizerSettings:
     @notional.setter
     def notional(self, value: float):
         self.__notional = value
+        self._validate_settings()
 
     @property
     def allow_long_short(self) -> bool:
@@ -1234,6 +1327,34 @@ class OptimizerSettings:
     @allow_long_short.setter
     def allow_long_short(self, value: bool):
         self.__allow_long_short = value
+        self._validate_settings()
+
+    @property
+    def gross_notional(self) -> float:
+        """
+        Total absolute notional for the hedge (|long| + |short|).
+        Only applicable when allow_long_short=True.
+        """
+        return self.__gross_notional
+
+    @gross_notional.setter
+    def gross_notional(self, value: float):
+        self.__gross_notional = value
+        self._validate_settings()
+
+    @property
+    def net_notional(self) -> float:
+        """
+        Net notional for the hedge (long - short).
+        Only applicable when allow_long_short=True.
+        Set to 0 for market neutral hedge.
+        """
+        return self.__net_notional
+
+    @net_notional.setter
+    def net_notional(self, value: float):
+        self.__net_notional = value
+        self._validate_settings()
 
     @property
     def min_names(self) -> float:
@@ -1250,6 +1371,7 @@ class OptimizerSettings:
     @min_weight_per_constituent.setter
     def min_weight_per_constituent(self, value: float):
         self.__min_weight_per_constituent = value
+        self._validate_settings()
 
     @property
     def max_weight_per_constituent(self) -> float:
@@ -1258,6 +1380,7 @@ class OptimizerSettings:
     @max_weight_per_constituent.setter
     def max_weight_per_constituent(self, value: float):
         self.__max_weight_per_constituent = value
+        self._validate_settings()
 
     @property
     def max_names(self) -> float:
@@ -1284,19 +1407,47 @@ class OptimizerSettings:
         self.__constraint_priorities = value
 
     def to_dict(self):
+        """
+        Convert optimizer settings to dictionary format for API payload.
+        Handles both unidirectional and bidirectional hedger configurations.
+        """
+        # Start with common parameters
         as_dict = {
-            'hedgeNotional': self.notional,
-            'allowLongShort': self.allow_long_short,
             'minNames': self.min_names,
             'maxNames': self.max_names,
             'maxAdvPercentage': self.max_adv
         }
-        if self.min_weight_per_constituent:
+
+        # Configure notional parameters based on hedger mode
+        if self.__allow_long_short:
+            # Bidirectional Hedger mode
+            as_dict['allowLongShort'] = self.__allow_long_short
+
+            # Use grossNotional and netNotional if both are set
+            if self.__gross_notional is not None and self.__net_notional is not None:
+                as_dict['grossNotional'] = self.__gross_notional
+                as_dict['netNotional'] = self.__net_notional
+            # Otherwise, use hedgeNotional if only notional is set
+            elif self.__notional is not None:
+                as_dict['hedgeNotional'] = self.__notional
+
+        else:
+            # Unidirectional Hedger mode (default)
+            # In unidirectional mode, use hedgeNotional (all short positions)
+            as_dict['hedgeNotional'] = self.__notional
+            # Explicitly set allowLongShort to False for clarity
+            as_dict['allowLongShort'] = False
+
+        # Add weight constraints if specified
+        if self.min_weight_per_constituent is not None:
             as_dict['minWeight'] = self.min_weight_per_constituent * 100
-        if self.max_weight_per_constituent:
+        if self.max_weight_per_constituent is not None:
             as_dict['maxWeight'] = self.max_weight_per_constituent * 100
+
+        # Add constraint priorities if specified
         if self.constraint_priorities:
             as_dict['constraintPrioritySettings'] = self.constraint_priorities.to_dict()
+
         return as_dict
 
 
@@ -1364,6 +1515,13 @@ def _ensure_completed(func):
 
 
 class OptimizerStrategy:
+    VERBOSE_ERROR_MSG: Final = {
+        'Missing asset xref': lambda e: f"We noticed some underlying asset meta data error: {e}",
+        'ERROR: Could not find solution.': lambda e:
+            f"Potential infeasible inputs. {e}. "
+            f"Please relax your constraint or "
+            f"contact Marquee team for assistance.",
+    }
 
     def __init__(self,
                  initial_position_set: PositionSet,
@@ -1383,7 +1541,7 @@ class OptimizerStrategy:
         :param constraints: constraints for the optimization
         :param turnover: turnover constraints for the optimization
         :param settings: settings for the optimization
-        :param objective: objective for the optimization
+        :param objective: objective for the optimization:
         """
         self.__initial_position_set = initial_position_set
         self.__universe = universe
@@ -1466,7 +1624,7 @@ class OptimizerStrategy:
         if self.settings is None:
             self.settings = OptimizerSettings()
 
-        backtest_start_date = self.initial_position_set.date - relativedelta(weeks=1)
+        backtest_start_date = self.initial_position_set.date - relativedelta(years=1)
         positions_frame = self.initial_position_set.to_frame()
         if self.initial_position_set.reference_notional:
             positions_as_dict = positions_frame[['asset_id', 'weight']]
@@ -1546,6 +1704,12 @@ class OptimizerStrategy:
             'parameters': parameters
         }
 
+    def handle_error(self, error_message: str) -> List:
+        for key, val in self.VERBOSE_ERROR_MSG.items():
+            if error_message.startswith(key):
+                return [val(error_message), True]  # predefined
+        return [error_message, False]
+
     def run(self,
             optimizer_type: OptimizerType = OptimizerType.AXIOMA_PORTFOLIO_OPTIMIZER,
             fail_on_unpriced_positions: bool = True):
@@ -1562,15 +1726,23 @@ class OptimizerStrategy:
         if optimizer_type == OptimizerType.AXIOMA_PORTFOLIO_OPTIMIZER:
             strategy_as_dict = self.to_dict(fail_on_unpriced_positions)
             counter = 5
+            predefined_error = False
             while counter > 0:
                 try:
                     optimization_results = GsHedgeApi.calculate_hedge(strategy_as_dict)
                     if optimization_results.get('result') is None:
                         if 'errorMessage' in optimization_results:
-                            raise MqValueError(f"The optimizer returned an error: "
-                                               f"{optimization_results.get('errorMessage')}. "
-                                               f"Please adjust the constraints"
-                                               f"or contact the Marquee team for assistance")
+                            error_message = optimization_results['errorMessage']
+                            verbose_message, predefined_error = self.handle_error(error_message)
+                            if predefined_error:
+                                counter = 0
+                                raise MqValueError(f"The optimizer returns an error: "
+                                                   f"{verbose_message}. ")
+                            else:
+                                raise MqValueError(f"The optimizer returned an error: "
+                                                   f"{optimization_results.get('errorMessage')}. "
+                                                   f"Please adjust the constraints"
+                                                   f" or contact the Marquee team for assistance")
                         elif counter == 1:
                             raise MqValueError(
                                 'Error calculating an optimization. Please contact the Marquee team for assistance.')
@@ -1578,7 +1750,9 @@ class OptimizerStrategy:
                     else:
                         self.__result = optimization_results['result']
                         counter = 0
-                except Exception:
+                except Exception as e:
+                    if predefined_error:
+                        raise e
                     if counter == 1:
                         raise MqValueError(
                             'Error calculating an optimization. Please contact the Marquee team for assistance.')
@@ -1611,3 +1785,298 @@ class OptimizerStrategy:
         :param by_weight: whether to return position set with weights instead of quantities
         """
         return self.__construct_position_set_from_hedge_result('hedgedTarget', by_weight)
+
+    @_ensure_completed
+    def get_hedge_exposure_summary(self) -> Dict:
+        """
+        Get a summary of the hedge exposures including gross, net, long, and short exposures.
+
+        This is particularly useful for bidirectional hedges to understand the composition.
+
+        :return: Dictionary containing exposure metrics for target, hedge, and hedged target
+
+        **Example Output for bidirectional Hedger:**
+        {
+            'hedge': {
+                'gross_exposure': 20000000,
+                'net_exposure': 10000000,
+                'long_exposure': 15000000,
+                'short_exposure': 5000000,
+                'number_of_positions': 25,
+                'mode': 'bidirectional'
+            },
+            'target': {
+                'gross_exposure': 10000000,
+                'net_exposure': 10000000,
+                'long_exposure': 10000000,
+                'short_exposure': 0,
+                'number_of_positions': 1
+            },
+            'hedged_target': {
+                'gross_exposure': 30000000,
+                'net_exposure': 20000000,
+                'long_exposure': 25000000,
+                'short_exposure': 5000000,
+                'number_of_positions': 26
+            }
+        }
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+
+        def get_exposure_dict(result_key: str) -> Dict:
+            """Extract exposure metrics from result"""
+            if result_key not in self.__result:
+                return None
+
+            result = self.__result[result_key]
+            exposure_dict = {
+                'gross_exposure': result.get('grossExposure'),
+                'net_exposure': result.get('netExposure'),
+                'long_exposure': result.get('longExposure', 0),
+                'short_exposure': result.get('shortExposure', 0),
+                'number_of_positions': result.get('numberOfPositions')
+            }
+
+            # Add mode information for hedge
+            if result_key == 'hedge':
+                if result.get('longExposure', 0) > 0:
+                    exposure_dict['mode'] = 'bidirectional'
+                else:
+                    exposure_dict['mode'] = 'unidirectional (short positions only)'
+
+            return exposure_dict
+
+        summary = {
+            'hedge': get_exposure_dict('hedge'),
+            'target': get_exposure_dict('target'),
+            'hedged_target': get_exposure_dict('hedgedTarget')
+        }
+
+        return summary
+
+    @_ensure_completed
+    def get_hedge_constituents_by_direction(self) -> Dict:
+        """
+        For bidirectional hedges, split the hedge constituents into long and short positions.
+
+        This is useful to analyze the long and short sides of the hedge separately.
+
+        :return: Dictionary with 'long_positions' and 'short_positions' DataFrames
+
+        **Example:**
+        {
+            'long_positions': DataFrame with positive notional positions,
+            'short_positions': DataFrame with negative notional positions,
+            'summary': {
+                'num_long': 12,
+                'num_short': 13,
+                'total_long_notional': 15000000,
+                'total_short_notional': -5000000
+            }
+        }
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get('hedge') is None:
+            raise MqValueError('The optimization result does not contain hedge data')
+
+        constituents = self.__result.get('hedge').get('constituents', [])
+
+        if not constituents:
+            return {
+                'long_positions': pd.DataFrame(),
+                'short_positions': pd.DataFrame(),
+                'summary': {
+                    'num_long': 0,
+                    'num_short': 0,
+                    'total_long_notional': 0,
+                    'total_short_notional': 0
+                }
+            }
+
+        # Convert to DataFrame
+        df = pd.DataFrame(constituents)
+
+        # Split by notional sign
+        long_positions = df[df['notional'] > 0].copy() if 'notional' in df.columns else pd.DataFrame()
+        short_positions = df[df['notional'] < 0].copy() if 'notional' in df.columns else pd.DataFrame()
+
+        # Calculate summary statistics
+        summary = {
+            'num_long': len(long_positions),
+            'num_short': len(short_positions),
+            'total_long_notional': long_positions['notional'].sum() if len(long_positions) > 0 else 0,
+            'total_short_notional': short_positions['notional'].sum() if len(short_positions) > 0 else 0
+        }
+
+        return {
+            'long_positions': long_positions,
+            'short_positions': short_positions,
+            'summary': summary
+        }
+
+    def get_cumulative_pnl_performance(self, target: HedgeTarget = HedgeTarget.HEDGED_TARGET) -> Dict:
+        """
+        Get the cumulative PnL performance results of the optimization
+
+        :param target: the target to get performance for (hedgedTarget, hedge, or target)
+        :return: a pandas dataframe with performance results with columns ['date', 'cumulativePnl']
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get(target.value) is None:
+            raise MqValueError(f'The optimization result does not contain {target.value} data')
+        cumulative_pnl = self.__result.get(target.value).get('cumulativePnl')
+        df = pd.DataFrame(cumulative_pnl, columns=['date', 'cumulativePnl'])
+        df['date'] = pd.to_datetime(df['date'])
+        return df
+
+    def get_style_factor_exposures(self, target: HedgeTarget = HedgeTarget.HEDGED_TARGET) -> Dict:
+        """
+        Get the style factor exposures from the hedge result
+
+        :param target: the target to get factor exposures for (hedgedTarget, hedge, or target)
+        :return: a dictionary with style factor exposures
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get(target.value) is None:
+            raise MqValueError(f'The optimization result does not contain {target.value} data')
+        if self.__result.get(target.value).get('factorExposures') is None:
+            raise MqValueError(f'The optimization result does not contain factor exposures for {target.value}')
+        factor_exposures = self.__result.get(target.value).get('factorExposures').get('style', [])
+        return factor_exposures
+
+    def get_risk_buckets(self, target: HedgeTarget = HedgeTarget.HEDGED_TARGET) -> Dict:
+        """
+        Get the risk buckets from the hedge result
+
+        :param target: the target to get risk buckets for (hedgedTarget, hedge, or target)
+        :return: a dictionary with risk buckets
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get(target.value) is None:
+            raise MqValueError(f'The optimization result does not contain {target.value} data')
+        if self.__result.get(target.value).get('riskBuckets') is None:
+            raise MqValueError(f'The optimization result does not contain risk buckets for {target.value}')
+        risk_buckets = self.__result.get(target.value).get('riskBuckets')
+        return {"risk_buckets": risk_buckets}
+
+    def get_transaction_and_liquidity_constituents_performance(
+            self,
+            target: HedgeTarget = HedgeTarget.HEDGED_TARGET) -> Dict:
+        """
+        Get the constituents performance results of the optimization
+
+        :param target: the target to get performance for (hedgedTarget, hedge, or target)
+        :return: a pandas dataframe with performance results
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get(target.value) is None:
+            raise MqValueError(f'The optimization result does not contain {target.value} data')
+        constituents = self.__result.get(target.value).get('constituents')
+        filtered_constituents = []
+        keys_to_keep = {"name", "assetId", "bbid", "notional", "shares",
+                        "price", "weight", "currency", "transactionCost",
+                        "marginalCost", "advPercentage", "borrowCost"}
+        for constituent in constituents:
+            filtered_constituent = {key: value for key, value in constituent.items() if key in keys_to_keep}
+            filtered_constituents.append(filtered_constituent)
+        return pd.DataFrame(filtered_constituents)
+
+    def get_performance_summary(self) -> Dict:
+        """
+        Get the performance summary results of the optimization.
+
+        Returns a dictionary containing multiple DataFrames for easy display:
+        - 'risk': Risk metrics comparison
+        - 'performance': Performance metrics comparison
+        - 'transaction_cost': Transaction cost metrics comparison
+        - 'comparison': Comparison with initial portfolio
+        - 'combined': All metrics in a single table
+        """
+        if self.__result is None:
+            raise MqValueError('Please run the optimization before calling this method')
+        if self.__result.get(HedgeTarget.HEDGED_TARGET.value) is None:
+            raise MqValueError('The optimization result does not contain hedgedTarget data')
+        if self.__result.get(HedgeTarget.TARGET.value) is None:
+            raise MqValueError('The optimization result does not contain target data')
+
+        target = self.__result.get(HedgeTarget.TARGET.value)
+        hedged_target = self.__result.get(HedgeTarget.HEDGED_TARGET.value)
+
+        # Build individual DataFrames for each category
+
+        # Risk Metrics Table
+        risk_df = pd.DataFrame({
+            'Metric': ['Annualized Volatility', 'Specific Risk', 'Factor Risk', 'Factor Risk Delta'],
+            'Initial Portfolio': [
+                target.get("volatility"),
+                target.get("specificExposure"),
+                target.get("systematicExposure"),
+                None
+            ],
+            'Hedged Portfolio': [
+                hedged_target.get("volatility"),
+                hedged_target.get("specificExposure"),
+                hedged_target.get("systematicExposure"),
+                (hedged_target.get("systematicExposure") - target.get("systematicExposure")
+                 if hedged_target.get("systematicExposure") is not None and
+                 target.get("systematicExposure") is not None else None)
+            ]
+        })
+
+        # Performance Metrics Table
+        performance_df = pd.DataFrame({
+            'Metric': ['PnL', 'PnL Delta'],
+            'Initial Portfolio': [
+                target.get("totalPnl"),
+                None
+            ],
+            'Hedged Portfolio': [
+                hedged_target.get("totalPnl"),
+                (hedged_target.get("totalPnl") - target.get("totalPnl")
+                 if hedged_target.get("totalPnl") is not None and target.get("totalPnl") is not None
+                 else None)
+            ]
+        })
+
+        # Transaction Cost Table
+        transaction_cost_df = pd.DataFrame({
+            'Metric': ['Market Impact', 'Borrow Cost (bps)'],
+            'Initial Portfolio': [
+                target.get("transactionCost"),
+                None
+            ],
+            'Hedged Portfolio': [
+                hedged_target.get("transactionCost"),
+                hedged_target.get("borrowCostBps")
+            ]
+        })
+
+        # Comparison Table
+        comparison_df = pd.DataFrame({
+            'Metric': ['Overlap with Core'],
+            'Initial Portfolio': [None],
+            'Hedged Portfolio': [hedged_target.get("exposureOverlapWithTarget")]
+        })
+
+        # Combined Table
+        combined_df = pd.concat([
+            risk_df.assign(Category='Risk'),
+            performance_df.assign(Category='Performance'),
+            transaction_cost_df.assign(Category='Transaction Cost'),
+            comparison_df.assign(Category='Comparison')
+        ], ignore_index=True)
+        combined_df = combined_df[['Category', 'Metric', 'Initial Portfolio', 'Hedged Portfolio']]
+
+        return {
+            'risk': risk_df,
+            'performance': performance_df,
+            'transaction_cost': transaction_cost_df,
+            'comparison': comparison_df,
+            'combined': combined_df
+        }

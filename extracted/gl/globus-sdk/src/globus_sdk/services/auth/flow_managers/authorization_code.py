@@ -4,10 +4,10 @@ import logging
 import typing as t
 import urllib.parse
 
-from globus_sdk import utils
-from globus_sdk._types import ScopeCollectionType
+from globus_sdk._internal.utils import slash_join
+from globus_sdk._missing import filter_missing
+from globus_sdk.scopes import Scope, ScopeParser
 
-from .._common import stringify_requested_scopes
 from ..response import OAuthAuthorizationCodeResponse
 from .base import GlobusOAuthFlowManager
 
@@ -36,8 +36,7 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
         and also to make calls to the Auth service.
     :param redirect_uri: The page that users should be directed to after authenticating
         at the authorize URL.
-    :param requested_scopes: The scopes on the token(s) being requested. Defaults to
-        ``openid profile email urn:globus:auth:scope:transfer.api.globus.org:all``
+    :param requested_scopes: The scopes on the token(s) being requested.
     :param state: This string allows an application to pass information back to itself
         in the course of the OAuth flow. Because the user will navigate away from the
         application to complete the flow, this parameter lets the app pass an arbitrary
@@ -50,13 +49,13 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
         self,
         auth_client: globus_sdk.ConfidentialAppAuthClient,
         redirect_uri: str,
-        requested_scopes: ScopeCollectionType | None = None,
+        requested_scopes: str | Scope | t.Iterable[str | Scope],
         state: str = "_default",
         refresh_tokens: bool = False,
     ) -> None:
         # convert a scope object or iterable to string immediately on load
         # and default to the default requested scopes
-        self.requested_scopes: str = stringify_requested_scopes(requested_scopes)
+        self.requested_scopes: str = ScopeParser.serialize(requested_scopes)
 
         # store the remaining parameters directly, with no transformation
         self.client_id = auth_client.client_id
@@ -87,7 +86,7 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
         either to your provided ``redirect_uri`` or to the default location,
         with the ``auth_code`` embedded in a query parameter.
         """
-        authorize_base_url = utils.slash_join(
+        authorize_base_url = slash_join(
             self.auth_client.base_url, "/v2/oauth2/authorize"
         )
         log.debug(f"Building authorization URI. Base URL: {authorize_base_url}")
@@ -100,10 +99,9 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
             "state": self.state,
             "response_type": "code",
             "access_type": (self.refresh_tokens and "offline") or "online",
+            **(query_params or {}),
         }
-        if query_params:
-            params.update(query_params)
-
+        params = filter_missing(params)
         encoded_params = urllib.parse.urlencode(params)
         return f"{authorize_base_url}?{encoded_params}"
 

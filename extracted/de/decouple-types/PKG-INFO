@@ -1,0 +1,36 @@
+Metadata-Version: 2.1
+Name: decouple-types
+Version: 1.0.2
+Summary: 
+Home-page: https://github.com/Danthewaann/decouple-types
+License: MIT
+Keywords: decouple,types,stubs
+Author: Danthewaann
+Author-email: danielcrblack@gmail.com
+Requires-Python: >=3.9,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Project-URL: Repository, https://github.com/Danthewaann/decouple-types
+Description-Content-Type: text/markdown
+
+# decouple-types
+
+Python 3 typing stubs for the [python-decouple](https://github.com/HBNetwork/python-decouple) package.
+
+Generated using [stubgen](https://mypy.readthedocs.io/en/stable/stubgen.html).
+
+Install with the following:
+
+```bash
+pip install decouple-types
+```
+
+

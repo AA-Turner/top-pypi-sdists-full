@@ -4,7 +4,7 @@ import traceback
 from abc import abstractmethod
 from collections.abc import Mapping
 from textwrap import indent
-from typing import Any, Optional
+from typing import Any
 
 from tavern._core import exceptions
 from tavern._core.dict_util import check_keys_match_recursive, recurse_access_key
@@ -26,7 +26,7 @@ class BaseResponse:
     name: str
     expected: Any
     test_block_config: TestConfig
-    response: Optional[Any] = None
+    response: Any | None = None
 
     validate_functions: list[Any] = dataclasses.field(init=False, default_factory=list)
     errors: list[str] = dataclasses.field(init=False, default_factory=list)
@@ -55,7 +55,7 @@ class BaseResponse:
 
     def recurse_check_key_match(
         self,
-        expected_block: Optional[Mapping],
+        expected_block: Mapping | None,
         block: Mapping,
         blockname: str,
         strict: StrictOption,
@@ -132,6 +132,9 @@ class BaseResponse:
         if mqtt_responses := response_block.get("mqtt_responses"):
             for mqtt_response in mqtt_responses:
                 check_ext_functions(mqtt_response.get("verify_response_with", None))
+        elif graphql_responses := response_block.get("graphql_responses"):
+            for graphql_response in graphql_responses:
+                check_ext_functions(graphql_response.get("verify_response_with", None))
         else:
             check_ext_functions(response_block.get("verify_response_with", None))
 
@@ -221,9 +224,9 @@ class BaseResponse:
     def maybe_get_save_values_from_save_block(
         self,
         key: str,
-        save_from: Optional[Mapping],
+        save_from: Mapping | None,
         *,
-        outer_save_block: Optional[Mapping] = None,
+        outer_save_block: Mapping | None = None,
     ) -> Mapping:
         """Save a value from a specific block in the response.
 
@@ -251,7 +254,7 @@ class BaseResponse:
     def maybe_get_save_values_from_given_block(
         self,
         key: str,
-        save_from: Optional[Mapping],
+        save_from: Mapping | None,
         to_save: Mapping,
     ) -> Mapping:
         """Save a value from a specific block in the response.

@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -35,21 +35,21 @@ class Role(BaseModel):
     comment : str, optional
         Comment of the role.
     created_on : datetime, optional
-        Date and time when the role was created.
+        Date and time when the role was created — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Specifies the role that owns this role.
+        Specifies the role that owns this role — **Read-only:** *any user-provided value will be ignored.*
     is_default : bool, optional
-        Specifies whether the role being fetched is the user's default role.
+        Specifies whether the role being fetched is the user's default role — **Read-only:** *any user-provided value will be ignored.*
     is_current : bool, optional
-        Specifies whether the role being fetched is the user's current role.
+        Specifies whether the role being fetched is the user's current role — **Read-only:** *any user-provided value will be ignored.*
     is_inherited : bool, optional
-        Specifies whether the role used to run the command inherits the specified role.
+        Specifies whether the role used to run the command inherits the specified role — **Read-only:** *any user-provided value will be ignored.*
     assigned_to_users : int, optional
-        The number of users to whom this role has been assigned.
+        The number of users to whom this role has been assigned — **Read-only:** *any user-provided value will be ignored.*
     granted_to_roles : int, optional
-        The number of roles to which this role has been granted.
+        The number of roles to which this role has been granted — **Read-only:** *any user-provided value will be ignored.*
     granted_roles : int, optional
-        The number of roles that have been granted to this role.
+        The number of roles that have been granted to this role — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -99,9 +99,10 @@ class Role(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -137,7 +138,7 @@ class Role(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -152,9 +153,9 @@ class Role(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Role.parse_obj(obj)
+            return Role.model_validate(obj)
 
-        _obj = Role.parse_obj(
+        _obj = Role.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

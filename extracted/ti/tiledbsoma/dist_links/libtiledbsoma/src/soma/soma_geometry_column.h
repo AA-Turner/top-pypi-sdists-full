@@ -27,6 +27,7 @@
 #include <vector>
 
 #include <tiledb/tiledb>
+#include "../tiledb_adapter/platform_config.h"
 #include "soma_column.h"
 #include "soma_coordinates.h"
 
@@ -55,15 +56,18 @@ class SOMAGeometryColumn : public SOMAColumn {
         const SOMACoordinateSpace& coordinate_space,
         const std::string& soma_type,
         std::string_view type_metadata,
-        PlatformConfig platform_config);
+        const PlatformConfig& platform_config);
 
-    SOMAGeometryColumn(
-        std::vector<Dimension> dimensions,
-        Attribute attribute,
-        SOMACoordinateSpace coordinate_space)
+    static std::shared_ptr<SOMAGeometryColumn> create(
+        std::shared_ptr<Context> ctx,
+        const SOMACoordinateSpace& coordinate_space,
+        const std::vector<DimensionConfigAdapter<double_t>>& dim_configs,
+        const PlatformConfig& platform_config);
+
+    SOMAGeometryColumn(std::vector<Dimension> dimensions, Attribute attribute, SOMACoordinateSpace coordinate_space)
         : dimensions(dimensions)
         , attribute(attribute)
-        , coordinate_space(coordinate_space){};
+        , coordinate_space(coordinate_space) {};
 
     inline std::string name() const override {
         return SOMA_GEOMETRY_COLUMN_NAME;
@@ -73,8 +77,7 @@ class SOMAGeometryColumn : public SOMAColumn {
         return true;
     }
 
-    inline void select_columns(
-        ManagedQuery& query, bool if_not_empty = false) const override {
+    inline void select_columns(ManagedQuery& query, bool if_not_empty = false) const override {
         query.select_columns(std::vector({attribute.name()}), if_not_empty);
     };
 
@@ -98,18 +101,18 @@ class SOMAGeometryColumn : public SOMAColumn {
         return std::vector({attribute});
     }
 
-    inline std::optional<std::vector<Enumeration>> tiledb_enumerations()
-        override {
+    inline std::optional<std::vector<Enumeration>> tiledb_enumerations() override {
         return std::nullopt;
     }
 
     std::pair<ArrowArray*, ArrowSchema*> arrow_domain_slot(
         const SOMAContext& ctx,
         Array& array,
-        enum Domainish kind) const override;
+        enum Domainish kind,
+        bool downcast_dict_of_large_var = false) const override;
 
     ArrowSchema* arrow_schema_slot(
-        const SOMAContext& ctx, Array& array) const override;
+        const SOMAContext& ctx, Array& array, bool downcast_dict_of_large_var = false) const override;
 
     void serialize(nlohmann::json&) const override;
 
@@ -118,29 +121,22 @@ class SOMAGeometryColumn : public SOMAColumn {
     }
 
    protected:
-    void _set_dim_points(
-        ManagedQuery& query, const std::any& points) const override;
+    void _set_dim_points(ManagedQuery& query, const std::any& points) const override;
 
-    void _set_dim_ranges(
-        ManagedQuery& query, const std::any& ranges) const override;
+    void _set_dim_ranges(ManagedQuery& query, const std::any& ranges) const override;
 
-    void _set_current_domain_slot(
-        NDRectangle& rectangle,
-        std::span<const std::any> new_current_domain) const override;
+    void _set_current_domain_slot(NDRectangle& rectangle, std::span<const std::any> new_current_domain) const override;
 
     std::pair<bool, std::string> _can_set_current_domain_slot(
-        std::optional<NDRectangle>& rectangle,
-        std::span<const std::any> new_current_domain) const override;
+        std::optional<NDRectangle>& rectangle, std::span<const std::any> new_current_domain) const override;
 
     std::any _core_domain_slot() const override;
 
     std::any _non_empty_domain_slot(Array& array) const override;
 
-    std::any _non_empty_domain_slot_opt(
-        const SOMAContext& ctx, Array& array) const override;
+    std::any _non_empty_domain_slot_opt(const SOMAContext& ctx, Array& array) const override;
 
-    std::any _core_current_domain_slot(
-        const SOMAContext& ctx, Array& array) const override;
+    std::any _core_current_domain_slot(const SOMAContext& ctx, Array& array) const override;
 
     std::any _core_current_domain_slot(NDRectangle& ndrect) const override;
 
@@ -160,13 +156,10 @@ class SOMAGeometryColumn : public SOMAColumn {
      * Compute the usable domain limits. If the array has a current domain then
      * it is used to compute the limits, otherwise the core domain is used.
      */
-    std::vector<std::pair<double_t, double_t>> _limits(
-        const Context& ctx, const ArraySchema& schema) const;
+    std::vector<std::pair<double_t, double_t>> _limits(const Context& ctx, const ArraySchema& schema) const;
 
     std::vector<std::pair<double_t, double_t>> _transform_ranges(
-        const std::vector<
-            std::pair<std::vector<double_t>, std::vector<double_t>>>& ranges)
-        const;
+        const std::vector<std::pair<std::vector<double_t>, std::vector<double_t>>>& ranges) const;
 
     std::vector<std::pair<double_t, double_t>> _transform_points(
         const std::span<const std::vector<double_t>>& points) const;

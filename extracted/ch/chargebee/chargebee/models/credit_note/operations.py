@@ -187,6 +187,7 @@ class CreditNote:
     class Discount(TypedDict):
         amount: Required[int]
         description: NotRequired[str]
+        line_item_id: NotRequired[str]
         entity_type: Required["CreditNote.DiscountEntityType"]
         discount_type: NotRequired["CreditNote.DiscountDiscountType"]
         entity_id: NotRequired[str]
@@ -233,7 +234,6 @@ class CreditNote:
         country: NotRequired[str]
         zip: NotRequired[str]
         validation_status: NotRequired[enums.ValidationStatus]
-        index: Required[int]
 
     class BillingAddress(TypedDict):
         first_name: NotRequired[str]
@@ -344,6 +344,7 @@ class CreditNote:
         unit_amount_in_decimal: NotRequired[str]
 
     class ImportCreditNoteDiscountParams(TypedDict):
+        line_item_id: NotRequired[str]
         entity_type: Required["CreditNote.DiscountEntityType"]
         entity_id: NotRequired[str]
         description: NotRequired[str]
@@ -385,6 +386,8 @@ class CreditNote:
 
     class RetrieveParams(TypedDict):
         line_item: NotRequired["CreditNote.RetrieveLineItemParams"]
+        line_items_limit: NotRequired[int]
+        line_items_offset: NotRequired[str]
 
     class PdfParams(TypedDict):
         disposition_type: NotRequired[enums.DispositionType]

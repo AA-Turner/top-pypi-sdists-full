@@ -16,8 +16,7 @@ import logging
 from ..utils import logger
 from ..base import BaseGraphStorage
 from ..types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
-from ..constants import GRAPH_FIELD_SEP
-from ..kg.shared_storage import get_data_init_lock, get_graph_db_lock
+from ..kg.shared_storage import get_data_init_lock
 import pipmaster as pm
 
 if not pm.is_installed("neo4j"):
@@ -45,12 +44,30 @@ config.read("config.ini", "utf-8")
 logging.getLogger("neo4j").setLevel(logging.ERROR)
 
 
+READ_RETRY_EXCEPTIONS = (
+    neo4jExceptions.ServiceUnavailable,
+    neo4jExceptions.TransientError,
+    neo4jExceptions.SessionExpired,
+    ConnectionResetError,
+    OSError,
+    AttributeError,
+)
+
+READ_RETRY = retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    retry=retry_if_exception_type(READ_RETRY_EXCEPTIONS),
+    reraise=True,
+)
+
+
 @final
 @dataclass
 class Neo4JStorage(BaseGraphStorage):
     def __init__(self, namespace, global_config, embedding_func, workspace=None):
         # Read env and override the arg if present
         neo4j_workspace = os.environ.get("NEO4J_WORKSPACE")
+        original_workspace = workspace  # Save original value for logging
         if neo4j_workspace and neo4j_workspace.strip():
             workspace = neo4j_workspace
 
@@ -64,11 +81,46 @@ class Neo4JStorage(BaseGraphStorage):
             global_config=global_config,
             embedding_func=embedding_func,
         )
+
+        # Log after super().__init__() to ensure self.workspace is initialized
+        if neo4j_workspace and neo4j_workspace.strip():
+            logger.info(
+                f"Using NEO4J_WORKSPACE environment variable: '{neo4j_workspace}' (overriding '{original_workspace}/{namespace}')"
+            )
+
         self._driver = None
 
     def _get_workspace_label(self) -> str:
         """Return workspace label (guaranteed non-empty during initialization)"""
         return self.workspace
+
+    def _normalize_index_suffix(self, workspace_label: str) -> str:
+        """Normalize workspace label for safe use in index names."""
+        normalized = re.sub(r"[^A-Za-z0-9_]+", "_", workspace_label).strip("_")
+        if not normalized:
+            normalized = "base"
+        if not re.match(r"[A-Za-z_]", normalized[0]):
+            normalized = f"ws_{normalized}"
+        return normalized
+
+    def _get_fulltext_index_name(self, workspace_label: str) -> str:
+        """Return a full-text index name derived from the normalized workspace label."""
+        suffix = self._normalize_index_suffix(workspace_label)
+        return f"entity_id_fulltext_idx_{suffix}"
+
+    def _is_chinese_text(self, text: str) -> bool:
+        """Check if text contains Chinese/CJK characters.
+
+        Covers:
+        - CJK Unified Ideographs (U+4E00-U+9FFF)
+        - CJK Extension A (U+3400-U+4DBF)
+        - CJK Compatibility Ideographs (U+F900-U+FAFF)
+        - CJK Extension B-F (U+20000-U+2FA1F) - supplementary planes
+        """
+        cjk_pattern = re.compile(
+            r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]|[\U00020000-\U0002fa1f]"
+        )
+        return bool(cjk_pattern.search(text))
 
     async def initialize(self):
         async with get_data_init_lock():
@@ -201,59 +253,178 @@ class Neo4JStorage(BaseGraphStorage):
                                 raise e
 
                 if connected:
-                    # Create index for workspace nodes on entity_id if it doesn't exist
                     workspace_label = self._get_workspace_label()
+                    # Create B-Tree index for entity_id for faster lookups
                     try:
                         async with self._driver.session(database=database) as session:
-                            # Check if index exists first
-                            check_query = f"""
-                            CALL db.indexes() YIELD name, labelsOrTypes, properties
-                            WHERE labelsOrTypes = ['{workspace_label}'] AND properties = ['entity_id']
-                            RETURN count(*) > 0 AS exists
-                            """
-                            try:
-                                check_result = await session.run(check_query)
-                                record = await check_result.single()
-                                await check_result.consume()
-
-                                index_exists = record and record.get("exists", False)
-
-                                if not index_exists:
-                                    # Create index only if it doesn't exist
-                                    result = await session.run(
-                                        f"CREATE INDEX FOR (n:`{workspace_label}`) ON (n.entity_id)"
-                                    )
-                                    await result.consume()
-                                    logger.info(
-                                        f"[{self.workspace}] Created index for {workspace_label} nodes on entity_id in {database}"
-                                    )
-                            except Exception:
-                                # Fallback if db.indexes() is not supported in this Neo4j version
-                                result = await session.run(
-                                    f"CREATE INDEX IF NOT EXISTS FOR (n:`{workspace_label}`) ON (n.entity_id)"
-                                )
-                                await result.consume()
+                            await session.run(
+                                f"CREATE INDEX IF NOT EXISTS FOR (n:`{workspace_label}`) ON (n.entity_id)"
+                            )
+                            logger.info(
+                                f"[{self.workspace}] Ensured B-Tree index on entity_id for {workspace_label} in {database}"
+                            )
                     except Exception as e:
                         logger.warning(
-                            f"[{self.workspace}] Failed to create index: {str(e)}"
+                            f"[{self.workspace}] Failed to create B-Tree index: {str(e)}"
                         )
+
+                    # Create full-text index for entity_id for faster text searches
+                    await self._create_fulltext_index(
+                        self._driver, self._DATABASE, workspace_label
+                    )
                     break
+
+    async def _create_fulltext_index(
+        self, driver: AsyncDriver, database: str, workspace_label: str
+    ):
+        """Create a full-text index on the entity_id property with Chinese tokenizer support."""
+        index_name = self._get_fulltext_index_name(workspace_label)
+        legacy_index_name = "entity_id_fulltext_idx"
+        try:
+            async with driver.session(database=database) as session:
+                # Check if the full-text index exists and get its configuration
+                check_index_query = "SHOW FULLTEXT INDEXES"
+                result = await session.run(check_index_query)
+                indexes = await result.data()
+                await result.consume()
+
+                existing_index = None
+                legacy_index = None
+                for idx in indexes:
+                    if idx["name"] == index_name:
+                        existing_index = idx
+                    elif idx["name"] == legacy_index_name:
+                        legacy_index = idx
+                    # Break early if we found both indexes
+                    if existing_index and legacy_index:
+                        break
+
+                # Handle legacy index migration
+                if legacy_index and not existing_index:
+                    logger.info(
+                        f"[{self.workspace}] Found legacy index '{legacy_index_name}'. Migrating to '{index_name}'."
+                    )
+                    try:
+                        # Drop the legacy index (use IF EXISTS for safety)
+                        drop_query = f"DROP INDEX {legacy_index_name} IF EXISTS"
+                        result = await session.run(drop_query)
+                        await result.consume()
+                        logger.info(
+                            f"[{self.workspace}] Dropped legacy index '{legacy_index_name}'"
+                        )
+                    except Exception as drop_error:
+                        logger.warning(
+                            f"[{self.workspace}] Failed to drop legacy index: {str(drop_error)}"
+                        )
+
+                # Check if index exists and is online
+                if existing_index:
+                    index_state = existing_index.get("state", "UNKNOWN")
+                    logger.info(
+                        f"[{self.workspace}] Found existing index '{index_name}' with state: {index_state}"
+                    )
+
+                    if index_state == "ONLINE":
+                        logger.info(
+                            f"[{self.workspace}] Full-text index '{index_name}' already exists and is online. Skipping recreation."
+                        )
+                        return
+                    else:
+                        logger.warning(
+                            f"[{self.workspace}] Existing index '{index_name}' is not online (state: {index_state}). Will recreate."
+                        )
+                else:
+                    logger.info(
+                        f"[{self.workspace}] No existing index '{index_name}' found. Creating new index."
+                    )
+
+                # Create or recreate the index if needed
+                needs_recreation = (
+                    existing_index is not None
+                    and existing_index.get("state") != "ONLINE"
+                )
+                needs_creation = existing_index is None
+
+                if needs_recreation or needs_creation:
+                    # Drop existing index if it needs recreation (use IF EXISTS for safety)
+                    if needs_recreation:
+                        try:
+                            drop_query = f"DROP INDEX {index_name} IF EXISTS"
+                            result = await session.run(drop_query)
+                            await result.consume()
+                            logger.info(
+                                f"[{self.workspace}] Dropped existing index '{index_name}'"
+                            )
+                        except Exception as drop_error:
+                            logger.warning(
+                                f"[{self.workspace}] Failed to drop existing index: {str(drop_error)}"
+                            )
+
+                    # Create new index with CJK analyzer
+                    logger.info(
+                        f"[{self.workspace}] Creating full-text index '{index_name}' with Chinese tokenizer support."
+                    )
+
+                    try:
+                        create_index_query = f"""
+                        CREATE FULLTEXT INDEX {index_name}
+                        FOR (n:`{workspace_label}`) ON EACH [n.entity_id]
+                        OPTIONS {{
+                            indexConfig: {{
+                                `fulltext.analyzer`: 'cjk',
+                                `fulltext.eventually_consistent`: true
+                            }}
+                        }}
+                        """
+                        result = await session.run(create_index_query)
+                        await result.consume()
+                        logger.info(
+                            f"[{self.workspace}] Successfully created full-text index '{index_name}' with CJK analyzer."
+                        )
+                    except Exception as cjk_error:
+                        # Fallback to standard analyzer if CJK is not supported
+                        logger.warning(
+                            f"[{self.workspace}] CJK analyzer not supported: {str(cjk_error)}. "
+                            "Falling back to standard analyzer."
+                        )
+                        create_index_query = f"""
+                        CREATE FULLTEXT INDEX {index_name}
+                        FOR (n:`{workspace_label}`) ON EACH [n.entity_id]
+                        """
+                        result = await session.run(create_index_query)
+                        await result.consume()
+                        logger.info(
+                            f"[{self.workspace}] Successfully created full-text index '{index_name}' with standard analyzer."
+                        )
+
+        except Exception as e:
+            # Handle cases where the command might not be supported
+            if "Unknown command" in str(e) or "invalid syntax" in str(e).lower():
+                logger.warning(
+                    f"[{self.workspace}] Could not create or verify full-text index '{index_name}'. "
+                    "This might be because you are using a Neo4j version that does not support it. "
+                    "Search functionality will fall back to slower, non-indexed queries."
+                )
+            else:
+                logger.error(
+                    f"[{self.workspace}] Failed to create or verify full-text index '{index_name}': {str(e)}"
+                )
 
     async def finalize(self):
         """Close the Neo4j driver and release all resources"""
-        async with get_graph_db_lock():
-            if self._driver:
-                await self._driver.close()
-                self._driver = None
+        if self._driver:
+            await self._driver.close()
+            self._driver = None
 
     async def __aexit__(self, exc_type, exc, tb):
         """Ensure driver is closed when context manager exits"""
         await self.finalize()
 
     async def index_done_callback(self) -> None:
-        # Noe4J handles persistence automatically
+        # Neo4J handles persistence automatically
         pass
 
+    @READ_RETRY
     async def has_node(self, node_id: str) -> bool:
         """
         Check if a node with the given label exists in the database
@@ -272,6 +443,7 @@ class Neo4JStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 query = f"MATCH (n:`{workspace_label}` {{entity_id: $entity_id}}) RETURN count(n) > 0 AS node_exists"
                 result = await session.run(query, entity_id=node_id)
@@ -282,9 +454,11 @@ class Neo4JStorage(BaseGraphStorage):
                 logger.error(
                     f"[{self.workspace}] Error checking node existence for {node_id}: {str(e)}"
                 )
-                await result.consume()  # Ensure results are consumed even on error
+                if result is not None:
+                    await result.consume()  # Ensure results are consumed even on error
                 raise
 
+    @READ_RETRY
     async def has_edge(self, source_node_id: str, target_node_id: str) -> bool:
         """
         Check if an edge exists between two nodes
@@ -304,6 +478,7 @@ class Neo4JStorage(BaseGraphStorage):
         async with self._driver.session(
             database=self._DATABASE, default_access_mode="READ"
         ) as session:
+            result = None
             try:
                 query = (
                     f"MATCH (a:`{workspace_label}` {{entity_id: $source_entity_id}})-[r]-(b:`{workspace_label}` {{entity_id: $target_entity_id}}) "
@@ -321,9 +496,11 @@ class Neo4JStorage(BaseGraphStorage):
                 logger.error(
                     f"[{self.workspace}] Error checking edge existence between {source_node_id} and {target_node_id}: {str(e)}"
                 )
-                await result.consume()  # Ensure results are consumed even on error
+                if result is not None:
+                    await result.consume()  # Ensure results are consumed even on error
                 raise
 
+    @READ_RETRY
     async def get_node(self, node_id: str) -> dict[str, str] | None:
         """Get node by its label identifier, return only node properties
 
@@ -377,6 +554,7 @@ class Neo4JStorage(BaseGraphStorage):
                 )
                 raise
 
+    @READ_RETRY
     async def get_nodes_batch(self, node_ids: list[str]) -> dict[str, dict]:
         """
         Retrieve multiple nodes in one query using UNWIND.
@@ -413,6 +591,7 @@ class Neo4JStorage(BaseGraphStorage):
             await result.consume()  # Make sure to consume the result fully
             return nodes
 
+    @READ_RETRY
     async def node_degree(self, node_id: str) -> int:
         """Get the degree (number of relationships) of a node with the given label.
         If multiple nodes have the same label, returns the degree of the first node.
@@ -461,6 +640,7 @@ class Neo4JStorage(BaseGraphStorage):
                 )
                 raise
 
+    @READ_RETRY
     async def node_degrees_batch(self, node_ids: list[str]) -> dict[str, int]:
         """
         Retrieve the degree for multiple nodes in a single query using UNWIND.
@@ -519,6 +699,7 @@ class Neo4JStorage(BaseGraphStorage):
         degrees = int(src_degree) + int(trg_degree)
         return degrees
 
+    @READ_RETRY
     async def edge_degrees_batch(
         self, edge_pairs: list[tuple[str, str]]
     ) -> dict[tuple[str, str], int]:
@@ -545,6 +726,7 @@ class Neo4JStorage(BaseGraphStorage):
             edge_degrees[(src, tgt)] = degrees.get(src, 0) + degrees.get(tgt, 0)
         return edge_degrees
 
+    @READ_RETRY
     async def get_edge(
         self, source_node_id: str, target_node_id: str
     ) -> dict[str, str] | None:
@@ -632,6 +814,7 @@ class Neo4JStorage(BaseGraphStorage):
             )
             raise
 
+    @READ_RETRY
     async def get_edges_batch(
         self, pairs: list[dict[str, str]]
     ) -> dict[tuple[str, str], dict]:
@@ -682,6 +865,7 @@ class Neo4JStorage(BaseGraphStorage):
             await result.consume()
             return edges_dict
 
+    @READ_RETRY
     async def get_node_edges(self, source_node_id: str) -> list[tuple[str, str]] | None:
         """Retrieves all edges (relationships) for a particular node identified by its label.
 
@@ -700,6 +884,7 @@ class Neo4JStorage(BaseGraphStorage):
             async with self._driver.session(
                 database=self._DATABASE, default_access_mode="READ"
             ) as session:
+                results = None
                 try:
                     workspace_label = self._get_workspace_label()
                     query = f"""MATCH (n:`{workspace_label}` {{entity_id: $entity_id}})
@@ -737,7 +922,10 @@ class Neo4JStorage(BaseGraphStorage):
                     logger.error(
                         f"[{self.workspace}] Error getting edges for node {source_node_id}: {str(e)}"
                     )
-                    await results.consume()  # Ensure results are consumed even on error
+                    if results is not None:
+                        await (
+                            results.consume()
+                        )  # Ensure results are consumed even on error
                     raise
         except Exception as e:
             logger.error(
@@ -745,6 +933,7 @@ class Neo4JStorage(BaseGraphStorage):
             )
             raise
 
+    @READ_RETRY
     async def get_nodes_edges_batch(
         self, node_ids: list[str]
     ) -> dict[str, list[tuple[str, str]]]:
@@ -803,49 +992,6 @@ class Neo4JStorage(BaseGraphStorage):
 
             await result.consume()  # Ensure results are fully consumed
             return edges_dict
-
-    async def get_nodes_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        workspace_label = self._get_workspace_label()
-        async with self._driver.session(
-            database=self._DATABASE, default_access_mode="READ"
-        ) as session:
-            query = f"""
-            UNWIND $chunk_ids AS chunk_id
-            MATCH (n:`{workspace_label}`)
-            WHERE n.source_id IS NOT NULL AND chunk_id IN split(n.source_id, $sep)
-            RETURN DISTINCT n
-            """
-            result = await session.run(query, chunk_ids=chunk_ids, sep=GRAPH_FIELD_SEP)
-            nodes = []
-            async for record in result:
-                node = record["n"]
-                node_dict = dict(node)
-                # Add node id (entity_id) to the dictionary for easier access
-                node_dict["id"] = node_dict.get("entity_id")
-                nodes.append(node_dict)
-            await result.consume()
-            return nodes
-
-    async def get_edges_by_chunk_ids(self, chunk_ids: list[str]) -> list[dict]:
-        workspace_label = self._get_workspace_label()
-        async with self._driver.session(
-            database=self._DATABASE, default_access_mode="READ"
-        ) as session:
-            query = f"""
-            UNWIND $chunk_ids AS chunk_id
-            MATCH (a:`{workspace_label}`)-[r]-(b:`{workspace_label}`)
-            WHERE r.source_id IS NOT NULL AND chunk_id IN split(r.source_id, $sep)
-            RETURN DISTINCT a.entity_id AS source, b.entity_id AS target, properties(r) AS properties
-            """
-            result = await session.run(query, chunk_ids=chunk_ids, sep=GRAPH_FIELD_SEP)
-            edges = []
-            async for record in result:
-                edge_properties = record["properties"]
-                edge_properties["source"] = record["source"]
-                edge_properties["target"] = record["target"]
-                edges.append(edge_properties)
-            await result.consume()
-            return edges
 
     @retry(
         stop=stop_after_attempt(3),
@@ -1523,6 +1669,182 @@ class Neo4JStorage(BaseGraphStorage):
             await result.consume()
             return edges
 
+    async def get_popular_labels(self, limit: int = 300) -> list[str]:
+        """Get popular labels by node degree (most connected entities)
+
+        Args:
+            limit: Maximum number of labels to return
+
+        Returns:
+            List of labels sorted by degree (highest first)
+        """
+        workspace_label = self._get_workspace_label()
+        async with self._driver.session(
+            database=self._DATABASE, default_access_mode="READ"
+        ) as session:
+            result = None
+            try:
+                query = f"""
+                MATCH (n:`{workspace_label}`)
+                WHERE n.entity_id IS NOT NULL
+                OPTIONAL MATCH (n)-[r]-()
+                WITH n.entity_id AS label, count(r) AS degree
+                ORDER BY degree DESC, label ASC
+                LIMIT $limit
+                RETURN label
+                """
+                result = await session.run(query, limit=limit)
+                labels = []
+                async for record in result:
+                    labels.append(record["label"])
+                await result.consume()
+
+                logger.debug(
+                    f"[{self.workspace}] Retrieved {len(labels)} popular labels (limit: {limit})"
+                )
+                return labels
+            except Exception as e:
+                logger.error(
+                    f"[{self.workspace}] Error getting popular labels: {str(e)}"
+                )
+                if result is not None:
+                    await result.consume()
+                raise
+
+    async def search_labels(self, query: str, limit: int = 50) -> list[str]:
+        """
+        Search labels with fuzzy matching, using a full-text index for performance if available.
+        Enhanced with Chinese text support using CJK analyzer.
+        Falls back to a slower CONTAINS search if the index is not available or fails.
+        """
+        workspace_label = self._get_workspace_label()
+        query_strip = query.strip()
+        if not query_strip:
+            return []
+
+        query_lower = query_strip.lower()
+        is_chinese = self._is_chinese_text(query_strip)
+        index_name = self._get_fulltext_index_name(workspace_label)
+
+        # Attempt to use the full-text index first
+        try:
+            async with self._driver.session(
+                database=self._DATABASE, default_access_mode="READ"
+            ) as session:
+                if is_chinese:
+                    # For Chinese text, use different search strategies
+                    cypher_query = f"""
+                    CALL db.index.fulltext.queryNodes($index_name, $search_query) YIELD node, score
+                    WITH node, score
+                    WHERE node:`{workspace_label}`
+                    WITH node.entity_id AS label, score
+                    WITH label, score,
+                         CASE
+                             WHEN label = $query_strip THEN score + 1000
+                             WHEN label CONTAINS $query_strip THEN score + 500
+                             ELSE score
+                         END AS final_score
+                    RETURN label
+                    ORDER BY final_score DESC, label ASC
+                    LIMIT $limit
+                    """
+                    # For Chinese, don't add wildcard as it may not work properly with CJK analyzer
+                    search_query = query_strip
+                else:
+                    # For non-Chinese text, use the original logic with wildcard
+                    cypher_query = f"""
+                    CALL db.index.fulltext.queryNodes($index_name, $search_query) YIELD node, score
+                    WITH node, score
+                    WHERE node:`{workspace_label}`
+                    WITH node.entity_id AS label, toLower(node.entity_id) AS label_lower, score
+                    WITH label, label_lower, score,
+                         CASE
+                             WHEN label_lower = $query_lower THEN score + 1000
+                             WHEN label_lower STARTS WITH $query_lower THEN score + 500
+                             WHEN label_lower CONTAINS ' ' + $query_lower OR label_lower CONTAINS '_' + $query_lower THEN score + 50
+                             ELSE score
+                         END AS final_score
+                    RETURN label
+                    ORDER BY final_score DESC, label ASC
+                    LIMIT $limit
+                    """
+                    search_query = f"{query_strip}*"
+
+                result = await session.run(
+                    cypher_query,
+                    index_name=index_name,
+                    search_query=search_query,
+                    query_lower=query_lower,
+                    query_strip=query_strip,
+                    limit=limit,
+                )
+                labels = [record["label"] async for record in result]
+                await result.consume()
+
+                logger.debug(
+                    f"[{self.workspace}] Full-text search ({'Chinese' if is_chinese else 'Latin'}) for '{query}' returned {len(labels)} results (limit: {limit})"
+                )
+                return labels
+
+        except Exception as e:
+            # If the full-text search fails, fall back to CONTAINS search
+            logger.warning(
+                f"[{self.workspace}] Full-text search failed with error: {str(e)}. "
+                "Falling back to slower, non-indexed search."
+            )
+
+            # Enhanced fallback implementation
+            async with self._driver.session(
+                database=self._DATABASE, default_access_mode="READ"
+            ) as session:
+                if is_chinese:
+                    # For Chinese text, use direct CONTAINS without case conversion
+                    cypher_query = f"""
+                    MATCH (n:`{workspace_label}`)
+                    WHERE n.entity_id IS NOT NULL
+                    WITH n.entity_id AS label
+                    WHERE label CONTAINS $query_strip
+                    WITH label,
+                         CASE
+                             WHEN label = $query_strip THEN 1000
+                             WHEN label STARTS WITH $query_strip THEN 500
+                             ELSE 100 - size(label)
+                         END AS score
+                    ORDER BY score DESC, label ASC
+                    LIMIT $limit
+                    RETURN label
+                    """
+                    result = await session.run(
+                        cypher_query, query_strip=query_strip, limit=limit
+                    )
+                else:
+                    # For non-Chinese text, use the original fallback logic
+                    cypher_query = f"""
+                    MATCH (n:`{workspace_label}`)
+                    WHERE n.entity_id IS NOT NULL
+                    WITH n.entity_id AS label, toLower(n.entity_id) AS label_lower
+                    WHERE label_lower CONTAINS $query_lower
+                    WITH label, label_lower,
+                         CASE
+                             WHEN label_lower = $query_lower THEN 1000
+                             WHEN label_lower STARTS WITH $query_lower THEN 500
+                             ELSE 100 - size(label)
+                         END AS score
+                    ORDER BY score DESC, label ASC
+                    LIMIT $limit
+                    RETURN label
+                    """
+                    result = await session.run(
+                        cypher_query, query_lower=query_lower, limit=limit
+                    )
+
+                labels = [record["label"] async for record in result]
+                await result.consume()
+                logger.debug(
+                    f"[{self.workspace}] Fallback search ({'Chinese' if is_chinese else 'Latin'}) for '{query}' returned {len(labels)} results (limit: {limit})"
+                )
+                return labels
+
     async def drop(self) -> dict[str, str]:
         """Drop all data from current workspace storage and clean up resources
 
@@ -1533,24 +1855,23 @@ class Neo4JStorage(BaseGraphStorage):
             - On success: {"status": "success", "message": "workspace data dropped"}
             - On failure: {"status": "error", "message": "<error details>"}
         """
-        async with get_graph_db_lock():
-            workspace_label = self._get_workspace_label()
-            try:
-                async with self._driver.session(database=self._DATABASE) as session:
-                    # Delete all nodes and relationships in current workspace only
-                    query = f"MATCH (n:`{workspace_label}`) DETACH DELETE n"
-                    result = await session.run(query)
-                    await result.consume()  # Ensure result is fully consumed
+        workspace_label = self._get_workspace_label()
+        try:
+            async with self._driver.session(database=self._DATABASE) as session:
+                # Delete all nodes and relationships in current workspace only
+                query = f"MATCH (n:`{workspace_label}`) DETACH DELETE n"
+                result = await session.run(query)
+                await result.consume()  # Ensure result is fully consumed
 
-                    # logger.debug(
-                    #     f"[{self.workspace}] Process {os.getpid()} drop Neo4j workspace '{workspace_label}' in database {self._DATABASE}"
-                    # )
-                    return {
-                        "status": "success",
-                        "message": f"workspace '{workspace_label}' data dropped",
-                    }
-            except Exception as e:
-                logger.error(
-                    f"[{self.workspace}] Error dropping Neo4j workspace '{workspace_label}' in database {self._DATABASE}: {e}"
-                )
-                return {"status": "error", "message": str(e)}
+                # logger.debug(
+                #     f"[{self.workspace}] Process {os.getpid()} drop Neo4j workspace '{workspace_label}' in database {self._DATABASE}"
+                # )
+                return {
+                    "status": "success",
+                    "message": f"workspace '{workspace_label}' data dropped",
+                }
+        except Exception as e:
+            logger.error(
+                f"[{self.workspace}] Error dropping Neo4j workspace '{workspace_label}' in database {self._DATABASE}: {e}"
+            )
+            return {"status": "error", "message": str(e)}

@@ -64,481 +64,14 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_grafana.CfnWorkspaceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "account_access_type": "accountAccessType",
-        "authentication_providers": "authenticationProviders",
-        "permission_type": "permissionType",
-        "client_token": "clientToken",
-        "data_sources": "dataSources",
-        "description": "description",
-        "grafana_version": "grafanaVersion",
-        "name": "name",
-        "network_access_control": "networkAccessControl",
-        "notification_destinations": "notificationDestinations",
-        "organizational_units": "organizationalUnits",
-        "organization_role_name": "organizationRoleName",
-        "plugin_admin_enabled": "pluginAdminEnabled",
-        "role_arn": "roleArn",
-        "saml_configuration": "samlConfiguration",
-        "stack_set_name": "stackSetName",
-        "vpc_configuration": "vpcConfiguration",
-    },
+from ..interfaces.aws_grafana import (
+    IWorkspaceRef as _IWorkspaceRef_9ec37edd,
+    WorkspaceReference as _WorkspaceReference_e8dd807e,
 )
-class CfnWorkspaceProps:
-    def __init__(
-        self,
-        *,
-        account_access_type: builtins.str,
-        authentication_providers: typing.Sequence[builtins.str],
-        permission_type: builtins.str,
-        client_token: typing.Optional[builtins.str] = None,
-        data_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        description: typing.Optional[builtins.str] = None,
-        grafana_version: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
-        organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
-        organization_role_name: typing.Optional[builtins.str] = None,
-        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        stack_set_name: typing.Optional[builtins.str] = None,
-        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWorkspace``.
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
 
-        :param account_access_type: Specifies whether the workspace can access AWS resources in this AWS account only, or whether it can also access AWS resources in other accounts in the same organization. If this is ``ORGANIZATION`` , the ``OrganizationalUnits`` parameter specifies which organizational units the workspace can access.
-        :param authentication_providers: Specifies whether this workspace uses SAML 2.0, AWS IAM Identity Center , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ . *Allowed Values* : ``AWS_SSO | SAML``
-        :param permission_type: If this is ``SERVICE_MANAGED`` , and the workplace was created through the Amazon Managed Grafana console, then Amazon Managed Grafana automatically creates the IAM roles and provisions the permissions that the workspace needs to use AWS data sources and notification channels. If this is ``CUSTOMER_MANAGED`` , you must manage those roles and permissions yourself. If you are working with a workspace in a member account of an organization and that account is not a delegated administrator account, and you want the workspace to access data sources in other AWS accounts in the organization, this parameter must be set to ``CUSTOMER_MANAGED`` . For more information about converting between customer and service managed, see `Managing permissions for data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-datasource-and-notification.html>`_ . For more information about the roles and permissions that must be managed for customer managed workspaces, see `Amazon Managed Grafana permissions and policies for AWS data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-permissions.html>`_
-        :param client_token: A unique, case-sensitive, user-provided identifier to ensure the idempotency of the request.
-        :param data_sources: Specifies the AWS data sources that have been configured to have IAM roles and permissions created to allow Amazon Managed Grafana to read data from these sources. This list is only used when the workspace was created through the AWS console, and the ``permissionType`` is ``SERVICE_MANAGED`` .
-        :param description: The user-defined description of the workspace.
-        :param grafana_version: Specifies the version of Grafana to support in the workspace. Defaults to the latest version on create (for example, 9.4), or the current version of the workspace on update. Can only be used to upgrade (for example, from 8.4 to 9.4), not downgrade (for example, from 9.4 to 8.4). To know what versions are available to upgrade to for a specific workspace, see the `ListVersions <https://docs.aws.amazon.com/grafana/latest/APIReference/API_ListVersions.html>`_ operation.
-        :param name: The name of the workspace.
-        :param network_access_control: The configuration settings for network access to your workspace.
-        :param notification_destinations: The AWS notification channels that Amazon Managed Grafana can automatically create IAM roles and permissions for, to allow Amazon Managed Grafana to use these channels. *AllowedValues* : ``SNS``
-        :param organizational_units: Specifies the organizational units that this workspace is allowed to use data sources from, if this workspace is in an account that is part of an organization.
-        :param organization_role_name: The name of the IAM role that is used to access resources through Organizations.
-        :param plugin_admin_enabled: Whether plugin administration is enabled in the workspace. Setting to ``true`` allows workspace admins to install, uninstall, and update plugins from within the Grafana workspace. .. epigraph:: This option is only valid for workspaces that support Grafana version 9 or newer.
-        :param role_arn: The IAM role that grants permissions to the AWS resources that the workspace will view data from. This role must already exist.
-        :param saml_configuration: If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
-        :param stack_set_name: The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
-        :param vpc_configuration: The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to. .. epigraph:: Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_grafana as grafana
-            
-            cfn_workspace_props = grafana.CfnWorkspaceProps(
-                account_access_type="accountAccessType",
-                authentication_providers=["authenticationProviders"],
-                permission_type="permissionType",
-            
-                # the properties below are optional
-                client_token="clientToken",
-                data_sources=["dataSources"],
-                description="description",
-                grafana_version="grafanaVersion",
-                name="name",
-                network_access_control=grafana.CfnWorkspace.NetworkAccessControlProperty(
-                    prefix_list_ids=["prefixListIds"],
-                    vpce_ids=["vpceIds"]
-                ),
-                notification_destinations=["notificationDestinations"],
-                organizational_units=["organizationalUnits"],
-                organization_role_name="organizationRoleName",
-                plugin_admin_enabled=False,
-                role_arn="roleArn",
-                saml_configuration=grafana.CfnWorkspace.SamlConfigurationProperty(
-                    idp_metadata=grafana.CfnWorkspace.IdpMetadataProperty(
-                        url="url",
-                        xml="xml"
-                    ),
-            
-                    # the properties below are optional
-                    allowed_organizations=["allowedOrganizations"],
-                    assertion_attributes=grafana.CfnWorkspace.AssertionAttributesProperty(
-                        email="email",
-                        groups="groups",
-                        login="login",
-                        name="name",
-                        org="org",
-                        role="role"
-                    ),
-                    login_validity_duration=123,
-                    role_values=grafana.CfnWorkspace.RoleValuesProperty(
-                        admin=["admin"],
-                        editor=["editor"]
-                    )
-                ),
-                stack_set_name="stackSetName",
-                vpc_configuration=grafana.CfnWorkspace.VpcConfigurationProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"]
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280)
-            check_type(argname="argument account_access_type", value=account_access_type, expected_type=type_hints["account_access_type"])
-            check_type(argname="argument authentication_providers", value=authentication_providers, expected_type=type_hints["authentication_providers"])
-            check_type(argname="argument permission_type", value=permission_type, expected_type=type_hints["permission_type"])
-            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
-            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument grafana_version", value=grafana_version, expected_type=type_hints["grafana_version"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument network_access_control", value=network_access_control, expected_type=type_hints["network_access_control"])
-            check_type(argname="argument notification_destinations", value=notification_destinations, expected_type=type_hints["notification_destinations"])
-            check_type(argname="argument organizational_units", value=organizational_units, expected_type=type_hints["organizational_units"])
-            check_type(argname="argument organization_role_name", value=organization_role_name, expected_type=type_hints["organization_role_name"])
-            check_type(argname="argument plugin_admin_enabled", value=plugin_admin_enabled, expected_type=type_hints["plugin_admin_enabled"])
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument saml_configuration", value=saml_configuration, expected_type=type_hints["saml_configuration"])
-            check_type(argname="argument stack_set_name", value=stack_set_name, expected_type=type_hints["stack_set_name"])
-            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_access_type": account_access_type,
-            "authentication_providers": authentication_providers,
-            "permission_type": permission_type,
-        }
-        if client_token is not None:
-            self._values["client_token"] = client_token
-        if data_sources is not None:
-            self._values["data_sources"] = data_sources
-        if description is not None:
-            self._values["description"] = description
-        if grafana_version is not None:
-            self._values["grafana_version"] = grafana_version
-        if name is not None:
-            self._values["name"] = name
-        if network_access_control is not None:
-            self._values["network_access_control"] = network_access_control
-        if notification_destinations is not None:
-            self._values["notification_destinations"] = notification_destinations
-        if organizational_units is not None:
-            self._values["organizational_units"] = organizational_units
-        if organization_role_name is not None:
-            self._values["organization_role_name"] = organization_role_name
-        if plugin_admin_enabled is not None:
-            self._values["plugin_admin_enabled"] = plugin_admin_enabled
-        if role_arn is not None:
-            self._values["role_arn"] = role_arn
-        if saml_configuration is not None:
-            self._values["saml_configuration"] = saml_configuration
-        if stack_set_name is not None:
-            self._values["stack_set_name"] = stack_set_name
-        if vpc_configuration is not None:
-            self._values["vpc_configuration"] = vpc_configuration
-
-    @builtins.property
-    def account_access_type(self) -> builtins.str:
-        '''Specifies whether the workspace can access AWS resources in this AWS account only, or whether it can also access AWS resources in other accounts in the same organization.
-
-        If this is ``ORGANIZATION`` , the ``OrganizationalUnits`` parameter specifies which organizational units the workspace can access.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-accountaccesstype
-        '''
-        result = self._values.get("account_access_type")
-        assert result is not None, "Required property 'account_access_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def authentication_providers(self) -> typing.List[builtins.str]:
-        '''Specifies whether this workspace uses SAML 2.0, AWS IAM Identity Center , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ .
-
-        *Allowed Values* : ``AWS_SSO | SAML``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-authenticationproviders
-        '''
-        result = self._values.get("authentication_providers")
-        assert result is not None, "Required property 'authentication_providers' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def permission_type(self) -> builtins.str:
-        '''If this is ``SERVICE_MANAGED`` , and the workplace was created through the Amazon Managed Grafana console, then Amazon Managed Grafana automatically creates the IAM roles and provisions the permissions that the workspace needs to use AWS data sources and notification channels.
-
-        If this is ``CUSTOMER_MANAGED`` , you must manage those roles and permissions yourself.
-
-        If you are working with a workspace in a member account of an organization and that account is not a delegated administrator account, and you want the workspace to access data sources in other AWS accounts in the organization, this parameter must be set to ``CUSTOMER_MANAGED`` .
-
-        For more information about converting between customer and service managed, see `Managing permissions for data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-datasource-and-notification.html>`_ . For more information about the roles and permissions that must be managed for customer managed workspaces, see `Amazon Managed Grafana permissions and policies for AWS data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-permissions.html>`_
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-permissiontype
-        '''
-        result = self._values.get("permission_type")
-        assert result is not None, "Required property 'permission_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def client_token(self) -> typing.Optional[builtins.str]:
-        '''A unique, case-sensitive, user-provided identifier to ensure the idempotency of the request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-clienttoken
-        '''
-        result = self._values.get("client_token")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_sources(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the AWS data sources that have been configured to have IAM roles and permissions created to allow Amazon Managed Grafana to read data from these sources.
-
-        This list is only used when the workspace was created through the AWS console, and the ``permissionType`` is ``SERVICE_MANAGED`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-datasources
-        '''
-        result = self._values.get("data_sources")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The user-defined description of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def grafana_version(self) -> typing.Optional[builtins.str]:
-        '''Specifies the version of Grafana to support in the workspace.
-
-        Defaults to the latest version on create (for example, 9.4), or the current version of the workspace on update.
-
-        Can only be used to upgrade (for example, from 8.4 to 9.4), not downgrade (for example, from 9.4 to 8.4).
-
-        To know what versions are available to upgrade to for a specific workspace, see the `ListVersions <https://docs.aws.amazon.com/grafana/latest/APIReference/API_ListVersions.html>`_ operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-grafanaversion
-        '''
-        result = self._values.get("grafana_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_access_control(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.NetworkAccessControlProperty"]]:
-        '''The configuration settings for network access to your workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-networkaccesscontrol
-        '''
-        result = self._values.get("network_access_control")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.NetworkAccessControlProperty"]], result)
-
-    @builtins.property
-    def notification_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The AWS notification channels that Amazon Managed Grafana can automatically create IAM roles and permissions for, to allow Amazon Managed Grafana to use these channels.
-
-        *AllowedValues* : ``SNS``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-notificationdestinations
-        '''
-        result = self._values.get("notification_destinations")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def organizational_units(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the organizational units that this workspace is allowed to use data sources from, if this workspace is in an account that is part of an organization.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-organizationalunits
-        '''
-        result = self._values.get("organizational_units")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def organization_role_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the IAM role that is used to access resources through Organizations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-organizationrolename
-        '''
-        result = self._values.get("organization_role_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def plugin_admin_enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether plugin administration is enabled in the workspace.
-
-        Setting to ``true`` allows workspace admins to install, uninstall, and update plugins from within the Grafana workspace.
-        .. epigraph::
-
-           This option is only valid for workspaces that support Grafana version 9 or newer.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-pluginadminenabled
-        '''
-        result = self._values.get("plugin_admin_enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM role that grants permissions to the AWS resources that the workspace will view data from.
-
-        This role must already exist.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-rolearn
-        '''
-        result = self._values.get("role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def saml_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.SamlConfigurationProperty"]]:
-        '''If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-samlconfiguration
-        '''
-        result = self._values.get("saml_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.SamlConfigurationProperty"]], result)
-
-    @builtins.property
-    def stack_set_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-stacksetname
-        '''
-        result = self._values.get("stack_set_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def vpc_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.VpcConfigurationProperty"]]:
-        '''The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to.
-
-        .. epigraph::
-
-           Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-vpcconfiguration
-        '''
-        result = self._values.get("vpc_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.VpcConfigurationProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWorkspaceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_grafana.IWorkspaceRef")
-class IWorkspaceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Workspace.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="workspaceRef")
-    def workspace_ref(self) -> "WorkspaceReference":
-        '''(experimental) A reference to a Workspace resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWorkspaceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Workspace.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_grafana.IWorkspaceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="workspaceRef")
-    def workspace_ref(self) -> "WorkspaceReference":
-        '''(experimental) A reference to a Workspace resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WorkspaceReference", jsii.get(self, "workspaceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWorkspaceRef).__jsii_proxy_class__ = lambda : _IWorkspaceRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_grafana.WorkspaceReference",
-    jsii_struct_bases=[],
-    name_mapping={"workspace_id": "workspaceId"},
-)
-class WorkspaceReference:
-    def __init__(self, *, workspace_id: builtins.str) -> None:
-        '''A reference to a Workspace resource.
-
-        :param workspace_id: The Id of the Workspace resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_grafana as grafana
-            
-            workspace_reference = grafana.WorkspaceReference(
-                workspace_id="workspaceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__807561d0c1f3a6a518cc0310a72549ff3163f4e73a859bd5377c3d0791be4b3c)
-            check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "workspace_id": workspace_id,
-        }
-
-    @builtins.property
-    def workspace_id(self) -> builtins.str:
-        '''The Id of the Workspace resource.'''
-        result = self._values.get("workspace_id")
-        assert result is not None, "Required property 'workspace_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WorkspaceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IWorkspaceRef)
+@jsii.implements(_IInspectable_c2943556, _IWorkspaceRef_9ec37edd)
 class CfnWorkspace(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -610,7 +143,7 @@ class CfnWorkspace(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         account_access_type: builtins.str,
@@ -621,21 +154,22 @@ class CfnWorkspace(
         description: typing.Optional[builtins.str] = None,
         grafana_version: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        network_access_control: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
         organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
         organization_role_name: typing.Optional[builtins.str] = None,
-        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        saml_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stack_set_name: typing.Optional[builtins.str] = None,
-        vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Grafana::Workspace``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param account_access_type: Specifies whether the workspace can access AWS resources in this AWS account only, or whether it can also access AWS resources in other accounts in the same organization. If this is ``ORGANIZATION`` , the ``OrganizationalUnits`` parameter specifies which organizational units the workspace can access.
-        :param authentication_providers: Specifies whether this workspace uses SAML 2.0, AWS IAM Identity Center , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ . *Allowed Values* : ``AWS_SSO | SAML``
+        :param authentication_providers: Specifies whether this workspace uses SAML 2.0, SSOlong , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ . *Allowed Values* : ``AWS_SSO | SAML``
         :param permission_type: If this is ``SERVICE_MANAGED`` , and the workplace was created through the Amazon Managed Grafana console, then Amazon Managed Grafana automatically creates the IAM roles and provisions the permissions that the workspace needs to use AWS data sources and notification channels. If this is ``CUSTOMER_MANAGED`` , you must manage those roles and permissions yourself. If you are working with a workspace in a member account of an organization and that account is not a delegated administrator account, and you want the workspace to access data sources in other AWS accounts in the organization, this parameter must be set to ``CUSTOMER_MANAGED`` . For more information about converting between customer and service managed, see `Managing permissions for data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-datasource-and-notification.html>`_ . For more information about the roles and permissions that must be managed for customer managed workspaces, see `Amazon Managed Grafana permissions and policies for AWS data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-permissions.html>`_
         :param client_token: A unique, case-sensitive, user-provided identifier to ensure the idempotency of the request.
         :param data_sources: Specifies the AWS data sources that have been configured to have IAM roles and permissions created to allow Amazon Managed Grafana to read data from these sources. This list is only used when the workspace was created through the AWS console, and the ``permissionType`` is ``SERVICE_MANAGED`` .
@@ -678,8 +212,20 @@ class CfnWorkspace(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnWorkspace")
+    @builtins.classmethod
+    def is_cfn_workspace(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWorkspace.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9274823263c6be15890be7c903ef1b08a6f3c1a4f98b32dbf2de7b1093ade0fd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWorkspace", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -807,9 +353,9 @@ class CfnWorkspace(
 
     @builtins.property
     @jsii.member(jsii_name="workspaceRef")
-    def workspace_ref(self) -> WorkspaceReference:
+    def workspace_ref(self) -> "_WorkspaceReference_e8dd807e":
         '''A reference to a Workspace resource.'''
-        return typing.cast(WorkspaceReference, jsii.get(self, "workspaceRef"))
+        return typing.cast("_WorkspaceReference_e8dd807e", jsii.get(self, "workspaceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="accountAccessType")
@@ -827,7 +373,7 @@ class CfnWorkspace(
     @builtins.property
     @jsii.member(jsii_name="authenticationProviders")
     def authentication_providers(self) -> typing.List[builtins.str]:
-        '''Specifies whether this workspace uses SAML 2.0, AWS IAM Identity Center , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ .'''
+        '''Specifies whether this workspace uses SAML 2.0, SSOlong , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ .'''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "authenticationProviders"))
 
     @authentication_providers.setter
@@ -919,14 +465,14 @@ class CfnWorkspace(
     @jsii.member(jsii_name="networkAccessControl")
     def network_access_control(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.NetworkAccessControlProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]]:
         '''The configuration settings for network access to your workspace.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.NetworkAccessControlProperty"]], jsii.get(self, "networkAccessControl"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]], jsii.get(self, "networkAccessControl"))
 
     @network_access_control.setter
     def network_access_control(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.NetworkAccessControlProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e2b77604f954551d96e38e737bb2b7eb8862626320461b61a851932a089d4ade)
@@ -982,14 +528,14 @@ class CfnWorkspace(
     @jsii.member(jsii_name="pluginAdminEnabled")
     def plugin_admin_enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Whether plugin administration is enabled in the workspace.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "pluginAdminEnabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "pluginAdminEnabled"))
 
     @plugin_admin_enabled.setter
     def plugin_admin_enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6fff51e5ca5203d89a130603e0c8c8afd747ed83cfd23221fbe96546480b53b)
@@ -1013,14 +559,14 @@ class CfnWorkspace(
     @jsii.member(jsii_name="samlConfiguration")
     def saml_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.SamlConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]]:
         '''If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.SamlConfigurationProperty"]], jsii.get(self, "samlConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]], jsii.get(self, "samlConfiguration"))
 
     @saml_configuration.setter
     def saml_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.SamlConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__512287bf24818cb838cc5045af81a100afbe0fdcf464601403fff719622ccc4d)
@@ -1044,14 +590,14 @@ class CfnWorkspace(
     @jsii.member(jsii_name="vpcConfiguration")
     def vpc_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.VpcConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]]:
         '''The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.VpcConfigurationProperty"]], jsii.get(self, "vpcConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]], jsii.get(self, "vpcConfiguration"))
 
     @vpc_configuration.setter
     def vpc_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.VpcConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3586128c84bb5e8c9eb62049d7b06e9ab6ddb8d155288a89902a4fa5056539a0)
@@ -1450,11 +996,11 @@ class CfnWorkspace(
         def __init__(
             self,
             *,
-            idp_metadata: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.IdpMetadataProperty", typing.Dict[builtins.str, typing.Any]]],
+            idp_metadata: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.IdpMetadataProperty", typing.Dict[builtins.str, typing.Any]]],
             allowed_organizations: typing.Optional[typing.Sequence[builtins.str]] = None,
-            assertion_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.AssertionAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            assertion_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.AssertionAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             login_validity_duration: typing.Optional[jsii.Number] = None,
-            role_values: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWorkspace.RoleValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            role_values: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.RoleValuesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A structure containing information about how this workspace works with SAML.
 
@@ -1518,14 +1064,14 @@ class CfnWorkspace(
         @builtins.property
         def idp_metadata(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWorkspace.IdpMetadataProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWorkspace.IdpMetadataProperty"]:
             '''A structure containing the identity provider (IdP) metadata used to integrate the identity provider with this workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-idpmetadata
             '''
             result = self._values.get("idp_metadata")
             assert result is not None, "Required property 'idp_metadata' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWorkspace.IdpMetadataProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWorkspace.IdpMetadataProperty"], result)
 
         @builtins.property
         def allowed_organizations(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1541,13 +1087,13 @@ class CfnWorkspace(
         @builtins.property
         def assertion_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.AssertionAttributesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.AssertionAttributesProperty"]]:
             '''A structure that defines which attributes in the SAML assertion are to be used to define information about the users authenticated by that IdP to use the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-assertionattributes
             '''
             result = self._values.get("assertion_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.AssertionAttributesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.AssertionAttributesProperty"]], result)
 
         @builtins.property
         def login_validity_duration(self) -> typing.Optional[jsii.Number]:
@@ -1561,13 +1107,13 @@ class CfnWorkspace(
         @builtins.property
         def role_values(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.RoleValuesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.RoleValuesProperty"]]:
             '''A structure containing arrays that map group names in the SAML assertion to the Grafana ``Admin`` and ``Editor`` roles in the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-grafana-workspace-samlconfiguration.html#cfn-grafana-workspace-samlconfiguration-rolevalues
             '''
             result = self._values.get("role_values")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWorkspace.RoleValuesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.RoleValuesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1673,44 +1219,397 @@ class CfnWorkspace(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_grafana.CfnWorkspaceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "account_access_type": "accountAccessType",
+        "authentication_providers": "authenticationProviders",
+        "permission_type": "permissionType",
+        "client_token": "clientToken",
+        "data_sources": "dataSources",
+        "description": "description",
+        "grafana_version": "grafanaVersion",
+        "name": "name",
+        "network_access_control": "networkAccessControl",
+        "notification_destinations": "notificationDestinations",
+        "organizational_units": "organizationalUnits",
+        "organization_role_name": "organizationRoleName",
+        "plugin_admin_enabled": "pluginAdminEnabled",
+        "role_arn": "roleArn",
+        "saml_configuration": "samlConfiguration",
+        "stack_set_name": "stackSetName",
+        "vpc_configuration": "vpcConfiguration",
+    },
+)
+class CfnWorkspaceProps:
+    def __init__(
+        self,
+        *,
+        account_access_type: builtins.str,
+        authentication_providers: typing.Sequence[builtins.str],
+        permission_type: builtins.str,
+        client_token: typing.Optional[builtins.str] = None,
+        data_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
+        description: typing.Optional[builtins.str] = None,
+        grafana_version: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        network_access_control: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.NetworkAccessControlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
+        organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
+        organization_role_name: typing.Optional[builtins.str] = None,
+        plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        role_arn: typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]] = None,
+        saml_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.SamlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        stack_set_name: typing.Optional[builtins.str] = None,
+        vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWorkspace``.
+
+        :param account_access_type: Specifies whether the workspace can access AWS resources in this AWS account only, or whether it can also access AWS resources in other accounts in the same organization. If this is ``ORGANIZATION`` , the ``OrganizationalUnits`` parameter specifies which organizational units the workspace can access.
+        :param authentication_providers: Specifies whether this workspace uses SAML 2.0, SSOlong , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ . *Allowed Values* : ``AWS_SSO | SAML``
+        :param permission_type: If this is ``SERVICE_MANAGED`` , and the workplace was created through the Amazon Managed Grafana console, then Amazon Managed Grafana automatically creates the IAM roles and provisions the permissions that the workspace needs to use AWS data sources and notification channels. If this is ``CUSTOMER_MANAGED`` , you must manage those roles and permissions yourself. If you are working with a workspace in a member account of an organization and that account is not a delegated administrator account, and you want the workspace to access data sources in other AWS accounts in the organization, this parameter must be set to ``CUSTOMER_MANAGED`` . For more information about converting between customer and service managed, see `Managing permissions for data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-datasource-and-notification.html>`_ . For more information about the roles and permissions that must be managed for customer managed workspaces, see `Amazon Managed Grafana permissions and policies for AWS data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-permissions.html>`_
+        :param client_token: A unique, case-sensitive, user-provided identifier to ensure the idempotency of the request.
+        :param data_sources: Specifies the AWS data sources that have been configured to have IAM roles and permissions created to allow Amazon Managed Grafana to read data from these sources. This list is only used when the workspace was created through the AWS console, and the ``permissionType`` is ``SERVICE_MANAGED`` .
+        :param description: The user-defined description of the workspace.
+        :param grafana_version: Specifies the version of Grafana to support in the workspace. Defaults to the latest version on create (for example, 9.4), or the current version of the workspace on update. Can only be used to upgrade (for example, from 8.4 to 9.4), not downgrade (for example, from 9.4 to 8.4). To know what versions are available to upgrade to for a specific workspace, see the `ListVersions <https://docs.aws.amazon.com/grafana/latest/APIReference/API_ListVersions.html>`_ operation.
+        :param name: The name of the workspace.
+        :param network_access_control: The configuration settings for network access to your workspace.
+        :param notification_destinations: The AWS notification channels that Amazon Managed Grafana can automatically create IAM roles and permissions for, to allow Amazon Managed Grafana to use these channels. *AllowedValues* : ``SNS``
+        :param organizational_units: Specifies the organizational units that this workspace is allowed to use data sources from, if this workspace is in an account that is part of an organization.
+        :param organization_role_name: The name of the IAM role that is used to access resources through Organizations.
+        :param plugin_admin_enabled: Whether plugin administration is enabled in the workspace. Setting to ``true`` allows workspace admins to install, uninstall, and update plugins from within the Grafana workspace. .. epigraph:: This option is only valid for workspaces that support Grafana version 9 or newer.
+        :param role_arn: The IAM role that grants permissions to the AWS resources that the workspace will view data from. This role must already exist.
+        :param saml_configuration: If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
+        :param stack_set_name: The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
+        :param vpc_configuration: The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to. .. epigraph:: Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_grafana as grafana
+            
+            cfn_workspace_props = grafana.CfnWorkspaceProps(
+                account_access_type="accountAccessType",
+                authentication_providers=["authenticationProviders"],
+                permission_type="permissionType",
+            
+                # the properties below are optional
+                client_token="clientToken",
+                data_sources=["dataSources"],
+                description="description",
+                grafana_version="grafanaVersion",
+                name="name",
+                network_access_control=grafana.CfnWorkspace.NetworkAccessControlProperty(
+                    prefix_list_ids=["prefixListIds"],
+                    vpce_ids=["vpceIds"]
+                ),
+                notification_destinations=["notificationDestinations"],
+                organizational_units=["organizationalUnits"],
+                organization_role_name="organizationRoleName",
+                plugin_admin_enabled=False,
+                role_arn="roleArn",
+                saml_configuration=grafana.CfnWorkspace.SamlConfigurationProperty(
+                    idp_metadata=grafana.CfnWorkspace.IdpMetadataProperty(
+                        url="url",
+                        xml="xml"
+                    ),
+            
+                    # the properties below are optional
+                    allowed_organizations=["allowedOrganizations"],
+                    assertion_attributes=grafana.CfnWorkspace.AssertionAttributesProperty(
+                        email="email",
+                        groups="groups",
+                        login="login",
+                        name="name",
+                        org="org",
+                        role="role"
+                    ),
+                    login_validity_duration=123,
+                    role_values=grafana.CfnWorkspace.RoleValuesProperty(
+                        admin=["admin"],
+                        editor=["editor"]
+                    )
+                ),
+                stack_set_name="stackSetName",
+                vpc_configuration=grafana.CfnWorkspace.VpcConfigurationProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280)
+            check_type(argname="argument account_access_type", value=account_access_type, expected_type=type_hints["account_access_type"])
+            check_type(argname="argument authentication_providers", value=authentication_providers, expected_type=type_hints["authentication_providers"])
+            check_type(argname="argument permission_type", value=permission_type, expected_type=type_hints["permission_type"])
+            check_type(argname="argument client_token", value=client_token, expected_type=type_hints["client_token"])
+            check_type(argname="argument data_sources", value=data_sources, expected_type=type_hints["data_sources"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument grafana_version", value=grafana_version, expected_type=type_hints["grafana_version"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument network_access_control", value=network_access_control, expected_type=type_hints["network_access_control"])
+            check_type(argname="argument notification_destinations", value=notification_destinations, expected_type=type_hints["notification_destinations"])
+            check_type(argname="argument organizational_units", value=organizational_units, expected_type=type_hints["organizational_units"])
+            check_type(argname="argument organization_role_name", value=organization_role_name, expected_type=type_hints["organization_role_name"])
+            check_type(argname="argument plugin_admin_enabled", value=plugin_admin_enabled, expected_type=type_hints["plugin_admin_enabled"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument saml_configuration", value=saml_configuration, expected_type=type_hints["saml_configuration"])
+            check_type(argname="argument stack_set_name", value=stack_set_name, expected_type=type_hints["stack_set_name"])
+            check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "account_access_type": account_access_type,
+            "authentication_providers": authentication_providers,
+            "permission_type": permission_type,
+        }
+        if client_token is not None:
+            self._values["client_token"] = client_token
+        if data_sources is not None:
+            self._values["data_sources"] = data_sources
+        if description is not None:
+            self._values["description"] = description
+        if grafana_version is not None:
+            self._values["grafana_version"] = grafana_version
+        if name is not None:
+            self._values["name"] = name
+        if network_access_control is not None:
+            self._values["network_access_control"] = network_access_control
+        if notification_destinations is not None:
+            self._values["notification_destinations"] = notification_destinations
+        if organizational_units is not None:
+            self._values["organizational_units"] = organizational_units
+        if organization_role_name is not None:
+            self._values["organization_role_name"] = organization_role_name
+        if plugin_admin_enabled is not None:
+            self._values["plugin_admin_enabled"] = plugin_admin_enabled
+        if role_arn is not None:
+            self._values["role_arn"] = role_arn
+        if saml_configuration is not None:
+            self._values["saml_configuration"] = saml_configuration
+        if stack_set_name is not None:
+            self._values["stack_set_name"] = stack_set_name
+        if vpc_configuration is not None:
+            self._values["vpc_configuration"] = vpc_configuration
+
+    @builtins.property
+    def account_access_type(self) -> builtins.str:
+        '''Specifies whether the workspace can access AWS resources in this AWS account only, or whether it can also access AWS resources in other accounts in the same organization.
+
+        If this is ``ORGANIZATION`` , the ``OrganizationalUnits`` parameter specifies which organizational units the workspace can access.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-accountaccesstype
+        '''
+        result = self._values.get("account_access_type")
+        assert result is not None, "Required property 'account_access_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authentication_providers(self) -> typing.List[builtins.str]:
+        '''Specifies whether this workspace uses SAML 2.0, SSOlong , or both to authenticate users for using the Grafana console within a workspace. For more information, see `User authentication in Amazon Managed Grafana <https://docs.aws.amazon.com/grafana/latest/userguide/authentication-in-AMG.html>`_ .
+
+        *Allowed Values* : ``AWS_SSO | SAML``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-authenticationproviders
+        '''
+        result = self._values.get("authentication_providers")
+        assert result is not None, "Required property 'authentication_providers' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def permission_type(self) -> builtins.str:
+        '''If this is ``SERVICE_MANAGED`` , and the workplace was created through the Amazon Managed Grafana console, then Amazon Managed Grafana automatically creates the IAM roles and provisions the permissions that the workspace needs to use AWS data sources and notification channels.
+
+        If this is ``CUSTOMER_MANAGED`` , you must manage those roles and permissions yourself.
+
+        If you are working with a workspace in a member account of an organization and that account is not a delegated administrator account, and you want the workspace to access data sources in other AWS accounts in the organization, this parameter must be set to ``CUSTOMER_MANAGED`` .
+
+        For more information about converting between customer and service managed, see `Managing permissions for data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-datasource-and-notification.html>`_ . For more information about the roles and permissions that must be managed for customer managed workspaces, see `Amazon Managed Grafana permissions and policies for AWS data sources and notification channels <https://docs.aws.amazon.com/grafana/latest/userguide/AMG-manage-permissions.html>`_
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-permissiontype
+        '''
+        result = self._values.get("permission_type")
+        assert result is not None, "Required property 'permission_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def client_token(self) -> typing.Optional[builtins.str]:
+        '''A unique, case-sensitive, user-provided identifier to ensure the idempotency of the request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-clienttoken
+        '''
+        result = self._values.get("client_token")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_sources(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the AWS data sources that have been configured to have IAM roles and permissions created to allow Amazon Managed Grafana to read data from these sources.
+
+        This list is only used when the workspace was created through the AWS console, and the ``permissionType`` is ``SERVICE_MANAGED`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-datasources
+        '''
+        result = self._values.get("data_sources")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The user-defined description of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def grafana_version(self) -> typing.Optional[builtins.str]:
+        '''Specifies the version of Grafana to support in the workspace.
+
+        Defaults to the latest version on create (for example, 9.4), or the current version of the workspace on update.
+
+        Can only be used to upgrade (for example, from 8.4 to 9.4), not downgrade (for example, from 9.4 to 8.4).
+
+        To know what versions are available to upgrade to for a specific workspace, see the `ListVersions <https://docs.aws.amazon.com/grafana/latest/APIReference/API_ListVersions.html>`_ operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-grafanaversion
+        '''
+        result = self._values.get("grafana_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_access_control(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]]:
+        '''The configuration settings for network access to your workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-networkaccesscontrol
+        '''
+        result = self._values.get("network_access_control")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.NetworkAccessControlProperty"]], result)
+
+    @builtins.property
+    def notification_destinations(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The AWS notification channels that Amazon Managed Grafana can automatically create IAM roles and permissions for, to allow Amazon Managed Grafana to use these channels.
+
+        *AllowedValues* : ``SNS``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-notificationdestinations
+        '''
+        result = self._values.get("notification_destinations")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def organizational_units(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the organizational units that this workspace is allowed to use data sources from, if this workspace is in an account that is part of an organization.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-organizationalunits
+        '''
+        result = self._values.get("organizational_units")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def organization_role_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the IAM role that is used to access resources through Organizations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-organizationrolename
+        '''
+        result = self._values.get("organization_role_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def plugin_admin_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether plugin administration is enabled in the workspace.
+
+        Setting to ``true`` allows workspace admins to install, uninstall, and update plugins from within the Grafana workspace.
+        .. epigraph::
+
+           This option is only valid for workspaces that support Grafana version 9 or newer.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-pluginadminenabled
+        '''
+        result = self._values.get("plugin_admin_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def role_arn(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
+        '''The IAM role that grants permissions to the AWS resources that the workspace will view data from.
+
+        This role must already exist.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-rolearn
+        '''
+        result = self._values.get("role_arn")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
+
+    @builtins.property
+    def saml_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]]:
+        '''If the workspace uses SAML, use this structure to map SAML assertion attributes to workspace user information and define which groups in the assertion attribute are to have the ``Admin`` and ``Editor`` roles in the workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-samlconfiguration
+        '''
+        result = self._values.get("saml_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.SamlConfigurationProperty"]], result)
+
+    @builtins.property
+    def stack_set_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AWS CloudFormation stack set that is used to generate IAM roles to be used for this workspace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-stacksetname
+        '''
+        result = self._values.get("stack_set_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def vpc_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]]:
+        '''The configuration settings for an Amazon VPC that contains data sources for your Grafana workspace to connect to.
+
+        .. epigraph::
+
+           Connecting to a private VPC is not yet available in the Asia Pacific (Seoul) Region (ap-northeast-2).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-grafana-workspace.html#cfn-grafana-workspace-vpcconfiguration
+        '''
+        result = self._values.get("vpc_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.VpcConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWorkspaceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnWorkspace",
     "CfnWorkspaceProps",
-    "IWorkspaceRef",
-    "WorkspaceReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280(
-    *,
-    account_access_type: builtins.str,
-    authentication_providers: typing.Sequence[builtins.str],
-    permission_type: builtins.str,
-    client_token: typing.Optional[builtins.str] = None,
-    data_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
-    description: typing.Optional[builtins.str] = None,
-    grafana_version: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
-    organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
-    organization_role_name: typing.Optional[builtins.str] = None,
-    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    stack_set_name: typing.Optional[builtins.str] = None,
-    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__807561d0c1f3a6a518cc0310a72549ff3163f4e73a859bd5377c3d0791be4b3c(
-    *,
-    workspace_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3024c82d(
     scope: _constructs_77d1e7e8.Construct,
@@ -1729,10 +1628,16 @@ def _typecheckingstub__972564e8260607f3980c99a1e9aecab41a9a45a486b896a29b3870ef3
     organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
     organization_role_name: typing.Optional[builtins.str] = None,
     plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    role_arn: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
     saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stack_set_name: typing.Optional[builtins.str] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9274823263c6be15890be7c903ef1b08a6f3c1a4f98b32dbf2de7b1093ade0fd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1902,6 +1807,29 @@ def _typecheckingstub__de315e4fbef1f0e0f6baf284e1253102bd4adaf752296040880b7f54c
     *,
     security_group_ids: typing.Sequence[builtins.str],
     subnet_ids: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58b0ac807ec7944eb7226ae6fc02b338bc05594b2b8737ec34bf5dbdefd42280(
+    *,
+    account_access_type: builtins.str,
+    authentication_providers: typing.Sequence[builtins.str],
+    permission_type: builtins.str,
+    client_token: typing.Optional[builtins.str] = None,
+    data_sources: typing.Optional[typing.Sequence[builtins.str]] = None,
+    description: typing.Optional[builtins.str] = None,
+    grafana_version: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    network_access_control: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.NetworkAccessControlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    notification_destinations: typing.Optional[typing.Sequence[builtins.str]] = None,
+    organizational_units: typing.Optional[typing.Sequence[builtins.str]] = None,
+    organization_role_name: typing.Optional[builtins.str] = None,
+    plugin_admin_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    role_arn: typing.Optional[typing.Union[builtins.str, _IRoleRef_8400221f]] = None,
+    saml_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.SamlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stack_set_name: typing.Optional[builtins.str] = None,
+    vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

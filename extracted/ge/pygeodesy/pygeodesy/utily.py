@@ -13,10 +13,11 @@ from __future__ import division as _; del _  # noqa: E702 ;
 
 from pygeodesy.basics import _copysign, isinstanceof, isint, isstr
 from pygeodesy.constants import EPS, EPS0, NAN, PI, PI2, PI_2, PI_4, PI_6, R_M, \
-                               _M_KM, _M_NM, _M_SM, _0_0, _0_5, _1_0, _N_1_0, \
+                               _M_KM, _M_NM, _M_SM, _SQRT2_2 as _COS_45, \
+                               _SQRT3_2 as _COS_30, _0_0, _0_5, _1_0, _N_1_0, \
                                _10_0, _90_0, _180_0, _360_0, _copysign_0_0, \
                                _copysignINF, _float, _isfinite, isnan, isnear0, \
-                               _over_1, _umod_360, _umod_PI2
+                               _over_1, _umod_360, _umod_PI2, OVERFLOW
 from pygeodesy.errors import _ValueError, _xkwds, _xkwds_get
 from pygeodesy.internals import _Enum, _passargs, typename
 from pygeodesy.interns import _edge_, _radians_, _semi_circular_, _SPACE_
@@ -28,11 +29,10 @@ from math import acos, asin, asinh, atan2 as _atan2, cos, degrees, fabs, \
                  radians, sin, sinh, tan as _tan  # pow
 
 __all__ = _ALL_LAZY.utily
-__version__ = '25.09.09'
+__version__ = '26.01.14'
 
-# sqrt(3) <https://WikiPedia.org/wiki/Square_root_of_3>
-_COS_30,  _SIN_30 = 0.86602540378443864676, _0_5  # sqrt(3) / 2
-_COS_45 = _SIN_45 = 0.70710678118654752440  # sqrt(2) / 2
+_SIN_30 = _0_5
+_SIN_45 = _COS_45
 
 _G = _Enum(  # grades per ...
     DEG     = _float(  400.0 / _360_0),  # degree
@@ -42,7 +42,7 @@ _M = _Enum(  # meter per ...
     ACRE    = _float( 4046.8564224),     # acre, chain2m(1) * furlong2m(1), squared
     CHAIN   = _float(   20.1168),        # yard2m(1) * 22
     FATHOM  = _float(    1.8288),        # yard2m(1) * 2 or _M.NM * 1e-3
-    FOOT    = _float(    0.3048),        # Int'l foot, 1 / 3.280_839_895_0131 = 10_000 / (254 * 12)
+    FOOT    = _float(    0.3048),        # Int'l foot, 1 / 3.280_839_895_0131 == (254 * 12) / 10_000
     FOOT_GE = _float(    0.31608),       # German Fuss, 1 / 3.163_756_011_1364
     FOOT_FR = _float(    0.3248406),     # French Pied-du-Roi or pied, 1 / 3.078_432_929_8739
     FOOT_US = _float(    0.3048006096012192),  # US Survey foot, 1_200 / 3_937
@@ -56,7 +56,7 @@ _M = _Enum(  # meter per ...
 
 
 def _abs1nan(x):
-    '''(INTERNAL) Bracket C{x}.
+    '''(INTERNAL) Bracket C{-1 < x < 1 or isnan(x)}.
     '''
     return _N_1_0 < x < _1_0 or isnan(x)
 
@@ -807,15 +807,16 @@ def _sin0cos2(q, r, sign):
     return s, c
 
 
-def SinCos2(x):
+def SinCos2(x, unit=Radians):
     '''Get C{sin} and C{cos} of I{typed} angle.
 
        @arg x: Angle (L{Degrees}, L{Radians} or scalar C{radians}).
+       @kwarg unit: The C{B{x}} unit (L{Degrees}, L{Radians}).
 
        @return: 2-Tuple (C{sin(B{x})}, C{cos(B{x})}).
     '''
-    return sincos2d(x) if isinstanceof(x, Degrees, Degrees_) else (
-#          sincos2(x)  if isinstanceof(x, Radians, Radians_) else
+    return sincos2d(x) if unit is Degrees or unit is degrees or isinstanceof(x, Degrees, Degrees_) else (
+#          sincos2(x)  if unit is Radians or unit is radians or isinstanceof(x, Radians, Radians_) else
            sincos2(Radians(x)))  # assume C{radians}
 
 
@@ -996,13 +997,14 @@ def tan_(*rads, **raiser_kwds):
         yield _nonfinite(tan_, r, **raiser_kwds)
 
 
-def tand(deg, **raiser_kwds):
+def tand(deg, **raiser_clamp_kwds):
     '''Return the C{tangent} of an angle in C{degrees}.
 
        @arg deg: Angle (C{degrees}).
-       @kwarg raiser_kwds: Use C{B{raiser}=False} to avoid
-                     ValueErrors and optional, additional
-                     ValueError keyword argments.
+       @kwarg raiser_clamp_kwds: Use C{B{raiser}=False} to avoid
+                     ValueErrors, C{B{clamp}=}L{OVERFLOW} and
+                     optional, additional ValueError keyword
+                     argments.
 
        @return: C{tan(B{deg})}.
 
@@ -1011,10 +1013,10 @@ def tand(deg, **raiser_kwds):
     try:
         return _tanu(*sincos2d(deg))
     except ZeroDivisionError:
-        return _nonfinite(tand, deg, **raiser_kwds)
+        return _nonfinite(tand, deg, **raiser_clamp_kwds)
 
 
-def tand_(*degs, **raiser_kwds):
+def tand_(*degs, **raiser_clamp_kwds):
     '''Yield the C{tangent} of angle(s) in C{degrees}.
 
        @arg degs: One or more angles (each in C{degrees}).
@@ -1025,9 +1027,9 @@ def tand_(*degs, **raiser_kwds):
     '''
     try:
         for d in degs:
-            yield _tanu(*sincos2d(d))
+            yield _tanu(*sincos2d(d), **raiser_clamp_kwds)
     except ZeroDivisionError:
-        yield _nonfinite(tand_, d, **raiser_kwds)
+        yield _nonfinite(tand_, d, **raiser_clamp_kwds)
 
 
 def tanPI_2_2(rad):
@@ -1041,7 +1043,7 @@ def tanPI_2_2(rad):
             NAN if isnan(rad) else _copysign(_90_0, rad))
 
 
-def _tanu(s, c):
+def _tanu(s, c, clamp=OVERFLOW, **unused):
     '''(INTERNAL) Helper for functions C{_cotu}, C{sincostan3},
        C{sincostan3d}, C{tan}, C{tan_}, C{tand} and C{tand_}.
     '''
@@ -1051,6 +1053,8 @@ def _tanu(s, c):
         raise ZeroDivisionError()
     else:
         t = _over_1(s, c)
+        if clamp:
+            t = min(clamp, max(t, -clamp))
     return t
 
 
@@ -1383,7 +1387,7 @@ def yard2m(yards):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -5,6 +5,8 @@ import datarobot.models.genai
 import datarobot.models.registry
 
 from .application import Application
+from .custom_application import CustomApplication
+from .custom_application_source import CustomApplicationSource
 from .automated_documentation import AutomatedDocument
 from .batch_monitoring_job import BatchMonitoringJob, BatchMonitoringJobDefinition
 from .batch_prediction_job import BatchPredictionJob, BatchPredictionJobDefinition
@@ -67,7 +69,7 @@ from .feature_effect import (
     FeatureEffectsMulticlass,
 )
 from .featurelist import DatasetFeaturelist, Featurelist, ModelingFeaturelist
-from .files import Files, FilesCatalogSearch
+from .files import Files, FilesCatalogSearch, FilesStage
 from .job import FeatureImpactJob, Job, TrainingPredictionsJob
 from .key_values import KeyValue
 from .model import (

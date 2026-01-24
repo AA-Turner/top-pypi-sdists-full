@@ -122,6 +122,15 @@ class CancelOption(Enum):
         return self.value
 
 
+class Category(Enum):
+    INTRODUCTORY = "introductory"
+    PROMOTIONAL = "promotional"
+    DEVELOPER_DETERMINED = "developer_determined"
+
+    def __str__(self):
+        return self.value
+
+
 class ChangeOption(Enum):
     IMMEDIATELY = "immediately"
     END_OF_TERM = "end_of_term"
@@ -253,6 +262,15 @@ class DirectDebitScheme(Enum):
         return self.value
 
 
+class DiscountType(Enum):
+    FIXED_AMOUNT = "fixed_amount"
+    PERCENTAGE = "percentage"
+    PRICE = "price"
+
+    def __str__(self):
+        return self.value
+
+
 class DispositionType(Enum):
     ATTACHMENT = "attachment"
     INLINE = "inline"
@@ -372,6 +390,8 @@ class EntityType(Enum):
     OMNICHANNEL_ONE_TIME_ORDER = "omnichannel_one_time_order"
     OMNICHANNEL_ONE_TIME_ORDER_ITEM = "omnichannel_one_time_order_item"
     USAGE_FILE = "usage_file"
+    BUSINESS_RULE = "business_rule"
+    RULESET = "ruleset"
 
     def __str__(self):
         return self.value
@@ -466,6 +486,7 @@ class EventType(Enum):
     TRANSACTION_DELETED = "transaction_deleted"
     PAYMENT_SUCCEEDED = "payment_succeeded"
     PAYMENT_FAILED = "payment_failed"
+    DUNNING_UPDATED = "dunning_updated"
     PAYMENT_REFUNDED = "payment_refunded"
     PAYMENT_INITIATED = "payment_initiated"
     REFUND_INITIATED = "refund_initiated"
@@ -629,12 +650,22 @@ class EventType(Enum):
     OMNICHANNEL_SUBSCRIPTION_ITEM_PAUSE_SCHEDULED = (
         "omnichannel_subscription_item_pause_scheduled"
     )
+    OMNICHANNEL_SUBSCRIPTION_MOVED_IN = "omnichannel_subscription_moved_in"
+    OMNICHANNEL_TRANSACTION_CREATED = "omnichannel_transaction_created"
     PLAN_CREATED = "plan_created"
     PLAN_UPDATED = "plan_updated"
     PLAN_DELETED = "plan_deleted"
     ADDON_CREATED = "addon_created"
     ADDON_UPDATED = "addon_updated"
     ADDON_DELETED = "addon_deleted"
+
+    def __str__(self):
+        return self.value
+
+
+class ExcludeTaxType(Enum):
+    EXCLUSIVE = "exclusive"
+    NONE = "none"
 
     def __str__(self):
         return self.value
@@ -721,6 +752,9 @@ class Gateway(Enum):
     SOLIDGATE = "solidgate"
     PAYSTACK = "paystack"
     JP_MORGAN = "jp_morgan"
+    DEUTSCHE_BANK = "deutsche_bank"
+    EZIDEBIT = "ezidebit"
+    TWIKEY = "twikey"
     GOCARDLESS = "gocardless"
     NOT_APPLICABLE = "not_applicable"
 
@@ -870,6 +904,11 @@ class PaymentMethod(Enum):
     KLARNA_PAY_NOW = "klarna_pay_now"
     ONLINE_BANKING_POLAND = "online_banking_poland"
     PAYCONIQ_BY_BANCONTACT = "payconiq_by_bancontact"
+    ELECTRONIC_PAYMENT_STANDARD = "electronic_payment_standard"
+    KBC_PAYMENT_BUTTON = "kbc_payment_button"
+    PAY_BY_BANK = "pay_by_bank"
+    TRUSTLY = "trustly"
+    STABLECOIN = "stablecoin"
 
     def __str__(self):
         return self.value
@@ -901,6 +940,11 @@ class PaymentMethodType(Enum):
     KLARNA_PAY_NOW = "klarna_pay_now"
     ONLINE_BANKING_POLAND = "online_banking_poland"
     PAYCONIQ_BY_BANCONTACT = "payconiq_by_bancontact"
+    ELECTRONIC_PAYMENT_STANDARD = "electronic_payment_standard"
+    KBC_PAYMENT_BUTTON = "kbc_payment_button"
+    PAY_BY_BANK = "pay_by_bank"
+    TRUSTLY = "trustly"
+    STABLECOIN = "stablecoin"
 
     def __str__(self):
         return self.value
@@ -1008,6 +1052,15 @@ class ReportBy(Enum):
 class ResumeOption(Enum):
     IMMEDIATELY = "immediately"
     SPECIFIC_DATE = "specific_date"
+
+    def __str__(self):
+        return self.value
+
+
+class RetryEngine(Enum):
+    CHARGEBEE = "chargebee"
+    FLEXPAY = "flexpay"
+    SUCCESSPLUS = "successplus"
 
     def __str__(self):
         return self.value
@@ -1140,6 +1193,14 @@ class Type(Enum):
     KLARNA_PAY_NOW = "klarna_pay_now"
     ONLINE_BANKING_POLAND = "online_banking_poland"
     PAYCONIQ_BY_BANCONTACT = "payconiq_by_bancontact"
+    ELECTRONIC_PAYMENT_STANDARD = "electronic_payment_standard"
+    KBC_PAYMENT_BUTTON = "kbc_payment_button"
+    PAY_BY_BANK = "pay_by_bank"
+    TRUSTLY = "trustly"
+    STABLECOIN = "stablecoin"
+    FREE_TRIAL = "free_trial"
+    PAY_UP_FRONT = "pay_up_front"
+    PAY_AS_YOU_GO = "pay_as_you_go"
 
     def __str__(self):
         return self.value

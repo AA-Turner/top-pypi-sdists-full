@@ -1,9 +1,11 @@
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any, Optional
+
 import lxml
-from newspaper import urls
+
 import newspaper.parsers as parsers
+from newspaper import urls
 from newspaper.configuration import Configuration
 from newspaper.extractors.articlebody_extractor import ArticleBodyExtractor
 from newspaper.extractors.authors_extractor import AuthorsExtractor
@@ -33,7 +35,7 @@ class ContentExtractor:
         title_extractor (TitleExtractor): The title extractor object.
         author_extractor (AuthorsExtractor): The authors extractor object.
         pubdate_extractor (PubdateExtractor): The publishing date extractor object.
-        atricle_body_extractor (ArticleBodyExtractor): The article body
+        article_body_extractor (ArticleBodyExtractor): The article body
             extractor object.
         metadata_extractor (MetadataExtractor): The metadata extractor object.
         categories_extractor (CategoryExtractor): The category extractor object.
@@ -46,21 +48,19 @@ class ContentExtractor:
         self.title_extractor = TitleExtractor(config)
         self.author_extractor = AuthorsExtractor(config)
         self.pubdate_extractor = PubdateExtractor(config)
-        self.atricle_body_extractor = ArticleBodyExtractor(config)
+        self.article_body_extractor = ArticleBodyExtractor(config)
         self.metadata_extractor = MetadataExtractor(config)
         self.categories_extractor = CategoryExtractor(config)
         self.image_extractor = ImageExtractor(config)
         self.video_extractor = VideoExtractor(config)
 
-    def get_authors(self, doc: lxml.html.Element) -> List[str]:
+    def get_authors(self, doc: lxml.html.Element) -> list[str]:
         """Fetch the authors of the article, return as a list
         Only works for english articles
         """
         return self.author_extractor.parse(doc)
 
-    def get_publishing_date(
-        self, url: str, doc: lxml.html.Element
-    ) -> Optional[datetime]:
+    def get_publishing_date(self, url: str, doc: lxml.html.Element) -> Optional[datetime]:
         """Return the article publishing date as datetime object. If no valid
         date could be found, return None. The parser tries to determine the
         date from the following sources (in this order): article url
@@ -112,13 +112,11 @@ class ContentExtractor:
         total_feed_urls = list(set(total_feed_urls))
         return total_feed_urls
 
-    def get_metadata(self, article_url: str, doc: lxml.html.Element) -> Dict[str, Any]:
+    def get_metadata(self, article_url: str, doc: lxml.html.Element) -> dict[str, Any]:
         """Parse the article's HTML for any known metadata attributes"""
         return self.metadata_extractor.parse(article_url, doc)
 
-    def parse_images(
-        self, article_url: str, doc: lxml.html.Element, top_node: lxml.html.Element
-    ):
+    def parse_images(self, article_url: str, doc: lxml.html.Element, top_node: lxml.html.Element):
         """Parse images in an article"""
         self.image_extractor.parse(doc, top_node, article_url)
 
@@ -138,7 +136,7 @@ class ContentExtractor:
         Returns:
             lxml.html.Element: The top node containing the article text
         """
-        return self.atricle_body_extractor.top_node
+        return self.article_body_extractor.top_node
 
     @property
     def top_node_complemented(self) -> lxml.html.Element:
@@ -147,11 +145,9 @@ class ContentExtractor:
         Returns:
             lxml.html.Element: deepcopy version of the top node, cleaned
         """
-        return self.atricle_body_extractor.top_node_complemented
+        return self.article_body_extractor.top_node_complemented
 
-    def calculate_best_node(
-        self, doc: lxml.html.Element
-    ) -> Optional[lxml.html.Element]:
+    def calculate_best_node(self, doc: lxml.html.Element) -> Optional[lxml.html.Element]:
         """Extracts the most probable top node for the article text
         based on a variety of heuristics
 
@@ -164,13 +160,11 @@ class ContentExtractor:
             lxml.html.Element: the article top element
             (most probable container of the article text), or None
         """
-        self.atricle_body_extractor.parse(doc)
+        self.article_body_extractor.parse(doc)
 
-        return self.atricle_body_extractor.top_node
+        return self.article_body_extractor.top_node
 
-    def get_videos(
-        self, doc: lxml.html.Element, top_node: lxml.html.Element
-    ) -> List[Video]:
+    def get_videos(self, doc: lxml.html.Element, top_node: lxml.html.Element) -> list[Video]:
         """Gets video links from article
 
         Args:
@@ -178,6 +172,6 @@ class ContentExtractor:
             top_node (lxml.html.Element): Article top node.
 
         Returns:
-            List[str]: list of video urls
+            list[str]: list of video urls
         """
         return self.video_extractor.parse(doc, top_node)

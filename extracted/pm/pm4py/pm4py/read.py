@@ -76,6 +76,7 @@ def read_xes(
     file_path: str,
     variant: Optional[str] = None,
     return_legacy_log_object: bool = constants.DEFAULT_READ_XES_LEGACY_OBJECT,
+    return_pl_lazyframe: bool = False,
     encoding: str = constants.DEFAULT_ENCODING,
     **kwargs
 ) -> Union[DataFrame, EventLog]:
@@ -91,6 +92,7 @@ def read_xes(
         - "iterparse20" – XES 2.0 importer,
         - "rustxes" – Rust-based importer.
     :param return_legacy_log_object: Boolean indicating whether to return a legacy `EventLog` object (default: `False`).
+    :param return_pl_lazyframe: Returns a Polars LazyFrame (defaul
     :param encoding: Encoding to be used (default: `utf-8`).
     :param **kwargs: Additional parameters to pass to the importer.
     :rtype: `pandas.DataFrame` or `pm4py.objects.log.obj.EventLog`
@@ -134,14 +136,22 @@ def read_xes(
     parameters = copy(kwargs)
     parameters["encoding"] = encoding
     parameters["return_legacy_log_object"] = return_legacy_log_object
+    parameters["return_pl_lazyframe"] = return_pl_lazyframe
 
     log = xes_importer.apply(local_path, variant=v, parameters=parameters)
 
-    if isinstance(log, EventLog) and not return_legacy_log_object:
-        from pm4py.objects.conversion.log import converter as log_converter
-        log = log_converter.apply(
-            log, variant=log_converter.Variants.TO_DATA_FRAME
-        )
+    if return_legacy_log_object:
+        pass
+    else:
+        if isinstance(log, EventLog):
+            from pm4py.objects.conversion.log import converter as log_converter
+            log = log_converter.apply(
+                log, variant=log_converter.Variants.TO_DATA_FRAME, parameters=parameters
+            )
+
+        if constants.DEFAULT_XES_FORMAT_DATAFRAME:
+            from pm4py.utils import format_dataframe
+            log = format_dataframe(log)
 
     return log
 
@@ -467,12 +477,7 @@ def read_ocel2_json(
     """
     from pm4py.objects.ocel.importer.jsonocel import importer as jsonocel_importer
 
-    if importlib.util.find_spec("rustxes"):
-        __rustxes_usage_warning()
-        variant = jsonocel_importer.Variants.OCEL20_RUSTXES
-    else:
-        __rustxes_non_usage_warning()
-        variant = jsonocel_importer.Variants.OCEL20_STANDARD
+    variant = jsonocel_importer.Variants.OCEL20_STANDARD
 
     return jsonocel_importer.apply(
         file_path, variant=variant, parameters={"encoding": encoding}
@@ -526,12 +531,7 @@ def read_ocel2_xml(
     """
     from pm4py.objects.ocel.importer.xmlocel import importer as xml_importer
 
-    if importlib.util.find_spec("rustxes"):
-        __rustxes_usage_warning()
-        variant = xml_importer.Variants.OCEL20_RUSTXES
-    else:
-        __rustxes_non_usage_warning()
-        variant = xml_importer.Variants.OCEL20
+    variant = xml_importer.Variants.OCEL20
 
     return xml_importer.apply(
         file_path, variant=variant, parameters={"encoding": encoding}

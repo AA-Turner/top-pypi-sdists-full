@@ -1,6 +1,11 @@
 from unittest import TestCase
+from cryptography.hazmat.primitives import hashes
 from joserfc.jwk import OKPKey
-from joserfc.errors import InvalidExchangeKeyError
+from joserfc.errors import (
+    InvalidExchangeKeyError,
+    InvalidKeyTypeError,
+    InvalidKeyCurveError,
+)
 from tests.keys import read_key
 
 
@@ -30,7 +35,7 @@ class TestOKPKey(TestCase):
         public_key = OKPKey.generate_key("Ed25519", private=False)
         self.assertFalse(public_key.is_private)
         self.assertIsNone(public_key.kid)
-        self.assertRaises(ValueError, OKPKey.generate_key, "invalid")
+        self.assertRaises(InvalidKeyCurveError, OKPKey.generate_key, "invalid")
 
         key = OKPKey.generate_key(auto_kid=True)
         self.assertIsNotNone(key.kid)
@@ -47,6 +52,10 @@ class TestOKPKey(TestCase):
 
         self.assertIn("d", private_key.as_dict())
         self.assertNotIn("d", public_key.as_dict())
+
+    def test_import_invalid_pem_key(self):
+        public_pem = read_key("ec-p256-public.pem")
+        self.assertRaises(InvalidKeyTypeError, OKPKey.import_key, public_pem)
 
     def test_properties(self):
         private_pem = read_key("okp-ed448-private.pem")
@@ -66,6 +75,12 @@ class TestOKPKey(TestCase):
         public_key = OKPKey.import_key(read_key("okp-ed25519-public.json"))
         self.assertTrue(private_key.is_private)
         self.assertFalse(public_key.is_private)
+
+    def test_import_from_native_keys(self):
+        curves = ["Ed25519", "Ed448", "X25519", "X448"]
+        for crv in curves:
+            key = OKPKey.generate_key(crv)
+            self.assertEqual(key, OKPKey.import_key(key.private_key))
 
     def test_all_as_methods(self):
         private_json = read_key("okp-ed25519-private.json")
@@ -104,3 +119,31 @@ class TestOKPKey(TestCase):
         self.assertEqual(key1, key2)
         key3 = OKPKey.generate_key()
         self.assertNotEqual(key1, key3)
+
+    def test_derive_key_errors(self):
+        self.assertRaises(KeyError, OKPKey.derive_key, "secret", "invalid")
+        self.assertRaises(ValueError, OKPKey.derive_key, "secret", "Ed25519", kdf_name="invalid")
+
+    def test_derive_key_with_default_kwargs(self):
+        curves = ["Ed25519", "Ed448", "X25519", "X448"]
+        for crv in curves:
+            key1 = OKPKey.derive_key("okp-secret-key", crv)
+            key2 = OKPKey.derive_key("okp-secret-key", crv)
+            self.assertEqual(key1, key2)
+
+        for crv in curves:
+            key1 = OKPKey.derive_key("okp-secret-key", crv, kdf_name="PBKDF2")
+            key2 = OKPKey.derive_key("okp-secret-key", crv, kdf_name="PBKDF2")
+            self.assertEqual(key1, key2)
+
+    def test_derive_key_with_new_salt(self):
+        curves = ["Ed25519", "Ed448", "X25519", "X448"]
+        for crv in curves:
+            key1 = OKPKey.derive_key("okp-secret-key", crv, kdf_options={"salt": b"salt"})
+            key2 = OKPKey.derive_key("okp-secret-key", crv, kdf_options={"salt": b"salt"})
+            self.assertEqual(key1, key2)
+
+    def test_derive_key_with_different_hash(self):
+        key1 = OKPKey.derive_key("okp-secret-key", "Ed25519", kdf_options={"algorithm": hashes.SHA256()})
+        key2 = OKPKey.derive_key("okp-secret-key", "Ed25519", kdf_options={"algorithm": hashes.SHA512()})
+        self.assertNotEqual(key1, key2)

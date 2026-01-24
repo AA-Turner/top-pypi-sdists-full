@@ -47,6 +47,7 @@ from timm.data import (
 )
 from timm.layers import (
     Attention,
+    DiffAttention,
     AttentionPoolLatent,
     PatchEmbed,
     Mlp,
@@ -55,6 +56,7 @@ from timm.layers import (
     LayerNorm,
     RmsNorm,
     DropPath,
+    calculate_drop_path_rates,
     PatchDropout,
     trunc_normal_,
     lecun_normal_,
@@ -65,6 +67,7 @@ from timm.layers import (
     get_norm_layer,
     maybe_add_mask,
     LayerType,
+    LayerScale,
 )
 from ._builder import build_model_with_cfg
 from ._features import feature_take_indices
@@ -77,33 +80,47 @@ __all__ = ['VisionTransformer']  # model_registry will add each entrypoint fn to
 _logger = logging.getLogger(__name__)
 
 
-class LayerScale(nn.Module):
-    """Layer scale module.
+ATTN_LAYERS = {
+    '': Attention,
+    'attn': Attention,
+    'diff': DiffAttention,
+}
 
-    References:
-      - https://arxiv.org/abs/2103.17239
-    """
 
-    def __init__(
-            self,
-            dim: int,
-            init_values: float = 1e-5,
-            inplace: bool = False,
-    ) -> None:
-        """Initialize LayerScale module.
+def _create_attn(
+        attn_layer: LayerType,
+        dim: int,
+        num_heads: int,
+        qkv_bias: bool = False,
+        qk_norm: bool = False,
+        scale_norm: bool = False,
+        proj_bias: bool = True,
+        attn_drop: float = 0.,
+        proj_drop: float = 0.,
+        norm_layer: Optional[Type[nn.Module]] = None,
+        depth: int = 0,
+        **kwargs,
+) -> nn.Module:
+    if isinstance(attn_layer, str):
+        attn_layer = ATTN_LAYERS.get(attn_layer, None)
+        assert attn_layer is not None, f'Unknown attn_layer: {attn_layer}'
 
-        Args:
-            dim: Dimension.
-            init_values: Initial value for scaling.
-            inplace: If True, perform inplace operations.
-        """
-        super().__init__()
-        self.inplace = inplace
-        self.gamma = nn.Parameter(init_values * torch.ones(dim))
+    # Only pass depth to attention layers that use it
+    if issubclass(attn_layer, DiffAttention):
+        kwargs['depth'] = depth
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply layer scaling."""
-        return x.mul_(self.gamma) if self.inplace else x * self.gamma
+    return attn_layer(
+        dim,
+        num_heads=num_heads,
+        qkv_bias=qkv_bias,
+        qk_norm=qk_norm,
+        scale_norm=scale_norm,
+        proj_bias=proj_bias,
+        attn_drop=attn_drop,
+        proj_drop=proj_drop,
+        norm_layer=norm_layer,
+        **kwargs,
+    )
 
 
 class Block(nn.Module):
@@ -126,6 +143,10 @@ class Block(nn.Module):
             act_layer: Type[nn.Module] = nn.GELU,
             norm_layer: Type[nn.Module] = LayerNorm,
             mlp_layer: Type[nn.Module] = Mlp,
+            attn_layer: LayerType = Attention,
+            depth: int = 0,
+            device=None,
+            dtype=None,
     ) -> None:
         """Initialize Block.
 
@@ -143,10 +164,15 @@ class Block(nn.Module):
             act_layer: Activation layer.
             norm_layer: Normalization layer.
             mlp_layer: MLP layer.
+            attn_layer: Attention layer type (class or string).
+            depth: Block index, passed to attention layer for depth-dependent init.
         """
         super().__init__()
-        self.norm1 = norm_layer(dim)
-        self.attn = Attention(
+        dd = {'device': device, 'dtype': dtype}
+
+        self.norm1 = norm_layer(dim, **dd)
+        self.attn = _create_attn(
+            attn_layer,
             dim,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
@@ -156,11 +182,13 @@ class Block(nn.Module):
             attn_drop=attn_drop,
             proj_drop=proj_drop,
             norm_layer=norm_layer,
+            depth=depth,
+            **dd,
         )
-        self.ls1 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls1 = LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()
         self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-        self.norm2 = norm_layer(dim)
+        self.norm2 = norm_layer(dim, **dd)
         self.mlp = mlp_layer(
             in_features=dim,
             hidden_features=int(dim * mlp_ratio),
@@ -168,8 +196,9 @@ class Block(nn.Module):
             norm_layer=norm_layer if scale_mlp_norm else None,
             bias=proj_bias,
             drop=proj_drop,
+            **dd,
         )
-        self.ls2 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls2 = LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -196,11 +225,17 @@ class ResPostBlock(nn.Module):
             act_layer: Type[nn.Module] = nn.GELU,
             norm_layer: Type[nn.Module] = LayerNorm,
             mlp_layer: Type[nn.Module] = Mlp,
+            attn_layer: LayerType = Attention,
+            depth: int = 0,
+            device=None,
+            dtype=None,
     ) -> None:
         super().__init__()
+        dd = {'device': device, 'dtype': dtype}
         self.init_values = init_values
 
-        self.attn = Attention(
+        self.attn = _create_attn(
+            attn_layer,
             dim,
             num_heads=num_heads,
             qkv_bias=qkv_bias,
@@ -210,8 +245,10 @@ class ResPostBlock(nn.Module):
             attn_drop=attn_drop,
             proj_drop=proj_drop,
             norm_layer=norm_layer,
+            depth=depth,
+            **dd,
         )
-        self.norm1 = norm_layer(dim)
+        self.norm1 = norm_layer(dim, **dd)
         self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
         self.mlp = mlp_layer(
@@ -221,8 +258,9 @@ class ResPostBlock(nn.Module):
             norm_layer=norm_layer if scale_mlp_norm else None,
             bias=proj_bias,
             drop=proj_drop,
+            **dd,
         )
-        self.norm2 = norm_layer(dim)
+        self.norm2 = norm_layer(dim, **dd)
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
         self.init_weights()
@@ -262,9 +300,15 @@ class ParallelScalingBlock(nn.Module):
             drop_path: float = 0.,
             act_layer: Type[nn.Module] = nn.GELU,
             norm_layer: Type[nn.Module] = LayerNorm,
-            mlp_layer: Optional[Type[nn.Module]] = None,
+            mlp_layer: Optional[Type[nn.Module]] = None,  # not used
+            attn_layer: Optional[LayerType] = None,  # not used
+            depth: int = 0,  # not used
+            fuse_out_proj: bool = False,
+            device=None,
+            dtype=None,
     ) -> None:
         super().__init__()
+        dd = {'device': device, 'dtype': dtype}
         assert dim % num_heads == 0, 'dim should be divisible by num_heads'
         assert not scale_attn_norm and not scale_mlp_norm, 'Scale norms not supported'
         self.num_heads = num_heads
@@ -274,27 +318,51 @@ class ParallelScalingBlock(nn.Module):
         mlp_hidden_dim = int(mlp_ratio * dim)
         in_proj_out_dim = mlp_hidden_dim + 3 * dim
 
-        self.in_norm = norm_layer(dim)
-        self.in_proj = nn.Linear(dim, in_proj_out_dim, bias=qkv_bias)
+        self.in_norm = norm_layer(dim, **dd)
+        self.in_proj = nn.Linear(dim, in_proj_out_dim, bias=qkv_bias, **dd)
         self.in_split = [mlp_hidden_dim] + [dim] * 3
         if qkv_bias:
             self.register_buffer('qkv_bias', None)
             self.register_parameter('mlp_bias', None)
         else:
-            self.register_buffer('qkv_bias', torch.zeros(3 * dim), persistent=False)
-            self.mlp_bias = nn.Parameter(torch.zeros(mlp_hidden_dim))
+            # Register empty buffer with correct shape
+            self.register_buffer('qkv_bias', torch.empty(3 * dim, **dd), persistent=False)
+            self.mlp_bias = nn.Parameter(torch.empty(mlp_hidden_dim, **dd))
 
-        self.q_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
-        self.k_norm = norm_layer(self.head_dim) if qk_norm else nn.Identity()
+        self.q_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
+        self.k_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
         self.attn_drop = nn.Dropout(attn_drop)
-        self.attn_out_proj = nn.Linear(dim, dim, bias=proj_bias)
 
         self.mlp_drop = nn.Dropout(proj_drop)
         self.mlp_act = act_layer()
-        self.mlp_out_proj = nn.Linear(mlp_hidden_dim, dim, bias=proj_bias)
 
-        self.ls = LayerScale(dim, init_values=init_values) if init_values is not None else nn.Identity()
+        if fuse_out_proj:
+            # Fused output projection for both attention and MLP
+            self.out_proj = nn.Linear(dim + mlp_hidden_dim, dim, bias=proj_bias, **dd)
+            self.attn_out_proj = None
+            self.mlp_out_proj = None
+        else:
+            # Separate output projections
+            self.out_proj = None
+            self.attn_out_proj = nn.Linear(dim, dim, bias=proj_bias, **dd)
+            self.mlp_out_proj = nn.Linear(mlp_hidden_dim, dim, bias=proj_bias, **dd)
+
+        self.ls = LayerScale(dim, init_values=init_values, **dd) if init_values is not None else nn.Identity()
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+        if not self.in_proj.weight.is_meta:
+            self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        if self.mlp_bias is not None:
+            nn.init.zeros_(self.mlp_bias)
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        if self.qkv_bias is not None:
+            self.qkv_bias.zero_()
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         B, N, C = x.shape
@@ -328,17 +396,205 @@ class ParallelScalingBlock(nn.Module):
             x_attn = attn @ v
 
         x_attn = x_attn.transpose(1, 2).reshape(B, N, C)
-        x_attn = self.attn_out_proj(x_attn)
 
-        # MLP activation, dropout, fc2
+        # MLP activation & dropout
         x_mlp = self.mlp_act(x_mlp)
         x_mlp = self.mlp_drop(x_mlp)
-        x_mlp = self.mlp_out_proj(x_mlp)
+
+        # Output projection (fused or separate)
+        if self.out_proj is not None:
+            y = self.out_proj(torch.cat((x_attn, x_mlp), dim=-1))
+        else:
+            y = self.attn_out_proj(x_attn) + self.mlp_out_proj(x_mlp)
 
         # Add residual w/ drop path & layer scale applied
-        y = self.drop_path(self.ls(x_attn + x_mlp))
-        x = x + y
+        x = x + self.drop_path(self.ls(y))
         return x
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
+
+
+class DiffParallelScalingBlock(nn.Module):
+    """ Parallel ViT block with Differential Attention (MLP & Attention in parallel).
+
+    Combines the parallel MLP+Attention structure from 'Scaling Vision Transformers to
+    22 Billion Parameters' (https://arxiv.org/abs/2302.05442) with differential attention
+    from 'Differential Transformer' (https://arxiv.org/abs/2410.05258).
+    """
+    fused_attn: Final[bool]
+
+    def __init__(
+            self,
+            dim: int,
+            num_heads: int,
+            mlp_ratio: float = 4.,
+            qkv_bias: bool = False,
+            qk_norm: bool = False,
+            scale_attn_norm: bool = False,
+            scale_mlp_norm: bool = False,
+            proj_bias: bool = True,
+            proj_drop: float = 0.,
+            attn_drop: float = 0.,
+            init_values: Optional[float] = None,
+            drop_path: float = 0.,
+            act_layer: Type[nn.Module] = nn.GELU,
+            norm_layer: Type[nn.Module] = LayerNorm,
+            mlp_layer: Optional[Type[nn.Module]] = None,
+            attn_layer: Optional[LayerType] = None,
+            depth: int = 0,
+            dual_lambda: bool = False,
+            device=None,
+            dtype=None,
+    ) -> None:
+        super().__init__()
+        dd = {'device': device, 'dtype': dtype}
+        assert dim % num_heads == 0, 'dim should be divisible by num_heads'
+        assert not scale_attn_norm and not scale_mlp_norm, 'Scale norms not supported'
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads // 2  # Half head_dim for diff attention
+        self.scale = self.head_dim ** -0.5
+        self.fused_attn = use_fused_attn()
+        mlp_hidden_dim = int(mlp_ratio * dim)
+        in_proj_out_dim = mlp_hidden_dim + 3 * dim
+
+        self.in_norm = norm_layer(dim, **dd)
+        self.in_proj = nn.Linear(dim, in_proj_out_dim, bias=qkv_bias, **dd)
+        self.in_split = [mlp_hidden_dim] + [dim] * 3
+        if qkv_bias:
+            self.register_buffer('qkv_bias', None)
+            self.register_parameter('mlp_bias', None)
+        else:
+            # Register empty buffer with correct shape
+            self.register_buffer('qkv_bias', torch.empty(3 * dim, **dd), persistent=False)
+            self.mlp_bias = nn.Parameter(torch.empty(mlp_hidden_dim, **dd))
+
+        self.q_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
+        self.k_norm = norm_layer(self.head_dim, **dd) if qk_norm else nn.Identity()
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.attn_drop_p = attn_drop
+
+        # Differential attention specific
+        self.sub_norm = RmsNorm(2 * self.head_dim, eps=1e-5, **dd)
+        self.dual_lambda = dual_lambda
+        if dual_lambda:
+            self.lambda_a = nn.Parameter(torch.empty((), dtype=torch.float32, device=device))
+            self.lambda_b = nn.Parameter(torch.empty((), dtype=torch.float32, device=device))
+            self.lambda_q1 = self.lambda_k1 = self.lambda_q2 = self.lambda_k2 = None
+        else:
+            self.lambda_a = self.lambda_b = None
+            self.lambda_q1 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
+            self.lambda_k1 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
+            self.lambda_q2 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
+            self.lambda_k2 = nn.Parameter(torch.empty(self.head_dim, dtype=torch.float32, device=device))
+
+        self.mlp_drop = nn.Dropout(proj_drop)
+        self.mlp_act = act_layer()
+
+        # Fused output projection for both attention and MLP
+        self.out_proj = nn.Linear(dim + mlp_hidden_dim, dim, bias=proj_bias, **dd)
+
+        self.ls = LayerScale(dim, init_values=init_values, **dd) if init_values is not None else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+
+        self.lambda_init = 0.8
+        self.set_lambda_init(depth)
+
+        if not self.in_proj.weight.is_meta:
+            self.reset_parameters()
+
+    def set_lambda_init(self, depth: int):
+        self.lambda_init = 0.8 - 0.6 * math.exp(-0.3 * depth)
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        if self.mlp_bias is not None:
+            nn.init.zeros_(self.mlp_bias)
+        if self.dual_lambda:
+            nn.init.zeros_(self.lambda_a)
+            nn.init.zeros_(self.lambda_b)
+        else:
+            nn.init.normal_(self.lambda_q1, mean=0, std=0.1)
+            nn.init.normal_(self.lambda_k1, mean=0, std=0.1)
+            nn.init.normal_(self.lambda_q2, mean=0, std=0.1)
+            nn.init.normal_(self.lambda_k2, mean=0, std=0.1)
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        if self.qkv_bias is not None:
+            self.qkv_bias.zero_()
+
+    def _compute_lambda(self) -> torch.Tensor:
+        if self.lambda_a is not None:
+            lambda_1 = torch.exp(self.lambda_a)
+            lambda_2 = torch.exp(self.lambda_b)
+        else:
+            lambda_1 = torch.exp(torch.sum(self.lambda_q1 * self.lambda_k1, dim=-1).float())
+            lambda_2 = torch.exp(torch.sum(self.lambda_q2 * self.lambda_k2, dim=-1).float())
+        return lambda_1 - lambda_2 + self.lambda_init
+
+    def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        B, N, C = x.shape
+
+        # Combined MLP fc1 & qkv projections
+        y = self.in_norm(x)
+        if self.mlp_bias is not None:
+            y = F.linear(y, self.in_proj.weight, torch.cat((self.qkv_bias, self.mlp_bias)))
+        else:
+            y = self.in_proj(y)
+        x_mlp, q, k, v = torch.split(y, self.in_split, dim=-1)
+
+        # Reshape for differential attention (2x heads with half head_dim for q/k)
+        q = q.reshape(B, N, 2 * self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.reshape(B, N, 2 * self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.reshape(B, N, self.num_heads, 2 * self.head_dim).transpose(1, 2)
+
+        q, k = self.q_norm(q), self.k_norm(k)
+
+        lambda_full = self._compute_lambda().type_as(q)
+
+        if self.fused_attn:
+            q = q.reshape(B, self.num_heads, 2, N, self.head_dim)
+            k = k.reshape(B, self.num_heads, 2, N, self.head_dim)
+            q1, q2 = q.unbind(2)
+            k1, k2 = k.unbind(2)
+
+            dropout_p = self.attn_drop_p if self.training else 0.0
+            attn1 = F.scaled_dot_product_attention(q1, k1, v, attn_mask=attn_mask, dropout_p=dropout_p)
+            attn2 = F.scaled_dot_product_attention(q2, k2, v, attn_mask=attn_mask, dropout_p=dropout_p)
+
+            x_attn = attn1 - lambda_full * attn2
+        else:
+            q = q * self.scale
+            attn = q @ k.transpose(-2, -1)
+            attn = maybe_add_mask(attn, attn_mask)
+            attn = attn.softmax(dim=-1)
+            attn = self.attn_drop(attn)
+
+            attn = attn.view(B, self.num_heads, 2, N, N)
+            attn = attn[:, :, 0] - lambda_full * attn[:, :, 1]
+            x_attn = attn @ v
+
+        x_attn = self.sub_norm(x_attn)
+        x_attn = x_attn * (1 - self.lambda_init)
+        x_attn = x_attn.transpose(1, 2).reshape(B, N, C)
+
+        # MLP activation & dropout
+        x_mlp = self.mlp_act(x_mlp)
+        x_mlp = self.mlp_drop(x_mlp)
+
+        # Fused output projection
+        y = self.out_proj(torch.cat((x_attn, x_mlp), dim=-1))
+
+        # Add residual w/ drop path & layer scale applied
+        x = x + self.drop_path(self.ls(y))
+        return x
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
 
 class ParallelThingsBlock(nn.Module):
@@ -364,15 +620,21 @@ class ParallelThingsBlock(nn.Module):
             act_layer: Type[nn.Module] = nn.GELU,
             norm_layer: Type[nn.Module] = LayerNorm,
             mlp_layer: Type[nn.Module] = Mlp,
+            attn_layer: LayerType = Attention,
+            depth: int = 0,
+            device=None,
+            dtype=None,
     ) -> None:
+        dd = {'device': device, 'dtype': dtype}
         super().__init__()
         self.num_parallel = num_parallel
         self.attns = nn.ModuleList()
         self.ffns = nn.ModuleList()
         for _ in range(num_parallel):
             self.attns.append(nn.Sequential(OrderedDict([
-                ('norm', norm_layer(dim)),
-                ('attn', Attention(
+                ('norm', norm_layer(dim, **dd)),
+                ('attn', _create_attn(
+                    attn_layer,
                     dim,
                     num_heads=num_heads,
                     qkv_bias=qkv_bias,
@@ -382,12 +644,14 @@ class ParallelThingsBlock(nn.Module):
                     attn_drop=attn_drop,
                     proj_drop=proj_drop,
                     norm_layer=norm_layer,
+                    depth=depth,
+                    **dd,
                 )),
-                ('ls', LayerScale(dim, init_values=init_values) if init_values else nn.Identity()),
+                ('ls', LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()),
                 ('drop_path', DropPath(drop_path) if drop_path > 0. else nn.Identity())
             ])))
             self.ffns.append(nn.Sequential(OrderedDict([
-                ('norm', norm_layer(dim)),
+                ('norm', norm_layer(dim, **dd)),
                 ('mlp', mlp_layer(
                     dim,
                     hidden_features=int(dim * mlp_ratio),
@@ -395,8 +659,9 @@ class ParallelThingsBlock(nn.Module):
                     norm_layer=norm_layer if scale_mlp_norm else None,
                     bias=proj_bias,
                     drop=proj_drop,
+                    **dd,
                 )),
-                ('ls', LayerScale(dim, init_values=init_values) if init_values else nn.Identity()),
+                ('ls', LayerScale(dim, init_values=init_values, **dd) if init_values else nn.Identity()),
                 ('drop_path', DropPath(drop_path) if drop_path > 0. else nn.Identity())
             ])))
 
@@ -482,7 +747,7 @@ class VisionTransformer(nn.Module):
             proj_drop_rate: float = 0.,
             attn_drop_rate: float = 0.,
             drop_path_rate: float = 0.,
-            weight_init: Literal['skip', 'jax', 'jax_nlhb', 'moco', ''] = '',
+            weight_init: Literal['skip', 'reset', 'jax', 'jax_nlhb', 'moco', ''] = '',
             fix_init: bool = False,
             embed_layer: Callable = PatchEmbed,
             embed_norm_layer: Optional[LayerType] = None,
@@ -490,6 +755,9 @@ class VisionTransformer(nn.Module):
             act_layer: Optional[LayerType] = None,
             block_fn: Type[nn.Module] = Block,
             mlp_layer: Type[nn.Module] = Mlp,
+            attn_layer: LayerType = Attention,
+            device=None,
+            dtype=None,
     ) -> None:
         """
         Args:
@@ -523,6 +791,7 @@ class VisionTransformer(nn.Module):
             block_fn: Transformer block layer.
         """
         super().__init__()
+        dd = {'device': device, 'dtype': dtype}
         assert global_pool in ('', 'avg', 'avgmax', 'max', 'token', 'map')
         assert class_token or global_pool != 'token'
         assert pos_embed in ('', 'none', 'learn')
@@ -557,17 +826,18 @@ class VisionTransformer(nn.Module):
             bias=not pre_norm,  # disable bias if pre-norm is used (e.g. CLIP)
             dynamic_img_pad=dynamic_img_pad,
             **embed_args,
+            **dd,
         )
         num_patches = self.patch_embed.num_patches
         reduction = self.patch_embed.feat_ratio() if hasattr(self.patch_embed, 'feat_ratio') else patch_size
 
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if class_token else None
-        self.reg_token = nn.Parameter(torch.zeros(1, reg_tokens, embed_dim)) if reg_tokens else None
+        self.cls_token = nn.Parameter(torch.empty(1, 1, embed_dim, **dd)) if class_token else None
+        self.reg_token = nn.Parameter(torch.empty(1, reg_tokens, embed_dim, **dd)) if reg_tokens else None
         embed_len = num_patches if no_embed_class else num_patches + self.num_prefix_tokens
         if not pos_embed or pos_embed == 'none':
             self.pos_embed = None
         else:
-            self.pos_embed = nn.Parameter(torch.randn(1, embed_len, embed_dim) * .02)
+            self.pos_embed = nn.Parameter(torch.empty(1, embed_len, embed_dim, **dd))
         self.pos_drop = nn.Dropout(p=pos_drop_rate)
         if patch_drop_rate > 0:
             self.patch_drop = PatchDropout(
@@ -576,9 +846,9 @@ class VisionTransformer(nn.Module):
             )
         else:
             self.patch_drop = nn.Identity()
-        self.norm_pre = norm_layer(embed_dim) if pre_norm else nn.Identity()
+        self.norm_pre = norm_layer(embed_dim, **dd) if pre_norm else nn.Identity()
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        dpr = calculate_drop_path_rates(drop_path_rate, depth)  # stochastic depth decay rule
         self.blocks = nn.Sequential(*[
             block_fn(
                 dim=embed_dim,
@@ -596,11 +866,14 @@ class VisionTransformer(nn.Module):
                 norm_layer=norm_layer,
                 act_layer=act_layer,
                 mlp_layer=mlp_layer,
+                attn_layer=attn_layer,
+                depth=i,
+                **dd,
             )
             for i in range(depth)])
         self.feature_info = [
             dict(module=f'blocks.{i}', num_chs=embed_dim, reduction=reduction) for i in range(depth)]
-        self.norm = norm_layer(embed_dim) if final_norm and not use_fc_norm else nn.Identity()
+        self.norm = norm_layer(embed_dim, **dd) if final_norm and not use_fc_norm else nn.Identity()
 
         # Classifier Head
         if global_pool == 'map':
@@ -610,34 +883,37 @@ class VisionTransformer(nn.Module):
                 mlp_ratio=mlp_ratio,
                 norm_layer=norm_layer,
                 act_layer=act_layer,
+                **dd,
             )
         else:
             self.attn_pool = None
-        self.fc_norm = norm_layer(embed_dim) if final_norm and use_fc_norm else nn.Identity()
+        self.fc_norm = norm_layer(embed_dim, **dd) if final_norm and use_fc_norm else nn.Identity()
         self.head_drop = nn.Dropout(drop_rate)
-        self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
+        self.head = nn.Linear(self.embed_dim, num_classes, **dd) if num_classes > 0 else nn.Identity()
 
-        if weight_init != 'skip':
-            self.init_weights(weight_init)
-        if fix_init:
-            self.fix_init_weight()
+        self.weight_init_mode = 'reset' if weight_init == 'skip' else weight_init
+        self.fix_init = fix_init
+        if weight_init != 'skip' and not next(self.parameters()).is_meta:
+            self.init_weights(needs_reset=False)
 
     def fix_init_weight(self) -> None:
         """Apply weight initialization fix (scaling w/ layer index)."""
-        def rescale(param, _layer_id):
-            param.div_(math.sqrt(2.0 * _layer_id))
+        with torch.no_grad():
+            for layer_id, layer in enumerate(self.blocks):
+                scale = math.sqrt(2.0 * (layer_id + 1))
+                layer.attn.proj.weight.div_(scale)
+                layer.mlp.fc2.weight.div_(scale)
 
-        for layer_id, layer in enumerate(self.blocks):
-            rescale(layer.attn.proj.weight.data, layer_id + 1)
-            rescale(layer.mlp.fc2.weight.data, layer_id + 1)
-
-    def init_weights(self, mode: str = '') -> None:
+    def init_weights(self, mode: str = '', needs_reset: bool = True) -> None:
         """Initialize model weights.
 
         Args:
             mode: Weight initialization mode ('jax', 'jax_nlhb', 'moco', or '').
+            needs_reset: If True, call reset_parameters() on modules that have it.
+                Set to False when modules have already self-initialized in __init__.
         """
-        assert mode in ('jax', 'jax_nlhb', 'moco', '')
+        mode = mode or self.weight_init_mode
+        assert mode in ('jax', 'jax_nlhb', 'moco', 'reset', '')
         head_bias = -math.log(self.num_classes) if 'nlhb' in mode else 0.
         if self.pos_embed is not None:
             trunc_normal_(self.pos_embed, std=.02)
@@ -645,7 +921,11 @@ class VisionTransformer(nn.Module):
             nn.init.normal_(self.cls_token, std=1e-6)
         if self.reg_token is not None:
             nn.init.normal_(self.reg_token, std=1e-6)
-        named_apply(get_init_weights_vit(mode, head_bias), self)
+
+        named_apply(get_init_weights_vit(mode, head_bias, needs_reset=needs_reset), self)
+
+        if self.fix_init:
+            self.fix_init_weight()
 
     def _init_weights(self, m: nn.Module) -> None:
         """Initialize weights for a single module (compatibility method)."""
@@ -995,12 +1275,13 @@ class VisionTransformer(nn.Module):
         return x
 
 
-def init_weights_vit_timm(module: nn.Module, name: str = '') -> None:
+def init_weights_vit_timm(module: nn.Module, name: str = '', needs_reset: bool = True) -> None:
     """ViT weight initialization, original timm impl (for reproducibility).
 
     Args:
         module: Module to initialize.
         name: Module name for context.
+        needs_reset: If True, call reset_parameters() on modules that have it.
     """
     if isinstance(module, nn.Linear):
         trunc_normal_(module.weight, std=.02)
@@ -1008,15 +1289,23 @@ def init_weights_vit_timm(module: nn.Module, name: str = '') -> None:
             nn.init.zeros_(module.bias)
     elif hasattr(module, 'init_weights'):
         module.init_weights()
+    elif needs_reset and hasattr(module, 'reset_parameters'):
+        module.reset_parameters()
 
 
-def init_weights_vit_jax(module: nn.Module, name: str = '', head_bias: float = 0.0) -> None:
+def init_weights_vit_jax(
+        module: nn.Module,
+        name: str = '',
+        head_bias: float = 0.0,
+        needs_reset: bool = True,
+) -> None:
     """ViT weight initialization, matching JAX (Flax) impl.
 
     Args:
         module: Module to initialize.
         name: Module name for context.
         head_bias: Bias value for head layer.
+        needs_reset: If True, call reset_parameters() on modules that have it.
     """
     if isinstance(module, nn.Linear):
         if name.startswith('head'):
@@ -1032,14 +1321,17 @@ def init_weights_vit_jax(module: nn.Module, name: str = '', head_bias: float = 0
             nn.init.zeros_(module.bias)
     elif hasattr(module, 'init_weights'):
         module.init_weights()
+    elif needs_reset and hasattr(module, 'reset_parameters'):
+        module.reset_parameters()
 
 
-def init_weights_vit_moco(module: nn.Module, name: str = '') -> None:
+def init_weights_vit_moco(module: nn.Module, name: str = '', needs_reset: bool = True) -> None:
     """ViT weight initialization, matching moco-v3 impl minus fixed PatchEmbed.
 
     Args:
         module: Module to initialize.
         name: Module name for context.
+        needs_reset: If True, call reset_parameters() on modules that have it.
     """
     if isinstance(module, nn.Linear):
         if 'qkv' in name:
@@ -1052,15 +1344,26 @@ def init_weights_vit_moco(module: nn.Module, name: str = '') -> None:
             nn.init.zeros_(module.bias)
     elif hasattr(module, 'init_weights'):
         module.init_weights()
+    elif needs_reset and hasattr(module, 'reset_parameters'):
+        module.reset_parameters()
 
 
-def get_init_weights_vit(mode: str = 'jax', head_bias: float = 0.0) -> Callable:
-    if 'jax' in mode:
-        return partial(init_weights_vit_jax, head_bias=head_bias)
-    elif 'moco' in mode:
-        return init_weights_vit_moco
+def init_weights_reset_parameters(module: nn.Module, name: str = '', needs_reset: bool = True) -> None:
+    if needs_reset and hasattr(module, 'reset_parameters'):
+        module.reset_parameters()
+
+
+def get_init_weights_vit(mode: str = 'jax', head_bias: float = 0.0, needs_reset: bool = True) -> Callable:
+    if mode.startswith('jax'):
+        return partial(init_weights_vit_jax, head_bias=head_bias, needs_reset=needs_reset)
+    elif mode.startswith('moco'):
+        return partial(init_weights_vit_moco, needs_reset=needs_reset)
+    elif mode == 'reset':
+        # 'reset' means only call reset_parameters() on modules
+        return partial(init_weights_reset_parameters, needs_reset=needs_reset)
     else:
-        return init_weights_vit_timm
+        # timm init is default
+        return partial(init_weights_vit_timm, needs_reset=needs_reset)
 
 
 def resize_pos_embed(
@@ -1474,6 +1777,7 @@ def _cfg(url: str = '', **kwargs) -> Dict[str, Any]:
         'std': IMAGENET_INCEPTION_STD,
         'first_conv': 'patch_embed.proj',
         'classifier': 'head',
+        'license': 'apache-2.0',
         **kwargs,
     }
 
@@ -1482,7 +1786,6 @@ default_cfgs = {
     # re-finetuned augreg 21k FT on in1k weights
     'vit_base_patch16_224.augreg2_in21k_ft_in1k': _cfg(
         hf_hub_id='timm/'),
-    'vit_base_patch16_384.augreg2_in21k_ft_in1k': _cfg(),
     'vit_base_patch8_224.augreg2_in21k_ft_in1k': _cfg(
         hf_hub_id='timm/'),
 
@@ -1736,7 +2039,9 @@ default_cfgs = {
     'vit_medium_patch16_gap_384.sw_in12k_ft_in1k': _cfg(
         hf_hub_id='timm/',
         input_size=(3, 384, 384), crop_pct=0.95, crop_mode='squash'),
-    'vit_base_patch16_gap_224': _cfg(),
+    'vit_betwixt_patch16_gap_256.untrained': _cfg(
+        input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_base_patch16_gap_224.untrained': _cfg(),
 
     # CLIP pretrained image tower and related fine-tuned weights
     'vit_base_patch32_clip_224.laion2b_ft_in12k_in1k': _cfg(
@@ -1869,17 +2174,21 @@ default_cfgs = {
 
     'vit_base_patch32_clip_224.laion400m_e32': _cfg(
         hf_hub_id='timm/',
+        license='mit',
         notes=('natively QuickGELU, use quickgelu model variant for original results',),
         mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD, num_classes=512),
     'vit_base_patch16_clip_224.laion400m_e32': _cfg(
         hf_hub_id='timm/',
+        license='mit',
         mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD, crop_pct=1.0, num_classes=512),
     'vit_base_patch16_plus_clip_240.laion400m_e32': _cfg(
         hf_hub_id='timm/',
+        license='mit',
         mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD,
         input_size=(3, 240, 240), crop_pct=1.0, num_classes=640),
     'vit_large_patch14_clip_224.laion400m_e32': _cfg(
         hf_hub_id='timm/',
+        license='mit',
         mean=OPENAI_CLIP_MEAN, std=OPENAI_CLIP_STD, crop_pct=1.0, num_classes=768),
 
     'vit_base_patch32_clip_224.datacompxl': _cfg(
@@ -2456,7 +2765,19 @@ default_cfgs = {
     'vit_wee_patch16_reg1_gap_256.sbb_in1k': _cfg(
         hf_hub_id='timm/',
         input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_dwee_patch16_reg1_gap_256.sbb_nadamuon_in1k': _cfg(
+        hf_hub_id='timm/',
+        input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_dwee_patch16_reg1_gap_256.sbb_in1k': _cfg(
+        hf_hub_id='timm/',
+        input_size=(3, 256, 256), crop_pct=0.95),
     'vit_pwee_patch16_reg1_gap_256.sbb_in1k': _cfg(
+        hf_hub_id='timm/',
+        input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_dpwee_patch16_reg1_gap_256.sbb_nadamuon_in1k': _cfg(
+        hf_hub_id='timm/',
+        input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_dpwee_patch16_reg1_gap_256.sbb_in1k': _cfg(
         hf_hub_id='timm/',
         input_size=(3, 256, 256), crop_pct=0.95),
     'vit_little_patch16_reg1_gap_256.sbb_in12k_ft_in1k': _cfg(
@@ -2467,6 +2788,9 @@ default_cfgs = {
         num_classes=11821,
         input_size=(3, 256, 256), crop_pct=0.95),
     'vit_little_patch16_reg4_gap_256.sbb_in1k': _cfg(
+        hf_hub_id='timm/',
+        input_size=(3, 256, 256), crop_pct=0.95),
+    'vit_dlittle_patch16_reg1_gap_256.sbb_nadamuon_in1k': _cfg(
         hf_hub_id='timm/',
         input_size=(3, 256, 256), crop_pct=0.95),
     'vit_medium_patch16_reg1_gap_256.sbb_in1k': _cfg(
@@ -2553,6 +2877,7 @@ default_cfgs = {
 
     'vit_intern300m_patch14_448.ogvl_dist': _cfg(
         hf_hub_id='timm/',
+        license='mit',
         mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD,
         input_size=(3, 448, 448), crop_pct=1.0, num_classes=0,
     ),
@@ -2965,7 +3290,7 @@ def vit_betwixt_patch16_gap_256(pretrained: bool = False, **kwargs) -> VisionTra
         patch_size=16, embed_dim=640, depth=12, num_heads=10, class_token=False,
         global_pool='avg', qkv_bias=False, init_values=1e-6, fc_norm=False)
     model = _create_vision_transformer(
-        'vit_medium_patch16_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
+        'vit_betwixt_patch16_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
     return model
 
 
@@ -3958,6 +4283,17 @@ def vit_wee_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTr
 
 
 @register_model
+def vit_dwee_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTransformer:
+    model_args = dict(
+        patch_size=16, embed_dim=256, depth=14, num_heads=4, init_values=1e-5, mlp_ratio=5,
+        class_token=False, no_embed_class=True, reg_tokens=1, global_pool='avg', attn_layer='diff',
+    )
+    model = _create_vision_transformer(
+        'vit_dwee_patch16_reg1_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
 def vit_pwee_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTransformer:
     model_args = dict(
         patch_size=16, embed_dim=256, depth=16, num_heads=4, init_values=1e-5, mlp_ratio=5,
@@ -3969,6 +4305,17 @@ def vit_pwee_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionT
 
 
 @register_model
+def vit_dpwee_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTransformer:
+    model_args = dict(
+        patch_size=16, embed_dim=256, depth=16, num_heads=4, init_values=1e-5, mlp_ratio=5,
+        class_token=False, no_embed_class=True, reg_tokens=1, global_pool='avg', block_fn=DiffParallelScalingBlock,
+    )
+    model = _create_vision_transformer(
+        'vit_dpwee_patch16_reg1_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
 def vit_little_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTransformer:
     model_args = dict(
         patch_size=16, embed_dim=320, depth=14, num_heads=5, init_values=1e-5, mlp_ratio=5.6,
@@ -3976,6 +4323,17 @@ def vit_little_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> Visio
     )
     model = _create_vision_transformer(
         'vit_little_patch16_reg1_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
+    return model
+
+
+@register_model
+def vit_dlittle_patch16_reg1_gap_256(pretrained: bool = False, **kwargs) -> VisionTransformer:
+    model_args = dict(
+        patch_size=16, embed_dim=320, depth=14, num_heads=5, init_values=1e-5, mlp_ratio=5.6,
+        class_token=False, no_embed_class=True, reg_tokens=1, global_pool='avg', attn_layer='diff',
+    )
+    model = _create_vision_transformer(
+        'vit_dlittle_patch16_reg1_gap_256', pretrained=pretrained, **dict(model_args, **kwargs))
     return model
 
 

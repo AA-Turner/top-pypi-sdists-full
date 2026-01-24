@@ -21,6 +21,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 ///     netuid (int): Subnet identifier.
 ///     subnet_reveal_period_epochs (int): Number of epochs to wait before decryption.
 ///     block_time (float, optional): Block time in seconds (default = 12.0).
+///     hotkey (bytes): The hotkey of a neuron-committer is represented as public_key bytes
 ///
 /// Returns:
 ///     Tuple[bytes, int]: A tuple containing:
@@ -55,7 +56,7 @@ fn get_encrypted_commit(
     // matching the result
     match result {
         Ok((ciphertext, target_round)) => {
-            let py_bytes = PyBytes::new_bound(py, &ciphertext).into();
+            let py_bytes = PyBytes::new(py, &ciphertext).into();
             Ok((py_bytes, target_round))
         }
         Err(e) => Err(PyValueError::new_err(format!("{:?}", e))),
@@ -88,7 +89,7 @@ fn get_encrypted_commitment(
     // matching the result
     match result {
         Ok((ciphertext, target_round)) => {
-            let py_bytes = PyBytes::new_bound(py, &ciphertext).into();
+            let py_bytes = PyBytes::new(py, &ciphertext).into();
             Ok((py_bytes, target_round))
         }
         Err(e) => Err(PyValueError::new_err(format!("{:?}", e))),
@@ -144,7 +145,44 @@ fn encrypt(
     .encode();
 
     Ok((
-        PyBytes::new_bound(py, &encrypted_with_reveal_round).into(),
+        PyBytes::new(py, &encrypted_with_reveal_round).into(),
+        reveal_round,
+    ))
+}
+
+/// Encrypts binary data for a specific Drand reveal round.
+///
+/// This method timelock-encrypts the provided binary `data` to be decryptable
+/// only when the specified Drand round is revealed. Unlike `encrypt()`, this
+/// function directly uses the provided round number without calculating it
+/// from block delays.
+///
+/// Args:
+///     data (bytes): Data to encrypt.
+///     reveal_round (int): The specific Drand round number when decryption becomes possible.
+///
+/// Returns:
+///     Tuple[bytes, int]: A tuple containing:
+///         - the encrypted payload
+///         - the Drand reveal round number (same as input)
+#[pyfunction]
+fn encrypt_at_round(
+    py: Python,
+    data: &[u8],
+    reveal_round: u64,
+) -> PyResult<(Py<PyBytes>, u64)> {
+    // Directly encrypt with the specified reveal round
+    let encrypted_data = drand::encrypt_and_compress(data, reveal_round)
+        .map_err(|e| PyValueError::new_err(format!("Encryption failed: {:?}", e)))?;
+
+    let encrypted_with_reveal_round = drand::UserData {
+        encrypted_data,
+        reveal_round,
+    }
+    .encode();
+
+    Ok((
+        PyBytes::new(py, &encrypted_with_reveal_round).into(),
         reveal_round,
     ))
 }
@@ -197,7 +235,124 @@ fn decrypt(py: Python, encrypted_data: &[u8], no_errors: bool) -> PyResult<Optio
     let decoded_data = drand::decrypt_and_decompress(&user_data.encrypted_data, &signature_bytes)
         .map_err(|e| PyValueError::new_err(e))?;
 
-    Ok(Some(PyBytes::new_bound(py, &decoded_data).into()))
+    Ok(Some(PyBytes::new(py, &decoded_data).into()))
+}
+
+/// Decrypts data using a provided Drand signature.
+///
+/// This function is useful when decrypting multiple ciphertexts for the same round,
+/// allowing you to fetch the signature once and reuse it, avoiding redundant API calls.
+///
+/// Args:
+///     encrypted_data (bytes): Data previously returned from encrypt functions.
+///     signature_hex (str): Hex-encoded Drand BLS signature for the reveal round.
+///
+/// Returns:
+///     bytes: Decrypted data.
+#[pyfunction]
+fn decrypt_with_signature(
+    py: Python,
+    encrypted_data: &[u8],
+    signature_hex: &str,
+) -> PyResult<Py<PyBytes>> {
+    let user_data = drand::UserData::decode(&mut &encrypted_data[..])
+        .map_err(|e| PyValueError::new_err(format!("Error deserializing data: {:?}", e)))?;
+
+    let signature_bytes = hex::decode(signature_hex)
+        .map_err(|e| PyValueError::new_err(format!("Invalid hex in signature: {:?}", e)))?;
+
+    let decoded_data = drand::decrypt_and_decompress(&user_data.encrypted_data, &signature_bytes)
+        .map_err(|e| PyValueError::new_err(e))?;
+
+    Ok(PyBytes::new(py, &decoded_data).into())
+}
+
+/// Fetches the Drand signature for a specific round.
+///
+/// Args:
+///     reveal_round (int): The Drand round number to fetch.
+///
+/// Returns:
+///     str: Hex-encoded BLS signature for the round.
+#[pyfunction]
+fn get_signature_for_round(reveal_round: u64) -> PyResult<String> {
+    drand::get_reveal_round_signature(Some(reveal_round), false)
+        .map_err(|e| PyValueError::new_err(e))?
+        .ok_or_else(|| PyValueError::new_err("Signature not available"))
+}
+
+/// Encrypts data using ML-KEM-768 + XChaCha20Poly1305
+///
+/// This function encrypts plaintext using ML-KEM-768 key encapsulation followed by
+/// XChaCha20Poly1305 authenticated encryption. The public key is rotated every block
+/// and can be queried from the NextKey storage item.
+///
+/// Blob format: [u16 kem_len LE][kem_ct][nonce24][aead_ct]
+///
+/// Args:
+///     pk_bytes (bytes): ML-KEM-768 public key bytes (from NextKey storage)
+///     plaintext (bytes): Data to encrypt
+///
+/// Returns:
+///     bytes: Encrypted blob
+///
+/// Raises:
+///     ValueError: If encryption fails
+#[pyfunction]
+fn encrypt_mlkem768(
+    py: Python,
+    pk_bytes: &[u8],
+    plaintext: &[u8],
+) -> PyResult<Py<PyBytes>> {
+    // Estimate max output size: kem_ct (~1500 bytes) + nonce (24) + aead_ct (plaintext + overhead)
+    let max_output_size = 2048 + plaintext.len() + 64; // Safe estimate
+    let mut output = vec![0u8; max_output_size];
+    let mut written = 0usize;
+
+    let result = crate::ffi::mlkem768_seal_blob(
+        pk_bytes.as_ptr(),
+        pk_bytes.len(),
+        plaintext.as_ptr(),
+        plaintext.len(),
+        output.as_mut_ptr(),
+        output.len(),
+        &mut written,
+    );
+
+    match result {
+        0 => {
+            output.truncate(written);
+            Ok(PyBytes::new(py, &output).into())
+        }
+        -1 => Err(PyValueError::new_err("Null pointer provided")),
+        -2 => Err(PyValueError::new_err("Failed to decode public key")),
+        -3 => Err(PyValueError::new_err("Encapsulation failed")),
+        -4 => Err(PyValueError::new_err("KEM ciphertext too long")),
+        -5 => Err(PyValueError::new_err("Invalid shared secret length")),
+        -6 => Err(PyValueError::new_err("AEAD encryption failed")),
+        -7 => Err(PyValueError::new_err("Output buffer too small")),
+        code => Err(PyValueError::new_err(format!("Unknown error code: {}", code))),
+    }
+}
+
+/// Returns the KDF identifier used by ML-KEM encryption
+///
+/// Returns "v1" indicating direct use of shared secret (no HKDF)
+///
+/// Returns:
+///     bytes: KDF identifier (b"v1")
+#[pyfunction]
+fn mlkem_kdf_id(py: Python) -> PyResult<Py<PyBytes>> {
+    let mut buf = vec![0u8; 10];
+    let result = crate::ffi::mlkemffi_kdf_id(buf.as_mut_ptr(), buf.len());
+    
+    match result {
+        n if n > 0 => {
+            buf.truncate(n as usize);
+            Ok(PyBytes::new(py, &buf).into())
+        }
+        _ => Err(PyValueError::new_err("Failed to get KDF ID")),
+    }
 }
 
 #[pymodule]
@@ -205,7 +360,13 @@ fn bittensor_drand(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_encrypted_commit, m)?)?;
     m.add_function(wrap_pyfunction!(get_encrypted_commitment, m)?)?;
     m.add_function(wrap_pyfunction!(encrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(encrypt_at_round, m)?)?;
     m.add_function(wrap_pyfunction!(decrypt, m)?)?;
+    m.add_function(wrap_pyfunction!(decrypt_with_signature, m)?)?;
+    m.add_function(wrap_pyfunction!(get_signature_for_round, m)?)?;
     m.add_function(wrap_pyfunction!(get_latest_round_py, m)?)?;
+    // ML-KEM functions
+    m.add_function(wrap_pyfunction!(encrypt_mlkem768, m)?)?;
+    m.add_function(wrap_pyfunction!(mlkem_kdf_id, m)?)?;
     Ok(())
 }

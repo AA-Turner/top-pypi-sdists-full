@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-storage-queue
-Version: 12.13.0
+Version: 12.15.0
 Summary: Microsoft Azure Azure Queue Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-queue
 Author: Microsoft Corporation
@@ -11,13 +11,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.30.0
@@ -26,6 +27,19 @@ Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: isodate>=0.6.1
 Provides-Extra: aio
 Requires-Dist: azure-core[aio]>=1.30.0; extra == "aio"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure Storage Queues client library for Python
 
@@ -46,7 +60,7 @@ Common uses of Queue storage include:
 ## Getting started
 
 ### Prerequisites
-* Python 3.8 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
+* Python 3.9 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
 * You must have an [Azure subscription](https://azure.microsoft.com/free/) and an
 [Azure storage account](https://learn.microsoft.com/azure/storage/common/storage-account-overview) to use this package.
 
@@ -434,10 +448,48 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 # Release History
 
+## 12.15.0 (2026-01-06)
+
+### Features Added
+- Stable release of features from 12.15.0b1
+
+## 12.15.0b1 (2025-12-04)
+
+### Features Added
+- Added support for service version 2026-02-06.
+- Added new `get_user_delegation_key` API to `QueueServiceClient` to obtain a user delegation key
+for the purposes of signing SAS tokens.
+- Added support for the keyword `user_delegation_oid` to `generate_queue_sas`, which specifies the Entra ID 
+of the user that is authorized to use the generated SAS URL.
+- Added support for the keyword `user_delegation_key` to `generate_queue_sas` used with 
+`user_delegation_oid` to authenticate the request to generate a new SAS URL.
+- Added support for `UseDevelopmentStorage=true;` as a valid connection string for Azurite.
+
+## 12.14.1 (2025-10-29)
+
+### Bugs Fixed
+- Fixed MyPy `attr-defined` errors for `QueueClient`.
+
+## 12.14.0 (2025-10-15)
+
+### Features Added
+- Stable release of features from 12.14.0b1
+
+### Other Changes
+- Removed `__enter__` and `__exit__` attributes for all asynchronous client objects for raising explicit `TypeError`, 
+and let the `AttributeError` raise directly.
+
 ## 12.13.0 (2025-07-16)
 
 ### Features Added
 - Stable release of features from 12.13.0b1
+
+## 12.14.0b1 (2025-06-12)
+
+This version and all future versions will require Python 3.9+. Python 3.8 is no longer supported.
+
+### Features Added
+- Added support for service version 2025-11-05.
 
 ## 12.13.0b1 (2025-05-06)
 

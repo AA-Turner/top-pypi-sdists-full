@@ -1,3 +1,4 @@
+import functools
 import httpx
 import itertools
 import logging
@@ -354,6 +355,17 @@ def partition_pages(
             yield ",".join(targets)
         else:
             return
+
+
+@functools.lru_cache(maxsize=1)
+def is_jupyter() -> bool:
+    """Check if we're running in a Jupyter environment."""
+    try:
+        from IPython import get_ipython
+
+        return get_ipython().__class__.__name__ == "ZMQInteractiveShell"
+    except (ImportError, AttributeError):
+        return False
 
 
 def extract_tables_from_json_results(

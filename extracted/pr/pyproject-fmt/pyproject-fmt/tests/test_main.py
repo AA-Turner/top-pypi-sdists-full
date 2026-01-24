@@ -135,7 +135,7 @@ def test_keep_full_version_cli(tmp_path: Path) -> None:
     [project]
     classifiers = [
       "Programming Language :: Python :: 3 :: Only",
-      "Programming Language :: Python :: 3.9",
+      "Programming Language :: Python :: 3.10",
     ]
     dependencies = [
       "a==1.0.0",
@@ -146,7 +146,7 @@ def test_keep_full_version_cli(tmp_path: Path) -> None:
     """
     pyproject_toml = tmp_path / "pyproject.toml"
     pyproject_toml.write_text(dedent(start))
-    args = [str(pyproject_toml), "--keep-full-version", "--max-supported-python", "3.9"]
+    args = [str(pyproject_toml), "--keep-full-version", "--max-supported-python", "3.10"]
     run(args)
     output = pyproject_toml.read_text()
     assert output == dedent(start)
@@ -186,7 +186,6 @@ def test_pyproject_toml_config(tmp_path: Path, capsys: pytest.CaptureFixture[str
     ]
     classifiers = [
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ]
@@ -260,3 +259,29 @@ def test_pyproject_ftm_api_no_change(tmp_path: Path, capsys: pytest.CaptureFixtu
     out, err = capsys.readouterr()
     assert not out
     assert not err
+
+
+def test_no_generate_python_version_classifiers(tmp_path: Path) -> None:
+    txt = """\
+    [project]
+    requires-python = "==3.12"
+    classifiers = [
+      "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: 3.12",
+    ]
+    """
+    filename = tmp_path / "pyproject.toml"
+    filename.write_text(dedent(txt))
+    res = run([str(filename), "--no-print-diff", "--no-generate-python-version-classifiers"])
+
+    assert res == 1
+
+    got = filename.read_text()
+
+    expected = """\
+    [project]
+    requires-python = "==3.12"
+    classifiers = [
+    ]
+    """
+    assert got == dedent(expected)

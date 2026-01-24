@@ -66,8 +66,21 @@ ESI_REQUESTS_CONNECT_TIMEOUT = getattr(settings, 'ESI_REQUESTS_CONNECT_TIMEOUT',
 Can temporarily overwritten with by passing ``timeout`` with ``result()``
 """
 
-ESI_REQUESTS_READ_TIMEOUT = getattr(settings, 'ESI_REQUESTS_READ_TIMEOUT', 30)
+ESI_REQUESTS_READ_TIMEOUT = getattr(settings, 'ESI_REQUESTS_READ_TIMEOUT', 10)
 """Default read timeouts for all requests to ESI.
+This should be a maximum of 10s as ESI cuts all requests to the monolith off @ 10s.
+
+Can temporarily overwritten with by passing ``timeout`` with ``result()``
+"""
+
+ESI_REQUESTS_WRITE_TIMEOUT = getattr(settings, 'ESI_REQUESTS_WRITE_TIMEOUT', 5)
+"""Default write timeouts for all requests to ESI.
+
+Can temporarily overwritten with by passing ``timeout`` with ``result()``
+"""
+
+ESI_REQUESTS_POOL_TIMEOUT = getattr(settings, 'ESI_REQUESTS_POOL_TIMEOUT', 5)
+"""Default pool timeouts for all requests to ESI.
 
 Can temporarily overwritten with by passing ``timeout`` with ``result()``
 """
@@ -95,5 +108,5 @@ ESI_TOKEN_JWT_AUDIENCE = str(getattr(settings, "ESI_TOKEN_JWT_AUDIENCE", "EVE On
 
 # list of all official language codes supported by ESI
 ESI_LANGUAGES = getattr(settings, 'ESI_LANGUAGES', [
-    'de', 'en-us', 'fr', 'ja', 'ru', 'zh', 'ko'
+    'en', 'de', 'fr', 'ja', 'ru', 'zh', 'ko', 'es'
 ])

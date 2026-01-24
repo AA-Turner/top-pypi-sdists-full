@@ -1,76 +1,75 @@
-use crate::HnswSpace;
+use crate::{default_space, hnsw_configuration::Space, SpannIndexConfig};
 use chroma_error::{ChromaError, ErrorCodes};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use utoipa::ToSchema;
 use validator::Validate;
 
-fn default_search_nprobe() -> u32 {
+pub fn default_search_nprobe() -> u32 {
     64
 }
 
-fn default_search_rng_factor() -> f32 {
+pub fn default_search_rng_factor() -> f32 {
     1.0
 }
 
-fn default_search_rng_epsilon() -> f32 {
+pub fn default_search_rng_epsilon() -> f32 {
     10.0
 }
 
-fn default_write_nprobe() -> u32 {
+pub fn default_write_nprobe() -> u32 {
     32
 }
 
-fn default_nreplica_count() -> u32 {
+pub fn default_nreplica_count() -> u32 {
     8
 }
 
-fn default_write_rng_factor() -> f32 {
+pub fn default_write_rng_factor() -> f32 {
     1.0
 }
 
-fn default_write_rng_epsilon() -> f32 {
+pub fn default_write_rng_epsilon() -> f32 {
     5.0
 }
 
-fn default_split_threshold() -> u32 {
+pub fn default_split_threshold() -> u32 {
     50
 }
 
-fn default_num_samples_kmeans() -> usize {
+pub fn default_num_samples_kmeans() -> usize {
     1000
 }
 
-fn default_initial_lambda() -> f32 {
+pub fn default_initial_lambda() -> f32 {
     100.0
 }
 
-fn default_reassign_neighbor_count() -> u32 {
+pub fn default_reassign_neighbor_count() -> u32 {
     64
 }
 
-fn default_merge_threshold() -> u32 {
+pub fn default_merge_threshold() -> u32 {
     25
 }
 
-fn default_num_centers_to_merge_to() -> u32 {
+pub fn default_num_centers_to_merge_to() -> u32 {
     8
 }
 
-fn default_construction_ef_spann() -> usize {
+pub fn default_construction_ef_spann() -> usize {
     200
 }
 
-fn default_search_ef_spann() -> usize {
+pub fn default_search_ef_spann() -> usize {
     200
 }
 
-fn default_m_spann() -> usize {
+pub fn default_m_spann() -> usize {
     64
 }
 
-fn default_space_spann() -> HnswSpace {
-    HnswSpace::L2
+fn default_space_spann() -> Space {
+    Space::L2
 }
 
 #[derive(Debug, Error)]
@@ -94,7 +93,8 @@ impl ChromaError for DistributedSpannParametersFromSegmentError {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq, ToSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct InternalSpannConfiguration {
     #[serde(default = "default_search_nprobe")]
     pub search_nprobe: u32,
@@ -129,7 +129,7 @@ pub struct InternalSpannConfiguration {
     #[validate(range(max = 8))]
     pub num_centers_to_merge_to: u32,
     #[serde(default = "default_space_spann")]
-    pub space: HnswSpace,
+    pub space: Space,
     #[serde(default = "default_construction_ef_spann")]
     #[validate(range(max = 200))]
     pub ef_construction: usize,
@@ -147,12 +147,53 @@ impl Default for InternalSpannConfiguration {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq, ToSchema)]
+impl From<(Option<&Space>, &SpannIndexConfig)> for InternalSpannConfiguration {
+    fn from((space, config): (Option<&Space>, &SpannIndexConfig)) -> Self {
+        InternalSpannConfiguration {
+            search_nprobe: config.search_nprobe.unwrap_or(default_search_nprobe()),
+            search_rng_factor: config
+                .search_rng_factor
+                .unwrap_or(default_search_rng_factor()),
+            search_rng_epsilon: config
+                .search_rng_epsilon
+                .unwrap_or(default_search_rng_epsilon()),
+            nreplica_count: config.nreplica_count.unwrap_or(default_nreplica_count()),
+            write_rng_factor: config
+                .write_rng_factor
+                .unwrap_or(default_write_rng_factor()),
+            write_rng_epsilon: config
+                .write_rng_epsilon
+                .unwrap_or(default_write_rng_epsilon()),
+            split_threshold: config.split_threshold.unwrap_or(default_split_threshold()),
+            num_samples_kmeans: config
+                .num_samples_kmeans
+                .unwrap_or(default_num_samples_kmeans()),
+            initial_lambda: config.initial_lambda.unwrap_or(default_initial_lambda()),
+            reassign_neighbor_count: config
+                .reassign_neighbor_count
+                .unwrap_or(default_reassign_neighbor_count()),
+            merge_threshold: config.merge_threshold.unwrap_or(default_merge_threshold()),
+            num_centers_to_merge_to: config
+                .num_centers_to_merge_to
+                .unwrap_or(default_num_centers_to_merge_to()),
+            write_nprobe: config.write_nprobe.unwrap_or(default_write_nprobe()),
+            ef_construction: config
+                .ef_construction
+                .unwrap_or(default_construction_ef_spann()),
+            ef_search: config.ef_search.unwrap_or(default_search_ef_spann()),
+            max_neighbors: config.max_neighbors.unwrap_or(default_m_spann()),
+            space: space.unwrap_or(&default_space()).clone(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 pub struct SpannConfiguration {
     pub search_nprobe: Option<u32>,
     pub write_nprobe: Option<u32>,
-    pub space: Option<HnswSpace>,
+    pub space: Option<Space>,
     pub ef_construction: Option<usize>,
     pub ef_search: Option<usize>,
     pub max_neighbors: Option<usize>,
@@ -204,11 +245,14 @@ impl Default for SpannConfiguration {
     }
 }
 
-#[derive(Clone, Default, Debug, Serialize, Deserialize, Validate, PartialEq, ToSchema)]
+#[derive(Clone, Default, Debug, Serialize, Deserialize, Validate, PartialEq)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct UpdateSpannConfiguration {
+    #[validate(range(max = 128))]
     pub search_nprobe: Option<u32>,
+    #[validate(range(max = 200))]
     pub ef_search: Option<usize>,
 }
 
@@ -221,7 +265,7 @@ mod tests {
         let spann_config = SpannConfiguration {
             search_nprobe: Some(100),
             write_nprobe: Some(50),
-            space: Some(HnswSpace::Cosine),
+            space: Some(Space::Cosine),
             ef_construction: Some(150),
             ef_search: Some(180),
             max_neighbors: Some(32),
@@ -234,7 +278,7 @@ mod tests {
 
         assert_eq!(internal_config.search_nprobe, 100);
         assert_eq!(internal_config.write_nprobe, 50);
-        assert_eq!(internal_config.space, HnswSpace::Cosine);
+        assert_eq!(internal_config.space, Space::Cosine);
         assert_eq!(internal_config.ef_construction, 150);
         assert_eq!(internal_config.ef_search, 180);
         assert_eq!(internal_config.max_neighbors, 32);
@@ -327,7 +371,7 @@ mod tests {
         let spann_config = SpannConfiguration {
             search_nprobe: Some(80),
             write_nprobe: None,
-            space: Some(HnswSpace::Ip),
+            space: Some(Space::Ip),
             ef_construction: None,
             ef_search: Some(160),
             max_neighbors: Some(48),
@@ -340,7 +384,7 @@ mod tests {
 
         assert_eq!(internal_config.search_nprobe, 80);
         assert_eq!(internal_config.write_nprobe, default_write_nprobe());
-        assert_eq!(internal_config.space, HnswSpace::Ip);
+        assert_eq!(internal_config.space, Space::Ip);
         assert_eq!(
             internal_config.ef_construction,
             default_construction_ef_spann()
@@ -503,7 +547,7 @@ mod tests {
         assert_eq!(internal_config.reassign_neighbor_count, 32);
         assert_eq!(internal_config.merge_threshold, 30);
         assert_eq!(internal_config.num_centers_to_merge_to, 6);
-        assert_eq!(internal_config.space, HnswSpace::L2);
+        assert_eq!(internal_config.space, Space::L2);
         assert_eq!(internal_config.ef_construction, 180);
         assert_eq!(internal_config.ef_search, 200);
         assert_eq!(internal_config.max_neighbors, 56);

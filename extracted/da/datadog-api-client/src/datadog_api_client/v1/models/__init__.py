@@ -43,6 +43,17 @@ from datadog_api_client.v1.model.application_key_response import ApplicationKeyR
 from datadog_api_client.v1.model.authentication_validation_response import AuthenticationValidationResponse
 from datadog_api_client.v1.model.azure_account import AzureAccount
 from datadog_api_client.v1.model.azure_account_list_response import AzureAccountListResponse
+from datadog_api_client.v1.model.bar_chart_widget_definition import BarChartWidgetDefinition
+from datadog_api_client.v1.model.bar_chart_widget_definition_type import BarChartWidgetDefinitionType
+from datadog_api_client.v1.model.bar_chart_widget_display import BarChartWidgetDisplay
+from datadog_api_client.v1.model.bar_chart_widget_flat import BarChartWidgetFlat
+from datadog_api_client.v1.model.bar_chart_widget_flat_type import BarChartWidgetFlatType
+from datadog_api_client.v1.model.bar_chart_widget_legend import BarChartWidgetLegend
+from datadog_api_client.v1.model.bar_chart_widget_request import BarChartWidgetRequest
+from datadog_api_client.v1.model.bar_chart_widget_scaling import BarChartWidgetScaling
+from datadog_api_client.v1.model.bar_chart_widget_stacked import BarChartWidgetStacked
+from datadog_api_client.v1.model.bar_chart_widget_stacked_type import BarChartWidgetStackedType
+from datadog_api_client.v1.model.bar_chart_widget_style import BarChartWidgetStyle
 from datadog_api_client.v1.model.cancel_downtimes_by_scope_request import CancelDowntimesByScopeRequest
 from datadog_api_client.v1.model.canceled_downtimes_ids import CanceledDowntimesIds
 from datadog_api_client.v1.model.change_widget_definition import ChangeWidgetDefinition
@@ -89,9 +100,6 @@ from datadog_api_client.v1.model.distribution_widget_definition import Distribut
 from datadog_api_client.v1.model.distribution_widget_definition_type import DistributionWidgetDefinitionType
 from datadog_api_client.v1.model.distribution_widget_histogram_request_query import (
     DistributionWidgetHistogramRequestQuery,
-)
-from datadog_api_client.v1.model.distribution_widget_histogram_request_type import (
-    DistributionWidgetHistogramRequestType,
 )
 from datadog_api_client.v1.model.distribution_widget_request import DistributionWidgetRequest
 from datadog_api_client.v1.model.distribution_widget_x_axis import DistributionWidgetXAxis
@@ -155,6 +163,7 @@ from datadog_api_client.v1.model.formula_and_function_metric_data_source import 
 from datadog_api_client.v1.model.formula_and_function_metric_query_definition import (
     FormulaAndFunctionMetricQueryDefinition,
 )
+from datadog_api_client.v1.model.formula_and_function_metric_semantic_mode import FormulaAndFunctionMetricSemanticMode
 from datadog_api_client.v1.model.formula_and_function_process_query_data_source import (
     FormulaAndFunctionProcessQueryDataSource,
 )
@@ -187,6 +196,7 @@ from datadog_api_client.v1.model.geomap_widget_definition_style import GeomapWid
 from datadog_api_client.v1.model.geomap_widget_definition_type import GeomapWidgetDefinitionType
 from datadog_api_client.v1.model.geomap_widget_definition_view import GeomapWidgetDefinitionView
 from datadog_api_client.v1.model.geomap_widget_request import GeomapWidgetRequest
+from datadog_api_client.v1.model.geomap_widget_request_style import GeomapWidgetRequestStyle
 from datadog_api_client.v1.model.graph_snapshot import GraphSnapshot
 from datadog_api_client.v1.model.group_type import GroupType
 from datadog_api_client.v1.model.group_widget_definition import GroupWidgetDefinition
@@ -197,6 +207,7 @@ from datadog_api_client.v1.model.http_log_item import HTTPLogItem
 from datadog_api_client.v1.model.heat_map_widget_definition import HeatMapWidgetDefinition
 from datadog_api_client.v1.model.heat_map_widget_definition_type import HeatMapWidgetDefinitionType
 from datadog_api_client.v1.model.heat_map_widget_request import HeatMapWidgetRequest
+from datadog_api_client.v1.model.heat_map_widget_x_axis import HeatMapWidgetXAxis
 from datadog_api_client.v1.model.host import Host
 from datadog_api_client.v1.model.host_list_response import HostListResponse
 from datadog_api_client.v1.model.host_map_request import HostMapRequest
@@ -316,6 +327,17 @@ from datadog_api_client.v1.model.logs_processor import LogsProcessor
 from datadog_api_client.v1.model.logs_query_compute import LogsQueryCompute
 from datadog_api_client.v1.model.logs_retention_agg_sum_usage import LogsRetentionAggSumUsage
 from datadog_api_client.v1.model.logs_retention_sum_usage import LogsRetentionSumUsage
+from datadog_api_client.v1.model.logs_schema_category_mapper import LogsSchemaCategoryMapper
+from datadog_api_client.v1.model.logs_schema_category_mapper_category import LogsSchemaCategoryMapperCategory
+from datadog_api_client.v1.model.logs_schema_category_mapper_fallback import LogsSchemaCategoryMapperFallback
+from datadog_api_client.v1.model.logs_schema_category_mapper_targets import LogsSchemaCategoryMapperTargets
+from datadog_api_client.v1.model.logs_schema_category_mapper_type import LogsSchemaCategoryMapperType
+from datadog_api_client.v1.model.logs_schema_data import LogsSchemaData
+from datadog_api_client.v1.model.logs_schema_mapper import LogsSchemaMapper
+from datadog_api_client.v1.model.logs_schema_processor import LogsSchemaProcessor
+from datadog_api_client.v1.model.logs_schema_processor_type import LogsSchemaProcessorType
+from datadog_api_client.v1.model.logs_schema_remapper import LogsSchemaRemapper
+from datadog_api_client.v1.model.logs_schema_remapper_type import LogsSchemaRemapperType
 from datadog_api_client.v1.model.logs_service_remapper import LogsServiceRemapper
 from datadog_api_client.v1.model.logs_service_remapper_type import LogsServiceRemapperType
 from datadog_api_client.v1.model.logs_sort import LogsSort
@@ -342,6 +364,9 @@ from datadog_api_client.v1.model.metrics_query_metadata import MetricsQueryMetad
 from datadog_api_client.v1.model.metrics_query_response import MetricsQueryResponse
 from datadog_api_client.v1.model.metrics_query_unit import MetricsQueryUnit
 from datadog_api_client.v1.model.monitor import Monitor
+from datadog_api_client.v1.model.monitor_asset import MonitorAsset
+from datadog_api_client.v1.model.monitor_asset_category import MonitorAssetCategory
+from datadog_api_client.v1.model.monitor_asset_resource_type import MonitorAssetResourceType
 from datadog_api_client.v1.model.monitor_device_id import MonitorDeviceID
 from datadog_api_client.v1.model.monitor_draft_status import MonitorDraftStatus
 from datadog_api_client.v1.model.monitor_formula_and_function_cost_aggregator import (
@@ -352,6 +377,18 @@ from datadog_api_client.v1.model.monitor_formula_and_function_cost_data_source i
 )
 from datadog_api_client.v1.model.monitor_formula_and_function_cost_query_definition import (
     MonitorFormulaAndFunctionCostQueryDefinition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_data_quality_data_source import (
+    MonitorFormulaAndFunctionDataQualityDataSource,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_data_quality_model_type_override import (
+    MonitorFormulaAndFunctionDataQualityModelTypeOverride,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_data_quality_monitor_options import (
+    MonitorFormulaAndFunctionDataQualityMonitorOptions,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_data_quality_query_definition import (
+    MonitorFormulaAndFunctionDataQualityQueryDefinition,
 )
 from datadog_api_client.v1.model.monitor_formula_and_function_event_aggregation import (
     MonitorFormulaAndFunctionEventAggregation,
@@ -650,6 +687,8 @@ from datadog_api_client.v1.model.sunburst_widget_legend_table import SunburstWid
 from datadog_api_client.v1.model.sunburst_widget_legend_table_type import SunburstWidgetLegendTableType
 from datadog_api_client.v1.model.sunburst_widget_request import SunburstWidgetRequest
 from datadog_api_client.v1.model.synthetics_api_step import SyntheticsAPIStep
+from datadog_api_client.v1.model.synthetics_api_subtest_step import SyntheticsAPISubtestStep
+from datadog_api_client.v1.model.synthetics_api_subtest_step_subtype import SyntheticsAPISubtestStepSubtype
 from datadog_api_client.v1.model.synthetics_api_test import SyntheticsAPITest
 from datadog_api_client.v1.model.synthetics_api_test_config import SyntheticsAPITestConfig
 from datadog_api_client.v1.model.synthetics_api_test_result_data import SyntheticsAPITestResultData
@@ -844,6 +883,7 @@ from datadog_api_client.v1.model.synthetics_test_config import SyntheticsTestCon
 from datadog_api_client.v1.model.synthetics_test_details import SyntheticsTestDetails
 from datadog_api_client.v1.model.synthetics_test_details_sub_type import SyntheticsTestDetailsSubType
 from datadog_api_client.v1.model.synthetics_test_details_type import SyntheticsTestDetailsType
+from datadog_api_client.v1.model.synthetics_test_details_without_steps import SyntheticsTestDetailsWithoutSteps
 from datadog_api_client.v1.model.synthetics_test_execution_rule import SyntheticsTestExecutionRule
 from datadog_api_client.v1.model.synthetics_test_headers import SyntheticsTestHeaders
 from datadog_api_client.v1.model.synthetics_test_metadata import SyntheticsTestMetadata
@@ -1068,6 +1108,7 @@ from datadog_api_client.v1.model.widget_formula_sort import WidgetFormulaSort
 from datadog_api_client.v1.model.widget_formula_style import WidgetFormulaStyle
 from datadog_api_client.v1.model.widget_group_sort import WidgetGroupSort
 from datadog_api_client.v1.model.widget_grouping import WidgetGrouping
+from datadog_api_client.v1.model.widget_histogram_request_type import WidgetHistogramRequestType
 from datadog_api_client.v1.model.widget_horizontal_align import WidgetHorizontalAlign
 from datadog_api_client.v1.model.widget_image_sizing import WidgetImageSizing
 from datadog_api_client.v1.model.widget_layout import WidgetLayout
@@ -1152,6 +1193,17 @@ __all__ = [
     "AuthenticationValidationResponse",
     "AzureAccount",
     "AzureAccountListResponse",
+    "BarChartWidgetDefinition",
+    "BarChartWidgetDefinitionType",
+    "BarChartWidgetDisplay",
+    "BarChartWidgetFlat",
+    "BarChartWidgetFlatType",
+    "BarChartWidgetLegend",
+    "BarChartWidgetRequest",
+    "BarChartWidgetScaling",
+    "BarChartWidgetStacked",
+    "BarChartWidgetStackedType",
+    "BarChartWidgetStyle",
     "CancelDowntimesByScopeRequest",
     "CanceledDowntimesIds",
     "ChangeWidgetDefinition",
@@ -1197,7 +1249,6 @@ __all__ = [
     "DistributionWidgetDefinition",
     "DistributionWidgetDefinitionType",
     "DistributionWidgetHistogramRequestQuery",
-    "DistributionWidgetHistogramRequestType",
     "DistributionWidgetRequest",
     "DistributionWidgetXAxis",
     "DistributionWidgetYAxis",
@@ -1234,6 +1285,7 @@ __all__ = [
     "FormulaAndFunctionMetricAggregation",
     "FormulaAndFunctionMetricDataSource",
     "FormulaAndFunctionMetricQueryDefinition",
+    "FormulaAndFunctionMetricSemanticMode",
     "FormulaAndFunctionProcessQueryDataSource",
     "FormulaAndFunctionProcessQueryDefinition",
     "FormulaAndFunctionQueryDefinition",
@@ -1262,6 +1314,7 @@ __all__ = [
     "GeomapWidgetDefinitionType",
     "GeomapWidgetDefinitionView",
     "GeomapWidgetRequest",
+    "GeomapWidgetRequestStyle",
     "GraphSnapshot",
     "GroupType",
     "GroupWidgetDefinition",
@@ -1272,6 +1325,7 @@ __all__ = [
     "HeatMapWidgetDefinition",
     "HeatMapWidgetDefinitionType",
     "HeatMapWidgetRequest",
+    "HeatMapWidgetXAxis",
     "Host",
     "HostListResponse",
     "HostMapRequest",
@@ -1387,6 +1441,17 @@ __all__ = [
     "LogsQueryCompute",
     "LogsRetentionAggSumUsage",
     "LogsRetentionSumUsage",
+    "LogsSchemaCategoryMapper",
+    "LogsSchemaCategoryMapperCategory",
+    "LogsSchemaCategoryMapperFallback",
+    "LogsSchemaCategoryMapperTargets",
+    "LogsSchemaCategoryMapperType",
+    "LogsSchemaData",
+    "LogsSchemaMapper",
+    "LogsSchemaProcessor",
+    "LogsSchemaProcessorType",
+    "LogsSchemaRemapper",
+    "LogsSchemaRemapperType",
     "LogsServiceRemapper",
     "LogsServiceRemapperType",
     "LogsSort",
@@ -1413,11 +1478,18 @@ __all__ = [
     "MetricsQueryResponse",
     "MetricsQueryUnit",
     "Monitor",
+    "MonitorAsset",
+    "MonitorAssetCategory",
+    "MonitorAssetResourceType",
     "MonitorDeviceID",
     "MonitorDraftStatus",
     "MonitorFormulaAndFunctionCostAggregator",
     "MonitorFormulaAndFunctionCostDataSource",
     "MonitorFormulaAndFunctionCostQueryDefinition",
+    "MonitorFormulaAndFunctionDataQualityDataSource",
+    "MonitorFormulaAndFunctionDataQualityModelTypeOverride",
+    "MonitorFormulaAndFunctionDataQualityMonitorOptions",
+    "MonitorFormulaAndFunctionDataQualityQueryDefinition",
     "MonitorFormulaAndFunctionEventAggregation",
     "MonitorFormulaAndFunctionEventQueryDefinition",
     "MonitorFormulaAndFunctionEventQueryDefinitionCompute",
@@ -1677,6 +1749,8 @@ __all__ = [
     "SunburstWidgetLegendTableType",
     "SunburstWidgetRequest",
     "SyntheticsAPIStep",
+    "SyntheticsAPISubtestStep",
+    "SyntheticsAPISubtestStepSubtype",
     "SyntheticsAPITest",
     "SyntheticsAPITestConfig",
     "SyntheticsAPITestResultData",
@@ -1823,6 +1897,7 @@ __all__ = [
     "SyntheticsTestDetails",
     "SyntheticsTestDetailsSubType",
     "SyntheticsTestDetailsType",
+    "SyntheticsTestDetailsWithoutSteps",
     "SyntheticsTestExecutionRule",
     "SyntheticsTestHeaders",
     "SyntheticsTestMetadata",
@@ -2023,6 +2098,7 @@ __all__ = [
     "WidgetFormulaStyle",
     "WidgetGroupSort",
     "WidgetGrouping",
+    "WidgetHistogramRequestType",
     "WidgetHorizontalAlign",
     "WidgetImageSizing",
     "WidgetLayout",

@@ -49,9 +49,6 @@ def _read_stdout(cmd):
     try:
         pop = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (std_out, std_err) = pop.communicate()
-        # Python 2.6 compatibility
-        if isinstance(std_out, str):
-            return std_out.strip()
         return std_out.decode(encoding='UTF-8').strip()
     except:
         return None
@@ -320,6 +317,7 @@ _osx_codename_map = {
  '13': 'ventura',
  '14': 'sonoma',
  '15': 'sequoia',
+ '26': 'tahoe',
 }
 
 
@@ -688,6 +686,7 @@ OS_CLEARLINUX = 'clearlinux'
 OS_NIXOS = 'nixos'
 OS_WINDOWS = 'windows'
 OS_ZORIN =  'zorin'
+OS_OPENEULER = 'openeuler'
 
 OsDetect.register_default(OS_ALMALINUX, FdoDetect("almalinux"))
 OsDetect.register_default(OS_ALPINE, FdoDetect("alpine"))
@@ -697,6 +696,8 @@ OsDetect.register_default(OS_BUILDROOT, FdoDetect("buildroot"))
 OsDetect.register_default(OS_MANJARO, Manjaro())
 OsDetect.register_default(OS_CENTOS, FdoDetect("centos"))
 OsDetect.register_default(OS_EULEROS, FdoDetect("euleros"))
+OsDetect.register_default(OS_OPENEULER, FdoDetect("openeuler"))
+OsDetect.register_default(OS_OPENEULER, FdoDetect("openEuler"))
 OsDetect.register_default(OS_CYGWIN, Cygwin())
 OsDetect.register_default(OS_DEBIAN, Debian())
 OsDetect.register_default(OS_ELEMENTARY, LsbDetect("elementary"))

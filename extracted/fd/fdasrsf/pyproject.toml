@@ -1,0 +1,88 @@
+[project]
+name = "fdasrsf"
+version = "2.6.7"
+description = "functional data analysis using the square root slope framework"
+authors = [
+	{name = "J. Derek Tucker", email = "jdtuck@sandia.gov"}
+]
+license = {text = "BSD 3-Clause"}
+readme = "README.md"
+requires-python = ">=3.10"
+
+keywords = ["functional data analysis"]
+
+dependencies=[
+        "Cython",
+        "matplotlib",
+        "numpy>=1.25",
+        "scipy>=1.14",
+        "joblib",
+        "patsy",
+        "tqdm",
+        "six",
+        "numba",
+        "cffi>=1.0.0",
+        "pyparsing",
+    ]
+
+classifiers = [
+    'License :: OSI Approved :: BSD License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Topic :: Scientific/Engineering',
+    'Topic :: Scientific/Engineering :: Mathematics',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.9',
+]
+
+[project.urls]
+homepage = "http://research.tetonedge.net"
+repository = "https://github.com/jdtuck/fdasrsf_python"
+documentation = "https://fdasrsf-python.readthedocs.io/en/latest/"
+
+[tool.cibuildwheel]
+# Note: the below skip command doesn't do much currently, the platforms to
+# build wheels for in CI are controlled in `.github/workflows/wheels.yml` and
+# `tools/ci/cirrus_wheels.yml`.
+skip = "cp38-* cp314-* cp314t-* *_i686 *_ppc64le *_s390x *-win32"
+build-verbosity = "3"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+before-build = "bash {project}/bin/cibw_before_build_linux.sh {project}"
+environment = {RUNNER_OS="Linux"}
+
+[tool.cibuildwheel.macos]
+before-build = "bash {project}/bin/cibw_before_build_macos.sh {project}"
+environment = {RUNNER_OS="macOS", MACOSX_DEPLOYMENT_TARGET=12.3}
+
+[tool.cibuildwheel.windows]
+before-build = "bash {project}/bin/cibw_before_build_win.sh {project}"
+#repair-wheel-command = "bash ./bin/repair_windows.sh {wheel} {dest_dir}"
+environment = {RUNNER_OS="Windows"}
+
+[[tool.cibuildwheel.overrides]]
+select = "*-win32"
+environment = {PKG_CONFIG_PATH="/opt/32/lib/pkgconfig"}
+
+[[tool.cibuildwheel.overrides]]
+select = "*-win_amd64"
+# can use pkg-config detection for win_amd64 because the installed rtools
+# provide a working pkg-config.
+# An alternative is to set CMAKE_PREFIX_PATH="c:/opt/openblas/if_32/32"
+# Don't use double backslash for path separators, they don't get passed
+# to the build correctly
+# environment = { CMAKE_PREFIX_PATH="c:/opt/64" }
+#environment = { PKG_CONFIG_PATH = "c:/opt/64/lib/pkgconfig" }
+
+[build-system]
+requires = ["setuptools<=73.0.1", "wheel", "cffi>=1.0.0", "Cython", "findblas", "numpy"]  # PEP 518 - what is required to build
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--import-mode=importlib"
+testpaths = [
+    "tests",
+]

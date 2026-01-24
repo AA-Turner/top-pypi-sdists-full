@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import numpy as np
-import toml
 from pyocse.interfaces.parmed import ParmEdStructure, ommffs_to_paramedstruc
 from pyocse.lmp import LAMMPSStructure
 from pkg_resources import resource_filename
@@ -19,30 +18,44 @@ class Builder():
         - 3. generate the structures with multiple molecules and force fields
         - 4. combination of multiple parser, e.g., solvent calculation model
     """
-    def __init__(self, toml_files=None, smiles=None, style='gaff'):
+    def __init__(self,
+                 toml_files=None,
+                 smiles=None,
+                 style='gaff',
+                 chargemethod = 'am1bcc',
+                 ):
         """
         Args:
             toml_files (list): list of file paths
             smiles (list): molecular smiles
             molnames (list): short name to represent the molecule
+            style (str): 'gaff' or 'openff'
+            chargemethod (str): 'am1bcc' or 'gasteiger'
         """
         self.dics = []
         if toml_files is not None:
             smis = []
+            import toml
             for i, toml_file in enumerate(toml_files):
                 d = toml.load(toml_file)
                 self.dics.append(d)
                 smis.append(d["mol_smi"])
             self.smiles = ".".join(smis)
         else:
-            self.dics = []
             from pyocse.convert import convert_gaff, convert_openff
+
             for i, smi in enumerate(smiles):
                 smi = smiles[i]
                 if style == 'gaff':
-                    self.dics.append(convert_gaff(smiles=smi, molname=str(i)))#, cleanup=False))
-                else: # openff, needs to debug
-                    self.dics.append(convert_openff(smiles=smi, molname=str(i)))
+                    dic = convert_gaff(smiles=smi,
+                                       molname=str(i),
+                                       chargemethod=chargemethod)
+                else:
+                    dic = convert_openff(smiles=smi,
+                                         molname=str(i),
+                                         chargemethod=chargemethod)
+                self.dics.append(dic)
+
             self.smiles = ".".join(smiles)
 
         self.molecules = self.molecules_from_dicts()
@@ -61,6 +74,9 @@ class Builder():
             molecule = ommffs_to_paramedstruc(ffdic["omm_forcefield"],
                                               ffdic["mol2"],
                                               cls=cls)
+            # To correct the charge for single atom case
+            if len(molecule.atoms) == 1:
+                molecule.atoms[0].charge = d['mol_charge']
             molecule.ffdic = ffdic
             molecule.change_residue_name(residuename)
             molecules.append(molecule)
@@ -175,17 +191,13 @@ class Builder():
 
         struc.set_positions(positions)
         return struc
-        #self.xtal.write_
-        #self.xtal.write('t0.xyz', format='extxyz')
-
 
     def update_cell_parameters(self, T=300, P=1.0, folder='tmp'):
         """
-        update cell parameters according to the given temperature
+        Update cell parameters according to the given temperature
         """
         from lammps import lammps
         from ase.io import read
-        import os
 
         cwd = os.getcwd()
         if not os.path.exists(folder): os.makedirs(folder)
@@ -1092,4 +1104,3 @@ if __name__ == "__main__":
         if task['mode'] in ['bend', 'bend0']:
                 bu.lammps_slab.write_lammps(orthogonality=True)
                 bu.dump_slab_centers(bu.ase_slab, bu.ase_slab_mol_list, bord_ids, fix_ids)
-

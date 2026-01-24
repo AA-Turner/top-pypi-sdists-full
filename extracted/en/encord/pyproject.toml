@@ -1,0 +1,85 @@
+[project]
+name = "encord"
+version = "0.1.187"
+description = "Encord Python SDK Client"
+authors = [
+    { name = "Cord Technologies Limited", email = "hello@encord.com" },
+]
+license = { text = "Apache Software License" }
+keywords = ["encord"]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+
+dependencies = [
+    "python-dateutil>=2.8.2,<3.0.0",
+    "requests>=2.25.0,<3.0.0",
+    "cryptography>=43.0.0",
+    "tqdm>=4.32.1,<5.0.0",
+    "pydantic>=1.10.14",
+    "orjson>=2",
+]
+
+[project.urls]
+repository = "https://github.com/encord-team/encord-client-python"
+documentation = "https://python.docs.encord.com/"
+
+
+
+[dependency-groups]
+dev = [ # 'dev' group is synced by default in uv (no explicit configuration needed)
+    "pytest>=7.4.1,<8.0.0",
+    "pre-commit>=3.5.0,<4.0.0",
+    "deepdiff>=8.6.1,<9.0.0",
+    "types-requests>=2.25.0,<3.0.0",
+    "mypy>=1.11.1,<2.0.0",
+    "types-python-dateutil>=2.8.19,<3.0.0",
+    "types-tqdm>=4.32.1,<5.0.0",
+    "pyright>=1.1.374,<2.0.0",
+    "numpy>=1.24,<2.0.0; python_version < \"3.12\"",
+    "numpy>=1.26,<2.0.0; python_version >= \"3.12\"",
+    "opencv-python>=4.11.0.86,<5.0.0.0",
+    "shapely>=2.0.4,<3.0.0",
+    "pycocotools>=2.0.7,<3.0.0",
+    "ruff>=0.8.6,<0.9.0",
+]
+
+
+
+[project.optional-dependencies]
+coco = [
+    "pycocotools>=2.0.7,<3.0.0",
+    "shapely>=2.0.4,<3.0.0",
+    "opencv-python>=4.11.0.86,<5.0.0.0",
+    "numpy>=1.24,<2.0.0; python_version < \"3.12\"",
+    "numpy>=1.26,<2.0.0; python_version >= \"3.12\"",
+]
+
+
+[build-system]
+requires = ["uv_build>=0.9.6,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "encord"
+module-root = ""
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["W", "Q", "I", "D417", "RUF022", "F"]
+
+[tool.ruff.lint.pydocstyle]
+ignore-var-parameters = true
+
+[tool.ruff.lint.per-file-ignores]
+"encord/*" = ["F401", "E402"]

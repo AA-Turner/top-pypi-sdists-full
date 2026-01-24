@@ -1,17 +1,14 @@
 import numpy as np
-
-from pymoo.indicators.hv import hvc_looped
-from pymoo.util.function_loader import load_function
+from moocore import hypervolume as hv
+from moocore import hv_contributions as hvc
 
 
 def hv_exact(ref_point, F):
-    func = load_function("hv")
-    hv = func(ref_point, F)
-    return hv
+    return hv(F, ref=ref_point)
 
 
-def hvc_exact_loopwise(ref_point, F):
-    return hvc_looped(ref_point, F, hv_exact)
+def hvc_exact(ref_point, F):
+    return hvc(F, ref=ref_point)
 
 
 class DynamicHypervolume:
@@ -35,7 +32,7 @@ class DynamicHypervolume:
     def add(self, F):
         assert len(F.shape) == 2, "The points to add must be a two-dimensional array."
         assert F.shape[1] == self.n_dim, "The dimensions of the ref_point and points to add must be equal"
-        self.F = np.row_stack([self.F, F])
+        self.F = np.vstack([self.F, F])
         self.hv, self.hvc = self.calc()
         return self
 
@@ -67,5 +64,5 @@ class DynamicHypervolume:
 
 class ExactHypervolume(DynamicHypervolume):
 
-    def __init__(self, ref_point, func_hv=hv_exact, func_hvc=hvc_exact_loopwise, **kwargs) -> None:
+    def __init__(self, ref_point, func_hv=hv_exact, func_hvc=hvc_exact, **kwargs) -> None:
         super().__init__(ref_point, func_hv=func_hv, func_hvc=func_hvc, **kwargs)

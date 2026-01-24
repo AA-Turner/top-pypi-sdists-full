@@ -26,10 +26,8 @@ class CompanyModelSerializer(EntryModelSerializer):
         many=True,
     )
     _employees = PersonRepresentationSerializer(source="employees", many=True)
-    is_primary_employer = wb_serializers.BooleanField(default=False, read_only=True)
-    tier = wb_serializers.CharField(
-        help_text=settings.DEFAULT_TIERING_HELP_TEXT, required=False, read_only=True, label=_("Tier")
-    )
+    is_primary_employer = wb_serializers.BooleanField(read_only=True)
+    tier = wb_serializers.CharField(help_text=settings.DEFAULT_TIERING_HELP_TEXT, label=_("Tier"), required=False)
     _type = CompanyTypeRepresentationSerializer(source="type")
 
     @wb_serializers.register_resource()
@@ -63,6 +61,8 @@ class CompanyModelSerializer(EntryModelSerializer):
             "primary_email",
             "primary_manager_repr",
             "primary_telephone",
+            "primary_website",
+            "primary_social",
             "profile_image",
             "salutation",
             "signature",
@@ -77,7 +77,7 @@ class CompanyModelSerializer(EntryModelSerializer):
 
 class CompanyModelListSerializer(CompanyModelSerializer):
     eer_id = wb_serializers.CharField(default="", required=False, read_only=True)
-    is_primary_employer = wb_serializers.BooleanField(default=False, read_only=True)
+    is_primary_employer = wb_serializers.BooleanField(read_only=True)
 
     @wb_serializers.register_resource()
     def delete(self, instance, request, user):
@@ -127,7 +127,12 @@ class CompanyModelListSerializer(CompanyModelSerializer):
             "_customer_status",
             "eer_id",
             "is_primary_employer",
+            "primary_address",
+            "primary_email",
             "primary_manager_repr",
+            "primary_telephone",
+            "primary_website",
+            "primary_social",
             "last_event",
             "last_event_period_endswith",
             "tier",
@@ -138,10 +143,12 @@ class CompanyModelListSerializer(CompanyModelSerializer):
 
 
 class BankModelSerializer(wb_serializers.ModelSerializer):
-    primary_address = wb_serializers.CharField(allow_null=True, default="", label=_("Primary Address"), read_only=True)
-    primary_email = wb_serializers.CharField(allow_null=True, default="", label=_("Primary Email"), read_only=True)
+    primary_address = wb_serializers.CharField(
+        allow_null=True, label=_("Primary Address"), read_only=True, required=False
+    )
+    primary_email = wb_serializers.CharField(allow_null=True, label=_("Primary Email"), required=False, read_only=True)
     primary_telephone = wb_serializers.TelephoneField(
-        allow_null=True, default="", label=_("Primary Telephone"), read_only=True
+        allow_null=True, label=_("Primary Telephone"), read_only=True, required=False
     )
     _relationship_managers = PersonRepresentationSerializer(many=True, source="relationship_managers")
 

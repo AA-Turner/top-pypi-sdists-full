@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import warnings
 from collections import defaultdict
+from functools import lru_cache
 from json import JSONDecoder
 from pathlib import Path
 from typing import Any
@@ -66,7 +67,8 @@ def object_merge(
         # data existing on `old` object has the correct case: key4|KEY4|Key4
         # So we need to ensure that new keys matches the existing keys
         for new_key in list(new.keys()):
-            correct_case_key = find_the_correct_casing(new_key, old)
+            all_keys = tuple(old.keys())
+            correct_case_key = find_the_correct_casing(new_key, all_keys)
             if correct_case_key:
                 new[correct_case_key] = new.pop(new_key)
 
@@ -75,7 +77,7 @@ def object_merge(
             Get items from DynaBox without triggering recursive evaluation
             """
             if data.__class__.__name__ == "DynaBox":
-                return data._safe_items()
+                return data.items(bypass_eval=True)
             else:
                 return data.items()
 
@@ -440,13 +442,6 @@ def recursively_evaluate_lazy_format(
 
     For example: Evaluate values inside lists and dicts
     """
-    return _recursively_evaluate_lazy_format(value, settings)
-
-
-def _recursively_evaluate_lazy_format(
-    value: Any, settings: Settings | LazySettings
-) -> Any:
-    """Recursive implementation. Separate for easier debugging."""
     if getattr(value, "_dynaconf_lazy_format", None):
         value = value(settings)
 
@@ -458,7 +453,7 @@ def _recursively_evaluate_lazy_format(
 
         value = value.__class__(
             [
-                _recursively_evaluate_lazy_format(item, settings)
+                recursively_evaluate_lazy_format(item, settings)
                 for item in value
             ]
         )
@@ -483,21 +478,24 @@ def isnamedtupleinstance(value):
     return all(isinstance(n, str) for n in f)
 
 
-def find_the_correct_casing(key: str, data: dict[str, Any]) -> str | None:
+@lru_cache
+def find_the_correct_casing(
+    key: str, data_keys: tuple[Any, ...]
+) -> str | None:
     """Given a key, find the proper casing in data.
 
     Return 'None' for non-str key types.
 
     Arguments:
-        key {str} -- A key to be searched in data
-        data {dict} -- A dict to be searched
+        key {str} -- A key to be searched in data_keys
+        data_keys {tuple} -- A tuple with all the dict keys
 
     Returns:
         str -- The proper casing of the key in data
     """
-    if not isinstance(key, str) or key in data:
+    if not isinstance(key, str) or key in data_keys:
         return key
-    for k in data.keys():
+    for k in data_keys:
         if not isinstance(k, str):
             return None
         if k.lower() == key.lower():

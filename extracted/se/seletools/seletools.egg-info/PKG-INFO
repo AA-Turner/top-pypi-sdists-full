@@ -1,0 +1,137 @@
+Metadata-Version: 2.1
+Name: seletools
+Version: 1.5.0
+Summary: Helpful tools for Selenium on Python
+Home-page: https://github.com/bormando/selenium-tools
+Author: Dmitrii Bormotov
+Author-email: squier7@gmail.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# Selenium Tools
+
+![PyPI - Downloads](https://img.shields.io/pypi/dm/seletools)
+![Quality Control](https://github.com/bormando/selenium-tools/actions/workflows/qc.yml/badge.svg)
+
+### About package
+Current package is called **Selenium Tools** for a reason - it contains useful helpers that are not included into Selenium natively. 
+
+Contributions are very welcome!
+
+### Installation
+> pip install seletools
+
+### Drag & Drop
+There is a known drag & drop bug that reproduces in frameworks that use [webdriver](https://github.com/w3c/webdriver) to send commands to browser. 
+This bug is a webdriver's issue, and it's unknown when it's going to be fixed (or if it's going to be fixed at all). 
+Current solution uses JavaScript code to simulate drag & drop action on web page. 
+It works in most of the cases when it doesn't work in [Selenium](https://github.com/SeleniumHQ/selenium).
+
+You may find bug description and current workaround [here](https://medium.com/python-pandemonium/how-to-bypass-selenium-drag-drop-bug-in-python-e33704a15761).
+
+Thanks to [druska](https://gist.github.com/druska) for his [native js drag and drop helper](https://gist.github.com/druska/624501b7209a74040175).
+
+```
+from seletools.actions import drag_and_drop
+
+driver = webdriver.Chrome()
+source = driver.find_element(By.CSS_SELECTOR, "...")
+target = driver.find_element(By.CSS_SELECTOR, "...")
+drag_and_drop(driver, source, target)
+```
+
+### Scroll
+This one helps to scroll vertically to any element on page, even if it's covered by some other element (like navbar or footer). If there's such obstacle - simply add that covering element into scrolling function as `element2`.
+```
+from seletools.actions import scroll_to_top, scroll_to_bottom
+
+driver = webdriver.Chrome()
+element1 = driver.find_element(By.CSS_SELECTOR, "...")
+element2 = driver.find_element(By.CSS_SELECTOR, "...")  #optional, used only if you have obastacle (like navbar on footer) on top of the element that you need to scroll to
+
+scroll_to_top(driver, element1, element2)
+# OR
+scroll_to_top(driver, element1)
+
+scroll_to_bottom(driver, element1, element2)
+# OR
+scroll_to_bottom(driver, element1)
+```
+
+### Getting webdriver's wait values
+Selenium 4 already supports that feature, but versions prior 4 (3.141.0-) doesn't.
+```
+# get implicit wait value only
+from seletools.waits import get_implicit_wait
+
+implicit_wait = get_implicit_wait(driver)
+
+# OR get all waits (non only implicit one)
+from seletools.waits import Wait
+
+waits = Waits(driver)
+implicit_wait = waits.implicit
+page_load = waits.page_load 
+scripts = waits.scripts
+```
+
+### Interaction with IndexedDB
+It's possible to interact with IndexedDB database in browser via JavaScript. 
+This interface helps get/update/insert data in existing databases and tables.
+
+> [!WARNING]
+> It's necessary to have logging enabled for your webdriver instance, since there's no other way for Selenium to get data from IndexedDB than gather it from the console. The way to enable logs differs between versions of Selenium.
+
+#### Setup - Selenium 3
+```
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
+dc = DesiredCapabilities.CHROME
+dc["goog:loggingPrefs"] = {"browser": "ALL"}
+driver = webdriver.Chrome(desired_capabilities=dc)
+```
+
+#### Setup - Selenium 4
+```
+from selenium import webdriver
+
+options = webdriver.ChromeOptions()
+options.set_capability("goog:loggingPrefs", {"browser": "ALL"})
+```
+
+Example:
+```
+from seletools.indexeddb import IndexedDB
+
+idb = IndexedDB(driver, "mydb", 3)  # webdriver instance, db name, db version
+# GET value
+value = idb.get_value("keyvaluepairs", "foo")  # table name, key in table
+# PUT value (change existing)
+idb.put_value("keyvaluepairs", "foo", "win")  # table name, key, new value
+# ADD value
+idb.add_value("keyvaluepairs", "war", "pain")  # table name, new key, new value
+# REMOVE item
+idb.remove_item("keyvaluepairs", "foo")  # table name, key in table
+```
+
+### Interaction with Local Storage
+Selenium doesn't support any Local Storage interactions natively, so usually actions like get/set were done with simple JavaScript snippets.
+
+```
+from seletools import localstorage
+
+# GET value
+value = localstorage.get_value(driver, "foo")  # webdriver instance, key in Local Storage
+# SET value
+localstorage.get_value(driver, "foo")  # webdriver instance, key in Local Storage, new value
+# REMOVE item
+localstorage.remove_item(driver, "foo")  # webdriver instance, key in Local Storage
+```
+
+### Notes
+HTML5 Drag & Drop action worked with CSS selectors only a while ago. Now it also supports XPath selectors.

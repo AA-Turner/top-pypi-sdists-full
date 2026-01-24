@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsedmarc
-Version: 8.18.7
+Version: 9.0.11
 Summary: A Python package and CLI for parsing aggregate and forensic DMARC reports
 Project-URL: Homepage, https://domainaware.github.io/parsedmarc
 Author-email: Sean Whalen <whalenster@gmail.com>
@@ -13,6 +13,7 @@ Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.9
 Requires-Dist: azure-identity>=1.8.0
 Requires-Dist: azure-monitor-ingestion>=1.0.0
 Requires-Dist: boto3>=1.16.63
@@ -30,11 +31,12 @@ Requires-Dist: google-auth>=2.3.3
 Requires-Dist: imapclient>=2.1.0
 Requires-Dist: kafka-python-ng>=2.2.2
 Requires-Dist: lxml>=4.4.0
-Requires-Dist: mailsuite>=1.9.18
+Requires-Dist: mailsuite>=1.11.2
 Requires-Dist: msgraph-core==0.2.2
 Requires-Dist: opensearch-py<=3.0.0,>=2.4.2
 Requires-Dist: publicsuffixlist>=0.10.0
 Requires-Dist: pygelf>=0.4.2
+Requires-Dist: pyyaml>=6.0.3
 Requires-Dist: requests>=2.22.0
 Requires-Dist: tqdm>=4.31.1
 Requires-Dist: urllib3>=1.25.7
@@ -61,7 +63,7 @@ Package](https://img.shields.io/pypi/v/parsedmarc.svg)](https://pypi.org/project
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/parsedmarc?color=blue)](https://pypistats.org/packages/parsedmarc)
 
 <p align="center">
-  <img src="https://github.com/domainaware/parsedmarc/raw/master/docs/source/_static/screenshots/dmarc-summary-charts.png?raw=true" alt="A screenshot of DMARC summary charts in Kibana"/>
+  <img src="https://raw.githubusercontent.com/domainaware/parsedmarc/refs/heads/master/docs/source/_static/screenshots/dmarc-summary-charts.png?raw=true" alt="A screenshot of DMARC summary charts in Kibana"/>
 </p>
 
 `parsedmarc` is a Python module and CLI utility for parsing DMARC
@@ -75,25 +77,42 @@ ProofPoint Email Fraud Defense, and Valimail.
 
 ## Help Wanted
 
-This project is maintained by one developer. Please consider
-reviewing the open
-[issues](https://github.com/domainaware/parsedmarc/issues) to see how
-you can contribute code, documentation, or user support. Assistance on
-the pinned issues would be particularly helpful.
+This project is maintained by one developer. Please consider reviewing the open
+[issues](https://github.com/domainaware/parsedmarc/issues) to see how you can
+contribute code, documentation, or user support. Assistance on the pinned
+issues would be particularly helpful.
 
 Thanks to all
 [contributors](https://github.com/domainaware/parsedmarc/graphs/contributors)!
 
 ## Features
 
-- Parses draft and 1.0 standard aggregate/rua reports
-- Parses forensic/failure/ruf reports
-- Can parse reports from an inbox over IMAP, Microsoft Graph, or Gmail
-    API
+- Parses draft and 1.0 standard aggregate/rua DMARC reports
+- Parses forensic/failure/ruf DMARC reports
+- Parses reports from SMTP TLS Reporting
+- Can parse reports from an inbox over IMAP, Microsoft Graph, or Gmail API
 - Transparently handles gzip or zip compressed reports
 - Consistent data structures
 - Simple JSON and/or CSV output
 - Optionally email the results
-- Optionally send the results to Elasticsearch, Opensearch, and/or Splunk, for use
-    with premade dashboards
+- Optionally send the results to Elasticsearch, Opensearch, and/or Splunk, for
+  use with premade dashboards
 - Optionally send reports to Apache Kafka
+
+## Python Compatibility
+
+This project supports the following Python versions, which are either actively maintained or are the default versions
+for RHEL or Debian.
+
+| Version | Supported | Reason                                                     |
+|---------|-----------|------------------------------------------------------------|
+| < 3.6   | ❌         | End of Life (EOL)                                          |
+| 3.6     | ❌         | Used in RHEL 8, but not supported by project dependencies |
+| 3.7     | ❌         | End of Life (EOL)                                          |
+| 3.8     | ❌         | End of Life (EOL)                                          |
+| 3.9     | ✅         | Supported until August 2026 (Debian 11); May 2032 (RHEL 9) |
+| 3.10    | ✅         | Actively maintained                                        |
+| 3.11    | ✅         | Actively maintained; supported until June 2028 (Debian 12) |
+| 3.12    | ✅         | Actively maintained; supported until May 2035 (RHEL 10)    |
+| 3.13    | ✅         | Actively maintained; supported until June 2030 (Debian 13) |
+| 3.14    | ✅         | Actively maintained                                        |

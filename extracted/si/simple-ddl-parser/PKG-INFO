@@ -1,109 +1,86 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: simple-ddl-parser
-Version: 1.7.1
+Version: 1.8.0
 Summary: Simple DDL Parser to parse SQL & dialects like HQL, TSQL (MSSQL), Oracle, AWS Redshift, Snowflake, MySQL, PostgreSQL, etc ddl files to json/python dict with full information about columns: types, defaults, primary keys, etc.; sequences, alters, custom types & other entities from ddl.
-Home-page: https://github.com/xnuinside/simple-ddl-parser
 License: MIT
+License-File: LICENSE
 Author: Iuliia Volkova
 Author-email: xnuinside@gmail.com
-Requires-Python: >=3.6,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: PL/SQL
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: SQL
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Dist: dataclasses (==0.8) ; python_version >= "3.6" and python_version < "3.7"
 Requires-Dist: ply (>=3.11,<4.0)
+Project-URL: Homepage, https://github.com/xnuinside/simple-ddl-parser
 Project-URL: Repository, https://github.com/xnuinside/simple-ddl-parser
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 
+## Simple DDL Parser
 
-Simple DDL Parser
------------------
-
-
-.. image:: https://img.shields.io/pypi/v/simple-ddl-parser
-   :target: https://img.shields.io/pypi/v/simple-ddl-parser
-   :alt: badge1
- 
-.. image:: https://img.shields.io/pypi/l/simple-ddl-parser
-   :target: https://img.shields.io/pypi/l/simple-ddl-parser
-   :alt: badge2
- 
-.. image:: https://img.shields.io/pypi/pyversions/simple-ddl-parser
-   :target: https://img.shields.io/pypi/pyversions/simple-ddl-parser
-   :alt: badge3
- 
-.. image:: https://github.com/xnuinside/simple-ddl-parser/actions/workflows/main.yml/badge.svg
-   :target: https://github.com/xnuinside/simple-ddl-parser/actions/workflows/main.yml/badge.svg
-   :alt: workflow
-
+![badge1](https://img.shields.io/pypi/v/simple-ddl-parser) ![badge2](https://img.shields.io/pypi/l/simple-ddl-parser) ![badge3](https://img.shields.io/pypi/pyversions/simple-ddl-parser) ![workflow](https://github.com/xnuinside/simple-ddl-parser/actions/workflows/main.yml/badge.svg)
 
 Build with ply (lex & yacc in python). A lot of samples in 'tests/.
 
-Is it Stable?
-^^^^^^^^^^^^^
+### Is it Stable?
 
 Yes, library already has about 9000+ downloads per day  - https://pypistats.org/packages/simple-ddl-parser..
 
 As maintainer, I guarantee that any backward incompatible changes will not be done in patch or minor version. But! Pay attention that sometimes output in keywords can be changed in minor version because of fixing wrong behaviour in past.
 
-Articles with examples
-^^^^^^^^^^^^^^^^^^^^^^
+### Articles with examples
 
+1. SQL Diagram (Part 3): SQL-to-ERD with DDL: https://levelup.gitconnected.com/sql-diagram-part-3-sql-to-erd-with-ddl-4c9840ee86c3 
 
-#. SQL Diagram (Part 3): SQL-to-ERD with DDL: https://levelup.gitconnected.com/sql-diagram-part-3-sql-to-erd-with-ddl-4c9840ee86c3 
-
-Updates in version 1.x
-^^^^^^^^^^^^^^^^^^^^^^
+### Updates in version 1.x
 
 The full list of updates can be found in the Changelog below (at the end of README).
 
 Version 1.0.0 was released due to significant changes in the output structure and a stricter approach regarding the scope of the produced output. Now, you must provide the argument 'output_mode=name_of_your_dialect' if you wish to see arguments/properties specific to a particular dialect
 
-How does it work?
-^^^^^^^^^^^^^^^^^
+
+### How does it work?
 
 Parser supports: 
 
+- SQL
+- HQL (Hive)
+- MSSQL dialect
+- Oracle dialect
+- MySQL dialect
+- PostgreSQL dialect
+- BigQuery
+- Redshift
+- Snowflake
+- SparkSQL
+- IBM DB2 dialect
+- Informix/GBase 8s dialect
 
-* SQL
-* HQL (Hive)
-* MSSQL dialec
-* Oracle dialect
-* MySQL dialect
-* PostgreSQL dialect
-* BigQuery
-* Redshift
-* Snowflake
-* SparkSQL
-* IBM DB2 dialect
+You can check dialects sections after `Supported Statements` section to get more information that statements from dialects already supported by parser. If you need to add more statements or new dialects - feel free to open the issue. 
 
-You can check dialects sections after ``Supported Statements`` section to get more information that statements from dialects already supported by parser. If you need to add more statements or new dialects - feel free to open the issue. 
 
-Feel free to open Issue with DDL sample
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
+### Feel free to open Issue with DDL sample
 Pay attentions that I'm adding functional tests for all supported statement, so if you see that your statement is failed and you didn't see it in the test 99,9% that I did n't have sample with such SQL statement - so feel free to open the issue and I will add support for it. 
 
-**If you need some statement, that not supported by parser yet**\ : please provide DDL example & information about that is it SQL dialect or DB.
+**If you need some statement, that not supported by parser yet**: please provide DDL example & information about that is it SQL dialect or DB.
 
 Types that are used in your DB does not matter, so parser must also work successfully to any DDL for SQL DB. Parser is NOT case sensitive, it did not expect that all queries will be in upper case or lower case. So you can write statements like this:
 
-.. code-block:: sql
+```sql
 
+    Alter Table Persons ADD CONSTRAINT CHK_PersonAge CHECK (Age>=18 AND City='Sandnes');
 
-       Alter Table Persons ADD CONSTRAINT CHK_PersonAge CHECK (Age>=18 AND City='Sandnes');
+```
 
 It will be parsed as is without errors.
 
@@ -111,19 +88,17 @@ If you have samples that cause an error - please open the issue (but don't forge
 
 A lot of statements and output result you can find in tests on the github - https://github.com/xnuinside/simple-ddl-parser/tree/main/tests .
 
-How to install
-^^^^^^^^^^^^^^
+### How to install
 
-.. code-block:: bash
+```bash
 
+    pip install simple-ddl-parser
 
-       pip install simple-ddl-parser
+```
 
-How to use
-----------
+## How to use
 
-Extract additional information from HQL (& other dialects)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Extract additional information from HQL (& other dialects)
 
 In some dialects like HQL there is a lot of additional information about table like, fore example, is it external table, STORED AS, location & etc. This property will be always empty in 'classic' SQL DB like PostgreSQL or MySQL and this is the reason, why by default this information are 'hidden'.
 Also some fields hidden in HQL, because they are simple not exists in HIVE, for example 'deferrable_initially'
@@ -131,435 +106,425 @@ To get this 'hql' specific details about table in output please use 'output_mode
 
 example:
 
-.. code-block:: python
+```python
 
+    ddl = """
+    CREATE TABLE IF NOT EXISTS default.salesorderdetail(
+        SalesOrderID int,
+        ProductID int,
+        OrderQty int,
+        LineTotal decimal
+        )
+    PARTITIONED BY (batch_id int, batch_id2 string, batch_32 some_type)
+    LOCATION 's3://datalake/table_name/v1'
+    ROW FORMAT DELIMITED
+        FIELDS TERMINATED BY ','
+        COLLECTION ITEMS TERMINATED BY '\002'
+        MAP KEYS TERMINATED BY '\003'
+    STORED AS TEXTFILE
+    """
 
-       ddl = """
-       CREATE TABLE IF NOT EXISTS default.salesorderdetail(
-           SalesOrderID int,
-           ProductID int,
-           OrderQty int,
-           LineTotal decimal
-           )
-       PARTITIONED BY (batch_id int, batch_id2 string, batch_32 some_type)
-       LOCATION 's3://datalake/table_name/v1'
-       ROW FORMAT DELIMITED
-           FIELDS TERMINATED BY ','
-           COLLECTION ITEMS TERMINATED BY '\002'
-           MAP KEYS TERMINATED BY '\003'
-       STORED AS TEXTFILE
-       """
-
-       result = DDLParser(ddl).run(output_mode="hql")
-       print(result)
+    result = DDLParser(ddl).run(output_mode="hql")
+    print(result)
+```
 
 And you will get output with additional keys 'stored_as', 'location', 'external', etc.
 
-.. code-block:: python
+```python
 
+    # additional keys examples
+  {
+    ...,
+    'location': "'s3://datalake/table_name/v1'",
+    'map_keys_terminated_by': "'\\003'",
+    'partitioned_by': [{'name': 'batch_id', 'size': None, 'type': 'int'},
+                        {'name': 'batch_id2', 'size': None, 'type': 'string'},
+                        {'name': 'batch_32', 'size': None, 'type': 'some_type'}],
+    'primary_key': [],
+    'row_format': 'DELIMITED',
+    'schema': 'default',
+    'stored_as': 'TEXTFILE',
+    ... 
+  }
 
-       # additional keys examples
-     {
-       ...,
-       'location': "'s3://datalake/table_name/v1'",
-       'map_keys_terminated_by': "'\\003'",
-       'partitioned_by': [{'name': 'batch_id', 'size': None, 'type': 'int'},
-                           {'name': 'batch_id2', 'size': None, 'type': 'string'},
-                           {'name': 'batch_32', 'size': None, 'type': 'some_type'}],
-       'primary_key': [],
-       'row_format': 'DELIMITED',
-       'schema': 'default',
-       'stored_as': 'TEXTFILE',
-       ... 
-     }
+```
 
 If you run parser with command line add flag '-o=hql' or '--output-mode=hql' to get the same result.
 
 Possible output_modes: ['redshift', 'spark_sql', 'mysql', 'bigquery', 'mssql', 'databricks', 'sqlite', 'vertics', 'ibm_db2', 'postgres', 'oracle', 'hql', 'snowflake', 'sql']
 
-From python code
-^^^^^^^^^^^^^^^^
+### From python code
 
-.. code-block:: python
-
-       from simple_ddl_parser import DDLParser
+```python
+    from simple_ddl_parser import DDLParser
 
 
-       parse_results = DDLParser("""create table dev.data_sync_history(
-           data_sync_id bigint not null,
-           sync_count bigint not null,
-           sync_mark timestamp  not  null,
-           sync_start timestamp  not null,
-           sync_end timestamp  not null,
-           message varchar(2000) null,
-           primary key (data_sync_id, sync_start)
-       ); """).run()
+    parse_results = DDLParser("""create table dev.data_sync_history(
+        data_sync_id bigint not null,
+        sync_count bigint not null,
+        sync_mark timestamp  not  null,
+        sync_start timestamp  not null,
+        sync_end timestamp  not null,
+        message varchar(2000) null,
+        primary key (data_sync_id, sync_start)
+    ); """).run()
 
-       print(parse_results)
+    print(parse_results) 
 
-To parse from file
-^^^^^^^^^^^^^^^^^^
+```
 
-.. code-block:: python
+### To parse from file
 
+```python
+    
+    from simple_ddl_parser import parse_from_file
 
-       from simple_ddl_parser import parse_from_file
+    result = parse_from_file('tests/sql/test_one_statement.sql')
+    print(result)
 
-       result = parse_from_file('tests/sql/test_one_statement.sql')
-       print(result)
+```
 
-From command line
-^^^^^^^^^^^^^^^^^
+### From command line
 
 simple-ddl-parser is installed to environment as command **sdp**
 
-.. code-block:: bash
+```bash
 
+    sdp path_to_ddl_file
 
-       sdp path_to_ddl_file
+    # for example:
 
-       # for example:
-
-       sdp tests/sql/test_two_tables.sql
+    sdp tests/sql/test_two_tables.sql
+    
+```
 
 You will see the output in **schemas** folder in file with name **test_two_tables_schema.json**
 
 If you want to have also output in console - use **-v** flag for verbose.
 
-.. code-block:: bash
-
-
-       sdp tests/sql/test_two_tables.sql -v
+```bash
+    
+    sdp tests/sql/test_two_tables.sql -v
+    
+```
 
 If you don't want to dump schema in file and just print result to the console, use **--no-dump** flag:
 
-.. code-block:: bash
+
+```bash
+    
+    sdp tests/sql/test_two_tables.sql --no-dump
+    
+```
+
+You can provide target path where you want to dump result with argument **-t**, **--target**:
 
 
-       sdp tests/sql/test_two_tables.sql --no-dump
-
-You can provide target path where you want to dump result with argument **-t**\ , **--target**\ :
-
-.. code-block:: bash
-
-
-       sdp tests/sql/test_two_tables.sql -t dump_results/
-
-Get Output in JSON
-^^^^^^^^^^^^^^^^^^
+```bash
+    
+    sdp tests/sql/test_two_tables.sql -t dump_results/
+    
+```
+### Get Output in JSON
 
 If you want to get output in JSON in stdout you can use argument **json_dump=True** in method **.run()** for this
-
-.. code-block:: python
-
-       from simple_ddl_parser import DDLParser
+```python
+    from simple_ddl_parser import DDLParser
 
 
-       parse_results = DDLParser("""create table dev.data_sync_history(
-           data_sync_id bigint not null,
-           sync_count bigint not null,
-       ); """).run(json_dump=True)
+    parse_results = DDLParser("""create table dev.data_sync_history(
+        data_sync_id bigint not null,
+        sync_count bigint not null,
+    ); """).run(json_dump=True)
 
-       print(parse_results)
+    print(parse_results) 
 
+```
 Output will be:
 
-.. code-block:: json
+```json
+[{"columns": [{"name": "data_sync_id", "type": "bigint", "size": null, "references": null, "unique": false, "nullable": false, "default": null, "check": null}, {"name": "sync_count", "type": "bigint", "size": null, "references": null, "unique": false, "nullable": false, "default": null, "check": null}], "primary_key": [], "alter": {}, "checks": [], "index": [], "partitioned_by": [], "tablespace": null, "schema": "dev", "table_name": "data_sync_history"}]
+```
 
-   [{"columns": [{"name": "data_sync_id", "type": "bigint", "size": null, "references": null, "unique": false, "nullable": false, "default": null, "check": null}, {"name": "sync_count", "type": "bigint", "size": null, "references": null, "unique": false, "nullable": false, "default": null, "check": null}], "primary_key": [], "alter": {}, "checks": [], "index": [], "partitioned_by": [], "tablespace": null, "schema": "dev", "table_name": "data_sync_history"}]
+### More details
 
-More details
-^^^^^^^^^^^^
+`DDLParser(ddl).run()`
+.run() method contains several arguments, that impact changing output result. As you can saw upper exists argument `output_mode` that allow you to set dialect and get more fields in output relative to chosen dialect, for example 'hql'. Possible output_modes: ['redshift', 'spark_sql', 'mysql', 'bigquery', 'mssql', 'databricks', 'sqlite', 'vertics', 'ibm_db2', 'postgres', 'oracle', 'hql', 'snowflake', 'sql']
 
-``DDLParser(ddl).run()``
-.run() method contains several arguments, that impact changing output result. As you can saw upper exists argument ``output_mode`` that allow you to set dialect and get more fields in output relative to chosen dialect, for example 'hql'. Possible output_modes: ['redshift', 'spark_sql', 'mysql', 'bigquery', 'mssql', 'databricks', 'sqlite', 'vertics', 'ibm_db2', 'postgres', 'oracle', 'hql', 'snowflake', 'sql']
-
-Also in .run() method exists argument ``group_by_type`` (by default: False). By default output of parser looks like a List with Dicts where each dict == one entity from ddl (table, sequence, type, etc). And to understand that is current entity you need to check Dict like: if 'table_name' in dict - this is a table, if 'type_name' - this is a type & etc.
+Also in .run() method exists argument `group_by_type` (by default: False). By default output of parser looks like a List with Dicts where each dict == one entity from ddl (table, sequence, type, etc). And to understand that is current entity you need to check Dict like: if 'table_name' in dict - this is a table, if 'type_name' - this is a type & etc.
 
 To make work little bit easy you can set group_by_type=True and you will get output already sorted by types, like:
 
-.. code-block:: python
+```python
 
+    { 
+        'tables': [all_pasrsed_tables], 
+        'sequences': [all_pasrsed_sequences], 
+        'types': [all_pasrsed_types], 
+        'domains': [all_pasrsed_domains],
+        ...
+    }
 
-       { 
-           'tables': [all_pasrsed_tables], 
-           'sequences': [all_pasrsed_sequences], 
-           'types': [all_pasrsed_types], 
-           'domains': [all_pasrsed_domains],
-           ...
-       }
+```
 
 For example:
 
-.. code-block:: python
+```python
 
+    ddl = """
+    CREATE TYPE "schema--notification"."ContentType" AS
+        ENUM ('TEXT','MARKDOWN','HTML');
+        CREATE TABLE "schema--notification"."notification" (
+            content_type "schema--notification"."ContentType"
+        );
+    CREATE SEQUENCE dev.incremental_ids
+        INCREMENT 10
+        START 0
+        MINVALUE 0
+        MAXVALUE 9223372036854775807
+        CACHE 1;
+    """
 
-       ddl = """
-       CREATE TYPE "schema--notification"."ContentType" AS
-           ENUM ('TEXT','MARKDOWN','HTML');
-           CREATE TABLE "schema--notification"."notification" (
-               content_type "schema--notification"."ContentType"
-           );
-       CREATE SEQUENCE dev.incremental_ids
-           INCREMENT 10
-           START 0
-           MINVALUE 0
-           MAXVALUE 9223372036854775807
-           CACHE 1;
-       """
+    result = DDLParser(ddl).run(group_by_type=True)
 
-       result = DDLParser(ddl).run(group_by_type=True)
+    # result will be:
 
-       # result will be:
+    {'sequences': [{'cache': 1,
+                    'increment': 10,
+                    'maxvalue': 9223372036854775807,
+                    'minvalue': 0,
+                    'schema': 'dev',
+                    'sequence_name': 'incremental_ids',
+                    'start': 0}],
+    'tables': [{'alter': {},
+                'checks': [],
+                'columns': [{'check': None,
+                            'default': None,
+                            'name': 'content_type',
+                            'nullable': True,
+                            'references': None,
+                            'size': None,
+                            'type': '"schema--notification"."ContentType"',
+                            'unique': False}],
+                'index': [],
+                'partitioned_by': [],
+                'primary_key': [],
+                'schema': '"schema--notification"',
+                'table_name': '"notification"'}],
+    'types': [{'base_type': 'ENUM',
+                'properties': {'values': ["'TEXT'", "'MARKDOWN'", "'HTML'"]},
+                'schema': '"schema--notification"',
+                'type_name': '"ContentType"'}]}
 
-       {'sequences': [{'cache': 1,
-                       'increment': 10,
-                       'maxvalue': 9223372036854775807,
-                       'minvalue': 0,
-                       'schema': 'dev',
-                       'sequence_name': 'incremental_ids',
-                       'start': 0}],
-       'tables': [{'alter': {},
-                   'checks': [],
-                   'columns': [{'check': None,
-                               'default': None,
-                               'name': 'content_type',
-                               'nullable': True,
-                               'references': None,
-                               'size': None,
-                               'type': '"schema--notification"."ContentType"',
-                               'unique': False}],
-                   'index': [],
-                   'partitioned_by': [],
-                   'primary_key': [],
-                   'schema': '"schema--notification"',
-                   'table_name': '"notification"'}],
-       'types': [{'base_type': 'ENUM',
-                   'properties': {'values': ["'TEXT'", "'MARKDOWN'", "'HTML'"]},
-                   'schema': '"schema--notification"',
-                   'type_name': '"ContentType"'}]}
+```
 
-ALTER statements
-^^^^^^^^^^^^^^^^
+### ALTER statements
 
-Right now added support only for ALTER statements with FOREIGEIN key
+Parser supports various ALTER TABLE statements:
 
-For example, if in your ddl after table definitions (create table statements) you have ALTER table statements like this:
+- **ADD COLUMN** - with or without COLUMN keyword
+- **DROP COLUMN** - with or without COLUMN keyword (Oracle style)
+- **MODIFY COLUMN** - with or without COLUMN keyword (Oracle style)
+- **ALTER COLUMN** - SQL Server style
+- **RENAME COLUMN**
+- **ADD FOREIGN KEY** - with or without CONSTRAINT
+- **ADD PRIMARY KEY** - with or without CONSTRAINT
+- **ADD UNIQUE**
+- **ADD CHECK**
+- **ADD DEFAULT**
 
-.. code-block:: sql
+Multiple operations can be combined in a single ALTER statement using commas:
 
+```sql
+ALTER TABLE my_table ADD col1 int, ADD col2 varchar;
+ALTER TABLE my_table DROP COLUMN col1, DROP COLUMN col2;
+ALTER TABLE my_table MODIFY COLUMN col1 int, MODIFY COLUMN col2 varchar;
+```
 
-   ALTER TABLE "material_attachments" ADD FOREIGN KEY ("material_id", "material_title") REFERENCES "materials" ("id", "title");
-
-This statements will be parsed and information about them putted inside 'alter' key in table's dict.
+All ALTER statements are parsed and information is stored in the 'alter' key of the table's dict.
 For example, please check alter statement tests - **tests/test_alter_statements.py**
 
-More examples & tests
-^^^^^^^^^^^^^^^^^^^^^
+
+### More examples & tests
 
 You can find in **tests/** folder.
 
-Dump result in json
-^^^^^^^^^^^^^^^^^^^
+### Dump result in json
 
 To dump result in json use argument .run(dump=True)
 
 You also can provide a path where you want to have a dumps with schema with argument .run(dump_path='folder_that_use_for_dumps/')
 
-Raise error if DDL cannot be parsed by Parser
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+### Raise error if DDL cannot be parsed by Parser
 
 By default Parser does not raise the error if some statement cannot be parsed - and just skip & produce empty output.
 
 To change this behavior you can pass 'silent=False' argumen to main parser class, like:
 
-.. code-block::
+    DDLParser(.., silent=False)
 
-   DDLParser(.., silent=False)
-
-
-Normalize names
-^^^^^^^^^^^^^^^
+### Normalize names
 
 Use DDLParser(.., normalize_names=True)flag that change output of parser:
 If flag is True (default 'False') then all identifiers will be returned without '[', '"' and other delimiters that used in different SQL dialects to separate custom names from reserved words & statements.
 For example, if flag set 'True' and you pass this input: 
 
-CREATE TABLE [dbo].\ `TO_Requests <[Request_ID] [int] IDENTITY(1,1>`_ NOT NULL,
+CREATE TABLE [dbo].[TO_Requests](
+    [Request_ID] [int] IDENTITY(1,1) NOT NULL,
     [user_id] [int]
 
 In output you will have names like 'dbo' and 'TO_Requests', not '[dbo]' and '[TO_Requests]'.
 
-Supported Statements
---------------------
+
+## Supported Statements
+
+- CREATE [OR REPLACE] TABLE [ IF NOT EXISTS ] + columns definition, columns attributes: column name + type + type size(for example, varchar(255)), UNIQUE, PRIMARY KEY, DEFAULT, CHECK, NULL/NOT NULL, REFERENCES, ON DELETE, ON UPDATE,  NOT DEFERRABLE, DEFERRABLE INITIALLY, GENERATED ALWAYS, STORED, COLLATE
+
+- STATEMENTS: PRIMARY KEY, CHECK, FOREIGN KEY in table definitions (in create table();)
+
+- ALTER TABLE STATEMENTS: ADD CHECK (with CONSTRAINT), ADD FOREIGN KEY (with CONSTRAINT), ADD UNIQUE, ADD DEFAULT FOR, ALTER TABLE ONLY, ALTER TABLE IF EXISTS; ALTER .. PRIMARY KEY; ALTER .. USING INDEX TABLESPACE; ALTER .. ADD; ALTER .. MODIFY; ALTER .. ALTER COLUMN; etc
+
+- PARTITION BY statement
+
+- CREATE SEQUENCE with words: INCREMENT [BY], START [WITH], MINVALUE, MAXVALUE, CACHE
+
+- CREATE TYPE statement:  AS TABLE, AS ENUM, AS OBJECT, INTERNALLENGTH, INPUT, OUTPUT
+
+- LIKE statement (in this and only in this case to output will be added 'like' keyword with information about table from that we did like - 'like': {'schema': None, 'table_name': 'Old_Users'}).
+
+- TABLESPACE statement
+
+- COMMENT ON statement
+
+- CREATE SCHEMA [IF NOT EXISTS] ... [AUTHORIZATION] ...
+
+- CREATE DOMAIN [AS]
+
+- CREATE [SMALLFILE | BIGFILE] [TEMPORARY] TABLESPACE statement
+
+- CREATE DATABASE + Properties parsing
+
+### SparkSQL Dialect statements
+
+- USING
 
 
-* 
-  CREATE [OR REPLACE] TABLE [ IF NOT EXISTS ] + columns definition, columns attributes: column name + type + type size(for example, varchar(255)), UNIQUE, PRIMARY KEY, DEFAULT, CHECK, NULL/NOT NULL, REFERENCES, ON DELETE, ON UPDATE,  NOT DEFERRABLE, DEFERRABLE INITIALLY, GENERATED ALWAYS, STORED, COLLATE
+### HQL Dialect statements
 
-* 
-  STATEMENTS: PRIMARY KEY, CHECK, FOREIGN KEY in table definitions (in create table();)
+- PARTITIONED BY statement
+- ROW FORMAT, ROW FORMAT SERDE
+- WITH SERDEPROPERTIES ("input.regex" =  "..some regex..")
+- STORED AS (AVRO, PARQUET, etc), STORED AS INPUTFORMAT, OUTPUTFORMAT
+- COMMENT
+- LOCATION
+- FIELDS TERMINATED BY, LINES TERMINATED BY, COLLECTION ITEMS TERMINATED BY, MAP KEYS TERMINATED BY
+- TBLPROPERTIES ('parquet.compression'='SNAPPY' & etc.)
+- SKEWED BY
+- CLUSTERED BY 
 
-* 
-  ALTER TABLE STATEMENTS: ADD CHECK (with CONSTRAINT), ADD FOREIGN KEY (with CONSTRAINT), ADD UNIQUE, ADD DEFAULT FOR, ALTER TABLE ONLY, ALTER TABLE IF EXISTS; ALTER .. PRIMARY KEY; ALTER .. USING INDEX TABLESPACE; ALTER .. ADD; ALTER .. MODIFY; ALTER .. ALTER COLUMN; etc
+### MySQL
 
-* 
-  PARTITION BY statement
+- ON UPDATE in column without reference 
 
-* 
-  CREATE SEQUENCE with words: INCREMENT [BY], START [WITH], MINVALUE, MAXVALUE, CACHE
+#### MSSQL 
 
-* 
-  CREATE TYPE statement:  AS TABLE, AS ENUM, AS OBJECT, INTERNALLENGTH, INPUT, OUTPUT
+- CONSTRAINT [CLUSTERED]... PRIMARY KEY
+- CONSTRAINT ... WITH statement
+- PERIOD FOR SYSTEM_TIME in CREATE TABLE statement
+- ON [PRIMARY] after CREATE TABLE statement (sample in test files test_mssql_specific.py)
+- WITH statement for TABLE properties
+- TEXTIMAGE_ON statement
+- DEFAULT NEXT VALUE FOR in COLUMN DEFAULT
 
-* 
-  LIKE statement (in this and only in this case to output will be added 'like' keyword with information about table from that we did like - 'like': {'schema': None, 'table_name': 'Old_Users'}).
+### MSSQL / MySQL/ Oracle
 
-* 
-  TABLESPACE statement
+- type IDENTITY statement
+- FOREIGN KEY REFERENCES statement
+- 'max' specifier in column size
+- CONSTRAINT ... UNIQUE, CONSTRAINT ... CHECK, CONSTRAINT ... FOREIGN KEY, CONSTRAINT ... PRIMARY KEY
+- CREATE CLUSTERED INDEX
+- CREATE TABLE (...) ORGANIZATION INDEX 
 
-* 
-  COMMENT ON statement
+### Oracle
 
-* 
-  CREATE SCHEMA [IF NOT EXISTS] ... [AUTHORIZATION] ...
-
-* 
-  CREATE DOMAIN [AS]
-
-* 
-  CREATE [SMALLFILE | BIGFILE] [TEMPORARY] TABLESPACE statement
-
-* 
-  CREATE DATABASE + Properties parsing
-
-SparkSQL Dialect statements
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-* USING
-
-HQL Dialect statements
-^^^^^^^^^^^^^^^^^^^^^^
+- ENCRYPT column property [+ NO SALT, SALT, USING]
+- STORAGE column property
 
 
-* PARTITIONED BY statement
-* ROW FORMAT, ROW FORMAT SERDE
-* WITH SERDEPROPERTIES ("input.regex" =  "..some regex..")
-* STORED AS (AVRO, PARQUET, etc), STORED AS INPUTFORMAT, OUTPUTFORMAT
-* COMMENT
-* LOCATION
-* FIELDS TERMINATED BY, LINES TERMINATED BY, COLLECTION ITEMS TERMINATED BY, MAP KEYS TERMINATED BY
-* TBLPROPERTIES ('parquet.compression'='SNAPPY' & etc.)
-* SKEWED BY
-* CLUSTERED BY 
+### PotgreSQL
 
-MySQL
-^^^^^
+- INHERITS table statement - https://postgrespro.ru/docs/postgresql/14/ddl-inherit 
 
+### AWS Redshift Dialect statements
 
-* ON UPDATE in column without reference 
+- ENCODE column property
+- SORTKEY, DISTSTYLE, DISTKEY, ENCODE table properties
+- CREATE TEMP / TEMPORARY TABLE
 
-MSSQL
-~~~~~
+- syntax like with LIKE statement:
 
+ `create temp table tempevent(like event);`
 
-* CONSTRAINT [CLUSTERED]... PRIMARY KEY
-* CONSTRAINT ... WITH statement
-* PERIOD FOR SYSTEM_TIME in CREATE TABLE statement
-* ON [PRIMARY] after CREATE TABLE statement (sample in test files test_mssql_specific.py)
-* WITH statement for TABLE properties
-* TEXTIMAGE_ON statement
-* DEFAULT NEXT VALUE FOR in COLUMN DEFAULT
+### Snowflake Dialect statements
 
-MSSQL / MySQL/ Oracle
-^^^^^^^^^^^^^^^^^^^^^
+- CREATE .. CLONE statements for table, database and schema
+- CREATE TABLE [or REPLACE] [ TRANSIENT | TEMPORARY ] .. CLUSTER BY ..
+- CONSTRAINT .. [NOT] ENFORCED 
+- COMMENT = in CREATE TABLE & CREATE SCHEMA statements
+- WITH MASKING POLICY
+- WITH TAG, including multiple tags in the same statement.
+- DATA_RETENTION_TIME_IN_DAYS
+- MAX_DATA_EXTENSION_TIME_IN_DAYS
+- CHANGE_TRACKING
 
+### BigQuery
 
-* type IDENTITY statement
-* FOREIGN KEY REFERENCES statement
-* 'max' specifier in column size
-* CONSTRAINT ... UNIQUE, CONSTRAINT ... CHECK, CONSTRAINT ... FOREIGN KEY, CONSTRAINT ... PRIMARY KEY
-* CREATE CLUSTERED INDEX
-* CREATE TABLE (...) ORGANIZATION INDEX 
+- OPTION in CREATE SCHEMA statement
+- OPTION in CREATE TABLE statement
+- OPTION in column definition statement
 
-Oracle
-^^^^^^
+### Informix/GBase 8s
 
+Informix is an IBM relational database. GBase 8s is a Chinese enterprise database based on Informix with Oracle compatibility features.
 
-* ENCRYPT column property [+ NO SALT, SALT, USING]
-* STORAGE column property
+Supported Informix-specific features:
+- Data types: SERIAL, SERIAL8, BIGSERIAL, INT8, LVARCHAR, TEXT, BYTE, BLOB, CLOB, MONEY, NCHAR, NVARCHAR
+- DATETIME with qualifiers: DATETIME YEAR TO SECOND, DATETIME YEAR TO FRACTION(n), DATETIME YEAR TO DAY
+- INTERVAL types: INTERVAL HOUR TO MINUTE, INTERVAL DAY TO DAY, INTERVAL YEAR TO MONTH
+- DEFAULT with Informix functions: TODAY, CURRENT, USER
+- Storage options: IN dbspace, EXTENT SIZE, NEXT SIZE, LOCK MODE
 
-PotgreSQL
-^^^^^^^^^
+GBase 8s Oracle-compatible features:
+- Data types: VARCHAR2, NVARCHAR2, NUMBER
+- Virtual columns: `column_name AS (expression)`, `GENERATED ALWAYS AS (expression)`
 
-
-* INHERITS table statement - https://postgrespro.ru/docs/postgresql/14/ddl-inherit 
-
-AWS Redshift Dialect statements
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Parser settings
 
 
-* ENCODE column property
-* SORTKEY, DISTSTYLE, DISTKEY, ENCODE table properties
-* 
-  CREATE TEMP / TEMPORARY TABLE
+#### Logging
 
-* 
-  syntax like with LIKE statement:
-
-  ``create temp table tempevent(like event);``
-
-Snowflake Dialect statements
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
-* CREATE .. CLONE statements for table, database and schema
-* CREATE TABLE [or REPLACE] [ TRANSIENT | TEMPORARY ] .. CLUSTER BY ..
-* CONSTRAINT .. [NOT] ENFORCED 
-* COMMENT = in CREATE TABLE & CREATE SCHEMA statements
-* WITH MASKING POLICY
-* WITH TAG, including multiple tags in the same statement.
-* DATA_RETENTION_TIME_IN_DAYS
-* MAX_DATA_EXTENSION_TIME_IN_DAYS
-* CHANGE_TRACKING
-
-BigQuery
-^^^^^^^^
-
-
-* OPTION in CREATE SCHEMA statement
-* OPTION in CREATE TABLE statement
-* OPTION in column definition statement
-
-Parser settings
-^^^^^^^^^^^^^^^
-
-Logging
-~~~~~~~
-
-
-#. Logging to file
+1. Logging to file
 
 To get logging output to file you should provide to Parser 'log_file' argument with path or file name:
 
-.. code-block:: console
+```console
 
+    DDLParser(ddl, log_file='parser221.log').run(group_by_type=True)
 
-       DDLParser(ddl, log_file='parser221.log').run(group_by_type=True)
+```
 
-
-#. Logging level
+2. Logging level
 
 To set logging level you should provide argument 'log_level'
 
-.. code-block:: console
+```console
 
+    DDLParser(ddl, log_level=logging.INFO).run(group_by_type=True)
 
-       DDLParser(ddl, log_level=logging.INFO).run(group_by_type=True)
+```
 
-Thanks for involving & contributions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+### Thanks for involving & contributions
 
 Most biggest 'Thanks' ever goes for contributions in parser:
 https://github.com/dmaresma
@@ -570,72 +535,78 @@ https://github.com/PBalsdon
 
 Big thanks for the involving & contribution with test cases with DDL samples & opening issues goes to:
 
-
 * https://github.com/kukigai , 
 * https://github.com/kliushnichenko ,
 * https://github.com/geob3d
 
 for help with debugging & testing support for BigQuery dialect DDLs:
-
-
 * https://github.com/ankitdata ,
 * https://github.com/kalyan939
 
-Changelog
----------
+## Changelog
+**v1.8.0**
+### Important
+1. Python 3.7 and 3.8 support is deprecated. Minimum supported version is now Python 3.9.
+
+### Improvements
+1. Added support for Python 3.13.
+2. Added tox configuration for testing across multiple Python versions (3.9-3.13).
+
+### New Features
+1. Added support for COMMENT ON syntax (TABLE, COLUMN, SCHEMA, DATABASE) - https://github.com/xnuinside/simple-ddl-parser/pull/301
+2. Added support for Informix/GBase 8s dialect - https://github.com/xnuinside/simple-ddl-parser/issues/299
+   - Informix data types: SERIAL, SERIAL8, BIGSERIAL, INT8, LVARCHAR, TEXT, BYTE, BLOB, CLOB, MONEY, NCHAR, NVARCHAR
+   - DATETIME YEAR TO SECOND/FRACTION/DAY syntax
+   - INTERVAL HOUR TO MINUTE/DAY TO DAY/YEAR TO MONTH syntax
+   - DEFAULT with Informix functions (TODAY, CURRENT, USER)
+   - Storage options: IN dbspace, EXTENT SIZE, NEXT SIZE, LOCK MODE
+   - GBase 8s Oracle-compatible types: VARCHAR2, NVARCHAR2, NUMBER
+   - GBase 8s virtual columns: column AS (expression), GENERATED ALWAYS AS (expression)
+
+### Fixes
+1. Fixed Snowflake sequence NEXTVAL in column default value - https://github.com/xnuinside/simple-ddl-parser/pull/295
+2. Fixed escape sequence handling for '=' in generated column expressions.
+3. Added support for ALTER TABLE with multiple column operations (ADD, DROP, MODIFY) - https://github.com/xnuinside/simple-ddl-parser/issues/300
+   - Multiple ADD/DROP/MODIFY operations in a single ALTER statement (comma-separated)
+   - ADD COLUMN syntax (with COLUMN keyword)
+   - DROP without COLUMN keyword (Oracle style)
+   - Note: `dropped_columns` and `modified_columns` in output are now lists instead of single dicts
+4. Fixed BigQuery OPTIONS parsing with unicode characters (em-dash, etc.) - https://github.com/xnuinside/simple-ddl-parser/issues/298
+   - String literals now support any unicode characters in descriptions
+
 
 **v1.7.1**
+### Fixes:
+1. Fix 'character set' issue - https://github.com/xnuinside/simple-ddl-parser/issues/288 
 
-Fixes:
-^^^^^^
-
-
-#. Fix 'character set' issue - https://github.com/xnuinside/simple-ddl-parser/issues/288 
 
 **v1.7.0**
+### Fixes
+1. DEFAULT Value with '::' cast parsed correctly now - https://github.com/xnuinside/simple-ddl-parser/issues/286
 
-Fixes
-^^^^^
+### Improvements
+1. Added support for ENUM & SET column type - https://github.com/xnuinside/simple-ddl-parser/issues/259 
 
-
-#. DEFAULT Value with '::' cast parsed correctly now - https://github.com/xnuinside/simple-ddl-parser/issues/286
-
-Improvements
-^^^^^^^^^^^^
-
-
-#. Added support for ENUM & SET column type - https://github.com/xnuinside/simple-ddl-parser/issues/259 
 
 **v1.6.1**
-
-Fixes
-^^^^^
-
-
-#. #289 CREATE SCHEMA IF NOT EXISTS plus comment fail
-#. schema or db.schema location in snowflake
+### Fixes
+1. #289 CREATE SCHEMA IF NOT EXISTS plus comment fail
+2. schema or db.schema location in snowflake
 
 **v1.6.0**
-
-IMPORTANT:
-^^^^^^^^^^
-
+### IMPORTANT:
 In this versions there is some output changes & fixes that can break your code.
+1. Now all arguments inside brackets are parsed as separate strings in the list.
+For example:
+ `file_format = (TYPE=JSON NULL_IF=('field')` this was parsed like 'NULL_IF': "('field')",
+ now it will be: 'NULL_IF': ["'field'"],
 
+2. Added separate tokens for EQ `=` and IN (previously they was parsed as IDs also - for internal info, for contributors.
 
-#. 
-   Now all arguments inside brackets are parsed as separate strings in the list.
-   For example:
-   ``file_format = (TYPE=JSON NULL_IF=('field')`` this was parsed like 'NULL_IF': "('field')",
-   now it will be: 'NULL_IF': ["'field'"],
+3. Some check statements in columns now parsed validly, also IN statements parsed as normal lists.
+So this statement include_exclude_ind CHAR(1) NOT NULL CONSTRAINT chk_metalistcombo_logicalopr
+  CHECK (include_exclude_ind IN ('I', 'E')),
 
-#. 
-   Added separate tokens for EQ ``=`` and IN (previously they was parsed as IDs also - for internal info, for contributors.
-
-#. 
-   Some check statements in columns now parsed validly, also IN statements parsed as normal lists.
-   So this statement include_exclude_ind CHAR(1) NOT NULL CONSTRAINT chk_metalistcombo_logicalopr
-   CHECK (include_exclude_ind IN ('I', 'E')),
 
 will produce this output:
 
@@ -643,732 +614,488 @@ will produce this output:
                          'statement': {'in_statement': {'in': ["'I'", "'E'"],
                                                         'name': 'include_exclude_ind'}}},
 
-Fixes
-^^^^^
 
+### Fixes
+1. DEFAULT word now is not arriving in key 'default' (it was before in some cases)
 
-#. DEFAULT word now is not arriving in key 'default' (it was before in some cases)
+### New Features
+1. Added Athena output mode and initial support - https://github.com/datacontract/datacontract-cli/issues/332
 
-New Features
-^^^^^^^^^^^^
-
-
-#. Added Athena output mode and initial support - https://github.com/datacontract/datacontract-cli/issues/332
 
 **v1.5.4**
+### Improvements
+#### Snowflake :
+1. In Snowflake add `pattern` token for external table statement, and improve location rendering
 
-Improvements
-^^^^^^^^^^^^
-
-Snowflake :
-~~~~~~~~~~~
-
-
-#. In Snowflake add ``pattern`` token for external table statement, and improve location rendering
 
 **v1.5.3**
+### Fixes
 
-Fixes
-^^^^^
-
-
-#. In Snowflake unexpected error when STRIP_OUTER_ARRAY property in file_format statement - https://github.com/xnuinside/simple-ddl-parser/issues/276
-   2.
+1. In Snowflake unexpected error when STRIP_OUTER_ARRAY property in file_format statement - https://github.com/xnuinside/simple-ddl-parser/issues/276
+2.
 
 **v1.5.2**
+### Improvements
+#### MySQL
+1. Added support for COLLATE - https://github.com/xnuinside/simple-ddl-parser/pull/266/files
 
-Improvements
-^^^^^^^^^^^^
+### Fixes
 
-MySQL
-~~~~~
-
-
-#. Added support for COLLATE - https://github.com/xnuinside/simple-ddl-parser/pull/266/files
-
-Fixes
-^^^^^
-
-
-#. In Snowflake Fix unexpected behaviour when file_format name given - https://github.com/xnuinside/simple-ddl-parser/issues/273
+1. In Snowflake Fix unexpected behaviour when file_format name given - https://github.com/xnuinside/simple-ddl-parser/issues/273
 
 **v1.5.1**
+### Improvements
+#### MySQL
 
-Improvements
-^^^^^^^^^^^^
+1. Added support for INDEX statement in column definition - https://github.com/xnuinside/simple-ddl-parser/issues/253
+2.
 
-MySQL
-~~~~~
-
-
-#. Added support for INDEX statement in column definition - https://github.com/xnuinside/simple-ddl-parser/issues/253
-   2.
 
 **v1.5.0**
 
-Fixes
-^^^^^
+### Fixes
 
+1. Now, `unique` set up to column only if it was only one column in unique constraint/index. Issue - https://github.com/xnuinside/simple-ddl-parser/issues/255
+2. Fixed issue when UNIQUE KEY was identified as primary key - https://github.com/xnuinside/simple-ddl-parser/issues/253
 
-#. Now, ``unique`` set up to column only if it was only one column in unique constraint/index. Issue - https://github.com/xnuinside/simple-ddl-parser/issues/255
-#. Fixed issue when UNIQUE KEY was identified as primary key - https://github.com/xnuinside/simple-ddl-parser/issues/253
 
 **v1.4.0**
 
-Fixes
-^^^^^
+### Fixes
+#### BigQuery:
+1. Indexes without schema causes issues in BigQuery dialect - fixed.
 
-BigQuery:
-~~~~~~~~~
+### Improvements
+#### Oracle:
+1. Added new output keywords in table definition - `temp` & `is_global`. Added support for create global temporary table - https://github.com/xnuinside/simple-ddl-parser/issues/182
 
-
-#. Indexes without schema causes issues in BigQuery dialect - fixed.
-
-Improvements
-^^^^^^^^^^^^
-
-Oracle:
-~~~~~~~
-
-
-#. Added new output keywords in table definition - ``temp`` & ``is_global``. Added support for create global temporary table - https://github.com/xnuinside/simple-ddl-parser/issues/182
 
 **v1.3.0**
 
-Fixes
-^^^^^
-
+### Fixes
 PostgreSQL:
+1.  Timezone was moved out from type definition to keyword 'with_time_zone' it can be True (if with time zone) or False (if without)
+BigQuery:
+1. Previously Range in RANGE_BUCKETS was parsed as a columns, now this behaviour is changed and
+range placed in own keyword - 'range' (can be array or str).
+Also for all ``*_TRUNC PARTITIONS` like DATETIME_TRUNC, TIMESTAMP_TRUNC, etc, second argument moved to arg 'trunc_by'
 
-
-#. Timezone was moved out from type definition to keyword 'with_time_zone' it can be True (if with time zone) or False (if without)
-   BigQuery:
-#. Previously Range in RANGE_BUCKETS was parsed as a columns, now this behaviour is changed and
-   range placed in own keyword - 'range' (can be array or str).
-   Also for all ```*_TRUNC PARTITIONS`` like DATETIME_TRUNC, TIMESTAMP_TRUNC, etc, second argument moved to arg 'trunc_by'
-
-Improvements
-^^^^^^^^^^^^
-
+### Improvements
 PostgreSQL:
-
-
-#. Added support for PostgreSQL with / without time zone - https://github.com/xnuinside/simple-ddl-parser/issues/250
+1. Added support for PostgreSQL with / without time zone - https://github.com/xnuinside/simple-ddl-parser/issues/250
 
 BigQuery:
-
-
-#. Added support for GENERATE_ARRAY in RANGE_BUCKETS https://github.com/xnuinside/simple-ddl-parser/issues/183
+1. Added support for GENERATE_ARRAY in RANGE_BUCKETS https://github.com/xnuinside/simple-ddl-parser/issues/183
 
 **v1.2.1**
-
-Fixes
-^^^^^
-
+### Fixes
 MySQL:
+1. Fixed issue relative to auto_increment that caused empty output if auto_increment defined in table properties -
+https://github.com/xnuinside/simple-ddl-parser/issues/206
 
-
-#. Fixed issue relative to auto_increment that caused empty output if auto_increment defined in table properties -
-   https://github.com/xnuinside/simple-ddl-parser/issues/206
-
-Improvements
-^^^^^^^^^^^^
-
+### Improvements
 MySQL:
-
-
-#. auto_increment added as property to mysql output
+1. auto_increment added as property to mysql output
 
 Oracle:
-
-
-#. Added support for  constraint name in column definition - https://github.com/xnuinside/simple-ddl-parser/issues/203
-#. Added support for GENERATED (ALWAYS | (BY DEFAULT [ON NULL])) AS IDENTITY in column definition
+1. Added support for  constraint name in column definition - https://github.com/xnuinside/simple-ddl-parser/issues/203
+2. Added support for GENERATED (ALWAYS | (BY DEFAULT [ON NULL])) AS IDENTITY in column definition
 
 PostgreSQL:
+1. Added support for CAST statement in column GENERATE ALWAYS expression - https://github.com/xnuinside/simple-ddl-parser/issues/198
 
-
-#. Added support for CAST statement in column GENERATE ALWAYS expression - https://github.com/xnuinside/simple-ddl-parser/issues/198
 
 **v1.1.0**
-
-Improvements
-^^^^^^^^^^^^
-
+### Improvements
 MySQL:
-
-
-#. Added support for INDEX statement inside table definition
-#. Added support for MySQL INVISIBLE/VISIBLE statement - https://github.com/xnuinside/simple-ddl-parser/issues/243
+1. Added support for INDEX statement inside table definition
+2. Added support for MySQL INVISIBLE/VISIBLE statement - https://github.com/xnuinside/simple-ddl-parser/issues/243
 
 Snowflake:
+1. Added support for cluster by statement before columns definition - https://github.com/xnuinside/simple-ddl-parser/issues/234
 
-
-#. Added support for cluster by statement before columns definition - https://github.com/xnuinside/simple-ddl-parser/issues/234
 
 **v1.0.4**
-
-Improvements
-^^^^^^^^^^^^
-
-
-#. Support functions with schema prefix in ``DEFAULT`` and ``CHECK`` statements. https://github.com/xnuinside/simple-ddl-parser/issues/240
-   ### Fixes
-#. Fix for REFERENCES NOT NULL - https://github.com/xnuinside/simple-ddl-parser/issues/239
-#. Fix for snowflake stage name location format bug fix - https://github.com/xnuinside/simple-ddl-parser/pull/241
+### Improvements
+1. Support functions with schema prefix in `DEFAULT` and `CHECK` statements. https://github.com/xnuinside/simple-ddl-parser/issues/240
+### Fixes
+1. Fix for REFERENCES NOT NULL - https://github.com/xnuinside/simple-ddl-parser/issues/239
+2. Fix for snowflake stage name location format bug fix - https://github.com/xnuinside/simple-ddl-parser/pull/241
 
 **v1.0.3**
+### Improvements
+1. Fixed bug with `CREATE OR REPLACE SCHEMA`.
+2. Added support of create empty tables without columns CREATE TABLE tablename (); (valid syntax in SQL)
 
-Improvements
-^^^^^^^^^^^^
-
-
-#. Fixed bug with ``CREATE OR REPLACE SCHEMA``.
-#. Added support of create empty tables without columns CREATE TABLE tablename (); (valid syntax in SQL)
-
-Snowflake
-^^^^^^^^^
-
-
-#. Fixed bug with snowflake ``stage_`` fileformat option value equal a single string as ``FIELD_OPTIONALLY_ENCLOSED_BY = '\"'``\ , ``FIELD_DELIMITER = '|'``
-#. improve snowflake fileformat key equals value into dict. type.
+### Snowflake
+1. Fixed bug with snowflake `stage_` fileformat option value equal a single string as `FIELD_OPTIONALLY_ENCLOSED_BY = '\"'`, `FIELD_DELIMITER = '|'`
+2. improve snowflake fileformat key equals value into dict. type.
 
 **v1.0.2**
+### Improvements
+1. Fixed bug with places first table property value in 'authorization' key. Now it is used real property name.
+2. Fixed typo on Databricks dialect
+3. improved equals symbols support within COMMENT statement.
+4. turn regexp into functions
 
-Improvements
-^^^^^^^^^^^^
+### MySQL Improvements
+1. UNSIGNED property after int parsed validly now
 
+### Snowflake
+1. Snowflake TAG now available on SCHEMA definitions.
 
-#. Fixed bug with places first table property value in 'authorization' key. Now it is used real property name.
-#. Fixed typo on Databricks dialect
-#. improved equals symbols support within COMMENT statement.
-#. turn regexp into functions
-
-MySQL Improvements
-^^^^^^^^^^^^^^^^^^
-
-
-#. UNSIGNED property after int parsed validly now
-
-Snowflake
-^^^^^^^^^
-
-
-#. Snowflake TAG now available on SCHEMA definitions.
 
 **v1.0.1**
-
-Minor Fixes
-^^^^^^^^^^^
-
-
-#. When using ``normalize_names=True`` do not remove ``[]`` from types like ``decimal(21)[]``.
-#. When using ``normalize_names=True`` ensure that ``"complex"."type"`` style names convert to ``complex.type``.
+### Minor Fixes
+1. When using `normalize_names=True` do not remove `[]` from types like `decimal(21)[]`.
+2. When using `normalize_names=True` ensure that `"complex"."type"` style names convert to `complex.type`.
 
 **v1.0.0**
 In output structure was done important changes that can in theory breaks code.
 
-Important changes
-^^^^^^^^^^^^^^^^^
-
-
-#. Important change: 
+### Important changes
+1. Important change: 
 
 all custom table properties that are defined after column definition in 'CREATE TABLE' statement and relative to only one dialect (only for SparkSQL, or HQL,etc), for example, like here:
-https://github.com/xnuinside/simple-ddl-parser/blob/main/tests/dialects/test_snowflake.py#L767  or https://github.com/xnuinside/simple-ddl-parser/blob/main/tests/dialects/test_spark_sql.py#L133 will be saved now in property ``table_properties`` as dict.
-Previously they was placed on same level of table output as ``columns``\ , ``alter``\ , etc. Now, they grouped and moved to key ``table_properties``.
+https://github.com/xnuinside/simple-ddl-parser/blob/main/tests/dialects/test_snowflake.py#L767  or https://github.com/xnuinside/simple-ddl-parser/blob/main/tests/dialects/test_spark_sql.py#L133 will be saved now in property `table_properties` as dict.
+Previously they was placed on same level of table output as `columns`, `alter`, etc. Now, they grouped and moved to key `table_properties`.
+
+2. Formatting parser result now represented by 2 classes - Output & TableData, that makes it more strict and readable.
+
+3. The output mode now functions more strictly. If you want to obtain output fields specific to a certain dialect, 
+use output_mode='snowflake' for Snowflake or output_mode='hql' for HQL, etc. 
+Previously, some keys appeared in the result without being filtered by dialect. 
+For example, if 'CLUSTER BY' was in the DDL, it would show up in the 'cluster_by' field regardless of the output mode. 
+However, now all fields that only work in certain dialects and are not part of the basic SQL notation will only be shown 
+if you choose the correct output_mode.
 
 
-#. 
-   Formatting parser result now represented by 2 classes - Output & TableData, that makes it more strict and readable.
+### New Dialects support
+1. Added as possible output_modes new Dialects: 
+- Databricks SQL like 'databricks', 
+- Vertica as 'vertica', 
+- SqliteFields as 'sqlite',
+- PostgreSQL as 'postgres'
 
-#. 
-   The output mode now functions more strictly. If you want to obtain output fields specific to a certain dialect, 
-   use output_mode='snowflake' for Snowflake or output_mode='hql' for HQL, etc. 
-   Previously, some keys appeared in the result without being filtered by dialect. 
-   For example, if 'CLUSTER BY' was in the DDL, it would show up in the 'cluster_by' field regardless of the output mode. 
-   However, now all fields that only work in certain dialects and are not part of the basic SQL notation will only be shown 
-   if you choose the correct output_mode.
+Full list of supported dialects you can find in dict - `supported_dialects`:
 
-New Dialects support
-^^^^^^^^^^^^^^^^^^^^
-
-
-#. Added as possible output_modes new Dialects: 
-
-
-* Databricks SQL like 'databricks', 
-* Vertica as 'vertica', 
-* SqliteFields as 'sqlite',
-* PostgreSQL as 'postgres'
-
-Full list of supported dialects you can find in dict - ``supported_dialects``\ :
-
-``from simple_ddl_parser import supported_dialects``
+`from simple_ddl_parser import supported_dialects`
 
 Currently supported: ['redshift', 'spark_sql', 'mysql', 'bigquery', 'mssql', 'databricks', 'sqlite', 'vertics', 'ibm_db2', 'postgres', 'oracle', 'hql', 'snowflake', 'sql']
 
 If you don't see dialect that you want to use - open issue with description and links to Database docs or use one of existed dialects.
 
-Snowflake updates:
-^^^^^^^^^^^^^^^^^^
+### Snowflake updates:
+1. For some reasons, 'CLONE' statement in SNOWFLAKE was parsed into 'like' key in output. Now it was changed to 'clone' - inner structure of output stay the same as previously.
 
+### MySQL updates:
+1. Engine statement now parsed correctly. Previously, output was always '='.
 
-#. For some reasons, 'CLONE' statement in SNOWFLAKE was parsed into 'like' key in output. Now it was changed to 'clone' - inner structure of output stay the same as previously.
-
-MySQL updates:
-^^^^^^^^^^^^^^
-
-
-#. Engine statement now parsed correctly. Previously, output was always '='.
-
-BigQuery updates:
-^^^^^^^^^^^^^^^^^
-
-
-#. Word 'schema' totally removed from output. ``Dataset`` used instead of ``schema`` in BigQuery dialect.
+### BigQuery updates:
+1. Word 'schema' totally removed from output. `Dataset` used instead of `schema` in BigQuery dialect.
 
 **v0.32.1**
-
-Minor Fixes
-^^^^^^^^^^^
-
-
-#. Removed debug print
+### Minor Fixes
+1. Removed debug print
 
 **v0.32.0**
 
-Improvements
-^^^^^^^^^^^^
+### Improvements
+1. Added support for several ALTER statements (ADD, DROP, RENAME, etc) - https://github.com/xnuinside/simple-ddl-parser/issues/215
+In 'alter' output added several keys:
+    1. 'dropped_columns' - to store information about columns that was in table, but after dropped by alter
+    2. 'renamed_columns' - to store information about columns that was renamed
+    3. 'modified_columns' - to track alter column changes for defaults, datetype, etc. Argument stores previous columns states.
 
-
-#. Added support for several ALTER statements (ADD, DROP, RENAME, etc) - https://github.com/xnuinside/simple-ddl-parser/issues/215
-   In 'alter' output added several keys:
-
-   #. 'dropped_columns' - to store information about columns that was in table, but after dropped by alter
-   #. 'renamed_columns' - to store information about columns that was renamed
-   #. 'modified_columns' - to track alter column changes for defaults, datetype, etc. Argument stores previous columns states.
-
-Fixes
-^^^^^
-
-
-#. Include source column names in FOREIGN KEY references. Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/196
-#. ALTER statement now will be parsed correctly if names & schemas written differently in ``create table`` statement and alter. 
-   For example, if in create table you use quotes like "schema_name"."table_name", but in alter was schema_name.table_name - previously it didn't work, but now parser understand that it is the same table.
+### Fixes
+1. Include source column names in FOREIGN KEY references. Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/196
+2. ALTER statement now will be parsed correctly if names & schemas written differently in `create table` statement and alter. 
+For example, if in create table you use quotes like "schema_name"."table_name", but in alter was schema_name.table_name - previously it didn't work, but now parser understand that it is the same table.
 
 **v0.31.3**
+### Improvements
+#### Snowflake update:
+1. Added support for Snowflake Virtual Column definition in External Column  `AS ()` statement - https://github.com/xnuinside/simple-ddl-parser/issues/218
+2. enforce support for Snowflake _FILE_FORMAT options in External Column ddl statement - https://github.com/xnuinside/simple-ddl-parser/issues/221
 
-Improvements
-^^^^^^^^^^^^
+#### Others
+1. Support for KEY statement in CREATE TABLE statements. KEY statements will now create INDEX entries in the DDL parser.
 
-Snowflake update:
-~~~~~~~~~~~~~~~~~
-
-
-#. Added support for Snowflake Virtual Column definition in External Column  ``AS ()`` statement - https://github.com/xnuinside/simple-ddl-parser/issues/218
-#. enforce support for Snowflake _FILE_FORMAT options in External Column ddl statement - https://github.com/xnuinside/simple-ddl-parser/issues/221
-
-Others
-~~~~~~
-
-
-#. Support for KEY statement in CREATE TABLE statements. KEY statements will now create INDEX entries in the DDL parser.
 
 **v0.31.2**
+### Improvements
+#### Snowflake update:
+1. Added support for Snowflake AUTOINCREMENT | IDENTITY column definitions with optional parameter `ORDER|NOORDER` statement - https://github.com/xnuinside/simple-ddl-parser/issues/213
 
-Improvements
-^^^^^^^^^^^^
+#### Common
+1. Added param 'encoding' to parse_from_file function - https://github.com/xnuinside/simple-ddl-parser/issues/142.
+Default encoding is utf-8.
 
-Snowflake update:
-~~~~~~~~~~~~~~~~~
-
-
-#. Added support for Snowflake AUTOINCREMENT | IDENTITY column definitions with optional parameter ``ORDER|NOORDER`` statement - https://github.com/xnuinside/simple-ddl-parser/issues/213
-
-Common
-~~~~~~
-
-
-#. Added param 'encoding' to parse_from_file function - https://github.com/xnuinside/simple-ddl-parser/issues/142.
-   Default encoding is utf-8.
 
 **v0.31.1**
-
-Improvements
-^^^^^^^^^^^^
-
-Snowflake update:
-~~~~~~~~~~~~~~~~~
-
-
-#. Support multiple tag definitions in a single ``WITH TAG`` statement.
-#. Added support for Snowflake double single quotes - https://github.com/xnuinside/simple-ddl-parser/issues/208
+### Improvements
+#### Snowflake update:
+1. Support multiple tag definitions in a single `WITH TAG` statement.
+2. Added support for Snowflake double single quotes - https://github.com/xnuinside/simple-ddl-parser/issues/208
 
 **v0.31.0**
+### Fixes:
+1. Move inline flag in regexp (issue with python 3.11) - https://github.com/xnuinside/simple-ddl-parser/pull/200
+Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/199
 
-Fixes:
-^^^^^^
-
-
-#. Move inline flag in regexp (issue with python 3.11) - https://github.com/xnuinside/simple-ddl-parser/pull/200
-   Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/199
-
-Improvements:
-^^^^^^^^^^^^^
+### Improvements:
+1. Added `Snowflake Table DDL support of WITH MASKING POLICY column definition` - https://github.com/xnuinside/simple-ddl-parser/issues/201
 
 
-#. Added ``Snowflake Table DDL support of WITH MASKING POLICY column definition`` - https://github.com/xnuinside/simple-ddl-parser/issues/201
-
-Updates:
-^^^^^^^^
-
-
-#. All deps updated to the latest versions.
+### Updates:
+1. All deps updated to the latest versions.
 
 **v0.30.0**
+### Fixes:
 
-Fixes:
-^^^^^^
+1. IDENTITY now parsed normally as a separate column property. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/184
 
+### New Features:
 
-#. IDENTITY now parsed normally as a separate column property. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/184
+1. IN TABLESPACE IBM DB2 statement now is parsed into 'tablespace' key. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/194.
+INDEX IN also parsed to 'index_in' key.
+Added support for ORGANIZE BY statement
 
-New Features:
-^^^^^^^^^^^^^
-
-
-#. 
-   IN TABLESPACE IBM DB2 statement now is parsed into 'tablespace' key. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/194.
-   INDEX IN also parsed to 'index_in' key.
-   Added support for ORGANIZE BY statement
-
-#. 
-   Added support for PostgreSQL INHERITS statement. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/191
+2. Added support for PostgreSQL INHERITS statement. Issue: https://github.com/xnuinside/simple-ddl-parser/issues/191
 
 **v0.29.1**
+### Important updates:
+1. Python 3.6 is deprecated in tests and by default, try to move to Python3.7, but better to 3.8, because 3.7 will be deprecated in 2023.
 
-Important updates:
-^^^^^^^^^^^^^^^^^^
+### Fixes
+1. Fix for https://github.com/xnuinside/simple-ddl-parser/issues/177
 
+### Improvements
+1. Added support for Oracle 2 component size for types, like '30 CHAR'. From https://github.com/xnuinside/simple-ddl-parser/issues/176
 
-#. Python 3.6 is deprecated in tests and by default, try to move to Python3.7, but better to 3.8, because 3.7 will be deprecated in 2023.
-
-Fixes
-^^^^^
-
-
-#. Fix for https://github.com/xnuinside/simple-ddl-parser/issues/177
-
-Improvements
-^^^^^^^^^^^^
-
-
-#. Added support for Oracle 2 component size for types, like '30 CHAR'. From https://github.com/xnuinside/simple-ddl-parser/issues/176
 
 **v0.29.0**
 
-Fixes
-^^^^^
+### Fixes
+1.  AUTOINCREMENT statement now parsed validly same way as AUTO_INCREMENT and showed up in output as 'autoincrement' property of the column
+Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/170
+2. Fix issue ' TypeError argument of type 'NoneType' is not iterable' on some foreigen keys https://github.com/xnuinside/simple-ddl-parser/issues/148
 
+### New Features
 
-#. AUTOINCREMENT statement now parsed validly same way as AUTO_INCREMENT and showed up in output as 'autoincrement' property of the column
-   Fix for: https://github.com/xnuinside/simple-ddl-parser/issues/170
-#. Fix issue ' TypeError argument of type 'NoneType' is not iterable' on some foreigen keys https://github.com/xnuinside/simple-ddl-parser/issues/148
+1. Support for non-numeric column type parameters https://github.com/xnuinside/simple-ddl-parser/issues/171
+It shows in column attribute 'type_parameters'.
 
-New Features
-^^^^^^^^^^^^
-
-
-#. Support for non-numeric column type parameters https://github.com/xnuinside/simple-ddl-parser/issues/171
-   It shows in column attribute 'type_parameters'.
 
 **v0.28.1**
 Improvements:
-
-
-#. Lines started with INSERT INTO statement now successfully ignored by parser (so you can keep them in ddl - they will be just skipped)
+1. Lines started with INSERT INTO statement now successfully ignored by parser (so you can keep them in ddl - they will be just skipped)
 
 Fixes:
+1. Important fix for multiline comments
 
-
-#. Important fix for multiline comments
 
 **v0.28.0**
 
 Important Changes (Pay attention):
-
-
-#. Because of parsing now AUTO_INCREMENT as a separate property of column previous output changed.
-   Previously it was parsed as a part of type like:  'INT AUTO_INCREMENT'.
-   Now type will be only 'INT', but in column property you will see 'autoincrement': True.
+1. Because of parsing now AUTO_INCREMENT as a separate property of column previous output changed.
+Previously it was parsed as a part of type like:  'INT AUTO_INCREMENT'.
+Now type will be only 'INT', but in column property you will see 'autoincrement': True.
 
 Amazing innovation:
-
-
-#. It's is weird to write in Changelog, but only in version 0.28.0 I recognize that floats that not supported by parser & it was fixed.
-   Thanks for the sample in the issue: https://github.com/xnuinside/simple-ddl-parser/issues/163
+1. It's is weird to write in Changelog, but only in version 0.28.0 I recognize that floats that not supported by parser & it was fixed.
+Thanks for the sample in the issue: https://github.com/xnuinside/simple-ddl-parser/issues/163
 
 Improvements:
 MariaDB:
-
-
-#. Added support for MariaDB AUTO_INCREMENT (from ddl here - https://github.com/xnuinside/simple-ddl-parser/issues/144)
-   If column is Auto Incremented - it indicated as 'autoincrement': True in column definition
+1. Added support for MariaDB AUTO_INCREMENT (from ddl here - https://github.com/xnuinside/simple-ddl-parser/issues/144)
+If column is Auto Incremented - it indicated as 'autoincrement': True in column definition
 
 Common:
-
-
-#. Added parsing for multiline comments in DDL with ``/* */`` syntax.
-#. Comments from DDL now all placed in 'comments' keyword if you use ``group_by_type=`` arg in parser.
-#. Added argument 'parser_settings={}' (dict type) in method  parse_from_file() - this way you can pass any arguments that you want to DDLParser (& that supported by it)
-   So, if you want to set log_level=logging.WARNING for parser - just use it as:
-   parse_from_file('path_to_file', parser_settings={'log_level': logging.WARNING}). For issue: https://github.com/xnuinside/simple-ddl-parser/issues/160
+1. Added parsing for multiline comments in DDL with `/* */` syntax.
+2. Comments from DDL now all placed in 'comments' keyword if you use `group_by_type=` arg in parser.
+3. Added argument 'parser_settings={}' (dict type) in method  parse_from_file() - this way you can pass any arguments that you want to DDLParser (& that supported by it)
+So, if you want to set log_level=logging.WARNING for parser - just use it as:
+parse_from_file('path_to_file', parser_settings={'log_level': logging.WARNING}). For issue: https://github.com/xnuinside/simple-ddl-parser/issues/160
 
 **v0.27.0**
 
 Fixes:
+1. Fixed parsing CHECKS with IN statement - https://github.com/xnuinside/simple-ddl-parser/issues/150
+2. @# symbols added to ID token - (partially) https://github.com/xnuinside/simple-ddl-parser/issues/146
 
-
-#. Fixed parsing CHECKS with IN statement - https://github.com/xnuinside/simple-ddl-parser/issues/150
-#. @# symbols added to ID token - (partially) https://github.com/xnuinside/simple-ddl-parser/issues/146
 
 Improvements:
 
-
-#. Added support for '*' in size column (ORACLE dialect) - https://github.com/xnuinside/simple-ddl-parser/issues/151
-#. Added arg 'debug' to parser, works same way as 'silent' - to get more clear error output.
+1. Added support for '*' in size column (ORACLE dialect) - https://github.com/xnuinside/simple-ddl-parser/issues/151
+2. Added arg 'debug' to parser, works same way as 'silent' - to get more clear error output.
 
 New features:
+1. Added support for ORACLE 'ORGANIZATION INDEX'
+2. Added support for SparkSQL Partition by with procedure call - https://github.com/xnuinside/simple-ddl-parser/issues/154
+3. Added support for DEFAULT CHARSET statement MySQL - https://github.com/xnuinside/simple-ddl-parser/issues/153
 
-
-#. Added support for ORACLE 'ORGANIZATION INDEX'
-#. Added support for SparkSQL Partition by with procedure call - https://github.com/xnuinside/simple-ddl-parser/issues/154
-#. Added support for DEFAULT CHARSET statement MySQL - https://github.com/xnuinside/simple-ddl-parser/issues/153
 
 **v0.26.5**
 
 Fixes:
-
-
-#. Parsetab included in builds.
-#. Added additional argumen log_file='path_to_file', to enable logging to file with providen name.
+1. Parsetab included in builds.
+2. Added additional argumen log_file='path_to_file', to enable logging to file with providen name.
 
 **v0.26.4**
 
-
-#. Bugfix for (support CREATE OR REPLACE with additional keys like transient/temporary): https://github.com/xnuinside/simple-ddl-parser/issues/133
+1. Bugfix for (support CREATE OR REPLACE with additional keys like transient/temporary): https://github.com/xnuinside/simple-ddl-parser/issues/133
 
 **v0.26.3**
 
 Improvements:
+1. Added support for OR REPLACE in CREATE TABLE: https://github.com/xnuinside/simple-ddl-parser/issues/131
+2. Added support for AUTO INCREMENT in column:https://github.com/xnuinside/simple-ddl-parser/issues/130
 
-
-#. Added support for OR REPLACE in CREATE TABLE: https://github.com/xnuinside/simple-ddl-parser/issues/131
-#. Added support for AUTO INCREMENT in column:https://github.com/xnuinside/simple-ddl-parser/issues/130
 
 **v0.26.2**
 
 Fixes:
-
-
-#. Fixed a huge bug for incorrect parsing lines with 'USE' & 'GO' strings inside.
-#. Fixed parsing for CREATE SCHEMA for Snowlake & Oracle DDLs
+1. Fixed a huge bug for incorrect parsing lines with 'USE' & 'GO' strings inside.
+2. Fixed parsing for CREATE SCHEMA for Snowlake & Oracle DDLs
 
 Improvements:
+1. Added  COMMENT statement for CREATE TABLE ddl (for SNOWFLAKE dialect support)
+2. Added  COMMENT statement for CREATE SCHEMA ddl (for SNOWFLAKE dialect support)
 
-
-#. Added  COMMENT statement for CREATE TABLE ddl (for SNOWFLAKE dialect support)
-#. Added  COMMENT statement for CREATE SCHEMA ddl (for SNOWFLAKE dialect support)
 
 **v0.26.1**
 
 Fixes:
 
+1. support Multiple SERDEPROPERTIES  - https://github.com/xnuinside/simple-ddl-parser/issues/126
+2. Fix for issue with LOCATION and TBLPROPERTIES clauses in CREATE TABLE LIKE - https://github.com/xnuinside/simple-ddl-parser/issues/125
+3. LOCATION now works correctly with double quote strings
 
-#. support Multiple SERDEPROPERTIES  - https://github.com/xnuinside/simple-ddl-parser/issues/126
-#. Fix for issue with LOCATION and TBLPROPERTIES clauses in CREATE TABLE LIKE - https://github.com/xnuinside/simple-ddl-parser/issues/125
-#. LOCATION now works correctly with double quote strings
 
 **v0.26.0**
 Improvements:
 
-
-#. Added more explicit debug message on Statement errors - https://github.com/xnuinside/simple-ddl-parser/issues/116
-#. Added support for "USING INDEX TABLESPACE" statement in ALTER - https://github.com/xnuinside/simple-ddl-parser/issues/119
-#. Added support for IN statements in CHECKS - https://github.com/xnuinside/simple-ddl-parser/issues/121
+1. Added more explicit debug message on Statement errors - https://github.com/xnuinside/simple-ddl-parser/issues/116
+2. Added support for "USING INDEX TABLESPACE" statement in ALTER - https://github.com/xnuinside/simple-ddl-parser/issues/119
+3. Added support for IN statements in CHECKS - https://github.com/xnuinside/simple-ddl-parser/issues/121
 
 New features:
-
-
-#. Support SparkSQL USING - https://github.com/xnuinside/simple-ddl-parser/issues/117
-   Updates initiated by ticket https://github.com/xnuinside/simple-ddl-parser/issues/120:
-#. In Parser you can use argument json_dump=True in method .run() if you want get result in JSON format.
-
-
-* README updated
+1. Support SparkSQL USING - https://github.com/xnuinside/simple-ddl-parser/issues/117
+Updates initiated by ticket https://github.com/xnuinside/simple-ddl-parser/issues/120:
+2. In Parser you can use argument json_dump=True in method .run() if you want get result in JSON format.
+- README updated
 
 Fixes:
-
-
-#. Added support for PARTITION BY one column without type
-#. Alter table add constraint PRIMARY KEY - https://github.com/xnuinside/simple-ddl-parser/issues/119
-#. Fix for paring SET statement - https://github.com/xnuinside/simple-ddl-parser/pull/122
-#. Fix for disappeared columns without properties - https://github.com/xnuinside/simple-ddl-parser/issues/123
+1. Added support for PARTITION BY one column without type
+2. Alter table add constraint PRIMARY KEY - https://github.com/xnuinside/simple-ddl-parser/issues/119
+3. Fix for paring SET statement - https://github.com/xnuinside/simple-ddl-parser/pull/122
+4. Fix for disappeared columns without properties - https://github.com/xnuinside/simple-ddl-parser/issues/123
 
 **v0.25.0**
+## Fixes:
 
-Fixes:
-------
+1. Fix for issue with 'at time zone' https://github.com/xnuinside/simple-ddl-parser/issues/112
 
+## New features:
 
-#. Fix for issue with 'at time zone' https://github.com/xnuinside/simple-ddl-parser/issues/112
+1. Added flag to raise errors if parser cannot parse statement DDLParser(.., silent=False) - https://github.com/xnuinside/simple-ddl-parser/issues/109
+2. Added flag to DDLParser(.., normalize_names=True) that change output of parser:
+if flag is True (default 'False') then all identifiers will be returned without '[', '"' and other delimiters that used in different SQL dialects to separate custom names from reserved words & statements.
+For example, if flag set 'True' and you pass this input:
 
-New features:
--------------
-
-
-#. Added flag to raise errors if parser cannot parse statement DDLParser(.., silent=False) - https://github.com/xnuinside/simple-ddl-parser/issues/109
-#. Added flag to DDLParser(.., normalize_names=True) that change output of parser:
-   if flag is True (default 'False') then all identifiers will be returned without '[', '"' and other delimiters that used in different SQL dialects to separate custom names from reserved words & statements.
-   For example, if flag set 'True' and you pass this input:
-
-CREATE TABLE [dbo].\ `TO_Requests <[Request_ID] [int] IDENTITY(1,1>`_ NOT NULL,
+CREATE TABLE [dbo].[TO_Requests](
+    [Request_ID] [int] IDENTITY(1,1) NOT NULL,
     [user_id] [int]
 
 In output you will have names like 'dbo' and 'TO_Requests', not '[dbo]' and '[TO_Requests]'.
 
 **v0.24.2**
+## Fixes:
 
-Fixes:
-------
+1. Fix for the issue: https://github.com/xnuinside/simple-ddl-parser/issues/108 (reserved words can be used as table name after '.')
 
-
-#. Fix for the issue: https://github.com/xnuinside/simple-ddl-parser/issues/108 (reserved words can be used as table name after '.')
 
 **v0.24.1**
 
-Fixes:
-------
+## Fixes:
+### HQL:
+1. fields_terminated_by now parses , as "','", not as '' previously
 
-HQL:
-^^^^
-
-
-#. fields_terminated_by now parses , as "','", not as '' previously
-
-Common:
-^^^^^^^
-
-
-#. To output added 'if_not_exists' field in result to get availability 1-to-1 re-create ddl by metadata.
+### Common:
+1. To output added 'if_not_exists' field in result to get availability 1-to-1 re-create ddl by metadata.
 
 **v0.24.0**
 
-Fixes:
-------
+## Fixes:
 
-HQL:
-^^^^
+### HQL:
 
-
-#. More then 2 tblproperties now are parsed correctly https://github.com/xnuinside/simple-ddl-parser/pull/104
-
-Common:
-^^^^^^^
+1. More then 2 tblproperties now are parsed correctly https://github.com/xnuinside/simple-ddl-parser/pull/104
 
 
-#. 'set' in lower case now also parsed validly.
-#. Now names like 'schema', 'database', 'table' can be used as names in CREATE DATABASE | SCHEMA | TABLESPACE | DOMAIN | TYPE statements and after INDEX and CONSTRAINT.
-#. Creation of empty tables also parsed correctly (like CREATE Table table;).
+### Common:
 
-New Statements Support:
------------------------
+2. 'set' in lower case now also parsed validly.
+3. Now names like 'schema', 'database', 'table' can be used as names in CREATE DATABASE | SCHEMA | TABLESPACE | DOMAIN | TYPE statements and after INDEX and CONSTRAINT.
+4. Creation of empty tables also parsed correctly (like CREATE Table table;).
 
-HQL:
-^^^^
+## New Statements Support:
 
-
-#. Added support for CLUSTERED BY - https://github.com/xnuinside/simple-ddl-parser/issues/103
-#. Added support for  INTO ... BUCKETS
-#. CREATE REMOTE DATABASE | SCHEMA
+### HQL:
+1. Added support for CLUSTERED BY - https://github.com/xnuinside/simple-ddl-parser/issues/103
+2. Added support for  INTO ... BUCKETS
+3. CREATE REMOTE DATABASE | SCHEMA
 
 **v0.23.0**
 
 Big refactoring: less code complexity & increase code coverage. Radon added to pre-commit hooks.
 
-Fixes:
-^^^^^^
+### Fixes:
 
+1. Fix for issue with ALTER UNIQUE - https://github.com/xnuinside/simple-ddl-parser/issues/101
 
-#. Fix for issue with ALTER UNIQUE - https://github.com/xnuinside/simple-ddl-parser/issues/101
+### New Features
 
-New Features
-^^^^^^^^^^^^
-
-
-#. SQL Comments string from DDL now parsed to "comments" key in output.
+1. SQL Comments string from DDL now parsed to "comments" key in output.
 
 PostgreSQL:
 
-
-#. Added support for ALTER TABLE ONLY | ALTER TABLE IF EXISTS
+2. Added support for ALTER TABLE ONLY | ALTER TABLE IF EXISTS
 
 **v0.22.5**
+### Fixes:
 
-Fixes:
-^^^^^^
+1. Fix for issue with '<' - https://github.com/xnuinside/simple-ddl-parser/issues/89
 
-
-#. Fix for issue with '<' - https://github.com/xnuinside/simple-ddl-parser/issues/89
 
 **v0.22.4**
+### Fixes:
 
-Fixes:
-^^^^^^
-
-BigQuery:
-^^^^^^^^^
-
-
-#. Fixed issue with parsing schemas with project in name.
-#. Added support for multiple OPTION() statements
+### BigQuery:
+1. Fixed issue with parsing schemas with project in name.
+2. Added support for multiple OPTION() statements
 
 **v0.22.3**
+### Fixes:
 
-Fixes:
-^^^^^^
+### BigQuery:
+1. CREATE TABLE statement with 'project_id' in format like project.dataset.table_name now is parsed validly.
+'project' added to output.
+Also added support project.dataset.name format in CREATE SCHEMA and ALTER statement
 
-BigQuery:
-^^^^^^^^^
-
-
-#. CREATE TABLE statement with 'project_id' in format like project.dataset.table_name now is parsed validly.
-   'project' added to output.
-   Also added support project.dataset.name format in CREATE SCHEMA and ALTER statement
 
 **v0.22.2**
-
-Fixes:
-^^^^^^
-
-
-#. Fix for the issue: https://github.com/xnuinside/simple-ddl-parser/issues/94 (column name starts with CREATE)
+### Fixes:
+1. Fix for the issue: https://github.com/xnuinside/simple-ddl-parser/issues/94 (column name starts with CREATE)
 
 **v0.22.1**
+### New Features:
 
-New Features:
-^^^^^^^^^^^^^
+## BigQuery:
 
-BigQuery:
----------
+1. Added support for OPTION for full CREATE TABLE statement & column definition
 
-
-#. Added support for OPTION for full CREATE TABLE statement & column definition
-
-Improvements:
--------------
-
-
-#. CLUSTED BY can be used without ()
+## Improvements:
+1. CLUSTED BY can be used without ()
 

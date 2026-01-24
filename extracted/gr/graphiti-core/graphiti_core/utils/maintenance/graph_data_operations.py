@@ -20,8 +20,6 @@ from datetime import datetime
 from typing_extensions import LiteralString
 
 from graphiti_core.driver.driver import GraphDriver, GraphProvider
-from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices
-from graphiti_core.helpers import semaphore_gather
 from graphiti_core.models.nodes.node_db_queries import (
     EPISODIC_NODE_RETURN,
     EPISODIC_NODE_RETURN_NEPTUNE,
@@ -33,62 +31,13 @@ EPISODE_WINDOW_LEN = 3
 logger = logging.getLogger(__name__)
 
 
-async def build_indices_and_constraints(driver: GraphDriver, delete_existing: bool = False):
-    if driver.provider == GraphProvider.NEPTUNE:
-        await driver.create_aoss_indices()  # pyright: ignore[reportAttributeAccessIssue]
-        return
-    if delete_existing:
-        records, _, _ = await driver.execute_query(
-            """
-            SHOW INDEXES YIELD name
-            """,
-        )
-        index_names = [record['name'] for record in records]
-        await semaphore_gather(
-            *[
-                driver.execute_query(
-                    """DROP INDEX $name""",
-                    name=name,
-                )
-                for name in index_names
-            ]
-        )
-
-    range_indices: list[LiteralString] = get_range_indices(driver.provider)
-
-    fulltext_indices: list[LiteralString] = get_fulltext_indices(driver.provider)
-
-    if driver.provider == GraphProvider.KUZU:
-        # Skip creating fulltext indices if they already exist. Need to do this manually
-        # until Kuzu supports `IF NOT EXISTS` for indices.
-        result, _, _ = await driver.execute_query('CALL SHOW_INDEXES() RETURN *;')
-        if len(result) > 0:
-            fulltext_indices = []
-
-        # Only load the `fts` extension if it's not already loaded, otherwise throw an error.
-        result, _, _ = await driver.execute_query('CALL SHOW_LOADED_EXTENSIONS() RETURN *;')
-        if len(result) == 0:
-            fulltext_indices.insert(
-                0,
-                """
-                INSTALL fts;
-                LOAD fts;
-                """,
-            )
-
-    index_queries: list[LiteralString] = range_indices + fulltext_indices
-
-    await semaphore_gather(
-        *[
-            driver.execute_query(
-                query,
-            )
-            for query in index_queries
-        ]
-    )
-
-
 async def clear_data(driver: GraphDriver, group_ids: list[str] | None = None):
+    if driver.graph_operations_interface:
+        try:
+            return await driver.graph_operations_interface.clear_data(driver, group_ids)
+        except NotImplementedError:
+            pass
+
     async with driver.session() as session:
 
         async def delete_all(tx):
@@ -121,6 +70,7 @@ async def retrieve_episodes(
     last_n: int = EPISODE_WINDOW_LEN,
     group_ids: list[str] | None = None,
     source: EpisodeType | None = None,
+    saga: str | None = None,
 ) -> list[EpisodicNode]:
     """
     Retrieve the last n episodic nodes from the graph.
@@ -132,10 +82,50 @@ async def retrieve_episodes(
                                    querying the graph's state at a specific point in time.
         last_n (int, optional): The number of most recent episodes to retrieve, relative to the reference_time.
         group_ids (list[str], optional): The list of group ids to return data from.
+        source (EpisodeType, optional): Filter episodes by source type.
+        saga (str, optional): If provided, only retrieve episodes that belong to the saga with this name.
 
     Returns:
         list[EpisodicNode]: A list of EpisodicNode objects representing the retrieved episodes.
     """
+    if driver.graph_operations_interface:
+        try:
+            return await driver.graph_operations_interface.retrieve_episodes(
+                driver, reference_time, last_n, group_ids, source, saga
+            )
+        except NotImplementedError:
+            pass
+
+    # If saga is provided, retrieve episodes from that saga only
+    if saga is not None:
+        group_id = group_ids[0] if group_ids else None
+        source_filter = 'AND e.source = $source' if source is not None else ''
+
+        records, _, _ = await driver.execute_query(
+            f"""
+            MATCH (s:Saga {{name: $saga_name, group_id: $group_id}})-[:HAS_EPISODE]->(e:Episodic)
+            WHERE e.valid_at <= $reference_time
+            {source_filter}
+            RETURN
+            """
+            + (
+                EPISODIC_NODE_RETURN_NEPTUNE
+                if driver.provider == GraphProvider.NEPTUNE
+                else EPISODIC_NODE_RETURN
+            )
+            + """
+            ORDER BY e.valid_at DESC
+            LIMIT $num_episodes
+            """,
+            saga_name=saga,
+            group_id=group_id,
+            reference_time=reference_time,
+            source=source.name if source else None,
+            num_episodes=last_n,
+        )
+
+        episodes = [get_episodic_node_from_record(record) for record in records]
+        return list(reversed(episodes))  # Return in chronological order
 
     query_params: dict = {}
     query_filter = ''
@@ -149,9 +139,9 @@ async def retrieve_episodes(
 
     query: LiteralString = (
         """
-                MATCH (e:Episodic)
-                WHERE e.valid_at <= $reference_time
-                """
+                                    MATCH (e:Episodic)
+                                    WHERE e.valid_at <= $reference_time
+                                    """
         + query_filter
         + """
         RETURN

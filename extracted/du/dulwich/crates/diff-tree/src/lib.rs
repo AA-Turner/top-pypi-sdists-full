@@ -3,7 +3,7 @@
  * Copyright (C) 2024 Jelmer Vernooij <jelmer@jelmer.uk>
  *
  * Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
- * General Public License as public by the Free Software Foundation; version 2.0
+ * General Public License as published by the Free Software Foundation; version 2.0
  * or (at your option) any later version. You can redistribute it and/or
  * modify it under the terms of either of these two licenses.
  *
@@ -40,7 +40,7 @@ fn add_hash(get: &Bound<PyAny>, set: &Bound<PyAny>, string: &[u8], py: Python) -
 }
 
 #[pyfunction]
-fn _count_blocks(py: Python, obj: &Bound<PyAny>) -> PyResult<PyObject> {
+fn _count_blocks(py: Python, obj: &Bound<PyAny>) -> PyResult<Py<PyAny>> {
     let default_dict_cls = PyModule::import(py, "collections")?.getattr("defaultdict")?;
     let int_cls = PyModule::import(py, "builtins")?.getattr("int")?;
 
@@ -55,7 +55,7 @@ fn _count_blocks(py: Python, obj: &Bound<PyAny>) -> PyResult<PyObject> {
         ));
     }
 
-    let num_chunks = chunks.extract::<Vec<PyObject>>()?.len();
+    let num_chunks = chunks.extract::<Vec<Py<PyAny>>>()?.len();
     let pym = py.import("dulwich.diff_tree")?;
     let block_size = pym.getattr("_BLOCK_SIZE")?.extract::<usize>()?;
     let mut block: Vec<u8> = Vec::with_capacity(block_size);
@@ -84,6 +84,10 @@ fn _count_blocks(py: Python, obj: &Bound<PyAny>) -> PyResult<PyObject> {
 
 #[pyfunction]
 fn _is_tree(_py: Python, entry: &Bound<PyAny>) -> PyResult<bool> {
+    if entry.is_none() {
+        return Ok(false);
+    }
+
     let mode = entry.getattr("mode")?;
 
     if mode.is_none() {
@@ -94,7 +98,7 @@ fn _is_tree(_py: Python, entry: &Bound<PyAny>) -> PyResult<bool> {
     }
 }
 
-fn tree_entries(path: &[u8], tree: &Bound<PyAny>, py: Python) -> PyResult<Vec<PyObject>> {
+fn tree_entries(path: &[u8], tree: &Bound<PyAny>, py: Python) -> PyResult<Vec<Py<PyAny>>> {
     if tree.is_none() {
         return Ok(Vec::new());
     }
@@ -104,11 +108,11 @@ fn tree_entries(path: &[u8], tree: &Bound<PyAny>, py: Python) -> PyResult<Vec<Py
 
     let items = tree
         .call_method1("iteritems", (true,))?
-        .extract::<Vec<PyObject>>()?;
+        .extract::<Vec<Py<PyAny>>>()?;
 
     let mut result = Vec::new();
     for item in items {
-        let (name, mode, sha) = item.extract::<(Vec<u8>, u32, PyObject)>(py)?;
+        let (name, mode, sha) = item.extract::<(Vec<u8>, u32, Py<PyAny>)>(py)?;
 
         let mut new_path = Vec::with_capacity(path.len() + name.len() + 1);
         if !path.is_empty() {
@@ -138,12 +142,9 @@ fn _merge_entries(
     path: &[u8],
     tree1: &Bound<PyAny>,
     tree2: &Bound<PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let entries1 = tree_entries(path, tree1, py)?;
     let entries2 = tree_entries(path, tree2, py)?;
-
-    let pym = py.import("dulwich.diff_tree")?;
-    let null_entry = pym.getattr("_NULL_ENTRY")?.unbind();
 
     let mut result = Vec::new();
 
@@ -153,8 +154,8 @@ fn _merge_entries(
         let cmp = entry_path_cmp(entries1[i1].bind(py), entries2[i2].bind(py))?;
         let (e1, e2) = match cmp {
             Ordering::Equal => (entries1[i1].clone_ref(py), entries2[i2].clone_ref(py)),
-            Ordering::Less => (entries1[i1].clone_ref(py), null_entry.clone_ref(py)),
-            Ordering::Greater => (null_entry.clone_ref(py), entries2[i2].clone_ref(py)),
+            Ordering::Less => (entries1[i1].clone_ref(py), py.None()),
+            Ordering::Greater => (py.None(), entries2[i2].clone_ref(py)),
         };
         let pair = PyTuple::new(py, &[e1, e2]).unwrap();
         result.push(pair);
@@ -173,15 +174,13 @@ fn _merge_entries(
     }
 
     while i1 < entries1.len() {
-        let pair =
-            PyTuple::new(py, &[entries1[i1].clone_ref(py), null_entry.clone_ref(py)]).unwrap();
+        let pair = PyTuple::new(py, &[entries1[i1].clone_ref(py), py.None()]).unwrap();
         result.push(pair);
         i1 += 1;
     }
 
     while i2 < entries2.len() {
-        let pair =
-            PyTuple::new(py, &[null_entry.clone_ref(py), entries2[i2].clone_ref(py)]).unwrap();
+        let pair = PyTuple::new(py, &[py.None(), entries2[i2].clone_ref(py)]).unwrap();
         result.push(pair);
         i2 += 1;
     }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: govuk-bank-holidays
-Version: 0.17
+Version: 0.18
 Summary: Tool to load UK bank holidays from GOV.UK
 Home-page: https://github.com/ministryofjustice/govuk-bank-holidays
 Author: Ministry of Justice Digital & Technology
@@ -14,11 +14,11 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.6
 License-File: LICENSE.txt
@@ -76,9 +76,6 @@ Development
 .. image:: https://github.com/ministryofjustice/govuk-bank-holidays/actions/workflows/test.yml/badge.svg?branch=main
     :target: https://github.com/ministryofjustice/govuk-bank-holidays/actions/workflows/test.yml
 
-.. image:: https://github.com/ministryofjustice/govuk-bank-holidays/actions/workflows/lint.yml/badge.svg?branch=main
-    :target: https://github.com/ministryofjustice/govuk-bank-holidays/actions/workflows/lint.yml
-
 Please report bugs and open pull requests on `GitHub`_.
 
 To work on changes to this library, it’s recommended to install it in editable mode into a virtual environment,
@@ -102,6 +99,10 @@ Alternatively, you can use ``tox`` if you have multiple python versions.
 
 History
 -------
+
+0.18
+    Added support for python 3.14 and removed 3.9 which has reached end-of-life.
+    Migrated to trusted publishing.
 
 0.17
     Added timeout for source downloads (default being GOV.UK) before falling back to cache.
@@ -176,7 +177,7 @@ History
 Copyright
 ---------
 
-Copyright (C) 2023 HM Government (Ministry of Justice Digital & Technology).
+Copyright (C) 2025 HM Government (Ministry of Justice Digital & Technology).
 See LICENSE.txt for further details.
 
 .. _GOV.UK: https://www.gov.uk/bank-holidays

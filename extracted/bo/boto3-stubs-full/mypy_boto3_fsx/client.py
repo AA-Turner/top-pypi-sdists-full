@@ -3,7 +3,7 @@ Type annotations for fsx service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -130,12 +131,6 @@ from .type_defs import (
     UpdateVolumeResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -146,47 +141,47 @@ __all__ = ("FSxClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessPointAlreadyOwnedByYou: Type[BotocoreClientError]
-    ActiveDirectoryError: Type[BotocoreClientError]
-    BackupBeingCopied: Type[BotocoreClientError]
-    BackupInProgress: Type[BotocoreClientError]
-    BackupNotFound: Type[BotocoreClientError]
-    BackupRestoring: Type[BotocoreClientError]
-    BadRequest: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DataRepositoryAssociationNotFound: Type[BotocoreClientError]
-    DataRepositoryTaskEnded: Type[BotocoreClientError]
-    DataRepositoryTaskExecuting: Type[BotocoreClientError]
-    DataRepositoryTaskNotFound: Type[BotocoreClientError]
-    FileCacheNotFound: Type[BotocoreClientError]
-    FileSystemNotFound: Type[BotocoreClientError]
-    IncompatibleParameterError: Type[BotocoreClientError]
-    IncompatibleRegionForMultiAZ: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidAccessPoint: Type[BotocoreClientError]
-    InvalidDataRepositoryType: Type[BotocoreClientError]
-    InvalidDestinationKmsKey: Type[BotocoreClientError]
-    InvalidExportPath: Type[BotocoreClientError]
-    InvalidImportPath: Type[BotocoreClientError]
-    InvalidNetworkSettings: Type[BotocoreClientError]
-    InvalidPerUnitStorageThroughput: Type[BotocoreClientError]
-    InvalidRegion: Type[BotocoreClientError]
-    InvalidRequest: Type[BotocoreClientError]
-    InvalidSourceKmsKey: Type[BotocoreClientError]
-    MissingFileCacheConfiguration: Type[BotocoreClientError]
-    MissingFileSystemConfiguration: Type[BotocoreClientError]
-    MissingVolumeConfiguration: Type[BotocoreClientError]
-    NotServiceResourceError: Type[BotocoreClientError]
-    ResourceDoesNotSupportTagging: Type[BotocoreClientError]
-    ResourceNotFound: Type[BotocoreClientError]
-    S3AccessPointAttachmentNotFound: Type[BotocoreClientError]
-    ServiceLimitExceeded: Type[BotocoreClientError]
-    SnapshotNotFound: Type[BotocoreClientError]
-    SourceBackupUnavailable: Type[BotocoreClientError]
-    StorageVirtualMachineNotFound: Type[BotocoreClientError]
-    TooManyAccessPoints: Type[BotocoreClientError]
-    UnsupportedOperation: Type[BotocoreClientError]
-    VolumeNotFound: Type[BotocoreClientError]
+    AccessPointAlreadyOwnedByYou: type[BotocoreClientError]
+    ActiveDirectoryError: type[BotocoreClientError]
+    BackupBeingCopied: type[BotocoreClientError]
+    BackupInProgress: type[BotocoreClientError]
+    BackupNotFound: type[BotocoreClientError]
+    BackupRestoring: type[BotocoreClientError]
+    BadRequest: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DataRepositoryAssociationNotFound: type[BotocoreClientError]
+    DataRepositoryTaskEnded: type[BotocoreClientError]
+    DataRepositoryTaskExecuting: type[BotocoreClientError]
+    DataRepositoryTaskNotFound: type[BotocoreClientError]
+    FileCacheNotFound: type[BotocoreClientError]
+    FileSystemNotFound: type[BotocoreClientError]
+    IncompatibleParameterError: type[BotocoreClientError]
+    IncompatibleRegionForMultiAZ: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidAccessPoint: type[BotocoreClientError]
+    InvalidDataRepositoryType: type[BotocoreClientError]
+    InvalidDestinationKmsKey: type[BotocoreClientError]
+    InvalidExportPath: type[BotocoreClientError]
+    InvalidImportPath: type[BotocoreClientError]
+    InvalidNetworkSettings: type[BotocoreClientError]
+    InvalidPerUnitStorageThroughput: type[BotocoreClientError]
+    InvalidRegion: type[BotocoreClientError]
+    InvalidRequest: type[BotocoreClientError]
+    InvalidSourceKmsKey: type[BotocoreClientError]
+    MissingFileCacheConfiguration: type[BotocoreClientError]
+    MissingFileSystemConfiguration: type[BotocoreClientError]
+    MissingVolumeConfiguration: type[BotocoreClientError]
+    NotServiceResourceError: type[BotocoreClientError]
+    ResourceDoesNotSupportTagging: type[BotocoreClientError]
+    ResourceNotFound: type[BotocoreClientError]
+    S3AccessPointAttachmentNotFound: type[BotocoreClientError]
+    ServiceLimitExceeded: type[BotocoreClientError]
+    SnapshotNotFound: type[BotocoreClientError]
+    SourceBackupUnavailable: type[BotocoreClientError]
+    StorageVirtualMachineNotFound: type[BotocoreClientError]
+    TooManyAccessPoints: type[BotocoreClientError]
+    UnsupportedOperation: type[BotocoreClientError]
+    VolumeNotFound: type[BotocoreClientError]
 
 
 class FSxClient(BaseClient):
@@ -637,7 +632,7 @@ class FSxClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#start_misconfigured_state_recovery)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags an Amazon FSx resource.
 
@@ -645,7 +640,7 @@ class FSxClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_fsx/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This action removes a tag from an Amazon FSx resource.
 

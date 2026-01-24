@@ -11,7 +11,6 @@ import datetime as dt
 from functools import cached_property
 from typing import Any, Union
 
-import numpy
 from numpy import (
     array,
     asarray,
@@ -26,9 +25,8 @@ from numpy import (
     squeeze,
 )
 from numpy.linalg import inv
-import pandas
 from pandas import DataFrame, Series, concat, to_numeric
-import scipy.stats as stats
+from scipy import stats
 from statsmodels.iolib.summary import SimpleTable, fmt_2cols, fmt_params
 from statsmodels.iolib.table import default_txt_fmt
 
@@ -286,7 +284,7 @@ class _LSModelResultsBase(_SummaryStr):
         -----
         Uses a t(df_resid) if ``debiased`` is True, else normal.
         """
-        ci_quantiles = [(1 - level) / 2, 1 - (1 - level) / 2]
+        ci_quantiles = array([(1 - level) / 2, 1 - (1 - level) / 2])
         if self._debiased:
             q = stats.t.ppf(ci_quantiles, self.df_resid)
         else:
@@ -364,11 +362,11 @@ class _LSModelResultsBase(_SummaryStr):
         smry.tables.append(table)
 
         param_data = c_[
-            self.params.values[:, None],
-            self.std_errors.values[:, None],
-            self.tstats.values[:, None],
-            self.pvalues.values[:, None],
-            self.conf_int(),
+            self.params.to_numpy()[:, None],
+            self.std_errors.to_numpy()[:, None],
+            self.tstats.to_numpy()[:, None],
+            self.pvalues.to_numpy()[:, None],
+            self.conf_int().to_numpy(),
         ]
         data = []
         for row in param_data:
@@ -409,8 +407,8 @@ class _LSModelResultsBase(_SummaryStr):
 
     def wald_test(
         self,
-        restriction: pandas.DataFrame | numpy.ndarray | None = None,
-        value: pandas.Series | numpy.ndarray | None = None,
+        restriction: DataFrame | ndarray | None = None,
+        value: Series | ndarray | None = None,
         *,
         formula: str | list[str] | dict[str, float] | None = None,
     ) -> WaldTestStatistic:
@@ -526,7 +524,7 @@ class OLSResults(_LSModelResultsBase):
         exog: linearmodels.typing.data.ArrayLike | None = None,
         endog: linearmodels.typing.data.ArrayLike | None = None,
         *,
-        data: pandas.DataFrame | None = None,
+        data: DataFrame | None = None,
         fitted: bool = True,
         idiosyncratic: bool = False,
         missing: bool = False,
@@ -597,8 +595,8 @@ class OLSResults(_LSModelResultsBase):
             extra_text.append("Endogenous: " + ", ".join(endog.cols))
             extra_text.append("Instruments: " + ", ".join(instruments.cols))
             cov_descr = str(self._cov_estimator)
-            for line in cov_descr.split("\n"):
-                extra_text.append(line)
+            extra_text.extend(list(cov_descr.split("\n")))
+
         return extra_text
 
 
@@ -710,9 +708,9 @@ class FirstStageResults(_SummaryStr):
 
         endog, exog, instr, weights = self.endog, self.exog, self.instr, self.weights
         w = sqrt(weights.ndarray)
-        z = w * instr.ndarray
+        z = w * instr.ndarray.astype(float, copy=False)
         nz = z.shape[1]
-        x = w * exog.ndarray
+        x = w * exog.ndarray.astype(float, copy=False)
         ez = annihilate(z, x)
         individual_results = self.individual
         out_df = DataFrame(
@@ -722,11 +720,11 @@ class FirstStageResults(_SummaryStr):
         for col in endog.pandas:
             # TODO: BUG in pandas-stube
             #  https://github.com/pandas-dev/pandas-stubs/issues/97
-            y = w * endog.pandas[[col]].values
+            y = w * endog.pandas[[col]].to_numpy()
             ey = annihilate(y, x)
             partial = _OLS(ey, ez).fit(cov_type=self._cov_type, **self._cov_config)
             full = individual_results[str(col)]
-            params = full.params.values[-nz:]
+            params = full.params.to_numpy()[-nz:]
             params = params[:, None]
             c = asarray(full.cov)[-nz:, -nz:]
             stat = params.T @ inv(c) @ params
@@ -838,14 +836,14 @@ class FirstStageResults(_SummaryStr):
             if c != "f.dist":
                 vals.append([_str(v) for v in diagnostics[c]])
             else:
-                vals.append([v for v in diagnostics[c]])
+                vals.append(list(diagnostics[c]))
         stubs = [stubs_lookup[s] for s in list(diagnostics.columns)]
         header = list(diagnostics.index)
 
         params = []
         for var in header:
             res = self.individual[var]
-            v = c_[res.params.values, res.tstats.values]
+            v = c_[res.params.to_numpy(), res.tstats.to_numpy()]
             params.append(v.ravel())
         params_arr = array(params)
         params_fmt = [[_str(val) for val in row] for row in params_arr.T]
@@ -970,7 +968,7 @@ class IVResults(_CommonIVResults):
                 name=name,
             )
 
-        eps = self.resids.values[:, None]
+        eps = self.resids.to_numpy()[:, None]
         u = annihilate(eps, self.model._z)
         stat = nobs * (1 - (u.T @ u) / (eps.T @ eps)).squeeze()
         null = "The model is not overidentified."
@@ -1015,7 +1013,7 @@ class IVResults(_CommonIVResults):
         name = "Basmann's test of overidentification"
         if ninstr - nendog == 0:
             return InvalidTestStatistic(
-                "Test requires more instruments than " "endogenous variables.",
+                "Test requires more instruments than endogenous variables.",
                 name=name,
             )
         sargan_test = self.sargan
@@ -1033,7 +1031,7 @@ class IVResults(_CommonIVResults):
             raise TypeError("variables must be a str or a list of str.")
 
         nobs = self.model.dependent.shape[0]
-        e2 = asarray(self.resids.values)
+        e2 = asarray(self.resids.to_numpy())
         nendog, nexog = self.model.endog.shape[1], self.model.exog.shape[1]
         if variables is None:
             assumed_exog = self.model.endog.ndarray
@@ -1041,9 +1039,9 @@ class IVResults(_CommonIVResults):
             still_endog = empty((nobs, 0))
         else:
             assert isinstance(variables, list)
-            assumed_exog = self.model.endog.pandas[variables].values
+            assumed_exog = self.model.endog.pandas[variables].to_numpy()
             ex = [c for c in self.model.endog.cols if c not in variables]
-            still_endog = self.model.endog.pandas[ex].values
+            still_endog = self.model.endog.pandas[ex].to_numpy()
             aug_exog = c_[self.model.exog.ndarray, assumed_exog]
         ntested = assumed_exog.shape[1]
 
@@ -1052,7 +1050,7 @@ class IVResults(_CommonIVResults):
         mod = IV2SLS(
             self.model.dependent, aug_exog, still_endog, self.model.instruments
         )
-        e0 = mod.fit().resids.values[:, None]
+        e0 = mod.fit().resids.to_numpy()[:, None]
 
         z2 = c_[self.model.exog.ndarray, self.model.instruments.ndarray]
         z1 = c_[z2, assumed_exog]
@@ -1257,8 +1255,8 @@ class IVResults(_CommonIVResults):
         mod = _OLS(self.model.dependent, augx)
         res = mod.fit(cov_type=self.cov_type, **self.cov_config)
         norig = self.model._x.shape[1]
-        test_params = asarray(res.params.values[norig:], dtype=float)
-        test_cov = res.cov.values[norig:, norig:]
+        test_params = asarray(res.params.to_numpy()[norig:], dtype=float)
+        test_cov = res.cov.to_numpy()[norig:, norig:]
         stat = test_params.T @ inv(test_cov) @ test_params
         df = len(test_params)
         null = "Endogenous variables are exogenous"
@@ -1303,14 +1301,14 @@ class IVResults(_CommonIVResults):
         name = "Wooldridge's score test of overidentification"
         if ninstr - nendog == 0:
             return InvalidTestStatistic(
-                "Test requires more instruments than " "endogenous variables.",
+                "Test requires more instruments than endogenous variables.",
                 name=name,
             )
 
         endog_hat = proj(endog.ndarray, c_[exog.ndarray, instruments.ndarray])
         q = instruments.ndarray[:, : (ninstr - nendog)]
         q_res = annihilate(q, c_[self.model.exog.ndarray, endog_hat])
-        test_functions = q_res * self.resids.values[:, None]
+        test_functions = q_res * self.resids.to_numpy()[:, None]
         res = _OLS(ones((nobs, 1)), test_functions).fit(cov_type="unadjusted")
 
         stat = res.nobs * res.rsquared
@@ -1345,9 +1343,10 @@ class IVResults(_CommonIVResults):
         name = "Anderson-Rubin test of overidentification"
         if ninstr - nendog == 0:
             return InvalidTestStatistic(
-                "Test requires more instruments than " "endogenous variables.",
+                "Test requires more instruments than endogenous variables.",
                 name=name,
             )
+        assert self._liml_kappa is not None
         stat = nobs * log(self._liml_kappa)
         df = ninstr - nendog
         null = "The model is not overidentified."
@@ -1380,11 +1379,12 @@ class IVResults(_CommonIVResults):
         name = "Basmann' F  test of overidentification"
         if ninstr - nendog == 0:
             return InvalidTestStatistic(
-                "Test requires more instruments than " "endogenous variables.",
+                "Test requires more instruments than endogenous variables.",
                 name=name,
             )
         df = ninstr - nendog
         df_denom = nobs - (nexog + ninstr)
+        assert self._liml_kappa is not None
         stat = (self._liml_kappa - 1) * df_denom / df
         null = "The model is not overidentified."
         return WaldTestStatistic(stat, null, df, df_denom=df_denom, name=name)
@@ -1520,9 +1520,9 @@ class IVGMMResults(_CommonIVResults):
                 variable_lst = [variables]
             else:
                 raise TypeError("variables must be a str or a list of str.")
-            exog_e = c_[exog.ndarray, endog.pandas[variable_lst].values]
+            exog_e = c_[exog.ndarray, endog.pandas[variable_lst].to_numpy()]
             ex = [c for c in endog.pandas if c not in variable_lst]
-            endog_e = endog.pandas[ex].values
+            endog_e = endog.pandas[ex].to_numpy()
             null = "Variables {} are exogenous".format(", ".join(variable_lst))
         from linearmodels.iv.model import IVGMM, IVGMMCUE
 
@@ -1637,7 +1637,7 @@ class IVModelComparison(_ModelComparison):
             ],
             axis=1,
         )
-        vals_list = [[i for i in v] for v in vals.T.values]
+        vals_list = [list(v) for v in vals.T.to_numpy()]
         vals_list[2] = [str(v) for v in vals_list[2]]
         for i in range(4, len(vals_list)):
             vals_list[i] = [_str(v) for v in vals_list[i]]
@@ -1650,11 +1650,11 @@ class IVModelComparison(_ModelComparison):
 
         for i in range(len(params)):
             formatted_and_starred = []
-            for v, pv in zip(params.values[i], pvalues[i]):
+            for v, pv in zip(params.to_numpy()[i], pvalues[i], strict=False):
                 formatted_and_starred.append(add_star(_str(v), pv, self._stars))
             params_fmt.append(formatted_and_starred)
             precision_fmt = []
-            for v in precision.values[i]:
+            for v in precision.to_numpy()[i]:
                 v_str = _str(v)
                 v_str = f"({v_str})" if v_str.strip() else v_str
                 precision_fmt.append(v_str)

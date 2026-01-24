@@ -4,18 +4,13 @@ Maintains a reasonable degree of isolation between the two.
 """
 
 import sys
-from contextlib import (
-    redirect_stderr,
-    redirect_stdout,
-)
+from contextlib import redirect_stderr
 from typing import (
     IO,
     TYPE_CHECKING,
     Any,
     NamedTuple,
-    Optional,
     TextIO,
-    Union,
     cast,
 )
 
@@ -101,7 +96,7 @@ class PyBridge:
         attributes.insert(0, 'cmd_echo')
         return attributes
 
-    def __call__(self, command: str, *, echo: Optional[bool] = None) -> CommandResult:
+    def __call__(self, command: str, *, echo: bool | None = None) -> CommandResult:
         """Provide functionality to call application commands by calling PyBridge.
 
         ex: app('help')
@@ -113,8 +108,11 @@ class PyBridge:
         if echo is None:
             echo = self.cmd_echo
 
+        # Only capture sys.stdout if it's the same stream as self.stdout
+        stdouts_match = self._cmd2_app.stdout == sys.stdout
+
         # This will be used to capture _cmd2_app.stdout and sys.stdout
-        copy_cmd_stdout = StdSim(cast(Union[TextIO, StdSim], self._cmd2_app.stdout), echo=echo)
+        copy_cmd_stdout = StdSim(cast(TextIO | StdSim, self._cmd2_app.stdout), echo=echo)
 
         # Pause the storing of stdout until onecmd_plus_hooks enables it
         copy_cmd_stdout.pause_storage = True
@@ -126,8 +124,12 @@ class PyBridge:
 
         stop = False
         try:
-            self._cmd2_app.stdout = cast(TextIO, copy_cmd_stdout)
-            with redirect_stdout(cast(IO[str], copy_cmd_stdout)), redirect_stderr(cast(IO[str], copy_stderr)):
+            with self._cmd2_app.sigint_protection:
+                self._cmd2_app.stdout = cast(TextIO, copy_cmd_stdout)
+                if stdouts_match:
+                    sys.stdout = self._cmd2_app.stdout
+
+            with redirect_stderr(cast(IO[str], copy_stderr)):
                 stop = self._cmd2_app.onecmd_plus_hooks(
                     command,
                     add_to_history=self._add_to_history,
@@ -135,7 +137,10 @@ class PyBridge:
                 )
         finally:
             with self._cmd2_app.sigint_protection:
-                self._cmd2_app.stdout = cast(IO[str], copy_cmd_stdout.inner_stream)
+                self._cmd2_app.stdout = cast(TextIO, copy_cmd_stdout.inner_stream)
+                if stdouts_match:
+                    sys.stdout = self._cmd2_app.stdout
+
                 self.stop = stop or self.stop
 
         # Save the result

@@ -125,7 +125,9 @@ class ModuleFinder:
         Parameters:
             path: The path to append.
         """
-        path = path.resolve()
+        self._append_search_path(path.resolve())
+
+    def _append_search_path(self, path: Path) -> None:
         if path not in self.search_paths:
             self.search_paths.append(path)
 
@@ -379,10 +381,6 @@ class ModuleFinder:
                 self._paths_contents[path] = []
         return self._paths_contents[path]
 
-    def _append_search_path(self, path: Path) -> None:
-        if path not in self.search_paths:
-            self.search_paths.append(path)
-
     def _extend_from_pth_files(self) -> None:
         for path in self.search_paths:
             for item in self._contents(path):
@@ -487,7 +485,7 @@ def _handle_editable_module(path: Path) -> list[_SP]:
         # Support for how 'setuptools' writes these files:
         # example line: `MAPPING = {'griffe': '/media/data/dev/griffe/src/griffe', 'briffe': '/media/data/dev/griffe/src/briffe'}`.
         # with annotation: `MAPPING: dict[str, str] = {...}`.
-        parsed_module = ast.parse(path.read_text())
+        parsed_module = ast.parse(path.read_text(encoding="utf8"))
         for node in parsed_module.body:
             if isinstance(node, ast.Assign):
                 target = node.targets[0]
@@ -501,7 +499,7 @@ def _handle_editable_module(path: Path) -> list[_SP]:
         # Support for how 'meson-python' writes these files:
         # example line: `install({'package', 'module1'}, '/media/data/dev/griffe/build/cp311', ["path"], False)`.
         # Compiled modules then found in the cp311 folder, under src/package.
-        parsed_module = ast.parse(path.read_text())
+        parsed_module = ast.parse(path.read_text(encoding="utf8"))
         for node in parsed_module.body:
             if (
                 isinstance(node, ast.Expr)

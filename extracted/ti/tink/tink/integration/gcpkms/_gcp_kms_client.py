@@ -60,6 +60,7 @@ class _GcpKmsAead(aead.Aead):
       raise tink.TinkError('client cannot be null.')
     self.client = client
     self.name = key_name
+    self.key_version_specified = bool(_KMS_KEY_VERSION_REGEX.match(key_name))
 
   def encrypt(self, plaintext: bytes, associated_data: bytes) -> bytes:
     try:
@@ -75,6 +76,11 @@ class _GcpKmsAead(aead.Aead):
       raise tink.TinkError(e)
 
   def decrypt(self, ciphertext: bytes, associated_data: bytes) -> bytes:
+    if self.key_version_specified:
+      raise tink.TinkError(
+          'A CryptoKeyVersion was specified. Decryption is only supported when '
+          'a CryptoKey is specified.'
+      )
     try:
       response = self.client.decrypt(
          request=kms_v1.types.service.DecryptRequest(
@@ -104,6 +110,10 @@ class GcpKmsClient(tink.KmsClient):
     credentials_path nor credentials are specified, the client will attempt to
     ascertain credentials from the environment.
 
+    The key_uri can either by a CryptoKey or a CryptoKeyVersion. If a CryptoKey
+    is specified, both encryption and decryption operations are supported. If a
+    CryptoKeyVersion is specified, only encryption operations are supported.
+
     Args:
       key_uri: The URI of the key the client should be bound to. If it is None
         or empty, then the client is not bound to any particular key.
@@ -131,6 +141,15 @@ class GcpKmsClient(tink.KmsClient):
           credentials_path
       )
     self._client = kms_v1.KeyManagementServiceClient(credentials=credentials)
+
+  def __enter__(self):
+    return self
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    if hasattr(self._client, '__exit__'):
+      self._client.__exit__(exc_type, exc_value, traceback)
+    elif hasattr(self._client, 'transport'):
+      self._client.transport.channel.close()
 
   def does_support(self, key_uri: str) -> bool:
     """Returns true iff this client supports KMS key specified in 'key_uri'.

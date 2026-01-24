@@ -1,6 +1,7 @@
 from typing import Literal, Optional
 
 from ..context import context
+from ..defaults import DEFAULT_PROP, DEFAULT_PROPS, resolve_defaults
 from ..helpers import require_top_level_layout
 from .mixins.value_element import ValueElement
 
@@ -9,12 +10,13 @@ DrawerSides = Literal['left', 'right']
 
 class Drawer(ValueElement, default_classes='nicegui-drawer'):
 
+    @resolve_defaults
     def __init__(self,
                  side: DrawerSides, *,
-                 value: Optional[bool] = None,
+                 value: Optional[bool] = DEFAULT_PROPS['model-value'] | None,
                  fixed: bool = True,
-                 bordered: bool = False,
-                 elevated: bool = False,
+                 bordered: bool = DEFAULT_PROP | False,
+                 elevated: bool = DEFAULT_PROP | False,
                  top_corner: bool = False,
                  bottom_corner: bool = False) -> None:
         """Drawer
@@ -27,8 +29,7 @@ class Drawer(ValueElement, default_classes='nicegui-drawer'):
         To change the order, use the `move` method.
 
         A value of ``None`` will automatically open or close the drawer depending on the current layout width (breakpoint: >=1024 px).
-        On the auto-index page, the value will remain ``None`` until the drawer is opened, closed or toggled.
-        On other pages, the value will be requested from the client when the websocket connection is established.
+        The value will be requested from the client when the websocket connection is established.
 
         :param side: side of the page where the drawer should be placed (`left` or `right`)
         :param value: whether the drawer is already opened (default: `None`, i.e. if layout width is above threshold)
@@ -54,7 +55,7 @@ class Drawer(ValueElement, default_classes='nicegui-drawer'):
         page_container_index = self.client.layout.default_slot.children.index(self.client.page_container)
         self.move(target_index=page_container_index if side == 'left' else page_container_index + 1)
 
-        if value is None and not self.client.is_auto_index_client:
+        if value is None:
             async def _request_value() -> None:
                 self.value = await context.client.run_javascript(
                     f'!getHtmlElement({self.id}).parentElement.classList.contains("q-layout--prevent-focus")  // __IS_DRAWER_OPEN__'
@@ -83,11 +84,12 @@ class Drawer(ValueElement, default_classes='nicegui-drawer'):
 
 class LeftDrawer(Drawer):
 
+    @resolve_defaults
     def __init__(self, *,
-                 value: Optional[bool] = None,
+                 value: Optional[bool] = DEFAULT_PROPS['model-value'] | None,
                  fixed: bool = True,
-                 bordered: bool = False,
-                 elevated: bool = False,
+                 bordered: bool = DEFAULT_PROP | False,
+                 elevated: bool = DEFAULT_PROP | False,
                  top_corner: bool = False,
                  bottom_corner: bool = False) -> None:
         """Left drawer
@@ -100,8 +102,7 @@ class LeftDrawer(Drawer):
         To change the order, use the `move` method.
 
         A value of ``None`` will automatically open or close the drawer depending on the current layout width (breakpoint: >=1024 px).
-        On the auto-index page, the value will remain ``None`` until the drawer is opened, closed or toggled.
-        On other pages, the value will be requested from the client when the websocket connection is established.
+        The value will be requested from the client when the websocket connection is established.
 
         :param value: whether the drawer is already opened (default: `None`, i.e. if layout width is above threshold)
         :param fixed: whether the drawer is fixed or scrolls with the content (default: `True`)
@@ -121,11 +122,12 @@ class LeftDrawer(Drawer):
 
 class RightDrawer(Drawer):
 
+    @resolve_defaults
     def __init__(self, *,
-                 value: Optional[bool] = None,
+                 value: Optional[bool] = DEFAULT_PROPS['model-value'] | None,
                  fixed: bool = True,
-                 bordered: bool = False,
-                 elevated: bool = False,
+                 bordered: bool = DEFAULT_PROP | False,
+                 elevated: bool = DEFAULT_PROP | False,
                  top_corner: bool = False,
                  bottom_corner: bool = False) -> None:
         """Right drawer
@@ -138,8 +140,7 @@ class RightDrawer(Drawer):
         To change the order, use the `move` method.
 
         A value of ``None`` will automatically open or close the drawer depending on the current layout width (breakpoint: >=1024 px).
-        On the auto-index page, the value will remain ``None`` until the drawer is opened, closed or toggled.
-        On other pages, the value will be requested from the client when the websocket connection is established.
+        The value will be requested from the client when the websocket connection is established.
 
         :param value: whether the drawer is already opened (default: `None`, i.e. if layout width is above threshold)
         :param fixed: whether the drawer is fixed or scrolls with the content (default: `True`)

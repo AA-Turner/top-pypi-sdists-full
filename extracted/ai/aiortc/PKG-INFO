@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiortc
-Version: 1.13.0
+Version: 1.14.0
 Summary: An implementation of WebRTC and ORTC
 Author-email: Jeremy Lainé <jeremy.laine@m4x.org>
 License-Expression: BSD-3-Clause
@@ -13,17 +13,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aioice<1.0.0,>=0.10.1
-Requires-Dist: av<15.0.0,>=14.0.0
-Requires-Dist: cffi>=1.0.0
+Requires-Dist: av<17.0.0,>=14.0.0
 Requires-Dist: cryptography>=44.0.0
 Requires-Dist: google-crc32c>=1.1
 Requires-Dist: pyee>=13.0.0

@@ -2,7 +2,7 @@
 # :Author: David Goodger, Günter Milde
 #          Based on the html4css1 writer by David Goodger.
 # :Maintainer: docutils-develop@lists.sourceforge.net
-# :Revision: $Revision: 10196 $
+# :Revision: $Revision: 10272 $
 # :Date: $Date: 2005-06-28$
 # :Copyright: © 2016 David Goodger, Günter Milde
 # :License: Released under the terms of the `2-Clause BSD license`_, in short:
@@ -85,7 +85,7 @@ class Writer(writers.Writer):
           'Does not affect document title & subtitle (see --no-doc-title).'
           '(default: writer dependent).',
           ['--initial-header-level'],
-          {'choices': '1 2 3 4 5 6'.split(), 'default': '2',
+          {'choices': '1 2 3 4 5 6 auto'.split(), 'default': '2',
            'metavar': '<level>'}),
          ('Format for footnote references: one of "superscript" or '
           '"brackets". (default: "brackets")',
@@ -295,7 +295,14 @@ class HTMLTranslator(writers.DoctreeTranslator):
         settings = self.settings
         self.language = languages.get_language(
                             settings.language_code, document.reporter)
-        self.initial_header_level = int(settings.initial_header_level)
+        if settings.initial_header_level == 'auto':
+            if len(document) and document[0].next_node(
+                    nodes.title, include_self=True, descend=False):
+                self.initial_header_level = 2
+            else:
+                self.initial_header_level = 1
+        else:
+            self.initial_header_level = int(settings.initial_header_level)
         # image_loading (only defined for HTML5 writer)
         _image_loading_default = 'link'
         # convert legacy setting embed_images:
@@ -629,6 +636,9 @@ class HTMLTranslator(writers.DoctreeTranslator):
         except IndexError:
             return
         child['classes'].append(class_)
+
+    # Visitor methods
+    # ---------------
 
     def visit_Text(self, node) -> None:
         text = node.astext()

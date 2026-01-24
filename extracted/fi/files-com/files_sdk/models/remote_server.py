@@ -1,4 +1,5 @@
 import builtins  # noqa: F401
+from files_sdk.models.agent_push_update import AgentPushUpdate
 from files_sdk.models.remote_server_configuration_file import (
     RemoteServerConfigurationFile,
 )
@@ -13,24 +14,29 @@ from files_sdk.error import (  # noqa: F401
 
 class RemoteServer:
     default_attributes = {
-        "id": None,  # int64 - Remote server ID
-        "disabled": None,  # boolean - If true, this server has been disabled due to failures.  Make any change or set disabled to false to clear this flag.
-        "authentication_method": None,  # string - Type of authentication method
+        "id": None,  # int64 - Remote Server ID
+        "disabled": None,  # boolean - If true, this Remote Server has been disabled due to failures.  Make any change or set disabled to false to clear this flag.
+        "authentication_method": None,  # string - Type of authentication method to use
         "hostname": None,  # string - Hostname or IP address
         "remote_home_path": None,  # string - Initial home folder on remote server
+        "upload_staging_path": None,  # string - Upload staging path.  Applies to SFTP only.  If a path is provided here, files will first be uploaded to this path on the remote folder and the moved into the final correct path via an SFTP move command.  This is required by some remote MFT systems to emulate atomic uploads, which are otherwise not supoprted by SFTP.
         "name": None,  # string - Internal name for your reference
-        "port": None,  # int64 - Port for remote server.  Not needed for S3.
+        "description": None,  # string - Internal description for your reference
+        "port": None,  # int64 - Port for remote server.
+        "buffer_uploads": None,  # string - If set to always, uploads to this server will be uploaded first to Files.com before being sent to the remote server. This can improve performance in certain access patterns, such as high-latency connections.  It will cause data to be temporarily stored in Files.com. If set to auto, we will perform this optimization if we believe it to be a benefit in a given situation.
         "max_connections": None,  # int64 - Max number of parallel connections.  Ignored for S3 connections (we will parallelize these as much as possible).
         "pin_to_site_region": None,  # boolean - If true, we will ensure that all communications with this remote server are made through the primary region of the site.  This setting can also be overridden by a site-wide setting which will force it to true.
         "pinned_region": None,  # string - If set, all communications with this remote server are made through the provided region.
+        "remote_server_credential_id": None,  # int64 - ID of Remote Server Credential, if applicable.
         "s3_bucket": None,  # string - S3 bucket name
         "s3_region": None,  # string - S3 region
         "aws_access_key": None,  # string - AWS Access Key.
         "server_certificate": None,  # string - Remote server certificate
         "server_host_key": None,  # string - Remote server SSH Host Key. If provided, we will require that the server host key matches the provided key. Uses OpenSSH format similar to what would go into ~/.ssh/known_hosts
         "server_type": None,  # string - Remote server type.
+        "workspace_id": None,  # int64 - Workspace ID (0 for default workspace)
         "ssl": None,  # string - Should we require SSL?
-        "username": None,  # string - Remote server username.  Not needed for S3 buckets.
+        "username": None,  # string - Remote server username.
         "google_cloud_storage_bucket": None,  # string - Google Cloud Storage: Bucket Name
         "google_cloud_storage_project_id": None,  # string - Google Cloud Storage: Project ID
         "google_cloud_storage_s3_compatible_access_key": None,  # string - Google Cloud Storage: S3-compatible Access Key.
@@ -58,6 +64,10 @@ class RemoteServer:
         "files_agent_root": None,  # string - Agent local root path
         "files_agent_api_token": None,  # string - Files Agent API Token
         "files_agent_version": None,  # string - Files Agent version
+        "files_agent_up_to_date": None,  # boolean - If true, the Files Agent is up to date.
+        "files_agent_latest_version": None,  # string - Latest available Files Agent version
+        "files_agent_supports_push_updates": None,  # boolean - Files Agent supports receiving push updates
+        "outbound_agent_id": None,  # int64 - Route traffic to outbound on a files-agent
         "filebase_bucket": None,  # string - Filebase: Bucket name
         "filebase_access_key": None,  # string - Filebase: Access Key.
         "cloudflare_bucket": None,  # string - Cloudflare: Bucket name
@@ -110,6 +120,27 @@ class RemoteServer:
             for k in RemoteServer.default_attributes
             if getattr(self, k, None) is not None
         }
+
+    # Push update to Files Agent
+    def agent_push_update(self, params=None):
+        if not isinstance(params, dict):
+            params = {}
+
+        if hasattr(self, "id") and self.id:
+            params["id"] = self.id
+        else:
+            raise MissingParameterError("Current object doesn't have a id")
+        if "id" not in params:
+            raise MissingParameterError("Parameter missing: id")
+        if "id" in params and not isinstance(params["id"], int):
+            raise InvalidParameterError("Bad parameter: id must be an int")
+        response, _options = Api.send_request(
+            "POST",
+            "/remote_servers/{id}/agent_push_update".format(id=params["id"]),
+            params,
+            self.options,
+        )
+        return response.data
 
     # Post local changes, check in, and download configuration file (used by some Remote Server integrations, such as the Files.com Agent)
     #
@@ -223,9 +254,11 @@ class RemoteServer:
     #   azure_files_storage_share_name - string - Azure Files:  Storage Share name
     #   backblaze_b2_bucket - string - Backblaze B2 Cloud Storage: Bucket name
     #   backblaze_b2_s3_endpoint - string - Backblaze B2 Cloud Storage: S3 Endpoint
+    #   buffer_uploads - string - If set to always, uploads to this server will be uploaded first to Files.com before being sent to the remote server. This can improve performance in certain access patterns, such as high-latency connections.  It will cause data to be temporarily stored in Files.com. If set to auto, we will perform this optimization if we believe it to be a benefit in a given situation.
     #   cloudflare_access_key - string - Cloudflare: Access Key.
     #   cloudflare_bucket - string - Cloudflare: Bucket name
     #   cloudflare_endpoint - string - Cloudflare: endpoint
+    #   description - string - Internal description for your reference
     #   dropbox_teams - boolean - Dropbox: If true, list Team folders in root?
     #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
     #   filebase_access_key - string - Filebase: Access Key.
@@ -233,6 +266,7 @@ class RemoteServer:
     #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
     #   files_agent_root - string - Agent local root path
     #   files_agent_version - string - Files Agent version
+    #   outbound_agent_id - int64 - Route traffic to outbound on a files-agent
     #   google_cloud_storage_bucket - string - Google Cloud Storage: Bucket Name
     #   google_cloud_storage_project_id - string - Google Cloud Storage: Project ID
     #   google_cloud_storage_s3_compatible_access_key - string - Google Cloud Storage: S3-compatible Access Key.
@@ -244,7 +278,9 @@ class RemoteServer:
     #   name - string - Internal name for your reference
     #   one_drive_account_type - string - OneDrive: Either personal or business_other account types
     #   pin_to_site_region - boolean - If true, we will ensure that all communications with this remote server are made through the primary region of the site.  This setting can also be overridden by a site-wide setting which will force it to true.
-    #   port - int64 - Port for remote server.  Not needed for S3.
+    #   port - int64 - Port for remote server.
+    #   upload_staging_path - string - Upload staging path.  Applies to SFTP only.  If a path is provided here, files will first be uploaded to this path on the remote folder and the moved into the final correct path via an SFTP move command.  This is required by some remote MFT systems to emulate atomic uploads, which are otherwise not supoprted by SFTP.
+    #   remote_server_credential_id - int64 - ID of Remote Server Credential, if applicable.
     #   s3_bucket - string - S3 bucket name
     #   s3_compatible_access_key - string - S3-compatible: Access Key
     #   s3_compatible_bucket - string - S3-compatible: Bucket name
@@ -255,7 +291,7 @@ class RemoteServer:
     #   server_host_key - string - Remote server SSH Host Key. If provided, we will require that the server host key matches the provided key. Uses OpenSSH format similar to what would go into ~/.ssh/known_hosts
     #   server_type - string - Remote server type.
     #   ssl - string - Should we require SSL?
-    #   username - string - Remote server username.  Not needed for S3 buckets.
+    #   username - string - Remote server username.
     #   wasabi_access_key - string - Wasabi: Access Key.
     #   wasabi_bucket - string - Wasabi: Bucket name
     #   wasabi_region - string - Wasabi: Region
@@ -437,6 +473,12 @@ class RemoteServer:
             raise InvalidParameterError(
                 "Bad parameter: backblaze_b2_s3_endpoint must be an str"
             )
+        if "buffer_uploads" in params and not isinstance(
+            params["buffer_uploads"], str
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: buffer_uploads must be an str"
+            )
         if "cloudflare_access_key" in params and not isinstance(
             params["cloudflare_access_key"], str
         ):
@@ -454,6 +496,12 @@ class RemoteServer:
         ):
             raise InvalidParameterError(
                 "Bad parameter: cloudflare_endpoint must be an str"
+            )
+        if "description" in params and not isinstance(
+            params["description"], str
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: description must be an str"
             )
         if "filebase_access_key" in params and not isinstance(
             params["filebase_access_key"], str
@@ -484,6 +532,12 @@ class RemoteServer:
         ):
             raise InvalidParameterError(
                 "Bad parameter: files_agent_version must be an str"
+            )
+        if "outbound_agent_id" in params and not isinstance(
+            params["outbound_agent_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: outbound_agent_id must be an int"
             )
         if "google_cloud_storage_bucket" in params and not isinstance(
             params["google_cloud_storage_bucket"], str
@@ -544,6 +598,18 @@ class RemoteServer:
             )
         if "port" in params and not isinstance(params["port"], int):
             raise InvalidParameterError("Bad parameter: port must be an int")
+        if "upload_staging_path" in params and not isinstance(
+            params["upload_staging_path"], str
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: upload_staging_path must be an str"
+            )
+        if "remote_server_credential_id" in params and not isinstance(
+            params["remote_server_credential_id"], int
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: remote_server_credential_id must be an int"
+            )
         if "s3_bucket" in params and not isinstance(params["s3_bucket"], str):
             raise InvalidParameterError(
                 "Bad parameter: s3_bucket must be an str"
@@ -662,8 +728,8 @@ class RemoteServer:
 # Parameters:
 #   cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
 #   per_page - int64 - Number of records to show per page.  (Max: 10,000, 1,000 or less is recommended).
-#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `name`, `server_type`, `backblaze_b2_bucket`, `google_cloud_storage_bucket`, `wasabi_bucket`, `s3_bucket`, `azure_blob_storage_container`, `azure_files_storage_share_name`, `s3_compatible_bucket`, `filebase_bucket`, `cloudflare_bucket` or `linode_bucket`.
-#   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `name`, `server_type`, `backblaze_b2_bucket`, `google_cloud_storage_bucket`, `wasabi_bucket`, `s3_bucket`, `azure_blob_storage_container`, `azure_files_storage_share_name`, `s3_compatible_bucket`, `filebase_bucket`, `cloudflare_bucket` or `linode_bucket`. Valid field combinations are `[ server_type, name ]`, `[ backblaze_b2_bucket, name ]`, `[ google_cloud_storage_bucket, name ]`, `[ wasabi_bucket, name ]`, `[ s3_bucket, name ]`, `[ azure_blob_storage_container, name ]`, `[ azure_files_storage_share_name, name ]`, `[ s3_compatible_bucket, name ]`, `[ filebase_bucket, name ]`, `[ cloudflare_bucket, name ]` or `[ linode_bucket, name ]`.
+#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `workspace_id`, `name`, `server_type`, `backblaze_b2_bucket`, `google_cloud_storage_bucket`, `wasabi_bucket`, `s3_bucket`, `azure_blob_storage_container`, `azure_files_storage_share_name`, `s3_compatible_bucket`, `filebase_bucket`, `cloudflare_bucket` or `linode_bucket`.
+#   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `name`, `server_type`, `workspace_id`, `backblaze_b2_bucket`, `google_cloud_storage_bucket`, `wasabi_bucket`, `s3_bucket`, `azure_blob_storage_container`, `azure_files_storage_share_name`, `s3_compatible_bucket`, `filebase_bucket`, `cloudflare_bucket` or `linode_bucket`. Valid field combinations are `[ server_type, name ]`, `[ workspace_id, name ]`, `[ backblaze_b2_bucket, name ]`, `[ google_cloud_storage_bucket, name ]`, `[ wasabi_bucket, name ]`, `[ s3_bucket, name ]`, `[ azure_blob_storage_container, name ]`, `[ azure_files_storage_share_name, name ]`, `[ s3_compatible_bucket, name ]`, `[ filebase_bucket, name ]`, `[ cloudflare_bucket, name ]`, `[ linode_bucket, name ]`, `[ workspace_id, server_type ]` or `[ workspace_id, server_type, name ]`.
 #   filter_prefix - object - If set, return records where the specified field is prefixed by the supplied value. Valid fields are `name`, `backblaze_b2_bucket`, `google_cloud_storage_bucket`, `wasabi_bucket`, `s3_bucket`, `azure_blob_storage_container`, `azure_files_storage_share_name`, `s3_compatible_bucket`, `filebase_bucket`, `cloudflare_bucket` or `linode_bucket`. Valid field combinations are `[ backblaze_b2_bucket, name ]`, `[ google_cloud_storage_bucket, name ]`, `[ wasabi_bucket, name ]`, `[ s3_bucket, name ]`, `[ azure_blob_storage_container, name ]`, `[ azure_files_storage_share_name, name ]`, `[ s3_compatible_bucket, name ]`, `[ filebase_bucket, name ]`, `[ cloudflare_bucket, name ]` or `[ linode_bucket, name ]`.
 def list(params=None, options=None):
     if not isinstance(params, dict):
@@ -764,9 +830,11 @@ def find_configuration_file(id, params=None, options=None):
 #   azure_files_storage_share_name - string - Azure Files:  Storage Share name
 #   backblaze_b2_bucket - string - Backblaze B2 Cloud Storage: Bucket name
 #   backblaze_b2_s3_endpoint - string - Backblaze B2 Cloud Storage: S3 Endpoint
+#   buffer_uploads - string - If set to always, uploads to this server will be uploaded first to Files.com before being sent to the remote server. This can improve performance in certain access patterns, such as high-latency connections.  It will cause data to be temporarily stored in Files.com. If set to auto, we will perform this optimization if we believe it to be a benefit in a given situation.
 #   cloudflare_access_key - string - Cloudflare: Access Key.
 #   cloudflare_bucket - string - Cloudflare: Bucket name
 #   cloudflare_endpoint - string - Cloudflare: endpoint
+#   description - string - Internal description for your reference
 #   dropbox_teams - boolean - Dropbox: If true, list Team folders in root?
 #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
 #   filebase_access_key - string - Filebase: Access Key.
@@ -774,6 +842,7 @@ def find_configuration_file(id, params=None, options=None):
 #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
 #   files_agent_root - string - Agent local root path
 #   files_agent_version - string - Files Agent version
+#   outbound_agent_id - int64 - Route traffic to outbound on a files-agent
 #   google_cloud_storage_bucket - string - Google Cloud Storage: Bucket Name
 #   google_cloud_storage_project_id - string - Google Cloud Storage: Project ID
 #   google_cloud_storage_s3_compatible_access_key - string - Google Cloud Storage: S3-compatible Access Key.
@@ -785,7 +854,9 @@ def find_configuration_file(id, params=None, options=None):
 #   name - string - Internal name for your reference
 #   one_drive_account_type - string - OneDrive: Either personal or business_other account types
 #   pin_to_site_region - boolean - If true, we will ensure that all communications with this remote server are made through the primary region of the site.  This setting can also be overridden by a site-wide setting which will force it to true.
-#   port - int64 - Port for remote server.  Not needed for S3.
+#   port - int64 - Port for remote server.
+#   upload_staging_path - string - Upload staging path.  Applies to SFTP only.  If a path is provided here, files will first be uploaded to this path on the remote folder and the moved into the final correct path via an SFTP move command.  This is required by some remote MFT systems to emulate atomic uploads, which are otherwise not supoprted by SFTP.
+#   remote_server_credential_id - int64 - ID of Remote Server Credential, if applicable.
 #   s3_bucket - string - S3 bucket name
 #   s3_compatible_access_key - string - S3-compatible: Access Key
 #   s3_compatible_bucket - string - S3-compatible: Bucket name
@@ -796,10 +867,11 @@ def find_configuration_file(id, params=None, options=None):
 #   server_host_key - string - Remote server SSH Host Key. If provided, we will require that the server host key matches the provided key. Uses OpenSSH format similar to what would go into ~/.ssh/known_hosts
 #   server_type - string - Remote server type.
 #   ssl - string - Should we require SSL?
-#   username - string - Remote server username.  Not needed for S3 buckets.
+#   username - string - Remote server username.
 #   wasabi_access_key - string - Wasabi: Access Key.
 #   wasabi_bucket - string - Wasabi: Bucket name
 #   wasabi_region - string - Wasabi: Region
+#   workspace_id - int64 - Workspace ID (0 for default workspace)
 def create(params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -979,6 +1051,12 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: backblaze_b2_s3_endpoint must be an str"
         )
+    if "buffer_uploads" in params and not isinstance(
+        params["buffer_uploads"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: buffer_uploads must be an str"
+        )
     if "cloudflare_access_key" in params and not isinstance(
         params["cloudflare_access_key"], str
     ):
@@ -996,6 +1074,10 @@ def create(params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: cloudflare_endpoint must be an str"
+        )
+    if "description" in params and not isinstance(params["description"], str):
+        raise InvalidParameterError(
+            "Bad parameter: description must be an str"
         )
     if "dropbox_teams" in params and not isinstance(
         params["dropbox_teams"], bool
@@ -1038,6 +1120,12 @@ def create(params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: files_agent_version must be an str"
+        )
+    if "outbound_agent_id" in params and not isinstance(
+        params["outbound_agent_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: outbound_agent_id must be an int"
         )
     if "google_cloud_storage_bucket" in params and not isinstance(
         params["google_cloud_storage_bucket"], str
@@ -1102,6 +1190,18 @@ def create(params=None, options=None):
         )
     if "port" in params and not isinstance(params["port"], int):
         raise InvalidParameterError("Bad parameter: port must be an int")
+    if "upload_staging_path" in params and not isinstance(
+        params["upload_staging_path"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: upload_staging_path must be an str"
+        )
+    if "remote_server_credential_id" in params and not isinstance(
+        params["remote_server_credential_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: remote_server_credential_id must be an int"
+        )
     if "s3_bucket" in params and not isinstance(params["s3_bucket"], str):
         raise InvalidParameterError("Bad parameter: s3_bucket must be an str")
     if "s3_compatible_access_key" in params and not isinstance(
@@ -1168,10 +1268,36 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: wasabi_region must be an str"
         )
+    if "workspace_id" in params and not isinstance(
+        params["workspace_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: workspace_id must be an int"
+        )
     response, options = Api.send_request(
         "POST", "/remote_servers", params, options
     )
     return RemoteServer(response.data, options)
+
+
+# Push update to Files Agent
+def agent_push_update(id, params=None, options=None):
+    if not isinstance(params, dict):
+        params = {}
+    if not isinstance(options, dict):
+        options = {}
+    params["id"] = id
+    if "id" in params and not isinstance(params["id"], int):
+        raise InvalidParameterError("Bad parameter: id must be an int")
+    if "id" not in params:
+        raise MissingParameterError("Parameter missing: id")
+    response, options = Api.send_request(
+        "POST",
+        "/remote_servers/{id}/agent_push_update".format(id=params["id"]),
+        params,
+        options,
+    )
+    return AgentPushUpdate(response.data, options)
 
 
 # Post local changes, check in, and download configuration file (used by some Remote Server integrations, such as the Files.com Agent)
@@ -1273,9 +1399,11 @@ def configuration_file(id, params=None, options=None):
 #   azure_files_storage_share_name - string - Azure Files:  Storage Share name
 #   backblaze_b2_bucket - string - Backblaze B2 Cloud Storage: Bucket name
 #   backblaze_b2_s3_endpoint - string - Backblaze B2 Cloud Storage: S3 Endpoint
+#   buffer_uploads - string - If set to always, uploads to this server will be uploaded first to Files.com before being sent to the remote server. This can improve performance in certain access patterns, such as high-latency connections.  It will cause data to be temporarily stored in Files.com. If set to auto, we will perform this optimization if we believe it to be a benefit in a given situation.
 #   cloudflare_access_key - string - Cloudflare: Access Key.
 #   cloudflare_bucket - string - Cloudflare: Bucket name
 #   cloudflare_endpoint - string - Cloudflare: endpoint
+#   description - string - Internal description for your reference
 #   dropbox_teams - boolean - Dropbox: If true, list Team folders in root?
 #   enable_dedicated_ips - boolean - `true` if remote server only accepts connections from dedicated IPs
 #   filebase_access_key - string - Filebase: Access Key.
@@ -1283,6 +1411,7 @@ def configuration_file(id, params=None, options=None):
 #   files_agent_permission_set - string - Local permissions for files agent. read_only, write_only, or read_write
 #   files_agent_root - string - Agent local root path
 #   files_agent_version - string - Files Agent version
+#   outbound_agent_id - int64 - Route traffic to outbound on a files-agent
 #   google_cloud_storage_bucket - string - Google Cloud Storage: Bucket Name
 #   google_cloud_storage_project_id - string - Google Cloud Storage: Project ID
 #   google_cloud_storage_s3_compatible_access_key - string - Google Cloud Storage: S3-compatible Access Key.
@@ -1294,7 +1423,9 @@ def configuration_file(id, params=None, options=None):
 #   name - string - Internal name for your reference
 #   one_drive_account_type - string - OneDrive: Either personal or business_other account types
 #   pin_to_site_region - boolean - If true, we will ensure that all communications with this remote server are made through the primary region of the site.  This setting can also be overridden by a site-wide setting which will force it to true.
-#   port - int64 - Port for remote server.  Not needed for S3.
+#   port - int64 - Port for remote server.
+#   upload_staging_path - string - Upload staging path.  Applies to SFTP only.  If a path is provided here, files will first be uploaded to this path on the remote folder and the moved into the final correct path via an SFTP move command.  This is required by some remote MFT systems to emulate atomic uploads, which are otherwise not supoprted by SFTP.
+#   remote_server_credential_id - int64 - ID of Remote Server Credential, if applicable.
 #   s3_bucket - string - S3 bucket name
 #   s3_compatible_access_key - string - S3-compatible: Access Key
 #   s3_compatible_bucket - string - S3-compatible: Bucket name
@@ -1305,7 +1436,7 @@ def configuration_file(id, params=None, options=None):
 #   server_host_key - string - Remote server SSH Host Key. If provided, we will require that the server host key matches the provided key. Uses OpenSSH format similar to what would go into ~/.ssh/known_hosts
 #   server_type - string - Remote server type.
 #   ssl - string - Should we require SSL?
-#   username - string - Remote server username.  Not needed for S3 buckets.
+#   username - string - Remote server username.
 #   wasabi_access_key - string - Wasabi: Access Key.
 #   wasabi_bucket - string - Wasabi: Bucket name
 #   wasabi_region - string - Wasabi: Region
@@ -1491,6 +1622,12 @@ def update(id, params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: backblaze_b2_s3_endpoint must be an str"
         )
+    if "buffer_uploads" in params and not isinstance(
+        params["buffer_uploads"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: buffer_uploads must be an str"
+        )
     if "cloudflare_access_key" in params and not isinstance(
         params["cloudflare_access_key"], str
     ):
@@ -1508,6 +1645,10 @@ def update(id, params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: cloudflare_endpoint must be an str"
+        )
+    if "description" in params and not isinstance(params["description"], str):
+        raise InvalidParameterError(
+            "Bad parameter: description must be an str"
         )
     if "dropbox_teams" in params and not isinstance(
         params["dropbox_teams"], bool
@@ -1550,6 +1691,12 @@ def update(id, params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: files_agent_version must be an str"
+        )
+    if "outbound_agent_id" in params and not isinstance(
+        params["outbound_agent_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: outbound_agent_id must be an int"
         )
     if "google_cloud_storage_bucket" in params and not isinstance(
         params["google_cloud_storage_bucket"], str
@@ -1614,6 +1761,18 @@ def update(id, params=None, options=None):
         )
     if "port" in params and not isinstance(params["port"], int):
         raise InvalidParameterError("Bad parameter: port must be an int")
+    if "upload_staging_path" in params and not isinstance(
+        params["upload_staging_path"], str
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: upload_staging_path must be an str"
+        )
+    if "remote_server_credential_id" in params and not isinstance(
+        params["remote_server_credential_id"], int
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: remote_server_credential_id must be an int"
+        )
     if "s3_bucket" in params and not isinstance(params["s3_bucket"], str):
         raise InvalidParameterError("Bad parameter: s3_bucket must be an str")
     if "s3_compatible_access_key" in params and not isinstance(

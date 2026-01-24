@@ -9,6 +9,8 @@ __all__ = ["PaymentGateConfig", "PrecalculatedTaxConfig", "StripeConfig"]
 
 
 class PrecalculatedTaxConfig(TypedDict, total=False):
+    """Only applicable if using PRECALCULATED as your tax type."""
+
     tax_amount: Required[float]
     """Amount of tax to be applied.
 
@@ -24,6 +26,8 @@ class PrecalculatedTaxConfig(TypedDict, total=False):
 
 
 class StripeConfig(TypedDict, total=False):
+    """Only applicable if using STRIPE as your payment gate type."""
+
     payment_type: Required[Literal["INVOICE", "PAYMENT_INTENT"]]
     """If left blank, will default to INVOICE"""
 
@@ -49,7 +53,7 @@ class PaymentGateConfig(TypedDict, total=False):
     stripe_config: StripeConfig
     """Only applicable if using STRIPE as your payment gate type."""
 
-    tax_type: Literal["NONE", "STRIPE", "ANROK", "PRECALCULATED"]
+    tax_type: Literal["NONE", "STRIPE", "ANROK", "AVALARA", "PRECALCULATED"]
     """Stripe tax is only supported for Stripe payment gateway.
 
     Select NONE if you do not wish Metronome to calculate tax on your behalf.

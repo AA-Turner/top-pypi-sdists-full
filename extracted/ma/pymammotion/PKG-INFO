@@ -1,34 +1,28 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pymammotion
-Version: 0.5.34
-Summary: 
-License: GPL-3.0
-Author: Michael Arthur
-Author-email: michael@jumblesoft.co.nz
-Requires-Python: >=3.10
-Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: aiohttp (>=3.9.1)
-Requires-Dist: alibabacloud-apigateway-util (>=0.0.2,<0.0.3)
-Requires-Dist: alibabacloud-iot-api-gateway (>=0.0.4,<0.0.5)
-Requires-Dist: alicloud-gateway-iot (>=1.0.0,<2.0.0)
-Requires-Dist: async-timeout (>=4.0.3,<5.0.0)
-Requires-Dist: betterproto2 (>=0.8.0,<0.9.0)
-Requires-Dist: bleak (>=0.21.0)
-Requires-Dist: bleak-retry-connector (>=3.5.0)
-Requires-Dist: crcmod (>=1.7,<2.0)
-Requires-Dist: cryptography (>=43.0.1)
-Requires-Dist: grpclib (>=0.4.8,<0.5.0)
-Requires-Dist: jsonic (>=1.0.0,<2.0.0)
-Requires-Dist: mashumaro (>=3.13,<4.0)
-Requires-Dist: numpy (>=1.26.0)
-Requires-Dist: orjson (>=3.9.15,<4.0.0)
-Requires-Dist: paho-mqtt (>=2.1.0,<3.0.0)
-Requires-Dist: protobuf (>=4.23.1)
-Requires-Dist: py-jsonic (>=0.0.2,<0.0.3)
+Version: 0.5.70
+Author: jLynx
+Author-email: Michael Arthur <michael@jumblesoft.co.nz>
+License-Expression: GPL-3.0
+License-File: LICENSE
+Requires-Python: <4.0,>=3.12
+Requires-Dist: aiohttp>=3.9.1
+Requires-Dist: alibabacloud-apigateway-util<0.0.3,>=0.0.2
+Requires-Dist: alibabacloud-iot-api-gateway<0.0.5,>=0.0.4
+Requires-Dist: betterproto2>=0.9.1
+Requires-Dist: bleak-retry-connector>=3.5.0
+Requires-Dist: bleak>=0.21.0
+Requires-Dist: crcmod~=1.7
+Requires-Dist: cryptography>=43.0.1
+Requires-Dist: mashumaro~=3.13
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: orjson<4,>=3.9.15
+Requires-Dist: paho-mqtt<3,>=2.1.0
+Requires-Dist: protobuf>=4.23.1
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: sdp-transform>=1.1.0
+Requires-Dist: shapely>=2.1.2
+Requires-Dist: websockets>=13.1
 Description-Content-Type: text/markdown
 
 # PyMammotion - Python API for Mammotion Mowers [![Discord](https://img.shields.io/discord/1247286396297678879)](https://discord.gg/vpZdWhJX8x)
@@ -96,5 +90,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Trademark Notice
 
 The trademarks "Mammotion," "Luba," and "Yuka" referenced herein are registered trademarks of their respective owners. The author of this software repository is not affiliated with, endorsed by, or connected to these trademark owners in any way.
-
 

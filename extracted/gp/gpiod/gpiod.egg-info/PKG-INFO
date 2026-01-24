@@ -1,14 +1,13 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: gpiod
-Version: 2.3.0
+Version: 2.4.0
 Summary: Python bindings for libgpiod
 Author-email: Bartosz Golaszewski <brgl@bgdev.pl>
-License: LGPL-2.1-or-later
+License-Expression: LGPL-2.1-or-later
 Project-URL: Homepage, https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git
 Project-URL: Issues, https://github.com/brgl/libgpiod/issues/
 Platform: linux
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Python
@@ -19,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 

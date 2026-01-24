@@ -100,7 +100,7 @@ class Task:
     - Unpickling a previously pickled Task object.
 
     If you're looking for a task's status but don't need a full task object,
-    ee.data.getTaskStatus() may be appropriate.
+    ee.data.getOperation() may be appropriate.
 
     Args:
       task_id: The task ID, originally obtained through ee.data.newTaskId().
@@ -112,7 +112,7 @@ class Task:
           - description: The name of the task, a freeform string.
           - sourceUrl: An optional URL for the script that generated the task.
           Specific task types have other custom config fields.
-      name: The name of the operation.  Only relevant when using the cloud api.
+      name: The name of the operation.
     """
     self.id = self._request_id = task_id
     self.config = config and config.copy()
@@ -123,10 +123,9 @@ class Task:
 
   @property
   def operation_name(self) -> str | None:
+    """The server-assigned name for this task."""
     if self.name:
       return self.name
-    if self.id:
-      return _cloud_api_utils.convert_task_id_to_operation_name(self.id)
     return None
 
   def start(self) -> None:
@@ -309,6 +308,7 @@ class Export:
         crsTransform=None,
         maxPixels=None,
         priority=None,
+        overwrite=False,
         **kwargs,
     ) -> Task:
       """Creates a task to export an EE Image to an EE Asset.
@@ -345,6 +345,7 @@ class Export:
         priority: The priority of the task within the project. Higher priority
           tasks are scheduled sooner. Must be an integer between 0 and 9999.
           Defaults to 100.
+        overwrite: If an existing asset can be overwritten by this export.
         **kwargs: Holds other keyword arguments that may have been deprecated
             such as 'crs_transform'.
 
@@ -740,6 +741,7 @@ class Export:
         assetId=None,
         maxVertices=None,
         priority=None,
+        overwrite=False,
         **kwargs,
     ) -> Task:
       """Creates a task to export a FeatureCollection to an EE table asset.
@@ -754,6 +756,7 @@ class Export:
         priority: The priority of the task within the project. Higher priority
           tasks are scheduled sooner. Must be an integer between 0 and 9999.
           Defaults to 100.
+        overwrite: If an existing asset can be overwritten by this export.
         **kwargs: Holds other keyword arguments that may have been deprecated.
 
       Returns:
@@ -764,6 +767,7 @@ class Export:
           'assetId': assetId,
           'maxVertices': maxVertices,
           'priority': priority,
+          'overwrite': overwrite,
       }
       config = {k: v for k, v, in config.items() if v is not None}
       config = _prepare_table_export_config(collection, config,
@@ -1739,6 +1743,8 @@ def _build_earth_engine_destination(config: dict[str, Any]) -> dict[str, Any]:
       'name':
           _cloud_api_utils.convert_asset_id_to_asset_name(
               config.pop('assetId')),
+      'overwrite':
+          config.pop('overwrite', False)
   }
 
 

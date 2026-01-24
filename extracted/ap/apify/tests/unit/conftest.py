@@ -4,22 +4,44 @@ import asyncio
 import inspect
 import os
 from collections import defaultdict
-from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Callable, get_type_hints
+from logging import getLogger
+from typing import TYPE_CHECKING, Any, get_type_hints
 
+import impit
 import pytest
+from pytest_httpserver import HTTPServer
 
 from apify_client import ApifyClientAsync
 from apify_shared.consts import ApifyEnvVars
 from crawlee import service_locator
-from crawlee.configuration import Configuration as CrawleeConfiguration
-from crawlee.storage_clients import MemoryStorageClient
-from crawlee.storages import _creation_management
 
 import apify._actor
+import apify.log
+from apify.storage_clients._apify._alias_resolving import AliasResolver
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from logging import Logger
     from pathlib import Path
+
+
+@pytest.fixture
+def _patch_propagate_logger(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch enabling `propagate` for the crawlee logger.
+
+    This is necessary for tests requiring log interception using `caplog`.
+    """
+
+    original_configure_logger = apify.log.configure_logger
+
+    def propagate_logger(logger: Logger, **kwargs: Any) -> None:
+        original_configure_logger(logger, **kwargs)
+        logger.propagate = True
+
+    monkeypatch.setattr('crawlee._log_config.configure_logger', propagate_logger)
+    monkeypatch.setattr(apify.log, 'configure_logger', propagate_logger)
+    yield
+    monkeypatch.undo()
 
 
 @pytest.fixture
@@ -40,41 +62,32 @@ def prepare_test_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Callabl
     def _prepare_test_env() -> None:
         if hasattr(apify._actor.Actor, '__wrapped__'):
             delattr(apify._actor.Actor, '__wrapped__')
-        apify._actor._ActorType._is_any_instance_initialized = False
+        apify._actor.Actor._is_initialized = False
 
         # Set the environment variable for the local storage directory to the temporary path.
         monkeypatch.setenv(ApifyEnvVars.LOCAL_STORAGE_DIR, str(tmp_path))
-
-        # Reset the flags in the service locator to indicate that no services are explicitly set. This ensures
-        # a clean state, as services might have been set during a previous test and not reset properly.
-        service_locator._configuration_was_retrieved = False
-        service_locator._storage_client_was_retrieved = False
-        service_locator._event_manager_was_retrieved = False
 
         # Reset the services in the service locator.
         service_locator._configuration = None
         service_locator._event_manager = None
         service_locator._storage_client = None
+        service_locator.storage_instance_manager.clear_cache()
 
-        # Clear creation-related caches to ensure no state is carried over between tests.
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_dataset_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_kvs_by_name', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_id', {})
-        monkeypatch.setattr(_creation_management, '_cache_rq_by_name', {})
+        # Reset the AliasResolver class state.
+        AliasResolver._alias_map = {}
+        AliasResolver._alias_init_lock = None
 
         # Verify that the test environment was set up correctly.
         assert os.environ.get(ApifyEnvVars.LOCAL_STORAGE_DIR) == str(tmp_path)
-        assert service_locator._configuration_was_retrieved is False
-        assert service_locator._storage_client_was_retrieved is False
-        assert service_locator._event_manager_was_retrieved is False
 
     return _prepare_test_env
 
 
 @pytest.fixture(autouse=True)
-def _isolate_test_environment(prepare_test_env: Callable[[], None]) -> None:
+def _isolate_test_environment(
+    prepare_test_env: Callable[[], None],
+    _patch_propagate_logger: None,
+) -> None:
     """Isolate the testing environment by resetting global state before and after each test.
 
     This fixture ensures that each test starts with a clean slate and that any modifications during the test
@@ -125,26 +138,7 @@ class ApifyClientAsyncPatcher:
         if not client_method:
             raise ValueError(f'ApifyClientAsync does not contain method "{method}"!')
 
-        try:
-            # Try to get the return type of the client method using `typing.get_type_hints()`
-            client_method_return_type = get_type_hints(client_method)['return']
-        except TypeError:
-            # There is a known issue with `typing.get_type_hints()` on Python 3.9. It raises a `TypeError`
-            # when `|` (Union) is used in the type hint, even with `from __future__ import annotations`. Since we
-            # only need the return type, we attempt the following workaround.
-
-            # 1. Create a deep copy of the client method object
-            client_method_copied = deepcopy(client_method)
-
-            # 2. Restrict the annotations to only include the return type
-            client_method_copied.__annotations__ = {'return': client_method.__annotations__['return']}
-
-            # 3. Try to get the return type again using `typing.get_type_hints()`
-            client_method_return_type = get_type_hints(client_method_copied)['return']
-
-            # TODO: Remove this fallback once we drop support for Python 3.9
-            # https://github.com/apify/apify-sdk-python/issues/151
-
+        client_method_return_type = get_type_hints(client_method)['return']
         original_submethod = getattr(client_method_return_type, submethod, None)
 
         if not original_submethod:
@@ -164,7 +158,12 @@ class ApifyClientAsyncPatcher:
                         return original_replacement_method(*args, **kwargs)
             else:
                 original_return_value = return_value
-                return_value = asyncio.Future()
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    # No event loop is running, create a new one
+                    loop = asyncio.new_event_loop()
+                return_value = loop.create_future()
                 return_value.set_result(original_return_value)
 
         if not replacement_method:
@@ -199,10 +198,36 @@ def apify_client_async_patcher(monkeypatch: pytest.MonkeyPatch) -> ApifyClientAs
     return ApifyClientAsyncPatcher(monkeypatch)
 
 
-@pytest.fixture
-def memory_storage_client() -> MemoryStorageClient:
-    configuration = CrawleeConfiguration()
-    configuration.persist_storage = True
-    configuration.write_metadata = True
+@pytest.fixture(scope='session')
+def make_httpserver() -> Iterator[HTTPServer]:
+    werkzeug_logger = getLogger('werkzeug')
+    werkzeug_logger.disabled = True
 
-    return MemoryStorageClient.from_config(configuration)
+    server = HTTPServer(threaded=True, host='127.0.0.1')
+    server.start()
+    yield server
+    server.clear()  # type: ignore[no-untyped-call]
+    if server.is_running():
+        server.stop()  # type: ignore[no-untyped-call]
+
+
+@pytest.fixture
+def httpserver(make_httpserver: HTTPServer) -> Iterator[HTTPServer]:
+    server = make_httpserver
+    yield server
+    server.clear()  # type: ignore[no-untyped-call]
+
+
+@pytest.fixture
+def patched_impit_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Patch impit client to drop proxy settings."""
+
+    original_async_client = impit.AsyncClient
+
+    def proxyless_async_client(*args: Any, **kwargs: Any) -> impit.AsyncClient:
+        kwargs.pop('proxy', None)
+        return original_async_client(*args, **kwargs)
+
+    monkeypatch.setattr(impit, 'AsyncClient', proxyless_async_client)
+    yield
+    monkeypatch.undo()

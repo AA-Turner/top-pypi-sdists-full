@@ -1,23 +1,30 @@
 import sys
-from typing import (
-    Any,
+from collections.abc import (
     Callable,
-    Generic,
     Iterable,
     Iterator,
-    Literal,
     Mapping,
-    TypeAlias,
+)
+from typing import (
+    Any,
+    Generic,
+    Literal,
     TypeVar,
     final,
     overload,
 )
+from typing_extensions import disjoint_base
 
 from .. import _types as _t
 from ..cssselect import _CSSTransArg
 from ._module_misc import CDATA, DocInfo, QName
 from ._parser import CustomTargetParser
 from ._xslt import XSLTAccessControl, XSLTExtension, _Stylesheet_Param, _XSLTResultTree
+
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
 
 if sys.version_info >= (3, 11):
     from typing import Never, Self
@@ -34,6 +41,7 @@ _T = TypeVar("_T")
 # The base of _Element is *almost* an amalgam of MutableSequence[_Element]
 # plus mixin methods for _Attrib.
 # Extra methods follow the order of _Element source approximately
+@disjoint_base
 class _Element:
     """Element class. References a document object and a libxml node.
 
@@ -685,6 +693,7 @@ _ET2_co = TypeVar("_ET2_co", bound=_Element, default=_Element, covariant=True)
 # element, the absolute majority of lxml API will fail to work.
 # It is considered harmful to support such corner case, which
 # adds much complexity without any benefit.
+@disjoint_base
 class _ElementTree(Generic[_t._ET_co]):
     @overload  # from element, parser ignored
     def __new__(
@@ -1058,16 +1067,24 @@ class __ContentOnlyElement(_Element):
     # .text and .tag are overridden in each concrete class below
     #
     @property
+    # pyrefly: ignore[bad-override]
     def attrib(self) -> Mapping[_t.Unused, _t.Unused]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-override]
     def get(self, key: _t.Unused, default: _t.Unused = None) -> None: ...  # type: ignore[override]
+    # pyrefly: ignore[bad-override]
     def set(self, key: Never, value: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-override]
     def append(self, element: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-override]
     def insert(self, index: Never, value: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-override]
     def __setitem__(self, __k: Never, __v: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     # The intention is to discourage elem.__getitem__, allowing slice
     # argument in runtime doesn't make any sense
+    # pyrefly: ignore[bad-override]
     def __getitem__(self, __k: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     # Methods above are explicitly defined in source, while those below aren't
+    # pyrefly: ignore[bad-override]
     def __delitem__(self, __k: Never) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     def __iter__(self) -> Never: ...
 
@@ -1082,8 +1099,10 @@ class __ContentOnlyElement(_Element):
 
 class _Comment(__ContentOnlyElement):
     @property  # type: ignore[misc]
+    # pyrefly: ignore[bad-override]
     def tag(self) -> Callable[..., _Comment]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
-    @property  # type: ignore[override]
+    @property
+    # pyrefly: ignore[bad-override]
     def text(self) -> str: ...
     @text.setter  # type: ignore[override]
     def text(  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -1093,8 +1112,10 @@ class _Comment(__ContentOnlyElement):
 # signature of .get() for _PI and _Element are the same
 class _ProcessingInstruction(__ContentOnlyElement):
     @property  # type: ignore[misc]
+    # pyrefly: ignore[bad-override]
     def tag(self) -> Callable[..., _ProcessingInstruction]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
-    @property  # type: ignore[override]
+    @property
+    # pyrefly: ignore[bad-override]
     def text(self) -> str: ...
     @text.setter  # type: ignore[override]
     def text(  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -1109,9 +1130,11 @@ class _ProcessingInstruction(__ContentOnlyElement):
 
 class _Entity(__ContentOnlyElement):
     @property  # type: ignore[misc]
+    # pyrefly: ignore[bad-override]
     def tag(self) -> Callable[..., _Entity]: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @property  # type: ignore[misc]
-    def text(self) -> str: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-override]
+    def text(self) -> str: ...  # pyright: ignore[reportIncompatibleMethodOverride]
     @property
     def name(self) -> str: ...
     @name.setter

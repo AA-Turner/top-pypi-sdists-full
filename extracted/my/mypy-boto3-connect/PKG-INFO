@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-connect
-Version: 1.40.35
-Summary: Type annotations for boto3 Connect 1.40.35 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.34
+Summary: Type annotations for boto3 Connect 1.42.34 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 connect boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,connect,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-connect"></a>
 
@@ -56,7 +42,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Connect 1.40.35](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Connect 1.42.34](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -65,7 +51,7 @@ compatible with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -118,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.35' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.34' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Connect` service.
 4. Use provided commands to install generated packages.
@@ -357,12 +343,20 @@ from mypy_boto3_connect.paginator import (
     ListApprovedOriginsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
+    ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowModuleAliasesPaginator,
+    ListContactFlowModuleVersionsPaginator,
     ListContactFlowModulesPaginator,
     ListContactFlowVersionsPaginator,
     ListContactFlowsPaginator,
     ListContactReferencesPaginator,
+    ListDataTableAttributesPaginator,
+    ListDataTablePrimaryValuesPaginator,
+    ListDataTableValuesPaginator,
+    ListDataTablesPaginator,
     ListDefaultVocabulariesPaginator,
+    ListEntitySecurityProfilesPaginator,
     ListEvaluationFormVersionsPaginator,
     ListEvaluationFormsPaginator,
     ListFlowAssociationsPaginator,
@@ -381,14 +375,17 @@ from mypy_boto3_connect.paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
     ListSecurityProfileApplicationsPaginator,
+    ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
+    ListTestCasesPaginator,
     ListTrafficDistributionGroupUsersPaginator,
     ListTrafficDistributionGroupsPaginator,
     ListUseCasesPaginator,
@@ -397,11 +394,14 @@ from mypy_boto3_connect.paginator import (
     ListUsersPaginator,
     ListViewVersionsPaginator,
     ListViewsPaginator,
+    ListWorkspacePagesPaginator,
+    ListWorkspacesPaginator,
     SearchAgentStatusesPaginator,
     SearchAvailablePhoneNumbersPaginator,
     SearchContactFlowModulesPaginator,
     SearchContactFlowsPaginator,
     SearchContactsPaginator,
+    SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
     SearchPredefinedAttributesPaginator,
@@ -411,9 +411,13 @@ from mypy_boto3_connect.paginator import (
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
     SearchSecurityProfilesPaginator,
+    SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
+    SearchViewsPaginator,
     SearchVocabulariesPaginator,
+    SearchWorkspaceAssociationsPaginator,
+    SearchWorkspacesPaginator,
 )
 
 client: ConnectClient = Session().client("connect")
@@ -431,8 +435,17 @@ list_authentication_profiles_paginator: ListAuthenticationProfilesPaginator = cl
     "list_authentication_profiles"
 )
 list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
+list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = (
+    client.get_paginator("list_child_hours_of_operations")
+)
 list_contact_evaluations_paginator: ListContactEvaluationsPaginator = client.get_paginator(
     "list_contact_evaluations"
+)
+list_contact_flow_module_aliases_paginator: ListContactFlowModuleAliasesPaginator = (
+    client.get_paginator("list_contact_flow_module_aliases")
+)
+list_contact_flow_module_versions_paginator: ListContactFlowModuleVersionsPaginator = (
+    client.get_paginator("list_contact_flow_module_versions")
 )
 list_contact_flow_modules_paginator: ListContactFlowModulesPaginator = client.get_paginator(
     "list_contact_flow_modules"
@@ -444,8 +457,21 @@ list_contact_flows_paginator: ListContactFlowsPaginator = client.get_paginator("
 list_contact_references_paginator: ListContactReferencesPaginator = client.get_paginator(
     "list_contact_references"
 )
+list_data_table_attributes_paginator: ListDataTableAttributesPaginator = client.get_paginator(
+    "list_data_table_attributes"
+)
+list_data_table_primary_values_paginator: ListDataTablePrimaryValuesPaginator = (
+    client.get_paginator("list_data_table_primary_values")
+)
+list_data_table_values_paginator: ListDataTableValuesPaginator = client.get_paginator(
+    "list_data_table_values"
+)
+list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
 list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator(
     "list_default_vocabularies"
+)
+list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator(
+    "list_entity_security_profiles"
 )
 list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator(
     "list_evaluation_form_versions"
@@ -491,6 +517,9 @@ list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
 list_quick_connects_paginator: ListQuickConnectsPaginator = client.get_paginator(
     "list_quick_connects"
 )
+list_routing_profile_manual_assignment_queues_paginator: ListRoutingProfileManualAssignmentQueuesPaginator = client.get_paginator(
+    "list_routing_profile_manual_assignment_queues"
+)
 list_routing_profile_queues_paginator: ListRoutingProfileQueuesPaginator = client.get_paginator(
     "list_routing_profile_queues"
 )
@@ -502,6 +531,9 @@ list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("
 list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = (
     client.get_paginator("list_security_profile_applications")
 )
+list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = (
+    client.get_paginator("list_security_profile_flow_modules")
+)
 list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = (
     client.get_paginator("list_security_profile_permissions")
 )
@@ -511,6 +543,7 @@ list_security_profiles_paginator: ListSecurityProfilesPaginator = client.get_pag
 list_task_templates_paginator: ListTaskTemplatesPaginator = client.get_paginator(
     "list_task_templates"
 )
+list_test_cases_paginator: ListTestCasesPaginator = client.get_paginator("list_test_cases")
 list_traffic_distribution_group_users_paginator: ListTrafficDistributionGroupUsersPaginator = (
     client.get_paginator("list_traffic_distribution_group_users")
 )
@@ -527,6 +560,10 @@ list_user_proficiencies_paginator: ListUserProficienciesPaginator = client.get_p
 list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
 list_view_versions_paginator: ListViewVersionsPaginator = client.get_paginator("list_view_versions")
 list_views_paginator: ListViewsPaginator = client.get_paginator("list_views")
+list_workspace_pages_paginator: ListWorkspacePagesPaginator = client.get_paginator(
+    "list_workspace_pages"
+)
+list_workspaces_paginator: ListWorkspacesPaginator = client.get_paginator("list_workspaces")
 search_agent_statuses_paginator: SearchAgentStatusesPaginator = client.get_paginator(
     "search_agent_statuses"
 )
@@ -540,6 +577,7 @@ search_contact_flows_paginator: SearchContactFlowsPaginator = client.get_paginat
     "search_contact_flows"
 )
 search_contacts_paginator: SearchContactsPaginator = client.get_paginator("search_contacts")
+search_data_tables_paginator: SearchDataTablesPaginator = client.get_paginator("search_data_tables")
 search_hours_of_operation_overrides_paginator: SearchHoursOfOperationOverridesPaginator = (
     client.get_paginator("search_hours_of_operation_overrides")
 )
@@ -563,13 +601,19 @@ search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_p
 search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator(
     "search_security_profiles"
 )
+search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
 search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator(
     "search_user_hierarchy_groups"
 )
 search_users_paginator: SearchUsersPaginator = client.get_paginator("search_users")
+search_views_paginator: SearchViewsPaginator = client.get_paginator("search_views")
 search_vocabularies_paginator: SearchVocabulariesPaginator = client.get_paginator(
     "search_vocabularies"
 )
+search_workspace_associations_paginator: SearchWorkspaceAssociationsPaginator = (
+    client.get_paginator("search_workspace_associations")
+)
+search_workspaces_paginator: SearchWorkspacesPaginator = client.get_paginator("search_workspaces")
 ```
 
 <a id="literals"></a>
@@ -583,10 +627,10 @@ Full list of `Connect` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/literals/).
 
 ```python
-from mypy_boto3_connect.literals import ActionTypeType
+from mypy_boto3_connect.literals import AccessTypeType
 
 
-def check_value(value: ActionTypeType) -> bool: ...
+def check_value(value: AccessTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

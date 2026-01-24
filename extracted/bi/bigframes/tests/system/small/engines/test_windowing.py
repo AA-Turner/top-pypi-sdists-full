@@ -18,6 +18,7 @@ import pytest
 from bigframes.core import (
     agg_expressions,
     array_value,
+    events,
     expression,
     identifiers,
     nodes,
@@ -42,12 +43,10 @@ def test_engines_with_offsets(
     assert_equivalence_execution(result.node, REFERENCE_ENGINE, engine)
 
 
-@pytest.mark.parametrize("never_skip_nulls", [True, False])
 @pytest.mark.parametrize("agg_op", [agg_ops.sum_op, agg_ops.count_op])
 def test_engines_with_rows_window(
     scalars_array_value: array_value.ArrayValue,
     bigquery_client: bigquery.Client,
-    never_skip_nulls,
     agg_op,
 ):
     window = window_spec.WindowSpec(
@@ -55,17 +54,20 @@ def test_engines_with_rows_window(
     )
     window_node = nodes.WindowOpNode(
         child=scalars_array_value.node,
-        expression=agg_expressions.UnaryAggregation(
-            agg_op, expression.deref("int64_too")
+        agg_exprs=(
+            nodes.ColumnDef(
+                agg_expressions.UnaryAggregation(agg_op, expression.deref("int64_too")),
+                identifiers.ColumnId("agg_int64"),
+            ),
         ),
         window_spec=window,
-        output_name=identifiers.ColumnId("agg_int64"),
-        never_skip_nulls=never_skip_nulls,
-        skip_reproject_unsafe=False,
     )
 
-    bq_executor = direct_gbq_execution.DirectGbqExecutor(bigquery_client)
+    publisher = events.Publisher()
+    bq_executor = direct_gbq_execution.DirectGbqExecutor(
+        bigquery_client, publisher=publisher
+    )
     bq_sqlgot_executor = direct_gbq_execution.DirectGbqExecutor(
-        bigquery_client, compiler="sqlglot"
+        bigquery_client, compiler="sqlglot", publisher=publisher
     )
     assert_equivalence_execution(window_node, bq_executor, bq_sqlgot_executor)

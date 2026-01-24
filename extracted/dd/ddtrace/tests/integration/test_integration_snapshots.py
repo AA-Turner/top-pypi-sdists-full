@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
+import logging
 import os
 
 import mock
 import pytest
 
+from ddtrace.internal.compat import PYTHON_VERSION_INFO
 from ddtrace.trace import tracer
 from tests.integration.utils import AGENT_VERSION
 from tests.utils import override_global_config
@@ -44,8 +46,8 @@ def test_flush_spans_before_writer_recreate():
     long_running_span = tracer.trace("long_running_operation")
 
     writer = tracer._span_aggregator.writer
-    # Enable appsec to trigger the recreation of the agent writer
-    tracer.configure(appsec_enabled=True)
+    # Enable compute stats to trigger the recreation of the agent writer
+    tracer._recreate(reset_buffer=False)
     assert tracer._span_aggregator.writer is not writer, "Writer should be recreated"
     # Finish the long running span after the writer has been recreated
     long_running_span.finish()
@@ -127,6 +129,10 @@ def test_synchronous_writer(writer_class):
             pass
 
 
+@pytest.mark.skipif(
+    PYTHON_VERSION_INFO >= (3, 14),
+    reason="The default multiprocessing start_method 'forkserver' causes this test to fail",
+)
 @snapshot(async_mode=False)
 @pytest.mark.subprocess(ddtrace_run=True)
 def test_tracer_trace_across_popen():
@@ -153,6 +159,10 @@ def test_tracer_trace_across_popen():
     tracer.flush()
 
 
+@pytest.mark.skipif(
+    PYTHON_VERSION_INFO >= (3, 14),
+    reason="The default multiprocessing start_method 'forkserver' causes this test to fail",
+)
 @snapshot(async_mode=False)
 @pytest.mark.subprocess(ddtrace_run=True)
 def test_tracer_trace_across_multiple_popens():
@@ -207,42 +217,54 @@ def test_wrong_span_name_type_not_sent():
         ({"env": "my-env", "tag1": "some_str_1", "tag2": "some_str_2", "tag3": [1, 2, 3]}),
         ({"env": "test-env", b"tag1": {"wrong_type": True}, b"tag2": "some_str_2", b"tag3": "some_str_3"}),
         ({"env": "my-test-env", "😐": "some_str_1", b"tag2": "some_str_2", "unicode": 12345}),
+        ({"env": set([1, 2, 3])}),
+        ({"env": None}),
+        ({"env": True}),
+        ({"env": 1.0}),
     ],
 )
 @pytest.mark.parametrize("encoding", ["v0.4", "v0.5"])
 def test_trace_with_wrong_meta_types_not_sent(encoding, meta, monkeypatch):
     """Wrong meta types should raise TypeErrors during encoding and fail to send to the agent."""
     with override_global_config(dict(_trace_api=encoding)):
-        with mock.patch("ddtrace._trace.span.log") as log:
+        logger = logging.getLogger("ddtrace.internal._encoding")
+        with mock.patch.object(logger, "warning") as log_warning:
             with tracer.trace("root") as root:
                 root._meta = meta
                 for _ in range(299):
                     with tracer.trace("child") as child:
                         child._meta = meta
-            log.exception.assert_called_once_with("error closing trace")
+
+            assert log_warning.call_count == 300
+            log_warning.assert_called_with(
+                "[span ID %d] Meta key %r has non-string value %r, skipping", mock.ANY, mock.ANY, mock.ANY
+            )
 
 
 @pytest.mark.parametrize(
-    "metrics",
+    "metrics,expected_warning_count",
     [
-        ({"num1": 12345, "num2": 53421, "num3": 1, "num4": "not-a-number"}),
-        ({b"num1": 123.45, b"num2": [1, 2, 3], b"num3": 11.0, b"num4": 1.20}),
-        ({"😐": "123.45", b"num2": "1", "num3": {"is_number": False}, "num4": "12345"}),
+        ({"num1": 12345, "num2": 53421, "num3": 1, "num4": "not-a-number"}, 300),
+        ({b"num1": 123.45, b"num2": [1, 2, 3], b"num3": 11.0, b"num4": 1.20}, 300),
+        ({"😐": "123.45", b"num2": "1", "num3": {"is_number": False}, "num4": "12345"}, 1200),
     ],
 )
 @pytest.mark.parametrize("encoding", ["v0.4", "v0.5"])
-@snapshot()
-@pytest.mark.xfail
-def test_trace_with_wrong_metrics_types_not_sent(encoding, metrics, monkeypatch):
+def test_trace_with_wrong_metrics_types_not_sent(encoding, metrics, expected_warning_count):
     """Wrong metric types should raise TypeErrors during encoding and fail to send to the agent."""
     with override_global_config(dict(_trace_api=encoding)):
-        with mock.patch("ddtrace._trace.span.log") as log:
+        logger = logging.getLogger("ddtrace.internal._encoding")
+        with mock.patch.object(logger, "warning") as log_warning:
             with tracer.trace("root") as root:
                 root._metrics = metrics
                 for _ in range(299):
                     with tracer.trace("child") as child:
                         child._metrics = metrics
-            log.exception.assert_called_once_with("error closing trace")
+
+            assert log_warning.call_count == expected_warning_count
+            log_warning.assert_called_with(
+                "[span ID %d] Metric key %r has non-numeric value %r, skipping", mock.ANY, mock.ANY, mock.ANY
+            )
 
 
 @pytest.mark.subprocess()
@@ -324,24 +346,28 @@ def test_encode_span_with_large_string_attributes(encoding):
 
 @pytest.mark.parametrize("encoding", ["v0.4", "v0.5"])
 @pytest.mark.snapshot()
-def test_encode_span_with_large_bytes_attributes(encoding):
-    from ddtrace import tracer
-
-    with override_global_config(dict(_trace_api=encoding)):
-        name = b"a" * 25000
-        resource = b"b" * 25001
-        key = b"c" * 25001
-        value = b"d" * 2000
-
-        with tracer.trace(name=name, resource=resource) as span:
-            span.set_tag(key=key, value=value)
-
-
-@pytest.mark.parametrize("encoding", ["v0.4", "v0.5"])
-@pytest.mark.snapshot()
 def test_encode_span_with_large_unicode_string_attributes(encoding):
     from ddtrace import tracer
 
     with override_global_config(dict(_trace_api=encoding)):
         with tracer.trace(name="á" * 25000, resource="â" * 25001) as span:
             span.set_tag(key="å" * 25001, value="ä" * 2000)
+
+
+@pytest.mark.snapshot
+@pytest.mark.subprocess(env={"DD_TRACE_PARTIAL_FLUSH_ENABLED": "true", "DD_TRACE_PARTIAL_FLUSH_MIN_SPANS": "1"})
+def test_aggregator_partial_flush_finished_counter_out_of_sync():
+    """Regression test for IndexError when num_finished counter is out of sync with finished spans."""
+    from ddtrace import tracer
+
+    span1 = tracer.start_span("span1")
+    span2 = tracer.start_span("span2", child_of=span1)
+    # Manually set duration_ns before calling finish() to trigger the race condition
+    # where trace.num_finished == 1 but len(trace.spans) == 0 after span1.finish().
+    # In this scenario, span1.finish() does NOT trigger encoding, both span1 and span2
+    # are encoded during span2.finish(). This occurs because _Trace.remove_finished()
+    # removes all spans that have a duration (end state). This test ensures that calling
+    # span1.finish() in this state does not cause unexpected behavior or crash trace encoding.
+    span1.duration_ns = 1
+    span2.finish()
+    span1.finish()

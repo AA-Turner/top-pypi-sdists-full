@@ -6,6 +6,7 @@ from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -18,16 +19,38 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class RunCriterionDirection(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RUN_CRITERION_DIRECTION_UNSPECIFIED: _ClassVar[RunCriterionDirection]
+    RUN_CRITERION_DIRECTION_MAX: _ClassVar[RunCriterionDirection]
+    RUN_CRITERION_DIRECTION_MIN: _ClassVar[RunCriterionDirection]
+
+RUN_CRITERION_DIRECTION_UNSPECIFIED: RunCriterionDirection
+RUN_CRITERION_DIRECTION_MAX: RunCriterionDirection
+RUN_CRITERION_DIRECTION_MIN: RunCriterionDirection
+
 class ModelArtifact(_message.Message):
-    __slots__ = ("id", "path", "spec", "created_by", "created_at")
+    __slots__ = ("id", "path", "spec", "metadata", "created_by", "created_at")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     PATH_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     path: str
     spec: _model_artifact_pb2.ModelArtifactSpec
+    metadata: _containers.MessageMap[str, _struct_pb2.Value]
     created_by: str
     created_at: _timestamp_pb2.Timestamp
     def __init__(
@@ -35,6 +58,7 @@ class ModelArtifact(_message.Message):
         id: _Optional[str] = ...,
         path: _Optional[str] = ...,
         spec: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
+        metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         created_by: _Optional[str] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
@@ -282,6 +306,37 @@ class GetModelVersionResponse(_message.Message):
     model_version: ModelVersion
     def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
 
+class CreateModelArtifactRequest(_message.Message):
+    __slots__ = ("model_artifact_id", "model_artifact", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    model_artifact_id: str
+    model_artifact: _model_artifact_pb2.ModelArtifactSpec
+    metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    def __init__(
+        self,
+        model_artifact_id: _Optional[str] = ...,
+        model_artifact: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
+        metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+    ) -> None: ...
+
+class CreateModelArtifactResponse(_message.Message):
+    __slots__ = ("model_artifact",)
+    MODEL_ARTIFACT_FIELD_NUMBER: _ClassVar[int]
+    model_artifact: ModelArtifact
+    def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...
+
 class CreateModelVersionRequest(_message.Message):
     __slots__ = ("model_name", "model_artifact_id", "model_artifact", "aliases", "metadata")
     class MetadataEntry(_message.Message):
@@ -405,10 +460,25 @@ class DownloadModelArtifactResponse(_message.Message):
     def __init__(self, uri: _Optional[str] = ...) -> None: ...
 
 class GetModelReferencesRequest(_message.Message):
-    __slots__ = ("deployment_id",)
+    __slots__ = ("deployment_id", "model_name", "model_version", "cursor", "limit")
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
     deployment_id: str
-    def __init__(self, deployment_id: _Optional[str] = ...) -> None: ...
+    model_name: str
+    model_version: int
+    cursor: str
+    limit: int
+    def __init__(
+        self,
+        deployment_id: _Optional[str] = ...,
+        model_name: _Optional[str] = ...,
+        model_version: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
 
 class ModelRelation(_message.Message):
     __slots__ = ("input_features", "output_feature")
@@ -460,10 +530,16 @@ class ModelReference(_message.Message):
     ) -> None: ...
 
 class GetModelReferencesResponse(_message.Message):
-    __slots__ = ("model_references",)
+    __slots__ = ("model_references", "next_cursor")
     MODEL_REFERENCES_FIELD_NUMBER: _ClassVar[int]
+    NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
     model_references: _containers.RepeatedCompositeFieldContainer[ModelReference]
-    def __init__(self, model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...) -> None: ...
+    next_cursor: str
+    def __init__(
+        self,
+        model_references: _Optional[_Iterable[_Union[ModelReference, _Mapping]]] = ...,
+        next_cursor: _Optional[str] = ...,
+    ) -> None: ...
 
 class GetModelReferenceRequest(_message.Message):
     __slots__ = ("model_id", "model_name", "model_version", "deployment_id")
@@ -488,3 +564,45 @@ class GetModelReferenceResponse(_message.Message):
     MODEL_REFERENCE_FIELD_NUMBER: _ClassVar[int]
     model_reference: ModelReference
     def __init__(self, model_reference: _Optional[_Union[ModelReference, _Mapping]] = ...) -> None: ...
+
+class RunCriterion(_message.Message):
+    __slots__ = ("run_id", "run_name", "metric", "direction")
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_NAME_FIELD_NUMBER: _ClassVar[int]
+    METRIC_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    run_id: str
+    run_name: str
+    metric: str
+    direction: RunCriterionDirection
+    def __init__(
+        self,
+        run_id: _Optional[str] = ...,
+        run_name: _Optional[str] = ...,
+        metric: _Optional[str] = ...,
+        direction: _Optional[_Union[RunCriterionDirection, str]] = ...,
+    ) -> None: ...
+
+class CreateModelVersionFromArtifactRequest(_message.Message):
+    __slots__ = ("model_name", "model_artifact_id", "training_run", "aliases")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
+    TRAINING_RUN_FIELD_NUMBER: _ClassVar[int]
+    ALIASES_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    model_artifact_id: str
+    training_run: RunCriterion
+    aliases: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        model_name: _Optional[str] = ...,
+        model_artifact_id: _Optional[str] = ...,
+        training_run: _Optional[_Union[RunCriterion, _Mapping]] = ...,
+        aliases: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class CreateModelVersionFromArtifactResponse(_message.Message):
+    __slots__ = ("model_version",)
+    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
+    model_version: ModelVersion
+    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...

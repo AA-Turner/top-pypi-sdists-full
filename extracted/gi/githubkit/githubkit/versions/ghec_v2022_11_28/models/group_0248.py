@@ -9,54 +9,58 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal, Union
 
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
+from githubkit.compat import PYDANTIC_V2, ExtraGitHubModel, GitHubModel, model_rebuild
+from githubkit.typing import Missing, UniqueList
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0173 import Issue
-from .group_0244 import PullRequestSimple
-from .group_0247 import ProjectsV2DraftIssue
 
+class ArtifactDeploymentRecord(GitHubModel):
+    """Artifact Deployment Record
 
-class ProjectsV2ItemSimple(GitHubModel):
-    """Projects v2 Item
-
-    An item belonging to a project
+    Artifact Metadata Deployment Record
     """
 
-    id: float = Field(description="The unique identifier of the project item.")
-    node_id: Missing[str] = Field(
-        default=UNSET, description="The node ID of the project item."
+    id: Missing[int] = Field(default=UNSET)
+    digest: Missing[str] = Field(default=UNSET)
+    logical_environment: Missing[str] = Field(default=UNSET)
+    physical_environment: Missing[str] = Field(default=UNSET)
+    cluster: Missing[str] = Field(default=UNSET)
+    deployment_name: Missing[str] = Field(default=UNSET)
+    tags: Missing[ArtifactDeploymentRecordPropTags] = Field(default=UNSET)
+    runtime_risks: Missing[
+        UniqueList[
+            Literal[
+                "critical-resource",
+                "internet-exposed",
+                "lateral-movement",
+                "sensitive-data",
+            ]
+        ]
+    ] = Field(
+        max_length=4 if PYDANTIC_V2 else None,
+        default=UNSET,
+        description="A list of runtime risks associated with the deployment.",
     )
-    content: Missing[Union[Issue, PullRequestSimple, ProjectsV2DraftIssue]] = Field(
-        default=UNSET, description="The content represented by the item."
-    )
-    content_type: Literal["Issue", "PullRequest", "DraftIssue"] = Field(
-        title="Projects v2 Item Content Type",
-        description="The type of content tracked in a project item",
-    )
-    creator: Missing[SimpleUser] = Field(
-        default=UNSET, title="Simple User", description="A GitHub user."
-    )
-    created_at: datetime = Field(description="The time when the item was created.")
-    updated_at: datetime = Field(description="The time when the item was last updated.")
-    archived_at: Union[datetime, None] = Field(
-        description="The time when the item was archived."
-    )
-    project_url: Missing[str] = Field(
-        default=UNSET, description="The URL of the project this item belongs to."
-    )
-    item_url: Missing[str] = Field(
-        default=UNSET, description="The URL of the item in the project."
+    created_at: Missing[str] = Field(default=UNSET)
+    updated_at: Missing[str] = Field(default=UNSET)
+    attestation_id: Missing[Union[int, None]] = Field(
+        default=UNSET,
+        description="The ID of the provenance attestation associated with the deployment record.",
     )
 
 
-model_rebuild(ProjectsV2ItemSimple)
+class ArtifactDeploymentRecordPropTags(ExtraGitHubModel):
+    """ArtifactDeploymentRecordPropTags"""
 
-__all__ = ("ProjectsV2ItemSimple",)
+
+model_rebuild(ArtifactDeploymentRecord)
+model_rebuild(ArtifactDeploymentRecordPropTags)
+
+__all__ = (
+    "ArtifactDeploymentRecord",
+    "ArtifactDeploymentRecordPropTags",
+)

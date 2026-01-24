@@ -1,14 +1,15 @@
-"""SDL2 audio playback and recording tools.
+"""SDL audio playback and recording tools.
 
 This module includes SDL's low-level audio API and a naive implementation of an SDL mixer.
 If you have experience with audio mixing then you might be better off writing your own mixer or
 modifying the existing one which was written using Python/Numpy.
 
 This module is designed to integrate with the wider Python ecosystem.
-It leaves the loading to sound samples to other libraries like
-`SoundFile <https://pysoundfile.readthedocs.io/en/latest/>`_.
+It leaves the loading to sound samples to other libraries such as
+`soundfile <https://python-soundfile.readthedocs.io/en/latest/>`_.
 
-Example:
+Example::
+
     # Synchronous audio example
     import time
 
@@ -53,6 +54,7 @@ from tcod.cffi import ffi, lib
 from tcod.sdl._internal import _check, _check_float, _check_int, _check_p
 
 if TYPE_CHECKING:
+    import builtins
     from collections.abc import Callable, Hashable, Iterable, Iterator
     from types import TracebackType
 
@@ -211,7 +213,8 @@ def convert_audio(
 class AudioDevice:
     """An SDL audio device.
 
-    Example:
+    Example::
+
         device = tcod.sdl.audio.get_default_playback().open()  # Open a common audio device
 
     .. versionchanged:: 16.0
@@ -424,9 +427,10 @@ class AudioDevice:
 
     def __exit__(
         self,
-        type: type[BaseException] | None,  # noqa: A002
-        value: BaseException | None,
-        traceback: TracebackType | None,
+        _type: builtins.type[BaseException] | None,  # Explicit builtins prefix to disambiguate Sphinx cross-reference
+        _value: BaseException | None,
+        _traceback: TracebackType | None,
+        /,
     ) -> None:
         """Close the device when exiting the context."""
         self.close()
@@ -487,7 +491,7 @@ class AudioStream:
 
     This class is commonly created with :any:`AudioDevice.new_stream` which creates a new stream bound to the device.
 
-    ..versionadded:: 19.0
+    .. versionadded:: 19.0
     """
 
     __slots__ = ("__weakref__", "_stream_p")
@@ -904,7 +908,7 @@ class BasicMixer:
             audio_stream.queue_audio(stream)
 
 
-@ffi.def_extern()  # type: ignore[misc]
+@ffi.def_extern()  # type: ignore[untyped-decorator]
 def _sdl_audio_stream_callback(userdata: Any, stream_p: Any, additional_amount: int, total_amount: int, /) -> None:  # noqa: ANN401
     """Handle audio device callbacks."""
     stream = AudioStream(stream_p)
@@ -957,7 +961,8 @@ def get_capture_devices() -> dict[str, AudioDevice]:
 def get_default_playback() -> AudioDevice:
     """Return the default playback device.
 
-    Example:
+    Example::
+
         playback_device = tcod.sdl.audio.get_default_playback().open()
 
     .. versionadded:: 19.0
@@ -969,7 +974,8 @@ def get_default_playback() -> AudioDevice:
 def get_default_recording() -> AudioDevice:
     """Return the default recording device.
 
-    Example:
+    Example::
+
         recording_device = tcod.sdl.audio.get_default_recording().open()
 
     .. versionadded:: 19.0

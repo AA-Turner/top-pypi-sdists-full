@@ -12,7 +12,7 @@ except ImportError:
     html2text = None
 from genshi.template import TextTemplate
 
-from trytond.config import config
+import trytond.config as config
 from trytond.i18n import gettext
 from trytond.model import EvalEnvironment, ModelSQL, ModelView, fields
 from trytond.model.exceptions import AccessError, ValidationError
@@ -21,7 +21,7 @@ from trytond.pyson import Bool, Eval, PYSONDecoder
 from trytond.report import Report
 from trytond.rpc import RPC
 from trytond.sendmail import send_message_transactional
-from trytond.tools import escape_wildcard
+from trytond.tools import escape_wildcard, slugify
 from trytond.tools.email_ import (
     convert_ascii_email, format_address, set_from_header)
 from trytond.tools.string_ import StringMatcher
@@ -69,6 +69,7 @@ class Email(ResourceAccessMixin, ModelSQL, ModelView):
         'ir.email.address', 'email', "Addresses", readonly=True)
     subject = fields.Char("Subject", readonly=True)
     body = fields.Text("Body", readonly=True)
+    message_id = fields.Char("Message-ID", readonly=True)
 
     @classmethod
     def __setup__(cls):
@@ -134,7 +135,7 @@ class Email(ResourceAccessMixin, ModelSQL, ModelView):
                     [record.id], {
                         'action_id': report.id,
                         })
-                name = '%s.%s' % (title, ext)
+                name = '%s.%s' % (slugify(title), ext)
                 if isinstance(content, str):
                     content = content.encode('utf-8')
                 files.append((name, content))
@@ -228,6 +229,7 @@ class Email(ResourceAccessMixin, ModelSQL, ModelView):
             recipients_hidden=msg['Bcc'],
             addresses=[{'address': a} for a in to_addrs],
             subject=msg['Subject'],
+            message_id=msg['Message-ID'],
             **values)
 
 
@@ -564,7 +566,7 @@ class EmailTemplate(ModelSQL, ModelView):
     @classmethod
     def on_modification(cls, mode, records, field_names=None):
         super().on_modification(mode, records, field_names=field_names)
-        if not field_names or {'name', 'model'} & set(field_names):
+        if field_names is None or {'name', 'model'} & set(field_names):
             ModelView._view_toolbar_get_cache.clear()
 
 

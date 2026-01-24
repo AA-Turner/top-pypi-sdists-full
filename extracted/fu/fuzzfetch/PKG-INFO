@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fuzzfetch
-Version: 11.0.1
+Version: 16.1.0
 Summary: Downloader for firefox/jsshell builds.
 Home-page: https://github.com/MozillaSecurity/fuzzfetch
 Maintainer: Mozilla Fuzzing Team
@@ -14,7 +14,7 @@ Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: pytz
@@ -22,6 +22,8 @@ Requires-Dist: requests
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: tox; extra == "dev"
+Provides-Extra: sentry
+Requires-Dist: sentry-fuzzing-config ; extra == "sentry"
 Dynamic: license-file
 
 [![Python CI](https://github.com/MozillaSecurity/fuzzfetch/actions/workflows/ci.yml/badge.svg)](https://github.com/MozillaSecurity/fuzzfetch/actions/workflows/ci.yml)
@@ -34,7 +36,7 @@ Fuzzfetch is a python tool for retrieving builds from the [Firefox-CI](https://f
 Overview
 --------
 
-Fuzzfetch can be used to retrieve nearly any build type indexed by Firefox-CI.  This includes AddressSanitizer, ThreadSanitizer, Valgrind, debug, and Fuzzing builds for both Firefox and Spidermonkey.
+Fuzzfetch can be used to retrieve nearly any build type indexed by Firefox-CI.  This includes AddressSanitizer, ThreadSanitizer, Valgrind, debug, and Fuzzing builds for Firefox, Spidermonkey, and Thunderbird.
 
 Installation
 ------------
@@ -65,7 +67,7 @@ Target:
   --target [TARGET ...]
                         Specify the build artifacts to download. Valid
                         options: firefox js common gtest mozharness searchfox
-                        (default: firefox)
+                        thunderbird (default: firefox)
   --os {Android,Darwin,Linux,Windows}
                         Specify the target system. (default: Linux)
   --cpu {AMD64,ARM64,aarch64,arm,arm64,i686,x64,x86,x86_64}
@@ -98,8 +100,8 @@ Build Arguments:
   --searchfox           Download Searchfox data
 
 Misc. Arguments:
-  -n NAME, --name NAME  Specify a name (default=auto)
-  -o OUT, --out OUT     Specify output directory (default=.)
+  -n, --name NAME       Specify a name (default=auto)
+  -o, --out OUT         Specify output directory (default=.)
   --dry-run             Search for build and output metadata only, don't
                         download anything.
 

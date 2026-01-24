@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Parser.py: a main for invoking code in coverage/parser.py"""
 
@@ -103,9 +103,9 @@ class ParserMain:
                         marks[4] = "X"
                     elif lineno in pyparser.excluded:
                         marks[4] = "×"
-                    if lineno in pyparser._multiline.values():
+                    if lineno in pyparser.multiline_map.values():
                         marks[5] = "o"
-                    elif lineno in pyparser._multiline.keys():
+                    elif lineno in pyparser.multiline_map.keys():
                         marks[5] = "."
 
                     if arc_chars:

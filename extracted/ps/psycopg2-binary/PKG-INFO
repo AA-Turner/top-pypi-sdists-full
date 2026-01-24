@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: psycopg2-binary
-Version: 2.9.10
+Version: 2.9.11
 Summary: psycopg2 - Python-PostgreSQL Database Adapter
 Home-page: https://psycopg.org/
 Author: Federico Di Gregorio
@@ -20,12 +20,12 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: C
@@ -36,7 +36,7 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
 
 Psycopg is the most popular PostgreSQL database adapter for the Python
@@ -111,13 +111,8 @@ production it is advised to use the package built from sources.
 .. _install: https://www.psycopg.org/docs/install.html#install-from-source
 .. _faq: https://www.psycopg.org/docs/faq.html#faq-compile
 
-:Linux/OSX: |gh-actions|
-:Windows: |appveyor|
+:Build status: |gh-actions|
 
 .. |gh-actions| image:: https://github.com/psycopg/psycopg2/actions/workflows/tests.yml/badge.svg
     :target: https://github.com/psycopg/psycopg2/actions/workflows/tests.yml
-    :alt: Linux and OSX build status
-
-.. |appveyor| image:: https://ci.appveyor.com/api/projects/status/github/psycopg/psycopg2?branch=master&svg=true
-    :target: https://ci.appveyor.com/project/psycopg/psycopg2/branch/master
-    :alt: Windows build status
+    :alt: Build status

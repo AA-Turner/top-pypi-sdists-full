@@ -1,23 +1,23 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyhpke
-Version: 0.6.2
+Version: 0.6.4
 Summary: A Python implementation of HPKE.
-License: MIT
 Author: Ajitomi Daisuke
-Author-email: dajiaji@gmail.com
-Requires-Python: >=3.9,<4.0
+Author-email: Ajitomi Daisuke <dajiaji@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: docs
-Requires-Dist: Sphinx[docs] (>=7.1,<8) ; extra == "docs"
-Requires-Dist: cryptography (>=42.0.1,<45)
-Requires-Dist: sphinx-autodoc-typehints[docs] (>=1.25.2) ; extra == "docs"
-Requires-Dist: sphinx-rtd-theme[docs] (>=1.2.1) ; extra == "docs"
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Dist: cryptography>=42.0.1,<47
+Requires-Python: >=3.10, <4.0
 Project-URL: Repository, https://github.com/dajiaji/pyhpke
 Description-Content-Type: text/markdown
 
@@ -188,4 +188,3 @@ $ tox
 ## Contributing
 
 We welcome all kind of contributions, filing issues, suggesting new features or sending PRs.
-

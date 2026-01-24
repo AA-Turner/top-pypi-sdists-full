@@ -8,22 +8,14 @@ def new(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new texture
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new texture"""
 
 def slot_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the material texture settings and nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the material texture settings and nodes"""
 
 def slot_move(
     execution_context: int | str | None = None,
@@ -34,10 +26,7 @@ def slot_move(
 ) -> None:
     """Move texture slots up and down
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: typing.Literal['UP','DOWN'] | None
     """
 
 def slot_paste(
@@ -45,8 +34,4 @@ def slot_paste(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the texture settings and nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the texture settings and nodes"""

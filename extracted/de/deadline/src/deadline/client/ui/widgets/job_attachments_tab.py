@@ -26,7 +26,7 @@ from qtpy.QtWidgets import (  # type: ignore
 )
 
 from ...job_bundle.submission import AssetReferences
-from .. import block_signals
+from .._utils import block_signals, tr
 
 logger = getLogger(__name__)
 
@@ -62,27 +62,27 @@ class JobAttachmentsWidget(QWidget):
         # Create a group box for general settings
         size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         size_policy.setVerticalStretch(10)
-        self.general_group = QGroupBox("General submission settings", self)
+        self.general_group = QGroupBox(tr("General submission settings"), self)
         tab_layout.addWidget(self.general_group)
         self.general_group.setSizePolicy(size_policy)
         general_layout = QVBoxLayout(self.general_group)
 
         # Create a group box for each type of attachment
-        self.input_files_group = QGroupBox("Attach input files", self)
+        self.input_files_group = QGroupBox(tr("Attach input files"), self)
         size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         size_policy.setVerticalStretch(80)
         tab_layout.addWidget(self.input_files_group)
         self.input_files_group.setSizePolicy(size_policy)
         input_files_layout = QVBoxLayout(self.input_files_group)
 
-        self.input_directories_group = QGroupBox("Attach input directories", self)
+        self.input_directories_group = QGroupBox(tr("Attach input directories"), self)
         size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         size_policy.setVerticalStretch(10)
         self.input_directories_group.setSizePolicy(size_policy)
         tab_layout.addWidget(self.input_directories_group)
         input_directories_layout = QVBoxLayout(self.input_directories_group)
 
-        self.output_directories_group = QGroupBox("Specify output directories", self)
+        self.output_directories_group = QGroupBox(tr("Specify output directories"), self)
         size_policy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         size_policy.setVerticalStretch(10)
         self.output_directories_group.setSizePolicy(size_policy)
@@ -333,13 +333,13 @@ class JobAttachmentsGeneralWidget(QWidget):
     A Widget that contains general settings for a specific submission.
     """
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent=parent)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.require_paths_exist = QCheckBox("Require all input paths exist", parent=self)
+        self.require_paths_exist = QCheckBox(tr("Require all input paths exist"), parent=self)
         layout.addWidget(self.require_paths_exist)
 
 
@@ -349,22 +349,22 @@ class JobAttachmentsControlsWidget(QWidget):
     in a job attachments list.
     """
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent=parent)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.add = QPushButton("Add...", parent=self)
+        self.add = QPushButton(tr("Add..."), parent=self)
         layout.addWidget(self.add)
 
-        self.remove_selected = QPushButton("Remove selected", parent=self)
+        self.remove_selected = QPushButton(tr("Remove selected"), parent=self)
         layout.addWidget(self.remove_selected)
 
         self.status_message = QLabel("0 total")
         self.status_message.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         layout.addWidget(self.status_message)
 
-        self.show_auto_detected = QCheckBox("Show auto-detected", parent=self)
+        self.show_auto_detected = QCheckBox(tr("Show auto-detected"), parent=self)
         self.show_auto_detected.setChecked(True)
         layout.addWidget(self.show_auto_detected)

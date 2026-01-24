@@ -1,20 +1,21 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast
 from urllib.parse import quote, unquote
 from warnings import warn
 
 from cachetools import TTLCache, cached
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import ConnectionMetaNames
+from ibm_watsonx_ai.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
     ApiRequestFailure,
     UnsupportedOperation,
@@ -23,11 +24,12 @@ from ibm_watsonx_ai.wml_client_error import (
 from ibm_watsonx_ai.wml_resource import WMLResource
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
+    import httpx
     import pandas as pd
 
     from ibm_watsonx_ai import APIClient
+
+ListType: TypeAlias = list
 
 
 class Connections(WMLResource):
@@ -35,6 +37,8 @@ class Connections(WMLResource):
 
     ConfigurationMetaNames = ConnectionMetaNames()
     """MetaNames for connection creation."""
+
+    DEFAULT_LIST_LIMIT = 200
 
     def __init__(self, client: APIClient):
         WMLResource.__init__(self, __name__, client)
@@ -85,12 +89,39 @@ class Connections(WMLResource):
 
         return new_el
 
-    def get_details(self, connection_id: str | None = None) -> dict:
+    def _handle_asset_search_response(
+        self,
+        response: httpx.Response,
+        limit: int | None,
+        assets: ListType[dict],
+    ) -> tuple[dict | None, int | None]:
+        response_json = self._handle_response(
+            200,
+            "get connection details",
+            response,
+            _silent_response_logging=True,
+        )
+
+        results = response_json["results"]
+
+        if limit is not None:
+            limit -= response_json["total_rows"]
+
+        assets.extend(results)
+
+        return response_json.get("next"), limit
+
+    def get_details(
+        self, connection_id: str | None = None, limit: int | None = None
+    ) -> dict:
         """Get connection details for the given unique connection ID.
         If no connection_id is passed, details for all connections are returned.
 
         :param connection_id: unique ID of the connection
         :type connection_id: str
+
+        :param limit: limit number of fetched assets, if None will get all assets, defaults to None
+        :type limit: int, optional
 
         :return: metadata of the stored connection
         :rtype: dict
@@ -101,56 +132,133 @@ class Connections(WMLResource):
 
             connection_details = client.connections.get_details(connection_id)
             connection_details = client.connections.get_details()
+            connection_details = client.connections.get_details(limit=500)
 
         """
         self._client._check_if_either_is_set()
         Connections._validate_type(connection_id, "connection_id", str, False)
 
-        header_param = self._client._get_headers()
-
+        headers = self._client._get_headers()
         if self._client._iam_id:
-            header_param["IBM-WDP-Impersonate"] = str(
-                {"iam_id": str(self._client._iam_id)}
-            )
+            headers["IBM-WDP-Impersonate"] = str({"iam_id": str(self._client._iam_id)})
 
         if connection_id:
-            with self.requests_retry_session() as sess:
-                response = sess.get(
-                    self._client._href_definitions.get_connection_by_id_href(
-                        connection_id
-                    ),
-                    params=self._client._params(),
-                    headers=header_param,
-                )
+            response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_connection_by_id_href(
+                    connection_id
+                ),
+                params=self._client._params(),
+                headers=headers,
+            )
 
-                return self._get_required_element_from_response(
-                    self._handle_response(
-                        200,
-                        "get connection details",
-                        response,
-                        _silent_response_logging=True,
-                    )
+            return self._get_required_element_from_response(
+                self._handle_response(
+                    200,
+                    "get connection details",
+                    response,
+                    _silent_response_logging=True,
                 )
-        else:
-            with self.requests_retry_session() as sess:
-                response = sess.post(
-                    self._client._href_definitions.get_asset_search_href("connection"),
-                    json={"query": "*:*", "include": "entity"},
-                    params=self._client._params(),
-                    headers=header_param,
-                )
+            )
 
-                return {
-                    "resources": [
-                        self._get_required_element_from_response(r)
-                        for r in self._handle_response(
-                            200,
-                            "get connection details",
-                            response,
-                            _silent_response_logging=True,
-                        )["results"]
-                    ]
-                }
+        payload: dict | None = {"query": "*:*", "include": "entity"}
+        assets: ListType[dict] = []
+
+        while payload is not None and (limit is None or limit > 0):
+            payload["limit"] = (
+                min(limit, self.DEFAULT_LIST_LIMIT)
+                if limit is not None
+                else self.DEFAULT_LIST_LIMIT
+            )
+            response = self._client.httpx_client.post(
+                url=self._client._href_definitions.get_asset_search_href("connection"),
+                json=payload,
+                params=self._client._params(),
+                headers=headers,
+            )
+
+            payload, limit = self._handle_asset_search_response(response, limit, assets)
+
+        return {
+            "resources": [
+                self._get_required_element_from_response(asset) for asset in assets
+            ]
+        }
+
+    async def aget_details(
+        self, connection_id: str | None = None, limit: int | None = None
+    ) -> dict:
+        """Get connection details for the given unique connection ID asynchronously.
+        If no connection_id is passed, details for all connections are returned.
+
+        :param connection_id: unique ID of the connection
+        :type connection_id: str, optional
+
+        :param limit: limit number of fetched assets, if None will get all assets, defaults to None
+        :type limit: int, optional
+
+        :return: metadata of the stored connection
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            connection_details = await client.connections.aget_details(
+                connection_id
+            )
+            connection_details = await client.connections.aget_details()
+            connection_details = await client.connections.aget_details(limit=500)
+
+        """
+        self._client._check_if_either_is_set()
+        Connections._validate_type(connection_id, "connection_id", str, False)
+
+        headers = await self._client._aget_headers()
+        if self._client._iam_id:
+            headers["IBM-WDP-Impersonate"] = str({"iam_id": str(self._client._iam_id)})
+
+        if connection_id:
+            response = await self._client.async_httpx_client.get(
+                url=self._client._href_definitions.get_connection_by_id_href(
+                    connection_id
+                ),
+                params=self._client._params(),
+                headers=headers,
+            )
+
+            return self._get_required_element_from_response(
+                self._handle_response(
+                    200,
+                    "get connection details",
+                    response,
+                    _silent_response_logging=True,
+                )
+            )
+
+        payload: dict | None = {"query": "*:*", "include": "entity"}
+        assets: ListType[dict] = []
+
+        while payload is not None and (limit is None or limit > 0):
+            payload["limit"] = (
+                min(limit, self.DEFAULT_LIST_LIMIT)
+                if limit is not None
+                else self.DEFAULT_LIST_LIMIT
+            )
+
+            response = await self._client.async_httpx_client.post(
+                url=self._client._href_definitions.get_asset_search_href("connection"),
+                json=payload,
+                params=self._client._params(),
+                headers=headers,
+            )
+
+            payload, limit = self._handle_asset_search_response(response, limit, assets)
+
+        return {
+            "resources": [
+                self._get_required_element_from_response(asset) for asset in assets
+            ]
+        }
 
     def create(self, meta_props: dict) -> dict:
         """Create a connection. Examples of PROPERTIES field input:
@@ -165,7 +273,7 @@ class Connections(WMLResource):
                     "port": "3306",
                     "host": "host url",
                     "ssl": "false",
-                    "username": "username"
+                    "username": "username",
                 }
 
         2. Google BigQuery
@@ -184,7 +292,7 @@ class Connections(WMLResource):
                         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                         "token_uri": "https://oauth2.googleapis.com/token",
                         "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                        "client_x509_cert_url": "client_x509_cert_url"
+                        "client_x509_cert_url": "client_x509_cert_url",
                     }
 
             b. Method 2: Using OAuth Method. For information on how to generate a OAuth token, refer to Google BigQuery documentation.
@@ -196,7 +304,7 @@ class Connections(WMLResource):
                         "refresh_token": "refresh token",
                         "project_id": "project_id",
                         "client_secret": "This is your gmail account password",
-                        "client_id": "client_id"
+                        "client_id": "client_id",
                     }
 
         3. MS SQL
@@ -208,7 +316,7 @@ class Connections(WMLResource):
                     "password": "password",
                     "port": "1433",
                     "host": "host",
-                    "username": "username"
+                    "username": "username",
                 }
 
         4. Teradata
@@ -220,7 +328,7 @@ class Connections(WMLResource):
                     "password": "password",
                     "port": "1433",
                     "host": "host",
-                    "username": "username"
+                    "username": "username",
                 }
 
         :param meta_props: metadata of the connection configuration. To see available meta names, use:
@@ -238,17 +346,23 @@ class Connections(WMLResource):
 
         .. code-block:: python
 
-            sqlserver_data_source_type_id = client.connections.get_datasource_type_id_by_name('sqlserver')
-            connections_details = client.connections.create({
-                client.connections.ConfigurationMetaNames.NAME: "sqlserver connection",
-                client.connections.ConfigurationMetaNames.DESCRIPTION: "connection description",
-                client.connections.ConfigurationMetaNames.DATASOURCE_TYPE: sqlserver_data_source_type_id,
-                client.connections.ConfigurationMetaNames.PROPERTIES: { "database": "database",
-                                                                        "password": "password",
-                                                                        "port": "1433",
-                                                                        "host": "host",
-                                                                        "username": "username"}
-            })
+            sqlserver_data_source_type_id = (
+                client.connections.get_datasource_type_id_by_name("sqlserver")
+            )
+            connections_details = client.connections.create(
+                {
+                    client.connections.ConfigurationMetaNames.NAME: "sqlserver connection",
+                    client.connections.ConfigurationMetaNames.DESCRIPTION: "connection description",
+                    client.connections.ConfigurationMetaNames.DATASOURCE_TYPE: sqlserver_data_source_type_id,
+                    client.connections.ConfigurationMetaNames.PROPERTIES: {
+                        "database": "database",
+                        "password": "password",
+                        "port": "1433",
+                        "host": "host",
+                        "username": "username",
+                    },
+                }
+            )
 
         """
         connection_meta = self.ConfigurationMetaNames._generate_resource_metadata(
@@ -271,8 +385,8 @@ class Connections(WMLResource):
         # Step1  : Create an asset
         print(Messages.get_message(message_id="creating_connections"))
 
-        creation_response = requests.post(
-            self._client._href_definitions.get_connections_href(),
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_connections_href(),
             headers=self._client._get_headers(),
             json=connection_meta,
             params=self._client._params(),
@@ -312,14 +426,16 @@ class Connections(WMLResource):
                 Messages.get_message(message_id="failed_while_creating_connections")
             )
 
-    def delete(self, connection_id: str) -> str:
+    def delete(self, connection_id: str) -> Literal["SUCCESS"]:
         """Delete a stored connection.
 
         :param connection_id: unique ID of the connection to be deleted
         :type connection_id: str
 
-        :return: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -328,7 +444,7 @@ class Connections(WMLResource):
             client.connections.delete(connection_id)
 
         """
-        ##For CP4D, check if either spce or project ID is set
+        # For CP4D, check if either space or project ID is set
         self._client._check_if_either_is_set()
 
         Connections._validate_type(connection_id, "connection_id", str, True)
@@ -336,18 +452,21 @@ class Connections(WMLResource):
         connection_endpoint = self._client._href_definitions.get_connection_by_id_href(
             connection_id
         )
-        response_delete = requests.delete(
-            connection_endpoint,
+        response_delete = self._client.httpx_client.delete(
+            url=connection_endpoint,
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
-        return self._handle_response(
-            204,
-            "connection deletion",
-            response_delete,
-            False,
-            _silent_response_logging=True,
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                204,
+                "connection deletion",
+                response_delete,
+                False,
+                _silent_response_logging=True,
+            ),
         )
 
     @staticmethod
@@ -399,32 +518,33 @@ class Connections(WMLResource):
         )
 
         return WMLResource._get_required_element_from_dict(
-            connection_details, "connection_details", ["metadata", "id"]
+            connection_details, "connection_details", ["metadata", "id"], str
         )
 
-    def _get_datasource_details(self) -> list:
-        datasource_details = []
+    def _get_datasource_details(self) -> ListType:
+        datasource_details: ListType = []
 
-        def get_res(url):
-            with self.requests_retry_session() as sess:
-                response = sess.get(
-                    url,
-                    headers=self._client._get_headers(),
-                )
+        def _get_connection_data_types(
+            connections_instance: Connections, url: str
+        ) -> tuple[dict[str, Any], str]:
+            response = connections_instance._client.httpx_client.get(
+                url=url,
+                headers=connections_instance._client._get_headers(),
+            )
 
-            res = self._handle_response(
+            res = connections_instance._handle_response(
                 200, "list datasource types", response, _silent_response_logging=True
             )["resources"]
 
-            return res, response.json().get("next", {}).get("href")
+            return res, get_from_json(response.json(), ["next", "href"])
 
-        res, url = get_res(
-            self._client._href_definitions.get_connection_data_types_href()
+        res, url = _get_connection_data_types(
+            self, self._client._href_definitions.get_connection_data_types_href()
         )
         datasource_details.extend(res)
 
         while url is not None:
-            res, url = get_res(url)
+            res, url = _get_connection_data_types(self, url)
             datasource_details.extend(res)
 
         return datasource_details
@@ -460,8 +580,11 @@ class Connections(WMLResource):
         )
         return table
 
-    def list(self) -> pd.DataFrame:
+    def list(self, limit: int | None = None) -> pd.DataFrame:
         """Return pd.DataFrame table with all stored connections in a table format.
+
+        :param limit: limit number of fetched assets, if None will get all assets, defaults to None
+        :type limit: int, optional
 
         :return: pandas.DataFrame with listed connections
         :rtype: pandas.DataFrame
@@ -471,9 +594,10 @@ class Connections(WMLResource):
         .. code-block:: python
 
             client.connections.list()
+            client.connections.list(limit=500)
 
         """
-        datasource_details = self.get_details()
+        datasource_details = self.get_details(limit=limit)
         space_values = [
             (
                 m["entity"]["name"],
@@ -512,8 +636,8 @@ class Connections(WMLResource):
                 raise Exception("List empty for new api")
             table = self._list_uploaded_db_drivers_new_api()
         except Exception:
-            response = requests.get(
-                self._client._href_definitions.get_wsd_model_attachment_href()
+            response = self._client.httpx_client.get(
+                url=self._client._href_definitions.get_wsd_model_attachment_href()
                 + "dbdrivers",
                 headers=self._client._get_headers(no_content_type=True),
                 params=self._client._params(),
@@ -526,7 +650,7 @@ class Connections(WMLResource):
     def get_uploaded_db_drivers(self) -> dict[str, str]:
         """
         Get uploaded db driver jar names and paths.
-        Supported for IBM Cloud Pak® for Data, version 4.6.1 and up.
+        Supported for IBM Cloud Pak® for Data, version 5.0 and up.
 
         **Output**
 
@@ -541,13 +665,9 @@ class Connections(WMLResource):
             result = client.connections.get_uploaded_db_drivers()
 
         """
-        if not self._client.ICP_PLATFORM_SPACES or self._client.CPD_version < 4.6:
-            raise UnsupportedOperation(
-                "Get uploaded db driver is supported only for IBM Cloud Pak® for Data, version 4.6.1 and later."
-            )
 
-        response = requests.get(
-            self._client._href_definitions.get_connections_files_href(),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_connections_files_href(),
             headers=self._client._get_headers(no_content_type=True),
         )
         result = self._handle_response(
@@ -578,29 +698,59 @@ class Connections(WMLResource):
     def _get_datasource_type_details(
         self, datasource_type: str, connection_properties: bool = False
     ) -> dict:
-        """Get datasource type details for the given datasource type ID or NAME.
+        """Get datasource type details for the given datasource type ID or name.
 
-        :param datasource_type: ID or NAME of the datasource type
+        :param datasource_type: ID or name of the datasource type
         :type datasource_type: str
 
-        :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
+        :param connection_properties: if `True`, the connection properties are included in the returned details, defaults to `False`
         :type connection_properties: bool
 
         :return: Datasource type details
         :rtype: dict
         """
-        Connections._validate_type(datasource_type, "datasource_type", str, False)
+        Connections._validate_type(datasource_type, "datasource_type", str, True)
         header_param = self._client._get_headers()
         params = {"connection_properties": connection_properties}
 
-        with self.requests_retry_session() as sess:
-            response = sess.get(
-                self._client._href_definitions.get_connection_data_type_href(
-                    datasource_type
-                ),
-                params=params,
-                headers=header_param,
-            )
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_connection_data_type_href(
+                datasource_type
+            ),
+            params=params,
+            headers=header_param,
+        )
+
+        return self._handle_response(
+            200, "get datasource details", response, _silent_response_logging=True
+        )
+
+    @cached(cache=TTLCache(maxsize=32, ttl=5 * 60))
+    async def _aget_datasource_type_details(
+        self, datasource_type: str, connection_properties: bool = False
+    ) -> dict:
+        """Get datasource type details for the given datasource type ID or name asynchronously.
+
+        :param datasource_type: ID or name of the datasource type
+        :type datasource_type: str
+
+        :param connection_properties: if `True`, the connection properties are included in the returned details, defaults to `False`
+        :type connection_properties: bool
+
+        :return: Datasource type details
+        :rtype: dict
+        """
+        Connections._validate_type(datasource_type, "datasource_type", str, True)
+        header_param = await self._client._aget_headers()
+        params = {"connection_properties": connection_properties}
+
+        response = await self._client.async_httpx_client.get(
+            url=self._client._href_definitions.get_connection_data_type_href(
+                datasource_type
+            ),
+            params=params,
+            headers=header_param,
+        )
 
         return self._handle_response(
             200, "get datasource details", response, _silent_response_logging=True
@@ -609,12 +759,12 @@ class Connections(WMLResource):
     def get_datasource_type_details_by_id(
         self, datasource_type_id: str, connection_properties: bool = False
     ) -> dict:
-        """Get datasource type details for the given datasource type ID.
+        """Get datasource type details for the given datasource type ID asynchronously.
 
         :param datasource_type_id: ID of the datasource type
         :type datasource_type_id: str
 
-        :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
+        :param connection_properties: if `True`, the connection properties are included in the returned details, defaults to `False`
         :type connection_properties: bool
 
         :return: Datasource type details
@@ -637,10 +787,10 @@ class Connections(WMLResource):
     ) -> dict:
         """Get datasource type details for the given datasource type name.
 
-        :param datasource_type_name: NAME of the datasource type
+        :param datasource_type_name: name of the datasource type
         :type datasource_type_name: str
 
-        :param connection_properties: if True, the connection properties are included in the returned details. defaults to False
+        :param connection_properties: if `True`, the connection properties are included in the returned details, defaults to `False`
         :type connection_properties: bool
 
         :return: Datasource type details
@@ -650,10 +800,40 @@ class Connections(WMLResource):
 
         .. code-block:: python
 
-            client.connections.get_datasource_type_details_by_name(datasource_type_name)
+            client.connections.get_datasource_type_details_by_name(
+                datasource_type_name
+            )
 
         """
         return self._get_datasource_type_details(
+            datasource_type=datasource_type_name,
+            connection_properties=connection_properties,
+        )
+
+    async def aget_datasource_type_details_by_name(
+        self, datasource_type_name: str, connection_properties: bool = False
+    ) -> dict:
+        """Get datasource type details for the given datasource type name asynchronously.
+
+        :param datasource_type_name: name of the datasource type
+        :type datasource_type_name: str
+
+        :param connection_properties: if `True`, the connection properties are included in the returned details, defaults to `False`
+        :type connection_properties: bool
+
+        :return: Datasource type details
+        :rtype: dict
+
+        **Example:**
+
+        .. code-block:: python
+
+            await client.connections.aget_datasource_type_details_by_name(
+                datasource_type_name
+            )
+
+        """
+        return await self._aget_datasource_type_details(
             datasource_type=datasource_type_name,
             connection_properties=connection_properties,
         )
@@ -673,7 +853,7 @@ class Connections(WMLResource):
 
         .. code-block:: python
 
-            client.connections.get_datasource_type_uid_by_name('cloudobjectstorage')
+            client.connections.get_datasource_type_uid_by_name("cloudobjectstorage")
 
         """
         get_datasource_type_uid_deprecation_warning = (
@@ -696,12 +876,39 @@ class Connections(WMLResource):
 
         .. code-block:: python
 
-            client.connections.get_datasource_type_id_by_name('cloudobjectstorage')
+            client.connections.get_datasource_type_id_by_name("cloudobjectstorage")
 
         """
         Connections._validate_type(name, "name", str, True)
 
         datasource_details = self.get_datasource_type_details_by_name(
+            datasource_type_name=name
+        )
+        datasource_id = datasource_details["metadata"]["asset_id"]
+
+        return datasource_id
+
+    async def aget_datasource_type_id_by_name(self, name: str) -> str:
+        """Get a stored datasource type ID for the given datasource type name asynchronously.
+
+        :param name: name of datasource type
+        :type name: str
+
+        :return: ID of datasource type
+        :rtype: str
+
+        **Example:**
+
+        .. code-block:: python
+
+            await client.connections.aget_datasource_type_id_by_name(
+                "cloudobjectstorage"
+            )
+
+        """
+        Connections._validate_type(name, "name", str, True)
+
+        datasource_details = await self.aget_datasource_type_details_by_name(
             datasource_type_name=name
         )
         datasource_id = datasource_details["metadata"]["asset_id"]
@@ -718,18 +925,17 @@ class Connections(WMLResource):
         header_param = self._client._get_headers()
         params = {"interaction_properties": "true"}
 
-        with self.requests_retry_session() as sess:
-            response = sess.get(
-                self._client._href_definitions.get_connection_data_type_href(
-                    datasource_type
-                ),
-                params=params,
-                headers=header_param,
-            )
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_connection_data_type_href(
+                datasource_type
+            ),
+            params=params,
+            headers=header_param,
+        )
 
-            datasource_details = self._handle_response(
-                200, "get datasource details", response, _silent_response_logging=True
-            )
+        datasource_details = self._handle_response(
+            200, "get datasource details", response, _silent_response_logging=True
+        )
 
         for val in datasource_details["entity"]["properties"]["target"][-1]["values"]:
             if val["value"] == "write_raw" or val["value"] == "insert":
@@ -737,19 +943,22 @@ class Connections(WMLResource):
 
         return write_mode
 
-    def upload_db_driver(self, path: str) -> None:
+    def upload_db_driver(self, path: str | Path) -> None:
         """Upload db driver jar. Supported for IBM Cloud Pak® for Data only, version 4.0.4 and up.
 
         :param path: path to the db driver jar file
-        :type path: str
+        :type path: str | Path
 
         **Example:**
 
         .. code-block:: python
 
-            client.connections.upload_db_driver('example/path/db2jcc4.jar')
+            client.connections.upload_db_driver("example/path/db2jcc4.jar")
 
         """
+        if isinstance(path, str):
+            path = Path(path)
+
         if not self._client.ICP_PLATFORM_SPACES:
             raise UnsupportedOperation(
                 "Upload db driver is supported only for IBM Cloud Pak® for Data, version 4.0.4 and later."
@@ -758,16 +967,16 @@ class Connections(WMLResource):
         try:
             self._upload_db_driver_new_api(path)
         except Exception:
-            driver_file_name = path.split("/")[-1]
+            driver_file_name = path.name
 
-            with open(path, "rb") as fdata:
+            with path.open("rb") as fdata:
                 content_upload_url = (
                     self._client._href_definitions.get_wsd_model_attachment_href()
                     + "dbdrivers/"
                     + quote(driver_file_name, safe="")
                 )
-                response = requests.put(
-                    content_upload_url,
+                response = self._client.httpx_client.put(
+                    url=content_upload_url,
                     files={
                         "file": (
                             "native",
@@ -787,17 +996,17 @@ class Connections(WMLResource):
                     _silent_response_logging=True,
                 )
 
-    def _upload_db_driver_new_api(self, path: str) -> None:
+    def _upload_db_driver_new_api(self, path: Path) -> None:
         """Upload a db driver jar. Supported for IBM Cloud Pak® for Data only, version 4.6.1 and later.
 
         :param path: path to the db driver jar
-        :type path: str
+        :type path: Path
 
         **Example:**
 
         .. code-block:: python
 
-            client.connections._upload_db_driver_new_api('example/path/db2jcc4.jar')
+            client.connections._upload_db_driver_new_api("example/path/db2jcc4.jar")
 
         """
         if not self._client.ICP_PLATFORM_SPACES:
@@ -805,17 +1014,17 @@ class Connections(WMLResource):
                 "Upload db driver jar is supported only for IBM Cloud Pak® for Data only, version 4.6.1 and later."
             )
 
-        driver_file_name = path.split("/")[-1]
+        driver_file_name = path.name
 
-        with open(path, "rb") as fdata:
+        with path.open("rb") as fdata:
             content_upload_url = (
                 self._client._href_definitions.get_connections_file_href(
                     quote(driver_file_name, safe="")
                 )
             )
-            response = requests.post(
-                content_upload_url,
-                data=fdata,
+            response = self._client.httpx_client.post(
+                url=content_upload_url,
+                content=fdata,
                 headers=self._client._get_headers(
                     content_type="application/octet-stream"
                 ),
@@ -876,7 +1085,7 @@ class Connections(WMLResource):
 
         .. code-block:: python
 
-            jar_uri = client.connections.sign_db_driver_url('db2jcc4.jar')
+            jar_uri = client.connections.sign_db_driver_url("db2jcc4.jar")
 
         """
         try:
@@ -897,8 +1106,8 @@ class Connections(WMLResource):
 
             params["expires_in"] = 5000
 
-            response = requests.post(
-                signed_url,
+            response = self._client.httpx_client.post(
+                url=signed_url,
                 headers=self._client._get_headers(no_content_type=True),
                 params=params,
             )
@@ -912,27 +1121,3 @@ class Connections(WMLResource):
             )
 
             return unquote(response.headers["Location"])
-
-    @staticmethod
-    def requests_retry_session(
-        retries: int = 3,
-        backoff_factor: float = 0.3,
-        status_forcelist: Iterable[int] = (500, 502, 503, 504, 520, 521, 524),
-        session: requests.Session | None = None,
-    ) -> requests.Session:
-        from requests.adapters import HTTPAdapter
-        from requests.packages.urllib3.util.retry import Retry
-
-        session = session or requests.Session()
-        retry = Retry(
-            total=retries,
-            read=retries,
-            connect=retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=status_forcelist,
-            raise_on_status=False,
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        return session

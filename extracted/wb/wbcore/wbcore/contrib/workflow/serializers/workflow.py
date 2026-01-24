@@ -4,7 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.reverse import reverse
 
 from wbcore import serializers as wb_serializers
-from wbcore.content_type.serializers import ContentTypeRepresentationSerializer
+from wbcore.contrib.content_type.serializers import ContentTypeRepresentationSerializer
 from wbcore.contrib.icons import WBIcon
 from wbcore.contrib.workflow.models import Workflow
 from wbcore.contrib.workflow.sites import workflow_site

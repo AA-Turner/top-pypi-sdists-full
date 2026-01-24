@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Optional
 
@@ -5,8 +6,10 @@ if TYPE_CHECKING:
     from .db import HashFileDB
     from .hash_info import HashInfo
 
+logger = logging.getLogger(__name__)
 
-def gc(  # noqa: C901
+
+def gc(  # noqa: C901, PLR0912
     odb: "HashFileDB",
     used: Iterable["HashInfo"],
     jobs: Optional[int] = None,
@@ -55,7 +58,10 @@ def gc(  # noqa: C901
     for paths in (dir_paths, file_paths):
         if paths:
             num_removed += len(paths)
-            if not dry:
+            if dry:
+                for path in paths:
+                    logger.info("Removing %s", path)
+            else:
                 odb.fs.remove(paths)
 
     return num_removed

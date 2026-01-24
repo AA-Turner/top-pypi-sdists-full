@@ -1,10 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 import ibm_watsonx_ai.messages
@@ -15,12 +15,11 @@ from .globalization_util import GlobalizationUtil
 def get_message_dict(locale: str) -> dict[str, str]:
     file_name = "messages_" + locale + ".json"
     message_dict = {}
-    path = os.path.dirname(ibm_watsonx_ai.messages.__file__)
+    path = Path(ibm_watsonx_ai.messages.__file__).parent
     messages = []
     # try to load the respective json file for the locale
     try:
-        with open(os.path.join(path, file_name)) as f:
-            messages = json.loads(f.read())
+        messages = json.loads((path / file_name).read_text())
     # load the english dictionary if the json file for the locale doesn't exist
     except Exception:
         try:

@@ -1,5 +1,5 @@
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from math import ceil
 
 from celery import shared_task
@@ -7,7 +7,6 @@ from celery import shared_task
 from django.utils import timezone
 
 from .models import CallbackRedirect, Token
-
 
 logger = logging.getLogger(__name__)
 

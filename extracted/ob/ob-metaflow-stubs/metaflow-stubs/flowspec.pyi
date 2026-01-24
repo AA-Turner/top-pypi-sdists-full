@@ -1,19 +1,21 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.667788                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.829156                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
+import enum
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.unbounded_foreach
-    import metaflow.exception
+    import enum
     import metaflow.flowspec
     import typing
     import metaflow.datastore.inputs
+    import metaflow.exception
+    import metaflow.unbounded_foreach
 
 from . import parameters as parameters
 from .parameters import DelayedEvaluationParameter as DelayedEvaluationParameter
@@ -27,8 +29,6 @@ from .user_decorators.mutable_flow import MutableFlow as MutableFlow
 from .user_decorators.mutable_step import MutableStep as MutableStep
 from .user_decorators.user_flow_decorator import FlowMutator as FlowMutator
 from .user_decorators.user_step_decorator import StepMutator as StepMutator
-
-TYPE_CHECKING: bool
 
 INCLUDE_FOREACH_STACK: bool
 
@@ -48,6 +48,11 @@ class ParallelUBF(metaflow.unbounded_foreach.UnboundedForeachInput, metaclass=ty
     def __init__(self, num_parallel):
         ...
     def __getitem__(self, item):
+        ...
+    ...
+
+class FlowStateItems(enum.Enum, metaclass=enum.EnumType):
+    def __new__(cls, value):
         ...
     ...
 
@@ -87,6 +92,12 @@ class FlowSpec(object, metaclass=FlowSpecMeta):
         str
             A string containing the name of the script
         """
+        ...
+    @property
+    def _flow_decorators(self):
+        ...
+    @property
+    def _flow_mutators(self):
         ...
     def __iter__(self):
         """

@@ -64,7 +64,7 @@ def test_check_plot_args() -> None:
         _check_plot_args(study, None, "Objective Value")
 
     with pytest.warns(UserWarning):
-        _check_plot_args(study, lambda t: cast(float, t.value), "Objective Value")
+        _check_plot_args(study, lambda t: cast("float", t.value), "Objective Value")
 
 
 @pytest.mark.parametrize("value, expected", [(float("inf"), 1), (-float("inf"), 1), (0.0, 2)])
@@ -191,10 +191,8 @@ def test_make_hovertext() -> None:
         system_attrs={},
         intermediate_values={},
     )
-    assert (
-        _make_hovertext(trial_no_user_attrs)
-        == dedent(
-            """
+    assert _make_hovertext(trial_no_user_attrs) == dedent(
+        """
         {
           "number": 0,
           "values": [
@@ -205,10 +203,7 @@ def test_make_hovertext() -> None:
           }
         }
         """
-        )
-        .strip()
-        .replace("\n", "<br>")
-    )
+    ).strip().replace("\n", "<br>")
 
     trial_user_attrs_valid_json = FrozenTrial(
         number=0,
@@ -223,10 +218,8 @@ def test_make_hovertext() -> None:
         system_attrs={},
         intermediate_values={},
     )
-    assert (
-        _make_hovertext(trial_user_attrs_valid_json)
-        == dedent(
-            """
+    assert _make_hovertext(trial_user_attrs_valid_json) == dedent(
+        """
         {
           "number": 0,
           "values": [
@@ -241,10 +234,7 @@ def test_make_hovertext() -> None:
           }
         }
         """
-        )
-        .strip()
-        .replace("\n", "<br>")
-    )
+    ).strip().replace("\n", "<br>")
 
     trial_user_attrs_invalid_json = FrozenTrial(
         number=0,
@@ -259,10 +249,8 @@ def test_make_hovertext() -> None:
         system_attrs={},
         intermediate_values={},
     )
-    assert (
-        _make_hovertext(trial_user_attrs_invalid_json)
-        == dedent(
-            """
+    assert _make_hovertext(trial_user_attrs_invalid_json) == dedent(
+        """
         {
           "number": 0,
           "values": [
@@ -279,7 +267,4 @@ def test_make_hovertext() -> None:
           }
         }
         """
-        )
-        .strip()
-        .replace("\n", "<br>")
-    )
+    ).strip().replace("\n", "<br>")

@@ -1,7 +1,7 @@
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.release_notes.utils import parse_release_note
 
 
@@ -23,9 +23,7 @@ class ReleaseNote(models.Model):
     module = models.CharField(max_length=255, help_text=_("The workbench module of the release"))
     summary = models.CharField(max_length=512, help_text=_("A brief summary of the release"))
     notes = models.TextField(default="", help_text=_("What's new? What's improved? What's fixed?"))
-    read_by = models.ManyToManyField(
-        to=get_user_model(), related_name="read_patch_notes", db_table="bridger_releasenote_read_by"
-    )
+    read_by = models.ManyToManyField(to=User, related_name="read_patch_notes", db_table="bridger_releasenote_read_by")
 
     @classmethod
     def handle_from_markdown(cls, markdown_content: str) -> "ReleaseNote":

@@ -1,29 +1,26 @@
 """A generic Map interface and lightweight implementation."""
 
+from collections.abc import Callable, Sequence
 import enum
 import logging
 import math
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypedDict, Type
+from typing import Any, TypedDict, Type
 
 import ee
 import ipyleaflet
 import ipywidgets
 
+from . import basemaps
 from . import coreutils
 from . import ee_tile_layers
 from . import map_widgets
 from . import toolbar
-from .basemaps import get_xyz_dict, get_google_map_tile_providers
 
 _DRAWN_FEATURES_LAYER = "Drawn Features"
 
 
-class DrawActions(enum.Enum):
-    """Action types for the draw control.
-
-    Args:
-        enum (str): Action type.
-    """
+class DrawActions(str, enum.Enum):
+    """Action types for the draw control."""
 
     CREATED = "created"
     EDITED = "edited"
@@ -31,7 +28,7 @@ class DrawActions(enum.Enum):
     REMOVED_LAST = "removed-last"
 
 
-class AbstractDrawControl(object):
+class AbstractDrawControl:
     """Abstract class for the draw control."""
 
     host_map = None
@@ -64,12 +61,8 @@ class AbstractDrawControl(object):
         self._bind_to_draw_control()
 
     @property
-    def features(self) -> List[ee.Feature]:
-        """List of features created from geometries and properties.
-
-        Returns:
-            List[ee.Feature]: List of Earth Engine features.
-        """
+    def features(self) -> list[ee.Feature]:
+        """Returns a list of features created from geometries and properties."""
         if self.count:
             features = []
             for i, geometry in enumerate(self.geometries):
@@ -84,37 +77,25 @@ class AbstractDrawControl(object):
 
     @property
     def collection(self) -> ee.FeatureCollection:
-        """Feature collection created from features.
-
-        Returns:
-            ee.FeatureCollection: Earth Engine feature collection.
-        """
+        """Returns a feature collection created from features."""
         return ee.FeatureCollection(self.features if self.count else [])
 
     @property
-    def last_feature(self) -> Optional[ee.Feature]:
-        """The last feature created.
-
-        Returns:
-            Optional[ee.Feature]: The last Earth Engine feature.
-        """
+    def last_feature(self) -> ee.Feature | None:
+        """Returns the last feature created."""
         property = self.get_geometry_properties(self.last_geometry)
         return ee.Feature(self.last_geometry, property) if self.last_geometry else None
 
     @property
     def count(self) -> int:
-        """Count of geometries.
-
-        Returns:
-            int: Number of geometries.
-        """
+        """Returns the number of geometries."""
         return len(self.geometries)
 
     def reset(self, clear_draw_control: bool = True) -> None:
         """Resets the draw controls.
 
         Args:
-            clear_draw_control (bool): Whether to clear the draw control.
+            clear_draw_control: Whether to clear the draw control.
         """
         if self.layer is not None:
             self.host_map.remove_layer(self.layer)
@@ -129,7 +110,7 @@ class AbstractDrawControl(object):
         """Removes a geometry from the draw control.
 
         Args:
-            geometry (ee.Geometry): The geometry to remove.
+            geometry: The geometry to remove.
         """
         if not geometry:
             return
@@ -151,14 +132,14 @@ class AbstractDrawControl(object):
             if self.layer is not None:
                 self._redraw_layer()
 
-    def get_geometry_properties(self, geometry: ee.Geometry) -> Optional[dict]:
+    def get_geometry_properties(self, geometry: ee.Geometry) -> dict | None:
         """Gets the properties of a geometry.
 
         Args:
-            geometry (ee.Geometry): The geometry to get properties for.
+            geometry: The geometry to get properties for.
 
         Returns:
-            Optional[dict]: The properties of the geometry.
+            The properties of the geometry.
         """
         if not geometry:
             return None
@@ -175,8 +156,8 @@ class AbstractDrawControl(object):
         """Sets the properties of a geometry.
 
         Args:
-            geometry (ee.Geometry): The geometry to set properties for.
-            property (dict): The properties to set.
+            geometry: The geometry to set properties for.
+            property: The properties to set.
         """
         if not geometry:
             return
@@ -191,8 +172,8 @@ class AbstractDrawControl(object):
         """Registers a callback for geometry creation.
 
         Args:
-            callback (Callable): The callback function.
-            remove (bool): Whether to remove the callback.
+            callback: The callback function.
+            remove: Whether to remove the callback.
         """
         self._geometry_create_dispatcher.register_callback(callback, remove=remove)
 
@@ -200,8 +181,8 @@ class AbstractDrawControl(object):
         """Registers a callback for geometry editing.
 
         Args:
-            callback (Callable): The callback function.
-            remove (bool): Whether to remove the callback.
+            callback: The callback function.
+            remove: Whether to remove the callback.
         """
         self._geometry_edit_dispatcher.register_callback(callback, remove=remove)
 
@@ -209,8 +190,8 @@ class AbstractDrawControl(object):
         """Registers a callback for geometry deletion.
 
         Args:
-            callback (Callable): The callback function.
-            remove (bool): Whether to remove the callback.
+            callback: The callback function.
+            remove: Whether to remove the callback.
         """
         self._geometry_delete_dispatcher.register_callback(callback, remove=remove)
 
@@ -218,7 +199,7 @@ class AbstractDrawControl(object):
         """Set up draw control event handling like create, edit, and delete."""
         raise NotImplementedError()
 
-    def _remove_geometry_at_index_on_draw_control(self):
+    def _remove_geometry_at_index_on_draw_control(self, index: int) -> None:
         """Remove the geometry at the given index on the draw control."""
         raise NotImplementedError()
 
@@ -230,7 +211,7 @@ class AbstractDrawControl(object):
         """Returns an up-to-date list of GeoJSON from the draw control."""
         raise NotImplementedError()
 
-    def _sync_geometries(self):
+    def _sync_geometries(self) -> None:
         """Sync the local geometries with those from the draw control."""
         if not self.count:
             return
@@ -280,7 +261,7 @@ class AbstractDrawControl(object):
         """Handles the creation of a geometry.
 
         Args:
-            geo_json (dict): The GeoJSON representation of the geometry.
+            geo_json: The GeoJSON representation of the geometry.
         """
         geometry = coreutils.geojson_to_ee(geo_json, geodesic=False)
         self.last_geometry = geometry
@@ -294,7 +275,7 @@ class AbstractDrawControl(object):
         """Handles the editing of a geometry.
 
         Args:
-            geo_json (dict): The GeoJSON representation of the geometry.
+            geo_json: The GeoJSON representation of the geometry.
         """
         geometry = coreutils.geojson_to_ee(geo_json, geodesic=False)
         self.last_geometry = geometry
@@ -306,7 +287,7 @@ class AbstractDrawControl(object):
         """Handles the deletion of a geometry.
 
         Args:
-            geo_json (dict): The GeoJSON representation of the geometry.
+            geo_json: The GeoJSON representation of the geometry.
         """
         geometry = coreutils.geojson_to_ee(geo_json, geodesic=False)
         self.last_geometry = geometry
@@ -336,27 +317,23 @@ class MapDrawControl(ipyleaflet.DrawControl, AbstractDrawControl):
             host_map (geemap.Map): The geemap.Map object that the control will be added to.
             **kwargs (Any): Additional keyword arguments for the DrawControl.
         """
-        super(MapDrawControl, self).__init__(host_map=host_map, **kwargs)
+        super().__init__(host_map=host_map, **kwargs)
 
-    def _get_synced_geojson_from_draw_control(self) -> List[Dict[str, Any]]:
-        """Returns an up-to-date list of GeoJSON from the draw control.
-
-        Returns:
-            List[Dict[str, Any]]: List of GeoJSON objects.
-        """
+    def _get_synced_geojson_from_draw_control(self) -> list[dict[str, Any]]:
+        """Returns an up-to-date list of GeoJSON from the draw control."""
         return [data.copy() for data in self.data]
 
     def _bind_to_draw_control(self) -> None:
         """Set up draw control event handling like create, edit, and delete."""
 
         # Handles draw events
-        def handle_draw(_, action: str, geo_json: Dict[str, Any]) -> None:
+        def handle_draw(_, action: str, geo_json: dict[str, Any]) -> None:
             """Handles draw events.
 
             Args:
                 _ (Any): Unused parameter.
-                action (str): The action performed (created, edited, deleted).
-                geo_json (Dict[str, Any]): The GeoJSON representation of the geometry.
+                action: The action performed (created, edited, deleted).
+                geo_json: The GeoJSON representation of the geometry.
             """
             try:
                 if action == "created":
@@ -389,7 +366,7 @@ class MapDrawControl(ipyleaflet.DrawControl, AbstractDrawControl):
         """Remove the geometry at the given index on the draw control.
 
         Args:
-            index (int): The index of the geometry to remove.
+            index: The index of the geometry to remove.
         """
         del self.data[index]
         self.send_state(key="data")
@@ -408,49 +385,37 @@ class MapInterface:
 
         ee_object: ee.ComputedObject
         ee_layer: Any
-        vis_params: Dict[str, Any]
+        vis_params: dict[str, Any]
 
-    # All layers (including basemaps, GeoJSON layers, etc.).
-    layers: List[Any]
+    # All layers including basemaps, GeoJSON layers, etc.
+    layers: list[Any]
 
     # Layers backed by Earth Engine objects and keyed by layer name.
-    ee_layers: Dict[str, EELayerMetadata]
+    ee_layers: dict[str, EELayerMetadata]
 
     # The GeoJSON layers on the map.
-    geojson_layers: List[Any]
+    geojson_layers: list[Any]
 
     def get_zoom(self) -> int:
-        """Returns the current zoom level of the map.
-
-        Returns:
-            int: The current zoom level.
-        """
+        """Returns the current zoom level of the map."""
         raise NotImplementedError()
 
     def set_zoom(self, value: int) -> None:
-        """Sets the current zoom level of the map.
-
-        Args:
-            value (int): The zoom level to set.
-        """
+        """Sets the current zoom level of the map."""
         del value  # Unused.
         raise NotImplementedError()
 
     def get_center(self) -> Sequence[float]:
-        """Returns the current center of the map (lat, lon).
-
-        Returns:
-            Sequence[float]: The current center of the map as a tuple (lat, lon).
-        """
+        """Returns the current center of the map (lat, lon)."""
         raise NotImplementedError()
 
-    def set_center(self, lon: float, lat: float, zoom: Optional[int] = None) -> None:
+    def set_center(self, lon: float, lat: float, zoom: int | None = None) -> None:
         """Centers the map view at given coordinates with the given zoom level.
 
         Args:
-            lon (float): Longitude of the center.
-            lat (float): Latitude of the center.
-            zoom (Optional[int]): Zoom level to set. Defaults to None.
+            lon: Longitude of the center.
+            lat: Latitude of the center.
+            zoom: Zoom level to set. Defaults to None.
         """
         del lon, lat, zoom  # Unused.
         raise NotImplementedError()
@@ -458,70 +423,50 @@ class MapInterface:
     def center_object(
         self,
         ee_object: ee.ComputedObject,
-        zoom: Optional[int] = None,
+        zoom: int | None = None,
         max_error: float = 0.001,
     ) -> None:
         """Centers the map view on a given object.
 
         Args:
-            ee_object (ee.ComputedObject): The Earth Engine object to center on.
-            zoom (Optional[int]): Zoom level to set. Defaults to None.
-            max_error (float): The maximum error for the geometry. Defaults to 0.001.
+            ee_object: The Earth Engine object to center on.
+            zoom: Zoom level to set. Defaults to None.
+            max_error: The maximum error for the geometry. Defaults to 0.001.
         """
         del ee_object, zoom, max_error  # Unused.
         raise NotImplementedError()
 
     def get_scale(self) -> float:
-        """Returns the approximate pixel scale of the current map view, in meters.
-
-        Returns:
-            float: The approximate pixel scale in meters.
-        """
+        """Returns the approximate pixel scale of the current map view in meters."""
         raise NotImplementedError()
 
-    def get_bounds(self) -> Tuple[float, float, float, float]:
+    def get_bounds(self) -> tuple[float, float, float, float]:
         """Returns the bounds of the current map view.
 
         Returns:
-            Tuple[float, float, float, float]: A tuple in the format (west, south, east, north) in degrees.
+            A tuple in the format (west, south, east, north) in degrees.
         """
         raise NotImplementedError()
 
     @property
     def width(self) -> str:
-        """Returns the current width of the map.
-
-        Returns:
-            str: The current width of the map.
-        """
+        """Returns the current width of the map."""
         raise NotImplementedError()
 
     @width.setter
     def width(self, value: str) -> None:
-        """Sets the width of the map.
-
-        Args:
-            value (str): The width to set.
-        """
+        """Sets the width of the map."""
         del value  # Unused.
         raise NotImplementedError()
 
     @property
     def height(self) -> str:
-        """Returns the current height of the map.
-
-        Returns:
-            str: The current height of the map.
-        """
+        """Returns the current height of the map."""
         raise NotImplementedError()
 
     @height.setter
     def height(self, value: str) -> None:
-        """Sets the height of the map.
-
-        Args:
-            value (str): The height to set.
-        """
+        """Sets the height of the map."""
         del value  # Unused.
         raise NotImplementedError()
 
@@ -529,47 +474,40 @@ class MapInterface:
         """Adds a widget to the map.
 
         Args:
-            widget (str): The widget to add.
-            position (str): The position to place the widget.
-            **kwargs (Any): Additional keyword arguments.
+            widget: The widget to add.
+            position: The position to place the widget.
+            **kwargs: Additional keyword arguments.
         """
         del widget, position, kwargs  # Unused.
         raise NotImplementedError()
 
     def remove(self, widget: str) -> None:
-        """Removes a widget from the map.
-
-        Args:
-            widget (str): The widget to remove.
-        """
+        """Removes a widget from the map."""
         del widget  # Unused.
         raise NotImplementedError()
 
     def add_layer(
         self,
         ee_object: ee.ComputedObject,
-        vis_params: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
+        vis_params: dict[str, Any] | None = None,
+        name: str | None = None,
         shown: bool = True,
         opacity: float = 1.0,
     ) -> None:
         """Adds a layer to the map.
 
         Args:
-            ee_object (ee.ComputedObject): The Earth Engine object to add as a layer.
-            vis_params (Optional[Dict[str, Any]]): Visualization parameters. Defaults to None.
-            name (Optional[str]): Name of the layer. Defaults to None.
-            shown (bool): Whether the layer is shown. Defaults to True.
-            opacity (float): Opacity of the layer. Defaults to 1.0.
+            ee_object: The Earth Engine object to add as a layer.
+            vis_params: Visualization parameters. Defaults to None.
+            name: Name of the layer. Defaults to None.
+            shown: Whether the layer is shown. Defaults to True.
+            opacity: Opacity of the layer. Defaults to 1.0.
         """
         del ee_object, vis_params, name, shown, opacity  # Unused.
         raise NotImplementedError()
 
-    def remove_layer(self, layer: Any) -> None:
-        """Removes a layer from the map.
-        Args:
-            layer (str): The layer to remove.
-        """
+    def remove_layer(self, layer: str) -> None:
+        """Removes a layer from the map."""
         del layer  # Unused.
         raise NotImplementedError()
 
@@ -587,7 +525,7 @@ class Map(ipyleaflet.Map, MapInterface):
         ipyleaflet: ipyleaflet map object.
     """
 
-    _KWARG_DEFAULTS: Dict[str, Any] = {
+    _KWARG_DEFAULTS: dict[str, Any] = {
         "center": [0, 0],
         "zoom": 2,
         "zoom_control": False,
@@ -596,7 +534,7 @@ class Map(ipyleaflet.Map, MapInterface):
         "scroll_wheel_zoom": True,
     }
 
-    _BASEMAP_ALIASES: Dict[str, List[str]] = {
+    _BASEMAP_ALIASES: dict[str, list[str]] = {
         "DEFAULT": ["Google.Roadmap", "OpenStreetMap.Mapnik"],
         "ROADMAP": ["Google.Roadmap", "Esri.WorldStreetMap"],
         "SATELLITE": ["Google.Satellite", "Esri.WorldImagery"],
@@ -608,101 +546,82 @@ class Map(ipyleaflet.Map, MapInterface):
 
     @property
     def width(self) -> str:
-        """Returns the current width of the map.
-
-        Returns:
-            str: The current width of the map.
-        """
+        """Returns the current width of the map."""
         return self.layout.width
 
     @width.setter
     def width(self, value: str) -> None:
-        """Sets the width of the map.
-
-        Args:
-            value (str): The width to set.
-        """
+        """Sets the width of the map."""
         self.layout.width = value
 
     @property
     def height(self) -> str:
-        """Returns the current height of the map.
-
-        Returns:
-            str: The current height of the map.
-        """
+        """Returns the current height of the map."""
         return self.layout.height
 
     @height.setter
     def height(self, value: str) -> None:
-        """Sets the height of the map.
-
-        Args:
-            value (str): The height to set.
-        """
+        """Sets the height of the map."""
         self.layout.height = value
 
     @property
-    def _toolbar(self) -> Optional[toolbar.Toolbar]:
+    def _toolbar(self) -> toolbar.Toolbar | None:
         """Finds the toolbar widget in the map controls.
 
         Returns:
-            Optional[toolbar.Toolbar]: The toolbar widget if found, else None.
+            The toolbar widget if found, else None.
         """
         return self._find_widget_of_type(toolbar.Toolbar)
 
     @property
-    def _inspector(self) -> Optional[map_widgets.Inspector]:
+    def _inspector(self) -> map_widgets.Inspector | None:
         """Finds the inspector widget in the map controls.
 
         Returns:
-            Optional[map_widgets.Inspector]: The inspector widget if found, else None.
+            The inspector widget if found, else None.
         """
         return self._find_widget_of_type(map_widgets.Inspector)
 
     @property
-    def _search_bar(self) -> Optional[map_widgets.SearchBar]:
+    def _search_bar(self) -> map_widgets.SearchBar | None:
         """Finds the search bar widget in the map controls.
 
         Returns:
-            Optional[map_widgets.SearchBar]: The search bar widget if found, else None.
+            The search bar widget if found, else None.
         """
         return self._find_widget_of_type(map_widgets.SearchBar)
 
     @property
-    def _draw_control(self) -> MapDrawControl:
-        """Finds the draw control widget in the map controls.
-
-        Returns:
-            MapDrawControl: The draw control widget.
-        """
-        return self._find_widget_of_type(MapDrawControl)
+    def _draw_control(self) -> MapDrawControl | None:
+        """The draw control widget in the map controls."""
+        return self._find_widget_of_type(
+            MapDrawControl
+        )  # pytype: disable=bad-return-type
 
     @property
-    def _layer_manager(self) -> Optional[map_widgets.LayerManager]:
+    def _layer_manager(self) -> map_widgets.LayerManager | None:
         """Finds the layer manager widget in the map controls.
 
         Returns:
-            Optional[map_widgets.LayerManager]: The layer manager widget if found, else None.
+            The layer manager widget if found, else None.
         """
         return self._find_widget_of_type(map_widgets.LayerManager)
 
     @property
-    def _layer_editor(self) -> Optional[map_widgets.LayerEditor]:
+    def _layer_editor(self) -> map_widgets.LayerEditor | None:
         """Finds the layer editor widget in the map controls.
 
         Returns:
-            Optional[map_widgets.LayerEditor]: The layer editor widget if found, else None.
+            The layer editor widget if found, else None.
         """
         return self._find_widget_of_type(map_widgets.LayerEditor)
 
     @property
-    def _basemap_selector(self) -> Optional[map_widgets.BasemapSelector]:
+    def _basemap_selector(self) -> map_widgets.BasemapSelector | None:
         """Finds the basemap selector widget in the map controls.
 
         Returns:
-            Optional[map_widgets.BasemapSelector]: The basemap selector widget
-                if found, else None.
+            The basemap selector widget if found, else None.
         """
         return self._find_widget_of_type(map_widgets.BasemapSelector)
 
@@ -710,7 +629,7 @@ class Map(ipyleaflet.Map, MapInterface):
         """Initialize the map with given keyword arguments.
 
         Args:
-            **kwargs (Any): Additional keyword arguments for the map.
+            **kwargs: Additional keyword arguments for the map.
         """
         self._available_basemaps = self._get_available_basemaps()
 
@@ -725,8 +644,8 @@ class Map(ipyleaflet.Map, MapInterface):
             self.width: str = kwargs.pop("width", "100%")
         self.height: str = kwargs.pop("height", "600px")
 
-        self.ee_layers: Dict[str, Dict[str, Any]] = {}
-        self.geojson_layers: List[Any] = []
+        self.ee_layers: dict[str, dict[str, Any]] = {}
+        self.geojson_layers: list[Any] = []
 
         kwargs = self._apply_kwarg_defaults(kwargs)
         super().__init__(**kwargs)
@@ -756,46 +675,34 @@ class Map(ipyleaflet.Map, MapInterface):
         self.observe(self._on_layers_change, "layers")
 
     def get_zoom(self) -> int:
-        """Returns the current zoom level of the map.
-
-        Returns:
-            int: The current zoom level.
-        """
+        """Returns the current zoom level of the map."""
         return self.zoom
 
     def set_zoom(self, value: int) -> None:
-        """Sets the current zoom level of the map.
-
-        Args:
-            value (int): The zoom level to set.
-        """
+        """Sets the current zoom level of the map."""
         self.zoom = value
 
     def get_center(self) -> Sequence[float]:
-        """Returns the current center of the map (lat, lon).
-
-        Returns:
-            Sequence[float]: The current center of the map as a tuple (lat, lon).
-        """
+        """Returns the current center of the map (lat, lon)."""
         return self.center
 
-    def get_bounds(self, as_geojson: bool = False) -> Sequence:
+    def get_bounds(
+        self, as_geojson: bool = False
+    ) -> Sequence:  # pytype: disable=signature-mismatch
         """Returns the bounds of the current map view.
 
         Args:
-            as_geojson (bool, optional): If true, returns map bounds as
-                GeoJSON. Defaults to False.
+            as_geojson: If true, returns map bounds as GeoJSON. Defaults to False.
 
         Returns:
-            list|dict: A list in the format [west, south, east, north] in
-                degrees or a GeoJSON dictionary.
+            [west, south, east, north] in degrees or a GeoJSON dictionary.
         """
         bounds = self.bounds
         if not bounds:
             raise RuntimeError(
                 "Map bounds are undefined. Please display the " "map then try again."
             )
-        # ipyleaflet returns bounds in the format [[south, west], [north, east]]
+        # ipyleaflet returns bounds in the format [[south, west], [north, east]].
         # https://ipyleaflet.readthedocs.io/en/latest/map_and_basemaps/map.html#ipyleaflet.Map.fit_bounds
         coords = [bounds[0][1], bounds[0][0], bounds[1][1], bounds[1][0]]
 
@@ -804,11 +711,7 @@ class Map(ipyleaflet.Map, MapInterface):
         return coords
 
     def get_scale(self) -> float:
-        """Returns the approximate pixel scale of the current map view, in meters.
-
-        Returns:
-            float: The approximate pixel scale in meters.
-        """
+        """Returns the approximate pixel scale of the current map view in meters."""
         # Reference:
         # - https://blogs.bing.com/maps/2006/02/25/map-control-zoom-levels-gt-resolution
         # - https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames#Resolution_and_Scale
@@ -816,13 +719,13 @@ class Map(ipyleaflet.Map, MapInterface):
         center_lat_cos = math.cos(math.radians(center_lat))
         return 156543.04 * center_lat_cos / math.pow(2, self.zoom)
 
-    def set_center(self, lon: float, lat: float, zoom: Optional[int] = None) -> None:
+    def set_center(self, lon: float, lat: float, zoom: int | None = None) -> None:
         """Centers the map view at given coordinates with the given zoom level.
 
         Args:
-            lon (float): Longitude of the center.
-            lat (float): Latitude of the center.
-            zoom (Optional[int]): Zoom level to set. Defaults to None.
+            lon: Longitude of the center.
+            lat: Latitude of the center.
+            zoom: Zoom level to set. Defaults to None.
         """
         self.center = (lat, lon)
         if zoom is not None:
@@ -834,11 +737,11 @@ class Map(ipyleaflet.Map, MapInterface):
         """Returns the geometry for an arbitrary EE object.
 
         Args:
-            ee_object (ee.ComputedObject): The Earth Engine object.
-            max_error (float): The maximum error for the geometry transformation.
+            ee_object: The Earth Engine object.
+            max_error: The maximum error for the geometry transformation.
 
         Returns:
-            ee.Geometry: The geometry of the Earth Engine object.
+            Geometry of the Earth Engine object.
         """
         if isinstance(ee_object, ee.Geometry):
             return ee_object
@@ -846,21 +749,22 @@ class Map(ipyleaflet.Map, MapInterface):
             return ee_object.geometry(maxError=max_error)
         except Exception as exc:
             raise Exception(
-                "ee_object must be one of ee.Geometry, ee.FeatureCollection, ee.Image, or ee.ImageCollection."
+                "ee_object must be one of ee.Geometry, ee.FeatureCollection, ee.Image, "
+                "or ee.ImageCollection."
             ) from exc
 
     def center_object(
         self,
         ee_object: ee.ComputedObject,
-        zoom: Optional[int] = None,
+        zoom: int | None = None,
         max_error: float = 0.001,
     ) -> None:
         """Centers the map view on a given object.
 
         Args:
-            ee_object (ee.ComputedObject): The Earth Engine object to center on.
-            zoom (Optional[int]): Zoom level to set. Defaults to None.
-            max_error (float): The maximum error for the geometry. Defaults to 0.001.
+            ee_object: The Earth Engine object to center on.
+            zoom: Zoom level to set. Defaults to None.
+            max_error: The maximum error for the geometry. Defaults to 0.001.
         """
         geometry = self._get_geometry(ee_object, max_error).transform(
             maxError=max_error
@@ -879,16 +783,16 @@ class Map(ipyleaflet.Map, MapInterface):
             self.set_center(centroid[0], centroid[1], zoom)
 
     def _find_widget_of_type(
-        self, widget_type: Type[ipywidgets.Widget], return_control: bool = False
-    ) -> Optional[ipywidgets.Widget]:
+        self, widget_type: type[ipywidgets.Widget], return_control: bool = False
+    ) -> ipywidgets.Widget | None:
         """Finds a widget in the controls with the passed in type.
 
         Args:
-            widget_type (Type[ipywidgets.Widget]): The type of the widget to find.
-            return_control (bool, optional): Whether to return the control itself. Defaults to False.
+            widget_type: The type of the widget to find.
+            return_control: Whether to return the control itself. Defaults to False.
 
         Returns:
-            Optional[ipywidgets.Widget]: The widget if found, else None.
+            The widget if found, else None.
         """
         for widget in self.controls:
             if isinstance(widget, ipyleaflet.WidgetControl):
@@ -902,13 +806,15 @@ class Map(ipyleaflet.Map, MapInterface):
                     return child
         return None
 
-    def add(self, obj: Any, position: str = "", **kwargs: Any) -> None:
+    def add(
+        self, obj: Any, position: str = "", **kwargs: Any
+    ) -> None:  # pytype: disable=signature-mismatch
         """Adds a widget or control to the map.
 
         Args:
-            obj (Any): The object to add to the map.
-            position (str, optional): The position to place the widget. Defaults to "".
-            **kwargs (Any): Additional keyword arguments.
+            obj: The object to add to the map.
+            position: The position to place the widget. Defaults to "".
+            **kwargs: Additional keyword arguments.
         """
         if not position:
             for default_position, widgets in self._control_config().items():
@@ -921,7 +827,7 @@ class Map(ipyleaflet.Map, MapInterface):
         #   - can only be added to the map once,
         #   - have a constructor that takes a position arg, and
         #   - don't need to be stored as instance vars.
-        basic_controls: Dict[str, Tuple[ipyleaflet.Control, Dict[str, Any]]] = {
+        basic_controls = {
             "zoom_control": (ipyleaflet.ZoomControl, {}),
             "fullscreen_control": (ipyleaflet.FullScreenControl, {}),
             "scale_control": (ipyleaflet.ScaleControl, {"metric": True}),
@@ -955,8 +861,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a layer manager to the map.
 
         Args:
-            position (str): The position to place the layer manager.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the layer manager.
+            **kwargs: Additional keyword arguments.
         """
         if self._layer_manager:
             return
@@ -976,8 +882,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a toolbar to the map.
 
         Args:
-            position (str): The position to place the toolbar.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the toolbar.
+            **kwargs: Additional keyword arguments.
         """
         if self._toolbar:
             return
@@ -997,8 +903,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds an inspector to the map.
 
         Args:
-            position (str): The position to place the inspector.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the inspector.
+            **kwargs: Additional keyword arguments.
         """
         if self._inspector:
             return
@@ -1014,8 +920,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a search bar to the map.
 
         Args:
-            position (str): The position to place the inspector.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the inspector.
+            **kwargs: Additional keyword arguments.
         """
         if self._search_bar:
             return
@@ -1030,8 +936,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a layer editor to the map.
 
         Args:
-            position (str): The position to place the layer editor.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the layer editor.
+            **kwargs: Additional keyword arguments.
         """
         if self._layer_editor:
             return
@@ -1047,8 +953,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a draw control to the map.
 
         Args:
-            position (str, optional): The position of the draw control. Defaults to "topleft".
-            **kwargs (Any): Additional keyword arguments.
+            position: The position of the draw control. Defaults to "topleft".
+            **kwargs: Additional keyword arguments.
         """
         if self._draw_control:
             return
@@ -1066,11 +972,11 @@ class Map(ipyleaflet.Map, MapInterface):
         )
         super().add(control)
 
-    def get_draw_control(self) -> Optional[MapDrawControl]:
+    def get_draw_control(self) -> MapDrawControl | None:
         """Gets the draw control of the map.
 
         Returns:
-            Optional[MapDrawControl]: The draw control if it exists, otherwise None.
+            The draw control if it exists, otherwise None.
         """
         return self._draw_control
 
@@ -1078,8 +984,8 @@ class Map(ipyleaflet.Map, MapInterface):
         """Adds a basemap selector to the map.
 
         Args:
-            position (str): The position to place the basemap selector.
-            **kwargs (Any): Additional keyword arguments.
+            position: The position to place the basemap selector.
+            **kwargs: Additional keyword arguments.
         """
         if self._basemap_selector:
             return
@@ -1117,13 +1023,9 @@ class Map(ipyleaflet.Map, MapInterface):
         )
         super().add(basemap_control)
 
-    def remove(self, widget: Any) -> None:
-        """Removes a widget from the map.
-
-        Args:
-            widget (Any): The widget to remove.
-        """
-        basic_controls: Dict[str, ipyleaflet.Control] = {
+    def remove(self, widget: Any) -> None:  # pytype: disable=signature-mismatch
+        """Removes a widget from the map."""
+        basic_controls = {
             "search_control": map_widgets.SearchBar,
             "zoom_control": ipyleaflet.ZoomControl,
             "fullscreen_control": ipyleaflet.FullScreenControl,
@@ -1174,19 +1076,19 @@ class Map(ipyleaflet.Map, MapInterface):
     def add_layer(
         self,
         ee_object: ee.ComputedObject,
-        vis_params: Optional[Dict[str, Any]] = None,
-        name: Optional[str] = None,
+        vis_params: dict[str, Any] | None = None,
+        name: str | None = None,
         shown: bool = True,
         opacity: float = 1.0,
     ) -> None:
         """Adds a layer to the map.
 
         Args:
-            ee_object (ee.ComputedObject): The Earth Engine object to add.
-            vis_params (Optional[Dict[str, Any]], optional): Visualization parameters. Defaults to None.
-            name (Optional[str], optional): The name of the layer. Defaults to None.
-            shown (bool, optional): Whether the layer is shown. Defaults to True.
-            opacity (float, optional): The opacity of the layer. Defaults to 1.0.
+            ee_object: The Earth Engine object to add.
+            vis_params: Visualization parameters. Defaults to None.
+            name: The name of the layer. Defaults to None.
+            shown: Whether the layer is shown. Defaults to True.
+            opacity: The opacity of the layer. Defaults to 1.0.
         """
         # Call super if not an EE object.
         if not isinstance(ee_object, ee_tile_layers.EELeafletTileLayer.EE_TYPES):
@@ -1217,35 +1119,33 @@ class Map(ipyleaflet.Map, MapInterface):
     def _add_legend(
         self,
         title: str = "Legend",
-        legend_dict: Optional[Dict[str, str]] = None,
-        keys: Optional[List[Any]] = None,
-        colors: Optional[List[Any]] = None,
+        legend_dict: dict[str, str] | None = None,
+        keys: list[Any] | None = None,
+        colors: list[Any] | None = None,
         position: str = "bottomright",
-        builtin_legend: Optional[str] = None,
-        layer_name: Optional[str] = None,
+        builtin_legend: str | None = None,
+        layer_name: str | None = None,
         add_header: bool = True,
-        widget_args: Optional[Dict[Any, Any]] = None,
+        widget_args: dict[Any, Any] | None = None,
         **kwargs: Any,
     ) -> ipyleaflet.WidgetControl:
         """Adds a customized legend to the map.
 
         Args:
-            title (str, optional): Title of the legend. Defaults to 'Legend'.
-            legend_dict (dict, optional): A dictionary containing legend items
-                as keys and color as values. If provided, keys and colors will
-                be ignored. Defaults to None.
-            keys (list, optional): A list of legend keys. Defaults to None.
-            colors (list, optional): A list of legend colors. Defaults to None.
-            position (str, optional): Position of the legend. Defaults to
-                'bottomright'.
-            builtin_legend (str, optional): Name of the builtin legend to add
-                to the map. Defaults to None.
-            layer_name (str, optional): The associated layer for the legend.
+            title: Title of the legend. Defaults to 'Legend'.
+            legend_dict: A dictionary containing legend items as keys and color as
+                values. If provided, keys and colors will be ignored. Defaults to None.
+            keys: A list of legend keys. Defaults to None.
+            colors: A list of legend colors. Defaults to None.
+            position: Position of the legend. Defaults to 'bottomright'.
+            builtin_legend: Name of the builtin legend to add to the map.
                 Defaults to None.
-            add_header (bool, optional): Whether the legend can be closed or
-                not. Defaults to True.
-            widget_args (dict, optional): Additional arguments passed to the
-                widget_template() function. Defaults to {}.
+            layer_name: The associated layer for the legend.
+                Defaults to None.
+            add_header: Whether the legend can be closed or not.
+                Defaults to True.
+            widget_args: Additional arguments passed to widget_template().
+                Defaults to {}.
         """
         legend = map_widgets.Legend(
             title,
@@ -1272,33 +1172,39 @@ class Map(ipyleaflet.Map, MapInterface):
 
     def _add_colorbar(
         self,
-        vis_params: Optional[Dict[str, Any]] = None,
+        vis_params: dict[str, Any] | None = None,
         cmap: str = "gray",
         discrete: bool = False,
-        label: Optional[str] = None,
+        label: str | None = None,
         orientation: str = "horizontal",
         position: str = "bottomright",
         transparent_bg: bool = False,
-        layer_name: Optional[str] = None,
+        layer_name: str | None = None,
         font_size: int = 9,
         axis_off: bool = False,
-        max_width: Optional[str] = None,
+        max_width: str | None = None,
         **kwargs: Any,
     ) -> ipyleaflet.WidgetControl:
         """Add a matplotlib colorbar to the map.
 
         Args:
-            vis_params (dict): Visualization parameters as a dictionary. See https://developers.google.com/earth-engine/guides/image_visualization for options.
-            cmap (str, optional): Matplotlib colormap. Defaults to "gray". See https://matplotlib.org/3.3.4/tutorials/colors/colormaps.html#sphx-glr-tutorials-colors-colormaps-py for options.
-            discrete (bool, optional): Whether to create a discrete colorbar. Defaults to False.
-            label (str, optional): Label for the colorbar. Defaults to None.
-            orientation (str, optional): Orientation of the colorbar, such as "vertical" and "horizontal". Defaults to "horizontal".
-            position (str, optional): Position of the colorbar on the map. It can be one of: topleft, topright, bottomleft, and bottomright. Defaults to "bottomright".
-            transparent_bg (bool, optional): Whether to use transparent background. Defaults to False.
-            layer_name (str, optional): The layer name associated with the colorbar. Defaults to None.
-            font_size (int, optional): Font size for the colorbar. Defaults to 9.
-            axis_off (bool, optional): Whether to turn off the axis. Defaults to False.
-            max_width (str, optional): Maximum width of the colorbar in pixels. Defaults to None.
+            vis_params: Visualization parameters as a dictionary. See
+                https://developers.google.com/earth-engine/guides/image_visualization for
+                options.
+            cmap: Matplotlib colormap. Defaults to "gray". See
+                https://matplotlib.org/3.3.4/tutorials/colors/colormaps.html#sphx-glr-tutorials-colors-colormaps-py
+                for options.
+            discrete: Whether to create a discrete colorbar. Defaults to False.
+            label: Label for the colorbar. Defaults to None.
+            orientation: Orientation of the colorbar, such as "vertical" and
+                "horizontal". Defaults to "horizontal".
+            position: Position of the colorbar on the map. It can be one of: topleft,
+                topright, bottomleft, and bottomright. Defaults to "bottomright".
+            transparent_bg: Whether to use transparent background. Defaults to False.
+            layer_name: The layer name associated with the colorbar. Defaults to None.
+            font_size: Font size for the colorbar. Defaults to 9.
+            axis_off: Whether to turn off the axis. Defaults to False.
+            max_width: Maximum width of the colorbar in pixels. Defaults to None.
 
         Raises:
             TypeError: If the vis_params is not a dictionary.
@@ -1335,20 +1241,16 @@ class Map(ipyleaflet.Map, MapInterface):
         """Opens the help page.
 
         Args:
-            host_map (MapInterface): The host map.
-            selected (bool): Whether the item is selected.
-            item (toolbar.ToolbarItem): The toolbar item.
+            host_map: The host map.
+            selected: Whether the item is selected.
+            item: The toolbar item.
         """
         del host_map, item  # Unused.
         if selected:
             coreutils.open_url("https://geemap.org")
 
-    def _toolbar_main_tools(self) -> List[toolbar.ToolbarItem]:
-        """Gets the main tools for the toolbar.
-
-        Returns:
-            List[toolbar.ToolbarItem]: The main tools for the toolbar.
-        """
+    def _toolbar_main_tools(self) -> list[toolbar.ToolbarItem]:
+        """Returns the main tools for the toolbar."""
 
         @toolbar._cleanup_toolbar_item
         def inspector_tool_callback(
@@ -1383,20 +1285,12 @@ class Map(ipyleaflet.Map, MapInterface):
             ),
         ]
 
-    def _toolbar_extra_tools(self) -> List[toolbar.ToolbarItem]:
-        """Gets the extra tools for the toolbar.
-
-        Returns:
-            List[toolbar.ToolbarItem]: The extra tools for the toolbar.
-        """
+    def _toolbar_extra_tools(self) -> list[toolbar.ToolbarItem]:
+        """Returns the extra tools for the toolbar."""
         return []
 
-    def _control_config(self) -> Dict[str, List[str]]:
-        """Gets the control configuration.
-
-        Returns:
-            Dict[str, List[str]]: The control configuration.
-        """
+    def _control_config(self) -> dict[str, list[str]]:
+        """Returns the control configuration."""
         return {
             "topleft": [
                 "search_control",
@@ -1409,14 +1303,14 @@ class Map(ipyleaflet.Map, MapInterface):
             "bottomright": ["attribution_control"],
         }
 
-    def _apply_kwarg_defaults(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_kwarg_defaults(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Applies default values to keyword arguments.
 
         Args:
-            kwargs (Dict[str, Any]): The keyword arguments.
+            kwargs: The keyword arguments.
 
         Returns:
-            Dict[str, Any]: The keyword arguments with default values applied.
+            The keyword arguments with default values applied.
         """
         ret_kwargs = {}
         for kwarg, default in self._KWARG_DEFAULTS.items():
@@ -1428,7 +1322,7 @@ class Map(ipyleaflet.Map, MapInterface):
         """Replaces the current basemap with a new one.
 
         Args:
-            basemap_name (str): The name of the new basemap.
+            basemap_name: The name of the new basemap.
         """
         basemap = self._available_basemaps.get(basemap_name, None)
         if basemap is None:
@@ -1450,16 +1344,16 @@ class Map(ipyleaflet.Map, MapInterface):
         else:
             self.substitute_layer(self.layers[0], new_layer)
 
-    def _get_available_basemaps(self) -> Dict[str, Any]:
+    def _get_available_basemaps(self) -> dict[str, Any]:
         """Gets the available basemaps.
 
         Returns:
             Dict[str, Any]: The available basemaps.
         """
-        tile_providers = list(get_xyz_dict().values())
+        tile_providers = list(basemaps.get_xyz_dict().values())
         if coreutils.get_google_maps_api_key():
             tile_providers = tile_providers + list(
-                get_google_map_tile_providers().values()
+                basemaps.get_google_map_tile_providers().values()
             )
 
         ret_dict = {}
@@ -1476,16 +1370,16 @@ class Map(ipyleaflet.Map, MapInterface):
                 if provider := ret_dict.get(map_name):
                     aliased_maps[alias] = provider
                     break
-        return {**aliased_maps, **ret_dict}
+        return {**aliased_maps, **ret_dict}  # pytype: disable=bad-return-type
 
     def _get_preferred_basemap_name(self, basemap_name: str) -> str:
         """Returns the aliased basemap name.
 
         Args:
-            basemap_name (str): The name of the basemap.
+            basemap_name: The name of the basemap.
 
         Returns:
-            str: The aliased basemap name if it exists, otherwise the original basemap name.
+            The aliased basemap name if it exists, otherwise the original basemap name.
         """
         reverse_aliases = {}
         for alias, maps in self._BASEMAP_ALIASES.items():
@@ -1498,10 +1392,7 @@ class Map(ipyleaflet.Map, MapInterface):
         """Handles changes in layers.
 
         Args:
-            change (Any): The change event.
-
-        Returns:
-            None
+            change: The change event.
         """
         del change  # Unused.
         if self._layer_manager:

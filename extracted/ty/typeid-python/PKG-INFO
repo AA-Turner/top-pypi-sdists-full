@@ -1,136 +1,264 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: typeid-python
-Version: 0.3.2
-Summary: Python implementation of TypeIDs: type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs
-Home-page: https://github.com/akhundMurad/typeid-python
-License: MIT
-Keywords: typeid,uuid,uuid6,guid
-Author: Murad Akhundov
-Author-email: akhundov1murad@gmail.com
-Requires-Python: >=3.9,<4
+Version: 0.3.8
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Requires-Dist: uuid-utils>=0.12.0
+Requires-Dist: click ; extra == 'cli'
+Requires-Dist: pyyaml ; extra == 'yaml'
 Provides-Extra: cli
-Requires-Dist: uuid6 (>=2023.5.2)
+Provides-Extra: yaml
+License-File: LICENSE
+Summary: Python implementation of TypeIDs: type-safe, K-sortable, and globally unique identifiers inspired by Stripe IDs
+Keywords: typeid,uuid,rust,guid,uuid7
+Author-email: Murad Akhundov <akhundov1murad@gmail.com>
+Requires-Python: >=3.10, <4
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Bug Tracker, https://github.com/akhundMurad/typeid-python/issues
+Project-URL: Homepage, https://github.com/akhundMurad/typeid-python
 Project-URL: Repository, https://github.com/akhundMurad/typeid-python
-Description-Content-Type: text/markdown
 
 # TypeID Python
 
-<a href="https://github.com/akhundMurad/typeid-python/actions?query=setup%3ACI%2FCD+event%3Apush+branch%3Amain" target="_blank">
-    <img src="https://github.com/akhundMurad/typeid-python/actions/workflows/setup.yml/badge.svg?event=push&branch=main" alt="Test">
-</a>
-<a href="https://pepy.tech/project/typeid-python" target="_blank">
-    <img src="https://static.pepy.tech/personalized-badge/typeid-python?period=total&units=international_system&left_color=black&right_color=red&left_text=downloads" alt="Downloads">
-</a>
-<a href="https://pypi.org/project/typeid-python" target="_blank">
-    <img src="https://img.shields.io/pypi/v/typeid-python?color=red&labelColor=black" alt="Package version">
-</a>
-<a href="https://pypi.org/project/typeid-python" target="_blank">
-    <img src="https://img.shields.io/pypi/pyversions/typeid-python.svg?color=red&labelColor=black" alt="Supported Python versions">
-</a>
+[![PyPI - Version](https://img.shields.io/pypi/v/typeid-python?color=green)](https://pypi.org/project/typeid-python/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/typeid-python?color=green)](https://pypi.org/project/typeid-python/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/typeid-python?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/typeid-python)
+![GitHub License](https://img.shields.io/github/license/akhundMurad/typeid-python)
 
-## A Python implementation of [TypeIDs](https://github.com/jetpack-io/typeid) using Python
+> [!WARNING]
+> `main` may contain unreleased changes. For stable usage, use the latest release tag.
 
-TypeIDs are a modern, **type-safe**, globally unique identifier based on the upcoming
-UUIDv7 standard. They provide a ton of nice properties that make them a great choice
-as the primary identifiers for your data in a database, APIs, and distributed systems.
-Read more about TypeIDs in their [spec](https://github.com/jetpack-io/typeid).
+A **high-performance Python implementation of [TypeIDs](https://github.com/jetpack-io/typeid)** — type-safe,
+sortable identifiers based on **UUIDv7**.
 
-This particular implementation provides an pip package that can be used by any Python project.
+TypeIDs are designed for modern systems where identifiers should be:
+
+- globally unique
+- sortable by creation time
+- safe to expose externally
+- easy to reason about in logs, APIs, and databases
+
+This library provides a Python package with Rust acceleration.
+
+## Key features
+
+- ✅ UUIDv7-based, time-sortable identifiers
+- ✅ Schema-based ID explanations (JSON / YAML)
+- ✅ Fast generation & parsing (Rust-accelerated)
+- ✅ Multiple integrations (Pydantic, FastAPI, ...)
+- ✅ Type-safe prefixes (`user_`, `order_`, ...)
+- ✅ Human-readable and URL-safe
+- ✅ CLI tools (`new`, `encode`, `decode`, `explain`)
+- ✅ Fully offline, no external services
+
+## Performance
+
+TypeID is optimized for **real-world performance**, not just correctness.
+
+### Benchmark summary (mean time)
+
+| Operation | Before Rust | Rust + optimizations |
+| --------- | ----------- | -------------------- |
+| Generate  | 3.47 µs     | **0.70 µs**          |
+| Parse     | 2.08 µs     | **1.30 µs**          |
+| Workflow  | 5.52 µs     | **2.25 µs**          |
+
+### Highlights
+
+* 🚀 **~5× faster generation**
+* ⚡ **~1.6× faster parsing**
+* 🔁 **~2.5× faster end-to-end workflows**
+
+Benchmarks are:
+
+* reproducible
+* committed as raw JSON
+* runnable locally via `bench/`
+
+See [`Docs: Performance`](https://akhundmurad.github.io/typeid-python/performance/) for details.
 
 ## Installation
 
-- PyPI:
+### Core
 
-    ```console
-    pip install typeid-python
-    ```
+```console
+$ pip install typeid-python
+```
 
-- Poetry:
+Included:
 
-    ```console
-    poetry add typeid-python
-    ```
+* Rust base32 encode/decode
+* `uuid-utils` for fast UUIDv7 generation
+
+### Other optional extras
+
+```console
+$ pip install typeid-python[yaml]     # YAML schema support
+$ pip install typeid-python[cli]      # CLI tools
+```
+
+Extras are **strictly optional**.
 
 ## Usage
 
 ### Basic
 
-- Create TypeID Instance:
+```python
+from typeid import TypeID
 
-    ```python
-    from typeid import TypeID
+tid = TypeID(prefix="user")
 
-    typeid = TypeID()
+assert tid.prefix == "user"
+assert isinstance(tid.suffix, str)
+assert str(tid).startswith("user_")
+```
 
-    print(typeid.prefix)  # ""
-    print(typeid.suffix)  # "01h45ytscbebyvny4gc8cr8ma2" (encoded uuid7 instance)
+### From string
 
-    typeid = TypeID(prefix="user")
+```python
+from typeid import TypeID
 
-    print(typeid.prefix)  # "user"
-    print(str(typeid))  # "user_01h45ytscbebyvny4gc8cr8ma2"
-    ```
+tid = TypeID.from_string("user_01h45ytscbebyvny4gc8cr8ma2")
+assert tid.prefix == "user"
+```
 
-- Create TypeID from string:
+### From UUIDv7
 
-    ```python
-    from typeid import TypeID
+```python
+from typeid import TypeID
+from uuid_utils import uuid7
 
-    typeid = TypeID.from_string("user_01h45ytscbebyvny4gc8cr8ma2")
+u = uuid7()
+tid = TypeID.from_uuid(prefix="user", suffix=u)
 
-    print(str(typeid))  # "user_01h45ytscbebyvny4gc8cr8ma2"
-    ```
+assert tid.uuid.version == 7
+```
 
-- Create TypeID from uuid7:
+### Typed prefixes
 
-    ```python
-    from typeid import TypeID
-    from uuid6 import uuid7
+```python
+from typing import Literal
+from typeid import TypeID, typeid_factory
 
-    uuid = uuid7()  # UUID('01890bf0-846f-7762-8605-5a3abb40e0e5')
-    prefix = "user"
+UserID = TypeID[Literal["user"]]
+gen_user_id = typeid_factory("user")
 
-    typeid = TypeID.from_uuid(prefix=prefix, suffix=uuid)
+user_id = gen_user_id()
+```
 
-    print(str(typeid))  # "user_01h45z113fexh8c1at7axm1r75"
-    ```
+## CLI
 
-### CLI-tool
+```console
+$ pip install typeid-python[cli]
+```
 
-- Install dependencies:
+Generate:
 
-    ```console
-    pip install typeid-python[cli]
-    ```
+```console
+$ typeid new -p user
+user_01h2xcejqtf2nbrexx3vqjhp41
+```
 
-- To generate a new TypeID, run:
+Decode:
 
-    ```console
-    $ python3 -m typeid.cli new -p prefix
-    prefix_01h2xcejqtf2nbrexx3vqjhp41
-    ```
+```console
+$ typeid decode user_01h2xcejqtf2nbrexx3vqjhp41
+uuid: 0188bac7-4afa-78aa-bc3b-bd1eef28d881
+```
 
-- To decode an existing TypeID into a UUID run:
+Encode:
 
-    ```console
-    $ python3 -m typeid.cli decode prefix_01h2xcejqtf2nbrexx3vqjhp41
-    type: prefix
-    uuid: 0188bac7-4afa-78aa-bc3b-bd1eef28d881
-    ```
+```console
+$ typeid encode 0188bac7-4afa-78aa-bc3b-bd1eef28d881 --prefix user
+```
 
-- And to encode an existing UUID into a TypeID run:
+## Framework integrations
 
-    ```console
-    $ python3 -m typeid.cli encode 0188bac7-4afa-78aa-bc3b-bd1eef28d881 --prefix prefix
-    prefix_01h2xcejqtf2nbrexx3vqjhp41
-    ```
+TypeID is **framework-agnostic by design**.
+Integrations are provided as optional adapters, installed explicitly and kept separate from the core.
+
+### Available integrations
+
+* **Pydantic (v2)**
+  Native field type with validation and JSON Schema support.
+
+  ```python
+  from typing import Literal
+  from pydantic import BaseModel
+  from typeid.integrations.pydantic import TypeIDField
+
+  class User(BaseModel):
+      id: TypeIDField[Literal["user"]]
+  ```
+
+* **FastAPI** (Coming Soon 🚧)
+
+* **SQLAlchemy** (Coming Soon 🚧)
+
+All integrations are **opt-in via extras** and never affect the core package.
+
+## ✨ `typeid explain` — understand any ID
+
+```console
+$ typeid explain user_01h45ytscbebyvny4gc8cr8ma2
+```
+
+Outputs:
+
+```yaml
+parsed:
+  prefix: user
+  uuid: 01890bf0-846f-7762-8605-5a3abb40e0e5
+  created_at: 2025-03-12T10:41:23Z
+  sortable: true
+```
+
+Works **without schema**, fully offline.
+
+## Schema-based explanations
+
+Define meaning for prefixes using JSON or YAML.
+
+Example (`typeid.schema.json`):
+
+```json
+{
+  "schema_version": 1,
+  "types": {
+    "user": {
+      "name": "User",
+      "owner_team": "identity-platform",
+      "pii": true
+    }
+  }
+}
+```
+
+Then:
+
+```console
+$ typeid explain user_01h45ytscbebyvny4gc8cr8ma2
+```
+
+Read more here: ["Docs: Explain"](https://akhundmurad.github.io/typeid-python/performance/).
+
+## Design principles
+
+* **Non-breaking**: stable APIs
+* **Lazy evaluation**: work is done only when needed
+* **Explainability**: identifiers carry meaning
+* **Transparency**: performance claims are backed by data
+
+> Think of TypeID as
+> **UUIDs + semantics + observability — without sacrificing speed**
+
+## License
+
+MIT
 

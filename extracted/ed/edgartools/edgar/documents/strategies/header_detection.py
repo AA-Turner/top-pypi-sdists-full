@@ -136,6 +136,10 @@ class PatternBasedDetector(HeaderDetector):
         if not text or len(text) > 200:
             return None
 
+        # Skip single punctuation - never headers
+        if len(text) == 1 and text in '.,!?;:()[]{}':
+            return None
+
         # Skip if text contains multiple sentences (likely paragraph)
         if text.count('.') > 2:
             return None
@@ -176,6 +180,10 @@ class StructuralDetector(HeaderDetector):
 
         # Skip empty or very long text
         if not text or len(text) > 200:
+            return None
+
+        # Skip single punctuation - never headers
+        if len(text) == 1 and text in '.,!?;:()[]{}':
             return None
 
         confidence = 0.0
@@ -250,6 +258,10 @@ class ContextualDetector(HeaderDetector):
         if not text or len(text) > 200:
             return None
 
+        # Skip single punctuation - never headers
+        if len(text) == 1 and text in '.,!?;:()[]{}':
+            return None
+
         confidence = 0.0
         level = 3
 
@@ -322,7 +334,7 @@ class ContextualDetector(HeaderDetector):
 class HeaderDetectionStrategy:
     """
     Multi-strategy header detection.
-
+    
     Combines multiple detection methods with weighted voting.
     """
 
@@ -353,11 +365,11 @@ class HeaderDetectionStrategy:
     def detect(self, element: HtmlElement, context: ParseContext) -> Optional[HeaderInfo]:
         """
         Detect if element is a header using multiple strategies.
-
+        
         Args:
             element: HTML element to check
             context: Current parsing context
-
+            
         Returns:
             HeaderInfo if element is detected as header, None otherwise
         """
@@ -436,3 +448,45 @@ class HeaderDetectionStrategy:
             is_item=is_item,
             item_number=item_number
         )
+
+    def is_section_header(self, text: str, element) -> bool:
+        """
+        Check if a heading is significant enough to be a section header.
+
+        Args:
+            text: Heading text content
+            element: HTML element containing the heading (can be lxml.etree._Element or HtmlElement)
+
+        Returns:
+            True if this should be treated as a section header
+        """
+        # Simple heuristic-based detection without using the detect() method
+        # which requires HtmlElement, not etree._Element
+
+        if not text or len(text) > 200:
+            return False
+
+        # Check for Item patterns (Item 1, Item 1A, etc.)
+        import re
+        if re.match(r'^(Item|ITEM)\s+(\d+[A-Z]?)', text):
+            return True
+
+        # Check for Part patterns
+        if re.match(r'^(Part|PART)\s+[IVX]+', text):
+            return True
+
+        # Check for known major section headers
+        major_sections = {
+            'BUSINESS', 'RISK FACTORS', 'PROPERTIES', 'LEGAL PROCEEDINGS',
+            'FINANCIAL STATEMENTS', 'CONSOLIDATED FINANCIAL STATEMENTS',
+            'QUANTITATIVE AND QUALITATIVE DISCLOSURES ABOUT MARKET RISK'
+        }
+        if text.upper() in major_sections:
+            return True
+
+        # Check for Management's Discussion patterns
+        if 'MANAGEMENT' in text.upper() and 'DISCUSSION' in text.upper():
+            return True
+
+        # Default to False for safety
+        return False

@@ -38,21 +38,21 @@ from beartype.typing import (
     Dict,
     Type,
 )
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.pep.sign.datapepsigncls import HintSign
-from beartype._data.hint.pep.sign.datapepsigns import (
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.hint.sign.datahintsigncls import HintSign
+from beartype._data.hint.sign.datahintsigns import (
     HintSignAnnotated,
     HintSignAny,
     HintSignCallable,
     HintSignLiteral,
     HintSignNewType,
-    HintSignPep484585GenericSubscripted,
-    HintSignPep484585GenericUnsubscripted,
+    HintSignPep484585GenericSubbed,
+    HintSignPep484585GenericUnsubbed,
     HintSignTuple,
-    HintSignTupleFixed,
+    HintSignPep484585TupleFixed,
     HintSignTypeVar,
 )
-from beartype._data.hint.pep.sign.datapepsignset import (
+from beartype._data.hint.sign.datahintsignset import (
     HINT_SIGNS_UNSUBSCRIPTABLE)
 from beartype._util.hint.pep.utilpepget import get_hint_pep_args
 from beartype._util.hint.pep.utilpepsign import get_hint_pep_sign_or_none
@@ -166,10 +166,10 @@ _HINT_SIGN_TO_TYPEHINT_CLS: Dict[HintSign, Type[TypeHint]] = {
     HintSignLiteral:    LiteralTypeHint,
     HintSignNewType:    NewTypeTypeHint,
     HintSignTuple:      TupleVariableTypeHint,
-    HintSignTupleFixed: TupleFixedTypeHint,
+    HintSignPep484585TupleFixed: TupleFixedTypeHint,
     HintSignTypeVar:    TypeVarTypeHint,
-    HintSignPep484585GenericSubscripted:   GenericTypeHint,
-    HintSignPep484585GenericUnsubscripted: GenericTypeHint,
+    HintSignPep484585GenericSubbed:   GenericTypeHint,
+    HintSignPep484585GenericUnsubbed: GenericTypeHint,
 }
 '''
 Dictionary mapping from each sign uniquely identifying PEP-compliant type hints
@@ -183,9 +183,9 @@ def _init() -> None:
     '''
 
     # Isolate function-specific imports.
-    from beartype._data.hint.pep.sign.datapepsignmap import (
+    from beartype._data.hint.sign.datahintsignmap import (
         HINT_SIGN_ORIGIN_ISINSTANCEABLE_TO_ARGS_LEN_RANGE)
-    from beartype._data.hint.pep.sign.datapepsignset import HINT_SIGNS_UNION
+    from beartype._data.hint.sign.datahintsignset import HINT_SIGNS_UNION
 
     # Fully initialize the "_HINT_SIGN_TO_TYPEHINT_CLS" global dictionary.
     #

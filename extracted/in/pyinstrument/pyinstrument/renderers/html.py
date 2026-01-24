@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import codecs
 import json
+import sys
 import tempfile
 import urllib.parse
 import warnings
 import webbrowser
 from pathlib import Path
+from typing import Any
 
 from pyinstrument.renderers.base import FrameRenderer, ProcessorList, Renderer
 from pyinstrument.session import Session
@@ -21,11 +23,30 @@ class HTMLRenderer(Renderer):
 
     output_file_extension = "html"
 
+    preprocessors: ProcessorList
+    """
+    Preprocessors installed on this renderer. This property is similar to
+    :attr:`FrameRenderer.processors`, but all pyinstrument's processing is
+    done in the webapp, so these are only used to modify the JSON data sent to
+    the webapp. For example, you might want to use preprocessors to remove
+    unneeded frames from the data to reduce the size of the HTML file.
+    """
+
+    preprocessor_options: dict[str, Any]
+    """
+    Options to pass to the preprocessors, like :attr:`FrameRenderer.processor_options`.
+    """
+
     def __init__(
         self,
+        *,
+        resample_interval: float | None = None,
         show_all: bool = False,
         timeline: bool = False,
     ):
+        """
+        :param resample_interval: Controls how the renderer deals with very large sessions. The typically struggles with sessions of more than 100,000 samples. If the session has more samples than this number, it will be automatically resampled to a coarser interval. You can control this interval with this parameter. If None (the default), the interval will be chosen automatically. Setting this to 0 disables resampling.
+        """
         super().__init__()
         if show_all:
             warnings.warn(
@@ -39,13 +60,38 @@ class HTMLRenderer(Renderer):
                 DeprecationWarning,
                 stacklevel=3,
             )
-        # this is an undocumented option for use by the ipython magic, might
-        # be removed later
-        self.preprocessors: ProcessorList = []
+
+        self.resample_interval = resample_interval
+
+        # These settings are passed down to JSONForHTMLRenderer, and can be
+        # used to modify its output. E.g. they can be used to lower the size
+        # of the output file, by excluding function calls which take a small
+        # fraction of total time.
+        self.preprocessors = []
+        self.preprocessor_options = {}
 
     def render(self, session: Session):
+        if len(session.frame_records) > 100_000:
+            original_session = session
+            resample_interval = self.resample_interval
+            if resample_interval is None:
+                # auto mode: choose an interval that gives us 0.01% resolution
+                resample_interval = session.duration / 10000
+
+            if resample_interval > 0:
+                session = original_session.resample(interval=resample_interval)
+
+                while len(session.frame_records) > 100_000:
+                    resample_interval *= 2
+                    session = original_session.resample(interval=resample_interval)
+                print(
+                    f"pyinstrument: session has {len(original_session.frame_records)} samples, which is too many for the HTML renderer to handle. Resampled to {len(session.frame_records)} samples with interval {resample_interval:.6f} seconds. Set the renderer option resample_interval to control this behaviour.",
+                    file=sys.stderr,
+                )
+
         json_renderer = JSONForHTMLRenderer()
         json_renderer.processors = self.preprocessors
+        json_renderer.processor_options = self.preprocessor_options
         session_json = json_renderer.render(session)
 
         resources_dir = Path(__file__).parent / "html_resources"

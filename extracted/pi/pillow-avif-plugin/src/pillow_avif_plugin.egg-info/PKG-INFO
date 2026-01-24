@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow-avif-plugin
-Version: 1.5.2
+Version: 1.5.5
 Summary: A pillow plugin that adds avif support via libavif
 Home-page: https://github.com/fdintino/pillow-avif-plugin/
 Download-URL: https://github.com/fdintino/pillow-avif-plugin/releases
@@ -22,6 +22,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Multimedia :: Graphics

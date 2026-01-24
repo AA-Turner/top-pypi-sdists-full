@@ -1,20 +1,21 @@
 Metadata-Version: 2.4
 Name: json-stream-rs-tokenizer
-Version: 0.4.30
+Version: 0.5.0
 Summary: A faster tokenizer for the json-stream Python library
 Project-URL: Repository, https://github.com/smheidrich/py-json-stream-rs-tokenizer
+Project-URL: Changelog, https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/CHANGELOG.md
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7,<4
+Requires-Python: >=3.8,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: benchmark
@@ -27,6 +28,9 @@ Provides-Extra: test
 Requires-Dist: pytest<8,>7.1; extra == "test"
 Requires-Dist: json-stream-rs-tokenizer[benchmark]; extra == "test"
 Requires-Dist: json-stream==2.3.2; extra == "test"
+Provides-Extra: stubtest
+Requires-Dist: mypy<2,>=1; extra == "stubtest"
+Requires-Dist: types-tqdm; extra == "stubtest"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -178,3 +182,9 @@ manually.
 MIT license. Refer to the
 [LICENSE](https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/LICENSE)
 file for details.
+
+## Changelog
+
+Refer to the
+[CHANGELOG.md](https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/CHANGELOG.md)
+file.

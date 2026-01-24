@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-jsonschema"
-version = "4.25.1.20250822"
+version = "4.26.0.20260109"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for jsonschema"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`jsonschema`](https://github.com/python-jsonschema/jsonschema) package. It can be used by type checkers
 to check code that uses `jsonschema`. This version of
 `types-jsonschema` aims to provide accurate annotations for
-`jsonschema~=4.25.1`.
+`jsonschema~=4.26.0`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.17.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.404
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`ca44e4c45dc40fb47602dc79a3145ba61879add8`](https://github.com/python/typeshed/commit/ca44e4c45dc40fb47602dc79a3145ba61879add8).
+[`9a175299c4cc4ffe0c9aafc33b2248916b23c3fa`](https://github.com/python/typeshed/commit/9a175299c4cc4ffe0c9aafc33b2248916b23c3fa).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

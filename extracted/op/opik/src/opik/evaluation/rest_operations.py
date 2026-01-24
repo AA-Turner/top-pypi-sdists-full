@@ -1,10 +1,13 @@
+import logging
 from typing import List, Optional
 
-from opik.api_objects import experiment, opik_client
-from opik.types import FeedbackScoreDict
-from . import test_case, test_result
-from .metrics import arguments_helpers
+from opik.api_objects import dataset, experiment, opik_client
+from opik.types import BatchFeedbackScoreDict
+from . import test_case
+from .metrics import score_result
 from .types import ScoringKeyMappingType
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_experiment_with_unique_name(
@@ -34,63 +37,64 @@ def get_trace_project_name(client: opik_client.Opik, trace_id: str) -> str:
 
 
 def get_experiment_test_cases(
-    client: opik_client.Opik,
-    experiment_id: str,
-    dataset_id: str,
+    experiment_: experiment.Experiment,
+    dataset_: dataset.Dataset,
     scoring_key_mapping: Optional[ScoringKeyMappingType],
 ) -> List[test_case.TestCase]:
-    test_cases = []
-    page = 1
+    experiment_items = experiment_.get_items()
 
-    while True:
-        experiment_items_page = (
-            client._rest_client.datasets.find_dataset_items_with_experiment_items(
-                id=dataset_id, experiment_ids=f'["{experiment_id}"]', page=page
+    # Fetch dataset items to get input data for bulk-uploaded experiment items
+    dataset_items_by_id = {item["id"]: item for item in dataset_.get_items()}
+
+    test_cases = []
+    for item in experiment_items:
+        dataset_item_data = dataset_items_by_id.get(item.dataset_item_id)
+
+        if dataset_item_data is None:
+            LOGGER.error(
+                f"Unexpected error: Dataset item with id {item.dataset_item_id} not found, skipping experiment item {item.id}"
+            )
+            continue
+
+        if item.evaluation_task_output is None:
+            LOGGER.error(
+                f"Unexpected error: Evaluation task output is None for experiment item {item.id}, skipping experiment item"
+            )
+            continue
+
+        test_cases.append(
+            test_case.TestCase(
+                trace_id=item.trace_id,
+                dataset_item_id=item.dataset_item_id,
+                task_output=item.evaluation_task_output,
+                dataset_item_content=dataset_item_data,
             )
         )
-        if len(experiment_items_page.content) == 0:
-            break
-
-        for item in experiment_items_page.content:
-            experiment_item = item.experiment_items[0]
-
-            test_cases += [
-                test_case.TestCase(
-                    trace_id=experiment_item.trace_id,
-                    dataset_item_id=experiment_item.dataset_item_id,
-                    task_output=experiment_item.output,
-                    scoring_inputs=arguments_helpers.create_scoring_inputs(
-                        dataset_item=experiment_item.input,
-                        task_output=experiment_item.output,
-                        scoring_key_mapping=scoring_key_mapping,
-                    ),
-                )
-            ]
-
-        page += 1
 
     return test_cases
 
 
-def log_test_result_scores(
+def log_test_result_feedback_scores(
     client: opik_client.Opik,
-    test_result: test_result.TestResult,
+    score_results: List[score_result.ScoreResult],
+    trace_id: str,
     project_name: Optional[str],
 ) -> None:
-    all_trace_scores: List[FeedbackScoreDict] = []
+    all_trace_scores: List[BatchFeedbackScoreDict] = []
 
-    for score_result in test_result.score_results:
-        if score_result.scoring_failed:
+    for score_result_ in score_results:
+        if score_result_.scoring_failed:
             continue
 
-        trace_score = FeedbackScoreDict(
-            id=test_result.test_case.trace_id,
-            name=score_result.name,
-            value=score_result.value,
-            reason=score_result.reason,
+        trace_score = BatchFeedbackScoreDict(
+            id=trace_id,
+            name=score_result_.name,
+            value=score_result_.value,
+            reason=score_result_.reason,
         )
         all_trace_scores.append(trace_score)
 
-    client.log_traces_feedback_scores(
-        scores=all_trace_scores, project_name=project_name
-    )
+    if len(all_trace_scores) > 0:
+        client.log_traces_feedback_scores(
+            scores=all_trace_scores, project_name=project_name
+        )

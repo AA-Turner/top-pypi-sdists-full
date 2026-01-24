@@ -1,28 +1,29 @@
-from datetime import datetime
-from hashlib import md5
 import json
 import logging
-from time import sleep
-from urllib import parse as urlparse
-from typing import Any, Union, Tuple
+from timeit import default_timer
 import warnings
+import datetime as dt
+from hashlib import md5
+from time import sleep
+from typing import Any
+from urllib import parse as urlparse
 
-from bravado.client import SwaggerClient
 from bravado import requests_client
+from bravado.client import SwaggerClient
 from bravado.exception import (
-    HTTPBadGateway, HTTPGatewayTimeout, HTTPServiceUnavailable
+    HTTPBadGateway, HTTPGatewayTimeout, HTTPServiceUnavailable, HTTPError,
 )
-from bravado_core.response import IncomingResponse
-from bravado.swagger_model import Loader
 from bravado.http_future import HttpFuture
-from bravado_core.spec import Spec, CONFIG_DEFAULTS
+from bravado.swagger_model import Loader
+from bravado_core.response import IncomingResponse
+from bravado_core.spec import CONFIG_DEFAULTS, Spec
 from requests.adapters import HTTPAdapter
 
 from django.core.cache import cache
 
+from . import __title__, __url__, __version__, app_settings
 from .errors import TokenExpiredError
-from . import app_settings, __version__, __title__, __url__
-
+from .signals import esi_request_statistics
 
 logger = logging.getLogger(__name__)
 
@@ -69,13 +70,15 @@ class CachingHttpFuture(HttpFuture):
             seconds until "Expires" time
         """
         try:
-            expires_dt = datetime.strptime(str(expires), '%a, %d %b %Y %H:%M:%S %Z')
-            delta = expires_dt - datetime.utcnow()
+            expires_dt = dt.datetime.strptime(str(expires), '%a, %d %b %Y %H:%M:%S %Z')
+            if expires_dt.tzinfo is None:
+                expires_dt = expires_dt.replace(tzinfo=dt.timezone.utc)
+            delta = expires_dt - dt.datetime.now(dt.timezone.utc)
             return delta.total_seconds()
         except ValueError:
             return 0
 
-    def results(self, **kwargs) -> Union[Any, Tuple[Any, IncomingResponse]]:
+    def results(self, **kwargs) -> Any | tuple[Any, IncomingResponse]:
         """Executes the request and returns the response from ESI for the current
         route. Response will include all pages if there are more available.
 
@@ -143,7 +146,20 @@ class CachingHttpFuture(HttpFuture):
             for language in my_languages
         }
 
-    def result(self, **kwargs) -> Union[Any, Tuple[Any, IncomingResponse]]:
+    def _send_signal(self, status_code: int, headers: dict = {}, latency: float = 0) -> None:
+        """
+            Dispatch the esi request statistics signal
+        """
+        esi_request_statistics.send(
+            sender=self.__class__,
+            operation=self.operation.path_name,
+            status_code=status_code,
+            headers=headers,
+            latency=latency,
+            bucket=""
+        )
+
+    def result(self, **kwargs) -> Any | tuple[Any, IncomingResponse]:
         """Executes the request and returns the response from ESI. Response will
         include the requested / first page only if there are more pages available.
 
@@ -190,6 +206,9 @@ class CachingHttpFuture(HttpFuture):
                 )
 
             if cached:
+                self._send_signal(
+                    status_code=0
+                )
                 result, response = cached
                 expiry = self._time_to_expiry(str(response.headers.get('Expires')))
                 if expiry < 0:
@@ -222,7 +241,7 @@ class CachingHttpFuture(HttpFuture):
 
         return super().result(**kwargs)
 
-    def _result_with_retries(self, **kwargs) -> Tuple[Any, IncomingResponse]:
+    def _result_with_retries(self, **kwargs) -> tuple[Any, IncomingResponse]:
         """Execute request and retry on certain HTTP errors.
 
         ``kwargs`` are passed through to super().result()
@@ -244,6 +263,7 @@ class CachingHttpFuture(HttpFuture):
 
         retries = 0
         while retries <= max_retries:
+            _t = default_timer()
             try:
                 if app_settings.ESI_INFO_LOGGING_ENABLED:
                     params = self.future.request.params
@@ -268,6 +288,11 @@ class CachingHttpFuture(HttpFuture):
                     logger.debug('ESI response content: %s', response.text)
                 break
             except (HTTPBadGateway, HTTPGatewayTimeout, HTTPServiceUnavailable) as ex:
+                self._send_signal(
+                    status_code=ex.status_code,
+                    headers=ex.response.headers,
+                    latency=default_timer() - _t
+                )
                 if retries < max_retries:
                     retries += 1
                     logger.warning(
@@ -284,7 +309,23 @@ class CachingHttpFuture(HttpFuture):
                     sleep(wait_secs)
                 else:
                     raise ex
+            except HTTPError as ex:
+                """
+                    Throw any other error into the signal
+                    then just re-raise
+                """
+                self._send_signal(
+                    status_code=ex.status_code,
+                    headers=ex.response.headers,
+                    latency=default_timer() - _t
+                )
+                raise ex
 
+        self._send_signal(
+            status_code=response.status_code,
+            headers=response.headers,
+            latency=default_timer() - _t
+        )
         # restore original value
         self.request_config.also_return_response = _also_return_response
         return result, response
@@ -483,19 +524,26 @@ def esi_client_factory(
 
     client = RequestsClientPlus()
 
+    from esi.helpers import pascal_case_string
+    sanitized_appname = pascal_case_string(__title__)
+
     if app_info_text:
         # app_info_text (email@example) Django-ESI/1.2.3 (+https://gitlab.com/allianceauth/django-esi)
         # Deprecated
-        user_agent = f"{app_info_text} ({app_settings.ESI_USER_CONTACT_EMAIL}) {__title__}/{__version__} (+{__url__})"
+        user_agent = f"{app_info_text} ({app_settings.ESI_USER_CONTACT_EMAIL}) {sanitized_appname}/{__version__} (+{__url__})"
     elif ua_appname is None or ua_version is None:
         # Django-ESI/1.2.3 () (email@example; +https://gitlab.com/allianceauth/django-esi)
         # Deprecated
-        user_agent = f"{__title__}/{__version__} ({app_settings.ESI_USER_CONTACT_EMAIL}; +{__url__})"
+        user_agent = f"{sanitized_appname}/{__version__} ({app_settings.ESI_USER_CONTACT_EMAIL}; +{__url__})"
     else:
         # AppName/1.2.3 (email@example.com) Django-ESI/1.2.3 (+https://gitlab.com/allianceauth/django-esi)
         # or AppName/1.2.3 (email@example.com; +https://gitlab.com/) Django-ESI/1.2.3 (+https://gitlab.com/allianceauth/django-esi) (+https://gitlab.com/allianceauth/django-esi)
         # Preferred
-        user_agent = f"{ua_appname}/{ua_version} ({app_settings.ESI_USER_CONTACT_EMAIL}{f'; +{ua_url})' if ua_url else ')'} {__title__}/{__version__} (+{__url__})"
+
+        # Enforce PascalCase for `ua_appname` and strip whitespace
+        sanitized_ua_appname = pascal_case_string(ua_appname)
+
+        user_agent = f"{sanitized_ua_appname}/{ua_version} ({app_settings.ESI_USER_CONTACT_EMAIL}{f'; +{ua_url})' if ua_url else ')'} {sanitized_appname}/{__version__} (+{__url__})"
 
     client.user_agent = user_agent
 

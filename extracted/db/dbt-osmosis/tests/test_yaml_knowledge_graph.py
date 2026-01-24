@@ -1,30 +1,27 @@
 # pyright: reportPrivateUsage=false
 import typing as t
 
-import pytest
-
 from dbt_osmosis.core.osmosis import (
-    DbtConfiguration,
     YamlRefactorContext,
-    YamlRefactorSettings,
     _build_column_knowledge_graph,
-    create_dbt_project_context,
 )
 
 
-@pytest.fixture(scope="module")
-def yaml_context() -> YamlRefactorContext:
-    c = DbtConfiguration(project_dir="demo_duckdb", profiles_dir="demo_duckdb")
-    c.vars = {"dbt-osmosis": {}}
-    project = create_dbt_project_context(c)
-    context = YamlRefactorContext(
-        project, settings=YamlRefactorSettings(add_progenitor_to_meta=True, dry_run=True)
-    )
-    return context
+def _filter_config_field(d: dict[str, t.Any]) -> dict[str, t.Any]:
+    """Filter out the 'config' and 'doc_blocks' fields from column dicts.
+
+    Newer versions of dbt-core (1.9+) include 'config' in to_dict() output,
+    which contains redundant 'meta' and 'tags' that duplicate top-level fields.
+    The 'doc_blocks' field is also added but not relevant for these tests.
+    """
+    return {k: v for k, v in d.items() if k not in ("config", "doc_blocks")}
 
 
 class TestDbtYamlManager:
     def test_get_prior_knowledge(self, yaml_context: YamlRefactorContext):
+        # Configure settings for this test
+        yaml_context.settings.add_progenitor_to_meta = True
+
         # Progenitor gives us an idea of where the inherited traits will come from
         knowledge: dict[str, t.Any] = {
             "customer_id": {
@@ -82,10 +79,9 @@ class TestDbtYamlManager:
                 "constraints": [],
             },
         }
-        assert (
-            _build_column_knowledge_graph(
-                yaml_context,
-                yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"],
-            )
-            == knowledge
+        actual = _build_column_knowledge_graph(
+            yaml_context,
+            yaml_context.project.manifest.nodes["model.jaffle_shop_duckdb.customers"],
         )
+        # Filter out 'config' field for comparison (dbt-core 1.9+ includes it)
+        assert {k: _filter_config_field(v) for k, v in actual.items()} == knowledge

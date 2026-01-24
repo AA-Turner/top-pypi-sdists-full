@@ -59,11 +59,24 @@ def resolve_config_from_remote(remote_url: str, auth_token: str) -> Dict[str, st
         response.raise_for_status()
         data = response.json()
         return data["config"]
-    except HTTPError:
-        raise OuterboundsConfigException(
-            "Error fetching resolving configuration. Make sure you have run \
-                                `outerbounds configure` with the correct value"
-        )
+    except HTTPError as e:
+        if e.response.status_code >= 500:
+            raise OuterboundsConfigException(
+                "Error resolving outerbounds configuration [status:%s]. Please reach out to  "
+                "the outerbounds support team to help resolve this issue."
+                % e.response.status_code
+            )
+        elif e.response.status_code == 403:
+            raise OuterboundsConfigException(
+                "Outerbounds token validity expired [status:%s]. Please re-run the `outerbounds configure` "
+                "command with a new magic string from the UI." % e.response.status_code
+            )
+        else:
+            raise OuterboundsConfigException(
+                "Failed to fetch the outerbounds configuration string [status:%s]. Please reach out to  "
+                "the outerbounds support team to help resolve this issue."
+                % e.response.status_code
+            )
 
 
 def init_config() -> Dict[str, str]:
@@ -87,8 +100,8 @@ def init_config() -> Dict[str, str]:
         remote_config = json.loads(config_path.read_text())
     except ValueError:
         raise OuterboundsConfigException(
-            "Error decoding your metaflow config. Please run the `outerbounds configure` \
-                                 command with the string provided in the Outerbounds dashboard"
+            "Error decoding your metaflow config. Please re-run the `outerbounds configure` "
+            "command with a new magic string from the UI."
         )
 
     perimeter_config_url = get_perimeter_config_url_if_set_in_ob_config()

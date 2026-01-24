@@ -30,7 +30,7 @@ class CustomFieldNumberTypeDto(CustomFieldDtoType):
     """ # noqa: E501
     number_value: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="numberValue")
     field_type: Optional[CustomFieldType] = Field(default=None, alias="fieldType")
-    __properties: ClassVar[List[str]] = ["FieldType", "fieldType"]
+    __properties: ClassVar[List[str]] = ["FieldType", "fieldType", "numberValue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,7 +86,8 @@ class CustomFieldNumberTypeDto(CustomFieldDtoType):
 
         _obj = cls.model_validate({
             "FieldType": obj.get("FieldType"),
-            "fieldType": obj.get("fieldType")
+            "fieldType": obj.get("fieldType"),
+            "numberValue": obj.get("numberValue")
         })
         return _obj
 

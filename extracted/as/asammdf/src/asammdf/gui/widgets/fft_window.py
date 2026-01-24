@@ -1,6 +1,5 @@
 import numpy as np
 from PySide6 import QtCore, QtWidgets
-import scipy.signal as scipy_signal
 
 from ..ui.fft_window import Ui_FFTWindow
 from .plot import Plot, PlotSignal, Signal
@@ -12,7 +11,7 @@ class FFTWindow(Ui_FFTWindow, QtWidgets.QMainWindow):
         self.setupUi(self)
 
         self._settings = QtCore.QSettings()
-        self.with_dots = self._settings.value("dots", False, type=bool)
+        self.with_dots = self._settings.value("plot/dots", False, type=bool)
 
         self.signal = signal
 
@@ -37,6 +36,8 @@ class FFTWindow(Ui_FFTWindow, QtWidgets.QMainWindow):
         self.update(initial=True)
 
     def update(self, *args, initial=False):
+        import scipy.signal as scipy_signal
+        
         xrange, yrange = self.fft_plot.plot.viewbox.viewRange()
 
         if self.signal_plot.plot.region:

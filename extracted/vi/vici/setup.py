@@ -5,7 +5,7 @@ with open('README.rst') as file:
 
 setup(
     name="vici",
-    version="6.0.1",
+    version="6.0.3",
     description="Native Python interface for strongSwan's VICI protocol",
     long_description=long_description,
     author="strongSwan Project",
@@ -18,7 +18,6 @@ setup(
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",

@@ -8,6 +8,7 @@ have named this language textX ;)
 """
 import codecs
 import re
+from typing import Dict
 
 from arpeggio import (
     EOF,
@@ -18,6 +19,7 @@ from arpeggio import (
     OneOrMore,
     Optional,
     OrderedChoice,
+    Parser,
     ParserPython,
     ParsingExpression,
     RegExMatch,
@@ -997,11 +999,7 @@ class TextXVisitor(RRELVisitor):
             if "eolterm" in modifiers:
                 assignment_rule.eolterm = True
 
-        if target_cls:
-            attr_type = target_cls
-        else:
-            # Use STRING as default attr class
-            attr_type = base_rule_name if base_rule_name else "STRING"
+        attr_type = target_cls or (base_rule_name if base_rule_name else "STRING")
         if not cls_attr.cls:
             cls_attr.cls = ClassCrossRef(cls_name=attr_type, position=node.position)
         else:
@@ -1087,7 +1085,7 @@ class TextXVisitor(RRELVisitor):
 
 
 # parser object cache. To speed up parser initialization (e.g. during imports)
-textX_parsers = {}
+textX_parsers: Dict[bool, Parser] = {}
 
 
 def language_from_str(language_def, metamodel, file_name):

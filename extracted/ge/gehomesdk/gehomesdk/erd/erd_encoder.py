@@ -1,8 +1,6 @@
 import logging
 from typing import Any
 
-from ..exception import GeUnsupportedOperationError
-
 from .erd_configuration import ErdConfigurationEntry, _configuration
 from .erd_codes import ErdCode, ErdCodeType
 from .erd_code_class import ErdCodeClass
@@ -14,7 +12,7 @@ _LOGGER = logging.getLogger(__name__)
 class ErdEncoder:
     def __init__(self) -> None:
         super().__init__()
-        self._registry = dict((k.erd_code, k) for k in _configuration)
+        self._registry: dict[ErdCodeType, ErdConfigurationEntry] = dict((k.erd_code, k) for k in _configuration)
 
     def translate_code(self, erd_code: ErdCodeType) -> ErdCodeType:
         """
@@ -58,6 +56,7 @@ class ErdEncoder:
         try:
             return self._registry[erd_code].erd_decode(erd_value)
         except KeyError:
+            _LOGGER.debug("Unknown ERD Code '%s' and value '%s'",erd_code, erd_value)
             return erd_decode_bytes(erd_value)
         except ValueError:
             _LOGGER.error(f'Got ValueError {erd_code} - {erd_value}')
@@ -138,16 +137,3 @@ class ErdEncoder:
         except KeyError:
             return False
 
-    def can_boolify(self, erd_code: ErdCodeType) -> bool:
-        """
-        Indicates whether an ERD Code can boolified.  If the code
-        is not registered, defaults to false
-        """
-
-        erd_code = self.translate_code(erd_code)
-
-        try:
-            return self._registry[erd_code].can_boolify
-        except KeyError:
-            return False
-        

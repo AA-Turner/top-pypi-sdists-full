@@ -3,7 +3,7 @@ Type annotations for backup service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_backup/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -27,6 +28,7 @@ from .literals import (
     BackupVaultEventType,
     CopyJobStateType,
     CopyJobStatusType,
+    EncryptionKeyTypeType,
     IndexStatusType,
     IndexType,
     LegalHoldStatusType,
@@ -39,17 +41,18 @@ from .literals import (
     RestoreTestingRecoveryPointSelectionAlgorithmType,
     RestoreTestingRecoveryPointTypeType,
     RestoreValidationStatusType,
+    RuleExecutionTypeType,
+    ScanJobStateType,
+    ScanJobStatusType,
+    ScanModeType,
+    ScanResourceTypeType,
+    ScanResultStatusType,
+    ScanStateType,
     StorageClassType,
     VaultStateType,
     VaultTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -59,6 +62,7 @@ __all__ = (
     "AdvancedBackupSettingOutputTypeDef",
     "AdvancedBackupSettingTypeDef",
     "AdvancedBackupSettingUnionTypeDef",
+    "AggregatedScanResultTypeDef",
     "AssociateBackupVaultMpaApprovalTeamInputTypeDef",
     "BackupJobSummaryTypeDef",
     "BackupJobTypeDef",
@@ -106,6 +110,8 @@ __all__ = (
     "CreateRestoreTestingPlanOutputTypeDef",
     "CreateRestoreTestingSelectionInputTypeDef",
     "CreateRestoreTestingSelectionOutputTypeDef",
+    "CreateTieringConfigurationInputTypeDef",
+    "CreateTieringConfigurationOutputTypeDef",
     "DateRangeOutputTypeDef",
     "DateRangeTypeDef",
     "DeleteBackupPlanInputTypeDef",
@@ -120,6 +126,7 @@ __all__ = (
     "DeleteReportPlanInputTypeDef",
     "DeleteRestoreTestingPlanInputTypeDef",
     "DeleteRestoreTestingSelectionInputTypeDef",
+    "DeleteTieringConfigurationInputTypeDef",
     "DescribeBackupJobInputTypeDef",
     "DescribeBackupJobOutputTypeDef",
     "DescribeBackupVaultInputTypeDef",
@@ -140,6 +147,8 @@ __all__ = (
     "DescribeReportPlanOutputTypeDef",
     "DescribeRestoreJobInputTypeDef",
     "DescribeRestoreJobOutputTypeDef",
+    "DescribeScanJobInputTypeDef",
+    "DescribeScanJobOutputTypeDef",
     "DisassociateBackupVaultMpaApprovalTeamInputTypeDef",
     "DisassociateRecoveryPointFromParentInputTypeDef",
     "DisassociateRecoveryPointInputTypeDef",
@@ -177,6 +186,8 @@ __all__ = (
     "GetRestoreTestingSelectionInputTypeDef",
     "GetRestoreTestingSelectionOutputTypeDef",
     "GetSupportedResourceTypesOutputTypeDef",
+    "GetTieringConfigurationInputTypeDef",
+    "GetTieringConfigurationOutputTypeDef",
     "IndexActionOutputTypeDef",
     "IndexActionTypeDef",
     "IndexActionUnionTypeDef",
@@ -255,8 +266,17 @@ __all__ = (
     "ListRestoreTestingSelectionsInputPaginateTypeDef",
     "ListRestoreTestingSelectionsInputTypeDef",
     "ListRestoreTestingSelectionsOutputTypeDef",
+    "ListScanJobSummariesInputPaginateTypeDef",
+    "ListScanJobSummariesInputTypeDef",
+    "ListScanJobSummariesOutputTypeDef",
+    "ListScanJobsInputPaginateTypeDef",
+    "ListScanJobsInputTypeDef",
+    "ListScanJobsOutputTypeDef",
     "ListTagsInputTypeDef",
     "ListTagsOutputTypeDef",
+    "ListTieringConfigurationsInputPaginateTypeDef",
+    "ListTieringConfigurationsInputTypeDef",
+    "ListTieringConfigurationsOutputTypeDef",
     "PaginatorConfigTypeDef",
     "ProtectedResourceConditionsOutputTypeDef",
     "ProtectedResourceConditionsTypeDef",
@@ -282,6 +302,9 @@ __all__ = (
     "ReportSettingOutputTypeDef",
     "ReportSettingTypeDef",
     "ReportSettingUnionTypeDef",
+    "ResourceSelectionOutputTypeDef",
+    "ResourceSelectionTypeDef",
+    "ResourceSelectionUnionTypeDef",
     "ResponseMetadataTypeDef",
     "RestoreAccessBackupVaultListMemberTypeDef",
     "RestoreJobCreatorTypeDef",
@@ -299,6 +322,16 @@ __all__ = (
     "RestoreTestingSelectionForListTypeDef",
     "RestoreTestingSelectionForUpdateTypeDef",
     "RevokeRestoreAccessBackupVaultInputTypeDef",
+    "ScanActionTypeDef",
+    "ScanJobCreatorTypeDef",
+    "ScanJobSummaryTypeDef",
+    "ScanJobTypeDef",
+    "ScanResultInfoTypeDef",
+    "ScanResultTypeDef",
+    "ScanSettingOutputTypeDef",
+    "ScanSettingTypeDef",
+    "ScanSettingUnionTypeDef",
+    "ScheduledPlanExecutionMemberTypeDef",
     "StartBackupJobInputTypeDef",
     "StartBackupJobOutputTypeDef",
     "StartCopyJobInputTypeDef",
@@ -307,8 +340,14 @@ __all__ = (
     "StartReportJobOutputTypeDef",
     "StartRestoreJobInputTypeDef",
     "StartRestoreJobOutputTypeDef",
+    "StartScanJobInputTypeDef",
+    "StartScanJobOutputTypeDef",
     "StopBackupJobInputTypeDef",
     "TagResourceInputTypeDef",
+    "TieringConfigurationInputForCreateTypeDef",
+    "TieringConfigurationInputForUpdateTypeDef",
+    "TieringConfigurationTypeDef",
+    "TieringConfigurationsListMemberTypeDef",
     "TimestampTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateBackupPlanInputTypeDef",
@@ -327,15 +366,22 @@ __all__ = (
     "UpdateRestoreTestingPlanOutputTypeDef",
     "UpdateRestoreTestingSelectionInputTypeDef",
     "UpdateRestoreTestingSelectionOutputTypeDef",
+    "UpdateTieringConfigurationInputTypeDef",
+    "UpdateTieringConfigurationOutputTypeDef",
 )
 
 class AdvancedBackupSettingOutputTypeDef(TypedDict):
     ResourceType: NotRequired[str]
-    BackupOptions: NotRequired[Dict[str, str]]
+    BackupOptions: NotRequired[dict[str, str]]
 
 class AdvancedBackupSettingTypeDef(TypedDict):
     ResourceType: NotRequired[str]
     BackupOptions: NotRequired[Mapping[str, str]]
+
+class AggregatedScanResultTypeDef(TypedDict):
+    FailedScan: NotRequired[bool]
+    Findings: NotRequired[list[Literal["MALWARE"]]]
+    LastComputed: NotRequired[datetime]
 
 class AssociateBackupVaultMpaApprovalTeamInputTypeDef(TypedDict):
     BackupVaultName: str
@@ -352,23 +398,37 @@ class BackupJobSummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
 
+class LifecycleTypeDef(TypedDict):
+    MoveToColdStorageAfterDays: NotRequired[int]
+    DeleteAfterDays: NotRequired[int]
+    OptInToArchiveForSupportedResources: NotRequired[bool]
+    DeleteAfterEvent: NotRequired[Literal["DELETE_AFTER_COPY"]]
+
 class RecoveryPointCreatorTypeDef(TypedDict):
     BackupPlanId: NotRequired[str]
     BackupPlanArn: NotRequired[str]
+    BackupPlanName: NotRequired[str]
     BackupPlanVersion: NotRequired[str]
     BackupRuleId: NotRequired[str]
+    BackupRuleName: NotRequired[str]
+    BackupRuleCron: NotRequired[str]
+    BackupRuleTimezone: NotRequired[str]
 
 class BackupPlanTemplatesListMemberTypeDef(TypedDict):
     BackupPlanTemplateId: NotRequired[str]
     BackupPlanTemplateName: NotRequired[str]
 
-class LifecycleTypeDef(TypedDict):
-    MoveToColdStorageAfterDays: NotRequired[int]
-    DeleteAfterDays: NotRequired[int]
-    OptInToArchiveForSupportedResources: NotRequired[bool]
+class ScanSettingOutputTypeDef(TypedDict):
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ResourceTypes: NotRequired[list[str]]
+    ScannerRoleArn: NotRequired[str]
+
+class ScanActionTypeDef(TypedDict):
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ScanMode: NotRequired[ScanModeType]
 
 class IndexActionOutputTypeDef(TypedDict):
-    ResourceTypes: NotRequired[List[str]]
+    ResourceTypes: NotRequired[list[str]]
 
 class ConditionTypeDef(TypedDict):
     ConditionType: Literal["STRINGEQUALS"]
@@ -396,6 +456,7 @@ class BackupVaultListMemberTypeDef(TypedDict):
     MinRetentionDays: NotRequired[int]
     MaxRetentionDays: NotRequired[int]
     LockDate: NotRequired[datetime]
+    EncryptionKeyType: NotRequired[EncryptionKeyTypeType]
 
 class CalculatedLifecycleTypeDef(TypedDict):
     MoveToColdStorageAt: NotRequired[datetime]
@@ -415,9 +476,9 @@ class ControlInputParameterTypeDef(TypedDict):
     ParameterValue: NotRequired[str]
 
 class ControlScopeOutputTypeDef(TypedDict):
-    ComplianceResourceIds: NotRequired[List[str]]
-    ComplianceResourceTypes: NotRequired[List[str]]
-    Tags: NotRequired[Dict[str, str]]
+    ComplianceResourceIds: NotRequired[list[str]]
+    ComplianceResourceTypes: NotRequired[list[str]]
+    Tags: NotRequired[dict[str, str]]
 
 class ControlScopeTypeDef(TypedDict):
     ComplianceResourceIds: NotRequired[Sequence[str]]
@@ -437,7 +498,7 @@ class CopyJobSummaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -453,6 +514,7 @@ class CreateLogicallyAirGappedBackupVaultInputTypeDef(TypedDict):
     MaxRetentionDays: int
     BackupVaultTags: NotRequired[Mapping[str, str]]
     CreatorRequestId: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
 
 class CreateRestoreAccessBackupVaultInputTypeDef(TypedDict):
     SourceBackupVaultArn: str
@@ -503,6 +565,9 @@ class DeleteRestoreTestingSelectionInputTypeDef(TypedDict):
     RestoreTestingPlanName: str
     RestoreTestingSelectionName: str
 
+class DeleteTieringConfigurationInputTypeDef(TypedDict):
+    TieringConfigurationName: str
+
 class DescribeBackupJobInputTypeDef(TypedDict):
     BackupJobId: str
 
@@ -531,6 +596,12 @@ class DescribeRecoveryPointInputTypeDef(TypedDict):
     RecoveryPointArn: str
     BackupVaultAccountId: NotRequired[str]
 
+class ScanResultTypeDef(TypedDict):
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ScanJobState: NotRequired[ScanJobStateType]
+    LastScanTimestamp: NotRequired[datetime]
+    Findings: NotRequired[list[Literal["MALWARE"]]]
+
 class DescribeReportJobInputTypeDef(TypedDict):
     ReportJobId: str
 
@@ -542,6 +613,18 @@ class DescribeRestoreJobInputTypeDef(TypedDict):
 
 class RestoreJobCreatorTypeDef(TypedDict):
     RestoreTestingPlanArn: NotRequired[str]
+
+class DescribeScanJobInputTypeDef(TypedDict):
+    ScanJobId: str
+
+class ScanJobCreatorTypeDef(TypedDict):
+    BackupPlanArn: str
+    BackupPlanId: str
+    BackupPlanVersion: str
+    BackupRuleId: str
+
+class ScanResultInfoTypeDef(TypedDict):
+    ScanResultStatus: ScanResultStatusType
 
 class DisassociateBackupVaultMpaApprovalTeamInputTypeDef(TypedDict):
     BackupVaultName: str
@@ -575,6 +658,12 @@ class GetBackupPlanFromTemplateInputTypeDef(TypedDict):
 class GetBackupPlanInputTypeDef(TypedDict):
     BackupPlanId: str
     VersionId: NotRequired[str]
+    MaxScheduledRunsPreview: NotRequired[int]
+
+class ScheduledPlanExecutionMemberTypeDef(TypedDict):
+    ExecutionTime: NotRequired[datetime]
+    RuleId: NotRequired[str]
+    RuleExecutionType: NotRequired[RuleExecutionTypeType]
 
 class GetBackupSelectionInputTypeDef(TypedDict):
     BackupPlanId: str
@@ -612,6 +701,9 @@ class GetRestoreTestingPlanInputTypeDef(TypedDict):
 class GetRestoreTestingSelectionInputTypeDef(TypedDict):
     RestoreTestingPlanName: str
     RestoreTestingSelectionName: str
+
+class GetTieringConfigurationInputTypeDef(TypedDict):
+    TieringConfigurationName: str
 
 class IndexActionTypeDef(TypedDict):
     ResourceTypes: NotRequired[Sequence[str]]
@@ -738,21 +830,6 @@ class ListRecoveryPointsByResourceInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     ManagedByAWSBackupOnly: NotRequired[bool]
 
-class RecoveryPointByResourceTypeDef(TypedDict):
-    RecoveryPointArn: NotRequired[str]
-    CreationDate: NotRequired[datetime]
-    Status: NotRequired[RecoveryPointStatusType]
-    StatusMessage: NotRequired[str]
-    EncryptionKeyArn: NotRequired[str]
-    BackupSizeBytes: NotRequired[int]
-    BackupVaultName: NotRequired[str]
-    IsParent: NotRequired[bool]
-    ParentRecoveryPointArn: NotRequired[str]
-    ResourceName: NotRequired[str]
-    VaultType: NotRequired[VaultTypeType]
-    IndexStatus: NotRequired[IndexStatusType]
-    IndexStatusMessage: NotRequired[str]
-
 class ListReportPlansInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -806,10 +883,42 @@ class RestoreTestingSelectionForListTypeDef(TypedDict):
     RestoreTestingSelectionName: str
     ValidationWindowHours: NotRequired[int]
 
+class ListScanJobSummariesInputTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    ResourceType: NotRequired[str]
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ScanResultStatus: NotRequired[ScanResultStatusType]
+    State: NotRequired[ScanJobStatusType]
+    AggregationPeriod: NotRequired[AggregationPeriodType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ScanJobSummaryTypeDef(TypedDict):
+    Region: NotRequired[str]
+    AccountId: NotRequired[str]
+    State: NotRequired[ScanJobStatusType]
+    ResourceType: NotRequired[str]
+    Count: NotRequired[int]
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ScanResultStatus: NotRequired[ScanResultStatusType]
+
 class ListTagsInputTypeDef(TypedDict):
     ResourceArn: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListTieringConfigurationsInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class TieringConfigurationsListMemberTypeDef(TypedDict):
+    TieringConfigurationArn: NotRequired[str]
+    TieringConfigurationName: NotRequired[str]
+    BackupVaultName: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
 
 class PutBackupVaultAccessPolicyInputTypeDef(TypedDict):
     BackupVaultName: str
@@ -834,7 +943,7 @@ class PutRestoreValidationResultInputTypeDef(TypedDict):
 class ReportDeliveryChannelOutputTypeDef(TypedDict):
     S3BucketName: str
     S3KeyPrefix: NotRequired[str]
-    Formats: NotRequired[List[str]]
+    Formats: NotRequired[list[str]]
 
 class ReportDeliveryChannelTypeDef(TypedDict):
     S3BucketName: str
@@ -843,15 +952,15 @@ class ReportDeliveryChannelTypeDef(TypedDict):
 
 class ReportDestinationTypeDef(TypedDict):
     S3BucketName: NotRequired[str]
-    S3Keys: NotRequired[List[str]]
+    S3Keys: NotRequired[list[str]]
 
 class ReportSettingOutputTypeDef(TypedDict):
     ReportTemplate: str
-    FrameworkArns: NotRequired[List[str]]
+    FrameworkArns: NotRequired[list[str]]
     NumberOfFrameworks: NotRequired[int]
-    Accounts: NotRequired[List[str]]
-    OrganizationUnits: NotRequired[List[str]]
-    Regions: NotRequired[List[str]]
+    Accounts: NotRequired[list[str]]
+    OrganizationUnits: NotRequired[list[str]]
+    Regions: NotRequired[list[str]]
 
 class ReportSettingTypeDef(TypedDict):
     ReportTemplate: str
@@ -861,11 +970,21 @@ class ReportSettingTypeDef(TypedDict):
     OrganizationUnits: NotRequired[Sequence[str]]
     Regions: NotRequired[Sequence[str]]
 
+class ResourceSelectionOutputTypeDef(TypedDict):
+    Resources: list[str]
+    TieringDownSettingsInDays: int
+    ResourceType: str
+
+class ResourceSelectionTypeDef(TypedDict):
+    Resources: Sequence[str]
+    TieringDownSettingsInDays: int
+    ResourceType: str
+
 class RestoreTestingRecoveryPointSelectionOutputTypeDef(TypedDict):
     Algorithm: NotRequired[RestoreTestingRecoveryPointSelectionAlgorithmType]
-    ExcludeVaults: NotRequired[List[str]]
-    IncludeVaults: NotRequired[List[str]]
-    RecoveryPointTypes: NotRequired[List[RestoreTestingRecoveryPointTypeType]]
+    ExcludeVaults: NotRequired[list[str]]
+    IncludeVaults: NotRequired[list[str]]
+    RecoveryPointTypes: NotRequired[list[RestoreTestingRecoveryPointTypeType]]
     SelectionWindowDays: NotRequired[int]
 
 class RestoreTestingRecoveryPointSelectionTypeDef(TypedDict):
@@ -880,6 +999,11 @@ class RevokeRestoreAccessBackupVaultInputTypeDef(TypedDict):
     RestoreAccessBackupVaultArn: str
     RequesterComment: NotRequired[str]
 
+class ScanSettingTypeDef(TypedDict):
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ResourceTypes: NotRequired[Sequence[str]]
+    ScannerRoleArn: NotRequired[str]
+
 class StartReportJobInputTypeDef(TypedDict):
     ReportPlanName: str
     IdempotencyToken: NotRequired[str]
@@ -891,6 +1015,16 @@ class StartRestoreJobInputTypeDef(TypedDict):
     IdempotencyToken: NotRequired[str]
     ResourceType: NotRequired[str]
     CopySourceTagsToRestoredResource: NotRequired[bool]
+
+class StartScanJobInputTypeDef(TypedDict):
+    BackupVaultName: str
+    IamRoleArn: str
+    MalwareScanner: Literal["GUARDDUTY"]
+    RecoveryPointArn: str
+    ScanMode: ScanModeType
+    ScannerRoleArn: str
+    IdempotencyToken: NotRequired[str]
+    ScanBaseRecoveryPointArn: NotRequired[str]
 
 class StopBackupJobInputTypeDef(TypedDict):
     BackupJobId: str
@@ -925,62 +1059,28 @@ class BackupPlansListMemberTypeDef(TypedDict):
     BackupPlanName: NotRequired[str]
     CreatorRequestId: NotRequired[str]
     LastExecutionDate: NotRequired[datetime]
-    AdvancedBackupSettings: NotRequired[List[AdvancedBackupSettingOutputTypeDef]]
+    AdvancedBackupSettings: NotRequired[list[AdvancedBackupSettingOutputTypeDef]]
 
 AdvancedBackupSettingUnionTypeDef = Union[
     AdvancedBackupSettingTypeDef, AdvancedBackupSettingOutputTypeDef
 ]
 
-class BackupJobTypeDef(TypedDict):
-    AccountId: NotRequired[str]
-    BackupJobId: NotRequired[str]
-    BackupVaultName: NotRequired[str]
-    BackupVaultArn: NotRequired[str]
+class RecoveryPointByResourceTypeDef(TypedDict):
     RecoveryPointArn: NotRequired[str]
-    ResourceArn: NotRequired[str]
     CreationDate: NotRequired[datetime]
-    CompletionDate: NotRequired[datetime]
-    State: NotRequired[BackupJobStateType]
+    Status: NotRequired[RecoveryPointStatusType]
     StatusMessage: NotRequired[str]
-    PercentDone: NotRequired[str]
-    BackupSizeInBytes: NotRequired[int]
-    IamRoleArn: NotRequired[str]
-    CreatedBy: NotRequired[RecoveryPointCreatorTypeDef]
-    ExpectedCompletionDate: NotRequired[datetime]
-    StartBy: NotRequired[datetime]
-    ResourceType: NotRequired[str]
-    BytesTransferred: NotRequired[int]
-    BackupOptions: NotRequired[Dict[str, str]]
-    BackupType: NotRequired[str]
-    ParentJobId: NotRequired[str]
+    EncryptionKeyArn: NotRequired[str]
+    BackupSizeBytes: NotRequired[int]
+    BackupVaultName: NotRequired[str]
     IsParent: NotRequired[bool]
+    ParentRecoveryPointArn: NotRequired[str]
     ResourceName: NotRequired[str]
-    InitiationDate: NotRequired[datetime]
-    MessageCategory: NotRequired[str]
-
-class CopyJobTypeDef(TypedDict):
-    AccountId: NotRequired[str]
-    CopyJobId: NotRequired[str]
-    SourceBackupVaultArn: NotRequired[str]
-    SourceRecoveryPointArn: NotRequired[str]
-    DestinationBackupVaultArn: NotRequired[str]
-    DestinationRecoveryPointArn: NotRequired[str]
-    ResourceArn: NotRequired[str]
-    CreationDate: NotRequired[datetime]
-    CompletionDate: NotRequired[datetime]
-    State: NotRequired[CopyJobStateType]
-    StatusMessage: NotRequired[str]
-    BackupSizeInBytes: NotRequired[int]
-    IamRoleArn: NotRequired[str]
-    CreatedBy: NotRequired[RecoveryPointCreatorTypeDef]
-    ResourceType: NotRequired[str]
-    ParentJobId: NotRequired[str]
-    IsParent: NotRequired[bool]
-    CompositeMemberIdentifier: NotRequired[str]
-    NumberOfChildJobs: NotRequired[int]
-    ChildJobsInState: NotRequired[Dict[CopyJobStateType, int]]
-    ResourceName: NotRequired[str]
-    MessageCategory: NotRequired[str]
+    VaultType: NotRequired[VaultTypeType]
+    IndexStatus: NotRequired[IndexStatusType]
+    IndexStatusMessage: NotRequired[str]
+    EncryptionKeyType: NotRequired[EncryptionKeyTypeType]
+    AggregatedScanResult: NotRequired[AggregatedScanResultTypeDef]
 
 class CopyActionTypeDef(TypedDict):
     DestinationBackupVaultArn: str
@@ -990,6 +1090,7 @@ class StartBackupJobInputTypeDef(TypedDict):
     BackupVaultName: str
     ResourceArn: str
     IamRoleArn: str
+    LogicallyAirGappedBackupVaultArn: NotRequired[str]
     IdempotencyToken: NotRequired[str]
     StartWindowMinutes: NotRequired[int]
     CompleteWindowMinutes: NotRequired[int]
@@ -1010,6 +1111,67 @@ class UpdateRecoveryPointLifecycleInputTypeDef(TypedDict):
     BackupVaultName: str
     RecoveryPointArn: str
     Lifecycle: NotRequired[LifecycleTypeDef]
+
+class BackupJobTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    BackupJobId: NotRequired[str]
+    BackupVaultName: NotRequired[str]
+    BackupVaultArn: NotRequired[str]
+    VaultType: NotRequired[str]
+    VaultLockState: NotRequired[str]
+    RecoveryPointArn: NotRequired[str]
+    RecoveryPointLifecycle: NotRequired[LifecycleTypeDef]
+    EncryptionKeyArn: NotRequired[str]
+    IsEncrypted: NotRequired[bool]
+    ResourceArn: NotRequired[str]
+    CreationDate: NotRequired[datetime]
+    CompletionDate: NotRequired[datetime]
+    State: NotRequired[BackupJobStateType]
+    StatusMessage: NotRequired[str]
+    PercentDone: NotRequired[str]
+    BackupSizeInBytes: NotRequired[int]
+    IamRoleArn: NotRequired[str]
+    CreatedBy: NotRequired[RecoveryPointCreatorTypeDef]
+    ExpectedCompletionDate: NotRequired[datetime]
+    StartBy: NotRequired[datetime]
+    ResourceType: NotRequired[str]
+    BytesTransferred: NotRequired[int]
+    BackupOptions: NotRequired[dict[str, str]]
+    BackupType: NotRequired[str]
+    ParentJobId: NotRequired[str]
+    IsParent: NotRequired[bool]
+    ResourceName: NotRequired[str]
+    InitiationDate: NotRequired[datetime]
+    MessageCategory: NotRequired[str]
+
+class CopyJobTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    CopyJobId: NotRequired[str]
+    SourceBackupVaultArn: NotRequired[str]
+    SourceRecoveryPointArn: NotRequired[str]
+    DestinationBackupVaultArn: NotRequired[str]
+    DestinationVaultType: NotRequired[str]
+    DestinationVaultLockState: NotRequired[str]
+    DestinationRecoveryPointArn: NotRequired[str]
+    DestinationEncryptionKeyArn: NotRequired[str]
+    DestinationRecoveryPointLifecycle: NotRequired[LifecycleTypeDef]
+    ResourceArn: NotRequired[str]
+    CreationDate: NotRequired[datetime]
+    CompletionDate: NotRequired[datetime]
+    State: NotRequired[CopyJobStateType]
+    StatusMessage: NotRequired[str]
+    BackupSizeInBytes: NotRequired[int]
+    IamRoleArn: NotRequired[str]
+    CreatedBy: NotRequired[RecoveryPointCreatorTypeDef]
+    CreatedByBackupJobId: NotRequired[str]
+    ResourceType: NotRequired[str]
+    ParentJobId: NotRequired[str]
+    IsParent: NotRequired[bool]
+    CompositeMemberIdentifier: NotRequired[str]
+    NumberOfChildJobs: NotRequired[int]
+    ChildJobsInState: NotRequired[dict[CopyJobStateType, int]]
+    ResourceName: NotRequired[str]
+    MessageCategory: NotRequired[str]
 
 class RecoveryPointByBackupVaultTypeDef(TypedDict):
     RecoveryPointArn: NotRequired[str]
@@ -1038,12 +1200,14 @@ class RecoveryPointByBackupVaultTypeDef(TypedDict):
     VaultType: NotRequired[VaultTypeType]
     IndexStatus: NotRequired[IndexStatusType]
     IndexStatusMessage: NotRequired[str]
+    EncryptionKeyType: NotRequired[EncryptionKeyTypeType]
+    AggregatedScanResult: NotRequired[AggregatedScanResultTypeDef]
 
 class ConditionsOutputTypeDef(TypedDict):
-    StringEquals: NotRequired[List[ConditionParameterTypeDef]]
-    StringNotEquals: NotRequired[List[ConditionParameterTypeDef]]
-    StringLike: NotRequired[List[ConditionParameterTypeDef]]
-    StringNotLike: NotRequired[List[ConditionParameterTypeDef]]
+    StringEquals: NotRequired[list[ConditionParameterTypeDef]]
+    StringNotEquals: NotRequired[list[ConditionParameterTypeDef]]
+    StringLike: NotRequired[list[ConditionParameterTypeDef]]
+    StringNotLike: NotRequired[list[ConditionParameterTypeDef]]
 
 class ConditionsTypeDef(TypedDict):
     StringEquals: NotRequired[Sequence[ConditionParameterTypeDef]]
@@ -1053,7 +1217,7 @@ class ConditionsTypeDef(TypedDict):
 
 class FrameworkControlOutputTypeDef(TypedDict):
     ControlName: str
-    ControlInputParameters: NotRequired[List[ControlInputParameterTypeDef]]
+    ControlInputParameters: NotRequired[list[ControlInputParameterTypeDef]]
     ControlScope: NotRequired[ControlScopeOutputTypeDef]
 
 ControlScopeUnionTypeDef = Union[ControlScopeTypeDef, ControlScopeOutputTypeDef]
@@ -1063,7 +1227,7 @@ class CreateBackupPlanOutputTypeDef(TypedDict):
     BackupPlanArn: str
     CreationDate: datetime
     VersionId: str
-    AdvancedBackupSettings: List[AdvancedBackupSettingOutputTypeDef]
+    AdvancedBackupSettings: list[AdvancedBackupSettingOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBackupSelectionOutputTypeDef(TypedDict):
@@ -1116,6 +1280,12 @@ class CreateRestoreTestingSelectionOutputTypeDef(TypedDict):
     RestoreTestingSelectionName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateTieringConfigurationOutputTypeDef(TypedDict):
+    TieringConfigurationArn: str
+    TieringConfigurationName: str
+    CreationTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteBackupPlanOutputTypeDef(TypedDict):
     BackupPlanId: str
     BackupPlanArn: str
@@ -1127,8 +1297,13 @@ class DescribeBackupJobOutputTypeDef(TypedDict):
     AccountId: str
     BackupJobId: str
     BackupVaultName: str
+    RecoveryPointLifecycle: LifecycleTypeDef
     BackupVaultArn: str
+    VaultType: str
+    VaultLockState: str
     RecoveryPointArn: str
+    EncryptionKeyArn: str
+    IsEncrypted: bool
     ResourceArn: str
     CreationDate: datetime
     CompletionDate: datetime
@@ -1142,19 +1317,19 @@ class DescribeBackupJobOutputTypeDef(TypedDict):
     BytesTransferred: int
     ExpectedCompletionDate: datetime
     StartBy: datetime
-    BackupOptions: Dict[str, str]
+    BackupOptions: dict[str, str]
     BackupType: str
     ParentJobId: str
     IsParent: bool
     NumberOfChildJobs: int
-    ChildJobsInState: Dict[BackupJobStateType, int]
+    ChildJobsInState: dict[BackupJobStateType, int]
     ResourceName: str
     InitiationDate: datetime
     MessageCategory: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGlobalSettingsOutputTypeDef(TypedDict):
-    GlobalSettings: Dict[str, str]
+    GlobalSettings: dict[str, str]
     LastUpdateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1170,39 +1345,9 @@ class DescribeProtectedResourceOutputTypeDef(TypedDict):
     LatestRestoreRecoveryPointCreationDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DescribeRecoveryPointOutputTypeDef(TypedDict):
-    RecoveryPointArn: str
-    BackupVaultName: str
-    BackupVaultArn: str
-    SourceBackupVaultArn: str
-    ResourceArn: str
-    ResourceType: str
-    CreatedBy: RecoveryPointCreatorTypeDef
-    IamRoleArn: str
-    Status: RecoveryPointStatusType
-    StatusMessage: str
-    CreationDate: datetime
-    InitiationDate: datetime
-    CompletionDate: datetime
-    BackupSizeInBytes: int
-    CalculatedLifecycle: CalculatedLifecycleTypeDef
-    Lifecycle: LifecycleTypeDef
-    EncryptionKeyArn: str
-    IsEncrypted: bool
-    StorageClass: StorageClassType
-    LastRestoreTime: datetime
-    ParentRecoveryPointArn: str
-    CompositeMemberIdentifier: str
-    IsParent: bool
-    ResourceName: str
-    VaultType: VaultTypeType
-    IndexStatus: IndexStatusType
-    IndexStatusMessage: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class DescribeRegionSettingsOutputTypeDef(TypedDict):
-    ResourceTypeOptInPreference: Dict[str, bool]
-    ResourceTypeManagementPreference: Dict[str, bool]
+    ResourceTypeOptInPreference: dict[str, bool]
+    ResourceTypeManagementPreference: dict[str, bool]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -1222,7 +1367,7 @@ class GetBackupVaultNotificationsOutputTypeDef(TypedDict):
     BackupVaultName: str
     BackupVaultArn: str
     SNSTopicArn: str
-    BackupVaultEvents: List[BackupVaultEventType]
+    BackupVaultEvents: list[BackupVaultEventType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRecoveryPointIndexDetailsOutputTypeDef(TypedDict):
@@ -1240,52 +1385,52 @@ class GetRecoveryPointIndexDetailsOutputTypeDef(TypedDict):
 class GetRecoveryPointRestoreMetadataOutputTypeDef(TypedDict):
     BackupVaultArn: str
     RecoveryPointArn: str
-    RestoreMetadata: Dict[str, str]
+    RestoreMetadata: dict[str, str]
     ResourceType: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRestoreJobMetadataOutputTypeDef(TypedDict):
     RestoreJobId: str
-    Metadata: Dict[str, str]
+    Metadata: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetRestoreTestingInferredMetadataOutputTypeDef(TypedDict):
-    InferredMetadata: Dict[str, str]
+    InferredMetadata: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSupportedResourceTypesOutputTypeDef(TypedDict):
-    ResourceTypes: List[str]
+    ResourceTypes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBackupJobSummariesOutputTypeDef(TypedDict):
-    BackupJobSummaries: List[BackupJobSummaryTypeDef]
+    BackupJobSummaries: list[BackupJobSummaryTypeDef]
     AggregationPeriod: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListBackupPlanTemplatesOutputTypeDef(TypedDict):
-    BackupPlanTemplatesList: List[BackupPlanTemplatesListMemberTypeDef]
+    BackupPlanTemplatesList: list[BackupPlanTemplatesListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListBackupSelectionsOutputTypeDef(TypedDict):
-    BackupSelectionsList: List[BackupSelectionsListMemberTypeDef]
+    BackupSelectionsList: list[BackupSelectionsListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListBackupVaultsOutputTypeDef(TypedDict):
-    BackupVaultList: List[BackupVaultListMemberTypeDef]
+    BackupVaultList: list[BackupVaultListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCopyJobSummariesOutputTypeDef(TypedDict):
-    CopyJobSummaries: List[CopyJobSummaryTypeDef]
+    CopyJobSummaries: list[CopyJobSummaryTypeDef]
     AggregationPeriod: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1310,12 +1455,18 @@ class StartRestoreJobOutputTypeDef(TypedDict):
     RestoreJobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartScanJobOutputTypeDef(TypedDict):
+    CreationDate: datetime
+    ScanJobId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateBackupPlanOutputTypeDef(TypedDict):
     BackupPlanId: str
     BackupPlanArn: str
     CreationDate: datetime
     VersionId: str
-    AdvancedBackupSettings: List[AdvancedBackupSettingOutputTypeDef]
+    AdvancedBackupSettings: list[AdvancedBackupSettingOutputTypeDef]
+    ScanSettings: list[ScanSettingOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateFrameworkOutputTypeDef(TypedDict):
@@ -1359,9 +1510,16 @@ class UpdateRestoreTestingSelectionOutputTypeDef(TypedDict):
     UpdateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateTieringConfigurationOutputTypeDef(TypedDict):
+    TieringConfigurationArn: str
+    TieringConfigurationName: str
+    CreationTime: datetime
+    LastUpdatedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class RecoveryPointSelectionOutputTypeDef(TypedDict):
-    VaultNames: NotRequired[List[str]]
-    ResourceIdentifiers: NotRequired[List[str]]
+    VaultNames: NotRequired[list[str]]
+    ResourceIdentifiers: NotRequired[list[str]]
     DateRange: NotRequired[DateRangeOutputTypeDef]
 
 class DateRangeTypeDef(TypedDict):
@@ -1397,6 +1555,7 @@ class ListCopyJobsInputTypeDef(TypedDict):
     ByCompleteAfter: NotRequired[TimestampTypeDef]
     ByParentJobId: NotRequired[str]
     ByMessageCategory: NotRequired[str]
+    BySourceRecoveryPointArn: NotRequired[str]
 
 class ListIndexedRecoveryPointsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -1446,6 +1605,21 @@ class ListRestoreJobsInputTypeDef(TypedDict):
     ByCompleteBefore: NotRequired[TimestampTypeDef]
     ByCompleteAfter: NotRequired[TimestampTypeDef]
     ByRestoreTestingPlanArn: NotRequired[str]
+    ByParentJobId: NotRequired[str]
+
+class ListScanJobsInputTypeDef(TypedDict):
+    ByAccountId: NotRequired[str]
+    ByBackupVaultName: NotRequired[str]
+    ByCompleteAfter: NotRequired[TimestampTypeDef]
+    ByCompleteBefore: NotRequired[TimestampTypeDef]
+    ByMalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ByRecoveryPointArn: NotRequired[str]
+    ByResourceArn: NotRequired[str]
+    ByResourceType: NotRequired[ScanResourceTypeType]
+    ByScanResultStatus: NotRequired[ScanResultStatusType]
+    ByState: NotRequired[ScanStateType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class DescribeBackupVaultOutputTypeDef(TypedDict):
     BackupVaultName: str
@@ -1464,12 +1638,47 @@ class DescribeBackupVaultOutputTypeDef(TypedDict):
     MpaApprovalTeamArn: str
     MpaSessionArn: str
     LatestMpaApprovalTeamUpdate: LatestMpaApprovalTeamUpdateTypeDef
+    EncryptionKeyType: EncryptionKeyTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeRecoveryPointOutputTypeDef(TypedDict):
+    RecoveryPointArn: str
+    BackupVaultName: str
+    BackupVaultArn: str
+    SourceBackupVaultArn: str
+    ResourceArn: str
+    ResourceType: str
+    CreatedBy: RecoveryPointCreatorTypeDef
+    IamRoleArn: str
+    Status: RecoveryPointStatusType
+    StatusMessage: str
+    CreationDate: datetime
+    InitiationDate: datetime
+    CompletionDate: datetime
+    BackupSizeInBytes: int
+    CalculatedLifecycle: CalculatedLifecycleTypeDef
+    Lifecycle: LifecycleTypeDef
+    EncryptionKeyArn: str
+    IsEncrypted: bool
+    StorageClass: StorageClassType
+    LastRestoreTime: datetime
+    ParentRecoveryPointArn: str
+    CompositeMemberIdentifier: str
+    IsParent: bool
+    ResourceName: str
+    VaultType: VaultTypeType
+    IndexStatus: IndexStatusType
+    IndexStatusMessage: str
+    EncryptionKeyType: EncryptionKeyTypeType
+    ScanResults: list[ScanResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeRestoreJobOutputTypeDef(TypedDict):
     AccountId: str
     RestoreJobId: str
     RecoveryPointArn: str
+    SourceResourceArn: str
+    BackupVaultArn: str
     CreationDate: datetime
     CompletionDate: datetime
     Status: RestoreJobStatusType
@@ -1486,12 +1695,16 @@ class DescribeRestoreJobOutputTypeDef(TypedDict):
     ValidationStatusMessage: str
     DeletionStatus: RestoreDeletionStatusType
     DeletionStatusMessage: str
+    IsParent: bool
+    ParentJobId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RestoreJobsListMemberTypeDef(TypedDict):
     AccountId: NotRequired[str]
     RestoreJobId: NotRequired[str]
     RecoveryPointArn: NotRequired[str]
+    SourceResourceArn: NotRequired[str]
+    BackupVaultArn: NotRequired[str]
     CreationDate: NotRequired[datetime]
     CompletionDate: NotRequired[datetime]
     Status: NotRequired[RestoreJobStatusType]
@@ -1503,27 +1716,74 @@ class RestoreJobsListMemberTypeDef(TypedDict):
     CreatedResourceArn: NotRequired[str]
     ResourceType: NotRequired[str]
     RecoveryPointCreationDate: NotRequired[datetime]
+    IsParent: NotRequired[bool]
+    ParentJobId: NotRequired[str]
     CreatedBy: NotRequired[RestoreJobCreatorTypeDef]
     ValidationStatus: NotRequired[RestoreValidationStatusType]
     ValidationStatusMessage: NotRequired[str]
     DeletionStatus: NotRequired[RestoreDeletionStatusType]
     DeletionStatusMessage: NotRequired[str]
 
+class DescribeScanJobOutputTypeDef(TypedDict):
+    AccountId: str
+    BackupVaultArn: str
+    BackupVaultName: str
+    CompletionDate: datetime
+    CreatedBy: ScanJobCreatorTypeDef
+    CreationDate: datetime
+    IamRoleArn: str
+    MalwareScanner: Literal["GUARDDUTY"]
+    RecoveryPointArn: str
+    ResourceArn: str
+    ResourceName: str
+    ResourceType: ScanResourceTypeType
+    ScanBaseRecoveryPointArn: str
+    ScanId: str
+    ScanJobId: str
+    ScanMode: ScanModeType
+    ScanResult: ScanResultInfoTypeDef
+    ScannerRoleArn: str
+    State: ScanStateType
+    StatusMessage: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ScanJobTypeDef(TypedDict):
+    AccountId: str
+    BackupVaultArn: str
+    BackupVaultName: str
+    CreatedBy: ScanJobCreatorTypeDef
+    CreationDate: datetime
+    IamRoleArn: str
+    MalwareScanner: Literal["GUARDDUTY"]
+    RecoveryPointArn: str
+    ResourceArn: str
+    ResourceName: str
+    ResourceType: ScanResourceTypeType
+    ScanJobId: str
+    ScanMode: ScanModeType
+    ScannerRoleArn: str
+    CompletionDate: NotRequired[datetime]
+    ScanBaseRecoveryPointArn: NotRequired[str]
+    ScanId: NotRequired[str]
+    ScanResult: NotRequired[ScanResultInfoTypeDef]
+    State: NotRequired[ScanStateType]
+    StatusMessage: NotRequired[str]
+
 class ListFrameworksOutputTypeDef(TypedDict):
-    Frameworks: List[FrameworkTypeDef]
+    Frameworks: list[FrameworkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 IndexActionUnionTypeDef = Union[IndexActionTypeDef, IndexActionOutputTypeDef]
 
 class ListIndexedRecoveryPointsOutputTypeDef(TypedDict):
-    IndexedRecoveryPoints: List[IndexedRecoveryPointTypeDef]
+    IndexedRecoveryPoints: list[IndexedRecoveryPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ProtectedResourceConditionsOutputTypeDef(TypedDict):
-    StringEquals: NotRequired[List[KeyValueTypeDef]]
-    StringNotEquals: NotRequired[List[KeyValueTypeDef]]
+    StringEquals: NotRequired[list[KeyValueTypeDef]]
+    StringNotEquals: NotRequired[list[KeyValueTypeDef]]
 
 class ProtectedResourceConditionsTypeDef(TypedDict):
     StringEquals: NotRequired[Sequence[KeyValueTypeDef]]
@@ -1537,7 +1797,7 @@ class RestoreAccessBackupVaultListMemberTypeDef(TypedDict):
     LatestRevokeRequest: NotRequired[LatestRevokeRequestTypeDef]
 
 class ListLegalHoldsOutputTypeDef(TypedDict):
-    LegalHolds: List[LegalHoldTypeDef]
+    LegalHolds: list[LegalHoldTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1587,6 +1847,7 @@ class ListCopyJobsInputPaginateTypeDef(TypedDict):
     ByCompleteAfter: NotRequired[TimestampTypeDef]
     ByParentJobId: NotRequired[str]
     ByMessageCategory: NotRequired[str]
+    BySourceRecoveryPointArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListIndexedRecoveryPointsInputPaginateTypeDef(TypedDict):
@@ -1648,6 +1909,7 @@ class ListRestoreJobsInputPaginateTypeDef(TypedDict):
     ByCompleteBefore: NotRequired[TimestampTypeDef]
     ByCompleteAfter: NotRequired[TimestampTypeDef]
     ByRestoreTestingPlanArn: NotRequired[str]
+    ByParentJobId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRestoreTestingPlansInputPaginateTypeDef(TypedDict):
@@ -1657,39 +1919,70 @@ class ListRestoreTestingSelectionsInputPaginateTypeDef(TypedDict):
     RestoreTestingPlanName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListScanJobSummariesInputPaginateTypeDef(TypedDict):
+    AccountId: NotRequired[str]
+    ResourceType: NotRequired[str]
+    MalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ScanResultStatus: NotRequired[ScanResultStatusType]
+    State: NotRequired[ScanJobStatusType]
+    AggregationPeriod: NotRequired[AggregationPeriodType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListScanJobsInputPaginateTypeDef(TypedDict):
+    ByAccountId: NotRequired[str]
+    ByBackupVaultName: NotRequired[str]
+    ByCompleteAfter: NotRequired[TimestampTypeDef]
+    ByCompleteBefore: NotRequired[TimestampTypeDef]
+    ByMalwareScanner: NotRequired[Literal["GUARDDUTY"]]
+    ByRecoveryPointArn: NotRequired[str]
+    ByResourceArn: NotRequired[str]
+    ByResourceType: NotRequired[ScanResourceTypeType]
+    ByScanResultStatus: NotRequired[ScanResultStatusType]
+    ByState: NotRequired[ScanStateType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTieringConfigurationsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListProtectedResourcesByBackupVaultOutputTypeDef(TypedDict):
-    Results: List[ProtectedResourceTypeDef]
+    Results: list[ProtectedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProtectedResourcesOutputTypeDef(TypedDict):
-    Results: List[ProtectedResourceTypeDef]
+    Results: list[ProtectedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRecoveryPointsByLegalHoldOutputTypeDef(TypedDict):
-    RecoveryPoints: List[RecoveryPointMemberTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-class ListRecoveryPointsByResourceOutputTypeDef(TypedDict):
-    RecoveryPoints: List[RecoveryPointByResourceTypeDef]
+    RecoveryPoints: list[RecoveryPointMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRestoreJobSummariesOutputTypeDef(TypedDict):
-    RestoreJobSummaries: List[RestoreJobSummaryTypeDef]
+    RestoreJobSummaries: list[RestoreJobSummaryTypeDef]
     AggregationPeriod: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRestoreTestingPlansOutputTypeDef(TypedDict):
-    RestoreTestingPlans: List[RestoreTestingPlanForListTypeDef]
+    RestoreTestingPlans: list[RestoreTestingPlanForListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRestoreTestingSelectionsOutputTypeDef(TypedDict):
-    RestoreTestingSelections: List[RestoreTestingSelectionForListTypeDef]
+    RestoreTestingSelections: list[RestoreTestingSelectionForListTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListScanJobSummariesOutputTypeDef(TypedDict):
+    ScanJobSummaries: list[ScanJobSummaryTypeDef]
+    AggregationPeriod: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListTieringConfigurationsOutputTypeDef(TypedDict):
+    TieringConfigurations: list[TieringConfigurationsListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1720,6 +2013,17 @@ class ReportPlanTypeDef(TypedDict):
 
 ReportSettingUnionTypeDef = Union[ReportSettingTypeDef, ReportSettingOutputTypeDef]
 
+class TieringConfigurationTypeDef(TypedDict):
+    TieringConfigurationName: str
+    BackupVaultName: str
+    ResourceSelection: list[ResourceSelectionOutputTypeDef]
+    TieringConfigurationArn: NotRequired[str]
+    CreatorRequestId: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastUpdatedTime: NotRequired[datetime]
+
+ResourceSelectionUnionTypeDef = Union[ResourceSelectionTypeDef, ResourceSelectionOutputTypeDef]
+
 class RestoreTestingPlanForGetTypeDef(TypedDict):
     CreationTime: datetime
     RecoveryPointSelection: RestoreTestingRecoveryPointSelectionOutputTypeDef
@@ -1735,19 +2039,41 @@ class RestoreTestingPlanForGetTypeDef(TypedDict):
 RestoreTestingRecoveryPointSelectionUnionTypeDef = Union[
     RestoreTestingRecoveryPointSelectionTypeDef, RestoreTestingRecoveryPointSelectionOutputTypeDef
 ]
+ScanSettingUnionTypeDef = Union[ScanSettingTypeDef, ScanSettingOutputTypeDef]
 
 class ListBackupPlanVersionsOutputTypeDef(TypedDict):
-    BackupPlanVersionsList: List[BackupPlansListMemberTypeDef]
+    BackupPlanVersionsList: list[BackupPlansListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListBackupPlansOutputTypeDef(TypedDict):
-    BackupPlansList: List[BackupPlansListMemberTypeDef]
+    BackupPlansList: list[BackupPlansListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListRecoveryPointsByResourceOutputTypeDef(TypedDict):
+    RecoveryPoints: list[RecoveryPointByResourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class BackupRuleTypeDef(TypedDict):
+    RuleName: str
+    TargetBackupVaultName: str
+    TargetLogicallyAirGappedBackupVaultArn: NotRequired[str]
+    ScheduleExpression: NotRequired[str]
+    StartWindowMinutes: NotRequired[int]
+    CompletionWindowMinutes: NotRequired[int]
+    Lifecycle: NotRequired[LifecycleTypeDef]
+    RecoveryPointTags: NotRequired[dict[str, str]]
+    RuleId: NotRequired[str]
+    CopyActions: NotRequired[list[CopyActionTypeDef]]
+    EnableContinuousBackup: NotRequired[bool]
+    ScheduleExpressionTimezone: NotRequired[str]
+    IndexActions: NotRequired[list[IndexActionOutputTypeDef]]
+    ScanActions: NotRequired[list[ScanActionTypeDef]]
+
 class ListBackupJobsOutputTypeDef(TypedDict):
-    BackupJobs: List[BackupJobTypeDef]
+    BackupJobs: list[BackupJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1756,35 +2082,21 @@ class DescribeCopyJobOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCopyJobsOutputTypeDef(TypedDict):
-    CopyJobs: List[CopyJobTypeDef]
+    CopyJobs: list[CopyJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class BackupRuleTypeDef(TypedDict):
-    RuleName: str
-    TargetBackupVaultName: str
-    ScheduleExpression: NotRequired[str]
-    StartWindowMinutes: NotRequired[int]
-    CompletionWindowMinutes: NotRequired[int]
-    Lifecycle: NotRequired[LifecycleTypeDef]
-    RecoveryPointTags: NotRequired[Dict[str, str]]
-    RuleId: NotRequired[str]
-    CopyActions: NotRequired[List[CopyActionTypeDef]]
-    EnableContinuousBackup: NotRequired[bool]
-    ScheduleExpressionTimezone: NotRequired[str]
-    IndexActions: NotRequired[List[IndexActionOutputTypeDef]]
-
 class ListRecoveryPointsByBackupVaultOutputTypeDef(TypedDict):
-    RecoveryPoints: List[RecoveryPointByBackupVaultTypeDef]
+    RecoveryPoints: list[RecoveryPointByBackupVaultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BackupSelectionOutputTypeDef(TypedDict):
     SelectionName: str
     IamRoleArn: str
-    Resources: NotRequired[List[str]]
-    ListOfTags: NotRequired[List[ConditionTypeDef]]
-    NotResources: NotRequired[List[str]]
+    Resources: NotRequired[list[str]]
+    ListOfTags: NotRequired[list[ConditionTypeDef]]
+    NotResources: NotRequired[list[str]]
     Conditions: NotRequired[ConditionsOutputTypeDef]
 
 class BackupSelectionTypeDef(TypedDict):
@@ -1799,7 +2111,7 @@ class DescribeFrameworkOutputTypeDef(TypedDict):
     FrameworkName: str
     FrameworkArn: str
     FrameworkDescription: str
-    FrameworkControls: List[FrameworkControlOutputTypeDef]
+    FrameworkControls: list[FrameworkControlOutputTypeDef]
     CreationTime: datetime
     DeploymentStatus: str
     FrameworkStatus: str
@@ -1840,18 +2152,24 @@ class RecoveryPointSelectionTypeDef(TypedDict):
     DateRange: NotRequired[DateRangeTypeDef]
 
 class ListRestoreJobsByProtectedResourceOutputTypeDef(TypedDict):
-    RestoreJobs: List[RestoreJobsListMemberTypeDef]
+    RestoreJobs: list[RestoreJobsListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRestoreJobsOutputTypeDef(TypedDict):
-    RestoreJobs: List[RestoreJobsListMemberTypeDef]
+    RestoreJobs: list[RestoreJobsListMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListScanJobsOutputTypeDef(TypedDict):
+    ScanJobs: list[ScanJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class BackupRuleInputTypeDef(TypedDict):
     RuleName: str
     TargetBackupVaultName: str
+    TargetLogicallyAirGappedBackupVaultArn: NotRequired[str]
     ScheduleExpression: NotRequired[str]
     StartWindowMinutes: NotRequired[int]
     CompletionWindowMinutes: NotRequired[int]
@@ -1861,6 +2179,7 @@ class BackupRuleInputTypeDef(TypedDict):
     EnableContinuousBackup: NotRequired[bool]
     ScheduleExpressionTimezone: NotRequired[str]
     IndexActions: NotRequired[Sequence[IndexActionUnionTypeDef]]
+    ScanActions: NotRequired[Sequence[ScanActionTypeDef]]
 
 class RestoreTestingSelectionForGetTypeDef(TypedDict):
     CreationTime: datetime
@@ -1869,9 +2188,9 @@ class RestoreTestingSelectionForGetTypeDef(TypedDict):
     RestoreTestingPlanName: str
     RestoreTestingSelectionName: str
     CreatorRequestId: NotRequired[str]
-    ProtectedResourceArns: NotRequired[List[str]]
+    ProtectedResourceArns: NotRequired[list[str]]
     ProtectedResourceConditions: NotRequired[ProtectedResourceConditionsOutputTypeDef]
-    RestoreMetadataOverrides: NotRequired[Dict[str, str]]
+    RestoreMetadataOverrides: NotRequired[dict[str, str]]
     ValidationWindowHours: NotRequired[int]
 
 ProtectedResourceConditionsUnionTypeDef = Union[
@@ -1879,7 +2198,7 @@ ProtectedResourceConditionsUnionTypeDef = Union[
 ]
 
 class ListRestoreAccessBackupVaultsOutputTypeDef(TypedDict):
-    RestoreAccessBackupVaults: List[RestoreAccessBackupVaultListMemberTypeDef]
+    RestoreAccessBackupVaults: list[RestoreAccessBackupVaultListMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1888,7 +2207,7 @@ class DescribeReportJobOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListReportJobsOutputTypeDef(TypedDict):
-    ReportJobs: List[ReportJobTypeDef]
+    ReportJobs: list[ReportJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1897,7 +2216,7 @@ class DescribeReportPlanOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListReportPlansOutputTypeDef(TypedDict):
-    ReportPlans: List[ReportPlanTypeDef]
+    ReportPlans: list[ReportPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1915,6 +2234,19 @@ class UpdateReportPlanInputTypeDef(TypedDict):
     ReportDeliveryChannel: NotRequired[ReportDeliveryChannelUnionTypeDef]
     ReportSetting: NotRequired[ReportSettingUnionTypeDef]
     IdempotencyToken: NotRequired[str]
+
+class GetTieringConfigurationOutputTypeDef(TypedDict):
+    TieringConfiguration: TieringConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TieringConfigurationInputForCreateTypeDef(TypedDict):
+    TieringConfigurationName: str
+    BackupVaultName: str
+    ResourceSelection: Sequence[ResourceSelectionUnionTypeDef]
+
+class TieringConfigurationInputForUpdateTypeDef(TypedDict):
+    ResourceSelection: Sequence[ResourceSelectionUnionTypeDef]
+    BackupVaultName: str
 
 class GetRestoreTestingPlanOutputTypeDef(TypedDict):
     RestoreTestingPlan: RestoreTestingPlanForGetTypeDef
@@ -1935,8 +2267,9 @@ class RestoreTestingPlanForUpdateTypeDef(TypedDict):
 
 class BackupPlanTypeDef(TypedDict):
     BackupPlanName: str
-    Rules: List[BackupRuleTypeDef]
-    AdvancedBackupSettings: NotRequired[List[AdvancedBackupSettingOutputTypeDef]]
+    Rules: list[BackupRuleTypeDef]
+    AdvancedBackupSettings: NotRequired[list[AdvancedBackupSettingOutputTypeDef]]
+    ScanSettings: NotRequired[list[ScanSettingOutputTypeDef]]
 
 class GetBackupSelectionOutputTypeDef(TypedDict):
     BackupSelection: BackupSelectionOutputTypeDef
@@ -1956,6 +2289,7 @@ class BackupPlanInputTypeDef(TypedDict):
     BackupPlanName: str
     Rules: Sequence[BackupRuleInputTypeDef]
     AdvancedBackupSettings: NotRequired[Sequence[AdvancedBackupSettingUnionTypeDef]]
+    ScanSettings: NotRequired[Sequence[ScanSettingUnionTypeDef]]
 
 class GetRestoreTestingSelectionOutputTypeDef(TypedDict):
     RestoreTestingSelection: RestoreTestingSelectionForGetTypeDef
@@ -1976,6 +2310,15 @@ class RestoreTestingSelectionForUpdateTypeDef(TypedDict):
     ProtectedResourceConditions: NotRequired[ProtectedResourceConditionsUnionTypeDef]
     RestoreMetadataOverrides: NotRequired[Mapping[str, str]]
     ValidationWindowHours: NotRequired[int]
+
+class CreateTieringConfigurationInputTypeDef(TypedDict):
+    TieringConfiguration: TieringConfigurationInputForCreateTypeDef
+    TieringConfigurationTags: NotRequired[Mapping[str, str]]
+    CreatorRequestId: NotRequired[str]
+
+class UpdateTieringConfigurationInputTypeDef(TypedDict):
+    TieringConfigurationName: str
+    TieringConfiguration: TieringConfigurationInputForUpdateTypeDef
 
 class CreateRestoreTestingPlanInputTypeDef(TypedDict):
     RestoreTestingPlan: RestoreTestingPlanForCreateTypeDef
@@ -2003,7 +2346,8 @@ class GetBackupPlanOutputTypeDef(TypedDict):
     CreationDate: datetime
     DeletionDate: datetime
     LastExecutionDate: datetime
-    AdvancedBackupSettings: List[AdvancedBackupSettingOutputTypeDef]
+    AdvancedBackupSettings: list[AdvancedBackupSettingOutputTypeDef]
+    ScheduledRunsPreview: list[ScheduledPlanExecutionMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBackupSelectionInputTypeDef(TypedDict):

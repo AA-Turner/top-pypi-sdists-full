@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ipfabric"
-version = "7.3.1"
+version = "7.9.0"
 description = "Python package for interacting with IP Fabric"
 authors = [
     "Solution Architecture <solution.architecture@ipfabric.io>"
@@ -21,11 +21,13 @@ ipf_route_search = 'ipfabric.scripts.route_search:main'
 ipf_device_search = 'ipfabric.scripts.device_search:main'
 ipf_cve_report = 'ipfabric.scripts.cve_report:main'
 ipf_techsupport = 'ipfabric.scripts.techsupport:main'
+ipf_to_excel = 'ipfabric.scripts.ipf_to_excel:main'
+ipf_webhook_listener = 'ipfabric.scripts.webhook_api:main'
+ipf_dynamic_attributes = 'ipfabric.scripts.dynamic_attributes:main'
 
 [tool.poetry.dependencies]
 python = "^3.9"
-httpx = ">=0.26,<0.29"
-h2 = "^4.1.0"
+niquests = "^3.16.0"
 packaging = ">=24.2, <26.0"
 pydantic = "^2.0.0,!=2.11.0,!=2.11.1"
 pydantic-settings = "^2.1.0"
@@ -44,6 +46,12 @@ python-json-logger = {version = "^2.0.7",  optional = true}
 pyyaml = {version = "^6.0.1", optional = true}
 rich = {version = ">=13.7.0, <15.0", optional = true}
 jinja2 = {version = "^3.1.4", optional = true}
+fastapi = {version = "^0.121.2", optional = true}
+uvicorn = {version = "^0.38.0", optional = true}
+sqlmodel = {version = "^0.0.27", optional = true}
+tomli = { version = "^2.0.0", python = "<3.11", optional = true }
+pyyaml-include = {version = "^2.2", optional = true}
+
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -60,7 +68,9 @@ matrix = ["pandas", "openpyxl", "jinja2"]
 cli = ["rich", "pandas", "openpyxl"]
 examples = ["pandas", "openpyxl", "python-json-logger", "pyyaml", "rich"]
 pd = ["pandas"]
-all = ["pandas", "openpyxl", "python-json-logger", "pyyaml", "rich", "jinja2"]
+webhook = ["fastapi", "uvicorn", "sqlmodel"]
+dynamic_attributes = ["pyyaml-include", "pyyaml", "tomli", "openpyxl"]
+all = ["pandas", "openpyxl", "python-json-logger", "pyyaml", "rich", "jinja2", "fastapi", "uvicorn", "sqlmodel", "tomli", "pyyaml-include"]
 
 
 [build-system]

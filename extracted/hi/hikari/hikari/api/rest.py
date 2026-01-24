@@ -5498,20 +5498,32 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         """
 
     @abc.abstractmethod
-    async def fetch_thread_members(
-        self, channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel], /
-    ) -> typing.Sequence[channels_.ThreadMember]:
+    def fetch_thread_members(
+        self,
+        channel: snowflakes.SnowflakeishOr[channels_.GuildThreadChannel],
+        /,
+        after: undefined.UndefinedOr[snowflakes.Snowflakeish] = undefined.UNDEFINED,
+    ) -> iterators.LazyIterator[channels_.ThreadMember]:
         """Fetch a thread's members.
+
+        !!! note
+            This call is not a coroutine function, it returns a special type of
+            lazy iterator that will perform API calls as you iterate across it,
+            thus any errors documented below will happen then.
+
+            See [`hikari.iterators`][] for the full API for this iterator type.
 
         Parameters
         ----------
         channel
             Object or ID of the thread channel to fetch the members of.
+        after
+            If provided, fetch thread members after this time.
 
         Returns
         -------
-        typing.Sequence[hikari.channels.ThreadMember]
-            A sequence of the thread's members.
+        hikari.iterators.LazyIterator[hikari.channels.ThreadMember]
+            An iterator to fetch the thread members.
 
         Raises
         ------
@@ -5993,6 +6005,9 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
         guild: snowflakes.SnowflakeishOr[guilds.PartialGuild],
         *,
         nickname: undefined.UndefinedNoneOr[str] = undefined.UNDEFINED,
+        avatar: undefined.UndefinedNoneOr[files.Resourceish] = undefined.UNDEFINED,
+        banner: undefined.UndefinedNoneOr[files.Resourceish] = undefined.UNDEFINED,
+        bio: undefined.UndefinedNoneOr[str] = undefined.UNDEFINED,
         reason: undefined.UndefinedOr[str] = undefined.UNDEFINED,
     ) -> guilds.Member:
         """Edit the current user's member in a guild.
@@ -6009,6 +6024,15 @@ class RESTClient(traits.NetworkSettingsAware, abc.ABC):
             Requires the [`hikari.permissions.Permissions.CHANGE_NICKNAME`][] permission.
             If provided, the reason that will be recorded in the audit logs.
             Maximum of 512 characters.
+        avatar
+            If provided, the new guild specific avatar for the member. If,
+            [`None`][], will remove the members avatar.
+        banner
+            If provided, the new guild specific banner for the member. If,
+            [`None`][], will remove the members banner.
+        bio
+            If provided, the new guild specific bio for the member. If,
+            [`None`][], will remove the members bio.
         reason
             If provided, the reason that will be recorded in the audit logs.
             Maximum of 512 characters.

@@ -1,34 +1,65 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: datawrapper
-Version: 0.6.1
+Version: 2.0.16
 Summary: A lightweight Python wrapper for the Datawrapper API
-Home-page: https://github.com/chekos/datawrapper
-Author: chekos
-Author-email: chekos@tacosdedatos.com
+Author-email: checkos <chekos@tacosdedatos.com>, Ben Welsh <b@palewi.re>
 License: MIT
+Project-URL: Documentation, https://github.com/chekos/datawrapper
 Project-URL: Maintainer, https://github.com/chekos/
 Project-URL: Source, https://github.com/chekos/datawrapper
-Project-URL: Tracker, https://github.com/chekos/datawrapper/issues
-Classifier: Development Status :: 3 - Alpha
+Project-URL: Issues, https://github.com/chekos/datawrapper/issues/
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: exceptiongroup; python_version < "3.11"
+Requires-Dist: importlib_metadata
+Requires-Dist: rich
+Requires-Dist: requests
+Requires-Dist: pandas
+Requires-Dist: pydantic
+Requires-Dist: ipython
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: setuptools-scm; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-timeout; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
+Requires-Dist: pytest-env; extra == "test"
+Requires-Dist: factory-boy; extra == "test"
+Requires-Dist: faker; extra == "test"
+Requires-Dist: responses; extra == "test"
+Requires-Dist: freezegun; extra == "test"
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Provides-Extra: mypy
+Requires-Dist: mypy; extra == "mypy"
+Requires-Dist: types-requests; extra == "mypy"
+Requires-Dist: types-docutils; extra == "mypy"
+Requires-Dist: pydantic-settings; extra == "mypy"
+Dynamic: license-file
 
 # datawrapper
 
 A lightweight Python wrapper for the Datawrapper API
-
-[![PyPI Version](https://img.shields.io/pypi/v/datawrapper.svg)](https://pypi.python.org/pypi/datawrapper)
-[![Monthly downloads](https://img.shields.io/pypi/dm/datawrapper)](https://img.shields.io/pypi/dm/datawrappe)
-[![Python Version](https://img.shields.io/pypi/pyversions/datawrapper.svg)](https://pypi.org/project/datawrapper/)
-[![Dependencies Status](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen.svg)](https://github.com/chekos/datawrapper/pulls?utf8=%E2%9C%93&q=is%3Apr%20author%3Aapp%2Fdependabot)
-
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/chekos/datawrapper/blob/master/.pre-commit-config.yaml)
-[![Semantic Versions](https://img.shields.io/badge/%F0%9F%9A%80-semantic%20versions-informational.svg)](https://github.com/chekos/datawrapper/releases)
-[![License](https://img.shields.io/github/license/chekos/datawrapper)](https://github.com/chekos/datawrapper/blob/master/LICENSE)
 
 ## Features
 
@@ -37,15 +68,61 @@ A lightweight Python wrapper for the Datawrapper API
 * Get, update and delete folders, users and teams.
 * Retrieve lists of recently edited and updated charts
 * Access metadata about your account
-* Get a list of all available themes
 
 ## Installation
 
 ```bash
-pipenv install datawrapper
+# With `uv` ...
+uv add datawrapper
+
+# or, if you prefer...
+pip install datawrapper
 ```
 
-## Releases
+## Quick Start
+
+Create beautiful charts with type-safe, object-oriented Python:
+
+```python
+import pandas as pd
+import datawrapper as dw
+
+# Configure a bar chart
+chart = dw.BarChart(
+    title="Top Programming Languages 2024",
+    data=pd.DataFrame({"Language": ["Python", "JavaScript", "Java"], "Users": [45.3, 38.2, 30.5]}),
+    axis_label_format=dw.NumberFormat.ONE_DECIMAL
+)
+
+# Create and publish (uses DATAWRAPPER_ACCESS_TOKEN environment variable)
+chart.create()
+chart.publish()
+```
+See the [full documentation](https://datawrapper.readthedocs.io/) for comprehensive guides on all chart types.
+
+### Contributing
+
+Clone the repository. Move into the directory on your terminal.
+
+Install dependencies for development.
+
+```bash
+uv install --all-extras
+```
+
+Install pre-commit to run a battery of automatic quick fixes against your work.
+
+```bash
+uv run pre-commit install
+```
+
+Run tests with
+
+```bash
+uv run pytest
+```
+
+## 📈 Releases
 
 You can see the list of available releases on the [GitHub Releases](https://github.com/chekos/datawrapper/releases) page.
 

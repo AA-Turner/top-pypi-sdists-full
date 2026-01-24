@@ -14,16 +14,9 @@ from enum import Enum
 from types import FrameType, TracebackType
 from typing import (
     Any,
-    Iterable,
-    Dict,
-    List,
     Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    Union,
 )
+from collections.abc import Iterable, Sequence
 
 import greenlet
 from curtsies import (
@@ -113,7 +106,7 @@ class FakeStdin:
         self,
         coderunner: CodeRunner,
         repl: "BaseRepl",
-        configured_edit_keys: Optional[AbstractEdits] = None,
+        configured_edit_keys: AbstractEdits | None = None,
     ):
         self.coderunner = coderunner
         self.repl = repl
@@ -121,13 +114,13 @@ class FakeStdin:
         self.current_line = ""
         self.cursor_offset = 0
         self.old_num_lines = 0
-        self.readline_results: List[str] = []
+        self.readline_results: list[str] = []
         if configured_edit_keys is not None:
             self.rl_char_sequences = configured_edit_keys
         else:
             self.rl_char_sequences = edit_keys
 
-    def process_event(self, e: Union[events.Event, str]) -> None:
+    def process_event(self, e: events.Event | str) -> None:
         assert self.has_focus
 
         logger.debug("fake input processing event %r", e)
@@ -195,7 +188,7 @@ class FakeStdin:
         self.readline_results.append(value)
         return value if size <= -1 else value[:size]
 
-    def readlines(self, size: Optional[int] = -1) -> List[str]:
+    def readlines(self, size: int | None = -1) -> list[str]:
         if size is None:
             # the default readlines implementation also accepts None
             size = -1
@@ -338,10 +331,10 @@ class BaseRepl(Repl):
         self,
         config: Config,
         window: CursorAwareWindow,
-        locals_: Optional[Dict[str, Any]] = None,
-        banner: Optional[str] = None,
-        interp: Optional[Interp] = None,
-        orig_tcattrs: Optional[List[Any]] = None,
+        locals_: dict[str, Any] | None = None,
+        banner: str | None = None,
+        interp: Interp | None = None,
+        orig_tcattrs: list[Any] | None = None,
     ):
         """
         locals_ is a mapping of locals to pass into the interpreter
@@ -361,15 +354,6 @@ class BaseRepl(Repl):
         if interp is None:
             interp = Interp(locals=locals_)
             interp.write = self.send_to_stdouterr  # type: ignore
-        if banner is None:
-            if config.help_key:
-                banner = (
-                    _("Welcome to bpython!")
-                    + " "
-                    + _("Press <%s> for help.") % config.help_key
-                )
-            else:
-                banner = None
         if config.cli_suggestion_width <= 0 or config.cli_suggestion_width > 1:
             config.cli_suggestion_width = 1
 
@@ -399,12 +383,12 @@ class BaseRepl(Repl):
         self._current_line = ""
 
         # current line of output - stdout and stdin go here
-        self.current_stdouterr_line: Union[str, FmtStr] = ""
+        self.current_stdouterr_line: str | FmtStr = ""
 
         # this is every line that's been displayed (input and output)
         # as with formatting applied. Logical lines that exceeded the terminal width
         # at the time of output are split across multiple entries in this list.
-        self.display_lines: List[FmtStr] = []
+        self.display_lines: list[FmtStr] = []
 
         # this is every line that's been executed; it gets smaller on rewind
         self.history = []
@@ -415,11 +399,11 @@ class BaseRepl(Repl):
         #   - the first element the line (string, not fmtsr)
         #   - the second element is one of 2 global constants: "input" or "output"
         #     (use LineType.INPUT or LineType.OUTPUT to avoid typing these strings)
-        self.all_logical_lines: List[Tuple[str, LineType]] = []
+        self.all_logical_lines: list[tuple[str, LineType]] = []
 
         # formatted version of lines in the buffer kept around so we can
         # unhighlight parens using self.reprint_line as called by bpython.Repl
-        self.display_buffer: List[FmtStr] = []
+        self.display_buffer: list[FmtStr] = []
 
         # how many times display has been scrolled down
         # because there wasn't room to display everything
@@ -428,7 +412,7 @@ class BaseRepl(Repl):
         # cursor position relative to start of current_line, 0 is first char
         self._cursor_offset = 0
 
-        self.orig_tcattrs: Optional[List[Any]] = orig_tcattrs
+        self.orig_tcattrs: list[Any] | None = orig_tcattrs
 
         self.coderunner = CodeRunner(self.interp, self.request_refresh)
 
@@ -460,7 +444,7 @@ class BaseRepl(Repl):
         # some commands act differently based on the prev event
         # this list doesn't include instances of event.Event,
         # only keypress-type events (no refresh screen events etc.)
-        self.last_events: List[Optional[str]] = [None] * 50
+        self.last_events: list[str | None] = [None] * 50
 
         # displays prev events in a column on the right hand side
         self.presentation_mode = False
@@ -494,15 +478,15 @@ class BaseRepl(Repl):
     # The methods below should be overridden, but the default implementations
     # below can be used as well.
 
-    def get_cursor_vertical_diff(self):
+    def get_cursor_vertical_diff(self) -> int:
         """Return how the cursor moved due to a window size change"""
         return 0
 
-    def get_top_usable_line(self):
+    def get_top_usable_line(self) -> int:
         """Return the top line of display that can be rewritten"""
         return 0
 
-    def get_term_hw(self):
+    def get_term_hw(self) -> tuple[int, int]:
         """Returns the current width and height of the display area."""
         return (50, 10)
 
@@ -601,9 +585,9 @@ class BaseRepl(Repl):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> Literal[False]:
         sys.stdin = self.orig_stdin
         sys.stdout = self.orig_stdout
@@ -617,7 +601,7 @@ class BaseRepl(Repl):
         sys.meta_path = self.orig_meta_path
         return False
 
-    def sigwinch_handler(self, signum: int, frame: Optional[FrameType]) -> None:
+    def sigwinch_handler(self, signum: int, frame: FrameType | None) -> None:
         old_rows, old_columns = self.height, self.width
         self.height, self.width = self.get_term_hw()
         cursor_dy = self.get_cursor_vertical_diff()
@@ -633,7 +617,7 @@ class BaseRepl(Repl):
             self.scroll_offset,
         )
 
-    def sigtstp_handler(self, signum: int, frame: Optional[FrameType]) -> None:
+    def sigtstp_handler(self, signum: int, frame: FrameType | None) -> None:
         self.scroll_offset = len(self.lines_for_display)
         self.__exit__(None, None, None)
         self.on_suspend()
@@ -648,7 +632,7 @@ class BaseRepl(Repl):
         self.unhighlight_paren()
 
     # Event handling
-    def process_event(self, e: Union[events.Event, str]) -> Optional[bool]:
+    def process_event(self, e: events.Event | str) -> bool | None:
         """Returns True if shutting down, otherwise returns None.
         Mostly mutates state of Repl object"""
 
@@ -661,7 +645,7 @@ class BaseRepl(Repl):
             self.process_key_event(e)
             return None
 
-    def process_control_event(self, e: events.Event) -> Optional[bool]:
+    def process_control_event(self, e: events.Event) -> bool | None:
         if isinstance(e, bpythonevents.ScheduledRefreshRequestEvent):
             # This is a scheduled refresh - it's really just a refresh (so nop)
             pass
@@ -1260,7 +1244,7 @@ class BaseRepl(Repl):
         logger.debug("indent we found was %s", indent)
         return indent
 
-    def push(self, line, insert_into_history=True):
+    def push(self, line, insert_into_history=True) -> bool:
         """Push a line of code onto the buffer, start running the buffer
 
         If the interpreter successfully runs the code, clear the buffer
@@ -1307,6 +1291,7 @@ class BaseRepl(Repl):
 
         self.coderunner.load_code(code_to_run)
         self.run_code_and_maybe_finish()
+        return not code_will_parse
 
     def run_code_and_maybe_finish(self, for_code=None):
         r = self.coderunner.run_code(for_code=for_code)
@@ -1561,7 +1546,7 @@ class BaseRepl(Repl):
         user_quit=False,
         try_preserve_history_height=30,
         min_infobox_height=5,
-    ) -> Tuple[FSArray, Tuple[int, int]]:
+    ) -> tuple[FSArray, tuple[int, int]]:
         """Returns an array of min_height or more rows and width columns, plus
         cursor position
 
@@ -2235,9 +2220,7 @@ def compress_paste_event(paste_event):
         return None
 
 
-def just_simple_events(
-    event_list: Iterable[Union[str, events.Event]]
-) -> List[str]:
+def just_simple_events(event_list: Iterable[str | events.Event]) -> list[str]:
     simple_events = []
     for e in event_list:
         if isinstance(e, events.Event):
@@ -2254,7 +2237,7 @@ def just_simple_events(
     return simple_events
 
 
-def is_simple_event(e: Union[str, events.Event]) -> bool:
+def is_simple_event(e: str | events.Event) -> bool:
     if isinstance(e, events.Event):
         return False
     return (

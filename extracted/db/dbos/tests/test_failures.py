@@ -1,7 +1,7 @@
 import threading
 import time
 import uuid
-from typing import cast
+from typing import Any, Generator, cast
 
 import pytest
 import sqlalchemy as sa
@@ -9,6 +9,7 @@ from psycopg.errors import SerializationFailure
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 
 from dbos import DBOS, Queue, SetWorkflowID
+from dbos._client import DBOSClient
 from dbos._dbos_config import DBOSConfig
 from dbos._error import (
     DBOSAwaitedWorkflowCancelledError,
@@ -20,11 +21,7 @@ from dbos._error import (
     MaxRecoveryAttemptsExceededError,
 )
 from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
-from dbos._serialization import (
-    deserialize_exception,
-    safe_deserialize,
-    serialize_exception,
-)
+from dbos._serialization import DefaultSerializer, safe_deserialize
 from dbos._sys_db import WorkflowStatusString
 from dbos._sys_db_postgres import PostgresSystemDatabase
 
@@ -136,12 +133,10 @@ def test_notification_errors(dbos: DBOS, skip_with_sqlite: None) -> None:
     system_database = cast(PostgresSystemDatabase, dbos._sys_db)
     while system_database.notification_conn is None:
         time.sleep(1)
-    system_database.notification_conn.close()
-    assert system_database.notification_conn.closed == 1
+    system_database._cleanup_connections()
 
-    # Wait for the connection to be re-established
-    while system_database.notification_conn.closed != 0:
-        time.sleep(1)
+    # Wait for the connection to re-establish
+    time.sleep(3)
 
     dest_uuid = str("sruuid1")
     with SetWorkflowID(dest_uuid):
@@ -168,20 +163,23 @@ def test_dead_letter_queue(dbos: DBOS) -> None:
     def dead_letter_workflow() -> None:
         nonlocal recovery_count
         recovery_count += 1
-        event.wait()
 
-    # Start a workflow that blocks forever
+    # Start a workflow that we will restart
     wfid = str(uuid.uuid4())
     with SetWorkflowID(wfid):
         handle = DBOS.start_workflow(dead_letter_workflow)
+    handle.get_result()
 
     # Attempt to recover the blocked workflow the maximum number of times
     for i in range(max_recovery_attempts):
-        DBOS._recover_pending_workflows()
+        dbos._sys_db.update_workflow_outcome(wfid, "PENDING")
+        handles = DBOS._recover_pending_workflows()
+        handles[0].get_result()
         assert recovery_count == i + 2
 
     # Verify an additional attempt (either through recovery or through a direct call) throws a DLQ error
     # and puts the workflow in the DLQ status.
+    dbos._sys_db.update_workflow_outcome(wfid, "PENDING")
     with pytest.raises(Exception) as exc_info:
         DBOS._recover_pending_workflows()
     assert exc_info.errisinstance(MaxRecoveryAttemptsExceededError)
@@ -198,7 +196,7 @@ def test_dead_letter_queue(dbos: DBOS) -> None:
     resumed_handle = dbos.resume_workflow(wfid)
     DBOS._recover_pending_workflows()
 
-    # Complete the blocked workflow
+    # Complete the resumed workflow
     event.set()
     assert handle.get_result() == resumed_handle.get_result() == None
     assert handle.get_status().status == WorkflowStatusString.SUCCESS.value
@@ -208,31 +206,25 @@ def test_dead_letter_queue(dbos: DBOS) -> None:
         with SetWorkflowID(wfid):
             dead_letter_workflow()
 
-    event.clear()
-
     @DBOS.workflow(max_recovery_attempts=None)
     def infinite_dead_letter_workflow() -> None:
-        event.wait()
+        return
 
     # Verify that a workflow with max_recovery_attempts=None is retried infinitely.
     wfid = str(uuid.uuid4())
-    handles = []
     with SetWorkflowID(wfid):
         handle = DBOS.start_workflow(infinite_dead_letter_workflow)
-        handles.append(handle)
+        handle.get_result
 
     # Attempt to recover the blocked workflow the maximum number of times
     for i in range(DEFAULT_MAX_RECOVERY_ATTEMPTS * 2):
-        handles.extend(DBOS._recover_pending_workflows())
-    event.set()
-    for handle in handles:
-        assert handle.get_result() == None
+        handles = DBOS._recover_pending_workflows()
+        for handle in handles:
+            assert handle.get_result() == None
 
 
 def test_nondeterministic_workflow(dbos: DBOS) -> None:
     flag = True
-    workflow_event = threading.Event()
-    main_thread_event = threading.Event()
 
     @DBOS.step()
     def step_one() -> None:
@@ -248,33 +240,23 @@ def test_nondeterministic_workflow(dbos: DBOS) -> None:
             step_one()
         else:
             step_two()
-        main_thread_event.set()
-        workflow_event.wait()
 
     # Start the workflow. It will complete step_one then wait.
     wfid = str(uuid.uuid4())
     with SetWorkflowID(wfid):
-        handle = dbos.start_workflow(non_deterministic_workflow)
-    main_thread_event.wait()
+        non_deterministic_workflow()
 
-    # To simulate nondeterminism, set the flag then restart the workflow.
+    # To simulate nondeterminism, set the flag then restart the workflow w/ fork;
     flag = False
-    with SetWorkflowID(wfid):
-        handle_two = dbos.start_workflow(non_deterministic_workflow)
+    handle_two = DBOS.fork_workflow(wfid, 2)
 
     # Due to the nondeterminism, the workflow should encounter an unexpected step.
     with pytest.raises(DBOSUnexpectedStepError) as exc_info:
         handle_two.get_result()
 
-    # The original workflow should complete successfully.
-    workflow_event.set()
-    assert handle.get_result() == None
-
 
 def test_nondeterministic_workflow_txn(dbos: DBOS) -> None:
     flag = True
-    workflow_event = threading.Event()
-    main_thread_event = threading.Event()
 
     @DBOS.transaction()
     def txn_one() -> None:
@@ -290,27 +272,19 @@ def test_nondeterministic_workflow_txn(dbos: DBOS) -> None:
             txn_one()
         else:
             txn_two()
-        main_thread_event.set()
-        workflow_event.wait()
 
     # Start the workflow. It will complete step_one then wait.
     wfid = str(uuid.uuid4())
     with SetWorkflowID(wfid):
-        handle = dbos.start_workflow(non_deterministic_workflow)
-    main_thread_event.wait()
+        non_deterministic_workflow()
 
     # To simulate nondeterminism, set the flag then restart the workflow.
     flag = False
-    with SetWorkflowID(wfid):
-        handle_two = dbos.start_workflow(non_deterministic_workflow)
+    handle_two = DBOS.fork_workflow(wfid, 2)
 
     # Due to the nondeterminism, the workflow should encounter an unexpected step.
     with pytest.raises(DBOSUnexpectedStepError) as exc_info:
         handle_two.get_result()
-
-    # The original workflow should complete successfully.
-    workflow_event.set()
-    assert handle.get_result() == None
 
 
 def test_step_retries(dbos: DBOS) -> None:
@@ -458,49 +432,82 @@ def test_keyboardinterrupt_during_retries(dbos: DBOS) -> None:
     assert recovery_handles[0].get_result() == recovery_handles[0].workflow_id
 
 
+class BadException(Exception):
+    def __init__(self, one: int, two: int) -> None:
+        super().__init__(f"Message: {one}, {two}")
+
+
 def test_error_serialization() -> None:
     # Verify that each exception that can be thrown in a workflow
     # is serializable and deserializable
     # DBOSMaxStepRetriesExceeded
+    serializer = DefaultSerializer()
     e: Exception = DBOSMaxStepRetriesExceeded("step", 1, [Exception()])
-    d = deserialize_exception(serialize_exception(e))
+    d = serializer.deserialize(serializer.serialize(e))
     assert isinstance(d, DBOSMaxStepRetriesExceeded)
     assert str(d) == str(e)
     assert isinstance(d.errors[0], Exception)
     # DBOSNotAuthorizedError
     e = DBOSNotAuthorizedError("no")
-    d = deserialize_exception(serialize_exception(e))
+    d = serializer.deserialize(serializer.serialize(e))
     assert isinstance(d, DBOSNotAuthorizedError)
     assert str(d) == str(e)
     # DBOSQueueDeduplicatedError
     e = DBOSQueueDeduplicatedError("id", "queue", "dedup")
-    d = deserialize_exception(serialize_exception(e))
+    d = serializer.deserialize(serializer.serialize(e))
     assert isinstance(d, DBOSQueueDeduplicatedError)
     assert str(d) == str(e)
     # AwaitedWorkflowCancelledError
     e = DBOSAwaitedWorkflowCancelledError("id")
-    d = deserialize_exception(serialize_exception(e))
+    d = serializer.deserialize(serializer.serialize(e))
     assert isinstance(d, DBOSAwaitedWorkflowCancelledError)
     assert str(d) == str(e)
 
     # Test safe_deserialize
-    class BadException(Exception):
-        def __init__(self, one: int, two: int) -> None:
-            super().__init__(f"Message: {one}, {two}")
 
     bad_exception = BadException(1, 2)
     with pytest.raises(TypeError):
-        deserialize_exception(serialize_exception(bad_exception))
+        serializer.deserialize(serializer.serialize(bad_exception))
     input, output, exception = safe_deserialize(
+        serializer,
         "my_id",
         serialized_input=None,
-        serialized_exception=serialize_exception(bad_exception),
+        serialized_exception=serializer.serialize(bad_exception),
         serialized_output=None,
     )
     assert input is None
     assert output is None
     assert isinstance(exception, str)
-    assert "Message: 1, 2" in exception
+
+
+def test_workflow_error_serialization(dbos: DBOS, client: DBOSClient) -> None:
+
+    @DBOS.step()
+    def step() -> None:
+        raise BadException(1, 2)
+
+    @DBOS.workflow()
+    def workflow() -> None:
+        step()
+
+    handle = DBOS.start_workflow(workflow)
+
+    with pytest.raises(BadException):
+        handle.get_result()
+
+    workflows = DBOS.list_workflows()
+    assert len(workflows) == 1
+    assert workflows[0].error is not None
+
+    steps = DBOS.list_workflow_steps(handle.workflow_id)
+    assert len(steps) == 1
+    assert steps[0]["error"] is not None
+
+    status = handle.get_status()
+    assert status.error is not None
+
+    status = client.retrieve_workflow(handle.workflow_id).get_status()
+    assert status.error is not None
 
 
 def test_unregistered_workflow(dbos: DBOS, config: DBOSConfig) -> None:
@@ -522,3 +529,16 @@ def test_unregistered_workflow(dbos: DBOS, config: DBOSConfig) -> None:
 
     with pytest.raises(DBOSWorkflowFunctionNotFoundError):
         DBOS._recover_pending_workflows()
+
+
+def test_nonserializable_return(dbos: DBOS) -> None:
+    @DBOS.step()
+    def step() -> Generator[str, Any, None]:
+        yield "val"
+
+    @DBOS.workflow()
+    def workflow() -> None:
+        step()
+
+    with pytest.raises(TypeError):
+        workflow()

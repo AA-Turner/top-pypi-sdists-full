@@ -13,7 +13,6 @@ from open_webui.config import (
     QDRANT_TIMEOUT,
     QDRANT_HNSW_M,
 )
-from open_webui.env import SRC_LOG_LEVELS
 from open_webui.retrieval.vector.main import (
     GetResult,
     SearchResult,
@@ -30,7 +29,6 @@ TENANT_ID_FIELD = "tenant_id"
 DEFAULT_DIMENSION = 384
 
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["RAG"])
 
 
 def _tenant_filter(tenant_id: str) -> models.FieldCondition:
@@ -105,6 +103,13 @@ class QdrantClient(VectorDBBase):
 
         Returns:
             tuple: (collection_name, tenant_id)
+
+        WARNING: This mapping relies on current Open WebUI naming conventions for
+        collection names. If Open WebUI changes how it generates collection names
+        (e.g., "user-memory-" prefix, "file-" prefix, web search patterns, or hash
+        formats), this mapping will break and route data to incorrect collections.
+        POTENTIALLY CAUSING HUGE DATA CORRUPTION, DATA CONSISTENCY ISSUES AND INCORRECT
+        DATA MAPPING INSIDE THE DATABASE.
         """
         # Check for user memory collections
         tenant_id = collection_name
@@ -249,7 +254,11 @@ class QdrantClient(VectorDBBase):
         )
 
     def search(
-        self, collection_name: str, vectors: List[List[float | int]], limit: int
+        self,
+        collection_name: str,
+        vectors: List[List[float | int]],
+        filter: Optional[Dict] = None,
+        limit: int = 10,
     ) -> Optional[SearchResult]:
         """
         Search for the nearest neighbor items based on the vectors with tenant isolation.

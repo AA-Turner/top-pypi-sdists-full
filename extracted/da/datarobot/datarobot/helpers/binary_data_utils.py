@@ -93,16 +93,12 @@ def _get_base64_for_location(
     return result
 
 
-def _get_base64_for_location_indexed(
-    idx: int, *args: Any, **kwargs: Any
-) -> Tuple[int, Optional[str]]:
+def _get_base64_for_location_indexed(idx: int, *args: Any, **kwargs: Any) -> Tuple[int, Optional[str]]:
     """Return indexed result of content from specified location converted to base64 string"""
     return idx, _get_base64_for_location(*args, **kwargs)
 
 
-def _process_locations(
-    locations: Sequence[str], n_threads: Optional[int] = None, **kwargs: Any
-) -> List[Optional[str]]:
+def _process_locations(locations: Sequence[str], n_threads: Optional[int] = None, **kwargs: Any) -> List[Optional[str]]:
     """Process and return base64 encoded strings for all locations preserving order"""
 
     # If not specified determine number of threads to use
@@ -124,9 +120,7 @@ def _process_locations(
         with ThreadPoolExecutor(max_workers=n_threads) as executor:
             futures = []
             for idx, loc in enumerate(locations):
-                futures.append(
-                    executor.submit(_get_base64_for_location_indexed, idx, loc, **kwargs)
-                )
+                futures.append(executor.submit(_get_base64_for_location_indexed, idx, loc, **kwargs))
 
             for future in as_completed(futures, timeout=DEFAULT_MAX_WAIT):
                 try:

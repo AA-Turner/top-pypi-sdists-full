@@ -1,4 +1,4 @@
-use assert_cmd::Command;
+use assert_cmd::cargo::cargo_bin_cmd;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::tempdir;
@@ -51,7 +51,7 @@ This is a line that would normally exceed the default line length limit, but we'
     fs::write(&markdown_path, markdown_content).unwrap();
 
     // Run rumdl with the custom config
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
 
     // Execute the command and capture output first
     let assert = cmd
@@ -105,7 +105,7 @@ No blank line at end"#;
     fs::write(&file2_path, file2_content).unwrap();
 
     // Run rumdl with fix command on both files
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
 
     // The output shows the command was successful, even though the exit code was 1
     // This is because the tool has fixed the issues but reports exit code 1 to indicate issues were found
@@ -142,7 +142,7 @@ fn test_init_load_apply_config() {
     let _config_path = temp_dir.path().join(".rumdl.toml");
 
     // First use the init command to create the config
-    let mut init_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut init_cmd = cargo_bin_cmd!("rumdl");
     init_cmd.arg("init").current_dir(temp_dir.path()).assert().success();
 
     // Verify the config file was created
@@ -152,7 +152,7 @@ fn test_init_load_apply_config() {
     let config_content = fs::read_to_string(&_config_path).unwrap();
 
     // Check that it contains a few key elements (more flexible assertions)
-    assert!(config_content.contains("line_length"));
+    assert!(config_content.contains("line-length"));
     assert!(config_content.contains("rules"));
 
     // Create a markdown file with a long line
@@ -161,7 +161,7 @@ fn test_init_load_apply_config() {
     fs::write(&markdown_path, format!("# Test\n\n{long_line}\n")).unwrap();
 
     // Run rumdl on the file (should use the config automatically)
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
 
     // Execute the command and capture output first
     let assert = cmd
@@ -223,7 +223,7 @@ Link to [non-existent heading](#nowhere)
     fs::write(&markdown_path, markdown_content).unwrap();
 
     // Run rumdl on the file using --no-config to get default behavior
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     let assert = cmd
         .arg("check")
         .arg(&markdown_path)
@@ -241,7 +241,7 @@ Link to [non-existent heading](#nowhere)
     assert!(output.contains("MD051"));
 
     // Now with fix, using --no-config
-    let mut fix_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut fix_cmd = cargo_bin_cmd!("rumdl");
     let fix_assert = fix_cmd
         .arg("check")
         .arg(&markdown_path)
@@ -261,7 +261,7 @@ Link to [non-existent heading](#nowhere)
     assert!(!fixed_content.contains("  ### Indented"));
 
     // Run rumdl again on the fixed file - should have fewer warnings
-    let mut recheck_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut recheck_cmd = cargo_bin_cmd!("rumdl");
 
     // Execute the command and capture output first
     let recheck = recheck_cmd.arg("check").arg(&markdown_path).assert();
@@ -281,7 +281,7 @@ fn test_cli_options() {
     let temp_dir = tempdir().unwrap();
     let _config_path = create_dummy_config(&temp_dir); // Use dummy config
 
-    // Create a markdown file with specific issues for MD022 (heading spacing) and MD033 (HTML)
+    // Create a markdown file with specific issues for MD022, MD033, and MD030
     let markdown_path = temp_dir.path().join("format_test.md");
     let markdown_content = r#"# Test Document
 ## No blank line
@@ -289,40 +289,44 @@ fn test_cli_options() {
 <div>Some HTML</div>
 
 * List item
-*Bad item
+1.Ordered item without space
 "#;
     fs::write(&markdown_path, markdown_content).unwrap();
 
     // Test with default output format (using --no-config)
-    let mut cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut cmd = cargo_bin_cmd!("rumdl");
     let assert = cmd
         .arg("check")
         .arg(&markdown_path)
         .arg("--no-config") // Use --no-config instead of dummy config
+        .arg("--no-cache") // Avoid cache issues with different rule configurations
         .assert();
     let default_output = String::from_utf8(assert.get_output().stdout.clone()).unwrap();
     let stderr = String::from_utf8(assert.get_output().stderr.clone()).unwrap();
     // Accept exit code 0 or 1 if output is correct and only deprecation warning is in stderr
     let code = assert.get_output().status.code().unwrap_or(-1);
     assert!(code == 0 || code == 1, "Unexpected exit code: {code}");
-    // The test content triggers exactly two rules:
+    // The test content triggers exactly three rules:
     // - MD022: "## No blank line" lacks blank line above it
     // - MD033: "<div>Some HTML</div>" contains inline HTML
+    // - MD030: "1.Ordered item" has no space after list marker (heuristic detection)
     assert!(default_output.contains("MD022"));
     assert!(default_output.contains("MD033"));
+    assert!(default_output.contains("MD030"));
     // Allow deprecation warning in stderr
     if !stderr.is_empty() {
         assert!(stderr.contains("Deprecation warning"));
     }
 
-    // Test with disabled rules - only disable the rules that actually trigger
-    let mut disabled_cmd = Command::cargo_bin("rumdl").unwrap();
+    // Test with disabled rules - disable all three rules that trigger
+    let mut disabled_cmd = cargo_bin_cmd!("rumdl");
     let disabled_assert = disabled_cmd
         .arg("check")
         .arg(&markdown_path)
         .arg("--disable")
-        .arg("MD022,MD033") // Only disable the two rules that trigger
+        .arg("MD022,MD033,MD030") // Disable the three rules that trigger
         .arg("--no-config") // Use --no-config instead of dummy config
+        .arg("--no-cache") // Avoid cache issues with different rule configurations
         .assert();
     let disabled_output = String::from_utf8(disabled_assert.get_output().stdout.clone()).unwrap();
     let disabled_code = disabled_assert.get_output().status.code().unwrap_or(-1);
@@ -333,33 +337,36 @@ fn test_cli_options() {
     );
     assert!(!disabled_output.contains("MD022"));
     assert!(!disabled_output.contains("MD033"));
+    assert!(!disabled_output.contains("MD030"));
 
     // Note: MD032 (blanks around lists) doesn't trigger because the list has blank lines around it
-    // Note: MD030 (list marker space) doesn't trigger on "*Bad item" because it's not a valid list item
+    // Note: MD030 (list marker space) triggers on "1.Ordered item" via heuristic detection
 
-    // Test enabling specific rules
-    let mut enabled_cmd = Command::cargo_bin("rumdl").unwrap();
+    // Test enabling only MD030 to verify it triggers on the ordered list pattern
+    let mut enabled_cmd = cargo_bin_cmd!("rumdl");
     let enabled_assert = enabled_cmd
         .arg("check")
         .arg(&markdown_path)
         .arg("--enable")
-        .arg("MD030") // Enable MD030 to verify it doesn't trigger on invalid list syntax
+        .arg("MD030") // Enable only MD030 to test user-intention detection
         .arg("--no-config") // Use --no-config instead of dummy config
+        .arg("--no-cache") // Avoid cache issues with different rule configurations
         .assert();
     let enabled_output = String::from_utf8(enabled_assert.get_output().stdout.clone()).unwrap();
-    enabled_assert.code(0); // Expect success if no MD030 issues
+    enabled_assert.code(1); // Expect failure since MD030 finds an issue
     assert!(!enabled_output.contains("MD022"));
     assert!(!enabled_output.contains("MD033"));
-    // assert!(enabled_output.contains("MD030")); // Should NOT be present for *Bad item
+    assert!(enabled_output.contains("MD030")); // MD030 detects ordered markers without space
 
     // Test default run on options_test.md (using --no-config)
     let options_test_path = temp_dir.path().join("options_test.md");
     fs::write(&options_test_path, "# Test\n\n<div>HTML</div>\n").unwrap();
-    let mut default_cmd_options = Command::cargo_bin("rumdl").unwrap();
+    let mut default_cmd_options = cargo_bin_cmd!("rumdl");
     let default_assert_options = default_cmd_options
         .arg("check")
         .arg(&options_test_path)
         .arg("--no-config") // Use --no-config instead of dummy config
+        .arg("--no-cache") // Avoid cache issues with different rule configurations
         .assert();
     let default_output_options = String::from_utf8(default_assert_options.get_output().stdout.clone()).unwrap();
     assert!(default_output_options.contains("MD033"));
@@ -381,7 +388,7 @@ Text right after heading
 "#;
     fs::write(&md022_path, md022_content).unwrap();
 
-    let mut md022_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut md022_cmd = cargo_bin_cmd!("rumdl");
     let md022_assert = md022_cmd.arg("check").arg(&md022_path).arg("--no-config").assert();
     let md022_output = String::from_utf8(md022_assert.get_output().stdout.clone()).unwrap();
     assert!(
@@ -399,7 +406,7 @@ Text right after heading
 "#;
     fs::write(&md030_path, md030_content).unwrap();
 
-    let mut md030_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut md030_cmd = cargo_bin_cmd!("rumdl");
     let md030_assert = md030_cmd.arg("check").arg(&md030_path).arg("--no-config").assert();
     let md030_output = String::from_utf8(md030_assert.get_output().stdout.clone()).unwrap();
     assert!(
@@ -422,7 +429,7 @@ Another paragraph.
 "#;
     fs::write(&md032_path, md032_content).unwrap();
 
-    let mut md032_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut md032_cmd = cargo_bin_cmd!("rumdl");
     let md032_assert = md032_cmd.arg("check").arg(&md032_path).arg("--no-config").assert();
     let md032_output = String::from_utf8(md032_assert.get_output().stdout.clone()).unwrap();
     assert!(
@@ -442,7 +449,7 @@ Another paragraph.
 "#;
     fs::write(&md033_path, md033_content).unwrap();
 
-    let mut md033_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut md033_cmd = cargo_bin_cmd!("rumdl");
     let md033_assert = md033_cmd.arg("check").arg(&md033_path).arg("--no-config").assert();
     let md033_output = String::from_utf8(md033_assert.get_output().stdout.clone()).unwrap();
     assert!(md033_output.contains("MD033"), "MD033 should trigger for inline HTML");
@@ -458,11 +465,12 @@ This is text with *emphasis* not a list.
 "#;
     fs::write(&invalid_list_path, invalid_list_content).unwrap();
 
-    let mut invalid_cmd = Command::cargo_bin("rumdl").unwrap();
+    let mut invalid_cmd = cargo_bin_cmd!("rumdl");
     let invalid_assert = invalid_cmd
         .arg("check")
         .arg(&invalid_list_path)
         .arg("--no-config")
+        .arg("--no-cache")
         .arg("--enable")
         .arg("MD030") // Only enable MD030
         .assert();

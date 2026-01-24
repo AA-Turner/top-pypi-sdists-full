@@ -1,0 +1,137 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes: []
+          filters: []
+          measures:
+            - definition:
+                measure:
+                  item:
+                    identifier:
+                      id: order_amount
+                      type: metric
+                  computeRatio: false
+                  filters: []
+              localIdentifier: metric1
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - measureGroup
+              localIdentifier: dim_0
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '310'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - 8f69165a-6308-4a21-bcec-ac92f8134558
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - measureGroupHeaders:
+                      - localIdentifier: metric1
+                        format: $#,##0
+                        name: Order Amount
+                localIdentifier: dim_0
+            links:
+              executionResult: 5b896333b164f5e39908eb721f3f4687b6dcb852:0dc779dddcfecbd8816e8d4f7c0648422d96c3bb498130702e54b90688afe6d6
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/5b896333b164f5e39908eb721f3f4687b6dcb852%3A0dc779dddcfecbd8816e8d4f7c0648422d96c3bb498130702e54b90688afe6d6?offset=0&limit=256
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '213'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data:
+            - 516058.34
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - measureHeader:
+                        measureIndex: 0
+          grandTotals: []
+          paging:
+            count:
+              - 1
+            offset:
+              - 0
+            total:
+              - 1
+          metadata:
+            dataSourceMessages: []

@@ -164,11 +164,11 @@ class FiltersTests(FactoryTestCase):
         target = ClassFactory.create(extensions=ExtensionFactory.list(1))
 
         expected = self.filters.class_annotations(target, "FooBar")
-        self.assertEqual(["@c", "@b", "@dataclass"], expected)
+        self.assertEqual(["@c", "@b", "@dataclass(kw_only=True)"], expected)
 
         target.extensions.clear()
         expected = self.filters.class_annotations(target, "FooBar")
-        self.assertEqual(["@c", "@b", "@dataclass", "@d"], expected)
+        self.assertEqual(["@c", "@b", "@dataclass(kw_only=True)", "@d"], expected)
 
         self.filters.default_class_annotation = None
         expected = self.filters.class_annotations(target, "FooBar")
@@ -328,14 +328,11 @@ class FiltersTests(FactoryTestCase):
         mock_field_metadata.return_value = {}
         str_attr = AttrFactory.create(types=[type_str], tag=Tag.RESTRICTION)
         result = self.filters.field_definition(self.obj, str_attr, None)
-        expected = "field(\n        default=None\n    )"
+        expected = "field()"
         self.assertEqual(expected, result)
 
     def test_field_default_value_with_value_none(self) -> None:
         attr = AttrFactory.create(types=[type_str])
-        self.assertEqual(None, self.filters.field_default_value(attr))
-
-        self.filters.format.kw_only = True
         self.assertEqual(False, self.filters.field_default_value(attr))
 
         attr.restrictions.min_occurs = 0
@@ -545,6 +542,14 @@ class FiltersTests(FactoryTestCase):
 
         self.assertEqual(expected, actual["choices"])
 
+    def test_field_metadata_docs(self) -> None:
+        self.filters.docstring_style = DocstringStyle.ACCESSIBLE
+
+        attr = AttrFactory.element(name="a", help="help")
+        actual = self.filters.field_metadata(self.obj, attr, None)
+        expected = {"doc": "help", "type": "Element"}
+        self.assertEqual(expected, actual)
+
     def test_field_choices(self) -> None:
         attr = AttrFactory.create(
             choices=[
@@ -595,23 +600,13 @@ class FiltersTests(FactoryTestCase):
         self.assertEqual("FooBar", self.filters.field_type(self.obj, attr))
 
         attr.restrictions.nillable = True
-        self.assertEqual("Optional[FooBar]", self.filters.field_type(self.obj, attr))
-
-        self.filters.union_type = True
         self.assertEqual("None | FooBar", self.filters.field_type(self.obj, attr))
 
     def test_field_type_with_optional_value(self) -> None:
         attr = AttrFactory.create(types=AttrTypeFactory.list(1, qname="foo_bar"))
-
-        self.assertEqual("Optional[FooBar]", self.filters.field_type(self.obj, attr))
-
-        self.filters.format.kw_only = True
         self.assertEqual("FooBar", self.filters.field_type(self.obj, attr))
 
         attr.restrictions.min_occurs = 0
-        self.assertEqual("Optional[FooBar]", self.filters.field_type(self.obj, attr))
-
-        self.filters.union_type = True
         self.assertEqual("None | FooBar", self.filters.field_type(self.obj, attr))
 
     def test_field_type_with_circular_reference(self) -> None:
@@ -620,7 +615,7 @@ class FiltersTests(FactoryTestCase):
         )
 
         self.assertEqual(
-            'Optional["C"]',
+            "C",
             self.filters.field_type(self.obj_nested_nested_nested, attr),
         )
 
@@ -628,16 +623,7 @@ class FiltersTests(FactoryTestCase):
         attr = AttrFactory.create(
             types=AttrTypeFactory.list(1, qname="b", forward=True)
         )
-        self.assertEqual(
-            'Optional["A.B"]',
-            self.filters.field_type(self.obj_nested_nested, attr),
-        )
-
-        self.filters.postponed_annotations = True
-        self.filters.union_type = True
-        self.assertEqual(
-            "None | A.B", self.filters.field_type(self.obj_nested_nested, attr)
-        )
+        self.assertEqual("A.B", self.filters.field_type(self.obj_nested_nested, attr))
 
     def test_field_type_with_array_type(self) -> None:
         attr = AttrFactory.create(
@@ -645,18 +631,18 @@ class FiltersTests(FactoryTestCase):
         )
         attr.restrictions.max_occurs = 2
         self.assertEqual(
-            'list["A.B.C"]',
+            "list[A.B.C]",
             self.filters.field_type(self.obj, attr),
         )
 
         self.filters.format.frozen = True
-        self.assertEqual('tuple["A.B.C", ...]', self.filters.field_type(self.obj, attr))
+        self.assertEqual("tuple[A.B.C, ...]", self.filters.field_type(self.obj, attr))
 
         self.filters.format.frozen = False
-        self.assertEqual('list["A.B.C"]', self.filters.field_type(self.obj, attr))
+        self.assertEqual("list[A.B.C]", self.filters.field_type(self.obj, attr))
 
         self.filters.generic_collections = True
-        self.assertEqual('Iterable["A.B.C"]', self.filters.field_type(self.obj, attr))
+        self.assertEqual("Sequence[A.B.C]", self.filters.field_type(self.obj, attr))
 
     def test_field_type_with_token_attr(self) -> None:
         attr = AttrFactory.create(
@@ -683,7 +669,7 @@ class FiltersTests(FactoryTestCase):
         )
         attr.restrictions.max_occurs = 2
         self.assertEqual(
-            'list["A.BossLife"]',
+            "list[A.BossLife]",
             self.filters.field_type(self.obj_nested_nested_nested, attr),
         )
 
@@ -695,15 +681,8 @@ class FiltersTests(FactoryTestCase):
             ]
         )
         attr.restrictions.max_occurs = 2
-
         self.assertEqual(
-            'list[Union["A.B.BossLife", int]]',
-            self.filters.field_type(self.obj_nested_nested_nested, attr),
-        )
-
-        self.filters.union_type = True
-        self.assertEqual(
-            'list["A.B.BossLife" | int]',
+            "list[A.B.BossLife | int]",
             self.filters.field_type(self.obj_nested_nested_nested, attr),
         )
 
@@ -723,12 +702,7 @@ class FiltersTests(FactoryTestCase):
                 AttrTypeFactory.native(DataType.STRING),
             ]
         )
-        self.assertEqual(
-            "Optional[Union[int, str]]", self.filters.field_type(self.obj, attr)
-        )
-
-        self.filters.union_type = True
-        self.assertEqual("None | int | str", self.filters.field_type(self.obj, attr))
+        self.assertEqual("int | str", self.filters.field_type(self.obj, attr))
 
     def test_field_type_with_prohibited_attr(self) -> None:
         attr = AttrFactory.create(restrictions=Restrictions(max_occurs=0))
@@ -754,16 +728,16 @@ class FiltersTests(FactoryTestCase):
             restrictions=Restrictions(min_occurs=0, max_occurs=1),
         )
 
-        expected = "Optional[Union[str, int, list[Decimal]]]"
+        expected = "None | str | int | list[Decimal]"
         self.assertEqual(expected, self.filters.field_type(self.obj, attr))
 
         attr.restrictions.max_occurs = 2
-        expected = "list[Union[str, int, list[Decimal]]]"
+        expected = "list[str | int | list[Decimal]]"
         self.assertEqual(expected, self.filters.field_type(self.obj, attr))
 
         attr.restrictions.min_occurs = attr.restrictions.max_occurs = 1
         self.filters.format.kw_only = True
-        expected = "Union[str, int, list[Decimal]]"
+        expected = "str | int | list[Decimal]"
         self.assertEqual(expected, self.filters.field_type(self.obj, attr))
 
     def test_choice_type(self) -> None:
@@ -789,17 +763,9 @@ class FiltersTests(FactoryTestCase):
         actual = self.filters.choice_type(self.obj_nested_nested_nested, choice)
         self.assertEqual('ForwardRef("C")', actual)
 
-        self.filters.postponed_annotations = True
-        actual = self.filters.choice_type(self.obj_nested_nested_nested, choice)
-        self.assertEqual('ForwardRef("C")', actual)
-
     def test_choice_type_with_multiple_types(self) -> None:
         choice = AttrFactory.create(types=[type_str, type_bool])
         target = ClassFactory.create()
-        actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[Union[str, bool]]", actual)
-
-        self.filters.union_type = True
         actual = self.filters.choice_type(target, choice)
         self.assertEqual("Type[str | bool]", actual)
 
@@ -808,20 +774,16 @@ class FiltersTests(FactoryTestCase):
         choice.restrictions.max_occurs = 200
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[Union[str, bool]]", actual)
+        self.assertEqual("Type[str | bool]", actual)
 
     def test_choice_type_with_restrictions_tokens_true(self) -> None:
         choice = AttrFactory.create(types=[type_str, type_bool])
         choice.restrictions.tokens = True
         target = ClassFactory.create()
         actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[list[Union[str, bool]]]", actual)
+        self.assertEqual("Type[list[str | bool]]", actual)
 
         self.filters.format.frozen = True
-        actual = self.filters.choice_type(target, choice)
-        self.assertEqual("Type[tuple[Union[str, bool], ...]]", actual)
-
-        self.filters.union_type = True
         actual = self.filters.choice_type(target, choice)
         self.assertEqual("Type[tuple[str | bool, ...]]", actual)
 
@@ -879,14 +841,6 @@ class FiltersTests(FactoryTestCase):
         self.assertNotIn(expected, self.filters.default_imports("class fooXmlDateTime"))
 
     def test_default_imports_with_typing(self) -> None:
-        output = "Optional[ "
-        expected = "from typing import Optional"
-        self.assertIn(expected, self.filters.default_imports(output))
-
-        output = " Union[ "
-        expected = "from typing import Union"
-        self.assertIn(expected, self.filters.default_imports(output))
-
         output = ": ForwardRef("
         expected = "from typing import ForwardRef"
         self.assertIn(expected, self.filters.default_imports(output))
@@ -895,38 +849,142 @@ class FiltersTests(FactoryTestCase):
         expected = "from typing import Any"
         self.assertIn(expected, self.filters.default_imports(output))
 
-        output = ": Iterable[str] = "
-        expected = "from collections.abc import Iterable"
+        output = ": Sequence[str] = "
+        expected = "from collections.abc import Sequence"
         self.assertIn(expected, self.filters.default_imports(output))
 
         output = ": Mapping[str, str] = "
         expected = "from collections.abc import Mapping"
         self.assertIn(expected, self.filters.default_imports(output))
 
-    def test_default_imports_combo(self) -> None:
-        output = (
-            "@dataclass\nclass Foo:\n    field: Optional[str] = field(default=None)"
-        )
-
-        expected = (
-            "from dataclasses import dataclass, field\nfrom typing import Optional"
-        )
-
-        self.assertEqual(expected, self.filters.default_imports(output))
-
     def test_default_imports_with_module(self) -> None:
         output = "@attrs.s\n"
 
         self.filters.import_patterns["attrs"] = {"__module__": ["@attrs.s"]}
 
-        expected = "import attrs"
+        expected = "from __future__ import annotations\nimport attrs"
         self.assertEqual(expected, self.filters.default_imports(output))
 
-    def test_default_imports_with_annotations(self) -> None:
-        self.filters.postponed_annotations = True
+    def test_format_docstring_simple(self) -> None:
+        """Test simple single-line docstring."""
+        result = self.filters.format_docstring('"""Short doc."""', level=1)
+        self.assertEqual('"""\nShort doc.\n"""', result)
 
-        expected = "from __future__ import annotations"
-        self.assertEqual(expected, self.filters.default_imports(""))
+    def test_format_docstring_adds_period(self) -> None:
+        """Test that period is added if missing."""
+        result = self.filters.format_docstring('"""No period"""', level=1)
+        self.assertEqual('"""\nNo period.\n"""', result)
+
+        # Should not add period if already has punctuation
+        result = self.filters.format_docstring('"""Has period."""', level=1)
+        self.assertEqual('"""\nHas period.\n"""', result)
+
+        result = self.filters.format_docstring('"""Has question?"""', level=1)
+        self.assertEqual('"""\nHas question?\n"""', result)
+
+        result = self.filters.format_docstring('"""Has exclamation!"""', level=1)
+        self.assertEqual('"""\nHas exclamation!\n"""', result)
+
+        result = self.filters.format_docstring('"""Has colon:"""', level=1)
+        self.assertEqual('"""\nHas colon:\n"""', result)
+
+    def test_format_docstring_with_params(self) -> None:
+        """Test docstring with RST-style params."""
+        doc = '"""Class description."""\n:ivar foo: Foo desc.\n:ivar bar: Bar desc.'
+        result = self.filters.format_docstring(doc, level=1)
+        expected = (
+            '"""\nClass description.\n\n:ivar foo: Foo desc.\n:ivar bar: Bar desc.\n"""'
+        )
+        self.assertEqual(expected, result)
+
+    def test_format_docstring_empty_with_params(self) -> None:
+        """Test docstring with only params, no description."""
+        doc = '""""""\n:ivar foo: Foo description.'
+        result = self.filters.format_docstring(doc, level=1)
+        expected = '"""\n:ivar foo: Foo description.\n"""'
+        self.assertEqual(expected, result)
+
+    def test_format_docstring_empty(self) -> None:
+        """Test completely empty docstring returns empty string."""
+        result = self.filters.format_docstring('""""""', level=1)
+        self.assertEqual("", result)
+
+    def test_format_docstring_wraps_long_lines(self) -> None:
+        """Test that long lines are wrapped."""
+        self.filters.max_line_length = 79
+        long_text = "A " * 50  # Much longer than 79 chars
+        doc = f'"""{long_text.strip()}"""'
+        result = self.filters.format_docstring(doc, level=1)
+
+        # Result should be multi-line
+        lines = result.split("\n")
+        self.assertGreater(len(lines), 3)  # Opening, at least 2 content lines, closing
+
+        # Each content line should respect max_line_length minus indentation
+        for line in lines[1:-1]:  # Skip opening and closing quotes
+            # level=1 means 4 spaces indent, plus some margin
+            self.assertLessEqual(len(line), self.filters.max_line_length - 4)
+
+    def test_format_docstring_nested_level(self) -> None:
+        """Test that nested classes get different wrapping width."""
+        self.filters.max_line_length = 79
+        long_text = "A " * 40
+        doc = f'"""{long_text.strip()}"""'
+
+        result_level1 = self.filters.format_docstring(doc, level=1)
+        result_level2 = self.filters.format_docstring(doc, level=2)
+
+        # Level 2 should wrap earlier (more indent = less space)
+        lines_level1 = result_level1.split("\n")
+        lines_level2 = result_level2.split("\n")
+
+        # Level 2 should have more lines due to narrower width
+        self.assertGreaterEqual(len(lines_level2), len(lines_level1))
+
+    def test_format_docstring_no_separator(self) -> None:
+        """Test that missing closing quotes returns empty string."""
+        result = self.filters.format_docstring("no quotes here", level=1)
+        self.assertEqual("", result)
+
+    def test_format_docstring_splits_summary_description(self) -> None:
+        """Test that first sentence becomes summary, rest becomes description."""
+        doc = '"""First sentence here. Second sentence follows. Third one too."""'
+        result = self.filters.format_docstring(doc, level=1)
+        expected = (
+            '"""\nFirst sentence here.\n\nSecond sentence follows. Third one too.\n"""'
+        )
+        self.assertEqual(expected, result)
+
+        # With params
+        doc = '"""Summary sentence. Description here."""\n:ivar x: X desc.'
+        result = self.filters.format_docstring(doc, level=1)
+        expected = (
+            '"""\nSummary sentence.\n\nDescription here.\n\n:ivar x: X desc.\n"""'
+        )
+        self.assertEqual(expected, result)
+
+        # Single sentence - no split
+        doc = '"""Just one sentence here."""'
+        result = self.filters.format_docstring(doc, level=1)
+        expected = '"""\nJust one sentence here.\n"""'
+        self.assertEqual(expected, result)
+
+    def test_format_docstring_normalizes_whitespace(self) -> None:
+        """Test that internal whitespace is normalized."""
+        doc = '"""Text  with   multiple    spaces."""'
+        result = self.filters.format_docstring(doc, level=1)
+        self.assertEqual('"""\nText with multiple spaces.\n"""', result)
+
+        # Multi-line input gets joined and sentences are split
+        doc = '"""Line one.\nLine two."""'
+        result = self.filters.format_docstring(doc, level=1)
+        # "Line one." becomes summary, "Line two." becomes description
+        self.assertEqual('"""\nLine one.\n\nLine two.\n"""', result)
+
+        # Single sentence stays together
+        doc = '"""Line one and\nline two."""'
+        result = self.filters.format_docstring(doc, level=1)
+        self.assertEqual('"""\nLine one and line two.\n"""', result)
 
     def test_format_metadata(self) -> None:
         data = {
@@ -996,18 +1054,17 @@ class FiltersTests(FactoryTestCase):
         format = config.output.format
 
         actual = self.filters.build_class_annotation(format)
-        self.assertEqual("@dataclass", actual)
+        self.assertEqual("@dataclass(kw_only=True)", actual)
 
         format.frozen = True
         actual = self.filters.build_class_annotation(format)
-        self.assertEqual("@dataclass(frozen=True)", actual)
+        self.assertEqual("@dataclass(frozen=True, kw_only=True)", actual)
 
         format.repr = False
         format.eq = False
         format.order = True
         format.unsafe_hash = True
         format.slots = True
-        format.kw_only = True
         actual = self.filters.build_class_annotation(format)
         expected = (
             "@dataclass(repr=False, eq=False, order=True,"
@@ -1072,7 +1129,7 @@ class FiltersTests(FactoryTestCase):
         expected_imports = {
             "b": {"@b"},
             "c": {"@c"},
-            "d": {"(d", " d)"},
-            "e": {"(e", " e)"},
+            "d": {"(d", ", d", " d)"},
+            "e": {"(e", ", e", " e)"},
         }
         self.assertEqual(expected_imports, filters.import_patterns["a"])

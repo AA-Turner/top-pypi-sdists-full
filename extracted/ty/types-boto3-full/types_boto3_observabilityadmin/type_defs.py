@@ -3,40 +3,46 @@ Type annotations for observabilityadmin service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_observabilityadmin/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_observabilityadmin.type_defs import SourceLogsConfigurationTypeDef
+    from types_boto3_observabilityadmin.type_defs import ActionConditionTypeDef
 
-    data: SourceLogsConfigurationTypeDef = ...
+    data: ActionConditionTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
+    ActionType,
     CentralizationFailureReasonType,
     EncryptedLogGroupStrategyType,
     EncryptionConflictResolutionStrategyType,
     EncryptionStrategyType,
+    FilterBehaviorType,
+    FilterRequirementType,
+    IntegrationStatusType,
+    LogTypeType,
+    OutputFormatType,
+    RecordFormatType,
     ResourceTypeType,
     RuleHealthType,
+    SSEAlgorithmType,
     StatusType,
+    TelemetryEnrichmentStatusType,
+    TelemetryPipelineStatusType,
+    TelemetrySourceTypeType,
     TelemetryStateType,
     TelemetryTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -44,6 +50,11 @@ else:
 
 
 __all__ = (
+    "ActionConditionTypeDef",
+    "AdvancedEventSelectorOutputTypeDef",
+    "AdvancedEventSelectorTypeDef",
+    "AdvancedFieldSelectorOutputTypeDef",
+    "AdvancedFieldSelectorTypeDef",
     "CentralizationRuleDestinationTypeDef",
     "CentralizationRuleOutputTypeDef",
     "CentralizationRuleSourceOutputTypeDef",
@@ -51,25 +62,48 @@ __all__ = (
     "CentralizationRuleSummaryTypeDef",
     "CentralizationRuleTypeDef",
     "CentralizationRuleUnionTypeDef",
+    "CloudtrailParametersOutputTypeDef",
+    "CloudtrailParametersTypeDef",
+    "ConditionTypeDef",
+    "ConfigurationSummaryTypeDef",
     "CreateCentralizationRuleForOrganizationInputTypeDef",
     "CreateCentralizationRuleForOrganizationOutputTypeDef",
+    "CreateS3TableIntegrationInputTypeDef",
+    "CreateS3TableIntegrationOutputTypeDef",
+    "CreateTelemetryPipelineInputTypeDef",
+    "CreateTelemetryPipelineOutputTypeDef",
     "CreateTelemetryRuleForOrganizationInputTypeDef",
     "CreateTelemetryRuleForOrganizationOutputTypeDef",
     "CreateTelemetryRuleInputTypeDef",
     "CreateTelemetryRuleOutputTypeDef",
+    "DataSourceTypeDef",
     "DeleteCentralizationRuleForOrganizationInputTypeDef",
+    "DeleteS3TableIntegrationInputTypeDef",
+    "DeleteTelemetryPipelineInputTypeDef",
     "DeleteTelemetryRuleForOrganizationInputTypeDef",
     "DeleteTelemetryRuleInputTypeDef",
     "DestinationLogsConfigurationTypeDef",
+    "ELBLoadBalancerLoggingParametersTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "EncryptionTypeDef",
+    "FieldToMatchTypeDef",
+    "FilterOutputTypeDef",
+    "FilterTypeDef",
     "GetCentralizationRuleForOrganizationInputTypeDef",
     "GetCentralizationRuleForOrganizationOutputTypeDef",
+    "GetS3TableIntegrationInputTypeDef",
+    "GetS3TableIntegrationOutputTypeDef",
+    "GetTelemetryEnrichmentStatusOutputTypeDef",
     "GetTelemetryEvaluationStatusForOrganizationOutputTypeDef",
     "GetTelemetryEvaluationStatusOutputTypeDef",
+    "GetTelemetryPipelineInputTypeDef",
+    "GetTelemetryPipelineOutputTypeDef",
     "GetTelemetryRuleForOrganizationInputTypeDef",
     "GetTelemetryRuleForOrganizationOutputTypeDef",
     "GetTelemetryRuleInputTypeDef",
     "GetTelemetryRuleOutputTypeDef",
+    "IntegrationSummaryTypeDef",
+    "LabelNameConditionTypeDef",
     "ListCentralizationRulesForOrganizationInputPaginateTypeDef",
     "ListCentralizationRulesForOrganizationInputTypeDef",
     "ListCentralizationRulesForOrganizationOutputTypeDef",
@@ -79,33 +113,89 @@ __all__ = (
     "ListResourceTelemetryInputPaginateTypeDef",
     "ListResourceTelemetryInputTypeDef",
     "ListResourceTelemetryOutputTypeDef",
+    "ListS3TableIntegrationsInputPaginateTypeDef",
+    "ListS3TableIntegrationsInputTypeDef",
+    "ListS3TableIntegrationsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "ListTelemetryPipelinesInputPaginateTypeDef",
+    "ListTelemetryPipelinesInputTypeDef",
+    "ListTelemetryPipelinesOutputTypeDef",
     "ListTelemetryRulesForOrganizationInputPaginateTypeDef",
     "ListTelemetryRulesForOrganizationInputTypeDef",
     "ListTelemetryRulesForOrganizationOutputTypeDef",
     "ListTelemetryRulesInputPaginateTypeDef",
     "ListTelemetryRulesInputTypeDef",
     "ListTelemetryRulesOutputTypeDef",
+    "LogDeliveryParametersOutputTypeDef",
+    "LogDeliveryParametersTypeDef",
+    "LoggingFilterOutputTypeDef",
+    "LoggingFilterTypeDef",
     "LogsBackupConfigurationTypeDef",
     "LogsEncryptionConfigurationTypeDef",
     "PaginatorConfigTypeDef",
+    "PipelineOutputErrorTypeDef",
+    "PipelineOutputTypeDef",
+    "RecordTypeDef",
     "ResponseMetadataTypeDef",
+    "SingleHeaderTypeDef",
     "SourceLogsConfigurationTypeDef",
+    "SourceTypeDef",
+    "StartTelemetryEnrichmentOutputTypeDef",
+    "StopTelemetryEnrichmentOutputTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
+    "TelemetryDestinationConfigurationOutputTypeDef",
     "TelemetryDestinationConfigurationTypeDef",
+    "TelemetryPipelineConfigurationTypeDef",
+    "TelemetryPipelineStatusReasonTypeDef",
+    "TelemetryPipelineSummaryTypeDef",
+    "TelemetryPipelineTypeDef",
+    "TelemetryRuleOutputTypeDef",
     "TelemetryRuleSummaryTypeDef",
     "TelemetryRuleTypeDef",
+    "TelemetryRuleUnionTypeDef",
+    "TestTelemetryPipelineInputTypeDef",
+    "TestTelemetryPipelineOutputTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateCentralizationRuleForOrganizationInputTypeDef",
     "UpdateCentralizationRuleForOrganizationOutputTypeDef",
+    "UpdateTelemetryPipelineInputTypeDef",
     "UpdateTelemetryRuleForOrganizationInputTypeDef",
     "UpdateTelemetryRuleForOrganizationOutputTypeDef",
     "UpdateTelemetryRuleInputTypeDef",
     "UpdateTelemetryRuleOutputTypeDef",
     "VPCFlowLogParametersTypeDef",
+    "ValidateTelemetryPipelineConfigurationInputTypeDef",
+    "ValidateTelemetryPipelineConfigurationOutputTypeDef",
+    "ValidationErrorTypeDef",
+    "WAFLoggingParametersOutputTypeDef",
+    "WAFLoggingParametersTypeDef",
 )
+
+
+class ActionConditionTypeDef(TypedDict):
+    Action: NotRequired[ActionType]
+
+
+class AdvancedFieldSelectorOutputTypeDef(TypedDict):
+    Field: str
+    Equals: NotRequired[list[str]]
+    StartsWith: NotRequired[list[str]]
+    EndsWith: NotRequired[list[str]]
+    NotEquals: NotRequired[list[str]]
+    NotStartsWith: NotRequired[list[str]]
+    NotEndsWith: NotRequired[list[str]]
+
+
+class AdvancedFieldSelectorTypeDef(TypedDict):
+    Field: str
+    Equals: NotRequired[Sequence[str]]
+    StartsWith: NotRequired[Sequence[str]]
+    EndsWith: NotRequired[Sequence[str]]
+    NotEquals: NotRequired[Sequence[str]]
+    NotStartsWith: NotRequired[Sequence[str]]
+    NotEndsWith: NotRequired[Sequence[str]]
 
 
 class SourceLogsConfigurationTypeDef(TypedDict):
@@ -126,16 +216,52 @@ class CentralizationRuleSummaryTypeDef(TypedDict):
     DestinationRegion: NotRequired[str]
 
 
+class LabelNameConditionTypeDef(TypedDict):
+    LabelName: NotRequired[str]
+
+
+DataSourceTypeDef = TypedDict(
+    "DataSourceTypeDef",
+    {
+        "Name": NotRequired[str],
+        "Type": NotRequired[str],
+    },
+)
+SourceTypeDef = TypedDict(
+    "SourceTypeDef",
+    {
+        "Type": NotRequired[str],
+    },
+)
+
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
+class EncryptionTypeDef(TypedDict):
+    SseAlgorithm: SSEAlgorithmType
+    KmsKeyArn: NotRequired[str]
+
+
+class TelemetryPipelineConfigurationTypeDef(TypedDict):
+    Body: str
+
+
 class DeleteCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+
+class DeleteS3TableIntegrationInputTypeDef(TypedDict):
+    Arn: str
+
+
+class DeleteTelemetryPipelineInputTypeDef(TypedDict):
+    PipelineIdentifier: str
 
 
 class DeleteTelemetryRuleForOrganizationInputTypeDef(TypedDict):
@@ -157,8 +283,25 @@ class LogsEncryptionConfigurationTypeDef(TypedDict):
     EncryptionConflictResolutionStrategy: NotRequired[EncryptionConflictResolutionStrategyType]
 
 
+class ELBLoadBalancerLoggingParametersTypeDef(TypedDict):
+    OutputFormat: NotRequired[OutputFormatType]
+    FieldDelimiter: NotRequired[str]
+
+
+class SingleHeaderTypeDef(TypedDict):
+    Name: NotRequired[str]
+
+
 class GetCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+
+class GetS3TableIntegrationInputTypeDef(TypedDict):
+    Arn: str
+
+
+class GetTelemetryPipelineInputTypeDef(TypedDict):
+    PipelineIdentifier: str
 
 
 class GetTelemetryRuleForOrganizationInputTypeDef(TypedDict):
@@ -167,6 +310,11 @@ class GetTelemetryRuleForOrganizationInputTypeDef(TypedDict):
 
 class GetTelemetryRuleInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+
+class IntegrationSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Status: NotRequired[IntegrationStatusType]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -194,10 +342,10 @@ class ListResourceTelemetryForOrganizationInputTypeDef(TypedDict):
 
 class TelemetryConfigurationTypeDef(TypedDict):
     AccountIdentifier: NotRequired[str]
-    TelemetryConfigurationState: NotRequired[Dict[TelemetryTypeType, TelemetryStateType]]
+    TelemetryConfigurationState: NotRequired[dict[TelemetryTypeType, TelemetryStateType]]
     ResourceType: NotRequired[ResourceTypeType]
     ResourceIdentifier: NotRequired[str]
-    ResourceTags: NotRequired[Dict[str, str]]
+    ResourceTags: NotRequired[dict[str, str]]
     LastUpdateTimeStamp: NotRequired[int]
 
 
@@ -210,8 +358,18 @@ class ListResourceTelemetryInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListS3TableIntegrationsInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListTagsForResourceInputTypeDef(TypedDict):
     ResourceARN: str
+
+
+class ListTelemetryPipelinesInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListTelemetryRulesForOrganizationInputTypeDef(TypedDict):
@@ -229,12 +387,34 @@ class TelemetryRuleSummaryTypeDef(TypedDict):
     LastUpdateTimeStamp: NotRequired[int]
     ResourceType: NotRequired[ResourceTypeType]
     TelemetryType: NotRequired[TelemetryTypeType]
+    TelemetrySourceTypes: NotRequired[list[TelemetrySourceTypeType]]
 
 
 class ListTelemetryRulesInputTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class LogDeliveryParametersOutputTypeDef(TypedDict):
+    LogTypes: NotRequired[list[LogTypeType]]
+
+
+class LogDeliveryParametersTypeDef(TypedDict):
+    LogTypes: NotRequired[Sequence[LogTypeType]]
+
+
+class PipelineOutputErrorTypeDef(TypedDict):
+    Message: NotRequired[str]
+
+
+RecordTypeDef = TypedDict(
+    "RecordTypeDef",
+    {
+        "Data": NotRequired[str],
+        "Type": NotRequired[RecordFormatType],
+    },
+)
 
 
 class TagResourceInputTypeDef(TypedDict):
@@ -248,13 +428,33 @@ class VPCFlowLogParametersTypeDef(TypedDict):
     MaxAggregationInterval: NotRequired[int]
 
 
+class TelemetryPipelineStatusReasonTypeDef(TypedDict):
+    Description: NotRequired[str]
+
+
 class UntagResourceInputTypeDef(TypedDict):
     ResourceARN: str
     TagKeys: Sequence[str]
 
 
+class ValidationErrorTypeDef(TypedDict):
+    Message: NotRequired[str]
+    Reason: NotRequired[str]
+    FieldMap: NotRequired[dict[str, str]]
+
+
+class AdvancedEventSelectorOutputTypeDef(TypedDict):
+    FieldSelectors: list[AdvancedFieldSelectorOutputTypeDef]
+    Name: NotRequired[str]
+
+
+class AdvancedEventSelectorTypeDef(TypedDict):
+    FieldSelectors: Sequence[AdvancedFieldSelectorTypeDef]
+    Name: NotRequired[str]
+
+
 class CentralizationRuleSourceOutputTypeDef(TypedDict):
-    Regions: List[str]
+    Regions: list[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
 
@@ -265,8 +465,31 @@ class CentralizationRuleSourceTypeDef(TypedDict):
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
 
 
+class ConditionTypeDef(TypedDict):
+    ActionCondition: NotRequired[ActionConditionTypeDef]
+    LabelNameCondition: NotRequired[LabelNameConditionTypeDef]
+
+
+class ConfigurationSummaryTypeDef(TypedDict):
+    Sources: NotRequired[list[SourceTypeDef]]
+    DataSources: NotRequired[list[DataSourceTypeDef]]
+    Processors: NotRequired[list[str]]
+    ProcessorCount: NotRequired[int]
+    Sinks: NotRequired[list[str]]
+
+
 class CreateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     RuleArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateS3TableIntegrationOutputTypeDef(TypedDict):
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateTelemetryPipelineOutputTypeDef(TypedDict):
+    Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -284,6 +507,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetTelemetryEnrichmentStatusOutputTypeDef(TypedDict):
+    Status: TelemetryEnrichmentStatusType
+    AwsResourceExplorerManagedViewArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetTelemetryEvaluationStatusForOrganizationOutputTypeDef(TypedDict):
     Status: StatusType
     FailureReason: str
@@ -297,13 +526,24 @@ class GetTelemetryEvaluationStatusOutputTypeDef(TypedDict):
 
 
 class ListCentralizationRulesForOrganizationOutputTypeDef(TypedDict):
-    CentralizationRuleSummaries: List[CentralizationRuleSummaryTypeDef]
+    CentralizationRuleSummaries: list[CentralizationRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartTelemetryEnrichmentOutputTypeDef(TypedDict):
+    Status: TelemetryEnrichmentStatusType
+    AwsResourceExplorerManagedViewArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StopTelemetryEnrichmentOutputTypeDef(TypedDict):
+    Status: TelemetryEnrichmentStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -322,9 +562,53 @@ class UpdateTelemetryRuleOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateS3TableIntegrationInputTypeDef(TypedDict):
+    Encryption: EncryptionTypeDef
+    RoleArn: str
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class GetS3TableIntegrationOutputTypeDef(TypedDict):
+    Arn: str
+    RoleArn: str
+    Status: IntegrationStatusType
+    Encryption: EncryptionTypeDef
+    DestinationTableBucketArn: str
+    CreatedTimeStamp: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateTelemetryPipelineInputTypeDef(TypedDict):
+    Name: str
+    Configuration: TelemetryPipelineConfigurationTypeDef
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateTelemetryPipelineInputTypeDef(TypedDict):
+    PipelineIdentifier: str
+    Configuration: TelemetryPipelineConfigurationTypeDef
+
+
+class ValidateTelemetryPipelineConfigurationInputTypeDef(TypedDict):
+    Configuration: TelemetryPipelineConfigurationTypeDef
+
+
 class DestinationLogsConfigurationTypeDef(TypedDict):
     LogsEncryptionConfiguration: NotRequired[LogsEncryptionConfigurationTypeDef]
     BackupConfiguration: NotRequired[LogsBackupConfigurationTypeDef]
+
+
+class FieldToMatchTypeDef(TypedDict):
+    SingleHeader: NotRequired[SingleHeaderTypeDef]
+    UriPath: NotRequired[str]
+    QueryString: NotRequired[str]
+    Method: NotRequired[str]
+
+
+class ListS3TableIntegrationsOutputTypeDef(TypedDict):
+    IntegrationSummaries: list[IntegrationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListCentralizationRulesForOrganizationInputPaginateTypeDef(TypedDict):
@@ -350,6 +634,14 @@ class ListResourceTelemetryInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListS3TableIntegrationsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListTelemetryPipelinesInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListTelemetryRulesForOrganizationInputPaginateTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     SourceAccountIds: NotRequired[Sequence[str]]
@@ -363,34 +655,83 @@ class ListTelemetryRulesInputPaginateTypeDef(TypedDict):
 
 
 class ListResourceTelemetryForOrganizationOutputTypeDef(TypedDict):
-    TelemetryConfigurations: List[TelemetryConfigurationTypeDef]
+    TelemetryConfigurations: list[TelemetryConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourceTelemetryOutputTypeDef(TypedDict):
-    TelemetryConfigurations: List[TelemetryConfigurationTypeDef]
+    TelemetryConfigurations: list[TelemetryConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTelemetryRulesForOrganizationOutputTypeDef(TypedDict):
-    TelemetryRuleSummaries: List[TelemetryRuleSummaryTypeDef]
+    TelemetryRuleSummaries: list[TelemetryRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTelemetryRulesOutputTypeDef(TypedDict):
-    TelemetryRuleSummaries: List[TelemetryRuleSummaryTypeDef]
+    TelemetryRuleSummaries: list[TelemetryRuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
-class TelemetryDestinationConfigurationTypeDef(TypedDict):
-    DestinationType: NotRequired[Literal["cloud-watch-logs"]]
-    DestinationPattern: NotRequired[str]
-    RetentionInDays: NotRequired[int]
-    VPCFlowLogParameters: NotRequired[VPCFlowLogParametersTypeDef]
+class PipelineOutputTypeDef(TypedDict):
+    Record: NotRequired[RecordTypeDef]
+    Error: NotRequired[PipelineOutputErrorTypeDef]
+
+
+class TestTelemetryPipelineInputTypeDef(TypedDict):
+    Records: Sequence[RecordTypeDef]
+    Configuration: TelemetryPipelineConfigurationTypeDef
+
+
+class TelemetryPipelineTypeDef(TypedDict):
+    CreatedTimeStamp: NotRequired[int]
+    LastUpdateTimeStamp: NotRequired[int]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Configuration: NotRequired[TelemetryPipelineConfigurationTypeDef]
+    Status: NotRequired[TelemetryPipelineStatusType]
+    StatusReason: NotRequired[TelemetryPipelineStatusReasonTypeDef]
+    Tags: NotRequired[dict[str, str]]
+
+
+class ValidateTelemetryPipelineConfigurationOutputTypeDef(TypedDict):
+    Errors: list[ValidationErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CloudtrailParametersOutputTypeDef(TypedDict):
+    AdvancedEventSelectors: list[AdvancedEventSelectorOutputTypeDef]
+
+
+class CloudtrailParametersTypeDef(TypedDict):
+    AdvancedEventSelectors: Sequence[AdvancedEventSelectorTypeDef]
+
+
+class FilterOutputTypeDef(TypedDict):
+    Behavior: NotRequired[FilterBehaviorType]
+    Requirement: NotRequired[FilterRequirementType]
+    Conditions: NotRequired[list[ConditionTypeDef]]
+
+
+class FilterTypeDef(TypedDict):
+    Behavior: NotRequired[FilterBehaviorType]
+    Requirement: NotRequired[FilterRequirementType]
+    Conditions: NotRequired[Sequence[ConditionTypeDef]]
+
+
+class TelemetryPipelineSummaryTypeDef(TypedDict):
+    CreatedTimeStamp: NotRequired[int]
+    LastUpdateTimeStamp: NotRequired[int]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Status: NotRequired[TelemetryPipelineStatusType]
+    Tags: NotRequired[dict[str, str]]
+    ConfigurationSummary: NotRequired[ConfigurationSummaryTypeDef]
 
 
 class CentralizationRuleDestinationTypeDef(TypedDict):
@@ -399,12 +740,30 @@ class CentralizationRuleDestinationTypeDef(TypedDict):
     DestinationLogsConfiguration: NotRequired[DestinationLogsConfigurationTypeDef]
 
 
-class TelemetryRuleTypeDef(TypedDict):
-    TelemetryType: TelemetryTypeType
-    ResourceType: NotRequired[ResourceTypeType]
-    DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationTypeDef]
-    Scope: NotRequired[str]
-    SelectionCriteria: NotRequired[str]
+class TestTelemetryPipelineOutputTypeDef(TypedDict):
+    Results: list[PipelineOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetTelemetryPipelineOutputTypeDef(TypedDict):
+    Pipeline: TelemetryPipelineTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class LoggingFilterOutputTypeDef(TypedDict):
+    Filters: NotRequired[list[FilterOutputTypeDef]]
+    DefaultBehavior: NotRequired[FilterBehaviorType]
+
+
+class LoggingFilterTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DefaultBehavior: NotRequired[FilterBehaviorType]
+
+
+class ListTelemetryPipelinesOutputTypeDef(TypedDict):
+    PipelineSummaries: list[TelemetryPipelineSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class CentralizationRuleOutputTypeDef(TypedDict):
@@ -417,44 +776,16 @@ class CentralizationRuleTypeDef(TypedDict):
     Destination: CentralizationRuleDestinationTypeDef
 
 
-class CreateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
-    RuleName: str
-    Rule: TelemetryRuleTypeDef
-    Tags: NotRequired[Mapping[str, str]]
+class WAFLoggingParametersOutputTypeDef(TypedDict):
+    RedactedFields: NotRequired[list[FieldToMatchTypeDef]]
+    LoggingFilter: NotRequired[LoggingFilterOutputTypeDef]
+    LogType: NotRequired[Literal["WAF_LOGS"]]
 
 
-class CreateTelemetryRuleInputTypeDef(TypedDict):
-    RuleName: str
-    Rule: TelemetryRuleTypeDef
-    Tags: NotRequired[Mapping[str, str]]
-
-
-class GetTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
-    RuleName: str
-    RuleArn: str
-    CreatedTimeStamp: int
-    LastUpdateTimeStamp: int
-    TelemetryRule: TelemetryRuleTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetTelemetryRuleOutputTypeDef(TypedDict):
-    RuleName: str
-    RuleArn: str
-    CreatedTimeStamp: int
-    LastUpdateTimeStamp: int
-    TelemetryRule: TelemetryRuleTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
-    RuleIdentifier: str
-    Rule: TelemetryRuleTypeDef
-
-
-class UpdateTelemetryRuleInputTypeDef(TypedDict):
-    RuleIdentifier: str
-    Rule: TelemetryRuleTypeDef
+class WAFLoggingParametersTypeDef(TypedDict):
+    RedactedFields: NotRequired[Sequence[FieldToMatchTypeDef]]
+    LoggingFilter: NotRequired[LoggingFilterTypeDef]
+    LogType: NotRequired[Literal["WAF_LOGS"]]
 
 
 class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
@@ -473,6 +804,28 @@ class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
 CentralizationRuleUnionTypeDef = Union[CentralizationRuleTypeDef, CentralizationRuleOutputTypeDef]
 
 
+class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
+    DestinationType: NotRequired[Literal["cloud-watch-logs"]]
+    DestinationPattern: NotRequired[str]
+    RetentionInDays: NotRequired[int]
+    VPCFlowLogParameters: NotRequired[VPCFlowLogParametersTypeDef]
+    CloudtrailParameters: NotRequired[CloudtrailParametersOutputTypeDef]
+    ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
+    WAFLoggingParameters: NotRequired[WAFLoggingParametersOutputTypeDef]
+    LogDeliveryParameters: NotRequired[LogDeliveryParametersOutputTypeDef]
+
+
+class TelemetryDestinationConfigurationTypeDef(TypedDict):
+    DestinationType: NotRequired[Literal["cloud-watch-logs"]]
+    DestinationPattern: NotRequired[str]
+    RetentionInDays: NotRequired[int]
+    VPCFlowLogParameters: NotRequired[VPCFlowLogParametersTypeDef]
+    CloudtrailParameters: NotRequired[CloudtrailParametersTypeDef]
+    ELBLoadBalancerLoggingParameters: NotRequired[ELBLoadBalancerLoggingParametersTypeDef]
+    WAFLoggingParameters: NotRequired[WAFLoggingParametersTypeDef]
+    LogDeliveryParameters: NotRequired[LogDeliveryParametersTypeDef]
+
+
 class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleName: str
     Rule: CentralizationRuleUnionTypeDef
@@ -482,3 +835,64 @@ class CreateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
 class UpdateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
     Rule: CentralizationRuleUnionTypeDef
+
+
+class TelemetryRuleOutputTypeDef(TypedDict):
+    TelemetryType: TelemetryTypeType
+    ResourceType: NotRequired[ResourceTypeType]
+    TelemetrySourceTypes: NotRequired[list[TelemetrySourceTypeType]]
+    DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationOutputTypeDef]
+    Scope: NotRequired[str]
+    SelectionCriteria: NotRequired[str]
+
+
+class TelemetryRuleTypeDef(TypedDict):
+    TelemetryType: TelemetryTypeType
+    ResourceType: NotRequired[ResourceTypeType]
+    TelemetrySourceTypes: NotRequired[Sequence[TelemetrySourceTypeType]]
+    DestinationConfiguration: NotRequired[TelemetryDestinationConfigurationTypeDef]
+    Scope: NotRequired[str]
+    SelectionCriteria: NotRequired[str]
+
+
+class GetTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
+    RuleName: str
+    RuleArn: str
+    CreatedTimeStamp: int
+    LastUpdateTimeStamp: int
+    TelemetryRule: TelemetryRuleOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetTelemetryRuleOutputTypeDef(TypedDict):
+    RuleName: str
+    RuleArn: str
+    CreatedTimeStamp: int
+    LastUpdateTimeStamp: int
+    TelemetryRule: TelemetryRuleOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+TelemetryRuleUnionTypeDef = Union[TelemetryRuleTypeDef, TelemetryRuleOutputTypeDef]
+
+
+class CreateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
+    RuleName: str
+    Rule: TelemetryRuleUnionTypeDef
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class CreateTelemetryRuleInputTypeDef(TypedDict):
+    RuleName: str
+    Rule: TelemetryRuleUnionTypeDef
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateTelemetryRuleForOrganizationInputTypeDef(TypedDict):
+    RuleIdentifier: str
+    Rule: TelemetryRuleUnionTypeDef
+
+
+class UpdateTelemetryRuleInputTypeDef(TypedDict):
+    RuleIdentifier: str
+    Rule: TelemetryRuleUnionTypeDef

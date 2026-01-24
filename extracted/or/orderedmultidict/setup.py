@@ -47,6 +47,11 @@ class RunTests(TestCommand):
     """
     Run the unit tests.
 
+    To test all supported Python versions (as specified in tox.ini) in
+    parallel, run
+
+      $ tox -p
+
     By default, `python setup.py test` fails if tests/ isn't a Python
     module (that is, if the tests/ directory doesn't contain an
     __init__.py file). But the tests/ directory shouldn't contain an
@@ -93,6 +98,9 @@ setup(
     long_description=long_description,
     packages=find_packages(),
     include_package_data=True,
+    package_data={
+        "orderedmultidict": ["py.typed"],
+    },
     platforms=['any'],
     classifiers=[
         'Topic :: Software Development :: Libraries',
@@ -101,13 +109,12 @@ setup(
         'Intended Audience :: Developers',
         'Development Status :: 5 - Production/Stable',
         'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: Implementation :: PyPy',
     ],
     install_requires=required,

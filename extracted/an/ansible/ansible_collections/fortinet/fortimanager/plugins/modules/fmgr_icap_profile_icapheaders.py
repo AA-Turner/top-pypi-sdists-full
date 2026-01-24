@@ -16,7 +16,6 @@ short_description: Configure ICAP forwarded request headers.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -110,6 +112,31 @@ options:
             name:
                 type: str
                 description: HTTP forwarded header name.
+            http_header:
+                aliases: ['http-header']
+                type: str
+                description: Http header.
+            sesson_info_type:
+                aliases: ['sesson-info-type']
+                type: str
+                description: Sesson info type.
+                choices:
+                    - 'client-ip'
+                    - 'user'
+                    - 'upn'
+                    - 'domain'
+                    - 'local-grp'
+                    - 'remote-grp'
+                    - 'proxy-name'
+                    - 'auth-user-uri'
+                    - 'auth-group-uri'
+            source:
+                type: str
+                description: Source.
+                choices:
+                    - 'content'
+                    - 'http-header'
+                    - 'session'
 '''
 
 EXAMPLES = '''
@@ -125,8 +152,8 @@ EXAMPLES = '''
     - name: Configure ICAP forwarded request headers.
       fortinet.fortimanager.fmgr_icap_profile_icapheaders:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -137,6 +164,9 @@ EXAMPLES = '''
           # base64_encoding: <value in [disable, enable]>
           # content: <string>
           # name: <string>
+          # http_header: <string>
+          # sesson_info_type: <value in [client-ip, user, upn, ...]>
+          # source: <value in [content, http-header, session]>
 '''
 
 RETURN = '''
@@ -194,6 +224,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'profile': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'icap_profile_icapheaders': {
             'type': 'dict',
             'v_range': [['6.2.0', '']],
@@ -201,7 +232,14 @@ def main():
                 'base64-encoding': {'v_range': [['6.2.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'content': {'v_range': [['6.2.0', '']], 'type': 'str'},
                 'id': {'v_range': [['6.2.0', '']], 'required': True, 'type': 'int'},
-                'name': {'v_range': [['6.2.0', '']], 'type': 'str'}
+                'name': {'v_range': [['6.2.0', '']], 'type': 'str'},
+                'http-header': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'str'},
+                'sesson-info-type': {
+                    'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']],
+                    'choices': ['client-ip', 'user', 'upn', 'domain', 'local-grp', 'remote-grp', 'proxy-name', 'auth-user-uri', 'auth-group-uri'],
+                    'type': 'str'
+                },
+                'source': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['content', 'http-header', 'session'], 'type': 'str'}
             }
         }
     }

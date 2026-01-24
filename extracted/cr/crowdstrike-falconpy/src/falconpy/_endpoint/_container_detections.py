@@ -47,7 +47,7 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       }
@@ -63,7 +63,7 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       }
@@ -79,7 +79,7 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       }
@@ -95,7 +95,7 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       },
@@ -109,13 +109,13 @@ _container_detections_endpoints = [
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -145,13 +145,13 @@ _container_detections_endpoints = [
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -167,20 +167,20 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       },
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }
@@ -196,20 +196,20 @@ _container_detections_endpoints = [
       {
         "type": "string",
         "description": "Filter images detections using a query in Falcon Query Language (FQL). Supported "
-        "filter fields:  cid  detection_type  image_registry  image_repository  image_tag",
+        "filter fields:  cid  detection_type  image_digest  image_registry  image_repository  image_tag  severity",
         "name": "filter",
         "in": "query"
       },
       {
         "type": "integer",
         "default": 100,
-        "description": "The upper-bound on the number of records to retrieve.",
+        "description": "The upper-bound on the number of records to retrieve. Maximum limit: 100.",
         "name": "limit",
         "in": "query"
       },
       {
         "type": "integer",
-        "description": "The offset from where to begin.",
+        "description": "The offset from where to begin. Maximum offset = 10000 - limit.",
         "name": "offset",
         "in": "query"
       }

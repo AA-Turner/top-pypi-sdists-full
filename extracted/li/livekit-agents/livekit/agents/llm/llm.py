@@ -7,20 +7,20 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterable, AsyncIterator
 from datetime import datetime, timezone
 from types import TracebackType
-from typing import Any, Generic, Literal, TypeVar, Union
+from typing import Any, ClassVar, Generic, Literal, TypeVar, Union
 
 from opentelemetry import trace
 from opentelemetry.util.types import AttributeValue
 from pydantic import BaseModel, ConfigDict, Field
 
 from livekit import rtc
+from livekit.agents.metrics.base import Metadata
 
 from .. import utils
 from .._exceptions import APIConnectionError, APIError
 from ..log import logger
 from ..metrics import LLMMetrics
-from ..telemetry import trace_types, tracer, utils as telemetry_utils
-from ..telemetry.traces import _chat_ctx_to_otel_events
+from ..telemetry import _chat_ctx_to_otel_events, trace_types, tracer, utils as telemetry_utils
 from ..types import (
     DEFAULT_API_CONNECT_OPTIONS,
     NOT_GIVEN,
@@ -29,7 +29,7 @@ from ..types import (
 )
 from ..utils import aio
 from .chat_context import ChatContext, ChatRole
-from .tool_context import FunctionTool, RawFunctionTool, ToolChoice
+from .tool_context import Tool, ToolChoice
 
 
 class CompletionUsage(BaseModel):
@@ -52,12 +52,16 @@ class FunctionToolCall(BaseModel):
     name: str
     arguments: str
     call_id: str
+    extra: dict[str, Any] | None = None
+    """Provider-specific extra data (e.g., Google thought signatures)."""
 
 
 class ChoiceDelta(BaseModel):
     role: ChatRole | None = None
     content: str | None = None
     tool_calls: list[FunctionToolCall] = Field(default_factory=list)
+    extra: dict[str, Any] | None = None
+    """Provider-specific extra data (e.g., Google thought signatures)."""
 
 
 class ChatChunk(BaseModel):
@@ -103,12 +107,24 @@ class LLM(
         """
         return "unknown"
 
+    @property
+    def provider(self) -> str:
+        """Get the provider name/identifier for this LLM instance.
+
+        Returns:
+            The provider name if available, "unknown" otherwise.
+
+        Note:
+            Plugins should override this property to provide their provider information.
+        """
+        return "unknown"
+
     @abstractmethod
     def chat(
         self,
         *,
         chat_ctx: ChatContext,
-        tools: list[FunctionTool | RawFunctionTool] | None = None,
+        tools: list[Tool] | None = None,
         conn_options: APIConnectOptions = DEFAULT_API_CONNECT_OPTIONS,
         parallel_tool_calls: NotGivenOr[bool] = NOT_GIVEN,
         tool_choice: NotGivenOr[ToolChoice] = NOT_GIVEN,
@@ -134,12 +150,14 @@ class LLM(
 
 
 class LLMStream(ABC):
+    _llm_request_span_name: ClassVar[str] = "llm_request"
+
     def __init__(
         self,
         llm: LLM,
         *,
         chat_ctx: ChatContext,
-        tools: list[FunctionTool | RawFunctionTool],
+        tools: list[Tool],
         conn_options: APIConnectOptions,
     ) -> None:
         self._llm = llm
@@ -154,7 +172,15 @@ class LLMStream(ABC):
             self._metrics_monitor_task(monitor_aiter), name="LLM._metrics_task"
         )
 
-        self._task = asyncio.create_task(self._main_task())
+        async def _traceable_main_task() -> None:
+            with tracer.start_as_current_span(
+                self._llm_request_span_name, end_on_exit=False
+            ) as span:
+                for name, attributes in _chat_ctx_to_otel_events(self._chat_ctx):
+                    span.add_event(name, attributes)
+                await self._main_task()
+
+        self._task = asyncio.create_task(_traceable_main_task(), name="LLM._main_task")
         self._task.add_done_callback(lambda _: self._event_ch.close())
 
         self._llm_request_span: trace.Span | None = None
@@ -162,12 +188,9 @@ class LLMStream(ABC):
     @abstractmethod
     async def _run(self) -> None: ...
 
-    @tracer.start_as_current_span("llm_request", end_on_exit=False)
     async def _main_task(self) -> None:
         self._llm_request_span = trace.get_current_span()
         self._llm_request_span.set_attribute(trace_types.ATTR_GEN_AI_REQUEST_MODEL, self._llm.model)
-        for name, attributes in _chat_ctx_to_otel_events(self._chat_ctx):
-            self._llm_request_span.add_event(name, attributes)
 
         for i in range(self._conn_options.max_retry + 1):
             try:
@@ -251,7 +274,8 @@ class LLMStream(ABC):
 
         duration = time.perf_counter() - start_time
 
-        if self._current_attempt_has_error:
+        # if generation is aborted before any tokens are received, it doesn't make sense to report -1 ttft
+        if self._current_attempt_has_error or ttft < 0:
             return
 
         metrics = LLMMetrics(
@@ -266,6 +290,10 @@ class LLMStream(ABC):
             prompt_cached_tokens=usage.prompt_cached_tokens if usage else 0,
             total_tokens=usage.total_tokens if usage else 0,
             tokens_per_second=usage.completion_tokens / duration if usage else 0.0,
+            metadata=Metadata(
+                model_name=self._llm.model,
+                model_provider=self._llm.provider,
+            ),
         )
         if self._llm_request_span:
             # livekit metrics attribute
@@ -308,7 +336,7 @@ class LLMStream(ABC):
         return self._chat_ctx
 
     @property
-    def tools(self) -> list[FunctionTool | RawFunctionTool]:
+    def tools(self) -> list[Tool]:
         return self._tools
 
     async def aclose(self) -> None:

@@ -1,9 +1,7 @@
-#!/usr/bin/env python
-
-
 import ipaddress
 import sys
 import unittest
+from typing import ClassVar
 
 sys.path.append("..")
 
@@ -14,8 +12,19 @@ class TestModels(unittest.TestCase):
     def setUp(self) -> None:
         self.maxDiff = 20_000
 
-    def test_insights_full(self) -> None:
+    def test_insights_full(self) -> None:  # noqa: PLR0915
         raw = {
+            "anonymizer": {
+                "confidence": 99,
+                "is_anonymous": True,
+                "is_anonymous_vpn": True,
+                "is_hosting_provider": True,
+                "is_public_proxy": True,
+                "is_residential_proxy": True,
+                "is_tor_exit_node": True,
+                "network_last_seen": "2025-04-14",
+                "provider_name": "FooBar VPN",
+            },
             "city": {
                 "confidence": 76,
                 "geoname_id": 9876,
@@ -76,6 +85,7 @@ class TestModels(unittest.TestCase):
                 "connection_type": "Cable/DSL",
                 "domain": "example.com",
                 "ip_address": "1.2.3.4",
+                "ip_risk_snapshot": 12.5,
                 "is_anonymous": True,
                 "is_anonymous_proxy": True,
                 "is_anonymous_vpn": True,
@@ -93,7 +103,7 @@ class TestModels(unittest.TestCase):
             },
         }
 
-        model = geoip2.models.Insights(["en"], **raw)  # type: ignore
+        model = geoip2.models.Insights(["en"], **raw)  # type: ignore[arg-type]
         self.assertEqual(
             type(model),
             geoip2.models.Insights,
@@ -196,7 +206,11 @@ class TestModels(unittest.TestCase):
             "Insights str representation looks reasonable",
         )
 
-        self.assertEqual(model, eval(repr(model)), "Insights repr can be eval'd")
+        self.assertEqual(
+            model,
+            eval(repr(model)),  # noqa: S307
+            "Insights repr can be eval'd",
+        )
 
         self.assertRegex(
             str(model.location),
@@ -206,13 +220,19 @@ class TestModels(unittest.TestCase):
 
         self.assertEqual(
             model.location,
-            eval(repr(model.location)),
+            eval(repr(model.location)),  # noqa: S307
             "Location repr can be eval'd",
         )
 
         self.assertIs(model.country.is_in_european_union, False)
-        self.assertIs(model.registered_country.is_in_european_union, False)
-        self.assertIs(model.represented_country.is_in_european_union, True)
+        self.assertIs(
+            model.registered_country.is_in_european_union,
+            False,
+        )
+        self.assertIs(
+            model.represented_country.is_in_european_union,
+            True,
+        )
 
         self.assertIs(model.traits.is_anonymous, True)
         self.assertIs(model.traits.is_anonymous_proxy, True)
@@ -225,6 +245,26 @@ class TestModels(unittest.TestCase):
         self.assertIs(model.traits.is_tor_exit_node, True)
         self.assertEqual(model.traits.user_count, 2)
         self.assertEqual(model.traits.static_ip_score, 1.3)
+        self.assertEqual(model.traits.ip_risk_snapshot, 12.5)
+
+        # Test anonymizer object
+        self.assertEqual(
+            type(model.anonymizer),
+            geoip2.records.Anonymizer,
+            "geoip2.records.Anonymizer object",
+        )
+        self.assertEqual(model.anonymizer.confidence, 99)
+        self.assertIs(model.anonymizer.is_anonymous, True)
+        self.assertIs(model.anonymizer.is_anonymous_vpn, True)
+        self.assertIs(model.anonymizer.is_hosting_provider, True)
+        self.assertIs(model.anonymizer.is_public_proxy, True)
+        self.assertIs(model.anonymizer.is_residential_proxy, True)
+        self.assertIs(model.anonymizer.is_tor_exit_node, True)
+        self.assertEqual(
+            model.anonymizer.network_last_seen,
+            __import__("datetime").date(2025, 4, 14),
+        )
+        self.assertEqual(model.anonymizer.provider_name, "FooBar VPN")
 
     def test_insights_min(self) -> None:
         model = geoip2.models.Insights(["en"], traits={"ip_address": "5.6.7.8"})
@@ -264,6 +304,11 @@ class TestModels(unittest.TestCase):
             "geoip2.records.Traits object",
         )
         self.assertEqual(
+            type(model.anonymizer),
+            geoip2.records.Anonymizer,
+            "geoip2.records.Anonymizer object",
+        )
+        self.assertEqual(
             type(model.subdivisions.most_specific),
             geoip2.records.Subdivision,
             "geoip2.records.Subdivision object returned even when none are available.",
@@ -273,6 +318,12 @@ class TestModels(unittest.TestCase):
             {},
             "Empty names hash returned",
         )
+        # Test that anonymizer fields default correctly
+        self.assertIsNone(model.anonymizer.confidence)
+        self.assertIsNone(model.anonymizer.network_last_seen)
+        self.assertIsNone(model.anonymizer.provider_name)
+        self.assertFalse(model.anonymizer.is_anonymous)
+        self.assertFalse(model.anonymizer.is_anonymous_vpn)
 
     def test_city_full(self) -> None:
         raw = {
@@ -296,7 +347,7 @@ class TestModels(unittest.TestCase):
                 "is_satellite_provider": True,
             },
         }
-        model = geoip2.models.City(["en"], **raw)  # type: ignore
+        model = geoip2.models.City(["en"], **raw)  # type: ignore[arg-type]
         self.assertEqual(type(model), geoip2.models.City, "geoip2.models.City object")
         self.assertEqual(
             type(model.city),
@@ -395,7 +446,7 @@ class TestModels(unittest.TestCase):
             r"^geoip2.models.City\(\[.*en.*\], .*geoname_id.*\)",
         )
 
-        self.assertFalse(model == True, "__eq__ does not blow up on weird input")
+        self.assertFalse(model is True, "__eq__ does not blow up on weird input")
 
     def test_unknown_keys(self) -> None:
         model = geoip2.models.City(
@@ -435,9 +486,9 @@ class TestModels(unittest.TestCase):
             unk_base={"blah": 1},
         )
         with self.assertRaises(AttributeError):
-            model.unk_base  # type: ignore
+            model.unk_base  # type: ignore[attr-defined]  # noqa: B018
         with self.assertRaises(AttributeError):
-            model.traits.invalid  # type: ignore
+            model.traits.invalid  # type: ignore[attr-defined]  # noqa: B018
         self.assertEqual(
             model.traits.ip_address,
             ipaddress.ip_address("1.2.3.4"),
@@ -446,7 +497,7 @@ class TestModels(unittest.TestCase):
 
 
 class TestNames(unittest.TestCase):
-    raw: dict = {
+    raw: ClassVar[dict] = {
         "continent": {
             "code": "NA",
             "geoname_id": 42,

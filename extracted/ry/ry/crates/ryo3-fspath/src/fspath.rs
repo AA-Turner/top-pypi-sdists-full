@@ -1,14 +1,16 @@
 //! `FsPath` struct python module
-use parking_lot::Mutex;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{
     PyFileExistsError, PyFileNotFoundError, PyNotADirectoryError, PyUnicodeDecodeError,
     PyValueError,
 };
+
 use pyo3::types::{PyBytes, PyTuple};
-use pyo3::{intern, prelude::*};
+use pyo3::{IntoPyObjectExt, intern, prelude::*};
 use ryo3_bytes::extract_bytes_ref;
+use ryo3_core::RyMutex;
 use ryo3_core::types::PathLike;
+use ryo3_macro_rules::pytodo;
 use std::ffi::OsStr;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -18,9 +20,9 @@ const MAIN_SEPARATOR: char = std::path::MAIN_SEPARATOR;
 
 type ArcPathBuf = std::sync::Arc<PathBuf>;
 
-#[pyclass(name = "FsPath", frozen)]
+#[pyclass(name = "FsPath", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PyFsPath {
     pth: ArcPathBuf,
 }
@@ -72,22 +74,18 @@ impl PyFsPath {
         PyTuple::new(py, vec![os_str])
     }
 
-    fn string(&self) -> String {
-        path2str(self.path())
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> String {
+        self.__str__()
     }
 
     fn __str__(&self) -> String {
-        self.string()
+        path2str(self.path())
     }
 
     fn __repr__(&self) -> String {
         let posix_str = self.as_posix();
         format!("FsPath(\'{posix_str}\')")
-    }
-
-    fn equiv(&self, other: PathLike) -> bool {
-        let other = other.as_ref();
-        self.path() == other
     }
 
     fn to_pathlib(&self) -> &Path {
@@ -99,45 +97,34 @@ impl PyFsPath {
     }
 
     fn __hash__(&self) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let mut hasher = std::hash::DefaultHasher::new();
         self.path().hash(&mut hasher);
         hasher.finish()
     }
 
-    fn __richcmp__(&self, other: PathLike, op: CompareOp) -> bool {
-        let o = other.as_ref();
-        let p = self.path();
+    fn equiv(&self, other: PathLike) -> bool {
+        let other = other.as_ref();
+        self.path() == other || self.py_to_string() == path2str(other)
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
         match op {
-            CompareOp::Eq => {
-                // start by comparing as paths
-                if p == other.as_ref() {
-                    return true;
-                }
-                // if that fails, compare as strings
-                self.string() == path2str(other.as_ref())
-            }
-            CompareOp::Ne => {
-                // start by comparing as paths
-                if p != other.as_ref() {
-                    return true;
-                }
-                // if that fails, compare as strings
-                self.string() != path2str(other.as_ref())
-            }
-            CompareOp::Lt => p < o,
-            CompareOp::Le => p <= o,
-            CompareOp::Gt => p > o,
-            CompareOp::Ge => p >= o,
+            CompareOp::Eq => self == other,
+            CompareOp::Ne => self != other,
+            CompareOp::Lt => self < other,
+            CompareOp::Le => self <= other,
+            CompareOp::Gt => self > other,
+            CompareOp::Ge => self >= other,
         }
     }
 
-    fn absolute(&self) -> PyResult<Self> {
-        let p = self.path().canonicalize()?;
+    fn absolute(&self, py: Python<'_>) -> PyResult<Self> {
+        let p = py.detach(|| self.path().canonicalize())?;
         Ok(Self::from(p))
     }
 
-    fn resolve(&self) -> PyResult<Self> {
-        let p = self.path().canonicalize()?;
+    fn resolve(&self, py: Python<'_>) -> PyResult<Self> {
+        let p = py.detach(|| self.path().canonicalize())?;
         Ok(Self::from(p))
     }
 
@@ -205,6 +192,7 @@ impl PyFsPath {
             None => String::new(),
         }
     }
+
     #[getter]
     fn parent(&self) -> Self {
         let p = self.path().parent();
@@ -326,62 +314,45 @@ impl PyFsPath {
     }
 
     fn as_posix(&self) -> String {
-        #[cfg(target_os = "windows")]
-        {
-            let p = self.path().to_string_lossy().to_string();
-            p.replace('\\', "/")
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            self.path().to_string_lossy().to_string()
-        }
+        self.path().as_posix_str()
     }
 
+    // TODO: allow *args for joinpath
     fn joinpath(&self, other: PathLike) -> Self {
         let p = self.path().join(other.as_ref());
         Self::from(p)
     }
 
-    fn read(&self) -> PyResult<ryo3_bytes::PyBytes> {
-        let fbytes = std::fs::read(self.path())?;
+    fn read(&self, py: Python<'_>) -> PyResult<ryo3_bytes::PyBytes> {
+        let fbytes = py.detach(|| std::fs::read(self.path()))?;
         Ok(fbytes.into())
     }
 
-    fn read_bytes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let fbytes = std::fs::read(self.path());
-        match fbytes {
-            Ok(b) => Ok(PyBytes::new(py, &b).into()),
-            Err(e) => {
-                // TODO: figure out cleaner way of doing this
-                let pathstr = self.string();
-                let emsg = format!("read_vec_u8 - path: {pathstr} - {e}");
-                Err(PyFileNotFoundError::new_err(emsg))
-            }
-        }
+    fn read_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let fbytes = py
+            .detach(|| std::fs::read(self.path()))
+            .map(|b| PyBytes::new(py, &b))?;
+        Ok(fbytes)
     }
 
-    fn read_text(&self, py: Python<'_>) -> PyResult<String> {
-        let bvec = std::fs::read(self.path()).map_err(|e| {
-            let pathstr = self.string();
-            PyFileNotFoundError::new_err(format!("read_text - path: {pathstr} - {e}"))
-        })?;
-        let r = std::str::from_utf8(&bvec);
-        match r {
-            Ok(s) => Ok(s.to_string()),
+    fn read_text<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let fbytes = py.detach(|| std::fs::read(self.path()))?;
+        match std::str::from_utf8(&fbytes) {
+            Ok(s) => s.into_bound_py_any(py),
             Err(e) => {
-                let decode_err = PyUnicodeDecodeError::new_utf8(py, &bvec, e)?;
+                let decode_err = PyUnicodeDecodeError::new_utf8(py, &fbytes, e)?;
                 Err(decode_err.into())
             }
         }
     }
 
-    fn write(&self, b: &Bound<'_, PyAny>) -> PyResult<usize> {
-        let b = extract_bytes_ref(b)?;
-        let write_res = std::fs::write(self.path(), b);
+    fn write(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<usize> {
+        let b = extract_bytes_ref(data)?;
+        let write_res = py.detach(|| std::fs::write(self.path(), b));
         match write_res {
             Ok(()) => Ok(b.len()),
             Err(e) => {
-                let fspath = self.string();
+                let fspath = self.py_to_string();
                 Err(PyNotADirectoryError::new_err(format!(
                     "write_bytes - parent: {fspath} - {e}"
                 )))
@@ -389,43 +360,80 @@ impl PyFsPath {
         }
     }
 
-    fn write_bytes(&self, b: &Bound<'_, PyAny>) -> PyResult<usize> {
-        self.write(b)
+    fn write_bytes(&self, py: Python<'_>, data: &Bound<'_, PyAny>) -> PyResult<usize> {
+        self.write(py, data)
     }
 
-    fn write_text(&self, t: &str) -> PyResult<()> {
-        let write_result = std::fs::write(self.path(), t);
+    fn write_text(&self, py: Python<'_>, data: &str) -> PyResult<()> {
+        let write_result = py.detach(|| std::fs::write(self.path(), data));
         match write_result {
             Ok(()) => Ok(()),
             Err(e) => {
-                let fspath = self.string();
+                let fspath = self.py_to_string();
                 Err(PyNotADirectoryError::new_err(format!(
                     "write_bytes - parent: {fspath} - {e}"
                 )))
             }
+        }
+    }
+    // Path.touch(mode=0o666, exist_ok=True)
+    // Create a file at this given path. If mode is given, it is combined with the process’s umask value to determine the file mode and access flags. If the file already exists, the function succeeds when exist_ok is true (and its modification time is updated to the current time), otherwise FileExistsError is raised.
+
+    // See also The open(), write_text() and write_bytes() methods are often used to create files.
+    #[pyo3(signature = (mode = None, exist_ok = true))]
+    fn touch(&self, py: Python<'_>, mode: Option<u32>, exist_ok: bool) -> PyResult<bool> {
+        if mode.is_some() {
+            pytodo!("touch - mode parameter not implemented yet")
+        }
+        let path = self.path();
+        let exists = path.exists();
+        if exists {
+            if exist_ok {
+                Ok(false)
+            } else {
+                Err(PyFileExistsError::new_err(format!(
+                    "{}",
+                    self.path().display()
+                )))
+            }
+        } else {
+            py.detach(|| {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(false)
+                    .open(path)
+            })
+            .map_err(|e| {
+                let fspath_display = self.path().display();
+                PyFileNotFoundError::new_err(format!(
+                    "No such file or directory: {fspath_display} ~ {e}"
+                ))
+            })?;
+            Ok(true)
         }
     }
 
     #[pyo3(signature = (mode =  0o777, parents = false, exist_ok = false))]
     #[allow(unused_variables)]
-    fn mkdir(&self, mode: u32, parents: bool, exist_ok: bool) -> PyResult<()> {
+    fn mkdir(&self, py: Python<'_>, mode: u32, parents: bool, exist_ok: bool) -> PyResult<()> {
         let path = self.path();
 
         let exists = path.exists();
         if !exist_ok && exists {
             return Err(PyFileExistsError::new_err(format!(
                 "mkdir - parent: {} - directory already exists",
-                self.string()
+                self.py_to_string()
             )));
         }
         if parents {
-            std::fs::create_dir_all(path).map_err(|e| {
-                let fspath = self.string();
+            py.detach(|| std::fs::create_dir_all(path)).map_err(|e| {
+                let fspath = self.py_to_string();
                 PyNotADirectoryError::new_err(format!("mkdir - parent: {fspath} - {e}"))
             })?;
         } else {
-            std::fs::create_dir(path).map_err(|e| {
-                let fspath = self.string();
+            py.detach(|| std::fs::create_dir(path)).map_err(|e| {
+                let fspath = self.py_to_string();
                 PyNotADirectoryError::new_err(format!("mkdir - parent: {fspath} - {e}"))
             })?;
         }
@@ -433,89 +441,99 @@ impl PyFsPath {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(path)
+            let mut perms = py
+                .detach(|| std::fs::metadata(path))
                 .map_err(|e| {
-                    PyFileNotFoundError::new_err(format!("mkdir - parent: {} - {e}", self.string()))
+                    PyFileNotFoundError::new_err(format!(
+                        "mkdir - parent: {} - {e}",
+                        self.py_to_string()
+                    ))
                 })?
                 .permissions();
             perms.set_mode(mode);
-            std::fs::set_permissions(path, perms).map_err(|e| {
-                let fspath = self.string();
-                PyNotADirectoryError::new_err(format!("mkdir - parent: {fspath} - {e}"))
-            })?;
+            py.detach(|| std::fs::set_permissions(path, perms))
+                .map_err(|e| {
+                    let fspath = self.py_to_string();
+                    PyNotADirectoryError::new_err(format!("mkdir - parent: {fspath} - {e}"))
+                })?;
         }
         Ok(())
     }
 
     #[pyo3(signature = (recursive = false))]
-    fn rmdir(&self, recursive: bool) -> PyResult<()> {
-        if !self.exists()? {
+    fn rmdir(&self, py: Python<'_>, recursive: bool) -> PyResult<()> {
+        if !self.exists(py)? {
             return Err(PyFileNotFoundError::new_err(format!(
                 "rmdir - parent: {} - directory does not exist",
-                self.string()
+                self.py_to_string()
             )));
         }
         if !self.is_dir() {
             return Err(PyNotADirectoryError::new_err(format!(
                 "rmdir - parent: {} - not a directory",
-                self.string()
+                self.py_to_string()
             )));
         }
         if recursive {
-            std::fs::remove_dir_all(self.path()).map_err(|e| {
-                let fspath = self.string();
-                PyNotADirectoryError::new_err(format!("rmdir - parent: {fspath} - {e}"))
-            })?;
+            py.detach(|| std::fs::remove_dir_all(self.path()))
+                .map_err(|e| {
+                    let fspath = self.py_to_string();
+                    PyNotADirectoryError::new_err(format!("rmdir - parent: {fspath} - {e}"))
+                })?;
         } else {
-            std::fs::remove_dir(self.path()).map_err(|e| {
-                let fspath = self.string();
-                PyNotADirectoryError::new_err(format!("rmdir - parent: {fspath} - {e}"))
-            })?;
+            py.detach(|| std::fs::remove_dir(self.path()))
+                .map_err(|e| {
+                    let fspath = self.py_to_string();
+                    PyNotADirectoryError::new_err(format!("rmdir - parent: {fspath} - {e}"))
+                })?;
         }
         Ok(())
     }
 
     #[pyo3(signature = (missing_ok = false, recursive = false))]
-    fn unlink(&self, missing_ok: bool, recursive: bool) -> PyResult<()> {
-        if !self.exists()? {
+    fn unlink(&self, py: Python<'_>, missing_ok: bool, recursive: bool) -> PyResult<()> {
+        if !self.exists(py)? {
             if missing_ok {
                 return Ok(());
             }
             return Err(PyFileNotFoundError::new_err(format!(
                 "unlink - parent: {} - file does not exist",
-                self.string()
+                self.py_to_string()
             )));
         }
         if self.is_dir() {
-            self.rmdir(recursive)?;
+            self.rmdir(py, recursive)?;
         } else {
-            std::fs::remove_file(self.path()).map_err(|e| {
-                let fspath = self.string();
-                PyNotADirectoryError::new_err(format!("unlink - parent: {fspath} - {e}"))
-            })?;
+            py.detach(|| std::fs::remove_file(self.path()))
+                .map_err(|e| {
+                    let fspath = self.py_to_string();
+                    PyNotADirectoryError::new_err(format!("unlink - parent: {fspath} - {e}"))
+                })?;
         }
         Ok(())
     }
 
-    fn rename(&self, new_path: PathLike) -> PyResult<Self> {
+    fn rename(&self, py: Python<'_>, new_path: PathLike) -> PyResult<Self> {
         if new_path.as_ref() == self.path() {
             return Ok(self.clone());
         }
         let new_path = new_path.as_ref();
-        if new_path.exists() {
+        let new_path_exists = py.detach(|| new_path.exists());
+        if new_path_exists {
             return Err(PyFileExistsError::new_err(format!(
                 "rename - parent: {} - destination already exists",
-                self.string()
+                self.py_to_string()
             )));
         }
-        std::fs::rename(self.path(), new_path).map_err(|e| {
-            let fspath = self.string();
-            PyNotADirectoryError::new_err(format!("rename - parent: {fspath} - {e}"))
-        })?;
+        py.detach(|| std::fs::rename(self.path(), new_path))
+            .map_err(|e| {
+                let fspath = self.py_to_string();
+                PyNotADirectoryError::new_err(format!("rename - parent: {fspath} - {e}"))
+            })?;
         Ok(Self::from(new_path))
     }
 
-    fn replace(&self, new_path: PathLike) -> PyResult<Self> {
+    fn replace(&self, py: Python<'_>, new_path: PathLike) -> PyResult<Self> {
         if new_path.as_ref() == self.path() {
             return Ok(self.clone());
         }
@@ -523,15 +541,16 @@ impl PyFsPath {
         if new_path.exists() {
             // nuke file/dir
             if new_path.is_dir() {
-                std::fs::remove_dir_all(new_path)?;
+                py.detach(|| std::fs::remove_dir_all(new_path))?;
             } else {
-                std::fs::remove_file(new_path)?;
+                py.detach(|| std::fs::remove_file(new_path))?;
             }
         }
-        std::fs::rename(self.path(), new_path).map_err(|e| {
-            let fspath = self.string();
-            PyNotADirectoryError::new_err(format!("replace - parent: {fspath} - {e}"))
-        })?;
+        py.detach(|| std::fs::rename(self.path(), new_path))
+            .map_err(|e| {
+                let fspath = self.py_to_string();
+                PyNotADirectoryError::new_err(format!("replace - parent: {fspath} - {e}"))
+            })?;
         Ok(Self::from(new_path))
     }
 
@@ -541,8 +560,8 @@ impl PyFsPath {
         ))
     }
 
-    fn iterdir(&self) -> PyResult<PyFsPathReadDir> {
-        self.read_dir()
+    fn iterdir(&self, py: Python<'_>) -> PyResult<PyFsPathReadDir> {
+        self.read_dir(py)
     }
 
     #[pyo3(signature = (
@@ -560,7 +579,8 @@ impl PyFsPath {
         pypathlib_ob.call_method(intern!(py, "open"), args, kwargs)
     }
 
-    fn relative_to(&self, _other: PathLike) -> PyResult<Self> {
+    #[expect(unused_variables)]
+    fn relative_to(&self, other: PathLike) -> PyResult<Self> {
         Err(pyo3::exceptions::PyNotImplementedError::new_err(
             "relative_to not implemented",
         ))
@@ -608,8 +628,8 @@ impl PyFsPath {
         PyFsPathAncestors::new(self.path())
     }
 
-    fn canonicalize(&self) -> PyResult<Self> {
-        let p = self.path().canonicalize()?;
+    fn canonicalize(&self, py: Python<'_>) -> PyResult<Self> {
+        let p = py.detach(|| self.path().canonicalize())?;
         Ok(Self::from(p))
     }
 
@@ -626,13 +646,12 @@ impl PyFsPath {
         self.path().display().to_string()
     }
 
-    fn ends_with(&self, path: PathLike) -> bool {
-        self.path().ends_with(path.as_ref())
+    fn ends_with(&self, child: PathLike) -> bool {
+        self.path().ends_with(child.as_ref())
     }
 
-    fn exists(&self) -> PyResult<bool> {
-        self.path()
-            .try_exists()
+    fn exists(&self, py: Python<'_>) -> PyResult<bool> {
+        py.detach(|| self.path().try_exists())
             .map_err(|e| PyFileNotFoundError::new_err(format!("try_exists: {e}")))
     }
 
@@ -688,43 +707,39 @@ impl PyFsPath {
         Self::from(self.path().join(p))
     }
 
-    fn metadata(&self) -> PyResult<ryo3_std::fs::PyMetadata> {
-        self.path()
-            .metadata()
+    fn metadata(&self, py: Python<'_>) -> PyResult<ryo3_std::fs::PyMetadata> {
+        py.detach(|| self.path().metadata())
             .map(ryo3_std::fs::PyMetadata::from)
-            .map_err(|e| PyFileNotFoundError::new_err(format!("metadata: {e}")))
+            .map_err(|e| PyFileNotFoundError::new_err(format!("FsPath.metadata: {e}")))
     }
 
-    fn read_dir(&self) -> PyResult<PyFsPathReadDir> {
-        let rd = std::fs::read_dir(self.path())
+    fn read_dir(&self, py: Python<'_>) -> PyResult<PyFsPathReadDir> {
+        py.detach(|| std::fs::read_dir(self.path()))
             .map(PyFsPathReadDir::from)
-            .map_err(|e| PyFileNotFoundError::new_err(format!("iterdir: {e}")))?;
-        Ok(rd)
+            .map_err(|e| PyFileNotFoundError::new_err(format!("FsPath.read_dir: {e}")))
     }
 
-    fn read_link(&self) -> PyResult<Self> {
-        self.path()
-            .read_link()
+    fn read_link(&self, py: Python<'_>) -> PyResult<Self> {
+        py.detach(|| self.path().read_link())
             .map(Self::from)
-            .map_err(|e| PyFileNotFoundError::new_err(format!("read_link: {e}")))
+            .map_err(|e| PyFileNotFoundError::new_err(format!("FsPath.read_link: {e}")))
     }
 
-    fn starts_with(&self, p: PathLike) -> bool {
-        self.path().starts_with(p.as_ref())
+    fn starts_with(&self, base: PathLike) -> bool {
+        self.path().starts_with(base.as_ref())
     }
 
-    fn strip_prefix(&self, p: PathLike) -> PyResult<Self> {
+    fn strip_prefix(&self, base: PathLike) -> PyResult<Self> {
         self.path()
-            .strip_prefix(p.as_ref())
+            .strip_prefix(base.as_ref())
             .map(Self::from)
-            .map_err(|e| PyValueError::new_err(format!("strip_prefix: {e}")))
+            .map_err(|e| PyValueError::new_err(format!("FsPath.strip_prefix: {e}")))
     }
 
-    fn symlink_metadata(&self) -> PyResult<ryo3_std::fs::PyMetadata> {
-        self.path()
-            .metadata()
+    fn symlink_metadata(&self, py: Python<'_>) -> PyResult<ryo3_std::fs::PyMetadata> {
+        py.detach(|| self.path().symlink_metadata())
             .map(ryo3_std::fs::PyMetadata::from)
-            .map_err(|e| PyFileNotFoundError::new_err(format!("metadata: {e}")))
+            .map_err(|e| PyFileNotFoundError::new_err(format!("FsPath.symlink_metadata: {e}")))
     }
 
     fn with_extension(&self, extension: String) -> Self {
@@ -744,8 +759,9 @@ impl PyFsPath {
     // ------------------------------------------------------------------------
 
     #[cfg(feature = "same-file")]
-    fn samefile(&self, other: PathBuf) -> PyResult<bool> {
-        Ok(same_file::is_same_file(self.path(), &other)?)
+    fn samefile(&self, py: Python<'_>, other: PathBuf) -> PyResult<bool> {
+        py.detach(|| same_file::is_same_file(self.path(), &other))
+            .map_err(|e| PyFileNotFoundError::new_err(format!("FsPath.samefile: {e}")))
     }
 
     #[cfg(not(feature = "same-file"))]
@@ -761,8 +777,8 @@ impl PyFsPath {
     #[cfg(feature = "which")]
     #[staticmethod]
     #[pyo3(signature = (cmd, path=None))]
-    fn which(cmd: &str, path: Option<&str>) -> PyResult<Option<Self>> {
-        ryo3_which::which(cmd, path).map(|opt| opt.map(Self::from))
+    fn which(py: Python<'_>, cmd: &str, path: Option<&str>) -> PyResult<Option<Self>> {
+        ryo3_which::which(py, cmd, path).map(|opt| opt.map(Self::from))
     }
 
     #[cfg(not(feature = "which"))]
@@ -777,8 +793,8 @@ impl PyFsPath {
     #[cfg(feature = "which")]
     #[staticmethod]
     #[pyo3(signature = (cmd, path=None))]
-    fn which_all(cmd: &str, path: Option<&str>) -> PyResult<Vec<Self>> {
-        ryo3_which::which_all(cmd, path)
+    fn which_all(py: Python<'_>, cmd: &str, path: Option<&str>) -> PyResult<Vec<Self>> {
+        ryo3_which::which_all(py, cmd, path)
             .map(|opt| opt.into_iter().map(Self::from).collect::<Vec<_>>())
     }
 
@@ -794,8 +810,12 @@ impl PyFsPath {
     #[cfg(feature = "which-regex")]
     #[staticmethod]
     #[pyo3(signature = (regex, path=None))]
-    fn which_re(regex: &Bound<'_, PyAny>, path: Option<&str>) -> PyResult<Vec<Self>> {
-        ryo3_which::which_re(regex, path)
+    fn which_re(
+        py: Python<'_>,
+        regex: &Bound<'_, PyAny>,
+        path: Option<&str>,
+    ) -> PyResult<Vec<Self>> {
+        ryo3_which::which_re(py, regex, path)
             .map(|opt| opt.into_iter().map(Self::from).collect::<Vec<_>>())
     }
 
@@ -820,10 +840,10 @@ where
     }
 }
 
-#[pyclass(name = "FsPathReadDir", frozen)]
+#[pyclass(name = "FsPathReadDir", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
-pub struct PyFsPathReadDir {
-    iter: Mutex<std::fs::ReadDir>,
+struct PyFsPathReadDir {
+    iter: RyMutex<std::fs::ReadDir, false>,
 }
 
 #[pymethods]
@@ -832,36 +852,40 @@ impl PyFsPathReadDir {
         slf
     }
 
-    fn __next__(&self) -> Option<PyFsPath> {
-        let value = self.iter.lock().next();
+    fn __next__(&self, py: Python<'_>) -> Option<PyFsPath> {
+        let value = py.detach(|| self.iter.py_lock().next());
         match value {
             Some(Ok(entry)) => Some(PyFsPath::from(entry.path())),
             _ => None,
         }
     }
 
-    fn collect(&self) -> Vec<PyFsPath> {
-        let mut paths = vec![];
-        for entry in self.iter.lock().by_ref() {
-            match entry {
-                Ok(entry) => paths.push(PyFsPath::from(entry.path())),
-                Err(_e) => break, // TODO: handle error
+    fn collect(&self, py: Python<'_>) -> Vec<PyFsPath> {
+        py.detach(|| {
+            let mut paths = vec![];
+            for entry in self.iter.py_lock().by_ref() {
+                match entry {
+                    Ok(entry) => paths.push(PyFsPath::from(entry.path())),
+                    Err(_e) => break, // TODO: handle error
+                }
             }
-        }
-        paths
+            paths
+        })
     }
 
     #[pyo3(signature = (n = 1))]
-    fn take(&self, n: usize) -> Vec<PyFsPath> {
-        self.iter
-            .lock()
-            .by_ref()
-            .take(n)
-            .filter_map(|entry| match entry {
-                Ok(entry) => Some(PyFsPath::from(entry.path())),
-                Err(_) => None,
-            })
-            .collect()
+    fn take(&self, py: Python<'_>, n: usize) -> Vec<PyFsPath> {
+        py.detach(|| {
+            self.iter
+                .py_lock()
+                .by_ref()
+                .take(n)
+                .filter_map(|entry| match entry {
+                    Ok(entry) => Some(PyFsPath::from(entry.path())),
+                    Err(_) => None,
+                })
+                .collect()
+        })
     }
 }
 
@@ -871,18 +895,18 @@ impl From<std::fs::ReadDir> for PyFsPathReadDir {
     }
 }
 
-#[pyclass(name = "FsPathAncestors", frozen)]
+#[pyclass(name = "FsPathAncestors", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
-pub struct PyFsPathAncestors {
+struct PyFsPathAncestors {
     path: ArcPathBuf,
-    current: Mutex<Option<ArcPathBuf>>,
+    current: RyMutex<Option<ArcPathBuf>, false>,
 }
 
 impl PyFsPathAncestors {
-    pub fn new<P: AsRef<Path>>(p: P) -> Self {
+    fn new<P: AsRef<Path>>(p: P) -> Self {
         Self {
             path: ArcPathBuf::new(p.as_ref().to_path_buf()),
-            current: Mutex::new(Some(ArcPathBuf::new(p.as_ref().to_path_buf()))),
+            current: RyMutex::new(Some(ArcPathBuf::new(p.as_ref().to_path_buf()))),
         }
     }
 }
@@ -898,13 +922,20 @@ impl PyFsPathAncestors {
     }
 
     fn __next__(&self) -> Option<PyFsPath> {
-        let mut current = self.current.lock();
-        let taken = current.take().map(|p| PyFsPath::from(p.as_ref()));
-        if let Some(ref p) = taken {
-            let next = p.path().parent().map(|p| ArcPathBuf::new(p.to_path_buf()));
-            *current = next;
-        }
-        taken
+        let mut current = self.current.py_lock();
+
+        // Take the current path; if we're done, stop.
+        let cur = current.take()?;
+        let out = PyFsPath::from(cur.as_ref());
+
+        // Compute the next state.
+        *current = match out.path().parent() {
+            None => None,                                // no parent => done
+            Some(p) if p.as_os_str().is_empty() => None, // "root-ish" sentinel => done
+            Some(p) => Some(ArcPathBuf::new(p.to_path_buf())),
+        };
+
+        Some(out)
     }
 
     fn collect(&self) -> Vec<PyFsPath> {
@@ -931,6 +962,29 @@ impl PyFsPathAncestors {
 
 impl std::fmt::Display for PyFsPathAncestors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "FsPathAncestors<{}>", self.path.display())
+        write!(f, "FsPathAncestors<{}>", self.path.as_posix_str())
+    }
+}
+
+trait AsPosixStr {
+    fn as_posix_str(&self) -> String;
+}
+
+impl<T> AsPosixStr for T
+where
+    T: AsRef<Path>,
+{
+    fn as_posix_str(&self) -> String {
+        #[cfg(target_os = "windows")]
+        {
+            self.as_ref()
+                .to_string_lossy()
+                .to_string()
+                .replace('\\', "/")
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            self.as_ref().to_string_lossy().to_string()
+        }
     }
 }

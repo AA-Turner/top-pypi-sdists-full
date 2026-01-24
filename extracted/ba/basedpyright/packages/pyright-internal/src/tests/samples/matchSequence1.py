@@ -258,7 +258,7 @@ def test_union(
             reveal_type(e1, expected_text="complex | float | Any")
             reveal_type(
                 value_to_match,
-                expected_text="tuple[Literal[3], complex] | tuple[Literal[3], float] | Sequence[Any]",
+                expected_text="tuple[complex, complex] | tuple[float, float] | Sequence[Any]",
             )
 
         case "hi", *f1:
@@ -267,11 +267,12 @@ def test_union(
 
         case *g1, 3j:
             reveal_type(
-                g1, expected_text="list[complex] | list[int | str | float] | list[Any]"
+                g1,
+                expected_text="list[complex] | list[int | str | float] | list[float] | list[Any]",
             )
             reveal_type(
                 value_to_match,
-                expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Sequence[Any]",
+                expected_text="tuple[complex, complex] | Tuple[int, str, float, complex] | Tuple[float, ...] | Sequence[Any]",
             )
 
         case *h1, "hi":
@@ -369,8 +370,8 @@ def test_object1(seq: object):
             reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case [1, "hi", True] as h1:
-            reveal_type(h1, expected_text="Sequence[int | str | bool]")
-            reveal_type(seq, expected_text="Sequence[int | str | bool]")
+            reveal_type(h1, expected_text="Sequence[Unknown]")
+            reveal_type(seq, expected_text="Sequence[Unknown]")
 
         case [1, i1] as i2:
             reveal_type(i1, expected_text="Unknown")
@@ -624,6 +625,38 @@ def test_unbounded_tuple_6(subj: tuple[str, ...]):
 
         case r:
             reveal_type(r, expected_text="tuple[str, ...]")
+
+
+def test_unbound_tuple_7(subj: tuple[str, Unpack[tuple[object, ...]], int]):
+    match subj:
+        case (*args,):
+            reveal_type(args, expected_text="list[str | object | int]")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (*args, last):
+            reveal_type(args, expected_text="list[str | object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (first, *args, last):
+            reveal_type(first, expected_text="str")
+            reveal_type(args, expected_text="list[object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="Never")
+
+    match subj:
+        case (first, second, *args, last):
+            reveal_type(first, expected_text="str")
+            reveal_type(second, expected_text="object")
+            reveal_type(args, expected_text="list[object]")
+            reveal_type(last, expected_text="int")
+        case a:
+            reveal_type(a, expected_text="tuple[str, *tuple[object, ...], int]")
 
 
 def test_variadic_tuple(subj: tuple[int, Unpack[Ts]]) -> tuple[Unpack[Ts]]:

@@ -2,7 +2,7 @@ import abc
 import logging
 from typing import Any, Dict, List, Optional, Union
 
-import ujson
+import orjson
 
 from pymilvus.exceptions import DataTypeNotMatchException, ExceptionsMessage
 from pymilvus.settings import Config
@@ -60,7 +60,7 @@ class FieldSchema:
         for type_param in raw.type_params:
             if type_param.key == "params":
                 try:
-                    self.params[type_param.key] = ujson.loads(type_param.value)
+                    self.params[type_param.key] = orjson.loads(type_param.value)
                 except Exception as e:
                     logger.error(
                         f"FieldSchema::__pack::65::Failed to load JSON type_param.value: {e}, original data: {type_param.value}"
@@ -82,14 +82,17 @@ class FieldSchema:
                     self.params[type_param.key] = int(type_param.value)
 
                 # TO-DO: use constants defined in orm
-                if type_param.key in ["max_capacity"] and raw.data_type == DataType.ARRAY:
+                if type_param.key in ["max_capacity"] and raw.data_type in (
+                    DataType.ARRAY,
+                    DataType._ARRAY_OF_VECTOR,
+                ):
                     self.params[type_param.key] = int(type_param.value)
 
         index_dict = {}
         for index_param in raw.index_params:
             if index_param.key == "params":
                 try:
-                    index_dict[index_param.key] = ujson.loads(index_param.value)
+                    index_dict[index_param.key] = orjson.loads(index_param.value)
                 except Exception as e:
                     logger.error(
                         f"FieldSchema::__pack::92::Failed to load JSON index_param.value: {e}, original data: {index_param.value}"
@@ -133,6 +136,45 @@ class FieldSchema:
         if self.is_function_output:
             _dict["is_function_output"] = True
         return _dict
+
+
+class StructArrayFieldSchema:
+    def __init__(self, raw: Any):
+        self._raw = raw
+
+        self.name = None
+        self.fields = []
+        self.description = None
+        self.params = {}
+
+        self.__pack(self._raw)
+
+    def __pack(self, raw: Any):
+        self.name = raw.name
+        self.field_id = raw.fieldID
+        self.description = raw.description
+        self.fields = [FieldSchema(f) for f in raw.fields]
+
+        self.params = {}
+        for kv in raw.type_params:
+            key = kv.key if kv.key != "mmap.enabled" else "mmap_enabled"
+            try:
+                value = orjson.loads(kv.value)
+            except (orjson.JSONDecodeError, ValueError):
+                value = kv.value
+            self.params[key] = value
+
+    def dict(self):
+        result = {
+            "field_id": self.field_id,
+            "name": self.name,
+            "description": self.description,
+            "type": DataType._ARRAY_OF_STRUCT,
+            "fields": [f.dict() for f in self.fields],
+        }
+        if self.params:
+            result["params"] = self.params
+        return result
 
 
 class FunctionSchema:
@@ -186,6 +228,7 @@ class CollectionSchema:
         self.description = None
         self.params = {}
         self.fields = []
+        self.struct_array_fields = []
         self.functions = []
         self.statistics = {}
         self.auto_id = False  # auto_id is not in collection level any more later
@@ -196,6 +239,7 @@ class CollectionSchema:
         self.num_shards = 0
         self.num_partitions = 0
         self.enable_dynamic_field = False
+        self.enable_namespace = False
         self.created_timestamp = 0
         self.update_timestamp = 0
         if self._raw:
@@ -221,10 +265,18 @@ class CollectionSchema:
         except Exception:
             self.enable_dynamic_field = False
 
+        try:
+            self.enable_namespace = raw.schema.enable_namespace
+        except Exception:
+            self.enable_namespace = False
+
         # TODO: extra_params here
         # for kv in raw.extra_params:
 
         self.fields = [FieldSchema(f) for f in raw.schema.fields]
+        self.struct_array_fields = [
+            StructArrayFieldSchema(f) for f in raw.schema.struct_array_fields
+        ]
         self.functions = [FunctionSchema(f) for f in raw.schema.functions]
         function_output_field_names = [f for fn in self.functions for f in fn.output_field_names]
         for field in self.fields:
@@ -255,6 +307,7 @@ class CollectionSchema:
             "num_shards": self.num_shards,
             "description": self.description,
             "fields": [f.dict() for f in self.fields],
+            "struct_array_fields": [f.dict() for f in self.struct_array_fields],
             "functions": [f.dict() for f in self.functions],
             "aliases": self.aliases,
             "collection_id": self.collection_id,
@@ -262,6 +315,7 @@ class CollectionSchema:
             "properties": self.properties,
             "num_partitions": self.num_partitions,
             "enable_dynamic_field": self.enable_dynamic_field,
+            "enable_namespace": self.enable_namespace,
         }
 
         if self.created_timestamp != 0:

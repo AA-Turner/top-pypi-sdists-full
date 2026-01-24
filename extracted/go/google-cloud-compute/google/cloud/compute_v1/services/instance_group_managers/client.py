@@ -148,6 +148,34 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "compute.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -313,12 +341,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = InstanceGroupManagersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -326,7 +350,7 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -358,20 +382,14 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = InstanceGroupManagersClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -717,18 +735,22 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         managed instance group. Abandoning an instance does not
         delete the instance, but it does remove the instance
         from any target pools that are applied by the managed
-        instance group. This method reduces the targetSize of
-        the managed instance group by the number of instances
-        that you abandon. This operation is marked as DONE when
-        the action is scheduled even if the instances have not
-        yet been removed from the group. You must separately
-        verify the status of the abandoning action with the
-        listmanagedinstances method. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted. You can specify a maximum of 1000 instances
-        with this method per request.
+        instance group. This method reduces thetargetSize of the
+        managed instance group by the number of instances that
+        you abandon. This operation is marked asDONE when the
+        action is scheduled even if the instances have not yet
+        been removed from the group. You must separately verify
+        the status of the abandoning action with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -769,8 +791,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -886,18 +908,22 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         managed instance group. Abandoning an instance does not
         delete the instance, but it does remove the instance
         from any target pools that are applied by the managed
-        instance group. This method reduces the targetSize of
-        the managed instance group by the number of instances
-        that you abandon. This operation is marked as DONE when
-        the action is scheduled even if the instances have not
-        yet been removed from the group. You must separately
-        verify the status of the abandoning action with the
-        listmanagedinstances method. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted. You can specify a maximum of 1000 instances
-        with this method per request.
+        instance group. This method reduces thetargetSize of the
+        managed instance group by the number of instances that
+        you abandon. This operation is marked asDONE when the
+        action is scheduled even if the instances have not yet
+        been removed from the group. You must separately verify
+        the status of the abandoning action with
+        thelistmanagedinstances method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -938,8 +964,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1072,7 +1098,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> pagers.AggregatedListPager:
         r"""Retrieves the list of managed instance groups and groups them by
-        zone. To prevent failure, Google recommends that you set the
+        zone.
+
+        To prevent failure, Google recommends that you set the
         ``returnPartialSuccess`` parameter to ``true``.
 
         .. code-block:: python
@@ -1243,9 +1271,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
-                Should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. Should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1406,9 +1434,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
-                Should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. Should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1553,11 +1581,11 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
     ) -> compute.Operation:
         r"""Creates instances with per-instance configurations in
         this managed instance group. Instances are created using
-        the current instance template. The create instances
-        operation is marked DONE if the createInstances request
+        the current instance template. Thecreate instances
+        operation is marked DONE if thecreateInstances request
         is successful. The underlying actions take additional
-        time. You must separately verify the status of the
-        creating or actions with the listmanagedinstances
+        time. You must separately verify the status of
+        thecreating or actions with the listmanagedinstances
         method.
 
         .. code-block:: python
@@ -1599,9 +1627,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1715,11 +1743,11 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
     ) -> extended_operation.ExtendedOperation:
         r"""Creates instances with per-instance configurations in
         this managed instance group. Instances are created using
-        the current instance template. The create instances
-        operation is marked DONE if the createInstances request
+        the current instance template. Thecreate instances
+        operation is marked DONE if thecreateInstances request
         is successful. The underlying actions take additional
-        time. You must separately verify the status of the
-        creating or actions with the listmanagedinstances
+        time. You must separately verify the status of
+        thecreating or actions with the listmanagedinstances
         method.
 
         .. code-block:: python
@@ -1761,9 +1789,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1941,8 +1969,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2081,8 +2109,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2208,16 +2236,20 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group for immediate deletion. The instances are also
         removed from any target pools of which they were a
-        member. This method reduces the targetSize of the
-        managed instance group by the number of instances that
-        you delete. This operation is marked as DONE when the
-        action is scheduled even if the instances are still
-        being deleted. You must separately verify the status of
-        the deleting action with the listmanagedinstances
-        method. If the group is part of a backend service that
-        has enabled connection draining, it can take up to 60
-        seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        member. This method reduces thetargetSize of the managed
+        instance group by the number of instances that you
+        delete. This operation is marked as DONE when the action
+        is scheduled even if the instances are still being
+        deleted. You must separately verify the status of the
+        deleting action with thelistmanagedinstances
+        method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -2260,8 +2292,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2376,16 +2408,20 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group for immediate deletion. The instances are also
         removed from any target pools of which they were a
-        member. This method reduces the targetSize of the
-        managed instance group by the number of instances that
-        you delete. This operation is marked as DONE when the
-        action is scheduled even if the instances are still
-        being deleted. You must separately verify the status of
-        the deleting action with the listmanagedinstances
-        method. If the group is part of a backend service that
-        has enabled connection draining, it can take up to 60
-        seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        member. This method reduces thetargetSize of the managed
+        instance group by the number of instances that you
+        delete. This operation is marked as DONE when the action
+        is scheduled even if the instances are still being
+        deleted. You must separately verify the status of the
+        deleting action with thelistmanagedinstances
+        method.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -2428,8 +2464,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2608,9 +2644,10 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance
+                group is located.
+                It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2773,9 +2810,10 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance
+                group is located.
+                It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2958,8 +2996,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -2982,14 +3020,17 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         Returns:
             google.cloud.compute_v1.types.InstanceGroupManager:
                 Represents a Managed Instance Group
-                resource. An instance group is a
-                collection of VM instances that you can
-                manage as a single entity. For more
-                information, read Instance groups. For
-                zonal Managed Instance Group, use the
-                instanceGroupManagers resource. For
-                regional Managed Instance Group, use the
-                regionInstanceGroupManagers resource.
+                resource.
+                An instance group is a collection of VM
+                instances that you can manage as a
+                single entity. For more information,
+                readInstance groups.
+
+                For zonal Managed Instance Group, use
+                the instanceGroupManagers resource.
+
+                For regional Managed Instance Group, use
+                theregionInstanceGroupManagers resource.
 
         """
         # Create or coerce a protobuf request object.
@@ -3064,14 +3105,16 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Creates a managed instance group using the
         information that you specify in the request. After the
         group is created, instances in the group are created
-        using the specified instance template. This operation is
-        marked as DONE when the group is created even if the
-        instances in the group have not yet been created. You
-        must separately verify the status of the individual
-        instances with the listmanagedinstances method. A
-        managed instance group can have up to 1000 VM instances
-        per group. Please contact Cloud Support if you need an
-        increase in this limit.
+        using the specified instance template.
+        This operation is marked as DONE when the group is
+        created even if the instances in the group have not yet
+        been created. You must separately verify the status of
+        the individual instances with thelistmanagedinstances
+        method.
+
+        A managed instance group can have up to 1000 VM
+        instances per group. Please contact Cloud Support if you
+        need an increase in this limit.
 
         .. code-block:: python
 
@@ -3111,8 +3154,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the managed instance group.
+                The name of the zone
+                where you want to create the managed
+                instance group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3209,14 +3253,16 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Creates a managed instance group using the
         information that you specify in the request. After the
         group is created, instances in the group are created
-        using the specified instance template. This operation is
-        marked as DONE when the group is created even if the
-        instances in the group have not yet been created. You
-        must separately verify the status of the individual
-        instances with the listmanagedinstances method. A
-        managed instance group can have up to 1000 VM instances
-        per group. Please contact Cloud Support if you need an
-        increase in this limit.
+        using the specified instance template.
+        This operation is marked as DONE when the group is
+        created even if the instances in the group have not yet
+        been created. You must separately verify the status of
+        the individual instances with thelistmanagedinstances
+        method.
+
+        A managed instance group can have up to 1000 VM
+        instances per group. Please contact Cloud Support if you
+        need an increase in this limit.
 
         .. code-block:: python
 
@@ -3256,8 +3302,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the managed instance group.
+                The name of the zone
+                where you want to create the managed
+                instance group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3415,8 +3462,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3558,9 +3605,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone where the managed
+                instance group is located.
+                It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3719,8 +3766,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3873,9 +3920,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -3988,19 +4035,22 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Updates a managed instance group using the
-        information that you specify in the request. This
-        operation is marked as DONE when the group is patched
-        even if the instances in the group are still in the
-        process of being patched. You must separately verify the
-        status of the individual instances with the
-        listManagedInstances method. This method supports PATCH
-        semantics and uses the JSON merge patch format and
-        processing rules. If you update your group to specify a
-        new template or instance configuration, it's possible
-        that your intended specification for each VM in the
-        group is different from the current state of that VM. To
-        learn how to apply an updated configuration to the VMs
-        in a MIG, see Updating instances in a MIG.
+        information that you specify in the request.
+        This operation is marked as DONE when the group is
+        patched even if the instances in the group are still in
+        the process of being patched. You must separately verify
+        the status of the individual instances with
+        thelistManagedInstances
+        method. This method supportsPATCH
+        semantics and uses theJSON merge
+        patch format and processing rules.
+
+        If you update your group to specify a new template or
+        instance configuration, it's possible that your intended
+        specification for each VM in the group is different from
+        the current state of that VM. To learn how to apply an
+        updated configuration to the VMs in a MIG, seeUpdating
+        instances in a MIG.
 
         .. code-block:: python
 
@@ -4041,8 +4091,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the managed instance group.
+                The name of the zone where
+                you want to create the managed instance
+                group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4151,19 +4202,22 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Updates a managed instance group using the
-        information that you specify in the request. This
-        operation is marked as DONE when the group is patched
-        even if the instances in the group are still in the
-        process of being patched. You must separately verify the
-        status of the individual instances with the
-        listManagedInstances method. This method supports PATCH
-        semantics and uses the JSON merge patch format and
-        processing rules. If you update your group to specify a
-        new template or instance configuration, it's possible
-        that your intended specification for each VM in the
-        group is different from the current state of that VM. To
-        learn how to apply an updated configuration to the VMs
-        in a MIG, see Updating instances in a MIG.
+        information that you specify in the request.
+        This operation is marked as DONE when the group is
+        patched even if the instances in the group are still in
+        the process of being patched. You must separately verify
+        the status of the individual instances with
+        thelistManagedInstances
+        method. This method supportsPATCH
+        semantics and uses theJSON merge
+        patch format and processing rules.
+
+        If you update your group to specify a new template or
+        instance configuration, it's possible that your intended
+        specification for each VM in the group is different from
+        the current state of that VM. To learn how to apply an
+        updated configuration to the VMs in a MIG, seeUpdating
+        instances in a MIG.
 
         .. code-block:: python
 
@@ -4204,8 +4258,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where you want
-                to create the managed instance group.
+                The name of the zone where
+                you want to create the managed instance
+                group.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4386,9 +4441,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4553,9 +4608,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4707,12 +4762,16 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         configuration. This operation is marked as DONE when the
         flag is set even if the instances have not yet been
         recreated. You must separately verify the status of each
-        instance by checking its currentAction field; for more
+        instance by checking itscurrentAction field; for more
         information, see Checking the status of managed
-        instances. If the group is part of a backend service
-        that has enabled connection draining, it can take up to
-        60 seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        instances.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -4755,8 +4814,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -4876,12 +4935,16 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         configuration. This operation is marked as DONE when the
         flag is set even if the instances have not yet been
         recreated. You must separately verify the status of each
-        instance by checking its currentAction field; for more
+        instance by checking itscurrentAction field; for more
         information, see Checking the status of managed
-        instances. If the group is part of a backend service
-        that has enabled connection draining, it can take up to
-        60 seconds after the connection draining duration has
-        elapsed before the VM instance is removed or deleted.
+        instances.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
+
         You can specify a maximum of 1000 instances with this
         method per request.
 
@@ -4924,8 +4987,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5065,23 +5128,32 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Resizes the managed instance group. If you increase
         the size, the group creates new instances using the
         current instance template. If you decrease the size, the
-        group deletes instances. The resize operation is marked
-        DONE when the resize actions are scheduled even if the
-        group has not yet added or deleted any instances. You
-        must separately verify the status of the creating or
-        deleting actions with the listmanagedinstances method.
+        group deletes instances. The resize operation is
+        markedDONE when the resize actions are scheduled even if
+        the group has not yet added or deleted any instances.
+        You must separately verify the status of the creating or
+        deleting
+        actions with thelistmanagedinstances
+        method.
+
         When resizing down, the instance group arbitrarily
         chooses the order in which VMs are deleted. The group
         takes into account some VM attributes when making the
-        selection including: + The status of the VM instance. +
-        The health of the VM instance. + The instance template
-        version the VM is based on. + For regional managed
-        instance groups, the location of the VM instance. This
-        list is subject to change. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted.
+        selection including:
+
+        + The status of the VM instance.
+        + The health of the VM instance.
+        + The instance template version the VM is based on.
+        + For regional managed instance groups, the location of
+          the VM instance.
+
+        This list is subject to change.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
 
         .. code-block:: python
 
@@ -5123,8 +5195,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5236,23 +5308,32 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Resizes the managed instance group. If you increase
         the size, the group creates new instances using the
         current instance template. If you decrease the size, the
-        group deletes instances. The resize operation is marked
-        DONE when the resize actions are scheduled even if the
-        group has not yet added or deleted any instances. You
-        must separately verify the status of the creating or
-        deleting actions with the listmanagedinstances method.
+        group deletes instances. The resize operation is
+        markedDONE when the resize actions are scheduled even if
+        the group has not yet added or deleted any instances.
+        You must separately verify the status of the creating or
+        deleting
+        actions with thelistmanagedinstances
+        method.
+
         When resizing down, the instance group arbitrarily
         chooses the order in which VMs are deleted. The group
         takes into account some VM attributes when making the
-        selection including: + The status of the VM instance. +
-        The health of the VM instance. + The instance template
-        version the VM is based on. + For regional managed
-        instance groups, the location of the VM instance. This
-        list is subject to change. If the group is part of a
-        backend service that has enabled connection draining, it
-        can take up to 60 seconds after the connection draining
-        duration has elapsed before the VM instance is removed
-        or deleted.
+        selection including:
+
+        + The status of the VM instance.
+        + The health of the VM instance.
+        + The instance template version the VM is based on.
+        + For regional managed instance groups, the location of
+          the VM instance.
+
+        This list is subject to change.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is removed or deleted.
 
         .. code-block:: python
 
@@ -5294,8 +5375,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5432,22 +5513,26 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Flags the specified instances in the managed instance
-        group to be resumed. This method increases the
-        targetSize and decreases the targetSuspendedSize of the
-        managed instance group by the number of instances that
-        you resume. The resumeInstances operation is marked DONE
-        if the resumeInstances request is successful. The
+        group to be resumed. This method increases thetargetSize
+        and decreases the targetSuspendedSize of the managed
+        instance group by the number of instances that you
+        resume. The resumeInstances operation is marked DONE if
+        the resumeInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the RESUMING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are suspended. For
-        example, if an instance was previously suspended using
-        the suspendInstances method, it can be resumed using the
-        resumeInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are resumed. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        separately verify the status of theRESUMING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        suspended. For example, if an instance was previously
+        suspended using the suspendInstances method, it can be
+        resumed using the resumeInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are resumed.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -5488,8 +5573,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5602,22 +5687,26 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Flags the specified instances in the managed instance
-        group to be resumed. This method increases the
-        targetSize and decreases the targetSuspendedSize of the
-        managed instance group by the number of instances that
-        you resume. The resumeInstances operation is marked DONE
-        if the resumeInstances request is successful. The
+        group to be resumed. This method increases thetargetSize
+        and decreases the targetSuspendedSize of the managed
+        instance group by the number of instances that you
+        resume. The resumeInstances operation is marked DONE if
+        the resumeInstances request is successful. The
         underlying actions take additional time. You must
-        separately verify the status of the RESUMING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are suspended. For
-        example, if an instance was previously suspended using
-        the suspendInstances method, it can be resumed using the
-        resumeInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are resumed. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        separately verify the status of theRESUMING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        suspended. For example, if an instance was previously
+        suspended using the suspendInstances method, it can be
+        resumed using the resumeInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are resumed.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -5658,8 +5747,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5799,8 +5888,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Specifies the instance template to use when creating
         new instances in this group. The templates for existing
         instances in the group do not change unless you run
-        recreateInstances, run applyUpdatesToInstances, or set
-        the group's updatePolicy.type to PROACTIVE.
+        recreateInstances, runapplyUpdatesToInstances, or set
+        the group'supdatePolicy.type to PROACTIVE.
 
         .. code-block:: python
 
@@ -5841,8 +5930,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -5962,8 +6051,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Specifies the instance template to use when creating
         new instances in this group. The templates for existing
         instances in the group do not change unless you run
-        recreateInstances, run applyUpdatesToInstances, or set
-        the group's updatePolicy.type to PROACTIVE.
+        recreateInstances, runapplyUpdatesToInstances, or set
+        the group'supdatePolicy.type to PROACTIVE.
 
         .. code-block:: python
 
@@ -6004,8 +6093,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6150,7 +6239,7 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Modifies the target pools to which all instances in
         this managed instance group are assigned. The target
         pools automatically apply to all of the instances in the
-        managed instance group. This operation is marked DONE
+        managed instance group. This operation is markedDONE
         when you make the request even if the instances have not
         yet been added to their target pools. The change might
         take some time to apply to all of the instances in the
@@ -6195,8 +6284,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6311,7 +6400,7 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Modifies the target pools to which all instances in
         this managed instance group are assigned. The target
         pools automatically apply to all of the instances in the
-        managed instance group. This operation is marked DONE
+        managed instance group. This operation is markedDONE
         when you make the request even if the instances have not
         yet been added to their target pools. The change might
         take some time to apply to all of the instances in the
@@ -6356,8 +6445,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6495,22 +6584,26 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> compute.Operation:
         r"""Flags the specified instances in the managed instance
-        group to be started. This method increases the
-        targetSize and decreases the targetStoppedSize of the
-        managed instance group by the number of instances that
-        you start. The startInstances operation is marked DONE
-        if the startInstances request is successful. The
-        underlying actions take additional time. You must
-        separately verify the status of the STARTING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are stopped. For
-        example, if an instance was previously stopped using the
-        stopInstances method, it can be started using the
-        startInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are started. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        group to be started. This method increases thetargetSize
+        and decreases the targetStoppedSize of the managed
+        instance group by the number of instances that you
+        start. The startInstances operation is marked DONE if
+        the startInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTARTING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        stopped. For example, if an instance was previously
+        stopped using the stopInstances method, it can be
+        started using the startInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are started.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6551,8 +6644,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6665,22 +6758,26 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> extended_operation.ExtendedOperation:
         r"""Flags the specified instances in the managed instance
-        group to be started. This method increases the
-        targetSize and decreases the targetStoppedSize of the
-        managed instance group by the number of instances that
-        you start. The startInstances operation is marked DONE
-        if the startInstances request is successful. The
-        underlying actions take additional time. You must
-        separately verify the status of the STARTING action with
-        the listmanagedinstances method. In this request, you
-        can only specify instances that are stopped. For
-        example, if an instance was previously stopped using the
-        stopInstances method, it can be started using the
-        startInstances method. If a health check is attached to
-        the managed instance group, the specified instances will
-        be verified as healthy after they are started. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        group to be started. This method increases thetargetSize
+        and decreases the targetStoppedSize of the managed
+        instance group by the number of instances that you
+        start. The startInstances operation is marked DONE if
+        the startInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTARTING action with
+        thelistmanagedinstances method.
+
+        In this request, you can only specify instances that are
+        stopped. For example, if an instance was previously
+        stopped using the stopInstances method, it can be
+        started using the startInstances method.
+
+        If a health check is attached to the managed instance
+        group, the specified instances will be verified as
+        healthy after they are started.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6721,8 +6818,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -6862,27 +6959,36 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group to be immediately stopped. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetStoppedSize of the managed instance group by the
         number of instances that you stop. The stopInstances
-        operation is marked DONE if the stopInstances request is
-        successful. The underlying actions take additional time.
-        You must separately verify the status of the STOPPING
-        action with the listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays stopping the instances until initialDelaySec have
-        passed from instance.creationTimestamp (that is, when
-        the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is stopped. Stopped instances can be started
-        using the startInstances method. You can specify a
-        maximum of 1000 instances with this method per request.
+        operation is marked DONE if
+        the stopInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTOPPING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays stopping the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is stopped.
+
+        Stopped instances can be started using the
+        startInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -6923,8 +7029,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -7039,27 +7145,36 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group to be immediately stopped. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetStoppedSize of the managed instance group by the
         number of instances that you stop. The stopInstances
-        operation is marked DONE if the stopInstances request is
-        successful. The underlying actions take additional time.
-        You must separately verify the status of the STOPPING
-        action with the listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays stopping the instances until initialDelaySec have
-        passed from instance.creationTimestamp (that is, when
-        the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is stopped. Stopped instances can be started
-        using the startInstances method. You can specify a
-        maximum of 1000 instances with this method per request.
+        operation is marked DONE if
+        the stopInstances request is successful. The underlying
+        actions take additional time. You must separately verify
+        the status of theSTOPPING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays stopping the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is stopped.
+
+        Stopped instances can be started using the
+        startInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7100,8 +7215,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -7241,29 +7356,36 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group to be immediately suspended. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetSuspendedSize of the managed instance group by the
         number of instances that you suspend. The
         suspendInstances operation is marked DONE if the
         suspendInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the SUSPENDING action with the
-        listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays suspension of the instances until initialDelaySec
-        have passed from instance.creationTimestamp (that is,
-        when the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is suspended. Suspended instances can be
-        resumed using the resumeInstances method. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        the status of theSUSPENDING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays suspension of the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is suspended.
+
+        Suspended instances can be resumed using the
+        resumeInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7304,8 +7426,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -7420,29 +7542,36 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
         r"""Flags the specified instances in the managed instance
         group to be immediately suspended. You can only specify
         instances that are running in this request. This method
-        reduces the targetSize and increases the
+        reduces thetargetSize and increases the
         targetSuspendedSize of the managed instance group by the
         number of instances that you suspend. The
         suspendInstances operation is marked DONE if the
         suspendInstances request is successful. The underlying
         actions take additional time. You must separately verify
-        the status of the SUSPENDING action with the
-        listmanagedinstances method. If the
-        standbyPolicy.initialDelaySec field is set, the group
-        delays suspension of the instances until initialDelaySec
-        have passed from instance.creationTimestamp (that is,
-        when the instance was created). This delay gives your
-        application time to set itself up and initialize on the
-        instance. If more than initialDelaySec seconds have
-        passed since instance.creationTimestamp when this method
-        is called, there will be zero delay. If the group is
-        part of a backend service that has enabled connection
-        draining, it can take up to 60 seconds after the
-        connection draining duration has elapsed before the VM
-        instance is suspended. Suspended instances can be
-        resumed using the resumeInstances method. You can
-        specify a maximum of 1000 instances with this method per
-        request.
+        the status of theSUSPENDING action with
+        thelistmanagedinstances method.
+
+        If the standbyPolicy.initialDelaySec field is set, the
+        group delays suspension of the instances until
+        initialDelaySec have passed from
+        instance.creationTimestamp (that is, when the instance
+        was created). This delay gives your application time to
+        set itself up and initialize on the instance. If more
+        thaninitialDelaySec seconds have passed
+        sinceinstance.creationTimestamp when this method is
+        called, there will be zero delay.
+
+        If the group is part of a backend
+        service that has enabled
+        connection draining, it can take up to 60 seconds after
+        the connection draining duration has elapsed before the
+        VM instance is suspended.
+
+        Suspended instances can be resumed using the
+        resumeInstances method.
+
+        You can specify a maximum of 1000 instances with this
+        method per request.
 
         .. code-block:: python
 
@@ -7483,8 +7612,8 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located.
+                The name of thezone where the managed
+                instance group is located.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -7665,9 +7794,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -7832,9 +7961,9 @@ class InstanceGroupManagersClient(metaclass=InstanceGroupManagersClientMeta):
                 on the ``request`` instance; if ``request`` is provided, this
                 should not be set.
             zone (str):
-                The name of the zone where the
-                managed instance group is located. It
-                should conform to RFC1035.
+                The name of thezone
+                where the managed instance group is
+                located. It should conform to RFC1035.
 
                 This corresponds to the ``zone`` field
                 on the ``request`` instance; if ``request`` is provided, this

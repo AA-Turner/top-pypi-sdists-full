@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from enum import Enum
@@ -12,15 +12,14 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.retriever.base_retriever im
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
-try:
-    from langchain_core.documents import Document
-    from langchain_core.tools import RetrieverInput
-    from langchain_core.tools.simple import Tool
-
-except ImportError:
-    raise MissingExtension("langchain-core")
+if not is_lib_installed(ext := "langchain-core"):
+    raise MissingExtension(ext, extra_info="rag")
+from langchain_core.documents import Document
+from langchain_core.tools import RetrieverInput
+from langchain_core.tools.simple import Tool
 
 
 class RetrievalMethod(str, Enum):
@@ -48,21 +47,32 @@ class Retriever(BaseRetriever):
 
         from ibm_watsonx_ai import APIClient
         from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
-        from ibm_watsonx_ai.foundation_models.extensions.rag import Retriever, RetrievalMethod
-        from ibm_watsonx_ai.foundation_models.embeddings import SentenceTransformerEmbeddings
+        from ibm_watsonx_ai.foundation_models.extensions.rag import (
+            Retriever,
+            RetrievalMethod,
+        )
+        from ibm_watsonx_ai.foundation_models.embeddings import (
+            SentenceTransformerEmbeddings,
+        )
 
         api_client = APIClient(credentials)
 
         vector_store = VectorStore(
-                api_client,
-                connection_id='***',
-                params={
-                    'index_name': 'my_test_index',
-                },
-                embeddings=SentenceTransformerEmbeddings('sentence-transformers/all-MiniLM-L6-v2')
-            )
+            api_client,
+            connection_id="***",
+            params={
+                "index_name": "my_test_index",
+            },
+            embeddings=SentenceTransformerEmbeddings(
+                "sentence-transformers/all-MiniLM-L6-v2"
+            ),
+        )
 
-        retriever = Retriever(vector_store=vector_store, method=RetrievalMethod.SIMPLE, number_of_chunks=3)
+        retriever = Retriever(
+            vector_store=vector_store,
+            method=RetrievalMethod.SIMPLE,
+            number_of_chunks=3,
+        )
 
         retriever.retrieve("What is IBM known for?")
     """

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Dict, Union, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from .._types import SequenceNotStr
@@ -19,11 +19,24 @@ __all__ = [
 
 
 class Variant0(TypedDict, total=False):
-    credentials: Required[Variant0Credentials]
-
     type: Required[Literal["custom"]]
 
-    proxy_config: Variant0ProxyConfig
+    credentials: Variant0Credentials
+
+    is_enabled_for_tool_router: bool
+    """Whether this auth config is enabled for tool router"""
+
+    proxy_config: Optional[Variant0ProxyConfig]
+
+    restrict_to_following_tools: SequenceNotStr[str]
+    """Use tool_access_config instead. This field will be deprecated in the future."""
+
+    shared_credentials: Dict[str, Optional[object]]
+    """Shared credentials that will be inherited by connected accounts.
+
+    For eg: this can be used to share the API key for a tool with all connected
+    accounts using this auth config.
+    """
 
     tool_access_config: Variant0ToolAccessConfig
 
@@ -60,7 +73,20 @@ class Variant0ToolAccessConfig(TypedDict, total=False):
 class Variant1(TypedDict, total=False):
     type: Required[Literal["default"]]
 
+    is_enabled_for_tool_router: bool
+    """Whether this auth config is enabled for tool router"""
+
+    restrict_to_following_tools: SequenceNotStr[str]
+    """Use tool_access_config instead. This field will be deprecated in the future."""
+
     scopes: Union[str, SequenceNotStr[str]]
+
+    shared_credentials: Dict[str, Optional[object]]
+    """Shared credentials that will be inherited by connected accounts.
+
+    For eg: this can be used to share the API key for a tool with all connected
+    accounts using this auth config.
+    """
 
     tool_access_config: Variant1ToolAccessConfig
 

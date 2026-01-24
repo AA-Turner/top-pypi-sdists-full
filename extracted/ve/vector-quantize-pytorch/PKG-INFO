@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vector-quantize-pytorch
-Version: 1.23.2
+Version: 1.27.19
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch
@@ -36,7 +36,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
 Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
-Requires-Dist: torch>=2.0
+Requires-Dist: torch>=2.4
 Provides-Extra: examples
 Requires-Dist: torchvision; extra == 'examples'
 Requires-Dist: tqdm; extra == 'examples'
@@ -823,3 +823,28 @@ assert loss.item() >= 0
     url     = {https://api.semanticscholar.org/CorpusID:274423406}
 }
 ```
+
+```bibtex
+@misc{vali2025diveqdifferentiablevectorquantization,
+    title   = {DiVeQ: Differentiable Vector Quantization Using the Reparameterization Trick}, 
+    author  = {Mohammad Hassan Vali and Tom Bäckström and Arno Solin},
+    year    = {2025},
+    eprint  = {2509.26469},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2509.26469}, 
+}
+```
+
+```bibtex
+@misc{fleuret2025freetransformer,
+    title   = {The Free Transformer}, 
+    author  = {François Fleuret},
+    year    = {2025},
+    eprint  = {2510.17558},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2510.17558}, 
+}
+```
+

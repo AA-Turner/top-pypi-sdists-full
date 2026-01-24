@@ -309,9 +309,9 @@ class RegexDocumenter(VariableDocumenter):
 
 	def add_directive_header(self, sig: str) -> None:
 		"""
-		Add the directive's header.
+		Add the directive's header and options to the generated content.
 
-		:param sig:
+		:param sig: The function/class signature.
 		"""
 
 		user_no_value = self.options.get("no-value", False)
@@ -347,7 +347,7 @@ def parse_regex_flags(flags: int) -> str:
 	return " ``|`` ".join(f":py:data:`re.{x}`" for x in buf)
 
 
-def no_formatting(value: Any) -> str:
+def no_formatting(value: Any) -> str:  # noqa: PRM002
 	"""
 	No-op that returns the value as a string.
 
@@ -613,15 +613,15 @@ class HTMLRegexParser(RegexParser):
 	"""
 
 	# Colours
-	AT_COLOUR = span("regex regex_at")
-	SUBPATTERN_COLOUR = span("regex regex_subpattern")
-	IN_COLOUR = span("regex regex_in")
-	REPEAT_COLOUR = span("regex regex_repeat")
-	REPEAT_BRACE_COLOUR = span("regex regex_repeat_brace")
-	CATEGORY_COLOUR = span("regex regex_category")
-	BRANCH_COLOUR = span("regex regex_branch")
-	LITERAL_COLOUR = span("regex regex_literal")
-	ANY_COLOUR = span("regex regex_any")
+	AT_COLOUR: Callable[[Any], str] = span("regex regex_at")
+	SUBPATTERN_COLOUR: Callable[[Any], str] = span("regex regex_subpattern")
+	IN_COLOUR: Callable[[Any], str] = span("regex regex_in")
+	REPEAT_COLOUR: Callable[[Any], str] = span("regex regex_repeat")
+	REPEAT_BRACE_COLOUR: Callable[[Any], str] = span("regex regex_repeat_brace")
+	CATEGORY_COLOUR: Callable[[Any], str] = span("regex regex_category")
+	BRANCH_COLOUR: Callable[[Any], str] = span("regex regex_branch")
+	LITERAL_COLOUR: Callable[[Any], str] = span("regex regex_literal")
+	ANY_COLOUR: Callable[[Any], str] = span("regex regex_any")
 
 	def parse_pattern(self, regex: Pattern) -> str:
 		"""
@@ -635,7 +635,7 @@ class HTMLRegexParser(RegexParser):
 		<code class="docutils literal notranslate regex">
 		{super().parse_pattern(regex)}
 		</code>
-		"""
+		""",
 				)
 
 
@@ -660,15 +660,15 @@ class LaTeXRegexParser(RegexParser):
 	"""
 
 	# Colours
-	AT_COLOUR = latex_textcolor("regex_at")
-	SUBPATTERN_COLOUR = latex_textcolor("regex_subpattern")
-	IN_COLOUR = latex_textcolor("regex_in")
-	REPEAT_COLOUR = latex_textcolor("regex_repeat")
-	REPEAT_BRACE_COLOUR = latex_textcolor("regex_repeat_brace")
-	CATEGORY_COLOUR = latex_textcolor("regex_category")
-	BRANCH_COLOUR = latex_textcolor("regex_branch")
-	LITERAL_COLOUR = latex_textcolor("regex_literal")
-	ANY_COLOUR = latex_textcolor("regex_any")
+	AT_COLOUR: Callable[[Any], str] = latex_textcolor("regex_at")
+	SUBPATTERN_COLOUR: Callable[[Any], str] = latex_textcolor("regex_subpattern")
+	IN_COLOUR: Callable[[Any], str] = latex_textcolor("regex_in")
+	REPEAT_COLOUR: Callable[[Any], str] = latex_textcolor("regex_repeat")
+	REPEAT_BRACE_COLOUR: Callable[[Any], str] = latex_textcolor("regex_repeat_brace")
+	CATEGORY_COLOUR: Callable[[Any], str] = latex_textcolor("regex_category")
+	BRANCH_COLOUR: Callable[[Any], str] = latex_textcolor("regex_branch")
+	LITERAL_COLOUR: Callable[[Any], str] = latex_textcolor("regex_literal")
+	ANY_COLOUR: Callable[[Any], str] = latex_textcolor("regex_any")
 
 	def parse_pattern(self, regex: Pattern) -> str:
 		"""
@@ -725,7 +725,7 @@ class TerminalRegexParser(RegexParser):
 	CATEGORY_COLOUR = SUBPATTERN_COLOUR
 
 
-class RegexNode(nodes.literal):
+class RegexNode(nodes.literal):  # noqa: PRM002
 	"""
 	Docutils Node to show a highlighted regular expression.
 	"""
@@ -872,7 +872,7 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	app.add_node(
 			RegexNode,
 			html=(visit_regex_node, depart_regex_node),
-			latex=(visit_regex_node_latex, depart_regex_node_latex)
+			latex=(visit_regex_node_latex, depart_regex_node_latex),
 			)
 
 	return {"parallel_read_safe": True}

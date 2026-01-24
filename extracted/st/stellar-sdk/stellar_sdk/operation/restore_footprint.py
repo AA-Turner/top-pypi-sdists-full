@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -13,7 +13,7 @@ class RestoreFootprint(Operation):
 
     Threshold: Low
 
-    See `RestoreFootprintOp <https://soroban.stellar.org/docs/fundamentals-and-concepts/state-expiration#restorefootprintop>`_.
+    See `Restore Footprint <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#restore-footprint>`_.
 
     :param source: The source account for the operation. Defaults to the transaction's source account.
     """
@@ -22,7 +22,7 @@ class RestoreFootprint(Operation):
         stellar_xdr.OperationType.RESTORE_FOOTPRINT
     )
 
-    def __init__(self, source: Optional[Union[MuxedAccount, str]] = None) -> None:
+    def __init__(self, source: MuxedAccount | str | None = None) -> None:
         super().__init__(source)
 
     def _to_operation_body(self) -> stellar_xdr.OperationBody:

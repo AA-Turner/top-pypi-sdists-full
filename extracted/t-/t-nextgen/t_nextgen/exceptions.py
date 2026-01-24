@@ -167,3 +167,21 @@ class StatusNotUpdatedException(ProcessException):
     """Status Not Updated Exception."""
 
     pass
+
+
+class PayerNotUpdatedException(ProcessException):
+    """Payer Not Updated Exception."""
+
+    pass
+
+
+class MaxScrollTriesException(Exception):
+    """Max Scroll Tries Exception."""
+
+    pass
+
+
+class ButtonIsStillEnabledException(Exception):
+    """Button is still enabled after an action was performed."""
+
+    pass

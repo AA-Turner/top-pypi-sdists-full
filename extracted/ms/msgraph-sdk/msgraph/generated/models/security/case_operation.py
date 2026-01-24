@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .ediscovery_estimate_operation import EdiscoveryEstimateOperation
     from .ediscovery_export_operation import EdiscoveryExportOperation
     from .ediscovery_hold_operation import EdiscoveryHoldOperation
+    from .ediscovery_hold_policy_sync_operation import EdiscoveryHoldPolicySyncOperation
     from .ediscovery_index_operation import EdiscoveryIndexOperation
     from .ediscovery_purge_data_operation import EdiscoveryPurgeDataOperation
     from .ediscovery_search_export_operation import EdiscoverySearchExportOperation
@@ -24,7 +25,7 @@ from ..entity import Entity
 
 @dataclass
 class CaseOperation(Entity, Parsable):
-    # The type of action the operation represents. Possible values are: contentExport,  applyTags, convertToPdf, index, estimateStatistics, addToReviewSet, holdUpdate, unknownFutureValue, purgeData, exportReport, exportResult. Use the Prefer: include-unknown-enum-members request header to get the following values from this evolvable enum: purgeData, exportReport, exportResult.
+    # The type of action the operation represents. The possible values are: contentExport,  applyTags, convertToPdf, index, estimateStatistics, addToReviewSet, holdUpdate, unknownFutureValue, purgeData, exportReport, exportResult, holdPolicySync. Use the Prefer: include-unknown-enum-members request header to get the following values from this evolvable enum: purgeData, exportReport, exportResult, holdPolicySync.
     action: Optional[CaseAction] = None
     # The date and time the operation was completed.
     completed_date_time: Optional[datetime.datetime] = None
@@ -38,7 +39,7 @@ class CaseOperation(Entity, Parsable):
     percent_progress: Optional[int] = None
     # Contains success and failure-specific result information.
     result_info: Optional[ResultInfo] = None
-    # The status of the case operation. Possible values are: notStarted, submissionFailed, running, succeeded, partiallySucceeded, failed.
+    # The status of the case operation. The possible values are: notStarted, submissionFailed, running, succeeded, partiallySucceeded, failed, unknownFutureValue.
     status: Optional[CaseOperationStatus] = None
     
     @staticmethod
@@ -71,6 +72,10 @@ class CaseOperation(Entity, Parsable):
             from .ediscovery_hold_operation import EdiscoveryHoldOperation
 
             return EdiscoveryHoldOperation()
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.security.ediscoveryHoldPolicySyncOperation".casefold():
+            from .ediscovery_hold_policy_sync_operation import EdiscoveryHoldPolicySyncOperation
+
+            return EdiscoveryHoldPolicySyncOperation()
         if mapping_value and mapping_value.casefold() == "#microsoft.graph.security.ediscoveryIndexOperation".casefold():
             from .ediscovery_index_operation import EdiscoveryIndexOperation
 
@@ -103,6 +108,7 @@ class CaseOperation(Entity, Parsable):
         from .ediscovery_estimate_operation import EdiscoveryEstimateOperation
         from .ediscovery_export_operation import EdiscoveryExportOperation
         from .ediscovery_hold_operation import EdiscoveryHoldOperation
+        from .ediscovery_hold_policy_sync_operation import EdiscoveryHoldPolicySyncOperation
         from .ediscovery_index_operation import EdiscoveryIndexOperation
         from .ediscovery_purge_data_operation import EdiscoveryPurgeDataOperation
         from .ediscovery_search_export_operation import EdiscoverySearchExportOperation
@@ -117,6 +123,7 @@ class CaseOperation(Entity, Parsable):
         from .ediscovery_estimate_operation import EdiscoveryEstimateOperation
         from .ediscovery_export_operation import EdiscoveryExportOperation
         from .ediscovery_hold_operation import EdiscoveryHoldOperation
+        from .ediscovery_hold_policy_sync_operation import EdiscoveryHoldPolicySyncOperation
         from .ediscovery_index_operation import EdiscoveryIndexOperation
         from .ediscovery_purge_data_operation import EdiscoveryPurgeDataOperation
         from .ediscovery_search_export_operation import EdiscoverySearchExportOperation

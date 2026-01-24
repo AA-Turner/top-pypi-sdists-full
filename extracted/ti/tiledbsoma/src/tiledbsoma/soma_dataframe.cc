@@ -60,11 +60,9 @@ void load_soma_dataframe(py::module& m) {
                 if (py::hasattr(metadata, "get")) {
                     for (int64_t i = 0; i < schema.n_children; ++i) {
                         auto child = schema.children[i];
-                        auto val = metadata.attr("get")(
-                            py::str(child->name).attr("encode")("utf-8"));
+                        auto val = metadata.attr("get")(py::str(child->name).attr("encode")("utf-8"));
 
-                        if (!val.is(py::none()) &&
-                            val.cast<std::string>() == "nullable") {
+                        if (!val.is(py::none()) && val.cast<std::string>() == "nullable") {
                             child->flags |= ARROW_FLAG_NULLABLE;
                         }
                     }
@@ -72,20 +70,17 @@ void load_soma_dataframe(py::module& m) {
 
                 ArrowSchema index_column_schema;
                 ArrowArray index_column_array;
-                uintptr_t
-                    index_column_schema_ptr = (uintptr_t)(&index_column_schema);
-                uintptr_t
-                    index_column_array_ptr = (uintptr_t)(&index_column_array);
-                index_column_info.attr("_export_to_c")(
-                    index_column_array_ptr, index_column_schema_ptr);
+                uintptr_t index_column_schema_ptr = (uintptr_t)(&index_column_schema);
+                uintptr_t index_column_array_ptr = (uintptr_t)(&index_column_array);
+                index_column_info.attr("_export_to_c")(index_column_array_ptr, index_column_schema_ptr);
 
                 try {
                     SOMADataFrame::create(
                         uri,
-                        std::make_unique<ArrowSchema>(schema),
+                        make_managed_unique<ArrowSchema>(schema),
                         ArrowTable(
-                            std::make_unique<ArrowArray>(index_column_array),
-                            std::make_unique<ArrowSchema>(index_column_schema)),
+                            make_managed_unique<ArrowArray>(index_column_array),
+                            make_managed_unique<ArrowSchema>(index_column_schema)),
                         context,
                         platform_config,
                         timestamp);
@@ -94,9 +89,6 @@ void load_soma_dataframe(py::module& m) {
                 } catch (const std::exception& e) {
                     TPY_ERROR_LOC(e.what());
                 }
-                schema.release(&schema);
-                index_column_array.release(&index_column_array);
-                index_column_schema.release(&index_column_schema);
             },
             "uri"_a,
             py::kw_only(),
@@ -112,8 +104,7 @@ void load_soma_dataframe(py::module& m) {
                 std::string_view,
                 OpenMode,
                 std::shared_ptr<SOMAContext>,
-                std::optional<std::pair<uint64_t, uint64_t>>>(
-                &SOMADataFrame::open),
+                std::optional<std::pair<uint64_t, uint64_t>>>(&SOMADataFrame::open),
             "uri"_a,
             "mode"_a,
             "context"_a,
@@ -122,27 +113,20 @@ void load_soma_dataframe(py::module& m) {
             py::call_guard<py::gil_scoped_release>())
 
         .def_static("exists", &SOMADataFrame::exists)
-        .def_property_readonly(
-            "index_column_names", &SOMADataFrame::index_column_names)
+        .def_property_readonly("index_column_names", &SOMADataFrame::index_column_names)
 
         .def(
             "get_enumeration_values",
-            [](SOMADataFrame& sdf,
-               std::vector<std::string> column_names) -> py::dict {
+            [](SOMADataFrame& sdf, std::vector<std::string> column_names) -> py::dict {
                 try {
                     auto pa = py::module::import("pyarrow");
-                    auto pa_array_import = pa.attr("Array").attr(
-                        "_import_from_c");
+                    auto pa_array_import = pa.attr("Array").attr("_import_from_c");
 
                     py::gil_scoped_release release;
                     ArrowTable t = sdf.get_enumeration_values(column_names);
                     py::gil_scoped_acquire acquire;
 
                     auto ncol = t.second->n_children;
-                    ScopedExecutor cleanup([&]() {
-                        t.first->release(t.first.get());
-                        t.second->release(t.second.get());
-                    });
 
                     py::dict retval;
                     for (auto i = 0; i < ncol; i++) {
@@ -154,8 +138,7 @@ void load_soma_dataframe(py::module& m) {
                         std::string column_name(column_arrow_schema->name);
 
                         auto pa_array = pa_array_import(
-                            py::capsule(column_arrow_array),
-                            py::capsule(column_arrow_schema));
+                            py::capsule(column_arrow_array), py::capsule(column_arrow_schema));
                         retval[py::str(column_name)] = pa_array;
                     }
 
@@ -181,20 +164,16 @@ void load_soma_dataframe(py::module& m) {
                 std::vector<ArrowSchema> arrow_schemas(ncol);
                 std::vector<ArrowArray> arrow_arrays(ncol);
                 size_t i = 0;
-                std::map<std::string, std::pair<ArrowSchema*, ArrowArray*>>
-                    map_for_cpp;
+                std::map<std::string, std::pair<ArrowSchema*, ArrowArray*>> map_for_cpp;
                 for (auto item : values) {
                     std::string column_name = py::str(item.first);
                     py::object pa_array_for_column = item.second;
                     // static_cast<uintptr_t>(...) does not compile here.
                     uintptr_t arrow_schema_ptr = (uintptr_t)(&arrow_schemas[i]);
                     uintptr_t arrow_array_ptr = (uintptr_t)(&arrow_arrays[i]);
-                    pa_array_for_column.attr("_export_to_c")(
-                        arrow_array_ptr, arrow_schema_ptr);
-                    map_for_cpp[column_name] =
-                        std::pair<ArrowSchema*, ArrowArray*>(
-                            (ArrowSchema*)arrow_schema_ptr,
-                            (ArrowArray*)arrow_array_ptr);
+                    pa_array_for_column.attr("_export_to_c")(arrow_array_ptr, arrow_schema_ptr);
+                    map_for_cpp[column_name] = std::pair<ArrowSchema*, ArrowArray*>(
+                        (ArrowSchema*)arrow_schema_ptr, (ArrowArray*)arrow_array_ptr);
                     i++;
                 }
 
@@ -222,26 +201,16 @@ void load_soma_dataframe(py::module& m) {
             "values"_a,
             "deduplicate"_a)
 
-        .def_property_readonly(
-            "count",
-            &SOMADataFrame::count,
-            py::call_guard<py::gil_scoped_release>())
-        .def_property_readonly(
-            "maybe_soma_joinid_shape", &SOMADataFrame::maybe_soma_joinid_shape)
-        .def_property_readonly(
-            "maybe_soma_joinid_maxshape",
-            &SOMADataFrame::maybe_soma_joinid_maxshape)
-        .def_property_readonly(
-            "tiledbsoma_has_upgraded_domain", &SOMAArray::has_current_domain)
+        .def_property_readonly("count", &SOMADataFrame::count, py::call_guard<py::gil_scoped_release>())
+        .def_property_readonly("maybe_soma_joinid_shape", &SOMADataFrame::maybe_soma_joinid_shape)
+        .def_property_readonly("maybe_soma_joinid_maxshape", &SOMADataFrame::maybe_soma_joinid_maxshape)
+        .def_property_readonly("tiledbsoma_has_upgraded_domain", &SOMAArray::has_current_domain)
 
         .def(
             "resize_soma_joinid_shape",
-            [](SOMADataFrame& sdf,
-               int64_t newshape,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, int64_t newshape, std::string function_name_for_messages) {
                 try {
-                    sdf.resize_soma_joinid_shape(
-                        newshape, function_name_for_messages);
+                    sdf.resize_soma_joinid_shape(newshape, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
@@ -251,12 +220,9 @@ void load_soma_dataframe(py::module& m) {
 
         .def(
             "can_resize_soma_joinid_shape",
-            [](SOMADataFrame& sdf,
-               int64_t newshape,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, int64_t newshape, std::string function_name_for_messages) {
                 try {
-                    return sdf.can_resize_soma_joinid_shape(
-                        newshape, function_name_for_messages);
+                    return sdf.can_resize_soma_joinid_shape(newshape, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
@@ -265,13 +231,21 @@ void load_soma_dataframe(py::module& m) {
             "function_name_for_messages"_a)
 
         .def(
+            "delete_cells",
+            [](SOMADataFrame& df,
+               const CoordinateValueFilters& coord_filter,
+               std::optional<PyQueryCondition> value_filter) {
+                if (value_filter.has_value()) {
+                    return df.delete_cells(coord_filter, *value_filter->ptr());
+                }
+                return df.delete_cells(coord_filter);
+            })
+
+        .def(
             "upgrade_soma_joinid_shape",
-            [](SOMADataFrame& sdf,
-               int64_t newshape,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, int64_t newshape, std::string function_name_for_messages) {
                 try {
-                    sdf.upgrade_soma_joinid_shape(
-                        newshape, function_name_for_messages);
+                    sdf.upgrade_soma_joinid_shape(newshape, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
@@ -281,12 +255,9 @@ void load_soma_dataframe(py::module& m) {
 
         .def(
             "can_upgrade_soma_joinid_shape",
-            [](SOMADataFrame& sdf,
-               int64_t newshape,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, int64_t newshape, std::string function_name_for_messages) {
                 try {
-                    return sdf.can_upgrade_soma_joinid_shape(
-                        newshape, function_name_for_messages);
+                    return sdf.can_upgrade_soma_joinid_shape(newshape, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
@@ -296,131 +267,85 @@ void load_soma_dataframe(py::module& m) {
 
         .def(
             "upgrade_domain",
-            [](SOMADataFrame& sdf,
-               py::object pyarrow_domain_table,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, py::object pyarrow_domain_table, std::string function_name_for_messages) {
                 ArrowArray pyarrow_domain_array;
                 ArrowSchema pyarrow_domain_schema;
-                uintptr_t nanoarrow_domain_array_ptr =
-                    (uintptr_t)(&pyarrow_domain_array);
-                uintptr_t nanoarrow_domain_schema_ptr =
-                    (uintptr_t)(&pyarrow_domain_schema);
-                pyarrow_domain_table.attr("_export_to_c")(
-                    nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
+                uintptr_t nanoarrow_domain_array_ptr = (uintptr_t)(&pyarrow_domain_array);
+                uintptr_t nanoarrow_domain_schema_ptr = (uintptr_t)(&pyarrow_domain_schema);
+                pyarrow_domain_table.attr("_export_to_c")(nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
                 ArrowTable nanoarrow_domain_table(
-                    std::make_unique<ArrowArray>(pyarrow_domain_array),
-                    std::make_unique<ArrowSchema>(pyarrow_domain_schema));
+                    make_managed_unique<ArrowArray>(pyarrow_domain_array),
+                    make_managed_unique<ArrowSchema>(pyarrow_domain_schema));
                 try {
-                    sdf.upgrade_domain(
-                        nanoarrow_domain_table, function_name_for_messages);
+                    sdf.upgrade_domain(nanoarrow_domain_table, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
-
-                nanoarrow_domain_table.first->release(
-                    nanoarrow_domain_table.first.get());
-                nanoarrow_domain_table.second->release(
-                    nanoarrow_domain_table.second.get());
             },
             "pyarrow_domain_table"_a,
             "function_name_for_messages"_a)
 
         .def(
             "can_upgrade_domain",
-            [](SOMADataFrame& sdf,
-               py::object pyarrow_domain_table,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, py::object pyarrow_domain_table, std::string function_name_for_messages) {
                 ArrowArray pyarrow_domain_array;
                 ArrowSchema pyarrow_domain_schema;
-                uintptr_t nanoarrow_domain_array_ptr =
-                    (uintptr_t)(&pyarrow_domain_array);
-                uintptr_t nanoarrow_domain_schema_ptr =
-                    (uintptr_t)(&pyarrow_domain_schema);
-                pyarrow_domain_table.attr("_export_to_c")(
-                    nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
+                uintptr_t nanoarrow_domain_array_ptr = (uintptr_t)(&pyarrow_domain_array);
+                uintptr_t nanoarrow_domain_schema_ptr = (uintptr_t)(&pyarrow_domain_schema);
+                pyarrow_domain_table.attr("_export_to_c")(nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
                 ArrowTable nanoarrow_domain_table(
-                    std::make_unique<ArrowArray>(pyarrow_domain_array),
-                    std::make_unique<ArrowSchema>(pyarrow_domain_schema));
+                    make_managed_unique<ArrowArray>(pyarrow_domain_array),
+                    make_managed_unique<ArrowSchema>(pyarrow_domain_schema));
                 try {
-                    return sdf.can_upgrade_domain(
-                        nanoarrow_domain_table, function_name_for_messages);
+                    return sdf.can_upgrade_domain(nanoarrow_domain_table, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
-
-                nanoarrow_domain_table.first->release(
-                    nanoarrow_domain_table.first.get());
-                nanoarrow_domain_table.second->release(
-                    nanoarrow_domain_table.second.get());
             },
             "pyarrow_domain_table"_a,
             "function_name_for_messages"_a)
 
         .def(
             "change_domain",
-            [](SOMADataFrame& sdf,
-               py::object pyarrow_domain_table,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, py::object pyarrow_domain_table, std::string function_name_for_messages) {
                 ArrowArray pyarrow_domain_array;
                 ArrowSchema pyarrow_domain_schema;
-                uintptr_t nanoarrow_domain_array_ptr =
-                    (uintptr_t)(&pyarrow_domain_array);
-                uintptr_t nanoarrow_domain_schema_ptr =
-                    (uintptr_t)(&pyarrow_domain_schema);
-                pyarrow_domain_table.attr("_export_to_c")(
-                    nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
+                uintptr_t nanoarrow_domain_array_ptr = (uintptr_t)(&pyarrow_domain_array);
+                uintptr_t nanoarrow_domain_schema_ptr = (uintptr_t)(&pyarrow_domain_schema);
+                pyarrow_domain_table.attr("_export_to_c")(nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
                 ArrowTable nanoarrow_domain_table(
-                    std::make_unique<ArrowArray>(pyarrow_domain_array),
-                    std::make_unique<ArrowSchema>(pyarrow_domain_schema));
+                    make_managed_unique<ArrowArray>(pyarrow_domain_array),
+                    make_managed_unique<ArrowSchema>(pyarrow_domain_schema));
                 try {
-                    sdf.change_domain(
-                        nanoarrow_domain_table, function_name_for_messages);
+                    sdf.change_domain(nanoarrow_domain_table, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
-
-                nanoarrow_domain_table.first->release(
-                    nanoarrow_domain_table.first.get());
-                nanoarrow_domain_table.second->release(
-                    nanoarrow_domain_table.second.get());
             },
             "pyarrow_domain_table"_a,
             "function_name_for_messages"_a)
 
         .def(
             "can_change_domain",
-            [](SOMADataFrame& sdf,
-               py::object pyarrow_domain_table,
-               std::string function_name_for_messages) {
+            [](SOMADataFrame& sdf, py::object pyarrow_domain_table, std::string function_name_for_messages) {
                 ArrowArray pyarrow_domain_array;
                 ArrowSchema pyarrow_domain_schema;
-                uintptr_t nanoarrow_domain_array_ptr =
-                    (uintptr_t)(&pyarrow_domain_array);
-                uintptr_t nanoarrow_domain_schema_ptr =
-                    (uintptr_t)(&pyarrow_domain_schema);
-                pyarrow_domain_table.attr("_export_to_c")(
-                    nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
+                uintptr_t nanoarrow_domain_array_ptr = (uintptr_t)(&pyarrow_domain_array);
+                uintptr_t nanoarrow_domain_schema_ptr = (uintptr_t)(&pyarrow_domain_schema);
+                pyarrow_domain_table.attr("_export_to_c")(nanoarrow_domain_array_ptr, nanoarrow_domain_schema_ptr);
                 ArrowTable nanoarrow_domain_table(
-                    std::make_unique<ArrowArray>(pyarrow_domain_array),
-                    std::make_unique<ArrowSchema>(pyarrow_domain_schema));
+                    make_managed_unique<ArrowArray>(pyarrow_domain_array),
+                    make_managed_unique<ArrowSchema>(pyarrow_domain_schema));
                 try {
-                    return sdf.can_change_domain(
-                        nanoarrow_domain_table, function_name_for_messages);
+                    return sdf.can_change_domain(nanoarrow_domain_table, function_name_for_messages);
                 } catch (const std::exception& e) {
                     throw TileDBSOMAError(e.what());
                 }
-
-                nanoarrow_domain_table.first->release(
-                    nanoarrow_domain_table.first.get());
-                nanoarrow_domain_table.second->release(
-                    nanoarrow_domain_table.second.get());
             },
             "pyarrow_domain_table"_a,
             "function_name_for_messages"_a)
 
-        .def(
-            "_update_dataframe_schema",
-            &SOMADataFrame::update_dataframe_schema);
+        .def("_update_dataframe_schema", &SOMADataFrame::update_dataframe_schema);
 }
 
 }  // namespace libtiledbsomacpp

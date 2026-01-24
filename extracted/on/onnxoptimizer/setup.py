@@ -1,11 +1,6 @@
+# Copyright (c) ONNX Project Contributors
+#
 # SPDX-License-Identifier: Apache-2.0
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
-from distutils.spawn import find_executable
 from distutils import sysconfig, log
 import setuptools
 import setuptools.command.build_py
@@ -17,6 +12,7 @@ from contextlib import contextmanager
 import glob
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import platform
@@ -27,16 +23,12 @@ import multiprocessing
 
 TOP_DIR = os.path.realpath(os.path.dirname(__file__))
 SRC_DIR = os.path.join(TOP_DIR, 'onnxoptimizer')
-CMAKE_BUILD_DIR = os.path.join(TOP_DIR, '.setuptools-cmake-build')
+CMAKE_BUILD_DIR = os.path.join(TOP_DIR, '.setuptools-cmake-build{0}.{1}'.format(*sys.version_info[:2]))
 
 WINDOWS = (os.name == 'nt')
 MACOS = sys.platform.startswith("darwin")
 
-CMAKE = find_executable('cmake')
-
-install_requires = []
-setup_requires = []
-extras_require = {}
+CMAKE = shutil.which('cmake')
 
 ################################################################################
 # Global variables for controlling the build variant
@@ -157,8 +149,8 @@ class cmake_build(setuptools.Command):
             cmake_args = [
                 CMAKE,
                 '-DPython_INCLUDE_DIR={}'.format(sysconfig.get_python_inc()),
-                '-DPython_EXECUTABLE={}'.format(sys.executable),
-                '-DBUILD_ONNX_PYTHON=ON',
+                '-DPYTHON_EXECUTABLE={}'.format(sys.executable),
+                '-DONNX_BUILD_PYTHON=ON',
                 '-DONNX_USE_LITE_PROTO={}'.format('ON' if ONNX_USE_LITE_PROTO else 'OFF'),
                 '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
                 '-DONNX_NAMESPACE={}'.format(ONNX_NAMESPACE),
@@ -179,8 +171,7 @@ class cmake_build(setuptools.Command):
                     # we need to link with libpython on windows, so
                     # passing python version to window in order to
                     # find python in cmake
-                    '-DPY_VERSION={}'.format('{0}.{1}'.format(* \
-                                                              sys.version_info[:2])),
+                    '-DPY_VERSION={}'.format('{0}.{1}'.format(*sys.version_info[:2])),
                 ])
                 if USE_MSVC_STATIC_RUNTIME:
                     cmake_args.append('-DONNX_USE_MSVC_STATIC_RUNTIME=ON')
@@ -259,8 +250,9 @@ class build_ext(setuptools.command.build_ext.build_ext):
                 elif os.path.exists(release_lib_dir):
                     lib_path = release_lib_dir
             src = os.path.join(lib_path, filename)
-            dst = os.path.join(os.path.realpath(
-                self.build_lib), "onnxoptimizer", filename)
+            lib_dir = os.path.join(os.path.realpath(self.build_lib), "onnxoptimizer")
+            dst = os.path.realpath(os.path.join(lib_dir, filename))
+            os.makedirs(lib_dir, exist_ok=True)
             self.copy_file(src, dst)
 
 
@@ -288,10 +280,21 @@ cmdclass = {
 # Extensions
 ################################################################################
 
+py_limited_api = sys.version_info[0] >= 3 and sys.version_info[1] >= 12
+if py_limited_api:
+    setup_opts = {
+        'bdist_wheel': {
+            'py_limited_api': 'cp312'
+        },
+    }
+else:
+    setup_opts = {}
+
 ext_modules = [
     setuptools.Extension(
         name=str('onnxoptimizer.onnx_opt_cpp2py_export'),
-        sources=[])
+        sources=[],
+        py_limited_api=py_limited_api)
 ]
 
 ################################################################################
@@ -301,50 +304,15 @@ ext_modules = [
 # no need to do fancy stuff so far
 packages = setuptools.find_packages()
 
-install_requires.extend([
-    'onnx'
-])
-
 ################################################################################
 # Test
 ################################################################################
 
-setup_requires.append('pytest-runner')
-
-if sys.version_info[0] == 3:
-    # Mypy doesn't work with Python 2
-    extras_require['mypy'] = ['mypy==0.600']
-
-################################################################################
-# Final
-################################################################################
-
-# read the contents of your README file
-from pathlib import Path
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
-
 setuptools.setup(
-    name="onnxoptimizer",
     version=VersionInfo.version,
-    description="Open Neural Network Exchange",
     ext_modules=ext_modules,
     cmdclass=cmdclass,
     packages=packages,
-    license='Apache License v2.0',
     include_package_data=True,
-    install_requires=install_requires,
-    setup_requires=setup_requires,
-    extras_require=extras_require,
-    author='ONNX Optimizer Authors',
-    author_email='onnx-technical-discuss@lists.lfai.foundation',
-    url='https://github.com/onnx/optimizer',
-    keywords='deep-learning ONNX',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    entry_points={
-        'console_scripts': [
-            'onnxoptimizer=onnxoptimizer:main',
-        ],
-    },
+    options=setup_opts,
 )

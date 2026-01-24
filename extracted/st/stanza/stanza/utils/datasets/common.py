@@ -7,9 +7,11 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 
 from stanza.models.common.short_name_to_treebank import canonical_treebank_name
 import stanza.utils.datasets.prepare_tokenizer_data as prepare_tokenizer_data
+import stanza.utils.datasets.conllu_to_text as conllu_to_text
 import stanza.utils.default_paths as default_paths
 
 logger = logging.getLogger('stanza')
@@ -22,8 +24,6 @@ MWT_OR_COPY_RE = re.compile("^[0-9]+[-.][0-9]+")
 
 # more restrictive than an actual int as we expect certain formats in the conllu files
 INT_RE = re.compile("^[0-9]+$")
-
-CONLLU_TO_TXT_PERL = os.path.join(os.path.split(__file__)[0], "conllu_to_text.pl")
 
 class ModelType(Enum):
     TOKENIZER        = 1
@@ -39,19 +39,28 @@ class UnknownDatasetError(ValueError):
 
 def convert_conllu_to_txt(tokenizer_dir, short_name, shards=("train", "dev", "test")):
     """
-    Uses the udtools perl script to convert a conllu file to txt
+    Convert the conllu documents for this dataset to a .txt format
 
-    TODO: switch to a python version to get rid of some perl dependence
+    This follows the old conllu_to_text.pl script, except we never
+    used the ZH option anyway, so we didn't reimplement it here
     """
     for dataset in shards:
         output_conllu = f"{tokenizer_dir}/{short_name}.{dataset}.gold.conllu"
         output_txt = f"{tokenizer_dir}/{short_name}.{dataset}.txt"
 
         if not os.path.exists(output_conllu):
-            # the perl script doesn't raise an error code for file not found!
             raise FileNotFoundError("Cannot convert %s as the file cannot be found" % output_conllu)
-        # use an external script to produce the txt files
-        subprocess.check_output(f"perl {CONLLU_TO_TXT_PERL} {output_conllu} > {output_txt}", shell=True)
+        conllu_to_text.main([output_conllu, output_txt])
+
+def strip_accents(word):
+    """
+    Remove diacritics from words such as in the UD GRC datasets
+    """
+    converted = ''.join(c for c in unicodedata.normalize('NFD', word)
+                        if unicodedata.category(c) not in ('Mn'))
+    if len(converted) == 0:
+        return word
+    return converted
 
 def mwt_name(base_dir, short_name, dataset):
     return os.path.join(base_dir, f"{short_name}-ud-{dataset}-mwt.json")
@@ -178,6 +187,8 @@ def find_treebank_dataset_file(treebank, udbase_dir, dataset, extension, fail=Fa
     """
     if treebank.startswith("UD_Korean") and treebank.endswith("_seg"):
         treebank = treebank[:-4]
+    if treebank.startswith("UD_Ancient_Greek-") and (treebank.endswith("-Diacritics") or treebank.endswith("-diacritics")):
+        treebank = treebank[:-11]
     filename = os.path.join(udbase_dir, treebank, f"*-ud-{dataset}.{extension}")
     files = glob.glob(filename)
     if len(files) == 0:

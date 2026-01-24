@@ -31,7 +31,7 @@ from pygeodesy.units import Bool, FIx, HeightX, Lat, Lon, Number_
 # from math import fabs  # from .fmath
 
 __all__ = _ALL_LAZY.clipy
-__version__ = '25.05.12'
+__version__ = '25.10.30'
 
 _fj_       = 'fj'
 _original_ = 'original'
@@ -237,9 +237,8 @@ def clipCS4(points, lowerleft, upperight, closed=False, inull=False):
 
 
 class ClipFHP4Tuple(_NamedTuple):
-    '''4-Tuple C{(lat, lon, height, clipid)} for each point of the
-       L{clipFHP4} result with the C{lat}-, C{lon}gitude, C{height}
-       and C{clipid} of the polygon or clip.
+    '''4-Tuple C{(lat, lon, height, clipid)} for each point of the L{clipFHP4} result
+       with the C{lat}-, C{lon}gitude, C{height} and C{clipid} of the polygon or clip.
 
        @note: The C{height} is a L{HeightX} instance if this point is
               an intersection, otherwise a L{Height} or C{int(0)}.
@@ -275,14 +274,13 @@ def clipFHP4(points, corners, closed=False, inull=False, raiser=False, eps=EPS):
                    as the B{C{points}} and B{C{corners}} coordinates).
 
        @return: Yield a L{ClipFHP4Tuple}C{(lat, lon, height, clipid)} for each
-                clipped point.  The result may consist of several clips, each
-                a (closed) polygon with a unique C{clipid}.
+                clipped point.  The result may consist of several I{clips}, each
+                a (closed) polygon with a unique C{clipid} identifier.
 
        @raise ClipError: Insufficient B{C{points}} or B{C{corners}} or an open clip.
 
        @see: U{Forster, Hormann and Popa<https://www.ScienceDirect.com/science/
-             article/pii/S259014861930007X>}, class L{BooleanFHP} and function
-             L{clipGH4}.
+             article/pii/S259014861930007X>} and class L{BooleanFHP}.
     '''
     P = _MODS.booleans._CompositeFHP(points, kind=_points_, raiser=raiser,
                                                    eps=eps, name__=clipFHP4)
@@ -292,12 +290,11 @@ def clipFHP4(points, corners, closed=False, inull=False, raiser=False, eps=EPS):
 
 
 class ClipGH4Tuple(ClipFHP4Tuple):
-    '''4-Tuple C{(lat, lon, height, clipid)} for each point of the
-       L{clipGH4} result with the C{lat}-, C{lon}gitude, C{height}
-       and C{clipid} of the polygon or clip.
+    '''4-Tuple C{(lat, lon, height, clipid)} for each point of the L{clipGH4} result
+       with the C{lat}-, C{lon}gitude, C{height} and C{clipid} of the polygon or clip.
 
-       @note: The C{height} is a L{HeightX} instance if this is
-              an intersection, otherwise a L{Height} or C{int(0)}.
+       @note: The C{height} is a L{HeightX} instance if this is an intersection,
+              otherwise a L{Height} or C{int(0)}.
     '''
     _Names_ = ClipFHP4Tuple._Names_
     _Units_ = ClipFHP4Tuple._Units_
@@ -305,8 +302,7 @@ class ClipGH4Tuple(ClipFHP4Tuple):
 
 def clipGH4(points, corners, closed=False, inull=False, raiser=True, xtend=False, eps=EPS):
     '''Clip one or more polygons against a clip region or box using the U{Greiner-Hormann
-       <http://www.Inf.USI.CH/hormann/papers/Greiner.1998.ECO.pdf>} algorithm, U{Correia
-       <https://GitHub.com/helderco/univ-polyclip>}'s implementation modified and extended.
+       <http://www.Inf.USI.CH/hormann/papers/Greiner.1998.ECO.pdf>} algorithm, extended.
 
        @arg points: The polygon points and clips (C{LatLon}[]).
        @arg corners: Three or more points defining the clip regions (C{LatLon}[])
@@ -320,19 +316,17 @@ def clipGH4(points, corners, closed=False, inull=False, raiser=True, xtend=False
                    as the B{C{points}} and B{C{corners}} coordinates).
 
        @return: Yield a L{ClipGH4Tuple}C{(lat, lon, height, clipid)} for each
-                clipped point.  The result may consist of several clips, each
-                a (closed) polygon with a unique C{clipid}.
+                clipped point.  The result may consist of several I{clips}, each
+                a (closed) polygon with a unique C{clipid} identifier.
 
        @raise ClipError: Insufficient B{C{points}} or B{C{corners}}, an open clip,
                          a I{degenerate case} or I{unhandled} intersection.
 
        @note: To handle I{degenerate cases} like C{point-edge} and C{point-point}
-              intersections, use function L{clipFHP4}.
+              intersections I{properly}, use function L{clipFHP4}.
 
-       @see: U{Greiner-Hormann<https://WikiPedia.org/wiki/Greiner–Hormann_clipping_algorithm>},
-             U{Ionel Daniel Stroe<https://Davis.WPI.edu/~matt/courses/clipping/>}, I{Correia}'s
-             U{univ-polyclip<https://GitHub.com/helderco/univ-polyclip>}, class L{BooleanGH}
-             and function L{clipFHP4}.
+       @see: U{Greiner-Hormann<https://WikiPedia.org/wiki/Greiner–Hormann_clipping_algorithm>}
+             and class L{BooleanGH}.
     '''
     S = _MODS.booleans._CompositeGH(points, raiser=raiser, xtend=xtend, eps=eps,
                                             name__=clipGH4, kind=_points_)
@@ -684,7 +678,7 @@ def clipSH3(points, corners, closed=False, inull=False):
 
 # **) MIT License
 #
-# Copyright (C) 2018-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2018-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

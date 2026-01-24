@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+__all__ = ["delay_snake"]
+
 import warnings
 
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.bends.bend_euler import bend_euler180
-from gdsfactory.components.containers.component_sequence import component_sequence
-from gdsfactory.components.waveguides.straight import straight
 from gdsfactory.typings import ComponentSpec, CrossSectionSpec
+
+from ..bends.bend_euler import bend_euler180
+from ..containers.component_sequence import component_sequence
+from ..waveguides.straight import straight
 
 _diagram = r"""
                  | length0   |

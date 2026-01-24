@@ -31,7 +31,6 @@ from poetry.packages.direct_origin import DirectOrigin
 from poetry.packages.package_collection import PackageCollection
 from poetry.puzzle.exceptions import OverrideNeededError
 from poetry.repositories.repository_pool import Priority
-from poetry.utils.helpers import get_file_hash
 
 
 if TYPE_CHECKING:
@@ -39,6 +38,7 @@ if TYPE_CHECKING:
     from collections.abc import Collection
     from collections.abc import Iterable
     from collections.abc import Iterator
+    from collections.abc import Sequence
     from pathlib import Path
 
     from cleo.io.io import IO
@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from poetry.core.packages.directory_dependency import DirectoryDependency
     from poetry.core.packages.file_dependency import FileDependency
     from poetry.core.packages.package import Package
+    from poetry.core.packages.package import PackageFile
     from poetry.core.packages.url_dependency import URLDependency
     from poetry.core.packages.vcs_dependency import VCSDependency
     from poetry.core.version.markers import BaseMarker
@@ -151,6 +152,7 @@ class Provider:
             )
 
         self.get_package_from_pool = functools.cache(self._pool.package)
+        self._refreshed: set[tuple[str, Version, str | None]] = set()
 
     @property
     def pool(self) -> RepositoryPool:
@@ -343,13 +345,6 @@ class Provider:
         if dependency.base is not None:
             package.root_dir = dependency.base
 
-        package.files = [
-            {
-                "file": dependency.path.name,
-                "hash": "sha256:" + get_file_hash(dependency.full_path),
-            }
-        ]
-
         return package
 
     def _search_for_directory(self, dependency: DirectoryDependency) -> Package:
@@ -457,6 +452,16 @@ class Provider:
             for dep in self._get_dependencies_with_overrides(dependencies, package)
         ]
 
+    @staticmethod
+    def _files_list_for_cmp(files: Sequence[PackageFile]) -> list[str]:
+        """
+        :return: A list of strings representing the files and their hashes, for
+            the purpose of comparing the file list to another one.
+            We only use file+hash, because that's what uniquely identifies the file,
+            the other properties (like URL) are not relevant.
+        """
+        return sorted(f["file"] + f["hash"] for f in files)
+
     def complete_package(
         self, dependency_package: DependencyPackage
     ) -> DependencyPackage:
@@ -471,14 +476,34 @@ class Provider:
         elif package.is_direct_origin():
             requires = package.requires
         else:
-            dependency_package = DependencyPackage(
-                dependency,
-                self.get_package_from_pool(
+            if (
+                package.pretty_name,
+                package.version,
+                dependency.source_name,
+            ) in self._refreshed:
+                # circumvent lru_cache to avoid unnecessary refresh
+                pool_package = self.pool.package(
                     package.pretty_name,
                     package.version,
                     repository_name=dependency.source_name,
-                ),
-            )
+                )
+            else:
+                pool_package = self.get_package_from_pool(
+                    package.pretty_name,
+                    package.version,
+                    repository_name=dependency.source_name,
+                )
+            if package.files and self._files_list_for_cmp(
+                package.files
+            ) != self._files_list_for_cmp(pool_package.files):
+                # This happens if additional artifacts are uploaded later. Either our own cache
+                # is outdated or the lockfile has been created with an outdated cache.
+                # Refresh to cover the first case. (It does not hurt much in the second case.)
+                pool_package = self.pool.refresh(pool_package)
+                self._refreshed.add(
+                    (package.pretty_name, package.version, dependency.source_name)
+                )
+            dependency_package = DependencyPackage(dependency, pool_package)
 
             package = dependency_package.package
             dependency = dependency_package.dependency

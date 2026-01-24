@@ -13,6 +13,7 @@ import arcade
 from arcade import uicolor
 from arcade.gui.events import (
     UIEvent,
+    UIKeyEvent,
     UIMouseDragEvent,
     UIMouseEvent,
     UIMousePressEvent,
@@ -574,10 +575,17 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
         bind(self, "pressed", UIInputText._apply_style)
         bind(self, "invalid", UIInputText._apply_style)
         bind(self, "disabled", UIInputText._apply_style)
+        bind(self, "focused", UIInputText._on_focus_change)
         bind(self, "_active", UIInputText._on_active_changed)
 
         # initial style application
         self._apply_style()
+
+    def _on_focus_change(self):
+        if self.focused:
+            self.activate()
+        elif self.active:
+            self.deactivate()
 
     def _on_active_changed(self):
         """Handle the active state change of the input
@@ -663,6 +671,12 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
         # If active pass all non press events to caret
         if self._active:
             old_text = self.text
+
+            if self.focused and isinstance(event, UIKeyEvent) and event.symbol == arcade.key.SPACE:
+                # if widget is focused, we consume the space key
+                # to prevent flickering of the focus
+                return EVENT_HANDLED
+
             # Act on events if active
             if isinstance(event, UITextInputEvent):
                 self.caret.on_text(event.text)
@@ -712,10 +726,7 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
         """Programmatically deactivate the text input field."""
 
         if self._active:
-            print("Release active text input field")
             self._release_active()  # will set _active to False
-        else:
-            print("Text input field is not active, cannot deactivate")
 
         self.trigger_full_render()
         self.caret.on_deactivate()
@@ -734,6 +745,9 @@ class UIInputText(UIStyledWidget[UIInputTextStyle], UIInteractiveWidget):
             layout.x = self.LAYOUT_OFFSET
             layout.y = 0
             layout.end_update()
+
+            # manually update caret position
+            self.caret.on_layout_update()
 
     @property
     def text(self):
@@ -852,14 +866,14 @@ class UITextArea(UIWidget):
             ),
         )
 
-        self.layout = pyglet.text.layout.ScrollableTextLayout(
+        self.layout = pyglet.text.layout.IncrementalTextLayout(
             self.doc,
             width=int(self.content_width),
             height=int(self.content_height),
             multiline=multiline,
         )
 
-        bind(self, "rect", self._update_layout)
+        bind(self, "rect", UITextArea._update_layout)
 
     def fit_content(self):
         """Set the width and height of the text area to contain the whole text."""
@@ -891,6 +905,7 @@ class UITextArea(UIWidget):
             layout.begin_update()
             layout.width = content_width
             layout.height = content_height
+            layout.y = 0  # reset y position to 0 (Required by IncrementalTextLayout)
             layout.end_update()
 
     @override

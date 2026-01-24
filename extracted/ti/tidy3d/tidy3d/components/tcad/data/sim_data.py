@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
@@ -11,6 +11,7 @@ import pydantic.v1 as pd
 from tidy3d.components.base import Tidy3dBaseModel
 from tidy3d.components.base_sim.data.sim_data import AbstractSimulationData
 from tidy3d.components.data.data_array import (
+    FreqVoltageDataArray,
     SpatialDataArray,
     SteadyVoltageDataArray,
 )
@@ -33,6 +34,9 @@ from tidy3d.components.types import Ax, RealFieldVal, annotate_type
 from tidy3d.components.viz import add_ax_if_none, equal_aspect
 from tidy3d.exceptions import DataError, Tidy3dKeyError
 from tidy3d.log import log
+
+if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
 
 
 class DeviceCharacteristics(Tidy3dBaseModel):
@@ -80,8 +84,17 @@ class DeviceCharacteristics(Tidy3dBaseModel):
         None,
         title="Small signal resistance",
         description="Steady DC computation of the small signal resistance. This is computed "
-        "as the derivative of the current-voltage relation, delta(V)/delta(I) and the result "
+        "as the derivative of the current-voltage relation :math:`\\frac{\\Delta V}{\\Delta I}`, and the result "
         "is given in Ohms. Note that in 2D the resistance is given in :math:`\\Omega \\mu`.",
+    )
+
+    ac_current_voltage: Optional[FreqVoltageDataArray] = pd.Field(
+        None,
+        title="Small-signal AC current-voltage",
+        description="Small-signal AC current as a function of DC bias voltage and frequency. "
+        "This complex-valued data :math:`I(v, f)` is computed from small-signal analysis and "
+        "can be used to determine frequency-dependent device parameters like admittance. "
+        "For 2D simulations, the units are :math:`A/{\\mu m}`, so scale by device width.",
     )
 
 
@@ -120,7 +133,7 @@ class AbstractHeatChargeSimulationData(AbstractSimulationData, ABC):
         field_name: Optional[str] = None,
         structures_fill: bool = True,
         ax: Ax = None,
-        **sel_kwargs,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the simulation mesh in a monitor region with structures overlaid.
 
@@ -255,8 +268,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
     device_characteristics: Optional[DeviceCharacteristics] = pd.Field(
         None,
         title="Device characteristics",
-        description="Data characterizing the device. Current characteristics include: "
-        "'steady_dc_hole_capacitance', 'steady_dc_electron_capacitance', and 'steady_dc_current_voltage'",
+        description="Data characterizing the device :class:`DeviceCharacteristics`.",
     )
 
     @equal_aspect
@@ -272,7 +284,8 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         ax: Ax = None,
-        **sel_kwargs,
+        cmap: Optional[Union[str, Colormap]] = None,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the data for a monitor with simulation structures overlaid.
 
@@ -301,6 +314,8 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
             inferred from the data and other keyword arguments.
         ax : matplotlib.axes._subplots.Axes = None
             matplotlib axes to plot on, if not specified, one is created.
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data.
         sel_kwargs : keyword arguments used to perform ``.sel()`` selection in the monitor data.
             These kwargs can select over the spatial dimensions (``x``, ``y``, ``z``),
             or time dimension (``t``) if applicable.
@@ -336,7 +351,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
         if scale == "log":
             field_data = np.log10(np.abs(field_data))
 
-        cmap = "coolwarm"
+        cmap_to_use = "coolwarm" if cmap is None else cmap
 
         # do sel on unstructured data
         # it could produce either SpatialDataArray or UnstructuredGridDatasetType
@@ -352,7 +367,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
         if isinstance(field_data, TriangularGridDataset):
             field_data.plot(
                 ax=ax,
-                cmap=cmap,
+                cmap=cmap_to_use,
                 vmin=vmin,
                 vmax=vmax,
                 cbar_kwargs={"label": field_name},
@@ -427,7 +442,7 @@ class HeatChargeSimulationData(AbstractHeatChargeSimulationData):
                 ax=ax,
                 x=x_coord_label,
                 y=y_coord_label,
-                cmap=cmap,
+                cmap=cmap_to_use,
                 vmin=vmin,
                 vmax=vmax,
                 robust=robust,
@@ -464,7 +479,7 @@ class HeatSimulationData(HeatChargeSimulationData):
 
     Warning
     -------
-        :class`HeatSimulationData` is DEPRECATED.
+        :class:`HeatSimulationData` is DEPRECATED.
         Consider using :class:`HeatChargeSimulationData` instead.
     """
 

@@ -1,0 +1,61 @@
+interactions:
+- request:
+    body: '{"service": "ota"}'
+    headers:
+      Accept:
+      - application/json
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '18'
+      User-Agent:
+      - python-lokalise-api plugin/2.0.0
+      x-api-token:
+      - FILTERED
+    method: POST
+    uri: https://api.lokalise.com/api2/projects/2273827860c1e2473eb195.11207948/tokens
+  response:
+    body:
+      string: '{"jwt":"eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ1c2VySWQiOjIwMTgxLCJwcm9qZWN0cyI6W3sidGVhbUlkIjoxNzY2OTIsInByb2plY3RJZCI6IjIyNzM4Mjc4NjBjMWUyNDczZWIxOTUuMTEyMDc5NDgifV0sImV4cCI6MTY3MzQ1NzA4OH0.NvpX_74yuxf_QY0wPkdsIJQqLILN8tnMas39iSNS2CxK1TJ5KirTafjecESiDUW5oyFKUJNEoQOq5ShIT7sAHnfZXJ7knncGLa37KbSsbdzUXssHtJj1f3J_7I8l5Sz4xBdzpCXWeeXAxDxYQGBHkMEsph6zaSkWmjRCOIQ6F5Q5eRD95keId2268XX69ohwMcNZFM9ruboeStirh0DgAytdtWRospUkmfHt3pbnT_GISI0LkPZK8ShvAoAOD7y1xEosHBUQa4LKK_LZsoDWhlYKrqy6fDcpMmnIjdsgWMttRcTbPIET3dFTcwudxpf6_iOUdSylVAIX3_6j76b4TOECWYGYZjjH2M-LmE13QebUiMuAJsqpbM9V9Jg5Kw9rQQpiXYqMz23MEYEI94zwXdqwAjB55xPGvQy2N6gDZJNDdzfulQZt3Cq3KjJyD5UGBLfjRlsKFpM61EiLWfWx569Jsz0f2qWbZsEzhiT5ZwDdT2nJMcqjcQ79Y0E0lmmthHvxxb3p-p5icvfrTp8xsakxOvki-fwAeBJZAdykdaTX2t2kTHXjrEIf-sgn38obc9jfXY_inQ3_Olaz3MEhDEYoVatMbRmmvcLl_94Tvrl_WpCjXdmu4wyP2MNGVXZIQ01u1PHcJelg8YdTzdlvubFjrF-9sGKJCardl87MEbs"}'
+    headers:
+      Access-Control-Allow-Headers:
+      - Content-Type
+      Access-Control-Allow-Origin:
+      - '*'
+      Cache-Control:
+      - max-age=0, must-revalidate, no-cache, no-store, private
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 11 Jan 2023 16:41:28 GMT
+      Expires:
+      - Wed, 11 Jan 2023 16:41:28 GMT
+      Referrer-Policy:
+      - origin
+      Server:
+      - nginx
+      Set-Cookie:
+      - PHPSESSID=deleted; expires=Tue, 11-Jan-2022 16:41:27 GMT; Max-Age=0; path=/;
+        httponly
+      Strict-Transport-Security:
+      - max-age=31536000
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      X-Content-Type-Options:
+      - nosniff
+      X-Frame-Options:
+      - deny
+      X-Lokalise-Process-Id:
+      - 8fc4b779-0cd0-472d-89a1-05ac8e14488f
+      X-XSS-Protection:
+      - 1; mode=block
+      pragma:
+      - no-cache
+    status:
+      code: 200
+      message: OK
+version: 1

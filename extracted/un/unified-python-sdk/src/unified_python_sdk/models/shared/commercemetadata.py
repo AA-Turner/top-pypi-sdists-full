@@ -3,12 +3,12 @@
 from __future__ import annotations
 from enum import Enum
 import pydantic
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class CommerceMetadata1TypedDict(TypedDict):
@@ -89,34 +89,67 @@ CommerceMetadataValue = TypeAliasType(
 
 
 class CommerceMetadataTypedDict(TypedDict):
+    description: NotRequired[str]
     extra_data: NotRequired[CommerceMetadataExtraDataTypedDict]
     format_: NotRequired[CommerceMetadataFormat]
     id: NotRequired[str]
-    key: NotRequired[str]
+    is_required: NotRequired[bool]
     namespace: NotRequired[str]
     slug: NotRequired[str]
-    type: NotRequired[str]
     value: NotRequired[CommerceMetadataValueTypedDict]
 
 
 class CommerceMetadata(BaseModel):
+    description: Optional[str] = None
+
     extra_data: Optional[CommerceMetadataExtraData] = None
 
     format_: Annotated[
-        Annotated[
-            Optional[CommerceMetadataFormat], PlainValidator(validate_open_enum(False))
-        ],
-        pydantic.Field(alias="format"),
+        Optional[CommerceMetadataFormat], pydantic.Field(alias="format")
     ] = None
 
     id: Optional[str] = None
 
-    key: Optional[str] = None
+    is_required: Optional[bool] = None
 
     namespace: Optional[str] = None
 
     slug: Optional[str] = None
 
-    type: Optional[str] = None
-
     value: Optional[CommerceMetadataValue] = None
+
+    @field_serializer("format_")
+    def serialize_format_(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.CommerceMetadataFormat(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "description",
+                "extra_data",
+                "format",
+                "id",
+                "is_required",
+                "namespace",
+                "slug",
+                "value",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

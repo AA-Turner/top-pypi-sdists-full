@@ -19,6 +19,7 @@ import functools
 import hashlib
 import signal
 import sys
+import threading
 import time
 
 import netaddr
@@ -42,7 +43,6 @@ from os_vif.objects import vif as vif_obj
 from oslo_config import cfg
 from oslo_log import log as logging
 import oslo_messaging
-from oslo_service import loopingcall
 from oslo_service import systemd
 from oslo_utils import netutils
 from osprofiler import profiler
@@ -150,7 +150,8 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
     target = oslo_messaging.Target(version='1.7')
     max_device_retries = ovs_const.MAX_DEVICE_RETRIES
 
-    def __init__(self, bridge_classes, ext_manager, conf=None):
+    def __init__(self, bridge_classes, ext_manager, conf=None,
+                 register_signal=None):
         '''Constructor.
 
         :param bridge_classes: a dict for bridge classes.
@@ -167,6 +168,8 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
         self.enable_local_ips = 'local_ip' in self.ext_manager.names()
         self.enable_openflow_metadata = (
             'metadata_path' in self.ext_manager.names())
+
+        self.register_signal = register_signal
 
         self.fullsync = False
         # init bridge classes with configured datapath type.
@@ -400,11 +403,24 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
             'agent_type': n_const.AGENT_TYPE_OVS,
             'start_flag': True}
 
+        self.heartbeat = {}
+
         report_interval = agent_conf.report_interval
         if report_interval:
-            heartbeat = loopingcall.FixedIntervalLoopingCall(
-                self._report_state)
-            heartbeat.start(interval=report_interval)
+            report_event = threading.Event()
+
+            def report_worker():
+                while not report_event.is_set():
+                    start_time = time.time()
+                    self._report_state()
+                    exec_time = time.time() - start_time
+                    report_event.wait(max(0, report_interval - exec_time))
+
+            self.heartbeat['thread'] = threading.Thread(target=report_worker)
+            self.heartbeat['event'] = report_event
+
+            self.heartbeat['thread'].start()
+
         # Initialize iteration counter
         self.iter_num = 0
         self.run_daemon_loop = True
@@ -495,7 +511,7 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
             segmentation_id = local_vlan_map.get('segmentation_id')
             if net_uuid:
                 # TODO(sahid): This key thing should be normalized.
-                key = "{}/{}".format(net_uuid, segmentation_id)
+                key = f"{net_uuid}/{segmentation_id}"
                 if (key not in self._local_vlan_hints and
                         local_vlan != ovs_const.DEAD_VLAN_TAG):
                     self.available_local_vlans.remove(local_vlan)
@@ -901,7 +917,7 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
 
     @profiler.trace("rpc")
     def tunnel_delete(self, context, **kwargs):
-        LOG.debug("tunnel_delete received")
+        LOG.debug("tunnel_delete received: %s", kwargs)
         if not self.enable_tunneling:
             return
         tunnel_ip = kwargs.get('tunnel_ip')
@@ -1027,7 +1043,7 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
         except vlanmanager.MappingNotFound:
             # TODO(sahid): This local_vlan_hints should have its own
             # datastructure and model to be manipulated.
-            key = "{}/{}".format(net_uuid, segmentation_id)
+            key = f"{net_uuid}/{segmentation_id}"
             lvid = self._local_vlan_hints.pop(key, None)
             if lvid is None:
                 if not self.available_local_vlans:
@@ -2516,7 +2532,7 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
         remote_tunnel_hash = cls.get_tunnel_hash(remote_ip, hashlen)
         if not remote_tunnel_hash:
             return None
-        return '{}-{}'.format(network_type, remote_tunnel_hash)
+        return f'{network_type}-{remote_tunnel_hash}'
 
     def _agent_has_updates(self, polling_manager):
         return (polling_manager.is_polling_required or
@@ -2917,9 +2933,11 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
     def daemon_loop(self):
         # Start everything.
         LOG.info("Agent initialized successfully, now running... ")
-        signal.signal(signal.SIGTERM, self._handle_sigterm)
-        if hasattr(signal, 'SIGHUP'):
-            signal.signal(signal.SIGHUP, self._handle_sighup)
+        if self.register_signal:
+            LOG.info("Register signals... ")
+            self.register_signal(signal.SIGTERM, self._handle_sigterm)
+            if hasattr(signal, 'SIGHUP'):
+                self.register_signal(signal.SIGHUP, self._handle_sighup)
         br_names = [br.br_name for br in self.phys_brs.values()]
 
         self.ovs.ovsdb.idl_monitor.start_bridge_monitor(br_names)
@@ -2933,15 +2951,19 @@ class OVSNeutronAgent(l2population_rpc.L2populationRpcCallBackTunnelMixin,
         if self.plugin_rpc:
             self.plugin_rpc.stop()
 
-    def _handle_sigterm(self, signum, frame):
+    def _handle_sigterm(self):
         self.catch_sigterm = True
         if self.quitting_rpc_timeout:
             LOG.info(
                 'SIGTERM received, capping RPC timeout by %d seconds.',
                 self.quitting_rpc_timeout)
             self.set_rpc_timeout(self.quitting_rpc_timeout)
+        if self.heartbeat:
+            LOG.info("SIGTERM received, stopping agent reporting.")
+            self.heartbeat['event'].set()
+            self.heartbeat['thread'].join()
 
-    def _handle_sighup(self, signum, frame):
+    def _handle_sighup(self):
         self.catch_sighup = True
 
     def _check_and_handle_signal(self):
@@ -3005,7 +3027,7 @@ def validate_tunnel_config(tunnel_types, local_ip):
             raise SystemExit(1)
 
 
-def main(bridge_classes):
+def main(bridge_classes, register_signal=None):
     ovs_capabilities.register()
     l2_agent_extensions_manager.register_opts(cfg.CONF)
     agent_config.setup_privsep()
@@ -3022,7 +3044,8 @@ def main(bridge_classes):
     init_try = 1
     while True:
         try:
-            agent = OVSNeutronAgent(bridge_classes, ext_mgr, cfg.CONF)
+            agent = OVSNeutronAgent(bridge_classes, ext_mgr, cfg.CONF,
+                                    register_signal)
             capabilities.notify_init_event(n_const.AGENT_TYPE_OVS, agent)
             break
         except ovs_exceptions.TimeoutException as e:

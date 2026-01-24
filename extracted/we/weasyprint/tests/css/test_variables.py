@@ -128,6 +128,23 @@ def test_variable_chain():
 
 
 @assert_no_logs
+def test_variable_double_chain():
+    page, = render_pages('''
+      <style>
+        html { --foo: red }
+        body { --var: var(--foo), var(--foo) }
+        div { background-image: linear-gradient(var(--var)) }
+      </style>
+      <div></dib>
+    ''')
+    html, = page.children
+    body, = html.children
+    div, = body.children
+    assert div.style['background_image'][0][1].colors[0] == (1, 0, 0, 1)
+    assert div.style['background_image'][0][1].colors[1] == (1, 0, 0, 1)
+
+
+@assert_no_logs
 def test_variable_chain_root():
     # Regression test for #1656.
     page, = render_pages('''
@@ -305,13 +322,13 @@ def test_variable_shorthand_border_mixed_invalid():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('var, background', (
+@pytest.mark.parametrize(('var', 'background'), [
     ('blue', 'var(--v)'),
     ('padding-box url(pattern.png)', 'var(--v)'),
     ('padding-box url(pattern.png)', 'white var(--v) center'),
     ('100%', 'url(pattern.png) var(--v) var(--v) / var(--v) var(--v)'),
     ('left / 100%', 'url(pattern.png) top var(--v) 100%'),
-))
+])
 def test_variable_shorthand_background(var, background):
     page, = render_pages('''
       <style>
@@ -322,11 +339,11 @@ def test_variable_shorthand_background(var, background):
     ''' % (var, background))
 
 
-@pytest.mark.parametrize('var, background', (
+@pytest.mark.parametrize(('var', 'background'), [
     ('invalid', 'var(--v)'),
     ('blue', 'var(--v) var(--v)'),
     ('100%', 'url(pattern.png) var(--v) var(--v) var(--v)'),
-))
+])
 def test_variable_shorthand_background_invalid(var, background):
     with capture_logs() as logs:
         page, = render_pages('''
@@ -419,13 +436,13 @@ def test_variable_list_content():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('var, display', (
+@pytest.mark.parametrize(('var', 'display'), [
     ('inline', 'var(--var)'),
     ('inline-block', 'var(--var)'),
     ('inline flow', 'var(--var)'),
     ('inline', 'var(--var) flow'),
     ('flow', 'inline var(--var)'),
-))
+])
 def test_variable_list_display(var, display):
     page, = render_pages('''
       <style>
@@ -442,13 +459,13 @@ def test_variable_list_display(var, display):
 
 
 @assert_no_logs
-@pytest.mark.parametrize('var, font', (
+@pytest.mark.parametrize(('var', 'font'), [
     ('weasyprint', 'var(--var)'),
     ('"weasyprint"', 'var(--var)'),
     ('weasyprint', 'var(--var), monospace'),
     ('weasyprint, monospace', 'var(--var)'),
     ('monospace', 'weasyprint, var(--var)'),
-))
+])
 def test_variable_list_font(var, font):
     page, = render_pages('''
       <style>
@@ -486,6 +503,22 @@ def test_variable_in_function():
     h11, div1, h12, div2 = section.children
     assert div1.children[0].children[0].children[0].text == '1'
     assert div2.children[0].children[0].children[0].text == '2'
+
+
+@assert_no_logs
+def test_same_variable_in_function():
+    page, = render_pages('''
+      <style>
+        body { --var: red }
+        div { background-image: linear-gradient(var(--var), var(--var)) }
+      </style>
+      <div></div>
+    ''')
+    html, = page.children
+    body, = html.children
+    div, = body.children
+    assert div.style['background_image'][0][1].colors[0] == (1, 0, 0, 1)
+    assert div.style['background_image'][0][1].colors[1] == (1, 0, 0, 1)
 
 
 @assert_no_logs
@@ -604,3 +637,21 @@ def test_variable_in_function_in_variable():
     assert div1.children[0].children[0].children[0].text == 'I'
     assert div2.children[0].children[0].children[0].text == 'II'
     assert div3.children[0].children[0].children[0].text == 'iii'
+
+
+@assert_no_logs
+def test_variable_and_function_in_function():
+    page, = render_pages('''
+      <style>
+        html { --counter-name: page }
+        a::after { content: target-counter(attr(href), var(--counter-name)) }
+      </style>
+      <a id="link" href="#link"></a>
+    ''')
+    html, = page.children
+    body, = html.children
+    line, = body.children
+    a, _ = line.children
+    after, = a.children
+    textbox, = after.children
+    assert textbox.text == '1'

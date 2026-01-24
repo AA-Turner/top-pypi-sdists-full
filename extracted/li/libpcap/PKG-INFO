@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: libpcap
-Version: 1.11.0b25
+Version: 1.11.0b27
 Summary: Python binding for the libpcap C library.
-Author: Adam Karpierz
-Author-email: adam@karpierz.net
-Maintainer: Adam Karpierz
-Maintainer-email: adam@karpierz.net
+Author-email: Adam Karpierz <adam@karpierz.net>
+Maintainer-email: Adam Karpierz <adam@karpierz.net>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://pypi.org/project/libpcap/
-Project-URL: Documentation, https://libpcap.readthedocs.io/
+Project-URL: Documentation, https://karpierz.github.io/libpcap/
+Project-URL: History, https://karpierz.github.io/libpcap/CHANGES.html
 Project-URL: Download, https://pypi.org/project/libpcap/
-Project-URL: Source, https://github.com/karpierz/libpcap
-Project-URL: Issues, https://github.com/karpierz/libpcap/issues
+Project-URL: Repository, https://github.com/karpierz/libpcap
+Project-URL: Tracker, https://github.com/karpierz/libpcap/issues
+Project-URL: Sponsoring, https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
 Keywords: pcap,libpcap,wpcap,npcap
 Platform: any
 Classifier: Development Status :: 4 - Beta
@@ -29,24 +29,13 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
 Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: setuptools>=80.9.0
-Requires-Dist: pkg-about>=1.3.6
-Provides-Extra: doc
-Requires-Dist: Sphinx>=8.1.3; extra == "doc"
-Requires-Dist: sphinx-autodoc-typehints>=3.0.1; extra == "doc"
-Requires-Dist: sphinx-toolbox>=4.0.0; extra == "doc"
-Requires-Dist: sphinx-tabs>=3.4.5; extra == "doc"
-Requires-Dist: sphinx-copybutton>=0.5.2; extra == "doc"
-Requires-Dist: sphinxcontrib-spelling>=8.0.1; extra == "doc"
-Requires-Dist: sphinx-lint>=1.0.0; extra == "doc"
-Requires-Dist: restructuredtext-lint>=1.4.0; extra == "doc"
-Requires-Dist: nbsphinx>=0.9.7; extra == "doc"
-Provides-Extra: test
-Requires-Dist: deepdiff>=8.5.0; extra == "test"
-Requires-Dist: rich>=14.0.0; extra == "test"
+Requires-Dist: typing-extensions>=4.15.0
+Requires-Dist: pkg-about>=2.1.0
+Requires-Dist: py-utlx>=2.1.0
 Dynamic: license-file
 
 libpcap
@@ -186,12 +175,11 @@ Prerequisites:
 + Python 3.10 or higher
 
   * https://www.python.org/
-  * with C libpcap 1.8.1 is a primary test environment.
+  * with C libpcap 1.10.6 is a primary test environment.
 
-+ pip and setuptools
++ pip
 
   * https://pypi.org/project/pip/
-  * https://pypi.org/project/setuptools/
 
 To install run:
 
@@ -204,9 +192,9 @@ Development
 
 Prerequisites:
 
-+ Development is strictly based on *tox*. To install it run::
++ Development is strictly based on *nox*. To install it run::
 
-    python -m pip install --upgrade tox
+    python -m pip install --upgrade nox
 
 Visit `Development page`_.
 
@@ -243,236 +231,22 @@ Authors
 
 * Adam Karpierz <adam@karpierz.net>
 
+Sponsoring
+==========
+
+| If you would like to sponsor the development of this project, your contribution
+  is greatly appreciated.
+| As I am now retired, any support helps me dedicate more time to maintaining and
+  improving this work.
+
+`Donate`_
+
 .. |package| replace:: libpcap
 .. |package_bold| replace:: **libpcap**
-.. |copyright| replace:: Copyright (c) 2016-2025 Adam Karpierz
-.. |respository| replace:: https://github.com/karpierz/libpcap.git
+.. |copyright| replace:: Copyright (c) 2016-2026 Adam Karpierz
+.. |respository| replace:: https://github.com/karpierz/libpcap
 .. _Development page: https://github.com/karpierz/libpcap
 .. _PyPI record: https://pypi.org/project/libpcap/
-.. _Documentation: https://libpcap.readthedocs.io/
+.. _Documentation: https://karpierz.github.io/libpcap/
+.. _Donate: https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
 .. _Libpcap File Format: https://wiki.wireshark.org/Development/LibpcapFileFormat
-
-Changelog
-=========
-
-1.11.0b25 (2025-06-30)
-----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Setup (dependencies) update.
-
-1.11.0b24 (2025-05-15)
-----------------------
-- The distribution is now created using 'build' instead of 'setuptools'.
-- Setup (dependencies) update (due to regressions in tox and setuptools).
-
-1.11.0b23 (2025-05-04)
-----------------------
-- Minor fixes of tests.
-- Setup (dependencies) update.
-
-1.11.0b22 (2025-04-28)
-----------------------
-- Add support for Python 3.14
-- Drop support for Python 3.9 (due to compatibility issues).
-- Update readthedocs's python to version 3.13
-- Update tox's base_python to version 3.13
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Setup (dependencies) update.
-
-1.11.0b16 (2025-02-14)
-----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Preliminary addition of (some) fuzz tests.
-- Copyright year update.
-- Setup (dependencies) update.
-
-1.11.0b15 (2024-12-13)
-----------------------
-- Source distribution (\*.tar.gz now) is compliant with PEP-0625.
-- 100% code linting.
-- Tox configuration is now in native (toml) format.
-- Setup (dependencies) update.
-
-1.11.0b14 (2024-10-20)
-----------------------
-- Fix improper dependiencies for docs testenv.
-
-1.11.0b13 (2024-10-20)
-----------------------
-- | Fix for improper use of ctypes.cdll.msvcrt._get_osfhandle.
-  | Has been replaced by msvcrt.get_osfhandle.
-  | Thank you very much crackevil@Github for the fix!
-- Setup unification and (dependencies) update.
-
-1.11.0b12 (2024-10-09)
-----------------------
-- Setup (dependencies) update.
-
-1.11.0b11 (2024-09-30)
-----------------------
-- Drop support for Python 3.8
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Sync/upgrade of tests to the latest libpcap API 1.11.0-PRE
-- Setup (dependencies) update.
-
-1.11.0b10 (2024-08-13)
-----------------------
-- Add support for Python 3.13
-- Improvements and cleanup for win32.
-- Source code refactoring and cleanup.
-- Setup (dependencies) update.
-
-1.11.0b8 (2024-01-30)
----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Sync/upgrade of tests to the latest libpcap API 1.11.0-PRE
-- Setup update (now based on tox >= 4.0).
-- Add support for Python 3.12
-- Drop support for Python 3.7
-- Add support for PyPy 3.10
-- Drop support for PyPy 3.7 and 3.8
-- Copyright year update.
-- Cleanup.
-
-1.11.0b7 (2022-09-10)
----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Sync/upgrade of tests to the latest libpcap API 1.11.0-PRE
-- Add nonblocktest.py
-- Tox configuration has been moved to pyproject.toml
-
-1.11.0b6 (2022-08-25)
----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Setup fixes and update.
-
-1.11.0b5 (2022-07-28)
----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Add support for macOS x64 (thank you very much Erik Rainey emrainey@Github
-  and lydia-hogan@Github!).
-- Add support for Python 3.10 and 3.11
-- Add support for PyPy 3.7, 3.8 and 3.9
-- Setup update (currently based mainly on pyproject.toml).
-
-1.11.0b4 (2022-01-10)
----------------------
-- Drop support for Python 3.6.
-- Copyright year update.
-- Setup update.
-
-1.11.0b2 (2021-11-10)
----------------------
-- Upgrade to the latest libpcap API 1.11.0-PRE
-- Copyright year update.
-- *backward incompatibility* - libpcap.cfg is now a regular INI file.
-- Setup update.
-
-1.10.0b15 (2020-10-18)
-----------------------
-- Add support for Python 3.9.
-- Drop support for Python 3.5.
-- Removing dependence on atpublic.
-- Ability to specify the backend programmatically.
-- Establishing system's libpcap as default backend.
-- Fixed a critical setup bug (thank you very much msrst@Github!).
-- General update and cleanup.
-- Fixed docs setup.
-
-1.10.0b10 (2020-01-16)
-----------------------
-- Add support for Python 3.8.
-- Drop support for Python 3.4.
-- Drop support for Python 2.
-- Upgrade to the latest libpcap API 1.10.0-PRE
-- Establishing npcap as default backend.
-- Internal npcap's dll-s have been removed due to ev. license problems.
-- | Add support for Linux x64:
-  | add internal tcpdump's libpcap.so v.1.9.1 with remote capture support.
-  | system's tcpdump's libpcap.so can also be used (via libpcap.libpcap.cfg).
-- Added ReadTheDocs config file.
-- Setup update and cleanup.
-
-1.10.0b5 (2019-09-16)
----------------------
-- Upgrade to the latest libpcap API 1.10.0-PRE
-- Upgrade npcap's libpcap dll-s to the 0.996
-- Minor setup fixes and improvements.
-
-1.10.0b3 (2019-02-15)
----------------------
-- Upgrade to the latest libpcap API 1.10.0-PRE
-- Upgrade npcap's libpcap dll-s to the 0.99rc9
-- Update required setuptools version.
-- Minor setup improvements.
-- Updates of tests.
-
-1.10.0b1 (2018-11-08)
----------------------
-- Upgrade to the latest libpcap API 1.10.0-PRE
-- Upgrade npcap's libpcap dll-s to the 0.99rc7
-- Update required setuptools version.
-
-1.0.0b14 (2018-05-09)
----------------------
-- Update required setuptools version.
-
-1.0.0b13 (2018-05-09)
----------------------
-- Upgrade npcap's libpcap dll-s to the 0.99rc5
-
-1.0.0b12 (2018-05-08)
----------------------
-- Upgrade to the latest libpcap.
-
-1.0.0b10 (2018-03-31)
----------------------
-- Upgrade to the latest libpcap.
-- Improve and simplify setup and packaging.
-- Improve and update tests.
-
-1.0.0b9 (2018-02-26)
---------------------
-- Improve and simplify setup and packaging.
-
-1.0.0b8 (2018-02-25)
---------------------
-- Upgrade to the latest libpcap API 1.9.0
-- Setup improvement.
-
-1.0.0b7 (2017-12-18)
---------------------
-- Fix the error of platform detecting (thanks to Dan ???).
-
-1.0.0b6 (2017-10-11)
---------------------
-- Upgrade to the libpcap API 1.9.0
-
-1.0.0b5 (2017-10-08)
---------------------
-- Upgrade to the libpcap API 1.8.1
-- Add support for libpcap from `Npcap <https://nmap.org/npcap/>`__.
-
-1.0.0b4 (2017-10-04)
---------------------
-- Fourth beta release.
-
-1.0.0b3 (2017-08-28)
---------------------
-- Third beta release.
-
-1.0.0b1 (2017-08-27)
---------------------
-- First beta release.
-
-1.0.0a16 (2017-08-26)
----------------------
-- Next alpha release.
-
-1.0.0a0 (2017-06-08)
---------------------
-- First alpha release.
-
-0.0.1 (2016-09-23)
-------------------
-- Initial release.

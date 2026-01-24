@@ -11,7 +11,7 @@ import pandas as pd
 
 from seeq import spy
 from seeq.sdk import *
-from seeq.spy import _common, _compatibility, _login
+from seeq.spy import _common, _compatibility, _login, _url
 from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely, safely
 from seeq.spy._session import Session
@@ -25,8 +25,8 @@ RETURN_TYPE_COLUMN = '__Return Type__'
 @Status.handle_keyboard_interrupt()
 def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_by=None,
          shape: Union[str, Callable] = 'auto', capsule_properties=None, tz_convert=None, calculation=None,
-         bounding_values=False, invalid_values_as=np.nan, enums_as='string', errors=None, quiet=None,
-         status: Status = None, session: Optional[Session] = None, capsules_as=None):
+         bounding_values=False, invalid_values_as=np.nan, enums_as='string', include_extinct=False,
+         errors=None, quiet=None, status: Status = None, session: Optional[Session] = None, capsules_as=None):
     """
     Retrieves signal, condition or scalar data from Seeq Server and returns it
     in a DataFrame.
@@ -36,8 +36,11 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
     items : {str, pd.DataFrame, pd.Series}
         A DataFrame or Series containing ID and Type columns that can be used
         to identify the items to pull. This is usually created via a call to
-        spy.search(). Alternatively, you can supply URL of a Seeq Workbench
-        worksheet as a str.
+        spy.search().
+
+        Alternatively, you can supply URL of a Seeq Workbench worksheet as a
+        str. If you supply the URL of a Seeq Vantage Room, the capsule
+        evidence (with context) will be pulled for that room.
 
         If a 'Calculation' column is present, the formula specified in that
         column will be applied to the item in that row "on-the-fly" while
@@ -63,8 +66,10 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         If not provided, 'end' will default to now. Note that Seeq will
         potentially return one additional row that is later than this time
         (if it exists), as a "bounding value" for interpolation purposes.
-        If both 'start' and 'end' are not provided and items is a str,
-        'end' will default to the end of the display range in Seeq Trend View.
+
+        If pulling using a Workbench Analysis URL and both 'start' and 'end'
+        are not provided, 'end' will default to the end of the display range in
+        Seeq Trend View.
 
     grid : {str, 'auto', None}, default '15min'
         A period to use for interpolation such that all returned samples
@@ -74,14 +79,15 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         YYYY-MM-DD, or YYYY-MM-DDTHH:MM:SS form. If grid=None is specified,
         no interpolation will occur and each signal's samples will be returned
         untouched. Where timestamps don't match, NaNs will be present within a
-        row. If grid='auto', the period used for interpolation will be the median
-        of the sample periods from the 'Estimated Sample Period' column in 'items'.
-        If grid='auto' and the 'Estimated Sample Period' column does not exist
-        in 'items', additional queries will be made to estimate the sample period
-        which could potentially impact performance for large pulls. Interpolation
-        is either linear or step and is set per signal at the time of the signal's
-        creation. To change the interpolation type for a given signal, change the
-        signal's interpolation or use the appropriate 'calculation' argument.
+        row. If grid='auto', the period used for interpolation will be the
+        median of the sample periods from the 'Estimated Sample Period' column
+        in 'items'. If grid='auto' and the 'Estimated Sample Period' column
+        does not exist in 'items', additional queries will be made to estimate
+        the sample period which could potentially impact performance for large
+        pulls. Interpolation is either linear or step and is set per signal at
+        the time of the signal's creation. To change the interpolation type for
+        a given signal, change the signal's interpolation or use the
+        appropriate 'calculation' argument.
 
     header : str, default '__auto__'
         The metadata property to use as the header of each column. Common
@@ -99,6 +105,13 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         also present in the items argument, or returns capsules as individual
         rows if no signals are present. 'samples' or 'capsules' forces the
         output to the former or the latter, if possible.
+
+        Capsules that intersect with the time range will be returned.
+        In the case of shape='capsules', if the capsule has no Maximum Duration
+        (e.g., you did not use the removeLongerThan() function), the
+        'Capsule Start' and/or 'Capsule End' columns may contain NaT entries,
+        and it may not be possible to calculate statistics on any signals
+        provided.
 
         You may also provide a callback function as the shape argument. When
         you do so, the callback function will receive the results as they
@@ -152,9 +165,14 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         (e.g., an ON or OFF machine state that is encoded as 1 or 0).
         If enums_as='string', the signal's column in the returned DataFrame
         will be a string value (e.g., 'ON' or 'OFF'). If enums_as='numeric',
-        the signal's column will be an integer (e.g. 1 or 0). If enums_as='tuple',
-        both the integer and string will be supplied as a tuple
-        (e.g., (1, 'ON') or (0, 'OFF')).
+        the signal's column will be an integer (e.g. 1 or 0).
+        If enums_as='tuple', both the integer and string will be supplied as
+        a tuple (e.g., (1, 'ON') or (0, 'OFF')).
+
+    include_extinct : bool, default False
+        Only applicable when pulling evidence for Vantage Rooms.
+        If True, capsules that existed only temporarily will still be
+        returned.
 
     errors : {'raise', 'catalog'}, default 'raise'
         If 'raise', any errors encountered will cause an exception. If
@@ -311,7 +329,8 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         (status, 'status', Status),
         (session, 'session', Session),
         (capsules_as, 'capsules_as', type(None)),
-        (enums_as, 'enums_as', str)
+        (enums_as, 'enums_as', str),
+        (include_extinct, 'include_extinct', bool)
     ])
 
     _login.validate_login(session, status)
@@ -322,13 +341,53 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
         raise SPyValueError("enums_as argument must be either 'tuple', 'string', 'numeric' or None")
 
     if isinstance(items, str):
-        # if `items` is a worksheet URL, get the actual items from the worksheet and overwrite `items` as a DataFrame
-        worksheet = spy.utils.pull_worksheet_via_url(items, minimal=True, quiet=status.quiet, session=session)
-        items = spy.search(worksheet.display_items[['ID', 'Type']], all_properties=True, quiet=status.quiet,
-                           session=session)
-        if start is None and end is None:
-            start = worksheet.display_range['Start']
-            end = worksheet.display_range['End']
+        workbook_id = _url.get_workbook_id_from_url(items)
+        worksheet_id = _url.get_worksheet_id_from_url(items)
+        workbooks_api = WorkbooksApi(session.client)
+        workbook_output = None
+        workbook_type = 'Analysis'
+        try:
+            workbook_output = workbooks_api.get_workbook(id=workbook_id)
+            workbook_type = workbook_output.type
+        except ApiException as e:
+            # Fall through on Forbidden to remain backward compatible with how access errors were handled
+            # before CRAB-52660
+            if e.status != 403:
+                raise
+
+        if workbook_type == 'Vantage' and workbook_output is not None:
+            # If `items` is a Vantage Room URL, pull the capsule evidence for that room from the materialized table
+            if not hasattr(workbook_output, 'evidence_table_definition_id'):
+                raise SPyValueError('Vantage Rooms cannot be pulled on this version of Seeq Server')
+
+            specific_worksheet_ids = [worksheet_id] if worksheet_id is not None else None
+
+            # This call will raise SPyValueError if it couldn't be found, or other errors if it's inaccessible
+            vantage_room = spy.workbooks.pull(items, specific_worksheet_ids=specific_worksheet_ids,
+                                              quiet=status.quiet, session=session)[0]
+
+            if vantage_room.get('Evidence Table Definition ID') is None:
+                raise SPyValueError('Vantage Room does not have an evidence table definition ID')
+
+            items = pd.DataFrame([{'ID': vantage_room['Evidence Table Definition ID'], 'Type': 'Table'}])
+            if worksheet_id is not None and len(specific_worksheet_ids) == 0:
+                raise SPyValueError(f'Worksheet ID {worksheet_id} found in the specified Vantage Room')
+
+            if start is None and end is None and specific_worksheet_ids is not None:
+                specific_worksheet = vantage_room.views[0]
+                start = specific_worksheet.investigate_range['Start']
+                end = specific_worksheet.investigate_range['End']
+
+        elif workbook_type == 'Analysis':
+            # If `items` is a worksheet URL, get the actual items from the worksheet and overwrite `items` as a DataFrame
+            worksheet = spy.utils.pull_worksheet_via_url(items, minimal=True, quiet=status.quiet, session=session)
+            items = spy.search(worksheet.display_items[['ID', 'Type']], all_properties=True, quiet=status.quiet,
+                               session=session)
+            if start is None and end is None:
+                start = worksheet.display_range['Start']
+                end = worksheet.display_range['End']
+        else:
+            raise SPyValueError(f'Workbook type "{workbook_type}" cannot be used with spy.pull(url).')
 
     if invalid_values_as is None:
         raise SPyValueError('invalid_values_as cannot be None (because Pandas treats it the same as NaN)')
@@ -393,15 +452,30 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
     at_least_one_signal = len(query_df[query_df[RETURN_TYPE_COLUMN].str.endswith('Signal', na=False)]) > 0
     at_least_one_condition = len(query_df[query_df[RETURN_TYPE_COLUMN].str.endswith('Condition', na=False)]) > 0
     at_least_one_asset = len(query_df[query_df[RETURN_TYPE_COLUMN].str.endswith('Asset', na=False)]) > 0
+    at_least_one_table = len(query_df[query_df[RETURN_TYPE_COLUMN].str.startswith('table', na=False)]) > 0
 
     if at_least_one_asset:
         calculation_series = calculation if isinstance(calculation, pd.Series) else calculation.iloc[0]
         at_least_one_signal = calculation_series['Type'].endswith('Signal')
         at_least_one_condition = calculation_series['Type'].endswith('Condition')
         at_least_one_scalar = calculation_series['Type'].endswith('Scalar')
+        at_least_one_table = calculation_series['Type'].startswith('Table')
 
     if shape == 'auto':
-        shape = 'samples' if at_least_one_signal or (at_least_one_scalar and not at_least_one_condition) else 'capsules'
+        if at_least_one_signal:
+            shape = 'samples'
+        elif at_least_one_scalar and not at_least_one_condition:
+            shape = 'samples'
+        elif at_least_one_table:
+            shape = 'capsules'
+        else:
+            shape = 'capsules'
+
+    if isinstance(shape, str) and shape != 'capsules' and at_least_one_table:
+        raise SPyValueError("Tables must be pulled with shape='capsules'.")
+
+    if at_least_one_table and (at_least_one_asset or at_least_one_signal):
+        raise SPyValueError('Pulling Tables together with Assets or Signals is not supported.')
 
     # The lifecycle of a pull is several phases. We pull signals before conditions so that, if the conditions are
     # being represented as samples, we have timestamps to map to. Scalars are last because they need to be constant
@@ -466,7 +540,7 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
                 job = _process_query_row(session, at_least_one_signal, calculation, shape, capsule_properties, grid,
                                          header, query_df, index_to_use, row_index, pd_start, pd_end, phase,
                                          status, tz_convert, bounding_values, invalid_values_as, column_names,
-                                         final_column_names, enums_as)
+                                         final_column_names, enums_as, include_extinct)
 
                 def _on_success(_row_index, _job_result):
                     _item_row = query_df.loc[_row_index]
@@ -567,7 +641,7 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
             output.df[column_name] = scalar_result.result
 
     # Ensure that standard condition columns always come first
-    for col in ['Capsule ID', 'Capsule Is Uncertain', 'Capsule End', 'Capsule Start', 'Condition']:
+    for col in STANDARD_CONDITION_COLUMNS:
         if col in final_column_names:
             final_column_names.remove(col)
             final_column_names.insert(0, col)
@@ -581,6 +655,14 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
     if session.options.wants_compatibility_with(193) and 'Capsule ID' in output.df.columns:
         # Capsule ID didn't used to be returned
         output.df.drop(columns='Capsule ID', inplace=True)
+
+    if shape == 'capsules':
+        # Sort the DataFrame deterministically by Capsule Start (with NaTs first) and then Capsule End (with NaTs last)
+        output.df = (output.df.assign(
+            _s_notna=~output.df['Capsule Start'].isna(),
+            _e_isna=output.df['Capsule End'].isna(),
+        ).sort_values(by=["_s_notna", "Capsule Start", "_e_isna", "Capsule End"])
+                     .drop(columns=["_s_notna", "_e_isna"])).reset_index(drop=True)
 
     status.df['Type'] = query_df[RETURN_TYPE_COLUMN]
 
@@ -597,6 +679,9 @@ def pull(items, *, start=None, end=None, grid='15min', header='__auto__', group_
     _common.put_properties_on_df(output.df, output_df_properties)
 
     return output.df
+
+
+STANDARD_CONDITION_COLUMNS = ['Capsule ID', 'Capsule Is Uncertain', 'Capsule End', 'Capsule Start', 'Condition']
 
 
 def _merge_column_name_dict(to_merge, into):
@@ -678,17 +763,30 @@ def _ensure_column_types_for_capsules_shape(df, tz_convert=None):
         else:
             df.insert(0, column_name, pd.Series(dtype=column_type))
 
-    # Ensure that NaT values do not cause Pandas to drop our timezone conversion
-    if tz_convert is not None:
-        if 'Capsule Start' in df.columns and not pd.isnull(df['Capsule Start']).all():
-            df['Capsule Start'] = df['Capsule Start'].dt.tz_convert(tz_convert)
-        if 'Capsule End' in df.columns and not pd.isnull(df['Capsule End']).all():
-            df['Capsule End'] = df['Capsule End'].dt.tz_convert(tz_convert)
+        _convert_timezone_if_necessary(df, tz_convert)
+
+
+def _convert_timezone_if_necessary(df, tz_convert):
+    if tz_convert is None:
+        return
+
+    for column_name in ['Capsule Start', 'Capsule End',
+
+                        # Vantage materialized table standard columns
+                        'Created At', 'Updated At', 'Deleted At',
+
+                        # Vantage Context standard columns
+                        'Start Time', 'End Time']:
+
+        # Ensure that NaT values do not cause Pandas to drop our timezone conversion
+        if column_name in df.columns and not pd.isnull(df[column_name]).all():
+            df[column_name] = df[column_name].dt.tz_convert(tz_convert)
 
 
 def _process_query_row(session: Session, at_least_one_signal, calculation, shape, capsule_properties, grid, header,
-                       query_df, index_to_use, row_index, pd_start, pd_end, phase, status: Status,
-                       tz_convert, bounding_values, invalid_values_as, column_names, final_column_names, enums_as):
+                       query_df, index_to_use, row_index, pd_start, pd_end, phase, status: Status, tz_convert,
+                       bounding_values, invalid_values_as, column_names, final_column_names, enums_as,
+                       include_extinct):
     # _process_query_row was broken out into a function mostly to regain some indentation
     # space from the main pull() function. It's only ever called from one spot. That's why it has a ton of parameters.
 
@@ -771,8 +869,12 @@ def _process_query_row(session: Session, at_least_one_signal, calculation, shape
 
     elif phase == 'conditions' and 'Condition' in return_type:
         return (_pull_condition, session, item_name, formula, parameters, pd_start, pd_end, tz_convert,
-                row_index, shape, capsule_properties, calculation_to_use, header, index_to_use, query_df,
+                row, row_index, shape, capsule_properties, calculation_to_use, header, index_to_use, query_df,
                 at_least_one_signal, status)
+
+    elif phase == 'conditions' and 'Table' in return_type:
+        return (_pull_materialized_table, session, item_id, pd_start, pd_end, tz_convert, row_index,
+                capsule_properties, include_extinct, calculation_to_use, status)
 
     elif phase == 'scalars' and 'Scalar' in return_type:
         return (_pull_scalar, session, item_name, formula, parameters, row_index, index_to_use, invalid_values_as,
@@ -790,14 +892,13 @@ def _process_query_row(session: Session, at_least_one_signal, calculation, shape
     return None
 
 
-def _convert_column_timezone(ts_column, tz):
+def _convert_index_timezone(ts_column, tz):
     ts_column = ts_column.tz_localize('UTC')
     return ts_column.tz_convert(tz) if tz else ts_column
 
 
-def _pull_condition(session: Session, item_name, formula, parameters, pd_start, pd_end, tz_convert, row_index, shape,
-                    capsule_properties, calculation_to_use, header, index_to_use, query_df,
-                    at_least_one_signal,
+def _pull_condition(session: Session, item_name, formula, parameters, pd_start, pd_end, tz_convert, row, row_index,
+                    shape, capsule_properties, calculation_to_use, header, index_to_use, query_df, at_least_one_signal,
                     status: Status):
     result_df = pd.DataFrame(index=index_to_use)
     column_names = dict()
@@ -1209,7 +1310,7 @@ def _pull_signal(session: Session, item_name, formula, parameters, pd_start, pd_
         values = [_value_or_default(_sanitize_pi_enums(sample.get('value', None), enums_as))
                   for sample in filtered_samples]
 
-        time_index = _convert_column_timezone(pd.DatetimeIndex(timestamps), tz_convert)
+        time_index = _convert_index_timezone(pd.DatetimeIndex(timestamps), tz_convert)
 
         new_series = pd.Series(values, index=time_index, dtype=object)
         series = new_series if series is None else pd.concat([series, new_series])
@@ -1385,3 +1486,490 @@ def estimate_auto_grid(session: Session, query_df, pd_start, pd_end, status):
         raise SPyTypeError(f"Estimated Sample Period column data type {type(median)} not recognized")
 
     return str(int(nanoseconds / 1_000_000)) + 'ms'
+
+
+HEADER_NAME_MAP: dict = {
+    'item id': 'Condition ID',
+    'datum id': 'Capsule ID',
+    'Start': 'Capsule Start',
+    'End': 'Capsule End',
+    'Duration': 'Capsule Duration',
+    'IsUncertain': 'Capsule Is Uncertain',
+    'Deleted at': 'Deleted At',
+    'Deleted at_uom': 'Deleted At UOM',
+    'created at': 'Created At',
+}
+
+
+def _unix_ns_to_dt(x):
+    return pd.Timestamp(x, unit="ns", tz="UTC")
+
+
+def _unix_ns_to_td(x):
+    return pd.Timedelta(x, unit="ns")
+
+
+COLUMN_DTYPE_MAP: dict = {
+    'UUID': 'string',
+    'TEXT': 'string',
+    'BOOLEAN': 'bool',
+    'NUMERIC': 'float64',
+    'TIMESTAMPTZ': 'datetime64[ns, UTC]'
+}
+
+COLUMN_DTYPE_OVERRIDES: dict = {
+    'Capsule Start': 'datetime64[ns, UTC]',
+    'Capsule End': 'datetime64[ns, UTC]',
+    'Capsule Duration': 'timedelta64[ns]',
+    'Created At': 'datetime64[ns, UTC]',
+    'Updated At': 'datetime64[ns, UTC]',
+    'Deleted At': 'datetime64[ns, UTC]'
+}
+
+COLUMN_CAST_MAP: dict = {
+    'TIMESTAMPTZ': _unix_ns_to_dt
+}
+
+COLUMN_TYPE_OVERRIDES: dict = {
+    'Capsule Start': _unix_ns_to_dt,
+    'Capsule End': _unix_ns_to_dt,
+    'Capsule Duration': _unix_ns_to_td,
+    'Deleted At': _unix_ns_to_dt,
+    'context_comments.start_time': _unix_ns_to_dt,
+    'context_comments.end_time': _unix_ns_to_dt,
+    'context_labels.start_time': _unix_ns_to_dt,
+    'context_labels.end_time': _unix_ns_to_dt,
+    'context_numeric.start_time': _unix_ns_to_dt,
+    'context_numeric.end_time': _unix_ns_to_dt,
+}
+
+
+def _pull_materialized_table(
+        session: Session, table_id, pd_start, pd_end, tz_convert, row_index, capsule_properties, include_extinct,
+        calculation_to_use, status: Status):
+    if calculation_to_use is not None:
+        raise SPyValueError(
+            "calculation argument cannot be supplied when pulling a materialized table")
+
+    # noinspection PyBroadException
+    timer = _common.timer_start()
+    indices_to_update = {row_index}
+    user_map = dict()
+
+    def _update_status_rows(_message, _capsule_count, _page_count, _usage):
+        for _row_index_to_update in indices_to_update:
+            status.send_update(_row_index_to_update, {
+                'Result': _message,
+                'Count': _capsule_count,
+                'Pages': _page_count,
+                'Time': _common.timer_elapsed(timer),
+                'Data Processed': _usage
+            })
+
+    usage = Usage()
+    context_rows = list()
+    final_rows = list()
+    most_recent_capsule_start = pd_start
+    current_page_count = 1
+    current_key = None
+    current_row = None
+    the_headers = None
+
+    generator = _yield_materialized_table_rows(session, table_id, pd_start, pd_end, include_extinct)
+
+    _update_status_rows(f'Pulling {_common.convert_timestamp_timezone(most_recent_capsule_start, tz_convert)}',
+                        0, current_page_count, usage)
+
+    def _key(_d):
+        return _d['Condition ID'], _d['Capsule ID']
+
+    # noinspection PyTypeChecker
+    for new_headers, new_row, new_page_count in generator:
+        if the_headers is None:
+            the_headers = new_headers
+
+        if current_row is None:
+            if new_row is None:
+                break
+
+            current_row_dict, context_row_dict = _materialized_table_dicts_from_list(new_headers, new_row)
+            context_rows.append(context_row_dict)
+            current_key = _key(current_row_dict)
+            current_row = new_row
+            continue
+
+        final_row_dict, context_row_dict = _materialized_table_dicts_from_list(the_headers, current_row)
+        context_rows.append(context_row_dict)
+
+        most_recent_capsule_start = final_row_dict['Capsule Start']
+
+        new_key = None
+        new_row_dict = None
+        if new_row is not None:
+            new_row_dict, _ = _materialized_table_dicts_from_list(the_headers, new_row)
+            new_key = _key(new_row_dict)
+
+        if new_key != current_key:
+            _rollup_context_columns(session, final_row_dict, context_rows, tz_convert, user_map)
+            final_rows.append(final_row_dict)
+            context_rows = list()
+
+        if new_key is None:
+            break
+
+        if current_page_count != new_page_count:
+            _update_status_rows(
+                f'Pulling {_common.convert_timestamp_timezone(most_recent_capsule_start, tz_convert)}',
+                len(final_rows), new_page_count, usage)
+
+        current_page_count = new_page_count
+        current_row = new_row
+        current_key = _key(new_row_dict)
+
+    columns_types_dict = {
+        HEADER_NAME_MAP.get(h['name'], h['name']): COLUMN_DTYPE_OVERRIDES.get(
+            HEADER_NAME_MAP.get(h['name'], h['name']), COLUMN_DTYPE_MAP.get(h['type'], 'object'))
+        for h in the_headers if not h['name'].startswith('context_')
+    }
+    columns_types_dict.update({
+        'Flagged': 'boolean',
+        'Reviewed': 'boolean',
+        'Labels': 'object',
+        'Comments': 'string',
+        'Vantage Context': 'object'
+    })
+
+    final_df = pd.DataFrame(final_rows)
+
+    for expected_column, column_type in columns_types_dict.items():
+        if expected_column not in final_df.columns:
+            final_df[expected_column] = pd.Series(dtype=column_type)
+
+    if capsule_properties is not None:
+        columns_to_keep = STANDARD_CONDITION_COLUMNS + capsule_properties
+        final_df = final_df[[col for col in columns_to_keep if col in final_df.columns]]
+
+    _update_status_rows(f'Success', len(final_rows), current_page_count, usage)
+
+    return RowResult(row_index, {row_index: final_df.columns.to_list()}, final_df)
+
+
+def _yield_materialized_table_rows(session: Session, table_id, pd_start, pd_end, include_extinct):
+    cursor_key = None
+    limit = session.options.table_pull_page_size
+    page_count = 1
+
+    while True:
+        graphql_output = graphql_get_evidence(session, table_id, pd_start, pd_end, cursor_key, limit,
+                                              include_extinct)
+
+        table = graphql_output['data']['table']
+        has_more = table['hasMore']
+        cursor_key = table.get('cursorKey')
+
+        rows = table['rows']
+
+        for row in rows:
+            yield table['headers'], row, page_count
+
+        page_count += 1
+
+        if not has_more:
+            break
+
+    # Final yield to indicate completion
+    yield table['headers'], None, page_count
+
+
+def graphql_get_evidence(session, table_id, pd_start, pd_end, cursor_key, limit, include_extinct) -> dict:
+    graphql_api = GraphQLApi(session.client)
+
+    # noinspection PyTypeChecker
+    graphql_output: dict = graphql_api.graphql(body=GraphQLInputV1(
+        query="""
+    query GetTable($id: String!, $filter: FilterInput, $limit: Int!, $columnsToInclude: [String!], $cursor: CursorInput) {
+        table(id: $id, filter: $filter, limit: $limit, columnsToInclude: $columnsToInclude, cursor: $cursor) {
+            rows, headers { name, type }, hasMore, cursorKey
+        }
+    }
+    """, variables={
+            "id": table_id,
+            "limit": limit,
+            "cursor": {"cursorKey": cursor_key} if cursor_key is not None else None,
+            "filter": {
+                "compositeFilter": {
+                    "operation": "AND",
+                    "filter1": {
+                        "compositeFilter": {
+                            "operation": "OR",
+                            "filter1": {
+                                "compositeFilter": {
+                                    "operation": "OR",
+                                    "filter1": {
+                                        "compositeFilter": {
+                                            "operation": "AND",
+                                            "filter1": {
+                                                "valueFilter": {
+                                                    "columnName": "Start",
+                                                    "filterType": "GREATER_THAN_OR_EQUAL",
+                                                    "value": pd_start.value
+                                                }
+                                            },
+                                            "filter2": {
+                                                "valueFilter": {
+                                                    "columnName": "Start",
+                                                    "filterType": "LESS_THAN_OR_EQUAL",
+                                                    "value": pd_end.value
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "filter2": {
+                                        "compositeFilter": {
+                                            "operation": "AND",
+                                            "filter1": {
+                                                "valueFilter": {
+                                                    "columnName": "End",
+                                                    "filterType": "GREATER_THAN_OR_EQUAL",
+                                                    "value": pd_start.value
+                                                }
+                                            },
+                                            "filter2": {
+                                                "valueFilter": {
+                                                    "columnName": "End",
+                                                    "filterType": "LESS_THAN_OR_EQUAL",
+                                                    "value": pd_end.value
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "filter2": {
+                                "compositeFilter": {
+                                    "operation": "AND",
+                                    "filter1": {
+                                        "valueFilter": {
+                                            "columnName": "Start",
+                                            "filterType": "LESS_THAN_OR_EQUAL",
+                                            "value": pd_start.value
+                                        }
+                                    },
+                                    "filter2": {
+                                        "valueFilter": {
+                                            "columnName": "End",
+                                            "filterType": "GREATER_THAN_OR_EQUAL",
+                                            "value": pd_end.value
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "filter2": {
+                        "compositeFilter": {
+                            "operation": "AND",
+                            "filter1": {
+                                "simpleFilter": {
+                                    "columnName": "Deleted at",
+                                    "filterType": "IS_NULL"
+                                }
+                            },
+                            "filter2": {
+                                "valueFilter": {
+                                    "columnName": "Last Capsule State",
+                                    "filterType": "NOT_IN",
+                                    "value": [] if include_extinct else ["EXTINCT"]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "columnsToInclude": None  # Include all columns
+        }),
+        _response_type='json'
+    )
+
+    return graphql_output
+
+
+def _get_user_output(session: Session, user_id: str, user_map: dict) -> Optional[UserOutputV1]:
+    if not user_id:
+        return None
+
+    if user_id in user_map:
+        return user_map[user_id]
+
+    users_api = UsersApi(session.client)
+
+    try:
+        user_output = users_api.get_user(id=user_id)
+    except ApiException as e:
+        reason = '<unknown error>'
+        if e.status == 403:
+            reason = '<redacted>'
+        elif e.status == 404:
+            reason = '<user ID not found>'
+        user_output = UserOutputV1(
+            id=user_id,
+            username=reason,
+            first_name=reason,
+            last_name=reason
+        )
+
+    user_map[user_id] = user_output
+    return user_output
+
+
+def _get_user_name(user_output: UserOutputV1) -> str:
+    user_name = ''
+    if user_output.first_name is not None:
+        user_name += user_output.first_name
+    if user_output.last_name is not None:
+        if user_name != '':
+            user_name += ' '
+        user_name += user_output.last_name
+    if user_name == '':
+        user_name = user_output.username
+    return user_name
+
+
+def _rollup_context_columns(session: Session, final_row_dict, context_rows, tz_convert, user_map):
+    """
+    Transform a DataFrame by rolling up context columns into sub-DataFrames.
+
+    Groups rows by Condition ID and Capsule ID, then consolidates all context columns
+    (comments, labels, numeric) into a single 'Vantage Context' column containing sub-DataFrames.
+    """
+
+    # Helper function to convert snake_case to Title Case
+    def snake_to_title(s):
+        result = s.replace('_', ' ').title()
+        # Replace standalone "Id" with "ID" (but not when part of another word like "void")
+        result = re.sub(r'\bId\b', 'ID', result)
+        return result
+
+    # Identify context type prefixes and their display names
+    context_type_map = {
+        'context_comments': 'Comment',
+        'context_labels': 'Label',
+        'context_numeric': 'Numeric'
+    }
+
+    final_context_rows = list()
+    context_subdf = None
+    for context_row in context_rows:
+        # Process each context type that has data in this row
+        for prefix, display_name in context_type_map.items():
+            # Check if this row has any non-null values for this context type
+            prefix_cols = [col for col in context_row.keys() if col.startswith(prefix + '.')]
+            non_null_cols = [col for col in prefix_cols if pd.notna(context_row[col])]
+
+            if not non_null_cols:
+                continue
+
+            # Extract all columns for this context type
+            context_data = {}
+            for col in prefix_cols:
+                sub_col_name = col.split('.', 1)[1]
+                title_col_name = snake_to_title(sub_col_name)
+                value = context_row[col]
+                if pd.notna(value):
+                    context_data[title_col_name] = value
+
+            if not context_data:
+                continue
+
+            # If we found context data, add it as a row
+            user_output = _get_user_output(session, context_data['Creator ID'], user_map)
+            context_data['Context Type'] = display_name
+            context_data['Creator Username'] = user_output.username
+            context_data['Creator First Name'] = user_output.first_name
+            context_data['Creator Last Name'] = user_output.last_name
+            final_context_rows.append(context_data)
+
+        # Create context sub-DataFrame if we have any context rows
+        final_row_dict['Vantage Context'] = None
+        if final_context_rows:
+            # Get all unique column names across all context rows
+            all_cols = set()
+            for final_context_row in final_context_rows:
+                all_cols.update(final_context_row.keys())
+
+            # Ensure Context Type is first column, then others sorted
+            ordered_cols = ['Context Type'] + sorted([col for col in all_cols if col != 'Context Type'])
+
+            if len(final_context_rows) > 0:
+                # Create DataFrame - pandas will automatically include all keys from all dicts
+                context_subdf = pd.DataFrame(final_context_rows)
+
+                # Reorder columns (only include columns that exist in the DataFrame)
+                existing_cols = [col for col in ordered_cols if col in context_subdf.columns]
+                context_subdf = context_subdf[existing_cols]
+
+                # Remove duplicates (in case there are any)
+                context_subdf = context_subdf.drop_duplicates().reset_index(drop=True)
+
+                _convert_timezone_if_necessary(context_subdf, tz_convert)
+
+                final_row_dict['Vantage Context'] = context_subdf
+
+    built_in_labels = {'flag': 'Flagged', 'reviewed': 'Reviewed'}
+    for boolean_label, boolean_column in built_in_labels.items():
+        final_row_dict[boolean_column] = False
+        if context_subdf is not None and (
+                'Category Name' in context_subdf.columns and 'Label Name' in context_subdf.columns):
+            boolean_label_df = context_subdf[(context_subdf['Context Type'] == 'Label') &
+                                             (context_subdf['Category Name'].str.startswith('__Vantage.')) &
+                                             (context_subdf['Label Name'] == f'{boolean_label}')]
+            final_row_dict[boolean_column] = not boolean_label_df.empty
+
+    final_row_dict['Labels'] = set()
+    if context_subdf is not None and (
+            'Category Name' in context_subdf.columns and 'Label Name' in context_subdf.columns):
+        label_column_candidates_df = context_subdf[(context_subdf['Context Type'] == 'Label') &
+                                                   (~context_subdf['Category Name'].isin({
+                                                       '__Seeq.suppression',
+                                                       '__Vantage.flag',
+                                                       '__Vantage.reviewed',
+                                                       '__Vantage.suppression'
+                                                   }))]
+
+        if not label_column_candidates_df.empty:
+            unique_labels = set(label_column_candidates_df['Label Name'].unique().tolist())
+            final_row_dict['Labels'] = unique_labels
+
+    comments_str = ''
+    if context_subdf is not None:
+        comment_candidates_df = context_subdf[context_subdf['Context Type'] == 'Comment'].sort_values(
+            'Created At')
+
+        for _, comment_row in comment_candidates_df.iterrows():
+            user_output = _get_user_output(session, comment_row['Creator ID'], user_map)
+            user_name = _get_user_name(user_output)
+            if len(comments_str) > 0:
+                comments_str += '\n'
+            comments_str += f"[{comment_row['Created At']} {user_name}]\n{comment_row['Comment']}\n"
+
+    final_row_dict['Comments'] = comments_str
+
+
+def _materialized_table_dicts_from_list(headers, row):
+    if row is None:
+        pass
+
+    final_row_dict = dict()
+    context_row_dict = dict()
+    for i in range(len(headers)):
+        header = headers[i]
+        name = HEADER_NAME_MAP.get(header['name'], header['name'])
+        value = row[i]
+        value_cast = COLUMN_TYPE_OVERRIDES.get(name, COLUMN_CAST_MAP.get(header['type']))
+        relevant_dict = context_row_dict if name.startswith('context_') else final_row_dict
+        if value_cast is not None and pd.notna(value):
+            relevant_dict[name] = value_cast(value)
+        else:
+            relevant_dict[name] = value
+
+    return final_row_dict, context_row_dict

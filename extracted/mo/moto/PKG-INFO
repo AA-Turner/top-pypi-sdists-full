@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto
-Version: 5.1.13
+Version: 5.1.20
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/getmoto/moto
 Author: Steve Pulec
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -32,44 +33,50 @@ Requires-Dist: responses!=0.25.5,>=0.15.0
 Requires-Dist: Jinja2>=2.10.1
 Provides-Extra: all
 Requires-Dist: antlr4-python3-runtime; extra == "all"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "all"
 Requires-Dist: joserfc>=0.9.0; extra == "all"
 Requires-Dist: jsonpath_ng; extra == "all"
 Requires-Dist: docker>=3.0.0; extra == "all"
 Requires-Dist: graphql-core; extra == "all"
 Requires-Dist: PyYAML>=5.1; extra == "all"
-Requires-Dist: cfn-lint>=0.40.0; extra == "all"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "all"
 Requires-Dist: jsonschema; extra == "all"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "all"
+Requires-Dist: pydantic<=2.12.4; extra == "all"
 Requires-Dist: pyparsing>=3.0.7; extra == "all"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "all"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "all"
 Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "all"
 Requires-Dist: setuptools; extra == "all"
 Requires-Dist: multipart; extra == "all"
 Provides-Extra: proxy
 Requires-Dist: antlr4-python3-runtime; extra == "proxy"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "proxy"
 Requires-Dist: joserfc>=0.9.0; extra == "proxy"
 Requires-Dist: jsonpath_ng; extra == "proxy"
 Requires-Dist: docker>=2.5.1; extra == "proxy"
 Requires-Dist: graphql-core; extra == "proxy"
 Requires-Dist: PyYAML>=5.1; extra == "proxy"
-Requires-Dist: cfn-lint>=0.40.0; extra == "proxy"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "proxy"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "proxy"
+Requires-Dist: pydantic<=2.12.4; extra == "proxy"
 Requires-Dist: pyparsing>=3.0.7; extra == "proxy"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "proxy"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "proxy"
 Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "proxy"
 Requires-Dist: setuptools; extra == "proxy"
 Requires-Dist: multipart; extra == "proxy"
 Provides-Extra: server
 Requires-Dist: antlr4-python3-runtime; extra == "server"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "server"
 Requires-Dist: joserfc>=0.9.0; extra == "server"
 Requires-Dist: jsonpath_ng; extra == "server"
 Requires-Dist: docker>=3.0.0; extra == "server"
 Requires-Dist: graphql-core; extra == "server"
 Requires-Dist: PyYAML>=5.1; extra == "server"
-Requires-Dist: cfn-lint>=0.40.0; extra == "server"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "server"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "server"
+Requires-Dist: pydantic<=2.12.4; extra == "server"
 Requires-Dist: pyparsing>=3.0.7; extra == "server"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "server"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "server"
 Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "server"
 Requires-Dist: setuptools; extra == "server"
 Requires-Dist: flask!=2.2.0,!=2.2.1; extra == "server"
@@ -103,10 +110,10 @@ Requires-Dist: joserfc>=0.9.0; extra == "cloudformation"
 Requires-Dist: docker>=3.0.0; extra == "cloudformation"
 Requires-Dist: graphql-core; extra == "cloudformation"
 Requires-Dist: PyYAML>=5.1; extra == "cloudformation"
-Requires-Dist: cfn-lint>=0.40.0; extra == "cloudformation"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "cloudformation"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "cloudformation"
 Requires-Dist: pyparsing>=3.0.7; extra == "cloudformation"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "cloudformation"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "cloudformation"
 Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "cloudformation"
 Requires-Dist: setuptools; extra == "cloudformation"
 Provides-Extra: cloudfront
@@ -128,10 +135,10 @@ Provides-Extra: dms
 Provides-Extra: ds
 Provides-Extra: dynamodb
 Requires-Dist: docker>=3.0.0; extra == "dynamodb"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "dynamodb"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "dynamodb"
 Provides-Extra: dynamodbstreams
 Requires-Dist: docker>=3.0.0; extra == "dynamodbstreams"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "dynamodbstreams"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "dynamodbstreams"
 Provides-Extra: ebs
 Provides-Extra: ec2
 Provides-Extra: ec2instanceconnect
@@ -194,18 +201,18 @@ Requires-Dist: joserfc>=0.9.0; extra == "resourcegroupstaggingapi"
 Requires-Dist: docker>=3.0.0; extra == "resourcegroupstaggingapi"
 Requires-Dist: graphql-core; extra == "resourcegroupstaggingapi"
 Requires-Dist: PyYAML>=5.1; extra == "resourcegroupstaggingapi"
-Requires-Dist: cfn-lint>=0.40.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "resourcegroupstaggingapi"
 Requires-Dist: openapi-spec-validator>=0.5.0; extra == "resourcegroupstaggingapi"
 Requires-Dist: pyparsing>=3.0.7; extra == "resourcegroupstaggingapi"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "resourcegroupstaggingapi"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "resourcegroupstaggingapi"
 Provides-Extra: route53
 Provides-Extra: route53resolver
 Provides-Extra: s3
 Requires-Dist: PyYAML>=5.1; extra == "s3"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "s3"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "s3"
 Provides-Extra: s3crc32c
 Requires-Dist: PyYAML>=5.1; extra == "s3crc32c"
-Requires-Dist: py-partiql-parser==0.6.1; extra == "s3crc32c"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "s3crc32c"
 Requires-Dist: crc32c; extra == "s3crc32c"
 Provides-Extra: s3control
 Provides-Extra: sagemaker

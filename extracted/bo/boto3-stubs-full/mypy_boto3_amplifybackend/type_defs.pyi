@@ -3,7 +3,7 @@ Type annotations for amplifybackend service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_amplifybackend/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Any, Union
 
 from .literals import (
@@ -36,12 +37,6 @@ from .literals import (
     UnAuthenticatedElementType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -194,8 +189,8 @@ class BackendJobRespObjTypeDef(TypedDict):
     UpdateTime: NotRequired[str]
 
 class BackendStoragePermissionsOutputTypeDef(TypedDict):
-    Authenticated: List[AuthenticatedElementType]
-    UnAuthenticated: NotRequired[List[UnAuthenticatedElementType]]
+    Authenticated: list[AuthenticatedElementType]
+    UnAuthenticated: NotRequired[list[UnAuthenticatedElementType]]
 
 class BackendStoragePermissionsTypeDef(TypedDict):
     Authenticated: Sequence[AuthenticatedElementType]
@@ -209,7 +204,7 @@ class CloneBackendRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -225,7 +220,7 @@ class CreateBackendAuthIdentityPoolConfigTypeDef(TypedDict):
     UnauthenticatedLogin: bool
 
 class SettingsOutputTypeDef(TypedDict):
-    MfaTypes: NotRequired[List[MfaTypesElementType]]
+    MfaTypes: NotRequired[list[MfaTypesElementType]]
     SmsMessage: NotRequired[str]
 
 class SettingsTypeDef(TypedDict):
@@ -234,7 +229,7 @@ class SettingsTypeDef(TypedDict):
 
 class CreateBackendAuthPasswordPolicyConfigOutputTypeDef(TypedDict):
     MinimumLength: float
-    AdditionalConstraints: NotRequired[List[AdditionalConstraintsElementType]]
+    AdditionalConstraints: NotRequired[list[AdditionalConstraintsElementType]]
 
 class CreateBackendAuthPasswordPolicyConfigTypeDef(TypedDict):
     MinimumLength: float
@@ -525,7 +520,7 @@ class GetBackendResponseTypeDef(TypedDict):
     AmplifyMetaConfig: str
     AppId: str
     AppName: str
-    BackendEnvironmentList: List[str]
+    BackendEnvironmentList: list[str]
     BackendEnvironmentName: str
     Error: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -554,7 +549,7 @@ class ImportBackendStorageResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBackendJobsResponseTypeDef(TypedDict):
-    Jobs: List[BackendJobRespObjTypeDef]
+    Jobs: list[BackendJobRespObjTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -645,7 +640,7 @@ class ListBackendJobsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListS3BucketsResponseTypeDef(TypedDict):
-    Buckets: List[S3BucketInfoTypeDef]
+    Buckets: list[S3BucketInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -661,7 +656,7 @@ class UpdateBackendConfigResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BackendAPIResourceConfigOutputTypeDef(TypedDict):
-    AdditionalAuthTypes: NotRequired[List[BackendAPIAuthTypeTypeDef]]
+    AdditionalAuthTypes: NotRequired[list[BackendAPIAuthTypeTypeDef]]
     ApiName: NotRequired[str]
     ConflictResolution: NotRequired[BackendAPIConflictResolutionTypeDef]
     DefaultAuthType: NotRequired[BackendAPIAuthTypeTypeDef]
@@ -678,9 +673,9 @@ class BackendAPIResourceConfigTypeDef(TypedDict):
 
 class CreateBackendAuthOAuthConfigOutputTypeDef(TypedDict):
     OAuthGrantType: OAuthGrantTypeType
-    OAuthScopes: List[OAuthScopesElementType]
-    RedirectSignInURIs: List[str]
-    RedirectSignOutURIs: List[str]
+    OAuthScopes: list[OAuthScopesElementType]
+    RedirectSignInURIs: list[str]
+    RedirectSignOutURIs: list[str]
     DomainPrefix: NotRequired[str]
     SocialProviderSettings: NotRequired[SocialProviderSettingsTypeDef]
 
@@ -740,7 +735,7 @@ BackendAPIResourceConfigUnionTypeDef = Union[
 ]
 
 class CreateBackendAuthUserPoolConfigOutputTypeDef(TypedDict):
-    RequiredSignUpAttributes: List[RequiredSignUpAttributesElementType]
+    RequiredSignUpAttributes: list[RequiredSignUpAttributesElementType]
     SignInMethod: SignInMethodType
     UserPoolName: str
     ForgotPassword: NotRequired[CreateBackendAuthForgotPasswordConfigTypeDef]

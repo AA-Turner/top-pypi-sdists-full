@@ -16,7 +16,7 @@ def test_basic(storage, downloader, data_function):
     assert Path(storage._store[0]['file_path']).name == ('sunpy.test_file')
 
 
-def test_download_cache(manager, storage, downloader, data_function):
+def test_download_cache(storage, downloader, data_function):
     """
     Test calling function multiple times does not redownload.
     """
@@ -33,7 +33,7 @@ def test_file_tampered(manager, storage, downloader, data_function):
     Test calling function multiple times does not redownload.
     """
     data_function()
-    write_to_test_file(manager._tempdir + '/sunpy.test_file', 'b')
+    write_to_test_file(f'{manager._tempdir}/sunpy.test_file', 'b')
     with pytest.warns(SunpyUserWarning):
         data_function()
 
@@ -89,7 +89,7 @@ def test_skip_all(manager, storage, downloader, data_function):
     assert Path(storage._store[0]['file_path']).name == ('sunpy.test_file')
 
 
-def test_override_file(manager, storage, downloader, data_function, tmpdir):
+def test_override_file(manager, data_function, tmpdir):
     """
     Test the override_file functionality.
     """
@@ -104,18 +104,19 @@ def test_override_file(manager, storage, downloader, data_function, tmpdir):
         """
         Function to test whether the file is /tmp/another_file.
         """
-        assert manager.get('test_file') == Path(f'{folder}/another_file')
+        assert manager.get('test_file') == Path(f"{folder}/another_file")
+
 
     # Outside the context manager file is default
     folder = tmpdir.strpath
     data_function(default_tester)
-    write_to_test_file(str(Path(folder+'/another_file')), 'a')
+    write_to_test_file(str(Path(f'{folder}/another_file')), 'a')
 
     with manager.override_file('test_file', f'file://{folder}/another_file'):
         # Inside the file is replaced
         data_function(override_file_tester)
 
-    # TODO: this combined with the check above fails on windows
+    # NOTE: This test fails on Windows due to https://github.com/python/cpython/issues/86381.
     # with manager.override_file('test_file', f'{folder}/another_file'):
     #     # Inside the file is replaced
     #     data_function(override_file_tester)
@@ -135,7 +136,7 @@ def test_override_file(manager, storage, downloader, data_function, tmpdir):
 
 
 def test_override_file_remote(manager, downloader, data_function):
-    replace_url = 'http://example.com/another_file'
+    replace_url = 'https://example.com/another_file'
     data_function()
     assert downloader.times_called == 1
     with manager.override_file('test_file', replace_url):
@@ -175,7 +176,7 @@ def test_file_changed(data_function, storage):
 
 def test_delete_db(sqlmanager, sqlstorage):
     # Download the file
-    @sqlmanager.require('test_file', ['http://example.com/test_file'], MOCK_HASH)
+    @sqlmanager.require('test_file', ['https://example.com/test_file'], MOCK_HASH)
     def test_function():
         pass
 
@@ -219,7 +220,7 @@ def test_namespacing_with_manager_override_file(module_patched_manager, download
 
     # Override the file name with a different URI
     with module_patched_manager.override_file(
-            'test_file', 'http://www.different_uri.com/new_file', MOCK_HASH):
+            'test_file', 'https://www.different_uri.com/new_file', MOCK_HASH):
         data_function_from_fake_module()
 
         assert downloader.times_called == 2

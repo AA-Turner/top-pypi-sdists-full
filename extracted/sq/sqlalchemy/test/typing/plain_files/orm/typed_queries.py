@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import assert_type
+from typing import Optional
 from typing import Tuple
 
 from sqlalchemy import Column
@@ -132,6 +134,8 @@ def t_legacy_query_single_entity() -> None:
 
     # EXPECTED_TYPE: User
     reveal_type(q1.one())
+
+    assert_type(q1.get(5), Optional[User])
 
     # EXPECTED_TYPE: List[User]
     reveal_type(q1.all())
@@ -444,37 +448,29 @@ def t_dml_insert() -> None:
 def t_dml_bare_insert() -> None:
     s1 = insert(User)
     r1 = session.execute(s1)
-    # EXPECTED_TYPE: CursorResult[Any]
+    # EXPECTED_TYPE: Result[Any]
     reveal_type(r1)
-    # EXPECTED_TYPE: int
-    reveal_type(r1.rowcount)
 
 
 def t_dml_bare_update() -> None:
     s1 = update(User)
     r1 = session.execute(s1)
-    # EXPECTED_TYPE: CursorResult[Any]
+    # EXPECTED_TYPE: Result[Any]
     reveal_type(r1)
-    # EXPECTED_TYPE: int
-    reveal_type(r1.rowcount)
 
 
 def t_dml_update_with_values() -> None:
     s1 = update(User).values({User.id: 123, User.data: "value"})
     r1 = session.execute(s1)
-    # EXPECTED_TYPE: CursorResult[Any]
+    # EXPECTED_TYPE: Result[Any]
     reveal_type(r1)
-    # EXPECTED_TYPE: int
-    reveal_type(r1.rowcount)
 
 
 def t_dml_bare_delete() -> None:
     s1 = delete(User)
     r1 = session.execute(s1)
-    # EXPECTED_TYPE: CursorResult[Any]
+    # EXPECTED_TYPE: Result[Any]
     reveal_type(r1)
-    # EXPECTED_TYPE: int
-    reveal_type(r1.rowcount)
 
 
 def t_dml_update() -> None:

@@ -48,6 +48,11 @@ ArtifactDict = dict[str, set["MavenArtifact"]]
 GroupDict = dict[str, ArtifactDict]
 Namespaces = dict[str | None, str]
 
+# Created so these lint silencers don't need to be repeated every single time.
+# lxml's `Element` is actually a free-form function that returns the private
+# `_Element` class, so for typing's sake, a "private" type needs to be referenced.
+Element = etree._Element  # type: ignore[reportPrivateUsage] # noqa: SLF001
+
 _XML_PARSER = etree.XMLParser(
     # Attempt to recover if an error is encountered
     recover=True,
@@ -219,7 +224,7 @@ class MavenArtifact:
     field_name: str = "Dependency"
 
     @classmethod
-    def from_element(cls, element: etree._Element, namespaces: Namespaces) -> Self:
+    def from_element(cls, element: Element, namespaces: Namespaces) -> Self:
         """Create a MavenArtifact from an XML artifact element."""
         # We can always just set the version if it's missing, so don't raise
         try:
@@ -235,7 +240,17 @@ class MavenArtifact:
         except MavenXMLError:
             packaging = None
 
-        group_id = _get_element_text(_find_element(element, "groupId", namespaces))
+        try:
+            group_id = _get_element_text(_find_element(element, "groupId", namespaces))
+        except MavenXMLError:
+            # Attempt to recover by retrieving the groupId from a parent element.
+            # If the parent is malformed, this raises a different error blaming the parent instead.
+            parent = cls._get_parent(element, namespaces)
+            if parent:
+                group_id = parent.group_id
+            else:
+                raise
+
         artifact_id = _get_element_text(
             _find_element(element, "artifactId", namespaces)
         )
@@ -252,8 +267,8 @@ class MavenArtifact:
 
     @classmethod
     def _collect_elements(
-        cls, project: etree._Element, namespaces: Namespaces
-    ) -> list[etree._Element]:
+        cls, project: Element, namespaces: Namespaces
+    ) -> list[Element]:
         dependencies = project.find("dependencies", namespaces)
         if dependencies is None:
             return []
@@ -262,7 +277,7 @@ class MavenArtifact:
 
     @classmethod
     def update_versions(
-        cls, project: etree._Element, namespaces: Namespaces, existing: GroupDict
+        cls, project: Element, namespaces: Namespaces, existing: GroupDict
     ) -> None:
         """Update all of the versions for this project as necessary."""
         for dependency in cls._collect_elements(project, namespaces):
@@ -274,6 +289,17 @@ class MavenArtifact:
                     f"{cls.field_name} {dep.artifact_id} has no available version, skipping."
                 )
 
+    @classmethod
+    def _get_parent(
+        cls, project: Element, namespaces: Namespaces
+    ) -> MavenParent | None:
+        try:
+            parent_ele = _find_element(project, "parent", namespaces)
+        except MavenXMLError:
+            return None
+
+        return MavenParent.from_element(parent_ele, namespaces)
+
 
 @dataclass(frozen=True)
 class MavenParent(MavenArtifact):
@@ -284,8 +310,8 @@ class MavenParent(MavenArtifact):
     @classmethod
     @override
     def _collect_elements(
-        cls, project: etree._Element, namespaces: Namespaces
-    ) -> list[etree._Element]:
+        cls, project: Element, namespaces: Namespaces
+    ) -> list[Element]:
         parent = project.find("parent", namespaces)
         if parent is None:
             return []
@@ -303,7 +329,7 @@ class MavenPlugin(MavenArtifact):
 
     @classmethod
     @override
-    def from_element(cls, element: etree._Element, namespaces: Namespaces) -> Self:
+    def from_element(cls, element: Element, namespaces: Namespaces) -> Self:
         """Create a MavenPlugin from an XML plugin element.
 
         If no groupId is found, 'org.apache.maven.plugins' will be used.
@@ -315,7 +341,10 @@ class MavenPlugin(MavenArtifact):
         try:
             group_id_element = _find_element(element, "groupId", namespaces)
         except MavenXMLError:
-            group_id = "org.apache.maven.plugins"
+            # Attempt to recover by retrieving the groupId from a parent element.
+            # Otherwise, use the default groupId for plugins.
+            parent = cls._get_parent(element, namespaces)
+            group_id = parent.group_id if parent else "org.apache.maven.plugins"
         else:
             group_id = _get_element_text(group_id_element)
 
@@ -333,9 +362,9 @@ class MavenPlugin(MavenArtifact):
     @classmethod
     @override
     def _collect_elements(
-        cls, project: etree._Element, namespaces: Namespaces
-    ) -> list[etree._Element]:
-        all_plugins = []
+        cls, project: Element, namespaces: Namespaces
+    ) -> list[Element]:
+        all_plugins: list[Element] = []
 
         # Get plugins declared at <build><plugins>
         try:
@@ -359,7 +388,7 @@ class MavenPlugin(MavenArtifact):
     @classmethod
     @override
     def update_versions(
-        cls, project: etree._Element, namespaces: Namespaces, existing: GroupDict
+        cls, project: Element, namespaces: Namespaces, existing: GroupDict
     ) -> None:
         """Update all of the versions for this project as necessary."""
         declared_plugins = cls._collect_elements(project, namespaces)
@@ -399,7 +428,7 @@ class MavenPlugin(MavenArtifact):
     def _set_remaining_plugins(
         cls,
         remaining_plugins: set[MavenArtifact],
-        project: etree._Element,
+        project: Element,
         namespaces: Namespaces,
     ) -> None:
         """Append remaining plugin dependency entries to a project."""
@@ -414,17 +443,13 @@ class MavenPlugin(MavenArtifact):
             plugins_ele.append(plugin_ele)
 
     @classmethod
-    def _get_plugins_ele(
-        cls, project: etree._Element, namespaces: Namespaces
-    ) -> etree._Element:
+    def _get_plugins_ele(cls, project: Element, namespaces: Namespaces) -> Element:
         build = _find_or_create_ele(project, "build", namespaces)
         plugin_mgmt = _find_or_create_ele(build, "pluginManagement", namespaces)
         return _find_or_create_ele(plugin_mgmt, "plugins", namespaces)
 
 
-def _find_or_create_ele(
-    element: etree._Element, tag: str, namespaces: Namespaces
-) -> etree._Element:
+def _find_or_create_ele(element: Element, tag: str, namespaces: Namespaces) -> Element:
     """Find a subelement within a given element."""
     try:
         result = _find_element(element, tag, namespaces)
@@ -554,9 +579,7 @@ def _get_available_versions(
     return None
 
 
-def _set_version(
-    element: etree._Element, namespaces: Namespaces, versions: _Versions
-) -> None:
+def _set_version(element: Element, namespaces: Namespaces, versions: _Versions) -> None:
     group_id = _get_element_text(_find_element(element, "groupId", namespaces))
     artifact_id = _get_element_text(_find_element(element, "artifactId", namespaces))
 
@@ -611,9 +634,7 @@ class MavenXMLError(BaseException):
         return f"{self.message}\n{self.details}"
 
 
-def _find_element(
-    element: etree._Element, path: str, namespaces: Namespaces
-) -> etree._Element:
+def _find_element(element: Element, path: str, namespaces: Namespaces) -> Element:
     """Find a field within an element.
 
     This is equivalent to `element.find(path, namespaces)`, except that
@@ -634,7 +655,7 @@ def _find_element(
     )
 
 
-def _get_element_text(element: etree._Element) -> str:
+def _get_element_text(element: Element) -> str:
     """Extract the text field from an element.
 
     This is equivalent to `element.text`, except that an exception is
@@ -653,12 +674,12 @@ def _get_element_text(element: etree._Element) -> str:
     )
 
 
-def _format_xml_str(element: etree._Element) -> str:
+def _format_xml_str(element: Element) -> str:
     """Get a nicely-formatted string for displaying an XML element."""
     return etree.tostring(element, pretty_print=True).decode(errors="replace")
 
 
-def _get_namespaces(project: etree._Element) -> Namespaces:
+def _get_namespaces(project: Element) -> Namespaces:
     """Find and register the first XML namespace."""
     namespaces = project.nsmap
     for prefix, uri in namespaces.items():

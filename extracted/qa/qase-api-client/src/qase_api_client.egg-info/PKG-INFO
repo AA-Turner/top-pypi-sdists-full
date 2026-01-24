@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qase-api-client
-Version: 2.0.0
+Version: 2.0.3
 Summary: Qase TestOps API V1 client for Python
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://github.com/qase-tms/qase-python
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Requires-Dist: urllib3<=2.5.0,>=1.25.3
+Requires-Dist: urllib3<2.7.0,>=2.5.0
 Requires-Dist: python-dateutil
 Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
@@ -82,12 +82,15 @@ Please follow the [installation procedure](#installation--usage) and then run th
 import qase.api_client_v1
 from qase.api_client_v1.rest import ApiException
 from pprint import pprint
+import certifi
 
 # Defining the host is optional and defaults to https://api.qase.io/v1
 # See configuration.py for a list of all supported configuration parameters.
 configuration = qase.api_client_v1.Configuration(
     host = "https://api.qase.io/v1"
 )
+
+configuration.ssl_ca_cert = certifi.where()
 
 # The client must configure the authentication and authorization parameters
 # in accordance with the API server security policy.

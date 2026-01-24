@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, cast, Callable
 
-from azure.core.async_paging import AsyncList
 from azure.core.rest import HttpResponse
 from azure.core.paging import PageIterator
 from azure.core.async_paging import AsyncPageIterator
@@ -18,6 +17,7 @@ from ._generated.models import (
     SnapshotStatus,
     SnapshotComposition,
 )
+from ._generated._model_base import _deserialize
 
 
 class ConfigurationSetting(Model):
@@ -581,7 +581,7 @@ class ConfigurationSettingPropertiesPaged(PageIterator):
     etag: str
     """The etag of current page."""
 
-    def __init__(self, command: Callable, **kwargs):
+    def __init__(self, command: Callable, **kwargs: Any):
         super(ConfigurationSettingPropertiesPaged, self).__init__(
             self._get_next_cb,
             self._extract_data_cb,
@@ -610,8 +610,9 @@ class ConfigurationSettingPropertiesPaged(PageIterator):
 
     def _extract_data_cb(self, get_next_return):
         deserialized, response_headers = get_next_return
+        list_of_elem = _deserialize(List[KeyValue], deserialized["items"])
         self.etag = response_headers.pop("ETag")
-        return deserialized.next_link or None, iter(self._deserializer(deserialized.items))
+        return deserialized.get("@nextLink") or None, iter(self._deserializer(list_of_elem))
 
 
 class ConfigurationSettingPropertiesPagedAsync(AsyncPageIterator):
@@ -620,7 +621,7 @@ class ConfigurationSettingPropertiesPagedAsync(AsyncPageIterator):
     etag: str
     """The etag of current page."""
 
-    def __init__(self, command: Callable, **kwargs):
+    def __init__(self, command: Callable, **kwargs: Any):
         super(ConfigurationSettingPropertiesPagedAsync, self).__init__(
             self._get_next_cb,
             self._extract_data_cb,
@@ -649,5 +650,6 @@ class ConfigurationSettingPropertiesPagedAsync(AsyncPageIterator):
 
     async def _extract_data_cb(self, get_next_return):
         deserialized, response_headers = get_next_return
+        list_of_elem = _deserialize(List[KeyValue], deserialized["items"])
         self.etag = response_headers.pop("ETag")
-        return deserialized.next_link or None, AsyncList(self._deserializer(deserialized.items))
+        return deserialized.get("@nextLink") or None, iter(self._deserializer(list_of_elem))

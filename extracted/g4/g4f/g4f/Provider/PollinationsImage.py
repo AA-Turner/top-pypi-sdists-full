@@ -4,7 +4,6 @@ from typing import Optional
 
 from .helper import format_media_prompt
 from ..typing import AsyncResult, Messages, MediaListType
-from ..config import STATIC_URL
 from .PollinationsAI import PollinationsAI
 
 class PollinationsImage(PollinationsAI):
@@ -37,7 +36,6 @@ class PollinationsImage(PollinationsAI):
         messages: Messages,
         media: MediaListType = None,
         proxy: str = None,
-        referrer: str = STATIC_URL,
         api_key: str = None,
         prompt: str = None,
         aspect_ratio: str = None,
@@ -55,8 +53,12 @@ class PollinationsImage(PollinationsAI):
     ) -> AsyncResult:
         # Calling model updates before creating a generator
         cls.get_models()
+        alias = cls.swap_model_aliases.get(model, model)
+        if model in cls.model_aliases:
+            model = cls.model_aliases[model]
         async for chunk in cls._generate_image(
             model=model,
+            alias=alias,
             prompt=format_media_prompt(messages, prompt),
             media=media,
             proxy=proxy,
@@ -71,7 +73,6 @@ class PollinationsImage(PollinationsAI):
             safe=safe,
             transparent=transparent,
             n=n,
-            referrer=referrer,
             api_key=api_key
         ):
             yield chunk

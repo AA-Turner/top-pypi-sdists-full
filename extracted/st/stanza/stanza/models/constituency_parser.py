@@ -161,6 +161,7 @@ Some alternate optimizer methods:
 import argparse
 import logging
 import os
+import random
 import re
 
 import torch
@@ -429,6 +430,7 @@ def build_argparse():
     parser.add_argument('--no_save_each_optimizer', dest='save_each_optimizer', default=True, action='store_false', help="Don't save the optimizer when saving 'each' model")
 
     parser.add_argument('--seed', type=int, default=1234)
+    parser.add_argument('--no_seed', action='store_const', const=None, dest='seed', help='Remove the random seed, resulting in a randomly chosen random seed')
 
     parser.add_argument('--no_check_valid_states', default=True, action='store_false', dest='check_valid_states', help="Don't check the constituents or transitions in the dev set when starting a new parser.  Warning: the parser will never guess unknown constituents")
     parser.add_argument('--no_strict_check_constituents', default=True, action='store_false', dest='strict_check_constituents', help="Don't check the constituents between the train & dev set.  May result in untrainable transitions")
@@ -705,6 +707,40 @@ def build_argparse():
     parser.add_argument('--no_use_lattn', dest='use_lattn', action='store_false', help='Use the lattn layers - currently turned off')
     parser.add_argument('--no_lattn_combined_input', dest='lattn_combined_input', action='store_false', help="Don't combine all inputs for the lattn, not just the pattn")
 
+    parser.add_argument('--use_rattn', default=False, action='store_true', help='Use a local attention layer')
+    parser.add_argument('--rattn_window', default=16, type=int, help='Number of tokens to use for context in the local attention')
+    # Ran an experiment on id_icon with in_order, peft, 200 epochs training
+    # Equivalent experiment with no rattn had an average of 0.8922 dev
+    # window 16, cat, dim 200, sinks 0
+    #   head      dev score
+    #     1         0.8915
+    #     2         0.8933
+    #     3         0.8918
+    #     4         0.8934
+    #     5         0.8924
+    #     6         0.8936
+    #     8         0.8920
+    #    10         0.8909
+    #    12         0.8939
+    #    14         0.8949
+    #    16         0.8952
+    #    18         0.8915
+    #    20         0.8925
+    #    25         0.8913
+    #    30         0.8913
+    #    40         0.8943
+    #    50         0.8931
+    #    75         0.8940
+    # The average here is 0.8928, which is a tiny bit higher...
+    parser.add_argument('--rattn_heads', default=16, type=int, help='Number of heads to use for context in the local attention')
+    parser.add_argument('--no_rattn_forward', default=True, action='store_false', dest='rattn_forward', help="Use or don't use the forward relative attention")
+    parser.add_argument('--no_rattn_reverse', default=True, action='store_false', dest='rattn_reverse', help="Use or don't use the reverse relative attention")
+    parser.add_argument('--no_rattn_cat', action='store_false', dest='rattn_cat', help='Stack the rattn layers instead of adding them')
+    parser.add_argument('--rattn_cat', default=True, action='store_true', help='Stack the rattn layers instead of adding them')
+    parser.add_argument('--rattn_dim', default=200, type=int, help='Dimension of the rattn output when cat')
+    parser.add_argument('--rattn_sinks', default=0, type=int, help='Number of attention sink tokens to learn')
+    parser.add_argument('--rattn_use_endpoint_sinks', default=False, action='store_true', help='Use the endpoints of the sentences as sinks')
+
     parser.add_argument('--log_norms', default=False, action='store_true', help='Log the parameters norms while training.  A very noisy option')
     parser.add_argument('--log_shapes', default=False, action='store_true', help='Log the parameters shapes at the beginning')
     parser.add_argument('--watch_regex', default=None, help='regex to describe which weights and biases to output, if any')
@@ -719,6 +755,19 @@ def build_model_filename(args):
     embedding = utils.embedding_name(args)
     maybe_finetune = "finetuned" if args['bert_finetune'] or args['stage1_bert_finetune'] else ""
     transformer_finetune_begin = "%d" % args['bert_finetune_begin_epoch'] if args['bert_finetune_begin_epoch'] is not None else ""
+
+    rattn = ""
+    if args['use_rattn']:
+        if args['rattn_forward']: rattn = rattn + "F"
+        if args['rattn_reverse']: rattn = rattn + "R"
+        if rattn:
+            if args['rattn_cat']:
+                rattn += "c"
+            rattn += "h%02d" % args['rattn_heads']
+            rattn += "w%02d" % args['rattn_window']
+            if args['rattn_sinks'] > 0:
+                rattn += "s%d" % args['rattn_sinks']
+
     model_save_file = args['save_name'].format(shorthand=args['shorthand'],
                                                oracle_level=args['oracle_level'],
                                                embedding=embedding,
@@ -727,6 +776,7 @@ def build_model_filename(args):
                                                transition_scheme=args['transition_scheme'].name.lower().replace("_", ""),
                                                tscheme=args['transition_scheme'].short_name,
                                                trans_layers=args['bert_hidden_layers'],
+                                               rattn=rattn,
                                                seed=args['seed'])
     model_save_file = re.sub("_+", "_", model_save_file)
     logger.info("Expanded save_name: %s", model_save_file)
@@ -804,6 +854,10 @@ def parse_args(args=None):
 
     retagging.postprocess_args(args)
     postprocess_predict_output_args(args)
+
+    if args['seed'] is None:
+        args['seed'] = random.randint(0, 1000000000)
+        logger.info("Using random seed %d", args['seed'])
 
     model_save_file = build_model_filename(args)
     args['save_name'] = model_save_file

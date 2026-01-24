@@ -3,14 +3,14 @@ Type annotations for connect service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_connect.literals import ActionTypeType
+    from mypy_boto3_connect.literals import AccessTypeType
 
-    data: ActionTypeType = "ASSIGN_CONTACT_CATEGORY"
+    data: AccessTypeType = "ALLOW"
     ```
 """
 
@@ -22,13 +22,19 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccessTypeType",
     "ActionTypeType",
     "AgentAvailabilityTimerType",
     "AgentStatusStateType",
     "AgentStatusTypeType",
+    "AiUseCaseType",
+    "AllowedUserActionType",
     "AnsweringMachineDetectionStatusType",
+    "ApplicationTypeType",
     "ArtifactStatusType",
+    "AutoEvaluationStatusType",
     "BehaviorTypeType",
+    "BooleanComparisonTypeType",
     "ChannelType",
     "ChatEventTypeType",
     "ComparisonType",
@@ -39,27 +45,53 @@ __all__ = (
     "ContactFlowStatusType",
     "ContactFlowTypeType",
     "ContactInitiationMethodType",
+    "ContactInteractionTypeType",
+    "ContactMediaProcessingFailureModeType",
     "ContactMetricNameType",
+    "ContactParticipantRoleType",
     "ContactRecordingTypeType",
     "ContactStateType",
     "CurrentMetricNameType",
+    "DataTableAttributeValueTypeType",
+    "DataTableLockLevelType",
+    "DataTableStatusType",
     "DateComparisonTypeType",
+    "DateTimeComparisonTypeType",
+    "DecimalComparisonTypeType",
     "DeviceTypeType",
     "DirectoryTypeType",
+    "DisconnectOnCustomerExitParticipantTypeType",
     "EmailHeaderTypeType",
     "EncryptionTypeType",
     "EndpointTypeType",
+    "EntityTypeType",
+    "EvaluationFormItemEnablementActionType",
+    "EvaluationFormItemEnablementOperatorType",
+    "EvaluationFormItemEnablementSourceTypeType",
+    "EvaluationFormItemEnablementSourceValueTypeType",
+    "EvaluationFormItemSourceValuesComparatorType",
+    "EvaluationFormLanguageCodeType",
+    "EvaluationFormMultiSelectQuestionDisplayModeType",
+    "EvaluationFormQuestionAutomationAnswerSourceTypeType",
     "EvaluationFormQuestionTypeType",
     "EvaluationFormScoringModeType",
     "EvaluationFormScoringStatusType",
     "EvaluationFormSingleSelectQuestionDisplayModeType",
     "EvaluationFormVersionStatusType",
+    "EvaluationQuestionAnswerAnalysisTypeType",
+    "EvaluationReviewNotificationRecipientTypeType",
     "EvaluationStatusType",
+    "EvaluationSuggestedAnswerStatusType",
+    "EvaluationTranscriptTypeType",
+    "EvaluationTypeType",
     "EventSourceNameType",
+    "ExecutionRecordStatusType",
     "FailureReasonCodeType",
     "FileStatusTypeType",
     "FileUseCaseTypeType",
+    "FilterV2StringConditionComparisonOperatorType",
     "FlowAssociationResourceTypeType",
+    "FlowModuleTypeType",
     "GetMetricDataPaginatorName",
     "GroupingType",
     "HierarchyGroupMatchTypeType",
@@ -79,12 +111,20 @@ __all__ = (
     "ListApprovedOriginsPaginatorName",
     "ListAuthenticationProfilesPaginatorName",
     "ListBotsPaginatorName",
+    "ListChildHoursOfOperationsPaginatorName",
     "ListContactEvaluationsPaginatorName",
+    "ListContactFlowModuleAliasesPaginatorName",
+    "ListContactFlowModuleVersionsPaginatorName",
     "ListContactFlowModulesPaginatorName",
     "ListContactFlowVersionsPaginatorName",
     "ListContactFlowsPaginatorName",
     "ListContactReferencesPaginatorName",
+    "ListDataTableAttributesPaginatorName",
+    "ListDataTablePrimaryValuesPaginatorName",
+    "ListDataTableValuesPaginatorName",
+    "ListDataTablesPaginatorName",
     "ListDefaultVocabulariesPaginatorName",
+    "ListEntitySecurityProfilesPaginatorName",
     "ListEvaluationFormVersionsPaginatorName",
     "ListEvaluationFormsPaginatorName",
     "ListFlowAssociationResourceTypeType",
@@ -104,14 +144,17 @@ __all__ = (
     "ListQueueQuickConnectsPaginatorName",
     "ListQueuesPaginatorName",
     "ListQuickConnectsPaginatorName",
+    "ListRoutingProfileManualAssignmentQueuesPaginatorName",
     "ListRoutingProfileQueuesPaginatorName",
     "ListRoutingProfilesPaginatorName",
     "ListRulesPaginatorName",
     "ListSecurityKeysPaginatorName",
     "ListSecurityProfileApplicationsPaginatorName",
+    "ListSecurityProfileFlowModulesPaginatorName",
     "ListSecurityProfilePermissionsPaginatorName",
     "ListSecurityProfilesPaginatorName",
     "ListTaskTemplatesPaginatorName",
+    "ListTestCasesPaginatorName",
     "ListTrafficDistributionGroupUsersPaginatorName",
     "ListTrafficDistributionGroupsPaginatorName",
     "ListUseCasesPaginatorName",
@@ -120,15 +163,23 @@ __all__ = (
     "ListUsersPaginatorName",
     "ListViewVersionsPaginatorName",
     "ListViewsPaginatorName",
+    "ListWorkspacePagesPaginatorName",
+    "ListWorkspacesPaginatorName",
     "MediaStreamTypeType",
+    "MediaTypeType",
     "MeetingFeatureStatusType",
     "MonitorCapabilityType",
+    "MultiSelectQuestionRuleCategoryAutomationConditionType",
+    "NextContactTypeType",
     "NotificationContentTypeType",
     "NotificationDeliveryTypeType",
     "NumberComparisonTypeType",
     "NumericQuestionPropertyAutomationLabelType",
+    "OperationalStatusType",
     "OutboundMessageSourceTypeType",
+    "OutboundStrategyTypeType",
     "OverrideDaysType",
+    "OverrideTypeType",
     "PaginatorName",
     "ParticipantRoleType",
     "ParticipantStateType",
@@ -139,6 +190,7 @@ __all__ = (
     "PhoneNumberTypeType",
     "PhoneNumberWorkflowStatusType",
     "PhoneTypeType",
+    "QuestionRuleCategoryAutomationConditionType",
     "QueueStatusType",
     "QueueTypeType",
     "QuickConnectTypeType",
@@ -150,11 +202,13 @@ __all__ = (
     "RealTimeContactAnalysisStatusType",
     "RealTimeContactAnalysisSupportedChannelType",
     "RecordingStatusType",
+    "RecurrenceFrequencyType",
     "ReferenceStatusType",
     "ReferenceTypeType",
     "RegionName",
     "RehydrationTypeType",
     "ResourceServiceName",
+    "ResponseModeType",
     "RoutingCriteriaStepStatusType",
     "RulePublishStatusType",
     "ScreenShareCapabilityType",
@@ -164,7 +218,9 @@ __all__ = (
     "SearchContactFlowsPaginatorName",
     "SearchContactsMatchTypeType",
     "SearchContactsPaginatorName",
+    "SearchContactsTimeRangeConditionTypeType",
     "SearchContactsTimeRangeTypeType",
+    "SearchDataTablesPaginatorName",
     "SearchHoursOfOperationOverridesPaginatorName",
     "SearchHoursOfOperationsPaginatorName",
     "SearchPredefinedAttributesPaginatorName",
@@ -174,9 +230,13 @@ __all__ = (
     "SearchResourceTagsPaginatorName",
     "SearchRoutingProfilesPaginatorName",
     "SearchSecurityProfilesPaginatorName",
+    "SearchTestCasesPaginatorName",
     "SearchUserHierarchyGroupsPaginatorName",
     "SearchUsersPaginatorName",
+    "SearchViewsPaginatorName",
     "SearchVocabulariesPaginatorName",
+    "SearchWorkspaceAssociationsPaginatorName",
+    "SearchWorkspacesPaginatorName",
     "SearchableQueueTypeType",
     "ServiceName",
     "SingleSelectQuestionRuleCategoryAutomationConditionType",
@@ -192,6 +252,9 @@ __all__ = (
     "TargetListTypeType",
     "TaskTemplateFieldTypeType",
     "TaskTemplateStatusType",
+    "TestCaseEntryPointTypeType",
+    "TestCaseExecutionStatusType",
+    "TestCaseStatusType",
     "TimerEligibleParticipantRolesType",
     "TrafficDistributionGroupStatusType",
     "TrafficTypeType",
@@ -200,11 +263,14 @@ __all__ = (
     "VideoCapabilityType",
     "ViewStatusType",
     "ViewTypeType",
+    "VisibilityType",
     "VocabularyLanguageCodeType",
     "VocabularyStateType",
     "VoiceRecordingTrackType",
+    "WorkspaceFontFamilyType",
 )
 
+AccessTypeType = Literal["ALLOW"]
 ActionTypeType = Literal[
     "ASSIGN_CONTACT_CATEGORY",
     "ASSIGN_SLA",
@@ -219,6 +285,8 @@ ActionTypeType = Literal[
 AgentAvailabilityTimerType = Literal["TIME_SINCE_LAST_ACTIVITY", "TIME_SINCE_LAST_INBOUND"]
 AgentStatusStateType = Literal["DISABLED", "ENABLED"]
 AgentStatusTypeType = Literal["CUSTOM", "OFFLINE", "ROUTABLE"]
+AiUseCaseType = Literal["AgentAssistance", "SelfService"]
+AllowedUserActionType = Literal["CALL", "DISCARD"]
 AnsweringMachineDetectionStatusType = Literal[
     "AMD_ERROR",
     "AMD_NOT_APPLICABLE",
@@ -235,8 +303,11 @@ AnsweringMachineDetectionStatusType = Literal[
     "VOICEMAIL_BEEP",
     "VOICEMAIL_NO_BEEP",
 ]
+ApplicationTypeType = Literal["MCP", "THIRD_PARTY_APPLICATION"]
 ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
+AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
+BooleanComparisonTypeType = Literal["IS_FALSE", "IS_TRUE"]
 ChannelType = Literal["CHAT", "EMAIL", "TASK", "VOICE"]
 ChatEventTypeType = Literal["DISCONNECT", "EVENT", "MESSAGE"]
 ComparisonType = Literal["LT"]
@@ -270,7 +341,12 @@ ContactInitiationMethodType = Literal[
     "TRANSFER",
     "WEBRTC_API",
 ]
+ContactInteractionTypeType = Literal["AGENT", "AUTOMATED"]
+ContactMediaProcessingFailureModeType = Literal[
+    "DELIVER_UNPROCESSED_MESSAGE", "DO_NOT_DELIVER_UNPROCESSED_MESSAGE"
+]
 ContactMetricNameType = Literal["POSITION_IN_QUEUE"]
+ContactParticipantRoleType = Literal["AGENT", "CUSTOM_BOT", "SYSTEM"]
 ContactRecordingTypeType = Literal["AGENT", "IVR", "SCREEN"]
 ContactStateType = Literal[
     "CONNECTED",
@@ -298,11 +374,26 @@ CurrentMetricNameType = Literal[
     "SLOTS_ACTIVE",
     "SLOTS_AVAILABLE",
 ]
+DataTableAttributeValueTypeType = Literal["BOOLEAN", "NUMBER", "NUMBER_LIST", "TEXT", "TEXT_LIST"]
+DataTableLockLevelType = Literal["ATTRIBUTE", "DATA_TABLE", "NONE", "PRIMARY_VALUE", "VALUE"]
+DataTableStatusType = Literal["PUBLISHED"]
 DateComparisonTypeType = Literal[
     "EQUAL_TO", "GREATER_THAN", "GREATER_THAN_OR_EQUAL_TO", "LESS_THAN", "LESS_THAN_OR_EQUAL_TO"
 ]
+DateTimeComparisonTypeType = Literal[
+    "EQUAL_TO",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUAL_TO",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUAL_TO",
+    "RANGE",
+]
+DecimalComparisonTypeType = Literal[
+    "EQUAL", "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL", "NOT_EQUAL", "RANGE"
+]
 DeviceTypeType = Literal["APNS", "APNS_SANDBOX", "GCM"]
 DirectoryTypeType = Literal["CONNECT_MANAGED", "EXISTING_DIRECTORY", "SAML"]
+DisconnectOnCustomerExitParticipantTypeType = Literal["AGENT"]
 EmailHeaderTypeType = Literal[
     "IN_REPLY_TO", "MESSAGE_ID", "REFERENCES", "X_SES_SPAM_VERDICT", "X_SES_VIRUS_VERDICT"
 ]
@@ -310,12 +401,28 @@ EncryptionTypeType = Literal["KMS"]
 EndpointTypeType = Literal[
     "CONNECT_PHONENUMBER_ARN", "CONTACT_FLOW", "EMAIL_ADDRESS", "TELEPHONE_NUMBER", "VOIP"
 ]
-EvaluationFormQuestionTypeType = Literal["NUMERIC", "SINGLESELECT", "TEXT"]
+EntityTypeType = Literal["AI_AGENT", "USER"]
+EvaluationFormItemEnablementActionType = Literal["DISABLE", "ENABLE"]
+EvaluationFormItemEnablementOperatorType = Literal["AND", "OR"]
+EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
+EvaluationFormItemEnablementSourceValueTypeType = Literal["OPTION_REF_ID"]
+EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", "NOT_IN"]
+EvaluationFormLanguageCodeType = Literal["de-DE", "en-US", "es-ES", "fr-FR", "it-IT", "pt-BR"]
+EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
+EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
+EvaluationFormQuestionTypeType = Literal[
+    "DATETIME", "MULTISELECT", "NUMERIC", "SINGLESELECT", "TEXT"
+]
 EvaluationFormScoringModeType = Literal["QUESTION_ONLY", "SECTION_ONLY"]
 EvaluationFormScoringStatusType = Literal["DISABLED", "ENABLED"]
 EvaluationFormSingleSelectQuestionDisplayModeType = Literal["DROPDOWN", "RADIO"]
 EvaluationFormVersionStatusType = Literal["ACTIVE", "DRAFT"]
-EvaluationStatusType = Literal["DRAFT", "SUBMITTED"]
+EvaluationQuestionAnswerAnalysisTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
+EvaluationReviewNotificationRecipientTypeType = Literal["USER_ID"]
+EvaluationStatusType = Literal["DRAFT", "REVIEW_REQUESTED", "SUBMITTED", "UNDER_REVIEW"]
+EvaluationSuggestedAnswerStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+EvaluationTranscriptTypeType = Literal["RAW", "REDACTED"]
+EvaluationTypeType = Literal["CALIBRATION", "STANDARD"]
 EventSourceNameType = Literal[
     "OnCaseCreate",
     "OnCaseUpdate",
@@ -330,11 +437,13 @@ EventSourceNameType = Literal[
     "OnZendeskTicketCreate",
     "OnZendeskTicketStatusUpdate",
 ]
+ExecutionRecordStatusType = Literal["FAILED", "IN_PROGRESS", "PASSED", "STOPPED"]
 FailureReasonCodeType = Literal[
     "IDEMPOTENCY_EXCEPTION",
     "INTERNAL_ERROR",
     "INVALID_ATTRIBUTE_KEY",
     "INVALID_CUSTOMER_ENDPOINT",
+    "INVALID_OUTBOUND_STRATEGY",
     "INVALID_QUEUE",
     "INVALID_SYSTEM_ENDPOINT",
     "MISSING_CAMPAIGN",
@@ -344,6 +453,7 @@ FailureReasonCodeType = Literal[
 ]
 FileStatusTypeType = Literal["APPROVED", "FAILED", "PROCESSING", "REJECTED"]
 FileUseCaseTypeType = Literal["ATTACHMENT", "EMAIL_MESSAGE"]
+FilterV2StringConditionComparisonOperatorType = Literal["NOT_EXISTS"]
 FlowAssociationResourceTypeType = Literal[
     "ANALYTICS_CONNECTOR",
     "INBOUND_EMAIL",
@@ -351,9 +461,16 @@ FlowAssociationResourceTypeType = Literal[
     "SMS_PHONE_NUMBER",
     "WHATSAPP_MESSAGING_PHONE_NUMBER",
 ]
+FlowModuleTypeType = Literal["MCP"]
 GetMetricDataPaginatorName = Literal["get_metric_data"]
 GroupingType = Literal[
-    "AGENT_STATUS", "CHANNEL", "QUEUE", "ROUTING_PROFILE", "ROUTING_STEP_EXPRESSION"
+    "AGENT_STATUS",
+    "CHANNEL",
+    "QUEUE",
+    "ROUTING_PROFILE",
+    "ROUTING_STEP_EXPRESSION",
+    "SUBTYPE",
+    "VALIDATION_TEST_TYPE",
 ]
 HierarchyGroupMatchTypeType = Literal["EXACT", "WITH_CHILD_GROUPS"]
 HistoricalMetricNameType = Literal[
@@ -397,6 +514,7 @@ InstanceAttributeTypeType = Literal[
     "ENHANCED_CONTACT_MONITORING",
     "HIGH_VOLUME_OUTBOUND",
     "INBOUND_CALLS",
+    "MESSAGE_STREAMING",
     "MULTI_PARTY_CHAT_CONFERENCE",
     "MULTI_PARTY_CONFERENCE",
     "OUTBOUND_CALLS",
@@ -434,6 +552,7 @@ IntegrationTypeType = Literal[
     "COGNITO_USER_POOL",
     "EVENT",
     "FILE_SCANNER",
+    "MESSAGE_PROCESSOR",
     "PINPOINT_APP",
     "Q_MESSAGE_TEMPLATES",
     "SES_IDENTITY",
@@ -449,12 +568,20 @@ ListAgentStatusesPaginatorName = Literal["list_agent_statuses"]
 ListApprovedOriginsPaginatorName = Literal["list_approved_origins"]
 ListAuthenticationProfilesPaginatorName = Literal["list_authentication_profiles"]
 ListBotsPaginatorName = Literal["list_bots"]
+ListChildHoursOfOperationsPaginatorName = Literal["list_child_hours_of_operations"]
 ListContactEvaluationsPaginatorName = Literal["list_contact_evaluations"]
+ListContactFlowModuleAliasesPaginatorName = Literal["list_contact_flow_module_aliases"]
+ListContactFlowModuleVersionsPaginatorName = Literal["list_contact_flow_module_versions"]
 ListContactFlowModulesPaginatorName = Literal["list_contact_flow_modules"]
 ListContactFlowVersionsPaginatorName = Literal["list_contact_flow_versions"]
 ListContactFlowsPaginatorName = Literal["list_contact_flows"]
 ListContactReferencesPaginatorName = Literal["list_contact_references"]
+ListDataTableAttributesPaginatorName = Literal["list_data_table_attributes"]
+ListDataTablePrimaryValuesPaginatorName = Literal["list_data_table_primary_values"]
+ListDataTableValuesPaginatorName = Literal["list_data_table_values"]
+ListDataTablesPaginatorName = Literal["list_data_tables"]
 ListDefaultVocabulariesPaginatorName = Literal["list_default_vocabularies"]
+ListEntitySecurityProfilesPaginatorName = Literal["list_entity_security_profiles"]
 ListEvaluationFormVersionsPaginatorName = Literal["list_evaluation_form_versions"]
 ListEvaluationFormsPaginatorName = Literal["list_evaluation_forms"]
 ListFlowAssociationResourceTypeType = Literal[
@@ -480,14 +607,19 @@ ListPromptsPaginatorName = Literal["list_prompts"]
 ListQueueQuickConnectsPaginatorName = Literal["list_queue_quick_connects"]
 ListQueuesPaginatorName = Literal["list_queues"]
 ListQuickConnectsPaginatorName = Literal["list_quick_connects"]
+ListRoutingProfileManualAssignmentQueuesPaginatorName = Literal[
+    "list_routing_profile_manual_assignment_queues"
+]
 ListRoutingProfileQueuesPaginatorName = Literal["list_routing_profile_queues"]
 ListRoutingProfilesPaginatorName = Literal["list_routing_profiles"]
 ListRulesPaginatorName = Literal["list_rules"]
 ListSecurityKeysPaginatorName = Literal["list_security_keys"]
 ListSecurityProfileApplicationsPaginatorName = Literal["list_security_profile_applications"]
+ListSecurityProfileFlowModulesPaginatorName = Literal["list_security_profile_flow_modules"]
 ListSecurityProfilePermissionsPaginatorName = Literal["list_security_profile_permissions"]
 ListSecurityProfilesPaginatorName = Literal["list_security_profiles"]
 ListTaskTemplatesPaginatorName = Literal["list_task_templates"]
+ListTestCasesPaginatorName = Literal["list_test_cases"]
 ListTrafficDistributionGroupUsersPaginatorName = Literal["list_traffic_distribution_group_users"]
 ListTrafficDistributionGroupsPaginatorName = Literal["list_traffic_distribution_groups"]
 ListUseCasesPaginatorName = Literal["list_use_cases"]
@@ -496,28 +628,46 @@ ListUserProficienciesPaginatorName = Literal["list_user_proficiencies"]
 ListUsersPaginatorName = Literal["list_users"]
 ListViewVersionsPaginatorName = Literal["list_view_versions"]
 ListViewsPaginatorName = Literal["list_views"]
+ListWorkspacePagesPaginatorName = Literal["list_workspace_pages"]
+ListWorkspacesPaginatorName = Literal["list_workspaces"]
 MediaStreamTypeType = Literal["AUDIO", "VIDEO"]
+MediaTypeType = Literal[
+    "IMAGE_LOGO_DARK_FAVICON",
+    "IMAGE_LOGO_DARK_HORIZONTAL",
+    "IMAGE_LOGO_LIGHT_FAVICON",
+    "IMAGE_LOGO_LIGHT_HORIZONTAL",
+]
 MeetingFeatureStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
 MonitorCapabilityType = Literal["BARGE", "SILENT_MONITOR"]
+MultiSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
+NextContactTypeType = Literal["QUICK_CONNECT"]
 NotificationContentTypeType = Literal["PLAIN_TEXT"]
 NotificationDeliveryTypeType = Literal["EMAIL"]
 NumberComparisonTypeType = Literal[
     "EQUAL", "GREATER", "GREATER_OR_EQUAL", "LESSER", "LESSER_OR_EQUAL", "NOT_EQUAL", "RANGE"
 ]
 NumericQuestionPropertyAutomationLabelType = Literal[
+    "AGENT_INTERACTION_AND_HOLD_DURATION",
     "AGENT_INTERACTION_DURATION",
     "CONTACT_DURATION",
     "CUSTOMER_HOLD_TIME",
+    "CUSTOMER_SENTIMENT_SCORE_WITHOUT_AGENT",
+    "CUSTOMER_SENTIMENT_SCORE_WITH_AGENT",
+    "LONGEST_HOLD_DURATION",
     "NON_TALK_TIME",
     "NON_TALK_TIME_PERCENTAGE",
+    "NUMBER_OF_HOLDS",
     "NUMBER_OF_INTERRUPTIONS",
     "OVERALL_AGENT_SENTIMENT_SCORE",
     "OVERALL_CUSTOMER_SENTIMENT_SCORE",
 ]
+OperationalStatusType = Literal["CLOSED", "OPEN"]
 OutboundMessageSourceTypeType = Literal["RAW", "TEMPLATE"]
+OutboundStrategyTypeType = Literal["AGENT_FIRST"]
 OverrideDaysType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
+OverrideTypeType = Literal["CLOSED", "OPEN", "STANDARD"]
 ParticipantRoleType = Literal["AGENT", "CUSTOMER", "CUSTOM_BOT", "SUPERVISOR", "SYSTEM"]
 ParticipantStateType = Literal["CONNECTED", "DISCONNECTED", "INITIAL", "MISSED"]
 ParticipantTimerActionType = Literal["Unset"]
@@ -767,9 +917,10 @@ PhoneNumberTypeType = Literal[
 ]
 PhoneNumberWorkflowStatusType = Literal["CLAIMED", "FAILED", "IN_PROGRESS"]
 PhoneTypeType = Literal["DESK_PHONE", "SOFT_PHONE"]
+QuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 QueueStatusType = Literal["DISABLED", "ENABLED"]
 QueueTypeType = Literal["AGENT", "STANDARD"]
-QuickConnectTypeType = Literal["PHONE_NUMBER", "QUEUE", "USER"]
+QuickConnectTypeType = Literal["FLOW", "PHONE_NUMBER", "QUEUE", "USER"]
 RealTimeContactAnalysisOutputTypeType = Literal["Raw", "Redacted"]
 RealTimeContactAnalysisPostContactSummaryFailureCodeType = Literal[
     "FAILED_SAFETY_GUIDELINES",
@@ -786,13 +937,23 @@ RealTimeContactAnalysisSentimentLabelType = Literal["NEGATIVE", "NEUTRAL", "POSI
 RealTimeContactAnalysisStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 RealTimeContactAnalysisSupportedChannelType = Literal["CHAT", "VOICE"]
 RecordingStatusType = Literal["AVAILABLE", "DELETED"]
+RecurrenceFrequencyType = Literal["MONTHLY", "WEEKLY", "YEARLY"]
 ReferenceStatusType = Literal[
     "APPROVED", "AVAILABLE", "DELETED", "FAILED", "PROCESSING", "REJECTED"
 ]
 ReferenceTypeType = Literal[
-    "ATTACHMENT", "CONTACT_ANALYSIS", "DATE", "EMAIL", "EMAIL_MESSAGE", "NUMBER", "STRING", "URL"
+    "ATTACHMENT",
+    "CONTACT_ANALYSIS",
+    "DATE",
+    "EMAIL",
+    "EMAIL_MESSAGE",
+    "EMAIL_MESSAGE_PLAIN_TEXT",
+    "NUMBER",
+    "STRING",
+    "URL",
 ]
 RehydrationTypeType = Literal["ENTIRE_PAST_SESSION", "FROM_SEGMENT"]
+ResponseModeType = Literal["COMPLETE", "INCREMENTAL"]
 RoutingCriteriaStepStatusType = Literal["ACTIVE", "EXPIRED", "INACTIVE", "JOINED"]
 RulePublishStatusType = Literal["DRAFT", "PUBLISHED"]
 ScreenShareCapabilityType = Literal["SEND"]
@@ -800,14 +961,17 @@ SearchAgentStatusesPaginatorName = Literal["search_agent_statuses"]
 SearchAvailablePhoneNumbersPaginatorName = Literal["search_available_phone_numbers"]
 SearchContactFlowModulesPaginatorName = Literal["search_contact_flow_modules"]
 SearchContactFlowsPaginatorName = Literal["search_contact_flows"]
-SearchContactsMatchTypeType = Literal["MATCH_ALL", "MATCH_ANY"]
+SearchContactsMatchTypeType = Literal["MATCH_ALL", "MATCH_ANY", "MATCH_EXACT", "MATCH_NONE"]
 SearchContactsPaginatorName = Literal["search_contacts"]
+SearchContactsTimeRangeConditionTypeType = Literal["NOT_EXISTS"]
 SearchContactsTimeRangeTypeType = Literal[
     "CONNECTED_TO_AGENT_TIMESTAMP",
     "DISCONNECT_TIMESTAMP",
+    "ENQUEUE_TIMESTAMP",
     "INITIATION_TIMESTAMP",
     "SCHEDULED_TIMESTAMP",
 ]
+SearchDataTablesPaginatorName = Literal["search_data_tables"]
 SearchHoursOfOperationOverridesPaginatorName = Literal["search_hours_of_operation_overrides"]
 SearchHoursOfOperationsPaginatorName = Literal["search_hours_of_operations"]
 SearchPredefinedAttributesPaginatorName = Literal["search_predefined_attributes"]
@@ -817,9 +981,13 @@ SearchQuickConnectsPaginatorName = Literal["search_quick_connects"]
 SearchResourceTagsPaginatorName = Literal["search_resource_tags"]
 SearchRoutingProfilesPaginatorName = Literal["search_routing_profiles"]
 SearchSecurityProfilesPaginatorName = Literal["search_security_profiles"]
+SearchTestCasesPaginatorName = Literal["search_test_cases"]
 SearchUserHierarchyGroupsPaginatorName = Literal["search_user_hierarchy_groups"]
 SearchUsersPaginatorName = Literal["search_users"]
+SearchViewsPaginatorName = Literal["search_views"]
 SearchVocabulariesPaginatorName = Literal["search_vocabularies"]
+SearchWorkspaceAssociationsPaginatorName = Literal["search_workspace_associations"]
+SearchWorkspacesPaginatorName = Literal["search_workspaces"]
 SearchableQueueTypeType = Literal["STANDARD"]
 SingleSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 SlaAssignmentTypeType = Literal["CASES"]
@@ -829,6 +997,7 @@ SortableFieldNameType = Literal[
     "CHANNEL",
     "CONNECTED_TO_AGENT_TIMESTAMP",
     "DISCONNECT_TIMESTAMP",
+    "EXPIRY_TIMESTAMP",
     "INITIATION_METHOD",
     "INITIATION_TIMESTAMP",
     "SCHEDULED_TIMESTAMP",
@@ -856,6 +1025,9 @@ TaskTemplateFieldTypeType = Literal[
     "URL",
 ]
 TaskTemplateStatusType = Literal["ACTIVE", "INACTIVE"]
+TestCaseEntryPointTypeType = Literal["VOICE_CALL"]
+TestCaseExecutionStatusType = Literal["FAILED", "INITIATED", "IN_PROGRESS", "PASSED", "STOPPED"]
+TestCaseStatusType = Literal["PUBLISHED", "SAVED"]
 TimerEligibleParticipantRolesType = Literal["AGENT", "CUSTOMER"]
 TrafficDistributionGroupStatusType = Literal[
     "ACTIVE",
@@ -871,6 +1043,7 @@ UseCaseTypeType = Literal["CONNECT_CAMPAIGNS", "RULES_EVALUATION"]
 VideoCapabilityType = Literal["SEND"]
 ViewStatusType = Literal["PUBLISHED", "SAVED"]
 ViewTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
+VisibilityType = Literal["ALL", "ASSIGNED", "NONE"]
 VocabularyLanguageCodeType = Literal[
     "ar-AE",
     "ca-ES",
@@ -910,6 +1083,9 @@ VocabularyStateType = Literal[
     "ACTIVE", "CREATION_FAILED", "CREATION_IN_PROGRESS", "DELETE_IN_PROGRESS"
 ]
 VoiceRecordingTrackType = Literal["ALL", "FROM_AGENT", "TO_AGENT"]
+WorkspaceFontFamilyType = Literal[
+    "Arial", "Courier New", "Georgia", "Times New Roman", "Trebuchet", "Verdana"
+]
 ConnectServiceName = Literal["connect"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -937,7 +1113,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -1007,6 +1182,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -1052,7 +1228,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -1105,7 +1280,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -1144,8 +1318,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -1180,6 +1352,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -1189,6 +1362,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -1199,6 +1373,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1220,8 +1397,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -1236,15 +1411,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -1275,6 +1451,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -1315,6 +1492,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -1334,12 +1512,20 @@ PaginatorName = Literal[
     "list_approved_origins",
     "list_authentication_profiles",
     "list_bots",
+    "list_child_hours_of_operations",
     "list_contact_evaluations",
+    "list_contact_flow_module_aliases",
+    "list_contact_flow_module_versions",
     "list_contact_flow_modules",
     "list_contact_flow_versions",
     "list_contact_flows",
     "list_contact_references",
+    "list_data_table_attributes",
+    "list_data_table_primary_values",
+    "list_data_table_values",
+    "list_data_tables",
     "list_default_vocabularies",
+    "list_entity_security_profiles",
     "list_evaluation_form_versions",
     "list_evaluation_forms",
     "list_flow_associations",
@@ -1358,14 +1544,17 @@ PaginatorName = Literal[
     "list_queue_quick_connects",
     "list_queues",
     "list_quick_connects",
+    "list_routing_profile_manual_assignment_queues",
     "list_routing_profile_queues",
     "list_routing_profiles",
     "list_rules",
     "list_security_keys",
     "list_security_profile_applications",
+    "list_security_profile_flow_modules",
     "list_security_profile_permissions",
     "list_security_profiles",
     "list_task_templates",
+    "list_test_cases",
     "list_traffic_distribution_group_users",
     "list_traffic_distribution_groups",
     "list_use_cases",
@@ -1374,11 +1563,14 @@ PaginatorName = Literal[
     "list_users",
     "list_view_versions",
     "list_views",
+    "list_workspace_pages",
+    "list_workspaces",
     "search_agent_statuses",
     "search_available_phone_numbers",
     "search_contact_flow_modules",
     "search_contact_flows",
     "search_contacts",
+    "search_data_tables",
     "search_hours_of_operation_overrides",
     "search_hours_of_operations",
     "search_predefined_attributes",
@@ -1388,9 +1580,13 @@ PaginatorName = Literal[
     "search_resource_tags",
     "search_routing_profiles",
     "search_security_profiles",
+    "search_test_cases",
     "search_user_hierarchy_groups",
     "search_users",
+    "search_views",
     "search_vocabularies",
+    "search_workspace_associations",
+    "search_workspaces",
 ]
 RegionName = Literal[
     "af-south-1",

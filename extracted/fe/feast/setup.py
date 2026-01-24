@@ -39,7 +39,7 @@ REQUIRED = [
     "mmh3",
     "numpy>=2.0.0,<3",
     "pandas>=1.4.3,<3",
-    "pyarrow<18.1.0",
+    "pyarrow>=21.0.0",
     "pydantic>=2.0.0",
     "pygments>=2.12.0,<3",
     "PyYAML>=5.4.0,<7",
@@ -51,7 +51,7 @@ REQUIRED = [
     "tqdm>=4,<5",
     "typeguard>=4.0.0",
     "fastapi>=0.68.0",
-    "uvicorn[standard]>=0.14.0,<1",
+    "uvicorn[standard]>=0.30.6,<=0.34.0",
     "uvicorn-worker",
     "gunicorn; platform_system != 'Windows'",
     "dask[dataframe]>=2024.2.1",
@@ -79,7 +79,7 @@ REDIS_REQUIRED = [
 
 AWS_REQUIRED = ["boto3==1.38.27", "fsspec<=2024.9.0", "aiobotocore>2,<3"]
 
-KUBERNETES_REQUIRED = ["kubernetes<=20.13.0"]
+KUBERNETES_REQUIRED = ["kubernetes"]
 
 SNOWFLAKE_REQUIRED = [
     "snowflake-connector-python[pandas]>=3.7,<4",
@@ -132,8 +132,7 @@ HAZELCAST_REQUIRED = [
 ]
 
 IBIS_REQUIRED = [
-    "ibis-framework>=9.0.0,<10",
-    "ibis-substrait>=4.0.0",
+    "ibis-framework>=10.0.0",
 ]
 
 GRPCIO_REQUIRED = [
@@ -142,7 +141,7 @@ GRPCIO_REQUIRED = [
     "grpcio-health-checking>=1.56.2,<=1.62.3",
 ]
 
-DUCKDB_REQUIRED = ["ibis-framework[duckdb]>=9.0.0,<10"]
+DUCKDB_REQUIRED = ["ibis-framework[duckdb]>=10.0.0"]
 
 DELTA_REQUIRED = ["deltalake<1.0.0"]
 
@@ -157,14 +156,16 @@ COUCHBASE_REQUIRED = [
     "couchbase-columnar==1.0.0"
 ]
 
-MSSQL_REQUIRED = ["ibis-framework[mssql]>=9.0.0,<10"]
+MSSQL_REQUIRED = ["ibis-framework[mssql]>=10.0.0"]
 
 FAISS_REQUIRED = ["faiss-cpu>=1.7.0,<=1.10.0"]
 QDRANT_REQUIRED = ["qdrant-client>=1.12.0"]
 
 GO_REQUIRED = ["cffi>=1.15.0"]
 
-MILVUS_REQUIRED = ["pymilvus"]
+MILVUS_REQUIRED = ["pymilvus>2.5", "milvus-lite==2.4.12", "setuptools>=60,<81"]
+
+DBT_REQUIRED = ["dbt-artifacts-parser>=0.6.0,<1"]
 
 TORCH_REQUIRED = [
     "torch>=2.7.0",
@@ -180,13 +181,23 @@ RAG_REQUIRED = [
     "datasets>=3.6.0",
 ]
 
-RAY_REQUIRED = ["ray>=2.47.0"]
+IMAGE_REQUIRED = [
+    "timm>=0.6.0",
+    "Pillow>=8.0.0",
+    "scikit-learn>=1.0.0",
+] + TORCH_REQUIRED
+
+RAY_REQUIRED = [
+    "ray>=2.47.0; python_version == '3.10'",
+    'codeflare-sdk>=0.31.1; python_version != "3.10"',
+    ]
 
 CI_REQUIRED = (
     [
         "build",
         "virtualenv==20.23.0",
         "cryptography>=43.0,<44",
+        "dbt-artifacts-parser>=0.6.0,<1",
         "ruff>=0.8.0",
         "mypy-protobuf>=3.1",
         "grpcio-tools>=1.56.2,<=1.62.3",
@@ -197,7 +208,7 @@ CI_REQUIRED = (
         "mock==2.0.0",
         "moto==4.2.14",
         "mypy>=1.4.1,<1.11.3",
-        "urllib3>=1.25.4,<3",
+        "urllib3>=2.6.0,<3",
         "psutil==5.9.0",
         "py>=1.11.0",  # https://github.com/pytest-dev/pytest/issues/10420
         "pytest>=6.0.0,<8",
@@ -258,6 +269,7 @@ CI_REQUIRED = (
     + CLICKHOUSE_REQUIRED
     + MCP_REQUIRED
     + RAG_REQUIRED
+    + IMAGE_REQUIRED
     + RAY_REQUIRED
 )
 MINIMAL_REQUIRED = (
@@ -279,6 +291,7 @@ NLP_REQUIRED = (
     + MILVUS_REQUIRED
     + TORCH_REQUIRED
     + RAG_REQUIRED
+    + IMAGE_REQUIRED
 )
 DOCS_REQUIRED = CI_REQUIRED
 DEV_REQUIRED = CI_REQUIRED
@@ -355,12 +368,14 @@ setup(
         "qdrant": QDRANT_REQUIRED,
         "go": GO_REQUIRED,
         "milvus": MILVUS_REQUIRED,
+        "dbt": DBT_REQUIRED,
         "docling": DOCLING_REQUIRED,
         "pytorch": TORCH_REQUIRED,
         "nlp": NLP_REQUIRED,
         "clickhouse": CLICKHOUSE_REQUIRED,
         "mcp": MCP_REQUIRED,
         "rag": RAG_REQUIRED,
+        "image": IMAGE_REQUIRED,
         "ray": RAY_REQUIRED,
     },
     include_package_data=True,
@@ -368,7 +383,6 @@ setup(
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",

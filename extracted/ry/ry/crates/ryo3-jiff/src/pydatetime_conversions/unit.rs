@@ -2,6 +2,7 @@ use crate::JiffUnit;
 use jiff::Unit;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
+use ryo3_macro_rules::py_value_err;
 
 impl<'py> IntoPyObject<'py> for &JiffUnit {
     type Target = PyString;
@@ -39,12 +40,12 @@ impl<'py> IntoPyObject<'py> for JiffUnit {
 const JIFF_UNIT_STRINGS: &str = "'year', 'month', 'week', 'day', 'hour', 'minute', 'second', 'millisecond', 'microsecond', 'nanosecond'";
 const JIFF_UNIT_OPTIONS: &str = "0='year', 1='month', 2='week', 3='day', 4='hour', 5='minute', 6='second', 7='millisecond', 8='microsecond', 9='nanosecond'";
 
-impl FromPyObject<'_> for JiffUnit {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for JiffUnit {
+    type Error = PyErr;
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         // downcast to string...
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string().to_ascii_lowercase();
-            match s.as_str() {
+        if let Ok(s) = ob.extract::<&str>() {
+            match s.to_ascii_lowercase().as_str() {
                 "year" => Ok(Self(Unit::Year)),
                 "month" => Ok(Self(Unit::Month)),
                 "week" => Ok(Self(Unit::Week)),
@@ -55,12 +56,9 @@ impl FromPyObject<'_> for JiffUnit {
                 "millisecond" => Ok(Self(Unit::Millisecond)),
                 "microsecond" => Ok(Self(Unit::Microsecond)),
                 "nanosecond" => Ok(Self(Unit::Nanosecond)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid unit: {s} (options: {JIFF_UNIT_STRINGS})"
-                ))),
+                _ => py_value_err!("Invalid unit: {s} (options: {JIFF_UNIT_STRINGS})"),
             }
-        } else {
-            let i = ob.extract::<i64>()?;
+        } else if let Ok(i) = ob.extract::<i64>() {
             match i {
                 0 => Ok(Self(Unit::Year)),
                 1 => Ok(Self(Unit::Month)),
@@ -72,10 +70,12 @@ impl FromPyObject<'_> for JiffUnit {
                 7 => Ok(Self(Unit::Millisecond)),
                 8 => Ok(Self(Unit::Microsecond)),
                 9 => Ok(Self(Unit::Nanosecond)),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Invalid unit: {i} (options: {JIFF_UNIT_OPTIONS})"
-                ))),
+                _ => py_value_err!("Invalid unit: {i} (options: {JIFF_UNIT_OPTIONS})"),
             }
+        } else {
+            py_value_err!(
+                "Invalid type for unit, expected a string or integer (options: {JIFF_UNIT_STRINGS})"
+            )
         }
     }
 }

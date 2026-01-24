@@ -1,5 +1,7 @@
 import objc
-from PyObjCTools.TestSupport import TestCase
+import functools
+from PyObjCTools.TestSupport import TestCase, pyobjc_options
+from . import supercall  # noqa: F401
 
 NSObject = objc.lookUpClass("NSObject")
 
@@ -69,6 +71,70 @@ class TestFromObjCSuperToObjCClass(TestCase):
             TypeError, "Cannot add a native selector to other classes"
         ):
             objc.classAddMethods(NSObject, [NSObject.description])
+
+        with self.assertRaisesRegex(AttributeError, "__name__"):
+            objc.classAddMethods(NSObject, [functools.partial(lambda self, x: x, x=42)])
+
+        with pyobjc_options(_transformAttribute=lambda *args: 1 / 0):
+
+            def helpermethod(self):
+                return 42
+
+            with self.assertRaises(ZeroDivisionError):
+                objc.classAddMethods(NSObject, [helpermethod])
+
+            self.assertNotHasAttr(NSObject.pyobjc_instanceMethods, "helpermethod")
+
+        with pyobjc_options(_transformAttribute=lambda *args: args[1]):
+
+            def helpermethod(self):
+                return 42
+
+            with self.assertRaisesRegex(
+                objc.internal_error, "not converted to a selector"
+            ):
+                objc.classAddMethods(NSObject, [helpermethod])
+
+            self.assertNotHasAttr(NSObject.pyobjc_instanceMethods, "helpermethod")
+
+        def helpermethod(self, *, key):
+            return key
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has 1 keyword-only arguments without a default"
+        ):
+            objc.classAddMethods(NSObject, [helpermethod])
+        self.assertNotHasAttr(NSObject.pyobjc_instanceMethods, "helpermethod")
+
+        with self.assertRaisesRegex(
+            TypeError, "Implementing ocRegisterCallerFirst in Python is not supported"
+        ):
+
+            class MyObject(NSObject):
+                def ocRegisterCallerFirst(self):
+                    pass
+
+        def ocRegisterCallerFirst(self):
+            pass
+
+        with self.assertRaisesRegex(
+            TypeError, "Implementing ocRegisterCallerFirst in Python is not supported"
+        ):
+            objc.classAddMethods(NSObject, [ocRegisterCallerFirst])
+
+        @objc.objc_method(signature=b"q@:")
+        def description(self):
+            return 42
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError,
+            "has signature that is not compatible with ObjC runtime",
+        ):
+            objc.classAddMethods(NSObject, [description])
+
+    def test_add_to_objc_object(self):
+        with self.assertRaisesRegex(objc.error, "Cannot add methods to Nil class"):
+            objc.classAddMethods(objc.objc_object, [])
 
     def testClassAddMethod(self):
         import objc._category as mod
@@ -217,6 +283,38 @@ class TestFromObjCSuperToObjCClass(TestCase):
         self.assertEqual(MEClass.anotherNewClassMethod.__doc__, "CLS DOC STRING")
         self.assertEqual(MEClass.anotherNewMethod.__doc__, "INST DOC STRING")
 
+    def testNoUpdates(self):
+        # Nothing to test beyond checking that the call doesn't fail
+        objc.classAddMethods(NSObject, [])
+
+    def test_setting_invalid_method_attributes(self):
+        def helpermethod(self, *, key):
+            return key
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError, "has 1 keyword-only arguments without a default"
+        ):
+            NSObject.helpermethod = helpermethod
+        self.assertNotHasAttr(NSObject.pyobjc_instanceMethods, "helpermethod")
+
+        def ocRegisterCallerFirst(self):
+            pass
+
+        with self.assertRaisesRegex(
+            TypeError, "Implementing ocRegisterCallerFirst in Python is not supported"
+        ):
+            NSObject.ocRegisterCallerFirst = ocRegisterCallerFirst
+
+        @objc.objc_method(signature=b"q@:")
+        def description(self):
+            return 42
+
+        with self.assertRaisesRegex(
+            objc.BadPrototypeError,
+            "has signature that is not compatible with ObjC runtime",
+        ):
+            NSObject.description = description
+
 
 class TestFromPythonClassToObjCClass(TestCase):
     def testPythonSourcedFunctions(self):
@@ -289,6 +387,9 @@ class TestClassAsignments(TestCase):
             AttributeError, "Cannot remove selector 'init' in 'NSObject'"
         ):
             del theClass.init
+
+        with self.assertRaisesRegex(AttributeError, "i_do_not_exist"):
+            del theClass.i_do_not_exist
 
 
 class TestCategory(TestCase):

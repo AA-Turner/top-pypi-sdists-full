@@ -1,4 +1,6 @@
-use crate::proto::control::v1::field_type_list::ListValueType;
+use crate::proto::control::v1::{
+    field_type_list::ListValueType, field_type_matrix::MatrixValueType,
+};
 
 use super::*;
 
@@ -74,6 +76,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: None,
                 })),
             }),
         }
@@ -88,6 +91,22 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: None,
+                })),
+            }),
+        }
+    }
+
+    pub fn i8_vector(dimension: u32, required: bool, metric: VectorDistanceMetric) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::i8_vector(dimension)),
+            }),
+            required,
+            index: Some(FieldIndex {
+                index: Some(field_index::Index::VectorIndex(VectorIndex {
+                    metric: metric as i32,
+                    exact: None,
                 })),
             }),
         }
@@ -106,6 +125,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: None,
                 })),
             }),
         }
@@ -122,6 +142,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: None,
                 })),
             }),
         }
@@ -138,6 +159,7 @@ impl FieldSpec {
             index: Some(FieldIndex {
                 index: Some(field_index::Index::VectorIndex(VectorIndex {
                     metric: metric as i32,
+                    exact: None,
                 })),
             }),
         }
@@ -159,6 +181,19 @@ impl FieldSpec {
                     embedding_type: embedding_type.map(|dt| dt.into()),
                 })),
             }),
+        }
+    }
+
+    pub fn matrix(required: bool, num_cols: u32, value_type: MatrixValueType) -> FieldSpec {
+        FieldSpec {
+            data_type: Some(FieldType {
+                data_type: Some(field_type::DataType::Matrix(FieldTypeMatrix {
+                    dimension: num_cols,
+                    value_type: value_type.into(),
+                })),
+            }),
+            required,
+            index: None,
         }
     }
 }

@@ -164,6 +164,9 @@ class ActionTransferParams(TypedDict, total=False):
     Currently only User-to-User header is supported.
     """
 
+    sip_region: Literal["US", "Europe", "Canada", "Australia", "Middle East"]
+    """Defines the SIP region to be used for the call."""
+
     sip_transport_protocol: Literal["UDP", "TCP", "TLS"]
     """Defines SIP transport protocol to be used on the call."""
 
@@ -206,6 +209,10 @@ class ActionTransferParams(TypedDict, total=False):
 
 
 class AnsweringMachineDetectionConfig(TypedDict, total=False):
+    """
+    Optional configuration parameters to modify 'answering_machine_detection' performance.
+    """
+
     after_greeting_silence_millis: int
     """
     Silence duration threshold after a greeting message or voice for it be

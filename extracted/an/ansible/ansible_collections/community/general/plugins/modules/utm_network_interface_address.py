@@ -1,12 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 
 # Copyright (c) 2018, Juergen Wiebe <wiebe@e-spirit.com>
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
-from __future__ import absolute_import, division, print_function
+from __future__ import annotations
 
-__metaclass__ = type
 
 DOCUMENTATION = r"""
 module: utm_network_interface_address
@@ -40,7 +38,6 @@ options:
     type: str
     description:
       - The ip6 address of the network/interface_address object.
-    required: false
   comment:
     type: str
     description:
@@ -113,7 +110,6 @@ result:
 """
 
 from ansible_collections.community.general.plugins.module_utils.utm_utils import UTM, UTMModule
-from ansible.module_utils.common.text.converters import to_native
 
 
 def main():
@@ -121,19 +117,19 @@ def main():
     key_to_check_for_changes = ["comment", "address"]
     module = UTMModule(
         argument_spec=dict(
-            name=dict(type='str', required=True),
-            address=dict(type='str', required=True),
-            comment=dict(type='str', default=""),
-            address6=dict(type='str'),
-            resolved=dict(type='bool'),
-            resolved6=dict(type='bool'),
+            name=dict(type="str", required=True),
+            address=dict(type="str", required=True),
+            comment=dict(type="str", default=""),
+            address6=dict(type="str"),
+            resolved=dict(type="bool"),
+            resolved6=dict(type="bool"),
         )
     )
     try:
         UTM(module, endpoint, key_to_check_for_changes).execute()
     except Exception as e:
-        module.fail_json(msg=to_native(e))
+        module.fail_json(msg=f"{e}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

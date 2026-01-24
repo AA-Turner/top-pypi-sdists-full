@@ -26,9 +26,9 @@ from beartype.vale._util._valeutilsnip import (
     VALE_CODE_INDENT_1,
 )
 from beartype.vale._core._valecore import BeartypeValidator
-from beartype._data.hint.datahinttyping import LexicalScope
+from beartype._data.typing.datatyping import LexicalScope
 from beartype._util.cache.utilcachecall import callable_cached
-from beartype._util.kind.map.utilmapset import update_mapping
+from beartype._util.kind.maplike.utilmapset import update_mapping
 from beartype._util.func.utilfuncscope import add_func_scope_attr
 from beartype._util.text.utiltextrepr import represent_object
 from beartype._data.kind.datakindiota import SENTINEL

@@ -297,6 +297,7 @@ module_names: FrozenSet[str] = frozenset(
         "posixpath",
         "pprint",
         "profile",
+        "profiling",
         "pstats",
         "pty",
         "pwd",

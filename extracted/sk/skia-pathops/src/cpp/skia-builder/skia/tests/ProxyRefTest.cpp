@@ -10,10 +10,10 @@
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -23,7 +23,7 @@
 #include "src/gpu/ganesh/GrTextureProxy.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
-#include "tests/TestUtils.h"
+#include "tests/ganesh/GaneshTestUtils.h"
 
 #include <initializer_list>
 
@@ -42,7 +42,7 @@ static sk_sp<GrTextureProxy> make_deferred(GrRecordingContext* rContext) {
                                       {kWidthHeight, kWidthHeight},
                                       GrRenderable::kYes,
                                       1,
-                                      GrMipmapped::kNo,
+                                      skgpu::Mipmapped::kNo,
                                       SkBackingFit::kApprox,
                                       skgpu::Budgeted::kYes,
                                       GrProtected::kNo,

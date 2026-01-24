@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Based on lxd.py (c) 2016, Matt Clay <matt@mystile.com>
 # (c) 2023, Stephane Graber <stgraber@stgraber.org>
 # Copyright (c) 2023 Ansible Project
@@ -14,6 +13,9 @@ short_description: Run tasks in Incus instances using the Incus CLI
 description:
   - Run commands or put/fetch files to an existing Incus instance using Incus CLI.
 version_added: "8.2.0"
+notes:
+  - When using this collection for Windows virtual machines, set C(ansible_shell_type) to C(powershell) or C(cmd) as a variable to the host in
+    the inventory.
 options:
   remote_addr:
     description:
@@ -76,6 +78,7 @@ options:
 """
 
 import os
+import re
 from subprocess import call, Popen, PIPE
 
 from ansible.errors import AnsibleError, AnsibleConnectionFailure, AnsibleFileNotFound
@@ -85,69 +88,116 @@ from ansible.plugins.connection import ConnectionBase
 
 
 class Connection(ConnectionBase):
-    """ Incus based connections """
+    """Incus based connections"""
 
     transport = "incus"
     has_pipelining = True
 
     def __init__(self, play_context, new_stdin, *args, **kwargs):
-        super(Connection, self).__init__(play_context, new_stdin, *args, **kwargs)
+        super().__init__(play_context, new_stdin, *args, **kwargs)
 
         self._incus_cmd = get_bin_path("incus")
 
         if not self._incus_cmd:
             raise AnsibleError("incus command not found in PATH")
 
+        if getattr(self._shell, "_IS_WINDOWS", False):
+            # Initializing regular expression patterns to match on a PowerShell or cmd command line.
+            self.powershell_regex_pattern = re.compile(
+                r"^(?P<executable>(\"?([a-z]:)?[a-z0-9 ()\\.]+)?powershell(\.exe)?\"?|(([a-z]:)?[a-z0-9()\\.]+)?powershell(\.exe)?)\s+.*(?P<command>-c(ommand)?)\s+",  # noqa: E501
+                re.IGNORECASE,
+            )
+            self.cmd_regex_pattern = re.compile(
+                r"^(?P<executable>(\"?([a-z]:)?[a-z0-9 ()\\.]+)?cmd(\.exe)?\"?|(([a-z]:)?[a-z0-9()\\.]+)?cmd(\.exe)?)\s+.*(?P<command>/c)\s+",
+                re.IGNORECASE,
+            )
+
+            # Basic setup for a Windows host.
+            self.has_native_async = True
+            self.always_pipeline_modules = True
+            self.module_implementation_preferences = (".ps1", ".exe", "")
+            self.allow_executable = False
+
     def _connect(self):
-        """connect to Incus (nothing to do here) """
-        super(Connection, self)._connect()
+        """connect to Incus (nothing to do here)"""
+        super()._connect()
 
         if not self._connected:
-            self._display.vvv(f"ESTABLISH Incus CONNECTION FOR USER: {self.get_option('remote_user')}",
-                              host=self._instance())
+            self._display.vvv(
+                f"ESTABLISH Incus CONNECTION FOR USER: {self.get_option('remote_user')}", host=self._instance()
+            )
             self._connected = True
 
-    def _build_command(self, cmd) -> str:
+    def _build_command(self, cmd) -> list[str]:
         """build the command to execute on the incus host"""
 
-        exec_cmd = [
+        exec_cmd: list[str] = [
             self._incus_cmd,
-            "--project", self.get_option("project"),
+            "--project",
+            self.get_option("project"),
             "exec",
+            *(["-T"] if getattr(self._shell, "_IS_WINDOWS", False) else []),
             f"{self.get_option('remote')}:{self._instance()}",
-            "--"]
+            "--",
+        ]
 
-        if self.get_option("remote_user") != "root":
-            self._display.vvv(
-                f"INFO: Running as non-root user: {self.get_option('remote_user')}, \
-                trying to run 'incus exec' with become method: {self.get_option('incus_become_method')}",
-                host=self._instance(),
-            )
-            exec_cmd.extend(
-                [self.get_option("incus_become_method"), self.get_option("remote_user"), "-c"]
-            )
+        if getattr(self._shell, "_IS_WINDOWS", False):
+            if (
+                (regex_match := self.powershell_regex_pattern.match(cmd))
+                and (regex_pattern := self.powershell_regex_pattern)
+            ) or ((regex_match := self.cmd_regex_pattern.match(cmd)) and (regex_pattern := self.cmd_regex_pattern)):
+                self._display.vvvvvv(
+                    f'Found keyword: "{regex_match.group("command")}" based on regex: {regex_pattern.pattern}',
+                    host=self._instance(),
+                )
 
-        exec_cmd.extend([self.get_option("executable"), "-c", cmd])
+                # Split the command on the argument -c(ommand) for PowerShell or /c for cmd.
+                before_command_argument, after_command_argument = cmd.split(regex_match.group("command"), 1)
+
+                exec_cmd.extend(
+                    [
+                        # To avoid splitting on a space contained in the path, set the executable as the first argument.
+                        regex_match.group("executable").strip('"'),
+                        # Remove the executable path and split the rest by space.
+                        *(before_command_argument[len(regex_match.group("executable")) :].lstrip().split(" ")),
+                        # Set the command argument depending on cmd or powershell.
+                        regex_match.group("command"),
+                        # Add the rest of the command at the end.
+                        after_command_argument,
+                    ]
+                )
+            else:
+                # For anything else using -EncodedCommand or else, just split on space.
+                exec_cmd.extend(cmd.split(" "))
+        else:
+            if self.get_option("remote_user") != "root":
+                self._display.vvv(
+                    f"INFO: Running as non-root user: {self.get_option('remote_user')}, \
+                  trying to run 'incus exec' with become method: {self.get_option('incus_become_method')}",
+                    host=self._instance(),
+                )
+                exec_cmd.extend([self.get_option("incus_become_method"), self.get_option("remote_user"), "-c"])
+
+            exec_cmd.extend([self.get_option("executable"), "-c", cmd])
 
         return exec_cmd
 
     def _instance(self):
         # Return only the leading part of the FQDN as the instance name
         # as Incus instance names cannot be a FQDN.
-        return self.get_option('remote_addr').split(".")[0]
+        return self.get_option("remote_addr").split(".")[0]
 
     def exec_command(self, cmd, in_data=None, sudoable=True):
-        """ execute a command on the Incus host """
-        super(Connection, self).exec_command(cmd, in_data=in_data, sudoable=sudoable)
+        """execute a command on the Incus host"""
+        super().exec_command(cmd, in_data=in_data, sudoable=sudoable)
 
-        self._display.vvv(f"EXEC {cmd}",
-                          host=self._instance())
+        self._display.vvv(f"EXEC {cmd}", host=self._instance())
 
         local_cmd = self._build_command(cmd)
         self._display.vvvvv(f"EXEC {local_cmd}", host=self._instance())
 
-        local_cmd = [to_bytes(i, errors='surrogate_or_strict') for i in local_cmd]
-        in_data = to_bytes(in_data, errors='surrogate_or_strict', nonstring='passthru')
+        local_cmd = [to_bytes(i, errors="surrogate_or_strict") for i in local_cmd]
+        in_data = to_bytes(in_data, errors="surrogate_or_strict", nonstring="passthru")
 
         process = Popen(local_cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate(in_data)
@@ -155,32 +205,22 @@ class Connection(ConnectionBase):
         stdout = to_text(stdout)
         stderr = to_text(stderr)
 
-        if stderr.startswith("Error: ") and stderr.rstrip().endswith(
-            ": Instance is not running"
-        ):
+        if stderr.startswith("Error: ") and stderr.rstrip().endswith(": Instance is not running"):
             raise AnsibleConnectionFailure(
                 f"instance not running: {self._instance()} (remote={self.get_option('remote')}, project={self.get_option('project')})"
             )
 
-        if stderr.startswith("Error: ") and stderr.rstrip().endswith(
-            ": Instance not found"
-        ):
+        if stderr.startswith("Error: ") and stderr.rstrip().endswith(": Instance not found"):
             raise AnsibleConnectionFailure(
                 f"instance not found: {self._instance()} (remote={self.get_option('remote')}, project={self.get_option('project')})"
             )
 
-        if (
-            stderr.startswith("Error: ")
-            and ": User does not have permission " in stderr
-        ):
+        if stderr.startswith("Error: ") and ": User does not have permission " in stderr:
             raise AnsibleConnectionFailure(
                 f"instance access denied: {self._instance()} (remote={self.get_option('remote')}, project={self.get_option('project')})"
             )
 
-        if (
-            stderr.startswith("Error: ")
-            and ": User does not have entitlement " in stderr
-        ):
+        if stderr.startswith("Error: ") and ": User does not have entitlement " in stderr:
             raise AnsibleConnectionFailure(
                 f"instance access denied: {self._instance()} (remote={self.get_option('remote')}, project={self.get_option('project')})"
             )
@@ -192,31 +232,26 @@ class Connection(ConnectionBase):
 
         rc, uid_out, err = self.exec_command("/bin/id -u")
         if rc != 0:
-            raise AnsibleError(
-                f"Failed to get remote uid for user {self.get_option('remote_user')}: {err}"
-            )
+            raise AnsibleError(f"Failed to get remote uid for user {self.get_option('remote_user')}: {err}")
         uid = uid_out.strip()
 
         rc, gid_out, err = self.exec_command("/bin/id -g")
         if rc != 0:
-            raise AnsibleError(
-                f"Failed to get remote gid for user {self.get_option('remote_user')}: {err}"
-            )
+            raise AnsibleError(f"Failed to get remote gid for user {self.get_option('remote_user')}: {err}")
         gid = gid_out.strip()
 
         return int(uid), int(gid)
 
     def put_file(self, in_path, out_path):
-        """ put a file from local to Incus """
-        super(Connection, self).put_file(in_path, out_path)
+        """put a file from local to Incus"""
+        super().put_file(in_path, out_path)
 
-        self._display.vvv(f"PUT {in_path} TO {out_path}",
-                          host=self._instance())
+        self._display.vvv(f"PUT {in_path} TO {out_path}", host=self._instance())
 
-        if not os.path.isfile(to_bytes(in_path, errors='surrogate_or_strict')):
+        if not os.path.isfile(to_bytes(in_path, errors="surrogate_or_strict")):
             raise AnsibleFileNotFound(f"input path is not a file: {in_path}")
 
-        if self.get_option("remote_user") != "root":
+        if not getattr(self._shell, "_IS_WINDOWS", False) and self.get_option("remote_user") != "root":
             uid, gid = self._get_remote_uid_gid()
             local_cmd = [
                 self._incus_cmd,
@@ -246,30 +281,33 @@ class Connection(ConnectionBase):
 
         self._display.vvvvv(f"PUT {local_cmd}", host=self._instance())
 
-        local_cmd = [to_bytes(i, errors='surrogate_or_strict') for i in local_cmd]
+        local_cmd = [to_bytes(i, errors="surrogate_or_strict") for i in local_cmd]
 
         call(local_cmd)
 
     def fetch_file(self, in_path, out_path):
-        """ fetch a file from Incus to local """
-        super(Connection, self).fetch_file(in_path, out_path)
+        """fetch a file from Incus to local"""
+        super().fetch_file(in_path, out_path)
 
-        self._display.vvv(f"FETCH {in_path} TO {out_path}",
-                          host=self._instance())
+        self._display.vvv(f"FETCH {in_path} TO {out_path}", host=self._instance())
 
         local_cmd = [
             self._incus_cmd,
-            "--project", self.get_option("project"),
-            "file", "pull", "--quiet",
+            "--project",
+            self.get_option("project"),
+            "file",
+            "pull",
+            "--quiet",
             f"{self.get_option('remote')}:{self._instance()}/{in_path}",
-            out_path]
+            out_path,
+        ]
 
-        local_cmd = [to_bytes(i, errors='surrogate_or_strict') for i in local_cmd]
+        local_cmd = [to_bytes(i, errors="surrogate_or_strict") for i in local_cmd]
 
         call(local_cmd)
 
     def close(self):
-        """ close the connection (nothing to do here) """
-        super(Connection, self).close()
+        """close the connection (nothing to do here)"""
+        super().close()
 
         self._connected = False

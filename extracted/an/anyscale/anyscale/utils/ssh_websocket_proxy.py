@@ -111,7 +111,7 @@ async def main():
             pump_task = asyncio.create_task(pump(reader, ws.send))
             drain_task = asyncio.create_task(drain(ws))
 
-            done, pending = await asyncio.wait(
+            _done, pending = await asyncio.wait(
                 [pump_task, drain_task], return_when=asyncio.FIRST_COMPLETED,
             )
 

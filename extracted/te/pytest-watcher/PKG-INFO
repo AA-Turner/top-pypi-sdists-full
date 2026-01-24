@@ -1,32 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-watcher
-Version: 0.4.3
+Version: 0.6.3
 Summary: Automatically rerun your tests on file modifications
-Home-page: https://github.com/olzhasar/pytest-watcher
-License: MIT
+Author-email: Olzhas Arystanov <o.arystanov@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Keywords: pytest,watch,watcher
-Author: Olzhas Arystanov
-Author-email: o.arystanov@gmail.com
-Requires-Python: >=3.7.0,<4.0.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Dist: tomli (>=2.0.1,<3.0.0) ; python_version < "3.11"
-Requires-Dist: watchdog (>=2.0.0)
-Project-URL: Documentation, https://pytest-watcher.readthedocs.io/en/latest/
-Project-URL: Repository, https://github.com/olzhasar/pytest-watcher
+Requires-Python: >=3.9
+Requires-Dist: tomli>=2.0.1; python_version < '3.11'
+Requires-Dist: watchdog>=2.0.0
 Description-Content-Type: text/markdown
 
 # Welcome to pytest-watcher
@@ -129,6 +118,15 @@ The following options are reserved for `pytest-watcher` and will not be passed t
 - `--now` - Run tests immediately after starting the watcher
 - `--delay` - Specify the delay before running tests
 - `--clear` - Clear the terminal screen before each test run
+- `--notify-on-failure` - Send BEL notification on test run failure
+
+### Debug logging
+
+Set `PTW_DEBUG=1` to enable debug-level logging for troubleshooting:
+
+```sh
+PTW_DEBUG=1 ptw .
+```
 
 ### Using a different test runner
 
@@ -178,6 +176,14 @@ Use the `--clear` flag to clear the terminal screen before each test run
 ptw . --clear
 ```
 
+### Enable BEL notification
+
+Use the `--notify-on-failure` flag to emit the [BEL symbol](https://en.wikipedia.org/wiki/Bell_character) to the terminal when the test run fails. This will trigger an audible or visual alert in some terminal applications.
+
+```sh
+ptw . --notify-on-failure
+```
+
 ### Differences with `pytest-watch`
 
 Even though this project was inspired by [`pytest-watch`](https://github.com/joeyespo/pytest-watch), it's not a fork of it. Therefore, there are **differences** in behavior:
@@ -198,6 +204,7 @@ You can configure `pytest-watcher` via `pyproject.toml` file. Here is the defaul
 [tool.pytest-watcher]
 now = false
 clear = true
+notify_on_failure = false
 delay = 0.2
 runner = "pytest"
 runner_args = []
@@ -207,9 +214,12 @@ ignore_patterns = []
 
 ## Compatibility
 
-The code is compatible with Python versions 3.7+
+The code is compatible with Python versions 3.9+
+
+## Contributing
+
+Please, check [CONTRIBUTING.md](github.com/olzhasar/pytest-watcher/CONTRIBUTING.md)
 
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
-

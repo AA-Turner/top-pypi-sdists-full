@@ -31,6 +31,19 @@ import pandas as pd
 from pandas import DataFrame
 from typing_extensions import Any, LiteralString, Never, overload, TypedDict, Unpack
 
+try:
+    from isal.isal_zlib import decompress
+except ImportError:
+    from zlib import decompress
+import tempfile
+
+from lz4.frame import compress as lz_compress
+from lz4.frame import decompress as lz_decompress
+from numpy import (
+    frombuffer,
+    uint8,
+)
+
 from . import tool
 from .blocks import mdf_v2, mdf_v3, mdf_v4
 from .blocks import v2_v3_blocks as v3b
@@ -64,6 +77,7 @@ from .blocks.utils import (
     components,
     csv_bytearray2hex,
     csv_int2hex,
+    DataBlockInfo,
     downcast,
     FileLike,
     Fragment,
@@ -255,6 +269,11 @@ class MDF:
         file is loaded.
 
         .. versionadded:: 8.0.0
+
+    ignore_invalidation_bits : bool, default False
+        Ingore all invalidation bits when extracting signals from the file.
+
+        .. versionadded:: 8.7.0
 
     Examples
     --------
@@ -1093,6 +1112,7 @@ class MDF:
         version: str | Version | None = None,
         include_ends: bool = True,
         time_from_zero: bool = False,
+        inplace: bool = False,
         progress: Any | None = None,
     ) -> "MDF":
         """Cut `MDF`. `start` and `stop` are absolute values or values relative
@@ -1122,12 +1142,26 @@ class MDF:
             then the new samples will be computed using interpolation.
         time_from_zero : bool, default False
             Start timestamps from 0s in the cut measurement.
+        inplace : bool, default False
+            Cut the measurement inplace modifying the original `MDF` object. This argument
+            overrides the arguments `version` (gets set to self.version), 
+            `include_ends` (gets set to False) and `time_from_zero` (gets set to False) and is
+            done only for MDF v4 files.
+
+            .. versionadded:: 8.7.0
 
         Returns
         -------
         out : MDF
             New `MDF` object.
         """
+
+        if (
+            inplace 
+            and all(not gp.uses_ld for gp in self.groups) 
+            and self.version>= "4.00"
+        ):
+            return self._cut_inplace(start=start, stop=stop, whence=whence, progress=progress)
 
         if version is None:
             version = self.version
@@ -1347,6 +1381,232 @@ class MDF:
         out._transfer_metadata(self, message=f"Cut from {start_} to {stop_}")
 
         return out
+    
+    def _cut_inplace(
+        self,
+        start: float | None = None,
+        stop: float | None = None,
+        whence: int = 0,
+        progress: Any | None = None,
+    ) -> "MDF":
+        """Cut `MDF`. `start` and `stop` are absolute values or values relative
+        to the first timestamp depending on the `whence` argument. This
+        function is a lot faster than `cut`.
+
+        .. versionadded:: 8.7.0
+
+        Parameters
+        ----------
+        start : float, optional
+            Start time; default is None. If None, the start of the measurement
+            is used.
+        stop : float, optional
+            Stop time; default is None. If None, the end of the measurement is
+            used.
+        whence : int, default 0
+            How to search for the start and stop values.
+
+            * 0 : absolute
+            * 1 : relative to first timestamp
+
+        Returns
+        -------
+        out : MDF
+            New `MDF` object if the inplace cut cannot be done, or `self` if 
+            the inplace cut is possible
+
+        """
+
+        if start is None and stop is None:
+            return self
+
+        if whence == 1:
+            timestamps: list[float] = []
+            for group in self.virtual_groups:
+                master = self._mdf.get_master(group, record_offset=0, record_count=1)
+                if master.size:
+                    timestamps.append(master[0])
+
+            if timestamps:
+                first_timestamp = np.amin(timestamps)
+            else:
+                first_timestamp = 0
+
+            if start is not None:
+                start += first_timestamp
+            if stop is not None:
+                stop += first_timestamp
+
+        groups_nr = len(self.groups)
+
+        if progress is not None:
+            if callable(progress):
+                progress(0, groups_nr)
+            else:
+                progress.signals.setValue.emit(0)
+                progress.signals.setMaximum.emit(groups_nr)
+
+        for i, group in enumerate(self.groups):
+            
+            channel_group = group.channel_group
+            record_size = channel_group.samples_byte_nr + channel_group.invalidation_bytes_nr
+
+            stream: FileLike | mmap.mmap | tempfile._TemporaryFileWrapper[bytes]
+            if group.data_location == v4c.LOCATION_ORIGINAL_FILE:
+                stream = typing.cast(FileLike | mmap.mmap, self._mdf._file)
+            else:
+                stream = self._mdf._tempfile
+
+            out_seek = self._mdf._tempfile.seek
+            out_tell = self._mdf._tempfile.tell
+            out_write = self._mdf._tempfile.write
+
+            read = stream.read
+            seek = stream.seek
+
+            new_blocks = []
+            new_cycles_nr = 0
+
+            for j, info in enumerate(group.data_blocks):
+                if progress and progress.stop:
+                    raise Terminated
+                (
+                    address,
+                    original_size,
+                    compressed_size,
+                    block_type,
+                    param,
+                    block_limit,
+                ) = (
+                    info.address,
+                    typing.cast(int, info.original_size),
+                    info.compressed_size,
+                    info.block_type,
+                    info.param,
+                    info.block_limit,
+                )
+
+                seek(address)
+                new_data: bytes | memoryview[int] = read(typing.cast(int, compressed_size))
+
+                match block_type:
+                    case v4c.DZ_BLOCK_DEFLATE:
+                        new_data = decompress(new_data, bufsize=original_size)
+                    case v4c.DZ_BLOCK_TRANSPOSED:
+                        new_data = decompress(new_data, bufsize=original_size)
+                        cols = typing.cast(int, param)
+                        lines = original_size // cols
+                        matrix_size = lines * cols
+
+                        if matrix_size != original_size:
+                            new_data = (
+                                frombuffer(new_data[:matrix_size], dtype=uint8)
+                                .reshape((cols, lines))
+                                .T.ravel()
+                                .tobytes()
+                                + new_data[matrix_size:]
+                            )
+                        else:
+                            new_data = frombuffer(new_data, dtype=uint8).reshape((cols, lines)).T.ravel().tobytes()
+
+                    case v4c.DZ_BLOCK_LZ:
+                        new_data = lz_decompress(new_data)
+
+                if block_limit is not None:
+                    new_data = new_data[:block_limit]
+
+                count = len(new_data) // record_size
+
+                fragment = Fragment(
+                    new_data,
+                    0,
+                    count,
+                    None,
+                )
+
+                master = self.get_master(i, data=fragment, one_piece=True)
+
+                if not len(master):
+                    continue
+
+                needs_cutting = True
+
+                if start is None:
+                    start_index = 0
+                    if master[0] > stop:
+                        break
+                    else:
+                        fragment_stop = min(stop, master[-1])
+                        stop_index = np.searchsorted(master, fragment_stop, side="right")
+                        if stop_index == len(master):
+                            needs_cutting = False
+
+                elif stop is None:
+                    start_index = 0
+                    if master[-1] < start:
+                        continue
+                    else:
+                        fragment_start = max(start, master[0])
+                        start_index = np.searchsorted(master, fragment_start, side="left")
+                        stop_index = len(master)
+                        if start_index == 0:
+                            needs_cutting = False
+                else:
+                    if master[0] > stop:
+                        break
+                    elif master[-1] < start:
+                        continue
+                    else:
+                        fragment_start = max(start, master[0])
+                        start_index = np.searchsorted(master, fragment_start, side="left")
+                        fragment_stop = min(stop, master[-1])
+                        stop_index = np.searchsorted(master, fragment_stop, side="right")
+                        if start_index == 0 and stop_index == len(master):
+                            needs_cutting = False
+
+                if needs_cutting:
+                    data = new_data[start_index * record_size : stop_index * record_size]
+                    count = (stop_index - start_index)
+
+                else:
+                    data = new_data
+                
+                out_seek(0, 2)
+
+                raw_size = len(data)
+                data = lz_compress(data, store_size=True)
+
+                size = len(data)
+                out_seek(0, 2)
+                data_address = out_tell()
+                out_write(data)
+
+                info = DataBlockInfo(
+                        address=data_address,
+                        block_type=v4c.DZ_BLOCK_LZ,
+                        original_size=raw_size,
+                        compressed_size=size,
+                        param=0,
+                    )
+
+                new_blocks.append(info)
+                new_cycles_nr += count
+
+            channel_group.cycles_nr = new_cycles_nr
+            group.data_blocks = new_blocks
+            group.data_location = v4c.LOCATION_TEMPORARY_FILE
+
+            if progress is not None:
+                if callable(progress):
+                    progress(i + 1, groups_nr)
+                else:
+                    progress.signals.setValue.emit(i + 1)
+
+                    if progress.stop:
+                        print("return terminated")
+                        raise Terminated
+                    
+        return self
 
     @overload
     def get(
@@ -4402,7 +4662,7 @@ class MDF:
                         source = v4_cg.acq_source_addr
                         if source:
                             source_information = SourceInformation(
-                                address=source, stream=stream, mapped=False, tx_map={}, file_limit=mdf._mdf.file_limit
+                                address=source, stream=stream, mapped=False, file_limit=mdf._mdf.file_limit
                             )
                             for addr in (
                                 source_information.name_addr,
@@ -4424,7 +4684,7 @@ class MDF:
                         source = v4_ch.source_addr
                         if source:
                             source_information = SourceInformation(
-                                address=source, stream=stream, mapped=False, tx_map={}, file_limit=mdf._mdf.file_limit
+                                address=source, stream=stream, mapped=False, file_limit=mdf._mdf.file_limit
                             )
                             for addr in (
                                 source_information.name_addr,
@@ -4439,7 +4699,7 @@ class MDF:
                         conv = v4_ch.conversion_addr
                         if conv:
                             v4_conv = v4b.ChannelConversion(
-                                address=conv, stream=stream, mapped=False, tx_map={}, file_limit=mdf._mdf.file_limit
+                                address=conv, stream=stream, mapped=False, file_limit=mdf._mdf.file_limit
                             )
                             for addr in (
                                 v4_conv.name_addr,
@@ -5359,9 +5619,12 @@ class MDF:
             mdf.close()
             return result
 
+        if use_polars and not POLARS_AVAILABLE:
+            raise MdfException("to_dataframe(use_polars=True) requires polars")
+
         target_byte_order = "<=" if sys.byteorder == "little" else ">="
 
-        data: dict[str, NDArray[Any] | pd.Series[Any]] | dict[str, pl.Series] = {}
+        data: dict[str, NDArray[Any] | pd.Series[Any]] | dict[str, pl.DataFrame] = {}
 
         self._mdf._set_temporary_master(None)
 
@@ -5461,10 +5724,10 @@ class MDF:
 
                 signals[s_index] = sig
 
-            if use_interpolation or use_polars:
+            if use_interpolation:
                 same_master = np.array_equal(master, group_master)
 
-                if not same_master and interpolate_outwards_with_nan and not use_polars:
+                if not same_master and interpolate_outwards_with_nan:
                     idx = np.argwhere((master >= group_master[0]) & (master <= group_master[-1])).flatten()
 
                 cycles = len(group_master)
@@ -5482,7 +5745,7 @@ class MDF:
                     for signal in signals
                 ]
 
-                if not same_master and interpolate_outwards_with_nan and not use_polars:
+                if not same_master and interpolate_outwards_with_nan:
                     for sig in signals:
                         sig.timestamps = sig.timestamps[idx]
                         sig.samples = sig.samples[idx]
@@ -5529,7 +5792,7 @@ class MDF:
                     sig.timestamps = sig.timestamps.byteswap().view(sig.timestamps.dtype.newbyteorder())
 
                 if use_polars:
-                    sig_index = index
+                    sig_index = index if len(sig) == size else sig.timestamps
                 else:
                     sig_index = index if len(sig) == size else pd.Index(sig.timestamps, tupleize_cols=False)
 
@@ -5546,8 +5809,8 @@ class MDF:
                         sig.samples = sig.samples.byteswap().view(sig.samples.dtype.newbyteorder())
 
                     if use_polars:
-                        data = typing.cast(dict[str, pl.Series], data)
-                        data[channel_name] = pl.Series(name=channel_name, values=sig.samples)
+                        data = typing.cast(dict[str, pl.DataFrame], data)
+                        data[channel_name] = pl.DataFrame({"timestamps": sig_index, channel_name: sig.samples})
                     else:
                         data = typing.cast(dict[str, Union[NDArray[Any], "pd.Series[Any]"]], data)
                         data[channel_name] = pd.Series(list(sig.samples), index=sig_index)
@@ -5555,7 +5818,7 @@ class MDF:
                 # arrays and structures
                 elif sig.samples.dtype.names:
                     if use_polars:
-                        data = typing.cast(dict[str, pl.Series], data)
+                        data = typing.cast(dict[str, pl.DataFrame], data)
                         for name, values in components(
                             sig.samples,
                             sig.name,
@@ -5564,7 +5827,7 @@ class MDF:
                             only_basenames=only_basenames,
                             use_polars=use_polars,
                         ):
-                            data[name] = pl.Series(name=name, values=values)
+                            data[name] = pl.DataFrame({"timestamps": sig_index, name: values})
                     else:
                         data = typing.cast(dict[str, Union[NDArray[Any], "pd.Series[Any]"]], data)
                         for name, pd_series in components(
@@ -5594,8 +5857,8 @@ class MDF:
                         sig.samples = sig.samples.byteswap().view(sig.samples.dtype.newbyteorder())
 
                     if use_polars:
-                        data = typing.cast(dict[str, pl.Series], data)
-                        data[channel_name] = pl.Series(name=channel_name, values=sig.samples)
+                        data = typing.cast(dict[str, pl.DataFrame], data)
+                        data[channel_name] = pl.DataFrame({"timestamps": sig_index, channel_name: sig.samples})
                     else:
                         data = typing.cast(dict[str, Union[NDArray[Any], "pd.Series[Any]"]], data)
                         data[channel_name] = pd.Series(sig.samples, index=sig_index)
@@ -5610,24 +5873,33 @@ class MDF:
                         raise Terminated
 
         if use_polars:
-            data = typing.cast(dict[str, pl.Series], data)
+            data = typing.cast(dict[str, pl.DataFrame], data)
 
-            if not POLARS_AVAILABLE:
-                raise MdfException("to_dataframe(use_polars=True) requires polars")
+            # Combine individual signal frames into one large frame, aligned on
+            # the master timestamp
+            #
+            # Use lazyframes to avoid materializing an intermediate frame for
+            # each additional column:
+            lf = pl.LazyFrame({"timestamps": master})
+            for df_sig in data.values():
+                lf = lf.join(
+                    df_sig.lazy(),
+                    on="timestamps",
+                    how="left",
+                    maintain_order="left",
+                )
 
             if numeric_1D_only:
-                data = {col: pl_series for col, pl_series in data.items() if pl_series.dtype.is_numeric()}
+                lf = lf.select(pl.selectors.by_name("timestamps") | pl.selectors.numeric())
 
             if time_as_date:
-                # FIXME: something is wrong with the type of timestamps/master
-                master = self.header.start_time + pd.to_timedelta(master, unit="s")  # type: ignore[assignment]
-            elif time_from_zero and len(master):
-                master = master - master[0]
+                expr_duration = (pl.col("timestamps") * 1e9).round(9).cast(pl.Duration("ns"))
+                expr_abs_time = pl.lit(self.header.start_time, dtype=pl.Datetime("ns")) + expr_duration
+                lf = lf.with_columns(expr_abs_time.alias("timestamps"))
+            elif time_from_zero:
+                lf = lf.with_columns(pl.col("timestamps") - pl.col("timestamps").first())
 
-            # FIXME: something is wrong with the type of timestamps/master
-            data = {"timestamps": master, **data}  # type: ignore[assignment]
-            return pl.DataFrame(data)
-
+            return lf.collect()
         else:
             data = typing.cast(dict[str, Union[NDArray[Any], "pd.Series[Any]"]], data)
 

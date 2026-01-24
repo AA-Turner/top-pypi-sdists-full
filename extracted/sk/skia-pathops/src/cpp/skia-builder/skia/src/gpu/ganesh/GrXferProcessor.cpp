@@ -7,11 +7,19 @@
 
 #include "src/gpu/ganesh/GrXferProcessor.h"
 
+#include "include/core/SkBlendMode.h"
+#include "include/core/SkString.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "src/gpu/KeyBuilder.h"
 #include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/GrPipeline.h"
+#include "src/gpu/ganesh/GrShaderCaps.h"
+#include "src/gpu/ganesh/effects/GrCustomXfermode.h"
+#include "src/gpu/ganesh/effects/GrPorterDuffXferProcessor.h"
 #include "src/gpu/ganesh/glsl/GrGLSLFragmentShaderBuilder.h"
-#include "src/gpu/ganesh/glsl/GrGLSLProgramDataManager.h"
+
+#include <cstdint>
+
+enum class GrClampType;
 
 GrXferProcessor::GrXferProcessor(ClassID classID)
         : INHERITED(classID)
@@ -32,25 +40,9 @@ bool GrXferProcessor::hasSecondaryOutput() const {
 }
 
 void GrXferProcessor::addToKey(const GrShaderCaps& caps,
-                               skgpu::KeyBuilder* b,
-                               const GrSurfaceOrigin* originIfDstTexture,
-                               bool usesInputAttachmentForDstRead) const {
-    uint32_t key = this->willReadDstColor() ? 0x1 : 0x0;
-    if (key) {
-        if (originIfDstTexture) {
-            key |= 0x2;
-            if (kTopLeft_GrSurfaceOrigin == *originIfDstTexture) {
-                key |= 0x4;
-            }
-            if (usesInputAttachmentForDstRead) {
-                key |= 0x8;
-            }
-        }
-    }
-    if (fIsLCD) {
-        key |= 0x10;
-    }
-    b->add32(key);
+                               skgpu::KeyBuilder* b) const {
+    b->addBool(this->willReadDstColor(), "willReadDstColor");
+    b->addBool(fIsLCD, "isLCD");
     this->onAddToKey(caps, b);
 }
 
@@ -90,6 +82,17 @@ sk_sp<const GrXferProcessor> GrXPFactory::MakeXferProcessor(const GrXPFactory* f
     } else {
         return GrPorterDuffXPFactory::MakeSrcOverXferProcessor(color, coverage, caps);
     }
+}
+
+const GrXPFactory* GrXPFactory::FromBlendMode(SkBlendMode mode) {
+    if (SkBlendMode_AsCoeff(mode, nullptr, nullptr)) {
+        const GrXPFactory* result = GrPorterDuffXPFactory::Get(mode);
+        SkASSERT(result);
+        return result;
+    }
+
+    SkASSERT(GrCustomXfermode::IsSupportedMode(mode));
+    return GrCustomXfermode::Get(mode);
 }
 
 //////////////////////////////////////////////////////////////////////////////

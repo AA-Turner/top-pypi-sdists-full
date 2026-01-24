@@ -1876,9 +1876,12 @@ class AttachUserPolicyRequest(AbstractModel):
         :type UserId: str
         :param _PolicySet: 鉴权策略集合
         :type PolicySet: list of Policy
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._PolicySet = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -1902,6 +1905,17 @@ class AttachUserPolicyRequest(AbstractModel):
     def PolicySet(self, PolicySet):
         self._PolicySet = PolicySet
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -1911,6 +1925,7 @@ class AttachUserPolicyRequest(AbstractModel):
                 obj = Policy()
                 obj._deserialize(item)
                 self._PolicySet.append(obj)
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3784,6 +3799,57 @@ class CommonMetrics(AbstractModel):
         
 
 
+class CoreInfo(AbstractModel):
+    r"""任务 core 用量信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Timestamp: 时间戳(毫秒)数组
+        :type Timestamp: list of int
+        :param _CoreUsage: core 用量
+        :type CoreUsage: list of int
+        """
+        self._Timestamp = None
+        self._CoreUsage = None
+
+    @property
+    def Timestamp(self):
+        r"""时间戳(毫秒)数组
+        :rtype: list of int
+        """
+        return self._Timestamp
+
+    @Timestamp.setter
+    def Timestamp(self, Timestamp):
+        self._Timestamp = Timestamp
+
+    @property
+    def CoreUsage(self):
+        r"""core 用量
+        :rtype: list of int
+        """
+        return self._CoreUsage
+
+    @CoreUsage.setter
+    def CoreUsage(self, CoreUsage):
+        self._CoreUsage = CoreUsage
+
+
+    def _deserialize(self, params):
+        self._Timestamp = params.get("Timestamp")
+        self._CoreUsage = params.get("CoreUsage")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class CosPermission(AbstractModel):
     r"""cos权限描述
 
@@ -5059,10 +5125,24 @@ class CreateDataMaskStrategyResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _StrategyId: 策略id
+        :type StrategyId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._StrategyId = None
         self._RequestId = None
+
+    @property
+    def StrategyId(self):
+        r"""策略id
+        :rtype: str
+        """
+        return self._StrategyId
+
+    @StrategyId.setter
+    def StrategyId(self, StrategyId):
+        self._StrategyId = StrategyId
 
     @property
     def RequestId(self):
@@ -5077,6 +5157,7 @@ class CreateDataMaskStrategyResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._StrategyId = params.get("StrategyId")
         self._RequestId = params.get("RequestId")
 
 
@@ -5175,6 +5256,227 @@ class CreateDatabaseResponse(AbstractModel):
         if params.get("Execution") is not None:
             self._Execution = Execution()
             self._Execution._deserialize(params.get("Execution"))
+        self._RequestId = params.get("RequestId")
+
+
+class CreateDatasourceConnectionRequest(AbstractModel):
+    r"""CreateDatasourceConnection请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DatasourceConnectionName: 数据连接名称
+        :type DatasourceConnectionName: str
+        :param _DatasourceConnectionType: 数据连接类型
+        :type DatasourceConnectionType: str
+        :param _DatasourceConnectionConfig: 数据连接属性
+        :type DatasourceConnectionConfig: :class:`tencentcloud.dlc.v20210125.models.DatasourceConnectionConfig`
+        :param _ServiceType: 数据连接所属服务
+        :type ServiceType: str
+        :param _DatasourceConnectionDesc: 数据连接描述
+        :type DatasourceConnectionDesc: str
+        :param _DataEngineNames: 数据引擎名称数组
+        :type DataEngineNames: list of str
+        :param _NetworkConnectionName: 网络连接名称
+        :type NetworkConnectionName: str
+        :param _NetworkConnectionDesc: 网络连接描述
+        :type NetworkConnectionDesc: str
+        :param _NetworkConnectionType: 网络连接类型 （2-夸源型，4-增强型）
+        :type NetworkConnectionType: int
+        :param _CustomConfig: 自定义配置
+        :type CustomConfig: list of CustomConfig
+        """
+        self._DatasourceConnectionName = None
+        self._DatasourceConnectionType = None
+        self._DatasourceConnectionConfig = None
+        self._ServiceType = None
+        self._DatasourceConnectionDesc = None
+        self._DataEngineNames = None
+        self._NetworkConnectionName = None
+        self._NetworkConnectionDesc = None
+        self._NetworkConnectionType = None
+        self._CustomConfig = None
+
+    @property
+    def DatasourceConnectionName(self):
+        r"""数据连接名称
+        :rtype: str
+        """
+        return self._DatasourceConnectionName
+
+    @DatasourceConnectionName.setter
+    def DatasourceConnectionName(self, DatasourceConnectionName):
+        self._DatasourceConnectionName = DatasourceConnectionName
+
+    @property
+    def DatasourceConnectionType(self):
+        r"""数据连接类型
+        :rtype: str
+        """
+        return self._DatasourceConnectionType
+
+    @DatasourceConnectionType.setter
+    def DatasourceConnectionType(self, DatasourceConnectionType):
+        self._DatasourceConnectionType = DatasourceConnectionType
+
+    @property
+    def DatasourceConnectionConfig(self):
+        r"""数据连接属性
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.DatasourceConnectionConfig`
+        """
+        return self._DatasourceConnectionConfig
+
+    @DatasourceConnectionConfig.setter
+    def DatasourceConnectionConfig(self, DatasourceConnectionConfig):
+        self._DatasourceConnectionConfig = DatasourceConnectionConfig
+
+    @property
+    def ServiceType(self):
+        r"""数据连接所属服务
+        :rtype: str
+        """
+        return self._ServiceType
+
+    @ServiceType.setter
+    def ServiceType(self, ServiceType):
+        self._ServiceType = ServiceType
+
+    @property
+    def DatasourceConnectionDesc(self):
+        r"""数据连接描述
+        :rtype: str
+        """
+        return self._DatasourceConnectionDesc
+
+    @DatasourceConnectionDesc.setter
+    def DatasourceConnectionDesc(self, DatasourceConnectionDesc):
+        self._DatasourceConnectionDesc = DatasourceConnectionDesc
+
+    @property
+    def DataEngineNames(self):
+        r"""数据引擎名称数组
+        :rtype: list of str
+        """
+        return self._DataEngineNames
+
+    @DataEngineNames.setter
+    def DataEngineNames(self, DataEngineNames):
+        self._DataEngineNames = DataEngineNames
+
+    @property
+    def NetworkConnectionName(self):
+        r"""网络连接名称
+        :rtype: str
+        """
+        return self._NetworkConnectionName
+
+    @NetworkConnectionName.setter
+    def NetworkConnectionName(self, NetworkConnectionName):
+        self._NetworkConnectionName = NetworkConnectionName
+
+    @property
+    def NetworkConnectionDesc(self):
+        r"""网络连接描述
+        :rtype: str
+        """
+        return self._NetworkConnectionDesc
+
+    @NetworkConnectionDesc.setter
+    def NetworkConnectionDesc(self, NetworkConnectionDesc):
+        self._NetworkConnectionDesc = NetworkConnectionDesc
+
+    @property
+    def NetworkConnectionType(self):
+        r"""网络连接类型 （2-夸源型，4-增强型）
+        :rtype: int
+        """
+        return self._NetworkConnectionType
+
+    @NetworkConnectionType.setter
+    def NetworkConnectionType(self, NetworkConnectionType):
+        self._NetworkConnectionType = NetworkConnectionType
+
+    @property
+    def CustomConfig(self):
+        r"""自定义配置
+        :rtype: list of CustomConfig
+        """
+        return self._CustomConfig
+
+    @CustomConfig.setter
+    def CustomConfig(self, CustomConfig):
+        self._CustomConfig = CustomConfig
+
+
+    def _deserialize(self, params):
+        self._DatasourceConnectionName = params.get("DatasourceConnectionName")
+        self._DatasourceConnectionType = params.get("DatasourceConnectionType")
+        if params.get("DatasourceConnectionConfig") is not None:
+            self._DatasourceConnectionConfig = DatasourceConnectionConfig()
+            self._DatasourceConnectionConfig._deserialize(params.get("DatasourceConnectionConfig"))
+        self._ServiceType = params.get("ServiceType")
+        self._DatasourceConnectionDesc = params.get("DatasourceConnectionDesc")
+        self._DataEngineNames = params.get("DataEngineNames")
+        self._NetworkConnectionName = params.get("NetworkConnectionName")
+        self._NetworkConnectionDesc = params.get("NetworkConnectionDesc")
+        self._NetworkConnectionType = params.get("NetworkConnectionType")
+        if params.get("CustomConfig") is not None:
+            self._CustomConfig = []
+            for item in params.get("CustomConfig"):
+                obj = CustomConfig()
+                obj._deserialize(item)
+                self._CustomConfig.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateDatasourceConnectionResponse(AbstractModel):
+    r"""CreateDatasourceConnection返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DatasourceConnectionId: 数据连接Id
+        :type DatasourceConnectionId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._DatasourceConnectionId = None
+        self._RequestId = None
+
+    @property
+    def DatasourceConnectionId(self):
+        r"""数据连接Id
+        :rtype: str
+        """
+        return self._DatasourceConnectionId
+
+    @DatasourceConnectionId.setter
+    def DatasourceConnectionId(self, DatasourceConnectionId):
+        self._DatasourceConnectionId = DatasourceConnectionId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._DatasourceConnectionId = params.get("DatasourceConnectionId")
         self._RequestId = params.get("RequestId")
 
 
@@ -7690,6 +7992,16 @@ class CreateStandardEngineResourceGroupRequest(AbstractModel):
         :type SparkSpecMode: str
         :param _SparkSize: 仅SQL资源组资源上限，仅用于快速模块
         :type SparkSize: int
+        :param _DriverGPUSpec: GPUDriver规格
+        :type DriverGPUSpec: int
+        :param _ExecutorGPUSpec: GPUExecutor规格
+        :type ExecutorGPUSpec: int
+        :param _GPULimitSize: GPU上限
+        :type GPULimitSize: int
+        :param _GPUSize: GPU规格
+        :type GPUSize: int
+        :param _PythonGPUSpec: Pod GPU规格上限
+        :type PythonGPUSpec: int
         """
         self._EngineResourceGroupName = None
         self._DataEngineName = None
@@ -7717,6 +8029,11 @@ class CreateStandardEngineResourceGroupRequest(AbstractModel):
         self._PythonCuSpec = None
         self._SparkSpecMode = None
         self._SparkSize = None
+        self._DriverGPUSpec = None
+        self._ExecutorGPUSpec = None
+        self._GPULimitSize = None
+        self._GPUSize = None
+        self._PythonGPUSpec = None
 
     @property
     def EngineResourceGroupName(self):
@@ -8006,6 +8323,61 @@ class CreateStandardEngineResourceGroupRequest(AbstractModel):
     def SparkSize(self, SparkSize):
         self._SparkSize = SparkSize
 
+    @property
+    def DriverGPUSpec(self):
+        r"""GPUDriver规格
+        :rtype: int
+        """
+        return self._DriverGPUSpec
+
+    @DriverGPUSpec.setter
+    def DriverGPUSpec(self, DriverGPUSpec):
+        self._DriverGPUSpec = DriverGPUSpec
+
+    @property
+    def ExecutorGPUSpec(self):
+        r"""GPUExecutor规格
+        :rtype: int
+        """
+        return self._ExecutorGPUSpec
+
+    @ExecutorGPUSpec.setter
+    def ExecutorGPUSpec(self, ExecutorGPUSpec):
+        self._ExecutorGPUSpec = ExecutorGPUSpec
+
+    @property
+    def GPULimitSize(self):
+        r"""GPU上限
+        :rtype: int
+        """
+        return self._GPULimitSize
+
+    @GPULimitSize.setter
+    def GPULimitSize(self, GPULimitSize):
+        self._GPULimitSize = GPULimitSize
+
+    @property
+    def GPUSize(self):
+        r"""GPU规格
+        :rtype: int
+        """
+        return self._GPUSize
+
+    @GPUSize.setter
+    def GPUSize(self, GPUSize):
+        self._GPUSize = GPUSize
+
+    @property
+    def PythonGPUSpec(self):
+        r"""Pod GPU规格上限
+        :rtype: int
+        """
+        return self._PythonGPUSpec
+
+    @PythonGPUSpec.setter
+    def PythonGPUSpec(self, PythonGPUSpec):
+        self._PythonGPUSpec = PythonGPUSpec
+
 
     def _deserialize(self, params):
         self._EngineResourceGroupName = params.get("EngineResourceGroupName")
@@ -8044,6 +8416,11 @@ class CreateStandardEngineResourceGroupRequest(AbstractModel):
         self._PythonCuSpec = params.get("PythonCuSpec")
         self._SparkSpecMode = params.get("SparkSpecMode")
         self._SparkSize = params.get("SparkSize")
+        self._DriverGPUSpec = params.get("DriverGPUSpec")
+        self._ExecutorGPUSpec = params.get("ExecutorGPUSpec")
+        self._GPULimitSize = params.get("GPULimitSize")
+        self._GPUSize = params.get("GPUSize")
+        self._PythonGPUSpec = params.get("PythonGPUSpec")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8912,6 +9289,8 @@ class CreateUserRequest(AbstractModel):
         :type WorkGroupIds: list of int
         :param _UserAlias: 用户别名，字符长度小50
         :type UserAlias: str
+        :param _AccountType: 账号类型，UserAccount：用户账号 RoleAccount：角色账号，默认为用户账号
+        :type AccountType: str
         """
         self._UserId = None
         self._UserDescription = None
@@ -8919,6 +9298,7 @@ class CreateUserRequest(AbstractModel):
         self._UserType = None
         self._WorkGroupIds = None
         self._UserAlias = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -8986,6 +9366,17 @@ class CreateUserRequest(AbstractModel):
     def UserAlias(self, UserAlias):
         self._UserAlias = UserAlias
 
+    @property
+    def AccountType(self):
+        r"""账号类型，UserAccount：用户账号 RoleAccount：角色账号，默认为用户账号
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -8999,6 +9390,7 @@ class CreateUserRequest(AbstractModel):
         self._UserType = params.get("UserType")
         self._WorkGroupIds = params.get("WorkGroupIds")
         self._UserAlias = params.get("UserAlias")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11478,6 +11870,20 @@ class DataEngineInfo(AbstractModel):
         :type IsAIEngine: int
         :param _ScheduleElasticityConf: 引擎资源弹性伸缩策略
         :type ScheduleElasticityConf: :class:`tencentcloud.dlc.v20210125.models.ScheduleElasticityConf`
+        :param _GPUInfo: GPU 信息
+        :type GPUInfo: :class:`tencentcloud.dlc.v20210125.models.GPUInfo`
+        :param _EngineResourceUsedGPU: GPU 使用量
+        :type EngineResourceUsedGPU: int
+        :param _GPUTotalSize: GPU 总规格
+        :type GPUTotalSize: int
+        :param _InstanceModel: GPU 机型
+        :type InstanceModel: str
+        :param _NodeNum: 节点数量
+        :type NodeNum: int
+        :param _SizeWithElastic: 引擎规格，包含负载弹性或分时弹性
+        :type SizeWithElastic: int
+        :param _MaxElasticSize: 最大弹性值，包含负载弹性或分时弹性
+        :type MaxElasticSize: int
         """
         self._DataEngineName = None
         self._EngineType = None
@@ -11539,6 +11945,13 @@ class DataEngineInfo(AbstractModel):
         self._IsAIGateway = None
         self._IsAIEngine = None
         self._ScheduleElasticityConf = None
+        self._GPUInfo = None
+        self._EngineResourceUsedGPU = None
+        self._GPUTotalSize = None
+        self._InstanceModel = None
+        self._NodeNum = None
+        self._SizeWithElastic = None
+        self._MaxElasticSize = None
 
     @property
     def DataEngineName(self):
@@ -12246,6 +12659,83 @@ class DataEngineInfo(AbstractModel):
     def ScheduleElasticityConf(self, ScheduleElasticityConf):
         self._ScheduleElasticityConf = ScheduleElasticityConf
 
+    @property
+    def GPUInfo(self):
+        r"""GPU 信息
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.GPUInfo`
+        """
+        return self._GPUInfo
+
+    @GPUInfo.setter
+    def GPUInfo(self, GPUInfo):
+        self._GPUInfo = GPUInfo
+
+    @property
+    def EngineResourceUsedGPU(self):
+        r"""GPU 使用量
+        :rtype: int
+        """
+        return self._EngineResourceUsedGPU
+
+    @EngineResourceUsedGPU.setter
+    def EngineResourceUsedGPU(self, EngineResourceUsedGPU):
+        self._EngineResourceUsedGPU = EngineResourceUsedGPU
+
+    @property
+    def GPUTotalSize(self):
+        r"""GPU 总规格
+        :rtype: int
+        """
+        return self._GPUTotalSize
+
+    @GPUTotalSize.setter
+    def GPUTotalSize(self, GPUTotalSize):
+        self._GPUTotalSize = GPUTotalSize
+
+    @property
+    def InstanceModel(self):
+        r"""GPU 机型
+        :rtype: str
+        """
+        return self._InstanceModel
+
+    @InstanceModel.setter
+    def InstanceModel(self, InstanceModel):
+        self._InstanceModel = InstanceModel
+
+    @property
+    def NodeNum(self):
+        r"""节点数量
+        :rtype: int
+        """
+        return self._NodeNum
+
+    @NodeNum.setter
+    def NodeNum(self, NodeNum):
+        self._NodeNum = NodeNum
+
+    @property
+    def SizeWithElastic(self):
+        r"""引擎规格，包含负载弹性或分时弹性
+        :rtype: int
+        """
+        return self._SizeWithElastic
+
+    @SizeWithElastic.setter
+    def SizeWithElastic(self, SizeWithElastic):
+        self._SizeWithElastic = SizeWithElastic
+
+    @property
+    def MaxElasticSize(self):
+        r"""最大弹性值，包含负载弹性或分时弹性
+        :rtype: int
+        """
+        return self._MaxElasticSize
+
+    @MaxElasticSize.setter
+    def MaxElasticSize(self, MaxElasticSize):
+        self._MaxElasticSize = MaxElasticSize
+
 
     def _deserialize(self, params):
         self._DataEngineName = params.get("DataEngineName")
@@ -12329,6 +12819,15 @@ class DataEngineInfo(AbstractModel):
         if params.get("ScheduleElasticityConf") is not None:
             self._ScheduleElasticityConf = ScheduleElasticityConf()
             self._ScheduleElasticityConf._deserialize(params.get("ScheduleElasticityConf"))
+        if params.get("GPUInfo") is not None:
+            self._GPUInfo = GPUInfo()
+            self._GPUInfo._deserialize(params.get("GPUInfo"))
+        self._EngineResourceUsedGPU = params.get("EngineResourceUsedGPU")
+        self._GPUTotalSize = params.get("GPUTotalSize")
+        self._InstanceModel = params.get("InstanceModel")
+        self._NodeNum = params.get("NodeNum")
+        self._SizeWithElastic = params.get("SizeWithElastic")
+        self._MaxElasticSize = params.get("MaxElasticSize")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13541,6 +14040,8 @@ class DatasourceConnectionConfig(AbstractModel):
         :type TCHouseD: :class:`tencentcloud.dlc.v20210125.models.TCHouseD`
         :param _TccHive: TccHive数据目录连接信息
         :type TccHive: :class:`tencentcloud.dlc.v20210125.models.TccHive`
+        :param _MongoDB: MongoDB 数据源
+        :type MongoDB: :class:`tencentcloud.dlc.v20210125.models.DataSourceInfo`
         """
         self._Mysql = None
         self._Hive = None
@@ -13553,6 +14054,7 @@ class DatasourceConnectionConfig(AbstractModel):
         self._TDSQLPostgreSql = None
         self._TCHouseD = None
         self._TccHive = None
+        self._MongoDB = None
 
     @property
     def Mysql(self):
@@ -13685,6 +14187,17 @@ class DatasourceConnectionConfig(AbstractModel):
     def TccHive(self, TccHive):
         self._TccHive = TccHive
 
+    @property
+    def MongoDB(self):
+        r"""MongoDB 数据源
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.DataSourceInfo`
+        """
+        return self._MongoDB
+
+    @MongoDB.setter
+    def MongoDB(self, MongoDB):
+        self._MongoDB = MongoDB
+
 
     def _deserialize(self, params):
         if params.get("Mysql") is not None:
@@ -13720,6 +14233,9 @@ class DatasourceConnectionConfig(AbstractModel):
         if params.get("TccHive") is not None:
             self._TccHive = TccHive()
             self._TccHive._deserialize(params.get("TccHive"))
+        if params.get("MongoDB") is not None:
+            self._MongoDB = DataSourceInfo()
+            self._MongoDB._deserialize(params.get("MongoDB"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14871,8 +15387,11 @@ class DeleteUserRequest(AbstractModel):
         r"""
         :param _UserIds: 需要删除的用户的Id
         :type UserIds: list of str
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserIds = None
+        self._AccountType = None
 
     @property
     def UserIds(self):
@@ -14885,9 +15404,21 @@ class DeleteUserRequest(AbstractModel):
     def UserIds(self, UserIds):
         self._UserIds = UserIds
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserIds = params.get("UserIds")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19060,9 +19591,15 @@ class DescribeNativeSparkSessionsRequest(AbstractModel):
         :type DataEngineId: str
         :param _ResourceGroupId: 资源组ID
         :type ResourceGroupId: str
+        :param _ProjectId: 项目ID
+        :type ProjectId: str
+        :param _UserUin: 用户Uin
+        :type UserUin: str
         """
         self._DataEngineId = None
         self._ResourceGroupId = None
+        self._ProjectId = None
+        self._UserUin = None
 
     @property
     def DataEngineId(self):
@@ -19086,10 +19623,34 @@ class DescribeNativeSparkSessionsRequest(AbstractModel):
     def ResourceGroupId(self, ResourceGroupId):
         self._ResourceGroupId = ResourceGroupId
 
+    @property
+    def ProjectId(self):
+        r"""项目ID
+        :rtype: str
+        """
+        return self._ProjectId
+
+    @ProjectId.setter
+    def ProjectId(self, ProjectId):
+        self._ProjectId = ProjectId
+
+    @property
+    def UserUin(self):
+        r"""用户Uin
+        :rtype: str
+        """
+        return self._UserUin
+
+    @UserUin.setter
+    def UserUin(self, UserUin):
+        self._UserUin = UserUin
+
 
     def _deserialize(self, params):
         self._DataEngineId = params.get("DataEngineId")
         self._ResourceGroupId = params.get("ResourceGroupId")
+        self._ProjectId = params.get("ProjectId")
+        self._UserUin = params.get("UserUin")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19109,10 +19670,16 @@ class DescribeNativeSparkSessionsResponse(AbstractModel):
         r"""
         :param _SparkSessionsList: spark session列表
         :type SparkSessionsList: list of SparkSessionInfo
+        :param _TotalSpec: 资源组总规格
+        :type TotalSpec: int
+        :param _TotalAvailable: 资源组当前可用规格
+        :type TotalAvailable: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._SparkSessionsList = None
+        self._TotalSpec = None
+        self._TotalAvailable = None
         self._RequestId = None
 
     @property
@@ -19125,6 +19692,28 @@ class DescribeNativeSparkSessionsResponse(AbstractModel):
     @SparkSessionsList.setter
     def SparkSessionsList(self, SparkSessionsList):
         self._SparkSessionsList = SparkSessionsList
+
+    @property
+    def TotalSpec(self):
+        r"""资源组总规格
+        :rtype: int
+        """
+        return self._TotalSpec
+
+    @TotalSpec.setter
+    def TotalSpec(self, TotalSpec):
+        self._TotalSpec = TotalSpec
+
+    @property
+    def TotalAvailable(self):
+        r"""资源组当前可用规格
+        :rtype: int
+        """
+        return self._TotalAvailable
+
+    @TotalAvailable.setter
+    def TotalAvailable(self, TotalAvailable):
+        self._TotalAvailable = TotalAvailable
 
     @property
     def RequestId(self):
@@ -19145,6 +19734,8 @@ class DescribeNativeSparkSessionsResponse(AbstractModel):
                 obj = SparkSessionInfo()
                 obj._deserialize(item)
                 self._SparkSessionsList.append(obj)
+        self._TotalSpec = params.get("TotalSpec")
+        self._TotalAvailable = params.get("TotalAvailable")
         self._RequestId = params.get("RequestId")
 
 
@@ -20348,6 +20939,115 @@ class DescribeOtherCHDFSBindingListResponse(AbstractModel):
                 obj._deserialize(item)
                 self._OtherCHDFSBindingList.append(obj)
         self._Total = params.get("Total")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeResourceGroupUsageInfoRequest(AbstractModel):
+    r"""DescribeResourceGroupUsageInfo请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SessionId: 资源组ID
+        :type SessionId: str
+        """
+        self._SessionId = None
+
+    @property
+    def SessionId(self):
+        r"""资源组ID
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+
+    def _deserialize(self, params):
+        self._SessionId = params.get("SessionId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeResourceGroupUsageInfoResponse(AbstractModel):
+    r"""DescribeResourceGroupUsageInfo返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 资源上限
+        :type Total: int
+        :param _Used: 已占用资源
+        :type Used: int
+        :param _Available: 剩余可用资源
+        :type Available: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._Used = None
+        self._Available = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""资源上限
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def Used(self):
+        r"""已占用资源
+        :rtype: int
+        """
+        return self._Used
+
+    @Used.setter
+    def Used(self, Used):
+        self._Used = Used
+
+    @property
+    def Available(self):
+        r"""剩余可用资源
+        :rtype: int
+        """
+        return self._Available
+
+    @Available.setter
+    def Available(self, Available):
+        self._Available = Available
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        self._Used = params.get("Used")
+        self._Available = params.get("Available")
         self._RequestId = params.get("RequestId")
 
 
@@ -22887,6 +23587,255 @@ class DescribeTablesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeTaskListRequest(AbstractModel):
+    r"""DescribeTaskList请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Limit: 返回数量，默认为10，最大值为100。
+        :type Limit: int
+        :param _Offset: 偏移量，默认为0。
+        :type Offset: int
+        :param _Filters: 过滤条件，如下支持的过滤类型，传参Name应为以下其中一个,其中task-id支持最大50个过滤个数，其他过滤参数支持的总数不超过5个。
+task-id - String - （任务ID准确过滤）task-id取值形如：e386471f-139a-4e59-877f-50ece8135b99。
+task-state - String - （任务状态过滤）取值范围 0(初始化)， 1(运行中)， 2(成功)， -1(失败)。
+task-sql-keyword - String - （SQL语句关键字模糊过滤）取值形如：DROP TABLE。
+task-operator- string （子uin过滤）
+task-kind - string （任务类型过滤）
+        :type Filters: list of Filter
+        :param _SortBy: 排序字段，支持如下字段类型，create-time（创建时间，默认）、update-time（更新时间）
+        :type SortBy: str
+        :param _Sorting: 排序方式，desc表示正序，asc表示反序， 默认为asc。
+        :type Sorting: str
+        :param _StartTime: 起始时间点，格式为yyyy-mm-dd HH:MM:SS。默认为45天前的当前时刻
+        :type StartTime: str
+        :param _EndTime: 结束时间点，格式为yyyy-mm-dd HH:MM:SS时间跨度在(0,30天]，支持最近45天数据查询。默认为当前时刻
+        :type EndTime: str
+        :param _DataEngineName: 数据引擎名称，用于筛选
+        :type DataEngineName: str
+        :param _ResourceGroupName: spark引擎资源组名称
+        :type ResourceGroupName: str
+        :param _HouseIds: 引擎id列表
+        :type HouseIds: list of str
+        """
+        self._Limit = None
+        self._Offset = None
+        self._Filters = None
+        self._SortBy = None
+        self._Sorting = None
+        self._StartTime = None
+        self._EndTime = None
+        self._DataEngineName = None
+        self._ResourceGroupName = None
+        self._HouseIds = None
+
+    @property
+    def Limit(self):
+        r"""返回数量，默认为10，最大值为100。
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def Offset(self):
+        r"""偏移量，默认为0。
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Filters(self):
+        r"""过滤条件，如下支持的过滤类型，传参Name应为以下其中一个,其中task-id支持最大50个过滤个数，其他过滤参数支持的总数不超过5个。
+task-id - String - （任务ID准确过滤）task-id取值形如：e386471f-139a-4e59-877f-50ece8135b99。
+task-state - String - （任务状态过滤）取值范围 0(初始化)， 1(运行中)， 2(成功)， -1(失败)。
+task-sql-keyword - String - （SQL语句关键字模糊过滤）取值形如：DROP TABLE。
+task-operator- string （子uin过滤）
+task-kind - string （任务类型过滤）
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def SortBy(self):
+        r"""排序字段，支持如下字段类型，create-time（创建时间，默认）、update-time（更新时间）
+        :rtype: str
+        """
+        return self._SortBy
+
+    @SortBy.setter
+    def SortBy(self, SortBy):
+        self._SortBy = SortBy
+
+    @property
+    def Sorting(self):
+        r"""排序方式，desc表示正序，asc表示反序， 默认为asc。
+        :rtype: str
+        """
+        return self._Sorting
+
+    @Sorting.setter
+    def Sorting(self, Sorting):
+        self._Sorting = Sorting
+
+    @property
+    def StartTime(self):
+        r"""起始时间点，格式为yyyy-mm-dd HH:MM:SS。默认为45天前的当前时刻
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""结束时间点，格式为yyyy-mm-dd HH:MM:SS时间跨度在(0,30天]，支持最近45天数据查询。默认为当前时刻
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def DataEngineName(self):
+        r"""数据引擎名称，用于筛选
+        :rtype: str
+        """
+        return self._DataEngineName
+
+    @DataEngineName.setter
+    def DataEngineName(self, DataEngineName):
+        self._DataEngineName = DataEngineName
+
+    @property
+    def ResourceGroupName(self):
+        r"""spark引擎资源组名称
+        :rtype: str
+        """
+        return self._ResourceGroupName
+
+    @ResourceGroupName.setter
+    def ResourceGroupName(self, ResourceGroupName):
+        self._ResourceGroupName = ResourceGroupName
+
+    @property
+    def HouseIds(self):
+        r"""引擎id列表
+        :rtype: list of str
+        """
+        return self._HouseIds
+
+    @HouseIds.setter
+    def HouseIds(self, HouseIds):
+        self._HouseIds = HouseIds
+
+
+    def _deserialize(self, params):
+        self._Limit = params.get("Limit")
+        self._Offset = params.get("Offset")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._SortBy = params.get("SortBy")
+        self._Sorting = params.get("Sorting")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._DataEngineName = params.get("DataEngineName")
+        self._ResourceGroupName = params.get("ResourceGroupName")
+        self._HouseIds = params.get("HouseIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTaskListResponse(AbstractModel):
+    r"""DescribeTaskList返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskList: 任务对象列表。
+        :type TaskList: list of TaskFullRespInfo
+        :param _TotalCount: 实例总数。
+        :type TotalCount: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TaskList = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def TaskList(self):
+        r"""任务对象列表。
+        :rtype: list of TaskFullRespInfo
+        """
+        return self._TaskList
+
+    @TaskList.setter
+    def TaskList(self, TaskList):
+        self._TaskList = TaskList
+
+    @property
+    def TotalCount(self):
+        r"""实例总数。
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("TaskList") is not None:
+            self._TaskList = []
+            for item in params.get("TaskList"):
+                obj = TaskFullRespInfo()
+                obj._deserialize(item)
+                self._TaskList.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeTaskLogRequest(AbstractModel):
     r"""DescribeTaskLog请求参数结构体
 
@@ -23297,6 +24246,87 @@ class DescribeTaskMonitorInfosResponse(AbstractModel):
                 obj._deserialize(item)
                 self._TaskMonitorInfoList.append(obj)
         self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeTaskResourceUsageRequest(AbstractModel):
+    r"""DescribeTaskResourceUsage请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskInstanceId: 任务 id
+        :type TaskInstanceId: str
+        """
+        self._TaskInstanceId = None
+
+    @property
+    def TaskInstanceId(self):
+        r"""任务 id
+        :rtype: str
+        """
+        return self._TaskInstanceId
+
+    @TaskInstanceId.setter
+    def TaskInstanceId(self, TaskInstanceId):
+        self._TaskInstanceId = TaskInstanceId
+
+
+    def _deserialize(self, params):
+        self._TaskInstanceId = params.get("TaskInstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTaskResourceUsageResponse(AbstractModel):
+    r"""DescribeTaskResourceUsage返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CoreInfo: core 用量信息
+        :type CoreInfo: :class:`tencentcloud.dlc.v20210125.models.CoreInfo`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._CoreInfo = None
+        self._RequestId = None
+
+    @property
+    def CoreInfo(self):
+        r"""core 用量信息
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.CoreInfo`
+        """
+        return self._CoreInfo
+
+    @CoreInfo.setter
+    def CoreInfo(self, CoreInfo):
+        self._CoreInfo = CoreInfo
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("CoreInfo") is not None:
+            self._CoreInfo = CoreInfo()
+            self._CoreInfo._deserialize(params.get("CoreInfo"))
         self._RequestId = params.get("RequestId")
 
 
@@ -24740,6 +25770,8 @@ engine-name：库表的模糊搜索。
         :type Limit: int
         :param _Offset: 偏移量，默认为0
         :type Offset: int
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._Type = None
@@ -24748,6 +25780,7 @@ engine-name：库表的模糊搜索。
         self._Sorting = None
         self._Limit = None
         self._Offset = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -24850,6 +25883,17 @@ engine-name：库表的模糊搜索。
     def Offset(self, Offset):
         self._Offset = Offset
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -24864,6 +25908,7 @@ engine-name：库表的模糊搜索。
         self._Sorting = params.get("Sorting")
         self._Limit = params.get("Limit")
         self._Offset = params.get("Offset")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25168,8 +26213,11 @@ class DescribeUserTypeRequest(AbstractModel):
         r"""
         :param _UserId: 用户ID（UIN），如果不填默认为调用方的子UIN
         :type UserId: str
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -25182,9 +26230,21 @@ class DescribeUserTypeRequest(AbstractModel):
     def UserId(self, UserId):
         self._UserId = UserId
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25373,6 +26433,8 @@ class DescribeUsersRequest(AbstractModel):
         :type Sorting: str
         :param _Filters: 过滤条件，支持如下字段类型，user-type：根据用户类型过滤。user-keyword：根据用户名称过滤
         :type Filters: list of Filter
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._Offset = None
@@ -25380,6 +26442,7 @@ class DescribeUsersRequest(AbstractModel):
         self._SortBy = None
         self._Sorting = None
         self._Filters = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -25447,6 +26510,17 @@ class DescribeUsersRequest(AbstractModel):
     def Filters(self, Filters):
         self._Filters = Filters
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -25460,6 +26534,7 @@ class DescribeUsersRequest(AbstractModel):
                 obj = Filter()
                 obj._deserialize(item)
                 self._Filters.append(obj)
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26194,9 +27269,12 @@ class DetachUserPolicyRequest(AbstractModel):
         :type UserId: str
         :param _PolicySet: 解绑的权限集合
         :type PolicySet: list of Policy
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._PolicySet = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -26220,6 +27298,17 @@ class DetachUserPolicyRequest(AbstractModel):
     def PolicySet(self, PolicySet):
         self._PolicySet = PolicySet
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -26229,6 +27318,7 @@ class DetachUserPolicyRequest(AbstractModel):
                 obj = Policy()
                 obj._deserialize(item)
                 self._PolicySet.append(obj)
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26772,12 +27862,15 @@ class ElasticPlan(AbstractModel):
         :type StartTime: str
         :param _EndTime: 结束时间，Once格式：yyyy-MM-dd HH:mm:ss; 非Once格式： HH:mm:ss
         :type EndTime: str
+        :param _ElasticLimit: 分时弹性上限
+        :type ElasticLimit: int
         """
         self._MinElasticClusters = None
         self._MaxElasticClusters = None
         self._TolerableQueueTime = None
         self._StartTime = None
         self._EndTime = None
+        self._ElasticLimit = None
 
     @property
     def MinElasticClusters(self):
@@ -26834,6 +27927,17 @@ class ElasticPlan(AbstractModel):
     def EndTime(self, EndTime):
         self._EndTime = EndTime
 
+    @property
+    def ElasticLimit(self):
+        r"""分时弹性上限
+        :rtype: int
+        """
+        return self._ElasticLimit
+
+    @ElasticLimit.setter
+    def ElasticLimit(self, ElasticLimit):
+        self._ElasticLimit = ElasticLimit
+
 
     def _deserialize(self, params):
         self._MinElasticClusters = params.get("MinElasticClusters")
@@ -26841,6 +27945,7 @@ class ElasticPlan(AbstractModel):
         self._TolerableQueueTime = params.get("TolerableQueueTime")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
+        self._ElasticLimit = params.get("ElasticLimit")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -27481,6 +28586,147 @@ class Filter(AbstractModel):
     def _deserialize(self, params):
         self._Name = params.get("Name")
         self._Values = params.get("Values")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GPUInfo(AbstractModel):
+    r"""GPU 机型
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BillingItem: 计费项
+        :type BillingItem: str
+        :param _Model: 机型
+        :type Model: str
+        :param _CU: cu
+        :type CU: int
+        :param _Type: gpu 机型
+        :type Type: str
+        :param _Num: 数量
+        :type Num: int
+        :param _GPUMemory: 显存
+        :type GPUMemory: int
+        :param _InstanceType: 机型
+        :type InstanceType: str
+        :param _SaleStatus: 售卖情况（1-缺货，2-低库存，3-充足）
+        :type SaleStatus: int
+        """
+        self._BillingItem = None
+        self._Model = None
+        self._CU = None
+        self._Type = None
+        self._Num = None
+        self._GPUMemory = None
+        self._InstanceType = None
+        self._SaleStatus = None
+
+    @property
+    def BillingItem(self):
+        r"""计费项
+        :rtype: str
+        """
+        return self._BillingItem
+
+    @BillingItem.setter
+    def BillingItem(self, BillingItem):
+        self._BillingItem = BillingItem
+
+    @property
+    def Model(self):
+        r"""机型
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
+    @property
+    def CU(self):
+        r"""cu
+        :rtype: int
+        """
+        return self._CU
+
+    @CU.setter
+    def CU(self, CU):
+        self._CU = CU
+
+    @property
+    def Type(self):
+        r"""gpu 机型
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Num(self):
+        r"""数量
+        :rtype: int
+        """
+        return self._Num
+
+    @Num.setter
+    def Num(self, Num):
+        self._Num = Num
+
+    @property
+    def GPUMemory(self):
+        r"""显存
+        :rtype: int
+        """
+        return self._GPUMemory
+
+    @GPUMemory.setter
+    def GPUMemory(self, GPUMemory):
+        self._GPUMemory = GPUMemory
+
+    @property
+    def InstanceType(self):
+        r"""机型
+        :rtype: str
+        """
+        return self._InstanceType
+
+    @InstanceType.setter
+    def InstanceType(self, InstanceType):
+        self._InstanceType = InstanceType
+
+    @property
+    def SaleStatus(self):
+        r"""售卖情况（1-缺货，2-低库存，3-充足）
+        :rtype: int
+        """
+        return self._SaleStatus
+
+    @SaleStatus.setter
+    def SaleStatus(self, SaleStatus):
+        self._SaleStatus = SaleStatus
+
+
+    def _deserialize(self, params):
+        self._BillingItem = params.get("BillingItem")
+        self._Model = params.get("Model")
+        self._CU = params.get("CU")
+        self._Type = params.get("Type")
+        self._Num = params.get("Num")
+        self._GPUMemory = params.get("GPUMemory")
+        self._InstanceType = params.get("InstanceType")
+        self._SaleStatus = params.get("SaleStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -30938,9 +32184,12 @@ class ModifyUserRequest(AbstractModel):
         :type UserId: str
         :param _UserDescription: 用户描述
         :type UserDescription: str
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._UserDescription = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -30964,10 +32213,22 @@ class ModifyUserRequest(AbstractModel):
     def UserDescription(self, UserDescription):
         self._UserDescription = UserDescription
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
         self._UserDescription = params.get("UserDescription")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -31017,9 +32278,12 @@ class ModifyUserTypeRequest(AbstractModel):
         :type UserId: str
         :param _UserType: 用户要修改到的类型，ADMIN：管理员，COMMON：一般用户。
         :type UserType: str
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._UserType = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -31043,10 +32307,22 @@ class ModifyUserTypeRequest(AbstractModel):
     def UserType(self, UserType):
         self._UserType = UserType
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
         self._UserType = params.get("UserType")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33441,6 +34717,8 @@ class Policy(AbstractModel):
         :param _EngineGeneration: 引擎类型
 
         :type EngineGeneration: str
+        :param _Model: 需要授权的Model名，填 * 代表当前Database下所有表。当授权类型为管理员级别时，只允许填“*”，当授权类型为数据连接级别、数据库级别时只允许填空，其他类型下可以任意指定数据表。
+        :type Model: str
         """
         self._Database = None
         self._Catalog = None
@@ -33460,6 +34738,7 @@ class Policy(AbstractModel):
         self._SourceName = None
         self._Id = None
         self._EngineGeneration = None
+        self._Model = None
 
     @property
     def Database(self):
@@ -33672,6 +34951,17 @@ class Policy(AbstractModel):
     def EngineGeneration(self, EngineGeneration):
         self._EngineGeneration = EngineGeneration
 
+    @property
+    def Model(self):
+        r"""需要授权的Model名，填 * 代表当前Database下所有表。当授权类型为管理员级别时，只允许填“*”，当授权类型为数据连接级别、数据库级别时只允许填空，其他类型下可以任意指定数据表。
+        :rtype: str
+        """
+        return self._Model
+
+    @Model.setter
+    def Model(self, Model):
+        self._Model = Model
+
 
     def _deserialize(self, params):
         self._Database = params.get("Database")
@@ -33692,6 +34982,7 @@ class Policy(AbstractModel):
         self._SourceName = params.get("SourceName")
         self._Id = params.get("Id")
         self._EngineGeneration = params.get("EngineGeneration")
+        self._Model = params.get("Model")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33988,9 +35279,12 @@ class QueryInternalTableWarehouseRequest(AbstractModel):
         :type DatabaseName: str
         :param _TableName: 表名
         :type TableName: str
+        :param _DatasourceConnectionName: catalog名称
+        :type DatasourceConnectionName: str
         """
         self._DatabaseName = None
         self._TableName = None
+        self._DatasourceConnectionName = None
 
     @property
     def DatabaseName(self):
@@ -34014,10 +35308,22 @@ class QueryInternalTableWarehouseRequest(AbstractModel):
     def TableName(self, TableName):
         self._TableName = TableName
 
+    @property
+    def DatasourceConnectionName(self):
+        r"""catalog名称
+        :rtype: str
+        """
+        return self._DatasourceConnectionName
+
+    @DatasourceConnectionName.setter
+    def DatasourceConnectionName(self, DatasourceConnectionName):
+        self._DatasourceConnectionName = DatasourceConnectionName
+
 
     def _deserialize(self, params):
         self._DatabaseName = params.get("DatabaseName")
         self._TableName = params.get("TableName")
+        self._DatasourceConnectionName = params.get("DatasourceConnectionName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34649,8 +35955,44 @@ class ReportHeartbeatMetaDataResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ResourceConf(AbstractModel):
+    r"""数据治理资源配置项
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Parallelism: 当为TCLake优化资源时，优化任务的并行度
+        :type Parallelism: int
+        """
+        self._Parallelism = None
+
+    @property
+    def Parallelism(self):
+        r"""当为TCLake优化资源时，优化任务的并行度
+        :rtype: int
+        """
+        return self._Parallelism
+
+    @Parallelism.setter
+    def Parallelism(self, Parallelism):
+        self._Parallelism = Parallelism
+
+
+    def _deserialize(self, params):
+        self._Parallelism = params.get("Parallelism")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ResourceInfo(AbstractModel):
-    r"""ResourceInfo
+    r"""数据优化资源信息结构
 
     """
 
@@ -34671,6 +36013,8 @@ class ResourceInfo(AbstractModel):
         :type Status: int
         :param _ResourceGroupName: 标准引擎资源组信息
         :type ResourceGroupName: str
+        :param _ResourceConf: 资源配置信息
+        :type ResourceConf: :class:`tencentcloud.dlc.v20210125.models.ResourceConf`
         """
         self._AttributionType = None
         self._ResourceType = None
@@ -34679,6 +36023,7 @@ class ResourceInfo(AbstractModel):
         self._Favor = None
         self._Status = None
         self._ResourceGroupName = None
+        self._ResourceConf = None
 
     @property
     def AttributionType(self):
@@ -34758,6 +36103,17 @@ class ResourceInfo(AbstractModel):
     def ResourceGroupName(self, ResourceGroupName):
         self._ResourceGroupName = ResourceGroupName
 
+    @property
+    def ResourceConf(self):
+        r"""资源配置信息
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.ResourceConf`
+        """
+        return self._ResourceConf
+
+    @ResourceConf.setter
+    def ResourceConf(self, ResourceConf):
+        self._ResourceConf = ResourceConf
+
 
     def _deserialize(self, params):
         self._AttributionType = params.get("AttributionType")
@@ -34772,6 +36128,9 @@ class ResourceInfo(AbstractModel):
                 self._Favor.append(obj)
         self._Status = params.get("Status")
         self._ResourceGroupName = params.get("ResourceGroupName")
+        if params.get("ResourceConf") is not None:
+            self._ResourceConf = ResourceConf()
+            self._ResourceConf._deserialize(params.get("ResourceConf"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35392,6 +36751,72 @@ class SessionResourceTemplate(AbstractModel):
         
 
 
+class SetOptimizerPolicyRequest(AbstractModel):
+    r"""SetOptimizerPolicy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SmartPolicy: 优化策略
+        :type SmartPolicy: :class:`tencentcloud.dlc.v20210125.models.SmartPolicy`
+        """
+        self._SmartPolicy = None
+
+    @property
+    def SmartPolicy(self):
+        r"""优化策略
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.SmartPolicy`
+        """
+        return self._SmartPolicy
+
+    @SmartPolicy.setter
+    def SmartPolicy(self, SmartPolicy):
+        self._SmartPolicy = SmartPolicy
+
+
+    def _deserialize(self, params):
+        if params.get("SmartPolicy") is not None:
+            self._SmartPolicy = SmartPolicy()
+            self._SmartPolicy._deserialize(params.get("SmartPolicy"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SetOptimizerPolicyResponse(AbstractModel):
+    r"""SetOptimizerPolicy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class SmartOptimizerChangeTablePolicy(AbstractModel):
     r"""混合表中，change表的数据保存时间，单位为天
 
@@ -35475,7 +36900,7 @@ class SmartOptimizerLifecyclePolicy(AbstractModel):
         :type LifecycleEnable: str
         :param _Expiration: 过期时间
         :type Expiration: int
-        :param _DropTable: 是否删表
+        :param _DropTable: 是否删表，该字段废弃已使用，用TableExpiration策略替代
         :type DropTable: bool
         :param _ExpiredField: 过期字段
         :type ExpiredField: str
@@ -35512,13 +36937,17 @@ class SmartOptimizerLifecyclePolicy(AbstractModel):
 
     @property
     def DropTable(self):
-        r"""是否删表
+        warnings.warn("parameter `DropTable` is deprecated", DeprecationWarning) 
+
+        r"""是否删表，该字段废弃已使用，用TableExpiration策略替代
         :rtype: bool
         """
         return self._DropTable
 
     @DropTable.setter
     def DropTable(self, DropTable):
+        warnings.warn("parameter `DropTable` is deprecated", DeprecationWarning) 
+
         self._DropTable = DropTable
 
     @property
@@ -35569,13 +36998,13 @@ class SmartOptimizerPolicy(AbstractModel):
         r"""
         :param _Inherit: 是否继承
         :type Inherit: str
-        :param _Resources: ResourceInfo
+        :param _Resources: 数据治理资源
 注意：此字段可能返回 null，表示取不到有效值。
         :type Resources: list of ResourceInfo
-        :param _Written: SmartOptimizerWrittenPolicy
+        :param _Written: 数据重写策略
 注意：此字段可能返回 null，表示取不到有效值。
         :type Written: :class:`tencentcloud.dlc.v20210125.models.SmartOptimizerWrittenPolicy`
-        :param _Lifecycle: SmartOptimizerLifecyclePolicy
+        :param _Lifecycle: 数据过期策略
 注意：此字段可能返回 null，表示取不到有效值。
         :type Lifecycle: :class:`tencentcloud.dlc.v20210125.models.SmartOptimizerLifecyclePolicy`
         :param _Index: SmartOptimizerIndexPolicy
@@ -35605,7 +37034,7 @@ class SmartOptimizerPolicy(AbstractModel):
 
     @property
     def Resources(self):
-        r"""ResourceInfo
+        r"""数据治理资源
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: list of ResourceInfo
         """
@@ -35617,7 +37046,7 @@ class SmartOptimizerPolicy(AbstractModel):
 
     @property
     def Written(self):
-        r"""SmartOptimizerWrittenPolicy
+        r"""数据重写策略
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.dlc.v20210125.models.SmartOptimizerWrittenPolicy`
         """
@@ -35629,7 +37058,7 @@ class SmartOptimizerPolicy(AbstractModel):
 
     @property
     def Lifecycle(self):
-        r"""SmartOptimizerLifecyclePolicy
+        r"""数据过期策略
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: :class:`tencentcloud.dlc.v20210125.models.SmartOptimizerLifecyclePolicy`
         """
@@ -35703,8 +37132,12 @@ class SmartOptimizerWrittenPolicy(AbstractModel):
         r"""
         :param _WrittenEnable: none/enable/disable/default
         :type WrittenEnable: str
+        :param _AdvancePolicy: 用户自定义高级参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AdvancePolicy: :class:`tencentcloud.dlc.v20210125.models.WrittenAdvancePolicy`
         """
         self._WrittenEnable = None
+        self._AdvancePolicy = None
 
     @property
     def WrittenEnable(self):
@@ -35717,9 +37150,24 @@ class SmartOptimizerWrittenPolicy(AbstractModel):
     def WrittenEnable(self, WrittenEnable):
         self._WrittenEnable = WrittenEnable
 
+    @property
+    def AdvancePolicy(self):
+        r"""用户自定义高级参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.WrittenAdvancePolicy`
+        """
+        return self._AdvancePolicy
+
+    @AdvancePolicy.setter
+    def AdvancePolicy(self, AdvancePolicy):
+        self._AdvancePolicy = AdvancePolicy
+
 
     def _deserialize(self, params):
         self._WrittenEnable = params.get("WrittenEnable")
+        if params.get("AdvancePolicy") is not None:
+            self._AdvancePolicy = WrittenAdvancePolicy()
+            self._AdvancePolicy._deserialize(params.get("AdvancePolicy"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -35941,6 +37389,72 @@ class Sort(AbstractModel):
     def _deserialize(self, params):
         self._Field = params.get("Field")
         self._Asc = params.get("Asc")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SortOrder(AbstractModel):
+    r"""合并策略sort类型的规则定义
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Column: sort的数据表列名称
+        :type Column: str
+        :param _SortDirection: 按照升序或者降序进行排序
+        :type SortDirection: str
+        :param _NullOrder: null值放在开头或者末尾
+        :type NullOrder: str
+        """
+        self._Column = None
+        self._SortDirection = None
+        self._NullOrder = None
+
+    @property
+    def Column(self):
+        r"""sort的数据表列名称
+        :rtype: str
+        """
+        return self._Column
+
+    @Column.setter
+    def Column(self, Column):
+        self._Column = Column
+
+    @property
+    def SortDirection(self):
+        r"""按照升序或者降序进行排序
+        :rtype: str
+        """
+        return self._SortDirection
+
+    @SortDirection.setter
+    def SortDirection(self, SortDirection):
+        self._SortDirection = SortDirection
+
+    @property
+    def NullOrder(self):
+        r"""null值放在开头或者末尾
+        :rtype: str
+        """
+        return self._NullOrder
+
+    @NullOrder.setter
+    def NullOrder(self, NullOrder):
+        self._NullOrder = NullOrder
+
+
+    def _deserialize(self, params):
+        self._Column = params.get("Column")
+        self._SortDirection = params.get("SortDirection")
+        self._NullOrder = params.get("NullOrder")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -36888,6 +38402,8 @@ name
         :type TotalSpecMin: int
         :param _TotalSpecMax: 总规格最大
         :type TotalSpecMax: int
+        :param _State: 状态，STARTING、RUNNING、TERMINATED
+        :type State: str
         """
         self._SparkSessionId = None
         self._SparkSessionName = None
@@ -36901,6 +38417,7 @@ name
         self._ExecutorNumMax = None
         self._TotalSpecMin = None
         self._TotalSpecMax = None
+        self._State = None
 
     @property
     def SparkSessionId(self):
@@ -37035,6 +38552,17 @@ name
     def TotalSpecMax(self, TotalSpecMax):
         self._TotalSpecMax = TotalSpecMax
 
+    @property
+    def State(self):
+        r"""状态，STARTING、RUNNING、TERMINATED
+        :rtype: str
+        """
+        return self._State
+
+    @State.setter
+    def State(self, State):
+        self._State = State
+
 
     def _deserialize(self, params):
         self._SparkSessionId = params.get("SparkSessionId")
@@ -37049,6 +38577,7 @@ name
         self._ExecutorNumMax = params.get("ExecutorNumMax")
         self._TotalSpecMin = params.get("TotalSpecMin")
         self._TotalSpecMax = params.get("TotalSpecMax")
+        self._State = params.get("State")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -39663,6 +41192,1111 @@ class Task(AbstractModel):
         
 
 
+class TaskFullRespInfo(AbstractModel):
+    r"""任务实例。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DatabaseName: 任务所属Database的名称。
+        :type DatabaseName: str
+        :param _DataAmount: 任务数据量。
+        :type DataAmount: int
+        :param _Id: 任务Id。
+        :type Id: str
+        :param _UsedTime: 计算耗时，单位： ms
+        :type UsedTime: int
+        :param _OutputPath: 任务输出路径。
+        :type OutputPath: str
+        :param _CreateTime: 任务创建时间。
+        :type CreateTime: str
+        :param _State: 任务状态：0 初始化， 1 执行中， 2 执行成功，3 数据写入中，4 排队中。-1 执行失败，-3 已取消。
+        :type State: int
+        :param _SQLType: 任务SQL类型，DDL|DML等
+        :type SQLType: str
+        :param _SQL: 任务SQL语句
+        :type SQL: str
+        :param _ResultExpired: 结果是否过期。
+        :type ResultExpired: bool
+        :param _RowAffectInfo: 数据影响统计信息。
+        :type RowAffectInfo: str
+        :param _DataSet: 任务结果数据表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DataSet: str
+        :param _Error: 失败信息, 例如：errorMessage。该字段已废弃。
+        :type Error: str
+        :param _Percentage: 任务执行进度num/100(%)
+        :type Percentage: int
+        :param _OutputMessage: 任务执行输出信息。
+        :type OutputMessage: str
+        :param _TaskType: 执行SQL的引擎类型
+        :type TaskType: str
+        :param _ProgressDetail: 任务进度明细
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ProgressDetail: str
+        :param _UpdateTime: 任务结束时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UpdateTime: str
+        :param _DataEngineId: 计算资源id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DataEngineId: str
+        :param _OperateUin: 执行sql的子uin
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OperateUin: str
+        :param _DataEngineName: 计算资源名字
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DataEngineName: str
+        :param _InputType: 导入类型是本地导入还是cos
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InputType: str
+        :param _InputConf: 导入配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InputConf: str
+        :param _DataNumber: 数据条数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DataNumber: int
+        :param _CanDownload: 查询数据能不能下载
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CanDownload: bool
+        :param _UserAlias: 用户别名
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserAlias: str
+        :param _SparkJobName: spark应用作业名
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SparkJobName: str
+        :param _SparkJobId: spark应用作业Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SparkJobId: str
+        :param _SparkJobFile: spark应用入口jar文件
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SparkJobFile: str
+        :param _UiUrl: spark ui url
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UiUrl: str
+        :param _TotalTime: 任务耗时，单位： ms
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TotalTime: int
+        :param _CmdArgs: spark app job执行task的程序入口参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CmdArgs: str
+        :param _ImageVersion: 集群镜像大版本名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ImageVersion: str
+        :param _DriverSize: driver规格：small,medium,large,xlarge；内存型(引擎类型)：m.small,m.medium,m.large,m.xlarge
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DriverSize: str
+        :param _ExecutorSize: executor规格：small,medium,large,xlarge；内存型(引擎类型)：m.small,m.medium,m.large,m.xlarge
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExecutorSize: str
+        :param _ExecutorNums: 指定executor数量，最小值为1，最大值小于集群规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExecutorNums: int
+        :param _ExecutorMaxNumbers: 指定executor max数量（动态配置场景下），最小值为1，最大值小于集群规格（当ExecutorMaxNumbers小于ExecutorNums时，改值设定为ExecutorNums）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExecutorMaxNumbers: int
+        :param _CommonMetrics: 任务公共指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CommonMetrics: :class:`tencentcloud.dlc.v20210125.models.CommonMetrics`
+        :param _SparkMonitorMetrics: spark任务指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SparkMonitorMetrics: :class:`tencentcloud.dlc.v20210125.models.SparkMonitorMetrics`
+        :param _PrestoMonitorMetrics: presto任务指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PrestoMonitorMetrics: :class:`tencentcloud.dlc.v20210125.models.PrestoMonitorMetrics`
+        :param _ResultFormat: 结果文件格式：默认为csv
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ResultFormat: str
+        :param _EngineTypeDetail: 引擎类型，SparkSQL：SparkSQL 引擎；SparkBatch：Spark作业引擎；PrestoSQL：Presto引擎
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EngineTypeDetail: str
+        :param _ResourceGroupName: spark引擎资源组名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ResourceGroupName: str
+        :param _Source: 任务来源信息,如thirdPartyApi,dataExploration, sparkAppTask等
+        :type Source: str
+        :param _SourceExtra: 子渠道信息，一般由第三方调用定义
+        :type SourceExtra: str
+        :param _CreatorUin: 创建人uin
+        :type CreatorUin: str
+        :param _CreatorAlias: 创建人名字
+        :type CreatorAlias: str
+        :param _CustomizedConf: 引擎参数
+        :type CustomizedConf: str
+        :param _TaskTimeSum: 单位秒，累计 CPU* 秒 ( 累计 CPU * 时 = 累计 CPU* 秒/ 3600)，统计参与计算所用 Spark Executor 每个 core 的 CPU 执行时长总和
+示例值：4329
+        :type TaskTimeSum: int
+        :param _StageStartTime: 引擎执行时间
+        :type StageStartTime: int
+        :param _InputRecordsSum: 数据扫描条数
+        :type InputRecordsSum: int
+        :param _AnalysisStatusType: 健康状态
+        :type AnalysisStatusType: int
+        :param _OutputRecordsSum: 输出总行数
+        :type OutputRecordsSum: int
+        :param _OutputBytesSum: 输出总大小
+        :type OutputBytesSum: int
+        :param _OutputFilesNum: 输出文件个数
+        :type OutputFilesNum: int
+        :param _OutputSmallFilesNum: 输出小文件个数
+        :type OutputSmallFilesNum: int
+        :param _ShuffleReadRecordsSum: 数据shuffle行数
+        :type ShuffleReadRecordsSum: int
+        :param _ShuffleReadBytesSum: 数据shuffle大小
+        :type ShuffleReadBytesSum: int
+        :param _SparkAppId: spark作业id
+        :type SparkAppId: str
+        :param _TaskCategory: 任务大类，DLC2.0中任务区分为两大类，sql任务和作业任务
+        :type TaskCategory: str
+        :param _TaskName: 任务名称
+        :type TaskName: str
+        :param _EngineType: 引擎类型，用做任务详情页跳转引擎tab
+        :type EngineType: str
+        :param _EngineHasListenerConfig: 引擎是否支持洞察数据采集
+        :type EngineHasListenerConfig: bool
+        :param _ResourceGroupId: spark引擎资源组id
+        :type ResourceGroupId: str
+        :param _JobTimeSum: 任务计算耗时
+        :type JobTimeSum: int
+        :param _LaunchTime: 任务启动耗时
+        :type LaunchTime: str
+        :param _GpuDriverSize: Gpu Driver 规格
+        :type GpuDriverSize: int
+        :param _GpuExecutorSize: Gpu Executor 规格
+        :type GpuExecutorSize: int
+        """
+        self._DatabaseName = None
+        self._DataAmount = None
+        self._Id = None
+        self._UsedTime = None
+        self._OutputPath = None
+        self._CreateTime = None
+        self._State = None
+        self._SQLType = None
+        self._SQL = None
+        self._ResultExpired = None
+        self._RowAffectInfo = None
+        self._DataSet = None
+        self._Error = None
+        self._Percentage = None
+        self._OutputMessage = None
+        self._TaskType = None
+        self._ProgressDetail = None
+        self._UpdateTime = None
+        self._DataEngineId = None
+        self._OperateUin = None
+        self._DataEngineName = None
+        self._InputType = None
+        self._InputConf = None
+        self._DataNumber = None
+        self._CanDownload = None
+        self._UserAlias = None
+        self._SparkJobName = None
+        self._SparkJobId = None
+        self._SparkJobFile = None
+        self._UiUrl = None
+        self._TotalTime = None
+        self._CmdArgs = None
+        self._ImageVersion = None
+        self._DriverSize = None
+        self._ExecutorSize = None
+        self._ExecutorNums = None
+        self._ExecutorMaxNumbers = None
+        self._CommonMetrics = None
+        self._SparkMonitorMetrics = None
+        self._PrestoMonitorMetrics = None
+        self._ResultFormat = None
+        self._EngineTypeDetail = None
+        self._ResourceGroupName = None
+        self._Source = None
+        self._SourceExtra = None
+        self._CreatorUin = None
+        self._CreatorAlias = None
+        self._CustomizedConf = None
+        self._TaskTimeSum = None
+        self._StageStartTime = None
+        self._InputRecordsSum = None
+        self._AnalysisStatusType = None
+        self._OutputRecordsSum = None
+        self._OutputBytesSum = None
+        self._OutputFilesNum = None
+        self._OutputSmallFilesNum = None
+        self._ShuffleReadRecordsSum = None
+        self._ShuffleReadBytesSum = None
+        self._SparkAppId = None
+        self._TaskCategory = None
+        self._TaskName = None
+        self._EngineType = None
+        self._EngineHasListenerConfig = None
+        self._ResourceGroupId = None
+        self._JobTimeSum = None
+        self._LaunchTime = None
+        self._GpuDriverSize = None
+        self._GpuExecutorSize = None
+
+    @property
+    def DatabaseName(self):
+        r"""任务所属Database的名称。
+        :rtype: str
+        """
+        return self._DatabaseName
+
+    @DatabaseName.setter
+    def DatabaseName(self, DatabaseName):
+        self._DatabaseName = DatabaseName
+
+    @property
+    def DataAmount(self):
+        r"""任务数据量。
+        :rtype: int
+        """
+        return self._DataAmount
+
+    @DataAmount.setter
+    def DataAmount(self, DataAmount):
+        self._DataAmount = DataAmount
+
+    @property
+    def Id(self):
+        r"""任务Id。
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def UsedTime(self):
+        r"""计算耗时，单位： ms
+        :rtype: int
+        """
+        return self._UsedTime
+
+    @UsedTime.setter
+    def UsedTime(self, UsedTime):
+        self._UsedTime = UsedTime
+
+    @property
+    def OutputPath(self):
+        r"""任务输出路径。
+        :rtype: str
+        """
+        return self._OutputPath
+
+    @OutputPath.setter
+    def OutputPath(self, OutputPath):
+        self._OutputPath = OutputPath
+
+    @property
+    def CreateTime(self):
+        r"""任务创建时间。
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def State(self):
+        r"""任务状态：0 初始化， 1 执行中， 2 执行成功，3 数据写入中，4 排队中。-1 执行失败，-3 已取消。
+        :rtype: int
+        """
+        return self._State
+
+    @State.setter
+    def State(self, State):
+        self._State = State
+
+    @property
+    def SQLType(self):
+        r"""任务SQL类型，DDL|DML等
+        :rtype: str
+        """
+        return self._SQLType
+
+    @SQLType.setter
+    def SQLType(self, SQLType):
+        self._SQLType = SQLType
+
+    @property
+    def SQL(self):
+        r"""任务SQL语句
+        :rtype: str
+        """
+        return self._SQL
+
+    @SQL.setter
+    def SQL(self, SQL):
+        self._SQL = SQL
+
+    @property
+    def ResultExpired(self):
+        r"""结果是否过期。
+        :rtype: bool
+        """
+        return self._ResultExpired
+
+    @ResultExpired.setter
+    def ResultExpired(self, ResultExpired):
+        self._ResultExpired = ResultExpired
+
+    @property
+    def RowAffectInfo(self):
+        r"""数据影响统计信息。
+        :rtype: str
+        """
+        return self._RowAffectInfo
+
+    @RowAffectInfo.setter
+    def RowAffectInfo(self, RowAffectInfo):
+        self._RowAffectInfo = RowAffectInfo
+
+    @property
+    def DataSet(self):
+        r"""任务结果数据表。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DataSet
+
+    @DataSet.setter
+    def DataSet(self, DataSet):
+        self._DataSet = DataSet
+
+    @property
+    def Error(self):
+        r"""失败信息, 例如：errorMessage。该字段已废弃。
+        :rtype: str
+        """
+        return self._Error
+
+    @Error.setter
+    def Error(self, Error):
+        self._Error = Error
+
+    @property
+    def Percentage(self):
+        r"""任务执行进度num/100(%)
+        :rtype: int
+        """
+        return self._Percentage
+
+    @Percentage.setter
+    def Percentage(self, Percentage):
+        self._Percentage = Percentage
+
+    @property
+    def OutputMessage(self):
+        r"""任务执行输出信息。
+        :rtype: str
+        """
+        return self._OutputMessage
+
+    @OutputMessage.setter
+    def OutputMessage(self, OutputMessage):
+        self._OutputMessage = OutputMessage
+
+    @property
+    def TaskType(self):
+        r"""执行SQL的引擎类型
+        :rtype: str
+        """
+        return self._TaskType
+
+    @TaskType.setter
+    def TaskType(self, TaskType):
+        self._TaskType = TaskType
+
+    @property
+    def ProgressDetail(self):
+        r"""任务进度明细
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ProgressDetail
+
+    @ProgressDetail.setter
+    def ProgressDetail(self, ProgressDetail):
+        self._ProgressDetail = ProgressDetail
+
+    @property
+    def UpdateTime(self):
+        r"""任务结束时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+    @property
+    def DataEngineId(self):
+        r"""计算资源id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DataEngineId
+
+    @DataEngineId.setter
+    def DataEngineId(self, DataEngineId):
+        self._DataEngineId = DataEngineId
+
+    @property
+    def OperateUin(self):
+        r"""执行sql的子uin
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._OperateUin
+
+    @OperateUin.setter
+    def OperateUin(self, OperateUin):
+        self._OperateUin = OperateUin
+
+    @property
+    def DataEngineName(self):
+        r"""计算资源名字
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DataEngineName
+
+    @DataEngineName.setter
+    def DataEngineName(self, DataEngineName):
+        self._DataEngineName = DataEngineName
+
+    @property
+    def InputType(self):
+        r"""导入类型是本地导入还是cos
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._InputType
+
+    @InputType.setter
+    def InputType(self, InputType):
+        self._InputType = InputType
+
+    @property
+    def InputConf(self):
+        r"""导入配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._InputConf
+
+    @InputConf.setter
+    def InputConf(self, InputConf):
+        self._InputConf = InputConf
+
+    @property
+    def DataNumber(self):
+        r"""数据条数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._DataNumber
+
+    @DataNumber.setter
+    def DataNumber(self, DataNumber):
+        self._DataNumber = DataNumber
+
+    @property
+    def CanDownload(self):
+        r"""查询数据能不能下载
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._CanDownload
+
+    @CanDownload.setter
+    def CanDownload(self, CanDownload):
+        self._CanDownload = CanDownload
+
+    @property
+    def UserAlias(self):
+        r"""用户别名
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserAlias
+
+    @UserAlias.setter
+    def UserAlias(self, UserAlias):
+        self._UserAlias = UserAlias
+
+    @property
+    def SparkJobName(self):
+        r"""spark应用作业名
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SparkJobName
+
+    @SparkJobName.setter
+    def SparkJobName(self, SparkJobName):
+        self._SparkJobName = SparkJobName
+
+    @property
+    def SparkJobId(self):
+        r"""spark应用作业Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SparkJobId
+
+    @SparkJobId.setter
+    def SparkJobId(self, SparkJobId):
+        self._SparkJobId = SparkJobId
+
+    @property
+    def SparkJobFile(self):
+        r"""spark应用入口jar文件
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._SparkJobFile
+
+    @SparkJobFile.setter
+    def SparkJobFile(self, SparkJobFile):
+        self._SparkJobFile = SparkJobFile
+
+    @property
+    def UiUrl(self):
+        r"""spark ui url
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UiUrl
+
+    @UiUrl.setter
+    def UiUrl(self, UiUrl):
+        self._UiUrl = UiUrl
+
+    @property
+    def TotalTime(self):
+        r"""任务耗时，单位： ms
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TotalTime
+
+    @TotalTime.setter
+    def TotalTime(self, TotalTime):
+        self._TotalTime = TotalTime
+
+    @property
+    def CmdArgs(self):
+        r"""spark app job执行task的程序入口参数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._CmdArgs
+
+    @CmdArgs.setter
+    def CmdArgs(self, CmdArgs):
+        self._CmdArgs = CmdArgs
+
+    @property
+    def ImageVersion(self):
+        r"""集群镜像大版本名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ImageVersion
+
+    @ImageVersion.setter
+    def ImageVersion(self, ImageVersion):
+        self._ImageVersion = ImageVersion
+
+    @property
+    def DriverSize(self):
+        r"""driver规格：small,medium,large,xlarge；内存型(引擎类型)：m.small,m.medium,m.large,m.xlarge
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DriverSize
+
+    @DriverSize.setter
+    def DriverSize(self, DriverSize):
+        self._DriverSize = DriverSize
+
+    @property
+    def ExecutorSize(self):
+        r"""executor规格：small,medium,large,xlarge；内存型(引擎类型)：m.small,m.medium,m.large,m.xlarge
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ExecutorSize
+
+    @ExecutorSize.setter
+    def ExecutorSize(self, ExecutorSize):
+        self._ExecutorSize = ExecutorSize
+
+    @property
+    def ExecutorNums(self):
+        r"""指定executor数量，最小值为1，最大值小于集群规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ExecutorNums
+
+    @ExecutorNums.setter
+    def ExecutorNums(self, ExecutorNums):
+        self._ExecutorNums = ExecutorNums
+
+    @property
+    def ExecutorMaxNumbers(self):
+        r"""指定executor max数量（动态配置场景下），最小值为1，最大值小于集群规格（当ExecutorMaxNumbers小于ExecutorNums时，改值设定为ExecutorNums）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ExecutorMaxNumbers
+
+    @ExecutorMaxNumbers.setter
+    def ExecutorMaxNumbers(self, ExecutorMaxNumbers):
+        self._ExecutorMaxNumbers = ExecutorMaxNumbers
+
+    @property
+    def CommonMetrics(self):
+        r"""任务公共指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.CommonMetrics`
+        """
+        return self._CommonMetrics
+
+    @CommonMetrics.setter
+    def CommonMetrics(self, CommonMetrics):
+        self._CommonMetrics = CommonMetrics
+
+    @property
+    def SparkMonitorMetrics(self):
+        r"""spark任务指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.SparkMonitorMetrics`
+        """
+        return self._SparkMonitorMetrics
+
+    @SparkMonitorMetrics.setter
+    def SparkMonitorMetrics(self, SparkMonitorMetrics):
+        self._SparkMonitorMetrics = SparkMonitorMetrics
+
+    @property
+    def PrestoMonitorMetrics(self):
+        r"""presto任务指标数据
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.PrestoMonitorMetrics`
+        """
+        return self._PrestoMonitorMetrics
+
+    @PrestoMonitorMetrics.setter
+    def PrestoMonitorMetrics(self, PrestoMonitorMetrics):
+        self._PrestoMonitorMetrics = PrestoMonitorMetrics
+
+    @property
+    def ResultFormat(self):
+        r"""结果文件格式：默认为csv
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ResultFormat
+
+    @ResultFormat.setter
+    def ResultFormat(self, ResultFormat):
+        self._ResultFormat = ResultFormat
+
+    @property
+    def EngineTypeDetail(self):
+        r"""引擎类型，SparkSQL：SparkSQL 引擎；SparkBatch：Spark作业引擎；PrestoSQL：Presto引擎
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._EngineTypeDetail
+
+    @EngineTypeDetail.setter
+    def EngineTypeDetail(self, EngineTypeDetail):
+        self._EngineTypeDetail = EngineTypeDetail
+
+    @property
+    def ResourceGroupName(self):
+        r"""spark引擎资源组名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ResourceGroupName
+
+    @ResourceGroupName.setter
+    def ResourceGroupName(self, ResourceGroupName):
+        self._ResourceGroupName = ResourceGroupName
+
+    @property
+    def Source(self):
+        r"""任务来源信息,如thirdPartyApi,dataExploration, sparkAppTask等
+        :rtype: str
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def SourceExtra(self):
+        r"""子渠道信息，一般由第三方调用定义
+        :rtype: str
+        """
+        return self._SourceExtra
+
+    @SourceExtra.setter
+    def SourceExtra(self, SourceExtra):
+        self._SourceExtra = SourceExtra
+
+    @property
+    def CreatorUin(self):
+        r"""创建人uin
+        :rtype: str
+        """
+        return self._CreatorUin
+
+    @CreatorUin.setter
+    def CreatorUin(self, CreatorUin):
+        self._CreatorUin = CreatorUin
+
+    @property
+    def CreatorAlias(self):
+        r"""创建人名字
+        :rtype: str
+        """
+        return self._CreatorAlias
+
+    @CreatorAlias.setter
+    def CreatorAlias(self, CreatorAlias):
+        self._CreatorAlias = CreatorAlias
+
+    @property
+    def CustomizedConf(self):
+        r"""引擎参数
+        :rtype: str
+        """
+        return self._CustomizedConf
+
+    @CustomizedConf.setter
+    def CustomizedConf(self, CustomizedConf):
+        self._CustomizedConf = CustomizedConf
+
+    @property
+    def TaskTimeSum(self):
+        r"""单位秒，累计 CPU* 秒 ( 累计 CPU * 时 = 累计 CPU* 秒/ 3600)，统计参与计算所用 Spark Executor 每个 core 的 CPU 执行时长总和
+示例值：4329
+        :rtype: int
+        """
+        return self._TaskTimeSum
+
+    @TaskTimeSum.setter
+    def TaskTimeSum(self, TaskTimeSum):
+        self._TaskTimeSum = TaskTimeSum
+
+    @property
+    def StageStartTime(self):
+        r"""引擎执行时间
+        :rtype: int
+        """
+        return self._StageStartTime
+
+    @StageStartTime.setter
+    def StageStartTime(self, StageStartTime):
+        self._StageStartTime = StageStartTime
+
+    @property
+    def InputRecordsSum(self):
+        r"""数据扫描条数
+        :rtype: int
+        """
+        return self._InputRecordsSum
+
+    @InputRecordsSum.setter
+    def InputRecordsSum(self, InputRecordsSum):
+        self._InputRecordsSum = InputRecordsSum
+
+    @property
+    def AnalysisStatusType(self):
+        r"""健康状态
+        :rtype: int
+        """
+        return self._AnalysisStatusType
+
+    @AnalysisStatusType.setter
+    def AnalysisStatusType(self, AnalysisStatusType):
+        self._AnalysisStatusType = AnalysisStatusType
+
+    @property
+    def OutputRecordsSum(self):
+        r"""输出总行数
+        :rtype: int
+        """
+        return self._OutputRecordsSum
+
+    @OutputRecordsSum.setter
+    def OutputRecordsSum(self, OutputRecordsSum):
+        self._OutputRecordsSum = OutputRecordsSum
+
+    @property
+    def OutputBytesSum(self):
+        r"""输出总大小
+        :rtype: int
+        """
+        return self._OutputBytesSum
+
+    @OutputBytesSum.setter
+    def OutputBytesSum(self, OutputBytesSum):
+        self._OutputBytesSum = OutputBytesSum
+
+    @property
+    def OutputFilesNum(self):
+        r"""输出文件个数
+        :rtype: int
+        """
+        return self._OutputFilesNum
+
+    @OutputFilesNum.setter
+    def OutputFilesNum(self, OutputFilesNum):
+        self._OutputFilesNum = OutputFilesNum
+
+    @property
+    def OutputSmallFilesNum(self):
+        r"""输出小文件个数
+        :rtype: int
+        """
+        return self._OutputSmallFilesNum
+
+    @OutputSmallFilesNum.setter
+    def OutputSmallFilesNum(self, OutputSmallFilesNum):
+        self._OutputSmallFilesNum = OutputSmallFilesNum
+
+    @property
+    def ShuffleReadRecordsSum(self):
+        r"""数据shuffle行数
+        :rtype: int
+        """
+        return self._ShuffleReadRecordsSum
+
+    @ShuffleReadRecordsSum.setter
+    def ShuffleReadRecordsSum(self, ShuffleReadRecordsSum):
+        self._ShuffleReadRecordsSum = ShuffleReadRecordsSum
+
+    @property
+    def ShuffleReadBytesSum(self):
+        r"""数据shuffle大小
+        :rtype: int
+        """
+        return self._ShuffleReadBytesSum
+
+    @ShuffleReadBytesSum.setter
+    def ShuffleReadBytesSum(self, ShuffleReadBytesSum):
+        self._ShuffleReadBytesSum = ShuffleReadBytesSum
+
+    @property
+    def SparkAppId(self):
+        r"""spark作业id
+        :rtype: str
+        """
+        return self._SparkAppId
+
+    @SparkAppId.setter
+    def SparkAppId(self, SparkAppId):
+        self._SparkAppId = SparkAppId
+
+    @property
+    def TaskCategory(self):
+        r"""任务大类，DLC2.0中任务区分为两大类，sql任务和作业任务
+        :rtype: str
+        """
+        return self._TaskCategory
+
+    @TaskCategory.setter
+    def TaskCategory(self, TaskCategory):
+        self._TaskCategory = TaskCategory
+
+    @property
+    def TaskName(self):
+        r"""任务名称
+        :rtype: str
+        """
+        return self._TaskName
+
+    @TaskName.setter
+    def TaskName(self, TaskName):
+        self._TaskName = TaskName
+
+    @property
+    def EngineType(self):
+        r"""引擎类型，用做任务详情页跳转引擎tab
+        :rtype: str
+        """
+        return self._EngineType
+
+    @EngineType.setter
+    def EngineType(self, EngineType):
+        self._EngineType = EngineType
+
+    @property
+    def EngineHasListenerConfig(self):
+        r"""引擎是否支持洞察数据采集
+        :rtype: bool
+        """
+        return self._EngineHasListenerConfig
+
+    @EngineHasListenerConfig.setter
+    def EngineHasListenerConfig(self, EngineHasListenerConfig):
+        self._EngineHasListenerConfig = EngineHasListenerConfig
+
+    @property
+    def ResourceGroupId(self):
+        r"""spark引擎资源组id
+        :rtype: str
+        """
+        return self._ResourceGroupId
+
+    @ResourceGroupId.setter
+    def ResourceGroupId(self, ResourceGroupId):
+        self._ResourceGroupId = ResourceGroupId
+
+    @property
+    def JobTimeSum(self):
+        r"""任务计算耗时
+        :rtype: int
+        """
+        return self._JobTimeSum
+
+    @JobTimeSum.setter
+    def JobTimeSum(self, JobTimeSum):
+        self._JobTimeSum = JobTimeSum
+
+    @property
+    def LaunchTime(self):
+        r"""任务启动耗时
+        :rtype: str
+        """
+        return self._LaunchTime
+
+    @LaunchTime.setter
+    def LaunchTime(self, LaunchTime):
+        self._LaunchTime = LaunchTime
+
+    @property
+    def GpuDriverSize(self):
+        r"""Gpu Driver 规格
+        :rtype: int
+        """
+        return self._GpuDriverSize
+
+    @GpuDriverSize.setter
+    def GpuDriverSize(self, GpuDriverSize):
+        self._GpuDriverSize = GpuDriverSize
+
+    @property
+    def GpuExecutorSize(self):
+        r"""Gpu Executor 规格
+        :rtype: int
+        """
+        return self._GpuExecutorSize
+
+    @GpuExecutorSize.setter
+    def GpuExecutorSize(self, GpuExecutorSize):
+        self._GpuExecutorSize = GpuExecutorSize
+
+
+    def _deserialize(self, params):
+        self._DatabaseName = params.get("DatabaseName")
+        self._DataAmount = params.get("DataAmount")
+        self._Id = params.get("Id")
+        self._UsedTime = params.get("UsedTime")
+        self._OutputPath = params.get("OutputPath")
+        self._CreateTime = params.get("CreateTime")
+        self._State = params.get("State")
+        self._SQLType = params.get("SQLType")
+        self._SQL = params.get("SQL")
+        self._ResultExpired = params.get("ResultExpired")
+        self._RowAffectInfo = params.get("RowAffectInfo")
+        self._DataSet = params.get("DataSet")
+        self._Error = params.get("Error")
+        self._Percentage = params.get("Percentage")
+        self._OutputMessage = params.get("OutputMessage")
+        self._TaskType = params.get("TaskType")
+        self._ProgressDetail = params.get("ProgressDetail")
+        self._UpdateTime = params.get("UpdateTime")
+        self._DataEngineId = params.get("DataEngineId")
+        self._OperateUin = params.get("OperateUin")
+        self._DataEngineName = params.get("DataEngineName")
+        self._InputType = params.get("InputType")
+        self._InputConf = params.get("InputConf")
+        self._DataNumber = params.get("DataNumber")
+        self._CanDownload = params.get("CanDownload")
+        self._UserAlias = params.get("UserAlias")
+        self._SparkJobName = params.get("SparkJobName")
+        self._SparkJobId = params.get("SparkJobId")
+        self._SparkJobFile = params.get("SparkJobFile")
+        self._UiUrl = params.get("UiUrl")
+        self._TotalTime = params.get("TotalTime")
+        self._CmdArgs = params.get("CmdArgs")
+        self._ImageVersion = params.get("ImageVersion")
+        self._DriverSize = params.get("DriverSize")
+        self._ExecutorSize = params.get("ExecutorSize")
+        self._ExecutorNums = params.get("ExecutorNums")
+        self._ExecutorMaxNumbers = params.get("ExecutorMaxNumbers")
+        if params.get("CommonMetrics") is not None:
+            self._CommonMetrics = CommonMetrics()
+            self._CommonMetrics._deserialize(params.get("CommonMetrics"))
+        if params.get("SparkMonitorMetrics") is not None:
+            self._SparkMonitorMetrics = SparkMonitorMetrics()
+            self._SparkMonitorMetrics._deserialize(params.get("SparkMonitorMetrics"))
+        if params.get("PrestoMonitorMetrics") is not None:
+            self._PrestoMonitorMetrics = PrestoMonitorMetrics()
+            self._PrestoMonitorMetrics._deserialize(params.get("PrestoMonitorMetrics"))
+        self._ResultFormat = params.get("ResultFormat")
+        self._EngineTypeDetail = params.get("EngineTypeDetail")
+        self._ResourceGroupName = params.get("ResourceGroupName")
+        self._Source = params.get("Source")
+        self._SourceExtra = params.get("SourceExtra")
+        self._CreatorUin = params.get("CreatorUin")
+        self._CreatorAlias = params.get("CreatorAlias")
+        self._CustomizedConf = params.get("CustomizedConf")
+        self._TaskTimeSum = params.get("TaskTimeSum")
+        self._StageStartTime = params.get("StageStartTime")
+        self._InputRecordsSum = params.get("InputRecordsSum")
+        self._AnalysisStatusType = params.get("AnalysisStatusType")
+        self._OutputRecordsSum = params.get("OutputRecordsSum")
+        self._OutputBytesSum = params.get("OutputBytesSum")
+        self._OutputFilesNum = params.get("OutputFilesNum")
+        self._OutputSmallFilesNum = params.get("OutputSmallFilesNum")
+        self._ShuffleReadRecordsSum = params.get("ShuffleReadRecordsSum")
+        self._ShuffleReadBytesSum = params.get("ShuffleReadBytesSum")
+        self._SparkAppId = params.get("SparkAppId")
+        self._TaskCategory = params.get("TaskCategory")
+        self._TaskName = params.get("TaskName")
+        self._EngineType = params.get("EngineType")
+        self._EngineHasListenerConfig = params.get("EngineHasListenerConfig")
+        self._ResourceGroupId = params.get("ResourceGroupId")
+        self._JobTimeSum = params.get("JobTimeSum")
+        self._LaunchTime = params.get("LaunchTime")
+        self._GpuDriverSize = params.get("GpuDriverSize")
+        self._GpuExecutorSize = params.get("GpuExecutorSize")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class TaskMonitorInfo(AbstractModel):
     r"""任务监控信息
 
@@ -40530,6 +43164,8 @@ class TaskResultInfo(AbstractModel):
         :type TotalTime: int
         :param _QueryResultTime: 获取结果消耗的时间
         :type QueryResultTime: float
+        :param _ResultSetEncode: base64 编码结果集
+        :type ResultSetEncode: str
         """
         self._TaskId = None
         self._DatasourceConnectionName = None
@@ -40551,6 +43187,7 @@ class TaskResultInfo(AbstractModel):
         self._DisplayFormat = None
         self._TotalTime = None
         self._QueryResultTime = None
+        self._ResultSetEncode = None
 
     @property
     def TaskId(self):
@@ -40773,6 +43410,17 @@ class TaskResultInfo(AbstractModel):
     def QueryResultTime(self, QueryResultTime):
         self._QueryResultTime = QueryResultTime
 
+    @property
+    def ResultSetEncode(self):
+        r"""base64 编码结果集
+        :rtype: str
+        """
+        return self._ResultSetEncode
+
+    @ResultSetEncode.setter
+    def ResultSetEncode(self, ResultSetEncode):
+        self._ResultSetEncode = ResultSetEncode
+
 
     def _deserialize(self, params):
         self._TaskId = params.get("TaskId")
@@ -40800,6 +43448,7 @@ class TaskResultInfo(AbstractModel):
         self._DisplayFormat = params.get("DisplayFormat")
         self._TotalTime = params.get("TotalTime")
         self._QueryResultTime = params.get("QueryResultTime")
+        self._ResultSetEncode = params.get("ResultSetEncode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -42499,6 +45148,16 @@ class UpdateStandardEngineResourceGroupResourceInfoRequest(AbstractModel):
         :type SparkSpecMode: str
         :param _SparkSize: 仅SQL资源组资源上限，仅用于快速模式
         :type SparkSize: int
+        :param _DriverGPUSpec: gpuDriver规格
+        :type DriverGPUSpec: int
+        :param _ExecutorGPUSpec: gpuExcutor 规格
+        :type ExecutorGPUSpec: int
+        :param _GPULimitSize: gpu 上限
+        :type GPULimitSize: int
+        :param _GPUSize: gpu 规格
+        :type GPUSize: int
+        :param _PythonGPUSpec: gpupod 规格
+        :type PythonGPUSpec: int
         """
         self._EngineResourceGroupName = None
         self._DriverCuSpec = None
@@ -42517,6 +45176,11 @@ class UpdateStandardEngineResourceGroupResourceInfoRequest(AbstractModel):
         self._PythonCuSpec = None
         self._SparkSpecMode = None
         self._SparkSize = None
+        self._DriverGPUSpec = None
+        self._ExecutorGPUSpec = None
+        self._GPULimitSize = None
+        self._GPUSize = None
+        self._PythonGPUSpec = None
 
     @property
     def EngineResourceGroupName(self):
@@ -42707,6 +45371,61 @@ class UpdateStandardEngineResourceGroupResourceInfoRequest(AbstractModel):
     def SparkSize(self, SparkSize):
         self._SparkSize = SparkSize
 
+    @property
+    def DriverGPUSpec(self):
+        r"""gpuDriver规格
+        :rtype: int
+        """
+        return self._DriverGPUSpec
+
+    @DriverGPUSpec.setter
+    def DriverGPUSpec(self, DriverGPUSpec):
+        self._DriverGPUSpec = DriverGPUSpec
+
+    @property
+    def ExecutorGPUSpec(self):
+        r"""gpuExcutor 规格
+        :rtype: int
+        """
+        return self._ExecutorGPUSpec
+
+    @ExecutorGPUSpec.setter
+    def ExecutorGPUSpec(self, ExecutorGPUSpec):
+        self._ExecutorGPUSpec = ExecutorGPUSpec
+
+    @property
+    def GPULimitSize(self):
+        r"""gpu 上限
+        :rtype: int
+        """
+        return self._GPULimitSize
+
+    @GPULimitSize.setter
+    def GPULimitSize(self, GPULimitSize):
+        self._GPULimitSize = GPULimitSize
+
+    @property
+    def GPUSize(self):
+        r"""gpu 规格
+        :rtype: int
+        """
+        return self._GPUSize
+
+    @GPUSize.setter
+    def GPUSize(self, GPUSize):
+        self._GPUSize = GPUSize
+
+    @property
+    def PythonGPUSpec(self):
+        r"""gpupod 规格
+        :rtype: int
+        """
+        return self._PythonGPUSpec
+
+    @PythonGPUSpec.setter
+    def PythonGPUSpec(self, PythonGPUSpec):
+        self._PythonGPUSpec = PythonGPUSpec
+
 
     def _deserialize(self, params):
         self._EngineResourceGroupName = params.get("EngineResourceGroupName")
@@ -42726,6 +45445,11 @@ class UpdateStandardEngineResourceGroupResourceInfoRequest(AbstractModel):
         self._PythonCuSpec = params.get("PythonCuSpec")
         self._SparkSpecMode = params.get("SparkSpecMode")
         self._SparkSize = params.get("SparkSize")
+        self._DriverGPUSpec = params.get("DriverGPUSpec")
+        self._ExecutorGPUSpec = params.get("ExecutorGPUSpec")
+        self._GPULimitSize = params.get("GPULimitSize")
+        self._GPUSize = params.get("GPUSize")
+        self._PythonGPUSpec = params.get("PythonGPUSpec")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -43097,6 +45821,8 @@ class UserDetailInfo(AbstractModel):
         :param _CatalogPolicyInfo: 数据源权限集合
 注意：此字段可能返回 null，表示取不到有效值。
         :type CatalogPolicyInfo: :class:`tencentcloud.dlc.v20210125.models.Policys`
+        :param _ModelPolicyInfo: 模型权限集合
+        :type ModelPolicyInfo: :class:`tencentcloud.dlc.v20210125.models.Policys`
         """
         self._UserId = None
         self._Type = None
@@ -43109,6 +45835,7 @@ class UserDetailInfo(AbstractModel):
         self._RowFilterInfo = None
         self._AccountType = None
         self._CatalogPolicyInfo = None
+        self._ModelPolicyInfo = None
 
     @property
     def UserId(self):
@@ -43236,6 +45963,17 @@ class UserDetailInfo(AbstractModel):
     def CatalogPolicyInfo(self, CatalogPolicyInfo):
         self._CatalogPolicyInfo = CatalogPolicyInfo
 
+    @property
+    def ModelPolicyInfo(self):
+        r"""模型权限集合
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.Policys`
+        """
+        return self._ModelPolicyInfo
+
+    @ModelPolicyInfo.setter
+    def ModelPolicyInfo(self, ModelPolicyInfo):
+        self._ModelPolicyInfo = ModelPolicyInfo
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -43259,6 +45997,9 @@ class UserDetailInfo(AbstractModel):
         if params.get("CatalogPolicyInfo") is not None:
             self._CatalogPolicyInfo = Policys()
             self._CatalogPolicyInfo._deserialize(params.get("CatalogPolicyInfo"))
+        if params.get("ModelPolicyInfo") is not None:
+            self._ModelPolicyInfo = Policys()
+            self._ModelPolicyInfo._deserialize(params.get("ModelPolicyInfo"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -43523,12 +46264,15 @@ class UserMessage(AbstractModel):
         :type CreateTime: str
         :param _UserAlias: 用户别名
         :type UserAlias: str
+        :param _AccountType: 用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :type AccountType: str
         """
         self._UserId = None
         self._UserDescription = None
         self._Creator = None
         self._CreateTime = None
         self._UserAlias = None
+        self._AccountType = None
 
     @property
     def UserId(self):
@@ -43586,6 +46330,17 @@ class UserMessage(AbstractModel):
     def UserAlias(self, UserAlias):
         self._UserAlias = UserAlias
 
+    @property
+    def AccountType(self):
+        r"""用户来源类型TencentAccount（普通腾讯云用户） / EntraAccount（微软用户）
+        :rtype: str
+        """
+        return self._AccountType
+
+    @AccountType.setter
+    def AccountType(self, AccountType):
+        self._AccountType = AccountType
+
 
     def _deserialize(self, params):
         self._UserId = params.get("UserId")
@@ -43593,6 +46348,7 @@ class UserMessage(AbstractModel):
         self._Creator = params.get("Creator")
         self._CreateTime = params.get("CreateTime")
         self._UserAlias = params.get("UserAlias")
+        self._AccountType = params.get("AccountType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -44309,6 +47065,10 @@ class WorkGroupDetailInfo(AbstractModel):
         :param _CatalogPolicyInfo: 数据目录权限集
 注意：此字段可能返回 null，表示取不到有效值。
         :type CatalogPolicyInfo: :class:`tencentcloud.dlc.v20210125.models.Policy`
+        :param _DataCatalogPolicyInfo: 数据目录权限
+        :type DataCatalogPolicyInfo: :class:`tencentcloud.dlc.v20210125.models.Policys`
+        :param _ModelPolicyInfo: 模型权限
+        :type ModelPolicyInfo: :class:`tencentcloud.dlc.v20210125.models.Policys`
         """
         self._WorkGroupId = None
         self._WorkGroupName = None
@@ -44319,6 +47079,8 @@ class WorkGroupDetailInfo(AbstractModel):
         self._WorkGroupDescription = None
         self._RowFilterInfo = None
         self._CatalogPolicyInfo = None
+        self._DataCatalogPolicyInfo = None
+        self._ModelPolicyInfo = None
 
     @property
     def WorkGroupId(self):
@@ -44420,6 +47182,28 @@ class WorkGroupDetailInfo(AbstractModel):
     def CatalogPolicyInfo(self, CatalogPolicyInfo):
         self._CatalogPolicyInfo = CatalogPolicyInfo
 
+    @property
+    def DataCatalogPolicyInfo(self):
+        r"""数据目录权限
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.Policys`
+        """
+        return self._DataCatalogPolicyInfo
+
+    @DataCatalogPolicyInfo.setter
+    def DataCatalogPolicyInfo(self, DataCatalogPolicyInfo):
+        self._DataCatalogPolicyInfo = DataCatalogPolicyInfo
+
+    @property
+    def ModelPolicyInfo(self):
+        r"""模型权限
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.Policys`
+        """
+        return self._ModelPolicyInfo
+
+    @ModelPolicyInfo.setter
+    def ModelPolicyInfo(self, ModelPolicyInfo):
+        self._ModelPolicyInfo = ModelPolicyInfo
+
 
     def _deserialize(self, params):
         self._WorkGroupId = params.get("WorkGroupId")
@@ -44441,6 +47225,12 @@ class WorkGroupDetailInfo(AbstractModel):
         if params.get("CatalogPolicyInfo") is not None:
             self._CatalogPolicyInfo = Policy()
             self._CatalogPolicyInfo._deserialize(params.get("CatalogPolicyInfo"))
+        if params.get("DataCatalogPolicyInfo") is not None:
+            self._DataCatalogPolicyInfo = Policys()
+            self._DataCatalogPolicyInfo._deserialize(params.get("DataCatalogPolicyInfo"))
+        if params.get("ModelPolicyInfo") is not None:
+            self._ModelPolicyInfo = Policys()
+            self._ModelPolicyInfo._deserialize(params.get("ModelPolicyInfo"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -44801,6 +47591,199 @@ class WorkGroups(AbstractModel):
                 obj._deserialize(item)
                 self._WorkGroupSet.append(obj)
         self._TotalCount = params.get("TotalCount")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WrittenAdvancePolicy(AbstractModel):
+    r"""Smart Optimizer高级参数配置数据结构
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CompactEnable: 是否启用合并
+        :type CompactEnable: str
+        :param _DeleteEnable: 是否启用历史数据清理
+        :type DeleteEnable: str
+        :param _MinInputFiles: 合并最新文件数量
+        :type MinInputFiles: int
+        :param _TargetFileSizeBytes: 合并文件目录文件大小
+        :type TargetFileSizeBytes: int
+        :param _RetainLast: 保留过期时间的快照数量
+        :type RetainLast: int
+        :param _BeforeDays: 快照过期时间
+        :type BeforeDays: int
+        :param _ExpiredSnapshotsIntervalMin: 快照过期执行周期
+        :type ExpiredSnapshotsIntervalMin: int
+        :param _RemoveOrphanIntervalMin: 移除孤立文件执行周期
+        :type RemoveOrphanIntervalMin: int
+        :param _CowCompactEnable: 是否开启COW表合并
+        :type CowCompactEnable: str
+        :param _CompactStrategy: 文件合并策略
+        :type CompactStrategy: str
+        :param _SortOrders: sort合并策略的规则定义
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SortOrders: list of SortOrder
+        """
+        self._CompactEnable = None
+        self._DeleteEnable = None
+        self._MinInputFiles = None
+        self._TargetFileSizeBytes = None
+        self._RetainLast = None
+        self._BeforeDays = None
+        self._ExpiredSnapshotsIntervalMin = None
+        self._RemoveOrphanIntervalMin = None
+        self._CowCompactEnable = None
+        self._CompactStrategy = None
+        self._SortOrders = None
+
+    @property
+    def CompactEnable(self):
+        r"""是否启用合并
+        :rtype: str
+        """
+        return self._CompactEnable
+
+    @CompactEnable.setter
+    def CompactEnable(self, CompactEnable):
+        self._CompactEnable = CompactEnable
+
+    @property
+    def DeleteEnable(self):
+        r"""是否启用历史数据清理
+        :rtype: str
+        """
+        return self._DeleteEnable
+
+    @DeleteEnable.setter
+    def DeleteEnable(self, DeleteEnable):
+        self._DeleteEnable = DeleteEnable
+
+    @property
+    def MinInputFiles(self):
+        r"""合并最新文件数量
+        :rtype: int
+        """
+        return self._MinInputFiles
+
+    @MinInputFiles.setter
+    def MinInputFiles(self, MinInputFiles):
+        self._MinInputFiles = MinInputFiles
+
+    @property
+    def TargetFileSizeBytes(self):
+        r"""合并文件目录文件大小
+        :rtype: int
+        """
+        return self._TargetFileSizeBytes
+
+    @TargetFileSizeBytes.setter
+    def TargetFileSizeBytes(self, TargetFileSizeBytes):
+        self._TargetFileSizeBytes = TargetFileSizeBytes
+
+    @property
+    def RetainLast(self):
+        r"""保留过期时间的快照数量
+        :rtype: int
+        """
+        return self._RetainLast
+
+    @RetainLast.setter
+    def RetainLast(self, RetainLast):
+        self._RetainLast = RetainLast
+
+    @property
+    def BeforeDays(self):
+        r"""快照过期时间
+        :rtype: int
+        """
+        return self._BeforeDays
+
+    @BeforeDays.setter
+    def BeforeDays(self, BeforeDays):
+        self._BeforeDays = BeforeDays
+
+    @property
+    def ExpiredSnapshotsIntervalMin(self):
+        r"""快照过期执行周期
+        :rtype: int
+        """
+        return self._ExpiredSnapshotsIntervalMin
+
+    @ExpiredSnapshotsIntervalMin.setter
+    def ExpiredSnapshotsIntervalMin(self, ExpiredSnapshotsIntervalMin):
+        self._ExpiredSnapshotsIntervalMin = ExpiredSnapshotsIntervalMin
+
+    @property
+    def RemoveOrphanIntervalMin(self):
+        r"""移除孤立文件执行周期
+        :rtype: int
+        """
+        return self._RemoveOrphanIntervalMin
+
+    @RemoveOrphanIntervalMin.setter
+    def RemoveOrphanIntervalMin(self, RemoveOrphanIntervalMin):
+        self._RemoveOrphanIntervalMin = RemoveOrphanIntervalMin
+
+    @property
+    def CowCompactEnable(self):
+        r"""是否开启COW表合并
+        :rtype: str
+        """
+        return self._CowCompactEnable
+
+    @CowCompactEnable.setter
+    def CowCompactEnable(self, CowCompactEnable):
+        self._CowCompactEnable = CowCompactEnable
+
+    @property
+    def CompactStrategy(self):
+        r"""文件合并策略
+        :rtype: str
+        """
+        return self._CompactStrategy
+
+    @CompactStrategy.setter
+    def CompactStrategy(self, CompactStrategy):
+        self._CompactStrategy = CompactStrategy
+
+    @property
+    def SortOrders(self):
+        r"""sort合并策略的规则定义
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of SortOrder
+        """
+        return self._SortOrders
+
+    @SortOrders.setter
+    def SortOrders(self, SortOrders):
+        self._SortOrders = SortOrders
+
+
+    def _deserialize(self, params):
+        self._CompactEnable = params.get("CompactEnable")
+        self._DeleteEnable = params.get("DeleteEnable")
+        self._MinInputFiles = params.get("MinInputFiles")
+        self._TargetFileSizeBytes = params.get("TargetFileSizeBytes")
+        self._RetainLast = params.get("RetainLast")
+        self._BeforeDays = params.get("BeforeDays")
+        self._ExpiredSnapshotsIntervalMin = params.get("ExpiredSnapshotsIntervalMin")
+        self._RemoveOrphanIntervalMin = params.get("RemoveOrphanIntervalMin")
+        self._CowCompactEnable = params.get("CowCompactEnable")
+        self._CompactStrategy = params.get("CompactStrategy")
+        if params.get("SortOrders") is not None:
+            self._SortOrders = []
+            for item in params.get("SortOrders"):
+                obj = SortOrder()
+                obj._deserialize(item)
+                self._SortOrders.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

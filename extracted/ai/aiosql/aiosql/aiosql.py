@@ -1,11 +1,12 @@
 from pathlib import Path
-from typing import Callable, Dict, Optional, Type, Union, Tuple, List, Any
+from typing import Callable, Type, Any
 
 from .adapters.aiosqlite import AioSQLiteAdapter
 from .adapters.asyncpg import AsyncPGAdapter
 from .adapters.pyformat import PyFormatAdapter
 from .adapters.mysql import BrokenMySQLAdapter
 from .adapters.generic import GenericAdapter
+from .adapters.apyformat import AsyncPyFormatAdapter
 from .adapters.sqlite3 import SQLite3Adapter
 from .adapters.pg8000 import Pg8000Adapter
 from .adapters.duckdb import DuckDBAdapter
@@ -14,9 +15,10 @@ from .queries import Queries
 from .query_loader import QueryLoader
 from .types import DriverAdapterProtocol
 
-_ADAPTERS: Dict[str, Callable[..., DriverAdapterProtocol]] = {
+_ADAPTERS: dict[str, Callable[..., DriverAdapterProtocol]] = {
     "aiosqlite": AioSQLiteAdapter,  # type: ignore
     "apsw": GenericAdapter,
+    "apsycopg": AsyncPyFormatAdapter,  # type: ignore
     "asyncpg": AsyncPGAdapter,  # type: ignore
     "duckdb": DuckDBAdapter,
     "mariadb": BrokenMySQLAdapter,
@@ -41,7 +43,7 @@ def register_adapter(name: str, adapter: Callable[..., DriverAdapterProtocol]):
 
 
 def _make_driver_adapter(
-    driver_adapter: Union[str, Callable[..., DriverAdapterProtocol]],
+    driver_adapter: str|Callable[..., DriverAdapterProtocol],
     *args, ** kwargs
 ) -> DriverAdapterProtocol:
     """Get the driver adapter instance registered by the `driver_name`."""
@@ -70,12 +72,13 @@ def _make_driver_adapter(
 
 def from_str(
     sql: str,
-    driver_adapter: Union[str, Callable[..., DriverAdapterProtocol]],
-    record_classes: Optional[Dict] = None,
+    driver_adapter: str|Callable[..., DriverAdapterProtocol],
+    record_classes: dict|None = None,
     kwargs_only: bool = True,
-    attribute: Optional[str] = "__",
-    args: List[Any] = [],
-    kwargs: Dict[str, Any] = {},
+    mandatory_parameters: bool = True,
+    attribute: str|None = "__",
+    args: list[Any] = [],
+    kwargs: dict[str, Any] = {},
     loader_cls: Type[QueryLoader] = QueryLoader,
     queries_cls: Type[Queries] = Queries,
 ):
@@ -87,9 +90,12 @@ def from_str(
     - **driver_adapter** - Either a string to designate one of the aiosql built-in database driver
       adapters. One of many available for SQLite, Postgres and MySQL. If you have defined your
       own adapter class, you can pass it's constructor.
-    - **kwargs_only** - *(optional)* whether to only use named parameters on query execution, default is *True*.
-    - **attribute** - *(optional)* ``.`` attribute access substitution, defaults to ``"__"``, *None* disables
-      the feature.
+    - **kwargs_only** - *(optional)* whether to only use named parameters on query execution,
+      default is *True*.
+    - **mandatory_parameters** - *(optional)* whether function parameters must be declared,
+      default is *True*.
+    - **attribute** - *(optional)* ``.`` internal attribute access substitution,
+      defaults to ``"__"``, *None* disables the feature.
     - **args** - *(optional)* adapter creation args (list), forwarded to cursor creation by default.
     - **kwargs** - *(optional)* adapter creation args (dict), forwarded to cursor creation by default.
     - **record_classes** - *(optional)* **DEPRECATED** Mapping of strings used in "record_class"
@@ -109,11 +115,11 @@ def from_str(
       import aiosql
 
       sql_text = \"\"\"
-      -- name: get-all-greetings
+      -- name: get-all-greetings()
       -- Get all the greetings in the database
       select * from greetings;
 
-      -- name: get-user-by-username^
+      -- name: get-user-by-username(username)^
       -- Get all the users from the database,
       -- and return it as a dict
       select * from users where username = :username;
@@ -124,22 +130,24 @@ def from_str(
       queries.get_user_by_username(conn, username="willvaughn")
     """
     adapter = _make_driver_adapter(driver_adapter, *args, **kwargs)
-    query_loader = loader_cls(adapter, record_classes, attribute=attribute)
+    query_loader = loader_cls(adapter, record_classes, attribute=attribute,
+                              mandatory_parameters=mandatory_parameters)
     query_data = query_loader.load_query_data_from_sql(sql, [])
     return queries_cls(adapter, kwargs_only=kwargs_only).load_from_list(query_data)
 
 
 def from_path(
-    sql_path: Union[str, Path],
-    driver_adapter: Union[str, Callable[..., DriverAdapterProtocol]],
-    record_classes: Optional[Dict] = None,
+    sql_path: str|Path,
+    driver_adapter: str|Callable[..., DriverAdapterProtocol],
+    record_classes: dict|None = None,
     kwargs_only: bool = True,
-    attribute: Optional[str] = "__",
-    args: List[Any] = [],
-    kwargs: Dict[str, Any] = {},
+    mandatory_parameters: bool = True,
+    attribute: str|None = "__",
+    args: list[Any] = [],
+    kwargs: dict[str, Any] = {},
     loader_cls: Type[QueryLoader] = QueryLoader,
     queries_cls: Type[Queries] = Queries,
-    ext: Tuple[str] = (".sql",),
+    ext: tuple[str] = (".sql",),
     encoding=None,
 ):
     """Load queries from a `.sql` file, or directory of `.sql` files.
@@ -151,9 +159,12 @@ def from_path(
       adapters. One of many available for SQLite, Postgres and MySQL. If you have defined your own
       adapter class, you may pass its constructor.
     - **record_classes** - *(optional)* **DEPRECATED** Mapping of strings used in "record_class"
-    - **kwargs_only** - *(optional)* Whether to only use named parameters on query execution, default is *True*.
-    - **attribute** - *(optional)* ``.`` attribute access substitution, defaults to ``"__""``, *None* disables
-      the feature.
+    - **kwargs_only** - *(optional)* Whether to only use named parameters on query execution,
+      default is *True*.
+    - **mandatory_parameters** - *(optional)* whether function parameters must be declared,
+      default is *True*.
+    - **attribute** - *(optional)* ``.`` attribute access substitution, defaults to ``"__""``,
+      *None* disables the feature.
     - **args** - *(optional)* adapter creation args (list), forwarded to cursor creation by default.
     - **kwargs** - *(optional)* adapter creation args (dict), forwarded to cursor creation by default.
       declarations to the python classes which aiosql should use when marshaling SQL results.
@@ -177,15 +188,14 @@ def from_path(
         raise SQLLoadException(f"File does not exist: {path}")
 
     adapter = _make_driver_adapter(driver_adapter, *args, **kwargs)
-    query_loader = loader_cls(adapter, record_classes, attribute=attribute)
+    query_loader = loader_cls(adapter, record_classes, attribute=attribute,
+                              mandatory_parameters=mandatory_parameters)
 
     if path.is_file():
         query_data = query_loader.load_query_data_from_file(path, encoding=encoding)
         return queries_cls(adapter, kwargs_only=kwargs_only).load_from_list(query_data)
     elif path.is_dir():
-        query_data_tree = query_loader.load_query_data_from_dir_path(
-            path, ext=ext, encoding=encoding
-        )
+        query_data_tree = query_loader.load_query_data_from_dir_path(path, ext=ext, encoding=encoding)
         return queries_cls(adapter, kwargs_only=kwargs_only).load_from_tree(query_data_tree)
     else:  # pragma: no cover
         raise SQLLoadException(f"The sql_path must be a directory or file, got {sql_path}")

@@ -24,6 +24,7 @@ class CreateExperimentRequestBody(TypedDict):
     description: NotRequired[str]
     metadata: NotRequired[Mapping[str, Any]]
     version_id: NotRequired[str]
+    splits: NotRequired[Sequence[str]]
     repetitions: NotRequired[int]
 
 
@@ -95,6 +96,10 @@ class Experiment(TypedDict):
     project_name: Optional[str]
     created_at: str
     updated_at: str
+    example_count: int
+    successful_run_count: int
+    failed_run_count: int
+    missing_run_count: int
 
 
 class ExperimentEvaluationResult(TypedDict):
@@ -103,7 +108,7 @@ class ExperimentEvaluationResult(TypedDict):
     explanation: NotRequired[str]
 
 
-class ExperimentRunResponse(TypedDict):
+class ExperimentRun(TypedDict):
     dataset_example_id: str
     output: Any
     repetition_number: int
@@ -136,6 +141,21 @@ class GetExperimentResponseBody(TypedDict):
     data: Experiment
 
 
+class IncompleteExperimentEvaluation(TypedDict):
+    experiment_run: ExperimentRun
+    dataset_example: DatasetExample
+    evaluation_names: Sequence[str]
+
+
+class IncompleteExperimentRun(TypedDict):
+    dataset_example: DatasetExample
+    repetition_numbers: Sequence[int]
+
+
+class InsertedSessionAnnotation(TypedDict):
+    id: str
+
+
 class InsertedSpanAnnotation(TypedDict):
     id: str
 
@@ -144,10 +164,32 @@ class InsertedSpanDocumentAnnotation(TypedDict):
     id: str
 
 
+class InsertedTraceAnnotation(TypedDict):
+    id: str
+
+
+class LDAPUser(TypedDict):
+    id: str
+    created_at: str
+    updated_at: str
+    email: str
+    username: str
+    role: Literal["SYSTEM", "ADMIN", "MEMBER", "VIEWER"]
+    auth_method: Literal["LDAP"]
+
+
+class LDAPUserData(TypedDict):
+    email: str
+    username: str
+    role: Literal["SYSTEM", "ADMIN", "MEMBER", "VIEWER"]
+    auth_method: Literal["LDAP"]
+
+
 class ListDatasetExamplesData(TypedDict):
     dataset_id: str
     version_id: str
     examples: Sequence[DatasetExample]
+    filtered_splits: NotRequired[Sequence[str]]
 
 
 class ListDatasetExamplesResponseBody(TypedDict):
@@ -165,18 +207,19 @@ class ListDatasetsResponseBody(TypedDict):
 
 
 class ListExperimentRunsResponseBody(TypedDict):
-    data: Sequence[ExperimentRunResponse]
+    data: Sequence[ExperimentRun]
     next_cursor: Optional[str]
 
 
 class ListExperimentsResponseBody(TypedDict):
     data: Sequence[Experiment]
+    next_cursor: Optional[str]
 
 
 class LocalUserData(TypedDict):
     email: str
     username: str
-    role: Literal["SYSTEM", "ADMIN", "MEMBER"]
+    role: Literal["SYSTEM", "ADMIN", "MEMBER", "VIEWER"]
     auth_method: Literal["LOCAL"]
     password: NotRequired[str]
 
@@ -191,7 +234,7 @@ class LocalUser(LocalUserData):
 class OAuth2UserData(TypedDict):
     email: str
     username: str
-    role: Literal["SYSTEM", "ADMIN", "MEMBER"]
+    role: Literal["SYSTEM", "ADMIN", "MEMBER", "VIEWER"]
     auth_method: Literal["OAUTH2"]
     oauth2_client_id: NotRequired[str]
     oauth2_user_id: NotRequired[str]
@@ -219,6 +262,7 @@ class PromptData(TypedDict):
     name: str
     description: NotRequired[str]
     source_prompt_id: NotRequired[str]
+    metadata: NotRequired[Mapping[str, Any]]
 
 
 class Prompt(PromptData):
@@ -248,7 +292,7 @@ class PromptAzureOpenAIInvocationParametersContent(TypedDict):
     presence_penalty: NotRequired[float]
     top_p: NotRequired[float]
     seed: NotRequired[int]
-    reasoning_effort: NotRequired[Literal["minimal", "low", "medium", "high"]]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptDeepSeekInvocationParametersContent(TypedDict):
@@ -259,7 +303,7 @@ class PromptDeepSeekInvocationParametersContent(TypedDict):
     presence_penalty: NotRequired[float]
     top_p: NotRequired[float]
     seed: NotRequired[int]
-    reasoning_effort: NotRequired[Literal["minimal", "low", "medium", "high"]]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptGoogleInvocationParametersContent(TypedDict):
@@ -280,7 +324,7 @@ class PromptOllamaInvocationParametersContent(TypedDict):
     presence_penalty: NotRequired[float]
     top_p: NotRequired[float]
     seed: NotRequired[int]
-    reasoning_effort: NotRequired[Literal["minimal", "low", "medium", "high"]]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptOpenAIInvocationParametersContent(TypedDict):
@@ -291,7 +335,7 @@ class PromptOpenAIInvocationParametersContent(TypedDict):
     presence_penalty: NotRequired[float]
     top_p: NotRequired[float]
     seed: NotRequired[int]
-    reasoning_effort: NotRequired[Literal["minimal", "low", "medium", "high"]]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
 
 
 class PromptResponseFormatJSONSchemaDefinition(TypedDict):
@@ -349,7 +393,35 @@ class PromptXAIInvocationParametersContent(TypedDict):
     presence_penalty: NotRequired[float]
     top_p: NotRequired[float]
     seed: NotRequired[int]
-    reasoning_effort: NotRequired[Literal["minimal", "low", "medium", "high"]]
+    reasoning_effort: NotRequired[Literal["none", "minimal", "low", "medium", "high", "xhigh"]]
+
+
+class SessionAnnotation(TypedDict):
+    id: str
+    created_at: str
+    updated_at: str
+    source: Literal["API", "APP"]
+    user_id: Optional[str]
+    name: str
+    annotator_kind: Literal["LLM", "CODE", "HUMAN"]
+    session_id: str
+    result: NotRequired[AnnotationResult]
+    metadata: NotRequired[Mapping[str, Any]]
+    identifier: NotRequired[str]
+
+
+class SessionAnnotationData(TypedDict):
+    name: str
+    annotator_kind: Literal["LLM", "CODE", "HUMAN"]
+    session_id: str
+    result: NotRequired[AnnotationResult]
+    metadata: NotRequired[Mapping[str, Any]]
+    identifier: NotRequired[str]
+
+
+class SessionAnnotationsResponseBody(TypedDict):
+    data: Sequence[SessionAnnotation]
+    next_cursor: Optional[str]
 
 
 class SpanAnnotationData(TypedDict):
@@ -395,6 +467,11 @@ class SpanEvent(TypedDict):
     attributes: NotRequired[Mapping[str, Any]]
 
 
+class SpanNoteData(TypedDict):
+    span_id: str
+    note: str
+
+
 class TextContentPart(TypedDict):
     type: Literal["text"]
     text: str
@@ -410,6 +487,34 @@ class ToolResultContentPart(TypedDict):
     type: Literal["tool_result"]
     tool_call_id: str
     tool_result: Optional[Union[bool, int, float, str, Mapping[str, Any], Sequence[Any]]]
+
+
+class TraceAnnotation(TypedDict):
+    id: str
+    created_at: str
+    updated_at: str
+    source: Literal["API", "APP"]
+    user_id: Optional[str]
+    name: str
+    annotator_kind: Literal["LLM", "CODE", "HUMAN"]
+    trace_id: str
+    result: NotRequired[AnnotationResult]
+    metadata: NotRequired[Mapping[str, Any]]
+    identifier: NotRequired[str]
+
+
+class TraceAnnotationData(TypedDict):
+    name: str
+    annotator_kind: Literal["LLM", "CODE", "HUMAN"]
+    trace_id: str
+    result: NotRequired[AnnotationResult]
+    metadata: NotRequired[Mapping[str, Any]]
+    identifier: NotRequired[str]
+
+
+class TraceAnnotationsResponseBody(TypedDict):
+    data: Sequence[TraceAnnotation]
+    next_cursor: Optional[str]
 
 
 class UpdateProjectRequestBody(TypedDict):
@@ -451,6 +556,14 @@ class ValidationError(TypedDict):
     type: str
 
 
+class AnnotateSessionsRequestBody(TypedDict):
+    data: Sequence[SessionAnnotationData]
+
+
+class AnnotateSessionsResponseBody(TypedDict):
+    data: Sequence[InsertedSessionAnnotation]
+
+
 class AnnotateSpanDocumentsRequestBody(TypedDict):
     data: Sequence[SpanDocumentAnnotationData]
 
@@ -465,6 +578,14 @@ class AnnotateSpansRequestBody(TypedDict):
 
 class AnnotateSpansResponseBody(TypedDict):
     data: Sequence[InsertedSpanAnnotation]
+
+
+class AnnotateTracesRequestBody(TypedDict):
+    data: Sequence[TraceAnnotationData]
+
+
+class AnnotateTracesResponseBody(TypedDict):
+    data: Sequence[InsertedTraceAnnotation]
 
 
 class CategoricalAnnotationConfig(TypedDict):
@@ -519,13 +640,21 @@ class CreateProjectResponseBody(TypedDict):
     data: Project
 
 
+class CreateSpanNoteRequestBody(TypedDict):
+    data: SpanNoteData
+
+
+class CreateSpanNoteResponseBody(TypedDict):
+    data: InsertedSpanAnnotation
+
+
 class CreateUserRequestBody(TypedDict):
-    user: Union[LocalUserData, OAuth2UserData]
+    user: Union[LocalUserData, OAuth2UserData, LDAPUserData]
     send_welcome_email: NotRequired[bool]
 
 
 class CreateUserResponseBody(TypedDict):
-    data: Union[LocalUser, OAuth2User]
+    data: Union[LocalUser, OAuth2User, LDAPUser]
 
 
 class DeleteAnnotationConfigResponseBody(TypedDict):
@@ -540,6 +669,16 @@ class GetAnnotationConfigsResponseBody(TypedDict):
     data: Sequence[
         Union[CategoricalAnnotationConfig, ContinuousAnnotationConfig, FreeformAnnotationConfig]
     ]
+    next_cursor: Optional[str]
+
+
+class GetIncompleteEvaluationsResponseBody(TypedDict):
+    data: Sequence[IncompleteExperimentEvaluation]
+    next_cursor: Optional[str]
+
+
+class GetIncompleteExperimentRunsResponseBody(TypedDict):
+    data: Sequence[IncompleteExperimentRun]
     next_cursor: Optional[str]
 
 
@@ -563,7 +702,7 @@ class GetPromptsResponseBody(TypedDict):
 
 
 class GetUsersResponseBody(TypedDict):
-    data: Sequence[Union[LocalUser, OAuth2User]]
+    data: Sequence[Union[LocalUser, OAuth2User, LDAPUser]]
     next_cursor: Optional[str]
 
 

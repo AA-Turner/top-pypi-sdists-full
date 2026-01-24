@@ -382,7 +382,7 @@ class CatalogIntegrationApi:
         # process the body parameter
         _body_params = None
 
-        if _params["catalog_integration"]:
+        if _params["catalog_integration"] is not None:
             _body_params = _params["catalog_integration"]
 
         # set the HTTP header `Accept`

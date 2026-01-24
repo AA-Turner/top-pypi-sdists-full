@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional, Union
+from typing import IO, Any, Iterator, Optional, Union
 
-if TYPE_CHECKING:
-    from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike
+from typing_extensions import Self
 
-    from .types import ReadArrayValue
+from .types import ArrayValue
 
 
 class ResArray(ABC):
@@ -15,7 +15,18 @@ class ResArray(ABC):
     generated e.g. :py:meth:`resfo.lazy_read`.
     """
 
-    def __init__(self, stream):
+    __slots__ = (
+        "start",
+        "stream",
+        "_keyword",
+        "_length",
+        "_type",
+        "_data_start",
+        "_is_eof",
+        "_array",
+    )
+
+    def __init__(self, stream: IO[Any]) -> None:
         """
         :param stream: The opened res file with stream.peek() at
             the start of the res array.
@@ -23,15 +34,15 @@ class ResArray(ABC):
         self.start = stream.tell()
         self.stream = stream
 
-        self._keyword = None
-        self._length = None
-        self._type = None
-        self._data_start = None
-
+        self._keyword: Optional[str] = None
+        self._length: Optional[int] = None
+        self._type: Optional[bytes] = None
+        self._data_start: Optional[int] = None
         self._is_eof = False
+        self._array: Optional[ArrayValue] = None
 
     @property
-    def is_eof(self):
+    def is_eof(self) -> bool:
         """
         Whether the position of the array is actually
         at the end of the file, in which case its keyword
@@ -62,7 +73,7 @@ class ResArray(ABC):
         return self._length  # type: ignore
 
     @abstractmethod
-    def read_array(self) -> "ReadArrayValue":
+    def read_array(self) -> ArrayValue:
         """
         Read the array from the unformatted res file.
 
@@ -82,8 +93,8 @@ class ResArray(ABC):
 
     @abstractmethod
     def update(
-        self, *, keyword: Optional[str] = None, array: Optional["ArrayLike"] = None
-    ):
+        self, *, keyword: Optional[str] = None, array: Optional[ArrayLike] = None
+    ) -> None:
         """
         Updates the entry with the given new data.
 
@@ -99,7 +110,7 @@ class ResArray(ABC):
         pass
 
     @abstractmethod
-    def _read(self):
+    def _read(self) -> None:
         """
         Reads the array entry. Guarantees that after, either entry.is_eof() and
         the stream.peek() is at the end of the file or stream.peek() will be at
@@ -108,7 +119,7 @@ class ResArray(ABC):
         pass
 
     @classmethod
-    def parse(cls, stream):
+    def parse(cls, stream: IO[Any]) -> Iterator[Self]:
         """
         Parse an res file from the given opened file handle.
 

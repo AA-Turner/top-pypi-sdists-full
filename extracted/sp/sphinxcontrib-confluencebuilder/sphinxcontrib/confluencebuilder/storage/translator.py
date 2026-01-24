@@ -15,6 +15,7 @@ from sphinxcontrib.confluencebuilder.exceptions import ConfluenceError
 from sphinxcontrib.confluencebuilder.locale import L
 from sphinxcontrib.confluencebuilder.nodes import confluence_parameters_fetch as PARAMS
 from sphinxcontrib.confluencebuilder.std.confluence import CONFLUENCE_DEFAULT_V2_TABLE_WIDTH
+from sphinxcontrib.confluencebuilder.std.confluence import CONFLUENCE_DEFAULT_V2_TABLE_WIDTH_MAX
 from sphinxcontrib.confluencebuilder.std.confluence import CONFLUENCE_MAX_WIDTH
 from sphinxcontrib.confluencebuilder.std.confluence import FALLBACK_HIGHLIGHT_STYLE
 from sphinxcontrib.confluencebuilder.std.confluence import FCMMO
@@ -106,6 +107,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         self.add_secnumbers = config.confluence_add_secnumbers
         self.editor = config.confluence_editor
         self.confluence_full_width = config.confluence_full_width
+        self.default_table_width = config.confluence_default_table_width
         self.numfig = config.numfig
         self.numfig_format = config.numfig_format
         self.secnumber_suffix = config.confluence_secnumber_suffix
@@ -119,6 +121,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         self._manpage_url = getattr(config, 'manpages_url', None)
         self._needs_navnode_spacing = False
         self._pending_anchors = []
+        self._quote_context = []
         self._reference_context = []
         self._thead_context = []
         self._v2_header_added = False
@@ -241,7 +244,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         # developed for v2 and newer). To emulate a non-full-width state with
         # a v1 editor, apply a layout around the page contents.
         if not self.v2 and self.confluence_full_width is False:
-            if self.builder.cloud:
+            if self.builder.config.confluence_cloud:
                 data += '<ac:layout>'
                 data += '<ac:layout-section ac:type="fixed-width">'
                 data += '<ac:layout-cell>'
@@ -255,7 +258,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         data = ''
 
         if not self.v2 and self.confluence_full_width is False:
-            if self.builder.cloud:
+            if self.builder.config.confluence_cloud:
                 data += '</ac:layout-cell>'
                 data += '</ac:layout-section>'
                 data += '</ac:layout>'
@@ -911,7 +914,12 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
     # -----------------------------
 
     def visit_block_quote(self, node):
-        if first(findall(node, nodes.attribution)):
+        has_content = True
+        bq_classes = node.get('classes', [])
+
+        # if column widths are explicitly given, apply specific column widths
+        if 'epigraph' in bq_classes or 'pull-quote' in bq_classes or \
+                first(findall(node, nodes.attribution)):
             if self.v2:
                 self.body.append(self.start_tag(node, 'blockquote'))
             else:
@@ -927,6 +935,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             self.context.append(self.end_tag(node))
         elif self.v2:
             self._indent_level += 1
+            has_content = False
         else:
             style = ''
 
@@ -976,11 +985,15 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
                 **{'style': style}))
             self.context.append(self.end_tag(node))
 
+        self._quote_context.append(has_content)
+
     def depart_block_quote(self, node):
-        if first(findall(node, nodes.attribution)) or not self.v2:
+        if self._quote_context[-1]:
             self.body.append(self.context.pop())  # blockquote/div
         else:
             self._indent_level -= 1
+
+        self._quote_context.pop()
 
     def visit_attribution(self, node):
         # see `visit_block_quote` fallback case
@@ -1145,13 +1158,36 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         table_classes = node.get('classes', [])
         attribs = {}
 
+        # if we have a target width for this table, try to normalize its value
+        # to a pixel/percentage value
+        target_tw = self._force_table_width or self.default_table_width
+        target_twu = None
+        if target_tw:
+            tw, target_twu = extract_length(target_tw)
+            target_tw = convert_length(tw, target_twu)
+
+        # Apply the default table width when using the v2 editor. v2 accepts a
+        # `data-table-width` in pixels. The implicit default is Confluence
+        # matches `CONFLUENCE_DEFAULT_V2_TABLE_WIDTH`, where the observed
+        # maximum (via editor) is `CONFLUENCE_DEFAULT_V2_TABLE_WIDTH_MAX`.
+        if self.v2 and target_tw:
+            if target_twu == '%':
+                final_tw_v2 = int(CONFLUENCE_DEFAULT_V2_TABLE_WIDTH_MAX *
+                                  (int(target_tw) / 100))
+            else:
+                final_tw_v2 = target_tw
+            attribs['data-table-width'] = final_tw_v2
         # For v2 editor, if we have given explicit widths for columns in the
         # table (e.g. CSV table), we need to apply a data table width or the
         # editor will ignore the column-specific widths. If widths are
         # detected, apply the default table width observed when using the v2
         # editor.
-        if self.v2 and 'colwidths-given' in table_classes:
+        elif self.v2 and 'colwidths-given' in table_classes:
             attribs['data-table-width'] = CONFLUENCE_DEFAULT_V2_TABLE_WIDTH
+        # For v1, if provided a width, use it directly in the style.
+        elif not self.v2 and target_tw:
+            final_twu_v1 = '%' if target_twu == '%' else 'px'
+            attribs['style'] = f'width: {target_tw}{final_twu_v1};'
 
         # [sphinxcontrib-needs]
         # force needs tables to a maximum width
@@ -1554,7 +1590,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         if not isinstance(label_node, nodes.label):
             raise nodes.SkipNode
 
-        # if the first foonote/citation, start building a table; except for
+        # if the first footnote/citation, start building a table; except for
         # the v2 editor, which we do not add tables since they cannot be
         # styled
         if not self._building_footnotes:
@@ -1860,7 +1896,6 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
     def _visit_image(self, node, opts):
         node.__confluence_wrapped_img = False
 
-        dochost = opts['dochost']
         height = opts['height']
         hu = opts['hu']
         width = opts['width']
@@ -1979,14 +2014,8 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             self.body.append(self.start_tag(node, 'ri:url',
                 suffix=self.nl, empty=True, **{'ri:value': uri}))
         else:
-            hosted_doctitle = self.state.title(dochost, dochost)
-            hosted_doctitle = self.encode(hosted_doctitle)
-
             self.body.append(self.start_ac_image(node, **attribs))
             self.body.append(self.start_ri_attachment(node, opts['key']))
-            if dochost != self.docname:
-                self.body.append(self.start_tag(node, 'ri:page', empty=True,
-                   **{'ri:content-title': hosted_doctitle}))
             self.body.append(self.end_ri_attachment(node))
 
         if self.v2:
@@ -2048,28 +2077,13 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             self.context.append(self.end_tag(node, suffix=''))
         else:
             asset_docname = None
-            if self.builder.name == 'singleconfluence':
+            if 'single' in self.builder.name:
                 asset_docname = self.docname
 
-            file_key, hosting_docname, _ = \
-                self.assets.fetch(node, docname=asset_docname)
-
-            # if this file has not already be processed (injected at a later
-            # stage in the sphinx process); try processing it now
-            if not file_key:
-                if not asset_docname:
-                    asset_docname = self.docname
-
-                file_key, hosting_docname, _ = \
-                    self.assets.process_file_node(
-                        node, asset_docname, standalone=True)
-
+            file_key, _ = self.assets.fetch(node, docname=asset_docname)
             if not file_key:
                 self.warn(f'unable to find download: {reftarget}')
                 raise nodes.SkipNode
-
-            hosting_doctitle = self.state.title(hosting_docname)
-            hosting_doctitle = self.encode(hosting_doctitle)
 
             # If the view-file macro is permitted along with it not being an
             # explicitly referenced asset.
@@ -2078,9 +2092,6 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
                 # the tags in an interim list
                 attachment = []
                 attachment.append(self.start_ri_attachment(node, file_key))
-                if hosting_docname != self.docname:
-                    attachment.append(self.start_tag(node, 'ri:page',
-                       empty=True, **{'ri:content-title': hosting_doctitle}))
                 attachment.append(self.end_ri_attachment(node))
 
                 self.body.append(self.start_ac_macro(node, 'view-file'))
@@ -2090,9 +2101,6 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             else:
                 self.body.append(self.start_ac_link(node))
                 self.body.append(self.start_ri_attachment(node, file_key))
-                if hosting_docname != self.docname:
-                    self.body.append(self.start_tag(node, 'ri:page',
-                       empty=True, **{'ri:content-title': hosting_doctitle}))
                 self.body.append(self.end_ri_attachment(node))
                 self.body.append(
                     self.start_ac_plain_text_link_body_macro(node))
@@ -2702,41 +2710,19 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             raise nodes.SkipNode
 
         asset_docname = None
-        if self.builder.name == 'singleconfluence':
+        if 'single' in self.builder.name:
             asset_docname = self.docname
 
-        file_key, hosting_docname, _ = \
-            self.assets.fetch(node, docname=asset_docname)
-
-        # if this file has not already be processed (injected at a later
-        # stage in the sphinx process); try processing it now
-        if not file_key:
-            if not asset_docname:
-                asset_docname = self.docname
-
-            file_key, hosting_docname, _ = \
-                self.assets.process_file_node(
-                    node, asset_docname, standalone=True)
-
+        file_key, _ = self.assets.fetch(node, docname=asset_docname)
         if not file_key:
             self.warn(f'unable to find download: {reftarget}')
             raise nodes.SkipNode
-
-        hosting_doctitle = self.state.title(hosting_docname)
-        hosting_doctitle = self.encode(hosting_doctitle)
 
         self.body.append(self.start_ac_macro(node, 'viewpdf'))
         self.body.append(self.build_ac_param(node, 'name',
             self.start_ri_attachment(node, file_key) +
             self.end_ri_attachment(node),
         ))
-        if hosting_docname != self.docname:
-            self.body.append(self.build_ac_param(node, 'page',
-                self.start_tag(node, 'ac:link') +
-                self.start_tag(node, 'ri:page',
-                   empty=True, **{'ri:content-title': hosting_doctitle}) +
-                self.end_tag(node, suffix=''),
-            ))
         self.body.append(self.end_ac_macro(node))
 
         raise nodes.SkipNode
@@ -3242,7 +3228,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             if width is None:
                 self.warn('unsupported unit type for confluence: ' + wu)
 
-        video_key, _, _ = self.assets.add(source_path, self.docname)
+        video_key, _ = self.assets.add(source_path, self.docname)
 
         if not video_key:
             self.warn(f'Unable to find video name: {source_path}')
@@ -3429,10 +3415,15 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
                 indent = INDENT * (self._indent_level + 1)
 
             style += f'margin-left: {indent}px;'
-        elif self.v2:
+        elif self.v2 and self._indent_level:
             # (see "visit_paragraph")
             offset = INDENT * self._indent_level
             style += f'margin-left: {offset}px;'
+        elif self.v2:
+            # for v2, if we have no indentation for this line block, use
+            # a div tag instead since cloud to help avoid nested p tags that
+            # do not always play nice in cloud
+            tag = 'div'
 
         if style:
             attribs['style'] = style
@@ -3541,7 +3532,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         self.body.append(self.build_ac_param(node, '', anchor))
         self.body.append(self.end_ac_macro(node, suffix=''))
 
-        if self.builder.cloud or self.v2 or force_compat:
+        if self.builder.config.confluence_cloud or self.v2 or force_compat:
             doctitle = self.state.title(self.docname)
             doctitle = self.encode(doctitle.replace(' ', ''))
 

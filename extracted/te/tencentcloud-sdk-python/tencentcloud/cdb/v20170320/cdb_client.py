@@ -1754,6 +1754,7 @@ class CdbClient(AbstractClient):
 
     def DescribeDBInstances(self, request):
         r"""本接口（DescribeDBInstances）用于查询云数据库实例列表，支持通过项目 ID、实例 ID、访问地址、实例状态等过滤条件来筛选实例。支持查询主实例、灾备实例和只读实例信息列表。
+        说明：通过本接口返回的可用区情况为购买时的情况，不随主动 HA 切换变化。如需了解实时可用区情况，请通过 [DescribeDBInstanceConfig](https://cloud.tencent.com/document/product/236/17491) 接口进行查询。
 
         :param request: Request instance for DescribeDBInstances.
         :type request: :class:`tencentcloud.cdb.v20170320.models.DescribeDBInstancesRequest`
@@ -2045,6 +2046,29 @@ class CdbClient(AbstractClient):
             body = self.call("DescribeInstanceParams", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeInstanceParamsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeInstancePasswordComplexity(self, request):
+        r"""该接口（DescribeInstancePasswordComplexity）用于查询实例的密码复杂度参数列表。
+
+        :param request: Request instance for DescribeInstancePasswordComplexity.
+        :type request: :class:`tencentcloud.cdb.v20170320.models.DescribeInstancePasswordComplexityRequest`
+        :rtype: :class:`tencentcloud.cdb.v20170320.models.DescribeInstancePasswordComplexityResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeInstancePasswordComplexity", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeInstancePasswordComplexityResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -3043,6 +3067,29 @@ class CdbClient(AbstractClient):
             body = self.call("ModifyDBInstanceLogToCLS", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyDBInstanceLogToCLSResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyDBInstanceModes(self, request):
+        r"""该接口（ModifyDBInstanceModes）用于更改云数据库的模式。
+
+        :param request: Request instance for ModifyDBInstanceModes.
+        :type request: :class:`tencentcloud.cdb.v20170320.models.ModifyDBInstanceModesRequest`
+        :rtype: :class:`tencentcloud.cdb.v20170320.models.ModifyDBInstanceModesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyDBInstanceModes", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyDBInstanceModesResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

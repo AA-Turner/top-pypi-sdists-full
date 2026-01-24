@@ -1,47 +1,33 @@
+from __future__ import annotations
+
 import warnings
 from itertools import groupby
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
-from pydantic import Field, field_validator
+from pydantic import BeforeValidator, Field, PlainSerializer
 from pymatgen.analysis.xas.spectrum import XAS, site_weighted_spectrum
-from pymatgen.core.periodic_table import Element
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
 from emmet.core.feff.task import TaskDocument
-from emmet.core.mpid import MPID
+from emmet.core.mpid_ext import XasSpectrumID, validate_identifier
 from emmet.core.spectrum import SpectrumDoc
-from emmet.core.utils import ValueEnum
+from emmet.core.types.enums import ValueEnum, XasEdge, XasType
+from emmet.core.types.pymatgen_types.element_adapter import ElementType
+from emmet.core.types.pymatgen_types.xas_adapter import XASType
+from emmet.core.utils import type_override
+
+if TYPE_CHECKING:
+    from emmet.core.types.typing import IdentifierType
+
+Type = ValueEnum("Type", [(e.name, e.value) for e in XasType])
+"""Type is deprecated and will be removed - migrate to XasType."""
+
+Edge = ValueEnum("Edge", [(e.name, e.value) for e in XasEdge])
+"""Edge is deprecated and will be removed - migrate to XasEdge."""
 
 
-class Edge(ValueEnum):
-    """
-    The interaction edge for XAS
-    There are 2n-1 sub-components to each edge where
-    K: n=1
-    L: n=2
-    M: n=3
-    N: n=4
-    """
-
-    K = "K"
-    L2 = "L2"
-    L3 = "L3"
-    L2_3 = "L2,3"
-
-
-class Type(ValueEnum):
-    """
-    The type of XAS Spectrum
-    XANES - Just the near-edge region
-    EXAFS - Just the extended region
-    XAFS - Fully stitched XANES + EXAFS
-    """
-
-    XANES = "XANES"
-    EXAFS = "EXAFS"
-    XAFS = "XAFS"
-
-
+@type_override({"spectrum_id": str})
 class XASDoc(SpectrumDoc):
     """
     Document describing a XAS Spectrum.
@@ -49,7 +35,12 @@ class XASDoc(SpectrumDoc):
 
     spectrum_name: str = "XAS"
 
-    spectrum: XAS | dict | None = Field(
+    spectrum_id: Annotated[
+        XasSpectrumID,
+        PlainSerializer(lambda x: validate_identifier(x, serialize=True)),
+        BeforeValidator(validate_identifier),
+    ]
+    spectrum: XASType | None = Field(
         None, description="The XAS spectrum for this calculation."
     )
 
@@ -59,25 +50,17 @@ class XASDoc(SpectrumDoc):
         description="List of Calculations IDs used to make this XAS spectrum.",
     )
 
-    absorbing_element: Element = Field(..., description="Absoring element.")
-    spectrum_type: Type = Field(..., description="XAS spectrum type.")
-    edge: Edge = Field(
+    absorbing_element: ElementType = Field(..., description="Absoring element.")
+    spectrum_type: XasType = Field(..., description="XAS spectrum type.")
+    edge: XasEdge = Field(
         ..., title="Absorption Edge", description="The interaction edge for XAS."
     )
-
-    @field_validator("spectrum", mode="before")
-    @classmethod
-    def check_spectrum_non_positive_values(cls, v, eps=1.0e-12) -> XAS:
-        if isinstance(v, dict):
-            v["y"] = [y if y > 0.0 else abs(eps) for y in v["y"]]
-            v = XAS.from_dict(v)
-        return v
 
     @classmethod
     def from_spectrum(
         cls,
         xas_spectrum: XAS,
-        material_id: MPID | None = None,
+        material_id: IdentifierType | None = None,
         **kwargs,
     ):
         spectrum_type = xas_spectrum.spectrum_type
@@ -103,7 +86,7 @@ class XASDoc(SpectrumDoc):
     def from_task_docs(
         cls,
         all_tasks: list[TaskDocument],
-        material_id: MPID | None = None,
+        material_id: IdentifierType | None = None,
         num_samples: int = 200,
     ) -> list["XASDoc"]:
         """

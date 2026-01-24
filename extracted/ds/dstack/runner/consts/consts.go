@@ -1,0 +1,43 @@
+package consts
+
+// A directory inside user's home used for dstack-related files
+const DstackUserDir string = ".dstack"
+
+// Runner's log filenames
+const (
+	RunnerDefaultLogFileName = "default.log"
+	RunnerJobLogFileName     = "job.log"
+	RunnerLogFileName        = "runner.log"
+)
+
+// 1. A fixed path inside the container
+// 2. A default path on the host unless overridden via shim CLI
+const RunnerBinaryPath = "/usr/local/bin/dstack-runner"
+
+// A fallback path on the host used if os.Executable() has failed
+const ShimBinaryPath = "/usr/local/bin/dstack-shim"
+
+// Error-containing messages will be identified by this signature
+const ExecutorFailedSignature = "Executor failed"
+
+// All the following are directories inside the container
+const (
+	// A directory where runner stores its files (logs, etc.)
+	// NOTE: RunnerRuntimeDir would be a more appropriate name, but it's called tempDir
+	// throughout runner's codebase
+	RunnerTempDir = "/tmp/runner"
+	// A directory for:
+	// 1. Files used by the runner and related components (e.g., sshd stores its config and log inside /dstack/ssh)
+	// 2. Files shared between users (e.g., sshd authorized_keys, MPI hostfile)
+	// The inner structure should be considered private and subject to change, the users should not make assumptions
+	// about its structure.
+	// The only way to access its content/paths should be via public environment variables such as DSTACK_MPI_HOSTFILE.
+	RunnerDstackDir = "/dstack"
+)
+
+const (
+	RunnerHTTPPort = 10999
+	RunnerSSHPort  = 10022
+)
+
+const ShimLogFileName = "shim.log"

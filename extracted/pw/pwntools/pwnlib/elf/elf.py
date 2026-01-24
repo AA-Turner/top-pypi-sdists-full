@@ -52,6 +52,7 @@ from collections import namedtuple, defaultdict
 from elftools.elf.constants import P_FLAGS
 from elftools.elf.constants import SHN_INDICES
 from elftools.elf.descriptions import describe_e_type
+from elftools.elf.dynamic import DynamicSection
 from elftools.elf.elffile import ELFFile
 from elftools.elf.enums import ENUM_GNU_PROPERTY_X86_FEATURE_1_FLAGS
 from elftools.elf.gnuversions import GNUVerDefSection
@@ -358,11 +359,20 @@ class ELF(ELFFile):
         self._populate_functions()
         self._populate_kernel_version()
 
+        self._print_checksec = checksec
         if checksec:
             self._describe()
 
         self._libs = None
         self._maps = None
+
+    def close(self):
+        """close() -> None
+
+        Close the ELF file and release all resources associated with it.
+        """
+        super(ELF, self).close()
+        self.file.close()
 
     @staticmethod
     @LocalContext
@@ -705,29 +715,57 @@ class ELF(ELFFile):
 
     @property
     def libs(self):
-        """Dictionary of {path: address} for every library loaded for this ELF."""
+        """Dictionary of ``{path: address}`` for every library loaded for this ELF.
+
+        .. warning::
+
+            Getting this attribute actually runs the executable.
+            Make sure that you trust the binary you are exploiting.
+            If it adds itself as ``DT_NEEDED``, has overlapping segments,
+            ambiguous headers, or employs text relocations, it can run arbitrary
+            code even though you are just inspecting it.
+            Running is the only reliable way to ensure all the libraries are
+            loaded from the correct paths, because some of them may change
+            loading logic.
+
+            Exploitability first noticed at CWTE CTF 2025.
+        """
         if self._libs is None:
             self._populate_libraries()
         return self._libs
 
     @property
     def maps(self):
-        """Dictionary of {name: address} for every mapping in this ELF's address space."""
+        """Dictionary of ``{name: address}`` for every mapping in this ELF's address space.
+
+        .. warning::
+
+            Getting this attribute actually runs the executable.
+            Make sure that you trust the binary you are exploiting
+            (see :attr:`.ELF.libs`).
+        """
         if self._maps is None:
             self._populate_libraries()
         return self._maps
 
     @property
     def libc(self):
-        """:class:`.ELF`: If this :class:`.ELF` imports any libraries which contain ``'libc[.-]``,
+        """:class:`.ELF`: If this :class:`.ELF` imports any libraries which contain ``/libc[.-]``,
         and we can determine the appropriate path to it on the local
         system, returns a new :class:`.ELF` object pertaining to that library.
+        Prints the `checksec` output of the library if it was printed for the original ELF too.
 
         If not found, the value will be :const:`None`.
+
+        .. warning::
+
+            Getting this attribute actually runs the executable.
+            Make sure that you trust the binary you are exploiting
+            (see :attr:`.ELF.libs`).
         """
         for lib in self.libs:
             if '/libc.' in lib or '/libc-' in lib:
-                return ELF(lib)
+                return ELF(lib, self._print_checksec)
 
     def _populate_libraries(self):
         """
@@ -839,6 +877,13 @@ class ELF(ELFFile):
                 data = packing._decode(io.recvall(timeout=2))
         except Exception:
             log.warn_once("Injected /proc/self/maps code did not execute correctly")
+            return {}
+
+        # Sometimes the original binary already fail to run, for example, in case glibc mismatches.
+        try:
+            int(data.split('-', 1)[0], 16)
+        except ValueError:
+            log.warn_once("Cannot execute `%s` to get /proc/self/maps", self.path)
             return {}
 
         # Swap in the original ELF name
@@ -1596,7 +1641,7 @@ class ELF(ELFFile):
         dt      = None
         dynamic = self.get_section_by_name('.dynamic')
 
-        if not dynamic:
+        if not dynamic or not isinstance(dynamic, DynamicSection):
             return None
 
         try:
@@ -1779,131 +1824,136 @@ class ELF(ELFFile):
             \\* Hardware limitations are ignored.
 
         If ``READ_IMPLIES_EXEC`` is set, then `all readable pages are executable`__.
-            .. __: https://github.com/torvalds/linux/blob/v6.3/fs/binfmt_elf.c#L1008-L1009
-            .. code-block:: c
 
-                if (elf_read_implies_exec(loc->elf_ex, executable_stack))
-                    current->personality |= READ_IMPLIES_EXEC;
+            .. __: https://github.com/torvalds/linux/blob/v6.3/fs/binfmt_elf.c#L1008-L1009
+
+        .. code-block:: c
+
+            if (elf_read_implies_exec(loc->elf_ex, executable_stack))
+                current->personality |= READ_IMPLIES_EXEC;
 
         .. [#x86_5.7]
             `source <https://github.com/torvalds/linux/blob/v5.7/arch/x86/include/asm/elf.h#L285-L286>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                #define elf_read_implies_exec(ex, executable_stack)	\\
-                    (executable_stack != EXSTACK_DISABLE_X)
+            #define elf_read_implies_exec(ex, executable_stack)	\\
+                (executable_stack != EXSTACK_DISABLE_X)
 
         .. [#x86_5.8]
             `source <https://github.com/torvalds/linux/blob/v5.8/arch/x86/include/asm/elf.h#L305-L306>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                #define elf_read_implies_exec(ex, executable_stack)	\\
-                    (mmap_is_ia32() && executable_stack == EXSTACK_DEFAULT)
+            #define elf_read_implies_exec(ex, executable_stack)	\\
+                (mmap_is_ia32() && executable_stack == EXSTACK_DEFAULT)
 
-            `mmap_is_ia32()`__:
-                .. __: https://github.com/torvalds/linux/blob/v5.8/arch/x86/include/asm/elf.h#L318-L321
-                .. code-block:: c
+        `mmap_is_ia32()`__:
 
-                    /*
-                     * True on X86_32 or when emulating IA32 on X86_64
-                     */
-                    static inline int mmap_is_ia32(void)
+            .. __: https://github.com/torvalds/linux/blob/v5.8/arch/x86/include/asm/elf.h#L318-L321
+
+        .. code-block:: c
+
+            /*
+             * True on X86_32 or when emulating IA32 on X86_64
+             */
+            static inline int mmap_is_ia32(void)
 
         .. [#arm_5.7]
             `source <https://github.com/torvalds/linux/blob/v5.7/arch/arm/kernel/elf.c#L85-L92>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                int arm_elf_read_implies_exec(int executable_stack)
-                {
-                    if (executable_stack != EXSTACK_DISABLE_X)
-                        return 1;
-                    if (cpu_architecture() < CPU_ARCH_ARMv6)
-                        return 1;
-                    return 0;
-                }
+            int arm_elf_read_implies_exec(int executable_stack)
+            {
+                if (executable_stack != EXSTACK_DISABLE_X)
+                    return 1;
+                if (cpu_architecture() < CPU_ARCH_ARMv6)
+                    return 1;
+                return 0;
+            }
 
         .. [#arm_5.8]
             `source <https://github.com/torvalds/linux/blob/v5.8/arch/arm/kernel/elf.c#L104-L111>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                int arm_elf_read_implies_exec(int executable_stack)
-                {
-                    if (executable_stack == EXSTACK_DEFAULT)
-                        return 1;
-                    if (cpu_architecture() < CPU_ARCH_ARMv6)
-                        return 1;
-                    return 0;
-                }
+            int arm_elf_read_implies_exec(int executable_stack)
+            {
+                if (executable_stack == EXSTACK_DEFAULT)
+                    return 1;
+                if (cpu_architecture() < CPU_ARCH_ARMv6)
+                    return 1;
+                return 0;
+            }
 
         .. [#mips_5.17]
             `source <https://github.com/torvalds/linux/blob/v5.17/arch/mips/kernel/elf.c#L329-L342>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                int mips_elf_read_implies_exec(void *elf_ex, int exstack)
-                {
-                    if (exstack != EXSTACK_DISABLE_X) {
-                        /* The binary doesn't request a non-executable stack */
-                        return 1;
-                    }
-                    if (!cpu_has_rixi) {
-                        /* The CPU doesn't support non-executable memory */
-                        return 1;
-                    }
-                    return 0;
+            int mips_elf_read_implies_exec(void *elf_ex, int exstack)
+            {
+                if (exstack != EXSTACK_DISABLE_X) {
+                    /* The binary doesn't request a non-executable stack */
+                    return 1;
                 }
+                if (!cpu_has_rixi) {
+                    /* The CPU doesn't support non-executable memory */
+                    return 1;
+                }
+                return 0;
+            }
 
         .. [#mips_5.18]
             `source <https://github.com/torvalds/linux/blob/v5.18/arch/mips/kernel/elf.c#L329-L336>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                int mips_elf_read_implies_exec(void *elf_ex, int exstack)
-                {
-                    /*
-                     * Set READ_IMPLIES_EXEC only on non-NX systems that
-                     * do not request a specific state via PT_GNU_STACK.
-                     */
-                    return (!cpu_has_rixi && exstack == EXSTACK_DEFAULT);
-                }
+            int mips_elf_read_implies_exec(void *elf_ex, int exstack)
+            {
+                /*
+                 * Set READ_IMPLIES_EXEC only on non-NX systems that
+                 * do not request a specific state via PT_GNU_STACK.
+                 */
+                return (!cpu_has_rixi && exstack == EXSTACK_DEFAULT);
+            }
 
         .. [#powerpc]
             `source <https://github.com/torvalds/linux/blob/v6.3/arch/powerpc/include/asm/elf.h#L82-L108>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                #ifdef __powerpc64__
-                /* stripped */
-                # define elf_read_implies_exec(ex, exec_stk) (is_32bit_task() ? \\
-                        (exec_stk == EXSTACK_DEFAULT) : 0)
-                #else 
-                # define elf_read_implies_exec(ex, exec_stk) (exec_stk == EXSTACK_DEFAULT)
-                #endif /* __powerpc64__ */
+            #ifdef __powerpc64__
+            /* stripped */
+            # define elf_read_implies_exec(ex, exec_stk) (is_32bit_task() ? \\
+                    (exec_stk == EXSTACK_DEFAULT) : 0)
+            #else
+            # define elf_read_implies_exec(ex, exec_stk) (exec_stk == EXSTACK_DEFAULT)
+            #endif /* __powerpc64__ */
 
         .. [#ia64]
             `source <https://github.com/torvalds/linux/blob/v6.3/arch/ia64/include/asm/elf.h#L203-L204>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                #define elf_read_implies_exec(ex, executable_stack)					\\
-                    ((executable_stack!=EXSTACK_DISABLE_X) && ((ex).e_flags & EF_IA_64_LINUX_EXECUTABLE_STACK) != 0)
+            #define elf_read_implies_exec(ex, executable_stack)					\\
+                ((executable_stack!=EXSTACK_DISABLE_X) && ((ex).e_flags & EF_IA_64_LINUX_EXECUTABLE_STACK) != 0)
 
-            EF_IA_64_LINUX_EXECUTABLE_STACK__:
-                .. __: https://github.com/torvalds/linux/blob/v6.3/arch/ia64/include/asm/elf.h#L33
+        EF_IA_64_LINUX_EXECUTABLE_STACK__:
 
-                .. code-block:: c
+            .. __: https://github.com/torvalds/linux/blob/v6.3/arch/ia64/include/asm/elf.h#L33
 
-                    #define EF_IA_64_LINUX_EXECUTABLE_STACK	0x1	/* is stack (& heap) executable by default? */
+        .. code-block:: c
+
+            #define EF_IA_64_LINUX_EXECUTABLE_STACK	0x1	/* is stack (& heap) executable by default? */
 
         .. [#the_rest]
             `source <https://github.com/torvalds/linux/blob/v6.3/include/linux/elf.h#L13>`__
 
-            .. code-block:: c
+        .. code-block:: c
 
-                # define elf_read_implies_exec(ex, have_pt_gnu_stack)	0
+            # define elf_read_implies_exec(ex, have_pt_gnu_stack)	0
         """
         if not self.executable:
             return True
@@ -2339,7 +2389,7 @@ class ELF(ELFFile):
     
     @staticmethod
     def set_runpath(exepath, runpath):
-        r"""set_runpath(str, str) -> ELF
+        r"""set_runpath(exepath, runpath) -> ELF
 
         Patches the RUNPATH of the ELF to the given path using the `patchelf utility <https://github.com/NixOS/patchelf>`_.
 
@@ -2374,7 +2424,7 @@ class ELF(ELFFile):
 
     @staticmethod
     def set_interpreter(exepath, interpreter_path):
-        r"""set_interpreter(str, str) -> ELF
+        r"""set_interpreter(exepath, interpreter_path) -> ELF
 
         Patches the interpreter of the ELF to the given binary using the `patchelf utility <https://github.com/NixOS/patchelf>`_.
 
@@ -2408,7 +2458,7 @@ class ELF(ELFFile):
 
     @staticmethod
     def patch_custom_libraries(exe_path, custom_library_path, create_copy=True, suffix='_remotelibc'):
-        r"""patch_custom_libraries(str, str, bool, str) -> ELF
+        r"""patch_custom_libraries(exe_path, custom_library_path, create_copy=True, suffix='_remotelibc') -> ELF
 
         Looks for the interpreter binary in the given path and patches the binary to use
         it if available. Also patches the RUNPATH to the given path using the `patchelf utility <https://github.com/NixOS/patchelf>`_.

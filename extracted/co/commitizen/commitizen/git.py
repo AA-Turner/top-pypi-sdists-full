@@ -118,8 +118,8 @@ class GitCommit(GitObject):
             >>> commit.parents
             ['def456', 'ghi789']
         """
-        rev, parents, title, author, author_email, *body_list = rev_and_commit.split(
-            "\n"
+        rev, parents, title, author, author_email, *body_list = (
+            rev_and_commit.splitlines()
         )
         return cls(
             rev=rev.strip(),
@@ -237,7 +237,7 @@ def get_tags(
 ) -> list[GitTag]:
     inner_delimiter = "---inner_delimiter---"
     formatter = (
-        f'"%(refname:lstrip=2){inner_delimiter}'
+        f'"%(refname:strip=2){inner_delimiter}'
         f"%(objectname){inner_delimiter}"
         f"%(creatordate:format:{dateformat}){inner_delimiter}"
         f'%(object)"'

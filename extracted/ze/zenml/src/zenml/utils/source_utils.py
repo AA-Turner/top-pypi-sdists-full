@@ -30,7 +30,6 @@ from typing import (
     Optional,
     Type,
     Union,
-    cast,
 )
 from uuid import UUID
 
@@ -43,6 +42,7 @@ from zenml.config.source import (
 )
 from zenml.constants import ENV_ZENML_CUSTOM_SOURCE_ROOT
 from zenml.environment import Environment
+from zenml.exceptions import SourceValidationException
 from zenml.logger import get_logger
 from zenml.utils import notebook_utils
 
@@ -713,10 +713,7 @@ def _get_package_for_module(module_name: str) -> Optional[str]:
     Returns:
         The package name or None if no package was found.
     """
-    if sys.version_info < (3, 10):
-        from importlib_metadata import packages_distributions
-    else:
-        from importlib.metadata import packages_distributions
+    from importlib.metadata import packages_distributions
 
     top_level_module = module_name.split(".", maxsplit=1)[0]
     package_names = packages_distributions().get(top_level_module, [])
@@ -737,12 +734,7 @@ def _get_package_version(package_name: str) -> Optional[str]:
     Returns:
         The package version or None if fetching the version failed.
     """
-    if sys.version_info < (3, 10):
-        from importlib_metadata import PackageNotFoundError, version
-
-        version = cast(Callable[..., str], version)
-    else:
-        from importlib.metadata import PackageNotFoundError, version
+    from importlib.metadata import PackageNotFoundError, version
 
     try:
         return version(distribution_name=package_name)
@@ -782,25 +774,31 @@ def load_and_validate_class(
 
 def validate_source_class(
     source: Union[Source, str], expected_class: Type[Any]
-) -> bool:
+) -> None:
     """Validates that a source resolves to a certain class.
 
     Args:
         source: The source to validate.
         expected_class: The class that the source should resolve to.
 
-    Returns:
-        True if the source resolves to the expected class, False otherwise.
+    Raises:
+        SourceValidationException: If the source cannot be loaded or does not
+            resolve to the expected class.
     """
     try:
         obj = load(source)
-    except Exception:
-        return False
+    except Exception as e:
+        raise SourceValidationException(
+            f"Failed to load source `{source}` for validation: {e}"
+        ) from e
 
     if isinstance(obj, type) and issubclass(obj, expected_class):
-        return True
+        return
     else:
-        return False
+        raise SourceValidationException(
+            f"Source `{source}` does not resolve to the expected class "
+            f"`{expected_class.__name__}`. Got `{obj}` instead."
+        )
 
 
 def get_resolved_notebook_sources() -> Dict[str, str]:

@@ -118,6 +118,29 @@ class WafClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def AddBypassAllRule(self, request):
+        r"""添加一键bypass能力支持,直接添加APPID
+
+        :param request: Request instance for AddBypassAllRule.
+        :type request: :class:`tencentcloud.waf.v20180125.models.AddBypassAllRuleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.AddBypassAllRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("AddBypassAllRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.AddBypassAllRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def AddCustomRule(self, request):
         r"""增加访问控制（自定义策略）
 
@@ -454,6 +477,29 @@ class WafClient(AbstractClient):
             body = self.call("CreatePostCLSFlow", params, headers=headers)
             response = json.loads(body)
             model = models.CreatePostCLSFlowResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateRateLimitV2(self, request):
+        r"""创建限流规则
+
+        :param request: Request instance for CreateRateLimitV2.
+        :type request: :class:`tencentcloud.waf.v20180125.models.CreateRateLimitV2Request`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.CreateRateLimitV2Response`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateRateLimitV2", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateRateLimitV2Response()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -845,6 +891,29 @@ class WafClient(AbstractClient):
             body = self.call("DeleteOwaspWhiteRule", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteOwaspWhiteRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DeleteRateLimitsV2(self, request):
+        r"""删除自研版限流规则
+
+        :param request: Request instance for DeleteRateLimitsV2.
+        :type request: :class:`tencentcloud.waf.v20180125.models.DeleteRateLimitsV2Request`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.DeleteRateLimitsV2Response`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteRateLimitsV2", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteRateLimitsV2Response()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1259,6 +1328,29 @@ class WafClient(AbstractClient):
             body = self.call("DescribeBatchIpAccessControl", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeBatchIpAccessControlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeBotIdRule(self, request):
+        r"""获取BotId规则列表1
+
+        :param request: Request instance for DescribeBotIdRule.
+        :type request: :class:`tencentcloud.waf.v20180125.models.DescribeBotIdRuleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.DescribeBotIdRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeBotIdRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeBotIdRuleResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2188,6 +2280,29 @@ class WafClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeRateLimitsV2(self, request):
+        r"""查询限流规则列表接口
+
+        :param request: Request instance for DescribeRateLimitsV2.
+        :type request: :class:`tencentcloud.waf.v20180125.models.DescribeRateLimitsV2Request`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.DescribeRateLimitsV2Response`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeRateLimitsV2", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeRateLimitsV2Response()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeRuleLimit(self, request):
         r"""获取各个模块具体的规格限制
 
@@ -2673,6 +2788,29 @@ class WafClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def EnableRateLimitsV2(self, request):
+        r"""批量更改自研版限流规则开关
+
+        :param request: Request instance for EnableRateLimitsV2.
+        :type request: :class:`tencentcloud.waf.v20180125.models.EnableRateLimitsV2Request`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.EnableRateLimitsV2Response`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableRateLimitsV2", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableRateLimitsV2Response()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def FreshAntiFakeUrl(self, request):
         r"""刷新防篡改url
 
@@ -2802,6 +2940,29 @@ class WafClient(AbstractClient):
             body = self.call("GetInstanceQpsLimit", params, headers=headers)
             response = json.loads(body)
             model = models.GetInstanceQpsLimitResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def GetOrganizationRole(self, request):
+        r"""获取集团账号角色
+
+        :param request: Request instance for GetOrganizationRole.
+        :type request: :class:`tencentcloud.waf.v20180125.models.GetOrganizationRoleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.GetOrganizationRoleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("GetOrganizationRole", params, headers=headers)
+            response = json.loads(body)
+            model = models.GetOrganizationRoleResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2972,6 +3133,29 @@ class WafClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyApiSecSensitiveRule(self, request):
+        r"""修改api安全敏感检测规则
+
+        :param request: Request instance for ModifyApiSecSensitiveRule.
+        :type request: :class:`tencentcloud.waf.v20180125.models.ModifyApiSecSensitiveRuleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.ModifyApiSecSensitiveRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyApiSecSensitiveRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyApiSecSensitiveRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyAreaBanAreas(self, request):
         r"""修改地域封禁中的地域信息
 
@@ -3078,6 +3262,29 @@ class WafClient(AbstractClient):
             body = self.call("ModifyBatchIpAccessControl", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyBatchIpAccessControlResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyBotIdRule(self, request):
+        r"""修改Bot-ID规则配置1
+
+        :param request: Request instance for ModifyBotIdRule.
+        :type request: :class:`tencentcloud.waf.v20180125.models.ModifyBotIdRuleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.ModifyBotIdRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyBotIdRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyBotIdRuleResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -3295,7 +3502,7 @@ class WafClient(AbstractClient):
 
 
     def ModifyDomainWhiteRule(self, request):
-        r"""更改某一条规则
+        r"""修改域名规则白名单
 
         :param request: Request instance for ModifyDomainWhiteRule.
         :type request: :class:`tencentcloud.waf.v20180125.models.ModifyDomainWhiteRuleRequest`
@@ -3631,6 +3838,29 @@ class WafClient(AbstractClient):
             body = self.call("ModifyObject", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyObjectResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyObjects(self, request):
+        r"""批量修改防护对象
+
+        :param request: Request instance for ModifyObjects.
+        :type request: :class:`tencentcloud.waf.v20180125.models.ModifyObjectsRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.ModifyObjectsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyObjects", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyObjectsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4031,6 +4261,29 @@ class WafClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def QueryBypassAllStatus(self, request):
+        r"""查询该用户是否被加入了全局的bypass列表
+
+        :param request: Request instance for QueryBypassAllStatus.
+        :type request: :class:`tencentcloud.waf.v20180125.models.QueryBypassAllStatusRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.QueryBypassAllStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("QueryBypassAllStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.QueryBypassAllStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def RefreshAccessCheckResult(self, request):
         r"""刷新接入检查的结果，后台会生成接入检查任务
 
@@ -4045,6 +4298,29 @@ class WafClient(AbstractClient):
             body = self.call("RefreshAccessCheckResult", params, headers=headers)
             response = json.loads(body)
             model = models.RefreshAccessCheckResultResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def RemoveBypassAllRule(self, request):
+        r"""删除一键bypass规则
+
+        :param request: Request instance for RemoveBypassAllRule.
+        :type request: :class:`tencentcloud.waf.v20180125.models.RemoveBypassAllRuleRequest`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.RemoveBypassAllRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("RemoveBypassAllRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.RemoveBypassAllRuleResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4186,6 +4462,29 @@ class WafClient(AbstractClient):
             body = self.call("UpdateProtectionModes", params, headers=headers)
             response = json.loads(body)
             model = models.UpdateProtectionModesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def UpdateRateLimitV2(self, request):
+        r"""更新自研版限流规则
+
+        :param request: Request instance for UpdateRateLimitV2.
+        :type request: :class:`tencentcloud.waf.v20180125.models.UpdateRateLimitV2Request`
+        :rtype: :class:`tencentcloud.waf.v20180125.models.UpdateRateLimitV2Response`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("UpdateRateLimitV2", params, headers=headers)
+            response = json.loads(body)
+            model = models.UpdateRateLimitV2Response()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

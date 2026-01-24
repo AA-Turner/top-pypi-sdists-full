@@ -10,6 +10,11 @@ NSMutableArray = objc.lookUpClass("NSMutableArray")
 NSArray = objc.lookUpClass("NSArray")
 
 
+class OC_InstanceMethod(NSObject):
+    def instanceMethod(self):
+        return 42
+
+
 class TestBasicIMP(TestCase):
     # Test the basic functionality of IMP's. Imp's are basically unbound
     # selectors if you look at the interface. The implementation refers to
@@ -216,6 +221,21 @@ class TestBasicIMP(TestCase):
 
 
 class TestGettingIMPs(TestCase):
+    def test_basic(self):
+        o = NSObject.alloc().init()
+        m = o.methodForSelector_(b"description")
+        self.assertEqual(m(o), o.description())
+
+        m = NSObject.instanceMethodForSelector_(b"description")
+        self.assertEqual(m(o), o.description())
+
+        m = NSObject.methodForSelector_(b"description")
+        self.assertEqual(m(NSObject), NSObject.description())
+
+        # Note: Do not call m with an instance as 'self',
+        # that will crash (similarly to how calling an instance
+        # method IMP with an incorrect self will fail.
+
     def test_too_few_arguments(self):
         o = NSMutableArray.alloc().init()
 
@@ -242,3 +262,29 @@ class TestGettingIMPs(TestCase):
 
         with self.assertRaisesRegex(ValueError, "depythonifying 'SEL', got 'int'"):
             NSMutableArray.instanceMethodForSelector_(42)
+
+        m = o.methodForSelector_("sortUsingSelector:")
+        m(o, b"description")
+
+    def test_not_found(self):
+        o = NSMutableArray.alloc().init()
+        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+            o.methodForSelector_(b"doesnotexist")
+
+        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+            NSMutableArray.instanceMethodForSelector_(b"doesnotexist")
+
+        with self.assertRaisesRegex(AttributeError, "No selector doesnotexist"):
+            NSMutableArray.methodForSelector_(b"doesnotexist")
+
+    def test_python_selector(self):
+        o = OC_InstanceMethod.alloc().init()
+        with self.assertRaisesRegex(
+            TypeError, "Cannot locate Python representation of instanceMethod"
+        ):
+            o.methodForSelector_(b"instanceMethod")
+
+        with self.assertRaisesRegex(
+            TypeError, "Cannot locate Python representation of instanceMethod"
+        ):
+            OC_InstanceMethod.instanceMethodForSelector_(b"instanceMethod")

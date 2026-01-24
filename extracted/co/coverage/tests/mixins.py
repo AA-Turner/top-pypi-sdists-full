@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """
 Test class mixins
@@ -14,8 +14,8 @@ import os
 import os.path
 import sys
 
-from collections.abc import Iterable, Iterator
-from typing import Any, Callable, cast
+from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 import pytest
 
@@ -64,7 +64,7 @@ class TempDirMixin:
     run_in_temp_dir = True
 
     @pytest.fixture(autouse=True)
-    def _temp_dir(self, tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    def _temp_dir(self, tmp_path_factory: pytest.TempPathFactory) -> Iterable[None]:
         """Create a temp dir for the tests, if they want it."""
         if self.run_in_temp_dir:
             tmpdir = tmp_path_factory.mktemp("t")

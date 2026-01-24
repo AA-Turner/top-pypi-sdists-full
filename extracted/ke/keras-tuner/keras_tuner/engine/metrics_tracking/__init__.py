@@ -5,4 +5,4 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.metrics_tracking import infer_metric_direction
+from keras_tuner.src.engine.metrics_tracking import infer_metric_direction as infer_metric_direction

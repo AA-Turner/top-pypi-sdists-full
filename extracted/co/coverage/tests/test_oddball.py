@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Oddball cases for testing coverage.py"""
 
@@ -112,7 +112,7 @@ class RecursionTest(CoverageTest):
                 )
 
     def test_long_recursion_recovery(self) -> None:
-        # Test the core of bug 93: https://github.com/nedbat/coveragepy/issues/93
+        # Test the core of bug 93: https://github.com/coveragepy/coveragepy/issues/93
         # When recovering from a stack overflow, the Python trace function is
         # disabled, but the C trace function is not.  So if we're using a
         # Python trace function, we won't trace anything after the stack
@@ -169,7 +169,7 @@ class MemoryLeakTest(CoverageTest):
     """Attempt the impossible: test that memory doesn't leak.
 
     Note: this test is truly unusual, and has had a colorful history.  See
-    for example: https://github.com/nedbat/coveragepy/issues/186
+    for example: https://github.com/coveragepy/coveragepy/issues/186
 
     It may still fail occasionally, especially on PyPy.
 
@@ -235,7 +235,7 @@ class MemoryLeakTest(CoverageTest):
     )
     @pytest.mark.parametrize("branch", [False, True])
     def test_eval_codeobject_leak(self, branch: bool) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1924
+        # https://github.com/coveragepy/coveragepy/issues/1924
         code = """\
             for i in range(10_000):
                 r = eval("'a' + '1'")
@@ -343,7 +343,7 @@ class PyexpatTest(CoverageTest):
         assert missing == []
 
         # Make sure pyexpat isn't recorded as a source file.
-        # https://github.com/nedbat/coveragepy/issues/419
+        # https://github.com/coveragepy/coveragepy/issues/419
         files = cov.get_data().measured_files()
         msg = f"Pyexpat.c is in the measured files!: {files!r}:"
         assert not any(f.endswith("pyexpat.c") for f in files), msg
@@ -531,7 +531,7 @@ class GettraceTest(CoverageTest):
     """Tests that we work properly with `sys.gettrace()`."""
 
     def test_round_trip_in_untraced_function(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/575
+        # https://github.com/coveragepy/coveragepy/issues/575
         self.make_file("main.py", """import sample""")
         self.make_file(
             "sample.py",
@@ -570,7 +570,7 @@ class GettraceTest(CoverageTest):
         assert missing == []
 
     def test_setting_new_trace_function(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/436
+        # https://github.com/coveragepy/coveragepy/issues/436
         if testenv.SETTRACE_CORE or not env.PYBEHAVIOR.branch_right_left:
             missing = "5-7, 13-14"
         else:
@@ -616,7 +616,7 @@ class GettraceTest(CoverageTest):
         )
         assert expected == out
 
-    @pytest.mark.skipif(env.METACOV, reason="Can't set trace functions during meta-coverage")
+    @pytest.mark.skipif(env.METACOV, reason="Can't set trace functions during metacoverage")
     def test_atexit_gettrace(self) -> None:
         # This is not a test of coverage at all, but of our understanding
         # of this edge-case behavior in various Pythons.
@@ -654,7 +654,7 @@ class ExecTest(CoverageTest):
     """Tests of exec."""
 
     def test_correct_filename(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/380
+        # https://github.com/coveragepy/coveragepy/issues/380
         # Bug was that exec'd files would have their lines attributed to the
         # calling file.  Make two files, both with ~30 lines, but no lines in
         # common.  Line 30 in to_exec.py was recorded as line 30 in main.py,
@@ -689,7 +689,7 @@ class ExecTest(CoverageTest):
         assert missing == []
 
     def test_unencodable_filename(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/891
+        # https://github.com/coveragepy/coveragepy/issues/891
         self.make_file("bug891.py", r"""exec(compile("pass", "\udcff.py", "exec"))""")
         cov = coverage.Coverage()
         self.start_import_stop(cov, "bug891")
@@ -702,27 +702,43 @@ class ExecTest(CoverageTest):
 class MockingProtectionTest(CoverageTest):
     """Tests about protecting ourselves from aggressive mocking.
 
-    https://github.com/nedbat/coveragepy/issues/416
+    https://github.com/coveragepy/coveragepy/issues/416
 
     """
 
-    def test_os_path_exists(self) -> None:
+    def test_isolate_module_os(self) -> None:
         # To see if this test still detects the problem, change isolate_module
         # in misc.py to simply return its argument.  It should fail with a
-        # StopIteration error.
+        # stack trace like:
+        #     File "/tmp/pytest-of-ned/pytest-118/t0/bug416.py", line 11, in test_path_exists
+        #       import bug416a
+        #     File "/Users/ned/coverage/trunk/coverage/control.py", line 446, in _should_trace
+        #       disp = self._inorout.should_trace(filename, frame)
+        #     File "/Users/ned/coverage/trunk/coverage/inorout.py", line 343, in should_trace
+        #       orig = os.path.basename(original_filename)
+        #     File "/tmp/pytest-of-ned/pytest-118/t0/bug416.py", line 6, in __getattr__
+        #       raise ZeroDivisionError(f"boom: {name}")
+        #   ZeroDivisionError: boom: basename
+
         self.make_file(
             "bug416.py",
             """\
             import os.path
             from unittest import mock
 
-            @mock.patch('os.path.exists')
-            def test_path_exists(mock_exists):
-                mock_exists.side_effect = [17]
+            class BadMod:
+                def __getattr__(self, name):
+                    raise ZeroDivisionError(f"boom: {name}")
+
+            @mock.patch("os.path", new=BadMod())
+            def test_path_exists():
                 print("in test")
                 import bug416a
                 print(bug416a.foo)
-                print(os.path.exists("."))
+                try:
+                    os.path.exists(".")
+                except ZeroDivisionError as e:
+                    print(f"Got {e}!")
 
             test_path_exists()
             """,
@@ -739,4 +755,35 @@ class MockingProtectionTest(CoverageTest):
 
         py_compile.compile("bug416a.py")
         out = self.run_command("coverage run bug416.py")
-        assert out == "in test\nbug416a.py\n23\n17\n"
+        assert out == "in test\nbug416a.py\n23\nGot boom: exists!\n"
+
+    def test_defend_against_mock_open(self) -> None:
+        # We defend against mocking of builtins.open, which some test suites
+        # do although they shouldn't.
+        # See https://github.com/coveragepy/coveragepy/issues/2083
+        self.make_file(
+            "mock_open.py",
+            """\
+            from unittest import mock
+
+            @mock.patch("builtins.open", new=lambda *a, **k: 1/0)
+            def test_path_exists():
+                print("in test")
+                try:
+                    open("somefile")
+                except ZeroDivisionError as e:
+                    print(f"Got {e}!")
+
+            test_path_exists()
+            """,
+        )
+        self.make_file(
+            ".coveragerc",
+            """\
+            [run]
+            branch = True
+            disable_warnings = no-sysmon,no-ctracer
+            """,
+        )
+        out = self.run_command("coverage run --branch mock_open.py")
+        assert out == "in test\nGot division by zero!\n"

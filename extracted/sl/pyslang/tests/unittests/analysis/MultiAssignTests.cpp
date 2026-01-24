@@ -23,7 +23,7 @@ endclass
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -47,7 +47,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
 }
@@ -87,7 +87,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 5);
     CHECK(diags[0].code == diag::MultipleContAssigns);
     CHECK(diags[1].code == diag::MixedVarAssigns);
@@ -119,7 +119,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
@@ -150,7 +150,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager(options);
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -170,7 +170,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -198,7 +198,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -224,7 +224,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -259,7 +259,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -277,7 +277,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -316,7 +316,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::MultipleContAssigns);
     CHECK(diags[1].code == diag::MultipleContAssigns);
@@ -363,7 +363,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::MultipleContAssigns);
     CHECK(diags[1].code == diag::MultipleContAssigns);
@@ -392,7 +392,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -423,7 +423,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
 }
@@ -466,7 +466,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
@@ -491,7 +491,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager(options);
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -516,7 +516,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
 
     std::string result = "\n" + report(diags);
     CHECK(result == R"(
@@ -560,7 +560,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     CHECK_DIAGS_EMPTY;
 }
 
@@ -617,7 +617,7 @@ TEST_CASE("Unrollable for loop drivers") {
     Compilation compilation;
     AnalysisManager analysisManager(options);
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
     CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
@@ -645,7 +645,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager(options);
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
@@ -674,7 +674,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
@@ -702,7 +702,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
     CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
@@ -727,7 +727,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
 }
@@ -748,7 +748,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
 }
@@ -788,7 +788,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 3);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
     CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
@@ -810,7 +810,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::NTResolveArgModify);
 }
@@ -838,7 +838,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 4);
     CHECK(diags[0].code == diag::InputPortAssign);
     CHECK(diags[1].code == diag::InputPortAssign);
@@ -864,7 +864,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::OutputPortCoercion);
     CHECK(diags[1].code == diag::InputPortCoercion);
@@ -884,7 +884,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ClockVarTargetAssign);
 }
@@ -926,7 +926,7 @@ endmodule
     compilation.freeze();
 
     analysisManager.analyze(compilation);
-    auto diags = analysisManager.getDiagnostics(compilation.getSourceManager());
+    auto diags = analysisManager.getDiagnostics();
 
     CHECK_DIAGS_EMPTY;
 }
@@ -957,7 +957,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
 }
@@ -990,7 +990,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
 }
@@ -1011,7 +1011,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 2);
     CHECK(diags[0].code == diag::MixedVarAssigns);
     CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
@@ -1072,7 +1072,7 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 6);
     CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
     CHECK(diags[1].code == diag::MultipleAlwaysAssigns);
@@ -1104,7 +1104,423 @@ endmodule
     Compilation compilation;
     AnalysisManager analysisManager;
 
-    auto [diags, design] = analyze(code, compilation, analysisManager);
+    auto diags = analyze(code, compilation, analysisManager);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::MultipleContAssigns);
+}
+
+TEST_CASE("Multi assign loop analysis regress -- GH #1454") {
+    auto& code = R"(
+module top #(
+    parameter int unsigned P  = 4
+);
+    localparam C = 1;
+
+    typedef struct packed {
+        logic a;
+        logic b;
+    } type1;
+
+    type1 [P-1:0][C-1:0] t1;
+
+    typedef struct packed {
+        logic a;
+    } type2;
+
+    type2 [P-1:0][C-1:0] t2_a, t2_b;
+
+    always_comb begin
+        for (int unsigned p=0; p<P; p++) begin
+            for (int unsigned c=0; c<C; c++) begin
+                t1[p][c].a = '0;
+            end
+        end
+    end
+
+    always_comb begin
+        for (int unsigned p=0; p<P; p++) begin
+            for (int unsigned c=0; c<C; c++ ) begin
+                t1[p][c].b = '0;
+            end
+
+            for (int unsigned c=0; c<C; c++ ) begin
+                t2_a[p][c].a = 1'b0;
+            end
+
+            for (int unsigned c=0; c<C; c++) begin
+                if (~t2_b[p][c].a) begin
+                end
+            end
+
+            for (int unsigned c=0; c<C; c++) begin
+                for (int unsigned c=0; c<C; c++) begin
+                    t1[p][c].b = '1;
+                end
+            end
+        end
+    end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("Multi assign through ref ports") {
+    auto& code = R"(
+module m(ref int r);
+endmodule
+
+module n(ref int s);
+    assign s = 2;
+endmodule
+
+module top1;
+    int r, s;
+    m m1(r);
+    n n1(s);
+
+    assign r = 3;
+    assign s = 1;
+endmodule
+
+module o(ref int s);
+    q q1(s);
+endmodule
+
+module p(ref int s);
+    o o1(s);
+endmodule
+
+module top2;
+    int r;
+    p p1(r);
+    p p2(r);
+endmodule
+
+module q(ref int t);
+    assign t = 2;
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::MultipleContAssigns);
+    CHECK(diags[1].code == diag::MultipleContAssigns);
+}
+
+TEST_CASE("Multi assign through ref ports 2") {
+    auto& code = R"(
+module r({a, b});
+    ref logic a;
+    output logic b;
+    assign a = 1;
+endmodule
+
+module v(ref .a(foo.b));
+    struct { logic a; logic b; } foo;
+    assign foo.b = 1;
+endmodule
+
+module w(ref .a(foo[0][1]));
+    logic [1:0] foo[2][3];
+    assign foo[0][1][0] = 1;
+    assign foo[0][1][1] = 1;
+
+    assign foo[1][0] = 1;
+    assign foo[1][0][1] = 1;
+endmodule
+
+module x(ref .a(foo), .b(foo));
+    logic foo;
+    assign foo = 1;
+endmodule
+
+module y(ref .a(foo[0]));
+    logic [5:3] foo[2];
+    assign foo[0][5] = 1;
+endmodule
+
+module top;
+    logic [1:0] q;
+    r r1(q);
+    assign q[1] = 1;
+
+    logic s [1:0][3:1];
+    v v1(s[1][1]);
+    assign s[1][1] = 1;
+
+    logic [1:0] t [1:0][3:1];
+    w w1(t[1][1]);
+    assign t[1][1][0] = 1;
+
+    logic u, v;
+    x x1(u, v);
+    assign {u, v} = 1;
+
+    logic [2:4] z;
+    y y1(z);
+    assign z[2:3] = 1;
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 6);
+    CHECK(diags[0].code == diag::MultipleContAssigns);
+    CHECK(diags[1].code == diag::MultipleContAssigns);
+    CHECK(diags[2].code == diag::MultipleContAssigns);
+    CHECK(diags[3].code == diag::MultipleContAssigns);
+    CHECK(diags[4].code == diag::MultipleContAssigns);
+    CHECK(diags[5].code == diag::MultipleContAssigns);
+}
+
+TEST_CASE("Multi assign through ref ports 3") {
+    auto& code = R"(
+module y(ref .a(foo));
+    logic [5:3] foo;
+    assign foo[3] = 1;
+endmodule
+
+module b(ref logic[7:0] a [2:6]);
+    assign a[3][5:4] = 1;
+endmodule
+
+typedef struct { logic a[2:8]; } bar_t;
+module c(ref bar_t a);
+    assign a.a[4:5] = '{1, 0};
+endmodule
+
+module top;
+    logic [2:4] z;
+    y y1(z);
+    assign z[4] = 1;
+
+    struct packed { logic a; logic b; } [1:4] a [5:1];
+    b b1(a);
+    assign a[4][2].b = 1;
+
+    bar_t d;
+    c c1(d);
+    assign d.a[4:5] = '{0, 1};
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::MultipleContAssigns);
+    CHECK(diags[1].code == diag::MultipleContAssigns);
+    CHECK(diags[2].code == diag::MultipleContAssigns);
+}
+
+TEST_CASE("Multi assign through ref ports 4") {
+    auto& code = R"(
+module m(a);
+    ref a;
+    logic [3:0] a;
+
+    always_comb a[3] = 1;
+
+    always_comb begin
+        for (int i = 0; i < 4; i++)
+            a[i] = 1;
+    end
+endmodule
+
+module top;
+    logic [3:0] a;
+    m m1(a);
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MultipleAlwaysAssigns);
+}
+
+TEST_CASE("Multi assign complicated modport expressions") {
+    auto& code = R"(
+class C;
+    int i;
+endclass
+
+interface I;
+    logic [1:0] b, d;
+    logic [2:3] c, e;
+    C g;
+
+    typedef struct { logic [1:0] q; logic [1:0] r; } S;
+
+    modport m(output .a({b, c}), .d(S'{d, e}), .f(g), ref .h(g));
+endinterface
+
+module n(I.m im);
+    C c = new;
+    assign im.a[2] = 1;
+    assign im.d.r[0] = 1;
+    always_comb im.f = c;
+    always_comb im.h = c;
+endmodule
+
+module top;
+    I i();
+    n n1(i);
+
+    assign i.b[0] = 1;
+    assign i.d = 1;
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::MultipleContAssigns);
+    CHECK(diags[1].code == diag::MultipleContAssigns);
+    CHECK(diags[2].code == diag::MultipleAlwaysAssigns);
+}
+
+TEST_CASE("For loop unrolling diagnostic preserves select info") {
+    auto& code = R"(
+module m;
+    logic [3:0] a;
+    always_comb a[2] = 1;
+    always_comb begin
+        for (int i = 0; i < 3; i++)
+            a[i] = 1;
+    end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+
+    std::string result = "\n" + report(diags);
+    CHECK(result == R"(
+source:7:13: error: variable 'a[2]' driven by always_comb procedure cannot be written to by any other process
+            a[i] = 1;
+            ^~~~
+source:4:17: note: also assigned here
+    always_comb a[2] = 1;
+                ^~~~
+)");
+}
+
+TEST_CASE("Multi-ports with output segments register drivers correctly") {
+    auto& code = R"(
+module m({a, b});
+    input a;
+    output b;
+endmodule
+
+module top;
+    logic [1:0] a;
+    m m1(a);
+
+    assign a[0] = 1;
+    assign a[1] = 1;
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::MultipleContAssigns);
+}
+
+TEST_CASE("Hierarchical function call interaction with inst caching") {
+    auto& code = R"(
+module m;
+    function foo;
+        foo = 1;
+    endfunction
+endmodule
+
+module top;
+    m m1();
+    m m2();
+
+    logic a;
+    always_comb begin
+        a = m2.foo();
+    end
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("Multi-assign through iface modports false positive") {
+    auto& code = R"(
+interface I;
+    logic a;
+    modport i(input a);
+    modport o(output a);
+endinterface
+
+module m(I.i incoming, I.o outgoing);
+    assign outgoing.a = incoming.a;
+endmodule
+
+module top;
+    I a(), b(), c();
+    m m1(a, b);
+    m m2(b, c);
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
+}
+
+TEST_CASE("Multi-assign loop unroll in genblk regress") {
+    auto& code = R"(
+module m #(parameter int p);
+    logic [2:0][4*p-1:0] arr;
+    for (genvar g = 0; g < p; g++) begin
+        localparam int lp = g * 4;
+        always_comb begin
+            for (int i = 0; i < 3; i++) begin
+                arr[i][lp+:2] = '1;
+            end
+        end
+    end
+endmodule
+
+module top;
+    m #(4) m1();
+endmodule
+)";
+
+    Compilation compilation;
+    AnalysisManager analysisManager;
+
+    auto diags = analyze(code, compilation, analysisManager);
+    CHECK_DIAGS_EMPTY;
 }

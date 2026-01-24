@@ -58,13 +58,16 @@ class GetZeroTrustGatewaySettingsResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The provider-assigned unique ID for this managed resource.
+        The ID of this resource.
         """
         return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
     def settings(self) -> 'outputs.GetZeroTrustGatewaySettingsSettingsResult':
+        """
+        Specify account settings.
+        """
         return pulumi.get(self, "settings")
 
     @_builtins.property

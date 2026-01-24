@@ -306,29 +306,79 @@ def _patch_anthropic():
         from anthropic import AsyncAnthropic
         if hasattr(AsyncAnthropic, '_codewords_patched'):
             return
-        
+
         _original_init = AsyncAnthropic.__init__
-        
+
         def _enhanced_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
             api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
             base_url = base_url or urljoin(os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'), "run/anthropic")
             default_headers = dict(default_headers or {})
-            
+
             if 'X-Correlation-Id' not in default_headers:
                 correlation_id = get_contextvars().get("correlation_id")
                 if correlation_id:
                     default_headers['X-Correlation-Id'] = correlation_id
-            
+
             _original_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
-        
+
         AsyncAnthropic.__init__ = _enhanced_init
         AsyncAnthropic._codewords_patched = True
         logger.debug("AsyncAnthropic successfully patched for CodeWords auto-configuration")
-        
+
     except ImportError:
         pass
     except Exception as e:
         logger.warning("Failed to patch AsyncAnthropic", error=str(e))
+
+def _patch_perplexity():
+    """Monkey patch Perplexity and AsyncPerplexity to auto-inject CodeWords proxy settings and correlation IDs."""
+    try:
+        from perplexity import Perplexity, AsyncPerplexity
+
+        # Patch sync client
+        if not hasattr(Perplexity, '_codewords_patched'):
+            _original_sync_init = Perplexity.__init__
+
+            def _enhanced_sync_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
+                api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
+                base_url = base_url or urljoin(os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'), "run/perplexity")
+                default_headers = dict(default_headers or {})
+
+                if 'X-Correlation-Id' not in default_headers:
+                    correlation_id = get_contextvars().get("correlation_id")
+                    if correlation_id:
+                        default_headers['X-Correlation-Id'] = correlation_id
+
+                _original_sync_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
+
+            Perplexity.__init__ = _enhanced_sync_init
+            Perplexity._codewords_patched = True
+            logger.debug("Perplexity successfully patched for CodeWords auto-configuration")
+
+        # Patch async client
+        if not hasattr(AsyncPerplexity, '_codewords_patched'):
+            _original_async_init = AsyncPerplexity.__init__
+
+            def _enhanced_async_init(self, api_key=None, base_url=None, default_headers=None, **kwargs):
+                api_key = api_key or os.environ.get('CODEWORDS_API_KEY')
+                base_url = base_url or urljoin(os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai'), "run/perplexity")
+                default_headers = dict(default_headers or {})
+
+                if 'X-Correlation-Id' not in default_headers:
+                    correlation_id = get_contextvars().get("correlation_id")
+                    if correlation_id:
+                        default_headers['X-Correlation-Id'] = correlation_id
+
+                _original_async_init(self, api_key=api_key, base_url=base_url, default_headers=default_headers, **kwargs)
+
+            AsyncPerplexity.__init__ = _enhanced_async_init
+            AsyncPerplexity._codewords_patched = True
+            logger.debug("AsyncPerplexity successfully patched for CodeWords auto-configuration")
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("Failed to patch Perplexity", error=str(e))
 
 # Import redis_client from separate module (lazy loading)
 from .redis import redis_client
@@ -337,6 +387,7 @@ from .redis import redis_client
 _patch_firecrawl()
 _patch_openai()
 _patch_anthropic()
+_patch_perplexity()
 
 # Export everything
 __all__ = [

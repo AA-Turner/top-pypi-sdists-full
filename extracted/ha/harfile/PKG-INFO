@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harfile
-Version: 0.3.1
+Version: 0.4.0
 Summary: Writer for HTTP Archive (HAR) files
 Project-URL: Changelog, https://github.com/schemathesis/harfile/blob/main/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/harfile
@@ -11,7 +11,7 @@ Maintainer-email: Dmitry Dygalo <dmitry@dygalo.dev>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: har,http,testing
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.8

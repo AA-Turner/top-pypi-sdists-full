@@ -446,6 +446,7 @@ class WorksheetTemplate(ItemTemplate, Worksheet):
 
 class AnalysisWorksheetTemplate(WorksheetTemplate, AnalysisWorksheet):
     _annotation: JournalTemplate
+    _current_override_map: Optional[OverrideItemMap]
 
     def __init__(self, label: str, workbook, worksheet: AnalysisWorksheet, *, package: ItemList = None,
                  is_copy: bool = False):
@@ -456,6 +457,7 @@ class AnalysisWorksheetTemplate(WorksheetTemplate, AnalysisWorksheet):
         AnalysisWorksheet.__init__(self, workbook, add_defaults=False)
 
         self._annotation = JournalTemplate(label, worksheet.journal, self, package)
+        self._current_override_map = None
 
         # Clear definition for clarity, since it's not used in a template
         self._definition = dict()
@@ -493,13 +495,17 @@ class AnalysisWorksheetTemplate(WorksheetTemplate, AnalysisWorksheet):
 
     def push(self, context: WorkbookPushContext, pushed_workbook_id, item_map, datasource_output,
              existing_worksheet_identifiers, include_inventory, label=None):
+        self._current_override_map = OverrideItemMap(item_map, template_parameters=self.parameters)
         output = super().push(context, pushed_workbook_id,
-                              OverrideItemMap(item_map, template_parameters=self.parameters), datasource_output,
+                              self._current_override_map, datasource_output,
                               existing_worksheet_identifiers, include_inventory, self.label)
 
         self._after_push(item_map)
 
         return output
+
+    def find_unresolved_worksteps(self, item_map: ItemMap):
+        return super().find_unresolved_worksteps(self._current_override_map)
 
     def current_workstep(self) -> AnalysisWorkstepTemplate:
         # noinspection PyTypeChecker
@@ -618,11 +624,11 @@ class AnalysisWorkstepTemplate(ItemTemplate, AnalysisWorkstep):
     def code_dict(self):
         return ItemTemplate._code_dict_for_analysis(self.template.worksheet.workbook, [self.template])
 
-    def push_to_specific_worksheet(self, session: Session, pushed_workbook_id, pushed_worksheet_output,
+    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id, pushed_worksheet_output,
                                    item_map: OverrideItemMap, include_inventory, *,
                                    no_workstep_message=None):
         output = super().push_to_specific_worksheet(
-            session, pushed_workbook_id, pushed_worksheet_output,
+            context, pushed_workbook_id, pushed_worksheet_output,
             OverrideItemMap(item_map, template_parameters=self.parameters), include_inventory,
             no_workstep_message=no_workstep_message)
 
@@ -648,12 +654,12 @@ class AnalysisWorkstepTemplate(ItemTemplate, AnalysisWorkstep):
 
 
 class AnnotationTemplate(Annotation):
-    def __init__(self, label: str, annotation: Annotation, worksheet: Worksheet, annotation_type: str,
+    def __init__(self, label: str, annotation: Annotation, parent: Union[Workbook, Worksheet], annotation_type: str,
                  is_copy: bool = False):
         if not isinstance(annotation, Annotation):
             raise SPyTypeError('annotation parameter must be a Annotation')
 
-        Annotation.__init__(self, worksheet, annotation_type)
+        Annotation.__init__(self, parent, annotation_type)
 
         self.label = label
         self.template = annotation
@@ -700,12 +706,13 @@ class AnnotationTemplate(Annotation):
 
         return n
 
-    def _push_specific(self, session: Session, item_map: OverrideItemMap, datasource_output, label, new_annotation,
-                       existing_annotation, access_control, override_content_dict=None, status: Status = None):
+    def _push_specific(self, context: WorkbookPushContext, item_map: OverrideItemMap, datasource_output, label,
+                       new_annotation,
+                       existing_annotation, access_control, override_content_dict=None):
         item_map.override(self.template.id, existing_annotation.id)
 
-        html = super()._push_specific(session, item_map, datasource_output, label, new_annotation, existing_annotation,
-                                      access_control, override_content_dict=override_content_dict, status=status)
+        html = super()._push_specific(context, item_map, datasource_output, label, new_annotation, existing_annotation,
+                                      access_control, override_content_dict=override_content_dict)
 
         return html
 
@@ -716,21 +723,22 @@ class AnnotationTemplate(Annotation):
 
 
 class JournalTemplate(AnnotationTemplate, Journal):
-    def __init__(self, label: str, journal: Journal, worksheet: AnalysisWorksheet, package: ItemList, *,
+    def __init__(self, label: str, journal: Journal, parent: AnalysisWorksheet, package: ItemList, *,
                  is_copy: bool = False):
         if not isinstance(journal, Journal):
             raise SPyTypeError('journal parameter must be a Journal')
 
-        AnnotationTemplate.__init__(self, label, journal, worksheet, 'Journal', is_copy=is_copy)
+        AnnotationTemplate.__init__(self, label, journal, parent, 'Journal', is_copy=is_copy)
 
-    def _push_specific(self, session: Session, item_map: OverrideItemMap, datasource_output, label, new_annotation,
-                       existing_annotation, access_control, override_content_dict=None, status: Status = None):
+    def _push_specific(self, context: WorkbookPushContext, item_map: OverrideItemMap, datasource_output, label,
+                       new_annotation,
+                       existing_annotation, access_control, override_content_dict=None):
         parameters = item_map.parameters
 
         if parameters is None:
             parameters = self.worksheet.code_dict()
 
-        html = super()._push_specific(session, item_map, datasource_output, label, new_annotation, existing_annotation,
+        html = super()._push_specific(context, item_map, datasource_output, label, new_annotation, existing_annotation,
                                       access_control)
 
         mustache = MustachioedAnnotation(html)
@@ -779,8 +787,9 @@ class ReportTemplate(AnnotationTemplate, Report):
         worksheet = workbook.worksheets[content['Worksheet ID']]
         return ItemTemplate.code_key_string(content_id, Reference.EMBEDDED_CONTENT, worksheet.fqn)
 
-    def _push_specific(self, session: Session, item_map: OverrideItemMap, datasource_output, label, new_annotation,
-                       existing_annotation, access_control, override_content_dict=None, status: Status = None):
+    def _push_specific(self, context: WorkbookPushContext, item_map: OverrideItemMap, datasource_output, label,
+                       new_annotation,
+                       existing_annotation, access_control, override_content_dict=None):
         current_content_dict = self.content.copy()
         new_content_dict = dict()
 
@@ -835,8 +844,8 @@ class ReportTemplate(AnnotationTemplate, Report):
 
         massaged_parameters = AnnotationTemplate._walk_dict(parameters, _workstep_to_content)
 
-        html = super()._push_specific(session, item_map, datasource_output, label, new_annotation, existing_annotation,
-                                      access_control, new_content_dict, status)
+        html = super()._push_specific(context, item_map, datasource_output, label, new_annotation, existing_annotation,
+                                      access_control, new_content_dict)
 
         item_map[f'Content for {self.id}'] = new_content_dict
 

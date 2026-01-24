@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: traits
-Version: 7.0.2
+Version: 7.1.0
 Summary: Observable typed attributes for Python classes
 Home-page: http://docs.enthought.com/traits
 Download-URL: https://pypi.python.org/pypi/traits
@@ -54,6 +54,7 @@ Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-python

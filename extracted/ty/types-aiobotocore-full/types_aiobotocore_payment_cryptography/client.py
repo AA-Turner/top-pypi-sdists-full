@@ -3,7 +3,7 @@ Type annotations for payment-cryptography service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -30,6 +31,8 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import ListAliasesPaginator, ListKeysPaginator, ListTagsForResourcePaginator
 from .type_defs import (
+    AddKeyReplicationRegionsInputTypeDef,
+    AddKeyReplicationRegionsOutputTypeDef,
     CreateAliasInputTypeDef,
     CreateAliasOutputTypeDef,
     CreateKeyInputTypeDef,
@@ -37,10 +40,17 @@ from .type_defs import (
     DeleteAliasInputTypeDef,
     DeleteKeyInputTypeDef,
     DeleteKeyOutputTypeDef,
+    DisableDefaultKeyReplicationRegionsInputTypeDef,
+    DisableDefaultKeyReplicationRegionsOutputTypeDef,
+    EnableDefaultKeyReplicationRegionsInputTypeDef,
+    EnableDefaultKeyReplicationRegionsOutputTypeDef,
     ExportKeyInputTypeDef,
     ExportKeyOutputTypeDef,
     GetAliasInputTypeDef,
     GetAliasOutputTypeDef,
+    GetCertificateSigningRequestInputTypeDef,
+    GetCertificateSigningRequestOutputTypeDef,
+    GetDefaultKeyReplicationRegionsOutputTypeDef,
     GetKeyInputTypeDef,
     GetKeyOutputTypeDef,
     GetParametersForExportInputTypeDef,
@@ -57,6 +67,8 @@ from .type_defs import (
     ListKeysOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    RemoveKeyReplicationRegionsInputTypeDef,
+    RemoveKeyReplicationRegionsOutputTypeDef,
     RestoreKeyInputTypeDef,
     RestoreKeyOutputTypeDef,
     StartKeyUsageInputTypeDef,
@@ -69,12 +81,6 @@ from .type_defs import (
     UpdateAliasOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -85,15 +91,15 @@ __all__ = ("PaymentCryptographyControlPlaneClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class PaymentCryptographyControlPlaneClient(AioBaseClient):
@@ -131,6 +137,18 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#generate_presigned_url)
         """
 
+    async def add_key_replication_regions(
+        self, **kwargs: Unpack[AddKeyReplicationRegionsInputTypeDef]
+    ) -> AddKeyReplicationRegionsOutputTypeDef:
+        """
+        Adds replication Amazon Web Services Regions to an existing Amazon Web Services
+        Payment Cryptography key, enabling the key to be used for cryptographic
+        operations in additional Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/add_key_replication_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#add_key_replication_regions)
+        """
+
     async def create_alias(
         self, **kwargs: Unpack[CreateAliasInputTypeDef]
     ) -> CreateAliasOutputTypeDef:
@@ -152,7 +170,7 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#create_key)
         """
 
-    async def delete_alias(self, **kwargs: Unpack[DeleteAliasInputTypeDef]) -> Dict[str, Any]:
+    async def delete_alias(self, **kwargs: Unpack[DeleteAliasInputTypeDef]) -> dict[str, Any]:
         """
         Deletes the alias, but doesn't affect the underlying key.
 
@@ -167,6 +185,34 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/delete_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#delete_key)
+        """
+
+    async def disable_default_key_replication_regions(
+        self, **kwargs: Unpack[DisableDefaultKeyReplicationRegionsInputTypeDef]
+    ) -> DisableDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Disables <a
+        href="https://docs.aws.amazon.com/payment-cryptography/latest/userguide/keys-multi-region-replication.html">Multi-Region
+        key replication</a> settings for the specified Amazon Web Services Regions in
+        your Amazon Web Services account, preventing new keys from being automatically
+        replica...
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/disable_default_key_replication_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#disable_default_key_replication_regions)
+        """
+
+    async def enable_default_key_replication_regions(
+        self, **kwargs: Unpack[EnableDefaultKeyReplicationRegionsInputTypeDef]
+    ) -> EnableDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Enables <a
+        href="https://docs.aws.amazon.com/payment-cryptography/latest/userguide/keys-multi-region-replication.html">Multi-Region
+        key replication</a> settings for your Amazon Web Services account, causing new
+        keys to be automatically replicated to the specified Amazon Web Services
+        Regions when ...
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/enable_default_key_replication_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#enable_default_key_replication_regions)
         """
 
     async def export_key(self, **kwargs: Unpack[ExportKeyInputTypeDef]) -> ExportKeyOutputTypeDef:
@@ -185,10 +231,33 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_alias)
         """
 
+    async def get_certificate_signing_request(
+        self, **kwargs: Unpack[GetCertificateSigningRequestInputTypeDef]
+    ) -> GetCertificateSigningRequestOutputTypeDef:
+        """
+        Creates a certificate signing request (CSR) from a key pair.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_certificate_signing_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_certificate_signing_request)
+        """
+
+    async def get_default_key_replication_regions(
+        self,
+    ) -> GetDefaultKeyReplicationRegionsOutputTypeDef:
+        """
+        Retrieves the list of Amazon Web Services Regions where <a
+        href="https://docs.aws.amazon.com/payment-cryptography/latest/userguide/keys-multi-region-replication.html">Multi-Region
+        key replication</a> is currently enabled for your Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_default_key_replication_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_default_key_replication_regions)
+        """
+
     async def get_key(self, **kwargs: Unpack[GetKeyInputTypeDef]) -> GetKeyOutputTypeDef:
         """
-        Gets the key material for an Amazon Web Services Payment Cryptography key,
-        including the immutable and mutable data specified when the key was created.
+        Gets the key metadata for an Amazon Web Services Payment Cryptography key,
+        including the immutable and mutable attributes specified when the key was
+        created.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/get_key.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#get_key)
@@ -267,6 +336,18 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#list_tags_for_resource)
         """
 
+    async def remove_key_replication_regions(
+        self, **kwargs: Unpack[RemoveKeyReplicationRegionsInputTypeDef]
+    ) -> RemoveKeyReplicationRegionsOutputTypeDef:
+        """
+        Removes Replication Regions from an existing Amazon Web Services Payment
+        Cryptography key, disabling the key's availability for cryptographic operations
+        in the specified Amazon Web Services Regions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography/client/remove_key_replication_regions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#remove_key_replication_regions)
+        """
+
     async def restore_key(
         self, **kwargs: Unpack[RestoreKeyInputTypeDef]
     ) -> RestoreKeyOutputTypeDef:
@@ -299,7 +380,7 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#stop_key_usage)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds or edits tags on an Amazon Web Services Payment Cryptography key.
 
@@ -307,7 +388,7 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_payment_cryptography/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a tag from an Amazon Web Services Payment Cryptography key.
 
@@ -367,7 +448,7 @@ class PaymentCryptographyControlPlaneClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

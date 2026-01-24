@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import asyncio
@@ -22,11 +22,13 @@ from marimo._loggers import marimo_logger
 from marimo._messaging.errors import (
     Error,
     MarimoExceptionRaisedError,
+    MarimoSQLError,
     MarimoStrictExecutionError,
     UnknownError,
 )
 from marimo._messaging.tracebacks import write_traceback
 from marimo._runtime import dataflow
+from marimo._runtime.context.types import safe_get_context
 from marimo._runtime.control_flow import MarimoInterrupt, MarimoStopError
 from marimo._runtime.exceptions import (
     MarimoMissingRefError,
@@ -38,6 +40,10 @@ from marimo._runtime.executor import (
     get_executor,
 )
 from marimo._runtime.marimo_pdb import MarimoPdb
+from marimo._sql.error_utils import (
+    create_sql_error_from_exception,
+    is_sql_parse_error,
+)
 from marimo._types.ids import CellId_t
 
 LOGGER = marimo_logger()
@@ -60,7 +66,7 @@ def cell_filename(cell_id: CellId_t) -> str:
     return f"<cell-{cell_id}>"
 
 
-ErrorObjects = Union[BaseException, Error]
+ExceptionOrError = Union[BaseException, Error]
 
 
 @dataclass
@@ -68,13 +74,37 @@ class RunResult:
     # Raw output of cell: last expression
     output: Any
     # Exception raised by cell, if any
-    exception: Optional[ErrorObjects]
+    #
+    # TODO(akshayka): Exceptions and "Errors" (most of which are at parse time
+    # and can't be encountered by the runner) shouldn't be packed into a single
+    # field.
+    exception: Optional[ExceptionOrError]
     # Accumulated output: via imperative mo.output.append()
     accumulated_output: Any = None
 
     def success(self) -> bool:
         """Whether the cell expected successfully"""
         return self.exception is None
+
+
+def should_show_traceback(
+    exception: Optional[ExceptionOrError],
+) -> bool:
+    if exception is None:
+        return True
+
+    # Stop "errors" aren't actually errors but rather a control
+    # flow mechanism used by mo.stop() to stop execution; as such
+    # a traceback should not be shown for them.
+    if isinstance(exception, MarimoStopError):
+        return False
+
+    # SQL parsing errors happen in SQL cells so showing a
+    # python traceback is not useful.
+    if isinstance(exception, MarimoSQLError):
+        return False
+
+    return True
 
 
 class Runner:
@@ -142,7 +172,7 @@ class Runner:
         # whether the runner has been interrupted
         self.interrupted = False
         # mapping from cell_id to exception it raised
-        self.exceptions: dict[CellId_t, ErrorObjects] = {}
+        self.exceptions: dict[CellId_t, ExceptionOrError] = {}
 
         # each cell's position in the run queue
         self._run_position = {
@@ -166,16 +196,31 @@ class Runner:
                 predicate=lambda cell: cell.stale,
             )
         )
+
         if execution_mode == "autorun":
             # in autorun/eager mode, descendants are also run;
             cells_to_run = dataflow.transitive_closure(
-                graph, cells_to_run, relatives=dataflow.import_block_relatives
+                graph,
+                cells_to_run,
+                relatives=dataflow.get_import_block_relatives(graph),
             )
 
-        return dataflow.topological_sort(
+        sorted_cells = dataflow.topological_sort(
             graph,
             cells_to_run - excluded_cells,
         )
+
+        # Overridden cells may be on the path of a UI element update.
+        if (
+            (ctx := safe_get_context()) is not None
+            and ctx.is_embedded()
+            and ((overrides := ctx.app.overrides()) is not None)
+        ):
+            sorted_cells = dataflow.prune_cells_for_overrides(
+                graph, sorted_cells, overrides
+            )
+
+        return sorted_cells
 
     # Adapted from
     # https://github.com/ipython/ipykernel/blob/eddd3e666a82ebec287168b0da7cfa03639a3772/ipykernel/ipkernel.py#L312  # noqa: E501
@@ -329,7 +374,7 @@ class Runner:
         unwrapped_exception: Optional[BaseException],
         cell_id: CellId_t,
     ) -> tuple[RunResult, Optional[BaseException]]:
-        exception: Optional[ErrorObjects] = unwrapped_exception
+        exception: Optional[ExceptionOrError] = unwrapped_exception
         if isinstance(exception, MarimoMissingRefError):
             ref, blamed_cell = self._get_blamed_cell(exception)
             # All MarimoMissingRefErrors should be caused caused by
@@ -403,6 +448,13 @@ class Runner:
                         exception = output
                 except Exception:
                     pass
+        # Handle SQL parsing errors
+        elif unwrapped_exception is not None and is_sql_parse_error(
+            unwrapped_exception
+        ):
+            cell = self.graph.cells[cell_id]
+            output = create_sql_error_from_exception(unwrapped_exception, cell)
+            exception = output
         elif isinstance(unwrapped_exception, MarimoStopError):
             output = unwrapped_exception.output
             exception = unwrapped_exception
@@ -502,10 +554,7 @@ class Runner:
             # this call as well, so this should be lifted out of `run`.
             self.cancel(cell_id)
 
-            # Stop "errors" aren't actually errors but rather a control
-            # flow mechanism used by mo.stop() to stop execution; as such
-            # a traceback should not be shown for them.
-            if not isinstance(run_result.exception, MarimoStopError):
+            if should_show_traceback(run_result.exception):
                 tmpio = io.StringIO()
                 # The executors explicitly raise cell exceptions from base
                 # exceptions such that the stack trace is cleaner.
@@ -610,7 +659,7 @@ class Runner:
         blamed_cell = None
         try:
             (blamed_cell, *_) = self.graph.get_defining_cells(ref)
-        except KeyError:
+        except (KeyError, ValueError):
             # The reference is not found anywhere else in the graph
             # but it might be private
             ref, var_cell_id = unmangle_local(ref)

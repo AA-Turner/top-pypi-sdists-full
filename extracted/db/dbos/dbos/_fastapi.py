@@ -1,4 +1,3 @@
-import uuid
 from typing import Any, Callable, MutableMapping, cast
 
 from fastapi import FastAPI
@@ -9,7 +8,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from . import DBOS
 from ._context import EnterDBOSHandler, OperationType, SetWorkflowID, TracedAttributes
 from ._error import DBOSException
-from ._utils import request_id_header
+from ._utils import generate_uuid, request_id_header
 
 
 def _get_or_generate_request_id(request: FastAPIRequest) -> str:
@@ -17,7 +16,7 @@ def _get_or_generate_request_id(request: FastAPIRequest) -> str:
     if request_id is not None:
         return request_id
     else:
-        return str(uuid.uuid4())
+        return generate_uuid()
 
 
 async def _dbos_error_handler(request: FastAPIRequest, gexc: Exception) -> JSONResponse:
@@ -83,6 +82,11 @@ def setup_fastapi_middleware(app: FastAPI, dbos: DBOS) -> None:
                     response = await call_next(request)
             else:
                 response = await call_next(request)
-            if hasattr(response, "status_code"):
-                DBOS.span.set_attribute("responseCode", response.status_code)
+            if (
+                dbos._config["telemetry"]
+                and not dbos._config["telemetry"]["disable_otlp"]
+                and hasattr(response, "status_code")
+            ):
+                if DBOS.span is not None:
+                    DBOS.span.set_attribute("responseCode", response.status_code)
         return response

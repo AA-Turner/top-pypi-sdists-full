@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: python-lsp-server
-Version: 1.13.1
+Version: 1.14.0
 Summary: Python Language Server for the Language Server Protocol
 Author: Python Language Server Contributors
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/python-lsp/python-lsp-server
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -22,7 +22,7 @@ Requires-Dist: mccabe<0.8.0,>=0.7.0; extra == "all"
 Requires-Dist: pycodestyle<2.13.0,>=2.12.0; extra == "all"
 Requires-Dist: pydocstyle<6.4.0,>=6.3.0; extra == "all"
 Requires-Dist: pyflakes<3.3.0,>=3.2.0; extra == "all"
-Requires-Dist: pylint<4,>=3.1; extra == "all"
+Requires-Dist: pylint<4.1.0,>=3.1; extra == "all"
 Requires-Dist: rope>=1.11.0; extra == "all"
 Requires-Dist: yapf>=0.33.0; extra == "all"
 Requires-Dist: whatthepatch<2.0.0,>=1.0.2; extra == "all"
@@ -39,7 +39,7 @@ Requires-Dist: pydocstyle<6.4.0,>=6.3.0; extra == "pydocstyle"
 Provides-Extra: pyflakes
 Requires-Dist: pyflakes<3.3.0,>=3.2.0; extra == "pyflakes"
 Provides-Extra: pylint
-Requires-Dist: pylint<4,>=3.1; extra == "pylint"
+Requires-Dist: pylint<4.1.0,>=3.1; extra == "pylint"
 Provides-Extra: rope
 Requires-Dist: rope>=1.11.0; extra == "rope"
 Provides-Extra: yapf
@@ -48,7 +48,7 @@ Requires-Dist: whatthepatch<2.0.0,>=1.0.2; extra == "yapf"
 Provides-Extra: websockets
 Requires-Dist: websockets>=10.3; extra == "websockets"
 Provides-Extra: test
-Requires-Dist: pylint<4,>=3.1; extra == "test"
+Requires-Dist: pylint<4.1.0,>=3.1; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage; extra == "test"
@@ -64,8 +64,7 @@ Dynamic: license-file
 
 [![image](https://github.com/python-ls/python-ls/workflows/Linux%20tests/badge.svg)](https://github.com/python-ls/python-ls/actions?query=workflow%3A%22Linux+tests%22) [![image](https://github.com/python-ls/python-ls/workflows/Mac%20tests/badge.svg)](https://github.com/python-ls/python-ls/actions?query=workflow%3A%22Mac+tests%22) [![image](https://github.com/python-ls/python-ls/workflows/Windows%20tests/badge.svg)](https://github.com/python-ls/python-ls/actions?query=workflow%3A%22Windows+tests%22) [![image](https://img.shields.io/github/license/python-ls/python-ls.svg)](https://github.com/python-ls/python-ls/blob/master/LICENSE)
 
-A Python 3.8+ implementation of the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol).
-(Note: versions <1.4 should still work with Python 3.6)
+A Python 3.9+ implementation of the [Language Server Protocol](https://github.com/Microsoft/language-server-protocol).
 
 ## Installation
 

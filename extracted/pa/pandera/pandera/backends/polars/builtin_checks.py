@@ -1,9 +1,8 @@
 """Built-in checks for polars."""
 
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from typing import Any, Optional, TypeVar, Union
-from collections.abc import Iterable
 
 import polars as pl
 
@@ -247,13 +246,12 @@ def str_endswith(data: PolarsData, string: str) -> pl.LazyFrame:
     return data.lazyframe.select(pl.col(data.key).str.ends_with(string))
 
 
-@register_builtin_check(
-    error="str_length({min_value}, {max_value})",
-)
+@register_builtin_check()
 def str_length(
     data: PolarsData,
-    min_value: Optional[int] = None,
-    max_value: Optional[int] = None,
+    min_value: int | None = None,
+    max_value: int | None = None,
+    exact_value: int | None = None,
 ) -> pl.LazyFrame:
     """Ensure that the length of strings is within a specified range.
 
@@ -261,14 +259,19 @@ def str_length(
         to access the dataframe is "dataframe", and the key the to access the column name is "key".
     :param min_value: Minimum length of strings (inclusive). (default: no minimum)
     :param max_value: Maximum length of strings (inclusive). (default: no maximum)
+    :param exact_value: Exact length of strings. (default: no exact value)
     """
+    n_chars = pl.col(data.key).str.len_chars()
+    if exact_value is not None:
+        expr = n_chars.eq(exact_value)
+        return data.lazyframe.select(expr)
+
     if min_value is None and max_value is None:
         raise ValueError(
             "Must provide at least one of 'min_value' and 'max_value'"
         )
 
-    n_chars = pl.col(data.key).str.len_chars()
-    if min_value is None:
+    elif min_value is None:
         expr = n_chars.le(max_value)
     elif max_value is None:
         expr = n_chars.ge(min_value)

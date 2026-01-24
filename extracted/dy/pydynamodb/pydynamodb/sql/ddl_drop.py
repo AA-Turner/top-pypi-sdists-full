@@ -11,6 +11,7 @@ DROP TABLE Issues
 DROP GLOBAL TABLE Issues
     ReplicationGroup (us-east-1, us-west-2)
 """
+
 import logging
 from .ddl_sql import DdlBase
 from .common import KeyWords, Tokens
@@ -51,7 +52,7 @@ class DdlDrop(DdlBase):
         if self.root_parse_results is None:
             raise ValueError("Statement was not parsed yet")
 
-        request = dict()
+        request = {}
         is_global_table = (
             True if self.root_parse_results.get("global", None) is not None else False
         )

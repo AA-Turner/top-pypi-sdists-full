@@ -20,7 +20,7 @@ import json
 import logging
 import time
 import warnings
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import (
     Any,
     Dict,
@@ -37,7 +37,13 @@ import hsfs.expectation_suite
 import humps
 import pandas as pd
 from hopsworks_common.client.exceptions import FeatureStoreException, RestAPIError
-from hopsworks_common.core.constants import HAS_NUMPY, HAS_POLARS
+from hopsworks_common.core import alerts_api
+from hopsworks_common.core.constants import (
+    HAS_DELTALAKE_PYTHON,
+    HAS_DELTALAKE_SPARK,
+    HAS_NUMPY,
+    HAS_POLARS,
+)
 from hsfs import (
     engine,
     feature,
@@ -107,7 +113,6 @@ if HAS_NUMPY:
 if HAS_POLARS:
     import polars as pl
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -149,12 +154,40 @@ class FeatureGroupBase:
             ]
         ] = None,
         storage_connector: Union[sc.StorageConnector, Dict[str, Any]] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
         **kwargs,
     ) -> None:
+        """Initialize a feature group object.
+
+        # Arguments
+            name: Name of the feature group to create
+            version: Version number of the feature group
+            featurestore_id: ID of the feature store to create the feature group in
+            location: Location to store the feature group data
+            event_time: Event time column for the feature group
+            online_enabled: Whether to enable online serving for this feature group
+            id: ID of the feature group
+            embedding_index: Embedding index configuration for vector similarity search
+            expectation_suite: Great Expectations suite for data validation
+            online_topic_name: Name of the Kafka topic for online serving
+            topic_name: Name of the Kafka topic for streaming
+            notification_topic_name: Name of the Kafka topic for notifications
+            deprecated: Whether this feature group is deprecated
+            online_config: Configuration for online serving
+            data_source: Data source configuration
+            storage_connector: Storage connector configuration
+            ttl: Time-to-live (TTL) configuration for this feature group
+            ttl_enabled: Whether to enable time-to-live (TTL) for this feature group. Defaults to True if ttl is set.
+            online_disk: Whether to enable online disk storage for this feature group. Overrides online_config.table_space.
+                Defaults to using cluster wide configuration 'featurestore_online_tablespace' to identify tablespace for disk storage.
+            **kwargs: Additional keyword arguments
+        """
         self._version = version
         self._name = name
         self.event_time = event_time
-        self._online_enabled = online_enabled
+        self._online_enabled = online_enabled or embedding_index is not None
         self._location = location
         self._id = id
         self._subject = None
@@ -165,6 +198,9 @@ class FeatureGroupBase:
         self._feature_store_id = featurestore_id
         self._feature_store = None
         self._variable_api: VariableApi = VariableApi()
+        self._alert_api = alerts_api.AlertsApi()
+        self.ttl = ttl
+        self._ttl_enabled = ttl_enabled if ttl_enabled is not None else ttl is not None
 
         if storage_connector is not None and isinstance(storage_connector, dict):
             self._storage_connector = sc.StorageConnector.from_response_json(
@@ -177,15 +213,27 @@ class FeatureGroupBase:
             if isinstance(online_config, dict)
             else online_config
         )
+        if online_disk is not None:
+            if self._online_config is None:
+                # Make sure online config is initialized
+                self._online_config = OnlineConfig()
+
+            if online_disk:
+                self._online_config.table_space = (
+                    self._variable_api.get_featurestore_online_tablespace()
+                )
+            else:
+                # An empty string is interpreted as don't set table space, while None uses the cluster default
+                self._online_config.table_space = ""
 
         if data_source:
-            self._data_source = (
+            self.data_source = (
                 ds.DataSource.from_response_json(data_source)
                 if isinstance(data_source, dict)
                 else data_source
             )
         else:
-            self._data_source = ds.DataSource()
+            self.data_source = ds.DataSource()
 
         self._multi_part_insert: bool = False
         self._embedding_index = embedding_index
@@ -235,6 +283,7 @@ class FeatureGroupBase:
         self.check_deprecated()
 
     def check_deprecated(self) -> None:
+        """Print a warning if this feature group is deprecated."""
         if self.deprecated:
             warnings.warn(
                 f"Feature Group `{self._name}`, version `{self._version}` is deprecated",
@@ -1891,10 +1940,12 @@ class FeatureGroupBase:
 
     @property
     def feature_store_id(self) -> Optional[int]:
+        """ID of the feature store to which the feature group belongs."""
         return self._feature_store_id
 
     @property
     def feature_store(self) -> feature_store_mod.FeatureStore:
+        """Feature store to which the feature group belongs."""
         if self._feature_store is None:
             self._feature_store = feature_store_api.FeatureStoreApi().get(
                 self._feature_store_id
@@ -1904,6 +1955,11 @@ class FeatureGroupBase:
     @feature_store.setter
     def feature_store(self, feature_store: feature_store_mod.FeatureStore) -> None:
         self._feature_store = feature_store
+
+    @property
+    def id(self) -> Optional[int]:
+        """Feature group id."""
+        return self._id
 
     @property
     def name(self) -> Optional[str]:
@@ -1920,6 +1976,7 @@ class FeatureGroupBase:
         self._version = version
 
     def get_fg_name(self) -> str:
+        """Returns the full feature group name, that is, its base name combined with its version."""
         return f"{self.name}_{self.version}"
 
     @property
@@ -2058,14 +2115,94 @@ class FeatureGroupBase:
                 stacklevel=1,
             )
 
+    def get_alerts(self):
+        """Get all alerts for this feature group.
+
+        # Returns
+            `List[FeatureGroupAlert]`: The list of FeatureGroupAlerts.
+        # Raises
+            `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
+
+        !!! Example
+            ```python
+            # Get all alerts
+            alerts = fg.get_alerts()
+            ```
+        """
+        return self._alert_api.get_feature_group_alerts(
+            feature_store_id=self._feature_store_id,
+            feature_group_id=self._id,
+        )
+
+    def get_alert(self, alert_id: int):
+        """Get an alert for this feature group by ID.
+
+        # Arguments
+            alert_id: The id of the alert to get.
+        # Returns
+            `FeatureGroupAlert`: The FeatureGroupAlert object.
+        # Raises
+            `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
+
+        !!! Example
+            ```python
+            # Get a specific alert
+            alert = fg.get_alert(alert_id=1)
+            ```
+        """
+        return self._alert_api.get_feature_group_alert(
+            feature_store_id=self._feature_store_id,
+            feature_group_id=self._id,
+            alert_id=alert_id,
+        )
+
+    def create_alert(
+        self,
+        receiver: str,
+        status: str,
+        severity: str,
+    ):
+        """Create an alert for this feature group.
+
+        # Arguments
+            receiver: str. The receiver of the alert.
+            status: str. The status that will trigger the alert. Can be "feature_validation_success", "feature_validation_warning", "feature_validation_failure", "feature_monitor_shift_undetected", "feature_monitor_shift_detected".
+            severity: str. The severity of the alert. Can be "info", "warning" or "critical".
+        # Returns
+            The created FeatureGroupAlert object.
+        # Raises
+            `ValueError`: If the status is not valid.
+            `ValueError`: If the severity is not valid.
+            `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
+
+        !!! Example
+            ```python
+            fg.create_alert(
+                receiver="email",
+                status="feature_validation_failure",
+                severity="critical",
+            )
+            ```
+        """
+        return self._alert_api.create_feature_group_alert(
+            feature_store_id=self._feature_store_id,
+            feature_group_id=self._id,
+            receiver=receiver,
+            status=status,
+            severity=severity,
+        )
+
     @property
     def embedding_index(self) -> Optional["EmbeddingIndex"]:
+        # TODO: Add docstring
         if self._embedding_index:
             self._embedding_index.feature_group = self
         return self._embedding_index
 
     @embedding_index.setter
     def embedding_index(self, embedding_index: Optional["EmbeddingIndex"]) -> None:
+        if embedding_index is not None and self._id is None:
+            self.online_enabled = True
         self._embedding_index = embedding_index
 
     @property
@@ -2098,6 +2235,7 @@ class FeatureGroupBase:
 
     @property
     def location(self) -> Optional[str]:
+        # TODO: Add docstring
         return self._location
 
     @property
@@ -2161,9 +2299,11 @@ class FeatureGroupBase:
 
     @property
     def storage_connector(self) -> "sc.StorageConnector":
+        """The storage connector which was used to create the feature group, if any."""
         return self._storage_connector
 
     def prepare_spark_location(self) -> str:
+        # TODO: Add docstring
         location = self.location
         if self.storage_connector is not None:
             location = self.storage_connector.prepare_spark(location)
@@ -2198,7 +2338,14 @@ class FeatureGroupBase:
 
     @property
     def data_source(self) -> Optional[ds.DataSource]:
+        """The data source which was used to create the feature group, if any."""
         return self._data_source
+
+    @data_source.setter
+    def data_source(self, data_source: ds.DataSource) -> None:
+        self._data_source = data_source
+        if self._data_source is not None:
+            self._data_source._update_storage_connector(self.storage_connector)
 
     @property
     def subject(self) -> Dict[str, Any]:
@@ -2305,9 +2452,132 @@ class FeatureGroupBase:
     def _get_project_name(self) -> str:
         return util.strip_feature_store_suffix(self.feature_store_name)
 
+    @property
+    def ttl(self) -> Optional[int]:
+        """Get the time-to-live duration in seconds for features in this group.
+
+        The TTL determines how long features should be retained before being automatically removed.
+        The value is always returned in seconds, regardless of how it was originally specified.
+
+        # Returns
+            int: The TTL value in seconds, or None if no TTL is set.
+        """
+        return self._ttl
+
+    @ttl.setter
+    def ttl(self, new_ttl: Optional[Union[int, float, timedelta]]) -> None:
+        """Set the time-to-live duration for features in this group.
+
+        # Arguments
+            new_ttl: The new TTL value. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                - None to remove TTL
+
+        The value will be stored internally in seconds.
+        """
+        if new_ttl is not None:
+            if isinstance(new_ttl, timedelta):
+                self._ttl = int(new_ttl.total_seconds())
+            else:
+                self._ttl = int(new_ttl)
+        else:
+            self._ttl = None
+
+    @property
+    def ttl_enabled(self) -> bool:
+        """Get whether TTL (time-to-live) is enabled for this feature group.
+
+        # Returns
+            bool: True if TTL is enabled, False otherwise
+        """
+        return self._ttl_enabled
+
+    @ttl_enabled.setter
+    def ttl_enabled(self, enabled: bool) -> None:
+        """Set whether TTL (time-to-live) is enabled for this feature group.
+
+        # Arguments
+            enabled: Boolean indicating whether TTL should be enabled
+        """
+        self._ttl_enabled = enabled
+
+    def enable_ttl(
+        self,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+    ) -> Union[FeatureGroupBase, FeatureGroup, ExternalFeatureGroup, SpineGroup]:
+        """Enable or update the time-to-live (TTL) configuration of the feature group.
+        If ttl is not set, the feature group will be enabled with the last TTL value being set.
+
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # get the Feature Group instance
+            fg = fs.get_or_create_feature_group(...)
+
+            # Enable TTL with a TTL of 7 days
+            fg.enable_ttl(timedelta(days=7))
+
+            # Disable TTL
+            fg.disable_ttl()
+
+            # Enable TTL again with a TTL of 7 days
+            fg.enable_ttl()
+            ```
+
+        !!! info "Safe update"
+            This method updates the TTL configuration safely. In case of failure
+            your local metadata object will keep the old configuration.
+
+        # Arguments
+            ttl: Optional new TTL value. Can be specified as:
+                - An integer or float representing seconds
+                - A timedelta object
+                - None to keep current value
+
+        # Returns
+            `FeatureGroup`. The updated feature group object.
+
+        # Raises
+            `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
+        """
+        self._feature_group_engine.update_ttl(self, ttl, True)
+        return self
+
+    def disable_ttl(self) -> "FeatureGroup":
+        """Disable the time-to-live (TTL) configuration of the feature group.
+
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            # get the Feature Group instance
+            fg = fs.get_or_create_feature_group(...)
+
+            # Disable TTL
+            fg.disable_ttl()
+            ```
+
+        !!! info "Safe update"
+            This method updates the TTL configuration safely. In case of failure
+            your local metadata object will keep the old configuration.
+
+        # Returns
+            `FeatureGroup`. The updated feature group object.
+
+        # Raises
+            `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
+        """
+        self._feature_group_engine.update_ttl(self, None, False)
+        return self
+
 
 @typechecked
 class FeatureGroup(FeatureGroupBase):
+    # TODO: Add docstring
     CACHED_FEATURE_GROUP = "CACHED_FEATURE_GROUP"
     STREAM_FEATURE_GROUP = "STREAM_FEATURE_GROUP"
     ENTITY_TYPE = "featuregroups"
@@ -2367,6 +2637,9 @@ class FeatureGroup(FeatureGroupBase):
                 Dict[str, Any],
             ]
         ] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -2386,7 +2659,11 @@ class FeatureGroup(FeatureGroupBase):
             online_config=online_config,
             storage_connector=storage_connector,
             data_source=data_source,
+            ttl=ttl,
+            ttl_enabled=ttl_enabled,
+            online_disk=online_disk,
         )
+
         self._feature_store_name: Optional[str] = featurestore_name
         self._description: Optional[str] = description
         self._created = created
@@ -2436,10 +2713,13 @@ class FeatureGroup(FeatureGroupBase):
             self._offline_backfill_every_hr = None
 
         else:
-            # initialized by user
-            # for python engine we always use stream feature group
-            if engine.get_type() == "python":
-                self._stream = True
+            # Set time travel format and streaming based on engine type and online status
+            self._init_time_travel_and_stream(
+                stream,
+                time_travel_format,
+                self.online_enabled,  # use the getter of the super class to take into account embedding index
+                self._is_hopsfs_storage(),
+            )
 
             self.primary_key = primary_key
             self.foreign_key = foreign_key
@@ -2498,6 +2778,72 @@ class FeatureGroup(FeatureGroupBase):
                     self._transformation_functions
                 )
             )
+
+    def _init_time_travel_and_stream(
+        self,
+        stream: bool,
+        time_travel_format: Optional[str],
+        online_enabled: bool,
+        is_hopsfs: bool,
+    ) -> None:
+        """Initialize `self._time_travel_format` and `self._stream` for new objects.
+
+        Extracted into testable helpers to simplify unit testing.
+        """
+        self._time_travel_format = FeatureGroup._resolve_time_travel_format(
+            time_travel_format=time_travel_format,
+            online_enabled=online_enabled,
+            is_hopsfs=is_hopsfs,
+        )
+        if engine.get_type() == "python":
+            self._stream = FeatureGroup._resolve_stream_python(
+                stream=stream,
+                time_travel_format=self._time_travel_format,
+                is_hopsfs=is_hopsfs,
+                online_enabled=online_enabled,
+            )
+
+    def _is_hopsfs_storage(self) -> bool:
+        """Return True if storage is HopsFS."""
+        return self._storage_connector is None or (
+            self._storage_connector is not None
+            and self._storage_connector.type == sc.StorageConnector.HOPSFS
+        )
+
+    @staticmethod
+    def _resolve_stream_python(
+        stream: bool,
+        time_travel_format: str,
+        is_hopsfs: bool,
+        online_enabled: bool,
+    ) -> Optional[bool]:
+        # If stream is explicitly set stream to True, use it.
+        # Otherwise, resolve it based on time travel format and other flags.
+        return stream or not (
+            is_hopsfs and time_travel_format == "DELTA" and not online_enabled
+        )
+
+    @staticmethod
+    def _resolve_time_travel_format(
+        time_travel_format: Optional[str],
+        online_enabled: bool,
+        is_hopsfs: bool,
+    ) -> str:
+        """Resolve only the time travel format string."""
+        fmt = time_travel_format.upper() if time_travel_format is not None else None
+        if fmt is None:
+            if not FeatureGroup._has_deltalake():
+                return "HUDI"
+            else:
+                return "DELTA"
+        return fmt
+
+    @staticmethod
+    def _has_deltalake():
+        if engine.get_type() == "python":
+            return HAS_DELTALAKE_PYTHON
+        else:
+            return HAS_DELTALAKE_SPARK
 
     @staticmethod
     def _sort_transformation_functions(
@@ -2823,11 +3169,14 @@ class FeatureGroup(FeatureGroupBase):
                   connectivity from you Python environment to the internal advertised
                   listeners of the Hopsworks Kafka Cluster. Defaults to `False` and
                   will use external listeners when connecting from outside of Hopsworks.
+                * key `delta.enableChangeDataFeed` set to a *string* value of true or false to enable or
+                  disable cdf operations on the feature group delta table. Set to true by default on Feature
+                  Group creation.
             validation_options: Additional validation options as key-value pairs, defaults to `{}`.
                 * key `run_validation` boolean value, set to `False` to skip validation temporarily on ingestion.
                 * key `save_report` boolean value, set to `False` to skip upload of the validation report to Hopsworks.
                 * key `ge_validate_kwargs` a dictionary containing kwargs for the validate method of Great Expectations.
-                * key `online_schema_validation` boolean value, set to `True` to validate the schema for online ingestion.
+                * key `schema_validation` boolean value, set to `True` to validate the schema.
             wait: Wait for job and online ingestion to finish before returning, defaults to `False`.
                 Shortcut for write_options `{"wait_for_job": False, "wait_for_online_ingestion": False}`.
 
@@ -2838,6 +3187,18 @@ class FeatureGroup(FeatureGroupBase):
         # Raises
             `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
         """
+        if write_options is None:
+            write_options = {}
+        if all(
+            [
+                not self._id,
+                self.time_travel_format == "DELTA",
+                write_options.get("delta.enableChangeDataFeed") != "false",
+            ]
+        ):
+            # New delta FG allow for change data capture query
+            write_options["delta.enableChangeDataFeed"] = "true"
+
         if (
             (features is None and len(self._features) > 0)
             or (
@@ -2882,8 +3243,6 @@ class FeatureGroup(FeatureGroupBase):
 
         user_version = self._version
 
-        if write_options is None:
-            write_options = {}
         if "wait_for_job" not in write_options:
             write_options["wait_for_job"] = wait
         if "wait_for_online_ingestion" not in write_options:
@@ -2894,10 +3253,19 @@ class FeatureGroup(FeatureGroupBase):
             self, feature_dataframe, write_options, validation_options or {}
         )
 
+        # Compute stats in client if there is no backfill job:
+        # - spark engine: always compute in client
+        # - python engine: only compute if FG is offline only (no backfill job)
         if self.statistics_config.enabled and engine.get_type().startswith("spark"):
-            # Only compute statistics if the engine is Spark.
-            # For Python engine, the computation happens in the Hopsworks application
             self._statistics_engine.compute_and_save_statistics(self, feature_dataframe)
+        elif engine.get_type() == "python" and not self.stream:
+            commit_id = [key for key in self.commit_details(limit=1)][0]
+            self._statistics_engine.compute_and_save_statistics(
+                metadata_instance=self,
+                feature_dataframe=feature_dataframe,
+                feature_group_commit_id=commit_id,
+            )
+
         if user_version is None:
             warnings.warn(
                 "No version provided for creating feature group `{}`, incremented version to `{}`.".format(
@@ -3030,13 +3398,16 @@ class FeatureGroup(FeatureGroupBase):
                   connectivity from you Python environment to the internal advertised
                   listeners of the Hopsworks Kafka Cluster. Defaults to `False` and
                   will use external listeners when connecting from outside of Hopsworks.
+                * key `delta.enableChangeDataFeed` set to a *string* value of true or false to enable or
+                  disable cdf operations on the feature group delta table. Set to true by default on Feature
+                  Group creation.
             validation_options: Additional validation options as key-value pairs, defaults to `{}`.
                 * key `run_validation` boolean value, set to `False` to skip validation temporarily on ingestion.
                 * key `save_report` boolean value, set to `False` to skip upload of the validation report to Hopsworks.
                 * key `ge_validate_kwargs` a dictionary containing kwargs for the validate method of Great Expectations.
                 * key `fetch_expectation_suite` a boolean value, by default `True`, to control whether the expectation
                    suite of the feature group should be fetched before every insert.
-                * key `online_schema_validation` boolean value, set to `True` to validate the schema for online ingestion.
+                * key `schema_validation` boolean value, set to `True` to validate the schema.
             wait: Wait for job and online ingestion to finish before returning, defaults to `False`.
                 Shortcut for write_options `{"wait_for_job": False, "wait_for_online_ingestion": False}`.
             transformation_context: `Dict[str, Any]` A dictionary mapping variable names to objects that will be provided as contextual information to the transformation function at runtime.
@@ -3070,6 +3441,15 @@ class FeatureGroup(FeatureGroupBase):
             write_options["wait_for_online_ingestion"] = wait
         if not self._id and self._offline_backfill_every_hr is not None:
             write_options["offline_backfill_every_hr"] = self._offline_backfill_every_hr
+        if all(
+            [
+                not self._id,
+                self.time_travel_format == "DELTA",
+                write_options.get("delta.enableChangeDataFeed") != "false",
+            ]
+        ):
+            # New delta FG allow for change data capture query
+            write_options["delta.enableChangeDataFeed"] = "true"
 
         job, ge_report = self._feature_group_engine.insert(
             self,
@@ -3083,10 +3463,18 @@ class FeatureGroup(FeatureGroupBase):
             transform=transform,
         )
 
+        # Compute stats in client if there is no backfill job:
+        # - spark engine: always compute in client
+        # - python engine: only compute if FG is offline only (no backfill job)
         if engine.get_type().startswith("spark") and not self.stream:
-            # Also, only compute statistics if stream is False.
-            # if True, the backfill job has not been triggered and the data has not been inserted (it's in Kafka)
             self.compute_statistics()
+        elif engine.get_type() == "python" and not self.stream:
+            commit_id = [key for key in self.commit_details(limit=1)][0]
+            self._statistics_engine.compute_and_save_statistics(
+                metadata_instance=self,
+                feature_dataframe=feature_dataframe,
+                feature_group_commit_id=commit_id,
+            )
 
         return (
             job,
@@ -3316,7 +3704,7 @@ class FeatureGroup(FeatureGroupBase):
                 written to the sink every time there is some update. (3) `"update"`:
                 only the rows that were updated in the streaming DataFrame/Dataset will
                 be written to the sink every time there are some updates.
-                If the query doesn’t contain aggregations, it will be equivalent to
+                If the query doesn't contain aggregations, it will be equivalent to
                 append mode. Defaults to `"append"`.
             await_termination: Waits for the termination of this query, either by
                 query.stop() or by an exception. If the query has terminated with an
@@ -3421,6 +3809,12 @@ class FeatureGroup(FeatureGroupBase):
         # Raises
             `hopsworks.client.exceptions.RestAPIError`: If the backend encounters an error when handling the request
         """
+        if self.time_travel_format == "HUDI" and not engine.get_type().startswith(
+            "spark"
+        ):
+            raise NotImplementedError(
+                "commit_delete_record is only supported for HUDI feature groups when using the Spark engine."
+            )
         self._feature_group_engine.commit_delete(self, delete_df, write_options or {})
 
     def delta_vacuum(
@@ -3756,9 +4150,11 @@ class FeatureGroup(FeatureGroupBase):
             "transformationFunctions": [
                 tf.to_dict() for tf in self._transformation_functions
             ],
+            "ttl": self.ttl,
+            "ttlEnabled": self._ttl_enabled,
         }
-        if self._data_source:
-            fg_meta_dict["dataSource"] = self._data_source.to_dict()
+        if self.data_source:
+            fg_meta_dict["dataSource"] = self.data_source.to_dict()
         if self._online_config:
             fg_meta_dict["onlineConfig"] = self._online_config.to_dict()
         if self.embedding_index:
@@ -3776,7 +4172,7 @@ class FeatureGroup(FeatureGroupBase):
         """Whether time-travel is enabled or not"""
         return (
             self._time_travel_format is not None
-            and self._time_travel_format.upper() == "HUDI"
+            and self._time_travel_format.upper() != "NONE"
         )
 
     @property
@@ -3945,6 +4341,8 @@ class FeatureGroup(FeatureGroupBase):
 
 @typechecked
 class ExternalFeatureGroup(FeatureGroupBase):
+    """A feature group that references data stored outside Hopsworks."""
+
     EXTERNAL_FEATURE_GROUP = "ON_DEMAND_FEATURE_GROUP"
     ENTITY_TYPE = "featuregroups"
 
@@ -3994,6 +4392,9 @@ class ExternalFeatureGroup(FeatureGroupBase):
                 Dict[str, Any],
             ]
         ] = None,
+        ttl: Optional[Union[int, float, timedelta]] = None,
+        ttl_enabled: Optional[bool] = None,
+        online_disk: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -4013,6 +4414,9 @@ class ExternalFeatureGroup(FeatureGroupBase):
             online_config=online_config,
             storage_connector=storage_connector,
             data_source=data_source,
+            ttl=ttl,
+            ttl_enabled=ttl_enabled,
+            online_disk=online_disk,
         )
 
         self._feature_store_name = featurestore_name
@@ -4430,9 +4834,11 @@ class ExternalFeatureGroup(FeatureGroupBase):
             "topicName": self.topic_name,
             "notificationTopicName": self.notification_topic_name,
             "deprecated": self.deprecated,
+            "ttl": self.ttl,
+            "ttlEnabled": self._ttl_enabled,
         }
-        if self._data_source:
-            fg_meta_dict["dataSource"] = self._data_source.to_dict()
+        if self.data_source:
+            fg_meta_dict["dataSource"] = self.data_source.to_dict()
         if self._online_config:
             fg_meta_dict["onlineConfig"] = self._online_config.to_dict()
         if self.embedding_index:
@@ -4441,26 +4847,32 @@ class ExternalFeatureGroup(FeatureGroupBase):
 
     @property
     def id(self) -> Optional[int]:
+        """ID of the feature group, set by backend."""
         return self._id
 
     @property
     def description(self) -> Optional[str]:
+        """Description of the feature group, as it appears in the UI."""
         return self._description
 
     @property
     def data_format(self) -> Optional[str]:
+        # TODO: Add docstring
         return self._data_format
 
     @property
     def options(self) -> Optional[Dict[str, Any]]:
+        # TODO: Add docstring
         return self._options
 
     @property
     def creator(self) -> Optional["user.User"]:
+        """User who created the feature group."""
         return self._creator
 
     @property
     def created(self) -> Optional[str]:
+        # TODO: Add docstring
         return self._created
 
     @description.setter
@@ -4475,6 +4887,7 @@ class ExternalFeatureGroup(FeatureGroupBase):
 
 @typechecked
 class SpineGroup(FeatureGroupBase):
+    # TODO: Add docstring
     SPINE_GROUP = "ON_DEMAND_FEATURE_GROUP"
     ENTITY_TYPE = "featuregroups"
 
@@ -4505,7 +4918,8 @@ class SpineGroup(FeatureGroupBase):
                 great_expectations.core.ExpectationSuite,
             ]
         ] = None,
-        online_enabled: bool = False,
+        # spine groups are online enabled by default such that feature_view.get_feature_vector can be used
+        online_enabled: bool = True,
         href: Optional[str] = None,
         online_topic_name: Optional[str] = None,
         topic_name: Optional[str] = None,
@@ -4524,6 +4938,7 @@ class SpineGroup(FeatureGroupBase):
                 Dict[str, Any],
             ]
         ] = None,
+        online_disk: Optional[bool] = None,
         **kwargs,
     ) -> None:
         super().__init__(
@@ -4540,6 +4955,7 @@ class SpineGroup(FeatureGroupBase):
             deprecated=deprecated,
             online_config=online_config,
             data_source=data_source,
+            online_disk=online_disk,
         )
 
         self._feature_store_name = featurestore_name
@@ -4694,4 +5110,5 @@ class SpineGroup(FeatureGroupBase):
             "spine": True,
             "topicName": self.topic_name,
             "deprecated": self.deprecated,
+            "onlineEnabled": self._online_enabled,
         }

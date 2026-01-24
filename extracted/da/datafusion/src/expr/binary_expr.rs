@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::expr::PyExpr;
 use datafusion::logical_expr::BinaryExpr;
 use pyo3::prelude::*;
 
-#[pyclass(name = "BinaryExpr", module = "datafusion.expr", subclass)]
+use crate::expr::PyExpr;
+
+#[pyclass(frozen, name = "BinaryExpr", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyBinaryExpr {
     expr: BinaryExpr,

@@ -31,9 +31,8 @@ from typing import (
 
 from typing_extensions import Self, dataclass_transform
 
-from elasticsearch.exceptions import NotFoundError, RequestError
-from elasticsearch.helpers import bulk
-
+from ...exceptions import NotFoundError, RequestError
+from ...helpers import bulk
 from .._sync.index import Index
 from ..connections import get_connection
 from ..document_base import DocumentBase, DocumentMeta, mapped_field
@@ -42,8 +41,8 @@ from ..utils import DOC_META_FIELDS, META_FIELDS, UsingType, merge
 from .search import Search
 
 if TYPE_CHECKING:
-    from elasticsearch import Elasticsearch
-    from elasticsearch.esql.esql import ESQLBase
+    from ... import Elasticsearch
+    from ...esql.esql import ESQLBase
 
 
 class IndexMeta(DocumentMeta):
@@ -120,9 +119,10 @@ class Document(DocumentBase, metaclass=IndexMeta):
         Create an :class:`~elasticsearch.dsl.Search` instance that will search
         over this ``Document``.
         """
-        return Search(
+        s = Search[Self](
             using=cls._get_using(using), index=cls._default_index(index), doc_type=[cls]
         )
+        return s.source(exclude_vectors=False)
 
     @classmethod
     def get(

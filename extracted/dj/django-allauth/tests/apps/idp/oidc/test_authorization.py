@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from django.test import Client
@@ -40,13 +41,14 @@ def test_cancel_authorization(auth_client, oidc_client):
 
 
 @pytest.mark.parametrize(
-    "scopes,has_secondary_email,choose_secondary_email",
+    "access_token_format,scopes,has_secondary_email,choose_secondary_email",
     [
-        (("openid", "profile", "email"), False, False),
-        (("openid", "profile", "email"), True, False),
-        (("openid", "profile", "email"), True, True),
-        (("openid", "profile"), False, False),
-        (("openid",), False, False),
+        ("opaque", ("openid", "profile", "email"), False, False),
+        ("opaque", ("openid", "profile", "email"), True, False),
+        ("opaque", ("openid", "profile", "email"), True, True),
+        ("opaque", ("openid", "profile"), False, False),
+        ("opaque", ("openid",), False, False),
+        ("jwt", ("openid",), False, False),
     ],
 )
 def test_authorization_code_flow(
@@ -59,7 +61,10 @@ def test_authorization_code_flow(
     has_secondary_email,
     choose_secondary_email,
     email_factory,
+    settings,
+    access_token_format,
 ):
+    settings.IDP_OIDC_ACCESS_TOKEN_FORMAT = access_token_format
     secondary_email = email_factory()
     EmailAddress.objects.create(
         user=user,
@@ -128,6 +133,20 @@ def test_authorization_code_flow(
     assert bool(access_token.get_scope_email()) == bool(
         "email" in scopes and has_secondary_email and choose_secondary_email
     )
+
+    # Access token
+    if access_token_format == "jwt":
+        decoded = jwt.decode(data["access_token"], options={"verify_signature": False})
+        assert decoded == {
+            "client_id": oidc_client.id,
+            "exp": ANY,
+            "iat": ANY,
+            "iss": "http://testserver",
+            "jti": ANY,
+            "scope": " ".join(scopes),
+            "sub": str(user.pk),
+            "token_use": "access",
+        }
 
     # ID token
     id_token = data["id_token"]
@@ -269,7 +288,7 @@ def test_authorization_post_redirects_anon_to_get(db, client):
     }
     resp = client.post(reverse("idp:oidc:authorization"), data=payload, follow=True)
     assert resp.status_code == HTTPStatus.OK
-    url = reverse("idp:oidc:authorization") + "?" + urlencode(payload)
+    url = f"{reverse('idp:oidc:authorization')}?{urlencode(payload)}"
     assert resp.redirect_chain == [
         (url, HTTPStatus.FOUND),
         (
@@ -435,6 +454,6 @@ def test_prompt_none(
     )
     assert resp.status_code == HTTPStatus.FOUND
     if error:
-        assert resp["location"] == "https://client/callback?error=" + error
+        assert resp["location"] == f"https://client/callback?error={error}"
     else:
         assert resp["location"].startswith("https://client/callback?code=")

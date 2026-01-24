@@ -87,7 +87,7 @@ class VitsAudioConfig(Coqpit):
     hop_length: int = 256
     num_mels: int = 80
     mel_fmin: int = 0
-    mel_fmax: int = None
+    mel_fmax: int | None = None
 
 
 ##############################
@@ -101,7 +101,7 @@ class VitsDataset(TTSDataset):
         self.pad_id = self.tokenizer.characters.pad_id
         self.model_args = model_args
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         item = self.samples[idx]
         raw_text = item["text"]
 
@@ -417,8 +417,8 @@ class VitsArgs(Coqpit):
     use_spectral_norm_disriminator: bool = False
     use_speaker_embedding: bool = False
     num_speakers: int = 0
-    speakers_file: str = None
-    d_vector_file: list[str] = None
+    speakers_file: str | None = None
+    d_vector_file: str | list[str] | None = None
     speaker_embedding_channels: int = 256
     use_d_vector_file: bool = False
     d_vector_dim: int = 0
@@ -426,7 +426,7 @@ class VitsArgs(Coqpit):
     use_language_embedding: bool = False
     embedded_language_dim: int = 4
     num_languages: int = 0
-    language_ids_file: str = None
+    language_ids_file: str | None = None
     use_speaker_encoder_as_loss: bool = False
     speaker_encoder_config_path: str = ""
     speaker_encoder_model_path: str = ""
@@ -436,7 +436,7 @@ class VitsArgs(Coqpit):
     freeze_PE: bool = False
     freeze_flow_decoder: bool = False
     freeze_waveform_decoder: bool = False
-    encoder_sample_rate: int = None
+    encoder_sample_rate: int | None = None
     interpolate_z: bool = True
     reinit_DP: bool = False
     reinit_text_encoder: bool = False
@@ -1488,7 +1488,7 @@ class Vits(BaseTTS):
         """
         import json
 
-        from TTS.tts.utils.text.cleaners import basic_cleaners
+        from TTS.tts.utils.text.cleaners import basic_cleaners, uroman_cleaners
 
         self.disc = None
         # set paths
@@ -1503,13 +1503,13 @@ class Vits(BaseTTS):
             # Load the JSON data as a dictionary
             config_org = json.load(f)
         self.config.audio.sample_rate = config_org["data"]["sampling_rate"]
-        # self.config.add_blank = config['add_blank']
+        is_uroman = config_org["data"]["training_files"].endswith("uroman")
         # set tokenizer
         vocab = FairseqVocab(vocab_file)
         self.text_encoder.emb = nn.Embedding(vocab.num_chars, config.model_args.hidden_channels)
         self.tokenizer = TTSTokenizer(
             use_phonemes=False,
-            text_cleaner=basic_cleaners,
+            text_cleaner=uroman_cleaners if is_uroman else basic_cleaners,
             characters=vocab,
             phonemizer=None,
             add_blank=config_org["data"]["add_blank"],

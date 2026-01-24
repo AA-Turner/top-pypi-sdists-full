@@ -4,8 +4,9 @@ import sys
 from contextlib import suppress
 from copy import deepcopy
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Optional
 
+from ._common import get_parsing_setting
 from ._optionals import import_typeshed_client, typeshed_client_support
 from ._postponed_annotations import NamesVisitor, get_arg_type
 
@@ -39,9 +40,9 @@ class ImportsVisitor(ast.NodeVisitor):
         for alias in node.names:
             self.imports_found[alias.asname or alias.name] = (node.module, alias.name)
 
-    def find(self, node: ast.AST, module_path: str) -> Dict[str, Tuple[Optional[str], str]]:
+    def find(self, node: ast.AST, module_path: str) -> dict[str, tuple[Optional[str], str]]:
         self.module_path = module_path.split(".")
-        self.imports_found: Dict[str, Tuple[Optional[str], str]] = {}
+        self.imports_found: dict[str, tuple[Optional[str], str]] = {}
         self.visit(node)
         return self.imports_found
 
@@ -65,8 +66,8 @@ class AssignsVisitor(ast.NodeVisitor):
         if hasattr(node.target, "id"):
             self.assigns_found[node.target.id] = ast_annassign_to_assign(node)
 
-    def find(self, node: ast.AST) -> Dict[str, ast.Assign]:
-        self.assigns_found: Dict[str, ast.Assign] = {}
+    def find(self, node: ast.AST) -> dict[str, ast.Assign]:
+        self.assigns_found: dict[str, ast.Assign] = {}
         self.visit(node)
         return self.assigns_found
 
@@ -103,7 +104,9 @@ stubs_resolver = None
 def get_stubs_resolver():
     global stubs_resolver
     if not stubs_resolver:
-        stubs_resolver = StubsResolver()
+        allow_py_files = get_parsing_setting("stubs_resolver_allow_py_files")
+        search_context = tc.get_search_context(allow_py_files=allow_py_files)
+        stubs_resolver = StubsResolver(search_context=search_context)
     return stubs_resolver
 
 
@@ -132,9 +135,9 @@ def get_source_module(path: str, component) -> tc.ModulePath:
 class StubsResolver(tc.Resolver):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._module_ast_cache: Dict[str, Optional[ast.AST]] = {}
-        self._module_assigns_cache: Dict[str, Dict[str, ast.Assign]] = {}
-        self._module_imports_cache: Dict[str, Dict[str, Tuple[Optional[str], str]]] = {}
+        self._module_ast_cache: dict[str, Optional[ast.AST]] = {}
+        self._module_assigns_cache: dict[str, dict[str, ast.Assign]] = {}
+        self._module_imports_cache: dict[str, dict[str, tuple[Optional[str], str]]] = {}
 
     def get_imported_info(self, path: str, component=None) -> Optional[tc.ImportedInfo]:
         resolved = self.get_fully_qualified_name(path)
@@ -162,7 +165,7 @@ class StubsResolver(tc.Resolver):
         return stub_import
 
     def get_aliases(self, imported_info: tc.ImportedInfo):
-        aliases: Dict[str, Tuple[str, Any]] = {}
+        aliases: dict[str, tuple[str, Any]] = {}
         self.add_import_aliases(aliases, imported_info)
         return aliases
 
@@ -195,10 +198,10 @@ class StubsResolver(tc.Resolver):
             self.add_module_aliases(aliases, module_path, module, stub_ast)
         return module_path, stub_import.info.ast
 
-    def add_module_aliases(self, aliases, module_path, module, node):
+    def add_module_aliases(self, aliases, module_path, module, node, skip=set()):
         names = NamesVisitor().find(node) if node else []
         for name in names:
-            if alias_already_added(aliases, name, module_path):
+            if alias_already_added(aliases, name, module_path) or name in skip:
                 continue
             source = module_path
             if name in __builtins__:
@@ -208,7 +211,7 @@ class StubsResolver(tc.Resolver):
                 value = getattr(module, name)
             elif name in self.get_module_stub_assigns(module_path):
                 value = self.get_module_stub_assigns(module_path)[name]
-                self.add_module_aliases(aliases, module_path, module, value.value)
+                self.add_module_aliases(aliases, module_path, module, value.value, skip={name})
             elif name in self.get_module_stub_imports(module_path):
                 imported_module_path, imported_name = self.get_module_stub_imports(module_path)[name]
                 imported_module = import_module_or_none(imported_module_path)
@@ -241,7 +244,7 @@ def alias_is_unique(aliases, name, source, value):
     return True
 
 
-def get_stub_types(params, component, parent, logger) -> Optional[Dict[str, Any]]:
+def get_stub_types(params, component, parent, logger) -> Optional[dict[str, Any]]:
     if not typeshed_client_support:
         return None
     missing_types = {

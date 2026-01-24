@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -27,12 +28,6 @@ from .literals import (
     NetworkTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -127,7 +122,7 @@ class DestinationBackupTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -213,7 +208,7 @@ class BackupTypeDef(TypedDict):
     SourceBackup: NotRequired[str]
     SourceCluster: NotRequired[str]
     DeleteTimestamp: NotRequired[datetime]
-    TagList: NotRequired[List[TagTypeDef]]
+    TagList: NotRequired[list[TagTypeDef]]
     HsmType: NotRequired[str]
     Mode: NotRequired[ClusterModeType]
 
@@ -240,7 +235,7 @@ class ClusterTypeDef(TypedDict):
     BackupRetentionPolicy: NotRequired[BackupRetentionPolicyTypeDef]
     ClusterId: NotRequired[str]
     CreateTimestamp: NotRequired[datetime]
-    Hsms: NotRequired[List[HsmTypeDef]]
+    Hsms: NotRequired[list[HsmTypeDef]]
     HsmType: NotRequired[str]
     HsmTypeRollbackExpiration: NotRequired[datetime]
     PreCoPassword: NotRequired[str]
@@ -248,11 +243,11 @@ class ClusterTypeDef(TypedDict):
     SourceBackupId: NotRequired[str]
     State: NotRequired[ClusterStateType]
     StateMessage: NotRequired[str]
-    SubnetMapping: NotRequired[Dict[str, str]]
+    SubnetMapping: NotRequired[dict[str, str]]
     VpcId: NotRequired[str]
     NetworkType: NotRequired[NetworkTypeType]
     Certificates: NotRequired[CertificatesTypeDef]
-    TagList: NotRequired[List[TagTypeDef]]
+    TagList: NotRequired[list[TagTypeDef]]
     Mode: NotRequired[ClusterModeType]
 
 class CopyBackupToRegionResponseTypeDef(TypedDict):
@@ -282,7 +277,7 @@ class InitializeClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsResponseTypeDef(TypedDict):
-    TagList: List[TagTypeDef]
+    TagList: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -310,7 +305,7 @@ class DeleteBackupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBackupsResponseTypeDef(TypedDict):
-    Backups: List[BackupTypeDef]
+    Backups: list[BackupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -331,7 +326,7 @@ class DeleteClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeClustersResponseTypeDef(TypedDict):
-    Clusters: List[ClusterTypeDef]
+    Clusters: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

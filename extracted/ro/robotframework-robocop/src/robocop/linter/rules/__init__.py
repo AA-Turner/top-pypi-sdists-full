@@ -23,8 +23,10 @@ You can optionally configure rule severity or other parameters.
 from __future__ import annotations
 
 import ast
+import importlib
 import importlib.util
 import inspect
+import pkgutil
 import sys
 from collections import defaultdict
 from enum import Enum
@@ -37,9 +39,14 @@ from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
 from robot.utils import FileReader
 
-from robocop import errors
+from robocop import __version__, exceptions
 from robocop.linter.diagnostics import Diagnostic
 from robocop.linter.utils.version_matching import Version, VersionSpecifier
+
+try:
+    import annotationlib
+except ImportError:  # Python < 3.14
+    annotationlib = None
 
 try:
     from robot.api.parsing import ModelVisitor
@@ -52,14 +59,14 @@ if TYPE_CHECKING:
 
     from robot.parsing import File
 
-    from robocop.config import LinterConfig
+    from robocop.config import ConfigManager, LinterConfig
     from robocop.linter import sonar_qube
 
 
 @total_ordering
 class RuleSeverity(Enum):
     """
-    You can override rule default severity::
+    You can override rule default severity:
 
         robocop check --configure id_or_msg_name.severity=value
 
@@ -67,45 +74,41 @@ class RuleSeverity(Enum):
 
     For example:
 
-    .. tab-set::
+    === ":octicons-command-palette-24: cli"
 
-        .. tab-item:: Cli
+        ```bash
+        robocop check -c line-too-long.severity=e
+        ```
 
-            .. code:: shell
+    === ":material-file-cog-outline: toml"
 
-                robocop check -c line-too-long.severity=e
-
-        .. tab-item:: Configuration file
-
-            .. code:: toml
-
-                [tool.robocop.lint]
-                configure = [
-                    "line-too-long.severity=e"
-                ]
+        ```toml
+        [tool.robocop.lint]
+        configure = [
+            "line-too-long.severity=e"
+        ]
+        ```
 
     will change `line-too-long` rule severity to error.
 
-    You can filter out all rules below given severity value by using ``-t/--threshold`` option::
+    You can filter out all rules below given severity value by using ``-t/--threshold`` option:
 
         robocop check -t <severity value>
 
     To only report rules with severity W and above:
 
-    .. tab-set::
+    === ":octicons-command-palette-24: cli"
 
-        .. tab-item:: Cli
+        ```bash
+        robocop check --threshold W
+        ```
 
-            .. code:: shell
+    === ":material-file-cog-outline: toml"
 
-                robocop check --threshold W
-
-        .. tab-item:: Configuration file
-
-            .. code:: toml
-
-                [tool.robocop.lint]
-                threshold = "W"
+        ```toml
+        [tool.robocop.lint]
+        threshold = "W"
+        ```
 
     """
 
@@ -132,7 +135,7 @@ class RuleSeverity(Enum):
                 # it will be reraised as RuleParamFailedInitError
                 raise ValueError(hint)
             # invalid severity threshold
-            raise errors.ConfigurationError(f"Invalid severity value '{value}'. {hint}") from None
+            raise exceptions.ConfigurationError(f"Invalid severity value '{value}'. {hint}") from None
         return severity
 
     def __str__(self):
@@ -234,7 +237,7 @@ class RuleParam:
         try:
             self._value = self.converter(value)
         except ValueError as err:
-            raise errors.RuleParamFailedInitError(self, value, str(err)) from None
+            raise exceptions.RuleParamFailedInitError(self, value, str(err)) from None
 
     @property
     def param_type(self):
@@ -247,7 +250,7 @@ class SeverityThreshold:
     """
     Set issue severity depending on threshold values of configured rule param.
 
-    Rules that support ``SeverityThreshold`` allow you to set thresholds::
+    Rules that support ``SeverityThreshold`` allow you to set thresholds:
 
         robocop -c line-too-long:severity_threshold:warning=140:error=200
 
@@ -291,7 +294,7 @@ class SeverityThreshold:
         if severity is None:
             severity_values = ", ".join(sev.value for sev in RuleSeverity)
             hint = f"Choose one from: {severity_values}."
-            raise errors.ConfigurationError(f"Invalid severity value '{value}'. {hint}") from None
+            raise exceptions.ConfigurationError(f"Invalid severity value '{value}'. {hint}") from None
         return severity
 
     def set_thresholds(self, value) -> None:
@@ -301,7 +304,7 @@ class SeverityThreshold:
             try:
                 sev, param_value = pair.split("=")
             except ValueError:
-                raise errors.ConfigurationError(
+                raise exceptions.ConfigurationError(
                     f"Invalid severity value '{value}'. "
                     f"It should be list of `severity=param_value` pairs, separated by `:`."
                 ) from None
@@ -362,6 +365,8 @@ class Rule:
         style_guide_ref (list of str): (class attribute) reference to Robot Framework Style Guide in form of
         '#paragraph' strings
         sonar_qube_attrs: (class attribute) optional SonarQube attributes used for SonarQube report
+        deprecated_names: (class attribute) optional tuple of deprecated names for the rule
+        fix_suggestion (str): (class attribute) optional suggestion on how to fix the issue
 
     """
 
@@ -379,6 +384,8 @@ class Rule:
     parameters: list[RuleParam] | None = None
     style_guide_ref: list[str] | None = None
     sonar_qube_attrs: sonar_qube.SonarQubeAttributes | None = None
+    deprecated_names: tuple[str,] | None = None
+    fix_suggestion: str | None = None
 
     def __init__(self):
         self.version_spec = VersionSpecifier(self.version) if self.version else None
@@ -417,6 +424,10 @@ class Rule:
     @property
     def docs(self) -> str:
         return dedent(self.__doc__) if self.__doc__ else ""
+
+    @property
+    def docs_url(self) -> str:
+        return f"https://robocop.dev/v{__version__}/rules_list/#{self.rule_id.lower()}-{self.name}"
 
     @property
     def description(self) -> str:
@@ -476,7 +487,7 @@ class Rule:
     def configure(self, param: str, value: str) -> None:
         if param not in self.config:
             count, configurables_text = self.available_configurables()
-            raise errors.ConfigurationError(
+            raise exceptions.ConfigurationError(
                 f"Provided param '{param}' for rule '{self.name}' does not exist. "
                 f"Available configurable{'' if count == 1 else 's'} for this rule:\n"
                 f"    {configurables_text}"
@@ -507,6 +518,7 @@ class Rule:
 
 class BaseChecker:
     rules = None
+    robocop_rule_types = None
 
     def __init__(self):
         self.disabled = False
@@ -516,6 +528,15 @@ class BaseChecker:
         self.issues = []
         self.rules: dict[str, Rule] = {}
         self.templated_suite = False
+
+    def __new__(cls):
+        if annotationlib:
+            types = annotationlib.get_annotations(cls)
+        else:
+            types = getattr(cls, "__annotations__", None)
+        instance = super().__new__(cls)
+        instance.robocop_rule_types = types
+        return instance
 
     def report(
         self,
@@ -576,13 +597,14 @@ class VisitorChecker(BaseChecker, ModelVisitor):
         self.generic_visit(node)
 
 
-class ProjectChecker(VisitorChecker):
-    def scan_project(self) -> list[Diagnostic]:
+class ProjectChecker(BaseChecker):
+    def scan_project(self, config_manager: ConfigManager) -> list[Diagnostic]:
         """
         Perform checks on the whole project.
 
-        This method is called after visiting all files. Accumulating any necessary data for check depends on
-        the checker.
+        This method is called after other checks are finished. Define the main logic of the check here.
+        Robocop will access ``self.issues`` list to retrieve list of issues found during the check. Issues are
+        reported using ``self.report()`` method.
         """
         raise NotImplementedError
 
@@ -616,6 +638,17 @@ class RawFileChecker(BaseChecker):
         raise NotImplementedError
 
 
+class AfterRunChecker(BaseChecker):
+    def scan_file(self, ast_model: File, filename: Path, in_memory_content: str | None, **kwargs) -> list[Diagnostic]:  # noqa: ARG002
+        self.issues: list[Diagnostic] = []
+        self.source = filename
+        self.ast_model = ast_model
+        if in_memory_content is not None:
+            self.lines = in_memory_content.splitlines(keepends=True)
+        else:
+            self.lines = None
+
+
 def is_checker(checker_class_def: tuple) -> bool:
     return issubclass(checker_class_def[1], BaseChecker)
 
@@ -639,18 +672,25 @@ class RobocopImporter:
         self.deprecated_rules = {}
 
     def get_initialized_checkers(self):
-        # TODO: simplify. internal checkers can be static
-        yield from self._get_checkers_from_modules(self.get_internal_modules())
+        for module in self.get_internal_modules():
+            yield from self._get_initialized_checkers_from_module(module)
         yield from self._get_checkers_from_modules(self.get_external_modules())
 
     def get_internal_modules(self):
-        return self.modules_from_paths(list(self.internal_checkers_dir.iterdir()), recursive=False)
+        rules_package_name = "robocop.linter.rules."
+        # when robocop is used as module (in pytest or in IDE tools) we need to clear previously imported rules
+        for mod in list(sys.modules.keys()):
+            if mod.startswith(rules_package_name):
+                del sys.modules[mod]
+        for _, module_name, _ in pkgutil.iter_modules([str(self.internal_checkers_dir)]):
+            yield importlib.import_module(f"{rules_package_name}{module_name}")
 
     def get_external_modules(self):
         for ext_rule_path in self.external_rules_paths:
             # Allow relative imports in external rules folder
             sys.path.append(ext_rule_path)
             sys.path.append(str(Path(ext_rule_path).parent))
+            # TODO: we can remove those paths from sys.path after importing
         return self.modules_from_paths([*self.external_rules_paths], recursive=True)
 
     def _get_checkers_from_modules(self, modules):  # noqa: ANN202
@@ -697,10 +737,9 @@ class RobocopImporter:
                     yield from self._iter_imports(Path(mod.__file__))
                     yield mod
                 except ImportError:
-                    raise errors.InvalidExternalCheckerError(path) from None
+                    raise exceptions.InvalidExternalCheckerError(path) from None
 
-    @staticmethod
-    def _import_module_from_file(file_path):
+    def _import_module_from_file(self, file_path):  # noqa: ANN202
         """
         Import Python file as module.
 
@@ -738,15 +777,6 @@ class RobocopImporter:
             except ImportError:
                 pass
 
-    @staticmethod
-    def get_imported_rules(rule_modules):
-        for module in rule_modules:
-            module_name = module.__name__.split(".")[-1]
-            classes = inspect.getmembers(module, inspect.isclass)
-            rules = [rule[1]() for rule in classes if is_rule(rule)]
-            for rule in rules:
-                yield module_name, rule
-
     def register_deprecated_rules(self, module_rules: dict[str, Rule]) -> None:
         # FIXME: currently deprecated, not used rules are hidden (we could just mentioned them in doc. or create
         # empty checker just for deprecated stuff
@@ -772,12 +802,11 @@ class RobocopImporter:
 
     def get_checker_rules(self, checker_class: type[BaseChecker], module) -> dict[str, Rule]:
         # TODO if other checker uses the same rule, return it instead of creating new instance
-        rule_types = getattr(checker_class, "__annotations__", None)
-        if rule_types is None:
+        if not checker_class.robocop_rule_types:
             return {}
         rules = {}
-        for name, rule_class in rule_types.items():
-            if isinstance(rule_class, str):  # if from future import annotations was used
+        for name, rule_class in checker_class.robocop_rule_types.items():
+            if isinstance(rule_class, str):  # if from future import annotations was used, or lazy annotation
                 rule_class = self._import_rule_class(module, rule_class)
             if not rule_class or not (isclass(rule_class) and issubclass(rule_class, Rule)):
                 continue
@@ -810,13 +839,13 @@ def init(config: LinterConfig) -> None:
     # linter.rules.update(robocop_importer.deprecated_rules)
 
 
-def get_builtin_rules() -> Generator[tuple[str, Rule], None, None]:
-    """Get only rules definitions for documentation generation."""
-    # TODO: refactor
-    robocop_importer = RobocopImporter()
-    rule_modules = robocop_importer.get_internal_modules()
-    yield from robocop_importer.get_imported_rules(rule_modules)
+class DocumentationImporter(RobocopImporter):
+    """Import Robocop internal classes for documentation generation."""
 
-
-if __name__ == "__main__":
-    rules = list(get_builtin_rules())
+    def get_builtin_rules(self) -> Generator[tuple[str, Rule], None, None]:
+        for module in self.get_internal_modules():
+            module_name = module.__name__.split(".")[-1]
+            classes = inspect.getmembers(module, inspect.isclass)
+            rules = [rule[1]() for rule in classes if is_rule(rule)]
+            for rule in rules:
+                yield module_name, rule

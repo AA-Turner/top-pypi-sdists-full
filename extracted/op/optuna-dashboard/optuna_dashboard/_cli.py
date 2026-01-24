@@ -12,15 +12,15 @@ from bottle import Bottle
 from bottle import run
 from optuna.storages import BaseStorage
 from optuna.storages import RDBStorage
-from optuna.version import __version__ as optuna_ver
-from packaging import version
 
 from . import __version__
 from ._app import create_app
+from ._config import create_artifact_store_from_config
+from ._config import create_llm_provider_from_config
+from ._config import DashboardConfig
+from ._config import load_config_from_toml
 from ._sql_profiler import register_profiler_view
 from ._storage_url import get_storage
-from .artifact._backend_to_store import ArtifactBackendToStore
-from .artifact.file_system import FileSystemBackend
 
 
 if TYPE_CHECKING:
@@ -88,22 +88,29 @@ def auto_select_server(
 
 
 def main() -> None:
+    # Get default values for help messages.
+    default_config = DashboardConfig()
+
     parser = argparse.ArgumentParser(description="Real-time dashboard for Optuna.")
-    parser.add_argument("storage", help="Storage URL (e.g. sqlite:///example.db)", type=str)
+    parser.add_argument(
+        "storage",
+        help="Storage URL (e.g. sqlite:///example.db)",
+        type=str,
+        default=None,
+        nargs="?",
+    )
     parser.add_argument(
         "--storage-class",
         help="Storage class hint (e.g. JournalFileStorage)",
         type=str,
         default=None,
     )
-    parser.add_argument(
-        "--port", help="port number (default: %(default)s)", type=int, default=8080
-    )
-    parser.add_argument("--host", help="hostname (default: %(default)s)", default="127.0.0.1")
+    parser.add_argument("--port", help=f"port number (default: {default_config.port})", type=int)
+    parser.add_argument("--host", help=f"hostname (default: {default_config.host})")
     parser.add_argument(
         "--server",
-        help="server (default: %(default)s)",
-        default="auto",
+        help=f"server (default: {default_config.server})",
+        default=None,
         choices=SERVER_CHOICES,
     )
     parser.add_argument(
@@ -111,35 +118,59 @@ def main() -> None:
         help="directory to store artifact files",
         default=None,
     )
+    parser.add_argument(
+        "--from-config",
+        help="configuration file in TOML format",
+        type=str,
+        default=None,
+    )
     parser.add_argument("--version", "-v", action="version", version=__version__)
     parser.add_argument("--quiet", "-q", help="quiet", action="store_true")
+    parser.add_argument(
+        "--allow-unsafe",
+        help="Allow unsafe features such as 'rehypejs/rehype-raw'",
+        action="store_true",
+    )
     args = parser.parse_args()
 
-    storage: BaseStorage
-    storage = get_storage(args.storage, storage_class=args.storage_class)
+    # Load and merge configuration
+    toml_config = None
+    if args.from_config:
+        toml_config = load_config_from_toml(args.from_config)
+
+    config = DashboardConfig.build_from_sources(args, toml_config)
+
+    if config.storage is None:
+        raise ValueError("Storage URL is required but not provided.")
+    storage: BaseStorage = get_storage(config.storage, storage_class=config.storage_class)
 
     artifact_store: ArtifactStore | None
-    if args.artifact_dir is None:
-        artifact_store = None
-    elif version.parse(optuna_ver) >= version.Version("3.3.0"):
+    if config.artifact_dir is None:
+        artifact_store = create_artifact_store_from_config(toml_config or {})
+    else:
         from optuna.artifacts import FileSystemArtifactStore
 
-        artifact_store = FileSystemArtifactStore(args.artifact_dir)
-    else:
-        artifact_backend = FileSystemBackend(args.artifact_dir)
-        artifact_store = ArtifactBackendToStore(artifact_backend)
-    app = create_app(storage, artifact_store=artifact_store, debug=DEBUG)
+        artifact_store = FileSystemArtifactStore(config.artifact_dir)
+
+    llm_provider = create_llm_provider_from_config(toml_config or {})
+    app = create_app(
+        storage,
+        artifact_store=artifact_store,
+        llm_provider=llm_provider,
+        debug=DEBUG,
+        allow_unsafe=config.allow_unsafe,
+    )
 
     if DEBUG and isinstance(storage, RDBStorage):
         app = register_profiler_view(app, storage)
 
-    server = auto_select_server(args.server)
+    server = auto_select_server(config.server)
     if DEBUG:
-        run_debug_server(app, args.host, args.port, args.quiet)
+        run_debug_server(app, config.host, config.port, config.quiet)
     elif server == "wsgiref":
-        run_wsgiref(app, args.host, args.port, args.quiet)
+        run_wsgiref(app, config.host, config.port, config.quiet)
     elif server == "gunicorn":
-        run_gunicorn(app, args.host, args.port, args.quiet)
+        run_gunicorn(app, config.host, config.port, config.quiet)
     else:
         raise Exception("must not reach here")
 

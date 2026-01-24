@@ -1,31 +1,115 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: jinja2-cli
-Version: 0.8.2
-Summary: A CLI interface to Jinja2
-Home-page: https://github.com/mattrobenolt/jinja2-cli
+Version: 1.0.0
+Summary: The CLI interface to Jinja2
 Author: Matt Robenolt
-Author-email: matt@ydekproductions.com
-License: BSD
-Platform: UNKNOWN
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: System Administrators
+Author-email: Matt Robenolt <m@robenolt.com>
+License: Copyright (c) 2017-2026, Matt Robenolt
+         All rights reserved.
+         
+         Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+         
+         * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+         * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+         
+         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
-Classifier: Topic :: Software Development
-Provides-Extra: yaml
+Requires-Dist: jinja2>=3.1
+Requires-Dist: hjson ; extra == 'hjson'
+Requires-Dist: json5 ; extra == 'json5'
+Requires-Dist: tomli ; python_full_version < '3.11' and extra == 'toml'
+Requires-Dist: xmltodict ; extra == 'xml'
+Requires-Dist: pyyaml ; extra == 'yaml'
+Requires-Python: >=3.8
+Project-URL: Homepage, https://github.com/mattrobenolt/jinja2-cli
+Project-URL: Issues, https://github.com/mattrobenolt/jinja2-cli/issues
+Provides-Extra: hjson
+Provides-Extra: json5
 Provides-Extra: toml
 Provides-Extra: xml
-Provides-Extra: tests
-License-File: LICENSE
+Provides-Extra: yaml
+Description-Content-Type: text/markdown
 
+# $ jinja2
 
-jinja2-cli
-==========
+The CLI for [Jinja2](https://jinja.palletsprojects.com/).
 
-.. code:: shell
+```
+$ jinja2 template.j2 data.json
+$ curl -s http://api.example.com | jinja2 template.j2
+```
 
-  $ jinja2 helloworld.tmpl data.json --format=json
-  $ cat data.json | jinja2 helloworld.tmpl
-  $ curl -s http://httpbin.org/ip | jinja2 helloip.tmpl
-  $ curl -s http://httpbin.org/ip | jinja2 helloip.tmpl > helloip.html
+## Install
+```
+$ uv tool install jinja2-cli
+$ pip install jinja2-cli
+```
 
+## Formats
+Built-in: JSON, INI, ENV, querystring, TOML (Python 3.11+)
 
+Optional formats via extras:
+```
+$ pip install jinja2-cli[yaml]
+$ pip install jinja2-cli[xml]
+$ pip install jinja2-cli[hjson]
+$ pip install jinja2-cli[json5]
+```
+
+## Features
+- Read data from files or stdin
+- Define variables inline with `-D key=value`
+- Custom Jinja2 extensions
+- **Import custom filters** - see [Custom Filters](#custom-filters) below
+- Full control over Jinja2 environment options
+
+Run `jinja2 --help` for all options, or see [docs/](docs/) for full documentation.
+
+## Custom Filters
+
+Extend Jinja2 with your own filters or use Ansible's extensive filter library:
+
+```bash
+# Use custom filters
+$ jinja2 template.j2 data.json -F myfilters
+
+# Use Ansible filters
+$ jinja2 template.j2 data.json -F ansible.plugins.filter.core
+```
+
+Example filter module:
+```python
+# myfilters.py
+def reverse(s):
+    return s[::-1]
+
+def shout(s):
+    return s.upper() + "!"
+```
+
+See [docs/filters.md](docs/filters.md) for complete documentation and examples.
+
+## Used by
+- [Dangerzone](https://github.com/freedomofpress/dangerzone) by Freedom of the Press Foundation
+- [Elastic](https://github.com/elastic/logstash-docker) Docker images (Logstash, Kibana, Beats)
+- [ScyllaDB](https://github.com/scylladb/scylla-machine-image) CloudFormation templates
+- [800+ more](https://github.com/mattrobenolt/jinja2-cli/network/dependents) on GitHub
+
+## Available in
+[![PyPI](https://img.shields.io/pypi/v/jinja2-cli)](https://pypi.org/project/jinja2-cli/)
+[![Homebrew](https://img.shields.io/homebrew/v/jinja2-cli)](https://formulae.brew.sh/formula/jinja2-cli)
+[![nixpkgs](https://img.shields.io/badge/nixpkgs-jinja2--cli-blue)](https://search.nixos.org/packages?query=jinja2-cli)
+[![AUR](https://img.shields.io/aur/version/jinja2-cli)](https://aur.archlinux.org/packages/jinja2-cli)
+[![Alpine](https://img.shields.io/badge/Alpine-jinja2--cli-0D597F?logo=alpinelinux&logoColor=fff)](https://pkgs.alpinelinux.org/package/edge/community/x86_64/jinja2-cli)
+
+## Learn more
+- [Jinja2 as a Command Line Application](https://thejeshgn.com/2021/12/07/jinja2-command-line-application/)
+- [Combining jinja2-cli with jq and environment variables](https://www.zufallsheld.de/2025/06/30/templating-jinja-cli)

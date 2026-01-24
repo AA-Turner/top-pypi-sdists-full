@@ -53,11 +53,11 @@ LOG = logging.getLogger(__name__)
 
 DISTRO_SPECS = os.environ.get(
     'MITOGEN_TEST_DISTRO_SPECS',
-    'centos6 centos8 debian9 debian11 ubuntu1604 ubuntu2004',
+    'alma9-py3 centos5 centos8-py3 debian9 debian12-py3 ubuntu1604 ubuntu2404-py3',
 )
 IMAGE_TEMPLATE = os.environ.get(
     'MITOGEN_TEST_IMAGE_TEMPLATE',
-    'ghcr.io/mitogen-hq/%(distro)s-test:2021',
+    'ghcr.io/mitogen-hq/%(distro)s-test:2025.02',
 )
 
 TESTS_DIR =                     os.path.join(os.path.dirname(__file__))
@@ -84,6 +84,23 @@ if faulthandler is not None:
 #
 
 mitogen.core.LOG.propagate = True
+
+
+def wait_for_child(pid, timeout=1.0):
+    deadline = mitogen.core.now() + timeout
+    while timeout < mitogen.core.now():
+        try:
+            target_pid, status = os.waitpid(pid, os.WNOHANG)
+            if target_pid == pid:
+                return
+        except OSError:
+            e = sys.exc_info()[1]
+            if e.args[0] == errno.ECHILD:
+                return
+
+        time.sleep(0.05)
+
+    assert False, "wait_for_child() timed out"
 
 
 def base_executable(executable=None):
@@ -172,11 +189,11 @@ def _have_cmd(args):
 
 
 def have_python2():
-    return _have_cmd(['python2'])
+    return _have_cmd(['python2', '--version'])
 
 
 def have_python3():
-    return _have_cmd(['python3'])
+    return _have_cmd(['python3', '--version'])
 
 
 def have_sudo_nopassword():
@@ -393,10 +410,13 @@ class CaptureStreamHandler(logging.StreamHandler):
 
 
 class LogCapturer(object):
-    def __init__(self, name=None):
+    def __init__(self, name=None, formatter=None):
         self.sio = StringIO()
         self.logger = logging.getLogger(name)
-        self.handler = CaptureStreamHandler(self.sio)
+        handler = CaptureStreamHandler(self.sio)
+        if formatter is not None:
+            handler.setFormatter(formatter)
+        self.handler = handler
         self.old_propagate = self.logger.propagate
         self.old_handlers = self.logger.handlers
         self.old_level = self.logger.level
@@ -722,6 +742,7 @@ class DockerMixin(RouterMixin):
             #   - tests/testlib.py
             'ssh_args': [
                 '-o', 'HostKeyAlgorithms +ssh-rsa',
+                '-o', 'KexAlgorithms +diffie-hellman-group1-sha1',
                 '-o', 'PubkeyAcceptedKeyTypes +ssh-rsa',
             ],
             'python_path': self.dockerized_ssh.python_path,

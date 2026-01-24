@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
+from enum import Enum
 from uuid import UUID
-from typing import Optional, Type
+from typing import TYPE_CHECKING, Dict, Optional, Type
 
 from pydantic import Field
 
@@ -8,6 +9,33 @@ from vellum.client.core.pydantic_utilities import UniversalBaseModel
 from vellum.workflows.utils.uuids import uuid4_from_hash
 from vellum.workflows.workflows.base import BaseWorkflow
 from vellum_ee.workflows.display.editor.types import NodeDisplayData
+
+if TYPE_CHECKING:
+    from vellum.workflows.triggers.base import BaseTrigger
+
+
+class WorkflowTriggerType(Enum):
+    MANUAL = "MANUAL"
+    INTEGRATION = "INTEGRATION"
+    SCHEDULED = "SCHEDULED"
+    CHAT_MESSAGE = "CHAT_MESSAGE"
+
+
+def get_trigger_type_mapping() -> Dict[Type["BaseTrigger"], WorkflowTriggerType]:
+    """
+    Get mapping from trigger classes to their WorkflowTriggerType enum values.
+
+    This is a function to avoid circular imports - it imports trigger classes
+    only when called, not at module load time.
+
+    Returns:
+        Dictionary mapping trigger classes to their enum types
+    """
+    from vellum.workflows.triggers.manual import ManualTrigger
+
+    return {
+        ManualTrigger: WorkflowTriggerType.MANUAL,
+    }
 
 
 class WorkflowDisplayDataViewport(UniversalBaseModel):
@@ -22,9 +50,9 @@ class WorkflowDisplayData(UniversalBaseModel):
 
 @dataclass
 class WorkflowMetaDisplay:
-    entrypoint_node_id: UUID
-    entrypoint_node_source_handle_id: UUID
-    entrypoint_node_display: NodeDisplayData = Field(default_factory=NodeDisplayData)
+    entrypoint_node_id: Optional[UUID] = None
+    entrypoint_node_source_handle_id: Optional[UUID] = None
+    entrypoint_node_display: Optional[NodeDisplayData] = None
     display_data: WorkflowDisplayData = field(default_factory=WorkflowDisplayData)
 
     @classmethod

@@ -27,8 +27,7 @@ try:
 except ImportError:
     from werkzeug.wsgi import SharedDataMiddleware
 
-from trytond import backend
-from trytond.config import config
+from trytond import backend, config, security
 from trytond.protocols.jsonrpc import JSONProtocol
 from trytond.protocols.wrappers import (
     HTTPStatus, Request, Response, abort, exceptions)
@@ -41,13 +40,26 @@ __all__ = ['TrytondWSGI', 'app']
 logger = logging.getLogger(__name__)
 
 
+def _do_basic_auth(request):
+    headers = {}
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        headers['WWW-Authenticate'] = 'Basic realm="Tryton"'
+    response = Response(None, http.client.UNAUTHORIZED, headers)
+    abort(http.client.UNAUTHORIZED, response=response)
+
+
 class Base64Converter(BaseConverter):
 
     def to_python(self, value):
+        if missing_padding := len(value) % 4:
+            value += '=' * (4 - missing_padding)
         return base64.urlsafe_b64decode(value).decode('utf-8')
 
     def to_url(self, value):
-        return base64.urlsafe_b64encode(value.encode('utf-8')).decode('ascii')
+        return (
+            base64.urlsafe_b64encode(value.encode('utf-8'))
+            .decode('ascii')
+            .rstrip('='))
 
 
 class TrytondWSGI(object):
@@ -58,6 +70,7 @@ class TrytondWSGI(object):
                 })
         self.protocols = [JSONProtocol, XMLProtocol]
         self.error_handlers = []
+        self.dev = False
 
     def route(self, string, methods=None, defaults=None):
         def decorator(func):
@@ -76,11 +89,30 @@ class TrytondWSGI(object):
             if request.user_id:
                 return func(request, *args, **kwargs)
             else:
-                headers = {}
-                if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
-                    headers['WWW-Authenticate'] = 'Basic realm="Tryton"'
-                response = Response(None, http.client.UNAUTHORIZED, headers)
-                abort(http.client.UNAUTHORIZED, response=response)
+                _do_basic_auth(request)
+        return wrapper
+
+    def session_valid(self, func):
+        @wraps(func)
+        def wrapper(request, *args, **kwargs):
+            if (not request.authorization
+                    or request.authorization.type != 'session'):
+                _do_basic_auth(request)
+            userid = request.authorization.get('userid')
+            session = request.authorization.get('session')
+            dbname = request.view_args.get('database_name')
+
+            session_check = security.check(
+                dbname, userid, session, {
+                    '_request': {
+                        'remote_addr': request.remote_addr,
+                        },
+                    })
+            if session_check is None:
+                _do_basic_auth(request)
+
+            return func(request, *args, **kwargs)
+
         return wrapper
 
     def dispatch_request(self, request):
@@ -106,10 +138,11 @@ class TrytondWSGI(object):
         except Exception as e:
             logger.debug(
                 "Exception when processing %s", request, exc_info=True)
-            tb_s = ''.join(traceback.format_exception(*sys.exc_info()))
-            for path in sys.path:
-                tb_s = tb_s.replace(path, '')
-            e.__format_traceback__ = tb_s
+            if self.dev:
+                tb_s = ''.join(traceback.format_exception(*sys.exc_info()))
+                for path in sys.path:
+                    tb_s = tb_s.replace(path, '')
+                e.__format_traceback__ = tb_s
             response = e
             for error_handler in self.error_handlers:
                 rv = error_handler(self, request, e)

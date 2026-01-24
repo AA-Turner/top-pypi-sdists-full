@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: giturlparse
-Version: 0.12.0
+Version: 0.14.0
 Summary: A Git URL parsing module (supports parsing and rewriting)
 Home-page: https://github.com/nephila/giturlparse
 Author: Aaron O Mullan
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ===========
 giturlparse
@@ -144,6 +145,31 @@ History
 *******
 
 .. towncrier release notes start
+
+0.14.0 (2025-10-22)
+===================
+
+Features
+--------
+
+- Allow rewriting repo and owner (#0)
+
+
+0.13.0 (2025-10-22)
+===================
+
+Features
+--------
+
+- Switch to Coveralls Github action (#88)
+
+
+Bugfixes
+--------
+
+- Fix Bitbucket url parse and add bitbucket.com to recognized domains (#107)
+- Remove fix-encoding-pragma from pre-commit hooks as it is deprecated (#119)
+
 
 0.12.0 (2023-09-24)
 ===================

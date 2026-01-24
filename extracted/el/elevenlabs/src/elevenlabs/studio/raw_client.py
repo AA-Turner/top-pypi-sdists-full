@@ -12,6 +12,9 @@ from ..core.unchecked_base_model import construct_type
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.http_validation_error import HttpValidationError
 from ..types.podcast_project_response_model import PodcastProjectResponseModel
+from .types.body_create_podcast_v_1_studio_podcasts_post_apply_text_normalization import (
+    BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization,
+)
 from .types.body_create_podcast_v_1_studio_podcasts_post_duration_scale import (
     BodyCreatePodcastV1StudioPodcastsPostDurationScale,
 )
@@ -35,6 +38,7 @@ class RawStudioClient:
         model_id: str,
         mode: BodyCreatePodcastV1StudioPodcastsPostMode,
         source: BodyCreatePodcastV1StudioPodcastsPostSource,
+        safety_identifier: typing.Optional[str] = None,
         quality_preset: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostQualityPreset] = OMIT,
         duration_scale: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostDurationScale] = OMIT,
         language: typing.Optional[str] = OMIT,
@@ -43,6 +47,7 @@ class RawStudioClient:
         instructions_prompt: typing.Optional[str] = OMIT,
         highlights: typing.Optional[typing.Sequence[str]] = OMIT,
         callback_url: typing.Optional[str] = OMIT,
+        apply_text_normalization: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[PodcastProjectResponseModel]:
         """
@@ -59,12 +64,15 @@ class RawStudioClient:
         source : BodyCreatePodcastV1StudioPodcastsPostSource
             The source content for the Podcast.
 
+        safety_identifier : typing.Optional[str]
+            Used for moderation. Your workspace must be allowlisted to use this feature.
+
         quality_preset : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostQualityPreset]
             Output quality of the generated audio. Must be one of:
-            standard - standard output format, 128kbps with 44.1kHz sample rate.
-            high - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side. Using this setting increases the credit cost by 20%.
-            ultra - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side. Using this setting increases the credit cost by 50%.
-            ultra lossless - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format. Using this setting increases the credit cost by 100%.
+            'standard' - standard output format, 128kbps with 44.1kHz sample rate.
+            'high' - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side.
+            'ultra' - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side.
+            'ultra_lossless' - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format.
 
         duration_scale : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostDurationScale]
             Duration of the generated podcast. Must be one of:
@@ -144,6 +152,14 @@ class RawStudioClient:
                 }
 
 
+        apply_text_normalization : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization]
+
+                This parameter controls text normalization with four modes: 'auto', 'on', 'apply_english' and 'off'.
+                When set to 'auto', the system will automatically decide whether to apply text normalization
+                (e.g., spelling out numbers). With 'on', text normalization will always be applied, while
+                with 'off', it will be skipped. 'apply_english' is the same as 'on' but will assume that text is in English.
+
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -171,9 +187,11 @@ class RawStudioClient:
                 "instructions_prompt": instructions_prompt,
                 "highlights": highlights,
                 "callback_url": callback_url,
+                "apply_text_normalization": apply_text_normalization,
             },
             headers={
                 "content-type": "application/json",
+                "safety-identifier": str(safety_identifier) if safety_identifier is not None else None,
             },
             request_options=request_options,
             omit=OMIT,
@@ -215,6 +233,7 @@ class AsyncRawStudioClient:
         model_id: str,
         mode: BodyCreatePodcastV1StudioPodcastsPostMode,
         source: BodyCreatePodcastV1StudioPodcastsPostSource,
+        safety_identifier: typing.Optional[str] = None,
         quality_preset: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostQualityPreset] = OMIT,
         duration_scale: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostDurationScale] = OMIT,
         language: typing.Optional[str] = OMIT,
@@ -223,6 +242,7 @@ class AsyncRawStudioClient:
         instructions_prompt: typing.Optional[str] = OMIT,
         highlights: typing.Optional[typing.Sequence[str]] = OMIT,
         callback_url: typing.Optional[str] = OMIT,
+        apply_text_normalization: typing.Optional[BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[PodcastProjectResponseModel]:
         """
@@ -239,12 +259,15 @@ class AsyncRawStudioClient:
         source : BodyCreatePodcastV1StudioPodcastsPostSource
             The source content for the Podcast.
 
+        safety_identifier : typing.Optional[str]
+            Used for moderation. Your workspace must be allowlisted to use this feature.
+
         quality_preset : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostQualityPreset]
             Output quality of the generated audio. Must be one of:
-            standard - standard output format, 128kbps with 44.1kHz sample rate.
-            high - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side. Using this setting increases the credit cost by 20%.
-            ultra - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side. Using this setting increases the credit cost by 50%.
-            ultra lossless - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format. Using this setting increases the credit cost by 100%.
+            'standard' - standard output format, 128kbps with 44.1kHz sample rate.
+            'high' - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side.
+            'ultra' - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side.
+            'ultra_lossless' - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format.
 
         duration_scale : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostDurationScale]
             Duration of the generated podcast. Must be one of:
@@ -324,6 +347,14 @@ class AsyncRawStudioClient:
                 }
 
 
+        apply_text_normalization : typing.Optional[BodyCreatePodcastV1StudioPodcastsPostApplyTextNormalization]
+
+                This parameter controls text normalization with four modes: 'auto', 'on', 'apply_english' and 'off'.
+                When set to 'auto', the system will automatically decide whether to apply text normalization
+                (e.g., spelling out numbers). With 'on', text normalization will always be applied, while
+                with 'off', it will be skipped. 'apply_english' is the same as 'on' but will assume that text is in English.
+
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -351,9 +382,11 @@ class AsyncRawStudioClient:
                 "instructions_prompt": instructions_prompt,
                 "highlights": highlights,
                 "callback_url": callback_url,
+                "apply_text_normalization": apply_text_normalization,
             },
             headers={
                 "content-type": "application/json",
+                "safety-identifier": str(safety_identifier) if safety_identifier is not None else None,
             },
             request_options=request_options,
             omit=OMIT,

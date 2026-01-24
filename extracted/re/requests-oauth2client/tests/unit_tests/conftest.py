@@ -17,14 +17,16 @@ from requests_oauth2client import (
     ClientSecretBasic,
     ClientSecretJwt,
     ClientSecretPost,
+    DPoPKey,
     OAuth2Client,
     PrivateKeyJwt,
     PublicApp,
+    RequestParameterAuthorizationRequest,
 )
 
 if TYPE_CHECKING:
     from requests_oauth2client.client_authentication import BaseClientAuthenticationMethod
-    from tests.conftest import FixtureRequest
+    from tests.utils import FixtureRequest
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +50,13 @@ def access_token() -> str:
 @pytest.fixture(scope="session")
 def bearer_auth(access_token: str) -> BearerToken:
     return BearerToken(access_token)
+
+
+@pytest.fixture(scope="session", params=[None, "ES256"])
+def dpop_key(request: FixtureRequest) -> DPoPKey | None:
+    if request.param is None:
+        return None
+    return DPoPKey.generate(alg=request.param)
 
 
 @pytest.fixture(scope="session")
@@ -367,6 +376,11 @@ def code_challenge_method(request: FixtureRequest) -> str | None:
     return request.param
 
 
+@pytest.fixture(scope="session", params=[None, "foo bar", ["foo", "bar"]])
+def acr_values(request: FixtureRequest) -> None | str | list[str]:
+    return request.param
+
+
 @pytest.fixture(scope="session")
 def authorization_request(  # noqa: C901
     authorization_endpoint: str,
@@ -379,6 +393,8 @@ def authorization_request(  # noqa: C901
     code_challenge_method: str,
     expected_issuer: str | None,
     auth_request_kwargs: dict[str, Any],
+    dpop_key: DPoPKey,
+    acr_values: None | str | list[str],
 ) -> AuthorizationRequest:
     authorization_response_iss_parameter_supported = bool(expected_issuer)
 
@@ -393,6 +409,8 @@ def authorization_request(  # noqa: C901
         code_challenge_method=code_challenge_method,
         authorization_response_iss_parameter_supported=authorization_response_iss_parameter_supported,
         issuer=expected_issuer,
+        dpop_key=dpop_key,
+        acr_values=acr_values,
         **auth_request_kwargs,
     )
 
@@ -404,6 +422,7 @@ def authorization_request(  # noqa: C901
     assert azr.redirect_uri == redirect_uri
     assert azr.issuer == expected_issuer
     assert azr.kwargs == auth_request_kwargs
+    assert azr.dpop_key == dpop_key
 
     args = dict(url.args)
     expected_args = dict(
@@ -487,6 +506,19 @@ def authorization_request(  # noqa: C901
             assert generated_code_challenge == code_verifier
             assert azr.code_verifier == code_verifier
 
+    if dpop_key:
+        expected_args["dpop_jkt"] = dpop_key.dpop_jkt
+
+    if acr_values is None:
+        assert azr.acr_values is None
+        assert "acr_values" not in args
+    elif isinstance(acr_values, str):
+        assert azr.acr_values == tuple(acr_values.split())
+        expected_args["acr_values"] = acr_values
+    else:  # Sequence
+        assert azr.acr_values == tuple(acr_values)
+        expected_args["acr_values"] = " ".join(acr_values)
+
     assert args == expected_args
 
     return azr
@@ -523,3 +555,16 @@ def authorization_response(
     assert auth_response.code_verifier == authorization_request.code_verifier
 
     return auth_response
+
+
+@pytest.fixture(scope="session")
+def request_parameter_signing_key() -> Jwk:
+    return Jwk.generate(alg="ES256")
+
+
+@pytest.fixture
+def request_parameter_authorization_request(
+    authorization_request: AuthorizationRequest,
+    request_parameter_signing_key: Jwk,
+) -> RequestParameterAuthorizationRequest:
+    return authorization_request.sign(request_parameter_signing_key)

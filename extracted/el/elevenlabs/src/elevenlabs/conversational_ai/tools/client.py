@@ -128,9 +128,7 @@ class ToolsClient:
         _response = self._raw_client.get(tool_id, request_options=request_options)
         return _response.data
 
-    def delete(
-        self, tool_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    def delete(self, tool_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
         """
         Delete tool from the workspace.
 
@@ -144,7 +142,7 @@ class ToolsClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -246,6 +244,8 @@ class ToolsClient:
         )
         client.conversational_ai.tools.get_dependent_agents(
             tool_id="tool_id",
+            cursor="cursor",
+            page_size=1,
         )
         """
         _response = self._raw_client.get_dependent_agents(
@@ -392,9 +392,7 @@ class AsyncToolsClient:
         _response = await self._raw_client.get(tool_id, request_options=request_options)
         return _response.data
 
-    async def delete(
-        self, tool_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    async def delete(self, tool_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
         """
         Delete tool from the workspace.
 
@@ -408,7 +406,7 @@ class AsyncToolsClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -531,6 +529,8 @@ class AsyncToolsClient:
         async def main() -> None:
             await client.conversational_ai.tools.get_dependent_agents(
                 tool_id="tool_id",
+                cursor="cursor",
+                page_size=1,
             )
 
 

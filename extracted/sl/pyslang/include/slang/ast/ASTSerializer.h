@@ -35,6 +35,8 @@ public:
     /// Constructs a new instance of the ASTSerializer class.
     ASTSerializer(Compilation& compilation, JsonWriter& writer);
 
+    Compilation& getCompilation() const { return compilation; }
+
     /// Sets a flag that indicates whether the addresses of AST objects
     /// should be included in the JSON output.
     void setIncludeAddresses(bool set) { includeAddrs = set; }
@@ -187,6 +189,7 @@ private:
     bool detailedTypeInfo = false;
     bool tryConstantFold = true;
     flat_hash_set<const void*> visiting;
+    flat_hash_set<const void*> printedEnums;
 };
 
 } // namespace slang::ast

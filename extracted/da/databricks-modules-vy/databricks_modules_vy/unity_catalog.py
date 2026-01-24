@@ -1,6 +1,7 @@
 from __future__ import annotations
 from .logging import lp
-#from modules.extend_class import extend_class
+
+# from modules.extend_class import extend_class
 from pyspark.sql import DataFrame, SparkSession
 from delta.tables import DeltaTable
 import re
@@ -55,7 +56,11 @@ def write_to_uc(
             schema_match = _schemas_match(df, target)
             if schema_match == "Table does not exist":
                 lp("Table does not exist.")
-            elif schema_match in ["Missing columns", "Mismatch datatype", "New columns"]:
+            elif schema_match in [
+                "Missing columns",
+                "Mismatch datatype",
+                "New columns",
+            ]:
                 if raise_schema_mismatch_exception:
                     raise Exception(f"Schema mismatch: {schema_match}")
                 lp("Setting overwrite_schema = True")
@@ -70,7 +75,9 @@ def write_to_uc(
                 partition_cols
             ).saveAsTable(target)
         else:
-            df.write.mode(mode).option("overwriteSchema", overwrite_schema).saveAsTable(target)
+            df.write.mode(mode).option("overwriteSchema", overwrite_schema).saveAsTable(
+                target
+            )
 
         if table_description:
             lp("Commenting table ...")
@@ -79,7 +86,9 @@ def write_to_uc(
         if comments:
             if autoformat_columns:
                 comments = _format_comments_columns(comments)
-            _apply_comments(target, table_description, comments, overwrite_schema, current_comments)
+            _apply_comments(
+                target, table_description, comments, overwrite_schema, current_comments
+            )
 
         if vacuum:
             uc_vacuum(target, vacuum_retention_hours)
@@ -99,6 +108,7 @@ def upsert_to_uc(
     vacuum: bool = True,
     vacuum_retention_hours: int = 24 * 7,
     upsert_many: bool = False,
+    target_values: dict[str, str] = None,
 ) -> None:
     """
     Performs an upsert (merge) operation on a DataFrame into an underlying persistent table in Unity Catalog (UC).
@@ -114,6 +124,7 @@ def upsert_to_uc(
         vacuum (bool, optional): Whether to run a VACUUM operation after upsert. Defaults to True.
         vacuum_retention_hours (int, optional): The retention period in hours for the VACUUM operation. Defaults to 24*2 (2 days).
         upsert_many (bool, optional): Set to true if the target may match several rows from the source. Defaults to False.
+        target_values (dict, optional): Additional conditions to filter target rows during upsert, helpful to avoid ConcurrentAppendException for partitioned tables. Defaults to None.
 
     Returns:
         None
@@ -146,6 +157,14 @@ def upsert_to_uc(
         if autoformat_columns:
             df = format_columns(df)
             upsert_keys = [_format_column_name(key) for key in upsert_keys]
+            target_values = (
+                {
+                    _format_column_name(key): value
+                    for key, value in target_values.items()
+                }
+                if target_values
+                else None
+            )
 
         schema_match = _schemas_match(df, target)
         if schema_match != "Match":
@@ -158,7 +177,12 @@ def upsert_to_uc(
         target_table = DeltaTable.forName(spark, target)
 
         # Create conditions for the join
-        merge_condition = " AND ".join([f"target.{key} = source.{key}" for key in upsert_keys])
+        merge_condition = " AND ".join(
+            [f"target.{key} = source.{key}" for key in upsert_keys]
+        )
+        if target_values:
+            for key, value in target_values.items():
+                merge_condition += f" AND target.{key} = '{value}'"
 
         if upsert_many:
             (
@@ -192,7 +216,9 @@ def upsert_to_uc(
         if comments:
             if autoformat_columns:
                 comments = _format_comments_columns(comments)
-            _apply_comments(target, table_description, comments, False, current_comments)
+            _apply_comments(
+                target, table_description, comments, False, current_comments
+            )
 
         if vacuum:
             uc_vacuum(target, vacuum_retention_hours)
@@ -251,7 +277,11 @@ def autoloader_batch_to_uc(
             schema_match = _schemas_match(df, target)
             if schema_match == "Table does not exist":
                 lp("Table does not exist.")
-            elif schema_match in ["Missing columns", "Mismatch datatype", "New columns"]:
+            elif schema_match in [
+                "Missing columns",
+                "Mismatch datatype",
+                "New columns",
+            ]:
                 if raise_schema_mismatch_exception:
                     raise Exception(f"Schema mismatch: {schema_match}")
                 lp("Setting merge_schema = True")
@@ -287,7 +317,9 @@ def autoloader_batch_to_uc(
         if comments:
             if autoformat_columns:
                 comments = _format_comments_columns(comments)
-            _apply_comments(target, table_description, comments, merge_schema, current_comments)
+            _apply_comments(
+                target, table_description, comments, merge_schema, current_comments
+            )
 
         if vacuum:
             uc_vacuum(target, vacuum_retention_hours)
@@ -463,7 +495,8 @@ def _format_comments_columns(col_comment_dict: dict) -> dict:
     dict: A dictionary with formatted column names as keys and comments as values.
     """
     formatted_dict = {
-        _format_column_name(col_name): comment for col_name, comment in col_comment_dict.items()
+        _format_column_name(col_name): comment
+        for col_name, comment in col_comment_dict.items()
     }
     return formatted_dict
 

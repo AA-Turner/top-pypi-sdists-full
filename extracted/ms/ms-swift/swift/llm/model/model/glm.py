@@ -251,10 +251,6 @@ register_model(
 
 def get_model_tokenizer_glm4_1v(*args, **kwargs):
     from transformers import Glm4vForConditionalGeneration
-    logger.info(
-        "If you encounter the error 'TypeError: group_images_by_shape() missing 1 required positional argument: "
-        "\"disable_grouping\"', please install the source version of the transformers library.")
-
     kwargs['automodel_class'] = kwargs['automodel_class'] or Glm4vForConditionalGeneration
     model, processor = get_model_tokenizer_multimodal(*args, **kwargs)
     if model is not None and hasattr(model, 'visual'):
@@ -272,6 +268,19 @@ register_model(
                     Model('ZhipuAI/GLM-4.1V-9B-Thinking', 'zai-org/GLM-4.1V-9B-Thinking'),
                 ],
                 requires=['transformers>=4.53'],
+            ),
+            ModelGroup(
+                [
+                    Model('ZhipuAI/Glyph', 'zai-org/Glyph'),
+                ],
+                requires=['transformers>=4.57'],
+            ),
+            ModelGroup(
+                [
+                    Model('ZhipuAI/GLM-4.6V-Flash', 'zai-org/GLM-4.6V-Flash'),
+                    Model('ZhipuAI/AutoGLM-Phone-9B', 'zai-org/AutoGLM-Phone-9B')
+                ],
+                requires=['transformers>=5.0.0.dev'],
             ),
         ],
         TemplateType.glm4_1v,
@@ -432,8 +441,27 @@ register_model(
                 Model('ZhipuAI/GLM-4.5', 'zai-org/GLM-4.5'),
                 Model('ZhipuAI/GLM-4.5-FP8', 'zai-org/GLM-4.5-FP8'),
             ]),
+            ModelGroup([
+                Model('ZhipuAI/GLM-4.6', 'zai-org/GLM-4.6'),
+                Model('ZhipuAI/GLM-4.6-FP8', 'zai-org/GLM-4.6-FP8'),
+            ])
         ],
         TemplateType.glm4_5,
+        get_model_tokenizer_with_flash_attn,
+        architectures=['Glm4MoeForCausalLM'],
+        requires=['transformers>=4.54'],
+    ))
+
+register_model(
+    ModelMeta(
+        LLMModelType.glm4_7,
+        [
+            ModelGroup([
+                Model('ZhipuAI/GLM-4.7', 'zai-org/GLM-4.7'),
+                Model('ZhipuAI/GLM-4.7-FP8', 'zai-org/GLM-4.7-FP8'),
+            ]),
+        ],
+        TemplateType.glm4_7,
         get_model_tokenizer_with_flash_attn,
         architectures=['Glm4MoeForCausalLM'],
         requires=['transformers>=4.54'],
@@ -457,10 +485,15 @@ register_model(
                 Model('ZhipuAI/GLM-4.5V', 'zai-org/GLM-4.5V'),
                 Model('ZhipuAI/GLM-4.5V-FP8', 'zai-org/GLM-4.5V-FP8'),
             ]),
+            ModelGroup([
+                Model('ZhipuAI/GLM-4.6V', 'zai-org/GLM-4.6V'),
+                Model('ZhipuAI/GLM-4.6V-FP8', 'zai-org/GLM-4.6V-FP8'),
+            ],
+                       requires=['transformers>=5.0.0.dev']),
         ],
         TemplateType.glm4_5v,
         get_model_tokenizer_glm4_5v,
         model_arch=ModelArch.glm4_1v,
         architectures=['Glm4vMoeForConditionalGeneration'],
-        requires=['transformers>=4.56.0.dev'],
+        requires=['transformers>=4.56'],
     ))

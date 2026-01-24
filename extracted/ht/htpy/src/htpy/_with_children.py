@@ -5,8 +5,13 @@ import typing as t
 
 import markupsafe
 
+try:
+    from warnings import deprecated  # type: ignore[attr-defined,unused-ignore]
+except ImportError:
+    from typing_extensions import deprecated
+
 if t.TYPE_CHECKING:
-    from collections.abc import Callable, Iterator, Mapping
+    from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 
     import htpy
 
@@ -56,6 +61,11 @@ class _WithChildrenUnbound(t.Generic[C, P, R]):
 
     __html__ = __str__
 
+    @deprecated(
+        "Calling .encode() is deprecated and will be removed in a future release. "
+        "Using Starlette? Use htpy.starlette.HtpyResponse for improved performance and convenience. "  # noqa: E501
+        "More info: https://htpy.dev/starlette/"
+    )
     def encode(self, encoding: str = "utf-8", errors: str = "strict") -> bytes:
         return str(self).encode(encoding, errors)
 
@@ -64,6 +74,12 @@ class _WithChildrenUnbound(t.Generic[C, P, R]):
         context: Mapping[htpy.Context[t.Any], t.Any] | None = None,
     ) -> Iterator[str]:
         return self.wrapped(None).iter_chunks(context)  # type: ignore[call-arg]
+
+    def aiter_chunks(
+        self,
+        context: Mapping[htpy.Context[t.Any], t.Any] | None = None,
+    ) -> AsyncIterator[str]:
+        return self.wrapped(None).aiter_chunks(context)  # type: ignore[call-arg]
 
 
 class _WithChildrenBound(t.Generic[C, P, R]):
@@ -103,6 +119,11 @@ class _WithChildrenBound(t.Generic[C, P, R]):
 
     __html__ = __str__
 
+    @deprecated(
+        "Calling .encode() is deprecated and will be removed in a future release. "
+        "Using Starlette? Use htpy.starlette.HtpyResponse for improved performance and convenience. "  # noqa: E501
+        "More info: https://htpy.dev/starlette/"
+    )
     def encode(self, encoding: str = "utf-8", errors: str = "strict") -> bytes:
         return str(self).encode(encoding, errors)
 
@@ -111,6 +132,12 @@ class _WithChildrenBound(t.Generic[C, P, R]):
         context: Mapping[htpy.Context[t.Any], t.Any] | None = None,
     ) -> Iterator[str]:
         return self._func(None, *self._args, **self._kwargs).iter_chunks(context)
+
+    def aiter_chunks(
+        self,
+        context: Mapping[htpy.Context[t.Any], t.Any] | None = None,
+    ) -> AsyncIterator[str]:
+        return self._func(None, *self._args, **self._kwargs).aiter_chunks(context)
 
 
 def with_children(

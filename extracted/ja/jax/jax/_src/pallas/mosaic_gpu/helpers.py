@@ -15,16 +15,36 @@
 """Helpers for Pallas Mosaic GPU kernels."""
 
 from collections.abc import Callable, Hashable, Sequence
+import dataclasses
 import functools
 import math
 from typing import TypeVar, overload
 
 import jax
+from jax import numpy as jnp
 from jax import lax
 from jax._src import dtypes
+from jax._src.pallas.mosaic_gpu import primitives as gpu_primitives
+from jax._src.pallas.mosaic_gpu import core as gpu_core
+from jax._src.pallas import primitives as pallas_primitives
 import numpy as np
 
 _T = TypeVar("_T")
+
+
+@dataclasses.dataclass(frozen=True, eq=False)
+class NDLoopInfo:
+  """Container dataclass for loop iteration information.
+
+  Attributes:
+    index: The grid indices corresponding to the current loop iteration.
+    local_index: The local iteration index.
+    num_local_steps: The total number of local iterations to run. None
+      if unknown.
+  """
+  index: tuple[jax.Array, ...]
+  local_index: jax.Array | int
+  num_local_steps: jax.Array | int | None
 
 
 @overload
@@ -34,7 +54,7 @@ def nd_loop(
     collective_axes: Sequence[Hashable] | Hashable,
     tiling: Sequence[int] | None = None,
     init_carry: None = None
-) -> Callable[[Callable[[Sequence[jax.Array]], None]], None]:
+) -> Callable[[Callable[[NDLoopInfo], None]], None]:
   ...
 
 
@@ -45,40 +65,37 @@ def nd_loop(
     collective_axes: Sequence[Hashable] | Hashable,
     tiling: Sequence[int] | None = None,
     init_carry: _T
-) -> Callable[[Callable[[Sequence[jax.Array], _T], _T]], _T]:
+) -> Callable[[Callable[[NDLoopInfo, _T], _T]], _T]:
   ...
 
 
-# TODO(justinfu): Fix the type signature to include both carry and wave_step.
-@overload
-def nd_loop(
-    grid: Sequence[int],
-    *,
-    collective_axes: Sequence[Hashable] | Hashable,
-    tiling: Sequence[int] | None = None,
-    include_wave_step: bool
-) -> Callable[[Callable[[Sequence[jax.Array], jax.Array], None]], None]:
-  ...
-
-
-def nd_loop(grid, *, collective_axes,
-            tiling=None,
-            init_carry=None,
-            include_wave_step=False):
+def nd_loop(grid, *, collective_axes, tiling=None, init_carry=None):
   """A loop over a multi-dimensional grid partitioned along the given axes.
+
+  The body of the loop a single argument ``loop_info`` which is an NDLoopInfo
+  object containing index and iteration information. However if a carry is
+  specified, the body will expect a second keyword argument `carry` containing
+  the loop carry.
 
   For example, if ``collective_axes`` is ``"x"`` with :func:`lax.axis_size`
   equal to 4 and the grid is (2, 3), the implementation would produce the
   following iteration order
 
-      loop step    index    axis index
-
-          0        (0, 0)       0
-          1        (0, 1)       1
-          2        (0, 2)       2
-          3        (1, 0)       3
-          4        (1, 1)       0
-          5        (1, 2)       1
+  +-----------+--------+------------+
+  | loop step | index  | axis index |
+  +===========+========+============+
+  |     0     | (0, 0) |     0      |
+  +-----------+--------+------------+
+  |     1     | (0, 1) |     1      |
+  +-----------+--------+------------+
+  |     2     | (0, 2) |     2      |
+  +-----------+--------+------------+
+  |     3     | (1, 0) |     3      |
+  +-----------+--------+------------+
+  |     4     | (1, 1) |     0      |
+  +-----------+--------+------------+
+  |     5     | (1, 2) |     1      |
+  +-----------+--------+------------+
 
   which comes from partitioning the flat iteration space into chunks in an
   interleaved fashion wrt the ``"x"`` axis index.
@@ -87,20 +104,21 @@ def nd_loop(grid, *, collective_axes,
   by the axis size of ``"x"``, and thus for some ``"x"`` axis indices the
   loop will do one iteration less.
 
-      axis index       indices
-
-          0         (0, 0), (1, 1)
-          1         (0, 1), (1, 2)
-          2         (0, 2)
-          3         (1, 0)
+  +------------+------------------+
+  | axis index | indices          |
+  +============+==================+
+  |     0      | (0, 0), (1, 1)   |
+  +------------+------------------+
+  |     1      | (0, 1), (1, 2)   |
+  +------------+------------------+
+  |     2      | (0, 2)           |
+  +------------+------------------+
+  |     3      | (1, 0)           |
+  +------------+------------------+
 
   If ``init_carry`` is passed then ``nd_loop()`` will expect the body to
   take and return the carry. If it's ``None`` then no carry argument is
   expected.
-
-  If ``include_wave_step`` is True then the body will be called with an
-  additional ``wave_step`` keyword argument that specifies the current
-  iteration local to the thread.
 
   See also:
     - :func:`jax.experimental.pallas.loop`: A loop over a single dimension.
@@ -141,12 +159,15 @@ def nd_loop(grid, *, collective_axes,
           untiled_index.append(sub_idx + tile_idx * tile_dim)
         index = untiled_index
 
-      if include_wave_step:
-        body = functools.partial(body, wave_step=wave_step)
+      loop_info = NDLoopInfo(
+          index=tuple(index),
+          local_index=wave_step,
+          num_local_steps=upper
+      )
       if init_carry is None:
-        body(tuple(index))
+        body(loop_info)
       else:
-        return body(tuple(index), carry=carry)
+        return body(loop_info, carry=carry)
 
     upper = lax.div(grid_size, axis_size) + lax.convert_element_type(
         axis_index < grid_size % axis_size, axis_index.dtype
@@ -265,3 +286,100 @@ def planar_snake(
       tile_coordinates(lin_idx, tile_width),
       tile_coordinates(lin_idx - num_full_tiles_elements, minor_size - full_tiles_minor_size)
   )
+
+
+@overload
+def dynamic_scheduling_loop(
+    grid_names: Sequence[Hashable],
+    *,
+    thread_axis: Hashable | None = None,
+    init_carry: None = None
+) -> Callable[[Callable[[NDLoopInfo], None]], None]:
+  ...
+
+
+@overload
+def dynamic_scheduling_loop(
+    grid_names: Sequence[Hashable],
+    *,
+    thread_axis: Hashable | None = None,
+    init_carry: _T
+) -> Callable[[Callable[[NDLoopInfo, _T], _T]], _T]:
+  ...
+
+
+def dynamic_scheduling_loop(
+    grid_names,
+    thread_axis = None,
+    init_carry = None):
+  """A loop over program instances using dynamic work scheduling.
+
+  This loop will iterate through available program instances until all
+  work has been scheduled. The kernel should be instantiated with a grid
+  equal to the logical amount of work to be done (as opposed to a persistent
+  kernel where the grid is set to the number of cores). Each core running
+  this loop will continuously query the next available block of work and
+  the loop will terminate when the entire grid has been scheduled.
+
+  Example usage::
+
+    @plgpu.dynamic_scheduling_loop(grid_names)
+    def body(loop_info):
+      work(loop_info.index)  # do work...
+
+  Args:
+    grid_names: The names of the axes in the grid.
+    thread_axis: The name of the thread axis. This must be passed in if
+      the kernel uses multiple threads.
+    init_carry: An optional initial carry for the loop. If passed in, the
+      body function should expect a ``carry`` keyword argument and return
+      the next carry value.
+  """
+  if thread_axis is not None:
+    num_threads = lax.axis_size(thread_axis)
+  else:
+    num_threads = 1
+  user_carry = init_carry
+
+  def decorator(body):
+    grid_idx = tuple(lax.axis_index(axis_name) for axis_name in grid_names)
+    success = True
+    def _scoped(try_cancel_buffer, try_cancel_barrier):
+      def try_cancel_cond(carry):
+        _, success, _, _ = carry
+        return success
+      def try_cancel_body(carry):
+        grid_idx, _, wave_step, user_carry = carry
+        slot = lax.rem(wave_step, jnp.int32(2))
+        gpu_primitives.try_cluster_cancel(try_cancel_buffer.at[slot],
+                                          try_cancel_barrier.at[slot])
+        loop_info = NDLoopInfo(
+            index=grid_idx,
+            local_index=wave_step,
+            num_local_steps=None,
+        )
+        if user_carry is None:
+          body(loop_info)
+        else:
+          user_carry = body(loop_info, carry=user_carry)
+        gpu_primitives.barrier_wait(try_cancel_barrier.at[slot])
+        grid_idx, success = gpu_primitives.query_cluster_cancel(
+            try_cancel_buffer.at[slot],
+            grid_names=grid_names)
+        return (grid_idx, success, wave_step + jnp.int32(1), user_carry)
+      init_carry = (grid_idx, success, jnp.int32(0), user_carry)
+      final_carry = lax.while_loop(
+          try_cancel_cond,
+          try_cancel_body,
+          init_carry,
+      )
+      if user_carry is not None:
+        return final_carry[-1]
+    return pallas_primitives.run_scoped(
+        _scoped,
+        try_cancel_buffer=gpu_core.TryClusterCancelResult(2),
+        try_cancel_barrier=gpu_core.Barrier(num_arrivals=num_threads,
+                                            num_barriers=2),
+        collective_axes=thread_axis,
+    )
+  return decorator

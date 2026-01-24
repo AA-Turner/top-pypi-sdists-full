@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 
 
 class Encryption(BaseModel):
@@ -46,9 +46,10 @@ class Encryption(BaseModel):
             raise ValueError("must validate the enum values ('NONE','AWS_SSE_S3','AWS_SSE_KMS','GCS_SSE_KMS')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -73,7 +74,7 @@ class Encryption(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -88,9 +89,9 @@ class Encryption(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Encryption.parse_obj(obj)
+            return Encryption.model_validate(obj)
 
-        _obj = Encryption.parse_obj(
+        _obj = Encryption.model_validate(
             {
                 "type": obj.get("type"),
                 "kms_key_id": obj.get("kms_key_id"),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ssl import SSLContext
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from sanic.config import Config
 from sanic.exceptions import ServerError
@@ -43,9 +43,9 @@ def serve(
     host,
     port,
     app: Sanic,
-    ssl: Optional[SSLContext] = None,
-    sock: Optional[socket.socket] = None,
-    unix: Optional[str] = None,
+    ssl: SSLContext | None = None,
+    sock: socket.socket | None = None,
+    unix: str | None = None,
     reuse_port: bool = False,
     loop=None,
     protocol: type[asyncio.Protocol] = HttpProtocol,
@@ -126,7 +126,7 @@ def serve(
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    setup_logging(app.debug, app.config.NO_COLOR)
+    setup_logging(app.debug, app.config.NO_COLOR, app.config.LOG_EXTRA)
 
     if app.debug:
         loop.set_debug(app.debug)
@@ -176,20 +176,54 @@ def _setup_system_signals(
                 )
 
 
-def _run_server_forever(loop, before_stop, after_stop, cleanup, unix):
-    pid = os.getpid()
+def _run_shutdown_coro(loop, coro):
+    """Run a shutdown coroutine, handling the case where the loop was stopped.
+
+    When loop.stop() is called during run_forever(), asyncio sets an internal
+    flag that causes the first run_until_complete() to fail. For standard
+    asyncio, we clear the _stopping flag. For uvloop (which doesn't expose
+    this flag), the first attempt may fail but subsequent attempts succeed.
+    """
+    # Clear asyncio's stopped state if accessible
+    if hasattr(loop, "_stopping"):
+        loop._stopping = False
+
     try:
-        server_logger.info("Starting worker [%s]", pid)
+        loop.run_until_complete(coro())
+    except (RuntimeError, KeyboardInterrupt):
+        # RuntimeError: loop was stopped (uvloop behavior)
+        # KeyboardInterrupt: signal arrived during select (asyncio behavior)
+        # Try once more - this handles uvloop's behavior where the first
+        # run_until_complete after stop() fails but subsequent calls succeed.
+        if hasattr(loop, "_stopping"):
+            loop._stopping = False
+        try:
+            loop.run_until_complete(coro())
+        except (RuntimeError, KeyboardInterrupt):
+            # If it still fails, the loop is truly unusable
+            pass
+
+
+def _run_server_forever(loop, before_stop, after_stop, cleanup, unix, pid):
+    try:
+        server_logger.info("Worker ready [%s]", pid)
         loop.run_forever()
     finally:
         server_logger.info("Stopping worker [%s]", pid)
 
-        loop.run_until_complete(before_stop())
+        for _signal in [SIGINT, SIGTERM]:
+            try:
+                loop.remove_signal_handler(_signal)
+            except (NotImplementedError, OSError):
+                pass
+
+        _run_shutdown_coro(loop, before_stop)
 
         if cleanup:
             cleanup()
 
-        loop.run_until_complete(after_stop())
+        _run_shutdown_coro(loop, after_stop)
+
         remove_unix_socket(unix)
         loop.close()
         server_logger.info("Worker complete [%s]", pid)
@@ -256,6 +290,8 @@ def _serve_http_1(
             connections=connections,
         )
 
+    pid = os.getpid()
+    server_logger.info("Starting worker [%s]", pid)
     loop.run_until_complete(app._startup())
     loop.run_until_complete(app._server_event("init", "before"))
     app.ack()
@@ -296,7 +332,10 @@ def _serve_http_1(
             else:
                 conn.abort()
 
-        app.set_serving(False)
+        try:
+            app.set_serving(False)
+        except (BrokenPipeError, ConnectionResetError, EOFError):
+            pass
 
     _setup_system_signals(app, run_multiple, register_sys_signals, loop)
     loop.run_until_complete(app._server_event("init", "after"))
@@ -307,6 +346,7 @@ def _serve_http_1(
         partial(app._server_event, "shutdown", "after"),
         _cleanup,
         unix,
+        pid,
     )
 
 
@@ -323,6 +363,8 @@ def _serve_http_3(
         raise ServerError(
             "Cannot run HTTP/3 server without aioquic installed. "
         )
+    pid = os.getpid()
+    server_logger.info("Starting worker [%s]", pid)
     protocol = partial(Http3Protocol, app=app)
     ticket_store = SessionTicketStore()
     ssl_context = get_ssl_context(app, ssl)
@@ -346,13 +388,13 @@ def _serve_http_3(
     # TODO: Create connection cleanup and graceful shutdown
     cleanup = None
     _run_server_forever(
-        loop, server.before_stop, server.after_stop, cleanup, None
+        loop, server.before_stop, server.after_stop, cleanup, None, pid
     )
 
 
 def _build_protocol_kwargs(
     protocol: type[asyncio.Protocol], config: Config
-) -> dict[str, Union[int, float]]:
+) -> dict[str, int | float]:
     if hasattr(protocol, "websocket_handshake"):
         return {
             "websocket_max_size": config.WEBSOCKET_MAX_SIZE,

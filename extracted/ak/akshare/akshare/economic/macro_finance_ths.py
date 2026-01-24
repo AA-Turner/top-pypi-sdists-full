@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 """
-Date: 2024/7/16 22:30
+Date: 2025/10/21 20:00
 Desc: 同花顺-数据中心-宏观数据-股票筹资
 https://data.10jqka.com.cn/macro/finance/
 """
@@ -43,6 +43,7 @@ def macro_stock_finance() -> pd.DataFrame:
     temp_df["首发募集资金"] = pd.to_numeric(temp_df["首发募集资金"], errors="coerce")
     temp_df["增发募集资金"] = pd.to_numeric(temp_df["增发募集资金"], errors="coerce")
     temp_df["配股募集资金"] = pd.to_numeric(temp_df["配股募集资金"], errors="coerce")
+    temp_df.sort_values(by=["月份"], inplace=True, ignore_index=True)
     return temp_df
 
 
@@ -74,6 +75,7 @@ def macro_rmb_loan() -> pd.DataFrame:
     temp_df["累计人民币贷款-总额"] = pd.to_numeric(
         temp_df["累计人民币贷款-总额"], errors="coerce"
     )
+    temp_df.sort_values(by=["月份"], inplace=True, ignore_index=True)
     return temp_df
 
 
@@ -119,6 +121,7 @@ def macro_rmb_deposit() -> pd.DataFrame:
     temp_df["新增其他存款-数量"] = pd.to_numeric(
         temp_df["新增其他存款-数量"], errors="coerce"
     )
+    temp_df.sort_values(by=["月份"], inplace=True, ignore_index=True)
     return temp_df
 
 

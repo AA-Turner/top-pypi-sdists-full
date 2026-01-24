@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -135,16 +135,17 @@ class WebService(BaseDeployment):
             from ibm_watsonx_ai import Credentials
 
             deployment = WebService(
-                    source_instance_credentials=Credentials(...),
-                    source_project_id="...",
-                    target_space_id="...")
+                source_instance_credentials=Credentials(...),
+                source_project_id="...",
+                target_space_id="...",
+            )
 
             deployment.create(
-                   experiment_run_id="...",
-                   model=model,
-                   deployment_name='My new deployment',
-                   serving_name='my_new_deployment'
-               )
+                experiment_run_id="...",
+                model=model,
+                deployment_name="My new deployment",
+                serving_name="my_new_deployment",
+            )
         """
         return super().create(
             model=model,
@@ -179,7 +180,7 @@ class WebService(BaseDeployment):
             to score forecasting models
         :type payload: pandas.DataFrame or dict
 
-        :param forecast_window: size of forecast window, supported only for forcasting, supported for CPD 5.0 and later
+        :param forecast_window: size of forecast window, supported only for forecasting, supported for CPD 5.0 and later
         :type forecast_window: int, optional
 
         :param transaction_id: ID under which the records should be saved in the payload table
@@ -230,7 +231,7 @@ class WebService(BaseDeployment):
             # Delete current deployment
             deployment.delete()
             # Or delete a specific deployment
-            deployment.delete(deployment_id='...')
+            deployment.delete(deployment_id="...")
         """
         super().delete(deployment_id=deployment_id, deployment_type="online")
 
@@ -287,7 +288,7 @@ class WebService(BaseDeployment):
         meta_props: dict,
         serving_name: str | None = None,
         result_client: tuple[DataConnection, resource] | None = None,
-        hardware_spec: str | None = None,
+        hardware_spec: dict | None = None,
     ) -> dict:
         """Deploy model into Service.
 
@@ -304,7 +305,10 @@ class WebService(BaseDeployment):
         :type serving_name: str, optional
 
         :param result_client: tuple with a Result DataConnection object and an initialized COS client
-        :rtype: tuple[DataConnection, resource]
+        :type result_client: tuple[DataConnection, resource], optional
+
+        :param hardware_spec: hardware specification of the deployment
+        :type hardware_spec: dict, optional
 
         :return: details of the deployment
         :rtype: dict
@@ -337,7 +341,7 @@ class WebService(BaseDeployment):
         print("Deploying model {} using V4 client.".format(asset_uid))
         try:
             deployment_details = self._target_workspace.api_client.deployments.create(
-                artifact_uid=asset_uid,  # type: ignore[arg-type]
+                artifact_uid=asset_uid,
                 meta_props=deployment_props,
             )
             deployment_details = cast(dict, deployment_details)

@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: betterproto2_compiler
+Version: 0.9.0
+Summary: Compiler for betterproto2
+Project-URL: Documentation, https://betterproto.github.io/python-betterproto2/
+Project-URL: Repository, https://github.com/betterproto/python-betterproto2
+Author-email: Adrien Vannson <adrien.vannson@protonmail.com>, "Daniel G. Taylor" <danielgtaylor@gmail.com>
+License-Expression: MIT
+Keywords: compiler,gRPC,protobuf
+Requires-Python: <4.0,>=3.10
+Requires-Dist: betterproto2<0.10,>=0.9.0
+Requires-Dist: jinja2>=3.0.3
+Requires-Dist: ruff~=0.9.3
+Requires-Dist: strenum<0.5,>=0.4.15; python_version == '3.10'
+Requires-Dist: typing-extensions<5,>=4.7.1

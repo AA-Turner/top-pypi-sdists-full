@@ -21,7 +21,7 @@ from datadog_api_client.v1.model.synthetics_private_location_creation_response i
 )
 from datadog_api_client.v1.model.synthetics_private_location import SyntheticsPrivateLocation
 from datadog_api_client.v1.model.synthetics_list_tests_response import SyntheticsListTestsResponse
-from datadog_api_client.v1.model.synthetics_test_details import SyntheticsTestDetails
+from datadog_api_client.v1.model.synthetics_test_details_without_steps import SyntheticsTestDetailsWithoutSteps
 from datadog_api_client.v1.model.synthetics_api_test import SyntheticsAPITest
 from datadog_api_client.v1.model.synthetics_browser_test import SyntheticsBrowserTest
 from datadog_api_client.v1.model.synthetics_get_browser_test_latest_results_response import (
@@ -36,6 +36,7 @@ from datadog_api_client.v1.model.synthetics_trigger_body import SyntheticsTrigge
 from datadog_api_client.v1.model.synthetics_ci_test_body import SyntheticsCITestBody
 from datadog_api_client.v1.model.synthetics_test_uptime import SyntheticsTestUptime
 from datadog_api_client.v1.model.synthetics_fetch_uptimes_payload import SyntheticsFetchUptimesPayload
+from datadog_api_client.v1.model.synthetics_test_details import SyntheticsTestDetails
 from datadog_api_client.v1.model.synthetics_patch_test_body import SyntheticsPatchTestBody
 from datadog_api_client.v1.model.synthetics_get_api_test_latest_results_response import (
     SyntheticsGetAPITestLatestResultsResponse,
@@ -569,7 +570,7 @@ class SyntheticsApi:
 
         self._get_test_endpoint = _Endpoint(
             settings={
-                "response_type": (SyntheticsTestDetails,),
+                "response_type": (SyntheticsTestDetailsWithoutSteps,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v1/synthetics/tests/{public_id}",
                 "operation_id": "get_test",
@@ -693,11 +694,6 @@ class SyntheticsApi:
                 "include_full_config": {
                     "openapi_types": (bool,),
                     "attribute": "include_full_config",
-                    "location": "query",
-                },
-                "search_suites": {
-                    "openapi_types": (bool,),
-                    "attribute": "search_suites",
                     "location": "query",
                 },
                 "facets_only": {
@@ -1310,14 +1306,14 @@ class SyntheticsApi:
     def get_test(
         self,
         public_id: str,
-    ) -> SyntheticsTestDetails:
+    ) -> SyntheticsTestDetailsWithoutSteps:
         """Get a test configuration.
 
         Get the detailed configuration associated with a Synthetic test.
 
         :param public_id: The public ID of the test to get details from.
         :type public_id: str
-        :rtype: SyntheticsTestDetails
+        :rtype: SyntheticsTestDetailsWithoutSteps
         """
         kwargs: Dict[str, Any] = {}
         kwargs["public_id"] = public_id
@@ -1379,7 +1375,7 @@ class SyntheticsApi:
         *,
         page_size: Union[int, UnsetType] = unset,
         page_number: Union[int, UnsetType] = unset,
-    ) -> collections.abc.Iterable[SyntheticsTestDetails]:
+    ) -> collections.abc.Iterable[SyntheticsTestDetailsWithoutSteps]:
         """Get the list of all Synthetic tests.
 
         Provide a paginated version of :meth:`list_tests`, returning all items.
@@ -1390,7 +1386,7 @@ class SyntheticsApi:
         :type page_number: int, optional
 
         :return: A generator of paginated results.
-        :rtype: collections.abc.Iterable[SyntheticsTestDetails]
+        :rtype: collections.abc.Iterable[SyntheticsTestDetailsWithoutSteps]
         """
         kwargs: Dict[str, Any] = {}
         if page_size is not unset:
@@ -1438,7 +1434,6 @@ class SyntheticsApi:
         *,
         text: Union[str, UnsetType] = unset,
         include_full_config: Union[bool, UnsetType] = unset,
-        search_suites: Union[bool, UnsetType] = unset,
         facets_only: Union[bool, UnsetType] = unset,
         start: Union[int, UnsetType] = unset,
         count: Union[int, UnsetType] = unset,
@@ -1446,14 +1441,12 @@ class SyntheticsApi:
     ) -> SyntheticsListTestsResponse:
         """Search Synthetic tests.
 
-        Search for Synthetic tests and Test Suites.
+        Search for Synthetic tests.
 
         :param text: The search query.
         :type text: str, optional
         :param include_full_config: If true, include the full configuration for each test in the response.
         :type include_full_config: bool, optional
-        :param search_suites: If true, returns suites instead of tests.
-        :type search_suites: bool, optional
         :param facets_only: If true, return only facets instead of full test details.
         :type facets_only: bool, optional
         :param start: The offset from which to start returning results.
@@ -1470,9 +1463,6 @@ class SyntheticsApi:
 
         if include_full_config is not unset:
             kwargs["include_full_config"] = include_full_config
-
-        if search_suites is not unset:
-            kwargs["search_suites"] = search_suites
 
         if facets_only is not unset:
             kwargs["facets_only"] = facets_only

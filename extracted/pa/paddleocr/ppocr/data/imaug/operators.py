@@ -24,6 +24,7 @@ import cv2
 import numpy as np
 import math
 from PIL import Image
+from paddle import get_device
 
 
 class DecodeImage(object):
@@ -40,10 +41,18 @@ class DecodeImage(object):
         img = data["image"]
         assert type(img) is bytes and len(img) > 0, "invalid input 'img' in DecodeImage"
         img = np.frombuffer(img, dtype="uint8")
-        if self.ignore_orientation:
-            img = cv2.imdecode(img, cv2.IMREAD_IGNORE_ORIENTATION | cv2.IMREAD_COLOR)
+        if self.img_mode == "GRAY":
+            # For GRAY mode, decode directly to a single-channel grayscale image.
+            decode_flag = cv2.IMREAD_GRAYSCALE
         else:
-            img = cv2.imdecode(img, 1)
+            # For RGB mode, decode to a 3-channel color image.
+            decode_flag = cv2.IMREAD_COLOR
+
+        if self.ignore_orientation:
+            decode_flag |= cv2.IMREAD_IGNORE_ORIENTATION
+
+        img = cv2.imdecode(img, decode_flag)
+
         if img is None:
             return None
         if self.img_mode == "GRAY":
@@ -231,6 +240,10 @@ class DetResizeForTest(object):
             img, [ratio_h, ratio_w] = self.resize_image_type1(img)
         data["image"] = img
         data["shape"] = np.array([src_h, src_w, ratio_h, ratio_w])
+        if "iluvatar_gpu" in get_device():
+            data["shape"] = np.array([src_h, src_w, ratio_h, ratio_w]).astype(
+                np.float32
+            )
         return data
 
     def image_padding(self, im, value=0):

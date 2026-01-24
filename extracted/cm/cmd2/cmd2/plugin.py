@@ -1,9 +1,8 @@
-"""Classes for the cmd2 plugin system."""
+"""Classes for the cmd2 lifecycle hooks that you can register multiple callback functions/methods with."""
 
 from dataclasses import (
     dataclass,
 )
-from typing import Optional
 
 from .parsing import (
     Statement,
@@ -38,4 +37,4 @@ class CommandFinalizationData:
     """Data class containing information passed to command finalization hook methods."""
 
     stop: bool
-    statement: Optional[Statement]
+    statement: Statement | None

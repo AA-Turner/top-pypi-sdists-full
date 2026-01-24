@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests of coverage/debug.py"""
 
@@ -11,8 +11,8 @@ import os
 import re
 import sys
 
-from typing import Any, Callable
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import pytest
 
@@ -231,7 +231,7 @@ class DebugTraceTest(CoverageTest):
     def test_debug_sys_ctracer(self) -> None:
         out_text = self.f1_debug_output(["sys"])
         tracer_line = re_line(r"CTracer:", out_text).strip()
-        if testenv.C_TRACER or testenv.SYS_MON:
+        if testenv.C_TRACER:
             assert tracer_line.startswith("CTracer: available from ")
         else:
             assert tracer_line == "CTracer: unavailable"
@@ -243,6 +243,11 @@ class DebugTraceTest(CoverageTest):
         pyversion = re_line(r" PYVERSION:", out_text)
         vtuple = ast.literal_eval(pyversion.partition(":")[-1].strip())
         assert vtuple[:5] == sys.version_info
+
+    def test_debug_sqlite(self) -> None:
+        out_text = self.f1_debug_output(["sqlite"])
+        assert "sqlite3_compile_options:" in out_text
+        # The rest of the output is tested in test_cmdline.py:test_debug_sqlite
 
     def test_debug_process(self) -> None:
         out_text = self.f1_debug_output(["trace", "process"])

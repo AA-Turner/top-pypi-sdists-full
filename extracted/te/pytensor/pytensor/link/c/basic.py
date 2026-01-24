@@ -15,10 +15,8 @@ from pytensor.configdefaults import config
 from pytensor.graph.basic import (
     AtomicVariable,
     Constant,
-    NoParams,
-    io_toposort,
-    vars_between,
 )
+from pytensor.graph.traversal import io_toposort, vars_between
 from pytensor.graph.utils import MethodNotDefined
 from pytensor.link.basic import Container, Linker, LocalLinker, PerformLinker
 from pytensor.link.c.cmodule import (
@@ -31,8 +29,10 @@ from pytensor.link.c.cmodule import (
 from pytensor.link.c.cmodule import get_module_cache as _get_module_cache
 from pytensor.link.c.interface import CLinkerObject, CLinkerOp, CLinkerType
 from pytensor.link.utils import gc_helper, map_storage, raise_with_op, streamline
-from pytensor.npy_2_compat import ndarray_c_version
-from pytensor.utils import difference, uniq
+from pytensor.utils import NDARRAY_C_VERSION, difference, uniq
+
+
+NoParams = object()
 
 
 if TYPE_CHECKING:
@@ -108,12 +108,12 @@ def failure_code(sub, use_goto=True):
         be careful to avoid executing incorrect code.
 
     """
-    if use_goto:
-        goto_statement = "goto __label_%(id)i;" % sub
-    else:
-        goto_statement = ""
     id = sub["id"]
     failure_var = sub["failure_var"]
+    if use_goto:
+        goto_statement = f"goto __label_{id};"
+    else:
+        goto_statement = ""
     return f"""{{
         {failure_var} = {id};
         if (!PyErr_Occurred()) {{
@@ -821,9 +821,9 @@ class CLinker(Linker):
 
             behavior = op.c_code(node, name, isyms, osyms, sub)
 
-            assert isinstance(
-                behavior, str
-            ), f"{node.op} didn't return a string for c_code"
+            assert isinstance(behavior, str), (
+                f"{node.op} didn't return a string for c_code"
+            )
             # To help understand what is following. It help read the c code.
             # This prevent different op that generate the same c code
             # to be merged, I suppose this won't happen...
@@ -1366,7 +1366,7 @@ class CLinker(Linker):
 
         # We must always add the numpy ABI version here as
         # DynamicModule always add the include <numpy/arrayobject.h>
-        sig.append(f"NPY_ABI_VERSION=0x{ndarray_c_version:X}")
+        sig.append(f"NPY_ABI_VERSION=0x{NDARRAY_C_VERSION:X}")
         if c_compiler:
             sig.append("c_compiler_str=" + c_compiler.version_str())
 
@@ -1392,7 +1392,8 @@ class CLinker(Linker):
 
             # It is important that a variable (i)
             # yield a 'position' that reflects its role in code_gen()
-            if isinstance(i, AtomicVariable):  # orphans
+            inp_sig = isig = fgraph_inputs_dict.get(i, False)  # inputs
+            if isinstance(i, AtomicVariable):  # orphans or constant inputs
                 if id(i) not in constant_ids:
                     isig = (i.signature(), topological_pos, i_idx)
                     # If the PyTensor constant provides a strong hash
@@ -1412,11 +1413,7 @@ class CLinker(Linker):
                     constant_ids[id(i)] = isig
                 else:
                     isig = constant_ids[id(i)]
-                # print 'SIGNATURE', i.signature()
-                # return i.signature()
-            elif i in fgraph_inputs_dict:  # inputs
-                isig = fgraph_inputs_dict[i]
-            else:
+            elif inp_sig is None:
                 if i.owner is None:
                     assert all(all(out is not None for out in o.outputs) for o in order)
                     assert all(input.owner is None for input in fgraph.inputs)
@@ -1432,7 +1429,7 @@ class CLinker(Linker):
                     )
                 else:
                     isig = (op_pos[i.owner], i.owner.outputs.index(i))  # temps
-            return (isig, i in no_recycling)
+            return (inp_sig, isig, i in no_recycling)
 
         version = []
         for node_pos, node in enumerate(order):
@@ -1738,7 +1735,7 @@ class _CThunk:
     def __call__(self):
         failure = self.run_cthunk(self.cthunk)
         if failure:
-            task, taskname, id = self.find_task(failure)
+            task, _taskname, _id = self.find_task(failure)
             try:
                 trace = task.trace
             except AttributeError:
@@ -1753,8 +1750,7 @@ class _CThunk:
             except Exception:
                 print(  # noqa: T201
                     (
-                        "ERROR retrieving error_storage."
-                        "Was the error set in the c code?"
+                        "ERROR retrieving error_storage. Was the error set in the c code?"
                     ),
                     end=" ",
                     file=sys.stderr,
@@ -1790,8 +1786,6 @@ class OpWiseCLinker(LocalLinker):
     elements or less).
 
     """
-
-    __cache__: dict = {}
 
     def __init__(
         self, fallback_on_perform=True, allow_gc=None, nice_errors=True, schedule=None
@@ -1981,7 +1975,7 @@ class DualLinker(Linker):
             .make_all(**kwargs)
         )
         kwargs.pop("input_storage", None)
-        _f, i2, o2, thunks2, order2 = (
+        _f, i2, _o2, thunks2, order2 = (
             OpWiseCLinker(schedule=self.schedule)
             .accept(fgraph, no_recycling=no_recycling)
             .make_all(**kwargs)

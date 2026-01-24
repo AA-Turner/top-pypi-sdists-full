@@ -82,6 +82,9 @@ Keyword arguments:
 
 - display (optional)
 
+- editable (boolean; optional):
+    If True, the editor will be editable. True by default.
+
 - extensions (list; optional):
     List of extensions to be loaded by the editor. Each item can be
     either a string with the extension name (e.g. 'Color') or an
@@ -97,6 +100,12 @@ Keyword arguments:
     FontFamily.
 
 - flex (string | number; optional)
+
+- focus (number; optional):
+    If True, the editor will be focused. If False, the editor will be
+    blurred. Can also be a string ('start', 'end', 'all') or number to
+    focus at a specific position. Positive values start at the
+    beginning of the document - negative values at the end.
 
 - fs (optional):
     FontStyle.
@@ -462,7 +471,7 @@ Keyword arguments:
 - withTypographyStyles (boolean; optional):
     Determines whether typography styles should be added, True by
     default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'RichTextEditor'
@@ -599,6 +608,13 @@ Keyword arguments:
         }
     )
 
+    Extensions_CodeBlockLowlight = TypedDict(
+        "Extensions_CodeBlockLowlight",
+            {
+
+        }
+    )
+
     Extensions = TypedDict(
         "Extensions",
             {
@@ -620,7 +636,8 @@ Keyword arguments:
             "FontFamily": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_FontFamily"]],
             "FontSize": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_FontSize"]],
             "LineHeight": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_LineHeight"]],
-            "Color": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_Color"]]
+            "Color": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_Color"]],
+            "CodeBlockLowlight": NotRequired[typing.Dict[typing.Union[str, float, int], "Extensions_CodeBlockLowlight"]]
         }
     )
 
@@ -702,8 +719,10 @@ Keyword arguments:
         selected: typing.Optional[str] = None,
         debounce: typing.Optional[typing.Union[NumberType]] = None,
         n_blur: typing.Optional[NumberType] = None,
+        focus: typing.Optional[typing.Union[NumberType, Literal["start"], Literal["end"], Literal["all"]]] = None,
+        editable: typing.Optional[bool] = None,
         variant: typing.Optional[Literal["default", "subtle"]] = None,
-        extensions: typing.Optional[typing.Sequence[typing.Union[Literal["StarterKit"], Literal["Underline"], Literal["Link"], Literal["Superscript"], Literal["Subscript"], Literal["Highlight"], Literal["TextAlign"], Literal["TextStyle"], Literal["Table"], Literal["TableCell"], Literal["TableRow"], Literal["TableHeader"], Literal["Placeholder"], Literal["Image"], Literal["BackgroundColor"], Literal["FontFamily"], Literal["FontSize"], Literal["LineHeight"], Literal["Color"]]]] = None,
+        extensions: typing.Optional[typing.Sequence[typing.Union[Literal["StarterKit"], Literal["Underline"], Literal["Link"], Literal["Superscript"], Literal["Subscript"], Literal["Highlight"], Literal["TextAlign"], Literal["TextStyle"], Literal["Table"], Literal["TableCell"], Literal["TableRow"], Literal["TableHeader"], Literal["Placeholder"], Literal["Image"], Literal["BackgroundColor"], Literal["FontFamily"], Literal["FontSize"], Literal["LineHeight"], Literal["Color"], Literal["CodeBlockLowlight"]]]] = None,
         toolbar: typing.Optional["Toolbar"] = None,
         withCodeHighlightStyles: typing.Optional[bool] = None,
         withTypographyStyles: typing.Optional[bool] = None,
@@ -742,7 +761,7 @@ Keyword arguments:
         fz: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"], Literal["h1"], Literal["h2"], Literal["h3"], Literal["h4"], Literal["h5"], Literal["h6"]]] = None,
         fw: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["bold"], Literal["normal"], Literal["bolder"], Literal["lighter"]]] = None,
         lts: typing.Optional[typing.Union[str, NumberType]] = None,
-        ta: typing.Optional[typing.Union[Literal["left"], Literal["right"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["-webkit-match-parent"], Literal["center"], Literal["end"], Literal["justify"], Literal["match-parent"], Literal["start"]]] = None,
+        ta: typing.Optional[typing.Union[Literal["left"], Literal["right"], Literal["start"], Literal["end"], Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["-webkit-match-parent"], Literal["center"], Literal["justify"], Literal["match-parent"]]] = None,
         lh: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"], Literal["h1"], Literal["h2"], Literal["h3"], Literal["h4"], Literal["h5"], Literal["h6"]]] = None,
         fs: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["normal"], Literal["italic"], Literal["oblique"]]] = None,
         tt: typing.Optional[typing.Union[Literal["-moz-initial"], Literal["inherit"], Literal["initial"], Literal["revert"], Literal["revert-layer"], Literal["unset"], Literal["none"], Literal["capitalize"], Literal["full-size-kana"], Literal["full-width"], Literal["lowercase"], Literal["uppercase"]]] = None,
@@ -777,9 +796,9 @@ Keyword arguments:
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self._prop_names = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self._valid_wildcard_attributes =            ['data-', 'aria-']
-        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'extensions', 'ff', 'flex', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
+        self.available_properties = ['id', 'aria-*', 'attributes', 'bd', 'bdrs', 'bg', 'bga', 'bgp', 'bgr', 'bgsz', 'bottom', 'c', 'className', 'classNames', 'darkHidden', 'data-*', 'debounce', 'display', 'editable', 'extensions', 'ff', 'flex', 'focus', 'fs', 'fw', 'fz', 'h', 'hiddenFrom', 'html', 'inset', 'json', 'labels', 'left', 'lh', 'lightHidden', 'loading_state', 'lts', 'm', 'mah', 'maw', 'mb', 'me', 'mih', 'miw', 'ml', 'mod', 'mr', 'ms', 'mt', 'mx', 'my', 'n_blur', 'opacity', 'p', 'pb', 'pe', 'persisted_props', 'persistence', 'persistence_type', 'pl', 'pos', 'pr', 'ps', 'pt', 'px', 'py', 'right', 'selected', 'style', 'styles', 'ta', 'tabIndex', 'td', 'toolbar', 'top', 'tt', 'unstyled', 'variant', 'visibleFrom', 'w', 'withCodeHighlightStyles', 'withTypographyStyles']
         self.available_wildcard_properties =            ['data-', 'aria-']
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()

@@ -450,7 +450,7 @@ class ServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["service"]:
+        if _params["service"] is not None:
             _body_params = _params["service"]
 
         # set the HTTP header `Accept`
@@ -762,7 +762,7 @@ class ServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["service"]:
+        if _params["service"] is not None:
             _body_params = _params["service"]
 
         # set the HTTP header `Accept`
@@ -1038,7 +1038,7 @@ class ServiceApi:
         # process the body parameter
         _body_params = None
 
-        if _params["job_service"]:
+        if _params["job_service"] is not None:
             _body_params = _params["job_service"]
 
         # set the HTTP header `Accept`

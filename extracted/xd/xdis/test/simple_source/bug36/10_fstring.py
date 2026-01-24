@@ -89,7 +89,7 @@ assert f'x={x*y:{width}}' == 'x=foofoo    '
 
 # Why the fact that the distinction of docstring versus stmt is a
 # string expression is important academic, but we will decompile an
-# equivalent thing. For compatibility with older Python we'll use "%"
+# equivalent thing. For compatiblity with older Python we'll use "%"
 # instead of a format string
 def f():
     f'''Not a docstring'''

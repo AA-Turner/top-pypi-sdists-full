@@ -74,6 +74,8 @@ class OverlayType(EnumBase, Enum):
     MacroEvents = 'MacroEvents'
     MicroEvents = 'MicroEvents'
     Gamma = 'Gamma'
+    Volatility = 'Volatility'
+    VolatilityDistribution = 'VolatilityDistribution'
     _None = 'None'    
 
 
@@ -83,7 +85,9 @@ class PriceFormat(EnumBase, Enum):
 
     Absolute = 'Absolute'
     Relative = 'Relative'
-    Cents = 'Cents'    
+    Cents = 'Cents'
+    Bps = 'Bps'
+    Percentage = 'Percentage'
 
 
 class RelativeExpiryType(EnumBase, Enum):    

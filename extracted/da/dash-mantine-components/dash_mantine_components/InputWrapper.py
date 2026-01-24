@@ -283,7 +283,7 @@ Keyword arguments:
     Determines whether the required asterisk should be displayed.
     Overrides `required` prop. Does not add required attribute to the
     input. `False` by default."""
-    _children_props = ['label', 'description', 'error']
+    _children_props: typing.List[str] = ['label', 'description', 'error']
     _base_nodes = ['label', 'description', 'error', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'InputWrapper'

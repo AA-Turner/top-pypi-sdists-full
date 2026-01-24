@@ -1,10 +1,8 @@
 """Test collection of test functions"""
 
-from textwrap import dedent
 
-
-def test_collect_only(testdir):
-    testdir.makepyfile(
+def test_collect_only(pytester):
+    pytester.makepyfile(
         """
         def describe_something():
             def is_foo():
@@ -21,27 +19,29 @@ def test_collect_only(testdir):
             pass
         def test_something():
             pass
-        """)
+        """
+    )
 
-    result = testdir.runpytest('--collectonly')
+    result = pytester.runpytest("--collectonly")
     result.assert_outcomes()
 
-    output = '\n'.join(line.lstrip() for line in result.outlines)
-    assert "collected 4 items" in output
-    assert dedent("""
-        <Module test_collect_only.py>
-        <DescribeBlock 'describe_something'>
-        <Function is_foo>
-        <Function can_bar>
-        <DescribeBlock 'describe_something_else'>
-        <DescribeBlock 'describe_nested'>
-        <Function a_test>
-        <Function test_something>
-        """) in output
+    result.stdout.fnmatch_lines(
+        [
+            "*collected 4 items*",
+            "*<Module test_collect_only.py>",
+            "*<DescribeBlock 'describe_something'>",
+            "*<Function is_foo>",
+            "*<Function can_bar>",
+            "*<DescribeBlock 'describe_something_else'>",
+            "*<DescribeBlock 'describe_nested'>",
+            "*<Function a_test>",
+            "*<Function test_something>",
+        ]
+    )
 
 
-def test_describe_evaluated_once(testdir):
-    testdir.makepyfile(
+def test_describe_evaluated_once(pytester):
+    pytester.makepyfile(
         """
         count = 0
         def describe_is_evaluated_only_once():
@@ -54,7 +54,8 @@ def test_describe_evaluated_once(testdir):
             def describe_nested():
                 def three():
                     assert count == 1
-    """)
+    """
+    )
 
-    result = testdir.runpytest('-v')
+    result = pytester.runpytest("-v")
     result.assert_outcomes(passed=3)

@@ -16,7 +16,6 @@ short_description: Script table.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -191,6 +190,8 @@ options:
                     - 'cli'
                     - 'tcl'
                     - 'cligrp'
+                    - 'tclgrp'
+                    - 'jinja'
 '''
 
 EXAMPLES = '''
@@ -290,8 +291,8 @@ EXAMPLES = '''
     - name: Enable workspace mode
       fortinet.fortimanager.fmgr_system_global:
         system_global:
-          adom-status: enable
-          workspace-mode: normal
+          adom_status: enable
+          workspace_mode: normal
 
     - name: Script table.
       fortinet.fortimanager.fmgr_dvmdb_script:
@@ -318,8 +319,8 @@ EXAMPLES = '''
     - name: Restore workspace mode
       fortinet.fortimanager.fmgr_system_global:
         system_global:
-          adom-status: enable
-          workspace-mode: disabled
+          adom_status: enable
+          workspace_mode: disabled
 '''
 
 RETURN = '''
@@ -405,7 +406,7 @@ def main():
                     'elements': 'dict'
                 },
                 'target': {'choices': ['device_database', 'remote_device', 'adom_database'], 'type': 'str'},
-                'type': {'choices': ['cli', 'tcl', 'cligrp'], 'type': 'str'}
+                'type': {'choices': ['cli', 'tcl', 'cligrp', 'tclgrp', 'jinja'], 'type': 'str'}
             }
         }
     }

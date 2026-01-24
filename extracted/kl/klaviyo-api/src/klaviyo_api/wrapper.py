@@ -19,7 +19,7 @@ class KlaviyoAPI:
     options: Dict[str, Any] = field(default_factory=dict)
 
 
-    _REVISION = "2025-07-15"
+    _REVISION = "2026-01-15"
 
     _STATUS_CODE_CONNECTION_RESET_BY_PEER = 104
     _STATUS_CODE_TOO_MANY_REQUESTS = 429
@@ -321,6 +321,8 @@ class KlaviyoAPI:
         Custom_Objects.bulk_create_data_source_records=self._page_cursor_update(self.retry_logic(Custom_Objects.bulk_create_data_source_records))
         Custom_Objects.create_data_source_record_bulk_create_job=self._page_cursor_update(self.retry_logic(Custom_Objects.create_data_source_record_bulk_create_job))
         Custom_Objects.create_data_source=self._page_cursor_update(self.retry_logic(Custom_Objects.create_data_source))
+        Custom_Objects.create_data_source_record=self._page_cursor_update(self.retry_logic(Custom_Objects.create_data_source_record))
+        Custom_Objects.create_data_source_record_create_job=self._page_cursor_update(self.retry_logic(Custom_Objects.create_data_source_record_create_job))
         Custom_Objects.delete_data_source=self._page_cursor_update(self.retry_logic(Custom_Objects.delete_data_source))
         Custom_Objects.get_data_source=self._page_cursor_update(self.retry_logic(Custom_Objects.get_data_source))
         Custom_Objects.get_data_sources=self._page_cursor_update(self.retry_logic(Custom_Objects.get_data_sources))
@@ -405,6 +407,7 @@ class KlaviyoAPI:
         Flows.get_template_id_for_flow_message=self._page_cursor_update(self.retry_logic(Flows.get_template_id_for_flow_message))
         Flows.get_flow_message_relationships_template=self._page_cursor_update(self.retry_logic(Flows.get_flow_message_relationships_template))
         Flows.update_flow=self._page_cursor_update(self.retry_logic(Flows.update_flow))
+        Flows.update_flow_action=self._page_cursor_update(self.retry_logic(Flows.update_flow_action))
         
         return Flows
     
@@ -416,6 +419,7 @@ class KlaviyoAPI:
         Forms=forms_api.FormsApi(self.api_client)
 
         ## Applying retry decorator to each endpoint in Forms
+        Forms.create_form=self._page_cursor_update(self.retry_logic(Forms.create_form))
         Forms.delete_form=self._page_cursor_update(self.retry_logic(Forms.delete_form))
         Forms.get_form=self._page_cursor_update(self.retry_logic(Forms.get_form))
         Forms.get_form_for_form_version=self._page_cursor_update(self.retry_logic(Forms.get_form_for_form_version))

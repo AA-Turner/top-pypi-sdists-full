@@ -5,11 +5,19 @@
  * found in the LICENSE file.
  */
 
+#include "modules/svg/include/SkSVGAttributeParser.h"
+
+#include "include/core/SkMatrix.h"
+#include "include/core/SkPoint.h"
+#include "include/core/SkRect.h"
+#include "include/core/SkString.h"
 #include "include/private/base/SkTPin.h"
 #include "include/utils/SkParse.h"
-#include "modules/svg/include/SkSVGAttributeParser.h"
 #include "modules/svg/include/SkSVGTypes.h"
 #include "src/base/SkUTF.h"
+
+#include <math.h>
+#include <utility>
 
 namespace {
 
@@ -288,43 +296,52 @@ bool SkSVGAttributeParser::parseHexColorToken(SkColor* c) {
     return true;
 }
 
-bool SkSVGAttributeParser::parseColorComponentToken(int32_t* c) {
-    const auto parseIntegral = [this](int32_t* c) -> bool {
-        const char* p = SkParse::FindS32(fCurPos, c);
-        if (!p || *p == '.') {
-            // No value parsed, or fractional value.
-            return false;
-        }
-
-        if (*p == '%') {
-            *c = SkScalarRoundToInt(*c * 255.0f / 100);
-            p++;
-        }
-
-        fCurPos = p;
-        return true;
-    };
-
-    const auto parseFractional = [this](int32_t* c) -> bool {
-        SkScalar s;
-        const char* p = SkParse::FindScalar(fCurPos, &s);
-        if (!p || *p != '%') {
-            // Floating point must be a percentage (CSS2 rgb-percent syntax).
-            return false;
-        }
-        p++;  // Skip '%'
-
-        *c = SkScalarRoundToInt(s * 255.0f / 100);
-        fCurPos = p;
-        return true;
-    };
-
-    if (!parseIntegral(c) && !parseFractional(c)) {
+bool SkSVGAttributeParser::parseColorComponentIntegralToken(int32_t* c) {
+    const char* p = SkParse::FindS32(fCurPos, c);
+    if (!p || *p == '.') {
+        // No value parsed, or fractional value.
         return false;
     }
 
-    *c = SkTPin<int32_t>(*c, 0, 255);
+    if (*p == '%') {
+        *c = SkScalarRoundToInt(*c * 255.0f / 100);
+        *c = SkTPin<int32_t>(*c, 0, 255);
+        p++;
+    }
+
+    fCurPos = p;
     return true;
+}
+
+bool SkSVGAttributeParser::parseColorComponentFractionalToken(int32_t* c) {
+    SkScalar s;
+    const char* p = SkParse::FindScalar(fCurPos, &s);
+    if (!p || *p != '%') {
+        // Floating point must be a percentage (CSS2 rgb-percent syntax).
+        return false;
+    }
+    p++;  // Skip '%'
+
+    *c = SkScalarRoundToInt(s * 255.0f / 100);
+    *c = SkTPin<int32_t>(*c, 0, 255);
+    fCurPos = p;
+    return true;
+}
+
+bool SkSVGAttributeParser::parseColorComponentScalarToken(int32_t* c) {
+    SkScalar s;
+    if (const char* p = SkParse::FindScalar(fCurPos, &s)) {
+        *c = SkScalarRoundToInt(s * 255.0f);
+        *c = SkTPin<int32_t>(*c, 0, 255);
+        fCurPos = p;
+        return true;
+    }
+    return false;
+}
+
+bool SkSVGAttributeParser::parseColorComponentToken(int32_t* c) {
+    return parseColorComponentIntegralToken(c) ||
+           parseColorComponentFractionalToken(c);
 }
 
 bool SkSVGAttributeParser::parseRGBColorToken(SkColor* c) {
@@ -345,9 +362,31 @@ bool SkSVGAttributeParser::parseRGBColorToken(SkColor* c) {
     }, c);
 }
 
+bool SkSVGAttributeParser::parseRGBAColorToken(SkColor* c) {
+    return this->parseParenthesized("rgba", [this](SkColor* c) -> bool {
+        int32_t r, g, b, a;
+        if (this->parseColorComponentToken(&r) &&
+            this->parseSepToken() &&
+            this->parseColorComponentToken(&g) &&
+            this->parseSepToken() &&
+            this->parseColorComponentToken(&b) &&
+            this->parseSepToken() &&
+            this->parseColorComponentScalarToken(&a)) {
+
+            *c = SkColorSetARGB(static_cast<uint8_t>(a),
+                                static_cast<uint8_t>(r),
+                                static_cast<uint8_t>(g),
+                                static_cast<uint8_t>(b));
+            return true;
+        }
+        return false;
+    }, c);
+}
+
 bool SkSVGAttributeParser::parseColorToken(SkColor* c) {
     return this->parseHexColorToken(c) ||
            this->parseNamedColorToken(c) ||
+           this->parseRGBAColorToken(c) ||
            this->parseRGBColorToken(c);
 }
 
@@ -800,7 +839,7 @@ bool SkSVGAttributeParser::parse(SkSVGObjectBoundingBoxUnits* objectBoundingBoxU
 // https://www.w3.org/TR/SVG11/shapes.html#PolygonElementPointsAttribute
 template <>
 bool SkSVGAttributeParser::parse(SkSVGPointsType* points) {
-    SkTDArray<SkPoint> pts;
+    SkSVGPointsType pts;
 
     // Skip initial wsp.
     // list-of-points:
@@ -839,7 +878,7 @@ bool SkSVGAttributeParser::parse(SkSVGPointsType* points) {
     }
 
     if (parsedValue && this->parseEOSToken()) {
-        *points = pts;
+        *points = std::move(pts);
         return true;
     }
 
@@ -906,7 +945,7 @@ bool SkSVGAttributeParser::parse(SkSVGDashArray* dashArray) {
         *dashArray = SkSVGDashArray(SkSVGDashArray::Type::kInherit);
         parsedValue = true;
     } else {
-        SkTDArray<SkSVGLength> dashes;
+        std::vector<SkSVGLength> dashes;
         for (;;) {
             SkSVGLength dash;
             // parseLength() also consumes trailing separators.

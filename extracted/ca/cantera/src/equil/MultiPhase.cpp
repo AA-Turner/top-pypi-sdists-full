@@ -43,6 +43,12 @@ void MultiPhase::addPhases(vector<ThermoPhase*>& phases,
     init();
 }
 
+void MultiPhase::addPhase(shared_ptr<ThermoPhase> p, double moles)
+{
+    addPhase(p.get(), moles);
+    m_sharedPhase.back() = p;
+}
+
 void MultiPhase::addPhase(ThermoPhase* p, double moles)
 {
     if (m_init) {
@@ -57,6 +63,7 @@ void MultiPhase::addPhase(ThermoPhase* p, double moles)
 
     // save the pointer to the phase object
     m_phase.push_back(p);
+    m_sharedPhase.push_back(nullptr);
 
     // store its number of moles
     m_moles.push_back(moles);
@@ -132,7 +139,7 @@ void MultiPhase::init()
         for (size_t ip = 0; ip < nPhases(); ip++) {
             ThermoPhase* p = m_phase[ip];
             size_t nsp = p->nSpecies();
-            size_t mlocal = p->elementIndex(m_enames[m]);
+            size_t mlocal = p->elementIndex(m_enames[m], false);
             for (size_t kp = 0; kp < nsp; kp++) {
                 if (mlocal != npos) {
                     m_atoms(m, k) = p->nAtoms(kp, mlocal);
@@ -167,15 +174,18 @@ ThermoPhase& MultiPhase::phase(size_t n)
     return *m_phase[n];
 }
 
-void MultiPhase::checkPhaseIndex(size_t m) const
+size_t MultiPhase::checkPhaseIndex(size_t m) const
 {
-    if (m >= nPhases()) {
-        throw IndexError("MultiPhase::checkPhaseIndex", "phase", m, nPhases()-1);
+    if (m < nPhases()) {
+        return m;
     }
+    throw IndexError("MultiPhase::checkPhaseIndex", "phase", m, nPhases());
 }
 
 void MultiPhase::checkPhaseArraySize(size_t mm) const
 {
+    warn_deprecated("MultiPhase::checkPhaseArraySize",
+        "To be removed after Cantera 3.2. Unused.");
     if (nPhases() > mm) {
         throw ArraySizeError("MultiPhase::checkPhaseIndex", mm, nPhases());
     }
@@ -216,14 +226,8 @@ size_t MultiPhase::speciesIndex(const string& speciesName, const string& phaseNa
     if (!m_init) {
         init();
     }
-    size_t p = phaseIndex(phaseName);
-    if (p == npos) {
-        throw CanteraError("MultiPhase::speciesIndex", "phase not found: " + phaseName);
-    }
-    size_t k = m_phase[p]->speciesIndex(speciesName);
-    if (k == npos) {
-        throw CanteraError("MultiPhase::speciesIndex", "species not found: " + speciesName);
-    }
+    size_t p = phaseIndex(phaseName, true);
+    size_t k = m_phase[p]->speciesIndex(speciesName, true);
     return m_spstart[p] + k;
 }
 
@@ -710,15 +714,18 @@ void MultiPhase::setTemperature(const double T)
     updatePhases();
 }
 
-void MultiPhase::checkElementIndex(size_t m) const
+size_t MultiPhase::checkElementIndex(size_t m) const
 {
-    if (m >= m_nel) {
-        throw IndexError("MultiPhase::checkElementIndex", "elements", m, m_nel-1);
+    if (m < m_nel) {
+        return m;
     }
+    throw IndexError("MultiPhase::checkElementIndex", "elements", m, m_nel);
 }
 
 void MultiPhase::checkElementArraySize(size_t mm) const
 {
+    warn_deprecated("MultiPhase::checkElementArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_nel > mm) {
         throw ArraySizeError("MultiPhase::checkElementArraySize", mm, m_nel);
     }
@@ -726,36 +733,59 @@ void MultiPhase::checkElementArraySize(size_t mm) const
 
 string MultiPhase::elementName(size_t m) const
 {
-    return m_enames[m];
+    if (m < m_nel) {
+        return m_enames[m];
+    }
+    throw IndexError("MultiPhase::elementName", "element", m, m_nel);
 }
 
 size_t MultiPhase::elementIndex(const string& name) const
+{
+    size_t ix = elementIndex(name, false);
+    if (ix == npos) {
+        warn_deprecated("MultiPhase::elementIndex", "'raise' argument not specified; "
+            "Default behavior will change from returning npos to throwing an exception "
+            "after Cantera 3.2.");
+    }
+    return ix;
+}
+
+size_t MultiPhase::elementIndex(const string& name, bool raise) const
 {
     for (size_t e = 0; e < m_nel; e++) {
         if (m_enames[e] == name) {
             return e;
         }
     }
-    return npos;
+    if (!raise) {
+        return npos;
+    }
+    throw CanteraError("MultiPhase::elementIndex", "Element '{}' not found", name);
 }
 
-void MultiPhase::checkSpeciesIndex(size_t k) const
+size_t MultiPhase::checkSpeciesIndex(size_t k) const
 {
-    if (k >= m_nsp) {
-        throw IndexError("MultiPhase::checkSpeciesIndex", "species", k, m_nsp-1);
+    if (k < m_nsp) {
+        return k;
     }
+    throw IndexError("MultiPhase::checkSpeciesIndex", "species", k, m_nsp);
 }
 
 void MultiPhase::checkSpeciesArraySize(size_t kk) const
 {
+    warn_deprecated("MultiPhase::checkSpeciesArraySize",
+        "To be removed after Cantera 3.2. Only used by legacy CLib.");
     if (m_nsp > kk) {
         throw ArraySizeError("MultiPhase::checkSpeciesArraySize", kk, m_nsp);
     }
 }
 
-string MultiPhase::speciesName(const size_t k) const
+string MultiPhase::speciesName(size_t k) const
 {
-    return m_snames[k];
+    if (k < m_nsp) {
+        return m_snames[k];
+    }
+    throw IndexError("MultiPhase::speciesName", "species", k, m_nsp);
 }
 
 double MultiPhase::nAtoms(const size_t kGlob, const size_t mGlob) const
@@ -768,19 +798,36 @@ void MultiPhase::getMoleFractions(double* const x) const
     std::copy(m_moleFractions.begin(), m_moleFractions.end(), x);
 }
 
-string MultiPhase::phaseName(const size_t iph) const
+string MultiPhase::phaseName(size_t iph) const
 {
-    return m_phase[iph]->name();
+    if (iph < m_phase.size()) {
+        return m_phase[iph]->name();
+    }
+    throw IndexError("MultiPhase::phaseName", "phase", iph, m_phase.size());
 }
 
 int MultiPhase::phaseIndex(const string& pName) const
+{
+    size_t ix = phaseIndex(pName, false);
+    if (ix == npos) {
+        warn_deprecated("MultiPhase::phaseIndex", "'raise' argument not specified; "
+            "Default behavior will change from returning -1 to throwing an exception "
+            "after Cantera 3.2. 'npos' will be return instead of -1 if 'raise=true'.");
+    }
+    return ix;
+}
+
+size_t MultiPhase::phaseIndex(const string& pName, bool raise) const
 {
     for (int iph = 0; iph < (int) nPhases(); iph++) {
         if (m_phase[iph]->name() == pName) {
             return iph;
         }
     }
-    return -1;
+    if (!raise) {
+        return npos;
+    }
+    throw CanteraError("MultiPhase::phaseIndex", "Phase '{}' not found", pName);
 }
 
 double MultiPhase::phaseMoles(const size_t n) const

@@ -3,7 +3,7 @@ Type annotations for dataexchange service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dataexchange/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -39,12 +40,6 @@ from .literals import (
     TypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -208,7 +203,7 @@ class AcceptDataGrantRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -286,7 +281,7 @@ class DataGrantSummaryEntryTypeDef(TypedDict):
 
 class LFTagOutputTypeDef(TypedDict):
     TagKey: str
-    TagValues: List[str]
+    TagValues: list[str]
 
 class LFTagTypeDef(TypedDict):
     TagKey: str
@@ -570,7 +565,7 @@ class CreateDataGrantResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
     UpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateRevisionResponseTypeDef(TypedDict):
@@ -581,7 +576,7 @@ class CreateRevisionResponseTypeDef(TypedDict):
     Finalized: bool
     Id: str
     SourceId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     RevocationComment: str
     Revoked: bool
@@ -606,7 +601,7 @@ class GetDataGrantResponseTypeDef(TypedDict):
     Arn: str
     CreatedAt: datetime
     UpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetReceivedDataGrantResponseTypeDef(TypedDict):
@@ -633,7 +628,7 @@ class GetRevisionResponseTypeDef(TypedDict):
     Finalized: bool
     Id: str
     SourceId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     RevocationComment: str
     Revoked: bool
@@ -641,7 +636,7 @@ class GetRevisionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RevokeRevisionResponseTypeDef(TypedDict):
@@ -660,7 +655,7 @@ class RevokeRevisionResponseTypeDef(TypedDict):
 
 class SendApiAssetResponseTypeDef(TypedDict):
     Body: str
-    ResponseHeaders: Dict[str, str]
+    ResponseHeaders: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRevisionResponseTypeDef(TypedDict):
@@ -683,7 +678,7 @@ class ImportAssetsFromS3RequestDetailsTypeDef(TypedDict):
     RevisionId: str
 
 class ImportAssetsFromS3ResponseDetailsTypeDef(TypedDict):
-    AssetSources: List[AssetSourceEntryTypeDef]
+    AssetSources: list[AssetSourceEntryTypeDef]
     DataSetId: str
     RevisionId: str
 
@@ -698,7 +693,7 @@ class ExportAssetsToS3RequestDetailsTypeDef(TypedDict):
     Encryption: NotRequired[ExportServerSideEncryptionTypeDef]
 
 class ExportAssetsToS3ResponseDetailsTypeDef(TypedDict):
-    AssetDestinations: List[AssetDestinationEntryTypeDef]
+    AssetDestinations: list[AssetDestinationEntryTypeDef]
     DataSetId: str
     RevisionId: str
     Encryption: NotRequired[ExportServerSideEncryptionTypeDef]
@@ -728,7 +723,7 @@ class CreateDataSetResponseTypeDef(TypedDict):
     Origin: OriginType
     OriginDetails: OriginDetailsTypeDef
     SourceId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -754,7 +749,7 @@ class GetDataSetResponseTypeDef(TypedDict):
     Origin: OriginType
     OriginDetails: OriginDetailsTypeDef
     SourceId: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -772,23 +767,23 @@ class UpdateDataSetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDataGrantsResponseTypeDef(TypedDict):
-    DataGrantSummaries: List[DataGrantSummaryEntryTypeDef]
+    DataGrantSummaries: list[DataGrantSummaryEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DatabaseLFTagPolicyAndPermissionsOutputTypeDef(TypedDict):
-    Expression: List[LFTagOutputTypeDef]
-    Permissions: List[Literal["DESCRIBE"]]
+    Expression: list[LFTagOutputTypeDef]
+    Permissions: list[Literal["DESCRIBE"]]
 
 class DatabaseLFTagPolicyTypeDef(TypedDict):
-    Expression: List[LFTagOutputTypeDef]
+    Expression: list[LFTagOutputTypeDef]
 
 class TableLFTagPolicyAndPermissionsOutputTypeDef(TypedDict):
-    Expression: List[LFTagOutputTypeDef]
-    Permissions: List[TableTagPolicyLFPermissionType]
+    Expression: list[LFTagOutputTypeDef]
+    Permissions: list[TableTagPolicyLFPermissionType]
 
 class TableLFTagPolicyTypeDef(TypedDict):
-    Expression: List[LFTagOutputTypeDef]
+    Expression: list[LFTagOutputTypeDef]
 
 class DatabaseLFTagPolicyAndPermissionsTypeDef(TypedDict):
     Expression: Sequence[LFTagTypeDef]
@@ -800,7 +795,7 @@ class DetailsTypeDef(TypedDict):
     ImportAssetFromSignedUrlJobErrorDetails: NotRequired[
         ImportAssetFromSignedUrlJobErrorDetailsTypeDef
     ]
-    ImportAssetsFromS3JobErrorDetails: NotRequired[List[AssetSourceEntryTypeDef]]
+    ImportAssetsFromS3JobErrorDetails: NotRequired[list[AssetSourceEntryTypeDef]]
 
 class EventTypeDef(TypedDict):
     RevisionPublished: NotRequired[RevisionPublishedTypeDef]
@@ -812,7 +807,7 @@ class ExportRevisionsToS3RequestDetailsTypeDef(TypedDict):
 
 class ExportRevisionsToS3ResponseDetailsTypeDef(TypedDict):
     DataSetId: str
-    RevisionDestinations: List[RevisionDestinationEntryTypeDef]
+    RevisionDestinations: list[RevisionDestinationEntryTypeDef]
     Encryption: NotRequired[ExportServerSideEncryptionTypeDef]
     EventActionArn: NotRequired[str]
 
@@ -822,15 +817,15 @@ class ImportAssetsFromRedshiftDataSharesRequestDetailsTypeDef(TypedDict):
     RevisionId: str
 
 class ImportAssetsFromRedshiftDataSharesResponseDetailsTypeDef(TypedDict):
-    AssetSources: List[RedshiftDataShareAssetSourceEntryTypeDef]
+    AssetSources: list[RedshiftDataShareAssetSourceEntryTypeDef]
     DataSetId: str
     RevisionId: str
 
 class S3DataAccessAssetSourceEntryOutputTypeDef(TypedDict):
     Bucket: str
-    KeyPrefixes: NotRequired[List[str]]
-    Keys: NotRequired[List[str]]
-    KmsKeysToGrant: NotRequired[List[KmsKeyToGrantTypeDef]]
+    KeyPrefixes: NotRequired[list[str]]
+    Keys: NotRequired[list[str]]
+    KmsKeysToGrant: NotRequired[list[KmsKeyToGrantTypeDef]]
 
 class S3DataAccessAssetSourceEntryTypeDef(TypedDict):
     Bucket: str
@@ -840,11 +835,11 @@ class S3DataAccessAssetSourceEntryTypeDef(TypedDict):
 
 class S3DataAccessAssetTypeDef(TypedDict):
     Bucket: str
-    KeyPrefixes: NotRequired[List[str]]
-    Keys: NotRequired[List[str]]
+    KeyPrefixes: NotRequired[list[str]]
+    Keys: NotRequired[list[str]]
     S3AccessPointAlias: NotRequired[str]
     S3AccessPointArn: NotRequired[str]
-    KmsKeysToGrant: NotRequired[List[KmsKeyToGrantTypeDef]]
+    KmsKeysToGrant: NotRequired[list[KmsKeyToGrantTypeDef]]
 
 class ListDataGrantsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -876,12 +871,12 @@ class ListRevisionAssetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDataSetRevisionsResponseTypeDef(TypedDict):
-    Revisions: List[RevisionEntryTypeDef]
+    Revisions: list[RevisionEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListReceivedDataGrantsResponseTypeDef(TypedDict):
-    DataGrantSummaries: List[ReceivedDataGrantSummariesEntryTypeDef]
+    DataGrantSummaries: list[ReceivedDataGrantSummariesEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -898,7 +893,7 @@ class ActionTypeDef(TypedDict):
     ExportRevisionToS3: NotRequired[AutoExportRevisionToS3RequestDetailsTypeDef]
 
 class ListDataSetsResponseTypeDef(TypedDict):
-    DataSets: List[DataSetEntryTypeDef]
+    DataSets: list[DataSetEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -956,7 +951,7 @@ class CreateEventActionResponseTypeDef(TypedDict):
     CreatedAt: datetime
     Event: EventTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -974,7 +969,7 @@ class GetEventActionResponseTypeDef(TypedDict):
     CreatedAt: datetime
     Event: EventTypeDef
     Id: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1035,7 +1030,7 @@ SendDataSetNotificationRequestTypeDef = TypedDict(
 )
 
 class ListEventActionsResponseTypeDef(TypedDict):
-    EventActions: List[EventActionEntryTypeDef]
+    EventActions: list[EventActionEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1056,7 +1051,7 @@ CreateJobResponseTypeDef = TypedDict(
         "Arn": str,
         "CreatedAt": datetime,
         "Details": ResponseDetailsTypeDef,
-        "Errors": List[JobErrorTypeDef],
+        "Errors": list[JobErrorTypeDef],
         "Id": str,
         "State": StateType,
         "Type": TypeType,
@@ -1070,7 +1065,7 @@ GetJobResponseTypeDef = TypedDict(
         "Arn": str,
         "CreatedAt": datetime,
         "Details": ResponseDetailsTypeDef,
-        "Errors": List[JobErrorTypeDef],
+        "Errors": list[JobErrorTypeDef],
         "Id": str,
         "State": StateType,
         "Type": TypeType,
@@ -1088,14 +1083,14 @@ JobEntryTypeDef = TypedDict(
         "State": StateType,
         "Type": TypeType,
         "UpdatedAt": datetime,
-        "Errors": NotRequired[List[JobErrorTypeDef]],
+        "Errors": NotRequired[list[JobErrorTypeDef]],
     },
 )
 
 class LakeFormationDataPermissionAssetTypeDef(TypedDict):
     LakeFormationDataPermissionDetails: LakeFormationDataPermissionDetailsTypeDef
     LakeFormationDataPermissionType: Literal["LFTagPolicy"]
-    Permissions: List[LFPermissionType]
+    Permissions: list[LFPermissionType]
     RoleArn: NotRequired[str]
 
 class RequestDetailsTypeDef(TypedDict):
@@ -1114,7 +1109,7 @@ class RequestDetailsTypeDef(TypedDict):
     ]
 
 class ListJobsResponseTypeDef(TypedDict):
-    Jobs: List[JobEntryTypeDef]
+    Jobs: list[JobEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1172,6 +1167,6 @@ class UpdateAssetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRevisionAssetsResponseTypeDef(TypedDict):
-    Assets: List[AssetEntryTypeDef]
+    Assets: list[AssetEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

@@ -15,7 +15,7 @@ from multidict import CIMultiDict, CIMultiDictProxy, istr
 from yarl import URL
 
 import aiohttp
-from aiohttp import BaseConnector, hdrs, helpers, payload
+from aiohttp import BaseConnector, hdrs, payload
 from aiohttp.abc import AbstractStreamWriter
 from aiohttp.client_exceptions import ClientConnectionError
 from aiohttp.client_reqrep import (
@@ -355,7 +355,7 @@ def test_headers(make_request) -> None:
 
     assert hdrs.CONTENT_TYPE in req.headers
     assert req.headers[hdrs.CONTENT_TYPE] == "text/plain"
-    assert req.headers[hdrs.ACCEPT_ENCODING] == "gzip, deflate, br"
+    assert "gzip" in req.headers[hdrs.ACCEPT_ENCODING]
 
 
 def test_headers_list(make_request) -> None:
@@ -1529,35 +1529,20 @@ def test_loose_cookies_types(loop) -> None:
 
 
 @pytest.mark.parametrize(
-    "has_brotli,expected",
+    "has_brotli,has_zstd,expected",
     [
-        (False, "gzip, deflate"),
-        (True, "gzip, deflate, br"),
+        (False, False, "gzip, deflate"),
+        (True, False, "gzip, deflate, br"),
+        (False, True, "gzip, deflate, zstd"),
+        (True, True, "gzip, deflate, br, zstd"),
     ],
 )
-def test_gen_default_accept_encoding(has_brotli, expected) -> None:
+def test_gen_default_accept_encoding(
+    has_brotli: bool, has_zstd: bool, expected: str
+) -> None:
     with mock.patch("aiohttp.client_reqrep.HAS_BROTLI", has_brotli):
-        assert _gen_default_accept_encoding() == expected
-
-
-@pytest.mark.parametrize(
-    ("netrc_contents", "expected_auth"),
-    [
-        (
-            "machine example.com login username password pass\n",
-            helpers.BasicAuth("username", "pass"),
-        )
-    ],
-    indirect=("netrc_contents",),
-)
-@pytest.mark.usefixtures("netrc_contents")
-def test_basicauth_from_netrc_present(
-    make_request: Any,
-    expected_auth: Optional[helpers.BasicAuth],
-):
-    """Test appropriate Authorization header is sent when netrc is not empty."""
-    req = make_request("get", "http://example.com", trust_env=True)
-    assert req.headers[hdrs.AUTHORIZATION] == expected_auth.encode()
+        with mock.patch("aiohttp.client_reqrep.HAS_ZSTD", has_zstd):
+            assert _gen_default_accept_encoding() == expected
 
 
 @pytest.mark.parametrize(

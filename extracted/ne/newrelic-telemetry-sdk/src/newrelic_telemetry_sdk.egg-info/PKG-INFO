@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: newrelic-telemetry-sdk
-Version: 0.8.0
+Version: 0.9.0
 Summary: New Relic Telemetry SDK
 Author-email: New Relic <open-source@newrelic.com>
 Maintainer-email: New Relic <open-source@newrelic.com>
@@ -9,17 +9,16 @@ Project-URL: Homepage, https://newrelic.github.io/newrelic-telemetry-sdk-python
 Project-URL: GitHub, https://github.com/newrelic/newrelic-telemetry-sdk-python
 Platform: any
 Classifier: Development Status :: 3 - Alpha
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Monitoring
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: urllib3<3,>=1.26

@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 import pytest
+from _pytest.fixtures import FixtureRequest
 from lxml.html import Element, HtmlElement
 
 
 @pytest.fixture(scope="class")
-def disposable_html_element() -> HtmlElement:
-    return Element("div", {"class": "disposable"})
+def disposable_html_element(request: FixtureRequest) -> HtmlElement:
+    input_args: Sequence[Any] = getattr(
+        request, "param", ["div", {"class": "disposable"}]
+    )
+    if isinstance(input_args, str):
+        input_args = [input_args]
+    return Element(*input_args)
 
 
 # HTML link replacement functions need <base href="...">,
@@ -25,4 +34,14 @@ def disposable_html_with_base_href() -> HtmlElement:
             b.A("Relative Link", href="./relative"),
             b.A("Full Link", href="http://example.org"),
         ),
+    )
+
+
+# Intended for LabelElement and .label property tests
+@pytest.fixture(scope="class")
+def disposable_html_input_label() -> HtmlElement:
+    import lxml.html.builder as b
+
+    return b.HTML(
+        b.BODY(b.INPUT({"id": "foo", "type": "email"}), b.LABEL({"for": "foo"}, "bar"))
     )

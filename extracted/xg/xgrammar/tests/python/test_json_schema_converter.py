@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, TypeAdapter, create_model
 
 import xgrammar as xgr
 from xgrammar.testing import (
+    GrammarFunctor,
     _generate_float_regex,
     _generate_range_regex,
     _is_grammar_accept_string,
@@ -18,7 +19,7 @@ basic_json_rules_ebnf = r"""basic_escape ::= ["\\/bfnrt] | "u" [A-Fa-f0-9] [A-Fa
 basic_string_sub ::= ("\"" | [^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub) (= [ \n\t]* [,}\]:])
 basic_any ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
 basic_integer ::= ("0" | "-"? [1-9] [0-9]*)
-basic_number ::= ("0" | "-"? [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
+basic_number ::= "-"? ("0" | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
 basic_string ::= ["] basic_string_sub
 basic_boolean ::= "true" | "false"
 basic_null ::= "null"
@@ -30,7 +31,7 @@ basic_json_rules_ebnf_no_space = r"""basic_escape ::= ["\\/bfnrt] | "u" [A-Fa-f0
 basic_string_sub ::= ("\"" | [^\0-\x1f\"\\\r\n] basic_string_sub | "\\" basic_escape basic_string_sub) (= [ \n\t]* [,}\]:])
 basic_any ::= basic_number | basic_string | basic_boolean | basic_null | basic_array | basic_object
 basic_integer ::= ("0" | "-"? [1-9] [0-9]*)
-basic_number ::= ("0" | "-"? [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
+basic_number ::= "-"? ("0" | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [+-]? [0-9]+)?
 basic_string ::= ["] basic_string_sub
 basic_boolean ::= "true" | "false"
 basic_null ::= "null"
@@ -2176,23 +2177,23 @@ def test_generate_float_regex():
 
 def test_limited_whitespace_cnt():
     expected_grammar = r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9])) (=(basic_string_sub))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_repeat_1 basic_string_sub_repeat_2 [,}\]:]))
-basic_string ::= (("\"" basic_string_sub)) (=(root_repeat_1_3 root_repeat_2_3 "}"))
-root ::= (("{" root_repeat_1 root_repeat_2 "\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-basic_string_sub_repeat_1 ::= ("" | ([ \n\t])) (=(basic_string_sub_repeat_2))
-basic_string_sub_repeat_2 ::= ("" | ([ \n\t]))
-root_repeat_1 ::= ("" | ([ \n\t])) (=(root_repeat_2))
-root_repeat_2 ::= ("" | ([ \n\t])) (=("\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_1 ::= ("" | ([ \n\t])) (=(root_repeat_2_1))
-root_repeat_2_1 ::= ("" | ([ \n\t])) (=(":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_2 ::= ("" | ([ \n\t])) (=(root_repeat_2_2))
-root_repeat_2_2 ::= ("" | ([ \n\t])) (=(basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_3 ::= ("" | ([ \n\t])) (=(root_repeat_2_3))
-root_repeat_2_3 ::= ("" | ([ \n\t])) (=("}"))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_1 [,}\]:]))
+basic_string ::= (("\"" basic_string_sub)) (=(root_7 "}"))
+root ::= (("{" root_1 "\"key\"" root_3 ":" root_5 basic_string root_7 "}"))
+basic_string_sub_1 ::= ("" | ([ \n\t] basic_string_sub_2))
+basic_string_sub_2 ::= ("" | ([ \n\t]))
+root_1 ::= ("" | ([ \n\t] root_2)) (=("\"key\"" root_3 ":" root_5 basic_string root_7 "}"))
+root_2 ::= ("" | ([ \n\t]))
+root_3 ::= ("" | ([ \n\t] root_4)) (=(":" root_5 basic_string root_7 "}"))
+root_4 ::= ("" | ([ \n\t]))
+root_5 ::= ("" | ([ \n\t] root_6)) (=(basic_string root_7 "}"))
+root_6 ::= ("" | ([ \n\t]))
+root_7 ::= ("" | ([ \n\t] root_8)) (=("}"))
+root_8 ::= ("" | ([ \n\t]))
 """
     schema = {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}
     grammar = xgr.Grammar.from_json_schema(schema, any_whitespace=True, max_whitespace_cnt=2)
-
+    grammar = GrammarFunctor.grammar_optimizer(grammar)
     assert grammar is not None
     assert str(grammar) == expected_grammar
     assert _is_grammar_accept_string(grammar, '{  "key"  :  "value"  }')
@@ -2203,19 +2204,19 @@ root_repeat_2_3 ::= ("" | ([ \n\t])) (=("}"))
 
 def test_limited_whitespace_compile():
     expected_grammar = r"""basic_escape ::= (([\"\\/bfnrt]) | ("u" [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9] [A-Fa-f0-9])) (=(basic_string_sub))
-basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_repeat_1 basic_string_sub_repeat_2 [,}\]:]))
-basic_string ::= (("\"" basic_string_sub)) (=(root_repeat_1_3 root_repeat_2_3 "}"))
-root ::= (("{" root_repeat_1 root_repeat_2 "\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-basic_string_sub_repeat_1 ::= ("" | ([ \n\t])) (=(basic_string_sub_repeat_2))
-basic_string_sub_repeat_2 ::= ("" | ([ \n\t]))
-root_repeat_1 ::= ("" | ([ \n\t])) (=(root_repeat_2))
-root_repeat_2 ::= ("" | ([ \n\t])) (=("\"key\"" root_repeat_1_1 root_repeat_2_1 ":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_1 ::= ("" | ([ \n\t])) (=(root_repeat_2_1))
-root_repeat_2_1 ::= ("" | ([ \n\t])) (=(":" root_repeat_1_2 root_repeat_2_2 basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_2 ::= ("" | ([ \n\t])) (=(root_repeat_2_2))
-root_repeat_2_2 ::= ("" | ([ \n\t])) (=(basic_string root_repeat_1_3 root_repeat_2_3 "}"))
-root_repeat_1_3 ::= ("" | ([ \n\t])) (=(root_repeat_2_3))
-root_repeat_2_3 ::= ("" | ([ \n\t])) (=("}"))
+basic_string_sub ::= (("\"") | ([^\0-\x1f\"\\\r\n] basic_string_sub) | ("\\" basic_escape basic_string_sub)) (=(basic_string_sub_1 [,}\]:]))
+basic_string ::= (("\"" basic_string_sub)) (=(root_7 "}"))
+root ::= (("{" root_1 "\"key\"" root_3 ":" root_5 basic_string root_7 "}"))
+basic_string_sub_1 ::= ("" | ([ \n\t] basic_string_sub_2))
+basic_string_sub_2 ::= ("" | ([ \n\t]))
+root_1 ::= ("" | ([ \n\t] root_2)) (=("\"key\"" root_3 ":" root_5 basic_string root_7 "}"))
+root_2 ::= ("" | ([ \n\t]))
+root_3 ::= ("" | ([ \n\t] root_4)) (=(":" root_5 basic_string root_7 "}"))
+root_4 ::= ("" | ([ \n\t]))
+root_5 ::= ("" | ([ \n\t] root_6)) (=(basic_string root_7 "}"))
+root_6 ::= ("" | ([ \n\t]))
+root_7 ::= ("" | ([ \n\t] root_8)) (=("}"))
+root_8 ::= ("" | ([ \n\t]))
 """
     schema = {"type": "object", "properties": {"key": {"type": "string"}}, "required": ["key"]}
     tokenizer_info = xgr.TokenizerInfo([])

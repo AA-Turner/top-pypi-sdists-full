@@ -1,21 +1,28 @@
-from typing import TYPE_CHECKING, Optional, Sequence
+from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
-from faststream.prometheus.middleware import BasePrometheusMiddleware
+from aio_pika import IncomingMessage
+
+from faststream._internal.constants import EMPTY
+from faststream.prometheus.middleware import PrometheusMiddleware
 from faststream.rabbit.prometheus.provider import RabbitMetricsSettingsProvider
-from faststream.types import EMPTY
+from faststream.rabbit.response import RabbitPublishCommand
 
 if TYPE_CHECKING:
     from prometheus_client import CollectorRegistry
 
 
-class RabbitPrometheusMiddleware(BasePrometheusMiddleware):
+class RabbitPrometheusMiddleware(
+    PrometheusMiddleware[IncomingMessage, RabbitPublishCommand],
+):
     def __init__(
         self,
         *,
         registry: "CollectorRegistry",
         app_name: str = EMPTY,
         metrics_prefix: str = "faststream",
-        received_messages_size_buckets: Optional[Sequence[float]] = None,
+        received_messages_size_buckets: Sequence[float] | None = None,
+        custom_labels: dict[str, str | Callable[[Any], str]] | None = None,
     ) -> None:
         super().__init__(
             settings_provider_factory=lambda _: RabbitMetricsSettingsProvider(),
@@ -23,4 +30,5 @@ class RabbitPrometheusMiddleware(BasePrometheusMiddleware):
             app_name=app_name,
             metrics_prefix=metrics_prefix,
             received_messages_size_buckets=received_messages_size_buckets,
+            custom_labels=custom_labels,
         )

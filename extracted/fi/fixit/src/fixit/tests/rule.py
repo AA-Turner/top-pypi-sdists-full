@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from textwrap import dedent
+from textwrap import dedent, indent
 from unittest import TestCase
 from unittest.mock import MagicMock
 
@@ -47,15 +47,18 @@ class RunnerTest(TestCase):
         rule = NoopRule()
         for _ in self.runner.collect_violations([rule], Config()):
             pass  # exhaust the generator
-        self.assertIn("NoopRule.visit_Module", self.runner.timings)
-        self.assertIn("NoopRule.leave_Module", self.runner.timings)
-        self.assertGreaterEqual(self.runner.timings["NoopRule.visit_Module"], 0)
+        self.assertIn("Duration.NoopRule.visit_Module", self.runner.metrics)
+        self.assertIn("Duration.NoopRule.leave_Module", self.runner.metrics)
+        self.assertGreaterEqual(self.runner.metrics["NoopRule.visit_Module"], 0)
+        self.assertIn("Count.Noop", self.runner.metrics)
+        self.assertIn("FixCount.Noop", self.runner.metrics)
+        self.assertIn("Count.Total", self.runner.metrics)
 
     def test_timing_hook(self) -> None:
         rule = NoopRule()
         hook = MagicMock()
         for i, _ in enumerate(
-            self.runner.collect_violations([rule], Config(), timings_hook=hook)
+            self.runner.collect_violations([rule], Config(), metrics_hook=hook)
         ):
             if i <= 1:
                 # only called at the end
@@ -72,6 +75,13 @@ class ExerciseReportRule(LintRule):
 
     def visit_ClassDef(self, node: cst.ClassDef) -> bool:
         self.report(node, "class def")
+        for d in node.decorators:
+            self.report(d, "class decorator")
+        return False
+
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:
+        if node.name.value == "problem":
+            self.report(node, "problem function")
         return False
 
     def visit_Pass(self, node: cst.Pass) -> bool:
@@ -279,10 +289,123 @@ class RuleTest(TestCase):
                 "class def",
                 (5, 0),
             ),
+            (
+                # before function decorators
+                """
+                    import sys
+
+                    # lint-fixme: ExerciseReport
+                    @contextmanager
+                    def problem():
+                        yield True
+                """,
+                None,
+                None,
+            ),
+            (
+                # after function decorators
+                """
+                    import sys
+
+                    @contextmanager
+                    # lint-fixme: ExerciseReport
+                    def problem():
+                        yield True
+                """,
+                None,
+                None,
+            ),
+            (
+                # before class decorators
+                """
+                    import dataclasses
+
+                    # lint-fixme: ExerciseReport
+                    @dataclasses.dataclass
+                    class C:
+                        value = 1
+                """,
+                None,
+                None,
+            ),
+            (
+                # after class decorators
+                """
+                    import dataclasses
+
+                    @dataclasses.dataclass
+                    # lint-fixme: ExerciseReport
+                    class C:
+                        value = 1
+                """,
+                None,
+                None,
+            ),
+            (
+                # above comprehension
+                """
+                    # lint-fixme: ExerciseReport
+                    [... for _ in range(1)]
+                """,
+                None,
+                None,
+            ),
+            (
+                # inside comprehension
+                """
+                    [
+                        # lint-fixme: ExerciseReport
+                        ... for _ in range(1)
+                    ]
+                """,
+                None,
+                None,
+            ),
+            (
+                # after comprehension
+                """
+                    [... for _ in range(1)]  # lint-fixme: ExerciseReport
+                """,
+                None,
+                None,
+            ),
+            (
+                # trailing inline comprehension
+                """
+                    [
+                        ... for _ in range(1)  # lint-fixme: ExerciseReport
+                    ]
+                """,
+                None,
+                None,
+            ),
+            (
+                # before list element
+                """
+                    [
+                        # lint-fixme: ExerciseReport
+                        ...,
+                        None,
+                    ]
+                """,
+                None,
+                None,
+            ),
+            (
+                # trailing list element
+                """
+                    [
+                        ...,  # lint-fixme: ExerciseReport
+                        None,
+                    ]
+                """,
+                None,
+                None,
+            ),
         ):
             idx += 1
             content = dedent(code).encode("utf-8")
-            with self.subTest(f"code {idx}"):
+            with self.subTest(f"test ignore {idx}"):
                 runner = LintRunner(Path("fake.py"), content)
                 violations = list(
                     runner.collect_violations([ExerciseReportRule()], Config())
@@ -308,5 +431,13 @@ class RuleTest(TestCase):
                         violations.pop(0)
 
                     self.assertEqual(
-                        len(violations), 0, "Unexpected lint errors reported"
+                        len(violations),
+                        0,
+                        (
+                            f"Unexpected lint errors reported:\n{indent(dedent(code), '    ')}\n"
+                            + "\n".join(
+                                f":{v.range.start.line}:{v.range.start.column} {v.rule_name}: {v.message}"
+                                for v in violations
+                            )
+                        ),
                     )

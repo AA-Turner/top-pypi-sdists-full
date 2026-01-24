@@ -56,15 +56,13 @@ if setuptools_version_tuple < (70, 1) and "bdist_wheel" in sys.argv:
 
 
 # Make sure we have the right Python version.
-MIN_PY_VER = (3, 9)
+MIN_PY_VER = (3, 10)
 if sys.version_info[:2] < MIN_PY_VER:
     sys.stderr.write(
         ("ERROR: Biopython requires Python %i.%i or later. " % MIN_PY_VER)
         + ("Python %d.%d detected.\n" % sys.version_info[:2])
     )
     sys.exit(1)
-elif sys.version_info[:2] == (3, 9):
-    sys.stderr.write("WARNING: Biopython support for Python 3.9 is now deprecated.\n")
 
 
 class test_biopython(Command):
@@ -128,11 +126,10 @@ PACKAGES = [
     "Bio",
     "Bio.Affy",
     "Bio.Align",
-    "Bio.Align.Applications",
     "Bio.Align.substitution_matrices",
+    "Bio.Align.substitution_matrices.data",
     "Bio.AlignIO",
     "Bio.Alphabet",
-    "Bio.Application",
     "Bio.Blast",
     "Bio.CAPS",
     "Bio.Cluster",
@@ -141,6 +138,8 @@ PACKAGES = [
     "Bio.Data",
     "Bio.Emboss",
     "Bio.Entrez",
+    "Bio.Entrez.DTDs",
+    "Bio.Entrez.XSDs",
     "Bio.ExPASy",
     "Bio.GenBank",
     "Bio.Geo",
@@ -156,7 +155,6 @@ PACKAGES = [
     "Bio.KEGG.KGML",
     "Bio.Medline",
     "Bio.motifs",
-    "Bio.motifs.applications",
     "Bio.motifs.jaspar",
     "Bio.Nexus",
     "Bio.NMR",
@@ -173,17 +171,16 @@ PACKAGES = [
     "Bio.SearchIO.BlastIO",
     "Bio.SearchIO.HHsuiteIO",
     "Bio.SearchIO.HmmerIO",
+    "Bio.SearchIO.InfernalIO",
     "Bio.SearchIO.ExonerateIO",
     "Bio.SearchIO.InterproscanIO",
     "Bio.SeqIO",
     "Bio.SeqUtils",
     "Bio.Sequencing",
-    "Bio.Sequencing.Applications",
     "Bio.SVDSuperimposer",
     "Bio.SwissProt",
     "Bio.TogoWS",
     "Bio.Phylo",
-    "Bio.Phylo.Applications",
     "Bio.Phylo.PAML",
     "Bio.UniGene",
     "Bio.UniProt",
@@ -192,9 +189,14 @@ PACKAGES = [
 ]
 
 EXTENSIONS = [
+    Extension("Bio.Align._aligncore", ["Bio/Align/_aligncore.c"]),
+    Extension("Bio.Align._alignmentcounts", ["Bio/Align/_alignmentcounts.c"]),
     Extension("Bio.Align._codonaligner", ["Bio/Align/_codonaligner.c"]),
     Extension("Bio.Align._pairwisealigner", ["Bio/Align/_pairwisealigner.c"]),
-    Extension("Bio.Align._aligncore", ["Bio/Align/_aligncore.c"]),
+    Extension(
+        "Bio.Align.substitution_matrices._arraycore",
+        ["Bio/Align//substitution_matrices/_arraycore.c"],
+    ),
     Extension("Bio.cpairwise2", ["Bio/cpairwise2module.c"]),
     Extension("Bio.Nexus.cnexus", ["Bio/Nexus/cnexus.c"]),
     Extension("Bio.motifs._pwm", ["Bio/motifs/_pwm.c"]),
@@ -248,18 +250,17 @@ setup(
         "Intended Audience :: Science/Research",
         "License :: Freely Distributable",
         # Technically the "Biopython License Agreement" is not OSI approved,
-        # but is almost https://opensource.org/licenses/HPND so might put:
-        # 'License :: OSI Approved',
+        # but is almost https://opensource.org/licenses/HPND
         # To resolve this we are moving to dual-licensing with 3-clause BSD:
         # 'License :: OSI Approved :: BSD License',
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
         "Topic :: Software Development :: Libraries :: Python Modules",

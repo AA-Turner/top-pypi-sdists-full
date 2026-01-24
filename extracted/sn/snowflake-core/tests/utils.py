@@ -15,6 +15,10 @@ from snowflake.core.version import __version__ as VERSION
 BASE_URL = "http://localhost:80/api/v2"
 
 
+def is_gov_deployment(snowflake_region: str) -> bool:
+    return "GOV" in snowflake_region
+
+
 def is_preprod_deployment(snowflake_region: str) -> bool:
     return "PREPROD" in snowflake_region
 

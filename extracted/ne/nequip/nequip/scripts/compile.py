@@ -157,6 +157,12 @@ def main(args=None):
         type=str,
         default=[],
     )
+    parser.add_argument(
+        "--constant-fold",
+        help="enable constant folding optimization for AOTInductor (requires PyTorch 2.8+). May fail on some models. Please report any errors at https://github.com/mir-group/nequip (default: False)",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args(args=args)
 
     set_workflow_state("compile")
@@ -302,6 +308,7 @@ def main(args=None):
             batch_map=batch_map,
             output_path=str(args.output_path),
             inductor_configs=inductor_configs,
+            constant_fold=args.constant_fold,
             seed=_COMPILE_SEED,
         )
         logger.info(f"Exported model saved to {args.output_path}")

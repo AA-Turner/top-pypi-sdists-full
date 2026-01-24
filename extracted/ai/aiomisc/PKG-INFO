@@ -1,11 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: aiomisc
-Version: 17.9.4
+Version: 17.10.3
 Summary: aiomisc - miscellaneous utils for asyncio
-License: MIT
-Author: Dmitry Orlov
-Author-email: me@mosquito.su
-Requires-Python: >=3.10,<4.0
+Author-email: Dmitry Orlov <me@mosquito.su>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/aiokitchen/aiomisc
+Project-URL: Source, https://github.com/aiokitchen/aiomisc
+Project-URL: Tracker, https://github.com/aiokitchen/aiomisc/issues
+Project-URL: Changelog, https://github.com/aiokitchen/aiomisc/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://docs.aiomisc.com/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Framework :: Pytest
@@ -14,63 +17,60 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Natural Language :: Russian
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python
+Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Topic :: Internet
+Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP
-Classifier: Topic :: Software Development
-Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: System
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development
 Classifier: Topic :: System :: Archiving :: Compression
 Classifier: Topic :: System :: Logging
+Classifier: Topic :: System
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
-Provides-Extra: aiohttp
-Provides-Extra: asgi
-Provides-Extra: carbon
-Provides-Extra: cron
-Provides-Extra: dns
-Provides-Extra: grpc
-Provides-Extra: raven
-Provides-Extra: rich
-Provides-Extra: uvicorn
-Provides-Extra: uvloop
-Requires-Dist: aiocarbon (>=0.15,<0.16) ; extra == "carbon"
-Requires-Dist: aiohttp (>3) ; extra == "aiohttp" or extra == "raven"
-Requires-Dist: aiohttp-asgi (>=0.5.2,<0.6.0) ; extra == "asgi"
-Requires-Dist: asgiref (>=3.7,<4.0) ; extra == "uvicorn"
-Requires-Dist: colorlog (>=6.0,<7.0)
-Requires-Dist: croniter (==2.0) ; extra == "cron"
-Requires-Dist: dnslib (>=0.9,<0.10) ; extra == "dns"
-Requires-Dist: grpcio (>=1.56,<2.0) ; extra == "grpc"
-Requires-Dist: grpcio-reflection (>=1.56,<2.0) ; extra == "grpc"
-Requires-Dist: grpcio-tools (>=1.56,<2.0) ; extra == "grpc"
-Requires-Dist: logging-journald ; sys_platform == "linux"
-Requires-Dist: raven ; extra == "raven"
-Requires-Dist: rich ; extra == "rich"
-Requires-Dist: setuptools ; python_version < "3.8"
-Requires-Dist: typing_extensions ; python_version < "3.12"
-Requires-Dist: uvicorn (>=0.27,<0.28) ; extra == "uvicorn"
-Requires-Dist: uvloop (>=0.21,<1) ; extra == "uvloop"
-Project-URL: Changelog, https://github.com/aiokitchen/aiomisc/blob/master/CHANGELOG.md
-Project-URL: Documentation, https://docs.aiomisc.com/
-Project-URL: Homepage, https://github.com/aiokitchen/aiomisc
-Project-URL: Source, https://github.com/aiokitchen/aiomisc
-Project-URL: Tracker, https://github.com/aiokitchen/aiomisc/issues
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-File: COPYING
+Requires-Dist: colorlog<7,>=6.0
+Requires-Dist: logging-journald; platform_system == "Linux"
+Requires-Dist: typing_extensions; python_version < "3.12"
+Provides-Extra: aiohttp
+Requires-Dist: aiohttp>3; extra == "aiohttp"
+Provides-Extra: asgi
+Requires-Dist: aiohttp-asgi>=0.5.2; extra == "asgi"
+Provides-Extra: carbon
+Requires-Dist: aiocarbon>=0.15; extra == "carbon"
+Provides-Extra: cron
+Requires-Dist: croniter<3,>=2.0; extra == "cron"
+Provides-Extra: dns
+Requires-Dist: dnslib>=0.9; extra == "dns"
+Provides-Extra: grpc
+Requires-Dist: grpcio>=1.56; extra == "grpc"
+Requires-Dist: grpcio-tools>=1.56; extra == "grpc"
+Requires-Dist: grpcio-reflection>=1.56; extra == "grpc"
+Provides-Extra: raven
+Requires-Dist: aiohttp>3; extra == "raven"
+Requires-Dist: raven; extra == "raven"
+Provides-Extra: rich
+Requires-Dist: rich; extra == "rich"
+Provides-Extra: uvicorn
+Requires-Dist: uvicorn>=0.27; extra == "uvicorn"
+Requires-Dist: asgiref>=3.7; extra == "uvicorn"
+Provides-Extra: uvloop
+Requires-Dist: uvloop<1,>=0.21; extra == "uvloop"
+Dynamic: license-file
 
 aiomisc - miscellaneous utils for asyncio
 =========================================
@@ -431,4 +431,3 @@ For setting up developer environment just execute:
 .. _API reference: https://docs.aiomisc.com/api/index.html
 .. _Modules: https://docs.aiomisc.com/modules.html
 .. _Tutorial: https://docs.aiomisc.com/tutorial.html
-

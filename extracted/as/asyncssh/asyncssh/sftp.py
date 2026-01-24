@@ -959,14 +959,16 @@ class SFTPError(Error):
     """
 
     @staticmethod
-    def construct(packet: SSHPacket) -> Optional['SFTPError']:
+    def construct(packet: SSHPacket, utf8_decode_errors: str) -> \
+            Optional['SFTPError']:
         """Construct an SFTPError from an FXP_STATUS response"""
 
         code = packet.get_uint32()
 
         if packet:
             try:
-                reason = packet.get_string().decode('utf-8')
+                reason = packet.get_string().decode('utf-8',
+                                                    utf8_decode_errors)
                 lang = packet.get_string().decode('ascii')
             except UnicodeDecodeError:
                 raise SFTPBadMessage('Invalid status message') from None
@@ -2596,11 +2598,12 @@ class SFTPClientHandler(SFTPHandler):
     """An SFTP client session handler"""
 
     def __init__(self, loop: asyncio.AbstractEventLoop,
-                 reader: 'SSHReader[bytes]', writer: 'SSHWriter[bytes]',
-                 sftp_version: int):
+                 utf8_decode_errors: str, reader: 'SSHReader[bytes]',
+                 writer: 'SSHWriter[bytes]', sftp_version: int):
         super().__init__(reader, writer)
 
         self._loop = loop
+        self._utf8_decode_errors = utf8_decode_errors
         self._version = sftp_version
         self._next_pktid = 0
         self._requests: Dict[int, _RequestWaiter] = {}
@@ -2694,7 +2697,7 @@ class SFTPClientHandler(SFTPHandler):
     def _process_status(self, packet: SSHPacket) -> None:
         """Process an incoming SFTP status response"""
 
-        exc = SFTPError.construct(packet)
+        exc = SFTPError.construct(packet, self._utf8_decode_errors)
 
         if self._version < 6:
             packet.check_end()
@@ -4656,7 +4659,8 @@ class SFTPClient:
         parts = path.split(b'/')
         last = len(parts) - 1
 
-        exc: Type[SFTPError]
+        exc: Union[Type[SFTPNotADirectory], Type[SFTPFailure],
+                   Type[SFTPFileAlreadyExists]]
 
         for i, part in enumerate(parts):
             curpath = posixpath.join(curpath, part)
@@ -6775,7 +6779,9 @@ class SFTPServerHandler(SFTPHandler):
                 data = self._server.read(src, read_from_offset, size)
 
                 if inspect.isawaitable(data):
-                    data = await cast(Awaitable[bytes], data)
+                    data = await data
+
+                data: bytes
 
                 result = self._server.write(dst, write_to_offset, data)
 
@@ -8206,13 +8212,15 @@ class SFTPServerFS:
 
 async def start_sftp_client(conn: 'SSHClientConnection',
                             loop: asyncio.AbstractEventLoop,
+                            utf8_decode_errors: str,
                             reader: 'SSHReader[bytes]',
                             writer: 'SSHWriter[bytes]',
                             path_encoding: Optional[str],
                             path_errors: str, sftp_version: int) -> SFTPClient:
     """Start an SFTP client"""
 
-    handler = SFTPClientHandler(loop, reader, writer, sftp_version)
+    handler = SFTPClientHandler(loop, utf8_decode_errors,
+                                reader, writer, sftp_version)
 
     handler.logger.info('Starting SFTP client')
 
@@ -8233,6 +8241,8 @@ async def _sftp_handler(sftp_server: MaybeAwait[SFTPServer],
 
     if inspect.isawaitable(sftp_server):
         sftp_server = await sftp_server
+
+    sftp_server: SFTPServer
 
     handler = SFTPServerHandler(sftp_server, reader, writer, sftp_version)
 

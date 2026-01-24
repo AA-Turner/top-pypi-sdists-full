@@ -107,12 +107,16 @@ def test_list_match_any_with_keyword_index(ctx: ProjectContext):
     )
 
     assert result == [
-        {"_id": "pride", "title": "Pride and Prejudice", "tags": [
-            "pride", "love", "romance", "class", "marriage", "prejudice"
-        ]},
-        {"_id": "gatsby", "title": "The Great Gatsby", "tags": [
-            "love", "romance", "wealth", "marriage"
-        ]},
+        {
+            "_id": "pride",
+            "title": "Pride and Prejudice",
+            "tags": ["pride", "love", "romance", "class", "marriage", "prejudice"],
+        },
+        {
+            "_id": "gatsby",
+            "title": "The Great Gatsby",
+            "tags": ["love", "romance", "wealth", "marriage"],
+        },
     ]
 
 
@@ -141,12 +145,16 @@ def test_list_contains_with_keyword_index(ctx: ProjectContext):
     )
 
     assert result == [
-        {"_id": "pride", "title": "Pride and Prejudice", "tags": [
-            "pride", "love", "romance", "class", "marriage", "prejudice"
-        ]},
-        {"_id": "gatsby", "title": "The Great Gatsby", "tags": [
-            "love", "romance", "wealth", "marriage"
-        ]},
+        {
+            "_id": "pride",
+            "title": "Pride and Prejudice",
+            "tags": ["pride", "love", "romance", "class", "marriage", "prejudice"],
+        },
+        {
+            "_id": "gatsby",
+            "title": "The Great Gatsby",
+            "tags": ["love", "romance", "wealth", "marriage"],
+        },
     ]
 
 
@@ -268,19 +276,22 @@ def test_list_contains_invalid_types(ctx: ProjectContext):
         field("reprint_years").contains(field("title")),
         field("published_year").contains(field("reprint_years")),
     ]:
-        with pytest.raises(error.InvalidArgumentError):
-            ctx.client.collection(collection.name).query(
-                select(title=field("title"), codes=field("codes"))
-                .filter(filter_expr)
-                .topk(field("published_year"), 100, True)
-            )
+        result = ctx.client.collection(collection.name).query(
+            select(title=field("title"), codes=field("codes"))
+            .filter(filter_expr)
+            .topk(field("published_year"), 100, True)
+        )
+
+        assert len(result) == 0
 
     with pytest.raises(TypeError):
-        field("codes").contains([978]),  # type: ignore
-        field("codes").contains([  # type: ignore
-            "ISBN 978-0-547-92821-0",
-            "ISBN 0-547-92821-2",
-        ])
+        (field("codes").contains([978]),)  # type: ignore
+        field("codes").contains(
+            [  # type: ignore
+                "ISBN 978-0-547-92821-0",
+                "ISBN 0-547-92821-2",
+            ]
+        )
 
 
 def test_string_in(ctx: ProjectContext):

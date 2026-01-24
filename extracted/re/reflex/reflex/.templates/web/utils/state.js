@@ -56,10 +56,10 @@ export const generateUUID = () => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     let r = Math.random() * 16;
     if (d > 0) {
-      r = (d + r) % 16 | 0;
+      r = ((d + r) % 16) | 0;
       d = Math.floor(d / 16);
     } else {
-      r = (d2 + r) % 16 | 0;
+      r = ((d2 + r) % 16) | 0;
       d2 = Math.floor(d2 / 16);
     }
     return (c == "x" ? r : (r & 0x7) | 0x8).toString(16);
@@ -176,7 +176,7 @@ export const queueEventIfSocketExists = async (
   if (!socket) {
     return;
   }
-  await queueEvents(events, socket, navigate, params);
+  await queueEvents(events, socket, false, navigate, params);
 };
 
 /**
@@ -256,13 +256,13 @@ export const applyEvent = async (event, socket, navigate, params) => {
 
   if (event.name == "_clear_session_storage") {
     sessionStorage.clear();
-    queueEvents(initialEvents(), socket, navigate, params);
+    queueEventIfSocketExists(initialEvents(), socket, navigate, params);
     return false;
   }
 
   if (event.name == "_remove_session_storage") {
     sessionStorage.removeItem(event.payload.key);
-    queueEvents(initialEvents(), socket, navigate, params);
+    queueEventIfSocketExists(initialEvents(), socket, navigate, params);
     return false;
   }
 
@@ -529,6 +529,14 @@ export const connect = async (
   navigate,
   params,
 ) => {
+  // Socket already allocated, just reconnect it if needed.
+  if (socket.current) {
+    if (!socket.current.connected) {
+      socket.current.reconnect();
+    }
+    return;
+  }
+
   // Get backend URL object from the endpoint.
   const endpoint = getBackendURL(EVENTURL);
   const on_hydrated_queue = [];
@@ -540,7 +548,9 @@ export const connect = async (
     protocols: [reflexEnvironment.version],
     autoUnref: false,
     query: { token: getToken() },
+    reconnection: false, // Reconnection will be handled manually.
   });
+  socket.current.wait_connect = !socket.current.connected;
   // Ensure undefined fields in events are sent as null instead of removed
   socket.current.io.encoder.replacer = (k, v) => (v === undefined ? null : v);
   socket.current.io.decoder.tryParse = (str) => {
@@ -548,6 +558,19 @@ export const connect = async (
       return JSON5.parse(str);
     } catch (e) {
       return false;
+    }
+  };
+  // Set up a reconnect helper function
+  socket.current.reconnect = () => {
+    if (
+      socket.current &&
+      !socket.current.connected &&
+      !socket.current.wait_connect
+    ) {
+      socket.current.wait_connect = true;
+      socket.current.rehydrate = true;
+      socket.current.io.opts.query = { token: getToken() }; // Update token for reconnect.
+      socket.current.connect();
     }
   };
 
@@ -565,7 +588,7 @@ export const connect = async (
         );
       } else if (!socket.current.connected) {
         console.log("Socket is disconnected, attempting to reconnect ");
-        socket.current.connect();
+        socket.current.reconnect();
       } else {
         console.log("Socket is reconnected ");
       }
@@ -588,10 +611,21 @@ export const connect = async (
 
   // Once the socket is open, hydrate the page.
   socket.current.on("connect", async () => {
+    socket.current.wait_connect = false;
     setConnectErrors([]);
     window.addEventListener("pagehide", pagehideHandler);
     window.addEventListener("beforeunload", disconnectTrigger);
     window.addEventListener("unload", disconnectTrigger);
+    if (socket.current.rehydrate) {
+      socket.current.rehydrate = false;
+      queueEvents(
+        initialEvents(),
+        socket,
+        true,
+        navigate,
+        () => params.current,
+      );
+    }
     // Drain any initial events from the queue.
     while (event_queue.length > 0 && !event_processing) {
       await processEvent(socket.current, navigate, () => params.current);
@@ -599,16 +633,33 @@ export const connect = async (
   });
 
   socket.current.on("connect_error", (error) => {
-    setConnectErrors((connectErrors) => [connectErrors.slice(-9), error]);
+    socket.current.wait_connect = false;
+    let n_connect_errors = 0;
+    setConnectErrors((connectErrors) => {
+      const new_errors = [...connectErrors.slice(-9), error];
+      n_connect_errors = new_errors.length;
+      return new_errors;
+    });
+    window.setTimeout(() => {
+      if (socket.current && !socket.current.connected) {
+        socket.current.reconnect();
+      }
+    }, 200 * n_connect_errors); // Incremental backoff
   });
 
   // When the socket disconnects reset the event_processing flag
-  socket.current.on("disconnect", () => {
-    socket.current = null; // allow reconnect to occur automatically
+  socket.current.on("disconnect", (reason, details) => {
+    socket.current.wait_connect = false;
+    const try_reconnect =
+      reason !== "io server disconnect" && reason !== "io client disconnect";
     event_processing = false;
     window.removeEventListener("unload", disconnectTrigger);
     window.removeEventListener("beforeunload", disconnectTrigger);
     window.removeEventListener("pagehide", pagehideHandler);
+    if (try_reconnect) {
+      // Attempt to reconnect transient non-intentional disconnects.
+      socket.current.reconnect();
+    }
   });
 
   // On each received message, queue the updates and events.
@@ -625,7 +676,9 @@ export const connect = async (
       }
     }
     applyClientStorageDelta(client_storage, update.delta);
-    event_processing = !update.final;
+    if (update.final !== null) {
+      event_processing = !update.final;
+    }
     if (update.events) {
       queueEvents(update.events, socket, false, navigate, params);
     }
@@ -785,6 +838,7 @@ export const useEventLoop = (
   const [searchParams] = useSearchParams();
   const [connectErrors, setConnectErrors] = useState([]);
   const params = useRef(paramsR);
+  const mounted = useRef(false);
 
   useEffect(() => {
     const { "*": splat, ...remainingParams } = paramsR;
@@ -796,30 +850,45 @@ export const useEventLoop = (
   }, [paramsR]);
 
   const ensureSocketConnected = useCallback(async () => {
+    if (!mounted.current) {
+      // During hot reload, some components may still have a reference to
+      // addEvents, so avoid reconnecting the socket of an unmounted event loop.
+      return;
+    }
     // only use websockets if state is present and backend is not disabled (reflex cloud).
     if (
       Object.keys(initialState).length > 1 &&
       !isBackendDisabled() &&
-      !socket.current
+      !socket.current?.connected
     ) {
       // Initialize the websocket connection.
       await connect(
         socket,
         dispatch,
-        ["websocket"],
+        [env.TRANSPORT],
         setConnectErrors,
         client_storage,
         navigate,
         () => params.current,
       );
     }
-  }, [socket, dispatch, setConnectErrors, client_storage, navigate, params]);
+  }, [
+    socket,
+    dispatch,
+    setConnectErrors,
+    client_storage,
+    navigate,
+    params,
+    mounted,
+  ]);
 
   // Function to add new events to the event queue.
   const addEvents = useCallback((events, args, event_actions) => {
     const _events = events.filter((e) => e !== undefined && e !== null);
-
-    ensureSocketConnected();
+    if (!event_actions?.temporal) {
+      // Reconnect socket if needed for non-temporal events.
+      ensureSocketConnected();
+    }
 
     if (!(args instanceof Array)) {
       args = [args];
@@ -914,12 +983,16 @@ export const useEventLoop = (
   // Handle socket connect/disconnect.
   useEffect(() => {
     // Initialize the websocket connection.
+    mounted.current = true;
     ensureSocketConnected();
 
     // Cleanup function.
     return () => {
+      mounted.current = false;
       if (socket.current) {
         socket.current.disconnect();
+        socket.current.off();
+        socket.current = null;
       }
     };
   }, []);

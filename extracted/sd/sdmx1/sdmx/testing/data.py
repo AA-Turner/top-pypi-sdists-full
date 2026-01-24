@@ -3,14 +3,13 @@
 import logging
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import platformdirs
 import pytest
 
 if TYPE_CHECKING:
-    from requests_cache import CachedSession
-
+    from sdmx.session import Session
     from sdmx.source import Source
 
 log = logging.getLogger(__name__)
@@ -68,7 +67,7 @@ class SpecimenCollection:
     #: 1. Path to specimen file.
     #: 2. Format: one of "csv", "json", "xml".
     #: 3. Message type: either "data", "structure", or None.
-    specimens: list[tuple[Path, str, Optional[str]]]
+    specimens: list[tuple[Path, str, str | None]]
 
     def __init__(self, path: Path, fetch: bool):
         self.base_path = path
@@ -99,9 +98,9 @@ class SpecimenCollection:
 
     def as_params(
         self,
-        format: Optional[str] = None,
-        kind: Optional[str] = None,
-        marks: Optional[dict] = None,
+        format: str | None = None,
+        kind: str | None = None,
+        marks: dict | None = None,
     ):
         """Generate :func:`pytest.param` from specimens.
 
@@ -203,9 +202,7 @@ class SpecimenCollection:
         metafunc.parametrize(mark.args[0], self.as_params(**mark.kwargs))
 
 
-def add_responses(
-    session: "CachedSession", file_cache_path: Path, source: "Source"
-) -> None:
+def add_responses(session: "Session", file_cache_path: Path, source: "Source") -> None:
     """Populate cached responses for `session`.
 
     Two sources are used:
@@ -266,8 +263,17 @@ def add_responses(
         "userdefinedoperatorscheme",
         "vtlmappingscheme",
     ):
-        url = f"{source.url}/{endpoint}/{source.id}/all/latest"
-        save_response(session, method="GET", url=url, content=content, headers=headers)
+        for url in (
+            f"{source.url}/{endpoint}/{source.id}/all/latest",
+            f"{source.url}/{endpoint}/{source.id}/all/latest?references=children",
+        ):
+            save_response(
+                session,
+                method="GET",
+                url=url,
+                content=content,
+                headers=headers,
+            )
 
     for url in (
         f"{source.url}/availableconstraint",
@@ -276,7 +282,7 @@ def add_responses(
         save_response(session, method="GET", url=url, content=content, headers=headers)
 
 
-def add_specimens(target: list[tuple[Path, str, Optional[str]]], base: Path) -> None:
+def add_specimens(target: list[tuple[Path, str, str | None]], base: Path) -> None:
     """Populate the `target` collection with specimens from :file:`sdmx-test-data`."""
     # XML data files for the ECB exchange rate data flow
     for source_id in ("ECB_EXR",):
@@ -300,6 +306,7 @@ def add_specimens(target: list[tuple[Path, str, Optional[str]]], base: Path) -> 
             ("INSEE", "CNA-2010-CONSO-SI-A17.xml"),
             ("INSEE", "IPI-2010-A21.xml"),
             ("IMF", "PCPS.xml"),
+            ("ESTAT", "demography-xs.xml"),
             ("ESTAT", "esms.xml"),
             ("ESTAT", "footer.xml"),
             ("ESTAT", "NAMA_10_GDP-ss.xml"),
@@ -316,6 +323,7 @@ def add_specimens(target: list[tuple[Path, str, Optional[str]]], base: Path) -> 
             ("ECB", "orgscheme.xml"),
             ("ECB", "structureset-0.xml"),
             ("ESTAT", "apro_mk_cola-structure.xml"),
+            ("ESTAT", "demography-structure.xml"),
             ("ESTAT", "esms-structure.xml"),
             ("ESTAT", "GOV_10Q_GGNFA.xml"),
             ("ESTAT", "HCL_WSTATUS_SCL_BNSPART.xml"),

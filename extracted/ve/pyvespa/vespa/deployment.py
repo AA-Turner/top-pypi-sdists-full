@@ -70,7 +70,7 @@ class VespaDocker(VespaDeployment):
         self,
         url: str = "http://localhost",
         port: int = 8080,
-        container_memory: Union[str, int] = 4 * (1024**3),
+        container_memory: Union[str, int] = 0,
         output_file: IO = sys.stdout,
         container: Optional[docker.models.containers.Container] = None,
         container_image: str = "vespaengine/vespa",
@@ -103,7 +103,10 @@ class VespaDocker(VespaDeployment):
             cfgsrv_port (int): The Vespa Config Server port. Default is 19071.
             debug_port (int): The port to connect to for debugging the Vespa container. Default is 5005.
             output_file (str): The file to write output messages to.
-            container_memory (int): Memory available to the container in bytes. Default is 4GB.
+            container_memory (int): Container maximum memory usage limit, in bytes. Default is 0 (unlimited).
+                Processes will be killed if memory usage exceeds this limit.
+                Set to 0 for no limit, or specify a limit like 8 * 1024**3 for 8GB.
+                Vespa requires at least 4GB to run.
             container (str, optional): Used when instantiating `VespaDocker` from a running container.
             volumes (list of str, optional): A list of volume mount strings, such as `['/home/user1/:/mnt/vol2', '/var/www:/mnt/vol1']`. The Application Package cannot reference volume mounts.
             container_image (str): The Docker container image to use.
@@ -436,6 +439,24 @@ class VespaDocker(VespaDeployment):
         docker_timeout: int,
     ) -> None:
         client = docker.from_env(timeout=docker_timeout)
+
+        # Warn if available memory is less than 4GB
+        try:
+            info = client.info()
+            total_memory = info.get('MemTotal')
+            if total_memory is not None and total_memory < 4 * (1024**3):
+                print(
+                    f"Warning: Only {total_memory / (1024**3):.1f}GB memory is available.",
+                    file=self.output,
+                )
+                print(
+                    "Vespa requires at least 4GB to run.",
+                    file=self.output,
+                )
+        except Exception:
+            # Silently ignore if we can't get memory info
+            pass
+
         if self.container is None:
             try:
                 logging.debug("Try Docker container restart")
@@ -743,12 +764,7 @@ class VespaCloud(VespaDeployment):
         Raises:
             RuntimeError: If deployment fails or if there are issues with the deployment process.
 
-        Note:
-            This feature is still experimental and may not have full stability in production. Future releases will provide better support for this functionality.
         """
-        logging.warning(
-            "Deploying to production is in beta and may fail in unexpected ways. Expect better support in future releases."
-        )
         if application_root is None:
             if self.application_root is None:
                 application_root = os.path.join(os.getcwd(), self.application)
@@ -994,7 +1010,7 @@ class VespaCloud(VespaDeployment):
         Example usage:
             ```python
             vespa_cloud = VespaCloud(...)
-            vespa_cloud.deploy_to_dev_from_directory(
+            vespa_cloud.deploy_from_disk(
                 instance="my-instance",
                 application_root="/path/to/application",
                 max_wait=3600,

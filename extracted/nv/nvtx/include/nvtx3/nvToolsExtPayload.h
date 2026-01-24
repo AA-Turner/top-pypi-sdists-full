@@ -913,7 +913,7 @@ typedef struct nvtxScopeAttr_v1
     size_t      structSize;
 
     /**
-     * Path delimited by '/' characters, relative to parentScope. Leading
+     * Path delimited by '/' characters, relative to @ref parentScope. Leading
      * slashes are ignored. Nodes in the path may use name[key] syntax to
      * indicate an array of sibling nodes, which may be combined with other
      * non-array nodes or different arrays at the same scope. Node names should
@@ -921,12 +921,15 @@ typedef struct nvtxScopeAttr_v1
      * ']' characters in node names. An empty C string "" and `NULL` are valid
      * inputs and treated equivalently.
      *
-     * A GPU can be specified using its
-     * - unique identifier (UUID) with "GPU[UUID:#]",
+     * A GPU can be specified using its:
+     * - Unique identifier (UUID) with "GPU[UUID:#]",
      * - CUDA device ID (sensitive to CUDA_VISIBLE_DEVICES) with "GPU[CUDAID:#]",
      * - NVML (nvidia-smi) device ID with "GPU[NVSMI:#]"
+     *
      * (replace `#` with the actual device ID).
      * For display purposes, a tool is recommended to show a pretty name.
+     * To clearly identify a GPU, the @ref parentScope should also match
+     * the GPU's execution context.
      */
     const char* path;
 
@@ -1355,7 +1358,7 @@ NVTX_DECLSPEC void NVTX_API nvtxEventBatchSubmit(
 # define NVTX_POINTER_AS_PAYLOAD_ULLVALUE(p) \
     static_cast<uint64_t>(reinterpret_cast<uintptr_t>(p))
 # else
-#define NVTX_POINTER_AS_PAYLOAD_ULLVALUE(p) (NVTX_STATIC_CAST(uint64_t, NVTX_STATIC_CAST(uintptr_t, p))
+#define NVTX_POINTER_AS_PAYLOAD_ULLVALUE(p) (NVTX_STATIC_CAST(uint64_t, NVTX_STATIC_CAST(uintptr_t, p)))
 # endif
 #endif
 

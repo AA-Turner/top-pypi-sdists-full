@@ -80,25 +80,21 @@ class TargetDrift(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/targetDrift/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("period"): _period,
-            t.Key("metric"): t.Or(t.Enum(*DATA_DRIFT_METRIC.ALL), t.Null),
-            t.Key("model_id"): t.Or(String(), t.Null),
-            t.Key("target_name"): t.Or(String(), t.Null),
-            t.Key("drift_score"): t.Or(t.Float(), t.Null),
-            t.Key("sample_size"): t.Or(Int(), t.Null),
-            t.Key("baseline_sample_size"): t.Or(Int(), t.Null),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value"): t.Or(String(allow_blank=True), t.Null),
-        }
-    ).allow_extra("*")
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
+    _converter = t.Dict({
+        t.Key("period"): _period,
+        t.Key("metric"): t.Or(t.Enum(*DATA_DRIFT_METRIC.ALL), t.Null),
+        t.Key("model_id"): t.Or(String(), t.Null),
+        t.Key("target_name"): t.Or(String(), t.Null),
+        t.Key("drift_score"): t.Or(t.Float(), t.Null),
+        t.Key("sample_size"): t.Or(Int(), t.Null),
+        t.Key("baseline_sample_size"): t.Or(Int(), t.Null),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value"): t.Or(String(allow_blank=True), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -219,26 +215,22 @@ class FeatureDrift(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/featureDrift/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("period"): _period,
-            t.Key("metric"): t.Or(t.Enum(*DATA_DRIFT_METRIC.ALL), t.Null),
-            t.Key("model_id"): t.Or(String(), t.Null),
-            t.Key("name"): t.Or(String(), t.Null),
-            t.Key("drift_score"): t.Or(t.Float(), t.Null),
-            t.Key("feature_impact"): t.Or(t.Float(), t.Null),
-            t.Key("sample_size"): t.Or(Int(), t.Null),
-            t.Key("baseline_sample_size"): t.Or(Int(), t.Null),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
-        }
-    ).allow_extra("*")
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
+    _converter = t.Dict({
+        t.Key("period"): _period,
+        t.Key("metric"): t.Or(t.Enum(*DATA_DRIFT_METRIC.ALL), t.Null),
+        t.Key("model_id"): t.Or(String(), t.Null),
+        t.Key("name"): t.Or(String(), t.Null),
+        t.Key("drift_score"): t.Or(t.Float(), t.Null),
+        t.Key("feature_impact"): t.Or(t.Float(), t.Null),
+        t.Key("sample_size"): t.Or(Int(), t.Null),
+        t.Key("baseline_sample_size"): t.Or(Int(), t.Null),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.Or(String(allow_blank=True), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -372,18 +364,14 @@ class PredictionsOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/predictionsOverTime/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
-            t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
-        }
-    )
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
+    _converter = t.Dict({
+        t.Key("baselines"): t.List(t.Dict().allow_extra("*")),
+        t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
+    })
 
     def __init__(
         self,

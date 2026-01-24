@@ -3,7 +3,7 @@ Type annotations for frauddetector service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -135,12 +136,6 @@ from .type_defs import (
     UpdateVariableRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -151,14 +146,14 @@ __all__ = ("FraudDetectorClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class FraudDetectorClient(AioBaseClient):
@@ -218,7 +213,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def cancel_batch_import_job(
         self, **kwargs: Unpack[CancelBatchImportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an in-progress batch import job.
 
@@ -228,7 +223,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def cancel_batch_prediction_job(
         self, **kwargs: Unpack[CancelBatchPredictionJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels the specified batch prediction job.
 
@@ -238,7 +233,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def create_batch_import_job(
         self, **kwargs: Unpack[CreateBatchImportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a batch import job.
 
@@ -248,7 +243,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def create_batch_prediction_job(
         self, **kwargs: Unpack[CreateBatchPredictionJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a batch prediction job.
 
@@ -266,7 +261,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#create_detector_version)
         """
 
-    async def create_list(self, **kwargs: Unpack[CreateListRequestTypeDef]) -> Dict[str, Any]:
+    async def create_list(self, **kwargs: Unpack[CreateListRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a list.
 
@@ -274,7 +269,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#create_list)
         """
 
-    async def create_model(self, **kwargs: Unpack[CreateModelRequestTypeDef]) -> Dict[str, Any]:
+    async def create_model(self, **kwargs: Unpack[CreateModelRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a model using the specified model type.
 
@@ -304,7 +299,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def create_variable(
         self, **kwargs: Unpack[CreateVariableRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a variable.
 
@@ -314,7 +309,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_batch_import_job(
         self, **kwargs: Unpack[DeleteBatchImportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified batch import job ID record.
 
@@ -324,7 +319,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_batch_prediction_job(
         self, **kwargs: Unpack[DeleteBatchPredictionJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a batch prediction job.
 
@@ -334,7 +329,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_detector(
         self, **kwargs: Unpack[DeleteDetectorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the detector.
 
@@ -344,7 +339,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_detector_version(
         self, **kwargs: Unpack[DeleteDetectorVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the detector version.
 
@@ -354,7 +349,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_entity_type(
         self, **kwargs: Unpack[DeleteEntityTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an entity type.
 
@@ -362,7 +357,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_entity_type)
         """
 
-    async def delete_event(self, **kwargs: Unpack[DeleteEventRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_event(self, **kwargs: Unpack[DeleteEventRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified event.
 
@@ -372,7 +367,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_event_type(
         self, **kwargs: Unpack[DeleteEventTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an event type.
 
@@ -392,7 +387,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_external_model(
         self, **kwargs: Unpack[DeleteExternalModelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a SageMaker model from Amazon Fraud Detector.
 
@@ -400,7 +395,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_external_model)
         """
 
-    async def delete_label(self, **kwargs: Unpack[DeleteLabelRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_label(self, **kwargs: Unpack[DeleteLabelRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a label.
 
@@ -408,7 +403,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_label)
         """
 
-    async def delete_list(self, **kwargs: Unpack[DeleteListRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_list(self, **kwargs: Unpack[DeleteListRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the list, provided it is not used in a rule.
 
@@ -416,7 +411,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_list)
         """
 
-    async def delete_model(self, **kwargs: Unpack[DeleteModelRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_model(self, **kwargs: Unpack[DeleteModelRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a model.
 
@@ -426,7 +421,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_model_version(
         self, **kwargs: Unpack[DeleteModelVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a model version.
 
@@ -434,7 +429,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_model_version)
         """
 
-    async def delete_outcome(self, **kwargs: Unpack[DeleteOutcomeRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_outcome(self, **kwargs: Unpack[DeleteOutcomeRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an outcome.
 
@@ -442,7 +437,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#delete_outcome)
         """
 
-    async def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the rule.
 
@@ -452,7 +447,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def delete_variable(
         self, **kwargs: Unpack[DeleteVariableRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a variable.
 
@@ -698,7 +693,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#list_tags_for_resource)
         """
 
-    async def put_detector(self, **kwargs: Unpack[PutDetectorRequestTypeDef]) -> Dict[str, Any]:
+    async def put_detector(self, **kwargs: Unpack[PutDetectorRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates a detector.
 
@@ -708,7 +703,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def put_entity_type(
         self, **kwargs: Unpack[PutEntityTypeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates an entity type.
 
@@ -716,7 +711,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#put_entity_type)
         """
 
-    async def put_event_type(self, **kwargs: Unpack[PutEventTypeRequestTypeDef]) -> Dict[str, Any]:
+    async def put_event_type(self, **kwargs: Unpack[PutEventTypeRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates an event type.
 
@@ -726,7 +721,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def put_external_model(
         self, **kwargs: Unpack[PutExternalModelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates an Amazon SageMaker model endpoint.
 
@@ -736,7 +731,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def put_kms_encryption_key(
         self, **kwargs: Unpack[PutKMSEncryptionKeyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specifies the KMS key to be used to encrypt content in Amazon Fraud Detector.
 
@@ -744,7 +739,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#put_kms_encryption_key)
         """
 
-    async def put_label(self, **kwargs: Unpack[PutLabelRequestTypeDef]) -> Dict[str, Any]:
+    async def put_label(self, **kwargs: Unpack[PutLabelRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates label.
 
@@ -752,7 +747,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#put_label)
         """
 
-    async def put_outcome(self, **kwargs: Unpack[PutOutcomeRequestTypeDef]) -> Dict[str, Any]:
+    async def put_outcome(self, **kwargs: Unpack[PutOutcomeRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates an outcome.
 
@@ -760,7 +755,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#put_outcome)
         """
 
-    async def send_event(self, **kwargs: Unpack[SendEventRequestTypeDef]) -> Dict[str, Any]:
+    async def send_event(self, **kwargs: Unpack[SendEventRequestTypeDef]) -> dict[str, Any]:
         """
         Stores events in Amazon Fraud Detector without generating fraud predictions for
         those events.
@@ -769,7 +764,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#send_event)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns tags to a resource.
 
@@ -777,7 +772,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -787,7 +782,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_detector_version(
         self, **kwargs: Unpack[UpdateDetectorVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a detector version.
 
@@ -797,7 +792,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_detector_version_metadata(
         self, **kwargs: Unpack[UpdateDetectorVersionMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the detector version's description.
 
@@ -807,7 +802,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_detector_version_status(
         self, **kwargs: Unpack[UpdateDetectorVersionStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the detector version's status.
 
@@ -817,7 +812,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_event_label(
         self, **kwargs: Unpack[UpdateEventLabelRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified event with a new label.
 
@@ -825,7 +820,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#update_event_label)
         """
 
-    async def update_list(self, **kwargs: Unpack[UpdateListRequestTypeDef]) -> Dict[str, Any]:
+    async def update_list(self, **kwargs: Unpack[UpdateListRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a list.
 
@@ -833,7 +828,7 @@ class FraudDetectorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_frauddetector/client/#update_list)
         """
 
-    async def update_model(self, **kwargs: Unpack[UpdateModelRequestTypeDef]) -> Dict[str, Any]:
+    async def update_model(self, **kwargs: Unpack[UpdateModelRequestTypeDef]) -> dict[str, Any]:
         """
         Updates model description.
 
@@ -853,7 +848,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_model_version_status(
         self, **kwargs: Unpack[UpdateModelVersionStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the status of a model version.
 
@@ -863,7 +858,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_rule_metadata(
         self, **kwargs: Unpack[UpdateRuleMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a rule's metadata.
 
@@ -883,7 +878,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def update_variable(
         self, **kwargs: Unpack[UpdateVariableRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a variable.
 
@@ -899,7 +894,7 @@ class FraudDetectorClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

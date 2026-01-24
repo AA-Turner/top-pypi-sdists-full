@@ -47,7 +47,6 @@ import typing as t
 
 import ansible.constants as C
 from ansible.errors import AnsibleError, AnsibleFileNotFound, AnsibleConnectionFailure
-from ansible.module_utils.six import text_type, binary_type
 from ansible.module_utils.common.text.converters import to_bytes, to_native, to_text
 from ansible.plugins.connection import ConnectionBase
 from ansible.utils.display import Display
@@ -68,7 +67,8 @@ class Connection(ConnectionBase):
         self.cwd = None
         try:
             self.default_user = getpass.getuser()
-        except KeyError:
+        except (ImportError, KeyError, OSError):
+            # deprecated: description='only OSError is required for Python 3.13+' python_version='3.12'
             display.vv("Current user (uid=%s) does not seem to exist on this system, leaving user empty." % os.getuid())
             self.default_user = ""
 
@@ -100,7 +100,7 @@ class Connection(ConnectionBase):
         display.vvv(u"EXEC {0}".format(to_text(cmd)), host=self._play_context.remote_addr)
         display.debug("opening command with Popen()")
 
-        if isinstance(cmd, (text_type, binary_type)):
+        if isinstance(cmd, (str, bytes)):
             cmd = to_text(cmd)
         else:
             cmd = map(to_text, cmd)
@@ -119,7 +119,7 @@ class Connection(ConnectionBase):
 
         p = subprocess.Popen(
             cmd,
-            shell=isinstance(cmd, (text_type, binary_type)),
+            shell=isinstance(cmd, (str, bytes)),
             executable=executable,
             cwd=self.cwd,
             stdin=stdin,

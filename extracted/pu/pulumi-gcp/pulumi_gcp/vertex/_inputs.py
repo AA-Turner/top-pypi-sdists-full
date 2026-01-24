@@ -47,6 +47,8 @@ __all__ = [
     'AiEndpointPredictRequestResponseLoggingConfigBigqueryDestinationArgsDict',
     'AiEndpointPrivateServiceConnectConfigArgs',
     'AiEndpointPrivateServiceConnectConfigArgsDict',
+    'AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs',
+    'AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict',
     'AiEndpointWithModelGardenDeploymentDeployConfigArgs',
     'AiEndpointWithModelGardenDeploymentDeployConfigArgsDict',
     'AiEndpointWithModelGardenDeploymentDeployConfigDedicatedResourcesArgs',
@@ -59,6 +61,10 @@ __all__ = [
     'AiEndpointWithModelGardenDeploymentDeployConfigDedicatedResourcesMachineSpecReservationAffinityArgsDict',
     'AiEndpointWithModelGardenDeploymentEndpointConfigArgs',
     'AiEndpointWithModelGardenDeploymentEndpointConfigArgsDict',
+    'AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs',
+    'AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgsDict',
+    'AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs',
+    'AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgsDict',
     'AiEndpointWithModelGardenDeploymentModelConfigArgs',
     'AiEndpointWithModelGardenDeploymentModelConfigArgsDict',
     'AiEndpointWithModelGardenDeploymentModelConfigContainerSpecArgs',
@@ -123,6 +129,8 @@ __all__ = [
     'AiFeatureOnlineStoreDedicatedServingEndpointPrivateServiceConnectConfigArgsDict',
     'AiFeatureOnlineStoreEmbeddingManagementArgs',
     'AiFeatureOnlineStoreEmbeddingManagementArgsDict',
+    'AiFeatureOnlineStoreEncryptionSpecArgs',
+    'AiFeatureOnlineStoreEncryptionSpecArgsDict',
     'AiFeatureOnlineStoreFeatureviewBigQuerySourceArgs',
     'AiFeatureOnlineStoreFeatureviewBigQuerySourceArgsDict',
     'AiFeatureOnlineStoreFeatureviewFeatureRegistrySourceArgs',
@@ -173,6 +181,8 @@ __all__ = [
     'AiFeatureStoreOnlineServingConfigScalingArgsDict',
     'AiIndexDeployedIndexArgs',
     'AiIndexDeployedIndexArgsDict',
+    'AiIndexEncryptionSpecArgs',
+    'AiIndexEncryptionSpecArgsDict',
     'AiIndexEndpointDeployedIndexAutomaticResourcesArgs',
     'AiIndexEndpointDeployedIndexAutomaticResourcesArgsDict',
     'AiIndexEndpointDeployedIndexDedicatedResourcesArgs',
@@ -187,8 +197,12 @@ __all__ = [
     'AiIndexEndpointDeployedIndexPrivateEndpointArgsDict',
     'AiIndexEndpointDeployedIndexPrivateEndpointPscAutomatedEndpointArgs',
     'AiIndexEndpointDeployedIndexPrivateEndpointPscAutomatedEndpointArgsDict',
+    'AiIndexEndpointEncryptionSpecArgs',
+    'AiIndexEndpointEncryptionSpecArgsDict',
     'AiIndexEndpointPrivateServiceConnectConfigArgs',
     'AiIndexEndpointPrivateServiceConnectConfigArgsDict',
+    'AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs',
+    'AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict',
     'AiIndexIndexStatArgs',
     'AiIndexIndexStatArgsDict',
     'AiIndexMetadataArgs',
@@ -213,6 +227,26 @@ __all__ = [
     'AiRagEngineConfigRagManagedDbConfigScaledArgsDict',
     'AiRagEngineConfigRagManagedDbConfigUnprovisionedArgs',
     'AiRagEngineConfigRagManagedDbConfigUnprovisionedArgsDict',
+    'AiReasoningEngineEncryptionSpecArgs',
+    'AiReasoningEngineEncryptionSpecArgsDict',
+    'AiReasoningEngineSpecArgs',
+    'AiReasoningEngineSpecArgsDict',
+    'AiReasoningEngineSpecDeploymentSpecArgs',
+    'AiReasoningEngineSpecDeploymentSpecArgsDict',
+    'AiReasoningEngineSpecDeploymentSpecEnvArgs',
+    'AiReasoningEngineSpecDeploymentSpecEnvArgsDict',
+    'AiReasoningEngineSpecDeploymentSpecSecretEnvArgs',
+    'AiReasoningEngineSpecDeploymentSpecSecretEnvArgsDict',
+    'AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs',
+    'AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgsDict',
+    'AiReasoningEngineSpecPackageSpecArgs',
+    'AiReasoningEngineSpecPackageSpecArgsDict',
+    'AiReasoningEngineSpecSourceCodeSpecArgs',
+    'AiReasoningEngineSpecSourceCodeSpecArgsDict',
+    'AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs',
+    'AiReasoningEngineSpecSourceCodeSpecInlineSourceArgsDict',
+    'AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs',
+    'AiReasoningEngineSpecSourceCodeSpecPythonSpecArgsDict',
     'AiTensorboardEncryptionSpecArgs',
     'AiTensorboardEncryptionSpecArgsDict',
 ]
@@ -1424,6 +1458,11 @@ if not MYPY:
         """
         A list of Projects from which the forwarding rule will target the service attachment.
         """
+        psc_automation_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict']]]]
+        """
+        List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+        Structure is documented below.
+        """
 elif False:
     AiEndpointPrivateServiceConnectConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -1432,17 +1471,22 @@ class AiEndpointPrivateServiceConnectConfigArgs:
     def __init__(__self__, *,
                  enable_private_service_connect: pulumi.Input[_builtins.bool],
                  enable_secure_private_service_connect: Optional[pulumi.Input[_builtins.bool]] = None,
-                 project_allowlists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 project_allowlists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 psc_automation_configs: Optional[pulumi.Input[Sequence[pulumi.Input['AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]] = None):
         """
         :param pulumi.Input[_builtins.bool] enable_private_service_connect: Required. If true, expose the IndexEndpoint via private service connect.
         :param pulumi.Input[_builtins.bool] enable_secure_private_service_connect: If set to true, enable secure private service connect with IAM authorization. Otherwise, private service connect will be done without authorization. Note latency will be slightly increased if authorization is enabled.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] project_allowlists: A list of Projects from which the forwarding rule will target the service attachment.
+        :param pulumi.Input[Sequence[pulumi.Input['AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]] psc_automation_configs: List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+               Structure is documented below.
         """
         pulumi.set(__self__, "enable_private_service_connect", enable_private_service_connect)
         if enable_secure_private_service_connect is not None:
             pulumi.set(__self__, "enable_secure_private_service_connect", enable_secure_private_service_connect)
         if project_allowlists is not None:
             pulumi.set(__self__, "project_allowlists", project_allowlists)
+        if psc_automation_configs is not None:
+            pulumi.set(__self__, "psc_automation_configs", psc_automation_configs)
 
     @_builtins.property
     @pulumi.getter(name="enablePrivateServiceConnect")
@@ -1479,6 +1523,161 @@ class AiEndpointPrivateServiceConnectConfigArgs:
     @project_allowlists.setter
     def project_allowlists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "project_allowlists", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pscAutomationConfigs")
+    def psc_automation_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]]:
+        """
+        List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "psc_automation_configs")
+
+    @psc_automation_configs.setter
+    def psc_automation_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]]):
+        pulumi.set(self, "psc_automation_configs", value)
+
+
+if not MYPY:
+    class AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict(TypedDict):
+        network: pulumi.Input[_builtins.str]
+        """
+        The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        """
+        project_id: pulumi.Input[_builtins.str]
+        """
+        Project id used to create forwarding rule.
+        """
+        error_message: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Error message if the PSC service automation failed.
+        """
+        forwarding_rule: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Forwarding rule created by the PSC service automation.
+        """
+        ip_address: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        IP address rule created by the PSC service automation.
+        """
+        state: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The state of the PSC service automation.
+        """
+elif False:
+    AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiEndpointPrivateServiceConnectConfigPscAutomationConfigArgs:
+    def __init__(__self__, *,
+                 network: pulumi.Input[_builtins.str],
+                 project_id: pulumi.Input[_builtins.str],
+                 error_message: Optional[pulumi.Input[_builtins.str]] = None,
+                 forwarding_rule: Optional[pulumi.Input[_builtins.str]] = None,
+                 ip_address: Optional[pulumi.Input[_builtins.str]] = None,
+                 state: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] network: The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        :param pulumi.Input[_builtins.str] project_id: Project id used to create forwarding rule.
+        :param pulumi.Input[_builtins.str] error_message: (Output)
+               Error message if the PSC service automation failed.
+        :param pulumi.Input[_builtins.str] forwarding_rule: (Output)
+               Forwarding rule created by the PSC service automation.
+        :param pulumi.Input[_builtins.str] ip_address: (Output)
+               IP address rule created by the PSC service automation.
+        :param pulumi.Input[_builtins.str] state: (Output)
+               The state of the PSC service automation.
+        """
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "project_id", project_id)
+        if error_message is not None:
+            pulumi.set(__self__, "error_message", error_message)
+        if forwarding_rule is not None:
+            pulumi.set(__self__, "forwarding_rule", forwarding_rule)
+        if ip_address is not None:
+            pulumi.set(__self__, "ip_address", ip_address)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> pulumi.Input[_builtins.str]:
+        """
+        The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        """
+        return pulumi.get(self, "network")
+
+    @network.setter
+    def network(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "network", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        Project id used to create forwarding rule.
+        """
+        return pulumi.get(self, "project_id")
+
+    @project_id.setter
+    def project_id(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "project_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="errorMessage")
+    def error_message(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Error message if the PSC service automation failed.
+        """
+        return pulumi.get(self, "error_message")
+
+    @error_message.setter
+    def error_message(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "error_message", value)
+
+    @_builtins.property
+    @pulumi.getter(name="forwardingRule")
+    def forwarding_rule(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Forwarding rule created by the PSC service automation.
+        """
+        return pulumi.get(self, "forwarding_rule")
+
+    @forwarding_rule.setter
+    def forwarding_rule(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "forwarding_rule", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ipAddress")
+    def ip_address(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        IP address rule created by the PSC service automation.
+        """
+        return pulumi.get(self, "ip_address")
+
+    @ip_address.setter
+    def ip_address(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "ip_address", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The state of the PSC service automation.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "state", value)
 
 
 if not MYPY:
@@ -2202,6 +2401,11 @@ if not MYPY:
         The user-specified display name of the endpoint. If not set, a
         default name will be used.
         """
+        private_service_connect_config: NotRequired[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgsDict']]
+        """
+        The configuration for Private Service Connect (PSC).
+        Structure is documented below.
+        """
 elif False:
     AiEndpointWithModelGardenDeploymentEndpointConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -2209,7 +2413,8 @@ elif False:
 class AiEndpointWithModelGardenDeploymentEndpointConfigArgs:
     def __init__(__self__, *,
                  dedicated_endpoint_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
-                 endpoint_display_name: Optional[pulumi.Input[_builtins.str]] = None):
+                 endpoint_display_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 private_service_connect_config: Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs']] = None):
         """
         :param pulumi.Input[_builtins.bool] dedicated_endpoint_enabled: If true, the endpoint will be exposed through a dedicated
                DNS [Endpoint.dedicated_endpoint_dns]. Your request to the dedicated DNS
@@ -2219,11 +2424,15 @@ class AiEndpointWithModelGardenDeploymentEndpointConfigArgs:
                {region}-aiplatform.googleapis.com. The limitations will be removed soon.
         :param pulumi.Input[_builtins.str] endpoint_display_name: The user-specified display name of the endpoint. If not set, a
                default name will be used.
+        :param pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs'] private_service_connect_config: The configuration for Private Service Connect (PSC).
+               Structure is documented below.
         """
         if dedicated_endpoint_enabled is not None:
             pulumi.set(__self__, "dedicated_endpoint_enabled", dedicated_endpoint_enabled)
         if endpoint_display_name is not None:
             pulumi.set(__self__, "endpoint_display_name", endpoint_display_name)
+        if private_service_connect_config is not None:
+            pulumi.set(__self__, "private_service_connect_config", private_service_connect_config)
 
     @_builtins.property
     @pulumi.getter(name="dedicatedEndpointEnabled")
@@ -2254,6 +2463,264 @@ class AiEndpointWithModelGardenDeploymentEndpointConfigArgs:
     @endpoint_display_name.setter
     def endpoint_display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "endpoint_display_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="privateServiceConnectConfig")
+    def private_service_connect_config(self) -> Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs']]:
+        """
+        The configuration for Private Service Connect (PSC).
+        Structure is documented below.
+        """
+        return pulumi.get(self, "private_service_connect_config")
+
+    @private_service_connect_config.setter
+    def private_service_connect_config(self, value: Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs']]):
+        pulumi.set(self, "private_service_connect_config", value)
+
+
+if not MYPY:
+    class AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgsDict(TypedDict):
+        enable_private_service_connect: pulumi.Input[_builtins.bool]
+        """
+        Required. If true, expose the IndexEndpoint via private service connect.
+        """
+        project_allowlists: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        A list of Projects from which the forwarding rule will target the service attachment.
+        """
+        psc_automation_configs: NotRequired[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgsDict']]
+        """
+        PSC config that is used to automatically create PSC endpoints in the user projects.
+        Structure is documented below.
+        """
+        service_attachment: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. The name of the generated service attachment resource.
+        This is only populated if the endpoint is deployed with PrivateServiceConnect.
+        """
+elif False:
+    AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigArgs:
+    def __init__(__self__, *,
+                 enable_private_service_connect: pulumi.Input[_builtins.bool],
+                 project_allowlists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 psc_automation_configs: Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs']] = None,
+                 service_attachment: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] enable_private_service_connect: Required. If true, expose the IndexEndpoint via private service connect.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] project_allowlists: A list of Projects from which the forwarding rule will target the service attachment.
+        :param pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs'] psc_automation_configs: PSC config that is used to automatically create PSC endpoints in the user projects.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] service_attachment: (Output)
+               Output only. The name of the generated service attachment resource.
+               This is only populated if the endpoint is deployed with PrivateServiceConnect.
+        """
+        pulumi.set(__self__, "enable_private_service_connect", enable_private_service_connect)
+        if project_allowlists is not None:
+            pulumi.set(__self__, "project_allowlists", project_allowlists)
+        if psc_automation_configs is not None:
+            pulumi.set(__self__, "psc_automation_configs", psc_automation_configs)
+        if service_attachment is not None:
+            pulumi.set(__self__, "service_attachment", service_attachment)
+
+    @_builtins.property
+    @pulumi.getter(name="enablePrivateServiceConnect")
+    def enable_private_service_connect(self) -> pulumi.Input[_builtins.bool]:
+        """
+        Required. If true, expose the IndexEndpoint via private service connect.
+        """
+        return pulumi.get(self, "enable_private_service_connect")
+
+    @enable_private_service_connect.setter
+    def enable_private_service_connect(self, value: pulumi.Input[_builtins.bool]):
+        pulumi.set(self, "enable_private_service_connect", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectAllowlists")
+    def project_allowlists(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        A list of Projects from which the forwarding rule will target the service attachment.
+        """
+        return pulumi.get(self, "project_allowlists")
+
+    @project_allowlists.setter
+    def project_allowlists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "project_allowlists", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pscAutomationConfigs")
+    def psc_automation_configs(self) -> Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs']]:
+        """
+        PSC config that is used to automatically create PSC endpoints in the user projects.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "psc_automation_configs")
+
+    @psc_automation_configs.setter
+    def psc_automation_configs(self, value: Optional[pulumi.Input['AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs']]):
+        pulumi.set(self, "psc_automation_configs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serviceAttachment")
+    def service_attachment(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. The name of the generated service attachment resource.
+        This is only populated if the endpoint is deployed with PrivateServiceConnect.
+        """
+        return pulumi.get(self, "service_attachment")
+
+    @service_attachment.setter
+    def service_attachment(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "service_attachment", value)
+
+
+if not MYPY:
+    class AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgsDict(TypedDict):
+        network: pulumi.Input[_builtins.str]
+        """
+        Required. The full name of the Google Compute Engine network.
+        Format: projects/{project}/global/networks/{network}.
+        """
+        project_id: pulumi.Input[_builtins.str]
+        """
+        Required. Project id used to create forwarding rule.
+        """
+        error_message: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. Error message if the PSC service automation failed.
+        """
+        forwarding_rule: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. Forwarding rule created by the PSC service automation.
+        """
+        ip_address: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. IP address rule created by the PSC service automation.
+        """
+        state: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. The state of the PSC service automation.
+        """
+elif False:
+    AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiEndpointWithModelGardenDeploymentEndpointConfigPrivateServiceConnectConfigPscAutomationConfigsArgs:
+    def __init__(__self__, *,
+                 network: pulumi.Input[_builtins.str],
+                 project_id: pulumi.Input[_builtins.str],
+                 error_message: Optional[pulumi.Input[_builtins.str]] = None,
+                 forwarding_rule: Optional[pulumi.Input[_builtins.str]] = None,
+                 ip_address: Optional[pulumi.Input[_builtins.str]] = None,
+                 state: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] network: Required. The full name of the Google Compute Engine network.
+               Format: projects/{project}/global/networks/{network}.
+        :param pulumi.Input[_builtins.str] project_id: Required. Project id used to create forwarding rule.
+        :param pulumi.Input[_builtins.str] error_message: (Output)
+               Output only. Error message if the PSC service automation failed.
+        :param pulumi.Input[_builtins.str] forwarding_rule: (Output)
+               Output only. Forwarding rule created by the PSC service automation.
+        :param pulumi.Input[_builtins.str] ip_address: (Output)
+               Output only. IP address rule created by the PSC service automation.
+        :param pulumi.Input[_builtins.str] state: (Output)
+               Output only. The state of the PSC service automation.
+        """
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "project_id", project_id)
+        if error_message is not None:
+            pulumi.set(__self__, "error_message", error_message)
+        if forwarding_rule is not None:
+            pulumi.set(__self__, "forwarding_rule", forwarding_rule)
+        if ip_address is not None:
+            pulumi.set(__self__, "ip_address", ip_address)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> pulumi.Input[_builtins.str]:
+        """
+        Required. The full name of the Google Compute Engine network.
+        Format: projects/{project}/global/networks/{network}.
+        """
+        return pulumi.get(self, "network")
+
+    @network.setter
+    def network(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "network", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        Required. Project id used to create forwarding rule.
+        """
+        return pulumi.get(self, "project_id")
+
+    @project_id.setter
+    def project_id(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "project_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="errorMessage")
+    def error_message(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. Error message if the PSC service automation failed.
+        """
+        return pulumi.get(self, "error_message")
+
+    @error_message.setter
+    def error_message(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "error_message", value)
+
+    @_builtins.property
+    @pulumi.getter(name="forwardingRule")
+    def forwarding_rule(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. Forwarding rule created by the PSC service automation.
+        """
+        return pulumi.get(self, "forwarding_rule")
+
+    @forwarding_rule.setter
+    def forwarding_rule(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "forwarding_rule", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ipAddress")
+    def ip_address(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. IP address rule created by the PSC service automation.
+        """
+        return pulumi.get(self, "ip_address")
+
+    @ip_address.setter
+    def ip_address(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "ip_address", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. The state of the PSC service automation.
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "state", value)
 
 
 if not MYPY:
@@ -5252,18 +5719,34 @@ if not MYPY:
         Autoscaling config applied to Bigtable Instance.
         Structure is documented below.
         """
+        enable_direct_bigtable_access: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Optional. If true, enable direct access to the Bigtable instance.
+        """
+        zone: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The zone where the Bigtable instance will be created.
+        """
 elif False:
     AiFeatureOnlineStoreBigtableArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class AiFeatureOnlineStoreBigtableArgs:
     def __init__(__self__, *,
-                 auto_scaling: pulumi.Input['AiFeatureOnlineStoreBigtableAutoScalingArgs']):
+                 auto_scaling: pulumi.Input['AiFeatureOnlineStoreBigtableAutoScalingArgs'],
+                 enable_direct_bigtable_access: Optional[pulumi.Input[_builtins.bool]] = None,
+                 zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input['AiFeatureOnlineStoreBigtableAutoScalingArgs'] auto_scaling: Autoscaling config applied to Bigtable Instance.
                Structure is documented below.
+        :param pulumi.Input[_builtins.bool] enable_direct_bigtable_access: Optional. If true, enable direct access to the Bigtable instance.
+        :param pulumi.Input[_builtins.str] zone: The zone where the Bigtable instance will be created.
         """
         pulumi.set(__self__, "auto_scaling", auto_scaling)
+        if enable_direct_bigtable_access is not None:
+            pulumi.set(__self__, "enable_direct_bigtable_access", enable_direct_bigtable_access)
+        if zone is not None:
+            pulumi.set(__self__, "zone", zone)
 
     @_builtins.property
     @pulumi.getter(name="autoScaling")
@@ -5277,6 +5760,30 @@ class AiFeatureOnlineStoreBigtableArgs:
     @auto_scaling.setter
     def auto_scaling(self, value: pulumi.Input['AiFeatureOnlineStoreBigtableAutoScalingArgs']):
         pulumi.set(self, "auto_scaling", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableDirectBigtableAccess")
+    def enable_direct_bigtable_access(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Optional. If true, enable direct access to the Bigtable instance.
+        """
+        return pulumi.get(self, "enable_direct_bigtable_access")
+
+    @enable_direct_bigtable_access.setter
+    def enable_direct_bigtable_access(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_direct_bigtable_access", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The zone where the Bigtable instance will be created.
+        """
+        return pulumi.get(self, "zone")
+
+    @zone.setter
+    def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "zone", value)
 
 
 if not MYPY:
@@ -5511,6 +6018,37 @@ class AiFeatureOnlineStoreEmbeddingManagementArgs:
     @enabled.setter
     def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "enabled", value)
+
+
+if not MYPY:
+    class AiFeatureOnlineStoreEncryptionSpecArgsDict(TypedDict):
+        kms_key_name: pulumi.Input[_builtins.str]
+        """
+        The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created.
+        """
+elif False:
+    AiFeatureOnlineStoreEncryptionSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiFeatureOnlineStoreEncryptionSpecArgs:
+    def __init__(__self__, *,
+                 kms_key_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_name: The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created.
+        """
+        pulumi.set(__self__, "kms_key_name", kms_key_name)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key. The key needs to be in the same region as where the compute resource is created.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @kms_key_name.setter
+    def kms_key_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_name", value)
 
 
 if not MYPY:
@@ -5763,6 +6301,10 @@ class AiFeatureOnlineStoreFeatureviewIamMemberConditionArgs:
 
 if not MYPY:
     class AiFeatureOnlineStoreFeatureviewSyncConfigArgsDict(TypedDict):
+        continuous: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If true, syncs the FeatureView in a continuous manner to Online Store.
+        """
         cron: NotRequired[pulumi.Input[_builtins.str]]
         """
         Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
@@ -5774,13 +6316,29 @@ elif False:
 @pulumi.input_type
 class AiFeatureOnlineStoreFeatureviewSyncConfigArgs:
     def __init__(__self__, *,
+                 continuous: Optional[pulumi.Input[_builtins.bool]] = None,
                  cron: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[_builtins.bool] continuous: If true, syncs the FeatureView in a continuous manner to Online Store.
         :param pulumi.Input[_builtins.str] cron: Cron schedule (https://en.wikipedia.org/wiki/Cron) to launch scheduled runs.
                To explicitly set a timezone to the cron tab, apply a prefix in the cron tab: "CRON_TZ=${IANA_TIME_ZONE}" or "TZ=${IANA_TIME_ZONE}".
         """
+        if continuous is not None:
+            pulumi.set(__self__, "continuous", continuous)
         if cron is not None:
             pulumi.set(__self__, "cron", cron)
+
+    @_builtins.property
+    @pulumi.getter
+    def continuous(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If true, syncs the FeatureView in a continuous manner to Online Store.
+        """
+        return pulumi.get(self, "continuous")
+
+    @continuous.setter
+    def continuous(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "continuous", value)
 
     @_builtins.property
     @pulumi.getter
@@ -6833,6 +7391,37 @@ class AiIndexDeployedIndexArgs:
 
 
 if not MYPY:
+    class AiIndexEncryptionSpecArgsDict(TypedDict):
+        kms_key_name: pulumi.Input[_builtins.str]
+        """
+        Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+elif False:
+    AiIndexEncryptionSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiIndexEncryptionSpecArgs:
+    def __init__(__self__, *,
+                 kms_key_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_name: Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+        pulumi.set(__self__, "kms_key_name", kms_key_name)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @kms_key_name.setter
+    def kms_key_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_name", value)
+
+
+if not MYPY:
     class AiIndexEndpointDeployedIndexAutomaticResourcesArgsDict(TypedDict):
         max_replica_count: NotRequired[pulumi.Input[_builtins.int]]
         """
@@ -7257,6 +7846,37 @@ class AiIndexEndpointDeployedIndexPrivateEndpointPscAutomatedEndpointArgs:
 
 
 if not MYPY:
+    class AiIndexEndpointEncryptionSpecArgsDict(TypedDict):
+        kms_key_name: pulumi.Input[_builtins.str]
+        """
+        Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+elif False:
+    AiIndexEndpointEncryptionSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiIndexEndpointEncryptionSpecArgs:
+    def __init__(__self__, *,
+                 kms_key_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_name: Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+        pulumi.set(__self__, "kms_key_name", kms_key_name)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Required. The Cloud KMS resource identifier of the customer managed encryption key used to protect a resource. Has the form: `projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key`. The key needs to be in the same region as where the compute resource is created.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @kms_key_name.setter
+    def kms_key_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_name", value)
+
+
+if not MYPY:
     class AiIndexEndpointPrivateServiceConnectConfigArgsDict(TypedDict):
         enable_private_service_connect: pulumi.Input[_builtins.bool]
         """
@@ -7266,6 +7886,11 @@ if not MYPY:
         """
         A list of Projects from which the forwarding rule will target the service attachment.
         """
+        psc_automation_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict']]]]
+        """
+        List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+        Structure is documented below.
+        """
 elif False:
     AiIndexEndpointPrivateServiceConnectConfigArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -7273,14 +7898,19 @@ elif False:
 class AiIndexEndpointPrivateServiceConnectConfigArgs:
     def __init__(__self__, *,
                  enable_private_service_connect: pulumi.Input[_builtins.bool],
-                 project_allowlists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+                 project_allowlists: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 psc_automation_configs: Optional[pulumi.Input[Sequence[pulumi.Input['AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]] = None):
         """
         :param pulumi.Input[_builtins.bool] enable_private_service_connect: If set to true, the IndexEndpoint is created without private service access.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] project_allowlists: A list of Projects from which the forwarding rule will target the service attachment.
+        :param pulumi.Input[Sequence[pulumi.Input['AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]] psc_automation_configs: List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+               Structure is documented below.
         """
         pulumi.set(__self__, "enable_private_service_connect", enable_private_service_connect)
         if project_allowlists is not None:
             pulumi.set(__self__, "project_allowlists", project_allowlists)
+        if psc_automation_configs is not None:
+            pulumi.set(__self__, "psc_automation_configs", psc_automation_configs)
 
     @_builtins.property
     @pulumi.getter(name="enablePrivateServiceConnect")
@@ -7305,6 +7935,69 @@ class AiIndexEndpointPrivateServiceConnectConfigArgs:
     @project_allowlists.setter
     def project_allowlists(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "project_allowlists", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pscAutomationConfigs")
+    def psc_automation_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]]:
+        """
+        List of projects and networks where the PSC endpoints will be created. This field is used by Online Inference(Prediction) only.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "psc_automation_configs")
+
+    @psc_automation_configs.setter
+    def psc_automation_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs']]]]):
+        pulumi.set(self, "psc_automation_configs", value)
+
+
+if not MYPY:
+    class AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict(TypedDict):
+        network: pulumi.Input[_builtins.str]
+        """
+        The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        """
+        project_id: pulumi.Input[_builtins.str]
+        """
+        Project id used to create forwarding rule.
+        """
+elif False:
+    AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiIndexEndpointPrivateServiceConnectConfigPscAutomationConfigArgs:
+    def __init__(__self__, *,
+                 network: pulumi.Input[_builtins.str],
+                 project_id: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] network: The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        :param pulumi.Input[_builtins.str] project_id: Project id used to create forwarding rule.
+        """
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "project_id", project_id)
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> pulumi.Input[_builtins.str]:
+        """
+        The full name of the Google Compute Engine [network](https://cloud.google.com/compute/docs/networks-and-firewalls#networks). [Format](https://cloud.google.com/compute/docs/reference/rest/v1/networks/get): projects/{project}/global/networks/{network}.
+        """
+        return pulumi.get(self, "network")
+
+    @network.setter
+    def network(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "network", value)
+
+    @_builtins.property
+    @pulumi.getter(name="projectId")
+    def project_id(self) -> pulumi.Input[_builtins.str]:
+        """
+        Project id used to create forwarding rule.
+        """
+        return pulumi.get(self, "project_id")
+
+    @project_id.setter
+    def project_id(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "project_id", value)
 
 
 if not MYPY:
@@ -7940,6 +8633,909 @@ elif False:
 class AiRagEngineConfigRagManagedDbConfigUnprovisionedArgs:
     def __init__(__self__):
         pass
+
+
+if not MYPY:
+    class AiReasoningEngineEncryptionSpecArgsDict(TypedDict):
+        kms_key_name: pulumi.Input[_builtins.str]
+        """
+        Required. The Cloud KMS resource identifier of the customer managed
+        encryption key used to protect a resource. Has the form:
+        projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key.
+        The key needs to be in the same region as where the compute resource
+        is created.
+        """
+elif False:
+    AiReasoningEngineEncryptionSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineEncryptionSpecArgs:
+    def __init__(__self__, *,
+                 kms_key_name: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] kms_key_name: Required. The Cloud KMS resource identifier of the customer managed
+               encryption key used to protect a resource. Has the form:
+               projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key.
+               The key needs to be in the same region as where the compute resource
+               is created.
+        """
+        pulumi.set(__self__, "kms_key_name", kms_key_name)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyName")
+    def kms_key_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Required. The Cloud KMS resource identifier of the customer managed
+        encryption key used to protect a resource. Has the form:
+        projects/my-project/locations/my-region/keyRings/my-kr/cryptoKeys/my-key.
+        The key needs to be in the same region as where the compute resource
+        is created.
+        """
+        return pulumi.get(self, "kms_key_name")
+
+    @kms_key_name.setter
+    def kms_key_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "kms_key_name", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecArgsDict(TypedDict):
+        agent_framework: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The OSS agent framework used to develop the agent.
+        """
+        class_methods: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. Declarations for object class methods in OpenAPI
+        specification format.
+        """
+        deployment_spec: NotRequired[pulumi.Input['AiReasoningEngineSpecDeploymentSpecArgsDict']]
+        """
+        Optional. The specification of a Reasoning Engine deployment.
+        Structure is documented below.
+        """
+        package_spec: NotRequired[pulumi.Input['AiReasoningEngineSpecPackageSpecArgsDict']]
+        """
+        Optional. User provided package spec of the ReasoningEngine.
+        Ignored when users directly specify a deployment image through
+        deploymentSpec.first_party_image_override, but keeping the
+        field_behavior to avoid introducing breaking changes.
+        Structure is documented below.
+        """
+        service_account: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The service account that the Reasoning Engine artifact runs
+        as. It should have "roles/storage.objectViewer" for reading the user
+        project's Cloud Storage and "roles/aiplatform.user" for using Vertex
+        extensions. If not specified, the Vertex AI Reasoning Engine service
+        Agent in the project will be used.
+        """
+        source_code_spec: NotRequired[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecArgsDict']]
+        """
+        Specification for deploying from source code.
+        Structure is documented below.
+        """
+elif False:
+    AiReasoningEngineSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecArgs:
+    def __init__(__self__, *,
+                 agent_framework: Optional[pulumi.Input[_builtins.str]] = None,
+                 class_methods: Optional[pulumi.Input[_builtins.str]] = None,
+                 deployment_spec: Optional[pulumi.Input['AiReasoningEngineSpecDeploymentSpecArgs']] = None,
+                 package_spec: Optional[pulumi.Input['AiReasoningEngineSpecPackageSpecArgs']] = None,
+                 service_account: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_code_spec: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.str] agent_framework: Optional. The OSS agent framework used to develop the agent.
+        :param pulumi.Input[_builtins.str] class_methods: Optional. Declarations for object class methods in OpenAPI
+               specification format.
+        :param pulumi.Input['AiReasoningEngineSpecDeploymentSpecArgs'] deployment_spec: Optional. The specification of a Reasoning Engine deployment.
+               Structure is documented below.
+        :param pulumi.Input['AiReasoningEngineSpecPackageSpecArgs'] package_spec: Optional. User provided package spec of the ReasoningEngine.
+               Ignored when users directly specify a deployment image through
+               deploymentSpec.first_party_image_override, but keeping the
+               field_behavior to avoid introducing breaking changes.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] service_account: Optional. The service account that the Reasoning Engine artifact runs
+               as. It should have "roles/storage.objectViewer" for reading the user
+               project's Cloud Storage and "roles/aiplatform.user" for using Vertex
+               extensions. If not specified, the Vertex AI Reasoning Engine service
+               Agent in the project will be used.
+        :param pulumi.Input['AiReasoningEngineSpecSourceCodeSpecArgs'] source_code_spec: Specification for deploying from source code.
+               Structure is documented below.
+        """
+        if agent_framework is not None:
+            pulumi.set(__self__, "agent_framework", agent_framework)
+        if class_methods is not None:
+            pulumi.set(__self__, "class_methods", class_methods)
+        if deployment_spec is not None:
+            pulumi.set(__self__, "deployment_spec", deployment_spec)
+        if package_spec is not None:
+            pulumi.set(__self__, "package_spec", package_spec)
+        if service_account is not None:
+            pulumi.set(__self__, "service_account", service_account)
+        if source_code_spec is not None:
+            pulumi.set(__self__, "source_code_spec", source_code_spec)
+
+    @_builtins.property
+    @pulumi.getter(name="agentFramework")
+    def agent_framework(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The OSS agent framework used to develop the agent.
+        """
+        return pulumi.get(self, "agent_framework")
+
+    @agent_framework.setter
+    def agent_framework(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "agent_framework", value)
+
+    @_builtins.property
+    @pulumi.getter(name="classMethods")
+    def class_methods(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. Declarations for object class methods in OpenAPI
+        specification format.
+        """
+        return pulumi.get(self, "class_methods")
+
+    @class_methods.setter
+    def class_methods(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "class_methods", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deploymentSpec")
+    def deployment_spec(self) -> Optional[pulumi.Input['AiReasoningEngineSpecDeploymentSpecArgs']]:
+        """
+        Optional. The specification of a Reasoning Engine deployment.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "deployment_spec")
+
+    @deployment_spec.setter
+    def deployment_spec(self, value: Optional[pulumi.Input['AiReasoningEngineSpecDeploymentSpecArgs']]):
+        pulumi.set(self, "deployment_spec", value)
+
+    @_builtins.property
+    @pulumi.getter(name="packageSpec")
+    def package_spec(self) -> Optional[pulumi.Input['AiReasoningEngineSpecPackageSpecArgs']]:
+        """
+        Optional. User provided package spec of the ReasoningEngine.
+        Ignored when users directly specify a deployment image through
+        deploymentSpec.first_party_image_override, but keeping the
+        field_behavior to avoid introducing breaking changes.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "package_spec")
+
+    @package_spec.setter
+    def package_spec(self, value: Optional[pulumi.Input['AiReasoningEngineSpecPackageSpecArgs']]):
+        pulumi.set(self, "package_spec", value)
+
+    @_builtins.property
+    @pulumi.getter(name="serviceAccount")
+    def service_account(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The service account that the Reasoning Engine artifact runs
+        as. It should have "roles/storage.objectViewer" for reading the user
+        project's Cloud Storage and "roles/aiplatform.user" for using Vertex
+        extensions. If not specified, the Vertex AI Reasoning Engine service
+        Agent in the project will be used.
+        """
+        return pulumi.get(self, "service_account")
+
+    @service_account.setter
+    def service_account(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "service_account", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceCodeSpec")
+    def source_code_spec(self) -> Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecArgs']]:
+        """
+        Specification for deploying from source code.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "source_code_spec")
+
+    @source_code_spec.setter
+    def source_code_spec(self, value: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecArgs']]):
+        pulumi.set(self, "source_code_spec", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecDeploymentSpecArgsDict(TypedDict):
+        container_concurrency: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Optional. Concurrency for each container and agent server.
+        Recommended value: 2 * cpu + 1. Defaults to 9.
+        """
+        envs: NotRequired[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecEnvArgsDict']]]]
+        """
+        Optional. Environment variables to be set with the Reasoning
+        Engine deployment.
+        Structure is documented below.
+        """
+        max_instances: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Optional. The maximum number of application instances that can be
+        launched to handle increased traffic. Defaults to 100.
+        Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable
+        range is [1, 100].
+        """
+        min_instances: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Optional. The minimum number of application instances that will be
+        kept running at all times. Defaults to 1. Range: [0, 10].
+        """
+        resource_limits: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+        """
+        Optional. Resource limits for each container.
+        Only 'cpu' and 'memory' keys are supported.
+        Defaults to {"cpu": "4", "memory": "4Gi"}.
+        The only supported values for CPU are '1', '2', '4', '6' and '8'.
+        For more information, go to
+        https://cloud.google.com/run/docs/configuring/cpu.
+        The only supported values for memory are '1Gi', '2Gi', ... '32 Gi'.
+        For more information, go to
+        https://cloud.google.com/run/docs/configuring/memory-limits.
+        """
+        secret_envs: NotRequired[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvArgsDict']]]]
+        """
+        Optional. Environment variables where the value is a secret in
+        Cloud Secret Manager. To use this feature, add 'Secret Manager
+        Secret Accessor' role (roles/secretmanager.secretAccessor) to AI
+        Platform Reasoning Engine service Agent.
+        Structure is documented below.
+        """
+elif False:
+    AiReasoningEngineSpecDeploymentSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecDeploymentSpecArgs:
+    def __init__(__self__, *,
+                 container_concurrency: Optional[pulumi.Input[_builtins.int]] = None,
+                 envs: Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecEnvArgs']]]] = None,
+                 max_instances: Optional[pulumi.Input[_builtins.int]] = None,
+                 min_instances: Optional[pulumi.Input[_builtins.int]] = None,
+                 resource_limits: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 secret_envs: Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.int] container_concurrency: Optional. Concurrency for each container and agent server.
+               Recommended value: 2 * cpu + 1. Defaults to 9.
+        :param pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecEnvArgs']]] envs: Optional. Environment variables to be set with the Reasoning
+               Engine deployment.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.int] max_instances: Optional. The maximum number of application instances that can be
+               launched to handle increased traffic. Defaults to 100.
+               Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable
+               range is [1, 100].
+        :param pulumi.Input[_builtins.int] min_instances: Optional. The minimum number of application instances that will be
+               kept running at all times. Defaults to 1. Range: [0, 10].
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] resource_limits: Optional. Resource limits for each container.
+               Only 'cpu' and 'memory' keys are supported.
+               Defaults to {"cpu": "4", "memory": "4Gi"}.
+               The only supported values for CPU are '1', '2', '4', '6' and '8'.
+               For more information, go to
+               https://cloud.google.com/run/docs/configuring/cpu.
+               The only supported values for memory are '1Gi', '2Gi', ... '32 Gi'.
+               For more information, go to
+               https://cloud.google.com/run/docs/configuring/memory-limits.
+        :param pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvArgs']]] secret_envs: Optional. Environment variables where the value is a secret in
+               Cloud Secret Manager. To use this feature, add 'Secret Manager
+               Secret Accessor' role (roles/secretmanager.secretAccessor) to AI
+               Platform Reasoning Engine service Agent.
+               Structure is documented below.
+        """
+        if container_concurrency is not None:
+            pulumi.set(__self__, "container_concurrency", container_concurrency)
+        if envs is not None:
+            pulumi.set(__self__, "envs", envs)
+        if max_instances is not None:
+            pulumi.set(__self__, "max_instances", max_instances)
+        if min_instances is not None:
+            pulumi.set(__self__, "min_instances", min_instances)
+        if resource_limits is not None:
+            pulumi.set(__self__, "resource_limits", resource_limits)
+        if secret_envs is not None:
+            pulumi.set(__self__, "secret_envs", secret_envs)
+
+    @_builtins.property
+    @pulumi.getter(name="containerConcurrency")
+    def container_concurrency(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Optional. Concurrency for each container and agent server.
+        Recommended value: 2 * cpu + 1. Defaults to 9.
+        """
+        return pulumi.get(self, "container_concurrency")
+
+    @container_concurrency.setter
+    def container_concurrency(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "container_concurrency", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def envs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecEnvArgs']]]]:
+        """
+        Optional. Environment variables to be set with the Reasoning
+        Engine deployment.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "envs")
+
+    @envs.setter
+    def envs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecEnvArgs']]]]):
+        pulumi.set(self, "envs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxInstances")
+    def max_instances(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Optional. The maximum number of application instances that can be
+        launched to handle increased traffic. Defaults to 100.
+        Range: [1, 1000]. If VPC-SC or PSC-I is enabled, the acceptable
+        range is [1, 100].
+        """
+        return pulumi.get(self, "max_instances")
+
+    @max_instances.setter
+    def max_instances(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_instances", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minInstances")
+    def min_instances(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Optional. The minimum number of application instances that will be
+        kept running at all times. Defaults to 1. Range: [0, 10].
+        """
+        return pulumi.get(self, "min_instances")
+
+    @min_instances.setter
+    def min_instances(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "min_instances", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceLimits")
+    def resource_limits(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Optional. Resource limits for each container.
+        Only 'cpu' and 'memory' keys are supported.
+        Defaults to {"cpu": "4", "memory": "4Gi"}.
+        The only supported values for CPU are '1', '2', '4', '6' and '8'.
+        For more information, go to
+        https://cloud.google.com/run/docs/configuring/cpu.
+        The only supported values for memory are '1Gi', '2Gi', ... '32 Gi'.
+        For more information, go to
+        https://cloud.google.com/run/docs/configuring/memory-limits.
+        """
+        return pulumi.get(self, "resource_limits")
+
+    @resource_limits.setter
+    def resource_limits(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "resource_limits", value)
+
+    @_builtins.property
+    @pulumi.getter(name="secretEnvs")
+    def secret_envs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvArgs']]]]:
+        """
+        Optional. Environment variables where the value is a secret in
+        Cloud Secret Manager. To use this feature, add 'Secret Manager
+        Secret Accessor' role (roles/secretmanager.secretAccessor) to AI
+        Platform Reasoning Engine service Agent.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "secret_envs")
+
+    @secret_envs.setter
+    def secret_envs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvArgs']]]]):
+        pulumi.set(self, "secret_envs", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecDeploymentSpecEnvArgsDict(TypedDict):
+        name: pulumi.Input[_builtins.str]
+        """
+        The name of the environment variable. Must be a valid
+        C identifier.
+        """
+        value: pulumi.Input[_builtins.str]
+        """
+        Variables that reference a $(VAR_NAME) are expanded using
+        the previous defined environment variables in the container
+        and any service environment variables. If a variable cannot
+        be resolved, the reference in the input string will be
+        unchanged. The $(VAR_NAME) syntax can be escaped with a
+        double $$, ie: $$(VAR_NAME). Escaped references will never
+        be expanded, regardless of whether the variable exists
+        or not.
+        """
+elif False:
+    AiReasoningEngineSpecDeploymentSpecEnvArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecDeploymentSpecEnvArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[_builtins.str],
+                 value: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] name: The name of the environment variable. Must be a valid
+               C identifier.
+        :param pulumi.Input[_builtins.str] value: Variables that reference a $(VAR_NAME) are expanded using
+               the previous defined environment variables in the container
+               and any service environment variables. If a variable cannot
+               be resolved, the reference in the input string will be
+               unchanged. The $(VAR_NAME) syntax can be escaped with a
+               double $$, ie: $$(VAR_NAME). Escaped references will never
+               be expanded, regardless of whether the variable exists
+               or not.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the environment variable. Must be a valid
+        C identifier.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[_builtins.str]:
+        """
+        Variables that reference a $(VAR_NAME) are expanded using
+        the previous defined environment variables in the container
+        and any service environment variables. If a variable cannot
+        be resolved, the reference in the input string will be
+        unchanged. The $(VAR_NAME) syntax can be escaped with a
+        double $$, ie: $$(VAR_NAME). Escaped references will never
+        be expanded, regardless of whether the variable exists
+        or not.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "value", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecDeploymentSpecSecretEnvArgsDict(TypedDict):
+        name: pulumi.Input[_builtins.str]
+        """
+        The name of the environment variable. Must be a valid C
+        identifier.
+        """
+        secret_ref: pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgsDict']
+        """
+        Reference to a secret stored in the Cloud Secret Manager
+        that will provide the value for this environment variable.
+        Structure is documented below.
+        """
+elif False:
+    AiReasoningEngineSpecDeploymentSpecSecretEnvArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecDeploymentSpecSecretEnvArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[_builtins.str],
+                 secret_ref: pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs']):
+        """
+        :param pulumi.Input[_builtins.str] name: The name of the environment variable. Must be a valid C
+               identifier.
+        :param pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs'] secret_ref: Reference to a secret stored in the Cloud Secret Manager
+               that will provide the value for this environment variable.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "secret_ref", secret_ref)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the environment variable. Must be a valid C
+        identifier.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="secretRef")
+    def secret_ref(self) -> pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs']:
+        """
+        Reference to a secret stored in the Cloud Secret Manager
+        that will provide the value for this environment variable.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "secret_ref")
+
+    @secret_ref.setter
+    def secret_ref(self, value: pulumi.Input['AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs']):
+        pulumi.set(self, "secret_ref", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgsDict(TypedDict):
+        secret: pulumi.Input[_builtins.str]
+        """
+        The name of the secret in Cloud Secret Manager.
+        Format: {secret_name}.
+        """
+        version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The Cloud Secret Manager secret version. Can be 'latest'
+        for the latest version, an integer for a specific
+        version, or a version alias.
+        """
+elif False:
+    AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecDeploymentSpecSecretEnvSecretRefArgs:
+    def __init__(__self__, *,
+                 secret: pulumi.Input[_builtins.str],
+                 version: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] secret: The name of the secret in Cloud Secret Manager.
+               Format: {secret_name}.
+        :param pulumi.Input[_builtins.str] version: The Cloud Secret Manager secret version. Can be 'latest'
+               for the latest version, an integer for a specific
+               version, or a version alias.
+        """
+        pulumi.set(__self__, "secret", secret)
+        if version is not None:
+            pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter
+    def secret(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the secret in Cloud Secret Manager.
+        Format: {secret_name}.
+        """
+        return pulumi.get(self, "secret")
+
+    @secret.setter
+    def secret(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "secret", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The Cloud Secret Manager secret version. Can be 'latest'
+        for the latest version, an integer for a specific
+        version, or a version alias.
+        """
+        return pulumi.get(self, "version")
+
+    @version.setter
+    def version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecPackageSpecArgsDict(TypedDict):
+        dependency_files_gcs_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The Cloud Storage URI of the dependency files in tar.gz
+        format.
+        """
+        pickle_object_gcs_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The Cloud Storage URI of the pickled python object.
+        """
+        python_version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The Python version. Currently support 3.8, 3.9, 3.10,
+        3.11, 3.12, 3.13. If not specified, default value is 3.10.
+        """
+        requirements_gcs_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The Cloud Storage URI of the requirements.txtfile
+        """
+elif False:
+    AiReasoningEngineSpecPackageSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecPackageSpecArgs:
+    def __init__(__self__, *,
+                 dependency_files_gcs_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 pickle_object_gcs_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 python_version: Optional[pulumi.Input[_builtins.str]] = None,
+                 requirements_gcs_uri: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] dependency_files_gcs_uri: Optional. The Cloud Storage URI of the dependency files in tar.gz
+               format.
+        :param pulumi.Input[_builtins.str] pickle_object_gcs_uri: Optional. The Cloud Storage URI of the pickled python object.
+        :param pulumi.Input[_builtins.str] python_version: Optional. The Python version. Currently support 3.8, 3.9, 3.10,
+               3.11, 3.12, 3.13. If not specified, default value is 3.10.
+        :param pulumi.Input[_builtins.str] requirements_gcs_uri: Optional. The Cloud Storage URI of the requirements.txtfile
+        """
+        if dependency_files_gcs_uri is not None:
+            pulumi.set(__self__, "dependency_files_gcs_uri", dependency_files_gcs_uri)
+        if pickle_object_gcs_uri is not None:
+            pulumi.set(__self__, "pickle_object_gcs_uri", pickle_object_gcs_uri)
+        if python_version is not None:
+            pulumi.set(__self__, "python_version", python_version)
+        if requirements_gcs_uri is not None:
+            pulumi.set(__self__, "requirements_gcs_uri", requirements_gcs_uri)
+
+    @_builtins.property
+    @pulumi.getter(name="dependencyFilesGcsUri")
+    def dependency_files_gcs_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The Cloud Storage URI of the dependency files in tar.gz
+        format.
+        """
+        return pulumi.get(self, "dependency_files_gcs_uri")
+
+    @dependency_files_gcs_uri.setter
+    def dependency_files_gcs_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "dependency_files_gcs_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pickleObjectGcsUri")
+    def pickle_object_gcs_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The Cloud Storage URI of the pickled python object.
+        """
+        return pulumi.get(self, "pickle_object_gcs_uri")
+
+    @pickle_object_gcs_uri.setter
+    def pickle_object_gcs_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "pickle_object_gcs_uri", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pythonVersion")
+    def python_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The Python version. Currently support 3.8, 3.9, 3.10,
+        3.11, 3.12, 3.13. If not specified, default value is 3.10.
+        """
+        return pulumi.get(self, "python_version")
+
+    @python_version.setter
+    def python_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "python_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requirementsGcsUri")
+    def requirements_gcs_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The Cloud Storage URI of the requirements.txtfile
+        """
+        return pulumi.get(self, "requirements_gcs_uri")
+
+    @requirements_gcs_uri.setter
+    def requirements_gcs_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "requirements_gcs_uri", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecSourceCodeSpecArgsDict(TypedDict):
+        inline_source: NotRequired[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecInlineSourceArgsDict']]
+        """
+        Source code is provided directly in the request.
+        Structure is documented below.
+        """
+        python_spec: NotRequired[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecPythonSpecArgsDict']]
+        """
+        Specification for running a Python application from source.
+        Structure is documented below.
+        """
+elif False:
+    AiReasoningEngineSpecSourceCodeSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecSourceCodeSpecArgs:
+    def __init__(__self__, *,
+                 inline_source: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs']] = None,
+                 python_spec: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs']] = None):
+        """
+        :param pulumi.Input['AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs'] inline_source: Source code is provided directly in the request.
+               Structure is documented below.
+        :param pulumi.Input['AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs'] python_spec: Specification for running a Python application from source.
+               Structure is documented below.
+        """
+        if inline_source is not None:
+            pulumi.set(__self__, "inline_source", inline_source)
+        if python_spec is not None:
+            pulumi.set(__self__, "python_spec", python_spec)
+
+    @_builtins.property
+    @pulumi.getter(name="inlineSource")
+    def inline_source(self) -> Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs']]:
+        """
+        Source code is provided directly in the request.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "inline_source")
+
+    @inline_source.setter
+    def inline_source(self, value: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs']]):
+        pulumi.set(self, "inline_source", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pythonSpec")
+    def python_spec(self) -> Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs']]:
+        """
+        Specification for running a Python application from source.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "python_spec")
+
+    @python_spec.setter
+    def python_spec(self, value: Optional[pulumi.Input['AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs']]):
+        pulumi.set(self, "python_spec", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecSourceCodeSpecInlineSourceArgsDict(TypedDict):
+        source_archive: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Required. Input only.
+        The application source code archive, provided as a compressed
+        tarball (.tar.gz) file. A base64-encoded string.
+        """
+elif False:
+    AiReasoningEngineSpecSourceCodeSpecInlineSourceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecSourceCodeSpecInlineSourceArgs:
+    def __init__(__self__, *,
+                 source_archive: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] source_archive: Required. Input only.
+               The application source code archive, provided as a compressed
+               tarball (.tar.gz) file. A base64-encoded string.
+        """
+        if source_archive is not None:
+            pulumi.set(__self__, "source_archive", source_archive)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceArchive")
+    def source_archive(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Required. Input only.
+        The application source code archive, provided as a compressed
+        tarball (.tar.gz) file. A base64-encoded string.
+        """
+        return pulumi.get(self, "source_archive")
+
+    @source_archive.setter
+    def source_archive(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "source_archive", value)
+
+
+if not MYPY:
+    class AiReasoningEngineSpecSourceCodeSpecPythonSpecArgsDict(TypedDict):
+        entrypoint_module: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The Python module to load as the entrypoint,
+        specified as a fully qualified module name. For example:
+        path.to.agent. If not specified, defaults to "agent".
+        The project root will be added to Python sys.path, allowing
+        imports to be specified relative to the root.
+        """
+        entrypoint_object: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The name of the callable object within the
+        entrypointModule to use as the application If not specified,
+        defaults to "root_agent".
+        """
+        requirements_file: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The path to the requirements file, relative to the
+        source root. If not specified, defaults to "requirements.txt".
+        """
+        version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Optional. The version of Python to use. Support version
+        includes 3.9, 3.10, 3.11, 3.12, 3.13. If not specified,
+        default value is 3.10.
+        """
+elif False:
+    AiReasoningEngineSpecSourceCodeSpecPythonSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AiReasoningEngineSpecSourceCodeSpecPythonSpecArgs:
+    def __init__(__self__, *,
+                 entrypoint_module: Optional[pulumi.Input[_builtins.str]] = None,
+                 entrypoint_object: Optional[pulumi.Input[_builtins.str]] = None,
+                 requirements_file: Optional[pulumi.Input[_builtins.str]] = None,
+                 version: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] entrypoint_module: Optional. The Python module to load as the entrypoint,
+               specified as a fully qualified module name. For example:
+               path.to.agent. If not specified, defaults to "agent".
+               The project root will be added to Python sys.path, allowing
+               imports to be specified relative to the root.
+        :param pulumi.Input[_builtins.str] entrypoint_object: Optional. The name of the callable object within the
+               entrypointModule to use as the application If not specified,
+               defaults to "root_agent".
+        :param pulumi.Input[_builtins.str] requirements_file: Optional. The path to the requirements file, relative to the
+               source root. If not specified, defaults to "requirements.txt".
+        :param pulumi.Input[_builtins.str] version: Optional. The version of Python to use. Support version
+               includes 3.9, 3.10, 3.11, 3.12, 3.13. If not specified,
+               default value is 3.10.
+        """
+        if entrypoint_module is not None:
+            pulumi.set(__self__, "entrypoint_module", entrypoint_module)
+        if entrypoint_object is not None:
+            pulumi.set(__self__, "entrypoint_object", entrypoint_object)
+        if requirements_file is not None:
+            pulumi.set(__self__, "requirements_file", requirements_file)
+        if version is not None:
+            pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter(name="entrypointModule")
+    def entrypoint_module(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The Python module to load as the entrypoint,
+        specified as a fully qualified module name. For example:
+        path.to.agent. If not specified, defaults to "agent".
+        The project root will be added to Python sys.path, allowing
+        imports to be specified relative to the root.
+        """
+        return pulumi.get(self, "entrypoint_module")
+
+    @entrypoint_module.setter
+    def entrypoint_module(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "entrypoint_module", value)
+
+    @_builtins.property
+    @pulumi.getter(name="entrypointObject")
+    def entrypoint_object(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The name of the callable object within the
+        entrypointModule to use as the application If not specified,
+        defaults to "root_agent".
+        """
+        return pulumi.get(self, "entrypoint_object")
+
+    @entrypoint_object.setter
+    def entrypoint_object(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "entrypoint_object", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requirementsFile")
+    def requirements_file(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The path to the requirements file, relative to the
+        source root. If not specified, defaults to "requirements.txt".
+        """
+        return pulumi.get(self, "requirements_file")
+
+    @requirements_file.setter
+    def requirements_file(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "requirements_file", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Optional. The version of Python to use. Support version
+        includes 3.9, 3.10, 3.11, 3.12, 3.13. If not specified,
+        default value is 3.10.
+        """
+        return pulumi.get(self, "version")
+
+    @version.setter
+    def version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version", value)
 
 
 if not MYPY:

@@ -27,7 +27,7 @@ namespace {
 
 // FontConfig was thread antagonistic until 2.10.91 with known thread safety issues until 2.13.93.
 // Before that, lock with a global mutex.
-// See https://bug.skia.org/1497 and cl/339089311 for background.
+// See skbug.com/40032593 and cl/339089311 for background.
 static SkMutex& f_c_mutex() {
     static SkMutex& mutex = *(new SkMutex);
     return mutex;
@@ -149,7 +149,7 @@ static void fontconfiginterface_unittest() {
 
 // Returns the string from the pattern, or nullptr
 static const char* get_string(FcPattern* pattern, const char field[], int index = 0) {
-    const char* name;
+    char* name;
     if (FcPatternGetString(pattern, field, index, (FcChar8**)&name) != FcResultMatch) {
         name = nullptr;
     }
@@ -393,6 +393,11 @@ static SkScalar map_ranges(SkScalar val, MapRanges const ranges[], int rangesCou
 #define FC_WEIGHT_DEMILIGHT        65
 #endif
 
+// Available since FontConfig 2.15.
+#ifndef FC_FONT_WRAPPER
+#define FC_FONT_WRAPPER         "fontwrapper"
+#endif
+
 static SkFontStyle skfontstyle_from_fcpattern(FcPattern* pattern) {
     typedef SkFontStyle SkFS;
 
@@ -514,9 +519,8 @@ bool SkFontConfigInterfaceDirect::isAccessible(const char* filename) {
 bool SkFontConfigInterfaceDirect::isValidPattern(FcPattern* pattern) {
 #ifdef SK_FONT_CONFIG_INTERFACE_ONLY_ALLOW_SFNT_FONTS
     const char* font_format = get_string(pattern, FC_FONTFORMAT);
-    if (font_format
-        && 0 != strcmp(font_format, kFontFormatTrueType)
-        && 0 != strcmp(font_format, kFontFormatCFF))
+    if (!font_format || (0 != strcmp(font_format, kFontFormatTrueType) &&
+                         0 != strcmp(font_format, kFontFormatCFF)))
     {
         return false;
     }
@@ -606,11 +610,15 @@ bool SkFontConfigInterfaceDirect::matchFamilyName(const char familyName[],
     FcPattern* pattern = FcPatternCreate();
 
     if (familyName) {
-        FcPatternAddString(pattern, FC_FAMILY, (FcChar8*)familyName);
+        FcPatternAddString(pattern, FC_FAMILY, (const FcChar8*)familyName);
     }
     fcpattern_from_skfontstyle(style, pattern);
 
     FcPatternAddBool(pattern, FC_SCALABLE, FcTrue);
+
+    // Prefer SFNT fonts in order to reduce the chance of having to reject the font
+    // in isValidPattern().
+    FcPatternAddString(pattern, FC_FONT_WRAPPER, reinterpret_cast<const FcChar8*>("SFNT"));
 
     FcConfigSubstitute(fc, pattern, FcMatchPattern);
     FcDefaultSubstitute(pattern);

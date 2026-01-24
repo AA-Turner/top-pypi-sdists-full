@@ -3,12 +3,14 @@
 # Licensed under the MIT License.
 
 """General utility functions."""
+
 import importlib.metadata
 import platform
 import sys
 import warnings
 from re import fullmatch
 
+from .pytiledbsoma import expected_tiledb_version, tiledb_version
 from .pytiledbsoma import version as libtiledbsoma_core_version_str
 
 
@@ -39,19 +41,6 @@ def get_implementation_version() -> str:
         return "unknown"
 
 
-def assert_version_before(major: int, minor: int) -> None:
-    version_string = get_implementation_version()
-    if version_string == "unknown":
-        warnings.warn(
-            "`assert_version_before` could not retrieve the current "
-            "implementation version"
-        )
-        return
-
-    version = version_string.split(".")
-    assert (int(version[0]), int(version[1])) < (major, minor)
-
-
 def get_storage_engine() -> str:
     """Returns underlying storage engine name, e.g., "tiledb".
 
@@ -72,13 +61,6 @@ def get_libtiledbsoma_core_version() -> str:
     return m.group(1)
 
 
-# Set this env var to "err" to print an error to stderr when TileDB-Py's and libtiledbsoma's core
-# versions mismatch (by default, an AssertionError is raised).
-TILEDB_CORE_MISMATCHED_VERSIONS_ERROR_LEVEL_VAR = (
-    "TILEDB_CORE_MISMATCHED_VERSIONS_ERROR_LEVEL"
-)
-
-
 def show_package_versions() -> None:
     """Nominal use is for bug reports, so issue filers and issue fixers can be on
     the same page.
@@ -87,8 +69,22 @@ def show_package_versions() -> None:
     """
     u = platform.uname()
     # fmt: off
-    print("tiledbsoma.__version__             ", get_implementation_version())
-    print("TileDB core version (libtiledbsoma)", get_libtiledbsoma_core_version())
-    print("python version                     ", ".".join(str(v) for v in sys.version_info))
-    print("OS version                         ", u.system, u.release)
+    print("tiledbsoma.__version__             ", get_implementation_version())  # noqa: T201
+    print("TileDB core version (libtiledbsoma)", get_libtiledbsoma_core_version())  # noqa: T201
+    print("python version                     ", ".".join(str(v) for v in sys.version_info))  # noqa: T201
+    print("OS version                         ", u.system, u.release)  # noqa: T201
     # fmt: on
+
+
+def _verify_expected_tiledb_version() -> None:
+    expected = expected_tiledb_version()
+    found = tiledb_version()
+    if found != expected:
+        warnings.warn(
+            f"TileDB version mismatch - expected version {expected}, but found {found}. This should not occur, and"
+            " is likely the result of a corrupted package installation. Recommend uninstalling/reinstalling the"
+            " tiledbsoma package. Alternatively, if you are using a Python virtual environment (e.g., conda)"
+            " remove and reinstall the Python virtual environment.",
+            RuntimeWarning,
+            stacklevel=2,
+        )

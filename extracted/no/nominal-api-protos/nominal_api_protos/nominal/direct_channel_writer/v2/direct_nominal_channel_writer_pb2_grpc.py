@@ -5,7 +5,7 @@ import warnings
 
 from nominal.direct_channel_writer.v2 import direct_nominal_channel_writer_pb2 as nominal_dot_direct__channel__writer_dot_v2_dot_direct__nominal__channel__writer__pb2
 
-GRPC_GENERATED_VERSION = '1.75.0'
+GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in nominal/direct_channel_writer/v2/direct_nominal_channel_writer_pb2_grpc.py depends on'
+        + ' but the generated code in nominal/direct_channel_writer/v2/direct_nominal_channel_writer_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'

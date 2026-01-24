@@ -33,7 +33,7 @@ from uuid_utils.compat import uuid7
 
 TEST_CONFIG_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "../../../tensorzero-core/tests/e2e/tensorzero.toml",
+    "../../../tensorzero-core/tests/e2e/config/tensorzero.*.toml",
 )
 
 
@@ -116,9 +116,7 @@ async def test_async_inference_cache(async_openai_client):
             "content": [
                 {
                     "type": "text",
-                    "tensorzero::arguments": {
-                        "assistant_name": f"Alfred Pennyworth ({uuid})"
-                    },
+                    "tensorzero::arguments": {"assistant_name": f"Alfred Pennyworth ({uuid})"},
                 }
             ],
         },
@@ -170,9 +168,7 @@ async def test_async_inference_streaming_with_cache(async_openai_client):
             "content": [
                 {
                     "type": "text",
-                    "tensorzero::arguments": {
-                        "assistant_name": f"Alfred Pennyworth ({uuid})"
-                    },
+                    "tensorzero::arguments": {"assistant_name": f"Alfred Pennyworth ({uuid})"},
                 }
             ],
         },
@@ -220,11 +216,9 @@ async def test_async_inference_streaming_with_cache(async_openai_client):
             assert chunk.choices[0].delta.content == expected_text[i]
             content += chunk.choices[0].delta.content
 
-    # Check second-to-last chunk has correct finish reason
-    stop_chunk = chunks[-2]
-    assert stop_chunk.choices[0].finish_reason == "stop"
-
+    # Check last chunk has correct finish reason and usage
     final_chunk = chunks[-1]
+    assert final_chunk.choices[0].finish_reason == "stop"
     assert final_chunk.usage.prompt_tokens == 10
     assert final_chunk.usage.completion_tokens == 16
 
@@ -257,12 +251,10 @@ async def test_async_inference_streaming_with_cache(async_openai_client):
 
     assert content == cached_content
 
-    # Check second-to-last chunk has the correct finish reason
+    # Check last chunk has the correct finish reason and usage
     print("Chunks: ", cached_chunks)
-    finish_chunk = cached_chunks[-2]
-    assert finish_chunk.choices[0].finish_reason == "stop"
-
     final_cached_chunk = cached_chunks[-1]
+    assert final_cached_chunk.choices[0].finish_reason == "stop"
 
     # In streaming mode, the cached response will not include usage statistics
     # This is still correct behavior as no tokens were used
@@ -330,20 +322,15 @@ async def test_async_inference_streaming(async_openai_client):
             assert chunk.episode_id == previous_episode_id
         previous_inference_id = chunk.id
         previous_episode_id = chunk.episode_id
-        assert (
-            chunk.model == "tensorzero::function_name::basic_test::variant_name::test"
-        )
-        if i + 2 < len(chunks):
+        assert chunk.model == "tensorzero::function_name::basic_test::variant_name::test"
+        if i + 1 < len(chunks):
             assert len(chunk.choices) == 1
             assert chunk.choices[0].delta.content == expected_text[i]
             assert chunk.choices[0].finish_reason is None
 
-    stop_chunk = chunks[-2]
-    assert stop_chunk.choices[0].finish_reason == "stop"
-    assert stop_chunk.choices[0].delta.content is None
-
     final_chunk = chunks[-1]
-    assert len(final_chunk.choices) == 0
+    assert final_chunk.choices[0].finish_reason == "stop"
+    assert final_chunk.choices[0].delta.content is None
     assert final_chunk.usage.prompt_tokens == 10
     assert final_chunk.usage.completion_tokens == 16
     assert final_chunk.usage.total_tokens == 26
@@ -358,9 +345,7 @@ async def test_async_inference_streaming_nonexistent_function(async_openai_clien
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "assistant_name": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"assistant_name": "Alfred Pennyworth"},
                     }
                 ],
             },
@@ -392,9 +377,7 @@ async def test_async_inference_streaming_missing_function(async_openai_client):
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "assistant_name": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"assistant_name": "Alfred Pennyworth"},
                     }
                 ],
             },
@@ -426,9 +409,7 @@ async def test_async_inference_streaming_malformed_function(async_openai_client)
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "assistant_name": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"assistant_name": "Alfred Pennyworth"},
                     }
                 ],
             },
@@ -460,9 +441,7 @@ async def test_async_inference_streaming_missing_model(async_openai_client):
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "assistant_name": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"assistant_name": "Alfred Pennyworth"},
                     }
                 ],
             },
@@ -487,9 +466,7 @@ async def test_async_inference_streaming_malformed_input(async_openai_client):
                 "content": [
                     {
                         "type": "text",
-                        "tensorzero::arguments": {
-                            "name_of_assistant": "Alfred Pennyworth"
-                        },
+                        "tensorzero::arguments": {"name_of_assistant": "Alfred Pennyworth"},
                     }
                 ],
             },
@@ -528,10 +505,7 @@ async def test_async_tool_call_inference(async_openai_client):
         model="tensorzero::function_name::weather_helper",
         top_p=0.5,
     )
-    assert (
-        result.model
-        == "tensorzero::function_name::weather_helper::variant_name::variant"
-    )
+    assert result.model == "tensorzero::function_name::weather_helper::variant_name::variant"
     assert result.choices[0].message.content is None
     assert result.choices[0].message.tool_calls is not None
     tool_calls = result.choices[0].message.tool_calls
@@ -572,10 +546,7 @@ async def test_async_malformed_tool_call_inference(async_openai_client):
         model="tensorzero::function_name::weather_helper",
         presence_penalty=0.5,
     )
-    assert (
-        result.model
-        == "tensorzero::function_name::weather_helper::variant_name::bad_tool"
-    )
+    assert result.model == "tensorzero::function_name::weather_helper::variant_name::bad_tool"
     assert result.choices[0].message.content is None
     assert result.choices[0].message.tool_calls is not None
     tool_calls = result.choices[0].message.tool_calls
@@ -630,10 +601,7 @@ async def test_async_tool_call_streaming(async_openai_client):
             assert chunk.episode_id == previous_episode_id
         previous_inference_id = chunk.id
         previous_episode_id = chunk.episode_id
-        assert (
-            chunk.model
-            == "tensorzero::function_name::weather_helper::variant_name::variant"
-        )
+        assert chunk.model == "tensorzero::function_name::weather_helper::variant_name::variant"
         if i + 1 < len(chunks):
             assert len(chunk.choices) == 1
             assert chunk.choices[0].delta.content is None
@@ -669,9 +637,7 @@ async def test_async_json_streaming(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     stream = await async_openai_client.chat.completions.create(
@@ -711,10 +677,7 @@ async def test_async_json_streaming(async_openai_client):
             assert chunk.episode_id == previous_episode_id
         previous_inference_id = chunk.id
         previous_episode_id = chunk.episode_id
-        assert (
-            chunk.model
-            == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
-        )
+        assert chunk.model == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
         if i + 1 < len(chunks):
             assert chunk.choices[0].delta.content == expected_text[i]
         else:
@@ -773,9 +736,7 @@ async def test_async_json_success_developer(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -806,9 +767,7 @@ async def test_async_json_success_non_deprecated(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -839,9 +798,7 @@ async def test_async_json_success(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -872,9 +829,7 @@ async def test_async_json_success_strict(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -901,10 +856,7 @@ async def test_async_json_success_strict(async_openai_client):
         model="tensorzero::function_name::json_success",
         response_format=response_format,
     )
-    assert (
-        result.model
-        == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
-    )
+    assert result.model == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
     assert result.episode_id == episode_id
     assert result.choices[0].message.content == '{"response":"Hello"}'
     assert result.choices[0].message.tool_calls is None
@@ -926,9 +878,7 @@ async def test_async_json_success_json_object(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -944,10 +894,7 @@ async def test_async_json_success_json_object(async_openai_client):
         model="tensorzero::function_name::json_success",
         response_format=response_format,
     )
-    assert (
-        result.model
-        == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
-    )
+    assert result.model == "tensorzero::function_name::json_success::variant_name::test-diff-schema"
     assert result.episode_id == episode_id
     assert result.choices[0].message.content == '{"response":"Hello"}'
     assert result.choices[0].message.tool_calls is None
@@ -972,9 +919,7 @@ async def test_async_json_success_override(async_openai_client):
         {"role": "user", "content": [{"type": "text", "text": "Hi how are you?"}]},
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -1001,9 +946,7 @@ async def test_async_json_invalid_system(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     episode_id = str(uuid7())
@@ -1014,7 +957,7 @@ async def test_async_json_invalid_system(async_openai_client):
             model="tensorzero::function_name::json_success",
         )
     assert (
-        "Invalid request to OpenAI-compatible endpoint: System message must be a text content block"
+        "Invalid request to OpenAI-compatible endpoint: System message must contain only text or template content blocks"
         in str(exc_info.value)
     )
 
@@ -1118,7 +1061,8 @@ async def test_async_extra_headers_param(async_openai_client):
         extra_body={
             "tensorzero::extra_headers": [
                 {
-                    "model_provider_name": "tensorzero::model_name::dummy::echo_injected_data::provider_name::dummy",
+                    "model_name": "dummy::echo_injected_data",
+                    "provider_name": "dummy",
                     "name": "x-my-extra-header",
                     "value": "my-extra-header-value",
                 },
@@ -1164,7 +1108,8 @@ async def test_async_extra_body_param(async_openai_client):
         extra_body={
             "tensorzero::extra_body": [
                 {
-                    "model_provider_name": "tensorzero::model_name::dummy::echo_extra_info::provider_name::dummy",
+                    "model_name": "dummy::echo_extra_info",
+                    "provider_name": "dummy",
                     "pointer": "/thinking",
                     "value": {
                         "type": "enabled",
@@ -1181,7 +1126,8 @@ async def test_async_extra_body_param(async_openai_client):
         "extra_body": {
             "inference_extra_body": [
                 {
-                    "model_provider_name": "tensorzero::model_name::dummy::echo_extra_info::provider_name::dummy",
+                    "model_name": "dummy::echo_extra_info",
+                    "provider_name": "dummy",
                     "pointer": "/thinking",
                     "value": {"type": "enabled", "budget_tokens": 1024},
                 }
@@ -1267,13 +1213,13 @@ async def test_dynamic_tool_use_inference_openai(async_openai_client):
     result = await async_openai_client.chat.completions.create(
         extra_body={
             "tensorzero::episode_id": episode_id,
-            "tensorzero::variant_name": "openai",
+            "tensorzero::variant_name": "openai-responses",
         },
         messages=messages,
         model="tensorzero::function_name::basic_test",
         tools=tools,
     )
-    assert result.model == "tensorzero::function_name::basic_test::variant_name::openai"
+    assert result.model == "tensorzero::function_name::basic_test::variant_name::openai-responses"
     assert result.episode_id == episode_id
     assert result.choices[0].message.content is None
     assert len(result.choices[0].message.tool_calls) == 1
@@ -1318,9 +1264,7 @@ async def test_dynamic_json_mode_inference_body_param_openai(async_openai_client
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     result = await async_openai_client.chat.completions.create(
@@ -1332,9 +1276,7 @@ async def test_dynamic_json_mode_inference_body_param_openai(async_openai_client
         model="tensorzero::function_name::dynamic_json",
         response_format=response_format,
     )
-    assert (
-        result.model == "tensorzero::function_name::dynamic_json::variant_name::openai"
-    )
+    assert result.model == "tensorzero::function_name::dynamic_json::variant_name::openai"
     assert result.episode_id == body_episode_id
     json_content = json.loads(result.choices[0].message.content)
     assert "tokyo" in json_content["response"].lower()
@@ -1376,9 +1318,7 @@ async def test_dynamic_json_mode_inference_openai(async_openai_client):
         },
         {
             "role": "user",
-            "content": [
-                {"type": "text", "tensorzero::arguments": {"country": "Japan"}}
-            ],
+            "content": [{"type": "text", "tensorzero::arguments": {"country": "Japan"}}],
         },
     ]
     result = await async_openai_client.chat.completions.create(
@@ -1390,9 +1330,7 @@ async def test_dynamic_json_mode_inference_openai(async_openai_client):
         model="tensorzero::function_name::dynamic_json",
         response_format=response_format,
     )
-    assert (
-        result.model == "tensorzero::function_name::dynamic_json::variant_name::openai"
-    )
+    assert result.model == "tensorzero::function_name::dynamic_json::variant_name::openai"
     assert result.episode_id == episode_id
     json_content = json.loads(result.choices[0].message.content)
     assert "tokyo" in json_content["response"].lower()
@@ -1479,9 +1417,7 @@ async def test_async_multi_block_image_url(async_openai_client):
 @pytest.mark.asyncio
 async def test_async_multi_block_image_base64(async_openai_client):
     basepath = os.path.dirname(__file__)
-    with open(
-        f"{basepath}/../../../tensorzero-core/tests/e2e/providers/ferris.png", "rb"
-    ) as f:
+    with open(f"{basepath}/../../../tensorzero-core/tests/e2e/providers/ferris.png", "rb") as f:
         ferris_png = base64.b64encode(f.read()).decode("ascii")
 
     messages = [
@@ -1527,7 +1463,7 @@ async def test_async_multi_block_file_base64(async_openai_client):
                 },
                 {
                     "type": "file",
-                    "file": {"file_data": deepseek_paper_pdf, "filename": "test.pdf"},
+                    "file": {"file_data": f"data:application/pdf;base64,{deepseek_paper_pdf}", "filename": "test.pdf"},
                 },
             ],
         },
@@ -1540,7 +1476,7 @@ async def test_async_multi_block_file_base64(async_openai_client):
     )
     assert result.choices[0].message.content is not None
     json_content = json.loads(result.choices[0].message.content)
-    assert json_content[0]["storage_path"] == {
+    assert json_content[0]["Base64"]["storage_path"] == {
         "kind": {"type": "disabled"},
         "path": "observability/files/3e127d9a726f6be0fd81d73ccea97d96ec99419f59650e01d49183cd3be999ef.pdf",
     }
@@ -1577,7 +1513,7 @@ async def test_async_multi_turn_parallel_tool_use(async_openai_client):
         parallel_tool_calls=True,
         extra_body={
             "tensorzero::episode_id": episode_id,
-            "tensorzero::variant_name": "openai",
+            "tensorzero::variant_name": "openai-responses",
         },
     )
 
@@ -1609,7 +1545,7 @@ async def test_async_multi_turn_parallel_tool_use(async_openai_client):
     response = await async_openai_client.chat.completions.create(
         extra_body={
             "tensorzero::episode_id": episode_id,
-            "tensorzero::variant_name": "openai",
+            "tensorzero::variant_name": "openai-responses",
         },
         model="tensorzero::function_name::weather_helper_parallel",
         messages=messages,
@@ -1732,7 +1668,138 @@ async def test_async_inference_tensorzero_raw_text(async_openai_client):
     )
 
     assert "tokyo" not in response.choices[0].message.content.lower()
-    assert (
-        response.model
-        == "tensorzero::function_name::openai_with_assistant_schema::variant_name::openai"
+    assert response.model == "tensorzero::function_name::openai_with_assistant_schema::variant_name::openai"
+
+
+@pytest.mark.asyncio
+async def test_async_inference_tensorzero_template(async_openai_client):
+    """
+    Test that chat inference with a tensorzero::template block works correctly
+    """
+    messages = [
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tensorzero::template",
+                    "name": "assistant",
+                    "arguments": {"assistant_name": "Megumin"},
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "What is the capital of Japan?"}],
+        },
+    ]
+    response = await async_openai_client.chat.completions.create(
+        messages=messages,
+        model="tensorzero::function_name::openai_with_assistant_schema",
     )
+
+    assert "tokyo" in response.choices[0].message.content.lower()
+
+
+@pytest.mark.asyncio
+async def test_openai_custom_tool_text_format(async_openai_client):
+    """
+    Test OpenAI custom tool with text format output
+    """
+    episode_id = str(uuid7())
+    messages = [
+        {
+            "role": "user",
+            "content": "Generate Python code to print 'Hello, World!' using the code_generator tool.",
+        },
+    ]
+    tools = [
+        {
+            "type": "custom",
+            "custom": {
+                "name": "code_generator",
+                "description": "Generates Python code snippets based on requirements",
+                "format": {"type": "text"},
+            },
+        }
+    ]
+    result = await async_openai_client.chat.completions.create(
+        extra_body={"tensorzero::episode_id": episode_id},
+        messages=messages,
+        model="tensorzero::model_name::openai::responses::gpt-5-codex",
+        tools=tools,
+    )
+    assert result.model == "tensorzero::model_name::openai::responses::gpt-5-codex"
+    assert result.episode_id == episode_id
+    # Check that we got tool calls in the response
+    assert result.choices[0].message.tool_calls is not None
+    assert len(result.choices[0].message.tool_calls) >= 1
+    # Find the code_generator tool call
+    code_generator_calls = [tc for tc in result.choices[0].message.tool_calls if tc.function.name == "code_generator"]
+    assert len(code_generator_calls) == 1
+    tool_call = code_generator_calls[0]
+    assert tool_call.type == "function"
+    assert tool_call.function.name == "code_generator"
+    assert tool_call.function.arguments is not None
+    assert len(tool_call.function.arguments) > 0
+
+
+@pytest.mark.asyncio
+async def test_openai_custom_tool_grammar_lark(async_openai_client):
+    """
+    Test OpenAI custom tool with Lark grammar format
+    """
+    episode_id = str(uuid7())
+    # Simple arithmetic grammar in Lark format
+    lark_grammar = """
+start: expr
+
+expr: term ((ADD | SUB) term)*
+term: factor ((MUL | DIV) factor)*
+factor: NUMBER
+      | "(" expr ")"
+
+ADD: "+"
+SUB: "-"
+MUL: "*"
+DIV: "/"
+
+NUMBER: /\\d+(\\.\\d+)?/
+
+%import common.WS
+%ignore WS
+"""
+    messages = [
+        {"role": "user", "content": "Use the calculator tool to compute 5 + 3 * 2"},
+    ]
+    tools = [
+        {
+            "type": "custom",
+            "custom": {
+                "name": "calculator",
+                "description": "Evaluates arithmetic expressions",
+                "format": {
+                    "type": "grammar",
+                    "grammar": {"syntax": "lark", "definition": lark_grammar},
+                },
+            },
+        }
+    ]
+    result = await async_openai_client.chat.completions.create(
+        extra_body={"tensorzero::episode_id": episode_id},
+        messages=messages,
+        model="tensorzero::model_name::openai::responses::gpt-5-codex",
+        tools=tools,
+    )
+    assert result.model == "tensorzero::model_name::openai::responses::gpt-5-codex"
+    assert result.episode_id == episode_id
+    # Check that we got tool calls in the response
+    assert result.choices[0].message.tool_calls is not None
+    assert len(result.choices[0].message.tool_calls) >= 1
+    # Find the calculator tool call
+    calculator_calls = [tc for tc in result.choices[0].message.tool_calls if tc.function.name == "calculator"]
+    assert len(calculator_calls) == 1
+    tool_call = calculator_calls[0]
+    assert tool_call.type == "function"
+    assert tool_call.function.name == "calculator"
+    assert tool_call.function.arguments is not None
+    assert len(tool_call.function.arguments) > 0

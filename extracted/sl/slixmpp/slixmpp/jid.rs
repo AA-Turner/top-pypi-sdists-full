@@ -249,14 +249,14 @@ impl PyJid {
         }
     }
 
-    fn __getstate__(&self, py: Python) -> PyResult<Option<PyObject>> {
+    fn __getstate__(&self, py: Python) -> PyResult<Option<Py<PyAny>>> {
         match &self.jid {
             Some(jid) => Ok(Some(PyString::new(py, jid.as_str()).into())),
             None => Ok(None)
         }
     }
 
-    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+    fn __setstate__(&mut self, py: Python, state: Py<PyAny>) -> PyResult<()> {
         if state.is_none(py) {
             self.jid = None;
         } else {

@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from enum import StrEnum
-from typing import IO, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -116,15 +117,15 @@ class UnsupportedDocumentEncodingException(ServiceException):
 
 class DeleteConnectionRequest(ServiceRequest):
     clientId: ClientId
-    cleanSession: Optional[CleanSession]
-    preventWillMessage: Optional[PreventWillMessage]
+    cleanSession: CleanSession | None
+    preventWillMessage: PreventWillMessage | None
 
 
 class DeleteThingShadowRequest(ServiceRequest):
     """The input for the DeleteThingShadow operation."""
 
     thingName: ThingName
-    shadowName: Optional[ShadowName]
+    shadowName: ShadowName | None
 
 
 JsonDocument = bytes
@@ -133,7 +134,7 @@ JsonDocument = bytes
 class DeleteThingShadowResponse(TypedDict, total=False):
     """The output from the DeleteThingShadow operation."""
 
-    payload: Union[JsonDocument, IO[JsonDocument], Iterable[JsonDocument]]
+    payload: JsonDocument | IO[JsonDocument] | Iterable[JsonDocument]
 
 
 class GetRetainedMessageRequest(ServiceRequest):
@@ -150,44 +151,44 @@ Payload = bytes
 class GetRetainedMessageResponse(TypedDict, total=False):
     """The output from the GetRetainedMessage operation."""
 
-    topic: Optional[Topic]
-    payload: Optional[Payload]
-    qos: Optional[Qos]
-    lastModifiedTime: Optional[Timestamp]
-    userProperties: Optional[UserPropertiesBlob]
+    topic: Topic | None
+    payload: Payload | None
+    qos: Qos | None
+    lastModifiedTime: Timestamp | None
+    userProperties: UserPropertiesBlob | None
 
 
 class GetThingShadowRequest(ServiceRequest):
     """The input for the GetThingShadow operation."""
 
     thingName: ThingName
-    shadowName: Optional[ShadowName]
+    shadowName: ShadowName | None
 
 
 class GetThingShadowResponse(TypedDict, total=False):
     """The output from the GetThingShadow operation."""
 
-    payload: Optional[Union[JsonDocument, IO[JsonDocument], Iterable[JsonDocument]]]
+    payload: JsonDocument | IO[JsonDocument] | Iterable[JsonDocument] | None
 
 
 class ListNamedShadowsForThingRequest(ServiceRequest):
     thingName: ThingName
-    nextToken: Optional[NextToken]
-    pageSize: Optional[PageSize]
+    nextToken: NextToken | None
+    pageSize: PageSize | None
 
 
-NamedShadowList = List[ShadowName]
+NamedShadowList = list[ShadowName]
 
 
 class ListNamedShadowsForThingResponse(TypedDict, total=False):
-    results: Optional[NamedShadowList]
-    nextToken: Optional[NextToken]
-    timestamp: Optional[Timestamp]
+    results: NamedShadowList | None
+    nextToken: NextToken | None
+    timestamp: Timestamp | None
 
 
 class ListRetainedMessagesRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 PayloadSize = int
@@ -196,18 +197,18 @@ PayloadSize = int
 class RetainedMessageSummary(TypedDict, total=False):
     """Information about a single retained message."""
 
-    topic: Optional[Topic]
-    payloadSize: Optional[PayloadSize]
-    qos: Optional[Qos]
-    lastModifiedTime: Optional[Timestamp]
+    topic: Topic | None
+    payloadSize: PayloadSize | None
+    qos: Qos | None
+    lastModifiedTime: Timestamp | None
 
 
-RetainedMessageList = List[RetainedMessageSummary]
+RetainedMessageList = list[RetainedMessageSummary]
 
 
 class ListRetainedMessagesResponse(TypedDict, total=False):
-    retainedTopics: Optional[RetainedMessageList]
-    nextToken: Optional[NextToken]
+    retainedTopics: RetainedMessageList | None
+    nextToken: NextToken | None
 
 
 MessageExpiry = int
@@ -216,16 +217,16 @@ MessageExpiry = int
 class PublishRequest(ServiceRequest):
     """The input for the Publish operation."""
 
-    payload: Optional[IO[Payload]]
+    payload: IO[Payload] | None
     topic: Topic
-    qos: Optional[Qos]
-    retain: Optional[Retain]
-    userProperties: Optional[UserProperties]
-    payloadFormatIndicator: Optional[PayloadFormatIndicator]
-    contentType: Optional[ContentType]
-    responseTopic: Optional[ResponseTopic]
-    correlationData: Optional[CorrelationData]
-    messageExpiry: Optional[MessageExpiry]
+    qos: Qos | None
+    retain: Retain | None
+    userProperties: UserProperties | None
+    payloadFormatIndicator: PayloadFormatIndicator | None
+    contentType: ContentType | None
+    responseTopic: ResponseTopic | None
+    correlationData: CorrelationData | None
+    messageExpiry: MessageExpiry | None
 
 
 class UpdateThingShadowRequest(ServiceRequest):
@@ -233,18 +234,18 @@ class UpdateThingShadowRequest(ServiceRequest):
 
     payload: IO[JsonDocument]
     thingName: ThingName
-    shadowName: Optional[ShadowName]
+    shadowName: ShadowName | None
 
 
 class UpdateThingShadowResponse(TypedDict, total=False):
     """The output from the UpdateThingShadow operation."""
 
-    payload: Optional[Union[JsonDocument, IO[JsonDocument], Iterable[JsonDocument]]]
+    payload: JsonDocument | IO[JsonDocument] | Iterable[JsonDocument] | None
 
 
 class IotDataApi:
-    service = "iot-data"
-    version = "2015-05-28"
+    service: str = "iot-data"
+    version: str = "2015-05-28"
 
     @handler("DeleteConnection")
     def delete_connection(

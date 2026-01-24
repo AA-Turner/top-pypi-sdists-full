@@ -13,7 +13,6 @@ from dagster._core.events import DagsterEvent, DagsterEventType, EngineEventData
 from dagster._core.execution.context.system import PlanOrchestrationContext
 from dagster._core.execution.plan.active import ActiveExecution
 from dagster._core.execution.plan.instance_concurrency_context import InstanceConcurrencyContext
-from dagster._core.execution.plan.objects import StepFailureData
 from dagster._core.execution.plan.plan import ExecutionPlan
 from dagster._core.execution.retries import RetryMode
 from dagster._core.execution.step_dependency_config import StepDependencyConfig
@@ -310,12 +309,25 @@ class StepDelegatingExecutor(Executor):
                                     active_execution.verify_complete(
                                         plan_context, dagster_event.step_key
                                     )
+                                elif dagster_event.is_resource_init_failure:
+                                    active_execution.handle_event(dagster_event)
+                                    assert isinstance(dagster_event.step_key, str)
+
+                                    step = active_execution.get_step_by_key(dagster_event.step_key)
+                                    step_context = plan_context.for_step(step)
+                                    assert isinstance(
+                                        dagster_event.engine_event_data.error, SerializableErrorInfo
+                                    )
+                                    self.log_failure_or_retry_event_after_error(
+                                        step_context,
+                                        dagster_event.engine_event_data.error,
+                                        active_execution.get_known_state(),
+                                    )
                                 else:
                                     active_execution.handle_event(dagster_event)
                                     if (
                                         dagster_event.is_step_success
                                         or dagster_event.is_step_failure
-                                        or dagster_event.is_resource_init_failure
                                         or dagster_event.is_step_up_for_retry
                                     ):
                                         assert isinstance(dagster_event.step_key, str)
@@ -350,23 +362,20 @@ class StepDelegatingExecutor(Executor):
                                             cls_name=None,
                                         )
 
-                                        self.get_failure_or_retry_event_after_crash(
+                                        self.log_failure_or_retry_event_after_error(
                                             step_context,
                                             health_check_error,
                                             active_execution.get_known_state(),
                                         )
 
                                 except Exception:
-                                    serializable_error = serializable_error_info_from_exc_info(
-                                        sys.exc_info()
-                                    )
-                                    # Log a step failure event if there was an error during the health
-                                    # check
-                                    DagsterEvent.step_failure_event(
-                                        step_context=plan_context.for_step(step),
-                                        step_failure_data=StepFailureData(
-                                            error=serializable_error,
-                                            user_failure_data=None,
+                                    DagsterEvent.engine_event(
+                                        step_context,
+                                        f"Error while checking health for step {step.key}",
+                                        EngineEventData(
+                                            error=serializable_error_info_from_exc_info(
+                                                sys.exc_info()
+                                            )
                                         ),
                                     )
 

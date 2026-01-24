@@ -12,4 +12,5 @@ urlpatterns = [
     path('', views.do_search, name='do_search'),
     re_path(r'^{}$'.format(COURSE_ID_PATTERN), views.do_search, name='do_search'),
     path('course_discovery/', views.course_discovery, name='course_discovery'),
+    path('unstable/v0/course_list_search/', views.course_list_search, name='course_list_search'),
 ]

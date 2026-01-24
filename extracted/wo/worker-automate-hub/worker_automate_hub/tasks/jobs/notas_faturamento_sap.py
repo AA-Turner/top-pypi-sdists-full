@@ -14,280 +14,555 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.keys import Keys
+import sys
+import traceback
+
+from worker_automate_hub.utils.credentials_manager import (
+    CredentialsManager,
+)  # para logs de exceção detalhados
+
+# Ajuste de path para rodar local ou no worker
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+)
+
 from worker_automate_hub.api.client import get_config_by_name, send_file
 from worker_automate_hub.api.datalake_service import send_file_to_datalake
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
     RpaHistoricoStatusEnum,
     RpaRetornoProcessoDTO,
     RpaTagDTO,
-    RpaTagEnum
+    RpaTagEnum,
 )
 from worker_automate_hub.models.dto.rpa_sap_dto import RpaProcessoSapDTO
-from worker_automate_hub.utils.util import worker_sleep
+from worker_automate_hub.utils.util import (
+    kill_all_emsys,
+    worker_sleep,
+)
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 console = Console()
 
 DOWNLOADS_PATH = os.path.join(os.path.expanduser("~"), "Downloads")
+console.print(f"[INIT] Downloads dir: {DOWNLOADS_PATH}")
 
-console.print(f"Downloads dir: {DOWNLOADS_PATH}")
+# ==========================
+# CONFIGURAÇÕES / CONSTANTES
+# ==========================
+
 
 class ConfigEntradaSAP(BaseModel):
+    """
+    Modelo de referência para a configuração de entrada SAP.
+    (Pode ou não ser usado pelo DTO interno, mas deixamos aqui como documentação.)
+    """
+
     user: str
     password: str
     empresa: str
     unique_id: Optional[str] = "default"
+    relatorio: str
 
-    def get(self, key, default=None):
-        return getattr(self, key, default)
+
+def _get_from_config(config, key, default=None):
+    """
+    Helper para funcionar tanto com dict quanto com BaseModel (Pydantic ou similar).
+    """
+    if isinstance(config, dict):
+        return config.get(key, default)
+    return getattr(config, key, default)
+
+
+# Configuração por tipo de relatório SAP
+SAP_VIEWS = {
+    "FAT": {
+        "iframe_id": "application-BillingDocument-analyzeRevenue-iframe",
+        "input_xpath": '//*[@id="WD86-input"]',
+        "url_suffix": "#BillingDocument-analyzeRevenue?sap-ui-tech-hint=WDA",
+        "expandir_id": "WDE4-tgl",
+    },
+    "DET": {
+        "iframe_id": "application-BillingDocument-analyzeBillingDocItemPricing-iframe",
+        "input_xpath": '//*[@id="WDAE-input"]',
+        "url_suffix": "#BillingDocument-analyzeBillingDocItemPricing?sap-ui-tech-hint=WDA",
+        "expandir_id": "WDF2-tgl",
+    },
+    "PED": {
+        "iframe_id": "application-SalesOrder-analyzeIncoming-iframe",
+        "input_xpath": '//*[@id="WD86-input"]',
+        "url_suffix": "#SalesOrder-analyzeIncoming?sap-ui-tech-hint=WDA",
+        "expandir_id": "WDE4-tgl",
+    },
+}
+
+# Mapeamento de empresa para o filtro SAP
+COMPANY_FILTER = {
+    "DIS": "SD01",
+    "CHA": "CH01",
+    "QUE": "QD01",
+    "NXD": "0289",
+    "NXT": "5715",
+}
+
 
 class NotasFaturamentoSAP:
-    def __init__(self, task: RpaProcessoSapDTO, sap_url, sap_key, sap_token, base_url, directory):
-        console.print("Inicializando classe NotasFaturamentoSAP.")
+    def __init__(
+        self,
+        task: RpaProcessoSapDTO,
+        sap_url: str,
+        sap_key: str,
+        sap_token: str,
+        base_url: str,
+        directory: str,
+        relatorio_override: Optional[str] = None,
+    ):
+        console.print("[STEP 0.1] Inicializando classe NotasFaturamentoSAP.")
         self.task = task
         self.sap_url = sap_url
         self.sap_key = sap_key
         self.sap_token = sap_token
-        self.user = task.configEntrada.get("user")
-        self.password = task.configEntrada.get("password")
         self.base_url = base_url
-        self.empresa = task.configEntrada.get("empresa")
         self.directory = directory
+
+        config = task.configEntrada  # pode ser dict ou BaseModel
+
+        self.user = CredentialsManager().get_by_key("SAP_USER_BI")
+        self.password = CredentialsManager().get_by_key("SAP_PASSWORD_BI")
+        # self.user = _get_from_config(config, "user")
+        # self.password = _get_from_config(config, "password")
+        self.empresa = _get_from_config(config, "empresa")
+
+        # prioridade:
+        # 1) override explícito
+        # 2) campo relatorio em configEntrada
+        # 3) campo relatorio direto no task (se existir)
+        self.relatorio = (
+            (relatorio_override or "").upper()
+            or _get_from_config(config, "relatorio", "").upper()
+            or getattr(task, "relatorio", "").upper()
+        )
+
         self.unique_id = "default"
         self.driver = None
 
-    async def start_sap_process(self):
-        console.print("Iniciando o processo SAP.")
-        sim_service = Service(ChromeDriverManager().install())
-        self.driver = webdriver.Chrome(service=sim_service)
-        self.driver.maximize_window()
-        console.print("Driver inicializado e janela maximizada.")
+        console.print(
+            f"[STEP 0.2] user={self.user} empresa={self.empresa} "
+            f"relatorio={self.relatorio}"
+        )
 
-        await self.save_process_pid()
-        console.print("PID do processo salvo com sucesso.")
-        self.driver.get(self.base_url)
-        console.print(f"Acessando a URL base: {self.base_url}")
-        await worker_sleep(3)
+    async def start_sap_process(self) -> RpaRetornoProcessoDTO:
+        """
+        Fluxo principal do SAP com logs de etapa:
+        - KILL_ALL_EMSYS
+        - INIT_CHROMEDRIVER
+        - INIT_WEBDRIVER
+        - VALIDATE_CONFIG
+        - SAVE_PID
+        - GET_BASE_URL
+        - LOGIN
+        - DOWNLOAD_FILES
+        """
+        step = "INIT"
+        console.print("[STEP] Iniciando o processo SAP.")
 
-        if not await self.login():
-            msg = f"Falha ao realizar login no SAP"
-            console.print(msg)
-            return RpaRetornoProcessoDTO(
-                sucesso=False,
-                retorno=msg,
-                status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
-            )
-
-        console.print("Login realizado com sucesso.")
-        await self.download_files(self.empresa, "FAT")
-        if self.driver:
-            try:
-                self.driver.quit()
-                self.driver = None
-                console.print("Driver fechado e referência removida.")
-            except Exception as e:
-                msg = f"Erro ao fechar o driver: {e}"
-                console.print(msg)
+        try:
+            # 0) Validar config básica
+            step = "VALIDATE_CONFIG"
+            if not self.user or not self.password:
+                msg = f"[{step}] Credenciais SAP inválidas: user={self.user} password={'***' if self.password else None}"
+                console.print("[ERRO] " + msg)
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=msg,
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
+
+            if not self.base_url:
+                msg = f"[{step}] base_url não configurada."
+                console.print("[ERRO] " + msg)
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=msg,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+
+            if self.relatorio not in SAP_VIEWS:
+                msg = f"[{step}] Tipo de relatório não mapeado: {self.relatorio}"
+                console.print("[ERRO] " + msg)
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=msg,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+
+            if self.empresa not in COMPANY_FILTER:
+                msg = f"[{step}] Empresa não mapeada: {self.empresa}"
+                console.print("[ERRO] " + msg)
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=msg,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+
+            # 1) Matar instâncias antigas
+            step = "KILL_ALL_EMSYS"
+            console.print(f"[STEP={step}] Matando instâncias EMsys/Chrome antigas...")
+            await kill_all_emsys()
+            console.print(f"[STEP={step}] kill_all_emsys concluído.")
+
+            # 2) Instalar ChromeDriver
+            step = "INIT_CHROMEDRIVER"
+            console.print(f"[STEP={step}] Instalando/obtendo ChromeDriver...")
+            sim_service = Service(ChromeDriverManager().install())
+            console.print(f"[STEP={step}] ChromeDriverManager instalado com sucesso.")
+
+            # 3) Inicializar webdriver
+            step = "INIT_WEBDRIVER"
+            console.print(f"[STEP={step}] Inicializando webdriver.Chrome...")
+            self.driver = webdriver.Chrome(service=sim_service)
+            self.driver.maximize_window()
+            console.print(f"[STEP={step}] Driver inicializado e janela maximizada.")
+
+            # 4) Salvar PID
+            step = "SAVE_PID"
+            console.print(f"[STEP={step}] Salvando PID do Chrome...")
+            ret_pid = await self.save_process_pid()
+            if isinstance(ret_pid, RpaRetornoProcessoDTO) and not ret_pid.sucesso:
+                console.print(f"[STEP={step}] Falha ao salvar PID, retornando erro.")
+                return ret_pid
+            console.print(f"[STEP={step}] PID salvo com sucesso.")
+
+            # 5) Acessar URL base
+            step = "GET_BASE_URL"
+            console.print(f"[STEP={step}] Acessando URL base do SAP...")
+            console.print(f"[STEP={step}] base_url: {self.base_url}")
+            self.driver.get(self.base_url)
+            console.print(f"[STEP={step}] driver.get(base_url) concluído.")
+            await worker_sleep(3)
+
+            # 6) Login
+            step = "LOGIN"
+            console.print(f"[STEP={step}] Realizando login no SAP...")
+            login_ok = await self.login()
+            if not login_ok:
+                msg = f"Falha ao realizar login no SAP (etapa {step})"
+                console.print(f"[STEP={step}] {msg}")
+                return RpaRetornoProcessoDTO(
+                    sucesso=False,
+                    retorno=msg,
+                    status=RpaHistoricoStatusEnum.Falha,
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+                )
+            console.print(f"[STEP={step}] Login realizado com sucesso.")
+
+            # 7) Download / Export
+            step = "DOWNLOAD_FILES"
+            console.print(f"[STEP={step}] Iniciando download de arquivos...")
+            await self.download_files(self.empresa, self.relatorio)
+            console.print(f"[STEP={step}] Download de arquivos concluído.")
+
+            return RpaRetornoProcessoDTO(
+                sucesso=True,
+                retorno="Processo SAP executado com sucesso.",
+                status=RpaHistoricoStatusEnum.Sucesso,
+            )
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            msg = (
+                f"Erro em start_sap_process na etapa '{step}': "
+                f"{type(e).__name__}: {e}"
+            )
+            console.print("[ERRO] " + msg)
+            console.print("[ERRO] Traceback completo:")
+            console.print(tb)
+
+            return RpaRetornoProcessoDTO(
+                sucesso=False,
+                retorno=msg + "\n" + tb,
+                status=RpaHistoricoStatusEnum.Falha,
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
+            )
 
     async def save_process_pid(self):
         try:
-            console.print("Salvando o PID do processo do Chrome.")
+            console.print("[STEP PID] Salvando o PID do processo do Chrome.")
             pid = str(self.driver.service.process.pid)
             file_path = f"c:\\tmp\\chrome_pid_{self.unique_id}.txt"
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "w") as f:
                 f.write(pid)
-            console.print(f"PID salvo em: {file_path}")
+            console.print(f"[STEP PID] PID salvo em: {file_path}")
         except Exception as e:
             msg = f"Erro ao salvar PID: {e}"
-            console.print(msg)
+            console.print(f"[ERRO PID] {msg}")
+            console.print("[ERRO PID] Traceback:")
+            console.print(traceback.format_exc())
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=msg,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
-    async def login(self):
+    async def login(self) -> bool:
         try:
-            console.print("Iniciando login no SAP.")
-            for _ in range(30):
+            console.print("[LOGIN] Iniciando login no SAP.")
+            for i in range(30):
                 inputs = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
+                console.print(
+                    f"[LOGIN] Tentativa {i+1}/30 - qtd campos encontrados: {len(inputs)}"
+                )
                 if len(inputs) >= 2:
-                    console.print("Campos de entrada de login encontrados.")
+                    console.print("[LOGIN] Campos de entrada de login encontrados.")
                     break
                 await worker_sleep(1)
 
             inputs = self.driver.find_elements(By.CLASS_NAME, "loginInputField")
+            if len(inputs) < 2:
+                console.print("[LOGIN][ERRO] Não encontrou campos de login.")
+                return False
+
             inputs[0].send_keys(self.user)
-            console.print("Usuário inserido no campo de login.")
+            console.print("[LOGIN] Usuário inserido no campo de login.")
             await worker_sleep(2)
             inputs[1].send_keys(self.password)
-            console.print("Senha inserida no campo de login.")
+            console.print("[LOGIN] Senha inserida no campo de login.")
             await worker_sleep(1)
 
-            for _ in range(10):
+            for i in range(10):
                 login_btn = self.driver.find_elements(By.ID, "LOGIN_SUBMIT_BLOCK")
+                console.print(
+                    f"[LOGIN] Tentativa {i+1}/10 - btn login encontrado? {bool(login_btn)}"
+                )
                 if login_btn:
                     login_btn[0].click()
-                    console.print("Botão de login clicado.")
+                    console.print("[LOGIN] Botão de login clicado.")
                     break
                 await worker_sleep(1)
 
             await worker_sleep(3)
-            console.print("Login realizado com sucesso.")
+            console.print("[LOGIN] Login finalizado (sem exceção).")
             return True
         except Exception as e:
-            console.print(f"Erro ao realizar login: {e}")
+            console.print("[LOGIN][ERRO] Exceção ao realizar login.")
+            console.print(f"[LOGIN][ERRO] Tipo: {type(e).__name__}")
+            console.print(f"[LOGIN][ERRO] str(e): {str(e)}")
+            console.print("[LOGIN][ERRO] Traceback:")
+            console.print(traceback.format_exc())
             return False
 
     async def download_files(self, company: str, file_type: str):
-        console.print(f"Iniciando download de arquivos para empresa {company} e tipo {file_type}.")
+        console.print(
+            f"[DW] Iniciando download de arquivos para empresa {company} e tipo {file_type}."
+        )
+        console.print(f"[DW] self.relatorio={self.relatorio}")
+
+        view_conf = SAP_VIEWS.get(file_type)
+        if not view_conf:
+            console.print(f"[DW][ERRO] Tipo de arquivo não mapeado: {file_type}")
+            return
+
         doc_url = self.get_document_url(file_type)
-        console.print(f"Acessando a URL do documento: {doc_url}")
+        console.print(f"[DW] Acessando a URL do documento: {doc_url}")
         self.driver.get(doc_url)
-        await worker_sleep(15)
+        console.print("[DW] URL do documento carregada.")
+        await worker_sleep(40)
 
-        if len(self.driver.find_elements(By.ID, "searchFieldInShell-input-inner")) < 1:
-            for _ in range(10):
-                sf = self.driver.find_elements(By.ID, "sf")
-                if sf:
-                    sf[0].click()
-                    console.print("Elemento 'sf' clicado.")
-                    break
-                await worker_sleep(1)
+        campo = None
 
-        for _ in range(10):
-            if len(self.driver.find_elements(By.ID, "searchFieldInShell-input-inner")) > 0:
-                console.print("Campo de busca encontrado.")
-                break
-            await worker_sleep(1)
+        try:
+            console.print("[DW] Localizando iframe e campo de filtro...")
+            iframe = WebDriverWait(self.driver, 60).until(
+                EC.presence_of_element_located((By.ID, view_conf["iframe_id"]))
+            )
+            self.driver.switch_to.frame(iframe)
+            console.print("[DW] Iframe principal do SAP acessado com sucesso.")
 
-        self.driver.find_element(By.ID, "searchFieldInShell-input-inner").click()
-        console.print("Campo de busca clicado.")
-        await worker_sleep(5)
+            campo = WebDriverWait(self.driver, 60).until(
+                EC.presence_of_element_located((By.XPATH, view_conf["input_xpath"]))
+            )
+            console.print("[DW] Input de filtro localizado dentro do iframe.")
 
-        actions = ActionChains(self.driver)
-        console.print("Executando ações para navegar pelos campos.")
-        for _ in range(34):
-            actions.send_keys(Keys.TAB)
-            actions.perform()
-            await worker_sleep(0.5)
-        actions.send_keys(Keys.ENTER)
-        actions.perform()
-        await worker_sleep(5)
-        actions.send_keys(Keys.ENTER)
-        actions.perform()
-        await worker_sleep(5)
-        actions.send_keys(Keys.ENTER)
-        actions.perform()
-        await worker_sleep(15)
-        console.print("Ações concluídas.")
-        if self.driver:
-            try:
-                self.driver.quit()
-                self.driver = None
-                console.print("Driver fechado e referência removida.")
-            except Exception as e:
-                msg = f"Erro ao fechar o driver: {e}"
-                console.print(msg)
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=msg,
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+            if not campo:
+                console.print(
+                    "[DW][ERRO] Campo de filtro não localizado. Abortando exportação."
                 )
-        await self.rename_file(company, file_type)
+                return
+
+            console.print(f"[DW] Preenchendo empresa para company={company}")
+            filtro_empresa = COMPANY_FILTER.get(company)
+            if not filtro_empresa:
+                console.print(f"[DW][ERRO] Empresa não mapeada: {company}")
+                return
+
+            campo.click()
+            campo.clear()
+            campo.send_keys(filtro_empresa)
+            await worker_sleep(2)
+
+            console.print("[DW] Clicando em 'Início' após filtros...")
+            botao_inicio = WebDriverWait(self.driver, 60).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//div[@role='button' and contains(., 'nício')]")
+                )
+            )
+            botao_inicio.click()
+            console.print("[DW] Botão 'Início' clicado.")
+
+            await worker_sleep(8)
+
+            toggle = WebDriverWait(self.driver, 20).until(
+                EC.presence_of_element_located((By.ID, view_conf["expandir_id"]))
+            )
+
+            estado = toggle.get_attribute("aria-expanded")
+
+            if estado == "false":
+                toggle.click()
+
+            await worker_sleep(10)
+
+            console.print("[DW] Localizando botão de exportar...")
+            try:
+                botao_exportar = WebDriverWait(self.driver, 60).until(
+                    EC.element_to_be_clickable((By.XPATH, "//div[@title='Exportar']"))
+                )
+                botao_exportar.click()
+                console.print("[DW] Botão de exportar clicado.")
+            except:
+                return RpaRetornoProcessoDTO(
+                    sucesso=True,
+                    retorno="Não há dados para serem exportados.",
+                    status=RpaHistoricoStatusEnum.Sucesso,
+                )
+
+            await worker_sleep(2)
+            opcao_exportar = WebDriverWait(self.driver, 60).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Exportar']"))
+            )
+            opcao_exportar.click()
+            console.print("[DW] Opção 'Exportar' clicada com sucesso!")
+
+            await worker_sleep(5)
+            console.print("[DW] Pressionando ENTER para confirmar exportação...")
+            actions = ActionChains(self.driver)
+            actions.send_keys(Keys.ENTER)
+            actions.perform()
+
+            await worker_sleep(30)
+
+            console.print("[DW] Chamando rename_file...")
+            await self.rename_file(company, file_type)
+            console.print("[DW] rename_file concluído.")
+
+        except Exception as e:
+            console.print("[DW][ERRO] Exceção em download_files.")
+            console.print(f"[DW][ERRO] Tipo: {type(e).__name__}")
+            console.print(f"[DW][ERRO] str(e): {str(e)}")
+            console.print("[DW][ERRO] Traceback:")
+            console.print(traceback.format_exc())
+            raise  # deixa subir para o try/except do start_sap_process
 
     def get_document_url(self, file_type: str) -> str:
-        console.print(f"Obtendo URL do documento para o tipo {file_type}.")
-        mapping = {
-            "FAT": "#BillingDocument-analyzeRevenue?sap-ui-tech-hint=WDA",
-            "DET": "#BillingDocument-analyzeBillingDocItemPricing?sap-ui-tech-hint=WDA",
-            "PED": "#SalesOrder-analyzeIncoming?sap-ui-tech-hint=WDA",
-        }
-        suffix = mapping.get(file_type.upper(), "")
-        return f"{self.base_url}{suffix}"
+        console.print(f"[URL] Obtendo URL do documento para o tipo {file_type}.")
+        view_conf = SAP_VIEWS.get(file_type)
+        suffix = view_conf["url_suffix"] if view_conf else ""
+        url_final = f"{self.base_url}{suffix}"
+        console.print(f"[URL] URL final: {url_final}")
+        return url_final
 
     async def rename_file(self, company: str, file_type: str):
-        console.print("Arquivos baixados com sucesso")
-        console.print("Iniciando renomeação e movimentação do arquivo.")
+        console.print("[RF] Iniciando renomeação e movimentação do arquivo.")
         try:
             current_path = os.path.join(DOWNLOADS_PATH, "export.xlsx")
+            console.print(f"[RF] current_path esperado: {current_path}")
+            console.print(f"[RF] Arquivo existe? {os.path.exists(current_path)}")
+
             date_now = datetime.now().strftime("%Y%m%d%H%M%S")
             filename = f"{company}_{file_type}_{date_now}.xlsx"
             final_path = os.path.join(DOWNLOADS_PATH, filename)
-            
-            console.print(f"filename: {filename}")
-            
+
+            console.print(f"[RF] Novo filename: {filename}")
+
             os.rename(current_path, final_path)
-            console.print(f"Arquivo renomeado para {final_path}.")
-            
-            with open(final_path, 'rb') as file:
+            console.print(f"[RF] Arquivo renomeado para {final_path}.")
+
+            with open(final_path, "rb") as file:
                 file_bytes = io.BytesIO(file.read())
-            
+
             await worker_sleep(5)
 
-            await self.send_message_to_webhook(f"Arquivo gerado via RPA: {filename}")
-
-            await worker_sleep(2)
-
             try:
-                console.print(f"directory: {self.directory}")
-                console.print(f"file: {final_path}")
-                send_file_request = await send_file_to_datalake(self.directory, file_bytes, filename, "xlsx")
-                console.print(send_file_request)
+                console.print(f"[RF] directory: {self.directory}")
+                console.print(f"[RF] file: {final_path}")
+                send_file_request = await send_file_to_datalake(
+                    self.directory, file_bytes, filename, "xlsx"
+                )
+                console.print(
+                    f"[RF] Resposta send_file_to_datalake: {send_file_request}"
+                )
             except Exception as e:
-                console.print(f"Erro ao enviar o arquivo: {e}", style="bold red")
+                console.print(
+                    f"[RF][ERRO] Erro ao enviar o arquivo: {e}", style="bold red"
+                )
+                console.print("[RF][ERRO] Traceback:")
+                console.print(traceback.format_exc())
                 return RpaRetornoProcessoDTO(
                     sucesso=False,
                     retorno=f"Erro ao enviar o arquivo: {e}",
                     status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
-            
+
             await worker_sleep(2)
 
             if final_path and os.path.exists(final_path):
                 try:
                     os.remove(final_path)
-                    console.print(f"Arquivo deletado: {final_path}")
+                    console.print(f"[RF] Arquivo deletado: {final_path}")
                 except Exception as e:
                     msg = f"Erro ao deletar o arquivo: {e}"
-                    console.print(msg)
+                    console.print(f"[RF][ERRO] {msg}")
+                    console.print("[RF][ERRO] Traceback:")
+                    console.print(traceback.format_exc())
                     return RpaRetornoProcessoDTO(
                         sucesso=False,
                         retorno=msg,
                         status=RpaHistoricoStatusEnum.Falha,
-                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                        tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                     )
 
         except FileNotFoundError as fne:
             msg = f"Não foi possível renomear o arquivo, error: {fne}"
-            console.print(msg)
+            console.print(f"[RF][ERRO] {msg}")
+            console.print("[RF][ERRO] Traceback:")
+            console.print(traceback.format_exc())
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=msg,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
         except Exception as e:
             msg = f"Erro ao renomear/mover arquivo: {e}"
-            console.print(msg)
+            console.print(f"[RF][ERRO] {msg}")
+            console.print("[RF][ERRO] Traceback:")
+            console.print(traceback.format_exc())
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=msg,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
     async def send_message_to_webhook(self, message: str):
-        console.print("Enviando mensagem ao webhook.")
+        console.print("[WEBHOOK] Enviando mensagem ao webhook.")
         await worker_sleep(2)
         try:
             payload = {"text": "📢 " + message}
@@ -296,44 +571,85 @@ class NotasFaturamentoSAP:
                 webhook_url,
                 data=json.dumps(payload),
                 headers={"Content-Type": "application/json"},
-                timeout=10
+                timeout=10,
             )
-            console.print("Mensagem enviada ao webhook com sucesso.")
+            console.print("[WEBHOOK] Mensagem enviada ao webhook com sucesso.")
             await worker_sleep(2)
         except Exception as e:
             msg = f"Erro ao enviar mensagem ao webhook: {e}"
-            console.print(msg)
+            console.print(f"[WEBHOOK][ERRO] {msg}")
+            console.print("[WEBHOOK][ERRO] Traceback:")
+            console.print(traceback.format_exc())
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=msg,
                 status=RpaHistoricoStatusEnum.Falha,
-                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+                tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
 
+
 async def notas_faturamento_sap(task: RpaProcessoSapDTO) -> RpaRetornoProcessoDTO:
-    console.print("Iniciando processo de notas de faturamento SAP.")
+    console.print("[MAIN] Iniciando processo de notas de faturamento SAP.")
+    notas_sap = None
     try:
+        console.print("[MAIN] Buscando configuração 'SAP_Faturamento'...")
         config = await get_config_by_name("SAP_Faturamento")
-        console.print(f"config: {config}")
+        console.print(f"[MAIN] config recebido: {config}")
         sap_url = config.conConfiguracao.get("sapUrl")
         sap_key = config.conConfiguracao.get("sapKey")
         sap_token = config.conConfiguracao.get("sapToken")
         base_url = config.conConfiguracao.get("baseUrl")
         directory = config.conConfiguracao.get("directoryBucket")
-        console.print(sap_url, sap_key, sap_token, base_url, directory)
-        notas_sap = NotasFaturamentoSAP(task, sap_url, sap_key, sap_token, base_url, directory)
-        await notas_sap.start_sap_process()
-        console.print("Processo de automação SAP finalizado com sucesso.")
-        return RpaRetornoProcessoDTO(
-            sucesso=True,
-            retorno="Processo de automação SAP finalizado com sucesso.",
-            status=RpaHistoricoStatusEnum.Sucesso,
+        console.print(
+            f"[MAIN] sap_url={sap_url} base_url={base_url} directory={directory}"
         )
+
+        # PEGAR RELATORIO DE FORMA SEGURA
+        relatorio = None
+        config_entrada = task.configEntrada
+
+        if isinstance(config_entrada, dict):
+            relatorio = config_entrada.get("relatorio")
+        else:
+            relatorio = getattr(config_entrada, "relatorio", None)
+
+        if not relatorio:
+            relatorio = "FAT"
+
+        console.print(f"[MAIN] Relatório usado: {relatorio}")
+
+        notas_sap = NotasFaturamentoSAP(
+            task,
+            sap_url,
+            sap_key,
+            sap_token,
+            base_url,
+            directory,
+            relatorio_override=relatorio,
+        )
+
+        console.print("[MAIN] Chamando start_sap_process...")
+        resultado = await notas_sap.start_sap_process()
+        console.print(
+            f"[MAIN] Resultado do start_sap_process: sucesso={resultado.sucesso}"
+        )
+
+        return resultado
+
     except Exception as ex:
-        console.print(f"Erro na automação SAP: {ex}")
+        console.print("[MAIN][ERRO] Exceção em notas_faturamento_sap.")
+        console.print(f"[MAIN][ERRO] Tipo: {type(ex).__name__}")
+        console.print(f"[MAIN][ERRO] str(ex): {str(ex)}")
+        console.print("[MAIN][ERRO] Traceback completo:")
+        console.print(traceback.format_exc())
         return RpaRetornoProcessoDTO(
             sucesso=False,
             retorno=f"Erro na automação SAP: {ex}",
             status=RpaHistoricoStatusEnum.Falha,
-            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)]
+            tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
         )
+    finally:
+        if notas_sap and notas_sap.driver:
+            console.print("[MAIN] Fechando driver no final do processo.")
+            notas_sap.driver.quit()
+        console.print("[MAIN] Fim do processo (finally).")

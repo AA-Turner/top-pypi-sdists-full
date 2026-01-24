@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 # Python supported versions
-SUPPORTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+SUPPORTED_PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 # CUDA supported versions
 SUPPORTED_CUDA_VERSIONS = [
     "12.0.0",
@@ -98,7 +98,7 @@ CONTAINER_METADATA: dict[str, dict[str, t.Any]] = {
             "supported_architectures": SUPPORTED_ARCHITECTURES,
         },
         "cuda": {
-            "image": "nvidia/cuda:{spec_version}-cudnn8-runtime-ubuntu20.04",
+            "image": "nvidia/cuda:{spec_version}-cudnn-runtime-ubuntu24.04",
             "supported_architectures": ["amd64", "arm64"],
         },
         "miniconda": {
@@ -107,7 +107,7 @@ CONTAINER_METADATA: dict[str, dict[str, t.Any]] = {
         },
         "default_install_command": "apt-get update && apt-get install -q -y --no-install-recommends "
         "--allow-remove-essential ca-certificates gnupg2 bash build-essential git",
-        "install_command": "apt-get install -q -y {packages}",
+        "install_command": "apt-get install -q -y -o Dpkg::Options::=--force-confdef {packages}",
     },
     "alpine": {
         "supported_python_versions": SUPPORTED_PYTHON_VERSIONS,

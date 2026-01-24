@@ -1,12 +1,13 @@
+#[cfg(feature = "jiff")]
+use jiff::fmt::friendly::Designator;
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyOverflowError, PyTypeError, PyValueError, PyZeroDivisionError};
-use pyo3::prelude::PyAnyMethods;
-use pyo3::types::{PyInt, PyTuple};
-use pyo3::{Bound, FromPyObject, IntoPyObjectExt, PyAny, PyResult, Python, pyclass, pymethods};
+use pyo3::prelude::*;
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyInt, PyTuple};
+use pyo3::{BoundObject, IntoPyObjectExt};
+use ryo3_core::{PyFromStr, PyParse};
 use ryo3_macro_rules::{
-    py_overflow_err, py_overflow_error, py_type_err, py_value_err, py_zero_division_err,
+    py_key_err, py_overflow_err, py_overflow_error, py_type_err, py_value_err, py_zero_division_err,
 };
-use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Div, Mul};
 use std::time::Duration;
@@ -17,20 +18,67 @@ const MINS_PER_HOUR: u64 = 60;
 const HOURS_PER_DAY: u64 = 24;
 const DAYS_PER_WEEK: u64 = 7;
 const MAX_DAYS: u64 = u64::MAX / (SECS_PER_MINUTE * MINS_PER_HOUR * HOURS_PER_DAY);
-const MAX_WEEKS: u64 = u64::MAX / (SECS_PER_MINUTE * MINS_PER_HOUR * HOURS_PER_DAY * DAYS_PER_WEEK);
+const SECS_PER_WEEK: u64 = SECS_PER_MINUTE * MINS_PER_HOUR * HOURS_PER_DAY * DAYS_PER_WEEK;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[pyclass(name = "Duration", frozen)]
+// jiff
+#[cfg(feature = "jiff")]
+const TEMPORAL_SPAN_PARSER: jiff::fmt::temporal::SpanParser =
+    jiff::fmt::temporal::SpanParser::new();
+#[cfg(feature = "jiff")]
+const TEMPORAL_SPAN_PRINTER: jiff::fmt::temporal::SpanPrinter =
+    jiff::fmt::temporal::SpanPrinter::new();
+#[cfg(feature = "jiff")]
+const FRIENDLY_SPAN_PARSER: jiff::fmt::friendly::SpanParser =
+    jiff::fmt::friendly::SpanParser::new();
+
+// Maybe use?`HumanTime` designator for friendly parser/printer to avoid ambiguous `µ`:w
+// REF: https://github.com/jessekrubin/ry/discussions/229#discussioncomment-14928815
+// ```txt
+// RUF001 String contains ambiguous `µ` (MICRO SIGN). Did you mean `μ` (GREEK SMALL LETTER MU)?
+//   --> tests\std\test_duration_str.py:45:59
+//    |
+// 43 |         max_dur = ry.Duration.MAX
+// 44 |         iso_str = max_dur.friendly()
+// 45 |         assert iso_str == "5124095576030431h 15s 999ms 999µs 999ns"
+//    |                                                           ^
+// 46 |         parsed_max_dur = ry.Duration.from_str(iso_str)
+// 47 |         assert parsed_max_dur == max_dur
+//    |
+//
+// Found 1 error.
+// ```
+#[cfg(feature = "jiff")]
+const FRIENDLY_SPAN_PRINTER: jiff::fmt::friendly::SpanPrinter =
+    jiff::fmt::friendly::SpanPrinter::new();
+
+#[derive(Copy, Clone, PartialEq)]
+#[pyclass(name = "Duration", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PyDuration(pub Duration);
 
-impl From<Duration> for PyDuration {
-    fn from(d: Duration) -> Self {
-        Self(d)
+impl PyDuration {
+    #[inline]
+    #[must_use]
+    pub const fn from_secs(secs: u64) -> Self {
+        Self(Duration::from_secs(secs))
     }
 }
 
 impl PyDuration {
+    fn new(secs: u64, nanos: u32) -> PyResult<Self> {
+        if nanos < NANOS_PER_SEC {
+            Ok(Self(Duration::new(secs, nanos)))
+        } else {
+            let secs = secs
+                .checked_add(u64::from(nanos / NANOS_PER_SEC))
+                .ok_or_else(|| {
+                    py_overflow_error!("overflow; seconds part of Duration::new too large")
+                })?;
+            let nanos = nanos % NANOS_PER_SEC;
+            Ok(Self(Duration::new(secs, nanos)))
+        }
+    }
+
     #[must_use]
     pub fn inner(&self) -> &Duration {
         &self.0
@@ -79,17 +127,7 @@ impl PyDuration {
     #[new]
     #[pyo3(signature = (secs = 0, nanos = 0))]
     fn py_new(secs: u64, nanos: u32) -> PyResult<Self> {
-        if nanos < NANOS_PER_SEC {
-            Ok(Self(Duration::new(secs, nanos)))
-        } else {
-            let secs = secs
-                .checked_add(u64::from(nanos / NANOS_PER_SEC))
-                .ok_or_else(|| {
-                    py_overflow_error!("overflow; seconds part of Duration::new too large")
-                })?;
-            let nanos = nanos % NANOS_PER_SEC;
-            Ok(Self(Duration::new(secs, nanos)))
-        }
+        Self::new(secs, nanos)
     }
 
     fn __getnewargs__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -145,7 +183,7 @@ impl PyDuration {
     }
 
     fn __repr__(&self) -> String {
-        format!("{self}")
+        format!("{self:?}")
     }
 
     fn __hash__(&self) -> u64 {
@@ -169,24 +207,35 @@ impl PyDuration {
     // ========================================================================
     // MATHS/OPERATORS
     // ========================================================================
-    fn __richcmp__(&self, other: PyDurationComparable, op: CompareOp) -> bool {
-        match other {
-            PyDurationComparable::PyDuration(other) => match op {
-                CompareOp::Eq => self.0 == other.0,
-                CompareOp::Ne => self.0 != other.0,
-                CompareOp::Lt => self.0 < other.0,
-                CompareOp::Le => self.0 <= other.0,
-                CompareOp::Gt => self.0 > other.0,
-                CompareOp::Ge => self.0 >= other.0,
-            },
-            PyDurationComparable::Duration(other) => match op {
-                CompareOp::Eq => self.0 == other,
-                CompareOp::Ne => self.0 != other,
-                CompareOp::Lt => self.0 < other,
-                CompareOp::Le => self.0 <= other,
-                CompareOp::Gt => self.0 > other,
-                CompareOp::Ge => self.0 >= other,
-            },
+    // OLD VERSION ALLOWING FOR DURATION/DELTA COMPARISONS
+    // fn __richcmp__(&self, other: PyDurationComparable, op: CompareOp) -> bool {
+    //     match other {
+    //         PyDurationComparable::PyDuration(other) => match op {
+    //             CompareOp::Eq => self.0 == other.0,
+    //             CompareOp::Ne => self.0 != other.0,
+    //             CompareOp::Lt => self.0 < other.0,
+    //             CompareOp::Le => self.0 <= other.0,
+    //             CompareOp::Gt => self.0 > other.0,
+    //             CompareOp::Ge => self.0 >= other.0,
+    //         },
+    //         PyDurationComparable::Duration(other) => match op {
+    //             CompareOp::Eq => self.0 == other,
+    //             CompareOp::Ne => self.0 != other,
+    //             CompareOp::Lt => self.0 < other,
+    //             CompareOp::Le => self.0 <= other,
+    //             CompareOp::Gt => self.0 > other,
+    //             CompareOp::Ge => self.0 >= other,
+    //         },
+    //     }
+    // }
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => self.0 == other.0,
+            CompareOp::Ne => self.0 != other.0,
+            CompareOp::Lt => self.0 < other.0,
+            CompareOp::Le => self.0 <= other.0,
+            CompareOp::Gt => self.0 > other.0,
+            CompareOp::Ge => self.0 >= other.0,
         }
     }
 
@@ -196,13 +245,13 @@ impl PyDuration {
             self.0
                 .checked_add(rs_dur.0)
                 .map(Self::from)
-                .ok_or_else(|| PyOverflowError::new_err("overflow in Duration addition"))
+                .ok_or_else(|| py_overflow_error!("overflow in Duration addition"))
         } else if let Ok(d) = other.cast::<pyo3::types::PyDelta>() {
             let rs_dur: Duration = d.extract()?;
             self.0
                 .checked_add(rs_dur)
                 .map(Self::from)
-                .ok_or_else(|| PyOverflowError::new_err("overflow in Duration addition"))
+                .ok_or_else(|| py_overflow_error!("overflow in Duration addition"))
         } else {
             py_type_err!("unsupported operand type(s); must be Duration | datetime.timedelta")
         }
@@ -218,13 +267,13 @@ impl PyDuration {
             self.0
                 .checked_sub(rs_dur.0)
                 .map(Self::from)
-                .ok_or_else(|| PyOverflowError::new_err("overflow in Duration subtraction"))
+                .ok_or_else(|| py_overflow_error!("overflow in Duration subtraction"))
         } else if let Ok(d) = other.cast::<pyo3::types::PyDelta>() {
             let rs_dur: Duration = d.extract()?;
             self.0
                 .checked_sub(rs_dur)
                 .map(Self::from)
-                .ok_or_else(|| PyOverflowError::new_err("overflow in Duration subtraction"))
+                .ok_or_else(|| py_overflow_error!("overflow in Duration subtraction"))
         } else {
             py_type_err!("unsupported operand type(s); must be Duration | datetime.timedelta")
         }
@@ -242,7 +291,7 @@ impl PyDuration {
         if let Ok(f) = other.cast::<PyInt>() {
             let i = f.extract::<u32>()?;
             if i == 0 {
-                return Err(PyZeroDivisionError::new_err("division by zero"));
+                return py_zero_division_err!("division by zero");
             }
             self.checked_div(i)
                 .ok_or_else(|| py_overflow_error!("overflow in Duration division"))?
@@ -272,13 +321,11 @@ impl PyDuration {
             self.0
                 .checked_mul(i)
                 .map(Self::from)
-                .ok_or_else(|| PyOverflowError::new_err("overflow in Duration multiplication"))
+                .ok_or_else(|| py_overflow_error!("overflow in Duration multiplication"))
         } else if let Ok(f) = other.extract::<f64>() {
             self.mul_f64(f)
         } else {
-            Err(PyTypeError::new_err(
-                "unsupported operand type(s); must be int | float",
-            ))
+            py_overflow_err!("unsupported operand type(s); must be int | float")
         }
     }
 
@@ -305,13 +352,29 @@ impl PyDuration {
     }
 
     #[getter]
+    fn nanoseconds(&self) -> u32 {
+        self.0.subsec_nanos()
+    }
+
+    #[getter]
+    fn ns(&self) -> u32 {
+        self.0.subsec_nanos()
+    }
+
+    #[getter]
     fn days(&self) -> u64 {
         self.0.as_secs() / 86400
     }
 
-    /// Return the number of seconds in the duration not counting days
+    /// Return the number of seconds in the duration counting days
     #[getter]
     fn seconds(&self) -> u64 {
+        self.0.as_secs()
+    }
+
+    /// Return the seconds % days (self.seconds % 86400)
+    #[getter]
+    fn seconds_remainder(&self) -> u64 {
         self.0.as_secs() % 86400
     }
 
@@ -338,8 +401,8 @@ impl PyDuration {
     // ========================================================================
     // TO-CONVERSIONS
     // ========================================================================
-    fn as_secs(&self) -> f64 {
-        self.0.as_secs_f64()
+    fn as_secs(&self) -> u64 {
+        self.0.as_secs()
     }
 
     fn as_secs_f32(&self) -> f32 {
@@ -385,13 +448,47 @@ impl PyDuration {
     }
 
     // ========================================================================
+    // TO/FROM NUMBERS
+    // ========================================================================
+    #[expect(clippy::wrong_self_convention)]
+    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item(interns::secs(py), self.0.as_secs())?;
+        dict.set_item(interns::nanos(py), self.0.subsec_nanos())?;
+        Ok(dict)
+    }
+
+    #[staticmethod]
+    fn from_dict(d: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let secs = d.get_item(interns::secs(d.py()))?;
+        let nanos = d.get_item(interns::nanos(d.py()))?;
+        match (secs, nanos) {
+            (Some(secs), Some(nanos)) => {
+                let secs = secs.extract::<u64>()?;
+                let nanos = nanos.extract::<u32>()?;
+                Self::new(secs, nanos)
+            }
+            // (Some(secs), None) => {
+            //     let secs = secs.extract::<u64>()?;
+            //     Self::new(secs, 0)
+            // }
+            // (None, Some(nanos)) => {
+            //     let nanos = nanos.extract::<u32>()?;
+            //     Self::new(0, nanos)
+            // }
+            _ => py_key_err!("dict must contain 'secs' and/or 'nanos' keys"),
+        }
+    }
+
+    // ========================================================================
     // FROM NUMBERS
     // ========================================================================
 
     /// Create a new `Duration` from the specified number of seconds.
+    #[pyo3(name = "from_secs")]
     #[staticmethod]
-    fn from_secs(secs: u64) -> Self {
-        Self(Duration::from_secs(secs))
+    const fn py_from_secs(secs: u64) -> Self {
+        Self::from_secs(secs)
     }
 
     #[staticmethod]
@@ -412,7 +509,7 @@ impl PyDuration {
     #[staticmethod]
     fn from_hours(hours: u64) -> PyResult<Self> {
         if hours > u64::MAX / (60 * 60) {
-            Err(PyOverflowError::new_err("overflow in Duration::from_hours"))
+            py_overflow_err!("overflow in Duration::from_hours")
         } else {
             Ok(Self(Duration::from_secs(hours * 60 * 60)))
         }
@@ -421,7 +518,7 @@ impl PyDuration {
     #[staticmethod]
     fn from_mins(mins: u64) -> PyResult<Self> {
         if mins > u64::MAX / 60 {
-            Err(PyOverflowError::new_err("overflow in Duration::from_mins"))
+            py_overflow_err!("overflow in Duration::from_mins")
         } else {
             Ok(Self(Duration::from_secs(mins * 60)))
         }
@@ -430,9 +527,7 @@ impl PyDuration {
     #[staticmethod]
     fn from_days(days: u64) -> PyResult<Self> {
         if days > MAX_DAYS {
-            Err(PyOverflowError::new_err(format!(
-                "overflow in Duration::from_days: {days} > {MAX_DAYS}"
-            )))
+            py_overflow_err!("overflow in Duration::from_days: {days} > {MAX_DAYS}")
         } else {
             Ok(Self(Duration::from_secs(days * 60 * 60 * 24)))
         }
@@ -440,13 +535,11 @@ impl PyDuration {
 
     #[staticmethod]
     fn from_weeks(weeks: u64) -> PyResult<Self> {
-        if weeks > u64::MAX / (MAX_WEEKS) {
-            Err(PyOverflowError::new_err(format!(
-                "overflow in Duration::from_weeks: {weeks} > {MAX_WEEKS}"
-            )))
-        } else {
-            Ok(Self(Duration::from_secs(weeks * 60 * 60 * 24 * 7)))
-        }
+        weeks
+            .checked_mul(SECS_PER_WEEK)
+            .map(|v| Duration::from_secs(v).into())
+            .ok_or_else(|| py_overflow_error!("overflow in Duration::from_weeks"))
+        // Ok(Self(Duration::from_secs(total)))
     }
 
     #[staticmethod]
@@ -459,36 +552,97 @@ impl PyDuration {
         Self::try_from_secs_f64(secs)
     }
 
+    #[cfg(feature = "jiff")]
+    #[staticmethod]
+    fn fromisoformat(s: &str) -> PyResult<Self> {
+        use jiff::fmt::temporal::SpanParser;
+        use ryo3_macro_rules::py_value_error;
+        let parser = SpanParser::new();
+        let duration = parser
+            .parse_unsigned_duration(s)
+            .map_err(|e| py_value_error!("invalid isoformat string: {e}"))?;
+        Ok(Self(duration))
+    }
+
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Self::py_parse(s)
+    }
+
     // ========================================================================
     // METHODS
     // ========================================================================
-    #[pyo3(signature = (interval = None))]
-    /// Sleep for the duration
-    pub(crate) fn sleep(&self, py: Python<'_>, interval: Option<u64>) -> PyResult<()> {
-        let interval = match interval {
-            Some(interval) => {
-                if interval > 1000 {
-                    return Err(PyValueError::new_err(
-                        "interval must be less than or equal to 1000",
-                    ));
-                } else if interval == 0 {
-                    return Err(PyValueError::new_err("interval must be greater than 0"));
-                }
-                interval
+    #[cfg(feature = "jiff")]
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> String {
+        self.__str__()
+    }
+
+    #[cfg(feature = "jiff")]
+    fn __str__(&self) -> String {
+        self.isoformat()
+    }
+
+    #[cfg(feature = "jiff")]
+    fn __format__(&self, fmt: &str) -> PyResult<String> {
+        if fmt == "#" {
+            Ok(FRIENDLY_SPAN_PRINTER.unsigned_duration_to_string(&self.0))
+        } else if fmt.is_empty() {
+            Ok(self.py_to_string())
+        } else {
+            py_type_err!("Invalid format specifier '{fmt}' for Duration")
+        }
+    }
+
+    #[cfg(feature = "jiff")]
+    fn isoformat(&self) -> String {
+        TEMPORAL_SPAN_PRINTER.unsigned_duration_to_string(&self.0)
+    }
+
+    #[cfg(feature = "jiff")]
+    #[pyo3(signature = (designator = "compact"))]
+    fn friendly(&self, designator: &str) -> PyResult<String> {
+        match designator {
+            "human-time" | "human" => Ok(FRIENDLY_SPAN_PRINTER
+                .designator(Designator::HumanTime)
+                .unsigned_duration_to_string(&self.0)),
+            "short" => Ok(FRIENDLY_SPAN_PRINTER
+                .designator(Designator::Short)
+                .unsigned_duration_to_string(&self.0)),
+            "compact" => Ok(FRIENDLY_SPAN_PRINTER.unsigned_duration_to_string(&self.0)),
+            "verbose" => Ok(FRIENDLY_SPAN_PRINTER
+                .designator(Designator::Verbose)
+                .unsigned_duration_to_string(&self.0)),
+            other => {
+                py_value_err!(
+                    "invalid designator: {other} (expected 'human'/'human-time', 'short', or 'compact')"
+                )
             }
-            None => 10,
-        };
+        }
+    }
+
+    #[pyo3(signature = (*, interval = 10))]
+    /// Sleep for the duration
+    pub(crate) fn sleep(&self, py: Python<'_>, interval: u64) -> PyResult<()> {
+        if !(1..=1000).contains(&interval) {
+            return py_value_err!("interval must be in the range 1..=1000 milliseconds");
+        }
         let sleep_duration = self.0;
         let check_interval = Duration::from_millis(interval);
         let mut remaining = sleep_duration;
         while remaining > check_interval {
             py.check_signals()?; // This ensures signals are handled
-            std::thread::sleep(check_interval);
+            py.detach(|| std::thread::sleep(check_interval));
             remaining -= check_interval;
         }
         if remaining > Duration::ZERO {
             py.check_signals()?; // One last signal check before sleeping
-            std::thread::sleep(remaining);
+            py.detach(|| std::thread::sleep(remaining));
         }
 
         Ok(())
@@ -518,10 +672,19 @@ impl PyDuration {
     //     Ok(())
     // }
 
-    fn abs_diff(&self, other: PyDurationComparable) -> Self {
-        match other {
-            PyDurationComparable::PyDuration(other) => Self(self.0.abs_diff(other.0)),
-            PyDurationComparable::Duration(other) => Self(self.0.abs_diff(other)),
+    fn abs_diff(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
+        if let Ok(d) = other.cast_exact::<Self>() {
+            let rs_dur = d.get();
+            Ok(Self(self.0.abs_diff(rs_dur.0)))
+        } else if let Ok(d) = other.cast::<pyo3::types::PyDelta>() {
+            if let Ok(dur) = d.extract::<Duration>() {
+                Ok(Self(self.0.abs_diff(dur)))
+            } else {
+                // TODO: allow negative timedelta if non-overflowing?
+                py_value_err!("cannot compare with negative timedelta")
+            }
+        } else {
+            py_type_err!("unsupported operand type(s); must be Duration | datetime.timedelta")
         }
     }
 
@@ -628,9 +791,63 @@ impl PyDuration {
     fn saturating_sub(&self, other: &Self) -> Self {
         Self::from(self.0.saturating_sub(other.0))
     }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
+        let py = value.py();
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dur| dur.into_pyobject(py))?
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
+            use pyo3::types::PyBytesMethods;
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(v) = value.cast_exact::<pyo3::types::PyFloat>() {
+            let f = v.extract::<f64>()?;
+            Self::try_from_secs_f64(f).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(v) = value.cast_exact::<pyo3::types::PyInt>() {
+            let i = v.extract::<u64>()?;
+            Self::from(Duration::new(i, 0)).into_pyobject(py)
+        } else if let Ok(d) = value.extract::<Duration>() {
+            Self::from(d).into_pyobject(py)
+        } else {
+            use ryo3_macro_rules::any_repr;
+
+            let valtype = any_repr!(value);
+            py_type_err!("Duration conversion error: {valtype}")
+        }
+    }
+
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Self>> {
+        Self::from_any(value).map_err(|e| {
+            use ryo3_macro_rules::py_value_error;
+            py_value_error!("Duration validation error: {e}")
+        })
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
+    }
 }
 
-impl Display for PyDuration {
+impl std::fmt::Debug for PyDuration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -641,8 +858,98 @@ impl Display for PyDuration {
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
-enum PyDurationComparable {
-    PyDuration(PyDuration),
-    Duration(Duration),
+#[cfg(feature = "jiff")]
+impl std::str::FromStr for PyDuration {
+    type Err = jiff::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        TEMPORAL_SPAN_PARSER
+            .parse_unsigned_duration(s)
+            .map(Self::from)
+            .or_else(|_| {
+                FRIENDLY_SPAN_PARSER
+                    .parse_unsigned_duration(s)
+                    .map(Self::from)
+            })
+    }
+}
+
+#[cfg(not(feature = "jiff"))]
+impl std::str::FromStr for PyDuration {
+    type Err = pyo3::PyErr;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        use ryo3_macro_rules::py_not_implemented_error;
+        Err(py_not_implemented_error!(
+            "Duration::from_str is not implemented; enable the 'jiff' feature to use this functionality"
+        ))
+    }
+}
+
+// ----------------------------------------------------------------------------
+// py-string interns
+// ----------------------------------------------------------------------------
+
+mod interns {
+    use pyo3::prelude::*;
+    use ryo3_macro_rules::py_intern_fn;
+
+    py_intern_fn!(secs);
+    py_intern_fn!(nanos);
+}
+
+#[cfg(feature = "pydantic")]
+mod pydantic {
+    use super::PyDuration;
+    use pyo3::prelude::*;
+    use pyo3::types::PyType;
+    use ryo3_pydantic::{GetPydanticCoreSchemaCls, interns};
+
+    impl GetPydanticCoreSchemaCls for PyDuration {
+        fn get_pydantic_core_schema<'py>(
+            cls: &Bound<'py, PyType>,
+            source: &Bound<'py, PyAny>,
+            _handler: &Bound<'py, PyAny>,
+        ) -> PyResult<Bound<'py, PyAny>> {
+            let py = source.py();
+            let core_schema = ryo3_pydantic::core_schema(py)?;
+            let timedelta_schema =
+                core_schema.call_method(interns::timedelta_schema(py), (), None)?;
+            let validation_fn = cls.getattr(interns::_pydantic_validate(py))?;
+            let args = pyo3::types::PyTuple::new(py, vec![&validation_fn, &timedelta_schema])?;
+            let string_serialization_schema =
+                core_schema.call_method(interns::to_string_ser_schema(py), (), None)?;
+            let serialization_kwargs = pyo3::types::PyDict::new(py);
+            serialization_kwargs
+                .set_item(interns::serialization(py), &string_serialization_schema)?;
+            core_schema.call_method(
+                interns::no_info_wrap_validator_function(py),
+                args,
+                Some(&serialization_kwargs),
+            )
+        }
+    }
+}
+
+impl From<Duration> for PyDuration {
+    fn from(d: Duration) -> Self {
+        Self(d)
+    }
+}
+
+impl From<&PyDuration> for Duration {
+    fn from(d: &PyDuration) -> Self {
+        d.0
+    }
+}
+
+impl From<PyDuration> for Duration {
+    fn from(d: PyDuration) -> Self {
+        d.0
+    }
+}
+
+impl From<PyDuration> for Option<Duration> {
+    fn from(d: PyDuration) -> Self {
+        Some(d.0)
+    }
 }

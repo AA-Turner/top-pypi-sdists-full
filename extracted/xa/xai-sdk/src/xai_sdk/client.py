@@ -2,9 +2,12 @@
 
 import abc
 import json
+import sys
 from typing import Any, Optional, Sequence
 
 import grpc
+
+from .__about__ import __version__
 
 # Retries if the service returns an UNAVAILABLE error.
 _DEFAULT_SERVICE_CONFIG_JSON = json.dumps(
@@ -57,9 +60,10 @@ class BaseClient(abc.ABC):
         *,
         api_host: str = "api.x.ai",
         management_api_host: str = "management-api.x.ai",
-        metadata: Optional[tuple[tuple[str, str]]] = None,
+        metadata: Optional[tuple[tuple[str, str], ...]] = None,
         channel_options: Optional[list[tuple[str, Any]]] = None,
         timeout: Optional[float] = None,
+        use_insecure_channel: bool = False,
     ) -> None:
         """Initializes a new instance of the `Client` class.
 
@@ -76,6 +80,9 @@ class BaseClient(abc.ABC):
                 will override the default options if they have the same name.
             timeout: The timeout in seconds for all gRPC requests using this client. If not set, the default
                 timeout of 15 minutes (900 seconds) will be used.
+            use_insecure_channel: Whether to use an insecure gRPC channel. If True, an insecure gRPC client
+                is used for the underlying connection, though the API key will still be applied
+                to outgoing requests via metadata through gRPC interceptors. Defaults to False.
 
         Raises:
             ValueError: If the `XAI_API_KEY` environment variable is not set.
@@ -86,6 +93,12 @@ class BaseClient(abc.ABC):
         default_options = [option for option in _DEFAULT_CHANNEL_OPTIONS if option[0] not in user_defined_options]
         timeout = timeout or _DEFAULT_RPC_TIMEOUT_SECONDS
 
+        # Add the xAI SDK version and language to the metadata
+        metadata = (metadata or ()) + (
+            ("xai-sdk-version", f"python/{__version__}"),
+            ("xai-sdk-language", f"python/{sys.version_info.major}.{sys.version_info.minor}"),
+        )
+
         self._init(
             api_key,
             management_api_key,
@@ -94,6 +107,7 @@ class BaseClient(abc.ABC):
             metadata,
             default_options + channel_options,
             timeout,
+            use_insecure_channel,
         )
 
     @abc.abstractmethod
@@ -103,15 +117,16 @@ class BaseClient(abc.ABC):
         management_api_key: Optional[str],
         api_host: str,
         management_api_host: str,
-        metadata: Optional[tuple[tuple[str, str]]],
+        metadata: Optional[tuple[tuple[str, str], ...]],
         channel_options: Sequence[tuple[str, Any]],
         timeout: float,
+        use_insecure_channel: bool,  # noqa: FBT001
     ) -> None:
         """Initializes the client instance."""
 
 
 def create_channel_credentials(
-    api_key: str, api_host: str, metadata: Optional[tuple[tuple[str, str]]]
+    api_key: str, api_host: str, metadata: Optional[tuple[tuple[str, str], ...]]
 ) -> grpc.ChannelCredentials:
     """Creates the credentials for the gRPC channel.
 
@@ -138,7 +153,7 @@ def create_channel_credentials(
 class _APIAuthPlugin(grpc.AuthMetadataPlugin):
     """A specification for API-key based authentication."""
 
-    def __init__(self, api_key: str, metadata: Optional[tuple[tuple[str, str]]]) -> None:
+    def __init__(self, api_key: str, metadata: Optional[tuple[tuple[str, str], ...]]) -> None:
         """Initializes a new instance of the `_APIAuthPlugin` class.
 
         Args:
@@ -158,70 +173,3 @@ class _APIAuthPlugin(grpc.AuthMetadataPlugin):
         else:
             metadata = (api_key,)
         callback(metadata, None)
-
-
-class TimeoutInterceptor(grpc.UnaryUnaryClientInterceptor, grpc.UnaryStreamClientInterceptor):
-    """A gRPC interceptor that sets a default timeout for all requests."""
-
-    def __init__(self, timeout: float) -> None:
-        """Initializes a new instance of the `TimeoutInterceptor` class.
-
-        Args:
-            timeout: The timeout in seconds that will be applied to all requests when this interceptor is used.
-        """
-        self.timeout = timeout
-
-    def _intercept_call(self, continuation, client_call_details, request):
-        client_call_details = client_call_details._replace(timeout=self.timeout)
-        return continuation(client_call_details, request)
-
-    def intercept_unary_unary(self, continuation, client_call_details, request):
-        """Intercepts a unary-unary RPC call."""
-        return self._intercept_call(continuation, client_call_details, request)
-
-    def intercept_unary_stream(self, continuation, client_call_details, request):
-        """Intercepts a unary-stream RPC call."""
-        return self._intercept_call(continuation, client_call_details, request)
-
-
-# It's not possible to create a single AsyncInterceptor that can inherit from all the different rpc variants.
-# see: https://github.com/grpc/grpc/issues/31442
-
-
-class UnaryUnaryAioInterceptor(
-    grpc.aio.UnaryUnaryClientInterceptor,
-):
-    """An asynchronous gRPC interceptor for unary-unary RPC calls that sets a default timeout for all requests."""
-
-    def __init__(self, timeout: float) -> None:
-        """Initializes a new instance of the `UnaryUnaryAioInterceptor` class.
-
-        Args:
-            timeout: The timeout in seconds that will be applied to all requests when this interceptor is used.
-        """
-        self.timeout = timeout
-
-    async def intercept_unary_unary(self, continuation, client_call_details, request):
-        """Intercepts a unary-unary RPC call."""
-        new_details = client_call_details._replace(timeout=self.timeout)  # type: ignore
-        response = await continuation(new_details, request)
-        return await response
-
-
-class UnaryStreamAioInterceptor(
-    grpc.aio.UnaryStreamClientInterceptor,
-):
-    """An asynchronous gRPC interceptor for unary-stream RPC calls that sets a default timeout for all requests."""
-
-    def __init__(self, timeout: float) -> None:
-        """Initializes a new instance of the `UnaryStreamAioInterceptor` class.
-
-        Args:
-            timeout: The timeout in seconds that will be applied to all requests when this interceptor is used.
-        """
-        self.timeout = timeout
-
-    async def intercept_unary_stream(self, continuation, client_call_details, request):
-        """Intercepts a unary-stream RPC call."""
-        client_call_details = client_call_details._replace(timeout=self.timeout)  # type: ignore
-        return await continuation(client_call_details, request)  # type: ignore

@@ -1,20 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asyncinotify
-Version: 4.2.1
-Summary: A simple optionally-async python inotify library, focused on simplicity of use and operation, and leveraging modern Python features
+Version: 4.3.2
+Summary: 'A simple optionally-async python inotify library, focused on simplicity of use and operation, and leveraging modern Python features
 Keywords: async,inotify
 Author-email: "Taylor C. Richberger" <taylor.richberger@procern.com>
 Requires-Python: >= 3.6, < 4
 Description-Content-Type: text/x-rst
+License-Expression: MPL-2.0
 Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Operating System :: POSIX :: Linux
-Classifier: License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Intended Audience :: Developers
 Classifier: Framework :: AsyncIO
+License-File: LICENSE
 Project-URL: documentation, https://asyncinotify.readthedocs.io/
 Project-URL: repository, https://github.com/ProCern/asyncinotify/
 
@@ -80,11 +81,18 @@ Support
 
 This is supported and tested on the following:
 
-* Python 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, and 3.13
-* Debian bullseye and bookworm
+* Python 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12, 3.13, and 3.14
+* Debian bullseye, bookworm, and trixie
 * Ubuntu 20.04, 22.04, and 24.04
-* Fedora 40, 41, and 42
-* Alma Linux 8 and 9 (Should be equivalent to RHEL)
+* Fedora 42 and 43
+* Alma Linux 8, 9 and 10 (Should be equivalent to RHEL)
+* Alpine Linux 3.19 through 3.22
+
+We regularly remove out-of-support OSes from the tests and add new releases.
+
+We support back to Python 3.6 as long as it remains easy to do so.  We may, in
+some future version, restrict Python support to non-EOL versions, if supporting
+the older versions becomes inconvenient.
 
 Motivation
 ----------
@@ -100,8 +108,10 @@ quite simple and easy to understand.
 
 This library
 
-* Works in a very simple way.  It does not have add-ons or extra features beyond
-  presenting a very Python interface to the raw inotify functionality.
+* Works in a very simple way.  It does not have many add-ons or extra features beyond
+  presenting a very Python interface to the raw inotify functionality.  Any extra
+  features (such as recursive watching) are presented as completely separate classes.
+  The core inotify functionality is as pure as it can reasonably be.
 
 * Grabs events in bulk and caches them for minor performance gains.
 
@@ -124,4 +134,27 @@ that I would feel comfortable using.
 .. _pathlib: https://docs.python.org/3/library/pathlib.html
 .. _ReadTheDocs: https://asyncinotify.readthedocs.io/en/latest/
 .. _PyPi: https://pypi.org/project/asyncinotify/
+
+
+License
+-------
+
+This code is Copyright 2019 - 2023 Absolute Performance, Inc, and 2024 - 2025
+ProCern Technology Solutions.
+
+It is written and maintained by `Taylor C. Richberger <mailto:taylor.richberger@procern.com>`_.
+
+This Source Code Form is subject to the terms of the Mozilla Public License, v.
+2.0. If a copy of the MPL was not distributed with this file, You can obtain one
+at https://mozilla.org/MPL/2.0/.
+
+Note that this does **not** have the Exhibit B - “Incompatible With Secondary
+Licenses” Notice.  This software is explicitly **compatible** with secondary
+licenses.  It is MPL 2.0 to ensure that any improvements and other changes are
+distributed.  We do not want to inhibit nor prohibit its use with other FOSS or
+proprietary software, regardless of the license.  In other words, if you aren't
+changing asyncinotify, you can pretty much just use it as a library without
+worrying, unless your other license is explicitly or implicitly incompatible
+with it (which should be incredibly uncommon).
+
 

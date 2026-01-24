@@ -19,10 +19,6 @@ from __future__ import annotations
 import sys
 from datetime import datetime
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-else:
-    from typing import Dict
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -59,7 +55,7 @@ class PodIdentityAssociationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 

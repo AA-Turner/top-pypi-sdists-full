@@ -9,26 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
 
+class ActionsPublicKeyType(TypedDict):
+    """ActionsPublicKey
 
-class ProjectsV2DraftIssueType(TypedDict):
-    """Draft Issue
-
-    A draft issue in a project
+    The public key used for setting Actions Secrets.
     """
 
-    id: float
-    node_id: str
-    title: str
-    body: NotRequired[Union[str, None]]
-    user: Union[None, SimpleUserType]
-    created_at: datetime
-    updated_at: datetime
+    key_id: str
+    key: str
+    id: NotRequired[int]
+    url: NotRequired[str]
+    title: NotRequired[str]
+    created_at: NotRequired[str]
 
 
-__all__ = ("ProjectsV2DraftIssueType",)
+class ActionsPublicKeyTypeForResponse(TypedDict):
+    """ActionsPublicKey
+
+    The public key used for setting Actions Secrets.
+    """
+
+    key_id: str
+    key: str
+    id: NotRequired[int]
+    url: NotRequired[str]
+    title: NotRequired[str]
+    created_at: NotRequired[str]
+
+
+__all__ = (
+    "ActionsPublicKeyType",
+    "ActionsPublicKeyTypeForResponse",
+)

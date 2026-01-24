@@ -88,6 +88,7 @@ package = dict(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: Jython",
         "Programming Language :: Python :: Implementation :: PyPy",
@@ -102,7 +103,7 @@ package = dict(
 
 
 class BuildFailed(Exception):
-    """ The build has failed """
+    """The build has failed"""
 
 
 from distutils.command import build_ext as _build_ext  # pylint: disable = wrong-import-order

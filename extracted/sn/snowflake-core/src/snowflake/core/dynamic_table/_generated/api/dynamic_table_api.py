@@ -467,7 +467,7 @@ class DynamicTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["dynamic_table"]:
+        if _params["dynamic_table"] is not None:
             _body_params = _params["dynamic_table"]
 
         # set the HTTP header `Accept`
@@ -908,7 +908,7 @@ class DynamicTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["dynamic_table_clone"]:
+        if _params["dynamic_table_clone"] is not None:
             _body_params = _params["dynamic_table_clone"]
 
         # set the HTTP header `Accept`

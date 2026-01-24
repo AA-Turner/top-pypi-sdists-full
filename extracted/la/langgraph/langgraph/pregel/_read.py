@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping, Sequence
 from functools import cached_property
 from typing import (
     Any,
-    Callable,
-    Union,
 )
 
 from langchain_core.runnables import Runnable, RunnableConfig
@@ -18,7 +16,7 @@ from langgraph.pregel._write import ChannelWrite
 from langgraph.pregel.protocol import PregelProtocol
 from langgraph.types import CachePolicy, RetryPolicy
 
-READ_TYPE = Callable[[Union[str, Sequence[str]], bool], Union[Any, dict[str, Any]]]
+READ_TYPE = Callable[[str | Sequence[str], bool], Any | dict[str, Any]]
 INPUT_CACHE_KEY_TYPE = tuple[Callable[..., Any], tuple[str, ...]]
 
 
@@ -231,9 +229,10 @@ class PregelNode:
         config: RunnableConfig | None = None,
         **kwargs: Any | None,
     ) -> Any:
+        self_config: RunnableConfig = {"metadata": self.metadata, "tags": self.tags}
         return self.bound.invoke(
             input,
-            merge_configs({"metadata": self.metadata, "tags": self.tags}, config),
+            merge_configs(self_config, config),
             **kwargs,
         )
 
@@ -243,9 +242,10 @@ class PregelNode:
         config: RunnableConfig | None = None,
         **kwargs: Any | None,
     ) -> Any:
+        self_config: RunnableConfig = {"metadata": self.metadata, "tags": self.tags}
         return await self.bound.ainvoke(
             input,
-            merge_configs({"metadata": self.metadata, "tags": self.tags}, config),
+            merge_configs(self_config, config),
             **kwargs,
         )
 
@@ -255,9 +255,10 @@ class PregelNode:
         config: RunnableConfig | None = None,
         **kwargs: Any | None,
     ) -> Iterator[Any]:
+        self_config: RunnableConfig = {"metadata": self.metadata, "tags": self.tags}
         yield from self.bound.stream(
             input,
-            merge_configs({"metadata": self.metadata, "tags": self.tags}, config),
+            merge_configs(self_config, config),
             **kwargs,
         )
 
@@ -267,9 +268,10 @@ class PregelNode:
         config: RunnableConfig | None = None,
         **kwargs: Any | None,
     ) -> AsyncIterator[Any]:
+        self_config: RunnableConfig = {"metadata": self.metadata, "tags": self.tags}
         async for item in self.bound.astream(
             input,
-            merge_configs({"metadata": self.metadata, "tags": self.tags}, config),
+            merge_configs(self_config, config),
             **kwargs,
         ):
             yield item

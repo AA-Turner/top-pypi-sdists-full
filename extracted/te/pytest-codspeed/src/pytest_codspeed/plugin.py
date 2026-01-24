@@ -8,7 +8,7 @@ import random
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 from _pytest.fixtures import FixtureManager
@@ -30,11 +30,12 @@ from pytest_codspeed.utils import (
 from . import __version__
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, TypeVar
+    from typing import Any, Callable, ParamSpec, TypeVar
 
     from pytest_codspeed.instruments import Instrument
 
     T = TypeVar("T")
+    P = ParamSpec("P")
 
 
 @pytest.hookimpl(trylast=True)
@@ -95,7 +96,7 @@ PLUGIN_NAME = "codspeed_plugin"
 
 
 def get_plugin(config: pytest.Config) -> CodSpeedPlugin:
-    return config.pluginmanager.get_plugin(PLUGIN_NAME)
+    return cast("CodSpeedPlugin", config.pluginmanager.get_plugin(PLUGIN_NAME))
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -158,13 +159,15 @@ def pytest_plugin_registered(plugin, manager: pytest.PytestPluginManager):
         plugin, FixtureManager
     ):
         fixture_manager = plugin
-        codspeed_plugin: CodSpeedPlugin = manager.get_plugin(PLUGIN_NAME)
+        codspeed_plugin: CodSpeedPlugin = cast(
+            "CodSpeedPlugin", manager.get_plugin(PLUGIN_NAME)
+        )
         if codspeed_plugin.is_codspeed_enabled:
             codspeed_benchmark_fixtures = plugin.getfixturedefs(
                 "codspeed_benchmark",
                 fixture_manager.session.nodeid
                 if BEFORE_PYTEST_8_1_1
-                else fixture_manager.session,
+                else cast("str", fixture_manager.session),
             )
             assert codspeed_benchmark_fixtures is not None
             # Archive the alternative benchmark fixture
@@ -264,10 +267,10 @@ def wrap_runtest(
     plugin: CodSpeedPlugin,
     node: pytest.Item,
     config: pytest.Config,
-    fn: Callable[..., T],
-) -> Callable[..., T]:
+    fn: Callable[P, T],
+) -> Callable[P, T]:
     @functools.wraps(fn)
-    def wrapped(*args: tuple, **kwargs: dict[str, Any]) -> T:
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> T:
         return _measure(plugin, node, config, None, fn, args, kwargs)
 
     return wrapped
@@ -328,9 +331,7 @@ class BenchmarkFixture:
         self._plugin = get_plugin(self._config)
         self._called = False
 
-    def __call__(
-        self, target: Callable[..., T], *args: tuple, **kwargs: dict[str, Any]
-    ) -> T:
+    def __call__(self, target: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> T:
         if self._called:
             raise RuntimeError("The benchmark fixture can only be used once per test")
         self._called = True

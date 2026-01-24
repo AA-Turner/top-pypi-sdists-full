@@ -131,7 +131,7 @@ _intel_endpoints = [
         "description": "Filter your query by specifying FQL filter parameters. Filter parameters "
         "include:\n\n_marker, actors, deleted, domain_types, id, indicator, ip_address_types, kill_chains, labels, "
         "labels.created_on, labels.last_valid_on, labels.name, last_updated, malicious_confidence, malware_families, "
-        "published_date, reports, scope, targets, threat_types, type, vulnerabilities.",
+        "published_date, reports, reports.slug, scope, targets, threat_types, type, vulnerabilities.",
         "name": "filter",
         "in": "query"
       },
@@ -235,8 +235,8 @@ _intel_endpoints = [
         "include:\n\nactors, actors.animal_classifier, actors.id, actors.name, actors.slug, actors.url, created_date, "
         "description, id, last_modified_date, malware, malware.community_identifiers, malware.family_name, "
         "malware.slug, motivations, motivations.id, motivations.slug, motivations.value, name, name.raw, "
-        "short_description, slug, sub_type, sub_type.id, sub_type.name, sub_type.slug, tags, tags.id, tags.slug, "
-        "tags.value, target_countries, target_countries.id, target_countries.slug, target_countries.value, "
+        "short_description, slug, sub_type, sub_type.id, sub_type.name, sub_type.slug, summary, tags, tags.id, "
+        "tags.slug, tags.value, target_countries, target_countries.id, target_countries.slug, target_countries.value, "
         "target_industries, target_industries.id, target_industries.slug, target_industries.value, type, type.id, "
         "type.name, type.slug, url.",
         "name": "filter",
@@ -629,7 +629,7 @@ _intel_endpoints = [
         "description": "Filter your query by specifying FQL filter parameters. Filter parameters "
         "include:\n\n_marker, actors, deleted, domain_types, id, indicator, ip_address_types, kill_chains, labels, "
         "labels.created_on, labels.last_valid_on, labels.name, last_updated, malicious_confidence, malware_families, "
-        "published_date, reports, scope, targets, threat_types, type, vulnerabilities.",
+        "published_date, reports, reports.slug, scope, targets, threat_types, type, vulnerabilities.",
         "name": "filter",
         "in": "query"
       },
@@ -771,8 +771,8 @@ _intel_endpoints = [
         "include:\n\nactors, actors.animal_classifier, actors.id, actors.name, actors.slug, actors.url, created_date, "
         "description, id, last_modified_date, malware, malware.community_identifiers, malware.family_name, "
         "malware.slug, motivations, motivations.id, motivations.slug, motivations.value, name, name.raw, "
-        "short_description, slug, sub_type, sub_type.id, sub_type.name, sub_type.slug, tags, tags.id, tags.slug, "
-        "tags.value, target_countries, target_countries.id, target_countries.slug, target_countries.value, "
+        "short_description, slug, sub_type, sub_type.id, sub_type.name, sub_type.slug, summary, tags, tags.id, "
+        "tags.slug, tags.value, target_countries, target_countries.id, target_countries.slug, target_countries.value, "
         "target_industries, target_industries.id, target_industries.slug, target_industries.value, type, type.id, "
         "type.name, type.slug, url.",
         "name": "filter",

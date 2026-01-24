@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fastcrc
-Version: 0.3.2
+Version: 0.3.5
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -16,9 +16,7 @@ License-File: LICENSE
 Summary: A hyper-fast Python module for computing CRC(8, 16, 32, 64) checksum
 Keywords: crc,crc8,crc16,crc32,crc64
 Home-Page: https://github.com/overcat/fastcrc
-Author: overcat <4catcode@gmail.com>
 Author-email: overcat <4catcode@gmail.com>
-License: MIT License
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: homepage, https://github.com/overcat/fastcrc

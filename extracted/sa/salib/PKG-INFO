@@ -1,11 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: SALib
-Version: 1.5.1
+Version: 1.5.2
 Summary: Tools for global sensitivity analysis. Contains Sobol', Morris, FAST, DGSM, PAWN, HDMR, Moment Independent and fractional factorial methods
 Project-URL: Documentation, https://salib.readthedocs.io
 Project-URL: Source code, https://github.com/SALib/SALib
-Author: Will Usher, Takuya Iwanaga
-Author-email: Jon Herman <jdherman8@gmail.com>
+Author: Jon Herman, Will Usher, Takuya Iwanaga
 Maintainer: SALib contributors
 License-Expression: MIT
 License-File: AUTHORS.rst
@@ -24,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.9
 Requires-Dist: matplotlib>=3.5
 Requires-Dist: multiprocess
-Requires-Dist: numpy>=1.20.3
+Requires-Dist: numpy>=2.0
 Requires-Dist: pandas>=2.0
 Requires-Dist: scipy>=1.9.3
 Provides-Extra: dev

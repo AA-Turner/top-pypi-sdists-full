@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-matter-server
-Version: 8.1.1
+Version: 8.1.2
 Summary: Open Home Foundation Matter Server
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License: Apache-2.0
@@ -20,28 +20,28 @@ Requires-Dist: coloredlogs
 Requires-Dist: orjson
 Requires-Dist: home-assistant-chip-clusters==2025.7.0
 Provides-Extra: server
-Requires-Dist: aiohttp==3.12.15; extra == "server"
+Requires-Dist: aiohttp==3.13.2; extra == "server"
 Requires-Dist: aiorun==2025.1.1; extra == "server"
 Requires-Dist: atomicwrites==1.4.1; extra == "server"
 Requires-Dist: coloredlogs==15.0.1; extra == "server"
-Requires-Dist: cryptography==45.0.7; extra == "server"
-Requires-Dist: orjson==3.11.3; extra == "server"
-Requires-Dist: zeroconf==0.147.2; extra == "server"
+Requires-Dist: cryptography==46.0.3; extra == "server"
+Requires-Dist: orjson==3.11.5; extra == "server"
+Requires-Dist: zeroconf==0.148.0; extra == "server"
 Requires-Dist: home-assistant-chip-core==2025.7.0; extra == "server"
 Provides-Extra: test
 Requires-Dist: aioresponses==0.7.8; extra == "test"
 Requires-Dist: codespell==2.4.1; extra == "test"
-Requires-Dist: isort==6.0.1; extra == "test"
-Requires-Dist: mypy==1.18.1; extra == "test"
-Requires-Dist: pre-commit==4.3.0; extra == "test"
+Requires-Dist: isort==7.0.0; extra == "test"
+Requires-Dist: mypy==1.19.1; extra == "test"
+Requires-Dist: pre-commit==4.5.0; extra == "test"
 Requires-Dist: pre-commit-hooks==6.0.0; extra == "test"
-Requires-Dist: pylint==3.3.8; extra == "test"
-Requires-Dist: pytest==8.4.2; extra == "test"
-Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
+Requires-Dist: pylint==4.0.4; extra == "test"
+Requires-Dist: pytest==9.0.2; extra == "test"
+Requires-Dist: pytest-asyncio==1.3.0; extra == "test"
 Requires-Dist: pytest-aiohttp==1.1.0; extra == "test"
 Requires-Dist: pytest-cov==7.0.0; extra == "test"
-Requires-Dist: ruff==0.13.0; extra == "test"
-Requires-Dist: tomli==2.2.1; extra == "test"
+Requires-Dist: ruff==0.14.9; extra == "test"
+Requires-Dist: tomli==2.3.0; extra == "test"
 Dynamic: license-file
 
 # Open Home Foundation Matter Server
@@ -53,6 +53,11 @@ The Open Home Foundation Matter Server is an [officially certified](https://csa-
 This project implements a Matter Controller Server over WebSockets using the
 [official Matter (formerly CHIP) SDK](https://github.com/project-chip/connectedhomeip)
 as a base and provides both a server and client implementation.
+
+> [!IMPORTANT]
+> We’re excited to share that the Matter Server is being rewritten on top of [matter.js](https://github.com/matter-js/matter.js)! 🎉
+> This means that the current project has moved into **maintenance mode** — we’ll still fix important bugs if they come up, but all new features will land in the new project instead.
+> We’ll post a link as soon as the first **alpha version** is ready for you to try out. 🚀
 
 The Open Home Foundation Matter Server software component is funded by [Nabu Casa](https://www.nabucasa.com/) (a member of the CSA) and donated to [The Open Home Foundation](https://www.openhomefoundation.org/).
 

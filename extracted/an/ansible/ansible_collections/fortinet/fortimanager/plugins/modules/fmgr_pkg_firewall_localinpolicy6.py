@@ -16,7 +16,6 @@ short_description: Configure user defined IPv6 local-in policies.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -194,6 +196,10 @@ options:
                 choices:
                     - 'disable'
                     - 'enable'
+            internet_service6_src_fortiguard:
+                aliases: ['internet-service6-src-fortiguard']
+                type: raw
+                description: (list) FortiGuard IPv6 Internet Service source name.
 '''
 
 EXAMPLES = '''
@@ -238,7 +244,7 @@ EXAMPLES = '''
           params:
             adom: "ansible"
             pkg: "ansible" # package name
-            local-in-policy6: "your_value"
+            local_in_policy6: "your_value"
 '''
 
 RETURN = '''
@@ -295,6 +301,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'pkg': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'pkg_firewall_localinpolicy6': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -319,7 +326,8 @@ def main():
                 'internet-service6-src-group': {'v_range': [['7.4.3', '']], 'type': 'raw'},
                 'internet-service6-src-name': {'v_range': [['7.4.3', '']], 'type': 'raw'},
                 'internet-service6-src-negate': {'v_range': [['7.4.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'logtraffic': {'v_range': [['7.6.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
+                'logtraffic': {'v_range': [['7.6.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'internet-service6-src-fortiguard': {'v_range': [['7.6.4', '']], 'type': 'raw'}
             }
         }
     }

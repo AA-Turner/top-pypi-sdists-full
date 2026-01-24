@@ -317,6 +317,15 @@ class BotCommandInvalidError(BadRequestError):
         return type(self), (self.request,)
 
 
+class BotCommandsTooMuchError(BadRequestError):
+    def __init__(self, request):
+        self.request = request
+        super(Exception, self).__init__('The provided commands are too many' + self._fmt_request(self.request))
+
+    def __reduce__(self):
+        return type(self), (self.request,)
+
+
 class BotDomainInvalidError(BadRequestError):
     def __init__(self, request):
         self.request = request
@@ -4806,6 +4815,7 @@ rpc_errors_dict = {
     'BOT_CHANNELS_NA': BotChannelsNaError,
     'BOT_COMMAND_DESCRIPTION_INVALID': BotCommandDescriptionInvalidError,
     'BOT_COMMAND_INVALID': BotCommandInvalidError,
+    'BOT_COMMANDS_TOO_MUCH': BotCommandsTooMuchError,
     'BOT_DOMAIN_INVALID': BotDomainInvalidError,
     'BOT_GAMES_DISABLED': BotGamesDisabledError,
     'BOT_GROUPS_BLOCKED': BotGroupsBlockedError,

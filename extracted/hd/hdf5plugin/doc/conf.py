@@ -17,9 +17,7 @@
 # -- Project information -----------------------------------------------------
 
 project = "hdf5plugin"
-copyright = (
-    "2016-2024, European Synchrotron Radiation Facility, Grenoble"
-)
+copyright = "2016-2025, European Synchrotron Radiation Facility, Grenoble"
 author = "ESRF"
 
 # -- General configuration ---------------------------------------------------
@@ -31,6 +29,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "nbsphinx",
     "sphinx_rtd_theme",
+    "sphinx_autodoc_typehints",
 ]
 
 

@@ -11,6 +11,7 @@ from chalk.features._chalkop import op, Aggregation
 from chalk.features.filter import Filter
 from chalk.serialization.parsed_annotation import ParsedAnnotation
 from chalk.utils.collections import ensure_tuple
+from chalk.utils.notebook import is_notebook
 
 if TYPE_CHECKING:
     from chalk.features.feature_field import Feature
@@ -18,17 +19,47 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
+class NearestNeighborException(ValueError):
+    ...
+
+
+class UnresolvedFeature:
+    """Fallback for features that can't be resolved in notebook environments.
+
+    This allows notebooks to work even when the feature registry is stale or incomplete.
+    The server will validate the feature exists when the query is executed.
+    """
+    __slots__ = ("fqn",)
+
+    def __init__(self, fqn: str):
+        self.fqn = fqn
+        super().__init__()
+
+    def __str__(self):
+        return self.fqn
+
+    def __repr__(self):
+        return f"UnresolvedFeature({self.fqn!r})"
+
+    def __hash__(self):
+        return hash(self.fqn)
+
+    def __eq__(self, other: object):
+        if isinstance(other, UnresolvedFeature):
+            return self.fqn == other.fqn
+        return False
+
 
 class _MarkedUnderlyingFeature:
     __slots__ = ("_fn", "_source", "_debug_info")
 
-    def __init__(self, fn: Callable[[], Feature | Filter | type[DataFrame] | FeatureWrapper | Aggregation],
+    def __init__(self, fn: Callable[[], Feature | Filter | type[DataFrame] | FeatureWrapper | Aggregation | UnresolvedFeature],
                  debug_info: Any = None) -> None:
         super().__init__()
         self._fn = fn
         self._debug_info = debug_info
 
-    def __call__(self, *args: Any, **kwds: Any) -> Feature | Filter | type[DataFrame] | FeatureWrapper | Aggregation:
+    def __call__(self, *args: Any, **kwds: Any) -> Feature | Filter | type[DataFrame] | FeatureWrapper | Aggregation | UnresolvedFeature:
         return self._fn()
 
 
@@ -48,7 +79,7 @@ class FeatureWrapper:
         super().__init__()
         self._chalk_underlying = underlying
 
-    def _chalk_get_underlying(self) -> Feature | Aggregation | Filter | type[DataFrame]:
+    def _chalk_get_underlying(self) -> Feature | Aggregation | Filter | type[DataFrame] | UnresolvedFeature:
         if isinstance(self._chalk_underlying, _MarkedUnderlyingFeature):
             self._chalk_underlying = self._chalk_underlying()
         if isinstance(self._chalk_underlying, FeatureWrapper):
@@ -300,6 +331,12 @@ class FeatureWrapper:
                     if f.attribute_name == item:
                         return FeatureWrapper(underlying.copy_with_path(f))
 
+                if is_notebook():
+                    # Construct FQN by preserving the path from the underlying feature
+                    # If underlying has a path, we need to include it in the FQN
+                    fqn = f"{underlying.root_fqn}.{item}"
+                    return UnresolvedFeature(fqn)
+
                 assert underlying.features_cls is not None
                 underlying.features_cls.__chalk_error_builder__.invalid_attribute(
                     root_feature_str=joined_class.namespace,
@@ -310,6 +347,11 @@ class FeatureWrapper:
                     saved_frame=self
                 )
                 assert False, "unreachable"
+
+            # If in notebook, fallback to constructing FQN string instead of raising error
+            if is_notebook():
+                fqn = f"{underlying.fqn}.{item}"
+                return UnresolvedFeature(fqn)
 
             assert underlying.features_cls is not None
             underlying.features_cls.__chalk_error_builder__.invalid_attribute(
@@ -325,23 +367,25 @@ class FeatureWrapper:
         return FeatureWrapper(_MarkedUnderlyingFeature(fn, ("__getattr__", item)))
 
     def is_near(self, item: Any, metric: Literal["l2", "cos", "ip"] = "l2") -> Filter:
+        if metric not in ("l2", "cos", "ip"):
+            raise NearestNeighborException(f"Invalid metric '{metric}'. Must be one of 'l2', 'cos', or 'ip'.")
         from chalk.features import Feature
         other = unwrap_feature(item)
         underlying = self._chalk_get_underlying()
         if not isinstance(underlying, Feature):
-            raise TypeError(f"Feature.is_near() is only supported on features. {underlying} is not a feature.")
+            raise NearestNeighborException(f"Feature.is_near() is only supported on features. {underlying} is not a feature.")
         self_vector = underlying.typ.as_vector()
         if self_vector is None:
-            raise TypeError(
+            raise NearestNeighborException(
                 f"Nearest neighbor relationships are only supported for vector features. Feature '{underlying.root_fqn}' is not a vector."
             )
         other_vector = other.typ.as_vector()
         if other_vector is None:
-            raise TypeError(
+            raise NearestNeighborException(
                 f"Nearest neighbor relationships are only supported for vector features. Feature '{other.root_fqn}' is not a vector."
             )
         if underlying.converter.pyarrow_dtype != other.converter.pyarrow_dtype:
-            raise TypeError(
+            raise NearestNeighborException(
                 (
                     f"Nearest neighbor relationships are only supported if both vectors have the same data type and dimensions. "
                     f"Feature '{underlying.root_fqn}' is of type `{underlying.converter.pyarrow_dtype}` "

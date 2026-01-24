@@ -21,10 +21,10 @@ from beartype.typing import (
 from beartype._check.error.errcause import ViolationCause
 from beartype._check.error._errtype import find_cause_type_instance_origin
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
-from beartype._data.hint.pep.sign.datapepsignmap import (
+from beartype._data.hint.sign.datahintsignmap import (
     HINT_SIGN_ORIGIN_ISINSTANCEABLE_TO_ARGS_LEN_RANGE)
-from beartype._data.hint.pep.sign.datapepsigns import HintSignCounter
-from beartype._data.hint.pep.sign.datapepsignset import HINT_SIGNS_MAPPING
+from beartype._data.hint.sign.datahintsigns import HintSignCounter
+from beartype._data.hint.sign.datahintsignset import HINT_SIGNS_MAPPING
 from beartype._util.text.utiltextprefix import prefix_pith_type
 from beartype._util.text.utiltextrepr import represent_pith
 
@@ -101,7 +101,7 @@ def find_cause_pep484585_mapping(cause: ViolationCause) -> ViolationCause:
     hint_value_sane = (
         # If this hint describes a "collections.Counter" dictionary subclass,
         # the standard "int" type. See related logic in the
-        # beartype._check.code.codemake.make_check_expr() factory for details.
+        # beartype._check.code.codemain.make_check_expr() factory for details.
         cause.sanify_hint_child(int)
         # Else, this hint does *NOT* describes a "collections.Counter"
         # dictionary subclass. In this case, this child value hint as is.

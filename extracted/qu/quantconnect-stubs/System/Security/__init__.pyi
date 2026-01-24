@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 import warnings
@@ -12,70 +12,18 @@ import System.Security
 import System.Security.Permissions
 
 
-class PartialTrustVisibilityLevel(Enum):
+class SecurityRuleSet(IntEnum):
     """This class has no documentation."""
 
-    VISIBLE_TO_ALL_HOSTS = 0
+    NONE = 0
 
-    NOT_VISIBLE_BY_DEFAULT = 1
+    LEVEL_1 = 1
 
-    def __int__(self) -> int:
-        ...
+    LEVEL_2 = 2
 
 
-class SecureString(System.Object, System.IDisposable):
+class SecurityTreatAsSafeAttribute(System.Attribute):
     """This class has no documentation."""
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @overload
-    def __init__(self, value: typing.Any, length: int) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    def append_char(self, c: str) -> None:
-        ...
-
-    def clear(self) -> None:
-        ...
-
-    def copy(self) -> System.Security.SecureString:
-        ...
-
-    def dispose(self) -> None:
-        ...
-
-    def insert_at(self, index: int, c: str) -> None:
-        ...
-
-    def is_read_only(self) -> bool:
-        ...
-
-    def make_read_only(self) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
-        ...
-
-    def set_at(self, index: int, c: str) -> None:
-        ...
-
-
-class AllowPartiallyTrustedCallersAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
-        ...
-
-    @partial_trust_visibility_level.setter
-    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
-        ...
 
     def __init__(self) -> None:
         ...
@@ -183,209 +131,43 @@ class ISecurityEncodable(metaclass=abc.ABCMeta):
         ...
 
 
-class IStackWalk(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def Assert(self) -> None:
-        ...
-
-    def demand(self) -> None:
-        ...
-
-    def deny(self) -> None:
-        ...
-
-    def permit_only(self) -> None:
-        ...
-
-
-class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
-    """Obsoletions.CodeAccessSecurityMessage"""
-
-    def copy(self) -> System.Security.IPermission:
-        ...
-
-    def demand(self) -> None:
-        ...
-
-    def intersect(self, target: System.Security.IPermission) -> System.Security.IPermission:
-        ...
-
-    def is_subset_of(self, target: System.Security.IPermission) -> bool:
-        ...
-
-    def union(self, target: System.Security.IPermission) -> System.Security.IPermission:
-        ...
-
-
-class PermissionSet(System.Object, System.Collections.ICollection, System.Runtime.Serialization.IDeserializationCallback, System.Security.ISecurityEncodable, System.Security.IStackWalk):
-    """This class has no documentation."""
-
-    @property
-    def count(self) -> int:
-        ...
-
-    @property
-    def is_read_only(self) -> bool:
-        ...
-
-    @property
-    def is_synchronized(self) -> bool:
-        ...
-
-    @property
-    def sync_root(self) -> System.Object:
-        ...
-
-    @overload
-    def __init__(self, state: System.Security.Permissions.PermissionState) -> None:
-        ...
-
-    @overload
-    def __init__(self, perm_set: System.Security.PermissionSet) -> None:
-        ...
-
-    def add_permission(self, perm: System.Security.IPermission) -> System.Security.IPermission:
-        ...
-
-    def add_permission_impl(self, perm: System.Security.IPermission) -> System.Security.IPermission:
-        """This method is protected."""
-        ...
-
-    def Assert(self) -> None:
-        ...
-
-    def contains_non_code_access_permissions(self) -> bool:
-        ...
-
-    @staticmethod
-    def convert_permission_set(in_format: str, in_data: typing.List[int], out_format: str) -> typing.List[int]:
-        """This member is marked as obsolete."""
-        warnings.warn("This member is marked as obsolete.", DeprecationWarning)
-
-    def copy(self) -> System.Security.PermissionSet:
-        ...
-
-    def copy_to(self, array: System.Array, index: int) -> None:
-        ...
-
-    def demand(self) -> None:
-        ...
-
-    def deny(self) -> None:
-        """This member is marked as obsolete."""
-        warnings.warn("This member is marked as obsolete.", DeprecationWarning)
-
-    def equals(self, o: typing.Any) -> bool:
-        ...
-
-    def from_xml(self, et: System.Security.SecurityElement) -> None:
-        ...
-
-    def get_enumerator(self) -> System.Collections.IEnumerator:
-        ...
-
-    def get_enumerator_impl(self) -> System.Collections.IEnumerator:
-        """This method is protected."""
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_permission(self, perm_class: typing.Type) -> System.Security.IPermission:
-        ...
-
-    def get_permission_impl(self, perm_class: typing.Type) -> System.Security.IPermission:
-        """This method is protected."""
-        ...
-
-    def intersect(self, other: System.Security.PermissionSet) -> System.Security.PermissionSet:
-        ...
-
-    def is_empty(self) -> bool:
-        ...
-
-    def is_subset_of(self, target: System.Security.PermissionSet) -> bool:
-        ...
-
-    def is_unrestricted(self) -> bool:
-        ...
-
-    def permit_only(self) -> None:
-        ...
-
-    def remove_permission(self, perm_class: typing.Type) -> System.Security.IPermission:
-        ...
-
-    def remove_permission_impl(self, perm_class: typing.Type) -> System.Security.IPermission:
-        """This method is protected."""
-        ...
-
-    @staticmethod
-    def revert_assert() -> None:
-        ...
-
-    def set_permission(self, perm: System.Security.IPermission) -> System.Security.IPermission:
-        ...
-
-    def set_permission_impl(self, perm: System.Security.IPermission) -> System.Security.IPermission:
-        """This method is protected."""
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    def to_xml(self) -> System.Security.SecurityElement:
-        ...
-
-    def union(self, other: System.Security.PermissionSet) -> System.Security.PermissionSet:
-        ...
-
-
-class SecurityTransparentAttribute(System.Attribute):
+class SecuritySafeCriticalAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
+class SecurityCriticalScope(IntEnum):
     """This class has no documentation."""
 
+    EXPLICIT = 0
+
+    EVERYTHING = ...
+
+
+class SecurityCriticalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def scope(self) -> System.Security.SecurityCriticalScope:
+        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
+
+    @overload
     def __init__(self) -> None:
         ...
 
+    @overload
+    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
+        ...
 
-class SecurityRuleSet(Enum):
+
+class PartialTrustVisibilityLevel(IntEnum):
     """This class has no documentation."""
 
-    NONE = 0
+    VISIBLE_TO_ALL_HOSTS = 0
 
-    LEVEL_1 = 1
-
-    LEVEL_2 = 2
-
-    def __int__(self) -> int:
-        ...
-
-
-class SecurityRulesAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def skip_verification_in_full_trust(self) -> bool:
-        ...
-
-    @skip_verification_in_full_trust.setter
-    def skip_verification_in_full_trust(self, value: bool) -> None:
-        ...
-
-    @property
-    def rule_set(self) -> System.Security.SecurityRuleSet:
-        ...
-
-    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
-        ...
+    NOT_VISIBLE_BY_DEFAULT = 1
 
 
 class SecurityException(System.SystemException):
@@ -493,18 +275,131 @@ class SecurityException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
     def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """Obsoletions.LegacyFormatterImplMessage"""
         warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
     def to_string(self) -> str:
+        ...
+
+
+class SecurityRulesAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def skip_verification_in_full_trust(self) -> bool:
+        ...
+
+    @skip_verification_in_full_trust.setter
+    def skip_verification_in_full_trust(self, value: bool) -> None:
+        ...
+
+    @property
+    def rule_set(self) -> System.Security.SecurityRuleSet:
+        ...
+
+    def __init__(self, rule_set: System.Security.SecurityRuleSet) -> None:
+        ...
+
+
+class SecureString(System.Object, System.IDisposable):
+    """This class has no documentation."""
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @overload
+    def __init__(self, value: typing.Any, length: int) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    def append_char(self, c: str) -> None:
+        ...
+
+    def clear(self) -> None:
+        ...
+
+    def copy(self) -> System.Security.SecureString:
+        ...
+
+    def dispose(self) -> None:
+        ...
+
+    def insert_at(self, index: int, c: str) -> None:
+        ...
+
+    def is_read_only(self) -> bool:
+        ...
+
+    def make_read_only(self) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
+        ...
+
+    def set_at(self, index: int, c: str) -> None:
+        ...
+
+
+class IStackWalk(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def Assert(self) -> None:
+        ...
+
+    def demand(self) -> None:
+        ...
+
+    def deny(self) -> None:
+        ...
+
+    def permit_only(self) -> None:
+        ...
+
+
+class UnverifiableCodeAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class AllowPartiallyTrustedCallersAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def partial_trust_visibility_level(self) -> System.Security.PartialTrustVisibilityLevel:
+        ...
+
+    @partial_trust_visibility_level.setter
+    def partial_trust_visibility_level(self, value: System.Security.PartialTrustVisibilityLevel) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+
+class IPermission(System.Security.ISecurityEncodable, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def copy(self) -> System.Security.IPermission:
+        ...
+
+    def demand(self) -> None:
+        ...
+
+    def intersect(self, target: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def is_subset_of(self, target: System.Security.IPermission) -> bool:
+        ...
+
+    def union(self, target: System.Security.IPermission) -> System.Security.IPermission:
         ...
 
 
@@ -525,58 +420,135 @@ class VerificationException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        """
-        This method is protected.
-        
-        Obsoletions.LegacyFormatterImplMessage
-        """
         ...
 
 
-class SecuritySafeCriticalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class SecurityCriticalScope(Enum):
-    """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
-
-    EXPLICIT = 0
-
-    EVERYTHING = ...
-
-    def __int__(self) -> int:
-        ...
-
-
-class SecurityCriticalAttribute(System.Attribute):
+class PermissionSet(System.Object, System.Collections.ICollection, System.Runtime.Serialization.IDeserializationCallback, System.Security.ISecurityEncodable, System.Security.IStackWalk):
     """This class has no documentation."""
 
     @property
-    def scope(self) -> System.Security.SecurityCriticalScope:
-        """SecurityCriticalScope is only used for .NET 2.0 transparency compatibility."""
-        warnings.warn("SecurityCriticalScope is only used for .NET 2.0 transparency compatibility.", DeprecationWarning)
+    def count(self) -> int:
+        ...
 
-    @overload
-    def __init__(self) -> None:
+    @property
+    def is_read_only(self) -> bool:
+        ...
+
+    @property
+    def is_synchronized(self) -> bool:
+        ...
+
+    @property
+    def sync_root(self) -> System.Object:
         ...
 
     @overload
-    def __init__(self, scope: System.Security.SecurityCriticalScope) -> None:
+    def __init__(self, state: System.Security.Permissions.PermissionState) -> None:
+        ...
+
+    @overload
+    def __init__(self, perm_set: System.Security.PermissionSet) -> None:
+        ...
+
+    def add_permission(self, perm: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def add_permission_impl(self, perm: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def Assert(self) -> None:
+        ...
+
+    def contains_non_code_access_permissions(self) -> bool:
+        ...
+
+    @staticmethod
+    def convert_permission_set(in_format: str, in_data: typing.List[int], out_format: str) -> typing.List[int]:
+        warnings.warn("This member is marked as obsolete.", DeprecationWarning)
+
+    def copy(self) -> System.Security.PermissionSet:
+        ...
+
+    def copy_to(self, array: System.Array, index: int) -> None:
+        ...
+
+    def demand(self) -> None:
+        ...
+
+    def deny(self) -> None:
+        warnings.warn("This member is marked as obsolete.", DeprecationWarning)
+
+    def equals(self, o: typing.Any) -> bool:
+        ...
+
+    def from_xml(self, et: System.Security.SecurityElement) -> None:
+        ...
+
+    def get_enumerator(self) -> System.Collections.IEnumerator:
+        ...
+
+    def get_enumerator_impl(self) -> System.Collections.IEnumerator:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_permission(self, perm_class: typing.Type) -> System.Security.IPermission:
+        ...
+
+    def get_permission_impl(self, perm_class: typing.Type) -> System.Security.IPermission:
+        ...
+
+    def intersect(self, other: System.Security.PermissionSet) -> System.Security.PermissionSet:
+        ...
+
+    def is_empty(self) -> bool:
+        ...
+
+    def is_subset_of(self, target: System.Security.PermissionSet) -> bool:
+        ...
+
+    def is_unrestricted(self) -> bool:
+        ...
+
+    def permit_only(self) -> None:
+        ...
+
+    def remove_permission(self, perm_class: typing.Type) -> System.Security.IPermission:
+        ...
+
+    def remove_permission_impl(self, perm_class: typing.Type) -> System.Security.IPermission:
+        ...
+
+    @staticmethod
+    def revert_assert() -> None:
+        ...
+
+    def set_permission(self, perm: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def set_permission_impl(self, perm: System.Security.IPermission) -> System.Security.IPermission:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    def to_xml(self) -> System.Security.SecurityElement:
+        ...
+
+    def union(self, other: System.Security.PermissionSet) -> System.Security.PermissionSet:
         ...
 
 
-class UnverifiableCodeAttribute(System.Attribute):
+class SecurityTransparentAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
         ...
 
 
-class SecurityTreatAsSafeAttribute(System.Attribute):
-    """SecurityTreatAsSafe is only used for .NET 2.0 transparency compatibility. Use the SecuritySafeCriticalAttribute instead."""
+class SuppressUnmanagedCodeSecurityAttribute(System.Attribute):
+    """This class has no documentation."""
 
     def __init__(self) -> None:
         ...

@@ -1,4 +1,5 @@
 from citiespy import all_cities
+
 from tzfpy import data_version, get_tzs, timezonenames
 
 
@@ -24,3 +25,19 @@ def test_no_empty():
 
 def test_version_support():
     assert data_version() not in [None, ""]
+
+
+def test_arrow_with_tzdata():
+    from zoneinfo import ZoneInfo
+
+    import arrow
+
+    for tz in timezonenames():
+        arrow.now(ZoneInfo(tz))
+
+
+def test_whenever_with_tzdata():
+    from whenever import Instant
+
+    for tz in timezonenames():
+        Instant.now().to_tz(tz)

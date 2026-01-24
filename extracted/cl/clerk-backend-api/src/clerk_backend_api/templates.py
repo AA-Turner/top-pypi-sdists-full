@@ -26,17 +26,22 @@ class Templates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.PreviewTemplateResponseBody]:
+    ) -> models.PreviewTemplateResponseBody:
         r"""Preview changes to a template
 
         Returns a preview of a template for a given template_type, slug and body
 
         :param template_type: The type of template to preview
         :param slug: The slug of the template to preview
-        :param subject: The email subject. Applicable only to email templates.
+        :param subject: The email subject.
+            Applicable only to email templates.
         :param body: The template body before variable interpolation
-        :param from_email_name: The local part of the From email address that will be used for emails. For example, in the address 'hello@example.com', the local part is 'hello'. Applicable only to email templates.
-        :param reply_to_email_name: The local part of the Reply To email address that will be used for emails. For example, in the address 'hello@example.com', the local part is 'hello'. Applicable only to email templates.
+        :param from_email_name: The local part of the From email address that will be used for emails.
+            For example, in the address 'hello@example.com', the local part is 'hello'.
+            Applicable only to email templates.
+        :param reply_to_email_name: The local part of the Reply To email address that will be used for emails.
+            For example, in the address 'hello@example.com', the local part is 'hello'.
+            Applicable only to email templates.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -83,6 +88,7 @@ class Templates(BaseSDK):
                 "json",
                 Optional[models.PreviewTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -103,7 +109,7 @@ class Templates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="PreviewTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -113,9 +119,7 @@ class Templates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.PreviewTemplateResponseBody], http_res
-            )
+            return unmarshal_json_response(models.PreviewTemplateResponseBody, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):
@@ -146,17 +150,22 @@ class Templates(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.PreviewTemplateResponseBody]:
+    ) -> models.PreviewTemplateResponseBody:
         r"""Preview changes to a template
 
         Returns a preview of a template for a given template_type, slug and body
 
         :param template_type: The type of template to preview
         :param slug: The slug of the template to preview
-        :param subject: The email subject. Applicable only to email templates.
+        :param subject: The email subject.
+            Applicable only to email templates.
         :param body: The template body before variable interpolation
-        :param from_email_name: The local part of the From email address that will be used for emails. For example, in the address 'hello@example.com', the local part is 'hello'. Applicable only to email templates.
-        :param reply_to_email_name: The local part of the Reply To email address that will be used for emails. For example, in the address 'hello@example.com', the local part is 'hello'. Applicable only to email templates.
+        :param from_email_name: The local part of the From email address that will be used for emails.
+            For example, in the address 'hello@example.com', the local part is 'hello'.
+            Applicable only to email templates.
+        :param reply_to_email_name: The local part of the Reply To email address that will be used for emails.
+            For example, in the address 'hello@example.com', the local part is 'hello'.
+            Applicable only to email templates.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -203,6 +212,7 @@ class Templates(BaseSDK):
                 "json",
                 Optional[models.PreviewTemplateRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -223,7 +233,7 @@ class Templates(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="PreviewTemplate",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -233,9 +243,7 @@ class Templates(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.PreviewTemplateResponseBody], http_res
-            )
+            return unmarshal_json_response(models.PreviewTemplateResponseBody, http_res)
         if utils.match_response(
             http_res, ["400", "401", "404", "422"], "application/json"
         ):

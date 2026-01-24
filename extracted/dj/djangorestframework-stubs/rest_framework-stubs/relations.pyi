@@ -57,7 +57,7 @@ class RelatedField(Field[_MT, _DT, _PT, Any]):
         style: dict[str, str] | None = ...,
     ) -> None: ...
     # mypy doesn't accept the typing below, although its accurate to what this class is doing, hence the ignore
-    def __new__(cls, *args: Any, **kwargs: Any) -> RelatedField[_MT, _DT, _PT] | ManyRelatedField: ...  # type: ignore
+    def __new__(cls, *args: Any, **kwargs: Any) -> RelatedField[_MT, _DT, _PT] | ManyRelatedField: ...  # type: ignore[misc]
     @classmethod
     def many_init(cls, *args: Any, **kwargs: Any) -> ManyRelatedField: ...
     def get_queryset(self) -> QuerySet[_MT]: ...
@@ -68,7 +68,8 @@ class RelatedField(Field[_MT, _DT, _PT, Any]):
     @property
     def grouped_choices(self) -> dict: ...
     def iter_options(self) -> Iterable[Option]: ...
-    def get_attribute(self, instance: _MT) -> _PT | None: ...
+    def get_attribute(self, instance: _MT) -> _MT | PKOnlyObject | None: ...  # type: ignore[override]
+    def to_representation(self, value: _MT | PKOnlyObject) -> _PT: ...
     def display_value(self, instance: _MT) -> str: ...
 
 class StringRelatedField(RelatedField[_MT, _MT, str]): ...
@@ -135,9 +136,10 @@ class HyperlinkedRelatedField(RelatedField[_MT, str, Hyperlink]):
 class HyperlinkedIdentityField(HyperlinkedRelatedField): ...
 
 class SlugRelatedField(RelatedField[_MT, str, str]):
-    slug_field: str | None
+    slug_field: str
     def __init__(
         self,
+        # DISCREPANCY: signature defaults `slug_field=None`, but actually crashes when `None` is provided.
         slug_field: str,
         *,
         many: bool = ...,
@@ -159,7 +161,7 @@ class SlugRelatedField(RelatedField[_MT, str, str]):
         style: dict[str, str] | None = ...,
     ) -> None: ...
     def to_internal_value(self, data: Any) -> _MT: ...
-    def to_representation(self, obj: _MT) -> str: ...
+    def to_representation(self, obj: _MT | PKOnlyObject) -> str: ...
 
 class ManyRelatedField(Field[Sequence[Any], Sequence[Any], list[Any], Any]):
     default_empty_html: list[object]
@@ -169,7 +171,8 @@ class ManyRelatedField(Field[Sequence[Any], Sequence[Any], list[Any], Any]):
     allow_empty: bool
     def __init__(
         self,
-        child_relation: RelatedField = ...,
+        # DISCREPANCY: signature defaults `child_relation=None`, but actually crashes when `None` is provided.
+        child_relation: RelatedField,
         *,
         read_only: bool = ...,
         write_only: bool = ...,

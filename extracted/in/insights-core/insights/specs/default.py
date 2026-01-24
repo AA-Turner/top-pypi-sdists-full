@@ -16,7 +16,7 @@ import signal
 # - keep line length less than 80 characters
 from insights.components.ceph import IsCephMonitor
 from insights.components.cloud_provider import IsAzure, IsGCP
-from insights.components.rhel_version import IsGtOrRhel84, IsGtOrRhel86
+from insights.components.rhel_version import IsRhel7, IsGtOrRhel84, IsGtOrRhel86
 from insights.components.satellite import (
     IsSatellite,
     IsSatellite611,
@@ -119,6 +119,7 @@ class DefaultSpecs(Specs):
     malware_detection = malware_detection_ds.malware_detection
 
     # Regular collection specs
+    # ansible_telemetry = simple_command("/usr/share/ansible/telemetry/telemetry.py")
     abrt_ccpp_conf = simple_file("/etc/abrt/plugins/CCpp.conf")
     abrt_status_bare = simple_command("/usr/bin/abrt status --bare=True")
     alternatives_display_python = simple_command("/usr/sbin/alternatives --display python")
@@ -181,6 +182,7 @@ class DefaultSpecs(Specs):
     bond_dynamic_lb = glob_file("/sys/class/net/*/bonding/tlb_dynamic_lb")
     boot_loader_entries = glob_file("/boot/loader/entries/*.conf")
     bootc_status = simple_command("/usr/bin/bootc status --json")
+    bootctl_status = simple_command("/usr/bin/bootctl status", keep_rc=True)
     buddyinfo = simple_file("/proc/buddyinfo")
     brctl_show = simple_command("/usr/sbin/brctl show")
     candlepin_log = simple_file("/var/log/candlepin/candlepin.log")
@@ -310,6 +312,7 @@ class DefaultSpecs(Specs):
     ethtool_g = foreach_execute(ethernet.interfaces, "/sbin/ethtool -g %s")
     ethtool_i = foreach_execute(ethernet.interfaces, "/sbin/ethtool -i %s")
     ethtool_k = foreach_execute(ethernet.interfaces, "/sbin/ethtool -k %s")
+    ethtool_priv_flags = foreach_execute(ethernet.interfaces, "/sbin/ethtool --show-priv-flags %s")
     falconctl_aid = simple_command("/opt/CrowdStrike/falconctl -g --aid")
     falconctl_backend = simple_command("/opt/CrowdStrike/falconctl -g --backend")
     falconctl_rfm = simple_command("/opt/CrowdStrike/falconctl -g --rfm-state")
@@ -317,7 +320,9 @@ class DefaultSpecs(Specs):
     fapolicyd_rules = glob_file(r"/etc/fapolicyd/rules.d/*.rules")
     fcoeadm_i = simple_command("/usr/sbin/fcoeadm -i")
     files_dirs_number = ls.files_dirs_number
-    filefrag = simple_command("/sbin/filefrag /boot/grub2/grubenv", keep_rc=True)
+    filefrag = simple_command(
+        "/sbin/filefrag /boot/grub2/grubenv /boot/initramfs*.img /boot/vmlinuz*", keep_rc=True
+    )
     findmnt_lo_propagation = simple_command("/bin/findmnt -lo+PROPAGATION")
     firewall_cmd_list_all_zones = simple_command("/usr/bin/firewall-cmd --list-all-zones")
     firewalld_conf = simple_file("/etc/firewalld/firewalld.conf")
@@ -447,9 +452,11 @@ class DefaultSpecs(Specs):
     kernel_crash_kexec_post_notifiers = simple_file(
         "/sys/module/kernel/parameters/crash_kexec_post_notifiers"
     )
+    keyctl_show = simple_command("/usr/bin/keyctl show %:.platform", keep_rc=True)
     kexec_crash_size = simple_file("/sys/kernel/kexec_crash_size")
     kpatch_list = simple_command("/usr/sbin/kpatch list")
     krb5 = glob_file([r"etc/krb5.conf", r"etc/krb5.conf.d/*"])
+    krb5_localauth_plugin = simple_file("/var/lib/sss/pubconf/krb5.include.d/localauth_plugin")
     ksmstate = simple_file("/sys/kernel/mm/ksm/run")
     lastupload = glob_file(
         ["/etc/redhat-access-insights/.lastupload", "/etc/insights-client/.lastupload"]
@@ -462,7 +469,7 @@ class DefaultSpecs(Specs):
     libssh_server_config = simple_file("/etc/libssh/libssh_server.config")
     libvirtd_log = simple_file("/var/log/libvirt/libvirtd.log")
     limits_conf = glob_file(["/etc/security/limits.conf", "/etc/security/limits.d/*.conf"])
-    localectl_status = simple_command("/usr/bin/localectl status")
+    localectl_status = simple_command("/usr/bin/localectl status", deps=[IsRhel7])
     localtime = simple_command("/usr/bin/file -L /etc/localtime")
     login_pam_conf = simple_file("/etc/pam.d/login")
     logrotate_conf = foreach_collect(logrotate.logrotate_conf_list, "%s")
@@ -496,6 +503,8 @@ class DefaultSpecs(Specs):
         '/bin/ls -laRZ %s', ls.list_with_laRZ, save_as='ls_laRZ', keep_rc=True
     )
     ls_laZ = command_with_args('/bin/ls -laZ %s', ls.list_with_laZ, save_as='ls_laZ', keep_rc=True)
+    ls_ldH = command_with_args('/bin/ls -ldH %s', ls.list_with_ldH, save_as='ls_ldH', keep_rc=True)
+    ls_ldZ = command_with_args('/bin/ls -ldZ %s', ls.list_with_ldZ, save_as='ls_ldZ', keep_rc=True)
     lsattr = command_with_args("/bin/lsattr %s", lsattr.paths_to_lsattr)
     lsblk = simple_command("/bin/lsblk")
     lsblk_pairs = simple_command(
@@ -541,6 +550,7 @@ class DefaultSpecs(Specs):
     messages = simple_file("/var/log/messages")
     modinfo_filtered_modules = command_with_args('modinfo %s', kernel.kernel_module_filters)
     modprobe = glob_file(["/etc/modprobe.conf", "/etc/modprobe.d/*.conf"])
+    mokutil_list_enrolled = simple_command("/bin/mokutil --list-enrolled", keep_rc=True)
     mokutil_sbstate = simple_command("/bin/mokutil --sb-state")
     mount = simple_command("/bin/mount")
     mountinfo = simple_file("/proc/self/mountinfo")
@@ -635,6 +645,7 @@ class DefaultSpecs(Specs):
     os_release = simple_file("etc/os-release")
     ose_master_config = simple_file("/etc/origin/master/master-config.yaml")
     ose_node_config = simple_file("/etc/origin/node/node-config.yaml")
+    ossl_files = simple_command("/usr/lib/dracut/ossl-files --config", keep_rc=True)
     ovirt_engine_server_log = simple_file("/var/log/ovirt-engine/server.log")
     ovirt_engine_ui_log = simple_file("/var/log/ovirt-engine/ui.log")
     ovs_appctl_fdb_show_bridge = foreach_execute(
@@ -720,6 +731,7 @@ class DefaultSpecs(Specs):
     readlink_e_shift_cert_server = simple_command(
         "/usr/bin/readlink -e /etc/origin/node/certificates/kubelet-server-current.pem"
     )
+    rear_default_conf = simple_file("/usr/share/rear/conf/default.conf")
     rear_local_conf = simple_file("/etc/rear/local.conf")
     redhat_release = simple_file("/etc/redhat-release")
     repquota_agnpuv = simple_command("/usr/sbin/repquota -agnpuv")
@@ -884,6 +896,7 @@ class DefaultSpecs(Specs):
         ]
     )
     sys_block_queue_stable_writes = glob_file("/sys/block/*/queue/stable_writes")
+    sys_block_queue_max_segment_size = glob_file("/sys/block/*/queue/max_segment_size")
     sys_fs_cgroup_memory_tasks_number = sys_fs_cgroup_memory.tasks_number
     sys_fs_cgroup_uniq_memory_swappiness = sys_fs_cgroup_memory.uniq_memory_swappiness
     sys_vmbus_class_id = glob_file('/sys/bus/vmbus/devices/*/class_id')
@@ -973,6 +986,7 @@ class DefaultSpecs(Specs):
     virsh_list_all = simple_command("/usr/bin/virsh --readonly list --all")
     virt_what = simple_command("/usr/sbin/virt-what")
     vma_ra_enabled = simple_file("/sys/kernel/mm/swap/vma_ra_enabled")
+    vmware_tools_conf = simple_file("/etc/vmware-tools/tools.conf")
     vsftpd = simple_file("/etc/pam.d/vsftpd")
     vsftpd_conf = simple_file("/etc/vsftpd/vsftpd.conf")
     watchdog_conf = simple_file("/etc/watchdog.conf")

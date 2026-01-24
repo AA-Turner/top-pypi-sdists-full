@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-
 """M2Crypto low level OpenSSL wrapper functions.
 
 m2 is the low level wrapper for OpenSSL functions. Typically you would not

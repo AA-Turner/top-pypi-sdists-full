@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-xmltodict"
-version = "1.0.1.20250920"
+version = "1.0.1.20260113"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for xmltodict"
@@ -25,11 +25,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`b158ccd3c1b204b2379f898425724d82e7234337`](https://github.com/python/typeshed/commit/b158ccd3c1b204b2379f898425724d82e7234337).
+[`ce2b37da4568a08502edcd245d07ee5184967f3b`](https://github.com/python/typeshed/commit/ce2b37da4568a08502edcd245d07ee5184967f3b).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

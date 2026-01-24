@@ -6,6 +6,7 @@ import os
 import sys
 import traceback
 import tempfile
+from functools import partial
 from gettext import gettext as _
 from contextlib import contextmanager
 from asgiref.sync import sync_to_async, async_to_sync
@@ -17,10 +18,10 @@ from django_guid import get_guid
 from pulpcore.app.apps import MODULE_PLUGIN_VERSIONS
 from pulpcore.app.models import Task, TaskGroup, AppStatus
 from pulpcore.app.util import (
-    current_task,
     get_domain,
     get_prn,
 )
+from pulpcore.app.contexts import with_task_context, awith_task_context
 from pulpcore.constants import (
     TASK_FINAL_STATES,
     TASK_INCOMPLETE_STATES,
@@ -61,52 +62,50 @@ def execute_task(task):
     contextvars.copy_context().run(_execute_task, task)
 
 
+def _execute_task(task):
+    with with_task_context(task):
+        task.set_running()
+        domain = get_domain()
+        try:
+            log_task_start(task, domain)
+            task_function = get_task_function(task)
+            result = task_function()
+        except Exception:
+            exc_type, exc, tb = sys.exc_info()
+            task.set_failed(exc, tb)
+            log_task_failed(task, exc_type, exc, tb, domain)
+            send_task_notification(task)
+        else:
+            task.set_completed(result)
+            log_task_completed(task, domain)
+            send_task_notification(task)
+            return result
+        return None
+
+
 async def aexecute_task(task):
     # This extra stack is needed to isolate the current_task ContextVar
     await contextvars.copy_context().run(_aexecute_task, task)
 
 
-def _execute_task(task):
-    # Store the task id in the context for `Task.current()`.
-    current_task.set(task)
-    task.set_running()
-    domain = get_domain()
-    try:
-        log_task_start(task, domain)
-        task_function = get_task_function(task)
-        result = task_function()
-    except Exception:
-        exc_type, exc, tb = sys.exc_info()
-        task.set_failed(exc, tb)
-        log_task_failed(task, exc_type, exc, tb, domain)
-        send_task_notification(task)
-    else:
-        task.set_completed(result)
-        log_task_completed(task, domain)
-        send_task_notification(task)
-        return result
-    return None
-
-
 async def _aexecute_task(task):
-    # Store the task id in the context for `Task.current()`.
-    current_task.set(task)
-    await sync_to_async(task.set_running)()
-    domain = get_domain()
-    try:
-        coroutine = get_task_function(task, ensure_coroutine=True)
-        result = await coroutine
-    except Exception:
-        exc_type, exc, tb = sys.exc_info()
-        await sync_to_async(task.set_failed)(exc, tb)
-        log_task_failed(task, exc_type, exc, tb, domain)
-        send_task_notification(task)
-    else:
-        await sync_to_async(task.set_completed)(result)
-        send_task_notification(task)
-        log_task_completed(task, domain)
-        return result
-    return None
+    async with awith_task_context(task):
+        await sync_to_async(task.set_running)()
+        domain = get_domain()
+        try:
+            task_coroutine_fn = await aget_task_function(task)
+            result = await task_coroutine_fn()
+        except Exception:
+            exc_type, exc, tb = sys.exc_info()
+            await sync_to_async(task.set_failed)(exc, tb)
+            log_task_failed(task, exc_type, exc, tb, domain)
+            send_task_notification(task)
+        else:
+            await sync_to_async(task.set_completed)(result)
+            send_task_notification(task)
+            log_task_completed(task, domain)
+            return result
+        return None
 
 
 def log_task_start(task, domain):
@@ -148,42 +147,72 @@ def log_task_failed(task, exc_type, exc, tb, domain):
     _logger.info("\n".join(traceback.format_list(traceback.extract_tb(tb))))
 
 
-def get_task_function(task, ensure_coroutine=False):
+async def aget_task_function(task):
+    """Get and handle task function running from ASYNC context.
+
+    This exists to handle the combinations of:
+    * context: sync | async
+    * Task.function: regular-function | coroutine-function
+    * Task.immediate: True | False
+    """
+    func, is_coroutine_fn = _load_function(task)
+
+    if task.immediate and not is_coroutine_fn:
+        raise ValueError("Immediate tasks must be async functions.")
+    elif not task.immediate:
+        raise ValueError("Non-immediate tasks can't run in async context.")
+
+    return _add_timeout_to(func, task.pk)
+
+
+def get_task_function(task):
+    """Get and handle task function running from SYNC context.
+
+    This exists to handle the combinations of:
+    * context: sync | async
+    * Task.function: regular-function | coroutine-function
+    * Task.immediate: True | False
+    """
+    func, is_coroutine_fn = _load_function(task)
+
+    if task.immediate and not is_coroutine_fn:
+        raise ValueError("Immediate tasks must be async functions.")
+
+    # no sync wrapper required
+    if not is_coroutine_fn:
+        return func
+
+    # async function in sync context requires wrapper
+    if task.immediate:
+        coro_fn_with_timeout = _add_timeout_to(func, task.pk)
+        return async_to_sync(coro_fn_with_timeout)
+    return async_to_sync(func)
+
+
+def _load_function(task):
     module_name, function_name = task.name.rsplit(".", 1)
     module = importlib.import_module(module_name)
     func = getattr(module, function_name)
     args = task.enc_args or ()
     kwargs = task.enc_kwargs or {}
-    immediate = task.immediate
+
+    func_with_args = partial(func, *args, **kwargs)
     is_coroutine_fn = asyncio.iscoroutinefunction(func)
+    return func_with_args, is_coroutine_fn
 
-    if immediate and not is_coroutine_fn:
-        raise ValueError("Immediate tasks must be async functions.")
 
-    if ensure_coroutine:
-        if not is_coroutine_fn:
-            return sync_to_async(func)(*args, **kwargs)
-        coro = func(*args, **kwargs)
-        if immediate:
-            coro = asyncio.wait_for(coro, timeout=IMMEDIATE_TIMEOUT)
-        return coro
-    else:  # ensure normal function
-        if not is_coroutine_fn:
-            return lambda: func(*args, **kwargs)
+def _add_timeout_to(coro_fn, task_pk):
 
-        async def task_wrapper():  # asyncio.wait_for + async_to_sync requires wrapping
-            coro = func(*args, **kwargs)
-            if immediate:
-                coro = asyncio.wait_for(coro, timeout=IMMEDIATE_TIMEOUT)
-            try:
-                return await coro
-            except asyncio.TimeoutError:
-                msg_template = "Immediate task %s timed out after %s seconds."
-                error_msg = msg_template % (task.pk, IMMEDIATE_TIMEOUT)
-                _logger.info(error_msg)
-                raise RuntimeError(error_msg)
+    async def _wrapper():
+        try:
+            return await asyncio.wait_for(coro_fn(), timeout=IMMEDIATE_TIMEOUT)
+        except asyncio.TimeoutError:
+            msg_template = "Immediate task %s timed out after %s seconds."
+            error_msg = msg_template % (task_pk, IMMEDIATE_TIMEOUT)
+            _logger.info(error_msg)
+            raise RuntimeError(error_msg)
 
-        return async_to_sync(task_wrapper)
+    return _wrapper
 
 
 def dispatch(
@@ -235,12 +264,13 @@ def dispatch(
 
     execute_now = immediate and not called_from_content_app()
     assert deferred or immediate, "A task must be at least `deferred` or `immediate`."
-    send_wakeup_signal = True if not immediate else False
+    send_wakeup_signal = not execute_now
     function_name = get_function_name(func)
     versions = get_version(versions, function_name)
     colliding_resources, resources = get_resources(exclusive_resources, shared_resources, immediate)
+    app_lock = None if not execute_now else AppStatus.objects.current()  # Lazy evaluation...
     task_payload = get_task_payload(
-        function_name, task_group, args, kwargs, resources, versions, immediate, deferred
+        function_name, task_group, args, kwargs, resources, versions, immediate, deferred, app_lock
     )
     task = Task.objects.create(**task_payload)
     task.refresh_from_db()  # The database will have assigned a timestamp for us.
@@ -278,12 +308,14 @@ async def adispatch(
     function_name = get_function_name(func)
     versions = get_version(versions, function_name)
     colliding_resources, resources = get_resources(exclusive_resources, shared_resources, immediate)
-    send_wakeup_signal = False
+    send_wakeup_signal = not execute_now
+    app_lock = None if not execute_now else AppStatus.objects.current()  # Lazy evaluation...
     task_payload = get_task_payload(
-        function_name, task_group, args, kwargs, resources, versions, immediate, deferred
+        function_name, task_group, args, kwargs, resources, versions, immediate, deferred, app_lock
     )
     task = await Task.objects.acreate(**task_payload)
     await task.arefresh_from_db()  # The database will have assigned a timestamp for us.
+    task.pulp_domain = get_domain()
     if execute_now:
         if await async_are_resources_available(colliding_resources, task):
             send_wakeup_signal = True if resources else False
@@ -297,12 +329,12 @@ async def adispatch(
             task.set_canceling()
             task.set_canceled(TASK_STATES.CANCELED, "Resources temporarily unavailable.")
     if send_wakeup_signal:
-        wakeup_worker(TASK_WAKEUP_UNBLOCK)
+        await sync_to_async(wakeup_worker)(TASK_WAKEUP_UNBLOCK)
     return task
 
 
 def get_task_payload(
-    function_name, task_group, args, kwargs, resources, versions, immediate, deferred
+    function_name, task_group, args, kwargs, resources, versions, immediate, deferred, app_lock
 ):
     payload = {
         "state": TASK_STATES.WAITING,
@@ -317,7 +349,7 @@ def get_task_payload(
         "immediate": immediate,
         "deferred": deferred,
         "profile_options": x_task_diagnostics_var.get(None),
-        "app_lock": None if not immediate else AppStatus.objects.current(),  # Lazy evaluation...
+        "app_lock": app_lock,
     }
     return payload
 

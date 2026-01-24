@@ -57,9 +57,7 @@ class COCOeval_faster(COCOevalBase):
             (imgId, catId): computeIoU(imgId, catId) for (imgId, catId) in itertools.product(p.imgIds, catIds)
         }  # bottleneck
 
-        # Convert GT annotations, detections, and IOUs to a format that's fast to access in C++ # noqa: E501
-        ground_truth_instances = self.gt_dataset.get_cpp_instances(p.imgIds, p.catIds, bool(p.useCats))
-        detected_instances = self.dt_dataset.get_cpp_instances(p.imgIds, p.catIds, bool(p.useCats))
+        # Memory optimization: pass datasets directly instead of pre-loading all instances
 
         # List Comp faster then map of map
         ious = [[self.ious[imgId, catId] for catId in catIds] for imgId in p.imgIds]
@@ -73,15 +71,21 @@ class COCOeval_faster(COCOevalBase):
                 p.maxDets[-1],
                 p.iouThrs,
                 ious,
-                ground_truth_instances,
-                detected_instances,
+                self.gt_dataset,
+                self.dt_dataset,
+                p.imgIds,
+                p.catIds,
+                bool(p.useCats),
             )
         else:
             self.eval = _C.COCOevalEvaluateAccumulate(
                 self._paramsEval,
                 ious,
-                ground_truth_instances,
-                detected_instances,
+                self.gt_dataset,
+                self.dt_dataset,
+                p.imgIds,
+                p.catIds,
+                bool(p.useCats),
             )
 
         toc = time.time()
@@ -231,7 +235,7 @@ class COCOeval_faster(COCOevalBase):
         iou_thrs, rec_thrs = self.params.iouThrs, self.params.recThrs
 
         # Indices for IoU=0.50, first area, and last max dets
-        iou50_idx, area_idx, maxdet_idx = (int(np.argwhere(np.isclose(iou_thrs, 0.50))), 0, -1)
+        iou50_idx, area_idx, maxdet_idx = (np.argwhere(np.isclose(iou_thrs, 0.50)).item(), 0, -1)
         P = self.eval["precision"]
         S = self.eval["scores"]
 
@@ -309,19 +313,14 @@ class COCOeval_faster(COCOevalBase):
             dict[str, float]: Dictionary mapping metric names to their values.
         """
         if self.params.iouType in set(["segm", "bbox", "boundary"]):
-            labels = [
-                "AP_all",
-                "AP_50",
-                "AP_75",
-                "AP_small",
-                "AP_medium",
-                "AP_large",
-                "AR_all",
-                "AR_second",
-                "AR_third",
-                "AR_small",
-                "AR_medium",
-                "AR_large",
+            p = self.params
+            AP_labels = [f"AP_{label}" for label in p.areaRngLbl if label != "all"]
+            AR_labels = [f"AR_{label}" for label in p.areaRngLbl if label != "all"]
+            labels = ["AP_all", "AP_50", "AP_75"]
+            labels += AP_labels
+            labels += ["AR_all", "AR_second", "AR_third"]
+            labels += AR_labels
+            labels += [
                 "AR_50",
                 "AR_75",
             ]

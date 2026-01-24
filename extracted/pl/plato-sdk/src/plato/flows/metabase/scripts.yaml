@@ -1,0 +1,96 @@
+flows:
+- name: login
+  description: Standard login flow for Metabase
+  steps:
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait longer for page to fully load
+    duration: 8000
+    type: wait
+  - description: Wait for username/email field to be ready
+    selector: 'input[name="username"], input[name="email"], input[type="email"], #username,
+      #email'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill username/email field
+    selector: 'input[name="username"], input[name="email"], input[type="email"], #username,
+      #email'
+    type: fill
+    value: user@plato.so
+  - description: Wait for password field to be ready
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: password_123
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Wait for login button to be ready
+    selector: button[type='submit'], input[type='submit'], .Button--primary, button.Button
+    timeout: 5000
+    type: wait_for_selector
+  - description: Click login submit button
+    selector: button[type='submit'], input[type='submit'], .Button--primary, button.Button
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Wait longer for login to process
+    duration: 8000
+    type: wait
+  - description: Verify main application interface is displayed
+    selector: .Nav, nav, .AppBar, .Header, [class*="header"], [class*="navigation"],
+      .Icon-home, .Icon-dashboard, [class*="Home"], [class*="Dashboard"], .main-navbar
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="username"], input[name="email"], input[type="email"], #username,
+      #email'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="username"], input[name="email"], input[type="email"], #username,
+      #email'
+    type: fill
+    value: user@plato.so
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[type='submit'], input[type='submit'], .Button--primary, button.Button
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Verify error message is displayed
+    selector: .Form-field-error, .text-error, span.text-error, .emotion-zfa2so, .emotion-piquwr,
+      .elpjvd50, .e18gg6yk1, [class*="error"], [role="alert"]
+    type: verify
+    verify_type: element_exists

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-mgmt-compute
-Version: 37.0.0
+Version: 37.1.0
 Summary: Microsoft Azure Compute Management Client Library for Python
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
@@ -86,6 +86,22 @@ If you encounter any bugs or have suggestions, please file an issue in the
 section of the project. 
 
 # Release History
+
+## 37.1.0 (2025-11-17)
+
+### Features Added
+
+  - Model AdditionalCapabilities has a new parameter enable_fips1403_encryption
+  - Model DiskRestorePointInstanceView has a new parameter snapshot_access_state
+  - Model RestorePoint has a new parameter instant_access_duration_minutes
+  - Model RestorePointCollection has a new parameter instant_access
+  - Model RestorePointCollectionUpdate has a new parameter instant_access
+
+## 37.0.1 (2025-10-09)
+
+### Bugs Fixed
+
+- Exclude `generated_samples` and `generated_tests` from wheel
 
 ## 37.0.0 (2025-09-22)
 

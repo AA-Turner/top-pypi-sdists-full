@@ -3,7 +3,7 @@ Type annotations for support-app service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support_app/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,11 +20,6 @@ import sys
 
 from .literals import AccountTypeType, NotificationSeverityLevelType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -74,7 +69,7 @@ class DeleteSlackWorkspaceConfigurationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -148,12 +143,12 @@ class UpdateSlackChannelConfigurationResultTypeDef(TypedDict):
 
 
 class ListSlackChannelConfigurationsResultTypeDef(TypedDict):
-    slackChannelConfigurations: List[SlackChannelConfigurationTypeDef]
+    slackChannelConfigurations: list[SlackChannelConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSlackWorkspaceConfigurationsResultTypeDef(TypedDict):
-    slackWorkspaceConfigurations: List[SlackWorkspaceConfigurationTypeDef]
+    slackWorkspaceConfigurations: list[SlackWorkspaceConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

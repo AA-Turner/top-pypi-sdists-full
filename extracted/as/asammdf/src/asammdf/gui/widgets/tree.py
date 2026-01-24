@@ -241,19 +241,40 @@ class TreeWidget(QtWidgets.QTreeWidget):
             super().keyPressEvent(event)
 
     def startDrag(self, supportedActions):
-        def get_data(item):
+        def get_data(item, retain_structure=False):
             data = []
             count = item.childCount()
 
             if count:
+                if retain_structure:
+                    working_data = []
+                    data.append(
+                        {
+                            "type": "group",
+                            "name": item.name,
+                            "enabled": True,
+                            "pattern": {},
+                            "ranges": [],
+                            "origin_uuid": item.origin_uuid,
+                            "expanded": False,
+                            "disabled": False,
+                            "channels": working_data,
+                            "group_index": -1,
+                            "channel_index": -1,
+                            "uuid": os.urandom(6).hex(),
+                        }
+                    )
+                else:
+                    working_data = data
+
                 for i in range(count):
                     child = item.child(i)
 
                     if child.childCount():
-                        data.extend(get_data(child))
+                        working_data.extend(get_data(child, retain_structure=retain_structure))
                     else:
                         if child.entry[1] != 0xFFFFFFFFFFFFFFFF:
-                            data.append(
+                            working_data.append(
                                 {
                                     "name": child.name,
                                     "group_index": child.entry[0],
@@ -284,6 +305,11 @@ class TreeWidget(QtWidgets.QTreeWidget):
                     )
 
             return data
+        
+        if QtWidgets.QApplication.queryKeyboardModifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
+            retain_structure = True
+        else:
+            retain_structure = False
 
         selected_items = self.selectedItems()
 
@@ -291,7 +317,7 @@ class TreeWidget(QtWidgets.QTreeWidget):
 
         data = []
         for item in selected_items:
-            data.extend(get_data(item))
+            data.extend(get_data(item, retain_structure=retain_structure))
 
         data = json.dumps(sorted(data, key=lambda x: (x["name"], x["group_index"], x["channel_index"]))).encode("utf-8")
 
@@ -522,7 +548,7 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
             data = e.mimeData()
             if data.hasFormat("application/octet-stream-asammdf"):
                 names = extract_mime_names(data)
-                item = self.itemAt(e.pos())
+                item = self.itemAt(e.position().toPoint())
 
                 if item and item.type() == item.Info:
                     item = item.parent()
@@ -633,8 +659,8 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
                 channels_db=channels_db,
             )
             dlg.setModal(True)
-            dlg.exec_()
-            pattern = dlg.result
+            dlg.exec()
+            pattern = dlg.payload
 
             if pattern:
                 group = ChannelsTreeItem(ChannelsTreeItem.Group, name=pattern["name"], pattern=pattern)
@@ -795,16 +821,16 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
                 type = item.type()
                 if type == ChannelsTreeItem.Group:
                     dlg = RangeEditor(f"channels from <{item._name}>", ranges=item.ranges, parent=self)
-                    dlg.exec_()
+                    dlg.exec()
                     if dlg.pressed_button == "apply":
-                        item.set_ranges(dlg.result)
+                        item.set_ranges(dlg.payload)
                         item.update_child_values()
 
                 elif type == ChannelsTreeItem.Channel:
                     dlg = RangeEditor(item.signal.name, item.unit, item.ranges, parent=self)
-                    dlg.exec_()
+                    dlg.exec()
                     if dlg.pressed_button == "apply":
-                        item.set_ranges(dlg.result)
+                        item.set_ranges(dlg.payload)
                         item.set_value(item._raw_value, item._value, update=True)
 
             else:
@@ -812,15 +838,15 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
                 for item in selected_items:
                     ranges.extend(item.ranges)
                 dlg = RangeEditor("<selected items>", ranges=unique_ranges(ranges), parent=self)
-                dlg.exec_()
+                dlg.exec()
                 if dlg.pressed_button == "apply":
                     for item in selected_items:
                         if item.type() == item.Channel:
-                            item.set_ranges(copy_ranges(dlg.result))
+                            item.set_ranges(copy_ranges(dlg.payload))
                             item.set_value(item._raw_value, item._value, update=True)
 
                         elif item.type() == item.Group:
-                            item.set_ranges(copy_ranges(dlg.result))
+                            item.set_ranges(copy_ranges(dlg.payload))
                             item.update_child_values()
 
             self.refresh()
@@ -1086,7 +1112,6 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
         menu.addMenu(submenu)
 
         submenu = QtWidgets.QMenu("Display mode")
-        # submenu.setIcon(QtGui.QIcon(":/edit.png"))
         action = QtGui.QAction("Ascii", submenu)
         action.setShortcut(QtGui.QKeySequence("Ctrl+T"))
         submenu.addAction(action)
@@ -1251,16 +1276,18 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
             original_conversion = conversion_transfer(original_conversion, version=4)
 
             dlg = ConversionEditor(channel_name, conversion, original_conversion=original_conversion, parent=self)
-            dlg.exec_()
+            dlg.exec()
             if dlg.pressed_button == "apply":
                 conversion = dlg.conversion()
+
+                is_original_conversion = to_dict(original_conversion) == to_dict(conversion)
 
                 for item in selected_items:
                     if item.type() in (
                         ChannelsTreeItem.Channel,
                         ChannelsTreeItem.Group,
                     ):
-                        item.set_conversion(conversion)
+                        item.set_conversion(conversion, is_original_conversion=is_original_conversion)
 
         elif action_text == "Set channel comment":
             selected_items = self.selectedItems()
@@ -1588,8 +1615,8 @@ class ChannelsTreeWidget(QtWidgets.QTreeWidget):
                     pattern=pattern,
                 )
                 dlg.setModal(True)
-                dlg.exec_()
-                pattern = dlg.result
+                dlg.exec()
+                pattern = dlg.payload
 
                 if pattern:
                     item.pattern = pattern
@@ -1923,6 +1950,30 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
         background_color=None,
         expanded=False,
     ):
+        if utils.RANGE_INDICATOR_ICON is None:
+            utils.RANGE_INDICATOR_ICON = QtGui.QIcon()
+            utils.RANGE_INDICATOR_ICON.addPixmap(
+                QtGui.QPixmap(":/paint.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.NO_ICON = QtGui.QIcon()
+            utils.NO_ERROR_ICON = QtGui.QIcon()
+
+            utils.COMPUTED_ICON = QtGui.QIcon()
+            utils.COMPUTED_ICON.addPixmap(
+                QtGui.QPixmap(":/computation.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.USER_EDITED_ICON = QtGui.QIcon()
+            utils.USER_EDITED_ICON.addPixmap(
+                QtGui.QPixmap(":/edit.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
+            utils.ERROR_ICON = QtGui.QIcon()
+            utils.ERROR_ICON.addPixmap(
+                QtGui.QPixmap(":/error.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
+            )
+
         super().__init__(parent, type)
         self.exists = True
         self.resolved_ranges = None
@@ -2040,6 +2091,8 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
 
             if signal.group_index == NOT_FOUND:
                 self.does_not_exist()
+
+            self._set_icon()
 
         elif type == self.Info:
             tooltip = getattr(signal, "tooltip", "")
@@ -2177,21 +2230,10 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
     def does_not_exist(self, exists=False):
         if exists == self.exists:
             return
-
-        if self.type() == self.Channel:
-            if utils.ERROR_ICON is None:
-                utils.ERROR_ICON = QtGui.QIcon()
-                utils.ERROR_ICON.addPixmap(QtGui.QPixmap(":/error.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off)
-
-                utils.NO_ICON = QtGui.QIcon()
-
-            if not exists:
-                icon = utils.ERROR_ICON
-            else:
-                icon = utils.NO_ICON
-            self.setIcon(self.NameColumn, icon)
-
+        
         self.exists = exists
+
+        self._set_icon()
 
     def first_signal(self):
         if self.type() == self.Group:
@@ -2370,10 +2412,18 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
             item = self.child(row)
             item.reset_resolved_ranges()
 
-    def set_conversion(self, conversion):
+    def set_conversion(self, conversion, is_original_conversion=False):
         if self.type() == self.Channel:
+            if self.signal.flags & Signal.Flags.computed:
+                 return
+            
             self.signal.conversion = conversion
-            self.signal.flags |= Signal.Flags.user_defined_conversion
+            if is_original_conversion:
+                self.signal.flags &= 0xFD
+            else:
+                self.signal.flags |= Signal.Flags.user_defined_conversion
+
+            self._set_icon()
 
             self.signal.text_conversion = None
 
@@ -2480,6 +2530,19 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
                 elif fmt == "phys":
                     self.fmt = "{}"
 
+    def _set_icon(self):
+        if self.type() == self.Channel:
+            if not self.exists:
+                icon = utils.ERROR_ICON
+            elif self.signal.flags & Signal.Flags.computed:
+                icon = utils.COMPUTED_ICON
+            elif self.signal.flags & Signal.Flags.user_defined_conversion:
+                icon = utils.USER_EDITED_ICON
+            else:
+                icon = utils.NO_ICON
+
+            self.setIcon(self.NameColumn, icon)
+
     def set_pattern(self, pattern):
         if pattern:
             self.setIcon(self.NameColumn, QtGui.QIcon(":/filter.png"))
@@ -2495,20 +2558,10 @@ class ChannelsTreeItem(QtWidgets.QTreeWidgetItem):
     def set_ranges(self, ranges):
         self.get_color_using_ranges.cache_clear()
 
-        if utils.RANGE_INDICATOR_ICON is None:
-            utils.RANGE_INDICATOR_ICON = QtGui.QIcon()
-            utils.RANGE_INDICATOR_ICON.addPixmap(
-                QtGui.QPixmap(":/paint.png"), QtGui.QIcon.Mode.Normal, QtGui.QIcon.State.Off
-            )
-
-            utils.NO_ICON = QtGui.QIcon()
-            utils.NO_ERROR_ICON = QtGui.QIcon()
-
         if ranges:
             self.setIcon(self.ValueColumn, utils.RANGE_INDICATOR_ICON)
             self.setToolTip(self.ValueColumn, f"{self.name}\nhas color ranges defined")
         else:
-            self.setIcon(self.ValueColumn, utils.NO_ICON)
             self.setToolTip(self.ValueColumn, "")
 
             if self.type() == self.Channel:

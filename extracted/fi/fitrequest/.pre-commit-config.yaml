@@ -1,0 +1,44 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: check-added-large-files
+    -   id: check-toml
+    -   id: check-json
+    -   id: check-yaml
+        args: ['--unsafe']
+    -   id: double-quote-string-fixer
+    -   id: end-of-file-fixer
+    -   id: pretty-format-json
+        args: ['--autofix']
+    -   id: requirements-txt-fixer
+    -   id: sort-simple-yaml
+    -   id: trailing-whitespace
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.11
+    hooks:
+    -   id: ruff
+        args: [--fix]
+    -   id: ruff-format
+
+-   repo: https://gitlab.com/vojko.pribudic.foss/pre-commit-update
+    rev: v0.9.0
+    hooks:
+    -   id: pre-commit-update
+
+-   repo: local
+    hooks:
+    -   id: uv-lock
+        description: uv lock file
+        entry: uv lock
+        language: python
+        name: uv lock file
+        pass_filenames: false
+
+    -   id: build-doc
+        description: build documentation with poe command
+        entry: uvx --from poethepoet poe doc
+        language: python
+        name: build doc
+        pass_filenames: false

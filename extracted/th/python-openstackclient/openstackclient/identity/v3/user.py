@@ -20,10 +20,10 @@ import logging
 import typing as ty
 
 from openstack import exceptions as sdk_exc
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 
@@ -82,9 +82,9 @@ def _get_options_for_user(identity_client, parsed_args):
         options['multi_factor_auth_enabled'] = True
     if parsed_args.disable_multi_factor_auth:
         options['multi_factor_auth_enabled'] = False
-    if parsed_args.multi_factor_auth_rule:
+    if parsed_args.multi_factor_auth_rules:
         auth_rules = [
-            rule.split(",") for rule in parsed_args.multi_factor_auth_rule
+            rule.split(",") for rule in parsed_args.multi_factor_auth_rules
         ]
         if auth_rules:
             options['multi_factor_auth_rules'] = auth_rules
@@ -175,7 +175,8 @@ def _add_user_options(parser):
     parser.add_argument(
         '--multi-factor-auth-rule',
         metavar='<rule>',
-        action="append",
+        dest='multi_factor_auth_rules',
+        action='append',
         default=[],
         help=_(
             'Set multi-factor auth rules. For example, to set a rule '
@@ -298,6 +299,9 @@ class CreateUser(command.ShowOne):
                     "when a user does not have a password."
                 )
             )
+        else:
+            kwargs['password'] = password
+
         options = _get_options_for_user(identity_client, parsed_args)
         if options:
             kwargs['options'] = options
@@ -306,7 +310,6 @@ class CreateUser(command.ShowOne):
             user = identity_client.create_user(
                 is_enabled=is_enabled,
                 name=parsed_args.name,
-                password=password,
                 **kwargs,
             )
         except sdk_exc.ConflictException:
@@ -420,7 +423,8 @@ class ListUser(command.Lister):
             dest='is_enabled',
             default=None,
             help=_(
-                'List only enabled users, does nothing with --project and --group'
+                'List only enabled users, does nothing with '
+                '--project and --group'
             ),
         )
         parser.add_argument(
@@ -429,7 +433,8 @@ class ListUser(command.Lister):
             dest='is_enabled',
             default=None,
             help=_(
-                'List only disabled users, does nothing with --project and --group'
+                'List only disabled users, does nothing with '
+                '--project and --group'
             ),
         )
         return parser
@@ -441,6 +446,7 @@ class ListUser(command.Lister):
         if parsed_args.domain:
             domain = identity_client.find_domain(
                 name_or_id=parsed_args.domain,
+                ignore_missing=False,
             ).id
 
         group = None
@@ -467,15 +473,13 @@ class ListUser(command.Lister):
                     ignore_missing=False,
                 ).id
 
-            assignments = identity_client.role_assignments_filter(
-                project=project
-            )
-
             # NOTE(stevemar): If a user has more than one role on a project
             # then they will have two entries in the returned data. Since we
             # are looking for any role, let's just track unique user IDs.
             user_ids = set()
-            for assignment in assignments:
+            for assignment in identity_client.role_assignments(
+                scope_project_id=project
+            ):
                 if assignment.user:
                     user_ids.add(assignment.user['id'])
 
@@ -689,7 +693,12 @@ class SetPasswordUser(command.Command):
     def take_action(self, parsed_args):
         identity_client = self.app.client_manager.sdk_connection.identity
         conn = self.app.client_manager.sdk_connection
-        user_id = conn.config.get_auth().get_user_id(conn.identity)
+        auth = conn.config.get_auth()
+        if auth is None:
+            # this will never happen
+            raise exceptions.CommandError('invalid authentication info')
+
+        user_id = auth.get_user_id(conn.identity)
 
         # FIXME(gyee): there are two scenarios:
         #

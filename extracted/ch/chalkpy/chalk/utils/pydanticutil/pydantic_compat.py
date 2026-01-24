@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 from inspect import isclass
-from typing import Any
+from typing import Any, TypeGuard
 
 import pydantic
 from packaging import version
 from pydantic import BaseModel
-from typing_extensions import TypeGuard
 
 try:
     from pydantic.v1 import BaseModel as V1BaseModel
@@ -67,3 +66,16 @@ def get_pydantic_model_json(model: BaseModel) -> str:
         return model.json()
     else:
         return model.model_dump_json()  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def get_pydantic_field_type(model: type[BaseModel], field_name: str) -> type | None:
+    """Get the type of a field from a Pydantic BaseModel, supporting both v1 and v2."""
+    if is_pydantic_v1 or _is_pydantic_v1_basemodel(model):
+        # Pydantic v1: use __fields__ and .type_
+        if field_name in model.__fields__:
+            return model.__fields__[field_name].type_
+    else:
+        # Pydantic v2: use model_fields and .annotation
+        if field_name in model.model_fields:  # pyright: ignore[reportAttributeAccessIssue]
+            return model.model_fields[field_name].annotation  # pyright: ignore[reportAttributeAccessIssue]
+    return None

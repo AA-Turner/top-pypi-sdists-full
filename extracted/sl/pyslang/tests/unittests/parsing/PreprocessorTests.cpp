@@ -3,10 +3,14 @@
 
 #include "Test.h"
 
+#include "slang/driver/Driver.h"
+#include "slang/parsing/Parser.h"
 #include "slang/parsing/Preprocessor.h"
 #include "slang/syntax/AllSyntax.h"
 #include "slang/syntax/SyntaxPrinter.h"
 #include "slang/text/SourceManager.h"
+
+using namespace slang::driver;
 
 void trimTrailingWhitespace(std::string& str) {
     size_t off = 0;
@@ -1740,6 +1744,65 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Macro concat into block comment -- missing terminator") {
+    auto& text = R"(
+`define FFSR(__q, __d, __reset_value, __clk, __reset_clk) \
+  `ifndef FOOBAR                                          \
+  /``* synopsys sync_set_reset `"__reset_clk`".           \
+    `endif                                                \
+  always_ff @(posedge (__clk)) begin                      \
+    __q <= (__reset_clk) ? (__reset_value) : (__d);       \
+  end
+
+module m;
+  logic q, d, clk, rst;
+  `FFSR(q, d, 0, clk, rst)
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == R"(
+module m;
+  logic q, d, clk, rst;
+
+
+endmodule
+)");
+
+    auto tree = SyntaxTree::fromText(text);
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 2);
+    CHECK(diags[0].code == diag::ExpectedMacroCommentEnd);
+    CHECK(diags[1].code == diag::MissingEndIfDirective);
+}
+
+TEST_CASE("Macro concat into line comment") {
+    auto& text = R"(
+`define M /``/metacomment \
+  /*foo*/ /``/ baz
+`M
+
+module m;
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == R"(
+//metacomment
+  /*foo*/ // baz
+module m;
+endmodule
+)");
+
+    auto tree = SyntaxTree::fromText(text);
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("Escaped macro with arguments") {
     auto& text = R"(
 `define \quote (x)  `"`\`"x`\`"`"
@@ -2740,4 +2803,185 @@ endmodule
 
     auto result = SyntaxPrinter::printFile(*tree);
     CHECK(result == text);
+}
+
+TEST_CASE("Invalid macro concatenation regress -- GH #1484") {
+    auto& text = R"(
+`define S0 ````n
+module m;
+    int i = `S0;
+endmodule
+)";
+
+    auto& expected = R"(
+module m;
+    int i = n;
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == expected);
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::IgnoredMacroPaste);
+}
+
+TEST_CASE("Macro arg implicit concat after expansion") {
+    auto& text = R"(
+`define M1 t
+`define M2(ARG) foo`__LINE__ = 1; for`M1``ARG = 2;
+
+module m;
+    int foo9;
+    int fort4K;
+    initial begin
+        `M2(4K)
+    end
+endmodule
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == R"(
+module m;
+    int foo9;
+    int fort4K;
+    initial begin
+        foo9 = 1; fort4K = 2;
+    end
+endmodule
+)");
+
+    auto tree = SyntaxTree::fromText(text);
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Pragma number parsing regression 1") {
+    auto& text = R"(
+`pragma D's 11111111111111111110's 1.`pragma I's
+)";
+
+    // Just checking no crash.
+    preprocess(text);
+}
+
+TEST_CASE("Pragma number parsing regression 2") {
+    auto& text = R"(
+`pragma D .`p
+)";
+
+    // Just checking no crash.
+    preprocess(text);
+}
+
+TEST_CASE("Intrinsic macro tokens are marked as macro locations") {
+    diagnostics.clear();
+
+    std::string_view text = R"(
+module directives();
+    initial $display("At %s @ %d\n", `__FILE__, `__LINE__);
+endmodule
+)";
+
+    auto& sm = getSourceManager();
+    Preprocessor preprocessor(sm, alloc, diagnostics);
+    preprocessor.pushSource(text, "test.sv");
+
+    bool sawFile = false;
+    bool sawLine = false;
+
+    while (true) {
+        Token token = preprocessor.next();
+        if (token.kind == TokenKind::EndOfFile)
+            break;
+
+        SourceLocation loc = token.location();
+
+        // Check that the expanded tokens __FILE__ and __LINE__ are marked as macro locations
+        if (token.kind == TokenKind::StringLiteral) {
+            std::string_view val = token.valueText();
+            if (val == "test.sv") {
+                CHECK(sm.isMacroLoc(loc));               // token from macro expansion
+                CHECK(sm.getFileName(loc) == "test.sv"); // the source file name is correct
+                sawFile = true;
+            }
+        }
+        else if (token.kind == TokenKind::IntegerLiteral) {
+            std::string_view val = token.valueText();
+            if (val == "3") {
+                CHECK(sm.isMacroLoc(loc));
+                CHECK(sm.getFileName(loc) == "test.sv");
+                sawLine = true;
+            }
+        }
+    }
+
+    CHECK(sawFile);
+    CHECK(sawLine);
+    CHECK_DIAGNOSTICS_EMPTY;
+}
+
+TEST_CASE("Preprocessor: Include files expanded from within a macro") {
+    getSourceManager().assignText("inc.svh", "parameter int WIDTH = 8");
+
+    auto& text = R"(
+module m #(`include "inc.svh",
+           parameter int INDEX = 0) ();
+endmodule
+
+`define FOO \
+module n #(`include "inc.svh", \
+           parameter int INDEX = 0) (); \
+endmodule
+`FOO
+)";
+
+    std::string result = preprocess(text);
+    CHECK(result == R"(
+module m #(parameter int WIDTH = 8,
+           parameter int INDEX = 0) ();
+endmodule
+module n #(parameter int WIDTH = 8,
+           parameter int INDEX = 0) ();
+endmodule
+)");
+
+    auto tree = SyntaxTree::fromText(text, getSourceManager());
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Preprocessor: non-trivial restore of begin_keywords vs mapped option") {
+    getSourceManager().assignText("inc2.svh", R"(
+config cfg;
+    design m;
+endconfig
+
+`include "inc3.foo"
+)");
+
+    getSourceManager().assignText("inc3.foo", R"(
+config cfg;
+    design m;
+endconfig
+)");
+
+    PreprocessorOptions options;
+    options.keywordMapping.push_back({"*.svh", KeywordVersion::v1800_2023});
+
+    diagnostics.clear();
+    Preprocessor preprocessor(getSourceManager(), alloc, diagnostics, options);
+    preprocessor.pushSource(R"(
+`begin_keywords "1364-2001-noconfig"
+`include "inc2.svh"
+`end_keywords
+)");
+
+    Parser parser(preprocessor);
+    parser.parseCompilationUnit();
+
+    REQUIRE(diagnostics.size() == 1);
+    CHECK(diagnostics[0].code == diag::ExpectedDeclarator);
 }

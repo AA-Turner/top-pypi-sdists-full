@@ -51,6 +51,10 @@ Other possible configuration options are:
   Defaults to 10.
   Number of seconds to wait for logs to drain when closing the session,
   before giving up.
+* `max_throttle_wait` (in the .toml file) / `MODAL_MAX_THROTTLE_WAIT` (as an env var).
+  Defaults to None (no limit).
+  Maximum number of seconds to wait when requests are being throttled (i.e., due
+  to rate limiting or other cases that can normally be resolved through backoff).
 * `force_build` (in the .toml file) / `MODAL_FORCE_BUILD` (as an env var).
   Defaults to False.
   When set, ignores the Image cache and builds all Image layers. Note that this
@@ -66,11 +70,15 @@ Other possible configuration options are:
 * `traceback` (in the .toml file) / `MODAL_TRACEBACK` (as an env var).
   Defaults to False. Enables printing full tracebacks on unexpected CLI
   errors, which can be useful for debugging client issues.
-* `log_pattern` (in the .toml file) / MODAL_LOG_PATTERN` (as an env var).
-  Defaults to "[modal-client] %(asctime)s %(message)s"
+* `log_pattern` (in the .toml file) / `MODAL_LOG_PATTERN` (as an env var).
+  Defaults to `"[modal-client] %(asctime)s %(message)s"`
   The log formatting pattern that will be used by the modal client itself.
   See https://docs.python.org/3/library/logging.html#logrecord-attributes for available
   log attributes.
+* `dev_suffix` (in the .toml file) / `MODAL_DEV_SUFFIX` (as an env var).
+  Overrides the default `-dev` suffix added to URLs generated for web endpoints
+  when the App is ephemeral (i.e., created via `modal serve`). Must be a short
+  alphanumeric string.
 
 Meta-configuration
 ------------------
@@ -85,6 +93,7 @@ Some "meta-options" are set using environment variables only:
 
 import logging
 import os
+import re
 import typing
 import warnings
 from typing import Any, Callable, Optional
@@ -142,7 +151,7 @@ async def _lookup_workspace(server_url: str, token_id: str, token_secret: str) -
 
     credentials = (token_id, token_secret)
     async with _Client(server_url, api_pb2.CLIENT_TYPE_CLIENT, credentials) as client:
-        return await client.stub.WorkspaceNameLookup(Empty(), timeout=3)
+        return await client.stub.WorkspaceNameLookup(Empty(), retry=None, timeout=3)
 
 
 def config_profiles():
@@ -206,6 +215,12 @@ def _check_value(options: list[str]) -> Callable[[str], str]:
     return checker
 
 
+def _enforce_suffix_rules(x: str) -> str:
+    if x and not re.match(r"^[a-zA-Z0-9]{1,8}$", x):
+        raise ValueError("Suffix must be an alphanumeric string of no more than 8 characters.")
+    return x
+
+
 class _Setting(typing.NamedTuple):
     default: typing.Any = None
     transform: typing.Callable[[str], typing.Any] = lambda x: x  # noqa: E731
@@ -236,9 +251,19 @@ _SETTINGS = {
     "traceback": _Setting(False, transform=_to_boolean),
     "image_builder_version": _Setting(),
     "strict_parameters": _Setting(False, transform=_to_boolean),  # For internal/experimental use
+    # Allow insecure TLS for the task command router when running locally (testing/dev only)
+    "task_command_router_insecure": _Setting(False, transform=_to_boolean),
     "snapshot_debug": _Setting(False, transform=_to_boolean),
     "cuda_checkpoint_path": _Setting("/__modal/.bin/cuda-checkpoint"),  # Used for snapshotting GPU memory.
     "build_validation": _Setting("error", transform=_check_value(["error", "warn", "ignore"])),
+    # Payload format for function inputs/outputs: 'pickle' (default) or 'cbor'
+    "payload_format": _Setting(
+        "pickle",
+        transform=lambda s: _check_value(["pickle", "cbor"])(s.lower()),
+    ),
+    "dev_suffix": _Setting("", transform=_enforce_suffix_rules),
+    "max_throttle_wait": _Setting(None, transform=lambda x: int(x) if x else None),
+    "async_warnings": _Setting(False, transform=_to_boolean),  # Feature flag for async API warnings
 }
 
 

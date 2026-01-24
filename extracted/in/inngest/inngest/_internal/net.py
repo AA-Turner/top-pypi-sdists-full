@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+import datetime
 import hashlib
 import hmac
 import http
 import threading
 import time
-import typing
 import urllib.parse
 
 import httpx
@@ -21,6 +22,230 @@ from inngest._internal import (
 )
 
 
+class AuthenticatedHTTPClient:
+    """
+    HTTP client that:
+    - Is thread-safe
+    - Works in both async and sync contexts
+    - Handles auth (opt in)
+    - Handles branch environments
+    """
+
+    def __init__(
+        self,
+        *,
+        env: str | None,
+        request_timeout: int | datetime.timedelta | None = None,
+        signing_key: str | None,
+        signing_key_fallback: str | None,
+    ):
+        self._http_client = ThreadAwareAsyncHTTPClient().initialize()
+        self._http_client_sync = httpx.Client()
+
+        # This is probably leaking an implementation detail, and maybe we should
+        # eventually remove it. In the meantime, it simplifies initial
+        # HTTPClient implementation
+        self.build_httpx_request = self._http_client_sync.build_request
+
+        self._env = env
+        self._signing_key = signing_key
+        self._signing_key_fallback = signing_key_fallback
+
+        if isinstance(request_timeout, int):
+            self._default_timeout = request_timeout / 1000  # convert ms to s
+        elif isinstance(request_timeout, datetime.timedelta):
+            self._default_timeout = request_timeout.total_seconds()
+        else:
+            self._default_timeout = 30.0
+
+    async def get(
+        self,
+        url: str,
+        *,
+        auth: bool = False,
+        headers: dict[str, str] | None = None,
+    ) -> types.MaybeError[httpx.Response]:
+        """
+        Perform an async HTTP GET request.
+
+        Args:
+        ----
+            url: Request URL
+            auth: Include the Authorization header. Never set to True if the request is not to an Inngest server
+            headers: Additional request headers
+        """
+
+        req = self.build_httpx_request(
+            "GET",
+            url,
+            headers={
+                # Default headers
+                **create_headers(
+                    env=self._env,
+                    framework=None,
+                    server_kind=None,
+                ),
+                # Additional headers or overrides
+                **(headers or {}),
+            },
+        )
+
+        if auth:
+            res = await fetch_with_auth_fallback(
+                self._http_client,
+                self._http_client_sync,
+                req,
+                signing_key=self._signing_key,
+                signing_key_fallback=self._signing_key_fallback,
+            )
+        else:
+            res = await fetch_with_thready_safety(
+                self._http_client,
+                self._http_client_sync,
+                req,
+            )
+        if isinstance(res, Exception):
+            return res
+
+        if res.status_code >= 400:
+            return Exception(f"HTTP error: {res.status_code} {res.text}")
+
+        return res
+
+    def get_sync(
+        self,
+        url: str,
+        *,
+        auth: bool = False,
+        headers: dict[str, str] | None = None,
+    ) -> types.MaybeError[httpx.Response]:
+        """
+        Perform a sync HTTP GET request.
+
+        Args:
+        ----
+            url: Request URL
+            auth: Include the Authorization header. Never set to True if the request is not to an Inngest server
+            headers: Additional request headers
+        """
+
+        req = self.build_httpx_request(
+            "GET",
+            url,
+            headers={
+                # Default headers
+                **create_headers(
+                    env=self._env,
+                    framework=None,
+                    server_kind=None,
+                ),
+                # Additional headers or overrides
+                **(headers or {}),
+            },
+        )
+
+        if auth:
+            res = fetch_with_auth_fallback_sync(
+                self._http_client_sync,
+                req,
+                signing_key=self._signing_key,
+                signing_key_fallback=self._signing_key_fallback,
+            )
+        else:
+            res = self._http_client_sync.send(req)
+
+        if isinstance(res, Exception):
+            return res
+
+        if res.status_code >= 400:
+            return Exception(f"HTTP error: {res.status_code} {res.text}")
+
+        return res
+
+    async def post(
+        self, url: str, body: object
+    ) -> types.MaybeError[httpx.Response]:
+        """
+        Perform an asynchronous HTTP POST request. Handles authn
+
+        Args:
+        ----
+            url: The pathname to the endpoint, including query string
+            body: The body of the request
+
+        Returns:
+        -------
+            A httpx.Response object
+        """
+        req = self.build_httpx_request(
+            "POST",
+            url,
+            headers=create_headers(
+                env=self._env,
+                framework=None,
+                server_kind=None,
+            ),
+            json=body,
+            timeout=self._default_timeout,
+        )
+
+        res = await fetch_with_auth_fallback(
+            self._http_client,
+            self._http_client_sync,
+            req,
+            signing_key=self._signing_key,
+            signing_key_fallback=self._signing_key_fallback,
+        )
+        if isinstance(res, Exception):
+            return res
+
+        if res.status_code >= 400:
+            return Exception(f"HTTP error: {res.status_code} {res.text}")
+
+        return res
+
+    def post_sync(
+        self, url: str, body: object
+    ) -> types.MaybeError[httpx.Response]:
+        """
+        Perform a synchronous HTTP POST request. Handles authn
+
+        Args:
+        ----
+            url: The pathname to the endpoint, including query string
+            body: The body of the request
+
+        Returns:
+        -------
+            A httpx.Response object
+        """
+        req = self.build_httpx_request(
+            "POST",
+            url,
+            headers=create_headers(
+                env=self._env,
+                framework=None,
+                server_kind=None,
+            ),
+            json=body,
+            timeout=self._default_timeout,
+        )
+
+        res = fetch_with_auth_fallback_sync(
+            self._http_client_sync,
+            req,
+            signing_key=self._signing_key,
+            signing_key_fallback=self._signing_key_fallback,
+        )
+        if isinstance(res, Exception):
+            return res
+
+        if res.status_code >= 400:
+            return Exception(f"HTTP error: {res.status_code} {res.text}")
+
+        return res
+
+
 class ThreadAwareAsyncHTTPClient(httpx.AsyncClient):
     """
     Thin wrapper around httpx.AsyncClient. It keeps track of the thread it was
@@ -28,7 +253,7 @@ class ThreadAwareAsyncHTTPClient(httpx.AsyncClient):
     async method in a different thread will raise an exception
     """
 
-    _creation_thread_id: typing.Optional[int] = None
+    _creation_thread_id: int | None = None
 
     def is_same_thread(self) -> bool:
         if self._creation_thread_id is None:
@@ -44,9 +269,9 @@ class ThreadAwareAsyncHTTPClient(httpx.AsyncClient):
 
 def create_headers(
     *,
-    env: typing.Optional[str],
-    framework: typing.Optional[server_lib.Framework],
-    server_kind: typing.Optional[server_lib.ServerKind],
+    env: str | None,
+    framework: server_lib.Framework | None,
+    server_kind: server_lib.ServerKind | None,
 ) -> dict[str, str]:
     """
     Create standard headers that should exist on every possible outgoing
@@ -74,10 +299,10 @@ def create_headers(
 
 def create_serve_url(
     *,
-    public_path: typing.Optional[str],
+    public_path: str | None,
     request_url: str,
-    serve_origin: typing.Optional[str],
-    serve_path: typing.Optional[str],
+    serve_origin: str | None,
+    serve_path: str | None,
 ) -> str:
     """
     Create the serve URL, which is the URL that the Executor will use to reach
@@ -130,8 +355,8 @@ async def fetch_with_auth_fallback(
     client_sync: httpx.Client,
     request: httpx.Request,
     *,
-    signing_key: typing.Optional[str],
-    signing_key_fallback: typing.Optional[str],
+    signing_key: str | None,
+    signing_key_fallback: str | None,
 ) -> types.MaybeError[httpx.Response]:
     """
     Send an HTTP request with the given signing key. If the response is a 401 or
@@ -176,8 +401,8 @@ def fetch_with_auth_fallback_sync(
     client: httpx.Client,
     request: httpx.Request,
     *,
-    signing_key: typing.Optional[str],
-    signing_key_fallback: typing.Optional[str],
+    signing_key: str | None,
+    signing_key_fallback: str | None,
 ) -> types.MaybeError[httpx.Response]:
     """
     Send an HTTP request with the given signing key. If the response is a 401 or
@@ -210,7 +435,7 @@ def fetch_with_auth_fallback_sync(
 
 
 def normalize_headers(
-    headers: typing.Union[dict[str, str], dict[str, list[str]]],
+    headers: dict[str, str] | dict[str, list[str]],
 ) -> dict[str, str]:
     """
     Ensure that known headers are in the correct casing.
@@ -278,7 +503,7 @@ async def fetch_with_thready_safety(
 def sign_request(
     body: bytes,
     signing_key: str,
-    unix_ms: typing.Optional[int] = None,
+    unix_ms: int | None = None,
 ) -> types.MaybeError[str]:
     """
     Sign an HTTP request in the same way an Inngest server would. This is only
@@ -307,7 +532,7 @@ def sign_request(
 def sign_response(
     body: bytes,
     signing_key: str,
-    unix_ms: typing.Optional[int] = None,
+    unix_ms: int | None = None,
 ) -> types.MaybeError[str]:
     """
     Sign an HTTP response.
@@ -333,8 +558,8 @@ def _validate_sig(
     body: bytes,
     headers: dict[str, str],
     mode: server_lib.ServerKind,
-    signing_key: typing.Optional[str],
-) -> types.MaybeError[typing.Optional[str]]:
+    signing_key: str | None,
+) -> types.MaybeError[str | None]:
     if mode == server_lib.ServerKind.DEV_SERVER:
         return None
 
@@ -382,9 +607,9 @@ def validate_request_sig(
     body: bytes,
     headers: dict[str, str],
     mode: server_lib.ServerKind,
-    signing_key: typing.Optional[str],
-    signing_key_fallback: typing.Optional[str],
-) -> types.MaybeError[typing.Optional[str]]:
+    signing_key: str | None,
+    signing_key_fallback: str | None,
+) -> types.MaybeError[str | None]:
     """
     Validate the request signature. Falls back to the fallback signing key if
     signature validation fails with the primary signing key.
@@ -428,7 +653,7 @@ def validate_response_sig(
     headers: dict[str, str],
     mode: server_lib.ServerKind,
     signing_key: str,
-) -> types.MaybeError[typing.Optional[str]]:
+) -> types.MaybeError[str | None]:
     """
     Validate an HTTP response signature in the same way an Inngest server would.
     This is only needed for tests that mimic Inngest server behavior.
@@ -447,3 +672,117 @@ def validate_response_sig(
         mode=mode,
         signing_key=signing_key,
     )
+
+
+class ServerTiming:
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._start_counter: float | None = None
+        self._end_counter: float | None = None
+
+    def __enter__(self) -> ServerTiming:
+        if self._start_counter is None:
+            self._start_counter = time.perf_counter()
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._end_counter is None:
+            self._end_counter = time.perf_counter()
+
+    def to_header(self) -> str:
+        if self._start_counter is None or self._end_counter is None:
+            return ""
+
+        dur = int((self._end_counter - self._start_counter) * 1000)
+        return f"{self._name};dur={dur}"
+
+
+class _AsyncBlockServerTiming:
+    """
+    Special server timing that tracks how long the event loop is blocked
+    """
+
+    def __init__(self, name: str) -> None:
+        self._block_dur: float = 0
+        self._name = name
+        self._start_counter: float | None = None
+        self._tracker_task: asyncio.Task[None] | None = None
+
+    def __enter__(self) -> _AsyncBlockServerTiming:
+        if self._start_counter is None:
+            self._start_counter = time.perf_counter()
+        if self._tracker_task is None:
+            self._tracker_task = asyncio.create_task(self._tracker())
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        if self._tracker_task is not None:
+            self._tracker_task.cancel()
+
+    async def _tracker(self) -> None:
+        last = time.perf_counter()
+
+        # Yield control. Without this, we'll undercount the async block duration
+        # by 100 ms. It's unclear why this happens, but tests prove it
+        await asyncio.sleep(0)
+
+        interval = 0.1
+        while True:
+            now = time.perf_counter()
+            self._block_dur += max(now - last - interval, 0)
+            last = now
+            await asyncio.sleep(interval)
+
+    def to_header(self) -> str:
+        if self._tracker_task is None:
+            return ""
+
+        dur = int((self._block_dur) * 1000)
+        return f"{self._name};dur={dur}"
+
+
+class ServerTimings:
+    def __init__(self) -> None:
+        # How long the event loop is blocked
+        self.async_block = _AsyncBlockServerTiming("async_block")
+
+        # CommHandler method. This should include basically everything but
+        # general HTTP framework stuff (e.g. everything besides FastAPI stuff)
+        self.comm_handler = ServerTiming("comm_handler")
+
+        # Calling the Inngest function
+        self.function = ServerTiming("function")
+
+        self.mw_transform_input = ServerTiming("mw.transform_input")
+        self.mw_transform_output = ServerTiming("mw.transform_output")
+
+        # When the SDK sends an outgoing request to fetch the events and steps.
+        # This happens when the incoming SDK request would be too large
+        self.use_api = ServerTiming("use_api")
+
+    def to_header(self) -> str:
+        """
+        Convert the server timings to the Server-Timing header value
+        """
+
+        timings: list[ServerTiming | _AsyncBlockServerTiming] = [
+            self.async_block,
+            self.comm_handler,
+            self.function,
+            self.mw_transform_input,
+            self.mw_transform_output,
+            self.use_api,
+        ]
+
+        # Sort by start time
+        timings = sorted(
+            timings,
+            key=lambda x: x._start_counter or 0,
+        )
+
+        values: list[str] = [timing.to_header() for timing in timings]
+
+        # Remove empty values
+        values = [v for v in values if v != ""]
+
+        return ", ".join(values)

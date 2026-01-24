@@ -7,6 +7,7 @@ used throughout the batch processing system.
 
 from __future__ import annotations
 from typing import Any, Union, TypeVar, Generic
+from typing_extensions import TypeAlias
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, timezone
 from enum import Enum
@@ -289,4 +290,4 @@ class BatchJobInfo(BaseModel):
 
 
 # Union type for batch results - like a Maybe/Result type
-BatchResult = Union[BatchSuccess[T], BatchError]
+BatchResult: TypeAlias = Union[BatchSuccess[T], BatchError]  # type: ignore

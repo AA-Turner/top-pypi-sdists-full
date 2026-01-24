@@ -1,0 +1,47 @@
+[project]
+name = "sb-cli"
+version = "0.1.5"
+description = "Submit predictions to the SWE-bench API and manage your runs"
+authors = [
+    { name = "SWE-bench team", email = "support@swebench.com" }
+]
+dependencies = [
+    "typer>=0.9.0",
+    "click<8.2.0",   # see https://github.com/fastapi/typer/discussions/1215
+    "requests",
+    "rich",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/swe-bench/sb-cli"
+Issues = "https://github.com/swe-bench/sb-cli/issues"
+
+[project.scripts]
+sb-cli = "sb_cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sb_cli"]
+
+[tool.ruff]
+line-length = 88
+src = ["sb_cli"]
+
+[project.optional-dependencies]
+dev = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+]

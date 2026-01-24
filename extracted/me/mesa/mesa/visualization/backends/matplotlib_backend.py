@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from matplotlib.cm import ScalarMappable
 from matplotlib.collections import PolyCollection
 from matplotlib.colors import LinearSegmentedColormap, Normalize, to_rgba
+from matplotlib.figure import Figure
 from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 from PIL import Image
 
@@ -57,7 +58,8 @@ class MatplotlibBackend(AbstractRenderer):
                 If None, creates new figure and axes.
         """
         if ax is None:
-            fig, ax = plt.subplots(constrained_layout=True)
+            fig = Figure(constrained_layout=True)
+            ax = fig.add_subplot()
             self.fig = fig
         self.ax = ax
 
@@ -107,9 +109,13 @@ class MatplotlibBackend(AbstractRenderer):
 
             if isinstance(portray_input, dict):
                 warnings.warn(
-                    "Returning a dict from agent_portrayal is deprecated. "
-                    "Please return an AgentPortrayalStyle instance instead.",
-                    PendingDeprecationWarning,
+                    (
+                        "Returning a dict from agent_portrayal is deprecated. "
+                        "Please return an AgentPortrayalStyle instance instead. "
+                        "For more information, refer to the migration guide: "
+                        "https://mesa.readthedocs.io/latest/migration_guide.html#defining-portrayal-components"
+                    ),
+                    FutureWarning,
                     stacklevel=2,
                 )
                 # Handle legacy dict input
@@ -391,7 +397,7 @@ class MatplotlibBackend(AbstractRenderer):
             elif isinstance(space, HexGrid):
                 hexagons = self.space_drawer.hexagons
                 norm = Normalize(vmin=vmin, vmax=vmax)
-                colors = data.ravel()
+                colors = data.T.ravel()
 
                 if color:
                     normalized_colors = np.clip(norm(colors), 0, 1)

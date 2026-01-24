@@ -2333,3 +2333,28 @@ class TestScaleTypeEncoding(unittest.TestCase):
         extrinsic_scale = '0x4102841c0d1aa34c4be7eaddc924b30bab35e45ec22307f2f7304d6e5f9c8f3753de560186be385b2f7b25525518259b00e6b8a61e7e821544f102dca9b6d89c60fc327922229c975c2fa931992b17ab9d5b26f9848eeeff44e0333f6672a98aa8b113836935040005031c0d1aa34c4be7eaddc924b30bab35e45ec22307f2f7304d6e5f9c8f3753de560f0080c6a47e8d03'
 
         self.assertEqual(str(extrinsic_hex), extrinsic_scale)
+
+    def test_encode_with_bittensor_metadata(self):
+        metadata_fixture_dict = load_type_registry_file(
+            os.path.join(os.path.dirname(__file__), 'fixtures', 'metadata_hex.json')
+        )
+
+        metadata_decoder = RuntimeConfiguration().create_scale_object(
+            'MetadataVersioned', data=ScaleBytes(metadata_fixture_dict["bittensor_test"])
+        )
+
+        metadata_decoder.decode()
+
+        runtime_config = RuntimeConfigurationObject(implements_scale_info=True)
+        runtime_config.update_type_registry(load_type_registry_preset("core"))
+        runtime_config.add_portable_registry(metadata_decoder)
+
+        extrinsic = runtime_config.create_scale_object(
+            "Extrinsic",
+            data=ScaleBytes("0x85028400d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d01d8a8c7ab390badc106832ccb721d1acea313335db6c0bcd816c160a1c2784e3f41f503d08f321ab66aa3401e941737ebad721ea3db5c7bee784b87f9130fcc8e009c00001b000700c817a80402286bee0700902f50099228010001073b8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a4800"),
+            metadata=metadata_decoder
+        )
+
+        extrinsic.decode()
+
+        self.assertIsNotNone(extrinsic.value)

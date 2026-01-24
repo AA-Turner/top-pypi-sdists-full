@@ -10,6 +10,10 @@ CONFIG_DIR = ".cloud"
 
 REQUEST_TIMEOUT = 10
 
+TWELVE_HOURS_IN_SECONDS = 12 * 60 * 60
+ONE_HOUR_IN_SECONDS = 60 * 60
+FIVE_MINUTES_IN_SECONDS = 5 * 60
+
 MODE_PROD = "production"
 MODE_DEV = "development"
 
@@ -26,9 +30,8 @@ DISPATCH_REMOTE_BACKEND_DOWN = "remote_backend_down"
 DEFAULT_SERVERS: dict[str, dict[str, str]] = {
     "production": {
         "account_link": "account-link.nabucasa.com",
-        "accounts": "accounts.nabucasa.com",
         "acme": "acme-v02.api.letsencrypt.org",
-        "cloudhook": "webhooks-api.nabucasa.com",
+        "api": "api.nabucasa.com",
         "relayer": "cloud.nabucasa.com",
         "remotestate": "remotestate.nabucasa.com",
         "servicehandlers": "servicehandlers.nabucasa.com",

@@ -1,46 +1,32 @@
 from abc import abstractmethod
 from asyncio import as_completed, get_event_loop, sleep
 from collections import Counter, defaultdict
+from collections.abc import AsyncGenerator, Awaitable, Callable, Iterable
 from functools import cached_property, wraps
-from importlib.metadata import version
 from inspect import isawaitable
 from itertools import zip_longest
 from logging import getLogger
 from threading import current_thread, main_thread
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    NoReturn,
-    Optional,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
 import a_sync
 import dank_mids
 import eth_retry
 from a_sync import igather
 from a_sync.executor import _AsyncExecutorMixin
-from async_property import async_property
+from async_property import async_property  # type: ignore [import-untyped]
 from brownie import web3
 from brownie.network.event import (
-    _EventItem,
+    EventDict,
     _add_deployment_topics,
     _decode_logs,
     _deployment_topics,
-    EventDict,
+    _EventItem,
 )
 from eth_typing import ChecksumAddress
-from eth_utils.toolz import concat
+from eth_utils.toolz import concat, groupby
 from evmspec import Log
 from msgspec.structs import force_setattr
-from toolz import groupby
 from web3.middleware.filter import block_ranges
 from web3.types import LogReceipt
 
@@ -60,7 +46,7 @@ T = TypeVar("T")
 logger = getLogger(__name__)
 
 
-def decode_logs(logs: Union[Iterable[LogReceipt], Iterable[Log]]) -> EventDict:
+def decode_logs(logs: Iterable[LogReceipt] | Iterable[Log]) -> EventDict:
     # NOTE: we want to ensure backward-compatability with LogReceipt
     """
     Decode logs to events and enrich them with additional info.
@@ -124,12 +110,12 @@ def decode_logs(logs: Union[Iterable[LogReceipt], Iterable[Log]]) -> EventDict:
 
 @a_sync.a_sync(default="sync")
 async def get_logs_asap(
-    address: Optional[Address],
-    topics: Optional[List[str]],
-    from_block: Optional[Block] = None,
-    to_block: Optional[Block] = None,
+    address: Address | None,
+    topics: list[str] | None,
+    from_block: Block | None = None,
+    to_block: Block | None = None,
     verbose: int = 0,
-) -> List[Any]:
+) -> list[Any]:
     """
     Get logs as soon as possible.
 
@@ -174,15 +160,15 @@ async def get_logs_asap(
 
 
 async def get_logs_asap_generator(
-    address: Optional[Address],
-    topics: Optional[List[str]] = None,
-    from_block: Optional[Block] = None,
-    to_block: Optional[Block] = None,
+    address: Address | None,
+    topics: list[str] | None = None,
+    from_block: Block | None = None,
+    to_block: Block | None = None,
     chronological: bool = True,
     run_forever: bool = False,
     run_forever_interval: int = 60,
     verbose: int = 0,
-) -> AsyncGenerator[List[LogReceipt], None]:  # sourcery skip: low-code-quality
+) -> AsyncGenerator[list[LogReceipt], None]:  # sourcery skip: low-code-quality
     """
     Get logs as soon as possible in a generator.
 
@@ -263,7 +249,7 @@ async def get_logs_asap_generator(
         to_block = current_block
 
 
-def logs_to_balance_checkpoints(logs) -> Dict[ChecksumAddress, int]:
+def logs_to_balance_checkpoints(logs) -> dict[ChecksumAddress, int]:
     """
     Convert Transfer logs to `{address: {from_block: balance}}` checkpoints.
 
@@ -324,11 +310,11 @@ def checkpoints_to_weight(checkpoints, start_block: Block, end_block: Block) -> 
 
 @a_sync.a_sync
 def _get_logs(
-    address: Optional[ChecksumAddress],
-    topics: Optional[List[str]],
+    address: ChecksumAddress | None,
+    topics: list[str] | None,
     start: Block,
     end: Block,
-) -> List[Log]:
+) -> list[Log]:
     """
     Get logs for a given address, topics, and block range.
 
@@ -349,11 +335,10 @@ def _get_logs(
         response = _get_logs_batch_cached(address, topics, start, end)
     else:
         response = _get_logs_no_cache(address, topics, start, end)
-    for log in response:
-        if address and log.address != address:
-            """I have this due to a corrupt cache on my local box that I would prefer not to lose."""
-            """ It will not impact your scripts. """
-            response.remove(log)
+    if address:
+        """I have this due to a corrupt cache on my local box that I would prefer not to lose."""
+        """ It will not impact your scripts. """
+        response = [log for log in response if log.address == address]
     return response
 
 
@@ -366,7 +351,7 @@ get_logs_semaphore = defaultdict(
 )
 
 
-async def _get_logs_async(address, topics, start, end) -> List[Log]:
+async def _get_logs_async(address, topics, start, end) -> list[Log]:
     """
     Get logs for a given address, topics, and block range.
 
@@ -390,7 +375,7 @@ async def _get_logs_async(address, topics, start, end) -> List[Log]:
 
 
 @eth_retry.auto_retry
-async def _get_logs_async_no_cache(address, topics, start, end) -> List[Log]:
+async def _get_logs_async_no_cache(address, topics, start, end) -> list[Log]:
     """
     Get logs for a given address, topics, and block range.
 
@@ -452,11 +437,11 @@ async def _get_logs_async_no_cache(address, topics, start, end) -> List[Log]:
 
 @eth_retry.auto_retry
 def _get_logs_no_cache(
-    address: Optional[ChecksumAddress],
-    topics: Optional[List[str]],
+    address: ChecksumAddress | None,
+    topics: list[str] | None,
     start: Block,
     end: Block,
-) -> List[Log]:
+) -> list[Log]:
     """
     Get logs without using the disk cache.
 
@@ -519,8 +504,8 @@ def _get_logs_no_cache(
 
 @memory.cache()
 def _get_logs_batch_cached(
-    address: Optional[str], topics: Optional[List[str]], start: Block, end: Block
-) -> List[Log]:
+    address: str | None, topics: list[str] | None, start: Block, end: Block
+) -> list[Log]:
     """
     Get logs from the disk cache, or fetch and cache them if not available.
 
@@ -554,11 +539,11 @@ class LogFilter(Filter[Log, "LogCache"]):
         *,
         addresses=[],
         topics=[],
-        from_block: Optional[Block] = None,
+        from_block: Block | None = None,
         chunk_size: int = BATCH_SIZE,
-        chunks_per_batch: Optional[int] = None,
-        semaphore: Optional[dank_mids.BlockSemaphore] = None,
-        executor: Optional[_AsyncExecutorMixin] = None,
+        chunks_per_batch: int | None = None,
+        semaphore: dank_mids.BlockSemaphore | None = None,
+        executor: _AsyncExecutorMixin | None = None,
         is_reusable: bool = True,
         verbose: bool = False,
     ) -> None:  # sourcery skip: default-mutable-arg
@@ -614,7 +599,7 @@ class LogFilter(Filter[Log, "LogCache"]):
             self._semaphore = semaphore
         return semaphore
 
-    def logs(self, to_block: Optional[Block]) -> a_sync.ASyncIterator[Log]:
+    def logs(self, to_block: Block | None) -> a_sync.ASyncIterator[Log]:
         """
         Get logs up to a given block.
 
@@ -643,7 +628,7 @@ class LogFilter(Filter[Log, "LogCache"]):
         raise NotImplementedError
 
     @cached_property
-    def bulk_insert(self) -> Callable[[List[Log]], Awaitable[None]]:
+    def bulk_insert(self) -> Callable[[list[Log]], Awaitable[None]]:
         """
         Get the function for bulk inserting logs into the database.
 
@@ -692,7 +677,7 @@ class LogFilter(Filter[Log, "LogCache"]):
                 )
         return self.from_block
 
-    async def _fetch_range(self, range_start: Block, range_end: Block) -> List[Log]:
+    async def _fetch_range(self, range_start: Block, range_end: Block) -> list[Log]:
         """
         Fetch logs for a given block range.
 
@@ -743,7 +728,7 @@ class Events(LogFilter):
     obj_type = _EventItem
 
     def events(
-        self, to_block: Block, from_block: Optional[Block] = None
+        self, to_block: Block, from_block: Block | None = None
     ) -> a_sync.ASyncIterator[_EventItem]:
         """
         Get events up to a given block.
@@ -761,7 +746,7 @@ class Events(LogFilter):
         """
         return self._objects_thru(block=to_block, from_block=from_block)
 
-    async def _extend(self, logs: List[Log]) -> None:
+    async def _extend(self, logs: list[Log]) -> None:
         """
         Extend the list of events with decoded logs.
 
@@ -805,7 +790,7 @@ class ProcessedEvents(Events, a_sync.ASyncIterable[T]):
     This class extends :class:`Events` to provide additional functionality for processing events.
     """
 
-    def _include_event(self, event: _EventItem) -> Union[bool, Awaitable[bool]]:
+    def _include_event(self, event: _EventItem) -> bool | Awaitable[bool]:
         """
         Determine whether to include a given event in this container.
 
@@ -842,7 +827,7 @@ class ProcessedEvents(Events, a_sync.ASyncIterable[T]):
         """
 
     def objects(
-        self, to_block: Block, from_block: Optional[Block] = None
+        self, to_block: Block, from_block: Block | None = None
     ) -> a_sync.ASyncIterator[_EventItem]:
         """
         Get an :class:`~a_sync.ASyncIterator` that yields all events up to a given block.
@@ -860,7 +845,7 @@ class ProcessedEvents(Events, a_sync.ASyncIterable[T]):
         """
         return self._objects_thru(block=to_block)
 
-    async def _extend(self, logs: List[Log]) -> None:
+    async def _extend(self, logs: list[Log]) -> None:
         """
         Process a new set of logs and extend the list of processed events with the results.
 

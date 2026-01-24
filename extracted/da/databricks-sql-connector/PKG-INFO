@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sql-connector
-Version: 4.1.3
+Version: 4.2.4
 Summary: Databricks SQL Connector for Python
 License: Apache-2.0
 License-File: LICENSE
@@ -17,13 +17,16 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: pyarrow
-Requires-Dist: lz4 (>=4.0.2,<5.0.0)
+Requires-Dist: lz4 (>=4.0.2,<5.0.0) ; python_version >= "3.8" and python_version < "3.14"
+Requires-Dist: lz4 (>=4.4.5,<5.0.0) ; python_version >= "3.14"
 Requires-Dist: oauthlib (>=3.1.0,<4.0.0)
 Requires-Dist: openpyxl (>=3.0.10,<4.0.0)
-Requires-Dist: pandas (>=1.2.5,<2.3.0) ; python_version >= "3.8" and python_version < "3.13"
-Requires-Dist: pandas (>=2.2.3,<2.3.0) ; python_version >= "3.13"
+Requires-Dist: pandas (>=1.2.5,<2.4.0) ; python_version >= "3.8" and python_version < "3.13"
+Requires-Dist: pandas (>=2.2.3,<2.4.0) ; python_version >= "3.13"
 Requires-Dist: pyarrow (>=14.0.1) ; (python_version >= "3.8" and python_version < "3.13") and (extra == "pyarrow")
-Requires-Dist: pyarrow (>=18.0.0) ; (python_version >= "3.13") and (extra == "pyarrow")
+Requires-Dist: pyarrow (>=18.0.0) ; (python_version == "3.13") and (extra == "pyarrow")
+Requires-Dist: pyarrow (>=22.0.0) ; (python_version >= "3.14") and (extra == "pyarrow")
+Requires-Dist: pybreaker (>=1.0.0,<2.0.0)
 Requires-Dist: pyjwt (>=2.0.0,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.0,<3.0.0)
 Requires-Dist: requests (>=2.18.1,<3.0.0)
@@ -48,7 +51,7 @@ You are welcome to file an issue here for general use cases. You can also contac
 
 ## Requirements
 
-Python 3.8 or above is required.
+Python 3.9 or above is required.
 
 ## Documentation
 
@@ -101,6 +104,12 @@ or to a Databricks Runtime interactive cluster (e.g. /sql/protocolv1/o/123456789
 > Note: This example uses [Databricks OAuth U2M](https://docs.databricks.com/en/dev-tools/auth/oauth-u2m.html) 
 > to authenticate the target Databricks user account and needs to open the browser for authentication. So it 
 > can only run on the user's machine.
+
+## Transaction Support
+
+The connector supports multi-statement transactions with manual commit/rollback control. Set `connection.autocommit = False` to disable autocommit mode, then use `connection.commit()` and `connection.rollback()` to control transactions.
+
+For detailed documentation, examples, and best practices, see **[TRANSACTIONS.md](TRANSACTIONS.md)**.
 
 ## SQLAlchemy
 Starting from `databricks-sql-connector` version 4.0.0 SQLAlchemy support has been extracted to a new library `databricks-sqlalchemy`.

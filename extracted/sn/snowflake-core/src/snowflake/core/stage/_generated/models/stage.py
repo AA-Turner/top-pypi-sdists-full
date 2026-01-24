@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.stage._generated.models.credentials import Credentials, CredentialsModel
@@ -53,19 +53,19 @@ class Stage(BaseModel):
     directory_table : StageDirectoryTable, optional
 
     created_on : datetime, optional
-        Date and time when the stage was created.
+        Date and time when the stage was created — **Read-only:** *any user-provided value will be ignored.*
     has_credentials : bool, optional
-        Indicates that the external stage has access credentials; always false for an internal stage.
+        Indicates that the external stage has access credentials; always false for an internal stage — **Read-only:** *any user-provided value will be ignored.*
     has_encryption_key : bool, optional
-        Indicates that the external stage contains encrypted files; always false for an internal stage.
+        Indicates that the external stage contains encrypted files; always false for an internal stage — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the stage.
+        Role that owns the stage — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the object, either ROLE or DATABASE_ROLE. If a Snowflake Native App owns the object, the value is APPLICATION. Snowflake returns NULL if you delete the object because a deleted object does not have an owner role.
+        The type of role that owns the object, either ROLE or DATABASE_ROLE. If a Snowflake Native App owns the object, the value is APPLICATION. Snowflake returns NULL if you delete the object because a deleted object does not have an owner role — **Read-only:** *any user-provided value will be ignored.*
     region : str, optional
-        Region where the stage is located.
+        Region where the stage is located — **Read-only:** *any user-provided value will be ignored.*
     cloud : str, optional
-        Cloud provider; always NULL for an internal stage.
+        Cloud provider; always NULL for an internal stage — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -141,9 +141,10 @@ class Stage(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -178,7 +179,7 @@ class Stage(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of credentials
         if self.credentials:
@@ -205,9 +206,9 @@ class Stage(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Stage.parse_obj(obj)
+            return Stage.model_validate(obj)
 
-        _obj = Stage.parse_obj(
+        _obj = Stage.model_validate(
             {
                 "name": obj.get("name"),
                 "kind": obj.get("kind") if obj.get("kind") is not None else "PERMANENT",

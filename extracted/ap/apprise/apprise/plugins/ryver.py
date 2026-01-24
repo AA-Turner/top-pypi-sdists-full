@@ -71,7 +71,7 @@ class NotifyRyver(NotifyBase):
     secure_protocol = "ryver"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_ryver"
+    setup_url = "https://appriseit.com/services/ryver/"
 
     # Allows the user to specify the NotifyImageSize object
     image_size = NotifyImageSize.XY_72
@@ -258,7 +258,9 @@ class NotifyRyver(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
+
 
                 # Return; we're done
                 return False

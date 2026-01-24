@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: icecream
-Version: 2.1.8
+Version: 2.1.10
 Summary: Never use print() to debug again: inspect variables, expressions, and program execution with a single, simple function call.
 Home-page: https://github.com/gruns/icecream
 Author: Ansgar Grunseid
@@ -14,12 +14,12 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE.txt

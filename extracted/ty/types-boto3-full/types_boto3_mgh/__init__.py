@@ -3,7 +3,7 @@ Main interface for mgh service.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mgh/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

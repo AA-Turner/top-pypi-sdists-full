@@ -25,6 +25,7 @@ body = CloudWorkloadSecurityAgentRuleCreateRequest(
             description="My Agent rule",
             enabled=True,
             expression='exec.file.name == "sh"',
+            agent_version="> 7.60",
             filters=[],
             name="examplecsmthreat",
             policy_id=POLICY_DATA_ID,

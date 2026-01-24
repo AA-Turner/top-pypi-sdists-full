@@ -13,18 +13,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	"go.skia.org/infra/go/common"
 	"go.skia.org/infra/go/depot_tools"
 	"go.skia.org/infra/go/exec"
 	"go.skia.org/infra/go/gerrit"
+	"go.skia.org/infra/go/git"
 	"go.skia.org/infra/go/git/git_common"
+	"go.skia.org/infra/go/skerr"
 	"go.skia.org/infra/go/sklog"
 	"go.skia.org/infra/promk/go/pushgateway"
 	"go.skia.org/infra/task_driver/go/lib/auth_steps"
-	"go.skia.org/infra/task_driver/go/lib/checkout"
-	"go.skia.org/infra/task_driver/go/lib/gerrit_steps"
 	"go.skia.org/infra/task_driver/go/lib/os_steps"
 	"go.skia.org/infra/task_driver/go/td"
-	"go.skia.org/infra/task_scheduler/go/types"
 )
 
 const (
@@ -100,7 +100,7 @@ solutions = [
 		}
 
 		cmd := []string{
-			"vpython", "-u", botUpdateScript,
+			"vpython3", "-u", botUpdateScript,
 			"--spec-path", specPath,
 			"--patch_root", patchRoot,
 			"--revision_mapping_file", revMapFile,
@@ -121,7 +121,7 @@ solutions = [
 			return err
 		}
 
-		if _, err := exec.RunCwd(ctx, checkoutRoot, "vpython", "-u", filepath.Join(depotToolsDir, "gclient.py"), "runhooks"); err != nil {
+		if _, err := exec.RunCwd(ctx, checkoutRoot, "vpython3", "-u", filepath.Join(depotToolsDir, "gclient.py"), "runhooks"); err != nil {
 			return err
 		}
 
@@ -152,13 +152,6 @@ func main() {
 	client, _, err := auth_steps.InitHttpClient(ctx, *local, gerrit.AuthScope)
 	if err != nil {
 		td.Fatal(ctx, err)
-	}
-	var g gerrit.GerritInterface
-	if !*dryRun {
-		g, err = gerrit.NewGerrit("https://skia-review.googlesource.com", client)
-		if err != nil {
-			td.Fatal(ctx, err)
-		}
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -191,19 +184,22 @@ func main() {
 	defer func() {
 		_ = os_steps.RemoveAll(ctx, tmp)
 	}()
-	recipesCfgFile := filepath.Join(skiaDir, "infra", "config", "recipes.cfg")
 
 	// Check out depot_tools at the exact revision expected by tests (defined in recipes.cfg), and
 	// make it available to tests by by adding it to the PATH.
 	var depotToolsDir string
 	if err := td.Do(ctx, td.Props("Check out depot_tools"), func(ctx context.Context) error {
 		var err error
-		depotToolsDir, err = depot_tools.Sync(ctx, tmp, recipesCfgFile)
+		co, err := git.NewCheckout(ctx, common.REPO_DEPOT_TOOLS, tmp)
+		if err != nil {
+			return skerr.Wrap(err)
+		}
+		depotToolsDir = co.Dir()
 		return err
 	}); err != nil {
 		td.Fatal(ctx, err)
 	}
-	ctx = td.WithEnv(ctx, []string{"PATH=%(PATH)s:" + depotToolsDir})
+	ctx = td.WithEnv(ctx, depot_tools.Env(depotToolsDir))
 
 	// Sync Chrome.
 	if !*skipSync {
@@ -245,11 +241,11 @@ func main() {
 			return nil
 		}); err != nil {
 			// Report that the build failed.
-			pg.Push(ctx, buildFailureMetricName, metricValue_Failure)
+			_ = pg.Push(ctx, buildFailureMetricName, metricValue_Failure)
 			td.Fatal(ctx, err)
 		}
 		// Report that the build was successful.
-		pg.Push(ctx, buildFailureMetricName, metricValue_NoFailure)
+		_ = pg.Push(ctx, buildFailureMetricName, metricValue_NoFailure)
 	}
 
 	// Capture and upload the SKPs.
@@ -280,50 +276,9 @@ func main() {
 	sklog.Infof("Running command: %s %s", command.Name, strings.Join(command.Args, " "))
 	if err := exec.Run(ctx, command); err != nil {
 		// Creating SKP asset in RecreateSKPs failed.
-		pg.Push(ctx, creatingSKPsFailureMetricName, metricValue_Failure)
+		_ = pg.Push(ctx, creatingSKPsFailureMetricName, metricValue_Failure)
 		td.Fatal(ctx, err)
 	}
 	// Report that the asset creation was successful.
-	pg.Push(ctx, creatingSKPsFailureMetricName, metricValue_NoFailure)
-	if *dryRun {
-		return
-	}
-
-	// Retrieve the new SKP version.
-	versionFileSubPath := filepath.Join("infra", "bots", "assets", "skp", "VERSION")
-	skpVersion, err := os_steps.ReadFile(ctx, filepath.Join(skiaDir, versionFileSubPath))
-	if err != nil {
-		td.Fatal(ctx, err)
-	}
-
-	// Sync a new checkout of Skia to create the CL.
-	tmpSkia := filepath.Join(tmp, "skia")
-	co, err := checkout.EnsureGitCheckout(ctx, tmpSkia, types.RepoState{
-		Repo:     "https://skia.googlesource.com/skia.git",
-		Revision: "origin/main",
-	})
-	if err != nil {
-		td.Fatal(ctx, err)
-	}
-	baseRev, err := co.FullHash(ctx, "HEAD")
-	if err != nil {
-		td.Fatal(ctx, err)
-	}
-
-	// Write the new SKP version.
-	if err := os_steps.WriteFile(ctx, filepath.Join(co.Dir(), versionFileSubPath), skpVersion, os.ModePerm); err != nil {
-		td.Fatal(ctx, err)
-	}
-
-	// Regenerate tasks.json.
-	if _, err := exec.RunCwd(ctx, tmpSkia, "go", "run", "./infra/bots/gen_tasks.go"); err != nil {
-		td.Fatal(ctx, err)
-	}
-
-	// Upload a CL.
-	commitMsg := `Update SKP version
-
-Automatic commit by the RecreateSKPs bot.
-`
-	gerrit_steps.UploadCL(ctx, g, co, "skia", "main", baseRev, commitMsg, []string{"rmistry@google.com"}, false)
+	_ = pg.Push(ctx, creatingSKPsFailureMetricName, metricValue_NoFailure)
 }

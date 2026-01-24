@@ -1,12 +1,11 @@
 # The purpose of these tests are to ensure that calling ufuncs with quantities
 # returns quantities with the right units, or raises exceptions.
 
-from __future__ import annotations
-
 import concurrent.futures
 import dataclasses
 import warnings
-from typing import TYPE_CHECKING, NamedTuple
+from collections.abc import Callable
+from typing import NamedTuple
 
 import numpy as np
 import pytest
@@ -19,9 +18,6 @@ from astropy.units.quantity_helper.converters import UfuncHelpers
 from astropy.units.quantity_helper.helpers import helper_sqrt
 from astropy.utils.compat.numpycompat import NUMPY_LT_1_25, NUMPY_LT_2_0, NUMPY_LT_2_3
 from astropy.utils.compat.optional_deps import HAS_SCIPY
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 if NUMPY_LT_2_0:
     from numpy.core import umath as np_umath
@@ -1115,6 +1111,14 @@ class TestInplaceUfuncs:
         q = u.Quantity([12.5, 25.0], u.percent)
         a[:2] += q  # This used to fail
         assert_array_equal(a, np.array([0.125, 1.25, 2.0]))
+
+    def test_ndarray_inplace_op_with_dimensionless_quantity(self):
+        # Regression test for #18866 - multiplying a bare array inplace with
+        # a dimensionless Quantity required the unit to be u.dimensionless_unscaled.
+        # Mere equality was not good enough.
+        arr = np.ones((1,))
+        arr *= 1 / np.cos(0 * u.deg)
+        assert arr[0] == 1
 
 
 class TestWhere:

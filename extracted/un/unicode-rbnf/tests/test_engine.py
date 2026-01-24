@@ -1,13 +1,13 @@
 import pytest
 
 from unicode_rbnf.engine import (
-    RbnfRule,
-    TextRulePart,
-    SubRulePart,
-    SubType,
-    RbnfEngine,
     FormatResult,
     NoRuleForNumberError,
+    RbnfEngine,
+    RbnfRule,
+    SubRulePart,
+    SubType,
+    TextRulePart,
 )
 
 
@@ -68,6 +68,7 @@ def test_format_number():
 
     assert engine.format_number(222) == FormatResult(
         text="two hundred twenty-two",
+        text_ruleset="spellout-cardinal",
         text_by_ruleset={"spellout-cardinal": "two hundred twenty-two"},
     )
 
@@ -88,3 +89,14 @@ def test_no_rules_for_number():
 
     with pytest.raises(NoRuleForNumberError):
         engine.format_number(1, ruleset_names=["does_not_exist"])
+
+
+def test_parse_remainder_whitespace():
+    assert RbnfRule.parse(12.34, "←← x →→→;") == RbnfRule(
+        12,
+        parts=[
+            SubRulePart(SubType.QUOTIENT),
+            TextRulePart(" x"),
+            SubRulePart(SubType.REMAINDER, text_before=" "),
+        ],
+    )

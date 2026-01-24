@@ -8,7 +8,7 @@ import anndata as ad
 import pandas as pd
 from upath import UPath
 
-from lamindb.base.ids import base62
+from lamindb.base.uids import base62
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
@@ -267,7 +267,7 @@ def anndata_file_pbmc68k_test() -> Path:
 
     To reproduce::
 
-        pbmc68k = ln.core.datasets.anndata_pbmc68k_reduced()
+        pbmc68k = ln.examples.datasets.anndata_pbmc68k_reduced()
         pbmc68k_test = pbmc68k[:30, :200].copy()
         pbmc68k_test.raw = pbmc68k_test[:, :100]
         pbmc68k_test.obsp["test"] = sparse.eye(pbmc68k_test.shape[0], format="csr")

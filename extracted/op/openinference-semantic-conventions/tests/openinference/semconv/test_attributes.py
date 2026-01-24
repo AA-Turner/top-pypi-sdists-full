@@ -84,6 +84,7 @@ class TestSpanAttributes:
             },
             "embedding": {
                 "embeddings": SpanAttributes.EMBEDDING_EMBEDDINGS,
+                "invocation_parameters": SpanAttributes.EMBEDDING_INVOCATION_PARAMETERS,
                 "model_name": SpanAttributes.EMBEDDING_MODEL_NAME,
             },
             "graph": {
@@ -98,6 +99,7 @@ class TestSpanAttributes:
                 "value": SpanAttributes.INPUT_VALUE,
             },
             "llm": {
+                "choices": SpanAttributes.LLM_CHOICES,
                 "cost": {
                     "completion": SpanAttributes.LLM_COST_COMPLETION,
                     "completion_details": {

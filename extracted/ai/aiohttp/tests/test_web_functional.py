@@ -1705,8 +1705,8 @@ async def test_app_max_client_size(aiohttp_client) -> None:
     await resp.release()
 
 
-async def test_app_max_client_size_adjusted(aiohttp_client) -> None:
-    async def handler(request):
+async def test_app_max_client_size_adjusted(aiohttp_client: AiohttpClient) -> None:
+    async def handler(request: web.Request) -> web.Response:
         await request.post()
         return web.Response(body=b"ok")
 
@@ -2100,6 +2100,10 @@ async def test_request_tracing(aiohttp_server: AiohttpServer) -> None:
     await client.close()
 
 
+@pytest.mark.skipif(
+    hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled(),
+    reason="Fails to capture the warning",
+)
 async def test_return_http_exception_deprecated(aiohttp_client) -> None:
     async def handler(request):
         return web.HTTPForbidden()

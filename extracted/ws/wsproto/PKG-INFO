@@ -1,25 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: wsproto
-Version: 1.2.0
-Summary: WebSockets state-machine based protocol implementation
-Home-page: https://github.com/python-hyper/wsproto/
-Author: Benno Rice
-Author-email: benno@jeamland.net
-License: MIT License
+Version: 1.3.2
+Summary: Pure-Python WebSocket protocol implementation
+Author-email: Benno Rice <benno@jeamland.net>
+Maintainer-email: Thomas Kriechbaumer <thomas@kriechbaumer.name>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/python-hyper/wsproto/
+Project-URL: Bug Reports, https://github.com/python-hyper/wsproto/issues
+Project-URL: Source, https://github.com/python-hyper/wsproto/
+Project-URL: Documentation, https://python-hyper.org/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7.0
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: h11<1,>=0.16.0
+Dynamic: license-file
 
 ========================================================
 Pure Python, pure state-machine WebSocket implementation
@@ -113,37 +119,6 @@ And wsproto will issue events if the data contains any WebSocket messages or sta
 
 Take a look at our docs for a `full list of events
 <https://wsproto.readthedocs.io/en/latest/api.html#events>`!
-
-Testing
-=======
-
-It passes the autobahn test suite completely and strictly in both client and
-server modes and using permessage-deflate.
-
-If you want to run the compliance tests, go into the compliance directory and
-then to test client mode, in one shell run the Autobahn test server:
-
-.. code-block:: console
-
-    $ wstest -m fuzzingserver -s ws-fuzzingserver.json
-
-And in another shell run the test client:
-
-.. code-block:: console
-
-    $ python test_client.py
-
-And to test server mode, run the test server:
-
-.. code-block:: console
-
-    $ python test_server.py
-
-And in another shell run the Autobahn test client:
-
-.. code-block:: console
-
-    $ wstest -m fuzzingclient -s ws-fuzzingclient.json
 
 
 Documentation

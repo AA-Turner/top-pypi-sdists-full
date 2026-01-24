@@ -5,7 +5,7 @@ on: [push]
 jobs:
   build:
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: [3.9, "3.10", "3.11", "3.12", "3.13"]
@@ -18,12 +18,15 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
+        pip install -r requirements.txt
+        pip install -r test-requirements.txt
         python -m pip install --upgrade pip wheel setuptools
-        pip install -q pycodestyle==2.9.1 flake8==5.0.4
+        pip install -q ruff mypy
     - name: Lint
       run: |
-        pycodestyle .
-        flake8 .
+        ruff check .
+        ruff format --check .
+        mypy .
     - name: Test
       run: |
         pip install wheel

@@ -122,7 +122,7 @@ def test_read_gbq_tokyo(
     assert exec_result.query_job is not None
     assert exec_result.query_job.location == tokyo_location
 
-    assert len(expected) == exec_result.total_rows
+    assert len(expected) == exec_result.batches().approx_total_rows
 
 
 @pytest.mark.parametrize(
@@ -951,7 +951,7 @@ def test_read_pandas_tokyo(
     assert result.query_job is not None
     assert result.query_job.location == tokyo_location
 
-    assert len(expected) == result.total_rows
+    assert len(expected) == result.batches().approx_total_rows
 
 
 @all_write_engines
@@ -2171,6 +2171,22 @@ def test_read_gbq_query_dry_run(scalars_table_id, session):
 
     assert isinstance(result, pd.Series)
     _assert_query_dry_run_stats_are_valid(result)
+
+
+def test_block_dry_run_includes_local_data(session):
+    df1 = bigframes.dataframe.DataFrame({"col_1": [1, 2, 3]}, session=session)
+    df2 = bigframes.dataframe.DataFrame({"col_2": [1, 2, 3]}, session=session)
+
+    result = df1.merge(df2, how="cross").to_pandas(dry_run=True)
+
+    assert isinstance(result, pd.Series)
+    _assert_query_dry_run_stats_are_valid(result)
+    assert result["totalBytesProcessed"] > 0
+    assert (
+        df1.to_pandas(dry_run=True)["totalBytesProcessed"]
+        + df2.to_pandas(dry_run=True)["totalBytesProcessed"]
+        == result["totalBytesProcessed"]
+    )
 
 
 def _assert_query_dry_run_stats_are_valid(result: pd.Series):

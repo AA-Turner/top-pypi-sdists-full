@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastled
-Version: 1.4.40
+Version: 1.4.54
 Summary: FastLED Wasm Compiler
 Home-page: https://github.com/zackees/fastled-wasm
 Maintainer: Zachary Vorhies
@@ -24,6 +24,8 @@ Requires-Dist: livereload
 Requires-Dist: disklru>=2.0.4
 Requires-Dist: playwright>=1.40.0
 Requires-Dist: websockify>=0.13.0
+Requires-Dist: fasteners>=0.20
+Requires-Dist: cryptography>=41.0.0
 Dynamic: home-page
 Dynamic: license-file
 Dynamic: maintainer
@@ -149,6 +151,12 @@ pip install fastled
 This tool features full C++ debugging through the browser.
 
 For instructions on setup see [DEBUGGER.md](DEBUGGER.md)
+
+# HTTPS/SSL
+
+FastLED WASM Server includes built-in HTTPS support using self-signed SSL certificates. HTTPS is required for microphone access and other browser security features.
+
+For complete documentation on HTTPS setup, certificate trust, troubleshooting, and regeneration, see [HTTPS_SSL.md](HTTPS_SSL.md)
 
 # Command Line Use
 

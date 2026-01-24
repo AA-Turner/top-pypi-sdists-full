@@ -1,14 +1,19 @@
-from asyncio import iscoroutinefunction
-from collections.abc import Callable, Iterator
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+from base64 import b64encode
+from collections.abc import Callable, Iterator, Sized
 from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
+from inspect import iscoroutinefunction
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import quote as urlquote
 
 from smithy_core import URI
+from smithy_core.aio.types import AsyncBytesProvider, AsyncBytesReader
 from smithy_core.codecs import Codec
+from smithy_core.exceptions import SerializationError
 from smithy_core.schemas import Schema
 from smithy_core.serializers import (
     InterceptingSerializer,
@@ -19,27 +24,22 @@ from smithy_core.serializers import (
 from smithy_core.shapes import ShapeType
 from smithy_core.traits import (
     EndpointTrait,
-    HostLabelTrait,
-    HTTPErrorTrait,
     HTTPHeaderTrait,
-    HTTPLabelTrait,
-    HTTPPayloadTrait,
     HTTPPrefixHeadersTrait,
-    HTTPQueryParamsTrait,
     HTTPQueryTrait,
-    HTTPResponseCodeTrait,
     HTTPTrait,
     MediaTypeTrait,
-    StreamingTrait,
+    RequiresLengthTrait,
     TimestampFormatTrait,
 )
 from smithy_core.types import PathPattern, TimestampFormat
 from smithy_core.utils import serialize_float
 
-from . import tuples_to_fields
+from . import Field, tuples_to_fields
 from .aio import HTTPRequest as _HTTPRequest
 from .aio import HTTPResponse as _HTTPResponse
 from .aio.interfaces import HTTPRequest, HTTPResponse
+from .bindings import Binding, RequestBindingMatcher, ResponseBindingMatcher
 from .utils import join_query_params
 
 if TYPE_CHECKING:
@@ -49,6 +49,7 @@ if TYPE_CHECKING:
 __all__ = ["HTTPRequestSerializer", "HTTPResponseSerializer"]
 
 
+# TODO: refactor this to share code with response serializer
 class HTTPRequestSerializer(SpecificShapeSerializer):
     """Binds a serializable shape to an HTTP request.
 
@@ -61,6 +62,7 @@ class HTTPRequestSerializer(SpecificShapeSerializer):
         payload_codec: Codec,
         http_trait: HTTPTrait,
         endpoint_trait: EndpointTrait | None = None,
+        omit_empty_payload: bool = True,
     ) -> None:
         """Initialize an HTTPRequestSerializer.
 
@@ -69,15 +71,17 @@ class HTTPRequestSerializer(SpecificShapeSerializer):
         :param http_trait: The HTTP trait of the operation being handled.
         :param endpoint_trait: The optional endpoint trait of the operation being
             handled.
+        :param omit_empty_payload: Whether an empty payload should be omitted.
         """
         self._http_trait = http_trait
         self._endpoint_trait = endpoint_trait
         self._payload_codec = payload_codec
+        self._omit_empty_payload = omit_empty_payload
         self.result: HTTPRequest | None = None
 
     @contextmanager
     def begin_struct(self, schema: Schema) -> Iterator[ShapeSerializer]:
-        payload: Any
+        payload: AsyncBytesReader | AsyncBytesProvider
         binding_serializer: HTTPRequestBindingSerializer
 
         host_prefix = ""
@@ -85,48 +89,102 @@ class HTTPRequestSerializer(SpecificShapeSerializer):
             host_prefix = self._endpoint_trait.host_prefix
 
         content_type = self._payload_codec.media_type
+        content_length: int | None = None
+        content_length_required = False
 
-        if (payload_member := self._get_payload_member(schema)) is not None:
-            if payload_member.shape_type in (ShapeType.BLOB, ShapeType.STRING):
-                content_type = (
-                    "application/octet-stream"
-                    if payload_member.shape_type is ShapeType.BLOB
-                    else "text/plain"
-                )
+        binding_matcher = RequestBindingMatcher(schema)
+        if binding_matcher.event_stream_member is not None:
+            payload = AsyncBytesProvider()
+            content_type = "application/vnd.amazon.eventstream"
+            binding_serializer = HTTPRequestBindingSerializer(
+                SpecificShapeSerializer(),
+                self._http_trait.path,
+                host_prefix,
+                binding_matcher,
+            )
+            yield binding_serializer
+        elif (payload_member := binding_matcher.payload_member) is not None:
+            content_length_required = RequiresLengthTrait in payload_member
+            if payload_member.shape_type in (
+                ShapeType.BLOB,
+                ShapeType.STRING,
+                ShapeType.ENUM,
+            ):
+                if (media_type := payload_member.get_trait(MediaTypeTrait)) is not None:
+                    content_type = media_type.value
+                elif payload_member.shape_type is ShapeType.BLOB:
+                    content_type = "application/octet-stream"
+                else:
+                    content_type = "text/plain"
+
                 payload_serializer = RawPayloadSerializer()
                 binding_serializer = HTTPRequestBindingSerializer(
-                    payload_serializer, self._http_trait.path, host_prefix
+                    payload_serializer,
+                    self._http_trait.path,
+                    host_prefix,
+                    binding_matcher,
                 )
                 yield binding_serializer
-                payload = payload_serializer.payload
+                if isinstance(payload_serializer.payload, Sized):
+                    content_length = len(payload_serializer.payload)
+                payload = AsyncBytesReader(payload_serializer.payload or b"")
             else:
                 if (media_type := payload_member.get_trait(MediaTypeTrait)) is not None:
                     content_type = media_type.value
-                payload = BytesIO()
-                payload_serializer = self._payload_codec.create_serializer(payload)
+                sync_payload = BytesIO()
+                payload_serializer = self._payload_codec.create_serializer(sync_payload)
                 binding_serializer = HTTPRequestBindingSerializer(
-                    payload_serializer, self._http_trait.path, host_prefix
+                    payload_serializer,
+                    self._http_trait.path,
+                    host_prefix,
+                    binding_matcher,
                 )
                 yield binding_serializer
+                content_length = sync_payload.tell()
+                sync_payload.seek(0)
+                payload = AsyncBytesReader(sync_payload)
         else:
-            if self._get_eventstreaming_member(schema) is not None:
-                content_type = "application/vnd.amazon.eventstream"
-            payload = BytesIO()
-            payload_serializer = self._payload_codec.create_serializer(payload)
-            with payload_serializer.begin_struct(schema) as body_serializer:
+            sync_payload = BytesIO()
+            payload_serializer = self._payload_codec.create_serializer(sync_payload)
+            if binding_matcher.should_write_body(self._omit_empty_payload):
+                with payload_serializer.begin_struct(schema) as body_serializer:
+                    binding_serializer = HTTPRequestBindingSerializer(
+                        body_serializer,
+                        self._http_trait.path,
+                        host_prefix,
+                        binding_matcher,
+                    )
+                    yield binding_serializer
+                content_length = sync_payload.tell()
+            else:
+                content_type = None
+                content_length = None
                 binding_serializer = HTTPRequestBindingSerializer(
-                    body_serializer, self._http_trait.path, host_prefix
+                    payload_serializer,
+                    self._http_trait.path,
+                    host_prefix,
+                    binding_matcher,
                 )
                 yield binding_serializer
+            sync_payload.seek(0)
+            payload = AsyncBytesReader(sync_payload)
 
-        if (
-            seek := getattr(payload, "seek", None)
-        ) is not None and not iscoroutinefunction(seek):
-            seek(0)
-
-        # TODO: conditional on empty-ness and based on the protocol
         headers = binding_serializer.header_serializer.headers
-        headers.append(("content-type", content_type))
+        if content_type is not None:
+            headers.append(("content-type", content_type))
+
+        if content_length is not None:
+            headers.append(("content-length", str(content_length)))
+
+        fields = tuples_to_fields(headers)
+        if content_length_required and "content-length" not in fields:
+            content_length = _compute_content_length(payload)
+            if content_length is None:
+                raise SerializationError(
+                    "This operation requires the the content length of the input "
+                    "stream, but it was not provided and was unable to be computed."
+                )
+            fields.set_field(Field(name="content-length", values=[str(content_length)]))
 
         self.result = _HTTPRequest(
             method=self._http_trait.method,
@@ -138,24 +196,32 @@ class HTTPRequestSerializer(SpecificShapeSerializer):
                     prefix=self._http_trait.query or "",
                 ),
             ),
-            fields=tuples_to_fields(headers),
+            fields=fields,
             body=payload,
         )
 
-    def _get_payload_member(self, schema: Schema) -> Schema | None:
-        for member in schema.members.values():
-            if HTTPPayloadTrait in member:
-                return member
-        return None
 
-    def _get_eventstreaming_member(self, schema: Schema) -> Schema | None:
-        for member in schema.members.values():
-            if (
-                member.get_trait(StreamingTrait) is not None
-                and member.shape_type is ShapeType.UNION
-            ):
-                return member
-        return None
+def _compute_content_length(
+    payload: AsyncBytesReader | AsyncBytesProvider,
+) -> int | None:
+    if (tell := getattr(payload, "tell", None)) is not None and not iscoroutinefunction(
+        tell
+    ):
+        start: int = tell()
+        if (end := _seek(payload, 0, 2)) is not None:
+            content_length: int = end - start
+            _seek(payload, start, 0)
+            return content_length
+    return None
+
+
+def _seek(
+    payload: AsyncBytesReader | AsyncBytesProvider, pos: int, whence: int = 0
+) -> None:
+    if (seek := getattr(payload, "seek", None)) is not None and not iscoroutinefunction(
+        seek
+    ):
+        seek(pos, whence)
 
 
 class HTTPRequestBindingSerializer(InterceptingSerializer):
@@ -166,6 +232,7 @@ class HTTPRequestBindingSerializer(InterceptingSerializer):
         payload_serializer: ShapeSerializer,
         path_pattern: PathPattern,
         host_prefix_pattern: str,
+        binding_matcher: RequestBindingMatcher,
     ) -> None:
         """Initialize an HTTPRequestBindingSerializer.
 
@@ -181,18 +248,20 @@ class HTTPRequestBindingSerializer(InterceptingSerializer):
         self.host_prefix_serializer = HostPrefixSerializer(
             payload_serializer, host_prefix_pattern
         )
+        self._binding_matcher = binding_matcher
 
     def before(self, schema: Schema) -> ShapeSerializer:
-        if HTTPHeaderTrait in schema or HTTPPrefixHeadersTrait in schema:
-            return self.header_serializer
-        if HTTPQueryTrait in schema or HTTPQueryParamsTrait in schema:
-            return self.query_serializer
-        if HTTPLabelTrait in schema:
-            return self.path_serializer
-        if HostLabelTrait in schema:
-            return self.host_prefix_serializer
-
-        return self._payload_serializer
+        match self._binding_matcher.match(schema):
+            case Binding.HEADER | Binding.PREFIX_HEADERS:
+                return self.header_serializer
+            case Binding.QUERY | Binding.QUERY_PARAMS:
+                return self.query_serializer
+            case Binding.LABEL:
+                return self.path_serializer
+            case Binding.HOST:
+                return self.host_prefix_serializer
+            case _:
+                return self._payload_serializer
 
     def after(self, schema: Schema) -> None:
         pass
@@ -205,67 +274,128 @@ class HTTPResponseSerializer(SpecificShapeSerializer):
         self,
         payload_codec: Codec,
         http_trait: HTTPTrait,
+        omit_empty_payload: bool = True,
     ) -> None:
         """Initialize an HTTPResponseSerializer.
 
         :param payload_codec: The codec to use to serialize the HTTP payload, if one is
             present.
         :param http_trait: The HTTP trait of the operation being handled.
+        :param omit_empty_payload: Whether an empty payload should be omitted.
         """
         self._http_trait = http_trait
         self._payload_codec = payload_codec
         self.result: HTTPResponse | None = None
+        self._omit_empty_payload = omit_empty_payload
 
     @contextmanager
     def begin_struct(self, schema: Schema) -> Iterator[ShapeSerializer]:
-        payload: Any
+        payload: AsyncBytesReader | AsyncBytesProvider
         binding_serializer: HTTPResponseBindingSerializer
 
-        if (payload_member := self._get_payload_member(schema)) is not None:
+        content_type: str | None = self._payload_codec.media_type
+        content_length: int | None = None
+        content_length_required = False
+
+        binding_matcher = ResponseBindingMatcher(schema)
+        if binding_matcher.event_stream_member is not None:
+            payload = AsyncBytesProvider()
+            content_type = "application/vnd.amazon.eventstream"
+            binding_serializer = HTTPResponseBindingSerializer(
+                SpecificShapeSerializer(), binding_matcher
+            )
+            yield binding_serializer
+        elif (payload_member := binding_matcher.payload_member) is not None:
+            content_length_required = RequiresLengthTrait in payload_member
             if payload_member.shape_type in (ShapeType.BLOB, ShapeType.STRING):
+                if (media_type := payload_member.get_trait(MediaTypeTrait)) is not None:
+                    content_type = media_type.value
+                elif payload_member.shape_type is ShapeType.BLOB:
+                    content_type = "application/octet-stream"
+                else:
+                    content_type = "text/plain"
                 payload_serializer = RawPayloadSerializer()
-                binding_serializer = HTTPResponseBindingSerializer(payload_serializer)
+                binding_serializer = HTTPResponseBindingSerializer(
+                    payload_serializer, binding_matcher
+                )
                 yield binding_serializer
-                payload = payload_serializer.payload
+                if isinstance(payload_serializer.payload, Sized):
+                    content_length = len(payload_serializer.payload)
+                payload = AsyncBytesReader(payload_serializer.payload or b"")
             else:
-                payload = BytesIO()
-                payload_serializer = self._payload_codec.create_serializer(payload)
-                binding_serializer = HTTPResponseBindingSerializer(payload_serializer)
+                if (media_type := payload_member.get_trait(MediaTypeTrait)) is not None:
+                    content_type = media_type.value
+                sync_payload = BytesIO()
+                payload_serializer = self._payload_codec.create_serializer(sync_payload)
+                binding_serializer = HTTPResponseBindingSerializer(
+                    payload_serializer, binding_matcher
+                )
                 yield binding_serializer
+                content_length = sync_payload.tell()
+                sync_payload.seek(0)
+                payload = AsyncBytesReader(sync_payload)
         else:
-            payload = BytesIO()
-            payload_serializer = self._payload_codec.create_serializer(payload)
-            with payload_serializer.begin_struct(schema) as body_serializer:
-                binding_serializer = HTTPResponseBindingSerializer(body_serializer)
+            sync_payload = BytesIO()
+            payload_serializer = self._payload_codec.create_serializer(sync_payload)
+            if binding_matcher.should_write_body(self._omit_empty_payload):
+                if binding_matcher.event_stream_member is not None:
+                    content_type = "application/vnd.amazon.eventstream"
+                with payload_serializer.begin_struct(schema) as body_serializer:
+                    binding_serializer = HTTPResponseBindingSerializer(
+                        body_serializer, binding_matcher
+                    )
+                    yield binding_serializer
+                content_length = sync_payload.tell()
+            else:
+                content_type = None
+                content_length = None
+                binding_serializer = HTTPResponseBindingSerializer(
+                    payload_serializer,
+                    binding_matcher,
+                )
                 yield binding_serializer
+            sync_payload.seek(0)
+            payload = AsyncBytesReader(sync_payload)
 
-        if (
-            seek := getattr(payload, "seek", None)
-        ) is not None and not iscoroutinefunction(seek):
-            seek(0)
+        headers = binding_serializer.header_serializer.headers
+        if content_type is not None:
+            headers.append(("content-type", content_type))
 
-        default_code = self._http_trait.code
-        explicit_code = binding_serializer.response_code_serializer.response_code
-        if (http_error_trait := schema.get_trait(HTTPErrorTrait)) is not None:
-            default_code = http_error_trait.code
+        if content_length is not None:
+            headers.append(("content-length", str(content_length)))
+
+        fields = tuples_to_fields(headers)
+        if content_length_required and "content-length" not in fields:
+            content_length = _compute_content_length(payload)
+            if content_length is None:
+                raise SerializationError(
+                    "This operation requires the the content length of the input "
+                    "stream, but it was not provided and was unable to be computed."
+                )
+            fields.set_field(Field(name="content-length", values=[str(content_length)]))
+
+        status = binding_serializer.response_code_serializer.response_code
+        if status is None:
+            if binding_matcher.response_status > 0:
+                status = binding_matcher.response_status
+            else:
+                status = self._http_trait.code
 
         self.result = _HTTPResponse(
             fields=tuples_to_fields(binding_serializer.header_serializer.headers),
             body=payload,
-            status=explicit_code or default_code,
+            status=status,
         )
-
-    def _get_payload_member(self, schema: Schema) -> Schema | None:
-        for member in schema.members.values():
-            if HTTPPayloadTrait in member:
-                return member
-        return None
 
 
 class HTTPResponseBindingSerializer(InterceptingSerializer):
     """Delegates HTTP response bindings to binding-location-specific serializers."""
 
-    def __init__(self, payload_serializer: ShapeSerializer) -> None:
+    def __init__(
+        self,
+        payload_serializer: ShapeSerializer,
+        binding_matcher: ResponseBindingMatcher,
+    ) -> None:
         """Initialize an HTTPResponseBindingSerializer.
 
         :param payload_serializer: The :py:class:`ShapeSerializer` to use to serialize
@@ -274,14 +404,16 @@ class HTTPResponseBindingSerializer(InterceptingSerializer):
         self._payload_serializer = payload_serializer
         self.header_serializer = HTTPHeaderSerializer()
         self.response_code_serializer = HTTPResponseCodeSerializer()
+        self._binding_matcher = binding_matcher
 
     def before(self, schema: Schema) -> ShapeSerializer:
-        if HTTPHeaderTrait in schema or HTTPPrefixHeadersTrait in schema:
-            return self.header_serializer
-        if HTTPResponseCodeTrait in schema:
-            return self.response_code_serializer
-
-        return self._payload_serializer
+        match self._binding_matcher.match(schema):
+            case Binding.HEADER | Binding.PREFIX_HEADERS:
+                return self.header_serializer
+            case Binding.STATUS:
+                return self.response_code_serializer
+            case _:
+                return self._payload_serializer
 
     def after(self, schema: Schema) -> None:
         pass
@@ -328,7 +460,7 @@ class HTTPHeaderSerializer(SpecificShapeSerializer):
             :py:class:`HTTPHeaderTrait` will be checked instead. Required when
             collecting list entries.
         :param headers: An optional list of header tuples to append to. If not
-            set, one will be created.
+            set, one will be created. Values appended will not be escaped.
         """
         self.headers: list[tuple[str, str]] = headers if headers is not None else []
         self._key = key
@@ -370,18 +502,20 @@ class HTTPHeaderSerializer(SpecificShapeSerializer):
 
     def write_float(self, schema: Schema, value: float) -> None:
         key = self._key or schema.expect_trait(HTTPHeaderTrait).key
-        self.headers.append((key, str(value)))
+        self.headers.append((key, serialize_float(value)))
 
     def write_double(self, schema: Schema, value: float) -> None:
         key = self._key or schema.expect_trait(HTTPHeaderTrait).key
-        self.headers.append((key, str(value)))
+        self.headers.append((key, serialize_float(value)))
 
     def write_big_decimal(self, schema: Schema, value: Decimal) -> None:
         key = self._key or schema.expect_trait(HTTPHeaderTrait).key
-        self.headers.append((key, str(value.canonical())))
+        self.headers.append((key, serialize_float(value)))
 
     def write_string(self, schema: Schema, value: str) -> None:
         key = self._key or schema.expect_trait(HTTPHeaderTrait).key
+        if MediaTypeTrait in schema:
+            value = b64encode(value.encode("utf-8")).decode("utf-8")
         self.headers.append((key, value))
 
     def write_timestamp(self, schema: Schema, value: datetime) -> None:
@@ -486,7 +620,7 @@ class HTTPQuerySerializer(SpecificShapeSerializer):
 
     def write_string(self, schema: Schema, value: str) -> None:
         key = self._key or schema.expect_trait(HTTPQueryTrait).key
-        self.query_params.append((key, urlquote(value, safe="")))
+        self.query_params.append((key, value))
 
     def write_timestamp(self, schema: Schema, value: datetime) -> None:
         key = self._key or schema.expect_trait(HTTPQueryTrait).key
@@ -570,12 +704,28 @@ class HTTPQueryMapSerializer(MapSerializer):
         :param query_params: The list of query param tuples to append to.
         """
         self._query_params = query_params
-        self._delegate = CapturingSerializer()
 
     def entry(self, key: str, value_writer: Callable[[ShapeSerializer], None]):
-        value_writer(self._delegate)
-        assert self._delegate.result is not None  # noqa: S101
-        self._query_params.append((key, urlquote(self._delegate.result, safe="")))
+        value_writer(HTTPQueryMapValueSerializer(key, self._query_params))
+
+
+class HTTPQueryMapValueSerializer(SpecificShapeSerializer):
+    def __init__(self, key: str, query_params: list[tuple[str, str]]) -> None:
+        """Initialize an HTTPQueryMapValueSerializer.
+
+        :param key: The key of the query parameter.
+        :param query_params: The list of query param tuples to append to.
+        """
+        self._key = key
+        self._query_params = query_params
+
+    def write_string(self, schema: Schema, value: str) -> None:
+        # Note: values are escaped when query params are joined
+        self._query_params.append((self._key, value))
+
+    @contextmanager
+    def begin_list(self, schema: Schema, size: int) -> Iterator[ShapeSerializer]:
+        yield self
 
 
 class HostPrefixSerializer(SpecificShapeSerializer):

@@ -18,6 +18,7 @@ from typing import Any, ClassVar, Dict, List
 from connector_sdk_types.generated.models.create_account_entitlement import CreateAccountEntitlement
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class CreatableAccount(BaseModel):
@@ -26,7 +27,8 @@ class CreatableAccount(BaseModel):
     """
 
     entitlements: List[CreateAccountEntitlement] = Field(
-        description="List of _required_ entitlements that must be set when an account is created. This list is all entitlement types with a min > 0"
+        description="List of _required_ entitlements that must be set when an account is created. This list is all entitlement types with a min > 0",
+        default=[],
     )
     __properties: ClassVar[List[str]] = ["entitlements"]
     model_config = ConfigDict(
@@ -86,3 +88,6 @@ class CreatableAccount(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

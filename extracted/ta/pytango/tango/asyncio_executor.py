@@ -18,7 +18,12 @@ from typing import Callable
 
 # Tango imports
 from tango.green import AbstractExecutor
-from tango.utils import _is_coroutine_function, PyTangoThreadPoolExecutor
+from tango.utils import (
+    _get_current_otel_context,
+    _get_non_tango_source_location,
+    _is_coroutine_function,
+    PyTangoThreadPoolExecutor,
+)
 
 __all__ = (
     "AsyncioExecutor",
@@ -183,6 +188,9 @@ class AsyncioExecutor(AbstractExecutor):
 
     def delegate(self, fn, *args, **kwargs):
         """Return the given operation as an asyncio future."""
+        if hasattr(fn, "__trace_kwargs__"):
+            kwargs["trace_location"] = _get_non_tango_source_location()
+            kwargs["trace_context"] = _get_current_otel_context()
         callback = functools.partial(fn, *args, **kwargs)
         coro = self.loop.run_in_executor(self.subexecutor, callback)
         return asyncio.ensure_future(coro)

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -14,6 +14,8 @@ from warnings import warn
 
 from pandas import DataFrame
 
+from ibm_watsonx_ai.utils.utils import get_from_json
+
 from ..credentials import Credentials
 from ..experiment import AutoAI
 from ..helpers import DataConnection
@@ -21,9 +23,9 @@ from ..utils import is_lale_pipeline
 from ..utils.autoai.utils import (
     check_if_ts_pipeline_is_winner,
     convert_dataframe_to_fields_values_payload,
-    download_onnx_model,
     prepare_auto_ai_model_to_publish,
     prepare_auto_ai_model_to_publish_normal_scenario,
+    prepare_onnx_model_to_publish,
     remove_file,
 )
 from ..utils.deployment.errors import (
@@ -31,7 +33,7 @@ from ..utils.deployment.errors import (
     ModelTypeNotSupported,
     NotAutoAIExperiment,
     ServingNameNotAvailable,
-    WrongDeploymnetType,
+    WrongDeploymentType,
 )
 from ..wml_client_error import MissingValue
 from ..workspace import WorkSpace
@@ -243,7 +245,8 @@ class BaseDeployment(ABC):
             )
 
             if status_code == 409:
-                raise ServingNameNotAvailable(response["errors"][0])
+                if response is not None:
+                    raise ServingNameNotAvailable(response["errors"][0])
 
         if (astype := kwargs.get("astype", "hybrid")) == "onnx":
             if not isinstance(kwargs["model"], str):
@@ -317,12 +320,17 @@ class BaseDeployment(ABC):
                 # --- end note
 
                 try:
-                    auto_pipelines_parameters = (
-                        pipeline_details.get("entity", {})
-                        .get("document", {})
-                        .get("pipelines", [])[0]
-                        .get("nodes", [])[0]
-                        .get("parameters")
+                    auto_pipelines_parameters = get_from_json(
+                        pipeline_details,
+                        [
+                            "entity",
+                            "document",
+                            "pipelines",
+                            0,
+                            "nodes",
+                            0,
+                            "parameters",
+                        ],
                     )
                 except Exception:
                     auto_pipelines_parameters = None
@@ -330,7 +338,7 @@ class BaseDeployment(ABC):
                 data_connection = cast(DataConnection, data_connection)
 
                 if astype == "onnx":
-                    artifact_name, model_props = download_onnx_model(
+                    artifact_name, model_props = prepare_onnx_model_to_publish(
                         model=model,
                         run_params=run_params,
                         client=self._source_workspace.api_client,
@@ -361,7 +369,6 @@ class BaseDeployment(ABC):
             self.name = kwargs["deployment_name"]
             self.id = deployment_details["metadata"].get("id")
             if kwargs["deployment_type"] == "online":
-                deployment_details = cast(dict, deployment_details)
                 self.scoring_url = (
                     self._target_workspace.api_client.deployments.get_scoring_href(
                         deployment_details
@@ -379,9 +386,9 @@ class BaseDeployment(ABC):
                     self._source_workspace is not None
                     and self._source_workspace.api_client.ICP_PLATFORM_SPACES
                 ):
-                    optimizer = AutoAI(self._source_workspace).runs.get_optimizer(
+                    optimizer = AutoAI(self._source_workspace).runs.get_optimizer(  # type: ignore[attr-defined]
                         metadata=kwargs["metadata"]
-                    )  # type: ignore[attr-defined]
+                    )
                 # note: CLOUD
                 else:
                     optimizer = AutoAI().runs.get_optimizer(  # type: ignore[attr-defined]
@@ -420,7 +427,7 @@ class BaseDeployment(ABC):
                     training_id=run_id, _internal=True
                 )
                 if astype == "onnx":
-                    artifact_name, model_props = download_onnx_model(
+                    artifact_name, model_props = prepare_onnx_model_to_publish(
                         model=model,
                         run_params=run_params,
                         client=self._source_workspace.api_client,
@@ -479,8 +486,9 @@ class BaseDeployment(ABC):
         """
         self._target_workspace = cast(WorkSpace, self._target_workspace)
         if isinstance(kwargs["payload"], DataFrame):
-            payload = convert_dataframe_to_fields_values_payload(
-                kwargs["payload"], onnx_mode=self._is_onnx
+            payload = convert_dataframe_to_fields_values_payload(  # type: ignore[call-overload]
+                kwargs["payload"],
+                onnx_mode=self._is_onnx,
             )
             input_data = [payload] if not isinstance(payload, list) else payload
 
@@ -493,7 +501,7 @@ class BaseDeployment(ABC):
                 or supporting_features_df is None
             ):
                 observations_payload = convert_dataframe_to_fields_values_payload(
-                    observations_df
+                    observations_df, onnx_mode=False
                 )
                 observations_payload["id"] = "observations"
                 input_data = [observations_payload]
@@ -501,7 +509,7 @@ class BaseDeployment(ABC):
                 if supporting_features_df is not None:
                     supporting_features_payload = (
                         convert_dataframe_to_fields_values_payload(
-                            supporting_features_df
+                            supporting_features_df, onnx_mode=False
                         )
                     )
                     supporting_features_payload["id"] = "supporting_features"
@@ -520,18 +528,14 @@ class BaseDeployment(ABC):
 
         transaction_id = kwargs.get("transaction_id")
 
-        scoring_payload = {
+        scoring_payload: dict[str, Any] = {
             self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA: input_data
         }
 
         if kwargs.get("forecast_window") is not None:
-            scoring_payload.update(
-                {
-                    self._target_workspace.api_client.deployments.ScoringMetaNames.SCORING_PARAMETERS: {
-                        "forecast_window": kwargs.get("forecast_window")
-                    }
-                }
-            )
+            scoring_payload[
+                self._target_workspace.api_client.deployments.ScoringMetaNames.SCORING_PARAMETERS
+            ] = {"forecast_window": kwargs.get("forecast_window")}
 
         self.id = cast(str, self.id)
         score = self._target_workspace.api_client.deployments.score(
@@ -565,7 +569,7 @@ class BaseDeployment(ABC):
                 )
             )
             if (
-                deployment_details.get("entity", {}).get(kwargs["deployment_type"])
+                get_from_json(deployment_details, ["entity", kwargs["deployment_type"]])
                 is not None
             ):
                 self._target_workspace.api_client.deployments.delete(
@@ -573,7 +577,7 @@ class BaseDeployment(ABC):
                 )
 
             else:
-                raise WrongDeploymnetType(
+                raise WrongDeploymentType(
                     f"{kwargs['deployment_type']}",
                     reason=f'Deployment with ID: {kwargs["deployment_id"]} is not of "{kwargs["deployment_type"]}" type!',
                 )
@@ -597,15 +601,15 @@ class BaseDeployment(ABC):
 
         data = [
             [
-                deployment.get("metadata")["created_at"],
-                deployment.get("metadata")["modified_at"],
-                deployment.get("metadata")["id"],
-                deployment.get("metadata")["name"],
-                deployment.get("entity")["status"]["state"],
+                get_from_json(deployment, ["metadata", "created_at"]),
+                get_from_json(deployment, ["metadata", "modified_at"]),
+                get_from_json(deployment, ["metadata", "id"]),
+                get_from_json(deployment, ["metadata", "name"]),
+                get_from_json(deployment, ["entity", "status", "state"]),
             ]
             for deployment in deployments.get("resources", [])
             if isinstance(
-                deployment.get("entity", {}).get(kwargs["deployment_type"]), dict
+                get_from_json(deployment, ["entity", kwargs["deployment_type"]]), dict
             )
         ]
 
@@ -629,7 +633,7 @@ class BaseDeployment(ABC):
             deployment_uid=kwargs["deployment_id"]
         )
         if (
-            deployment_details.get("entity", {}).get(kwargs["deployment_type"])
+            get_from_json(deployment_details, ["entity", kwargs["deployment_type"]])
             is not None
         ):
             self.name = deployment_details["metadata"].get("name")
@@ -642,7 +646,7 @@ class BaseDeployment(ABC):
                 )
 
         else:
-            raise WrongDeploymnetType(
+            raise WrongDeploymentType(
                 f"{kwargs['deployment_type']}",
                 reason=f'Deployment with ID: {kwargs["deployment_id"]} is not of "{kwargs["deployment_type"]}" type!',
             )

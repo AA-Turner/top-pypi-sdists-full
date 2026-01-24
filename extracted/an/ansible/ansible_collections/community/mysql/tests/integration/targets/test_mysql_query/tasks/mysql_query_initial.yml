@@ -404,20 +404,15 @@
       - connector_version is version('0.10.0', '<')
 
   # Issue https://github.com/ansible-collections/community.mysql/issues/268
-  - name: Assert that create table IF NOT EXISTS is changed with mysqlclient
+  - name: Assert that create table IF NOT EXISTS is changed
     assert:
       that:
-        # Mysqlclient 2.0.1 and pymysql 0.10.0+ drivers throws no warning,
+        # pymysql 0.10.0+ drivers throw no warning,
         # so it's impossible to figure out if the state was changed or not.
         # We assume that it was for DDL queries by default in the code
         - result is changed
     when:
-      - >
-        connector_name == 'mysqlclient'
-        or (
-          connector_name == 'pymysql'
-          and connector_version is version('0.10.0', '>')
-        )
+      - connector_name == 'pymysql' and connector_version is version('0.10.0', '>')
 
   - name: Drop db {{ test_db }}
     mysql_query:

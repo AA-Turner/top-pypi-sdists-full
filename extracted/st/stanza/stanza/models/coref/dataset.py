@@ -39,14 +39,22 @@ class CorefDataset(Dataset):
             subwords = []
             word_id = []
             for i, word in enumerate(doc["cased_words"]):
-                tokenized_word = self.__token_map.get(word, self.tokenizer.tokenize(word))
+                tokenized = self.tokenizer.tokenize(word)
+                if len(tokenized) == 0:
+                    word = "_"
+                    doc["cased_words"][i] = word
+                    tokenized = self.tokenizer.tokenize(word)
+                    assert len(tokenized) > 0
+                tokenized_word = self.__token_map.get(word, tokenized)
                 tokenized_word = list(filter(self.__filter_func, tokenized_word))
                 word2subword.append((len(subwords), len(subwords) + len(tokenized_word)))
                 subwords.extend(tokenized_word)
                 word_id.extend([i] * len(tokenized_word))
+
             doc["word2subword"] = word2subword
             doc["subwords"] = subwords
             doc["word_id"] = word_id
+
             self.__out.append(doc)
         logger.info("Loaded %d docs from %s.", len(data_f), path)
 

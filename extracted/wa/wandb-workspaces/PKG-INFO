@@ -1,34 +1,32 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: wandb-workspaces
-Version: 0.1.18
+Version: 0.3.4
 Summary: A library for programatically working with the Weights & Biases UI.
-License: Apache-2.0
-Author: Weights & Biases
-Author-email: support@wandb.com
-Requires-Python: >=3.9,<4.0
+Project-URL: Homepage, https://github.com/wandb/wandb-workspaces
+Project-URL: Repository, https://github.com/wandb/wandb-workspaces
+Project-URL: Documentation, https://docs.wandb.ai/ref/wandb_workspaces/
+Project-URL: Bug Reports, https://github.com/wandb/wandb-workspaces/issues
+Author-email: Weights & Biases <support@wandb.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: ~=3.9
+Requires-Dist: pydantic>=2.7
+Requires-Dist: wandb>=0.13.7
 Provides-Extra: data-generation
 Provides-Extra: test
-Requires-Dist: pydantic (>=2.7)
-Requires-Dist: wandb (>=0.13.7)
-Project-URL: Bug Reports, https://github.com/wandb/wandb-workspaces/issues
-Project-URL: Documentation, https://docs.wandb.ai/
-Project-URL: Homepage, https://github.com/wandb/wandb-workspaces
-Project-URL: Repository, https://github.com/wandb/wandb-workspaces
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -122,5 +120,4 @@ report = wr.Report(
 </p>
 
 See [examples](https://github.com/wandb/wandb-workspaces/tree/main/examples) for more detailed usage.
-
 

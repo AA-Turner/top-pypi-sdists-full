@@ -15,12 +15,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.8"
 dependencies = [
     "nodejs-wheel-binaries>=20.13.1",
 ]
-version = "1.31.4"
+version = "1.37.2"
 
 [project.urls]
 repository = "https://github.com/detachhead/basedpyright"
@@ -43,6 +44,7 @@ dev = [
     "mike>=2.1.3",
     "mkdocs-macros-plugin>=1.2.0",
     "lsp-devtools>=0.2.3",
+    "pygls<2",
 ]
 docstubs = [
     "docify>=1.0.0",
@@ -141,6 +143,7 @@ disable = [
 ]
 enable = [
     "useless-suppression",
+    "fatal",
     "access-member-before-definition",
     "assignment-from-none",
     "dict-iter-missing-items",
@@ -228,8 +231,8 @@ reportImplicitStringConcatenation = false
 reportIncompatibleUnannotatedOverride = "error"
 reportUnannotatedClassAttribute = "none"
 executionEnvironments = [
-    { root = "build/py3_13", pythonVersion = "3.13" },
-    { root = "tests", pythonVersion = "3.13" },
+    { root = "build/py_latest", pythonVersion = "3.14" },
+    { root = "tests", pythonVersion = "3.14" },
 ]
 
 [tool.ruff]
@@ -243,7 +246,7 @@ extend-exclude = [
     "packages/pyright-internal/typeshed-fallback",
     "docstubs",
     "packages/pyright-internal/src/tests/samples",
-    "build/py3_13/generateUnicodeTables.py",
+    "build/py_latest/upstream",
 ]
 
 [tool.ruff.lint]

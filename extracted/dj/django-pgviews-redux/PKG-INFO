@@ -1,36 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-pgviews-redux
-Version: 0.11.0
+Version: 1.1.0
 Summary: Create and manage Postgres SQL Views in Django
-Home-page: https://github.com/xelixdev/django-pgviews-redux
 Keywords: django,views,materialized views,postgres
 Author: Mikuláš Poul
 Author-email: mikulas.poul@xelix.com
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
-Classifier: License :: OSI Approved :: The Unlicense (Unlicense)
-Classifier: License :: Public Domain
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: django (>=5.1)
 Project-URL: Repository, https://github.com/xelixdev/django-pgviews-redux
 Description-Content-Type: text/markdown
 
 # SQL Views for Postgres
 
 Adds first-class support for [PostgreSQL Views][pg-views] in the Django ORM.
-Fork of the original [django-pgviews][django-pgviews] by [mypebble][mypebble] with support for Django 3.2+.
+Fork of the original [django-pgviews][django-pgviews] by [mypebble][mypebble] with support for later Djangos, Pythons, and new features.
 
 [pg-views]: http://www.postgresql.org/docs/9.1/static/sql-createview.html
 [django-pgviews]: https://github.com/mypebble/django-pgviews
@@ -51,7 +45,7 @@ INSTALLED_APPS = (
 )
 ```
 
-## Examples
+## Basic example
 
 ```python
 from django.db import models
@@ -64,22 +58,19 @@ class Customer(models.Model):
     post_code = models.CharField(max_length=20)
     is_preferred = models.BooleanField(default=False)
 
-    class Meta:
-        app_label = 'myapp'
+    
+class PreferredCustomer(pg.View):    
+    name = models.CharField(max_length=100)
+    post_code = models.CharField(max_length=20)
+    
+    sql = """SELECT id, name, post_code FROM myapp_customer WHERE is_preferred IS TRUE"""
 
-class PreferredCustomer(pg.View):
-    projection = ['myapp.Customer.*',]
-    dependencies = ['myapp.OtherView',]
-    sql = """SELECT * FROM myapp_customer WHERE is_preferred = TRUE;"""
-
     class Meta:
-      app_label = 'myapp'
-      db_table = 'myapp_preferredcustomer'
       managed = False
 ```
 
-**NOTE** It is important that we include the `managed = False` in the `Meta` so
-Django 1.7 migrations don't attempt to create DB tables for this view.
+> [!NOTE]
+> It is important that we include the `managed = False` in the `Meta` so Django migrations don't attempt to create DB tables for this view.
 
 The SQL produced by this might look like:
 
@@ -88,33 +79,16 @@ CREATE VIEW myapp_preferredcustomer AS
 SELECT * FROM myapp_customer WHERE is_preferred = TRUE;
 ```
 
-To create all your views, run ``python manage.py sync_pgviews``
+To create this view, run `python manage.py migrate`, or `python manage.py sync_pgviews`.
 
-You can also specify field names, which will map onto fields in your View:
-
-```python
-from django_pgviews import view as pg
-
-
-VIEW_SQL = """
-    SELECT name, post_code FROM myapp_customer WHERE is_preferred = TRUE
-"""
-
-
-class PreferredCustomer(pg.View):
-    name = models.CharField(max_length=100)
-    post_code = models.CharField(max_length=20)
-
-    sql = VIEW_SQL
-```
+Then you can query `PreferredCustomer` like any other model.
 
 ## Usage
 
-To map onto a View, simply extend `pg_views.view.View`, assign SQL to the
-`sql` argument and define a `db_table`. You must _always_ set `managed = False`
-on the `Meta` class.
+To create a view, create a new class that subclasses `django_pgviews.view.View` instead of `models.Model`, 
+set `managed = False` on the `Meta` class, and define the `sql` class attribute with the definition of the view.
 
-Views can be created in a number of ways:
+Views can be created in two basic ways:
 
 1. Define fields to map onto the VIEW output
 2. Define a projection that describes the VIEW fields
@@ -127,20 +101,14 @@ Define the fields as you would with any Django Model:
 from django_pgviews import view as pg
 
 
-VIEW_SQL = """
-    SELECT name, post_code FROM myapp_customer WHERE is_preferred = TRUE
-"""
-
-
 class PreferredCustomer(pg.View):
     name = models.CharField(max_length=100)
     post_code = models.CharField(max_length=20)
 
-    sql = VIEW_SQL
+    sql = "SELECT id, name, post_code FROM myapp_customer WHERE is_preferred = TRUE"
 
     class Meta:
       managed = False
-      db_table = 'my_sql_view'
 ```
 
 ### Define Projection
@@ -153,32 +121,69 @@ from django_pgviews import view as pg
 
 
 class PreferredCustomer(pg.View):
-    projection = ['myapp.Customer.*',]
+    projection = ['myapp.Customer.*']
     sql = """SELECT * FROM myapp_customer WHERE is_preferred = TRUE;"""
 
     class Meta:
-      db_table = 'my_sql_view'
       managed = False
 ```
 
-This will take all fields on `myapp.Customer` and apply them to
-`PreferredCustomer`
+This will take all fields on `myapp.Customer` and apply them to `PreferredCustomer`
+
+## Migrations
+
+When you run `makemigrations`, `django-pgviews` will detect changes in views and create migrations to register new views and to drop renamed or removed views.
+
+By default, when you run `migrate`, `django-pgviews` will create or update your views – you may turn this off with `MATERIALIZED_VIEWS_DISABLE_SYNC_ON_MIGRATE`, see below.
+
+### Autodetector
+
+If you use another library which updates the Django migration AutoDetector, if you want to keep full functionality, you need to subclass
+the AutoDetector class to subclass from `django_pgviews.db.migrations.autodetector.PGViewsAutodetector` as well.
+
+### Changing upstream fields
+
+If you need to change a column which is used in a view definition, you may get an error like this:
+
+```
+django.db.utils.NotSupportedError: cannot alter type of a column used by a view or rule
+DETAIL:  rule _RETURN on materialized view some_view depends on column "some_column"
+```
+
+To handle this, you can use the migrations to drop the view before the migration gets applied, and then recreate it afterwards.
+
+1. Add an empty migration to the app with your view (`python manage.py makemigrations --empty app_name`)
+2. Add database operation to the migration
+```python
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                django_pgviews.db.migrations.operations.DeleteViewOperation(
+                    name="SomeView",  # CHANGEME
+                    materialized=True,  # CHANGEME
+                    db_name="some_view",  # CHANGEME
+                ),
+            ]
+        ),
+```
+3. Make the migration changing the column depend on the migration dropping the view
+
+When you then run migrations, the view will be dropped, the column will be changed, and the view will be recreated by the command after all migrations are applied. 
 
 ## Features
 
 ### Configuration
+
 `MATERIALIZED_VIEWS_DISABLE_SYNC_ON_MIGRATE`
 
-When set to True, it skips running `sync_pgview` during migrations, which can be useful if you want to control the synchronization manually or avoid potential overhead during migrations. (default: False)
+When set to True, it skips running `sync_pgviews` during migrations, which can be useful if you want to control the synchronization manually or avoid potential overhead during migrations. (default: False)
 ```
 MATERIALIZED_VIEWS_DISABLE_SYNC_ON_MIGRATE = True
 ```
 
 ### Updating Views
 
-Sometimes your models change and you need your Database Views to reflect the new
-data. Updating the View logic is as simple as modifying the underlying SQL and
-running:
+Sometimes your models change, and you need your views to reflect the new data.
+Updating the View logic is as simple as modifying the underlying SQL and running:
 
 ```
 python manage.py sync_pgviews --force
@@ -188,12 +193,12 @@ This will forcibly update any views that conflict with your new SQL.
 
 ### Dependencies
 
-You can specify other views you depend on. This ensures the other views are
-installed beforehand. Using dependencies also ensures that your views get
-refreshed correctly when using `sync_pgviews --force`.
+You can specify other views you depend on.
+This ensures the other views are installed beforehand.
+Using dependencies also ensures that your views get refreshed correctly when using `sync_pgviews --force`.
 
-**Note:** Views are synced after the Django application has migrated and adding
-models to the dependency list will cause syncing to fail.
+> [!NOTE]
+> Views are synced after the Django application has migrated, and adding models to the dependency list will cause syncing to fail.
 
 Example:
 
@@ -205,20 +210,15 @@ class PreferredCustomer(pg.View):
     sql = """SELECT * FROM myapp_customer WHERE is_preferred = TRUE;"""
 
     class Meta:
-      app_label = 'myapp'
-      db_table = 'myapp_preferredcustomer'
       managed = False
 ```
 
 ### Materialized Views
 
 Postgres 9.3 and up supports [materialized views](http://www.postgresql.org/docs/current/static/sql-creatematerializedview.html)
-which allow you to cache the results of views, potentially allowing them
-to load faster.
+which allow you to cache the results of views, potentially allowing them to load faster.
 
-However, you do need to manually refresh the view. To do this automatically,
-you can attach [signals](https://docs.djangoproject.com/en/1.8/ref/signals/)
-and call the refresh function.
+However, you do need to manually refresh the view. To do this automatically, you can attach [signals](https://docs.djangoproject.com/en/1.8/ref/signals/) and call the refresh function.
 
 Example:
 
@@ -254,8 +254,11 @@ Postgres 9.4 and up allow materialized views to be refreshed concurrently, witho
 unique index exists on the materialized view. To enable concurrent refresh, specify the name of a column that can be
 used as a unique index on the materialized view. Unique index can be defined on more than one column of a materialized
 view. Once enabled, passing `concurrently=True` to the model's refresh method will result in postgres performing the
-refresh concurrently. (Note that the refresh method itself blocks until the refresh is complete; concurrent refresh is
-most useful when materialized views are updated in another process or thread.)
+refresh concurrently. Note that the refresh method itself blocks until the refresh is complete; concurrent refresh is
+most useful when materialized views are used in another process or thread.
+
+By default, if you pass `concurrently=True` to the model's refresh method without the concurrent index defined,
+only a warning is logged. You can pass `strict=True` to it as well to raise an exception instead (`ConcurrentIndexNotDefinedError`).
 
 Example:
 
@@ -284,7 +287,7 @@ def customer_saved(sender, action=None, instance=None, **kwargs):
 
 As the materialized view isn't defined through the usual Django model fields, any indexes defined there won't be
 created on the materialized view. Luckily Django provides a Meta option called `indexes` which can be used to add custom
-indexes to models. `pg_views` supports defining indexes on materialized views using this option.
+indexes to models. `django-pgviews` supports defining indexes on materialized views using this option.
 
 In the following example, one index will be created, on the `name` column. The `db_index=True` on the field definition
 for `post_code` will get ignored.
@@ -341,15 +344,34 @@ checks existing materialized view definition in the database (if the mat. view e
 definition with the one currently defined in your `pg.MaterializedView` subclass. If the definition matches
 exactly, the re-create of materialized view is skipped.
 
-This feature is enabled by setting the `MATERIALIZED_VIEWS_CHECK_SQL_CHANGED` in your Django settings to `True`,
-which enables the feature when running `migrate`. The command `sync_pgviews` uses this setting as well,
-however it also has switches `--enable-materialized-views-check-sql-changed` and
+This feature is on by default (as of version 1.0), it can be disabled by setting the `MATERIALIZED_VIEWS_CHECK_SQL_CHANGED` in your Django settings to `False`.
+The command `sync_pgviews` uses this setting as well, however, it also has switches `--enable-materialized-views-check-sql-changed` and
 `--disable-materialized-views-check-sql-changed` which override this setting for that command.
 
 This feature also takes into account indexes. When a view is deemed not needing recreating, the process will still
 check the indexes on the table and delete any extra indexes and create any missing indexes. This reconciliation
 is done through the index name, so if you use custom names for your indexes, it might happen that it won't get updated
 on change of the content but not the name.
+
+With data is also respected: if the view definition did not change, but data is not populated and the view class says data should be populated,
+a refresh will happen to ensure the view is populated.
+
+#### Refreshing dependencies / dependants
+
+The `refresh` method on `MaterializedView` only refreshes the given view, not dependencies or dependants.
+If you want to refresh all views related to a given view(s), i.e. all dependencies and dependants, you can use the `refresh_specific_views` utility function.
+
+```python
+from django_pgviews.refresh import refresh_specific_views
+
+refresh_specific_views([SomeMaterializedView], concurrently=True, strict=True)
+```
+
+Under the hood that function is implemented usingh three public utility functions from `django_pgviews.dependencies`, which you can use directly if you need more control over the refresh process:
+
+- `get_views_dependants`: Get all dependants of a given view(s).
+- `get_views_dependencies`: Get all dependencies of a given view(s).
+- `reorder_by_dependencies`: Reorder views to ensure that dependencies are refreshed before dependants.
 
 ### Schemas
 
@@ -424,7 +446,7 @@ Provides args:
 
 ### Multiple databases
 
-django-pgviews can use multiple databases.  Similar to Django's `migrate`
+django-pgviews can use multiple databases. Similar to Django's `migrate`
 management command, our commands (`clear_pgviews`, `refresh_pgviews`,
 `sync_pgviews`) operate on one database at a time. You can specify which
 database to synchronize by providing the `--database` option. For example:
@@ -440,6 +462,22 @@ need to take some additional steps. Please refer to Django's [Automatic database
 routing](https://docs.djangoproject.com/en/3.2/topics/db/multi-db/#automatic-database-routing)
 to pin views to specific databases.
 
+## Management commands
+
+### `sync_pgviews`
+
+The primary management command for `django-pgviews`, it will create or update views. See `--help` for more available parameters.
+
+### `refresh_pgviews`
+
+Refresh only materialized views, by default, it will do it non-concurrently. `--concurrently` can be used to make the refresh concurrently.
+Adding `--strict` will make the command raise an exception if the concurrent index is not defined while `--concurrently` is used.
+See `--help` for more available parameters.
+
+### `clear_pgviews`
+
+Will delete all views and materialized views from the database.
+See `--help` for more available parameters.
 
 ## Django Compatibility
 
@@ -506,10 +544,14 @@ to pin views to specific databases.
       <td>5.0</td>
       <td>0.9.4</td>
     </tr>
+    <tr>
+      <td>6.0</td>
+      <td>0.13.0</td>
+    </tr>
   </tbody>
 </table>
 
-## Python 3 Support
+## Python Support
 
-Django PGViews Redux only officially supports Python 3.7+, it might work on 3.6, but there's no guarantees.
+Django PGViews Redux only officially supports Python 3.10+, it might work on previous versions, but there are no guarantees.
 

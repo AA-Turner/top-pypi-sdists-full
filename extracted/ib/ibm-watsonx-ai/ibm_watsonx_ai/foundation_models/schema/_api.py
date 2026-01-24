@@ -1,10 +1,19 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
+import inspect
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Type, TypeVar, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Type,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
 from tabulate import tabulate
 
@@ -30,7 +39,11 @@ class BaseSchema:
             if field_name in data:
                 value = data[field_name]
                 origin = get_origin(field_type)
-                if origin is not None and issubclass(origin, BaseSchema):
+                if (
+                    origin is not None
+                    and inspect.isclass(origin)
+                    and issubclass(origin, BaseSchema)
+                ):
                     if hasattr(origin, "from_dict"):
                         value = origin.from_dict(value)
                 kwargs[field_name] = value
@@ -159,7 +172,7 @@ class TextGenParameters(BaseSchema):
 
     @classmethod
     def get_sample_params(cls) -> dict[str, Any]:
-        """Provide example values for TextChatParameters."""
+        """Provide example values for TextGenParameters."""
         return {
             "decoding_method": list(TextGenDecodingMethod)[1].value,
             "length_penalty": TextGenLengthPenalty.get_sample_params(),
@@ -176,6 +189,28 @@ class TextGenParameters(BaseSchema):
             "return_options": ReturnOptionProperties.get_sample_params(),
             "include_stop_sequence": True,
             "prompt_variables": {"doc_type": "emails", "entity_name": "Golden Retail"},
+        }
+
+
+@dataclass
+class Crypto(BaseSchema):
+    """
+    Configuration object for tenant-level encryption.
+
+    :param key_ref: the identifier of the Data Encryption Key (DEK)
+    :type key_ref: str
+
+    .. hint::
+        More information about the Data Encryption Key is available in the official `API documentation <https://cloud.ibm.com/apidocs/watsonx-ai#text-generation>`_.
+    """
+
+    key_ref: str
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for Crypto."""
+        return {
+            "key_ref": "crn:v1:bluemix:public:kms:us-south:a/12345:b/67890::key:abcd-1234-ef56-7890"
         }
 
 
@@ -248,6 +283,11 @@ class TextChatParameters(BaseSchema):
     guided_regex: str | None = None
     guided_grammar: str | None = None
     guided_json: dict | None = None
+    chat_template_kwargs: dict | None = None
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
+    include_reasoning: bool | None = None
+    repetition_penalty: float | None = None
+    length_penalty: float | None = None
 
     @classmethod
     def get_sample_params(cls) -> dict[str, Any]:
@@ -259,7 +299,6 @@ class TextChatParameters(BaseSchema):
             "presence_penalty": 0.3,
             "response_format": TextChatResponseFormat.get_sample_params(),
             "temperature": 0.7,
-            "max_tokens": 100,
             "max_completion_tokens": 512,
             "time_limit": 600000,
             "top_p": 0.9,
@@ -274,6 +313,11 @@ class TextChatParameters(BaseSchema):
                 "type": "object",
                 "properties": {"sentiment": {"type": "string"}},
             },
+            "chat_template_kwargs": {"thinking": True},
+            "reasoning_effort": "high",
+            "include_reasoning": True,
+            "repetition_penalty": 1.5,
+            "length_penalty": 1.0,
         }
 
 
@@ -387,26 +431,63 @@ class PeftParameters(BaseSchema):
 
 @dataclass
 class AutoAIRAGModelParams(BaseSchema):
+    """
+    **Deprecated parameters:**
+        - ``decoding_method``
+        - ``min_new_tokens``
+        - ``max_new_tokens``
+        - ``max_sequence_length``
+    """
+
     decoding_method: str | TextGenDecodingMethod | None = None
     min_new_tokens: int | None = None
     max_new_tokens: int | None = None
     max_sequence_length: int | None = None
+    max_completion_tokens: int | None = None
+    temperature: float | None = None
 
     @classmethod
     def get_sample_params(cls) -> dict[str, Any]:
         """Provide example values for AutoAIRAGModelParams."""
         return {
-            "decoding_method": list(TextGenDecodingMethod)[1].value,
-            "min_new_tokens": 5,
-            "max_new_tokens": 300,
-            "max_sequence_length": 4096,
+            "max_completion_tokens": 1024,
+            "temperature": 0.1,
+        }
+
+
+@dataclass
+class AutoAIRAGChatTemplateMessagesConfig(BaseSchema):
+    system_message_text: str
+    user_message_text: str
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGChatTemplateMessagesConfig."""
+        return {
+            "system_message_text": "You are a helpful, respectful and honest assistant. Always answer as helpfully as "
+            "possible, while being safe. Your answers should not include any harmful, unethical, racist, sexist, "
+            "toxic, dangerous, or illegal content. Please ensure that your responses are socially unbiased and "
+            "positive in nature.\n\nIf a question does not make any sense, or is not factually coherent, explain why"
+            "instead of answering something not correct. If you don't know the answer to a question, please don't "
+            "share false information.",
+            "user_message_text": "Generate the next agent response by answering the question. You are provided "
+            "several documents with titles. If the answer comes from different documents please mention all "
+            "possibilities and use the titles of documents to separate between topics or domains. If you cannot base "
+            "your answer on the given documents, please state that you do not have an answer."
+            "\n\n{reference_documents}\n\n{question}",
         }
 
 
 @dataclass
 class AutoAIRAGModelConfig(BaseSchema):
+    """
+    **Deprecated parameters:**
+        - ``prompt_template_text``
+    """
+
     model_id: str
     parameters: dict | AutoAIRAGModelParams | None = None
+    chat_template_messages: dict | AutoAIRAGChatTemplateMessagesConfig | None = None
     prompt_template_text: str | None = None
     context_template_text: str | None = None
     word_to_token_ratio: float | None = None
@@ -417,7 +498,7 @@ class AutoAIRAGModelConfig(BaseSchema):
         return {
             "model_id": "ibm/granite-13b-instruct-v2",
             "parameters": AutoAIRAGModelParams.get_sample_params(),
-            "prompt_template_text": "My question {question} related to these documents {reference_documents}.",
+            "chat_template_messages": AutoAIRAGChatTemplateMessagesConfig.get_sample_params(),
             "context_template_text": "My document {document}",
             "word_to_token_ratio": 1.5,
         }
@@ -425,10 +506,16 @@ class AutoAIRAGModelConfig(BaseSchema):
 
 @dataclass
 class AutoAIRAGCustomModelConfig(BaseSchema):
+    """
+    **Deprecated parameters:**
+        - ``prompt_template_text``
+    """
+
     deployment_id: str
     space_id: str | None = None
     project_id: str | None = None
     parameters: dict | AutoAIRAGModelParams | None = None
+    chat_template_messages: dict | AutoAIRAGChatTemplateMessagesConfig | None = None
     prompt_template_text: str | None = None
     context_template_text: str | None = None
     word_to_token_ratio: float | None = None
@@ -440,7 +527,7 @@ class AutoAIRAGCustomModelConfig(BaseSchema):
             "deployment_id": "<PASTE_DEPLOYMENT_ID_HERE>",
             "space_id": "<PASTE_SPACE_ID_HERE>",
             "parameters": AutoAIRAGModelParams.get_sample_params(),
-            "prompt_template_text": "My question {question} related to these documents {reference_documents}.",
+            "chat_template_messages": AutoAIRAGChatTemplateMessagesConfig.get_sample_params(),
             "context_template_text": "My document {document}",
             "word_to_token_ratio": 1.5,
         }
@@ -501,7 +588,7 @@ class AutoAIRAGLanguageConfig(BaseSchema):
 
 @dataclass
 class AutoAIRAGGenerationConfig(BaseSchema):
-    language: str | AutoAIRAGLanguageConfig | None = None
+    language: dict | AutoAIRAGLanguageConfig | None = None
     foundation_models: (
         list[dict | AutoAIRAGModelConfig | AutoAIRAGCustomModelConfig] | None
     ) = None
@@ -512,6 +599,31 @@ class AutoAIRAGGenerationConfig(BaseSchema):
         return {
             "language": AutoAIRAGLanguageConfig.get_sample_params(),
             "foundation_models": [AutoAIRAGModelConfig.get_sample_params()],
+        }
+
+
+@dataclass
+class AutoAIRAGDeploymentConfig(BaseSchema):
+    @dataclass
+    class Service(BaseSchema):
+        space_id: str
+        auto_deploy: bool | None = None
+
+    inference_service: Service | None = None
+    indexing_service: Service | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for AutoAIRAGGenerationConfig."""
+        return {
+            "inference_service": AutoAIRAGDeploymentConfig.Service(
+                space_id="<PASTE_SPACE_ID_HERE>",
+                auto_deploy=True,
+            ),
+            "indexing_service": AutoAIRAGDeploymentConfig.Service(
+                space_id="<PASTE_SPACE_ID_HERE>",
+                auto_deploy=True,
+            ),
         }
 
 
@@ -533,4 +645,89 @@ class GuardianDetectors(BaseSchema):
             "hap": {"threshold": 0.4},
             "pii": {},
             "granite_guardian": {"threshold": 0.4},
+        }
+
+
+##########################
+#  Text Classification   #
+##########################
+
+
+class SchemasMergeStrategy(StrEnum):
+    """Strategy for schemas merge."""
+
+    MERGE = "merge"
+    REPLACE = "replace"
+
+
+class OCRMode(StrEnum):
+    DISABLED = "disabled"
+    ENABLED = "enabled"
+    FORCED = "forced"
+
+
+class ClassificationMode(StrEnum):
+    EXACT = "exact"
+    BINARY = "binary"
+
+
+@dataclass
+class TextClassificationSemanticConfig(BaseSchema):
+    """Semantic configuration for text classification.
+
+    :param schemas_merge_strategy: strategy for schemas merge
+    :type schemas_merge_strategy: SchemasMergeStrategy, optional
+
+    :param schemas: schemas
+    :type schemas: list[dict], optional
+    """
+
+    schemas_merge_strategy: SchemasMergeStrategy | None = None
+    schemas: list[dict] | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for TextClassificationSemanticConfig."""
+        return {"schemas_merge_strategy": SchemasMergeStrategy.MERGE, "schemas": []}
+
+
+@dataclass
+class TextClassificationParameters(BaseSchema):
+    """Parameters used for text classification.
+
+    :param ocr_mode: whether OCR should be used when processing a document, an empty value allows the service
+                     to select the best option for your processing mode
+    :type ocr_mode: OCRMode, optional
+
+    :param classification_mode: classification mode, the value exact gives the exact schema name the document
+                                is classified to, the option `binary` only gives whether the document is classified
+                                to a known schema or not
+    :type classification_mode: ClassificationMode, optional
+
+    :param auto_rotation_correction: whether should the service attempt to fix a rotated page or image
+    :type auto_rotation_correction: bool, optional
+
+    :param languages: set of languages to be expected in the document, the language codes follow ISO 639 where possible,
+                      see the REST API documentation for the currently supported languages
+    :type languages: list[str], optional
+
+    :param semantic_config: additional configuration settings for the Semantic KVP model
+    :type semantic_config: TextClassificationSemanticConfig, optional
+    """
+
+    ocr_mode: OCRMode | None = None
+    classification_mode: ClassificationMode | None = None
+    auto_rotation_correction: bool | None = None
+    languages: list[str] | None = None
+    semantic_config: TextClassificationSemanticConfig | None = None
+
+    @classmethod
+    def get_sample_params(cls) -> dict[str, Any]:
+        """Provide example values for TextClassificationParameters."""
+        return {
+            "ocr_mode": OCRMode.ENABLED,
+            "classification_mode": ClassificationMode.EXACT,
+            "auto_rotation_correction": True,
+            "languages": ["en"],
+            "semantic_config": TextClassificationSemanticConfig.get_sample_params(),
         }

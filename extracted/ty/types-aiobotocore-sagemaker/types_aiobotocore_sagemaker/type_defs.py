@@ -3,24 +3,26 @@ Type annotations for sagemaker service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_aiobotocore_sagemaker.type_defs import ActionSourceTypeDef
+    from types_aiobotocore_sagemaker.type_defs import AcceleratorPartitionConfigTypeDef
 
-    data: ActionSourceTypeDef = ...
+    data: AcceleratorPartitionConfigTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AccountDefaultStatusType,
     ActionStatusType,
     ActivationStateType,
     AdditionalS3DataSourceDataTypeType,
@@ -57,6 +59,8 @@ from .literals import (
     AwsManagedHumanLoopRequestSourceType,
     BatchAddClusterNodesErrorCodeType,
     BatchDeleteClusterNodesErrorCodeType,
+    BatchRebootClusterNodesErrorCodeType,
+    BatchReplaceClusterNodesErrorCodeType,
     BatchStrategyType,
     BooleanOperatorType,
     CandidateSortByType,
@@ -69,9 +73,14 @@ from .literals import (
     ClarifyFeatureTypeType,
     ClarifyTextGranularityType,
     ClarifyTextLanguageType,
+    ClusterAutoScalingModeType,
+    ClusterAutoScalingStatusType,
+    ClusterCapacityTypeType,
+    ClusterConfigModeType,
     ClusterEventResourceTypeType,
     ClusterInstanceStatusType,
     ClusterInstanceTypeType,
+    ClusterKubernetesTaintEffectType,
     ClusterNodeRecoveryType,
     ClusterSortByType,
     ClusterStatusType,
@@ -85,6 +94,7 @@ from .literals import (
     ContainerModeType,
     ContentClassifierType,
     CrossAccountFilterOptionType,
+    CustomizationTechniqueType,
     DataDistributionTypeType,
     DataSourceNameType,
     DeepHealthCheckTypeType,
@@ -101,6 +111,7 @@ from .literals import (
     EndpointConfigSortKeyType,
     EndpointSortKeyType,
     EndpointStatusType,
+    EvaluationTypeType,
     ExecutionRoleIdentityConfigType,
     ExecutionStatusType,
     FailureHandlingPolicyType,
@@ -144,6 +155,7 @@ from .literals import (
     InputModeType,
     InstanceGroupStatusType,
     InstanceTypeType,
+    IPAddressTypeType,
     IsTrackingServerActiveType,
     JobTypeType,
     JoinSourceType,
@@ -159,8 +171,11 @@ from .literals import (
     ListOptimizationJobsSortByType,
     ListWorkforcesSortByOptionsType,
     ListWorkteamsSortByOptionsType,
+    MaintenanceStatusType,
     ManagedInstanceScalingStatusType,
     MetricSetSourceType,
+    MIGProfileTypeType,
+    MlflowAppStatusType,
     MlToolsType,
     ModelApprovalStatusType,
     ModelCacheSettingType,
@@ -175,10 +190,13 @@ from .literals import (
     ModelMetadataFilterTypeType,
     ModelPackageGroupSortByType,
     ModelPackageGroupStatusType,
+    ModelPackageRegistrationTypeType,
     ModelPackageSortByType,
     ModelPackageStatusType,
     ModelPackageTypeType,
+    ModelRegistrationModeType,
     ModelSortKeyType,
+    ModelSpeculativeDecodingS3DataTypeType,
     ModelVariantActionType,
     ModelVariantStatusType,
     MonitoringAlertHistorySortKeyType,
@@ -255,8 +273,10 @@ from .literals import (
     ScheduleStatusType,
     SearchSortOrderType,
     SecondaryStatusType,
+    ServerlessJobTypeType,
     SharingTypeType,
     SkipModelValidationType,
+    SoftwareUpdateStatusType,
     SortActionsByType,
     SortAssociationsByType,
     SortByType,
@@ -265,6 +285,7 @@ from .literals import (
     SortExperimentsByType,
     SortInferenceExperimentsByType,
     SortLineageGroupsByType,
+    SortMlflowAppByType,
     SortOrderType,
     SortPipelineExecutionsByType,
     SortPipelinesByType,
@@ -319,12 +340,6 @@ from .literals import (
     WorkforceStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -332,6 +347,7 @@ else:
 
 
 __all__ = (
+    "AcceleratorPartitionConfigTypeDef",
     "ActionSourceTypeDef",
     "ActionSummaryTypeDef",
     "AddAssociationRequestTypeDef",
@@ -374,6 +390,7 @@ __all__ = (
     "ArtifactSummaryTypeDef",
     "AssociateTrialComponentRequestTypeDef",
     "AssociateTrialComponentResponseTypeDef",
+    "AssociationInfoTypeDef",
     "AssociationSummaryTypeDef",
     "AsyncInferenceClientConfigTypeDef",
     "AsyncInferenceConfigOutputTypeDef",
@@ -422,6 +439,8 @@ __all__ = (
     "AutoRollbackConfigOutputTypeDef",
     "AutoRollbackConfigTypeDef",
     "AutotuneTypeDef",
+    "AvailableUpgradeTypeDef",
+    "BaseModelTypeDef",
     "BatchAddClusterNodesErrorTypeDef",
     "BatchAddClusterNodesRequestTypeDef",
     "BatchAddClusterNodesResponseTypeDef",
@@ -434,8 +453,20 @@ __all__ = (
     "BatchDescribeModelPackageInputTypeDef",
     "BatchDescribeModelPackageOutputTypeDef",
     "BatchDescribeModelPackageSummaryTypeDef",
+    "BatchRebootClusterNodeLogicalIdsErrorTypeDef",
+    "BatchRebootClusterNodesErrorTypeDef",
+    "BatchRebootClusterNodesRequestTypeDef",
+    "BatchRebootClusterNodesResponseTypeDef",
+    "BatchReplaceClusterNodeLogicalIdsErrorTypeDef",
+    "BatchReplaceClusterNodesErrorTypeDef",
+    "BatchReplaceClusterNodesRequestTypeDef",
+    "BatchReplaceClusterNodesResponseTypeDef",
     "BatchTransformInputOutputTypeDef",
     "BatchTransformInputTypeDef",
+    "BedrockCustomModelDeploymentMetadataTypeDef",
+    "BedrockCustomModelMetadataTypeDef",
+    "BedrockModelImportMetadataTypeDef",
+    "BedrockProvisionedModelThroughputMetadataTypeDef",
     "BestObjectiveNotImprovingTypeDef",
     "BiasTypeDef",
     "BlueGreenUpdatePolicyTypeDef",
@@ -481,6 +512,11 @@ __all__ = (
     "ClarifyShapBaselineConfigTypeDef",
     "ClarifyShapConfigTypeDef",
     "ClarifyTextConfigTypeDef",
+    "ClusterAutoScalingConfigOutputTypeDef",
+    "ClusterAutoScalingConfigTypeDef",
+    "ClusterCapacityRequirementsOutputTypeDef",
+    "ClusterCapacityRequirementsTypeDef",
+    "ClusterCapacityRequirementsUnionTypeDef",
     "ClusterEbsVolumeConfigTypeDef",
     "ClusterEventDetailTypeDef",
     "ClusterEventSummaryTypeDef",
@@ -489,6 +525,10 @@ __all__ = (
     "ClusterInstancePlacementTypeDef",
     "ClusterInstanceStatusDetailsTypeDef",
     "ClusterInstanceStorageConfigTypeDef",
+    "ClusterKubernetesConfigDetailsTypeDef",
+    "ClusterKubernetesConfigNodeDetailsTypeDef",
+    "ClusterKubernetesConfigTypeDef",
+    "ClusterKubernetesTaintTypeDef",
     "ClusterLifeCycleConfigTypeDef",
     "ClusterMetadataTypeDef",
     "ClusterNodeDetailsTypeDef",
@@ -499,6 +539,7 @@ __all__ = (
     "ClusterRestrictedInstanceGroupSpecificationTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
     "ClusterSummaryTypeDef",
+    "ClusterTieredStorageConfigTypeDef",
     "CodeEditorAppImageConfigOutputTypeDef",
     "CodeEditorAppImageConfigTypeDef",
     "CodeEditorAppImageConfigUnionTypeDef",
@@ -597,6 +638,8 @@ __all__ = (
     "CreateInferenceRecommendationsJobResponseTypeDef",
     "CreateLabelingJobRequestTypeDef",
     "CreateLabelingJobResponseTypeDef",
+    "CreateMlflowAppRequestTypeDef",
+    "CreateMlflowAppResponseTypeDef",
     "CreateMlflowTrackingServerRequestTypeDef",
     "CreateMlflowTrackingServerResponseTypeDef",
     "CreateModelBiasJobDefinitionRequestTypeDef",
@@ -631,6 +674,8 @@ __all__ = (
     "CreatePipelineResponseTypeDef",
     "CreatePresignedDomainUrlRequestTypeDef",
     "CreatePresignedDomainUrlResponseTypeDef",
+    "CreatePresignedMlflowAppUrlRequestTypeDef",
+    "CreatePresignedMlflowAppUrlResponseTypeDef",
     "CreatePresignedMlflowTrackingServerUrlRequestTypeDef",
     "CreatePresignedMlflowTrackingServerUrlResponseTypeDef",
     "CreatePresignedNotebookInstanceUrlInputTypeDef",
@@ -682,6 +727,7 @@ __all__ = (
     "DataSourceTypeDef",
     "DataSourceUnionTypeDef",
     "DatasetDefinitionTypeDef",
+    "DatasetSourceTypeDef",
     "DebugHookConfigOutputTypeDef",
     "DebugHookConfigTypeDef",
     "DebugHookConfigUnionTypeDef",
@@ -732,6 +778,8 @@ __all__ = (
     "DeleteInferenceComponentInputTypeDef",
     "DeleteInferenceExperimentRequestTypeDef",
     "DeleteInferenceExperimentResponseTypeDef",
+    "DeleteMlflowAppRequestTypeDef",
+    "DeleteMlflowAppResponseTypeDef",
     "DeleteMlflowTrackingServerRequestTypeDef",
     "DeleteMlflowTrackingServerResponseTypeDef",
     "DeleteModelBiasJobDefinitionRequestTypeDef",
@@ -750,10 +798,12 @@ __all__ = (
     "DeletePartnerAppResponseTypeDef",
     "DeletePipelineRequestTypeDef",
     "DeletePipelineResponseTypeDef",
+    "DeleteProcessingJobRequestTypeDef",
     "DeleteProjectInputTypeDef",
     "DeleteSpaceRequestTypeDef",
     "DeleteStudioLifecycleConfigRequestTypeDef",
     "DeleteTagsInputTypeDef",
+    "DeleteTrainingJobRequestTypeDef",
     "DeleteTrialComponentRequestTypeDef",
     "DeleteTrialComponentResponseTypeDef",
     "DeleteTrialRequestTypeDef",
@@ -857,6 +907,8 @@ __all__ = (
     "DescribeLabelingJobResponseTypeDef",
     "DescribeLineageGroupRequestTypeDef",
     "DescribeLineageGroupResponseTypeDef",
+    "DescribeMlflowAppRequestTypeDef",
+    "DescribeMlflowAppResponseTypeDef",
     "DescribeMlflowTrackingServerRequestTypeDef",
     "DescribeMlflowTrackingServerResponseTypeDef",
     "DescribeModelBiasJobDefinitionRequestTypeDef",
@@ -1091,9 +1143,12 @@ __all__ = (
     "InferenceComponentComputeResourceRequirementsTypeDef",
     "InferenceComponentContainerSpecificationSummaryTypeDef",
     "InferenceComponentContainerSpecificationTypeDef",
+    "InferenceComponentDataCacheConfigSummaryTypeDef",
+    "InferenceComponentDataCacheConfigTypeDef",
     "InferenceComponentDeploymentConfigOutputTypeDef",
     "InferenceComponentDeploymentConfigTypeDef",
     "InferenceComponentDeploymentConfigUnionTypeDef",
+    "InferenceComponentMetadataTypeDef",
     "InferenceComponentRollingUpdatePolicyTypeDef",
     "InferenceComponentRuntimeConfigSummaryTypeDef",
     "InferenceComponentRuntimeConfigTypeDef",
@@ -1166,6 +1221,7 @@ __all__ = (
     "LambdaStepMetadataTypeDef",
     "LastUpdateStatusTypeDef",
     "LineageGroupSummaryTypeDef",
+    "LineageMetadataTypeDef",
     "ListActionsRequestPaginateTypeDef",
     "ListActionsRequestTypeDef",
     "ListActionsResponseTypeDef",
@@ -1289,6 +1345,9 @@ __all__ = (
     "ListLineageGroupsRequestPaginateTypeDef",
     "ListLineageGroupsRequestTypeDef",
     "ListLineageGroupsResponseTypeDef",
+    "ListMlflowAppsRequestPaginateTypeDef",
+    "ListMlflowAppsRequestTypeDef",
+    "ListMlflowAppsResponseTypeDef",
     "ListMlflowTrackingServersRequestPaginateTypeDef",
     "ListMlflowTrackingServersRequestTypeDef",
     "ListMlflowTrackingServersResponseTypeDef",
@@ -1414,6 +1473,7 @@ __all__ = (
     "ListWorkteamsRequestPaginateTypeDef",
     "ListWorkteamsRequestTypeDef",
     "ListWorkteamsResponseTypeDef",
+    "MLflowConfigurationTypeDef",
     "MemberDefinitionOutputTypeDef",
     "MemberDefinitionTypeDef",
     "MemberDefinitionUnionTypeDef",
@@ -1422,7 +1482,11 @@ __all__ = (
     "MetricDatumTypeDef",
     "MetricDefinitionTypeDef",
     "MetricSpecificationTypeDef",
+    "MetricsConfigTypeDef",
     "MetricsSourceTypeDef",
+    "MlflowAppSummaryTypeDef",
+    "MlflowConfigTypeDef",
+    "MlflowDetailsTypeDef",
     "ModelAccessConfigTypeDef",
     "ModelArtifactsTypeDef",
     "ModelBiasAppSpecificationOutputTypeDef",
@@ -1469,6 +1533,7 @@ __all__ = (
     "ModelMetadataSearchExpressionTypeDef",
     "ModelMetadataSummaryTypeDef",
     "ModelMetricsTypeDef",
+    "ModelPackageConfigTypeDef",
     "ModelPackageContainerDefinitionOutputTypeDef",
     "ModelPackageContainerDefinitionTypeDef",
     "ModelPackageContainerDefinitionUnionTypeDef",
@@ -1500,6 +1565,8 @@ __all__ = (
     "ModelShardingConfigOutputTypeDef",
     "ModelShardingConfigTypeDef",
     "ModelShardingConfigUnionTypeDef",
+    "ModelSpeculativeDecodingConfigTypeDef",
+    "ModelSpeculativeDecodingTrainingDataSourceTypeDef",
     "ModelStepMetadataTypeDef",
     "ModelSummaryTypeDef",
     "ModelTypeDef",
@@ -1573,6 +1640,7 @@ __all__ = (
     "OptimizationJobSummaryTypeDef",
     "OptimizationModelAccessConfigTypeDef",
     "OptimizationOutputTypeDef",
+    "OptimizationSageMakerModelTypeDef",
     "OptimizationVpcConfigOutputTypeDef",
     "OptimizationVpcConfigTypeDef",
     "OptimizationVpcConfigUnionTypeDef",
@@ -1707,6 +1775,8 @@ __all__ = (
     "RetryPipelineExecutionRequestTypeDef",
     "RetryPipelineExecutionResponseTypeDef",
     "RetryStrategyTypeDef",
+    "RoleGroupAssignmentOutputTypeDef",
+    "RoleGroupAssignmentTypeDef",
     "RollingDeploymentPolicyTypeDef",
     "RollingUpdatePolicyTypeDef",
     "S3DataSourceOutputTypeDef",
@@ -1745,6 +1815,7 @@ __all__ = (
     "SendPipelineExecutionStepFailureResponseTypeDef",
     "SendPipelineExecutionStepSuccessRequestTypeDef",
     "SendPipelineExecutionStepSuccessResponseTypeDef",
+    "ServerlessJobConfigTypeDef",
     "ServiceCatalogProvisionedProductDetailsTypeDef",
     "ServiceCatalogProvisioningDetailsOutputTypeDef",
     "ServiceCatalogProvisioningDetailsTypeDef",
@@ -1853,6 +1924,7 @@ __all__ = (
     "TrainingPlanFilterTypeDef",
     "TrainingPlanOfferingTypeDef",
     "TrainingPlanSummaryTypeDef",
+    "TrainingProgressInfoTypeDef",
     "TrainingRepositoryAuthConfigTypeDef",
     "TrainingSpecificationOutputTypeDef",
     "TrainingSpecificationTypeDef",
@@ -1939,6 +2011,8 @@ __all__ = (
     "UpdateInferenceComponentRuntimeConfigOutputTypeDef",
     "UpdateInferenceExperimentRequestTypeDef",
     "UpdateInferenceExperimentResponseTypeDef",
+    "UpdateMlflowAppRequestTypeDef",
+    "UpdateMlflowAppResponseTypeDef",
     "UpdateMlflowTrackingServerRequestTypeDef",
     "UpdateMlflowTrackingServerResponseTypeDef",
     "UpdateModelCardRequestTypeDef",
@@ -1998,6 +2072,14 @@ __all__ = (
     "WorkteamTypeDef",
 )
 
+AcceleratorPartitionConfigTypeDef = TypedDict(
+    "AcceleratorPartitionConfigTypeDef",
+    {
+        "Type": MIGProfileTypeType,
+        "Count": int,
+    },
+)
+
 
 class ActionSourceTypeDef(TypedDict):
     SourceUri: str
@@ -2014,7 +2096,7 @@ class AddAssociationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -2030,7 +2112,7 @@ class TagTypeDef(TypedDict):
 
 
 class AdditionalEnisTypeDef(TypedDict):
-    EfaEnis: NotRequired[List[str]]
+    EfaEnis: NotRequired[list[str]]
 
 
 class AdditionalS3DataSourceTypeDef(TypedDict):
@@ -2098,8 +2180,8 @@ class IdleSettingsTypeDef(TypedDict):
 
 class AppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerArguments: NotRequired[List[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerArguments: NotRequired[list[str]]
 
 
 class AppSpecificationTypeDef(TypedDict):
@@ -2118,6 +2200,11 @@ class AssociateTrialComponentRequestTypeDef(TypedDict):
     TrialName: str
 
 
+class AssociationInfoTypeDef(TypedDict):
+    SourceArn: str
+    DestinationArn: str
+
+
 class AsyncInferenceClientConfigTypeDef(TypedDict):
     MaxConcurrentInvocationsPerInstance: NotRequired[int]
 
@@ -2125,7 +2212,7 @@ class AsyncInferenceClientConfigTypeDef(TypedDict):
 class AsyncInferenceNotificationConfigOutputTypeDef(TypedDict):
     SuccessTopic: NotRequired[str]
     ErrorTopic: NotRequired[str]
-    IncludeInferenceResponseIn: NotRequired[List[AsyncNotificationTopicTypesType]]
+    IncludeInferenceResponseIn: NotRequired[list[AsyncNotificationTopicTypesType]]
 
 
 class AsyncInferenceNotificationConfigTypeDef(TypedDict):
@@ -2157,7 +2244,7 @@ class AuthorizedUrlTypeDef(TypedDict):
 
 
 class AutoMLAlgorithmConfigOutputTypeDef(TypedDict):
-    AutoMLAlgorithms: List[AutoMLAlgorithmType]
+    AutoMLAlgorithms: list[AutoMLAlgorithmType]
 
 
 class AutoMLAlgorithmConfigTypeDef(TypedDict):
@@ -2173,7 +2260,7 @@ class AutoMLCandidateStepTypeDef(TypedDict):
 class AutoMLContainerDefinitionTypeDef(TypedDict):
     Image: str
     ModelDataUrl: str
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 FinalAutoMLJobObjectiveMetricTypeDef = TypedDict(
@@ -2237,8 +2324,8 @@ class TextGenerationResolvedAttributesTypeDef(TypedDict):
 
 
 class VpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
 
 
 class VpcConfigTypeDef(TypedDict):
@@ -2253,6 +2340,17 @@ class AutoParameterTypeDef(TypedDict):
 
 class AutotuneTypeDef(TypedDict):
     Mode: Literal["Enabled"]
+
+
+class AvailableUpgradeTypeDef(TypedDict):
+    Version: NotRequired[str]
+    ReleaseNotes: NotRequired[list[str]]
+
+
+class BaseModelTypeDef(TypedDict):
+    HubContentName: NotRequired[str]
+    HubContentVersion: NotRequired[str]
+    RecipeName: NotRequired[str]
 
 
 class BatchAddClusterNodesErrorTypeDef(TypedDict):
@@ -2299,6 +2397,58 @@ class BatchDescribeModelPackageErrorTypeDef(TypedDict):
 
 class BatchDescribeModelPackageInputTypeDef(TypedDict):
     ModelPackageArnList: Sequence[str]
+
+
+class BatchRebootClusterNodeLogicalIdsErrorTypeDef(TypedDict):
+    NodeLogicalId: str
+    ErrorCode: BatchRebootClusterNodesErrorCodeType
+    Message: str
+
+
+class BatchRebootClusterNodesErrorTypeDef(TypedDict):
+    NodeId: str
+    ErrorCode: BatchRebootClusterNodesErrorCodeType
+    Message: str
+
+
+class BatchRebootClusterNodesRequestTypeDef(TypedDict):
+    ClusterName: str
+    NodeIds: NotRequired[Sequence[str]]
+    NodeLogicalIds: NotRequired[Sequence[str]]
+
+
+class BatchReplaceClusterNodeLogicalIdsErrorTypeDef(TypedDict):
+    NodeLogicalId: str
+    ErrorCode: BatchReplaceClusterNodesErrorCodeType
+    Message: str
+
+
+class BatchReplaceClusterNodesErrorTypeDef(TypedDict):
+    NodeId: str
+    ErrorCode: BatchReplaceClusterNodesErrorCodeType
+    Message: str
+
+
+class BatchReplaceClusterNodesRequestTypeDef(TypedDict):
+    ClusterName: str
+    NodeIds: NotRequired[Sequence[str]]
+    NodeLogicalIds: NotRequired[Sequence[str]]
+
+
+class BedrockCustomModelDeploymentMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
+
+
+class BedrockCustomModelMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
+
+
+class BedrockModelImportMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
+
+
+class BedrockProvisionedModelThroughputMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
 
 
 class BestObjectiveNotImprovingTypeDef(TypedDict):
@@ -2399,8 +2549,8 @@ CapacitySizeTypeDef = TypedDict(
 
 
 class CaptureContentTypeHeaderOutputTypeDef(TypedDict):
-    CsvContentTypes: NotRequired[List[str]]
-    JsonContentTypes: NotRequired[List[str]]
+    CsvContentTypes: NotRequired[list[str]]
+    JsonContentTypes: NotRequired[list[str]]
 
 
 class CaptureContentTypeHeaderTypeDef(TypedDict):
@@ -2414,16 +2564,16 @@ class CaptureOptionTypeDef(TypedDict):
 
 class CategoricalParameterOutputTypeDef(TypedDict):
     Name: str
-    Value: List[str]
+    Value: list[str]
 
 
 class CategoricalParameterRangeOutputTypeDef(TypedDict):
     Name: str
-    Values: List[str]
+    Values: list[str]
 
 
 class CategoricalParameterRangeSpecificationOutputTypeDef(TypedDict):
-    Values: List[str]
+    Values: list[str]
 
 
 class CategoricalParameterRangeSpecificationTypeDef(TypedDict):
@@ -2467,11 +2617,11 @@ class ShuffleConfigTypeDef(TypedDict):
 
 class ChannelSpecificationOutputTypeDef(TypedDict):
     Name: str
-    SupportedContentTypes: List[str]
-    SupportedInputModes: List[TrainingInputModeType]
+    SupportedContentTypes: list[str]
+    SupportedInputModes: list[TrainingInputModeType]
     Description: NotRequired[str]
     IsRequired: NotRequired[bool]
-    SupportedCompressionTypes: NotRequired[List[CompressionTypeType]]
+    SupportedCompressionTypes: NotRequired[list[CompressionTypeType]]
 
 
 class ChannelSpecificationTypeDef(TypedDict):
@@ -2508,9 +2658,9 @@ class ClarifyInferenceConfigOutputTypeDef(TypedDict):
     LabelIndex: NotRequired[int]
     ProbabilityAttribute: NotRequired[str]
     LabelAttribute: NotRequired[str]
-    LabelHeaders: NotRequired[List[str]]
-    FeatureHeaders: NotRequired[List[str]]
-    FeatureTypes: NotRequired[List[ClarifyFeatureTypeType]]
+    LabelHeaders: NotRequired[list[str]]
+    FeatureHeaders: NotRequired[list[str]]
+    FeatureTypes: NotRequired[list[ClarifyFeatureTypeType]]
 
 
 class ClarifyInferenceConfigTypeDef(TypedDict):
@@ -2536,6 +2686,28 @@ class ClarifyShapBaselineConfigTypeDef(TypedDict):
 class ClarifyTextConfigTypeDef(TypedDict):
     Language: ClarifyTextLanguageType
     Granularity: ClarifyTextGranularityType
+
+
+class ClusterAutoScalingConfigOutputTypeDef(TypedDict):
+    Mode: ClusterAutoScalingModeType
+    Status: ClusterAutoScalingStatusType
+    AutoScalerType: NotRequired[Literal["Karpenter"]]
+    FailureMessage: NotRequired[str]
+
+
+class ClusterAutoScalingConfigTypeDef(TypedDict):
+    Mode: ClusterAutoScalingModeType
+    AutoScalerType: NotRequired[Literal["Karpenter"]]
+
+
+class ClusterCapacityRequirementsOutputTypeDef(TypedDict):
+    Spot: NotRequired[dict[str, Any]]
+    OnDemand: NotRequired[dict[str, Any]]
+
+
+class ClusterCapacityRequirementsTypeDef(TypedDict):
+    Spot: NotRequired[Mapping[str, Any]]
+    OnDemand: NotRequired[Mapping[str, Any]]
 
 
 class ClusterEbsVolumeConfigTypeDef(TypedDict):
@@ -2570,14 +2742,25 @@ class ClusterInstanceStatusDetailsTypeDef(TypedDict):
     Message: NotRequired[str]
 
 
+class ClusterKubernetesTaintTypeDef(TypedDict):
+    Key: str
+    Effect: ClusterKubernetesTaintEffectType
+    Value: NotRequired[str]
+
+
 class ClusterMetadataTypeDef(TypedDict):
     FailureMessage: NotRequired[str]
-    EksRoleAccessEntries: NotRequired[List[str]]
+    EksRoleAccessEntries: NotRequired[list[str]]
     SlrAccessEntry: NotRequired[str]
 
 
-class UltraServerInfoTypeDef(TypedDict):
-    Id: NotRequired[str]
+UltraServerInfoTypeDef = TypedDict(
+    "UltraServerInfoTypeDef",
+    {
+        "Id": NotRequired[str],
+        "Type": NotRequired[str],
+    },
+)
 
 
 class ClusterOrchestratorEksConfigTypeDef(TypedDict):
@@ -2600,13 +2783,18 @@ class ClusterSummaryTypeDef(TypedDict):
     ClusterName: str
     CreationTime: datetime
     ClusterStatus: ClusterStatusType
-    TrainingPlanArns: NotRequired[List[str]]
+    TrainingPlanArns: NotRequired[list[str]]
+
+
+class ClusterTieredStorageConfigTypeDef(TypedDict):
+    Mode: ClusterConfigModeType
+    InstanceMemoryAllocationPercentage: NotRequired[int]
 
 
 class ContainerConfigOutputTypeDef(TypedDict):
-    ContainerArguments: NotRequired[List[str]]
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerEnvironmentVariables: NotRequired[Dict[str, str]]
+    ContainerArguments: NotRequired[list[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerEnvironmentVariables: NotRequired[dict[str, str]]
 
 
 class FileSystemConfigTypeDef(TypedDict):
@@ -2654,7 +2842,7 @@ class VectorConfigTypeDef(TypedDict):
 
 class CollectionConfigurationOutputTypeDef(TypedDict):
     CollectionName: NotRequired[str]
-    CollectionParameters: NotRequired[Dict[str, str]]
+    CollectionParameters: NotRequired[dict[str, str]]
 
 
 class CollectionConfigurationTypeDef(TypedDict):
@@ -2674,14 +2862,6 @@ class CompilationJobSummaryTypeDef(TypedDict):
     CompilationTargetPlatformArch: NotRequired[TargetPlatformArchType]
     CompilationTargetPlatformAccelerator: NotRequired[TargetPlatformAcceleratorType]
     LastModifiedTime: NotRequired[datetime]
-
-
-class ComputeQuotaResourceConfigTypeDef(TypedDict):
-    InstanceType: ClusterInstanceTypeType
-    Count: NotRequired[int]
-    Accelerators: NotRequired[int]
-    VCpu: NotRequired[float]
-    MemoryInGiB: NotRequired[float]
 
 
 class ResourceSharingConfigTypeDef(TypedDict):
@@ -2763,6 +2943,11 @@ class EdgeOutputConfigTypeDef(TypedDict):
 class EdgeDeploymentModelConfigTypeDef(TypedDict):
     ModelHandle: str
     EdgePackagingJobName: str
+
+
+class MetricsConfigTypeDef(TypedDict):
+    EnableEnhancedMetrics: NotRequired[bool]
+    MetricPublishFrequencyInSeconds: NotRequired[int]
 
 
 class ThroughputConfigTypeDef(TypedDict):
@@ -2863,11 +3048,6 @@ class NotebookInstanceLifecycleHookTypeDef(TypedDict):
     Content: NotRequired[str]
 
 
-class OptimizationJobOutputConfigTypeDef(TypedDict):
-    S3OutputLocation: str
-    KmsKeyId: NotRequired[str]
-
-
 class CreatePartnerAppPresignedUrlRequestTypeDef(TypedDict):
     Arn: str
     ExpiresInSeconds: NotRequired[int]
@@ -2895,6 +3075,12 @@ class CreatePresignedDomainUrlRequestTypeDef(TypedDict):
     ExpiresInSeconds: NotRequired[int]
     SpaceName: NotRequired[str]
     LandingUri: NotRequired[str]
+
+
+class CreatePresignedMlflowAppUrlRequestTypeDef(TypedDict):
+    Arn: str
+    ExpiresInSeconds: NotRequired[int]
+    SessionExpirationDurationInSeconds: NotRequired[int]
 
 
 class CreatePresignedMlflowTrackingServerUrlRequestTypeDef(TypedDict):
@@ -2931,6 +3117,17 @@ class InfraCheckConfigTypeDef(TypedDict):
     EnableInfraCheck: NotRequired[bool]
 
 
+class MlflowConfigTypeDef(TypedDict):
+    MlflowResourceArn: str
+    MlflowExperimentName: NotRequired[str]
+    MlflowRunName: NotRequired[str]
+
+
+class ModelPackageConfigTypeDef(TypedDict):
+    ModelPackageGroupArn: str
+    SourceModelPackageArn: NotRequired[str]
+
+
 class OutputDataConfigTypeDef(TypedDict):
     S3OutputPath: str
     KmsKeyId: NotRequired[str]
@@ -2943,6 +3140,16 @@ class RemoteDebugConfigTypeDef(TypedDict):
 
 class RetryStrategyTypeDef(TypedDict):
     MaximumRetryAttempts: int
+
+
+class ServerlessJobConfigTypeDef(TypedDict):
+    BaseModelArn: str
+    JobType: ServerlessJobTypeType
+    AcceptEula: NotRequired[bool]
+    CustomizationTechnique: NotRequired[CustomizationTechniqueType]
+    Peft: NotRequired[Literal["LORA"]]
+    EvaluationType: NotRequired[EvaluationTypeType]
+    EvaluatorArn: NotRequired[str]
 
 
 class SessionChainingConfigTypeDef(TypedDict):
@@ -3074,11 +3281,11 @@ class DataCatalogConfigTypeDef(TypedDict):
 
 class DataQualityAppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerArguments: NotRequired[List[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerArguments: NotRequired[list[str]]
     RecordPreprocessorSourceUri: NotRequired[str]
     PostAnalyticsProcessorSourceUri: NotRequired[str]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DataQualityAppSpecificationTypeDef(TypedDict):
@@ -3116,6 +3323,10 @@ EndpointInputTypeDef = TypedDict(
 )
 
 
+class DatasetSourceTypeDef(TypedDict):
+    DatasetArn: str
+
+
 class FileSystemDataSourceTypeDef(TypedDict):
     FileSystemId: str
     FileSystemAccessMode: FileSystemAccessModeType
@@ -3142,7 +3353,7 @@ class DebugRuleConfigurationOutputTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
     InstanceType: NotRequired[ProcessingInstanceTypeType]
     VolumeSizeInGB: NotRequired[int]
-    RuleParameters: NotRequired[Dict[str, str]]
+    RuleParameters: NotRequired[dict[str, str]]
 
 
 class DebugRuleConfigurationTypeDef(TypedDict):
@@ -3301,6 +3512,10 @@ class DeleteInferenceExperimentRequestTypeDef(TypedDict):
     Name: str
 
 
+class DeleteMlflowAppRequestTypeDef(TypedDict):
+    Arn: str
+
+
 class DeleteMlflowTrackingServerRequestTypeDef(TypedDict):
     TrackingServerName: str
 
@@ -3363,6 +3578,10 @@ class DeletePipelineRequestTypeDef(TypedDict):
     ClientRequestToken: str
 
 
+class DeleteProcessingJobRequestTypeDef(TypedDict):
+    ProcessingJobName: str
+
+
 class DeleteProjectInputTypeDef(TypedDict):
     ProjectName: str
 
@@ -3379,6 +3598,10 @@ class DeleteStudioLifecycleConfigRequestTypeDef(TypedDict):
 class DeleteTagsInputTypeDef(TypedDict):
     ResourceArn: str
     TagKeys: Sequence[str]
+
+
+class DeleteTrainingJobRequestTypeDef(TypedDict):
+    TrainingJobName: str
 
 
 class DeleteTrialComponentRequestTypeDef(TypedDict):
@@ -3411,13 +3634,13 @@ class DeployedImageTypeDef(TypedDict):
 class RealTimeInferenceRecommendationTypeDef(TypedDict):
     RecommendationId: str
     InstanceType: ProductionVariantInstanceTypeType
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DeviceSelectionConfigOutputTypeDef(TypedDict):
     DeviceSubsetType: DeviceSubsetTypeType
     Percentage: NotRequired[int]
-    DeviceNames: NotRequired[List[str]]
+    DeviceNames: NotRequired[list[str]]
     DeviceNameContains: NotRequired[str]
 
 
@@ -3516,8 +3739,8 @@ class ModelDigestsTypeDef(TypedDict):
 
 
 class NeoVpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
 
 
 class DescribeComputeQuotaRequestTypeDef(TypedDict):
@@ -3744,6 +3967,10 @@ class DescribeLineageGroupRequestTypeDef(TypedDict):
     LineageGroupName: str
 
 
+class DescribeMlflowAppRequestTypeDef(TypedDict):
+    Arn: str
+
+
 class DescribeMlflowTrackingServerRequestTypeDef(TypedDict):
     TrackingServerName: str
 
@@ -3755,7 +3982,7 @@ class DescribeModelBiasJobDefinitionRequestTypeDef(TypedDict):
 class ModelBiasAppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
     ConfigUri: str
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DescribeModelCardExportJobRequestTypeDef(TypedDict):
@@ -3778,7 +4005,7 @@ class DescribeModelExplainabilityJobDefinitionRequestTypeDef(TypedDict):
 class ModelExplainabilityAppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
     ConfigUri: str
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DescribeModelInputTypeDef(TypedDict):
@@ -3799,12 +4026,12 @@ class DescribeModelQualityJobDefinitionRequestTypeDef(TypedDict):
 
 class ModelQualityAppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerArguments: NotRequired[List[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerArguments: NotRequired[list[str]]
     RecordPreprocessorSourceUri: NotRequired[str]
     PostAnalyticsProcessorSourceUri: NotRequired[str]
     ProblemType: NotRequired[MonitoringProblemTypeType]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DescribeMonitoringScheduleRequestTypeDef(TypedDict):
@@ -3841,22 +4068,18 @@ class OptimizationOutputTypeDef(TypedDict):
 
 
 class OptimizationVpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
 
 
 class DescribePartnerAppRequestTypeDef(TypedDict):
     Arn: str
+    IncludeAvailableUpgrade: NotRequired[bool]
 
 
 class ErrorInfoTypeDef(TypedDict):
     Code: NotRequired[str]
     Reason: NotRequired[str]
-
-
-class PartnerAppConfigOutputTypeDef(TypedDict):
-    AdminUsers: NotRequired[List[str]]
-    Arguments: NotRequired[Dict[str, str]]
 
 
 class DescribePipelineDefinitionForExecutionRequestTypeDef(TypedDict):
@@ -3865,6 +4088,11 @@ class DescribePipelineDefinitionForExecutionRequestTypeDef(TypedDict):
 
 class DescribePipelineExecutionRequestTypeDef(TypedDict):
     PipelineExecutionArn: str
+
+
+class MLflowConfigurationTypeDef(TypedDict):
+    MlflowResourceArn: NotRequired[str]
+    MlflowExperimentName: NotRequired[str]
 
 
 class PipelineExperimentConfigTypeDef(TypedDict):
@@ -3933,10 +4161,15 @@ class MetricDataTypeDef(TypedDict):
     Timestamp: NotRequired[datetime]
 
 
+class MlflowDetailsTypeDef(TypedDict):
+    MlflowExperimentId: NotRequired[str]
+    MlflowRunId: NotRequired[str]
+
+
 class ProfilerConfigOutputTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
     ProfilingIntervalInMilliseconds: NotRequired[int]
-    ProfilingParameters: NotRequired[Dict[str, str]]
+    ProfilingParameters: NotRequired[dict[str, str]]
     DisableProfiler: NotRequired[bool]
 
 
@@ -3947,7 +4180,7 @@ class ProfilerRuleConfigurationOutputTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
     InstanceType: NotRequired[ProcessingInstanceTypeType]
     VolumeSizeInGB: NotRequired[int]
-    RuleParameters: NotRequired[Dict[str, str]]
+    RuleParameters: NotRequired[dict[str, str]]
 
 
 class ProfilerRuleEvaluationStatusTypeDef(TypedDict):
@@ -3963,6 +4196,13 @@ class SecondaryStatusTransitionTypeDef(TypedDict):
     StartTime: datetime
     EndTime: NotRequired[datetime]
     StatusMessage: NotRequired[str]
+
+
+class TrainingProgressInfoTypeDef(TypedDict):
+    TotalStepCountPerEpoch: NotRequired[int]
+    CurrentStep: NotRequired[int]
+    CurrentEpoch: NotRequired[int]
+    MaxEpoch: NotRequired[int]
 
 
 class WarmPoolStatusTypeDef(TypedDict):
@@ -4099,7 +4339,7 @@ class DisassociateTrialComponentRequestTypeDef(TypedDict):
 
 class DockerSettingsOutputTypeDef(TypedDict):
     EnableDockerAccess: NotRequired[FeatureStatusType]
-    VpcOnlyTrustedAccounts: NotRequired[List[str]]
+    VpcOnlyTrustedAccounts: NotRequired[list[str]]
     RootlessDocker: NotRequired[FeatureStatusType]
 
 
@@ -4196,8 +4436,8 @@ class EdgeTypeDef(TypedDict):
 
 
 class EmrSettingsOutputTypeDef(TypedDict):
-    AssumableRoleArns: NotRequired[List[str]]
-    ExecutionRoleArns: NotRequired[List[str]]
+    AssumableRoleArns: NotRequired[list[str]]
+    ExecutionRoleArns: NotRequired[list[str]]
 
 
 class EmrSettingsTypeDef(TypedDict):
@@ -4256,6 +4496,7 @@ class EnvironmentParameterTypeDef(TypedDict):
 class InstanceGroupScalingMetadataTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     TargetCount: NotRequired[int]
+    MinCount: NotRequired[int]
     FailureMessage: NotRequired[str]
 
 
@@ -4319,7 +4560,7 @@ class GitConfigForUpdateTypeDef(TypedDict):
 
 class HiddenSageMakerImageOutputTypeDef(TypedDict):
     SageMakerImageName: NotRequired[Literal["sagemaker_distribution"]]
-    VersionAliases: NotRequired[List[str]]
+    VersionAliases: NotRequired[list[str]]
 
 
 class HiddenSageMakerImageTypeDef(TypedDict):
@@ -4347,7 +4588,7 @@ class HubContentInfoTypeDef(TypedDict):
     HubContentDisplayName: NotRequired[str]
     HubContentDescription: NotRequired[str]
     SupportStatus: NotRequired[HubContentSupportStatusType]
-    HubContentSearchKeywords: NotRequired[List[str]]
+    HubContentSearchKeywords: NotRequired[list[str]]
     OriginalCreationTime: NotRequired[datetime]
 
 
@@ -4359,7 +4600,7 @@ class HubInfoTypeDef(TypedDict):
     LastModifiedTime: datetime
     HubDisplayName: NotRequired[str]
     HubDescription: NotRequired[str]
-    HubSearchKeywords: NotRequired[List[str]]
+    HubSearchKeywords: NotRequired[list[str]]
 
 
 class HumanLoopActivationConditionsConfigTypeDef(TypedDict):
@@ -4465,6 +4706,18 @@ class InferenceComponentContainerSpecificationTypeDef(TypedDict):
     Environment: NotRequired[Mapping[str, str]]
 
 
+class InferenceComponentDataCacheConfigSummaryTypeDef(TypedDict):
+    EnableCaching: bool
+
+
+class InferenceComponentDataCacheConfigTypeDef(TypedDict):
+    EnableCaching: bool
+
+
+class InferenceComponentMetadataTypeDef(TypedDict):
+    Arn: NotRequired[str]
+
+
 class InferenceComponentStartupParametersTypeDef(TypedDict):
     ModelDataDownloadTimeoutInSeconds: NotRequired[int]
     ContainerStartupHealthCheckTimeoutInSeconds: NotRequired[int]
@@ -4546,7 +4799,7 @@ class LabelCountersForWorkteamTypeDef(TypedDict):
 
 
 class LabelingJobDataAttributesOutputTypeDef(TypedDict):
-    ContentClassifiers: NotRequired[List[ContentClassifierType]]
+    ContentClassifiers: NotRequired[list[ContentClassifierType]]
 
 
 class LabelingJobDataAttributesTypeDef(TypedDict):
@@ -4615,6 +4868,15 @@ class ListInferenceRecommendationsJobStepsRequestTypeDef(TypedDict):
     StepType: NotRequired[Literal["BENCHMARK"]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class MlflowAppSummaryTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Status: NotRequired[MlflowAppStatusType]
+    CreationTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    MlflowVersion: NotRequired[str]
 
 
 class TrackingServerSummaryTypeDef(TypedDict):
@@ -4717,7 +4979,7 @@ class NotebookInstanceSummaryTypeDef(TypedDict):
     LastModifiedTime: NotRequired[datetime]
     NotebookInstanceLifecycleConfigName: NotRequired[str]
     DefaultCodeRepository: NotRequired[str]
-    AdditionalCodeRepositories: NotRequired[List[str]]
+    AdditionalCodeRepositories: NotRequired[list[str]]
 
 
 class OptimizationJobSummaryTypeDef(TypedDict):
@@ -4726,10 +4988,11 @@ class OptimizationJobSummaryTypeDef(TypedDict):
     CreationTime: datetime
     OptimizationJobStatus: OptimizationJobStatusType
     DeploymentInstanceType: OptimizationJobDeploymentInstanceTypeType
-    OptimizationTypes: List[str]
+    OptimizationTypes: list[str]
     OptimizationStartTime: NotRequired[datetime]
     OptimizationEndTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
+    MaxInstanceCount: NotRequired[int]
 
 
 class ListPartnerAppsRequestTypeDef(TypedDict):
@@ -4938,7 +5201,7 @@ class ListWorkteamsRequestTypeDef(TypedDict):
 
 
 class OidcMemberDefinitionOutputTypeDef(TypedDict):
-    Groups: NotRequired[List[str]]
+    Groups: NotRequired[list[str]]
 
 
 class PredefinedMetricSpecificationTypeDef(TypedDict):
@@ -4961,7 +5224,7 @@ class MonitoringGroundTruthS3InputTypeDef(TypedDict):
 
 class ModelCompilationConfigOutputTypeDef(TypedDict):
     Image: NotRequired[str]
-    OverrideEnvironment: NotRequired[Dict[str, str]]
+    OverrideEnvironment: NotRequired[dict[str, str]]
 
 
 class ModelCompilationConfigTypeDef(TypedDict):
@@ -5024,7 +5287,7 @@ class ModelQualityAppSpecificationTypeDef(TypedDict):
 
 class ModelQuantizationConfigOutputTypeDef(TypedDict):
     Image: NotRequired[str]
-    OverrideEnvironment: NotRequired[Dict[str, str]]
+    OverrideEnvironment: NotRequired[dict[str, str]]
 
 
 class ModelQuantizationConfigTypeDef(TypedDict):
@@ -5034,12 +5297,17 @@ class ModelQuantizationConfigTypeDef(TypedDict):
 
 class ModelShardingConfigOutputTypeDef(TypedDict):
     Image: NotRequired[str]
-    OverrideEnvironment: NotRequired[Dict[str, str]]
+    OverrideEnvironment: NotRequired[dict[str, str]]
 
 
 class ModelShardingConfigTypeDef(TypedDict):
     Image: NotRequired[str]
     OverrideEnvironment: NotRequired[Mapping[str, str]]
+
+
+class ModelSpeculativeDecodingTrainingDataSourceTypeDef(TypedDict):
+    S3Uri: str
+    S3DataType: ModelSpeculativeDecodingS3DataTypeType
 
 
 class ModelStepMetadataTypeDef(TypedDict):
@@ -5048,8 +5316,8 @@ class ModelStepMetadataTypeDef(TypedDict):
 
 class MonitoringAppSpecificationOutputTypeDef(TypedDict):
     ImageUri: str
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerArguments: NotRequired[List[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerArguments: NotRequired[list[str]]
     RecordPreprocessorSourceUri: NotRequired[str]
     PostAnalyticsProcessorSourceUri: NotRequired[str]
 
@@ -5109,7 +5377,7 @@ class OidcConfigForResponseTypeDef(TypedDict):
     LogoutEndpoint: NotRequired[str]
     JwksUri: NotRequired[str]
     Scope: NotRequired[str]
-    AuthenticationRequestExtraParams: NotRequired[Dict[str, str]]
+    AuthenticationRequestExtraParams: NotRequired[dict[str, str]]
 
 
 class OidcMemberDefinitionTypeDef(TypedDict):
@@ -5127,6 +5395,10 @@ class TtlDurationTypeDef(TypedDict):
 
 class OptimizationModelAccessConfigTypeDef(TypedDict):
     AcceptEula: bool
+
+
+class OptimizationSageMakerModelTypeDef(TypedDict):
+    ModelName: NotRequired[str]
 
 
 class OptimizationVpcConfigTypeDef(TypedDict):
@@ -5149,9 +5421,14 @@ class ParentTypeDef(TypedDict):
     ExperimentName: NotRequired[str]
 
 
-class PartnerAppConfigTypeDef(TypedDict):
-    AdminUsers: NotRequired[Sequence[str]]
-    Arguments: NotRequired[Mapping[str, str]]
+class RoleGroupAssignmentOutputTypeDef(TypedDict):
+    RoleName: str
+    GroupPatterns: list[str]
+
+
+class RoleGroupAssignmentTypeDef(TypedDict):
+    RoleName: str
+    GroupPatterns: Sequence[str]
 
 
 class ProductionVariantManagedInstanceScalingTypeDef(TypedDict):
@@ -5323,7 +5600,7 @@ class RecommendationJobCompiledOutputConfigTypeDef(TypedDict):
 
 class RecommendationJobPayloadConfigOutputTypeDef(TypedDict):
     SamplePayloadUrl: NotRequired[str]
-    SupportedContentTypes: NotRequired[List[str]]
+    SupportedContentTypes: NotRequired[list[str]]
 
 
 class RecommendationJobPayloadConfigTypeDef(TypedDict):
@@ -5337,8 +5614,8 @@ class RecommendationJobResourceLimitTypeDef(TypedDict):
 
 
 class RecommendationJobVpcConfigOutputTypeDef(TypedDict):
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
 
 
 class RecommendationJobVpcConfigTypeDef(TypedDict):
@@ -5408,7 +5685,7 @@ class SharingSettingsTypeDef(TypedDict):
 
 
 class SourceIpConfigOutputTypeDef(TypedDict):
-    Cidrs: List[str]
+    Cidrs: list[str]
 
 
 class SourceIpConfigTypeDef(TypedDict):
@@ -5526,7 +5803,7 @@ class TimeSeriesConfigOutputTypeDef(TypedDict):
     TargetAttributeName: str
     TimestampAttributeName: str
     ItemIdentifierAttributeName: str
-    GroupingAttributeNames: NotRequired[List[str]]
+    GroupingAttributeNames: NotRequired[list[str]]
 
 
 class TimeSeriesConfigTypeDef(TypedDict):
@@ -5537,8 +5814,8 @@ class TimeSeriesConfigTypeDef(TypedDict):
 
 
 class TimeSeriesTransformationsOutputTypeDef(TypedDict):
-    Filling: NotRequired[Dict[str, Dict[FillingTypeType, str]]]
-    Aggregation: NotRequired[Dict[str, AggregationTransformationValueType]]
+    Filling: NotRequired[dict[str, dict[FillingTypeType, str]]]
+    Aggregation: NotRequired[dict[str, AggregationTransformationValueType]]
 
 
 class TimeSeriesTransformationsTypeDef(TypedDict):
@@ -5640,6 +5917,16 @@ class UpdateImageVersionRequestTypeDef(TypedDict):
     ReleaseNotes: NotRequired[str]
 
 
+class UpdateMlflowAppRequestTypeDef(TypedDict):
+    Arn: str
+    Name: NotRequired[str]
+    ArtifactStoreUri: NotRequired[str]
+    ModelRegistrationMode: NotRequired[ModelRegistrationModeType]
+    WeeklyMaintenanceWindowStart: NotRequired[str]
+    DefaultDomainIdList: NotRequired[Sequence[str]]
+    AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
+
+
 class UpdateMlflowTrackingServerRequestTypeDef(TypedDict):
     TrackingServerName: str
     ArtifactStoreUri: NotRequired[str]
@@ -5675,9 +5962,18 @@ class UpdateTrialRequestTypeDef(TypedDict):
 
 class WorkforceVpcConfigResponseTypeDef(TypedDict):
     VpcId: str
-    SecurityGroupIds: List[str]
-    Subnets: List[str]
+    SecurityGroupIds: list[str]
+    Subnets: list[str]
     VpcEndpointId: NotRequired[str]
+
+
+class ComputeQuotaResourceConfigTypeDef(TypedDict):
+    InstanceType: ClusterInstanceTypeType
+    Count: NotRequired[int]
+    Accelerators: NotRequired[int]
+    VCpu: NotRequired[float]
+    MemoryInGiB: NotRequired[float]
+    AcceleratorPartition: NotRequired[AcceleratorPartitionConfigTypeDef]
 
 
 class ActionSummaryTypeDef(TypedDict):
@@ -5872,6 +6168,11 @@ class CreateLabelingJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateMlflowAppResponseTypeDef(TypedDict):
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateMlflowTrackingServerResponseTypeDef(TypedDict):
     TrackingServerArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5953,6 +6254,11 @@ class CreatePipelineResponseTypeDef(TypedDict):
 
 
 class CreatePresignedDomainUrlResponseTypeDef(TypedDict):
+    AuthorizedUrl: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreatePresignedMlflowAppUrlResponseTypeDef(TypedDict):
     AuthorizedUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -6061,6 +6367,11 @@ class DeleteExperimentResponseTypeDef(TypedDict):
 
 class DeleteInferenceExperimentResponseTypeDef(TypedDict):
     InferenceExperimentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteMlflowAppResponseTypeDef(TypedDict):
+    Arn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6186,7 +6497,7 @@ class ImportHubContentResponseTypeDef(TypedDict):
 
 
 class ListAliasesResponseTypeDef(TypedDict):
-    SageMakerImageVersionAliases: List[str]
+    SageMakerImageVersionAliases: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6362,6 +6673,11 @@ class UpdateInferenceExperimentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateMlflowAppResponseTypeDef(TypedDict):
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateMlflowTrackingServerResponseTypeDef(TypedDict):
     TrackingServerArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6452,7 +6768,7 @@ class AddTagsInputTypeDef(TypedDict):
 
 
 class AddTagsOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6476,6 +6792,17 @@ class CreateImageRequestTypeDef(TypedDict):
     RoleArn: str
     Description: NotRequired[str]
     DisplayName: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class CreateMlflowAppRequestTypeDef(TypedDict):
+    Name: str
+    ArtifactStoreUri: str
+    RoleArn: str
+    ModelRegistrationMode: NotRequired[ModelRegistrationModeType]
+    WeeklyMaintenanceWindowStart: NotRequired[str]
+    AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
+    DefaultDomainIdList: NotRequired[Sequence[str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 
@@ -6526,13 +6853,13 @@ class ImportHubContentRequestTypeDef(TypedDict):
 
 
 class ListTagsOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class AutoRollbackConfigOutputTypeDef(TypedDict):
-    Alarms: NotRequired[List[AlarmTypeDef]]
+    Alarms: NotRequired[list[AlarmTypeDef]]
 
 
 class AutoRollbackConfigTypeDef(TypedDict):
@@ -6543,7 +6870,7 @@ class HyperParameterAlgorithmSpecificationOutputTypeDef(TypedDict):
     TrainingInputMode: TrainingInputModeType
     TrainingImage: NotRequired[str]
     AlgorithmName: NotRequired[str]
-    MetricDefinitions: NotRequired[List[MetricDefinitionTypeDef]]
+    MetricDefinitions: NotRequired[list[MetricDefinitionTypeDef]]
 
 
 class HyperParameterAlgorithmSpecificationTypeDef(TypedDict):
@@ -6554,12 +6881,12 @@ class HyperParameterAlgorithmSpecificationTypeDef(TypedDict):
 
 
 class AlgorithmStatusDetailsTypeDef(TypedDict):
-    ValidationStatuses: NotRequired[List[AlgorithmStatusItemTypeDef]]
-    ImageScanStatuses: NotRequired[List[AlgorithmStatusItemTypeDef]]
+    ValidationStatuses: NotRequired[list[AlgorithmStatusItemTypeDef]]
+    ImageScanStatuses: NotRequired[list[AlgorithmStatusItemTypeDef]]
 
 
 class ListAlgorithmsOutputTypeDef(TypedDict):
-    AlgorithmSummaryList: List[AlgorithmSummaryTypeDef]
+    AlgorithmSummaryList: list[AlgorithmSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6632,12 +6959,19 @@ AppSpecificationUnionTypeDef = Union[AppSpecificationTypeDef, AppSpecificationOu
 
 class ArtifactSourceOutputTypeDef(TypedDict):
     SourceUri: str
-    SourceTypes: NotRequired[List[ArtifactSourceTypeTypeDef]]
+    SourceTypes: NotRequired[list[ArtifactSourceTypeTypeDef]]
 
 
 class ArtifactSourceTypeDef(TypedDict):
     SourceUri: str
     SourceTypes: NotRequired[Sequence[ArtifactSourceTypeTypeDef]]
+
+
+class LineageMetadataTypeDef(TypedDict):
+    ActionArns: NotRequired[dict[str, str]]
+    ArtifactArns: NotRequired[dict[str, str]]
+    ContextArns: NotRequired[dict[str, str]]
+    Associations: NotRequired[list[AssociationInfoTypeDef]]
 
 
 class AsyncInferenceOutputConfigOutputTypeDef(TypedDict):
@@ -6655,18 +6989,18 @@ class AsyncInferenceOutputConfigTypeDef(TypedDict):
 
 
 class CreateHubContentPresignedUrlsResponseTypeDef(TypedDict):
-    AuthorizedUrlConfigs: List[AuthorizedUrlTypeDef]
+    AuthorizedUrlConfigs: list[AuthorizedUrlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class AutoMLCandidateGenerationConfigOutputTypeDef(TypedDict):
     FeatureSpecificationS3Uri: NotRequired[str]
-    AlgorithmsConfig: NotRequired[List[AutoMLAlgorithmConfigOutputTypeDef]]
+    AlgorithmsConfig: NotRequired[list[AutoMLAlgorithmConfigOutputTypeDef]]
 
 
 class CandidateGenerationConfigOutputTypeDef(TypedDict):
-    AlgorithmsConfig: NotRequired[List[AutoMLAlgorithmConfigOutputTypeDef]]
+    AlgorithmsConfig: NotRequired[list[AutoMLAlgorithmConfigOutputTypeDef]]
 
 
 class AutoMLCandidateGenerationConfigTypeDef(TypedDict):
@@ -6711,7 +7045,7 @@ class AutoMLJobSummaryTypeDef(TypedDict):
     LastModifiedTime: datetime
     EndTime: NotRequired[datetime]
     FailureReason: NotRequired[str]
-    PartialFailureReasons: NotRequired[List[AutoMLPartialFailureReasonTypeDef]]
+    PartialFailureReasons: NotRequired[list[AutoMLPartialFailureReasonTypeDef]]
 
 
 class AutoMLProblemTypeResolvedAttributesTypeDef(TypedDict):
@@ -6769,16 +7103,32 @@ VpcConfigUnionTypeDef = Union[VpcConfigTypeDef, VpcConfigOutputTypeDef]
 
 
 class BatchAddClusterNodesResponseTypeDef(TypedDict):
-    Successful: List[NodeAdditionResultTypeDef]
-    Failed: List[BatchAddClusterNodesErrorTypeDef]
+    Successful: list[NodeAdditionResultTypeDef]
+    Failed: list[BatchAddClusterNodesErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchDeleteClusterNodesResponseTypeDef(TypedDict):
-    Failed: List[BatchDeleteClusterNodesErrorTypeDef]
-    Successful: List[str]
-    FailedNodeLogicalIds: List[BatchDeleteClusterNodeLogicalIdsErrorTypeDef]
-    SuccessfulNodeLogicalIds: List[str]
+    Failed: list[BatchDeleteClusterNodesErrorTypeDef]
+    Successful: list[str]
+    FailedNodeLogicalIds: list[BatchDeleteClusterNodeLogicalIdsErrorTypeDef]
+    SuccessfulNodeLogicalIds: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchRebootClusterNodesResponseTypeDef(TypedDict):
+    Successful: list[str]
+    Failed: list[BatchRebootClusterNodesErrorTypeDef]
+    FailedNodeLogicalIds: list[BatchRebootClusterNodeLogicalIdsErrorTypeDef]
+    SuccessfulNodeLogicalIds: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class BatchReplaceClusterNodesResponseTypeDef(TypedDict):
+    Successful: list[str]
+    Failed: list[BatchReplaceClusterNodesErrorTypeDef]
+    FailedNodeLogicalIds: list[BatchReplaceClusterNodeLogicalIdsErrorTypeDef]
+    SuccessfulNodeLogicalIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -6815,12 +7165,12 @@ class ModelQualityTypeDef(TypedDict):
 class CallbackStepMetadataTypeDef(TypedDict):
     CallbackToken: NotRequired[str]
     SqsQueueUrl: NotRequired[str]
-    OutputParameters: NotRequired[List[OutputParameterTypeDef]]
+    OutputParameters: NotRequired[list[OutputParameterTypeDef]]
 
 
 class LambdaStepMetadataTypeDef(TypedDict):
     Arn: NotRequired[str]
-    OutputParameters: NotRequired[List[OutputParameterTypeDef]]
+    OutputParameters: NotRequired[list[OutputParameterTypeDef]]
 
 
 class SendPipelineExecutionStepSuccessRequestTypeDef(TypedDict):
@@ -6831,14 +7181,14 @@ class SendPipelineExecutionStepSuccessRequestTypeDef(TypedDict):
 
 class CandidatePropertiesTypeDef(TypedDict):
     CandidateArtifactLocations: NotRequired[CandidateArtifactLocationsTypeDef]
-    CandidateMetrics: NotRequired[List[MetricDatumTypeDef]]
+    CandidateMetrics: NotRequired[list[MetricDatumTypeDef]]
 
 
 class CanvasAppSettingsOutputTypeDef(TypedDict):
     TimeSeriesForecastingSettings: NotRequired[TimeSeriesForecastingSettingsTypeDef]
     ModelRegisterSettings: NotRequired[ModelRegisterSettingsTypeDef]
     WorkspaceSettings: NotRequired[WorkspaceSettingsTypeDef]
-    IdentityProviderOAuthSettings: NotRequired[List[IdentityProviderOAuthSettingTypeDef]]
+    IdentityProviderOAuthSettings: NotRequired[list[IdentityProviderOAuthSettingTypeDef]]
     DirectDeploySettings: NotRequired[DirectDeploySettingsTypeDef]
     KendraSettings: NotRequired[KendraSettingsTypeDef]
     GenerativeAiSettings: NotRequired[GenerativeAiSettingsTypeDef]
@@ -6861,7 +7211,7 @@ class InstanceGroupMetadataTypeDef(TypedDict):
     AvailabilityZoneId: NotRequired[str]
     CapacityReservation: NotRequired[CapacityReservationTypeDef]
     SubnetId: NotRequired[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     AmiOverride: NotRequired[str]
 
 
@@ -6912,7 +7262,7 @@ class InferenceExperimentDataStorageConfigTypeDef(TypedDict):
 class DataCaptureConfigOutputTypeDef(TypedDict):
     InitialSamplingPercentage: int
     DestinationS3Uri: str
-    CaptureOptions: List[CaptureOptionTypeDef]
+    CaptureOptions: list[CaptureOptionTypeDef]
     EnableCapture: NotRequired[bool]
     KmsKeyId: NotRequired[str]
     CaptureContentTypeHeader: NotRequired[CaptureContentTypeHeaderOutputTypeDef]
@@ -6928,7 +7278,7 @@ class DataCaptureConfigTypeDef(TypedDict):
 
 
 class EnvironmentParameterRangesOutputTypeDef(TypedDict):
-    CategoricalParameterRanges: NotRequired[List[CategoricalParameterOutputTypeDef]]
+    CategoricalParameterRanges: NotRequired[list[CategoricalParameterOutputTypeDef]]
 
 
 CategoricalParameterRangeUnionTypeDef = Union[
@@ -6951,7 +7301,7 @@ class CfnTemplateProviderDetailTypeDef(TypedDict):
     TemplateName: str
     TemplateURL: str
     RoleARN: NotRequired[str]
-    Parameters: NotRequired[List[CfnStackParameterTypeDef]]
+    Parameters: NotRequired[list[CfnStackParameterTypeDef]]
     StackDetail: NotRequired[CfnStackDetailTypeDef]
 
 
@@ -6969,14 +7319,38 @@ class ClarifyShapConfigTypeDef(TypedDict):
     TextConfig: NotRequired[ClarifyTextConfigTypeDef]
 
 
+ClusterCapacityRequirementsUnionTypeDef = Union[
+    ClusterCapacityRequirementsTypeDef, ClusterCapacityRequirementsOutputTypeDef
+]
+
+
 class ClusterInstanceStorageConfigTypeDef(TypedDict):
     EbsVolumeConfig: NotRequired[ClusterEbsVolumeConfigTypeDef]
 
 
 class ListClusterEventsResponseTypeDef(TypedDict):
-    Events: List[ClusterEventSummaryTypeDef]
+    Events: list[ClusterEventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class ClusterKubernetesConfigDetailsTypeDef(TypedDict):
+    CurrentLabels: NotRequired[dict[str, str]]
+    DesiredLabels: NotRequired[dict[str, str]]
+    CurrentTaints: NotRequired[list[ClusterKubernetesTaintTypeDef]]
+    DesiredTaints: NotRequired[list[ClusterKubernetesTaintTypeDef]]
+
+
+class ClusterKubernetesConfigNodeDetailsTypeDef(TypedDict):
+    CurrentLabels: NotRequired[dict[str, str]]
+    DesiredLabels: NotRequired[dict[str, str]]
+    CurrentTaints: NotRequired[list[ClusterKubernetesTaintTypeDef]]
+    DesiredTaints: NotRequired[list[ClusterKubernetesTaintTypeDef]]
+
+
+class ClusterKubernetesConfigTypeDef(TypedDict):
+    Labels: NotRequired[Mapping[str, str]]
+    Taints: NotRequired[Sequence[ClusterKubernetesTaintTypeDef]]
 
 
 class ClusterNodeSummaryTypeDef(TypedDict):
@@ -6988,20 +7362,21 @@ class ClusterNodeSummaryTypeDef(TypedDict):
     NodeLogicalId: NotRequired[str]
     LastSoftwareUpdateTime: NotRequired[datetime]
     UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
+    PrivateDnsHostname: NotRequired[str]
 
 
 class ClusterOrchestratorTypeDef(TypedDict):
-    Eks: ClusterOrchestratorEksConfigTypeDef
+    Eks: NotRequired[ClusterOrchestratorEksConfigTypeDef]
 
 
 class ListClusterSchedulerConfigsResponseTypeDef(TypedDict):
-    ClusterSchedulerConfigSummaries: List[ClusterSchedulerConfigSummaryTypeDef]
+    ClusterSchedulerConfigSummaries: list[ClusterSchedulerConfigSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListClustersResponseTypeDef(TypedDict):
-    ClusterSummaries: List[ClusterSummaryTypeDef]
+    ClusterSummaries: list[ClusterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -7028,8 +7403,8 @@ class JupyterLabAppImageConfigTypeDef(TypedDict):
 
 class KernelGatewayAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    CustomImages: NotRequired[List[CustomImageTypeDef]]
-    LifecycleConfigArns: NotRequired[List[str]]
+    CustomImages: NotRequired[list[CustomImageTypeDef]]
+    LifecycleConfigArns: NotRequired[list[str]]
 
 
 class KernelGatewayAppSettingsTypeDef(TypedDict):
@@ -7040,7 +7415,7 @@ class KernelGatewayAppSettingsTypeDef(TypedDict):
 
 class RSessionAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    CustomImages: NotRequired[List[CustomImageTypeDef]]
+    CustomImages: NotRequired[list[CustomImageTypeDef]]
 
 
 class RSessionAppSettingsTypeDef(TypedDict):
@@ -7073,8 +7448,8 @@ class DescribeCodeRepositoryOutputTypeDef(TypedDict):
 
 class JupyterServerAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    LifecycleConfigArns: NotRequired[List[str]]
-    CodeRepositories: NotRequired[List[CodeRepositoryTypeDef]]
+    LifecycleConfigArns: NotRequired[list[str]]
+    CodeRepositories: NotRequired[list[CodeRepositoryTypeDef]]
 
 
 class JupyterServerAppSettingsTypeDef(TypedDict):
@@ -7090,8 +7465,8 @@ class CollectionConfigTypeDef(TypedDict):
 class DebugHookConfigOutputTypeDef(TypedDict):
     S3OutputPath: str
     LocalPath: NotRequired[str]
-    HookParameters: NotRequired[Dict[str, str]]
-    CollectionConfigurations: NotRequired[List[CollectionConfigurationOutputTypeDef]]
+    HookParameters: NotRequired[dict[str, str]]
+    CollectionConfigurations: NotRequired[list[CollectionConfigurationOutputTypeDef]]
 
 
 class DebugHookConfigTypeDef(TypedDict):
@@ -7102,21 +7477,9 @@ class DebugHookConfigTypeDef(TypedDict):
 
 
 class ListCompilationJobsResponseTypeDef(TypedDict):
-    CompilationJobSummaries: List[CompilationJobSummaryTypeDef]
+    CompilationJobSummaries: list[CompilationJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class ComputeQuotaConfigOutputTypeDef(TypedDict):
-    ComputeQuotaResources: NotRequired[List[ComputeQuotaResourceConfigTypeDef]]
-    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
-    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
-
-
-class ComputeQuotaConfigTypeDef(TypedDict):
-    ComputeQuotaResources: NotRequired[Sequence[ComputeQuotaResourceConfigTypeDef]]
-    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
-    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
 
 
 class ContextSummaryTypeDef(TypedDict):
@@ -7351,7 +7714,7 @@ class DescribeHubResponseTypeDef(TypedDict):
     HubArn: str
     HubDisplayName: str
     HubDescription: str
-    HubSearchKeywords: List[str]
+    HubSearchKeywords: list[str]
     S3StorageConfig: HubS3StorageConfigTypeDef
     HubStatus: HubStatusType
     FailureReason: str
@@ -7396,6 +7759,7 @@ class ModelPackageSummaryTypeDef(TypedDict):
     ModelPackageDescription: NotRequired[str]
     ModelApprovalStatus: NotRequired[ModelApprovalStatusType]
     ModelLifeCycle: NotRequired[ModelLifeCycleTypeDef]
+    ModelPackageRegistrationType: NotRequired[ModelPackageRegistrationTypeType]
 
 
 class CreateNotebookInstanceInputTypeDef(TypedDict):
@@ -7404,6 +7768,7 @@ class CreateNotebookInstanceInputTypeDef(TypedDict):
     RoleArn: str
     SubnetId: NotRequired[str]
     SecurityGroupIds: NotRequired[Sequence[str]]
+    IpAddressType: NotRequired[IPAddressTypeType]
     KmsKeyId: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     LifecycleConfigName: NotRequired[str]
@@ -7424,8 +7789,9 @@ class DescribeNotebookInstanceOutputTypeDef(TypedDict):
     FailureReason: str
     Url: str
     InstanceType: InstanceTypeType
+    IpAddressType: IPAddressTypeType
     SubnetId: str
-    SecurityGroups: List[str]
+    SecurityGroups: list[str]
     RoleArn: str
     KmsKeyId: str
     NetworkInterfaceId: str
@@ -7434,9 +7800,9 @@ class DescribeNotebookInstanceOutputTypeDef(TypedDict):
     NotebookInstanceLifecycleConfigName: str
     DirectInternetAccess: DirectInternetAccessType
     VolumeSizeInGB: int
-    AcceleratorTypes: List[NotebookInstanceAcceleratorTypeType]
+    AcceleratorTypes: list[NotebookInstanceAcceleratorTypeType]
     DefaultCodeRepository: str
-    AdditionalCodeRepositories: List[str]
+    AdditionalCodeRepositories: list[str]
     RootAccess: RootAccessType
     PlatformIdentifier: str
     InstanceMetadataServiceConfiguration: InstanceMetadataServiceConfigurationTypeDef
@@ -7446,6 +7812,8 @@ class DescribeNotebookInstanceOutputTypeDef(TypedDict):
 class UpdateNotebookInstanceInputTypeDef(TypedDict):
     NotebookInstanceName: str
     InstanceType: NotRequired[InstanceTypeType]
+    IpAddressType: NotRequired[IPAddressTypeType]
+    PlatformIdentifier: NotRequired[str]
     RoleArn: NotRequired[str]
     LifecycleConfigName: NotRequired[str]
     DisassociateLifecycleConfig: NotRequired[bool]
@@ -7470,8 +7838,8 @@ class CreateNotebookInstanceLifecycleConfigInputTypeDef(TypedDict):
 class DescribeNotebookInstanceLifecycleConfigOutputTypeDef(TypedDict):
     NotebookInstanceLifecycleConfigArn: str
     NotebookInstanceLifecycleConfigName: str
-    OnCreate: List[NotebookInstanceLifecycleHookTypeDef]
-    OnStart: List[NotebookInstanceLifecycleHookTypeDef]
+    OnCreate: list[NotebookInstanceLifecycleHookTypeDef]
+    OnStart: list[NotebookInstanceLifecycleHookTypeDef]
     LastModifiedTime: datetime
     CreationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8332,6 +8700,31 @@ class ListLineageGroupsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class ListMlflowAppsRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    Status: NotRequired[MlflowAppStatusType]
+    MlflowVersion: NotRequired[str]
+    DefaultForDomainId: NotRequired[str]
+    AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
+    SortBy: NotRequired[SortMlflowAppByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListMlflowAppsRequestTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    Status: NotRequired[MlflowAppStatusType]
+    MlflowVersion: NotRequired[str]
+    DefaultForDomainId: NotRequired[str]
+    AccountDefaultStatus: NotRequired[AccountDefaultStatusType]
+    SortBy: NotRequired[SortMlflowAppByType]
+    SortOrder: NotRequired[SortOrderType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListMlflowTrackingServersRequestPaginateTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
     CreatedBefore: NotRequired[TimestampTypeDef]
@@ -8961,14 +9354,14 @@ class QueryFiltersTypeDef(TypedDict):
 
 
 class SearchTrainingPlanOfferingsRequestTypeDef(TypedDict):
-    DurationHours: int
-    TargetResources: Sequence[SageMakerResourceNameType]
     InstanceType: NotRequired[ReservedCapacityInstanceTypeType]
     InstanceCount: NotRequired[int]
     UltraServerType: NotRequired[str]
     UltraServerCount: NotRequired[int]
     StartTimeAfter: NotRequired[TimestampTypeDef]
     EndTimeBefore: NotRequired[TimestampTypeDef]
+    DurationHours: NotRequired[int]
+    TargetResources: NotRequired[Sequence[SageMakerResourceNameType]]
 
 
 class CreateTrialComponentRequestTypeDef(TypedDict):
@@ -9067,12 +9460,12 @@ class DeleteDomainRequestTypeDef(TypedDict):
 class InferenceComponentContainerSpecificationSummaryTypeDef(TypedDict):
     DeployedImage: NotRequired[DeployedImageTypeDef]
     ArtifactUrl: NotRequired[str]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class DeploymentRecommendationTypeDef(TypedDict):
     RecommendationStatus: RecommendationStatusType
-    RealTimeInferenceRecommendations: NotRequired[List[RealTimeInferenceRecommendationTypeDef]]
+    RealTimeInferenceRecommendations: NotRequired[list[RealTimeInferenceRecommendationTypeDef]]
 
 
 class DeploymentStageStatusSummaryTypeDef(TypedDict):
@@ -9090,7 +9483,7 @@ class DescribeDeviceResponseTypeDef(TypedDict):
     IotThingName: str
     RegistrationTime: datetime
     LatestHeartbeat: datetime
-    Models: List[EdgeModelTypeDef]
+    Models: list[EdgeModelTypeDef]
     MaxModels: int
     AgentVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9210,7 +9603,7 @@ class DescribeFeatureMetadataResponseTypeDef(TypedDict):
     CreationTime: datetime
     LastModifiedTime: datetime
     Description: str
-    Parameters: List[FeatureParameterTypeDef]
+    Parameters: list[FeatureParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9222,7 +9615,7 @@ class FeatureMetadataTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     Description: NotRequired[str]
-    Parameters: NotRequired[List[FeatureParameterTypeDef]]
+    Parameters: NotRequired[list[FeatureParameterTypeDef]]
 
 
 class UpdateFeatureMetadataRequestTypeDef(TypedDict):
@@ -9248,8 +9641,8 @@ class DescribeHubContentResponseTypeDef(TypedDict):
     SageMakerPublicHubContentArn: str
     ReferenceMinVersion: str
     SupportStatus: HubContentSupportStatusType
-    HubContentSearchKeywords: List[str]
-    HubContentDependencies: List[HubContentDependencyTypeDef]
+    HubContentSearchKeywords: list[str]
+    HubContentDependencies: list[HubContentDependencyTypeDef]
     HubContentStatus: HubContentStatusType
     FailureReason: str
     CreationTime: datetime
@@ -9298,33 +9691,9 @@ class DescribeModelCardExportJobResponseTypeDef(TypedDict):
 
 
 class ListMonitoringExecutionsResponseTypeDef(TypedDict):
-    MonitoringExecutionSummaries: List[MonitoringExecutionSummaryTypeDef]
+    MonitoringExecutionSummaries: list[MonitoringExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-DescribePartnerAppResponseTypeDef = TypedDict(
-    "DescribePartnerAppResponseTypeDef",
-    {
-        "Arn": str,
-        "Name": str,
-        "Type": PartnerAppTypeType,
-        "Status": PartnerAppStatusType,
-        "CreationTime": datetime,
-        "LastModifiedTime": datetime,
-        "ExecutionRoleArn": str,
-        "KmsKeyId": str,
-        "BaseUrl": str,
-        "MaintenanceConfig": PartnerAppMaintenanceConfigTypeDef,
-        "Tier": str,
-        "Version": str,
-        "ApplicationConfig": PartnerAppConfigOutputTypeDef,
-        "AuthType": Literal["IAM"],
-        "EnableIamSessionBasedIdentity": bool,
-        "Error": ErrorInfoTypeDef,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
 
 
 class DescribeReservedCapacityResponseTypeDef(TypedDict):
@@ -9350,7 +9719,7 @@ class DescribeSubscribedWorkteamResponseTypeDef(TypedDict):
 
 
 class ListSubscribedWorkteamsResponseTypeDef(TypedDict):
-    SubscribedWorkteams: List[SubscribedWorkteamTypeDef]
+    SubscribedWorkteams: list[SubscribedWorkteamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9384,8 +9753,8 @@ class DescribeTrainingPlanResponseTypeDef(TypedDict):
     UnhealthyInstanceCount: int
     AvailableSpareInstanceCount: int
     TotalUltraServerCount: int
-    TargetResources: List[SageMakerResourceNameType]
-    ReservedCapacitySummaries: List[ReservedCapacitySummaryTypeDef]
+    TargetResources: list[SageMakerResourceNameType]
+    ReservedCapacitySummaries: list[ReservedCapacitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9404,8 +9773,8 @@ class TrainingPlanSummaryTypeDef(TypedDict):
     AvailableInstanceCount: NotRequired[int]
     InUseInstanceCount: NotRequired[int]
     TotalUltraServerCount: NotRequired[int]
-    TargetResources: NotRequired[List[SageMakerResourceNameType]]
-    ReservedCapacitySummaries: NotRequired[List[ReservedCapacitySummaryTypeDef]]
+    TargetResources: NotRequired[list[SageMakerResourceNameType]]
+    ReservedCapacitySummaries: NotRequired[list[ReservedCapacitySummaryTypeDef]]
 
 
 class TrialSummaryTypeDef(TypedDict):
@@ -9425,13 +9794,13 @@ class DesiredWeightAndCapacityTypeDef(TypedDict):
 
 
 class ListStageDevicesResponseTypeDef(TypedDict):
-    DeviceDeploymentSummaries: List[DeviceDeploymentSummaryTypeDef]
+    DeviceDeploymentSummaries: list[DeviceDeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDeviceFleetsResponseTypeDef(TypedDict):
-    DeviceFleetSummaries: List[DeviceFleetSummaryTypeDef]
+    DeviceFleetSummaries: list[DeviceFleetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9449,7 +9818,7 @@ class DeviceSummaryTypeDef(TypedDict):
     IotThingName: NotRequired[str]
     RegistrationTime: NotRequired[datetime]
     LatestHeartbeat: NotRequired[datetime]
-    Models: NotRequired[List[EdgeModelSummaryTypeDef]]
+    Models: NotRequired[list[EdgeModelSummaryTypeDef]]
     AgentVersion: NotRequired[str]
 
 
@@ -9468,7 +9837,7 @@ DockerSettingsUnionTypeDef = Union[DockerSettingsTypeDef, DockerSettingsOutputTy
 
 
 class ListDomainsResponseTypeDef(TypedDict):
-    Domains: List[DomainDetailsTypeDef]
+    Domains: list[DomainDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9494,11 +9863,11 @@ class ProductionVariantCapacityReservationSummaryTypeDef(TypedDict):
     TotalInstanceCount: NotRequired[int]
     AvailableInstanceCount: NotRequired[int]
     UsedByCurrentEndpoint: NotRequired[int]
-    Ec2CapacityReservations: NotRequired[List[Ec2CapacityReservationTypeDef]]
+    Ec2CapacityReservations: NotRequired[list[Ec2CapacityReservationTypeDef]]
 
 
 class ListEdgeDeploymentPlansResponseTypeDef(TypedDict):
-    EdgeDeploymentPlanSummaries: List[EdgeDeploymentPlanSummaryTypeDef]
+    EdgeDeploymentPlanSummaries: list[EdgeDeploymentPlanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9510,19 +9879,19 @@ class GetDeviceFleetReportResponseTypeDef(TypedDict):
     Description: str
     ReportGenerated: datetime
     DeviceStats: DeviceStatsTypeDef
-    AgentVersions: List[AgentVersionTypeDef]
-    ModelStats: List[EdgeModelStatTypeDef]
+    AgentVersions: list[AgentVersionTypeDef]
+    ModelStats: list[EdgeModelStatTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListEdgePackagingJobsResponseTypeDef(TypedDict):
-    EdgePackagingJobSummaries: List[EdgePackagingJobSummaryTypeDef]
+    EdgePackagingJobSummaries: list[EdgePackagingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListEndpointConfigsOutputTypeDef(TypedDict):
-    EndpointConfigs: List[EndpointConfigSummaryTypeDef]
+    EndpointConfigs: list[EndpointConfigSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9541,7 +9910,7 @@ class EndpointPerformanceTypeDef(TypedDict):
 
 
 class ListEndpointsOutputTypeDef(TypedDict):
-    Endpoints: List[EndpointSummaryTypeDef]
+    Endpoints: list[EndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9557,7 +9926,7 @@ class EnvironmentConfigTypeDef(TypedDict):
 
 class ModelConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
-    EnvironmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
+    EnvironmentParameters: NotRequired[list[EnvironmentParameterTypeDef]]
     CompilationJobName: NotRequired[str]
 
 
@@ -9571,7 +9940,7 @@ class HyperParameterTrainingJobSummaryTypeDef(TypedDict):
     TrainingJobArn: str
     CreationTime: datetime
     TrainingJobStatus: TrainingJobStatusType
-    TunedHyperParameters: Dict[str, str]
+    TunedHyperParameters: dict[str, str]
     TrainingJobDefinitionName: NotRequired[str]
     TuningJobName: NotRequired[str]
     TrainingStartTime: NotRequired[datetime]
@@ -9584,7 +9953,7 @@ class HyperParameterTrainingJobSummaryTypeDef(TypedDict):
 
 
 class ListFlowDefinitionsResponseTypeDef(TypedDict):
-    FlowDefinitionSummaries: List[FlowDefinitionSummaryTypeDef]
+    FlowDefinitionSummaries: list[FlowDefinitionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9598,7 +9967,7 @@ class GetScalingConfigurationRecommendationRequestTypeDef(TypedDict):
 
 
 class GetSearchSuggestionsResponseTypeDef(TypedDict):
-    PropertyNameSuggestions: List[PropertyNameSuggestionTypeDef]
+    PropertyNameSuggestions: list[PropertyNameSuggestionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -9608,10 +9977,10 @@ class UpdateCodeRepositoryInputTypeDef(TypedDict):
 
 
 class StudioWebPortalSettingsOutputTypeDef(TypedDict):
-    HiddenMlTools: NotRequired[List[MlToolsType]]
-    HiddenAppTypes: NotRequired[List[AppTypeType]]
-    HiddenInstanceTypes: NotRequired[List[AppInstanceTypeType]]
-    HiddenSageMakerImageVersionAliases: NotRequired[List[HiddenSageMakerImageOutputTypeDef]]
+    HiddenMlTools: NotRequired[list[MlToolsType]]
+    HiddenAppTypes: NotRequired[list[AppTypeType]]
+    HiddenInstanceTypes: NotRequired[list[AppInstanceTypeType]]
+    HiddenSageMakerImageVersionAliases: NotRequired[list[HiddenSageMakerImageOutputTypeDef]]
 
 
 class StudioWebPortalSettingsTypeDef(TypedDict):
@@ -9622,19 +9991,19 @@ class StudioWebPortalSettingsTypeDef(TypedDict):
 
 
 class ListHubContentVersionsResponseTypeDef(TypedDict):
-    HubContentSummaries: List[HubContentInfoTypeDef]
+    HubContentSummaries: list[HubContentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListHubContentsResponseTypeDef(TypedDict):
-    HubContentSummaries: List[HubContentInfoTypeDef]
+    HubContentSummaries: list[HubContentInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListHubsResponseTypeDef(TypedDict):
-    HubSummaries: List[HubInfoTypeDef]
+    HubSummaries: list[HubInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9644,7 +10013,7 @@ class HumanLoopActivationConfigTypeDef(TypedDict):
 
 
 class ListHumanTaskUisResponseTypeDef(TypedDict):
-    HumanTaskUiSummaries: List[HumanTaskUiSummaryTypeDef]
+    HumanTaskUiSummaries: list[HumanTaskUiSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9655,7 +10024,7 @@ class HyperParameterTuningResourceConfigOutputTypeDef(TypedDict):
     VolumeSizeInGB: NotRequired[int]
     VolumeKmsKeyId: NotRequired[str]
     AllocationStrategy: NotRequired[Literal["Prioritized"]]
-    InstanceConfigs: NotRequired[List[HyperParameterTuningInstanceConfigTypeDef]]
+    InstanceConfigs: NotRequired[list[HyperParameterTuningInstanceConfigTypeDef]]
 
 
 class HyperParameterTuningResourceConfigTypeDef(TypedDict):
@@ -9685,7 +10054,7 @@ class HyperParameterTuningJobStrategyConfigTypeDef(TypedDict):
 
 
 class HyperParameterTuningJobWarmStartConfigOutputTypeDef(TypedDict):
-    ParentHyperParameterTuningJobs: List[ParentHyperParameterTuningJobTypeDef]
+    ParentHyperParameterTuningJobs: list[ParentHyperParameterTuningJobTypeDef]
     WarmStartType: HyperParameterTuningJobWarmStartTypeType
 
 
@@ -9711,13 +10080,13 @@ class ImageConfigTypeDef(TypedDict):
 
 
 class ListImagesResponseTypeDef(TypedDict):
-    Images: List[ImageTypeDef]
+    Images: list[ImageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListImageVersionsResponseTypeDef(TypedDict):
-    ImageVersions: List[ImageVersionTypeDef]
+    ImageVersions: list[ImageVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9739,25 +10108,26 @@ InferenceComponentSpecificationTypeDef = TypedDict(
             InferenceComponentComputeResourceRequirementsTypeDef
         ],
         "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigTypeDef],
     },
 )
 
 
 class ListInferenceComponentsOutputTypeDef(TypedDict):
-    InferenceComponents: List[InferenceComponentSummaryTypeDef]
+    InferenceComponents: list[InferenceComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListInferenceRecommendationsJobsResponseTypeDef(TypedDict):
-    InferenceRecommendationsJobs: List[InferenceRecommendationsJobTypeDef]
+    InferenceRecommendationsJobs: list[InferenceRecommendationsJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class InstancePlacementConfigOutputTypeDef(TypedDict):
     EnableMultipleJobs: NotRequired[bool]
-    PlacementSpecifications: NotRequired[List[PlacementSpecificationTypeDef]]
+    PlacementSpecifications: NotRequired[list[PlacementSpecificationTypeDef]]
 
 
 class InstancePlacementConfigTypeDef(TypedDict):
@@ -9782,14 +10152,14 @@ class ParameterRangeTypeDef(TypedDict):
 
 
 class ParameterRangesOutputTypeDef(TypedDict):
-    IntegerParameterRanges: NotRequired[List[IntegerParameterRangeTypeDef]]
-    ContinuousParameterRanges: NotRequired[List[ContinuousParameterRangeTypeDef]]
-    CategoricalParameterRanges: NotRequired[List[CategoricalParameterRangeOutputTypeDef]]
-    AutoParameters: NotRequired[List[AutoParameterTypeDef]]
+    IntegerParameterRanges: NotRequired[list[IntegerParameterRangeTypeDef]]
+    ContinuousParameterRanges: NotRequired[list[ContinuousParameterRangeTypeDef]]
+    CategoricalParameterRanges: NotRequired[list[CategoricalParameterRangeOutputTypeDef]]
+    AutoParameters: NotRequired[list[AutoParameterTypeDef]]
 
 
 class KernelGatewayImageConfigOutputTypeDef(TypedDict):
-    KernelSpecs: List[KernelSpecTypeDef]
+    KernelSpecs: list[KernelSpecTypeDef]
     FileSystemConfig: NotRequired[FileSystemConfigTypeDef]
 
 
@@ -9813,157 +10183,163 @@ class LabelingJobDataSourceTypeDef(TypedDict):
 
 
 class ListLineageGroupsResponseTypeDef(TypedDict):
-    LineageGroupSummaries: List[LineageGroupSummaryTypeDef]
+    LineageGroupSummaries: list[LineageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDataQualityJobDefinitionsResponseTypeDef(TypedDict):
-    JobDefinitionSummaries: List[MonitoringJobDefinitionSummaryTypeDef]
+    JobDefinitionSummaries: list[MonitoringJobDefinitionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelBiasJobDefinitionsResponseTypeDef(TypedDict):
-    JobDefinitionSummaries: List[MonitoringJobDefinitionSummaryTypeDef]
+    JobDefinitionSummaries: list[MonitoringJobDefinitionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelExplainabilityJobDefinitionsResponseTypeDef(TypedDict):
-    JobDefinitionSummaries: List[MonitoringJobDefinitionSummaryTypeDef]
+    JobDefinitionSummaries: list[MonitoringJobDefinitionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelQualityJobDefinitionsResponseTypeDef(TypedDict):
-    JobDefinitionSummaries: List[MonitoringJobDefinitionSummaryTypeDef]
+    JobDefinitionSummaries: list[MonitoringJobDefinitionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListMlflowAppsResponseTypeDef(TypedDict):
+    Summaries: list[MlflowAppSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMlflowTrackingServersResponseTypeDef(TypedDict):
-    TrackingServerSummaries: List[TrackingServerSummaryTypeDef]
+    TrackingServerSummaries: list[TrackingServerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelCardExportJobsResponseTypeDef(TypedDict):
-    ModelCardExportJobSummaries: List[ModelCardExportJobSummaryTypeDef]
+    ModelCardExportJobSummaries: list[ModelCardExportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelCardVersionsResponseTypeDef(TypedDict):
-    ModelCardVersionSummaryList: List[ModelCardVersionSummaryTypeDef]
+    ModelCardVersionSummaryList: list[ModelCardVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelCardsResponseTypeDef(TypedDict):
-    ModelCardSummaries: List[ModelCardSummaryTypeDef]
+    ModelCardSummaries: list[ModelCardSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelMetadataResponseTypeDef(TypedDict):
-    ModelMetadataSummaries: List[ModelMetadataSummaryTypeDef]
+    ModelMetadataSummaries: list[ModelMetadataSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelPackageGroupsOutputTypeDef(TypedDict):
-    ModelPackageGroupSummaryList: List[ModelPackageGroupSummaryTypeDef]
+    ModelPackageGroupSummaryList: list[ModelPackageGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelsOutputTypeDef(TypedDict):
-    Models: List[ModelSummaryTypeDef]
+    Models: list[ModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMonitoringAlertHistoryResponseTypeDef(TypedDict):
-    MonitoringAlertHistory: List[MonitoringAlertHistorySummaryTypeDef]
+    MonitoringAlertHistory: list[MonitoringAlertHistorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListMonitoringSchedulesResponseTypeDef(TypedDict):
-    MonitoringScheduleSummaries: List[MonitoringScheduleSummaryTypeDef]
+    MonitoringScheduleSummaries: list[MonitoringScheduleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNotebookInstanceLifecycleConfigsOutputTypeDef(TypedDict):
-    NotebookInstanceLifecycleConfigs: List[NotebookInstanceLifecycleConfigSummaryTypeDef]
+    NotebookInstanceLifecycleConfigs: list[NotebookInstanceLifecycleConfigSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListNotebookInstancesOutputTypeDef(TypedDict):
-    NotebookInstances: List[NotebookInstanceSummaryTypeDef]
+    NotebookInstances: list[NotebookInstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOptimizationJobsResponseTypeDef(TypedDict):
-    OptimizationJobSummaries: List[OptimizationJobSummaryTypeDef]
+    OptimizationJobSummaries: list[OptimizationJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPartnerAppsResponseTypeDef(TypedDict):
-    Summaries: List[PartnerAppSummaryTypeDef]
+    Summaries: list[PartnerAppSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPipelineExecutionsResponseTypeDef(TypedDict):
-    PipelineExecutionSummaries: List[PipelineExecutionSummaryTypeDef]
+    PipelineExecutionSummaries: list[PipelineExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPipelineParametersForExecutionResponseTypeDef(TypedDict):
-    PipelineParameters: List[ParameterTypeDef]
+    PipelineParameters: list[ParameterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPipelineVersionsResponseTypeDef(TypedDict):
-    PipelineVersionSummaries: List[PipelineVersionSummaryTypeDef]
+    PipelineVersionSummaries: list[PipelineVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPipelinesResponseTypeDef(TypedDict):
-    PipelineSummaries: List[PipelineSummaryTypeDef]
+    PipelineSummaries: list[PipelineSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProcessingJobsResponseTypeDef(TypedDict):
-    ProcessingJobSummaries: List[ProcessingJobSummaryTypeDef]
+    ProcessingJobSummaries: list[ProcessingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProjectsOutputTypeDef(TypedDict):
-    ProjectSummaryList: List[ProjectSummaryTypeDef]
+    ProjectSummaryList: list[ProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListResourceCatalogsResponseTypeDef(TypedDict):
-    ResourceCatalogs: List[ResourceCatalogTypeDef]
+    ResourceCatalogs: list[ResourceCatalogTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListStudioLifecycleConfigsResponseTypeDef(TypedDict):
-    StudioLifecycleConfigs: List[StudioLifecycleConfigDetailsTypeDef]
+    StudioLifecycleConfigs: list[StudioLifecycleConfigDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9988,19 +10364,19 @@ class ListTrainingPlansRequestTypeDef(TypedDict):
 
 
 class ListTransformJobsResponseTypeDef(TypedDict):
-    TransformJobSummaries: List[TransformJobSummaryTypeDef]
+    TransformJobSummaries: list[TransformJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListUltraServersByReservedCapacityResponseTypeDef(TypedDict):
-    UltraServers: List[UltraServerTypeDef]
+    UltraServers: list[UltraServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListUserProfilesResponseTypeDef(TypedDict):
-    UserProfiles: List[UserProfileDetailsTypeDef]
+    UserProfiles: list[UserProfileDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10021,8 +10397,8 @@ S3DataSourceOutputTypeDef = TypedDict(
         "S3DataType": S3DataTypeType,
         "S3Uri": str,
         "S3DataDistributionType": NotRequired[S3DataDistributionType],
-        "AttributeNames": NotRequired[List[str]],
-        "InstanceGroupNames": NotRequired[List[str]],
+        "AttributeNames": NotRequired[list[str]],
+        "InstanceGroupNames": NotRequired[list[str]],
         "ModelAccessConfig": NotRequired[ModelAccessConfigTypeDef],
         "HubAccessConfig": NotRequired[HubAccessConfigTypeDef],
     },
@@ -10055,7 +10431,7 @@ class S3ModelDataSourceTypeDef(TypedDict):
 class TextGenerationJobConfigOutputTypeDef(TypedDict):
     CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
     BaseModelName: NotRequired[str]
-    TextGenerationHyperParameters: NotRequired[Dict[str, str]]
+    TextGenerationHyperParameters: NotRequired[dict[str, str]]
     ModelAccessConfig: NotRequired[ModelAccessConfigTypeDef]
 
 
@@ -10090,7 +10466,7 @@ class ModelInfrastructureConfigTypeDef(TypedDict):
 
 class RecommendationJobStoppingConditionsOutputTypeDef(TypedDict):
     MaxInvocations: NotRequired[int]
-    ModelLatencyThresholds: NotRequired[List[ModelLatencyThresholdTypeDef]]
+    ModelLatencyThresholds: NotRequired[list[ModelLatencyThresholdTypeDef]]
     FlatInvocations: NotRequired[FlatInvocationsType]
 
 
@@ -10105,8 +10481,8 @@ class ModelMetadataSearchExpressionTypeDef(TypedDict):
 
 
 class ModelPackageStatusDetailsTypeDef(TypedDict):
-    ValidationStatuses: List[ModelPackageStatusItemTypeDef]
-    ImageScanStatuses: NotRequired[List[ModelPackageStatusItemTypeDef]]
+    ValidationStatuses: list[ModelPackageStatusItemTypeDef]
+    ImageScanStatuses: NotRequired[list[ModelPackageStatusItemTypeDef]]
 
 
 ModelQualityAppSpecificationUnionTypeDef = Union[
@@ -10115,17 +10491,14 @@ ModelQualityAppSpecificationUnionTypeDef = Union[
 ModelQuantizationConfigUnionTypeDef = Union[
     ModelQuantizationConfigTypeDef, ModelQuantizationConfigOutputTypeDef
 ]
-
-
-class OptimizationConfigOutputTypeDef(TypedDict):
-    ModelQuantizationConfig: NotRequired[ModelQuantizationConfigOutputTypeDef]
-    ModelCompilationConfig: NotRequired[ModelCompilationConfigOutputTypeDef]
-    ModelShardingConfig: NotRequired[ModelShardingConfigOutputTypeDef]
-
-
 ModelShardingConfigUnionTypeDef = Union[
     ModelShardingConfigTypeDef, ModelShardingConfigOutputTypeDef
 ]
+
+
+class ModelSpeculativeDecodingConfigTypeDef(TypedDict):
+    Technique: Literal["EAGLE"]
+    TrainingDataSource: NotRequired[ModelSpeculativeDecodingTrainingDataSourceTypeDef]
 
 
 class MonitoringResourcesTypeDef(TypedDict):
@@ -10135,7 +10508,7 @@ class MonitoringResourcesTypeDef(TypedDict):
 class MonitoringDatasetFormatOutputTypeDef(TypedDict):
     Csv: NotRequired[MonitoringCsvDatasetFormatTypeDef]
     Json: NotRequired[MonitoringJsonDatasetFormatTypeDef]
-    Parquet: NotRequired[Dict[str, Any]]
+    Parquet: NotRequired[dict[str, Any]]
 
 
 class MonitoringDatasetFormatTypeDef(TypedDict):
@@ -10179,6 +10552,12 @@ class OptimizationJobModelSourceS3TypeDef(TypedDict):
     ModelAccessConfig: NotRequired[OptimizationModelAccessConfigTypeDef]
 
 
+class OptimizationJobOutputConfigTypeDef(TypedDict):
+    S3OutputLocation: str
+    KmsKeyId: NotRequired[str]
+    SageMakerModel: NotRequired[OptimizationSageMakerModelTypeDef]
+
+
 OptimizationVpcConfigUnionTypeDef = Union[
     OptimizationVpcConfigTypeDef, OptimizationVpcConfigOutputTypeDef
 ]
@@ -10192,19 +10571,30 @@ class OutputConfigTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
 
 
-PartnerAppConfigUnionTypeDef = Union[PartnerAppConfigTypeDef, PartnerAppConfigOutputTypeDef]
+class PartnerAppConfigOutputTypeDef(TypedDict):
+    AdminUsers: NotRequired[list[str]]
+    Arguments: NotRequired[dict[str, str]]
+    AssignedGroupPatterns: NotRequired[list[str]]
+    RoleGroupAssignments: NotRequired[list[RoleGroupAssignmentOutputTypeDef]]
+
+
+class PartnerAppConfigTypeDef(TypedDict):
+    AdminUsers: NotRequired[Sequence[str]]
+    Arguments: NotRequired[Mapping[str, str]]
+    AssignedGroupPatterns: NotRequired[Sequence[str]]
+    RoleGroupAssignments: NotRequired[Sequence[RoleGroupAssignmentTypeDef]]
 
 
 class PendingProductionVariantSummaryTypeDef(TypedDict):
     VariantName: str
-    DeployedImages: NotRequired[List[DeployedImageTypeDef]]
+    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
     CurrentWeight: NotRequired[float]
     DesiredWeight: NotRequired[float]
     CurrentInstanceCount: NotRequired[int]
     DesiredInstanceCount: NotRequired[int]
     InstanceType: NotRequired[ProductionVariantInstanceTypeType]
     AcceleratorType: NotRequired[ProductionVariantAcceleratorTypeType]
-    VariantStatus: NotRequired[List[ProductionVariantStatusTypeDef]]
+    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
     CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
@@ -10212,7 +10602,7 @@ class PendingProductionVariantSummaryTypeDef(TypedDict):
 
 
 class SchedulerConfigOutputTypeDef(TypedDict):
-    PriorityClasses: NotRequired[List[PriorityClassTypeDef]]
+    PriorityClasses: NotRequired[list[PriorityClassTypeDef]]
     FairShare: NotRequired[FairShareType]
 
 
@@ -10265,7 +10655,7 @@ class ServiceCatalogProvisioningDetailsOutputTypeDef(TypedDict):
     ProductId: str
     ProvisioningArtifactId: NotRequired[str]
     PathId: NotRequired[str]
-    ProvisioningParameters: NotRequired[List[ProvisioningParameterTypeDef]]
+    ProvisioningParameters: NotRequired[list[ProvisioningParameterTypeDef]]
 
 
 class ServiceCatalogProvisioningDetailsTypeDef(TypedDict):
@@ -10285,8 +10675,8 @@ class PublicWorkforceTaskPriceTypeDef(TypedDict):
 
 
 class QueryLineageResponseTypeDef(TypedDict):
-    Vertices: List[VertexTypeDef]
-    Edges: List[EdgeTypeDef]
+    Vertices: list[VertexTypeDef]
+    Edges: list[EdgeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10303,10 +10693,10 @@ class RecommendationJobContainerConfigOutputTypeDef(TypedDict):
     FrameworkVersion: NotRequired[str]
     PayloadConfig: NotRequired[RecommendationJobPayloadConfigOutputTypeDef]
     NearestModelName: NotRequired[str]
-    SupportedInstanceTypes: NotRequired[List[str]]
+    SupportedInstanceTypes: NotRequired[list[str]]
     SupportedEndpointType: NotRequired[RecommendationJobSupportedEndpointTypeType]
     DataInputConfig: NotRequired[str]
-    SupportedResponseMIMETypes: NotRequired[List[str]]
+    SupportedResponseMIMETypes: NotRequired[list[str]]
 
 
 class RecommendationJobContainerConfigTypeDef(TypedDict):
@@ -10331,24 +10721,24 @@ class RenderUiTemplateRequestTypeDef(TypedDict):
 
 class RenderUiTemplateResponseTypeDef(TypedDict):
     RenderedContent: str
-    Errors: List[RenderingErrorTypeDef]
+    Errors: list[RenderingErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class TrainingPlanOfferingTypeDef(TypedDict):
     TrainingPlanOfferingId: str
-    TargetResources: List[SageMakerResourceNameType]
+    TargetResources: list[SageMakerResourceNameType]
     RequestedStartTimeAfter: NotRequired[datetime]
     RequestedEndTimeBefore: NotRequired[datetime]
     DurationHours: NotRequired[int]
     DurationMinutes: NotRequired[int]
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
-    ReservedCapacityOfferings: NotRequired[List[ReservedCapacityOfferingTypeDef]]
+    ReservedCapacityOfferings: NotRequired[list[ReservedCapacityOfferingTypeDef]]
 
 
 class SelectiveExecutionConfigOutputTypeDef(TypedDict):
-    SelectedSteps: List[SelectedStepTypeDef]
+    SelectedSteps: list[SelectedStepTypeDef]
     SourcePipelineExecutionArn: NotRequired[str]
 
 
@@ -10359,7 +10749,7 @@ class SelectiveExecutionConfigTypeDef(TypedDict):
 
 class ShadowModeConfigOutputTypeDef(TypedDict):
     SourceModelVariantName: str
-    ShadowModelVariants: List[ShadowModelVariantConfigTypeDef]
+    ShadowModelVariants: list[ShadowModelVariantConfigTypeDef]
 
 
 class ShadowModeConfigTypeDef(TypedDict):
@@ -10376,7 +10766,7 @@ class SpaceAppLifecycleManagementTypeDef(TypedDict):
 
 class TrafficPatternOutputTypeDef(TypedDict):
     TrafficType: NotRequired[TrafficTypeType]
-    Phases: NotRequired[List[PhaseTypeDef]]
+    Phases: NotRequired[list[PhaseTypeDef]]
     Stairs: NotRequired[StairsTypeDef]
 
 
@@ -10410,8 +10800,20 @@ class WorkforceTypeDef(TypedDict):
     IpAddressType: NotRequired[WorkforceIpAddressTypeType]
 
 
+class ComputeQuotaConfigOutputTypeDef(TypedDict):
+    ComputeQuotaResources: NotRequired[list[ComputeQuotaResourceConfigTypeDef]]
+    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
+    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
+
+
+class ComputeQuotaConfigTypeDef(TypedDict):
+    ComputeQuotaResources: NotRequired[Sequence[ComputeQuotaResourceConfigTypeDef]]
+    ResourceSharingConfig: NotRequired[ResourceSharingConfigTypeDef]
+    PreemptTeamTasks: NotRequired[PreemptTeamTasksType]
+
+
 class ListActionsResponseTypeDef(TypedDict):
-    ActionSummaries: List[ActionSummaryTypeDef]
+    ActionSummaries: list[ActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10422,19 +10824,20 @@ HyperParameterAlgorithmSpecificationUnionTypeDef = Union[
 
 
 class ListAppsResponseTypeDef(TypedDict):
-    Apps: List[AppDetailsTypeDef]
+    Apps: list[AppDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DomainSettingsOutputTypeDef(TypedDict):
-    SecurityGroupIds: NotRequired[List[str]]
+    SecurityGroupIds: NotRequired[list[str]]
     RStudioServerProDomainSettings: NotRequired[RStudioServerProDomainSettingsTypeDef]
     ExecutionRoleIdentityConfig: NotRequired[ExecutionRoleIdentityConfigType]
     TrustedIdentityPropagationSettings: NotRequired[TrustedIdentityPropagationSettingsTypeDef]
     DockerSettings: NotRequired[DockerSettingsOutputTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 
 class DomainSettingsTypeDef(TypedDict):
@@ -10445,12 +10848,13 @@ class DomainSettingsTypeDef(TypedDict):
     DockerSettings: NotRequired[DockerSettingsTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 
 class CodeEditorAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    CustomImages: NotRequired[List[CustomImageTypeDef]]
-    LifecycleConfigArns: NotRequired[List[str]]
+    CustomImages: NotRequired[list[CustomImageTypeDef]]
+    LifecycleConfigArns: NotRequired[list[str]]
     AppLifecycleManagement: NotRequired[AppLifecycleManagementTypeDef]
     BuiltInLifecycleConfigArn: NotRequired[str]
 
@@ -10465,9 +10869,9 @@ class CodeEditorAppSettingsTypeDef(TypedDict):
 
 class JupyterLabAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    CustomImages: NotRequired[List[CustomImageTypeDef]]
-    LifecycleConfigArns: NotRequired[List[str]]
-    CodeRepositories: NotRequired[List[CodeRepositoryTypeDef]]
+    CustomImages: NotRequired[list[CustomImageTypeDef]]
+    LifecycleConfigArns: NotRequired[list[str]]
+    CodeRepositories: NotRequired[list[CodeRepositoryTypeDef]]
     AppLifecycleManagement: NotRequired[AppLifecycleManagementTypeDef]
     EmrSettings: NotRequired[EmrSettingsOutputTypeDef]
     BuiltInLifecycleConfigArn: NotRequired[str]
@@ -10522,9 +10926,9 @@ class TimeSeriesForecastingJobConfigOutputTypeDef(TypedDict):
     TimeSeriesConfig: TimeSeriesConfigOutputTypeDef
     FeatureSpecificationS3Uri: NotRequired[str]
     CompletionCriteria: NotRequired[AutoMLJobCompletionCriteriaTypeDef]
-    ForecastQuantiles: NotRequired[List[str]]
+    ForecastQuantiles: NotRequired[list[str]]
     Transformations: NotRequired[TimeSeriesTransformationsOutputTypeDef]
-    HolidayConfig: NotRequired[List[HolidayConfigAttributesTypeDef]]
+    HolidayConfig: NotRequired[list[HolidayConfigAttributesTypeDef]]
     CandidateGenerationConfig: NotRequired[CandidateGenerationConfigOutputTypeDef]
 
 
@@ -10568,7 +10972,7 @@ class AutoMLJobChannelTypeDef(TypedDict):
 
 
 class ListAutoMLJobsResponseTypeDef(TypedDict):
-    AutoMLJobSummaries: List[AutoMLJobSummaryTypeDef]
+    AutoMLJobSummaries: list[AutoMLJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10642,22 +11046,28 @@ class PipelineExecutionStepMetadataTypeDef(TypedDict):
     AutoMLJob: NotRequired[AutoMLJobStepMetadataTypeDef]
     Endpoint: NotRequired[EndpointStepMetadataTypeDef]
     EndpointConfig: NotRequired[EndpointConfigStepMetadataTypeDef]
+    BedrockCustomModel: NotRequired[BedrockCustomModelMetadataTypeDef]
+    BedrockCustomModelDeployment: NotRequired[BedrockCustomModelDeploymentMetadataTypeDef]
+    BedrockProvisionedModelThroughput: NotRequired[BedrockProvisionedModelThroughputMetadataTypeDef]
+    BedrockModelImport: NotRequired[BedrockModelImportMetadataTypeDef]
+    InferenceComponent: NotRequired[InferenceComponentMetadataTypeDef]
+    Lineage: NotRequired[LineageMetadataTypeDef]
 
 
 class AutoMLCandidateTypeDef(TypedDict):
     CandidateName: str
     ObjectiveStatus: ObjectiveStatusType
-    CandidateSteps: List[AutoMLCandidateStepTypeDef]
+    CandidateSteps: list[AutoMLCandidateStepTypeDef]
     CandidateStatus: CandidateStatusType
     CreationTime: datetime
     LastModifiedTime: datetime
     FinalAutoMLJobObjectiveMetric: NotRequired[FinalAutoMLJobObjectiveMetricTypeDef]
-    InferenceContainers: NotRequired[List[AutoMLContainerDefinitionTypeDef]]
+    InferenceContainers: NotRequired[list[AutoMLContainerDefinitionTypeDef]]
     EndTime: NotRequired[datetime]
     FailureReason: NotRequired[str]
     CandidateProperties: NotRequired[CandidatePropertiesTypeDef]
     InferenceContainerDefinitions: NotRequired[
-        Dict[AutoMLProcessingUnitType, List[AutoMLContainerDefinitionTypeDef]]
+        dict[AutoMLProcessingUnitType, list[AutoMLContainerDefinitionTypeDef]]
     ]
 
 
@@ -10671,7 +11081,7 @@ class EventMetadataTypeDef(TypedDict):
 class DeploymentConfigurationOutputTypeDef(TypedDict):
     RollingUpdatePolicy: NotRequired[RollingDeploymentPolicyTypeDef]
     WaitIntervalInSeconds: NotRequired[int]
-    AutoRollbackConfiguration: NotRequired[List[AlarmDetailsTypeDef]]
+    AutoRollbackConfiguration: NotRequired[list[AlarmDetailsTypeDef]]
 
 
 class DeploymentConfigurationTypeDef(TypedDict):
@@ -10748,7 +11158,7 @@ class ClusterNodeDetailsTypeDef(TypedDict):
     LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
     OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ThreadsPerCore: NotRequired[int]
-    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
+    InstanceStorageConfigs: NotRequired[list[ClusterInstanceStorageConfigTypeDef]]
     PrivatePrimaryIp: NotRequired[str]
     PrivatePrimaryIpv6: NotRequired[str]
     PrivateDnsHostname: NotRequired[str]
@@ -10756,10 +11166,12 @@ class ClusterNodeDetailsTypeDef(TypedDict):
     CurrentImageId: NotRequired[str]
     DesiredImageId: NotRequired[str]
     UltraServerInfo: NotRequired[UltraServerInfoTypeDef]
+    KubernetesConfig: NotRequired[ClusterKubernetesConfigNodeDetailsTypeDef]
+    CapacityType: NotRequired[ClusterCapacityTypeType]
 
 
 class ListClusterNodesResponseTypeDef(TypedDict):
-    ClusterNodeSummaries: List[ClusterNodeSummaryTypeDef]
+    ClusterNodeSummaries: list[ClusterNodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10773,7 +11185,7 @@ JupyterLabAppImageConfigUnionTypeDef = Union[
 
 
 class ListCodeRepositoriesOutputTypeDef(TypedDict):
-    CodeRepositorySummaryList: List[CodeRepositorySummaryTypeDef]
+    CodeRepositorySummaryList: list[CodeRepositorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10788,31 +11200,14 @@ class FeatureDefinitionTypeDef(TypedDict):
 DebugHookConfigUnionTypeDef = Union[DebugHookConfigTypeDef, DebugHookConfigOutputTypeDef]
 
 
-class ComputeQuotaSummaryTypeDef(TypedDict):
-    ComputeQuotaArn: str
-    ComputeQuotaId: str
-    Name: str
-    Status: SchedulerResourceStatusType
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    CreationTime: datetime
-    ComputeQuotaVersion: NotRequired[int]
-    ClusterArn: NotRequired[str]
-    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigOutputTypeDef]
-    ActivationState: NotRequired[ActivationStateType]
-    LastModifiedTime: NotRequired[datetime]
-
-
-ComputeQuotaConfigUnionTypeDef = Union[ComputeQuotaConfigTypeDef, ComputeQuotaConfigOutputTypeDef]
-
-
 class ListContextsResponseTypeDef(TypedDict):
-    ContextSummaries: List[ContextSummaryTypeDef]
+    ContextSummaries: list[ContextSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListModelPackagesOutputTypeDef(TypedDict):
-    ModelPackageSummaryList: List[ModelPackageSummaryTypeDef]
+    ModelPackageSummaryList: list[ModelPackageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10849,6 +11244,7 @@ InferenceComponentSpecificationSummaryTypeDef = TypedDict(
             InferenceComponentComputeResourceRequirementsTypeDef
         ],
         "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigSummaryTypeDef],
     },
 )
 
@@ -10856,12 +11252,12 @@ InferenceComponentSpecificationSummaryTypeDef = TypedDict(
 class DescribeEdgeDeploymentPlanResponseTypeDef(TypedDict):
     EdgeDeploymentPlanArn: str
     EdgeDeploymentPlanName: str
-    ModelConfigs: List[EdgeDeploymentModelConfigTypeDef]
+    ModelConfigs: list[EdgeDeploymentModelConfigTypeDef]
     DeviceFleetName: str
     EdgeDeploymentSuccess: int
     EdgeDeploymentPending: int
     EdgeDeploymentFailed: int
-    Stages: List[DeploymentStageStatusSummaryTypeDef]
+    Stages: list[DeploymentStageStatusSummaryTypeDef]
     CreationTime: datetime
     LastModifiedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -10869,37 +11265,37 @@ class DescribeEdgeDeploymentPlanResponseTypeDef(TypedDict):
 
 
 class ListExperimentsResponseTypeDef(TypedDict):
-    ExperimentSummaries: List[ExperimentSummaryTypeDef]
+    ExperimentSummaries: list[ExperimentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFeatureGroupsResponseTypeDef(TypedDict):
-    FeatureGroupSummaries: List[FeatureGroupSummaryTypeDef]
+    FeatureGroupSummaries: list[FeatureGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListInferenceExperimentsResponseTypeDef(TypedDict):
-    InferenceExperiments: List[InferenceExperimentSummaryTypeDef]
+    InferenceExperiments: list[InferenceExperimentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTrainingJobsResponseTypeDef(TypedDict):
-    TrainingJobSummaries: List[TrainingJobSummaryTypeDef]
+    TrainingJobSummaries: list[TrainingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTrainingPlansResponseTypeDef(TypedDict):
-    TrainingPlanSummaries: List[TrainingPlanSummaryTypeDef]
+    TrainingPlanSummaries: list[TrainingPlanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTrialsResponseTypeDef(TypedDict):
-    TrialSummaries: List[TrialSummaryTypeDef]
+    TrialSummaries: list[TrialSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10916,7 +11312,7 @@ class DeploymentStageTypeDef(TypedDict):
 
 
 class ListDevicesResponseTypeDef(TypedDict):
-    DeviceSummaries: List[DeviceSummaryTypeDef]
+    DeviceSummaries: list[DeviceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -10931,6 +11327,7 @@ class DomainSettingsForUpdateTypeDef(TypedDict):
     DockerSettings: NotRequired[DockerSettingsUnionTypeDef]
     AmazonQSettings: NotRequired[AmazonQSettingsTypeDef]
     UnifiedStudioSettings: NotRequired[UnifiedStudioSettingsTypeDef]
+    IpAddressType: NotRequired[IPAddressTypeType]
 
 
 class DriftCheckBaselinesTypeDef(TypedDict):
@@ -10948,12 +11345,12 @@ class SpaceSettingsSummaryTypeDef(TypedDict):
 
 class ProductionVariantSummaryTypeDef(TypedDict):
     VariantName: str
-    DeployedImages: NotRequired[List[DeployedImageTypeDef]]
+    DeployedImages: NotRequired[list[DeployedImageTypeDef]]
     CurrentWeight: NotRequired[float]
     DesiredWeight: NotRequired[float]
     CurrentInstanceCount: NotRequired[int]
     DesiredInstanceCount: NotRequired[int]
-    VariantStatus: NotRequired[List[ProductionVariantStatusTypeDef]]
+    VariantStatus: NotRequired[list[ProductionVariantStatusTypeDef]]
     CurrentServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     DesiredServerlessConfig: NotRequired[ProductionVariantServerlessConfigTypeDef]
     ManagedInstanceScaling: NotRequired[ProductionVariantManagedInstanceScalingTypeDef]
@@ -10995,7 +11392,7 @@ class SearchExpressionTypeDef(TypedDict):
 
 
 class ListTrainingJobsForHyperParameterTuningJobResponseTypeDef(TypedDict):
-    TrainingJobSummaries: List[HyperParameterTrainingJobSummaryTypeDef]
+    TrainingJobSummaries: list[HyperParameterTrainingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11006,7 +11403,7 @@ HyperParameterTuningResourceConfigUnionTypeDef = Union[
 
 
 class ListHyperParameterTuningJobsResponseTypeDef(TypedDict):
-    HyperParameterTuningJobSummaries: List[HyperParameterTuningJobSummaryTypeDef]
+    HyperParameterTuningJobSummaries: list[HyperParameterTuningJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11036,7 +11433,7 @@ class DescribeActionResponseTypeDef(TypedDict):
     ActionType: str
     Description: str
     Status: ActionStatusType
-    Properties: Dict[str, str]
+    Properties: dict[str, str]
     CreationTime: datetime
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
@@ -11051,7 +11448,7 @@ class DescribeArtifactResponseTypeDef(TypedDict):
     ArtifactArn: str
     Source: ArtifactSourceOutputTypeDef
     ArtifactType: str
-    Properties: Dict[str, str]
+    Properties: dict[str, str]
     CreationTime: datetime
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
@@ -11061,32 +11458,13 @@ class DescribeArtifactResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeComputeQuotaResponseTypeDef(TypedDict):
-    ComputeQuotaArn: str
-    ComputeQuotaId: str
-    Name: str
-    Description: str
-    ComputeQuotaVersion: int
-    Status: SchedulerResourceStatusType
-    FailureReason: str
-    ClusterArn: str
-    ComputeQuotaConfig: ComputeQuotaConfigOutputTypeDef
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    ActivationState: ActivationStateType
-    CreationTime: datetime
-    CreatedBy: UserContextTypeDef
-    LastModifiedTime: datetime
-    LastModifiedBy: UserContextTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeContextResponseTypeDef(TypedDict):
     ContextName: str
     ContextArn: str
     Source: ContextSourceTypeDef
     ContextType: str
     Description: str
-    Properties: Dict[str, str]
+    Properties: dict[str, str]
     CreationTime: datetime
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
@@ -11117,6 +11495,25 @@ class DescribeLineageGroupResponseTypeDef(TypedDict):
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
     LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeMlflowAppResponseTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    ArtifactStoreUri: str
+    MlflowVersion: str
+    RoleArn: str
+    Status: MlflowAppStatusType
+    ModelRegistrationMode: ModelRegistrationModeType
+    AccountDefaultStatus: AccountDefaultStatusType
+    DefaultDomainIdList: list[str]
+    CreationTime: datetime
+    CreatedBy: UserContextTypeDef
+    LastModifiedTime: datetime
+    LastModifiedBy: UserContextTypeDef
+    WeeklyMaintenanceWindowStart: str
+    MaintenanceStatus: MaintenanceStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11196,13 +11593,13 @@ class DescribeTrialComponentResponseTypeDef(TypedDict):
     CreatedBy: UserContextTypeDef
     LastModifiedTime: datetime
     LastModifiedBy: UserContextTypeDef
-    Parameters: Dict[str, TrialComponentParameterValueTypeDef]
-    InputArtifacts: Dict[str, TrialComponentArtifactTypeDef]
-    OutputArtifacts: Dict[str, TrialComponentArtifactTypeDef]
+    Parameters: dict[str, TrialComponentParameterValueTypeDef]
+    InputArtifacts: dict[str, TrialComponentArtifactTypeDef]
+    OutputArtifacts: dict[str, TrialComponentArtifactTypeDef]
     MetadataProperties: MetadataPropertiesTypeDef
-    Metrics: List[TrialComponentMetricSummaryTypeDef]
+    Metrics: list[TrialComponentMetricSummaryTypeDef]
     LineageGroupArn: str
-    Sources: List[TrialComponentSourceTypeDef]
+    Sources: list[TrialComponentSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11230,7 +11627,7 @@ class ExperimentTypeDef(TypedDict):
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class ModelCardTypeDef(TypedDict):
@@ -11244,7 +11641,7 @@ class ModelCardTypeDef(TypedDict):
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     ModelId: NotRequired[str]
     RiskRating: NotRequired[str]
     ModelPackageGroupName: NotRequired[str]
@@ -11260,7 +11657,7 @@ class ModelDashboardModelCardTypeDef(TypedDict):
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     ModelId: NotRequired[str]
     RiskRating: NotRequired[str]
 
@@ -11272,7 +11669,7 @@ class ModelPackageGroupTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     CreatedBy: NotRequired[UserContextTypeDef]
     ModelPackageGroupStatus: NotRequired[ModelPackageGroupStatusType]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class PipelineTypeDef(TypedDict):
@@ -11288,7 +11685,7 @@ class PipelineTypeDef(TypedDict):
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedBy: NotRequired[UserContextTypeDef]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class PipelineVersionTypeDef(TypedDict):
@@ -11351,12 +11748,12 @@ class CreateInferenceComponentInputTypeDef(TypedDict):
 
 
 class ResourceConfigOutputTypeDef(TypedDict):
-    VolumeSizeInGB: int
     InstanceType: NotRequired[TrainingInstanceTypeType]
     InstanceCount: NotRequired[int]
+    VolumeSizeInGB: NotRequired[int]
     VolumeKmsKeyId: NotRequired[str]
     KeepAlivePeriodInSeconds: NotRequired[int]
-    InstanceGroups: NotRequired[List[InstanceGroupTypeDef]]
+    InstanceGroups: NotRequired[list[InstanceGroupTypeDef]]
     TrainingPlanArn: NotRequired[str]
     InstancePlacementConfig: NotRequired[InstancePlacementConfigOutputTypeDef]
 
@@ -11428,7 +11825,7 @@ KernelGatewayImageConfigUnionTypeDef = Union[
 
 
 class ListLabelingJobsForWorkteamResponseTypeDef(TypedDict):
-    LabelingJobSummaryList: List[LabelingJobForWorkteamSummaryTypeDef]
+    LabelingJobSummaryList: list[LabelingJobForWorkteamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11451,6 +11848,7 @@ class TargetTrackingScalingPolicyConfigurationTypeDef(TypedDict):
 class DataSourceOutputTypeDef(TypedDict):
     S3DataSource: NotRequired[S3DataSourceOutputTypeDef]
     FileSystemDataSource: NotRequired[FileSystemDataSourceTypeDef]
+    DatasetSource: NotRequired[DatasetSourceTypeDef]
 
 
 S3DataSourceUnionTypeDef = Union[S3DataSourceTypeDef, S3DataSourceOutputTypeDef]
@@ -11504,10 +11902,18 @@ class ListModelMetadataRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class OptimizationConfigOutputTypeDef(TypedDict):
+    ModelQuantizationConfig: NotRequired[ModelQuantizationConfigOutputTypeDef]
+    ModelCompilationConfig: NotRequired[ModelCompilationConfigOutputTypeDef]
+    ModelShardingConfig: NotRequired[ModelShardingConfigOutputTypeDef]
+    ModelSpeculativeDecodingConfig: NotRequired[ModelSpeculativeDecodingConfigTypeDef]
+
+
 class OptimizationConfigTypeDef(TypedDict):
     ModelQuantizationConfig: NotRequired[ModelQuantizationConfigUnionTypeDef]
     ModelCompilationConfig: NotRequired[ModelCompilationConfigUnionTypeDef]
     ModelShardingConfig: NotRequired[ModelShardingConfigUnionTypeDef]
+    ModelSpeculativeDecodingConfig: NotRequired[ModelSpeculativeDecodingConfigTypeDef]
 
 
 BatchTransformInputOutputTypeDef = TypedDict(
@@ -11547,7 +11953,7 @@ BatchTransformInputTypeDef = TypedDict(
 
 
 class MonitoringOutputConfigOutputTypeDef(TypedDict):
-    MonitoringOutputs: List[MonitoringOutputTypeDef]
+    MonitoringOutputs: list[MonitoringOutputTypeDef]
     KmsKeyId: NotRequired[str]
 
 
@@ -11563,6 +11969,7 @@ class MemberDefinitionTypeDef(TypedDict):
 
 class OptimizationJobModelSourceTypeDef(TypedDict):
     S3: NotRequired[OptimizationJobModelSourceS3TypeDef]
+    SageMakerModel: NotRequired[OptimizationSageMakerModelTypeDef]
 
 
 class CreateCompilationJobRequestTypeDef(TypedDict):
@@ -11598,39 +12005,39 @@ class DescribeCompilationJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-CreatePartnerAppRequestTypeDef = TypedDict(
-    "CreatePartnerAppRequestTypeDef",
+DescribePartnerAppResponseTypeDef = TypedDict(
+    "DescribePartnerAppResponseTypeDef",
     {
+        "Arn": str,
         "Name": str,
         "Type": PartnerAppTypeType,
+        "Status": PartnerAppStatusType,
+        "CreationTime": datetime,
+        "LastModifiedTime": datetime,
         "ExecutionRoleArn": str,
+        "KmsKeyId": str,
+        "BaseUrl": str,
+        "MaintenanceConfig": PartnerAppMaintenanceConfigTypeDef,
         "Tier": str,
+        "Version": str,
+        "ApplicationConfig": PartnerAppConfigOutputTypeDef,
         "AuthType": Literal["IAM"],
-        "KmsKeyId": NotRequired[str],
-        "MaintenanceConfig": NotRequired[PartnerAppMaintenanceConfigTypeDef],
-        "ApplicationConfig": NotRequired[PartnerAppConfigUnionTypeDef],
-        "EnableIamSessionBasedIdentity": NotRequired[bool],
-        "ClientToken": NotRequired[str],
-        "Tags": NotRequired[Sequence[TagTypeDef]],
+        "EnableIamSessionBasedIdentity": bool,
+        "Error": ErrorInfoTypeDef,
+        "EnableAutoMinorVersionUpgrade": bool,
+        "CurrentVersionEolDate": datetime,
+        "AvailableUpgrade": AvailableUpgradeTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-
-class UpdatePartnerAppRequestTypeDef(TypedDict):
-    Arn: str
-    MaintenanceConfig: NotRequired[PartnerAppMaintenanceConfigTypeDef]
-    Tier: NotRequired[str]
-    ApplicationConfig: NotRequired[PartnerAppConfigUnionTypeDef]
-    EnableIamSessionBasedIdentity: NotRequired[bool]
-    ClientToken: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
+PartnerAppConfigUnionTypeDef = Union[PartnerAppConfigTypeDef, PartnerAppConfigOutputTypeDef]
 
 
 class PendingDeploymentSummaryTypeDef(TypedDict):
     EndpointConfigName: str
-    ProductionVariants: NotRequired[List[PendingProductionVariantSummaryTypeDef]]
+    ProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
     StartTime: NotRequired[datetime]
-    ShadowProductionVariants: NotRequired[List[PendingProductionVariantSummaryTypeDef]]
+    ShadowProductionVariants: NotRequired[list[PendingProductionVariantSummaryTypeDef]]
 
 
 class DescribeClusterSchedulerConfigResponseTypeDef(TypedDict):
@@ -11654,7 +12061,7 @@ SchedulerConfigUnionTypeDef = Union[SchedulerConfigTypeDef, SchedulerConfigOutpu
 
 
 class ProcessingOutputConfigOutputTypeDef(TypedDict):
-    Outputs: List[ProcessingOutputTypeDef]
+    Outputs: list[ProcessingOutputTypeDef]
     KmsKeyId: NotRequired[str]
 
 
@@ -11689,7 +12096,7 @@ class HumanLoopConfigOutputTypeDef(TypedDict):
     TaskCount: int
     TaskAvailabilityLifetimeInSeconds: NotRequired[int]
     TaskTimeLimitInSeconds: NotRequired[int]
-    TaskKeywords: NotRequired[List[str]]
+    TaskKeywords: NotRequired[list[str]]
     PublicWorkforceTaskPrice: NotRequired[PublicWorkforceTaskPriceTypeDef]
 
 
@@ -11713,7 +12120,7 @@ class HumanTaskConfigOutputTypeDef(TypedDict):
     NumberOfHumanWorkersPerDataObject: int
     TaskTimeLimitInSeconds: int
     PreHumanTaskLambdaArn: NotRequired[str]
-    TaskKeywords: NotRequired[List[str]]
+    TaskKeywords: NotRequired[list[str]]
     TaskAvailabilityLifetimeInSeconds: NotRequired[int]
     MaxConcurrentTaskCount: NotRequired[int]
     AnnotationConsolidationConfig: NotRequired[AnnotationConsolidationConfigTypeDef]
@@ -11736,7 +12143,7 @@ class HumanTaskConfigTypeDef(TypedDict):
 
 
 class SearchTrainingPlanOfferingsResponseTypeDef(TypedDict):
-    TrainingPlanOfferings: List[TrainingPlanOfferingTypeDef]
+    TrainingPlanOfferings: list[TrainingPlanOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11755,6 +12162,7 @@ class DescribePipelineExecutionResponseTypeDef(TypedDict):
     ParallelismConfiguration: ParallelismConfigurationTypeDef
     SelectiveExecutionConfig: SelectiveExecutionConfigOutputTypeDef
     PipelineVersionId: int
+    MLflowConfig: MLflowConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -11772,7 +12180,7 @@ class PipelineExecutionTypeDef(TypedDict):
     LastModifiedBy: NotRequired[UserContextTypeDef]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigOutputTypeDef]
-    PipelineParameters: NotRequired[List[ParameterTypeDef]]
+    PipelineParameters: NotRequired[list[ParameterTypeDef]]
     PipelineVersionId: NotRequired[int]
     PipelineVersionDisplayName: NotRequired[str]
 
@@ -11808,7 +12216,7 @@ class SpaceCodeEditorAppSettingsTypeDef(TypedDict):
 
 class SpaceJupyterLabAppSettingsOutputTypeDef(TypedDict):
     DefaultResourceSpec: NotRequired[ResourceSpecTypeDef]
-    CodeRepositories: NotRequired[List[CodeRepositoryTypeDef]]
+    CodeRepositories: NotRequired[list[CodeRepositoryTypeDef]]
     AppLifecycleManagement: NotRequired[SpaceAppLifecycleManagementTypeDef]
 
 
@@ -11822,10 +12230,10 @@ class AlgorithmSpecificationOutputTypeDef(TypedDict):
     TrainingInputMode: TrainingInputModeType
     TrainingImage: NotRequired[str]
     AlgorithmName: NotRequired[str]
-    MetricDefinitions: NotRequired[List[MetricDefinitionTypeDef]]
+    MetricDefinitions: NotRequired[list[MetricDefinitionTypeDef]]
     EnableSageMakerMetricsTimeSeries: NotRequired[bool]
-    ContainerEntrypoint: NotRequired[List[str]]
-    ContainerArguments: NotRequired[List[str]]
+    ContainerEntrypoint: NotRequired[list[str]]
+    ContainerArguments: NotRequired[list[str]]
     TrainingImageConfig: NotRequired[TrainingImageConfigTypeDef]
 
 
@@ -11853,7 +12261,7 @@ class DescribeWorkforceResponseTypeDef(TypedDict):
 
 
 class ListWorkforcesResponseTypeDef(TypedDict):
-    Workforces: List[WorkforceTypeDef]
+    Workforces: list[WorkforceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11863,23 +12271,57 @@ class UpdateWorkforceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ComputeQuotaSummaryTypeDef(TypedDict):
+    ComputeQuotaArn: str
+    ComputeQuotaId: str
+    Name: str
+    Status: SchedulerResourceStatusType
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    CreationTime: datetime
+    ComputeQuotaVersion: NotRequired[int]
+    ClusterArn: NotRequired[str]
+    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigOutputTypeDef]
+    ActivationState: NotRequired[ActivationStateType]
+    LastModifiedTime: NotRequired[datetime]
+
+
+class DescribeComputeQuotaResponseTypeDef(TypedDict):
+    ComputeQuotaArn: str
+    ComputeQuotaId: str
+    Name: str
+    Description: str
+    ComputeQuotaVersion: int
+    Status: SchedulerResourceStatusType
+    FailureReason: str
+    ClusterArn: str
+    ComputeQuotaConfig: ComputeQuotaConfigOutputTypeDef
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    ActivationState: ActivationStateType
+    CreationTime: datetime
+    CreatedBy: UserContextTypeDef
+    LastModifiedTime: datetime
+    LastModifiedBy: UserContextTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+ComputeQuotaConfigUnionTypeDef = Union[ComputeQuotaConfigTypeDef, ComputeQuotaConfigOutputTypeDef]
 DomainSettingsUnionTypeDef = Union[DomainSettingsTypeDef, DomainSettingsOutputTypeDef]
 
 
 class DefaultSpaceSettingsOutputTypeDef(TypedDict):
     ExecutionRole: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     JupyterServerAppSettings: NotRequired[JupyterServerAppSettingsOutputTypeDef]
     KernelGatewayAppSettings: NotRequired[KernelGatewayAppSettingsOutputTypeDef]
     JupyterLabAppSettings: NotRequired[JupyterLabAppSettingsOutputTypeDef]
     SpaceStorageSettings: NotRequired[DefaultSpaceStorageSettingsTypeDef]
     CustomPosixUserConfig: NotRequired[CustomPosixUserConfigTypeDef]
-    CustomFileSystemConfigs: NotRequired[List[CustomFileSystemConfigTypeDef]]
+    CustomFileSystemConfigs: NotRequired[list[CustomFileSystemConfigTypeDef]]
 
 
 class UserSettingsOutputTypeDef(TypedDict):
     ExecutionRole: NotRequired[str]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     SharingSettings: NotRequired[SharingSettingsTypeDef]
     JupyterServerAppSettings: NotRequired[JupyterServerAppSettingsOutputTypeDef]
     KernelGatewayAppSettings: NotRequired[KernelGatewayAppSettingsOutputTypeDef]
@@ -11893,7 +12335,7 @@ class UserSettingsOutputTypeDef(TypedDict):
     DefaultLandingUri: NotRequired[str]
     StudioWebPortal: NotRequired[StudioWebPortalType]
     CustomPosixUserConfig: NotRequired[CustomPosixUserConfigTypeDef]
-    CustomFileSystemConfigs: NotRequired[List[CustomFileSystemConfigTypeDef]]
+    CustomFileSystemConfigs: NotRequired[list[CustomFileSystemConfigTypeDef]]
     StudioWebPortalSettings: NotRequired[StudioWebPortalSettingsOutputTypeDef]
     AutoMountHomeEFS: NotRequired[AutoMountHomeEFSType]
 
@@ -11931,7 +12373,7 @@ class UserSettingsTypeDef(TypedDict):
 
 
 class ListArtifactsResponseTypeDef(TypedDict):
-    ArtifactSummaries: List[ArtifactSummaryTypeDef]
+    ArtifactSummaries: list[ArtifactSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -11994,7 +12436,7 @@ class PipelineExecutionStepTypeDef(TypedDict):
 class DescribeAutoMLJobResponseTypeDef(TypedDict):
     AutoMLJobName: str
     AutoMLJobArn: str
-    InputDataConfig: List[AutoMLChannelTypeDef]
+    InputDataConfig: list[AutoMLChannelTypeDef]
     OutputDataConfig: AutoMLOutputDataConfigTypeDef
     RoleArn: str
     AutoMLJobObjective: AutoMLJobObjectiveTypeDef
@@ -12004,7 +12446,7 @@ class DescribeAutoMLJobResponseTypeDef(TypedDict):
     EndTime: datetime
     LastModifiedTime: datetime
     FailureReason: str
-    PartialFailureReasons: List[AutoMLPartialFailureReasonTypeDef]
+    PartialFailureReasons: list[AutoMLPartialFailureReasonTypeDef]
     BestCandidate: AutoMLCandidateTypeDef
     AutoMLJobStatus: AutoMLJobStatusType
     AutoMLJobSecondaryStatus: AutoMLJobSecondaryStatusType
@@ -12017,7 +12459,7 @@ class DescribeAutoMLJobResponseTypeDef(TypedDict):
 
 
 class ListCandidatesForAutoMLJobResponseTypeDef(TypedDict):
-    Candidates: List[AutoMLCandidateTypeDef]
+    Candidates: list[AutoMLCandidateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -12054,10 +12496,10 @@ class RecommendationJobInputConfigOutputTypeDef(TypedDict):
     JobDurationInSeconds: NotRequired[int]
     TrafficPattern: NotRequired[TrafficPatternOutputTypeDef]
     ResourceLimit: NotRequired[RecommendationJobResourceLimitTypeDef]
-    EndpointConfigurations: NotRequired[List[EndpointInputConfigurationOutputTypeDef]]
+    EndpointConfigurations: NotRequired[list[EndpointInputConfigurationOutputTypeDef]]
     VolumeKmsKeyId: NotRequired[str]
     ContainerConfig: NotRequired[RecommendationJobContainerConfigOutputTypeDef]
-    Endpoints: NotRequired[List[EndpointInfoTypeDef]]
+    Endpoints: NotRequired[list[EndpointInfoTypeDef]]
     VpcConfig: NotRequired[RecommendationJobVpcConfigOutputTypeDef]
 
 
@@ -12096,7 +12538,7 @@ class DescribeProjectOutputTypeDef(TypedDict):
     ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetailsOutputTypeDef
     ServiceCatalogProvisionedProductDetails: ServiceCatalogProvisionedProductDetailsTypeDef
     ProjectStatus: ProjectStatusType
-    TemplateProviderDetails: List[TemplateProviderDetailTypeDef]
+    TemplateProviderDetails: list[TemplateProviderDetailTypeDef]
     CreatedBy: UserContextTypeDef
     CreationTime: datetime
     LastModifiedTime: datetime
@@ -12116,8 +12558,8 @@ class ProjectTypeDef(TypedDict):
     ProjectStatus: NotRequired[ProjectStatusType]
     CreatedBy: NotRequired[UserContextTypeDef]
     CreationTime: NotRequired[datetime]
-    TemplateProviderDetails: NotRequired[List[TemplateProviderDetailTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    TemplateProviderDetails: NotRequired[list[TemplateProviderDetailTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
 
@@ -12163,7 +12605,7 @@ class DescribeFeatureGroupResponseTypeDef(TypedDict):
     FeatureGroupName: str
     RecordIdentifierFeatureName: str
     EventTimeFeatureName: str
-    FeatureDefinitions: List[FeatureDefinitionTypeDef]
+    FeatureDefinitions: list[FeatureDefinitionTypeDef]
     CreationTime: datetime
     LastModifiedTime: datetime
     OnlineStoreConfig: OnlineStoreConfigTypeDef
@@ -12185,7 +12627,7 @@ class FeatureGroupTypeDef(TypedDict):
     FeatureGroupName: NotRequired[str]
     RecordIdentifierFeatureName: NotRequired[str]
     EventTimeFeatureName: NotRequired[str]
-    FeatureDefinitions: NotRequired[List[FeatureDefinitionTypeDef]]
+    FeatureDefinitions: NotRequired[list[FeatureDefinitionTypeDef]]
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     OnlineStoreConfig: NotRequired[OnlineStoreConfigTypeDef]
@@ -12196,7 +12638,7 @@ class FeatureGroupTypeDef(TypedDict):
     LastUpdateStatus: NotRequired[LastUpdateStatusTypeDef]
     FailureReason: NotRequired[str]
     Description: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class UpdateFeatureGroupRequestTypeDef(TypedDict):
@@ -12204,31 +12646,6 @@ class UpdateFeatureGroupRequestTypeDef(TypedDict):
     FeatureAdditions: NotRequired[Sequence[FeatureDefinitionTypeDef]]
     OnlineStoreConfig: NotRequired[OnlineStoreConfigUpdateTypeDef]
     ThroughputConfig: NotRequired[ThroughputConfigUpdateTypeDef]
-
-
-class ListComputeQuotasResponseTypeDef(TypedDict):
-    ComputeQuotaSummaries: List[ComputeQuotaSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class CreateComputeQuotaRequestTypeDef(TypedDict):
-    Name: str
-    ClusterArn: str
-    ComputeQuotaConfig: ComputeQuotaConfigUnionTypeDef
-    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
-    Description: NotRequired[str]
-    ActivationState: NotRequired[ActivationStateType]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class UpdateComputeQuotaRequestTypeDef(TypedDict):
-    ComputeQuotaId: str
-    TargetVersion: int
-    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigUnionTypeDef]
-    ComputeQuotaTarget: NotRequired[ComputeQuotaTargetTypeDef]
-    ActivationState: NotRequired[ActivationStateType]
-    Description: NotRequired[str]
 
 
 class CreateEdgeDeploymentPlanRequestTypeDef(TypedDict):
@@ -12285,7 +12702,7 @@ class SearchRequestTypeDef(TypedDict):
 
 
 class ListAssociationsResponseTypeDef(TypedDict):
-    AssociationSummaries: List[AssociationSummaryTypeDef]
+    AssociationSummaries: list[AssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -12301,23 +12718,23 @@ class TrialTypeDef(TypedDict):
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
     MetadataProperties: NotRequired[MetadataPropertiesTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
-    TrialComponentSummaries: NotRequired[List[TrialComponentSimpleSummaryTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    TrialComponentSummaries: NotRequired[list[TrialComponentSimpleSummaryTypeDef]]
 
 
 class ListTrialComponentsResponseTypeDef(TypedDict):
-    TrialComponentSummaries: List[TrialComponentSummaryTypeDef]
+    TrialComponentSummaries: list[TrialComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class WorkteamTypeDef(TypedDict):
     WorkteamName: str
-    MemberDefinitions: List[MemberDefinitionOutputTypeDef]
+    MemberDefinitions: list[MemberDefinitionOutputTypeDef]
     WorkteamArn: str
     Description: str
     WorkforceArn: NotRequired[str]
-    ProductListingIds: NotRequired[List[str]]
+    ProductListingIds: NotRequired[list[str]]
     SubDomain: NotRequired[str]
     CreateDate: NotRequired[datetime]
     LastUpdatedDate: NotRequired[datetime]
@@ -12347,9 +12764,9 @@ InferenceComponentDeploymentConfigUnionTypeDef = Union[
 
 
 class ResourceConfigTypeDef(TypedDict):
-    VolumeSizeInGB: int
     InstanceType: NotRequired[TrainingInstanceTypeType]
     InstanceCount: NotRequired[int]
+    VolumeSizeInGB: NotRequired[int]
     VolumeKmsKeyId: NotRequired[str]
     KeepAlivePeriodInSeconds: NotRequired[int]
     InstanceGroups: NotRequired[Sequence[InstanceGroupTypeDef]]
@@ -12359,13 +12776,13 @@ class ResourceConfigTypeDef(TypedDict):
 
 class TrainingSpecificationOutputTypeDef(TypedDict):
     TrainingImage: str
-    SupportedTrainingInstanceTypes: List[TrainingInstanceTypeType]
-    TrainingChannels: List[ChannelSpecificationOutputTypeDef]
+    SupportedTrainingInstanceTypes: list[TrainingInstanceTypeType]
+    TrainingChannels: list[ChannelSpecificationOutputTypeDef]
     TrainingImageDigest: NotRequired[str]
-    SupportedHyperParameters: NotRequired[List[HyperParameterSpecificationOutputTypeDef]]
+    SupportedHyperParameters: NotRequired[list[HyperParameterSpecificationOutputTypeDef]]
     SupportsDistributedTraining: NotRequired[bool]
-    MetricDefinitions: NotRequired[List[MetricDefinitionTypeDef]]
-    SupportedTuningJobObjectiveMetrics: NotRequired[List[HyperParameterTuningJobObjectiveTypeDef]]
+    MetricDefinitions: NotRequired[list[MetricDefinitionTypeDef]]
+    SupportedTuningJobObjectiveMetrics: NotRequired[list[HyperParameterTuningJobObjectiveTypeDef]]
     AdditionalS3DataSource: NotRequired[AdditionalS3DataSourceTypeDef]
 
 
@@ -12384,7 +12801,7 @@ class TrainingSpecificationTypeDef(TypedDict):
 
 
 class ListAppImageConfigsResponseTypeDef(TypedDict):
-    AppImageConfigs: List[AppImageConfigDetailsTypeDef]
+    AppImageConfigs: list[AppImageConfigDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -12445,6 +12862,7 @@ ChannelOutputTypeDef = TypedDict(
 class DataSourceTypeDef(TypedDict):
     S3DataSource: NotRequired[S3DataSourceUnionTypeDef]
     FileSystemDataSource: NotRequired[FileSystemDataSourceTypeDef]
+    DatasetSource: NotRequired[DatasetSourceTypeDef]
 
 
 class ContainerDefinitionOutputTypeDef(TypedDict):
@@ -12454,8 +12872,8 @@ class ContainerDefinitionOutputTypeDef(TypedDict):
     Mode: NotRequired[ContainerModeType]
     ModelDataUrl: NotRequired[str]
     ModelDataSource: NotRequired[ModelDataSourceTypeDef]
-    AdditionalModelDataSources: NotRequired[List[AdditionalModelDataSourceTypeDef]]
-    Environment: NotRequired[Dict[str, str]]
+    AdditionalModelDataSources: NotRequired[list[AdditionalModelDataSourceTypeDef]]
+    Environment: NotRequired[dict[str, str]]
     ModelPackageName: NotRequired[str]
     InferenceSpecificationName: NotRequired[str]
     MultiModelConfig: NotRequired[MultiModelConfigTypeDef]
@@ -12476,24 +12894,26 @@ class ContainerDefinitionTypeDef(TypedDict):
 
 
 class ModelPackageContainerDefinitionOutputTypeDef(TypedDict):
-    Image: str
     ContainerHostname: NotRequired[str]
+    Image: NotRequired[str]
     ImageDigest: NotRequired[str]
     ModelDataUrl: NotRequired[str]
     ModelDataSource: NotRequired[ModelDataSourceTypeDef]
     ProductId: NotRequired[str]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
     ModelInput: NotRequired[ModelInputTypeDef]
     Framework: NotRequired[str]
     FrameworkVersion: NotRequired[str]
     NearestModelName: NotRequired[str]
     AdditionalS3DataSource: NotRequired[AdditionalS3DataSourceTypeDef]
     ModelDataETag: NotRequired[str]
+    IsCheckpoint: NotRequired[bool]
+    BaseModel: NotRequired[BaseModelTypeDef]
 
 
 class ModelPackageContainerDefinitionTypeDef(TypedDict):
-    Image: str
     ContainerHostname: NotRequired[str]
+    Image: NotRequired[str]
     ImageDigest: NotRequired[str]
     ModelDataUrl: NotRequired[str]
     ModelDataSource: NotRequired[ModelDataSourceTypeDef]
@@ -12505,6 +12925,8 @@ class ModelPackageContainerDefinitionTypeDef(TypedDict):
     NearestModelName: NotRequired[str]
     AdditionalS3DataSource: NotRequired[AdditionalS3DataSourceTypeDef]
     ModelDataETag: NotRequired[str]
+    IsCheckpoint: NotRequired[bool]
+    BaseModel: NotRequired[BaseModelTypeDef]
 
 
 class SourceAlgorithmTypeDef(TypedDict):
@@ -12515,7 +12937,7 @@ class SourceAlgorithmTypeDef(TypedDict):
 
 
 class ListMonitoringAlertsResponseTypeDef(TypedDict):
-    MonitoringAlertSummaries: List[MonitoringAlertSummaryTypeDef]
+    MonitoringAlertSummaries: list[MonitoringAlertSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -12535,7 +12957,7 @@ DescribeInferenceExperimentResponseTypeDef = TypedDict(
         "LastModifiedTime": datetime,
         "RoleArn": str,
         "EndpointMetadata": EndpointMetadataTypeDef,
-        "ModelVariants": List[ModelVariantConfigSummaryTypeDef],
+        "ModelVariants": list[ModelVariantConfigSummaryTypeDef],
         "DataStorageConfig": InferenceExperimentDataStorageConfigOutputTypeDef,
         "ShadowModeConfig": ShadowModeConfigOutputTypeDef,
         "KmsKey": str,
@@ -12625,15 +13047,47 @@ class DescribeOptimizationJobResponseTypeDef(TypedDict):
     FailureReason: str
     OptimizationJobName: str
     ModelSource: OptimizationJobModelSourceTypeDef
-    OptimizationEnvironment: Dict[str, str]
+    OptimizationEnvironment: dict[str, str]
     DeploymentInstanceType: OptimizationJobDeploymentInstanceTypeType
-    OptimizationConfigs: List[OptimizationConfigOutputTypeDef]
+    MaxInstanceCount: int
+    OptimizationConfigs: list[OptimizationConfigOutputTypeDef]
     OutputConfig: OptimizationJobOutputConfigTypeDef
     OptimizationOutput: OptimizationOutputTypeDef
     RoleArn: str
     StoppingCondition: StoppingConditionTypeDef
     VpcConfig: OptimizationVpcConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+CreatePartnerAppRequestTypeDef = TypedDict(
+    "CreatePartnerAppRequestTypeDef",
+    {
+        "Name": str,
+        "Type": PartnerAppTypeType,
+        "ExecutionRoleArn": str,
+        "Tier": str,
+        "AuthType": Literal["IAM"],
+        "KmsKeyId": NotRequired[str],
+        "MaintenanceConfig": NotRequired[PartnerAppMaintenanceConfigTypeDef],
+        "ApplicationConfig": NotRequired[PartnerAppConfigUnionTypeDef],
+        "EnableIamSessionBasedIdentity": NotRequired[bool],
+        "EnableAutoMinorVersionUpgrade": NotRequired[bool],
+        "ClientToken": NotRequired[str],
+        "Tags": NotRequired[Sequence[TagTypeDef]],
+    },
+)
+
+
+class UpdatePartnerAppRequestTypeDef(TypedDict):
+    Arn: str
+    MaintenanceConfig: NotRequired[PartnerAppMaintenanceConfigTypeDef]
+    Tier: NotRequired[str]
+    ApplicationConfig: NotRequired[PartnerAppConfigUnionTypeDef]
+    EnableIamSessionBasedIdentity: NotRequired[bool]
+    EnableAutoMinorVersionUpgrade: NotRequired[bool]
+    AppVersion: NotRequired[str]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class CreateClusterSchedulerConfigRequestTypeDef(TypedDict):
@@ -12652,13 +13106,13 @@ class UpdateClusterSchedulerConfigRequestTypeDef(TypedDict):
 
 
 class DescribeProcessingJobResponseTypeDef(TypedDict):
-    ProcessingInputs: List[ProcessingInputTypeDef]
+    ProcessingInputs: list[ProcessingInputTypeDef]
     ProcessingOutputConfig: ProcessingOutputConfigOutputTypeDef
     ProcessingJobName: str
     ProcessingResources: ProcessingResourcesTypeDef
     StoppingCondition: ProcessingStoppingConditionTypeDef
     AppSpecification: AppSpecificationOutputTypeDef
-    Environment: Dict[str, str]
+    Environment: dict[str, str]
     NetworkConfig: NetworkConfigOutputTypeDef
     RoleArn: str
     ExperimentConfig: ExperimentConfigTypeDef
@@ -12677,13 +13131,13 @@ class DescribeProcessingJobResponseTypeDef(TypedDict):
 
 
 class ProcessingJobTypeDef(TypedDict):
-    ProcessingInputs: NotRequired[List[ProcessingInputTypeDef]]
+    ProcessingInputs: NotRequired[list[ProcessingInputTypeDef]]
     ProcessingOutputConfig: NotRequired[ProcessingOutputConfigOutputTypeDef]
     ProcessingJobName: NotRequired[str]
     ProcessingResources: NotRequired[ProcessingResourcesTypeDef]
     StoppingCondition: NotRequired[ProcessingStoppingConditionTypeDef]
     AppSpecification: NotRequired[AppSpecificationOutputTypeDef]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
     NetworkConfig: NotRequired[NetworkConfigOutputTypeDef]
     RoleArn: NotRequired[str]
     ExperimentConfig: NotRequired[ExperimentConfigTypeDef]
@@ -12698,7 +13152,7 @@ class ProcessingJobTypeDef(TypedDict):
     MonitoringScheduleArn: NotRequired[str]
     AutoMLJobArn: NotRequired[str]
     TrainingJobArn: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 ProcessingOutputConfigUnionTypeDef = Union[
@@ -12748,7 +13202,7 @@ class DescribeLabelingJobResponseTypeDef(TypedDict):
     StoppingConditions: LabelingJobStoppingConditionsTypeDef
     LabelingJobAlgorithmsConfig: LabelingJobAlgorithmsConfigOutputTypeDef
     HumanTaskConfig: HumanTaskConfigOutputTypeDef
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     LabelingJobOutput: LabelingJobOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -12765,6 +13219,7 @@ class StartPipelineExecutionRequestTypeDef(TypedDict):
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigUnionTypeDef]
     PipelineVersionId: NotRequired[int]
+    MlflowExperimentName: NotRequired[str]
 
 
 CreateInferenceExperimentRequestTypeDef = TypedDict(
@@ -12802,7 +13257,7 @@ class SpaceSettingsOutputTypeDef(TypedDict):
     AppType: NotRequired[AppTypeType]
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
     SpaceManagedResources: NotRequired[FeatureStatusType]
-    CustomFileSystems: NotRequired[List[CustomFileSystemTypeDef]]
+    CustomFileSystems: NotRequired[list[CustomFileSystemTypeDef]]
     RemoteAccess: NotRequired[FeatureStatusType]
 
 
@@ -12850,7 +13305,7 @@ class DescribeTransformJobResponseTypeDef(TypedDict):
     ModelClientConfig: ModelClientConfigTypeDef
     MaxPayloadInMB: int
     BatchStrategy: BatchStrategyType
-    Environment: Dict[str, str]
+    Environment: dict[str, str]
     TransformInput: TransformInputTypeDef
     TransformOutput: TransformOutputTypeDef
     DataCaptureConfig: BatchDataCaptureConfigTypeDef
@@ -12872,7 +13327,7 @@ class TransformJobDefinitionOutputTypeDef(TypedDict):
     MaxConcurrentTransforms: NotRequired[int]
     MaxPayloadInMB: NotRequired[int]
     BatchStrategy: NotRequired[BatchStrategyType]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class TransformJobDefinitionTypeDef(TypedDict):
@@ -12895,7 +13350,7 @@ class TransformJobTypeDef(TypedDict):
     ModelClientConfig: NotRequired[ModelClientConfigTypeDef]
     MaxPayloadInMB: NotRequired[int]
     BatchStrategy: NotRequired[BatchStrategyType]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
     TransformInput: NotRequired[TransformInputTypeDef]
     TransformOutput: NotRequired[TransformOutputTypeDef]
     DataCaptureConfig: NotRequired[BatchDataCaptureConfigTypeDef]
@@ -12907,7 +13362,32 @@ class TransformJobTypeDef(TypedDict):
     AutoMLJobArn: NotRequired[str]
     DataProcessing: NotRequired[DataProcessingTypeDef]
     ExperimentConfig: NotRequired[ExperimentConfigTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
+class ListComputeQuotasResponseTypeDef(TypedDict):
+    ComputeQuotaSummaries: list[ComputeQuotaSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class CreateComputeQuotaRequestTypeDef(TypedDict):
+    Name: str
+    ClusterArn: str
+    ComputeQuotaConfig: ComputeQuotaConfigUnionTypeDef
+    ComputeQuotaTarget: ComputeQuotaTargetTypeDef
+    Description: NotRequired[str]
+    ActivationState: NotRequired[ActivationStateType]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateComputeQuotaRequestTypeDef(TypedDict):
+    ComputeQuotaId: str
+    TargetVersion: int
+    ComputeQuotaConfig: NotRequired[ComputeQuotaConfigUnionTypeDef]
+    ComputeQuotaTarget: NotRequired[ComputeQuotaTargetTypeDef]
+    ActivationState: NotRequired[ActivationStateType]
+    Description: NotRequired[str]
 
 
 class DescribeDomainResponseTypeDef(TypedDict):
@@ -12927,7 +13407,7 @@ class DescribeDomainResponseTypeDef(TypedDict):
     DomainSettings: DomainSettingsOutputTypeDef
     AppNetworkAccessType: AppNetworkAccessTypeType
     HomeEfsFileSystemKmsKeyId: str
-    SubnetIds: List[str]
+    SubnetIds: list[str]
     Url: str
     VpcId: str
     KmsKeyId: str
@@ -12961,7 +13441,7 @@ UserSettingsUnionTypeDef = Union[UserSettingsTypeDef, UserSettingsOutputTypeDef]
 class DescribeAutoMLJobV2ResponseTypeDef(TypedDict):
     AutoMLJobName: str
     AutoMLJobArn: str
-    AutoMLJobInputDataConfig: List[AutoMLJobChannelTypeDef]
+    AutoMLJobInputDataConfig: list[AutoMLJobChannelTypeDef]
     OutputDataConfig: AutoMLOutputDataConfigTypeDef
     RoleArn: str
     AutoMLJobObjective: AutoMLJobObjectiveTypeDef
@@ -12971,7 +13451,7 @@ class DescribeAutoMLJobV2ResponseTypeDef(TypedDict):
     EndTime: datetime
     LastModifiedTime: datetime
     FailureReason: str
-    PartialFailureReasons: List[AutoMLPartialFailureReasonTypeDef]
+    PartialFailureReasons: list[AutoMLPartialFailureReasonTypeDef]
     BestCandidate: AutoMLCandidateTypeDef
     AutoMLJobStatus: AutoMLJobStatusType
     AutoMLJobSecondaryStatus: AutoMLJobSecondaryStatusType
@@ -13004,7 +13484,7 @@ class CreateAutoMLJobRequestTypeDef(TypedDict):
 
 
 class ListPipelineExecutionStepsResponseTypeDef(TypedDict):
-    PipelineExecutionSteps: List[PipelineExecutionStepTypeDef]
+    PipelineExecutionSteps: list[PipelineExecutionStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -13024,13 +13504,14 @@ class ClusterEventDetailTypeDef(TypedDict):
 class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     CurrentCount: NotRequired[int]
     TargetCount: NotRequired[int]
+    MinCount: NotRequired[int]
     InstanceGroupName: NotRequired[str]
     InstanceType: NotRequired[ClusterInstanceTypeType]
     LifeCycleConfig: NotRequired[ClusterLifeCycleConfigTypeDef]
     ExecutionRole: NotRequired[str]
     ThreadsPerCore: NotRequired[int]
-    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
-    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
+    InstanceStorageConfigs: NotRequired[list[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[list[DeepHealthCheckTypeType]]
     Status: NotRequired[InstanceGroupStatusType]
     TrainingPlanArn: NotRequired[str]
     TrainingPlanStatus: NotRequired[str]
@@ -13038,6 +13519,12 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
     CurrentImageId: NotRequired[str]
     DesiredImageId: NotRequired[str]
+    ActiveOperations: NotRequired[dict[Literal["Scaling"], int]]
+    KubernetesConfig: NotRequired[ClusterKubernetesConfigDetailsTypeDef]
+    CapacityRequirements: NotRequired[ClusterCapacityRequirementsOutputTypeDef]
+    TargetStateCount: NotRequired[int]
+    SoftwareUpdateStatus: NotRequired[SoftwareUpdateStatusType]
+    ActiveSoftwareUpdateConfig: NotRequired[DeploymentConfigurationOutputTypeDef]
 
 
 class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
@@ -13047,8 +13534,8 @@ class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
     InstanceType: NotRequired[ClusterInstanceTypeType]
     ExecutionRole: NotRequired[str]
     ThreadsPerCore: NotRequired[int]
-    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
-    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
+    InstanceStorageConfigs: NotRequired[list[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[list[DeepHealthCheckTypeType]]
     Status: NotRequired[InstanceGroupStatusType]
     TrainingPlanArn: NotRequired[str]
     TrainingPlanStatus: NotRequired[str]
@@ -13085,8 +13572,8 @@ class DescribeInferenceRecommendationsJobResponseTypeDef(TypedDict):
     FailureReason: str
     InputConfig: RecommendationJobInputConfigOutputTypeDef
     StoppingConditions: RecommendationJobStoppingConditionsOutputTypeDef
-    InferenceRecommendations: List[InferenceRecommendationTypeDef]
-    EndpointPerformances: List[EndpointPerformanceTypeDef]
+    InferenceRecommendations: list[InferenceRecommendationTypeDef]
+    EndpointPerformances: list[EndpointPerformanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13101,16 +13588,17 @@ RecommendationJobInputConfigUnionTypeDef = Union[
 class DescribeEndpointConfigOutputTypeDef(TypedDict):
     EndpointConfigName: str
     EndpointConfigArn: str
-    ProductionVariants: List[ProductionVariantTypeDef]
+    ProductionVariants: list[ProductionVariantTypeDef]
     DataCaptureConfig: DataCaptureConfigOutputTypeDef
     KmsKeyId: str
     CreationTime: datetime
     AsyncInferenceConfig: AsyncInferenceConfigOutputTypeDef
     ExplainerConfig: ExplainerConfigOutputTypeDef
-    ShadowProductionVariants: List[ProductionVariantTypeDef]
+    ShadowProductionVariants: list[ProductionVariantTypeDef]
     ExecutionRoleArn: str
     VpcConfig: VpcConfigOutputTypeDef
     EnableNetworkIsolation: bool
+    MetricsConfig: MetricsConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13118,7 +13606,7 @@ class DescribeEndpointOutputTypeDef(TypedDict):
     EndpointName: str
     EndpointArn: str
     EndpointConfigName: str
-    ProductionVariants: List[ProductionVariantSummaryTypeDef]
+    ProductionVariants: list[ProductionVariantSummaryTypeDef]
     DataCaptureConfig: DataCaptureConfigSummaryTypeDef
     EndpointStatus: EndpointStatusType
     FailureReason: str
@@ -13128,7 +13616,8 @@ class DescribeEndpointOutputTypeDef(TypedDict):
     AsyncInferenceConfig: AsyncInferenceConfigOutputTypeDef
     PendingDeploymentSummary: PendingDeploymentSummaryTypeDef
     ExplainerConfig: ExplainerConfigOutputTypeDef
-    ShadowProductionVariants: List[ProductionVariantSummaryTypeDef]
+    ShadowProductionVariants: list[ProductionVariantSummaryTypeDef]
+    MetricsConfig: MetricsConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13136,13 +13625,13 @@ ExplainerConfigUnionTypeDef = Union[ExplainerConfigTypeDef, ExplainerConfigOutpu
 
 
 class ListSpacesResponseTypeDef(TypedDict):
-    Spaces: List[SpaceDetailsTypeDef]
+    Spaces: list[SpaceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListInferenceRecommendationsJobStepsResponseTypeDef(TypedDict):
-    Steps: List[InferenceRecommendationsJobStepTypeDef]
+    Steps: list[InferenceRecommendationsJobStepTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -13153,7 +13642,7 @@ class DescribeWorkteamResponseTypeDef(TypedDict):
 
 
 class ListWorkteamsResponseTypeDef(TypedDict):
-    Workteams: List[WorkteamTypeDef]
+    Workteams: list[WorkteamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -13177,7 +13666,7 @@ TrainingSpecificationUnionTypeDef = Union[
 
 
 class ListLabelingJobsResponseTypeDef(TypedDict):
-    LabelingJobSummaryList: List[LabelingJobSummaryTypeDef]
+    LabelingJobSummaryList: list[LabelingJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -13187,7 +13676,7 @@ class DynamicScalingConfigurationTypeDef(TypedDict):
     MaxCapacity: NotRequired[int]
     ScaleInCooldown: NotRequired[int]
     ScaleOutCooldown: NotRequired[int]
-    ScalingPolicies: NotRequired[List[ScalingPolicyTypeDef]]
+    ScalingPolicies: NotRequired[list[ScalingPolicyTypeDef]]
 
 
 class DescribeTrainingJobResponseTypeDef(TypedDict):
@@ -13200,10 +13689,10 @@ class DescribeTrainingJobResponseTypeDef(TypedDict):
     TrainingJobStatus: TrainingJobStatusType
     SecondaryStatus: SecondaryStatusType
     FailureReason: str
-    HyperParameters: Dict[str, str]
+    HyperParameters: dict[str, str]
     AlgorithmSpecification: AlgorithmSpecificationOutputTypeDef
     RoleArn: str
-    InputDataConfig: List[ChannelOutputTypeDef]
+    InputDataConfig: list[ChannelOutputTypeDef]
     OutputDataConfig: OutputDataConfigTypeDef
     ResourceConfig: ResourceConfigOutputTypeDef
     WarmPoolStatus: WarmPoolStatusTypeDef
@@ -13213,27 +13702,34 @@ class DescribeTrainingJobResponseTypeDef(TypedDict):
     TrainingStartTime: datetime
     TrainingEndTime: datetime
     LastModifiedTime: datetime
-    SecondaryStatusTransitions: List[SecondaryStatusTransitionTypeDef]
-    FinalMetricDataList: List[MetricDataTypeDef]
+    SecondaryStatusTransitions: list[SecondaryStatusTransitionTypeDef]
+    FinalMetricDataList: list[MetricDataTypeDef]
     EnableNetworkIsolation: bool
     EnableInterContainerTrafficEncryption: bool
     EnableManagedSpotTraining: bool
     CheckpointConfig: CheckpointConfigTypeDef
     TrainingTimeInSeconds: int
     BillableTimeInSeconds: int
+    BillableTokenCount: int
     DebugHookConfig: DebugHookConfigOutputTypeDef
     ExperimentConfig: ExperimentConfigTypeDef
-    DebugRuleConfigurations: List[DebugRuleConfigurationOutputTypeDef]
+    DebugRuleConfigurations: list[DebugRuleConfigurationOutputTypeDef]
     TensorBoardOutputConfig: TensorBoardOutputConfigTypeDef
-    DebugRuleEvaluationStatuses: List[DebugRuleEvaluationStatusTypeDef]
+    DebugRuleEvaluationStatuses: list[DebugRuleEvaluationStatusTypeDef]
     ProfilerConfig: ProfilerConfigOutputTypeDef
-    ProfilerRuleConfigurations: List[ProfilerRuleConfigurationOutputTypeDef]
-    ProfilerRuleEvaluationStatuses: List[ProfilerRuleEvaluationStatusTypeDef]
+    ProfilerRuleConfigurations: list[ProfilerRuleConfigurationOutputTypeDef]
+    ProfilerRuleEvaluationStatuses: list[ProfilerRuleEvaluationStatusTypeDef]
     ProfilingStatus: ProfilingStatusType
-    Environment: Dict[str, str]
+    Environment: dict[str, str]
     RetryStrategy: RetryStrategyTypeDef
     RemoteDebugConfig: RemoteDebugConfigTypeDef
     InfraCheckConfig: InfraCheckConfigTypeDef
+    ServerlessJobConfig: ServerlessJobConfigTypeDef
+    MlflowConfig: MlflowConfigTypeDef
+    ModelPackageConfig: ModelPackageConfigTypeDef
+    MlflowDetails: MlflowDetailsTypeDef
+    ProgressInfo: TrainingProgressInfoTypeDef
+    OutputModelPackageArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13245,8 +13741,8 @@ class HyperParameterTrainingJobDefinitionOutputTypeDef(TypedDict):
     DefinitionName: NotRequired[str]
     TuningObjective: NotRequired[HyperParameterTuningJobObjectiveTypeDef]
     HyperParameterRanges: NotRequired[ParameterRangesOutputTypeDef]
-    StaticHyperParameters: NotRequired[Dict[str, str]]
-    InputDataConfig: NotRequired[List[ChannelOutputTypeDef]]
+    StaticHyperParameters: NotRequired[dict[str, str]]
+    InputDataConfig: NotRequired[list[ChannelOutputTypeDef]]
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ResourceConfig: NotRequired[ResourceConfigOutputTypeDef]
     HyperParameterTuningResourceConfig: NotRequired[HyperParameterTuningResourceConfigOutputTypeDef]
@@ -13255,16 +13751,16 @@ class HyperParameterTrainingJobDefinitionOutputTypeDef(TypedDict):
     EnableManagedSpotTraining: NotRequired[bool]
     CheckpointConfig: NotRequired[CheckpointConfigTypeDef]
     RetryStrategy: NotRequired[RetryStrategyTypeDef]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
 
 
 class TrainingJobDefinitionOutputTypeDef(TypedDict):
     TrainingInputMode: TrainingInputModeType
-    InputDataConfig: List[ChannelOutputTypeDef]
+    InputDataConfig: list[ChannelOutputTypeDef]
     OutputDataConfig: OutputDataConfigTypeDef
     ResourceConfig: ResourceConfigOutputTypeDef
     StoppingCondition: StoppingConditionTypeDef
-    HyperParameters: NotRequired[Dict[str, str]]
+    HyperParameters: NotRequired[dict[str, str]]
 
 
 class TrainingJobTypeDef(TypedDict):
@@ -13277,10 +13773,10 @@ class TrainingJobTypeDef(TypedDict):
     TrainingJobStatus: NotRequired[TrainingJobStatusType]
     SecondaryStatus: NotRequired[SecondaryStatusType]
     FailureReason: NotRequired[str]
-    HyperParameters: NotRequired[Dict[str, str]]
+    HyperParameters: NotRequired[dict[str, str]]
     AlgorithmSpecification: NotRequired[AlgorithmSpecificationOutputTypeDef]
     RoleArn: NotRequired[str]
-    InputDataConfig: NotRequired[List[ChannelOutputTypeDef]]
+    InputDataConfig: NotRequired[list[ChannelOutputTypeDef]]
     OutputDataConfig: NotRequired[OutputDataConfigTypeDef]
     ResourceConfig: NotRequired[ResourceConfigOutputTypeDef]
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
@@ -13289,8 +13785,8 @@ class TrainingJobTypeDef(TypedDict):
     TrainingStartTime: NotRequired[datetime]
     TrainingEndTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
-    SecondaryStatusTransitions: NotRequired[List[SecondaryStatusTransitionTypeDef]]
-    FinalMetricDataList: NotRequired[List[MetricDataTypeDef]]
+    SecondaryStatusTransitions: NotRequired[list[SecondaryStatusTransitionTypeDef]]
+    FinalMetricDataList: NotRequired[list[MetricDataTypeDef]]
     EnableNetworkIsolation: NotRequired[bool]
     EnableInterContainerTrafficEncryption: NotRequired[bool]
     EnableManagedSpotTraining: NotRequired[bool]
@@ -13299,13 +13795,15 @@ class TrainingJobTypeDef(TypedDict):
     BillableTimeInSeconds: NotRequired[int]
     DebugHookConfig: NotRequired[DebugHookConfigOutputTypeDef]
     ExperimentConfig: NotRequired[ExperimentConfigTypeDef]
-    DebugRuleConfigurations: NotRequired[List[DebugRuleConfigurationOutputTypeDef]]
+    DebugRuleConfigurations: NotRequired[list[DebugRuleConfigurationOutputTypeDef]]
     TensorBoardOutputConfig: NotRequired[TensorBoardOutputConfigTypeDef]
-    DebugRuleEvaluationStatuses: NotRequired[List[DebugRuleEvaluationStatusTypeDef]]
+    DebugRuleEvaluationStatuses: NotRequired[list[DebugRuleEvaluationStatusTypeDef]]
+    OutputModelPackageArn: NotRequired[str]
+    ModelPackageConfig: NotRequired[ModelPackageConfigTypeDef]
     ProfilerConfig: NotRequired[ProfilerConfigOutputTypeDef]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
     RetryStrategy: NotRequired[RetryStrategyTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 DataSourceUnionTypeDef = Union[DataSourceTypeDef, DataSourceOutputTypeDef]
@@ -13314,7 +13812,7 @@ DataSourceUnionTypeDef = Union[DataSourceTypeDef, DataSourceOutputTypeDef]
 class DescribeModelOutputTypeDef(TypedDict):
     ModelName: str
     PrimaryContainer: ContainerDefinitionOutputTypeDef
-    Containers: List[ContainerDefinitionOutputTypeDef]
+    Containers: list[ContainerDefinitionOutputTypeDef]
     InferenceExecutionConfig: InferenceExecutionConfigTypeDef
     ExecutionRoleArn: str
     VpcConfig: VpcConfigOutputTypeDef
@@ -13328,14 +13826,14 @@ class DescribeModelOutputTypeDef(TypedDict):
 class ModelTypeDef(TypedDict):
     ModelName: NotRequired[str]
     PrimaryContainer: NotRequired[ContainerDefinitionOutputTypeDef]
-    Containers: NotRequired[List[ContainerDefinitionOutputTypeDef]]
+    Containers: NotRequired[list[ContainerDefinitionOutputTypeDef]]
     InferenceExecutionConfig: NotRequired[InferenceExecutionConfigTypeDef]
     ExecutionRoleArn: NotRequired[str]
     VpcConfig: NotRequired[VpcConfigOutputTypeDef]
     CreationTime: NotRequired[datetime]
     ModelArn: NotRequired[str]
     EnableNetworkIsolation: NotRequired[bool]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     DeploymentRecommendation: NotRequired[DeploymentRecommendationTypeDef]
 
 
@@ -13346,20 +13844,20 @@ ContainerDefinitionUnionTypeDef = Union[
 
 class AdditionalInferenceSpecificationDefinitionOutputTypeDef(TypedDict):
     Name: str
-    Containers: List[ModelPackageContainerDefinitionOutputTypeDef]
+    Containers: list[ModelPackageContainerDefinitionOutputTypeDef]
     Description: NotRequired[str]
-    SupportedTransformInstanceTypes: NotRequired[List[TransformInstanceTypeType]]
-    SupportedRealtimeInferenceInstanceTypes: NotRequired[List[ProductionVariantInstanceTypeType]]
-    SupportedContentTypes: NotRequired[List[str]]
-    SupportedResponseMIMETypes: NotRequired[List[str]]
+    SupportedTransformInstanceTypes: NotRequired[list[TransformInstanceTypeType]]
+    SupportedRealtimeInferenceInstanceTypes: NotRequired[list[ProductionVariantInstanceTypeType]]
+    SupportedContentTypes: NotRequired[list[str]]
+    SupportedResponseMIMETypes: NotRequired[list[str]]
 
 
 class InferenceSpecificationOutputTypeDef(TypedDict):
-    Containers: List[ModelPackageContainerDefinitionOutputTypeDef]
-    SupportedTransformInstanceTypes: NotRequired[List[TransformInstanceTypeType]]
-    SupportedRealtimeInferenceInstanceTypes: NotRequired[List[ProductionVariantInstanceTypeType]]
-    SupportedContentTypes: NotRequired[List[str]]
-    SupportedResponseMIMETypes: NotRequired[List[str]]
+    Containers: list[ModelPackageContainerDefinitionOutputTypeDef]
+    SupportedTransformInstanceTypes: NotRequired[list[TransformInstanceTypeType]]
+    SupportedRealtimeInferenceInstanceTypes: NotRequired[list[ProductionVariantInstanceTypeType]]
+    SupportedContentTypes: NotRequired[list[str]]
+    SupportedResponseMIMETypes: NotRequired[list[str]]
 
 
 class InferenceSpecificationTypeDef(TypedDict):
@@ -13378,7 +13876,7 @@ ModelPackageContainerDefinitionUnionTypeDef = Union[
 
 
 class SourceAlgorithmSpecificationOutputTypeDef(TypedDict):
-    SourceAlgorithms: List[SourceAlgorithmTypeDef]
+    SourceAlgorithms: list[SourceAlgorithmTypeDef]
 
 
 class SourceAlgorithmSpecificationTypeDef(TypedDict):
@@ -13393,6 +13891,7 @@ class CreateOptimizationJobRequestTypeDef(TypedDict):
     OptimizationConfigs: Sequence[OptimizationConfigUnionTypeDef]
     OutputConfig: OptimizationJobOutputConfigTypeDef
     StoppingCondition: StoppingConditionTypeDef
+    MaxInstanceCount: NotRequired[int]
     OptimizationEnvironment: NotRequired[Mapping[str, str]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     VpcConfig: NotRequired[OptimizationVpcConfigUnionTypeDef]
@@ -13459,14 +13958,14 @@ class DescribeModelQualityJobDefinitionResponseTypeDef(TypedDict):
 
 
 class MonitoringJobDefinitionOutputTypeDef(TypedDict):
-    MonitoringInputs: List[MonitoringInputOutputTypeDef]
+    MonitoringInputs: list[MonitoringInputOutputTypeDef]
     MonitoringOutputConfig: MonitoringOutputConfigOutputTypeDef
     MonitoringResources: MonitoringResourcesTypeDef
     MonitoringAppSpecification: MonitoringAppSpecificationOutputTypeDef
     RoleArn: str
     BaselineConfig: NotRequired[MonitoringBaselineConfigTypeDef]
     StoppingCondition: NotRequired[MonitoringStoppingConditionTypeDef]
-    Environment: NotRequired[Dict[str, str]]
+    Environment: NotRequired[dict[str, str]]
     NetworkConfig: NotRequired[NetworkConfigOutputTypeDef]
 
 
@@ -13613,6 +14112,7 @@ class UpdateDomainRequestTypeDef(TypedDict):
     SubnetIds: NotRequired[Sequence[str]]
     AppNetworkAccessType: NotRequired[AppNetworkAccessTypeType]
     TagPropagation: NotRequired[TagPropagationType]
+    VpcId: NotRequired[str]
 
 
 class UpdateUserProfileRequestTypeDef(TypedDict):
@@ -13646,12 +14146,15 @@ class DescribeClusterResponseTypeDef(TypedDict):
     ClusterStatus: ClusterStatusType
     CreationTime: datetime
     FailureMessage: str
-    InstanceGroups: List[ClusterInstanceGroupDetailsTypeDef]
-    RestrictedInstanceGroups: List[ClusterRestrictedInstanceGroupDetailsTypeDef]
+    InstanceGroups: list[ClusterInstanceGroupDetailsTypeDef]
+    RestrictedInstanceGroups: list[ClusterRestrictedInstanceGroupDetailsTypeDef]
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
+    TieredStorageConfig: ClusterTieredStorageConfigTypeDef
     NodeRecovery: ClusterNodeRecoveryType
     NodeProvisioningMode: Literal["Continuous"]
+    ClusterRole: str
+    AutoScaling: ClusterAutoScalingConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -13699,6 +14202,7 @@ class CreateEndpointConfigInputTypeDef(TypedDict):
     ExecutionRoleArn: NotRequired[str]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     EnableNetworkIsolation: NotRequired[bool]
+    MetricsConfig: NotRequired[MetricsConfigTypeDef]
 
 
 class GetScalingConfigurationRecommendationResponseTypeDef(TypedDict):
@@ -13717,7 +14221,7 @@ class DescribeHyperParameterTuningJobResponseTypeDef(TypedDict):
     HyperParameterTuningJobArn: str
     HyperParameterTuningJobConfig: HyperParameterTuningJobConfigOutputTypeDef
     TrainingJobDefinition: HyperParameterTrainingJobDefinitionOutputTypeDef
-    TrainingJobDefinitions: List[HyperParameterTrainingJobDefinitionOutputTypeDef]
+    TrainingJobDefinitions: list[HyperParameterTrainingJobDefinitionOutputTypeDef]
     HyperParameterTuningJobStatus: HyperParameterTuningJobStatusType
     CreationTime: datetime
     HyperParameterTuningEndTime: datetime
@@ -13739,7 +14243,7 @@ class HyperParameterTuningJobSearchEntityTypeDef(TypedDict):
     HyperParameterTuningJobArn: NotRequired[str]
     HyperParameterTuningJobConfig: NotRequired[HyperParameterTuningJobConfigOutputTypeDef]
     TrainingJobDefinition: NotRequired[HyperParameterTrainingJobDefinitionOutputTypeDef]
-    TrainingJobDefinitions: NotRequired[List[HyperParameterTrainingJobDefinitionOutputTypeDef]]
+    TrainingJobDefinitions: NotRequired[list[HyperParameterTrainingJobDefinitionOutputTypeDef]]
     HyperParameterTuningJobStatus: NotRequired[HyperParameterTuningJobStatusType]
     CreationTime: NotRequired[datetime]
     HyperParameterTuningEndTime: NotRequired[datetime]
@@ -13752,7 +14256,7 @@ class HyperParameterTuningJobSearchEntityTypeDef(TypedDict):
     FailureReason: NotRequired[str]
     TuningJobCompletionDetails: NotRequired[HyperParameterTuningJobCompletionDetailsTypeDef]
     ConsumedResources: NotRequired[HyperParameterTuningJobConsumedResourcesTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class AlgorithmValidationProfileOutputTypeDef(TypedDict):
@@ -13802,6 +14306,7 @@ class BatchDescribeModelPackageSummaryTypeDef(TypedDict):
     ModelPackageVersion: NotRequired[int]
     ModelPackageDescription: NotRequired[str]
     ModelApprovalStatus: NotRequired[ModelApprovalStatusType]
+    ModelPackageRegistrationType: NotRequired[ModelPackageRegistrationTypeType]
 
 
 InferenceSpecificationUnionTypeDef = Union[
@@ -13911,7 +14416,7 @@ class UpdateSpaceRequestTypeDef(TypedDict):
 
 class ModelPackageValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
-    ValidationProfiles: List[ModelPackageValidationProfileOutputTypeDef]
+    ValidationProfiles: list[ModelPackageValidationProfileOutputTypeDef]
 
 
 class ModelPackageValidationSpecificationTypeDef(TypedDict):
@@ -13925,6 +14430,7 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     InstanceType: ClusterInstanceTypeType
     LifeCycleConfig: ClusterLifeCycleConfigTypeDef
     ExecutionRole: str
+    MinInstanceCount: NotRequired[int]
     ThreadsPerCore: NotRequired[int]
     InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
     OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
@@ -13932,6 +14438,8 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
     ImageId: NotRequired[str]
+    KubernetesConfig: NotRequired[ClusterKubernetesConfigTypeDef]
+    CapacityRequirements: NotRequired[ClusterCapacityRequirementsUnionTypeDef]
 
 
 class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
@@ -13950,7 +14458,7 @@ class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
 
 class AlgorithmValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
-    ValidationProfiles: List[AlgorithmValidationProfileOutputTypeDef]
+    ValidationProfiles: list[AlgorithmValidationProfileOutputTypeDef]
 
 
 class TrialComponentTypeDef(TypedDict):
@@ -13965,15 +14473,15 @@ class TrialComponentTypeDef(TypedDict):
     CreatedBy: NotRequired[UserContextTypeDef]
     LastModifiedTime: NotRequired[datetime]
     LastModifiedBy: NotRequired[UserContextTypeDef]
-    Parameters: NotRequired[Dict[str, TrialComponentParameterValueTypeDef]]
-    InputArtifacts: NotRequired[Dict[str, TrialComponentArtifactTypeDef]]
-    OutputArtifacts: NotRequired[Dict[str, TrialComponentArtifactTypeDef]]
-    Metrics: NotRequired[List[TrialComponentMetricSummaryTypeDef]]
+    Parameters: NotRequired[dict[str, TrialComponentParameterValueTypeDef]]
+    InputArtifacts: NotRequired[dict[str, TrialComponentArtifactTypeDef]]
+    OutputArtifacts: NotRequired[dict[str, TrialComponentArtifactTypeDef]]
+    Metrics: NotRequired[list[TrialComponentMetricSummaryTypeDef]]
     MetadataProperties: NotRequired[MetadataPropertiesTypeDef]
     SourceDetail: NotRequired[TrialComponentSourceDetailTypeDef]
     LineageGroupArn: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
-    Parents: NotRequired[List[ParentTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    Parents: NotRequired[list[ParentTypeDef]]
     RunName: NotRequired[str]
 
 
@@ -13990,8 +14498,8 @@ class TrainingJobDefinitionTypeDef(TypedDict):
 
 
 class BatchDescribeModelPackageOutputTypeDef(TypedDict):
-    ModelPackageSummaries: Dict[str, BatchDescribeModelPackageSummaryTypeDef]
-    BatchDescribeModelPackageErrorMap: Dict[str, BatchDescribeModelPackageErrorTypeDef]
+    ModelPackageSummaries: dict[str, BatchDescribeModelPackageSummaryTypeDef]
+    BatchDescribeModelPackageErrorMap: dict[str, BatchDescribeModelPackageErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -14025,7 +14533,7 @@ class ModelDashboardMonitoringScheduleTypeDef(TypedDict):
     LastModifiedTime: NotRequired[datetime]
     MonitoringScheduleConfig: NotRequired[MonitoringScheduleConfigOutputTypeDef]
     EndpointName: NotRequired[str]
-    MonitoringAlertSummaries: NotRequired[List[MonitoringAlertSummaryTypeDef]]
+    MonitoringAlertSummaries: NotRequired[list[MonitoringAlertSummaryTypeDef]]
     LastMonitoringExecutionSummary: NotRequired[MonitoringExecutionSummaryTypeDef]
     BatchTransformInput: NotRequired[BatchTransformInputOutputTypeDef]
 
@@ -14041,7 +14549,7 @@ class MonitoringScheduleTypeDef(TypedDict):
     MonitoringScheduleConfig: NotRequired[MonitoringScheduleConfigOutputTypeDef]
     EndpointName: NotRequired[str]
     LastMonitoringExecutionSummary: NotRequired[MonitoringExecutionSummaryTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 MonitoringScheduleConfigUnionTypeDef = Union[
@@ -14053,6 +14561,7 @@ class DescribeModelPackageOutputTypeDef(TypedDict):
     ModelPackageName: str
     ModelPackageGroupName: str
     ModelPackageVersion: int
+    ModelPackageRegistrationType: ModelPackageRegistrationTypeType
     ModelPackageArn: str
     ModelPackageDescription: str
     CreationTime: datetime
@@ -14072,9 +14581,9 @@ class DescribeModelPackageOutputTypeDef(TypedDict):
     Domain: str
     Task: str
     SamplePayloadUrl: str
-    CustomerMetadataProperties: Dict[str, str]
+    CustomerMetadataProperties: dict[str, str]
     DriftCheckBaselines: DriftCheckBaselinesTypeDef
-    AdditionalInferenceSpecifications: List[AdditionalInferenceSpecificationDefinitionOutputTypeDef]
+    AdditionalInferenceSpecifications: list[AdditionalInferenceSpecificationDefinitionOutputTypeDef]
     SkipModelValidation: SkipModelValidationType
     SourceUri: str
     SecurityConfig: ModelPackageSecurityConfigTypeDef
@@ -14087,6 +14596,7 @@ class ModelPackageTypeDef(TypedDict):
     ModelPackageName: NotRequired[str]
     ModelPackageGroupName: NotRequired[str]
     ModelPackageVersion: NotRequired[int]
+    ModelPackageRegistrationType: NotRequired[ModelPackageRegistrationTypeType]
     ModelPackageArn: NotRequired[str]
     ModelPackageDescription: NotRequired[str]
     CreationTime: NotRequired[datetime]
@@ -14107,14 +14617,14 @@ class ModelPackageTypeDef(TypedDict):
     Task: NotRequired[str]
     SamplePayloadUrl: NotRequired[str]
     AdditionalInferenceSpecifications: NotRequired[
-        List[AdditionalInferenceSpecificationDefinitionOutputTypeDef]
+        list[AdditionalInferenceSpecificationDefinitionOutputTypeDef]
     ]
     SourceUri: NotRequired[str]
     SecurityConfig: NotRequired[ModelPackageSecurityConfigTypeDef]
     ModelCard: NotRequired[ModelPackageModelCardTypeDef]
     ModelLifeCycle: NotRequired[ModelLifeCycleTypeDef]
-    Tags: NotRequired[List[TagTypeDef]]
-    CustomerMetadataProperties: NotRequired[Dict[str, str]]
+    Tags: NotRequired[list[TagTypeDef]]
+    CustomerMetadataProperties: NotRequired[dict[str, str]]
     DriftCheckBaselines: NotRequired[DriftCheckBaselinesTypeDef]
     SkipModelValidation: NotRequired[SkipModelValidationType]
 
@@ -14134,7 +14644,10 @@ class CreateClusterRequestTypeDef(TypedDict):
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
+    TieredStorageConfig: NotRequired[ClusterTieredStorageConfigTypeDef]
     NodeProvisioningMode: NotRequired[Literal["Continuous"]]
+    ClusterRole: NotRequired[str]
+    AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
 
 
 class UpdateClusterRequestTypeDef(TypedDict):
@@ -14143,8 +14656,12 @@ class UpdateClusterRequestTypeDef(TypedDict):
     RestrictedInstanceGroups: NotRequired[
         Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
     ]
+    TieredStorageConfig: NotRequired[ClusterTieredStorageConfigTypeDef]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
+    NodeProvisioningMode: NotRequired[Literal["Continuous"]]
+    ClusterRole: NotRequired[str]
+    AutoScaling: NotRequired[ClusterAutoScalingConfigTypeDef]
 
 
 class DescribeAlgorithmOutputTypeDef(TypedDict):
@@ -14164,14 +14681,14 @@ class DescribeAlgorithmOutputTypeDef(TypedDict):
 
 class CreateTrainingJobRequestTypeDef(TypedDict):
     TrainingJobName: str
-    AlgorithmSpecification: AlgorithmSpecificationUnionTypeDef
     RoleArn: str
     OutputDataConfig: OutputDataConfigTypeDef
-    ResourceConfig: ResourceConfigUnionTypeDef
-    StoppingCondition: StoppingConditionTypeDef
     HyperParameters: NotRequired[Mapping[str, str]]
+    AlgorithmSpecification: NotRequired[AlgorithmSpecificationUnionTypeDef]
     InputDataConfig: NotRequired[Sequence[ChannelUnionTypeDef]]
+    ResourceConfig: NotRequired[ResourceConfigUnionTypeDef]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    StoppingCondition: NotRequired[StoppingConditionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     EnableNetworkIsolation: NotRequired[bool]
     EnableInterContainerTrafficEncryption: NotRequired[bool]
@@ -14188,6 +14705,9 @@ class CreateTrainingJobRequestTypeDef(TypedDict):
     RemoteDebugConfig: NotRequired[RemoteDebugConfigTypeDef]
     InfraCheckConfig: NotRequired[InfraCheckConfigTypeDef]
     SessionChainingConfig: NotRequired[SessionChainingConfigTypeDef]
+    ServerlessJobConfig: NotRequired[ServerlessJobConfigTypeDef]
+    MlflowConfig: NotRequired[MlflowConfigTypeDef]
+    ModelPackageConfig: NotRequired[ModelPackageConfigTypeDef]
 
 
 class HyperParameterTrainingJobDefinitionTypeDef(TypedDict):
@@ -14220,6 +14740,7 @@ class AlgorithmValidationProfileTypeDef(TypedDict):
 class UpdateModelPackageInputTypeDef(TypedDict):
     ModelPackageArn: str
     ModelApprovalStatus: NotRequired[ModelApprovalStatusType]
+    ModelPackageRegistrationType: NotRequired[ModelPackageRegistrationTypeType]
     ApprovalDescription: NotRequired[str]
     CustomerMetadataProperties: NotRequired[Mapping[str, str]]
     CustomerMetadataPropertiesToRemove: NotRequired[Sequence[str]]
@@ -14235,9 +14756,9 @@ class UpdateModelPackageInputTypeDef(TypedDict):
 
 class ModelDashboardModelTypeDef(TypedDict):
     Model: NotRequired[ModelTypeDef]
-    Endpoints: NotRequired[List[ModelDashboardEndpointTypeDef]]
+    Endpoints: NotRequired[list[ModelDashboardEndpointTypeDef]]
     LastBatchTransformJob: NotRequired[TransformJobTypeDef]
-    MonitoringSchedules: NotRequired[List[ModelDashboardMonitoringScheduleTypeDef]]
+    MonitoringSchedules: NotRequired[list[ModelDashboardMonitoringScheduleTypeDef]]
     ModelCard: NotRequired[ModelDashboardModelCardTypeDef]
 
 
@@ -14248,12 +14769,12 @@ class EndpointTypeDef(TypedDict):
     EndpointStatus: EndpointStatusType
     CreationTime: datetime
     LastModifiedTime: datetime
-    ProductionVariants: NotRequired[List[ProductionVariantSummaryTypeDef]]
+    ProductionVariants: NotRequired[list[ProductionVariantSummaryTypeDef]]
     DataCaptureConfig: NotRequired[DataCaptureConfigSummaryTypeDef]
     FailureReason: NotRequired[str]
-    MonitoringSchedules: NotRequired[List[MonitoringScheduleTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
-    ShadowProductionVariants: NotRequired[List[ProductionVariantSummaryTypeDef]]
+    MonitoringSchedules: NotRequired[list[MonitoringScheduleTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
+    ShadowProductionVariants: NotRequired[list[ProductionVariantSummaryTypeDef]]
 
 
 class CreateMonitoringScheduleRequestTypeDef(TypedDict):
@@ -14271,6 +14792,7 @@ class CreateModelPackageInputTypeDef(TypedDict):
     ModelPackageName: NotRequired[str]
     ModelPackageGroupName: NotRequired[str]
     ModelPackageDescription: NotRequired[str]
+    ModelPackageRegistrationType: NotRequired[ModelPackageRegistrationTypeType]
     InferenceSpecification: NotRequired[InferenceSpecificationUnionTypeDef]
     ValidationSpecification: NotRequired[ModelPackageValidationSpecificationUnionTypeDef]
     SourceAlgorithmSpecification: NotRequired[SourceAlgorithmSpecificationUnionTypeDef]
@@ -14340,7 +14862,7 @@ AlgorithmValidationSpecificationUnionTypeDef = Union[
 
 
 class SearchResponseTypeDef(TypedDict):
-    Results: List[SearchRecordTypeDef]
+    Results: list[SearchRecordTypeDef]
     TotalHits: TotalHitsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

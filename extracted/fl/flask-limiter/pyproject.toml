@@ -1,10 +1,141 @@
-[tool.versioneer]
-VCS = "git"
-style = "pep440-pre"
-versionfile_source = "flask_limiter/_version.py"
-versionfile_build = "flask_limiter/_version.py"
-parentdir_prefix = "flask-limiter-"
-tag_prefix = ""
+[build-system]
+build-backend = "hatchling.build"
+requires = [
+  "hatchling>=1.14.0",
+  "hatch-vcs>=0.4.0",
+]
+
+[project]
+name="Flask-Limiter"
+readme = "README.rst"
+authors = [{ name = "Ali-Akber Saifee", email = "ali@indydevs.org"}]
+maintainers = [{ name = "Ali-Akber Saifee", email = "ali@indydevs.org"}]
+requires-python = ">=3.10"
+description = "Rate limiting for flask applications"
+license="MIT"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "limits>=3.13",
+  "Flask>=2",
+  "ordered-set>4,<5",
+  "typing_extensions>=4.3",
+]
+dynamic = ["version"]
+
+[project.entry-points."flask.commands"]
+limiter = "flask_limiter.commands:cli"
+
+[project.urls]
+Homepage = "https://flask-limiter.readthedocs.org"
+Source =  "https://github.com/alisaifee/flask-limiter"
+Documentation = "https://flask-limiter.readthedocs.org"
+
+[project.optional-dependencies]
+cli = [
+  "rich>=12,<15"
+]
+redis = [
+  "limits[redis]",
+]
+memcached = [
+  "limits[memcached]",
+]
+mongodb = [
+  "limits[mongodb]",
+]
+valkey =  [
+  "limits[valkey]"
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+
+[tool.hatch.build.targets.wheel]
+packages = ["flask_limiter"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "flask_limiter/_version.py"
+
+[dependency-groups]
+test = [
+  "Flask[async]>=2.0.0",
+  "flask-restful",
+  "flask-restx",
+  "asgiref>=3.2",
+  "redis",
+  "pymemcache",
+  "pymongo",
+  "coverage<8",
+  "hiro>0.1.6",
+  "pytest",
+  "pytest-cov",
+  "pytest-check",
+  "pytest-mock",
+  "lovely-pytest-docker",
+]
+
+dev = [
+  "ruff",
+  "keyring",
+  "mypy",
+  "rich>=12,<15",
+  {include-group = "test"},
+]
+
+ci = [
+  {include-group = "dev"},
+]
+
+docs = [
+  "furo==2025.9.25",
+  "Sphinx>4,<9",
+  "sphinx-autobuild==2024.10.3",
+  "sphinx-copybutton==0.5.2",
+  "sphinx-inline-tabs==2023.4.21",
+  "sphinx-issues==5.0.1",
+  "sphinxext-opengraph==0.13.0",
+  "sphinx-paramlinks==0.6.0",
+  "sphinxcontrib-programoutput==0.18",
+]
+
+[tool.mypy]
+strict = true
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+disallow_untyped_decorators = true
+show_error_codes = true
+warn_return_any = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "werkzeug",
+    "flask_limiter._compat.*",
+    "flask_limiter._version",
+]
+
+ignore_errors = true
 
 [tool.ruff]
 line-length=100

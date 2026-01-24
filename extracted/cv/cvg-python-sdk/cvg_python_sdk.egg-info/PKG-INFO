@@ -1,0 +1,12 @@
+Metadata-Version: 1.2
+Name: cvg-python-sdk
+Version: 0.5.1
+Summary: VIER Cognitive Voice Gateway SDK
+Home-page: https://cognitivevoice.io
+Author: VIER GmbH
+Author-email: support@vier.ai
+License: MIT
+Description: UNKNOWN
+Keywords: OpenAPI,OpenAPI-Generator,VIER,VIER Cognitive Voice Gateway SDK
+Platform: UNKNOWN
+Requires-Python: >=3.6

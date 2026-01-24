@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pyBigWig
-Version: 0.3.24
+Version: 0.3.25
 Summary: A package for accessing bigWig files using libBigWig
 Author-email: "Devon P. Ryan" <dryan79@gmail.com>
 License: MIT
@@ -22,6 +22,7 @@ Classifier: Operating System :: MacOS
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: license-file
 
 [![PyPI version](https://badge.fury.io/py/pyBigWig.svg)](https://badge.fury.io/py/pyBigWig) [![Travis-CI status](https://travis-ci.org/deeptools/pyBigWig.svg?branch=master)](https://travis-ci.org/dpryan79/pyBigWig.svg?branch=master) [![bioconda-badge](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg)](http://bioconda.github.io) [![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.45238.svg)](http://dx.doi.org/10.5281/zenodo.45238)
 

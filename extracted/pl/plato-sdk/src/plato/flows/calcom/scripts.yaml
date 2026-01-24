@@ -1,0 +1,82 @@
+flows:
+- name: login
+  description: Complete login flow for Cal.com with verification
+  steps:
+  - description: Navigate directly to login page
+    type: navigate
+    url: /auth/login
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for email field
+    selector: 'input[name="email"], input[type="email"], #email'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill email field
+    selector: 'input[name="email"], input[type="email"], #email'
+    type: fill
+    value: a@gmail.com
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: GavinWang123456
+  - description: Wait for submit button
+    selector: button[type="submit"], input[type="submit"], button:has-text("Sign in"),
+      button:has-text("Login")
+    timeout: 10000
+    type: wait_for_selector
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], button:has-text("Sign in"),
+      button:has-text("Login")
+    type: click
+  - description: Wait for login to process and redirect
+    duration: 5000
+    type: wait
+  - description: Redirect to sims.plato.so
+    type: navigate
+    url: https://sims.plato.so
+  - description: Wait for redirect to complete
+    duration: 5000
+    type: wait
+  - description: Verify Event Types dashboard loaded after redirect
+    selector: '[data-testid="dashboard-shell"], [data-test-id="event_types_page_title"],
+      #view_public_page, h3:has-text("Event Types")'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="email"], input[type="email"], #email, input[name="username"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="email"], input[type="email"], #email, input[name="username"]'
+    type: fill
+    value: a@gmail.com
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: wrongpassword
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Verify error message is displayed
+    selector: '[data-testid="error-message"], [role="alert"], .text-red-500, .text-error,
+      [class*="error"], .alert'
+    type: verify
+    verify_type: element_exists

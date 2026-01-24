@@ -12,26 +12,25 @@ log("loading media.codec.js");
 const parseInput = (arg) => {
   const [mime, codecStr] = arg.trim().split(";");
   let codecs = [];
-  if (codecStr && codecStr.includes('codecs="')) {
-    codecs = codecStr
-      .trim()
-      .replace(`codecs="`, "")
-      .replace(`"`, "")
-      .trim()
-      .split(",")
-      .filter((x) => !!x)
-      .map((x) => x.trim());
+  if (codecStr && codecStr.includes("codecs=\"")) {
+    codecs = codecStr.trim().
+      replace(`codecs="`, "").
+      replace(`"`, "").
+      trim().
+      split(",").
+      filter((x) => !!x).
+      map((x) => x.trim());
   }
   return {
     mime,
     codecStr,
-    codecs,
+    codecs
   };
 };
 
 const canPlayType = {
   // Intercept certain requests
-  apply: function (target, ctx, args) {
+  apply: function(target, ctx, args) {
     if (!args || !args.length) {
       return target.apply(ctx, args);
     }
@@ -53,7 +52,7 @@ const canPlayType = {
     }
     // Everything else as usual
     return target.apply(ctx, args);
-  },
+  }
 };
 
 /* global HTMLMediaElement */

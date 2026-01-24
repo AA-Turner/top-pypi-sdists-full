@@ -156,6 +156,20 @@ class UploadSerializerFieldsMixin(Serializer):
 class NoArtifactContentUploadSerializer(UploadSerializerFieldsMixin, NoArtifactContentSerializer):
     """A serializer for content types with no Artifact."""
 
+    def deferred_validate(self, data):
+        """Ensure file is present in validated_data."""
+        data = super().deferred_validate(data)
+        if "file" not in data:
+            if "artifact" in data:
+                artifact = data.pop("artifact")
+                with NamedTemporaryFile(mode="ab", dir=".", delete=False) as temp_file:
+                    temp_file.write(artifact.file.read())
+                    temp_file.flush()
+                data["file"] = PulpTemporaryUploadedFile.from_file(open(temp_file.name, "rb"))
+            else:
+                raise RuntimeError("No file found for NoArtifactContentUploadSerializer.")
+        return data
+
     def create(self, validated_data):
         """Create a new content and remove the already parsed file from validated_data."""
         validated_data.pop("file", None)
@@ -188,12 +202,36 @@ class SingleArtifactContentUploadSerializer(
             and "pulp_labels" in kwargs["data"]
             and isinstance(kwargs["data"]["pulp_labels"], str)
         ):
-            kwargs["data"]["pulp_labels"] = json.loads(kwargs["data"]["pulp_labels"])
+            try:
+                kwargs["data"]["pulp_labels"] = json.loads(kwargs["data"]["pulp_labels"])
+            except AttributeError:
+                # malformed uploads cause request.data._mutable=False and pulp_labels will fail
+                # to be modified with "AttributeError: This QueryDict instance is immutable".
+                pass
 
         super().__init__(*args, **kwargs)
 
         if "artifact" in self.fields:
             self.fields["artifact"].required = False
+
+    def validate(self, data):
+        """
+        Validate the serializer data, with special handling for pulp_labels deserialization.
+
+        This method checks if pulp_labels failed to be deserialized from JSON string to dict
+        during initialization (typically due to immutable QueryDict).
+        """
+        if "pulp_labels" in data and isinstance(data["pulp_labels"], str):
+            raise ValidationError(
+                _(
+                    """
+                    Failed to deserialize pulp_labels!
+                    This error often occurs when file didn't upload, is incomplete, or
+                    when pulp_labels are not in a valid JSON format.
+                    """
+                )
+            )
+        return super().validate(data)
 
     def deferred_validate(self, data):
         """

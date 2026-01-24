@@ -14,6 +14,7 @@ from .authorization_policy import *
 from .authz_policy import *
 from .backend_authentication_config import *
 from .client_tls_policy import *
+from .dns_threat_detector import *
 from .firewall_endpoint import *
 from .firewall_endpoint_association import *
 from .gateway_security_policy import *
@@ -25,8 +26,11 @@ from .intercept_endpoint_group import *
 from .intercept_endpoint_group_association import *
 from .mirroring_deployment import *
 from .mirroring_deployment_group import *
+from .mirroring_endpoint import *
 from .mirroring_endpoint_group import *
 from .mirroring_endpoint_group_association import *
+from .sac_attachment import *
+from .sac_realm import *
 from .security_profile import *
 from .security_profile_group import *
 from .server_tls_policy import *

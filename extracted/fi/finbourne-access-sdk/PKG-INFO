@@ -1,27 +1,24 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: finbourne-access-sdk
-Version: 2.1.339
+Version: 2.4.1
 Summary: FINBOURNE Access Management API
-Home-page: https://github.com/finbourne/finbourne-access-sdk-python
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,FINBOURNE Access Management API,finbourne-access-sdk
 Author: FINBOURNE Technology
 Author-email: info@finbourne.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aenum (>=3.1.11,<4.0.0)
 Requires-Dist: aiohttp (>=3.8.4,<4.0.0)
 Requires-Dist: pydantic (>=2.6.3,<3.0.0)
 Requires-Dist: python-dateutil (>=2.8.2,<3.0.0)
 Requires-Dist: requests (>=2,<3)
-Requires-Dist: urllib3 (>=1.25.3,<2.0.0)
+Requires-Dist: urllib3 (>=2.6.0,<3.0.0)
 Project-URL: Repository, https://github.com/finbourne/finbourne-access-sdk-python
 Description-Content-Type: text/markdown
 
@@ -103,10 +100,10 @@ Class | Method | HTTP request | Description
  - [IdSelectorDefinition](docs/IdSelectorDefinition.md)
  - [IdentifierPartSchema](docs/IdentifierPartSchema.md)
  - [IfExpression](docs/IfExpression.md)
- - [IfFeatureChainExpression](docs/IfFeatureChainExpression.md)
  - [IfIdentityClaimExpression](docs/IfIdentityClaimExpression.md)
  - [IfIdentityScopeExpression](docs/IfIdentityScopeExpression.md)
  - [IfRequestHeaderExpression](docs/IfRequestHeaderExpression.md)
+ - [IfViaApiExpression](docs/IfViaApiExpression.md)
  - [KeyValuePairOfStringToString](docs/KeyValuePairOfStringToString.md)
  - [Link](docs/Link.md)
  - [LusidProblemDetails](docs/LusidProblemDetails.md)

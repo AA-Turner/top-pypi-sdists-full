@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,20 +17,25 @@
 #
 # ****************************************************************************
 
+import gzip
 from hashlib import md5
-from typing import Any, Callable, Iterator, Optional
-import logging
+import json
+import lzma
+from typing import Any, Callable, Iterator
 import os
 import functools
 import re
 import sys
 from contextlib import contextmanager
+from lxml import etree  # nosec # We only write XML files
 
+from .logging import LOGGER
 from .version import __version__
 
-LOGGER = logging.getLogger("gcovr")
-
-REGEX_VERSION_POSTFIX = re.compile(r"(.+)\.dev.+$")
+REGEX_VERSION_POSTFIX = re.compile(r"(.+?)(?:\.post\d+)?\.dev.+$")
+PRETTY_JSON_INDENT = 4
+GZIP_SUFFIX = ".gz"
+LZMA_SUFFIX = ".xz"
 
 
 class LoopChecker:
@@ -63,7 +68,7 @@ def is_fs_case_insensitive() -> bool:
         and os.path.exists(cwd.lower())
         and os.path.samefile(cwd.upper(), cwd.lower())
     )
-    LOGGER.debug(f"File system is case {'in' if ret else ''}sensitive.")
+    LOGGER.debug("File system is case %s.", "insensitive" if ret else "sensitive")
 
     return ret
 
@@ -89,7 +94,7 @@ def fix_case_of_path(path: str) -> str:
         if len(matched_filename) == 1:
             path = os.path.join(fix_case_of_path(rest), matched_filename[0])
     except FileNotFoundError:
-        LOGGER.warning(f"Can not fix case of path because {rest} not found.")
+        LOGGER.warning("Can not fix case of path because %s not found.", rest)
 
     return path.replace("\\", "/")
 
@@ -98,13 +103,14 @@ def get_version_for_report() -> str:
     """Get the printable version for the report."""
     version = __version__
     if match := REGEX_VERSION_POSTFIX.match(version):
-        major, minor = match.group(1).split(".")
-        version = f"{major}.{int(minor)-1}+main"
+        version = f"{match.group(1)}+main"
     return version
 
 
 def search_file(
-    predicate: Callable[[str], bool], path: str, exclude_dirs: list[re.Pattern[str]]
+    predicate: Callable[[str], bool],
+    path: str,
+    exclude_directory: list[re.Pattern[str]],
 ) -> Iterator[str]:
     """
     Given a search path, recursively descend to find files that satisfy a
@@ -125,7 +131,7 @@ def search_file(
         dirs[:] = [
             d
             for d in sorted(dirs)
-            if not any(exc.match(os.path.join(root, d)) for exc in exclude_dirs)
+            if not any(exc.match(os.path.join(root, d)) for exc in exclude_directory)
         ]
         root = os.path.abspath(root)
 
@@ -178,20 +184,20 @@ def commonpath(files: list[str]) -> str:
                 break
         prefix_path = os.path.sep.join(common)
 
-    LOGGER.debug(f"Common prefix path is {prefix_path!r}")
+    LOGGER.debug("Common prefix path is %r.", prefix_path)
 
     # make the path relative and add a trailing slash
     if prefix_path:
         prefix_path = os.path.join(
             os.path.relpath(prefix_path, os.path.realpath(os.getcwd())), ""
         )
-        LOGGER.debug(f"Common relative prefix path is {prefix_path!r}")
+        LOGGER.debug("Common relative prefix path is %r.", prefix_path)
     return prefix_path
 
 
 @contextmanager
 def open_text_for_writing(
-    filename: Optional[str], default_filename: Optional[str] = None, **kwargs: Any
+    filename: str | None, default_filename: str | None = None, **kwargs: Any
 ) -> Iterator[Any]:
     """Context manager to open and close a file for text writing.
 
@@ -205,15 +211,30 @@ def open_text_for_writing(
         filename += default_filename
 
     if filename is not None and filename != "-":
-        with open(filename, "w", **kwargs) as fh_out:  # pylint: disable=unspecified-encoding
-            yield fh_out
+        if filename.endswith(GZIP_SUFFIX):
+            with gzip.open(filename, "wt", **kwargs) as fh_out:
+                yield fh_out
+        elif filename.endswith(LZMA_SUFFIX):
+            with lzma.open(filename, "wt", **kwargs) as fh_out:
+                yield fh_out
+        else:
+            with open(filename, "wt", **kwargs) as fh_out:  # pylint: disable=unspecified-encoding
+                yield fh_out
     else:
-        yield sys.stdout
+        encoding = kwargs.get("encoding", "utf-8").lower()
+        old_encoding = sys.stdout.encoding
+        try:
+            if old_encoding != encoding:
+                sys.stdout.reconfigure(encoding=encoding)  # type: ignore[union-attr]
+            yield sys.stdout
+        finally:
+            if old_encoding != encoding:
+                sys.stdout.reconfigure(encoding=old_encoding)  # type: ignore[union-attr]
 
 
 @contextmanager
 def open_binary_for_writing(
-    filename: Optional[str],
+    filename: str | None,
     default_filename: str,
     **kwargs: Any,
 ) -> Iterator[Any]:
@@ -225,11 +246,53 @@ def open_binary_for_writing(
         filename += default_filename
 
     if filename is not None and filename != "-":
-        # files in write binary mode for UTF-8
-        with open(filename, "wb", **kwargs) as fh_out:
-            yield fh_out
+        if filename.endswith(GZIP_SUFFIX):
+            with gzip.open(filename, "wb", **kwargs) as fh_out:
+                yield fh_out
+        elif filename.endswith(LZMA_SUFFIX):
+            with lzma.open(filename, "wb", **kwargs) as fh_out:
+                yield fh_out
+        else:
+            # files in write binary mode for UTF-8
+            with open(filename, "wb", **kwargs) as fh_out:
+                yield fh_out
     else:
         yield sys.stdout.buffer
+
+
+def write_json_output(
+    json_dict: dict[str, Any],
+    *,
+    pretty: bool,
+    filename: str | None,
+    default_filename: str,
+    **kwargs: Any,
+) -> None:
+    """Helper function to output JSON dictionary to a file/STDOUT."""
+    with open_text_for_writing(filename, default_filename, **kwargs) as fh:
+        json.dump(json_dict, fh, indent=PRETTY_JSON_INDENT if pretty else None)
+
+
+def write_xml_output(
+    root: Any,
+    *,
+    doctype: str | None = None,
+    pretty: bool,
+    filename: str | None,
+    default_filename: str,
+    **kwargs: Any,
+) -> None:
+    """Helper function to output XML format dictionary to a file/STDOUT"""
+    with open_binary_for_writing(filename, default_filename, **kwargs) as fh:
+        fh.write(
+            etree.tostring(
+                root,
+                pretty_print=pretty,
+                encoding="utf-8",
+                xml_declaration=True,
+                doctype=doctype,  # type: ignore [arg-type]
+            )
+        )
 
 
 @contextmanager
@@ -248,23 +311,47 @@ def force_unix_separator(path: str) -> str:
     return path.replace("\\", "/")
 
 
-def presentable_filename(filename: str, root_filter: re.Pattern[str]) -> str:
-    """mangle a filename so that it is suitable for a report"""
-
-    normalized = root_filter.sub("", filename)
-    if filename.endswith(normalized):
-        # remove any slashes between the removed prefix and the normalized name
-        if filename != normalized:
-            while normalized.startswith(os.path.sep):
-                normalized = normalized[len(os.path.sep) :]
-    else:
-        # Do no truncation if the filter does not start matching
-        # at the beginning of the string
-        normalized = filename
-
-    return force_unix_separator(normalized)
-
-
 def get_md5_hexdigest(data: bytes) -> str:
     """Get the MD5 digest of the given bytes."""
     return md5(data, usedforsecurity=False).hexdigest()  # nosec # Not used for security
+
+
+def read_source_file(
+    source_encoding: str, filename: str, max_line_number: int
+) -> list[str]:
+    """Read in the source file and fill up lines if needed."""
+    source_lines: list[bytes] = []
+    try:
+        with open(filename, "rb") as fh_in:
+            source_lines = fh_in.read().splitlines()
+        lines = len(source_lines)
+        if lines < max_line_number:
+            LOGGER.warning(
+                "File %s has %d line(s) but coverage data has %d line(s).",
+                filename,
+                lines,
+                max_line_number,
+            )
+            # GCOV itself adds the /*EOF*/ in the text report if there is no data and we used the same.
+            source_lines += [b"/*EOF*/"] * (max_line_number - lines)
+    except OSError as e:
+        if filename.endswith("<stdin>"):
+            message = (
+                f"Got unreadable source file '{filename}', replacing with empty lines."
+            )
+            LOGGER.info(message)
+        else:
+            # The exception contains the source file name,
+            # e.g. [Errno 2] No such file or directory: 'xy.txt'
+            message = f"Can't read file, using empty lines: {e}"
+            LOGGER.warning(message)
+            # If we can't read the file we use as first line the error
+            # and use empty lines for the rest of the lines.
+        source_lines = [b""] * max_line_number
+        source_lines[0] = f"/* {message} */".encode()
+
+    encoded_source_lines = [
+        line.decode(source_encoding, errors="replace") for line in source_lines
+    ]
+
+    return encoded_source_lines

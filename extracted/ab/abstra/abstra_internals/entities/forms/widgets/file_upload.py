@@ -8,12 +8,16 @@ import requests
 if TYPE_CHECKING:
     from PIL.Image import Image
 
+from abstra_internals.cloud_api import get_editor_auth_token_from_file
 from abstra_internals.constants import get_uploads_dir
+from abstra_internals.environment import SERVER_URL
 from abstra_internals.utils.file import (
     get_tmp_upload_dir,
     make_random_tmp_path,
     upload_file,
 )
+
+FILE_CHUNK_SIZE = 8192
 
 
 def upload_widget_file(
@@ -54,15 +58,29 @@ def download_to_path(url: str) -> pathlib.Path:
     if url.startswith("http://") or url.startswith("https://"):
         with save_path.open("wb") as f, requests.get(url, stream=True) as r:
             r.raise_for_status()
-            for chunk in r.iter_content(chunk_size=8192):
+            for chunk in r.iter_content(chunk_size=FILE_CHUNK_SIZE):
                 f.write(chunk)
 
         return save_path
 
     elif url.startswith("/_files/"):
-        tmp_name = url[len("/_files/") :]
-        path = get_tmp_upload_dir() / tmp_name
-        shutil.copy(path, save_path)
+        if SERVER_URL:
+            full_url = f"{SERVER_URL}{url}"
+            cookies = {}
+            editor_auth_token = get_editor_auth_token_from_file()
+            if editor_auth_token:
+                cookies["editor_auth"] = editor_auth_token
+            with (
+                save_path.open("wb") as f,
+                requests.get(full_url, stream=True, cookies=cookies) as r,
+            ):
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=FILE_CHUNK_SIZE):
+                    f.write(chunk)
+        else:
+            tmp_name = url[len("/_files/") :]
+            path = get_tmp_upload_dir() / tmp_name
+            shutil.copy(path, save_path)
 
         return save_path
 

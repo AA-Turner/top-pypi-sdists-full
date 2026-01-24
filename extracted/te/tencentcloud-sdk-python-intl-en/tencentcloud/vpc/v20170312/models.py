@@ -380,9 +380,9 @@ class Address(AbstractModel):
         :type InstanceId: str
         :param _CreatedTime: The creation time, which follows the `ISO8601` standard and uses `UTC` time in the format of `YYYY-MM-DDThh:mm:ssZ`.
         :type CreatedTime: str
-        :param _NetworkInterfaceId: The ID of the bound ENI
+        :param _NetworkInterfaceId: Specifies the bound elastic network interface ID. null means no elastic network interface is bound.
         :type NetworkInterfaceId: str
-        :param _PrivateAddressIp: The private IP of the bound resources
+        :param _PrivateAddressIp: Bound resource internal ip. null means no bound resource internal ip.
         :type PrivateAddressIp: str
         :param _IsArrears: The isolation status of the resource. `True` indicates the EIP is isolated. `False` indicates that the resource is not isolated.
         :type IsArrears: bool
@@ -396,9 +396,11 @@ class Address(AbstractModel):
         :type CascadeRelease: bool
         :param _EipAlgType: Type of the protocol used in EIP ALG
         :type EipAlgType: :class:`tencentcloud.vpc.v20170312.models.AlgType`
-        :param _InternetServiceProvider: The ISP of an EIP/Elastic IP, with possible return values currently including "CMCC", "CTCC", "CUCC" and "BGP"
+        :param _InternetServiceProvider: EIP ISP information. currently may return values including "CMCC" (mobile), "CTCC" (telecom), "CUCC" (china unicom), "BGP" (standard BGP).
         :type InternetServiceProvider: str
-        :param _LocalBgp: Whether the EIP is in a local BGP.
+        :param _LocalBgp: Specifies whether the EIP is a local bandwidth EIP. valid values:.
+<li>true: EIP with local bandwidth.</li>.
+<li>false: not a local bandwidth EIP.</li>.
         :type LocalBgp: bool
         :param _Bandwidth: Bandwidth value of EIP. The EIP for the bill-by-CVM account will return `null`.
 Note: this field may return `null`, indicating that no valid value was found.
@@ -416,14 +418,22 @@ Including:
 <p style="padding-left: 30px;">Bandwidth package.</p>
 Note: this field may return `null`, indicating that no valid value was found.
         :type InternetChargeType: str
-        :param _TagSet: List of tags associated with the EIP
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        :param _TagSet: Specifies the Tag list associated with the elastic IP.
         :type TagSet: list of Tag
-        :param _DeadlineDate: The expiration time.
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        :param _DeadlineDate: Prepaid monthly subscription bandwidth IP expiration time.
+Specifies the time format in YYYY-MM-DDThh:MM:ssZ.
+Note: This field may return null, indicating that no valid value was found.
         :type DeadlineDate: str
-        :param _InstanceType: The type of instance bound with the EIP
-Note: this field may return `null`, indicating that no valid value was found.
+        :param _InstanceType: Instance type to which the EIP is bound. valid values:.
+<Li>CVM: indicates cloud virtual machine.</li>.
+<li>Specifies the NAT gateway.</li>.
+<Li>HAVIP: high availability virtual ip.</li>.
+<Li>ENI: specifies the elastic network interface.</li>.
+<Li>CLB: specifies a private network clb.</li>.
+<Li>DHCPIP: elastic private ip address</li>.
+
+
+Note: This field may return null, indicating that no valid value was found.
         :type InstanceType: str
         :param _Egress: Static single-line IP network egress
 Note: This field may return null, indicating that no valid value was found.
@@ -437,11 +447,9 @@ Note: This field may return null, indicating that no valid value was found.
         :param _BandwidthPackageId: Indicates the ID of the Bandwidth Package associated with the current public IP. If the public IP is not billed by Bandwidth Package, this field is empty.
 Note: This field may return null, indicating that no valid value was found.
         :type BandwidthPackageId: str
-        :param _UnVpcId: Indicates the unique ID of the VPC to which the traditional EIPv6 belongs.
-Note: This field may return null, indicating that no valid value was found.
+        :param _UnVpcId: Specifies the unique ID of the vpc to which the traditional elastic IPv6 belongs.
         :type UnVpcId: str
-        :param _DedicatedClusterId: Indicates the unique ID of the CDC.
-Note: This field may return 'null', indicating that no valid value was found.
+        :param _DedicatedClusterId: Specifies the unique ID of the CDC.
         :type DedicatedClusterId: str
         """
         self._AddressId = None
@@ -540,7 +548,7 @@ Note: This field may return 'null', indicating that no valid value was found.
 
     @property
     def NetworkInterfaceId(self):
-        r"""The ID of the bound ENI
+        r"""Specifies the bound elastic network interface ID. null means no elastic network interface is bound.
         :rtype: str
         """
         return self._NetworkInterfaceId
@@ -551,7 +559,7 @@ Note: This field may return 'null', indicating that no valid value was found.
 
     @property
     def PrivateAddressIp(self):
-        r"""The private IP of the bound resources
+        r"""Bound resource internal ip. null means no bound resource internal ip.
         :rtype: str
         """
         return self._PrivateAddressIp
@@ -628,7 +636,7 @@ Note: This field may return 'null', indicating that no valid value was found.
 
     @property
     def InternetServiceProvider(self):
-        r"""The ISP of an EIP/Elastic IP, with possible return values currently including "CMCC", "CTCC", "CUCC" and "BGP"
+        r"""EIP ISP information. currently may return values including "CMCC" (mobile), "CTCC" (telecom), "CUCC" (china unicom), "BGP" (standard BGP).
         :rtype: str
         """
         return self._InternetServiceProvider
@@ -639,7 +647,9 @@ Note: This field may return 'null', indicating that no valid value was found.
 
     @property
     def LocalBgp(self):
-        r"""Whether the EIP is in a local BGP.
+        r"""Specifies whether the EIP is a local bandwidth EIP. valid values:.
+<li>true: EIP with local bandwidth.</li>.
+<li>false: not a local bandwidth EIP.</li>.
         :rtype: bool
         """
         return self._LocalBgp
@@ -684,8 +694,7 @@ Note: this field may return `null`, indicating that no valid value was found.
 
     @property
     def TagSet(self):
-        r"""List of tags associated with the EIP
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        r"""Specifies the Tag list associated with the elastic IP.
         :rtype: list of Tag
         """
         return self._TagSet
@@ -696,8 +705,9 @@ Note: this field may return `null`, indicating that no valid values can be obtai
 
     @property
     def DeadlineDate(self):
-        r"""The expiration time.
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        r"""Prepaid monthly subscription bandwidth IP expiration time.
+Specifies the time format in YYYY-MM-DDThh:MM:ssZ.
+Note: This field may return null, indicating that no valid value was found.
         :rtype: str
         """
         return self._DeadlineDate
@@ -708,8 +718,16 @@ Note: this field may return `null`, indicating that no valid values can be obtai
 
     @property
     def InstanceType(self):
-        r"""The type of instance bound with the EIP
-Note: this field may return `null`, indicating that no valid value was found.
+        r"""Instance type to which the EIP is bound. valid values:.
+<Li>CVM: indicates cloud virtual machine.</li>.
+<li>Specifies the NAT gateway.</li>.
+<Li>HAVIP: high availability virtual ip.</li>.
+<Li>ENI: specifies the elastic network interface.</li>.
+<Li>CLB: specifies a private network clb.</li>.
+<Li>DHCPIP: elastic private ip address</li>.
+
+
+Note: This field may return null, indicating that no valid value was found.
         :rtype: str
         """
         return self._InstanceType
@@ -768,8 +786,7 @@ Note: This field may return null, indicating that no valid value was found.
 
     @property
     def UnVpcId(self):
-        r"""Indicates the unique ID of the VPC to which the traditional EIPv6 belongs.
-Note: This field may return null, indicating that no valid value was found.
+        r"""Specifies the unique ID of the vpc to which the traditional elastic IPv6 belongs.
         :rtype: str
         """
         return self._UnVpcId
@@ -780,8 +797,7 @@ Note: This field may return null, indicating that no valid value was found.
 
     @property
     def DedicatedClusterId(self):
-        r"""Indicates the unique ID of the CDC.
-Note: This field may return 'null', indicating that no valid value was found.
+        r"""Specifies the unique ID of the CDC.
         :rtype: str
         """
         return self._DedicatedClusterId
@@ -1375,9 +1391,13 @@ class AlgType(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Ftp: Whether FTP ALG is enabled
+        :param _Ftp: Ftp protocol Alg functionality whether enabled, available values:.
+<li>true: enable Ftp protocol Alg functionality.</li>.
+<li>false: disable Ftp protocol Alg functionality.</li>.
         :type Ftp: bool
-        :param _Sip: Whether SIP ALG is enabled
+        :param _Sip: Whether the Sip protocol Alg function is enabled. available values:.
+<li>true: enable Sip protocol Alg function.</li>.
+<li>false: disable Sip protocol Alg function.</li>.
         :type Sip: bool
         """
         self._Ftp = None
@@ -1385,7 +1405,9 @@ class AlgType(AbstractModel):
 
     @property
     def Ftp(self):
-        r"""Whether FTP ALG is enabled
+        r"""Ftp protocol Alg functionality whether enabled, available values:.
+<li>true: enable Ftp protocol Alg functionality.</li>.
+<li>false: disable Ftp protocol Alg functionality.</li>.
         :rtype: bool
         """
         return self._Ftp
@@ -1396,7 +1418,9 @@ class AlgType(AbstractModel):
 
     @property
     def Sip(self):
-        r"""Whether SIP ALG is enabled
+        r"""Whether the Sip protocol Alg function is enabled. available values:.
+<li>true: enable Sip protocol Alg function.</li>.
+<li>false: disable Sip protocol Alg function.</li>.
         :rtype: bool
         """
         return self._Sip
@@ -2708,8 +2732,7 @@ class AssistantCidr(AbstractModel):
         :type CidrBlock: str
         :param _AssistantType: The secondary CIDR block type. 0: common secondary CIDR block. 1: container secondary CIDR block. Default: 0.
         :type AssistantType: int
-        :param _SubnetSet: Subnets divided by the secondary CIDR.
-Note: This field may return null, indicating that no valid values can be obtained.
+        :param _SubnetSet: Subnet Split by Auxiliary CIDR
         :type SubnetSet: list of Subnet
         """
         self._VpcId = None
@@ -2752,8 +2775,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
 
     @property
     def SubnetSet(self):
-        r"""Subnets divided by the secondary CIDR.
-Note: This field may return null, indicating that no valid values can be obtained.
+        r"""Subnet Split by Auxiliary CIDR
         :rtype: list of Subnet
         """
         return self._SubnetSet
@@ -3932,9 +3954,21 @@ class BandwidthPackage(AbstractModel):
         r"""
         :param _BandwidthPackageId: The unique ID of the bandwidth package.
         :type BandwidthPackageId: str
-        :param _NetworkType: Bandwidth package type. Values: `BGP`, `SINGLEISP`, `ANYCAST`, `SINGLEISP_CMCC`, `SINGLEISP_CTCC`, `SINGLEISP_CUCC`
+        :param _NetworkType: Bandwidth package type, includes:
+<li>BGP: General BGP bandwidth package</li>
+<li>HIGH_QUALITY_BGP: Dedicated BGP bandwidth package</li>
+<li>ANYCAST: AIA BGP bandwidth package</li>
+<li>SINGLEISP_CMCC: CMCC bandwidth package</li>
+<li>SINGLEISP_CTCC: CTCC bandwidth package</li>
+<li>SINGLEISP_CUCC: CUCC bandwidth package</li>
         :type NetworkType: str
-        :param _ChargeType: The bandwidth package billing mode. Valid values: 'TOP5_POSTPAID_BY_MONTH' and 'PERCENT95_POSTPAID_BY_MONTH'
+        :param _ChargeType: Bandwidth package billing type, includes:
+<li>ENHANCED95_POSTPAID_BY_MONTH: Pay-as-you-go - Enhanced 95th percentile</li>
+<li>PRIMARY_TRAFFIC_POSTPAID_BY_HOUR: Postpaid - Main Traffic Billing</li>
+<li>BANDWIDTH_POSTPAID_BY_DAY: General BGP, Pay-as-you-go - Bandwidth-based</li>
+<li>PEAK_BANDWIDTH_POSTPAID_BY_DAY: Static single-line, Pay-as-you-go - Daily billed</li>
+<li>TOP5_POSTPAID_BY_MONTH: Pay-as-you-go - Monthly top 5th, If you need to use this Bglling mode, please submit a ticket</li>
+
         :type ChargeType: str
         :param _BandwidthPackageName: The name of the bandwidth package.
         :type BandwidthPackageName: str
@@ -3946,7 +3980,9 @@ class BandwidthPackage(AbstractModel):
         :type ResourceSet: list of Resource
         :param _Bandwidth: The limit of the bandwidth package in Mbps. The value '-1' indicates there is no limit.
         :type Bandwidth: int
-        :param _Egress: 
+        :param _Egress: Network egress. It defaults to `center_egress1`. Valid values:
+center_egress1,center_egress2,center_egress3
+
         :type Egress: str
         """
         self._BandwidthPackageId = None
@@ -3972,7 +4008,13 @@ class BandwidthPackage(AbstractModel):
 
     @property
     def NetworkType(self):
-        r"""Bandwidth package type. Values: `BGP`, `SINGLEISP`, `ANYCAST`, `SINGLEISP_CMCC`, `SINGLEISP_CTCC`, `SINGLEISP_CUCC`
+        r"""Bandwidth package type, includes:
+<li>BGP: General BGP bandwidth package</li>
+<li>HIGH_QUALITY_BGP: Dedicated BGP bandwidth package</li>
+<li>ANYCAST: AIA BGP bandwidth package</li>
+<li>SINGLEISP_CMCC: CMCC bandwidth package</li>
+<li>SINGLEISP_CTCC: CTCC bandwidth package</li>
+<li>SINGLEISP_CUCC: CUCC bandwidth package</li>
         :rtype: str
         """
         return self._NetworkType
@@ -3983,7 +4025,13 @@ class BandwidthPackage(AbstractModel):
 
     @property
     def ChargeType(self):
-        r"""The bandwidth package billing mode. Valid values: 'TOP5_POSTPAID_BY_MONTH' and 'PERCENT95_POSTPAID_BY_MONTH'
+        r"""Bandwidth package billing type, includes:
+<li>ENHANCED95_POSTPAID_BY_MONTH: Pay-as-you-go - Enhanced 95th percentile</li>
+<li>PRIMARY_TRAFFIC_POSTPAID_BY_HOUR: Postpaid - Main Traffic Billing</li>
+<li>BANDWIDTH_POSTPAID_BY_DAY: General BGP, Pay-as-you-go - Bandwidth-based</li>
+<li>PEAK_BANDWIDTH_POSTPAID_BY_DAY: Static single-line, Pay-as-you-go - Daily billed</li>
+<li>TOP5_POSTPAID_BY_MONTH: Pay-as-you-go - Monthly top 5th, If you need to use this Bglling mode, please submit a ticket</li>
+
         :rtype: str
         """
         return self._ChargeType
@@ -4049,7 +4097,9 @@ class BandwidthPackage(AbstractModel):
 
     @property
     def Egress(self):
-        r"""
+        r"""Network egress. It defaults to `center_egress1`. Valid values:
+center_egress1,center_egress2,center_egress3
+
         :rtype: str
         """
         return self._Egress
@@ -9230,6 +9280,275 @@ class CreateReserveIpAddressesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateRoutePolicyAssociationsRequest(AbstractModel):
+    r"""CreateRoutePolicyAssociations request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: Route reception policy binding object list.
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""Route reception policy binding object list.
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyAssociationsResponse(AbstractModel):
+    r"""CreateRoutePolicyAssociations response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRoutePolicyEntriesRequest(AbstractModel):
+    r"""CreateRoutePolicyEntries request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Specifies the instance ID of the route reception policy.
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: Route reception policy entry list.
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Specifies the instance ID of the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Route reception policy entry list.
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyEntriesResponse(AbstractModel):
+    r"""CreateRoutePolicyEntries response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class CreateRoutePolicyRequest(AbstractModel):
+    r"""CreateRoutePolicy request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyDescription: Routing policy description.
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyName: Specifies the routing strategy name.
+        :type RoutePolicyName: str
+        :param _RoutePolicyEntrySet: Routing policy entry list.
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyDescription = None
+        self._RoutePolicyName = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""Routing policy description.
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyName(self):
+        r"""Specifies the routing strategy name.
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Routing policy entry list.
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateRoutePolicyResponse(AbstractModel):
+    r"""CreateRoutePolicy response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicy: Specifies the routing policy ID and rules.
+        :type RoutePolicy: :class:`tencentcloud.vpc.v20170312.models.RoutePolicy`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RoutePolicy = None
+        self._RequestId = None
+
+    @property
+    def RoutePolicy(self):
+        r"""Specifies the routing policy ID and rules.
+        :rtype: :class:`tencentcloud.vpc.v20170312.models.RoutePolicy`
+        """
+        return self._RoutePolicy
+
+    @RoutePolicy.setter
+    def RoutePolicy(self, RoutePolicy):
+        self._RoutePolicy = RoutePolicy
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicy") is not None:
+            self._RoutePolicy = RoutePolicy()
+            self._RoutePolicy._deserialize(params.get("RoutePolicy"))
+        self._RequestId = params.get("RequestId")
+
+
 class CreateRouteTableRequest(AbstractModel):
     r"""CreateRouteTable request structure.
 
@@ -10831,6 +11150,8 @@ class CreateVpcRequest(AbstractModel):
         :type DomainName: str
         :param _Tags: Bound tags, such as [{"Key": "city", "Value": "shanghai"}]
         :type Tags: list of Tag
+        :param _EnableRouteVpcPublish: Vpc association with CCN route publish policy. true: enables cidr route publishing. false: enables subnet route publishing. default is subnet route publishing when creating a vpc. to select cidr route publishing, submit a ticket for adding to allowlist.
+        :type EnableRouteVpcPublish: bool
         """
         self._VpcName = None
         self._CidrBlock = None
@@ -10838,6 +11159,7 @@ class CreateVpcRequest(AbstractModel):
         self._DnsServers = None
         self._DomainName = None
         self._Tags = None
+        self._EnableRouteVpcPublish = None
 
     @property
     def VpcName(self):
@@ -10905,6 +11227,17 @@ class CreateVpcRequest(AbstractModel):
     def Tags(self, Tags):
         self._Tags = Tags
 
+    @property
+    def EnableRouteVpcPublish(self):
+        r"""Vpc association with CCN route publish policy. true: enables cidr route publishing. false: enables subnet route publishing. default is subnet route publishing when creating a vpc. to select cidr route publishing, submit a ticket for adding to allowlist.
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
 
     def _deserialize(self, params):
         self._VpcName = params.get("VpcName")
@@ -10918,6 +11251,7 @@ class CreateVpcRequest(AbstractModel):
                 obj = Tag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13790,6 +14124,223 @@ class DeleteReserveIpAddressesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteRoutePolicyAssociationsRequest(AbstractModel):
+    r"""DeleteRoutePolicyAssociations request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: Routing policy binding object list. during routing policy unbinding, use the RouteTableId and RoutePolicyId fields of RoutePolicyAssociation (you do not need to fill in the Priority field).
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""Routing policy binding object list. during routing policy unbinding, use the RouteTableId and RoutePolicyId fields of RoutePolicyAssociation (you do not need to fill in the Priority field).
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyAssociationsResponse(AbstractModel):
+    r"""DeleteRoutePolicyAssociations response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteRoutePolicyEntriesRequest(AbstractModel):
+    r"""DeleteRoutePolicyEntries request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Specifies the instance ID of the route reception policy.
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: Route reception policy entry list. when deleting a routing policy rule, use the routepolicyentryid field of RoutePolicyEntry.
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Specifies the instance ID of the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Route reception policy entry list. when deleting a routing policy rule, use the routepolicyentryid field of RoutePolicyEntry.
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyEntriesResponse(AbstractModel):
+    r"""DeleteRoutePolicyEntries response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DeleteRoutePolicyRequest(AbstractModel):
+    r"""DeleteRoutePolicy request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Specifies the unique ID of the route reception policy.
+        :type RoutePolicyId: str
+        """
+        self._RoutePolicyId = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Specifies the unique ID of the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteRoutePolicyResponse(AbstractModel):
+    r"""DeleteRoutePolicy response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DeleteRouteTableRequest(AbstractModel):
     r"""DeleteRouteTable request structure.
 
@@ -15393,27 +15944,29 @@ class DescribeAddressesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _AddressIds: The list of unique IDs of EIPs in the format of `eip-11112222`. `AddressIds` and `Filters.address-id` cannot be specified at the same time.
+        :param _AddressIds: List of unique IDs for identifying Elastic IP (EIP). The EIP unique ID is in the format of `eip-11112222`. You can use the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API to obtain the AddressId. The parameters `AddressIds` and `Filters.address-id` cannot be specified simultaneously.
         :type AddressIds: list of str
-        :param _Filters: Each request can have up to 10 `Filters` and 100 `Filter.Values`. Detailed filter conditions:
-<li> address-id - String - Optional - Filter by unique EIP ID, such as `eip-11112222`.</li>
-<li> address-name - String - Optional - Filter by EIP name. Fuzzy filtering is not supported.</li>
-<li> address-ip - String - Optional - Filter by EIP address.</li>
-<li> address-status - String - Optional - Filter by EIP status. Valid values: `CREATING`, `BINDING`, `BIND`, `UNBINDING`, `UNBIND`, `OFFLINING`, and `BIND_ENI`.</li>
-<li> instance-id - String - Optional - Filter by the ID of the instance bound to the EIP, such as `ins-11112222`.</li>
-<li> private-ip-address - String - Optional - Filter by the private IP address bound to the EIP.</li>
-<li> network-interface-id - String - Optional - Filter by ID of the ENI bound to the EIP, such as `eni-11112222`.</li>
-<li> is-arrears - String - Optional - Filter by the fact whether the EIP is overdue (TRUE: the EIP is overdue | FALSE: the billing status of the EIP is normal).</li>
-<li> address-type - String - Optional - Filter by IP type. Valid values: `WanIP`, `EIP`, `AnycastEIP`, and `HighQualityEIP`. Default value: `EIP`.</li>
-<li> address-isp - String - Optional - Filter by ISP type. Valid values: `BGP`, `CMCC`, `CUCC`, and `CTCC`.</li>
+        :param _Filters: The maximum number of `Filters` per request is 10, and the maximum number of `Filter.Values` per request is 100. The detailed filter conditions are as follows:
+<li> address-id - String - Optional - Filter by the unique id of the EIP. the unique id of EIP is in the format of `EIP-11112222`. you can obtain the address-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> address-name - String - Optional - Filter by the EIP name. fuzzy filtering is not supported. available for use through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API to obtain the address-name. note: when specifying the address-name parameter, only the first passed in address-name parameter is supported for query execution.</li>
+<li> address-ip - String - Optional - Filter by the ip address of the EIP. you can obtain address-ip through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> address-status - String - Optional - Filter by the EIP status. valid values: `CREATING`, `BINDING`, `BIND`, `UNBINDING`, `UNBIND`, `OFFLINING`, and `BIND_ENI`.</li>
+<li> instance-id - String - Optional - Filter by instance id bound to EIP. instance id is in the format of ins-11112222. you can obtain instance-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> private-ip-address - String - Optional - Filter by the private ip bound to the EIP. you can obtain private-ip-address through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API. note: when specifying the private-ip-address parameter, only the first passed-in private-ip-address parameter is supported for query execution.</li>
+<li>network-interface-id - String - Optional - Filter by the id of the ENI bound to the EIP. the ENI id is in the format such as `eni-11112222`. you can obtain the network-interface-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> is-arrears - String - Optional - Filters by whether the EIP is overdue. (TRUE: EIP is overdue | FALSE: EIP is in normal fee state).</li>
+<li>instance-type - String - Optional - Filters by the instance type bound to the EIP. valid values: `CVM`, `NAT`, `ENI`, `CLB`, `HAVIP`, `DHCPIP`, `EKS`, `VPCE`, and `WAF`.
+Note: when using only the instance-type filter condition, the system returns by default the list of bound resources for all EIP types (including EIP, AnycastEIP, HighQualityEIP, AntiDDoSEIP, and ResidentialEIP). to query bound resources for a specific EIP type or `WanIP`, specify both the instance-type and address-type parameters to configure.
+<li> address-type - String - Optional - Filter by IP type. valid values: `WanIP`, `EIP`, `AnycastEIP`, `HighQualityEIP`, `AntiDDoSEIP`, and `ResidentialEIP`. default value is `EIP`.</li>
+<li> address-isp - String - Optional - Filter by ISP type. valid values: `BGP`, `CMCC`, `CUCC`, and `CTCC`.</li>
 <li> dedicated-cluster-id - String - Optional - Filter by unique CDC ID, such as `cluster-11112222`.</li>
-<li> tag-key - String - Optional - Filter by tag key.</li>
-<li> tag-value - String - Optional - Filter by tag value.</li>
-<li> tag:tag-key - String - Optional - Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
+<li>tag-key - String - Optional - Filter by tag key.</li>
+<li>tag-value - String - Optional - Filter by tag value.</li>
+<li>tag:tag-key - String - Optional - Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
         :type Filters: list of Filter
-        :param _Offset: The Offset. The default value is 0. For more information about `Offset`, see the relevant section in the API documentation.
+        :param _Offset: The Offset. The default value is 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Offset: int
-        :param _Limit: Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API documentation.
+        :param _Limit: Number of returned results. Default value: 20. Maximum value: 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Limit: int
         """
         self._AddressIds = None
@@ -15423,7 +15976,7 @@ class DescribeAddressesRequest(AbstractModel):
 
     @property
     def AddressIds(self):
-        r"""The list of unique IDs of EIPs in the format of `eip-11112222`. `AddressIds` and `Filters.address-id` cannot be specified at the same time.
+        r"""List of unique IDs for identifying Elastic IP (EIP). The EIP unique ID is in the format of `eip-11112222`. You can use the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API to obtain the AddressId. The parameters `AddressIds` and `Filters.address-id` cannot be specified simultaneously.
         :rtype: list of str
         """
         return self._AddressIds
@@ -15434,21 +15987,23 @@ class DescribeAddressesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""Each request can have up to 10 `Filters` and 100 `Filter.Values`. Detailed filter conditions:
-<li> address-id - String - Optional - Filter by unique EIP ID, such as `eip-11112222`.</li>
-<li> address-name - String - Optional - Filter by EIP name. Fuzzy filtering is not supported.</li>
-<li> address-ip - String - Optional - Filter by EIP address.</li>
-<li> address-status - String - Optional - Filter by EIP status. Valid values: `CREATING`, `BINDING`, `BIND`, `UNBINDING`, `UNBIND`, `OFFLINING`, and `BIND_ENI`.</li>
-<li> instance-id - String - Optional - Filter by the ID of the instance bound to the EIP, such as `ins-11112222`.</li>
-<li> private-ip-address - String - Optional - Filter by the private IP address bound to the EIP.</li>
-<li> network-interface-id - String - Optional - Filter by ID of the ENI bound to the EIP, such as `eni-11112222`.</li>
-<li> is-arrears - String - Optional - Filter by the fact whether the EIP is overdue (TRUE: the EIP is overdue | FALSE: the billing status of the EIP is normal).</li>
-<li> address-type - String - Optional - Filter by IP type. Valid values: `WanIP`, `EIP`, `AnycastEIP`, and `HighQualityEIP`. Default value: `EIP`.</li>
-<li> address-isp - String - Optional - Filter by ISP type. Valid values: `BGP`, `CMCC`, `CUCC`, and `CTCC`.</li>
+        r"""The maximum number of `Filters` per request is 10, and the maximum number of `Filter.Values` per request is 100. The detailed filter conditions are as follows:
+<li> address-id - String - Optional - Filter by the unique id of the EIP. the unique id of EIP is in the format of `EIP-11112222`. you can obtain the address-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> address-name - String - Optional - Filter by the EIP name. fuzzy filtering is not supported. available for use through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API to obtain the address-name. note: when specifying the address-name parameter, only the first passed in address-name parameter is supported for query execution.</li>
+<li> address-ip - String - Optional - Filter by the ip address of the EIP. you can obtain address-ip through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> address-status - String - Optional - Filter by the EIP status. valid values: `CREATING`, `BINDING`, `BIND`, `UNBINDING`, `UNBIND`, `OFFLINING`, and `BIND_ENI`.</li>
+<li> instance-id - String - Optional - Filter by instance id bound to EIP. instance id is in the format of ins-11112222. you can obtain instance-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> private-ip-address - String - Optional - Filter by the private ip bound to the EIP. you can obtain private-ip-address through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API. note: when specifying the private-ip-address parameter, only the first passed-in private-ip-address parameter is supported for query execution.</li>
+<li>network-interface-id - String - Optional - Filter by the id of the ENI bound to the EIP. the ENI id is in the format such as `eni-11112222`. you can obtain the network-interface-id through the [DescribeAddresses](https://www.tencentcloud.com/document/product/215/16702) API.</li>
+<li> is-arrears - String - Optional - Filters by whether the EIP is overdue. (TRUE: EIP is overdue | FALSE: EIP is in normal fee state).</li>
+<li>instance-type - String - Optional - Filters by the instance type bound to the EIP. valid values: `CVM`, `NAT`, `ENI`, `CLB`, `HAVIP`, `DHCPIP`, `EKS`, `VPCE`, and `WAF`.
+Note: when using only the instance-type filter condition, the system returns by default the list of bound resources for all EIP types (including EIP, AnycastEIP, HighQualityEIP, AntiDDoSEIP, and ResidentialEIP). to query bound resources for a specific EIP type or `WanIP`, specify both the instance-type and address-type parameters to configure.
+<li> address-type - String - Optional - Filter by IP type. valid values: `WanIP`, `EIP`, `AnycastEIP`, `HighQualityEIP`, `AntiDDoSEIP`, and `ResidentialEIP`. default value is `EIP`.</li>
+<li> address-isp - String - Optional - Filter by ISP type. valid values: `BGP`, `CMCC`, `CUCC`, and `CTCC`.</li>
 <li> dedicated-cluster-id - String - Optional - Filter by unique CDC ID, such as `cluster-11112222`.</li>
-<li> tag-key - String - Optional - Filter by tag key.</li>
-<li> tag-value - String - Optional - Filter by tag value.</li>
-<li> tag:tag-key - String - Optional - Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
+<li>tag-key - String - Optional - Filter by tag key.</li>
+<li>tag-value - String - Optional - Filter by tag value.</li>
+<li>tag:tag-key - String - Optional - Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
         :rtype: list of Filter
         """
         return self._Filters
@@ -15459,7 +16014,7 @@ class DescribeAddressesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""The Offset. The default value is 0. For more information about `Offset`, see the relevant section in the API documentation.
+        r"""The Offset. The default value is 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Offset
@@ -15470,7 +16025,7 @@ class DescribeAddressesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API documentation.
+        r"""Number of returned results. Default value: 20. Maximum value: 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Limit
@@ -15863,13 +16418,13 @@ class DescribeBandwidthPackageResourcesRequest(AbstractModel):
         r"""
         :param _BandwidthPackageId: Unique ID of the bandwidth package in the form of `bwp-11112222`.
         :type BandwidthPackageId: str
-        :param _Filters: Each request can have up to 10 `Filters` and 5 `Filter.Values`. `AddressIds` and `Filters` cannot be specified at the same time. The specific filter conditions are as follows:
-<li>resource-id - String - Required: no -  (Filter condition) Filters by the unique ID of resources in a bandwidth package, such as `eip-11112222`.</li>
+        :param _Filters: Each request can have up to 10 `Filters` and 5 `Filter.Values`. The specific filter conditions are as follows:
+<li>resource-id - String - Required: no - (Filter condition) Filters by the unique ID of resources in a bandwidth package, such as `eip-11112222`.</li>
 <li>resource-type - String - Required: no - (Filter condition) Filters by the type of resources in a bandwidth package. It now supports only EIP (`Address`) and load balancer (`LoadBalance`).</li>
         :type Filters: list of Filter
-        :param _Offset: The offset. Default value: 0. For more information on `Offset`, see the relevant sections in API [Introduction](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Offset: The offset. Default value: 0. For more information on `Offset`, see the relevant sections in API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Offset: int
-        :param _Limit: The number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant sections in API [Introduction](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Limit: The number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant sections in API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Limit: int
         """
         self._BandwidthPackageId = None
@@ -15890,8 +16445,8 @@ class DescribeBandwidthPackageResourcesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""Each request can have up to 10 `Filters` and 5 `Filter.Values`. `AddressIds` and `Filters` cannot be specified at the same time. The specific filter conditions are as follows:
-<li>resource-id - String - Required: no -  (Filter condition) Filters by the unique ID of resources in a bandwidth package, such as `eip-11112222`.</li>
+        r"""Each request can have up to 10 `Filters` and 5 `Filter.Values`. The specific filter conditions are as follows:
+<li>resource-id - String - Required: no - (Filter condition) Filters by the unique ID of resources in a bandwidth package, such as `eip-11112222`.</li>
 <li>resource-type - String - Required: no - (Filter condition) Filters by the type of resources in a bandwidth package. It now supports only EIP (`Address`) and load balancer (`LoadBalance`).</li>
         :rtype: list of Filter
         """
@@ -15903,7 +16458,7 @@ class DescribeBandwidthPackageResourcesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""The offset. Default value: 0. For more information on `Offset`, see the relevant sections in API [Introduction](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""The offset. Default value: 0. For more information on `Offset`, see the relevant sections in API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Offset
@@ -15914,7 +16469,7 @@ class DescribeBandwidthPackageResourcesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""The number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant sections in API [Introduction](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""The number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant sections in API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Limit
@@ -16016,21 +16571,22 @@ class DescribeBandwidthPackagesRequest(AbstractModel):
         r"""
         :param _BandwidthPackageIds: The unique ID list of bandwidth packages.
         :type BandwidthPackageIds: list of str
-        :param _Filters: Each request can have up to 10 `Filters`. `BandwidthPackageIds` and `Filters` cannot be specified at the same time. The specific filter conditions are as follows:
-<li> bandwidth-package_id - String - Required: No - (Filter condition) Filter by the unique ID of the bandwidth package.</li>
-<li> bandwidth-package-name - String - Required: No - (Filter condition) Filter by the bandwidth package name. Fuzzy filtering is not supported.</li>
-<li> network-type - String - Required: No - (Filter condition) Filter by the bandwidth package type. Valid values: `HIGH_QUALITY_BGP`, `BGP`, `SINGLEISP`, and `ANYCAST`.</li>
-<li> charge-type - String - Required: No - (Filter condition) Filter by the bandwidth package billing mode. Valid values: `TOP5_POSTPAID_BY_MONTH` and `PERCENT95_POSTPAID_BY_MONTH`.</li>
-<li> resource.resource-type - String - Required: No - (Filter condition) Filter by the bandwidth package resource type. Valid values: `Address` and `LoadBalance`.</li>
-<li> resource.resource-id - String - Required: No - (Filter condition) Filter by the bandwidth package resource ID, such as `eip-xxxx` and `lb-xxxx`.</li>
-<li> resource.address-ip - String - Required: No - (Filter condition) Filter by the bandwidth package resource IP.</li>
-<li> tag-key - String - Required: No - (Filter condition) Filter by tag key.</li>
-<li> tag-value - String - Required: No - (Filter condition) Filter by tag value.</li>
-<li> tag:tag-key - String - Required: No - (Filter condition) Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
+        :param _Filters: Each request can have up to 10 `Filters`. parameters do not support specifying `BandwidthPackageIds` and `Filters` at the same time. detailed filter criteria are as follows:.
+<li>bandwidth-package-id - String - required: no - (filter condition) filter by the unique id of the bandwidth package.</li>.
+<li>bandwidth-package-name - String - required: no - (filter criteria) filter by bandwidth package name. fuzzy filtering is not supported.</li>.
+<li>network-type - String - required: no - (filter condition) filter by bandwidth package type. network type can be found in [BandwidthPackage](https://intl.cloud.tencent.com/document/api/215/15824?from_cn_redirect=1#BandwidthPackage).</li>.
+<li>- charge-type - String - required: no - (filter condition) filter by the billing type of the bandwidth package. the billing type can be found in BandwidthPackage (https://intl.cloud.tencent.com/document/api/215/15824?from_cn_redirect=1#BandwidthPackage).</li>.
+<li>resource.resource-type - String - required: no - (filter criteria) filter by bandwidth package resource type. resource types include 'Address' and 'LoadBalance'.</li>.
+<li>resource.resource-id - String - required: no - (filter criteria) filter by bandwidth package resource id. resource id is in the format of 'eip-xxxx','lb-xxxx'.</li>.
+<li>resource.address-ip - String - required: no - filter by bandwidth package resource ip.</li>.
+<li>tag-key - String - required: no - (filter condition) filter according to the tag key.</li>.
+<li>`tag-value` - String - Optional - Filter by the tag value.</li>
+
+<li>tag:tag-key - String - required: no - (filter condition) filter by tag key-value pair. replace tag-key with a specific tag key.</li>.
         :type Filters: list of Filter
-        :param _Offset: Offset. This value defaults to 0. For more information, see the relevant sections in API [Overview](https://intl.cloud.tencent.com/document/api/213/15688?from_cn_redirect=1).
+        :param _Offset: Offset. This value defaults to 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Offset: int
-        :param _Limit: Number of bandwidth packages returned. This value defaults to 20. The maximum is 100. For more information, see the relevant sections in API [Overview](https://intl.cloud.tencent.com/document/api/213/15688?from_cn_redirect=1).
+        :param _Limit: Number of bandwidth packages returned. This value defaults to 20. The maximum is 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Limit: int
         """
         self._BandwidthPackageIds = None
@@ -16051,17 +16607,18 @@ class DescribeBandwidthPackagesRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""Each request can have up to 10 `Filters`. `BandwidthPackageIds` and `Filters` cannot be specified at the same time. The specific filter conditions are as follows:
-<li> bandwidth-package_id - String - Required: No - (Filter condition) Filter by the unique ID of the bandwidth package.</li>
-<li> bandwidth-package-name - String - Required: No - (Filter condition) Filter by the bandwidth package name. Fuzzy filtering is not supported.</li>
-<li> network-type - String - Required: No - (Filter condition) Filter by the bandwidth package type. Valid values: `HIGH_QUALITY_BGP`, `BGP`, `SINGLEISP`, and `ANYCAST`.</li>
-<li> charge-type - String - Required: No - (Filter condition) Filter by the bandwidth package billing mode. Valid values: `TOP5_POSTPAID_BY_MONTH` and `PERCENT95_POSTPAID_BY_MONTH`.</li>
-<li> resource.resource-type - String - Required: No - (Filter condition) Filter by the bandwidth package resource type. Valid values: `Address` and `LoadBalance`.</li>
-<li> resource.resource-id - String - Required: No - (Filter condition) Filter by the bandwidth package resource ID, such as `eip-xxxx` and `lb-xxxx`.</li>
-<li> resource.address-ip - String - Required: No - (Filter condition) Filter by the bandwidth package resource IP.</li>
-<li> tag-key - String - Required: No - (Filter condition) Filter by tag key.</li>
-<li> tag-value - String - Required: No - (Filter condition) Filter by tag value.</li>
-<li> tag:tag-key - String - Required: No - (Filter condition) Filter by tag key-value pair. Use a specific tag key to replace `tag-key`.</li>
+        r"""Each request can have up to 10 `Filters`. parameters do not support specifying `BandwidthPackageIds` and `Filters` at the same time. detailed filter criteria are as follows:.
+<li>bandwidth-package-id - String - required: no - (filter condition) filter by the unique id of the bandwidth package.</li>.
+<li>bandwidth-package-name - String - required: no - (filter criteria) filter by bandwidth package name. fuzzy filtering is not supported.</li>.
+<li>network-type - String - required: no - (filter condition) filter by bandwidth package type. network type can be found in [BandwidthPackage](https://intl.cloud.tencent.com/document/api/215/15824?from_cn_redirect=1#BandwidthPackage).</li>.
+<li>- charge-type - String - required: no - (filter condition) filter by the billing type of the bandwidth package. the billing type can be found in BandwidthPackage (https://intl.cloud.tencent.com/document/api/215/15824?from_cn_redirect=1#BandwidthPackage).</li>.
+<li>resource.resource-type - String - required: no - (filter criteria) filter by bandwidth package resource type. resource types include 'Address' and 'LoadBalance'.</li>.
+<li>resource.resource-id - String - required: no - (filter criteria) filter by bandwidth package resource id. resource id is in the format of 'eip-xxxx','lb-xxxx'.</li>.
+<li>resource.address-ip - String - required: no - filter by bandwidth package resource ip.</li>.
+<li>tag-key - String - required: no - (filter condition) filter according to the tag key.</li>.
+<li>`tag-value` - String - Optional - Filter by the tag value.</li>
+
+<li>tag:tag-key - String - required: no - (filter condition) filter by tag key-value pair. replace tag-key with a specific tag key.</li>.
         :rtype: list of Filter
         """
         return self._Filters
@@ -16072,7 +16629,7 @@ class DescribeBandwidthPackagesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""Offset. This value defaults to 0. For more information, see the relevant sections in API [Overview](https://intl.cloud.tencent.com/document/api/213/15688?from_cn_redirect=1).
+        r"""Offset. This value defaults to 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Offset
@@ -16083,7 +16640,7 @@ class DescribeBandwidthPackagesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""Number of bandwidth packages returned. This value defaults to 20. The maximum is 100. For more information, see the relevant sections in API [Overview](https://intl.cloud.tencent.com/document/api/213/15688?from_cn_redirect=1).
+        r"""Number of bandwidth packages returned. This value defaults to 20. The maximum is 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Limit
@@ -18803,9 +19360,9 @@ Note: `IPv6AddressIds` and `Filters` cannot be specified at the same time.
         :type Filters: list of Filter
         :param _Traditional: Indicates whether to query the traditional IPv6 address information.
         :type Traditional: bool
-        :param _Offset: Offset. Default: 0. For more information on Offset, see the relevant section in the API [Overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Offset: Offset. Default: 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Offset: int
-        :param _Limit: Number of returned results. Default: 20. Maximum: 100. For more information on Limit, see the relevant section in the API [Overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Limit: Number of returned results. Default: 20. Maximum: 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Limit: int
         """
         self._IPv6AddressIds = None
@@ -18869,7 +19426,7 @@ Note: `IPv6AddressIds` and `Filters` cannot be specified at the same time.
 
     @property
     def Offset(self):
-        r"""Offset. Default: 0. For more information on Offset, see the relevant section in the API [Overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""Offset. Default: 0. For more information on Offset, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Offset
@@ -18880,7 +19437,7 @@ Note: `IPv6AddressIds` and `Filters` cannot be specified at the same time.
 
     @property
     def Limit(self):
-        r"""Number of returned results. Default: 20. Maximum: 100. For more information on Limit, see the relevant section in the API [Overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""Number of returned results. Default: 20. Maximum: 100. For more information on Limit, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Limit
@@ -19071,9 +19628,9 @@ class DescribeIp6AddressesRequest(AbstractModel):
 <li>address-ip - String - Required: No - (Filter condition) Filter by the IP address of IPv6 instances.</li>
 <li>network-interface-id - String - Required: No - (Filter condition) Filter by the unique ID of ENIs.</li>
         :type Filters: list of Filter
-        :param _Offset: Offset. Default value: 0. For more information on `Offset`, see the relevant section in the API [overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Offset: Offset. Default value: 0. For more information on `Offset`, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Offset: int
-        :param _Limit: Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API [overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        :param _Limit: Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :type Limit: int
         """
         self._Ip6AddressIds = None
@@ -19107,7 +19664,7 @@ class DescribeIp6AddressesRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""Offset. Default value: 0. For more information on `Offset`, see the relevant section in the API [overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""Offset. Default value: 0. For more information on `Offset`, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Offset
@@ -19118,7 +19675,7 @@ class DescribeIp6AddressesRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API [overview](https://intl.cloud.tencent.com/document/api/213/11646?from_cn_redirect=1).
+        r"""Number of returned results. Default value: 20. Maximum value: 100. For more information on `Limit`, see the relevant section in the API [Introduction](https://www.tencentcloud.com/document/api/213/15688).
         :rtype: int
         """
         return self._Limit
@@ -21326,6 +21883,207 @@ class DescribeReserveIpAddressesResponse(AbstractModel):
                 obj = ReserveIpAddressInfo()
                 obj._deserialize(item)
                 self._ReserveIpAddressSet.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeRoutePolicyEntriesRequest(AbstractModel):
+    r"""DescribeRoutePolicyEntries request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Filters: Filter criteria. RoutePolicyEntryIds and Filters cannot be specified at the same time.
+<li>route-policy-id - String - (filter condition) specifies the instance id of the route reception policy, such as rrp-f49l6u0z.</li>.
+<li>cidr-block - String - (filter condition) cidr (subnet part before the mask), such as 10.0.0.0/8.</li>.
+<li>priority - Integer - filter condition. specifies the priority, such as 20.</li>.
+<li>gateway-type - String - (filter criteria) next hop type, such as CVM.</li>.
+<li>GatewayId - String - specifies the unique id of the next hop instance, such as ccn-f49l6u0z.</li>.
+<li>route-type - String - (filter condition) routing type. valid values: USER (USER route), NETD (route issued by network probe), CCN (CCN route).</li>.
+<li>action - String - (filter condition) specifies the action. valid values: DROP (DROP), DISABLE (receive and DISABLE), ACCEPT (receive and enable).</li>.
+<li>description - String - specifies the filter condition description, such as TEST.</li>.
+<li>route-policy-item-id - String - (filter condition) specifies the entry unique id of the route reception policy, such as rrpi-dq782kw7.</li>.
+        :type Filters: list of Filter
+        :param _Offset: Offset.
+        :type Offset: int
+        :param _Limit: Number of request objects.
+        :type Limit: int
+        :param _OrderField: Sorting field. currently only supports the priority field.
+        :type OrderField: str
+        :param _OrderDirection: Specifies the sorting order.
+ASC: ascending order.
+DESC: descending order.
+        :type OrderDirection: str
+        :param _RoutePolicyEntryIds: Specifies the routing strategy entry ID.
+        :type RoutePolicyEntryIds: list of str
+        """
+        self._Filters = None
+        self._Offset = None
+        self._Limit = None
+        self._OrderField = None
+        self._OrderDirection = None
+        self._RoutePolicyEntryIds = None
+
+    @property
+    def Filters(self):
+        r"""Filter criteria. RoutePolicyEntryIds and Filters cannot be specified at the same time.
+<li>route-policy-id - String - (filter condition) specifies the instance id of the route reception policy, such as rrp-f49l6u0z.</li>.
+<li>cidr-block - String - (filter condition) cidr (subnet part before the mask), such as 10.0.0.0/8.</li>.
+<li>priority - Integer - filter condition. specifies the priority, such as 20.</li>.
+<li>gateway-type - String - (filter criteria) next hop type, such as CVM.</li>.
+<li>GatewayId - String - specifies the unique id of the next hop instance, such as ccn-f49l6u0z.</li>.
+<li>route-type - String - (filter condition) routing type. valid values: USER (USER route), NETD (route issued by network probe), CCN (CCN route).</li>.
+<li>action - String - (filter condition) specifies the action. valid values: DROP (DROP), DISABLE (receive and DISABLE), ACCEPT (receive and enable).</li>.
+<li>description - String - specifies the filter condition description, such as TEST.</li>.
+<li>route-policy-item-id - String - (filter condition) specifies the entry unique id of the route reception policy, such as rrpi-dq782kw7.</li>.
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def Offset(self):
+        r"""Offset.
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""Number of request objects.
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def OrderField(self):
+        r"""Sorting field. currently only supports the priority field.
+        :rtype: str
+        """
+        return self._OrderField
+
+    @OrderField.setter
+    def OrderField(self, OrderField):
+        self._OrderField = OrderField
+
+    @property
+    def OrderDirection(self):
+        r"""Specifies the sorting order.
+ASC: ascending order.
+DESC: descending order.
+        :rtype: str
+        """
+        return self._OrderDirection
+
+    @OrderDirection.setter
+    def OrderDirection(self, OrderDirection):
+        self._OrderDirection = OrderDirection
+
+    @property
+    def RoutePolicyEntryIds(self):
+        r"""Specifies the routing strategy entry ID.
+        :rtype: list of str
+        """
+        return self._RoutePolicyEntryIds
+
+    @RoutePolicyEntryIds.setter
+    def RoutePolicyEntryIds(self, RoutePolicyEntryIds):
+        self._RoutePolicyEntryIds = RoutePolicyEntryIds
+
+
+    def _deserialize(self, params):
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._OrderField = params.get("OrderField")
+        self._OrderDirection = params.get("OrderDirection")
+        self._RoutePolicyEntryIds = params.get("RoutePolicyEntryIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeRoutePolicyEntriesResponse(AbstractModel):
+    r"""DescribeRoutePolicyEntries response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyEntrySet: Route reception policy entry list.
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _TotalCount: Number of eligible instances.
+        :type TotalCount: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RoutePolicyEntrySet = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Route reception policy entry list.
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def TotalCount(self):
+        r"""Number of eligible instances.
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
         self._TotalCount = params.get("TotalCount")
         self._RequestId = params.get("RequestId")
 
@@ -29905,6 +30663,72 @@ class IPSECOptionsSpecification(AbstractModel):
         
 
 
+class ISPIPv6CidrBlock(AbstractModel):
+    r"""Returns multi-operator IPv6 Cidr Block.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _IPv6CidrBlock: IPv6 CIdr Block
+        :type IPv6CidrBlock: str
+        :param _ISPType: Network operator type. valid values: 'BGP' (default), 'CMCC' (china mobile), 'CTCC' (china telecom), 'CUCC' (china unicom).
+        :type ISPType: str
+        :param _AddressType: Specifies the type of IPv6 Cidr: `GUA` (global unicast address), `ULA` (unique local address).
+        :type AddressType: str
+        """
+        self._IPv6CidrBlock = None
+        self._ISPType = None
+        self._AddressType = None
+
+    @property
+    def IPv6CidrBlock(self):
+        r"""IPv6 CIdr Block
+        :rtype: str
+        """
+        return self._IPv6CidrBlock
+
+    @IPv6CidrBlock.setter
+    def IPv6CidrBlock(self, IPv6CidrBlock):
+        self._IPv6CidrBlock = IPv6CidrBlock
+
+    @property
+    def ISPType(self):
+        r"""Network operator type. valid values: 'BGP' (default), 'CMCC' (china mobile), 'CTCC' (china telecom), 'CUCC' (china unicom).
+        :rtype: str
+        """
+        return self._ISPType
+
+    @ISPType.setter
+    def ISPType(self, ISPType):
+        self._ISPType = ISPType
+
+    @property
+    def AddressType(self):
+        r"""Specifies the type of IPv6 Cidr: `GUA` (global unicast address), `ULA` (unique local address).
+        :rtype: str
+        """
+        return self._AddressType
+
+    @AddressType.setter
+    def AddressType(self, AddressType):
+        self._AddressType = AddressType
+
+
+    def _deserialize(self, params):
+        self._IPv6CidrBlock = params.get("IPv6CidrBlock")
+        self._ISPType = params.get("ISPType")
+        self._AddressType = params.get("AddressType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class InquirePriceCreateDirectConnectGatewayRequest(AbstractModel):
     r"""InquirePriceCreateDirectConnectGateway request structure.
 
@@ -31393,13 +32217,13 @@ class ItemPrice(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _UnitPrice: The pay-as-you-go billing method. Unit: CNY.
+        :param _UnitPrice: The pay-as-you-go billing method. Unit: USD.
         :type UnitPrice: float
         :param _ChargeUnit: Pay-as-you-go billing method. Value Range: HOUR: Indicates billing by the hour. Scenarios using this hourly billing unit include: Instances postpaid on an hourly basis (POSTPAID_BY_HOUR), and bandwidth postpaid on an hourly basis (BANDWIDTH_POSTPAID_BY_HOUR). GB: Indicates billing on a per-GB basis. Scenarios using this billing unit include: Traffic postpaid on an hourly basis (TRAFFIC_POSTPAID_BY_HOUR).
         :type ChargeUnit: str
-        :param _OriginalPrice: Original price of the prepaid product. Unit: CNY.
+        :param _OriginalPrice: Original price of the prepaid product. Unit: USD.
         :type OriginalPrice: float
-        :param _DiscountPrice: Discount price of the prepaid product. Unit: CNY.
+        :param _DiscountPrice: Discount price of the prepaid product. Unit: USD.
         :type DiscountPrice: float
         """
         self._UnitPrice = None
@@ -31409,7 +32233,7 @@ class ItemPrice(AbstractModel):
 
     @property
     def UnitPrice(self):
-        r"""The pay-as-you-go billing method. Unit: CNY.
+        r"""The pay-as-you-go billing method. Unit: USD.
         :rtype: float
         """
         return self._UnitPrice
@@ -31431,7 +32255,7 @@ class ItemPrice(AbstractModel):
 
     @property
     def OriginalPrice(self):
-        r"""Original price of the prepaid product. Unit: CNY.
+        r"""Original price of the prepaid product. Unit: USD.
         :rtype: float
         """
         return self._OriginalPrice
@@ -31442,7 +32266,7 @@ class ItemPrice(AbstractModel):
 
     @property
     def DiscountPrice(self):
-        r"""Discount price of the prepaid product. Unit: CNY.
+        r"""Discount price of the prepaid product. Unit: USD.
         :rtype: float
         """
         return self._DiscountPrice
@@ -34989,6 +35813,100 @@ class ModifyReserveIpAddressResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyRoutePolicyAttributeRequest(AbstractModel):
+    r"""ModifyRoutePolicyAttribute request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Instance ID of the route reception policy, such as rrp-dz0219jq.
+        :type RoutePolicyId: str
+        :param _RoutePolicyName: Specifies the route reception policy name.
+        :type RoutePolicyName: str
+        :param _RoutePolicyDescription: Describes the route reception policy.
+        :type RoutePolicyDescription: str
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyName = None
+        self._RoutePolicyDescription = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Instance ID of the route reception policy, such as rrp-dz0219jq.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyName(self):
+        r"""Specifies the route reception policy name.
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""Describes the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyRoutePolicyAttributeResponse(AbstractModel):
+    r"""ModifyRoutePolicyAttribute response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyRouteTableAttributeRequest(AbstractModel):
     r"""ModifyRouteTableAttribute request structure.
 
@@ -35740,7 +36658,7 @@ class ModifyVpcAttributeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _VpcId: Security group can be named freely, but cannot exceed 60 characters.
+        :param _VpcId: VPC instance ID, in the format of vpc-f49l6u0z.
         :type VpcId: str
         :param _VpcName: VPC can be named freely, but the maximum length is 60 characters.
         :type VpcName: str
@@ -35750,6 +36668,8 @@ class ModifyVpcAttributeRequest(AbstractModel):
         :type DnsServers: list of str
         :param _DomainName: Domain name
         :type DomainName: str
+        :param _EnableRouteVpcPublish: Vpc association with CCN route publish policy. true enables cidr route publishing. false enables subnet route publishing. the default is subnet route publishing when creating a vpc. to use cidr route publishing, submit a ticket to add to allowlist.
+        :type EnableRouteVpcPublish: bool
         :param _EnableCdcPublish: Whether to publish the CDC subnet to CCN. `true`: Publish; `false`: Do not publish
         :type EnableCdcPublish: bool
         """
@@ -35758,11 +36678,12 @@ class ModifyVpcAttributeRequest(AbstractModel):
         self._EnableMulticast = None
         self._DnsServers = None
         self._DomainName = None
+        self._EnableRouteVpcPublish = None
         self._EnableCdcPublish = None
 
     @property
     def VpcId(self):
-        r"""Security group can be named freely, but cannot exceed 60 characters.
+        r"""VPC instance ID, in the format of vpc-f49l6u0z.
         :rtype: str
         """
         return self._VpcId
@@ -35816,6 +36737,17 @@ class ModifyVpcAttributeRequest(AbstractModel):
         self._DomainName = DomainName
 
     @property
+    def EnableRouteVpcPublish(self):
+        r"""Vpc association with CCN route publish policy. true enables cidr route publishing. false enables subnet route publishing. the default is subnet route publishing when creating a vpc. to use cidr route publishing, submit a ticket to add to allowlist.
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
+    @property
     def EnableCdcPublish(self):
         r"""Whether to publish the CDC subnet to CCN. `true`: Publish; `false`: Do not publish
         :rtype: bool
@@ -35833,6 +36765,7 @@ class ModifyVpcAttributeRequest(AbstractModel):
         self._EnableMulticast = params.get("EnableMulticast")
         self._DnsServers = params.get("DnsServers")
         self._DomainName = params.get("DomainName")
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
         self._EnableCdcPublish = params.get("EnableCdcPublish")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -40003,6 +40936,159 @@ class ReplaceDirectConnectGatewayCcnRoutesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ReplaceRoutePolicyAssociationsRequest(AbstractModel):
+    r"""ReplaceRoutePolicyAssociations request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyAssociationSet: Route reception policy binding object list. requires specifying the route reception policy instance ID (RoutePolicyId) and route table instance ID (RouteTableId).
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""Route reception policy binding object list. requires specifying the route reception policy instance ID (RoutePolicyId) and route table instance ID (RouteTableId).
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutePolicyAssociationsResponse(AbstractModel):
+    r"""ReplaceRoutePolicyAssociations response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ReplaceRoutePolicyEntriesRequest(AbstractModel):
+    r"""ReplaceRoutePolicyEntries request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Instance ID of the routing strategy, such as rrp-azd4dt1c.
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: Rule list of the routing strategy. requires specifying the policy rule ID (RoutePolicyEntryId).
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Instance ID of the routing strategy, such as rrp-azd4dt1c.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Rule list of the routing strategy. requires specifying the policy rule ID (RoutePolicyEntryId).
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutePolicyEntriesResponse(AbstractModel):
+    r"""ReplaceRoutePolicyEntries response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ReplaceRouteTableAssociationRequest(AbstractModel):
     r"""ReplaceRouteTableAssociation request structure.
 
@@ -40204,6 +41290,141 @@ class ReplaceRoutesResponse(AbstractModel):
                 obj._deserialize(item)
                 self._NewRouteSet.append(obj)
         self._RequestId = params.get("RequestId")
+
+
+class ReplaceRoutesWithRoutePolicyRequest(AbstractModel):
+    r"""ReplaceRoutesWithRoutePolicy request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: Route Table Instance ID
+        :type RouteTableId: str
+        :param _Routes: Routing policy object. requires specifying the unique ID of routing policy (RouteItemId).
+        :type Routes: list of ReplaceRoutesWithRoutePolicyRoute
+        """
+        self._RouteTableId = None
+        self._Routes = None
+
+    @property
+    def RouteTableId(self):
+        r"""Route Table Instance ID
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def Routes(self):
+        r"""Routing policy object. requires specifying the unique ID of routing policy (RouteItemId).
+        :rtype: list of ReplaceRoutesWithRoutePolicyRoute
+        """
+        return self._Routes
+
+    @Routes.setter
+    def Routes(self, Routes):
+        self._Routes = Routes
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        if params.get("Routes") is not None:
+            self._Routes = []
+            for item in params.get("Routes"):
+                obj = ReplaceRoutesWithRoutePolicyRoute()
+                obj._deserialize(item)
+                self._Routes.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ReplaceRoutesWithRoutePolicyResponse(AbstractModel):
+    r"""ReplaceRoutesWithRoutePolicy response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ReplaceRoutesWithRoutePolicyRoute(AbstractModel):
+    r"""Match route reception policy objects.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteItemId: Route unique policy ID.
+        :type RouteItemId: str
+        :param _ForceMatchPolicy: Match the route reception policy tag.
+        :type ForceMatchPolicy: bool
+        """
+        self._RouteItemId = None
+        self._ForceMatchPolicy = None
+
+    @property
+    def RouteItemId(self):
+        r"""Route unique policy ID.
+        :rtype: str
+        """
+        return self._RouteItemId
+
+    @RouteItemId.setter
+    def RouteItemId(self, RouteItemId):
+        self._RouteItemId = RouteItemId
+
+    @property
+    def ForceMatchPolicy(self):
+        r"""Match the route reception policy tag.
+        :rtype: bool
+        """
+        return self._ForceMatchPolicy
+
+    @ForceMatchPolicy.setter
+    def ForceMatchPolicy(self, ForceMatchPolicy):
+        self._ForceMatchPolicy = ForceMatchPolicy
+
+
+    def _deserialize(self, params):
+        self._RouteItemId = params.get("RouteItemId")
+        self._ForceMatchPolicy = params.get("ForceMatchPolicy")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class ReplaceSecurityGroupPoliciesRequest(AbstractModel):
@@ -40745,6 +41966,204 @@ class ResetNatGatewayConnectionRequest(AbstractModel):
 
 class ResetNatGatewayConnectionResponse(AbstractModel):
     r"""ResetNatGatewayConnection response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ResetRoutePolicyAssociationsRequest(AbstractModel):
+    r"""ResetRoutePolicyAssociations request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: Routing table instance ID, e.g., rtb-azd4dt1c.
+        :type RouteTableId: str
+        :param _RoutePolicyAssociationSet: The list of routing policy binding objects (RoutePolicyAssociation). note: the route table instance ID (RouteTableId) in the binding must match the RouteTableId parameter of this API (that is, this API only supports modifying the strategy binding relationship and priority within the same route table instance).
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        """
+        self._RouteTableId = None
+        self._RoutePolicyAssociationSet = None
+
+    @property
+    def RouteTableId(self):
+        r"""Routing table instance ID, e.g., rtb-azd4dt1c.
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""The list of routing policy binding objects (RoutePolicyAssociation). note: the route table instance ID (RouteTableId) in the binding must match the RouteTableId parameter of this API (that is, this API only supports modifying the strategy binding relationship and priority within the same route table instance).
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ResetRoutePolicyAssociationsResponse(AbstractModel):
+    r"""ResetRoutePolicyAssociations response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ResetRoutePolicyEntriesRequest(AbstractModel):
+    r"""ResetRoutePolicyEntries request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Specifies the instance ID of the route reception policy, such as rrp-azd4dt1c.
+        :type RoutePolicyId: str
+        :param _RoutePolicyEntrySet: Route reception policy entry list. requires specifying the routing strategy entry ID (RoutePolicyEntryId).
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _RoutePolicyDescription: Describes the route reception policy.
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyName: Specifies the route reception policy name.
+        :type RoutePolicyName: str
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyEntrySet = None
+        self._RoutePolicyDescription = None
+        self._RoutePolicyName = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Specifies the instance ID of the route reception policy, such as rrp-azd4dt1c.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Route reception policy entry list. requires specifying the routing strategy entry ID (RoutePolicyEntryId).
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""Describes the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyName(self):
+        r"""Specifies the route reception policy name.
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ResetRoutePolicyEntriesResponse(AbstractModel):
+    r"""ResetRoutePolicyEntries response structure.
 
     """
 
@@ -42278,6 +43697,456 @@ Note: this field may return `null`, indicating that no valid values can be obtai
         self._RouteItemId = params.get("RouteItemId")
         self._PublishedToVbc = params.get("PublishedToVbc")
         self._CreatedTime = params.get("CreatedTime")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicy(AbstractModel):
+    r"""Route reception policy. when CCN or other services add routes to a VPC custom route table, you can drop or enable appropriate route entries.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyId: Unique ID of the routing policy.
+
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyId: str
+        :param _RoutePolicyName: Specifies the routing strategy name.
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyName: str
+        :param _RoutePolicyDescription: Routing policy description.
+
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyDescription: str
+        :param _RoutePolicyEntrySet: Routing policy rule list.
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyEntrySet: list of RoutePolicyEntry
+        :param _RoutePolicyAssociationSet: Specifies the routing strategy binding.
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyAssociationSet: list of RoutePolicyAssociation
+        :param _CreatedTime: Creation time.
+
+Note: This field may return null, indicating that no valid value was found.
+        :type CreatedTime: str
+        :param _TagSet: Tag key-value pair.
+        :type TagSet: list of Tag
+        """
+        self._RoutePolicyId = None
+        self._RoutePolicyName = None
+        self._RoutePolicyDescription = None
+        self._RoutePolicyEntrySet = None
+        self._RoutePolicyAssociationSet = None
+        self._CreatedTime = None
+        self._TagSet = None
+
+    @property
+    def RoutePolicyId(self):
+        r"""Unique ID of the routing policy.
+
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def RoutePolicyName(self):
+        r"""Specifies the routing strategy name.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._RoutePolicyName
+
+    @RoutePolicyName.setter
+    def RoutePolicyName(self, RoutePolicyName):
+        self._RoutePolicyName = RoutePolicyName
+
+    @property
+    def RoutePolicyDescription(self):
+        r"""Routing policy description.
+
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._RoutePolicyDescription
+
+    @RoutePolicyDescription.setter
+    def RoutePolicyDescription(self, RoutePolicyDescription):
+        self._RoutePolicyDescription = RoutePolicyDescription
+
+    @property
+    def RoutePolicyEntrySet(self):
+        r"""Routing policy rule list.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: list of RoutePolicyEntry
+        """
+        return self._RoutePolicyEntrySet
+
+    @RoutePolicyEntrySet.setter
+    def RoutePolicyEntrySet(self, RoutePolicyEntrySet):
+        self._RoutePolicyEntrySet = RoutePolicyEntrySet
+
+    @property
+    def RoutePolicyAssociationSet(self):
+        r"""Specifies the routing strategy binding.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: list of RoutePolicyAssociation
+        """
+        return self._RoutePolicyAssociationSet
+
+    @RoutePolicyAssociationSet.setter
+    def RoutePolicyAssociationSet(self, RoutePolicyAssociationSet):
+        self._RoutePolicyAssociationSet = RoutePolicyAssociationSet
+
+    @property
+    def CreatedTime(self):
+        r"""Creation time.
+
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def TagSet(self):
+        r"""Tag key-value pair.
+        :rtype: list of Tag
+        """
+        return self._TagSet
+
+    @TagSet.setter
+    def TagSet(self, TagSet):
+        self._TagSet = TagSet
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._RoutePolicyName = params.get("RoutePolicyName")
+        self._RoutePolicyDescription = params.get("RoutePolicyDescription")
+        if params.get("RoutePolicyEntrySet") is not None:
+            self._RoutePolicyEntrySet = []
+            for item in params.get("RoutePolicyEntrySet"):
+                obj = RoutePolicyEntry()
+                obj._deserialize(item)
+                self._RoutePolicyEntrySet.append(obj)
+        if params.get("RoutePolicyAssociationSet") is not None:
+            self._RoutePolicyAssociationSet = []
+            for item in params.get("RoutePolicyAssociationSet"):
+                obj = RoutePolicyAssociation()
+                obj._deserialize(item)
+                self._RoutePolicyAssociationSet.append(obj)
+        self._CreatedTime = params.get("CreatedTime")
+        if params.get("TagSet") is not None:
+            self._TagSet = []
+            for item in params.get("TagSet"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagSet.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicyAssociation(AbstractModel):
+    r"""Route reception policy binding. used to bind the route table and route reception policy and specify the binding priority.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RouteTableId: Unique route table ID.
+        :type RouteTableId: str
+        :param _RoutePolicyId: Specifies the unique ID of the route reception policy.
+        :type RoutePolicyId: str
+        :param _Priority: Priority.
+        :type Priority: int
+        """
+        self._RouteTableId = None
+        self._RoutePolicyId = None
+        self._Priority = None
+
+    @property
+    def RouteTableId(self):
+        r"""Unique route table ID.
+        :rtype: str
+        """
+        return self._RouteTableId
+
+    @RouteTableId.setter
+    def RouteTableId(self, RouteTableId):
+        self._RouteTableId = RouteTableId
+
+    @property
+    def RoutePolicyId(self):
+        r"""Specifies the unique ID of the route reception policy.
+        :rtype: str
+        """
+        return self._RoutePolicyId
+
+    @RoutePolicyId.setter
+    def RoutePolicyId(self, RoutePolicyId):
+        self._RoutePolicyId = RoutePolicyId
+
+    @property
+    def Priority(self):
+        r"""Priority.
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+
+    def _deserialize(self, params):
+        self._RouteTableId = params.get("RouteTableId")
+        self._RoutePolicyId = params.get("RoutePolicyId")
+        self._Priority = params.get("Priority")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RoutePolicyEntry(AbstractModel):
+    r"""Route reception policy entry.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RoutePolicyEntryId: Specifies the unique ID of the IPv4 routing strategy entry.
+Note: This field may return null, indicating that no valid value was found.
+        :type RoutePolicyEntryId: str
+        :param _CidrBlock: Destination ip range.
+Note: This field may return null, indicating that no valid value was found.
+        :type CidrBlock: str
+        :param _Description: Describes the routing strategy rule.
+Note: This field may return null, indicating that no valid value was found.
+        :type Description: str
+        :param _RouteType: Routing Type
+
+Specifies the USER-customized data type.
+NETD: specifies the route for network detection.
+CCN: CCN route.
+Note: This field may return null, indicating that no valid value was found.
+        :type RouteType: str
+        :param _GatewayType: Next hop type. types currently supported:.
+CVM: cloud virtual machine with public network gateway type.
+VPN: vpn gateway.
+DIRECTCONNECT: direct connect gateway.
+PEERCONNECTION: peering connection.
+HAVIP: high availability virtual ip.
+NAT: specifies the nat gateway. 
+EIP: specifies the public ip address of the cloud virtual machine.
+LOCAL_GATEWAY: specifies the local gateway.
+PVGW: pvgw gateway.
+Note: This field may return null, indicating that no valid value was found.
+        :type GatewayType: str
+        :param _GatewayId: Gateway unique ID.
+Note: This field may return null, indicating that no valid value was found.
+        :type GatewayId: str
+        :param _Priority: Priority. a smaller value indicates a higher priority.
+Note: This field may return null, indicating that no valid value was found.
+        :type Priority: int
+        :param _Action: Action.
+DROP: drop.
+DISABLE: receive and disable.
+ACCEPT: receive and enable.
+Note: This field may return null, indicating that no valid value was found.
+        :type Action: str
+        :param _CreatedTime: Creation time.
+
+Note: This field may return null, indicating that no valid value was found.
+        :type CreatedTime: str
+        :param _Region: Specifies the region.
+Note: This field may return null, indicating that no valid value was found.
+        :type Region: str
+        """
+        self._RoutePolicyEntryId = None
+        self._CidrBlock = None
+        self._Description = None
+        self._RouteType = None
+        self._GatewayType = None
+        self._GatewayId = None
+        self._Priority = None
+        self._Action = None
+        self._CreatedTime = None
+        self._Region = None
+
+    @property
+    def RoutePolicyEntryId(self):
+        r"""Specifies the unique ID of the IPv4 routing strategy entry.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._RoutePolicyEntryId
+
+    @RoutePolicyEntryId.setter
+    def RoutePolicyEntryId(self, RoutePolicyEntryId):
+        self._RoutePolicyEntryId = RoutePolicyEntryId
+
+    @property
+    def CidrBlock(self):
+        r"""Destination ip range.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._CidrBlock
+
+    @CidrBlock.setter
+    def CidrBlock(self, CidrBlock):
+        self._CidrBlock = CidrBlock
+
+    @property
+    def Description(self):
+        r"""Describes the routing strategy rule.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def RouteType(self):
+        r"""Routing Type
+
+Specifies the USER-customized data type.
+NETD: specifies the route for network detection.
+CCN: CCN route.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._RouteType
+
+    @RouteType.setter
+    def RouteType(self, RouteType):
+        self._RouteType = RouteType
+
+    @property
+    def GatewayType(self):
+        r"""Next hop type. types currently supported:.
+CVM: cloud virtual machine with public network gateway type.
+VPN: vpn gateway.
+DIRECTCONNECT: direct connect gateway.
+PEERCONNECTION: peering connection.
+HAVIP: high availability virtual ip.
+NAT: specifies the nat gateway. 
+EIP: specifies the public ip address of the cloud virtual machine.
+LOCAL_GATEWAY: specifies the local gateway.
+PVGW: pvgw gateway.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._GatewayType
+
+    @GatewayType.setter
+    def GatewayType(self, GatewayType):
+        self._GatewayType = GatewayType
+
+    @property
+    def GatewayId(self):
+        r"""Gateway unique ID.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def Priority(self):
+        r"""Priority. a smaller value indicates a higher priority.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: int
+        """
+        return self._Priority
+
+    @Priority.setter
+    def Priority(self, Priority):
+        self._Priority = Priority
+
+    @property
+    def Action(self):
+        r"""Action.
+DROP: drop.
+DISABLE: receive and disable.
+ACCEPT: receive and enable.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._Action
+
+    @Action.setter
+    def Action(self, Action):
+        self._Action = Action
+
+    @property
+    def CreatedTime(self):
+        r"""Creation time.
+
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._CreatedTime
+
+    @CreatedTime.setter
+    def CreatedTime(self, CreatedTime):
+        self._CreatedTime = CreatedTime
+
+    @property
+    def Region(self):
+        r"""Specifies the region.
+Note: This field may return null, indicating that no valid value was found.
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+
+    def _deserialize(self, params):
+        self._RoutePolicyEntryId = params.get("RoutePolicyEntryId")
+        self._CidrBlock = params.get("CidrBlock")
+        self._Description = params.get("Description")
+        self._RouteType = params.get("RouteType")
+        self._GatewayType = params.get("GatewayType")
+        self._GatewayId = params.get("GatewayId")
+        self._Priority = params.get("Priority")
+        self._Action = params.get("Action")
+        self._CreatedTime = params.get("CreatedTime")
+        self._Region = params.get("Region")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -44212,11 +46081,9 @@ class Subnet(AbstractModel):
         :type TotalIpAddressCount: int
         :param _TagSet: Tag key-value pairs
         :type TagSet: list of Tag
-        :param _CdcId: CDC instance ID
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        :param _CdcId: CDC instance ID.
         :type CdcId: str
-        :param _IsCdcSubnet: Whether it is a CDC subnet. Valid values: 0: no; 1: yes
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        :param _IsCdcSubnet: Whether the subnet is associated with CDC. valid values: 0 (no), 1 (yes).
         :type IsCdcSubnet: int
         """
         self._VpcId = None
@@ -44404,8 +46271,7 @@ Note: this field may return `null`, indicating that no valid values can be obtai
 
     @property
     def CdcId(self):
-        r"""CDC instance ID
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        r"""CDC instance ID.
         :rtype: str
         """
         return self._CdcId
@@ -44416,8 +46282,7 @@ Note: this field may return `null`, indicating that no valid values can be obtai
 
     @property
     def IsCdcSubnet(self):
-        r"""Whether it is a CDC subnet. Valid values: 0: no; 1: yes
-Note: this field may return `null`, indicating that no valid values can be obtained.
+        r"""Whether the subnet is associated with CDC. valid values: 0 (no), 1 (yes).
         :rtype: int
         """
         return self._IsCdcSubnet
@@ -44549,10 +46414,8 @@ class Tag(AbstractModel):
     def __init__(self):
         r"""
         :param _Key: Tag key
-Note: This field may return null, indicating no valid value.
         :type Key: str
         :param _Value: Tag value
-Note: This field may return null, indicating no valid value.
         :type Value: str
         """
         self._Key = None
@@ -44561,7 +46424,6 @@ Note: This field may return null, indicating no valid value.
     @property
     def Key(self):
         r"""Tag key
-Note: This field may return null, indicating no valid value.
         :rtype: str
         """
         return self._Key
@@ -44573,7 +46435,6 @@ Note: This field may return null, indicating no valid value.
     @property
     def Value(self):
         r"""Tag value
-Note: This field may return null, indicating no valid value.
         :rtype: str
         """
         return self._Value
@@ -45247,9 +47108,12 @@ class Vpc(AbstractModel):
         :type Ipv6CidrBlock: str
         :param _TagSet: Tag key-value pair
         :type TagSet: list of Tag
-        :param _AssistantCidrSet: The secondary CIDR block.
-Note: This field may return null, indicating that no valid values can be obtained.
+        :param _AssistantCidrSet: Auxiliary CIDR
         :type AssistantCidrSet: list of AssistantCidr
+        :param _EnableRouteVpcPublish: Vpc association with CCN route publish policy. true: enables cidr route publishing. false: enables subnet route publishing. default is subnet route publishing when creating a vpc. to select cidr route publishing, submit a ticket for adding to allowlist.
+        :type EnableRouteVpcPublish: bool
+        :param _Ipv6CidrBlockSet: Returns the multi-operator IPv6 Cidr Block.
+        :type Ipv6CidrBlockSet: list of ISPIPv6CidrBlock
         """
         self._VpcName = None
         self._VpcId = None
@@ -45264,6 +47128,8 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._Ipv6CidrBlock = None
         self._TagSet = None
         self._AssistantCidrSet = None
+        self._EnableRouteVpcPublish = None
+        self._Ipv6CidrBlockSet = None
 
     @property
     def VpcName(self):
@@ -45399,8 +47265,7 @@ Note: This field may return null, indicating that no valid values can be obtaine
 
     @property
     def AssistantCidrSet(self):
-        r"""The secondary CIDR block.
-Note: This field may return null, indicating that no valid values can be obtained.
+        r"""Auxiliary CIDR
         :rtype: list of AssistantCidr
         """
         return self._AssistantCidrSet
@@ -45408,6 +47273,28 @@ Note: This field may return null, indicating that no valid values can be obtaine
     @AssistantCidrSet.setter
     def AssistantCidrSet(self, AssistantCidrSet):
         self._AssistantCidrSet = AssistantCidrSet
+
+    @property
+    def EnableRouteVpcPublish(self):
+        r"""Vpc association with CCN route publish policy. true: enables cidr route publishing. false: enables subnet route publishing. default is subnet route publishing when creating a vpc. to select cidr route publishing, submit a ticket for adding to allowlist.
+        :rtype: bool
+        """
+        return self._EnableRouteVpcPublish
+
+    @EnableRouteVpcPublish.setter
+    def EnableRouteVpcPublish(self, EnableRouteVpcPublish):
+        self._EnableRouteVpcPublish = EnableRouteVpcPublish
+
+    @property
+    def Ipv6CidrBlockSet(self):
+        r"""Returns the multi-operator IPv6 Cidr Block.
+        :rtype: list of ISPIPv6CidrBlock
+        """
+        return self._Ipv6CidrBlockSet
+
+    @Ipv6CidrBlockSet.setter
+    def Ipv6CidrBlockSet(self, Ipv6CidrBlockSet):
+        self._Ipv6CidrBlockSet = Ipv6CidrBlockSet
 
 
     def _deserialize(self, params):
@@ -45434,6 +47321,13 @@ Note: This field may return null, indicating that no valid values can be obtaine
                 obj = AssistantCidr()
                 obj._deserialize(item)
                 self._AssistantCidrSet.append(obj)
+        self._EnableRouteVpcPublish = params.get("EnableRouteVpcPublish")
+        if params.get("Ipv6CidrBlockSet") is not None:
+            self._Ipv6CidrBlockSet = []
+            for item in params.get("Ipv6CidrBlockSet"):
+                obj = ISPIPv6CidrBlock()
+                obj._deserialize(item)
+                self._Ipv6CidrBlockSet.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

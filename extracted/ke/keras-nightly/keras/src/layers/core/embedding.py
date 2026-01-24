@@ -10,6 +10,8 @@ from keras.src import regularizers
 from keras.src.api_export import keras_export
 from keras.src.backend import KerasTensor
 from keras.src.layers.layer import Layer
+from keras.src.quantizers.quantization_config import QuantizationConfig
+from keras.src.saving import serialization_lib
 
 
 @keras_export("keras.layers.Embedding")
@@ -90,6 +92,7 @@ class Embedding(Layer):
         weights=None,
         lora_rank=None,
         lora_alpha=None,
+        quantization_config=None,
         **kwargs,
     ):
         input_length = kwargs.pop("input_length", None)
@@ -109,6 +112,7 @@ class Embedding(Layer):
         self.lora_rank = lora_rank
         self.lora_alpha = lora_alpha if lora_alpha is not None else lora_rank
         self.lora_enabled = False
+        self.quantization_config = quantization_config
 
         if weights is not None:
             self.build()
@@ -121,7 +125,11 @@ class Embedding(Layer):
             return
         embeddings_shape = (self.input_dim, self.output_dim)
         if self.quantization_mode:
-            self.quantized_build(embeddings_shape, mode=self.quantization_mode)
+            self.quantized_build(
+                embeddings_shape,
+                mode=self.quantization_mode,
+                config=self.quantization_config,
+            )
         if self.quantization_mode not in ("int8", "int4"):
             self._embeddings = self.add_weight(
                 shape=embeddings_shape,
@@ -218,24 +226,25 @@ class Embedding(Layer):
         if not self.built:
             return
         mode = self.quantization_mode
-        if mode not in self.quantization_variable_spec:
+        if mode not in self.variable_serialization_spec:
             raise self._quantization_mode_error(mode)
 
         # Embeddings plus optional merged LoRA-aware scale
-        # (returns (kernel, None) for None/gptq).
+        # (returns (embeddings, None) for `None` mode).
         embeddings_value, merged_kernel_scale = (
             self._get_embeddings_with_merged_lora()
         )
-
-        # Save the variables using the name as the key.
-        store["embeddings"] = embeddings_value
-        for name in self.quantization_variable_spec[mode]:
-            if name == "embeddings_scale" and mode in ("int4", "int8"):
+        idx = 0
+        for name in self.variable_serialization_spec[mode]:
+            if name == "embeddings":
+                store[str(idx)] = embeddings_value
+            elif name == "embeddings_scale" and mode in ("int4", "int8"):
                 # For int4/int8, the merged LoRA scale (if any) comes from
                 # `_get_embeddings_with_merged_lora()`
-                store[name] = merged_kernel_scale
+                store[str(idx)] = merged_kernel_scale
             else:
-                store[name] = getattr(self, name)
+                store[str(idx)] = getattr(self, name)
+            idx += 1
 
     def load_own_variables(self, store):
         if not self.lora_enabled:
@@ -244,36 +253,16 @@ class Embedding(Layer):
         if not self.built:
             return
         mode = self.quantization_mode
-        if mode not in self.quantization_variable_spec:
+        if mode not in self.variable_serialization_spec:
             raise self._quantization_mode_error(mode)
 
-        # Determine whether to use the legacy loading method.
-        if "0" in store:
-            return self._legacy_load_own_variables(store)
-
-        # Load the variables using the name as the key.
-        self._embeddings.assign(store["embeddings"])
-        for name in self.quantization_variable_spec[mode]:
-            getattr(self, name).assign(store[name])
-        if self.lora_enabled:
-            self.lora_embeddings_a.assign(
-                ops.zeros(self.lora_embeddings_a.shape)
-            )
-            self.lora_embeddings_b.assign(
-                ops.zeros(self.lora_embeddings_b.shape)
-            )
-
-    def _legacy_load_own_variables(self, store):
-        # The keys of the `store` will be saved as determined because the
-        # default ordering will change after quantization
-        mode = self.quantization_mode
-        targets = [self._embeddings]
-        targets.extend(
-            getattr(self, name)
-            for name in self.quantization_variable_spec[mode]
-        )
-        for i, variable in enumerate(targets):
-            variable.assign(store[str(i)])
+        idx = 0
+        for name in self.variable_serialization_spec[mode]:
+            if name == "embeddings":
+                self._embeddings.assign(store[str(idx)])
+            else:
+                getattr(self, name).assign(store[str(idx)])
+            idx += 1
         if self.lora_enabled:
             self.lora_embeddings_a.assign(
                 ops.zeros(self.lora_embeddings_a.shape)
@@ -300,45 +289,24 @@ class Embedding(Layer):
                 self.embeddings_constraint
             ),
             "mask_zero": self.mask_zero,
+            "quantization_config": serialization_lib.serialize_keras_object(
+                self.quantization_config
+            ),
         }
         if self.lora_rank:
             config["lora_rank"] = self.lora_rank
             config["lora_alpha"] = self.lora_alpha
         return {**base_config, **config}
 
-    def _check_load_own_variables(self, store):
-        all_vars = self._trainable_variables + self._non_trainable_variables
-        if len(store.keys()) != len(all_vars):
-            if len(all_vars) == 0 and not self.built:
-                raise ValueError(
-                    f"Layer '{self.name}' was never built "
-                    "and thus it doesn't have any variables. "
-                    f"However the weights file lists {len(store.keys())} "
-                    "variables for this layer.\n"
-                    "In most cases, this error indicates that either:\n\n"
-                    "1. The layer is owned by a parent layer that "
-                    "implements a `build()` method, but calling the "
-                    "parent's `build()` method did NOT create the state of "
-                    f"the child layer '{self.name}'. A `build()` method "
-                    "must create ALL state for the layer, including "
-                    "the state of any children layers.\n\n"
-                    "2. You need to implement "
-                    "the `def build_from_config(self, config)` method "
-                    f"on layer '{self.name}', to specify how to rebuild "
-                    "it during loading. "
-                    "In this case, you might also want to implement the "
-                    "method that generates the build config at saving time, "
-                    "`def get_build_config(self)`. "
-                    "The method `build_from_config()` is meant "
-                    "to create the state "
-                    "of the layer (i.e. its variables) upon deserialization.",
-                )
-            raise ValueError(
-                f"Layer '{self.name}' expected {len(all_vars)} variables, "
-                "but received "
-                f"{len(store.keys())} variables during loading. "
-                f"Expected: {[v.name for v in all_vars]}"
+    @classmethod
+    def from_config(cls, config):
+        config = config.copy()
+        config["quantization_config"] = (
+            serialization_lib.deserialize_keras_object(
+                config.get("quantization_config", None)
             )
+        )
+        return super().from_config(config)
 
     def _quantization_mode_error(self, mode):
         return NotImplementedError(
@@ -347,29 +315,37 @@ class Embedding(Layer):
         )
 
     @property
-    def quantization_variable_spec(self):
-        """Returns a dict mapping quantization modes to variable names.
+    def variable_serialization_spec(self):
+        """Returns a dict mapping quantization modes to variable names in order.
 
         This spec is used by `save_own_variables` and `load_own_variables` to
-        determine which variables should be saved/loaded for each quantization
-        mode.
+        determine the correct ordering of variables during serialization for
+        each quantization mode. `None` means no quantization.
         """
         return {
-            None: [],
-            "int8": ["embeddings_scale"],
-            "int4": ["embeddings_scale"],
+            None: [
+                "embeddings",
+            ],
+            "int8": [
+                "embeddings",
+                "embeddings_scale",
+            ],
+            "int4": [
+                "embeddings",
+                "embeddings_scale",
+            ],
         }
 
-    def quantized_build(self, embeddings_shape, mode):
+    def quantized_build(self, embeddings_shape, mode, config=None):
         if mode == "int8":
-            self._int8_build(embeddings_shape)
+            self._int8_build(embeddings_shape, config)
         elif mode == "int4":
-            self._int4_build(embeddings_shape)
+            self._int4_build(embeddings_shape, config)
         else:
             raise self._quantization_mode_error(mode)
         self._is_quantized = True
 
-    def _int8_build(self, embeddings_shape):
+    def _int8_build(self, embeddings_shape, config=None):
         self._embeddings = self.add_weight(
             name="embeddings",
             shape=embeddings_shape,
@@ -387,7 +363,7 @@ class Embedding(Layer):
             trainable=False,
         )
 
-    def _int4_build(self, embeddings_shape):
+    def _int4_build(self, embeddings_shape, config=None):
         input_dim, output_dim = embeddings_shape
         packed_rows = (output_dim + 1) // 2  # ceil for odd dims
 
@@ -452,31 +428,43 @@ class Embedding(Layer):
             )
         return outputs
 
-    def quantize(self, mode, type_check=True, config=None):
+    def quantize(self, mode=None, type_check=True, config=None):
         # Prevent quantization of the subclasses.
         if type_check and (type(self) is not Embedding):
             raise self._not_implemented_error(self.quantize)
+
+        self.quantization_config = config
 
         embeddings_shape = (self.input_dim, self.output_dim)
         if mode == "int8":
             # Quantize `self._embeddings` to int8 and compute corresponding
             # scale.
-            embeddings_value, embeddings_scale = quantizers.abs_max_quantize(
-                self._embeddings, axis=-1, to_numpy=True
+            weight_quantizer = QuantizationConfig.weight_quantizer_or_default(
+                self.quantization_config,
+                quantizers.AbsMaxQuantizer(axis=-1),
+            )
+            embeddings_value, embeddings_scale = weight_quantizer(
+                self._embeddings, to_numpy=True
             )
             embeddings_scale = ops.squeeze(embeddings_scale, axis=-1)
             del self._embeddings
-            self.quantized_build(embeddings_shape, mode)
+            self.quantized_build(
+                embeddings_shape, mode, self.quantization_config
+            )
             self._embeddings.assign(embeddings_value)
             self.embeddings_scale.assign(embeddings_scale)
         elif mode == "int4":
             # Quantize to int4 values (stored in int8 dtype, range [-8, 7]).
-            embeddings_value, embeddings_scale = quantizers.abs_max_quantize(
-                self._embeddings,
-                axis=-1,
-                value_range=(-8, 7),
-                dtype="int8",
-                to_numpy=True,
+            weight_quantizer = QuantizationConfig.weight_quantizer_or_default(
+                self.quantization_config,
+                quantizers.AbsMaxQuantizer(
+                    axis=-1,
+                    value_range=(-8, 7),
+                    output_dtype="int8",
+                ),
+            )
+            embeddings_value, embeddings_scale = weight_quantizer(
+                self._embeddings, to_numpy=True
             )
             embeddings_scale = ops.squeeze(embeddings_scale, axis=-1)
             # 2. Pack two int4 values into a single int8 byte.
@@ -484,7 +472,9 @@ class Embedding(Layer):
                 embeddings_value, axis=-1
             )
             del self._embeddings
-            self.quantized_build(embeddings_shape, mode)
+            self.quantized_build(
+                embeddings_shape, mode, self.quantization_config
+            )
             self._embeddings.assign(packed_embeddings_value)
             self.embeddings_scale.assign(embeddings_scale)
         else:
@@ -524,7 +514,7 @@ class Embedding(Layer):
                 `embeddings_scale`: The quantization scale for the merged
                     embeddings. This is `None` if the layer is not quantized.
         """
-        if self.dtype_policy.quantization_mode in (None, "gptq"):
+        if self.dtype_policy.quantization_mode in (None, "gptq", "awq"):
             return self.embeddings, None
 
         embeddings_value = self._embeddings

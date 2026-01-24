@@ -1,11 +1,12 @@
 # built-in dependencies
 import os
 import time
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, cast, Dict, Any
 import traceback
 
 # 3rd party dependencies
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 import cv2
 
@@ -23,20 +24,20 @@ IDENTIFIED_IMG_SIZE = 112
 TEXT_COLOR = (255, 255, 255)
 
 
-# pylint: disable=unused-variable
+# pylint: disable=unused-variable, too-many-positional-arguments
 def analysis(
     db_path: str,
-    model_name="VGG-Face",
-    detector_backend="opencv",
-    distance_metric="cosine",
-    enable_face_analysis=True,
-    source=0,
-    time_threshold=5,
-    frame_threshold=5,
+    model_name: str = "VGG-Face",
+    detector_backend: str = "opencv",
+    distance_metric: str = "cosine",
+    enable_face_analysis: bool = True,
+    source: int = 0,
+    time_threshold: int = 5,
+    frame_threshold: int = 5,
     anti_spoofing: bool = False,
     output_path: Optional[str] = None,
     debug: bool = False,
-):
+) -> None:
     """
     Run real time face recognition and facial attribute analysis
 
@@ -48,7 +49,8 @@ def analysis(
             OpenFace, DeepFace, DeepID, Dlib, ArcFace, SFace and GhostFaceNet (default is VGG-Face)
 
         detector_backend (string): face detector backend. Options: 'opencv', 'retinaface',
-            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8', 'yolov11n', 'yolov11s', 'yolov11m',
+            'mtcnn', 'ssd', 'dlib', 'mediapipe', 'yolov8n', 'yolov8m', 'yolov8l', 'yolov11n',
+            'yolov11s', 'yolov11m', 'yolov11l', 'yolov12n', 'yolov12s', 'yolov12m', 'yolov12l'
             'centerface' or 'skip' (default is opencv).
 
         distance_metric (string): Metric for measuring similarity. Options: 'cosine',
@@ -91,13 +93,18 @@ def analysis(
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # Codec for output file
+
     # Ensure the output directory exists if output_path is provided
     if output_path:
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
     # Initialize video writer if output_path is provided
     video_writer = (
-        cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+        cv2.VideoWriter(
+            output_path,
+            cv2.VideoWriter_fourcc(*"mp4v"),  # type: ignore[attr-defined]
+            fps,
+            (width, height),
+        )
         if output_path
         else None
     )
@@ -113,7 +120,7 @@ def analysis(
         if not has_frame:
             break
 
-        raw_img = img.copy()
+        raw_img = img.copy()  # type: ignore[union-attr]
 
         faces_coordinates = []
 
@@ -230,12 +237,12 @@ def build_facial_recognition_model(model_name: str) -> None:
 
 
 def search_identity(
-    detected_face: np.ndarray,
+    detected_face: NDArray[Any],
     db_path: str,
     model_name: str,
     detector_backend: str,
     distance_metric: str,
-) -> Tuple[Optional[str], Optional[np.ndarray], float]:
+) -> Tuple[Optional[str], Optional[NDArray[Any]], float]:
     """
     Search an identity in facial database.
     Args:
@@ -267,6 +274,7 @@ def search_identity(
             enforce_detection=False,
             silent=True,
         )
+        dfs = cast(List[pd.DataFrame], dfs)
     except ValueError as err:
         if f"No item found in {db_path}" in str(err):
             logger.warn(
@@ -281,7 +289,7 @@ def search_identity(
         return target_path, target_img, confidence
 
     # detected face is coming from parent, safe to access 1st index
-    df = dfs[0]
+    df: pd.DataFrame = dfs[0]
 
     if df.shape[0] == 0:
         return target_path, target_img, confidence
@@ -292,11 +300,14 @@ def search_identity(
     logger.info(f"Hello, {target_path} (confidence: {confidence}%)")
 
     # load found identity image - extracted if possible
-    target_objs = DeepFace.extract_faces(
-        img_path=target_path,
-        detector_backend=detector_backend,
-        enforce_detection=False,
-        align=True,
+    target_objs: List[Dict[str, Any]] = cast(
+        List[Dict[str, Any]],
+        DeepFace.extract_faces(
+            img_path=target_path,
+            detector_backend=detector_backend,
+            enforce_detection=False,
+            align=True,
+        ),
     )
 
     # extract facial area of the identified image if and only if it has one face
@@ -339,10 +350,10 @@ def build_demography_models(enable_face_analysis: bool) -> None:
 
 
 def highlight_facial_areas(
-    img: np.ndarray,
+    img: NDArray[Any],
     faces_coordinates: List[Tuple[int, int, int, int, bool, float]],
     anti_spoofing: bool = False,
-) -> np.ndarray:
+) -> NDArray[Any]:
     """
     Highlight detected faces with rectangles in the given image
     Args:
@@ -368,11 +379,11 @@ def highlight_facial_areas(
 
 
 def countdown_to_freeze(
-    img: np.ndarray,
+    img: NDArray[Any],
     faces_coordinates: List[Tuple[int, int, int, int, bool, float]],
     frame_threshold: int,
     num_frames_with_faces: int,
-) -> np.ndarray:
+) -> NDArray[Any]:
     """
     Highlight time to freeze in the image's facial areas
     Args:
@@ -397,8 +408,8 @@ def countdown_to_freeze(
 
 
 def countdown_to_release(
-    img: Optional[np.ndarray], tic: float, time_threshold: int
-) -> Optional[np.ndarray]:
+    img: Optional[NDArray[Any]], tic: float, time_threshold: int
+) -> Optional[NDArray[Any]]:
     """
     Highlight time to release the freezing in the image top left area
     Args:
@@ -427,7 +438,10 @@ def countdown_to_release(
 
 
 def grab_facial_areas(
-    img: np.ndarray, detector_backend: str, threshold: int = 130, anti_spoofing: bool = False
+    img: NDArray[Any],
+    detector_backend: str,
+    threshold: int = 130,
+    anti_spoofing: bool = False,
 ) -> List[Tuple[int, int, int, int, bool, float]]:
     """
     Find facial area coordinates in the given image
@@ -441,12 +455,15 @@ def grab_facial_areas(
         result (list): list of tuple with x, y, w and h coordinates
     """
     try:
-        face_objs = DeepFace.extract_faces(
-            img_path=img,
-            detector_backend=detector_backend,
-            # you may consider to extract with larger expanding value
-            expand_percentage=0,
-            anti_spoofing=anti_spoofing,
+        face_objs: List[Dict[str, Any]] = cast(
+            List[Dict[str, Any]],
+            DeepFace.extract_faces(
+                img_path=img,
+                detector_backend=detector_backend,
+                # you may consider to extract with larger expanding value
+                expand_percentage=0,
+                anti_spoofing=anti_spoofing,
+            ),
         )
         faces = [
             (
@@ -466,8 +483,8 @@ def grab_facial_areas(
 
 
 def extract_facial_areas(
-    img: np.ndarray, faces_coordinates: List[Tuple[int, int, int, int, bool, float]]
-) -> List[np.ndarray]:
+    img: NDArray[Any], faces_coordinates: List[Tuple[int, int, int, int, bool, float]]
+) -> List[NDArray[Any]]:
     """
     Extract facial areas as numpy array from given image
     Args:
@@ -485,14 +502,14 @@ def extract_facial_areas(
 
 
 def perform_facial_recognition(
-    img: np.ndarray,
-    detected_faces: List[np.ndarray],
+    img: NDArray[Any],
+    detected_faces: List[NDArray[Any]],
     faces_coordinates: List[Tuple[int, int, int, int, bool, float]],
     db_path: str,
     detector_backend: str,
     distance_metric: str,
     model_name: str,
-) -> np.ndarray:
+) -> NDArray[Any]:
     """
     Perform facial recognition
     Args:
@@ -524,6 +541,9 @@ def perform_facial_recognition(
         if target_label is None:
             continue
 
+        if target_img is None:
+            continue
+
         img = overlay_identified_face(
             img=img,
             target_img=target_img,
@@ -540,10 +560,10 @@ def perform_facial_recognition(
 
 def perform_demography_analysis(
     enable_face_analysis: bool,
-    img: np.ndarray,
+    img: NDArray[Any],
     faces_coordinates: List[Tuple[int, int, int, int, bool, float]],
-    detected_faces: List[np.ndarray],
-) -> np.ndarray:
+    detected_faces: List[NDArray[Any]],
+) -> NDArray[Any]:
     """
     Perform demography analysis on given image
     Args:
@@ -559,19 +579,22 @@ def perform_demography_analysis(
         return img
     for idx, (x, y, w, h, is_real, antispoof_score) in enumerate(faces_coordinates):
         detected_face = detected_faces[idx]
-        demographies = DeepFace.analyze(
-            img_path=detected_face,
-            actions=("age", "gender", "emotion"),
-            detector_backend="skip",
-            enforce_detection=False,
-            silent=True,
+        demographies: List[Dict[str, Any]] = cast(
+            List[Dict[str, Any]],
+            DeepFace.analyze(
+                img_path=detected_face,
+                actions=("age", "gender", "emotion"),
+                detector_backend="skip",
+                enforce_detection=False,
+                silent=True,
+            ),
         )
 
         if len(demographies) == 0:
             continue
 
         # safe to access 1st index because detector backend is skip
-        demography = demographies[0]
+        demography: Dict[str, Any] = demographies[0]
 
         img = overlay_emotion(img=img, emotion_probas=demography["emotion"], x=x, y=y, w=w, h=h)
         img = overlay_age_gender(
@@ -587,15 +610,15 @@ def perform_demography_analysis(
 
 
 def overlay_identified_face(
-    img: np.ndarray,
-    target_img: np.ndarray,
+    img: NDArray[Any],
+    target_img: NDArray[Any],
     label: str,
     x: int,
     y: int,
     w: int,
     h: int,
     confidence: float,
-) -> np.ndarray:
+) -> NDArray[Any]:
     """
     Overlay the identified face onto image itself
     Args:
@@ -843,8 +866,8 @@ def overlay_identified_face(
 
 
 def overlay_emotion(
-    img: np.ndarray, emotion_probas: dict, x: int, y: int, w: int, h: int
-) -> np.ndarray:
+    img: NDArray[Any], emotion_probas: Dict[str, float], x: int, y: int, w: int, h: int
+) -> NDArray[Any]:
     """
     Overlay the analyzed emotion of face onto image itself
     Args:
@@ -957,8 +980,8 @@ def overlay_emotion(
 
 
 def overlay_age_gender(
-    img: np.ndarray, apparent_age: float, gender: str, x: int, y: int, w: int, h: int
-) -> np.ndarray:
+    img: NDArray[Any], apparent_age: float, gender: str, x: int, y: int, w: int, h: int
+) -> NDArray[Any]:
     """
     Overlay the analyzed age and gender of face onto image itself
     Args:
@@ -996,7 +1019,7 @@ def overlay_age_gender(
 
         cv2.drawContours(
             img,
-            [triangle_coordinates],
+            [triangle_coordinates],  # type: ignore[list-item]
             0,
             info_box_color,
             -1,
@@ -1042,7 +1065,7 @@ def overlay_age_gender(
 
         cv2.drawContours(
             img,
-            [triangle_coordinates],
+            [triangle_coordinates],  # type: ignore[list-item]
             0,
             info_box_color,
             -1,

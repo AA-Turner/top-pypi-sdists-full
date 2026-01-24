@@ -1,3 +1,4 @@
+import sys
 from copy import deepcopy
 from threading import RLock
 from typing import Tuple
@@ -72,3 +73,12 @@ def test_deepcopyext_recursivetype(space):
     recursive_obj = RecursiveType()
     recursive_obj.set(recursive_obj)
     deepcopyext(recursive_obj, CopyMode.REALIZE, {})
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10), reason="dict views not inspect-able before python 3.10"
+)
+def test_fsum_accepts_dict_values_argument(space):
+    d = {"a": proxy_for_type(int, "b")}
+    realized_vals = deepcopyext(d.values(), CopyMode.REALIZE, {})
+    assert type(next(iter(realized_vals))) is int

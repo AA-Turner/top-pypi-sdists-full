@@ -8,10 +8,13 @@ from databento_dbn import UNDEF_PRICE
 from databento_dbn import UNDEF_STAT_QUANTITY
 from databento_dbn import UNDEF_TIMESTAMP
 from databento_dbn import Action
+from databento_dbn import BBOMsg
 from databento_dbn import BidAskPair
+from databento_dbn import CBBOMsg
 from databento_dbn import CMBP1Msg
 from databento_dbn import Compression
 from databento_dbn import ConsolidatedBidAskPair
+from databento_dbn import DBNRecord
 from databento_dbn import Encoding
 from databento_dbn import ErrorCode
 from databento_dbn import ErrorMsg
@@ -72,7 +75,6 @@ from databento.common.publishers import Dataset
 from databento.common.publishers import Publisher
 from databento.common.publishers import Venue
 from databento.common.symbology import InstrumentMap
-from databento.common.types import DBNRecord
 from databento.historical.client import Historical
 from databento.live.client import Live
 from databento.reference.client import Reference
@@ -90,6 +92,7 @@ __all__ = [
     "Action",
     "BBO1MMsg",
     "BBO1SMsg",
+    "BBOMsg",
     "BentoClientError",
     "BentoError",
     "BentoHttpError",
@@ -97,6 +100,7 @@ __all__ = [
     "BidAskPair",
     "CBBO1MMsg",
     "CBBO1SMsg",
+    "CBBOMsg",
     "CMBP1Msg",
     "Compression",
     "ConsolidatedBidAskPair",
@@ -144,7 +148,6 @@ __all__ = [
     "SymbologyResolution",
     "SystemCode",
     "SystemMsg",
-    "TBBOMsg",
     "TBBOMsg",
     "TCBBOMsg",
     "TradeMsg",

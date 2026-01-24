@@ -124,6 +124,7 @@ class ArtifactManifest:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import ArtifactManifest, MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -332,7 +333,7 @@ class AssemblyManifest:
         self,
         *,
         version: builtins.str,
-        artifacts: typing.Optional[typing.Mapping[builtins.str, typing.Union[ArtifactManifest, typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts: typing.Optional[typing.Mapping[builtins.str, typing.Union["ArtifactManifest", typing.Dict[builtins.str, typing.Any]]]] = None,
         minimum_cli_version: typing.Optional[builtins.str] = None,
         missing: typing.Optional[typing.Sequence[typing.Union["MissingContext", typing.Dict[builtins.str, typing.Any]]]] = None,
         runtime: typing.Optional[typing.Union["RuntimeInfo", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -349,6 +350,7 @@ class AssemblyManifest:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AssemblyManifest, ArtifactManifest, MetadataEntry, AwsCloudFormationStackProperties, BootstrapRole, MissingContext, AmiContextQuery, RuntimeInfo
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -471,13 +473,13 @@ class AssemblyManifest:
     @builtins.property
     def artifacts(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, ArtifactManifest]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "ArtifactManifest"]]:
         '''The set of artifacts in this assembly.
 
         :default: - no artifacts.
         '''
         result = self._values.get("artifacts")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, ArtifactManifest]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ArtifactManifest"]], result)
 
     @builtins.property
     def minimum_cli_version(self) -> typing.Optional[builtins.str]:
@@ -553,6 +555,7 @@ class AssetManifest:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AssetManifest, DockerImageAsset, DockerImageDestination, DockerImageSource, DockerCacheOption, DockerCacheOption, FileAsset, FileDestination, FileSource
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -721,6 +724,7 @@ class AssetManifestOptions:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AssetManifestOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -803,6 +807,7 @@ class AssetManifestProperties(AssetManifestOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AssetManifestProperties
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -934,6 +939,7 @@ class AwsCloudFormationStackProperties:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AwsCloudFormationStackProperties, BootstrapRole
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1217,6 +1223,7 @@ class AwsDestination:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AwsDestination
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1336,6 +1343,7 @@ class BootstrapRole:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import BootstrapRole
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1462,6 +1470,7 @@ class CdkCommand:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import CdkCommand
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1545,6 +1554,7 @@ class CdkCommands:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1699,6 +1709,7 @@ class ContainerImageAssetCacheOption:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import ContainerImageAssetCacheOption
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -1806,8 +1817,8 @@ class ContainerImageAssetMetadataEntry:
         build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         build_ssh: typing.Optional[builtins.str] = None,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[ContainerImageAssetCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[ContainerImageAssetCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["ContainerImageAssetCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["ContainerImageAssetCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         file: typing.Optional[builtins.str] = None,
         image_tag: typing.Optional[builtins.str] = None,
         network_mode: typing.Optional[builtins.str] = None,
@@ -1967,7 +1978,7 @@ class ContainerImageAssetMetadataEntry:
     @builtins.property
     def cache_from(
         self,
-    ) -> typing.Optional[typing.List[ContainerImageAssetCacheOption]]:
+    ) -> typing.Optional[typing.List["ContainerImageAssetCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -1975,10 +1986,10 @@ class ContainerImageAssetMetadataEntry:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[ContainerImageAssetCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["ContainerImageAssetCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[ContainerImageAssetCacheOption]:
+    def cache_to(self) -> typing.Optional["ContainerImageAssetCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -1986,7 +1997,7 @@ class ContainerImageAssetMetadataEntry:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[ContainerImageAssetCacheOption], result)
+        return typing.cast(typing.Optional["ContainerImageAssetCacheOption"], result)
 
     @builtins.property
     def file(self) -> typing.Optional[builtins.str]:
@@ -2108,6 +2119,7 @@ class ContextLookupRoleOptions:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import ContextLookupRoleOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -2321,6 +2333,7 @@ class DefaultCdkOptions:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DefaultCdkOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -2687,6 +2700,7 @@ class DeployCommand(CdkCommand):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DeployCommand, DeployOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -2935,6 +2949,7 @@ class DeployOptions(DefaultCdkOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DeployOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -3489,6 +3504,7 @@ class DestroyCommand(CdkCommand):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DestroyCommand, DestroyOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -3687,6 +3703,7 @@ class DestroyOptions(DefaultCdkOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DestroyOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4070,6 +4087,7 @@ class DockerCacheOption:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DockerCacheOption
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4169,6 +4187,7 @@ class DockerImageAsset:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DockerImageAsset, DockerImageDestination, DockerImageSource, DockerCacheOption, DockerCacheOption
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4313,6 +4332,7 @@ class DockerImageDestination(AwsDestination):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DockerImageDestination
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4446,8 +4466,8 @@ class DockerImageSource:
         self,
         *,
         cache_disabled: typing.Optional[builtins.bool] = None,
-        cache_from: typing.Optional[typing.Sequence[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]]] = None,
-        cache_to: typing.Optional[typing.Union[DockerCacheOption, typing.Dict[builtins.str, typing.Any]]] = None,
+        cache_from: typing.Optional[typing.Sequence[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache_to: typing.Optional[typing.Union["DockerCacheOption", typing.Dict[builtins.str, typing.Any]]] = None,
         directory: typing.Optional[builtins.str] = None,
         docker_build_args: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         docker_build_secrets: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -4479,6 +4499,7 @@ class DockerImageSource:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import DockerImageSource, DockerCacheOption, DockerCacheOption
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4572,7 +4593,7 @@ class DockerImageSource:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def cache_from(self) -> typing.Optional[typing.List[DockerCacheOption]]:
+    def cache_from(self) -> typing.Optional[typing.List["DockerCacheOption"]]:
         '''Cache from options to pass to the ``docker build`` command.
 
         :default: - no cache from options are passed to the build command
@@ -4580,10 +4601,10 @@ class DockerImageSource:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_from")
-        return typing.cast(typing.Optional[typing.List[DockerCacheOption]], result)
+        return typing.cast(typing.Optional[typing.List["DockerCacheOption"]], result)
 
     @builtins.property
-    def cache_to(self) -> typing.Optional[DockerCacheOption]:
+    def cache_to(self) -> typing.Optional["DockerCacheOption"]:
         '''Cache to options to pass to the ``docker build`` command.
 
         :default: - no cache to options are passed to the build command
@@ -4591,7 +4612,7 @@ class DockerImageSource:
         :see: https://docs.docker.com/build/cache/backends/
         '''
         result = self._values.get("cache_to")
-        return typing.cast(typing.Optional[DockerCacheOption], result)
+        return typing.cast(typing.Optional["DockerCacheOption"], result)
 
     @builtins.property
     def directory(self) -> typing.Optional[builtins.str]:
@@ -4753,6 +4774,7 @@ class EndpointServiceAvailabilityZonesContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import EndpointServiceAvailabilityZonesContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -4875,37 +4897,42 @@ class FeatureFlag:
         *,
         explanation: typing.Optional[builtins.str] = None,
         recommended_value: typing.Any = None,
-        unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        unconfigured_behaves_like: typing.Optional[typing.Union["UnconfiguredBehavesLike", typing.Dict[builtins.str, typing.Any]]] = None,
         user_value: typing.Any = None,
     ) -> None:
         '''A single feature flag.
 
         :param explanation: Explanation about the purpose of this flag that can be shown to the user. Default: - No description
         :param recommended_value: The library-recommended value for this flag, if any. It is possible that there is no recommended value. Default: - No recommended value.
-        :param unconfigured_behaves_like: The value of the flag if it is unconfigured. Default: - No value
+        :param unconfigured_behaves_like: The value of the flag that produces the same behavior as when the flag is not configured at all. The structure of this field is a historical accident. The type of this field should have been boolean, which should have contained the default value for the flag appropriate for the *current* version of the CDK library. We are not rectifying this accident because doing so Instead, the canonical way to access this value is by evaluating ``unconfiguredBehavesLike?.v2 ?? false``. Default: false
         :param user_value: The value configured by the user. This is the value configured at the root of the tree. Users may also have configured values at specific locations in the tree; we don't report on those. Default: - Not configured by the user
 
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import FeatureFlag, UnconfiguredBehavesLike
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
             
             # recommended_value: Any
-            # unconfigured_behaves_like: Any
             # user_value: Any
+            # v1: Any
+            # v2: Any
             
             feature_flag = FeatureFlag(
                 explanation="explanation",
                 recommended_value=recommended_value,
-                unconfigured_behaves_like={
-                    "unconfigured_behaves_like_key": unconfigured_behaves_like
-                },
+                unconfigured_behaves_like=UnconfiguredBehavesLike(
+                    v1=v1,
+                    v2=v2
+                ),
                 user_value=user_value
             )
         '''
+        if isinstance(unconfigured_behaves_like, dict):
+            unconfigured_behaves_like = UnconfiguredBehavesLike(**unconfigured_behaves_like)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d7ccfacd89aa44cd30dd2b6b40d937da9546cf5f11f13266ca45710d4e373233)
             check_type(argname="argument explanation", value=explanation, expected_type=type_hints["explanation"])
@@ -4943,15 +4970,21 @@ class FeatureFlag:
         return typing.cast(typing.Any, result)
 
     @builtins.property
-    def unconfigured_behaves_like(
-        self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
-        '''The value of the flag if it is unconfigured.
+    def unconfigured_behaves_like(self) -> typing.Optional["UnconfiguredBehavesLike"]:
+        '''The value of the flag that produces the same behavior as when the flag is not configured at all.
 
-        :default: - No value
+        The structure of this field is a historical accident. The type of this field
+        should have been boolean, which should have contained the default value for
+        the flag appropriate for the *current* version of the CDK library. We are
+        not rectifying this accident because doing so
+
+        Instead, the canonical way to access this value is by evaluating
+        ``unconfiguredBehavesLike?.v2 ?? false``.
+
+        :default: false
         '''
         result = self._values.get("unconfigured_behaves_like")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+        return typing.cast(typing.Optional["UnconfiguredBehavesLike"], result)
 
     @builtins.property
     def user_value(self) -> typing.Any:
@@ -4987,7 +5020,7 @@ class FeatureFlagReportProperties:
     def __init__(
         self,
         *,
-        flags: typing.Mapping[builtins.str, typing.Union[FeatureFlag, typing.Dict[builtins.str, typing.Any]]],
+        flags: typing.Mapping[builtins.str, typing.Union["FeatureFlag", typing.Dict[builtins.str, typing.Any]]],
         module: builtins.str,
     ) -> None:
         '''Artifact properties for a feature flag report.
@@ -5002,22 +5035,25 @@ class FeatureFlagReportProperties:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import FeatureFlagReportProperties, FeatureFlag, UnconfiguredBehavesLike
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
             
             # recommended_value: Any
-            # unconfigured_behaves_like: Any
             # user_value: Any
+            # v1: Any
+            # v2: Any
             
             feature_flag_report_properties = FeatureFlagReportProperties(
                 flags={
                     "flags_key": FeatureFlag(
                         explanation="explanation",
                         recommended_value=recommended_value,
-                        unconfigured_behaves_like={
-                            "unconfigured_behaves_like_key": unconfigured_behaves_like
-                        },
+                        unconfigured_behaves_like=UnconfiguredBehavesLike(
+                            v1=v1,
+                            v2=v2
+                        ),
                         user_value=user_value
                     )
                 },
@@ -5034,11 +5070,11 @@ class FeatureFlagReportProperties:
         }
 
     @builtins.property
-    def flags(self) -> typing.Mapping[builtins.str, FeatureFlag]:
+    def flags(self) -> typing.Mapping[builtins.str, "FeatureFlag"]:
         '''Information about every feature flag supported by this library.'''
         result = self._values.get("flags")
         assert result is not None, "Required property 'flags' is missing"
-        return typing.cast(typing.Mapping[builtins.str, FeatureFlag], result)
+        return typing.cast(typing.Mapping[builtins.str, "FeatureFlag"], result)
 
     @builtins.property
     def module(self) -> builtins.str:
@@ -5086,6 +5122,7 @@ class FileAsset:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import FileAsset, FileDestination, FileSource
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -5336,6 +5373,7 @@ class FileDestination(AwsDestination):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import FileDestination
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -5459,7 +5497,7 @@ class FileSource:
         self,
         *,
         executable: typing.Optional[typing.Sequence[builtins.str]] = None,
-        packaging: typing.Optional[FileAssetPackaging] = None,
+        packaging: typing.Optional["FileAssetPackaging"] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Describe the source of a file asset.
@@ -5472,6 +5510,7 @@ class FileSource:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import FileSource
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -5505,7 +5544,7 @@ class FileSource:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def packaging(self) -> typing.Optional[FileAssetPackaging]:
+    def packaging(self) -> typing.Optional["FileAssetPackaging"]:
         '''Packaging method.
 
         Only allowed when ``path`` is specified.
@@ -5513,7 +5552,7 @@ class FileSource:
         :default: FILE
         '''
         result = self._values.get("packaging")
-        return typing.cast(typing.Optional[FileAssetPackaging], result)
+        return typing.cast(typing.Optional["FileAssetPackaging"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -5568,6 +5607,7 @@ class Hooks:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import Hooks
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -5685,6 +5725,7 @@ class HostedZoneContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import HostedZoneContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -5908,6 +5949,7 @@ class IntegManifest:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import IntegManifest, TestCase, CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6130,6 +6172,7 @@ class KeyContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import KeyContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6278,6 +6321,7 @@ class LoadBalancerFilter(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import LoadBalancerFilter, Tag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6464,6 +6508,7 @@ class LoadBalancerListenerContextQuery(LoadBalancerFilter):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import LoadBalancerListenerContextQuery, Tag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6693,6 +6738,7 @@ class LoadManifestOptions:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import LoadManifestOptions
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6786,7 +6832,7 @@ class Manifest(
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
-    ) -> AssemblyManifest:
+    ) -> "AssemblyManifest":
         '''Load and validates the cloud assembly manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -6803,11 +6849,11 @@ class Manifest(
             topo_sort=topo_sort,
         )
 
-        return typing.cast(AssemblyManifest, jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
+        return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
 
     @jsii.member(jsii_name="loadAssetManifest")
     @builtins.classmethod
-    def load_asset_manifest(cls, file_path: builtins.str) -> AssetManifest:
+    def load_asset_manifest(cls, file_path: builtins.str) -> "AssetManifest":
         '''Load and validates the asset manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -6815,11 +6861,11 @@ class Manifest(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__252134c733b52c64fcb4e76c02ca1c3c29cbd4206194764bb4ccd634bf2b350a)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(AssetManifest, jsii.sinvoke(cls, "loadAssetManifest", [file_path]))
+        return typing.cast("AssetManifest", jsii.sinvoke(cls, "loadAssetManifest", [file_path]))
 
     @jsii.member(jsii_name="loadIntegManifest")
     @builtins.classmethod
-    def load_integ_manifest(cls, file_path: builtins.str) -> IntegManifest:
+    def load_integ_manifest(cls, file_path: builtins.str) -> "IntegManifest":
         '''Load and validates the integ manifest from file.
 
         :param file_path: - path to the manifest file.
@@ -6827,13 +6873,13 @@ class Manifest(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__633f66b76e82fdca841018e97eb59fc4ea9aa150a20d1e0b3a69fbf5085bd783)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(IntegManifest, jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
+        return typing.cast("IntegManifest", jsii.sinvoke(cls, "loadIntegManifest", [file_path]))
 
     @jsii.member(jsii_name="saveAssemblyManifest")
     @builtins.classmethod
     def save_assembly_manifest(
         cls,
-        manifest: typing.Union[AssemblyManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["AssemblyManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the cloud assembly manifest to file.
@@ -6851,7 +6897,7 @@ class Manifest(
     @builtins.classmethod
     def save_asset_manifest(
         cls,
-        manifest: typing.Union[AssetManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["AssetManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the asset manifest to file.
@@ -6869,7 +6915,7 @@ class Manifest(
     @builtins.classmethod
     def save_integ_manifest(
         cls,
-        manifest: typing.Union[IntegManifest, typing.Dict[builtins.str, typing.Any]],
+        manifest: typing.Union["IntegManifest", typing.Dict[builtins.str, typing.Any]],
         file_path: builtins.str,
     ) -> None:
         '''Validates and saves the integ manifest to file.
@@ -6900,7 +6946,7 @@ class MetadataEntry:
         self,
         *,
         type: builtins.str,
-        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union[FileAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Union[ContainerImageAssetMetadataEntry, typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        data: typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, typing.Union["FileAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Union["ContainerImageAssetMetadataEntry", typing.Dict[builtins.str, typing.Any]], typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]]] = None,
         trace: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''A metadata entry in a cloud assembly artifact.
@@ -6913,6 +6959,7 @@ class MetadataEntry:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import MetadataEntry
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -6948,13 +6995,13 @@ class MetadataEntry:
     @builtins.property
     def data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, FileAssetMetadataEntry, ContainerImageAssetMetadataEntry, typing.List["Tag"]]]:
+    ) -> typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]]:
         '''The data.
 
         :default: - no data.
         '''
         result = self._values.get("data")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, FileAssetMetadataEntry, ContainerImageAssetMetadataEntry, typing.List["Tag"]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, jsii.Number, builtins.bool, "FileAssetMetadataEntry", "ContainerImageAssetMetadataEntry", typing.List["Tag"]]], result)
 
     @builtins.property
     def trace(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -6987,8 +7034,8 @@ class MissingContext:
         self,
         *,
         key: builtins.str,
-        props: typing.Union[typing.Union["AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[HostedZoneContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[EndpointServiceAvailabilityZonesContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[LoadBalancerListenerContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union[KeyContextQuery, typing.Dict[builtins.str, typing.Any]], typing.Union["CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
-        provider: ContextProvider,
+        props: typing.Union[typing.Union["AmiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["AvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["HostedZoneContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["SSMParameterContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["VpcContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["EndpointServiceAvailabilityZonesContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["LoadBalancerListenerContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["SecurityGroupContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["KeyContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["CcApiContextQuery", typing.Dict[builtins.str, typing.Any]], typing.Union["PluginContextQuery", typing.Dict[builtins.str, typing.Any]]],
+        provider: "ContextProvider",
     ) -> None:
         '''Represents a missing piece of context.
 
@@ -7000,6 +7047,7 @@ class MissingContext:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import MissingContext, AmiContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7047,18 +7095,18 @@ class MissingContext:
     @builtins.property
     def props(
         self,
-    ) -> typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", HostedZoneContextQuery, "SSMParameterContextQuery", "VpcContextQuery", EndpointServiceAvailabilityZonesContextQuery, "LoadBalancerContextQuery", LoadBalancerListenerContextQuery, "SecurityGroupContextQuery", KeyContextQuery, "CcApiContextQuery", "PluginContextQuery"]:
+    ) -> typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", "HostedZoneContextQuery", "SSMParameterContextQuery", "VpcContextQuery", "EndpointServiceAvailabilityZonesContextQuery", "LoadBalancerContextQuery", "LoadBalancerListenerContextQuery", "SecurityGroupContextQuery", "KeyContextQuery", "CcApiContextQuery", "PluginContextQuery"]:
         '''A set of provider-specific options.'''
         result = self._values.get("props")
         assert result is not None, "Required property 'props' is missing"
-        return typing.cast(typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", HostedZoneContextQuery, "SSMParameterContextQuery", "VpcContextQuery", EndpointServiceAvailabilityZonesContextQuery, "LoadBalancerContextQuery", LoadBalancerListenerContextQuery, "SecurityGroupContextQuery", KeyContextQuery, "CcApiContextQuery", "PluginContextQuery"], result)
+        return typing.cast(typing.Union["AmiContextQuery", "AvailabilityZonesContextQuery", "HostedZoneContextQuery", "SSMParameterContextQuery", "VpcContextQuery", "EndpointServiceAvailabilityZonesContextQuery", "LoadBalancerContextQuery", "LoadBalancerListenerContextQuery", "SecurityGroupContextQuery", "KeyContextQuery", "CcApiContextQuery", "PluginContextQuery"], result)
 
     @builtins.property
-    def provider(self) -> ContextProvider:
+    def provider(self) -> "ContextProvider":
         '''The provider from which we expect this context key to be obtained.'''
         result = self._values.get("provider")
         assert result is not None, "Required property 'provider' is missing"
-        return typing.cast(ContextProvider, result)
+        return typing.cast("ContextProvider", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7093,6 +7141,7 @@ class NestedCloudAssemblyProperties:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import NestedCloudAssemblyProperties
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7160,6 +7209,7 @@ class PluginContextQuery:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import PluginContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7225,6 +7275,7 @@ class RuntimeInfo:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import RuntimeInfo
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7297,6 +7348,7 @@ class SSMParameterContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import SSMParameterContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7445,6 +7497,7 @@ class SecurityGroupContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import SecurityGroupContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7596,6 +7649,7 @@ class Tag:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import Tag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7667,9 +7721,9 @@ class TestOptions:
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -7686,6 +7740,7 @@ class TestOptions:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import TestOptions, CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7830,13 +7885,13 @@ class TestOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cdk_command_options(self) -> typing.Optional[CdkCommands]:
+    def cdk_command_options(self) -> typing.Optional["CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[CdkCommands], result)
+        return typing.cast(typing.Optional["CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -7851,7 +7906,7 @@ class TestOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[Hooks]:
+    def hooks(self) -> typing.Optional["Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -7859,7 +7914,7 @@ class TestOptions:
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[Hooks], result)
+        return typing.cast(typing.Optional["Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7906,6 +7961,7 @@ class TreeArtifactProperties:
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import TreeArtifactProperties
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -7936,6 +7992,83 @@ class TreeArtifactProperties:
 
     def __repr__(self) -> str:
         return "TreeArtifactProperties(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.cloud_assembly_schema.UnconfiguredBehavesLike",
+    jsii_struct_bases=[],
+    name_mapping={"v1": "v1", "v2": "v2"},
+)
+class UnconfiguredBehavesLike:
+    def __init__(self, *, v1: typing.Any = None, v2: typing.Any = None) -> None:
+        '''
+        :param v1: Historical accident, don't use. This value may be present, but it should never be used. The actual value is in the ``v2`` field, regardless of the version of the CDK library. Default: - ignore
+        :param v2: The value of the flag that produces the same behavior as when the flag is not configured at all. Even though it is called 'v2', this is the official name of this field. In any future versions of CDK (v3, v4, ...), this field will still be called 'v2'. The structure of this field is a historical accident. See the comment on ``unconfiguredBehavesLike`` for more information. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk.cloud_assembly_schema import UnconfiguredBehavesLike
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import cloud_assembly_schema
+            
+            # v1: Any
+            # v2: Any
+            
+            unconfigured_behaves_like = UnconfiguredBehavesLike(
+                v1=v1,
+                v2=v2
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__caf7f415b13e4b8b8fe665a8c3c45311cfc86ffd8c0d9404530f34ee2e62f2bc)
+            check_type(argname="argument v1", value=v1, expected_type=type_hints["v1"])
+            check_type(argname="argument v2", value=v2, expected_type=type_hints["v2"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if v1 is not None:
+            self._values["v1"] = v1
+        if v2 is not None:
+            self._values["v2"] = v2
+
+    @builtins.property
+    def v1(self) -> typing.Any:
+        '''Historical accident, don't use.
+
+        This value may be present, but it should never be used. The actual value is
+        in the ``v2`` field, regardless of the version of the CDK library.
+
+        :default: - ignore
+        '''
+        result = self._values.get("v1")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def v2(self) -> typing.Any:
+        '''The value of the flag that produces the same behavior as when the flag is not configured at all.
+
+        Even though it is called 'v2', this is the official name of this field. In
+        any future versions of CDK (v3, v4, ...), this field will still be called 'v2'.
+
+        The structure of this field is a historical accident. See the comment on
+        ``unconfiguredBehavesLike`` for more information.
+
+        :default: false
+        '''
+        result = self._values.get("v2")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "UnconfiguredBehavesLike(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -7985,6 +8118,7 @@ class VpcContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import VpcContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -8184,6 +8318,7 @@ class AmiContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AmiContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -8338,6 +8473,7 @@ class AvailabilityZonesContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import AvailabilityZonesContextQuery
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -8491,6 +8627,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import CcApiContextQuery
             from aws_cdk.cloud_assembly_schema import CcApiContextQuery
             
             
@@ -8746,9 +8883,9 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         assume_role_additional_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         lookup_role_arn: typing.Optional[builtins.str] = None,
         lookup_role_external_id: typing.Optional[builtins.str] = None,
-        load_balancer_type: LoadBalancerType,
+        load_balancer_type: "LoadBalancerType",
         load_balancer_arn: typing.Optional[builtins.str] = None,
-        load_balancer_tags: typing.Optional[typing.Sequence[typing.Union[Tag, typing.Dict[builtins.str, typing.Any]]]] = None,
+        load_balancer_tags: typing.Optional[typing.Sequence[typing.Union["Tag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Query input for looking up a load balancer.
 
@@ -8765,6 +8902,7 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import LoadBalancerContextQuery, Tag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -8864,11 +9002,11 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def load_balancer_type(self) -> LoadBalancerType:
+    def load_balancer_type(self) -> "LoadBalancerType":
         '''Filter load balancers by their type.'''
         result = self._values.get("load_balancer_type")
         assert result is not None, "Required property 'load_balancer_type' is missing"
-        return typing.cast(LoadBalancerType, result)
+        return typing.cast("LoadBalancerType", result)
 
     @builtins.property
     def load_balancer_arn(self) -> typing.Optional[builtins.str]:
@@ -8880,13 +9018,13 @@ class LoadBalancerContextQuery(LoadBalancerFilter):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def load_balancer_tags(self) -> typing.Optional[typing.List[Tag]]:
+    def load_balancer_tags(self) -> typing.Optional[typing.List["Tag"]]:
         '''Match load balancer tags.
 
         :default: - does not match load balancers by tags
         '''
         result = self._values.get("load_balancer_tags")
-        return typing.cast(typing.Optional[typing.List[Tag]], result)
+        return typing.cast(typing.Optional[typing.List["Tag"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8920,9 +9058,9 @@ class TestCase(TestOptions):
         self,
         *,
         allow_destroy: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cdk_command_options: typing.Optional[typing.Union[CdkCommands, typing.Dict[builtins.str, typing.Any]]] = None,
+        cdk_command_options: typing.Optional[typing.Union["CdkCommands", typing.Dict[builtins.str, typing.Any]]] = None,
         diff_assets: typing.Optional[builtins.bool] = None,
-        hooks: typing.Optional[typing.Union[Hooks, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["Hooks", typing.Dict[builtins.str, typing.Any]]] = None,
         regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         stack_update_workflow: typing.Optional[builtins.bool] = None,
         stacks: typing.Sequence[builtins.str],
@@ -8945,6 +9083,7 @@ class TestCase(TestOptions):
 
         Example::
 
+            from aws_cdk.cloud_assembly_schema import TestCase, CdkCommands, DeployCommand, DeployOptions, DestroyCommand, DestroyOptions, Hooks
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import cloud_assembly_schema
@@ -9103,13 +9242,13 @@ class TestCase(TestOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cdk_command_options(self) -> typing.Optional[CdkCommands]:
+    def cdk_command_options(self) -> typing.Optional["CdkCommands"]:
         '''Additional options to use for each CDK command.
 
         :default: - runner default options
         '''
         result = self._values.get("cdk_command_options")
-        return typing.cast(typing.Optional[CdkCommands], result)
+        return typing.cast(typing.Optional["CdkCommands"], result)
 
     @builtins.property
     def diff_assets(self) -> typing.Optional[builtins.bool]:
@@ -9124,7 +9263,7 @@ class TestCase(TestOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def hooks(self) -> typing.Optional[Hooks]:
+    def hooks(self) -> typing.Optional["Hooks"]:
         '''Additional commands to run at predefined points in the test workflow.
 
         e.g. { postDeploy: ['yarn', 'test'] }
@@ -9132,7 +9271,7 @@ class TestCase(TestOptions):
         :default: - no hooks
         '''
         result = self._values.get("hooks")
-        return typing.cast(typing.Optional[Hooks], result)
+        return typing.cast(typing.Optional["Hooks"], result)
 
     @builtins.property
     def regions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9252,6 +9391,7 @@ __all__ = [
     "TestCase",
     "TestOptions",
     "TreeArtifactProperties",
+    "UnconfiguredBehavesLike",
     "VpcContextQuery",
 ]
 
@@ -9594,7 +9734,7 @@ def _typecheckingstub__d7ccfacd89aa44cd30dd2b6b40d937da9546cf5f11f13266ca45710d4
     *,
     explanation: typing.Optional[builtins.str] = None,
     recommended_value: typing.Any = None,
-    unconfigured_behaves_like: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    unconfigured_behaves_like: typing.Optional[typing.Union[UnconfiguredBehavesLike, typing.Dict[builtins.str, typing.Any]]] = None,
     user_value: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
@@ -9873,6 +10013,14 @@ def _typecheckingstub__4f49fc9c74b07ac016f6f246ae2bfaa0eea6382d75f9ee62c77e3b244
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__caf7f415b13e4b8b8fe665a8c3c45311cfc86ffd8c0d9404530f34ee2e62f2bc(
+    *,
+    v1: typing.Any = None,
+    v2: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__793c311275bf258c4baaae63fe63966f0fd334129e469b7dc83e548f2cbf5318(
     *,
     account: builtins.str,
@@ -9958,3 +10106,6 @@ def _typecheckingstub__db3fe7ed770cad2fbb895987d45a3a52df9ebdb3b3e8652039785a299
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ICloudAssembly]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

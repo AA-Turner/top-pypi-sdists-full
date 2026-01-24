@@ -12,6 +12,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 from .google_sheets_row_append_tool_with_tool_call_messages_item import (
     GoogleSheetsRowAppendToolWithToolCallMessagesItem,
 )
+from .google_sheets_row_append_tool_with_tool_call_type import GoogleSheetsRowAppendToolWithToolCallType
 from .tool_call import ToolCall
 from .tool_rejection_plan import ToolRejectionPlan
 
@@ -26,7 +27,7 @@ class GoogleSheetsRowAppendToolWithToolCall(UncheckedBaseModel):
     For some tools, this is auto-filled based on special fields like `tool.destinations`. For others like the function tool, these can be custom configured.
     """
 
-    type: typing.Literal["google.sheets.row.append"] = pydantic.Field(default="google.sheets.row.append")
+    type: GoogleSheetsRowAppendToolWithToolCallType = pydantic.Field()
     """
     The type of tool. "google.sheets.row.append" for Google Sheets Row Append tool.
     """
@@ -43,7 +44,7 @@ class GoogleSheetsRowAppendToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '(?i)\\b(bye|goodbye|farewell|see you later|take care)\\b',
+        regex: '(?i)\\\\b(bye|goodbye|farewell|see you later|take care)\\\\b',
         target: { position: -1, role: 'user' },
         negate: true  // Reject if pattern does NOT match
       }]
@@ -55,7 +56,7 @@ class GoogleSheetsRowAppendToolWithToolCall(UncheckedBaseModel):
     {
       conditions: [{
         type: 'regex',
-        regex: '\\?',
+        regex: '\\\\?',
         target: { position: -1, role: 'user' }
       }]
     }

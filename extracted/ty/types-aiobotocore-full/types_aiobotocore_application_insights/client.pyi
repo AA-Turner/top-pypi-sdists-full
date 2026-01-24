@@ -3,7 +3,7 @@ Type annotations for application-insights service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_insights/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -87,12 +88,6 @@ from .type_defs import (
     UpdateWorkloadResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -101,15 +96,15 @@ else:
 __all__ = ("ApplicationInsightsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TagsAlreadyExistException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TagsAlreadyExistException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ApplicationInsightsClient(AioBaseClient):
     """
@@ -168,7 +163,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def create_component(
         self, **kwargs: Unpack[CreateComponentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a custom component by grouping similar standalone instances to monitor.
 
@@ -188,7 +183,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified application from monitoring.
 
@@ -198,7 +193,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def delete_component(
         self, **kwargs: Unpack[DeleteComponentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Ungroups a custom component.
 
@@ -208,7 +203,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def delete_log_pattern(
         self, **kwargs: Unpack[DeleteLogPatternRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified log pattern from a <code>LogPatternSet</code>.
 
@@ -391,7 +386,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def remove_workload(
         self, **kwargs: Unpack[RemoveWorkloadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Remove workload from a component.
 
@@ -399,7 +394,7 @@ class ApplicationInsightsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_insights/client/#remove_workload)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add one or more tags (keys and values) to a specified application.
 
@@ -407,7 +402,7 @@ class ApplicationInsightsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_insights/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags (keys and values) from a specified application.
 
@@ -427,7 +422,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def update_component(
         self, **kwargs: Unpack[UpdateComponentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the custom component name and/or the list of resources that make up the
         component.
@@ -438,7 +433,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def update_component_configuration(
         self, **kwargs: Unpack[UpdateComponentConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the monitoring configurations for the component.
 
@@ -456,7 +451,7 @@ class ApplicationInsightsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_application_insights/client/#update_log_pattern)
         """
 
-    async def update_problem(self, **kwargs: Unpack[UpdateProblemRequestTypeDef]) -> Dict[str, Any]:
+    async def update_problem(self, **kwargs: Unpack[UpdateProblemRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the visibility of the problem or specifies the problem as
         <code>RESOLVED</code>.
@@ -483,7 +478,7 @@ class ApplicationInsightsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

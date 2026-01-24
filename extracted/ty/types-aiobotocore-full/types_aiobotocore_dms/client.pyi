@@ -3,7 +3,7 @@ Type annotations for dms service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -36,6 +37,8 @@ from .paginator import (
     DescribeEndpointTypesPaginator,
     DescribeEventsPaginator,
     DescribeEventSubscriptionsPaginator,
+    DescribeMetadataModelChildrenPaginator,
+    DescribeMetadataModelCreationsPaginator,
     DescribeOrderableReplicationInstancesPaginator,
     DescribeReplicationInstancesPaginator,
     DescribeReplicationSubnetGroupsPaginator,
@@ -50,6 +53,10 @@ from .type_defs import (
     ApplyPendingMaintenanceActionResponseTypeDef,
     BatchStartRecommendationsRequestTypeDef,
     BatchStartRecommendationsResponseTypeDef,
+    CancelMetadataModelConversionMessageTypeDef,
+    CancelMetadataModelConversionResponseTypeDef,
+    CancelMetadataModelCreationMessageTypeDef,
+    CancelMetadataModelCreationResponseTypeDef,
     CancelReplicationTaskAssessmentRunMessageTypeDef,
     CancelReplicationTaskAssessmentRunResponseTypeDef,
     CreateDataMigrationMessageTypeDef,
@@ -145,14 +152,20 @@ from .type_defs import (
     DescribeInstanceProfilesResponseTypeDef,
     DescribeMetadataModelAssessmentsMessageTypeDef,
     DescribeMetadataModelAssessmentsResponseTypeDef,
+    DescribeMetadataModelChildrenMessageTypeDef,
+    DescribeMetadataModelChildrenResponseTypeDef,
     DescribeMetadataModelConversionsMessageTypeDef,
     DescribeMetadataModelConversionsResponseTypeDef,
+    DescribeMetadataModelCreationsMessageTypeDef,
+    DescribeMetadataModelCreationsResponseTypeDef,
     DescribeMetadataModelExportsAsScriptMessageTypeDef,
     DescribeMetadataModelExportsAsScriptResponseTypeDef,
     DescribeMetadataModelExportsToTargetMessageTypeDef,
     DescribeMetadataModelExportsToTargetResponseTypeDef,
     DescribeMetadataModelImportsMessageTypeDef,
     DescribeMetadataModelImportsResponseTypeDef,
+    DescribeMetadataModelMessageTypeDef,
+    DescribeMetadataModelResponseTypeDef,
     DescribeMigrationProjectsMessageTypeDef,
     DescribeMigrationProjectsResponseTypeDef,
     DescribeOrderableReplicationInstancesMessageTypeDef,
@@ -192,6 +205,8 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     ExportMetadataModelAssessmentMessageTypeDef,
     ExportMetadataModelAssessmentResponseTypeDef,
+    GetTargetSelectionRulesMessageTypeDef,
+    GetTargetSelectionRulesResponseTypeDef,
     ImportCertificateMessageTypeDef,
     ImportCertificateResponseTypeDef,
     ListTagsForResourceMessageTypeDef,
@@ -238,6 +253,8 @@ from .type_defs import (
     StartMetadataModelAssessmentResponseTypeDef,
     StartMetadataModelConversionMessageTypeDef,
     StartMetadataModelConversionResponseTypeDef,
+    StartMetadataModelCreationMessageTypeDef,
+    StartMetadataModelCreationResponseTypeDef,
     StartMetadataModelExportAsScriptMessageTypeDef,
     StartMetadataModelExportAsScriptResponseTypeDef,
     StartMetadataModelExportToTargetMessageTypeDef,
@@ -275,12 +292,6 @@ from .waiter import (
     TestConnectionSucceedsWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -289,33 +300,33 @@ else:
 __all__ = ("DatabaseMigrationServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedFault: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CollectorNotFoundFault: Type[BotocoreClientError]
-    FailedDependencyFault: Type[BotocoreClientError]
-    InsufficientResourceCapacityFault: Type[BotocoreClientError]
-    InvalidCertificateFault: Type[BotocoreClientError]
-    InvalidOperationFault: Type[BotocoreClientError]
-    InvalidResourceStateFault: Type[BotocoreClientError]
-    InvalidSubnet: Type[BotocoreClientError]
-    KMSAccessDeniedFault: Type[BotocoreClientError]
-    KMSDisabledFault: Type[BotocoreClientError]
-    KMSFault: Type[BotocoreClientError]
-    KMSInvalidStateFault: Type[BotocoreClientError]
-    KMSKeyNotAccessibleFault: Type[BotocoreClientError]
-    KMSNotFoundFault: Type[BotocoreClientError]
-    KMSThrottlingFault: Type[BotocoreClientError]
-    ReplicationSubnetGroupDoesNotCoverEnoughAZs: Type[BotocoreClientError]
-    ResourceAlreadyExistsFault: Type[BotocoreClientError]
-    ResourceNotFoundFault: Type[BotocoreClientError]
-    ResourceQuotaExceededFault: Type[BotocoreClientError]
-    S3AccessDeniedFault: Type[BotocoreClientError]
-    S3ResourceNotFoundFault: Type[BotocoreClientError]
-    SNSInvalidTopicFault: Type[BotocoreClientError]
-    SNSNoAuthorizationFault: Type[BotocoreClientError]
-    StorageQuotaExceededFault: Type[BotocoreClientError]
-    SubnetAlreadyInUse: Type[BotocoreClientError]
-    UpgradeDependencyFailureFault: Type[BotocoreClientError]
+    AccessDeniedFault: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CollectorNotFoundFault: type[BotocoreClientError]
+    FailedDependencyFault: type[BotocoreClientError]
+    InsufficientResourceCapacityFault: type[BotocoreClientError]
+    InvalidCertificateFault: type[BotocoreClientError]
+    InvalidOperationFault: type[BotocoreClientError]
+    InvalidResourceStateFault: type[BotocoreClientError]
+    InvalidSubnet: type[BotocoreClientError]
+    KMSAccessDeniedFault: type[BotocoreClientError]
+    KMSDisabledFault: type[BotocoreClientError]
+    KMSFault: type[BotocoreClientError]
+    KMSInvalidStateFault: type[BotocoreClientError]
+    KMSKeyNotAccessibleFault: type[BotocoreClientError]
+    KMSNotFoundFault: type[BotocoreClientError]
+    KMSThrottlingFault: type[BotocoreClientError]
+    ReplicationSubnetGroupDoesNotCoverEnoughAZs: type[BotocoreClientError]
+    ResourceAlreadyExistsFault: type[BotocoreClientError]
+    ResourceNotFoundFault: type[BotocoreClientError]
+    ResourceQuotaExceededFault: type[BotocoreClientError]
+    S3AccessDeniedFault: type[BotocoreClientError]
+    S3ResourceNotFoundFault: type[BotocoreClientError]
+    SNSInvalidTopicFault: type[BotocoreClientError]
+    SNSNoAuthorizationFault: type[BotocoreClientError]
+    StorageQuotaExceededFault: type[BotocoreClientError]
+    SubnetAlreadyInUse: type[BotocoreClientError]
+    UpgradeDependencyFailureFault: type[BotocoreClientError]
 
 class DatabaseMigrationServiceClient(AioBaseClient):
     """
@@ -354,7 +365,7 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
     async def add_tags_to_resource(
         self, **kwargs: Unpack[AddTagsToResourceMessageTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds metadata tags to an DMS resource, including replication instance,
         endpoint, subnet group, and migration task.
@@ -383,6 +394,28 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/batch_start_recommendations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#batch_start_recommendations)
+        """
+
+    async def cancel_metadata_model_conversion(
+        self, **kwargs: Unpack[CancelMetadataModelConversionMessageTypeDef]
+    ) -> CancelMetadataModelConversionResponseTypeDef:
+        """
+        Cancels a single metadata model conversion operation that was started with
+        <code>StartMetadataModelConversion</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/cancel_metadata_model_conversion.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#cancel_metadata_model_conversion)
+        """
+
+    async def cancel_metadata_model_creation(
+        self, **kwargs: Unpack[CancelMetadataModelCreationMessageTypeDef]
+    ) -> CancelMetadataModelCreationResponseTypeDef:
+        """
+        Cancels a single metadata model creation operation that was started with
+        <code>StartMetadataModelCreation</code>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/cancel_metadata_model_creation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#cancel_metadata_model_creation)
         """
 
     async def cancel_replication_task_assessment_run(
@@ -631,7 +664,7 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
     async def delete_replication_subnet_group(
         self, **kwargs: Unpack[DeleteReplicationSubnetGroupMessageTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a subnet group.
 
@@ -879,6 +912,18 @@ class DatabaseMigrationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_instance_profiles)
         """
 
+    async def describe_metadata_model(
+        self, **kwargs: Unpack[DescribeMetadataModelMessageTypeDef]
+    ) -> DescribeMetadataModelResponseTypeDef:
+        """
+        Gets detailed information about the specified metadata model, including its
+        definition and corresponding converted objects in the target database if
+        applicable.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_metadata_model)
+        """
+
     async def describe_metadata_model_assessments(
         self, **kwargs: Unpack[DescribeMetadataModelAssessmentsMessageTypeDef]
     ) -> DescribeMetadataModelAssessmentsResponseTypeDef:
@@ -890,6 +935,17 @@ class DatabaseMigrationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_metadata_model_assessments)
         """
 
+    async def describe_metadata_model_children(
+        self, **kwargs: Unpack[DescribeMetadataModelChildrenMessageTypeDef]
+    ) -> DescribeMetadataModelChildrenResponseTypeDef:
+        """
+        Gets a list of child metadata models for the specified metadata model in the
+        database hierarchy.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_children.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_metadata_model_children)
+        """
+
     async def describe_metadata_model_conversions(
         self, **kwargs: Unpack[DescribeMetadataModelConversionsMessageTypeDef]
     ) -> DescribeMetadataModelConversionsResponseTypeDef:
@@ -898,6 +954,17 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_conversions.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_metadata_model_conversions)
+        """
+
+    async def describe_metadata_model_creations(
+        self, **kwargs: Unpack[DescribeMetadataModelCreationsMessageTypeDef]
+    ) -> DescribeMetadataModelCreationsResponseTypeDef:
+        """
+        Returns a paginated list of metadata model creation requests for a migration
+        project.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/describe_metadata_model_creations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#describe_metadata_model_creations)
         """
 
     async def describe_metadata_model_exports_as_script(
@@ -1133,6 +1200,17 @@ class DatabaseMigrationServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#export_metadata_model_assessment)
         """
 
+    async def get_target_selection_rules(
+        self, **kwargs: Unpack[GetTargetSelectionRulesMessageTypeDef]
+    ) -> GetTargetSelectionRulesResponseTypeDef:
+        """
+        Converts source selection rules into their target counterparts for schema
+        conversion operations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/get_target_selection_rules.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#get_target_selection_rules)
+        """
+
     async def import_certificate(
         self, **kwargs: Unpack[ImportCertificateMessageTypeDef]
     ) -> ImportCertificateResponseTypeDef:
@@ -1320,7 +1398,7 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
     async def remove_tags_from_resource(
         self, **kwargs: Unpack[RemoveTagsFromResourceMessageTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes metadata tags from an DMS resource, including replication instance,
         endpoint, subnet group, and migration task.
@@ -1378,6 +1456,17 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_conversion.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#start_metadata_model_conversion)
+        """
+
+    async def start_metadata_model_creation(
+        self, **kwargs: Unpack[StartMetadataModelCreationMessageTypeDef]
+    ) -> StartMetadataModelCreationResponseTypeDef:
+        """
+        Creates source metadata model of the given type with the specified properties
+        for schema conversion operations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/start_metadata_model_creation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#start_metadata_model_creation)
         """
 
     async def start_metadata_model_export_as_script(
@@ -1596,6 +1685,28 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_metadata_model_children"]
+    ) -> DescribeMetadataModelChildrenPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_metadata_model_creations"]
+    ) -> DescribeMetadataModelCreationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dms/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_dms/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_orderable_replication_instances"]
     ) -> DescribeOrderableReplicationInstancesPaginator:
         """
@@ -1767,7 +1878,7 @@ class DatabaseMigrationServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

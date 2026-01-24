@@ -8,12 +8,14 @@ import math
 import secrets
 import string
 import time
+from dataclasses import dataclass
 
 import aiohttp
 from aiohttp import ContentTypeError, FormData
 from pyrate_limiter import BucketFullException, Duration, Limiter, Rate
 
-from roborock.containers import HomeData, HomeDataRoom, HomeDataScene, ProductResponse, RRiot, UserData
+from roborock import HomeDataSchedule
+from roborock.data import HomeData, HomeDataRoom, HomeDataScene, ProductResponse, RRiot, UserData
 from roborock.exceptions import (
     RoborockAccountDoesNotExist,
     RoborockException,
@@ -22,14 +24,28 @@ from roborock.exceptions import (
     RoborockInvalidEmail,
     RoborockInvalidUserAgreement,
     RoborockMissingParameters,
+    RoborockNoResponseFromBaseURL,
     RoborockNoUserAgreement,
     RoborockRateLimit,
     RoborockTooFrequentCodeRequests,
-    RoborockTooManyRequest,
-    RoborockUrlException,
 )
 
 _LOGGER = logging.getLogger(__name__)
+BASE_URLS = [
+    "https://usiot.roborock.com",
+    "https://euiot.roborock.com",
+    "https://cniot.roborock.com",
+    "https://ruiot.roborock.com",
+]
+
+
+@dataclass
+class IotLoginInfo:
+    """Information about the login to the iot server."""
+
+    base_url: str
+    country_code: str
+    country: str
 
 
 class RoborockApiClient:
@@ -41,49 +57,75 @@ class RoborockApiClient:
     ]
     _HOME_DATA_RATES = [
         Rate(1, Duration.SECOND),
-        Rate(5, Duration.MINUTE),
-        Rate(15, Duration.HOUR),
+        Rate(3, Duration.MINUTE),
+        Rate(5, Duration.HOUR),
         Rate(40, Duration.DAY),
     ]
 
-    _login_limiter = Limiter(_LOGIN_RATES)
+    _login_limiter = Limiter(_LOGIN_RATES, max_delay=1000)
     _home_data_limiter = Limiter(_HOME_DATA_RATES)
 
-    def __init__(self, username: str, base_url=None, session: aiohttp.ClientSession | None = None) -> None:
+    def __init__(
+        self, username: str, base_url: str | None = None, session: aiohttp.ClientSession | None = None
+    ) -> None:
         """Sample API Client."""
         self._username = username
-        self._default_url = "https://euiot.roborock.com"
-        self.base_url = base_url
+        self._base_url = base_url
         self._device_identifier = secrets.token_urlsafe(16)
         self.session = session
+        self._iot_login_info: IotLoginInfo | None = None
+        self._base_urls = BASE_URLS if base_url is None else [base_url]
 
-    async def _get_base_url(self) -> str:
-        if not self.base_url:
-            url_request = PreparedRequest(self._default_url, self.session)
-            response = await url_request.request(
-                "post",
-                "/api/v1/getUrlByEmail",
-                params={"email": self._username, "needtwostepauth": "false"},
-            )
-            if response is None:
-                raise RoborockUrlException("get url by email returned None")
-            response_code = response.get("code")
-            if response_code != 200:
-                _LOGGER.info("Get base url failed for %s with the following context: %s", self._username, response)
-                if response_code == 2003:
-                    raise RoborockInvalidEmail("Your email was incorrectly formatted.")
-                elif response_code == 1001:
-                    raise RoborockMissingParameters(
-                        "You are missing parameters for this request, are you sure you entered your username?"
+    async def _get_iot_login_info(self) -> IotLoginInfo:
+        if self._iot_login_info is None:
+            for iot_url in self._base_urls:
+                url_request = PreparedRequest(iot_url, self.session)
+                response = await url_request.request(
+                    "post",
+                    "/api/v1/getUrlByEmail",
+                    params={"email": self._username, "needtwostepauth": "false"},
+                )
+                if response is None:
+                    continue
+                response_code = response.get("code")
+                if response_code != 200:
+                    if response_code == 2003:
+                        raise RoborockInvalidEmail("Your email was incorrectly formatted.")
+                    elif response_code == 1001:
+                        raise RoborockMissingParameters(
+                            "You are missing parameters for this request, are you sure you entered your username?"
+                        )
+                    else:
+                        raise RoborockException(f"{response.get('msg')} - response code: {response_code}")
+                country_code = response["data"]["countrycode"]
+                country = response["data"]["country"]
+                if country_code is not None or country is not None:
+                    self._iot_login_info = IotLoginInfo(
+                        base_url=response["data"]["url"],
+                        country=country,
+                        country_code=country_code,
                     )
-                elif response_code == 9002:
-                    raise RoborockTooManyRequest("Please temporarily disable making requests and try again later.")
-                raise RoborockUrlException(f"error code: {response_code} msg: {response.get('error')}")
-            response_data = response.get("data")
-            if response_data is None:
-                raise RoborockUrlException("response does not have 'data'")
-            self.base_url = response_data.get("url")
-        return self.base_url
+                    _LOGGER.debug("Country determined to be %s and code is %s", country, country_code)
+                    return self._iot_login_info
+            raise RoborockNoResponseFromBaseURL(
+                "No account was found for any base url we tried. Either your email is incorrect or we do not have a"
+                " record of the roborock server your device is on."
+            )
+        return self._iot_login_info
+
+    @property
+    async def base_url(self):
+        if self._base_url is not None:
+            return self._base_url
+        return (await self._get_iot_login_info()).base_url
+
+    @property
+    async def country(self):
+        return (await self._get_iot_login_info()).country
+
+    @property
+    async def country_code(self):
+        return (await self._get_iot_login_info()).country_code
 
     def _get_header_client_id(self):
         md5 = hashlib.md5()
@@ -163,11 +205,11 @@ class RoborockApiClient:
 
     async def request_code(self) -> None:
         try:
-            self._login_limiter.try_acquire("login")
+            await self._login_limiter.try_acquire_async("login")
         except BucketFullException as ex:
             _LOGGER.info(ex.meta_info)
             raise RoborockRateLimit("Reached maximum requests for login. Please try again later.") from ex
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         code_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
 
@@ -193,12 +235,15 @@ class RoborockApiClient:
 
     async def request_code_v4(self) -> None:
         """Request a code using the v4 endpoint."""
+        if await self.country_code is None or await self.country is None:
+            _LOGGER.info("No country code or country found, trying old version of request code.")
+            return await self.request_code()
         try:
-            self._login_limiter.try_acquire("login")
+            await self._login_limiter.try_acquire_async("login")
         except BucketFullException as ex:
             _LOGGER.info(ex.meta_info)
             raise RoborockRateLimit("Reached maximum requests for login. Please try again later.") from ex
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         code_request = PreparedRequest(
             base_url,
@@ -213,7 +258,7 @@ class RoborockApiClient:
         code_response = await code_request.request(
             "post",
             "/api/v4/email/code/send",
-            params={"email": self._username, "type": "login", "platform": ""},
+            data={"email": self._username, "type": "login", "platform": ""},
         )
         if code_response is None:
             raise RoborockException("Failed to get a response from send email code")
@@ -224,12 +269,16 @@ class RoborockApiClient:
                 raise RoborockAccountDoesNotExist("Account does not exist - check your login and try again.")
             elif response_code == 9002:
                 raise RoborockTooFrequentCodeRequests("You have attempted to request too many codes. Try again later")
+            elif response_code == 3030 and len(self._base_urls) > 1:
+                self._base_urls = self._base_urls[1:]
+                self._iot_login_info = None
+                return await self.request_code_v4()
             else:
                 raise RoborockException(f"{code_response.get('msg')} - response code: {code_response.get('code')}")
 
     async def _sign_key_v3(self, s: str) -> str:
         """Sign a randomly generated string."""
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         code_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
 
@@ -249,26 +298,44 @@ class RoborockApiClient:
 
         return code_response["data"]["k"]
 
-    async def code_login_v4(self, code: int | str, country: str, country_code: int) -> UserData:
+    async def code_login_v4(
+        self, code: int | str, country: str | None = None, country_code: int | None = None
+    ) -> UserData:
         """
         Login via code authentication.
         :param code: The code from the email.
         :param country: The two-character representation of the country, i.e. "US"
         :param country_code: the country phone number code i.e. 1 for US.
         """
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
+        if country is None:
+            country = await self.country
+        if country_code is None:
+            country_code = await self.country_code
+        if country_code is None or country is None:
+            _LOGGER.info("No country code or country found, trying old version of code login.")
+            return await self.code_login(code)
         header_clientid = self._get_header_client_id()
         x_mercy_ks = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
         x_mercy_k = await self._sign_key_v3(x_mercy_ks)
         login_request = PreparedRequest(
             base_url,
             self.session,
-            {"header_clientid": header_clientid, "x-mercy-ks": x_mercy_ks, "x-mercy-k": x_mercy_k},
+            {
+                "header_clientid": header_clientid,
+                "x-mercy-ks": x_mercy_ks,
+                "x-mercy-k": x_mercy_k,
+                "Content-Type": "application/x-www-form-urlencoded",
+                "header_clientlang": "en",
+                "header_appversion": "4.54.02",
+                "header_phonesystem": "iOS",
+                "header_phonemodel": "iPhone16,1",
+            },
         )
         login_response = await login_request.request(
             "post",
             "/api/v4/auth/email/login/code",
-            params={
+            data={
                 "country": country,
                 "countryCode": country_code,
                 "email": self._username,
@@ -292,6 +359,10 @@ class RoborockApiClient:
                 raise RoborockInvalidUserAgreement(
                     "User agreement must be accepted again - or you are attempting to use the Mi Home app account."
                 )
+            if response_code == 3039:
+                raise RoborockAccountDoesNotExist(
+                    "This account does not exist - please ensure that you selected the right region and email."
+                )
             raise RoborockException(f"{login_response.get('msg')} - response code: {response_code}")
         user_data = login_response.get("data")
         if not isinstance(user_data, dict):
@@ -300,11 +371,11 @@ class RoborockApiClient:
 
     async def pass_login(self, password: str) -> UserData:
         try:
-            self._login_limiter.try_acquire("login")
+            await self._login_limiter.try_acquire_async("login")
         except BucketFullException as ex:
             _LOGGER.info(ex.meta_info)
             raise RoborockRateLimit("Reached maximum requests for login. Please try again later.") from ex
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
 
         login_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
@@ -343,7 +414,7 @@ class RoborockApiClient:
         raise NotImplementedError("Pass_login_v3 has not yet been implemented")
 
     async def code_login(self, code: int | str) -> UserData:
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
 
         login_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
@@ -376,7 +447,7 @@ class RoborockApiClient:
         return UserData.from_dict(user_data)
 
     async def _get_home_id(self, user_data: UserData):
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         home_id_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
         home_id_response = await home_id_request.request(
@@ -545,9 +616,31 @@ class RoborockApiClient:
         if not execute_scene_response.get("success"):
             raise RoborockException(execute_scene_response)
 
+    async def get_schedules(self, user_data: UserData, device_id: str) -> list[HomeDataSchedule]:
+        rriot = user_data.rriot
+        if rriot is None:
+            raise RoborockException("rriot is none")
+        if rriot.r.a is None:
+            raise RoborockException("Missing field 'a' in rriot reference")
+        schedules_request = PreparedRequest(
+            rriot.r.a,
+            self.session,
+            {
+                "Authorization": _get_hawk_authentication(rriot, f"/user/devices/{device_id}/jobs"),
+            },
+        )
+        schedules_response = await schedules_request.request("get", f"/user/devices/{str(device_id)}/jobs")
+        if not schedules_response.get("success"):
+            raise RoborockException(schedules_response)
+        schedules = schedules_response.get("result")
+        if isinstance(schedules, list):
+            return [HomeDataSchedule.from_dict(schedule) for schedule in schedules]
+        else:
+            raise RoborockException(f"schedule_response result was an unexpected type: {schedules}")
+
     async def get_products(self, user_data: UserData) -> ProductResponse:
         """Gets all products and their schemas, good for determining status codes and model numbers."""
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         product_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
         product_response = await product_request.request(
@@ -565,7 +658,7 @@ class RoborockApiClient:
         raise RoborockException("product result was an unexpected type")
 
     async def download_code(self, user_data: UserData, product_id: int):
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         product_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
         request = {"apilevel": 99999, "productids": [product_id], "type": 2}
@@ -578,7 +671,7 @@ class RoborockApiClient:
         return response["data"][0]["url"]
 
     async def download_category_code(self, user_data: UserData):
-        base_url = await self._get_base_url()
+        base_url = await self.base_url
         header_clientid = self._get_header_client_id()
         product_request = PreparedRequest(base_url, self.session, {"header_clientid": header_clientid})
         response = await product_request.request(
@@ -654,3 +747,29 @@ def _get_hawk_authentication(rriot: RRiot, url: str, formdata: dict | None = Non
     )
     mac = base64.b64encode(hmac.new(rriot.h.encode(), prestr.encode(), hashlib.sha256).digest()).decode()
     return f'Hawk id="{rriot.u}",s="{rriot.s}",ts="{timestamp}",nonce="{nonce}",mac="{mac}"'
+
+
+class UserWebApiClient:
+    """Wrapper around RoborockApiClient to provide information for a specific user.
+
+    This binds a RoborockApiClient to a specific user context with the
+    provided UserData. This allows for easier access to user-specific data,
+    to avoid needing to pass UserData around and mock out the web API.
+    """
+
+    def __init__(self, web_api: RoborockApiClient, user_data: UserData) -> None:
+        """Initialize the wrapper with the API client and user data."""
+        self._web_api = web_api
+        self._user_data = user_data
+
+    async def get_home_data(self) -> HomeData:
+        """Fetch home data using the API client."""
+        return await self._web_api.get_home_data_v3(self._user_data)
+
+    async def get_routines(self, device_id: str) -> list[HomeDataScene]:
+        """Fetch routines (scenes) for a specific device."""
+        return await self._web_api.get_scenes(self._user_data, device_id)
+
+    async def execute_routine(self, scene_id: int) -> None:
+        """Execute a specific routine (scene) by its ID."""
+        await self._web_api.execute_scene(self._user_data, scene_id)

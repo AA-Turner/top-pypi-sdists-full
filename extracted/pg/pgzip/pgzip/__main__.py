@@ -6,7 +6,6 @@ Copyright (c) 2019 Vincent Li
 
 """
 
-
 import sys
 from argparse import ArgumentParser
 from contextlib import contextmanager
@@ -18,7 +17,6 @@ from .pgzip import PgzipFile
 
 
 def main():
-
     # Utility function to help open files with context manager
     # Return stdin/stdout if the filename is '-'
     @contextmanager
@@ -68,7 +66,7 @@ def main():
         "--blocksize",
         type=int,
         help="Block size to use (Default: Determine 100MB)",
-        default=10 ** 8,
+        default=10**8,
     )
     args = parser.parse_args()
 
@@ -102,9 +100,10 @@ def main():
             args.filename = Path(args.output).name
 
     try:
-        with smart_open(args.input, "rb") as in_fh, smart_open(
-            args.output, "wb"
-        ) as out_fh:
+        with (  # pylint: disable=contextmanager-generator-missing-cleanup
+            smart_open(args.input, "rb") as in_fh,
+            smart_open(args.output, "wb") as out_fh,
+        ):
             if args.decompress:
                 with PgzipFile(
                     mode="rb",

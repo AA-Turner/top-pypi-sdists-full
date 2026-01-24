@@ -1,21 +1,23 @@
-import unittest
-import numpy as np
 import array
 import math
+import unittest
+from ctypes import ArgumentError
+from random import randint, randrange
+
+import numpy as np
+from convertbng.cutil import convert_bng as cconvert_bng
+
 from convertbng.util import (
     convert_bng,
-    convert_lonlat,
-    convert_to_osgb36,
-    convert_osgb36_to_lonlat,
-    convert_osgb36_to_etrs89,
-    convert_etrs89_to_osgb36,
-    convert_etrs89_to_lonlat,
     convert_epsg3857_to_wgs84,
+    convert_etrs89_to_lonlat,
+    convert_etrs89_to_osgb36,
+    convert_lonlat,
+    convert_osgb36_to_etrs89,
+    convert_osgb36_to_lonlat,
     convert_to_etrs89,
+    convert_to_osgb36,
 )
-from convertbng.cutil import convert_bng as cconvert_bng
-from ctypes import ArgumentError
-from random import randrange
 
 
 class ConvertbngTests(unittest.TestCase):
@@ -58,9 +60,38 @@ class ConvertbngTests(unittest.TestCase):
         )
         self.assertEqual(expected[0][0], result[0][0])
 
+    def test_loop(self):
+        """See https://github.com/urschrei/convertbng/issues/101"""
+
+        def test_conversion(easting, northing):
+            res = convert_lonlat(easting, northing)
+            return [res[0][0], res[1][0]]
+
+        for i in range(500000):
+            test_conversion([randint(10000, 50000)], [randint(10000, 50000)])
+
+    def test_non_convergence(self):
+        """
+        https://github.com/urschrei/lonlat_bng/issues/37#issuecomment-3511393210
+        """
+        extremes = [
+            [405110, 373787],
+            [425917, 241074],
+            [408884, 333642],
+        ]
+        expected = [
+            [-1.92485417, 53.26107642],
+            [-1.62332209, 52.06744836],
+            [-1.86937175, 52.9001646],
+        ]
+        for i, j in zip(extremes, expected):
+            exp = ([j[0]], [j[1]])
+            converted = convert_lonlat([i[0]], [i[1]])
+            self.assertEqual(exp, converted)
+
     def testConvertBNG(self):
         """Test multithreaded BNG --> lon, lat function"""
-        expected = ([-0.32822654, -2.01831267], [51.44533145, 54.58910534])
+        expected = ([-0.32822654, -2.01831268], [51.44533144, 54.58910534])
         result = convert_lonlat([516276, 398915], [173141, 521545])
         self.assertEqual(expected, result)
 
@@ -200,7 +231,7 @@ class ConvertbngTests(unittest.TestCase):
 
     def test_osgb36_to_etrs89(self):
         """Tests OSGB36 --> ETRS89 Eastings, Northings conversion"""
-        expected = ([651307.003], [313255.686])
+        expected = ([651307.0032098937], [313255.68598407705])
         result = convert_osgb36_to_etrs89(651409.804, 313177.45)
         self.assertEqual(expected, result)
 

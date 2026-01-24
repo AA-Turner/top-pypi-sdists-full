@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import abc
@@ -39,6 +39,52 @@ def get_github_src_url(url: str) -> str:
     path = urllib.parse.urlparse(url).path
     path = path.replace("/blob/", "/", 1)
     return f"https://raw.githubusercontent.com{path}"
+
+
+def is_gist_src(url: str) -> bool:
+    if not is_url(url):
+        return False
+
+    hostname = urllib.parse.urlparse(url).hostname
+    if (
+        hostname != "gist.github.com"
+        and hostname != "gist.githubusercontent.com"
+    ):
+        return False
+    return True
+
+
+def get_gist_src_url(url: str) -> str:
+    # Return url if it's a direct link to a raw file,
+    # or get the first python or markdown file of the gist
+    # by getting the raw_url from api.github.com
+    path_parts = urllib.parse.urlparse(url).path.strip("/").split("/")
+    if "raw" in path_parts:
+        if not path_parts[-1].endswith((".py", ".md")):
+            raise ValueError("No python or markdown files found in the Gist")
+        return url
+    else:
+        gist_id = path_parts[1]
+        api_url = f"https://api.github.com/gists/{gist_id}"
+        api_response = requests.get(api_url, headers=USER_AGENT_HEADER)
+        api_response.raise_for_status()
+        gist_data = api_response.json()
+
+        files_dict = gist_data.get("files", {})
+        if not files_dict:
+            raise ValueError("No files found in the Gist")
+
+        py_or_md_url_generator = (
+            file_info["raw_url"]
+            for filename, file_info in files_dict.items()
+            if filename.lower().endswith((".py", ".md"))
+        )
+        raw_url = next(py_or_md_url_generator, "")
+
+        if raw_url == "":
+            raise ValueError("No python or markdown files found in the Gist")
+
+        return raw_url
 
 
 class FileReader(abc.ABC):
@@ -97,10 +143,13 @@ class GitHubIssueReader(FileReader):
 
 class StaticNotebookReader(FileReader):
     CODE_TAG = r"marimo-code"
-    CODE_REGEX = re.compile(r"<marimo-code\s+hidden(?:=['\"]{2})?\s*>(.*?)<")
-    FILENAME_REGEX = re.compile(
-        r"<marimo-filename\s+hidden(?:=['\"]{2})?\s*>(.*?)<"
+    CODE_REGEX = re.compile(
+        r"<marimo-code\s+hidden(?:=['\"]{2})?\s*>\s*(.*?)\s*<"
     )
+    FILENAME_REGEX = re.compile(
+        r"<marimo-filename\s+hidden(?:=['\"]{2})?\s*>\s*(.*?)\s*<"
+    )
+    DEFAULT_FILENAME = "notebook.py"
 
     def can_read(self, name: str) -> bool:
         return self._is_static_marimo_notebook_url(name)[0]
@@ -125,6 +174,14 @@ class StaticNotebookReader(FileReader):
 
         # Not a URL
         if not is_url(url):
+            # Read a local Static Notebook
+            if url.endswith(".html"):
+                file_contents = Path(url).read_text(encoding="utf-8")
+                return (
+                    StaticNotebookReader.CODE_TAG in file_contents,
+                    file_contents,
+                )
+
             return False, ""
 
         # Ends with .html, try to download it
@@ -163,7 +220,7 @@ class StaticNotebookReader(FileReader):
             StaticNotebookReader.FILENAME_REGEX, file_contents
         ):
             return urllib.parse.unquote(search.group(1))
-        return "notebook.py"
+        return StaticNotebookReader.DEFAULT_FILENAME
 
 
 class GitHubSourceReader(FileReader):
@@ -172,6 +229,18 @@ class GitHubSourceReader(FileReader):
 
     def read(self, name: str) -> tuple[str, str]:
         url = get_github_src_url(name)
+        response = requests.get(url, headers=USER_AGENT_HEADER)
+        response.raise_for_status()
+        content = response.text()
+        return content, os.path.basename(url)
+
+
+class GistSourceReader(FileReader):
+    def can_read(self, name: str) -> bool:
+        return is_gist_src(name) or is_gist_src(name)
+
+    def read(self, name: str) -> tuple[str, str]:
+        url = get_gist_src_url(name)
         response = requests.get(url, headers=USER_AGENT_HEADER)
         response.raise_for_status()
         content = response.text()
@@ -196,8 +265,9 @@ class FileContentReader:
         self.readers = [
             LocalFileReader(),
             GitHubIssueReader(),
-            StaticNotebookReader(),
             GitHubSourceReader(),
+            GistSourceReader(),
+            StaticNotebookReader(),
             GenericURLReader(),
         ]
 
@@ -243,7 +313,6 @@ class LocalFileHandler(FileHandler):
     def handle(
         self, name: str, temp_dir: TemporaryDirectory[str]
     ) -> tuple[str, Optional[TemporaryDirectory[str]]]:
-        del temp_dir
         import click
 
         path = Path(name)
@@ -261,6 +330,19 @@ class LocalFileHandler(FileHandler):
                 f"  then open with marimo edit {prefix}.py"
             )
 
+        if path.suffix == ".html":
+            reader = StaticNotebookReader()
+            if reader.can_read(name):
+                content, filename = reader.read(name)
+                path_to_app = self._create_tmp_file_from_content(
+                    content, filename, temp_dir
+                )
+                return path_to_app, temp_dir
+            else:
+                raise click.ClickException(
+                    f"Invalid HTML file - {name} does not contain Python code. Make sure the file was downloaded from marimo."
+                )
+
         if not MarimoPath.is_valid_path(path):
             raise click.ClickException(
                 f"Invalid NAME - {name} is not a Python or Markdown file"
@@ -277,6 +359,16 @@ class LocalFileHandler(FileHandler):
                 )
 
         return name, None
+
+    @staticmethod
+    def _create_tmp_file_from_content(
+        content: str, name: str, temp_dir: TemporaryDirectory[str]
+    ) -> str:
+        LOGGER.info("Creating temporary file")
+        path_to_app = Path(temp_dir.name) / name
+        path_to_app.write_text(content, encoding="utf-8")
+        LOGGER.info("App saved to %s", path_to_app)
+        return str(path_to_app)
 
 
 class RemoteFileHandler(FileHandler):

@@ -1,5 +1,5 @@
 """
-Generates JSON schema from introspection. Use `make generate`.
+Generates JSON schema from introspection. Used from `make retrieve-schema` or `make generate`.
 """
 
 import json

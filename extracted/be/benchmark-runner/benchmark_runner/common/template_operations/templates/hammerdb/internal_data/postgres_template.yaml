@@ -33,7 +33,7 @@ spec:
         - key: kubernetes.io/hostname
           operator: In
           values:
-          - {{ pin_node2 }}
+          - {{ lso_node }}
   storageClassDevices:
     - storageClassName: local-sc
       volumeMode: Filesystem
@@ -107,8 +107,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
         - name: postgres
-          # docker.io/centos/postgresql-10-centos8:latest - rate limit issue
-          image: quay.io/ebattat/postgresql-10-centos8:latest
+          # quay.io/sclorg/postgresql-13-c9s:latest - rate limit issue
+          image: quay.io/benchmark-runner/postgresql13-centos9:latest
           imagePullPolicy: "IfNotPresent"
           ports:
             - containerPort: 5432

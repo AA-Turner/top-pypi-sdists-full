@@ -10,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 def decorator(position: str, value: str, decorator_type: str = "icon") -> dict:
-    assert position in ("left", "right"), "Decorator Position can only be right or left"
-    assert decorator_type in ("icon", "text"), "Decorator Type can only be icon or text"
+    if position not in ("left", "right"):
+        raise ValueError("Decorator Position can only be right or left")
+    if decorator_type not in ("icon", "text"):
+        raise ValueError("Decorator Type can only be icon or text")
     return {"position": position, "value": value, "type": decorator_type}
 
 
@@ -31,6 +33,8 @@ class WBCoreSerializerFieldMixin:
         read_only=False,
         copyable=None,
         related_key=None,
+        on_unsatisfied_deps="read_only",
+        clear_dependent_fields=True,
         **kwargs,
     ):
         if not decorators:
@@ -48,6 +52,8 @@ class WBCoreSerializerFieldMixin:
             self._callable_read_only = read_only
             read_only = True
         self.related_key = related_key
+        self.on_unsatisfied_deps = on_unsatisfied_deps
+        self.clear_dependent_fields = clear_dependent_fields
         super().__init__(*args, read_only=read_only, **kwargs)
 
     def _evaluate_read_only(self, field_name, parent):
@@ -105,10 +111,8 @@ class WBCoreSerializerFieldMixin:
 
         default = getattr(self, "default", None)
         if default is None or default == empty or default == NOT_PROVIDED:
-            try:
+            with suppress(Exception):  # TODO Add some explicit exception handling
                 default = self.parent.Meta.model._meta._forward_fields_map[field_name].default
-            except Exception:  # TODO Add some explicit exception handling
-                pass
 
         if default is not None and default != empty and default != NOT_PROVIDED:
             if callable(default):
@@ -131,6 +135,10 @@ class WBCoreSerializerFieldMixin:
             representation["math"] = self.math
         if self.copyable:
             representation["copyable"] = self.copyable
+        if self.on_unsatisfied_deps != "read_only":
+            representation["on_unsatisfied_deps"] = self.on_unsatisfied_deps
+        if self.clear_dependent_fields is not True:
+            representation["clear_dependent_fields"] = self.clear_dependent_fields
         return field_name, representation
 
     def validate_empty_values(self, data):

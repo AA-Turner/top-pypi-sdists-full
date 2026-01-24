@@ -16,7 +16,6 @@ from falconpy import (
     version,
     InvalidCredentialFormat,
     Hosts,
-    Detects
     )
 from falconpy._util import confirm_base_region, confirm_base_url
 from falconpy._version import _TITLE, _VERSION
@@ -27,6 +26,7 @@ AllowedResponses = [200, 401, 403, 429]
 _DEBUG = os.getenv("FALCONPY_UNIT_TEST_DEBUG", None)
 if _DEBUG:
     _DEBUG = True
+_MSSP = None
 
 
 class TestAuthentications:
@@ -51,12 +51,12 @@ class TestAuthentications:
             return False
 
     def serviceAny_TestStaleObjectAuth(self):
-        falcon = Detects(auth_object=OAuth2(creds={"client_id": auth.config["falcon_client_id"],
+        falcon = Hosts(auth_object=OAuth2(creds={"client_id": auth.config["falcon_client_id"],
                                                            "client_secret": auth.config["falcon_client_secret"]
                                                            },
                                                     base_url = "us-1",  # Testing dashed base specifier
                                                     debug=_DEBUG))
-        result = falcon.QueryDetects()
+        result = falcon.QueryDevicesByFilterScroll()
         if result["status_code"] in AllowedResponses:
             return True
         else:
@@ -108,7 +108,7 @@ class TestAuthentications:
                         base_url="usgov1", debug=_DEBUG
                         )
         result = falcon.token()
-        if result["status_code"] == 400:
+        if result["status_code"] in [400, 403]:
             return True
         elif result["status_code"] == 429:
             pytest.skip("Rate limit hit")
@@ -142,12 +142,12 @@ class TestAuthentications:
             }
             result = falcon.command("oauth2AccessToken", data=t_creds, base_url="usgov1")
             if result["status_code"] == 201:
-                falcon = Detects(client_id=os.environ["CROSS_DEBUG_KEY"],
-                                 client_secret=os.environ["CROSS_DEBUG_SECRET"],
-                                 base_url="usgov1",
-                                 renew_window=300,
-                                 debug=_DEBUG
-                                 )
+                falcon = Hosts(client_id=os.environ["CROSS_DEBUG_KEY"],
+                               client_secret=os.environ["CROSS_DEBUG_SECRET"],
+                               base_url="usgov1",
+                               renew_window=300,
+                               debug=_DEBUG
+                               )
                 result = falcon.auth_object.token()
                 if result["status_code"] == 429:
                     pytest.skip("Rate limit hit")
@@ -169,8 +169,8 @@ class TestAuthentications:
                           )
         auth_obj.token()
         # While we're at it, test user_agent override
-        falcon = Detects(auth_object=auth_obj, user_agent=f"{_TITLE}/{str(_VERSION)}", debug=_DEBUG)
-        result = falcon.QueryDetects()
+        falcon = Hosts(auth_object=auth_obj, user_agent=f"{_TITLE}/{str(_VERSION)}", debug=_DEBUG)
+        result = falcon.QueryDevicesByFilterScroll()
         if result["status_code"] not in AllowedResponses:
             _returned = False
         # And test the new built in logout functionality
@@ -202,8 +202,8 @@ class TestAuthentications:
 
     def serviceAny_TestBadObjectAuth(self):
         # Should also test bad direct auth in the authentication class
-        falcon = Detects(auth_object=OAuth2(debug=_DEBUG))
-        result = falcon.QueryDetects()
+        falcon = Hosts(auth_object=OAuth2(debug=_DEBUG))
+        result = falcon.QueryDevicesByFilterScroll()
         if result["status_code"] in AllowedResponses:
             return True
         else:
@@ -217,8 +217,8 @@ class TestAuthentications:
         # auth_obj.token()
         # Test passing just the service class object, not the auth_object attribute
         # Service Class base object should detect and handle this.
-        falcon = Detects(auth_object=auth_obj)
-        result = falcon.QueryDetects()
+        falcon = Hosts(auth_object=auth_obj)
+        result = falcon.QueryDevicesByFilterScroll()
         if result["status_code"] in AllowedResponses:
             return True
         else:
@@ -354,3 +354,27 @@ class TestAuthentications:
         named_log = logging.getLogger("named_target")
         test_object = Hosts(debug=named_log, pythonic=True, access_token=auth.authorization.token_value, base_url=auth.authorization.base_url)
         assert bool(test_object.query_devices_by_filter_scroll(limit=1).status_code == 200)
+
+    def test_child_login_logout(self):
+        _success = False
+        test_object = Hosts(client_id="whatever", client_secret="whatever", debug=_DEBUG)
+        failed_child_login = test_object.child_login(member_cid="12345678")
+        if not failed_child_login:
+            failed_child_login = test_object.child_logout(login_as_parent=False)
+            if not failed_child_login:
+                _success = True
+        assert _success
+
+
+    def test_mssp_login(self):
+        global _MSSP
+        _success = False
+        _MSSP = Hosts(client_id=auth.config["falcon_client_id"], client_secret=auth.config["falcon_client_secret"], debug=_DEBUG)
+        if not _MSSP.child_login(member_cid="1234567890"):
+            _success = True
+            _MSSP.auth_object.creds["member_cid"] = "1234567890"
+        assert(_success)
+
+    def test_mssp_logout(self):
+        #_MSSP = Hosts(client_id=auth.config["falcon_client_id"], client_secret=auth.config["falcon_client_secret"], debug=_DEBUG)
+        print(_MSSP.child_logout(login_as_parent=False))

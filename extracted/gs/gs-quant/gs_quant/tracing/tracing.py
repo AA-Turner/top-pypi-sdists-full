@@ -18,14 +18,15 @@ import logging
 import traceback
 from contextlib import ContextDecorator
 from enum import Enum
-from typing import Tuple, Optional, Sequence, Mapping, Union
+from typing import Tuple, Optional, Sequence, Mapping, Union, Callable
 
 import pandas as pd
 from opentelemetry import trace, context
 from opentelemetry.context import Context
 from opentelemetry.propagate import extract, inject, set_global_textmap
 from opentelemetry.propagators.textmap import TextMapPropagator
-from opentelemetry.sdk.trace import TracerProvider, SynchronousMultiSpanProcessor, ReadableSpan, Span, Event
+from opentelemetry.sdk.trace import TracerProvider, SynchronousMultiSpanProcessor, ReadableSpan, Span, Event, \
+    SpanProcessor
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from opentelemetry.trace import Tracer as OtelTracer, SpanContext, INVALID_SPAN
 from opentelemetry.trace import format_trace_id, format_span_id
@@ -389,18 +390,28 @@ class TransportableTracingEvent(TracingEvent):
 
 class TracerFactory:
     __tracer_instance = None
+    _extra_span_processors = []
 
     def get(self) -> OtelTracer:
         if TracerFactory.__tracer_instance is None:
             # Define which OpenTelemetry Tracer provider implementation to use.
             span_processor = SynchronousMultiSpanProcessor()
             span_processor.add_span_processor(SimpleSpanProcessor(SpanConsumer.get_instance()))
+            for extra_processor in TracerFactory._extra_span_processors:
+                span_processor.add_span_processor(extra_processor)
             trace.set_tracer_provider(TracerProvider(active_span_processor=span_processor))
 
             # Create an OpenTelemetry Tracer.
             otel_tracer = trace.get_tracer(__name__)
             TracerFactory.__tracer_instance = otel_tracer
         return TracerFactory.__tracer_instance
+
+    @staticmethod
+    def preregister_span_processor(processor: SpanProcessor):
+        if TracerFactory.__tracer_instance is not None:
+            _logger.error("Can't add span consumer after tracer has been created")
+        else:
+            TracerFactory._extra_span_processors.append(processor)
 
 
 class Tracer(ContextDecorator):
@@ -460,7 +471,7 @@ class Tracer(ContextDecorator):
                 _logger.error("Error injecting trace context", exc_info=True)
 
     @staticmethod
-    def extract(carrier):
+    def extract(carrier) -> TracingContext:
         try:
             return TracingContext(extract(carrier))
         except Exception:
@@ -611,6 +622,28 @@ class Tracer(ContextDecorator):
         if reset:
             Tracer.reset()
         return tracing_str, total
+
+    @staticmethod
+    def in_scope(func: Callable, operation_name='callback') -> Callable:
+        """
+        for using with futures or callbacks that would otherwise lose the tracing context
+        e.g.
+        >>>my_future.add_done_callback(my_callback)
+        >>>my_other_future.add_done_callback(lambda fut: my_callback(fut.result())
+        `
+        becomes:
+
+        >>>my_future.add_done_callback(Tracer.in_scope(my_callback))
+        >>>my_other_future.add_done_callback(Tracer.in_scope(lambda fut: my_callback(fut.result())   )
+        """
+        span_carrier = {}
+        Tracer.inject(span_carrier)
+
+        def wrapper(*args, **kwargs):
+            span_ctx = Tracer.extract(span_carrier)
+            with Tracer(operation_name, parent_span=span_ctx):
+                return func(*args, **kwargs)
+        return wrapper
 
 
 def parse_tracing_line_args(line: str) -> Tuple[Optional[str], bool]:

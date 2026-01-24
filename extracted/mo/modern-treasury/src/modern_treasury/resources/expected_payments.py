@@ -15,7 +15,7 @@ from ..types import (
     expected_payment_create_params,
     expected_payment_update_params,
 )
-from .._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -55,32 +55,36 @@ class ExpectedPayments(SyncAPIResource):
     def create(
         self,
         *,
-        amount_lower_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        amount_upper_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        currency: Optional[Currency] | NotGiven = NOT_GIVEN,
-        date_lower_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_upper_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        description: Optional[str] | NotGiven = NOT_GIVEN,
-        direction: Optional[Literal["credit", "debit"]] | NotGiven = NOT_GIVEN,
-        external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        internal_account_id: Optional[str] | NotGiven = NOT_GIVEN,
-        ledger_transaction: LedgerTransactionCreateRequest | NotGiven = NOT_GIVEN,
-        ledger_transaction_id: str | NotGiven = NOT_GIVEN,
-        line_items: Iterable[expected_payment_create_params.LineItem] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        reconciliation_filters: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_groups: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | NotGiven = NOT_GIVEN,
-        remittance_information: Optional[str] | NotGiven = NOT_GIVEN,
-        statement_descriptor: Optional[str] | NotGiven = NOT_GIVEN,
-        type: Optional[ExpectedPaymentType] | NotGiven = NOT_GIVEN,
+        amount_lower_bound: Optional[int] | Omit = omit,
+        amount_reconciled: Optional[int] | Omit = omit,
+        amount_reconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_unreconciled: Optional[int] | Omit = omit,
+        amount_unreconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_upper_bound: Optional[int] | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        currency: Optional[Currency] | Omit = omit,
+        date_lower_bound: Union[str, date, None] | Omit = omit,
+        date_upper_bound: Union[str, date, None] | Omit = omit,
+        description: Optional[str] | Omit = omit,
+        direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        internal_account_id: Optional[str] | Omit = omit,
+        ledger_transaction: LedgerTransactionCreateRequest | Omit = omit,
+        ledger_transaction_id: str | Omit = omit,
+        line_items: Iterable[expected_payment_create_params.LineItem] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reconciliation_filters: Optional[object] | Omit = omit,
+        reconciliation_groups: Optional[object] | Omit = omit,
+        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | Omit = omit,
+        remittance_information: Optional[str] | Omit = omit,
+        statement_descriptor: Optional[str] | Omit = omit,
+        type: Optional[ExpectedPaymentType] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """
@@ -89,6 +93,18 @@ class ExpectedPayments(SyncAPIResource):
         Args:
           amount_lower_bound: The lowest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled: The amount reconciled for this expected payment. Value in specified currency's
+              smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled_direction: One of credit or debit. Indicates whether amount_reconciled is a credit or debit
+              amount.
+
+          amount_unreconciled: The amount that remains unreconciled for this expected payment. Value in
+              specified currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_unreconciled_direction: One of credit or debit. Indicates whether amount_unreconciled is a credit or
+              debit amount.
 
           amount_upper_bound: The highest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
@@ -156,6 +172,10 @@ class ExpectedPayments(SyncAPIResource):
             body=maybe_transform(
                 {
                     "amount_lower_bound": amount_lower_bound,
+                    "amount_reconciled": amount_reconciled,
+                    "amount_reconciled_direction": amount_reconciled_direction,
+                    "amount_unreconciled": amount_unreconciled,
+                    "amount_unreconciled_direction": amount_unreconciled_direction,
                     "amount_upper_bound": amount_upper_bound,
                     "counterparty_id": counterparty_id,
                     "currency": currency,
@@ -197,7 +217,7 @@ class ExpectedPayments(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ExpectedPayment:
         """
         get expected payment
@@ -225,30 +245,34 @@ class ExpectedPayments(SyncAPIResource):
         self,
         id: str,
         *,
-        amount_lower_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        amount_upper_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        currency: Optional[Currency] | NotGiven = NOT_GIVEN,
-        date_lower_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_upper_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        description: Optional[str] | NotGiven = NOT_GIVEN,
-        direction: Optional[Literal["credit", "debit"]] | NotGiven = NOT_GIVEN,
-        external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        internal_account_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        reconciliation_filters: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_groups: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | NotGiven = NOT_GIVEN,
-        remittance_information: Optional[str] | NotGiven = NOT_GIVEN,
-        statement_descriptor: Optional[str] | NotGiven = NOT_GIVEN,
-        status: Optional[Literal["reconciled"]] | NotGiven = NOT_GIVEN,
-        type: Optional[ExpectedPaymentType] | NotGiven = NOT_GIVEN,
+        amount_lower_bound: Optional[int] | Omit = omit,
+        amount_reconciled: Optional[int] | Omit = omit,
+        amount_reconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_unreconciled: Optional[int] | Omit = omit,
+        amount_unreconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_upper_bound: Optional[int] | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        currency: Optional[Currency] | Omit = omit,
+        date_lower_bound: Union[str, date, None] | Omit = omit,
+        date_upper_bound: Union[str, date, None] | Omit = omit,
+        description: Optional[str] | Omit = omit,
+        direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        internal_account_id: Optional[str] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reconciliation_filters: Optional[object] | Omit = omit,
+        reconciliation_groups: Optional[object] | Omit = omit,
+        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | Omit = omit,
+        remittance_information: Optional[str] | Omit = omit,
+        statement_descriptor: Optional[str] | Omit = omit,
+        status: Optional[Literal["reconciled"]] | Omit = omit,
+        type: Optional[ExpectedPaymentType] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """
@@ -257,6 +281,18 @@ class ExpectedPayments(SyncAPIResource):
         Args:
           amount_lower_bound: The lowest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled: The amount reconciled for this expected payment. Value in specified currency's
+              smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled_direction: One of credit or debit. Indicates whether amount_reconciled is a credit or debit
+              amount.
+
+          amount_unreconciled: The amount that remains unreconciled for this expected payment. Value in
+              specified currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_unreconciled_direction: One of credit or debit. Indicates whether amount_unreconciled is a credit or
+              debit amount.
 
           amount_upper_bound: The highest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
@@ -319,6 +355,10 @@ class ExpectedPayments(SyncAPIResource):
             body=maybe_transform(
                 {
                     "amount_lower_bound": amount_lower_bound,
+                    "amount_reconciled": amount_reconciled,
+                    "amount_reconciled_direction": amount_reconciled_direction,
+                    "amount_unreconciled": amount_unreconciled,
+                    "amount_unreconciled_direction": amount_unreconciled_direction,
                     "amount_upper_bound": amount_upper_bound,
                     "counterparty_id": counterparty_id,
                     "currency": currency,
@@ -352,16 +392,16 @@ class ExpectedPayments(SyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        created_at_lower_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        created_at_upper_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        direction: TransactionDirection | NotGiven = NOT_GIVEN,
-        external_id: str | NotGiven = NOT_GIVEN,
-        internal_account_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["archived", "partially_reconciled", "reconciled", "unreconciled"] | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        created_at_lower_bound: Union[str, datetime] | Omit = omit,
+        created_at_upper_bound: Union[str, datetime] | Omit = omit,
+        direction: TransactionDirection | Omit = omit,
+        external_id: str | Omit = omit,
+        internal_account_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["archived", "partially_reconciled", "reconciled", "unreconciled"] | Omit = omit,
         type: Literal[
             "ach",
             "au_becs",
@@ -399,15 +439,15 @@ class ExpectedPayments(SyncAPIResource):
             "wire",
             "zengin",
         ]
-        | NotGiven = NOT_GIVEN,
-        updated_at_lower_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        updated_at_upper_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        updated_at_lower_bound: Union[str, datetime] | Omit = omit,
+        updated_at_upper_bound: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPage[ExpectedPayment]:
         """
         list expected_payments
@@ -483,7 +523,7 @@ class ExpectedPayments(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """
@@ -538,32 +578,36 @@ class AsyncExpectedPayments(AsyncAPIResource):
     async def create(
         self,
         *,
-        amount_lower_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        amount_upper_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        currency: Optional[Currency] | NotGiven = NOT_GIVEN,
-        date_lower_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_upper_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        description: Optional[str] | NotGiven = NOT_GIVEN,
-        direction: Optional[Literal["credit", "debit"]] | NotGiven = NOT_GIVEN,
-        external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        internal_account_id: Optional[str] | NotGiven = NOT_GIVEN,
-        ledger_transaction: LedgerTransactionCreateRequest | NotGiven = NOT_GIVEN,
-        ledger_transaction_id: str | NotGiven = NOT_GIVEN,
-        line_items: Iterable[expected_payment_create_params.LineItem] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        reconciliation_filters: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_groups: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | NotGiven = NOT_GIVEN,
-        remittance_information: Optional[str] | NotGiven = NOT_GIVEN,
-        statement_descriptor: Optional[str] | NotGiven = NOT_GIVEN,
-        type: Optional[ExpectedPaymentType] | NotGiven = NOT_GIVEN,
+        amount_lower_bound: Optional[int] | Omit = omit,
+        amount_reconciled: Optional[int] | Omit = omit,
+        amount_reconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_unreconciled: Optional[int] | Omit = omit,
+        amount_unreconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_upper_bound: Optional[int] | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        currency: Optional[Currency] | Omit = omit,
+        date_lower_bound: Union[str, date, None] | Omit = omit,
+        date_upper_bound: Union[str, date, None] | Omit = omit,
+        description: Optional[str] | Omit = omit,
+        direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        internal_account_id: Optional[str] | Omit = omit,
+        ledger_transaction: LedgerTransactionCreateRequest | Omit = omit,
+        ledger_transaction_id: str | Omit = omit,
+        line_items: Iterable[expected_payment_create_params.LineItem] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reconciliation_filters: Optional[object] | Omit = omit,
+        reconciliation_groups: Optional[object] | Omit = omit,
+        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | Omit = omit,
+        remittance_information: Optional[str] | Omit = omit,
+        statement_descriptor: Optional[str] | Omit = omit,
+        type: Optional[ExpectedPaymentType] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """
@@ -572,6 +616,18 @@ class AsyncExpectedPayments(AsyncAPIResource):
         Args:
           amount_lower_bound: The lowest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled: The amount reconciled for this expected payment. Value in specified currency's
+              smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled_direction: One of credit or debit. Indicates whether amount_reconciled is a credit or debit
+              amount.
+
+          amount_unreconciled: The amount that remains unreconciled for this expected payment. Value in
+              specified currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_unreconciled_direction: One of credit or debit. Indicates whether amount_unreconciled is a credit or
+              debit amount.
 
           amount_upper_bound: The highest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
@@ -639,6 +695,10 @@ class AsyncExpectedPayments(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "amount_lower_bound": amount_lower_bound,
+                    "amount_reconciled": amount_reconciled,
+                    "amount_reconciled_direction": amount_reconciled_direction,
+                    "amount_unreconciled": amount_unreconciled,
+                    "amount_unreconciled_direction": amount_unreconciled_direction,
                     "amount_upper_bound": amount_upper_bound,
                     "counterparty_id": counterparty_id,
                     "currency": currency,
@@ -680,7 +740,7 @@ class AsyncExpectedPayments(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ExpectedPayment:
         """
         get expected payment
@@ -708,30 +768,34 @@ class AsyncExpectedPayments(AsyncAPIResource):
         self,
         id: str,
         *,
-        amount_lower_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        amount_upper_bound: Optional[int] | NotGiven = NOT_GIVEN,
-        counterparty_id: Optional[str] | NotGiven = NOT_GIVEN,
-        currency: Optional[Currency] | NotGiven = NOT_GIVEN,
-        date_lower_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        date_upper_bound: Union[str, date, None] | NotGiven = NOT_GIVEN,
-        description: Optional[str] | NotGiven = NOT_GIVEN,
-        direction: Optional[Literal["credit", "debit"]] | NotGiven = NOT_GIVEN,
-        external_id: Optional[str] | NotGiven = NOT_GIVEN,
-        internal_account_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        reconciliation_filters: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_groups: Optional[object] | NotGiven = NOT_GIVEN,
-        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | NotGiven = NOT_GIVEN,
-        remittance_information: Optional[str] | NotGiven = NOT_GIVEN,
-        statement_descriptor: Optional[str] | NotGiven = NOT_GIVEN,
-        status: Optional[Literal["reconciled"]] | NotGiven = NOT_GIVEN,
-        type: Optional[ExpectedPaymentType] | NotGiven = NOT_GIVEN,
+        amount_lower_bound: Optional[int] | Omit = omit,
+        amount_reconciled: Optional[int] | Omit = omit,
+        amount_reconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_unreconciled: Optional[int] | Omit = omit,
+        amount_unreconciled_direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        amount_upper_bound: Optional[int] | Omit = omit,
+        counterparty_id: Optional[str] | Omit = omit,
+        currency: Optional[Currency] | Omit = omit,
+        date_lower_bound: Union[str, date, None] | Omit = omit,
+        date_upper_bound: Union[str, date, None] | Omit = omit,
+        description: Optional[str] | Omit = omit,
+        direction: Optional[Literal["credit", "debit"]] | Omit = omit,
+        external_id: Optional[str] | Omit = omit,
+        internal_account_id: Optional[str] | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        reconciliation_filters: Optional[object] | Omit = omit,
+        reconciliation_groups: Optional[object] | Omit = omit,
+        reconciliation_rule_variables: Optional[Iterable[ReconciliationRuleParam]] | Omit = omit,
+        remittance_information: Optional[str] | Omit = omit,
+        statement_descriptor: Optional[str] | Omit = omit,
+        status: Optional[Literal["reconciled"]] | Omit = omit,
+        type: Optional[ExpectedPaymentType] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """
@@ -740,6 +804,18 @@ class AsyncExpectedPayments(AsyncAPIResource):
         Args:
           amount_lower_bound: The lowest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled: The amount reconciled for this expected payment. Value in specified currency's
+              smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_reconciled_direction: One of credit or debit. Indicates whether amount_reconciled is a credit or debit
+              amount.
+
+          amount_unreconciled: The amount that remains unreconciled for this expected payment. Value in
+              specified currency's smallest unit. e.g. $10 would be represented as 1000.
+
+          amount_unreconciled_direction: One of credit or debit. Indicates whether amount_unreconciled is a credit or
+              debit amount.
 
           amount_upper_bound: The highest amount this expected payment may be equal to. Value in specified
               currency's smallest unit. e.g. $10 would be represented as 1000.
@@ -802,6 +878,10 @@ class AsyncExpectedPayments(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "amount_lower_bound": amount_lower_bound,
+                    "amount_reconciled": amount_reconciled,
+                    "amount_reconciled_direction": amount_reconciled_direction,
+                    "amount_unreconciled": amount_unreconciled,
+                    "amount_unreconciled_direction": amount_unreconciled_direction,
                     "amount_upper_bound": amount_upper_bound,
                     "counterparty_id": counterparty_id,
                     "currency": currency,
@@ -835,16 +915,16 @@ class AsyncExpectedPayments(AsyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        created_at_lower_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        created_at_upper_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        direction: TransactionDirection | NotGiven = NOT_GIVEN,
-        external_id: str | NotGiven = NOT_GIVEN,
-        internal_account_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["archived", "partially_reconciled", "reconciled", "unreconciled"] | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        created_at_lower_bound: Union[str, datetime] | Omit = omit,
+        created_at_upper_bound: Union[str, datetime] | Omit = omit,
+        direction: TransactionDirection | Omit = omit,
+        external_id: str | Omit = omit,
+        internal_account_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["archived", "partially_reconciled", "reconciled", "unreconciled"] | Omit = omit,
         type: Literal[
             "ach",
             "au_becs",
@@ -882,15 +962,15 @@ class AsyncExpectedPayments(AsyncAPIResource):
             "wire",
             "zengin",
         ]
-        | NotGiven = NOT_GIVEN,
-        updated_at_lower_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        updated_at_upper_bound: Union[str, datetime] | NotGiven = NOT_GIVEN,
+        | Omit = omit,
+        updated_at_lower_bound: Union[str, datetime] | Omit = omit,
+        updated_at_upper_bound: Union[str, datetime] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ExpectedPayment, AsyncPage[ExpectedPayment]]:
         """
         list expected_payments
@@ -966,7 +1046,7 @@ class AsyncExpectedPayments(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> ExpectedPayment:
         """

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -1044,7 +1044,7 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    resourceId: Optional[resourceId]
+    resourceId: resourceId | None
 
 
 class ConflictingResourceUpdateException(ServiceException):
@@ -1182,8 +1182,8 @@ class ResourceAlreadyExistsException(ServiceException):
     code: str = "ResourceAlreadyExistsException"
     sender_fault: bool = False
     status_code: int = 409
-    resourceId: Optional[resourceId]
-    resourceArn: Optional[resourceArn]
+    resourceId: resourceId | None
+    resourceArn: resourceArn | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -1308,7 +1308,7 @@ class AbortCriteria(TypedDict, total=False):
     minNumberOfExecutedThings: MinimumNumberOfExecutedThings
 
 
-AbortCriteriaList = List[AbortCriteria]
+AbortCriteriaList = list[AbortCriteria]
 
 
 class AbortConfig(TypedDict, total=False):
@@ -1321,7 +1321,7 @@ class AcceptCertificateTransferRequest(ServiceRequest):
     """The input for the AcceptCertificateTransfer operation."""
 
     certificateId: CertificateId
-    setAsActive: Optional[SetAsActive]
+    setAsActive: SetAsActive | None
 
 
 class LocationTimestamp(TypedDict, total=False):
@@ -1330,7 +1330,7 @@ class LocationTimestamp(TypedDict, total=False):
     """
 
     value: String
-    unit: Optional[String]
+    unit: String | None
 
 
 class LocationAction(TypedDict, total=False):
@@ -1341,7 +1341,7 @@ class LocationAction(TypedDict, total=False):
     roleArn: AwsArn
     trackerName: String
     deviceId: String
-    timestamp: Optional[LocationTimestamp]
+    timestamp: LocationTimestamp | None
     latitude: String
     longitude: String
 
@@ -1367,8 +1367,8 @@ class KafkaActionHeader(TypedDict, total=False):
     value: KafkaHeaderValue
 
 
-KafkaHeaders = List[KafkaActionHeader]
-ClientProperties = Dict[String, String]
+KafkaHeaders = list[KafkaActionHeader]
+ClientProperties = dict[String, String]
 
 
 class KafkaAction(TypedDict, total=False):
@@ -1378,10 +1378,10 @@ class KafkaAction(TypedDict, total=False):
 
     destinationArn: AwsArn
     topic: String
-    key: Optional[String]
-    partition: Optional[String]
+    key: String | None
+    partition: String | None
     clientProperties: ClientProperties
-    headers: Optional[KafkaHeaders]
+    headers: KafkaHeaders | None
 
 
 class SigV4Authorization(TypedDict, total=False):
@@ -1397,7 +1397,7 @@ class SigV4Authorization(TypedDict, total=False):
 class HttpAuthorization(TypedDict, total=False):
     """The authorization method used to send messages."""
 
-    sigv4: Optional[SigV4Authorization]
+    sigv4: SigV4Authorization | None
 
 
 class HttpActionHeader(TypedDict, total=False):
@@ -1407,16 +1407,16 @@ class HttpActionHeader(TypedDict, total=False):
     value: HeaderValue
 
 
-HeaderList = List[HttpActionHeader]
+HeaderList = list[HttpActionHeader]
 
 
 class HttpAction(TypedDict, total=False):
     """Send data to an HTTPS endpoint."""
 
     url: Url
-    confirmationUrl: Optional[Url]
-    headers: Optional[HeaderList]
-    auth: Optional[HttpAuthorization]
+    confirmationUrl: Url | None
+    headers: HeaderList | None
+    auth: HttpAuthorization | None
 
 
 class TimestreamTimestamp(TypedDict, total=False):
@@ -1437,7 +1437,7 @@ class TimestreamDimension(TypedDict, total=False):
     value: TimestreamDimensionValue
 
 
-TimestreamDimensionList = List[TimestreamDimension]
+TimestreamDimensionList = list[TimestreamDimension]
 
 
 class TimestreamAction(TypedDict, total=False):
@@ -1451,13 +1451,13 @@ class TimestreamAction(TypedDict, total=False):
     databaseName: TimestreamDatabaseName
     tableName: TimestreamTableName
     dimensions: TimestreamDimensionList
-    timestamp: Optional[TimestreamTimestamp]
+    timestamp: TimestreamTimestamp | None
 
 
 class StepFunctionsAction(TypedDict, total=False):
     """Starts execution of a Step Functions state machine."""
 
-    executionNamePrefix: Optional[ExecutionNamePrefix]
+    executionNamePrefix: ExecutionNamePrefix | None
     stateMachineName: StateMachineName
     roleArn: AwsArn
 
@@ -1466,16 +1466,16 @@ class AssetPropertyTimestamp(TypedDict, total=False):
     """An asset property timestamp entry containing the following information."""
 
     timeInSeconds: AssetPropertyTimeInSeconds
-    offsetInNanos: Optional[AssetPropertyOffsetInNanos]
+    offsetInNanos: AssetPropertyOffsetInNanos | None
 
 
 class AssetPropertyVariant(TypedDict, total=False):
     """Contains an asset property value (of a single type)."""
 
-    stringValue: Optional[AssetPropertyStringValue]
-    integerValue: Optional[AssetPropertyIntegerValue]
-    doubleValue: Optional[AssetPropertyDoubleValue]
-    booleanValue: Optional[AssetPropertyBooleanValue]
+    stringValue: AssetPropertyStringValue | None
+    integerValue: AssetPropertyIntegerValue | None
+    doubleValue: AssetPropertyDoubleValue | None
+    booleanValue: AssetPropertyBooleanValue | None
 
 
 class AssetPropertyValue(TypedDict, total=False):
@@ -1483,23 +1483,23 @@ class AssetPropertyValue(TypedDict, total=False):
 
     value: AssetPropertyVariant
     timestamp: AssetPropertyTimestamp
-    quality: Optional[AssetPropertyQuality]
+    quality: AssetPropertyQuality | None
 
 
-AssetPropertyValueList = List[AssetPropertyValue]
+AssetPropertyValueList = list[AssetPropertyValue]
 
 
 class PutAssetPropertyValueEntry(TypedDict, total=False):
     """An asset property value entry containing the following information."""
 
-    entryId: Optional[AssetPropertyEntryId]
-    assetId: Optional[AssetId]
-    propertyId: Optional[AssetPropertyId]
-    propertyAlias: Optional[AssetPropertyAlias]
+    entryId: AssetPropertyEntryId | None
+    assetId: AssetId | None
+    propertyId: AssetPropertyId | None
+    propertyAlias: AssetPropertyAlias | None
     propertyValues: AssetPropertyValueList
 
 
-PutAssetPropertyValueEntryList = List[PutAssetPropertyValueEntry]
+PutAssetPropertyValueEntryList = list[PutAssetPropertyValueEntry]
 
 
 class IotSiteWiseAction(TypedDict, total=False):
@@ -1515,18 +1515,18 @@ class IotEventsAction(TypedDict, total=False):
     """Sends an input to an IoT Events detector."""
 
     inputName: InputName
-    messageId: Optional[MessageId]
-    batchMode: Optional[BatchMode]
+    messageId: MessageId | None
+    batchMode: BatchMode | None
     roleArn: AwsArn
 
 
 class IotAnalyticsAction(TypedDict, total=False):
     """Sends message data to an IoT Analytics channel."""
 
-    channelArn: Optional[AwsArn]
-    channelName: Optional[ChannelName]
-    batchMode: Optional[BatchMode]
-    roleArn: Optional[AwsArn]
+    channelArn: AwsArn | None
+    channelName: ChannelName | None
+    batchMode: BatchMode | None
+    roleArn: AwsArn | None
 
 
 class SalesforceAction(TypedDict, total=False):
@@ -1551,7 +1551,7 @@ class CloudwatchLogsAction(TypedDict, total=False):
 
     roleArn: AwsArn
     logGroupName: LogGroupName
-    batchMode: Optional[BatchMode]
+    batchMode: BatchMode | None
 
 
 class CloudwatchAlarmAction(TypedDict, total=False):
@@ -1571,7 +1571,7 @@ class CloudwatchMetricAction(TypedDict, total=False):
     metricName: String
     metricValue: String
     metricUnit: String
-    metricTimestamp: Optional[String]
+    metricTimestamp: String | None
 
 
 class FirehoseAction(TypedDict, total=False):
@@ -1581,8 +1581,8 @@ class FirehoseAction(TypedDict, total=False):
 
     roleArn: AwsArn
     deliveryStreamName: DeliveryStreamName
-    separator: Optional[FirehoseSeparator]
-    batchMode: Optional[BatchMode]
+    separator: FirehoseSeparator | None
+    batchMode: BatchMode | None
 
 
 class S3Action(TypedDict, total=False):
@@ -1591,7 +1591,7 @@ class S3Action(TypedDict, total=False):
     roleArn: AwsArn
     bucketName: BucketName
     key: Key
-    cannedAcl: Optional[CannedAccessControlList]
+    cannedAcl: CannedAccessControlList | None
 
 
 class UserProperty(TypedDict, total=False):
@@ -1604,7 +1604,7 @@ class UserProperty(TypedDict, total=False):
     value: UserPropertyValue
 
 
-UserProperties = List[UserProperty]
+UserProperties = list[UserProperty]
 
 
 class MqttHeaders(TypedDict, total=False):
@@ -1614,12 +1614,12 @@ class MqttHeaders(TypedDict, total=False):
     from Amazon Web Services IoT Core Developer Guide.
     """
 
-    payloadFormatIndicator: Optional[PayloadFormatIndicator]
-    contentType: Optional[ContentType]
-    responseTopic: Optional[ResponseTopic]
-    correlationData: Optional[CorrelationData]
-    messageExpiry: Optional[MessageExpiry]
-    userProperties: Optional[UserProperties]
+    payloadFormatIndicator: PayloadFormatIndicator | None
+    contentType: ContentType | None
+    responseTopic: ResponseTopic | None
+    correlationData: CorrelationData | None
+    messageExpiry: MessageExpiry | None
+    userProperties: UserProperties | None
 
 
 class RepublishAction(TypedDict, total=False):
@@ -1627,8 +1627,8 @@ class RepublishAction(TypedDict, total=False):
 
     roleArn: AwsArn
     topic: TopicPattern
-    qos: Optional[Qos]
-    headers: Optional[MqttHeaders]
+    qos: Qos | None
+    headers: MqttHeaders | None
 
 
 class KinesisAction(TypedDict, total=False):
@@ -1636,7 +1636,7 @@ class KinesisAction(TypedDict, total=False):
 
     roleArn: AwsArn
     streamName: StreamName
-    partitionKey: Optional[PartitionKey]
+    partitionKey: PartitionKey | None
 
 
 class SqsAction(TypedDict, total=False):
@@ -1644,7 +1644,7 @@ class SqsAction(TypedDict, total=False):
 
     roleArn: AwsArn
     queueUrl: QueueUrl
-    useBase64: Optional[UseBase64]
+    useBase64: UseBase64 | None
 
 
 class SnsAction(TypedDict, total=False):
@@ -1652,7 +1652,7 @@ class SnsAction(TypedDict, total=False):
 
     targetArn: AwsArn
     roleArn: AwsArn
-    messageFormat: Optional[MessageFormat]
+    messageFormat: MessageFormat | None
 
 
 class LambdaAction(TypedDict, total=False):
@@ -1703,71 +1703,71 @@ class DynamoDBAction(TypedDict, total=False):
 
     tableName: TableName
     roleArn: AwsArn
-    operation: Optional[DynamoOperation]
+    operation: DynamoOperation | None
     hashKeyField: HashKeyField
     hashKeyValue: HashKeyValue
-    hashKeyType: Optional[DynamoKeyType]
-    rangeKeyField: Optional[RangeKeyField]
-    rangeKeyValue: Optional[RangeKeyValue]
-    rangeKeyType: Optional[DynamoKeyType]
-    payloadField: Optional[PayloadField]
+    hashKeyType: DynamoKeyType | None
+    rangeKeyField: RangeKeyField | None
+    rangeKeyValue: RangeKeyValue | None
+    rangeKeyType: DynamoKeyType | None
+    payloadField: PayloadField | None
 
 
 Action = TypedDict(
     "Action",
     {
-        "dynamoDB": Optional[DynamoDBAction],
-        "dynamoDBv2": Optional[DynamoDBv2Action],
-        "lambda": Optional[LambdaAction],
-        "sns": Optional[SnsAction],
-        "sqs": Optional[SqsAction],
-        "kinesis": Optional[KinesisAction],
-        "republish": Optional[RepublishAction],
-        "s3": Optional[S3Action],
-        "firehose": Optional[FirehoseAction],
-        "cloudwatchMetric": Optional[CloudwatchMetricAction],
-        "cloudwatchAlarm": Optional[CloudwatchAlarmAction],
-        "cloudwatchLogs": Optional[CloudwatchLogsAction],
-        "elasticsearch": Optional[ElasticsearchAction],
-        "salesforce": Optional[SalesforceAction],
-        "iotAnalytics": Optional[IotAnalyticsAction],
-        "iotEvents": Optional[IotEventsAction],
-        "iotSiteWise": Optional[IotSiteWiseAction],
-        "stepFunctions": Optional[StepFunctionsAction],
-        "timestream": Optional[TimestreamAction],
-        "http": Optional[HttpAction],
-        "kafka": Optional[KafkaAction],
-        "openSearch": Optional[OpenSearchAction],
-        "location": Optional[LocationAction],
+        "dynamoDB": DynamoDBAction | None,
+        "dynamoDBv2": DynamoDBv2Action | None,
+        "lambda": LambdaAction | None,
+        "sns": SnsAction | None,
+        "sqs": SqsAction | None,
+        "kinesis": KinesisAction | None,
+        "republish": RepublishAction | None,
+        "s3": S3Action | None,
+        "firehose": FirehoseAction | None,
+        "cloudwatchMetric": CloudwatchMetricAction | None,
+        "cloudwatchAlarm": CloudwatchAlarmAction | None,
+        "cloudwatchLogs": CloudwatchLogsAction | None,
+        "elasticsearch": ElasticsearchAction | None,
+        "salesforce": SalesforceAction | None,
+        "iotAnalytics": IotAnalyticsAction | None,
+        "iotEvents": IotEventsAction | None,
+        "iotSiteWise": IotSiteWiseAction | None,
+        "stepFunctions": StepFunctionsAction | None,
+        "timestream": TimestreamAction | None,
+        "http": HttpAction | None,
+        "kafka": KafkaAction | None,
+        "openSearch": OpenSearchAction | None,
+        "location": LocationAction | None,
     },
     total=False,
 )
-ActionList = List[Action]
+ActionList = list[Action]
 Timestamp = datetime
 
 
 class ViolationEventAdditionalInfo(TypedDict, total=False):
     """The details of a violation event."""
 
-    confidenceLevel: Optional[ConfidenceLevel]
+    confidenceLevel: ConfidenceLevel | None
 
 
-StringList = List[stringValue]
-NumberList = List[Number]
-Ports = List[Port]
-Cidrs = List[Cidr]
+StringList = list[stringValue]
+NumberList = list[Number]
+Ports = list[Port]
+Cidrs = list[Cidr]
 UnsignedLong = int
 
 
 class MetricValue(TypedDict, total=False):
     """The value to be compared with the ``metric``."""
 
-    count: Optional[UnsignedLong]
-    cidrs: Optional[Cidrs]
-    ports: Optional[Ports]
-    number: Optional[Number]
-    numbers: Optional[NumberList]
-    strings: Optional[StringList]
+    count: UnsignedLong | None
+    cidrs: Cidrs | None
+    ports: Ports | None
+    number: Number | None
+    numbers: NumberList | None
+    strings: StringList | None
 
 
 class MachineLearningDetectionConfig(TypedDict, total=False):
@@ -1782,37 +1782,37 @@ class StatisticalThreshold(TypedDict, total=False):
     the behavior.
     """
 
-    statistic: Optional[EvaluationStatistic]
+    statistic: EvaluationStatistic | None
 
 
 class BehaviorCriteria(TypedDict, total=False):
     """The criteria by which the behavior is determined to be normal."""
 
-    comparisonOperator: Optional[ComparisonOperator]
-    value: Optional[MetricValue]
-    durationSeconds: Optional[DurationSeconds]
-    consecutiveDatapointsToAlarm: Optional[ConsecutiveDatapointsToAlarm]
-    consecutiveDatapointsToClear: Optional[ConsecutiveDatapointsToClear]
-    statisticalThreshold: Optional[StatisticalThreshold]
-    mlDetectionConfig: Optional[MachineLearningDetectionConfig]
+    comparisonOperator: ComparisonOperator | None
+    value: MetricValue | None
+    durationSeconds: DurationSeconds | None
+    consecutiveDatapointsToAlarm: ConsecutiveDatapointsToAlarm | None
+    consecutiveDatapointsToClear: ConsecutiveDatapointsToClear | None
+    statisticalThreshold: StatisticalThreshold | None
+    mlDetectionConfig: MachineLearningDetectionConfig | None
 
 
 class MetricDimension(TypedDict, total=False):
     """The dimension of a metric."""
 
     dimensionName: DimensionName
-    operator: Optional[DimensionValueOperator]
+    operator: DimensionValueOperator | None
 
 
 class Behavior(TypedDict, total=False):
     """A Device Defender security profile behavior."""
 
     name: BehaviorName
-    metric: Optional[BehaviorMetric]
-    metricDimension: Optional[MetricDimension]
-    criteria: Optional[BehaviorCriteria]
-    suppressAlerts: Optional[SuppressAlerts]
-    exportMetric: Optional[ExportMetric]
+    metric: BehaviorMetric | None
+    metricDimension: MetricDimension | None
+    criteria: BehaviorCriteria | None
+    suppressAlerts: SuppressAlerts | None
+    exportMetric: ExportMetric | None
 
 
 class ActiveViolation(TypedDict, total=False):
@@ -1820,26 +1820,26 @@ class ActiveViolation(TypedDict, total=False):
     violation.
     """
 
-    violationId: Optional[ViolationId]
-    thingName: Optional[DeviceDefenderThingName]
-    securityProfileName: Optional[SecurityProfileName]
-    behavior: Optional[Behavior]
-    lastViolationValue: Optional[MetricValue]
-    violationEventAdditionalInfo: Optional[ViolationEventAdditionalInfo]
-    verificationState: Optional[VerificationState]
-    verificationStateDescription: Optional[VerificationStateDescription]
-    lastViolationTime: Optional[Timestamp]
-    violationStartTime: Optional[Timestamp]
+    violationId: ViolationId | None
+    thingName: DeviceDefenderThingName | None
+    securityProfileName: SecurityProfileName | None
+    behavior: Behavior | None
+    lastViolationValue: MetricValue | None
+    violationEventAdditionalInfo: ViolationEventAdditionalInfo | None
+    verificationState: VerificationState | None
+    verificationStateDescription: VerificationStateDescription | None
+    lastViolationTime: Timestamp | None
+    violationStartTime: Timestamp | None
 
 
-ActiveViolations = List[ActiveViolation]
+ActiveViolations = list[ActiveViolation]
 
 
 class AddThingToBillingGroupRequest(ServiceRequest):
-    billingGroupName: Optional[BillingGroupName]
-    billingGroupArn: Optional[BillingGroupArn]
-    thingName: Optional[ThingName]
-    thingArn: Optional[ThingArn]
+    billingGroupName: BillingGroupName | None
+    billingGroupArn: BillingGroupArn | None
+    thingName: ThingName | None
+    thingArn: ThingArn | None
 
 
 class AddThingToBillingGroupResponse(TypedDict, total=False):
@@ -1847,18 +1847,18 @@ class AddThingToBillingGroupResponse(TypedDict, total=False):
 
 
 class AddThingToThingGroupRequest(ServiceRequest):
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupArn: Optional[ThingGroupArn]
-    thingName: Optional[ThingName]
-    thingArn: Optional[ThingArn]
-    overrideDynamicGroups: Optional[OverrideDynamicGroups]
+    thingGroupName: ThingGroupName | None
+    thingGroupArn: ThingGroupArn | None
+    thingName: ThingName | None
+    thingArn: ThingArn | None
+    overrideDynamicGroups: OverrideDynamicGroups | None
 
 
 class AddThingToThingGroupResponse(TypedDict, total=False):
     pass
 
 
-ThingGroupNames = List[ThingGroupName]
+ThingGroupNames = list[ThingGroupName]
 
 
 class AddThingsToThingGroupParams(TypedDict, total=False):
@@ -1867,30 +1867,30 @@ class AddThingsToThingGroupParams(TypedDict, total=False):
     """
 
     thingGroupNames: ThingGroupNames
-    overrideDynamicGroups: Optional[NullableBoolean]
+    overrideDynamicGroups: NullableBoolean | None
 
 
-AdditionalMetricsToRetainList = List[BehaviorMetric]
+AdditionalMetricsToRetainList = list[BehaviorMetric]
 
 
 class MetricToRetain(TypedDict, total=False):
     """The metric you want to retain. Dimensions are optional."""
 
     metric: BehaviorMetric
-    metricDimension: Optional[MetricDimension]
-    exportMetric: Optional[ExportMetric]
+    metricDimension: MetricDimension | None
+    exportMetric: ExportMetric | None
 
 
-AdditionalMetricsToRetainV2List = List[MetricToRetain]
-AdditionalParameterMap = Dict[AttributeKey, Value]
-AggregationTypeValues = List[AggregationTypeValue]
+AdditionalMetricsToRetainV2List = list[MetricToRetain]
+AdditionalParameterMap = dict[AttributeKey, Value]
+AggregationTypeValues = list[AggregationTypeValue]
 
 
 class AggregationType(TypedDict, total=False):
     """The type of aggregation queries."""
 
     name: AggregationTypeName
-    values: Optional[AggregationTypeValues]
+    values: AggregationTypeValues | None
 
 
 class AlertTarget(TypedDict, total=False):
@@ -1900,23 +1900,23 @@ class AlertTarget(TypedDict, total=False):
     roleArn: RoleArn
 
 
-AlertTargets = Dict[AlertTargetType, AlertTarget]
+AlertTargets = dict[AlertTargetType, AlertTarget]
 
 
 class Policy(TypedDict, total=False):
     """Describes an IoT policy."""
 
-    policyName: Optional[PolicyName]
-    policyArn: Optional[PolicyArn]
+    policyName: PolicyName | None
+    policyArn: PolicyArn | None
 
 
-Policies = List[Policy]
+Policies = list[Policy]
 
 
 class Allowed(TypedDict, total=False):
     """Contains information that allowed the authorization."""
 
-    policies: Optional[Policies]
+    policies: Policies | None
 
 
 ApproximateSecondsBeforeTimedOut = int
@@ -1925,9 +1925,9 @@ ApproximateSecondsBeforeTimedOut = int
 class S3Location(TypedDict, total=False):
     """The S3 location."""
 
-    bucket: Optional[S3Bucket]
-    key: Optional[S3Key]
-    version: Optional[S3Version]
+    bucket: S3Bucket | None
+    key: S3Key | None
+    version: S3Version | None
 
 
 class Sbom(TypedDict, total=False):
@@ -1935,37 +1935,37 @@ class Sbom(TypedDict, total=False):
     package version.
     """
 
-    s3Location: Optional[S3Location]
+    s3Location: S3Location | None
 
 
 class AssociateSbomWithPackageVersionRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
     sbom: Sbom
-    clientToken: Optional[ClientToken]
+    clientToken: ClientToken | None
 
 
 class AssociateSbomWithPackageVersionResponse(TypedDict, total=False):
-    packageName: Optional[PackageName]
-    versionName: Optional[VersionName]
-    sbom: Optional[Sbom]
-    sbomValidationStatus: Optional[SbomValidationStatus]
+    packageName: PackageName | None
+    versionName: VersionName | None
+    sbom: Sbom | None
+    sbomValidationStatus: SbomValidationStatus | None
 
 
-JobTargets = List[TargetArn]
+JobTargets = list[TargetArn]
 
 
 class AssociateTargetsWithJobRequest(ServiceRequest):
     targets: JobTargets
     jobId: JobId
-    comment: Optional[Comment]
-    namespaceId: Optional[NamespaceId]
+    comment: Comment | None
+    namespaceId: NamespaceId | None
 
 
 class AssociateTargetsWithJobResponse(TypedDict, total=False):
-    jobArn: Optional[JobArn]
-    jobId: Optional[JobId]
-    description: Optional[JobDescription]
+    jobArn: JobArn | None
+    jobId: JobId | None
+    description: JobDescription | None
 
 
 class AttachPolicyRequest(ServiceRequest):
@@ -1994,7 +1994,7 @@ class AttachThingPrincipalRequest(ServiceRequest):
 
     thingName: ThingName
     principal: Principal
-    thingPrincipalType: Optional[ThingPrincipalType]
+    thingPrincipalType: ThingPrincipalType | None
 
 
 class AttachThingPrincipalResponse(TypedDict, total=False):
@@ -2003,28 +2003,28 @@ class AttachThingPrincipalResponse(TypedDict, total=False):
     pass
 
 
-Attributes = Dict[AttributeName, AttributeValue]
+Attributes = dict[AttributeName, AttributeValue]
 
 
 class AttributePayload(TypedDict, total=False):
     """The attribute payload."""
 
-    attributes: Optional[Attributes]
-    merge: Optional[Flag]
+    attributes: Attributes | None
+    merge: Flag | None
 
 
-AttributesMap = Dict[AttributeKey, Value]
-CheckCustomConfiguration = Dict[ConfigName, ConfigValue]
+AttributesMap = dict[AttributeKey, Value]
+CheckCustomConfiguration = dict[ConfigName, ConfigValue]
 
 
 class AuditCheckConfiguration(TypedDict, total=False):
     """Which audit checks are enabled and disabled for this account."""
 
-    enabled: Optional[Enabled]
-    configuration: Optional[CheckCustomConfiguration]
+    enabled: Enabled | None
+    configuration: CheckCustomConfiguration | None
 
 
-AuditCheckConfigurations = Dict[AuditCheckName, AuditCheckConfiguration]
+AuditCheckConfigurations = dict[AuditCheckName, AuditCheckConfiguration]
 SuppressedNonCompliantResourcesCount = int
 NonCompliantResourcesCount = int
 TotalResourcesCount = int
@@ -2033,29 +2033,29 @@ TotalResourcesCount = int
 class AuditCheckDetails(TypedDict, total=False):
     """Information about the audit check."""
 
-    checkRunStatus: Optional[AuditCheckRunStatus]
-    checkCompliant: Optional[CheckCompliant]
-    totalResourcesCount: Optional[TotalResourcesCount]
-    nonCompliantResourcesCount: Optional[NonCompliantResourcesCount]
-    suppressedNonCompliantResourcesCount: Optional[SuppressedNonCompliantResourcesCount]
-    errorCode: Optional[ErrorCode]
-    message: Optional[ErrorMessage]
+    checkRunStatus: AuditCheckRunStatus | None
+    checkCompliant: CheckCompliant | None
+    totalResourcesCount: TotalResourcesCount | None
+    nonCompliantResourcesCount: NonCompliantResourcesCount | None
+    suppressedNonCompliantResourcesCount: SuppressedNonCompliantResourcesCount | None
+    errorCode: ErrorCode | None
+    message: ErrorMessage | None
 
 
-MitigationActionNameList = List[MitigationActionName]
-AuditCheckToActionsMapping = Dict[AuditCheckName, MitigationActionNameList]
-ReasonForNonComplianceCodes = List[ReasonForNonComplianceCode]
-AuditCheckToReasonCodeFilter = Dict[AuditCheckName, ReasonForNonComplianceCodes]
-AuditDetails = Dict[AuditCheckName, AuditCheckDetails]
-StringMap = Dict[String, String]
+MitigationActionNameList = list[MitigationActionName]
+AuditCheckToActionsMapping = dict[AuditCheckName, MitigationActionNameList]
+ReasonForNonComplianceCodes = list[ReasonForNonComplianceCode]
+AuditCheckToReasonCodeFilter = dict[AuditCheckName, ReasonForNonComplianceCodes]
+AuditDetails = dict[AuditCheckName, AuditCheckDetails]
+StringMap = dict[String, String]
 
 
 class IssuerCertificateIdentifier(TypedDict, total=False):
     """The certificate issuer indentifier."""
 
-    issuerCertificateSubject: Optional[IssuerCertificateSubject]
-    issuerId: Optional[IssuerId]
-    issuerCertificateSerialNumber: Optional[IssuerCertificateSerialNumber]
+    issuerCertificateSubject: IssuerCertificateSubject | None
+    issuerId: IssuerId | None
+    issuerCertificateSerialNumber: IssuerCertificateSerialNumber | None
 
 
 class PolicyVersionIdentifier(TypedDict, total=False):
@@ -2063,34 +2063,34 @@ class PolicyVersionIdentifier(TypedDict, total=False):
     resource.
     """
 
-    policyName: Optional[PolicyName]
-    policyVersionId: Optional[PolicyVersionId]
+    policyName: PolicyName | None
+    policyVersionId: PolicyVersionId | None
 
 
 class ResourceIdentifier(TypedDict, total=False):
     """Information that identifies the noncompliant resource."""
 
-    deviceCertificateId: Optional[CertificateId]
-    caCertificateId: Optional[CertificateId]
-    cognitoIdentityPoolId: Optional[CognitoIdentityPoolId]
-    clientId: Optional[ClientId]
-    policyVersionIdentifier: Optional[PolicyVersionIdentifier]
-    account: Optional[AwsAccountId]
-    iamRoleArn: Optional[RoleArn]
-    roleAliasArn: Optional[RoleAliasArn]
-    issuerCertificateIdentifier: Optional[IssuerCertificateIdentifier]
-    deviceCertificateArn: Optional[CertificateArn]
+    deviceCertificateId: CertificateId | None
+    caCertificateId: CertificateId | None
+    cognitoIdentityPoolId: CognitoIdentityPoolId | None
+    clientId: ClientId | None
+    policyVersionIdentifier: PolicyVersionIdentifier | None
+    account: AwsAccountId | None
+    iamRoleArn: RoleArn | None
+    roleAliasArn: RoleAliasArn | None
+    issuerCertificateIdentifier: IssuerCertificateIdentifier | None
+    deviceCertificateArn: CertificateArn | None
 
 
 class RelatedResource(TypedDict, total=False):
     """Information about a related resource."""
 
-    resourceType: Optional[ResourceType]
-    resourceIdentifier: Optional[ResourceIdentifier]
-    additionalInfo: Optional[StringMap]
+    resourceType: ResourceType | None
+    resourceIdentifier: ResourceIdentifier | None
+    additionalInfo: StringMap | None
 
 
-RelatedResources = List[RelatedResource]
+RelatedResources = list[RelatedResource]
 
 
 class NonCompliantResource(TypedDict, total=False):
@@ -2098,28 +2098,28 @@ class NonCompliantResource(TypedDict, total=False):
     check.
     """
 
-    resourceType: Optional[ResourceType]
-    resourceIdentifier: Optional[ResourceIdentifier]
-    additionalInfo: Optional[StringMap]
+    resourceType: ResourceType | None
+    resourceIdentifier: ResourceIdentifier | None
+    additionalInfo: StringMap | None
 
 
 class AuditFinding(TypedDict, total=False):
     """The findings (results) of the audit."""
 
-    findingId: Optional[FindingId]
-    taskId: Optional[AuditTaskId]
-    checkName: Optional[AuditCheckName]
-    taskStartTime: Optional[Timestamp]
-    findingTime: Optional[Timestamp]
-    severity: Optional[AuditFindingSeverity]
-    nonCompliantResource: Optional[NonCompliantResource]
-    relatedResources: Optional[RelatedResources]
-    reasonForNonCompliance: Optional[ReasonForNonCompliance]
-    reasonForNonComplianceCode: Optional[ReasonForNonComplianceCode]
-    isSuppressed: Optional[IsSuppressed]
+    findingId: FindingId | None
+    taskId: AuditTaskId | None
+    checkName: AuditCheckName | None
+    taskStartTime: Timestamp | None
+    findingTime: Timestamp | None
+    severity: AuditFindingSeverity | None
+    nonCompliantResource: NonCompliantResource | None
+    relatedResources: RelatedResources | None
+    reasonForNonCompliance: ReasonForNonCompliance | None
+    reasonForNonComplianceCode: ReasonForNonComplianceCode | None
+    isSuppressed: IsSuppressed | None
 
 
-AuditFindings = List[AuditFinding]
+AuditFindings = list[AuditFinding]
 
 
 class AuditMitigationActionExecutionMetadata(TypedDict, total=False):
@@ -2127,18 +2127,18 @@ class AuditMitigationActionExecutionMetadata(TypedDict, total=False):
     information that describes a mitigation action that has been started.
     """
 
-    taskId: Optional[MitigationActionsTaskId]
-    findingId: Optional[FindingId]
-    actionName: Optional[MitigationActionName]
-    actionId: Optional[MitigationActionId]
-    status: Optional[AuditMitigationActionsExecutionStatus]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    errorCode: Optional[ErrorCode]
-    message: Optional[ErrorMessage]
+    taskId: MitigationActionsTaskId | None
+    findingId: FindingId | None
+    actionName: MitigationActionName | None
+    actionId: MitigationActionId | None
+    status: AuditMitigationActionsExecutionStatus | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    errorCode: ErrorCode | None
+    message: ErrorMessage | None
 
 
-AuditMitigationActionExecutionMetadataList = List[AuditMitigationActionExecutionMetadata]
+AuditMitigationActionExecutionMetadataList = list[AuditMitigationActionExecutionMetadata]
 
 
 class AuditMitigationActionsTaskMetadata(TypedDict, total=False):
@@ -2146,12 +2146,12 @@ class AuditMitigationActionsTaskMetadata(TypedDict, total=False):
     ``ListAuditMitigationActionsTasks``.
     """
 
-    taskId: Optional[MitigationActionsTaskId]
-    startTime: Optional[Timestamp]
-    taskStatus: Optional[AuditMitigationActionsTaskStatus]
+    taskId: MitigationActionsTaskId | None
+    startTime: Timestamp | None
+    taskStatus: AuditMitigationActionsTaskStatus | None
 
 
-AuditMitigationActionsTaskMetadataList = List[AuditMitigationActionsTaskMetadata]
+AuditMitigationActionsTaskMetadataList = list[AuditMitigationActionsTaskMetadata]
 CanceledFindingsCount = int
 SkippedFindingsCount = int
 SucceededFindingsCount = int
@@ -2165,15 +2165,15 @@ class TaskStatisticsForAuditCheck(TypedDict, total=False):
     DescribeAuditMitigationActionsTask.
     """
 
-    totalFindingsCount: Optional[TotalFindingsCount]
-    failedFindingsCount: Optional[FailedFindingsCount]
-    succeededFindingsCount: Optional[SucceededFindingsCount]
-    skippedFindingsCount: Optional[SkippedFindingsCount]
-    canceledFindingsCount: Optional[CanceledFindingsCount]
+    totalFindingsCount: TotalFindingsCount | None
+    failedFindingsCount: FailedFindingsCount | None
+    succeededFindingsCount: SucceededFindingsCount | None
+    skippedFindingsCount: SkippedFindingsCount | None
+    canceledFindingsCount: CanceledFindingsCount | None
 
 
-AuditMitigationActionsTaskStatistics = Dict[AuditCheckName, TaskStatisticsForAuditCheck]
-FindingIds = List[FindingId]
+AuditMitigationActionsTaskStatistics = dict[AuditCheckName, TaskStatisticsForAuditCheck]
+FindingIds = list[FindingId]
 
 
 class AuditMitigationActionsTaskTarget(TypedDict, total=False):
@@ -2182,20 +2182,20 @@ class AuditMitigationActionsTaskTarget(TypedDict, total=False):
     appears.
     """
 
-    auditTaskId: Optional[AuditTaskId]
-    findingIds: Optional[FindingIds]
-    auditCheckToReasonCodeFilter: Optional[AuditCheckToReasonCodeFilter]
+    auditTaskId: AuditTaskId | None
+    findingIds: FindingIds | None
+    auditCheckToReasonCodeFilter: AuditCheckToReasonCodeFilter | None
 
 
 class AuditNotificationTarget(TypedDict, total=False):
     """Information about the targets to which audit notifications are sent."""
 
-    targetArn: Optional[TargetArn]
-    roleArn: Optional[RoleArn]
-    enabled: Optional[Enabled]
+    targetArn: TargetArn | None
+    roleArn: RoleArn | None
+    enabled: Enabled | None
 
 
-AuditNotificationTargetConfigurations = Dict[AuditNotificationType, AuditNotificationTarget]
+AuditNotificationTargetConfigurations = dict[AuditNotificationType, AuditNotificationTarget]
 
 
 class AuditSuppression(TypedDict, total=False):
@@ -2203,41 +2203,41 @@ class AuditSuppression(TypedDict, total=False):
 
     checkName: AuditCheckName
     resourceIdentifier: ResourceIdentifier
-    expirationDate: Optional[Timestamp]
-    suppressIndefinitely: Optional[SuppressIndefinitely]
-    description: Optional[AuditDescription]
+    expirationDate: Timestamp | None
+    suppressIndefinitely: SuppressIndefinitely | None
+    description: AuditDescription | None
 
 
-AuditSuppressionList = List[AuditSuppression]
+AuditSuppressionList = list[AuditSuppression]
 
 
 class AuditTaskMetadata(TypedDict, total=False):
     """The audits that were performed."""
 
-    taskId: Optional[AuditTaskId]
-    taskStatus: Optional[AuditTaskStatus]
-    taskType: Optional[AuditTaskType]
+    taskId: AuditTaskId | None
+    taskStatus: AuditTaskStatus | None
+    taskType: AuditTaskType | None
 
 
-AuditTaskMetadataList = List[AuditTaskMetadata]
-Resources = List[Resource]
+AuditTaskMetadataList = list[AuditTaskMetadata]
+Resources = list[Resource]
 
 
 class AuthInfo(TypedDict, total=False):
     """A collection of authorization information."""
 
-    actionType: Optional[ActionType]
+    actionType: ActionType | None
     resources: Resources
 
 
-AuthInfos = List[AuthInfo]
-MissingContextValues = List[MissingContextValue]
+AuthInfos = list[AuthInfo]
+MissingContextValues = list[MissingContextValue]
 
 
 class ExplicitDeny(TypedDict, total=False):
     """Information that explicitly denies authorization."""
 
-    policies: Optional[Policies]
+    policies: Policies | None
 
 
 class ImplicitDeny(TypedDict, total=False):
@@ -2246,63 +2246,63 @@ class ImplicitDeny(TypedDict, total=False):
     implicit deny.
     """
 
-    policies: Optional[Policies]
+    policies: Policies | None
 
 
 class Denied(TypedDict, total=False):
     """Contains information that denied the authorization."""
 
-    implicitDeny: Optional[ImplicitDeny]
-    explicitDeny: Optional[ExplicitDeny]
+    implicitDeny: ImplicitDeny | None
+    explicitDeny: ExplicitDeny | None
 
 
 class AuthResult(TypedDict, total=False):
     """The authorizer result."""
 
-    authInfo: Optional[AuthInfo]
-    allowed: Optional[Allowed]
-    denied: Optional[Denied]
-    authDecision: Optional[AuthDecision]
-    missingContextValues: Optional[MissingContextValues]
+    authInfo: AuthInfo | None
+    allowed: Allowed | None
+    denied: Denied | None
+    authDecision: AuthDecision | None
+    missingContextValues: MissingContextValues | None
 
 
-AuthResults = List[AuthResult]
+AuthResults = list[AuthResult]
 
 
 class AuthorizerConfig(TypedDict, total=False):
     """An object that specifies the authorization service for a domain."""
 
-    defaultAuthorizerName: Optional[AuthorizerName]
-    allowAuthorizerOverride: Optional[AllowAuthorizerOverride]
+    defaultAuthorizerName: AuthorizerName | None
+    allowAuthorizerOverride: AllowAuthorizerOverride | None
 
 
 DateType = datetime
-PublicKeyMap = Dict[KeyName, KeyValue]
+PublicKeyMap = dict[KeyName, KeyValue]
 
 
 class AuthorizerDescription(TypedDict, total=False):
     """The authorizer description."""
 
-    authorizerName: Optional[AuthorizerName]
-    authorizerArn: Optional[AuthorizerArn]
-    authorizerFunctionArn: Optional[AuthorizerFunctionArn]
-    tokenKeyName: Optional[TokenKeyName]
-    tokenSigningPublicKeys: Optional[PublicKeyMap]
-    status: Optional[AuthorizerStatus]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    signingDisabled: Optional[BooleanKey]
-    enableCachingForHttp: Optional[EnableCachingForHttp]
+    authorizerName: AuthorizerName | None
+    authorizerArn: AuthorizerArn | None
+    authorizerFunctionArn: AuthorizerFunctionArn | None
+    tokenKeyName: TokenKeyName | None
+    tokenSigningPublicKeys: PublicKeyMap | None
+    status: AuthorizerStatus | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    signingDisabled: BooleanKey | None
+    enableCachingForHttp: EnableCachingForHttp | None
 
 
 class AuthorizerSummary(TypedDict, total=False):
     """The authorizer summary."""
 
-    authorizerName: Optional[AuthorizerName]
-    authorizerArn: Optional[AuthorizerArn]
+    authorizerName: AuthorizerName | None
+    authorizerArn: AuthorizerArn | None
 
 
-Authorizers = List[AuthorizerSummary]
+Authorizers = list[AuthorizerSummary]
 
 
 class AwsJobAbortCriteria(TypedDict, total=False):
@@ -2314,7 +2314,7 @@ class AwsJobAbortCriteria(TypedDict, total=False):
     minNumberOfExecutedThings: AwsJobAbortCriteriaMinimumNumberOfExecutedThings
 
 
-AwsJobAbortCriteriaList = List[AwsJobAbortCriteria]
+AwsJobAbortCriteriaList = list[AwsJobAbortCriteria]
 
 
 class AwsJobAbortConfig(TypedDict, total=False):
@@ -2326,8 +2326,8 @@ class AwsJobAbortConfig(TypedDict, total=False):
 class AwsJobRateIncreaseCriteria(TypedDict, total=False):
     """The criteria to initiate the increase in rate of rollout for a job."""
 
-    numberOfNotifiedThings: Optional[AwsJobRateIncreaseCriteriaNumberOfThings]
-    numberOfSucceededThings: Optional[AwsJobRateIncreaseCriteriaNumberOfThings]
+    numberOfNotifiedThings: AwsJobRateIncreaseCriteriaNumberOfThings | None
+    numberOfSucceededThings: AwsJobRateIncreaseCriteriaNumberOfThings | None
 
 
 class AwsJobExponentialRolloutRate(TypedDict, total=False):
@@ -2343,8 +2343,8 @@ class AwsJobExponentialRolloutRate(TypedDict, total=False):
 class AwsJobExecutionsRolloutConfig(TypedDict, total=False):
     """Configuration for the rollout of OTA updates."""
 
-    maximumPerMinute: Optional[MaximumPerMinute]
-    exponentialRate: Optional[AwsJobExponentialRolloutRate]
+    maximumPerMinute: MaximumPerMinute | None
+    exponentialRate: AwsJobExponentialRolloutRate | None
 
 
 ExpiresInSeconds = int
@@ -2355,7 +2355,7 @@ class AwsJobPresignedUrlConfig(TypedDict, total=False):
     contains HTTP.
     """
 
-    expiresInSec: Optional[ExpiresInSeconds]
+    expiresInSec: ExpiresInSeconds | None
 
 
 AwsJobTimeoutInProgressTimeoutInMinutes = int
@@ -2369,45 +2369,45 @@ class AwsJobTimeoutConfig(TypedDict, total=False):
     ``TIMED_OUT``.
     """
 
-    inProgressTimeoutInMinutes: Optional[AwsJobTimeoutInProgressTimeoutInMinutes]
+    inProgressTimeoutInMinutes: AwsJobTimeoutInProgressTimeoutInMinutes | None
 
 
 class BehaviorModelTrainingSummary(TypedDict, total=False):
     """The summary of an ML Detect behavior model."""
 
-    securityProfileName: Optional[SecurityProfileName]
-    behaviorName: Optional[BehaviorName]
-    trainingDataCollectionStartDate: Optional[Timestamp]
-    modelStatus: Optional[ModelStatus]
-    datapointsCollectionPercentage: Optional[DataCollectionPercentage]
-    lastModelRefreshDate: Optional[Timestamp]
+    securityProfileName: SecurityProfileName | None
+    behaviorName: BehaviorName | None
+    trainingDataCollectionStartDate: Timestamp | None
+    modelStatus: ModelStatus | None
+    datapointsCollectionPercentage: DataCollectionPercentage | None
+    lastModelRefreshDate: Timestamp | None
 
 
-BehaviorModelTrainingSummaries = List[BehaviorModelTrainingSummary]
-Behaviors = List[Behavior]
+BehaviorModelTrainingSummaries = list[BehaviorModelTrainingSummary]
+Behaviors = list[Behavior]
 CreationDate = datetime
 
 
 class BillingGroupMetadata(TypedDict, total=False):
     """Additional information about the billing group."""
 
-    creationDate: Optional[CreationDate]
+    creationDate: CreationDate | None
 
 
 class GroupNameAndArn(TypedDict, total=False):
     """The name and ARN of a group."""
 
-    groupName: Optional[ThingGroupName]
-    groupArn: Optional[ThingGroupArn]
+    groupName: ThingGroupName | None
+    groupArn: ThingGroupArn | None
 
 
-BillingGroupNameAndArnList = List[GroupNameAndArn]
+BillingGroupNameAndArnList = list[GroupNameAndArn]
 
 
 class BillingGroupProperties(TypedDict, total=False):
     """The properties of a billing group."""
 
-    billingGroupDescription: Optional[BillingGroupDescription]
+    billingGroupDescription: BillingGroupDescription | None
 
 
 BinaryCommandExecutionResult = bytes
@@ -2417,11 +2417,11 @@ BinaryParameterValue = bytes
 class Bucket(TypedDict, total=False):
     """A count of documents that meets a specific aggregation criteria."""
 
-    keyValue: Optional[BucketKeyValue]
-    count: Optional[Count]
+    keyValue: BucketKeyValue | None
+    count: Count | None
 
 
-Buckets = List[Bucket]
+Buckets = list[Bucket]
 
 
 class TermsAggregation(TypedDict, total=False):
@@ -2430,49 +2430,49 @@ class TermsAggregation(TypedDict, total=False):
     field value.
     """
 
-    maxBuckets: Optional[MaxBuckets]
+    maxBuckets: MaxBuckets | None
 
 
 class BucketsAggregationType(TypedDict, total=False):
     """The type of bucketed aggregation performed."""
 
-    termsAggregation: Optional[TermsAggregation]
+    termsAggregation: TermsAggregation | None
 
 
 class CACertificate(TypedDict, total=False):
     """A CA certificate."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    status: Optional[CACertificateStatus]
-    creationDate: Optional[DateType]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    status: CACertificateStatus | None
+    creationDate: DateType | None
 
 
 class CertificateValidity(TypedDict, total=False):
     """When the certificate is valid."""
 
-    notBefore: Optional[DateType]
-    notAfter: Optional[DateType]
+    notBefore: DateType | None
+    notAfter: DateType | None
 
 
 class CACertificateDescription(TypedDict, total=False):
     """Describes a CA certificate."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    status: Optional[CACertificateStatus]
-    certificatePem: Optional[CertificatePem]
-    ownedBy: Optional[AwsAccountId]
-    creationDate: Optional[DateType]
-    autoRegistrationStatus: Optional[AutoRegistrationStatus]
-    lastModifiedDate: Optional[DateType]
-    customerVersion: Optional[CustomerVersion]
-    generationId: Optional[GenerationId]
-    validity: Optional[CertificateValidity]
-    certificateMode: Optional[CertificateMode]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    status: CACertificateStatus | None
+    certificatePem: CertificatePem | None
+    ownedBy: AwsAccountId | None
+    creationDate: DateType | None
+    autoRegistrationStatus: AutoRegistrationStatus | None
+    lastModifiedDate: DateType | None
+    customerVersion: CustomerVersion | None
+    generationId: GenerationId | None
+    validity: CertificateValidity | None
+    certificateMode: CertificateMode | None
 
 
-CACertificates = List[CACertificate]
+CACertificates = list[CACertificate]
 
 
 class CancelAuditMitigationActionsTaskRequest(ServiceRequest):
@@ -2505,82 +2505,82 @@ class CancelDetectMitigationActionsTaskResponse(TypedDict, total=False):
     pass
 
 
-DetailsMap = Dict[DetailsKey, DetailsValue]
+DetailsMap = dict[DetailsKey, DetailsValue]
 ExpectedVersion = int
 
 
 class CancelJobExecutionRequest(ServiceRequest):
     jobId: JobId
     thingName: ThingName
-    force: Optional[ForceFlag]
-    expectedVersion: Optional[ExpectedVersion]
-    statusDetails: Optional[DetailsMap]
+    force: ForceFlag | None
+    expectedVersion: ExpectedVersion | None
+    statusDetails: DetailsMap | None
 
 
 class CancelJobRequest(ServiceRequest):
     jobId: JobId
-    reasonCode: Optional[ReasonCode]
-    comment: Optional[Comment]
-    force: Optional[ForceFlag]
+    reasonCode: ReasonCode | None
+    comment: Comment | None
+    force: ForceFlag | None
 
 
 class CancelJobResponse(TypedDict, total=False):
-    jobArn: Optional[JobArn]
-    jobId: Optional[JobId]
-    description: Optional[JobDescription]
+    jobArn: JobArn | None
+    jobId: JobId | None
+    description: JobDescription | None
 
 
 class Certificate(TypedDict, total=False):
     """Information about a certificate."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    status: Optional[CertificateStatus]
-    certificateMode: Optional[CertificateMode]
-    creationDate: Optional[DateType]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    status: CertificateStatus | None
+    certificateMode: CertificateMode | None
+    creationDate: DateType | None
 
 
 class TransferData(TypedDict, total=False):
     """Data used to transfer a certificate to an Amazon Web Services account."""
 
-    transferMessage: Optional[Message]
-    rejectReason: Optional[Message]
-    transferDate: Optional[DateType]
-    acceptDate: Optional[DateType]
-    rejectDate: Optional[DateType]
+    transferMessage: Message | None
+    rejectReason: Message | None
+    transferDate: DateType | None
+    acceptDate: DateType | None
+    rejectDate: DateType | None
 
 
 class CertificateDescription(TypedDict, total=False):
     """Describes a certificate."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    caCertificateId: Optional[CertificateId]
-    status: Optional[CertificateStatus]
-    certificatePem: Optional[CertificatePem]
-    ownedBy: Optional[AwsAccountId]
-    previousOwnedBy: Optional[AwsAccountId]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    customerVersion: Optional[CustomerVersion]
-    transferData: Optional[TransferData]
-    generationId: Optional[GenerationId]
-    validity: Optional[CertificateValidity]
-    certificateMode: Optional[CertificateMode]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    caCertificateId: CertificateId | None
+    status: CertificateStatus | None
+    certificatePem: CertificatePem | None
+    ownedBy: AwsAccountId | None
+    previousOwnedBy: AwsAccountId | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    customerVersion: CustomerVersion | None
+    transferData: TransferData | None
+    generationId: GenerationId | None
+    validity: CertificateValidity | None
+    certificateMode: CertificateMode | None
 
 
-CertificateProviderAccountDefaultForOperations = List[CertificateProviderOperation]
+CertificateProviderAccountDefaultForOperations = list[CertificateProviderOperation]
 
 
 class CertificateProviderSummary(TypedDict, total=False):
     """The certificate provider summary."""
 
-    certificateProviderName: Optional[CertificateProviderName]
-    certificateProviderArn: Optional[CertificateProviderArn]
+    certificateProviderName: CertificateProviderName | None
+    certificateProviderArn: CertificateProviderArn | None
 
 
-CertificateProviders = List[CertificateProviderSummary]
-Certificates = List[Certificate]
+CertificateProviders = list[CertificateProviderSummary]
+Certificates = list[Certificate]
 
 
 class ClearDefaultAuthorizerRequest(ServiceRequest):
@@ -2596,14 +2596,14 @@ class ClientCertificateConfig(TypedDict, total=False):
     domain.
     """
 
-    clientCertificateCallbackArn: Optional[ClientCertificateCallbackArn]
+    clientCertificateCallbackArn: ClientCertificateCallbackArn | None
 
 
 class CodeSigningCertificateChain(TypedDict, total=False):
     """Describes the certificate chain being used when code signing a file."""
 
-    certificateName: Optional[CertificateName]
-    inlineDocument: Optional[InlineDocument]
+    certificateName: CertificateName | None
+    inlineDocument: InlineDocument | None
 
 
 Signature = bytes
@@ -2612,53 +2612,53 @@ Signature = bytes
 class CodeSigningSignature(TypedDict, total=False):
     """Describes the signature for a file."""
 
-    inlineDocument: Optional[Signature]
+    inlineDocument: Signature | None
 
 
 class CustomCodeSigning(TypedDict, total=False):
     """Describes a custom method used to code sign a file."""
 
-    signature: Optional[CodeSigningSignature]
-    certificateChain: Optional[CodeSigningCertificateChain]
-    hashAlgorithm: Optional[HashAlgorithm]
-    signatureAlgorithm: Optional[SignatureAlgorithm]
+    signature: CodeSigningSignature | None
+    certificateChain: CodeSigningCertificateChain | None
+    hashAlgorithm: HashAlgorithm | None
+    signatureAlgorithm: SignatureAlgorithm | None
 
 
 class S3Destination(TypedDict, total=False):
     """Describes the location of updated firmware in S3."""
 
-    bucket: Optional[S3Bucket]
-    prefix: Optional[Prefix]
+    bucket: S3Bucket | None
+    prefix: Prefix | None
 
 
 class Destination(TypedDict, total=False):
     """Describes the location of the updated firmware."""
 
-    s3Destination: Optional[S3Destination]
+    s3Destination: S3Destination | None
 
 
 class SigningProfileParameter(TypedDict, total=False):
     """Describes the code-signing profile."""
 
-    certificateArn: Optional[CertificateArn]
-    platform: Optional[Platform]
-    certificatePathOnDevice: Optional[CertificatePathOnDevice]
+    certificateArn: CertificateArn | None
+    platform: Platform | None
+    certificatePathOnDevice: CertificatePathOnDevice | None
 
 
 class StartSigningJobParameter(TypedDict, total=False):
     """Information required to start a signing job."""
 
-    signingProfileParameter: Optional[SigningProfileParameter]
-    signingProfileName: Optional[SigningProfileName]
-    destination: Optional[Destination]
+    signingProfileParameter: SigningProfileParameter | None
+    signingProfileName: SigningProfileName | None
+    destination: Destination | None
 
 
 class CodeSigning(TypedDict, total=False):
     """Describes the method to use when code signing a file."""
 
-    awsSignerJobId: Optional[SigningJobId]
-    startSigningJobParameter: Optional[StartSigningJobParameter]
-    customCodeSigning: Optional[CustomCodeSigning]
+    awsSignerJobId: SigningJobId | None
+    startSigningJobParameter: StartSigningJobParameter | None
+    customCodeSigning: CustomCodeSigning | None
 
 
 LongParameterValue = int
@@ -2672,16 +2672,16 @@ class CommandParameterValue(TypedDict, total=False):
     listed.
     """
 
-    S: Optional[StringParameterValue]
-    B: Optional[BooleanParameterValue]
-    I: Optional[IntegerParameterValue]
-    L: Optional[LongParameterValue]
-    D: Optional[DoubleParameterValue]
-    BIN: Optional[BinaryParameterValue]
-    UL: Optional[UnsignedLongParameterValue]
+    S: StringParameterValue | None
+    B: BooleanParameterValue | None
+    I: IntegerParameterValue | None
+    L: LongParameterValue | None
+    D: DoubleParameterValue | None
+    BIN: BinaryParameterValue | None
+    UL: UnsignedLongParameterValue | None
 
 
-CommandExecutionParameterMap = Dict[CommandParameterName, CommandParameterValue]
+CommandExecutionParameterMap = dict[CommandParameterName, CommandParameterValue]
 
 
 class CommandExecutionResult(TypedDict, total=False):
@@ -2693,27 +2693,27 @@ class CommandExecutionResult(TypedDict, total=False):
     namespace.
     """
 
-    S: Optional[StringCommandExecutionResult]
-    B: Optional[BooleanCommandExecutionResult]
-    BIN: Optional[BinaryCommandExecutionResult]
+    S: StringCommandExecutionResult | None
+    B: BooleanCommandExecutionResult | None
+    BIN: BinaryCommandExecutionResult | None
 
 
-CommandExecutionResultMap = Dict[CommandExecutionResultName, CommandExecutionResult]
+CommandExecutionResultMap = dict[CommandExecutionResultName, CommandExecutionResult]
 
 
 class CommandExecutionSummary(TypedDict, total=False):
     """Summary information about a particular command execution."""
 
-    commandArn: Optional[CommandArn]
-    executionId: Optional[CommandExecutionId]
-    targetArn: Optional[TargetArn]
-    status: Optional[CommandExecutionStatus]
-    createdAt: Optional[DateType]
-    startedAt: Optional[DateType]
-    completedAt: Optional[DateType]
+    commandArn: CommandArn | None
+    executionId: CommandExecutionId | None
+    targetArn: TargetArn | None
+    status: CommandExecutionStatus | None
+    createdAt: DateType | None
+    startedAt: DateType | None
+    completedAt: DateType | None
 
 
-CommandExecutionSummaryList = List[CommandExecutionSummary]
+CommandExecutionSummaryList = list[CommandExecutionSummary]
 CommandExecutionTimeoutInSeconds = int
 
 
@@ -2721,12 +2721,12 @@ class CommandParameter(TypedDict, total=False):
     """A map of key-value pairs that describe the command."""
 
     name: CommandParameterName
-    value: Optional[CommandParameterValue]
-    defaultValue: Optional[CommandParameterValue]
-    description: Optional[CommandParameterDescription]
+    value: CommandParameterValue | None
+    defaultValue: CommandParameterValue | None
+    description: CommandParameterDescription | None
 
 
-CommandParameterList = List[CommandParameter]
+CommandParameterList = list[CommandParameter]
 CommandPayloadBlob = bytes
 
 
@@ -2735,29 +2735,29 @@ class CommandPayload(TypedDict, total=False):
     to process.
     """
 
-    content: Optional[CommandPayloadBlob]
-    contentType: Optional[MimeType]
+    content: CommandPayloadBlob | None
+    contentType: MimeType | None
 
 
 class CommandSummary(TypedDict, total=False):
     """Summary information about a particular command resource."""
 
-    commandArn: Optional[CommandArn]
-    commandId: Optional[CommandId]
-    displayName: Optional[DisplayName]
-    deprecated: Optional[DeprecationFlag]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    pendingDeletion: Optional[BooleanWrapperObject]
+    commandArn: CommandArn | None
+    commandId: CommandId | None
+    displayName: DisplayName | None
+    deprecated: DeprecationFlag | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    pendingDeletion: BooleanWrapperObject | None
 
 
-CommandSummaryList = List[CommandSummary]
+CommandSummaryList = list[CommandSummary]
 
 
 class Configuration(TypedDict, total=False):
     """Configuration."""
 
-    Enabled: Optional[Enabled]
+    Enabled: Enabled | None
 
 
 class ConfigurationDetails(TypedDict, total=False):
@@ -2766,9 +2766,9 @@ class ConfigurationDetails(TypedDict, total=False):
     access role.
     """
 
-    configurationStatus: Optional[ConfigurationStatus]
-    errorCode: Optional[ErrorCode]
-    errorMessage: Optional[ErrorMessage]
+    configurationStatus: ConfigurationStatus | None
+    errorCode: ErrorCode | None
+    errorMessage: ErrorMessage | None
 
 
 class ConfirmTopicRuleDestinationRequest(ServiceRequest):
@@ -2785,9 +2785,9 @@ ConnectivityTimestamp = int
 class CreateAuditSuppressionRequest(ServiceRequest):
     checkName: AuditCheckName
     resourceIdentifier: ResourceIdentifier
-    expirationDate: Optional[Timestamp]
-    suppressIndefinitely: Optional[SuppressIndefinitely]
-    description: Optional[AuditDescription]
+    expirationDate: Timestamp | None
+    suppressIndefinitely: SuppressIndefinitely | None
+    description: AuditDescription | None
     clientRequestToken: ClientRequestToken
 
 
@@ -2799,173 +2799,173 @@ class Tag(TypedDict, total=False):
     """A set of key/value pairs that are used to manage the resource."""
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateAuthorizerRequest(ServiceRequest):
     authorizerName: AuthorizerName
     authorizerFunctionArn: AuthorizerFunctionArn
-    tokenKeyName: Optional[TokenKeyName]
-    tokenSigningPublicKeys: Optional[PublicKeyMap]
-    status: Optional[AuthorizerStatus]
-    tags: Optional[TagList]
-    signingDisabled: Optional[BooleanKey]
-    enableCachingForHttp: Optional[EnableCachingForHttp]
+    tokenKeyName: TokenKeyName | None
+    tokenSigningPublicKeys: PublicKeyMap | None
+    status: AuthorizerStatus | None
+    tags: TagList | None
+    signingDisabled: BooleanKey | None
+    enableCachingForHttp: EnableCachingForHttp | None
 
 
 class CreateAuthorizerResponse(TypedDict, total=False):
-    authorizerName: Optional[AuthorizerName]
-    authorizerArn: Optional[AuthorizerArn]
+    authorizerName: AuthorizerName | None
+    authorizerArn: AuthorizerArn | None
 
 
 class CreateBillingGroupRequest(ServiceRequest):
     billingGroupName: BillingGroupName
-    billingGroupProperties: Optional[BillingGroupProperties]
-    tags: Optional[TagList]
+    billingGroupProperties: BillingGroupProperties | None
+    tags: TagList | None
 
 
 class CreateBillingGroupResponse(TypedDict, total=False):
-    billingGroupName: Optional[BillingGroupName]
-    billingGroupArn: Optional[BillingGroupArn]
-    billingGroupId: Optional[BillingGroupId]
+    billingGroupName: BillingGroupName | None
+    billingGroupArn: BillingGroupArn | None
+    billingGroupId: BillingGroupId | None
 
 
 class CreateCertificateFromCsrRequest(ServiceRequest):
     """The input for the CreateCertificateFromCsr operation."""
 
     certificateSigningRequest: CertificateSigningRequest
-    setAsActive: Optional[SetAsActive]
+    setAsActive: SetAsActive | None
 
 
 class CreateCertificateFromCsrResponse(TypedDict, total=False):
     """The output from the CreateCertificateFromCsr operation."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    certificatePem: Optional[CertificatePem]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    certificatePem: CertificatePem | None
 
 
 class CreateCertificateProviderRequest(ServiceRequest):
     certificateProviderName: CertificateProviderName
     lambdaFunctionArn: CertificateProviderFunctionArn
     accountDefaultForOperations: CertificateProviderAccountDefaultForOperations
-    clientToken: Optional[ClientToken]
-    tags: Optional[TagList]
+    clientToken: ClientToken | None
+    tags: TagList | None
 
 
 class CreateCertificateProviderResponse(TypedDict, total=False):
-    certificateProviderName: Optional[CertificateProviderName]
-    certificateProviderArn: Optional[CertificateProviderArn]
+    certificateProviderName: CertificateProviderName | None
+    certificateProviderArn: CertificateProviderArn | None
 
 
 class CreateCommandRequest(ServiceRequest):
     commandId: CommandId
-    namespace: Optional[CommandNamespace]
-    displayName: Optional[DisplayName]
-    description: Optional[CommandDescription]
-    payload: Optional[CommandPayload]
-    mandatoryParameters: Optional[CommandParameterList]
-    roleArn: Optional[RoleArn]
-    tags: Optional[TagList]
+    namespace: CommandNamespace | None
+    displayName: DisplayName | None
+    description: CommandDescription | None
+    payload: CommandPayload | None
+    mandatoryParameters: CommandParameterList | None
+    roleArn: RoleArn | None
+    tags: TagList | None
 
 
 class CreateCommandResponse(TypedDict, total=False):
-    commandId: Optional[CommandId]
-    commandArn: Optional[CommandArn]
+    commandId: CommandId | None
+    commandArn: CommandArn | None
 
 
 class CreateCustomMetricRequest(ServiceRequest):
     metricName: MetricName
-    displayName: Optional[CustomMetricDisplayName]
+    displayName: CustomMetricDisplayName | None
     metricType: CustomMetricType
-    tags: Optional[TagList]
+    tags: TagList | None
     clientRequestToken: ClientRequestToken
 
 
 class CreateCustomMetricResponse(TypedDict, total=False):
-    metricName: Optional[MetricName]
-    metricArn: Optional[CustomMetricArn]
+    metricName: MetricName | None
+    metricArn: CustomMetricArn | None
 
 
-DimensionStringValues = List[DimensionStringValue]
+DimensionStringValues = list[DimensionStringValue]
 
 
 class CreateDimensionRequest(TypedDict, total=False):
     name: DimensionName
     type: DimensionType
     stringValues: DimensionStringValues
-    tags: Optional[TagList]
+    tags: TagList | None
     clientRequestToken: ClientRequestToken
 
 
 class CreateDimensionResponse(TypedDict, total=False):
-    name: Optional[DimensionName]
-    arn: Optional[DimensionArn]
+    name: DimensionName | None
+    arn: DimensionArn | None
 
 
 class ServerCertificateConfig(TypedDict, total=False):
     """The server certificate configuration."""
 
-    enableOCSPCheck: Optional[EnableOCSPCheck]
-    ocspLambdaArn: Optional[OCSPLambdaArn]
-    ocspAuthorizedResponderArn: Optional[AcmCertificateArn]
+    enableOCSPCheck: EnableOCSPCheck | None
+    ocspLambdaArn: OCSPLambdaArn | None
+    ocspAuthorizedResponderArn: AcmCertificateArn | None
 
 
 class TlsConfig(TypedDict, total=False):
     """An object that specifies the TLS configuration for a domain."""
 
-    securityPolicy: Optional[SecurityPolicy]
+    securityPolicy: SecurityPolicy | None
 
 
-ServerCertificateArns = List[AcmCertificateArn]
+ServerCertificateArns = list[AcmCertificateArn]
 
 
 class CreateDomainConfigurationRequest(ServiceRequest):
     domainConfigurationName: DomainConfigurationName
-    domainName: Optional[DomainName]
-    serverCertificateArns: Optional[ServerCertificateArns]
-    validationCertificateArn: Optional[AcmCertificateArn]
-    authorizerConfig: Optional[AuthorizerConfig]
-    serviceType: Optional[ServiceType]
-    tags: Optional[TagList]
-    tlsConfig: Optional[TlsConfig]
-    serverCertificateConfig: Optional[ServerCertificateConfig]
-    authenticationType: Optional[AuthenticationType]
-    applicationProtocol: Optional[ApplicationProtocol]
-    clientCertificateConfig: Optional[ClientCertificateConfig]
+    domainName: DomainName | None
+    serverCertificateArns: ServerCertificateArns | None
+    validationCertificateArn: AcmCertificateArn | None
+    authorizerConfig: AuthorizerConfig | None
+    serviceType: ServiceType | None
+    tags: TagList | None
+    tlsConfig: TlsConfig | None
+    serverCertificateConfig: ServerCertificateConfig | None
+    authenticationType: AuthenticationType | None
+    applicationProtocol: ApplicationProtocol | None
+    clientCertificateConfig: ClientCertificateConfig | None
 
 
 class CreateDomainConfigurationResponse(TypedDict, total=False):
-    domainConfigurationName: Optional[DomainConfigurationName]
-    domainConfigurationArn: Optional[DomainConfigurationArn]
+    domainConfigurationName: DomainConfigurationName | None
+    domainConfigurationArn: DomainConfigurationArn | None
 
 
 class ThingGroupProperties(TypedDict, total=False):
     """Thing group properties."""
 
-    thingGroupDescription: Optional[ThingGroupDescription]
-    attributePayload: Optional[AttributePayload]
+    thingGroupDescription: ThingGroupDescription | None
+    attributePayload: AttributePayload | None
 
 
 class CreateDynamicThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
-    thingGroupProperties: Optional[ThingGroupProperties]
-    indexName: Optional[IndexName]
+    thingGroupProperties: ThingGroupProperties | None
+    indexName: IndexName | None
     queryString: QueryString
-    queryVersion: Optional[QueryVersion]
-    tags: Optional[TagList]
+    queryVersion: QueryVersion | None
+    tags: TagList | None
 
 
 class CreateDynamicThingGroupResponse(TypedDict, total=False):
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupArn: Optional[ThingGroupArn]
-    thingGroupId: Optional[ThingGroupId]
-    indexName: Optional[IndexName]
-    queryString: Optional[QueryString]
-    queryVersion: Optional[QueryVersion]
+    thingGroupName: ThingGroupName | None
+    thingGroupArn: ThingGroupArn | None
+    thingGroupId: ThingGroupId | None
+    indexName: IndexName | None
+    queryString: QueryString | None
+    queryVersion: QueryVersion | None
 
 
 class CreateFleetMetricRequest(ServiceRequest):
@@ -2974,19 +2974,19 @@ class CreateFleetMetricRequest(ServiceRequest):
     aggregationType: AggregationType
     period: FleetMetricPeriod
     aggregationField: AggregationField
-    description: Optional[FleetMetricDescription]
-    queryVersion: Optional[QueryVersion]
-    indexName: Optional[IndexName]
-    unit: Optional[FleetMetricUnit]
-    tags: Optional[TagList]
+    description: FleetMetricDescription | None
+    queryVersion: QueryVersion | None
+    indexName: IndexName | None
+    unit: FleetMetricUnit | None
+    tags: TagList | None
 
 
 class CreateFleetMetricResponse(TypedDict, total=False):
-    metricName: Optional[FleetMetricName]
-    metricArn: Optional[FleetMetricArn]
+    metricName: FleetMetricName | None
+    metricArn: FleetMetricArn | None
 
 
-DestinationPackageVersions = List[PackageVersionArn]
+DestinationPackageVersions = list[PackageVersionArn]
 
 
 class MaintenanceWindow(TypedDict, total=False):
@@ -3000,7 +3000,7 @@ class MaintenanceWindow(TypedDict, total=False):
     durationInMinutes: DurationInMinutes
 
 
-MaintenanceWindows = List[MaintenanceWindow]
+MaintenanceWindows = list[MaintenanceWindow]
 
 
 class SchedulingConfig(TypedDict, total=False):
@@ -3010,13 +3010,13 @@ class SchedulingConfig(TypedDict, total=False):
     scheduled end time.
     """
 
-    startTime: Optional[StringDateTime]
-    endTime: Optional[StringDateTime]
-    endBehavior: Optional[JobEndBehavior]
-    maintenanceWindows: Optional[MaintenanceWindows]
+    startTime: StringDateTime | None
+    endTime: StringDateTime | None
+    endBehavior: JobEndBehavior | None
+    maintenanceWindows: MaintenanceWindows | None
 
 
-ParameterMap = Dict[ParameterKey, ParameterValue]
+ParameterMap = dict[ParameterKey, ParameterValue]
 
 
 class RetryCriteria(TypedDict, total=False):
@@ -3028,7 +3028,7 @@ class RetryCriteria(TypedDict, total=False):
     numberOfRetries: NumberOfRetries
 
 
-RetryCriteriaList = List[RetryCriteria]
+RetryCriteriaList = list[RetryCriteria]
 
 
 class JobExecutionsRetryConfig(TypedDict, total=False):
@@ -3050,7 +3050,7 @@ class TimeoutConfig(TypedDict, total=False):
     ``TIMED_OUT``.
     """
 
-    inProgressTimeoutInMinutes: Optional[InProgressTimeoutInMinutes]
+    inProgressTimeoutInMinutes: InProgressTimeoutInMinutes | None
 
 
 class RateIncreaseCriteria(TypedDict, total=False):
@@ -3058,8 +3058,8 @@ class RateIncreaseCriteria(TypedDict, total=False):
     rollout for a job.
     """
 
-    numberOfNotifiedThings: Optional[NumberOfThings]
-    numberOfSucceededThings: Optional[NumberOfThings]
+    numberOfNotifiedThings: NumberOfThings | None
+    numberOfSucceededThings: NumberOfThings | None
 
 
 class ExponentialRolloutRate(TypedDict, total=False):
@@ -3073,8 +3073,8 @@ class ExponentialRolloutRate(TypedDict, total=False):
 class JobExecutionsRolloutConfig(TypedDict, total=False):
     """Allows you to create a staged rollout of a job."""
 
-    maximumPerMinute: Optional[MaxJobExecutionsPerMin]
-    exponentialRate: Optional[ExponentialRolloutRate]
+    maximumPerMinute: MaxJobExecutionsPerMin | None
+    exponentialRate: ExponentialRolloutRate | None
 
 
 ExpiresInSec = int
@@ -3083,55 +3083,55 @@ ExpiresInSec = int
 class PresignedUrlConfig(TypedDict, total=False):
     """Configuration for pre-signed S3 URLs."""
 
-    roleArn: Optional[RoleArn]
-    expiresInSec: Optional[ExpiresInSec]
+    roleArn: RoleArn | None
+    expiresInSec: ExpiresInSec | None
 
 
 class CreateJobRequest(ServiceRequest):
     jobId: JobId
     targets: JobTargets
-    documentSource: Optional[JobDocumentSource]
-    document: Optional[JobDocument]
-    description: Optional[JobDescription]
-    presignedUrlConfig: Optional[PresignedUrlConfig]
-    targetSelection: Optional[TargetSelection]
-    jobExecutionsRolloutConfig: Optional[JobExecutionsRolloutConfig]
-    abortConfig: Optional[AbortConfig]
-    timeoutConfig: Optional[TimeoutConfig]
-    tags: Optional[TagList]
-    namespaceId: Optional[NamespaceId]
-    jobTemplateArn: Optional[JobTemplateArn]
-    jobExecutionsRetryConfig: Optional[JobExecutionsRetryConfig]
-    documentParameters: Optional[ParameterMap]
-    schedulingConfig: Optional[SchedulingConfig]
-    destinationPackageVersions: Optional[DestinationPackageVersions]
+    documentSource: JobDocumentSource | None
+    document: JobDocument | None
+    description: JobDescription | None
+    presignedUrlConfig: PresignedUrlConfig | None
+    targetSelection: TargetSelection | None
+    jobExecutionsRolloutConfig: JobExecutionsRolloutConfig | None
+    abortConfig: AbortConfig | None
+    timeoutConfig: TimeoutConfig | None
+    tags: TagList | None
+    namespaceId: NamespaceId | None
+    jobTemplateArn: JobTemplateArn | None
+    jobExecutionsRetryConfig: JobExecutionsRetryConfig | None
+    documentParameters: ParameterMap | None
+    schedulingConfig: SchedulingConfig | None
+    destinationPackageVersions: DestinationPackageVersions | None
 
 
 class CreateJobResponse(TypedDict, total=False):
-    jobArn: Optional[JobArn]
-    jobId: Optional[JobId]
-    description: Optional[JobDescription]
+    jobArn: JobArn | None
+    jobId: JobId | None
+    description: JobDescription | None
 
 
 class CreateJobTemplateRequest(ServiceRequest):
     jobTemplateId: JobTemplateId
-    jobArn: Optional[JobArn]
-    documentSource: Optional[JobDocumentSource]
-    document: Optional[JobDocument]
+    jobArn: JobArn | None
+    documentSource: JobDocumentSource | None
+    document: JobDocument | None
     description: JobDescription
-    presignedUrlConfig: Optional[PresignedUrlConfig]
-    jobExecutionsRolloutConfig: Optional[JobExecutionsRolloutConfig]
-    abortConfig: Optional[AbortConfig]
-    timeoutConfig: Optional[TimeoutConfig]
-    tags: Optional[TagList]
-    jobExecutionsRetryConfig: Optional[JobExecutionsRetryConfig]
-    maintenanceWindows: Optional[MaintenanceWindows]
-    destinationPackageVersions: Optional[DestinationPackageVersions]
+    presignedUrlConfig: PresignedUrlConfig | None
+    jobExecutionsRolloutConfig: JobExecutionsRolloutConfig | None
+    abortConfig: AbortConfig | None
+    timeoutConfig: TimeoutConfig | None
+    tags: TagList | None
+    jobExecutionsRetryConfig: JobExecutionsRetryConfig | None
+    maintenanceWindows: MaintenanceWindows | None
+    destinationPackageVersions: DestinationPackageVersions | None
 
 
 class CreateJobTemplateResponse(TypedDict, total=False):
-    jobTemplateArn: Optional[JobTemplateArn]
-    jobTemplateId: Optional[JobTemplateId]
+    jobTemplateArn: JobTemplateArn | None
+    jobTemplateId: JobTemplateId | None
 
 
 class CreateKeysAndCertificateRequest(ServiceRequest):
@@ -3142,23 +3142,23 @@ class CreateKeysAndCertificateRequest(ServiceRequest):
     action.
     """
 
-    setAsActive: Optional[SetAsActive]
+    setAsActive: SetAsActive | None
 
 
 class KeyPair(TypedDict, total=False):
     """Describes a key pair."""
 
-    PublicKey: Optional[PublicKey]
-    PrivateKey: Optional[PrivateKey]
+    PublicKey: PublicKey | None
+    PrivateKey: PrivateKey | None
 
 
 class CreateKeysAndCertificateResponse(TypedDict, total=False):
     """The output of the CreateKeysAndCertificate operation."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    certificatePem: Optional[CertificatePem]
-    keyPair: Optional[KeyPair]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    certificatePem: CertificatePem | None
+    keyPair: KeyPair | None
 
 
 class PublishFindingToSnsParams(TypedDict, total=False):
@@ -3209,94 +3209,94 @@ class MitigationActionParams(TypedDict, total=False):
     each defined mitigation action).
     """
 
-    updateDeviceCertificateParams: Optional[UpdateDeviceCertificateParams]
-    updateCACertificateParams: Optional[UpdateCACertificateParams]
-    addThingsToThingGroupParams: Optional[AddThingsToThingGroupParams]
-    replaceDefaultPolicyVersionParams: Optional[ReplaceDefaultPolicyVersionParams]
-    enableIoTLoggingParams: Optional[EnableIoTLoggingParams]
-    publishFindingToSnsParams: Optional[PublishFindingToSnsParams]
+    updateDeviceCertificateParams: UpdateDeviceCertificateParams | None
+    updateCACertificateParams: UpdateCACertificateParams | None
+    addThingsToThingGroupParams: AddThingsToThingGroupParams | None
+    replaceDefaultPolicyVersionParams: ReplaceDefaultPolicyVersionParams | None
+    enableIoTLoggingParams: EnableIoTLoggingParams | None
+    publishFindingToSnsParams: PublishFindingToSnsParams | None
 
 
 class CreateMitigationActionRequest(ServiceRequest):
     actionName: MitigationActionName
     roleArn: RoleArn
     actionParams: MitigationActionParams
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateMitigationActionResponse(TypedDict, total=False):
-    actionArn: Optional[MitigationActionArn]
-    actionId: Optional[MitigationActionId]
+    actionArn: MitigationActionArn | None
+    actionId: MitigationActionId | None
 
 
 class Stream(TypedDict, total=False):
     """Describes a group of files that can be streamed."""
 
-    streamId: Optional[StreamId]
-    fileId: Optional[FileId]
+    streamId: StreamId | None
+    fileId: FileId | None
 
 
 class FileLocation(TypedDict, total=False):
     """The location of the OTA update."""
 
-    stream: Optional[Stream]
-    s3Location: Optional[S3Location]
+    stream: Stream | None
+    s3Location: S3Location | None
 
 
 class OTAUpdateFile(TypedDict, total=False):
     """Describes a file to be associated with an OTA update."""
 
-    fileName: Optional[FileName]
-    fileType: Optional[FileType]
-    fileVersion: Optional[OTAUpdateFileVersion]
-    fileLocation: Optional[FileLocation]
-    codeSigning: Optional[CodeSigning]
-    attributes: Optional[AttributesMap]
+    fileName: FileName | None
+    fileType: FileType | None
+    fileVersion: OTAUpdateFileVersion | None
+    fileLocation: FileLocation | None
+    codeSigning: CodeSigning | None
+    attributes: AttributesMap | None
 
 
-OTAUpdateFiles = List[OTAUpdateFile]
-Protocols = List[Protocol]
-Targets = List[Target]
+OTAUpdateFiles = list[OTAUpdateFile]
+Protocols = list[Protocol]
+Targets = list[Target]
 
 
 class CreateOTAUpdateRequest(ServiceRequest):
     otaUpdateId: OTAUpdateId
-    description: Optional[OTAUpdateDescription]
+    description: OTAUpdateDescription | None
     targets: Targets
-    protocols: Optional[Protocols]
-    targetSelection: Optional[TargetSelection]
-    awsJobExecutionsRolloutConfig: Optional[AwsJobExecutionsRolloutConfig]
-    awsJobPresignedUrlConfig: Optional[AwsJobPresignedUrlConfig]
-    awsJobAbortConfig: Optional[AwsJobAbortConfig]
-    awsJobTimeoutConfig: Optional[AwsJobTimeoutConfig]
+    protocols: Protocols | None
+    targetSelection: TargetSelection | None
+    awsJobExecutionsRolloutConfig: AwsJobExecutionsRolloutConfig | None
+    awsJobPresignedUrlConfig: AwsJobPresignedUrlConfig | None
+    awsJobAbortConfig: AwsJobAbortConfig | None
+    awsJobTimeoutConfig: AwsJobTimeoutConfig | None
     files: OTAUpdateFiles
     roleArn: RoleArn
-    additionalParameters: Optional[AdditionalParameterMap]
-    tags: Optional[TagList]
+    additionalParameters: AdditionalParameterMap | None
+    tags: TagList | None
 
 
 class CreateOTAUpdateResponse(TypedDict, total=False):
-    otaUpdateId: Optional[OTAUpdateId]
-    awsIotJobId: Optional[AwsIotJobId]
-    otaUpdateArn: Optional[OTAUpdateArn]
-    awsIotJobArn: Optional[AwsIotJobArn]
-    otaUpdateStatus: Optional[OTAUpdateStatus]
+    otaUpdateId: OTAUpdateId | None
+    awsIotJobId: AwsIotJobId | None
+    otaUpdateArn: OTAUpdateArn | None
+    awsIotJobArn: AwsIotJobArn | None
+    otaUpdateStatus: OTAUpdateStatus | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class CreatePackageRequest(ServiceRequest):
     packageName: PackageName
-    description: Optional[ResourceDescription]
-    tags: Optional[TagMap]
-    clientToken: Optional[ClientToken]
+    description: ResourceDescription | None
+    tags: TagMap | None
+    clientToken: ClientToken | None
 
 
 class CreatePackageResponse(TypedDict, total=False):
-    packageName: Optional[PackageName]
-    packageArn: Optional[PackageArn]
-    description: Optional[ResourceDescription]
+    packageName: PackageName | None
+    packageArn: PackageArn | None
+    description: ResourceDescription | None
 
 
 class PackageVersionArtifact(TypedDict, total=False):
@@ -3304,31 +3304,31 @@ class PackageVersionArtifact(TypedDict, total=False):
     version.
     """
 
-    s3Location: Optional[S3Location]
+    s3Location: S3Location | None
 
 
-ResourceAttributes = Dict[ResourceAttributeKey, ResourceAttributeValue]
+ResourceAttributes = dict[ResourceAttributeKey, ResourceAttributeValue]
 
 
 class CreatePackageVersionRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
-    description: Optional[ResourceDescription]
-    attributes: Optional[ResourceAttributes]
-    artifact: Optional[PackageVersionArtifact]
-    recipe: Optional[PackageVersionRecipe]
-    tags: Optional[TagMap]
-    clientToken: Optional[ClientToken]
+    description: ResourceDescription | None
+    attributes: ResourceAttributes | None
+    artifact: PackageVersionArtifact | None
+    recipe: PackageVersionRecipe | None
+    tags: TagMap | None
+    clientToken: ClientToken | None
 
 
 class CreatePackageVersionResponse(TypedDict, total=False):
-    packageVersionArn: Optional[PackageVersionArn]
-    packageName: Optional[PackageName]
-    versionName: Optional[VersionName]
-    description: Optional[ResourceDescription]
-    attributes: Optional[ResourceAttributes]
-    status: Optional[PackageVersionStatus]
-    errorReason: Optional[PackageVersionErrorReason]
+    packageVersionArn: PackageVersionArn | None
+    packageName: PackageName | None
+    versionName: VersionName | None
+    description: ResourceDescription | None
+    attributes: ResourceAttributes | None
+    status: PackageVersionStatus | None
+    errorReason: PackageVersionErrorReason | None
 
 
 class CreatePolicyRequest(ServiceRequest):
@@ -3336,16 +3336,16 @@ class CreatePolicyRequest(ServiceRequest):
 
     policyName: PolicyName
     policyDocument: PolicyDocument
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreatePolicyResponse(TypedDict, total=False):
     """The output from the CreatePolicy operation."""
 
-    policyName: Optional[PolicyName]
-    policyArn: Optional[PolicyArn]
-    policyDocument: Optional[PolicyDocument]
-    policyVersionId: Optional[PolicyVersionId]
+    policyName: PolicyName | None
+    policyArn: PolicyArn | None
+    policyDocument: PolicyDocument | None
+    policyVersionId: PolicyVersionId | None
 
 
 class CreatePolicyVersionRequest(ServiceRequest):
@@ -3353,16 +3353,16 @@ class CreatePolicyVersionRequest(ServiceRequest):
 
     policyName: PolicyName
     policyDocument: PolicyDocument
-    setAsDefault: Optional[SetAsDefault]
+    setAsDefault: SetAsDefault | None
 
 
 class CreatePolicyVersionResponse(TypedDict, total=False):
     """The output of the CreatePolicyVersion operation."""
 
-    policyArn: Optional[PolicyArn]
-    policyDocument: Optional[PolicyDocument]
-    policyVersionId: Optional[PolicyVersionId]
-    isDefaultVersion: Optional[IsDefaultVersion]
+    policyArn: PolicyArn | None
+    policyDocument: PolicyDocument | None
+    policyVersionId: PolicyVersionId | None
+    isDefaultVersion: IsDefaultVersion | None
 
 
 class CreateProvisioningClaimRequest(ServiceRequest):
@@ -3370,75 +3370,75 @@ class CreateProvisioningClaimRequest(ServiceRequest):
 
 
 class CreateProvisioningClaimResponse(TypedDict, total=False):
-    certificateId: Optional[CertificateId]
-    certificatePem: Optional[CertificatePem]
-    keyPair: Optional[KeyPair]
-    expiration: Optional[DateType]
+    certificateId: CertificateId | None
+    certificatePem: CertificatePem | None
+    keyPair: KeyPair | None
+    expiration: DateType | None
 
 
 class ProvisioningHook(TypedDict, total=False):
     """Structure that contains ``payloadVersion`` and ``targetArn``."""
 
-    payloadVersion: Optional[PayloadVersion]
+    payloadVersion: PayloadVersion | None
     targetArn: TargetArn
 
 
 class CreateProvisioningTemplateRequest(TypedDict, total=False):
     templateName: TemplateName
-    description: Optional[TemplateDescription]
+    description: TemplateDescription | None
     templateBody: TemplateBody
-    enabled: Optional[Enabled]
+    enabled: Enabled | None
     provisioningRoleArn: RoleArn
-    preProvisioningHook: Optional[ProvisioningHook]
-    tags: Optional[TagList]
-    type: Optional[TemplateType]
+    preProvisioningHook: ProvisioningHook | None
+    tags: TagList | None
+    type: TemplateType | None
 
 
 class CreateProvisioningTemplateResponse(TypedDict, total=False):
-    templateArn: Optional[TemplateArn]
-    templateName: Optional[TemplateName]
-    defaultVersionId: Optional[TemplateVersionId]
+    templateArn: TemplateArn | None
+    templateName: TemplateName | None
+    defaultVersionId: TemplateVersionId | None
 
 
 class CreateProvisioningTemplateVersionRequest(ServiceRequest):
     templateName: TemplateName
     templateBody: TemplateBody
-    setAsDefault: Optional[SetAsDefault]
+    setAsDefault: SetAsDefault | None
 
 
 class CreateProvisioningTemplateVersionResponse(TypedDict, total=False):
-    templateArn: Optional[TemplateArn]
-    templateName: Optional[TemplateName]
-    versionId: Optional[TemplateVersionId]
-    isDefaultVersion: Optional[IsDefaultVersion]
+    templateArn: TemplateArn | None
+    templateName: TemplateName | None
+    versionId: TemplateVersionId | None
+    isDefaultVersion: IsDefaultVersion | None
 
 
 class CreateRoleAliasRequest(ServiceRequest):
     roleAlias: RoleAlias
     roleArn: RoleArn
-    credentialDurationSeconds: Optional[CredentialDurationSeconds]
-    tags: Optional[TagList]
+    credentialDurationSeconds: CredentialDurationSeconds | None
+    tags: TagList | None
 
 
 class CreateRoleAliasResponse(TypedDict, total=False):
-    roleAlias: Optional[RoleAlias]
-    roleAliasArn: Optional[RoleAliasArn]
+    roleAlias: RoleAlias | None
+    roleAliasArn: RoleAliasArn | None
 
 
-TargetAuditCheckNames = List[AuditCheckName]
+TargetAuditCheckNames = list[AuditCheckName]
 
 
 class CreateScheduledAuditRequest(ServiceRequest):
     frequency: AuditFrequency
-    dayOfMonth: Optional[DayOfMonth]
-    dayOfWeek: Optional[DayOfWeek]
+    dayOfMonth: DayOfMonth | None
+    dayOfWeek: DayOfWeek | None
     targetCheckNames: TargetAuditCheckNames
     scheduledAuditName: ScheduledAuditName
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateScheduledAuditResponse(TypedDict, total=False):
-    scheduledAuditArn: Optional[ScheduledAuditArn]
+    scheduledAuditArn: ScheduledAuditArn | None
 
 
 class MetricsExportConfig(TypedDict, total=False):
@@ -3450,73 +3450,73 @@ class MetricsExportConfig(TypedDict, total=False):
 
 class CreateSecurityProfileRequest(ServiceRequest):
     securityProfileName: SecurityProfileName
-    securityProfileDescription: Optional[SecurityProfileDescription]
-    behaviors: Optional[Behaviors]
-    alertTargets: Optional[AlertTargets]
-    additionalMetricsToRetain: Optional[AdditionalMetricsToRetainList]
-    additionalMetricsToRetainV2: Optional[AdditionalMetricsToRetainV2List]
-    tags: Optional[TagList]
-    metricsExportConfig: Optional[MetricsExportConfig]
+    securityProfileDescription: SecurityProfileDescription | None
+    behaviors: Behaviors | None
+    alertTargets: AlertTargets | None
+    additionalMetricsToRetain: AdditionalMetricsToRetainList | None
+    additionalMetricsToRetainV2: AdditionalMetricsToRetainV2List | None
+    tags: TagList | None
+    metricsExportConfig: MetricsExportConfig | None
 
 
 class CreateSecurityProfileResponse(TypedDict, total=False):
-    securityProfileName: Optional[SecurityProfileName]
-    securityProfileArn: Optional[SecurityProfileArn]
+    securityProfileName: SecurityProfileName | None
+    securityProfileArn: SecurityProfileArn | None
 
 
 class StreamFile(TypedDict, total=False):
     """Represents a file to stream."""
 
-    fileId: Optional[FileId]
-    s3Location: Optional[S3Location]
+    fileId: FileId | None
+    s3Location: S3Location | None
 
 
-StreamFiles = List[StreamFile]
+StreamFiles = list[StreamFile]
 
 
 class CreateStreamRequest(ServiceRequest):
     streamId: StreamId
-    description: Optional[StreamDescription]
+    description: StreamDescription | None
     files: StreamFiles
     roleArn: RoleArn
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateStreamResponse(TypedDict, total=False):
-    streamId: Optional[StreamId]
-    streamArn: Optional[StreamArn]
-    description: Optional[StreamDescription]
-    streamVersion: Optional[StreamVersion]
+    streamId: StreamId | None
+    streamArn: StreamArn | None
+    description: StreamDescription | None
+    streamVersion: StreamVersion | None
 
 
 class CreateThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
-    parentGroupName: Optional[ThingGroupName]
-    thingGroupProperties: Optional[ThingGroupProperties]
-    tags: Optional[TagList]
+    parentGroupName: ThingGroupName | None
+    thingGroupProperties: ThingGroupProperties | None
+    tags: TagList | None
 
 
 class CreateThingGroupResponse(TypedDict, total=False):
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupArn: Optional[ThingGroupArn]
-    thingGroupId: Optional[ThingGroupId]
+    thingGroupName: ThingGroupName | None
+    thingGroupArn: ThingGroupArn | None
+    thingGroupId: ThingGroupId | None
 
 
 class CreateThingRequest(ServiceRequest):
     """The input for the CreateThing operation."""
 
     thingName: ThingName
-    thingTypeName: Optional[ThingTypeName]
-    attributePayload: Optional[AttributePayload]
-    billingGroupName: Optional[BillingGroupName]
+    thingTypeName: ThingTypeName | None
+    attributePayload: AttributePayload | None
+    billingGroupName: BillingGroupName | None
 
 
 class CreateThingResponse(TypedDict, total=False):
     """The output of the CreateThing operation."""
 
-    thingName: Optional[ThingName]
-    thingArn: Optional[ThingArn]
-    thingId: Optional[ThingId]
+    thingName: ThingName | None
+    thingArn: ThingArn | None
+    thingId: ThingId | None
 
 
 class PropagatingAttribute(TypedDict, total=False):
@@ -3524,12 +3524,12 @@ class PropagatingAttribute(TypedDict, total=False):
     the user property key.
     """
 
-    userPropertyKey: Optional[UserPropertyKeyName]
-    thingAttribute: Optional[AttributeName]
-    connectionAttribute: Optional[ConnectionAttributeName]
+    userPropertyKey: UserPropertyKeyName | None
+    thingAttribute: AttributeName | None
+    connectionAttribute: ConnectionAttributeName | None
 
 
-PropagatingAttributeList = List[PropagatingAttribute]
+PropagatingAttributeList = list[PropagatingAttribute]
 
 
 class Mqtt5Configuration(TypedDict, total=False):
@@ -3537,10 +3537,10 @@ class Mqtt5Configuration(TypedDict, total=False):
     messages.
     """
 
-    propagatingAttributes: Optional[PropagatingAttributeList]
+    propagatingAttributes: PropagatingAttributeList | None
 
 
-SearchableAttributes = List[AttributeName]
+SearchableAttributes = list[AttributeName]
 
 
 class ThingTypeProperties(TypedDict, total=False):
@@ -3549,29 +3549,29 @@ class ThingTypeProperties(TypedDict, total=False):
     attribute names.
     """
 
-    thingTypeDescription: Optional[ThingTypeDescription]
-    searchableAttributes: Optional[SearchableAttributes]
-    mqtt5Configuration: Optional[Mqtt5Configuration]
+    thingTypeDescription: ThingTypeDescription | None
+    searchableAttributes: SearchableAttributes | None
+    mqtt5Configuration: Mqtt5Configuration | None
 
 
 class CreateThingTypeRequest(ServiceRequest):
     """The input for the CreateThingType operation."""
 
     thingTypeName: ThingTypeName
-    thingTypeProperties: Optional[ThingTypeProperties]
-    tags: Optional[TagList]
+    thingTypeProperties: ThingTypeProperties | None
+    tags: TagList | None
 
 
 class CreateThingTypeResponse(TypedDict, total=False):
     """The output of the CreateThingType operation."""
 
-    thingTypeName: Optional[ThingTypeName]
-    thingTypeArn: Optional[ThingTypeArn]
-    thingTypeId: Optional[ThingTypeId]
+    thingTypeName: ThingTypeName | None
+    thingTypeArn: ThingTypeArn | None
+    thingTypeId: ThingTypeId | None
 
 
-SecurityGroupList = List[SecurityGroupId]
-SubnetIdList = List[SubnetId]
+SecurityGroupList = list[SecurityGroupId]
+SubnetIdList = list[SubnetId]
 
 
 class VpcDestinationConfiguration(TypedDict, total=False):
@@ -3580,7 +3580,7 @@ class VpcDestinationConfiguration(TypedDict, total=False):
     """
 
     subnetIds: SubnetIdList
-    securityGroups: Optional[SecurityGroupList]
+    securityGroups: SecurityGroupList | None
     vpcId: VpcId
     roleArn: AwsArn
 
@@ -3594,8 +3594,8 @@ class HttpUrlDestinationConfiguration(TypedDict, total=False):
 class TopicRuleDestinationConfiguration(TypedDict, total=False):
     """Configuration of the topic rule destination."""
 
-    httpUrlConfiguration: Optional[HttpUrlDestinationConfiguration]
-    vpcConfiguration: Optional[VpcDestinationConfiguration]
+    httpUrlConfiguration: HttpUrlDestinationConfiguration | None
+    vpcConfiguration: VpcDestinationConfiguration | None
 
 
 class CreateTopicRuleDestinationRequest(ServiceRequest):
@@ -3605,16 +3605,16 @@ class CreateTopicRuleDestinationRequest(ServiceRequest):
 class VpcDestinationProperties(TypedDict, total=False):
     """The properties of a virtual private cloud (VPC) destination."""
 
-    subnetIds: Optional[SubnetIdList]
-    securityGroups: Optional[SecurityGroupList]
-    vpcId: Optional[VpcId]
-    roleArn: Optional[AwsArn]
+    subnetIds: SubnetIdList | None
+    securityGroups: SecurityGroupList | None
+    vpcId: VpcId | None
+    roleArn: AwsArn | None
 
 
 class HttpUrlDestinationProperties(TypedDict, total=False):
     """HTTP URL destination properties."""
 
-    confirmationUrl: Optional[Url]
+    confirmationUrl: Url | None
 
 
 LastUpdatedAtDate = datetime
@@ -3624,28 +3624,28 @@ CreatedAtDate = datetime
 class TopicRuleDestination(TypedDict, total=False):
     """A topic rule destination."""
 
-    arn: Optional[AwsArn]
-    status: Optional[TopicRuleDestinationStatus]
-    createdAt: Optional[CreatedAtDate]
-    lastUpdatedAt: Optional[LastUpdatedAtDate]
-    statusReason: Optional[String]
-    httpUrlProperties: Optional[HttpUrlDestinationProperties]
-    vpcProperties: Optional[VpcDestinationProperties]
+    arn: AwsArn | None
+    status: TopicRuleDestinationStatus | None
+    createdAt: CreatedAtDate | None
+    lastUpdatedAt: LastUpdatedAtDate | None
+    statusReason: String | None
+    httpUrlProperties: HttpUrlDestinationProperties | None
+    vpcProperties: VpcDestinationProperties | None
 
 
 class CreateTopicRuleDestinationResponse(TypedDict, total=False):
-    topicRuleDestination: Optional[TopicRuleDestination]
+    topicRuleDestination: TopicRuleDestination | None
 
 
 class TopicRulePayload(TypedDict, total=False):
     """Describes a rule."""
 
     sql: SQL
-    description: Optional[Description]
+    description: Description | None
     actions: ActionList
-    ruleDisabled: Optional[IsDisabled]
-    awsIotSqlVersion: Optional[AwsIotSqlVersion]
-    errorAction: Optional[Action]
+    ruleDisabled: IsDisabled | None
+    awsIotSqlVersion: AwsIotSqlVersion | None
+    errorAction: Action | None
 
 
 class CreateTopicRuleRequest(ServiceRequest):
@@ -3653,11 +3653,11 @@ class CreateTopicRuleRequest(ServiceRequest):
 
     ruleName: RuleName
     topicRulePayload: TopicRulePayload
-    tags: Optional[String]
+    tags: String | None
 
 
 class DeleteAccountAuditConfigurationRequest(ServiceRequest):
-    deleteScheduledAudits: Optional[DeleteScheduledAudits]
+    deleteScheduledAudits: DeleteScheduledAudits | None
 
 
 class DeleteAccountAuditConfigurationResponse(TypedDict, total=False):
@@ -3686,7 +3686,7 @@ OptionalVersion = int
 
 class DeleteBillingGroupRequest(ServiceRequest):
     billingGroupName: BillingGroupName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class DeleteBillingGroupResponse(TypedDict, total=False):
@@ -3717,7 +3717,7 @@ class DeleteCertificateRequest(ServiceRequest):
     """The input for the DeleteCertificate operation."""
 
     certificateId: CertificateId
-    forceDelete: Optional[ForceDelete]
+    forceDelete: ForceDelete | None
 
 
 class DeleteCommandExecutionRequest(ServiceRequest):
@@ -3734,7 +3734,7 @@ class DeleteCommandRequest(ServiceRequest):
 
 
 class DeleteCommandResponse(TypedDict, total=False):
-    statusCode: Optional[StatusCode]
+    statusCode: StatusCode | None
 
 
 class DeleteCustomMetricRequest(ServiceRequest):
@@ -3763,7 +3763,7 @@ class DeleteDomainConfigurationResponse(TypedDict, total=False):
 
 class DeleteDynamicThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class DeleteDynamicThingGroupResponse(TypedDict, total=False):
@@ -3772,7 +3772,7 @@ class DeleteDynamicThingGroupResponse(TypedDict, total=False):
 
 class DeleteFleetMetricRequest(ServiceRequest):
     metricName: FleetMetricName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 ExecutionNumber = int
@@ -3782,14 +3782,14 @@ class DeleteJobExecutionRequest(ServiceRequest):
     jobId: JobId
     thingName: ThingName
     executionNumber: ExecutionNumber
-    force: Optional[ForceFlag]
-    namespaceId: Optional[NamespaceId]
+    force: ForceFlag | None
+    namespaceId: NamespaceId | None
 
 
 class DeleteJobRequest(ServiceRequest):
     jobId: JobId
-    force: Optional[ForceFlag]
-    namespaceId: Optional[NamespaceId]
+    force: ForceFlag | None
+    namespaceId: NamespaceId | None
 
 
 class DeleteJobTemplateRequest(ServiceRequest):
@@ -3806,8 +3806,8 @@ class DeleteMitigationActionResponse(TypedDict, total=False):
 
 class DeleteOTAUpdateRequest(ServiceRequest):
     otaUpdateId: OTAUpdateId
-    deleteStream: Optional[DeleteStream]
-    forceDeleteAWSJob: Optional[ForceDeleteAWSJob]
+    deleteStream: DeleteStream | None
+    forceDeleteAWSJob: ForceDeleteAWSJob | None
 
 
 class DeleteOTAUpdateResponse(TypedDict, total=False):
@@ -3816,7 +3816,7 @@ class DeleteOTAUpdateResponse(TypedDict, total=False):
 
 class DeletePackageRequest(ServiceRequest):
     packageName: PackageName
-    clientToken: Optional[ClientToken]
+    clientToken: ClientToken | None
 
 
 class DeletePackageResponse(TypedDict, total=False):
@@ -3826,7 +3826,7 @@ class DeletePackageResponse(TypedDict, total=False):
 class DeletePackageVersionRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
-    clientToken: Optional[ClientToken]
+    clientToken: ClientToken | None
 
 
 class DeletePackageVersionResponse(TypedDict, total=False):
@@ -3893,7 +3893,7 @@ class DeleteScheduledAuditResponse(TypedDict, total=False):
 
 class DeleteSecurityProfileRequest(ServiceRequest):
     securityProfileName: SecurityProfileName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class DeleteSecurityProfileResponse(TypedDict, total=False):
@@ -3910,7 +3910,7 @@ class DeleteStreamResponse(TypedDict, total=False):
 
 class DeleteThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class DeleteThingGroupResponse(TypedDict, total=False):
@@ -3921,7 +3921,7 @@ class DeleteThingRequest(ServiceRequest):
     """The input for the DeleteThing operation."""
 
     thingName: ThingName
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class DeleteThingResponse(TypedDict, total=False):
@@ -3965,7 +3965,7 @@ class DeprecateThingTypeRequest(ServiceRequest):
     """The input for the DeprecateThingType operation."""
 
     thingTypeName: ThingTypeName
-    undoDeprecate: Optional[UndoDeprecate]
+    undoDeprecate: UndoDeprecate | None
 
 
 class DeprecateThingTypeResponse(TypedDict, total=False):
@@ -3982,9 +3982,9 @@ class DescribeAccountAuditConfigurationRequest(ServiceRequest):
 
 
 class DescribeAccountAuditConfigurationResponse(TypedDict, total=False):
-    roleArn: Optional[RoleArn]
-    auditNotificationTargetConfigurations: Optional[AuditNotificationTargetConfigurations]
-    auditCheckConfigurations: Optional[AuditCheckConfigurations]
+    roleArn: RoleArn | None
+    auditNotificationTargetConfigurations: AuditNotificationTargetConfigurations | None
+    auditCheckConfigurations: AuditCheckConfigurations | None
 
 
 class DescribeAuditFindingRequest(ServiceRequest):
@@ -3992,7 +3992,7 @@ class DescribeAuditFindingRequest(ServiceRequest):
 
 
 class DescribeAuditFindingResponse(TypedDict, total=False):
-    finding: Optional[AuditFinding]
+    finding: AuditFinding | None
 
 
 class DescribeAuditMitigationActionsTaskRequest(ServiceRequest):
@@ -4004,23 +4004,23 @@ class MitigationAction(TypedDict, total=False):
     action.
     """
 
-    name: Optional[MitigationActionName]
-    id: Optional[MitigationActionId]
-    roleArn: Optional[RoleArn]
-    actionParams: Optional[MitigationActionParams]
+    name: MitigationActionName | None
+    id: MitigationActionId | None
+    roleArn: RoleArn | None
+    actionParams: MitigationActionParams | None
 
 
-MitigationActionList = List[MitigationAction]
+MitigationActionList = list[MitigationAction]
 
 
 class DescribeAuditMitigationActionsTaskResponse(TypedDict, total=False):
-    taskStatus: Optional[AuditMitigationActionsTaskStatus]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    taskStatistics: Optional[AuditMitigationActionsTaskStatistics]
-    target: Optional[AuditMitigationActionsTaskTarget]
-    auditCheckToActionsMapping: Optional[AuditCheckToActionsMapping]
-    actionsDefinition: Optional[MitigationActionList]
+    taskStatus: AuditMitigationActionsTaskStatus | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    taskStatistics: AuditMitigationActionsTaskStatistics | None
+    target: AuditMitigationActionsTaskTarget | None
+    auditCheckToActionsMapping: AuditCheckToActionsMapping | None
+    actionsDefinition: MitigationActionList | None
 
 
 class DescribeAuditSuppressionRequest(ServiceRequest):
@@ -4029,11 +4029,11 @@ class DescribeAuditSuppressionRequest(ServiceRequest):
 
 
 class DescribeAuditSuppressionResponse(TypedDict, total=False):
-    checkName: Optional[AuditCheckName]
-    resourceIdentifier: Optional[ResourceIdentifier]
-    expirationDate: Optional[Timestamp]
-    suppressIndefinitely: Optional[SuppressIndefinitely]
-    description: Optional[AuditDescription]
+    checkName: AuditCheckName | None
+    resourceIdentifier: ResourceIdentifier | None
+    expirationDate: Timestamp | None
+    suppressIndefinitely: SuppressIndefinitely | None
+    description: AuditDescription | None
 
 
 class DescribeAuditTaskRequest(ServiceRequest):
@@ -4043,22 +4043,22 @@ class DescribeAuditTaskRequest(ServiceRequest):
 class TaskStatistics(TypedDict, total=False):
     """Statistics for the checks performed during the audit."""
 
-    totalChecks: Optional[TotalChecksCount]
-    inProgressChecks: Optional[InProgressChecksCount]
-    waitingForDataCollectionChecks: Optional[WaitingForDataCollectionChecksCount]
-    compliantChecks: Optional[CompliantChecksCount]
-    nonCompliantChecks: Optional[NonCompliantChecksCount]
-    failedChecks: Optional[FailedChecksCount]
-    canceledChecks: Optional[CanceledChecksCount]
+    totalChecks: TotalChecksCount | None
+    inProgressChecks: InProgressChecksCount | None
+    waitingForDataCollectionChecks: WaitingForDataCollectionChecksCount | None
+    compliantChecks: CompliantChecksCount | None
+    nonCompliantChecks: NonCompliantChecksCount | None
+    failedChecks: FailedChecksCount | None
+    canceledChecks: CanceledChecksCount | None
 
 
 class DescribeAuditTaskResponse(TypedDict, total=False):
-    taskStatus: Optional[AuditTaskStatus]
-    taskType: Optional[AuditTaskType]
-    taskStartTime: Optional[Timestamp]
-    taskStatistics: Optional[TaskStatistics]
-    scheduledAuditName: Optional[ScheduledAuditName]
-    auditDetails: Optional[AuditDetails]
+    taskStatus: AuditTaskStatus | None
+    taskType: AuditTaskType | None
+    taskStartTime: Timestamp | None
+    taskStatistics: TaskStatistics | None
+    scheduledAuditName: ScheduledAuditName | None
+    auditDetails: AuditDetails | None
 
 
 class DescribeAuthorizerRequest(ServiceRequest):
@@ -4066,7 +4066,7 @@ class DescribeAuthorizerRequest(ServiceRequest):
 
 
 class DescribeAuthorizerResponse(TypedDict, total=False):
-    authorizerDescription: Optional[AuthorizerDescription]
+    authorizerDescription: AuthorizerDescription | None
 
 
 class DescribeBillingGroupRequest(ServiceRequest):
@@ -4077,12 +4077,12 @@ Version = int
 
 
 class DescribeBillingGroupResponse(TypedDict, total=False):
-    billingGroupName: Optional[BillingGroupName]
-    billingGroupId: Optional[BillingGroupId]
-    billingGroupArn: Optional[BillingGroupArn]
-    version: Optional[Version]
-    billingGroupProperties: Optional[BillingGroupProperties]
-    billingGroupMetadata: Optional[BillingGroupMetadata]
+    billingGroupName: BillingGroupName | None
+    billingGroupId: BillingGroupId | None
+    billingGroupArn: BillingGroupArn | None
+    version: Version | None
+    billingGroupProperties: BillingGroupProperties | None
+    billingGroupMetadata: BillingGroupMetadata | None
 
 
 class DescribeCACertificateRequest(ServiceRequest):
@@ -4094,16 +4094,16 @@ class DescribeCACertificateRequest(ServiceRequest):
 class RegistrationConfig(TypedDict, total=False):
     """The registration configuration."""
 
-    templateBody: Optional[TemplateBody]
-    roleArn: Optional[RoleArn]
-    templateName: Optional[TemplateName]
+    templateBody: TemplateBody | None
+    roleArn: RoleArn | None
+    templateName: TemplateName | None
 
 
 class DescribeCACertificateResponse(TypedDict, total=False):
     """The output from the DescribeCACertificate operation."""
 
-    certificateDescription: Optional[CACertificateDescription]
-    registrationConfig: Optional[RegistrationConfig]
+    certificateDescription: CACertificateDescription | None
+    registrationConfig: RegistrationConfig | None
 
 
 class DescribeCertificateProviderRequest(ServiceRequest):
@@ -4111,12 +4111,12 @@ class DescribeCertificateProviderRequest(ServiceRequest):
 
 
 class DescribeCertificateProviderResponse(TypedDict, total=False):
-    certificateProviderName: Optional[CertificateProviderName]
-    certificateProviderArn: Optional[CertificateProviderArn]
-    lambdaFunctionArn: Optional[CertificateProviderFunctionArn]
-    accountDefaultForOperations: Optional[CertificateProviderAccountDefaultForOperations]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
+    certificateProviderName: CertificateProviderName | None
+    certificateProviderArn: CertificateProviderArn | None
+    lambdaFunctionArn: CertificateProviderFunctionArn | None
+    accountDefaultForOperations: CertificateProviderAccountDefaultForOperations | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
 
 
 class DescribeCertificateRequest(ServiceRequest):
@@ -4128,7 +4128,7 @@ class DescribeCertificateRequest(ServiceRequest):
 class DescribeCertificateResponse(TypedDict, total=False):
     """The output of the DescribeCertificate operation."""
 
-    certificateDescription: Optional[CertificateDescription]
+    certificateDescription: CertificateDescription | None
 
 
 class DescribeCustomMetricRequest(ServiceRequest):
@@ -4136,12 +4136,12 @@ class DescribeCustomMetricRequest(ServiceRequest):
 
 
 class DescribeCustomMetricResponse(TypedDict, total=False):
-    metricName: Optional[MetricName]
-    metricArn: Optional[CustomMetricArn]
-    metricType: Optional[CustomMetricType]
-    displayName: Optional[CustomMetricDisplayName]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
+    metricName: MetricName | None
+    metricArn: CustomMetricArn | None
+    metricType: CustomMetricType | None
+    displayName: CustomMetricDisplayName | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
 
 
 class DescribeDefaultAuthorizerRequest(ServiceRequest):
@@ -4149,7 +4149,7 @@ class DescribeDefaultAuthorizerRequest(ServiceRequest):
 
 
 class DescribeDefaultAuthorizerResponse(TypedDict, total=False):
-    authorizerDescription: Optional[AuthorizerDescription]
+    authorizerDescription: AuthorizerDescription | None
 
 
 class DescribeDetectMitigationActionsTaskRequest(ServiceRequest):
@@ -4162,9 +4162,9 @@ GenericLongValue = int
 class DetectMitigationActionsTaskStatistics(TypedDict, total=False):
     """The statistics of a mitigation action task."""
 
-    actionsExecuted: Optional[GenericLongValue]
-    actionsSkipped: Optional[GenericLongValue]
-    actionsFailed: Optional[GenericLongValue]
+    actionsExecuted: GenericLongValue | None
+    actionsSkipped: GenericLongValue | None
+    actionsFailed: GenericLongValue | None
 
 
 class ViolationEventOccurrenceRange(TypedDict, total=False):
@@ -4174,34 +4174,34 @@ class ViolationEventOccurrenceRange(TypedDict, total=False):
     endTime: Timestamp
 
 
-TargetViolationIdsForDetectMitigationActions = List[ViolationId]
+TargetViolationIdsForDetectMitigationActions = list[ViolationId]
 
 
 class DetectMitigationActionsTaskTarget(TypedDict, total=False):
     """The target of a mitigation action task."""
 
-    violationIds: Optional[TargetViolationIdsForDetectMitigationActions]
-    securityProfileName: Optional[SecurityProfileName]
-    behaviorName: Optional[BehaviorName]
+    violationIds: TargetViolationIdsForDetectMitigationActions | None
+    securityProfileName: SecurityProfileName | None
+    behaviorName: BehaviorName | None
 
 
 class DetectMitigationActionsTaskSummary(TypedDict, total=False):
     """The summary of the mitigation action tasks."""
 
-    taskId: Optional[MitigationActionsTaskId]
-    taskStatus: Optional[DetectMitigationActionsTaskStatus]
-    taskStartTime: Optional[Timestamp]
-    taskEndTime: Optional[Timestamp]
-    target: Optional[DetectMitigationActionsTaskTarget]
-    violationEventOccurrenceRange: Optional[ViolationEventOccurrenceRange]
-    onlyActiveViolationsIncluded: Optional[PrimitiveBoolean]
-    suppressedAlertsIncluded: Optional[PrimitiveBoolean]
-    actionsDefinition: Optional[MitigationActionList]
-    taskStatistics: Optional[DetectMitigationActionsTaskStatistics]
+    taskId: MitigationActionsTaskId | None
+    taskStatus: DetectMitigationActionsTaskStatus | None
+    taskStartTime: Timestamp | None
+    taskEndTime: Timestamp | None
+    target: DetectMitigationActionsTaskTarget | None
+    violationEventOccurrenceRange: ViolationEventOccurrenceRange | None
+    onlyActiveViolationsIncluded: PrimitiveBoolean | None
+    suppressedAlertsIncluded: PrimitiveBoolean | None
+    actionsDefinition: MitigationActionList | None
+    taskStatistics: DetectMitigationActionsTaskStatistics | None
 
 
 class DescribeDetectMitigationActionsTaskResponse(TypedDict, total=False):
-    taskSummary: Optional[DetectMitigationActionsTaskSummary]
+    taskSummary: DetectMitigationActionsTaskSummary | None
 
 
 class DescribeDimensionRequest(ServiceRequest):
@@ -4209,12 +4209,12 @@ class DescribeDimensionRequest(ServiceRequest):
 
 
 class DescribeDimensionResponse(TypedDict, total=False):
-    name: Optional[DimensionName]
-    arn: Optional[DimensionArn]
-    type: Optional[DimensionType]
-    stringValues: Optional[DimensionStringValues]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
+    name: DimensionName | None
+    arn: DimensionArn | None
+    type: DimensionType | None
+    stringValues: DimensionStringValues | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
 
 
 class DescribeDomainConfigurationRequest(ServiceRequest):
@@ -4224,29 +4224,29 @@ class DescribeDomainConfigurationRequest(ServiceRequest):
 class ServerCertificateSummary(TypedDict, total=False):
     """An object that contains information about a server certificate."""
 
-    serverCertificateArn: Optional[AcmCertificateArn]
-    serverCertificateStatus: Optional[ServerCertificateStatus]
-    serverCertificateStatusDetail: Optional[ServerCertificateStatusDetail]
+    serverCertificateArn: AcmCertificateArn | None
+    serverCertificateStatus: ServerCertificateStatus | None
+    serverCertificateStatusDetail: ServerCertificateStatusDetail | None
 
 
-ServerCertificates = List[ServerCertificateSummary]
+ServerCertificates = list[ServerCertificateSummary]
 
 
 class DescribeDomainConfigurationResponse(TypedDict, total=False):
-    domainConfigurationName: Optional[ReservedDomainConfigurationName]
-    domainConfigurationArn: Optional[DomainConfigurationArn]
-    domainName: Optional[DomainName]
-    serverCertificates: Optional[ServerCertificates]
-    authorizerConfig: Optional[AuthorizerConfig]
-    domainConfigurationStatus: Optional[DomainConfigurationStatus]
-    serviceType: Optional[ServiceType]
-    domainType: Optional[DomainType]
-    lastStatusChangeDate: Optional[DateType]
-    tlsConfig: Optional[TlsConfig]
-    serverCertificateConfig: Optional[ServerCertificateConfig]
-    authenticationType: Optional[AuthenticationType]
-    applicationProtocol: Optional[ApplicationProtocol]
-    clientCertificateConfig: Optional[ClientCertificateConfig]
+    domainConfigurationName: ReservedDomainConfigurationName | None
+    domainConfigurationArn: DomainConfigurationArn | None
+    domainName: DomainName | None
+    serverCertificates: ServerCertificates | None
+    authorizerConfig: AuthorizerConfig | None
+    domainConfigurationStatus: DomainConfigurationStatus | None
+    serviceType: ServiceType | None
+    domainType: DomainType | None
+    lastStatusChangeDate: DateType | None
+    tlsConfig: TlsConfig | None
+    serverCertificateConfig: ServerCertificateConfig | None
+    authenticationType: AuthenticationType | None
+    applicationProtocol: ApplicationProtocol | None
+    clientCertificateConfig: ClientCertificateConfig | None
 
 
 class DescribeEncryptionConfigurationRequest(ServiceRequest):
@@ -4254,23 +4254,23 @@ class DescribeEncryptionConfigurationRequest(ServiceRequest):
 
 
 class DescribeEncryptionConfigurationResponse(TypedDict, total=False):
-    encryptionType: Optional[EncryptionType]
-    kmsKeyArn: Optional[KmsKeyArn]
-    kmsAccessRoleArn: Optional[KmsAccessRoleArn]
-    configurationDetails: Optional[ConfigurationDetails]
-    lastModifiedDate: Optional[DateType]
+    encryptionType: EncryptionType | None
+    kmsKeyArn: KmsKeyArn | None
+    kmsAccessRoleArn: KmsAccessRoleArn | None
+    configurationDetails: ConfigurationDetails | None
+    lastModifiedDate: DateType | None
 
 
 class DescribeEndpointRequest(ServiceRequest):
     """The input for the DescribeEndpoint operation."""
 
-    endpointType: Optional[EndpointType]
+    endpointType: EndpointType | None
 
 
 class DescribeEndpointResponse(TypedDict, total=False):
     """The output from the DescribeEndpoint operation."""
 
-    endpointAddress: Optional[EndpointAddress]
+    endpointAddress: EndpointAddress | None
 
 
 class DescribeEventConfigurationsRequest(ServiceRequest):
@@ -4278,13 +4278,13 @@ class DescribeEventConfigurationsRequest(ServiceRequest):
 
 
 LastModifiedDate = datetime
-EventConfigurations = Dict[EventType, Configuration]
+EventConfigurations = dict[EventType, Configuration]
 
 
 class DescribeEventConfigurationsResponse(TypedDict, total=False):
-    eventConfigurations: Optional[EventConfigurations]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
+    eventConfigurations: EventConfigurations | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
 
 
 class DescribeFleetMetricRequest(ServiceRequest):
@@ -4292,19 +4292,19 @@ class DescribeFleetMetricRequest(ServiceRequest):
 
 
 class DescribeFleetMetricResponse(TypedDict, total=False):
-    metricName: Optional[FleetMetricName]
-    queryString: Optional[QueryString]
-    aggregationType: Optional[AggregationType]
-    period: Optional[FleetMetricPeriod]
-    aggregationField: Optional[AggregationField]
-    description: Optional[FleetMetricDescription]
-    queryVersion: Optional[QueryVersion]
-    indexName: Optional[IndexName]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
-    unit: Optional[FleetMetricUnit]
-    version: Optional[Version]
-    metricArn: Optional[FleetMetricArn]
+    metricName: FleetMetricName | None
+    queryString: QueryString | None
+    aggregationType: AggregationType | None
+    period: FleetMetricPeriod | None
+    aggregationField: AggregationField | None
+    description: FleetMetricDescription | None
+    queryVersion: QueryVersion | None
+    indexName: IndexName | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
+    unit: FleetMetricUnit | None
+    version: Version | None
+    metricArn: FleetMetricArn | None
 
 
 class DescribeIndexRequest(ServiceRequest):
@@ -4312,15 +4312,15 @@ class DescribeIndexRequest(ServiceRequest):
 
 
 class DescribeIndexResponse(TypedDict, total=False):
-    indexName: Optional[IndexName]
-    indexStatus: Optional[IndexStatus]
-    schema: Optional[IndexSchema]
+    indexName: IndexName | None
+    indexStatus: IndexStatus | None
+    schema: IndexSchema | None
 
 
 class DescribeJobExecutionRequest(ServiceRequest):
     jobId: JobId
     thingName: ThingName
-    executionNumber: Optional[ExecutionNumber]
+    executionNumber: ExecutionNumber | None
 
 
 VersionNumber = int
@@ -4329,7 +4329,7 @@ VersionNumber = int
 class JobExecutionStatusDetails(TypedDict, total=False):
     """Details of the job execution status."""
 
-    detailsMap: Optional[DetailsMap]
+    detailsMap: DetailsMap | None
 
 
 class JobExecution(TypedDict, total=False):
@@ -4337,26 +4337,26 @@ class JobExecution(TypedDict, total=False):
     particular device.
     """
 
-    jobId: Optional[JobId]
-    status: Optional[JobExecutionStatus]
-    forceCanceled: Optional[Forced]
-    statusDetails: Optional[JobExecutionStatusDetails]
-    thingArn: Optional[ThingArn]
-    queuedAt: Optional[DateType]
-    startedAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    executionNumber: Optional[ExecutionNumber]
-    versionNumber: Optional[VersionNumber]
-    approximateSecondsBeforeTimedOut: Optional[ApproximateSecondsBeforeTimedOut]
+    jobId: JobId | None
+    status: JobExecutionStatus | None
+    forceCanceled: Forced | None
+    statusDetails: JobExecutionStatusDetails | None
+    thingArn: ThingArn | None
+    queuedAt: DateType | None
+    startedAt: DateType | None
+    lastUpdatedAt: DateType | None
+    executionNumber: ExecutionNumber | None
+    versionNumber: VersionNumber | None
+    approximateSecondsBeforeTimedOut: ApproximateSecondsBeforeTimedOut | None
 
 
 class DescribeJobExecutionResponse(TypedDict, total=False):
-    execution: Optional[JobExecution]
+    execution: JobExecution | None
 
 
 class DescribeJobRequest(ServiceRequest):
     jobId: JobId
-    beforeSubstitution: Optional[BeforeSubstitutionFlag]
+    beforeSubstitution: BeforeSubstitutionFlag | None
 
 
 class ScheduledJobRollout(TypedDict, total=False):
@@ -4364,60 +4364,60 @@ class ScheduledJobRollout(TypedDict, total=False):
     times.
     """
 
-    startTime: Optional[StringDateTime]
+    startTime: StringDateTime | None
 
 
-ScheduledJobRolloutList = List[ScheduledJobRollout]
-ProcessingTargetNameList = List[ProcessingTargetName]
+ScheduledJobRolloutList = list[ScheduledJobRollout]
+ProcessingTargetNameList = list[ProcessingTargetName]
 
 
 class JobProcessDetails(TypedDict, total=False):
     """The job process details."""
 
-    processingTargets: Optional[ProcessingTargetNameList]
-    numberOfCanceledThings: Optional[CanceledThings]
-    numberOfSucceededThings: Optional[SucceededThings]
-    numberOfFailedThings: Optional[FailedThings]
-    numberOfRejectedThings: Optional[RejectedThings]
-    numberOfQueuedThings: Optional[QueuedThings]
-    numberOfInProgressThings: Optional[InProgressThings]
-    numberOfRemovedThings: Optional[RemovedThings]
-    numberOfTimedOutThings: Optional[TimedOutThings]
+    processingTargets: ProcessingTargetNameList | None
+    numberOfCanceledThings: CanceledThings | None
+    numberOfSucceededThings: SucceededThings | None
+    numberOfFailedThings: FailedThings | None
+    numberOfRejectedThings: RejectedThings | None
+    numberOfQueuedThings: QueuedThings | None
+    numberOfInProgressThings: InProgressThings | None
+    numberOfRemovedThings: RemovedThings | None
+    numberOfTimedOutThings: TimedOutThings | None
 
 
 class Job(TypedDict, total=False):
     """The ``Job`` object contains details about a job."""
 
-    jobArn: Optional[JobArn]
-    jobId: Optional[JobId]
-    targetSelection: Optional[TargetSelection]
-    status: Optional[JobStatus]
-    forceCanceled: Optional[Forced]
-    reasonCode: Optional[ReasonCode]
-    comment: Optional[Comment]
-    targets: Optional[JobTargets]
-    description: Optional[JobDescription]
-    presignedUrlConfig: Optional[PresignedUrlConfig]
-    jobExecutionsRolloutConfig: Optional[JobExecutionsRolloutConfig]
-    abortConfig: Optional[AbortConfig]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    completedAt: Optional[DateType]
-    jobProcessDetails: Optional[JobProcessDetails]
-    timeoutConfig: Optional[TimeoutConfig]
-    namespaceId: Optional[NamespaceId]
-    jobTemplateArn: Optional[JobTemplateArn]
-    jobExecutionsRetryConfig: Optional[JobExecutionsRetryConfig]
-    documentParameters: Optional[ParameterMap]
-    isConcurrent: Optional[BooleanWrapperObject]
-    schedulingConfig: Optional[SchedulingConfig]
-    scheduledJobRollouts: Optional[ScheduledJobRolloutList]
-    destinationPackageVersions: Optional[DestinationPackageVersions]
+    jobArn: JobArn | None
+    jobId: JobId | None
+    targetSelection: TargetSelection | None
+    status: JobStatus | None
+    forceCanceled: Forced | None
+    reasonCode: ReasonCode | None
+    comment: Comment | None
+    targets: JobTargets | None
+    description: JobDescription | None
+    presignedUrlConfig: PresignedUrlConfig | None
+    jobExecutionsRolloutConfig: JobExecutionsRolloutConfig | None
+    abortConfig: AbortConfig | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    completedAt: DateType | None
+    jobProcessDetails: JobProcessDetails | None
+    timeoutConfig: TimeoutConfig | None
+    namespaceId: NamespaceId | None
+    jobTemplateArn: JobTemplateArn | None
+    jobExecutionsRetryConfig: JobExecutionsRetryConfig | None
+    documentParameters: ParameterMap | None
+    isConcurrent: BooleanWrapperObject | None
+    schedulingConfig: SchedulingConfig | None
+    scheduledJobRollouts: ScheduledJobRolloutList | None
+    destinationPackageVersions: DestinationPackageVersions | None
 
 
 class DescribeJobResponse(TypedDict, total=False):
-    documentSource: Optional[JobDocumentSource]
-    job: Optional[Job]
+    documentSource: JobDocumentSource | None
+    job: Job | None
 
 
 class DescribeJobTemplateRequest(ServiceRequest):
@@ -4425,24 +4425,24 @@ class DescribeJobTemplateRequest(ServiceRequest):
 
 
 class DescribeJobTemplateResponse(TypedDict, total=False):
-    jobTemplateArn: Optional[JobTemplateArn]
-    jobTemplateId: Optional[JobTemplateId]
-    description: Optional[JobDescription]
-    documentSource: Optional[JobDocumentSource]
-    document: Optional[JobDocument]
-    createdAt: Optional[DateType]
-    presignedUrlConfig: Optional[PresignedUrlConfig]
-    jobExecutionsRolloutConfig: Optional[JobExecutionsRolloutConfig]
-    abortConfig: Optional[AbortConfig]
-    timeoutConfig: Optional[TimeoutConfig]
-    jobExecutionsRetryConfig: Optional[JobExecutionsRetryConfig]
-    maintenanceWindows: Optional[MaintenanceWindows]
-    destinationPackageVersions: Optional[DestinationPackageVersions]
+    jobTemplateArn: JobTemplateArn | None
+    jobTemplateId: JobTemplateId | None
+    description: JobDescription | None
+    documentSource: JobDocumentSource | None
+    document: JobDocument | None
+    createdAt: DateType | None
+    presignedUrlConfig: PresignedUrlConfig | None
+    jobExecutionsRolloutConfig: JobExecutionsRolloutConfig | None
+    abortConfig: AbortConfig | None
+    timeoutConfig: TimeoutConfig | None
+    jobExecutionsRetryConfig: JobExecutionsRetryConfig | None
+    maintenanceWindows: MaintenanceWindows | None
+    destinationPackageVersions: DestinationPackageVersions | None
 
 
 class DescribeManagedJobTemplateRequest(ServiceRequest):
     templateName: ManagedJobTemplateName
-    templateVersion: Optional[ManagedTemplateVersion]
+    templateVersion: ManagedTemplateVersion | None
 
 
 class DocumentParameter(TypedDict, total=False):
@@ -4456,25 +4456,25 @@ class DocumentParameter(TypedDict, total=False):
     job templates or to create jobs from them.
     """
 
-    key: Optional[ParameterKey]
-    description: Optional[JobDescription]
-    regex: Optional[Regex]
-    example: Optional[Example]
-    optional: Optional[Optional_]
+    key: ParameterKey | None
+    description: JobDescription | None
+    regex: Regex | None
+    example: Example | None
+    optional: Optional_ | None
 
 
-DocumentParameters = List[DocumentParameter]
-Environments = List[Environment]
+DocumentParameters = list[DocumentParameter]
+Environments = list[Environment]
 
 
 class DescribeManagedJobTemplateResponse(TypedDict, total=False):
-    templateName: Optional[ManagedJobTemplateName]
-    templateArn: Optional[JobTemplateArn]
-    description: Optional[JobDescription]
-    templateVersion: Optional[ManagedTemplateVersion]
-    environments: Optional[Environments]
-    documentParameters: Optional[DocumentParameters]
-    document: Optional[JobDocument]
+    templateName: ManagedJobTemplateName | None
+    templateArn: JobTemplateArn | None
+    description: JobDescription | None
+    templateVersion: ManagedTemplateVersion | None
+    environments: Environments | None
+    documentParameters: DocumentParameters | None
+    document: JobDocument | None
 
 
 class DescribeMitigationActionRequest(ServiceRequest):
@@ -4482,14 +4482,14 @@ class DescribeMitigationActionRequest(ServiceRequest):
 
 
 class DescribeMitigationActionResponse(TypedDict, total=False):
-    actionName: Optional[MitigationActionName]
-    actionType: Optional[MitigationActionType]
-    actionArn: Optional[MitigationActionArn]
-    actionId: Optional[MitigationActionId]
-    roleArn: Optional[RoleArn]
-    actionParams: Optional[MitigationActionParams]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
+    actionName: MitigationActionName | None
+    actionType: MitigationActionType | None
+    actionArn: MitigationActionArn | None
+    actionId: MitigationActionId | None
+    roleArn: RoleArn | None
+    actionParams: MitigationActionParams | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
 
 
 class DescribeProvisioningTemplateRequest(ServiceRequest):
@@ -4497,17 +4497,17 @@ class DescribeProvisioningTemplateRequest(ServiceRequest):
 
 
 class DescribeProvisioningTemplateResponse(TypedDict, total=False):
-    templateArn: Optional[TemplateArn]
-    templateName: Optional[TemplateName]
-    description: Optional[TemplateDescription]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    defaultVersionId: Optional[TemplateVersionId]
-    templateBody: Optional[TemplateBody]
-    enabled: Optional[Enabled]
-    provisioningRoleArn: Optional[RoleArn]
-    preProvisioningHook: Optional[ProvisioningHook]
-    type: Optional[TemplateType]
+    templateArn: TemplateArn | None
+    templateName: TemplateName | None
+    description: TemplateDescription | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    defaultVersionId: TemplateVersionId | None
+    templateBody: TemplateBody | None
+    enabled: Enabled | None
+    provisioningRoleArn: RoleArn | None
+    preProvisioningHook: ProvisioningHook | None
+    type: TemplateType | None
 
 
 class DescribeProvisioningTemplateVersionRequest(ServiceRequest):
@@ -4516,10 +4516,10 @@ class DescribeProvisioningTemplateVersionRequest(ServiceRequest):
 
 
 class DescribeProvisioningTemplateVersionResponse(TypedDict, total=False):
-    versionId: Optional[TemplateVersionId]
-    creationDate: Optional[DateType]
-    templateBody: Optional[TemplateBody]
-    isDefaultVersion: Optional[IsDefaultVersion]
+    versionId: TemplateVersionId | None
+    creationDate: DateType | None
+    templateBody: TemplateBody | None
+    isDefaultVersion: IsDefaultVersion | None
 
 
 class DescribeRoleAliasRequest(ServiceRequest):
@@ -4529,17 +4529,17 @@ class DescribeRoleAliasRequest(ServiceRequest):
 class RoleAliasDescription(TypedDict, total=False):
     """Role alias description."""
 
-    roleAlias: Optional[RoleAlias]
-    roleAliasArn: Optional[RoleAliasArn]
-    roleArn: Optional[RoleArn]
-    owner: Optional[AwsAccountId]
-    credentialDurationSeconds: Optional[CredentialDurationSeconds]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
+    roleAlias: RoleAlias | None
+    roleAliasArn: RoleAliasArn | None
+    roleArn: RoleArn | None
+    owner: AwsAccountId | None
+    credentialDurationSeconds: CredentialDurationSeconds | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
 
 
 class DescribeRoleAliasResponse(TypedDict, total=False):
-    roleAliasDescription: Optional[RoleAliasDescription]
+    roleAliasDescription: RoleAliasDescription | None
 
 
 class DescribeScheduledAuditRequest(ServiceRequest):
@@ -4547,12 +4547,12 @@ class DescribeScheduledAuditRequest(ServiceRequest):
 
 
 class DescribeScheduledAuditResponse(TypedDict, total=False):
-    frequency: Optional[AuditFrequency]
-    dayOfMonth: Optional[DayOfMonth]
-    dayOfWeek: Optional[DayOfWeek]
-    targetCheckNames: Optional[TargetAuditCheckNames]
-    scheduledAuditName: Optional[ScheduledAuditName]
-    scheduledAuditArn: Optional[ScheduledAuditArn]
+    frequency: AuditFrequency | None
+    dayOfMonth: DayOfMonth | None
+    dayOfWeek: DayOfWeek | None
+    targetCheckNames: TargetAuditCheckNames | None
+    scheduledAuditName: ScheduledAuditName | None
+    scheduledAuditArn: ScheduledAuditArn | None
 
 
 class DescribeSecurityProfileRequest(ServiceRequest):
@@ -4560,17 +4560,17 @@ class DescribeSecurityProfileRequest(ServiceRequest):
 
 
 class DescribeSecurityProfileResponse(TypedDict, total=False):
-    securityProfileName: Optional[SecurityProfileName]
-    securityProfileArn: Optional[SecurityProfileArn]
-    securityProfileDescription: Optional[SecurityProfileDescription]
-    behaviors: Optional[Behaviors]
-    alertTargets: Optional[AlertTargets]
-    additionalMetricsToRetain: Optional[AdditionalMetricsToRetainList]
-    additionalMetricsToRetainV2: Optional[AdditionalMetricsToRetainV2List]
-    version: Optional[Version]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
-    metricsExportConfig: Optional[MetricsExportConfig]
+    securityProfileName: SecurityProfileName | None
+    securityProfileArn: SecurityProfileArn | None
+    securityProfileDescription: SecurityProfileDescription | None
+    behaviors: Behaviors | None
+    alertTargets: AlertTargets | None
+    additionalMetricsToRetain: AdditionalMetricsToRetainList | None
+    additionalMetricsToRetainV2: AdditionalMetricsToRetainV2List | None
+    version: Version | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
+    metricsExportConfig: MetricsExportConfig | None
 
 
 class DescribeStreamRequest(ServiceRequest):
@@ -4580,46 +4580,46 @@ class DescribeStreamRequest(ServiceRequest):
 class StreamInfo(TypedDict, total=False):
     """Information about a stream."""
 
-    streamId: Optional[StreamId]
-    streamArn: Optional[StreamArn]
-    streamVersion: Optional[StreamVersion]
-    description: Optional[StreamDescription]
-    files: Optional[StreamFiles]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    roleArn: Optional[RoleArn]
+    streamId: StreamId | None
+    streamArn: StreamArn | None
+    streamVersion: StreamVersion | None
+    description: StreamDescription | None
+    files: StreamFiles | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    roleArn: RoleArn | None
 
 
 class DescribeStreamResponse(TypedDict, total=False):
-    streamInfo: Optional[StreamInfo]
+    streamInfo: StreamInfo | None
 
 
 class DescribeThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
 
 
-ThingGroupNameAndArnList = List[GroupNameAndArn]
+ThingGroupNameAndArnList = list[GroupNameAndArn]
 
 
 class ThingGroupMetadata(TypedDict, total=False):
     """Thing group metadata."""
 
-    parentGroupName: Optional[ThingGroupName]
-    rootToParentThingGroups: Optional[ThingGroupNameAndArnList]
-    creationDate: Optional[CreationDate]
+    parentGroupName: ThingGroupName | None
+    rootToParentThingGroups: ThingGroupNameAndArnList | None
+    creationDate: CreationDate | None
 
 
 class DescribeThingGroupResponse(TypedDict, total=False):
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupId: Optional[ThingGroupId]
-    thingGroupArn: Optional[ThingGroupArn]
-    version: Optional[Version]
-    thingGroupProperties: Optional[ThingGroupProperties]
-    thingGroupMetadata: Optional[ThingGroupMetadata]
-    indexName: Optional[IndexName]
-    queryString: Optional[QueryString]
-    queryVersion: Optional[QueryVersion]
-    status: Optional[DynamicGroupStatus]
+    thingGroupName: ThingGroupName | None
+    thingGroupId: ThingGroupId | None
+    thingGroupArn: ThingGroupArn | None
+    version: Version | None
+    thingGroupProperties: ThingGroupProperties | None
+    thingGroupMetadata: ThingGroupMetadata | None
+    indexName: IndexName | None
+    queryString: QueryString | None
+    queryVersion: QueryVersion | None
+    status: DynamicGroupStatus | None
 
 
 class DescribeThingRegistrationTaskRequest(ServiceRequest):
@@ -4627,18 +4627,18 @@ class DescribeThingRegistrationTaskRequest(ServiceRequest):
 
 
 class DescribeThingRegistrationTaskResponse(TypedDict, total=False):
-    taskId: Optional[TaskId]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
-    templateBody: Optional[TemplateBody]
-    inputFileBucket: Optional[RegistryS3BucketName]
-    inputFileKey: Optional[RegistryS3KeyName]
-    roleArn: Optional[RoleArn]
-    status: Optional[Status]
-    message: Optional[ErrorMessage]
-    successCount: Optional[Count]
-    failureCount: Optional[Count]
-    percentageProgress: Optional[Percentage]
+    taskId: TaskId | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
+    templateBody: TemplateBody | None
+    inputFileBucket: RegistryS3BucketName | None
+    inputFileKey: RegistryS3KeyName | None
+    roleArn: RoleArn | None
+    status: Status | None
+    message: ErrorMessage | None
+    successCount: Count | None
+    failureCount: Count | None
+    percentageProgress: Percentage | None
 
 
 class DescribeThingRequest(ServiceRequest):
@@ -4650,14 +4650,14 @@ class DescribeThingRequest(ServiceRequest):
 class DescribeThingResponse(TypedDict, total=False):
     """The output from the DescribeThing operation."""
 
-    defaultClientId: Optional[ClientId]
-    thingName: Optional[ThingName]
-    thingId: Optional[ThingId]
-    thingArn: Optional[ThingArn]
-    thingTypeName: Optional[ThingTypeName]
-    attributes: Optional[Attributes]
-    version: Optional[Version]
-    billingGroupName: Optional[BillingGroupName]
+    defaultClientId: ClientId | None
+    thingName: ThingName | None
+    thingId: ThingId | None
+    thingArn: ThingArn | None
+    thingTypeName: ThingTypeName | None
+    attributes: Attributes | None
+    version: Version | None
+    billingGroupName: BillingGroupName | None
 
 
 class DescribeThingTypeRequest(ServiceRequest):
@@ -4672,19 +4672,19 @@ class ThingTypeMetadata(TypedDict, total=False):
     thing type is deprecated, and a date and time when time was deprecated.
     """
 
-    deprecated: Optional[Boolean]
-    deprecationDate: Optional[DeprecationDate]
-    creationDate: Optional[CreationDate]
+    deprecated: Boolean | None
+    deprecationDate: DeprecationDate | None
+    creationDate: CreationDate | None
 
 
 class DescribeThingTypeResponse(TypedDict, total=False):
     """The output for the DescribeThingType operation."""
 
-    thingTypeName: Optional[ThingTypeName]
-    thingTypeId: Optional[ThingTypeId]
-    thingTypeArn: Optional[ThingTypeArn]
-    thingTypeProperties: Optional[ThingTypeProperties]
-    thingTypeMetadata: Optional[ThingTypeMetadata]
+    thingTypeName: ThingTypeName | None
+    thingTypeId: ThingTypeId | None
+    thingTypeArn: ThingTypeArn | None
+    thingTypeProperties: ThingTypeProperties | None
+    thingTypeMetadata: ThingTypeMetadata | None
 
 
 class DetachPolicyRequest(ServiceRequest):
@@ -4724,21 +4724,21 @@ class DetachThingPrincipalResponse(TypedDict, total=False):
 class DetectMitigationActionExecution(TypedDict, total=False):
     """Describes which mitigation actions should be executed."""
 
-    taskId: Optional[MitigationActionsTaskId]
-    violationId: Optional[ViolationId]
-    actionName: Optional[MitigationActionName]
-    thingName: Optional[DeviceDefenderThingName]
-    executionStartDate: Optional[Timestamp]
-    executionEndDate: Optional[Timestamp]
-    status: Optional[DetectMitigationActionExecutionStatus]
-    errorCode: Optional[DetectMitigationActionExecutionErrorCode]
-    message: Optional[ErrorMessage]
+    taskId: MitigationActionsTaskId | None
+    violationId: ViolationId | None
+    actionName: MitigationActionName | None
+    thingName: DeviceDefenderThingName | None
+    executionStartDate: Timestamp | None
+    executionEndDate: Timestamp | None
+    status: DetectMitigationActionExecutionStatus | None
+    errorCode: DetectMitigationActionExecutionErrorCode | None
+    message: ErrorMessage | None
 
 
-DetectMitigationActionExecutionList = List[DetectMitigationActionExecution]
-DetectMitigationActionsTaskSummaryList = List[DetectMitigationActionsTaskSummary]
-DetectMitigationActionsToExecuteList = List[MitigationActionName]
-DimensionNames = List[DimensionName]
+DetectMitigationActionExecutionList = list[DetectMitigationActionExecution]
+DetectMitigationActionsTaskSummaryList = list[DetectMitigationActionsTaskSummary]
+DetectMitigationActionsToExecuteList = list[MitigationActionName]
+DimensionNames = list[DimensionName]
 
 
 class DisableTopicRuleRequest(ServiceRequest):
@@ -4750,7 +4750,7 @@ class DisableTopicRuleRequest(ServiceRequest):
 class DisassociateSbomFromPackageVersionRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
-    clientToken: Optional[ClientToken]
+    clientToken: ClientToken | None
 
 
 class DisassociateSbomFromPackageVersionResponse(TypedDict, total=False):
@@ -4771,23 +4771,23 @@ class DomainConfigurationSummary(TypedDict, total=False):
     -  CredentialProvider
     """
 
-    domainConfigurationName: Optional[ReservedDomainConfigurationName]
-    domainConfigurationArn: Optional[DomainConfigurationArn]
-    serviceType: Optional[ServiceType]
+    domainConfigurationName: ReservedDomainConfigurationName | None
+    domainConfigurationArn: DomainConfigurationArn | None
+    serviceType: ServiceType | None
 
 
-DomainConfigurations = List[DomainConfigurationSummary]
+DomainConfigurations = list[DomainConfigurationSummary]
 
 
 class EffectivePolicy(TypedDict, total=False):
     """The policy that has the effect on the authorization results."""
 
-    policyName: Optional[PolicyName]
-    policyArn: Optional[PolicyArn]
-    policyDocument: Optional[PolicyDocument]
+    policyName: PolicyName | None
+    policyArn: PolicyArn | None
+    policyDocument: PolicyDocument | None
 
 
-EffectivePolicies = List[EffectivePolicy]
+EffectivePolicies = list[EffectivePolicy]
 
 
 class EnableTopicRuleRequest(ServiceRequest):
@@ -4799,26 +4799,26 @@ class EnableTopicRuleRequest(ServiceRequest):
 class ErrorInfo(TypedDict, total=False):
     """Error information."""
 
-    code: Optional[Code]
-    message: Optional[OTAUpdateErrorMessage]
+    code: Code | None
+    message: OTAUpdateErrorMessage | None
 
 
 class Field(TypedDict, total=False):
-    name: Optional[FieldName]
-    type: Optional[FieldType]
+    name: FieldName | None
+    type: FieldType | None
 
 
-Fields = List[Field]
+Fields = list[Field]
 
 
 class FleetMetricNameAndArn(TypedDict, total=False):
     """The name and ARN of a fleet metric."""
 
-    metricName: Optional[FleetMetricName]
-    metricArn: Optional[FleetMetricArn]
+    metricName: FleetMetricName | None
+    metricArn: FleetMetricArn | None
 
 
-FleetMetricNameAndArnList = List[FleetMetricNameAndArn]
+FleetMetricNameAndArnList = list[FleetMetricNameAndArn]
 
 
 class GeoLocationTarget(TypedDict, total=False):
@@ -4827,52 +4827,52 @@ class GeoLocationTarget(TypedDict, total=False):
     geolocation target fields.
     """
 
-    name: Optional[TargetFieldName]
-    order: Optional[TargetFieldOrder]
+    name: TargetFieldName | None
+    order: TargetFieldOrder | None
 
 
-GeoLocationsFilter = List[GeoLocationTarget]
+GeoLocationsFilter = list[GeoLocationTarget]
 
 
 class GetBehaviorModelTrainingSummariesRequest(ServiceRequest):
-    securityProfileName: Optional[SecurityProfileName]
-    maxResults: Optional[TinyMaxResults]
-    nextToken: Optional[NextToken]
+    securityProfileName: SecurityProfileName | None
+    maxResults: TinyMaxResults | None
+    nextToken: NextToken | None
 
 
 class GetBehaviorModelTrainingSummariesResponse(TypedDict, total=False):
-    summaries: Optional[BehaviorModelTrainingSummaries]
-    nextToken: Optional[NextToken]
+    summaries: BehaviorModelTrainingSummaries | None
+    nextToken: NextToken | None
 
 
 class GetBucketsAggregationRequest(ServiceRequest):
-    indexName: Optional[IndexName]
+    indexName: IndexName | None
     queryString: QueryString
     aggregationField: AggregationField
-    queryVersion: Optional[QueryVersion]
+    queryVersion: QueryVersion | None
     bucketsAggregationType: BucketsAggregationType
 
 
 class GetBucketsAggregationResponse(TypedDict, total=False):
-    totalCount: Optional[Count]
-    buckets: Optional[Buckets]
+    totalCount: Count | None
+    buckets: Buckets | None
 
 
 class GetCardinalityRequest(ServiceRequest):
-    indexName: Optional[IndexName]
+    indexName: IndexName | None
     queryString: QueryString
-    aggregationField: Optional[AggregationField]
-    queryVersion: Optional[QueryVersion]
+    aggregationField: AggregationField | None
+    queryVersion: QueryVersion | None
 
 
 class GetCardinalityResponse(TypedDict, total=False):
-    cardinality: Optional[Count]
+    cardinality: Count | None
 
 
 class GetCommandExecutionRequest(ServiceRequest):
     executionId: CommandExecutionId
     targetArn: TargetArn
-    includeResult: Optional[BooleanWrapperObject]
+    includeResult: BooleanWrapperObject | None
 
 
 class StatusReason(TypedDict, total=False):
@@ -4881,23 +4881,23 @@ class StatusReason(TypedDict, total=False):
     """
 
     reasonCode: StatusReasonCode
-    reasonDescription: Optional[StatusReasonDescription]
+    reasonDescription: StatusReasonDescription | None
 
 
 class GetCommandExecutionResponse(TypedDict, total=False):
-    executionId: Optional[CommandExecutionId]
-    commandArn: Optional[CommandArn]
-    targetArn: Optional[TargetArn]
-    status: Optional[CommandExecutionStatus]
-    statusReason: Optional[StatusReason]
-    result: Optional[CommandExecutionResultMap]
-    parameters: Optional[CommandExecutionParameterMap]
-    executionTimeoutSeconds: Optional[CommandExecutionTimeoutInSeconds]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    startedAt: Optional[DateType]
-    completedAt: Optional[DateType]
-    timeToLive: Optional[DateType]
+    executionId: CommandExecutionId | None
+    commandArn: CommandArn | None
+    targetArn: TargetArn | None
+    status: CommandExecutionStatus | None
+    statusReason: StatusReason | None
+    result: CommandExecutionResultMap | None
+    parameters: CommandExecutionParameterMap | None
+    executionTimeoutSeconds: CommandExecutionTimeoutInSeconds | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    startedAt: DateType | None
+    completedAt: DateType | None
+    timeToLive: DateType | None
 
 
 class GetCommandRequest(ServiceRequest):
@@ -4905,28 +4905,28 @@ class GetCommandRequest(ServiceRequest):
 
 
 class GetCommandResponse(TypedDict, total=False):
-    commandId: Optional[CommandId]
-    commandArn: Optional[CommandArn]
-    namespace: Optional[CommandNamespace]
-    displayName: Optional[DisplayName]
-    description: Optional[CommandDescription]
-    mandatoryParameters: Optional[CommandParameterList]
-    payload: Optional[CommandPayload]
-    roleArn: Optional[RoleArn]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    deprecated: Optional[DeprecationFlag]
-    pendingDeletion: Optional[BooleanWrapperObject]
+    commandId: CommandId | None
+    commandArn: CommandArn | None
+    namespace: CommandNamespace | None
+    displayName: DisplayName | None
+    description: CommandDescription | None
+    mandatoryParameters: CommandParameterList | None
+    payload: CommandPayload | None
+    roleArn: RoleArn | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    deprecated: DeprecationFlag | None
+    pendingDeletion: BooleanWrapperObject | None
 
 
 class GetEffectivePoliciesRequest(ServiceRequest):
-    principal: Optional[Principal]
-    cognitoIdentityPoolId: Optional[CognitoIdentityPoolId]
-    thingName: Optional[ThingName]
+    principal: Principal | None
+    cognitoIdentityPoolId: CognitoIdentityPoolId | None
+    thingName: ThingName | None
 
 
 class GetEffectivePoliciesResponse(TypedDict, total=False):
-    effectivePolicies: Optional[EffectivePolicies]
+    effectivePolicies: EffectivePolicies | None
 
 
 class GetIndexingConfigurationRequest(ServiceRequest):
@@ -4937,11 +4937,11 @@ class ThingGroupIndexingConfiguration(TypedDict, total=False):
     """Thing group indexing configuration."""
 
     thingGroupIndexingMode: ThingGroupIndexingMode
-    managedFields: Optional[Fields]
-    customFields: Optional[Fields]
+    managedFields: Fields | None
+    customFields: Fields | None
 
 
-NamedShadowNamesFilter = List[ShadowName]
+NamedShadowNamesFilter = list[ShadowName]
 
 
 class IndexingFilter(TypedDict, total=False):
@@ -4964,8 +4964,8 @@ class IndexingFilter(TypedDict, total=False):
        indexing <https://docs.aws.amazon.com/iot/latest/developerguide/managing-fleet-index.html>`__.
     """
 
-    namedShadowNames: Optional[NamedShadowNamesFilter]
-    geoLocations: Optional[GeoLocationsFilter]
+    namedShadowNames: NamedShadowNamesFilter | None
+    geoLocations: GeoLocationsFilter | None
 
 
 class ThingIndexingConfiguration(TypedDict, total=False):
@@ -4975,26 +4975,26 @@ class ThingIndexingConfiguration(TypedDict, total=False):
     """
 
     thingIndexingMode: ThingIndexingMode
-    thingConnectivityIndexingMode: Optional[ThingConnectivityIndexingMode]
-    deviceDefenderIndexingMode: Optional[DeviceDefenderIndexingMode]
-    namedShadowIndexingMode: Optional[NamedShadowIndexingMode]
-    managedFields: Optional[Fields]
-    customFields: Optional[Fields]
-    filter: Optional[IndexingFilter]
+    thingConnectivityIndexingMode: ThingConnectivityIndexingMode | None
+    deviceDefenderIndexingMode: DeviceDefenderIndexingMode | None
+    namedShadowIndexingMode: NamedShadowIndexingMode | None
+    managedFields: Fields | None
+    customFields: Fields | None
+    filter: IndexingFilter | None
 
 
 class GetIndexingConfigurationResponse(TypedDict, total=False):
-    thingIndexingConfiguration: Optional[ThingIndexingConfiguration]
-    thingGroupIndexingConfiguration: Optional[ThingGroupIndexingConfiguration]
+    thingIndexingConfiguration: ThingIndexingConfiguration | None
+    thingGroupIndexingConfiguration: ThingGroupIndexingConfiguration | None
 
 
 class GetJobDocumentRequest(ServiceRequest):
     jobId: JobId
-    beforeSubstitution: Optional[BeforeSubstitutionFlag]
+    beforeSubstitution: BeforeSubstitutionFlag | None
 
 
 class GetJobDocumentResponse(TypedDict, total=False):
-    document: Optional[JobDocument]
+    document: JobDocument | None
 
 
 class GetLoggingOptionsRequest(ServiceRequest):
@@ -5006,8 +5006,8 @@ class GetLoggingOptionsRequest(ServiceRequest):
 class GetLoggingOptionsResponse(TypedDict, total=False):
     """The output from the GetLoggingOptions operation."""
 
-    roleArn: Optional[AwsArn]
-    logLevel: Optional[LogLevel]
+    roleArn: AwsArn | None
+    logLevel: LogLevel | None
 
 
 class GetOTAUpdateRequest(ServiceRequest):
@@ -5017,26 +5017,26 @@ class GetOTAUpdateRequest(ServiceRequest):
 class OTAUpdateInfo(TypedDict, total=False):
     """Information about an OTA update."""
 
-    otaUpdateId: Optional[OTAUpdateId]
-    otaUpdateArn: Optional[OTAUpdateArn]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    description: Optional[OTAUpdateDescription]
-    targets: Optional[Targets]
-    protocols: Optional[Protocols]
-    awsJobExecutionsRolloutConfig: Optional[AwsJobExecutionsRolloutConfig]
-    awsJobPresignedUrlConfig: Optional[AwsJobPresignedUrlConfig]
-    targetSelection: Optional[TargetSelection]
-    otaUpdateFiles: Optional[OTAUpdateFiles]
-    otaUpdateStatus: Optional[OTAUpdateStatus]
-    awsIotJobId: Optional[AwsIotJobId]
-    awsIotJobArn: Optional[AwsIotJobArn]
-    errorInfo: Optional[ErrorInfo]
-    additionalParameters: Optional[AdditionalParameterMap]
+    otaUpdateId: OTAUpdateId | None
+    otaUpdateArn: OTAUpdateArn | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    description: OTAUpdateDescription | None
+    targets: Targets | None
+    protocols: Protocols | None
+    awsJobExecutionsRolloutConfig: AwsJobExecutionsRolloutConfig | None
+    awsJobPresignedUrlConfig: AwsJobPresignedUrlConfig | None
+    targetSelection: TargetSelection | None
+    otaUpdateFiles: OTAUpdateFiles | None
+    otaUpdateStatus: OTAUpdateStatus | None
+    awsIotJobId: AwsIotJobId | None
+    awsIotJobArn: AwsIotJobArn | None
+    errorInfo: ErrorInfo | None
+    additionalParameters: AdditionalParameterMap | None
 
 
 class GetOTAUpdateResponse(TypedDict, total=False):
-    otaUpdateInfo: Optional[OTAUpdateInfo]
+    otaUpdateInfo: OTAUpdateInfo | None
 
 
 class GetPackageConfigurationRequest(ServiceRequest):
@@ -5052,12 +5052,12 @@ class VersionUpdateByJobsConfig(TypedDict, total=False):
     be set with the correct data for Jobs to report to the thing shadow.
     """
 
-    enabled: Optional[EnabledBoolean]
-    roleArn: Optional[RoleArn]
+    enabled: EnabledBoolean | None
+    roleArn: RoleArn | None
 
 
 class GetPackageConfigurationResponse(TypedDict, total=False):
-    versionUpdateByJobsConfig: Optional[VersionUpdateByJobsConfig]
+    versionUpdateByJobsConfig: VersionUpdateByJobsConfig | None
 
 
 class GetPackageRequest(ServiceRequest):
@@ -5065,12 +5065,12 @@ class GetPackageRequest(ServiceRequest):
 
 
 class GetPackageResponse(TypedDict, total=False):
-    packageName: Optional[PackageName]
-    packageArn: Optional[PackageArn]
-    description: Optional[ResourceDescription]
-    defaultVersionName: Optional[VersionName]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
+    packageName: PackageName | None
+    packageArn: PackageArn | None
+    description: ResourceDescription | None
+    defaultVersionName: VersionName | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
 
 
 class GetPackageVersionRequest(ServiceRequest):
@@ -5079,44 +5079,44 @@ class GetPackageVersionRequest(ServiceRequest):
 
 
 class GetPackageVersionResponse(TypedDict, total=False):
-    packageVersionArn: Optional[PackageVersionArn]
-    packageName: Optional[PackageName]
-    versionName: Optional[VersionName]
-    description: Optional[ResourceDescription]
-    attributes: Optional[ResourceAttributes]
-    artifact: Optional[PackageVersionArtifact]
-    status: Optional[PackageVersionStatus]
-    errorReason: Optional[PackageVersionErrorReason]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
-    sbom: Optional[Sbom]
-    sbomValidationStatus: Optional[SbomValidationStatus]
-    recipe: Optional[PackageVersionRecipe]
+    packageVersionArn: PackageVersionArn | None
+    packageName: PackageName | None
+    versionName: VersionName | None
+    description: ResourceDescription | None
+    attributes: ResourceAttributes | None
+    artifact: PackageVersionArtifact | None
+    status: PackageVersionStatus | None
+    errorReason: PackageVersionErrorReason | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
+    sbom: Sbom | None
+    sbomValidationStatus: SbomValidationStatus | None
+    recipe: PackageVersionRecipe | None
 
 
-PercentList = List[Percent]
+PercentList = list[Percent]
 
 
 class GetPercentilesRequest(ServiceRequest):
-    indexName: Optional[IndexName]
+    indexName: IndexName | None
     queryString: QueryString
-    aggregationField: Optional[AggregationField]
-    queryVersion: Optional[QueryVersion]
-    percents: Optional[PercentList]
+    aggregationField: AggregationField | None
+    queryVersion: QueryVersion | None
+    percents: PercentList | None
 
 
 class PercentPair(TypedDict, total=False):
     """Describes the percentile and percentile value."""
 
-    percent: Optional[Percent]
-    value: Optional[PercentValue]
+    percent: Percent | None
+    value: PercentValue | None
 
 
-Percentiles = List[PercentPair]
+Percentiles = list[PercentPair]
 
 
 class GetPercentilesResponse(TypedDict, total=False):
-    percentiles: Optional[Percentiles]
+    percentiles: Percentiles | None
 
 
 class GetPolicyRequest(ServiceRequest):
@@ -5128,13 +5128,13 @@ class GetPolicyRequest(ServiceRequest):
 class GetPolicyResponse(TypedDict, total=False):
     """The output from the GetPolicy operation."""
 
-    policyName: Optional[PolicyName]
-    policyArn: Optional[PolicyArn]
-    policyDocument: Optional[PolicyDocument]
-    defaultVersionId: Optional[PolicyVersionId]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    generationId: Optional[GenerationId]
+    policyName: PolicyName | None
+    policyArn: PolicyArn | None
+    policyDocument: PolicyDocument | None
+    defaultVersionId: PolicyVersionId | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    generationId: GenerationId | None
 
 
 class GetPolicyVersionRequest(ServiceRequest):
@@ -5147,14 +5147,14 @@ class GetPolicyVersionRequest(ServiceRequest):
 class GetPolicyVersionResponse(TypedDict, total=False):
     """The output from the GetPolicyVersion operation."""
 
-    policyArn: Optional[PolicyArn]
-    policyName: Optional[PolicyName]
-    policyDocument: Optional[PolicyDocument]
-    policyVersionId: Optional[PolicyVersionId]
-    isDefaultVersion: Optional[IsDefaultVersion]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    generationId: Optional[GenerationId]
+    policyArn: PolicyArn | None
+    policyName: PolicyName | None
+    policyDocument: PolicyDocument | None
+    policyVersionId: PolicyVersionId | None
+    isDefaultVersion: IsDefaultVersion | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    generationId: GenerationId | None
 
 
 class GetRegistrationCodeRequest(ServiceRequest):
@@ -5166,14 +5166,14 @@ class GetRegistrationCodeRequest(ServiceRequest):
 class GetRegistrationCodeResponse(TypedDict, total=False):
     """The output from the GetRegistrationCode operation."""
 
-    registrationCode: Optional[RegistrationCode]
+    registrationCode: RegistrationCode | None
 
 
 class GetStatisticsRequest(ServiceRequest):
-    indexName: Optional[IndexName]
+    indexName: IndexName | None
     queryString: QueryString
-    aggregationField: Optional[AggregationField]
-    queryVersion: Optional[QueryVersion]
+    aggregationField: AggregationField | None
+    queryVersion: QueryVersion | None
 
 
 class Statistics(TypedDict, total=False):
@@ -5183,18 +5183,18 @@ class Statistics(TypedDict, total=False):
     guide <https://docs.aws.amazon.com/iot/latest/developerguide/fleet-indexing-troubleshooting.html>`__.
     """
 
-    count: Optional[Count]
-    average: Optional[Average]
-    sum: Optional[Sum]
-    minimum: Optional[Minimum]
-    maximum: Optional[Maximum]
-    sumOfSquares: Optional[SumOfSquares]
-    variance: Optional[Variance]
-    stdDeviation: Optional[StdDeviation]
+    count: Count | None
+    average: Average | None
+    sum: Sum | None
+    minimum: Minimum | None
+    maximum: Maximum | None
+    sumOfSquares: SumOfSquares | None
+    variance: Variance | None
+    stdDeviation: StdDeviation | None
 
 
 class GetStatisticsResponse(TypedDict, total=False):
-    statistics: Optional[Statistics]
+    statistics: Statistics | None
 
 
 class GetThingConnectivityDataRequest(ServiceRequest):
@@ -5202,10 +5202,10 @@ class GetThingConnectivityDataRequest(ServiceRequest):
 
 
 class GetThingConnectivityDataResponse(TypedDict, total=False):
-    thingName: Optional[ConnectivityApiThingName]
-    connected: Optional[Boolean]
-    timestamp: Optional[Timestamp]
-    disconnectReason: Optional[DisconnectReasonValue]
+    thingName: ConnectivityApiThingName | None
+    connected: Boolean | None
+    timestamp: Timestamp | None
+    disconnectReason: DisconnectReasonValue | None
 
 
 class GetTopicRuleDestinationRequest(ServiceRequest):
@@ -5213,7 +5213,7 @@ class GetTopicRuleDestinationRequest(ServiceRequest):
 
 
 class GetTopicRuleDestinationResponse(TypedDict, total=False):
-    topicRuleDestination: Optional[TopicRuleDestination]
+    topicRuleDestination: TopicRuleDestination | None
 
 
 class GetTopicRuleRequest(ServiceRequest):
@@ -5225,21 +5225,21 @@ class GetTopicRuleRequest(ServiceRequest):
 class TopicRule(TypedDict, total=False):
     """Describes a rule."""
 
-    ruleName: Optional[RuleName]
-    sql: Optional[SQL]
-    description: Optional[Description]
-    createdAt: Optional[CreatedAtDate]
-    actions: Optional[ActionList]
-    ruleDisabled: Optional[IsDisabled]
-    awsIotSqlVersion: Optional[AwsIotSqlVersion]
-    errorAction: Optional[Action]
+    ruleName: RuleName | None
+    sql: SQL | None
+    description: Description | None
+    createdAt: CreatedAtDate | None
+    actions: ActionList | None
+    ruleDisabled: IsDisabled | None
+    awsIotSqlVersion: AwsIotSqlVersion | None
+    errorAction: Action | None
 
 
 class GetTopicRuleResponse(TypedDict, total=False):
     """The output from the GetTopicRule operation."""
 
-    ruleArn: Optional[RuleArn]
-    rule: Optional[TopicRule]
+    ruleArn: RuleArn | None
+    rule: TopicRule | None
 
 
 class GetV2LoggingOptionsRequest(ServiceRequest):
@@ -5247,39 +5247,39 @@ class GetV2LoggingOptionsRequest(ServiceRequest):
 
 
 class GetV2LoggingOptionsResponse(TypedDict, total=False):
-    roleArn: Optional[AwsArn]
-    defaultLogLevel: Optional[LogLevel]
-    disableAllLogs: Optional[DisableAllLogs]
+    roleArn: AwsArn | None
+    defaultLogLevel: LogLevel | None
+    disableAllLogs: DisableAllLogs | None
 
 
-HttpHeaders = Dict[HttpHeaderName, HttpHeaderValue]
+HttpHeaders = dict[HttpHeaderName, HttpHeaderValue]
 
 
 class HttpContext(TypedDict, total=False):
     """Specifies the HTTP context to use for the test authorizer request."""
 
-    headers: Optional[HttpHeaders]
-    queryString: Optional[HttpQueryString]
+    headers: HttpHeaders | None
+    queryString: HttpQueryString | None
 
 
 class HttpUrlDestinationSummary(TypedDict, total=False):
     """Information about an HTTP URL destination."""
 
-    confirmationUrl: Optional[Url]
+    confirmationUrl: Url | None
 
 
-IndexNamesList = List[IndexName]
+IndexNamesList = list[IndexName]
 
 
 class JobExecutionSummary(TypedDict, total=False):
     """The job execution summary."""
 
-    status: Optional[JobExecutionStatus]
-    queuedAt: Optional[DateType]
-    startedAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    executionNumber: Optional[ExecutionNumber]
-    retryAttempt: Optional[RetryAttempt]
+    status: JobExecutionStatus | None
+    queuedAt: DateType | None
+    startedAt: DateType | None
+    lastUpdatedAt: DateType | None
+    executionNumber: ExecutionNumber | None
+    retryAttempt: RetryAttempt | None
 
 
 class JobExecutionSummaryForJob(TypedDict, total=False):
@@ -5287,228 +5287,228 @@ class JobExecutionSummaryForJob(TypedDict, total=False):
     job.
     """
 
-    thingArn: Optional[ThingArn]
-    jobExecutionSummary: Optional[JobExecutionSummary]
+    thingArn: ThingArn | None
+    jobExecutionSummary: JobExecutionSummary | None
 
 
-JobExecutionSummaryForJobList = List[JobExecutionSummaryForJob]
+JobExecutionSummaryForJobList = list[JobExecutionSummaryForJob]
 
 
 class JobExecutionSummaryForThing(TypedDict, total=False):
     """The job execution summary for a thing."""
 
-    jobId: Optional[JobId]
-    jobExecutionSummary: Optional[JobExecutionSummary]
+    jobId: JobId | None
+    jobExecutionSummary: JobExecutionSummary | None
 
 
-JobExecutionSummaryForThingList = List[JobExecutionSummaryForThing]
+JobExecutionSummaryForThingList = list[JobExecutionSummaryForThing]
 
 
 class JobSummary(TypedDict, total=False):
     """The job summary."""
 
-    jobArn: Optional[JobArn]
-    jobId: Optional[JobId]
-    thingGroupId: Optional[ThingGroupId]
-    targetSelection: Optional[TargetSelection]
-    status: Optional[JobStatus]
-    createdAt: Optional[DateType]
-    lastUpdatedAt: Optional[DateType]
-    completedAt: Optional[DateType]
-    isConcurrent: Optional[BooleanWrapperObject]
+    jobArn: JobArn | None
+    jobId: JobId | None
+    thingGroupId: ThingGroupId | None
+    targetSelection: TargetSelection | None
+    status: JobStatus | None
+    createdAt: DateType | None
+    lastUpdatedAt: DateType | None
+    completedAt: DateType | None
+    isConcurrent: BooleanWrapperObject | None
 
 
-JobSummaryList = List[JobSummary]
+JobSummaryList = list[JobSummary]
 
 
 class JobTemplateSummary(TypedDict, total=False):
     """An object that contains information about the job template."""
 
-    jobTemplateArn: Optional[JobTemplateArn]
-    jobTemplateId: Optional[JobTemplateId]
-    description: Optional[JobDescription]
-    createdAt: Optional[DateType]
+    jobTemplateArn: JobTemplateArn | None
+    jobTemplateId: JobTemplateId | None
+    description: JobDescription | None
+    createdAt: DateType | None
 
 
-JobTemplateSummaryList = List[JobTemplateSummary]
+JobTemplateSummaryList = list[JobTemplateSummary]
 
 
 class ListActiveViolationsRequest(ServiceRequest):
-    thingName: Optional[DeviceDefenderThingName]
-    securityProfileName: Optional[SecurityProfileName]
-    behaviorCriteriaType: Optional[BehaviorCriteriaType]
-    listSuppressedAlerts: Optional[ListSuppressedAlerts]
-    verificationState: Optional[VerificationState]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    thingName: DeviceDefenderThingName | None
+    securityProfileName: SecurityProfileName | None
+    behaviorCriteriaType: BehaviorCriteriaType | None
+    listSuppressedAlerts: ListSuppressedAlerts | None
+    verificationState: VerificationState | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListActiveViolationsResponse(TypedDict, total=False):
-    activeViolations: Optional[ActiveViolations]
-    nextToken: Optional[NextToken]
+    activeViolations: ActiveViolations | None
+    nextToken: NextToken | None
 
 
 class ListAttachedPoliciesRequest(ServiceRequest):
     target: PolicyTarget
-    recursive: Optional[Recursive]
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
+    recursive: Recursive | None
+    marker: Marker | None
+    pageSize: PageSize | None
 
 
 class ListAttachedPoliciesResponse(TypedDict, total=False):
-    policies: Optional[Policies]
-    nextMarker: Optional[Marker]
+    policies: Policies | None
+    nextMarker: Marker | None
 
 
 class ListAuditFindingsRequest(ServiceRequest):
-    taskId: Optional[AuditTaskId]
-    checkName: Optional[AuditCheckName]
-    resourceIdentifier: Optional[ResourceIdentifier]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    listSuppressedFindings: Optional[ListSuppressedFindings]
+    taskId: AuditTaskId | None
+    checkName: AuditCheckName | None
+    resourceIdentifier: ResourceIdentifier | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    listSuppressedFindings: ListSuppressedFindings | None
 
 
 class ListAuditFindingsResponse(TypedDict, total=False):
-    findings: Optional[AuditFindings]
-    nextToken: Optional[NextToken]
+    findings: AuditFindings | None
+    nextToken: NextToken | None
 
 
 class ListAuditMitigationActionsExecutionsRequest(ServiceRequest):
     taskId: MitigationActionsTaskId
-    actionStatus: Optional[AuditMitigationActionsExecutionStatus]
+    actionStatus: AuditMitigationActionsExecutionStatus | None
     findingId: FindingId
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ListAuditMitigationActionsExecutionsResponse(TypedDict, total=False):
-    actionsExecutions: Optional[AuditMitigationActionExecutionMetadataList]
-    nextToken: Optional[NextToken]
+    actionsExecutions: AuditMitigationActionExecutionMetadataList | None
+    nextToken: NextToken | None
 
 
 class ListAuditMitigationActionsTasksRequest(ServiceRequest):
-    auditTaskId: Optional[AuditTaskId]
-    findingId: Optional[FindingId]
-    taskStatus: Optional[AuditMitigationActionsTaskStatus]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    auditTaskId: AuditTaskId | None
+    findingId: FindingId | None
+    taskStatus: AuditMitigationActionsTaskStatus | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
     startTime: Timestamp
     endTime: Timestamp
 
 
 class ListAuditMitigationActionsTasksResponse(TypedDict, total=False):
-    tasks: Optional[AuditMitigationActionsTaskMetadataList]
-    nextToken: Optional[NextToken]
+    tasks: AuditMitigationActionsTaskMetadataList | None
+    nextToken: NextToken | None
 
 
 class ListAuditSuppressionsRequest(ServiceRequest):
-    checkName: Optional[AuditCheckName]
-    resourceIdentifier: Optional[ResourceIdentifier]
-    ascendingOrder: Optional[AscendingOrder]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    checkName: AuditCheckName | None
+    resourceIdentifier: ResourceIdentifier | None
+    ascendingOrder: AscendingOrder | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListAuditSuppressionsResponse(TypedDict, total=False):
-    suppressions: Optional[AuditSuppressionList]
-    nextToken: Optional[NextToken]
+    suppressions: AuditSuppressionList | None
+    nextToken: NextToken | None
 
 
 class ListAuditTasksRequest(ServiceRequest):
     startTime: Timestamp
     endTime: Timestamp
-    taskType: Optional[AuditTaskType]
-    taskStatus: Optional[AuditTaskStatus]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    taskType: AuditTaskType | None
+    taskStatus: AuditTaskStatus | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListAuditTasksResponse(TypedDict, total=False):
-    tasks: Optional[AuditTaskMetadataList]
-    nextToken: Optional[NextToken]
+    tasks: AuditTaskMetadataList | None
+    nextToken: NextToken | None
 
 
 class ListAuthorizersRequest(ServiceRequest):
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
-    status: Optional[AuthorizerStatus]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
+    status: AuthorizerStatus | None
 
 
 class ListAuthorizersResponse(TypedDict, total=False):
-    authorizers: Optional[Authorizers]
-    nextMarker: Optional[Marker]
+    authorizers: Authorizers | None
+    nextMarker: Marker | None
 
 
 class ListBillingGroupsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
-    namePrefixFilter: Optional[BillingGroupName]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
+    namePrefixFilter: BillingGroupName | None
 
 
 class ListBillingGroupsResponse(TypedDict, total=False):
-    billingGroups: Optional[BillingGroupNameAndArnList]
-    nextToken: Optional[NextToken]
+    billingGroups: BillingGroupNameAndArnList | None
+    nextToken: NextToken | None
 
 
 class ListCACertificatesRequest(ServiceRequest):
     """Input for the ListCACertificates operation."""
 
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
-    templateName: Optional[TemplateName]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
+    templateName: TemplateName | None
 
 
 class ListCACertificatesResponse(TypedDict, total=False):
     """The output from the ListCACertificates operation."""
 
-    certificates: Optional[CACertificates]
-    nextMarker: Optional[Marker]
+    certificates: CACertificates | None
+    nextMarker: Marker | None
 
 
 class ListCertificateProvidersRequest(ServiceRequest):
-    nextToken: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
+    nextToken: Marker | None
+    ascendingOrder: AscendingOrder | None
 
 
 class ListCertificateProvidersResponse(TypedDict, total=False):
-    certificateProviders: Optional[CertificateProviders]
-    nextToken: Optional[Marker]
+    certificateProviders: CertificateProviders | None
+    nextToken: Marker | None
 
 
 class ListCertificatesByCARequest(ServiceRequest):
     """The input to the ListCertificatesByCA operation."""
 
     caCertificateId: CertificateId
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
 
 
 class ListCertificatesByCAResponse(TypedDict, total=False):
     """The output of the ListCertificatesByCA operation."""
 
-    certificates: Optional[Certificates]
-    nextMarker: Optional[Marker]
+    certificates: Certificates | None
+    nextMarker: Marker | None
 
 
 class ListCertificatesRequest(ServiceRequest):
     """The input for the ListCertificates operation."""
 
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
 
 
 class ListCertificatesResponse(TypedDict, total=False):
     """The output of the ListCertificates operation."""
 
-    certificates: Optional[Certificates]
-    nextMarker: Optional[Marker]
+    certificates: Certificates | None
+    nextMarker: Marker | None
 
 
 class TimeFilter(TypedDict, total=False):
@@ -5516,226 +5516,226 @@ class TimeFilter(TypedDict, total=False):
     started or completed before or after a particular date and time.
     """
 
-    after: Optional[StringDateTime]
-    before: Optional[StringDateTime]
+    after: StringDateTime | None
+    before: StringDateTime | None
 
 
 class ListCommandExecutionsRequest(ServiceRequest):
-    maxResults: Optional[CommandMaxResults]
-    nextToken: Optional[NextToken]
-    namespace: Optional[CommandNamespace]
-    status: Optional[CommandExecutionStatus]
-    sortOrder: Optional[SortOrder]
-    startedTimeFilter: Optional[TimeFilter]
-    completedTimeFilter: Optional[TimeFilter]
-    targetArn: Optional[TargetArn]
-    commandArn: Optional[CommandArn]
+    maxResults: CommandMaxResults | None
+    nextToken: NextToken | None
+    namespace: CommandNamespace | None
+    status: CommandExecutionStatus | None
+    sortOrder: SortOrder | None
+    startedTimeFilter: TimeFilter | None
+    completedTimeFilter: TimeFilter | None
+    targetArn: TargetArn | None
+    commandArn: CommandArn | None
 
 
 class ListCommandExecutionsResponse(TypedDict, total=False):
-    commandExecutions: Optional[CommandExecutionSummaryList]
-    nextToken: Optional[NextToken]
+    commandExecutions: CommandExecutionSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListCommandsRequest(ServiceRequest):
-    maxResults: Optional[CommandMaxResults]
-    nextToken: Optional[NextToken]
-    namespace: Optional[CommandNamespace]
-    commandParameterName: Optional[CommandParameterName]
-    sortOrder: Optional[SortOrder]
+    maxResults: CommandMaxResults | None
+    nextToken: NextToken | None
+    namespace: CommandNamespace | None
+    commandParameterName: CommandParameterName | None
+    sortOrder: SortOrder | None
 
 
 class ListCommandsResponse(TypedDict, total=False):
-    commands: Optional[CommandSummaryList]
-    nextToken: Optional[NextToken]
+    commands: CommandSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListCustomMetricsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-MetricNames = List[MetricName]
+MetricNames = list[MetricName]
 
 
 class ListCustomMetricsResponse(TypedDict, total=False):
-    metricNames: Optional[MetricNames]
-    nextToken: Optional[NextToken]
+    metricNames: MetricNames | None
+    nextToken: NextToken | None
 
 
 class ListDetectMitigationActionsExecutionsRequest(ServiceRequest):
-    taskId: Optional[MitigationActionsTaskId]
-    violationId: Optional[ViolationId]
-    thingName: Optional[DeviceDefenderThingName]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    taskId: MitigationActionsTaskId | None
+    violationId: ViolationId | None
+    thingName: DeviceDefenderThingName | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ListDetectMitigationActionsExecutionsResponse(TypedDict, total=False):
-    actionsExecutions: Optional[DetectMitigationActionExecutionList]
-    nextToken: Optional[NextToken]
+    actionsExecutions: DetectMitigationActionExecutionList | None
+    nextToken: NextToken | None
 
 
 class ListDetectMitigationActionsTasksRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
     startTime: Timestamp
     endTime: Timestamp
 
 
 class ListDetectMitigationActionsTasksResponse(TypedDict, total=False):
-    tasks: Optional[DetectMitigationActionsTaskSummaryList]
-    nextToken: Optional[NextToken]
+    tasks: DetectMitigationActionsTaskSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListDimensionsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListDimensionsResponse(TypedDict, total=False):
-    dimensionNames: Optional[DimensionNames]
-    nextToken: Optional[NextToken]
+    dimensionNames: DimensionNames | None
+    nextToken: NextToken | None
 
 
 class ListDomainConfigurationsRequest(ServiceRequest):
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
-    serviceType: Optional[ServiceType]
+    marker: Marker | None
+    pageSize: PageSize | None
+    serviceType: ServiceType | None
 
 
 class ListDomainConfigurationsResponse(TypedDict, total=False):
-    domainConfigurations: Optional[DomainConfigurations]
-    nextMarker: Optional[Marker]
+    domainConfigurations: DomainConfigurations | None
+    nextMarker: Marker | None
 
 
 class ListFleetMetricsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListFleetMetricsResponse(TypedDict, total=False):
-    fleetMetrics: Optional[FleetMetricNameAndArnList]
-    nextToken: Optional[NextToken]
+    fleetMetrics: FleetMetricNameAndArnList | None
+    nextToken: NextToken | None
 
 
 class ListIndicesRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[QueryMaxResults]
+    nextToken: NextToken | None
+    maxResults: QueryMaxResults | None
 
 
 class ListIndicesResponse(TypedDict, total=False):
-    indexNames: Optional[IndexNamesList]
-    nextToken: Optional[NextToken]
+    indexNames: IndexNamesList | None
+    nextToken: NextToken | None
 
 
 class ListJobExecutionsForJobRequest(ServiceRequest):
     jobId: JobId
-    status: Optional[JobExecutionStatus]
-    maxResults: Optional[LaserMaxResults]
-    nextToken: Optional[NextToken]
+    status: JobExecutionStatus | None
+    maxResults: LaserMaxResults | None
+    nextToken: NextToken | None
 
 
 class ListJobExecutionsForJobResponse(TypedDict, total=False):
-    executionSummaries: Optional[JobExecutionSummaryForJobList]
-    nextToken: Optional[NextToken]
+    executionSummaries: JobExecutionSummaryForJobList | None
+    nextToken: NextToken | None
 
 
 class ListJobExecutionsForThingRequest(ServiceRequest):
     thingName: ThingName
-    status: Optional[JobExecutionStatus]
-    namespaceId: Optional[NamespaceId]
-    maxResults: Optional[LaserMaxResults]
-    nextToken: Optional[NextToken]
-    jobId: Optional[JobId]
+    status: JobExecutionStatus | None
+    namespaceId: NamespaceId | None
+    maxResults: LaserMaxResults | None
+    nextToken: NextToken | None
+    jobId: JobId | None
 
 
 class ListJobExecutionsForThingResponse(TypedDict, total=False):
-    executionSummaries: Optional[JobExecutionSummaryForThingList]
-    nextToken: Optional[NextToken]
+    executionSummaries: JobExecutionSummaryForThingList | None
+    nextToken: NextToken | None
 
 
 class ListJobTemplatesRequest(ServiceRequest):
-    maxResults: Optional[LaserMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: LaserMaxResults | None
+    nextToken: NextToken | None
 
 
 class ListJobTemplatesResponse(TypedDict, total=False):
-    jobTemplates: Optional[JobTemplateSummaryList]
-    nextToken: Optional[NextToken]
+    jobTemplates: JobTemplateSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListJobsRequest(ServiceRequest):
-    status: Optional[JobStatus]
-    targetSelection: Optional[TargetSelection]
-    maxResults: Optional[LaserMaxResults]
-    nextToken: Optional[NextToken]
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupId: Optional[ThingGroupId]
-    namespaceId: Optional[NamespaceId]
+    status: JobStatus | None
+    targetSelection: TargetSelection | None
+    maxResults: LaserMaxResults | None
+    nextToken: NextToken | None
+    thingGroupName: ThingGroupName | None
+    thingGroupId: ThingGroupId | None
+    namespaceId: NamespaceId | None
 
 
 class ListJobsResponse(TypedDict, total=False):
-    jobs: Optional[JobSummaryList]
-    nextToken: Optional[NextToken]
+    jobs: JobSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListManagedJobTemplatesRequest(ServiceRequest):
-    templateName: Optional[ManagedJobTemplateName]
-    maxResults: Optional[LaserMaxResults]
-    nextToken: Optional[NextToken]
+    templateName: ManagedJobTemplateName | None
+    maxResults: LaserMaxResults | None
+    nextToken: NextToken | None
 
 
 class ManagedJobTemplateSummary(TypedDict, total=False):
     """An object that contains information about the managed template."""
 
-    templateArn: Optional[JobTemplateArn]
-    templateName: Optional[ManagedJobTemplateName]
-    description: Optional[JobDescription]
-    environments: Optional[Environments]
-    templateVersion: Optional[ManagedTemplateVersion]
+    templateArn: JobTemplateArn | None
+    templateName: ManagedJobTemplateName | None
+    description: JobDescription | None
+    environments: Environments | None
+    templateVersion: ManagedTemplateVersion | None
 
 
-ManagedJobTemplatesSummaryList = List[ManagedJobTemplateSummary]
+ManagedJobTemplatesSummaryList = list[ManagedJobTemplateSummary]
 
 
 class ListManagedJobTemplatesResponse(TypedDict, total=False):
-    managedJobTemplates: Optional[ManagedJobTemplatesSummaryList]
-    nextToken: Optional[NextToken]
+    managedJobTemplates: ManagedJobTemplatesSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListMetricValuesRequest(ServiceRequest):
     thingName: DeviceDefenderThingName
     metricName: BehaviorMetric
-    dimensionName: Optional[DimensionName]
-    dimensionValueOperator: Optional[DimensionValueOperator]
+    dimensionName: DimensionName | None
+    dimensionValueOperator: DimensionValueOperator | None
     startTime: Timestamp
     endTime: Timestamp
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class MetricDatum(TypedDict, total=False):
     """A metric."""
 
-    timestamp: Optional[Timestamp]
-    value: Optional[MetricValue]
+    timestamp: Timestamp | None
+    value: MetricValue | None
 
 
-MetricDatumList = List[MetricDatum]
+MetricDatumList = list[MetricDatum]
 
 
 class ListMetricValuesResponse(TypedDict, total=False):
-    metricDatumList: Optional[MetricDatumList]
-    nextToken: Optional[NextToken]
+    metricDatumList: MetricDatumList | None
+    nextToken: NextToken | None
 
 
 class ListMitigationActionsRequest(ServiceRequest):
-    actionType: Optional[MitigationActionType]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    actionType: MitigationActionType | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class MitigationActionIdentifier(TypedDict, total=False):
@@ -5743,149 +5743,149 @@ class MitigationActionIdentifier(TypedDict, total=False):
     returned by ListMitigationActions.
     """
 
-    actionName: Optional[MitigationActionName]
-    actionArn: Optional[MitigationActionArn]
-    creationDate: Optional[Timestamp]
+    actionName: MitigationActionName | None
+    actionArn: MitigationActionArn | None
+    creationDate: Timestamp | None
 
 
-MitigationActionIdentifierList = List[MitigationActionIdentifier]
+MitigationActionIdentifierList = list[MitigationActionIdentifier]
 
 
 class ListMitigationActionsResponse(TypedDict, total=False):
-    actionIdentifiers: Optional[MitigationActionIdentifierList]
-    nextToken: Optional[NextToken]
+    actionIdentifiers: MitigationActionIdentifierList | None
+    nextToken: NextToken | None
 
 
 class ListOTAUpdatesRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
-    otaUpdateStatus: Optional[OTAUpdateStatus]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
+    otaUpdateStatus: OTAUpdateStatus | None
 
 
 class OTAUpdateSummary(TypedDict, total=False):
     """An OTA update summary."""
 
-    otaUpdateId: Optional[OTAUpdateId]
-    otaUpdateArn: Optional[OTAUpdateArn]
-    creationDate: Optional[DateType]
+    otaUpdateId: OTAUpdateId | None
+    otaUpdateArn: OTAUpdateArn | None
+    creationDate: DateType | None
 
 
-OTAUpdatesSummary = List[OTAUpdateSummary]
+OTAUpdatesSummary = list[OTAUpdateSummary]
 
 
 class ListOTAUpdatesResponse(TypedDict, total=False):
-    otaUpdates: Optional[OTAUpdatesSummary]
-    nextToken: Optional[NextToken]
+    otaUpdates: OTAUpdatesSummary | None
+    nextToken: NextToken | None
 
 
 class ListOutgoingCertificatesRequest(ServiceRequest):
     """The input to the ListOutgoingCertificates operation."""
 
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
 
 
 class OutgoingCertificate(TypedDict, total=False):
     """A certificate that has been transferred but not yet accepted."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
-    transferredTo: Optional[AwsAccountId]
-    transferDate: Optional[DateType]
-    transferMessage: Optional[Message]
-    creationDate: Optional[DateType]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
+    transferredTo: AwsAccountId | None
+    transferDate: DateType | None
+    transferMessage: Message | None
+    creationDate: DateType | None
 
 
-OutgoingCertificates = List[OutgoingCertificate]
+OutgoingCertificates = list[OutgoingCertificate]
 
 
 class ListOutgoingCertificatesResponse(TypedDict, total=False):
     """The output from the ListOutgoingCertificates operation."""
 
-    outgoingCertificates: Optional[OutgoingCertificates]
-    nextMarker: Optional[Marker]
+    outgoingCertificates: OutgoingCertificates | None
+    nextMarker: Marker | None
 
 
 class ListPackageVersionsRequest(ServiceRequest):
     packageName: PackageName
-    status: Optional[PackageVersionStatus]
-    maxResults: Optional[PackageCatalogMaxResults]
-    nextToken: Optional[NextToken]
+    status: PackageVersionStatus | None
+    maxResults: PackageCatalogMaxResults | None
+    nextToken: NextToken | None
 
 
 class PackageVersionSummary(TypedDict, total=False):
     """A summary of information about a package version."""
 
-    packageName: Optional[PackageName]
-    versionName: Optional[VersionName]
-    status: Optional[PackageVersionStatus]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
+    packageName: PackageName | None
+    versionName: VersionName | None
+    status: PackageVersionStatus | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
 
 
-PackageVersionSummaryList = List[PackageVersionSummary]
+PackageVersionSummaryList = list[PackageVersionSummary]
 
 
 class ListPackageVersionsResponse(TypedDict, total=False):
-    packageVersionSummaries: Optional[PackageVersionSummaryList]
-    nextToken: Optional[NextToken]
+    packageVersionSummaries: PackageVersionSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListPackagesRequest(ServiceRequest):
-    maxResults: Optional[PackageCatalogMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: PackageCatalogMaxResults | None
+    nextToken: NextToken | None
 
 
 class PackageSummary(TypedDict, total=False):
     """A summary of information about a software package."""
 
-    packageName: Optional[PackageName]
-    defaultVersionName: Optional[VersionName]
-    creationDate: Optional[CreationDate]
-    lastModifiedDate: Optional[LastModifiedDate]
+    packageName: PackageName | None
+    defaultVersionName: VersionName | None
+    creationDate: CreationDate | None
+    lastModifiedDate: LastModifiedDate | None
 
 
-PackageSummaryList = List[PackageSummary]
+PackageSummaryList = list[PackageSummary]
 
 
 class ListPackagesResponse(TypedDict, total=False):
-    packageSummaries: Optional[PackageSummaryList]
-    nextToken: Optional[NextToken]
+    packageSummaries: PackageSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListPoliciesRequest(ServiceRequest):
     """The input for the ListPolicies operation."""
 
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
-    ascendingOrder: Optional[AscendingOrder]
+    marker: Marker | None
+    pageSize: PageSize | None
+    ascendingOrder: AscendingOrder | None
 
 
 class ListPoliciesResponse(TypedDict, total=False):
     """The output from the ListPolicies operation."""
 
-    policies: Optional[Policies]
-    nextMarker: Optional[Marker]
+    policies: Policies | None
+    nextMarker: Marker | None
 
 
 class ListPolicyPrincipalsRequest(ServiceRequest):
     """The input for the ListPolicyPrincipals operation."""
 
     policyName: PolicyName
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
-    ascendingOrder: Optional[AscendingOrder]
+    marker: Marker | None
+    pageSize: PageSize | None
+    ascendingOrder: AscendingOrder | None
 
 
-Principals = List[PrincipalArn]
+Principals = list[PrincipalArn]
 
 
 class ListPolicyPrincipalsResponse(TypedDict, total=False):
     """The output from the ListPolicyPrincipals operation."""
 
-    principals: Optional[Principals]
-    nextMarker: Optional[Marker]
+    principals: Principals | None
+    nextMarker: Marker | None
 
 
 class ListPolicyVersionsRequest(ServiceRequest):
@@ -5897,59 +5897,59 @@ class ListPolicyVersionsRequest(ServiceRequest):
 class PolicyVersion(TypedDict, total=False):
     """Describes a policy version."""
 
-    versionId: Optional[PolicyVersionId]
-    isDefaultVersion: Optional[IsDefaultVersion]
-    createDate: Optional[DateType]
+    versionId: PolicyVersionId | None
+    isDefaultVersion: IsDefaultVersion | None
+    createDate: DateType | None
 
 
-PolicyVersions = List[PolicyVersion]
+PolicyVersions = list[PolicyVersion]
 
 
 class ListPolicyVersionsResponse(TypedDict, total=False):
     """The output from the ListPolicyVersions operation."""
 
-    policyVersions: Optional[PolicyVersions]
+    policyVersions: PolicyVersions | None
 
 
 class ListPrincipalPoliciesRequest(ServiceRequest):
     """The input for the ListPrincipalPolicies operation."""
 
     principal: Principal
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
-    ascendingOrder: Optional[AscendingOrder]
+    marker: Marker | None
+    pageSize: PageSize | None
+    ascendingOrder: AscendingOrder | None
 
 
 class ListPrincipalPoliciesResponse(TypedDict, total=False):
     """The output from the ListPrincipalPolicies operation."""
 
-    policies: Optional[Policies]
-    nextMarker: Optional[Marker]
+    policies: Policies | None
+    nextMarker: Marker | None
 
 
 class ListPrincipalThingsRequest(ServiceRequest):
     """The input for the ListPrincipalThings operation."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
     principal: Principal
 
 
-ThingNameList = List[ThingName]
+ThingNameList = list[ThingName]
 
 
 class ListPrincipalThingsResponse(TypedDict, total=False):
     """The output from the ListPrincipalThings operation."""
 
-    things: Optional[ThingNameList]
-    nextToken: Optional[NextToken]
+    things: ThingNameList | None
+    nextToken: NextToken | None
 
 
 class ListPrincipalThingsV2Request(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
     principal: Principal
-    thingPrincipalType: Optional[ThingPrincipalType]
+    thingPrincipalType: ThingPrincipalType | None
 
 
 class PrincipalThingObject(TypedDict, total=False):
@@ -5958,93 +5958,93 @@ class PrincipalThingObject(TypedDict, total=False):
     """
 
     thingName: ThingName
-    thingPrincipalType: Optional[ThingPrincipalType]
+    thingPrincipalType: ThingPrincipalType | None
 
 
-PrincipalThingObjects = List[PrincipalThingObject]
+PrincipalThingObjects = list[PrincipalThingObject]
 
 
 class ListPrincipalThingsV2Response(TypedDict, total=False):
-    principalThingObjects: Optional[PrincipalThingObjects]
-    nextToken: Optional[NextToken]
+    principalThingObjects: PrincipalThingObjects | None
+    nextToken: NextToken | None
 
 
 class ListProvisioningTemplateVersionsRequest(ServiceRequest):
     templateName: TemplateName
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ProvisioningTemplateVersionSummary(TypedDict, total=False):
     """A summary of information about a fleet provision template version."""
 
-    versionId: Optional[TemplateVersionId]
-    creationDate: Optional[DateType]
-    isDefaultVersion: Optional[IsDefaultVersion]
+    versionId: TemplateVersionId | None
+    creationDate: DateType | None
+    isDefaultVersion: IsDefaultVersion | None
 
 
-ProvisioningTemplateVersionListing = List[ProvisioningTemplateVersionSummary]
+ProvisioningTemplateVersionListing = list[ProvisioningTemplateVersionSummary]
 
 
 class ListProvisioningTemplateVersionsResponse(TypedDict, total=False):
-    versions: Optional[ProvisioningTemplateVersionListing]
-    nextToken: Optional[NextToken]
+    versions: ProvisioningTemplateVersionListing | None
+    nextToken: NextToken | None
 
 
 class ListProvisioningTemplatesRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ProvisioningTemplateSummary(TypedDict, total=False):
-    templateArn: Optional[TemplateArn]
-    templateName: Optional[TemplateName]
-    description: Optional[TemplateDescription]
-    creationDate: Optional[DateType]
-    lastModifiedDate: Optional[DateType]
-    enabled: Optional[Enabled]
-    type: Optional[TemplateType]
+    templateArn: TemplateArn | None
+    templateName: TemplateName | None
+    description: TemplateDescription | None
+    creationDate: DateType | None
+    lastModifiedDate: DateType | None
+    enabled: Enabled | None
+    type: TemplateType | None
 
 
-ProvisioningTemplateListing = List[ProvisioningTemplateSummary]
+ProvisioningTemplateListing = list[ProvisioningTemplateSummary]
 
 
 class ListProvisioningTemplatesResponse(TypedDict, total=False):
-    templates: Optional[ProvisioningTemplateListing]
-    nextToken: Optional[NextToken]
+    templates: ProvisioningTemplateListing | None
+    nextToken: NextToken | None
 
 
 class ListRelatedResourcesForAuditFindingRequest(ServiceRequest):
     findingId: FindingId
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListRelatedResourcesForAuditFindingResponse(TypedDict, total=False):
-    relatedResources: Optional[RelatedResources]
-    nextToken: Optional[NextToken]
+    relatedResources: RelatedResources | None
+    nextToken: NextToken | None
 
 
 class ListRoleAliasesRequest(ServiceRequest):
-    pageSize: Optional[PageSize]
-    marker: Optional[Marker]
-    ascendingOrder: Optional[AscendingOrder]
+    pageSize: PageSize | None
+    marker: Marker | None
+    ascendingOrder: AscendingOrder | None
 
 
-RoleAliases = List[RoleAlias]
+RoleAliases = list[RoleAlias]
 
 
 class ListRoleAliasesResponse(TypedDict, total=False):
-    roleAliases: Optional[RoleAliases]
-    nextMarker: Optional[Marker]
+    roleAliases: RoleAliases | None
+    nextMarker: Marker | None
 
 
 class ListSbomValidationResultsRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
-    validationResult: Optional[SbomValidationResult]
-    maxResults: Optional[PackageCatalogMaxResults]
-    nextToken: Optional[NextToken]
+    validationResult: SbomValidationResult | None
+    maxResults: PackageCatalogMaxResults | None
+    nextToken: NextToken | None
 
 
 class SbomValidationResultSummary(TypedDict, total=False):
@@ -6052,47 +6052,47 @@ class SbomValidationResultSummary(TypedDict, total=False):
     materials (SBOM) attached to a software package version.
     """
 
-    fileName: Optional[FileName]
-    validationResult: Optional[SbomValidationResult]
-    errorCode: Optional[SbomValidationErrorCode]
-    errorMessage: Optional[SbomValidationErrorMessage]
+    fileName: FileName | None
+    validationResult: SbomValidationResult | None
+    errorCode: SbomValidationErrorCode | None
+    errorMessage: SbomValidationErrorMessage | None
 
 
-SbomValidationResultSummaryList = List[SbomValidationResultSummary]
+SbomValidationResultSummaryList = list[SbomValidationResultSummary]
 
 
 class ListSbomValidationResultsResponse(TypedDict, total=False):
-    validationResultSummaries: Optional[SbomValidationResultSummaryList]
-    nextToken: Optional[NextToken]
+    validationResultSummaries: SbomValidationResultSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListScheduledAuditsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ScheduledAuditMetadata(TypedDict, total=False):
     """Information about the scheduled audit."""
 
-    scheduledAuditName: Optional[ScheduledAuditName]
-    scheduledAuditArn: Optional[ScheduledAuditArn]
-    frequency: Optional[AuditFrequency]
-    dayOfMonth: Optional[DayOfMonth]
-    dayOfWeek: Optional[DayOfWeek]
+    scheduledAuditName: ScheduledAuditName | None
+    scheduledAuditArn: ScheduledAuditArn | None
+    frequency: AuditFrequency | None
+    dayOfMonth: DayOfMonth | None
+    dayOfWeek: DayOfWeek | None
 
 
-ScheduledAuditMetadataList = List[ScheduledAuditMetadata]
+ScheduledAuditMetadataList = list[ScheduledAuditMetadata]
 
 
 class ListScheduledAuditsResponse(TypedDict, total=False):
-    scheduledAudits: Optional[ScheduledAuditMetadataList]
-    nextToken: Optional[NextToken]
+    scheduledAudits: ScheduledAuditMetadataList | None
+    nextToken: NextToken | None
 
 
 class ListSecurityProfilesForTargetRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    recursive: Optional[Recursive]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    recursive: Recursive | None
     securityProfileTargetArn: SecurityProfileTargetArn
 
 
@@ -6114,138 +6114,138 @@ class SecurityProfileIdentifier(TypedDict, total=False):
 class SecurityProfileTargetMapping(TypedDict, total=False):
     """Information about a security profile and the target associated with it."""
 
-    securityProfileIdentifier: Optional[SecurityProfileIdentifier]
-    target: Optional[SecurityProfileTarget]
+    securityProfileIdentifier: SecurityProfileIdentifier | None
+    target: SecurityProfileTarget | None
 
 
-SecurityProfileTargetMappings = List[SecurityProfileTargetMapping]
+SecurityProfileTargetMappings = list[SecurityProfileTargetMapping]
 
 
 class ListSecurityProfilesForTargetResponse(TypedDict, total=False):
-    securityProfileTargetMappings: Optional[SecurityProfileTargetMappings]
-    nextToken: Optional[NextToken]
+    securityProfileTargetMappings: SecurityProfileTargetMappings | None
+    nextToken: NextToken | None
 
 
 class ListSecurityProfilesRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
-    dimensionName: Optional[DimensionName]
-    metricName: Optional[MetricName]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
+    dimensionName: DimensionName | None
+    metricName: MetricName | None
 
 
-SecurityProfileIdentifiers = List[SecurityProfileIdentifier]
+SecurityProfileIdentifiers = list[SecurityProfileIdentifier]
 
 
 class ListSecurityProfilesResponse(TypedDict, total=False):
-    securityProfileIdentifiers: Optional[SecurityProfileIdentifiers]
-    nextToken: Optional[NextToken]
+    securityProfileIdentifiers: SecurityProfileIdentifiers | None
+    nextToken: NextToken | None
 
 
 class ListStreamsRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
-    ascendingOrder: Optional[AscendingOrder]
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
+    ascendingOrder: AscendingOrder | None
 
 
 class StreamSummary(TypedDict, total=False):
     """A summary of a stream."""
 
-    streamId: Optional[StreamId]
-    streamArn: Optional[StreamArn]
-    streamVersion: Optional[StreamVersion]
-    description: Optional[StreamDescription]
+    streamId: StreamId | None
+    streamArn: StreamArn | None
+    streamVersion: StreamVersion | None
+    description: StreamDescription | None
 
 
-StreamsSummary = List[StreamSummary]
+StreamsSummary = list[StreamSummary]
 
 
 class ListStreamsResponse(TypedDict, total=False):
-    streams: Optional[StreamsSummary]
-    nextToken: Optional[NextToken]
+    streams: StreamsSummary | None
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     resourceArn: ResourceArn
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagList]
-    nextToken: Optional[NextToken]
+    tags: TagList | None
+    nextToken: NextToken | None
 
 
 class ListTargetsForPolicyRequest(ServiceRequest):
     policyName: PolicyName
-    marker: Optional[Marker]
-    pageSize: Optional[PageSize]
+    marker: Marker | None
+    pageSize: PageSize | None
 
 
-PolicyTargets = List[PolicyTarget]
+PolicyTargets = list[PolicyTarget]
 
 
 class ListTargetsForPolicyResponse(TypedDict, total=False):
-    targets: Optional[PolicyTargets]
-    nextMarker: Optional[Marker]
+    targets: PolicyTargets | None
+    nextMarker: Marker | None
 
 
 class ListTargetsForSecurityProfileRequest(ServiceRequest):
     securityProfileName: SecurityProfileName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
-SecurityProfileTargets = List[SecurityProfileTarget]
+SecurityProfileTargets = list[SecurityProfileTarget]
 
 
 class ListTargetsForSecurityProfileResponse(TypedDict, total=False):
-    securityProfileTargets: Optional[SecurityProfileTargets]
-    nextToken: Optional[NextToken]
+    securityProfileTargets: SecurityProfileTargets | None
+    nextToken: NextToken | None
 
 
 class ListThingGroupsForThingRequest(ServiceRequest):
     thingName: ThingName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
 
 
 class ListThingGroupsForThingResponse(TypedDict, total=False):
-    thingGroups: Optional[ThingGroupNameAndArnList]
-    nextToken: Optional[NextToken]
+    thingGroups: ThingGroupNameAndArnList | None
+    nextToken: NextToken | None
 
 
 class ListThingGroupsRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
-    parentGroup: Optional[ThingGroupName]
-    namePrefixFilter: Optional[ThingGroupName]
-    recursive: Optional[RecursiveWithoutDefault]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
+    parentGroup: ThingGroupName | None
+    namePrefixFilter: ThingGroupName | None
+    recursive: RecursiveWithoutDefault | None
 
 
 class ListThingGroupsResponse(TypedDict, total=False):
-    thingGroups: Optional[ThingGroupNameAndArnList]
-    nextToken: Optional[NextToken]
+    thingGroups: ThingGroupNameAndArnList | None
+    nextToken: NextToken | None
 
 
 class ListThingPrincipalsRequest(ServiceRequest):
     """The input for the ListThingPrincipal operation."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
     thingName: ThingName
 
 
 class ListThingPrincipalsResponse(TypedDict, total=False):
     """The output from the ListThingPrincipals operation."""
 
-    principals: Optional[Principals]
-    nextToken: Optional[NextToken]
+    principals: Principals | None
+    nextToken: NextToken | None
 
 
 class ListThingPrincipalsV2Request(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
     thingName: ThingName
-    thingPrincipalType: Optional[ThingPrincipalType]
+    thingPrincipalType: ThingPrincipalType | None
 
 
 class ThingPrincipalObject(TypedDict, total=False):
@@ -6254,53 +6254,53 @@ class ThingPrincipalObject(TypedDict, total=False):
     """
 
     principal: Principal
-    thingPrincipalType: Optional[ThingPrincipalType]
+    thingPrincipalType: ThingPrincipalType | None
 
 
-ThingPrincipalObjects = List[ThingPrincipalObject]
+ThingPrincipalObjects = list[ThingPrincipalObject]
 
 
 class ListThingPrincipalsV2Response(TypedDict, total=False):
-    thingPrincipalObjects: Optional[ThingPrincipalObjects]
-    nextToken: Optional[NextToken]
+    thingPrincipalObjects: ThingPrincipalObjects | None
+    nextToken: NextToken | None
 
 
 class ListThingRegistrationTaskReportsRequest(ServiceRequest):
     taskId: TaskId
     reportType: ReportType
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
 
 
-S3FileUrlList = List[S3FileUrl]
+S3FileUrlList = list[S3FileUrl]
 
 
 class ListThingRegistrationTaskReportsResponse(TypedDict, total=False):
-    resourceLinks: Optional[S3FileUrlList]
-    reportType: Optional[ReportType]
-    nextToken: Optional[NextToken]
+    resourceLinks: S3FileUrlList | None
+    reportType: ReportType | None
+    nextToken: NextToken | None
 
 
 class ListThingRegistrationTasksRequest(ServiceRequest):
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
-    status: Optional[Status]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
+    status: Status | None
 
 
-TaskIdList = List[TaskId]
+TaskIdList = list[TaskId]
 
 
 class ListThingRegistrationTasksResponse(TypedDict, total=False):
-    taskIds: Optional[TaskIdList]
-    nextToken: Optional[NextToken]
+    taskIds: TaskIdList | None
+    nextToken: NextToken | None
 
 
 class ListThingTypesRequest(ServiceRequest):
     """The input for the ListThingTypes operation."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
-    thingTypeName: Optional[ThingTypeName]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
+    thingTypeName: ThingTypeName | None
 
 
 class ThingTypeDefinition(TypedDict, total=False):
@@ -6308,54 +6308,54 @@ class ThingTypeDefinition(TypedDict, total=False):
     description.
     """
 
-    thingTypeName: Optional[ThingTypeName]
-    thingTypeArn: Optional[ThingTypeArn]
-    thingTypeProperties: Optional[ThingTypeProperties]
-    thingTypeMetadata: Optional[ThingTypeMetadata]
+    thingTypeName: ThingTypeName | None
+    thingTypeArn: ThingTypeArn | None
+    thingTypeProperties: ThingTypeProperties | None
+    thingTypeMetadata: ThingTypeMetadata | None
 
 
-ThingTypeList = List[ThingTypeDefinition]
+ThingTypeList = list[ThingTypeDefinition]
 
 
 class ListThingTypesResponse(TypedDict, total=False):
     """The output for the ListThingTypes operation."""
 
-    thingTypes: Optional[ThingTypeList]
-    nextToken: Optional[NextToken]
+    thingTypes: ThingTypeList | None
+    nextToken: NextToken | None
 
 
 class ListThingsInBillingGroupRequest(ServiceRequest):
     billingGroupName: BillingGroupName
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
 
 
 class ListThingsInBillingGroupResponse(TypedDict, total=False):
-    things: Optional[ThingNameList]
-    nextToken: Optional[NextToken]
+    things: ThingNameList | None
+    nextToken: NextToken | None
 
 
 class ListThingsInThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
-    recursive: Optional[Recursive]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
+    recursive: Recursive | None
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
 
 
 class ListThingsInThingGroupResponse(TypedDict, total=False):
-    things: Optional[ThingNameList]
-    nextToken: Optional[NextToken]
+    things: ThingNameList | None
+    nextToken: NextToken | None
 
 
 class ListThingsRequest(ServiceRequest):
     """The input for the ListThings operation."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[RegistryMaxResults]
-    attributeName: Optional[AttributeName]
-    attributeValue: Optional[AttributeValue]
-    thingTypeName: Optional[ThingTypeName]
-    usePrefixAttributeValue: Optional[usePrefixAttributeValue]
+    nextToken: NextToken | None
+    maxResults: RegistryMaxResults | None
+    attributeName: AttributeName | None
+    attributeValue: AttributeValue | None
+    thingTypeName: ThingTypeName | None
+    usePrefixAttributeValue: usePrefixAttributeValue | None
 
 
 class ThingAttribute(TypedDict, total=False):
@@ -6363,154 +6363,154 @@ class ThingAttribute(TypedDict, total=False):
     a list of thing attributes.
     """
 
-    thingName: Optional[ThingName]
-    thingTypeName: Optional[ThingTypeName]
-    thingArn: Optional[ThingArn]
-    attributes: Optional[Attributes]
-    version: Optional[Version]
+    thingName: ThingName | None
+    thingTypeName: ThingTypeName | None
+    thingArn: ThingArn | None
+    attributes: Attributes | None
+    version: Version | None
 
 
-ThingAttributeList = List[ThingAttribute]
+ThingAttributeList = list[ThingAttribute]
 
 
 class ListThingsResponse(TypedDict, total=False):
     """The output from the ListThings operation."""
 
-    things: Optional[ThingAttributeList]
-    nextToken: Optional[NextToken]
+    things: ThingAttributeList | None
+    nextToken: NextToken | None
 
 
 class ListTopicRuleDestinationsRequest(ServiceRequest):
-    maxResults: Optional[TopicRuleDestinationMaxResults]
-    nextToken: Optional[NextToken]
+    maxResults: TopicRuleDestinationMaxResults | None
+    nextToken: NextToken | None
 
 
 class VpcDestinationSummary(TypedDict, total=False):
     """The summary of a virtual private cloud (VPC) destination."""
 
-    subnetIds: Optional[SubnetIdList]
-    securityGroups: Optional[SecurityGroupList]
-    vpcId: Optional[VpcId]
-    roleArn: Optional[AwsArn]
+    subnetIds: SubnetIdList | None
+    securityGroups: SecurityGroupList | None
+    vpcId: VpcId | None
+    roleArn: AwsArn | None
 
 
 class TopicRuleDestinationSummary(TypedDict, total=False):
     """Information about the topic rule destination."""
 
-    arn: Optional[AwsArn]
-    status: Optional[TopicRuleDestinationStatus]
-    createdAt: Optional[CreatedAtDate]
-    lastUpdatedAt: Optional[LastUpdatedAtDate]
-    statusReason: Optional[String]
-    httpUrlSummary: Optional[HttpUrlDestinationSummary]
-    vpcDestinationSummary: Optional[VpcDestinationSummary]
+    arn: AwsArn | None
+    status: TopicRuleDestinationStatus | None
+    createdAt: CreatedAtDate | None
+    lastUpdatedAt: LastUpdatedAtDate | None
+    statusReason: String | None
+    httpUrlSummary: HttpUrlDestinationSummary | None
+    vpcDestinationSummary: VpcDestinationSummary | None
 
 
-TopicRuleDestinationSummaries = List[TopicRuleDestinationSummary]
+TopicRuleDestinationSummaries = list[TopicRuleDestinationSummary]
 
 
 class ListTopicRuleDestinationsResponse(TypedDict, total=False):
-    destinationSummaries: Optional[TopicRuleDestinationSummaries]
-    nextToken: Optional[NextToken]
+    destinationSummaries: TopicRuleDestinationSummaries | None
+    nextToken: NextToken | None
 
 
 class ListTopicRulesRequest(ServiceRequest):
     """The input for the ListTopicRules operation."""
 
-    topic: Optional[Topic]
-    maxResults: Optional[TopicRuleMaxResults]
-    nextToken: Optional[NextToken]
-    ruleDisabled: Optional[IsDisabled]
+    topic: Topic | None
+    maxResults: TopicRuleMaxResults | None
+    nextToken: NextToken | None
+    ruleDisabled: IsDisabled | None
 
 
 class TopicRuleListItem(TypedDict, total=False):
     """Describes a rule."""
 
-    ruleArn: Optional[RuleArn]
-    ruleName: Optional[RuleName]
-    topicPattern: Optional[TopicPattern]
-    createdAt: Optional[CreatedAtDate]
-    ruleDisabled: Optional[IsDisabled]
+    ruleArn: RuleArn | None
+    ruleName: RuleName | None
+    topicPattern: TopicPattern | None
+    createdAt: CreatedAtDate | None
+    ruleDisabled: IsDisabled | None
 
 
-TopicRuleList = List[TopicRuleListItem]
+TopicRuleList = list[TopicRuleListItem]
 
 
 class ListTopicRulesResponse(TypedDict, total=False):
     """The output from the ListTopicRules operation."""
 
-    rules: Optional[TopicRuleList]
-    nextToken: Optional[NextToken]
+    rules: TopicRuleList | None
+    nextToken: NextToken | None
 
 
 class ListV2LoggingLevelsRequest(ServiceRequest):
-    targetType: Optional[LogTargetType]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[SkyfallMaxResults]
+    targetType: LogTargetType | None
+    nextToken: NextToken | None
+    maxResults: SkyfallMaxResults | None
 
 
 class LogTarget(TypedDict, total=False):
     """A log target."""
 
     targetType: LogTargetType
-    targetName: Optional[LogTargetName]
+    targetName: LogTargetName | None
 
 
 class LogTargetConfiguration(TypedDict, total=False):
     """The target configuration."""
 
-    logTarget: Optional[LogTarget]
-    logLevel: Optional[LogLevel]
+    logTarget: LogTarget | None
+    logLevel: LogLevel | None
 
 
-LogTargetConfigurations = List[LogTargetConfiguration]
+LogTargetConfigurations = list[LogTargetConfiguration]
 
 
 class ListV2LoggingLevelsResponse(TypedDict, total=False):
-    logTargetConfigurations: Optional[LogTargetConfigurations]
-    nextToken: Optional[NextToken]
+    logTargetConfigurations: LogTargetConfigurations | None
+    nextToken: NextToken | None
 
 
 class ListViolationEventsRequest(ServiceRequest):
     startTime: Timestamp
     endTime: Timestamp
-    thingName: Optional[DeviceDefenderThingName]
-    securityProfileName: Optional[SecurityProfileName]
-    behaviorCriteriaType: Optional[BehaviorCriteriaType]
-    listSuppressedAlerts: Optional[ListSuppressedAlerts]
-    verificationState: Optional[VerificationState]
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    thingName: DeviceDefenderThingName | None
+    securityProfileName: SecurityProfileName | None
+    behaviorCriteriaType: BehaviorCriteriaType | None
+    listSuppressedAlerts: ListSuppressedAlerts | None
+    verificationState: VerificationState | None
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ViolationEvent(TypedDict, total=False):
     """Information about a Device Defender security profile behavior violation."""
 
-    violationId: Optional[ViolationId]
-    thingName: Optional[DeviceDefenderThingName]
-    securityProfileName: Optional[SecurityProfileName]
-    behavior: Optional[Behavior]
-    metricValue: Optional[MetricValue]
-    violationEventAdditionalInfo: Optional[ViolationEventAdditionalInfo]
-    violationEventType: Optional[ViolationEventType]
-    verificationState: Optional[VerificationState]
-    verificationStateDescription: Optional[VerificationStateDescription]
-    violationEventTime: Optional[Timestamp]
+    violationId: ViolationId | None
+    thingName: DeviceDefenderThingName | None
+    securityProfileName: SecurityProfileName | None
+    behavior: Behavior | None
+    metricValue: MetricValue | None
+    violationEventAdditionalInfo: ViolationEventAdditionalInfo | None
+    violationEventType: ViolationEventType | None
+    verificationState: VerificationState | None
+    verificationStateDescription: VerificationStateDescription | None
+    violationEventTime: Timestamp | None
 
 
-ViolationEvents = List[ViolationEvent]
+ViolationEvents = list[ViolationEvent]
 
 
 class ListViolationEventsResponse(TypedDict, total=False):
-    violationEvents: Optional[ViolationEvents]
-    nextToken: Optional[NextToken]
+    violationEvents: ViolationEvents | None
+    nextToken: NextToken | None
 
 
 class LoggingOptionsPayload(TypedDict, total=False):
     """Describes the logging options payload."""
 
     roleArn: AwsArn
-    logLevel: Optional[LogLevel]
+    logLevel: LogLevel | None
 
 
 MqttPassword = bytes
@@ -6519,20 +6519,20 @@ MqttPassword = bytes
 class MqttContext(TypedDict, total=False):
     """Specifies the MQTT context to use for the test authorizer request"""
 
-    username: Optional[MqttUsername]
-    password: Optional[MqttPassword]
-    clientId: Optional[MqttClientId]
+    username: MqttUsername | None
+    password: MqttPassword | None
+    clientId: MqttClientId | None
 
 
-Parameters = Dict[Parameter, Value]
-PolicyDocuments = List[PolicyDocument]
-PolicyNames = List[PolicyName]
+Parameters = dict[Parameter, Value]
+PolicyDocuments = list[PolicyDocument]
+PolicyNames = list[PolicyName]
 
 
 class PutVerificationStateOnViolationRequest(ServiceRequest):
     violationId: ViolationId
     verificationState: VerificationState
-    verificationStateDescription: Optional[VerificationStateDescription]
+    verificationStateDescription: VerificationStateDescription | None
 
 
 class PutVerificationStateOnViolationResponse(TypedDict, total=False):
@@ -6543,72 +6543,72 @@ class RegisterCACertificateRequest(ServiceRequest):
     """The input to the RegisterCACertificate operation."""
 
     caCertificate: CertificatePem
-    verificationCertificate: Optional[CertificatePem]
-    setAsActive: Optional[SetAsActive]
-    allowAutoRegistration: Optional[AllowAutoRegistration]
-    registrationConfig: Optional[RegistrationConfig]
-    tags: Optional[TagList]
-    certificateMode: Optional[CertificateMode]
+    verificationCertificate: CertificatePem | None
+    setAsActive: SetAsActive | None
+    allowAutoRegistration: AllowAutoRegistration | None
+    registrationConfig: RegistrationConfig | None
+    tags: TagList | None
+    certificateMode: CertificateMode | None
 
 
 class RegisterCACertificateResponse(TypedDict, total=False):
     """The output from the RegisterCACertificateResponse operation."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
 
 
 class RegisterCertificateRequest(ServiceRequest):
     """The input to the RegisterCertificate operation."""
 
     certificatePem: CertificatePem
-    caCertificatePem: Optional[CertificatePem]
-    setAsActive: Optional[SetAsActiveFlag]
-    status: Optional[CertificateStatus]
+    caCertificatePem: CertificatePem | None
+    setAsActive: SetAsActiveFlag | None
+    status: CertificateStatus | None
 
 
 class RegisterCertificateResponse(TypedDict, total=False):
     """The output from the RegisterCertificate operation."""
 
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
 
 
 class RegisterCertificateWithoutCARequest(ServiceRequest):
     certificatePem: CertificatePem
-    status: Optional[CertificateStatus]
+    status: CertificateStatus | None
 
 
 class RegisterCertificateWithoutCAResponse(TypedDict, total=False):
-    certificateArn: Optional[CertificateArn]
-    certificateId: Optional[CertificateId]
+    certificateArn: CertificateArn | None
+    certificateId: CertificateId | None
 
 
 class RegisterThingRequest(ServiceRequest):
     templateBody: TemplateBody
-    parameters: Optional[Parameters]
+    parameters: Parameters | None
 
 
-ResourceArns = Dict[ResourceLogicalId, ResourceArn]
+ResourceArns = dict[ResourceLogicalId, ResourceArn]
 
 
 class RegisterThingResponse(TypedDict, total=False):
-    certificatePem: Optional[CertificatePem]
-    resourceArns: Optional[ResourceArns]
+    certificatePem: CertificatePem | None
+    resourceArns: ResourceArns | None
 
 
 class RejectCertificateTransferRequest(ServiceRequest):
     """The input for the RejectCertificateTransfer operation."""
 
     certificateId: CertificateId
-    rejectReason: Optional[Message]
+    rejectReason: Message | None
 
 
 class RemoveThingFromBillingGroupRequest(ServiceRequest):
-    billingGroupName: Optional[BillingGroupName]
-    billingGroupArn: Optional[BillingGroupArn]
-    thingName: Optional[ThingName]
-    thingArn: Optional[ThingArn]
+    billingGroupName: BillingGroupName | None
+    billingGroupArn: BillingGroupArn | None
+    thingName: ThingName | None
+    thingArn: ThingArn | None
 
 
 class RemoveThingFromBillingGroupResponse(TypedDict, total=False):
@@ -6616,10 +6616,10 @@ class RemoveThingFromBillingGroupResponse(TypedDict, total=False):
 
 
 class RemoveThingFromThingGroupRequest(ServiceRequest):
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupArn: Optional[ThingGroupArn]
-    thingName: Optional[ThingName]
-    thingArn: Optional[ThingArn]
+    thingGroupName: ThingGroupName | None
+    thingGroupArn: ThingGroupArn | None
+    thingName: ThingName | None
+    thingArn: ThingArn | None
 
 
 class RemoveThingFromThingGroupResponse(TypedDict, total=False):
@@ -6634,57 +6634,57 @@ class ReplaceTopicRuleRequest(ServiceRequest):
 
 
 class SearchIndexRequest(ServiceRequest):
-    indexName: Optional[IndexName]
+    indexName: IndexName | None
     queryString: QueryString
-    nextToken: Optional[NextToken]
-    maxResults: Optional[SearchQueryMaxResults]
-    queryVersion: Optional[QueryVersion]
+    nextToken: NextToken | None
+    maxResults: SearchQueryMaxResults | None
+    queryVersion: QueryVersion | None
 
 
-ThingGroupNameList = List[ThingGroupName]
+ThingGroupNameList = list[ThingGroupName]
 
 
 class ThingGroupDocument(TypedDict, total=False):
     """The thing group search index document."""
 
-    thingGroupName: Optional[ThingGroupName]
-    thingGroupId: Optional[ThingGroupId]
-    thingGroupDescription: Optional[ThingGroupDescription]
-    attributes: Optional[Attributes]
-    parentGroupNames: Optional[ThingGroupNameList]
+    thingGroupName: ThingGroupName | None
+    thingGroupId: ThingGroupId | None
+    thingGroupDescription: ThingGroupDescription | None
+    attributes: Attributes | None
+    parentGroupNames: ThingGroupNameList | None
 
 
-ThingGroupDocumentList = List[ThingGroupDocument]
+ThingGroupDocumentList = list[ThingGroupDocument]
 
 
 class ThingConnectivity(TypedDict, total=False):
     """The connectivity status of the thing."""
 
-    connected: Optional[Boolean]
-    timestamp: Optional[ConnectivityTimestamp]
-    disconnectReason: Optional[DisconnectReason]
+    connected: Boolean | None
+    timestamp: ConnectivityTimestamp | None
+    disconnectReason: DisconnectReason | None
 
 
 class ThingDocument(TypedDict, total=False):
     """The thing search index document."""
 
-    thingName: Optional[ThingName]
-    thingId: Optional[ThingId]
-    thingTypeName: Optional[ThingTypeName]
-    thingGroupNames: Optional[ThingGroupNameList]
-    attributes: Optional[Attributes]
-    shadow: Optional[JsonDocument]
-    deviceDefender: Optional[JsonDocument]
-    connectivity: Optional[ThingConnectivity]
+    thingName: ThingName | None
+    thingId: ThingId | None
+    thingTypeName: ThingTypeName | None
+    thingGroupNames: ThingGroupNameList | None
+    attributes: Attributes | None
+    shadow: JsonDocument | None
+    deviceDefender: JsonDocument | None
+    connectivity: ThingConnectivity | None
 
 
-ThingDocumentList = List[ThingDocument]
+ThingDocumentList = list[ThingDocument]
 
 
 class SearchIndexResponse(TypedDict, total=False):
-    nextToken: Optional[NextToken]
-    things: Optional[ThingDocumentList]
-    thingGroups: Optional[ThingGroupDocumentList]
+    nextToken: NextToken | None
+    things: ThingDocumentList | None
+    thingGroups: ThingGroupDocumentList | None
 
 
 class SetDefaultAuthorizerRequest(ServiceRequest):
@@ -6692,8 +6692,8 @@ class SetDefaultAuthorizerRequest(ServiceRequest):
 
 
 class SetDefaultAuthorizerResponse(TypedDict, total=False):
-    authorizerName: Optional[AuthorizerName]
-    authorizerArn: Optional[AuthorizerArn]
+    authorizerName: AuthorizerName | None
+    authorizerArn: AuthorizerArn | None
 
 
 class SetDefaultPolicyVersionRequest(ServiceRequest):
@@ -6715,9 +6715,9 @@ class SetV2LoggingLevelRequest(ServiceRequest):
 
 
 class SetV2LoggingOptionsRequest(ServiceRequest):
-    roleArn: Optional[AwsArn]
-    defaultLogLevel: Optional[LogLevel]
-    disableAllLogs: Optional[DisableAllLogs]
+    roleArn: AwsArn | None
+    defaultLogLevel: LogLevel | None
+    disableAllLogs: DisableAllLogs | None
 
 
 class StartAuditMitigationActionsTaskRequest(ServiceRequest):
@@ -6728,21 +6728,21 @@ class StartAuditMitigationActionsTaskRequest(ServiceRequest):
 
 
 class StartAuditMitigationActionsTaskResponse(TypedDict, total=False):
-    taskId: Optional[MitigationActionsTaskId]
+    taskId: MitigationActionsTaskId | None
 
 
 class StartDetectMitigationActionsTaskRequest(ServiceRequest):
     taskId: MitigationActionsTaskId
     target: DetectMitigationActionsTaskTarget
     actions: DetectMitigationActionsToExecuteList
-    violationEventOccurrenceRange: Optional[ViolationEventOccurrenceRange]
-    includeOnlyActiveViolations: Optional[NullableBoolean]
-    includeSuppressedAlerts: Optional[NullableBoolean]
+    violationEventOccurrenceRange: ViolationEventOccurrenceRange | None
+    includeOnlyActiveViolations: NullableBoolean | None
+    includeSuppressedAlerts: NullableBoolean | None
     clientRequestToken: ClientRequestToken
 
 
 class StartDetectMitigationActionsTaskResponse(TypedDict, total=False):
-    taskId: Optional[MitigationActionsTaskId]
+    taskId: MitigationActionsTaskId | None
 
 
 class StartOnDemandAuditTaskRequest(ServiceRequest):
@@ -6750,7 +6750,7 @@ class StartOnDemandAuditTaskRequest(ServiceRequest):
 
 
 class StartOnDemandAuditTaskResponse(TypedDict, total=False):
-    taskId: Optional[AuditTaskId]
+    taskId: AuditTaskId | None
 
 
 class StartThingRegistrationTaskRequest(ServiceRequest):
@@ -6761,7 +6761,7 @@ class StartThingRegistrationTaskRequest(ServiceRequest):
 
 
 class StartThingRegistrationTaskResponse(TypedDict, total=False):
-    taskId: Optional[TaskId]
+    taskId: TaskId | None
 
 
 class StopThingRegistrationTaskRequest(ServiceRequest):
@@ -6772,7 +6772,7 @@ class StopThingRegistrationTaskResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -6785,42 +6785,42 @@ class TagResourceResponse(TypedDict, total=False):
 
 
 class TestAuthorizationRequest(ServiceRequest):
-    principal: Optional[Principal]
-    cognitoIdentityPoolId: Optional[CognitoIdentityPoolId]
+    principal: Principal | None
+    cognitoIdentityPoolId: CognitoIdentityPoolId | None
     authInfos: AuthInfos
-    clientId: Optional[ClientId]
-    policyNamesToAdd: Optional[PolicyNames]
-    policyNamesToSkip: Optional[PolicyNames]
+    clientId: ClientId | None
+    policyNamesToAdd: PolicyNames | None
+    policyNamesToSkip: PolicyNames | None
 
 
 class TestAuthorizationResponse(TypedDict, total=False):
-    authResults: Optional[AuthResults]
+    authResults: AuthResults | None
 
 
 class TlsContext(TypedDict, total=False):
     """Specifies the TLS context to use for the test authorizer request."""
 
-    serverName: Optional[ServerName]
+    serverName: ServerName | None
 
 
 class TestInvokeAuthorizerRequest(ServiceRequest):
     authorizerName: AuthorizerName
-    token: Optional[Token]
-    tokenSignature: Optional[TokenSignature]
-    httpContext: Optional[HttpContext]
-    mqttContext: Optional[MqttContext]
-    tlsContext: Optional[TlsContext]
+    token: Token | None
+    tokenSignature: TokenSignature | None
+    httpContext: HttpContext | None
+    mqttContext: MqttContext | None
+    tlsContext: TlsContext | None
 
 
 class TestInvokeAuthorizerResponse(TypedDict, total=False):
-    isAuthenticated: Optional[IsAuthenticated]
-    principalId: Optional[PrincipalId]
-    policyDocuments: Optional[PolicyDocuments]
-    refreshAfterInSeconds: Optional[Seconds]
-    disconnectAfterInSeconds: Optional[Seconds]
+    isAuthenticated: IsAuthenticated | None
+    principalId: PrincipalId | None
+    policyDocuments: PolicyDocuments | None
+    refreshAfterInSeconds: Seconds | None
+    disconnectAfterInSeconds: Seconds | None
 
 
-ThingGroupList = List[ThingGroupName]
+ThingGroupList = list[ThingGroupName]
 
 
 class TransferCertificateRequest(ServiceRequest):
@@ -6828,13 +6828,13 @@ class TransferCertificateRequest(ServiceRequest):
 
     certificateId: CertificateId
     targetAwsAccount: AwsAccountId
-    transferMessage: Optional[Message]
+    transferMessage: Message | None
 
 
 class TransferCertificateResponse(TypedDict, total=False):
     """The output from the TransferCertificate operation."""
 
-    transferredCertificateArn: Optional[CertificateArn]
+    transferredCertificateArn: CertificateArn | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -6847,9 +6847,9 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class UpdateAccountAuditConfigurationRequest(ServiceRequest):
-    roleArn: Optional[RoleArn]
-    auditNotificationTargetConfigurations: Optional[AuditNotificationTargetConfigurations]
-    auditCheckConfigurations: Optional[AuditCheckConfigurations]
+    roleArn: RoleArn | None
+    auditNotificationTargetConfigurations: AuditNotificationTargetConfigurations | None
+    auditCheckConfigurations: AuditCheckConfigurations | None
 
 
 class UpdateAccountAuditConfigurationResponse(TypedDict, total=False):
@@ -6859,9 +6859,9 @@ class UpdateAccountAuditConfigurationResponse(TypedDict, total=False):
 class UpdateAuditSuppressionRequest(ServiceRequest):
     checkName: AuditCheckName
     resourceIdentifier: ResourceIdentifier
-    expirationDate: Optional[Timestamp]
-    suppressIndefinitely: Optional[SuppressIndefinitely]
-    description: Optional[AuditDescription]
+    expirationDate: Timestamp | None
+    suppressIndefinitely: SuppressIndefinitely | None
+    description: AuditDescription | None
 
 
 class UpdateAuditSuppressionResponse(TypedDict, total=False):
@@ -6870,47 +6870,47 @@ class UpdateAuditSuppressionResponse(TypedDict, total=False):
 
 class UpdateAuthorizerRequest(ServiceRequest):
     authorizerName: AuthorizerName
-    authorizerFunctionArn: Optional[AuthorizerFunctionArn]
-    tokenKeyName: Optional[TokenKeyName]
-    tokenSigningPublicKeys: Optional[PublicKeyMap]
-    status: Optional[AuthorizerStatus]
-    enableCachingForHttp: Optional[EnableCachingForHttp]
+    authorizerFunctionArn: AuthorizerFunctionArn | None
+    tokenKeyName: TokenKeyName | None
+    tokenSigningPublicKeys: PublicKeyMap | None
+    status: AuthorizerStatus | None
+    enableCachingForHttp: EnableCachingForHttp | None
 
 
 class UpdateAuthorizerResponse(TypedDict, total=False):
-    authorizerName: Optional[AuthorizerName]
-    authorizerArn: Optional[AuthorizerArn]
+    authorizerName: AuthorizerName | None
+    authorizerArn: AuthorizerArn | None
 
 
 class UpdateBillingGroupRequest(ServiceRequest):
     billingGroupName: BillingGroupName
     billingGroupProperties: BillingGroupProperties
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class UpdateBillingGroupResponse(TypedDict, total=False):
-    version: Optional[Version]
+    version: Version | None
 
 
 class UpdateCACertificateRequest(ServiceRequest):
     """The input to the UpdateCACertificate operation."""
 
     certificateId: CertificateId
-    newStatus: Optional[CACertificateStatus]
-    newAutoRegistrationStatus: Optional[AutoRegistrationStatus]
-    registrationConfig: Optional[RegistrationConfig]
-    removeAutoRegistration: Optional[RemoveAutoRegistration]
+    newStatus: CACertificateStatus | None
+    newAutoRegistrationStatus: AutoRegistrationStatus | None
+    registrationConfig: RegistrationConfig | None
+    removeAutoRegistration: RemoveAutoRegistration | None
 
 
 class UpdateCertificateProviderRequest(ServiceRequest):
     certificateProviderName: CertificateProviderName
-    lambdaFunctionArn: Optional[CertificateProviderFunctionArn]
-    accountDefaultForOperations: Optional[CertificateProviderAccountDefaultForOperations]
+    lambdaFunctionArn: CertificateProviderFunctionArn | None
+    accountDefaultForOperations: CertificateProviderAccountDefaultForOperations | None
 
 
 class UpdateCertificateProviderResponse(TypedDict, total=False):
-    certificateProviderName: Optional[CertificateProviderName]
-    certificateProviderArn: Optional[CertificateProviderArn]
+    certificateProviderName: CertificateProviderName | None
+    certificateProviderArn: CertificateProviderArn | None
 
 
 class UpdateCertificateRequest(ServiceRequest):
@@ -6922,17 +6922,17 @@ class UpdateCertificateRequest(ServiceRequest):
 
 class UpdateCommandRequest(ServiceRequest):
     commandId: CommandId
-    displayName: Optional[DisplayName]
-    description: Optional[CommandDescription]
-    deprecated: Optional[DeprecationFlag]
+    displayName: DisplayName | None
+    description: CommandDescription | None
+    deprecated: DeprecationFlag | None
 
 
 class UpdateCommandResponse(TypedDict, total=False):
-    commandId: Optional[CommandId]
-    displayName: Optional[DisplayName]
-    description: Optional[CommandDescription]
-    deprecated: Optional[DeprecationFlag]
-    lastUpdatedAt: Optional[DateType]
+    commandId: CommandId | None
+    displayName: DisplayName | None
+    description: CommandDescription | None
+    deprecated: DeprecationFlag | None
+    lastUpdatedAt: DateType | None
 
 
 class UpdateCustomMetricRequest(ServiceRequest):
@@ -6941,12 +6941,12 @@ class UpdateCustomMetricRequest(ServiceRequest):
 
 
 class UpdateCustomMetricResponse(TypedDict, total=False):
-    metricName: Optional[MetricName]
-    metricArn: Optional[CustomMetricArn]
-    metricType: Optional[CustomMetricType]
-    displayName: Optional[CustomMetricDisplayName]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
+    metricName: MetricName | None
+    metricArn: CustomMetricArn | None
+    metricType: CustomMetricType | None
+    displayName: CustomMetricDisplayName | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
 
 
 class UpdateDimensionRequest(ServiceRequest):
@@ -6955,48 +6955,48 @@ class UpdateDimensionRequest(ServiceRequest):
 
 
 class UpdateDimensionResponse(TypedDict, total=False):
-    name: Optional[DimensionName]
-    arn: Optional[DimensionArn]
-    type: Optional[DimensionType]
-    stringValues: Optional[DimensionStringValues]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
+    name: DimensionName | None
+    arn: DimensionArn | None
+    type: DimensionType | None
+    stringValues: DimensionStringValues | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
 
 
 class UpdateDomainConfigurationRequest(ServiceRequest):
     domainConfigurationName: ReservedDomainConfigurationName
-    authorizerConfig: Optional[AuthorizerConfig]
-    domainConfigurationStatus: Optional[DomainConfigurationStatus]
-    removeAuthorizerConfig: Optional[RemoveAuthorizerConfig]
-    tlsConfig: Optional[TlsConfig]
-    serverCertificateConfig: Optional[ServerCertificateConfig]
-    authenticationType: Optional[AuthenticationType]
-    applicationProtocol: Optional[ApplicationProtocol]
-    clientCertificateConfig: Optional[ClientCertificateConfig]
+    authorizerConfig: AuthorizerConfig | None
+    domainConfigurationStatus: DomainConfigurationStatus | None
+    removeAuthorizerConfig: RemoveAuthorizerConfig | None
+    tlsConfig: TlsConfig | None
+    serverCertificateConfig: ServerCertificateConfig | None
+    authenticationType: AuthenticationType | None
+    applicationProtocol: ApplicationProtocol | None
+    clientCertificateConfig: ClientCertificateConfig | None
 
 
 class UpdateDomainConfigurationResponse(TypedDict, total=False):
-    domainConfigurationName: Optional[ReservedDomainConfigurationName]
-    domainConfigurationArn: Optional[DomainConfigurationArn]
+    domainConfigurationName: ReservedDomainConfigurationName | None
+    domainConfigurationArn: DomainConfigurationArn | None
 
 
 class UpdateDynamicThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
     thingGroupProperties: ThingGroupProperties
-    expectedVersion: Optional[OptionalVersion]
-    indexName: Optional[IndexName]
-    queryString: Optional[QueryString]
-    queryVersion: Optional[QueryVersion]
+    expectedVersion: OptionalVersion | None
+    indexName: IndexName | None
+    queryString: QueryString | None
+    queryVersion: QueryVersion | None
 
 
 class UpdateDynamicThingGroupResponse(TypedDict, total=False):
-    version: Optional[Version]
+    version: Version | None
 
 
 class UpdateEncryptionConfigurationRequest(ServiceRequest):
     encryptionType: EncryptionType
-    kmsKeyArn: Optional[KmsKeyArn]
-    kmsAccessRoleArn: Optional[KmsAccessRoleArn]
+    kmsKeyArn: KmsKeyArn | None
+    kmsAccessRoleArn: KmsAccessRoleArn | None
 
 
 class UpdateEncryptionConfigurationResponse(TypedDict, total=False):
@@ -7004,7 +7004,7 @@ class UpdateEncryptionConfigurationResponse(TypedDict, total=False):
 
 
 class UpdateEventConfigurationsRequest(ServiceRequest):
-    eventConfigurations: Optional[EventConfigurations]
+    eventConfigurations: EventConfigurations | None
 
 
 class UpdateEventConfigurationsResponse(TypedDict, total=False):
@@ -7013,20 +7013,20 @@ class UpdateEventConfigurationsResponse(TypedDict, total=False):
 
 class UpdateFleetMetricRequest(ServiceRequest):
     metricName: FleetMetricName
-    queryString: Optional[QueryString]
-    aggregationType: Optional[AggregationType]
-    period: Optional[FleetMetricPeriod]
-    aggregationField: Optional[AggregationField]
-    description: Optional[FleetMetricDescription]
-    queryVersion: Optional[QueryVersion]
+    queryString: QueryString | None
+    aggregationType: AggregationType | None
+    period: FleetMetricPeriod | None
+    aggregationField: AggregationField | None
+    description: FleetMetricDescription | None
+    queryVersion: QueryVersion | None
     indexName: IndexName
-    unit: Optional[FleetMetricUnit]
-    expectedVersion: Optional[OptionalVersion]
+    unit: FleetMetricUnit | None
+    expectedVersion: OptionalVersion | None
 
 
 class UpdateIndexingConfigurationRequest(ServiceRequest):
-    thingIndexingConfiguration: Optional[ThingIndexingConfiguration]
-    thingGroupIndexingConfiguration: Optional[ThingGroupIndexingConfiguration]
+    thingIndexingConfiguration: ThingIndexingConfiguration | None
+    thingGroupIndexingConfiguration: ThingGroupIndexingConfiguration | None
 
 
 class UpdateIndexingConfigurationResponse(TypedDict, total=False):
@@ -7035,29 +7035,29 @@ class UpdateIndexingConfigurationResponse(TypedDict, total=False):
 
 class UpdateJobRequest(ServiceRequest):
     jobId: JobId
-    description: Optional[JobDescription]
-    presignedUrlConfig: Optional[PresignedUrlConfig]
-    jobExecutionsRolloutConfig: Optional[JobExecutionsRolloutConfig]
-    abortConfig: Optional[AbortConfig]
-    timeoutConfig: Optional[TimeoutConfig]
-    namespaceId: Optional[NamespaceId]
-    jobExecutionsRetryConfig: Optional[JobExecutionsRetryConfig]
+    description: JobDescription | None
+    presignedUrlConfig: PresignedUrlConfig | None
+    jobExecutionsRolloutConfig: JobExecutionsRolloutConfig | None
+    abortConfig: AbortConfig | None
+    timeoutConfig: TimeoutConfig | None
+    namespaceId: NamespaceId | None
+    jobExecutionsRetryConfig: JobExecutionsRetryConfig | None
 
 
 class UpdateMitigationActionRequest(ServiceRequest):
     actionName: MitigationActionName
-    roleArn: Optional[RoleArn]
-    actionParams: Optional[MitigationActionParams]
+    roleArn: RoleArn | None
+    actionParams: MitigationActionParams | None
 
 
 class UpdateMitigationActionResponse(TypedDict, total=False):
-    actionArn: Optional[MitigationActionArn]
-    actionId: Optional[MitigationActionId]
+    actionArn: MitigationActionArn | None
+    actionId: MitigationActionId | None
 
 
 class UpdatePackageConfigurationRequest(ServiceRequest):
-    versionUpdateByJobsConfig: Optional[VersionUpdateByJobsConfig]
-    clientToken: Optional[ClientToken]
+    versionUpdateByJobsConfig: VersionUpdateByJobsConfig | None
+    clientToken: ClientToken | None
 
 
 class UpdatePackageConfigurationResponse(TypedDict, total=False):
@@ -7066,10 +7066,10 @@ class UpdatePackageConfigurationResponse(TypedDict, total=False):
 
 class UpdatePackageRequest(ServiceRequest):
     packageName: PackageName
-    description: Optional[ResourceDescription]
-    defaultVersionName: Optional[VersionName]
-    unsetDefaultVersion: Optional[UnsetDefaultVersion]
-    clientToken: Optional[ClientToken]
+    description: ResourceDescription | None
+    defaultVersionName: VersionName | None
+    unsetDefaultVersion: UnsetDefaultVersion | None
+    clientToken: ClientToken | None
 
 
 class UpdatePackageResponse(TypedDict, total=False):
@@ -7079,12 +7079,12 @@ class UpdatePackageResponse(TypedDict, total=False):
 class UpdatePackageVersionRequest(ServiceRequest):
     packageName: PackageName
     versionName: VersionName
-    description: Optional[ResourceDescription]
-    attributes: Optional[ResourceAttributes]
-    artifact: Optional[PackageVersionArtifact]
-    action: Optional[PackageVersionAction]
-    recipe: Optional[PackageVersionRecipe]
-    clientToken: Optional[ClientToken]
+    description: ResourceDescription | None
+    attributes: ResourceAttributes | None
+    artifact: PackageVersionArtifact | None
+    action: PackageVersionAction | None
+    recipe: PackageVersionRecipe | None
+    clientToken: ClientToken | None
 
 
 class UpdatePackageVersionResponse(TypedDict, total=False):
@@ -7093,12 +7093,12 @@ class UpdatePackageVersionResponse(TypedDict, total=False):
 
 class UpdateProvisioningTemplateRequest(ServiceRequest):
     templateName: TemplateName
-    description: Optional[TemplateDescription]
-    enabled: Optional[Enabled]
-    defaultVersionId: Optional[TemplateVersionId]
-    provisioningRoleArn: Optional[RoleArn]
-    preProvisioningHook: Optional[ProvisioningHook]
-    removePreProvisioningHook: Optional[RemoveHook]
+    description: TemplateDescription | None
+    enabled: Enabled | None
+    defaultVersionId: TemplateVersionId | None
+    provisioningRoleArn: RoleArn | None
+    preProvisioningHook: ProvisioningHook | None
+    removePreProvisioningHook: RemoveHook | None
 
 
 class UpdateProvisioningTemplateResponse(TypedDict, total=False):
@@ -7107,85 +7107,85 @@ class UpdateProvisioningTemplateResponse(TypedDict, total=False):
 
 class UpdateRoleAliasRequest(ServiceRequest):
     roleAlias: RoleAlias
-    roleArn: Optional[RoleArn]
-    credentialDurationSeconds: Optional[CredentialDurationSeconds]
+    roleArn: RoleArn | None
+    credentialDurationSeconds: CredentialDurationSeconds | None
 
 
 class UpdateRoleAliasResponse(TypedDict, total=False):
-    roleAlias: Optional[RoleAlias]
-    roleAliasArn: Optional[RoleAliasArn]
+    roleAlias: RoleAlias | None
+    roleAliasArn: RoleAliasArn | None
 
 
 class UpdateScheduledAuditRequest(ServiceRequest):
-    frequency: Optional[AuditFrequency]
-    dayOfMonth: Optional[DayOfMonth]
-    dayOfWeek: Optional[DayOfWeek]
-    targetCheckNames: Optional[TargetAuditCheckNames]
+    frequency: AuditFrequency | None
+    dayOfMonth: DayOfMonth | None
+    dayOfWeek: DayOfWeek | None
+    targetCheckNames: TargetAuditCheckNames | None
     scheduledAuditName: ScheduledAuditName
 
 
 class UpdateScheduledAuditResponse(TypedDict, total=False):
-    scheduledAuditArn: Optional[ScheduledAuditArn]
+    scheduledAuditArn: ScheduledAuditArn | None
 
 
 class UpdateSecurityProfileRequest(ServiceRequest):
     securityProfileName: SecurityProfileName
-    securityProfileDescription: Optional[SecurityProfileDescription]
-    behaviors: Optional[Behaviors]
-    alertTargets: Optional[AlertTargets]
-    additionalMetricsToRetain: Optional[AdditionalMetricsToRetainList]
-    additionalMetricsToRetainV2: Optional[AdditionalMetricsToRetainV2List]
-    deleteBehaviors: Optional[DeleteBehaviors]
-    deleteAlertTargets: Optional[DeleteAlertTargets]
-    deleteAdditionalMetricsToRetain: Optional[DeleteAdditionalMetricsToRetain]
-    expectedVersion: Optional[OptionalVersion]
-    metricsExportConfig: Optional[MetricsExportConfig]
-    deleteMetricsExportConfig: Optional[DeleteMetricsExportConfig]
+    securityProfileDescription: SecurityProfileDescription | None
+    behaviors: Behaviors | None
+    alertTargets: AlertTargets | None
+    additionalMetricsToRetain: AdditionalMetricsToRetainList | None
+    additionalMetricsToRetainV2: AdditionalMetricsToRetainV2List | None
+    deleteBehaviors: DeleteBehaviors | None
+    deleteAlertTargets: DeleteAlertTargets | None
+    deleteAdditionalMetricsToRetain: DeleteAdditionalMetricsToRetain | None
+    expectedVersion: OptionalVersion | None
+    metricsExportConfig: MetricsExportConfig | None
+    deleteMetricsExportConfig: DeleteMetricsExportConfig | None
 
 
 class UpdateSecurityProfileResponse(TypedDict, total=False):
-    securityProfileName: Optional[SecurityProfileName]
-    securityProfileArn: Optional[SecurityProfileArn]
-    securityProfileDescription: Optional[SecurityProfileDescription]
-    behaviors: Optional[Behaviors]
-    alertTargets: Optional[AlertTargets]
-    additionalMetricsToRetain: Optional[AdditionalMetricsToRetainList]
-    additionalMetricsToRetainV2: Optional[AdditionalMetricsToRetainV2List]
-    version: Optional[Version]
-    creationDate: Optional[Timestamp]
-    lastModifiedDate: Optional[Timestamp]
-    metricsExportConfig: Optional[MetricsExportConfig]
+    securityProfileName: SecurityProfileName | None
+    securityProfileArn: SecurityProfileArn | None
+    securityProfileDescription: SecurityProfileDescription | None
+    behaviors: Behaviors | None
+    alertTargets: AlertTargets | None
+    additionalMetricsToRetain: AdditionalMetricsToRetainList | None
+    additionalMetricsToRetainV2: AdditionalMetricsToRetainV2List | None
+    version: Version | None
+    creationDate: Timestamp | None
+    lastModifiedDate: Timestamp | None
+    metricsExportConfig: MetricsExportConfig | None
 
 
 class UpdateStreamRequest(ServiceRequest):
     streamId: StreamId
-    description: Optional[StreamDescription]
-    files: Optional[StreamFiles]
-    roleArn: Optional[RoleArn]
+    description: StreamDescription | None
+    files: StreamFiles | None
+    roleArn: RoleArn | None
 
 
 class UpdateStreamResponse(TypedDict, total=False):
-    streamId: Optional[StreamId]
-    streamArn: Optional[StreamArn]
-    description: Optional[StreamDescription]
-    streamVersion: Optional[StreamVersion]
+    streamId: StreamId | None
+    streamArn: StreamArn | None
+    description: StreamDescription | None
+    streamVersion: StreamVersion | None
 
 
 class UpdateThingGroupRequest(ServiceRequest):
     thingGroupName: ThingGroupName
     thingGroupProperties: ThingGroupProperties
-    expectedVersion: Optional[OptionalVersion]
+    expectedVersion: OptionalVersion | None
 
 
 class UpdateThingGroupResponse(TypedDict, total=False):
-    version: Optional[Version]
+    version: Version | None
 
 
 class UpdateThingGroupsForThingRequest(ServiceRequest):
-    thingName: Optional[ThingName]
-    thingGroupsToAdd: Optional[ThingGroupList]
-    thingGroupsToRemove: Optional[ThingGroupList]
-    overrideDynamicGroups: Optional[OverrideDynamicGroups]
+    thingName: ThingName | None
+    thingGroupsToAdd: ThingGroupList | None
+    thingGroupsToRemove: ThingGroupList | None
+    overrideDynamicGroups: OverrideDynamicGroups | None
 
 
 class UpdateThingGroupsForThingResponse(TypedDict, total=False):
@@ -7196,10 +7196,10 @@ class UpdateThingRequest(ServiceRequest):
     """The input for the UpdateThing operation."""
 
     thingName: ThingName
-    thingTypeName: Optional[ThingTypeName]
-    attributePayload: Optional[AttributePayload]
-    expectedVersion: Optional[OptionalVersion]
-    removeThingType: Optional[RemoveThingType]
+    thingTypeName: ThingTypeName | None
+    attributePayload: AttributePayload | None
+    expectedVersion: OptionalVersion | None
+    removeThingType: RemoveThingType | None
 
 
 class UpdateThingResponse(TypedDict, total=False):
@@ -7210,7 +7210,7 @@ class UpdateThingResponse(TypedDict, total=False):
 
 class UpdateThingTypeRequest(ServiceRequest):
     thingTypeName: ThingTypeName
-    thingTypeProperties: Optional[ThingTypeProperties]
+    thingTypeProperties: ThingTypeProperties | None
 
 
 class UpdateThingTypeResponse(TypedDict, total=False):
@@ -7233,20 +7233,20 @@ class ValidateSecurityProfileBehaviorsRequest(ServiceRequest):
 class ValidationError(TypedDict, total=False):
     """Information about an error found in a behavior specification."""
 
-    errorMessage: Optional[ErrorMessage]
+    errorMessage: ErrorMessage | None
 
 
-ValidationErrors = List[ValidationError]
+ValidationErrors = list[ValidationError]
 
 
 class ValidateSecurityProfileBehaviorsResponse(TypedDict, total=False):
-    valid: Optional[Valid]
-    validationErrors: Optional[ValidationErrors]
+    valid: Valid | None
+    validationErrors: ValidationErrors | None
 
 
 class IotApi:
-    service = "iot"
-    version = "2015-05-28"
+    service: str = "iot"
+    version: str = "2015-05-28"
 
     @handler("AcceptCertificateTransfer")
     def accept_certificate_transfer(

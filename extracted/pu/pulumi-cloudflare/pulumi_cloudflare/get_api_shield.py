@@ -27,16 +27,16 @@ class GetApiShieldResult:
     """
     A collection of values returned by getApiShield.
     """
-    def __init__(__self__, auth_id_characteristics=None, id=None, properties=None, zone_id=None):
+    def __init__(__self__, auth_id_characteristics=None, id=None, normalize=None, zone_id=None):
         if auth_id_characteristics and not isinstance(auth_id_characteristics, list):
             raise TypeError("Expected argument 'auth_id_characteristics' to be a list")
         pulumi.set(__self__, "auth_id_characteristics", auth_id_characteristics)
         if id and not isinstance(id, str):
             raise TypeError("Expected argument 'id' to be a str")
         pulumi.set(__self__, "id", id)
-        if properties and not isinstance(properties, list):
-            raise TypeError("Expected argument 'properties' to be a list")
-        pulumi.set(__self__, "properties", properties)
+        if normalize and not isinstance(normalize, bool):
+            raise TypeError("Expected argument 'normalize' to be a bool")
+        pulumi.set(__self__, "normalize", normalize)
         if zone_id and not isinstance(zone_id, str):
             raise TypeError("Expected argument 'zone_id' to be a str")
         pulumi.set(__self__, "zone_id", zone_id)
@@ -50,17 +50,17 @@ class GetApiShieldResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        The provider-assigned unique ID for this managed resource.
+        Identifier.
         """
         return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter
-    def properties(self) -> Optional[Sequence[_builtins.str]]:
+    def normalize(self) -> Optional[_builtins.bool]:
         """
-        Requests information about certain properties.
+        Ensures that the configuration is written or retrieved in normalized fashion
         """
-        return pulumi.get(self, "properties")
+        return pulumi.get(self, "normalize")
 
     @_builtins.property
     @pulumi.getter(name="zoneId")
@@ -79,11 +79,11 @@ class AwaitableGetApiShieldResult(GetApiShieldResult):
         return GetApiShieldResult(
             auth_id_characteristics=self.auth_id_characteristics,
             id=self.id,
-            properties=self.properties,
+            normalize=self.normalize,
             zone_id=self.zone_id)
 
 
-def get_api_shield(properties: Optional[Sequence[_builtins.str]] = None,
+def get_api_shield(normalize: Optional[_builtins.bool] = None,
                    zone_id: Optional[_builtins.str] = None,
                    opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetApiShieldResult:
     """
@@ -94,15 +94,15 @@ def get_api_shield(properties: Optional[Sequence[_builtins.str]] = None,
     import pulumi_cloudflare as cloudflare
 
     example_api_shield = cloudflare.get_api_shield(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        properties=["auth_id_characteristics"])
+        normalize=True)
     ```
 
 
-    :param Sequence[_builtins.str] properties: Requests information about certain properties.
+    :param _builtins.bool normalize: Ensures that the configuration is written or retrieved in normalized fashion
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()
-    __args__['properties'] = properties
+    __args__['normalize'] = normalize
     __args__['zoneId'] = zone_id
     opts = pulumi.InvokeOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke('cloudflare:index/getApiShield:getApiShield', __args__, opts=opts, typ=GetApiShieldResult).value
@@ -110,9 +110,9 @@ def get_api_shield(properties: Optional[Sequence[_builtins.str]] = None,
     return AwaitableGetApiShieldResult(
         auth_id_characteristics=pulumi.get(__ret__, 'auth_id_characteristics'),
         id=pulumi.get(__ret__, 'id'),
-        properties=pulumi.get(__ret__, 'properties'),
+        normalize=pulumi.get(__ret__, 'normalize'),
         zone_id=pulumi.get(__ret__, 'zone_id'))
-def get_api_shield_output(properties: Optional[pulumi.Input[Optional[Sequence[_builtins.str]]]] = None,
+def get_api_shield_output(normalize: Optional[pulumi.Input[Optional[_builtins.bool]]] = None,
                           zone_id: Optional[pulumi.Input[_builtins.str]] = None,
                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetApiShieldResult]:
     """
@@ -123,20 +123,20 @@ def get_api_shield_output(properties: Optional[pulumi.Input[Optional[Sequence[_b
     import pulumi_cloudflare as cloudflare
 
     example_api_shield = cloudflare.get_api_shield(zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-        properties=["auth_id_characteristics"])
+        normalize=True)
     ```
 
 
-    :param Sequence[_builtins.str] properties: Requests information about certain properties.
+    :param _builtins.bool normalize: Ensures that the configuration is written or retrieved in normalized fashion
     :param _builtins.str zone_id: Identifier.
     """
     __args__ = dict()
-    __args__['properties'] = properties
+    __args__['normalize'] = normalize
     __args__['zoneId'] = zone_id
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('cloudflare:index/getApiShield:getApiShield', __args__, opts=opts, typ=GetApiShieldResult)
     return __ret__.apply(lambda __response__: GetApiShieldResult(
         auth_id_characteristics=pulumi.get(__response__, 'auth_id_characteristics'),
         id=pulumi.get(__response__, 'id'),
-        properties=pulumi.get(__response__, 'properties'),
+        normalize=pulumi.get(__response__, 'normalize'),
         zone_id=pulumi.get(__response__, 'zone_id')))

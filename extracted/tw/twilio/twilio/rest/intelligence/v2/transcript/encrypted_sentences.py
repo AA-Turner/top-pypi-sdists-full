@@ -14,6 +14,7 @@ r"""
 
 from typing import Any, Dict, Optional, Union
 from twilio.base import serialize, values
+from twilio.base.api_response import ApiResponse
 from twilio.base.instance_context import InstanceContext
 from twilio.base.instance_resource import InstanceResource
 from twilio.base.list_resource import ListResource
@@ -82,6 +83,34 @@ class EncryptedSentencesInstance(InstanceResource):
             redacted=redacted,
         )
 
+    def fetch_with_http_info(
+        self, redacted: Union[bool, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Fetch the EncryptedSentencesInstance with HTTP info
+
+        :param redacted: Grant access to PII Redacted/Unredacted Sentences. If redaction is enabled, the default is `true` to access redacted sentences.
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return self._proxy.fetch_with_http_info(
+            redacted=redacted,
+        )
+
+    async def fetch_with_http_info_async(
+        self, redacted: Union[bool, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the EncryptedSentencesInstance with HTTP info
+
+        :param redacted: Grant access to PII Redacted/Unredacted Sentences. If redaction is enabled, the default is `true` to access redacted sentences.
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return await self._proxy.fetch_with_http_info_async(
+            redacted=redacted,
+        )
+
     def __repr__(self) -> str:
         """
         Provide a friendly representation
@@ -111,6 +140,28 @@ class EncryptedSentencesContext(InstanceContext):
             **self._solution
         )
 
+    def _fetch(self, redacted: Union[bool, object] = values.unset) -> tuple:
+        """
+        Internal helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        params = values.of(
+            {
+                "Redacted": serialize.boolean_to_string(redacted),
+            }
+        )
+
+        headers = values.of({})
+
+        headers["Accept"] = "application/json"
+
+        return self._version.fetch_with_response_info(
+            method="GET", uri=self._uri, params=params, headers=headers
+        )
+
     def fetch(
         self, redacted: Union[bool, object] = values.unset
     ) -> EncryptedSentencesInstance:
@@ -121,8 +172,40 @@ class EncryptedSentencesContext(InstanceContext):
 
         :returns: The fetched EncryptedSentencesInstance
         """
+        payload, _, _ = self._fetch(redacted=redacted)
+        return EncryptedSentencesInstance(
+            self._version,
+            payload,
+            transcript_sid=self._solution["transcript_sid"],
+        )
 
-        data = values.of(
+    def fetch_with_http_info(
+        self, redacted: Union[bool, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Fetch the EncryptedSentencesInstance and return response metadata
+
+        :param redacted: Grant access to PII Redacted/Unredacted Sentences. If redaction is enabled, the default is `true` to access redacted sentences.
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = self._fetch(redacted=redacted)
+        instance = EncryptedSentencesInstance(
+            self._version,
+            payload,
+            transcript_sid=self._solution["transcript_sid"],
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
+
+    async def _fetch_async(self, redacted: Union[bool, object] = values.unset) -> tuple:
+        """
+        Internal async helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        params = values.of(
             {
                 "Redacted": serialize.boolean_to_string(redacted),
             }
@@ -132,14 +215,8 @@ class EncryptedSentencesContext(InstanceContext):
 
         headers["Accept"] = "application/json"
 
-        payload = self._version.fetch(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
-        return EncryptedSentencesInstance(
-            self._version,
-            payload,
-            transcript_sid=self._solution["transcript_sid"],
+        return await self._version.fetch_with_response_info_async(
+            method="GET", uri=self._uri, params=params, headers=headers
         )
 
     async def fetch_async(
@@ -152,26 +229,30 @@ class EncryptedSentencesContext(InstanceContext):
 
         :returns: The fetched EncryptedSentencesInstance
         """
-
-        data = values.of(
-            {
-                "Redacted": serialize.boolean_to_string(redacted),
-            }
-        )
-
-        headers = values.of({})
-
-        headers["Accept"] = "application/json"
-
-        payload = await self._version.fetch_async(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
+        payload, _, _ = await self._fetch_async(redacted=redacted)
         return EncryptedSentencesInstance(
             self._version,
             payload,
             transcript_sid=self._solution["transcript_sid"],
         )
+
+    async def fetch_with_http_info_async(
+        self, redacted: Union[bool, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the EncryptedSentencesInstance and return response metadata
+
+        :param redacted: Grant access to PII Redacted/Unredacted Sentences. If redaction is enabled, the default is `true` to access redacted sentences.
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = await self._fetch_async(redacted=redacted)
+        instance = EncryptedSentencesInstance(
+            self._version,
+            payload,
+            transcript_sid=self._solution["transcript_sid"],
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
 
     def __repr__(self) -> str:
         """

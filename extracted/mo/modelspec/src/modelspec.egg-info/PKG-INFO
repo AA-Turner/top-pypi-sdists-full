@@ -1,0 +1,80 @@
+Metadata-Version: 2.4
+Name: modelspec
+Version: 0.3.7
+Summary: A common JSON/YAML based format for compact model specification
+Home-page: https://github.com/ModECI/modelspec
+Author: ModECI contributors
+Author-email: p.gleeson@gmail.com
+Maintainer: Padraig Gleeson, David Turner
+Maintainer-email: p.gleeson@gmail.com
+License: LGPLv3
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Scientific/Engineering
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pyyaml
+Requires-Dist: pymongo
+Requires-Dist: numpy
+Requires-Dist: tabulate
+Requires-Dist: attrs
+Requires-Dist: cattrs>=23.2.3
+Requires-Dist: docstring-parser
+Requires-Dist: typing_extensions; python_version < "3.8"
+Requires-Dist: typing_compat; python_version < "3.8"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-benchmark; extra == "test"
+Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: typing_extensions; python_version < "3.8" and extra == "test"
+Provides-Extra: docs
+Requires-Dist: pandas; extra == "docs"
+Requires-Dist: requests; extra == "docs"
+Requires-Dist: Sphinx; extra == "docs"
+Requires-Dist: recommonmark>=0.5.0; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: sphinx_copybutton; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: myst_parser; extra == "docs"
+Requires-Dist: sphinx_markdown_tables; extra == "docs"
+Requires-Dist: sphinx-autoapi; extra == "docs"
+Requires-Dist: pytorch-sphinx-theme==0.0.19; extra == "docs"
+Requires-Dist: sphinxcontrib-versioning; extra == "docs"
+Provides-Extra: dev
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: pyneuroml>=1.3.15; extra == "dev"
+Requires-Dist: NeuroMLlite>=0.6.1; extra == "dev"
+Requires-Dist: python-libsbml; extra == "dev"
+Requires-Dist: modelspec[test]; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Provides-Extra: all
+Requires-Dist: modelspec[test]; extra == "all"
+Requires-Dist: modelspec[docs]; extra == "all"
+Requires-Dist: modelspec[dev]; extra == "all"
+Dynamic: license-file
+
+# Modelspec
+
+[![Continuous builds](https://github.com/ModECI/modelspec/actions/workflows/ci.yml/badge.svg)](https://github.com/ModECI/modelspec/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/modelspec)](https://pypi.org/project/modelspec/)
+
+Functionality for specifying the allowed structure of models, facilitating the creation of APIs in Python for handling the models & enabling automatic serialization of instances of them (e.g. in JSON and YAML format).
+
+This package is being used by [NeuroMLlite](https://github.com/NeuroML/NeuroMLlite) & [MDF](https://github.com/ModECI/MDF).
+
+For an example of the use of this package see [here](examples/README.md).

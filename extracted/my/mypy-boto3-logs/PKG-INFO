@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-logs
-Version: 1.40.32
-Summary: Type annotations for boto3 CloudWatchLogs 1.40.32 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.10
+Summary: Type annotations for boto3 CloudWatchLogs 1.42.10 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 logs boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,logs,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-logs"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 CloudWatchLogs 1.40.32](https://pypi.org/project/boto3/) compatible with
+[boto3 CloudWatchLogs 1.42.10](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ Type annotations for
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -119,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.32' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.10' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CloudWatchLogs` service.
 4. Use provided commands to install generated packages.
@@ -366,9 +352,13 @@ from mypy_boto3_logs.paginator import (
     DescribeResourcePoliciesPaginator,
     DescribeSubscriptionFiltersPaginator,
     FilterLogEventsPaginator,
+    GetScheduledQueryHistoryPaginator,
+    ListAggregateLogGroupSummariesPaginator,
     ListAnomaliesPaginator,
     ListLogAnomalyDetectorsPaginator,
     ListLogGroupsForQueryPaginator,
+    ListScheduledQueriesPaginator,
+    ListSourcesForS3TableIntegrationPaginator,
 )
 
 client: CloudWatchLogsClient = Session().client("logs")
@@ -410,12 +400,24 @@ describe_subscription_filters_paginator: DescribeSubscriptionFiltersPaginator = 
     client.get_paginator("describe_subscription_filters")
 )
 filter_log_events_paginator: FilterLogEventsPaginator = client.get_paginator("filter_log_events")
+get_scheduled_query_history_paginator: GetScheduledQueryHistoryPaginator = client.get_paginator(
+    "get_scheduled_query_history"
+)
+list_aggregate_log_group_summaries_paginator: ListAggregateLogGroupSummariesPaginator = (
+    client.get_paginator("list_aggregate_log_group_summaries")
+)
 list_anomalies_paginator: ListAnomaliesPaginator = client.get_paginator("list_anomalies")
 list_log_anomaly_detectors_paginator: ListLogAnomalyDetectorsPaginator = client.get_paginator(
     "list_log_anomaly_detectors"
 )
 list_log_groups_for_query_paginator: ListLogGroupsForQueryPaginator = client.get_paginator(
     "list_log_groups_for_query"
+)
+list_scheduled_queries_paginator: ListScheduledQueriesPaginator = client.get_paginator(
+    "list_scheduled_queries"
+)
+list_sources_for_s3_table_integration_paginator: ListSourcesForS3TableIntegrationPaginator = (
+    client.get_paginator("list_sources_for_s3_table_integration")
 )
 ```
 
@@ -430,10 +432,10 @@ Full list of `CloudWatchLogs` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/literals/).
 
 ```python
-from mypy_boto3_logs.literals import AnomalyDetectorStatusType
+from mypy_boto3_logs.literals import ActionStatusType
 
 
-def check_value(value: AnomalyDetectorStatusType) -> bool: ...
+def check_value(value: ActionStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

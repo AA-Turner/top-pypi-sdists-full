@@ -15,14 +15,14 @@ This private submodule is *not* intended for importation by downstream callers.
 from beartype.meta import URL_ISSUES
 from beartype.roar import BeartypeDecorHintNonpepException
 from beartype.typing import NoReturn
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import TypeException
 from beartype._util.cache.utilcachecall import callable_cached
 from beartype._util.hint.nonpep.utilnonpeptest import (
     die_unless_hint_nonpep,
     is_hint_nonpep,
 )
-from beartype._util.hint.pep.utilpepget import get_hint_pep_typevars
+from beartype._util.hint.pep.utilpepget import get_hint_pep_typeargs_packed
 from beartype._util.hint.pep.utilpeptest import (
     die_if_hint_pep_unsupported,
     is_hint_pep,
@@ -107,9 +107,6 @@ def die_unless_hint(
     die_unless_hint_nonpep(hint=hint, exception_prefix=exception_prefix)
 
 
-#FIXME: This same exception message is repeated ad naseum throughout the
-#codebase at least three or four times. Reduce DRY by instead deferring to this
-#function, please. *sigh*
 def die_as_hint_unsupported(
     # Mandatory parameters.
     hint: object,
@@ -301,7 +298,7 @@ def is_hint_cacheworthy(hint: Hint) -> bool:
         # @beartype have unambiguous representations *EXCEPT* for hints
         # transitively parametrized by one or type variables, as type variables
         # themselves have ambiguous representations.
-        not get_hint_pep_typevars(hint) and
+        not get_hint_pep_typeargs_packed(hint) and
         # Either...
         (
             # PEP 585-compliant (e.g., "list[str]"). This hint is *NOT*

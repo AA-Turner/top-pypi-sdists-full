@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -45,7 +45,8 @@ class Objective(System.Object, metaclass=abc.ABCMeta):
         """
         Creates a new instance of Objective class
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -54,42 +55,9 @@ class Objective(System.Object, metaclass=abc.ABCMeta):
         """
         Creates a new instance
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
-        ...
-
-
-class Constraint(QuantConnect.Optimizer.Objectives.Objective):
-    """
-    A backtest optimization constraint.
-    Allows specifying statistical constraints for the optimization, eg. a backtest can't have a DrawDown less than 10%
-    """
-
-    @property
-    def operator(self) -> QuantConnect.Util.ComparisonOperatorTypes:
-        """The target comparison operation, eg. 'Greater'"""
-        ...
-
-    @operator.setter
-    def operator(self, value: QuantConnect.Util.ComparisonOperatorTypes) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty Constraint constructor"""
-        ...
-
-    @overload
-    def __init__(self, target: str, operator: QuantConnect.Util.ComparisonOperatorTypes, target_value: typing.Optional[float]) -> None:
-        """Creates a new instance"""
-        ...
-
-    def is_met(self, json_backtest_result: str) -> bool:
-        """Asserts the constraint is met"""
-        ...
-
-    def to_string(self) -> str:
-        """Pretty representation of a constraint"""
         ...
 
 
@@ -115,14 +83,6 @@ class Extremum(System.Object):
         :param candidate: Right operand
         :returns: Returns the result of comparer with this arguments.
         """
-        ...
-
-
-class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
-    """Defines standard minimization strategy, i.e. right operand is less than left"""
-
-    def __init__(self) -> None:
-        """Creates an instance of Minimization"""
         ...
 
 
@@ -192,6 +152,48 @@ class Maximization(QuantConnect.Optimizer.Objectives.Extremum):
         ...
 
 
+class Constraint(QuantConnect.Optimizer.Objectives.Objective):
+    """
+    A backtest optimization constraint.
+    Allows specifying statistical constraints for the optimization, eg. a backtest can't have a DrawDown less than 10%
+    """
+
+    @property
+    def operator(self) -> QuantConnect.Util.ComparisonOperatorTypes:
+        """The target comparison operation, eg. 'Greater'"""
+        ...
+
+    @operator.setter
+    def operator(self, value: QuantConnect.Util.ComparisonOperatorTypes) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty Constraint constructor"""
+        ...
+
+    @overload
+    def __init__(self, target: str, operator: QuantConnect.Util.ComparisonOperatorTypes, target_value: typing.Optional[float]) -> None:
+        """Creates a new instance"""
+        ...
+
+    def is_met(self, json_backtest_result: str) -> bool:
+        """Asserts the constraint is met"""
+        ...
+
+    def to_string(self) -> str:
+        """Pretty representation of a constraint"""
+        ...
+
+
+class Minimization(QuantConnect.Optimizer.Objectives.Extremum):
+    """Defines standard minimization strategy, i.e. right operand is less than left"""
+
+    def __init__(self) -> None:
+        """Creates an instance of Minimization"""
+        ...
+
+
 class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Optimizer.Objectives.Extremum, str]):
     """Class for converting string values to Maximization or Minimization strategy objects"""
 
@@ -200,7 +202,8 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         """
         Don't populate any property
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -209,7 +212,8 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         """
         Converts a Extremum object into a string
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -218,7 +222,10 @@ class ExtremumJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConne
         """
         Converts a string into its corresponding Extremum object
         
-        This method is protected.
+        
+        This codeEntityType is protected.
+        
+        :param value: 
         """
         ...
 

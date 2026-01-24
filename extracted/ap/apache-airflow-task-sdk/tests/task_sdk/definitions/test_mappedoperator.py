@@ -17,20 +17,21 @@
 # under the License.
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pendulum
 import pytest
 
-from airflow.sdk.api.datamodels._generated import TaskInstanceState
+from airflow.sdk import TaskInstanceState, TriggerRule
 from airflow.sdk.bases.operator import BaseOperator
+from airflow.sdk.bases.xcom import BaseXCom
 from airflow.sdk.definitions.dag import DAG
 from airflow.sdk.definitions.mappedoperator import MappedOperator
 from airflow.sdk.definitions.xcom_arg import XComArg
 from airflow.sdk.execution_time.comms import GetXCom, SetXCom, XComResult
-from airflow.utils.trigger_rule import TriggerRule
 
 from tests_common.test_utils.mapping import expand_mapped_task  # noqa: F401
 from tests_common.test_utils.mock_operators import (
@@ -251,7 +252,7 @@ def test_mapped_render_template_fields_validating_operator(
         )
         mapped = callable(mapped, task1.output)
 
-    mock_supervisor_comms.send.return_value = XComResult(key="return_value", value=["{{ ds }}"])
+    mock_supervisor_comms.send.return_value = XComResult(key=BaseXCom.XCOM_RETURN_KEY, value=["{{ ds }}"])
 
     mapped_ti = create_runtime_ti(task=mapped, map_index=0, upstream_map_indexes={task1.task_id: 1})
 
@@ -300,7 +301,7 @@ def test_expand_kwargs_render_template_fields_validating_operator(
         mapped = MockOperator.partial(task_id="a", arg2="{{ ti.task_id }}").expand_kwargs(task1.output)
 
     mock_supervisor_comms.send.return_value = XComResult(
-        key="return_value", value=[{"arg1": "{{ ds }}"}, {"arg1": 2}]
+        key=BaseXCom.XCOM_RETURN_KEY, value=[{"arg1": "{{ ds }}"}, {"arg1": 2}]
     )
 
     ti = create_runtime_ti(task=mapped, map_index=map_index, upstream_map_indexes={})
@@ -432,7 +433,7 @@ def test_map_cross_product(run_ti: RunTI, mock_supervisor_comms):
             return mock.DEFAULT
         task = dag.get_task(msg.task_id)
         value = task.python_callable()
-        return XComResult(key="return_value", value=value)
+        return XComResult(key=BaseXCom.XCOM_RETURN_KEY, value=value)
 
     mock_supervisor_comms.send.side_effect = xcom_get
 
@@ -470,7 +471,7 @@ def test_map_product_same(run_ti: RunTI, mock_supervisor_comms):
             return mock.DEFAULT
         task = dag.get_task(msg.task_id)
         value = task.python_callable()
-        return XComResult(key="return_value", value=value)
+        return XComResult(key=BaseXCom.XCOM_RETURN_KEY, value=value)
 
     mock_supervisor_comms.send.side_effect = xcom_get
 
@@ -596,11 +597,11 @@ def test_operator_mapped_task_group_receives_value(create_runtime_ti, mock_super
         key = (msg.task_id, msg.map_index)
         if key in expected_values:
             value = expected_values[key]
-            return XComResult(key="return_value", value=value)
+            return XComResult(key=BaseXCom.XCOM_RETURN_KEY, value=value)
         if msg.map_index is None:
             # Get all mapped XComValues for this ti
             value = [v for k, v in expected_values.items() if k[0] == msg.task_id]
-            return XComResult(key="return_value", value=value)
+            return XComResult(key=BaseXCom.XCOM_RETURN_KEY, value=value)
         return mock.DEFAULT
 
     mock_supervisor_comms.send.side_effect = xcom_get
@@ -691,6 +692,45 @@ def test_mapped_xcom_push_skipped_tasks(create_runtime_ti, mock_supervisor_comms
             ),
         ]
     )
+
+
+@pytest.mark.parametrize(
+    ("setter_name", "old_value", "new_value"),
+    [
+        ("owner", "old_owner", "new_owner"),
+        ("map_index_template", "old_mit", "new_mit"),
+        ("trigger_rule", TriggerRule.ALL_SUCCESS, TriggerRule.ALL_FAILED),
+        ("is_setup", True, False),
+        ("is_teardown", True, False),
+        ("depends_on_past", True, False),
+        ("ignore_first_depends_on_past", True, False),
+        ("wait_for_past_depends_before_skipping", True, False),
+        ("wait_for_downstream", True, False),
+        ("retries", 3, 5),
+        ("queue", "old_queue", "new_queue"),
+        ("pool", "old_pool", "new_pool"),
+        ("pool_slots", 1, 10),
+        ("execution_timeout", timedelta(minutes=5), timedelta(minutes=10)),
+        ("max_retry_delay", timedelta(minutes=5), timedelta(minutes=10)),
+        ("retry_delay", timedelta(minutes=5), timedelta(minutes=10)),
+        ("retry_exponential_backoff", True, False),
+        ("priority_weight", 1, 10),
+        ("max_active_tis_per_dag", 1, 10),
+        ("on_execute_callback", [], [id]),
+        ("on_failure_callback", [], [id]),
+        ("on_retry_callback", [], [id]),
+        ("on_success_callback", [], [id]),
+        ("on_skipped_callback", [], [id]),
+        ("inlets", ["a"], ["b"]),
+        ("outlets", ["a"], ["b"]),
+    ],
+)
+def test_setters(setter_name: str, old_value: object, new_value: object) -> None:
+    op = MockOperator.partial(task_id="a", arg1="a").expand(arg2=["a", "b", "c"])
+    setattr(op, setter_name, old_value)
+    assert getattr(op, setter_name) == old_value
+    setattr(op, setter_name, new_value)
+    assert getattr(op, setter_name) == new_value
 
 
 def test_mapped_operator_in_task_group_no_duplicate_prefix():

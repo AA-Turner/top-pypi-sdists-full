@@ -164,9 +164,11 @@ verbose_printf(TracerObject* self, int v, const char* fmt, ...)
 void
 clear_stack(struct FunctionNode** stack_top) {
     Py_CLEAR((*stack_top)->args);
+    Py_CLEAR((*stack_top)->func);
     while ((*stack_top)->prev) {
         (*stack_top) = (*stack_top) -> prev;
         Py_CLEAR((*stack_top)->args);
+        Py_CLEAR((*stack_top)->func);
     }
 }
 
@@ -419,7 +421,7 @@ tracer_pycall_callback(TracerObject* self, PyCodeObject* code)
         info->paused = 1;
         for (size_t i = 0; i < sizeof(curr_task_getters)/sizeof(curr_task_getters[0]); i++) {
             if (curr_task_getters[i] != NULL) {
-                curr_task = PyObject_CallObject(curr_task_getters[i], NULL);
+                curr_task = PyObject_CallNoArgs(curr_task_getters[i]);
                 if (!curr_task) {
                     PyErr_Clear();  // RuntimeError, probably
                     curr_task = Py_None;
@@ -524,8 +526,9 @@ tracer_pyreturn_callback(TracerObject* self, PyCodeObject* code, PyObject* arg)
 
             if (!PyCode_Check(call_code) || call_code != code) {
                 self->collecting = 0;
-                PyErr_SetString(PyExc_RuntimeError, "VizTracer: Unexpected type. Might be an event mismatch.");
-                return -1;
+                PyErr_WarnEx(PyExc_RuntimeWarning,
+                    "VizTracer: Unexpected function return, tracing is stopped", 1);
+                return 0;
             }
 
             struct EventNode* node = get_next_node(self);
@@ -613,8 +616,9 @@ tracer_creturn_callback(TracerObject* self, PyCodeObject* code, PyObject* arg)
 
             if (!PyCFunction_Check(cfunc)) {
                 self->collecting = 0;
-                PyErr_SetString(PyExc_RuntimeError, "VizTracer: Unexpected type. Might be an event mismatch.");
-                return -1;
+                PyErr_WarnEx(PyExc_RuntimeWarning,
+                    "VizTracer: Unexpected function return, tracing is stopped", 1);
+                return 0;
             }
 
             struct EventNode* node = get_next_node(self);
@@ -1202,7 +1206,7 @@ tracer_load(TracerObject* self, PyObject* Py_UNUSED(unused))
                 perror("Failed to access multiprocessing.current_process()");
                 exit(-1);
             }
-            PyObject* current_process = PyObject_CallObject(current_process_method, NULL);
+            PyObject* current_process = PyObject_CallNoArgs(current_process_method);
             if (!current_process_method) {
                 perror("Failed to access multiprocessing.current_process()");
                 exit(-1);
@@ -1270,7 +1274,7 @@ tracer_load(TracerObject* self, PyObject* Py_UNUSED(unused))
                     PyObject* task_name = NULL;
                     if (PyObject_HasAttrString(curr->data.fee.asyncio_task, "get_name")) {
                         PyObject* task_name_method = PyObject_GetAttrString(curr->data.fee.asyncio_task, "get_name");
-                        task_name = PyObject_CallObject(task_name_method, NULL);
+                        task_name = PyObject_CallNoArgs(task_name_method);
                         Py_DECREF(task_name_method);
                     } else if (PyObject_HasAttrString(curr->data.fee.asyncio_task, "name")) {
                         task_name = PyObject_GetAttrString(curr->data.fee.asyncio_task, "name");
@@ -1456,7 +1460,7 @@ tracer_dump(TracerObject* self, PyObject* args, PyObject* kw)
                 perror("Failed to access multiprocessing.current_process()");
                 exit(-1);
             }
-            PyObject* current_process = PyObject_CallObject(current_process_method, NULL);
+            PyObject* current_process = PyObject_CallNoArgs(current_process_method);
             if (!current_process_method) {
                 perror("Failed to access multiprocessing.current_process()");
                 exit(-1);
@@ -1502,7 +1506,7 @@ tracer_dump(TracerObject* self, PyObject* args, PyObject* kw)
                     PyObject* task_name = NULL;
                     if (PyObject_HasAttrString(curr->data.fee.asyncio_task, "get_name")) {
                         PyObject* task_name_method = PyObject_GetAttrString(curr->data.fee.asyncio_task, "get_name");
-                        task_name = PyObject_CallObject(task_name_method, NULL);
+                        task_name = PyObject_CallNoArgs(task_name_method);
                         Py_DECREF(task_name_method);
                     } else if (PyObject_HasAttrString(curr->data.fee.asyncio_task, "name")) {
                         task_name = PyObject_GetAttrString(curr->data.fee.asyncio_task, "name");
@@ -1686,7 +1690,7 @@ tracer_getbasetime(TracerObject* self, PyObject* Py_UNUSED(unused))
 }
 
 static PyObject*
-tracer_setcurrstack(TracerObject* self, PyObject* stack_depth)
+tracer_resetstack(TracerObject* self, PyObject* Py_UNUSED(unused))
 {
     struct ThreadInfo* info = get_thread_info(self);
     if (!info) {
@@ -1694,12 +1698,12 @@ tracer_setcurrstack(TracerObject* self, PyObject* stack_depth)
         return NULL;
     }
 
-    if (!PyLong_Check(stack_depth)) {
-        PyErr_SetString(PyExc_TypeError, "stack_depth must be an integer");
-        return NULL;
-    }
+    info->curr_stack_depth = 0;
+    info->ignore_stack_depth = 0;
 
-    info->curr_stack_depth = PyLong_AsLong(stack_depth);
+    struct FunctionNode* stack_top = info->stack_top;
+    clear_stack(&stack_top);
+    info->stack_top = stack_top;
 
     Py_RETURN_NONE;
 }
@@ -1978,7 +1982,7 @@ static PyMethodDef Tracer_methods[] = {
     {"get_func_args", (PyCFunction)tracer_getfunctionarg, METH_NOARGS, "get current function arg"},
     {"getts", (PyCFunction)tracer_getts, METH_NOARGS, "get timestamp"},
     {"get_base_time", (PyCFunction)tracer_getbasetime, METH_NOARGS, "get base time in nanoseconds"},
-    {"_set_curr_stack_depth", (PyCFunction)tracer_setcurrstack, METH_O, "set current stack depth"},
+    {"reset_stack", (PyCFunction)tracer_resetstack, METH_NOARGS, "reset stack"},
     {"pause", (PyCFunction)tracer_pause, METH_NOARGS, "pause profiling"},
     {"resume", (PyCFunction)tracer_resume, METH_NOARGS, "resume profiling"},
     {"setignorestackcounter", (PyCFunction)tracer_setignorestackcounter, METH_O, "reset ignore stack depth"},

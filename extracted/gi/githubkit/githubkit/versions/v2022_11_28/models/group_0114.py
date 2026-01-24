@@ -9,27 +9,33 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0113 import RunnerLabel
 
 
-class InteractionLimitResponse(GitHubModel):
-    """Interaction Limits
+class Runner(GitHubModel):
+    """Self hosted runners
 
-    Interaction limit settings.
+    A self hosted runner
     """
 
-    limit: Literal["existing_users", "contributors_only", "collaborators_only"] = Field(
-        description="The type of GitHub user that can comment, open issues, or create pull requests while the interaction limit is in effect."
+    id: int = Field(description="The ID of the runner.")
+    runner_group_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the runner group."
     )
-    origin: str = Field()
-    expires_at: datetime = Field()
+    name: str = Field(description="The name of the runner.")
+    os: str = Field(description="The Operating System of the runner.")
+    status: str = Field(description="The status of the runner.")
+    busy: bool = Field()
+    labels: list[RunnerLabel] = Field()
+    ephemeral: Missing[bool] = Field(default=UNSET)
 
 
-model_rebuild(InteractionLimitResponse)
+model_rebuild(Runner)
 
-__all__ = ("InteractionLimitResponse",)
+__all__ = ("Runner",)

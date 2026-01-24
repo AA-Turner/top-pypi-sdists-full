@@ -5,6 +5,7 @@ import os
 
 import nox
 
+nox.options.default_venv_backend = "uv|virtualenv"
 nox.options.reuse_existing_virtualenvs = True
 nox.options.sessions = "lint", "tests"
 locations = "src", "tests"
@@ -16,7 +17,10 @@ python_versions = nox.project.python_versions(project)
 
 @nox.session(python=python_versions)
 def tests(session: nox.Session) -> None:
-    session.install(".[tests]")
+    deps = [".[tests]"]
+    if os.getenv("TEST_WITH_UPSTREAM_DEPS") == "1":
+        deps.extend(["--group", "upstream-deps"])
+    session.install(*deps)
     session.run(
         "pytest",
         "--cov",
@@ -38,8 +42,8 @@ def lint(session: nox.Session) -> None:
 
 @nox.session
 def build(session: nox.Session) -> None:
-    session.install("build", "setuptools", "twine")
-    session.run("python", "-m", "build")
+    session.install("uv", "twine")
+    session.run("uv", "build")
     dists = glob.glob("dist/*")
     session.run("twine", "check", *dists, silent=True)
 

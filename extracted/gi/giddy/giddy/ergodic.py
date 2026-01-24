@@ -139,10 +139,10 @@ rows to be 1 to make sure the matrix is stochastic.
         else:
             raise ValueError(
                 "Input transition probability matrix has "
-                "%d rows full of 0s. Please set "
+                f"{rows0} rows full of 0s. Please set "
                 "fill_empty_classes=True to set diagonal "
                 "elements for these rows to be 1 to make "
-                "sure the matrix is stochastic." % rows0
+                "sure the matrix is stochastic."
             )
     mc = qe.MarkovChain(P)
     num_classes = mc.num_communication_classes
@@ -310,10 +310,10 @@ rows to be 1 to make sure the matrix is stochastic.
         else:
             raise ValueError(
                 "Input transition probability matrix has "
-                "%d rows full of 0s. Please set "
+                f"{rows0} rows full of 0s. Please set "
                 "fill_empty_classes=True to set diagonal "
                 "elements for these rows to be 1 to make "
-                "sure the matrix is stochastic." % rows0
+                "sure the matrix is stochastic."
             )
     mc = qe.MarkovChain(P)
     num_classes = mc.num_communication_classes

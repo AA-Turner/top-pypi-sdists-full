@@ -3,18 +3,19 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class APICallType(str, Enum, metaclass=utils.OpenEnumMeta):
     LOGIN = "login"
     WEBHOOK = "webhook"
     INBOUND = "inbound"
+    MCP = "mcp"
 
 
 class APICallTypedDict(TypedDict):
@@ -26,6 +27,7 @@ class APICallTypedDict(TypedDict):
     type: APICallType
     connection_id: NotRequired[str]
     created_at: NotRequired[datetime]
+    endapi_response_time: NotRequired[float]
     environment: NotRequired[str]
     error: NotRequired[str]
     external_xref: NotRequired[str]
@@ -33,6 +35,8 @@ class APICallTypedDict(TypedDict):
     ip_address: NotRequired[str]
     is_billable: NotRequired[bool]
     size: NotRequired[float]
+    unified_response_time: NotRequired[float]
+    user_agent: NotRequired[str]
     webhook_id: NotRequired[str]
     workspace_id: NotRequired[str]
 
@@ -48,11 +52,13 @@ class APICall(BaseModel):
 
     status: str
 
-    type: Annotated[APICallType, PlainValidator(validate_open_enum(False))]
+    type: APICallType
 
     connection_id: Optional[str] = None
 
     created_at: Optional[datetime] = None
+
+    endapi_response_time: Optional[float] = None
 
     environment: Optional[str] = "Production"
 
@@ -68,6 +74,52 @@ class APICall(BaseModel):
 
     size: Optional[float] = None
 
+    unified_response_time: Optional[float] = None
+
+    user_agent: Optional[str] = None
+
     webhook_id: Optional[str] = None
 
     workspace_id: Optional[str] = None
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.APICallType(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "connection_id",
+                "created_at",
+                "endapi_response_time",
+                "environment",
+                "error",
+                "external_xref",
+                "id",
+                "ip_address",
+                "is_billable",
+                "size",
+                "unified_response_time",
+                "user_agent",
+                "webhook_id",
+                "workspace_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

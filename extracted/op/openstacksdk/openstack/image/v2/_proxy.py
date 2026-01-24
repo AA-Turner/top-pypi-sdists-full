@@ -91,8 +91,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.image.v2.image.Image`
             instance.
         :param bool ignore_missing: When set to ``False``,
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the metadef namespace does not exist.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the metadef namespace does not exist.
         :returns: ``None``
         """
         return self._delete(_cache.Cache, image, ignore_missing=ignore_missing)
@@ -634,7 +634,7 @@ class Proxy(proxy.Proxy):
             raise
         except Exception as e:
             raise exceptions.SDKException(
-                f"Image creation failed: {str(e)}"
+                f"Image creation failed: {e!s}"
             ) from e
 
     def _make_v2_image_params(self, meta, properties):
@@ -759,9 +759,9 @@ class Proxy(proxy.Proxy):
     ):
         if not self._connection.has_service('object-store'):
             raise exceptions.SDKException(
-                f"The cloud {self._connection.config.name} is configured to use tasks for image "
-                "upload, but no object-store service is available. "
-                "Aborting."
+                f"The cloud {self._connection.config.name} is configured to "
+                f"use tasks for image upload, but no object-store service is "
+                f"available. Aborting."
             )
 
         properties = image_kwargs.get('properties', {})
@@ -1042,9 +1042,8 @@ class Proxy(proxy.Proxy):
         """Add a tag to an image
 
         :param image: The value can be the ID of a image or a
-            :class:`~openstack.image.v2.image.Image` instance
-            that the member will be created for.
-        :param str tag: The tag to be added
+            :class:`~openstack.image.v2.image.Image` instance.
+        :param tag: The tag to be added.
 
         :returns: None
         """
@@ -1052,12 +1051,11 @@ class Proxy(proxy.Proxy):
         image.add_tag(self, tag)
 
     def remove_tag(self, image, tag):
-        """Remove a tag to an image
+        """Remove a tag from an image
 
         :param image: The value can be the ID of a image or a
-            :class:`~openstack.image.v2.image.Image` instance
-            that the member will be created for.
-        :param str tag: The tag to be removed
+            :class:`~openstack.image.v2.image.Image` instance.
+        :param tag: The tag to be removed.
 
         :returns: None
         """
@@ -1094,9 +1092,9 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.image.v2.image.Image` instance that the member
             is part of. This is required if ``member`` is an ID.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the member does not exist. When set to ``True``, no exception will
-            be set when attempting to delete a nonexistent member.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the member does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent member.
 
         :returns: ``None``
         """
@@ -1214,8 +1212,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance.
         :param bool ignore_missing: When set to ``False``,
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the metadef namespace does not exist.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the metadef namespace does not exist.
         :returns: ``None``
         """
         self._delete(
@@ -1277,6 +1275,50 @@ class Proxy(proxy.Proxy):
             metadef_namespace,
             **attrs,
         )
+
+    def add_tag_to_metadef_namespace(self, namespace, tag):
+        """Add a tag to a metadef namespace
+
+        :param metadef_namespace: Either the name of a metadef namespace or an
+            :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
+            instance.
+        :param str tag: The tag to be added.
+
+        :returns: None
+        """
+        namespace = self._get_resource(
+            _metadef_namespace.MetadefNamespace, namespace
+        )
+        namespace.add_tag(self, tag)
+
+    def remove_tag_from_metadef_namespace(self, namespace, tag):
+        """Remove a tag from a metadef namespace
+
+        :param metadef_namespace: Either the name of a metadef namespace or an
+            :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
+            instance.
+        :param str tag: The tag to be removed.
+
+        :returns: None
+        """
+        namespace = self._get_resource(
+            _metadef_namespace.MetadefNamespace, namespace
+        )
+        namespace.remove_tag(self, tag)
+
+    def remove_tags_from_metadef_namespace(self, namespace):
+        """Remove all tags from a metadef namespace
+
+        :param metadef_namespace: Either the name of a metadef namespace or an
+            :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
+            instance.
+
+        :returns: None
+        """
+        namespace = self._get_resource(
+            _metadef_namespace.MetadefNamespace, namespace
+        )
+        namespace.remove_all_tags(self)
 
     # ====== METADEF OBJECT ======
     def create_metadef_object(self, namespace, **attrs):
@@ -1460,8 +1502,8 @@ class Proxy(proxy.Proxy):
             :class:`~openstack.image.v2.metadef_namespace.MetadefNamespace`
             instance
         :param bool ignore_missing: When set to ``False``,
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the metadef resource type association does not exist.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the metadef resource type association does not exist.
         :returns: ``None``
         """
         namespace_name = resource.Resource._get_id(metadef_namespace)
@@ -1619,7 +1661,7 @@ class Proxy(proxy.Proxy):
         )
 
     def delete_all_metadef_properties(self, metadef_namespace):
-        """Delete all metadata definitions property inside a specific namespace.
+        """Delete all metadata definitions property inside a namespace.
 
         :param metadef_namespace: The value can be either the name of a metadef
             namespace or a

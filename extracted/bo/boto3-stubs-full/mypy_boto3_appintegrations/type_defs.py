@@ -3,7 +3,7 @@ Type annotations for appintegrations service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appintegrations/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,17 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
-from .literals import ContactHandlingScopeType, ExecutionModeType, ExecutionStatusType
+from .literals import (
+    ApplicationTypeType,
+    ContactHandlingScopeType,
+    ExecutionModeType,
+    ExecutionStatusType,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -121,7 +121,7 @@ class ContactHandlingTypeDef(TypedDict):
 
 class ExternalUrlConfigOutputTypeDef(TypedDict):
     AccessUrl: str
-    ApprovedOrigins: NotRequired[List[str]]
+    ApprovedOrigins: NotRequired[list[str]]
 
 
 class ExternalUrlConfigTypeDef(TypedDict):
@@ -137,6 +137,7 @@ class ApplicationSummaryTypeDef(TypedDict):
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
     IsService: NotRequired[bool]
+    ApplicationType: NotRequired[ApplicationTypeType]
 
 
 class PublicationTypeDef(TypedDict):
@@ -153,7 +154,7 @@ class SubscriptionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -165,8 +166,8 @@ class ScheduleConfigurationTypeDef(TypedDict):
 
 
 class FileConfigurationOutputTypeDef(TypedDict):
-    Folders: List[str]
-    Filters: NotRequired[Dict[str, List[str]]]
+    Folders: list[str]
+    Filters: NotRequired[dict[str, list[str]]]
 
 
 class EventFilterTypeDef(TypedDict):
@@ -202,7 +203,7 @@ class EventIntegrationAssociationTypeDef(TypedDict):
     EventIntegrationName: NotRequired[str]
     ClientId: NotRequired[str]
     EventBridgeRuleName: NotRequired[str]
-    ClientAssociationMetadata: NotRequired[Dict[str, str]]
+    ClientAssociationMetadata: NotRequired[dict[str, str]]
 
 
 class OnDemandConfigurationTypeDef(TypedDict):
@@ -220,8 +221,8 @@ class GetApplicationRequestTypeDef(TypedDict):
 
 
 class IframeConfigOutputTypeDef(TypedDict):
-    Allow: NotRequired[List[str]]
-    Sandbox: NotRequired[List[str]]
+    Allow: NotRequired[list[str]]
+    Sandbox: NotRequired[list[str]]
 
 
 class GetDataIntegrationRequestTypeDef(TypedDict):
@@ -252,6 +253,7 @@ class ListApplicationAssociationsRequestTypeDef(TypedDict):
 class ListApplicationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    ApplicationType: NotRequired[ApplicationTypeType]
 
 
 class ListDataIntegrationAssociationsRequestTypeDef(TypedDict):
@@ -331,19 +333,19 @@ class CreateEventIntegrationResponseTypeDef(TypedDict):
 
 
 class ListApplicationAssociationsResponseTypeDef(TypedDict):
-    ApplicationAssociations: List[ApplicationAssociationSummaryTypeDef]
+    ApplicationAssociations: list[ApplicationAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    Applications: List[ApplicationSummaryTypeDef]
+    Applications: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -355,10 +357,10 @@ class CreateDataIntegrationResponseTypeDef(TypedDict):
     KmsKey: str
     SourceURI: str
     ScheduleConfiguration: ScheduleConfigurationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ClientToken: str
     FileConfiguration: FileConfigurationOutputTypeDef
-    ObjectConfiguration: Dict[str, Dict[str, List[str]]]
+    ObjectConfiguration: dict[str, dict[str, list[str]]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -370,9 +372,9 @@ class GetDataIntegrationResponseTypeDef(TypedDict):
     KmsKey: str
     SourceURI: str
     ScheduleConfiguration: ScheduleConfigurationTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     FileConfiguration: FileConfigurationOutputTypeDef
-    ObjectConfiguration: Dict[str, Dict[str, List[str]]]
+    ObjectConfiguration: dict[str, dict[str, list[str]]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -391,7 +393,7 @@ class EventIntegrationTypeDef(TypedDict):
     Description: NotRequired[str]
     EventFilter: NotRequired[EventFilterTypeDef]
     EventBridgeBus: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class GetEventIntegrationResponseTypeDef(TypedDict):
@@ -400,18 +402,18 @@ class GetEventIntegrationResponseTypeDef(TypedDict):
     EventIntegrationArn: str
     EventBridgeBus: str
     EventFilter: EventFilterTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDataIntegrationsResponseTypeDef(TypedDict):
-    DataIntegrations: List[DataIntegrationSummaryTypeDef]
+    DataIntegrations: list[DataIntegrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListEventIntegrationAssociationsResponseTypeDef(TypedDict):
-    EventIntegrationAssociations: List[EventIntegrationAssociationTypeDef]
+    EventIntegrationAssociations: list[EventIntegrationAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -432,6 +434,7 @@ class ListApplicationAssociationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListApplicationsRequestPaginateTypeDef(TypedDict):
+    ApplicationType: NotRequired[ApplicationTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -460,16 +463,17 @@ class GetApplicationResponseTypeDef(TypedDict):
     Namespace: str
     Description: str
     ApplicationSourceConfig: ApplicationSourceConfigOutputTypeDef
-    Subscriptions: List[SubscriptionTypeDef]
-    Publications: List[PublicationTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
+    Publications: list[PublicationTypeDef]
     CreatedTime: datetime
     LastModifiedTime: datetime
-    Tags: Dict[str, str]
-    Permissions: List[str]
+    Tags: dict[str, str]
+    Permissions: list[str]
     IsService: bool
     InitializationTimeout: int
     ApplicationConfig: ApplicationConfigTypeDef
     IframeConfig: IframeConfigOutputTypeDef
+    ApplicationType: ApplicationTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -479,7 +483,7 @@ ApplicationSourceConfigUnionTypeDef = Union[
 
 
 class ListEventIntegrationsResponseTypeDef(TypedDict):
-    EventIntegrations: List[EventIntegrationTypeDef]
+    EventIntegrations: list[EventIntegrationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -535,6 +539,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
     InitializationTimeout: NotRequired[int]
     ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
     IframeConfig: NotRequired[IframeConfigUnionTypeDef]
+    ApplicationType: NotRequired[ApplicationTypeType]
 
 
 class UpdateApplicationRequestTypeDef(TypedDict):
@@ -549,9 +554,10 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     InitializationTimeout: NotRequired[int]
     ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
     IframeConfig: NotRequired[IframeConfigUnionTypeDef]
+    ApplicationType: NotRequired[ApplicationTypeType]
 
 
 class ListDataIntegrationAssociationsResponseTypeDef(TypedDict):
-    DataIntegrationAssociations: List[DataIntegrationAssociationSummaryTypeDef]
+    DataIntegrationAssociations: list[DataIntegrationAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

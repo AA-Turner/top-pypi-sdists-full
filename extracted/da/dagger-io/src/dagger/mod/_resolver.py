@@ -28,6 +28,7 @@ from dagger.mod._utils import (
     get_alt_constructor,
     get_alt_name,
     get_default_path,
+    get_deprecated,
     get_doc,
     get_ignore,
     is_nullable,
@@ -35,6 +36,8 @@ from dagger.mod._utils import (
     list_of,
     normalize_name,
 )
+
+CHECK_DEF_KEY: str = "__dagger_check__"
 
 logger = logging.getLogger(__package__)
 
@@ -88,6 +91,21 @@ class Function(Generic[P, R]):
         """Return the description for the callable to invoke."""
         return self.meta.doc if self.meta.doc is not None else get_doc(self.wrapped)
 
+    @property
+    def deprecated(self) -> str | None:
+        """Return the deprecation message for the callable, if any."""
+        return self.meta.deprecated
+
+    @property
+    def check(self) -> bool:
+        """Indicates whether the function is configured as a check."""
+        # Check both the metadata and the attribute to support either decorator order
+        return self.meta.check or getattr(self.wrapped, CHECK_DEF_KEY, False)
+
+    @cached_property
+    def cache_policy(self):
+        return self.meta.cache
+
     @cached_property
     def type_hints(self):
         return get_type_hints(self.wrapped)
@@ -139,6 +157,7 @@ class Function(Generic[P, R]):
             doc=get_doc(param.annotation),
             ignore=get_ignore(param.annotation),
             default_path=get_default_path(param.annotation),
+            deprecated=get_deprecated(param.annotation),
             conv=self.converter,
         )
 
@@ -231,6 +250,7 @@ class Constructor(Function[P, R]):
 class ObjectType(Generic[T]):
     cls: type[T]
     interface: bool = False
+    deprecated: str | None = None
     fields: dict[APIName, Field] = dataclasses.field(default_factory=dict)
     functions: dict[APIName, Function] = dataclasses.field(default_factory=dict)
 

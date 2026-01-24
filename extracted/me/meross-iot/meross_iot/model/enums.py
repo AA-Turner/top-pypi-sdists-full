@@ -93,6 +93,7 @@ class Namespace(Enum):
     CONTROL_UNBIND = 'Appliance.Control.Unbind'
     CONTROL_TRIGGER = 'Appliance.Control.Trigger'
     CONTROL_TRIGGERX = 'Appliance.Control.TriggerX'
+    CONTROL_ALARM = 'Appliance.Control.Alarm'
 
     CONFIG_WIFI_LIST = 'Appliance.Config.WifiList'
     CONFIG_TRACE = 'Appliance.Config.Trace'
@@ -138,6 +139,7 @@ class Namespace(Enum):
     HUB_SENSOR_ALL = 'Appliance.Hub.Sensor.All'
     HUB_SENSOR_TEMPHUM = 'Appliance.Hub.Sensor.TempHum'
     HUB_SENSOR_ALERT = 'Appliance.Hub.Sensor.Alert'
+    HUB_SENSOR_WATERLEAK = 'Appliance.Hub.Sensor.WaterLeak'
 
     # MTS100
     HUB_MTS100_ALL = 'Appliance.Hub.Mts100.All'

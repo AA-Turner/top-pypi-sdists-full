@@ -1,16 +1,17 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import asyncio
 import os
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Coroutine
+from collections.abc import Awaitable, Coroutine
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from marimo import _loggers
 from marimo._dependencies.dependencies import DependencyManager
+from marimo._utils import async_path
 
 LOGGER = _loggers.marimo_logger()
 
@@ -24,7 +25,7 @@ class FileWatcher(ABC):
             LOGGER.debug("Using watchdog file watcher")
             return _create_watchdog(path, callback, asyncio.get_event_loop())
         else:
-            LOGGER.warning(
+            LOGGER.info(
                 "watchdog is not installed, using polling file watcher"
             )
             return PollingFileWatcher(path, callback, asyncio.get_event_loop())
@@ -79,7 +80,7 @@ class PollingFileWatcher(FileWatcher):
 
     async def _poll(self) -> None:
         while self._running:
-            if not os.path.exists(self.path):
+            if not await async_path.exists(self.path):
                 LOGGER.warning(f"File at {self.path} does not exist.")
                 raise FileNotFoundError(f"File at {self.path} does not exist.")
 
@@ -110,15 +111,36 @@ def _create_watchdog(
             self.loop = loop
             self.observer = watchdog.observers.Observer()
 
-        def on_modified(self, event: Any) -> None:
+        def on_modified(
+            self,
+            event: watchdog.events.FileModifiedEvent
+            | watchdog.events.DirModifiedEvent,
+        ) -> None:
             del event
             self.loop.create_task(self.on_file_changed())
+
+        def on_moved(
+            self,
+            event: watchdog.events.FileMovedEvent
+            | watchdog.events.DirMovedEvent,
+        ) -> None:
+            # Handle editors that save by creating a temp file and moving it
+            # (e.g., Claude Code, some vim configurations)
+            dest_path_str = (
+                event.dest_path
+                if isinstance(event.dest_path, str)
+                else event.dest_path.decode("utf-8")
+            )
+
+            if self.path == Path(dest_path_str):
+                self.loop.create_task(self.on_file_changed())
 
         def start(self) -> None:
             event_handler = watchdog.events.PatternMatchingEventHandler(  # type: ignore # noqa: E501
                 patterns=[str(self.path)]
             )
             event_handler.on_modified = self.on_modified  # type: ignore
+            event_handler.on_moved = self.on_moved  # type: ignore
             self.observer.schedule(  # type: ignore
                 event_handler,
                 str(self.path.parent),
@@ -133,6 +155,9 @@ def _create_watchdog(
     return WatchdogFileWatcher(path, callback, loop)
 
 
+FileCallback = Callable[[Path], Awaitable[None]]
+
+
 class FileWatcherManager:
     """Manages multiple file watchers, sharing watchers for the same file."""
 
@@ -140,9 +165,9 @@ class FileWatcherManager:
         # Map of file paths to their watchers
         self._watchers: dict[str, FileWatcher] = {}
         # Map of file paths to their callbacks
-        self._callbacks: dict[str, set[Callback]] = defaultdict(set)
+        self._callbacks: dict[str, set[FileCallback]] = defaultdict(set)
 
-    def add_callback(self, path: Path, callback: Callback) -> None:
+    def add_callback(self, path: Path, callback: FileCallback) -> None:
         """Add a callback for a file path. Creates watcher if needed."""
         path_str = str(path)
         self._callbacks[path_str].add(callback)
@@ -151,7 +176,9 @@ class FileWatcherManager:
 
             async def shared_callback(changed_path: Path) -> None:
                 callbacks = self._callbacks.get(str(changed_path), set())
-                for cb in callbacks:
+                # Iterate over a copy to avoid "Set changed size during iteration"
+                # if a callback modifies the callbacks set
+                for cb in list(callbacks):
                     await cb(changed_path)
 
             watcher = FileWatcher.create(path, shared_callback)
@@ -159,11 +186,11 @@ class FileWatcherManager:
             self._watchers[path_str] = watcher
             LOGGER.debug(f"Created new watcher for {path_str}")
 
-    def remove_callback(self, path: Path, callback: Callback) -> None:
+    def remove_callback(self, path: Path, callback: FileCallback) -> None:
         """Remove a callback for a file path. Removes watcher if no more callbacks."""
         path_str = str(path)
         if path_str not in self._callbacks:
-            LOGGER.warning(f"Callback for {path_str} not found")
+            # May already be removed from stop_all()
             return
 
         self._callbacks[path_str].discard(callback)

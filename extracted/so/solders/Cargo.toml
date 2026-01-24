@@ -16,10 +16,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 bincode = "1.3.3"
 derive_more = "0.99.17"
-pyo3 = { version = "0.23", default-features = false , features = ["macros", "extension-module", "abi3-py37"] }
+pyo3 = { version = "0.26", default-features = false , features = ["macros", "extension-module", "abi3-py38"] }
 serde = "^1.0.188"
-solana-address-lookup-table-interface = "2.2.1"
-solana-sdk-ids = "2.2.1"
+solana-address-lookup-table-interface = "3"
+solana-sdk-ids = "3"
 solders-account = { path = "local_dependencies/solders-account" }
 solders-account-decoder = { path = "local_dependencies/solders-account-decoder" }
 solders-address-lookup-table-account = { path = "local_dependencies/solders-address-lookup-table-account" }
@@ -33,10 +33,10 @@ solders-litesvm = { optional = true , path = "local_dependencies/solders-litesvm
 solders-message = { path = "local_dependencies/solders-message" }
 solders-primitives = { path = "local_dependencies/solders-primitives" }
 solders-pubkey = { path = "local_dependencies/solders-pubkey" }
-solders-rpc-config = { optional = true , path = "local_dependencies/solders-rpc-config" }
-solders-rpc-errors = { optional = true , path = "local_dependencies/solders-rpc-errors" }
-solders-rpc-filter = { optional = true , path = "local_dependencies/solders-rpc-filter" }
-solders-rpc-requests = { optional = true , path = "local_dependencies/solders-rpc-requests" }
+solders-rpc-config = { path = "local_dependencies/solders-rpc-config" }
+solders-rpc-errors = { path = "local_dependencies/solders-rpc-errors" }
+solders-rpc-filter = { path = "local_dependencies/solders-rpc-filter" }
+solders-rpc-requests = { path = "local_dependencies/solders-rpc-requests" }
 solders-rpc-responses = { optional = true , path = "local_dependencies/solders-rpc-responses" }
 solders-signature = { path = "local_dependencies/solders-signature" }
 solders-system-program = { path = "local_dependencies/solders-system-program" }
@@ -48,13 +48,7 @@ solders-transaction-status = { path = "local_dependencies/solders-transaction-st
 [features]
 default = ["litesvm", "ring"]
 litesvm = ["dep:solders-litesvm"]
-ring = [
-    "dep:solders-rpc-config",
-    "dep:solders-rpc-errors",
-    "dep:solders-rpc-filter",
-    "dep:solders-rpc-requests",
-    "dep:solders-rpc-responses"
-]
+ring = ["dep:solders-rpc-responses"]
 
 [workspace]
 
@@ -65,6 +59,8 @@ license = "MIT"
 edition = "2021"
 
 [workspace.dependencies]
+agave-feature-set = "3"
+agave-precompiles = "3"
 base64 = "0.13.0"
 bincode = "1.3.3"
 bs58 = "0.4.0"
@@ -72,61 +68,56 @@ camelpaste = "0.1.0"
 chrono-humanize = "0.2.3"
 derive_more = "0.99.17"
 five8 = "0.2.1"
-litesvm = { git = "https://github.com/LiteSVM/litesvm.git", rev = "7e3d9a8" }
+litesvm = "0.8"
 log = "0.4"
-pyo3 = { version = "0.23", default-features = false }
-pythonize = "0.23"
+pyo3 = { version = "0.26", default-features = false }
+pythonize = "0.26"
 serde = "^1.0.188"
 serde_bytes = "0.11.12"
 serde_cbor = "^0.11.2"
 serde_json = "^1.0.106"
 serde_with = { version = "^1.14.0", features = ["base64"] }
-solana-account = "2.2.1"
-solana-account-decoder-client-types = { version = "2.1.0", features = ["zstd"] }
-solana-address-lookup-table-interface = "2.2.1"
-solana-banks-client = "2.1.0"
-solana-banks-interface = "2.1.0"
-solana-clock = "2.2.1"
-solana-commitment-config = "2.2.1"
-solana-compute-budget = "2.1.10"
-solana-compute-budget-interface = "2.2.1"
-solana-derivation-path = "2.2.1"
-solana-epoch-info = "2.2.1"
-solana-epoch-rewards = "2.2.1"
-solana-epoch-schedule = "2.2.1"
-solana-feature-set = "2.2.1"
-solana-hash = "2.2.1"
-solana-instruction = "2.2.1"
-solana-keypair = "2.2.1"
-solana-last-restart-slot = "2.2.1"
-solana-message = "2.2.1"
-solana-precompiles = "2.2.1"
-solana-presigner = "2.2.1"
-solana-program-option = "2.2.1"
-solana-program-pack = "2.2.1"
-solana-program-test = "2.1.10"
-solana-pubkey = "2.2.1"
-solana-rent = "2.2.1"
-solana-reward-info = "2.2.1"
-solana-rpc-client-api = "2.1.0"
-solana-sanitize = "2.2.1"
-solana-sdk-ids = "2.2.1"
-solana-sha256-hasher = "2.2.1"
-solana-signature = "2.2.1"
-solana-signer = "2.2.1"
-solana-slot-hashes = "2.2.1"
-solana-slot-history = "2.2.1"
-solana-stake-interface = "1.2.1"
-solana-system-interface = "1.0.0"
-solana-sysvar = "2.2.1"
-solana-transaction = "2.2.1"
-solana-transaction-context = "2.2.1"
-solana-transaction-error = "2.2.1"
-solana-transaction-status-client-types = "2.1.0"
+solana-account = "3"
+solana-account-decoder-client-types = { version = "3", features = ["zstd"] }
+solana-address-lookup-table-interface = "3"
+solana-clock = "3"
+solana-commitment-config = "3"
+solana-compute-budget = "3"
+solana-compute-budget-interface = "3"
+solana-derivation-path = "3"
+solana-epoch-info = "3"
+solana-epoch-rewards = "3"
+solana-epoch-schedule = "3"
+solana-hash = "3"
+solana-instruction = "3"
+solana-keypair = "3"
+solana-last-restart-slot = "3"
+solana-message = "3"
+solana-presigner = "3"
+solana-program-option = "3"
+solana-program-pack = "3"
+solana-pubkey = "3"
+solana-rent = "3"
+solana-reward-info = "3"
+solana-rpc-client-api = "3"
+solana-rpc-client-types = "3"
+solana-sanitize = "3"
+solana-sdk-ids = "3"
+solana-sha256-hasher = "3"
+solana-signature = "3"
+solana-signer = "3"
+solana-slot-hashes = "3"
+solana-slot-history = "3"
+solana-stake-interface = "2"
+solana-system-interface = "2"
+solana-sysvar = "3"
+solana-transaction = "3"
+solana-transaction-context = "3"
+solana-transaction-error = "3"
+solana-transaction-status-client-types = "3"
 solders-account = { path = "./crates/account", version = "=0.23.0" }
 solders-account-decoder = { path = "./crates/account-decoder", version = "=0.23.0" }
 solders-address-lookup-table-account = { path = "./crates/address-lookup-table-account", version = "=0.23.0" }
-solders-banks-interface = { path = "./crates/banks-interface", version = "=0.23.0" }
 solders-base64-string = { path = "./crates/base64-string", version = "=0.23.0" }
 solders-commitment-config = { path = "./crates/commitment-config", version = "=0.23.0" }
 solders-compute-budget = { path = "./crates/compute-budget", version = "=0.23.0" }
@@ -177,8 +168,11 @@ solders-transaction-return-data = { path = "./crates/transaction-return-data", v
 solders-transaction-status = { path = "./crates/transaction-status", version = "=0.23.0" }
 solders-transaction-status-enums = { path = "./crates/transaction-status-enums", version = "=0.23.0" }
 solders-transaction-status-struct = { path = "./crates/transaction-status-struct", version = "=0.23.0" }
-spl-associated-token-account-client = "2.0"
-spl-token = "7.0"
+spl-associated-token-account-interface = "2"
+spl-token-interface = "2"
 thiserror = "^1.0.31"
 time = "0.3.35"
 zeroize = "1.7"
+
+[patch.crates-io]
+dict_derive = { path = "crates/dict-derive" }

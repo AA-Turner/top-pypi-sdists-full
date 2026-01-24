@@ -18,17 +18,27 @@ pub async fn handle_did_change(backend: &Backend, params: DidChangeTextDocumentP
         return;
     };
 
+    let need_publish_diagnostics = document
+        .version
+        .is_none_or(|version| version < text_document.version);
+
     for content_change in content_changes {
         if let Some(range) = content_change.range {
             tracing::warn!("Range change is not supported: {:?}", range);
         } else {
-            document.text = content_change.text;
+            let toml_version = backend
+                .text_document_toml_version(&text_document_uri, &content_change.text)
+                .await;
+
+            document.set_text(content_change.text, toml_version);
         }
     }
+    document.version = Some(text_document.version);
+
     drop(document_sources);
 
-    // Publish diagnostics for the changed document
-    backend
-        .push_diagnostics(text_document_uri, Some(text_document.version))
-        .await;
+    if need_publish_diagnostics {
+        // Publish diagnostics for the changed document
+        backend.push_diagnostics(text_document_uri).await;
+    }
 }

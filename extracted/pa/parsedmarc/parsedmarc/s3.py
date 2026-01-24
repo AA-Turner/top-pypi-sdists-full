@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import annotations
+
 import json
+from typing import Any
+
 import boto3
 
 from parsedmarc.log import logger
@@ -8,16 +12,16 @@ from parsedmarc.utils import human_timestamp_to_datetime
 
 
 class S3Client(object):
-    """A client for a Amazon S3"""
+    """A client for interacting with Amazon S3"""
 
     def __init__(
         self,
-        bucket_name,
-        bucket_path,
-        region_name,
-        endpoint_url,
-        access_key_id,
-        secret_access_key,
+        bucket_name: str,
+        bucket_path: str,
+        region_name: str,
+        endpoint_url: str,
+        access_key_id: str,
+        secret_access_key: str,
     ):
         """
         Initializes the S3Client
@@ -47,18 +51,18 @@ class S3Client(object):
             aws_access_key_id=access_key_id,
             aws_secret_access_key=secret_access_key,
         )
-        self.bucket = self.s3.Bucket(self.bucket_name)
+        self.bucket = self.s3.Bucket(self.bucket_name)  # type: ignore
 
-    def save_aggregate_report_to_s3(self, report):
+    def save_aggregate_report_to_s3(self, report: dict[str, Any]):
         self.save_report_to_s3(report, "aggregate")
 
-    def save_forensic_report_to_s3(self, report):
+    def save_forensic_report_to_s3(self, report: dict[str, Any]):
         self.save_report_to_s3(report, "forensic")
 
-    def save_smtp_tls_report_to_s3(self, report):
+    def save_smtp_tls_report_to_s3(self, report: dict[str, Any]):
         self.save_report_to_s3(report, "smtp_tls")
 
-    def save_report_to_s3(self, report, report_type):
+    def save_report_to_s3(self, report: dict[str, Any], report_type: str):
         if report_type == "smtp_tls":
             report_date = report["begin_date"]
             report_id = report["report_id"]

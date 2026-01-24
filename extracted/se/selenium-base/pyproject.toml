@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=70.2.0", "wheel>=0.44.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "selenium-base"
+readme = "README.md"
+dynamic = [
+    "version",
+    "license",
+    "authors",
+    "scripts",
+    "classifiers",
+    "description",
+    "maintainers",
+    "entry-points",
+    "dependencies",
+    "requires-python",
+    "optional-dependencies",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/seleniumbase/SeleniumBase"
+"Changelog" = "https://github.com/seleniumbase/SeleniumBase/releases"
+"Download" = "https://pypi.org/project/seleniumbase/#files"
+"Blog" = "https://seleniumbase.com/"
+"Discord" = "https://discord.gg/EdhQTn3EyE"
+"PyPI" = "https://pypi.org/project/seleniumbase/"
+"Source" = "https://github.com/seleniumbase/SeleniumBase"
+"Repository" = "https://github.com/seleniumbase/SeleniumBase"
+"Documentation" = "https://seleniumbase.io/"

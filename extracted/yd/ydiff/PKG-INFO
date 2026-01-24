@@ -1,12 +1,11 @@
 Metadata-Version: 2.1
 Name: ydiff
-Version: 1.4.2
-Summary: View colored, incremental diff in a workspace or from stdin, in side-by-side or unified moded, and auto paged
+Version: 1.5
+Summary: View colored, incremental diff in a workspace or from stdin, in side-by-side or unified moded, and auto paged.
 Home-page: https://github.com/ymattw/ydiff
 Author: Matt Wang
 License: BSD-3
 Keywords: colored incremental side-by-side diff
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Utilities
 Classifier: License :: OSI Approved :: BSD License
@@ -122,7 +121,7 @@ Type ``ydiff -h`` to show usage::
     Usage: ydiff [options] [file|dir ...]
 
     View colored, incremental diff in a workspace or from stdin, with side by side
-    and auto pager support
+    and auto pager support.
 
     Options:
       --version             show program's version number and exit
@@ -142,7 +141,7 @@ Type ``ydiff -h`` to show usage::
                             pager application to feed output to, default is 'less'
       -o OPT, --pager-options=OPT
                             options to supply to pager application
-      --theme=THEME         option to pick a color theme (one of default, dark,
+      --theme=THEME         option to pick a color theme (one of dark, default,
                             light)
 
       Note:
@@ -163,8 +162,7 @@ Read diff from local modification in a *Git/Mercurial/Perforce/Svn* workspace
     ydiff -w 90                 # use text width 90, wrap long lines
     ydiff --no-wrap             # auto set text width but do not wrap long lines
     ydiff file1 dir2            # view modification of given files/dirs only
-    ydiff -w90 -- -U10          # pass '-U10' to underneath revision diff tool
-    ydiff -w90 -U10             # '--' is optional as it's unknown to ydiff
+    ydiff -w90 -U10             # pass '-U10' to underneath revision diff tool
     ydiff --cached              # show git staged diff (git diff --cached)
     ydiff -r1234                # show svn diff to revision 1234
 
@@ -185,7 +183,7 @@ Utilize a specific pager application:
 
     ydiff -p more                   # use "more" as a pager
     ydiff -p cat                    # when neither less nor more is avilable
-    ydiff -o "-FRSX --shift 2"      # custmized option (pager defaults to less)
+    ydiff -o "-FRSX --shift 2"      # customized option (pager defaults to less)
 
 Pipe in a diff:
 
@@ -208,6 +206,17 @@ Redirect output to another patch file is safe even without ``-u``:
 .. code-block:: bash
 
     svn diff -r PREV | ydiff > my.patch
+
+Customized themes
+-----------------
+
+You can define your own themes in ``~/.config/ydiff/themes.ini``. Check out the
+`built-in themes`_ for examples.
+
+.. _`built-in themes`: https://github.com/search?q=repo%3Aymattw%2Fydiff+%2F_BUILTIN_THEMES+%3D%2F&type=code
+
+The section names are theme names. Undeclared theme keys will inherit values
+from the same-named built-in theme or from the "default" theme otherwise.
 
 Notes
 -----
@@ -249,6 +258,13 @@ Known issues
 
 Change log
 ==========
+
+Version 1.5 (2025-12-06)
+
+    - Support customized themes in INI format
+    - Only read stdin when redirected from a regular file or pipe
+    - Apply --color=never option to git diff and git log
+    - Release both source and wheel packages
 
 Version 1.4.2 (2024-11-18)
 
@@ -407,5 +423,3 @@ Version 0.0.3 (2013-02-04)
 .. _Steven Myint: https://github.com/myint
 
 .. vim:set ft=rst et sw=4 sts=4 tw=79:
-
-

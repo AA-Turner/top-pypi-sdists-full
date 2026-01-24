@@ -1,23 +1,21 @@
-#
-# Copyright IBM Corp. 2024 - 2024
-# SPDX-License-Identifier: MIT
-#
-
 """Hybrid chunker implementation leveraging both doc structure & token awareness."""
+
 import warnings
+from collections.abc import Iterable, Iterator
 from functools import cached_property
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
-from transformers import PreTrainedTokenizerBase
 
 from docling_core.transforms.chunker.hierarchical_chunker import (
     ChunkingSerializerProvider,
 )
 from docling_core.transforms.chunker.tokenizer.base import BaseTokenizer
+from docling_core.types.doc.document import SectionHeaderItem, TitleItem
 
 try:
     import semchunk
+    from transformers import PreTrainedTokenizerBase
 except ImportError:
     raise RuntimeError(
         "Extra required by module: 'chunking' by default (or 'chunking-openai' if "
@@ -45,9 +43,7 @@ def _get_default_tokenizer():
         HuggingFaceTokenizer,
     )
 
-    return HuggingFaceTokenizer.from_pretrained(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    return HuggingFaceTokenizer.from_pretrained(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 class HybridChunker(BaseChunker):
@@ -59,6 +55,7 @@ class HybridChunker(BaseChunker):
         max_tokens: The maximum number of tokens per chunk. If not set, limit is
             resolved from the tokenizer
         merge_peers: Whether to merge undersized chunks sharing same relevant metadata
+        always_emit_headings: Whether to emit headings even for empty sections
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -67,6 +64,7 @@ class HybridChunker(BaseChunker):
     merge_peers: bool = True
 
     serializer_provider: BaseSerializerProvider = ChunkingSerializerProvider()
+    always_emit_headings: bool = False
 
     @model_validator(mode="before")
     @classmethod
@@ -76,8 +74,7 @@ class HybridChunker(BaseChunker):
             max_tokens = data.get("max_tokens")
             if not isinstance(tokenizer, BaseTokenizer) and (
                 # some legacy param passed:
-                tokenizer is not None
-                or max_tokens is not None
+                tokenizer is not None or max_tokens is not None
             ):
                 from docling_core.transforms.chunker.tokenizer.huggingface import (
                     HuggingFaceTokenizer,
@@ -95,12 +92,8 @@ class HybridChunker(BaseChunker):
                         model_name=tokenizer,
                         max_tokens=max_tokens,
                     )
-                elif tokenizer is None or isinstance(
-                    tokenizer, PreTrainedTokenizerBase
-                ):
-                    kwargs = {
-                        "tokenizer": tokenizer or _get_default_tokenizer().tokenizer
-                    }
+                elif tokenizer is None or isinstance(tokenizer, PreTrainedTokenizerBase):
+                    kwargs = {"tokenizer": tokenizer or _get_default_tokenizer().tokenizer}
                     if max_tokens is not None:
                         kwargs["max_tokens"] = max_tokens
                     data["tokenizer"] = HuggingFaceTokenizer(**kwargs)
@@ -114,7 +107,10 @@ class HybridChunker(BaseChunker):
     @computed_field  # type: ignore[misc]
     @cached_property
     def _inner_chunker(self) -> HierarchicalChunker:
-        return HierarchicalChunker(serializer_provider=self.serializer_provider)
+        return HierarchicalChunker(
+            serializer_provider=self.serializer_provider,
+            always_emit_headings=self.always_emit_headings,
+        )
 
     def _count_text_tokens(self, text: Optional[Union[str, list[str]]]):
         if text is None:
@@ -166,15 +162,14 @@ class HybridChunker(BaseChunker):
                     res_text
                     for doc_item in doc_items
                     if (res_text := doc_serializer.serialize(item=doc_item).text)
+                    and not isinstance(doc_item, TitleItem | SectionHeaderItem)
                 ]
             )
         )
         new_chunk = DocChunk(text=window_text, meta=meta)
         return new_chunk
 
-    def _split_by_doc_items(
-        self, doc_chunk: DocChunk, doc_serializer: BaseDocSerializer
-    ) -> list[DocChunk]:
+    def _split_by_doc_items(self, doc_chunk: DocChunk, doc_serializer: BaseDocSerializer) -> list[DocChunk]:
         chunks = []
         window_start = 0
         window_end = 0  # an inclusive index
@@ -228,9 +223,7 @@ class HybridChunker(BaseChunker):
             # How much room is there for text after subtracting out the headers and
             # captions:
             available_length = self.max_tokens - lengths.other_len
-            sem_chunker = semchunk.chunkerify(
-                self.tokenizer.get_tokenizer(), chunk_size=available_length
-            )
+            sem_chunker = semchunk.chunkerify(self.tokenizer.get_tokenizer(), chunk_size=available_length)
             if available_length <= 0:
                 warnings.warn(
                     "Headers and captions for this chunk are longer than the total "
@@ -271,10 +264,7 @@ class HybridChunker(BaseChunker):
                         origin=chunk.meta.origin,
                     ),
                 )
-                if (
-                    headings == current_headings
-                    and self._count_chunk_tokens(doc_chunk=candidate) <= self.max_tokens
-                ):
+                if headings == current_headings and self._count_chunk_tokens(doc_chunk=candidate) <= self.max_tokens:
                     # there is room to include the new chunk so add it to the window and
                     # continue
                     window_end += 1
@@ -315,11 +305,7 @@ class HybridChunker(BaseChunker):
             doc_serializer=my_doc_ser,
             **kwargs,
         )  # type: ignore
-        res = [
-            x
-            for c in res
-            for x in self._split_by_doc_items(c, doc_serializer=my_doc_ser)
-        ]
+        res = [x for c in res for x in self._split_by_doc_items(c, doc_serializer=my_doc_ser)]
         res = [x for c in res for x in self._split_using_plain_text(c)]
         if self.merge_peers:
             res = self._merge_chunks_with_matching_metadata(res)

@@ -1,7 +1,5 @@
 from typing import (
     Any,
-    Dict,
-    Type,
 )
 
 from pydantic import (
@@ -21,7 +19,7 @@ from pydantic.json_schema import (
 )
 
 
-class OmitJsonSchema(GenerateJsonSchema):
+class OmitJsonSchema(GenerateJsonSchema):  # type: ignore[misc]
     """
     Custom JSON schema generator that omits the schema generation for fields that are
     invalid. Excluded fields (``Field(exclude=True)``) are generally useful as
@@ -35,7 +33,7 @@ class OmitJsonSchema(GenerateJsonSchema):
         return super().field_is_present(field)
 
 
-class CamelModel(BaseModel):
+class CamelModel(BaseModel):  # type: ignore[misc]
     """
     Camel-case pydantic model. This model is used to ensure serialization in a
     consistent manner, aliasing as camelCase serialization. This is useful for models
@@ -81,14 +79,14 @@ class CamelModel(BaseModel):
     )
 
     @classmethod
-    def model_json_schema(
+    def model_json_schema(  # type: ignore [override]
         cls,
         by_alias: bool = True,
         ref_template: str = DEFAULT_REF_TEMPLATE,
         # default to ``OmitJsonSchema`` to prevent errors from excluded fields
-        schema_generator: Type[GenerateJsonSchema] = OmitJsonSchema,
+        schema_generator: type[GenerateJsonSchema] = OmitJsonSchema,
         mode: JsonSchemaMode = "validation",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Omits excluded fields from the JSON schema, preventing errors that would
         otherwise be raised by the default schema generator.

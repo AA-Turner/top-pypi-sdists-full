@@ -1,0 +1,37 @@
+name: docs
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: recovery tag information
+        run: git fetch --tags --force
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.14'
+          enable-cache: true
+
+      - name: install dependencies
+        run: uv sync --locked --extra docs
+
+      - name: configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: build docs
+        run: uv run mike deploy --push --update-aliases --alias-type=redirect ${GITHUB_REF#refs/tags/} latest
+
+      - name: set default
+        run: uv run mike set-default --push latest

@@ -19,6 +19,8 @@ from ..common.errors.too_many_requests_error import TooManyRequestsError
 from ..common.errors.internal_server_error import InternalServerError
 from json.decoder import JSONDecodeError
 from ..core.api_error import ApiError
+from .types.mcp_token_scope import McpTokenScope
+from .types.create_mcp_token_response import CreateMcpTokenResponse
 from ..account_base.types.account_id import AccountId
 from ..integration_base.types.integration_id import IntegrationId
 from .types.create_integration_token_response import CreateIntegrationTokenResponse
@@ -31,6 +33,7 @@ from .types.list_tokens_response import ListTokensResponse
 from .types.get_token_response import GetTokenResponse
 from ..common.types.id import Id
 from .types.reset_token_response import ResetTokenResponse
+from .types.rotate_token_response import RotateTokenResponse
 from .types.refresh_token_response import RefreshTokenResponse
 from ..core.client_wrapper import AsyncClientWrapper
 
@@ -48,6 +51,7 @@ class TokensClient:
         resources: Resources,
         permission_set: Permissions,
         name: typing.Optional[str] = OMIT,
+        fullname: typing.Optional[str] = OMIT,
         token_ttl: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTokenResponse:
@@ -66,7 +70,10 @@ class TokensClient:
             Limit access to supplied permissions
 
         name : typing.Optional[str]
-            Unique name token. If not provided, defaults to generated newly created refresh token id.
+            Unique short name for this token (lowercase [a-z0-9_-], can be used in URLs). Also used for case insensitive duplicate name detection and default sort order. Defaults to TokenId if both name and fullname are not specified.
+
+        fullname : typing.Optional[str]
+            Human friendly display name for this Token, will auto-generate 'name' field (if 'name' is not specified). Defaults to the same value as the 'name' field if not specified.
 
         token_ttl : typing.Optional[str]
             Token time-to-live. If not provided, defaults to 24 hours. Use the format "1h", "1m", "1s" for hours, minutes, and seconds respectively, e.g., "24h" for 24 hours.
@@ -89,6 +96,7 @@ class TokensClient:
         )
         client.tokens.create_token(
             name="string",
+            fullname="string",
             resources=Resources(),
             permission_set=Permissions.ADMINISTRATOR,
             token_ttl="string",
@@ -99,6 +107,7 @@ class TokensClient:
             method="POST",
             json={
                 "name": name,
+                "fullname": fullname,
                 "resources": resources,
                 "permission_set": permission_set,
                 "token_ttl": token_ttl,
@@ -112,6 +121,160 @@ class TokensClient:
                     CreateTokenResponse,
                     construct_type(
                         type_=CreateTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 415:
+                raise UnsupportedMediaTypeError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def create_mcp_token(
+        self,
+        *,
+        scope: McpTokenScope,
+        token_ttl: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateMcpTokenResponse:
+        """
+        Create a token for MCP authentication. This token is soley for MCP authentication and cannot
+        authenticate with any other API.
+
+        Parameters
+        ----------
+        scope : McpTokenScope
+            Controls the tools that are available to the MCP server,
+            and the APIs that can be accessed by the MCP server.
+
+        token_ttl : typing.Optional[str]
+            Token time-to-live. If not provided, defaults to 1 hour. May be set to a maximum of 24 hours. Use the format "1h", "1m", "1s" for hours, minutes, and seconds respectively, e.g., "2h" for 2 hours.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateMcpTokenResponse
+
+        Examples
+        --------
+        from synqly import SynqlyManagement
+        from synqly.tokens import McpTokenScope_Management
+
+        client = SynqlyManagement(
+            token="YOUR_TOKEN",
+        )
+        client.tokens.create_mcp_token(
+            token_ttl="string",
+            scope=McpTokenScope_Management(),
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            "v1/tokens/mcp",
+            method="POST",
+            json={
+                "token_ttl": token_ttl,
+                "scope": scope,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    CreateMcpTokenResponse,
+                    construct_type(
+                        type_=CreateMcpTokenResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1111,6 +1274,153 @@ class TokensClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
+    def rotate(
+        self,
+        owner_id: Id,
+        refresh_token_id: TokenId,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> RotateTokenResponse:
+        """
+        This API can be used to rotate an `Organization` or `Integration` `RefreshTokens`.
+        Rotate deletes the existing `Secondary` TokenPair, moves the `Primary` TokenPair to the `Secondary` TokenPair and creates a new `Primary` TokenPair for the
+        `RefreshToken` object matching `{ownerId}/{refreshTokenId}` where `ownerId` is an `organizationId` or `integrationId`.
+        An `Organization` token with `administrator` permissions can be used to perform this operation.
+
+        Parameters
+        ----------
+        owner_id : Id
+
+        refresh_token_id : TokenId
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RotateTokenResponse
+
+        Examples
+        --------
+        from synqly import SynqlyManagement
+
+        client = SynqlyManagement(
+            token="YOUR_TOKEN",
+        )
+        client.tokens.rotate(
+            owner_id="string",
+            refresh_token_id="string",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/tokens/{jsonable_encoder(owner_id)}/{jsonable_encoder(refresh_token_id)}/rotate",
+            method="PUT",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    RotateTokenResponse,
+                    construct_type(
+                        type_=RotateTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 415:
+                raise UnsupportedMediaTypeError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
     def refresh(
         self,
         refresh_token_id: TokenId,
@@ -1399,6 +1709,7 @@ class AsyncTokensClient:
         resources: Resources,
         permission_set: Permissions,
         name: typing.Optional[str] = OMIT,
+        fullname: typing.Optional[str] = OMIT,
         token_ttl: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTokenResponse:
@@ -1417,7 +1728,10 @@ class AsyncTokensClient:
             Limit access to supplied permissions
 
         name : typing.Optional[str]
-            Unique name token. If not provided, defaults to generated newly created refresh token id.
+            Unique short name for this token (lowercase [a-z0-9_-], can be used in URLs). Also used for case insensitive duplicate name detection and default sort order. Defaults to TokenId if both name and fullname are not specified.
+
+        fullname : typing.Optional[str]
+            Human friendly display name for this Token, will auto-generate 'name' field (if 'name' is not specified). Defaults to the same value as the 'name' field if not specified.
 
         token_ttl : typing.Optional[str]
             Token time-to-live. If not provided, defaults to 24 hours. Use the format "1h", "1m", "1s" for hours, minutes, and seconds respectively, e.g., "24h" for 24 hours.
@@ -1445,6 +1759,7 @@ class AsyncTokensClient:
         async def main() -> None:
             await client.tokens.create_token(
                 name="string",
+                fullname="string",
                 resources=Resources(),
                 permission_set=Permissions.ADMINISTRATOR,
                 token_ttl="string",
@@ -1458,6 +1773,7 @@ class AsyncTokensClient:
             method="POST",
             json={
                 "name": name,
+                "fullname": fullname,
                 "resources": resources,
                 "permission_set": permission_set,
                 "token_ttl": token_ttl,
@@ -1471,6 +1787,168 @@ class AsyncTokensClient:
                     CreateTokenResponse,
                     construct_type(
                         type_=CreateTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 415:
+                raise UnsupportedMediaTypeError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def create_mcp_token(
+        self,
+        *,
+        scope: McpTokenScope,
+        token_ttl: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateMcpTokenResponse:
+        """
+        Create a token for MCP authentication. This token is soley for MCP authentication and cannot
+        authenticate with any other API.
+
+        Parameters
+        ----------
+        scope : McpTokenScope
+            Controls the tools that are available to the MCP server,
+            and the APIs that can be accessed by the MCP server.
+
+        token_ttl : typing.Optional[str]
+            Token time-to-live. If not provided, defaults to 1 hour. May be set to a maximum of 24 hours. Use the format "1h", "1m", "1s" for hours, minutes, and seconds respectively, e.g., "2h" for 2 hours.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateMcpTokenResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from synqly import AsyncSynqlyManagement
+        from synqly.tokens import McpTokenScope_Management
+
+        client = AsyncSynqlyManagement(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.tokens.create_mcp_token(
+                token_ttl="string",
+                scope=McpTokenScope_Management(),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            "v1/tokens/mcp",
+            method="POST",
+            json={
+                "token_ttl": token_ttl,
+                "scope": scope,
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    CreateMcpTokenResponse,
+                    construct_type(
+                        type_=CreateMcpTokenResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -2420,6 +2898,161 @@ class AsyncTokensClient:
                     ResetTokenResponse,
                     construct_type(
                         type_=ResetTokenResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 401:
+                raise UnauthorizedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 405:
+                raise MethodNotAllowedError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 415:
+                raise UnsupportedMediaTypeError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 429:
+                raise TooManyRequestsError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            if _response.status_code == 500:
+                raise InternalServerError(
+                    typing.cast(
+                        Problem,
+                        construct_type(
+                            type_=Problem,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def rotate(
+        self,
+        owner_id: Id,
+        refresh_token_id: TokenId,
+        *,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> RotateTokenResponse:
+        """
+        This API can be used to rotate an `Organization` or `Integration` `RefreshTokens`.
+        Rotate deletes the existing `Secondary` TokenPair, moves the `Primary` TokenPair to the `Secondary` TokenPair and creates a new `Primary` TokenPair for the
+        `RefreshToken` object matching `{ownerId}/{refreshTokenId}` where `ownerId` is an `organizationId` or `integrationId`.
+        An `Organization` token with `administrator` permissions can be used to perform this operation.
+
+        Parameters
+        ----------
+        owner_id : Id
+
+        refresh_token_id : TokenId
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RotateTokenResponse
+
+        Examples
+        --------
+        import asyncio
+
+        from synqly import AsyncSynqlyManagement
+
+        client = AsyncSynqlyManagement(
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.tokens.rotate(
+                owner_id="string",
+                refresh_token_id="string",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/tokens/{jsonable_encoder(owner_id)}/{jsonable_encoder(refresh_token_id)}/rotate",
+            method="PUT",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    RotateTokenResponse,
+                    construct_type(
+                        type_=RotateTokenResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Type
+from typing import Any
 
 from .athena import AthenaAccessKeyProfileMapping
 from .base import BaseProfileMapping, DbtProfileConfigVars
@@ -14,6 +14,7 @@ from .databricks.oauth import DatabricksOauthProfileMapping
 from .databricks.token import DatabricksTokenProfileMapping
 from .duckdb.user_pass import DuckDBUserPasswordProfileMapping
 from .exasol.user_pass import ExasolUserPasswordProfileMapping
+from .mysql.user_pass import MysqlUserPasswordProfileMapping
 from .oracle.user_pass import OracleUserPasswordProfileMapping
 from .postgres.user_pass import PostgresUserPasswordProfileMapping
 from .redshift.user_pass import RedshiftUserPasswordProfileMapping
@@ -22,13 +23,14 @@ from .snowflake.user_encrypted_privatekey_file import SnowflakeEncryptedPrivateK
 from .snowflake.user_pass import SnowflakeUserPasswordProfileMapping
 from .snowflake.user_privatekey import SnowflakePrivateKeyPemProfileMapping
 from .spark.thrift import SparkThriftProfileMapping
+from .sqlserver.standard_sqlserver_auth import StandardSQLServerAuth
 from .teradata.user_pass import TeradataUserPasswordProfileMapping
 from .trino.certificate import TrinoCertificateProfileMapping
 from .trino.jwt import TrinoJWTProfileMapping
 from .trino.ldap import TrinoLDAPProfileMapping
 from .vertica.user_pass import VerticaUserPasswordProfileMapping
 
-profile_mappings: list[Type[BaseProfileMapping]] = [
+profile_mappings: list[type[BaseProfileMapping]] = [
     AthenaAccessKeyProfileMapping,
     ClickhouseUserPasswordProfileMapping,
     GoogleCloudServiceAccountFileProfileMapping,
@@ -37,8 +39,8 @@ profile_mappings: list[Type[BaseProfileMapping]] = [
     DatabricksTokenProfileMapping,
     DatabricksOauthProfileMapping,
     DuckDBUserPasswordProfileMapping,
+    MysqlUserPasswordProfileMapping,
     OracleUserPasswordProfileMapping,
-    DuckDBUserPasswordProfileMapping,
     PostgresUserPasswordProfileMapping,
     RedshiftUserPasswordProfileMapping,
     SnowflakeUserPasswordProfileMapping,
@@ -52,6 +54,7 @@ profile_mappings: list[Type[BaseProfileMapping]] = [
     TrinoCertificateProfileMapping,
     TrinoJWTProfileMapping,
     VerticaUserPasswordProfileMapping,
+    StandardSQLServerAuth,
 ]
 
 
@@ -83,6 +86,7 @@ __all__ = [
     "DatabricksOauthProfileMapping",
     "DbtProfileConfigVars",
     "DuckDBUserPasswordProfileMapping",
+    "MysqlUserPasswordProfileMapping",
     "OracleUserPasswordProfileMapping",
     "PostgresUserPasswordProfileMapping",
     "RedshiftUserPasswordProfileMapping",
@@ -96,4 +100,5 @@ __all__ = [
     "TrinoCertificateProfileMapping",
     "TrinoJWTProfileMapping",
     "VerticaUserPasswordProfileMapping",
+    "StandardSQLServerAuth",
 ]

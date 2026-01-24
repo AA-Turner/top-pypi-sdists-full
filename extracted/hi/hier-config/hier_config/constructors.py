@@ -3,7 +3,6 @@ from itertools import islice
 from logging import getLogger
 from pathlib import Path
 from re import search, sub
-from typing import Union
 
 from hier_config.platforms.driver_base import HConfigDriverBase
 
@@ -17,6 +16,7 @@ from .platforms.cisco_nxos.driver import HConfigDriverCiscoNXOS
 from .platforms.cisco_nxos.view import HConfigViewCiscoNXOS
 from .platforms.cisco_xr.driver import HConfigDriverCiscoIOSXR
 from .platforms.cisco_xr.view import HConfigViewCiscoIOSXR
+from .platforms.fortinet_fortios.driver import HConfigDriverFortinetFortiOS
 from .platforms.generic.driver import HConfigDriverGeneric
 from .platforms.hp_comware5.driver import HConfigDriverHPComware5
 from .platforms.hp_procurve.driver import HConfigDriverHPProcurve
@@ -29,29 +29,27 @@ from .root import HConfig
 logger = getLogger(__name__)
 
 
-def get_hconfig_driver(platform: Platform) -> HConfigDriverBase:  # noqa: PLR0911
+def get_hconfig_driver(platform: Platform) -> HConfigDriverBase:
     """Create base options on an OS level."""
-    if platform == Platform.ARISTA_EOS:
-        return HConfigDriverAristaEOS()
-    if platform == Platform.CISCO_IOS:
-        return HConfigDriverCiscoIOS()
-    if platform == Platform.CISCO_NXOS:
-        return HConfigDriverCiscoNXOS()
-    if platform == Platform.CISCO_XR:
-        return HConfigDriverCiscoIOSXR()
-    if platform == Platform.GENERIC:
-        return HConfigDriverGeneric()
-    if platform == Platform.HP_PROCURVE:
-        return HConfigDriverHPProcurve()
-    if platform == Platform.HP_COMWARE5:
-        return HConfigDriverHPComware5()
-    if platform == Platform.JUNIPER_JUNOS:
-        return HConfigDriverJuniperJUNOS()
-    if platform == Platform.VYOS:
-        return HConfigDriverVYOS()
+    platform_drivers: dict[Platform, type[HConfigDriverBase]] = {
+        Platform.ARISTA_EOS: HConfigDriverAristaEOS,
+        Platform.CISCO_IOS: HConfigDriverCiscoIOS,
+        Platform.CISCO_NXOS: HConfigDriverCiscoNXOS,
+        Platform.CISCO_XR: HConfigDriverCiscoIOSXR,
+        Platform.FORTINET_FORTIOS: HConfigDriverFortinetFortiOS,
+        Platform.GENERIC: HConfigDriverGeneric,
+        Platform.HP_PROCURVE: HConfigDriverHPProcurve,
+        Platform.HP_COMWARE5: HConfigDriverHPComware5,
+        Platform.JUNIPER_JUNOS: HConfigDriverJuniperJUNOS,
+        Platform.VYOS: HConfigDriverVYOS,
+    }
+    driver_cls = platform_drivers.get(platform)
 
-    message = f"Unsupported platform: {platform}"  # type: ignore[unreachable]
-    raise ValueError(message)
+    if driver_cls is None:
+        message = f"Unsupported platform: {platform}"
+        raise ValueError(message)
+
+    return driver_cls()
 
 
 def get_hconfig_view(config: HConfig) -> HConfigViewBase:
@@ -76,8 +74,8 @@ def get_hconfig_view(config: HConfig) -> HConfigViewBase:
 
 
 def get_hconfig(
-    platform_or_driver: Union[Platform, HConfigDriverBase],
-    config_raw: Union[Path, str] = "",
+    platform_or_driver: Platform | HConfigDriverBase,
+    config_raw: Path | str = "",
 ) -> HConfig:
     if isinstance(config_raw, Path):
         config_raw = config_raw.read_text(encoding="utf8")
@@ -98,15 +96,15 @@ def get_hconfig(
 
 
 def get_hconfig_from_dump(
-    platform_or_driver: Union[Platform, HConfigDriverBase], dump: Dump
+    platform_or_driver: Platform | HConfigDriverBase, dump: Dump
 ) -> HConfig:
     """Load an HConfig dump."""
     config = get_hconfig(_get_driver(platform_or_driver))
-    last_item: Union[HConfig, HConfigChild] = config
+    last_item: HConfig | HConfigChild = config
     for item in dump.lines:
         # parent is the root
         if item.depth == 1:
-            parent: Union[HConfig, HConfigChild] = config
+            parent: HConfig | HConfigChild = config
         # has the same parent
         elif last_item.depth() == item.depth:
             parent = last_item.parent
@@ -126,34 +124,42 @@ def get_hconfig_from_dump(
 
 
 def get_hconfig_fast_generic_load(
-    lines: Union[list[str], tuple[str, ...], str],
+    lines: list[str] | tuple[str, ...] | str,
 ) -> HConfig:
     return get_hconfig_fast_load(Platform.GENERIC, lines)
 
 
 def get_hconfig_fast_load(
-    platform_or_driver: Union[Platform, HConfigDriverBase],
-    lines: Union[list[str], tuple[str, ...], str],
+    platform_or_driver: Platform | HConfigDriverBase,
+    lines: list[str] | tuple[str, ...] | str,
 ) -> HConfig:
     driver = _get_driver(platform_or_driver)
     config = get_hconfig(driver)
     if isinstance(lines, str):
         lines = lines.splitlines()
 
-    current_section: Union[HConfig, HConfigChild] = config
-    most_recent_item: Union[HConfig, HConfigChild] = current_section
+    current_section: HConfig | HConfigChild = config
+    most_recent_item: HConfig | HConfigChild = current_section
 
-    for line in lines:
-        if not (line_lstripped := line.lstrip()):
+    for original_line in lines:
+        if not (line_lstripped := original_line.lstrip()):
             continue
-        indent = len(line) - len(line_lstripped)
+
+        # Apply per_line_sub rules before processing
+        processed_line = original_line
+        for rule in driver.rules.per_line_sub:
+            processed_line = sub(rule.search, rule.replace, processed_line)
+
+        if not (line_lstripped := processed_line.lstrip()):
+            continue
+        indent = len(processed_line) - len(line_lstripped)
 
         # Determine parent in hierarchy
         most_recent_item, current_section = _analyze_indent(
             most_recent_item,
             current_section,
             indent,
-            " ".join(line.split()),
+            " ".join(processed_line.split()),
         )
 
     for child in tuple(config.all_children()):
@@ -163,7 +169,7 @@ def get_hconfig_fast_load(
 
 
 def _get_driver(
-    platform_or_driver: Union[Platform, HConfigDriverBase],
+    platform_or_driver: Platform | HConfigDriverBase,
 ) -> HConfigDriverBase:
     if isinstance(platform_or_driver, Platform):
         return get_hconfig_driver(platform_or_driver)
@@ -171,11 +177,11 @@ def _get_driver(
 
 
 def _analyze_indent(
-    most_recent_item: Union[HConfig, HConfigChild],
-    current_section: Union[HConfig, HConfigChild],
+    most_recent_item: HConfig | HConfigChild,
+    current_section: HConfig | HConfigChild,
     indent: int,
     line: str,
-) -> tuple[HConfigChild, Union[HConfig, HConfigChild]]:
+) -> tuple[HConfigChild, HConfig | HConfigChild]:
     # Walks back up the tree
     while indent <= current_section.real_indent_level:
         current_section = current_section.parent
@@ -216,8 +222,8 @@ def _config_from_string_lines_end_of_banner_test(
 
 def _load_from_string_lines(config: HConfig, config_text: str) -> None:  # noqa: C901
     config_text = config.driver.config_preprocessor(config_text)
-    current_section: Union[HConfig, HConfigChild] = config
-    most_recent_item: Union[HConfig, HConfigChild] = current_section
+    current_section: HConfig | HConfigChild = config
+    most_recent_item: HConfig | HConfigChild = current_section
     indent_adjust = 0
     end_indent_adjust: list[str] = []
     temp_banner: list[str] = []
@@ -272,7 +278,7 @@ def _load_from_string_lines(config: HConfig, config_text: str) -> None:  # noqa:
         if not line:
             continue
 
-        # Determine indentation level
+        # Determine indentation level (after per_line_sub rules are applied)
         this_indent = len(line) - len(line.lstrip()) + indent_adjust
 
         line = line.lstrip()  # noqa: PLW2901

@@ -25,8 +25,13 @@ from typing import Optional, Tuple, Callable, Dict
 import inspect
 import functools
 import math
+import os
 from ..temporary_patches.common import UNSLOTH_ENABLE_LOGGING, torch_compile_options, logger
-from unsloth import DEVICE_TYPE
+from ..device_type import DEVICE_TYPE
+        
+
+TARGET_GB = os.environ.get("UNSLOTH_CE_LOSS_TARGET_GB", None)
+N_CHUNKS = os.environ.get("UNSLOTH_CE_LOSS_N_CHUNKS", None)
 
 @functools.cache
 def _get_mapping(autograd):
@@ -113,11 +118,16 @@ def _get_chunk_multiplier(vocab_size, target_gb = None):
     """ Gets chunk size that fits the target max memory usage (1GB) """
     if target_gb is None:
         # Find current VRAM left in the GPU, and use 50% or less of it
-        free, total = torch.xpu.mem_get_info(0) if DEVICE_TYPE == "xpu"  else torch.cuda.mem_get_info(0)
+        free, total = torch.xpu.mem_get_info(0) if DEVICE_TYPE == "xpu" else torch.cuda.mem_get_info(0)
         free_gb = free / 1024 / 1024 / 1024
         free_gb = free_gb * 0.5
         target_gb = free_gb
     pass
+
+    # Prevent ZeroDivisionError when GPU memory is exhausted
+    if target_gb <= 1e-9: # Use a small epsilon for float comparison
+        raise RuntimeError("Unsloth: No or negligible GPU memory available for fused cross entropy.")
+
     multiplier = (vocab_size * 4 / 1024 / 1024 / 1024) / (target_gb)
     multiplier = multiplier / 4 # Output only multiples of 4
     return multiplier
@@ -198,6 +208,8 @@ class UnslothFusedLoss(torch.autograd.Function):
             n_chunks = extra_kwargs.pop("n_chunks")
         else:
             n_chunks = get_chunk_size(bsz, qlen, vocab_size, target_gb = target_gb)
+        if UNSLOTH_ENABLE_LOGGING:
+            logger.info(f"Fused CE Loss [bsz={bsz}][qlen={qlen}][vocab_size={vocab_size}][n_chunks={n_chunks}]")
         __shift_labels = torch.chunk(labels,                     n_chunks, dim = 0)
         __shift_states = torch.chunk(hidden_states.view(-1, hd), n_chunks, dim = 0)
         __grad_inputs  = torch.chunk(grad_inputs.view(-1, hd),   n_chunks, dim = 0)
@@ -359,6 +371,8 @@ def unsloth_fused_ce_loss(
     # Get mixed precision scaling if seen
     scaling = scaler.get_scale() if scaler is not None else scaling
     if hasattr(scaling, "get_scale"): scaling = scaling.get_scale()
+    if TARGET_GB: target_gb = float(TARGET_GB)
+    elif N_CHUNKS: kwargs["n_chunks"] = max(int(N_CHUNKS), 1)
     return apply_autograd_function(UnslothFusedLoss, dict(
         loss_function = compute_fused_ce_loss,
         hidden_states = hidden_states,

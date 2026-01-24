@@ -3,7 +3,7 @@ Type annotations for appsync service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -179,12 +180,6 @@ from .type_defs import (
     UpdateTypeResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -195,20 +190,20 @@ __all__ = ("AppSyncClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ApiKeyLimitExceededException: Type[BotocoreClientError]
-    ApiKeyValidityOutOfBoundsException: Type[BotocoreClientError]
-    ApiLimitExceededException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    GraphQLSchemaException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ApiKeyLimitExceededException: type[BotocoreClientError]
+    ApiKeyValidityOutOfBoundsException: type[BotocoreClientError]
+    ApiLimitExceededException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    GraphQLSchemaException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 
 class AppSyncClient(AioBaseClient):
@@ -378,7 +373,7 @@ class AppSyncClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/#create_type)
         """
 
-    async def delete_api(self, **kwargs: Unpack[DeleteApiRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_api(self, **kwargs: Unpack[DeleteApiRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an <code>Api</code> object.
 
@@ -388,7 +383,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_api_cache(
         self, **kwargs: Unpack[DeleteApiCacheRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an <code>ApiCache</code> object.
 
@@ -396,7 +391,7 @@ class AppSyncClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/#delete_api_cache)
         """
 
-    async def delete_api_key(self, **kwargs: Unpack[DeleteApiKeyRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_api_key(self, **kwargs: Unpack[DeleteApiKeyRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an API key.
 
@@ -406,7 +401,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_channel_namespace(
         self, **kwargs: Unpack[DeleteChannelNamespaceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>ChannelNamespace</code>.
 
@@ -416,7 +411,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_data_source(
         self, **kwargs: Unpack[DeleteDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>DataSource</code> object.
 
@@ -426,7 +421,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_domain_name(
         self, **kwargs: Unpack[DeleteDomainNameRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a custom <code>DomainName</code> object.
 
@@ -436,7 +431,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_function(
         self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>Function</code>.
 
@@ -446,7 +441,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_graphql_api(
         self, **kwargs: Unpack[DeleteGraphqlApiRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>GraphqlApi</code> object.
 
@@ -456,7 +451,7 @@ class AppSyncClient(AioBaseClient):
 
     async def delete_resolver(
         self, **kwargs: Unpack[DeleteResolverRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <code>Resolver</code> object.
 
@@ -464,7 +459,7 @@ class AppSyncClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/#delete_resolver)
         """
 
-    async def delete_type(self, **kwargs: Unpack[DeleteTypeRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_type(self, **kwargs: Unpack[DeleteTypeRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a <code>Type</code> object.
 
@@ -474,7 +469,7 @@ class AppSyncClient(AioBaseClient):
 
     async def disassociate_api(
         self, **kwargs: Unpack[DisassociateApiRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an <code>ApiAssociation</code> object from a custom domain.
 
@@ -526,7 +521,7 @@ class AppSyncClient(AioBaseClient):
 
     async def flush_api_cache(
         self, **kwargs: Unpack[FlushApiCacheRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Flushes an <code>ApiCache</code> object.
 
@@ -849,7 +844,7 @@ class AppSyncClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/#start_schema_merge)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource with user-supplied tags.
 
@@ -857,7 +852,7 @@ class AppSyncClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_appsync/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untags a resource.
 
@@ -1116,7 +1111,7 @@ class AppSyncClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

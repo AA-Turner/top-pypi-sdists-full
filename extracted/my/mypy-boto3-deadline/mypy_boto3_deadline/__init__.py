@@ -3,7 +3,7 @@ Main interface for deadline service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,7 +14,9 @@ Usage::
         DeadlineCloudClient,
         FleetActiveWaiter,
         GetSessionsStatisticsAggregationPaginator,
+        JobCompleteWaiter,
         JobCreateCompleteWaiter,
+        JobSucceededWaiter,
         LicenseEndpointDeletedWaiter,
         LicenseEndpointValidWaiter,
         ListAvailableMeteredProductsPaginator,
@@ -55,7 +57,9 @@ Usage::
     client: DeadlineCloudClient = session.client("deadline")
 
     fleet_active_waiter: FleetActiveWaiter = client.get_waiter("fleet_active")
+    job_complete_waiter: JobCompleteWaiter = client.get_waiter("job_complete")
     job_create_complete_waiter: JobCreateCompleteWaiter = client.get_waiter("job_create_complete")
+    job_succeeded_waiter: JobSucceededWaiter = client.get_waiter("job_succeeded")
     license_endpoint_deleted_waiter: LicenseEndpointDeletedWaiter = client.get_waiter("license_endpoint_deleted")
     license_endpoint_valid_waiter: LicenseEndpointValidWaiter = client.get_waiter("license_endpoint_valid")
     queue_fleet_association_stopped_waiter: QueueFleetAssociationStoppedWaiter = client.get_waiter("queue_fleet_association_stopped")
@@ -129,7 +133,9 @@ from .paginator import (
 )
 from .waiter import (
     FleetActiveWaiter,
+    JobCompleteWaiter,
     JobCreateCompleteWaiter,
+    JobSucceededWaiter,
     LicenseEndpointDeletedWaiter,
     LicenseEndpointValidWaiter,
     QueueFleetAssociationStoppedWaiter,
@@ -146,7 +152,9 @@ __all__ = (
     "DeadlineCloudClient",
     "FleetActiveWaiter",
     "GetSessionsStatisticsAggregationPaginator",
+    "JobCompleteWaiter",
     "JobCreateCompleteWaiter",
+    "JobSucceededWaiter",
     "LicenseEndpointDeletedWaiter",
     "LicenseEndpointValidWaiter",
     "ListAvailableMeteredProductsPaginator",

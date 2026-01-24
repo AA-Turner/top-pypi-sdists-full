@@ -18,7 +18,9 @@ def row_number() -> Expression:
         >>> import daft
         >>> from daft.window import Window
         >>> from daft.functions import row_number
-        >>> df = daft.from_pydict({"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 7, 2, 9, 1, 3, 3, 7]})
+        >>> df = daft.from_pydict(
+        ...     {"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 7, 2, 9, 1, 3, 3, 7]}
+        ... )
         >>>
         >>> # Ascending order
         >>> window = Window().partition_by("category").order_by("value")
@@ -28,7 +30,7 @@ def row_number() -> Expression:
         ╭──────────┬───────┬────────╮
         │ category ┆ value ┆ row    │
         │ ---      ┆ ---   ┆ ---    │
-        │ Utf8     ┆ Int64 ┆ UInt64 │
+        │ String   ┆ Int64 ┆ UInt64 │
         ╞══════════╪═══════╪════════╡
         │ A        ┆ 1     ┆ 1      │
         ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
@@ -62,7 +64,9 @@ def rank() -> Expression:
         >>> import daft
         >>> from daft.window import Window
         >>> from daft.functions import rank
-        >>> df = daft.from_pydict({"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 3, 3, 7, 7, 7, 4, 4]})
+        >>> df = daft.from_pydict(
+        ...     {"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 3, 3, 7, 7, 7, 4, 4]}
+        ... )
         >>>
         >>> window = Window().partition_by("category").order_by("value", desc=True)
         >>> df = df.with_column("rank", rank().over(window))
@@ -71,7 +75,7 @@ def rank() -> Expression:
         ╭──────────┬───────┬────────╮
         │ category ┆ value ┆ rank   │
         │ ---      ┆ ---   ┆ ---    │
-        │ Utf8     ┆ Int64 ┆ UInt64 │
+        │ String   ┆ Int64 ┆ UInt64 │
         ╞══════════╪═══════╪════════╡
         │ A        ┆ 7     ┆ 1      │
         ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┤
@@ -107,7 +111,9 @@ def dense_rank() -> Expression:
         >>> import daft
         >>> from daft.window import Window
         >>> from daft.functions import dense_rank
-        >>> df = daft.from_pydict({"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 3, 3, 7, 7, 7, 4, 4]})
+        >>> df = daft.from_pydict(
+        ...     {"category": ["A", "A", "A", "A", "B", "B", "B", "B"], "value": [1, 3, 3, 7, 7, 7, 4, 4]}
+        ... )
         >>>
         >>> window = Window().partition_by("category").order_by("value", desc=True)
         >>> df = df.with_column("dense_rank", dense_rank().over(window))
@@ -116,7 +122,7 @@ def dense_rank() -> Expression:
         ╭──────────┬───────┬────────────╮
         │ category ┆ value ┆ dense_rank │
         │ ---      ┆ ---   ┆ ---        │
-        │ Utf8     ┆ Int64 ┆ UInt64     │
+        │ String   ┆ Int64 ┆ UInt64     │
         ╞══════════╪═══════╪════════════╡
         │ A        ┆ 7     ┆ 1          │
         ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┤
@@ -163,25 +169,25 @@ def over(expr: Expression, window: Window) -> Expression:
         ...     }
         ... )
         >>> window_spec = daft.Window().partition_by("group").order_by("date")
-        >>> df = df.with_column("cumulative_sum", sum(df["value"]).over(window_spec))
+        >>> df = df.with_column("grouped_sum", sum(df["value"]).over(window_spec))
         >>> df.sort(["group", "date"]).show()
-        ╭───────┬────────────┬───────┬────────────────╮
-        │ group ┆ date       ┆ value ┆ cumulative_sum │
-        │ ---   ┆ ---        ┆ ---   ┆ ---            │
-        │ Utf8  ┆ Utf8       ┆ Int64 ┆ Int64          │
-        ╞═══════╪════════════╪═══════╪════════════════╡
-        │ A     ┆ 2020-01-01 ┆ 1     ┆ 1              │
-        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ A     ┆ 2020-01-02 ┆ 2     ┆ 3              │
-        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ A     ┆ 2020-01-03 ┆ 3     ┆ 6              │
-        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ B     ┆ 2020-01-04 ┆ 4     ┆ 4              │
-        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ B     ┆ 2020-01-05 ┆ 5     ┆ 9              │
-        ├╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-        │ B     ┆ 2020-01-06 ┆ 6     ┆ 15             │
-        ╰───────┴────────────┴───────┴────────────────╯
+        ╭────────┬────────────┬───────┬─────────────╮
+        │ group  ┆ date       ┆ value ┆ grouped_sum │
+        │ ---    ┆ ---        ┆ ---   ┆ ---         │
+        │ String ┆ String     ┆ Int64 ┆ Int64       │
+        ╞════════╪════════════╪═══════╪═════════════╡
+        │ A      ┆ 2020-01-01 ┆ 1     ┆ 6           │
+        ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ A      ┆ 2020-01-02 ┆ 2     ┆ 6           │
+        ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ A      ┆ 2020-01-03 ┆ 3     ┆ 6           │
+        ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ B      ┆ 2020-01-04 ┆ 4     ┆ 15          │
+        ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ B      ┆ 2020-01-05 ┆ 5     ┆ 15          │
+        ├╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+        │ B      ┆ 2020-01-06 ┆ 6     ┆ 15          │
+        ╰────────┴────────────┴───────┴─────────────╯
         <BLANKLINE>
         (Showing first 6 of 6 rows)
 
@@ -224,7 +230,7 @@ def lag(expr: Expression, offset: int = 1, default: Expression | None = None) ->
         ╭──────────┬───────┬─────────────┬────────┬─────────────────────╮
         │ category ┆ value ┆ default_val ┆ lagged ┆ lagged_with_default │
         │ ---      ┆ ---   ┆ ---         ┆ ---    ┆ ---                 │
-        │ Utf8     ┆ Int64 ┆ Int64       ┆ Int64  ┆ Int64               │
+        │ String   ┆ Int64 ┆ Int64       ┆ Int64  ┆ Int64               │
         ╞══════════╪═══════╪═════════════╪════════╪═════════════════════╡
         │ A        ┆ 1     ┆ 10          ┆ None   ┆ 10                  │
         ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
@@ -279,7 +285,7 @@ def lead(expr: Expression, offset: int = 1, default: Expression | None = None) -
         ╭──────────┬───────┬─────────────┬───────┬───────────────────╮
         │ category ┆ value ┆ default_val ┆ lead  ┆ lead_with_default │
         │ ---      ┆ ---   ┆ ---         ┆ ---   ┆ ---               │
-        │ Utf8     ┆ Int64 ┆ Int64       ┆ Int64 ┆ Int64             │
+        │ String   ┆ Int64 ┆ Int64       ┆ Int64 ┆ Int64             │
         ╞══════════╪═══════╪═════════════╪═══════╪═══════════════════╡
         │ A        ┆ 1     ┆ 10          ┆ 2     ┆ 2                 │
         ├╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌┼╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤

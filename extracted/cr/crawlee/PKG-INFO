@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 0.6.12
+Version: 1.3.0
 Summary: Crawlee for Python
-Project-URL: Homepage, https://crawlee.dev/python
-Project-URL: Apify homepage, https://apify.com
+Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
-Project-URL: Documentation, https://crawlee.dev/python/docs/
-Project-URL: Issue tracker, https://github.com/apify/crawlee-python/issues
-Project-URL: Repository, https://github.com/apify/crawlee-python
+Project-URL: Discord, https://discord.com/invite/jyEM2PRvMU
+Project-URL: Documentation, https://crawlee.dev/python/docs/quick-start
+Project-URL: Homepage, https://crawlee.dev/python
+Project-URL: Issue Tracker, https://github.com/apify/crawlee-python/issues
+Project-URL: Release Notes, https://crawlee.dev/python/docs/upgrading
+Project-URL: Source Code, https://github.com/apify/crawlee-python
 Author-email: "Apify Technologies s.r.o." <support@apify.com>
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -212,51 +214,63 @@ License:                                  Apache License
            limitations under the License.
 License-File: LICENSE
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
-Requires-Dist: apify-fingerprint-datapoints>=0.0.2
-Requires-Dist: browserforge>=1.2.3
+Requires-Python: >=3.10
+Requires-Dist: async-timeout>=5.0.1
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: eval-type-backport>=0.2.0
-Requires-Dist: httpx[brotli,http2,zstd]>=0.27.0
+Requires-Dist: impit>=0.8.0
 Requires-Dist: more-itertools>=10.2.0
-Requires-Dist: protego>=0.4.0
+Requires-Dist: protego>=0.5.0
 Requires-Dist: psutil>=6.0.0
-Requires-Dist: pydantic!=2.10.0,!=2.10.1,!=2.10.2,>=2.8.0
-Requires-Dist: pydantic-settings<2.7.0,>=2.2.0
+Requires-Dist: pydantic-settings>=2.12.0
+Requires-Dist: pydantic>=2.11.0
 Requires-Dist: pyee>=9.0.0
-Requires-Dist: sortedcollections>=2.1.0
-Requires-Dist: sortedcontainers>=2.4.0
 Requires-Dist: tldextract>=5.1.0
 Requires-Dist: typing-extensions>=4.1.0
 Requires-Dist: yarl>=1.18.0
 Provides-Extra: adaptive-crawler
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'adaptive-crawler'
+Requires-Dist: browserforge>=1.2.3; extra == 'adaptive-crawler'
 Requires-Dist: jaro-winkler>=2.0.3; extra == 'adaptive-crawler'
 Requires-Dist: playwright>=1.27.0; extra == 'adaptive-crawler'
-Requires-Dist: scikit-learn==1.5.2; (python_version == '3.9') and extra == 'adaptive-crawler'
-Requires-Dist: scikit-learn>=1.6.0; (python_version >= '3.10') and extra == 'adaptive-crawler'
+Requires-Dist: scikit-learn>=1.6.0; extra == 'adaptive-crawler'
 Provides-Extra: all
+Requires-Dist: aiosqlite>=0.21.0; extra == 'all'
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'all'
+Requires-Dist: asyncpg>=0.24.0; extra == 'all'
 Requires-Dist: beautifulsoup4[lxml]>=4.12.0; extra == 'all'
+Requires-Dist: browserforge>=1.2.3; extra == 'all'
 Requires-Dist: cookiecutter>=2.6.0; extra == 'all'
 Requires-Dist: curl-cffi>=0.9.0; extra == 'all'
 Requires-Dist: html5lib>=1.0; extra == 'all'
+Requires-Dist: httpx[brotli,http2,zstd]>=0.27.0; extra == 'all'
 Requires-Dist: inquirer>=3.3.0; extra == 'all'
 Requires-Dist: jaro-winkler>=2.0.3; extra == 'all'
+Requires-Dist: opentelemetry-api>=1.34.1; extra == 'all'
+Requires-Dist: opentelemetry-distro[otlp]>=0.54; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.54; extra == 'all'
+Requires-Dist: opentelemetry-instrumentation>=0.54; extra == 'all'
+Requires-Dist: opentelemetry-sdk>=1.34.1; extra == 'all'
+Requires-Dist: opentelemetry-semantic-conventions>=0.54; extra == 'all'
 Requires-Dist: parsel>=1.10.0; extra == 'all'
 Requires-Dist: playwright>=1.27.0; extra == 'all'
-Requires-Dist: scikit-learn==1.5.2; (python_version == '3.9') and extra == 'all'
-Requires-Dist: scikit-learn>=1.6.0; (python_version >= '3.10') and extra == 'all'
+Requires-Dist: redis[hiredis]>=7.0.0; extra == 'all'
+Requires-Dist: rich>=13.9.0; extra == 'all'
+Requires-Dist: scikit-learn>=1.6.0; extra == 'all'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: typer>=0.12.0; extra == 'all'
+Requires-Dist: wrapt>=1.17.0; extra == 'all'
 Provides-Extra: beautifulsoup
 Requires-Dist: beautifulsoup4[lxml]>=4.12.0; extra == 'beautifulsoup'
 Requires-Dist: html5lib>=1.0; extra == 'beautifulsoup'
@@ -267,10 +281,32 @@ Requires-Dist: rich>=13.9.0; extra == 'cli'
 Requires-Dist: typer>=0.12.0; extra == 'cli'
 Provides-Extra: curl-impersonate
 Requires-Dist: curl-cffi>=0.9.0; extra == 'curl-impersonate'
+Provides-Extra: httpx
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'httpx'
+Requires-Dist: browserforge>=1.2.3; extra == 'httpx'
+Requires-Dist: httpx[brotli,http2,zstd]>=0.27.0; extra == 'httpx'
+Provides-Extra: otel
+Requires-Dist: opentelemetry-api>=1.34.1; extra == 'otel'
+Requires-Dist: opentelemetry-distro[otlp]>=0.54; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation-httpx>=0.54; extra == 'otel'
+Requires-Dist: opentelemetry-instrumentation>=0.54; extra == 'otel'
+Requires-Dist: opentelemetry-sdk>=1.34.1; extra == 'otel'
+Requires-Dist: opentelemetry-semantic-conventions>=0.54; extra == 'otel'
+Requires-Dist: wrapt>=1.17.0; extra == 'otel'
 Provides-Extra: parsel
 Requires-Dist: parsel>=1.10.0; extra == 'parsel'
 Provides-Extra: playwright
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2; extra == 'playwright'
+Requires-Dist: browserforge>=1.2.3; extra == 'playwright'
 Requires-Dist: playwright>=1.27.0; extra == 'playwright'
+Provides-Extra: redis
+Requires-Dist: redis[hiredis]>=7.0.0; extra == 'redis'
+Provides-Extra: sql-postgres
+Requires-Dist: asyncpg>=0.24.0; extra == 'sql-postgres'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-postgres'
+Provides-Extra: sql-sqlite
+Requires-Dist: aiosqlite>=0.21.0; extra == 'sql-sqlite'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-sqlite'
 Description-Content-Type: text/markdown
 
 <h1 align="center">
@@ -288,24 +324,15 @@ Description-Content-Type: text/markdown
     <a href="https://trendshift.io/repositories/11169" target="_blank"><img src="https://trendshift.io/api/badge/repositories/11169" alt="apify%2Fcrawlee-python | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 </p>
 
-<p align=center>
-    <a href="https://badge.fury.io/py/crawlee" rel="nofollow">
-        <img src="https://badge.fury.io/py/crawlee.svg" alt="PyPI version" style="max-width: 100%;">
-    </a>
-    <a href="https://pypi.org/project/crawlee/" rel="nofollow">
-        <img src="https://img.shields.io/pypi/dm/crawlee" alt="PyPI - Downloads" style="max-width: 100%;">
-    </a>
-    <a href="https://pypi.org/project/crawlee/" rel="nofollow">
-        <img src="https://img.shields.io/pypi/pyversions/crawlee" alt="PyPI - Python Version" style="max-width: 100%;">
-    </a>
-    <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow">
-        <img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on discord" style="max-width: 100%;">
-    </a>
+<p align="center">
+  <a href="https://badge.fury.io/py/crawlee" rel="nofollow"><img src="https://badge.fury.io/py/crawlee.svg" alt="PyPI package version"></a>
+  <a href="https://pypi.org/project/crawlee/" rel="nofollow"><img src="https://img.shields.io/pypi/dm/crawlee" alt="PyPI package downloads"></a>
+  <a href="https://codecov.io/gh/apify/crawlee-python"><img src="https://codecov.io/gh/apify/crawlee-python/graph/badge.svg?token=cCju61iPQG" alt="Codecov report"></a>
+  <a href="https://pypi.org/project/crawlee/" rel="nofollow"><img src="https://img.shields.io/pypi/pyversions/crawlee" alt="PyPI Python version"></a>
+  <a href="https://discord.gg/jyEM2PRvMU" rel="nofollow"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>
 </p>
 
 Crawlee covers your crawling and scraping end-to-end and **helps you build reliable scrapers. Fast.**
-
-> 🚀 Crawlee for Python is open to early adopters!
 
 Your crawlers will appear almost human-like and fly under the radar of modern bot protections even with the default configuration. Crawlee gives you the tools to crawl the web for links, scrape data and persistently store it in machine-readable formats, without having to worry about the technical details. And thanks to rich configuration options, you can tweak almost any aspect of Crawlee to suit your project's needs if the default settings don't cut it.
 
@@ -341,16 +368,18 @@ For detailed installation instructions see the [Setting up](https://crawlee.dev/
 
 ### With Crawlee CLI
 
-The quickest way to get started with Crawlee is by using the Crawlee CLI and selecting one of the prepared templates. First, ensure you have [Pipx](https://pipx.pypa.io/) installed:
+The quickest way to get started with Crawlee is by using the Crawlee CLI and selecting one of the prepared templates. First, ensure you have [uv](https://pypi.org/project/uv/) installed:
 
 ```sh
-pipx --help
+uv --help
 ```
+
+If [uv](https://pypi.org/project/uv/) is not installed, follow the official [installation guide](https://docs.astral.sh/uv/getting-started/installation/).
 
 Then, run the CLI and choose from the available templates:
 
 ```sh
-pipx run 'crawlee[cli]' create my-crawler
+uvx 'crawlee[cli]' create my-crawler
 ```
 
 If you already have `crawlee` installed, you can spin it up by running:
@@ -398,6 +427,7 @@ async def main() -> None:
 
     # Run the crawler with the initial list of URLs.
     await crawler.run(['https://crawlee.dev'])
+
 
 if __name__ == '__main__':
     asyncio.run(main())

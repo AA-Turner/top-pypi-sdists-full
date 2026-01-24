@@ -6,7 +6,9 @@ from typing import cast
 from pydantic import TypeAdapter
 
 from mailtrap.api.contacts import ContactsBaseApi
+from mailtrap.api.general import GeneralApi
 from mailtrap.api.sending import SendingApi
+from mailtrap.api.sending_domains import SendingDomainsBaseApi
 from mailtrap.api.suppressions import SuppressionsBaseApi
 from mailtrap.api.templates import EmailTemplatesApi
 from mailtrap.api.testing import TestingApi
@@ -17,9 +19,14 @@ from mailtrap.config import SENDING_HOST
 from mailtrap.exceptions import ClientConfigurationError
 from mailtrap.http import HttpClient
 from mailtrap.models.mail import BaseMail
-from mailtrap.models.mail.base import SendingMailResponse
+from mailtrap.models.mail import BatchSendResponse
+from mailtrap.models.mail import SendingMailResponse
+from mailtrap.models.mail.batch_mail import BatchSendEmailParams
 
 SEND_ENDPOINT_RESPONSE = dict[str, Union[bool, list[str]]]
+BATCH_SEND_ENDPOINT_RESPONSE = dict[
+    str, Union[bool, list[str], list[dict[str, Union[bool, list[str]]]]]
+]
 
 
 class MailtrapClient:
@@ -47,6 +54,12 @@ class MailtrapClient:
         self.inbox_id = inbox_id
 
         self._validate_itself()
+
+    @property
+    def general_api(self) -> GeneralApi:
+        return GeneralApi(
+            client=HttpClient(host=GENERAL_HOST, headers=self.headers),
+        )
 
     @property
     def testing_api(self) -> TestingApi:
@@ -82,6 +95,14 @@ class MailtrapClient:
         )
 
     @property
+    def sending_domains_api(self) -> SendingDomainsBaseApi:
+        self._validate_account_id()
+        return SendingDomainsBaseApi(
+            account_id=cast(str, self.account_id),
+            client=HttpClient(host=GENERAL_HOST, headers=self.headers),
+        )
+
+    @property
     def sending_api(self) -> SendingApi:
         http_client = HttpClient(host=self._sending_api_host, headers=self.headers)
         return SendingApi(client=http_client, inbox_id=self.inbox_id)
@@ -91,6 +112,13 @@ class MailtrapClient:
         return cast(
             SEND_ENDPOINT_RESPONSE,
             TypeAdapter(SendingMailResponse).dump_python(sending_response),
+        )
+
+    def batch_send(self, mail: BatchSendEmailParams) -> BATCH_SEND_ENDPOINT_RESPONSE:
+        batch_sending_response = self.sending_api.batch_send(mail)
+        return cast(
+            BATCH_SEND_ENDPOINT_RESPONSE,
+            TypeAdapter(BatchSendResponse).dump_python(batch_sending_response),
         )
 
     @property

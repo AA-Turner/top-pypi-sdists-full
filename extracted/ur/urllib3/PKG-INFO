@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urllib3
-Version: 2.5.0
+Version: 2.6.3
 Summary: HTTP library with thread-safe connection pooling, file post, and more.
 Project-URL: Changelog, https://github.com/urllib3/urllib3/blob/main/CHANGES.rst
 Project-URL: Documentation, https://urllib3.readthedocs.io
@@ -22,20 +22,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Provides-Extra: brotli
-Requires-Dist: brotli>=1.0.9; (platform_python_implementation == 'CPython') and extra == 'brotli'
-Requires-Dist: brotlicffi>=0.8.0; (platform_python_implementation != 'CPython') and extra == 'brotli'
+Requires-Dist: brotli>=1.2.0; (platform_python_implementation == 'CPython') and extra == 'brotli'
+Requires-Dist: brotlicffi>=1.2.0.0; (platform_python_implementation != 'CPython') and extra == 'brotli'
 Provides-Extra: h2
 Requires-Dist: h2<5,>=4; extra == 'h2'
 Provides-Extra: socks
 Requires-Dist: pysocks!=1.5.7,<2.0,>=1.5.6; extra == 'socks'
 Provides-Extra: zstd
-Requires-Dist: zstandard>=0.18.0; extra == 'zstd'
+Requires-Dist: backports-zstd>=1.0.0; (python_version < '3.14') and extra == 'zstd'
 Description-Content-Type: text/markdown
 
 <h1 align="center">
@@ -56,8 +58,7 @@ Description-Content-Type: text/markdown
   <a href="https://bestpractices.coreinfrastructure.org/projects/6227"><img alt="CII Best Practices" src="https://bestpractices.coreinfrastructure.org/projects/6227/badge" /></a>
 </p>
 
-urllib3 is a powerful, *user-friendly* HTTP client for Python. Much of the
-Python ecosystem already uses urllib3 and you should too.
+urllib3 is a powerful, *user-friendly* HTTP client for Python.
 urllib3 brings many critical features that are missing from the Python
 standard libraries:
 
@@ -70,16 +71,13 @@ standard libraries:
 - Proxy support for HTTP and SOCKS.
 - 100% test coverage.
 
-urllib3 is powerful and easy to use:
+... and many more features, but most importantly: Our maintainers have a 15+
+year track record of maintaining urllib3 with the highest code standards and
+attention to security and safety.
 
-```python3
->>> import urllib3
->>> resp = urllib3.request("GET", "http://httpbin.org/robots.txt")
->>> resp.status
-200
->>> resp.data
-b"User-agent: *\nDisallow: /deny\n"
-```
+[Much of the Python ecosystem already uses urllib3](https://urllib3.readthedocs.io/en/stable/#who-uses)
+and you should too.
+
 
 ## Installing
 
@@ -97,8 +95,18 @@ $ cd urllib3
 $ pip install .
 ```
 
+## Getting Started
 
-## Documentation
+urllib3 is easy to use:
+
+```python3
+>>> import urllib3
+>>> resp = urllib3.request("GET", "http://httpbin.org/robots.txt")
+>>> resp.status
+200
+>>> resp.data
+b"User-agent: *\nDisallow: /deny\n"
+```
 
 urllib3 has usage and reference documentation at [urllib3.readthedocs.io](https://urllib3.readthedocs.io).
 
@@ -125,9 +133,11 @@ Tidelift will coordinate the fix and disclosure with maintainers.
 
 ## Maintainers
 
+Meet our maintainers since 2008:
+
+- Current Lead: [@illia-v](https://github.com/illia-v) (Illia Volochii)
 - [@sethmlarson](https://github.com/sethmlarson) (Seth M. Larson)
 - [@pquentin](https://github.com/pquentin) (Quentin Pradet)
-- [@illia-v](https://github.com/illia-v) (Illia Volochii)
 - [@theacodes](https://github.com/theacodes) (Thea Flowers)
 - [@haikuginger](https://github.com/haikuginger) (Jess Shapiro)
 - [@lukasa](https://github.com/lukasa) (Cory Benfield)
@@ -146,7 +156,7 @@ development](https://urllib3.readthedocs.io/en/latest/sponsors.html).
 ## For Enterprise
 
 Professional support for urllib3 is available as part of the [Tidelift
-Subscription][1].  Tidelift gives software development teams a single source for
+Subscription][1]. Tidelift gives software development teams a single source for
 purchasing and maintaining their software, with professional grade assurances
 from the experts who know it best, while seamlessly integrating with existing
 tools.

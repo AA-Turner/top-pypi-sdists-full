@@ -1,9 +1,6 @@
 """Basic functions related to the DAP spec."""
 
 import operator
-import threading
-import warnings
-from collections import Counter
 from functools import reduce
 from itertools import zip_longest
 from sys import maxsize as MAXSIZE
@@ -194,7 +191,7 @@ def encode(obj):
             return '"{0}"'.format(obj)
 
 
-def fix_slice(slice_, shape):
+def fix_slice(slice_, shape, projection=False):
     """Return a normalized slice.
 
     This function returns a slice so that it has the same length of `shape`,
@@ -219,7 +216,6 @@ def fix_slice(slice_, shape):
         else:
             out.append(s)
     slice_ = tuple(out) + (slice(None),) * expand
-
     out = []
     for s, N in zip(slice_, shape):
         if isinstance(s, int):
@@ -227,8 +223,8 @@ def fix_slice(slice_, shape):
                 s += N
             out.append(s)
         else:
-            k = s.step or 1
 
+            k = s.step or 1
             i = s.start
             if i is None:
                 i = 0
@@ -236,8 +232,11 @@ def fix_slice(slice_, shape):
                 i += N
 
             j = s.stop
-            if j is None or j >= (N + i):
-                j = N + i
+            if j is None or j >= N:
+                if projection:
+                    j = N + i
+                else:
+                    j = N
             elif j < 0:
                 j += N
 
@@ -368,232 +367,6 @@ def decode_np_strings(numpy_var):
         return numpy_var.decode("utf-8")
     else:
         return numpy_var
-
-
-def get_batch_data(ds, cache={}, checksums=True):
-    """
-    parent object - either a dataset or Group type (dap4)
-    """
-    import pydap
-
-    # dimensions = sorted(ds.dimensions)
-    dimensions = [
-        var.id
-        for var in walk(ds.dataset, pydap.model.BaseType)
-        if var.name in var.parent.dimensions
-    ]
-    # check if data has been pre-downloaded
-    if "consolidated" in ds.dataset.session.headers:
-        # need to add a check that consolidated has
-        # been performed on that collection.
-        cache = fetch_consolidated_dimensions(ds, cache)
-    else:
-        register_all_for_batch(ds.dataset, dimensions, checksums=checksums)
-        cache = fetch_batched_dimensions(ds.dataset, dimensions, cache)
-    return cache
-
-
-def register_all_for_batch(ds, Variables, checksums=True) -> None:
-    """
-    Used to register all dimension array when pydap
-    dataset has been initialized with batch=True.
-
-    Parameters:
-    ----------
-        ds: dataset (dap4)
-        Variables: list
-            List of dimensions in `ds` that will be processed
-        checksums: bool | True (default)
-    """
-
-    for name in Variables:
-        var = ds[name]
-        if not var._is_data_loaded():  # and var.id != concat_dim:
-            var._pending_batch_slice = slice(None)
-            ds.register_for_batch(var, checksums=checksums)
-            var._is_registered_for_batch = True
-    ds._start_batch_timer()
-    # return promise
-
-
-def fetch_batched_dimensions(ds, Variables, cache=None):
-    """
-    Helper function that fetched dimensions within a pydap dataset
-    or Group, that have been registered for batched download. Only compatible
-    with DAP4 protocol, and batch=True parameter when intializating the
-    pydap dataset.
-
-    Parameters:
-    ----------
-        ds: pydap dataset (dap4)
-        Variables: list
-            items within the ds or Group.
-        cache: bool (False is default)
-            dictionary that stores the name of the dimension and its value
-
-    Returns:
-        dict:
-            containing all dimension array data
-    """
-    if cache is None:
-        cache = {}
-
-    promise = ds._current_batch_promise
-    promise._event.wait()
-
-    for name in Variables:
-        data = promise.wait_for_result(ds[name].id)
-        cache[ds[name].id] = np.asarray(data)
-
-    ds.dataset._current_batch_promise = None
-    return cache
-
-
-def fetch_consolidated_dimensions(ds, cache, checksums=True) -> {}:
-    """
-    Helper function that makes it easier to process previously download
-    dap responses of dimension data, i.e. after `consolidated_metadata`
-    is executed. This helper processes dimension array data that was
-    downloaded / batched together in a single dap response.
-    when the urls for the dap responses are cached.
-
-    This function needs to be run after executing `consolidated_metadata` since
-    in that function, the cache_session object contains special metadata in its
-    headers. It also requires that the pydap dataset associated with the BaseType
-    `var`, is in Batch=True mode.
-
-    Parameters:
-    ----------
-        ds: Dataset | GroupType (DAP4)
-            Must `batch=True` and point to remote data.
-        cache: dict
-            Where dimension array data will be stored.
-        checksums: bool (Default=True)
-            Whether the dap response was requested with checksum=true. If true,
-            there is a checksum value inbetween each variable within the dap
-            response. when `checksum=False`, the dap response was created without the
-            checksum per variable. Important info for decoding
-
-    Returns:
-        cache: dict
-            contains the dimension array data decoded into numpy arrays.
-    """
-
-    import pydap
-
-    var_name = list(ds.variables())[0]
-    baseurl = ds[var_name].data.baseurl
-    session = ds.dataset.session
-    cache_urls = session.cache.urls()
-    miss_url, curr_url = recover_missing_url(cache_urls, baseurl)
-    dap_urls = miss_url + curr_url
-    for URL in set(dap_urls):
-        r = session.get(URL, stream=True)
-        pyds = pydap.handlers.dap.UNPACKDAP4DATA(r, checksums=checksums).dataset
-        for name in pyds.keys():
-            # get fully qualifying name here?
-            cache[pyds[name].id] = np.asarray(pyds[name].data)
-    return cache
-
-
-def resolve_batch_for_all_variables(array, key=None, checksums=True):
-    """
-    Resolves a batch promise for all non-dimension variables within the
-    parent container.
-    """
-    import pydap
-
-    dataset = array.dataset
-    # get the fully qualifying name of all variables in dataset
-    Variables = [
-        var.id
-        for var in walk(dataset, pydap.model.BaseType)
-        if var.name not in var.parent.dimensions
-    ]
-
-    if dataset._current_batch_promise is None:
-        dataset._current_batch_promise = BatchPromise()
-        _slice = slice(None) if not key else key
-        for name in Variables:
-            var = dataset[name]
-            if not var._is_data_loaded():
-                var._pending_batch_slice = _slice
-                var._batch_promise = dataset._current_batch_promise
-                dataset.register_for_batch(var, checksums=checksums)
-
-        dataset._start_batch_timer()
-
-
-def recover_missing_url(cached_urls, baseurl):
-    """
-    given a list of opendap (dap4) urls, it reconstructs missing dap url
-    along with its constraints, that matches the corresponding cached url that
-    fetches identical data.
-
-    Returns:
-
-
-    """
-    import pydap.client as client
-
-    dap_urls = [url for url in cached_urls if url.split("?")[0].endswith(".dap")]
-    common_prefix = client.compute_base_url_prefix(dap_urls)
-    # the following is a test on its own it len(dap_ulrs)=0 then there is something
-    # wrong (for example - some of the cached urls contain urls from different
-    # collection)
-    dap_urls = [
-        url
-        for url in dap_urls
-        if url.split("?")[0][: len(common_prefix)] == common_prefix
-    ]
-
-    base_urls = [url.split(".dap")[0] for url in dap_urls]
-
-    # find all currently matching dap url that have been cached
-    current_dap_urls = [
-        url for url in cached_urls if url.split(".dap")[0] == baseurl.split(".dap")[0]
-    ]
-
-    duplicate = [item for item, count in Counter(base_urls).items() if count > 1]
-    if len(duplicate) == 1:
-        # assume there is only one repeated base url - produce of
-        # consolidate metadata with freshly created session object
-        duplicate = duplicate[0]
-    else:
-        warnings.warn(
-            "Could not figure out dap urls. Clear your session cache and start again"
-        )
-
-    queries = [
-        url.split("?")[-1]
-        for url in dap_urls
-        if url.split("?")[0] == duplicate + ".dap"
-    ]
-
-    new_dap_urls = [baseurl + ".dap?" + query for query in queries]
-    missing_dap_urls = [url for url in new_dap_urls if url not in cached_urls]
-    paired_urls = [
-        duplicate + ".dap" + url.split(".dap")[1] for url in missing_dap_urls
-    ]
-
-    return paired_urls, current_dap_urls
-
-
-class BatchPromise:
-    def __init__(self):
-        self._event = threading.Event()
-        self._results = {}
-
-    def set_results(self, results):
-        self._results = results
-        self._event.set()
-
-    def wait_for_result(self, var_id):
-        self._event.wait()
-        return self._results[var_id]
-
-    def is_resolved(self):
-        return self._event.is_set()
 
 
 class StreamReader(object):

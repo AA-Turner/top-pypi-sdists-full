@@ -917,3 +917,6 @@ def _typecheckingstub__b7fa00c6eee8344d2d7dec9a9b3e5aabd291377b56af4261818a52177
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IFact]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

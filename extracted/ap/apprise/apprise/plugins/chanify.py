@@ -53,7 +53,7 @@ class NotifyChanify(NotifyBase):
     secure_protocol = "chanify"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_chanify"
+    setup_url = "https://appriseit.com/services/chanify/"
 
     # Notification URL
     notify_url = "https://api.chanify.net/v1/sender/{token}/"
@@ -146,7 +146,8 @@ class NotifyChanify(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

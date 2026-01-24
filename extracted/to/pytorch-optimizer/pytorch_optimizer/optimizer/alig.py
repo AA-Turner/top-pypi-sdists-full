@@ -4,34 +4,35 @@ import torch
 
 from pytorch_optimizer.base.exception import NoClosureError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.utils import get_global_gradient_norm
 
 
 @torch.no_grad()
-def l2_projection(parameters: PARAMETERS, max_norm: float = 1e2):
+def l2_projection(parameters: Parameters, max_norm: float = 1e2) -> None:
     r"""Get l2 normalized parameter."""
-    global_norm = torch.sqrt(sum(p.norm().pow(2) for p in parameters))
+    global_norm = torch.sqrt(sum(p.norm().pow(2) for p in parameters or []))
     if global_norm > max_norm:
         ratio = max_norm / global_norm
-        for param in parameters:
+        for param in parameters or []:
             param.mul_(ratio)
 
 
 class AliG(BaseOptimizer):
-    r"""Adaptive Learning Rates for Interpolation with Gradients.
+    """Adaptive Learning Rates for Interpolation with Gradients.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param max_lr: Optional[float]. max learning rate.
-    :param projection_fn: Callable. projection function to enforce constraints.
-    :param momentum: float. momentum.
-    :param adjusted_momentum: bool. if True, use pytorch-like momentum, instead of standard Nesterov momentum.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        max_lr (Optional[float]): Maximum learning rate.
+        projection_fn (Callable): Projection function to enforce constraints.
+        momentum (float): Momentum factor.
+        adjusted_momentum (bool): If True, use PyTorch-like momentum instead of standard Nesterov momentum.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         max_lr: Optional[float] = None,
         projection_fn: Optional[Callable] = None,
         momentum: float = 0.0,
@@ -45,7 +46,7 @@ class AliG(BaseOptimizer):
         self.projection_fn = projection_fn
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'max_lr': max_lr, 'adjusted_momentum': adjusted_momentum, 'momentum': momentum}
+        defaults: Defaults = {'max_lr': max_lr, 'adjusted_momentum': adjusted_momentum, 'momentum': momentum}
 
         super().__init__(params, defaults)
 
@@ -55,8 +56,11 @@ class AliG(BaseOptimizer):
     def __str__(self) -> str:
         return 'AliG'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        momentum: float = kwargs.get('momentum')
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
+        momentum: float = kwargs.get('momentum', 0.9)
 
         for p in group['params']:
             if p.grad is None:
@@ -80,7 +84,7 @@ class AliG(BaseOptimizer):
         return loss / global_grad_norm.item()
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
+    def step(self, closure: Closure = None) -> Loss:
         if closure is None:
             raise NoClosureError('AliG', '(e.g. `optimizer.step(lambda: float(loss))`).')
 
@@ -91,11 +95,8 @@ class AliG(BaseOptimizer):
         for group in self.param_groups:
             momentum = group['momentum']
 
-            if 'step' not in group:
-                self.init_group(group, momentum=momentum)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group, momentum=momentum)
+            group['step'] += 1
 
             step_size = group['step_size'] = (
                 min(un_clipped_step_size, group['max_lr']) if group['max_lr'] is not None else un_clipped_step_size

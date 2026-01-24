@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
 import pandas as pd
@@ -22,7 +20,6 @@ formats = {
     "csc": csc_matrix,
     "csr": csr_matrix,
     "coo": coo_matrix,
-    "array": np.ndarray,
 }
 
 pytestmark = pytest.mark.filterwarnings(
@@ -66,7 +63,7 @@ def test_dummy_last():
 def test_invalid_format():
     cats = np.zeros([10, 1], dtype=np.int8)
     cats[5:, 0] = 1
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Unknown format"):
         dummy_matrix(cats, output_format="unknown", precondition=False)
 
 
@@ -85,19 +82,15 @@ def test_dummy_precondition():
     c1 = pd.Series(pd.Categorical(["a"] * 5 + ["b"] * 5 + ["c"] * 5))
     c2 = pd.Series(pd.Categorical(["A", "B", "C", "D", "E"] * 3))
     cats = pd.concat([c1, c2], axis=1)
-    out_arr, cond_arr = dummy_matrix(
-        cats, output_format="array", drop="last", precondition=True
-    )
     csc = dummy_matrix(cats, output_format="csc", drop="last", precondition=True)
     out_csc: csc_matrix = csc[0]
     cond_csc: np.ndarray = csc[1]
     csr = dummy_matrix(cats, output_format="csr", drop="last", precondition=True)
     out_csr: csr_matrix = csr[0]
     cond_csr: np.ndarray = csr[1]
-    assert_allclose((out_arr**2).sum(0), np.ones(out_arr.shape[1]))
-    assert_allclose((out_csc.multiply(out_csc)).sum(0).A1, np.ones(out_arr.shape[1]))
-    assert_allclose(cond_arr, cond_csc)
+    assert_allclose((out_csc.multiply(out_csc)).sum(0).A1, np.ones(out_csc.shape[1]))
     assert_allclose(cond_csr, cond_csc)
+    assert isinstance(out_csc, csc_matrix)
     assert isinstance(out_csr, csr_matrix)
 
 
@@ -132,10 +125,10 @@ def test_drop_singletons_slow():
     cols = {"c1": c1.copy(), "c2": c2.copy()}
     for _ in range(40000):
         last = cols["c1"].shape[0]
-        for col in cols:
-            keep = in_2core_graph_slow(cols[col])
-            for col2 in cols:
-                cols[col2] = cols[col2][keep]
+        for col_value in cols.values():
+            keep = in_2core_graph_slow(col_value)
+            for col2, col2_value in cols.items():
+                cols[col2] = col2_value[keep]
             idx = idx[keep]
         if cols["c1"].shape[0] == last:
             break
@@ -177,7 +170,7 @@ def test_drop_singletons_pandas():
     c2 = rs.randint(0, 20000, (40000, 1))
     df = [
         pd.Series([f"{let}{c}" for c in cat.ravel()], dtype="category")
-        for let, cat in zip("AB", (c1, c2))
+        for let, cat in zip("AB", (c1, c2), strict=False)
     ]
     df = pd.concat(df, axis=1)
     df.columns = ["cat1", "cat2"]
@@ -269,5 +262,5 @@ def test_all_absorbed_const():
 def test_all_absorbed_exception():
     x_orig = np.random.standard_normal((200, 3))
     x = x_orig * 1e-32
-    with pytest.raises(AbsorbingEffectError, match="All exog variables have been"):
+    with pytest.raises(AbsorbingEffectError, match=r"All exog variables have been"):
         check_absorbed(x, ["a", "b", "c"], x_orig)

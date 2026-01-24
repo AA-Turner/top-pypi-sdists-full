@@ -22,6 +22,11 @@ class SimpleStreamingServiceStub(object):
             request_serializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeRequest.SerializeToString,
             response_deserializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeResponse.FromString,
         )
+        self.TestStreamingResolver = channel.unary_unary(
+            "/chalk.streaming.v1.SimpleStreamingService/TestStreamingResolver",
+            request_serializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverRequest.SerializeToString,
+            response_deserializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverResponse.FromString,
+        )
 
 
 class SimpleStreamingServiceServicer(object):
@@ -35,6 +40,15 @@ class SimpleStreamingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TestStreamingResolver(self, request, context):
+        """Test a streaming resolver with provided messages.
+        Supports testing both deployed resolvers and static/undeployed resolvers.
+        Returns a signed URL to download the test results.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SimpleStreamingServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -42,6 +56,11 @@ def add_SimpleStreamingServiceServicer_to_server(servicer, server):
             servicer.SimpleStreamingUnaryInvoke,
             request_deserializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeRequest.FromString,
             response_serializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeResponse.SerializeToString,
+        ),
+        "TestStreamingResolver": grpc.unary_unary_rpc_method_handler(
+            servicer.TestStreamingResolver,
+            request_deserializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverRequest.FromString,
+            response_serializer=chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -73,6 +92,35 @@ class SimpleStreamingService(object):
             "/chalk.streaming.v1.SimpleStreamingService/SimpleStreamingUnaryInvoke",
             chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeRequest.SerializeToString,
             chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.SimpleStreamingUnaryInvokeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def TestStreamingResolver(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.streaming.v1.SimpleStreamingService/TestStreamingResolver",
+            chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverRequest.SerializeToString,
+            chalk_dot_streaming_dot_v1_dot_simple__streaming__service__pb2.TestStreamingResolverResponse.FromString,
             options,
             channel_credentials,
             insecure,

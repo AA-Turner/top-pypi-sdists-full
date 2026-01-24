@@ -1,5 +1,7 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
+from chalk._gen.chalk.server.v1 import team_pb2 as _team_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
@@ -15,13 +17,18 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class CloudComponentVpc(_message.Message):
-    __slots__ = ("name", "config")
+    __slots__ = ("name", "config", "designator")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CONFIG_FIELD_NUMBER: _ClassVar[int]
+    DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     name: str
     config: CloudVpcConfig
+    designator: str
     def __init__(
-        self, name: _Optional[str] = ..., config: _Optional[_Union[CloudVpcConfig, _Mapping]] = ...
+        self,
+        name: _Optional[str] = ...,
+        config: _Optional[_Union[CloudVpcConfig, _Mapping]] = ...,
+        designator: _Optional[str] = ...,
     ) -> None: ...
 
 class CloudComponentVpcResponse(_message.Message):
@@ -126,6 +133,18 @@ class DeleteCloudComponentVpcRequest(_message.Message):
 class DeleteCloudComponentVpcResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class ListCloudComponentVpcRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class ListCloudComponentVpcResponse(_message.Message):
+    __slots__ = ("vpcs",)
+    VPCS_FIELD_NUMBER: _ClassVar[int]
+    vpcs: _containers.RepeatedCompositeFieldContainer[CloudComponentVpcResponse]
+    def __init__(self, vpcs: _Optional[_Iterable[_Union[CloudComponentVpcResponse, _Mapping]]] = ...) -> None: ...
 
 class CloudVpcConfig(_message.Message):
     __slots__ = ("aws", "gcp")
@@ -293,15 +312,90 @@ class CloudComponentStorageRequest(_message.Message):
     ) -> None: ...
 
 class CloudComponentCluster(_message.Message):
-    __slots__ = ("name", "designator", "kubernetes_version")
+    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     KUBERNETES_VERSION_FIELD_NUMBER: _ClassVar[int]
+    DNS_ZONE_FIELD_NUMBER: _ClassVar[int]
     name: str
     designator: str
     kubernetes_version: str
+    dns_zone: str
     def __init__(
-        self, name: _Optional[str] = ..., designator: _Optional[str] = ..., kubernetes_version: _Optional[str] = ...
+        self,
+        name: _Optional[str] = ...,
+        designator: _Optional[str] = ...,
+        kubernetes_version: _Optional[str] = ...,
+        dns_zone: _Optional[str] = ...,
+    ) -> None: ...
+
+class DeploymentManifest(_message.Message):
+    __slots__ = ("cluster_deployment", "vpc_deployment", "create", "delete", "update", "event_bus")
+    CLUSTER_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    VPC_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    CREATE_FIELD_NUMBER: _ClassVar[int]
+    DELETE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    EVENT_BUS_FIELD_NUMBER: _ClassVar[int]
+    cluster_deployment: ClusterDeploymentManifest
+    vpc_deployment: VpcDeploymentManifest
+    create: DeploymentManifestCreate
+    delete: DeploymentManifestDelete
+    update: DeploymentManifestUpdate
+    event_bus: str
+    def __init__(
+        self,
+        cluster_deployment: _Optional[_Union[ClusterDeploymentManifest, _Mapping]] = ...,
+        vpc_deployment: _Optional[_Union[VpcDeploymentManifest, _Mapping]] = ...,
+        create: _Optional[_Union[DeploymentManifestCreate, _Mapping]] = ...,
+        delete: _Optional[_Union[DeploymentManifestDelete, _Mapping]] = ...,
+        update: _Optional[_Union[DeploymentManifestUpdate, _Mapping]] = ...,
+        event_bus: _Optional[str] = ...,
+    ) -> None: ...
+
+class DeploymentManifestCreate(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeploymentManifestDelete(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeploymentManifestUpdate(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ClusterDeploymentManifest(_message.Message):
+    __slots__ = ("cluster", "cloud_config", "team", "vpc")
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TEAM_FIELD_NUMBER: _ClassVar[int]
+    VPC_FIELD_NUMBER: _ClassVar[int]
+    cluster: CloudComponentCluster
+    cloud_config: _environment_pb2.CloudConfig
+    team: _team_pb2.Team
+    vpc: CloudComponentVpc
+    def __init__(
+        self,
+        cluster: _Optional[_Union[CloudComponentCluster, _Mapping]] = ...,
+        cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
+        team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
+        vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
+    ) -> None: ...
+
+class VpcDeploymentManifest(_message.Message):
+    __slots__ = ("vpc", "cloud_config", "team")
+    VPC_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    TEAM_FIELD_NUMBER: _ClassVar[int]
+    vpc: CloudComponentVpc
+    cloud_config: _environment_pb2.CloudConfig
+    team: _team_pb2.Team
+    def __init__(
+        self,
+        vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
+        cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
+        team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
     ) -> None: ...
 
 class CloudComponentClusterResponse(_message.Message):
@@ -430,6 +524,40 @@ class DeleteCloudComponentClusterResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class TestClusterConnectionRequest(_message.Message):
+    __slots__ = ("id", "config")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    config: CloudComponentClusterRequest
+    def __init__(
+        self, id: _Optional[str] = ..., config: _Optional[_Union[CloudComponentClusterRequest, _Mapping]] = ...
+    ) -> None: ...
+
+class TestClusterConnectionResponse(_message.Message):
+    __slots__ = ("success", "message", "error")
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    success: bool
+    message: str
+    error: str
+    def __init__(self, success: bool = ..., message: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
+
+class ListCloudComponentClusterRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class ListCloudComponentClusterResponse(_message.Message):
+    __slots__ = ("clusters",)
+    CLUSTERS_FIELD_NUMBER: _ClassVar[int]
+    clusters: _containers.RepeatedCompositeFieldContainer[CloudComponentClusterResponse]
+    def __init__(
+        self, clusters: _Optional[_Iterable[_Union[CloudComponentClusterResponse, _Mapping]]] = ...
+    ) -> None: ...
+
 class CreateCloudComponentStorageRequest(_message.Message):
     __slots__ = ("storage",)
     STORAGE_FIELD_NUMBER: _ClassVar[int]
@@ -463,6 +591,20 @@ class DeleteCloudComponentStorageRequest(_message.Message):
 class DeleteCloudComponentStorageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class ListCloudComponentStorageRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class ListCloudComponentStorageResponse(_message.Message):
+    __slots__ = ("storages",)
+    STORAGES_FIELD_NUMBER: _ClassVar[int]
+    storages: _containers.RepeatedCompositeFieldContainer[CloudComponentStorageResponse]
+    def __init__(
+        self, storages: _Optional[_Iterable[_Union[CloudComponentStorageResponse, _Mapping]]] = ...
+    ) -> None: ...
 
 class CreateBindingClusterGatewayRequest(_message.Message):
     __slots__ = ("cluster_id", "cluster_gateway_id")

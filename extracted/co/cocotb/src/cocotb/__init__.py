@@ -96,11 +96,13 @@ SIM_VERSION: str
 """The version of the running simulator."""
 
 RANDOM_SEED: int
-"""
-The value passed to the Python global random number generator.
+"""The last value used to seed the global PRNG.
 
-See :envvar:`COCOTB_RANDOM_SEED` for details on how the value is computed.
-This is guaranteed to hold a value at test time.
+During test collection, this is set to the value provided by :envvar:`COCOTB_RANDOM_SEED`,
+if given, or a random value based on the state of the operating system.
+
+During test run, this is set to a new value computed by combining the value used during test collection,
+with the full test name (e.g. ``my_test_module.my_test``).
 """
 
 top: "SimHandleBase"
@@ -116,10 +118,10 @@ is_simulation: bool = False
 """``True`` if cocotb was loaded in a simulation."""
 
 
-if sys.version_info < (3, 8):
+if sys.version_info < (3, 9):
     import warnings
 
     warnings.warn(
-        "Support for Python versions < 3.8 will be dropped in version 2.1",
+        "Support for Python versions < 3.9 will be dropped in version 2.1",
         FutureWarning,
     )

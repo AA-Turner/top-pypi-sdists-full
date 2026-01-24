@@ -250,6 +250,7 @@ def test_tf_keras_imdb_lstm(random_seed):
 )
 def test_tf_deep_imbdb_transformers():
     # GH 3522
+    pytest.importorskip("torch")
     transformers = pytest.importorskip("transformers")
 
     from shap import models
@@ -360,6 +361,7 @@ def test_pytorch_mnist_cnn_call(torch_device, interim):
                 nn.ConvTranspose2d(20, 20, 1),
                 nn.AdaptiveAvgPool2d(output_size=(4, 4)),
                 nn.Softplus(),
+                nn.Flatten(),
             )
             self.fc_layers = nn.Sequential(
                 nn.Linear(320, 50), nn.BatchNorm1d(50), nn.ReLU(), nn.Linear(50, 10), nn.ELU(), nn.Softmax(dim=1)
@@ -368,7 +370,7 @@ def test_pytorch_mnist_cnn_call(torch_device, interim):
         def forward(self, x):
             """Run the model."""
             x = self.conv_layers(x)
-            x = x.view(-1, 320)
+            x = x.view(-1, 320)  # Redundant as `Flatten`, left as a test
             x = self.fc_layers(x)
             return x
 

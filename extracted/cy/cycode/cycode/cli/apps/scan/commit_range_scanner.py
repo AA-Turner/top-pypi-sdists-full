@@ -26,9 +26,9 @@ from cycode.cli.files_collector.commit_range_documents import (
     get_diff_file_path,
     get_pre_commit_modified_documents,
     get_safe_head_reference_for_diff,
-    parse_commit_range_sast,
-    parse_commit_range_sca,
+    parse_commit_range,
 )
+from cycode.cli.files_collector.documents_walk_ignore import filter_documents_with_cycodeignore
 from cycode.cli.files_collector.file_excluder import excluder
 from cycode.cli.files_collector.models.in_memory_zip import InMemoryZip
 from cycode.cli.files_collector.sca.sca_file_collector import (
@@ -40,7 +40,11 @@ from cycode.cli.models import Document
 from cycode.cli.utils.git_proxy import git_proxy
 from cycode.cli.utils.path_utils import get_path_by_os
 from cycode.cli.utils.progress_bar import ScanProgressBarSection
-from cycode.cli.utils.scan_utils import generate_unique_scan_id, set_issue_detected_by_scan_results
+from cycode.cli.utils.scan_utils import (
+    generate_unique_scan_id,
+    is_cycodeignore_allowed_by_scan_config,
+    set_issue_detected_by_scan_results,
+)
 from cycode.cyclient.models import ZippedFileScanResult
 from cycode.logger import get_logger
 
@@ -182,12 +186,18 @@ def _scan_commit_range_documents(
 def _scan_sca_commit_range(ctx: typer.Context, repo_path: str, commit_range: str, **_) -> None:
     scan_parameters = get_scan_parameters(ctx, (repo_path,))
 
-    from_commit_rev, to_commit_rev = parse_commit_range_sca(commit_range, repo_path)
+    from_commit_rev, to_commit_rev, _ = parse_commit_range(commit_range, repo_path)
     from_commit_documents, to_commit_documents, _ = get_commit_range_modified_documents(
         ctx.obj['progress_bar'], ScanProgressBarSection.PREPARE_LOCAL_FILES, repo_path, from_commit_rev, to_commit_rev
     )
     from_commit_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SCA_SCAN_TYPE, from_commit_documents)
     to_commit_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SCA_SCAN_TYPE, to_commit_documents)
+
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    from_commit_documents = filter_documents_with_cycodeignore(
+        from_commit_documents, repo_path, is_cycodeignore_allowed
+    )
+    to_commit_documents = filter_documents_with_cycodeignore(to_commit_documents, repo_path, is_cycodeignore_allowed)
 
     perform_sca_pre_commit_range_scan_actions(
         repo_path, from_commit_documents, from_commit_rev, to_commit_documents, to_commit_rev
@@ -204,6 +214,11 @@ def _scan_secret_commit_range(
         consts.SECRET_SCAN_TYPE, commit_diff_documents_to_scan
     )
 
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    diff_documents_to_scan = filter_documents_with_cycodeignore(
+        diff_documents_to_scan, repo_path, is_cycodeignore_allowed
+    )
+
     scan_documents(
         ctx, diff_documents_to_scan, get_scan_parameters(ctx, (repo_path,)), is_git_diff=True, is_commit_range=True
     )
@@ -212,7 +227,7 @@ def _scan_secret_commit_range(
 def _scan_sast_commit_range(ctx: typer.Context, repo_path: str, commit_range: str, **_) -> None:
     scan_parameters = get_scan_parameters(ctx, (repo_path,))
 
-    from_commit_rev, to_commit_rev = parse_commit_range_sast(commit_range, repo_path)
+    from_commit_rev, to_commit_rev, _ = parse_commit_range(commit_range, repo_path)
     _, commit_documents, diff_documents = get_commit_range_modified_documents(
         ctx.obj['progress_bar'],
         ScanProgressBarSection.PREPARE_LOCAL_FILES,
@@ -221,8 +236,13 @@ def _scan_sast_commit_range(ctx: typer.Context, repo_path: str, commit_range: st
         to_commit_rev,
         reverse_diff=False,
     )
+
     commit_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SAST_SCAN_TYPE, commit_documents)
     diff_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SAST_SCAN_TYPE, diff_documents)
+
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    commit_documents = filter_documents_with_cycodeignore(commit_documents, repo_path, is_cycodeignore_allowed)
+    diff_documents = filter_documents_with_cycodeignore(diff_documents, repo_path, is_cycodeignore_allowed)
 
     _scan_commit_range_documents(ctx, commit_documents, diff_documents, scan_parameters=scan_parameters)
 
@@ -254,9 +274,16 @@ def _scan_sca_pre_commit(ctx: typer.Context, repo_path: str) -> None:
         progress_bar_section=ScanProgressBarSection.PREPARE_LOCAL_FILES,
         repo_path=repo_path,
     )
+
     git_head_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SCA_SCAN_TYPE, git_head_documents)
     pre_committed_documents = excluder.exclude_irrelevant_documents_to_scan(
         consts.SCA_SCAN_TYPE, pre_committed_documents
+    )
+
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    git_head_documents = filter_documents_with_cycodeignore(git_head_documents, repo_path, is_cycodeignore_allowed)
+    pre_committed_documents = filter_documents_with_cycodeignore(
+        pre_committed_documents, repo_path, is_cycodeignore_allowed
     )
 
     perform_sca_pre_hook_range_scan_actions(repo_path, git_head_documents, pre_committed_documents)
@@ -288,7 +315,11 @@ def _scan_secret_pre_commit(ctx: typer.Context, repo_path: str) -> None:
                 is_git_diff_format=True,
             )
         )
+
     documents_to_scan = excluder.exclude_irrelevant_documents_to_scan(consts.SECRET_SCAN_TYPE, documents_to_scan)
+
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    documents_to_scan = filter_documents_with_cycodeignore(documents_to_scan, repo_path, is_cycodeignore_allowed)
 
     scan_documents(ctx, documents_to_scan, get_scan_parameters(ctx), is_git_diff=True)
 
@@ -301,10 +332,17 @@ def _scan_sast_pre_commit(ctx: typer.Context, repo_path: str, **_) -> None:
         progress_bar_section=ScanProgressBarSection.PREPARE_LOCAL_FILES,
         repo_path=repo_path,
     )
+
     pre_committed_documents = excluder.exclude_irrelevant_documents_to_scan(
         consts.SAST_SCAN_TYPE, pre_committed_documents
     )
     diff_documents = excluder.exclude_irrelevant_documents_to_scan(consts.SAST_SCAN_TYPE, diff_documents)
+
+    is_cycodeignore_allowed = is_cycodeignore_allowed_by_scan_config(ctx)
+    pre_committed_documents = filter_documents_with_cycodeignore(
+        pre_committed_documents, repo_path, is_cycodeignore_allowed
+    )
+    diff_documents = filter_documents_with_cycodeignore(diff_documents, repo_path, is_cycodeignore_allowed)
 
     _scan_commit_range_documents(ctx, pre_committed_documents, diff_documents, scan_parameters=scan_parameters)
 

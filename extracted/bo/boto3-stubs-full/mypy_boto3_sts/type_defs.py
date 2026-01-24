@@ -3,7 +3,7 @@ Type annotations for sts service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sts/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,13 +17,9 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from collections.abc import Sequence
-else:
-    from typing import Dict, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -47,10 +43,14 @@ __all__ = (
     "GetAccessKeyInfoRequestTypeDef",
     "GetAccessKeyInfoResponseTypeDef",
     "GetCallerIdentityResponseTypeDef",
+    "GetDelegatedAccessTokenRequestTypeDef",
+    "GetDelegatedAccessTokenResponseTypeDef",
     "GetFederationTokenRequestTypeDef",
     "GetFederationTokenResponseTypeDef",
     "GetSessionTokenRequestTypeDef",
     "GetSessionTokenResponseTypeDef",
+    "GetWebIdentityTokenRequestTypeDef",
+    "GetWebIdentityTokenResponseTypeDef",
     "PolicyDescriptorTypeTypeDef",
     "ProvidedContextTypeDef",
     "ResponseMetadataTypeDef",
@@ -87,7 +87,7 @@ class CredentialsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -103,6 +103,10 @@ class FederatedUserTypeDef(TypedDict):
 
 class GetAccessKeyInfoRequestTypeDef(TypedDict):
     AccessKeyId: str
+
+
+class GetDelegatedAccessTokenRequestTypeDef(TypedDict):
+    TradeInToken: str
 
 
 class GetSessionTokenRequestTypeDef(TypedDict):
@@ -155,6 +159,13 @@ class GetFederationTokenRequestTypeDef(TypedDict):
     Name: str
     Policy: NotRequired[str]
     PolicyArns: NotRequired[Sequence[PolicyDescriptorTypeTypeDef]]
+    DurationSeconds: NotRequired[int]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class GetWebIdentityTokenRequestTypeDef(TypedDict):
+    Audience: Sequence[str]
+    SigningAlgorithm: str
     DurationSeconds: NotRequired[int]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
@@ -214,8 +225,21 @@ class GetCallerIdentityResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetDelegatedAccessTokenResponseTypeDef(TypedDict):
+    Credentials: CredentialsTypeDef
+    PackedPolicySize: int
+    AssumedPrincipal: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetSessionTokenResponseTypeDef(TypedDict):
     Credentials: CredentialsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetWebIdentityTokenResponseTypeDef(TypedDict):
+    WebIdentityToken: str
+    Expiration: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 

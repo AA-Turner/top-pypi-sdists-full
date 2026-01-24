@@ -19,6 +19,7 @@ from typing import Tuple
 from orso.tools import random_string
 from orso.types import OrsoTypes
 
+from opteryx.config import RESOURCES_PATH
 from opteryx.exceptions import UnnamedColumnError
 from opteryx.exceptions import UnsupportedSyntaxError
 from opteryx.managers.expression import NodeType
@@ -365,6 +366,7 @@ def inner_query_planner(ast_branch: dict) -> LogicalPlan:
         _order_by_columns = [exp[0] for exp in _order_by]
 
     # projection
+    project_step = None
     if not (
         len(_projection) == 1
         and _projection[0].node_type == NodeType.WILDCARD
@@ -407,12 +409,13 @@ def inner_query_planner(ast_branch: dict) -> LogicalPlan:
             ]
 
             # Remove columns from ORDER BY that match the source of a wildcard in the projection
-            for proj_col in [pc for pc in _projection if pc.node_type == NodeType.WILDCARD]:
-                _order_by_columns_not_in_projection = [
-                    ord_col
-                    for ord_col in _order_by_columns_not_in_projection
-                    if ord_col.source != proj_col.value[0]
-                ]
+            if _projection[0].except_columns is None:
+                for proj_col in [pc for pc in _projection if pc.node_type == NodeType.WILDCARD]:
+                    _order_by_columns_not_in_projection = [
+                        ord_col
+                        for ord_col in _order_by_columns_not_in_projection
+                        if ord_col.source != proj_col.value[0]
+                    ]
 
         project_step = LogicalPlanNode(node_type=LogicalPlanStepType.Project)
         project_step.columns = _projection
@@ -422,8 +425,17 @@ def inner_query_planner(ast_branch: dict) -> LogicalPlan:
         inner_plan.add_node(step_id, project_step)
         if previous_step_id is not None:
             inner_plan.add_edge(previous_step_id, step_id)
-    else:
-        _order_by_columns_not_in_projection = []
+
+    # EXCEPT with ORDER BY creates complex situations
+    if project_step and project_step.except_columns and _order_by_columns_not_in_projection:
+        if any(
+            col.source_column in {c.source_column for c in project_step.except_columns}
+            for col in project_step.order_by_columns
+        ):
+            raise UnsupportedSyntaxError(
+                "Cannot ORDER BY columns excluded by the EXCEPT clause in the projection."
+            )
+        project_step.order_by_columns = []
 
     # having
     _having = logical_planner_builders.build(ast_branch["Select"].get("having"))
@@ -611,18 +623,11 @@ def create_node_relation(relation: dict):
             if "Values" not in subquery["subquery"]["body"]:
                 # SUBQUERY nodes wrap other queries and the result is available as a relation in
                 # the parent query.
-                #
-                # We have the name of the relation (alias), the query is added as a query plan to
-                # the parent plan.
-                if subquery["alias"] is None:
-                    from opteryx.exceptions import UnnamedSubqueryError
-
-                    raise UnnamedSubqueryError(
-                        "Ensure you provide a name for all subqueries in FROM or JOIN clauses by using AS)."
-                    )
-
                 subquery_step = LogicalPlanNode(node_type=LogicalPlanStepType.Subquery)
-                subquery_step.alias = subquery["alias"]["name"]["value"]
+                if subquery["alias"] is None:
+                    subquery_step.alias = f"$subquery-{random_string(6)}"
+                else:
+                    subquery_step.alias = subquery["alias"]["name"]["value"]
                 step_id = random_string()
                 sub_plan.add_node(step_id, subquery_step)
 
@@ -780,7 +785,7 @@ def plan_execute_query(statement, **kwargs) -> LogicalPlan:
     statement_name = statement["Execute"]["name"][0]["Identifier"]["value"].upper()
     parameters = dict(build_parm(p) for p in statement["Execute"]["parameters"])
     try:
-        with open("prepared_statements.json", "r") as ps:
+        with open(RESOURCES_PATH / "prepared_statements.json", "r") as ps:
             prepared_statatements = {str(k).upper(): v for k, v in orjson.loads(ps.read()).items()}
     except (OSError, ValueError):
         prepared_statatements = {}
@@ -823,8 +828,12 @@ def plan_explain(statement, **kwargs) -> LogicalPlan:
     plan = LogicalPlan()
     explain_node = LogicalPlanNode(node_type=LogicalPlanStepType.Explain)
     explain_node.analyze = statement["Explain"]["analyze"]
-    explain_node.format = statement["Explain"]["format"] or "TEXT"
+    explain_format = statement["Explain"].get("format")
 
+    if explain_format is None:
+        explain_node.format = "TEXT"
+    else:
+        explain_node.format = explain_format.get("Keyword", "TEXT").upper()
     if explain_node.format == "GRAPHVIZ":
         explain_node.format = "MERMAID"
 

@@ -19,6 +19,8 @@ class _NetworkFileSystem(modal._object._Object):
     By attaching this file system as a mount to one or more functions, they can
     share and persist data with each other.
 
+    **Note: `NetworkFileSystem` has been deprecated and will be removed.**
+
     **Usage**
 
     ```python
@@ -52,7 +54,12 @@ class _NetworkFileSystem(modal._object._Object):
     """
     @staticmethod
     def from_name(
-        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
+        name: str,
+        *,
+        namespace=None,
+        environment_name: typing.Optional[str] = None,
+        create_if_missing: bool = False,
+        client: typing.Optional[modal.client._Client] = None,
     ) -> _NetworkFileSystem:
         """Reference a NetworkFileSystem by its name, creating if necessary.
 
@@ -88,29 +95,6 @@ class _NetworkFileSystem(modal._object._Object):
         ```python notest
         async with modal.NetworkFileSystem.ephemeral() as nfs:
             assert await nfs.listdir("/") == []
-        ```
-        """
-        ...
-
-    @staticmethod
-    async def lookup(
-        name: str,
-        namespace=None,
-        client: typing.Optional[modal.client._Client] = None,
-        environment_name: typing.Optional[str] = None,
-        create_if_missing: bool = False,
-    ) -> _NetworkFileSystem:
-        """mdmd:hidden
-        Lookup a named NetworkFileSystem.
-
-        DEPRECATED: This method is deprecated in favor of `modal.NetworkFileSystem.from_name`.
-
-        In contrast to `modal.NetworkFileSystem.from_name`, this is an eager method
-        that will hydrate the local object with metadata from Modal servers.
-
-        ```python notest
-        nfs = modal.NetworkFileSystem.lookup("my-nfs")
-        print(nfs.listdir("/"))
         ```
         """
         ...
@@ -184,13 +168,13 @@ class _NetworkFileSystem(modal._object._Object):
         """Remove a file in a network file system."""
         ...
 
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
-
 class NetworkFileSystem(modal.object.Object):
     """A shared, writable file system accessible by one or more Modal functions.
 
     By attaching this file system as a mount to one or more functions, they can
     share and persist data with each other.
+
+    **Note: `NetworkFileSystem` has been deprecated and will be removed.**
 
     **Usage**
 
@@ -229,7 +213,12 @@ class NetworkFileSystem(modal.object.Object):
 
     @staticmethod
     def from_name(
-        name: str, *, namespace=None, environment_name: typing.Optional[str] = None, create_if_missing: bool = False
+        name: str,
+        *,
+        namespace=None,
+        environment_name: typing.Optional[str] = None,
+        create_if_missing: bool = False,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> NetworkFileSystem:
         """Reference a NetworkFileSystem by its name, creating if necessary.
 
@@ -247,78 +236,52 @@ class NetworkFileSystem(modal.object.Object):
         """
         ...
 
-    @classmethod
-    def ephemeral(
-        cls: type[NetworkFileSystem],
-        client: typing.Optional[modal.client.Client] = None,
-        environment_name: typing.Optional[str] = None,
-        _heartbeat_sleep: float = 300,
-    ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[NetworkFileSystem]:
-        """Creates a new ephemeral network filesystem within a context manager:
-
-        Usage:
-        ```python
-        with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert nfs.listdir("/") == []
-        ```
-
-        ```python notest
-        async with modal.NetworkFileSystem.ephemeral() as nfs:
-            assert await nfs.listdir("/") == []
-        ```
-        """
-        ...
-
-    class __lookup_spec(typing_extensions.Protocol):
+    class __ephemeral_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
-            name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
-        ) -> NetworkFileSystem:
-            """mdmd:hidden
-            Lookup a named NetworkFileSystem.
+            _heartbeat_sleep: float = 300,
+        ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[NetworkFileSystem]:
+            """Creates a new ephemeral network filesystem within a context manager:
 
-            DEPRECATED: This method is deprecated in favor of `modal.NetworkFileSystem.from_name`.
-
-            In contrast to `modal.NetworkFileSystem.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
+            Usage:
+            ```python
+            with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert nfs.listdir("/") == []
+            ```
 
             ```python notest
-            nfs = modal.NetworkFileSystem.lookup("my-nfs")
-            print(nfs.listdir("/"))
+            async with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert await nfs.listdir("/") == []
             ```
             """
             ...
 
-        async def aio(
+        def aio(
             self,
             /,
-            name: str,
-            namespace=None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
-            create_if_missing: bool = False,
-        ) -> NetworkFileSystem:
-            """mdmd:hidden
-            Lookup a named NetworkFileSystem.
+            _heartbeat_sleep: float = 300,
+        ) -> typing.AsyncContextManager[NetworkFileSystem]:
+            """Creates a new ephemeral network filesystem within a context manager:
 
-            DEPRECATED: This method is deprecated in favor of `modal.NetworkFileSystem.from_name`.
-
-            In contrast to `modal.NetworkFileSystem.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
+            Usage:
+            ```python
+            with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert nfs.listdir("/") == []
+            ```
 
             ```python notest
-            nfs = modal.NetworkFileSystem.lookup("my-nfs")
-            print(nfs.listdir("/"))
+            async with modal.NetworkFileSystem.ephemeral() as nfs:
+                assert await nfs.listdir("/") == []
             ```
             """
             ...
 
-    lookup: __lookup_spec
+    ephemeral: typing.ClassVar[__ephemeral_spec]
 
     class __create_deployed_spec(typing_extensions.Protocol):
         def __call__(
@@ -343,7 +306,7 @@ class NetworkFileSystem(modal.object.Object):
             """mdmd:hidden"""
             ...
 
-    create_deployed: __create_deployed_spec
+    create_deployed: typing.ClassVar[__create_deployed_spec]
 
     class __delete_spec(typing_extensions.Protocol):
         def __call__(
@@ -361,9 +324,9 @@ class NetworkFileSystem(modal.object.Object):
             environment_name: typing.Optional[str] = None,
         ): ...
 
-    delete: __delete_spec
+    delete: typing.ClassVar[__delete_spec]
 
-    class __write_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __write_file_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -396,9 +359,9 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-    write_file: __write_file_spec[typing_extensions.Self]
+    write_file: __write_file_spec
 
-    class __read_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __read_file_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str) -> typing.Iterator[bytes]:
             """Read a file from the network file system"""
             ...
@@ -407,9 +370,9 @@ class NetworkFileSystem(modal.object.Object):
             """Read a file from the network file system"""
             ...
 
-    read_file: __read_file_spec[typing_extensions.Self]
+    read_file: __read_file_spec
 
-    class __iterdir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __iterdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str) -> typing.Iterator[modal.volume.FileEntry]:
             """Iterate over all files in a directory in the network file system.
 
@@ -430,9 +393,9 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-    iterdir: __iterdir_spec[typing_extensions.Self]
+    iterdir: __iterdir_spec
 
-    class __add_local_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __add_local_file_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -448,9 +411,9 @@ class NetworkFileSystem(modal.object.Object):
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ): ...
 
-    add_local_file: __add_local_file_spec[typing_extensions.Self]
+    add_local_file: __add_local_file_spec
 
-    class __add_local_dir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __add_local_dir_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -466,9 +429,9 @@ class NetworkFileSystem(modal.object.Object):
             progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         ): ...
 
-    add_local_dir: __add_local_dir_spec[typing_extensions.Self]
+    add_local_dir: __add_local_dir_spec
 
-    class __listdir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __listdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str) -> list[modal.volume.FileEntry]:
             """List all files in a directory in the network file system.
 
@@ -489,9 +452,9 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-    listdir: __listdir_spec[typing_extensions.Self]
+    listdir: __listdir_spec
 
-    class __remove_file_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __remove_file_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, recursive=False):
             """Remove a file in a network file system."""
             ...
@@ -500,4 +463,4 @@ class NetworkFileSystem(modal.object.Object):
             """Remove a file in a network file system."""
             ...
 
-    remove_file: __remove_file_spec[typing_extensions.Self]
+    remove_file: __remove_file_spec

@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """
 Pytest auto configuration.
@@ -13,12 +13,14 @@ import os
 import sys
 import warnings
 
-from collections.abc import Iterator
+from collections.abc import Iterable
 
+import hypothesis
 import pytest
 
 from coverage.files import set_relative_directory
-from coverage.patch import create_pth_files
+
+from tests import testenv
 
 
 # Pytest will rewrite assertions in test modules, but not elsewhere.
@@ -32,6 +34,14 @@ pytest.register_assert_rewrite("tests.helpers")
 pytest_plugins = [
     "tests.select_plugin",
 ]
+
+# Control the Hypothesis settings.
+# $set_env.py: HYPOTHESIS_PROFILE - "slow": 25k examples; "250k"
+hypothesis.settings.register_profile("slow", max_examples=25_000)
+hypothesis.settings.register_profile("250k", max_examples=250_000)
+# In CI, using the database makes the first draw take more than a second.
+hypothesis.settings.register_profile("ci", database=None, max_examples=1000)
+hypothesis.settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "default"))
 
 
 @pytest.fixture(autouse=True)
@@ -57,14 +67,17 @@ def set_warnings() -> None:
     # https://github.com/python/cpython/issues/105539
     warnings.filterwarnings("ignore", r"unclosed database", category=ResourceWarning)
 
-    warnings.filterwarnings("ignore", r".*no-sysmon")
-
     # We have a test that has a return in a finally: test_bug_1891.
     warnings.filterwarnings("ignore", "'return' in a 'finally' block", category=SyntaxWarning)
 
+    # For when our own tests can't use sysmon though it was requested.
+    warnings.filterwarnings("ignore", r".*no-sysmon")
+    if testenv.CORE != "ctrace":
+        warnings.filterwarnings("ignore", r".*no-ctracer")
+
 
 @pytest.fixture(autouse=True)
-def reset_sys_path() -> Iterator[None]:
+def reset_sys_path() -> Iterable[None]:
     """Clean up sys.path changes around every test."""
     sys_path = list(sys.path)
     yield
@@ -72,7 +85,7 @@ def reset_sys_path() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def reset_environment() -> Iterator[None]:
+def reset_environment() -> Iterable[None]:
     """Make sure a test setting an envvar doesn't leak into another test."""
     old_environ = os.environ.copy()
     yield
@@ -92,15 +105,3 @@ def force_local_pyc_files() -> None:
     # For some tests, we need .pyc files written in the current directory,
     # so override any local setting.
     sys.pycache_prefix = None
-
-
-# Give this an underscored name so pylint won't complain when we use the fixture.
-@pytest.fixture(name="_create_pth_file")
-def create_pth_file_fixture() -> Iterator[None]:
-    """Create and clean up a .pth file for tests that need it for subprocesses."""
-    pth_files = create_pth_files()
-    try:
-        yield
-    finally:
-        for p in pth_files:
-            p.unlink()

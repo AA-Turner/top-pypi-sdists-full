@@ -1,16 +1,16 @@
 [build-system]
 build-backend = "poetry.core.masonry.api"
-requires = [ "poetry-core>=2.0" ]
+requires = [ "poetry-core>=2.2" ]
 
-[project]
+[tool.poetry]
 name = "wemake-python-styleguide"
-version = "1.4.0"
+version = "1.5.0"
 description = "The strictest and most opinionated python linter ever"
-
-license = {text = "MIT"}
+license = "MIT"
+requires-poetry = ">=2.2"
 
 authors = [
-  {name = "Nikita Sobolev", email = "mail@sobolevn.me"}
+  "Nikita Sobolev <mail@sobolevn.me>",
 ]
 
 readme = "README.md"
@@ -37,7 +37,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 
-[project.urls]
+[tool.poetry.urls]
 Homepage = "https://wemake-python-styleguide.rtfd.io"
 Repository = "https://github.com/wemake-services/wemake-python-styleguide"
 Funding = "https://opencollective.com/wemake-python-styleguide"
@@ -57,15 +57,15 @@ pygments = "^2.19"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4"
-pytest-cov = "^6.2"
-pytest-randomly = "^3.12"
+pytest-cov = "^7.0"
+pytest-randomly = "^4.0"
 pytest-xdist = "^3.8"
 covdefaults = "^2.3"
-syrupy = "^4.6"
+syrupy = "^5.0"
 hypothesis = "^6.135"
 hypothesmith = "^0.3"
 
-mypy = "^1.17"
+mypy = "^1.19"
 types-flake8 = "^7.3"
 
 import-linter = "^2.0"
@@ -73,8 +73,7 @@ import-linter = "^2.0"
 astpath = "^0.9"
 lxml = "^6.0"
 nbqa = "^1.2"
-ruff = "^0.12"
-black = "^25.1"
+ruff = "^0.14"
 
 [tool.poetry.group.docs]
 optional = true
@@ -88,17 +87,6 @@ added-value = "^0.24"
 tomli = "^2.0"
 myst-parser = "^4.0"
 
-[tool.black]
-line-length = 80
-preview = true
-skip-string-normalization = true # we use '
-target-version = [ 'py310' ]
-# Exclude intentionally bad files:
-extend-exclude = '''
-(
-  tests/.*/__snapshots__/.* | tests/fixtures/.*
-)
-'''
 
 [tool.ruff]
 # Ruff config: https://docs.astral.sh/ruff/settings
@@ -171,6 +159,7 @@ ignore = [
   "D401",
   "D404",
   "D405",
+  "D418",  # We should be able to add docstrings to `@overload` decorators
   "ISC001",  # implicit string concat conflicts with `ruff format`
   "ISC003",  # prefer explicit string concat over implicit concat
   "PLR09",   # we have our own complexity rules
@@ -240,6 +229,11 @@ omit = [
 # Here we specify plugins for coverage to be used:
 plugins = [
   "covdefaults",
+]
+
+# Required since 7.10:
+patch = [
+  "subprocess",
 ]
 
 [tool.mypy]

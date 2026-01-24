@@ -1,0 +1,19 @@
+---
+- name: Delete existing mirroring configuration
+  sonic_mirroring:
+    config: {}
+    state: deleted
+  failed_when: false
+
+- name: Initialize LAG interfaces
+  sonic_lag_interfaces:
+    config:
+      - name: Portchannel100
+        members:
+          interfaces:
+            - member: "{{ interface3 }}"
+      - name: Portchannel200
+        members:
+          interfaces:
+            - member: "{{ interface4 }}"
+  failed_when: false

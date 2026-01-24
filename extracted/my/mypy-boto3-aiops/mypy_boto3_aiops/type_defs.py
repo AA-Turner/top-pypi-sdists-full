@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 
 from .literals import EncryptionConfigurationTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -76,7 +71,7 @@ EncryptionConfigurationTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -179,15 +174,15 @@ class GetInvestigationGroupResponseTypeDef(TypedDict):
     roleArn: str
     encryptionConfiguration: EncryptionConfigurationTypeDef
     retentionInDays: int
-    chatbotNotificationChannel: Dict[str, List[str]]
-    tagKeyBoundaries: List[str]
+    chatbotNotificationChannel: dict[str, list[str]]
+    tagKeyBoundaries: list[str]
     isCloudTrailEventHistoryEnabled: bool
-    crossAccountConfigurations: List[CrossAccountConfigurationTypeDef]
+    crossAccountConfigurations: list[CrossAccountConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -201,6 +196,6 @@ class ListInvestigationGroupsInputPaginateTypeDef(TypedDict):
 
 
 class ListInvestigationGroupsOutputTypeDef(TypedDict):
-    investigationGroups: List[ListInvestigationGroupsModelTypeDef]
+    investigationGroups: list[ListInvestigationGroupsModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

@@ -29,7 +29,9 @@ class ButtonViewConfig(WBCoreViewConfig):
         Returns:
             Yield the serialized button, without duplicates and appends the module prefix to the remote button
         """
-        base_buttons = list(zip([None] * len(base_buttons), base_buttons))  # append an empty perfix for base buttons
+        base_buttons = list(
+            zip([None] * len(base_buttons), base_buttons, strict=False)
+        )  # append an empty perfix for base buttons
         for prefix, btn in parse_signal_received_for_module(remote_resources):
             base_buttons.append((prefix, btn))
 
@@ -54,25 +56,30 @@ class ButtonViewConfig(WBCoreViewConfig):
     FSM_WEIGHT = 100
 
     def get_fsm_buttons(self) -> set:
-        if self.FSM_DROPDOWN and (FSM_BUTTONS := getattr(self.view, "FSM_BUTTONS")) and len(FSM_BUTTONS) > 0:
+        if self.FSM_DROPDOWN and (fsm_buttons := self.view.FSM_BUTTONS) and len(fsm_buttons) > 0:
             return {
                 DropDownButton(
                     label=self.FSM_DROPDOWN_LABEL,
                     icon=self.FSM_DROPDOWN_ICON,
                     title=self.FSM_DROPDOWN_LABEL,
                     weight=self.FSM_WEIGHT,
-                    buttons=tuple(FSM_BUTTONS),
+                    buttons=tuple(fsm_buttons),
                 )
             }
         return getattr(self.view, "FSM_BUTTONS", set())
 
     # Create Button Configuration
-    CREATE_BUTTONS = frozenset({Button.SAVE.value})
+    CREATE_BUTTONS = frozenset(
+        {
+            Button.SAVE.value,
+            Button.SAVE_AND_CLOSE.value,
+            Button.SAVE_AND_NEW.value,
+        }
+    )
     CREATE_BUTTONS_ORDERING = [
         Button.SAVE.value,
         Button.SAVE_AND_CLOSE.value,
         Button.SAVE_AND_NEW.value,
-        Button.RESET.value,
     ]
 
     def get_create_buttons(self) -> Iterable:
@@ -113,8 +120,11 @@ class ButtonViewConfig(WBCoreViewConfig):
         return set(self.CUSTOM_EXTRA_BUTTONS)
 
     def _get_custom_extra_buttons(self):
+        buttons = self.get_custom_extra_buttons()
+        if hasattr(self.view, "add_extra_buttons") and (extra_buttons := self.view.add_extra_buttons(self.request)):
+            buttons.update(extra_buttons)
         yield from self.serialize(
-            self.get_custom_extra_buttons(),
+            buttons,
             add_extra_button.send(
                 self.view.__class__, instance=self.instance, request=self.request, view=self.view, **self.view.kwargs
             ),

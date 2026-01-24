@@ -355,7 +355,7 @@ class WarehouseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["warehouse"]:
+        if _params["warehouse"] is not None:
             _body_params = _params["warehouse"]
 
         # set the HTTP header `Accept`
@@ -585,7 +585,7 @@ class WarehouseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["warehouse"]:
+        if _params["warehouse"] is not None:
             _body_params = _params["warehouse"]
 
         # set the HTTP header `Accept`
@@ -1890,7 +1890,7 @@ class WarehouseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["warehouse"]:
+        if _params["warehouse"] is not None:
             _body_params = _params["warehouse"]
 
         # set the HTTP header `Accept`

@@ -540,12 +540,12 @@ class SecurityGroup(pulumi.CustomResource):
         example_provisioner0 = command.local.Command("exampleProvisioner0",
             create=true,
             update=true,
-            delete=f            ENDPOINT_ID=`aws ec2 describe-vpc-endpoints --filters "Name=tag:Name,Values={tags.workaround1}" --query "VpcEndpoints[0].VpcEndpointId" --output text` &&
+            delete=f            ENDPOINT_ID=`aws ec2 describe-vpc-endpoints --filters \\"Name=tag:Name,Values={tags.workaround1}\\" --query \\"VpcEndpoints[0].VpcEndpointId\\" --output text` &&
                     aws ec2 modify-vpc-endpoint --vpc-endpoint-id ${{ENDPOINT_ID}} --add-security-group-ids {tags.workaround2} --remove-security-group-ids {id}
         ,
             opts = pulumi.ResourceOptions(depends_on=[example]))
         example_resource = null.Resource("example", triggers={
-            "rerun_upon_change_of": std.join(separator=",",
+            "rerunUponChangeOf": std.join(separator=",",
                 input=example_aws_vpc_endpoint["securityGroupIds"]).result,
         })
         example_resource_provisioner0 = command.local.Command("exampleResourceProvisioner0", create=f            aws ec2 modify-vpc-endpoint --vpc-endpoint-id {example_aws_vpc_endpoint.id} --remove-security-group-ids {default.id}
@@ -555,11 +555,21 @@ class SecurityGroup(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the security group.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import Security Groups using the security group `id`. For example:
 
-        ```sh
-        $ pulumi import aws:ec2/securityGroup:SecurityGroup elb_sg sg-903004f8
-        ```
+        % pulumi import aws_security_group.example sg-903004f8
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -729,12 +739,12 @@ class SecurityGroup(pulumi.CustomResource):
         example_provisioner0 = command.local.Command("exampleProvisioner0",
             create=true,
             update=true,
-            delete=f            ENDPOINT_ID=`aws ec2 describe-vpc-endpoints --filters "Name=tag:Name,Values={tags.workaround1}" --query "VpcEndpoints[0].VpcEndpointId" --output text` &&
+            delete=f            ENDPOINT_ID=`aws ec2 describe-vpc-endpoints --filters \\"Name=tag:Name,Values={tags.workaround1}\\" --query \\"VpcEndpoints[0].VpcEndpointId\\" --output text` &&
                     aws ec2 modify-vpc-endpoint --vpc-endpoint-id ${{ENDPOINT_ID}} --add-security-group-ids {tags.workaround2} --remove-security-group-ids {id}
         ,
             opts = pulumi.ResourceOptions(depends_on=[example]))
         example_resource = null.Resource("example", triggers={
-            "rerun_upon_change_of": std.join(separator=",",
+            "rerunUponChangeOf": std.join(separator=",",
                 input=example_aws_vpc_endpoint["securityGroupIds"]).result,
         })
         example_resource_provisioner0 = command.local.Command("exampleResourceProvisioner0", create=f            aws ec2 modify-vpc-endpoint --vpc-endpoint-id {example_aws_vpc_endpoint.id} --remove-security-group-ids {default.id}
@@ -744,11 +754,21 @@ class SecurityGroup(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        * `id` (String) ID of the security group.
+
+        #### Optional
+
+        * `account_id` (String) AWS Account where this resource is managed.
+
+        * `region` (String) Region where this resource is managed.
+
         Using `pulumi import`, import Security Groups using the security group `id`. For example:
 
-        ```sh
-        $ pulumi import aws:ec2/securityGroup:SecurityGroup elb_sg sg-903004f8
-        ```
+        % pulumi import aws_security_group.example sg-903004f8
 
         :param str resource_name: The name of the resource.
         :param SecurityGroupArgs args: The arguments to use to populate this resource's properties.

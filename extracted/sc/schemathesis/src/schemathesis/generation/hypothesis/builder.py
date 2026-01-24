@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import warnings
+from collections.abc import Callable, Generator, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
 from itertools import combinations
 from time import perf_counter
-from typing import Any, Callable, Generator, Mapping
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiBody
 
 import hypothesis
 from hypothesis import Phase, Verbosity
@@ -21,21 +26,29 @@ from schemathesis import auths
 from schemathesis.auths import AuthStorage, AuthStorageMark
 from schemathesis.config import GenerationConfig, ProjectConfig
 from schemathesis.core import INJECTED_PATH_PARAMETER_KEY, NOT_SET, NotSet, SpecificationFeature, media_types
-from schemathesis.core.errors import InvalidSchema, SerializationNotPossible
+from schemathesis.core.errors import (
+    IncorrectUsage,
+    InfiniteRecursiveReference,
+    InvalidSchema,
+    MalformedMediaType,
+    SerializationNotPossible,
+    UnresolvableReference,
+)
 from schemathesis.core.marks import Mark
+from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import prepare_urlencoded
 from schemathesis.core.validation import has_invalid_characters, is_latin_1_encodable
 from schemathesis.generation import GenerationMode, coverage
 from schemathesis.generation.case import Case
-from schemathesis.generation.hypothesis import examples, setup, strategies
+from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.hypothesis.examples import add_single_example
-from schemathesis.generation.hypothesis.given import GivenInput
+from schemathesis.generation.hypothesis.given import GivenInput, format_given_and_schema_examples_error
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
-    ComponentKind,
     CoveragePhaseData,
+    CoverageScenario,
     GenerationInfo,
     PhaseInfo,
 )
@@ -106,9 +119,7 @@ def create_test(
         **config.as_strategy_kwargs,
     }
     generation = config.project.generation_for(operation=operation)
-    strategy = strategies.combine(
-        [operation.as_strategy(generation_mode=mode, **strategy_kwargs) for mode in generation.modes]
-    )
+    strategy = st.one_of(operation.as_strategy(generation_mode=mode, **strategy_kwargs) for mode in generation.modes)
 
     hypothesis_test = create_base_test(
         test_function=test_func,
@@ -117,26 +128,47 @@ def create_test(
         kwargs=config.given_kwargs,
     )
 
-    if config.seed is not None:
+    ApiOperationMark.set(hypothesis_test, operation)
+
+    if config.seed is not None and not hasattr(test_func, "_hypothesis_internal_use_seed"):
         hypothesis_test = hypothesis.seed(config.seed)(hypothesis_test)
 
-    default = hypothesis.settings.default
-    settings = getattr(hypothesis_test, SETTINGS_ATTRIBUTE_NAME, None)
-    assert settings is not None
+    # Get user's explicit settings from their @settings decorator (if present)
+    user_explicit_settings = getattr(test_func, SETTINGS_ATTRIBUTE_NAME, None)
 
-    if settings.verbosity == default.verbosity:
-        settings = hypothesis.settings(settings, verbosity=Verbosity.quiet)
+    # Get settings from the @given wrapper (inherits from loaded profile or default)
+    given_settings = getattr(hypothesis_test, SETTINGS_ATTRIBUTE_NAME, None)
+    assert given_settings is not None
+
+    # Determine the source of user's settings:
+    # - User's @settings decorator takes priority
+    # - Otherwise use @given settings (which inherit from loaded profile or default)
+    if user_explicit_settings is not None:
+        user_settings = user_explicit_settings
+    else:
+        user_settings = given_settings
+
+    default = hypothesis.settings.default
+    if user_settings.verbosity == default.verbosity:
+        user_settings = hypothesis.settings(user_settings, verbosity=Verbosity.quiet)
 
     if config.settings is not None:
-        # Merge the user-provided settings with the current ones
-        settings = hypothesis.settings(
-            config.settings,
-            **{
-                item: getattr(settings, item)
-                for item in all_settings
-                if getattr(settings, item) != getattr(default, item)
-            },
-        )
+        # Get hypothesis' built-in defaults (not affected by loaded profiles)
+        hypothesis_defaults = hypothesis.settings.get_profile("default")
+
+        # Merge strategy:
+        # - Use schemathesis' config.settings as base (provides operational defaults)
+        # - Override with user's customizations (values that differ from hypothesis built-in defaults)
+        # This respects both @settings decorators and loaded profiles while allowing
+        # schemathesis to set its operational requirements (deadline, verbosity, etc.)
+        overrides = {
+            item: getattr(user_settings, item)
+            for item in all_settings
+            if getattr(user_settings, item) != getattr(hypothesis_defaults, item)
+        }
+        settings = hypothesis.settings(config.settings, **overrides)
+    else:
+        settings = user_settings
 
     if Phase.explain in settings.phases:
         phases = tuple(phase for phase in settings.phases if phase != Phase.explain)
@@ -158,6 +190,22 @@ def create_test(
         and specification.supports_feature(SpecificationFeature.EXAMPLES)
     ):
         phases_config = config.project.phases_for(operation=operation)
+        # Check if user provided custom strategies via @schema.given()
+        # AND the operation actually has examples
+        # These are incompatible because examples only provide 'case' while custom strategies require additional parameters
+        if config.given_kwargs:
+            # Check if there are actually examples to add
+            try:
+                example_strategies = list(operation.get_strategies_from_examples(**strategy_kwargs))
+            except Exception:
+                # If we can't get examples (invalid schema, etc), let add_examples handle it
+                example_strategies = []
+
+            if example_strategies:
+                # Get the parameter names from given_kwargs to show in error message
+                param_names = ", ".join(sorted(config.given_kwargs.keys()))
+                raise IncorrectUsage(format_given_and_schema_examples_error(param_names))
+
         hypothesis_test = add_examples(
             hypothesis_test,
             operation,
@@ -221,8 +269,8 @@ def create_base_test(
 
     funcobj = hypothesis.given(*args, **{**kwargs, "case": strategy})(test_wrapper)
 
-    if asyncio.iscoroutinefunction(test_function):
-        funcobj.hypothesis.inner_test = make_async_test(test_function)  # type: ignore
+    if inspect.iscoroutinefunction(test_function):
+        funcobj.hypothesis.inner_test = make_async_test(test_function)
     return funcobj
 
 
@@ -263,16 +311,15 @@ def generate_example_cases(
     **kwargs: Any,
 ) -> Generator[Case]:
     """Add examples to the Hypothesis test, if they are specified in the schema."""
-    from hypothesis_jsonschema._canonicalise import HypothesisRefResolutionError
-
     try:
         result: list[Case] = [
             examples.generate_one(strategy) for strategy in operation.get_strategies_from_examples(**kwargs)
         ]
     except (
         InvalidSchema,
-        HypothesisRefResolutionError,
+        InfiniteRecursiveReference,
         Unsatisfiable,
+        UnresolvableReference,
         SerializationNotPossible,
         SchemaError,
     ) as exc:
@@ -283,6 +330,10 @@ def generate_example_cases(
             NonSerializableMark.set(test, exc)
         if isinstance(exc, SchemaError):
             InvalidRegexMark.set(test, exc)
+        if isinstance(exc, InfiniteRecursiveReference):
+            InfiniteRecursiveReferenceMark.set(test, exc)
+        if isinstance(exc, UnresolvableReference):
+            UnresolvableReferenceMark.set(test, exc)
 
     if fill_missing and not result:
         strategy = operation.as_strategy()
@@ -347,7 +398,7 @@ def generate_coverage_cases(
     unexpected_methods: set[str],
     generation_config: GenerationConfig,
 ) -> Generator[Case]:
-    from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
+    from schemathesis.core.parameters import LOCATION_TO_CONTAINER
 
     auth_context = auths.AuthContext(
         operation=operation,
@@ -397,7 +448,7 @@ class Template:
     __slots__ = ("_components", "_template", "_serializers")
 
     def __init__(self, serializers: dict[str, Callable]) -> None:
-        self._components: dict[ComponentKind, ComponentInfo] = {}
+        self._components: dict[ParameterLocation, ComponentInfo] = {}
         self._template: dict[str, Any] = {}
         self._serializers = serializers
 
@@ -410,24 +461,20 @@ class Template:
     def get(self, key: str, default: Any = None) -> dict:
         return self._template.get(key, default)
 
-    def add_parameter(self, location: str, name: str, value: coverage.GeneratedValue) -> None:
-        from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
-
-        component_name = LOCATION_TO_CONTAINER[location]
-        kind = ComponentKind(component_name)
-        info = self._components.get(kind)
+    def add_parameter(self, location: ParameterLocation, name: str, value: coverage.GeneratedValue) -> None:
+        info = self._components.get(location)
         if info is None:
-            self._components[kind] = ComponentInfo(mode=value.generation_mode)
+            self._components[location] = ComponentInfo(mode=value.generation_mode)
         elif value.generation_mode == GenerationMode.NEGATIVE:
             info.mode = GenerationMode.NEGATIVE
 
-        container = self._template.setdefault(component_name, {})
+        container = self._template.setdefault(location.container_name, {})
         container[name] = value.value
 
     def set_body(self, body: coverage.GeneratedValue, media_type: str) -> None:
         self._template["body"] = body.value
         self._template["media_type"] = media_type
-        self._components[ComponentKind.BODY] = ComponentInfo(mode=body.generation_mode)
+        self._components[ParameterLocation.BODY] = ComponentInfo(mode=body.generation_mode)
 
     def _serialize(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         from schemathesis.specs.openapi._hypothesis import quote_all
@@ -454,21 +501,24 @@ class Template:
     def with_body(self, *, media_type: str, value: coverage.GeneratedValue) -> TemplateValue:
         kwargs = {**self._template, "media_type": media_type, "body": value.value}
         kwargs = self._serialize(kwargs)
-        components = {**self._components, ComponentKind.BODY: ComponentInfo(mode=value.generation_mode)}
+        components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=value.generation_mode)}
         return TemplateValue(kwargs=kwargs, components=components)
 
-    def with_parameter(self, *, location: str, name: str, value: coverage.GeneratedValue) -> TemplateValue:
-        from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
-
-        container_name = LOCATION_TO_CONTAINER[location]
-        container = self._template[container_name]
-        return self.with_container(
-            container_name=container_name, value={**container, name: value.value}, generation_mode=value.generation_mode
+    def with_parameter(
+        self, *, location: ParameterLocation, name: str, value: coverage.GeneratedValue
+    ) -> TemplateValue:
+        container = self._template[location.container_name]
+        return self.with_location(
+            location=location,
+            value={**container, name: value.value},
+            generation_mode=value.generation_mode,
         )
 
-    def with_container(self, *, container_name: str, value: Any, generation_mode: GenerationMode) -> TemplateValue:
-        kwargs = {**self._template, container_name: value}
-        components = {**self._components, ComponentKind(container_name): ComponentInfo(mode=generation_mode)}
+    def with_location(
+        self, *, location: ParameterLocation, value: Any, generation_mode: GenerationMode
+    ) -> TemplateValue:
+        kwargs = {**self._template, location.container_name: value}
+        components = {**self._components, location: ComponentInfo(mode=generation_mode)}
         kwargs = self._serialize(kwargs)
         return TemplateValue(kwargs=kwargs, components=components)
 
@@ -476,7 +526,7 @@ class Template:
 @dataclass
 class TemplateValue:
     kwargs: dict[str, Any]
-    components: dict[ComponentKind, ComponentInfo]
+    components: dict[ParameterLocation, ComponentInfo]
 
     __slots__ = ("kwargs", "components")
 
@@ -488,7 +538,7 @@ def _stringify_value(val: Any, container_name: str) -> Any:
         return "true"
     if val is False:
         return "false"
-    if isinstance(val, (int, float)):
+    if isinstance(val, int | float):
         return str(val)
     if isinstance(val, list):
         if container_name == "query":
@@ -501,6 +551,63 @@ def _stringify_value(val: Any, container_name: str) -> Any:
     return val
 
 
+def _generate_coverage_values_from_custom_strategy(
+    media_type: str,
+) -> Generator[coverage.GeneratedValue, None, None]:
+    """Generate coverage values from a custom media type strategy."""
+    from schemathesis.specs.openapi._hypothesis import _find_media_type_strategy
+
+    strategy = _find_media_type_strategy(media_type)
+    if strategy is None:
+        return
+
+    value: str | bytes = examples.generate_one(strategy)
+    yield coverage.GeneratedValue.with_positive(
+        value=value,
+        scenario=CoverageScenario.EXAMPLE_VALUE,
+        description=f"Custom media type: {media_type}",
+    )
+
+
+def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[str, Any] | None:
+    """Generate a body dict for multipart forms using custom encoding strategies.
+
+    Returns None if the body doesn't have custom encoding strategies or isn't a form type.
+    """
+    from schemathesis.specs.openapi._hypothesis import _find_media_type_strategy
+    from schemathesis.specs.openapi.adapter.parameters import FORM_MEDIA_TYPES
+
+    if body.media_type not in FORM_MEDIA_TYPES:
+        return None
+
+    schema = body.definition.get("schema", {})
+    properties = schema.get("properties", {})
+    required = schema.get("required", [])
+
+    result: dict[str, Any] = {}
+    has_custom_strategy = False
+
+    for prop_name in properties:
+        content_type = body.get_property_content_type(prop_name)
+        if not content_type:
+            continue
+
+        content_types = content_type if isinstance(content_type, list) else content_type.split(",")
+        for ct in content_types:
+            strategy = _find_media_type_strategy(ct.strip())
+            if strategy is not None:
+                result[prop_name] = examples.generate_one(strategy)
+                has_custom_strategy = True
+                break
+
+    for prop_name in required:
+        if prop_name not in result:
+            prop_schema = properties.get(prop_name, {})
+            result[prop_name] = b"" if prop_schema.get("format") == "binary" else ""
+
+    return result if has_custom_strategy else None
+
+
 def _iter_coverage_cases(
     *,
     operation: APIOperation,
@@ -510,70 +617,165 @@ def _iter_coverage_cases(
     generation_config: GenerationConfig,
 ) -> Generator[Case, None, None]:
     from schemathesis.specs.openapi._hypothesis import _build_custom_formats
-    from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
-    from schemathesis.specs.openapi.examples import find_in_responses, find_matching_in_responses
-    from schemathesis.specs.openapi.schemas import BaseOpenAPISchema
+    from schemathesis.specs.openapi.examples import find_matching_in_responses
+    from schemathesis.specs.openapi.media_types import MEDIA_TYPES
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
     from schemathesis.specs.openapi.serialization import get_serializers_for_operation
 
-    generators: dict[tuple[str, str], Generator[coverage.GeneratedValue, None, None]] = {}
+    generators: dict[tuple[ParameterLocation, str], Generator[coverage.GeneratedValue, None, None]] = {}
     serializers = get_serializers_for_operation(operation)
     template = Template(serializers)
 
     instant = Instant()
-    responses = find_in_responses(operation)
-    # NOTE: The HEAD method is excluded
-    unexpected_methods = unexpected_methods or {"get", "put", "post", "delete", "options", "patch", "trace"}
-    custom_formats = _build_custom_formats(generation_config)
+    responses = list(operation.responses.iter_examples())
+    custom_formats = _build_custom_formats(generation_config, GenerationMode.POSITIVE)
 
     seen_negative = coverage.HashSet()
     seen_positive = coverage.HashSet()
-    assert isinstance(operation.schema, BaseOpenAPISchema)
-    validator_cls = operation.schema.validator_cls
+    assert isinstance(operation.schema, OpenApiSchema)
+    validator_cls = operation.schema.adapter.jsonschema_validator_cls
 
     for parameter in operation.iter_parameters():
         location = parameter.location
         name = parameter.name
-        schema = parameter.as_json_schema(operation, update_quantifiers=False)
+        schema = parameter.unoptimized_schema
+        examples = parameter.examples
+        if examples:
+            schema = dict(schema)
+            schema["examples"] = examples
         for value in find_matching_in_responses(responses, parameter.name):
             schema.setdefault("examples", []).append(value)
         gen = coverage.cover_schema_iter(
             coverage.CoverageContext(
+                root_schema=schema,
                 location=location,
+                media_type=None,
                 generation_modes=generation_modes,
                 is_required=parameter.is_required,
                 custom_formats=custom_formats,
                 validator_cls=validator_cls,
+                allow_extra_parameters=generation_config.allow_extra_parameters,
             ),
             schema,
         )
         value = next(gen, NOT_SET)
         if isinstance(value, NotSet):
+            if location == ParameterLocation.PATH:
+                # Can't skip path parameters - they should be filled
+                schema = dict(schema)
+                schema.setdefault("type", "string")
+                schema.setdefault("minLength", 1)
+                gen = coverage.cover_schema_iter(
+                    coverage.CoverageContext(
+                        root_schema=schema,
+                        location=location,
+                        media_type=None,
+                        generation_modes=[GenerationMode.POSITIVE],
+                        is_required=parameter.is_required,
+                        custom_formats=custom_formats,
+                        validator_cls=validator_cls,
+                        allow_extra_parameters=generation_config.allow_extra_parameters,
+                    ),
+                    schema,
+                )
+                value = next(
+                    gen,
+                    coverage.GeneratedValue(
+                        "value",
+                        generation_mode=GenerationMode.NEGATIVE,
+                        scenario=CoverageScenario.UNSUPPORTED_PATH_PATTERN,
+                        description="Sample value for unsupported path parameter pattern",
+                        parameter=name,
+                        location="/",
+                    ),
+                )
+                template.add_parameter(location, name, value)
+                continue
             continue
         template.add_parameter(location, name, value)
         generators[(location, name)] = gen
     template_time = instant.elapsed
+    has_required_body = operation.body and any(b.is_required for b in operation.body)
+    has_generated_required_body = False
     if operation.body:
         for body in operation.body:
             instant = Instant()
-            schema = body.as_json_schema(operation, update_quantifiers=False)
-            # Definition could be a list for Open API 2.0
-            definition = body.definition if isinstance(body.definition, dict) else {}
-            examples = [example["value"] for example in definition.get("examples", {}).values() if "value" in example]
+
+            multipart_body = _generate_multipart_body_from_custom_strategies(body)
+            if multipart_body is not None:
+                if body.is_required:
+                    has_generated_required_body = True
+                if "body" not in template:
+                    template.set_body(
+                        coverage.GeneratedValue.with_positive(
+                            value=multipart_body,
+                            scenario=CoverageScenario.EXAMPLE_VALUE,
+                            description="Multipart body with custom encoding",
+                        ),
+                        body.media_type,
+                    )
+                continue
+
+            custom_gen = _generate_coverage_values_from_custom_strategy(body.media_type)
+            first_custom_value = next(custom_gen, None)
+
+            if first_custom_value is not None:
+                if body.is_required:
+                    has_generated_required_body = True
+                elapsed = instant.elapsed
+                if "body" not in template:
+                    template_time += elapsed
+                    template.set_body(first_custom_value, body.media_type)
+                data = template.with_body(value=first_custom_value, media_type=body.media_type)
+                yield operation.Case(
+                    **data.kwargs,
+                    _meta=CaseMetadata(
+                        generation=GenerationInfo(time=elapsed, mode=first_custom_value.generation_mode),
+                        components=data.components,
+                        phase=PhaseInfo.coverage(
+                            scenario=first_custom_value.scenario,
+                            description=first_custom_value.description,
+                            location=first_custom_value.location,
+                            parameter=body.media_type,
+                            parameter_location=ParameterLocation.BODY,
+                        ),
+                    ),
+                )
+                continue
+
+            schema = body.unoptimized_schema
+            examples = body.examples
             if examples:
-                schema.setdefault("examples", []).extend(examples)
+                schema = dict(schema)
+                # User-registered media types should only handle text / binary data
+                if body.media_type in MEDIA_TYPES:
+                    schema["examples"] = [example for example in examples if isinstance(example, str | bytes)]
+                else:
+                    schema["examples"] = examples
+            try:
+                media_type = media_types.parse(body.media_type)
+            except MalformedMediaType:
+                media_type = None
             gen = coverage.cover_schema_iter(
                 coverage.CoverageContext(
-                    location="body",
+                    root_schema=schema,
+                    location=ParameterLocation.BODY,
+                    media_type=media_type,
                     generation_modes=generation_modes,
                     is_required=body.is_required,
                     custom_formats=custom_formats,
                     validator_cls=validator_cls,
+                    allow_extra_parameters=generation_config.allow_extra_parameters,
                 ),
                 schema,
             )
             value = next(gen, NOT_SET)
-            if isinstance(value, NotSet):
+            if isinstance(value, NotSet) or (
+                body.media_type in MEDIA_TYPES and not isinstance(value.value, str | bytes)
+            ):
                 continue
+            if body.is_required:
+                has_generated_required_body = True
             elapsed = instant.elapsed
             if "body" not in template:
                 template_time += elapsed
@@ -588,10 +790,11 @@ def _iter_coverage_cases(
                     ),
                     components=data.components,
                     phase=PhaseInfo.coverage(
+                        scenario=value.scenario,
                         description=value.description,
                         location=value.location,
                         parameter=body.media_type,
-                        parameter_location="body",
+                        parameter_location=ParameterLocation.BODY,
                     ),
                 ),
             )
@@ -600,6 +803,9 @@ def _iter_coverage_cases(
                 instant = Instant()
                 try:
                     next_value = next(iterator)
+                    if body.media_type in MEDIA_TYPES and not isinstance(next_value.value, str | bytes):
+                        continue
+
                     data = template.with_body(value=next_value, media_type=body.media_type)
                     yield operation.Case(
                         **data.kwargs,
@@ -610,16 +816,17 @@ def _iter_coverage_cases(
                             ),
                             components=data.components,
                             phase=PhaseInfo.coverage(
+                                scenario=next_value.scenario,
                                 description=next_value.description,
                                 location=next_value.location,
                                 parameter=body.media_type,
-                                parameter_location="body",
+                                parameter_location=ParameterLocation.BODY,
                             ),
                         ),
                     )
                 except StopIteration:
                     break
-    elif GenerationMode.POSITIVE in generation_modes:
+    elif GenerationMode.POSITIVE in generation_modes and (not has_required_body or has_generated_required_body):
         data = template.unmodified()
         seen_positive.insert(data.kwargs)
         yield operation.Case(
@@ -630,7 +837,9 @@ def _iter_coverage_cases(
                     mode=GenerationMode.POSITIVE,
                 ),
                 components=data.components,
-                phase=PhaseInfo.coverage(description="Default positive test case"),
+                phase=PhaseInfo.coverage(
+                    scenario=CoverageScenario.DEFAULT_POSITIVE_TEST, description="Default positive test case"
+                ),
             ),
         )
 
@@ -646,9 +855,11 @@ def _iter_coverage_cases(
 
             if value.generation_mode == GenerationMode.NEGATIVE:
                 seen_negative.insert(data.kwargs)
-            elif value.generation_mode == GenerationMode.POSITIVE and not seen_positive.insert(data.kwargs):
-                # Was already generated before
-                continue
+            elif value.generation_mode == GenerationMode.POSITIVE:
+                if has_required_body and not has_generated_required_body:
+                    continue
+                if not seen_positive.insert(data.kwargs):
+                    continue
 
             yield operation.Case(
                 **data.kwargs,
@@ -656,6 +867,7 @@ def _iter_coverage_cases(
                     generation=GenerationInfo(time=instant.elapsed, mode=value.generation_mode),
                     components=data.components,
                     phase=PhaseInfo.coverage(
+                        scenario=value.scenario,
                         description=value.description,
                         location=value.location,
                         parameter=name,
@@ -675,7 +887,10 @@ def _iter_coverage_cases(
                 _meta=CaseMetadata(
                     generation=GenerationInfo(time=instant.elapsed, mode=GenerationMode.NEGATIVE),
                     components=data.components,
-                    phase=PhaseInfo.coverage(description=f"Unspecified HTTP method: {method.upper()}"),
+                    phase=PhaseInfo.coverage(
+                        scenario=CoverageScenario.UNSPECIFIED_HTTP_METHOD,
+                        description=f"Unspecified HTTP method: {method.upper()}",
+                    ),
                 ),
             )
         # Generate duplicate query parameters
@@ -689,8 +904,8 @@ def _iter_coverage_cases(
                 # I.e. contains just `default` value without any other keywords
                 value = container.get(parameter.name, NOT_SET)
                 if value is not NOT_SET:
-                    data = template.with_container(
-                        container_name="query",
+                    data = template.with_location(
+                        location=ParameterLocation.QUERY,
                         value={**container, parameter.name: [value, value]},
                         generation_mode=GenerationMode.NEGATIVE,
                     )
@@ -700,22 +915,22 @@ def _iter_coverage_cases(
                             generation=GenerationInfo(time=instant.elapsed, mode=GenerationMode.NEGATIVE),
                             components=data.components,
                             phase=PhaseInfo.coverage(
+                                scenario=CoverageScenario.DUPLICATE_PARAMETER,
                                 description=f"Duplicate `{parameter.name}` query parameter",
                                 parameter=parameter.name,
-                                parameter_location="query",
+                                parameter_location=ParameterLocation.QUERY,
                             ),
                         ),
                     )
         # Generate missing required parameters
         for parameter in operation.iter_parameters():
-            if parameter.is_required and parameter.location != "path":
+            if parameter.is_required and parameter.location != ParameterLocation.PATH:
                 instant = Instant()
                 name = parameter.name
                 location = parameter.location
-                container_name = LOCATION_TO_CONTAINER[location]
-                container = template.get(container_name, {})
-                data = template.with_container(
-                    container_name=container_name,
+                container = template.get(location.container_name, {})
+                data = template.with_location(
+                    location=location,
                     value={k: v for k, v in container.items() if k != name},
                     generation_mode=GenerationMode.NEGATIVE,
                 )
@@ -727,7 +942,8 @@ def _iter_coverage_cases(
                             generation=GenerationInfo(time=instant.elapsed, mode=GenerationMode.NEGATIVE),
                             components=data.components,
                             phase=PhaseInfo.coverage(
-                                description=f"Missing `{name}` at {location}",
+                                scenario=CoverageScenario.MISSING_PARAMETER,
+                                description=f"Missing `{name}` at {location.value}",
                                 parameter=name,
                                 parameter_location=location,
                             ),
@@ -735,14 +951,14 @@ def _iter_coverage_cases(
                     )
     # Generate combinations for each location
     for location, parameter_set in [
-        ("query", operation.query),
-        ("header", operation.headers),
-        ("cookie", operation.cookies),
+        (ParameterLocation.QUERY, operation.query),
+        (ParameterLocation.HEADER, operation.headers),
+        (ParameterLocation.COOKIE, operation.cookies),
     ]:
         if not parameter_set:
             continue
 
-        container_name = LOCATION_TO_CONTAINER[location]
+        container_name = location.container_name
         base_container = template.get(container_name, {})
 
         # Get required and optional parameters
@@ -753,16 +969,14 @@ def _iter_coverage_cases(
         # Helper function to create and yield a case
         def make_case(
             container_values: dict,
+            scenario: CoverageScenario,
             description: str,
-            _location: str,
-            _container_name: str,
+            _location: ParameterLocation,
             _parameter: str | None,
             _generation_mode: GenerationMode,
             _instant: Instant,
         ) -> Case:
-            data = template.with_container(
-                container_name=_container_name, value=container_values, generation_mode=_generation_mode
-            )
+            data = template.with_location(location=_location, value=container_values, generation_mode=_generation_mode)
             return operation.Case(
                 **data.kwargs,
                 _meta=CaseMetadata(
@@ -772,6 +986,7 @@ def _iter_coverage_cases(
                     ),
                     components=data.components,
                     phase=PhaseInfo.coverage(
+                        scenario=scenario,
                         description=description,
                         parameter=_parameter,
                         parameter_location=_location,
@@ -784,7 +999,7 @@ def _iter_coverage_cases(
         ) -> dict[str, Any]:
             return {
                 "properties": {
-                    parameter.name: parameter.as_json_schema(operation)
+                    parameter.name: parameter.optimized_schema
                     for parameter in _parameter_set
                     if parameter.name in combination
                 },
@@ -793,16 +1008,19 @@ def _iter_coverage_cases(
             }
 
         def _yield_negative(
-            subschema: dict[str, Any], _location: str, _container_name: str, is_required: bool
+            subschema: dict[str, Any], _location: ParameterLocation, is_required: bool
         ) -> Generator[Case, None, None]:
             iterator = iter(
                 coverage.cover_schema_iter(
                     coverage.CoverageContext(
+                        root_schema=subschema,
                         location=_location,
+                        media_type=None,
                         generation_modes=[GenerationMode.NEGATIVE],
                         is_required=is_required,
                         custom_formats=custom_formats,
                         validator_cls=validator_cls,
+                        allow_extra_parameters=generation_config.allow_extra_parameters,
                     ),
                     subschema,
                 )
@@ -813,9 +1031,9 @@ def _iter_coverage_cases(
                     more = next(iterator)
                     yield make_case(
                         more.value,
+                        more.scenario,
                         more.description,
                         _location,
-                        _container_name,
                         more.parameter,
                         GenerationMode.NEGATIVE,
                         instant,
@@ -826,27 +1044,30 @@ def _iter_coverage_cases(
         # 1. Generate only required properties
         if required and all_params != required:
             only_required = {k: v for k, v in base_container.items() if k in required}
-            if GenerationMode.POSITIVE in generation_modes:
+            if GenerationMode.POSITIVE in generation_modes and not (
+                has_required_body and not has_generated_required_body
+            ):
                 yield make_case(
                     only_required,
+                    CoverageScenario.OBJECT_ONLY_REQUIRED,
                     "Only required properties",
                     location,
-                    container_name,
                     None,
                     GenerationMode.POSITIVE,
                     Instant(),
                 )
             if GenerationMode.NEGATIVE in generation_modes:
                 subschema = _combination_schema(only_required, required, parameter_set)
-                for case in _yield_negative(subschema, location, container_name, is_required=bool(required)):
+                for case in _yield_negative(subschema, location, is_required=bool(required)):
                     kwargs = _case_to_kwargs(case)
                     if not seen_negative.insert(kwargs):
                         continue
                     assert case.meta is not None
                     assert isinstance(case.meta.phase.data, CoveragePhaseData)
                     # Already generated in one of the blocks above
-                    if location != "path" and not case.meta.phase.data.description.startswith(
-                        "Missing required property"
+                    if (
+                        location != "path"
+                        and case.meta.phase.data.scenario != CoverageScenario.OBJECT_MISSING_REQUIRED_PROPERTY
                     ):
                         yield case
 
@@ -854,46 +1075,51 @@ def _iter_coverage_cases(
         for opt_param in optional:
             combo = {k: v for k, v in base_container.items() if k in required or k == opt_param}
             if combo != base_container and GenerationMode.POSITIVE in generation_modes:
-                yield make_case(
-                    combo,
-                    f"All required properties and optional '{opt_param}'",
-                    location,
-                    container_name,
-                    None,
-                    GenerationMode.POSITIVE,
-                    Instant(),
-                )
+                if not (has_required_body and not has_generated_required_body):
+                    yield make_case(
+                        combo,
+                        CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
+                        f"All required properties and optional '{opt_param}'",
+                        location,
+                        None,
+                        GenerationMode.POSITIVE,
+                        Instant(),
+                    )
                 if GenerationMode.NEGATIVE in generation_modes:
                     subschema = _combination_schema(combo, required, parameter_set)
-                    for case in _yield_negative(subschema, location, container_name, is_required=bool(required)):
+                    for case in _yield_negative(subschema, location, is_required=bool(required)):
                         assert case.meta is not None
                         assert isinstance(case.meta.phase.data, CoveragePhaseData)
                         # Already generated in one of the blocks above
-                        if location != "path" and not case.meta.phase.data.description.startswith(
-                            "Missing required property"
+                        if (
+                            location != "path"
+                            and case.meta.phase.data.scenario != CoverageScenario.OBJECT_MISSING_REQUIRED_PROPERTY
                         ):
                             yield case
 
         # 3. Generate one combination for each size from 2 to N-1 of optional parameters
-        if len(optional) > 1 and GenerationMode.POSITIVE in generation_modes:
+        if (
+            len(optional) > 1
+            and GenerationMode.POSITIVE in generation_modes
+            and not (has_required_body and not has_generated_required_body)
+        ):
             for size in range(2, len(optional)):
                 for combination in combinations(optional, size):
                     combo = {k: v for k, v in base_container.items() if k in required or k in combination}
                     if combo != base_container:
                         yield make_case(
                             combo,
+                            CoverageScenario.OBJECT_REQUIRED_AND_OPTIONAL,
                             f"All required and {size} optional properties",
                             location,
-                            container_name,
                             None,
                             GenerationMode.POSITIVE,
                             Instant(),
                         )
+                        break
 
 
 def _case_to_kwargs(case: Case) -> dict:
-    from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
-
     kwargs = {}
     for container_name in LOCATION_TO_CONTAINER.values():
         value = getattr(case, container_name)
@@ -915,3 +1141,6 @@ NonSerializableMark = Mark[SerializationNotPossible](attr_name="non_serializable
 InvalidRegexMark = Mark[SchemaError](attr_name="invalid_regex")
 InvalidHeadersExampleMark = Mark[dict[str, str]](attr_name="invalid_example_header")
 MissingPathParameters = Mark[InvalidSchema](attr_name="missing_path_parameters")
+InfiniteRecursiveReferenceMark = Mark[InfiniteRecursiveReference](attr_name="infinite_recursive_reference")
+UnresolvableReferenceMark = Mark[UnresolvableReference](attr_name="unresolvable_reference")
+ApiOperationMark = Mark[APIOperation](attr_name="api_operation")

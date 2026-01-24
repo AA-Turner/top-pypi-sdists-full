@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint
-Version: 3.3.8
+Version: 4.0.4
 Summary: python code static checker
 Author-email: Python Code Quality Authority <code-quality@python.org>
 License-Expression: GPL-2.0-or-later
@@ -18,27 +18,27 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: CONTRIBUTORS.txt
-Requires-Dist: astroid<=3.4.0.dev0,>=3.3.8
+Requires-Dist: astroid<=4.1.dev0,>=4.0.2
 Requires-Dist: colorama>=0.4.5; sys_platform == "win32"
 Requires-Dist: dill>=0.2; python_version < "3.11"
 Requires-Dist: dill>=0.3.6; python_version >= "3.11"
 Requires-Dist: dill>=0.3.7; python_version >= "3.12"
-Requires-Dist: isort!=5.13,<7,>=4.2.5
+Requires-Dist: isort!=5.13,<8,>=5
 Requires-Dist: mccabe<0.8,>=0.6
 Requires-Dist: platformdirs>=2.2
 Requires-Dist: tomli>=1.1; python_version < "3.11"
@@ -97,7 +97,7 @@ What is Pylint?
 ---------------
 
 Pylint is a `static code analyser`_ for Python 2 or 3. The latest version supports Python
-3.9.0 and above.
+3.10.0 and above.
 
 .. _`static code analyser`: https://en.wikipedia.org/wiki/Static_code_analysis
 
@@ -207,8 +207,8 @@ Pylint ships with two additional tools:
 - pyreverse_ (standalone tool that generates package and class diagrams.)
 - symilar_  (duplicate code finder that is also integrated in pylint)
 
-.. _pyreverse: https://pylint.readthedocs.io/en/latest/pyreverse.html
-.. _symilar: https://pylint.readthedocs.io/en/latest/symilar.html
+.. _pyreverse: https://pylint.readthedocs.io/en/latest/additional_tools/pyreverse/index.html
+.. _symilar: https://pylint.readthedocs.io/en/latest/additional_tools/symilar/index.html
 
 
 .. This is used inside the doc to recover the end of the introduction

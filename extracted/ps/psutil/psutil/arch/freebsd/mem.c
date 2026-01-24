@@ -4,20 +4,18 @@
  * found in the LICENSE file.
  */
 
-
 #include <Python.h>
-#include <sys/param.h>
+#include <kvm.h>
 #include <sys/sysctl.h>
 #include <sys/vmmeter.h>
 #include <vm/vm_param.h>
-#include <devstat.h>
 #include <paths.h>
 #include <fcntl.h>
 
 #include "../../arch/all/init.h"
 
 #ifndef _PATH_DEVNULL
-    #define _PATH_DEVNULL "/dev/null"
+#define _PATH_DEVNULL "/dev/null"
 #endif
 
 
@@ -40,17 +38,21 @@ psutil_virtual_mem(PyObject *self, PyObject *args) {
     if (psutil_sysctlbyname("hw.physmem", &total, size_ul) != 0)
         return NULL;
 
-    if (psutil_sysctlbyname("vm.stats.vm.v_active_count", &active, size_ui) != 0)
+    if (psutil_sysctlbyname("vm.stats.vm.v_active_count", &active, size_ui)
+        != 0)
         return NULL;
 
-    if (psutil_sysctlbyname("vm.stats.vm.v_inactive_count", &inactive, size_ui) != 0)
+    if (psutil_sysctlbyname("vm.stats.vm.v_inactive_count", &inactive, size_ui)
+        != 0)
         return NULL;
 
     if (psutil_sysctlbyname("vm.stats.vm.v_wire_count", &wired, size_ui) != 0)
         return NULL;
 
     // Optional; ignore error if not available
-    if (psutil_sysctlbyname("vm.stats.vm.v_cache_count", &cached, size_ui) != 0) {
+    if (psutil_sysctlbyname("vm.stats.vm.v_cache_count", &cached, size_ui)
+        != 0)
+    {
         PyErr_Clear();
         cached = 0;
     }
@@ -62,18 +64,19 @@ psutil_virtual_mem(PyObject *self, PyObject *args) {
         return NULL;
 
     if (psutil_sysctl(mib, 2, &vm, size_vm) != 0) {
-        return psutil_PyErr_SetFromOSErrnoWithSyscall("sysctl(CTL_VM | VM_METER)");
+        return psutil_oserror_wsyscall("sysctl(CTL_VM | VM_METER)");
     }
 
-    return Py_BuildValue("KKKKKKKK",
-        (unsigned long long) total,
-        (unsigned long long) free     * pagesize,
-        (unsigned long long) active   * pagesize,
-        (unsigned long long) inactive * pagesize,
-        (unsigned long long) wired    * pagesize,
-        (unsigned long long) cached   * pagesize,
-        (unsigned long long) buffers,
-        (unsigned long long) (vm.t_vmshr + vm.t_rmshr) * pagesize  // shared
+    return Py_BuildValue(
+        "KKKKKKKK",
+        (unsigned long long)total,
+        (unsigned long long)free * pagesize,
+        (unsigned long long)active * pagesize,
+        (unsigned long long)inactive * pagesize,
+        (unsigned long long)wired * pagesize,
+        (unsigned long long)cached * pagesize,
+        (unsigned long long)buffers,
+        (unsigned long long)(vm.t_vmshr + vm.t_rmshr) * pagesize  // shared
     );
 }
 
@@ -89,14 +92,13 @@ psutil_swap_mem(PyObject *self, PyObject *args) {
 
     kd = kvm_open(NULL, _PATH_DEVNULL, NULL, O_RDONLY, "kvm_open failed");
     if (kd == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "kvm_open() syscall failed");
+        psutil_runtime_error("kvm_open() syscall failed");
         return NULL;
     }
 
     if (kvm_getswapinfo(kd, kvmsw, 1, 0) < 0) {
         kvm_close(kd);
-        PyErr_SetString(PyExc_RuntimeError,
-                        "kvm_getswapinfo() syscall failed");
+        psutil_runtime_error("kvm_getswapinfo() syscall failed");
         return NULL;
     }
 
@@ -115,8 +117,8 @@ psutil_swap_mem(PyObject *self, PyObject *args) {
         "(KKKII)",
         (unsigned long long)kvmsw[0].ksw_total * pagesize,  // total
         (unsigned long long)kvmsw[0].ksw_used * pagesize,  // used
-        (unsigned long long)kvmsw[0].ksw_total * pagesize - // free
-                                kvmsw[0].ksw_used * pagesize,
+        (unsigned long long)kvmsw[0].ksw_total * pagesize -  // free
+            kvmsw[0].ksw_used * pagesize,
         swapin + swapout,  // swap in
         nodein + nodeout  // swap out
     );

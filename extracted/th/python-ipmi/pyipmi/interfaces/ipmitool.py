@@ -21,7 +21,12 @@ from subprocess import Popen, PIPE
 from array import array
 
 from ..session import Session
-from ..errors import IpmiTimeoutError, IpmiConnectionError
+from ..errors import (
+    IpmiTimeoutError,
+    IpmiConnectionError,
+    IpmiLongPasswordError,
+    AuthenticationError,
+)
 from ..logger import log
 from ..msgs import encode_message, decode_message, create_message
 from ..msgs.constants import CC_OK
@@ -62,12 +67,23 @@ class Ipmitool(object):
                 r".*Unable to establish.*")
         self.re_could_not_open = re.compile(
                 r".*Could not open device.*")
-
+        self.re_long_password = re.compile(
+                r".*password is longer than.*")
+        self.re_authentication_error = re.compile(
+                r".*RAKP [0-9]+ HMAC.*")
         self._session = None
 
+    def open(self):
+        pass
+
+    def close(self):
+        pass
+
     def establish_session(self, session):
-        # just remember session parameters here
         self._session = session
+
+    def close_session(self):
+        pass
 
     def rmcp_ping(self):
 
@@ -80,6 +96,7 @@ class Ipmitool(object):
         cmd += (' -I %s' % self._interface_type)
         cmd += (' -H %s' % self._session.rmcp_host)
         cmd += (' -p %s' % self._session.rmcp_port)
+        cmd += (' -v')
         if self._session.auth_type == Session.AUTH_TYPE_NONE:
             cmd += (' -A NONE')
         elif self._session.auth_type == Session.AUTH_TYPE_PASSWORD:
@@ -108,6 +125,9 @@ class Ipmitool(object):
             # Don't try to parse ipmitool error messages
             if 'failed' in line:
                 continue
+            # Don't try to parse spurious ipmitool output
+            if 'Received a response with unexpected ID' in line:
+                continue
 
             # Check for timeout
             if self.re_timeout.match(line):
@@ -127,13 +147,22 @@ class Ipmitool(object):
             if self.re_could_not_open.match(line):
                 raise RuntimeError('ipmitool failed: {}'.format(output))
 
+            if self.re_long_password.match(line):
+                raise IpmiLongPasswordError(line)
+
+            if self.re_authentication_error.match(line):
+                raise AuthenticationError('Authentication error')
+
             hexstr += line.replace('\r', '').strip() + ' '
 
         hexstr = hexstr.strip()
         if len(hexstr):
-            rsp = array('B', [
-                int(value, 16) for value in hexstr.split(' ')
-            ])
+            try:
+                rsp = array('B', [
+                    int(value, 16) for value in hexstr.split(' ')
+                ])
+            except ValueError:
+                pass
 
         return cc, rsp
 
@@ -235,6 +264,7 @@ class Ipmitool(object):
         cmd += (' -I %s' % self._interface_type)
         cmd += (' -H %s' % self._session.rmcp_host)
         cmd += (' -p %s' % self._session.rmcp_port)
+        cmd += (' -v')
 
         cmd += self._build_ipmitool_priv_level(self._session.priv_level)
 

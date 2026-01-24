@@ -1,4 +1,4 @@
-# $Id: misc.py 10166 2025-06-16 09:45:10Z milde $
+# $Id: misc.py 10265 2025-11-28 13:51:57Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -45,22 +45,14 @@ class ClassAttribute(Transform):
 
     def apply(self) -> None:
         pending = self.startnode
-        parent = pending.parent
-        child = pending
-        while parent:
-            # Check for appropriate following siblings:
-            for index in range(parent.index(child) + 1, len(parent)):
-                element = parent[index]
-                if (isinstance(element, nodes.Invisible)
-                    or isinstance(element, nodes.system_message)):
-                    continue
-                element['classes'] += pending.details['class']
-                pending.parent.remove(pending)
-                return
-            else:
-                # At end of section or container; apply to sibling
-                child = parent
-                parent = parent.parent
+        for element in pending.findall(include_self=False, descend=False,
+                                       siblings=True, ascend=True):
+            if isinstance(element, (nodes.Invisible, nodes.system_message)):
+                continue
+            element['classes'] += pending.details['class']
+            pending.parent.remove(pending)
+            return
+
         error = self.document.reporter.error(
             'No suitable element following "%s" directive'
             % pending.details['directive'],

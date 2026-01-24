@@ -1,4 +1,5 @@
 from robot.api import Token
+from robot.errors import VariableError
 from robot.model import Keyword
 from robot.utils.robottime import timestr_to_secs
 
@@ -20,7 +21,7 @@ class SleepKeywordUsedRule(Rule):
 
     Avoid using Sleep keyword in favour of polling.
 
-    For example::
+    For example:
 
         *** Keywords ***
         Add To Cart
@@ -29,7 +30,7 @@ class SleepKeywordUsedRule(Rule):
             Element Should Be Visible    ${MAIN_HEADER}
             Click Element    //div[@name='${item_name}']/div[@id='add_to_cart']
 
-    Can be rewritten to::
+    Can be rewritten to:
 
         *** Keywords ***
         Add To Cart
@@ -37,7 +38,7 @@ class SleepKeywordUsedRule(Rule):
             Wait Until Element Is Visible    ${MAIN_HEADER}
             Click Element    //div[@name='${item_name}']/div[@id='add_to_cart']
 
-    It is also possible to report only if ``Sleep`` exceeds given time limit using ``max_time`` parameter::
+    It is also possible to report only if ``Sleep`` exceeds given time limit using ``max_time`` parameter:
 
         robocop check -c sleep-keyword-used.max_time=1min .
 
@@ -55,6 +56,7 @@ class SleepKeywordUsedRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("10001",)
 
 
 class NotAllowedKeywordRule(Rule):
@@ -65,18 +67,18 @@ class NotAllowedKeywordRule(Rule):
     Keyword names are normalized to match Robot Framework search behaviour (lower case, removed whitespace and
     underscores).
 
-    For example::
+    For example:
 
         > robocop check --select not-allowed-keyword -c not-allowed-keyword.keywords=click_using_javascript
 
-    ::
+    : # TODO
 
         *** Keywords ***
         Keyword With Obsolete Implementation
             [Arguments]    ${locator}
             Click Using Javascript    ${locator}  # Robocop will report not allowed keyword
 
-    If keyword call contains possible library name (ie. Library.Keyword Name), Robocop checks if it matches
+    If keyword call contains possible library name (i.e. Library.Keyword Name), Robocop checks if it matches
     the not allowed keywords and if not, it will remove library part and check again.
 
     """
@@ -98,6 +100,7 @@ class NotAllowedKeywordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("10002",)
 
 
 class NoEmbeddedKeywordArgumentsRule(Rule):
@@ -118,7 +121,7 @@ class NoEmbeddedKeywordArgumentsRule(Rule):
 
     Example:
     Using a keyword with one embedded argument. Buying the drink and the size of the drink are
-    jumbled together::
+    jumbled together:
 
         *** Test Cases ***
         Prepare for an amazing movie
@@ -130,7 +133,7 @@ class NoEmbeddedKeywordArgumentsRule(Rule):
 
     Change the embedded argument to a normal argument. Now buying the drink is separate from the
     size of the drink. In this approach, it's easier to see that you can change the size of your
-    drink::
+    drink:
 
         *** Test Cases ***
         Prepare for an amazing movie
@@ -152,11 +155,12 @@ class NoEmbeddedKeywordArgumentsRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("10003",)
 
 
 class SleepKeywordUsedChecker(VisitorChecker):  # TODO: merge with a checker for keyword calls
     """
-    Find and report use of the Sleep keyword in tests and keywords.
+    Find and report the use of the Sleep keyword in tests and keywords.
 
     If max_time is configured, it can be used to only report Sleep with time higher than configured value.
 
@@ -168,7 +172,7 @@ class SleepKeywordUsedChecker(VisitorChecker):  # TODO: merge with a checker for
     def visit_KeywordCall(self, node) -> None:  # noqa: N802
         if not node.keyword:  # Keyword name can be empty if the syntax is invalid
             return
-        # Robot Framework ignores case, underscores and whitespace when searching for keywords
+        # Robot Framework ignores a case, underscores and whitespace when searching for keywords
         # It will match sleep, Sleep, BuiltIn.Sleep or S_leep. That's why we need to normalize name first
         normalized_name = normalize_robot_name(node.keyword, remove_prefix="builtin.")
         if normalized_name != "sleep":
@@ -184,9 +188,9 @@ class SleepKeywordUsedChecker(VisitorChecker):  # TODO: merge with a checker for
             except ValueError:
                 # ignore invalid or not recognized time string
                 return
-            if allowed_time >= time_from_sleep:  # if Sleep time is less than allowed maximum, we can ignore issue
+            if allowed_time >= time_from_sleep:  # if Sleep time is less than an allowed maximum, we can ignore issue
                 return
-        # node can be multiline, ie Sleep ...  1 min -> report either just Sleep, or multi-line report
+        # node can be multiline, ie Sleep ...  1 min -> report either just Sleep or multi-line report
         duration_time = time_token.value if time_token else ""
         name_token = node.get_token(Token.KEYWORD)
         self.report(
@@ -248,7 +252,10 @@ class NoEmbeddedKeywordArgumentsChecker(VisitorChecker):  # TODO merge
 
     def visit_Keyword(self, node: Keyword) -> None:  # noqa: N802
         name_token: Token = node.header.get_token(Token.KEYWORD_NAME)
-        variable_tokens = [t for t in name_token.tokenize_variables() if t.type == Token.VARIABLE]
+        try:
+            variable_tokens = [t for t in name_token.tokenize_variables() if t.type == Token.VARIABLE]
+        except VariableError:
+            return
 
         if not variable_tokens:
             return

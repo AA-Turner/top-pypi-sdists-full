@@ -26,17 +26,18 @@ from jax._src import config
 from jax._src import dtypes
 from jax._src.state.types import AbstractRef
 from jax._src.tree_util import (
-    PyTreeDef, tree_flatten, tree_unflatten, tree_map,
-    treedef_children, generate_key_paths, broadcast_prefix,
-    prefix_errors, _replace_nones)
+    PyTreeDef, tree_flatten, tree_unflatten, treedef_children,
+    generate_key_paths, broadcast_prefix, prefix_errors,
+    none_leaf_registry, broadcast_flattened_prefix_with_treedef)
 from jax._src import linear_util as lu
 from jax._src.util import (safe_map, WrapKwArgs, Hashable, HashableFunction,
-                           Unhashable, safe_zip as zip)
+                           Unhashable, safe_zip)
 from jax._src import traceback_util
 
 traceback_util.register_exclusion(__file__)
 
-map = safe_map
+map, unsafe_map = safe_map, map
+zip, unsafe_zip = safe_zip, zip
 
 def _ensure_index(x: Any) -> int | tuple[int, ...]:
   """Ensure x is either an index or a tuple of indices."""
@@ -398,13 +399,10 @@ def flatten_axes(name, treedef, axis_tree, *, kws=False, tupled_args=False):
   # leaves, i.e. the Nones are to be considered leaves) that is a tree prefix of
   # the given treedef, build a complete axis spec tree with the same structure
   # and return the flattened result
-  # TODO(mattjj,phawkins): improve this implementation
-  proxy = object()
-  dummy = tree_unflatten(treedef, [SENTINEL] * treedef.num_leaves)
-  axes = []
-  add_leaves = lambda i, x: axes.extend([i] * len(tree_flatten(x)[0]))
+  axis_tree_leaves, axis_treedef = none_leaf_registry.flatten(axis_tree)
   try:
-    tree_map(add_leaves, _replace_nones(proxy, axis_tree), dummy)
+    axes = broadcast_flattened_prefix_with_treedef(
+        axis_tree_leaves, axis_treedef, treedef)
   except ValueError:
     if kws:
       # if keyword arguments are included in the tree, we make adapt the error
@@ -427,7 +425,6 @@ def flatten_axes(name, treedef, axis_tree, *, kws=False, tupled_args=False):
     raise ValueError(f"{name} specification must be a tree prefix of the "
                      f"corresponding value, got specification {axis_tree} "
                      f"for value tree {treedef}.{hint}") from None
-  axes = [None if a is proxy else a for a in axes]
   assert len(axes) == treedef.num_leaves
   return axes
 
@@ -512,9 +509,6 @@ def resolve_argnums(
   * fills in any missing pieces (e.g., names given numbers, or vice versa),
   * validates the argument names/numbers against the function signature,
   * validates that donated and static arguments don't intersect.
-  * rebases the donated arguments so they index into the dynamic arguments,
-    (after static arguments have been removed), in the order that parameters
-    are passed into the compiled function.
   """
   if signature is None:
     # Some built-in functions don't support signature.
@@ -548,7 +542,6 @@ def resolve_argnums(
 
   # Compensate for static argnums absorbing args
   _assert_no_intersection(static_argnames, donate_argnames)
-  donate_argnums = rebase_donate_argnums(donate_argnums, static_argnums)
   return donate_argnums, donate_argnames, static_argnums, static_argnames
 
 
@@ -672,7 +665,7 @@ def _non_static_arg_names(fn_signature: inspect.Signature | None,
 
   If the `fn_signature` is given then we get from it the names of the
   top-level arguments. In other cases, including when the `args` and `kwargs`
-  do not match the signature, we use names like `args[0[]`, `args[1]`, etc.
+  do not match the signature, we use names like `args[0]`, `args[1]`, etc.
   """
   # Use the same argument parsing as jit: positional followed by kwargs
   # sorted by keys.
@@ -724,12 +717,14 @@ class _HashableByObjectId:
     return self.val is other.val
 
 # TODO(mattjj): make this function faster
-def _check_no_aliased_ref_args(dbg: core.DebugInfo, maybe_avals, args):
+def check_no_aliased_ref_args(dbg_fn: Callable[[], core.DebugInfo],
+                              maybe_avals, args) -> None:
   assert config.mutable_array_checks.value
   refs: dict[int, int] = {}
   for i, (a, x) in enumerate(zip(maybe_avals, args)):
     if (isinstance(a, AbstractRef) and
         (dup_idx := refs.setdefault(id(core.get_referent(x)), i)) != i):
+      dbg = dbg_fn()
       raise ValueError(
         "only one reference to a mutable array may be passed as an argument "
         f"to a function, but when tracing {dbg.func_src_info} for {dbg.traced_for} "

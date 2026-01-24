@@ -2,19 +2,13 @@ from __future__ import annotations
 
 import inspect
 from abc import ABC, abstractmethod
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Generic,
-    Optional,
-    Type,
-    Union,
-)
+from collections.abc import Awaitable
+from typing import Any, Callable, Generic, Optional
 
-from nexusrpc._common import InputT, OperationInfo, OutputT, ServiceHandlerT
-from nexusrpc._service import Operation, ServiceDefinition
+from nexusrpc._common import InputT, OutputT, ServiceHandlerT
+from nexusrpc._service import Operation, OperationDefinition, ServiceDefinition
 from nexusrpc._util import (
+    get_operation,
     get_operation_factory,
     is_async_callable,
     is_callable,
@@ -23,8 +17,6 @@ from nexusrpc._util import (
 
 from ._common import (
     CancelOperationContext,
-    FetchOperationInfoContext,
-    FetchOperationResultContext,
     StartOperationContext,
     StartOperationResultAsync,
     StartOperationResultSync,
@@ -47,12 +39,11 @@ class OperationHandler(ABC, Generic[InputT, OutputT]):
     @abstractmethod
     def start(
         self, ctx: StartOperationContext, input: InputT
-    ) -> Union[
-        StartOperationResultSync[OutputT],
-        Awaitable[StartOperationResultSync[OutputT]],
-        StartOperationResultAsync,
-        Awaitable[StartOperationResultAsync],
-    ]:
+    ) -> (
+        StartOperationResultSync[OutputT]
+        | StartOperationResultAsync
+        | Awaitable[StartOperationResultSync[OutputT] | StartOperationResultAsync]
+    ):
         """
         Start the operation, completing either synchronously or asynchronously.
 
@@ -62,27 +53,7 @@ class OperationHandler(ABC, Generic[InputT, OutputT]):
         ...
 
     @abstractmethod
-    def fetch_info(
-        self, ctx: FetchOperationInfoContext, token: str
-    ) -> Union[OperationInfo, Awaitable[OperationInfo]]:
-        """
-        Return information about the current status of the operation.
-        """
-        ...
-
-    @abstractmethod
-    def fetch_result(
-        self, ctx: FetchOperationResultContext, token: str
-    ) -> Union[OutputT, Awaitable[OutputT]]:
-        """
-        Return the result of the operation.
-        """
-        ...
-
-    @abstractmethod
-    def cancel(
-        self, ctx: CancelOperationContext, token: str
-    ) -> Union[None, Awaitable[None]]:
+    def cancel(self, ctx: CancelOperationContext, token: str) -> None | Awaitable[None]:
         """
         Cancel the operation.
         """
@@ -124,76 +95,81 @@ class SyncOperationHandler(OperationHandler[InputT, OutputT]):
         """
         return StartOperationResultSync(await self._start(ctx, input))
 
-    async def fetch_info(
-        self, ctx: FetchOperationInfoContext, token: str
-    ) -> OperationInfo:
-        raise NotImplementedError(
-            "Cannot fetch operation info for an operation that responded synchronously."
-        )
-
-    async def fetch_result(
-        self, ctx: FetchOperationResultContext, token: str
-    ) -> OutputT:
-        raise NotImplementedError(
-            "Cannot fetch the result of an operation that responded synchronously."
-        )
-
     async def cancel(self, ctx: CancelOperationContext, token: str) -> None:
         raise NotImplementedError(
             "An operation that responded synchronously cannot be cancelled."
         )
 
 
+class MiddlewareSafeOperationHandler(OperationHandler[Any, Any], ABC):
+    """
+    An :py:class:`OperationHandler` where :py:attr:`start` and :py:attr:`cancel`
+    can be awaited by an async runtime. It can produce a result synchronously by returning
+    :py:class:`StartOperationResultSync` or asynchronously by returning :py:class:`StartOperationResultAsync`
+    in the same fashion that :py:class:`OperationHandler` does.
+    """
+
+    @abstractmethod
+    async def start(
+        self, ctx: StartOperationContext, input: Any
+    ) -> StartOperationResultSync[Any] | StartOperationResultAsync:
+        """
+        Start the operation and return it's result or an async token.
+        """
+        ...
+
+    @abstractmethod
+    async def cancel(self, ctx: CancelOperationContext, token: str) -> None:
+        """
+        Cancel an in progress operation identified by the given token.
+        """
+        ...
+
+
 def collect_operation_handler_factories_by_method_name(
-    user_service_cls: Type[ServiceHandlerT],
+    user_service_cls: type[ServiceHandlerT],
     service: Optional[ServiceDefinition],
 ) -> dict[str, Callable[[ServiceHandlerT], OperationHandler[Any, Any]]]:
     """
     Collect operation handler methods from a user service handler class.
     """
+    # TODO(preview): rename op/op_defn variables in this function
     factories: dict[str, Callable[[ServiceHandlerT], OperationHandler[Any, Any]]] = {}
     service_method_names = (
-        {
-            op.method_name
-            for op in service.operations.values()
-            if op.method_name is not None
-        }
+        {op_defn.method_name for op_defn in service.operation_definitions.values()}
         if service
         else set()
     )
     seen = set()
     for _, method in inspect.getmembers(user_service_cls, is_callable):
-        factory, op_defn = get_operation_factory(method)  # type: ignore[var-annotated]
-        if factory and isinstance(op_defn, Operation):
-            # This is a method decorated with one of the *operation_handler decorators
-            if op_defn.name in seen:
-                raise RuntimeError(
-                    f"Operation '{op_defn.name}' in service '{user_service_cls.__name__}' "
-                    f"is defined multiple times."
-                )
-            if service and op_defn.method_name not in service_method_names:
-                _names = ", ".join(f"'{s}'" for s in sorted(service_method_names))
-                msg = (
-                    f"Operation method name '{op_defn.method_name}' in service handler {user_service_cls} "
-                    f"does not match an operation method name in the service definition. "
-                    f"Available method names in the service definition: "
-                )
-                msg += _names if _names else "[none]"
-                msg += "."
-                raise TypeError(msg)
+        if factory := get_operation_factory(method):
+            if op := get_operation(factory):
+                if op.name in seen:
+                    raise RuntimeError(
+                        f"Operation '{op.name}' in service '{user_service_cls.__name__}' "
+                        f"is defined multiple times."
+                    )
+                if service and op.method_name not in service_method_names:
+                    _names = ", ".join(f"'{s}'" for s in sorted(service_method_names))
+                    msg = (
+                        f"Operation method name '{op.method_name}' in service handler {user_service_cls} "
+                        f"does not match an operation method name in the service definition. "
+                        f"Available method names in the service definition: "
+                    )
+                    msg += _names if _names else "[none]"
+                    raise TypeError(msg)
 
-            # TODO(preview) op_defn.method name should be non-nullable
-            assert op_defn.method_name, (
-                f"Operation '{op_defn}' method name should not be None. This is an SDK bug."
-            )
-            factories[op_defn.method_name] = factory
-            seen.add(op_defn.name)
+                assert op.method_name, (
+                    f"Operation '{op}' method name should not be empty. Please report this as a bug."
+                )
+                factories[op.method_name] = factory
+                seen.add(op.name)
     return factories
 
 
 def validate_operation_handler_methods(
-    user_service_cls: Type[ServiceHandlerT],
-    user_methods_by_method_name: dict[
+    service_cls: type[ServiceHandlerT],
+    operation_handler_factories_by_method_name: dict[
         str, Callable[[ServiceHandlerT], OperationHandler[Any, Any]]
     ],
     service_definition: ServiceDefinition,
@@ -209,48 +185,46 @@ def validate_operation_handler_methods(
        is a subtype of the operation defined in the service definition, i.e. respecting
        input type contravariance and output type covariance.
     """
-    user_methods_by_method_name = user_methods_by_method_name.copy()
-    for op_defn in service_definition.operations.values():
-        if not op_defn.method_name:
-            raise ValueError(
-                f"Operation '{op_defn}' in service definition '{service_definition}' "
-                f"does not have a method name. "
-            )
-        method = user_methods_by_method_name.pop(op_defn.method_name, None)
-        if not method:
+    operation_handler_factories_by_method_name = (
+        operation_handler_factories_by_method_name.copy()
+    )
+    for op_defn in service_definition.operation_definitions.values():
+        factory = operation_handler_factories_by_method_name.pop(
+            op_defn.method_name, None
+        )
+        if not factory:
             raise TypeError(
-                f"Service '{user_service_cls}' does not implement an operation with "
+                f"Service '{service_cls}' does not implement an operation with "
                 f"method name '{op_defn.method_name}'. But this operation is in service "
                 f"definition '{service_definition}'."
             )
-        method, method_op_defn = get_operation_factory(method)
-        if not isinstance(method_op_defn, Operation):
+        op = get_operation(factory)
+        if not isinstance(op, Operation):
             raise ValueError(
-                f"Method '{method}' in class '{user_service_cls.__name__}' "
+                f"Method '{factory}' in class '{service_cls.__name__}' "
                 f"does not have a valid __nexus_operation__ attribute. "
                 f"Did you forget to decorate the operation method with an operation handler decorator such as "
                 f":py:func:`@nexusrpc.handler.operation_handler`?"
             )
-        if method_op_defn.name not in [method_op_defn.method_name, op_defn.name]:
+        if op.name not in [op.method_name, op_defn.name]:
             raise TypeError(
-                f"Operation '{op_defn.method_name}' in service '{user_service_cls}' "
-                f"has name '{method_op_defn.name}', but the name in the service definition "
+                f"Operation '{op_defn.method_name}' in service '{service_cls}' "
+                f"has name '{op.name}', but the name in the service definition "
                 f"is '{op_defn.name}'. Operation handlers may not override the name of an operation "
                 f"in the service definition."
             )
         # Input type is contravariant: op handler input must be superclass of op defn output
         if (
-            method_op_defn.input_type is not None
-            and op_defn.input_type is not None
-            and Any not in (method_op_defn.input_type, op_defn.input_type)
+            op.input_type is not None
+            and Any not in (op.input_type, op_defn.input_type)
             and not (
-                op_defn.input_type == method_op_defn.input_type
-                or is_subtype(op_defn.input_type, method_op_defn.input_type)
+                op_defn.input_type == op.input_type
+                or is_subtype(op_defn.input_type, op.input_type)
             )
         ):
             raise TypeError(
-                f"Operation '{op_defn.method_name}' in service '{user_service_cls}' "
-                f"has input type '{method_op_defn.input_type}', which is not "
+                f"Operation '{op_defn.method_name}' in service '{service_cls}' "
+                f"has input type '{op.input_type}', which is not "
                 f"compatible with the input type '{op_defn.input_type}' in interface "
                 f"'{service_definition.name}'. The input type must be the same as or a "
                 f"superclass of the operation definition input type."
@@ -258,22 +232,21 @@ def validate_operation_handler_methods(
 
         # Output type is covariant: op handler output must be subclass of op defn output
         if (
-            method_op_defn.output_type is not None
-            and op_defn.output_type is not None
-            and Any not in (method_op_defn.output_type, op_defn.output_type)
-            and not is_subtype(method_op_defn.output_type, op_defn.output_type)
+            op.output_type is not None
+            and Any not in (op.output_type, op_defn.output_type)
+            and not is_subtype(op.output_type, op_defn.output_type)
         ):
             raise TypeError(
-                f"Operation '{op_defn.method_name}' in service '{user_service_cls}' "
-                f"has output type '{method_op_defn.output_type}', which is not "
+                f"Operation '{op_defn.method_name}' in service '{service_cls}' "
+                f"has output type '{op.output_type}', which is not "
                 f"compatible with the output type '{op_defn.output_type}' in interface "
                 f" '{service_definition}'. The output type must be the same as or a "
                 f"subclass of the operation definition output type."
             )
-    if user_methods_by_method_name:
+    if operation_handler_factories_by_method_name:
         raise ValueError(
-            f"Service '{user_service_cls}' implements more operations than the interface '{service_definition}'. "
-            f"Extra operations: {', '.join(sorted(user_methods_by_method_name.keys()))}."
+            f"Service '{service_cls}' implements more operations than the interface '{service_definition}'. "
+            f"Extra operations: {', '.join(sorted(operation_handler_factories_by_method_name.keys()))}."
         )
 
 
@@ -289,16 +262,16 @@ def service_definition_from_operation_handler_methods(
     :py:func:`@nexusrpc.handler.service_handler` decorator. This function is used when
     that is not the case.
     """
-    op_defns: dict[str, Operation[Any, Any]] = {}
+    op_defns: dict[str, OperationDefinition[Any, Any]] = {}
     for name, method in user_methods.items():
-        _, op_defn = get_operation_factory(method)
-        if not isinstance(op_defn, Operation):
+        op = get_operation(method)
+        if not isinstance(op, Operation):
             raise ValueError(
                 f"In service '{service_name}', could not locate operation definition for "
                 f"user operation handler method '{name}'. Did you forget to decorate the operation "
                 f"method with an operation handler decorator such as "
-                f":py:func:`@nexusrpc.handler.operation_handler`?"
+                f"@nexusrpc.handler.sync_operation?"
             )
-        op_defns[op_defn.name] = op_defn
+        op_defns[op.name] = OperationDefinition.from_operation(op)
 
-    return ServiceDefinition(name=service_name, operations=op_defns)
+    return ServiceDefinition(name=service_name, operation_definitions=op_defns)

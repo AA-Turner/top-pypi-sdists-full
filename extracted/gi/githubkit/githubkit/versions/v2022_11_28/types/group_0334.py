@@ -9,38 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-from typing_extensions import TypedDict
+from typing import Any
+from typing_extensions import TypeAlias
 
-from .group_0003 import SimpleUserType
-from .group_0010 import IntegrationType
+MetadataType: TypeAlias = dict[str, Any]
+"""metadata
 
-
-class DemilestonedIssueEventType(TypedDict):
-    """Demilestoned Issue Event
-
-    Demilestoned Issue Event
-    """
-
-    id: int
-    node_id: str
-    url: str
-    actor: SimpleUserType
-    event: Literal["demilestoned"]
-    commit_id: Union[str, None]
-    commit_url: Union[str, None]
-    created_at: str
-    performed_via_github_app: Union[None, IntegrationType, None]
-    milestone: DemilestonedIssueEventPropMilestoneType
+User-defined metadata to store domain-specific information limited to 8 keys
+with scalar values.
+"""
 
 
-class DemilestonedIssueEventPropMilestoneType(TypedDict):
-    """DemilestonedIssueEventPropMilestone"""
+MetadataTypeForResponse: TypeAlias = dict[str, Any]
+"""metadata
 
-    title: str
+User-defined metadata to store domain-specific information limited to 8 keys
+with scalar values.
+"""
 
 
 __all__ = (
-    "DemilestonedIssueEventPropMilestoneType",
-    "DemilestonedIssueEventType",
+    "MetadataType",
+    "MetadataTypeForResponse",
 )

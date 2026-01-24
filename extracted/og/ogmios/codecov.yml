@@ -1,0 +1,10 @@
+ignore:
+  - "tests"
+  - "**/test_*.cpp"
+
+coverage:
+  status:
+    project:
+      default:
+        target: 96%
+        threshold: 1%

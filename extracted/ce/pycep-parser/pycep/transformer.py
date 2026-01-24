@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import itertools
 import re
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from lark import Token, Transformer, v_args
-from lark.tree import Meta
 
 from pycep import typing as pycep_typing
+from pycep.models import BicepElement
+from pycep.rules.decorators import DECORATORS, UNKNOWN_DECORATOR
+from pycep.rules.functions import FUNCTIONS, UNKNOWN_FUNCTION
+from pycep.utils import sanitize_multi_line_string_token, transform_string_token
+
+if TYPE_CHECKING:
+    from lark.tree import Meta
+
 
 BICEP_REGISTRY_ALIAS_PATTERN = re.compile(r"br/(?P<alias>[\w]+):(?P<path>[\w/\-.]+):(?P<tag>[\w.\-]+)")
 PUBLIC_BICEP_REGISTRY_PATTERN = re.compile(r"br:mcr\.microsoft\.com/(?P<path>[\w/\-]+):(?P<tag>[\w.\-]+)")
@@ -22,14 +29,11 @@ TEMPLATE_SPEC_PATTERN = re.compile(
 VALID_TARGET_SCOPES = {"resourceGroup", "subscription", "managementGroup", "tenant"}
 
 
-class BicepElement(str):
-    """An alias to differentiate between a string and a Bicep element."""
-
-
 class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     def __init__(self, add_line_numbers: bool) -> None:
         self.add_line_numbers = add_line_numbers
 
+        self.imports: list[pycep_typing.ImportResponse] = []
         self.child_resources: list[pycep_typing.ResourceResponse] = []
 
         super().__init__()
@@ -54,9 +58,12 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             result["globals"]["scope"]["__start_line__"] = 0
             result["globals"]["scope"]["__end_line__"] = 0
 
-        for arg in itertools.chain(args, self.child_resources):
+        for arg in itertools.chain(args, self.imports, self.child_resources):
+            if not arg:
+                # very unlikely this will happen in a real Bicep file, but in test files possible
+                continue
             for key, value in arg.items():
-                result.setdefault(key, {})[value["__name__"]] = value["__attrs__"]  # type: ignore[misc, index]
+                result.setdefault(key, {})[value["__name__"]] = value["__attrs__"]  # ty: ignore[not-subscriptable, no-matching-overload]
 
         return result
 
@@ -68,7 +75,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
 
     @v_args(meta=True)
     def scope(self, meta: Meta, args: tuple[Token]) -> pycep_typing.ScopeResponse:
-        value = cast(Literal["resourceGroup", "subscription", "managementGroup", "tenant"], str(args[0])[1:-1])
+        value = cast('Literal["resourceGroup", "subscription", "managementGroup", "tenant"]', str(args[0])[1:-1])
 
         if value not in VALID_TARGET_SCOPES:  # pragma: no cover
             raise ValueError(f"target scope is invalid: {value}")
@@ -85,6 +92,73 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
         if self.add_line_numbers:
             result["globals"]["__attrs__"]["__start_line__"] = meta.line
             result["globals"]["__attrs__"]["__end_line__"] = meta.end_line
+
+        return result
+
+    @v_args(meta=True)
+    def custom_import(
+        self, meta: Meta, args: tuple[pycep_typing.ImportNameAlias, pycep_typing.ImportNameAlias, Token]
+    ) -> None:
+        # the import statement parsing is slightly overload to support namespace imports,
+        # which don't have a file reference
+        if len(args) == 1:
+            result: pycep_typing._Import = {
+                "__name__": transform_string_token(args[0]),
+                "__attrs__": {},
+            }
+            self.imports.append(
+                {
+                    "imports": result,
+                }
+            )
+            return
+
+        # to make typing easy, there are two import types defined, but it could be more
+        *name_alias_pairs, file_path = args
+
+        for name_alias in name_alias_pairs:
+            result: pycep_typing._Import = {
+                "__name__": str(name_alias["name"]),
+                "__attrs__": {
+                    "file_path": transform_string_token(file_path),
+                },
+            }
+
+            if alias := name_alias.get("alias"):
+                result["__attrs__"]["alias"] = str(alias)
+
+            if self.add_line_numbers:
+                result["__attrs__"]["__start_line__"] = meta.line
+                result["__attrs__"]["__end_line__"] = meta.end_line
+
+            self.imports.append(
+                {
+                    "imports": result,
+                }
+            )
+
+    @v_args(meta=True)
+    def extension(
+        self, meta: Meta, args: tuple[str, dict[str, Any] | None, str | None]
+    ) -> pycep_typing.ExtensionResponse:
+        name, config, alias = args
+
+        result: pycep_typing.ExtensionResponse = {
+            "extensions": {
+                "__name__": str(name),
+                "__attrs__": {},
+            }
+        }
+
+        if config:
+            result["extensions"]["__attrs__"]["config"] = config
+
+        if alias:
+            result["extensions"]["__attrs__"]["alias"] = str(alias)
+
+        if self.add_line_numbers:
+            result["extensions"]["__attrs__"]["__start_line__"] = meta.line
+            result["extensions"]["__attrs__"]["__end_line__"] = meta.end_line
 
         return result
 
@@ -132,9 +206,11 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
 
     @v_args(meta=True)
     def var(
-        self, meta: Meta, args: tuple[list[pycep_typing.Decorator] | None, Token, pycep_typing.PossibleValue]
+        self,
+        meta: Meta,
+        args: tuple[list[pycep_typing.Decorator] | None, Token, str | None, pycep_typing.PossibleValue],
     ) -> pycep_typing.VarResponse:
-        decorators, name, value = args
+        decorators, name, data_type, value = args
 
         result: pycep_typing.VarResponse = {
             "variables": {
@@ -145,6 +221,9 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
                 },
             }
         }
+
+        if data_type:
+            result["variables"]["__attrs__"]["type"] = data_type
 
         if self.add_line_numbers:
             result["variables"]["__attrs__"]["__start_line__"] = meta.line
@@ -242,7 +321,8 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
                 "__name__": str(name),
                 "__attrs__": {
                     "decorators": decorators or [],
-                    **path,  # type: ignore[typeddict-item] # start and end line are not-required
+                    "type": path["type"],
+                    "detail": path["detail"],
                     "config": config,
                 },
             }
@@ -273,6 +353,40 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
         if self.add_line_numbers:
             result["types"]["__attrs__"]["__start_line__"] = meta.line
             result["types"]["__attrs__"]["__end_line__"] = meta.end_line
+
+        return result
+
+    @v_args(meta=True)
+    def custom_func(
+        self,
+        meta: Meta,
+        args: tuple[
+            list[pycep_typing.Decorator] | None,
+            Token,
+            pycep_typing.PossibleValue,
+            pycep_typing.PossibleValue,
+        ],
+    ) -> pycep_typing.FunctionResponse:
+        decorators, name, *arg_type_pairs, return_type, expression = args
+
+        result: pycep_typing.FunctionResponse = {
+            "functions": {
+                "__name__": str(name),
+                "__attrs__": {
+                    "decorators": decorators or [],
+                    # TODO: change `zip` to `itertools.batched` when updating to Python 3.12
+                    "args": {
+                        str(arg_name): arg_type for arg_name, arg_type in zip(*[iter(arg_type_pairs)] * 2, strict=True)
+                    },
+                    "type": return_type,
+                    "expression": expression,
+                },
+            }
+        }
+
+        if self.add_line_numbers:
+            result["functions"]["__attrs__"]["__start_line__"] = meta.line
+            result["functions"]["__attrs__"]["__end_line__"] = meta.end_line
 
         return result
 
@@ -385,6 +499,16 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
         }
         return local_result
 
+    def import_alias(self, args: tuple[Token, ...]) -> pycep_typing.ImportNameAlias:
+        name, alias = args
+
+        result: pycep_typing.ImportNameAlias = {"name": str(name)}
+
+        if alias:
+            result["alias"] = str(alias)
+
+        return result
+
     def type_value(self, args: tuple[pycep_typing.PossibleNoneValue, ...]) -> str:
         # this is only triggered, when a union type was found, ex. "'bicep' | 'arm' | 'azure'"
         return " | ".join(str(arg) for arg in args)
@@ -397,24 +521,14 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
 
     def loop(self, args: tuple[pycep_typing.LoopType, str | None, dict[str, Any]]) -> pycep_typing.Loop:
         loop_type, condition, config = args
+
+        if isinstance(condition, dict) and (func := condition.get("function", {})).get("type") == "if":
+            condition = func["parameters"]["arg_1"]
+
         return {
             "loop_type": loop_type,
             "condition": condition,
             "config": config,
-        }
-
-    def loop_range(
-        self, args: tuple[Token, Token | None, pycep_typing.PossibleValue, pycep_typing.PossibleValue]
-    ) -> pycep_typing.LoopRange:
-        item_name, idx_name, start_idx, count = args
-        return {
-            "type": "range",
-            "detail": {
-                "item_name": str(item_name) if item_name else None,
-                "index_name": str(idx_name),
-                "start_index": start_idx,
-                "count": count,
-            },
         }
 
     def loop_array(self, args: tuple[Token, pycep_typing.PossibleValue]) -> pycep_typing.LoopArray:
@@ -434,7 +548,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             "detail": {
                 "item_name": str(item_name),
                 "index_name": str(idx_name),
-                "array_name": str(array_name),
+                "array_name": array_name,
             },
         }
 
@@ -467,62 +581,15 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     #
     ####################
 
-    def decorator(self, args: list[pycep_typing.Decorator]) -> list[pycep_typing.Decorator]:
+    def decorator(self, args: list[pycep_typing.Decorator]) -> pycep_typing.Decorator:
+        deco_name, *params = args
+        deco_name = str(deco_name)
+
+        deco_def = DECORATORS.get(deco_name, UNKNOWN_DECORATOR)
+        return deco_def(deco_name, params)
+
+    def decorators(self, args: list[pycep_typing.Decorator]) -> list[pycep_typing.Decorator]:
         return args
-
-    def deco_allowed(self, args: tuple[list[int | str]]) -> pycep_typing.DecoratorAllowed:
-        return {
-            "type": "allowed",
-            "argument": args[0],
-        }
-
-    def deco_batch(self, args: tuple[Token]) -> pycep_typing.DecoratorBatchSize:
-        return {
-            "type": "batchSize",
-            "argument": int(args[0]),
-        }
-
-    def deco_description(self, args: tuple[Token]) -> pycep_typing.DecoratorDescription:
-        argument = self.transform_string_token(args[0])
-        return {
-            "type": "description",
-            "argument": argument,
-        }
-
-    def deco_min_len(self, args: tuple[Token]) -> pycep_typing.DecoratorMinLength:
-        return {
-            "type": "min_length",
-            "argument": int(args[0]),
-        }
-
-    def deco_max_len(self, args: tuple[Token]) -> pycep_typing.DecoratorMaxLength:
-        return {
-            "type": "max_length",
-            "argument": int(args[0]),
-        }
-
-    def deco_min_val(self, args: tuple[Token]) -> pycep_typing.DecoratorMinValue:
-        return {
-            "type": "min_value",
-            "argument": int(args[0]),
-        }
-
-    def deco_max_val(self, args: tuple[Token]) -> pycep_typing.DecoratorMaxValue:
-        return {
-            "type": "max_value",
-            "argument": int(args[0]),
-        }
-
-    def deco_metadata(self, args: tuple[dict[str, Any]]) -> pycep_typing.DecoratorMetadata:
-        return {
-            "type": "metadata",
-            "argument": args[0],
-        }
-
-    def deco_secure(self, _: Any) -> pycep_typing.DecoratorSecure:  # noqa: ANN401
-        return {
-            "type": "secure",
-        }
 
     ####################
     #
@@ -530,991 +597,14 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     #
     ####################
 
-    def function(self, args: tuple[pycep_typing.Functions]) -> pycep_typing.Function:
-        return {"function": args[0]}
+    def function(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Function:
+        func_name, *params = args
+        func_name = str(func_name).removesuffix("(")
 
-    ####################
-    #
-    # functions - any
-    #
-    ####################
+        func_def = FUNCTIONS.get(func_name, UNKNOWN_FUNCTION)
+        func_data = func_def(func_name, params)
 
-    def any_func(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.AnyFunc:
-        return {
-            "type": "any",
-            "parameters": {
-                "value": args[0],
-            },
-        }
-
-    ####################
-    #
-    # functions - array
-    #
-    ####################
-
-    def array_func(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Array:
-        return {
-            "type": "array",
-            "parameters": {
-                "convert_to_array": args[0],
-            },
-        }
-
-    def concat(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Concat:
-        arg_1, *arg_x = args
-
-        return {
-            "type": "concat",
-            "parameters": {
-                "arg_1": arg_1,
-                **{f"arg_{idx + 2}": arg for idx, arg in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def contains(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.Contains:
-        container, item_to_find = args
-
-        return {
-            "type": "contains",
-            "parameters": {
-                "container": container,
-                "item_to_find": item_to_find,
-            },
-        }
-
-    def empty(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Empty:
-        return {
-            "type": "empty",
-            "parameters": {
-                "item_to_test": args[0],
-            },
-        }
-
-    def first(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]) -> pycep_typing.First:
-        arg_1, property_name = args
-
-        result: pycep_typing.First = {
-            "type": "first",
-            "parameters": {
-                "arg_1": arg_1,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def flatten(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]) -> pycep_typing.Flatten:
-        array_to_flattern, property_name = args
-
-        result: pycep_typing.Flatten = {
-            "type": "flatten",
-            "parameters": {
-                "array_to_flattern": array_to_flattern,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def intersection(self, args: tuple[str, ...]) -> pycep_typing.Intersection:
-        arg_1, arg_2, *arg_x, property_name = args
-
-        result: pycep_typing.Intersection = {
-            "type": "intersection",
-            "parameters": {
-                "arg_1": arg_1,
-                "arg_2": arg_2,
-                **{f"arg_{idx + 3}": arg for idx, arg in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def last(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]) -> pycep_typing.Last:
-        arg_1, property_name = args
-
-        result: pycep_typing.Last = {
-            "type": "last",
-            "parameters": {
-                "arg_1": arg_1,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def length(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Length:
-        return {
-            "type": "length",
-            "parameters": {
-                "arg_1": args[0],
-            },
-        }
-
-    def max_func(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Max:
-        arg_1, *arg_x = args
-
-        return {
-            "type": "max",
-            "parameters": {
-                "arg_1": arg_1,
-                **{f"arg_{idx + 2}": arg for idx, arg in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def min_func(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Min:
-        arg_1, *arg_x = args
-
-        return {
-            "type": "min",
-            "parameters": {
-                "arg_1": arg_1,
-                **{f"arg_{idx + 2}": arg for idx, arg in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def skip(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.Skip:
-        original_value, number_to_skip = args
-
-        return {
-            "type": "skip",
-            "parameters": {
-                "original_value": original_value,
-                "number_to_skip": number_to_skip,
-            },
-        }
-
-    def take(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.Take:
-        original_value, number_to_take = args
-
-        return {
-            "type": "take",
-            "parameters": {
-                "original_value": original_value,
-                "number_to_take": number_to_take,
-            },
-        }
-
-    def union(self, args: tuple[str, ...]) -> pycep_typing.UnionFunc:
-        arg_1, arg_2, *arg_x, property_name = args
-
-        result: pycep_typing.UnionFunc = {
-            "type": "union",
-            "parameters": {
-                "arg_1": arg_1,
-                "arg_2": arg_2,
-                **{f"arg_{idx + 3}": arg for idx, arg in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    ####################
-    #
-    # functions - date
-    #
-    ####################
-
-    def date_time_add(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]
-    ) -> pycep_typing.DateTimeAdd:
-        base, duration, format_str = args
-
-        return {
-            "type": "date_time_add",
-            "parameters": {
-                "base": base,
-                "duration": duration,
-                "format": format_str,
-            },
-        }
-
-    def date_time_from_epoch(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.DateTimeFromEpoch:
-        return {
-            "type": "date_time_from_epoch",
-            "parameters": {
-                "epoch_time": args[0],
-            },
-        }
-
-    def date_time_to_epoch(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.DateTimeToEpoch:
-        return {
-            "type": "date_time_to_epoch",
-            "parameters": {
-                "date_time": args[0],
-            },
-        }
-
-    def utc_now(self, args: tuple[pycep_typing.PossibleNoneValue]) -> pycep_typing.UtcNow:
-        return {
-            "type": "utc_now",
-            "parameters": {
-                "format": args[0],
-            },
-        }
-
-    ####################
-    #
-    # functions - deployment
-    #
-    ####################
-
-    def deployment(self, args: tuple[str | None]) -> pycep_typing.Deployment:
-        property_name = args[0]
-
-        result: pycep_typing.Deployment = {"type": "deployment"}
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def environment(self, args: tuple[str | None]) -> pycep_typing.Environment:
-        property_name = args[0]
-
-        result: pycep_typing.Environment = {"type": "environment"}
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    ####################
-    #
-    # functions - file
-    #
-    ####################
-
-    def load_text_content(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]
-    ) -> pycep_typing.LoadTextContent:
-        file_path, encoding = args
-
-        return {
-            "type": "load_text_content",
-            "parameters": {
-                "file_path": file_path,
-                "encoding": encoding,
-            },
-        }
-
-    def load_json_content(
-        self,
-        args: tuple[
-            pycep_typing.PossibleValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-        ],
-    ) -> pycep_typing.LoadJsonContent:
-        file_path, json_path, encoding, property_name_1, property_name_2 = args
-
-        result: pycep_typing.LoadJsonContent = {
-            "type": "load_json_content",
-            "parameters": {
-                "file_path": file_path,
-                "json_path": json_path,
-                "encoding": encoding,
-            },
-        }
-
-        if property_name_2:
-            # workaround for direct index accessors
-            if property_name_1:
-                property_name = f"[{property_name_1}]{property_name_2}"
-            else:
-                property_name = str(property_name_2)
-
-            result["property_name"] = property_name
-
-        return result
-
-    def load_yaml_content(
-        self,
-        args: tuple[
-            pycep_typing.PossibleValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-        ],
-    ) -> pycep_typing.LoadYamlContent:
-        file_path, path_filter, encoding, property_name_1, property_name_2 = args
-
-        result: pycep_typing.LoadYamlContent = {
-            "type": "load_yaml_content",
-            "parameters": {
-                "file_path": file_path,
-                "path_filter": path_filter,
-                "encoding": encoding,
-            },
-        }
-
-        if property_name_2:
-            # workaround for direct index accessors
-            if property_name_1:
-                property_name = f"[{property_name_1}]{property_name_2}"
-            else:
-                property_name = str(property_name_2)
-
-            result["property_name"] = property_name
-
-        return result
-
-    def load_file_as_base64(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.LoadFileAsBase64:
-        return {
-            "type": "load_file_as_base64",
-            "parameters": {
-                "file_path": args[0],
-            },
-        }
-
-    ####################
-    #
-    # functions - lambda
-    #
-    ####################
-
-    def filter(self, args: tuple[pycep_typing.PossibleValue, Token, pycep_typing.PossibleValue]) -> pycep_typing.Filter:
-        input_array, input_element, expression = args
-
-        return {
-            "type": "filter",
-            "parameters": {
-                "input_array": input_array,
-                "input_element": str(input_element),
-                "expression": expression,
-            },
-        }
-
-    ####################
-    #
-    # functions - logical
-    #
-    ####################
-
-    def bool_func(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.BoolFunc:
-        return {
-            "type": "bool",
-            "parameters": {
-                "arg_1": args[0],
-            },
-        }
-
-    ####################
-    #
-    # functions - numeric
-    #
-    ####################
-
-    def int_func(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.IntFunc:
-        return {
-            "type": "int",
-            "parameters": {
-                "value_to_convert": args[0],
-            },
-        }
-
-    ####################
-    #
-    # functions - object
-    #
-    ####################
-
-    def json_func(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue, pycep_typing.PossibleNoneValue]
-    ) -> pycep_typing.Json:
-        arg_1, property_name_1, property_name_2 = args
-
-        result: pycep_typing.Json = {
-            "type": "json",
-            "parameters": {
-                "arg_1": arg_1,
-            },
-        }
-
-        if property_name_2:
-            # workaround for direct index accessors
-            if property_name_1:
-                property_name = f"[{property_name_1}]{property_name_2}"
-            else:
-                property_name = str(property_name_2)
-
-            result["property_name"] = property_name
-
-        return result
-
-    ####################
-    #
-    # functions - resource
-    #
-    ####################
-
-    def extension_resource_id(self, args: list[Token]) -> pycep_typing.ExtensionResourceId:
-        args_len = len(args)
-        if args_len == 3:
-            resource_id = args[0]
-            resource_type = args[1]
-            resource_name_1 = args[2]
-            resource_name_2 = None
-        else:
-            resource_id = args[0]
-            resource_type = args[1]
-            resource_name_1 = args[2]
-            resource_name_2 = args[3]
-
-        return {
-            "type": "extension_resource_id",
-            "parameters": {
-                "resource_id": resource_id,
-                "resource_type": resource_type,
-                "resource_name_1": resource_name_1,
-                "resource_name_2": resource_name_2,
-            },
-        }
-
-    def list_func(
-        self,
-        args: tuple[
-            pycep_typing.PossibleValue,
-            pycep_typing.PossibleValue,
-            pycep_typing.PossibleValue,
-        ],
-    ) -> pycep_typing.ListFunc:
-        func_name, resource_identifier, api_version = args
-
-        result: pycep_typing.ListFunc = {
-            "type": "list_func",
-            "parameters": {
-                "func_name": str(func_name),
-                "resource_identifier": resource_identifier,
-                "api_version": api_version,
-            },
-        }
-
-        return result
-
-    def management_group_resource_id(self, args: list[Token]) -> pycep_typing.ManagementGroupResourceId:
-        args_len = len(args)
-        if args_len == 2:
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = None
-        else:
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = args[2]
-
-        return {
-            "type": "management_group_resource_id",
-            "parameters": {
-                "resource_type": resource_type,
-                "resource_name_1": resource_name_1,
-                "resource_name_2": resource_name_2,
-            },
-        }
-
-    def pick_zones(self, args: list[pycep_typing.PossibleNoneValue]) -> pycep_typing.PickZones:
-        args_len = len(args)
-
-        provider_namespace = cast(pycep_typing.PossibleValue, args[0])
-        resource_type = cast(pycep_typing.PossibleValue, args[1])
-        location = cast(pycep_typing.PossibleValue, args[2])
-        number_of_zones = None
-        offset = None
-
-        if args_len >= 4:
-            number_of_zones = args[3]
-            if args_len == 5:
-                offset = args[4]
-
-        return {
-            "type": "pick_zones",
-            "parameters": {
-                "provider_namespace": provider_namespace,
-                "resource_type": resource_type,
-                "location": location,
-                "number_of_zones": number_of_zones,
-                "offset": offset,
-            },
-        }
-
-    def reference(
-        self,
-        args: tuple[
-            pycep_typing.PossibleValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-            pycep_typing.PossibleNoneValue,
-        ],
-    ) -> pycep_typing.Reference:
-        resource_identifier, api_version, full, property_name = args
-
-        result: pycep_typing.Reference = {
-            "type": "reference",
-            "parameters": {
-                "resource_identifier": resource_identifier,
-                "api_version": api_version,
-                "full": full,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def resource_id(self, args: list[Token]) -> pycep_typing.ResourceId:
-        # args has between 2-5 items and only for the 2 and 5 items case
-        # it is possible to determine the correct parameter references
-        args_len = len(args)
-        if args_len == 2:
-            subscription_id = None
-            resource_group_name = None
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = None
-        elif args_len == 3:
-            # this case is ambiguous and it could be any of
-            # 0 -> resource_type, 1 -> resource_name_1, 2 -> resource_name_2
-            # 0 -> resource_group_name, 1 -> resource_type, 2 -> resource_name_1
-            subscription_id = None
-            resource_group_name = None
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = args[2]
-        elif args_len == 4:
-            # this case is ambiguous and it could be any of
-            # 0 -> resource_group_name, 1 -> resource_type, 2 -> resource_name_1, 3 -> resource_name_2
-            # 0 -> subscription_id, 1 -> resource_group_name, 2 -> resource_type, 3 -> resource_name_1
-            subscription_id = None
-            resource_group_name = args[0]
-            resource_type = args[1]
-            resource_name_1 = args[2]
-            resource_name_2 = args[3]
-        else:
-            # in theory there could be many resource_name parameters, but it is currently limited to 7
-            subscription_id = args[0]
-            resource_group_name = args[1]
-            resource_type = args[2]
-            # resource_name_1 = args[3]
-            # resource_name_2 = args[4]
-
-            return {
-                "type": "resource_id",
-                "parameters": {
-                    "resource_type": resource_type,
-                    **{  # type: ignore[typeddict-item] # dynamic operand creation
-                        f"resource_name_{idx}": resource_name for idx, resource_name in enumerate(args[3:], start=1)
-                    },
-                    "resource_group_name": resource_group_name,
-                    "subscription_id": subscription_id,
-                },
-            }
-
-        return {
-            "type": "resource_id",
-            "parameters": {
-                "resource_type": resource_type,
-                "resource_name_1": resource_name_1,
-                "resource_name_2": resource_name_2,
-                "resource_group_name": resource_group_name,
-                "subscription_id": subscription_id,
-            },
-        }
-
-    def subscription_resource_id(self, args: list[Token]) -> pycep_typing.SubscriptionResourceId:
-        # args has between 2-4 items and only for the 2 and 4 items case
-        # it is possible to determine the correct parameter references
-        args_len = len(args)
-        if args_len == 2:
-            subscription_id = None
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = None
-        elif args_len == 3:
-            # this case is ambiguous and it could be any of
-            # 0 -> resource_type, 1 -> resource_name_1, 2 -> resource_name_2
-            # 0 -> subscription_id, 1 -> resource_type, 2 -> resource_name_1
-            subscription_id = None
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = args[2]
-        else:
-            subscription_id = args[0]
-            resource_type = args[1]
-            resource_name_1 = args[2]
-            resource_name_2 = args[3]
-
-        return {
-            "type": "subscription_resource_id",
-            "parameters": {
-                "resource_type": resource_type,
-                "resource_name_1": resource_name_1,
-                "resource_name_2": resource_name_2,
-                "subscription_id": subscription_id,
-            },
-        }
-
-    def tenant_resource_id(self, args: list[Token]) -> pycep_typing.TenantResourceId:
-        args_len = len(args)
-        if args_len == 2:
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = None
-        else:
-            resource_type = args[0]
-            resource_name_1 = args[1]
-            resource_name_2 = args[2]
-
-        return {
-            "type": "tenant_resource_id",
-            "parameters": {
-                "resource_type": resource_type,
-                "resource_name_1": resource_name_1,
-                "resource_name_2": resource_name_2,
-            },
-        }
-
-    ####################
-    #
-    # functions - scope
-    #
-    ####################
-
-    def management_group(
-        self, args: tuple[pycep_typing.PossibleNoneValue, Token | None]
-    ) -> pycep_typing.ManagementGroup:
-        identifier, property_name = args
-
-        result: pycep_typing.ManagementGroup = {
-            "type": "management_group",
-            "parameters": {
-                "identifier": identifier,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def resource_group(
-        self, args: tuple[pycep_typing.PossibleNoneValue, pycep_typing.PossibleNoneValue, Token | None]
-    ) -> pycep_typing.ResourceGroup:
-        resource_group_name, subscription_id, property_name = args
-
-        if resource_group_name and subscription_id:
-            # very strange parameter definition
-            resource_group_name, subscription_id = subscription_id, resource_group_name
-
-        result: pycep_typing.ResourceGroup = {
-            "type": "resource_group",
-            "parameters": {
-                "resource_group_name": resource_group_name,
-                "subscription_id": subscription_id,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def subscription(self, args: tuple[pycep_typing.PossibleNoneValue, Token | None]) -> pycep_typing.Subscription:
-        subscription_id, property_name = args
-
-        result: pycep_typing.Subscription = {
-            "type": "subscription",
-            "parameters": {
-                "subscription_id": subscription_id,
-            },
-        }
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    def tenant(self, args: tuple[Token | None]) -> pycep_typing.Tenant:
-        property_name = args
-
-        result: pycep_typing.Tenant = {"type": "tenant"}
-
-        if property_name:
-            result["property_name"] = str(property_name)
-
-        return result
-
-    ####################
-    #
-    # functions - string
-    #
-    ####################
-
-    def base64_func(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Base64:
-        return {
-            "type": "base64",
-            "parameters": {
-                "input_string": args[0],
-            },
-        }
-
-    def base64_to_json(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Base64ToJson:
-        return {
-            "type": "base64_to_json",
-            "parameters": {
-                "base64_value": args[0],
-            },
-        }
-
-    def base64_to_string(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Base64ToString:
-        return {
-            "type": "base64_to_string",
-            "parameters": {
-                "base64_value": args[0],
-            },
-        }
-
-    def data_uri(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.DataUri:
-        return {
-            "type": "data_uri",
-            "parameters": {
-                "string_to_convert": args[0],
-            },
-        }
-
-    def data_uri_to_string(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.DataUriToString:
-        return {
-            "type": "data_uri_to_string",
-            "parameters": {
-                "data_uri_to_convert": args[0],
-            },
-        }
-
-    def ends_with(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.EndsWith:
-        string_to_search, string_to_find = args
-
-        return {
-            "type": "ends_with",
-            "parameters": {
-                "string_to_search": string_to_search,
-                "string_to_find": string_to_find,
-            },
-        }
-
-    def format(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Format:
-        format_string, *arg_x = args
-
-        return {
-            "type": "format",
-            "parameters": {
-                "format_string": format_string,
-                **{f"arg_{idx + 1}": extra for idx, extra in enumerate(arg_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def guid(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.Guid:
-        base_string, *extra_string_x = args
-
-        return {
-            "type": "guid",
-            "parameters": {
-                "base_string": base_string,
-                **{f"extra_string_{idx + 1}": extra for idx, extra in enumerate(extra_string_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def index_of(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.IndexOf:
-        string_to_search, string_to_find = args
-
-        return {
-            "type": "index_of",
-            "parameters": {
-                "string_to_search": string_to_search,
-                "string_to_find": string_to_find,
-            },
-        }
-
-    def last_index_of(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]
-    ) -> pycep_typing.LastIndexOf:
-        string_to_search, string_to_find = args
-
-        return {
-            "type": "last_index_of",
-            "parameters": {
-                "string_to_search": string_to_search,
-                "string_to_find": string_to_find,
-            },
-        }
-
-    def new_guid(self, _args: tuple[object]) -> pycep_typing.NewGuid:
-        return {"type": "new_guid"}
-
-    def pad_left(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]
-    ) -> pycep_typing.PadLeft:
-        value_to_pad, total_length, padding_character = args
-
-        return {
-            "type": "pad_left",
-            "parameters": {
-                "value_to_pad": value_to_pad,
-                "total_length": total_length,
-                "padding_character": padding_character,
-            },
-        }
-
-    def replace(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue, pycep_typing.PossibleValue]
-    ) -> pycep_typing.Replace:
-        original_string, old_string, new_string = args
-
-        return {
-            "type": "replace",
-            "parameters": {
-                "original_string": original_string,
-                "old_string": old_string,
-                "new_string": new_string,
-            },
-        }
-
-    def split(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue, Token | None]
-    ) -> pycep_typing.Split:
-        input_string, delimiter, index = args
-
-        result: pycep_typing.Split = {
-            "type": "split",
-            "parameters": {
-                "input_string": input_string,
-                "delimiter": delimiter,
-            },
-        }
-
-        if index:
-            result["index"] = int(index)
-
-        return result
-
-    def join(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.Join:
-        input_array, delimiter = args
-
-        result: pycep_typing.Join = {"type": "join", "parameters": {"input_array": input_array, "delimiter": delimiter}}
-
-        return result
-
-    def starts_with(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]
-    ) -> pycep_typing.StartsWith:
-        string_to_search, string_to_find = args
-
-        return {
-            "type": "starts_with",
-            "parameters": {
-                "string_to_search": string_to_search,
-                "string_to_find": string_to_find,
-            },
-        }
-
-    def string_func(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.String:
-        return {
-            "type": "string",
-            "parameters": {
-                "value_to_convert": args[0],
-            },
-        }
-
-    def substring(
-        self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue, pycep_typing.PossibleNoneValue]
-    ) -> pycep_typing.Substring:
-        string_to_parse, start_index, length = args
-
-        return {
-            "type": "substring",
-            "parameters": {
-                "string_to_parse": string_to_parse,
-                "start_index": start_index,
-                "length": length,
-            },
-        }
-
-    def to_lower(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.ToLower:
-        return {
-            "type": "to_lower",
-            "parameters": {
-                "string_to_change": args[0],
-            },
-        }
-
-    def to_upper(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.ToUpper:
-        return {
-            "type": "to_upper",
-            "parameters": {
-                "string_to_change": args[0],
-            },
-        }
-
-    def trim(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.Trim:
-        return {
-            "type": "trim",
-            "parameters": {
-                "string_to_trim": args[0],
-            },
-        }
-
-    def unique_string(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.UniqueString:
-        base_string, *extra_string_x = args
-
-        return {
-            "type": "unique_string",
-            "parameters": {
-                "base_string": base_string,
-                **{f"extra_string_{idx + 1}": extra for idx, extra in enumerate(extra_string_x)},  # type: ignore[typeddict-item] # dynamic operand creation
-            },
-        }
-
-    def uri(self, args: tuple[pycep_typing.PossibleValue, pycep_typing.PossibleValue]) -> pycep_typing.Uri:
-        base_uri, relative_uri = args
-
-        return {
-            "type": "uri",
-            "parameters": {
-                "base_uri": base_uri,
-                "relative_uri": relative_uri,
-            },
-        }
-
-    def uri_component(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.UriComponent:
-        return {
-            "type": "uri_component",
-            "parameters": {
-                "string_to_encode": args[0],
-            },
-        }
-
-    def uri_component_to_string(self, args: tuple[pycep_typing.PossibleValue]) -> pycep_typing.UriComponentToString:
-        return {
-            "type": "uri_component_to_string",
-            "parameters": {
-                "uri_encoded_string": args[0],
-            },
-        }
+        return {"function": func_data}
 
     ####################
     #
@@ -1627,7 +717,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             "operands": {
                 "operand_1": operand_1,
                 "operand_2": operand_2,
-                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},  # type: ignore[typeddict-item] # dynamic operand creation
+                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},
             },
         }
 
@@ -1639,7 +729,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             "operands": {
                 "operand_1": operand_1,
                 "operand_2": operand_2,
-                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},  # type: ignore[typeddict-item] # dynamic operand creation
+                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},
             },
         }
 
@@ -1659,7 +749,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             "operands": {
                 "operand_1": operand_1,
                 "operand_2": operand_2,
-                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},  # type: ignore[typeddict-item] # dynamic operand creation
+                **{f"operand_{idx + 3}": op for idx, op in enumerate(operand_x)},
             },
         }
 
@@ -1765,7 +855,7 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
             "operands": {
                 "operand_1": arg_1,
                 "func_name": str(func_name),
-                **{f"operand_{idx + 2}": extra for idx, extra in enumerate(arg_x) if extra},  # type: ignore[typeddict-item] # dynamic operand creation
+                **{f"operand_{idx + 2}": extra for idx, extra in enumerate(arg_x) if extra},
             },
         }
 
@@ -1800,15 +890,14 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     def key(self, arg: tuple[Token]) -> str:
         return str(arg[0])
 
-    def int(self, arg: tuple[Token]) -> int:
+    def int_type(self, arg: tuple[Token]) -> int:
         return int(arg[0])
 
     def string(self, arg: tuple[Token]) -> str:
-        return self.transform_string_token(arg[0])
+        return transform_string_token(arg[0])
 
     def multi_line_string(self, arg: tuple[Token]) -> str:
-        value = str(arg[0])[3:-3]
-        return value[1:] if value.startswith("\n") else value
+        return sanitize_multi_line_string_token(arg[0])
 
     def true(self, _: Any) -> Literal[True]:  # noqa: ANN401
         return True
@@ -1818,6 +907,18 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
 
     def null(self, _: Any) -> None:  # noqa: ANN401
         return None
+
+    def lambda_expression(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.LambdaExpression:
+        arg_1, *arg_x, expr = args
+
+        return {
+            "type": "lambda_expression",
+            "detail": {
+                "var_1": str(arg_1),
+                **{f"var_{idx + 2}": str(arg) for idx, arg in enumerate(arg_x)},
+                "expression": expr,
+            },
+        }
 
     ####################
     #
@@ -1861,16 +962,3 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
                 parent_type_api_pair=child_type_api_pair,
                 config=child_resource["__attrs__"]["config"],
             )
-
-    def transform_string_token(self, value: Token) -> str | BicepElement:
-        """Transforms string typed Token to a `str` or `BicepElement`.
-
-        Additionally, removes surrounding single quotes.
-        """
-        if value.type == "MULTI_LINE_STRING":
-            return self.multi_line_string((value,))
-
-        if value.type not in ("QUOTED_STRING", "QUOTED_INTERPOLATION"):
-            return BicepElement(value)
-
-        return str(value)[1:-1]

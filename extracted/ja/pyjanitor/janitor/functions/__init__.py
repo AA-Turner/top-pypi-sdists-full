@@ -16,6 +16,14 @@ pyjanitor's general-purpose data cleaning functions.
 # 7. Never import utils.
 
 from .add_columns import add_columns
+from .adorn import (
+    adorn_ns,
+    adorn_pct_formatting,
+    adorn_percentages,
+    adorn_rounding,
+    adorn_title,
+    adorn_totals,
+)
 from .alias import alias
 from .also import also
 from .bin_numeric import bin_numeric
@@ -70,6 +78,7 @@ from .remove_columns import remove_columns
 from .remove_empty import remove_empty
 from .rename_columns import rename_column, rename_columns
 from .reorder_columns import reorder_columns
+from .rle_id import rle_id
 from .round_to_fraction import round_to_fraction
 from .row_to_names import row_to_names
 from .select import (
@@ -84,6 +93,7 @@ from .shuffle import shuffle
 from .sort_column_value_order import sort_column_value_order
 from .sort_naturally import sort_naturally
 from .summarise import summarise
+from .tabyl import tabyl
 from .take_first import take_first
 from .then import then
 from .to_datetime import to_datetime
@@ -97,6 +107,12 @@ from .utils import (
 
 __all__ = [
     "add_columns",
+    "adorn_ns",
+    "adorn_pct_formatting",
+    "adorn_percentages",
+    "adorn_rounding",
+    "adorn_title",
+    "adorn_totals",
     "alias",
     "also",
     "bin_numeric",
@@ -155,6 +171,7 @@ __all__ = [
     "rename_column",
     "rename_columns",
     "reorder_columns",
+    "rle_id",
     "round_to_fraction",
     "row_to_names",
     "select_columns",
@@ -164,6 +181,7 @@ __all__ = [
     "sort_column_value_order",
     "sort_naturally",
     "summarise",
+    "tabyl",
     "take_first",
     "then",
     "to_datetime",

@@ -1,10 +1,12 @@
 from collections.abc import (
     Callable,
+    Hashable,
     Sequence,
 )
 from typing import (
     Any,
     Literal,
+    TypeAlias,
     TypedDict,
 )
 
@@ -15,10 +17,7 @@ from jinja2.environment import (
 from jinja2.loaders import PackageLoader
 from pandas import Index
 from pandas.core.indexing import _IndexSlice
-from typing_extensions import (
-    Self,
-    TypeAlias,
-)
+from typing_extensions import Self
 
 from pandas._typing import (
     Axis,
@@ -59,7 +58,7 @@ class StylerRenderer:
     def format(
         self,
         formatter: ExtFormatter | None = None,
-        subset: Subset | None = None,
+        subset: Subset[Hashable] | None = None,
         na_rep: str | None = None,
         precision: int | None = None,
         decimal: str = ".",

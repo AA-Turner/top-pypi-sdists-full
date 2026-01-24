@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import TypeAlias
 
 from custom_base import Base
 
@@ -14,26 +14,26 @@ from custom_base import Base
 class Pet(Base):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: str | None = None
 
 
-Pets = List[Pet]
+Pets: TypeAlias = list[Pet]
 
 
 @dataclass
 class User(Base):
     id: int
     name: str
-    tag: Optional[str] = None
+    tag: str | None = None
 
 
-Users = List[User]
+Users: TypeAlias = list[User]
 
 
-Id = str
+Id: TypeAlias = str
 
 
-Rules = List[str]
+Rules: TypeAlias = list[str]
 
 
 @dataclass
@@ -44,20 +44,20 @@ class Error(Base):
 
 @dataclass
 class Api(Base):
-    apiKey: Optional[str] = None
-    apiVersionNumber: Optional[str] = None
-    apiUrl: Optional[str] = None
-    apiDocumentationUrl: Optional[str] = None
+    apiKey: str | None = None
+    apiVersionNumber: str | None = None
+    apiUrl: str | None = None
+    apiDocumentationUrl: str | None = None
 
 
-Apis = List[Api]
+Apis: TypeAlias = list[Api]
 
 
 @dataclass
 class Event(Base):
-    name: Optional[str] = None
+    name: str | None = None
 
 
 @dataclass
 class Result(Base):
-    event: Optional[Event] = None
+    event: Event | None = None

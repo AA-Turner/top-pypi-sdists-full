@@ -29,7 +29,7 @@ class MissingKeywordNameRule(Rule):
     """
     Missing keyword name.
 
-    Example of rule violation::
+    Example of rule violation:
 
         *** Keywords ***
         Keyword
@@ -52,7 +52,7 @@ class VariablesImportWithArgsRule(Rule):
     """
     YAML variables file import with arguments.
 
-    Example of rule violation::
+    Example of rule violation:
 
         *** Settings ***
         Variables    vars.yaml        arg1
@@ -75,7 +75,7 @@ class InvalidContinuationMarkRule(Rule):
     """
     Invalid continuation mark.
 
-    Example of rule violation::
+    Example of rule violation:
 
         Keyword
         ..  ${var}  # .. instead of ...
@@ -98,7 +98,7 @@ class NonExistingSettingRule(Rule):
     """
     Non-existing setting used in the code.
 
-    Example of rule violation::
+    Example of rule violation:
 
        *** Test Cases ***
        Test case
@@ -121,7 +121,7 @@ class SettingNotSupportedRule(Rule):
     """
     Not supported setting.
 
-    Following settings are supported in Test Case or Task::
+    Following settings are supported in Test Case or Task:
 
         *** Test Cases ***
         Test case
@@ -132,7 +132,7 @@ class SettingNotSupportedRule(Rule):
             [Template]	     Used for specifying a template keyword.
             [Timeout]	     Used for specifying a test case timeout.
 
-    Following settings are supported in Keyword::
+    Following settings are supported in Keyword:
 
         *** Keywords ***
         Keyword
@@ -459,7 +459,7 @@ class ParsingErrorChecker(VisitorChecker):
             self.report(
                 self.setting_not_suported,
                 setting_name=setting_error,
-                test_or_keyword="Test Case",  # TODO: Recognize if it is inside Task
+                test_or_keyword="Test Case or Task",  # TODO: Recognize if it is inside Task
                 allowed_settings=", ".join(self.test_case_settings),
                 node=node,
                 col=token.col_offset + 1,
@@ -542,6 +542,8 @@ class ParsingErrorChecker(VisitorChecker):
                 )
 
     def handle_unsupported_settings_in_init_file(self, node) -> None:
+        if ROBOT_VERSION.major < 6 and "__init__" not in self.source.name:
+            return  # handle bug where Robot reports invalid setting as not allowed in suite init file
         setting_node = node.data_tokens[0]
         setting_name = setting_node.value
         self.report(
@@ -597,7 +599,7 @@ class ParsingErrorChecker(VisitorChecker):
             section_name=setting_error.group(1),
             node=node,
             lineno=node.lineno,
-            end_col=node.end_col_offset + 1,
+            end_col=node.end_col_offset,
         )
 
 
@@ -655,6 +657,7 @@ class MissingKeywordName(VisitorChecker):  # TODO should be part of other checke
                 node=node,
                 lineno=node.lineno,
                 col=assign_token.col_offset + 1,
+                end_col=node.data_tokens[0].end_col_offset + 1,
             )
 
     def visit_KeywordCall(self, node) -> None:  # noqa: N802

@@ -190,8 +190,8 @@ class EventTableCollection(SchemaObjectCollectionParent["EventTableResource"]):
 class EventTableResource(SchemaObjectReferenceMixin[EventTableCollection]):
     """Represents a reference to a Snowflake event table.
 
-    With this event table reference, you can create, update, and fetch information about event tables, as well
-    as perform certain actions on them.
+    With this event table reference, you can fetch information about an event table, as well
+    as perform certain actions on it.
     """
 
     def __init__(self, name: str, collection: EventTableCollection) -> None:

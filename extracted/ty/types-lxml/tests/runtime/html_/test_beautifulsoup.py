@@ -122,7 +122,11 @@ class TestFromstring:
     @given(thing=_st.all_instances_except_of_type(NoneType))
     @pytest.mark.slow
     def test_makeelement_arg_bad_1(self, html2_str: str, thing: Any) -> None:
-        with pytest.raises((TypeError, ValueError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            TypeError,
+            ValueError,
+        )):
             _ = _soup.fromstring(html2_str, makeelement=thing)
 
     @settings(max_examples=5)
@@ -143,7 +147,7 @@ class TestFromstring:
         del result
 
         with raise_unexpected_kwarg:
-            _ = _soup.fromstring(html2_bytes, badarg=None)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportUnknownVariableType]
+            _ = _soup.fromstring(html2_bytes, badarg=None)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportUnknownVariableType]  # pyrefly: ignore[no-matching-overload]
 
 
 class TestParse:
@@ -213,7 +217,11 @@ class TestParse:
     @given(thing=_st.all_instances_except_of_type(NoneType))
     @pytest.mark.slow
     def test_makeelement_arg_bad_1(self, html2_filepath: Path, thing: Any) -> None:
-        with pytest.raises((TypeError, ValueError)):
+        # pyrefly: ignore[no-matching-overload]
+        with pytest.raises((
+            TypeError,
+            ValueError,
+        )):
             _ = _soup.parse(html2_filepath, makeelement=thing)
 
     @settings(max_examples=5)
@@ -237,7 +245,7 @@ class TestParse:
         del result
 
         with raise_unexpected_kwarg:
-            _ = _soup.parse(fh, badarg=None)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportUnknownVariableType]
+            _ = _soup.parse(fh, badarg=None)  # type: ignore[call-overload]  # pyright: ignore[reportCallIssue,reportUnknownVariableType]  # pyrefly: ignore[no-matching-overload]
 
         fh.close()
 
@@ -253,6 +261,7 @@ class TestConvertTree:
     def test_input_arg_ok(self, html2_filepath: Path) -> None:
         for feat in ("lxml-html", "html.parser"):
             soup = BeautifulSoup(html2_filepath.read_text(), features=feat)
+            # pyrefly: ignore[bad-argument-type]
             reveal_type(_soup.convert_tree(soup))
 
     def test_input_arg_bad(
@@ -264,7 +273,11 @@ class TestConvertTree:
         # it generates TypeError uncatchable by pytest.raises.
         # Thus not included in the test.
         for input in generate_input_file_arguments(html2_filepath):
-            with pytest.raises((TypeError, AttributeError)):
+            # pyrefly: ignore[no-matching-overload]
+            with pytest.raises((
+                TypeError,
+                AttributeError,
+            )):
                 _ = _soup.convert_tree(input)
 
     def test_makeelement_arg_ok(self, html2_str: str) -> None:
@@ -287,6 +300,10 @@ class TestConvertTree:
         if not callable(thing):
             with pytest.raises(TypeError, match=r"object is not callable"):
                 _ = _soup.convert_tree(soup, makeelement=thing)
+        elif thing is dict:
+            # ValueError: dictionary update sequence element #0 has length 1; 2 is required
+            with pytest.raises(ValueError, match=r"2 is required"):
+                _ = _soup.convert_tree(soup, makeelement=cast(Any, thing))
         else:
             with pytest.raises(TypeError):
                 _ = _soup.convert_tree(soup, makeelement=cast(Any, thing))

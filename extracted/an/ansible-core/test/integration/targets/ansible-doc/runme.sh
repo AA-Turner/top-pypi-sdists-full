@@ -121,7 +121,7 @@ done
 
 echo "testing role text output"
 # we use sed to strip the role path from the first line
-current_role_out="$(ansible-doc -t role -r ./roles test_role1 | sed '1 s/\(^> ROLE: \*test_role1\*\).*(.*)$/\1/')"
+current_role_out="$(ansible-doc -t role -r ./roles test_role1 | sed '1 s/\(^> ROLE: \*test_role1\*\).*(.*)$/\1/' | python fix-urls.py)"
 expected_role_out="$(sed '1 s/\(^> ROLE: \*test_role1\*\).*(.*)$/\1/' fakerole.output)"
 test "$current_role_out" == "$expected_role_out"
 
@@ -138,7 +138,7 @@ test "$output" -eq 4
 echo "testing standalone roles"
 # Include normal roles (no collection filter)
 output=$(ansible-doc -t role -l --playbook-dir . | wc -l)
-test "$output" -eq 8
+test "$output" -eq 11
 
 echo "testing role precedence"
 # Test that a role in the playbook dir with the same name as a role in the
@@ -211,6 +211,13 @@ ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --no-fail-on-errors --
 output=$(ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --playbook-dir broken-docs testns.testcol 2>&1 | grep -c 'ERROR' || true)
 test "${output}" -eq 1
 
+# ensure --metadata-dump does not crash if the ansible_collections is nested (https://github.com/ansible/ansible/issues/84909)
+testdir="$(pwd)"
+pbdir="collections/ansible_collections/testns/testcol/playbooks"
+cd "$pbdir"
+ANSIBLE_COLLECTIONS_PATH="$testdir/$pbdir/collections" ansible-doc -vvv --metadata-dump --no-fail-on-errors
+cd "$testdir"
+
 echo "test doc list on broken role metadata"
 # ensure that role doc does not fail when --no-fail-on-errors is supplied
 ANSIBLE_LIBRARY='./nolibrary' ansible-doc --no-fail-on-errors --playbook-dir broken-docs testns.testcol.testrole -t role 1>/dev/null 2>&1
@@ -243,6 +250,7 @@ echo "testing sidecar docs for jinja plugins"
 [ "$(ansible-doc -t test --playbook-dir ./ testns.testcol.yolo| wc -l)" -gt "0" ]
 [ "$(ansible-doc -t filter --playbook-dir ./ donothing| wc -l)" -gt "0" ]
 [ "$(ansible-doc -t filter --playbook-dir ./ ansible.legacy.donothing| wc -l)" -gt "0" ]
+[ "$(ansible-doc -t filter --playbook-dir ./ testns.testcol.filter_subdir.nested| wc -l)" -gt "0" ]
 
 echo "testing no docs and no sidecar"
 ansible-doc -t filter --playbook-dir ./ nodocs 2>&1| grep "${GREP_OPTS[@]}" -c 'missing documentation' || true
@@ -288,5 +296,8 @@ echo "test 'sidecar' for no extension module  with .py doc"
 echo "test 'sidecar' for no extension module  with .yml doc"
 [ "$(ansible-doc -M ./library -l ansible.legacy |grep -v 'UNDOCUMENTED' |grep -c facts_one)" == "1" ]
 
-echo "Test j2 plugins get jinja2 instead of path"
+echo "test j2 plugins get jinja2 instead of path"
 ansible-doc -t filter map 2>&1 |grep "${GREP_OPTS[@]}" '(Jinja2)'
+
+echo "test missing description in test_role4 argument spec"
+ansible-doc -t role -r ./roles test_role4 2>&1 >/dev/null | grep -q 'Error extracting role docs from '\''test_role4'\'': All (sub-)options and return values must have a '\''description'\'' field'

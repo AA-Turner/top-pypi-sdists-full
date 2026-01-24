@@ -16,8 +16,9 @@ pub use data::{FastExcelColumn, FastExcelSeries};
 use error::ErrorContext;
 pub use error::{FastExcelError, FastExcelErrorKind, FastExcelResult};
 pub use types::{
-    ColumnInfo, ColumnNameFrom, DType, DTypeCoercion, DTypeFrom, DTypes, ExcelReader, ExcelSheet,
-    ExcelTable, IdxOrName, LoadSheetOrTableOptions, SelectedColumns, SheetVisible, SkipRows,
+    ColumnInfo, ColumnNameFrom, DType, DTypeCoercion, DTypeFrom, DTypes, DefinedName, ExcelReader,
+    ExcelSheet, ExcelTable, IdxOrName, LoadSheetOrTableOptions, SelectedColumns, SheetVisible,
+    SkipRows,
 };
 
 /// Reads an excel file and returns an object allowing to access its sheets, tables, and a bit of metadata.
@@ -34,11 +35,11 @@ fn py_read_excel<'py>(source: &Bound<'_, PyAny>, py: Python<'py>) -> PyResult<Ex
     use py_errors::IntoPyResult;
 
     if let Ok(path) = source.extract::<String>() {
-        py.allow_threads(|| ExcelReader::try_from_path(&path))
+        py.detach(|| ExcelReader::try_from_path(&path))
             .with_context(|| format!("could not load excel file at {path}"))
             .into_pyresult()
     } else if let Ok(bytes) = source.extract::<&[u8]>() {
-        py.allow_threads(|| ExcelReader::try_from(bytes))
+        py.detach(|| ExcelReader::try_from(bytes))
             .with_context(|| "could not load excel file for those bytes")
             .into_pyresult()
     } else {
@@ -62,7 +63,7 @@ fn get_python_version() -> String {
 }
 
 #[cfg(feature = "python")]
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn _fastexcel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     use crate::types::excelsheet::column_info::{ColumnInfo, ColumnInfoNoDtype};
 
@@ -72,6 +73,7 @@ fn _fastexcel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_read_excel, m)?)?;
     m.add_class::<ColumnInfo>()?;
     m.add_class::<ColumnInfoNoDtype>()?;
+    m.add_class::<DefinedName>()?;
     m.add_class::<CellError>()?;
     m.add_class::<CellErrors>()?;
     m.add_class::<ExcelSheet>()?;

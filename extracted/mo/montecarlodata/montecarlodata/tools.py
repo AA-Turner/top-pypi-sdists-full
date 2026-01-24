@@ -37,6 +37,7 @@ class AdvancedOptions(Option):
 
         self.values_with_required_options = set(kwargs.pop("values_with_required_options", []))
         self.required_options_for_values = set(kwargs.pop("required_options_for_values", []))
+        self.required_options_by_value = kwargs.pop("required_options_by_value", {})
 
         # Update help for options and create friendly args (i.e. human readable).
         if self.mutually_exclusive_options:
@@ -87,6 +88,13 @@ class AdvancedOptions(Option):
                     f"'{name_opt}' without "
                     f"{self._friendly_required_options_for_values}."
                 )
+            if name_opt in self.values_with_required_options and self.required_options_by_value:
+                required_options = set(self.required_options_by_value.get(name_opt, []))
+                if required_options and not required_options.issubset(opts):
+                    raise click.BadParameter(
+                        f"Cannot use '{cli_friendly_name}' with value "
+                        f"'{name_opt}' without {required_options}."
+                    )
             if self.prompt_if_requested and name_opt == settings.SHOW_PROMPT_VALUE:
                 opts[self.name] = click.prompt(  # type: ignore
                     cli_friendly_name,  # type: ignore

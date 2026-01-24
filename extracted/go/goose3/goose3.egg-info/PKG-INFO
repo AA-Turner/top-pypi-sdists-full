@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: goose3
-Version: 3.1.20
+Version: 3.1.21
 Summary: Html Content / Article Extractor, web scrapping for Python3
 Home-page: https://github.com/goose3/goose3
 Author: Mahmoud Lababidi
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries :: Python Modules

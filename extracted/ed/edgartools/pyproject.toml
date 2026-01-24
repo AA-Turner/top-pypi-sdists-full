@@ -19,13 +19,14 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
   "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
   "httpx>=0.25.0",
-  "pandas>=2.0.0",
+  "pandas>=2.0.0,<3.0.0",
   "tabulate>=0.9.0",
   "pyarrow>=17.0.0",
   "beautifulsoup4>=4.10.0",
@@ -42,14 +43,15 @@ dependencies = [
   "tqdm>=4.62.0",
   "nest-asyncio>=1.5.1",
   "jinja2>=3.1.0",
-  "httpxthrottlecache>=0.1.6",
+  "pyrate-limiter==3.9.0",
+  "httpxthrottlecache>=0.3.0",
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 ai = [
-    "mcp==1.12.3; python_version>='3.10'",  # Model Context Protocol (Python 3.10+ only)
-    "tiktoken>=0.10.0",                      # Token counting for OpenAI models
+    "mcp>=1.12.3",          # Model Context Protocol
+    "tiktoken>=0.10.0",     # Token counting for OpenAI models
 ]
 
 ai-dev = [
@@ -57,10 +59,49 @@ ai-dev = [
     "responses>=0.24.0",         # HTTP response mocking
 ]
 
+data = [
+    "duckdb>=1.0.0",            # SQL interface for company datasets
+]
+
+test-harness = [
+    "click>=8.0.0",              # CLI interface for test harness
+]
+
+# Cloud storage support via fsspec
+cloud = [
+    "fsspec>=2023.1.0",          # Core filesystem abstraction
+]
+
+s3 = [
+    "fsspec>=2023.1.0",
+    "s3fs>=2023.1.0",            # AWS S3, Cloudflare R2, MinIO
+]
+
+gcs = [
+    "fsspec>=2023.1.0",
+    "gcsfs>=2023.1.0",           # Google Cloud Storage
+]
+
+azure = [
+    "fsspec>=2023.1.0",
+    "adlfs>=2023.1.0",           # Azure Blob Storage
+]
+
+all-cloud = [
+    "fsspec>=2023.1.0",
+    "s3fs>=2023.1.0",
+    "gcsfs>=2023.1.0",
+    "adlfs>=2023.1.0",
+]
+
 [project.urls]
 Documentation = "https://dgunning.github.io/edgartools/"
 Issues = "https://github.com/dgunning/edgartools/issues"
 Source = "https://github.com/dgunning/edgartools"
+
+[project.scripts]
+edgartools-mcp = "edgar.ai.mcp_server:main"
+edgar-test = "tests.harness.cli:cli"
 
 [tool.hatch.version]
 path = "edgar/__about__.py"
@@ -70,6 +111,7 @@ include = [
   "edgar/**/*.py",
   "edgar/**/templates/*.html",
   "edgar/**/docs/*.md",
+  "edgar/ai/skills/core/*.md",
   "edgar/reference/data/*",
   "edgar/entity/data/*",
   "edgar/xbrl/standardization/*",
@@ -87,6 +129,8 @@ dependencies = [
   "pytest-xdist",
   "pytest-asyncio",
   "pytest-retry",
+  "pytest-vcr",
+  "vcrpy",
   "filelock",
   "pyinstrument",
   "pyright",
@@ -111,25 +155,34 @@ cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=edgar 
 no-cov = "cov --no-cov {args}"
 lint = "ruff check edgar"
 smoke-filings = "python tests/batch/batch_filings.py {args}"
-# Test categorization commands
+# Test categorization commands (sequential execution)
 test-fast = "pytest -m 'fast' {args}"
-test-slow = "pytest -m 'slow' {args}"  
+test-slow = "pytest -m 'slow' {args}"
 test-network = "pytest -m 'network' {args}"
 test-core = "pytest -m 'not (slow or network or performance or batch)' --ignore=tests/manual --ignore=tests/perf {args}"
 
+# Parallel test commands (selective parallelization for SEC rate limit safety)
+# - Fast tests: Full parallelization (no network calls)
+# - Network/slow: Sequential (respects SEC rate limits)
+# - Core: Limited parallelization (mixed tests)
+test-fast-parallel = "pytest -n auto -m 'fast' {args}"
+test-core-parallel = "pytest -n 2 -m 'not (slow or network or performance or batch)' --ignore=tests/manual --ignore=tests/perf {args}"
+test-parallel-safe = "pytest -n auto -m 'fast' {args}"
+
 # Parallel CI test strategy (skip regression tests for faster feedback)
-# 
-# HYBRID EXCLUSION STRATEGY:
+#
+# SELECTIVE PARALLELIZATION STRATEGY:
 # 1. Marker-based: -m 'not regression' excludes tests marked as regression
 # 2. Path-based: --ignore=tests/issues/regression excludes entire folder
-# 3. Auto-marking: conftest.py automatically marks tests in regression folders
+# 3. Auto-marking: conftest.py automatically marks tests as fast/network based on filename
+# 4. Selective parallel: Only parallelize tests safe from SEC rate limits
+# 5. Combined coverage: CI combines coverage from fast/network/slow groups for 65% threshold
 #
-# This ensures regression tests are excluded even if developers/agents forget markers.
+# Note: "core" group removed from CI - auto-marking leaves 0 tests without markers
 
-test-ci-fast = "pytest --cov --cov-report=xml -m 'fast and not regression' {args}"
-test-ci-network = "pytest --cov --cov-report=xml -m 'network and not slow and not regression' {args}" 
+test-ci-fast = "pytest -n auto --cov --cov-report=xml -m 'fast and not regression' {args}"
+test-ci-network = "pytest --cov --cov-report=xml -m 'network and not slow and not regression' {args}"
 test-ci-slow = "pytest --cov --cov-report=xml -m 'slow and not regression' {args}"
-test-ci-core = "pytest --cov --cov-report=xml -m 'not (fast or network or slow or regression or performance or batch)' --ignore=tests/manual --ignore=tests/perf --ignore=tests/issues/regression {args}"
 test-ci-all = "pytest --cov --cov-report=xml -m 'not regression' --ignore=tests/manual --ignore=tests/perf --ignore=tests/issues/regression {args}"
 
 # Regression tests (run separately/on-demand for comprehensive bug prevention)
@@ -154,9 +207,27 @@ python = ["39", "310", "311", "312"]
 [tool.coverage.run]
 branch = true
 parallel = true
+source = ["edgar"]
 omit = [
   "edgar/__about__.py",
-  "tests/perf/*"
+  # Example and demo files (not part of core library)
+  "edgar/**/examples.py",
+  "edgar/**/examples/*.py",
+  "edgar/display/demo.py",
+  # Training scripts (ML training utilities, not runtime code)
+  "edgar/entity/training/*",
+  # Migration utilities (one-time migration helpers)
+  "edgar/documents/migration.py",
+  "edgar/documents/migration_example.py",
+  # CLI entry points (tested via integration, not unit tests)
+  "edgar/**/__main__.py",
+  # MCP server (optional external integration, requires MCP runtime)
+  "edgar/ai/mcp/*",
+  # Experimental AI features
+  "edgar/ai/formats.py",
+  "edgar/ai/helpers.py",
+  # SSL diagnostics (CLI tool, not library code)
+  "edgar/diagnose_ssl/*",
 ]
 
 [tool.coverage.report]
@@ -165,6 +236,8 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+# Coverage threshold moved to CI combined coverage check
+# Individual test groups don't meet 65% alone, only combined
 
 
 [tool.ruff]
@@ -200,6 +273,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 env = [
     "EDGAR_IDENTITY=Dev Gunning developer-gunning@gmail.com",
 ]
@@ -221,4 +295,18 @@ markers = [
     "reproduction: Tests that reproduce specific issues",
     "integration: Integration tests",
     "data_quality: Data quality validation tests",
+    "vcr: Tests using VCR cassettes for recorded HTTP responses",
 ]
+
+[tool.pyright]
+# Suppress false positives for C extension modules
+reportAttributeAccessIssue = "none"
+# PyArrow is a C extension - type stubs are incomplete
+ignoreExternal = true
+
+[tool.ty]
+# Suppress unresolved-attribute errors for pyarrow.compute (C extension with incomplete stubs)
+# These are false positives - the methods exist at runtime
+[[tool.ty.overrides]]
+include = ["edgar/_filings.py"]
+rules = { unresolved-attribute = "ignore" }

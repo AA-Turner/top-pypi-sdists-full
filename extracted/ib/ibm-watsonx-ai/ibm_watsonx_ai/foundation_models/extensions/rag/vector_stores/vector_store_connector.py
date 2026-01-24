@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -9,6 +9,7 @@ import copy
 import logging
 from enum import Enum
 from typing import Any, Optional
+from warnings import warn
 
 from langchain_core.vectorstores import VectorStore as LangChainVectorStore
 
@@ -21,6 +22,7 @@ from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_s
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.langchain_vector_store_adapter import (
     LangChainVectorStoreAdapter,
 )
+from ibm_watsonx_ai.utils.utils import is_lib_installed
 from ibm_watsonx_ai.wml_client_error import MissingExtension
 
 logger = logging.getLogger(__name__)
@@ -151,17 +153,18 @@ class VectorStoreConnector:
         :return: vector store adapter for LangChain's Chroma
         :rtype: LangChainVectorStoreAdapter
         """
-        try:
-            from langchain_chroma import Chroma
+        if not is_lib_installed(ext := "langchain-chroma"):
+            raise MissingExtension(ext, extra_info="rag")
 
-            from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.chroma_adapter import (
-                ChromaVectorStore,
-            )
-        except ImportError:
-            raise MissingExtension("langchain_chroma")
+        from langchain_chroma import Chroma
+
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.chroma_adapter import (
+            ChromaVectorStore,
+        )
 
         parsed_params = self.properties
         parsed_params.pop("datasource_type", None)
+        parsed_params.pop("text_field", None)
 
         # Parse collection name
         # 'collection_name' kwargs for Chroma has priority over generic 'index_name'
@@ -192,7 +195,15 @@ class VectorStoreConnector:
         if parsed_params["embedding_function"] is None:
             raise ValueError("Embedding function is required for Chroma.")
 
-        return ChromaVectorStore(vector_store=Chroma(**parsed_params))
+        _doc_keys = ("document_name_field", "chunk_sequence_number_field")
+
+        document_key_mapping_args = {
+            k: parsed_params.pop(k) for k in _doc_keys if k in parsed_params
+        }
+
+        return ChromaVectorStore(
+            vector_store=Chroma(**parsed_params), **document_key_mapping_args
+        )
 
     def get_milvus(self) -> LangChainVectorStoreAdapter:
         """Creates a Milvus vector store.
@@ -239,7 +250,15 @@ class VectorStoreConnector:
         else:
             parsed_params["embedding_function"] = parsed_params.pop("embeddings", None)
 
-        return MilvusVectorStore(vector_store=Milvus(**parsed_params))
+        _doc_keys = ("document_name_field", "chunk_sequence_number_field")
+
+        document_key_mapping_args = {
+            k: parsed_params.pop(k) for k in _doc_keys if k in parsed_params
+        }
+
+        return MilvusVectorStore(
+            vector_store=Milvus(**parsed_params), **document_key_mapping_args
+        )
 
     def _get_milvus_connection_params(self) -> dict:
         parsed_params = self.properties
@@ -303,20 +322,20 @@ class VectorStoreConnector:
         :return: vector store adapter for LangChain's Elasticsearch
         :rtype: LangChainVectorStoreAdapter
         """
-        try:
-            from langchain_elasticsearch import (
-                DenseVectorScriptScoreStrategy,
-                DistanceMetric,
-                ElasticsearchStore,
-                RetrievalStrategy,
-                SparseVectorStrategy,
-            )
+        if not is_lib_installed(ext := "langchain-elasticsearch"):
+            raise MissingExtension(ext, extra_info="rag")
 
-            from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.es_adapter import (
-                ElasticsearchVectorStore,
-            )
-        except ImportError:
-            raise MissingExtension("langchain_elasticsearch")
+        from langchain_elasticsearch import (
+            DenseVectorScriptScoreStrategy,
+            DistanceMetric,
+            ElasticsearchStore,
+            RetrievalStrategy,
+            SparseVectorStrategy,
+        )
+
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.es_adapter import (
+            ElasticsearchVectorStore,
+        )
 
         # Parse ES connection data - select proper connection type
         parsed_params = self._get_elasticsearch_connection_params()
@@ -349,6 +368,13 @@ class VectorStoreConnector:
                     model_id=parsed_params.pop("model_id")
                 )
             else:
+                retrieval_strategy_warning = (
+                    "The default retrieval strategy will soon be updated from `DenseVectorScriptScoreStrategy` to `DenseVectorStrategy` "
+                    "for consistency with the `ElasticsearchVectorStore` class. "
+                    "Using the latter is recommended to avoid potential issues in the future."
+                )
+                warn(retrieval_strategy_warning)
+
                 parsed_params["strategy"] = DenseVectorScriptScoreStrategy(
                     distance=distance_metric,
                 )
@@ -357,8 +383,15 @@ class VectorStoreConnector:
         if parsed_params.get("embedding") is None:
             parsed_params["embedding"] = parsed_params.pop("embeddings", None)
 
+        _doc_keys = ("document_name_field", "chunk_sequence_number_field")
+
+        document_key_mapping_args = {
+            k: parsed_params.pop(k) for k in _doc_keys if k in parsed_params
+        }
+
         return ElasticsearchVectorStore(
-            vector_store=ElasticsearchStore(**parsed_params)
+            vector_store=ElasticsearchStore(**parsed_params),
+            **document_key_mapping_args,
         )
 
     def _get_elasticsearch_connection_params(self) -> dict:
@@ -417,7 +450,7 @@ class VectorStoreConnector:
             pass
         else:
             raise ValueError(
-                """Connection data was not sufficent. Either provide:
+                """Connection data was not sufficient. Either provide:
                              - ['url', 'username', 'password'],
                              - ['url', 'api_key'],
                              - ['cloud_id', 'api_key']
@@ -447,15 +480,14 @@ class VectorStoreConnector:
         :return: vector store adapter for LangChain's DB2
         :rtype: LangChainVectorStoreAdapter
         """
-        try:
-            from langchain_db2 import DB2VS
-            from langchain_db2.db2vs import DistanceStrategy
+        if not is_lib_installed(ext := "langchain-db2"):
+            raise MissingExtension(ext, extra_info="rag")
+        from langchain_db2 import DB2VS
+        from langchain_db2.db2vs import DistanceStrategy
 
-            from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.db2_adapter import (
-                DB2VectorStore,
-            )
-        except ImportError:
-            raise MissingExtension("langchain_db2")
+        from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.db2_adapter import (
+            DB2VectorStore,
+        )
 
         parsed_params = self._get_db2_connection_params()
         parsed_params.pop("datasource_type", None)
@@ -497,7 +529,16 @@ class VectorStoreConnector:
                 "Either `embeddings` or `embedding_function` must be specified, but not both."
             )
 
-        return DB2VectorStore(vector_store=DB2VS(**parsed_params))
+        _doc_keys = ("document_name_field", "chunk_sequence_number_field")
+
+        document_key_mapping_args = {
+            k: parsed_params.pop(k) for k in _doc_keys if k in parsed_params
+        }
+
+        return DB2VectorStore(
+            vector_store=DB2VS(**parsed_params),
+            **document_key_mapping_args,
+        )
 
     def _get_db2_connection_params(self) -> dict:
         parsed_params = self.properties

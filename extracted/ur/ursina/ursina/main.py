@@ -13,6 +13,7 @@ from ursina.camera import instance as camera
 from ursina.mouse import instance as mouse
 from ursina import entity
 from ursina import shader
+from ursina.audio import _audio_manager
 
 
 import __main__
@@ -24,7 +25,7 @@ keyboard_keys = '1234567890qwertyuiopasdfghjklzxcvbnm'
 from ursina.scripts.singleton_decorator import singleton
 @singleton
 class Ursina(ShowBase):
-    def __init__(self, title='ursina', icon='textures/ursina.ico', borderless:bool=None, fullscreen:bool=None, size=None, forced_aspect_ratio=None, position=None, vsync=True, editor_ui_enabled:bool=None, window_type='onscreen', development_mode:bool=None, render_mode=None, show_ursina_splash=False, use_ingame_console=False, **kwargs):
+    def __init__(self, title='ursina', icon='textures/ursina.ico', borderless:bool=False, fullscreen:bool=None, size=None, forced_aspect_ratio=None, position=None, vsync=True, editor_ui_enabled:bool=None, window_type='onscreen', development_mode:bool=None, render_mode=None, show_ursina_splash=False, use_ingame_console=False, **kwargs):
         """The main class of Ursina. This class is a singleton, so you can only have one instance of it.
 
         Keyword Args (optional):
@@ -175,7 +176,7 @@ class Ursina(ShowBase):
         self.taskMgr.add(_wait_for_window_open, 'wait_for_window')
 
 
-    def _update(self, task):
+    def _update(self, task=None):
         """Internal task that runs every frame. Updates time, mouse, sequences and entities."""
         if application.calculate_dt:
             time.dt_unscaled = globalClock.getDt()
@@ -193,9 +194,9 @@ class Ursina(ShowBase):
             scene._entities_marked_for_removal.clear()
 
         for e in scene.entities:
-            if not e.enabled or e.ignore:
-                continue
             if e in scene._entities_marked_for_removal:
+                continue
+            if not e.enabled or e.ignore:
                 continue
             if application.paused and e.ignore_paused is False:
                 continue
@@ -204,15 +205,21 @@ class Ursina(ShowBase):
 
             if hasattr(e, 'update') and callable(e.update):
                 e.update()
+            if not e:   # could have been destroyed in update
+                continue
 
             if hasattr(e, 'scripts'):
                 for script in e.scripts:
                     if script.enabled and hasattr(script, 'update') and callable(script.update):
                         script.update()
+            if not e:
+                continue
 
             if e.shader and hasattr(e.shader, "continuous_input"):
                 for key, value in e.shader.continuous_input.items():
                     e.set_shader_input(key, value())
+
+        _audio_manager.update()
 
         return Task.cont
 
@@ -353,8 +360,9 @@ class Ursina(ShowBase):
             print('os:', platform.system())
             import sys
             print(f'python version: {sys.version}')
-            from importlib.metadata import version
-            print(f'ursina version: {version('ursina')}')
+            from importlib.metadata import version, packages_distributions
+            ursina_version = version('ursina') if 'ursina' in packages_distributions() else 'unknown'
+            print(f'ursina version: {ursina_version}')
             print('development mode:', application.development_mode)
             print('application successfully started')
 

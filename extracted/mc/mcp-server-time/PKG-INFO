@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-server-time
-Version: 2025.8.4
+Version: 2025.9.25
 Summary: A Model Context Protocol server providing tools for time queries and timezone conversions for LLMs
 Author-email: Mariusz 'maledorak' Korzekwa <mariusz@korzekwa.dev>
 License: MIT

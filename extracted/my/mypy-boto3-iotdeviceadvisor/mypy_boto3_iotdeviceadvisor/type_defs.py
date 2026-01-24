@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -29,12 +30,6 @@ from .literals import (
     TestCaseScenarioTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -86,7 +81,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -194,7 +189,7 @@ class GetSuiteRunReportResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -220,7 +215,7 @@ class SuiteDefinitionConfigurationOutputTypeDef(TypedDict):
     suiteDefinitionName: str
     rootGroup: str
     devicePermissionRoleArn: str
-    devices: NotRequired[List[DeviceUnderTestTypeDef]]
+    devices: NotRequired[list[DeviceUnderTestTypeDef]]
     intendedForQualification: NotRequired[bool]
     isLongDurationTest: NotRequired[bool]
     protocol: NotRequired[ProtocolType]
@@ -239,7 +234,7 @@ class SuiteDefinitionConfigurationTypeDef(TypedDict):
 class SuiteDefinitionInformationTypeDef(TypedDict):
     suiteDefinitionId: NotRequired[str]
     suiteDefinitionName: NotRequired[str]
-    defaultDevices: NotRequired[List[DeviceUnderTestTypeDef]]
+    defaultDevices: NotRequired[list[DeviceUnderTestTypeDef]]
     intendedForQualification: NotRequired[bool]
     isLongDurationTest: NotRequired[bool]
     protocol: NotRequired[ProtocolType]
@@ -248,7 +243,7 @@ class SuiteDefinitionInformationTypeDef(TypedDict):
 
 class SuiteRunConfigurationOutputTypeDef(TypedDict):
     primaryDevice: DeviceUnderTestTypeDef
-    selectedTestList: NotRequired[List[str]]
+    selectedTestList: NotRequired[list[str]]
     parallelRun: NotRequired[bool]
 
 
@@ -259,7 +254,7 @@ class SuiteRunConfigurationTypeDef(TypedDict):
 
 
 class ListSuiteRunsResponseTypeDef(TypedDict):
-    suiteRunsList: List[SuiteRunInformationTypeDef]
+    suiteRunsList: list[SuiteRunInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -274,7 +269,7 @@ class TestCaseRunTypeDef(TypedDict):
     logUrl: NotRequired[str]
     warnings: NotRequired[str]
     failure: NotRequired[str]
-    testScenarios: NotRequired[List[TestCaseScenarioTypeDef]]
+    testScenarios: NotRequired[list[TestCaseScenarioTypeDef]]
 
 
 class GetSuiteDefinitionResponseTypeDef(TypedDict):
@@ -285,7 +280,7 @@ class GetSuiteDefinitionResponseTypeDef(TypedDict):
     suiteDefinitionConfiguration: SuiteDefinitionConfigurationOutputTypeDef
     createdAt: datetime
     lastModifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -295,7 +290,7 @@ SuiteDefinitionConfigurationUnionTypeDef = Union[
 
 
 class ListSuiteDefinitionsResponseTypeDef(TypedDict):
-    suiteDefinitionInformationList: List[SuiteDefinitionInformationTypeDef]
+    suiteDefinitionInformationList: list[SuiteDefinitionInformationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -308,7 +303,7 @@ SuiteRunConfigurationUnionTypeDef = Union[
 class GroupResultTypeDef(TypedDict):
     groupId: NotRequired[str]
     groupName: NotRequired[str]
-    tests: NotRequired[List[TestCaseRunTypeDef]]
+    tests: NotRequired[list[TestCaseRunTypeDef]]
 
 
 class CreateSuiteDefinitionRequestTypeDef(TypedDict):
@@ -330,7 +325,7 @@ class StartSuiteRunRequestTypeDef(TypedDict):
 
 
 class TestResultTypeDef(TypedDict):
-    groups: NotRequired[List[GroupResultTypeDef]]
+    groups: NotRequired[list[GroupResultTypeDef]]
 
 
 class GetSuiteRunResponseTypeDef(TypedDict):
@@ -344,5 +339,5 @@ class GetSuiteRunResponseTypeDef(TypedDict):
     endTime: datetime
     status: SuiteRunStatusType
     errorReason: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef

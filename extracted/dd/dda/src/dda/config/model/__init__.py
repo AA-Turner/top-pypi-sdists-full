@@ -11,11 +11,12 @@ from dda.config.model.env import EnvConfig
 from dda.config.model.github import GitHubConfig
 from dda.config.model.orgs import OrgConfig
 from dda.config.model.storage import StorageDirs
+from dda.config.model.telemetry import TelemetryConfig
 from dda.config.model.terminal import TerminalConfig
 from dda.config.model.tools import ToolsConfig
 from dda.config.model.update import UpdateConfig
 from dda.config.model.user import UserConfig
-from dda.utils.fs import Path
+from dda.types.hooks import dec_hook, enc_hook
 
 
 def _default_orgs() -> dict[str, OrgConfig]:
@@ -37,10 +38,11 @@ class RootConfig(Struct, frozen=True, omit_defaults=True):
     user: UserConfig = field(default_factory=UserConfig)
     terminal: TerminalConfig = field(default_factory=TerminalConfig)
     update: UpdateConfig = field(default_factory=UpdateConfig)
+    telemetry: TelemetryConfig = field(default_factory=TelemetryConfig)
 
 
 def construct_model(data: dict[str, Any]) -> RootConfig:
-    return convert(data, RootConfig, dec_hook=__dec_hook)
+    return convert(data, RootConfig, dec_hook=dec_hook)
 
 
 def get_default_toml_data() -> dict[str, Any]:
@@ -50,21 +52,5 @@ def get_default_toml_data() -> dict[str, Any]:
         RootConfig(),
         str_keys=True,
         builtin_types=(datetime.datetime, datetime.date, datetime.time),
-        enc_hook=__enc_hook,
+        enc_hook=enc_hook,
     )
-
-
-def __dec_hook(type: type[Any], obj: Any) -> Any:  # noqa: A002
-    if type is Path:
-        return Path(obj)
-
-    message = f"Cannot decode: {obj!r}"
-    raise ValueError(message)
-
-
-def __enc_hook(obj: Any) -> Any:
-    if isinstance(obj, Path):
-        return str(obj)
-
-    message = f"Cannot encode: {obj!r}"
-    raise NotImplementedError(message)

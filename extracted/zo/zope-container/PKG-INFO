@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.container
-Version: 7.0
+Version: 7.2
 Summary: Zope Container
 Home-page: https://github.com/zopefoundation/zope.container
 Author: Zope Foundation and Contributors
@@ -16,18 +16,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE.txt
 Requires-Dist: BTrees
 Requires-Dist: persistent>=4.1.0
@@ -113,6 +113,21 @@ Documentation is hosted at https://zopecontainer.readthedocs.io
 =========
  Changes
 =========
+
+7.2 (2025-11-15)
+================
+
+- Fix the GitHub workflow for publishing wheels, which failed for Linux/arm64.
+  (`#348 <https://github.com/zopefoundation/zope.interface/issues/348>`_)
+
+
+7.1 (2025-11-06)
+================
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
 
 7.0 (2025-09-12)
 ================

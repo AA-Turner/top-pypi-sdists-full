@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bio
-Version: 1.8.0
+Version: 1.8.1
 Project-URL: Documentation, https://github.com/ialbert/bio#readme
 Project-URL: Issues, https://github.com/ialbert/bio/issues
 Project-URL: Source, https://github.com/ialbert/bio/
@@ -61,10 +61,10 @@ Even well-defined, supposedly simple tasks can take a seemingly inordinate numbe
     bio meta 11138 -H | head
 
     # Define a sequence ontology terms
-    bio define exon
+    bio explain exon
 
     # Define a gene ontology terms
-    bio define food vacuole
+    bio explain food vacuole
 
 ## Documentation
 

@@ -1203,6 +1203,7 @@ class Service(pulumi.CustomResource):
             deletion_protection=False,
             ingress="INGRESS_TRAFFIC_ALL",
             template={
+                "health_check_disabled": True,
                 "containers": [{
                     "image": "us-docker.pkg.dev/cloudrun/container/hello",
                     "resources": {
@@ -1592,10 +1593,10 @@ class Service(pulumi.CustomResource):
         ```python
         import pulumi
         import pulumi_gcp as gcp
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         mesh = gcp.networkservices.Mesh("mesh", name="network-services-mesh")
-        wait_for_mesh = time.index.Sleep("wait_for_mesh", create_duration=1m,
+        wait_for_mesh = time.Sleep("wait_for_mesh", create_duration="1m",
         opts = pulumi.ResourceOptions(depends_on=[mesh]))
         default = gcp.cloudrunv2.Service("default",
             name="cloudrun-service",
@@ -1631,62 +1632,6 @@ class Service(pulumi.CustomResource):
                 }],
             })
         ```
-        ### Cloudrunv2 Service Function
-
-        ```python
-        import pulumi
-        import pulumi_gcp as gcp
-
-        project = gcp.organizations.get_project()
-        bucket = gcp.storage.Bucket("bucket",
-            name=f"{project.project_id}-gcf-source",
-            location="US",
-            uniform_bucket_level_access=True)
-        object = gcp.storage.BucketObject("object",
-            name="function-source.zip",
-            bucket=bucket.name,
-            source=pulumi.FileAsset("function_source.zip"))
-        cloudbuild_service_account = gcp.serviceaccount.Account("cloudbuild_service_account", account_id="build-sa")
-        act_as = gcp.projects.IAMMember("act_as",
-            project=project.project_id,
-            role="roles/iam.serviceAccountUser",
-            member=cloudbuild_service_account.email.apply(lambda email: f"serviceAccount:{email}"))
-        logs_writer = gcp.projects.IAMMember("logs_writer",
-            project=project.project_id,
-            role="roles/logging.logWriter",
-            member=cloudbuild_service_account.email.apply(lambda email: f"serviceAccount:{email}"))
-        default = gcp.cloudrunv2.Service("default",
-            name="cloudrun-service",
-            location="us-central1",
-            deletion_protection=False,
-            ingress="INGRESS_TRAFFIC_ALL",
-            template={
-                "containers": [{
-                    "image": "us-docker.pkg.dev/cloudrun/container/hello",
-                    "base_image_uri": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22",
-                }],
-            },
-            build_config={
-                "source_location": pulumi.Output.all(
-                    bucketName=bucket.name,
-                    objectName=object.name
-        ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucketName']}/{resolved_outputs['objectName']}")
-        ,
-                "function_target": "helloHttp",
-                "image_uri": "us-docker.pkg.dev/cloudrun/container/hello",
-                "base_image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22",
-                "enable_automatic_updates": True,
-                "environment_variables": {
-                    "FOO_KEY": "FOO_VALUE",
-                    "BAR_KEY": "BAR_VALUE",
-                },
-                "service_account": cloudbuild_service_account.id,
-            },
-            opts = pulumi.ResourceOptions(depends_on=[
-                    act_as,
-                    logs_writer,
-                ]))
-        ```
         ### Cloudrunv2 Service Iap
 
         ```python
@@ -1703,6 +1648,41 @@ class Service(pulumi.CustomResource):
             template={
                 "containers": [{
                     "image": "us-docker.pkg.dev/cloudrun/container/hello",
+                }],
+            })
+        ```
+        ### Cloudrunv2 Service Zip Deploy
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        project = gcp.organizations.get_project()
+        sourcebucket = gcp.storage.Bucket("sourcebucket",
+            name=f"{project.project_id}-tf-test-gcf-source_21197",
+            location="US",
+            uniform_bucket_level_access=True)
+        source_tar = gcp.storage.BucketObject("source_tar",
+            name="function-source.zip",
+            bucket=sourcebucket.name,
+            source=pulumi.FileAsset("./test-fixtures/cr-zip-nodejs-hello.tar.gz"))
+        default = gcp.cloudrunv2.Service("default",
+            name="cloudrun-zip-service",
+            location="us-central1",
+            deletion_protection=False,
+            template={
+                "containers": [{
+                    "image": "scratch",
+                    "base_image_uri": "us-central1-docker.pkg.dev/serverless-runtimes/google-24-full/runtimes/nodejs24",
+                    "commands": ["node"],
+                    "args": ["index.js"],
+                    "source_code": {
+                        "cloud_storage_source": {
+                            "bucket": sourcebucket.name,
+                            "object": source_tar.name,
+                            "generation": source_tar.generation,
+                        },
+                    },
                 }],
             })
         ```
@@ -1825,6 +1805,7 @@ class Service(pulumi.CustomResource):
             deletion_protection=False,
             ingress="INGRESS_TRAFFIC_ALL",
             template={
+                "health_check_disabled": True,
                 "containers": [{
                     "image": "us-docker.pkg.dev/cloudrun/container/hello",
                     "resources": {
@@ -2214,10 +2195,10 @@ class Service(pulumi.CustomResource):
         ```python
         import pulumi
         import pulumi_gcp as gcp
-        import pulumi_time as time
+        import pulumiverse_time as time
 
         mesh = gcp.networkservices.Mesh("mesh", name="network-services-mesh")
-        wait_for_mesh = time.index.Sleep("wait_for_mesh", create_duration=1m,
+        wait_for_mesh = time.Sleep("wait_for_mesh", create_duration="1m",
         opts = pulumi.ResourceOptions(depends_on=[mesh]))
         default = gcp.cloudrunv2.Service("default",
             name="cloudrun-service",
@@ -2253,62 +2234,6 @@ class Service(pulumi.CustomResource):
                 }],
             })
         ```
-        ### Cloudrunv2 Service Function
-
-        ```python
-        import pulumi
-        import pulumi_gcp as gcp
-
-        project = gcp.organizations.get_project()
-        bucket = gcp.storage.Bucket("bucket",
-            name=f"{project.project_id}-gcf-source",
-            location="US",
-            uniform_bucket_level_access=True)
-        object = gcp.storage.BucketObject("object",
-            name="function-source.zip",
-            bucket=bucket.name,
-            source=pulumi.FileAsset("function_source.zip"))
-        cloudbuild_service_account = gcp.serviceaccount.Account("cloudbuild_service_account", account_id="build-sa")
-        act_as = gcp.projects.IAMMember("act_as",
-            project=project.project_id,
-            role="roles/iam.serviceAccountUser",
-            member=cloudbuild_service_account.email.apply(lambda email: f"serviceAccount:{email}"))
-        logs_writer = gcp.projects.IAMMember("logs_writer",
-            project=project.project_id,
-            role="roles/logging.logWriter",
-            member=cloudbuild_service_account.email.apply(lambda email: f"serviceAccount:{email}"))
-        default = gcp.cloudrunv2.Service("default",
-            name="cloudrun-service",
-            location="us-central1",
-            deletion_protection=False,
-            ingress="INGRESS_TRAFFIC_ALL",
-            template={
-                "containers": [{
-                    "image": "us-docker.pkg.dev/cloudrun/container/hello",
-                    "base_image_uri": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22",
-                }],
-            },
-            build_config={
-                "source_location": pulumi.Output.all(
-                    bucketName=bucket.name,
-                    objectName=object.name
-        ).apply(lambda resolved_outputs: f"gs://{resolved_outputs['bucketName']}/{resolved_outputs['objectName']}")
-        ,
-                "function_target": "helloHttp",
-                "image_uri": "us-docker.pkg.dev/cloudrun/container/hello",
-                "base_image": "us-central1-docker.pkg.dev/serverless-runtimes/google-22-full/runtimes/nodejs22",
-                "enable_automatic_updates": True,
-                "environment_variables": {
-                    "FOO_KEY": "FOO_VALUE",
-                    "BAR_KEY": "BAR_VALUE",
-                },
-                "service_account": cloudbuild_service_account.id,
-            },
-            opts = pulumi.ResourceOptions(depends_on=[
-                    act_as,
-                    logs_writer,
-                ]))
-        ```
         ### Cloudrunv2 Service Iap
 
         ```python
@@ -2325,6 +2250,41 @@ class Service(pulumi.CustomResource):
             template={
                 "containers": [{
                     "image": "us-docker.pkg.dev/cloudrun/container/hello",
+                }],
+            })
+        ```
+        ### Cloudrunv2 Service Zip Deploy
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        project = gcp.organizations.get_project()
+        sourcebucket = gcp.storage.Bucket("sourcebucket",
+            name=f"{project.project_id}-tf-test-gcf-source_21197",
+            location="US",
+            uniform_bucket_level_access=True)
+        source_tar = gcp.storage.BucketObject("source_tar",
+            name="function-source.zip",
+            bucket=sourcebucket.name,
+            source=pulumi.FileAsset("./test-fixtures/cr-zip-nodejs-hello.tar.gz"))
+        default = gcp.cloudrunv2.Service("default",
+            name="cloudrun-zip-service",
+            location="us-central1",
+            deletion_protection=False,
+            template={
+                "containers": [{
+                    "image": "scratch",
+                    "base_image_uri": "us-central1-docker.pkg.dev/serverless-runtimes/google-24-full/runtimes/nodejs24",
+                    "commands": ["node"],
+                    "args": ["index.js"],
+                    "source_code": {
+                        "cloud_storage_source": {
+                            "bucket": sourcebucket.name,
+                            "object": source_tar.name,
+                            "generation": source_tar.generation,
+                        },
+                    },
                 }],
             })
         ```
@@ -2908,7 +2868,7 @@ class Service(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def scaling(self) -> pulumi.Output[Optional['outputs.ServiceScaling']]:
+    def scaling(self) -> pulumi.Output['outputs.ServiceScaling']:
         """
         Scaling settings that apply to the whole service
         Structure is documented below.

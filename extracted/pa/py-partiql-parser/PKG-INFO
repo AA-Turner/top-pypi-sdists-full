@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-partiql-parser
-Version: 0.6.1
+Version: 0.6.3
 Summary: Pure Python PartiQL Parser
 Project-URL: Homepage, https://github.com/getmoto/py-partiql-parser
 Project-URL: Bug Tracker, https://github.com/getmoto/py-partiql-parser/issues
@@ -9,6 +9,16 @@ Author-email: Bert Blommers <info@bertblommers.nl>
 License: MIT
 License-File: LICENSE
 Keywords: parser,pypartiql
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: dev
 Requires-Dist: black==22.6.0; extra == 'dev'
 Requires-Dist: flake8; extra == 'dev'

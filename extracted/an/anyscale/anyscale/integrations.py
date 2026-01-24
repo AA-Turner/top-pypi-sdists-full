@@ -31,7 +31,7 @@ def get_aws_secret(secret_name: str, **kwargs) -> ProtectedString:
         secret_name: Key of your secret
         kwargs: Optional credentials passed in to authenticate instance
     """
-    import boto3
+    import boto3  # noqa: PLC0415 - codex_reason("gpt5.2", "optional AWS SDK dependency for secrets retrieval")
 
     client = boto3.client("secretsmanager", **kwargs)
     response = client.get_secret_value(SecretId=secret_name)
@@ -53,7 +53,9 @@ def get_gcp_secret(secret_name: str, **kwargs) -> ProtectedString:
         secret_name: Key of your secret
         kwargs: Optional credentials passed in to authenticate instance
     """
-    from google import auth
+    from google import (  # noqa: PLC0415 - codex_reason("gpt5.2", "optional GCP SDK dependency for secrets retrieval")
+        auth,
+    )
 
     secretmanager = try_import_gcp_secretmanager()
 
@@ -132,7 +134,7 @@ def wandb_setup_api_key_hook() -> Optional[str]:
     protected_api_key = wandb_get_api_key()
 
     try:
-        import ray
+        import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for W&B env defaults")
 
         # Check if ray <= 2.2.0 before setting project and group env vars
         # because OSS will directly call the set_wandb_project_group_env_vars
@@ -211,7 +213,7 @@ def wandb_send_run_info_hook(run: Any) -> None:
     anyscale_api_client = auth_api_client.anyscale_api_client
 
     try:
-        import wandb
+        import wandb  # noqa: PLC0415 - codex_reason("gpt5.2", "optional W&B dependency for run reporting")
     except ImportError:
         raise Exception("Unable to import wandb.")
 
@@ -299,7 +301,7 @@ def _try_get_ray_job_id():
     Get the Ray job id using the Ray API.
     """
     try:
-        import ray
+        import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for job context")
 
         return ray.get_runtime_context().get_job_id()
     except Exception:  # noqa: BLE001

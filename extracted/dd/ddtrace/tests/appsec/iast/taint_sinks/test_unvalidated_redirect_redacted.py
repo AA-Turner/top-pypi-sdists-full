@@ -3,6 +3,7 @@ import pytest
 from ddtrace.appsec._iast._taint_tracking import origin_to_str
 from ddtrace.appsec._iast._taint_tracking import str_to_origin
 from ddtrace.appsec._iast._taint_tracking._taint_objects import taint_pyobject
+from ddtrace.appsec._iast._taint_tracking._taint_objects_base import is_pyobject_tainted
 from ddtrace.appsec._iast._taint_tracking.aspects import add_aspect
 from ddtrace.appsec._iast.constants import VULN_UNVALIDATED_REDIRECT
 from ddtrace.appsec._iast.reporter import Evidence
@@ -19,7 +20,7 @@ from tests.appsec.iast.taint_sinks._taint_sinks_utils import get_parametrize
     "evidence_input,sources_expected,vulnerabilities_expected,element", list(get_parametrize(VULN_UNVALIDATED_REDIRECT))
 )
 def test_unvalidated_redirect_redaction_suite(
-    evidence_input, sources_expected, vulnerabilities_expected, iast_context_defaults, element
+    iast_context_defaults, evidence_input, sources_expected, vulnerabilities_expected, element
 ):
     tainted_object = evidence_input_value = evidence_input.get("value", "")
     if evidence_input_value:
@@ -37,7 +38,9 @@ def test_unvalidated_redirect_redaction_suite(
             ],
         )
 
-    UnvalidatedRedirect.report(tainted_object)
+    assert is_pyobject_tainted(tainted_object)
+
+    assert UnvalidatedRedirect.report(tainted_object)
 
     data = _get_iast_data()
     vulnerability = list(data["vulnerabilities"])[0]

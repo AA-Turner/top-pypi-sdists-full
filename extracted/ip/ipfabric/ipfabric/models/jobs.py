@@ -3,7 +3,7 @@ import logging
 from time import sleep
 from typing import Any, Literal, Optional, Union
 
-import httpx
+import niquests
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from ipfabric.tools.shared import raise_for_status, VALID_REFS, valid_snapshot
@@ -121,8 +121,8 @@ class Jobs(BaseModel):
         Returns:
             Job: Job object or None if not found.
         """
-        j_filter = dict(name=["eq", ALL_JOBS[action]], startedAt=["gte", started - 1000])
-        j_filter.update(dict(snapshot=["eq", snapshot_id]) if snapshot_id else dict())
+        j_filter = {"name": ["eq", ALL_JOBS[action]], "startedAt": ["gte", started - 1000]}
+        j_filter.update({"snapshot": ["eq", snapshot_id]} if snapshot_id else {})
         sleep(5)  # give the IPF server a chance to start the job
         # find the running snapshotDownload job (i.e. not done)
         jobs = self.all_jobs.fetch(
@@ -223,16 +223,12 @@ class Jobs(BaseModel):
     ) -> Job:
         if payload.snapshot.id in VALID_REFS:
             payload.snapshot.id = self.client.snapshots[payload.snapshot.id].snapshot_id
-        _ = raise_for_status(self.client.post(url="/os/techsupport", json=payload.model_dump()))
+        job_id = raise_for_status(self.client.post(url="/os/techsupport", json=payload.model_dump())).json()["id"]
 
         # Wait for the job to start
         sleep(2)
-        tech_support_jobs = self.all_jobs.all(filters={"name": ["eq", "techsupport"]}, sort=SORT)
+        job = self.get_job_by_id(job_id)
 
-        if not tech_support_jobs:
-            raise LookupError("No techsupport jobs found.")
-
-        job = tech_support_jobs[0]
         if wait_for_ts:
             job = self.return_job_when_done(
                 job=job,
@@ -241,11 +237,8 @@ class Jobs(BaseModel):
             )
         return job
 
-    def download_job_file(self, job_id: str) -> httpx.Response:
+    def download_techsupport_file(self, job_id: str) -> niquests.Response:
         return self.client.get(f"jobs/{str(job_id)}/download")
-
-    def download_techsupport_file(self, job_id: str) -> httpx.Response:
-        return self.download_job_file(job_id)
 
     def upload_techsupport_file(
         self,
@@ -265,7 +258,7 @@ class Jobs(BaseModel):
         if not techsupport_bytes:
             resp = self.download_techsupport_file(techsupport_job_id)
             if resp.status_code != 200:
-                raise httpx.HTTPStatusError(
+                raise niquests.HTTPError(
                     f"Failed to download techsupport file: {resp.status_code}", request=resp.request, response=resp
                 )
             techsupport_bytes = resp.content
@@ -278,10 +271,10 @@ class Jobs(BaseModel):
             "Content-Length": str(len(techsupport_bytes)),
         }
 
-        upload_response = httpx.post(
+        upload_response = niquests.post(
             url=f"https://upload.{upload_server}.ipfabric.io/upload",
             headers=headers,
-            content=techsupport_bytes,
+            data=techsupport_bytes,
             timeout=upload_file_timeout,
             verify=upload_verify,
         )

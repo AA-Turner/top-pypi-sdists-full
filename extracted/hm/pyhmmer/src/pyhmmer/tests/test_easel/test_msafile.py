@@ -1,18 +1,18 @@
-import copy
-import gc
 import io
 import os
+import platform
 import unittest
 import tempfile
 from itertools import zip_longest
 
 from pyhmmer import easel
 
-from ..utils import EASEL_FOLDER
+from ..utils import EASEL_FOLDER, resource_files
 
 
 class TestMSAFile(unittest.TestCase):
 
+    @unittest.skipIf(platform.system() == "Windows", "deadlocks on Windows")
     def test_guess_alphabet_empty_sequence(self):
         buffer = io.BytesIO(b">seq1\n\n")
         self.assertRaises(ValueError, easel.MSAFile, buffer, format="afa", digital=True)
@@ -23,8 +23,13 @@ class TestMSAFile(unittest.TestCase):
         self.assertRaises(ValueError, easel.MSAFile, stockholm, format="nonsense")
 
     def test_init_error_empty(self):
-        with tempfile.NamedTemporaryFile() as f:
-            self.assertRaises(ValueError, easel.MSAFile, f.name)  # cannot guess format
+        try:
+            fd, filename = tempfile.mkstemp(".seq")
+            self.assertRaises(ValueError, easel.MSAFile, filename)  # cannot guess format
+        finally:
+            os.close(fd)
+            if os.path.exists(filename):
+                os.remove(filename)
 
     def test_init_file_not_found(self):
         self.assertRaises(FileNotFoundError, easel.MSAFile, "path/to/missing/file.sto")
@@ -38,7 +43,7 @@ class TestMSAFile(unittest.TestCase):
         trna_5 = os.path.join(EASEL_FOLDER, "testsuite", "trna-5.stk")
         with easel.MSAFile(trna_5) as f:
             msa = f.read()
-        self.assertEqual(msa.author, b"Infernal 0.1")
+        self.assertEqual(msa.author, "Infernal 0.1")
 
     @unittest.skipUnless(os.path.exists(EASEL_FOLDER), "test data not available")
     def test_read_wrong_format(self):
@@ -66,7 +71,7 @@ class TestMSAFile(unittest.TestCase):
         selex = os.path.join(EASEL_FOLDER, "esl_msa_testfiles", "selex", "selex.good.4")
         with easel.MSAFile(selex, format="selex") as f:
             msa = f.read()
-        self.assertEqual(msa.reference, b"......xxxxxxx xxxx xxxxxx......")
+        self.assertEqual(msa.reference, "......xxxxxxx xxxx xxxxxx......")
         self.assertIsNone(msa.model_mask)
 
     @unittest.skipUnless(os.path.exists(EASEL_FOLDER), "test data not available")
@@ -74,7 +79,74 @@ class TestMSAFile(unittest.TestCase):
         selex = os.path.join(EASEL_FOLDER, "esl_msa_testfiles", "selex", "selex.good.4")
         with easel.MSAFile(selex, format="selex") as f:
             msa = f.read()
-        self.assertEqual(msa.secondary_structure, b"......>>>>+>> ^^^^ <<<<<<......")
+        self.assertEqual(msa.secondary_structure, "......>>>>+>> ^^^^ <<<<<<......")
+
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_msa_index_path_format_error(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "msa", "LuxC.sto")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".sto.ssi")):
+            self.skipTest("missing data files")
+        with easel.MSAFile(luxc, "afa") as msa_file:
+            self.assertIsNotNone(msa_file.index)
+            self.assertIsNotNone(msa_file.indexed)
+            with self.assertRaises(ValueError):
+                msa = msa_file.indexed['LuxC']
+
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_msa_index_path(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "msa", "LuxC.sto")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".sto.ssi")):
+            self.skipTest("missing data files")
+        with easel.MSAFile(luxc, "stockholm") as msa_file:
+            self.assertIsNotNone(msa_file.index)
+            self.assertIsNotNone(msa_file.indexed)
+
+            self.assertEqual(len(msa_file.indexed), 1)
+            keys = list(msa_file.indexed)
+            self.assertEqual(len(keys), 1)
+
+            msa = msa_file.indexed['LuxC']
+            self.assertEqual(msa.name, 'LuxC')
+
+            with self.assertRaises(KeyError):
+                msa = msa_file.indexed['does not exist']
+
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_msa_index_fileobj(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "msa", "LuxC.sto")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".sto.ssi")):
+            self.skipTest("missing data files")
+
+        with luxc.open("rb") as src:
+            with easel.MSAFile(src, "stockholm") as msa_file:
+                self.assertIsNone(msa_file.index)
+                self.assertIsNone(msa_file.indexed)
+
+        with easel.SSIReader(luxc.with_suffix(".sto.ssi")) as index:
+            with luxc.open("rb") as src:
+                with easel.MSAFile(src, "stockholm", index=index) as msa_file:
+                    self.assertIsNotNone(msa_file.index)
+                    self.assertIsNotNone(msa_file.indexed)
+
+                    self.assertEqual(len(msa_file.indexed), 1)
+                    keys = list(msa_file.indexed)
+                    self.assertEqual(len(keys), 1)
+
+                    msa = msa_file.indexed['LuxC']
+                    self.assertEqual(msa.name, 'LuxC')
+
+                    with self.assertRaises(KeyError):
+                        msa = msa_file.indexed['does not exist']
+
 
 
 class _TestReadFilename(object):

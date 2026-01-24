@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from descope._auth_base import AuthBase
+from descope._http_base import HTTPBase
 from descope.management.common import (
     AssociatedTenant,
     MgmtV1,
@@ -8,7 +8,7 @@ from descope.management.common import (
 )
 
 
-class AccessKey(AuthBase):
+class AccessKey(HTTPBase):
     def create(
         self,
         name: str,
@@ -19,6 +19,7 @@ class AccessKey(AuthBase):
         custom_claims: Optional[dict] = None,
         description: Optional[str] = None,
         permitted_ips: Optional[List[str]] = None,
+        custom_attributes: Optional[dict] = None,
     ) -> dict:
         """
         Create a new access key.
@@ -35,6 +36,7 @@ class AccessKey(AuthBase):
         custom_claims (dict): Optional, map of claims and their values that will be present in the JWT.
         description (str): an optional text the access key can hold.
         permitted_ips: (List[str]): An optional list of IP addresses or CIDR ranges that are allowed to use the access key.
+        custom_attributes (dict): Optional, map of custom attributes and their values that will be associated with the access key.
 
         Return value (dict):
         Return dict in the format
@@ -51,9 +53,9 @@ class AccessKey(AuthBase):
         role_names = [] if role_names is None else role_names
         key_tenants = [] if key_tenants is None else key_tenants
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.access_key_create_path,
-            AccessKey._compose_create_body(
+            body=AccessKey._compose_create_body(
                 name,
                 expire_time,
                 role_names,
@@ -62,8 +64,8 @@ class AccessKey(AuthBase):
                 custom_claims,
                 description,
                 permitted_ips,
+                custom_attributes,
             ),
-            pswd=self._auth.management_key,
         )
         return response.json()
 
@@ -85,22 +87,27 @@ class AccessKey(AuthBase):
         Raise:
         AuthException: raised if load operation fails
         """
-        response = self._auth.do_get(
+        response = self._http.get(
             uri=MgmtV1.access_key_load_path,
             params={"id": id},
-            pswd=self._auth.management_key,
         )
         return response.json()
 
     def search_all_access_keys(
         self,
         tenant_ids: Optional[List[str]] = None,
+        bound_user_id: Optional[str] = None,
+        creating_user: Optional[str] = None,
+        custom_attributes: Optional[dict] = None,
     ) -> dict:
         """
         Search all access keys.
 
         Args:
         tenant_ids (List[str]): Optional list of tenant IDs to filter by
+        bound_user_id (str): Optional user ID of bounded user to filter by
+        creating_user (str): Optional user name of the creator to filter by
+        custom_attributes (dict): Optional dictionary of custom attributes to filter by
 
         Return value (dict):
         Return dict in the format
@@ -112,10 +119,14 @@ class AccessKey(AuthBase):
         """
         tenant_ids = [] if tenant_ids is None else tenant_ids
 
-        response = self._auth.do_post(
+        response = self._http.post(
             MgmtV1.access_keys_search_path,
-            {"tenantIds": tenant_ids},
-            pswd=self._auth.management_key,
+            body={
+                "tenantIds": tenant_ids,
+                "boundUserId": bound_user_id,
+                "creatingUser": creating_user,
+                "customAttributes": custom_attributes,
+            },
         )
         return response.json()
 
@@ -124,6 +135,9 @@ class AccessKey(AuthBase):
         id: str,
         name: str,
         description: Optional[str] = None,
+        custom_claims: Optional[dict] = None,
+        permitted_ips: Optional[List[str]] = None,
+        custom_attributes: Optional[dict] = None,
     ):
         """
         Update an existing access key with the given various fields. IMPORTANT: id and name are mandatory fields.
@@ -132,14 +146,28 @@ class AccessKey(AuthBase):
         id (str): The id of the access key to update.
         name (str): The updated access key name.
         description (str): The description of the access key to update. If not provided, it will not be overriden.
+        custom_claims (dict): Optional dictionary of custom claims to update. If not provided, it will not be overridden.
+        permitted_ips (List[str]): Optional list of permitted IPs to update. If not provided, it will not be overridden.
+        custom_attributes (dict): Optional dictionary of custom attributes to update. If not provided, it will not be overridden.
 
         Raise:
         AuthException: raised if update operation fails
         """
-        self._auth.do_post(
+        body: dict[str, str | List[str] | dict] = {
+            "id": id,
+            "name": name,
+        }
+        if description is not None:
+            body["description"] = description
+        if custom_claims is not None:
+            body["customClaims"] = custom_claims
+        if permitted_ips is not None:
+            body["permittedIps"] = permitted_ips
+        if custom_attributes is not None:
+            body["customAttributes"] = custom_attributes
+        self._http.post(
             MgmtV1.access_key_update_path,
-            {"id": id, "name": name, "description": description},
-            pswd=self._auth.management_key,
+            body=body,
         )
 
     def deactivate(
@@ -156,10 +184,9 @@ class AccessKey(AuthBase):
         Raise:
         AuthException: raised if deactivation operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.access_key_deactivate_path,
-            {"id": id},
-            pswd=self._auth.management_key,
+            body={"id": id},
         )
 
     def activate(
@@ -176,10 +203,9 @@ class AccessKey(AuthBase):
         Raise:
         AuthException: raised if activation operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.access_key_activate_path,
-            {"id": id},
-            pswd=self._auth.management_key,
+            body={"id": id},
         )
 
     def delete(
@@ -195,10 +221,9 @@ class AccessKey(AuthBase):
         Raise:
         AuthException: raised if creation operation fails
         """
-        self._auth.do_post(
+        self._http.post(
             MgmtV1.access_key_delete_path,
-            {"id": id},
-            pswd=self._auth.management_key,
+            body={"id": id},
         )
 
     @staticmethod
@@ -211,6 +236,7 @@ class AccessKey(AuthBase):
         custom_claims: Optional[dict] = None,
         description: Optional[str] = None,
         permitted_ips: Optional[List[str]] = None,
+        custom_attributes: Optional[dict] = None,
     ) -> dict:
         return {
             "name": name,
@@ -221,4 +247,5 @@ class AccessKey(AuthBase):
             "customClaims": custom_claims,
             "description": description,
             "permittedIps": permitted_ips,
+            "customAttributes": custom_attributes,
         }

@@ -10,12 +10,21 @@ from ..._compat import cached_property
 from ...types.ai import cluster_list_params, cluster_compute_params, cluster_retrieve_params, cluster_fetch_graph_params
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
+    BinaryAPIResponse,
+    AsyncBinaryAPIResponse,
+    StreamedBinaryAPIResponse,
+    AsyncStreamedBinaryAPIResponse,
     to_raw_response_wrapper,
     to_streamed_response_wrapper,
     async_to_raw_response_wrapper,
+    to_custom_raw_response_wrapper,
     async_to_streamed_response_wrapper,
+    to_custom_streamed_response_wrapper,
+    async_to_custom_raw_response_wrapper,
+    async_to_custom_streamed_response_wrapper,
 )
-from ..._base_client import make_request_options
+from ...pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
+from ..._base_client import AsyncPaginator, make_request_options
 from ...types.ai.cluster_list_response import ClusterListResponse
 from ...types.ai.cluster_compute_response import ClusterComputeResponse
 from ...types.ai.cluster_retrieve_response import ClusterRetrieveResponse
@@ -96,22 +105,19 @@ class ClustersResource(SyncAPIResource):
     def list(
         self,
         *,
-        page: cluster_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ClusterListResponse:
-        """List all clusters
+    ) -> SyncDefaultFlatPagination[ClusterListResponse]:
+        """
+        List all clusters
 
         Args:
-          page: Consolidated page parameter (deepObject style).
-
-        Originally: page[number],
-              page[size]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -120,16 +126,23 @@ class ClustersResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/ai/clusters",
+            page=SyncDefaultFlatPagination[ClusterListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"page": page}, cluster_list_params.ClusterListParams),
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    cluster_list_params.ClusterListParams,
+                ),
             ),
-            cast_to=ClusterListResponse,
+            model=ClusterListResponse,
         )
 
     def delete(
@@ -183,7 +196,7 @@ class ClustersResource(SyncAPIResource):
     ) -> ClusterComputeResponse:
         """
         Starts a background task to compute how the data in an
-        [embedded storage bucket](https://developers.telnyx.com/api/inference/inference-embedding/post-embedding)
+        [embedded storage bucket](https://developers.telnyx.com/api-reference/embeddings/embed-documents)
         is clustered. This helps identify common themes and patterns in the data.
 
         Args:
@@ -238,7 +251,7 @@ class ClustersResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> BinaryAPIResponse:
         """
         Fetch a cluster visualization
 
@@ -253,6 +266,7 @@ class ClustersResource(SyncAPIResource):
         """
         if not task_id:
             raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
+        extra_headers = {"Accept": "image/png", **(extra_headers or {})}
         return self._get(
             f"/ai/clusters/{task_id}/graph",
             options=make_request_options(
@@ -262,7 +276,7 @@ class ClustersResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform({"cluster_id": cluster_id}, cluster_fetch_graph_params.ClusterFetchGraphParams),
             ),
-            cast_to=object,
+            cast_to=BinaryAPIResponse,
         )
 
 
@@ -336,25 +350,22 @@ class AsyncClustersResource(AsyncAPIResource):
             cast_to=ClusterRetrieveResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
-        page: cluster_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ClusterListResponse:
-        """List all clusters
+    ) -> AsyncPaginator[ClusterListResponse, AsyncDefaultFlatPagination[ClusterListResponse]]:
+        """
+        List all clusters
 
         Args:
-          page: Consolidated page parameter (deepObject style).
-
-        Originally: page[number],
-              page[size]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -363,16 +374,23 @@ class AsyncClustersResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/ai/clusters",
+            page=AsyncDefaultFlatPagination[ClusterListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform({"page": page}, cluster_list_params.ClusterListParams),
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    cluster_list_params.ClusterListParams,
+                ),
             ),
-            cast_to=ClusterListResponse,
+            model=ClusterListResponse,
         )
 
     async def delete(
@@ -426,7 +444,7 @@ class AsyncClustersResource(AsyncAPIResource):
     ) -> ClusterComputeResponse:
         """
         Starts a background task to compute how the data in an
-        [embedded storage bucket](https://developers.telnyx.com/api/inference/inference-embedding/post-embedding)
+        [embedded storage bucket](https://developers.telnyx.com/api-reference/embeddings/embed-documents)
         is clustered. This helps identify common themes and patterns in the data.
 
         Args:
@@ -481,7 +499,7 @@ class AsyncClustersResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> AsyncBinaryAPIResponse:
         """
         Fetch a cluster visualization
 
@@ -496,6 +514,7 @@ class AsyncClustersResource(AsyncAPIResource):
         """
         if not task_id:
             raise ValueError(f"Expected a non-empty value for `task_id` but received {task_id!r}")
+        extra_headers = {"Accept": "image/png", **(extra_headers or {})}
         return await self._get(
             f"/ai/clusters/{task_id}/graph",
             options=make_request_options(
@@ -507,7 +526,7 @@ class AsyncClustersResource(AsyncAPIResource):
                     {"cluster_id": cluster_id}, cluster_fetch_graph_params.ClusterFetchGraphParams
                 ),
             ),
-            cast_to=object,
+            cast_to=AsyncBinaryAPIResponse,
         )
 
 
@@ -527,8 +546,9 @@ class ClustersResourceWithRawResponse:
         self.compute = to_raw_response_wrapper(
             clusters.compute,
         )
-        self.fetch_graph = to_raw_response_wrapper(
+        self.fetch_graph = to_custom_raw_response_wrapper(
             clusters.fetch_graph,
+            BinaryAPIResponse,
         )
 
 
@@ -548,8 +568,9 @@ class AsyncClustersResourceWithRawResponse:
         self.compute = async_to_raw_response_wrapper(
             clusters.compute,
         )
-        self.fetch_graph = async_to_raw_response_wrapper(
+        self.fetch_graph = async_to_custom_raw_response_wrapper(
             clusters.fetch_graph,
+            AsyncBinaryAPIResponse,
         )
 
 
@@ -569,8 +590,9 @@ class ClustersResourceWithStreamingResponse:
         self.compute = to_streamed_response_wrapper(
             clusters.compute,
         )
-        self.fetch_graph = to_streamed_response_wrapper(
+        self.fetch_graph = to_custom_streamed_response_wrapper(
             clusters.fetch_graph,
+            StreamedBinaryAPIResponse,
         )
 
 
@@ -590,6 +612,7 @@ class AsyncClustersResourceWithStreamingResponse:
         self.compute = async_to_streamed_response_wrapper(
             clusters.compute,
         )
-        self.fetch_graph = async_to_streamed_response_wrapper(
+        self.fetch_graph = async_to_custom_streamed_response_wrapper(
             clusters.fetch_graph,
+            AsyncStreamedBinaryAPIResponse,
         )

@@ -14,24 +14,19 @@ from azure.core.pipeline.policies import AsyncBearerTokenCredentialPolicy
 from azure.core.polling import AsyncLROPoller
 from azure.core.tracing.decorator import distributed_trace
 from azure.core.tracing.decorator_async import distributed_trace_async
-from azure.core.exceptions import (
-    ResourceExistsError,
-    ResourceModifiedError,
-    ResourceNotFoundError,
-    ResourceNotModifiedError,
-)
+from azure.core.exceptions import ResourceNotModifiedError
 from azure.core.rest import AsyncHttpResponse, HttpRequest
 from ._sync_token_async import AsyncSyncTokenPolicy
 from .._azure_appconfiguration_error import ResourceReadOnlyError
 from .._azure_appconfiguration_requests import AppConfigRequestsCredentialsPolicy
-from .._generated.aio import AzureAppConfiguration
+from .._generated.aio import AzureAppConfigurationClient as AzureAppConfigurationClientGenerated
 from .._generated.models import (
-    SnapshotUpdateParameters,
     SnapshotStatus,
     SnapshotFields,
     SnapshotComposition,
     LabelFields,
     ConfigurationSettingFields,
+    SnapshotUpdateParameters,
 )
 from .._models import (
     ConfigurationSetting,
@@ -41,8 +36,6 @@ from .._models import (
     ConfigurationSettingLabel,
 )
 from .._utils import (
-    prep_if_match,
-    prep_if_none_match,
     get_key_filter,
     get_label_filter,
     parse_connection_string,
@@ -52,19 +45,18 @@ from .._utils import (
 class AzureAppConfigurationClient:
     """Represents a client that calls restful API of Azure App Configuration service.
 
-        :param str base_url: Base url of the service.
-        :param credential: An object which can provide secrets for the app configuration service
-        :type credential: ~azure.core.credentials_async.AsyncTokenCredential
-        :keyword api_version: Api Version. Default value is "2023-11-01". Note that overriding this default
-            value may result in unsupported behavior.
-        :paramtype api_version: str
+    :param str base_url: Base url of the service.
+    :param credential: An object which can provide secrets for the app configuration service
+    :type credential: ~azure.core.credentials_async.AsyncTokenCredential
+    :keyword api_version: Api Version. Default value is "2023-11-01". Note that overriding this default
+        value may result in unsupported behavior.
+    :paramtype api_version: str
 
     This is the async version of :class:`~azure.appconfiguration.AzureAppConfigurationClient`
 
     """
 
     # pylint:disable=protected-access
-
     def __init__(self, base_url: str, credential: AsyncTokenCredential, **kwargs: Any) -> None:
         try:
             if not base_url.lower().startswith("http"):
@@ -96,8 +88,8 @@ class AzureAppConfigurationClient:
                 f"Unsupported credential: {type(credential)}. Use an instance of token credential from azure.identity"
             )
         # mypy doesn't compare the credential type hint with the API surface in patch.py
-        self._impl = AzureAppConfiguration(
-            credential, base_url, per_call_policies=self._sync_token_policy, **kwargs  # type: ignore[arg-type]
+        self._impl = AzureAppConfigurationClientGenerated(
+            base_url, credential, per_call_policies=self._sync_token_policy, **kwargs  # type: ignore[arg-type]
         )
 
     @classmethod
@@ -116,6 +108,7 @@ class AzureAppConfigurationClient:
         .. code-block:: python
 
             from azure.appconfiguration.aio import AzureAppConfigurationClient
+
             connection_str = "<my connection string>"
             async_client = AzureAppConfigurationClient.from_connection_string(connection_str)
         """
@@ -129,7 +122,7 @@ class AzureAppConfigurationClient:
         )
 
     @distributed_trace_async
-    async def send_request(self, request: HttpRequest, *, stream: bool = False, **kwargs) -> AsyncHttpResponse:
+    async def send_request(self, request: HttpRequest, *, stream: bool = False, **kwargs: Any) -> AsyncHttpResponse:
         """Runs a network request using the client's existing pipeline.
 
         The request URL can be relative to the vault URL. The service API version used for the request is the same as
@@ -143,7 +136,7 @@ class AzureAppConfigurationClient:
         :return: The response of your network call. Does not do error handling on your response.
         :rtype: ~azure.core.rest.AsyncHttpResponse
         """
-        return await self._impl._send_request(request, stream=stream, **kwargs)
+        return await self._impl.send_request(request, stream=stream, **kwargs)
 
     @overload
     def list_configuration_settings(
@@ -218,7 +211,7 @@ class AzureAppConfigurationClient:
         """
 
     @distributed_trace
-    def list_configuration_settings(self, *args, **kwargs) -> AsyncItemPaged[ConfigurationSetting]:
+    def list_configuration_settings(self, *args: Optional[str], **kwargs: Any) -> AsyncItemPaged[ConfigurationSetting]:
         accept_datetime = kwargs.pop("accept_datetime", None)
         if isinstance(accept_datetime, datetime):
             accept_datetime = str(accept_datetime)
@@ -259,7 +252,7 @@ class AzureAppConfigurationClient:
         match_condition: MatchConditions = MatchConditions.Unconditionally,
         *,
         accept_datetime: Optional[Union[datetime, str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[None, ConfigurationSetting]:
         """Get the matched ConfigurationSetting from Azure App Configuration service
 
@@ -292,23 +285,13 @@ class AzureAppConfigurationClient:
         """
         if isinstance(accept_datetime, datetime):
             accept_datetime = str(accept_datetime)
-
-        error_map: Dict[int, Any] = {}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-
         try:
             key_value = await self._impl.get_key_value(
                 key=key,
                 label=label,
                 accept_datetime=accept_datetime,
-                if_match=prep_if_match(etag, match_condition),
-                if_none_match=prep_if_none_match(etag, match_condition),
-                error_map=error_map,
+                etag=etag,
+                match_condition=match_condition,
                 **kwargs,
             )
             return ConfigurationSetting._from_generated(key_value)
@@ -317,7 +300,7 @@ class AzureAppConfigurationClient:
 
     @distributed_trace_async
     async def add_configuration_setting(
-        self, configuration_setting: ConfigurationSetting, **kwargs
+        self, configuration_setting: ConfigurationSetting, **kwargs: Any
     ) -> ConfigurationSetting:
         """Add a ConfigurationSetting instance into the Azure App Configuration service.
 
@@ -344,14 +327,11 @@ class AzureAppConfigurationClient:
             added_config_setting = await async_client.add_configuration_setting(config_setting)
         """
         key_value = configuration_setting._to_generated()
-        error_map = {412: ResourceExistsError}
-
-        key_value_added = await self._impl.put_key_value(
+        key_value_added = await self._impl._put_key_value(
             entity=key_value,
             key=key_value.key,  # type: ignore
             label=key_value.label,
-            if_none_match="*",
-            error_map=error_map,
+            match_condition=MatchConditions.IfMissing,
             **kwargs,
         )
         return ConfigurationSetting._from_generated(key_value_added)
@@ -363,7 +343,7 @@ class AzureAppConfigurationClient:
         match_condition: MatchConditions = MatchConditions.Unconditionally,
         *,
         etag: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ConfigurationSetting:
         """Add or update a ConfigurationSetting.
         If the configuration setting identified by key and label does not exist, this is a create.
@@ -403,21 +383,12 @@ class AzureAppConfigurationClient:
         """
         key_value = configuration_setting._to_generated()
         error_map: Dict[int, Any] = {409: ResourceReadOnlyError}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfModified:
-            error_map.update({412: ResourceNotModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-
-        key_value_set = await self._impl.put_key_value(
+        key_value_set = await self._impl._put_key_value(
             entity=key_value,
             key=key_value.key,  # type: ignore
             label=key_value.label,
-            if_match=prep_if_match(configuration_setting.etag, match_condition),
-            if_none_match=prep_if_none_match(etag or configuration_setting.etag, match_condition),
+            etag=etag or configuration_setting.etag,
+            match_condition=match_condition,
             error_map=error_map,
             **kwargs,
         )
@@ -431,7 +402,7 @@ class AzureAppConfigurationClient:
         *,
         etag: Optional[str] = None,
         match_condition: MatchConditions = MatchConditions.Unconditionally,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[None, ConfigurationSetting]:
         """Delete a ConfigurationSetting if it exists
 
@@ -463,19 +434,11 @@ class AzureAppConfigurationClient:
             )
         """
         error_map: Dict[int, Any] = {409: ResourceReadOnlyError}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfModified:
-            error_map.update({412: ResourceNotModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-
         key_value_deleted = await self._impl.delete_key_value(
             key=key,
             label=label,
-            if_match=prep_if_match(etag, match_condition),
+            etag=etag,
+            match_condition=match_condition,
             error_map=error_map,
             **kwargs,
         )
@@ -492,7 +455,7 @@ class AzureAppConfigurationClient:
         tags_filter: Optional[List[str]] = None,
         accept_datetime: Optional[Union[datetime, str]] = None,
         fields: Optional[List[Union[str, ConfigurationSettingFields]]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncItemPaged[ConfigurationSetting]:
         """
         Find the ConfigurationSetting revision history, optionally filtered by key, label, tags and accept_datetime.
@@ -558,7 +521,7 @@ class AzureAppConfigurationClient:
         read_only: bool = True,
         *,
         match_condition: MatchConditions = MatchConditions.Unconditionally,
-        **kwargs,
+        **kwargs: Any,
     ) -> ConfigurationSetting:
         """Set a configuration setting read only
 
@@ -585,32 +548,20 @@ class AzureAppConfigurationClient:
             read_only_config_setting = await async_client.set_read_only(config_setting)
             read_only_config_setting = await client.set_read_only(config_setting, read_only=False)
         """
-        error_map: Dict[int, Any] = {}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfModified:
-            error_map.update({412: ResourceNotModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-
         if read_only:
             key_value = await self._impl.put_lock(
                 key=configuration_setting.key,
                 label=configuration_setting.label,
-                if_match=prep_if_match(configuration_setting.etag, match_condition),
-                if_none_match=prep_if_none_match(configuration_setting.etag, match_condition),
-                error_map=error_map,
+                etag=configuration_setting.etag,
+                match_condition=match_condition,
                 **kwargs,
             )
         else:
             key_value = await self._impl.delete_lock(
                 key=configuration_setting.key,
                 label=configuration_setting.label,
-                if_match=prep_if_match(configuration_setting.etag, match_condition),
-                if_none_match=prep_if_none_match(configuration_setting.etag, match_condition),
-                error_map=error_map,
+                etag=configuration_setting.etag,
+                match_condition=match_condition,
                 **kwargs,
             )
         return ConfigurationSetting._from_generated(key_value)
@@ -623,7 +574,7 @@ class AzureAppConfigurationClient:
         after: Optional[str] = None,
         accept_datetime: Optional[Union[datetime, str]] = None,
         fields: Optional[List[Union[str, LabelFields]]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncItemPaged[ConfigurationSettingLabel]:
         """Gets a list of labels.
 
@@ -641,7 +592,7 @@ class AzureAppConfigurationClient:
             Available fields see :class:`~azure.appconfiguration.LabelFields`.
         :paramtype fields: list[str] or list[~azure.appconfiguration.LabelFields] or None
         :return: An async iterator of labels.
-        :rtype: ~azure.core.paging.AsyncItemPaged[~azure.appconfiguration.ConfigurationSettingLabel]
+        :rtype: ~azure.core.async_paging.AsyncItemPaged[~azure.appconfiguration.ConfigurationSettingLabel]
         :raises: :class:`~azure.core.exceptions.HttpResponseError`
         """
         if isinstance(accept_datetime, datetime):
@@ -664,7 +615,7 @@ class AzureAppConfigurationClient:
         composition_type: Optional[Union[str, SnapshotComposition]] = None,
         retention_period: Optional[int] = None,
         tags: Optional[Dict[str, str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncLROPoller[ConfigurationSnapshot]:
         """Create a snapshot of the configuration settings.
 
@@ -707,7 +658,7 @@ class AzureAppConfigurationClient:
         *,
         match_condition: MatchConditions = MatchConditions.Unconditionally,
         etag: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ConfigurationSnapshot:
         """Archive a configuration setting snapshot. It will update the status of a snapshot from "ready" to "archived".
         The retention period will start to count, the snapshot will expire when the entire retention period elapses.
@@ -722,21 +673,11 @@ class AzureAppConfigurationClient:
         :rtype: ~azure.appconfiguration.ConfigurationSnapshot
         :raises: :class:`~azure.core.exceptions.HttpResponseError`
         """
-        error_map: Dict[int, Any] = {}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfModified:
-            error_map.update({412: ResourceNotModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-        generated_snapshot = await self._impl.update_snapshot(
+        generated_snapshot = await self._impl._update_snapshot(
             name=name,
             entity=SnapshotUpdateParameters(status=SnapshotStatus.ARCHIVED),
-            if_match=prep_if_match(etag, match_condition),
-            if_none_match=prep_if_none_match(etag, match_condition),
-            error_map=error_map,
+            etag=etag,
+            match_condition=match_condition,
             **kwargs,
         )
         return ConfigurationSnapshot._from_generated(generated_snapshot)
@@ -748,7 +689,7 @@ class AzureAppConfigurationClient:
         *,
         match_condition: MatchConditions = MatchConditions.Unconditionally,
         etag: Optional[str] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> ConfigurationSnapshot:
         """Recover a configuration setting snapshot. It will update the status of a snapshot from "archived" to "ready".
 
@@ -762,28 +703,18 @@ class AzureAppConfigurationClient:
         :rtype: ~azure.appconfiguration.ConfigurationSnapshot
         :raises: :class:`~azure.core.exceptions.HttpResponseError`
         """
-        error_map: Dict[int, Any] = {}
-        if match_condition == MatchConditions.IfNotModified:
-            error_map.update({412: ResourceModifiedError})
-        if match_condition == MatchConditions.IfModified:
-            error_map.update({412: ResourceNotModifiedError})
-        if match_condition == MatchConditions.IfPresent:
-            error_map.update({412: ResourceNotFoundError})
-        if match_condition == MatchConditions.IfMissing:
-            error_map.update({412: ResourceExistsError})
-        generated_snapshot = await self._impl.update_snapshot(
+        generated_snapshot = await self._impl._update_snapshot(
             name=name,
             entity=SnapshotUpdateParameters(status=SnapshotStatus.READY),
-            if_match=prep_if_match(etag, match_condition),
-            if_none_match=prep_if_none_match(etag, match_condition),
-            error_map=error_map,
+            etag=etag,
+            match_condition=match_condition,
             **kwargs,
         )
         return ConfigurationSnapshot._from_generated(generated_snapshot)
 
     @distributed_trace_async
     async def get_snapshot(
-        self, name: str, *, fields: Optional[List[Union[str, SnapshotFields]]] = None, **kwargs
+        self, name: str, *, fields: Optional[List[Union[str, SnapshotFields]]] = None, **kwargs: Any
     ) -> ConfigurationSnapshot:
         """Get a configuration setting snapshot.
 
@@ -796,9 +727,7 @@ class AzureAppConfigurationClient:
         :rtype: ~azure.appconfiguration.ConfigurationSnapshot
         :raises: :class:`~azure.core.exceptions.HttpResponseError`
         """
-        generated_snapshot = await self._impl.get_snapshot(
-            name=name, if_match=None, if_none_match=None, select=fields, **kwargs
-        )
+        generated_snapshot = await self._impl.get_snapshot(name=name, select=fields, **kwargs)
         return ConfigurationSnapshot._from_generated(generated_snapshot)
 
     @distributed_trace
@@ -808,7 +737,7 @@ class AzureAppConfigurationClient:
         name: Optional[str] = None,
         fields: Optional[List[Union[str, SnapshotFields]]] = None,
         status: Optional[List[Union[str, SnapshotStatus]]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> AsyncItemPaged[ConfigurationSnapshot]:
         """List the configuration setting snapshots stored in the configuration service, optionally filtered by
         snapshot name, snapshot status and fields to present in return.

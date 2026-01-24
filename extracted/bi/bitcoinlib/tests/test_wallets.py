@@ -34,8 +34,9 @@ except ImportError as e:
 from bitcoinlib.wallets import *
 from bitcoinlib.encoding import USE_FASTECDSA
 from bitcoinlib.mnemonic import Mnemonic
-from bitcoinlib.keys import HDKey, BKeyError
+from bitcoinlib.keys import HDKey, BKeyError, verify_message, signed_message_parse
 from bitcoinlib.values import Value
+from bitcoinlib.networks import NETWORK_DEFINITIONS
 from tests.test_custom import CustomAssertions
 
 DATABASEFILE_UNITTESTS = os.path.join(str(BCL_DATABASE_DIR), 'bitcoinlib.unittest.sqlite')
@@ -772,6 +773,12 @@ class TestWalletKeys(unittest.TestCase):
                                w.address_index, 0, account_id=102)
         self.assertRaisesRegex(WalletError, "Key with address_index 11 not found in wallet. Please create key first",
                                w.address_index, 11)
+
+    def test_wallet_key_balance_update(self):
+        w = wallet_create_or_open('test_wallet_key_balance_update', network='bitcoinlib_test', db_uri=self.database_uri)
+        w.new_key()
+        w.utxos_update()
+        self.assertEqual(sum([k.balance for k in w.keys_addresses()]), 400000000)
 
     @classmethod
     def tearDownClass(cls):
@@ -2314,7 +2321,7 @@ class TestWalletTransactions(unittest.TestCase, CustomAssertions):
         pkm = 'elephant dust deer company win final'
         expected_utxos = ['520208458b4f93ef7f1a4df447b6fedb50888aaa098ab501b32b1df3f88daa86',
                           'ea7bd8fe970ca6430cebbbf914ce2feeb369c3ae95edc117725dbe21519ccdab']
-        expected_txid = '00c6f17bab32ac30979c284a36537f288ed85648810d5d479fcf2a526cdcd3f6'
+        expected_txid = '363b9c5379276381ed6d5d43d8a095883bd5800dc408eca4f8ad712b47bbd4ca'
 
         w = Wallet.create("remove_utxos_test", keys=pkm, network="bitcoinlib_test", db_uri=self.database_uri)
         w.utxos_update()
@@ -2407,6 +2414,93 @@ class TestWalletTransactions(unittest.TestCase, CustomAssertions):
         w3.utxo_add(w3.get_key().address, 1234567, os.urandom(32).hex(), 1)
         t = w3.send_to('tb1qrjtz22q59e76mhumy0p586cqukatw5vcd0xvvz', 123456)
         self.assertEqual(t.locktime, 0)
+
+    def test_wallet_transactions_utxo_selection(self):
+        w = wallet_create_or_open('wallet_transactions_utxo_selection', db_uri=self.database_uri)
+        for utxo in [
+            (w.new_key().address, 1339, os.urandom(32).hex(), 1001),
+            (w.new_key().address, 1445, os.urandom(32).hex(), 995),
+            (w.new_key().address, 38738, os.urandom(32).hex(), 197),
+            (w.new_key().address, 23818, os.urandom(32).hex(), 165),
+        ]:
+            w.utxo_add(utxo[0], utxo[1], utxo[2], 0, utxo[3])
+
+        # One input is not enough
+        self.assertRaisesRegex(WalletError, 'Not enough unspent transaction outputs found',
+                               w.send, [(w.get_key().address, 60000)], max_utxos=1, fee=1000)
+        # Only 2 inputs needed
+        t = w.send([(w.get_key().address, 60000)], fee=1000)
+        self.assertEqual(len(t.inputs), 2)
+        self.assertEqual(sum([i.value for i in t.inputs]), 38738+23818)
+        self.assertTrue(t.verified)
+        # max_utxos has no effect, only 2 inputs needed
+        t2 = w.send([(w.get_key().address, 60000)], max_utxos=2, fee=1000)
+        self.assertEqual(len(t2.inputs), 2)
+        self.assertEqual(sum([i.value for i in t2.inputs]), 38738+23818)
+        self.assertTrue(t2.verified)
+
+    def test_wallet_transactions_utxo_selection2(self):
+        w = wallet_create_or_open('wallet_transactions_utxo_selection2', db_uri=self.database_uri)
+        utxos = [
+            (w.new_key().address, 1339, os.urandom(32).hex(), 1001),
+            (w.new_key().address, 1445, os.urandom(32).hex(), 995),
+            (w.new_key().address, 38738, os.urandom(32).hex(), 197),
+            (w.new_key().address, 23818, os.urandom(32).hex(), 165),
+            (w.new_key().address, 23818, os.urandom(32).hex(), 160),
+        ]
+        for utxo in utxos:
+            w.utxo_add(utxo[0], utxo[1], utxo[2], 0, utxo[3])
+
+        # Only 2 inputs needed + select oldest input
+        t = w.send([(w.get_key().address, 60000)], fee=1000)
+        self.assertEqual(len(t.inputs), 2)
+        self.assertEqual(sum([i.value for i in t.inputs]), 38738+23818)
+        self.assertTrue(t.verified)
+        self.assertIn(utxos[3][0], [i.address for i in t.inputs])
+        # max_utxos has no effect, only 2 inputs needed
+        t2 = w.send([(w.get_key().address, 60000)], max_utxos=2, fee=1000)
+        self.assertEqual(len(t2.inputs), 2)
+        self.assertEqual(sum([i.value for i in t2.inputs]), 38738+23818)
+        self.assertTrue(t2.verified)
+
+    def test_wallet_transactions_utxo_selection3(self):
+        w = wallet_create_or_open('wallet_transactions_utxo_selection3', db_uri=self.database_uri)
+        for utxo in [
+            (w.new_key().address, 11339, os.urandom(32).hex(), 1001),
+            (w.new_key().address, 22445, os.urandom(32).hex(), 995),
+            (w.new_key().address, 38738, os.urandom(32).hex(), 197),
+            (w.new_key().address, 23818, os.urandom(32).hex(), 165),
+        ]:
+            w.utxo_add(utxo[0], utxo[1], utxo[2], 0, utxo[3])
+
+        # Select 2 oldest inputs
+        t = w.send([(w.get_key().address, 60000)], fee=1000)
+        self.assertEqual(len(t.inputs), 2)
+        self.assertEqual(sum([i.value for i in t.inputs]), 22445+38738)
+        self.assertTrue(t.verified)
+
+    def test_wallet_transactions_utxo_selection_minimum_outputs(self):
+        w = wallet_create_or_open('wallet_transactions_utxo_selection_minimum_outputs', db_uri=self.database_uri)
+        for utxo in [
+            (w.new_key().address, 10500, os.urandom(32).hex(), 1001),
+            (w.new_key().address, 10000, os.urandom(32).hex(), 995),
+            (w.new_key().address, 20500, os.urandom(32).hex(), 197),
+            (w.new_key().address, 10000, os.urandom(32).hex(), 165),
+            (w.new_key().address, 40500, os.urandom(32).hex(), 165),
+            (w.new_key().address, 10000, os.urandom(32).hex(), 165),
+            (w.new_key().address, 30500, os.urandom(32).hex(), 165),
+        ]:
+            w.utxo_add(utxo[0], utxo[1], utxo[2], 0, utxo[3])
+
+        # Select minimal number of inputs
+        self.assertEqual(len(w.send([(w.get_key().address, 40000)], fee=500).inputs), 1)
+        self.assertEqual(len(w.send([(w.get_key().address, 60000)], fee=1000).inputs), 2)
+        self.assertEqual(len(w.send([(w.get_key().address, 70000)], fee=1000).inputs), 2)
+        self.assertEqual(len(w.send([(w.get_key().address, 90000)], fee=1000).inputs), 3)
+        self.assertEqual(len(w.send([(w.get_key().address, 100000)], fee=1000).inputs), 4)
+        self.assertEqual(len(w.send([(w.get_key().address, 120000)], fee=1000).inputs), 6)
+        self.assertEqual(len(w.send([(w.get_key().address, 130000)], fee=1000).inputs), 7)
+
 
     @classmethod
     def tearDownClass(cls):
@@ -2922,6 +3016,7 @@ class TestWalletMixedWitnessTypes(unittest.TestCase):
 
         w = wallet_create_or_open('bumpfeetest04', keys=pkm, network='bitcoinlib_test', db_uri=self.database_uri)
         w.utxos_update()
+        w.info()
         t = w.send_to('blt1qm89pcm4392vj93q9s2ft8saqzm4paruzj95a83', 199900000, fee=100000,
                       broadcast=True)
         self.assertRaisesRegex(TransactionError, "Not enough unspent inputs found for transaction", t.bumpfee)
@@ -2976,3 +3071,49 @@ class TestWalletMixedWitnessTypes(unittest.TestCase):
         w.transactions_remove_unconfirmed(0)
         self.assertEqual(len(w.utxos()), 3)
         self.assertEqual(w.balance(), 102057170)
+
+
+class TestWalletSignMessages(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.database_uri = database_init()
+
+    def test_wallet_sign_message_electrum(self):
+        # Electrum Bitcoin test
+        phrase = 'appear jacket street version hover aware nature exchange color laundry awkward urban'
+        message = 'Hi this is a signed message from Electrum'
+        expected_addr = 'bc1qn47dp83edwa04sgpxjk2nceg235jalkmnktyge'
+        # Electrum wallet does not follow BIP-0137 standard, so Bitcoinlib can not create expected signature,
+        # as first byte is different:
+        # Elect. sig = 'ICaMNV/wPWQ1/1Ff0uoJx0GWmItu++84OON1hL4E+twUTh69y3bSU2fLfj4LXf7k5NyByfN4fGKtr0xryoNFJ3w='
+        expected_sig = 'JyaMNV/wPWQ1/1Ff0uoJx0GWmItu++84OON1hL4E+twUTh69y3bSU2fLfj4LXf7k5NyByfN4fGKtr0xryoNFJ3w='
+
+        w = wallet_create_or_open('wallet_electrum_message_signing_test', phrase, db_uri=self.database_uri)
+        wallet_key = w.address_index(0)
+
+        self.assertEqual(wallet_key.key().address(), expected_addr)
+        sig = wallet_key.sign_message(message, force_canonical=True)
+        self.assertEqual(sig.as_base64(), expected_sig)
+        self.assertTrue(wallet_key.verify_message(message, sig))
+
+    def test_wallet_sign_and_verify(self):
+        message = "test_wallet_sign_and_verify Unittest"
+        w = wallet_create_or_open('test_wallet_sign_and_verify', db_uri=self.database_uri)
+        sig = w.sign_message(message)
+        signed_message = sig.as_signed_message(message)
+        message, sig_b64, addr, network = signed_message_parse(signed_message)
+        self.assertTrue(verify_message(message, sig_b64, addr, network))
+        self.assertTrue(w.verify_message(message, sig))
+
+    def test_wallet_sign_verify_message_various_networks(self):
+        for network in NETWORK_DEFINITIONS:
+            for witness_type in ['legacy', 'segwit', 'p2sh-segwit']:
+                wname = f"{network.capitalize()} wallet with {witness_type} witness type"
+                message = f"Message for wallet '{wname}'"
+                w = wallet_create_or_open(wname, db_uri=self.database_uri)
+                sig = w.sign_message(message)
+                signed_message = sig.as_signed_message(message)
+                message, sig_b64, addr, network = signed_message_parse(signed_message)
+                self.assertTrue(verify_message(message, sig_b64, addr, network))
+                self.assertTrue(w.verify_message(message, sig))

@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 
 
@@ -21,7 +19,7 @@ class DataNormalizer:
         self.meanY = None
         self.fail_on_constant = fail_on_constant
 
-    def normalize(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def normalize(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Normalizes the each column of X to zero mean and unit variance. y is
         shifted to zero mean (variance is not altered)

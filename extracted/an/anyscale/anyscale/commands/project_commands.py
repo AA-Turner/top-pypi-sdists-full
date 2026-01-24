@@ -11,13 +11,12 @@ import yaml
 import anyscale
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
-from anyscale.commands.list_util import display_list
-from anyscale.commands.util import (
-    AnyscaleCommand,
-    DeprecatedAnyscaleCommand,
-    NotRequiredIf,
+from anyscale.commands.list_util import (
+    display_list,
+    MAX_PAGE_SIZE,
+    NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
 )
-from anyscale.controllers.project_controller import ProjectController
+from anyscale.commands.util import AnyscaleCommand
 from anyscale.project.models import (
     CreateProjectCollaborator,
     CreateProjectCollaborators,
@@ -26,7 +25,6 @@ from anyscale.project.models import (
     ProjectSortField,
     ProjectSortOrder,
 )
-from anyscale.project_utils import validate_project_name
 from anyscale.util import (
     AnyscaleJSONEncoder,
     get_endpoint,
@@ -34,9 +32,6 @@ from anyscale.util import (
 
 
 log = BlockLogger()
-
-MAX_PAGE_SIZE = 50
-NON_INTERACTIVE_DEFAULT_MAX_ITEMS = 10
 
 
 def _create_project_list_table(show_header: bool) -> Table:
@@ -414,124 +409,3 @@ def add_collaborators(cloud: str, project: str, users_file: str) -> None:
     log.info(
         f"Successfully added {len(collaborators.collaborators)} collaborators to project {project}."
     )
-
-
-# ================================================
-# LEGACY CODE
-# ================================================
-
-
-def _validate_project_name(ctx, param, value) -> str:  # noqa: ARG001
-    if value and not validate_project_name(value):
-        raise click.BadParameter(
-            '"{}" contains spaces. Please enter a project name without spaces'.format(
-                value
-            )
-        )
-
-    return value
-
-
-def _default_project_name() -> str:
-    import os
-
-    cur_dir = os.getcwd()
-    return os.path.basename(cur_dir)
-
-
-@click.command(
-    name="init",
-    help=(
-        "[DEPRECATED] Create a new project or attach this directory to an existing project."
-    ),
-    hidden=True,
-    cls=DeprecatedAnyscaleCommand,
-    removal_date="2025-10-01",
-    deprecation_message="`anyscale init` has been deprecated",
-    alternative="use `anyscale project create` to create a new project",
-)
-@click.option(
-    "--project-id",
-    help="Project id for an existing project you wish to attach to.",
-    required=False,
-    prompt=False,
-)
-@click.option(
-    "--name",
-    help="Project name.",
-    cls=NotRequiredIf,
-    not_required_if="project_id",
-    callback=_validate_project_name,
-    prompt=True,
-    default=_default_project_name(),
-)
-@click.option(
-    "--config",
-    help="[DEPRECATED] Path to autoscaler yaml. Created by default.",
-    type=click.Path(exists=True),
-    required=False,
-)
-@click.option(
-    "--requirements",
-    help="[DEPRECATED] Path to requirements.txt. Created by default.",
-    required=False,
-)
-def anyscale_init(
-    project_id: Optional[str],
-    name: Optional[str],
-    config: Optional[str],
-    requirements: Optional[str],
-) -> None:
-    """Create a new project or attach this directory to an existing project.
-
-    DEPRECATED: This command will be removed on 2025-10-01.
-    Use 'anyscale project create' to create a new project.
-    """
-    if (project_id and name) or not (project_id or name):
-        raise click.BadArgumentUsage(
-            "Only one of project_id and name must be provided."
-        )
-
-    project_controller = ProjectController()
-    project_controller.init(project_id, name, config, requirements)
-
-
-@project_cli.command(
-    name="init",
-    help="[DEPRECATED] Create a new project or attach this directory to an existing project.",
-    hidden=True,
-    cls=DeprecatedAnyscaleCommand,
-    removal_date="2025-10-01",
-    deprecation_message="`anyscale project init` has been deprecated",
-    alternative="use `anyscale project create` to create a new project and specify a project id or name for the other Anyscale CLI commands",
-)
-@click.option(
-    "--project-id",
-    "--id",
-    help="Project id for an existing project you wish to attach to.",
-    required=False,
-    prompt=False,
-)
-@click.option(
-    "--name",
-    "-n",
-    help="Project name.",
-    cls=NotRequiredIf,
-    not_required_if="project_id",
-    callback=_validate_project_name,
-    prompt=True,
-    default=_default_project_name(),
-)
-def init(project_id: Optional[str], name: Optional[str],) -> None:
-    """Create a new project or attach this directory to an existing project.
-
-    DEPRECATED: This command will be removed on 2025-10-01.
-    Use 'anyscale project create' to create a new project.
-    """
-    if (project_id and name) or not (project_id or name):
-        raise click.BadArgumentUsage(
-            "Only one of --project-id and --name must be provided."
-        )
-
-    project_controller = ProjectController()
-    project_controller.init(project_id, name, None, None)

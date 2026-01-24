@@ -8,6 +8,8 @@ import datetime
 import typing as t
 
 import pytest
+from freezegun import freeze_time
+
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     UTC,
     add_or_remove_timezone,
@@ -19,8 +21,6 @@ from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_relative_time_option,
     remove_timezone,
 )
-from freezegun import freeze_time
-
 
 TIMEZONES = [
     datetime.timedelta(hours=0),
@@ -36,9 +36,9 @@ if t.TYPE_CHECKING:
 
 
 def cartesian_product(
-    list1: list[_S], list2: "list[tuple[*_Ts]]"
-) -> "list[tuple[_S, *_Ts]]":
-    result: "list[tuple[_S, *_Ts]]" = []
+    list1: list[_S], list2: "list[tuple[*_Ts]]"  # noqa: UP037
+) -> "list[tuple[_S, *_Ts]]":  # noqa: UP037
+    result: "list[tuple[_S, *_Ts]]" = []  # noqa: UP037
     for item1 in list1:
         item1_tuple = (item1,)
         for item2 in list2:

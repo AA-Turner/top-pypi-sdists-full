@@ -20,6 +20,7 @@
 #include "dwave-optimization/nodes/collections.hpp"
 #include "dwave-optimization/nodes/constants.hpp"
 #include "dwave-optimization/nodes/indexing.hpp"
+#include "dwave-optimization/nodes/manipulation.hpp"
 #include "dwave-optimization/nodes/numbers.hpp"
 #include "dwave-optimization/nodes/testing.hpp"
 
@@ -265,7 +266,101 @@ TEMPLATE_TEST_CASE("BinaryOpNode", "",
                         CHECK(p_ptr->view(state)[i] ==
                               func(a_ptr->view(state)[i], b_ptr->view(state)[i]));
                     }
+
+                    CHECK(p_ptr->diff(state).size() == 2);  // we did some deduplication
                 }
+            }
+        }
+    }
+
+    GIVEN("Two empty dynamic arrays") {
+        auto set_ptr = graph.emplace_node<SetNode>(10);
+        auto set2d_ptr = graph.emplace_node<ReshapeNode>(set_ptr, std::vector<ssize_t>{-1, 1});
+        auto dyn_ptr = graph.emplace_node<BroadcastToNode>(set2d_ptr, std::vector<ssize_t>{-1, 0});
+
+        auto b_ptr = graph.emplace_node<BinaryOpNode<TestType>>(dyn_ptr, dyn_ptr);
+
+        graph.emplace_node<ArrayValidationNode>(b_ptr);
+
+        CHECK_THAT(b_ptr->shape(), RangeEquals({-1, 0}));
+        CHECK(b_ptr->size() == 0);  // changes shape but not size
+
+        auto state = graph.empty_state();
+        set_ptr->initialize_state(state, {0, 2, 5});
+        graph.initialize_state(state);
+
+        CHECK_THAT(b_ptr->shape(state), RangeEquals({3, 0}));
+        CHECK(b_ptr->size(state) == 0);
+
+        WHEN("We grow the state") {
+            set_ptr->assign(state, {0, 2, 5, 6});
+            graph.propagate(state);
+
+            CHECK_THAT(b_ptr->shape(state), RangeEquals({4, 0}));
+            CHECK(b_ptr->size(state) == 0);
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+                CHECK_THAT(b_ptr->shape(state), RangeEquals({4, 0}));
+                CHECK(b_ptr->size(state) == 0);
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+                CHECK_THAT(b_ptr->shape(state), RangeEquals({3, 0}));
+                CHECK(b_ptr->size(state) == 0);
+            }
+        }
+    }
+
+    GIVEN("An empty dynamic array and a scalar") {
+        auto set_ptr = graph.emplace_node<SetNode>(10);
+        auto set2d_ptr = graph.emplace_node<ReshapeNode>(set_ptr, std::vector<ssize_t>{-1, 1});
+        auto dyn_ptr = graph.emplace_node<BroadcastToNode>(set2d_ptr, std::vector<ssize_t>{-1, 0});
+
+        auto a_ptr = graph.emplace_node<IntegerNode>(std::vector<ssize_t>{}, 0, 10);
+
+        auto b_ptr = graph.emplace_node<BinaryOpNode<TestType>>(dyn_ptr, a_ptr);
+        auto c_ptr = graph.emplace_node<BinaryOpNode<TestType>>(a_ptr, dyn_ptr);
+
+        graph.emplace_node<ArrayValidationNode>(b_ptr);
+        graph.emplace_node<ArrayValidationNode>(c_ptr);
+
+        CHECK_THAT(b_ptr->shape(), RangeEquals({-1, 0}));
+        CHECK(b_ptr->size() == 0);  // changes shape but not size
+        CHECK_THAT(c_ptr->shape(), RangeEquals({-1, 0}));
+        CHECK(c_ptr->size() == 0);  // changes shape but not size
+
+        auto state = graph.empty_state();
+        set_ptr->initialize_state(state, {0, 2, 5});
+        graph.initialize_state(state);
+
+        CHECK_THAT(b_ptr->shape(state), RangeEquals({3, 0}));
+        CHECK(b_ptr->size(state) == 0);
+        CHECK_THAT(c_ptr->shape(state), RangeEquals({3, 0}));
+        CHECK(c_ptr->size(state) == 0);
+
+        WHEN("We grow the state") {
+            set_ptr->assign(state, {0, 2, 5, 6});
+            graph.propagate(state);
+
+            CHECK_THAT(b_ptr->shape(state), RangeEquals({4, 0}));
+            CHECK(b_ptr->size(state) == 0);
+
+            AND_WHEN("We commit") {
+                graph.commit(state);
+                CHECK_THAT(b_ptr->shape(state), RangeEquals({4, 0}));
+                CHECK(b_ptr->size(state) == 0);
+                CHECK_THAT(c_ptr->shape(state), RangeEquals({4, 0}));
+                CHECK(c_ptr->size(state) == 0);
+            }
+
+            AND_WHEN("We revert") {
+                graph.revert(state);
+                CHECK_THAT(b_ptr->shape(state), RangeEquals({3, 0}));
+                CHECK(b_ptr->size(state) == 0);
+                CHECK_THAT(c_ptr->shape(state), RangeEquals({3, 0}));
+                CHECK(c_ptr->size(state) == 0);
             }
         }
     }
@@ -366,8 +461,8 @@ TEST_CASE("BinaryOpNode - LessEqualNode") {
             CHECK_THAT(ge_ptr->shape(), RangeEquals({-1}));
 
             // derives its size from the dynamic node
-            CHECK(le_ptr->sizeinfo() == SizeInfo(y_ptr));
-            CHECK(ge_ptr->sizeinfo() == SizeInfo(y_ptr));
+            CHECK(le_ptr->sizeinfo() == SizeInfo(y_ptr, 2, 4));
+            CHECK(ge_ptr->sizeinfo() == SizeInfo(y_ptr, 2, 4));
         }
 
         // let's also toss an ArrayValidationNode on there to do most of the
@@ -465,6 +560,22 @@ TEST_CASE("BinaryOpNode - MultiplyNode") {
             CHECK(y_ptr->min() == -15);
             CHECK(y_ptr->integral());
         }
+    }
+
+    GIVEN("x = SetNode(5), y = Constant(0), z = x * y") {
+        // This test is for a specific bug we had where it would accidentlly
+        // pick up the shape from the lhs if the size of the lhs and rhs were
+        // both 1.
+
+        auto x_ptr = graph.emplace_node<SetNode>(5);
+        auto y_ptr = graph.emplace_node<ConstantNode>(0);
+        auto z_ptr = graph.emplace_node<MultiplyNode>(y_ptr, x_ptr);
+
+        auto state = graph.empty_state();
+        x_ptr->initialize_state(state, {0});
+        graph.initialize_state(state);
+
+        CHECK_THAT(z_ptr->shape(state), RangeEquals({1}));
     }
 }
 
@@ -749,6 +860,35 @@ TEST_CASE("BinaryOpNode - SubtractNode") {
                 Slice(-1, std::nullopt));
 
         THEN("We can create y - z") { graph.emplace_node<SubtractNode>(y_ptr, z_ptr); }
+    }
+
+    // testing static arrays with the same size but different, broadcastable shape
+    GIVEN("x = Integer(shape = {1, 2, 3, 4}), y = Integer(shape = {3, 2, 1, 4}), z = x - y") {
+        auto x_ptr = graph.emplace_node<IntegerNode>(std::initializer_list<ssize_t>{1, 2, 3, 4});
+        graph.emplace_node<ArrayValidationNode>(x_ptr);
+        auto y_ptr = graph.emplace_node<IntegerNode>(std::initializer_list<ssize_t>{3, 2, 1, 4});
+        graph.emplace_node<ArrayValidationNode>(y_ptr);
+
+        REQUIRE_THROWS_WITH(graph.emplace_node<SubtractNode>(x_ptr, y_ptr),
+                            "arrays must have the same shape or one must be a scalar");
+        REQUIRE_THROWS_WITH(graph.emplace_node<SubtractNode>(y_ptr, x_ptr),
+                            "arrays must have the same shape or one must be a scalar");
+    }
+
+    // testing dynamic arrays with the same size but different, broadcastable shape
+    GIVEN("x = DynamicArrayTestingNode(shape = {-1, 1, 3}), y = reshape(x, {-1, 3, 1}), z = x - y, "
+          "y - x") {
+        auto x_ptr = graph.emplace_node<DynamicArrayTestingNode>(
+                std::initializer_list<ssize_t>{-1, 1, 3});
+        graph.emplace_node<ArrayValidationNode>(x_ptr);
+        auto y_ptr =
+                graph.emplace_node<ReshapeNode>(x_ptr, std::initializer_list<ssize_t>{-1, 3, 1});
+        graph.emplace_node<ArrayValidationNode>(y_ptr);
+
+        REQUIRE_THROWS_WITH(graph.emplace_node<SubtractNode>(x_ptr, y_ptr),
+                            "arrays must have the same shape or one must be a scalar");
+        REQUIRE_THROWS_WITH(graph.emplace_node<SubtractNode>(y_ptr, x_ptr),
+                            "arrays must have the same shape or one must be a scalar");
     }
 }
 

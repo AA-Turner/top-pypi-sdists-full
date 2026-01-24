@@ -1,31 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: unittest-xml-reporting
-Version: 3.2.0
+Version: 4.0.0
 Summary: unittest-based test runner with Ant/JUnit like XML reporting.
-Home-page: http://github.com/xmlrunner/unittest-xml-reporting/tree/master/
 Author: Daniel Fernandes Martins, Damien Nozay
-License: BSD
+License-Expression: BSD-2-Clause
+Project-URL: Homepage, http://github.com/xmlrunner/unittest-xml-reporting/tree/master/
 Keywords: pyunit,unittest,junit xml,xunit,report,testrunner,xmlrunner
-Platform: Any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: lxml
+Dynamic: license-file
 
 [![License](https://img.shields.io/pypi/l/unittest-xml-reporting.svg)](https://pypi.python.org/pypi/unittest-xml-reporting/)
 [![Latest Version](https://img.shields.io/pypi/v/unittest-xml-reporting.svg)](https://pypi.python.org/pypi/unittest-xml-reporting/)
@@ -34,7 +33,7 @@ License-File: LICENSE
 
 [![codecov.io Coverage Status](https://codecov.io/github/xmlrunner/unittest-xml-reporting/coverage.svg?branch=master)](https://codecov.io/github/xmlrunner/unittest-xml-reporting?branch=master)
 [![Coveralls Coverage Status](https://coveralls.io/repos/xmlrunner/unittest-xml-reporting/badge.svg?branch=master&service=github)](https://coveralls.io/github/xmlrunner/unittest-xml-reporting?branch=master)
-[![Requirements Status](https://requires.io/github/xmlrunner/unittest-xml-reporting/requirements.svg?branch=master)](https://requires.io/github/xmlrunner/unittest-xml-reporting/requirements/?branch=master)
+
 
 # unittest-xml-reporting (aka xmlrunner)
 
@@ -43,9 +42,21 @@ The files can be consumed by a wide range of tools, such as build systems, IDEs
 and continuous integration servers.
 
 
+## Contributing
+
+We are always looking for good contributions, so please just fork the
+repository and send pull requests (with tests please!).
+
+If you would like write access to the repository, or become a maintainer,
+feel free to get in touch.
+
+
 ## Requirements
 
-* Python 3.7+
+See [Status of Python versions](https://devguide.python.org/versions/) for python EOL information.
+
+* Python 3.10+
+* Last version supporting Python 3.7 - 3.9 was 3.2.0
 * Please note Python 3.6 end-of-life was in Dec 2021, last version supporting 3.6 was 3.1.0
 * Please note Python 3.5 end-of-life was in Sep 2020, last version supporting 3.5 was 3.1.0
 * Please note Python 2.7 end-of-life was in Jan 2020, last version supporting 2.7 was 2.5.2
@@ -135,7 +146,7 @@ If you use Git and want to get the latest *development* version:
 ````bash
 $ git clone https://github.com/xmlrunner/unittest-xml-reporting.git
 $ cd unittest-xml-reporting
-$ sudo python setup.py install
+$ sudo python -m pip install .
 ````
 
 Or get the latest *development* version as a tarball:
@@ -144,7 +155,7 @@ Or get the latest *development* version as a tarball:
 $ wget https://github.com/xmlrunner/unittest-xml-reporting/archive/master.zip
 $ unzip master.zip
 $ cd unittest-xml-reporting
-$ sudo python setup.py install
+$ sudo python -m pip install .
 ````
 
 Or you can manually download the latest released version from
@@ -271,15 +282,6 @@ Also, the following settings are provided so you can fine tune the reports:
 |`TEST_OUTPUT_FILE_NAME`|`None`|`<str>`|Tells the test runner to output a single XML report with this filename under `os.path.join(TEST_OUTPUT_DIR, TEST_OUTPUT_FILE_NAME)`.<br>Please note that for long running tests, this will keep the results in memory for a longer time than multiple reports, and may use up more resources.|
 
 
-## Contributing
-
-We are always looking for good contributions, so please just fork the
-repository and send pull requests (with tests!).
-
-If you would like write access to the repository, or become a maintainer,
-feel free to get in touch.
-
-
 ### Testing changes with `tox`
 
 Please use `tox` to test your changes before sending a pull request.
@@ -294,5 +296,3 @@ $ tox -e pytest
 # all combinations
 $ tox
 ```
-
-

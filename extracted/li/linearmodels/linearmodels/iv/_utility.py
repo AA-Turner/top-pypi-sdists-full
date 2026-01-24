@@ -8,15 +8,9 @@ from formulaic.formula import Formula
 from formulaic.materializers.types import NAAction as fNAAction
 from formulaic.utils.context import capture_context
 import numpy as np
-import pandas
 from pandas import DataFrame
 
 import linearmodels.typing.data
-
-from ..compat.formulaic import monkey_patch_materializers
-
-# Monkey patch parsers if needed, remove once formulaic updated
-monkey_patch_materializers()
 
 PARSING_ERROR = """
 Conversion of formula blocks to DataFrames failed.
@@ -96,7 +90,7 @@ class IVFormulaParser:
     def __init__(
         self,
         formula: str,
-        data: pandas.DataFrame,
+        data: DataFrame,
         eval_env: int = 2,
         context: Mapping[str, Any] | None = None,
     ):
@@ -144,7 +138,7 @@ class IVFormulaParser:
                 exog += exog2
             exog = "0" if not exog else "0 + " + exog
         else:
-            raise ValueError("formula contains more then 2 separators (~)")
+            raise ValueError("formula contains more than 2 separators (~)")
         comp = {
             "dependent": "0 + " + dep,
             "exog": exog,
@@ -227,5 +221,5 @@ class IVFormulaParser:
         return self._components
 
     @staticmethod
-    def _empty_check(arr: pandas.DataFrame) -> DataFrame | None:
+    def _empty_check(arr: DataFrame) -> DataFrame | None:
         return None if arr.shape[1] == 0 else arr

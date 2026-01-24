@@ -162,10 +162,10 @@ async fn read_task(ds: Arc<RwLock<Session>>, x: u32, y: u32, barrier: Arc<Barrie
         let actual_bytes =
             get_chunk(chunk_reader).await.expect("Failed to getch chunk payload");
 
-        if let Some(bytes) = &actual_bytes {
-            if bytes == &expected_bytes {
-                break;
-            }
+        if let Some(bytes) = &actual_bytes
+            && bytes == &expected_bytes
+        {
+            break;
         }
         let random_sleep = {
             let mut rng = rng();
@@ -189,7 +189,7 @@ async fn list_task(ds: Arc<RwLock<Session>>, barrier: Arc<Barrier>) {
         let nodes = ds
             .read()
             .await
-            .list_nodes()
+            .list_nodes(&Path::root())
             .await
             .expect("list_nodes failed")
             .map(|n| n.unwrap().path.to_string())

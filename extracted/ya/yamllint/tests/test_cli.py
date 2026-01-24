@@ -29,7 +29,7 @@ from tests.common import (
     register_test_codecs,
     temp_workspace,
     temp_workspace_with_files_in_many_codecs,
-    unregister_test_codecs
+    unregister_test_codecs,
 )
 
 from yamllint import cli, config
@@ -270,7 +270,7 @@ class CommandLineTestCase(unittest.TestCase):
             cli.run(('-d', '', 'file'))
         self.assertEqual(ctx.returncode, -1)
         self.assertEqual(ctx.stdout, '')
-        self.assertRegex(ctx.stderr, r'^invalid config: not a dict')
+        self.assertRegex(ctx.stderr, r'^invalid config: not a mapping')
 
     def test_run_with_implicit_extends_config(self):
         path = os.path.join(self.wd, 'warn.yaml')
@@ -624,7 +624,7 @@ class CommandLineTestCase(unittest.TestCase):
                 file.write(
                     'I am a string\n'
                     'therefore: I am an error\n')
-            with open(stdin_file_path, mode='r', encoding='utf-8') as file:
+            with open(stdin_file_path, encoding='utf-8') as file:
                 # prepares stdin with an invalid yaml string so that we can
                 # check for its specific error, and be assured that stdin was
                 # read
@@ -844,7 +844,7 @@ class CommandLineEncodingTestCase(unittest.TestCase):
             # We purposely choose the wrong text encoding here because the text
             # encoding shouldn’t matter. yamllint should completely ignore the
             # text encoding of stdin.
-            with open(path, mode="r", encoding="cp037") as file:
+            with open(path, encoding="cp037") as file:
                 sys.stdin = file
                 with RunContext(self) as ctx:
                     cli.run(('-c', config_path, '-'))
@@ -855,7 +855,7 @@ class CommandLineEncodingTestCase(unittest.TestCase):
                     self.assertNotEqual(ctx.returncode, 0)
                 else:
                     raise ValueError(
-                        f"root_dir was set to {repr(root_dir)}. It should only"
+                        f"root_dir was set to {root_dir!r}. It should only"
                         "ever be set to 'sorted_correctly' or"
                         "'sorted_incorrectly'."
                     )
@@ -891,7 +891,7 @@ class CommandLineEncodingTestCase(unittest.TestCase):
         }
 
         with temp_workspace(workspace):
-            for config_path in config_files.keys():
+            for config_path in config_files:
                 # First, make sure that encoding autodetection works when the
                 # file’s path is given as a command-line argument.
                 with RunContext(self) as ctx:

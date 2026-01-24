@@ -29,20 +29,23 @@ class _TestSearch(metaclass=abc.ABCMeta):
     def get_hits_multi(self, hmms, sequences):
         return [self.get_hits(hmm, sequences) for hmm in hmms]
 
-    @staticmethod
-    def table(name):
+    def table(self, name):
         path = resource_files(__package__).joinpath("data", "tables", name)
+        if not path.exists():
+            self.skipTest("data files not available")
         return path.open()
 
-    @staticmethod
-    def hmm_file(name):
+    def hmm_file(self, name):
         path = resource_files(__package__).joinpath("data", "hmms", "txt", "{}.hmm".format(name))
+        if not path.exists():
+            self.skipTest("data files not available")
         return HMMFile(path)
 
-    @staticmethod
-    def seqs_file(name, digital=False):
-        seqs_path = resource_files(__package__).joinpath("data", "seqs", "{}.faa".format(name))
-        return SequenceFile(seqs_path, digital=digital)
+    def seqs_file(self, name, digital=False):
+        path = resource_files(__package__).joinpath("data", "seqs", "{}.faa".format(name))
+        if not path.exists():
+            self.skipTest("data files not available")
+        return SequenceFile(path, digital=digital)
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_thioestherase(self):
@@ -79,7 +82,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
         hits.sort()
 
         hit = hits[0]
-        self.assertEqual(hit.name, b"938293.PRJEB85.HG003687_113")
+        self.assertEqual(hit.name, "938293.PRJEB85.HG003687_113")
         self.assertAlmostEqual(hit.score, 8.6, delta=0.1)  # printed with %6.1f
         self.assertAlmostEqual(hit.bias, 1.5, delta=0.1)  # printed with  %5.1f
         self.assertAlmostEqual(hit.evalue, 0.096, delta=0.01)  # printed with %9.2g
@@ -118,11 +121,11 @@ class _TestSearch(metaclass=abc.ABCMeta):
                 fields = list(filter(None, line.strip().split(" ")))
                 self.assertIsNot(line, None)
                 self.assertIsNot(hit, None)
-                self.assertEqual(hit.name.decode(), fields[0])
+                self.assertEqual(hit.name, fields[0])
                 if fields[1] == "-":
                     self.assertIs(hit.accession, None)
                 else:
-                    self.assertEqual(hit.accession.decode(), fields[1])
+                    self.assertEqual(hit.accession, fields[1])
                 self.assertAlmostEqual(hit.score, float(fields[5]), delta=0.1)
                 self.assertAlmostEqual(hit.bias, float(fields[6]), delta=0.1)
                 self.assertAlmostEqual(hit.evalue, float(fields[4]), delta=0.1)
@@ -145,11 +148,11 @@ class _TestSearch(metaclass=abc.ABCMeta):
                 fields = list(filter(None, line.strip().split(" ")))
                 self.assertIsNot(line, None)
                 self.assertIsNot(hit, None)
-                self.assertEqual(hit.name.decode(), fields[0])
+                self.assertEqual(hit.name, fields[0])
                 if fields[1] == "-":
                     self.assertIs(hit.accession, None)
                 else:
-                    self.assertEqual(hit.accession.decode(), fields[1])
+                    self.assertEqual(hit.accession, fields[1])
                 self.assertAlmostEqual(hit.score, float(fields[5]), delta=0.1)
                 self.assertAlmostEqual(hit.bias, float(fields[6]), delta=0.1)
                 self.assertAlmostEqual(hit.evalue, float(fields[4]), delta=0.1)
@@ -169,11 +172,11 @@ class _TestSearch(metaclass=abc.ABCMeta):
                 fields = list(filter(None, line.strip().split(" ")))
                 self.assertIsNot(line, None)
                 self.assertIsNot(hit, None)
-                self.assertEqual(hit.name.decode(), fields[0])
+                self.assertEqual(hit.name, fields[0])
                 if fields[1] == "-":
                     self.assertIs(hit.accession, None)
                 else:
-                    self.assertEqual(hit.accession.decode(), fields[1])
+                    self.assertEqual(hit.accession, fields[1])
                 self.assertAlmostEqual(hit.score, float(fields[5]), delta=0.1)
                 self.assertAlmostEqual(hit.bias, float(fields[6]), delta=0.1)
                 self.assertAlmostEqual(hit.evalue, float(fields[4]), delta=0.1)
@@ -188,7 +191,7 @@ class _TestSearch(metaclass=abc.ABCMeta):
                 self.assertIsNot(line, None)
                 self.assertIsNot(domain, None)
                 self.assertEqual(domain.hit.hits.Z, len(seqs))
-                self.assertEqual(domain.hit.name.decode(), fields[0])
+                self.assertEqual(domain.hit.name, fields[0])
                 self.assertAlmostEqual(domain.score, float(fields[13]), places=1)
                 self.assertAlmostEqual(domain.bias, float(fields[14]), places=1)
                 self.assertEqual(f"{domain.c_evalue:9.2g}", f"{float(fields[11]):9.2g}")
@@ -255,7 +258,7 @@ class TestHmmsearch(_TestSearch, unittest.TestCase):
     def get_hits_multi(self, hmms, seqs):
         return list(pyhmmer.hmmsearch(hmms, seqs, parallel=self.parallel))
 
-    def test_callback_error(self):
+    def test_callback_error_single_threaded(self):
 
         class MyException(Exception):
             pass
@@ -271,6 +274,19 @@ class TestHmmsearch(_TestSearch, unittest.TestCase):
         hits = pyhmmer.hmmsearch(hmm, seqs, cpus=1, callback=callback, parallel=self.parallel)
         with self.assertRaises(MyException):
             hit = next(hits)
+
+    def test_callback_error_multi_threaded(self):
+
+        class MyException(Exception):
+            pass
+
+        def callback(hmm, total):
+            raise MyException("oopsie")
+
+        rng = pyhmmer.easel.Randomness(42)
+        alphabet = Alphabet.amino()
+        hmm = HMM.sample(alphabet, 100, rng)
+        seqs = self._random_sequences()
 
         hits = pyhmmer.hmmsearch(hmm, seqs, cpus=2, callback=callback, parallel=self.parallel)
         with self.assertRaises(MyException):
@@ -304,6 +320,8 @@ class TestHmmsearchSingle(TestHmmsearch, unittest.TestCase):
         self.assertIs(None, next(hits, None))
 
 @unittest.skipIf(platform.system() == "Darwin", "may deadlock on MacOS")
+@unittest.skipIf(platform.system() == "Windows", "may deadlock on Windows")
+@unittest.skipIf(platform.system() == "Emscripten", "no process support on Emscripten")
 class TestHmmsearchProcess(TestHmmsearch, unittest.TestCase):
     def get_hits(self, hmm, seqs):
         return list(pyhmmer.hmmsearch(hmm, seqs, cpus=2, backend="multiprocessing", parallel=self.parallel))[0]
@@ -334,6 +352,8 @@ class TestHmmsearchReverseSingle(TestHmmsearchSingle):
 
 
 @unittest.skipIf(platform.system() == "Darwin", "may deadlock on MacOS")
+@unittest.skipIf(platform.system() == "Windows", "may deadlock on Windows")
+@unittest.skipIf(platform.system() == "Emscripten", "no process support on Emscripten")
 class TestHmmsearchReverseProcess(TestHmmsearchProcess):
     parallel = "targets"
 
@@ -351,28 +371,48 @@ class TestPipelinesearch(_TestSearch, unittest.TestCase):
 
 class TestHmmpress(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.NamedTemporaryFile(suffix=".hmm", delete=False).name
+        self.tmpfile = tempfile.NamedTemporaryFile(suffix=".hmm", delete=False)
+        self.tmp = self.tmpfile.name
 
     def tearDown(self):
+        self.tmpfile.close()
         for ext in ["", ".h3m", ".h3p", ".h3i", ".h3f"]:
             if os.path.exists(self.tmp + ext):
                 os.remove(self.tmp + ext)
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
-    def test_roundtrip(self):
-        db_folder = resource_files(__package__).joinpath("data", "hmms", "db")
-        self.hmm = db_folder.joinpath("Thioesterase.hmm")
-        self.h3p = db_folder.joinpath("Thioesterase.hmm.h3p")
-        self.h3m = db_folder.joinpath("Thioesterase.hmm.h3m")
-        self.h3f = db_folder.joinpath("Thioesterase.hmm.h3f")
-        self.h3i = db_folder.joinpath("Thioesterase.hmm.h3f")
-        with HMMFile(self.hmm) as hmms:
-            n = pyhmmer.hmmer.hmmpress(hmms, self.tmp)
-            self.assertEqual(n, 1)
+    @unittest.skipIf(platform.system() == "Windows", "writing to fileobj unsupported on Windows")
+    def test_roundtrip_txt(self):
+        db_folder = resource_files(__package__).joinpath("data", "hmms", "txt")
+        if not db_folder.exists():
+            self.skipTest("data files not available")
+        with HMMFile(db_folder.joinpath("Thioesterase.hmm")) as hmms:
+            self.hmms = list(hmms)
+        n = pyhmmer.hmmer.hmmpress(self.hmms, self.tmp)
+        self.assertEqual(n, 1)
         with HMMFile(self.tmp) as hmm_file:
-            hmm = next(hmm_file)
-            self.assertEqual(hmm.name, b"Thioesterase")
+            for pressed_hmm, base_hmm in zip(hmm_file, self.hmms):
+                self.assertEqual(pressed_hmm.name, base_hmm.name)
+                self.assertEqual(pressed_hmm.accession, base_hmm.accession)
+                self.assertEqual(pressed_hmm.description, base_hmm.description)
+                self.assertEqual(pressed_hmm, base_hmm)
 
+    @unittest.skipUnless(resource_files, "importlib.resources not available")
+    @unittest.skipIf(platform.system() == "Windows", "writing to fileobj unsupported on Windows")
+    def test_roundtrip_db(self):
+        db_folder = resource_files(__package__).joinpath("data", "hmms", "db")
+        if not db_folder.exists():
+            self.skipTest("data files not available")
+        with HMMFile(db_folder.joinpath("Thioesterase.hmm")) as hmms:
+            self.hmms = list(hmms)
+        n = pyhmmer.hmmer.hmmpress(self.hmms, self.tmp)
+        self.assertEqual(n, 1)
+        with HMMFile(self.tmp) as hmm_file:
+            for pressed_hmm, base_hmm in zip(hmm_file, self.hmms):
+                self.assertEqual(pressed_hmm.name, base_hmm.name)
+                self.assertEqual(pressed_hmm.accession, base_hmm.accession)
+                self.assertEqual(pressed_hmm.description, base_hmm.description)
+                self.assertEqual(pressed_hmm, base_hmm)
 
 class TestPhmmer(unittest.TestCase):
 
@@ -437,7 +477,7 @@ class TestPhmmer(unittest.TestCase):
                 self.assertIsNot(hit, None)
                 fields = list(filter(None, line.strip().split(" ")))
 
-                self.assertEqual(hit.name.decode(), fields[0])
+                self.assertEqual(hit.name, fields[0])
                 self.assertAlmostEqual(hit.score, float(fields[7]), delta=0.1)
                 self.assertAlmostEqual(hit.bias, float(fields[8]), delta=0.1)
                 self.assertAlmostEqual(hit.evalue, float(fields[6]), delta=0.1)
@@ -456,24 +496,26 @@ class TestPhmmer(unittest.TestCase):
 @unittest.skipUnless(resource_files, "importlib.resources not available")
 class TestJackhmmer(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        with cls.seqs_file("PKSI", digital=True) as seqs_file:
-            cls.pksi = seqs_file.read_block()
+    def setUp(self):
+        with self.seqs_file("PKSI", digital=True) as seqs_file:
+            self.pksi = seqs_file.read_block()
 
-    @staticmethod
-    def table(name):
+    def table(self, name):
         path = resource_files(__package__).joinpath("data", "tables", name)
+        if not path.exists():
+            self.skipTest("data files not available")
         return path.open()
 
-    @staticmethod
-    def seqs_file(name, digital=False):
-        seqs_path = resource_files(__package__).joinpath("data", "seqs", "{}.faa".format(name))
-        return SequenceFile(seqs_path, digital=digital)
+    def seqs_file(self, name, digital=False):
+        path = resource_files(__package__).joinpath("data", "seqs", "{}.faa".format(name))
+        if not path.exists():
+            self.skipTest("data files not available")
+        return SequenceFile(path, digital=digital)
 
-    @staticmethod
-    def hmm_file(name):
+    def hmm_file(self, name):
         path = resource_files(__package__).joinpath("data", "hmms", "txt", "{}.hmm".format(name))
+        if not path.exists():
+            self.skipTest("data files not available")
         return HMMFile(path)
 
     def test_callback_error(self):
@@ -513,7 +555,7 @@ class TestJackhmmer(unittest.TestCase):
                 self.assertIsNot(hit, None)
                 fields = list(filter(None, line.strip().split(" ")))
 
-                self.assertEqual(hit.name.decode(), fields[0])
+                self.assertEqual(hit.name, fields[0])
                 self.assertAlmostEqual(hit.score, float(fields[7]), delta=0.1)
                 self.assertAlmostEqual(hit.bias, float(fields[8]), delta=0.1)
                 self.assertAlmostEqual(hit.evalue, float(fields[6]), delta=0.1)
@@ -563,7 +605,7 @@ class TestJackhmmer(unittest.TestCase):
         hits.sort()
 
         hit = hits[0]
-        self.assertEqual(hit.name, b"938293.PRJEB85.HG003687_113")
+        self.assertEqual(hit.name, "938293.PRJEB85.HG003687_113")
         self.assertAlmostEqual(hit.score, 8.6, delta=0.1)  # printed with %6.1f
         self.assertAlmostEqual(hit.bias, 1.5, delta=0.1)  # printed with  %5.1f
         self.assertAlmostEqual(hit.evalue, 0.096, delta=0.01)  # printed with %9.2g
@@ -587,18 +629,47 @@ class TestJackhmmer(unittest.TestCase):
 
 @unittest.skipUnless(resource_files, "importlib.resources not available")
 class TestNhmmer(unittest.TestCase):
+
     @classmethod
     def setUpClass(cls):
-        path = resource_files(__package__).joinpath("data", "hmms", "txt", "bmyD.hmm")
-        with HMMFile(path) as hmm_file:
-            cls.bmyD = next(hmm_file)
-        path = resource_files(__package__).joinpath("data", "hmms", "txt", "RF00001.hmm")
-        with HMMFile(path) as hmm_file:
-            cls.rf00001 = next(hmm_file)
+        cls.dna = Alphabet.dna()
+        cls.rna = Alphabet.rna()
 
-    @staticmethod
-    def table(name):
+    def setUp(self):
+        path = resource_files(__package__).joinpath("data", "hmms", "txt", "bmyD.hmm")
+        if not path.exists():
+            self.skipTest("data files not available")
+        with HMMFile(path) as hmm_file:
+            self.bmyD_hmm = next(hmm_file)
+        
+        path = resource_files(__package__).joinpath("data", "seqs", "bmyD.fna")
+        if not path.exists():
+            self.skipTest("data files not available")
+        with SequenceFile(path, "fasta", digital=True, alphabet=self.dna) as seqs_file:
+            self.bmyD_fna = next(seqs_file)
+
+        path = resource_files(__package__).joinpath("data", "hmms", "txt", "RF00001.hmm")
+        if not path.exists():
+            self.skipTest("data files not available")
+        with HMMFile(path) as hmm_file:
+            self.rf00001 = next(hmm_file)
+
+    def gbk(self, name, digital=True, alphabet=None):
+        path = resource_files(__package__).joinpath("data", "seqs", f"{name}.gbk")
+        if not path.exists():
+            self.skipTest("data files not available")
+        return SequenceFile(path, digital=digital, alphabet=alphabet)
+
+    def fna(self, name, digital=True, alphabet=None):
+        path = resource_files(__package__).joinpath("data", "seqs", f"{name}.fna")
+        if not path.exists():
+            self.skipTest("data files not available")
+        return SequenceFile(path, "fasta", digital=resource_files, alphabet=alphabet)
+
+    def table(self, name):
         path = resource_files(__package__).joinpath("data", "tables", name)
+        if not path.exists():
+            self.skipTest("data files not available")
         return path.open()
 
     def assertTableEqual(self, hits, table):
@@ -608,11 +679,11 @@ class TestNhmmer(unittest.TestCase):
             self.assertIsNot(line, None)
             self.assertIsNot(hit, None)
             fields = list(filter(None, line.strip().split(" ")))
-            self.assertEqual(hit.name.decode(), fields[0])
+            self.assertEqual(hit.name, fields[0])
             if fields[1] == "-":
                 self.assertIs(hit.accession, None)
             else:
-                self.assertEqual(hit.accession.decode(), fields[1])
+                self.assertEqual(hit.accession, fields[1])
             self.assertAlmostEqual(hit.best_domain.bias, float(fields[14]), delta=0.1)
             self.assertAlmostEqual(hit.best_domain.score, float(fields[13]), delta=0.1)
             self.assertAlmostEqual(
@@ -620,27 +691,17 @@ class TestNhmmer(unittest.TestCase):
             )
 
     def test_no_queries(self):
-        alphabet = Alphabet.dna()
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
+        with self.gbk("BGC0001090", digital=True, alphabet=self.dna) as seqs_file:
             seqs = seqs_file.read_block()
         hits = pyhmmer.nhmmer([], seqs, cpus=1)
         self.assertIs(None, next(hits, None))
 
     def test_bmyd_seq_bgc_block(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "bmyD.fna")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
-            query = next(seqs_file)
-
         path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(
-            path, "genbank", digital=True, alphabet=alphabet
-        ) as seqs_file:
+        with self.gbk("BGC0001090", digital=True, alphabet=self.dna) as seqs_file:
             seqs = seqs_file.read_block()
 
-        hits = next(pyhmmer.nhmmer(query, seqs, cpus=1))
+        hits = next(pyhmmer.nhmmer(self.bmyD_fna, seqs, cpus=1))
         hits.sort()
 
         self.assertEqual(len(hits), 1)
@@ -648,15 +709,8 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_bmyd_seq_bgc_file(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "bmyD.fna")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
-            query = next(seqs_file)
-
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(path, "genbank", digital=True, alphabet=alphabet) as seqs:
-            hits = list(pyhmmer.nhmmer(query, seqs, cpus=1))[0]
+        with self.gbk("BGC0001090", digital=True, alphabet=self.dna) as seqs_file:
+            hits = list(pyhmmer.nhmmer(self.bmyD_fna, seqs_file, cpus=1))[0]
             hits.sort()
 
         self.assertEqual(len(hits.reported), 1)
@@ -664,43 +718,25 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_bmyd_msa_bgc_block(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "bmyD.fna")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
-            query = DigitalMSA(alphabet, name=b"bmyD", sequences=[next(seqs_file)])
-
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(
-            path, "genbank", digital=True, alphabet=alphabet
-        ) as seqs_file:
+        query = DigitalMSA(self.dna, name="bmyD", sequences=[self.bmyD_fna])
+        with self.gbk("BGC0001090", digital=True, alphabet=self.dna) as seqs_file:
             seqs = seqs_file.read_block()
 
-        hits = next(pyhmmer.nhmmer(query, seqs, cpus=1))
+        hits = next(pyhmmer.nhmmer(self.bmyD_fna, seqs, cpus=1))
         self.assertEqual(len(hits), 1)
 
     def test_bmyd_msa_bgc_file(self):
-        alphabet = Alphabet.dna()
+        query = DigitalMSA(self.dna, name="bmyD", sequences=[self.bmyD_fna])
 
-        path = resource_files(__package__).joinpath("data", "seqs", "bmyD.fna")
-        with SequenceFile(path, digital=True, alphabet=alphabet) as seqs_file:
-            query = DigitalMSA(alphabet, name=b"bmyD", sequences=[next(seqs_file)])
-
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(path, "genbank", digital=True, alphabet=alphabet) as seqs:
+        with self.gbk("BGC0001090", digital=True, alphabet=self.dna) as seqs:
             hits = list(pyhmmer.nhmmer(query, seqs, cpus=1))[0]
             self.assertEqual(len(hits.reported), 1)
 
     def test_bmyd_hmm_bgc_block(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(
-            path, "genbank", digital=True, alphabet=alphabet
-        ) as seqs_file:
+        with self.gbk("BGC0001090", digital=True, alphabet=self.bmyD_hmm.alphabet) as seqs_file:
             seqs = seqs_file.read_block()
 
-        hits = next(pyhmmer.nhmmer(self.bmyD, seqs, cpus=1))
+        hits = next(pyhmmer.nhmmer(self.bmyD_hmm, seqs, cpus=1))
         hits.sort()
 
         self.assertEqual(len(hits.reported), 2)
@@ -708,13 +744,8 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_bmyd_hmm_bgc_file(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "BGC0001090.gbk")
-        with SequenceFile(
-            path, "genbank", digital=True, alphabet=alphabet
-        ) as seqs_file:
-            hits = list(pyhmmer.nhmmer(self.bmyD, seqs_file, cpus=1))[0]
+        with self.gbk("BGC0001090", digital=True, alphabet=self.bmyD_hmm.alphabet) as seqs_file:
+            hits = list(pyhmmer.nhmmer(self.bmyD_hmm, seqs_file, cpus=1))[0]
             hits.sort()
 
         self.assertEqual(len(hits.reported), 2)
@@ -722,13 +753,10 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_bmyd_hmm_genome_block(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "1390.SAMEA104415756.OFHT01000022.fna")
-        with SequenceFile(path, "fasta", digital=True, alphabet=alphabet) as seqs_file:
+        with self.fna("1390.SAMEA104415756.OFHT01000022", digital=True, alphabet=self.bmyD_hmm.alphabet) as seqs_file:
             seqs = seqs_file.read_block()
 
-        hits = next(pyhmmer.nhmmer(self.bmyD, seqs, cpus=1))
+        hits = next(pyhmmer.nhmmer(self.bmyD_hmm, seqs, cpus=1))
         hits.sort()
 
         self.assertEqual(len(hits.reported), 3)
@@ -737,11 +765,8 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_bmyd_hmm_genome_file(self):
-        alphabet = Alphabet.dna()
-
-        path = resource_files(__package__).joinpath("data", "seqs", "1390.SAMEA104415756.OFHT01000022.fna")
-        with SequenceFile(path, "fasta", digital=True, alphabet=alphabet) as seqs_file:
-            hits = list(pyhmmer.nhmmer(self.bmyD, seqs_file, cpus=1))[0]
+        with self.fna("1390.SAMEA104415756.OFHT01000022", digital=True, alphabet=self.bmyD_hmm.alphabet) as seqs_file:
+            hits = list(pyhmmer.nhmmer(self.bmyD_hmm, seqs_file, cpus=1))[0]
             hits.sort()
 
         self.assertEqual(len(hits.reported), 3)
@@ -750,9 +775,7 @@ class TestNhmmer(unittest.TestCase):
             self.assertTableEqual(hits, table)
 
     def test_rf0001_genome_file(self):
-        alphabet = Alphabet.rna()
-        path = resource_files(__package__).joinpath("data", "seqs", "1390.SAMEA104415756.OFHT01000024.fna")
-        with SequenceFile(path, "fasta", digital=True, alphabet=alphabet) as seqs_file:
+        with self.fna("1390.SAMEA104415756.OFHT01000024", digital=True, alphabet=self.rf00001.alphabet) as seqs_file:
             hits = list(pyhmmer.nhmmer(self.rf00001, seqs_file, cpus=1))[0]
             hits.sort()
 
@@ -761,9 +784,7 @@ class TestNhmmer(unittest.TestCase):
         self.assertEqual(hits[0].best_domain.strand, "-")
 
     def test_rf0001_genome_file_wlen_3878(self):
-        alphabet = Alphabet.rna()
-        path = resource_files(__package__).joinpath("data", "seqs", "1390.SAMEA104415756.OFHT01000024.fna")
-        with SequenceFile(path, "fasta", digital=True, alphabet=alphabet) as seqs_file:
+        with self.fna("1390.SAMEA104415756.OFHT01000024", digital=True, alphabet=self.rf00001.alphabet) as seqs_file:
             hits = list(pyhmmer.nhmmer(self.rf00001, seqs_file, cpus=1, window_length=3878))[0]
             hits.sort()
 
@@ -776,10 +797,11 @@ class TestNhmmer(unittest.TestCase):
 
 class TestHmmalign(unittest.TestCase):
     def setUp(self):
-        self.tmpout = tempfile.NamedTemporaryFile(suffix=".hmm", delete=False).name
+        self.tmpfile = tempfile.NamedTemporaryFile(suffix=".hmm", delete=True)
+        self.tmpout = self.tmpfile.name
 
     def tearDown(self):
-        os.remove(self.tmpout)
+        self.tmpfile.close()
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_luxc(self):
@@ -794,31 +816,29 @@ class TestHmmalign(unittest.TestCase):
         with MSAFile(ref_path) as ref_file:
             ref = ref_file.read()
 
-        msa = pyhmmer.hmmalign(hmm, seqs, trim=True)
+        msa = pyhmmer.hmmalign(hmm, seqs, trim=True, cpus=1)
         self.assertEqual(msa, ref)
 
 
 class TestHMMScan(unittest.TestCase):
-    @staticmethod
-    def table(name):
+    
+    def table(self, name):
         path = resource_files(__package__).joinpath("data", "tables", name)
+        if not path.exists():
+            self.skipTest("data files not available")
         return path.open()
 
-    @staticmethod
-    def hmm_file(name):
+    def hmm_file(self, name):
         path = resource_files(__package__).joinpath("data", "hmms", "db", "{}.hmm".format(name))
+        if not path.exists():
+            self.skipTest("data files not available")
         return HMMFile(path)
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
     def test_rrefam_block(self):
-        # get paths to resources
-        table_path = resource_files(__package__).joinpath("data", "tables", "RREFam.scan.tbl")
-        db_path = resource_files(__package__).joinpath("data", "hmms", "db", "RREFam.hmm")
-        seqs_path = resource_files(__package__).joinpath("data", "seqs", "PKSI.faa")
-
         # load expected results from the hmmscan table
         expected = {}
-        with open(table_path) as table:
+        with self.table("RREFam.scan.tbl") as table:
             lines = filter(lambda line: not line.startswith("#"), table)
             for query_name, query_lines in itertools.groupby(
                 lines, key=lambda line: line.strip().split()[2]
@@ -826,15 +846,18 @@ class TestHMMScan(unittest.TestCase):
                 expected[query_name] = list(query_lines)
 
         # pre-load the profile database so that `hmmscan` will create a profile block
-        with HMMFile(db_path) as hmm_file:
+        with self.hmm_file("RREFam.hmm") as hmm_file:
             hmms = list(hmm_file)
 
         # scan with the sequences and check the hits are equal
+        seqs_path = resource_files(__package__).joinpath("data", "seqs", "PKSI.faa")
+        if not seqs_path.exists():
+            self.skipTest("data files not available")
         with SequenceFile(
             seqs_path, digital=True, alphabet=hmms[0].alphabet
         ) as seqs_file:
             for hits in pyhmmer.hmmer.hmmscan(seqs_file, hmms, cpus=1):
-                expected_lines = expected.get(hits.query.name.decode())
+                expected_lines = expected.get(hits.query.name)
                 if expected_lines is None:
                     self.assertEqual(len(hits), 0)
                     continue
@@ -842,21 +865,17 @@ class TestHMMScan(unittest.TestCase):
                     self.assertIsNot(line, None)
                     self.assertIsNot(hit, None)
                     fields = list(filter(None, line.strip().split(" ")))
-                    self.assertEqual(hit.name.decode(), fields[0])
+                    self.assertEqual(hit.name, fields[0])
                     self.assertAlmostEqual(hit.score, float(fields[5]), delta=0.1)
                     self.assertAlmostEqual(hit.bias, float(fields[6]), delta=0.1)
                     self.assertAlmostEqual(hit.evalue, float(fields[4]), delta=0.1)
 
     @unittest.skipUnless(resource_files, "importlib.resources not available")
+    @unittest.skipUnless(resource_files(__package__).joinpath("data", "hmms", "db").exists(), "data files not available")
     def test_rrefam_file(self):
-        # get paths to resources
-        table_path = resource_files(__package__).joinpath("data", "tables", "RREFam.scan.tbl")
-        db_path = resource_files(__package__).joinpath("data", "hmms", "db", "RREFam.hmm")
-        seqs_path = resource_files(__package__).joinpath("data", "seqs", "PKSI.faa")
-
         # load expected results from the hmmscan table
         expected = {}
-        with open(table_path) as table:
+        with self.table("RREFam.scan.tbl") as table:
             lines = filter(lambda line: not line.startswith("#"), table)
             for query_name, query_lines in itertools.groupby(
                 lines, key=lambda line: line.strip().split()[2]
@@ -865,10 +884,13 @@ class TestHMMScan(unittest.TestCase):
 
         # scan with the sequences and check the hits are equal, using the file
         # to read the profiles from (the files will be rewinded before each query)
+        seqs_path = resource_files(__package__).joinpath("data", "seqs", "PKSI.faa")
+        if not seqs_path.exists():
+            self.skipTest("data files not available")
         with SequenceFile(seqs_path, digital=True) as seqs_file:
-            with HMMPressedFile(db_path) as pressed_file:
+            with self.hmm_file("RREFam.hmm").optimized_profiles() as pressed_file:
                 for hits in pyhmmer.hmmer.hmmscan(seqs_file, pressed_file, cpus=1):
-                    expected_lines = expected.get(hits.query.name.decode())
+                    expected_lines = expected.get(hits.query.name)
                     if expected_lines is None:
                         self.assertEqual(len(hits), 0)
                         continue
@@ -876,7 +898,7 @@ class TestHMMScan(unittest.TestCase):
                         self.assertIsNot(line, None)
                         self.assertIsNot(hit, None)
                         fields = list(filter(None, line.strip().split(" ")))
-                        self.assertEqual(hit.name.decode(), fields[0])
+                        self.assertEqual(hit.name, fields[0])
                         self.assertAlmostEqual(hit.score, float(fields[5]), delta=0.1)
                         self.assertAlmostEqual(hit.bias, float(fields[6]), delta=0.1)
                         self.assertAlmostEqual(hit.evalue, float(fields[4]), delta=0.1)

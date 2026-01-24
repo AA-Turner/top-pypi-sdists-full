@@ -662,6 +662,11 @@ static std::unordered_map<std::string, OptionTypeInfo>
          {offsetof(struct MutableCFOptions, paranoid_memory_checks),
           OptionType::kBoolean, OptionVerificationType::kNormal,
           OptionTypeFlags::kMutable}},
+        {"memtable_veirfy_per_key_checksum_on_seek",
+         {offsetof(struct MutableCFOptions,
+                   memtable_veirfy_per_key_checksum_on_seek),
+          OptionType::kBoolean, OptionVerificationType::kNormal,
+          OptionTypeFlags::kMutable}},
         {kOptNameCompOpts,
          OptionTypeInfo::Struct(
              kOptNameCompOpts, &compression_options_type_info,
@@ -893,6 +898,10 @@ static std::unordered_map<std::string, OptionTypeInfo>
          {offsetof(struct ImmutableCFOptions, persist_user_defined_timestamps),
           OptionType::kBoolean, OptionVerificationType::kNormal,
           OptionTypeFlags::kCompareLoose}},
+        {"cf_allow_ingest_behind",
+         {offsetof(struct ImmutableCFOptions, cf_allow_ingest_behind),
+          OptionType::kBoolean, OptionVerificationType::kNormal,
+          OptionTypeFlags::kNone}},
 };
 
 const std::string OptionsHelper::kCFOptionsName = "ColumnFamilyOptions";
@@ -1032,7 +1041,8 @@ ImmutableCFOptions::ImmutableCFOptions(const ColumnFamilyOptions& cf_options)
       sst_partitioner_factory(cf_options.sst_partitioner_factory),
       blob_cache(cf_options.blob_cache),
       persist_user_defined_timestamps(
-          cf_options.persist_user_defined_timestamps) {}
+          cf_options.persist_user_defined_timestamps),
+      cf_allow_ingest_behind(cf_options.cf_allow_ingest_behind) {}
 
 ImmutableOptions::ImmutableOptions() : ImmutableOptions(Options()) {}
 
@@ -1173,6 +1183,8 @@ void MutableCFOptions::Dump(Logger* log) const {
                  preserve_internal_time_seconds);
   ROCKS_LOG_INFO(log, "                   paranoid_memory_checks: %d",
                  paranoid_memory_checks);
+  ROCKS_LOG_INFO(log, "memtable_veirfy_per_key_checksum_on_seek: %d",
+                 memtable_veirfy_per_key_checksum_on_seek);
   std::string result;
   char buf[10];
   for (const auto m : max_bytes_for_level_multiplier_additional) {

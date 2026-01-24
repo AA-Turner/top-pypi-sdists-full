@@ -7,6 +7,7 @@
 
 #include "src/codec/SkAvifCodec.h"
 
+#include "include/codec/SkAvifDecoder.h"
 #include "include/codec/SkCodec.h"
 #include "include/codec/SkCodecAnimation.h"
 #include "include/core/SkColorType.h"
@@ -22,7 +23,6 @@
 #include <utility>
 
 #include "avif/avif.h"
-#include "avif/internal.h"
 
 void AvifDecoderDeleter::operator()(avifDecoder* decoder) const {
     if (decoder != nullptr) {
@@ -44,9 +44,14 @@ bool SkAvifCodec::IsAvif(const void* buffer, size_t bytesRead) {
 
 std::unique_ptr<SkCodec> SkAvifCodec::MakeFromStream(std::unique_ptr<SkStream> stream,
                                                      Result* result) {
+    SkASSERT(result);
+    if (!stream) {
+        *result = SkCodec::kInvalidInput;
+        return nullptr;
+    }
     AvifDecoder avifDecoder(avifDecoderCreate());
     if (avifDecoder == nullptr) {
-        *result = kInternalError;
+        *result = SkCodec::kInternalError;
         return nullptr;
     }
     avifDecoder->ignoreXMP = AVIF_TRUE;
@@ -71,13 +76,13 @@ std::unique_ptr<SkCodec> SkAvifCodec::MakeFromStream(std::unique_ptr<SkStream> s
 
     avifResult res = avifDecoderSetIOMemory(avifDecoder.get(), data->bytes(), data->size());
     if (res != AVIF_RESULT_OK) {
-        *result = kInternalError;
+        *result = SkCodec::kInternalError;
         return nullptr;
     }
 
     res = avifDecoderParse(avifDecoder.get());
     if (res != AVIF_RESULT_OK) {
-        *result = kInvalidInput;
+        *result = SkCodec::kInvalidInput;
         return nullptr;
     }
 
@@ -183,6 +188,13 @@ bool SkAvifCodec::onGetFrameInfo(int i, FrameInfo* frameInfo) const {
 
 int SkAvifCodec::onGetRepetitionCount() { return kRepetitionCountInfinite; }
 
+SkCodec::IsAnimated SkAvifCodec::onIsAnimated() {
+    if (!fUseAnimation || fAvifDecoder->imageCount <= 1) {
+        return IsAnimated::kNo;
+    }
+    return IsAnimated::kYes;
+}
+
 SkCodec::Result SkAvifCodec::onGetPixels(const SkImageInfo& dstInfo,
                                          void* dst,
                                          size_t dstRowBytes,
@@ -193,9 +205,11 @@ SkCodec::Result SkAvifCodec::onGetPixels(const SkImageInfo& dstInfo,
     }
 
     const SkColorType dstColorType = dstInfo.colorType();
-    if (dstColorType != kRGBA_8888_SkColorType && dstColorType != kRGBA_F16_SkColorType) {
+    if (dstColorType != kRGBA_8888_SkColorType
+        && dstColorType != kBGRA_8888_SkColorType
+        && dstColorType != kRGBA_F16_SkColorType) {
         // TODO(vigneshv): Check if more color types need to be supported.
-        // Currently android supports at least RGB565 and BGRA8888 which is not
+        // Currently android supports at least RGB565 which is not
         // supported here.
         return kUnimplemented;
     }
@@ -206,11 +220,9 @@ SkCodec::Result SkAvifCodec::onGetPixels(const SkImageInfo& dstInfo,
     }
 
     if (this->dimensions() != dstInfo.dimensions()) {
-        if (!avifImageScale(fAvifDecoder->image,
-                            dstInfo.width(),
-                            dstInfo.height(),
-                            fAvifDecoder->imageSizeLimit,
-                            &fAvifDecoder->diag)) {
+        result = avifImageScale(
+                fAvifDecoder->image, dstInfo.width(), dstInfo.height(), &fAvifDecoder->diag);
+        if (result != AVIF_RESULT_OK) {
             return kInvalidInput;
         }
     }
@@ -220,6 +232,9 @@ SkCodec::Result SkAvifCodec::onGetPixels(const SkImageInfo& dstInfo,
 
     if (dstColorType == kRGBA_8888_SkColorType) {
         rgbImage.depth = 8;
+    } else if (dstColorType == kBGRA_8888_SkColorType){
+        rgbImage.depth = 8;
+        rgbImage.format = AVIF_RGB_FORMAT_BGRA;
     } else if (dstColorType == kRGBA_F16_SkColorType) {
         rgbImage.depth = 16;
         rgbImage.isFloat = AVIF_TRUE;
@@ -237,3 +252,35 @@ SkCodec::Result SkAvifCodec::onGetPixels(const SkImageInfo& dstInfo,
     *rowsDecoded = fAvifDecoder->image->height;
     return kSuccess;
 }
+
+namespace SkAvifDecoder {
+namespace LibAvif {
+
+bool IsAvif(const void* data, size_t len) {
+    return SkAvifCodec::IsAvif(data, len);
+}
+
+std::unique_ptr<SkCodec> Decode(std::unique_ptr<SkStream> stream,
+                                SkCodec::Result* outResult,
+                                SkCodecs::DecodeContext) {
+    SkCodec::Result resultStorage;
+    if (!outResult) {
+        outResult = &resultStorage;
+    }
+    return SkAvifCodec::MakeFromStream(std::move(stream), outResult);
+}
+
+std::unique_ptr<SkCodec> Decode(sk_sp<SkData> data,
+                                SkCodec::Result* outResult,
+                                SkCodecs::DecodeContext) {
+    if (!data) {
+        if (outResult) {
+            *outResult = SkCodec::kInvalidInput;
+        }
+        return nullptr;
+    }
+    return Decode(SkMemoryStream::Make(std::move(data)), outResult, nullptr);
+}
+
+}  // namespace LibAvif
+}  // namespace SkAvifDecoder

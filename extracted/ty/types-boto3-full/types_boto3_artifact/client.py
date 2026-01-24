@@ -3,7 +3,7 @@ Type annotations for artifact service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_artifact/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,13 +19,18 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListCustomerAgreementsPaginator, ListReportsPaginator
+from .paginator import (
+    ListCustomerAgreementsPaginator,
+    ListReportsPaginator,
+    ListReportVersionsPaginator,
+)
 from .type_defs import (
     GetAccountSettingsResponseTypeDef,
     GetReportMetadataRequestTypeDef,
@@ -38,15 +43,12 @@ from .type_defs import (
     ListCustomerAgreementsResponseTypeDef,
     ListReportsRequestTypeDef,
     ListReportsResponseTypeDef,
+    ListReportVersionsRequestTypeDef,
+    ListReportVersionsResponseTypeDef,
     PutAccountSettingsRequestTypeDef,
     PutAccountSettingsResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -57,14 +59,14 @@ __all__ = ("ArtifactClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ArtifactClient(BaseClient):
@@ -148,6 +150,16 @@ class ArtifactClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_artifact/client/#list_customer_agreements)
         """
 
+    def list_report_versions(
+        self, **kwargs: Unpack[ListReportVersionsRequestTypeDef]
+    ) -> ListReportVersionsResponseTypeDef:
+        """
+        List available report versions for a given report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/list_report_versions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_artifact/client/#list_report_versions)
+        """
+
     def list_reports(
         self, **kwargs: Unpack[ListReportsRequestTypeDef]
     ) -> ListReportsResponseTypeDef:
@@ -172,6 +184,17 @@ class ArtifactClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_customer_agreements"]
     ) -> ListCustomerAgreementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_artifact/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_report_versions"]
+    ) -> ListReportVersionsPaginator:
         """
         Create a paginator for an operation.
 

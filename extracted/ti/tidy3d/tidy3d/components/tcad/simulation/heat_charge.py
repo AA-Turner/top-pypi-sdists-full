@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
@@ -29,15 +29,24 @@ from tidy3d.components.material.tcad.charge import (
     SemiconductorMedium,
 )
 from tidy3d.components.material.tcad.heat import (
+    FluidMedium,
     SolidMedium,
 )
 from tidy3d.components.material.types import MultiPhysicsMedium, StructureMediumType
 from tidy3d.components.medium import Medium
 from tidy3d.components.scene import Scene
+from tidy3d.components.spice.sources.ac import SSACVoltageSource
 from tidy3d.components.spice.sources.dc import DCVoltageSource
-from tidy3d.components.spice.types import ElectricalAnalysisType
+from tidy3d.components.spice.types import (
+    ElectricalAnalysisType,
+    IsothermalSSACAnalysis,
+    IsothermalSteadyChargeDCAnalysis,
+    SSACAnalysis,
+    SteadyChargeDCAnalysis,
+)
 from tidy3d.components.structure import Structure
 from tidy3d.components.tcad.analysis.heat_simulation_type import UnsteadyHeatAnalysis
+from tidy3d.components.tcad.boundary.heat import VerticalNaturalConvectionCoeffModel
 from tidy3d.components.tcad.boundary.specification import (
     HeatBoundarySpec,
     HeatChargeBoundarySpec,
@@ -49,6 +58,7 @@ from tidy3d.components.tcad.grid import (
 )
 from tidy3d.components.tcad.monitors.charge import (
     SteadyCapacitanceMonitor,
+    SteadyCurrentDensityMonitor,
     SteadyFreeCarrierMonitor,
     SteadyPotentialMonitor,
 )
@@ -80,7 +90,14 @@ from tidy3d.components.tcad.viz import (
     plot_params_heat_bc,
     plot_params_heat_source,
 )
-from tidy3d.components.types import TYPE_TAG_STR, Ax, Bound, ScalarSymmetry, Shapely, annotate_type
+from tidy3d.components.types import (
+    TYPE_TAG_STR,
+    Ax,
+    Bound,
+    ScalarSymmetry,
+    Shapely,
+    annotate_type,
+)
 from tidy3d.components.viz import PlotParams, add_ax_if_none, equal_aspect
 from tidy3d.constants import VOLUMETRIC_HEAT_RATE, inf
 from tidy3d.exceptions import SetupError
@@ -92,6 +109,18 @@ HeatBCTypes = (TemperatureBC, HeatFluxBC, ConvectionBC)
 HeatSourceTypes = (UniformHeatSource, HeatSource, HeatFromElectricSource)
 ChargeSourceTypes = ()
 ElectricBCTypes = (VoltageBC, CurrentBC, InsulatingBC)
+ChargeTypes = (
+    SteadyChargeDCAnalysis,
+    IsothermalSteadyChargeDCAnalysis,
+    SSACAnalysis,
+    IsothermalSSACAnalysis,
+)
+ChargeMonitorTypes = (
+    SteadyPotentialMonitor,
+    SteadyFreeCarrierMonitor,
+    SteadyCapacitanceMonitor,
+    SteadyCurrentDensityMonitor,
+)
 
 AnalysisSpecType = Union[ElectricalAnalysisType, UnsteadyHeatAnalysis]
 
@@ -163,7 +192,7 @@ class HeatChargeSimulation(AbstractSimulation):
                with defined heat properties.
            * - ``Conduction``
              - The electrical conduction equation is solved with
-               specified boundary conditions such as ``SteadyVoltageBC``, ``SteadyCurrentBC``, ...
+               specified boundary conditions such as :class:`VoltageBC`, :class:`CurrentBC`, ...
            * - ``Charge``
              - Drift-diffusion equations are solved for structures containing
                a defined :class:`SemiconductorMedium`. Insulators with a
@@ -209,8 +238,8 @@ class HeatChargeSimulation(AbstractSimulation):
     ...     name="air"
     ... )
     >>> intrinsic_Si = td.material_library['cSi'].variants['Si_MultiPhysics'].medium.charge
-    >>> Si_n = intrinsic_Si.updated_copy(N_d=1e16, name="Si_n")
-    >>> Si_p = intrinsic_Si.updated_copy(N_a=1e16, name="Si_p")
+    >>> Si_n = intrinsic_Si.updated_copy(N_d=[td.ConstantDoping(concentration=1e16)], name="Si_n")
+    >>> Si_p = intrinsic_Si.updated_copy(N_a=[td.ConstantDoping(concentration=1e16)], name="Si_p")
     >>> n_side = td.Structure(
     ...     geometry=td.Box(center=(-0.5, 0, 0), size=(1, 1, 1)),
     ...     medium=Si_n,
@@ -266,12 +295,12 @@ class HeatChargeSimulation(AbstractSimulation):
     medium: StructureMediumType = pd.Field(
         Medium(),
         title="Background Medium",
-        description="Background medium of simulation, defaults to a standard dispersion-less :class:`Medium` if not "
+        description="Background medium of simulation, defaults to a standard dispersion-less :class:`.Medium` if not "
         "specified.",
         discriminator=TYPE_TAG_STR,
     )
     """
-    Background medium of simulation, defaults to a standard dispersion-less :class:`Medium` if not specified.
+    Background medium of simulation, defaults to a standard dispersion-less :class:`.Medium` if not specified.
     """
 
     sources: tuple[annotate_type(HeatChargeSourceType), ...] = pd.Field(
@@ -316,6 +345,12 @@ class HeatChargeSimulation(AbstractSimulation):
         description="The `analysis_spec` is used to specify the type of simulation. Currently, it is used to "
         "specify Charge simulations or transient Heat simulations.",
     )
+
+    def _post_init_validators(self) -> None:
+        """Call validators taking ``self`` that get run after init."""
+
+        # Charge mesh size validator
+        self._estimate_charge_mesh_size()
 
     @pd.validator("structures", always=True)
     def check_unsupported_geometries(cls, val):
@@ -446,6 +481,9 @@ class HeatChargeSimulation(AbstractSimulation):
                     if isinstance(bc.condition.source, DCVoltageSource):
                         if len(bc.condition.source.voltage) > 1:
                             voltage_array_present = True
+                    elif isinstance(bc.condition.source, SSACVoltageSource):
+                        if len(bc.condition.source.voltage) > 1:
+                            voltage_array_present = True
         if is_capacitance_mnt and not voltage_array_present:
             raise SetupError(
                 "Monitors of type 'SteadyCapacitanceMonitor' have been defined but no array of voltages "
@@ -453,6 +491,97 @@ class HeatChargeSimulation(AbstractSimulation):
                 "Voltage arrays can be included in a source in this manner: "
                 "'VoltageBC(source=DCVoltageSource(voltage=yourArray))'"
             )
+        return values
+
+    @pd.root_validator(skip_on_failure=True)
+    def check_single_ssac(cls, values):
+        boundary_spec = values["boundary_spec"]
+        ssac_present = False
+        for bc in boundary_spec:
+            if isinstance(bc.condition, VoltageBC):
+                if isinstance(bc.condition.source, SSACVoltageSource):
+                    if ssac_present:
+                        raise SetupError(
+                            "Only a single 'SSACVoltageSource' source can be supplied."
+                        )
+                    else:
+                        ssac_present = True
+        return values
+
+    @pd.root_validator(skip_on_failure=True)
+    def check_natural_convection_bc(cls, values):
+        """Make sure that natural convection BCs are defined correctly."""
+        boundary_spec = values.get("boundary_spec")
+        if not boundary_spec:
+            return values
+
+        structures = values["structures"]
+        boundary_spec = values["boundary_spec"]
+        bg_medium = values["medium"]
+
+        # Create mappings for easy lookup of media and structures by name.
+        media = {s.medium.name: s.medium for s in structures if s.medium.name}
+        if bg_medium and bg_medium.name:
+            media[bg_medium.name] = bg_medium
+        structures_map = {s.name: s for s in structures if s.name}
+
+        def check_fluid_medium_attr(fluid_medium) -> None:
+            if (
+                (fluid_medium.thermal_conductivity is None)
+                or (fluid_medium.viscosity is None)
+                or (fluid_medium.specific_heat is None)
+                or (fluid_medium.density is None)
+                or (fluid_medium.expansivity is None)
+            ):
+                raise SetupError(
+                    f"Boundary spec at index {i}: The fluid medium at the natural convection interface "
+                    f"must have 'thermal_conductivity', 'viscosity', 'specific_heat', 'density' and 'expansivity' defined."
+                )
+
+        for i, bc in enumerate(boundary_spec):
+            if not (
+                isinstance(bc.condition, ConvectionBC)
+                and isinstance(bc.condition.transfer_coeff, VerticalNaturalConvectionCoeffModel)
+            ):
+                continue
+
+            natural_conv_model = bc.condition.transfer_coeff
+            placement = bc.placement
+
+            # Case 1: The fluid medium is inferred from the placement interface.
+            # We use direct dictionary access, assuming 'names_exist_bcs' validator has already run.
+            if natural_conv_model.medium is None:
+                if isinstance(placement, MediumMediumInterface):
+                    med1 = media[placement.mediums[0]]
+                    med2 = media[placement.mediums[1]]
+                elif isinstance(placement, StructureStructureInterface):
+                    med1 = structures_map[placement.structures[0]].medium
+                    med2 = structures_map[placement.structures[1]].medium
+                else:
+                    raise SetupError(
+                        f"Boundary spec at index {i}: 'VerticalNaturalConvectionCoeffModel' with no medium specified requires "
+                        f"the 'placement' to be of type 'MediumMediumInterface' or 'StructureStructureInterface', "
+                        f"but got '{type(placement).__name__}'."
+                    )
+                specs = [
+                    med1.heat if isinstance(med1, MultiPhysicsMedium) else med1,
+                    med2.heat if isinstance(med2, MultiPhysicsMedium) else med2,
+                ]
+
+                # Check for a single fluid in the interface.
+                is_fluid = [isinstance(s, FluidMedium) for s in specs]
+                if is_fluid.count(True) != 1:
+                    raise SetupError(
+                        f"Boundary spec at index {i}: A natural convection boundary at an interface "
+                        f"must be between exactly one solid and one fluid medium. "
+                        f"Found types '{type(specs[0]).__name__}' and '{type(specs[1]).__name__}'."
+                    )
+                fluid_medium = specs[is_fluid.index(True)]
+                check_fluid_medium_attr(fluid_medium)
+
+            # Case 2: The fluid medium IS specified directly in the convection model.
+            else:
+                check_fluid_medium_attr(natural_conv_model.medium)
         return values
 
     @pd.validator("size", always=True)
@@ -539,14 +668,32 @@ class HeatChargeSimulation(AbstractSimulation):
         return val
 
     @pd.root_validator(skip_on_failure=True)
+    def check_freqs_requires_ac_source(cls, values):
+        """Ensure that if freqs is provided, at least one ACVoltageSource is present."""
+        analysis_spec = values.get("analysis_spec")
+        if (
+            isinstance(analysis_spec, (SSACAnalysis, IsothermalSSACAnalysis))
+            and len(analysis_spec.freqs) > 0
+        ):
+            bcs = values.get("boundary_spec")
+            has_ac_source = False
+            for bc in bcs:
+                if isinstance(bc.condition, VoltageBC):
+                    if isinstance(bc.condition.source, SSACVoltageSource):
+                        has_ac_source = True
+                        break
+
+            if not has_ac_source:
+                raise SetupError(
+                    "If 'freqs' is provided and not empty, at least one "
+                    "'SSACVoltageSource' must be present in the boundary conditions."
+                )
+
+        return values
+
+    @pd.root_validator(skip_on_failure=True)
     def check_charge_simulation(cls, values):
         """Makes sure that Charge simulations are set correctly."""
-
-        ChargeMonitorType = (
-            SteadyPotentialMonitor,
-            SteadyFreeCarrierMonitor,
-            SteadyCapacitanceMonitor,
-        )
 
         simulation_types = cls._check_simulation_types(values=values)
 
@@ -565,25 +712,29 @@ class HeatChargeSimulation(AbstractSimulation):
 
             # check that we have at least one charge monitor
             monitors = values["monitors"]
-            if not any(isinstance(mnt, ChargeMonitorType) for mnt in monitors):
+            if not any(isinstance(mnt, ChargeMonitorTypes) for mnt in monitors):
                 raise SetupError(
                     "Charge simulations require the definition of, at least, one of these monitors: "
-                    "'[SteadyPotentialMonitor, SteadyFreeCarrierMonitor, SteadyCapacitanceMonitor]' "
+                    "'[SteadyPotentialMonitor, SteadyFreeCarrierMonitor, SteadyCapacitanceMonitor, SteadyCurrentDensityMonitor]' "
                     "but none have been defined."
                 )
 
-            # NOTE: SteadyPotentialMonitor and SteadyFreeCarrierMonitor are only supported
-            # for unstructured = True
+            # NOTE: in Charge we're only supporting unstructured monitors.
+            # only Temperature and Potential monitors can be structured.
             for mnt in monitors:
-                if isinstance(mnt, SteadyPotentialMonitor) or isinstance(
-                    mnt, SteadyFreeCarrierMonitor
-                ):
+                if isinstance(mnt, SteadyPotentialMonitor) or isinstance(mnt, TemperatureMonitor):
                     if not mnt.unstructured:
                         log.warning(
                             "Currently, Charge simulations support only unstructured monitors. Please set "
                             f"monitor '{mnt.name}' to 'unstructured = True'."
                         )
-
+            # check that we have at least one semiconductor medium
+            structures = values["structures"]
+            sc_present = HeatChargeSimulation._check_if_semiconductor_present(structures=structures)
+            if not sc_present:
+                raise SetupError(
+                    f"{TCADAnalysisTypes.CHARGE} simulations require the definition of at least one semiconductor medium."
+                )
         return values
 
     @pd.root_validator(skip_on_failure=True)
@@ -740,23 +891,23 @@ class HeatChargeSimulation(AbstractSimulation):
 
         boundaries = list(values["boundary_spec"])
         sources = list(values["sources"])
+        analysis_spec = values["analysis_spec"]
 
         structures = list(values["structures"])
+
+        if isinstance(analysis_spec, ChargeTypes):
+            simulation_types.append(TCADAnalysisTypes.CHARGE)
+
         semiconductor_present = HeatChargeSimulation._check_if_semiconductor_present(
             structures=structures
         )
-        if semiconductor_present:
-            simulation_types.append(TCADAnalysisTypes.CHARGE)
 
         for boundary in boundaries:
             if isinstance(boundary.condition, HeatBCTypes):
                 simulation_types.append(TCADAnalysisTypes.HEAT)
             if isinstance(boundary.condition, ElectricBCTypes):
-                # for the time being, assume tha the simulation will be of
-                # type CHARGE if we have semiconductors
-                if semiconductor_present:
-                    simulation_types.append(TCADAnalysisTypes.CHARGE)
-                else:
+                # Add CONDUCTION type if we have no semiconductors
+                if not semiconductor_present:
                     simulation_types.append(TCADAnalysisTypes.CONDUCTION)
 
         for source in sources:
@@ -850,23 +1001,25 @@ class HeatChargeSimulation(AbstractSimulation):
 
         return values
 
-    @pd.root_validator(skip_on_failure=True)
-    def estimate_charge_mesh_size(cls, values):
+    def _estimate_charge_mesh_size(self) -> None:
         """Make an estimate of the mesh size and raise a warning if too big.
         NOTE: this is a very rough estimate. The back-end will actually stop
         execution based on actual node-count."""
 
-        if TCADAnalysisTypes.CHARGE not in cls._check_simulation_types(values=values):
-            return values
+        if TCADAnalysisTypes.CHARGE not in self._get_simulation_types():
+            return
 
         # let's raise a warning if the estimate is larger than 2M nodes
         max_nodes = 2e6
         nodes_estimate = 0
 
-        structures = values["structures"]
-        grid_spec = values["grid_spec"]
+        structures = self.structures
+        grid_spec = self.grid_spec
 
         non_refined_structures = grid_spec.non_refined_structures
+
+        sim_center = self.center
+        sim_size = self.size
 
         if isinstance(grid_spec, UniformUnstructuredGrid):
             dl_min = grid_spec.dl
@@ -877,7 +1030,11 @@ class HeatChargeSimulation(AbstractSimulation):
 
         for struct in structures:
             name = struct.name
-            bounds = struct.geometry.bounds
+            bounds = np.array(struct.geometry.bounds)
+            for dim in range(3):
+                bounds[0, dim] = max(bounds[0, dim], sim_center[dim] - sim_size[dim] / 2)
+                bounds[1, dim] = min(bounds[1, dim], sim_center[dim] + sim_size[dim] / 2)
+
             dl = dl_min
             if name in non_refined_structures:
                 dl = dl_max
@@ -900,7 +1057,6 @@ class HeatChargeSimulation(AbstractSimulation):
                 "the pipeline will be stopped. If this happens the grid specification "
                 "may need to be modified."
             )
-        return values
 
     @pd.root_validator(skip_on_failure=True)
     def check_transient_heat(cls, values):
@@ -915,7 +1071,7 @@ class HeatChargeSimulation(AbstractSimulation):
                         raise SetupError(
                             f"Unsteady simulations require the temperature monitor '{mnt.name}' to be unstructured."
                         )
-            # additionaly check that the SolidSpec has capacity and density defined
+            # additionally check that the SolidSpec has capacity and density defined
             capacities = []
             densities = []
             conductivities = []
@@ -968,6 +1124,114 @@ class HeatChargeSimulation(AbstractSimulation):
                 )
         return values
 
+    @pd.root_validator(skip_on_failure=True)
+    def check_non_isothermal_is_possible(cls, values):
+        """Make sure that when a non-isothermal case is defined the structures
+        have both electrical and thermal properties."""
+
+        analysis_spec = values.get("analysis_spec")
+        if isinstance(analysis_spec, SteadyChargeDCAnalysis) and not isinstance(
+            analysis_spec, IsothermalSteadyChargeDCAnalysis
+        ):
+            has_heat = False
+            has_elec = False
+            structures = values.get("structures")
+            for struct in structures:
+                if isinstance(struct.medium, MultiPhysicsMedium):
+                    if struct.medium.heat is not None:
+                        if isinstance(struct.medium.heat, SolidMedium):
+                            has_heat = True
+                    if struct.medium.charge is not None:
+                        if isinstance(struct.medium.charge, SemiconductorMedium):
+                            has_elec = True
+
+            if not has_heat and has_elec:
+                raise SetupError(
+                    "The current simulation is defined as non-isothermal but no solid "
+                    "materials with heat properties have been defined. "
+                )
+            elif not has_elec and has_heat:
+                raise SetupError(
+                    "The current simulation is defined as non-isothermal but no "
+                    "semiconductor materials have been defined. "
+                )
+            elif not has_heat and not has_elec:
+                raise SetupError(
+                    "The current simulation is defined as non-isothermal but no "
+                    "solid or semiconductor materials have been defined. "
+                )
+        return values
+
+    @equal_aspect
+    @add_ax_if_none
+    def plot(
+        self,
+        x: Optional[float] = None,
+        y: Optional[float] = None,
+        z: Optional[float] = None,
+        ax: Ax = None,
+        source_alpha: Optional[float] = None,
+        monitor_alpha: Optional[float] = None,
+        hlim: Optional[tuple[float, float]] = None,
+        vlim: Optional[tuple[float, float]] = None,
+        fill_structures: bool = True,
+        **patch_kwargs: Any,
+    ) -> Ax:
+        """Plot each of simulation's components on a plane defined by one nonzero x,y,z coordinate.
+
+        Parameters
+        ----------
+        x : float = None
+            position of plane in x direction, only one of x, y, z must be specified to define plane.
+        y : float = None
+            position of plane in y direction, only one of x, y, z must be specified to define plane.
+        z : float = None
+            position of plane in z direction, only one of x, y, z must be specified to define plane.
+        ax : matplotlib.axes._subplots.Axes = None
+            Matplotlib axes to plot on, if not specified, one is created.
+        source_alpha : float = None
+            Opacity of the sources. If ``None``, uses Tidy3d default.
+        monitor_alpha : float = None
+            Opacity of the monitors. If ``None``, uses Tidy3d default.
+        hlim : Tuple[float, float] = None
+            The x range if plotting on xy or xz planes, y range if plotting on yz plane.
+        vlim : Tuple[float, float] = None
+            The z range if plotting on xz or yz planes, y plane if plotting on xy plane.
+        fill_structures : bool = True
+            Whether to fill structures with color or just draw outlines.
+
+        Returns
+        -------
+        matplotlib.axes._subplots.Axes
+            The supplied or created matplotlib axes.
+        """
+
+        # Call the parent's plot method
+        ax = super().plot(
+            x=x,
+            y=y,
+            z=z,
+            ax=ax,
+            source_alpha=source_alpha,
+            monitor_alpha=monitor_alpha,
+            hlim=hlim,
+            vlim=vlim,
+            fill_structures=fill_structures,
+            **patch_kwargs,
+        )
+
+        # Add boundaries based on simulation type
+        # NOTE: there's no need to add heat boundaries since
+        # they are already added in the parent 'plot' method.
+        simulation_types = self._get_simulation_types()
+        if (
+            TCADAnalysisTypes.CHARGE in simulation_types
+            or TCADAnalysisTypes.CONDUCTION in simulation_types
+        ):
+            ax = self.plot_boundaries(ax=ax, x=x, y=y, z=z, property="electric_conductivity")
+
+        return ax
+
     @equal_aspect
     @add_ax_if_none
     def plot_property(
@@ -979,7 +1243,9 @@ class HeatChargeSimulation(AbstractSimulation):
         alpha: Optional[float] = None,
         source_alpha: Optional[float] = None,
         monitor_alpha: Optional[float] = None,
-        property: str = "heat_conductivity",
+        property: Literal[
+            "heat_conductivity", "electric_conductivity", "source"
+        ] = "heat_conductivity",
         hlim: Optional[tuple[float, float]] = None,
         vlim: Optional[tuple[float, float]] = None,
     ) -> Ax:
@@ -1081,7 +1347,7 @@ class HeatChargeSimulation(AbstractSimulation):
         colorbar: str = "conductivity",
         hlim: Optional[tuple[float, float]] = None,
         vlim: Optional[tuple[float, float]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Ax:
         """
         DEPRECATED: Method added for backwards compatibility with :class:`HeatSimulation.plot_heat_conductivity`.
@@ -1219,9 +1485,9 @@ class HeatChargeSimulation(AbstractSimulation):
         plot_params = plot_params_heat_bc
         condition = boundary_spec.condition
 
-        if isinstance(condition, TemperatureBC):
+        if isinstance(condition, (TemperatureBC, VoltageBC)):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_TEMPERATURE)
-        elif isinstance(condition, HeatFluxBC):
+        elif isinstance(condition, (HeatFluxBC, CurrentBC)):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_FLUX)
         elif isinstance(condition, ConvectionBC):
             plot_params = plot_params.updated_copy(facecolor=HEAT_BC_COLOR_CONVECTION)
@@ -1309,7 +1575,7 @@ class HeatChargeSimulation(AbstractSimulation):
     ) -> tuple[tuple[HeatChargeBoundarySpec, Shapely], ...]:
         """Construct Simulation, StructureSimulation, Structure, and MediumMedium boundaries."""
 
-        # forward foop to take care of Simulation, StructureSimulation, Structure,
+        # forward loop to take care of Simulation, StructureSimulation, Structure,
         # and MediumMediums
         boundaries = []  # bc_spec, structure name, shape, bounds
         background_shapes = []
@@ -1400,7 +1666,7 @@ class HeatChargeSimulation(AbstractSimulation):
     ) -> tuple[tuple[HeatChargeBoundarySpec, Shapely], ...]:
         """Construct StructureStructure boundaries."""
 
-        # backward foop to take care of StructureStructure
+        # backward loop to take care of StructureStructure
         # we do it in this way because we define the boundary between
         # two overlapping structures A and B, where A comes before B, as
         # boundary(B) intersected by A
@@ -1507,7 +1773,7 @@ class HeatChargeSimulation(AbstractSimulation):
 
         # construct boundaries in 2 passes:
 
-        # 1. forward foop to take care of Simulation, StructureSimulation, Structure,
+        # 1. forward loop to take care of Simulation, StructureSimulation, Structure,
         # and MediumMediums
         boundaries = HeatChargeSimulation._construct_forward_boundaries(
             shapes=shapes,
@@ -1621,7 +1887,7 @@ class HeatChargeSimulation(AbstractSimulation):
         )
         return ax
 
-    def _add_source_cbar(self, ax: Ax, property: str = "heat_conductivity"):
+    def _add_source_cbar(self, ax: Ax, property: str = "heat_conductivity") -> None:
         """Add colorbar for heat sources."""
         source_min, source_max = self.source_bounds(property=property)
         self.scene._add_cbar(
@@ -1694,7 +1960,7 @@ class HeatChargeSimulation(AbstractSimulation):
         return ax
 
     @classmethod
-    def from_scene(cls, scene: Scene, **kwargs) -> HeatChargeSimulation:
+    def from_scene(cls, scene: Scene, **kwargs: Any) -> HeatChargeSimulation:
         """Create a simulation from a :class:`.Scene` instance. Must provide additional parameters
         to define a valid simulation (for example, ``size``, ``grid_spec``, etc).
 
@@ -1750,11 +2016,8 @@ class HeatChargeSimulation(AbstractSimulation):
         """
         simulation_types = []
 
-        # NOTE: for the time being, if a simulation has SemiconductorMedium
-        # then we consider it of being a 'TCADAnalysisTypes.CHARGE'
-        if isinstance(self.analysis_spec, ElectricalAnalysisType):
-            if self._check_if_semiconductor_present(self.structures):
-                return [TCADAnalysisTypes.CHARGE]
+        if isinstance(self.analysis_spec, ChargeTypes):
+            return [TCADAnalysisTypes.CHARGE]
 
         # check if unsteady heat
         if isinstance(self.analysis_spec, UnsteadyHeatAnalysis):
@@ -1794,3 +2057,24 @@ class HeatChargeSimulation(AbstractSimulation):
         """Returns True if 'HeatFromElectricSource' has been defined."""
 
         return any(isinstance(source, HeatFromElectricSource) for source in self.sources)
+
+    def _get_charge_type(self):
+        if isinstance(self.analysis_spec, (SSACAnalysis, IsothermalSSACAnalysis)):
+            return "ac"
+        else:
+            return "dc"
+
+    def _get_ssac_frequency_and_amplitude(self):
+        if not isinstance(self.analysis_spec, (SSACAnalysis, IsothermalSSACAnalysis)):
+            raise SetupError(
+                "Invalid analysis type for Small-Signal AC (SSAC). "
+                "SSAC requires a 'SSACAnalysis' or 'IsothermalSSACAnalysis', "
+                f"but received '{type(self.analysis_spec).__name__}' instead."
+            )
+
+        amplitude = None
+        for bc in self.boundary_spec:
+            if isinstance(bc.condition, VoltageBC):
+                if isinstance(bc.condition.source, SSACVoltageSource):
+                    amplitude = bc.condition.source.amplitude
+        return (self.analysis_spec.freqs, amplitude)

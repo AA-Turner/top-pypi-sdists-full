@@ -22,11 +22,15 @@ T = TypeVar("T", bound="GetJobResponse200Type0RawFlowFailureModuleRetry")
 
 @_attrs_define
 class GetJobResponse200Type0RawFlowFailureModuleRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryConstant]):
-        exponential (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryExponential]):
-        retry_if (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryRetryIf]):
+        constant (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryConstant]): Retry with constant delay
+            between attempts
+        exponential (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryExponential]): Retry with exponential
+            backoff (delay doubles each time)
+        retry_if (Union[Unset, GetJobResponse200Type0RawFlowFailureModuleRetryRetryIf]): Conditional retry based on
+            error or result
     """
 
     constant: Union[Unset, "GetJobResponse200Type0RawFlowFailureModuleRetryConstant"] = UNSET

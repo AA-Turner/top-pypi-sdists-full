@@ -18,8 +18,9 @@
 from __future__ import annotations
 
 import pkgutil
+from collections.abc import Callable
 from importlib import import_module
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -31,6 +32,7 @@ def import_string(dotted_path: str):
 
     Raise ImportError if the import failed.
     """
+    # TODO: Add support for nested classes. Currently, it only works for top-level classes.
     try:
         module_path, class_name = dotted_path.rsplit(".", 1)
     except ValueError:
@@ -44,10 +46,13 @@ def import_string(dotted_path: str):
         raise ImportError(f'Module "{module_path}" does not define a "{class_name}" attribute/class')
 
 
-def qualname(o: object | Callable) -> str:
-    """Convert an attribute/class/function to a string importable by ``import_string``."""
-    if callable(o) and hasattr(o, "__module__") and hasattr(o, "__name__"):
-        return f"{o.__module__}.{o.__name__}"
+def qualname(o: object | Callable, use_qualname: bool = False) -> str:
+    """Convert an attribute/class/callable to a string importable by ``import_string``."""
+    if callable(o) and hasattr(o, "__module__"):
+        if use_qualname and hasattr(o, "__qualname__"):
+            return f"{o.__module__}.{o.__qualname__}"
+        if hasattr(o, "__name__"):
+            return f"{o.__module__}.{o.__name__}"
 
     cls = o
 

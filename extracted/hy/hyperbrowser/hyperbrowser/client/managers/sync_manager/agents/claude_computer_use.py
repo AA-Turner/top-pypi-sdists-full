@@ -49,7 +49,7 @@ class ClaudeComputerUseManager:
         job_start_resp = self.start(params)
         job_id = job_start_resp.job_id
         if not job_id:
-            raise HyperbrowserError("Failed to start CUA task job")
+            raise HyperbrowserError("Failed to start Claude Computer Use task job")
 
         failures = 0
         while True:

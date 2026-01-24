@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onepassword-sdk
-Version: 0.3.1
+Version: 0.3.2
 Summary: The 1Password Python SDK offers programmatic read access to your secrets in 1Password in an interface native to Python.
 Home-page: https://github.com/1Password/onepassword-sdk-python
 Author: 1Password
@@ -140,8 +140,9 @@ Field types:
 - [x] Address
 - [x] Date
 - [x] MM/YY
-- [x] Files attachments and Document items
+- [x] File attachments and Document items
 - [x] Menu
+- [ ] Passkeys
 
 ### Vault management
 - [ ] Retrieve vaults

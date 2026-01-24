@@ -1,13 +1,12 @@
 # imagecodecs/_avif.pyx
 # distutils: language = c
-# cython: language_level = 3
-# cython: boundscheck=False
-# cython: wraparound=False
-# cython: cdivision=True
-# cython: nonecheck=False
+# cython: boundscheck = False
+# cython: wraparound = False
+# cython: cdivision = True
+# cython: nonecheck = False
 # cython: freethreading_compatible = True
 
-# Copyright (c) 2020-2025, Christoph Gohlke
+# Copyright (c) 2020-2026, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -36,7 +35,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-"""AVIF codec for the imagecodecs package."""
+"""AVIF (AV1 Image File Format) codec for the imagecodecs package."""
 
 include '_shared.pxi'
 
@@ -93,6 +92,70 @@ class AVIF:
         SVT = AVIF_CODEC_CHOICE_SVT
         AVM = AVIF_CODEC_CHOICE_AVM
 
+    class COLOR_PRIMARIES(enum.IntEnum):
+        """AVIF color primaries."""
+
+        UNKNOWN = AVIF_COLOR_PRIMARIES_UNKNOWN
+        BT709 = AVIF_COLOR_PRIMARIES_BT709
+        SRGB = AVIF_COLOR_PRIMARIES_SRGB
+        IEC61966_2_4 = AVIF_COLOR_PRIMARIES_IEC61966_2_4
+        UNSPECIFIED = AVIF_COLOR_PRIMARIES_UNSPECIFIED
+        BT470M = AVIF_COLOR_PRIMARIES_BT470M
+        BT470BG = AVIF_COLOR_PRIMARIES_BT470BG
+        BT601 = AVIF_COLOR_PRIMARIES_BT601
+        SMPTE240 = AVIF_COLOR_PRIMARIES_SMPTE240
+        GENERIC_FILM = AVIF_COLOR_PRIMARIES_GENERIC_FILM
+        BT2020 = AVIF_COLOR_PRIMARIES_BT2020
+        BT2100 = AVIF_COLOR_PRIMARIES_BT2100
+        XYZ = AVIF_COLOR_PRIMARIES_XYZ
+        SMPTE431 = AVIF_COLOR_PRIMARIES_SMPTE431
+        SMPTE432 = AVIF_COLOR_PRIMARIES_SMPTE432
+        DCI_P3 = AVIF_COLOR_PRIMARIES_DCI_P3
+        EBU3213 = AVIF_COLOR_PRIMARIES_EBU3213
+
+    class TRANSFER_CHARACTERISTICS(enum.IntEnum):
+        """AVIF transfer characteristics."""
+
+        UNKNOWN = AVIF_TRANSFER_CHARACTERISTICS_UNKNOWN
+        BT709 = AVIF_TRANSFER_CHARACTERISTICS_BT709
+        UNSPECIFIED = AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED
+        BT470M = AVIF_TRANSFER_CHARACTERISTICS_BT470M
+        BT470BG = AVIF_TRANSFER_CHARACTERISTICS_BT470BG
+        BT601 = AVIF_TRANSFER_CHARACTERISTICS_BT601
+        SMPTE240 = AVIF_TRANSFER_CHARACTERISTICS_SMPTE240
+        LINEAR = AVIF_TRANSFER_CHARACTERISTICS_LINEAR
+        LOG100 = AVIF_TRANSFER_CHARACTERISTICS_LOG100
+        LOG100_SQRT10 = AVIF_TRANSFER_CHARACTERISTICS_LOG100_SQRT10
+        IEC61966 = AVIF_TRANSFER_CHARACTERISTICS_IEC61966
+        BT1361 = AVIF_TRANSFER_CHARACTERISTICS_BT1361
+        SRGB = AVIF_TRANSFER_CHARACTERISTICS_SRGB
+        BT2020_10BIT = AVIF_TRANSFER_CHARACTERISTICS_BT2020_10BIT
+        BT2020_12BIT = AVIF_TRANSFER_CHARACTERISTICS_BT2020_12BIT
+        PQ = AVIF_TRANSFER_CHARACTERISTICS_PQ
+        SMPTE2084 = AVIF_TRANSFER_CHARACTERISTICS_SMPTE2084
+        SMPTE428 = AVIF_TRANSFER_CHARACTERISTICS_SMPTE428
+        HLG = AVIF_TRANSFER_CHARACTERISTICS_HLG
+
+    class MATRIX_COEFFICIENTS(enum.IntEnum):
+        """AVIF matrix coefficients."""
+
+        IDENTITY = AVIF_MATRIX_COEFFICIENTS_IDENTITY
+        BT709 = AVIF_MATRIX_COEFFICIENTS_BT709
+        UNSPECIFIED = AVIF_MATRIX_COEFFICIENTS_UNSPECIFIED
+        FCC = AVIF_MATRIX_COEFFICIENTS_FCC
+        BT470BG = AVIF_MATRIX_COEFFICIENTS_BT470BG
+        BT601 = AVIF_MATRIX_COEFFICIENTS_BT601
+        SMPTE240 = AVIF_MATRIX_COEFFICIENTS_SMPTE240
+        YCGCO = AVIF_MATRIX_COEFFICIENTS_YCGCO
+        BT2020_NCL = AVIF_MATRIX_COEFFICIENTS_BT2020_NCL
+        BT2020_CL = AVIF_MATRIX_COEFFICIENTS_BT2020_CL
+        SMPTE2085 = AVIF_MATRIX_COEFFICIENTS_SMPTE2085
+        CHROMA_DERIVED_NCL = AVIF_MATRIX_COEFFICIENTS_CHROMA_DERIVED_NCL
+        CHROMA_DERIVED_CL = AVIF_MATRIX_COEFFICIENTS_CHROMA_DERIVED_CL
+        ICTCP = AVIF_MATRIX_COEFFICIENTS_ICTCP
+        YCGCO_RE = AVIF_MATRIX_COEFFICIENTS_YCGCO_RE
+        YCGCO_RO = AVIF_MATRIX_COEFFICIENTS_YCGCO_RO
+
 
 class AvifError(RuntimeError):
     """AVIF codec exceptions."""
@@ -123,8 +186,8 @@ def avif_version():
     )
 
 
-def avif_check(const uint8_t[::1] data):
-    """Return whether data is AVIF encoded image."""
+def avif_check(const uint8_t[::1] data, /):
+    """Return whether data is AVIF encoded image or None if unknown."""
     cdef:
         bytes sig = bytes(data[4:12])
 
@@ -137,14 +200,19 @@ def avif_check(const uint8_t[::1] data):
 
 def avif_encode(
     data,
+    /,
     level=None,
+    *,
     speed=None,
     tilelog2=None,
     bitspersample=None,
     pixelformat=None,
     codec=None,
+    primaries=None,
+    transfer=None,
+    matrix=None,
     numthreads=None,
-    out=None
+    out=None,
 ):
     """Return AVIF encoded image."""
     cdef:
@@ -159,7 +227,7 @@ def avif_encode(
         # int duration = 1
         int timescale = 1
         int keyframeinterval = 0
-        int maxthreads = <int> _default_threads(numthreads)
+        int maxthreads = _default_threads(numthreads)
         uint32_t imagecount, width, height, samples, depth
         size_t rawsize
         bint monochrome = 0  # must be initialized
@@ -172,15 +240,19 @@ def avif_encode(
         avifPixelFormat yuvformat = AVIF_PIXEL_FORMAT_YUV444
         avifAddImageFlags flags = AVIF_ADD_IMAGE_FLAG_NONE
         avifCodecChoice codecchoice = AVIF_CODEC_CHOICE_AUTO
+        avifColorPrimaries primaries_ = AVIF_COLOR_PRIMARIES_UNSPECIFIED
+        avifTransferCharacteristics transfer_ = \
+            AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED
+        avifMatrixCoefficients matrix_ = AVIF_MATRIX_COEFFICIENTS_UNSPECIFIED
         avifResult res
 
     if not (
         src.dtype in {numpy.uint8, numpy.uint16}
         and src.ndim in {2, 3, 4}
-        and src.shape[0] <= 2147483647
-        and src.shape[1] <= 2147483647
-        and src.shape[src.ndim - 1] <= 2147483647
-        and src.shape[src.ndim - 2] <= 2147483647
+        and src.shape[0] <= INT32_MAX
+        and src.shape[1] <= INT32_MAX
+        and src.shape[src.ndim - 1] <= INT32_MAX
+        and src.shape[src.ndim - 2] <= INT32_MAX
     ):
         raise ValueError('invalid data shape, strides, or dtype')
 
@@ -250,6 +322,13 @@ def avif_encode(
     elif pixelformat is not None:
         yuvformat = _avif_pixelformat(pixelformat)
 
+    if primaries is not None:
+        primaries_ = <avifColorPrimaries> primaries
+    if transfer is not None:
+        transfer_ = <avifTransferCharacteristics> transfer
+    if matrix is not None:
+        matrix_ = <avifMatrixCoefficients> matrix
+
     try:
         with nogil:
             raw.data = NULL
@@ -286,10 +365,13 @@ def avif_encode(
                 image.matrixCoefficients = AVIF_MATRIX_COEFFICIENTS_BT601
 
             image.yuvRange = AVIF_RANGE_FULL
-            # image.colorPrimaries = AVIF_COLOR_PRIMARIES_UNSPECIFIED
-            # image.transferCharacteristics = (
-            #     AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED
-            # )
+
+            if primaries_ != AVIF_COLOR_PRIMARIES_UNSPECIFIED:
+                image.colorPrimaries = primaries_
+            if transfer_ != AVIF_TRANSFER_CHARACTERISTICS_UNSPECIFIED:
+                image.transferCharacteristics = transfer_
+            if matrix_ != AVIF_MATRIX_COEFFICIENTS_UNSPECIFIED:
+                image.matrixCoefficients = matrix_
 
             avifRGBImageSetDefaults(&rgb, image)
 
@@ -363,7 +445,14 @@ def avif_encode(
     return _return_output(out, dstsize, rawsize, outgiven)
 
 
-def avif_decode(data, index=None, numthreads=None, out=None):
+def avif_decode(
+    data,
+    /,
+    index=None,
+    *,
+    numthreads=None,
+    out=None,
+):
     """Return decoded AVIF image."""
     cdef:
         numpy.ndarray dst
@@ -373,7 +462,7 @@ def avif_decode(data, index=None, numthreads=None, out=None):
         ssize_t samples, size, itemsize, i, imagecount
         bint monochrome = 0  # must be initialized
         bint hasalpha = 0
-        int maxthreads = <int> _default_threads(numthreads)
+        int maxthreads = _default_threads(numthreads)
         avifDecoder* decoder = NULL
         avifImage* image = NULL
         avifRGBImage rgb
@@ -418,7 +507,9 @@ def avif_decode(data, index=None, numthreads=None, out=None):
             imagecount = decoder.imageCount
 
             if frameindex >= imagecount:
-                raise IndexError(f'{frameindex=} out of range {imagecount=}')
+                raise IndexError(
+                    f'{frameindex=} out of range [0, {imagecount}]'
+                )
 
             if imagecount == 1:
                 frameindex = 0
@@ -457,9 +548,9 @@ def avif_decode(data, index=None, numthreads=None, out=None):
 
         shape = int(image.height), int(image.width)
         if samples > 1:
-            shape = shape + (int(samples),)
+            shape = (*shape, int(samples))
         if imagecount > 1 and frameindex < 0:
-            shape = (int(imagecount),) + shape
+            shape = (int(imagecount), *shape)
 
         out = _create_array(out, shape, dtype)
         dst = out
@@ -482,7 +573,9 @@ def avif_decode(data, index=None, numthreads=None, out=None):
 
                 res = avifImageYUVToRGB(decoder.image, &rgb)
                 if res != AVIF_RESULT_OK:
-                    raise AvifError('avifImageYUVToRGB', res, decoder.diag.error)
+                    raise AvifError(
+                        'avifImageYUVToRGB', res, decoder.diag.error
+                    )
 
                 rgb.pixels += size
     finally:

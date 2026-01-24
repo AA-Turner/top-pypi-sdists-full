@@ -9,30 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
 
-class CodeScanningVariantAnalysisRepository(GitHubModel):
-    """Repository Identifier
+class CheckAutomatedSecurityFixes(GitHubModel):
+    """Check Dependabot security updates
 
-    Repository Identifier
+    Check Dependabot security updates
     """
 
-    id: int = Field(description="A unique identifier of the repository.")
-    name: str = Field(description="The name of the repository.")
-    full_name: str = Field(
-        description="The full, globally unique, name of the repository."
+    enabled: bool = Field(
+        description="Whether Dependabot security updates are enabled for the repository."
     )
-    private: bool = Field(description="Whether the repository is private.")
-    stargazers_count: int = Field()
-    updated_at: Union[datetime, None] = Field()
+    paused: bool = Field(
+        description="Whether Dependabot security updates are paused for the repository."
+    )
 
 
-model_rebuild(CodeScanningVariantAnalysisRepository)
+model_rebuild(CheckAutomatedSecurityFixes)
 
-__all__ = ("CodeScanningVariantAnalysisRepository",)
+__all__ = ("CheckAutomatedSecurityFixes",)

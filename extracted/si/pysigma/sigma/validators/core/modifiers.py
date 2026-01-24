@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-from typing import ClassVar, Counter, List, Set, Type
+from typing import ClassVar, Counter, Set, Type, Union
 from sigma.modifiers import (
     SigmaAllModifier,
     SigmaBase64Modifier,
     SigmaBase64OffsetModifier,
     SigmaContainsModifier,
     SigmaModifier,
+    SigmaWindowsDashModifier,
 )
 from sigma.rule import SigmaDetectionItem
+from sigma.types import SigmaType
 from sigma.validators.base import (
     SigmaDetectionItemValidator,
     SigmaValidationIssue,
@@ -34,11 +36,22 @@ class Base64OffsetWithoutContainsModifierIssue(SigmaValidationIssue):
 
 
 @dataclass
+class WindowsDashCombinedWithAllModifierIssue(SigmaValidationIssue):
+    description: ClassVar[str] = (
+        "The 'windash' modifier cannot be combined with the 'all' modifier, because calculated values will be appended to the same condition which will make it incorrect."
+    )
+    severity: ClassVar[SigmaValidationIssueSeverity] = SigmaValidationIssueSeverity.HIGH
+    detection_item: SigmaDetectionItem
+
+
+@dataclass
 class ModifierAppliedMultipleIssue(SigmaValidationIssue):
     description: ClassVar[str] = "Modifiers shouldn't be applied multiple times"
     severity: ClassVar[SigmaValidationIssueSeverity] = SigmaValidationIssueSeverity.MEDIUM
     detection_item: SigmaDetectionItem
-    modifiers: Set[Type[SigmaModifier]]
+    modifiers: set[
+        Type[SigmaModifier[Union[SigmaType, list[SigmaType]], Union[SigmaType, list[SigmaType]]]]
+    ]
 
 
 class InvalidModifierCombinationsValidator(SigmaDetectionItemValidator):
@@ -46,8 +59,8 @@ class InvalidModifierCombinationsValidator(SigmaDetectionItemValidator):
 
     def validate_detection_item(
         self, detection_item: SigmaDetectionItem
-    ) -> List[SigmaValidationIssue]:
-        issues = []
+    ) -> list[SigmaValidationIssue]:
+        issues: list[SigmaValidationIssue] = []
 
         # Check for 'all' without 'contains' modifier
         if (
@@ -63,6 +76,13 @@ class InvalidModifierCombinationsValidator(SigmaDetectionItemValidator):
             and SigmaContainsModifier not in detection_item.modifiers
         ):
             issues.append(Base64OffsetWithoutContainsModifierIssue([self.rule], detection_item))
+
+        # Check for 'windash' being combined with the 'all' modifier
+        if (
+            SigmaWindowsDashModifier in detection_item.modifiers
+            and SigmaAllModifier in detection_item.modifiers
+        ):
+            issues.append(WindowsDashCombinedWithAllModifierIssue([self.rule], detection_item))
 
         # Check for multiple appliance of modifiers
         mod_count = Counter(detection_item.modifiers)

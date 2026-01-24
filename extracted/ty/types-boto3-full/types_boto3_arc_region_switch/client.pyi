@@ -3,7 +3,7 @@ Type annotations for arc-region-switch service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -32,6 +33,7 @@ from .paginator import (
     ListPlanExecutionsPaginator,
     ListPlansInRegionPaginator,
     ListPlansPaginator,
+    ListRoute53HealthChecksInRegionPaginator,
     ListRoute53HealthChecksPaginator,
 )
 from .type_defs import (
@@ -56,6 +58,8 @@ from .type_defs import (
     ListPlansInRegionResponseTypeDef,
     ListPlansRequestTypeDef,
     ListPlansResponseTypeDef,
+    ListRoute53HealthChecksInRegionRequestTypeDef,
+    ListRoute53HealthChecksInRegionResponseTypeDef,
     ListRoute53HealthChecksRequestTypeDef,
     ListRoute53HealthChecksResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -71,12 +75,6 @@ from .type_defs import (
 )
 from .waiter import PlanEvaluationStatusPassedWaiter, PlanExecutionCompletedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -85,12 +83,12 @@ else:
 __all__ = ("ARCRegionswitchClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    IllegalArgumentException: Type[BotocoreClientError]
-    IllegalStateException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IllegalArgumentException: type[BotocoreClientError]
+    IllegalStateException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class ARCRegionswitchClient(BaseClient):
     """
@@ -129,7 +127,7 @@ class ARCRegionswitchClient(BaseClient):
 
     def approve_plan_execution_step(
         self, **kwargs: Unpack[ApprovePlanExecutionStepRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Approves a step in a plan execution that requires manual approval.
 
@@ -139,7 +137,7 @@ class ARCRegionswitchClient(BaseClient):
 
     def cancel_plan_execution(
         self, **kwargs: Unpack[CancelPlanExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an in-progress plan execution.
 
@@ -155,7 +153,7 @@ class ARCRegionswitchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#create_plan)
         """
 
-    def delete_plan(self, **kwargs: Unpack[DeletePlanRequestTypeDef]) -> Dict[str, Any]:
+    def delete_plan(self, **kwargs: Unpack[DeletePlanRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a Region switch plan.
 
@@ -251,6 +249,16 @@ class ARCRegionswitchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#list_route53_health_checks)
         """
 
+    def list_route53_health_checks_in_region(
+        self, **kwargs: Unpack[ListRoute53HealthChecksInRegionRequestTypeDef]
+    ) -> ListRoute53HealthChecksInRegionResponseTypeDef:
+        """
+        List the Amazon Route 53 health checks in a specific Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/client/list_route53_health_checks_in_region.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#list_route53_health_checks_in_region)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -271,7 +279,7 @@ class ARCRegionswitchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#start_plan_execution)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates tags for a Region switch resource.
 
@@ -279,7 +287,7 @@ class ARCRegionswitchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a Region switch resource.
 
@@ -297,7 +305,7 @@ class ARCRegionswitchClient(BaseClient):
 
     def update_plan_execution(
         self, **kwargs: Unpack[UpdatePlanExecutionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an in-progress plan execution.
 
@@ -307,7 +315,7 @@ class ARCRegionswitchClient(BaseClient):
 
     def update_plan_execution_step(
         self, **kwargs: Unpack[UpdatePlanExecutionStepRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a specific step in an in-progress plan execution.
 
@@ -374,6 +382,17 @@ class ARCRegionswitchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_plans"]
     ) -> ListPlansPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_route53_health_checks_in_region"]
+    ) -> ListRoute53HealthChecksInRegionPaginator:
         """
         Create a paginator for an operation.
 

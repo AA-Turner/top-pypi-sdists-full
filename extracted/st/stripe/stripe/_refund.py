@@ -4,26 +4,24 @@ from stripe._createable_api_resource import CreateableAPIResource
 from stripe._expandable_field import ExpandableField
 from stripe._list_object import ListObject
 from stripe._listable_api_resource import ListableAPIResource
-from stripe._request_options import RequestOptions
 from stripe._stripe_object import StripeObject
 from stripe._test_helpers import APIResourceTestHelpers
 from stripe._updateable_api_resource import UpdateableAPIResource
 from stripe._util import class_method_variant, sanitize_id
-from typing import ClassVar, Dict, List, Optional, cast, overload
-from typing_extensions import (
-    Literal,
-    NotRequired,
-    Type,
-    TypedDict,
-    Unpack,
-    TYPE_CHECKING,
-)
+from typing import ClassVar, Dict, Optional, cast, overload
+from typing_extensions import Literal, Type, Unpack, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stripe._balance_transaction import BalanceTransaction
     from stripe._charge import Charge
     from stripe._payment_intent import PaymentIntent
     from stripe._reversal import Reversal
+    from stripe.params._refund_cancel_params import RefundCancelParams
+    from stripe.params._refund_create_params import RefundCreateParams
+    from stripe.params._refund_expire_params import RefundExpireParams
+    from stripe.params._refund_list_params import RefundListParams
+    from stripe.params._refund_modify_params import RefundModifyParams
+    from stripe.params._refund_retrieve_params import RefundRetrieveParams
 
 
 class Refund(
@@ -36,7 +34,7 @@ class Refund(
     refunded yet. Funds are refunded to the credit or debit card that's
     initially charged.
 
-    Related guide: [Refunds](https://stripe.com/docs/refunds)
+    Related guide: [Refunds](https://docs.stripe.com/refunds)
     """
 
     OBJECT_NAME: ClassVar[Literal["refund"]] = "refund"
@@ -105,6 +103,12 @@ class Refund(
         class Cashapp(StripeObject):
             pass
 
+        class Crypto(StripeObject):
+            reference: Optional[str]
+            """
+            The transaction hash of the refund.
+            """
+
         class CustomerCashBalance(StripeObject):
             pass
 
@@ -149,6 +153,16 @@ class Refund(
 
         class Klarna(StripeObject):
             pass
+
+        class MbWay(StripeObject):
+            reference: Optional[str]
+            """
+            The reference assigned to the refund.
+            """
+            reference_status: Optional[str]
+            """
+            Status of the reference on the refund. This can be `pending`, `available` or `unavailable`.
+            """
 
         class Multibanco(StripeObject):
             reference: Optional[str]
@@ -225,6 +239,9 @@ class Refund(
             Status of the reference on the refund. This can be `pending`, `available` or `unavailable`.
             """
 
+        class Twint(StripeObject):
+            pass
+
         class UsBankTransfer(StripeObject):
             reference: Optional[str]
             """
@@ -251,6 +268,7 @@ class Refund(
         br_bank_transfer: Optional[BrBankTransfer]
         card: Optional[Card]
         cashapp: Optional[Cashapp]
+        crypto: Optional[Crypto]
         customer_cash_balance: Optional[CustomerCashBalance]
         eps: Optional[Eps]
         eu_bank_transfer: Optional[EuBankTransfer]
@@ -259,6 +277,7 @@ class Refund(
         grabpay: Optional[Grabpay]
         jp_bank_transfer: Optional[JpBankTransfer]
         klarna: Optional[Klarna]
+        mb_way: Optional[MbWay]
         multibanco: Optional[Multibanco]
         mx_bank_transfer: Optional[MxBankTransfer]
         nz_bank_transfer: Optional[NzBankTransfer]
@@ -270,6 +289,7 @@ class Refund(
         sofort: Optional[Sofort]
         swish: Optional[Swish]
         th_bank_transfer: Optional[ThBankTransfer]
+        twint: Optional[Twint]
         type: str
         """
         The type of transaction-specific details of the payment method used in the refund (e.g., `card`). An additional hash is included on `destination_details` with a name matching this value. It contains information specific to the refund transaction.
@@ -288,6 +308,7 @@ class Refund(
             "br_bank_transfer": BrBankTransfer,
             "card": Card,
             "cashapp": Cashapp,
+            "crypto": Crypto,
             "customer_cash_balance": CustomerCashBalance,
             "eps": Eps,
             "eu_bank_transfer": EuBankTransfer,
@@ -296,6 +317,7 @@ class Refund(
             "grabpay": Grabpay,
             "jp_bank_transfer": JpBankTransfer,
             "klarna": Klarna,
+            "mb_way": MbWay,
             "multibanco": Multibanco,
             "mx_bank_transfer": MxBankTransfer,
             "nz_bank_transfer": NzBankTransfer,
@@ -307,6 +329,7 @@ class Refund(
             "sofort": Sofort,
             "swish": Swish,
             "th_bank_transfer": ThBankTransfer,
+            "twint": Twint,
             "us_bank_transfer": UsBankTransfer,
             "wechat_pay": WechatPay,
             "zip": Zip,
@@ -346,133 +369,6 @@ class Refund(
         presentment_currency: str
         """
         Currency presented to the customer during payment.
-        """
-
-    class CancelParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class CreateParams(RequestOptions):
-        amount: NotRequired[int]
-        charge: NotRequired[str]
-        """
-        The identifier of the charge to refund.
-        """
-        currency: NotRequired[str]
-        """
-        Three-letter [ISO currency code](https://www.iso.org/iso-4217-currency-codes.html), in lowercase. Must be a [supported currency](https://stripe.com/docs/currencies).
-        """
-        customer: NotRequired[str]
-        """
-        Customer whose customer balance to refund from.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        instructions_email: NotRequired[str]
-        """
-        For payment methods without native refund support (e.g., Konbini, PromptPay), use this email from the customer to receive refund instructions.
-        """
-        metadata: NotRequired["Literal['']|Dict[str, str]"]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-        origin: NotRequired[Literal["customer_balance"]]
-        """
-        Origin of the refund
-        """
-        payment_intent: NotRequired[str]
-        """
-        The identifier of the PaymentIntent to refund.
-        """
-        reason: NotRequired[
-            Literal["duplicate", "fraudulent", "requested_by_customer"]
-        ]
-        """
-        String indicating the reason for the refund. If set, possible values are `duplicate`, `fraudulent`, and `requested_by_customer`. If you believe the charge to be fraudulent, specifying `fraudulent` as the reason will add the associated card and email to your [block lists](https://stripe.com/docs/radar/lists), and will also help us improve our fraud detection algorithms.
-        """
-        refund_application_fee: NotRequired[bool]
-        """
-        Boolean indicating whether the application fee should be refunded when refunding this charge. If a full charge refund is given, the full application fee will be refunded. Otherwise, the application fee will be refunded in an amount proportional to the amount of the charge refunded. An application fee can be refunded only by the application that created the charge.
-        """
-        reverse_transfer: NotRequired[bool]
-        """
-        Boolean indicating whether the transfer should be reversed when refunding this charge. The transfer will be reversed proportionally to the amount being refunded (either the entire or partial amount).
-
-        A transfer can be reversed only by the application that created the charge.
-        """
-
-    class ExpireParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class ListParams(RequestOptions):
-        charge: NotRequired[str]
-        """
-        Only return refunds for the charge specified by this charge ID.
-        """
-        created: NotRequired["Refund.ListParamsCreated|int"]
-        """
-        Only return refunds that were created during the given date interval.
-        """
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        payment_intent: NotRequired[str]
-        """
-        Only return refunds for the PaymentIntent specified by this ID.
-        """
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-
-    class ListParamsCreated(TypedDict):
-        gt: NotRequired[int]
-        """
-        Minimum value to filter by (exclusive)
-        """
-        gte: NotRequired[int]
-        """
-        Minimum value to filter by (inclusive)
-        """
-        lt: NotRequired[int]
-        """
-        Maximum value to filter by (exclusive)
-        """
-        lte: NotRequired[int]
-        """
-        Maximum value to filter by (inclusive)
-        """
-
-    class ModifyParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        metadata: NotRequired["Literal['']|Dict[str, str]"]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-
-    class RetrieveParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
         """
 
     amount: int
@@ -520,7 +416,7 @@ class Refund(
     """
     metadata: Optional[Dict[str, str]]
     """
-    Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
     """
     next_action: Optional[NextAction]
     object: Literal["refund"]
@@ -559,7 +455,7 @@ class Refund(
     """
     status: Optional[str]
     """
-    Status of the refund. This can be `pending`, `requires_action`, `succeeded`, `failed`, or `canceled`. Learn more about [failed refunds](https://stripe.com/docs/refunds#failed-refunds).
+    Status of the refund. This can be `pending`, `requires_action`, `succeeded`, `failed`, or `canceled`. Learn more about [failed refunds](https://docs.stripe.com/refunds#failed-refunds).
     """
     transfer_reversal: Optional[ExpandableField["Reversal"]]
     """
@@ -568,7 +464,7 @@ class Refund(
 
     @classmethod
     def _cls_cancel(
-        cls, refund: str, **params: Unpack["Refund.CancelParams"]
+        cls, refund: str, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -589,7 +485,7 @@ class Refund(
     @overload
     @staticmethod
     def cancel(
-        refund: str, **params: Unpack["Refund.CancelParams"]
+        refund: str, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -599,7 +495,7 @@ class Refund(
         ...
 
     @overload
-    def cancel(self, **params: Unpack["Refund.CancelParams"]) -> "Refund":
+    def cancel(self, **params: Unpack["RefundCancelParams"]) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
 
@@ -609,7 +505,7 @@ class Refund(
 
     @class_method_variant("_cls_cancel")
     def cancel(  # pyright: ignore[reportGeneralTypeIssues]
-        self, **params: Unpack["Refund.CancelParams"]
+        self, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -629,7 +525,7 @@ class Refund(
 
     @classmethod
     async def _cls_cancel_async(
-        cls, refund: str, **params: Unpack["Refund.CancelParams"]
+        cls, refund: str, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -650,7 +546,7 @@ class Refund(
     @overload
     @staticmethod
     async def cancel_async(
-        refund: str, **params: Unpack["Refund.CancelParams"]
+        refund: str, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -661,7 +557,7 @@ class Refund(
 
     @overload
     async def cancel_async(
-        self, **params: Unpack["Refund.CancelParams"]
+        self, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -672,7 +568,7 @@ class Refund(
 
     @class_method_variant("_cls_cancel_async")
     async def cancel_async(  # pyright: ignore[reportGeneralTypeIssues]
-        self, **params: Unpack["Refund.CancelParams"]
+        self, **params: Unpack["RefundCancelParams"]
     ) -> "Refund":
         """
         Cancels a refund with a status of requires_action.
@@ -691,7 +587,7 @@ class Refund(
         )
 
     @classmethod
-    def create(cls, **params: Unpack["Refund.CreateParams"]) -> "Refund":
+    def create(cls, **params: Unpack["RefundCreateParams"]) -> "Refund":
         """
         When you create a new refund, you must specify a Charge or a PaymentIntent object on which to create it.
 
@@ -716,7 +612,7 @@ class Refund(
 
     @classmethod
     async def create_async(
-        cls, **params: Unpack["Refund.CreateParams"]
+        cls, **params: Unpack["RefundCreateParams"]
     ) -> "Refund":
         """
         When you create a new refund, you must specify a Charge or a PaymentIntent object on which to create it.
@@ -742,7 +638,7 @@ class Refund(
 
     @classmethod
     def list(
-        cls, **params: Unpack["Refund.ListParams"]
+        cls, **params: Unpack["RefundListParams"]
     ) -> ListObject["Refund"]:
         """
         Returns a list of all refunds you created. We return the refunds in sorted order, with the most recent refunds appearing first. The 10 most recent refunds are always available by default on the Charge object.
@@ -762,7 +658,7 @@ class Refund(
 
     @classmethod
     async def list_async(
-        cls, **params: Unpack["Refund.ListParams"]
+        cls, **params: Unpack["RefundListParams"]
     ) -> ListObject["Refund"]:
         """
         Returns a list of all refunds you created. We return the refunds in sorted order, with the most recent refunds appearing first. The 10 most recent refunds are always available by default on the Charge object.
@@ -782,7 +678,7 @@ class Refund(
 
     @classmethod
     def modify(
-        cls, id: str, **params: Unpack["Refund.ModifyParams"]
+        cls, id: str, **params: Unpack["RefundModifyParams"]
     ) -> "Refund":
         """
         Updates the refund that you specify by setting the values of the passed parameters. Any parameters that you don't provide remain unchanged.
@@ -801,7 +697,7 @@ class Refund(
 
     @classmethod
     async def modify_async(
-        cls, id: str, **params: Unpack["Refund.ModifyParams"]
+        cls, id: str, **params: Unpack["RefundModifyParams"]
     ) -> "Refund":
         """
         Updates the refund that you specify by setting the values of the passed parameters. Any parameters that you don't provide remain unchanged.
@@ -820,7 +716,7 @@ class Refund(
 
     @classmethod
     def retrieve(
-        cls, id: str, **params: Unpack["Refund.RetrieveParams"]
+        cls, id: str, **params: Unpack["RefundRetrieveParams"]
     ) -> "Refund":
         """
         Retrieves the details of an existing refund.
@@ -831,7 +727,7 @@ class Refund(
 
     @classmethod
     async def retrieve_async(
-        cls, id: str, **params: Unpack["Refund.RetrieveParams"]
+        cls, id: str, **params: Unpack["RefundRetrieveParams"]
     ) -> "Refund":
         """
         Retrieves the details of an existing refund.
@@ -845,7 +741,7 @@ class Refund(
 
         @classmethod
         def _cls_expire(
-            cls, refund: str, **params: Unpack["Refund.ExpireParams"]
+            cls, refund: str, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -864,7 +760,7 @@ class Refund(
         @overload
         @staticmethod
         def expire(
-            refund: str, **params: Unpack["Refund.ExpireParams"]
+            refund: str, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -872,7 +768,7 @@ class Refund(
             ...
 
         @overload
-        def expire(self, **params: Unpack["Refund.ExpireParams"]) -> "Refund":
+        def expire(self, **params: Unpack["RefundExpireParams"]) -> "Refund":
             """
             Expire a refund with a status of requires_action.
             """
@@ -880,7 +776,7 @@ class Refund(
 
         @class_method_variant("_cls_expire")
         def expire(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Refund.ExpireParams"]
+            self, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -898,7 +794,7 @@ class Refund(
 
         @classmethod
         async def _cls_expire_async(
-            cls, refund: str, **params: Unpack["Refund.ExpireParams"]
+            cls, refund: str, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -917,7 +813,7 @@ class Refund(
         @overload
         @staticmethod
         async def expire_async(
-            refund: str, **params: Unpack["Refund.ExpireParams"]
+            refund: str, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -926,7 +822,7 @@ class Refund(
 
         @overload
         async def expire_async(
-            self, **params: Unpack["Refund.ExpireParams"]
+            self, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.
@@ -935,7 +831,7 @@ class Refund(
 
         @class_method_variant("_cls_expire_async")
         async def expire_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Refund.ExpireParams"]
+            self, **params: Unpack["RefundExpireParams"]
         ) -> "Refund":
             """
             Expire a refund with a status of requires_action.

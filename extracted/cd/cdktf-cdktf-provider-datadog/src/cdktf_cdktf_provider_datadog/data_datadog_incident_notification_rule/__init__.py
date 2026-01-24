@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_incident_notification_rule`
 
-Refer to the Terraform Registry for docs: [`data_datadog_incident_notification_rule`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule).
+Refer to the Terraform Registry for docs: [`data_datadog_incident_notification_rule`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogIncidentNotificationRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogIncidentNotificationRule.DataDatadogIncidentNotificationRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule datadog_incident_notification_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule datadog_incident_notification_rule}.'''
 
     def __init__(
         self,
@@ -61,12 +61,12 @@ class DataDatadogIncidentNotificationRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule datadog_incident_notification_rule} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule datadog_incident_notification_rule} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param id: The ID of the incident notification rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
+        :param id: The ID of the incident notification rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -106,7 +106,7 @@ class DataDatadogIncidentNotificationRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogIncidentNotificationRule to import.
-        :param import_from_id: The id of the existing DataDatadogIncidentNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogIncidentNotificationRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogIncidentNotificationRule to import is found.
         '''
         if __debug__:
@@ -427,8 +427,8 @@ class DataDatadogIncidentNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArg
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param id: The ID of the incident notification rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
+        :param id: The ID of the incident notification rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -531,7 +531,7 @@ class DataDatadogIncidentNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArg
     def id(self) -> builtins.str:
         '''The ID of the incident notification rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#id DataDatadogIncidentNotificationRule#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -546,7 +546,7 @@ class DataDatadogIncidentNotificationRuleConfig(_cdktf_9a9027ec.TerraformMetaArg
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataDatadogIncidentNotificationRuleConditions]]]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/incident_notification_rule#conditions DataDatadogIncidentNotificationRule#conditions}
         '''
         result = self._values.get("conditions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DataDatadogIncidentNotificationRuleConditions]]], result)

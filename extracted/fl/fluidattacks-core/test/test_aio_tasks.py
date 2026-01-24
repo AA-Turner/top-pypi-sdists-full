@@ -29,7 +29,7 @@ async def error_async_generator(
     """Create an async generator that raises an error."""
     for i, item in enumerate(items):
         if error_at is not None and i == error_at:
-            raise ValueError(f"Error at index {i}")
+            raise ValueError(f"Error at index {i}")  # noqa: EM102, TRY003
         yield item
 
 
@@ -183,7 +183,7 @@ async def test_merge_generators_cleanup_on_exception() -> None:
     async def failing_consumer() -> AsyncGenerator[Any, None]:
         async for item in merge_async_generators([async_generator([1, 2])], limit=1):
             if item == 1:
-                raise RuntimeError("Test exception")
+                raise RuntimeError("Test exception")  # noqa: EM101, TRY003
             yield item
 
     with pytest.raises(RuntimeError, match="Test exception"):

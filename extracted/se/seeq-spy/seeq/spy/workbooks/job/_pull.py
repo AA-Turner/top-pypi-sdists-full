@@ -10,7 +10,6 @@ import pandas as pd
 from seeq import spy
 from seeq.base import util
 from seeq.spy import _common
-from seeq.spy import _login
 from seeq.spy._session import Session
 from seeq.spy._status import Status
 
@@ -79,19 +78,22 @@ def pull(job_folder: str, workbooks_df: Union[pd.DataFrame, str], *, resume: boo
         Seeq servers at the same time or with different credentials.
 
     """
-    input_args = _common.validate_argument_types([
-        (job_folder, 'job_folder', str),
-        (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
-        (resume, 'resume', bool),
-        (include_referenced_workbooks, 'include_referenced_workbooks', bool),
-        (include_rendered_content, 'include_rendered_content', bool),
-        (errors, 'errors', str),
-        (quiet, 'quiet', bool),
-        (status, 'status', Status),
-        (session, 'session', Session)
-    ])
+    # Jobs always write the log file, even if the user doesn't want verbose
+    default_log_file = os.path.join(job_folder, 'pull_log.txt')
 
-    _login.validate_login(session, status)
+    function_name = 'spy.workbooks.job.pull'
+    input_args = Status.function_prologue(
+        session, status, function_name, [
+            (job_folder, 'job_folder', str),
+            (workbooks_df, 'workbooks_df', (pd.DataFrame, str)),
+            (resume, 'resume', bool),
+            (include_referenced_workbooks, 'include_referenced_workbooks', bool),
+            (include_rendered_content, 'include_rendered_content', bool),
+            (errors, 'errors', str),
+            (quiet, 'quiet', bool),
+            (status, 'status', Status),
+            (session, 'session', Session)
+        ], default_log_file=default_log_file)
 
     util.safe_makedirs(job_folder, exist_ok=True)
 
@@ -164,7 +166,7 @@ def pull(job_folder: str, workbooks_df: Union[pd.DataFrame, str], *, resume: boo
     results_df = status.df.copy()
 
     results_df_properties = types.SimpleNamespace(
-        func='spy.workbooks.job.pull',
+        func=function_name,
         kwargs=input_args,
         status=status)
 

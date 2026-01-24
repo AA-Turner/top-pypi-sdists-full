@@ -15,7 +15,6 @@ from .._impl import (
     ingest_workflow_api_GetExtractorJobStateResponse as GetExtractorJobStateResponse,
     ingest_workflow_api_IngestDataflashRequest as IngestDataflashRequest,
     ingest_workflow_api_IngestDataflashResponse as IngestDataflashResponse,
-    ingest_workflow_api_IngestInternalService as IngestInternalService,
     ingest_workflow_api_IngestMcapProtobufRequest as IngestMcapProtobufRequest,
     ingest_workflow_api_IngestMcapProtobufResponse as IngestMcapProtobufResponse,
     ingest_workflow_api_McapProtoChannels as McapProtoChannels,
@@ -56,6 +55,5 @@ __all__ = [
     'PresignedUrl',
     'TimeUnitSeconds',
     'ValidatedFileInput',
-    'IngestInternalService',
 ]
 

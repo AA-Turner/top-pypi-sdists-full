@@ -27,6 +27,7 @@ def bake_image(
     conda_packages: Optional[Dict[str, str]] = None,
     base_image: Optional[str] = None,
     logger: Optional[Callable[[str], Any]] = None,
+    fast_bakery_url: Optional[str] = None,
 ) -> FastBakeryApiResponse:
     """
     Bakes a Docker image with the specified dependencies.
@@ -39,6 +40,7 @@ def bake_image(
         conda_packages: Dictionary of Conda packages and versions
         base_image: Base Docker image to use
         logger: Optional logger function to output progress
+        fast_bakery_url: Optional FB URL
 
     Returns:
         FastBakeryApiResponse: The response from the bakery service
@@ -49,6 +51,13 @@ def bake_image(
     # Default logger if none provided
     if logger is None:
         logger = partial(print, file=sys.stderr)
+
+    if all([fast_bakery_url is None and FAST_BAKERY_URL is None]):
+        raise BakerException(
+            "Image Bakery endpoint missing. METAFLOW_FAST_BAKERY_URL environment/configuration variable not found."
+        )
+
+    fast_bakery_url = fast_bakery_url or FAST_BAKERY_URL
 
     # Thread lock for logging
     logger_lock = threading.Lock()
@@ -63,7 +72,7 @@ def bake_image(
         base_image=None,
     ):
         try:
-            bakery = FastBakery(url=FAST_BAKERY_URL)
+            bakery = FastBakery(url=fast_bakery_url)
             bakery._reset_payload()
             bakery.python_version(python)
             bakery.pypi_packages(pypi_packages)

@@ -132,7 +132,7 @@ class ApplicationScalingAction(
         application_scaling_action = cloudwatch_actions.ApplicationScalingAction(step_scaling_action)
     '''
 
-    def __init__(self, step_scaling_action: _StepScalingAction_d79ca2c9) -> None:
+    def __init__(self, step_scaling_action: "_StepScalingAction_d79ca2c9") -> None:
         '''
         :param step_scaling_action: -
         '''
@@ -144,9 +144,9 @@ class ApplicationScalingAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an ApplicationScaling StepScalingAction as an alarm action.
 
         :param _scope: -
@@ -156,7 +156,7 @@ class ApplicationScalingAction(
             type_hints = typing.get_type_hints(_typecheckingstub__74bb72262ab3b2a9141f8b8f1171cf0d9a0ba7d5f865b123acffaec5bfef51fd)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.implements(_IAlarmAction_922c5aa8)
@@ -180,7 +180,7 @@ class AutoScalingAction(
         auto_scaling_action = cloudwatch_actions.AutoScalingAction(step_scaling_action)
     '''
 
-    def __init__(self, step_scaling_action: _StepScalingAction_24d17483) -> None:
+    def __init__(self, step_scaling_action: "_StepScalingAction_24d17483") -> None:
         '''
         :param step_scaling_action: -
         '''
@@ -192,9 +192,9 @@ class AutoScalingAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an AutoScaling StepScalingAction as an alarm action.
 
         :param _scope: -
@@ -204,7 +204,7 @@ class AutoScalingAction(
             type_hints = typing.get_type_hints(_typecheckingstub__4cd3adde7a8331a2b783351a5b794ad83f7245f085799ed1b7e3d9deedcd8d03)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.implements(_IAlarmAction_922c5aa8)
@@ -238,9 +238,9 @@ class Ec2Action(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an EC2 action as an alarm action.
 
         :param _scope: -
@@ -250,7 +250,7 @@ class Ec2Action(
             type_hints = typing.get_type_hints(_typecheckingstub__617684dcf0b429d0176779c30669a734e5e356a2d0dbb98bf321e897c2cbdcd3)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_cloudwatch_actions.Ec2InstanceAction")
@@ -312,7 +312,7 @@ class LambdaAction(
 
     def __init__(
         self,
-        lambda_function: typing.Union[_IFunction_6adb0ab8, _IVersion_faf7234e, _IAlias_c8fe45f4],
+        lambda_function: typing.Union["_IFunction_6adb0ab8", "_IVersion_faf7234e", "_IAlias_c8fe45f4"],
         *,
         use_unique_permission_id: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -330,9 +330,9 @@ class LambdaAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
-        alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        scope: "_constructs_77d1e7e8.Construct",
+        alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use a Lambda action as an alarm action.
 
         :param scope: -
@@ -344,7 +344,7 @@ class LambdaAction(
             type_hints = typing.get_type_hints(_typecheckingstub__2856bb69373ffd5b6a7628782cc0fb8ab9fd20450269ca5c709a08e9bfac50d5)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument alarm", value=alarm, expected_type=type_hints["alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [scope, alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [scope, alarm]))
 
 
 @jsii.data_type(
@@ -477,7 +477,7 @@ class SnsAction(
         alarm.add_alarm_action(cw_actions.SnsAction(topic))
     '''
 
-    def __init__(self, topic: _ITopic_9eca4852) -> None:
+    def __init__(self, topic: "_ITopic_9eca4852") -> None:
         '''
         :param topic: -
         '''
@@ -489,9 +489,9 @@ class SnsAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an SNS topic as an alarm action.
 
         :param _scope: -
@@ -501,7 +501,7 @@ class SnsAction(
             type_hints = typing.get_type_hints(_typecheckingstub__02204ab9dd4d2adf853c731232a8cb824c41fb62dc79eae79e4e69b7e0e748eb)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.implements(_IAlarmAction_922c5aa8)
@@ -524,8 +524,8 @@ class SsmAction(
 
     def __init__(
         self,
-        severity: OpsItemSeverity,
-        category: typing.Optional[OpsItemCategory] = None,
+        severity: "OpsItemSeverity",
+        category: typing.Optional["OpsItemCategory"] = None,
     ) -> None:
         '''
         :param severity: -
@@ -540,9 +540,9 @@ class SsmAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an SSM OpsItem action as an alarm action.
 
         :param _scope: -
@@ -552,7 +552,7 @@ class SsmAction(
             type_hints = typing.get_type_hints(_typecheckingstub__01d8a7f674b7236375000e24e89aa7de87b7b73e1540d7b7a75318b36ba526fa)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 @jsii.implements(_IAlarmAction_922c5aa8)
@@ -585,9 +585,9 @@ class SsmIncidentAction(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
-        _alarm: _IAlarm_ff3eabc0,
-    ) -> _AlarmActionConfig_f831c655:
+        _scope: "_constructs_77d1e7e8.Construct",
+        _alarm: "_IAlarm_ff3eabc0",
+    ) -> "_AlarmActionConfig_f831c655":
         '''Returns an alarm action configuration to use an SSM Incident as an alarm action based on an Incident Manager Response Plan.
 
         :param _scope: -
@@ -597,7 +597,7 @@ class SsmIncidentAction(
             type_hints = typing.get_type_hints(_typecheckingstub__27baa9de2ba955e7124c3e624eb53ed6f9be430c6d188be64d2ef483e56fabf5)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
             check_type(argname="argument _alarm", value=_alarm, expected_type=type_hints["_alarm"])
-        return typing.cast(_AlarmActionConfig_f831c655, jsii.invoke(self, "bind", [_scope, _alarm]))
+        return typing.cast("_AlarmActionConfig_f831c655", jsii.invoke(self, "bind", [_scope, _alarm]))
 
 
 __all__ = [

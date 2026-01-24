@@ -14,12 +14,10 @@ from pypika_tortoise.functions import AggregateFunction, DistinctOptionFunction
 from pypika_tortoise.terms import (
     ArithmeticExpression,
     Criterion,
-)
-from pypika_tortoise.terms import Function as PypikaFunction
-from pypika_tortoise.terms import (
     Term,
     ValueWrapper,
 )
+from pypika_tortoise.terms import Function as PypikaFunction
 from pypika_tortoise.utils import format_alias_sql
 
 from tortoise.exceptions import FieldError, OperationalError
@@ -389,6 +387,7 @@ class Q:
         else:
             filter_info = model._meta.get_filter(key)
 
+        field_object = None
         if "table" in filter_info:
             # join the table
             join = (
@@ -407,7 +406,14 @@ class Q:
                 else field_object.to_db_value(value, model)
             )
         op = filter_info["operator"]
-        criterion = op(table[filter_info.get("source_field", filter_info["field"])], value)
+        term: Term = table[filter_info.get("source_field", filter_info["field"])]
+        if field_object is not None:
+            func = field_object.get_for_dialect(
+                model._meta.db.capabilities.dialect, "function_cast"
+            )
+            if func is not None:
+                term = func(field_object, term)
+        criterion = op(term, value)
         return criterion, join
 
     def _resolve_regular_kwarg(

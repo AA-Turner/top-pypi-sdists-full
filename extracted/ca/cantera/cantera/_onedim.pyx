@@ -3,6 +3,7 @@
 
 from .interrupts import no_op
 import warnings
+from os import get_terminal_size as _get_terminal_size
 import numpy as np
 
 from ._utils cimport stringify, pystr, anymap_to_py
@@ -85,6 +86,174 @@ cdef class Domain1D:
     def component_index(self, str name):
         """Index of the component with name 'name'"""
         return self.domain.componentIndex(stringify(name))
+
+    def _has_component(self, str name):
+        """Check whether `Domain1D` has component"""
+        return self.domain.hasComponent(stringify(name))
+
+    def info(self, keys=None, rows=10, width=None, display=True):
+        """
+        Display or return a concise summary of a `Domain1D`.
+
+        :param keys: List of components to be displayed; if `None`, all components are
+            considered.
+        :param rows: Maximum number of rendered rows.
+        :param width: Maximum width of rendered output.
+        :param display: If `True`, display result (default), otherwise, return a string.
+
+        .. versionadded:: 3.2
+
+        .. todo::
+
+            Consolidate with `Sim1D.show`
+        """
+        cdef vector[string] cxx_keys
+        if keys is not None:
+            for key in keys:
+                cxx_keys.push_back(stringify(key))
+        if width is None:
+            try:
+                width = _get_terminal_size().columns
+            except OSError:
+                width = 100
+
+        ret = pystr(self.domain.info(cxx_keys, rows, width))
+        if not display:
+            return ret
+        print(ret)
+
+    def update_state(self, int loc):
+        """
+        Set the state of the `Solution` object used for calculations to the temperature
+        and composition at the point with index ``point``.
+        """
+        self.domain.updateState(loc);
+
+    @property
+    def grid(self):
+        """The grid for this domain."""
+        cdef vector[double] grid_vec = self.domain.grid()
+        return np.asarray(grid_vec)
+
+    @grid.setter
+    def grid(self, grid):
+        cdef vector[double] grid_vec
+        for g in grid:
+            grid_vec.push_back(g)
+        self.domain.setupGrid(grid_vec)
+
+    def value(self, str component):
+        """
+        Component value at a boundary.
+
+        :param component:
+            component name
+
+        >>> t = b.value("T")
+
+        .. versionadded:: 3.2
+        """
+        return self.domain.value(stringify(component))
+
+    def set_value(self, str component, value):
+        """
+        Set the value of one component at a boundary.
+
+        :param component:
+            component name
+        :param value:
+            numerical value
+
+        >>> b.set("T", 500.)
+
+        .. versionadded:: 3.2
+        """
+        return self.domain.setValue(stringify(component), value)
+
+    def values(self, str component):
+        """
+        Retrieve spatial profile of a component.
+
+        :param component:
+            component name
+
+        >>> T = d.values("T")
+
+        .. versionadded:: 3.2
+        """
+        cdef vector[double] values = self.domain.values(stringify(component))
+        return np.asarray(values)
+
+    def set_values(self, str component, values):
+        """
+        Specify spatial profile of a component.
+
+        :param component:
+            component name
+        :param values:
+            array containing values
+
+        >>> d.set_values("T", T)
+
+        .. versionadded:: 3.2
+        """
+        cdef vector[double] values_vec
+        for v in values:
+            values_vec.push_back(v)
+        self.domain.setValues(stringify(component), values)
+
+    def residuals(self, str component):
+        """
+        Retrieve internal work array value at one point. After calling `Sim1D.eval`,
+        this array contains the values of the residual function.
+
+        :param component:
+            component name
+
+        >>> T = d.residuals("T")
+
+        .. versionadded:: 3.2
+        """
+        cdef vector[double] values = self.domain.residuals(stringify(component))
+        return np.asarray(values)
+
+    def set_profile(self, component, positions, values):
+        """
+        Set an initial estimate for a profile of one component in one domain.
+
+        :param component:
+            component name
+        :param positions:
+            sequence of relative positions, from 0 on the left to 1 on the right
+        :param values:
+            sequence of values at the relative positions specified in ``positions``
+
+        >>> d.set_profile('T', [0.0, 0.2, 1.0], [400.0, 800.0, 1500.0])
+
+        .. versionadded:: 3.2
+        """
+        cdef vector[double] pos_vec, val_vec
+        for p in positions:
+            pos_vec.push_back(p)
+        for v in values:
+            val_vec.push_back(v)
+
+        self.domain.setProfile(stringify(component), pos_vec, val_vec)
+
+    def set_flat_profile(self, component, value):
+        """
+        Set a flat profile for a component.
+
+        :param component:
+            component name
+        :param v:
+            value
+
+        >>> d.set_flat_profile('u', -3.0)
+
+        .. versionadded:: 3.2
+        """
+        self.domain.setFlatProfile(stringify(component), value)
 
     def set_bounds(self, *, default=None, Y=None, **kwargs):
         """
@@ -252,20 +421,6 @@ cdef class Domain1D:
         else:
             return self.domain.transient_atol(self.component_index(component))
 
-    property grid:
-        """ The grid for this domain """
-        def __get__(self):
-            cdef np.ndarray[np.double_t, ndim=1] grid = np.empty(self.n_points)
-            cdef int i
-            for i in range(self.n_points):
-                grid[i] = self.domain.z(i)
-            return grid
-
-        def __set__(self, grid):
-            cdef np.ndarray[np.double_t, ndim=1] data = \
-                np.ascontiguousarray(grid, dtype=np.double)
-            self.domain.setupGrid(len(data), &data[0])
-
     property name:
         """ The name / id of this domain """
         def __get__(self):
@@ -323,7 +478,7 @@ cdef class Boundary1D(Domain1D):
             self.boundary.setTemperature(T)
 
     property mdot:
-        """ The mass flow rate per unit area [kg/s/m^2] """
+        """The mass flow rate per unit area [kg/s/m²]"""
         def __get__(self):
             return self.boundary.mdot()
         def __set__(self, mdot):
@@ -456,12 +611,92 @@ cdef class FlowBase(Domain1D):
         self.P = self.gas.P
         self.flow.solveEnergyEqn()
 
-    property P:
-        """ Pressure [Pa] """
-        def __get__(self):
-            return self.flow.pressure()
-        def __set__(self, P):
-            self.flow.setPressure(P)
+    def __getattr__(self, name):
+        # used to access fields by alias rather than canonical names;
+        # also provides access to species that are valid Python identifiers
+        # (replicates SolutionArray behavior)
+        component_name = name
+        if (not self._has_component(name) and
+            self._has_component(name.replace("_", "-"))):
+            component_name = name.replace("_", "-")
+
+        if self._has_component(component_name):
+            return self.values(component_name)
+
+        raise AttributeError(
+            f"{self.__class__.__name__!r} object has no attribute {name!r}")
+
+    @property
+    def P(self):
+        """Pressure [Pa]"""
+        return self.flow.pressure()
+
+    @P.setter
+    def P(self, P):
+        self.flow.setPressure(P)
+
+    @property
+    def T(self):
+        """
+        Array containing the temperature [K] at each grid point.
+
+        .. versionadded:: 3.2
+        """
+        return self.values("T")
+
+    @property
+    def velocity(self):
+        """
+        Array containing the velocity [m/s] normal to the flame at each point.
+
+        .. versionadded:: 3.2
+        """
+        return self.values("velocity")
+
+    @property
+    def spread_rate(self):
+        """
+        Array containing the tangential velocity gradient [1/s] (that is, radial
+        velocity divided by radius) at each point. Note: This value is named
+        ``spreadRate`` in the C++ code and is only defined for axisymmetric flows.
+
+        .. versionadded:: 3.2
+        """
+        return self.values("spread_rate")
+
+    @property
+    def radial_pressure_gradient(self):
+        """
+        Array containing the radial pressure gradient (1/r)(dP/dr) [N/m⁴] at
+        each point. Note: This value is named ``Lambda`` in the C++ code and is only
+        defined for axisymmetric flows.
+
+        .. versionadded:: 3.2
+        """
+        return self.values("Lambda")
+
+    @property
+    def electric_field(self):
+        """
+        Array containing the electric field strength at each point.
+        Note: This value is named ``eField`` in the C++ code and is only defined if
+        the transport model is ``ionized-gas``.
+
+        .. versionadded:: 3.2
+        """
+        return self.values("eField")
+
+    @property
+    def oxidizer_velocity(self):
+        """
+        Array containing the oxidizer velocity (right boundary velocity) [m/s] at
+        each point.
+        Note: This value is named ``Uo`` in the C++ code and is only defined when using
+        two-point control.
+
+        .. versionchanged:: 3.2
+        """
+        return self.values("Uo")
 
     property transport_model:
         """
@@ -497,8 +732,8 @@ cdef class FlowBase(Domain1D):
     property soret_enabled:
         """
         Determines whether or not to include diffusive mass fluxes due to the
-        Soret effect. Enabling this option works only when using the
-        multicomponent transport model.
+        Soret effect. Enabling this option only works for multicomponent and
+        mixture-averaged diffusion models.
         """
         def __get__(self):
             return self.flow.withSoret()
@@ -627,6 +862,11 @@ cdef class FlowBase(Domain1D):
         - ``stage == 1``: the fluxes of charged species are set to zero
         - ``stage == 2``: the electric field equation is solved, and the drift flux for
           ionized species is evaluated
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Use the `electric_field_enabled` property
+            instead.
         """
         return self.flow.getSolvingStage()
 
@@ -640,7 +880,7 @@ cdef class FlowBase(Domain1D):
         Determines whether or not to solve the electric field equation (only relevant
         if transport model is ``ionized-gas``).
         """
-        return self.flow.doElectricField(0)
+        return self.flow.doElectricField()
 
     @electric_field_enabled.setter
     def electric_field_enabled(self, enable):
@@ -729,7 +969,7 @@ cdef class AxisymmetricFlow(FlowBase):
     It may be shown that if the boundary conditions on these variables are independent
     of radius, then a similarity solution to the exact governing equations exists in
     which these variables are all independent of radius. This solution holds only in
-    the low-Mach-number limit, in which case :math:`(dP/dz) = 0`, and :math:`lambda` is
+    the low-Mach-number limit, in which case :math:`(dP/dz) = 0`, and :math:`\Lambda` is
     a constant. (Lambda is treated as a spatially-varying solution variable for
     numerical reasons, but in the final solution it is always independent of :math:`z`.)
     As implemented here, the governing equations assume an ideal gas mixture. Arbitrary
@@ -747,16 +987,14 @@ cdef class Sim1D:
     Domains are ordered left-to-right, with domain number 0 at the left.
     """
 
-    def __cinit__(self, *args, **kwargs):
-        self.sim = NULL
-
     def __init__(self, domains, *args, **kwargs):
         cdef vector[shared_ptr[CxxDomain1D]] cxx_domains
         cdef Domain1D d
         for d in domains:
             cxx_domains.push_back(d._domain)
 
-        self.sim = new CxxSim1D(cxx_domains)
+        self._sim = CxxNewSim1D(cxx_domains)
+        self.sim = self._sim.get()
         self.domains = tuple(domains)
         self.set_interrupt(no_op)
         self._initialized = False
@@ -769,7 +1007,16 @@ cdef class Sim1D:
 
         :param domain: Index of domain within `Sim1D.domains` list; the default
             is to return the phase of the parent `Sim1D` object.
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Contents should be accessed via
+            `Domain1D.phase` properties of domain objects instead.
         """
+        warnings.warn(
+            "To be removed after Cantera 3.2. Contents should be accessed via "
+            "property 'phase' of domain objects instead.",
+            DeprecationWarning)
         if domain is None:
             return self.gas
 
@@ -827,24 +1074,14 @@ cdef class Sim1D:
 
     def domain_index(self, dom):
         """
-        Get the index of a domain, specified either by name or as a Domain1D
-        object.
+        Get the index of a domain, specified either by name or as a Domain1D object.
         """
         if isinstance(dom, Domain1D):
-            idom = self.domains.index(dom)
-        elif isinstance(dom, int):
-            idom = dom
-        else:
-            idom = None
-            for i,d in enumerate(self.domains):
-                if d.name == dom:
-                    idom = i
-                    dom = d
-            if idom is None:
-                raise KeyError('Domain named "{0}" not found.'.format(dom))
-
-        assert 0 <= idom < len(self.domains)
-        return idom
+            return self.domains.index(dom)
+        if isinstance(dom, (str, bytes)):
+            return self.sim.domainIndex(stringify(dom))
+        assert 0 <= dom < len(self.domains)
+        return dom
 
     def _get_indices(self, dom, comp):
         idom = self.domain_index(dom)
@@ -870,6 +1107,11 @@ cdef class Sim1D:
             grid point number within ``domain`` starting with 0 on the left
 
         >>> t = s.value('flow', 'T', 6)
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.value` or
+            `Domain1D.getValues`.
         """
         dom, comp = self._get_indices(domain, component)
         return self.sim.value(dom, comp, point)
@@ -890,6 +1132,11 @@ cdef class Sim1D:
         >>> s.set(d, 3, 5, 6.7)
         >>> s.set(1, 0, 5, 6.7)
         >>> s.set('flow', 'T', 5, 500)
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.setValue` or
+            `Domain1D.setValues`.
         """
         dom, comp = self._get_indices(domain, component)
         self.sim.setValue(dom, comp, point, value)
@@ -898,7 +1145,7 @@ cdef class Sim1D:
         """
         Evaluate the governing equations using the current solution estimate,
         storing the residual in the array which is accessible with the
-        `work_value` function.
+        `Domain1D.residuals` function.
 
         :param rdt:
            Reciprocal of the time-step
@@ -918,6 +1165,10 @@ cdef class Sim1D:
             grid point number in the domain, starting with zero at the left
 
         >>> t = s.value(flow, 'T', 6)
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.residuals`.
         """
         dom, comp = self._get_indices(domain, component)
         return self.sim.workValue(dom, comp, point)
@@ -932,7 +1183,13 @@ cdef class Sim1D:
             component name or index
 
         >>> T = s.profile(flow, 'T')
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.values`.
         """
+        warnings.warn("To be removed after Cantera 3.2. Replaceable by "
+                      "'Domain1D.values'.", DeprecationWarning)
         idom, kcomp = self._get_indices(domain, component)
         dom = self.domains[idom]
         cdef int j
@@ -955,6 +1212,10 @@ cdef class Sim1D:
             sequence of values at the relative positions specified in ``positions``
 
         >>> s.set_profile(d, 'T', [0.0, 0.2, 1.0], [400.0, 800.0, 1500.0])
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.set_profile`.
         """
         dom, comp = self._get_indices(domain, component)
 
@@ -977,12 +1238,22 @@ cdef class Sim1D:
             value
 
         >>> s.set_flat_profile(d, 'u', -3.0)
+
+        .. deprecated:: 3.2
+
+            To be removed after Cantera 3.2. Replaceable by `Domain1D.set_flat_profile`.
         """
         dom, comp = self._get_indices(domain, component)
         self.sim.setFlatProfile(dom, comp, value)
 
     def show(self):
-        """ print the current solution. """
+        """
+        Print the current solution.
+
+        .. todo::
+
+            Consolidate with `Domain1D.info`
+        """
         if not self._initialized:
             self.set_initial_guess()
         self.sim.show()
@@ -1011,6 +1282,33 @@ cdef class Sim1D:
             return self.sim.maxTimeStepCount()
         def __set__(self, nmax):
             self.sim.setMaxTimeStepCount(nmax)
+
+    def set_jacobian_perturbation(self, relative, absolute, threshold):
+        """
+        Configure perturbations used to evaluate finite difference Jacobian
+
+        :param relative:
+            Relative perturbation (multiplied by the absolute value of each component).
+            Default ``1.0e-5``.
+        :param absolute:
+            Absolute perturbation (independent of component value). Default ``1.0e-10``.
+        :param threshold:
+            Threshold below which to exclude elements from the Jacobian. Default ``0.0``.
+        """
+        self.sim.setJacobianPerturbation(relative, absolute, threshold)
+
+    @property
+    def linear_solver(self):
+        """
+        Get/Set the the linear solver used to hold the Jacobian matrix and solve linear
+        systems as part of each Newton iteration. The default is a banded, direct
+        solver. See :ref:`sec-python-jacobians` for available solvers.
+        """
+        return SystemJacobian.wrap(self.sim.linearSolver())
+
+    @linear_solver.setter
+    def linear_solver(self, SystemJacobian precon):
+        self.sim.setLinearSolver(precon._base)
 
     def set_initial_guess(self, *args, **kwargs):
         """
@@ -1111,7 +1409,7 @@ cdef class Sim1D:
 
         # 'data' entry is used for restart
         data = self._initial_guess_kwargs.get('data')
-        if data:
+        if data is not None:
            nPoints = [len(flow_domains[0].grid)]
         else:
            nPoints = [len(flow_domains[0].grid), 12, 24, 48]
@@ -1124,7 +1422,7 @@ cdef class Sim1D:
                 if N != len(D.grid):
                     D.grid = np.linspace(zmin[i], zmax[i], N)
 
-            if not data:
+            if data is None:
                 self.set_initial_guess(*self._initial_guess_args,
                                        **self._initial_guess_kwargs)
 
@@ -1575,6 +1873,3 @@ cdef class Sim1D:
         """ Get the maximum number of grid points in the specified domain. """
         idom = self.domain_index(domain)
         return self.sim.maxGridPoints(idom)
-
-    def __dealloc__(self):
-        del self.sim

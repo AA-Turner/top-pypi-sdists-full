@@ -9,6 +9,8 @@ __all__ = ["TriggersTypeRetrieveResponse", "Toolkit"]
 
 
 class Toolkit(BaseModel):
+    """Information about the toolkit that provides this trigger"""
+
     logo: str
     """Logo of the toolkit"""
 
@@ -38,8 +40,14 @@ class TriggersTypeRetrieveResponse(BaseModel):
     slug: str
     """Unique identifier for the trigger type"""
 
+    status: str
+    """Lifecycle status of the trigger"""
+
     toolkit: Toolkit
     """Information about the toolkit that provides this trigger"""
 
     type: Literal["webhook", "poll"]
     """The trigger mechanism - either webhook (event-based) or poll (scheduled check)"""
+
+    version: str
+    """Version of the trigger type"""

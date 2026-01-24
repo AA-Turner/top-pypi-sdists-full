@@ -496,6 +496,10 @@ if not MYPY:
         """
         Use this to override the default service endpoint URL
         """
+        arczonalshift: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
         athena: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
@@ -1120,10 +1124,6 @@ if not MYPY:
         """
         Use this to override the default service endpoint URL
         """
-        lookoutmetrics: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Use this to override the default service endpoint URL
-        """
         m2: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
@@ -1184,6 +1184,10 @@ if not MYPY:
         """
         Use this to override the default service endpoint URL
         """
+        mwaaserverless: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
         neptune: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
@@ -1193,6 +1197,10 @@ if not MYPY:
         Use this to override the default service endpoint URL
         """
         networkfirewall: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
+        networkflowmonitor: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
         """
@@ -1213,6 +1221,10 @@ if not MYPY:
         Use this to override the default service endpoint URL
         """
         oam: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
+        observabilityadmin: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
         """
@@ -1309,6 +1321,14 @@ if not MYPY:
         Use this to override the default service endpoint URL
         """
         rds: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
+        rdsdata: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
+        rdsdataservice: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
         """
@@ -1592,6 +1612,10 @@ if not MYPY:
         """
         Use this to override the default service endpoint URL
         """
+        workmail: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Use this to override the default service endpoint URL
+        """
         workspaces: NotRequired[pulumi.Input[_builtins.str]]
         """
         Use this to override the default service endpoint URL
@@ -1634,6 +1658,7 @@ class ProviderEndpointArgs:
                  appstream: Optional[pulumi.Input[_builtins.str]] = None,
                  appsync: Optional[pulumi.Input[_builtins.str]] = None,
                  arcregionswitch: Optional[pulumi.Input[_builtins.str]] = None,
+                 arczonalshift: Optional[pulumi.Input[_builtins.str]] = None,
                  athena: Optional[pulumi.Input[_builtins.str]] = None,
                  auditmanager: Optional[pulumi.Input[_builtins.str]] = None,
                  autoscaling: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1790,7 +1815,6 @@ class ProviderEndpointArgs:
                  location: Optional[pulumi.Input[_builtins.str]] = None,
                  locationservice: Optional[pulumi.Input[_builtins.str]] = None,
                  logs: Optional[pulumi.Input[_builtins.str]] = None,
-                 lookoutmetrics: Optional[pulumi.Input[_builtins.str]] = None,
                  m2: Optional[pulumi.Input[_builtins.str]] = None,
                  macie2: Optional[pulumi.Input[_builtins.str]] = None,
                  managedgrafana: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1806,14 +1830,17 @@ class ProviderEndpointArgs:
                  mq: Optional[pulumi.Input[_builtins.str]] = None,
                  msk: Optional[pulumi.Input[_builtins.str]] = None,
                  mwaa: Optional[pulumi.Input[_builtins.str]] = None,
+                 mwaaserverless: Optional[pulumi.Input[_builtins.str]] = None,
                  neptune: Optional[pulumi.Input[_builtins.str]] = None,
                  neptunegraph: Optional[pulumi.Input[_builtins.str]] = None,
                  networkfirewall: Optional[pulumi.Input[_builtins.str]] = None,
+                 networkflowmonitor: Optional[pulumi.Input[_builtins.str]] = None,
                  networkmanager: Optional[pulumi.Input[_builtins.str]] = None,
                  networkmonitor: Optional[pulumi.Input[_builtins.str]] = None,
                  notifications: Optional[pulumi.Input[_builtins.str]] = None,
                  notificationscontacts: Optional[pulumi.Input[_builtins.str]] = None,
                  oam: Optional[pulumi.Input[_builtins.str]] = None,
+                 observabilityadmin: Optional[pulumi.Input[_builtins.str]] = None,
                  odb: Optional[pulumi.Input[_builtins.str]] = None,
                  opensearch: Optional[pulumi.Input[_builtins.str]] = None,
                  opensearchingestion: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1838,6 +1865,8 @@ class ProviderEndpointArgs:
                  ram: Optional[pulumi.Input[_builtins.str]] = None,
                  rbin: Optional[pulumi.Input[_builtins.str]] = None,
                  rds: Optional[pulumi.Input[_builtins.str]] = None,
+                 rdsdata: Optional[pulumi.Input[_builtins.str]] = None,
+                 rdsdataservice: Optional[pulumi.Input[_builtins.str]] = None,
                  recyclebin: Optional[pulumi.Input[_builtins.str]] = None,
                  redshift: Optional[pulumi.Input[_builtins.str]] = None,
                  redshiftdata: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1908,6 +1937,7 @@ class ProviderEndpointArgs:
                  wafregional: Optional[pulumi.Input[_builtins.str]] = None,
                  wafv2: Optional[pulumi.Input[_builtins.str]] = None,
                  wellarchitected: Optional[pulumi.Input[_builtins.str]] = None,
+                 workmail: Optional[pulumi.Input[_builtins.str]] = None,
                  workspaces: Optional[pulumi.Input[_builtins.str]] = None,
                  workspacesweb: Optional[pulumi.Input[_builtins.str]] = None,
                  xray: Optional[pulumi.Input[_builtins.str]] = None):
@@ -1936,6 +1966,7 @@ class ProviderEndpointArgs:
         :param pulumi.Input[_builtins.str] appstream: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] appsync: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] arcregionswitch: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] arczonalshift: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] athena: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] auditmanager: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] autoscaling: Use this to override the default service endpoint URL
@@ -2092,7 +2123,6 @@ class ProviderEndpointArgs:
         :param pulumi.Input[_builtins.str] location: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] locationservice: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] logs: Use this to override the default service endpoint URL
-        :param pulumi.Input[_builtins.str] lookoutmetrics: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] m2: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] macie2: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] managedgrafana: Use this to override the default service endpoint URL
@@ -2108,14 +2138,17 @@ class ProviderEndpointArgs:
         :param pulumi.Input[_builtins.str] mq: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] msk: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] mwaa: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] mwaaserverless: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] neptune: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] neptunegraph: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] networkfirewall: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] networkflowmonitor: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] networkmanager: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] networkmonitor: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] notifications: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] notificationscontacts: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] oam: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] observabilityadmin: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] odb: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] opensearch: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] opensearchingestion: Use this to override the default service endpoint URL
@@ -2140,6 +2173,8 @@ class ProviderEndpointArgs:
         :param pulumi.Input[_builtins.str] ram: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] rbin: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] rds: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] rdsdata: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] rdsdataservice: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] recyclebin: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] redshift: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] redshiftdata: Use this to override the default service endpoint URL
@@ -2210,6 +2245,7 @@ class ProviderEndpointArgs:
         :param pulumi.Input[_builtins.str] wafregional: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] wafv2: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] wellarchitected: Use this to override the default service endpoint URL
+        :param pulumi.Input[_builtins.str] workmail: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] workspaces: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] workspacesweb: Use this to override the default service endpoint URL
         :param pulumi.Input[_builtins.str] xray: Use this to override the default service endpoint URL
@@ -2262,6 +2298,8 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "appsync", appsync)
         if arcregionswitch is not None:
             pulumi.set(__self__, "arcregionswitch", arcregionswitch)
+        if arczonalshift is not None:
+            pulumi.set(__self__, "arczonalshift", arczonalshift)
         if athena is not None:
             pulumi.set(__self__, "athena", athena)
         if auditmanager is not None:
@@ -2574,8 +2612,6 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "locationservice", locationservice)
         if logs is not None:
             pulumi.set(__self__, "logs", logs)
-        if lookoutmetrics is not None:
-            pulumi.set(__self__, "lookoutmetrics", lookoutmetrics)
         if m2 is not None:
             pulumi.set(__self__, "m2", m2)
         if macie2 is not None:
@@ -2606,12 +2642,16 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "msk", msk)
         if mwaa is not None:
             pulumi.set(__self__, "mwaa", mwaa)
+        if mwaaserverless is not None:
+            pulumi.set(__self__, "mwaaserverless", mwaaserverless)
         if neptune is not None:
             pulumi.set(__self__, "neptune", neptune)
         if neptunegraph is not None:
             pulumi.set(__self__, "neptunegraph", neptunegraph)
         if networkfirewall is not None:
             pulumi.set(__self__, "networkfirewall", networkfirewall)
+        if networkflowmonitor is not None:
+            pulumi.set(__self__, "networkflowmonitor", networkflowmonitor)
         if networkmanager is not None:
             pulumi.set(__self__, "networkmanager", networkmanager)
         if networkmonitor is not None:
@@ -2622,6 +2662,8 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "notificationscontacts", notificationscontacts)
         if oam is not None:
             pulumi.set(__self__, "oam", oam)
+        if observabilityadmin is not None:
+            pulumi.set(__self__, "observabilityadmin", observabilityadmin)
         if odb is not None:
             pulumi.set(__self__, "odb", odb)
         if opensearch is not None:
@@ -2670,6 +2712,10 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "rbin", rbin)
         if rds is not None:
             pulumi.set(__self__, "rds", rds)
+        if rdsdata is not None:
+            pulumi.set(__self__, "rdsdata", rdsdata)
+        if rdsdataservice is not None:
+            pulumi.set(__self__, "rdsdataservice", rdsdataservice)
         if recyclebin is not None:
             pulumi.set(__self__, "recyclebin", recyclebin)
         if redshift is not None:
@@ -2810,6 +2856,8 @@ class ProviderEndpointArgs:
             pulumi.set(__self__, "wafv2", wafv2)
         if wellarchitected is not None:
             pulumi.set(__self__, "wellarchitected", wellarchitected)
+        if workmail is not None:
+            pulumi.set(__self__, "workmail", workmail)
         if workspaces is not None:
             pulumi.set(__self__, "workspaces", workspaces)
         if workspacesweb is not None:
@@ -3104,6 +3152,18 @@ class ProviderEndpointArgs:
     @arcregionswitch.setter
     def arcregionswitch(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "arcregionswitch", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def arczonalshift(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "arczonalshift")
+
+    @arczonalshift.setter
+    def arczonalshift(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "arczonalshift", value)
 
     @_builtins.property
     @pulumi.getter
@@ -4979,18 +5039,6 @@ class ProviderEndpointArgs:
 
     @_builtins.property
     @pulumi.getter
-    def lookoutmetrics(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        Use this to override the default service endpoint URL
-        """
-        return pulumi.get(self, "lookoutmetrics")
-
-    @lookoutmetrics.setter
-    def lookoutmetrics(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "lookoutmetrics", value)
-
-    @_builtins.property
-    @pulumi.getter
     def m2(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Use this to override the default service endpoint URL
@@ -5171,6 +5219,18 @@ class ProviderEndpointArgs:
 
     @_builtins.property
     @pulumi.getter
+    def mwaaserverless(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "mwaaserverless")
+
+    @mwaaserverless.setter
+    def mwaaserverless(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "mwaaserverless", value)
+
+    @_builtins.property
+    @pulumi.getter
     def neptune(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Use this to override the default service endpoint URL
@@ -5204,6 +5264,18 @@ class ProviderEndpointArgs:
     @networkfirewall.setter
     def networkfirewall(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "networkfirewall", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def networkflowmonitor(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "networkflowmonitor")
+
+    @networkflowmonitor.setter
+    def networkflowmonitor(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "networkflowmonitor", value)
 
     @_builtins.property
     @pulumi.getter
@@ -5264,6 +5336,18 @@ class ProviderEndpointArgs:
     @oam.setter
     def oam(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "oam", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def observabilityadmin(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "observabilityadmin")
+
+    @observabilityadmin.setter
+    def observabilityadmin(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "observabilityadmin", value)
 
     @_builtins.property
     @pulumi.getter
@@ -5552,6 +5636,30 @@ class ProviderEndpointArgs:
     @rds.setter
     def rds(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "rds", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rdsdata(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "rdsdata")
+
+    @rdsdata.setter
+    def rdsdata(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "rdsdata", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def rdsdataservice(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "rdsdataservice")
+
+    @rdsdataservice.setter
+    def rdsdataservice(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "rdsdataservice", value)
 
     @_builtins.property
     @pulumi.getter
@@ -6392,6 +6500,18 @@ class ProviderEndpointArgs:
     @wellarchitected.setter
     def wellarchitected(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "wellarchitected", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def workmail(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Use this to override the default service endpoint URL
+        """
+        return pulumi.get(self, "workmail")
+
+    @workmail.setter
+    def workmail(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "workmail", value)
 
     @_builtins.property
     @pulumi.getter

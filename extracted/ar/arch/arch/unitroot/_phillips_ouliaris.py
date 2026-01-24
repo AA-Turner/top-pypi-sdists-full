@@ -1,4 +1,5 @@
-from typing import Optional, cast
+from typing import cast
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -7,8 +8,8 @@ from statsmodels.iolib.summary import Summary
 from statsmodels.iolib.table import SimpleTable
 from statsmodels.regression.linear_model import RegressionResults
 
+from arch._typing import ArrayLike1D, ArrayLike2D, Literal, UnitRootTrend
 from arch.covariance.kernel import CovarianceEstimator
-from arch.typing import ArrayLike1D, ArrayLike2D, Literal, UnitRootTrend
 from arch.unitroot._shared import (
     KERNEL_ERR,
     KERNEL_ESTIMATORS,
@@ -40,7 +41,7 @@ def _po_ptests(
     test_type: Literal["Pu", "Pz"],
     trend: UnitRootTrend,
     kernel: str,
-    bandwidth: Optional[int],
+    bandwidth: int | None,
     force_int: bool,
 ) -> "PhillipsOuliarisTestResults":
     nobs = z.shape[0]
@@ -92,7 +93,7 @@ def _po_ztests(
     test_type: Literal["Za", "Zt"],
     trend: UnitRootTrend,
     kernel: str,
-    bandwidth: Optional[int],
+    bandwidth: int | None,
     force_int: bool,
 ) -> "PhillipsOuliarisTestResults":
     # Za and Zt tests
@@ -137,7 +138,7 @@ def phillips_ouliaris(
     *,
     test_type: Literal["Za", "Zt", "Pu", "Pz"] = "Zt",
     kernel: str = "bartlett",
-    bandwidth: Optional[int] = None,
+    bandwidth: int | None = None,
     force_int: bool = False,
 ) -> "PhillipsOuliarisTestResults":
     r"""
@@ -292,7 +293,7 @@ def phillips_ouliaris(
         return _po_ptests(
             z,
             xsection,
-            cast(Literal["Pu", "Pz"], test_type),
+            cast("Literal['Pu', 'Pz']", test_type),
             trend,
             kernel,
             bandwidth,
@@ -301,7 +302,7 @@ def phillips_ouliaris(
     return _po_ztests(
         z,
         xsection,
-        cast(Literal["Za", "Zt"], test_type),
+        cast("Literal['Za', 'Zt']", test_type),
         trend,
         kernel,
         bandwidth,
@@ -319,9 +320,9 @@ class PhillipsOuliarisTestResults(ResidualCointegrationTestResult):
         alternative: str = "Cointegration",
         trend: str = "c",
         order: int = 2,
-        xsection: Optional[RegressionResults] = None,
+        xsection: RegressionResults | None = None,
         test_type: str = "Za",
-        kernel_est: Optional[CovarianceEstimator] = None,
+        kernel_est: CovarianceEstimator | None = None,
         rho: float = 0.0,
     ) -> None:
         super().__init__(
@@ -440,13 +441,13 @@ def phillips_ouliaris_cv(
     tbl = CV_PARAMETERS[key]
     min_size = CV_TAU_MIN[key]
     if nobs < min_size:
-        import warnings
 
         warnings.warn(
             "The sample size is smaller than the smallest sample size used "
             "to construct the critical value tables. Interpret test "
             "results with caution.",
             CriticalValueWarning,
+            stacklevel=2,
         )
 
     crit_vals = {}

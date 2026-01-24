@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas_market_calendars
-Version: 5.1.1
+Version: 5.2.4
 Summary: Market and exchange trading calendars for pandas
 Author-email: Ryan Sheftel <rsheftel@alumni.upenn.edu>
 License: MIT
@@ -20,20 +20,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: pandas>=1.1
-Requires-Dist: tzdata
-Requires-Dist: python-dateutil
 Requires-Dist: exchange-calendars>=3.3
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: twine; extra == "dev"
+Requires-Dist: pandas>=1.1
 Dynamic: license-file
 
 pandas_market_calendars
@@ -187,6 +180,8 @@ value and correctness the more eyes are on it.
 To add new functionality please include tests which are in standard pytest format. 
 
 Use pytest to run the test suite.
+
+Use black for formatting.
 
 For complete information on contributing see CONTRIBUTING.md_
 

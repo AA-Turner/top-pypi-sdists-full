@@ -2878,6 +2878,29 @@ class WedataClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeLineageInfo(self, request):
+        r"""通用血缘查询接口
+
+        :param request: Request instance for DescribeLineageInfo.
+        :type request: :class:`tencentcloud.wedata.v20210820.models.DescribeLineageInfoRequest`
+        :rtype: :class:`tencentcloud.wedata.v20210820.models.DescribeLineageInfoResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeLineageInfo", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeLineageInfoResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeManualTriggerRecordPage(self, request):
         r"""查询手动任务触发记录
 
@@ -3339,7 +3362,7 @@ class WedataClient(AbstractClient):
 
 
     def DescribeReportTaskDetail(self, request):
-        r"""查询上报任务详情
+        r"""查询上报任务详情，注意：任务执行完后，任务详情上报存在10分钟的延迟，使用接口查询任务详情时需等待任务运行完10分钟后查询
 
         :param request: Request instance for DescribeReportTaskDetail.
         :type request: :class:`tencentcloud.wedata.v20210820.models.DescribeReportTaskDetailRequest`
@@ -4321,6 +4344,29 @@ class WedataClient(AbstractClient):
             body = self.call("DescribeTaskDetailDs", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeTaskDetailDsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeTaskInstancesStatus(self, request):
+        r"""分组获取编排空间调试任务实例状态信息
+
+        :param request: Request instance for DescribeTaskInstancesStatus.
+        :type request: :class:`tencentcloud.wedata.v20210820.models.DescribeTaskInstancesStatusRequest`
+        :rtype: :class:`tencentcloud.wedata.v20210820.models.DescribeTaskInstancesStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTaskInstancesStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTaskInstancesStatusResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

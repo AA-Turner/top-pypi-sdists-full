@@ -4,7 +4,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from crewai.knowledge.knowledge import Knowledge  # type: ignore[import-untyped]
 from crewai.knowledge.source.string_knowledge_source import (  # type: ignore[import-untyped]
     StringKnowledgeSource,

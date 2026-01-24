@@ -1,29 +1,12 @@
-import asyncio
+from .base import TaskGroup, TaskGroupError, current_taskgroup
+from .persistent import PersistentTaskGroup, current_ptaskgroup
+from .types import MultiError
 
-from .types import MultiError, TaskGroupError
-
-__all__ = [
+__all__ = (
     "MultiError",
     "TaskGroup",
     "TaskGroupError",
-    "PersistentTaskGroup",
-    "as_completed_safe",
-    "persistent",
-    "persistent_compat",
     "current_taskgroup",
+    "PersistentTaskGroup",
     "current_ptaskgroup",
-    "has_contextvars",
-]
-
-if hasattr(asyncio, "TaskGroup"):
-    from . import persistent
-    from .base import *  # noqa
-    from .persistent import *  # noqa
-else:
-    from . import persistent_compat
-    from .base_compat import *  # type: ignore  # noqa
-    from .persistent_compat import *  # type: ignore  # noqa
-
-from .utils import as_completed_safe  # noqa
-
-has_contextvars = True  # As of aiotools 1.8.0 and Python 3.9, this is always true.
+)

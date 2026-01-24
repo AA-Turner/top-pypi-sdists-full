@@ -28,6 +28,7 @@ import testtools
 from neutron.agent.common import ovs_lib
 from neutron.agent.l3 import agent as neutron_l3_agent
 from neutron.agent.l3 import dvr_local_router
+from neutron.agent.l3 import ha
 from neutron.agent.l3 import namespaces
 from neutron.agent.l3 import router_info as l3_router_info
 from neutron.agent import l3_agent as l3_agent_main
@@ -99,8 +100,14 @@ class L3AgentTestFramework(base.BaseSudoTestCase):
                    'OVSBridge._set_port_dead').start()
         l3_config.register_l3_agent_config_opts(l3_config.OPTS, cfg.CONF)
         self.conf = self._configure_agent('agent1')
+        # NOTE(ralonsoh): this mock can be removed once the backend used for
+        # testing is "threading" and eventlet is removed.
+        self.mock_scserver_wait = mock.patch.object(
+            ha.L3AgentKeepalivedStateChangeServer, 'wait')
+        self.mock_scserver_wait.start()
         self.agent = neutron_l3_agent.L3NATAgentWithStateReport('agent1',
                                                                 self.conf)
+        self.agent.init_host()
 
     def _get_config_opts(self):
         config = cfg.ConfigOpts()
@@ -550,8 +557,9 @@ class L3AgentTestFramework(base.BaseSudoTestCase):
         self.assertFalse(router.iptables_manager.apply())
 
     def _assert_metadata_chains(self, router):
-        metadata_port_filter = lambda rule: (
-            str(self.agent.conf.metadata_port) in rule.rule)
+        def metadata_port_filter(rule):
+            return (str(self.agent.conf.metadata_port) in rule.rule)
+
         self.assertTrue(self._get_rule(router.iptables_manager,
                                        'nat',
                                        'PREROUTING',
@@ -616,8 +624,8 @@ class L3AgentTestFramework(base.BaseSudoTestCase):
         ns_name = "{}{}{}".format(
             'qrouter-' + router_info['id'],
             self.NESTED_NAMESPACE_SEPARATOR, agent.host)
-        ext_name = "qg-{}-{}".format(agent.host, _uuid()[-4:])
-        int_name = "qr-{}-{}".format(agent.host, _uuid()[-4:])
+        ext_name = f"qg-{agent.host}-{_uuid()[-4:]}"
+        int_name = f"qr-{agent.host}-{_uuid()[-4:]}"
 
         get_ns_name = mock.patch.object(
             namespaces.RouterNamespace, '_get_ns_name').start()
@@ -771,7 +779,7 @@ class L3AgentTestFramework(base.BaseSudoTestCase):
                          for route in updated_route]
         for entry in routes_actual:
             if entry['via']:
-                if isinstance(entry['via'], (list, tuple)):
+                if isinstance(entry['via'], list | tuple):
                     via_list = [{'via': hop['via']}
                                 for hop in entry['via']]
                     entry['via'] = sorted(via_list, key=lambda i: i['via'])

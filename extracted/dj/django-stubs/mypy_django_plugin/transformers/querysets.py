@@ -1,6 +1,7 @@
 from collections.abc import Sequence
+from typing import Literal
 
-from django.core.exceptions import FieldError
+from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models.base import Model
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.related_descriptors import (
@@ -12,7 +13,7 @@ from django.db.models.fields.related_descriptors import (
 from django.db.models.fields.reverse_related import ForeignObjectRel
 from mypy.checker import TypeChecker
 from mypy.errorcodes import NO_REDEF
-from mypy.nodes import ARG_NAMED, ARG_NAMED_OPT, ARG_STAR, CallExpr, Expression
+from mypy.nodes import ARG_NAMED, ARG_NAMED_OPT, ARG_STAR, CallExpr, Expression, ListExpr, SetExpr, TupleExpr
 from mypy.plugin import FunctionContext, MethodContext
 from mypy.types import AnyType, Instance, LiteralType, ProperType, TupleType, TypedDictType, TypeOfAny, get_proper_type
 from mypy.types import Type as MypyType
@@ -59,7 +60,7 @@ def get_field_type_from_lookup(
 
     if lookup_field is None:
         return AnyType(TypeOfAny.implementation_artifact)
-    elif (isinstance(lookup_field, RelatedField) and lookup_field.column == lookup) or isinstance(
+    if (isinstance(lookup_field, RelatedField) and lookup_field.column == lookup) or isinstance(
         lookup_field, ForeignObjectRel
     ):
         model_cls = django_context.get_field_related_model_cls(lookup_field)
@@ -67,8 +68,7 @@ def get_field_type_from_lookup(
 
     api = helpers.get_typechecker_api(ctx)
     model_info = helpers.lookup_class_typeinfo(api, model_cls)
-    field_get_type = django_context.get_field_get_type(api, model_info, lookup_field, method=method)
-    return field_get_type
+    return django_context.get_field_get_type(api, model_info, lookup_field, method=method)
 
 
 def get_values_list_row_type(
@@ -94,7 +94,7 @@ def get_values_list_row_type(
             )
             assert lookup_type is not None
             return lookup_type
-        elif named:
+        if named:
             column_types: dict[str, MypyType] = {}
             for field in django_context.get_model_fields(model_cls):
                 column_type = django_context.get_field_get_type(
@@ -109,15 +109,13 @@ def get_values_list_row_type(
                     column_types,
                     extra_bases=[typechecker_api.named_generic_type(fullnames.ANY_ATTR_ALLOWED_CLASS_FULLNAME, [])],
                 )
-            else:
-                return helpers.make_oneoff_named_tuple(typechecker_api, "Row", column_types)
-        else:
-            # flat=False, named=False, all fields
-            if is_annotated:
-                return typechecker_api.named_generic_type("builtins.tuple", [AnyType(TypeOfAny.special_form)])
-            field_lookups = []
-            for field in django_context.get_model_fields(model_cls):
-                field_lookups.append(field.attname)
+            return helpers.make_oneoff_named_tuple(typechecker_api, "Row", column_types)
+        # flat=False, named=False, all fields
+        if is_annotated:
+            return typechecker_api.named_generic_type("builtins.tuple", [AnyType(TypeOfAny.special_form)])
+        field_lookups = []
+        for field in django_context.get_model_fields(model_cls):
+            field_lookups.append(field.attname)
 
     if len(field_lookups) > 1 and flat:
         typechecker_api.fail("'flat' is not valid when 'values_list' is called with more than one field", ctx.context)
@@ -168,7 +166,13 @@ def extract_proper_type_queryset_values_list(ctx: MethodContext, django_context:
     row_type = get_values_list_row_type(
         ctx, django_context, django_model.cls, is_annotated=django_model.is_annotated, flat=flat, named=named
     )
-    return default_return_type.copy_modified(args=[django_model.typ, row_type])
+    ret = default_return_type.copy_modified(args=[django_model.typ, row_type])
+    if not named and (field_lookups := resolve_field_lookups(ctx.args[0], django_context)):
+        # For non-named values_list, the row type does not encode column names.
+        # Attach selected field names to the returned QuerySet instance so that
+        # subsequent annotate() can make an informed decision about name conflicts.
+        ret.extra_attrs = helpers.merge_extra_attrs(ret.extra_attrs, new_immutable=set(field_lookups))
+    return ret
 
 
 def gather_kwargs(ctx: MethodContext) -> dict[str, MypyType] | None:
@@ -233,10 +237,11 @@ def extract_proper_type_queryset_annotate(ctx: MethodContext, django_context: Dj
         return ctx.default_return_type
 
     api = helpers.get_typechecker_api(ctx)
+
     expression_types = {
         attr_name: typ
         for attr_name, typ in gather_expression_types(ctx).items()
-        if check_valid_attr_value(ctx, django_model, attr_name)
+        if check_valid_attr_value(ctx, django_context, django_model, attr_name)
     }
 
     annotated_type: ProperType = django_model.typ
@@ -426,8 +431,41 @@ def gather_flat_args(ctx: MethodContext) -> list[tuple[Expression | None, Proper
     return lookups
 
 
+def _get_selected_fields_from_queryset_type(qs_type: Instance) -> set[str] | None:
+    """
+    Derive selected field names from a QuerySet type.
+
+    Sources:
+      - values(): encoded in the row TypedDict keys
+      - values_list(named=True): row is a NamedTuple; extract field names from fallback TypeInfo
+      - values_list(named=False): stored in qs_type.extra_attrs.immutable
+    """
+    if len(qs_type.args) > 1:
+        row_type = get_proper_type(qs_type.args[1])
+        if isinstance(row_type, Instance) and helpers.is_model_type(row_type.type):
+            return None
+        if isinstance(row_type, TypedDictType):
+            return set(row_type.items.keys())
+        if isinstance(row_type, TupleType):
+            if row_type.partial_fallback.type.has_base("typing.NamedTuple"):
+                return {name for name, sym in row_type.partial_fallback.type.names.items() if sym.plugin_generated}
+            return set()
+        return set()
+
+    # Fallback to explicit metadata attached to the QuerySet Instance
+    if qs_type.extra_attrs and qs_type.extra_attrs.immutable and isinstance(qs_type.extra_attrs.immutable, set):
+        return qs_type.extra_attrs.immutable
+
+    return None
+
+
 def check_valid_attr_value(
-    ctx: MethodContext, model: DjangoModel, attr_name: str, new_attrs: dict[str, MypyType] | None = None
+    ctx: MethodContext,
+    django_context: DjangoContext,
+    model: DjangoModel,
+    attr_name: str,
+    *,
+    new_attr_names: set[str] | None = None,
 ) -> bool:
     """
     Check if adding `attr_name` would conflict with existing symbols on `model`.
@@ -435,13 +473,22 @@ def check_valid_attr_value(
     Args:
         - model: The Django model being analyzed
         - attr_name: The name of the attribute to be added
-        - new_attrs: A mapping of field names to types currently being added to the model
+        - new_attr_names: A mapping of field names to types currently being added to the model
     """
+    deselected_fields: set[str] | None = None
+    if isinstance(ctx.type, Instance):
+        selected_fields = _get_selected_fields_from_queryset_type(ctx.type)
+        if selected_fields is not None:
+            model_field_names = {f.name for f in django_context.get_model_fields(model.cls)}
+            deselected_fields = model_field_names - selected_fields
+            new_attr_names = new_attr_names or set()
+            new_attr_names.update(selected_fields - model_field_names)
+
     is_conflicting_attr_value = bool(
-        # 1. Conflict with another symbol on the model.
+        # 1. Conflict with another symbol on the model (If not de-selected via a prior .values/.values_list call).
         # Ex:
         #     User.objects.prefetch_related(Prefetch(..., to_attr="id"))
-        model.typ.type.get(attr_name)
+        (model.typ.type.get(attr_name) and (deselected_fields is None or attr_name not in deselected_fields))
         # 2. Conflict with a previous annotation.
         # Ex:
         #     User.objects.annotate(foo=...).prefetch_related(Prefetch(...,to_attr="foo"))
@@ -453,7 +500,7 @@ def check_valid_attr_value(
         #        Prefetch("groups", Group.objects.filter(name="test"), to_attr="new_attr"),
         #        Prefetch("groups", Group.objects.all(), to_attr="new_attr"), # E: Not OK!
         #     )
-        or (new_attrs is not None and attr_name in new_attrs)
+        or (new_attr_names is not None and attr_name in new_attr_names)
     )
     if is_conflicting_attr_value:
         ctx.api.fail(
@@ -465,7 +512,12 @@ def check_valid_attr_value(
 
 
 def check_valid_prefetch_related_lookup(
-    ctx: MethodContext, lookup: str, django_model: DjangoModel, django_context: DjangoContext
+    ctx: MethodContext,
+    lookup: str,
+    django_model: DjangoModel,
+    django_context: DjangoContext,
+    *,
+    is_generic_prefetch: bool = False,
 ) -> bool:
     """Check if a lookup string resolve to something that can be prefetched"""
     current_model_cls = django_model.cls
@@ -481,7 +533,17 @@ def check_valid_prefetch_related_lookup(
                 ctx.context,
             )
             return False
-        if isinstance(rel_obj_descriptor, ForwardManyToOneDescriptor):
+        if contenttypes_installed and is_generic_prefetch:
+            from django.contrib.contenttypes.fields import GenericForeignKey
+
+            if not isinstance(rel_obj_descriptor, GenericForeignKey):
+                ctx.api.fail(
+                    f'"{through_attr}" on "{current_model_cls.__name__}" is not a GenericForeignKey, '
+                    f"GenericPrefetch can only be used with GenericForeignKey fields",
+                    ctx.context,
+                )
+                return True
+        elif isinstance(rel_obj_descriptor, ForwardManyToOneDescriptor):
             current_model_cls = rel_obj_descriptor.field.remote_field.model
         elif isinstance(rel_obj_descriptor, ReverseOneToOneDescriptor):
             current_model_cls = rel_obj_descriptor.related.related_model  # type:ignore[assignment] # Can't be 'self' for non abstract models
@@ -516,7 +578,10 @@ def check_valid_prefetch_related_lookup(
 
 
 def check_conflicting_lookups(
-    ctx: MethodContext, observed_attr: str, qs_types: dict[str, Instance | None], queryset_type: Instance | None
+    ctx: MethodContext,
+    observed_attr: str,
+    qs_types: dict[str, Instance | None],
+    queryset_type: Instance | None,
 ) -> bool:
     is_conflicting_lookup = bool(observed_attr in qs_types and qs_types[observed_attr] != queryset_type)
     if is_conflicting_lookup:
@@ -585,14 +650,22 @@ def extract_prefetch_related_annotations(ctx: MethodContext, django_context: Dja
             except (FieldError, LookupsAreUnsupported):
                 pass
 
-        if to_attr and check_valid_attr_value(ctx, qs_model, to_attr, new_attrs):
+        if to_attr and check_valid_attr_value(
+            ctx, django_context, qs_model, to_attr, new_attr_names=set(new_attrs.keys())
+        ):
             new_attrs[to_attr] = api.named_generic_type(
                 "builtins.list",
                 [elem_model if elem_model is not None else AnyType(TypeOfAny.special_form)],
             )
             qs_types[to_attr] = queryset_type
         if not to_attr and lookup:
-            check_valid_prefetch_related_lookup(ctx, lookup, qs_model, django_context)
+            check_valid_prefetch_related_lookup(
+                ctx,
+                lookup,
+                qs_model,
+                django_context,
+                is_generic_prefetch=typ.type.has_base(fullnames.GENERIC_PREFETCH_CLASS_FULLNAME),
+            )
             check_conflicting_lookups(ctx, lookup, qs_types, queryset_type)
             qs_types[lookup] = queryset_type
 
@@ -693,5 +766,60 @@ def validate_select_related(ctx: MethodContext, django_context: DjangoContext) -
         lookup_value = helpers.get_literal_str_type(get_proper_type(lookup_type))
         if lookup_value is not None:
             _validate_select_related_lookup(ctx, django_context, django_model.cls, lookup_value)
+
+    return ctx.default_return_type
+
+
+def _validate_bulk_update_field(
+    ctx: MethodContext, model_cls: type[Model], field_name: str, method: Literal["bulk_update", "abulk_update"]
+) -> bool:
+    opts = model_cls._meta
+    try:
+        field = opts.get_field(field_name)
+    except FieldDoesNotExist as e:
+        ctx.api.fail(str(e), ctx.context)
+        return False
+
+    if not field.concrete or field.many_to_many:
+        ctx.api.fail(f'"{method}()" can only be used with concrete fields. Got "{field_name}"', ctx.context)
+        return False
+
+    all_pk_fields = set(getattr(opts, "pk_fields", [opts.pk]))
+    for parent in getattr(opts, "all_parents", opts.get_parent_list()):
+        all_pk_fields.update(getattr(parent._meta, "pk_fields", [parent._meta.pk]))
+
+    if field in all_pk_fields:
+        ctx.api.fail(f'"{method}()" cannot be used with primary key fields. Got "{field_name}"', ctx.context)
+        return False
+
+    return True
+
+
+def validate_bulk_update(
+    ctx: MethodContext, django_context: DjangoContext, method: Literal["bulk_update", "abulk_update"]
+) -> MypyType:
+    """
+    Type check the `fields` argument passed to `QuerySet.bulk_update(...)`.
+
+    Extracted and adapted from `django.db.models.query.QuerySet.bulk_update`
+    Mirrors tests from `django/tests/queries/test_bulk_update.py`
+    """
+    if not (
+        isinstance(ctx.type, Instance)
+        and (django_model := helpers.get_model_info_from_qs_ctx(ctx, django_context)) is not None
+        and len(ctx.args) >= 2
+        and ctx.args[1]
+        and isinstance((fields_args := ctx.args[1][0]), (ListExpr, TupleExpr, SetExpr))
+    ):
+        return ctx.default_return_type
+
+    if len(fields_args.items) == 0:
+        ctx.api.fail(f'Field names must be given to "{method}()"', ctx.context)
+        return ctx.default_return_type
+
+    for field_arg in fields_args.items:
+        field_name = helpers.resolve_string_attribute_value(field_arg, django_context)
+        if field_name is not None:
+            _validate_bulk_update_field(ctx, django_model.cls, field_name, method)
 
     return ctx.default_return_type

@@ -1,8 +1,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
-# Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -26,7 +26,8 @@
 import os
 import warnings
 from gams import transfer as gt
-from gams.connect.agents.excelagent import ExcelAgent
+from gams.connect.agents._excel import ExcelAgent
+from gams.connect.agents._excel import Workbook
 from gams.connect.connectvalidator import ConnectValidator
 import openpyxl
 from openpyxl.styles import Font
@@ -74,6 +75,7 @@ class ExcelWriter(ExcelAgent):
         self._trace = inst["trace"]
         self._symbols = inst["symbols"]
         self._index = inst["index"]
+        self._engine = "openpyxl"
 
         self._toc = inst["tableOfContents"]
         if self._toc and not isinstance(self._toc, dict):
@@ -89,19 +91,18 @@ class ExcelWriter(ExcelAgent):
     def _open(self):
         if os.path.exists(self._file):
             try:
-                self._wb = openpyxl.load_workbook(
-                    self._file, read_only=False, data_only=False
-                )
+                self._wb = Workbook(self._file, read_only=False, data_only=False)
             except PermissionError as e:
-                self._connect_error(str(e) + "\nThe file may already be open and might need to be closed first.")
+                self._connect_error(
+                    str(e)
+                    + "\nThe file may already be open and might need to be closed first."
+                )
         else:
             if self._index:
                 self._connect_error(
                     f"Workbook >{self._file}< needs to exist if used with index option."
                 )
-            self._wb = openpyxl.Workbook()
-            # remove default sheet
-            self._wb.remove(self._wb.active)
+            self._wb = Workbook()
 
     def _write(self, df, rdim, cdim, sheet, nw_row, nw_col, merged_cells):
         row = nw_row + 1
@@ -281,7 +282,9 @@ class ExcelWriter(ExcelAgent):
 
     def _write_symbols(self, symbols, validate=False):
         if validate:
-            sym_schema = self._cdb.load_schema(self)["symbols"]["oneof"][1]["schema"]["schema"]
+            sym_schema = self._cdb.load_schema(self)["symbols"]["oneof"][1]["schema"][
+                "schema"
+            ]
             v = ConnectValidator(sym_schema)
         for i, sym in enumerate(symbols):
             if validate:
@@ -458,4 +461,7 @@ class ExcelWriter(ExcelAgent):
             try:
                 self._wb.save(self._file)
             except PermissionError as e:
-                self._connect_error(str(e) + "\nThe file may already be open and might need to be closed first.")
+                self._connect_error(
+                    str(e)
+                    + "\nThe file may already be open and might need to be closed first."
+                )

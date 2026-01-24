@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pinecone
-Version: 7.3.0
+Version: 8.0.0
 Summary: Pinecone client and SDK
+Project-URL: Homepage, https://www.pinecone.io
+Project-URL: Documentation, https://pinecone.io/docs
+Author-email: "Pinecone Systems, Inc." <support@pinecone.io>
 License: Apache-2.0
-Keywords: Pinecone,vector,database,cloud
-Author: Pinecone Systems, Inc.
-Author-email: support@pinecone.io
-Requires-Python: >=3.9,<4.0
+License-File: LICENSE.txt
+Keywords: Pinecone,cloud,database,vector
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -14,8 +15,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -25,26 +24,56 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: certifi>=2019.11.17
+Requires-Dist: orjson>=3.0.0
+Requires-Dist: pinecone-plugin-assistant<4.0.0,>=3.0.1
+Requires-Dist: pinecone-plugin-interface<0.1.0,>=0.0.7
+Requires-Dist: python-dateutil>=2.5.3
+Requires-Dist: typing-extensions>=3.7.4
+Requires-Dist: urllib3>=1.26.0; python_version < '3.12'
+Requires-Dist: urllib3>=1.26.5; python_version >= '3.12'
 Provides-Extra: asyncio
+Requires-Dist: aiohttp-retry<3.0.0,>=2.9.1; extra == 'asyncio'
+Requires-Dist: aiohttp>=3.9.0; extra == 'asyncio'
+Provides-Extra: dev
+Requires-Dist: beautifulsoup4<5.0.0,>=4.13.3; extra == 'dev'
+Requires-Dist: myst-parser<5.0.0,>=4.0.1; extra == 'dev'
+Requires-Dist: numpy>=1.22; extra == 'dev'
+Requires-Dist: pandas<2.2.3,>=1.3.5; (python_version < '3.13') and extra == 'dev'
+Requires-Dist: pandas>=2.2.3; (python_version >= '3.13') and extra == 'dev'
+Requires-Dist: pre-commit<4.0.0,>=3.0.0; extra == 'dev'
+Requires-Dist: pytest-asyncio<0.26.0,>=0.25.2; extra == 'dev'
+Requires-Dist: pytest-benchmark==5.0.0; (python_version < '4.0') and extra == 'dev'
+Requires-Dist: pytest-cov==2.10.1; extra == 'dev'
+Requires-Dist: pytest-mock==3.6.1; extra == 'dev'
+Requires-Dist: pytest-retry<2.0.0,>=1.7.0; extra == 'dev'
+Requires-Dist: pytest-timeout==2.2.0; extra == 'dev'
+Requires-Dist: pytest==8.2.0; extra == 'dev'
+Requires-Dist: python-dotenv<2.0.0,>=1.1.0; extra == 'dev'
+Requires-Dist: responses>=0.8.1; extra == 'dev'
+Requires-Dist: ruff<0.10.0,>=0.9.3; extra == 'dev'
+Requires-Dist: sphinx<8.0.0,>=7.4.7; (python_version < '3.11') and extra == 'dev'
+Requires-Dist: sphinx<9.0.0,>=8.2.3; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: tuna<0.6.0,>=0.5.11; extra == 'dev'
+Requires-Dist: urllib3-mock==0.3.3; extra == 'dev'
+Requires-Dist: vprof<0.39,>=0.38; extra == 'dev'
 Provides-Extra: grpc
-Requires-Dist: aiohttp (>=3.9.0) ; extra == "asyncio"
-Requires-Dist: aiohttp-retry (>=2.9.1,<3.0.0) ; extra == "asyncio"
-Requires-Dist: certifi (>=2019.11.17)
-Requires-Dist: googleapis-common-protos (>=1.66.0) ; extra == "grpc"
-Requires-Dist: grpcio (>=1.44.0) ; (python_version >= "3.8" and python_version < "3.11") and (extra == "grpc")
-Requires-Dist: grpcio (>=1.59.0) ; (python_version >= "3.11" and python_version < "4.0") and (extra == "grpc")
-Requires-Dist: grpcio (>=1.68.0) ; (python_version >= "3.13" and python_version < "4.0") and (extra == "grpc")
-Requires-Dist: lz4 (>=3.1.3) ; extra == "grpc"
-Requires-Dist: pinecone-plugin-assistant (>=1.6.0,<2.0.0)
-Requires-Dist: pinecone-plugin-interface (>=0.0.7,<0.0.8)
-Requires-Dist: protobuf (>=5.29,<6.0) ; extra == "grpc"
-Requires-Dist: protoc-gen-openapiv2 (>=0.0.1,<0.0.2) ; extra == "grpc"
-Requires-Dist: python-dateutil (>=2.5.3)
-Requires-Dist: typing-extensions (>=3.7.4)
-Requires-Dist: urllib3 (>=1.26.0) ; python_version >= "3.8" and python_version < "3.12"
-Requires-Dist: urllib3 (>=1.26.5) ; python_version >= "3.12" and python_version < "4.0"
-Project-URL: Documentation, https://pinecone.io/docs
-Project-URL: Homepage, https://www.pinecone.io
+Requires-Dist: googleapis-common-protos>=1.66.0; extra == 'grpc'
+Requires-Dist: grpcio<1.59.0,>=1.44.0; (python_version < '3.11') and extra == 'grpc'
+Requires-Dist: grpcio<1.68.0,>=1.59.0; (python_version >= '3.11' and python_version < '3.13') and extra == 'grpc'
+Requires-Dist: grpcio>=1.68.0; (python_version >= '3.13') and extra == 'grpc'
+Requires-Dist: lz4>=3.1.3; extra == 'grpc'
+Requires-Dist: protobuf<6.0.0,>=5.29.5; extra == 'grpc'
+Requires-Dist: protoc-gen-openapiv2<0.1.0,>=0.0.1; extra == 'grpc'
+Provides-Extra: types
+Requires-Dist: grpc-stubs<1.54.0.0,>=1.53.0.3; extra == 'types'
+Requires-Dist: mypy<2.0.0,>=1.6.1; extra == 'types'
+Requires-Dist: pandas-stubs<2.2.0.0,>=2.1.1.230928; extra == 'types'
+Requires-Dist: types-protobuf<4.25.0.0,>=4.24.0.4; extra == 'types'
+Requires-Dist: types-python-dateutil>=2.9.0.20241003; extra == 'types'
+Requires-Dist: types-tqdm<4.67.0.0,>=4.66.0.3; extra == 'types'
+Requires-Dist: types-urllib3<1.27.0.0,>=1.26.25.14; extra == 'types'
 Description-Content-Type: text/markdown
 
 # Pinecone Python SDK
@@ -68,7 +97,7 @@ For notes on changes between major versions, see [Upgrading](./docs/upgrading.md
 
 ## Prerequisites
 
-- The Pinecone Python SDK is compatible with Python 3.9 and greater. It has been tested with CPython versions from 3.9 to 3.13.
+- The Pinecone Python SDK requires Python 3.10 or greater. It has been tested with CPython versions from 3.10 to 3.13.
 - Before you can use the Pinecone SDK, you must sign up for an account and find your API key in the Pinecone console dashboard at [https://app.pinecone.io](https://app.pinecone.io).
 
 ## Installation
@@ -268,4 +297,3 @@ You can also get help in the [Pinecone Community Forum](https://community.pineco
 # Contributing
 
 If you'd like to make a contribution, or get setup locally to develop the Pinecone Python SDK, please see our [contributing guide](https://github.com/pinecone-io/pinecone-python-client/blob/main/CONTRIBUTING.md)
-

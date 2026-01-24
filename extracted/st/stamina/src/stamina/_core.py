@@ -7,23 +7,24 @@ from __future__ import annotations
 import contextlib
 import datetime as dt
 import random
-import sys
+import warnings
 
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, replace
 from functools import wraps
-from inspect import iscoroutinefunction
+from inspect import (
+    isasyncgenfunction,
+    iscoroutinefunction,
+    isgeneratorfunction,
+)
 from types import TracebackType
 from typing import (
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Iterator,
-    Tuple,
-    Type,
+    ParamSpec,
+    TypeAlias,
     TypedDict,
     TypeVar,
-    Union,
+    cast,
 )
 
 import tenacity as _t
@@ -31,11 +32,6 @@ import tenacity as _t
 from ._config import CONFIG, _Config, _Testing
 from .instrumentation._data import RetryDetails, guess_name
 
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
 
 try:
     from sniffio import current_async_library
@@ -63,20 +59,71 @@ async def _smart_sleep(delay: float) -> None:
 
 T = TypeVar("T")
 P = ParamSpec("P")
-# for backwards compatibility with Python<3.10
-ExcOrPredicate = Union[
-    Type[Exception], Tuple[Type[Exception], ...], Callable[[Exception], bool]
-]
+BackoffHook: TypeAlias = Callable[[Exception], bool | float | dt.timedelta]
+ExcOrBackoffHook: TypeAlias = (
+    type[Exception] | tuple[type[Exception], ...] | BackoffHook
+)
+
+# Attribute used to store custom backoff in RetryCallState
+_CUSTOM_BACKOFF_ATTR = "_stamina_custom_backoff"
+
+
+class _TenacityBackoffCallbackAdapter:
+    """
+    Custom Tenacity retry "predicate" that uses a hook to decide whether to
+    retry and additionally allows storing custom backoff values by
+    piggy-backing on top of Tenacity's RetryCallState.
+    """
+
+    __slots__ = ("_backoff_hook",)
+
+    def __init__(self, backoff_hook: BackoffHook):
+        self._backoff_hook = backoff_hook
+
+    def __call__(self, retry_state: _t.RetryCallState) -> bool:
+        """
+        Evaluate the backoff hook and store the custom backoff if one is
+        returned.
+        """
+        if (exc := retry_state.outcome.exception()) is None:
+            return False
+
+        result = self._backoff_hook(exc)
+
+        if result is None:
+            warnings.warn(
+                (
+                    f"Backoff hook {self._backoff_hook!r} returned None. "
+                    "Backoff hooks must return a bool or a float or a timedelta. "
+                    "This will be an error in a future version."
+                ),
+                # Since we get called from Tenacity and not from user code, the
+                # stack is meaningless.
+                stacklevel=1,
+            )
+            return False
+
+        if isinstance(result, bool):
+            return result
+
+        if isinstance(result, dt.timedelta):
+            result = result.total_seconds()
+
+        # Naughty but better than global state. This gets picked up when
+        # deciding the next backoff.
+        setattr(retry_state, _CUSTOM_BACKOFF_ATTR, result)
+
+        return True
 
 
 def retry_context(
-    on: ExcOrPredicate,
+    on: ExcOrBackoffHook,
     attempts: int | None = 10,
     timeout: float | dt.timedelta | None = 45.0,
     wait_initial: float | dt.timedelta = 0.1,
     wait_max: float | dt.timedelta = 5.0,
     wait_jitter: float | dt.timedelta = 1.0,
-    wait_exp_base: float = 2.0,
+    wait_exp_base: float = 2,
 ) -> _RetryContextIterator:
     """
     Iterator that yields context managers that can be used to retry code
@@ -139,15 +186,18 @@ class Attempt:
         The number of seconds of backoff before the *next* attempt if *this*
         attempt fails.
 
-
         .. warning::
             This value does **not** include a possible random jitter and is
             therefore just a *lower bound* of the actual value.
 
         .. versionadded:: 24.3.0
+        .. versionchanged:: 25.2.0
+           Fixed off-by-one error when passing the attempt number to the
+           next_wait_fn.
         """
         return (
-            self._next_wait_fn(self._t_attempt.retry_state.attempt_number + 1)
+            # The next wait time is computed based on the current attempt number.
+            self._next_wait_fn(self._t_attempt.retry_state.attempt_number)
             if self._next_wait_fn
             else 0.0
         )
@@ -192,7 +242,7 @@ class BaseRetryingCaller:
         wait_initial: float | dt.timedelta = 0.1,
         wait_max: float | dt.timedelta = 5.0,
         wait_jitter: float | dt.timedelta = 1.0,
-        wait_exp_base: float = 2.0,
+        wait_exp_base: float = 2,
     ):
         self._context_kws = {
             "attempts": attempts,
@@ -227,7 +277,7 @@ class RetryingCaller(BaseRetryingCaller):
 
     def __call__(
         self,
-        on: ExcOrPredicate,
+        on: ExcOrBackoffHook,
         callable_: Callable[P, T],
         /,
         *args: P.args,
@@ -251,7 +301,7 @@ class RetryingCaller(BaseRetryingCaller):
 
         raise SystemError("unreachable")  # noqa: EM101
 
-    def on(self, on: ExcOrPredicate, /) -> BoundRetryingCaller:
+    def on(self, on: ExcOrBackoffHook, /) -> BoundRetryingCaller:
         """
         Create a new instance of :class:`BoundRetryingCaller` with the same
         parameters, but bound to a specific exception type.
@@ -278,12 +328,12 @@ class BoundRetryingCaller:
     __slots__ = ("_caller", "_on")
 
     _caller: RetryingCaller
-    _on: ExcOrPredicate
+    _on: ExcOrBackoffHook
 
     def __init__(
         self,
         caller: RetryingCaller,
-        on: ExcOrPredicate,
+        on: ExcOrBackoffHook,
     ):
         self._caller = caller
         self._on = on
@@ -312,7 +362,7 @@ class AsyncRetryingCaller(BaseRetryingCaller):
 
     async def __call__(
         self,
-        on: ExcOrPredicate,
+        on: ExcOrBackoffHook,
         callable_: Callable[P, Awaitable[T]],
         /,
         *args: P.args,
@@ -327,7 +377,7 @@ class AsyncRetryingCaller(BaseRetryingCaller):
 
         raise SystemError("unreachable")  # noqa: EM101
 
-    def on(self, on: ExcOrPredicate, /) -> BoundAsyncRetryingCaller:
+    def on(self, on: ExcOrBackoffHook, /) -> BoundAsyncRetryingCaller:
         """
         Create a new instance of :class:`BoundAsyncRetryingCaller` with the
         same parameters, but bound to a specific exception type.
@@ -351,12 +401,12 @@ class BoundAsyncRetryingCaller:
     __slots__ = ("_caller", "_on")
 
     _caller: AsyncRetryingCaller
-    _on: ExcOrPredicate
+    _on: ExcOrBackoffHook
 
     def __init__(
         self,
         caller: AsyncRetryingCaller,
-        on: ExcOrPredicate,
+        on: ExcOrBackoffHook,
     ):
         self._caller = caller
         self._on = on
@@ -429,7 +479,7 @@ class _RetryContextIterator:
     @classmethod
     def from_params(
         cls,
-        on: ExcOrPredicate,
+        on: ExcOrBackoffHook,
         attempts: int | None,
         timeout: float | dt.timedelta | None,
         wait_initial: float | dt.timedelta,
@@ -445,7 +495,7 @@ class _RetryContextIterator:
         ) or isinstance(on, tuple):
             _retry = _t.retry_if_exception_type(on)
         else:
-            _retry = _t.retry_if_exception(on)
+            _retry = _TenacityBackoffCallbackAdapter(cast(BackoffHook, on))
 
         if isinstance(wait_initial, dt.timedelta):
             wait_initial = wait_initial.total_seconds()
@@ -563,7 +613,20 @@ class _RetryContextIterator:
     def _jittered_backoff_for_rcs(self, rcs: _t.RetryCallState) -> float:
         """
         Compute the backoff for *rcs*.
+
+        If a custom backoff was provided by a backoff hook, use it. Otherwise,
+        use exponential backoff.
         """
+        if (
+            custom_backoff := getattr(rcs, _CUSTOM_BACKOFF_ATTR, None)
+        ) is not None:
+            delattr(rcs, _CUSTOM_BACKOFF_ATTR)
+
+            if CONFIG.testing is not None:
+                return 0.0
+
+            return cast(float, custom_backoff)
+
         return _compute_backoff(
             rcs.attempt_number,
             self._wait_max,
@@ -643,30 +706,27 @@ def _make_stop(*, attempts: int | None, timeout: float | None) -> _t.stop_base:
     """
     stops = []
 
-    if attempts:
+    if attempts is not None:
         stops.append(_t.stop_after_attempt(attempts))
 
-    if timeout:
+    if timeout is not None:
         stops.append(_t.stop_after_delay(timeout))
-
-    if len(stops) > 1:
-        return _t.stop_any(*stops)
 
     if not stops:
         return _t.stop_never
 
-    return stops[0]
+    return _t.stop_any(*stops)
 
 
-def retry(
+def retry(  # noqa: C901
     *,
-    on: ExcOrPredicate,
+    on: ExcOrBackoffHook,
     attempts: int | None = 10,
     timeout: float | dt.timedelta | None = 45.0,
     wait_initial: float | dt.timedelta = 0.1,
     wait_max: float | dt.timedelta = 5.0,
     wait_jitter: float | dt.timedelta = 1.0,
-    wait_exp_base: float = 2.0,
+    wait_exp_base: float = 2,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]:
     r"""
     Retry if one of configured exceptions are raised.
@@ -678,7 +738,8 @@ def retry(
     .. keep in-sync with docs/motivation.md
     .. math::
 
-       min(wait\_max, wait\_initial * wait\_exp\_base^{attempt - 1} + random(0, wait\_jitter))
+       min(wait\_max, wait\_initial * wait\_exp\_base^{attempt - 1} + random(0,
+       wait\_jitter))
 
     Since :math:`x^0` is always 1, the first backoff is within the interval
     :math:`[wait\_initial,wait\_initial+wait\_jitter]`. Thus, with default
@@ -688,12 +749,24 @@ def retry(
 
     All float-based time parameters are in seconds.
 
+    Generators are restarted from the beginning on each retry.
+
+    .. note::
+       Being able to :meth:`~agen.asend` and :meth:`~agen.athrow` into wrapped
+       async generators introduced nontrivial complexity in the implementation
+       and is therefore **provisional**. If supporting these features causes
+       problems, they may be removed again in a future version.
+
+    .. warning::
+       It is possible to get unbounded retries by passing `None` for *attempts*
+       (= infinite attempts) and *timeout* (= no timeout).
+
     Args:
         on:
             An Exception or a tuple of Exceptions on which the decorated
             callable will be retried.
 
-            You can also pass a *predicate* in the form of a callable that
+            You can also pass a *backoff hook* in the form of a callable that
             takes an exception and returns a bool which decides whether the
             exception should be retried -- True meaning yes.
 
@@ -702,14 +775,24 @@ def retry(
             indicate server errors, but not those in the 400s which indicate a
             client error.
 
-            There is no default -- you *must* pass this explicitly.
+            For even more control, the hook may return a float or a
+            :class:`datetime.timedelta` to specify a custom backoff that
+            overrides the default backoff. This is useful when the error
+            carries information like a `Retry-After
+            <https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Retry-After>`_
+            header. A custom backoff is not part of the exponential backoff
+            machinery so none of the other backoff parameters apply to it.
+
+            There is no default for the *on* parameter -- you *must* pass *on*
+            explicitly.
 
         attempts:
             Maximum total number of attempts. Can be combined with *timeout*.
+            `None` means *no* limit to attempts.
 
         timeout:
             Maximum total time for all retries. Can be combined with
-            *attempts*.
+            *attempts*. `None` means *no* timeout.
 
         wait_initial: Minimum backoff before the *first* retry.
 
@@ -728,6 +811,14 @@ def retry(
     .. versionadded:: 23.3.0 `Trio <https://trio.readthedocs.io/>`_ support.
 
     .. versionadded:: 24.3.0 *on* can be a callable now.
+
+    .. versionadded:: 25.2.0
+       Generator functions and async generator functions are now retried, too.
+
+    .. versionadded:: 25.2.0
+       An *on* backoff hook can now return a float or a `datetime.timedelta` to
+       specify a custom backoff that overrides the default backoff.
+
     """
     retry_ctx = _RetryContextIterator.from_params(
         on=on,
@@ -742,26 +833,69 @@ def retry(
         kw={},
     )
 
-    def retry_decorator(wrapped: Callable[P, T]) -> Callable[P, T]:
+    def retry_decorator(wrapped: Callable[P, T]) -> Callable[P, T]:  # noqa: C901
         name = guess_name(wrapped)
+
+        if isgeneratorfunction(wrapped):
+
+            @wraps(wrapped)
+            def sync_gen_inner(*args: P.args, **kw: P.kwargs) -> T:  # type: ignore[misc]
+                for attempt in retry_ctx.with_name(name, args, kw):
+                    with attempt:
+                        return (yield from wrapped(*args, **kw))
+
+            return sync_gen_inner
+
+        if isasyncgenfunction(wrapped):
+
+            @wraps(wrapped)
+            async def async_gen_inner(*args: P.args, **kw: P.kwargs) -> T:  # type: ignore[misc]
+                async for attempt in retry_ctx.with_name(name, args, kw):
+                    with attempt:
+                        agen = wrapped(*args, **kw)
+                        try:
+                            try:
+                                item = await agen.__anext__()
+                            except StopAsyncIteration:
+                                return
+
+                            while True:
+                                try:
+                                    to_send = yield item
+                                except GeneratorExit:  # noqa: PERF203
+                                    await agen.aclose()
+                                    raise
+                                except BaseException as thrown:  # noqa: BLE001
+                                    try:
+                                        item = await agen.athrow(thrown)
+                                    except StopAsyncIteration:
+                                        return
+                                else:
+                                    try:
+                                        if to_send is None:
+                                            item = await agen.__anext__()
+                                        else:
+                                            item = await agen.asend(to_send)
+                                    except StopAsyncIteration:
+                                        return
+                        finally:
+                            await agen.aclose()
+
+            return async_gen_inner
 
         if not iscoroutinefunction(wrapped):
 
-            @wraps(wrapped)
+            @wraps(wrapped)  # noqa: RET503
             def sync_inner(*args: P.args, **kw: P.kwargs) -> T:  # type: ignore[return]
-                for attempt in retry_ctx.with_name(  # noqa: RET503
-                    name, args, kw
-                ):
+                for attempt in retry_ctx.with_name(name, args, kw):
                     with attempt:
                         return wrapped(*args, **kw)
 
             return sync_inner
 
-        @wraps(wrapped)
+        @wraps(wrapped)  # noqa: RET503
         async def async_inner(*args: P.args, **kw: P.kwargs) -> T:  # type: ignore[return]
-            async for attempt in retry_ctx.with_name(  # noqa: RET503
-                name, args, kw
-            ):
+            async for attempt in retry_ctx.with_name(name, args, kw):
                 with attempt:
                     return await wrapped(*args, **kw)  # type: ignore[no-any-return]
 

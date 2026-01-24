@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import collections
+from collections.abc import Callable
 from copy import deepcopy
 import dataclasses
 from enum import Enum
@@ -10,11 +11,10 @@ import inspect
 import logging
 import pathlib
 from types import FrameType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Self
 
 import attrs
 from frozendict import frozendict
-from typing_extensions import Self
 
 from zigpy.const import (
     SIG_ENDPOINTS,
@@ -313,6 +313,9 @@ class EntityMetadata:
     attribute_initialized_from_cache: bool = attrs.field(default=True)
     unique_id_suffix: str | None = attrs.field(default=None)
     translation_key: str | None = attrs.field(default=None)
+    translation_placeholders: frozendict[str, str] = attrs.field(
+        factory=frozendict, converter=frozendict
+    )
     fallback_name: str = attrs.field(validator=attrs.validators.instance_of(str))
     primary: bool | None = attrs.field(default=None)
 
@@ -411,7 +414,7 @@ class ZCLCommandButtonMetadata(EntityMetadata):
 
     command_name: str = attrs.field()
     args: tuple = attrs.field(default=tuple)
-    kwargs: frozendict[str, Any] = attrs.field(default=frozendict, converter=frozendict)
+    kwargs: frozendict[str, Any] = attrs.field(factory=frozendict, converter=frozendict)
 
 
 @attrs.define(frozen=True, kw_only=True, repr=True)
@@ -428,6 +431,14 @@ class FriendlyNameMetadata:
 
     model: str = attrs.field()
     manufacturer: str = attrs.field()
+
+
+@attrs.define(frozen=True, kw_only=True, repr=True)
+class ExposesFeatureMetadata:
+    """Metadata for an exposed feature to match against in ZHA."""
+
+    feature: str = attrs.field()
+    config: frozendict[str, Any] = attrs.field(factory=frozendict, converter=frozendict)
 
 
 class DeviceAlertLevel(Enum):
@@ -470,6 +481,9 @@ class ChangedEntityMetadata:
     new_primary: bool | None = attrs.field(default=None)
     new_unique_id: str | None = attrs.field(default=None)
     new_translation_key: str | None = attrs.field(default=None)
+    new_translation_placeholders: frozendict[str, str] | None = attrs.field(
+        default=None, converter=lambda d: None if d is None else frozendict(d)
+    )
     new_device_class: (
         BinarySensorDeviceClass | NumberDeviceClass | SensorDeviceClass | None
     ) = attrs.field(default=None)
@@ -488,6 +502,15 @@ class FirmwareVersionFilterMetadata:
     allow_missing: bool = attrs.field(default=True)
 
 
+def recursive_freeze(obj: Any) -> Any:
+    """Recursively convert mutable collections to immutable ones."""
+    if isinstance(obj, dict):
+        return frozendict({k: recursive_freeze(v) for k, v in obj.items()})
+    if isinstance(obj, tuple | list | set):
+        return tuple(recursive_freeze(v) for v in obj)
+    return obj
+
+
 @attrs.define(frozen=True, kw_only=True, repr=True)
 class QuirksV2RegistryEntry:
     """Quirks V2 registry entry."""
@@ -498,6 +521,7 @@ class QuirksV2RegistryEntry:
         factory=tuple
     )
     friendly_name: FriendlyNameMetadata | None = attrs.field(default=None)
+    exposes_features: tuple[ExposesFeatureMetadata] = attrs.field(factory=tuple)
     device_alerts: tuple[DeviceAlertMetadata] = attrs.field(factory=tuple)
     disabled_default_entities: tuple[PreventDefaultEntityCreationMetadata] = (
         attrs.field(factory=tuple)
@@ -533,7 +557,7 @@ class QuirksV2RegistryEntry:
         tuple[str, str], frozendict[str, str]
     ] = attrs.field(
         factory=frozendict,
-        converter=lambda d: frozendict({k: frozendict(v) for k, v in d.items()}),
+        converter=recursive_freeze,
     )
 
     def matches_device(self, device: Device) -> bool:
@@ -593,6 +617,7 @@ class QuirkBuilder:
         self.registry: DeviceRegistry = registry
         self.manufacturer_model_metadata: list[ManufacturerModelMetadata] = []
         self.friendly_name_metadata: FriendlyNameMetadata | None = None
+        self.exposes_features: list[ExposesFeatureMetadata] = []
         self.device_alerts: list[DeviceAlertMetadata] = []
         self.disabled_default_entities: list[PreventDefaultEntityCreationMetadata] = []
         self.changed_entity_metadata: list[ChangedEntityMetadata] = []
@@ -873,6 +898,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing ZCLEnumMetadata and return self.
 
@@ -890,6 +917,7 @@ class QuirkBuilder:
                 reporting_config=reporting_config,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 enum=enum_class,
                 attribute_name=attribute_name,
@@ -919,6 +947,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing ZCLSensorMetadata and return self.
 
@@ -936,6 +966,7 @@ class QuirkBuilder:
                 reporting_config=reporting_config,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 attribute_name=attribute_name,
                 attribute_converter=attribute_converter,
@@ -969,6 +1000,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing SwitchMetadata and return self.
 
@@ -986,6 +1019,7 @@ class QuirkBuilder:
                 reporting_config=reporting_config,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 attribute_name=attribute_name,
                 force_inverted=force_inverted,
@@ -1018,6 +1052,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing NumberMetadata and return self.
 
@@ -1035,6 +1071,7 @@ class QuirkBuilder:
                 reporting_config=reporting_config,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 attribute_name=attribute_name,
                 min=min_value,
@@ -1065,6 +1102,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing BinarySensorMetadata and return self.
 
@@ -1082,6 +1121,7 @@ class QuirkBuilder:
                 reporting_config=reporting_config,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 attribute_name=attribute_name,
                 attribute_converter=attribute_converter,
@@ -1105,6 +1145,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing WriteAttributeButtonMetadata and return self.
 
@@ -1122,6 +1164,7 @@ class QuirkBuilder:
                 attribute_initialized_from_cache=attribute_initialized_from_cache,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 attribute_name=attribute_name,
                 attribute_value=attribute_value,
@@ -1144,6 +1187,8 @@ class QuirkBuilder:
         translation_key: str | None = None,
         fallback_name: str | None = None,
         primary: bool | None = None,
+        *,
+        translation_placeholders: dict[str, str] | None = None,
     ) -> Self:
         """Add an EntityMetadata containing ZCLCommandButtonMetadata and return self.
 
@@ -1160,6 +1205,7 @@ class QuirkBuilder:
                 initially_disabled=initially_disabled,
                 unique_id_suffix=unique_id_suffix,
                 translation_key=translation_key,
+                translation_placeholders=translation_placeholders or {},
                 fallback_name=fallback_name,
                 command_name=command_name,
                 args=command_args if command_args is not None else (),
@@ -1180,6 +1226,15 @@ class QuirkBuilder:
         """Renames the device."""
         self.friendly_name_metadata = FriendlyNameMetadata(
             model=model, manufacturer=manufacturer
+        )
+        return self
+
+    def exposes_feature(
+        self, feature: str, config: dict[str, Any] | None = None
+    ) -> Self:
+        """Adds an exposed feature."""
+        self.exposes_features.append(
+            ExposesFeatureMetadata(feature=feature, config=config or {})
         )
         return self
 
@@ -1223,6 +1278,7 @@ class QuirkBuilder:
         new_primary: bool | None = None,
         new_unique_id: str | None = None,
         new_translation_key: str | None = None,
+        new_translation_placeholders: dict[str, str] | None = None,
         new_device_class: (
             BinarySensorDeviceClass | NumberDeviceClass | SensorDeviceClass | None
         ) = None,
@@ -1245,6 +1301,7 @@ class QuirkBuilder:
                 new_primary=new_primary,
                 new_unique_id=new_unique_id,
                 new_translation_key=new_translation_key,
+                new_translation_placeholders=new_translation_placeholders,
                 new_device_class=new_device_class,
                 new_state_class=new_state_class,
                 new_entity_category=new_entity_category,
@@ -1263,6 +1320,7 @@ class QuirkBuilder:
         quirk: QuirksV2RegistryEntry = QuirksV2RegistryEntry(
             manufacturer_model_metadata=tuple(self.manufacturer_model_metadata),
             friendly_name=self.friendly_name_metadata,
+            exposes_features=tuple(self.exposes_features),
             device_alerts=tuple(self.device_alerts),
             disabled_default_entities=tuple(self.disabled_default_entities),
             changed_entity_metadata=tuple(self.changed_entity_metadata),
@@ -1285,6 +1343,10 @@ class QuirkBuilder:
             entity_metadata=tuple(self.entity_metadata),
             device_automation_triggers_metadata=self.device_automation_triggers_metadata,
         )
+
+        # v2 quirk registry entries are hashable
+        hash(quirk)
+
         for manufacturer_model in self.manufacturer_model_metadata:
             self.registry.add_to_registry_v2(
                 manufacturer_model.manufacturer, manufacturer_model.model, quirk

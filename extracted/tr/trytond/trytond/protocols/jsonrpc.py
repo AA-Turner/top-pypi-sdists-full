@@ -2,9 +2,9 @@
 # this repository contains the full copyright notices and license terms.
 import base64
 import datetime
-import gzip
 import json
 from decimal import Decimal
+from types import MappingProxyType
 
 from werkzeug.exceptions import (
     BadRequest, Conflict, Forbidden, HTTPException, InternalServerError,
@@ -14,7 +14,7 @@ from werkzeug.wrappers import Response
 from trytond.exceptions import (
     ConcurrencyException, LoginException, MissingDependenciesException,
     RateLimitException, TrytonException, UserWarning)
-from trytond.protocols.wrappers import Request
+from trytond.protocols.wrappers import GzipStream, Request
 from trytond.tools import cached_property
 
 
@@ -100,6 +100,9 @@ JSONEncoder.register(datetime.timedelta,
         '__class__': 'timedelta',
         'seconds': o.total_seconds(),
         })
+JSONEncoder.register(MappingProxyType, dict)
+JSONEncoder.register(set, tuple)
+JSONEncoder.register(frozenset, tuple)
 
 
 def _bytes_encoder(o):
@@ -132,18 +135,38 @@ class JSONRequest(Request):
                     object_hook=JSONDecoder())
             except HTTPException:
                 raise
-            except Exception:
-                raise BadRequest('Unable to read JSON request')
+            except Exception as e:
+                raise BadRequest('Unable to read JSON request') from e
         else:
             raise BadRequest('Not a JSON request')
 
     @cached_property
     def rpc_method(self):
-        return self.parsed_data['method']
+        try:
+            return self.parsed_data['method'] or ''
+        except Exception as e:
+            raise BadRequest("Unable to get RPC method") from e
 
     @cached_property
     def rpc_params(self):
-        return self.parsed_data['params']
+        try:
+            return self.parsed_data['params'] or []
+        except Exception as e:
+            raise BadRequest("Unable to get RPC params") from e
+
+
+encoder = JSONEncoder(separators=(',', ':'))
+
+
+def dumps(obj, limit=1400):
+    chunks = []
+    total = 0
+    for chunk in encoder.iterencode(obj):
+        total += len(chunk)
+        if total > limit:
+            raise OverflowError()
+        chunks.append(chunk)
+    return ''.join(chunks)
 
 
 class JSONProtocol:
@@ -166,7 +189,9 @@ class JSONProtocol:
                 response['error'] = data.args
             elif isinstance(data, Exception):
                 # report exception back to server
-                response['error'] = (str(data), data.__format_traceback__)
+                response['error'] = (
+                    str(data),
+                    getattr(data, '__format_traceback__', ''))
             else:
                 response['result'] = data
         else:
@@ -186,10 +211,13 @@ class JSONProtocol:
                 return InternalServerError(data)
             response = data
         headers = {}
-        data = json.dumps(
-            response, cls=JSONEncoder, separators=(',', ':'))
-        if len(data) >= 1400 and 'gzip' in request.accept_encodings:
-            data = gzip.compress(data.encode('utf-8'), compresslevel=1)
+
+        try:
+            payload = dumps(response)
+        except OverflowError:
+            payload = encoder.iterencode(response)
+            if 'gzip' in request.accept_encodings:
+                payload = GzipStream(payload, compresslevel=1)
             headers['Content-Encoding'] = 'gzip'
         return Response(
-            data, content_type='application/json', headers=headers)
+            payload, content_type='application/json', headers=headers)

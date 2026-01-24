@@ -1,0 +1,31 @@
+name: 313-dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  # required
+  - pip
+  # testing
+  - codecov
+  - ipywidgets
+  - pytest
+  - pytest-cov
+  - pytest-xdist
+  - pytest-doctestplus
+  - pip:
+    # dev versions of packages
+    - --pre \
+      --index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple  \
+      --extra-index-url https://pypi.org/simple
+    - matplotlib
+    - seaborn
+    - numpy
+    - pandas
+    - scipy
+    - git+https://github.com/pysal/esda.git@main
+    - git+https://github.com/geopandas/geopandas.git@main
+    - git+https://github.com/pysal/libpysal.git@main
+    - git+https://github.com/pysal/mapclassify.git@main
+    - git+https://github.com/QuantEcon/QuantEcon.py.git@main
+
+  

@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterator, List, Optional
 
+from edgar.documents.cache_mixin import CacheableMixin
 from edgar.documents.types import NodeType, SemanticType, Style
 
 
@@ -14,7 +15,7 @@ from edgar.documents.types import NodeType, SemanticType, Style
 class Node(ABC):
     """
     Base node class for document tree.
-
+    
     All nodes in the document inherit from this class and implement
     the abstract methods for text and HTML generation.
     """
@@ -84,7 +85,7 @@ class Node(ABC):
     def xpath(self, expression: str) -> List['Node']:
         """
         Simple XPath-like node selection.
-
+        
         Supports:
         - //node_type - Find all nodes of type
         - /node_type - Direct children of type
@@ -139,18 +140,21 @@ class Node(ABC):
 
 
 @dataclass
-class DocumentNode(Node):
+class DocumentNode(Node, CacheableMixin):
     """Root document node."""
     type: NodeType = field(default=NodeType.DOCUMENT, init=False)
 
     def text(self) -> str:
-        """Extract all text from document."""
-        parts = []
-        for child in self.children:
-            text = child.text()
-            if text:
-                parts.append(text)
-        return '\n\n'.join(parts)
+        """Extract all text from document with caching."""
+        def _generate_text():
+            parts = []
+            for child in self.children:
+                text = child.text()
+                if text:
+                    parts.append(text)
+            return '\n\n'.join(parts)
+
+        return self._get_cached_text(_generate_text)
 
     def html(self) -> str:
         """Generate complete HTML document."""
@@ -188,18 +192,58 @@ class TextNode(Node):
 
 
 @dataclass
-class ParagraphNode(Node):
+class ParagraphNode(Node, CacheableMixin):
     """Paragraph node."""
     type: NodeType = field(default=NodeType.PARAGRAPH, init=False)
 
     def text(self) -> str:
-        """Extract paragraph text."""
-        parts = []
-        for child in self.children:
-            text = child.text()
-            if text:
-                parts.append(text)
-        return ' '.join(parts)
+        """Extract paragraph text with intelligent spacing and caching."""
+        def _generate_text():
+            parts = []
+            for i, child in enumerate(self.children):
+                text = child.text()
+                if text:
+                    # For the first child, just add the text
+                    if i == 0:
+                        parts.append(text)
+                    else:
+                        # For subsequent children, check if previous child had tail whitespace
+                        prev_child = self.children[i - 1]
+                        should_add_space = False
+
+                        # Add space if previous child had tail whitespace
+                        if hasattr(prev_child, 'get_metadata') and prev_child.get_metadata('has_tail_whitespace'):
+                            should_add_space = True
+
+                        # Add space if current text starts with space (preserve intended spacing)
+                        elif text.startswith(' '):
+                            should_add_space = True
+                            # Remove the leading space from text since we're adding it as separation
+                            text = text.lstrip()
+
+                        # Add space if previous text ends with punctuation (sentence boundaries)
+                        elif parts and parts[-1].rstrip()[-1:] in '.!?:;':
+                            should_add_space = True
+
+                        # Add space between adjacent inline elements if the current text starts with a letter/digit
+                        # This handles cases where whitespace was stripped but spacing is semantically important
+                        elif (text and text[0].isalpha() and
+                              parts and parts[-1] and not parts[-1].endswith(' ') and
+                              hasattr(child, 'get_metadata') and child.get_metadata('original_tag') in ['span', 'a', 'em', 'strong', 'i', 'b']):
+                            should_add_space = True
+
+                        if should_add_space:
+                            parts.append(' ' + text)
+                        else:
+                            # Concatenate directly without space
+                            if parts:
+                                parts[-1] += text
+                            else:
+                                parts.append(text)
+
+            return ''.join(parts)
+
+        return self._get_cached_text(_generate_text)
 
     def html(self) -> str:
         """Generate paragraph HTML."""
@@ -263,19 +307,22 @@ class HeadingNode(Node):
 
 
 @dataclass
-class ContainerNode(Node):
+class ContainerNode(Node, CacheableMixin):
     """Generic container node (div, section, etc.)."""
     type: NodeType = field(default=NodeType.CONTAINER, init=False)
     tag_name: str = 'div'
 
     def text(self) -> str:
-        """Extract text from container."""
-        parts = []
-        for child in self.children:
-            text = child.text()
-            if text:
-                parts.append(text)
-        return '\n'.join(parts)
+        """Extract text from container with caching."""
+        def _generate_text():
+            parts = []
+            for child in self.children:
+                text = child.text()
+                if text:
+                    parts.append(text)
+            return '\n'.join(parts)
+
+        return self._get_cached_text(_generate_text)
 
     def html(self) -> str:
         """Generate container HTML."""

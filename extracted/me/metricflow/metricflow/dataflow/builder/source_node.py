@@ -27,9 +27,9 @@ class SourceNodeSet:
     manifest.
     """
 
-    # Semantic models without measures are 1:1 mapped to a ReadSqlSourceNode. Semantic models containing measures are
+    # Semantic models without simple-metric inputs are 1:1 mapped to a ReadSqlSourceNode. Semantic models containing simple-metric inputs are
     # mapped to components with a transformation node to add `metric_time` / to support multiple aggregation time
-    # dimensions. Each semantic model containing measures with k different aggregation time dimensions is mapped to k
+    # dimensions. Each semantic model containing simple-metric inputs with k different aggregation time dimensions is mapped to k
     # components.
     source_nodes_for_metric_queries: Tuple[DataflowPlanNode, ...]
 
@@ -64,7 +64,7 @@ class SourceNodeBuilder:
         semantic_manifest_lookup: SemanticManifestLookup,
     ) -> None:
         self._semantic_manifest_lookup = semantic_manifest_lookup
-        data_set_converter = SemanticModelToDataSetConverter(column_association_resolver)
+        data_set_converter = SemanticModelToDataSetConverter(column_association_resolver, semantic_manifest_lookup)
         self.time_spine_sources = TimeSpineSource.build_standard_time_spine_sources(
             semantic_manifest_lookup.semantic_manifest
         )
@@ -87,25 +87,28 @@ class SourceNodeBuilder:
         group_by_item_source_nodes: List[DataflowPlanNode] = []
         source_nodes_for_metric_queries: List[DataflowPlanNode] = []
 
+        lookup = self._semantic_manifest_lookup.manifest_object_lookup
+        model_reference_to_simple_metric_model_lookup = {
+            model_lookup.semantic_model.reference: model_lookup for model_lookup in lookup.simple_metric_model_lookups
+        }
         for data_set in data_sets:
             read_node = ReadSqlSourceNode.create(data_set)
             group_by_item_source_nodes.append(read_node)
-            agg_time_dim_to_measures_grouper = (
-                self._semantic_manifest_lookup.semantic_model_lookup.get_aggregation_time_dimensions_with_measures(
-                    data_set.semantic_model_reference
-                )
-            )
 
-            # Dimension sources may not have any measures -> no aggregation time dimensions.
-            time_dimension_references = agg_time_dim_to_measures_grouper.keys
-            if len(time_dimension_references) == 0:
+            model_reference = data_set.semantic_model_reference
+            simple_metric_model_lookup = model_reference_to_simple_metric_model_lookup.get(model_reference)
+
+            if simple_metric_model_lookup is None:
+                # Dimension sources may not have any simple-metric inputs -> no aggregation time dimensions.
                 source_nodes_for_metric_queries.append(read_node)
             else:
-                # Splits the measures by distinct aggregate time dimension.
-                for time_dimension_reference in time_dimension_references:
+                # Splits the simple metrics by distinct aggregate time dimension.
+                for (
+                    time_dimension_name
+                ) in simple_metric_model_lookup.aggregation_time_dimension_name_to_simple_metric_inputs.keys():
                     metric_time_transform_node = MetricTimeDimensionTransformNode.create(
                         parent_node=read_node,
-                        aggregation_time_dimension_reference=time_dimension_reference,
+                        aggregation_time_dimension_reference=TimeDimensionReference(time_dimension_name),
                     )
                     source_nodes_for_metric_queries.append(metric_time_transform_node)
 

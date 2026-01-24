@@ -1,0 +1,63 @@
+r"""Implement handlers for sequence objects."""
+
+from __future__ import annotations
+
+__all__ = ["SequenceSameValuesHandler"]
+
+import logging
+from typing import TYPE_CHECKING, Any
+
+from coola.equality.handler.base import BaseEqualityHandler
+from coola.equality.handler.format import format_sequence_difference
+from coola.equality.handler.mixin import HandlerEqualityMixin
+from coola.equality.handler.utils import check_recursion_depth
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from coola.equality.config import EqualityConfig
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+class SequenceSameValuesHandler(HandlerEqualityMixin, BaseEqualityHandler):
+    r"""Check if the two sequences have the same values.
+
+    This handler returns ``False`` if the two sequences have at least
+    one different value, otherwise it passes the inputs to the next
+    handler. If the sequences have different length, this handler
+    checks only the values of the shortest sequence.
+
+    Example:
+        ```pycon
+        >>> from coola.equality.config import EqualityConfig
+        >>> from coola.equality.handler import SequenceSameValuesHandler, TrueHandler
+        >>> config = EqualityConfig()
+        >>> handler = SequenceSameValuesHandler(next_handler=TrueHandler())
+        >>> handler.handle([1, 2, 3], [1, 2, 3], config)
+        True
+        >>> handler.handle([1, 2, 3], [1, 2, 4], config)
+        False
+
+        ```
+    """
+
+    def handle(
+        self,
+        actual: Sequence[Any],
+        expected: Sequence[Any],
+        config: EqualityConfig,
+    ) -> bool:
+        with check_recursion_depth(config):
+            for idx, (value1, value2) in enumerate(zip(actual, expected)):
+                if not config.registry.objects_are_equal(value1, value2, config):
+                    if config.show_difference:
+                        logger.info(
+                            format_sequence_difference(
+                                actual,
+                                expected,
+                                different_index=idx,
+                            )
+                        )
+                    return False
+            return self._handle_next(actual, expected, config=config)

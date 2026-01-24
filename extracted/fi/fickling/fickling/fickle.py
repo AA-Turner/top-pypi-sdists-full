@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import keyword
 import marshal
 import re
 import struct
@@ -39,9 +40,90 @@ BUILTIN_MODULE_NAMES: frozenset[str] = frozenset(sys.builtin_module_names)
 OPCODES_BY_NAME: dict[str, type[Opcode]] = {}
 OPCODE_INFO_BY_NAME: dict[str, OpcodeInfo] = {opcode.name: opcode for opcode in opcodes}
 
+UNSAFE_IMPORTS: frozenset[str] = frozenset(
+    [
+        "__builtin__",
+        "__builtins__",
+        "builtins",
+        "os",
+        "posix",
+        "nt",
+        "subprocess",
+        "sys",
+        "socket",
+        "pty",
+        "marshal",
+        "types",
+        "runpy",
+        "cProfile",
+        "ctypes",
+        "pydoc",
+        "importlib",
+        "code",
+        "multiprocessing",
+    ]
+)
+
 
 def is_std_module(module_name: str) -> bool:
     return in_stdlib(module_name) or module_name in BUILTIN_MODULE_NAMES
+
+
+def extract_identifier_from_ast_node(
+    node: ast.expr | str, fallback_prefix: str = "_malformed"
+) -> str:
+    """
+    Extract a valid Python identifier from an AST node.
+
+    For malformed pickle files where STACK_GLOBAL receives complex AST nodes
+    instead of strings, this function attempts to extract a meaningful identifier
+    or generates a safe fallback.
+
+    Args:
+        node: An AST expression node or string
+        fallback_prefix: Prefix for generated fallback identifiers
+
+    Returns:
+        A valid Python identifier string
+    """
+    # If already a string, validate and return or fix it
+    if isinstance(node, str):
+        if node.isidentifier() and not keyword.iskeyword(node):
+            return node
+        # For invalid string identifiers, create a safe fallback
+        node_hash = abs(hash(node)) % 100000
+        return f"{fallback_prefix}_str_{node_hash}"
+
+    # Handle ast.Name - extract the id attribute
+    if isinstance(node, ast.Name):
+        return node.id
+
+    # Handle ast.Attribute - return the attribute name
+    if isinstance(node, ast.Attribute):
+        return node.attr
+
+    # Handle ast.Call - extract identifier from the function being called
+    if isinstance(node, ast.Call):
+        return extract_identifier_from_ast_node(node.func, fallback_prefix)
+
+    # Handle ast.Constant - extract value if it's a valid identifier string
+    if isinstance(node, ast.Constant):
+        value = node.value
+        if isinstance(value, str):
+            if value.isidentifier() and not keyword.iskeyword(value):
+                return value
+            # For invalid constant strings, create a deterministic fallback
+            value_hash = abs(hash(value)) % 100000
+            return f"{fallback_prefix}_const_{value_hash}"
+        # For non-string constants (int, float, etc.), create a type-based fallback
+        type_name = type(value).__name__
+        value_hash = abs(hash(value)) % 100000
+        return f"{fallback_prefix}_{type_name}_{value_hash}"
+
+    # For any other complex node types, generate a safe placeholder
+    node_type = type(node).__name__.lower()
+    node_hash = abs(hash(id(node))) % 100000
+    return f"{fallback_prefix}_{node_type}_{node_hash}"
 
 
 class MarkObject:
@@ -64,7 +146,10 @@ class Opcode:
             if info is None:
                 raise TypeError("The Opcode class must be constructed with the `info` argument")
         elif info is not None and info != self.info:
-            raise ValueError(f"Invalid info type for {self.__class__.__name__}; expected {self.info!r} but got " f"{info!r}")
+            raise ValueError(
+                f"Invalid info type for {self.__class__.__name__}; expected {self.info!r} but got "
+                f"{info!r}"
+            )
         self.arg: Any = argument
         self.pos: int | None = position
         self._data: bytes | None = data
@@ -76,8 +161,7 @@ class Opcode:
     def data(self) -> bytes:
         if self._data is None:
             return self.encode()
-        else:
-            return self._data
+        return self._data
 
     @data.setter
     def data(self, value: bytes):
@@ -92,19 +176,19 @@ class Opcode:
     def encode_body(self) -> bytes:
         if self.info.arg is None or self.info.arg.n == 0:
             return b""
-        raise NotImplementedError(f"encode_body() is not yet implemented for opcode {self.__class__.__name__}")
+        raise NotImplementedError(
+            f"encode_body() is not yet implemented for opcode {self.__class__.__name__}"
+        )
 
     def __new__(cls, *args, **kwargs):
         if cls is Opcode:
             if "info" not in kwargs:
                 raise ValueError(f"You must provide an `info` argument to construct {cls.__name__}")
-            else:
-                info = kwargs["info"]
+            info = kwargs["info"]
             if info.name in OPCODES_BY_NAME:
                 del kwargs["info"]
                 return OPCODES_BY_NAME[info.name](*args, **kwargs)
-            else:
-                raise NotImplementedError(f"TODO: Add support for Opcode {info.name}")
+            raise NotImplementedError(f"TODO: Add support for Opcode {info.name}")
         return super().__new__(cls)
 
     def run(self, interpreter: Interpreter):
@@ -120,12 +204,12 @@ class Opcode:
         ):
             if not hasattr(cls, "name") or cls.name is None:
                 raise TypeError("Opcode subclasses must define a name")
-            elif cls.name in OPCODES_BY_NAME:
+            if cls.name in OPCODES_BY_NAME:
                 raise TypeError(f"An Opcode named {cls.name} is already defined")
-            elif cls.name not in OPCODE_INFO_BY_NAME:
+            if cls.name not in OPCODE_INFO_BY_NAME:
                 raise TypeError(f"An Opcode named {cls.name} is not defined in `pickletools`")
             OPCODES_BY_NAME[cls.name] = cls
-            setattr(cls, "info", OPCODE_INFO_BY_NAME[cls.name])
+            cls.info = OPCODE_INFO_BY_NAME[cls.name]
             # find the associated `pickletools` OpcodeInfo:
         return super().__init_subclass__(**kwargs)
 
@@ -169,11 +253,13 @@ class DynamicLength(Opcode, ABC):
     def encode_length(cls, length: int) -> bytes:
         if cls.length_bytes not in cls.struct_types:
             raise TypeError(
-                f"{cls.__name__}.struct_types does not include a value for " f"{cls.__name__}.length_bytes = {cls.length_bytes}"
+                f"{cls.__name__}.struct_types does not include a value for "
+                f"{cls.__name__}.length_bytes = {cls.length_bytes}"
             )
         if length < cls.min_value or length > cls.max_value:
             raise ValueError(
-                f"Invalid length {length}: {cls.__name__} can only represent lengths in the range " f"[{cls.min_value}, {cls.max_value}]"
+                f"Invalid length {length}: {cls.__name__} can only represent lengths in the range "
+                f"[{cls.min_value}, {cls.max_value}]"
             )
         st = cls.struct_types[cls.length_bytes]
         if not cls.length_signed:
@@ -230,9 +316,14 @@ class ConstantOpcode(Opcode):
         if not cls.__name__ == "ConstantInt":
             if cls.validate.__code__ == ConstantOpcode.validate.__code__:
                 raise TypeError(f"{cls.__name__} must implement the validate method")
-            elif not hasattr(cls, "priority") or not isinstance(cls.priority, int) or cls.priority is None:
+            if (
+                not hasattr(cls, "priority")
+                or not isinstance(cls.priority, int)
+                or cls.priority is None
+            ):
                 raise TypeError(
-                    f"{cls.__name__} must define an integer priority used for auto-instantiation " "from ConstantOpcode.new(...)"
+                    f"{cls.__name__} must define an integer priority used for auto-instantiation "
+                    "from ConstantOpcode.new(...)"
                 )
             ConstantOpcode.ConstantOpcodePriorities[cls] = cls.priority
         return ret
@@ -249,14 +340,19 @@ class ConstantOpcode(Opcode):
 
     @classmethod
     def new(cls: type[T], obj) -> T:
-        for subclass, _ in sorted(ConstantOpcode.ConstantOpcodePriorities.items(), key=lambda kv: kv[1]):
+        for subclass, _ in sorted(
+            ConstantOpcode.ConstantOpcodePriorities.items(), key=lambda kv: kv[1]
+        ):
             if not issubclass(subclass, cls):
                 continue
             try:
                 return subclass(subclass.validate(obj))
             except ValueError:
                 pass
-        raise ValueError("There is no subclass of ConstantOpcode that handles objects of type " f"{type(obj)!r} for {obj!r}")
+        raise ValueError(
+            "There is no subclass of ConstantOpcode that handles objects of type "
+            f"{type(obj)!r} for {obj!r}"
+        )
 
 
 class ConstantInt(ConstantOpcode, ABC):
@@ -288,11 +384,15 @@ class ConstantInt(ConstantOpcode, ABC):
     def validate(cls, obj):
         if not isinstance(obj, int):
             raise ValueError(f"{cls.__name__} can only be instantiated from integers, not {obj!r}")
-        elif cls.num_bytes not in cls.struct_types:
-            raise TypeError(f"{cls.__name__}.struct_types does not include a value for " f"{cls.__name__}.length_bytes = {cls.num_bytes}")
-        elif obj < cls.min_value or obj > cls.max_value:
+        if cls.num_bytes not in cls.struct_types:
+            raise TypeError(
+                f"{cls.__name__}.struct_types does not include a value for "
+                f"{cls.__name__}.length_bytes = {cls.num_bytes}"
+            )
+        if obj < cls.min_value or obj > cls.max_value:
             raise ValueError(
-                f"Invalid value {obj!r}: {cls.__name__} can only represent lengths in the range " f"[{cls.min_value}, {cls.max_value}]"
+                f"Invalid value {obj!r}: {cls.__name__} can only represent lengths in the range "
+                f"[{cls.min_value}, {cls.max_value}]"
             )
         return obj
 
@@ -313,12 +413,11 @@ class StackSliceOpcode(Opcode):
                 obj = interpreter.stack.pop()
                 if isinstance(obj, MarkObject):
                     break
-                else:
-                    args.append(obj)
+                args.append(obj)
             args = list(reversed(args))
             return orig_run(self, interpreter, args)
 
-        setattr(cls, "run", run_wrapper)
+        cls.run = run_wrapper
 
         return ret
 
@@ -335,13 +434,13 @@ class ASTProperties(ast.NodeVisitor):
         if isinstance(node, ast.ImportFrom) and is_std_module(node.module):
             self.likely_safe_imports |= {name.name for name in node.names}
 
-    def visit_Import(self, node: ast.Import):  # noqa: N802
+    def visit_Import(self, node: ast.Import):
         self._process_import(node)
 
-    def visit_ImportFrom(self, node: ast.ImportFrom):  # noqa: N802
+    def visit_ImportFrom(self, node: ast.ImportFrom):
         self._process_import(node)
 
-    def visit_Call(self, node: ast.Call):  # noqa: N802
+    def visit_Call(self, node: ast.Call):
         self.calls.append(node)
         if not isinstance(node.func, ast.Attribute) or node.func.attr != "__setstate__":
             self.non_setstate_calls.append(node)
@@ -356,10 +455,13 @@ class EmptyPickleError(PickleDecodeError):
 
 
 class Pickled(OpcodeSequence):
-    def __init__(self, opcodes: Iterable[Opcode]):
+    def __init__(self, opcodes: Iterable[Opcode], has_invalid_opcode: bool = False):
         self._opcodes: list[Opcode] = list(opcodes)
         self._ast: ast.Module | None = None
         self._properties: ASTProperties | None = None
+        # Whether the pickled sequence was interrupted because of
+        # an invalid opcode
+        self._has_invalid_opcode: bool = has_invalid_opcode
 
     def __len__(self) -> int:
         return len(self._opcodes)
@@ -383,7 +485,7 @@ class Pickled(OpcodeSequence):
         pickle VM stack"""
         if self._is_constant_type(obj):
             return [ConstantOpcode.new(obj)]
-        elif isinstance(obj, list):
+        if isinstance(obj, list):
             res = [Mark()]
             for item in obj:
                 if self._is_constant_type(item):
@@ -392,7 +494,7 @@ class Pickled(OpcodeSequence):
                     res += self._encode_python_obj(item)
             res.append(List())
             return res
-        elif isinstance(obj, dict):
+        if isinstance(obj, dict):
             if len(obj) == 0:
                 res = [EmptyDict()]
             else:
@@ -405,8 +507,7 @@ class Pickled(OpcodeSequence):
                         res += self._encode_python_obj(val)
                 res.append(Dict())
             return res
-        else:
-            raise ValueError(f"Type {type(obj)} not supported")
+        raise ValueError(f"Type {type(obj)} not supported")
 
     def insert_python_obj(self, index: int, obj: Any) -> int:
         """Insert an opcode sequence that constructs a python object on the stack.
@@ -460,30 +561,29 @@ class Pickled(OpcodeSequence):
                 self.insert(-1, Pop())
                 self.insert(-1, Get.create(321987))  # Get back obj
             return i + 1
+        # Inject call
+        if use_output_as_unpickle_result:
+            # the top of the stack should be the original unpickled value, but we can throw
+            # that away because we are replacing it with the result of calling eval:
+            self.insert(-1, Pop())
+            # now the top of the stack should be our original Global, Mark, Unicode,
+            # Tuple setup, ready for Reduce:
+            self.insert(-1, Reduce())
         else:
-            # Inject call
-            if use_output_as_unpickle_result:
-                # the top of the stack should be the original unpickled value, but we can throw
-                # that away because we are replacing it with the result of calling eval:
-                self.insert(-1, Pop())
-                # now the top of the stack should be our original Global, Mark, Unicode,
-                # Tuple setup, ready for Reduce:
-                self.insert(-1, Reduce())
-            else:
-                # we need to preserve the "real" output of the preexisting unpickling, which should
-                # be at the top of the stack, directly above our Tuple, Unicode, Mark, and Global
-                # stack items we added above.
-                # So, we have to save the original result to the memo. First, interpret the existing
-                # code to see which memo location it would be saved to:
-                interpreter = Interpreter(self)
-                interpreter.run()
-                memo_id = len(interpreter.memory)
-                self.insert(-1, Memoize())
-                self.insert(-1, Pop())
-                self.insert(-1, Reduce())
-                self.insert(-1, Pop())
-                self.insert(-1, Get.create(memo_id))
-            return -1
+            # we need to preserve the "real" output of the preexisting unpickling, which should
+            # be at the top of the stack, directly above our Tuple, Unicode, Mark, and Global
+            # stack items we added above.
+            # So, we have to save the original result to the memo. First, interpret the existing
+            # code to see which memo location it would be saved to:
+            interpreter = Interpreter(self)
+            interpreter.run()
+            memo_id = len(interpreter.memory)
+            self.insert(-1, Memoize())
+            self.insert(-1, Pop())
+            self.insert(-1, Reduce())
+            self.insert(-1, Pop())
+            self.insert(-1, Get.create(memo_id))
+        return -1
 
     insert_python_eval = insert_python
 
@@ -674,6 +774,10 @@ class Pickled(OpcodeSequence):
     def opcodes(self) -> Iterator[Opcode]:
         return iter(self)
 
+    @property
+    def has_invalid_opcode(self) -> bool:
+        return self._has_invalid_opcode
+
     @staticmethod
     def make_stream(data: Buffer | BinaryIO) -> BinaryIO:
         if isinstance(data, (bytes, bytearray, Buffer)):
@@ -683,16 +787,30 @@ class Pickled(OpcodeSequence):
         return data
 
     @staticmethod
-    def load(pickled: Buffer | BinaryIO) -> Pickled:
+    def load(pickled: Buffer | BinaryIO, fail_on_decode_error: bool = True) -> Pickled:
+        """
+        :arg fail_on_decode_error: If a decoding error such as unknown opcode happens
+            and this parameter is set to False, then the error is ignored and the
+            returns the list of opcodes decoded until the error. If set to True,
+            then raises a decode error exception
+        """
+
         pickled = Pickled.make_stream(pickled)
         first_pos = pickled.tell()
         opcodes: List[Opcode] = []
+        has_invalid_opcode = False
 
         try:
             for info, arg, pos in genops(pickled):
                 pos_before = pickled.tell()
                 try:
-                    if pos is not None and opcodes and opcodes[-1].pos is not None and not opcodes[-1].has_data() and opcodes[-1].pos < pos:
+                    if (
+                        pos is not None
+                        and opcodes
+                        and opcodes[-1].pos is not None
+                        and not opcodes[-1].has_data()
+                        and opcodes[-1].pos < pos
+                    ):
                         pickled.seek(opcodes[-1].pos)
                         opcodes[-1].data = pickled.read(pos - opcodes[-1].pos)
                     if pos is not None:
@@ -718,7 +836,9 @@ class Pickled(OpcodeSequence):
                     pickled.seek(pos_before)
         except ValueError as e:
             if opcodes:
-                raise PickleDecodeError(e)
+                if fail_on_decode_error:
+                    raise PickleDecodeError(e)
+                has_invalid_opcode = True
             else:
                 raise EmptyPickleError()
         if opcodes:
@@ -730,7 +850,7 @@ class Pickled(OpcodeSequence):
                 pickled.seek(last_pos)
         else:
             pickled.seek(first_pos)
-        return Pickled(opcodes)
+        return Pickled(opcodes, has_invalid_opcode=has_invalid_opcode)
 
     @property
     def properties(self) -> ASTProperties:
@@ -762,21 +882,14 @@ on the Pickled object instead"""
         )
 
     def is_likely_safe(self):
-        raise WrongMethodError("This method has been removed. Use fickling.is_likely_safe() on the pickle file instead")
+        raise WrongMethodError(
+            "This method has been removed. Use fickling.is_likely_safe() on the pickle file instead"
+        )
 
     def unsafe_imports(self) -> Iterator[ast.Import | ast.ImportFrom]:
         for node in self.properties.imports:
-            if node.module in (
-                "__builtin__",
-                "__builtins__",
-                "builtins",
-                "os",
-                "posix",
-                "nt",
-                "subprocess",
-                "sys",
-                "builtins",
-                "socket",
+            if node.module and any(
+                component in UNSAFE_IMPORTS for component in node.module.split(".")
             ):
                 yield node
             elif "eval" in (n.name for n in node.names):
@@ -821,10 +934,8 @@ class Stack(GenericSequence, Generic[T]):
         if not self._stack:
             if self.opcode is None:
                 raise IndexError("Stack is empty")
-            else:
-                raise IndexError(f"Opcode {self.opcode!s} attempted to pop from an empty stack")
-        else:
-            return self._stack.pop()
+            raise IndexError(f"Opcode {self.opcode!s} attempted to pop from an empty stack")
+        return self._stack.pop()
 
     def push(self, obj: T):
         self._stack.append(obj)
@@ -846,8 +957,11 @@ class ModuleBody:
     def append(self, stmt: ast.stmt):
         lineno = len(self._list) + 1
         if hasattr(stmt, "lineno") and stmt.lineno is not None and stmt.lineno != lineno:
-            raise ValueError(f"Statement {stmt} was expected to have line number {lineno} but instead has " f"{stmt.lineno}")
-        setattr(stmt, "lineno", lineno)
+            raise ValueError(
+                f"Statement {stmt} was expected to have line number {lineno} but instead has "
+                f"{stmt.lineno}"
+            )
+        stmt.lineno = lineno
         self._list.append(stmt)
 
     def extend(self, stmts: Iterable[ast.stmt]):
@@ -865,7 +979,9 @@ class ModuleBody:
 
 
 class Interpreter:
-    def __init__(self, pickled: Pickled, first_variable_id: int = 0, result_variable: str = "result"):
+    def __init__(
+        self, pickled: Pickled, first_variable_id: int = 0, result_variable: str = "result"
+    ):
         self.pickled: Pickled = pickled
         self.memory: dict[int, ast.expr] = {}
         self.stack: Stack[ast.expr | MarkObject] = Stack()
@@ -893,7 +1009,11 @@ class Interpreter:
         for statement in self.module_body:
             # skip the last statement because it is always used
             if isinstance(statement, ast.Assign):
-                if len(statement.targets) == 1 and isinstance(statement.targets[0], ast.Name) and statement.targets[0].id == "result":
+                if (
+                    len(statement.targets) == 1
+                    and isinstance(statement.targets[0], ast.Name)
+                    and statement.targets[0].id == "result"
+                ):
                     # this is the return value of the program
                     break
                 for target in statement.targets:
@@ -901,7 +1021,9 @@ class Interpreter:
                         defined.add(target.id)
                         if target.id in assignments:
                             # this should never happen, since Fickling constructs the AST
-                            sys.stderr.write(f"Warning: Duplicate declaration of variable {target.id}\n")
+                            sys.stderr.write(
+                                f"Warning: Duplicate declaration of variable {target.id}\n"
+                            )
                         assignments[target.id] = statement
                 statement = statement.value
             if statement is not None:
@@ -932,8 +1054,8 @@ class Interpreter:
             finished = True
         if finished:
             for i, stmt in enumerate(self.module_body):
-                setattr(stmt, "lineno", i + 1)
-                setattr(stmt, "col_offset", 0)
+                stmt.lineno = i + 1
+                stmt.col_offset = 0
             self._module = ast.Module(list(self.module_body), type_ignores=[])
             raise StopIteration()
         self.stack.opcode = opcode
@@ -969,11 +1091,10 @@ class Proto(NoOp):
     def version(self) -> int:
         if self.arg is None:
             return 0
-        elif isinstance(self.arg, int):
+        if isinstance(self.arg, int):
             return self.arg
-        else:
-            # Endianness shouldn't really matter here because there is only one byte for the version
-            return int.from_bytes(self.arg, "big", signed=False)
+        # Endianness shouldn't really matter here because there is only one byte for the version
+        return int.from_bytes(self.arg, "big", signed=False)
 
 
 class Global(Opcode):
@@ -994,12 +1115,8 @@ class Global(Opcode):
 
     def run(self, interpreter: Interpreter):
         module, attr = self.module, self.attr
-        if module in ("__builtin__", "__builtins__", "builtins"):
-            # no need to emit an import for builtins!
-            pass
-        else:
-            alias = ast.alias(attr)
-            interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
+        alias = ast.alias(attr)
+        interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
         interpreter.stack.append(ast.Name(attr, ast.Load()))
 
     def encode(self) -> bytes:
@@ -1012,16 +1129,46 @@ class StackGlobal(NoOp):
     def run(self, interpreter: Interpreter):
         attr = interpreter.stack.pop()
         module = interpreter.stack.pop()
+
+        # Extract values from ast.Constant nodes
         if isinstance(module, ast.Constant):
             module = module.value
         if isinstance(attr, ast.Constant):
             attr = attr.value
-        if module in ("__builtin__", "__builtins__", "builtins"):
-            # no need to emit an import for builtins!
-            pass
-        else:
-            alias = ast.alias(attr)
-            interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
+
+        # Normalize module and attr to strings, extracting meaningful identifiers from AST nodes
+        module_needs_extraction = not isinstance(module, str)
+        attr_needs_extraction = not isinstance(attr, str)
+
+        if module_needs_extraction or attr_needs_extraction:
+            sys.stdout.write(
+                f"Warning: malformed pickle file. STACK_GLOBAL called with invalid types. "
+                f"'Module' is {type(module).__name__} ({module!r}), 'Attr' is {type(attr).__name__} ({attr!r}). "
+                f"Expected str; extracting identifiers to continue analysis.\n"
+            )
+
+            if module_needs_extraction:
+                module = extract_identifier_from_ast_node(
+                    module, fallback_prefix="_malformed_module"
+                )
+            if attr_needs_extraction:
+                attr = extract_identifier_from_ast_node(attr, fallback_prefix="_malformed_attr")
+
+        # Final validation: ensure both are valid identifier strings
+        if not isinstance(module, str) or not isinstance(attr, str):
+            raise TypeError(
+                f"Failed to extract valid identifiers from STACK_GLOBAL arguments. "
+                f"Module: {type(module).__name__}, Attr: {type(attr).__name__}"
+            )
+
+        if not all(m.isidentifier() for m in module.split(".")) or not attr.isidentifier():
+            raise ValueError(
+                f"Extracted identifiers are not valid Python identifiers. "
+                f"Module: {module!r}, Attr: {attr!r}"
+            )
+
+        alias = ast.alias(attr)
+        interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
         interpreter.stack.append(ast.Name(attr, ast.Load()))
 
 
@@ -1043,12 +1190,8 @@ class Inst(StackSliceOpcode):
 
     def run(self, interpreter: Interpreter, stack_slice: List[ast.expr]):
         module, classname = self.module, self.cls
-        if module in ("__builtin__", "__builtins__", "builtins"):
-            # no need to emit an import for builtins!
-            pass
-        else:
-            alias = ast.alias(classname)
-            interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
+        alias = ast.alias(classname)
+        interpreter.module_body.append(ast.ImportFrom(module=module, names=[alias], level=0))
         args = ast.Tuple(tuple(stack_slice))
         call = ast.Call(ast.Name(classname, ast.Load()), list(args.elts), [])
         var_name = interpreter.new_variable(call)
@@ -1074,6 +1217,10 @@ class BinPut(Opcode):
 
     def run(self, interpreter: Interpreter):
         interpreter.memory[self.arg] = interpreter.stack[-1]
+
+    def encode_body(self):
+        assert self.arg <= 255, "BINPUT only supports 1-byte memo indexing"
+        return bytes([self.arg])
 
 
 class LongBinPut(BinPut):
@@ -1130,7 +1277,9 @@ class AddItems(Opcode):
             raise ValueError("Stack was empty; expected a pyset")
         pyset = interpreter.stack.pop()
         if not isinstance(pyset, ast.Set):
-            raise ValueError(f"{pyset!r} was expected to be a set-like object with an `add` function")
+            raise ValueError(
+                f"{pyset!r} was expected to be a set-like object with an `add` function"
+            )
         pyset.elts.extend(reversed(to_add))
 
 
@@ -1353,14 +1502,32 @@ class BinGet(Opcode):
     name = "BINGET"
 
     def run(self, interpreter: Interpreter):
-        interpreter.stack.append(interpreter.memory[self.arg])
+        if self.arg not in interpreter.memory:
+            sys.stderr.write(
+                f"Warning: malformed pickle file. BINGET references non-existent memo key {self.arg}; "
+                f"using placeholder None value to continue analysis\n"
+            )
+            interpreter.stack.append(ast.Constant(value=None))
+        else:
+            interpreter.stack.append(interpreter.memory[self.arg])
+
+    def encode_body(self):
+        assert self.arg <= 255, "BINGET only supports 1-byte memo indexing"
+        return bytes([self.arg])
 
 
 class LongBinGet(Opcode):
     name = "LONG_BINGET"
 
     def run(self, interpreter: Interpreter):
-        interpreter.stack.append(interpreter.memory[self.arg])
+        if self.arg not in interpreter.memory:
+            sys.stderr.write(
+                f"Warning: malformed pickle file. LONG_BINGET references non-existent memo key {self.arg}; "
+                f"using placeholder None value to continue analysis\n"
+            )
+            interpreter.stack.append(ast.Constant(value=None))
+        else:
+            interpreter.stack.append(interpreter.memory[self.arg])
 
 
 class Get(Opcode):
@@ -1371,7 +1538,14 @@ class Get(Opcode):
         return int(self.arg)
 
     def run(self, interpreter: Interpreter):
-        interpreter.stack.append(interpreter.memory[self.memo_id])
+        if self.memo_id not in interpreter.memory:
+            sys.stderr.write(
+                f"Warning: malformed pickle file. BINGET references non-existent memo key {self.memo_id}; "
+                f"using placeholder None value to continue analysis\n"
+            )
+            interpreter.stack.append(ast.Constant(value=None))
+        else:
+            interpreter.stack.append(interpreter.memory[self.memo_id])
 
     def encode_body(self) -> bytes:
         return f"{self.memo_id}\n".encode()
@@ -1533,7 +1707,9 @@ class ShortBinBytes(DynamicLength, ConstantOpcode):
     @classmethod
     def validate(cls, obj):
         if not isinstance(obj, bytes):
-            raise ValueError(f"{cls.__name__} must be instantiated with an object of type bytes, not {obj!r}")
+            raise ValueError(
+                f"{cls.__name__} must be instantiated with an object of type bytes, not {obj!r}"
+            )
         return super().validate(obj)
 
 
@@ -1633,7 +1809,9 @@ class Dict(Opcode):
             raise ValueError("Exhausted the stack while searching for a MarkObject!")
 
         if len(keys) != len(values):
-            raise ValueError(f"Number of keys ({len(keys)}) and values ({len(values)}) for DICT do not match")
+            raise ValueError(
+                f"Number of keys ({len(keys)}) and values ({len(values)}) for DICT do not match"
+            )
 
         interpreter.stack.append(ast.Dict(keys=reversed(keys), values=reversed(values)))
 
@@ -1652,12 +1830,12 @@ class StackedPickle(PickledSequence):
         return len(self.pickled)
 
     @staticmethod
-    def load(pickled: Buffer | BinaryIO) -> StackedPickle:
+    def load(pickled: Buffer | BinaryIO, fail_on_decode_error: bool = True) -> StackedPickle:
         pickled = Pickled.make_stream(pickled)
         pickles: List[Pickled] = []
         while True:
             try:
-                p = Pickled.load(pickled)
+                p = Pickled.load(pickled, fail_on_decode_error=fail_on_decode_error)
                 if len(p) == 0:
                     break
                 pickles.append(p)

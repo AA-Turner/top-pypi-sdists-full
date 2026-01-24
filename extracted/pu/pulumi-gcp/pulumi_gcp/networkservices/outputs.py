@@ -80,14 +80,32 @@ __all__ = [
     'HttpRouteRuleMatchHeader',
     'HttpRouteRuleMatchHeaderRangeMatch',
     'HttpRouteRuleMatchQueryParameter',
+    'LbEdgeExtensionExtensionChain',
+    'LbEdgeExtensionExtensionChainExtension',
+    'LbEdgeExtensionExtensionChainMatchCondition',
     'LbRouteExtensionExtensionChain',
     'LbRouteExtensionExtensionChainExtension',
     'LbRouteExtensionExtensionChainMatchCondition',
     'LbTrafficExtensionExtensionChain',
     'LbTrafficExtensionExtensionChainExtension',
     'LbTrafficExtensionExtensionChainMatchCondition',
+    'MulticastConsumerAssociationState',
+    'MulticastDomainActivationState',
+    'MulticastDomainActivationTrafficSpec',
+    'MulticastDomainConnectionConfig',
+    'MulticastDomainGroupState',
+    'MulticastDomainState',
+    'MulticastGroupConsumerActivationLogConfig',
+    'MulticastGroupConsumerActivationState',
+    'MulticastGroupProducerActivationState',
+    'MulticastGroupRangeActivationLogConfig',
+    'MulticastGroupRangeActivationState',
+    'MulticastGroupRangeLogConfig',
+    'MulticastGroupRangeState',
+    'MulticastProducerAssociationState',
     'ServiceLbPoliciesAutoCapacityDrain',
     'ServiceLbPoliciesFailoverConfig',
+    'ServiceLbPoliciesIsolationConfig',
     'TcpRouteRule',
     'TcpRouteRuleAction',
     'TcpRouteRuleActionDestination',
@@ -96,6 +114,9 @@ __all__ = [
     'TlsRouteRuleAction',
     'TlsRouteRuleActionDestination',
     'TlsRouteRuleMatch',
+    'WasmPluginLogConfig',
+    'WasmPluginUsedBy',
+    'WasmPluginVersion',
 ]
 
 @pulumi.output_type
@@ -4613,6 +4634,222 @@ class HttpRouteRuleMatchQueryParameter(dict):
 
 
 @pulumi.output_type
+class LbEdgeExtensionExtensionChain(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "matchCondition":
+            suggest = "match_condition"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LbEdgeExtensionExtensionChain. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LbEdgeExtensionExtensionChain.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LbEdgeExtensionExtensionChain.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 extensions: Sequence['outputs.LbEdgeExtensionExtensionChainExtension'],
+                 match_condition: 'outputs.LbEdgeExtensionExtensionChainMatchCondition',
+                 name: _builtins.str):
+        """
+        :param Sequence['LbEdgeExtensionExtensionChainExtensionArgs'] extensions: A set of extensions to execute for the matching request.
+               At least one extension is required. Up to 3 extensions can be defined for each extension chain for
+               LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
+               Structure is documented below.
+        :param 'LbEdgeExtensionExtensionChainMatchConditionArgs' match_condition: Conditions under which this chain is invoked for a request.
+               Structure is documented below.
+        :param _builtins.str name: The name for this extension chain. The name is logged as part of the HTTP request logs.
+               The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
+               and can have a maximum length of 63 characters. Additionally, the first character must be a letter
+               and the last character must be a letter or a number.
+        """
+        pulumi.set(__self__, "extensions", extensions)
+        pulumi.set(__self__, "match_condition", match_condition)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def extensions(self) -> Sequence['outputs.LbEdgeExtensionExtensionChainExtension']:
+        """
+        A set of extensions to execute for the matching request.
+        At least one extension is required. Up to 3 extensions can be defined for each extension chain for
+        LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "extensions")
+
+    @_builtins.property
+    @pulumi.getter(name="matchCondition")
+    def match_condition(self) -> 'outputs.LbEdgeExtensionExtensionChainMatchCondition':
+        """
+        Conditions under which this chain is invoked for a request.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "match_condition")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name for this extension chain. The name is logged as part of the HTTP request logs.
+        The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
+        and can have a maximum length of 63 characters. Additionally, the first character must be a letter
+        and the last character must be a letter or a number.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class LbEdgeExtensionExtensionChainExtension(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "failOpen":
+            suggest = "fail_open"
+        elif key == "forwardHeaders":
+            suggest = "forward_headers"
+        elif key == "supportedEvents":
+            suggest = "supported_events"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LbEdgeExtensionExtensionChainExtension. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LbEdgeExtensionExtensionChainExtension.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LbEdgeExtensionExtensionChainExtension.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 service: _builtins.str,
+                 fail_open: Optional[_builtins.bool] = None,
+                 forward_headers: Optional[Sequence[_builtins.str]] = None,
+                 supported_events: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param _builtins.str name: The name for this extension. The name is logged as part of the HTTP request logs.
+               The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
+               and can have a maximum length of 63 characters. Additionally, the first character must be a letter
+               and the last a letter or a number.
+        :param _builtins.str service: The reference to the service that runs the extension.
+               * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+               * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
+        :param _builtins.bool fail_open: Determines how the proxy behaves if the call to the extension fails or times out.
+               When set to TRUE, request or response processing continues without error.
+               Any subsequent extensions in the extension chain are also executed.
+               When set to FALSE: * If response headers have not been delivered to the downstream client,
+               a generic 500 error is returned to the client. The error response can be tailored by
+               configuring a custom error response in the load balancer.
+        :param Sequence[_builtins.str] forward_headers: List of the HTTP headers to forward to the extension (from the client or backend).
+               If omitted, all headers are sent. Each element is a string indicating the header name.
+        :param Sequence[_builtins.str] supported_events: A set of events during request or response processing for which this extension is called.
+               This field is required for the LbEdgeExtension resource and only supports the value `REQUEST_HEADERS`.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "service", service)
+        if fail_open is not None:
+            pulumi.set(__self__, "fail_open", fail_open)
+        if forward_headers is not None:
+            pulumi.set(__self__, "forward_headers", forward_headers)
+        if supported_events is not None:
+            pulumi.set(__self__, "supported_events", supported_events)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name for this extension. The name is logged as part of the HTTP request logs.
+        The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
+        and can have a maximum length of 63 characters. Additionally, the first character must be a letter
+        and the last a letter or a number.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def service(self) -> _builtins.str:
+        """
+        The reference to the service that runs the extension.
+        * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+        * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
+        """
+        return pulumi.get(self, "service")
+
+    @_builtins.property
+    @pulumi.getter(name="failOpen")
+    def fail_open(self) -> Optional[_builtins.bool]:
+        """
+        Determines how the proxy behaves if the call to the extension fails or times out.
+        When set to TRUE, request or response processing continues without error.
+        Any subsequent extensions in the extension chain are also executed.
+        When set to FALSE: * If response headers have not been delivered to the downstream client,
+        a generic 500 error is returned to the client. The error response can be tailored by
+        configuring a custom error response in the load balancer.
+        """
+        return pulumi.get(self, "fail_open")
+
+    @_builtins.property
+    @pulumi.getter(name="forwardHeaders")
+    def forward_headers(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        List of the HTTP headers to forward to the extension (from the client or backend).
+        If omitted, all headers are sent. Each element is a string indicating the header name.
+        """
+        return pulumi.get(self, "forward_headers")
+
+    @_builtins.property
+    @pulumi.getter(name="supportedEvents")
+    def supported_events(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A set of events during request or response processing for which this extension is called.
+        This field is required for the LbEdgeExtension resource and only supports the value `REQUEST_HEADERS`.
+        """
+        return pulumi.get(self, "supported_events")
+
+
+@pulumi.output_type
+class LbEdgeExtensionExtensionChainMatchCondition(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "celExpression":
+            suggest = "cel_expression"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in LbEdgeExtensionExtensionChainMatchCondition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        LbEdgeExtensionExtensionChainMatchCondition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        LbEdgeExtensionExtensionChainMatchCondition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cel_expression: _builtins.str):
+        """
+        :param _builtins.str cel_expression: A Common Expression Language (CEL) expression that is used to match requests for which the extension chain is executed.
+        """
+        pulumi.set(__self__, "cel_expression", cel_expression)
+
+    @_builtins.property
+    @pulumi.getter(name="celExpression")
+    def cel_expression(self) -> _builtins.str:
+        """
+        A Common Expression Language (CEL) expression that is used to match requests for which the extension chain is executed.
+        """
+        return pulumi.get(self, "cel_expression")
+
+
+@pulumi.output_type
 class LbRouteExtensionExtensionChain(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -4639,6 +4876,7 @@ class LbRouteExtensionExtensionChain(dict):
         :param Sequence['LbRouteExtensionExtensionChainExtensionArgs'] extensions: A set of extensions to execute for the matching request.
                At least one extension is required. Up to 3 extensions can be defined for each extension chain for
                LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
+               Further documentation can be found at https://cloud.google.com/service-extensions/docs/reference/rest/v1/ExtensionChain#Extension
                Structure is documented below.
         :param 'LbRouteExtensionExtensionChainMatchConditionArgs' match_condition: Conditions under which this chain is invoked for a request.
                Structure is documented below.
@@ -4658,6 +4896,7 @@ class LbRouteExtensionExtensionChain(dict):
         A set of extensions to execute for the matching request.
         At least one extension is required. Up to 3 extensions can be defined for each extension chain for
         LbTrafficExtension resource. LbRouteExtension chains are limited to 1 extension per extension chain.
+        Further documentation can be found at https://cloud.google.com/service-extensions/docs/reference/rest/v1/ExtensionChain#Extension
         Structure is documented below.
         """
         return pulumi.get(self, "extensions")
@@ -4692,6 +4931,12 @@ class LbRouteExtensionExtensionChainExtension(dict):
             suggest = "fail_open"
         elif key == "forwardHeaders":
             suggest = "forward_headers"
+        elif key == "observabilityMode":
+            suggest = "observability_mode"
+        elif key == "requestBodySendMode":
+            suggest = "request_body_send_mode"
+        elif key == "supportedEvents":
+            suggest = "supported_events"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in LbRouteExtensionExtensionChainExtension. Access the value via the '{suggest}' property getter instead.")
@@ -4710,13 +4955,19 @@ class LbRouteExtensionExtensionChainExtension(dict):
                  authority: Optional[_builtins.str] = None,
                  fail_open: Optional[_builtins.bool] = None,
                  forward_headers: Optional[Sequence[_builtins.str]] = None,
+                 metadata: Optional[Mapping[str, _builtins.str]] = None,
+                 observability_mode: Optional[_builtins.bool] = None,
+                 request_body_send_mode: Optional[_builtins.str] = None,
+                 supported_events: Optional[Sequence[_builtins.str]] = None,
                  timeout: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The name for this extension. The name is logged as part of the HTTP request logs.
                The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
                and can have a maximum length of 63 characters. Additionally, the first character must be a letter
                and the last a letter or a number.
-        :param _builtins.str service: The reference to the service that runs the extension. Must be a reference to a backend service
+        :param _builtins.str service: The reference to the service that runs the extension.
+               * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+               * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
         :param _builtins.str authority: The :authority header in the gRPC request sent from Envoy to the extension service.
         :param _builtins.bool fail_open: Determines how the proxy behaves if the call to the extension fails or times out.
                When set to TRUE, request or response processing continues without error.
@@ -4726,6 +4977,27 @@ class LbRouteExtensionExtensionChainExtension(dict):
                configuring a custom error response in the load balancer.
         :param Sequence[_builtins.str] forward_headers: List of the HTTP headers to forward to the extension (from the client or backend).
                If omitted, all headers are sent. Each element is a string indicating the header name.
+        :param Mapping[str, _builtins.str] metadata: The metadata provided here is included as part of the `metadata_context` (of type `google.protobuf.Struct`)
+               in the `ProcessingRequest` message sent to the extension server.
+               The metadata is available under the namespace `com.google.lb_route_extension.<resource_name>.<chain_name>.<extension_name>`.
+               The following variables are supported in the metadata: `{forwarding_rule_id}` - substituted with the forwarding rule's fully qualified resource name.
+               This field must not be set for plugin extensions. Setting it results in a validation error.
+        :param _builtins.bool observability_mode: When set to `TRUE`, enables `observability_mode` on the `ext_proc` filter.
+               This makes `ext_proc` calls asynchronous. Envoy doesn't check for the response from `ext_proc` calls.
+               For more information about the filter, see: https://www.envoyproxy.io/docs/envoy/v1.32.3/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto
+               This field is helpful when you want to try out the extension in async log-only mode.
+               Supported by regional `LbTrafficExtension` and `LbRouteExtension` resources.
+               Only `STREAMED` (default) body processing mode is supported.
+        :param _builtins.str request_body_send_mode: Configures the send mode for request body processing.
+               The field can only be set if `supported_events` includes `REQUEST_BODY`.
+               If `supported_events` includes `REQUEST_BODY`, but `request_body_send_mode` is unset, the default value `STREAMED` is used.
+               When this field is set to `FULL_DUPLEX_STREAMED`, `supported_events` must include both `REQUEST_BODY` and `REQUEST_TRAILERS`.
+               This field can be set only when the `service` field of the extension points to a `BackendService`.
+               Only `FULL_DUPLEX_STREAMED` mode is supported for `LbRouteExtension` resources.
+               Possible values are: `BODY_SEND_MODE_UNSPECIFIED`, `BODY_SEND_MODE_STREAMED`, `BODY_SEND_MODE_FULL_DUPLEX_STREAMED`.
+        :param Sequence[_builtins.str] supported_events: A set of events during request or response processing for which this extension is called.
+               This field is optional for the LbRouteExtension resource. If unspecified, `REQUEST_HEADERS` event is assumed as supported.
+               Possible values: `REQUEST_HEADERS`, `REQUEST_BODY`, `REQUEST_TRAILERS`.
         :param _builtins.str timeout: Specifies the timeout for each individual message on the stream. The timeout must be between 10-1000 milliseconds.
                A duration in seconds with up to nine fractional digits, ending with 's'. Example: "3.5s".
         """
@@ -4737,6 +5009,14 @@ class LbRouteExtensionExtensionChainExtension(dict):
             pulumi.set(__self__, "fail_open", fail_open)
         if forward_headers is not None:
             pulumi.set(__self__, "forward_headers", forward_headers)
+        if metadata is not None:
+            pulumi.set(__self__, "metadata", metadata)
+        if observability_mode is not None:
+            pulumi.set(__self__, "observability_mode", observability_mode)
+        if request_body_send_mode is not None:
+            pulumi.set(__self__, "request_body_send_mode", request_body_send_mode)
+        if supported_events is not None:
+            pulumi.set(__self__, "supported_events", supported_events)
         if timeout is not None:
             pulumi.set(__self__, "timeout", timeout)
 
@@ -4755,7 +5035,9 @@ class LbRouteExtensionExtensionChainExtension(dict):
     @pulumi.getter
     def service(self) -> _builtins.str:
         """
-        The reference to the service that runs the extension. Must be a reference to a backend service
+        The reference to the service that runs the extension.
+        * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+        * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
         """
         return pulumi.get(self, "service")
 
@@ -4788,6 +5070,55 @@ class LbRouteExtensionExtensionChainExtension(dict):
         If omitted, all headers are sent. Each element is a string indicating the header name.
         """
         return pulumi.get(self, "forward_headers")
+
+    @_builtins.property
+    @pulumi.getter
+    def metadata(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        The metadata provided here is included as part of the `metadata_context` (of type `google.protobuf.Struct`)
+        in the `ProcessingRequest` message sent to the extension server.
+        The metadata is available under the namespace `com.google.lb_route_extension.<resource_name>.<chain_name>.<extension_name>`.
+        The following variables are supported in the metadata: `{forwarding_rule_id}` - substituted with the forwarding rule's fully qualified resource name.
+        This field must not be set for plugin extensions. Setting it results in a validation error.
+        """
+        return pulumi.get(self, "metadata")
+
+    @_builtins.property
+    @pulumi.getter(name="observabilityMode")
+    def observability_mode(self) -> Optional[_builtins.bool]:
+        """
+        When set to `TRUE`, enables `observability_mode` on the `ext_proc` filter.
+        This makes `ext_proc` calls asynchronous. Envoy doesn't check for the response from `ext_proc` calls.
+        For more information about the filter, see: https://www.envoyproxy.io/docs/envoy/v1.32.3/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto
+        This field is helpful when you want to try out the extension in async log-only mode.
+        Supported by regional `LbTrafficExtension` and `LbRouteExtension` resources.
+        Only `STREAMED` (default) body processing mode is supported.
+        """
+        return pulumi.get(self, "observability_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="requestBodySendMode")
+    def request_body_send_mode(self) -> Optional[_builtins.str]:
+        """
+        Configures the send mode for request body processing.
+        The field can only be set if `supported_events` includes `REQUEST_BODY`.
+        If `supported_events` includes `REQUEST_BODY`, but `request_body_send_mode` is unset, the default value `STREAMED` is used.
+        When this field is set to `FULL_DUPLEX_STREAMED`, `supported_events` must include both `REQUEST_BODY` and `REQUEST_TRAILERS`.
+        This field can be set only when the `service` field of the extension points to a `BackendService`.
+        Only `FULL_DUPLEX_STREAMED` mode is supported for `LbRouteExtension` resources.
+        Possible values are: `BODY_SEND_MODE_UNSPECIFIED`, `BODY_SEND_MODE_STREAMED`, `BODY_SEND_MODE_FULL_DUPLEX_STREAMED`.
+        """
+        return pulumi.get(self, "request_body_send_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="supportedEvents")
+    def supported_events(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A set of events during request or response processing for which this extension is called.
+        This field is optional for the LbRouteExtension resource. If unspecified, `REQUEST_HEADERS` event is assumed as supported.
+        Possible values: `REQUEST_HEADERS`, `REQUEST_BODY`, `REQUEST_TRAILERS`.
+        """
+        return pulumi.get(self, "supported_events")
 
     @_builtins.property
     @pulumi.getter
@@ -4944,7 +5275,9 @@ class LbTrafficExtensionExtensionChainExtension(dict):
                The name must conform with RFC-1034, is restricted to lower-cased letters, numbers and hyphens,
                and can have a maximum length of 63 characters. Additionally, the first character must be a letter
                and the last a letter or a number.
-        :param _builtins.str service: The reference to the service that runs the extension. Must be a reference to a backend service
+        :param _builtins.str service: The reference to the service that runs the extension.
+               * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+               * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
         :param _builtins.str authority: The :authority header in the gRPC request sent from Envoy to the extension service.
         :param _builtins.bool fail_open: Determines how the proxy behaves if the call to the extension fails or times out.
                When set to TRUE, request or response processing continues without error.
@@ -4994,7 +5327,9 @@ class LbTrafficExtensionExtensionChainExtension(dict):
     @pulumi.getter
     def service(self) -> _builtins.str:
         """
-        The reference to the service that runs the extension. Must be a reference to a backend service
+        The reference to the service that runs the extension.
+        * To configure a callout extension, service must be a fully-qualified reference to a backend service.
+        * To configure a plugin extension, service must be a reference to a WasmPlugin resource.
         """
         return pulumi.get(self, "service")
 
@@ -5095,6 +5430,559 @@ class LbTrafficExtensionExtensionChainMatchCondition(dict):
 
 
 @pulumi.output_type
+class MulticastConsumerAssociationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastDomainActivationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastDomainActivationTrafficSpec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "aggrEgressPps":
+            suggest = "aggr_egress_pps"
+        elif key == "aggrIngressPps":
+            suggest = "aggr_ingress_pps"
+        elif key == "avgPacketSize":
+            suggest = "avg_packet_size"
+        elif key == "maxPerGroupIngressPps":
+            suggest = "max_per_group_ingress_pps"
+        elif key == "maxPerGroupSubscribers":
+            suggest = "max_per_group_subscribers"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MulticastDomainActivationTrafficSpec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MulticastDomainActivationTrafficSpec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MulticastDomainActivationTrafficSpec.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aggr_egress_pps: Optional[_builtins.str] = None,
+                 aggr_ingress_pps: Optional[_builtins.str] = None,
+                 avg_packet_size: Optional[_builtins.int] = None,
+                 max_per_group_ingress_pps: Optional[_builtins.str] = None,
+                 max_per_group_subscribers: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str aggr_egress_pps: Aggregated egress Packet-Per-Second for all multicast groups in the domain
+               in this zone.
+        :param _builtins.str aggr_ingress_pps: Aggregated ingress Packet-Per-Second for all multicast groups in the domain
+               in this zone. Default to (aggregated_egress_pps /
+               max_per_group_subscribers) * 2.
+        :param _builtins.int avg_packet_size: Average packet size (Default to 512 bytes).
+        :param _builtins.str max_per_group_ingress_pps: Maximum ingress Packet-Per-Second for a single multicast group in this
+               zone. Default to aggregated_ingress_pps / 2.
+        :param _builtins.str max_per_group_subscribers: Maximum number of subscribers for a single multicast group in this zone.
+               Default to max(50, aggregated_egress_pps / aggregated_ingress_pps).
+        """
+        if aggr_egress_pps is not None:
+            pulumi.set(__self__, "aggr_egress_pps", aggr_egress_pps)
+        if aggr_ingress_pps is not None:
+            pulumi.set(__self__, "aggr_ingress_pps", aggr_ingress_pps)
+        if avg_packet_size is not None:
+            pulumi.set(__self__, "avg_packet_size", avg_packet_size)
+        if max_per_group_ingress_pps is not None:
+            pulumi.set(__self__, "max_per_group_ingress_pps", max_per_group_ingress_pps)
+        if max_per_group_subscribers is not None:
+            pulumi.set(__self__, "max_per_group_subscribers", max_per_group_subscribers)
+
+    @_builtins.property
+    @pulumi.getter(name="aggrEgressPps")
+    def aggr_egress_pps(self) -> Optional[_builtins.str]:
+        """
+        Aggregated egress Packet-Per-Second for all multicast groups in the domain
+        in this zone.
+        """
+        return pulumi.get(self, "aggr_egress_pps")
+
+    @_builtins.property
+    @pulumi.getter(name="aggrIngressPps")
+    def aggr_ingress_pps(self) -> Optional[_builtins.str]:
+        """
+        Aggregated ingress Packet-Per-Second for all multicast groups in the domain
+        in this zone. Default to (aggregated_egress_pps /
+        max_per_group_subscribers) * 2.
+        """
+        return pulumi.get(self, "aggr_ingress_pps")
+
+    @_builtins.property
+    @pulumi.getter(name="avgPacketSize")
+    def avg_packet_size(self) -> Optional[_builtins.int]:
+        """
+        Average packet size (Default to 512 bytes).
+        """
+        return pulumi.get(self, "avg_packet_size")
+
+    @_builtins.property
+    @pulumi.getter(name="maxPerGroupIngressPps")
+    def max_per_group_ingress_pps(self) -> Optional[_builtins.str]:
+        """
+        Maximum ingress Packet-Per-Second for a single multicast group in this
+        zone. Default to aggregated_ingress_pps / 2.
+        """
+        return pulumi.get(self, "max_per_group_ingress_pps")
+
+    @_builtins.property
+    @pulumi.getter(name="maxPerGroupSubscribers")
+    def max_per_group_subscribers(self) -> Optional[_builtins.str]:
+        """
+        Maximum number of subscribers for a single multicast group in this zone.
+        Default to max(50, aggregated_egress_pps / aggregated_ingress_pps).
+        """
+        return pulumi.get(self, "max_per_group_subscribers")
+
+
+@pulumi.output_type
+class MulticastDomainConnectionConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "connectionType":
+            suggest = "connection_type"
+        elif key == "nccHub":
+            suggest = "ncc_hub"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in MulticastDomainConnectionConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        MulticastDomainConnectionConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        MulticastDomainConnectionConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 connection_type: _builtins.str,
+                 ncc_hub: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str connection_type: The VPC connection type.
+               Possible values:
+               NCC
+               SAME_VPC
+        :param _builtins.str ncc_hub: The resource name of the
+               [NCC](https://cloud.google.com/network-connectivity-center) hub.
+               Use the following format:
+               `projects/{project}/locations/global/hubs/{hub}`.
+        """
+        pulumi.set(__self__, "connection_type", connection_type)
+        if ncc_hub is not None:
+            pulumi.set(__self__, "ncc_hub", ncc_hub)
+
+    @_builtins.property
+    @pulumi.getter(name="connectionType")
+    def connection_type(self) -> _builtins.str:
+        """
+        The VPC connection type.
+        Possible values:
+        NCC
+        SAME_VPC
+        """
+        return pulumi.get(self, "connection_type")
+
+    @_builtins.property
+    @pulumi.getter(name="nccHub")
+    def ncc_hub(self) -> Optional[_builtins.str]:
+        """
+        The resource name of the
+        [NCC](https://cloud.google.com/network-connectivity-center) hub.
+        Use the following format:
+        `projects/{project}/locations/global/hubs/{hub}`.
+        """
+        return pulumi.get(self, "ncc_hub")
+
+
+@pulumi.output_type
+class MulticastDomainGroupState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastDomainState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastGroupConsumerActivationLogConfig(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool enabled: Whether to enable logging or not.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable logging or not.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class MulticastGroupConsumerActivationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastGroupProducerActivationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastGroupRangeActivationLogConfig(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool enabled: Whether to enable logging or not.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable logging or not.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class MulticastGroupRangeActivationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastGroupRangeLogConfig(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool enabled: Whether to enable logging or not.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Whether to enable logging or not.
+        """
+        return pulumi.get(self, "enabled")
+
+
+@pulumi.output_type
+class MulticastGroupRangeState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
+class MulticastProducerAssociationState(dict):
+    def __init__(__self__, *,
+                 state: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str state: (Output)
+               The state of the multicast resource.
+               Possible values:
+               CREATING
+               ACTIVE
+               DELETING
+               DELETE_FAILED
+               UPDATING
+               UPDATE_FAILED
+               INACTIVE
+        """
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The state of the multicast resource.
+        Possible values:
+        CREATING
+        ACTIVE
+        DELETING
+        DELETE_FAILED
+        UPDATING
+        UPDATE_FAILED
+        INACTIVE
+        """
+        return pulumi.get(self, "state")
+
+
+@pulumi.output_type
 class ServiceLbPoliciesAutoCapacityDrain(dict):
     def __init__(__self__, *,
                  enable: Optional[_builtins.bool] = None):
@@ -5146,6 +6034,62 @@ class ServiceLbPoliciesFailoverConfig(dict):
         Optional. The percentage threshold that a load balancer will begin to send traffic to failover backends. If the percentage of endpoints in a MIG/NEG is smaller than this value, traffic would be sent to failover backends if possible. This field should be set to a value between 1 and 99. The default value is 50 for Global external HTTP(S) load balancer (classic) and Proxyless service mesh, and 70 for others.
         """
         return pulumi.get(self, "failover_health_threshold")
+
+
+@pulumi.output_type
+class ServiceLbPoliciesIsolationConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "isolationGranularity":
+            suggest = "isolation_granularity"
+        elif key == "isolationMode":
+            suggest = "isolation_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceLbPoliciesIsolationConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceLbPoliciesIsolationConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceLbPoliciesIsolationConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 isolation_granularity: Optional[_builtins.str] = None,
+                 isolation_mode: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str isolation_granularity: The isolation granularity of the load balancer.
+               Possible values are: `ISOLATION_GRANULARITY_UNSPECIFIED`, `REGION`.
+        :param _builtins.str isolation_mode: The isolation mode of the load balancer.
+               Default value is `NEAREST`.
+               Possible values are: `ISOLATION_MODE_UNSPECIFIED`, `NEAREST`, `STRICT`.
+        """
+        if isolation_granularity is not None:
+            pulumi.set(__self__, "isolation_granularity", isolation_granularity)
+        if isolation_mode is not None:
+            pulumi.set(__self__, "isolation_mode", isolation_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="isolationGranularity")
+    def isolation_granularity(self) -> Optional[_builtins.str]:
+        """
+        The isolation granularity of the load balancer.
+        Possible values are: `ISOLATION_GRANULARITY_UNSPECIFIED`, `REGION`.
+        """
+        return pulumi.get(self, "isolation_granularity")
+
+    @_builtins.property
+    @pulumi.getter(name="isolationMode")
+    def isolation_mode(self) -> Optional[_builtins.str]:
+        """
+        The isolation mode of the load balancer.
+        Default value is `NEAREST`.
+        Possible values are: `ISOLATION_MODE_UNSPECIFIED`, `NEAREST`, `STRICT`.
+        """
+        return pulumi.get(self, "isolation_mode")
 
 
 @pulumi.output_type
@@ -5485,5 +6429,279 @@ class TlsRouteRuleMatch(dict):
         Partial wildcards are not supported, and values like *w.example.com are invalid. At least one of sniHost and alpn is required. Up to 5 sni hosts across all matches can be set.
         """
         return pulumi.get(self, "sni_hosts")
+
+
+@pulumi.output_type
+class WasmPluginLogConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "minLogLevel":
+            suggest = "min_log_level"
+        elif key == "sampleRate":
+            suggest = "sample_rate"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WasmPluginLogConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WasmPluginLogConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WasmPluginLogConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 enable: Optional[_builtins.bool] = None,
+                 min_log_level: Optional[_builtins.str] = None,
+                 sample_rate: Optional[_builtins.float] = None):
+        """
+        :param _builtins.bool enable: Optional. Specifies whether to enable logging for activity by this plugin.
+        :param _builtins.str min_log_level: Non-empty default. Specificies the lowest level of the plugin logs that are exported to Cloud Logging. This setting relates to the logs generated by using logging statements in your Wasm code.
+               This field is can be set only if logging is enabled for the plugin.
+               If the field is not provided when logging is enabled, it is set to INFO by default.
+               Possible values are: `LOG_LEVEL_UNSPECIFIED`, `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`.
+        :param _builtins.float sample_rate: Non-empty default. Configures the sampling rate of activity logs, where 1.0 means all logged activity is reported and 0.0 means no activity is reported.
+               A floating point value between 0.0 and 1.0 indicates that a percentage of log messages is stored.
+               The default value when logging is enabled is 1.0. The value of the field must be between 0 and 1 (inclusive).
+               This field can be specified only if logging is enabled for this plugin.
+        """
+        if enable is not None:
+            pulumi.set(__self__, "enable", enable)
+        if min_log_level is not None:
+            pulumi.set(__self__, "min_log_level", min_log_level)
+        if sample_rate is not None:
+            pulumi.set(__self__, "sample_rate", sample_rate)
+
+    @_builtins.property
+    @pulumi.getter
+    def enable(self) -> Optional[_builtins.bool]:
+        """
+        Optional. Specifies whether to enable logging for activity by this plugin.
+        """
+        return pulumi.get(self, "enable")
+
+    @_builtins.property
+    @pulumi.getter(name="minLogLevel")
+    def min_log_level(self) -> Optional[_builtins.str]:
+        """
+        Non-empty default. Specificies the lowest level of the plugin logs that are exported to Cloud Logging. This setting relates to the logs generated by using logging statements in your Wasm code.
+        This field is can be set only if logging is enabled for the plugin.
+        If the field is not provided when logging is enabled, it is set to INFO by default.
+        Possible values are: `LOG_LEVEL_UNSPECIFIED`, `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `CRITICAL`.
+        """
+        return pulumi.get(self, "min_log_level")
+
+    @_builtins.property
+    @pulumi.getter(name="sampleRate")
+    def sample_rate(self) -> Optional[_builtins.float]:
+        """
+        Non-empty default. Configures the sampling rate of activity logs, where 1.0 means all logged activity is reported and 0.0 means no activity is reported.
+        A floating point value between 0.0 and 1.0 indicates that a percentage of log messages is stored.
+        The default value when logging is enabled is 1.0. The value of the field must be between 0 and 1 (inclusive).
+        This field can be specified only if logging is enabled for this plugin.
+        """
+        return pulumi.get(self, "sample_rate")
+
+
+@pulumi.output_type
+class WasmPluginUsedBy(dict):
+    def __init__(__self__, *,
+                 name: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: Identifier. Name of the WasmPlugin resource.
+        """
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[_builtins.str]:
+        """
+        Identifier. Name of the WasmPlugin resource.
+        """
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class WasmPluginVersion(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "versionName":
+            suggest = "version_name"
+        elif key == "createTime":
+            suggest = "create_time"
+        elif key == "imageDigest":
+            suggest = "image_digest"
+        elif key == "imageUri":
+            suggest = "image_uri"
+        elif key == "pluginConfigData":
+            suggest = "plugin_config_data"
+        elif key == "pluginConfigDigest":
+            suggest = "plugin_config_digest"
+        elif key == "pluginConfigUri":
+            suggest = "plugin_config_uri"
+        elif key == "updateTime":
+            suggest = "update_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in WasmPluginVersion. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        WasmPluginVersion.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        WasmPluginVersion.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 version_name: _builtins.str,
+                 create_time: Optional[_builtins.str] = None,
+                 description: Optional[_builtins.str] = None,
+                 image_digest: Optional[_builtins.str] = None,
+                 image_uri: Optional[_builtins.str] = None,
+                 labels: Optional[Mapping[str, _builtins.str]] = None,
+                 plugin_config_data: Optional[_builtins.str] = None,
+                 plugin_config_digest: Optional[_builtins.str] = None,
+                 plugin_config_uri: Optional[_builtins.str] = None,
+                 update_time: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str version_name: The identifier for this object. Format specified above.
+        :param _builtins.str create_time: (Output)
+               Output only. The timestamp when the resource was created.
+        :param _builtins.str description: Optional. A human-readable description of the resource.
+        :param _builtins.str image_digest: (Output)
+               Output only. The resolved digest for the image specified in the image field. The digest is resolved during the creation of WasmPluginVersion resource.
+               This field holds the digest value, regardless of whether a tag or digest was originally specified in the image field.
+        :param _builtins.str image_uri: Optional. URI of the container image containing the plugin, stored in the Artifact Registry. When a new WasmPluginVersion resource is created, the digest of the container image is saved in the imageDigest field.
+               When downloading an image, the digest value is used instead of an image tag.
+        :param Mapping[str, _builtins.str] labels: Optional. Set of labels associated with the WasmPlugin resource.
+        :param _builtins.str plugin_config_data: A base64-encoded string containing the configuration for the plugin. The configuration is provided to the plugin at runtime through the ON_CONFIGURE callback.
+               When a new WasmPluginVersion resource is created, the digest of the contents is saved in the pluginConfigDigest field.
+               Conflics with pluginConfigUri.
+        :param _builtins.str plugin_config_digest: (Output)
+               Output only. This field holds the digest (usually checksum) value for the plugin configuration.
+               The value is calculated based on the contents of pluginConfigData or the container image defined by the pluginConfigUri field.
+        :param _builtins.str plugin_config_uri: URI of the plugin configuration stored in the Artifact Registry. The configuration is provided to the plugin at runtime through the ON_CONFIGURE callback.
+               The container image must contain only a single file with the name plugin.config.
+               When a new WasmPluginVersion resource is created, the digest of the container image is saved in the pluginConfigDigest field.
+               Conflics with pluginConfigData.
+        :param _builtins.str update_time: (Output)
+               Output only. The timestamp when the resource was updated.
+        """
+        pulumi.set(__self__, "version_name", version_name)
+        if create_time is not None:
+            pulumi.set(__self__, "create_time", create_time)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if image_digest is not None:
+            pulumi.set(__self__, "image_digest", image_digest)
+        if image_uri is not None:
+            pulumi.set(__self__, "image_uri", image_uri)
+        if labels is not None:
+            pulumi.set(__self__, "labels", labels)
+        if plugin_config_data is not None:
+            pulumi.set(__self__, "plugin_config_data", plugin_config_data)
+        if plugin_config_digest is not None:
+            pulumi.set(__self__, "plugin_config_digest", plugin_config_digest)
+        if plugin_config_uri is not None:
+            pulumi.set(__self__, "plugin_config_uri", plugin_config_uri)
+        if update_time is not None:
+            pulumi.set(__self__, "update_time", update_time)
+
+    @_builtins.property
+    @pulumi.getter(name="versionName")
+    def version_name(self) -> _builtins.str:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "version_name")
+
+    @_builtins.property
+    @pulumi.getter(name="createTime")
+    def create_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Output only. The timestamp when the resource was created.
+        """
+        return pulumi.get(self, "create_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[_builtins.str]:
+        """
+        Optional. A human-readable description of the resource.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="imageDigest")
+    def image_digest(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Output only. The resolved digest for the image specified in the image field. The digest is resolved during the creation of WasmPluginVersion resource.
+        This field holds the digest value, regardless of whether a tag or digest was originally specified in the image field.
+        """
+        return pulumi.get(self, "image_digest")
+
+    @_builtins.property
+    @pulumi.getter(name="imageUri")
+    def image_uri(self) -> Optional[_builtins.str]:
+        """
+        Optional. URI of the container image containing the plugin, stored in the Artifact Registry. When a new WasmPluginVersion resource is created, the digest of the container image is saved in the imageDigest field.
+        When downloading an image, the digest value is used instead of an image tag.
+        """
+        return pulumi.get(self, "image_uri")
+
+    @_builtins.property
+    @pulumi.getter
+    def labels(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Optional. Set of labels associated with the WasmPlugin resource.
+        """
+        return pulumi.get(self, "labels")
+
+    @_builtins.property
+    @pulumi.getter(name="pluginConfigData")
+    def plugin_config_data(self) -> Optional[_builtins.str]:
+        """
+        A base64-encoded string containing the configuration for the plugin. The configuration is provided to the plugin at runtime through the ON_CONFIGURE callback.
+        When a new WasmPluginVersion resource is created, the digest of the contents is saved in the pluginConfigDigest field.
+        Conflics with pluginConfigUri.
+        """
+        return pulumi.get(self, "plugin_config_data")
+
+    @_builtins.property
+    @pulumi.getter(name="pluginConfigDigest")
+    def plugin_config_digest(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Output only. This field holds the digest (usually checksum) value for the plugin configuration.
+        The value is calculated based on the contents of pluginConfigData or the container image defined by the pluginConfigUri field.
+        """
+        return pulumi.get(self, "plugin_config_digest")
+
+    @_builtins.property
+    @pulumi.getter(name="pluginConfigUri")
+    def plugin_config_uri(self) -> Optional[_builtins.str]:
+        """
+        URI of the plugin configuration stored in the Artifact Registry. The configuration is provided to the plugin at runtime through the ON_CONFIGURE callback.
+        The container image must contain only a single file with the name plugin.config.
+        When a new WasmPluginVersion resource is created, the digest of the container image is saved in the pluginConfigDigest field.
+        Conflics with pluginConfigData.
+        """
+        return pulumi.get(self, "plugin_config_uri")
+
+    @_builtins.property
+    @pulumi.getter(name="updateTime")
+    def update_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Output only. The timestamp when the resource was updated.
+        """
+        return pulumi.get(self, "update_time")
 
 

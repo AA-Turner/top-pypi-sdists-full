@@ -130,6 +130,10 @@ class ScmType(str, Enum):
     HACKERONE = 'HackerOne'
     DYNATRACE = 'Dynatrace'
     FORTIFYSSC = 'FortifySsc'
+    PRISMACLOUDSECURITY = 'PrismaCloudSecurity'
+    GOOGLEARTIFACTREGISTRY = 'GoogleArtifactRegistry'
+    ASANA = 'Asana'
+    CYTRIX = 'Cytrix'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

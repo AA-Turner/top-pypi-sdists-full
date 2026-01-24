@@ -27,9 +27,11 @@ from legit_api_client.models.issue_closing_location_dto import IssueClosingLocat
 from legit_api_client.models.issue_status import IssueStatus
 from legit_api_client.models.issue_type import IssueType
 from legit_api_client.models.origin_type import OriginType
+from legit_api_client.models.product_unit_issue_dto import ProductUnitIssueDto
 from legit_api_client.models.secrets_data_dto import SecretsDataDto
 from legit_api_client.models.severity import Severity
 from legit_api_client.models.snoozed_type import SnoozedType
+from legit_api_client.models.source_dto import SourceDto
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -61,7 +63,10 @@ class CustomerFacingIssueDto(BaseModel):
     action_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the action the issue belongs to", alias="actionId")
     policy_name: Optional[StrictStr] = Field(default=None, description="Name of the policy that detected this issue", alias="policyName")
     assigned_user_id: Optional[StrictStr] = Field(default=None, description="ID of the user assigned to handle this issue (if applicable)", alias="assignedUserId")
-    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "snoozedType", "snoozedUntil", "score", "secretsDataDto", "dependencyVulnerabilityDataDto", "dastDataDto", "originId", "originType", "originLink", "actionId", "policyName", "assignedUserId"]
+    sources: Optional[List[SourceDto]] = Field(default=None, description="The sources the issue originated from")
+    product_units: Optional[List[ProductUnitIssueDto]] = Field(default=None, alias="productUnits")
+    remediation_steps: Optional[List[StrictStr]] = Field(default=None, description="Remediation steps for resolving the issue", alias="remediationSteps")
+    __properties: ClassVar[List[str]] = ["id", "title", "detectedAt", "lastClosedAt", "lastActionTime", "status", "issueType", "severity", "policySeverity", "closingReason", "closingLocation", "statusChangedNote", "snoozedType", "snoozedUntil", "score", "secretsDataDto", "dependencyVulnerabilityDataDto", "dastDataDto", "originId", "originType", "originLink", "actionId", "policyName", "assignedUserId", "sources", "productUnits", "remediationSteps"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -111,6 +116,20 @@ class CustomerFacingIssueDto(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of dast_data_dto
         if self.dast_data_dto:
             _dict['dastDataDto'] = self.dast_data_dto.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in sources (list)
+        _items = []
+        if self.sources:
+            for _item_sources in self.sources:
+                if _item_sources:
+                    _items.append(_item_sources.to_dict())
+            _dict['sources'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in product_units (list)
+        _items = []
+        if self.product_units:
+            for _item_product_units in self.product_units:
+                if _item_product_units:
+                    _items.append(_item_product_units.to_dict())
+            _dict['productUnits'] = _items
         # set to None if id (nullable) is None
         # and model_fields_set contains the field
         if self.id is None and "id" in self.model_fields_set:
@@ -201,6 +220,21 @@ class CustomerFacingIssueDto(BaseModel):
         if self.assigned_user_id is None and "assigned_user_id" in self.model_fields_set:
             _dict['assignedUserId'] = None
 
+        # set to None if sources (nullable) is None
+        # and model_fields_set contains the field
+        if self.sources is None and "sources" in self.model_fields_set:
+            _dict['sources'] = None
+
+        # set to None if product_units (nullable) is None
+        # and model_fields_set contains the field
+        if self.product_units is None and "product_units" in self.model_fields_set:
+            _dict['productUnits'] = None
+
+        # set to None if remediation_steps (nullable) is None
+        # and model_fields_set contains the field
+        if self.remediation_steps is None and "remediation_steps" in self.model_fields_set:
+            _dict['remediationSteps'] = None
+
         return _dict
 
     @classmethod
@@ -236,7 +270,10 @@ class CustomerFacingIssueDto(BaseModel):
             "originLink": obj.get("originLink"),
             "actionId": obj.get("actionId"),
             "policyName": obj.get("policyName"),
-            "assignedUserId": obj.get("assignedUserId")
+            "assignedUserId": obj.get("assignedUserId"),
+            "sources": [SourceDto.from_dict(_item) for _item in obj["sources"]] if obj.get("sources") is not None else None,
+            "productUnits": [ProductUnitIssueDto.from_dict(_item) for _item in obj["productUnits"]] if obj.get("productUnits") is not None else None,
+            "remediationSteps": obj.get("remediationSteps")
         })
         return _obj
 

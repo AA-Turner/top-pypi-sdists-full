@@ -1,0 +1,32 @@
+Metadata-Version: 2.1
+Name: thread-with-results
+Version: 1.0.1
+Summary: Python thread with results
+Home-page: https://github.com/yang445786754/thread-with-results
+Author: Tony_9410
+Author-email: tony_9410@foxmail.com
+Project-URL: Homepage, https://github.com/yang445786754/thread-with-results
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# thread-with-results
+A python3 threading module with results.
+
+You can easily get the thread's response result and return value like this
+
+```python
+task = ThreadWithResult(
+    func,
+    *args,
+    **kwds
+)
+task.start()
+task.join()
+
+# now you can get the results
+print(task.done, task.timeout, task.error, task.results)
+```

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -724,7 +724,7 @@ class AcknowledgeJobInput(ServiceRequest):
 class AcknowledgeJobOutput(TypedDict, total=False):
     """Represents the output of an AcknowledgeJob action."""
 
-    status: Optional[JobStatus]
+    status: JobStatus | None
 
 
 class AcknowledgeThirdPartyJobInput(ServiceRequest):
@@ -738,16 +738,16 @@ class AcknowledgeThirdPartyJobInput(ServiceRequest):
 class AcknowledgeThirdPartyJobOutput(TypedDict, total=False):
     """Represents the output of an AcknowledgeThirdPartyJob action."""
 
-    status: Optional[JobStatus]
+    status: JobStatus | None
 
 
-ActionConfigurationMap = Dict[ActionConfigurationKey, ActionConfigurationValue]
+ActionConfigurationMap = dict[ActionConfigurationKey, ActionConfigurationValue]
 
 
 class ActionConfiguration(TypedDict, total=False):
     """Represents information about an action configuration."""
 
-    configuration: Optional[ActionConfigurationMap]
+    configuration: ActionConfigurationMap | None
 
 
 class ActionConfigurationProperty(TypedDict, total=False):
@@ -755,12 +755,12 @@ class ActionConfigurationProperty(TypedDict, total=False):
     required: Boolean
     key: Boolean
     secret: Boolean
-    queryable: Optional[Boolean]
-    description: Optional[Description]
-    type: Optional[ActionConfigurationPropertyType]
+    queryable: Boolean | None
+    description: Description | None
+    type: ActionConfigurationPropertyType | None
 
 
-ActionConfigurationPropertyList = List[ActionConfigurationProperty]
+ActionConfigurationPropertyList = list[ActionConfigurationProperty]
 
 
 class ActionContext(TypedDict, total=False):
@@ -768,18 +768,18 @@ class ActionContext(TypedDict, total=False):
     worker.
     """
 
-    name: Optional[ActionName]
-    actionExecutionId: Optional[ActionExecutionId]
+    name: ActionName | None
+    actionExecutionId: ActionExecutionId | None
 
 
 class EnvironmentVariable(TypedDict, total=False):
     name: EnvironmentVariableName
     value: EnvironmentVariableValue
-    type: Optional[EnvironmentVariableType]
+    type: EnvironmentVariableType | None
 
 
-EnvironmentVariableList = List[EnvironmentVariable]
-OutputVariableList = List[OutputVariable]
+EnvironmentVariableList = list[EnvironmentVariable]
+OutputVariableList = list[OutputVariable]
 
 
 class InputArtifact(TypedDict, total=False):
@@ -790,19 +790,19 @@ class InputArtifact(TypedDict, total=False):
     name: ArtifactName
 
 
-InputArtifactList = List[InputArtifact]
-FilePathList = List[FilePath]
+InputArtifactList = list[InputArtifact]
+FilePathList = list[FilePath]
 
 
 class OutputArtifact(TypedDict, total=False):
     """Represents information about the output of an action."""
 
     name: ArtifactName
-    files: Optional[FilePathList]
+    files: FilePathList | None
 
 
-OutputArtifactList = List[OutputArtifact]
-CommandList = List[Command]
+OutputArtifactList = list[OutputArtifact]
+CommandList = list[Command]
 
 
 class ActionTypeId(TypedDict, total=False):
@@ -819,24 +819,24 @@ class ActionDeclaration(TypedDict, total=False):
 
     name: ActionName
     actionTypeId: ActionTypeId
-    runOrder: Optional[ActionRunOrder]
-    configuration: Optional[ActionConfigurationMap]
-    commands: Optional[CommandList]
-    outputArtifacts: Optional[OutputArtifactList]
-    inputArtifacts: Optional[InputArtifactList]
-    outputVariables: Optional[OutputVariableList]
-    roleArn: Optional[RoleArn]
-    region: Optional[AWSRegionName]
-    namespace: Optional[ActionNamespace]
-    timeoutInMinutes: Optional[ActionTimeout]
-    environmentVariables: Optional[EnvironmentVariableList]
+    runOrder: ActionRunOrder | None
+    configuration: ActionConfigurationMap | None
+    commands: CommandList | None
+    outputArtifacts: OutputArtifactList | None
+    inputArtifacts: InputArtifactList | None
+    outputVariables: OutputVariableList | None
+    roleArn: RoleArn | None
+    region: AWSRegionName | None
+    namespace: ActionNamespace | None
+    timeoutInMinutes: ActionTimeout | None
+    environmentVariables: EnvironmentVariableList | None
 
 
 class ErrorDetails(TypedDict, total=False):
     """Represents information about an error in CodePipeline."""
 
-    code: Optional[Code]
-    message: Optional[Message]
+    code: Code | None
+    message: Message | None
 
 
 Timestamp = datetime
@@ -845,37 +845,37 @@ Timestamp = datetime
 class ActionExecution(TypedDict, total=False):
     """Represents information about the run of an action."""
 
-    actionExecutionId: Optional[ActionExecutionId]
-    status: Optional[ActionExecutionStatus]
-    summary: Optional[ExecutionSummary]
-    lastStatusChange: Optional[Timestamp]
-    token: Optional[ActionExecutionToken]
-    lastUpdatedBy: Optional[LastUpdatedBy]
-    externalExecutionId: Optional[ExecutionId]
-    externalExecutionUrl: Optional[Url]
-    percentComplete: Optional[Percentage]
-    errorDetails: Optional[ErrorDetails]
-    logStreamARN: Optional[LogStreamARN]
+    actionExecutionId: ActionExecutionId | None
+    status: ActionExecutionStatus | None
+    summary: ExecutionSummary | None
+    lastStatusChange: Timestamp | None
+    token: ActionExecutionToken | None
+    lastUpdatedBy: LastUpdatedBy | None
+    externalExecutionId: ExecutionId | None
+    externalExecutionUrl: Url | None
+    percentComplete: Percentage | None
+    errorDetails: ErrorDetails | None
+    logStreamARN: LogStreamARN | None
 
 
-OutputVariablesMap = Dict[OutputVariablesKey, OutputVariablesValue]
+OutputVariablesMap = dict[OutputVariablesKey, OutputVariablesValue]
 
 
 class ActionExecutionResult(TypedDict, total=False):
     """Execution result information, such as the external execution ID."""
 
-    externalExecutionId: Optional[ExternalExecutionId]
-    externalExecutionSummary: Optional[ExternalExecutionSummary]
-    externalExecutionUrl: Optional[Url]
-    errorDetails: Optional[ErrorDetails]
-    logStreamARN: Optional[LogStreamARN]
+    externalExecutionId: ExternalExecutionId | None
+    externalExecutionSummary: ExternalExecutionSummary | None
+    externalExecutionUrl: Url | None
+    errorDetails: ErrorDetails | None
+    logStreamARN: LogStreamARN | None
 
 
 class S3Location(TypedDict, total=False):
     """The Amazon S3 artifact location for an action's artifacts."""
 
-    bucket: Optional[S3Bucket]
-    key: Optional[S3Key]
+    bucket: S3Bucket | None
+    key: S3Key | None
 
 
 class ArtifactDetail(TypedDict, total=False):
@@ -883,11 +883,11 @@ class ArtifactDetail(TypedDict, total=False):
     location.
     """
 
-    name: Optional[ArtifactName]
-    s3location: Optional[S3Location]
+    name: ArtifactName | None
+    s3location: S3Location | None
 
 
-ArtifactDetailList = List[ArtifactDetail]
+ArtifactDetailList = list[ArtifactDetail]
 
 
 class ActionExecutionOutput(TypedDict, total=False):
@@ -895,24 +895,24 @@ class ActionExecutionOutput(TypedDict, total=False):
     execution result.
     """
 
-    outputArtifacts: Optional[ArtifactDetailList]
-    executionResult: Optional[ActionExecutionResult]
-    outputVariables: Optional[OutputVariablesMap]
+    outputArtifacts: ArtifactDetailList | None
+    executionResult: ActionExecutionResult | None
+    outputVariables: OutputVariablesMap | None
 
 
-ResolvedActionConfigurationMap = Dict[String, String]
+ResolvedActionConfigurationMap = dict[String, String]
 
 
 class ActionExecutionInput(TypedDict, total=False):
     """Input information used for an action execution."""
 
-    actionTypeId: Optional[ActionTypeId]
-    configuration: Optional[ActionConfigurationMap]
-    resolvedConfiguration: Optional[ResolvedActionConfigurationMap]
-    roleArn: Optional[RoleArn]
-    region: Optional[AWSRegionName]
-    inputArtifacts: Optional[ArtifactDetailList]
-    namespace: Optional[ActionNamespace]
+    actionTypeId: ActionTypeId | None
+    configuration: ActionConfigurationMap | None
+    resolvedConfiguration: ResolvedActionConfigurationMap | None
+    roleArn: RoleArn | None
+    region: AWSRegionName | None
+    inputArtifacts: ArtifactDetailList | None
+    namespace: ActionNamespace | None
 
 
 class ActionExecutionDetail(TypedDict, total=False):
@@ -920,20 +920,20 @@ class ActionExecutionDetail(TypedDict, total=False):
     action execution ID, and the name, version, and timing of the action.
     """
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    actionExecutionId: Optional[ActionExecutionId]
-    pipelineVersion: Optional[PipelineVersion]
-    stageName: Optional[StageName]
-    actionName: Optional[ActionName]
-    startTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    updatedBy: Optional[LastUpdatedBy]
-    status: Optional[ActionExecutionStatus]
-    input: Optional[ActionExecutionInput]
-    output: Optional[ActionExecutionOutput]
+    pipelineExecutionId: PipelineExecutionId | None
+    actionExecutionId: ActionExecutionId | None
+    pipelineVersion: PipelineVersion | None
+    stageName: StageName | None
+    actionName: ActionName | None
+    startTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    updatedBy: LastUpdatedBy | None
+    status: ActionExecutionStatus | None
+    input: ActionExecutionInput | None
+    output: ActionExecutionOutput | None
 
 
-ActionExecutionDetailList = List[ActionExecutionDetail]
+ActionExecutionDetailList = list[ActionExecutionDetail]
 
 
 class LatestInPipelineExecutionFilter(TypedDict, total=False):
@@ -951,8 +951,8 @@ class LatestInPipelineExecutionFilter(TypedDict, total=False):
 class ActionExecutionFilter(TypedDict, total=False):
     """Filter values for the action execution."""
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    latestInPipelineExecution: Optional[LatestInPipelineExecutionFilter]
+    pipelineExecutionId: PipelineExecutionId | None
+    latestInPipelineExecution: LatestInPipelineExecutionFilter | None
 
 
 class ActionRevision(TypedDict, total=False):
@@ -966,14 +966,14 @@ class ActionRevision(TypedDict, total=False):
 class ActionState(TypedDict, total=False):
     """Represents information about the state of an action."""
 
-    actionName: Optional[ActionName]
-    currentRevision: Optional[ActionRevision]
-    latestExecution: Optional[ActionExecution]
-    entityUrl: Optional[Url]
-    revisionUrl: Optional[Url]
+    actionName: ActionName | None
+    currentRevision: ActionRevision | None
+    latestExecution: ActionExecution | None
+    entityUrl: Url | None
+    revisionUrl: Url | None
 
 
-ActionStateList = List[ActionState]
+ActionStateList = list[ActionState]
 
 
 class ArtifactDetails(TypedDict, total=False):
@@ -986,18 +986,18 @@ class ArtifactDetails(TypedDict, total=False):
 class ActionTypeSettings(TypedDict, total=False):
     """Returns information about the settings for an action type."""
 
-    thirdPartyConfigurationUrl: Optional[Url]
-    entityUrlTemplate: Optional[UrlTemplate]
-    executionUrlTemplate: Optional[UrlTemplate]
-    revisionUrlTemplate: Optional[UrlTemplate]
+    thirdPartyConfigurationUrl: Url | None
+    entityUrlTemplate: UrlTemplate | None
+    executionUrlTemplate: UrlTemplate | None
+    revisionUrlTemplate: UrlTemplate | None
 
 
 class ActionType(TypedDict, total=False):
     """Returns information about the details of an action type."""
 
     id: ActionTypeId
-    settings: Optional[ActionTypeSettings]
-    actionConfigurationProperties: Optional[ActionConfigurationPropertyList]
+    settings: ActionTypeSettings | None
+    actionConfigurationProperties: ActionConfigurationPropertyList | None
     inputArtifactDetails: ArtifactDetails
     outputArtifactDetails: ArtifactDetails
 
@@ -1017,10 +1017,10 @@ class ActionTypeUrls(TypedDict, total=False):
     for the action type.
     """
 
-    configurationUrl: Optional[Url]
-    entityUrlTemplate: Optional[UrlTemplate]
-    executionUrlTemplate: Optional[UrlTemplate]
-    revisionUrlTemplate: Optional[UrlTemplate]
+    configurationUrl: Url | None
+    entityUrlTemplate: UrlTemplate | None
+    executionUrlTemplate: UrlTemplate | None
+    revisionUrlTemplate: UrlTemplate | None
 
 
 class ActionTypeProperty(TypedDict, total=False):
@@ -1033,12 +1033,12 @@ class ActionTypeProperty(TypedDict, total=False):
     optional: Boolean
     key: Boolean
     noEcho: Boolean
-    queryable: Optional[Boolean]
-    description: Optional[PropertyDescription]
+    queryable: Boolean | None
+    description: PropertyDescription | None
 
 
-ActionTypeProperties = List[ActionTypeProperty]
-AllowedAccounts = List[AllowedAccount]
+ActionTypeProperties = list[ActionTypeProperty]
+AllowedAccounts = list[AllowedAccount]
 
 
 class ActionTypePermissions(TypedDict, total=False):
@@ -1056,8 +1056,8 @@ class ActionTypeIdentifier(TypedDict, total=False):
     version: Version
 
 
-PollingServicePrincipalList = List[ServicePrincipal]
-PollingAccountList = List[AccountId]
+PollingServicePrincipalList = list[ServicePrincipal]
+PollingAccountList = list[AccountId]
 
 
 class JobWorkerExecutorConfiguration(TypedDict, total=False):
@@ -1065,8 +1065,8 @@ class JobWorkerExecutorConfiguration(TypedDict, total=False):
     engine, or executor.
     """
 
-    pollingAccounts: Optional[PollingAccountList]
-    pollingServicePrincipals: Optional[PollingServicePrincipalList]
+    pollingAccounts: PollingAccountList | None
+    pollingServicePrincipals: PollingServicePrincipalList | None
 
 
 class LambdaExecutorConfiguration(TypedDict, total=False):
@@ -1083,15 +1083,15 @@ class ExecutorConfiguration(TypedDict, total=False):
     types are ``Lambda`` and ``JobWorker``.
     """
 
-    lambdaExecutorConfiguration: Optional[LambdaExecutorConfiguration]
-    jobWorkerExecutorConfiguration: Optional[JobWorkerExecutorConfiguration]
+    lambdaExecutorConfiguration: LambdaExecutorConfiguration | None
+    jobWorkerExecutorConfiguration: JobWorkerExecutorConfiguration | None
 
 
 class ActionTypeExecutor(TypedDict, total=False):
     configuration: ExecutorConfiguration
     type: ExecutorType
-    policyStatementsTemplate: Optional[PolicyStatementsTemplate]
-    jobTimeout: Optional[JobTimeout]
+    policyStatementsTemplate: PolicyStatementsTemplate | None
+    jobTimeout: JobTimeout | None
 
 
 class ActionTypeDeclaration(TypedDict, total=False):
@@ -1099,17 +1099,17 @@ class ActionTypeDeclaration(TypedDict, total=False):
     action type is created or updated.
     """
 
-    description: Optional[ActionTypeDescription]
+    description: ActionTypeDescription | None
     executor: ActionTypeExecutor
     id: ActionTypeIdentifier
     inputArtifactDetails: ActionTypeArtifactDetails
     outputArtifactDetails: ActionTypeArtifactDetails
-    permissions: Optional[ActionTypePermissions]
-    properties: Optional[ActionTypeProperties]
-    urls: Optional[ActionTypeUrls]
+    permissions: ActionTypePermissions | None
+    properties: ActionTypeProperties | None
+    urls: ActionTypeUrls | None
 
 
-ActionTypeList = List[ActionType]
+ActionTypeList = list[ActionType]
 
 
 class ApprovalResult(TypedDict, total=False):
@@ -1127,8 +1127,8 @@ class S3ArtifactLocation(TypedDict, total=False):
 
 
 class ArtifactLocation(TypedDict, total=False):
-    type: Optional[ArtifactLocationType]
-    s3Location: Optional[S3ArtifactLocation]
+    type: ArtifactLocationType | None
+    s3Location: S3ArtifactLocation | None
 
 
 class Artifact(TypedDict, total=False):
@@ -1139,26 +1139,26 @@ class Artifact(TypedDict, total=False):
     Example artifact name: SampleApp_Windows.zip
     """
 
-    name: Optional[ArtifactName]
-    revision: Optional[Revision]
-    location: Optional[ArtifactLocation]
+    name: ArtifactName | None
+    revision: Revision | None
+    location: ArtifactLocation | None
 
 
-ArtifactList = List[Artifact]
+ArtifactList = list[Artifact]
 
 
 class ArtifactRevision(TypedDict, total=False):
     """Represents revision details of an artifact."""
 
-    name: Optional[ArtifactName]
-    revisionId: Optional[Revision]
-    revisionChangeIdentifier: Optional[RevisionChangeIdentifier]
-    revisionSummary: Optional[RevisionSummary]
-    created: Optional[Timestamp]
-    revisionUrl: Optional[Url]
+    name: ArtifactName | None
+    revisionId: Revision | None
+    revisionChangeIdentifier: RevisionChangeIdentifier | None
+    revisionSummary: RevisionSummary | None
+    created: Timestamp | None
+    revisionUrl: Url | None
 
 
-ArtifactRevisionList = List[ArtifactRevision]
+ArtifactRevisionList = list[ArtifactRevision]
 
 
 class EncryptionKey(TypedDict, total=False):
@@ -1169,11 +1169,11 @@ class EncryptionKey(TypedDict, total=False):
 class ArtifactStore(TypedDict, total=False):
     type: ArtifactStoreType
     location: ArtifactStoreLocation
-    encryptionKey: Optional[EncryptionKey]
+    encryptionKey: EncryptionKey | None
 
 
-ArtifactStoreMap = Dict[AWSRegionName, ArtifactStore]
-RuleConfigurationMap = Dict[RuleConfigurationKey, RuleConfigurationValue]
+ArtifactStoreMap = dict[AWSRegionName, ArtifactStore]
+RuleConfigurationMap = dict[RuleConfigurationKey, RuleConfigurationValue]
 
 
 class RuleTypeId(TypedDict, total=False):
@@ -1186,9 +1186,9 @@ class RuleTypeId(TypedDict, total=False):
     """
 
     category: RuleCategory
-    owner: Optional[RuleOwner]
+    owner: RuleOwner | None
     provider: RuleProvider
-    version: Optional[Version]
+    version: Version | None
 
 
 class RuleDeclaration(TypedDict, total=False):
@@ -1206,15 +1206,15 @@ class RuleDeclaration(TypedDict, total=False):
 
     name: RuleName
     ruleTypeId: RuleTypeId
-    configuration: Optional[RuleConfigurationMap]
-    commands: Optional[CommandList]
-    inputArtifacts: Optional[InputArtifactList]
-    roleArn: Optional[RoleArn]
-    region: Optional[AWSRegionName]
-    timeoutInMinutes: Optional[RuleTimeout]
+    configuration: RuleConfigurationMap | None
+    commands: CommandList | None
+    inputArtifacts: InputArtifactList | None
+    roleArn: RoleArn | None
+    region: AWSRegionName | None
+    timeoutInMinutes: RuleTimeout | None
 
 
-RuleDeclarationList = List[RuleDeclaration]
+RuleDeclarationList = list[RuleDeclaration]
 
 
 class Condition(TypedDict, total=False):
@@ -1228,11 +1228,11 @@ class Condition(TypedDict, total=False):
     reference <https://docs.aws.amazon.com/codepipeline/latest/userguide/rule-reference.html>`__.
     """
 
-    result: Optional[Result]
-    rules: Optional[RuleDeclarationList]
+    result: Result | None
+    rules: RuleDeclarationList | None
 
 
-ConditionList = List[Condition]
+ConditionList = list[Condition]
 
 
 class BeforeEntryConditions(TypedDict, total=False):
@@ -1254,9 +1254,9 @@ class BlockerDeclaration(TypedDict, total=False):
 class ConditionExecution(TypedDict, total=False):
     """The run of a condition."""
 
-    status: Optional[ConditionExecutionStatus]
-    summary: Optional[ExecutionSummary]
-    lastStatusChange: Optional[Timestamp]
+    status: ConditionExecutionStatus | None
+    summary: ExecutionSummary | None
+    lastStatusChange: Timestamp | None
 
 
 class RuleExecution(TypedDict, total=False):
@@ -1264,15 +1264,15 @@ class RuleExecution(TypedDict, total=False):
     pipeline execution for a pipeline configured with conditions.
     """
 
-    ruleExecutionId: Optional[RuleExecutionId]
-    status: Optional[RuleExecutionStatus]
-    summary: Optional[ExecutionSummary]
-    lastStatusChange: Optional[Timestamp]
-    token: Optional[RuleExecutionToken]
-    lastUpdatedBy: Optional[LastUpdatedBy]
-    externalExecutionId: Optional[ExecutionId]
-    externalExecutionUrl: Optional[Url]
-    errorDetails: Optional[ErrorDetails]
+    ruleExecutionId: RuleExecutionId | None
+    status: RuleExecutionStatus | None
+    summary: ExecutionSummary | None
+    lastStatusChange: Timestamp | None
+    token: RuleExecutionToken | None
+    lastUpdatedBy: LastUpdatedBy | None
+    externalExecutionId: ExecutionId | None
+    externalExecutionUrl: Url | None
+    errorDetails: ErrorDetails | None
 
 
 class RuleRevision(TypedDict, total=False):
@@ -1290,24 +1290,24 @@ class RuleState(TypedDict, total=False):
     information, such as the commit ID, for the current state.
     """
 
-    ruleName: Optional[RuleName]
-    currentRevision: Optional[RuleRevision]
-    latestExecution: Optional[RuleExecution]
-    entityUrl: Optional[Url]
-    revisionUrl: Optional[Url]
+    ruleName: RuleName | None
+    currentRevision: RuleRevision | None
+    latestExecution: RuleExecution | None
+    entityUrl: Url | None
+    revisionUrl: Url | None
 
 
-RuleStateList = List[RuleState]
+RuleStateList = list[RuleState]
 
 
 class ConditionState(TypedDict, total=False):
     """Information about the state of the condition."""
 
-    latestExecution: Optional[ConditionExecution]
-    ruleStates: Optional[RuleStateList]
+    latestExecution: ConditionExecution | None
+    ruleStates: RuleStateList | None
 
 
-ConditionStateList = List[ConditionState]
+ConditionStateList = list[ConditionState]
 
 
 class Tag(TypedDict, total=False):
@@ -1317,7 +1317,7 @@ class Tag(TypedDict, total=False):
     value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateCustomActionTypeInput(ServiceRequest):
@@ -1326,21 +1326,21 @@ class CreateCustomActionTypeInput(ServiceRequest):
     category: ActionCategory
     provider: ActionProvider
     version: Version
-    settings: Optional[ActionTypeSettings]
-    configurationProperties: Optional[ActionConfigurationPropertyList]
+    settings: ActionTypeSettings | None
+    configurationProperties: ActionConfigurationPropertyList | None
     inputArtifactDetails: ArtifactDetails
     outputArtifactDetails: ArtifactDetails
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateCustomActionTypeOutput(TypedDict, total=False):
     """Represents the output of a ``CreateCustomActionType`` operation."""
 
     actionType: ActionType
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
-GitFilePathPatternList = List[GitFilePathPattern]
+GitFilePathPatternList = list[GitFilePathPattern]
 
 
 class GitFilePathFilterCriteria(TypedDict, total=False):
@@ -1348,11 +1348,11 @@ class GitFilePathFilterCriteria(TypedDict, total=False):
     pipeline.
     """
 
-    includes: Optional[GitFilePathPatternList]
-    excludes: Optional[GitFilePathPatternList]
+    includes: GitFilePathPatternList | None
+    excludes: GitFilePathPatternList | None
 
 
-GitBranchPatternList = List[GitBranchNamePattern]
+GitBranchPatternList = list[GitBranchNamePattern]
 
 
 class GitBranchFilterCriteria(TypedDict, total=False):
@@ -1360,11 +1360,11 @@ class GitBranchFilterCriteria(TypedDict, total=False):
     pipeline.
     """
 
-    includes: Optional[GitBranchPatternList]
-    excludes: Optional[GitBranchPatternList]
+    includes: GitBranchPatternList | None
+    excludes: GitBranchPatternList | None
 
 
-GitPullRequestEventTypeList = List[GitPullRequestEventType]
+GitPullRequestEventTypeList = list[GitPullRequestEventType]
 
 
 class GitPullRequestFilter(TypedDict, total=False):
@@ -1380,13 +1380,13 @@ class GitPullRequestFilter(TypedDict, total=False):
     -  UPDATED
     """
 
-    events: Optional[GitPullRequestEventTypeList]
-    branches: Optional[GitBranchFilterCriteria]
-    filePaths: Optional[GitFilePathFilterCriteria]
+    events: GitPullRequestEventTypeList | None
+    branches: GitBranchFilterCriteria | None
+    filePaths: GitFilePathFilterCriteria | None
 
 
-GitPullRequestFilterList = List[GitPullRequestFilter]
-GitTagPatternList = List[GitTagNamePattern]
+GitPullRequestFilterList = list[GitPullRequestFilter]
+GitTagPatternList = list[GitTagNamePattern]
 
 
 class GitTagFilterCriteria(TypedDict, total=False):
@@ -1394,8 +1394,8 @@ class GitTagFilterCriteria(TypedDict, total=False):
     repository event will start the pipeline.
     """
 
-    includes: Optional[GitTagPatternList]
-    excludes: Optional[GitTagPatternList]
+    includes: GitTagPatternList | None
+    excludes: GitTagPatternList | None
 
 
 class GitPushFilter(TypedDict, total=False):
@@ -1404,12 +1404,12 @@ class GitPushFilter(TypedDict, total=False):
     lists of Git tags to include and exclude.
     """
 
-    tags: Optional[GitTagFilterCriteria]
-    branches: Optional[GitBranchFilterCriteria]
-    filePaths: Optional[GitFilePathFilterCriteria]
+    tags: GitTagFilterCriteria | None
+    branches: GitBranchFilterCriteria | None
+    filePaths: GitFilePathFilterCriteria | None
 
 
-GitPushFilterList = List[GitPushFilter]
+GitPushFilterList = list[GitPushFilter]
 
 
 class GitConfiguration(TypedDict, total=False):
@@ -1421,8 +1421,8 @@ class GitConfiguration(TypedDict, total=False):
     """
 
     sourceActionName: ActionName
-    push: Optional[GitPushFilterList]
-    pullRequest: Optional[GitPullRequestFilterList]
+    push: GitPushFilterList | None
+    pullRequest: GitPullRequestFilterList | None
 
 
 class PipelineTriggerDeclaration(TypedDict, total=False):
@@ -1440,18 +1440,18 @@ class PipelineTriggerDeclaration(TypedDict, total=False):
     gitConfiguration: GitConfiguration
 
 
-PipelineTriggerDeclarationList = List[PipelineTriggerDeclaration]
+PipelineTriggerDeclarationList = list[PipelineTriggerDeclaration]
 
 
 class PipelineVariableDeclaration(TypedDict, total=False):
     """A variable declared at the pipeline level."""
 
     name: PipelineVariableName
-    defaultValue: Optional[PipelineVariableValue]
-    description: Optional[PipelineVariableDescription]
+    defaultValue: PipelineVariableValue | None
+    description: PipelineVariableDescription | None
 
 
-PipelineVariableDeclarationList = List[PipelineVariableDeclaration]
+PipelineVariableDeclarationList = list[PipelineVariableDeclaration]
 
 
 class SuccessConditions(TypedDict, total=False):
@@ -1470,7 +1470,7 @@ class RetryConfiguration(TypedDict, total=False):
     along with the configured retry mode.
     """
 
-    retryMode: Optional[StageRetryMode]
+    retryMode: StageRetryMode | None
 
 
 class FailureConditions(TypedDict, total=False):
@@ -1481,27 +1481,27 @@ class FailureConditions(TypedDict, total=False):
     work? <https://docs.aws.amazon.com/codepipeline/latest/userguide/concepts-how-it-works-conditions.html>`__.
     """
 
-    result: Optional[Result]
-    retryConfiguration: Optional[RetryConfiguration]
-    conditions: Optional[ConditionList]
+    result: Result | None
+    retryConfiguration: RetryConfiguration | None
+    conditions: ConditionList | None
 
 
-StageActionDeclarationList = List[ActionDeclaration]
-StageBlockerDeclarationList = List[BlockerDeclaration]
+StageActionDeclarationList = list[ActionDeclaration]
+StageBlockerDeclarationList = list[BlockerDeclaration]
 
 
 class StageDeclaration(TypedDict, total=False):
     """Represents information about a stage and its definition."""
 
     name: StageName
-    blockers: Optional[StageBlockerDeclarationList]
+    blockers: StageBlockerDeclarationList | None
     actions: StageActionDeclarationList
-    onFailure: Optional[FailureConditions]
-    onSuccess: Optional[SuccessConditions]
-    beforeEntry: Optional[BeforeEntryConditions]
+    onFailure: FailureConditions | None
+    onSuccess: SuccessConditions | None
+    beforeEntry: BeforeEntryConditions | None
 
 
-PipelineStageDeclarationList = List[StageDeclaration]
+PipelineStageDeclarationList = list[StageDeclaration]
 
 
 class PipelineDeclaration(TypedDict, total=False):
@@ -1511,28 +1511,28 @@ class PipelineDeclaration(TypedDict, total=False):
 
     name: PipelineName
     roleArn: RoleArn
-    artifactStore: Optional[ArtifactStore]
-    artifactStores: Optional[ArtifactStoreMap]
+    artifactStore: ArtifactStore | None
+    artifactStores: ArtifactStoreMap | None
     stages: PipelineStageDeclarationList
-    version: Optional[PipelineVersion]
-    executionMode: Optional[ExecutionMode]
-    pipelineType: Optional[PipelineType]
-    variables: Optional[PipelineVariableDeclarationList]
-    triggers: Optional[PipelineTriggerDeclarationList]
+    version: PipelineVersion | None
+    executionMode: ExecutionMode | None
+    pipelineType: PipelineType | None
+    variables: PipelineVariableDeclarationList | None
+    triggers: PipelineTriggerDeclarationList | None
 
 
 class CreatePipelineInput(ServiceRequest):
     """Represents the input of a ``CreatePipeline`` action."""
 
     pipeline: PipelineDeclaration
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreatePipelineOutput(TypedDict, total=False):
     """Represents the output of a ``CreatePipeline`` action."""
 
-    pipeline: Optional[PipelineDeclaration]
-    tags: Optional[TagList]
+    pipeline: PipelineDeclaration | None
+    tags: TagList | None
 
 
 Time = datetime
@@ -1543,8 +1543,8 @@ class CurrentRevision(TypedDict, total=False):
 
     revision: Revision
     changeIdentifier: RevisionChangeIdentifier
-    created: Optional[Time]
-    revisionSummary: Optional[RevisionSummary]
+    created: Time | None
+    revisionSummary: RevisionSummary | None
 
 
 class DeleteCustomActionTypeInput(ServiceRequest):
@@ -1574,39 +1574,39 @@ class DeleteWebhookOutput(TypedDict, total=False):
 class DeployTargetEventContext(TypedDict, total=False):
     """The context for the event for the deploy action."""
 
-    ssmCommandId: Optional[String]
-    message: Optional[String]
+    ssmCommandId: String | None
+    message: String | None
 
 
 class DeployTargetEvent(TypedDict, total=False):
     """A lifecycle event for the deploy action."""
 
-    name: Optional[String]
-    status: Optional[String]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    context: Optional[DeployTargetEventContext]
+    name: String | None
+    status: String | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    context: DeployTargetEventContext | None
 
 
-DeployTargetEventList = List[DeployTargetEvent]
+DeployTargetEventList = list[DeployTargetEvent]
 
 
 class DeployActionExecutionTarget(TypedDict, total=False):
     """The target for the deploy action."""
 
-    targetId: Optional[String]
-    targetType: Optional[String]
-    status: Optional[String]
-    startTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    events: Optional[DeployTargetEventList]
+    targetId: String | None
+    targetType: String | None
+    status: String | None
+    startTime: Timestamp | None
+    endTime: Timestamp | None
+    events: DeployTargetEventList | None
 
 
-DeployActionExecutionTargetList = List[DeployActionExecutionTarget]
+DeployActionExecutionTargetList = list[DeployActionExecutionTarget]
 
 
 class DeregisterWebhookWithThirdPartyInput(ServiceRequest):
-    webhookName: Optional[WebhookName]
+    webhookName: WebhookName | None
 
 
 class DeregisterWebhookWithThirdPartyOutput(TypedDict, total=False):
@@ -1635,22 +1635,22 @@ class ExecutionDetails(TypedDict, total=False):
     it passes through stages in the pipeline.
     """
 
-    summary: Optional[ExecutionSummary]
-    externalExecutionId: Optional[ExecutionId]
-    percentComplete: Optional[Percentage]
+    summary: ExecutionSummary | None
+    externalExecutionId: ExecutionId | None
+    percentComplete: Percentage | None
 
 
 class ExecutionTrigger(TypedDict, total=False):
     """The interaction or event that started a pipeline execution."""
 
-    triggerType: Optional[TriggerType]
-    triggerDetail: Optional[TriggerDetail]
+    triggerType: TriggerType | None
+    triggerDetail: TriggerDetail | None
 
 
 class FailureDetails(TypedDict, total=False):
     type: FailureType
     message: Message
-    externalExecutionId: Optional[ExecutionId]
+    externalExecutionId: ExecutionId | None
 
 
 class GetActionTypeInput(ServiceRequest):
@@ -1661,7 +1661,7 @@ class GetActionTypeInput(ServiceRequest):
 
 
 class GetActionTypeOutput(TypedDict, total=False):
-    actionType: Optional[ActionTypeDeclaration]
+    actionType: ActionTypeDeclaration | None
 
 
 class GetJobDetailsInput(ServiceRequest):
@@ -1673,7 +1673,7 @@ class GetJobDetailsInput(ServiceRequest):
 class StageContext(TypedDict, total=False):
     """Represents information about a stage to a job worker."""
 
-    name: Optional[StageName]
+    name: StageName | None
 
 
 class PipelineContext(TypedDict, total=False):
@@ -1684,11 +1684,11 @@ class PipelineContext(TypedDict, total=False):
     fields are not populated for ThirdParty action jobs.
     """
 
-    pipelineName: Optional[PipelineName]
-    stage: Optional[StageContext]
-    action: Optional[ActionContext]
-    pipelineArn: Optional[PipelineArn]
-    pipelineExecutionId: Optional[PipelineExecutionId]
+    pipelineName: PipelineName | None
+    stage: StageContext | None
+    action: ActionContext | None
+    pipelineArn: PipelineArn | None
+    pipelineExecutionId: PipelineExecutionId | None
 
 
 class JobData(TypedDict, total=False):
@@ -1696,28 +1696,28 @@ class JobData(TypedDict, total=False):
     complete the job.
     """
 
-    actionTypeId: Optional[ActionTypeId]
-    actionConfiguration: Optional[ActionConfiguration]
-    pipelineContext: Optional[PipelineContext]
-    inputArtifacts: Optional[ArtifactList]
-    outputArtifacts: Optional[ArtifactList]
-    artifactCredentials: Optional[AWSSessionCredentials]
-    continuationToken: Optional[ContinuationToken]
-    encryptionKey: Optional[EncryptionKey]
+    actionTypeId: ActionTypeId | None
+    actionConfiguration: ActionConfiguration | None
+    pipelineContext: PipelineContext | None
+    inputArtifacts: ArtifactList | None
+    outputArtifacts: ArtifactList | None
+    artifactCredentials: AWSSessionCredentials | None
+    continuationToken: ContinuationToken | None
+    encryptionKey: EncryptionKey | None
 
 
 class JobDetails(TypedDict, total=False):
     """Represents information about the details of a job."""
 
-    id: Optional[JobId]
-    data: Optional[JobData]
-    accountId: Optional[AccountId]
+    id: JobId | None
+    data: JobData | None
+    accountId: AccountId | None
 
 
 class GetJobDetailsOutput(TypedDict, total=False):
     """Represents the output of a ``GetJobDetails`` action."""
 
-    jobDetails: Optional[JobDetails]
+    jobDetails: JobDetails | None
 
 
 class GetPipelineExecutionInput(ServiceRequest):
@@ -1730,62 +1730,62 @@ class GetPipelineExecutionInput(ServiceRequest):
 class PipelineRollbackMetadata(TypedDict, total=False):
     """The metadata for the stage execution to be rolled back."""
 
-    rollbackTargetPipelineExecutionId: Optional[PipelineExecutionId]
+    rollbackTargetPipelineExecutionId: PipelineExecutionId | None
 
 
 class ResolvedPipelineVariable(TypedDict, total=False):
     """A pipeline-level variable used for a pipeline execution."""
 
-    name: Optional[String]
-    resolvedValue: Optional[String]
+    name: String | None
+    resolvedValue: String | None
 
 
-ResolvedPipelineVariableList = List[ResolvedPipelineVariable]
+ResolvedPipelineVariableList = list[ResolvedPipelineVariable]
 
 
 class PipelineExecution(TypedDict, total=False):
     """Represents information about an execution of a pipeline."""
 
-    pipelineName: Optional[PipelineName]
-    pipelineVersion: Optional[PipelineVersion]
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    status: Optional[PipelineExecutionStatus]
-    statusSummary: Optional[PipelineExecutionStatusSummary]
-    artifactRevisions: Optional[ArtifactRevisionList]
-    variables: Optional[ResolvedPipelineVariableList]
-    trigger: Optional[ExecutionTrigger]
-    executionMode: Optional[ExecutionMode]
-    executionType: Optional[ExecutionType]
-    rollbackMetadata: Optional[PipelineRollbackMetadata]
+    pipelineName: PipelineName | None
+    pipelineVersion: PipelineVersion | None
+    pipelineExecutionId: PipelineExecutionId | None
+    status: PipelineExecutionStatus | None
+    statusSummary: PipelineExecutionStatusSummary | None
+    artifactRevisions: ArtifactRevisionList | None
+    variables: ResolvedPipelineVariableList | None
+    trigger: ExecutionTrigger | None
+    executionMode: ExecutionMode | None
+    executionType: ExecutionType | None
+    rollbackMetadata: PipelineRollbackMetadata | None
 
 
 class GetPipelineExecutionOutput(TypedDict, total=False):
     """Represents the output of a ``GetPipelineExecution`` action."""
 
-    pipelineExecution: Optional[PipelineExecution]
+    pipelineExecution: PipelineExecution | None
 
 
 class GetPipelineInput(ServiceRequest):
     """Represents the input of a ``GetPipeline`` action."""
 
     name: PipelineName
-    version: Optional[PipelineVersion]
+    version: PipelineVersion | None
 
 
 class PipelineMetadata(TypedDict, total=False):
     """Information about a pipeline."""
 
-    pipelineArn: Optional[PipelineArn]
-    created: Optional[Timestamp]
-    updated: Optional[Timestamp]
-    pollingDisabledAt: Optional[Timestamp]
+    pipelineArn: PipelineArn | None
+    created: Timestamp | None
+    updated: Timestamp | None
+    pollingDisabledAt: Timestamp | None
 
 
 class GetPipelineOutput(TypedDict, total=False):
     """Represents the output of a ``GetPipeline`` action."""
 
-    pipeline: Optional[PipelineDeclaration]
-    metadata: Optional[PipelineMetadata]
+    pipeline: PipelineDeclaration | None
+    metadata: PipelineMetadata | None
 
 
 class GetPipelineStateInput(ServiceRequest):
@@ -1799,29 +1799,29 @@ class RetryStageMetadata(TypedDict, total=False):
     the attempt number and trigger.
     """
 
-    autoStageRetryAttempt: Optional[RetryAttempt]
-    manualStageRetryAttempt: Optional[RetryAttempt]
-    latestRetryTrigger: Optional[RetryTrigger]
+    autoStageRetryAttempt: RetryAttempt | None
+    manualStageRetryAttempt: RetryAttempt | None
+    latestRetryTrigger: RetryTrigger | None
 
 
 class StageConditionsExecution(TypedDict, total=False):
     """Represents information about the run of a condition for a stage."""
 
-    status: Optional[ConditionExecutionStatus]
-    summary: Optional[ExecutionSummary]
+    status: ConditionExecutionStatus | None
+    summary: ExecutionSummary | None
 
 
 class StageConditionState(TypedDict, total=False):
     """The state of a run of a condition for a stage."""
 
-    latestExecution: Optional[StageConditionsExecution]
-    conditionStates: Optional[ConditionStateList]
+    latestExecution: StageConditionsExecution | None
+    conditionStates: ConditionStateList | None
 
 
 class StageExecution(TypedDict, total=False):
     pipelineExecutionId: PipelineExecutionId
     status: StageExecutionStatus
-    type: Optional[ExecutionType]
+    type: ExecutionType | None
 
 
 LastChangedAt = datetime
@@ -1832,41 +1832,41 @@ class TransitionState(TypedDict, total=False):
     and another stage.
     """
 
-    enabled: Optional[Enabled]
-    lastChangedBy: Optional[LastChangedBy]
-    lastChangedAt: Optional[LastChangedAt]
-    disabledReason: Optional[DisabledReason]
+    enabled: Enabled | None
+    lastChangedBy: LastChangedBy | None
+    lastChangedAt: LastChangedAt | None
+    disabledReason: DisabledReason | None
 
 
-StageExecutionList = List[StageExecution]
+StageExecutionList = list[StageExecution]
 
 
 class StageState(TypedDict, total=False):
     """Represents information about the state of the stage."""
 
-    stageName: Optional[StageName]
-    inboundExecution: Optional[StageExecution]
-    inboundExecutions: Optional[StageExecutionList]
-    inboundTransitionState: Optional[TransitionState]
-    actionStates: Optional[ActionStateList]
-    latestExecution: Optional[StageExecution]
-    beforeEntryConditionState: Optional[StageConditionState]
-    onSuccessConditionState: Optional[StageConditionState]
-    onFailureConditionState: Optional[StageConditionState]
-    retryStageMetadata: Optional[RetryStageMetadata]
+    stageName: StageName | None
+    inboundExecution: StageExecution | None
+    inboundExecutions: StageExecutionList | None
+    inboundTransitionState: TransitionState | None
+    actionStates: ActionStateList | None
+    latestExecution: StageExecution | None
+    beforeEntryConditionState: StageConditionState | None
+    onSuccessConditionState: StageConditionState | None
+    onFailureConditionState: StageConditionState | None
+    retryStageMetadata: RetryStageMetadata | None
 
 
-StageStateList = List[StageState]
+StageStateList = list[StageState]
 
 
 class GetPipelineStateOutput(TypedDict, total=False):
     """Represents the output of a ``GetPipelineState`` action."""
 
-    pipelineName: Optional[PipelineName]
-    pipelineVersion: Optional[PipelineVersion]
-    stageStates: Optional[StageStateList]
-    created: Optional[Timestamp]
-    updated: Optional[Timestamp]
+    pipelineName: PipelineName | None
+    pipelineVersion: PipelineVersion | None
+    stageStates: StageStateList | None
+    created: Timestamp | None
+    updated: Timestamp | None
 
 
 class GetThirdPartyJobDetailsInput(ServiceRequest):
@@ -1879,14 +1879,14 @@ class GetThirdPartyJobDetailsInput(ServiceRequest):
 class ThirdPartyJobData(TypedDict, total=False):
     """Represents information about the job data for a partner action."""
 
-    actionTypeId: Optional[ActionTypeId]
-    actionConfiguration: Optional[ActionConfiguration]
-    pipelineContext: Optional[PipelineContext]
-    inputArtifacts: Optional[ArtifactList]
-    outputArtifacts: Optional[ArtifactList]
-    artifactCredentials: Optional[AWSSessionCredentials]
-    continuationToken: Optional[ContinuationToken]
-    encryptionKey: Optional[EncryptionKey]
+    actionTypeId: ActionTypeId | None
+    actionConfiguration: ActionConfiguration | None
+    pipelineContext: PipelineContext | None
+    inputArtifacts: ArtifactList | None
+    outputArtifacts: ArtifactList | None
+    artifactCredentials: AWSSessionCredentials | None
+    continuationToken: ContinuationToken | None
+    encryptionKey: EncryptionKey | None
 
 
 class ThirdPartyJobDetails(TypedDict, total=False):
@@ -1894,80 +1894,80 @@ class ThirdPartyJobDetails(TypedDict, total=False):
     request.
     """
 
-    id: Optional[ThirdPartyJobId]
-    data: Optional[ThirdPartyJobData]
-    nonce: Optional[Nonce]
+    id: ThirdPartyJobId | None
+    data: ThirdPartyJobData | None
+    nonce: Nonce | None
 
 
 class GetThirdPartyJobDetailsOutput(TypedDict, total=False):
     """Represents the output of a ``GetThirdPartyJobDetails`` action."""
 
-    jobDetails: Optional[ThirdPartyJobDetails]
+    jobDetails: ThirdPartyJobDetails | None
 
 
 class Job(TypedDict, total=False):
     """Represents information about a job."""
 
-    id: Optional[JobId]
-    data: Optional[JobData]
-    nonce: Optional[Nonce]
-    accountId: Optional[AccountId]
+    id: JobId | None
+    data: JobData | None
+    nonce: Nonce | None
+    accountId: AccountId | None
 
 
-JobList = List[Job]
+JobList = list[Job]
 
 
 class ListActionExecutionsInput(ServiceRequest):
     pipelineName: PipelineName
-    filter: Optional[ActionExecutionFilter]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    filter: ActionExecutionFilter | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ListActionExecutionsOutput(TypedDict, total=False):
-    actionExecutionDetails: Optional[ActionExecutionDetailList]
-    nextToken: Optional[NextToken]
+    actionExecutionDetails: ActionExecutionDetailList | None
+    nextToken: NextToken | None
 
 
 class ListActionTypesInput(ServiceRequest):
     """Represents the input of a ``ListActionTypes`` action."""
 
-    actionOwnerFilter: Optional[ActionOwner]
-    nextToken: Optional[NextToken]
-    regionFilter: Optional[AWSRegionName]
+    actionOwnerFilter: ActionOwner | None
+    nextToken: NextToken | None
+    regionFilter: AWSRegionName | None
 
 
 class ListActionTypesOutput(TypedDict, total=False):
     """Represents the output of a ``ListActionTypes`` action."""
 
     actionTypes: ActionTypeList
-    nextToken: Optional[NextToken]
+    nextToken: NextToken | None
 
 
-TargetFilterValueList = List[TargetFilterValue]
+TargetFilterValueList = list[TargetFilterValue]
 
 
 class TargetFilter(TypedDict, total=False):
     """Filters the list of targets."""
 
-    name: Optional[TargetFilterName]
-    values: Optional[TargetFilterValueList]
+    name: TargetFilterName | None
+    values: TargetFilterValueList | None
 
 
-TargetFilterList = List[TargetFilter]
+TargetFilterList = list[TargetFilter]
 
 
 class ListDeployActionExecutionTargetsInput(ServiceRequest):
-    pipelineName: Optional[PipelineName]
+    pipelineName: PipelineName | None
     actionExecutionId: ActionExecutionId
-    filters: Optional[TargetFilterList]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    filters: TargetFilterList | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class ListDeployActionExecutionTargetsOutput(TypedDict, total=False):
-    targets: Optional[DeployActionExecutionTargetList]
-    nextToken: Optional[NextToken]
+    targets: DeployActionExecutionTargetList | None
+    nextToken: NextToken | None
 
 
 class SucceededInStageFilter(TypedDict, total=False):
@@ -1975,28 +1975,28 @@ class SucceededInStageFilter(TypedDict, total=False):
     stage in the current pipeline version.
     """
 
-    stageName: Optional[StageName]
+    stageName: StageName | None
 
 
 class PipelineExecutionFilter(TypedDict, total=False):
     """The pipeline execution to filter on."""
 
-    succeededInStage: Optional[SucceededInStageFilter]
+    succeededInStage: SucceededInStageFilter | None
 
 
 class ListPipelineExecutionsInput(ServiceRequest):
     """Represents the input of a ``ListPipelineExecutions`` action."""
 
     pipelineName: PipelineName
-    maxResults: Optional[MaxResults]
-    filter: Optional[PipelineExecutionFilter]
-    nextToken: Optional[NextToken]
+    maxResults: MaxResults | None
+    filter: PipelineExecutionFilter | None
+    nextToken: NextToken | None
 
 
 class StopExecutionTrigger(TypedDict, total=False):
     """The interaction that stopped a pipeline execution."""
 
-    reason: Optional[StopPipelineExecutionReason]
+    reason: StopPipelineExecutionReason | None
 
 
 class SourceRevision(TypedDict, total=False):
@@ -2005,89 +2005,89 @@ class SourceRevision(TypedDict, total=False):
     """
 
     actionName: ActionName
-    revisionId: Optional[Revision]
-    revisionSummary: Optional[RevisionSummary]
-    revisionUrl: Optional[Url]
+    revisionId: Revision | None
+    revisionSummary: RevisionSummary | None
+    revisionUrl: Url | None
 
 
-SourceRevisionList = List[SourceRevision]
+SourceRevisionList = list[SourceRevision]
 
 
 class PipelineExecutionSummary(TypedDict, total=False):
     """Summary information about a pipeline execution."""
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    status: Optional[PipelineExecutionStatus]
-    statusSummary: Optional[PipelineExecutionStatusSummary]
-    startTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    sourceRevisions: Optional[SourceRevisionList]
-    trigger: Optional[ExecutionTrigger]
-    stopTrigger: Optional[StopExecutionTrigger]
-    executionMode: Optional[ExecutionMode]
-    executionType: Optional[ExecutionType]
-    rollbackMetadata: Optional[PipelineRollbackMetadata]
+    pipelineExecutionId: PipelineExecutionId | None
+    status: PipelineExecutionStatus | None
+    statusSummary: PipelineExecutionStatusSummary | None
+    startTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    sourceRevisions: SourceRevisionList | None
+    trigger: ExecutionTrigger | None
+    stopTrigger: StopExecutionTrigger | None
+    executionMode: ExecutionMode | None
+    executionType: ExecutionType | None
+    rollbackMetadata: PipelineRollbackMetadata | None
 
 
-PipelineExecutionSummaryList = List[PipelineExecutionSummary]
+PipelineExecutionSummaryList = list[PipelineExecutionSummary]
 
 
 class ListPipelineExecutionsOutput(TypedDict, total=False):
     """Represents the output of a ``ListPipelineExecutions`` action."""
 
-    pipelineExecutionSummaries: Optional[PipelineExecutionSummaryList]
-    nextToken: Optional[NextToken]
+    pipelineExecutionSummaries: PipelineExecutionSummaryList | None
+    nextToken: NextToken | None
 
 
 class ListPipelinesInput(ServiceRequest):
     """Represents the input of a ``ListPipelines`` action."""
 
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxPipelines]
+    nextToken: NextToken | None
+    maxResults: MaxPipelines | None
 
 
 class PipelineSummary(TypedDict, total=False):
     """Returns a summary of a pipeline."""
 
-    name: Optional[PipelineName]
-    version: Optional[PipelineVersion]
-    pipelineType: Optional[PipelineType]
-    executionMode: Optional[ExecutionMode]
-    created: Optional[Timestamp]
-    updated: Optional[Timestamp]
+    name: PipelineName | None
+    version: PipelineVersion | None
+    pipelineType: PipelineType | None
+    executionMode: ExecutionMode | None
+    created: Timestamp | None
+    updated: Timestamp | None
 
 
-PipelineList = List[PipelineSummary]
+PipelineList = list[PipelineSummary]
 
 
 class ListPipelinesOutput(TypedDict, total=False):
     """Represents the output of a ``ListPipelines`` action."""
 
-    pipelines: Optional[PipelineList]
-    nextToken: Optional[NextToken]
+    pipelines: PipelineList | None
+    nextToken: NextToken | None
 
 
 class RuleExecutionFilter(TypedDict, total=False):
     """Filter values for the rule execution."""
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    latestInPipelineExecution: Optional[LatestInPipelineExecutionFilter]
+    pipelineExecutionId: PipelineExecutionId | None
+    latestInPipelineExecution: LatestInPipelineExecutionFilter | None
 
 
 class ListRuleExecutionsInput(ServiceRequest):
     pipelineName: PipelineName
-    filter: Optional[RuleExecutionFilter]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[NextToken]
+    filter: RuleExecutionFilter | None
+    maxResults: MaxResults | None
+    nextToken: NextToken | None
 
 
 class RuleExecutionResult(TypedDict, total=False):
     """Execution result information, such as the external execution ID."""
 
-    externalExecutionId: Optional[ExternalExecutionId]
-    externalExecutionSummary: Optional[ExternalExecutionSummary]
-    externalExecutionUrl: Optional[Url]
-    errorDetails: Optional[ErrorDetails]
+    externalExecutionId: ExternalExecutionId | None
+    externalExecutionSummary: ExternalExecutionSummary | None
+    externalExecutionUrl: Url | None
+    errorDetails: ErrorDetails | None
 
 
 class RuleExecutionOutput(TypedDict, total=False):
@@ -2095,21 +2095,21 @@ class RuleExecutionOutput(TypedDict, total=False):
     result.
     """
 
-    executionResult: Optional[RuleExecutionResult]
+    executionResult: RuleExecutionResult | None
 
 
-ResolvedRuleConfigurationMap = Dict[String, String]
+ResolvedRuleConfigurationMap = dict[String, String]
 
 
 class RuleExecutionInput(TypedDict, total=False):
     """Input information used for a rule execution."""
 
-    ruleTypeId: Optional[RuleTypeId]
-    configuration: Optional[RuleConfigurationMap]
-    resolvedConfiguration: Optional[ResolvedRuleConfigurationMap]
-    roleArn: Optional[RoleArn]
-    region: Optional[AWSRegionName]
-    inputArtifacts: Optional[ArtifactDetailList]
+    ruleTypeId: RuleTypeId | None
+    configuration: RuleConfigurationMap | None
+    resolvedConfiguration: ResolvedRuleConfigurationMap | None
+    roleArn: RoleArn | None
+    region: AWSRegionName | None
+    inputArtifacts: ArtifactDetailList | None
 
 
 class RuleExecutionDetail(TypedDict, total=False):
@@ -2117,30 +2117,30 @@ class RuleExecutionDetail(TypedDict, total=False):
     artifact as it passes through stages in the pipeline.
     """
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
-    ruleExecutionId: Optional[RuleExecutionId]
-    pipelineVersion: Optional[PipelineVersion]
-    stageName: Optional[StageName]
-    ruleName: Optional[RuleName]
-    startTime: Optional[Timestamp]
-    lastUpdateTime: Optional[Timestamp]
-    updatedBy: Optional[LastUpdatedBy]
-    status: Optional[RuleExecutionStatus]
-    input: Optional[RuleExecutionInput]
-    output: Optional[RuleExecutionOutput]
+    pipelineExecutionId: PipelineExecutionId | None
+    ruleExecutionId: RuleExecutionId | None
+    pipelineVersion: PipelineVersion | None
+    stageName: StageName | None
+    ruleName: RuleName | None
+    startTime: Timestamp | None
+    lastUpdateTime: Timestamp | None
+    updatedBy: LastUpdatedBy | None
+    status: RuleExecutionStatus | None
+    input: RuleExecutionInput | None
+    output: RuleExecutionOutput | None
 
 
-RuleExecutionDetailList = List[RuleExecutionDetail]
+RuleExecutionDetailList = list[RuleExecutionDetail]
 
 
 class ListRuleExecutionsOutput(TypedDict, total=False):
-    ruleExecutionDetails: Optional[RuleExecutionDetailList]
-    nextToken: Optional[NextToken]
+    ruleExecutionDetails: RuleExecutionDetailList | None
+    nextToken: NextToken | None
 
 
 class ListRuleTypesInput(ServiceRequest):
-    ruleOwnerFilter: Optional[RuleOwner]
-    regionFilter: Optional[AWSRegionName]
+    ruleOwnerFilter: RuleOwner | None
+    regionFilter: AWSRegionName | None
 
 
 class RuleConfigurationProperty(TypedDict, total=False):
@@ -2148,21 +2148,21 @@ class RuleConfigurationProperty(TypedDict, total=False):
     required: Boolean
     key: Boolean
     secret: Boolean
-    queryable: Optional[Boolean]
-    description: Optional[Description]
-    type: Optional[RuleConfigurationPropertyType]
+    queryable: Boolean | None
+    description: Description | None
+    type: RuleConfigurationPropertyType | None
 
 
-RuleConfigurationPropertyList = List[RuleConfigurationProperty]
+RuleConfigurationPropertyList = list[RuleConfigurationProperty]
 
 
 class RuleTypeSettings(TypedDict, total=False):
     """Returns information about the settings for a rule type."""
 
-    thirdPartyConfigurationUrl: Optional[Url]
-    entityUrlTemplate: Optional[UrlTemplate]
-    executionUrlTemplate: Optional[UrlTemplate]
-    revisionUrlTemplate: Optional[UrlTemplate]
+    thirdPartyConfigurationUrl: Url | None
+    entityUrlTemplate: UrlTemplate | None
+    executionUrlTemplate: UrlTemplate | None
+    revisionUrlTemplate: UrlTemplate | None
 
 
 class RuleType(TypedDict, total=False):
@@ -2171,12 +2171,12 @@ class RuleType(TypedDict, total=False):
     """
 
     id: RuleTypeId
-    settings: Optional[RuleTypeSettings]
-    ruleConfigurationProperties: Optional[RuleConfigurationPropertyList]
+    settings: RuleTypeSettings | None
+    ruleConfigurationProperties: RuleConfigurationPropertyList | None
     inputArtifactDetails: ArtifactDetails
 
 
-RuleTypeList = List[RuleType]
+RuleTypeList = list[RuleType]
 
 
 class ListRuleTypesOutput(TypedDict, total=False):
@@ -2185,13 +2185,13 @@ class ListRuleTypesOutput(TypedDict, total=False):
 
 class ListTagsForResourceInput(ServiceRequest):
     resourceArn: ResourceArn
-    nextToken: Optional[NextToken]
-    maxResults: Optional[MaxResults]
+    nextToken: NextToken | None
+    maxResults: MaxResults | None
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    tags: Optional[TagList]
-    nextToken: Optional[NextToken]
+    tags: TagList | None
+    nextToken: NextToken | None
 
 
 WebhookLastTriggered = datetime
@@ -2200,8 +2200,8 @@ WebhookLastTriggered = datetime
 class WebhookAuthConfiguration(TypedDict, total=False):
     """The authentication applied to incoming webhook trigger requests."""
 
-    AllowedIPRange: Optional[WebhookAuthConfigurationAllowedIPRange]
-    SecretToken: Optional[WebhookAuthConfigurationSecretToken]
+    AllowedIPRange: WebhookAuthConfigurationAllowedIPRange | None
+    SecretToken: WebhookAuthConfigurationSecretToken | None
 
 
 class WebhookFilterRule(TypedDict, total=False):
@@ -2210,10 +2210,10 @@ class WebhookFilterRule(TypedDict, total=False):
     """
 
     jsonPath: JsonPath
-    matchEquals: Optional[MatchEquals]
+    matchEquals: MatchEquals | None
 
 
-WebhookFilters = List[WebhookFilterRule]
+WebhookFilters = list[WebhookFilterRule]
 
 
 class WebhookDefinition(TypedDict, total=False):
@@ -2234,24 +2234,24 @@ class ListWebhookItem(TypedDict, total=False):
 
     definition: WebhookDefinition
     url: WebhookUrl
-    errorMessage: Optional[WebhookErrorMessage]
-    errorCode: Optional[WebhookErrorCode]
-    lastTriggered: Optional[WebhookLastTriggered]
-    arn: Optional[WebhookArn]
-    tags: Optional[TagList]
+    errorMessage: WebhookErrorMessage | None
+    errorCode: WebhookErrorCode | None
+    lastTriggered: WebhookLastTriggered | None
+    arn: WebhookArn | None
+    tags: TagList | None
 
 
 class ListWebhooksInput(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-WebhookList = List[ListWebhookItem]
+WebhookList = list[ListWebhookItem]
 
 
 class ListWebhooksOutput(TypedDict, total=False):
-    webhooks: Optional[WebhookList]
-    NextToken: Optional[NextToken]
+    webhooks: WebhookList | None
+    NextToken: NextToken | None
 
 
 class OverrideStageConditionInput(ServiceRequest):
@@ -2268,29 +2268,29 @@ class PipelineVariable(TypedDict, total=False):
     value: PipelineVariableValue
 
 
-PipelineVariableList = List[PipelineVariable]
-QueryParamMap = Dict[ActionConfigurationKey, ActionConfigurationQueryableValue]
+PipelineVariableList = list[PipelineVariable]
+QueryParamMap = dict[ActionConfigurationKey, ActionConfigurationQueryableValue]
 
 
 class PollForJobsInput(ServiceRequest):
     """Represents the input of a ``PollForJobs`` action."""
 
     actionTypeId: ActionTypeId
-    maxBatchSize: Optional[MaxBatchSize]
-    queryParam: Optional[QueryParamMap]
+    maxBatchSize: MaxBatchSize | None
+    queryParam: QueryParamMap | None
 
 
 class PollForJobsOutput(TypedDict, total=False):
     """Represents the output of a ``PollForJobs`` action."""
 
-    jobs: Optional[JobList]
+    jobs: JobList | None
 
 
 class PollForThirdPartyJobsInput(ServiceRequest):
     """Represents the input of a ``PollForThirdPartyJobs`` action."""
 
     actionTypeId: ActionTypeId
-    maxBatchSize: Optional[MaxBatchSize]
+    maxBatchSize: MaxBatchSize | None
 
 
 class ThirdPartyJob(TypedDict, total=False):
@@ -2298,17 +2298,17 @@ class ThirdPartyJob(TypedDict, total=False):
     CodePipeline when there is a job to be worked on by a partner action.
     """
 
-    clientId: Optional[ClientId]
-    jobId: Optional[JobId]
+    clientId: ClientId | None
+    jobId: JobId | None
 
 
-ThirdPartyJobList = List[ThirdPartyJob]
+ThirdPartyJobList = list[ThirdPartyJob]
 
 
 class PollForThirdPartyJobsOutput(TypedDict, total=False):
     """Represents the output of a ``PollForThirdPartyJobs`` action."""
 
-    jobs: Optional[ThirdPartyJobList]
+    jobs: ThirdPartyJobList | None
 
 
 class PutActionRevisionInput(ServiceRequest):
@@ -2323,8 +2323,8 @@ class PutActionRevisionInput(ServiceRequest):
 class PutActionRevisionOutput(TypedDict, total=False):
     """Represents the output of a ``PutActionRevision`` action."""
 
-    newRevision: Optional[Boolean]
-    pipelineExecutionId: Optional[PipelineExecutionId]
+    newRevision: Boolean | None
+    pipelineExecutionId: PipelineExecutionId | None
 
 
 class PutApprovalResultInput(ServiceRequest):
@@ -2340,7 +2340,7 @@ class PutApprovalResultInput(ServiceRequest):
 class PutApprovalResultOutput(TypedDict, total=False):
     """Represents the output of a ``PutApprovalResult`` action."""
 
-    approvedAt: Optional[Timestamp]
+    approvedAt: Timestamp | None
 
 
 class PutJobFailureResultInput(ServiceRequest):
@@ -2354,10 +2354,10 @@ class PutJobSuccessResultInput(ServiceRequest):
     """Represents the input of a ``PutJobSuccessResult`` action."""
 
     jobId: JobId
-    currentRevision: Optional[CurrentRevision]
-    continuationToken: Optional[ContinuationToken]
-    executionDetails: Optional[ExecutionDetails]
-    outputVariables: Optional[OutputVariablesMap]
+    currentRevision: CurrentRevision | None
+    continuationToken: ContinuationToken | None
+    executionDetails: ExecutionDetails | None
+    outputVariables: OutputVariablesMap | None
 
 
 class PutThirdPartyJobFailureResultInput(ServiceRequest):
@@ -2373,22 +2373,22 @@ class PutThirdPartyJobSuccessResultInput(ServiceRequest):
 
     jobId: ThirdPartyJobId
     clientToken: ClientToken
-    currentRevision: Optional[CurrentRevision]
-    continuationToken: Optional[ContinuationToken]
-    executionDetails: Optional[ExecutionDetails]
+    currentRevision: CurrentRevision | None
+    continuationToken: ContinuationToken | None
+    executionDetails: ExecutionDetails | None
 
 
 class PutWebhookInput(ServiceRequest):
     webhook: WebhookDefinition
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class PutWebhookOutput(TypedDict, total=False):
-    webhook: Optional[ListWebhookItem]
+    webhook: ListWebhookItem | None
 
 
 class RegisterWebhookWithThirdPartyInput(ServiceRequest):
-    webhookName: Optional[WebhookName]
+    webhookName: WebhookName | None
 
 
 class RegisterWebhookWithThirdPartyOutput(TypedDict, total=False):
@@ -2407,7 +2407,7 @@ class RetryStageExecutionInput(ServiceRequest):
 class RetryStageExecutionOutput(TypedDict, total=False):
     """Represents the output of a ``RetryStageExecution`` action."""
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
+    pipelineExecutionId: PipelineExecutionId | None
 
 
 class RollbackStageInput(ServiceRequest):
@@ -2437,36 +2437,36 @@ class SourceRevisionOverride(TypedDict, total=False):
     revisionValue: Revision
 
 
-SourceRevisionOverrideList = List[SourceRevisionOverride]
+SourceRevisionOverrideList = list[SourceRevisionOverride]
 
 
 class StartPipelineExecutionInput(ServiceRequest):
     """Represents the input of a ``StartPipelineExecution`` action."""
 
     name: PipelineName
-    variables: Optional[PipelineVariableList]
-    clientRequestToken: Optional[ClientRequestToken]
-    sourceRevisions: Optional[SourceRevisionOverrideList]
+    variables: PipelineVariableList | None
+    clientRequestToken: ClientRequestToken | None
+    sourceRevisions: SourceRevisionOverrideList | None
 
 
 class StartPipelineExecutionOutput(TypedDict, total=False):
     """Represents the output of a ``StartPipelineExecution`` action."""
 
-    pipelineExecutionId: Optional[PipelineExecutionId]
+    pipelineExecutionId: PipelineExecutionId | None
 
 
 class StopPipelineExecutionInput(ServiceRequest):
     pipelineName: PipelineName
     pipelineExecutionId: PipelineExecutionId
-    abandon: Optional[Boolean]
-    reason: Optional[StopPipelineExecutionReason]
+    abandon: Boolean | None
+    reason: StopPipelineExecutionReason | None
 
 
 class StopPipelineExecutionOutput(TypedDict, total=False):
-    pipelineExecutionId: Optional[PipelineExecutionId]
+    pipelineExecutionId: PipelineExecutionId | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -2500,12 +2500,12 @@ class UpdatePipelineInput(ServiceRequest):
 class UpdatePipelineOutput(TypedDict, total=False):
     """Represents the output of an ``UpdatePipeline`` action."""
 
-    pipeline: Optional[PipelineDeclaration]
+    pipeline: PipelineDeclaration | None
 
 
 class CodepipelineApi:
-    service = "codepipeline"
-    version = "2015-07-09"
+    service: str = "codepipeline"
+    version: str = "2015-07-09"
 
     @handler("AcknowledgeJob")
     def acknowledge_job(

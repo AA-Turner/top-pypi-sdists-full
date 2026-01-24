@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: (Apache-2.0 OR MIT)
+# Copyright ijl (2018-2025)
 
 import io
 import sys
@@ -6,6 +7,8 @@ import sys
 import pytest
 
 import orjson
+
+from .util import SUPPORTS_MEMORYVIEW
 
 
 class TestType:
@@ -280,17 +283,28 @@ class TestType:
         arr.extend(b"[]")
         assert orjson.loads(arr) == []
 
-    def test_memoryview_loads(self):
+    @pytest.mark.skipif(SUPPORTS_MEMORYVIEW, reason="memoryview not supported")
+    def test_memoryview_loads_supported(self):
         """
-        memoryview loads
+        memoryview loads supported
         """
         arr = bytearray()
         arr.extend(b"[]")
         assert orjson.loads(memoryview(arr)) == []
 
+    @pytest.mark.skipif(not SUPPORTS_MEMORYVIEW, reason="memoryview supported")
+    def test_memoryview_loads_unsupported(self):
+        """
+        memoryview loads unsupported
+        """
+        arr = bytearray()
+        arr.extend(b"[]")
+        with pytest.raises(orjson.JSONEncodeError):
+            orjson.loads(memoryview(arr))
+
     def test_bytesio_loads(self):
         """
-        memoryview loads
+        BytesIO loads
         """
         arr = io.BytesIO(b"[]")
         assert orjson.loads(arr.getbuffer()) == []

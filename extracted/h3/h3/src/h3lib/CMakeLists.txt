@@ -259,6 +259,8 @@ set(OTHER_SOURCE_FILES
     src/apps/testapps/testLinkedGeoInternal.c
     src/apps/testapps/mkRandGeo.c
     src/apps/testapps/testH3Api.c
+    src/apps/testapps/testIndexDigits.c
+    src/apps/testapps/testConstructCell.c
     src/apps/testapps/testCellsToLinkedMultiPolygon.c
     src/apps/testapps/testCellToLocalIj.c
     src/apps/testapps/testCellToLocalIjInternal.c
@@ -291,6 +293,7 @@ set(OTHER_SOURCE_FILES
     src/apps/fuzzers/fuzzerEdgeLength.c
     src/apps/fuzzers/fuzzerCellProperties.c
     src/apps/fuzzers/fuzzerIndexIO.c
+    src/apps/fuzzers/fuzzerConstructCell.c
     src/apps/fuzzers/fuzzerResolutions.c
     src/apps/fuzzers/fuzzerHierarchy.c
     src/apps/fuzzers/fuzzerVertexes.c
@@ -361,6 +364,9 @@ function(add_h3_library name h3_alloc_prefix_override)
     target_compile_features(${name} PUBLIC c_std_99)
 
     find_library(M_LIB m)
+    if(NOT(M_LIB))
+        find_library(M_LIB m PATHS ${CMAKE_C_IMPLICIT_LINK_DIRECTORIES})
+    endif()
     if(M_LIB)
         target_link_libraries(${name} PUBLIC ${M_LIB})
     endif()
@@ -614,6 +620,7 @@ if(BUILD_FUZZERS)
     add_h3_fuzzer(fuzzerEdgeLength src/apps/fuzzers/fuzzerEdgeLength.c)
     add_h3_fuzzer(fuzzerCellProperties src/apps/fuzzers/fuzzerCellProperties.c)
     add_h3_fuzzer(fuzzerIndexIO src/apps/fuzzers/fuzzerIndexIO.c)
+    add_h3_fuzzer(fuzzerConstructCell src/apps/fuzzers/fuzzerConstructCell.c)
     add_h3_fuzzer(fuzzerResolutions src/apps/fuzzers/fuzzerResolutions.c)
     add_h3_fuzzer(fuzzerHierarchy src/apps/fuzzers/fuzzerHierarchy.c)
     add_h3_fuzzer(fuzzerVertexes src/apps/fuzzers/fuzzerVertexes.c)

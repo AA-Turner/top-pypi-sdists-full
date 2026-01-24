@@ -93,6 +93,9 @@ class ApiHelper:
         self.licensing_api = agilicus.LicensingApi(
             agilicus.ApiClient(self.configuration)
         )
+        self.deployments_api = agilicus.DeploymentsApi(
+            agilicus.ApiClient(self.configuration)
+        )
 
     def refresh_token(self):
         self.configuration.access_token = get_token(self.ctx)

@@ -41,6 +41,9 @@ def wrapper(
     If process doesn't response in time, it will get killed.
     '''
     gc.disable()
+    if config.disable_mp_signal:
+        signal.signal(signal.SIGINT, signal.default_int_handler)
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
     payload: bytes = b''
     ret_data: bytes = b''
     fds: list[int] = []
@@ -117,8 +120,12 @@ class ChildProcess:
             raise RuntimeError('child process not started yet')
         if timeout == USE_DEFAULT_TIMEOUT:
             timeout = config.default_communicate_timeout
-        rl, _, _ = select.select([self.ctrl_r], [], [], timeout)
-        if not len(rl):
+
+        poll = select.poll()
+        poll.register(self.ctrl_r, select.POLLIN)
+        poll_results = poll.poll(timeout * 1000)  # convert to microseconds
+        poll.unregister(self.ctrl_r)
+        if not poll_results:
             # no data received within timeout
             # 1. the child process is killed
             # 2. the child process is stuck

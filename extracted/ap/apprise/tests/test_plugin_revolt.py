@@ -235,7 +235,7 @@ apprise_url_tests = (
         "revolt://{}/{}/".format("a" * 24, "b" * 64),
         {
             "instance": NotifyRevolt,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
             # Our response expected server response
@@ -247,7 +247,7 @@ apprise_url_tests = (
         {
             "instance": NotifyRevolt,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
             # Our response expected server response
             "requests_response_text": REVOLT_GOOD_RESPONSE,
@@ -545,7 +545,7 @@ def test_plugin_revolt_markdown_extra(mock_post):
     # Reset our apprise object
     a = Apprise()
 
-    # We want to further test our markdown support to accomodate bug rased on
+    # We want to further test our markdown support to accommodate bug rased on
     # 2022.10.25; see https://github.com/caronc/apprise/issues/717
     assert a.add(f"revolt://{bot_token}/{channel_id}/?format=markdown") is True
 

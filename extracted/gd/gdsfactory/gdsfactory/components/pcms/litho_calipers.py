@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["litho_calipers"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
 from gdsfactory.typings import LayerSpec, Size
@@ -52,3 +54,8 @@ def litho_calipers(
         )
         ref.movey(-notch_size[1] - row_spacing)
     return D
+
+
+if __name__ == "__main__":
+    c = litho_calipers()
+    c.show()

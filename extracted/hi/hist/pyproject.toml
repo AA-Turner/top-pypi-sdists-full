@@ -60,12 +60,12 @@ Changelog = "https://hist.readthedocs.io/en/latest/changelog.html"
 [project.optional-dependencies]
 # Keep in sync with dependency-groups below
 mpl = [
-    "matplotlib >=3.3.3",
-    "mplhep >=0.3.17",
+    "matplotlib >=3.8",
+    "mplhep >=0.3.33",
 ]
 plot = [
-    "matplotlib >=3.3.3",
-    "mplhep >=0.3.17",
+    "matplotlib >=3.8",
+    "mplhep >=0.3.33",
 ]
 fit = [
     "scipy >=1.5.4",
@@ -73,13 +73,15 @@ fit = [
 ]
 dask = [
     "dask[dataframe] >=2022,<2025",
+    "dask_awkward >=2025.9.0",
     "dask_histogram >=2023.1",
 ]
 
 [dependency-groups]
 plot = [
-    "matplotlib >=3.3.3",
-    "mplhep >=0.3.17",
+    "matplotlib >=3.8",
+    "mplhep >=0.3.33",
+    "pyparsing>=3.0,<3.3; python_version<'3.10'"
 ]
 fit = [
     "scipy >=1.5.4",
@@ -87,6 +89,7 @@ fit = [
 ]
 dask = [
     "dask[dataframe] >=2022,<2025",
+    "dask_awkward >=2025.9.0",
     "dask_histogram >=2023.1",
 ]
 test = [
@@ -132,10 +135,9 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 xfail_strict = true
 testpaths = ["tests"]
 required_plugins = ["pytest-mpl"]
-log_cli_level = "DEBUG"
+log_level = "DEBUG"
 filterwarnings = [
     "error",
-    "ignore::matplotlib._api.deprecation.MatplotlibDeprecationWarning",
 ]
 
 [tool.mypy]
@@ -216,7 +218,7 @@ extend-select = [
   "UP",          # pyupgrade
   "YTT",         # flake8-2020
 ]
-ignore = ["PLR", "E501", "PT011", "PT013", "B017", "ISC001", "PLC0415"]
+ignore = ["PLR", "E501", "PT011", "PT013", "B017", "PLC0415"]
 typing-modules = ["hist._compat.typing"]
 isort.required-imports = ["from __future__ import annotations"]
 flake8-unused-arguments.ignore-variadic-names = true

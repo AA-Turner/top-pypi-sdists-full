@@ -6,7 +6,7 @@ import shutil
 import warnings
 from datetime import datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
-
+import win32wnet
 import pyperclip
 import pyautogui
 from pywinauto.application import Application
@@ -58,7 +58,10 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         temp_folder = temp_folder +'\\'
         #Pega Config para logar no Emsys
         config = await get_config_by_name("login_emsys")
+        user_folder_login = await get_config_by_name("user_credentials")
+        user_folder_login = user_folder_login.conConfiguracao
         folders_paths = await get_config_by_name("Folders_Fidc")
+        folders_paths = folders_paths.conConfiguracao
 
         #Abre um novo emsys
         await kill_all_emsys()
@@ -110,7 +113,6 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         
         field_arquivo.double_click_input()
         field_arquivo.set_edit_text("")
-        # field_arquivo.type_keys(folders_paths.conConfiguracao['remessa_cobranca_path'] + new_text_field_arquivo, with_spaces=True)
         field_arquivo.type_keys(temp_folder + new_text_field_arquivo, with_spaces=True)
 
         await worker_sleep(2)   
@@ -230,9 +232,7 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
                 sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])    
 
         # # Substituindo arquivo original e fazedno upload (feito logo apos gerar para  garaintir que o arquivo não se perca)
-        # origem = folders_paths.conConfiguracao['remessa_cobranca_path'] + new_text_field_arquivo
         origem = temp_folder + new_text_field_arquivo
-        
         # Abrindo o arquivo original para leitura
         file = open(origem, 'r')
         file_text = file.read()
@@ -247,7 +247,9 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         file = open(origem, 'w')
         file.write(file_text)
         file.close()
-
+        
+        await worker_sleep(5)
+        
         console.print(f"Substituições realizadas com sucesso no arquivo original: {origem}")
         try:
             with open(origem, 'rb') as file:
@@ -259,7 +261,6 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
             console.print(log_msg, style="bold red")
             return RpaRetornoProcessoDTO(
             sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
-
 
         # Clica em 'Yes' imprimir listagem
         await worker_sleep(10)
@@ -293,7 +294,6 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
 
         await worker_sleep(10)
         
-        # await save_pdf_emsys(folders_paths.conConfiguracao['remessa_cobranca_path'] + new_text_field_arquivo +" (PDF)")
         await save_pdf_emsys(temp_folder + new_text_field_arquivo + PDF_SUFFIX)
         
         await worker_sleep(5) 
@@ -324,12 +324,22 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         
         try:
             #Mover para pasta correta
-            shutil.move(origem, folders_paths.conConfiguracao["remessa_cobranca_path_prod"])
-        except Exception as e:
-            log_msg=(f"Erro ao mover o arquivo para pasta de remessa: {e}")
-            console.print(log_msg, style="bold red")
-            return RpaRetornoProcessoDTO(
-            sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
+            shutil.move(origem, folders_paths["remessa_cobranca_path_prod"])
+        except:
+            try:
+                win32wnet.WNetAddConnection2(0, None, folders_paths["remessa_cobranca_path_prod_ip"], None, user_folder_login.get("usuario"), user_folder_login.get("senha"))
+                if os.path.exists(origem):
+                    shutil.move(origem, folders_paths["remessa_cobranca_path_prod_ip"])
+                else:
+                    log_msg=(f"Erro ao mover o arquivo para pasta de remessa: {origem} na pasta {folders_paths['remessa_cobranca_path_prod_ip']}")
+                    console.print(log_msg, style="bold red")
+                    return RpaRetornoProcessoDTO(
+                    sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
+            except Exception as e:
+                log_msg=(f"Erro ao mover o arquivo para pasta de remessa: {e}")
+                console.print(log_msg, style="bold red")
+                return RpaRetornoProcessoDTO(
+                sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
     
         #Delete temp folder
         await delete_folder(nome_pasta)
@@ -344,4 +354,3 @@ async def remessa_cobranca_cnab240(task: RpaProcessoEntradaDTO) -> RpaRetornoPro
         console.print(log_msg, style="bold red")
         return RpaRetornoProcessoDTO(
         sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
-        

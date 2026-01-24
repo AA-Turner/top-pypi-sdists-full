@@ -3027,6 +3027,66 @@ hex：十六进制
         
 
 
+class AutoGuard(AbstractModel):
+    r"""流量防盗刷配置（仅限大陆地区）
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: 流量防盗刷配置开关，取值有： on：开启 off：关闭
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Switch: str
+        :param _FilterRules: 流量防盗刷配置规则
+注意：此字段可能返回 null，表示取不到有效值。
+        :type FilterRules: list of FilterRules
+        """
+        self._Switch = None
+        self._FilterRules = None
+
+    @property
+    def Switch(self):
+        r"""流量防盗刷配置开关，取值有： on：开启 off：关闭
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def FilterRules(self):
+        r"""流量防盗刷配置规则
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of FilterRules
+        """
+        return self._FilterRules
+
+    @FilterRules.setter
+    def FilterRules(self, FilterRules):
+        self._FilterRules = FilterRules
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        if params.get("FilterRules") is not None:
+            self._FilterRules = []
+            for item in params.get("FilterRules"):
+                obj = FilterRules()
+                obj._deserialize(item)
+                self._FilterRules.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class AvifAdapter(AbstractModel):
     r"""图片优化-AvifAdapter配置
 
@@ -4317,61 +4377,6 @@ off：关闭
         
 
 
-class CacheOptResult(AbstractModel):
-    r"""违规资源封禁/解封返回类型
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _SuccessUrls: 成功的url列表
-注意：此字段可能返回 null，表示取不到有效值。
-        :type SuccessUrls: list of str
-        :param _FailUrls: 失败的url列表
-注意：此字段可能返回 null，表示取不到有效值。
-        :type FailUrls: list of str
-        """
-        self._SuccessUrls = None
-        self._FailUrls = None
-
-    @property
-    def SuccessUrls(self):
-        r"""成功的url列表
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of str
-        """
-        return self._SuccessUrls
-
-    @SuccessUrls.setter
-    def SuccessUrls(self, SuccessUrls):
-        self._SuccessUrls = SuccessUrls
-
-    @property
-    def FailUrls(self):
-        r"""失败的url列表
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of str
-        """
-        return self._FailUrls
-
-    @FailUrls.setter
-    def FailUrls(self, FailUrls):
-        self._FailUrls = FailUrls
-
-
-    def _deserialize(self, params):
-        self._SuccessUrls = params.get("SuccessUrls")
-        self._FailUrls = params.get("FailUrls")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
 class CacheTagKey(AbstractModel):
     r"""组成CacheKey的一部分
 
@@ -4880,95 +4885,6 @@ PEM 格式，需要进行 Base 64 编码
         self._CertName = params.get("CertName")
         self._ExpireTime = params.get("ExpireTime")
         self._DeployTime = params.get("DeployTime")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class ClientInfo(AbstractModel):
-    r"""客户端信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _ProvName: 省份。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ProvName: str
-        :param _Country: 国家。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Country: str
-        :param _IspName: 运营商。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type IspName: str
-        :param _Ip: 客户端IP
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Ip: str
-        """
-        self._ProvName = None
-        self._Country = None
-        self._IspName = None
-        self._Ip = None
-
-    @property
-    def ProvName(self):
-        r"""省份。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ProvName
-
-    @ProvName.setter
-    def ProvName(self, ProvName):
-        self._ProvName = ProvName
-
-    @property
-    def Country(self):
-        r"""国家。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Country
-
-    @Country.setter
-    def Country(self, Country):
-        self._Country = Country
-
-    @property
-    def IspName(self):
-        r"""运营商。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._IspName
-
-    @IspName.setter
-    def IspName(self, IspName):
-        self._IspName = IspName
-
-    @property
-    def Ip(self):
-        r"""客户端IP
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Ip
-
-    @Ip.setter
-    def Ip(self, Ip):
-        self._Ip = Ip
-
-
-    def _deserialize(self, params):
-        self._ProvName = params.get("ProvName")
-        self._Country = params.get("Country")
-        self._IspName = params.get("IspName")
-        self._Ip = params.get("Ip")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5712,100 +5628,6 @@ class CreateClsLogTopicResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._TopicId = params.get("TopicId")
-        self._RequestId = params.get("RequestId")
-
-
-class CreateDiagnoseUrlRequest(AbstractModel):
-    r"""CreateDiagnoseUrl请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Url: 需诊断的url，形如：http://www.test.com/test.txt。
-        :type Url: str
-        :param _Origin: 请求源带协议头，形如：https://console.cloud.tencent.com
-        :type Origin: str
-        """
-        self._Url = None
-        self._Origin = None
-
-    @property
-    def Url(self):
-        r"""需诊断的url，形如：http://www.test.com/test.txt。
-        :rtype: str
-        """
-        return self._Url
-
-    @Url.setter
-    def Url(self, Url):
-        self._Url = Url
-
-    @property
-    def Origin(self):
-        r"""请求源带协议头，形如：https://console.cloud.tencent.com
-        :rtype: str
-        """
-        return self._Origin
-
-    @Origin.setter
-    def Origin(self, Origin):
-        self._Origin = Origin
-
-
-    def _deserialize(self, params):
-        self._Url = params.get("Url")
-        self._Origin = params.get("Origin")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class CreateDiagnoseUrlResponse(AbstractModel):
-    r"""CreateDiagnoseUrl返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _DiagnoseLink: 系统生成的诊断链接，一个诊断链接最多可访问10次，有效期为24h。
-        :type DiagnoseLink: str
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._DiagnoseLink = None
-        self._RequestId = None
-
-    @property
-    def DiagnoseLink(self):
-        r"""系统生成的诊断链接，一个诊断链接最多可访问10次，有效期为24h。
-        :rtype: str
-        """
-        return self._DiagnoseLink
-
-    @DiagnoseLink.setter
-    def DiagnoseLink(self, DiagnoseLink):
-        self._DiagnoseLink = DiagnoseLink
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._DiagnoseLink = params.get("DiagnoseLink")
         self._RequestId = params.get("RequestId")
 
 
@@ -6576,8 +6398,10 @@ day：天粒度，指定查询区间大于 31 天，可返回天粒度明细数�
 all：所有协议
 http：指定查询 HTTP 对应指标
 https：指定查询 HTTPS 对应指标
+quic：指定查询 QUIC 对应指标
         :type Protocol: str
-        :param _DataSource: 指定数据源查询，白名单功能
+        :param _DataSource: 指定数据源查询
+monitor：监控数据
         :type DataSource: str
         :param _IpProtocol: 指定IP协议查询，不填充表示查询所有协议
 all：所有协议
@@ -6756,6 +6580,7 @@ day：天粒度，指定查询区间大于 31 天，可返回天粒度明细数�
 all：所有协议
 http：指定查询 HTTP 对应指标
 https：指定查询 HTTPS 对应指标
+quic：指定查询 QUIC 对应指标
         :rtype: str
         """
         return self._Protocol
@@ -6766,7 +6591,8 @@ https：指定查询 HTTPS 对应指标
 
     @property
     def DataSource(self):
-        r"""指定数据源查询，白名单功能
+        r"""指定数据源查询
+monitor：监控数据
         :rtype: str
         """
         return self._DataSource
@@ -7411,223 +7237,6 @@ class DescribeCertDomainsResponse(AbstractModel):
     def _deserialize(self, params):
         self._Domains = params.get("Domains")
         self._CertifiedDomains = params.get("CertifiedDomains")
-        self._RequestId = params.get("RequestId")
-
-
-class DescribeDiagnoseReportRequest(AbstractModel):
-    r"""DescribeDiagnoseReport请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _ReportId: 报告ID
-        :type ReportId: str
-        """
-        self._ReportId = None
-
-    @property
-    def ReportId(self):
-        r"""报告ID
-        :rtype: str
-        """
-        return self._ReportId
-
-    @ReportId.setter
-    def ReportId(self, ReportId):
-        self._ReportId = ReportId
-
-
-    def _deserialize(self, params):
-        self._ReportId = params.get("ReportId")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DescribeDiagnoseReportResponse(AbstractModel):
-    r"""DescribeDiagnoseReport返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _BaskInfo: 诊断报告基础信息
-        :type BaskInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _CnameInfo: CNAME检测信息
-        :type CnameInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _ClientInfo: 客户端检测信息
-        :type ClientInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _DnsInfo: DNS检测信息
-        :type DnsInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _NetworkInfo: 网络检测信息
-        :type NetworkInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _OcNodeInfo: 边缘节点检测信息
-        :type OcNodeInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _MidNodeInfo: 中间源节点检测信息
-        :type MidNodeInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _OriginInfo: 源站检测信息
-        :type OriginInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _PurgeInfo: 刷新检测信息
-        :type PurgeInfo: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._BaskInfo = None
-        self._CnameInfo = None
-        self._ClientInfo = None
-        self._DnsInfo = None
-        self._NetworkInfo = None
-        self._OcNodeInfo = None
-        self._MidNodeInfo = None
-        self._OriginInfo = None
-        self._PurgeInfo = None
-        self._RequestId = None
-
-    @property
-    def BaskInfo(self):
-        r"""诊断报告基础信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._BaskInfo
-
-    @BaskInfo.setter
-    def BaskInfo(self, BaskInfo):
-        self._BaskInfo = BaskInfo
-
-    @property
-    def CnameInfo(self):
-        r"""CNAME检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._CnameInfo
-
-    @CnameInfo.setter
-    def CnameInfo(self, CnameInfo):
-        self._CnameInfo = CnameInfo
-
-    @property
-    def ClientInfo(self):
-        r"""客户端检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._ClientInfo
-
-    @ClientInfo.setter
-    def ClientInfo(self, ClientInfo):
-        self._ClientInfo = ClientInfo
-
-    @property
-    def DnsInfo(self):
-        r"""DNS检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._DnsInfo
-
-    @DnsInfo.setter
-    def DnsInfo(self, DnsInfo):
-        self._DnsInfo = DnsInfo
-
-    @property
-    def NetworkInfo(self):
-        r"""网络检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._NetworkInfo
-
-    @NetworkInfo.setter
-    def NetworkInfo(self, NetworkInfo):
-        self._NetworkInfo = NetworkInfo
-
-    @property
-    def OcNodeInfo(self):
-        r"""边缘节点检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._OcNodeInfo
-
-    @OcNodeInfo.setter
-    def OcNodeInfo(self, OcNodeInfo):
-        self._OcNodeInfo = OcNodeInfo
-
-    @property
-    def MidNodeInfo(self):
-        r"""中间源节点检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._MidNodeInfo
-
-    @MidNodeInfo.setter
-    def MidNodeInfo(self, MidNodeInfo):
-        self._MidNodeInfo = MidNodeInfo
-
-    @property
-    def OriginInfo(self):
-        r"""源站检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._OriginInfo
-
-    @OriginInfo.setter
-    def OriginInfo(self, OriginInfo):
-        self._OriginInfo = OriginInfo
-
-    @property
-    def PurgeInfo(self):
-        r"""刷新检测信息
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.DiagnoseData`
-        """
-        return self._PurgeInfo
-
-    @PurgeInfo.setter
-    def PurgeInfo(self, PurgeInfo):
-        self._PurgeInfo = PurgeInfo
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("BaskInfo") is not None:
-            self._BaskInfo = DiagnoseData()
-            self._BaskInfo._deserialize(params.get("BaskInfo"))
-        if params.get("CnameInfo") is not None:
-            self._CnameInfo = DiagnoseData()
-            self._CnameInfo._deserialize(params.get("CnameInfo"))
-        if params.get("ClientInfo") is not None:
-            self._ClientInfo = DiagnoseData()
-            self._ClientInfo._deserialize(params.get("ClientInfo"))
-        if params.get("DnsInfo") is not None:
-            self._DnsInfo = DiagnoseData()
-            self._DnsInfo._deserialize(params.get("DnsInfo"))
-        if params.get("NetworkInfo") is not None:
-            self._NetworkInfo = DiagnoseData()
-            self._NetworkInfo._deserialize(params.get("NetworkInfo"))
-        if params.get("OcNodeInfo") is not None:
-            self._OcNodeInfo = DiagnoseData()
-            self._OcNodeInfo._deserialize(params.get("OcNodeInfo"))
-        if params.get("MidNodeInfo") is not None:
-            self._MidNodeInfo = DiagnoseData()
-            self._MidNodeInfo._deserialize(params.get("MidNodeInfo"))
-        if params.get("OriginInfo") is not None:
-            self._OriginInfo = DiagnoseData()
-            self._OriginInfo._deserialize(params.get("OriginInfo"))
-        if params.get("PurgeInfo") is not None:
-            self._PurgeInfo = DiagnoseData()
-            self._PurgeInfo._deserialize(params.get("PurgeInfo"))
         self._RequestId = params.get("RequestId")
 
 
@@ -11040,6 +10649,7 @@ normal：正常状态
 overdue：账号欠费导致域名关闭，充值完成后可自行启动加速服务
 malicious：域名出现恶意行为，强制关闭加速服务
 ddos：域名被大规模 DDoS 攻击，关闭加速服务
+ddos_risk: 域名存在ddos攻击风险
 idle：域名超过 90 天内无任何操作、数据产生，判定为不活跃域名自动关闭加速服务，可自行启动加速服务
 unlicensed：域名未备案/备案注销，自动关闭加速服务，备案完成后可自行启动加速服务
 capping：触发配置的带宽阈值上限
@@ -11166,6 +10776,10 @@ off：不支持
         :param _ParamFilter: 参数黑名单
 注意：此字段可能返回 null，表示取不到有效值。
         :type ParamFilter: :class:`tencentcloud.cdn.v20180606.models.ParamFilter`
+        :param _AutoGuard: 流量一键防盗刷配置
+        :type AutoGuard: :class:`tencentcloud.cdn.v20180606.models.AutoGuard`
+        :param _GeoBlocker: 区域访问控制配置
+        :type GeoBlocker: :class:`tencentcloud.cdn.v20180606.models.GeoBlocker`
         """
         self._ResourceId = None
         self._AppId = None
@@ -11234,6 +10848,8 @@ off：不支持
         self._HttpsBilling = None
         self._OthersPrivateAccess = None
         self._ParamFilter = None
+        self._AutoGuard = None
+        self._GeoBlocker = None
 
     @property
     def ResourceId(self):
@@ -11591,6 +11207,7 @@ normal：正常状态
 overdue：账号欠费导致域名关闭，充值完成后可自行启动加速服务
 malicious：域名出现恶意行为，强制关闭加速服务
 ddos：域名被大规模 DDoS 攻击，关闭加速服务
+ddos_risk: 域名存在ddos攻击风险
 idle：域名超过 90 天内无任何操作、数据产生，判定为不活跃域名自动关闭加速服务，可自行启动加速服务
 unlicensed：域名未备案/备案注销，自动关闭加速服务，备案完成后可自行启动加速服务
 capping：触发配置的带宽阈值上限
@@ -12057,6 +11674,28 @@ off：不支持
     def ParamFilter(self, ParamFilter):
         self._ParamFilter = ParamFilter
 
+    @property
+    def AutoGuard(self):
+        r"""流量一键防盗刷配置
+        :rtype: :class:`tencentcloud.cdn.v20180606.models.AutoGuard`
+        """
+        return self._AutoGuard
+
+    @AutoGuard.setter
+    def AutoGuard(self, AutoGuard):
+        self._AutoGuard = AutoGuard
+
+    @property
+    def GeoBlocker(self):
+        r"""区域访问控制配置
+        :rtype: :class:`tencentcloud.cdn.v20180606.models.GeoBlocker`
+        """
+        return self._GeoBlocker
+
+    @GeoBlocker.setter
+    def GeoBlocker(self, GeoBlocker):
+        self._GeoBlocker = GeoBlocker
+
 
     def _deserialize(self, params):
         self._ResourceId = params.get("ResourceId")
@@ -12236,6 +11875,12 @@ off：不支持
         if params.get("ParamFilter") is not None:
             self._ParamFilter = ParamFilter()
             self._ParamFilter._deserialize(params.get("ParamFilter"))
+        if params.get("AutoGuard") is not None:
+            self._AutoGuard = AutoGuard()
+            self._AutoGuard._deserialize(params.get("AutoGuard"))
+        if params.get("GeoBlocker") is not None:
+            self._GeoBlocker = GeoBlocker()
+            self._GeoBlocker._deserialize(params.get("GeoBlocker"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12244,525 +11889,6 @@ off：不支持
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
-
-
-class DiagnoseData(AbstractModel):
-    r"""诊断报告内容数据
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Data: 诊断报告内容
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Data: list of DiagnoseUnit
-        :param _Status: 当前诊断项是否正常。
-"ok"：正常
-"error"：异常
-"warning"："警告"
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Status: str
-        """
-        self._Data = None
-        self._Status = None
-
-    @property
-    def Data(self):
-        r"""诊断报告内容
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of DiagnoseUnit
-        """
-        return self._Data
-
-    @Data.setter
-    def Data(self, Data):
-        self._Data = Data
-
-    @property
-    def Status(self):
-        r"""当前诊断项是否正常。
-"ok"：正常
-"error"：异常
-"warning"："警告"
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Status
-
-    @Status.setter
-    def Status(self, Status):
-        self._Status = Status
-
-
-    def _deserialize(self, params):
-        if params.get("Data") is not None:
-            self._Data = []
-            for item in params.get("Data"):
-                obj = DiagnoseUnit()
-                obj._deserialize(item)
-                self._Data.append(obj)
-        self._Status = params.get("Status")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DiagnoseInfo(AbstractModel):
-    r"""诊断信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _DiagnoseUrl: 待诊断的URL。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type DiagnoseUrl: str
-        :param _DiagnoseLink: 由系统生成的诊断链接。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type DiagnoseLink: str
-        :param _CreateTime: 诊断创建时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type CreateTime: str
-        :param _ExpireDate: 诊断链接过期时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ExpireDate: str
-        :param _VisitCount: 诊断链接当前访问次数，一个诊断链接最多可访问10次。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type VisitCount: int
-        :param _ClientList: 访问诊断链接的客户端简易信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ClientList: list of DiagnoseList
-        :param _Area: 域名加速区域
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Area: str
-        """
-        self._DiagnoseUrl = None
-        self._DiagnoseLink = None
-        self._CreateTime = None
-        self._ExpireDate = None
-        self._VisitCount = None
-        self._ClientList = None
-        self._Area = None
-
-    @property
-    def DiagnoseUrl(self):
-        r"""待诊断的URL。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._DiagnoseUrl
-
-    @DiagnoseUrl.setter
-    def DiagnoseUrl(self, DiagnoseUrl):
-        self._DiagnoseUrl = DiagnoseUrl
-
-    @property
-    def DiagnoseLink(self):
-        r"""由系统生成的诊断链接。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._DiagnoseLink
-
-    @DiagnoseLink.setter
-    def DiagnoseLink(self, DiagnoseLink):
-        self._DiagnoseLink = DiagnoseLink
-
-    @property
-    def CreateTime(self):
-        r"""诊断创建时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._CreateTime
-
-    @CreateTime.setter
-    def CreateTime(self, CreateTime):
-        self._CreateTime = CreateTime
-
-    @property
-    def ExpireDate(self):
-        r"""诊断链接过期时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ExpireDate
-
-    @ExpireDate.setter
-    def ExpireDate(self, ExpireDate):
-        self._ExpireDate = ExpireDate
-
-    @property
-    def VisitCount(self):
-        r"""诊断链接当前访问次数，一个诊断链接最多可访问10次。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: int
-        """
-        return self._VisitCount
-
-    @VisitCount.setter
-    def VisitCount(self, VisitCount):
-        self._VisitCount = VisitCount
-
-    @property
-    def ClientList(self):
-        r"""访问诊断链接的客户端简易信息
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of DiagnoseList
-        """
-        return self._ClientList
-
-    @ClientList.setter
-    def ClientList(self, ClientList):
-        self._ClientList = ClientList
-
-    @property
-    def Area(self):
-        r"""域名加速区域
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Area
-
-    @Area.setter
-    def Area(self, Area):
-        self._Area = Area
-
-
-    def _deserialize(self, params):
-        self._DiagnoseUrl = params.get("DiagnoseUrl")
-        self._DiagnoseLink = params.get("DiagnoseLink")
-        self._CreateTime = params.get("CreateTime")
-        self._ExpireDate = params.get("ExpireDate")
-        self._VisitCount = params.get("VisitCount")
-        if params.get("ClientList") is not None:
-            self._ClientList = []
-            for item in params.get("ClientList"):
-                obj = DiagnoseList()
-                obj._deserialize(item)
-                self._ClientList.append(obj)
-        self._Area = params.get("Area")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DiagnoseList(AbstractModel):
-    r"""客户端访问诊断URL信息列表
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _DiagnoseTag: 诊断任务标签。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type DiagnoseTag: str
-        :param _ReportId: 报告ID，用于获取详细诊断报告。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ReportId: str
-        :param _ClientInfo: 客户端信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ClientInfo: list of ClientInfo
-        :param _FinalDiagnose: 最终诊断结果。
--1：已提交
-0  ：检测中
-1  ：检测正常
-2  ： 检测异常
-3  ： 诊断页面异常关闭
-注意：此字段可能返回 null，表示取不到有效值。
-        :type FinalDiagnose: int
-        :param _CreateTime: 诊断任务创建时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type CreateTime: str
-        """
-        self._DiagnoseTag = None
-        self._ReportId = None
-        self._ClientInfo = None
-        self._FinalDiagnose = None
-        self._CreateTime = None
-
-    @property
-    def DiagnoseTag(self):
-        r"""诊断任务标签。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._DiagnoseTag
-
-    @DiagnoseTag.setter
-    def DiagnoseTag(self, DiagnoseTag):
-        self._DiagnoseTag = DiagnoseTag
-
-    @property
-    def ReportId(self):
-        r"""报告ID，用于获取详细诊断报告。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ReportId
-
-    @ReportId.setter
-    def ReportId(self, ReportId):
-        self._ReportId = ReportId
-
-    @property
-    def ClientInfo(self):
-        r"""客户端信息。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: list of ClientInfo
-        """
-        return self._ClientInfo
-
-    @ClientInfo.setter
-    def ClientInfo(self, ClientInfo):
-        self._ClientInfo = ClientInfo
-
-    @property
-    def FinalDiagnose(self):
-        r"""最终诊断结果。
--1：已提交
-0  ：检测中
-1  ：检测正常
-2  ： 检测异常
-3  ： 诊断页面异常关闭
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: int
-        """
-        return self._FinalDiagnose
-
-    @FinalDiagnose.setter
-    def FinalDiagnose(self, FinalDiagnose):
-        self._FinalDiagnose = FinalDiagnose
-
-    @property
-    def CreateTime(self):
-        r"""诊断任务创建时间。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._CreateTime
-
-    @CreateTime.setter
-    def CreateTime(self, CreateTime):
-        self._CreateTime = CreateTime
-
-
-    def _deserialize(self, params):
-        self._DiagnoseTag = params.get("DiagnoseTag")
-        self._ReportId = params.get("ReportId")
-        if params.get("ClientInfo") is not None:
-            self._ClientInfo = []
-            for item in params.get("ClientInfo"):
-                obj = ClientInfo()
-                obj._deserialize(item)
-                self._ClientInfo.append(obj)
-        self._FinalDiagnose = params.get("FinalDiagnose")
-        self._CreateTime = params.get("CreateTime")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DiagnoseUnit(AbstractModel):
-    r"""诊断报告单元信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Key: 内容单元英文名称。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Key: str
-        :param _KeyText: 内容单元中文名称。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type KeyText: str
-        :param _Value: 报告内容。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Value: str
-        :param _ValueText: 报告内容。
-注意：此字段可能返回 null，表示取不到有效值。
-        :type ValueText: str
-        """
-        self._Key = None
-        self._KeyText = None
-        self._Value = None
-        self._ValueText = None
-
-    @property
-    def Key(self):
-        r"""内容单元英文名称。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Key
-
-    @Key.setter
-    def Key(self, Key):
-        self._Key = Key
-
-    @property
-    def KeyText(self):
-        r"""内容单元中文名称。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._KeyText
-
-    @KeyText.setter
-    def KeyText(self, KeyText):
-        self._KeyText = KeyText
-
-    @property
-    def Value(self):
-        r"""报告内容。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Value
-
-    @Value.setter
-    def Value(self, Value):
-        self._Value = Value
-
-    @property
-    def ValueText(self):
-        r"""报告内容。
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._ValueText
-
-    @ValueText.setter
-    def ValueText(self, ValueText):
-        self._ValueText = ValueText
-
-
-    def _deserialize(self, params):
-        self._Key = params.get("Key")
-        self._KeyText = params.get("KeyText")
-        self._Value = params.get("Value")
-        self._ValueText = params.get("ValueText")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DisableCachesRequest(AbstractModel):
-    r"""DisableCaches请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Urls: 禁用的 URL 列表（分协议生效，必须包含http://或https://）
-每次最多可提交 100 条，每日最多可提交 3000 条
-        :type Urls: list of str
-        """
-        self._Urls = None
-
-    @property
-    def Urls(self):
-        r"""禁用的 URL 列表（分协议生效，必须包含http://或https://）
-每次最多可提交 100 条，每日最多可提交 3000 条
-        :rtype: list of str
-        """
-        return self._Urls
-
-    @Urls.setter
-    def Urls(self, Urls):
-        self._Urls = Urls
-
-
-    def _deserialize(self, params):
-        self._Urls = params.get("Urls")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DisableCachesResponse(AbstractModel):
-    r"""DisableCaches返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _CacheOptResult: 提交结果
-        :type CacheOptResult: :class:`tencentcloud.cdn.v20180606.models.CacheOptResult`
-        :param _TaskId: 任务ID
-        :type TaskId: str
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._CacheOptResult = None
-        self._TaskId = None
-        self._RequestId = None
-
-    @property
-    def CacheOptResult(self):
-        r"""提交结果
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.CacheOptResult`
-        """
-        return self._CacheOptResult
-
-    @CacheOptResult.setter
-    def CacheOptResult(self, CacheOptResult):
-        self._CacheOptResult = CacheOptResult
-
-    @property
-    def TaskId(self):
-        r"""任务ID
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("CacheOptResult") is not None:
-            self._CacheOptResult = CacheOptResult()
-            self._CacheOptResult._deserialize(params.get("CacheOptResult"))
-        self._TaskId = params.get("TaskId")
-        self._RequestId = params.get("RequestId")
 
 
 class DisableClsLogTopicRequest(AbstractModel):
@@ -13650,117 +12776,6 @@ failed: 处理失败
         
 
 
-class EnableCachesRequest(AbstractModel):
-    r"""EnableCaches请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Urls: 解封 URL 列表
-        :type Urls: list of str
-        :param _Date: URL封禁日期
-        :type Date: str
-        """
-        self._Urls = None
-        self._Date = None
-
-    @property
-    def Urls(self):
-        r"""解封 URL 列表
-        :rtype: list of str
-        """
-        return self._Urls
-
-    @Urls.setter
-    def Urls(self, Urls):
-        self._Urls = Urls
-
-    @property
-    def Date(self):
-        r"""URL封禁日期
-        :rtype: str
-        """
-        return self._Date
-
-    @Date.setter
-    def Date(self, Date):
-        self._Date = Date
-
-
-    def _deserialize(self, params):
-        self._Urls = params.get("Urls")
-        self._Date = params.get("Date")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class EnableCachesResponse(AbstractModel):
-    r"""EnableCaches返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _CacheOptResult: 结果列表
-        :type CacheOptResult: :class:`tencentcloud.cdn.v20180606.models.CacheOptResult`
-        :param _TaskId: 任务ID
-        :type TaskId: str
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._CacheOptResult = None
-        self._TaskId = None
-        self._RequestId = None
-
-    @property
-    def CacheOptResult(self):
-        r"""结果列表
-        :rtype: :class:`tencentcloud.cdn.v20180606.models.CacheOptResult`
-        """
-        return self._CacheOptResult
-
-    @CacheOptResult.setter
-    def CacheOptResult(self, CacheOptResult):
-        self._CacheOptResult = CacheOptResult
-
-    @property
-    def TaskId(self):
-        r"""任务ID
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("CacheOptResult") is not None:
-            self._CacheOptResult = CacheOptResult()
-            self._CacheOptResult._deserialize(params.get("CacheOptResult"))
-        self._TaskId = params.get("TaskId")
-        self._RequestId = params.get("RequestId")
-
-
 class EnableClsLogTopicRequest(AbstractModel):
     r"""EnableClsLogTopic请求参数结构体
 
@@ -14053,6 +13068,78 @@ class ExtraLogset(AbstractModel):
         
 
 
+class FilterRules(AbstractModel):
+    r"""防盗刷配置规则
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _FilterType: 封禁类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type FilterType: str
+        :param _RuleType: 封禁规则类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RuleType: str
+        :param _RulePaths: 封禁规则路径
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RulePaths: list of str
+        """
+        self._FilterType = None
+        self._RuleType = None
+        self._RulePaths = None
+
+    @property
+    def FilterType(self):
+        r"""封禁类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._FilterType
+
+    @FilterType.setter
+    def FilterType(self, FilterType):
+        self._FilterType = FilterType
+
+    @property
+    def RuleType(self):
+        r"""封禁规则类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RuleType
+
+    @RuleType.setter
+    def RuleType(self, RuleType):
+        self._RuleType = RuleType
+
+    @property
+    def RulePaths(self):
+        r"""封禁规则路径
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._RulePaths
+
+    @RulePaths.setter
+    def RulePaths(self, RulePaths):
+        self._RulePaths = RulePaths
+
+
+    def _deserialize(self, params):
+        self._FilterType = params.get("FilterType")
+        self._RuleType = params.get("RuleType")
+        self._RulePaths = params.get("RulePaths")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class FollowRedirect(AbstractModel):
     r"""回源 301/302 状态码自动跟随配置，默认为关闭状态
 
@@ -14211,126 +13298,85 @@ https：强制 https 跳转
         
 
 
-class GetDisableRecordsRequest(AbstractModel):
-    r"""GetDisableRecords请求参数结构体
+class GeoBlockStrategy(AbstractModel):
+    r"""区域访问控制策略
 
     """
 
     def __init__(self):
         r"""
-        :param _Url: 指定 URL 查询
-        :type Url: str
-        :param _StartTime: 开始时间，如：2018-12-12 10:24:00。
-        :type StartTime: str
-        :param _EndTime: 结束时间，如：2018-12-14 10:24:00。
-        :type EndTime: str
-        :param _Status: URL 当前状态
-disable：当前仍为禁用状态，访问返回 403
-enable：当前为可用状态，已解禁，可正常访问
-        :type Status: str
-        :param _Offset: 分页查询偏移量，默认为 0
-        :type Offset: int
-        :param _Limit: 分页查询限制数目，默认为20。
-        :type Limit: int
-        :param _TaskId: 任务ID，任务ID和起始时间需要至少填写一项。
-        :type TaskId: str
+        :param _BlockType: 规则类型
+whitelist: 白名单
+blacklist: 黑名单
+        :type BlockType: str
+        :param _RulePaths: 生效规则
+        :type RulePaths: list of str
+        :param _RuleType: 生效类型
+all: 全部
+directory: 目录
+        :type RuleType: str
+        :param _Districts: 生效区域，可选值有: CN-AH CN-BJ CN-CQ CN-FJ CN-GD CN-GS CN-GX CN-GZ CN-HA CN-HB CN-HE CN-HI CN-HK CN-HL CN-HN CN-JL CN-JS CN-JX CN-LN CN-MO CN-NM CN-NX CN-QH CN-SC CN-SD CN-SH CN-SN CN-SX CN-TJ CN-TW CN-XJ CN-XZ CN-YN CN-ZJ AF AX AL DZ AS AD AO AI AQ AG AR AM AW AU AT AZ BS BH BD BB BY BE BZ BJ BM BT BO BQ BA BW BV BR IO BN BG BF BI CV KH CM CA KY CF TD CL CN CX CC CO KM CG CD CK CR CI HR CU CW CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FK FO FJ FI FR GF PF TF GA GM GE DE GH GI GR GL GD GP GU GT GG GN GW GY HT HM VA HN HK HU IS IN ID IR IQ IE IM IL IT JM JP JE JO KZ KE KI KP KR KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MQ MR MU YT MX FM MD MC MN ME MS MA MZ MM NA NR NP NL NC NZ NI NE NG NU NF MK MP NO OM PK PW PS PA PG PY PE PH PN PL PT PR QA RE RO RU RW BL SH KN LC MF PM VC WS SM ST SA SN RS SC SL SG SX SK SI SB SO ZA GS SS ES LK SD SR SJ SE CH SY TW TJ TZ TH TL TG TK TO TT TN TR TM TC TV UG UA AE GB US UM UY UZ VU VE VN VG VI WF EH YE ZM ZW
+        :type Districts: list of str
         """
-        self._Url = None
-        self._StartTime = None
-        self._EndTime = None
-        self._Status = None
-        self._Offset = None
-        self._Limit = None
-        self._TaskId = None
+        self._BlockType = None
+        self._RulePaths = None
+        self._RuleType = None
+        self._Districts = None
 
     @property
-    def Url(self):
-        r"""指定 URL 查询
+    def BlockType(self):
+        r"""规则类型
+whitelist: 白名单
+blacklist: 黑名单
         :rtype: str
         """
-        return self._Url
+        return self._BlockType
 
-    @Url.setter
-    def Url(self, Url):
-        self._Url = Url
+    @BlockType.setter
+    def BlockType(self, BlockType):
+        self._BlockType = BlockType
 
     @property
-    def StartTime(self):
-        r"""开始时间，如：2018-12-12 10:24:00。
+    def RulePaths(self):
+        r"""生效规则
+        :rtype: list of str
+        """
+        return self._RulePaths
+
+    @RulePaths.setter
+    def RulePaths(self, RulePaths):
+        self._RulePaths = RulePaths
+
+    @property
+    def RuleType(self):
+        r"""生效类型
+all: 全部
+directory: 目录
         :rtype: str
         """
-        return self._StartTime
+        return self._RuleType
 
-    @StartTime.setter
-    def StartTime(self, StartTime):
-        self._StartTime = StartTime
-
-    @property
-    def EndTime(self):
-        r"""结束时间，如：2018-12-14 10:24:00。
-        :rtype: str
-        """
-        return self._EndTime
-
-    @EndTime.setter
-    def EndTime(self, EndTime):
-        self._EndTime = EndTime
+    @RuleType.setter
+    def RuleType(self, RuleType):
+        self._RuleType = RuleType
 
     @property
-    def Status(self):
-        r"""URL 当前状态
-disable：当前仍为禁用状态，访问返回 403
-enable：当前为可用状态，已解禁，可正常访问
-        :rtype: str
+    def Districts(self):
+        r"""生效区域，可选值有: CN-AH CN-BJ CN-CQ CN-FJ CN-GD CN-GS CN-GX CN-GZ CN-HA CN-HB CN-HE CN-HI CN-HK CN-HL CN-HN CN-JL CN-JS CN-JX CN-LN CN-MO CN-NM CN-NX CN-QH CN-SC CN-SD CN-SH CN-SN CN-SX CN-TJ CN-TW CN-XJ CN-XZ CN-YN CN-ZJ AF AX AL DZ AS AD AO AI AQ AG AR AM AW AU AT AZ BS BH BD BB BY BE BZ BJ BM BT BO BQ BA BW BV BR IO BN BG BF BI CV KH CM CA KY CF TD CL CN CX CC CO KM CG CD CK CR CI HR CU CW CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FK FO FJ FI FR GF PF TF GA GM GE DE GH GI GR GL GD GP GU GT GG GN GW GY HT HM VA HN HK HU IS IN ID IR IQ IE IM IL IT JM JP JE JO KZ KE KI KP KR KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MQ MR MU YT MX FM MD MC MN ME MS MA MZ MM NA NR NP NL NC NZ NI NE NG NU NF MK MP NO OM PK PW PS PA PG PY PE PH PN PL PT PR QA RE RO RU RW BL SH KN LC MF PM VC WS SM ST SA SN RS SC SL SG SX SK SI SB SO ZA GS SS ES LK SD SR SJ SE CH SY TW TJ TZ TH TL TG TK TO TT TN TR TM TC TV UG UA AE GB US UM UY UZ VU VE VN VG VI WF EH YE ZM ZW
+        :rtype: list of str
         """
-        return self._Status
+        return self._Districts
 
-    @Status.setter
-    def Status(self, Status):
-        self._Status = Status
-
-    @property
-    def Offset(self):
-        r"""分页查询偏移量，默认为 0
-        :rtype: int
-        """
-        return self._Offset
-
-    @Offset.setter
-    def Offset(self, Offset):
-        self._Offset = Offset
-
-    @property
-    def Limit(self):
-        r"""分页查询限制数目，默认为20。
-        :rtype: int
-        """
-        return self._Limit
-
-    @Limit.setter
-    def Limit(self, Limit):
-        self._Limit = Limit
-
-    @property
-    def TaskId(self):
-        r"""任务ID，任务ID和起始时间需要至少填写一项。
-        :rtype: str
-        """
-        return self._TaskId
-
-    @TaskId.setter
-    def TaskId(self, TaskId):
-        self._TaskId = TaskId
+    @Districts.setter
+    def Districts(self, Districts):
+        self._Districts = Districts
 
 
     def _deserialize(self, params):
-        self._Url = params.get("Url")
-        self._StartTime = params.get("StartTime")
-        self._EndTime = params.get("EndTime")
-        self._Status = params.get("Status")
-        self._Offset = params.get("Offset")
-        self._Limit = params.get("Limit")
-        self._TaskId = params.get("TaskId")
+        self._BlockType = params.get("BlockType")
+        self._RulePaths = params.get("RulePaths")
+        self._RuleType = params.get("RuleType")
+        self._Districts = params.get("Districts")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14341,67 +13387,86 @@ enable：当前为可用状态，已解禁，可正常访问
         
 
 
-class GetDisableRecordsResponse(AbstractModel):
-    r"""GetDisableRecords返回参数结构体
+class GeoBlocker(AbstractModel):
+    r"""区域访问控制配置，默认为关闭状态
 
     """
 
     def __init__(self):
         r"""
-        :param _UrlRecordList: 封禁历史记录
-        :type UrlRecordList: list of UrlRecord
-        :param _TotalCount: 任务总数，用于分页
-        :type TotalCount: int
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
+        :param _Switch: IP 黑白名单配置开关，取值有
+on：开启
+off：关闭
+        :type Switch: str
+        :param _BlockRules: [
+    {
+      "BlockType": "whitelist",
+      "RulePaths": [
+        "*"
+      ],
+      "RuleType": "all",
+      "Districts": [
+        "CN-HK"
+      ]
+    }
+  ]
+        :type BlockRules: list of GeoBlockStrategy
         """
-        self._UrlRecordList = None
-        self._TotalCount = None
-        self._RequestId = None
+        self._Switch = None
+        self._BlockRules = None
 
     @property
-    def UrlRecordList(self):
-        r"""封禁历史记录
-        :rtype: list of UrlRecord
-        """
-        return self._UrlRecordList
-
-    @UrlRecordList.setter
-    def UrlRecordList(self, UrlRecordList):
-        self._UrlRecordList = UrlRecordList
-
-    @property
-    def TotalCount(self):
-        r"""任务总数，用于分页
-        :rtype: int
-        """
-        return self._TotalCount
-
-    @TotalCount.setter
-    def TotalCount(self, TotalCount):
-        self._TotalCount = TotalCount
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+    def Switch(self):
+        r"""IP 黑白名单配置开关，取值有
+on：开启
+off：关闭
         :rtype: str
         """
-        return self._RequestId
+        return self._Switch
 
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+    @property
+    def BlockRules(self):
+        r"""[
+    {
+      "BlockType": "whitelist",
+      "RulePaths": [
+        "*"
+      ],
+      "RuleType": "all",
+      "Districts": [
+        "CN-HK"
+      ]
+    }
+  ]
+        :rtype: list of GeoBlockStrategy
+        """
+        return self._BlockRules
+
+    @BlockRules.setter
+    def BlockRules(self, BlockRules):
+        self._BlockRules = BlockRules
 
 
     def _deserialize(self, params):
-        if params.get("UrlRecordList") is not None:
-            self._UrlRecordList = []
-            for item in params.get("UrlRecordList"):
-                obj = UrlRecord()
+        self._Switch = params.get("Switch")
+        if params.get("BlockRules") is not None:
+            self._BlockRules = []
+            for item in params.get("BlockRules"):
+                obj = GeoBlockStrategy()
                 obj._deserialize(item)
-                self._UrlRecordList.append(obj)
-        self._TotalCount = params.get("TotalCount")
-        self._RequestId = params.get("RequestId")
+                self._BlockRules.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class GuetzliAdapter(AbstractModel):
@@ -15698,7 +14763,12 @@ blacklist：黑名单
         :param _FilterRules: IP 黑白名单分路径配置。黑白名单 IP 总数不能超过 1000 个。
 注意：此字段可能返回 null，表示取不到有效值。
         :type FilterRules: list of IpFilterPathRule
-        :param _ReturnCode: IP 黑白名单验证失败时返回的 code <br><font color=red>已下线，参数失效，不支持自定义状态码，固定返回514</font>
+        :param _ReturnCode: IP 黑白名单验证失败时返回的状态码。
+注意：
+请求拒绝时，平台默认响应514状态。
+支持自定义为403，404，609状态码，空值时或自定义的不在范围内，均默认为514.
+非514状态码将计入HTTPS计费统计，最终账单将按您的计费规则生成。
+若您开启了自定义状态码，则默认您认同<a href="https://cloud.tencent.com/document/product/228/75563">HTTPS计费规则</a>。
 注意：此字段可能返回 null，表示取不到有效值。
         :type ReturnCode: int
         """
@@ -15763,7 +14833,12 @@ blacklist：黑名单
 
     @property
     def ReturnCode(self):
-        r"""IP 黑白名单验证失败时返回的 code <br><font color=red>已下线，参数失效，不支持自定义状态码，固定返回514</font>
+        r"""IP 黑白名单验证失败时返回的状态码。
+注意：
+请求拒绝时，平台默认响应514状态。
+支持自定义为403，404，609状态码，空值时或自定义的不在范围内，均默认为514.
+非514状态码将计入HTTPS计费统计，最终账单将按您的计费规则生成。
+若您开启了自定义状态码，则默认您认同<a href="https://cloud.tencent.com/document/product/228/75563">HTTPS计费规则</a>。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -16673,120 +15748,6 @@ class ListClsTopicDomainsResponse(AbstractModel):
         self._TopicName = params.get("TopicName")
         self._UpdateTime = params.get("UpdateTime")
         self._InheritDomainTags = params.get("InheritDomainTags")
-        self._RequestId = params.get("RequestId")
-
-
-class ListDiagnoseReportRequest(AbstractModel):
-    r"""ListDiagnoseReport请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _KeyWords: 用于搜索诊断URL的关键字，不填时返回用户所有的诊断任务。
-        :type KeyWords: str
-        :param _DiagnoseLink: 用于搜索诊断系统返回的诊断链接，形如：http://cdn.cloud.tencent.com/self_diagnose/xxxxx
-        :type DiagnoseLink: str
-        :param _Origin: 请求源带协议头，形如：https://console.cloud.tencent.com
-        :type Origin: str
-        """
-        self._KeyWords = None
-        self._DiagnoseLink = None
-        self._Origin = None
-
-    @property
-    def KeyWords(self):
-        r"""用于搜索诊断URL的关键字，不填时返回用户所有的诊断任务。
-        :rtype: str
-        """
-        return self._KeyWords
-
-    @KeyWords.setter
-    def KeyWords(self, KeyWords):
-        self._KeyWords = KeyWords
-
-    @property
-    def DiagnoseLink(self):
-        r"""用于搜索诊断系统返回的诊断链接，形如：http://cdn.cloud.tencent.com/self_diagnose/xxxxx
-        :rtype: str
-        """
-        return self._DiagnoseLink
-
-    @DiagnoseLink.setter
-    def DiagnoseLink(self, DiagnoseLink):
-        self._DiagnoseLink = DiagnoseLink
-
-    @property
-    def Origin(self):
-        r"""请求源带协议头，形如：https://console.cloud.tencent.com
-        :rtype: str
-        """
-        return self._Origin
-
-    @Origin.setter
-    def Origin(self, Origin):
-        self._Origin = Origin
-
-
-    def _deserialize(self, params):
-        self._KeyWords = params.get("KeyWords")
-        self._DiagnoseLink = params.get("DiagnoseLink")
-        self._Origin = params.get("Origin")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class ListDiagnoseReportResponse(AbstractModel):
-    r"""ListDiagnoseReport返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Data: 诊断信息。
-        :type Data: list of DiagnoseInfo
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._Data = None
-        self._RequestId = None
-
-    @property
-    def Data(self):
-        r"""诊断信息。
-        :rtype: list of DiagnoseInfo
-        """
-        return self._Data
-
-    @Data.setter
-    def Data(self, Data):
-        self._Data = Data
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        if params.get("Data") is not None:
-            self._Data = []
-            for item in params.get("Data"):
-                obj = DiagnoseInfo()
-                obj._deserialize(item)
-                self._Data.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -25617,6 +24578,10 @@ global：全球加速
         :type HttpsBilling: :class:`tencentcloud.cdn.v20180606.models.HttpsBilling`
         :param _ParamFilter: 参数黑名单
         :type ParamFilter: :class:`tencentcloud.cdn.v20180606.models.ParamFilter`
+        :param _AutoGuard: 流量防盗刷配置
+        :type AutoGuard: :class:`tencentcloud.cdn.v20180606.models.AutoGuard`
+        :param _GeoBlocker: 区域访问控制配置
+        :type GeoBlocker: :class:`tencentcloud.cdn.v20180606.models.GeoBlocker`
         """
         self._Domain = None
         self._ProjectId = None
@@ -25668,6 +24633,8 @@ global：全球加速
         self._OthersPrivateAccess = None
         self._HttpsBilling = None
         self._ParamFilter = None
+        self._AutoGuard = None
+        self._GeoBlocker = None
 
     @property
     def Domain(self):
@@ -26227,6 +25194,28 @@ global：全球加速
     def ParamFilter(self, ParamFilter):
         self._ParamFilter = ParamFilter
 
+    @property
+    def AutoGuard(self):
+        r"""流量防盗刷配置
+        :rtype: :class:`tencentcloud.cdn.v20180606.models.AutoGuard`
+        """
+        return self._AutoGuard
+
+    @AutoGuard.setter
+    def AutoGuard(self, AutoGuard):
+        self._AutoGuard = AutoGuard
+
+    @property
+    def GeoBlocker(self):
+        r"""区域访问控制配置
+        :rtype: :class:`tencentcloud.cdn.v20180606.models.GeoBlocker`
+        """
+        return self._GeoBlocker
+
+    @GeoBlocker.setter
+    def GeoBlocker(self, GeoBlocker):
+        self._GeoBlocker = GeoBlocker
+
 
     def _deserialize(self, params):
         self._Domain = params.get("Domain")
@@ -26369,6 +25358,12 @@ global：全球加速
         if params.get("ParamFilter") is not None:
             self._ParamFilter = ParamFilter()
             self._ParamFilter._deserialize(params.get("ParamFilter"))
+        if params.get("AutoGuard") is not None:
+            self._AutoGuard = AutoGuard()
+            self._AutoGuard._deserialize(params.get("AutoGuard"))
+        if params.get("GeoBlocker") is not None:
+            self._GeoBlocker = GeoBlocker()
+            self._GeoBlocker._deserialize(params.get("GeoBlocker"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -26618,95 +25613,6 @@ class UpdatePayTypeResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
-class UrlRecord(AbstractModel):
-    r"""封禁url的详细信息
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _Status: 状态(disable表示封禁，enable表示解封)
-注意：此字段可能返回 null，表示取不到有效值。
-        :type Status: str
-        :param _RealUrl: 对应的url
-注意：此字段可能返回 null，表示取不到有效值。
-        :type RealUrl: str
-        :param _CreateTime: 创建时间
-注意：此字段可能返回 null，表示取不到有效值。
-        :type CreateTime: str
-        :param _UpdateTime: 更新时间
-注意：此字段可能返回 null，表示取不到有效值。
-        :type UpdateTime: str
-        """
-        self._Status = None
-        self._RealUrl = None
-        self._CreateTime = None
-        self._UpdateTime = None
-
-    @property
-    def Status(self):
-        r"""状态(disable表示封禁，enable表示解封)
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._Status
-
-    @Status.setter
-    def Status(self, Status):
-        self._Status = Status
-
-    @property
-    def RealUrl(self):
-        r"""对应的url
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._RealUrl
-
-    @RealUrl.setter
-    def RealUrl(self, RealUrl):
-        self._RealUrl = RealUrl
-
-    @property
-    def CreateTime(self):
-        r"""创建时间
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._CreateTime
-
-    @CreateTime.setter
-    def CreateTime(self, CreateTime):
-        self._CreateTime = CreateTime
-
-    @property
-    def UpdateTime(self):
-        r"""更新时间
-注意：此字段可能返回 null，表示取不到有效值。
-        :rtype: str
-        """
-        return self._UpdateTime
-
-    @UpdateTime.setter
-    def UpdateTime(self, UpdateTime):
-        self._UpdateTime = UpdateTime
-
-
-    def _deserialize(self, params):
-        self._Status = params.get("Status")
-        self._RealUrl = params.get("RealUrl")
-        self._CreateTime = params.get("CreateTime")
-        self._UpdateTime = params.get("UpdateTime")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
 class UrlRedirect(AbstractModel):
     r"""访问URL重写配置
 
@@ -26788,12 +25694,16 @@ class UrlRedirectRule(AbstractModel):
         :param _FullMatch: 指定是全路径配置还是任意匹配
 注意：此字段可能返回 null，表示取不到有效值。
         :type FullMatch: bool
+        :param _Regex: pattern是否支持正则
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Regex: bool
         """
         self._RedirectStatusCode = None
         self._Pattern = None
         self._RedirectUrl = None
         self._RedirectHost = None
         self._FullMatch = None
+        self._Regex = None
 
     @property
     def RedirectStatusCode(self):
@@ -26852,6 +25762,18 @@ class UrlRedirectRule(AbstractModel):
     def FullMatch(self, FullMatch):
         self._FullMatch = FullMatch
 
+    @property
+    def Regex(self):
+        r"""pattern是否支持正则
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._Regex
+
+    @Regex.setter
+    def Regex(self, Regex):
+        self._Regex = Regex
+
 
     def _deserialize(self, params):
         self._RedirectStatusCode = params.get("RedirectStatusCode")
@@ -26859,6 +25781,7 @@ class UrlRedirectRule(AbstractModel):
         self._RedirectUrl = params.get("RedirectUrl")
         self._RedirectHost = params.get("RedirectHost")
         self._FullMatch = params.get("FullMatch")
+        self._Regex = params.get("Regex")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

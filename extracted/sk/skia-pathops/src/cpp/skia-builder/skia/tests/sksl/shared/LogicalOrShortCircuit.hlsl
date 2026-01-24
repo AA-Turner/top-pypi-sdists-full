@@ -1,7 +1,7 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _13_colorGreen : packoffset(c0);
-    float4 _13_colorRed : packoffset(c1);
+    float4 _14_colorGreen : packoffset(c0);
+    float4 _14_colorRed : packoffset(c1);
 };
 
 
@@ -16,29 +16,29 @@ bool TrueFalse_b()
 {
     int x = 1;
     int y = 1;
-    bool _39 = false;
+    bool _40 = false;
     if (true)
     {
-        _39 = true;
+        _40 = true;
     }
     else
     {
-        int _36 = 1 + 1;
-        y = _36;
-        _39 = _36 == 3;
+        int _37 = 1 + 1;
+        y = _37;
+        _40 = _37 == 3;
     }
-    if (_39)
+    if (_40)
     {
-        bool _48 = false;
+        bool _49 = false;
         if (true)
         {
-            _48 = y == 1;
+            _49 = y == 1;
         }
         else
         {
-            _48 = false;
+            _49 = false;
         }
-        return _48;
+        return _49;
     }
     else
     {
@@ -50,29 +50,29 @@ bool FalseTrue_b()
 {
     int x = 1;
     int y = 1;
-    bool _58 = false;
+    bool _59 = false;
     if (1 == 2)
     {
-        _58 = true;
+        _59 = true;
     }
     else
     {
-        int _56 = 1 + 1;
-        y = _56;
-        _58 = _56 == 2;
+        int _57 = 1 + 1;
+        y = _57;
+        _59 = _57 == 2;
     }
-    if (_58)
+    if (_59)
     {
-        bool _66 = false;
+        bool _67 = false;
         if (true)
         {
-            _66 = y == 2;
+            _67 = y == 2;
         }
         else
         {
-            _66 = false;
+            _67 = false;
         }
-        return _66;
+        return _67;
     }
     else
     {
@@ -84,83 +84,83 @@ bool FalseFalse_b()
 {
     int x = 1;
     int y = 1;
-    bool _75 = false;
+    bool _76 = false;
     if (1 == 2)
     {
-        _75 = true;
+        _76 = true;
     }
     else
     {
-        int _73 = 1 + 1;
-        y = _73;
-        _75 = _73 == 3;
+        int _74 = 1 + 1;
+        y = _74;
+        _76 = _74 == 3;
     }
-    if (_75)
+    if (_76)
     {
         return false;
     }
     else
     {
-        bool _83 = false;
+        bool _84 = false;
         if (true)
         {
-            _83 = y == 2;
+            _84 = y == 2;
         }
         else
         {
-            _83 = false;
+            _84 = false;
         }
-        return _83;
+        return _84;
     }
 }
 
-float4 main(float2 _85)
+float4 main(float2 _86)
 {
     int _RESERVED_IDENTIFIER_FIXUP_2_y = 1;
     bool _RESERVED_IDENTIFIER_FIXUP_0_TrueTrue = true;
-    bool _93 = false;
+    bool _94 = false;
     if (true)
     {
-        _93 = TrueFalse_b();
+        _94 = TrueFalse_b();
     }
     else
     {
-        _93 = false;
+        _94 = false;
     }
-    bool _97 = false;
-    if (_93)
+    bool _98 = false;
+    if (_94)
     {
-        _97 = FalseTrue_b();
+        _98 = FalseTrue_b();
     }
     else
     {
-        _97 = false;
+        _98 = false;
     }
-    bool _101 = false;
-    if (_97)
+    bool _102 = false;
+    if (_98)
     {
-        _101 = FalseFalse_b();
+        _102 = FalseFalse_b();
     }
     else
     {
-        _101 = false;
+        _102 = false;
     }
-    float4 _102 = 0.0f.xxxx;
-    if (_101)
+    float4 _103 = 0.0f.xxxx;
+    if (_102)
     {
-        _102 = _13_colorGreen;
+        _103 = _14_colorGreen;
     }
     else
     {
-        _102 = _13_colorRed;
+        _103 = _14_colorRed;
     }
-    return _102;
+    return _103;
 }
 
 void frag_main()
 {
-    float2 _23 = 0.0f.xx;
-    sk_FragColor = main(_23);
+    float2 _24 = 0.0f.xx;
+    sk_FragColor = main(_24);
 }
 
 SPIRV_Cross_Output main()

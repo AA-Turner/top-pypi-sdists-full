@@ -283,8 +283,9 @@ class CharacterLanguageModelWordAdapter(nn.Module):
         super().__init__()
         self.charlms = charlms
 
-    def forward(self, words):
-        words = [CHARLM_START + x + CHARLM_END for x in words]
+    def forward(self, words, wrap=True):
+        if wrap:
+            words = [CHARLM_START + x + CHARLM_END for x in words]
         padded_reps = []
         for charlm in self.charlms:
             rep = charlm.per_char_representation(words)
@@ -330,7 +331,7 @@ class CharacterLanguageModelTrainer():
         params = [param for param in model.parameters() if param.requires_grad]
         optimizer = torch.optim.SGD(params, lr=args['lr0'], momentum=args['momentum'], weight_decay=args['weight_decay'])
         criterion = torch.nn.CrossEntropyLoss()
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, factor=args['anneal'], patience=args['patience'])
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=args['anneal'], patience=args['patience'])
         return cls(model, params, optimizer, criterion, scheduler)
 
 
@@ -353,7 +354,7 @@ class CharacterLanguageModelTrainer():
         criterion = torch.nn.CrossEntropyLoss()
         if 'criterion' in state: criterion.load_state_dict(state['criterion'])
 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, verbose=True, factor=args['anneal'], patience=args['patience'])
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, factor=args['anneal'], patience=args['patience'])
         if 'scheduler' in state: scheduler.load_state_dict(state['scheduler'])
 
         epoch = state.get('epoch', 1)

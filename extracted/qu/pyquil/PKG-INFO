@@ -1,12 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyquil
-Version: 4.16.2
+Version: 4.17.0
 Summary: A Python library for creating Quantum Instruction Language (Quil) programs.
 License: Apache-2.0
+License-File: LICENSE
+License-File: NOTICE.md
 Keywords: quantum,quil,programming,hybrid
 Author: Rigetti Computing
 Author-email: softapps@rigetti.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9,<3.13
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -15,7 +17,6 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: docs
 Provides-Extra: latex
 Requires-Dist: Sphinx (>=7.3.7,<8.0.0) ; extra == "docs"
@@ -28,8 +29,8 @@ Requires-Dist: networkx (>=2.5)
 Requires-Dist: numpy (>=1.26,<3)
 Requires-Dist: packaging (>=23.1)
 Requires-Dist: pandoc (==2.4b0) ; extra == "docs"
-Requires-Dist: qcs-sdk-python (>=0.20.1)
-Requires-Dist: quil (>=0.15.3)
+Requires-Dist: qcs-sdk-python (>=0.20.1,<0.22)
+Requires-Dist: quil (>=0.15.3,<0.18)
 Requires-Dist: rpcq (>=3.11.0,<4.0.0)
 Requires-Dist: scipy (>=1.11,<2.0)
 Requires-Dist: seaborn (>=0.13.2,<0.14.0) ; extra == "docs"

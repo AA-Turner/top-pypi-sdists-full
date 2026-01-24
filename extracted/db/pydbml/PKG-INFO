@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydbml
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python parser and builder for DBML
 Home-page: https://github.com/Vanderhoof/PyDBML
 Author: Daniil Minukhin
@@ -20,6 +20,18 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyparsing>=3.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 [![](https://img.shields.io/pypi/v/pydbml.svg)](https://pypi.org/project/pydbml/) [![](https://img.shields.io/pypi/dm/pydbml.svg)](https://pypi.org/project/pydbml/)  [![](https://img.shields.io/github/v/tag/Vanderhoof/PyDBML.svg?label=GitHub)](https://github.com/Vanderhoof/PyDBML) ![](coverage.svg)
 
@@ -120,12 +132,12 @@ CREATE TYPE "orders_status" AS ENUM (
   'created',
   'running',
   'done',
-  'failure',
+  'failure'
 );
 <BLANKLINE>
 CREATE TYPE "product status" AS ENUM (
   'Out of Stock',
-  'In Stock',
+  'In Stock'
 );
 <BLANKLINE>
 CREATE TABLE "orders" (

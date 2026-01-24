@@ -12,8 +12,8 @@ from seeq.spy.workbooks.job.data import _pull, _push
 
 
 @Status.handle_keyboard_interrupt(no_session=True)
-def redo(job_folder: str, items_df: Union[pd.DataFrame, str, list], action: Optional[str] = None,
-         *, quiet: Optional[bool] = None, status: Optional[Status] = None):
+def redo(job_folder: str, items_df: Union[pd.DataFrame, str, list], *, action: Optional[str] = None,
+         quiet: Optional[bool] = None, status: Optional[Status] = None):
     """
     Marks a set of data items to be redone in the specified job folder.
 

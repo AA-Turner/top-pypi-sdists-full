@@ -8,6 +8,8 @@ from typing import Any, Final
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
 
+import ry
+
 # unsigned ──────────────────────────────────────────────────────────
 MIN_U8: Final = 0
 MAX_U8: Final = (1 << 8) - 1  # 255
@@ -22,9 +24,7 @@ MIN_U64: Final = 0
 MAX_U64: Final = (1 << 64) - 1  # 18_446_744_073_709_551_615
 
 MIN_U128: Final = 0
-MAX_U128: Final = (
-    1 << 128
-) - 1  # 340_282_366_841_710_656_408_393_487_639_999_999_999_999_999_999_999_999_999_999
+MAX_U128: Final = (1 << 128) - 1  # 340_282_366_920_938_463_463_374_607_431_768_211_455
 
 # signed ────────────────────────────────────────────────────────────
 MIN_I8: Final = -(1 << 7)  # -128
@@ -43,17 +43,48 @@ MIN_I128: Final = -(1 << 127)  # -170_141_183_460_469_231_731_687_303_715_884_10
 MAX_I128: Final = (1 << 127) - 1  # 170_141_183_460_469_231_731_687_303_715_884_105_727
 
 # unsigned ────────────────────────────────────────────────────────────
-st_u8 = st.integers(min_value=MIN_U8, max_value=MAX_U8)
-st_u16 = st.integers(min_value=MIN_U16, max_value=MAX_U16)
-st_u32 = st.integers(min_value=MIN_U32, max_value=MAX_U32)
-st_u64 = st.integers(min_value=MIN_U64, max_value=MAX_U64)
-st_u128 = st.integers(min_value=MIN_U128, max_value=MAX_U128)
+st_u8 = st.integers(min_value=ry.U8_MIN, max_value=ry.U8_MAX)
+st_u16 = st.integers(min_value=ry.U16_MIN, max_value=ry.U16_MAX)
+st_u32 = st.integers(min_value=ry.U32_MIN, max_value=ry.U32_MAX)
+st_u64 = st.integers(min_value=ry.U64_MIN, max_value=ry.U64_MAX)
+st_u128 = st.integers(min_value=ry.U128_MIN, max_value=ry.U128_MAX)
 # signed ─────────────────────────────────────────────────────────────
-st_i8 = st.integers(min_value=MIN_I8, max_value=MAX_I8)
-st_i16 = st.integers(min_value=MIN_I16, max_value=MAX_I16)
-st_i32 = st.integers(min_value=MIN_I32, max_value=MAX_I32)
-st_i64 = st.integers(min_value=MIN_I64, max_value=MAX_I64)
-st_i128 = st.integers(min_value=MIN_I128, max_value=MAX_I128)
+st_i8 = st.integers(min_value=ry.I8_MIN, max_value=ry.I8_MAX)
+st_i16 = st.integers(min_value=ry.I16_MIN, max_value=ry.I16_MAX)
+st_i32 = st.integers(min_value=ry.I32_MIN, max_value=ry.I32_MAX)
+st_i64 = st.integers(min_value=ry.I64_MIN, max_value=ry.I64_MAX)
+st_i128 = st.integers(min_value=ry.I128_MIN, max_value=ry.I128_MAX)
+
+
+def st_durations(
+    *,
+    min_value: ry.Duration = ry.Duration.MIN,
+    max_value: ry.Duration = ry.Duration.MAX,
+) -> SearchStrategy[ry.Duration]:
+    """Strategy for `ry.Duration` instances"""
+    if not isinstance(min_value, ry.Duration):
+        msg = f"min_value must be a ry.Duration, got {type(min_value)}"
+        raise TypeError(msg)
+    if not isinstance(max_value, ry.Duration):
+        msg = f"max_value must be a ry.Duration, got {type(max_value)}"
+        raise TypeError(msg)
+    if min_value > max_value:
+        emsg = f"min_value {min_value} must be <= max_value {max_value}"
+        raise ValueError(emsg)
+    if min_value == max_value:
+        return st.just(min_value)
+    if min_value == ry.Duration.MIN and max_value == ry.Duration.MAX:
+        return st.builds(
+            ry.Duration,
+            st.integers(min_value=0, max_value=ry.U64_MAX),
+            st.integers(min_value=0, max_value=999_999_999),
+        )
+    return st.builds(
+        ry.Duration,
+        st.integers(min_value=0, max_value=ry.U64_MAX),
+        st.integers(min_value=0, max_value=999_999_999),
+    ).filter(lambda d: min_value <= d <= max_value)
+
 
 JsonSearchStrategy = SearchStrategy[
     list[Any]
@@ -118,12 +149,26 @@ def st_json_js(
     )
 
 
+_TIMEZONE_PROBLEM_CHILDREN = {
+    "build/etc/localtime",
+    "America/Halifax",  # Not sure why this one causes issues
+    "Africa/Accra",
+    "Africa/Addis_Ababa",
+    "Antarctica/Vostok",
+}
+
+
 @lru_cache(maxsize=1)
 def _ok_timezone_names() -> set[str]:
     """Get a set of valid timezone names."""
     # zoneinfo.available_timezones() returns a set of valid timezone names
     # that can be used with zoneinfo.ZoneInfo
-    return {el for el in zoneinfo.available_timezones() if el != "build/etc/localtime"}
+    return {
+        el
+        for el in zoneinfo.available_timezones()
+        if el not in _TIMEZONE_PROBLEM_CHILDREN
+        and not el.startswith("Antarctica/")  # antarctica can fuck off
+    }
 
 
 def st_timezones(*, no_cache: bool = False) -> SearchStrategy[zoneinfo.ZoneInfo]:

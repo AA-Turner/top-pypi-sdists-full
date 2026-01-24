@@ -160,6 +160,34 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
     _DEFAULT_ENDPOINT_TEMPLATE = "dataproc.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -417,12 +445,8 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = WorkflowTemplateServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -430,7 +454,7 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -462,20 +486,14 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = WorkflowTemplateServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -856,14 +874,13 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 as described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For ``projects.regions.workflowTemplates.create``,
-                   the resource name of the region has the following
-                   format: ``projects/{project_id}/regions/{region}``
+                - For ``projects.regions.workflowTemplates.create``, the
+                  resource name of the region has the following format:
+                  ``projects/{project_id}/regions/{region}``
 
-                -  For ``projects.locations.workflowTemplates.create``,
-                   the resource name of the location has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}``
+                - For ``projects.locations.workflowTemplates.create``,
+                  the resource name of the location has the following
+                  format: ``projects/{project_id}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -988,15 +1005,15 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For ``projects.regions.workflowTemplates.get``, the
-                   resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
+                - For ``projects.regions.workflowTemplates.get``, the
+                  resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
 
-                -  For ``projects.locations.workflowTemplates.get``, the
-                   resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
+                - For ``projects.locations.workflowTemplates.get``, the
+                  resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1134,17 +1151,17 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For
-                   ``projects.regions.workflowTemplates.instantiate``,
-                   the resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
+                - For
+                  ``projects.regions.workflowTemplates.instantiate``,
+                  the resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
 
-                -  For
-                   ``projects.locations.workflowTemplates.instantiate``,
-                   the resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
+                - For
+                  ``projects.locations.workflowTemplates.instantiate``,
+                  the resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1327,16 +1344,15 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 as described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For
-                   ``projects.regions.workflowTemplates,instantiateinline``,
-                   the resource name of the region has the following
-                   format: ``projects/{project_id}/regions/{region}``
+                - For
+                  ``projects.regions.workflowTemplates,instantiateinline``,
+                  the resource name of the region has the following
+                  format: ``projects/{project_id}/regions/{region}``
 
-                -  For
-                   ``projects.locations.workflowTemplates.instantiateinline``,
-                   the resource name of the location has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}``
+                - For
+                  ``projects.locations.workflowTemplates.instantiateinline``,
+                  the resource name of the location has the following
+                  format: ``projects/{project_id}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1606,14 +1622,13 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 as described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For ``projects.regions.workflowTemplates,list``, the
-                   resource name of the region has the following format:
-                   ``projects/{project_id}/regions/{region}``
+                - For ``projects.regions.workflowTemplates,list``, the
+                  resource name of the region has the following format:
+                  ``projects/{project_id}/regions/{region}``
 
-                -  For ``projects.locations.workflowTemplates.list``,
-                   the resource name of the location has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}``
+                - For ``projects.locations.workflowTemplates.list``, the
+                  resource name of the location has the following
+                  format: ``projects/{project_id}/locations/{location}``
 
                 This corresponds to the ``parent`` field
                 on the ``request`` instance; if ``request`` is provided, this
@@ -1740,16 +1755,16 @@ class WorkflowTemplateServiceClient(metaclass=WorkflowTemplateServiceClientMeta)
                 described in
                 https://cloud.google.com/apis/design/resource_names.
 
-                -  For ``projects.regions.workflowTemplates.delete``,
-                   the resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
+                - For ``projects.regions.workflowTemplates.delete``, the
+                  resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/regions/{region}/workflowTemplates/{template_id}``
 
-                -  For
-                   ``projects.locations.workflowTemplates.instantiate``,
-                   the resource name of the template has the following
-                   format:
-                   ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
+                - For
+                  ``projects.locations.workflowTemplates.instantiate``,
+                  the resource name of the template has the following
+                  format:
+                  ``projects/{project_id}/locations/{location}/workflowTemplates/{template_id}``
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this

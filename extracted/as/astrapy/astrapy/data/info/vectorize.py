@@ -162,6 +162,53 @@ class EmbeddingProviderParameter:
 
 
 @dataclass
+class EmbeddingAPIModelSupport:
+    """
+    A representation of the API support status for an embedding model.
+
+    Attributes:
+        status: a string describing the support status.
+        message: an optional string message alongside the status.
+    """
+
+    status: str
+    message: str | None
+
+    def __repr__(self) -> str:
+        return f"EmbeddingAPIModelSupport({self.status})"
+
+    def as_dict(self) -> dict[str, Any]:
+        """Recast this object into a dictionary."""
+
+        return {
+            k: v
+            for k, v in {
+                "status": self.status,
+                "message": self.message,
+            }.items()
+            if v is not None
+        }
+
+    @staticmethod
+    def _from_dict(raw_dict: dict[str, Any]) -> EmbeddingAPIModelSupport:
+        """
+        Create an instance of EmbeddingAPIModelSupport from a dictionary
+        such as one from the Data API.
+        """
+
+        residual_keys = raw_dict.keys() - {"status", "message"}
+        if residual_keys:
+            warnings.warn(
+                "Unexpected key(s) encountered parsing a dictionary into "
+                f"an `EmbeddingAPIModelSupport`: '{','.join(sorted(residual_keys))}'"
+            )
+        return EmbeddingAPIModelSupport(
+            status=raw_dict.get("status") or "SUPPORTED",
+            message=raw_dict.get("message"),
+        )
+
+
+@dataclass
 class EmbeddingProviderModel:
     """
     A representation of an embedding model as returned by the 'findEmbeddingProviders'
@@ -174,11 +221,14 @@ class EmbeddingProviderModel:
         vector_dimension: an integer for the dimensionality of the embedding model.
             if this is None, the dimension can assume multiple values as specified
             by a corresponding parameter listed with the model.
+        api_model_support: the status of API support for the model, in the form
+            of an EmbeddingAPIModelSupport object.
     """
 
     name: str
     parameters: list[EmbeddingProviderParameter]
     vector_dimension: int | None
+    api_model_support: EmbeddingAPIModelSupport
 
     def __repr__(self) -> str:
         return f"EmbeddingProviderModel(name='{self.name}')"
@@ -190,6 +240,7 @@ class EmbeddingProviderModel:
             "name": self.name,
             "parameters": [parameter.as_dict() for parameter in self.parameters],
             "vectorDimension": self.vector_dimension,
+            "apiModelSupport": self.api_model_support.as_dict(),
         }
 
     @staticmethod
@@ -203,6 +254,7 @@ class EmbeddingProviderModel:
             "name",
             "parameters",
             "vectorDimension",
+            "apiModelSupport",
         }
         if residual_keys:
             warnings.warn(
@@ -216,6 +268,9 @@ class EmbeddingProviderModel:
                 for param_dict in raw_dict["parameters"]
             ],
             vector_dimension=raw_dict["vectorDimension"],
+            api_model_support=EmbeddingAPIModelSupport._from_dict(
+                raw_dict.get("apiModelSupport") or {},
+            ),
         )
 
 

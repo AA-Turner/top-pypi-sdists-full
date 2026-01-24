@@ -3,7 +3,7 @@ Type annotations for kinesis service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -38,6 +39,7 @@ from .type_defs import (
     DeleteResourcePolicyInputTypeDef,
     DeleteStreamInputTypeDef,
     DeregisterStreamConsumerInputTypeDef,
+    DescribeAccountSettingsOutputTypeDef,
     DescribeLimitsOutputTypeDef,
     DescribeStreamConsumerInputTypeDef,
     DescribeStreamConsumerOutputTypeDef,
@@ -82,17 +84,17 @@ from .type_defs import (
     SubscribeToShardOutputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateAccountSettingsInputTypeDef,
+    UpdateAccountSettingsOutputTypeDef,
+    UpdateMaxRecordSizeInputTypeDef,
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
     UpdateStreamModeInputTypeDef,
+    UpdateStreamWarmThroughputInputTypeDef,
+    UpdateStreamWarmThroughputOutputTypeDef,
 )
 from .waiter import StreamExistsWaiter, StreamNotExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -103,23 +105,23 @@ __all__ = ("KinesisClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ExpiredIteratorException: Type[BotocoreClientError]
-    ExpiredNextTokenException: Type[BotocoreClientError]
-    InternalFailureException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    KMSAccessDeniedException: Type[BotocoreClientError]
-    KMSDisabledException: Type[BotocoreClientError]
-    KMSInvalidStateException: Type[BotocoreClientError]
-    KMSNotFoundException: Type[BotocoreClientError]
-    KMSOptInRequired: Type[BotocoreClientError]
-    KMSThrottlingException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ExpiredIteratorException: type[BotocoreClientError]
+    ExpiredNextTokenException: type[BotocoreClientError]
+    InternalFailureException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    KMSAccessDeniedException: type[BotocoreClientError]
+    KMSDisabledException: type[BotocoreClientError]
+    KMSInvalidStateException: type[BotocoreClientError]
+    KMSNotFoundException: type[BotocoreClientError]
+    KMSOptInRequired: type[BotocoreClientError]
+    KMSThrottlingException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ProvisionedThroughputExceededException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class KinesisClient(BaseClient):
@@ -216,6 +218,14 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/deregister_stream_consumer.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#deregister_stream_consumer)
+        """
+
+    def describe_account_settings(self) -> DescribeAccountSettingsOutputTypeDef:
+        """
+        Describes the account-level settings for Amazon Kinesis Data Streams.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_account_settings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#describe_account_settings)
         """
 
     def describe_limits(self) -> DescribeLimitsOutputTypeDef:
@@ -484,6 +494,27 @@ class KinesisClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#untag_resource)
         """
 
+    def update_account_settings(
+        self, **kwargs: Unpack[UpdateAccountSettingsInputTypeDef]
+    ) -> UpdateAccountSettingsOutputTypeDef:
+        """
+        Updates the account-level settings for Amazon Kinesis Data Streams.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_account_settings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_account_settings)
+        """
+
+    def update_max_record_size(
+        self, **kwargs: Unpack[UpdateMaxRecordSizeInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        This allows you to update the <code>MaxRecordSize</code> of a single record
+        that you can write to, and read from a stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_max_record_size.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_max_record_size)
+        """
+
     def update_shard_count(
         self, **kwargs: Unpack[UpdateShardCountInputTypeDef]
     ) -> UpdateShardCountOutputTypeDef:
@@ -503,6 +534,17 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_stream_mode.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_stream_mode)
+        """
+
+    def update_stream_warm_throughput(
+        self, **kwargs: Unpack[UpdateStreamWarmThroughputInputTypeDef]
+    ) -> UpdateStreamWarmThroughputOutputTypeDef:
+        """
+        Updates the warm throughput configuration for the specified Amazon Kinesis Data
+        Streams on-demand data stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_stream_warm_throughput.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kinesis/client/#update_stream_warm_throughput)
         """
 
     @overload  # type: ignore[override]

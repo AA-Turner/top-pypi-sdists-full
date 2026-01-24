@@ -16,8 +16,13 @@
 
 from absl.testing import absltest
 from absl.testing import parameterized
+
 import tink
+from tink import _keyset_handle
+from tink import _monitoring
 from tink import aead
+from tink import core
+from tink.testing import fake_key_usage_monitor
 from tink.testing import keyset_builder
 
 
@@ -36,15 +41,17 @@ class AeadWrapperTest(parameterized.TestCase):
     keyset_handle = tink.new_keyset_handle(template)
     primitive = keyset_handle.primitive(aead.Aead)
     ciphertext = primitive.encrypt(b'plaintext', b'associated_data')
-    self.assertEqual(primitive.decrypt(ciphertext, b'associated_data'),
-                     b'plaintext')
+    self.assertEqual(
+        primitive.decrypt(ciphertext, b'associated_data'), b'plaintext'
+    )
 
   @parameterized.parameters([AEAD_TEMPLATE, RAW_AEAD_TEMPLATE])
   def test_decrypt_unknown_ciphertext_fails(self, template):
     unknown_handle = tink.new_keyset_handle(template)
     unknown_primitive = unknown_handle.primitive(aead.Aead)
-    unknown_ciphertext = unknown_primitive.encrypt(b'plaintext',
-                                                   b'associated_data')
+    unknown_ciphertext = unknown_primitive.encrypt(
+        b'plaintext', b'associated_data'
+    )
 
     keyset_handle = tink.new_keyset_handle(template)
     primitive = keyset_handle.primitive(aead.Aead)
@@ -61,10 +68,12 @@ class AeadWrapperTest(parameterized.TestCase):
     with self.assertRaises(tink.TinkError):
       primitive.decrypt(ciphertext, b'wrong_associated_data')
 
-  @parameterized.parameters([(AEAD_TEMPLATE, AEAD_TEMPLATE),
-                             (RAW_AEAD_TEMPLATE, AEAD_TEMPLATE),
-                             (AEAD_TEMPLATE, RAW_AEAD_TEMPLATE),
-                             (RAW_AEAD_TEMPLATE, RAW_AEAD_TEMPLATE)])
+  @parameterized.parameters([
+      (AEAD_TEMPLATE, AEAD_TEMPLATE),
+      (RAW_AEAD_TEMPLATE, AEAD_TEMPLATE),
+      (AEAD_TEMPLATE, RAW_AEAD_TEMPLATE),
+      (RAW_AEAD_TEMPLATE, RAW_AEAD_TEMPLATE),
+  ])
   def test_encrypt_decrypt_with_key_rotation(self, template1, template2):
     builder = keyset_builder.new_keyset_builder()
     older_key_id = builder.add_new_key(template1)
@@ -116,6 +125,61 @@ class AeadWrapperTest(parameterized.TestCase):
     self.assertEqual(p2.decrypt(ciphertext4, b'ad'), b'plaintext')
     self.assertEqual(p3.decrypt(ciphertext4, b'ad'), b'plaintext')
     self.assertEqual(p4.decrypt(ciphertext4, b'ad'), b'plaintext')
+
+
+class KeyUsageMonitorTest(absltest.TestCase):
+
+  def setUp(self):
+    super().setUp()
+    self.encryption_key_usage_monitor = (
+        fake_key_usage_monitor.FakeKeyUsageMonitor()
+    )
+    self.decryption_key_usage_monitor = (
+        fake_key_usage_monitor.FakeKeyUsageMonitor()
+    )
+    _monitoring.register_key_usage_monitor_factory(
+        lambda context: (
+            self.encryption_key_usage_monitor
+            if context.get_api_function() == 'encrypt'
+            else self.decryption_key_usage_monitor
+        )
+    )
+
+  def test_key_usage_monitor_log(self):
+    keyset_handle = _keyset_handle._new_keyset_handle_with_annotations(
+        AEAD_TEMPLATE, {'test': 'test'}
+    )
+    primitive = keyset_handle.primitive(aead.Aead)
+
+    ciphertext = primitive.encrypt(b'plaintext', b'associated_data')
+    primitive.decrypt(ciphertext, b'associated_data')
+
+    self.assertSequenceEqual(
+        self.encryption_key_usage_monitor.log_calls,
+        [(keyset_handle.keyset_info().key_info[0].key_id, len(b'plaintext'))],
+    )
+    self.assertSequenceEqual(
+        self.decryption_key_usage_monitor.log_calls,
+        [(
+            keyset_handle.keyset_info().key_info[0].key_id,
+            len(ciphertext) - core.crypto_format.NON_RAW_PREFIX_SIZE,
+        )],
+    )
+
+  def test_key_usage_monitor_log_failure(self):
+    keyset_handle = _keyset_handle._new_keyset_handle_with_annotations(
+        AEAD_TEMPLATE, {'test': 'test'}
+    )
+    primitive = keyset_handle.primitive(aead.Aead)
+
+    try:
+      primitive.decrypt(b'x', b'context')
+    except core.TinkError:
+      pass
+
+    self.assertEqual(
+        self.decryption_key_usage_monitor.log_failure_calls_count, 1
+    )
 
 
 if __name__ == '__main__':

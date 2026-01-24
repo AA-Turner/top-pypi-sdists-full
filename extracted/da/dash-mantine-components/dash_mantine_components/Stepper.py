@@ -288,7 +288,7 @@ Keyword arguments:
 - wrap (boolean; optional):
     Determines whether steps should wrap to the next line if no space
     is available, `True` by default."""
-    _children_props = ['icon', 'completedIcon', 'progressIcon']
+    _children_props: typing.List[str] = ['icon', 'completedIcon', 'progressIcon']
     _base_nodes = ['icon', 'completedIcon', 'progressIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Stepper'

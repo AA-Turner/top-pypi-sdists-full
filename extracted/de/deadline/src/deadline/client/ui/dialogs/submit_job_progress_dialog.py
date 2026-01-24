@@ -12,24 +12,26 @@ from typing import Any, Optional
 from functools import partial
 import time
 
-from qtpy.QtCore import Qt, Signal
-from qtpy.QtGui import QCloseEvent
+from qtpy.QtCore import Qt, Signal, QSize
+from qtpy.QtGui import QCloseEvent, QFontMetrics
 from qtpy.QtWidgets import (  # pylint: disable=import-error; type: ignore
     QApplication,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
     QGroupBox,
+    QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QProgressBar,
+    QStyle,
     QTextEdit,
     QVBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 
-from .. import CancelationFlag
+from .._utils import CancelationFlag, tr
 from ... import api
 from ...config import set_setting
 from ....job_attachments.progress_tracker import ProgressReportMetadata
@@ -204,13 +206,15 @@ class SubmitJobProgressDialog(QDialog):
         self.setMinimumWidth(600)
         self.setMinimumHeight(700)
 
-        self.status_label = QLabel("Preparing files...")
+        self.status_label = QLabel(tr("Preparing files..."))
         self.status_label.setMargin(5)
         self.hashing_progress = JobAttachmentsProgressWidget(
-            initial_message="Preparing for hashing...", title="Hashing progress", parent=self
+            initial_message=tr("Preparing for hashing..."),
+            title=tr("Hashing progress"),
+            parent=self,
         )
         self.upload_progress = JobAttachmentsProgressWidget(
-            initial_message="Preparing for upload...", title="Upload progress", parent=self
+            initial_message=tr("Preparing for upload..."), title=tr("Upload progress"), parent=self
         )
         self.submission_log = QTextEdit()
         self.submission_log.setReadOnly(True)
@@ -224,32 +228,26 @@ class SubmitJobProgressDialog(QDialog):
         self.lyt.addWidget(self.submission_log)
         self.lyt.addWidget(self.button_box)
 
-        self.setWindowTitle("AWS Deadline Cloud submission")
+        self.setWindowTitle(tr("AWS Deadline Cloud submission"))
 
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.close)
 
     def handle_request_warning_dialog(self, message: str, default_response: bool):
+        """Presents a dialog with the provided message.
+
+        Args:
+            message (str): The message to present to the user.
+            default_response (bool):
+                True if the default is to continue. This adds a "Do not ask again" button as well.
+                False if the default is to Cancel.
+        """
         # Build the UI for user confirmation
-        message_box = QMessageBox(self)
-        if not default_response:
-            message_box.setIcon(QMessageBox.Warning)
+        dialog = _JobSumissionWarningDialog(message, default_response, self)
 
-        self.submission_log.append(f"{message}\n")
-        message_box.setText(message)
-        message_box.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-        message_box.setDefaultButton(QMessageBox.Ok if default_response else QMessageBox.Cancel)
+        selection = dialog.exec()
 
-        if default_response:
-            # If the default response is to continue, add the "Do not ask again" button
-            dont_ask_button = QPushButton("Do not ask again", self)
-            dont_ask_button.clicked.connect(lambda: set_setting("settings.auto_accept", "true"))
-            message_box.addButton(dont_ask_button, QMessageBox.ActionRole)
-
-        message_box.setWindowTitle("Job attachments file upload confirmation")
-        selection = message_box.exec()
-
-        if selection == QMessageBox.Cancel:
+        if selection == QDialog.Rejected:
             self._warning_dialog_canceled = True
 
         self._warning_dialog_completed = True
@@ -290,7 +288,7 @@ class SubmitJobProgressDialog(QDialog):
         """
         if job_id:
             self._submission_complete = True
-            self.status_label.setText("Submission complete")
+            self.status_label.setText(tr("Submission complete"))
             self.button_box.setStandardButtons(QDialogButtonBox.Ok)
             self.button_box.button(QDialogButtonBox.Ok).setDefault(True)
             self.button_box.button(QDialogButtonBox.Ok).clicked.connect(
@@ -298,9 +296,9 @@ class SubmitJobProgressDialog(QDialog):
             )
         else:
             if self.cancelation_flag or self._warning_dialog_canceled:
-                self.status_label.setText("Submission canceled")
+                self.status_label.setText(tr("Submission canceled"))
             else:
-                self.status_label.setText("Submission error")
+                self.status_label.setText(tr("Submission error"))
             self.button_box.setStandardButtons(QDialogButtonBox.Close)
             self.button_box.button(QDialogButtonBox.Close).setDefault(True)
 
@@ -325,7 +323,7 @@ class SubmitJobProgressDialog(QDialog):
         else:
             self.cancelation_flag.set_canceled()
             logger.info("Canceling submission...")
-            self.status_label.setText("Canceling submission...")
+            self.status_label.setText(tr("Canceling submission..."))
             if self.__submission_thread is not None:
                 while self.__submission_thread.is_alive():
                     QApplication.instance().processEvents()  # type: ignore[union-attr]
@@ -361,3 +359,124 @@ class JobAttachmentsProgressWidget(QGroupBox):
 
         self.layout.addWidget(self.progress_bar)
         self.layout.addWidget(self.progress_message)
+
+
+class _JobSumissionWarningDialog(QDialog):
+    """
+    Simple Dialog which functions similar to a QMessageBox, but with a scrollable text area.
+    """
+
+    def __init__(
+        self, message: str, default_response: bool = False, parent: Optional[QWidget] = None
+    ):
+        """
+        Simple Dialog which functions similar to a QMessageBox, but with a scrollable text area.
+
+        Args:
+            message (str): The message to present to the user.
+            default_response (bool):
+                True if the default response should be to continue.
+                    - This also adds a "Do not ask again" button which will set settings.auto_accept to True.
+                False if the default response should be to Cancel.
+        """
+        super().__init__(parent=parent)
+        self.setWindowTitle(tr("Job Submission Confirmation"))
+        self.message = message
+        self.default_response = default_response
+        self.buttons = None
+        layout = QVBoxLayout(self)
+
+        # Top section with icon and title
+        top_layout = QHBoxLayout()
+        icon_label = QLabel()
+        icon_label.setPixmap(
+            self.style()
+            .standardIcon(QStyle.SP_DirIcon if default_response else QStyle.SP_MessageBoxWarning)
+            .pixmap(32, 32)
+        )
+        top_layout.addWidget(icon_label)
+        title_label = QLabel(tr("Job submission confirmation"))
+        title_label.setStyleSheet("font-weight: bold;")
+        top_layout.addWidget(title_label)
+        top_layout.addStretch()
+        layout.addLayout(top_layout, 0)  # No stretch for title section
+
+        # Scrollable Text Area
+        self.text_edit = QTextEdit()
+        self.text_edit.setPlainText(message)
+        self.text_edit.setReadOnly(True)
+        self.text_edit.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        layout.addWidget(self.text_edit, 1)  # Stretch factor 1 for text area
+
+        # Set minimum width and calculate optimal height
+        self.text_edit.setMinimumWidth(500)
+        self._calculate_optimal_size()
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+
+        if default_response:
+            # If the default response is to continue, add the "Do not ask again" button
+            dont_ask_button = QPushButton(tr("Do not ask again"), self)
+            dont_ask_button.clicked.connect(lambda: set_setting("settings.auto_accept", "true"))
+            dont_ask_button.clicked.connect(self.accept)
+            self.buttons.addButton(dont_ask_button, QDialogButtonBox.ActionRole)
+
+        layout.addWidget(self.buttons)
+
+    def _calculate_optimal_size(self):
+        """Calculate optimal height based on text content and font metrics."""
+        # Get font metrics for the text edit
+        font_metrics = QFontMetrics(self.text_edit.font())
+
+        # Calculate text width accounting for margins and scrollbar
+        text_width = self.text_edit.minimumWidth() - 40  # Account for margins and scrollbar
+
+        # Calculate the height needed for the text
+        text_rect = font_metrics.boundingRect(0, 0, text_width, 0, Qt.TextWordWrap, self.message)
+        text_height = text_rect.height()
+
+        # Add some padding for better appearance
+        padding = 20
+        optimal_height = text_height + padding
+
+        # Set reasonable bounds
+        min_height = 100
+        max_height = 500
+
+        # Clamp the height to reasonable bounds
+        final_height = max(min_height, min(optimal_height, max_height))
+
+        self.text_edit.setMinimumHeight(min_height)
+        # Set dialog's initial size based on content
+        dialog_height = final_height + 120  # Add space for title and buttons
+        self.resize(500, dialog_height)
+
+    def showEvent(self, event):
+        """Override showEvent to set the default button after the dialog is shown."""
+        super().showEvent(event)
+
+        # Set the default button after the dialog is fully shown
+        if self.buttons is not None:  # This type check is to make linting pass
+            if self.default_response:
+                ok_button = self.buttons.button(QDialogButtonBox.Ok)
+                if ok_button:
+                    ok_button.setDefault(True)
+                    ok_button.setAutoDefault(True)
+                    ok_button.setFocus()
+            else:
+                cancel_button = self.buttons.button(QDialogButtonBox.Cancel)
+                if cancel_button:
+                    cancel_button.setDefault(True)
+                    cancel_button.setAutoDefault(True)
+                    cancel_button.setFocus()
+
+    def sizeHint(self):
+        """Return size hint based on content."""
+        # Calculate total dialog height including other widgets
+        base_height = 50  # Height for title, buttons, and margins
+        text_height = self.text_edit.minimumHeight()
+        total_height = base_height + text_height
+
+        return QSize(500, total_height)

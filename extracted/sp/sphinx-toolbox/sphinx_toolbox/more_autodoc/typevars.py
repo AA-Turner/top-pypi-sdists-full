@@ -230,9 +230,9 @@ class TypeVarDocumenter(VariableDocumenter):
 
 	def add_directive_header(self, sig: str) -> None:
 		"""
-		Add the directive's header.
+		Add the directive's header and options to the generated content.
 
-		:param sig:
+		:param sig: The function/class signature.
 		"""
 
 		obj: _TypeVar = self.object
@@ -254,9 +254,9 @@ class TypeVarDocumenter(VariableDocumenter):
 				sig_elements.append(f"bound={repr(bound_to)}")
 
 		if obj.__covariant__:
-			sig_elements.append(f"covariant=True")
+			sig_elements.append("covariant=True")
 		elif obj.__contravariant__:
-			sig_elements.append(f"contravariant=True")
+			sig_elements.append("contravariant=True")
 
 		self.options["value"] = f"TypeVar({', '.join(sig_elements)})"
 		self.add_line('', sourcename)

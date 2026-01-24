@@ -16,10 +16,11 @@
 
 import logging
 import re
+from collections.abc import MutableMapping
 from copy import copy
 from itertools import chain, filterfalse
 from sys import maxsize
-from typing import Any, MutableMapping, Optional, cast
+from typing import Any, cast
 
 from dateutil.parser import isoparse
 from lxml import etree
@@ -30,6 +31,7 @@ from sdmx import message
 from sdmx.exceptions import XMLParseError  # noqa: F401
 from sdmx.format import Version
 from sdmx.model import common, v21
+from sdmx.tools import dimensions_to_attributes
 
 from .common import (
     BaseReference,
@@ -497,7 +499,7 @@ def _item_start(reader, elem):
 @possible_reference(unstash=True)
 def _item_end(reader: Reader, elem):
     cls = reader.class_for_tag(elem.tag)
-    item = reader.nameable(cls, elem)
+    item: "common.Item" = reader.nameable(cls, elem)
 
     # Hierarchy is stored in two ways
 
@@ -637,7 +639,7 @@ def _component_start(reader: Reader, elem):
     reader.stash(reader.class_for_tag(elem.tag))
 
 
-def _maybe_unbounded(value: str) -> Optional[int]:
+def _maybe_unbounded(value: str) -> int | None:
     return None if value == "unbounded" else int(value)
 
 
@@ -716,7 +718,7 @@ def _cl(reader: Reader, elem):
     assert dsd is not None
 
     # Determine the class
-    cls = reader.class_for_tag(elem.tag)
+    cls: type[common.ComponentList] = reader.class_for_tag(elem.tag)
 
     args = dict(
         # Retrieve the components
@@ -744,11 +746,8 @@ def _cl(reader: Reader, elem):
 
     cl = reader.identifiable(cls, elem, **args)
 
-    try:
-        # DimensionDescriptor only
+    if isinstance(cl, common.DimensionDescriptor):
         cl.assign_order()
-    except AttributeError:
-        pass
 
     # Assign to the DSD eagerly (instead of in _dsd_end()) for reference by next
     # ComponentList e.g. so that AttributeRelationship can reference the
@@ -1038,7 +1037,7 @@ def _ar(reader, elem):
 def _structure_start(reader: Reader, elem):
     # Get any external reference created earlier, or instantiate a new object
     cls = reader.class_for_tag(elem.tag)
-    obj = reader.maintainable(cls, elem)
+    obj: "common.Structure" = reader.maintainable(cls, elem)
 
     if obj not in reader.stack[cls]:
         # A new object was created
@@ -1155,19 +1154,19 @@ def _obs(reader, elem):
     args = dict()
 
     for e in elem.iterchildren():
-        localname = QName(e).localname
-        if localname == "Attributes":
-            args["attached_attribute"] = reader.pop_single("Attributes")
-        elif localname == "ObsDimension":
-            # Mutually exclusive with ObsKey
-            args["dimension"] = dsd.make_key(
-                common.Key, {dim_at_obs.id: e.attrib["value"]}
-            )
-        elif localname == "ObsKey":
-            # Mutually exclusive with ObsDimension
-            args["dimension"] = reader.pop_single(common.Key)
-        elif localname == "ObsValue":
-            args["value"] = e.attrib["value"]
+        match QName(e).localname:
+            case "Attributes":
+                args["attached_attribute"] = reader.pop_single("Attributes")
+            case "ObsDimension":
+                # Mutually exclusive with ObsKey
+                args["dimension"] = dsd.make_key(
+                    common.Key, {dim_at_obs.id: e.attrib["value"]}
+                )
+            case "ObsKey":
+                # Mutually exclusive with ObsDimension
+                args["dimension"] = reader.pop_single(common.Key)
+            case "ObsValue":
+                args["value"] = e.attrib["value"]
 
     return reader.model.Observation(**args)
 
@@ -1258,8 +1257,8 @@ def _ds_start(reader, elem):
 
 
 @end("mes:DataSet", only=False)
-def _ds_end(reader, elem):
-    ds = reader.pop_single("DataSet")
+def _ds_end(reader, elem) -> None:
+    ds: "common.BaseDataSet" = reader.pop_single("DataSet")
 
     # Collect attributes attached to the data set. SDMX 2.1 only; this attribute is
     # removed in SDMX 3.0.0.
@@ -1268,6 +1267,22 @@ def _ds_end(reader, elem):
 
     # Collect observations not grouped by SeriesKey
     ds.add_obs(reader.pop_all(reader.model.Observation))
+
+    if reader.peek("SS without structure"):
+        # Possibly convert some inferred dimensions to attributes based on the contents
+        # of data
+
+        # Identify dimensions appearing at observation, series, and group keys
+        dims = dict(
+            obs=set(chain(*[o.dimension.values.keys() for o in ds.obs if o.dimension])),
+            series=set(chain(*[sk.values.keys() for sk in ds.series])),
+            group=set(chain(*[gk.values.keys() for gk in ds.group])),
+        )
+
+        # IDs that appear only on group keys and not on series- or observation keys are
+        # likely DataAttribute, not Dimension → convert
+        if to_attr := dims["group"] - dims["obs"] - dims["series"]:
+            dimensions_to_attributes(ds, to_attr)
 
     # Add any group associations not made above in add_obs() or in _series()
     for obs in ds.obs:
@@ -1523,9 +1538,7 @@ def _hc_end(reader: Reader, elem):
             level = common.Level(id=level_ref.id)
 
     # Create the HierarchicalCode
-    obj = reader.identifiable(
-        reader.class_for_tag(elem.tag), elem, code=code, level=level
-    )
+    obj = reader.identifiable(common.HierarchicalCode, elem, code=code, level=level)
 
     # Count children represented as XML sub-elements of the parent
     n_child = sum(e.tag == elem.tag for e in elem)
@@ -1555,7 +1568,7 @@ def _h_start(reader: Reader, elem):
 
 @end("str:Hierarchy", only=False)
 def _h_end(reader: Reader, elem):
-    result = reader.nameable(
+    result: "v21.Hierarchy" = reader.nameable(
         reader.class_for_tag(elem.tag),
         elem,
         has_formal_levels=eval(elem.attrib.get("leveled", "false").title()),

@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: pyc_wheel
-Version: 2.0.0
+Version: 2.1.0
 Summary: Compile all py files in a wheel to pyc files.
-Author: Grant Patten, Adam Karpierz
-Author-email: adam@karpierz.net
-Maintainer: Adam Karpierz
-Maintainer-email: adam@karpierz.net
+Author-email: Adam Karpierz <adam@karpierz.net>, Grant Patten <grant@gpatten.com>
+Maintainer-email: Adam Karpierz <adam@karpierz.net>
 License-Expression: MIT
-Project-URL: Homepage, https://pypi.org/project/pyc_wheel/
-Project-URL: Documentation, https://pyc-wheel.readthedocs.io/
-Project-URL: Download, https://pypi.org/project/pyc_wheel/
-Project-URL: Source, https://github.com/karpierz/pyc_wheel
-Project-URL: Issues, https://github.com/karpierz/pyc_wheel/issues
+Project-URL: Homepage, https://pypi.org/project/pyc-wheel/
+Project-URL: Documentation, https://karpierz.github.io/pyc_wheel/
+Project-URL: History, https://karpierz.github.io/pyc_wheel/CHANGES.html
+Project-URL: Download, https://pypi.org/project/pyc-wheel/
+Project-URL: Repository, https://github.com/karpierz/pyc_wheel
+Project-URL: Tracker, https://github.com/karpierz/pyc_wheel/issues
+Project-URL: Sponsoring, https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
 Keywords: pyc_wheel,pycwheel,wheel,pyc,compile
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
@@ -34,22 +34,8 @@ Classifier: Typing :: Typed
 Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: setuptools>=80.9.0
-Requires-Dist: typing_extensions>=4.15.0
-Requires-Dist: pkg-about>=2.0.0
-Provides-Extra: doc
-Requires-Dist: Sphinx>=8.1.3; extra == "doc"
-Requires-Dist: sphinx-autodoc-typehints>=3.0.1; extra == "doc"
-Requires-Dist: sphinx-toolbox>=4.0.0; extra == "doc"
-Requires-Dist: sphinx-tabs>=3.4.5; extra == "doc"
-Requires-Dist: sphinx-copybutton>=0.5.2; extra == "doc"
-Requires-Dist: sphinxcontrib-spelling>=8.0.1; extra == "doc"
-Requires-Dist: sphinx-lint>=1.0.0; extra == "doc"
-Requires-Dist: restructuredtext-lint>=1.4.0; extra == "doc"
-Requires-Dist: nbsphinx>=0.9.7; extra == "doc"
-Provides-Extra: test
-Requires-Dist: deepdiff>=8.6.1; extra == "test"
-Requires-Dist: rich>=14.1.0; extra == "test"
+Requires-Dist: typing-extensions>=4.15.0
+Requires-Dist: pkg-about>=2.1.0
 Dynamic: license-file
 
 pyc_wheel
@@ -82,15 +68,15 @@ or renaming for the python version:
 
 .. code-block:: bash
 
-    $ python3.12 -m pyc_wheel --rename your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-cp312-none-any.whl
+    $ python3.13 -m pyc_wheel --rename your_wheel-1.0.0-py3-none-any.whl
+    # Output: your_wheel-1.0.0-cp313-none-any.whl
 
 or with backup:
 
 .. code-block:: bash
 
-    $ python3.12 -m pyc_wheel --rename --with-backup your_wheel-1.0.0-py3-none-any.whl
-    # Output: your_wheel-1.0.0-cp312-none-any.whl
+    $ python3.13 -m pyc_wheel --rename --with-backup your_wheel-1.0.0-py3-none-any.whl
+    # Output: your_wheel-1.0.0-cp313-none-any.whl
     #         your_wheel-1.0.0-py3-none-any.whl.bak
 
 or with quiet:
@@ -137,9 +123,9 @@ Development
 
 Prerequisites:
 
-+ Development is strictly based on *tox*. To install it run::
++ Development is strictly based on *nox*. To install it run::
 
-    python -m pip install --upgrade tox
+    python -m pip install --upgrade nox
 
 Visit `Development page`_.
 
@@ -178,123 +164,22 @@ Authors
 * Grant Patten <grant@gpatten.com>
 * Adam Karpierz <adam@karpierz.net>
 
+Sponsoring
+==========
+
+| If you would like to sponsor the development of this project, your contribution
+  is greatly appreciated.
+| As I am now retired, any support helps me dedicate more time to maintaining and
+  improving this work.
+
+`Donate`_
+
 .. |package| replace:: pyc_wheel
 .. |package_bold| replace:: **pyc_wheel**
-.. |copyright| replace:: Copyright (c) 2019-2025 Adam Karpierz
-.. |respository| replace:: https://github.com/karpierz/pyc_wheel.git
+.. |copyright| replace:: Copyright (c) 2019-2026 Adam Karpierz
+.. |respository| replace:: https://github.com/karpierz/pyc_wheel
 .. _Development page: https://github.com/karpierz/pyc_wheel
-.. _PyPI record: https://pypi.org/project/pyc_wheel/
-.. _Documentation: https://pyc-wheel.readthedocs.io/
+.. _PyPI record: https://pypi.org/project/pyc-wheel/
+.. _Documentation: https://karpierz.github.io/pyc_wheel/
+.. _Donate: https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
 .. _pycwheel: https://pypi.org/project/pycwheel/
-
-Changelog
-=========
-
-2.0.0 (2025-09-08)
-------------------
-- Mark the package as typed.
-- Setup (dependencies) update.
-
-1.5.0 (2025-09-01)
-------------------
-- Making the package typed.
-- Setup (dependencies) update.
-
-1.3.6 (2025-07-07)
-------------------
-- Unittests have been added.
-- 100% code coverage.
-- A few minor code improvements.
-- Setup (dependencies) update.
-
-1.3.5 (2025-06-11)
-------------------
-- Setup (dependencies) update.
-
-1.3.4 (2025-05-15)
-------------------
-- The distribution is now created using 'build' instead of 'setuptools'.
-- Setup (dependencies) update (due to regressions in tox and setuptools).
-
-1.3.2 (2025-05-10)
-------------------
-- Add support for Python 3.14
-- Drop support for Python 3.9 (due to compatibility issues).
-- Add support for PyPy 3.11
-- Drop support for PyPy 3.9
-- `Add --rename and --symlink options.
-  <https://github.com/karpierz/pyc_wheel/pull/20>`_
-- `Fix for a bug <https://github.com/karpierz/pyc_wheel/issues/21>`_
-- `Fix for a bug when wheel tag rewrite processed incorrectly
-  <https://github.com/karpierz/pyc_wheel/issues/19>`_
-- `Fix links in README.rst
-  <https://github.com/karpierz/pyc_wheel/pull/15>`_
-- Update readthedocs's python to version 3.13
-- Update tox's base_python to version 3.13
-- Setup (dependencies) update.
-
-1.3.0 (2025-02-10)
-------------------
-- Add support for Python 3.10, 3.11, 3.12 and 3.13
-- Drop support for Python 3.6, 3.7 and 3.8
-- Add support for PyPy 3.9 and 3.10
-- `Add --optimize argument to allow setting the optimization level
-  of the compiler. <https://github.com/karpierz/pyc_wheel/pull/14>`_
-- `Wheel name should include Python tag.
-  <https://github.com/karpierz/pyc_wheel/pull/13>`_
-- `Preserve the permissions bits.
-  <https://github.com/karpierz/pyc_wheel/pull/9>`_
-- `Extend docs for --exclude and --help.
-  <https://github.com/karpierz/pyc_wheel/pull/7>`_
-- Add --log argument to allow logging.
-- 100% code linting.
-- Copyright year update.
-- Setup update (currently based on pyproject.toml).
-- | Tox configuration has been moved to pyproject.toml
-  | and now based on tox >= 4.0
-- Setup (dependencies) update.
-
-1.2.7 (2021-10-14)
-------------------
-- Setup update.
-
-1.2.6 (2021-07-20)
-------------------
-- Setup general update and improvement.
-
-1.2.4 (2020-10-18)
-------------------
-- Drop support for Python 3.5.
-- Fixed docs setup.
-
-1.1.0 (2020-09-22)
-------------------
-- Add support for Python 3.9.
-- `Fixed improper permission setting to read distribution.
-  <https://github.com/karpierz/pyc_wheel/pull/4>`_
-- Setup general update and cleanup.
-
-1.0.3 (2020-01-16)
-------------------
-- Added ReadTheDocs config file.
-- Setup update.
-
-1.0.2 (2019-12-03)
-------------------
-- Added the ability to exclude files from compilation.
-- Added the ability to use wildcards.
-
-1.0.1rc3 (2019-11-30)
----------------------
-- A little fix for README.rst
-
-1.0.1rc2 (2019-11-30)
----------------------
-- | Creating a fork of Grant Patten's *pycwheel* package with a fixes,
-  | changes and improvements allowing to work with Python3 or higher.
-
-Changes of the original *pycwheel*:
-
-1.0.0 (Sep 25, 2016)
---------------------
-- Initial commit.

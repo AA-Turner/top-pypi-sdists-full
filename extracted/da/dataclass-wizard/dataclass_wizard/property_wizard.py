@@ -2,14 +2,36 @@ from dataclasses import MISSING, Field, field as dataclass_field
 from functools import wraps
 from typing import Dict, Any, Type, Union, Tuple, Optional
 
+from .constants import PY314_OR_ABOVE, PY310_OR_ABOVE
 from .type_def import T, NoneType
 from .utils.typing_compat import (
     get_origin, get_args, is_generic, is_literal, is_annotated, eval_forward_ref_if_needed
 )
 
-
 AnnotationType = Dict[str, Type[T]]
 AnnotationReplType = Dict[str, str]
+
+
+def get_resolved_annotations(obj) -> Dict[str, Any]:
+    # Python 3.14+: annotationlib.get_annotations supports explicit formats
+    if PY314_OR_ABOVE:
+        from annotationlib import get_annotations, Format  # 3.14+
+        return get_annotations(obj, format=Format.VALUE)
+
+    # Python 3.10–3.13: inspect.get_annotations is best practice
+    # eval_str=False keeps strings unresolved
+    if PY310_OR_ABOVE:
+        from inspect import get_annotations
+        return get_annotations(obj, eval_str=True)
+
+    # Python 3.9: use typing_extensions backport (supports get_annotations + format/eval_str behavior)
+    from typing_extensions import get_annotations
+    try:
+        # newer typing_extensions mirrors 3.10+ signature
+        return get_annotations(obj, eval_str=True)
+    except TypeError:
+        # ultra-defensive fallback
+        return obj.__dict__.get("__annotations__", {}) or {}
 
 
 def property_wizard(*args, **kwargs):
@@ -20,13 +42,13 @@ def property_wizard(*args, **kwargs):
     the docs. I also added `an answer`_ on a SO article that deals with using
     such properties in dataclasses.
 
-    .. _Using Field Properties: https://dataclass-wizard.readthedocs.io/en/latest/using_field_properties.html
+    .. _Using Field Properties: https://dcw.ritviknag.com/en/latest/using_field_properties.html
     .. _an answer: https://stackoverflow.com/a/68488125/10237506
     """
-
     cls: Type = type(*args, **kwargs)
     cls_dict: Dict[str, Any] = args[2]
-    annotations: AnnotationType = cls_dict.get('__annotations__', {})
+    # https://docs.python.org/3.14/whatsnew/3.14.html#implications-for-readers-of-annotations
+    annotations: AnnotationType = get_resolved_annotations(cls)
 
     # For each property, we want to replace the annotation for the underscore-
     # leading field associated with that property with the 'public' field
@@ -56,7 +78,7 @@ def property_wizard(*args, **kwargs):
         # key while preserving the insertion order, because the order
         # of fields does matter when the constructor is called.
         cls.__annotations__ = {annotation_repls.get(f, f): ftype
-                               for f, ftype in cls.__annotations__.items()}
+                               for f, ftype in annotations.items()}
 
     return cls
 

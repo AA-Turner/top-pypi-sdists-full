@@ -5,15 +5,9 @@ import collections
 import dataclasses
 import re
 import secrets
-import sys
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Optional
-
-if sys.version_info >= (3, 10):
-    from typing import TypeGuard
-else:
-    from typing_extensions import TypeGuard
+from typing import TypeGuard
 
 from pyink.mode import Mode
 from pyink.output import out
@@ -43,7 +37,6 @@ PYTHON_CELL_MAGICS = frozenset((
     "time",
     "timeit",
 ))
-TOKEN_HEX = secrets.token_hex
 
 
 @dataclasses.dataclass(frozen=True)
@@ -67,7 +60,7 @@ def jupyter_dependencies_are_installed(*, warn: bool) -> bool:
 
 
 def validate_cell(src: str, mode: Mode) -> None:
-    """Check that cell does not already contain TransformerManager transformations,
+    r"""Check that cell does not already contain TransformerManager transformations,
     or non-Python cell magics, which might cause tokenizer_rt to break because of
     indentations.
 
@@ -160,7 +153,7 @@ def mask_cell(src: str) -> tuple[str, list[Replacement]]:
 
     becomes
 
-        "25716f358c32750e"
+        b"25716f358c32750"
         'foo'
 
     The replacements are returned, along with the transformed code.
@@ -192,6 +185,18 @@ def mask_cell(src: str) -> tuple[str, list[Replacement]]:
     return transformed, replacements
 
 
+def create_token(n_chars: int) -> str:
+    """Create a randomly generated token that is n_chars characters long."""
+    assert n_chars > 0
+    n_bytes = max(n_chars // 2 - 1, 1)
+    token = secrets.token_hex(n_bytes)
+    if len(token) + 3 > n_chars:
+        token = token[:-1]
+    # We use a bytestring so that the string does not get interpreted
+    # as a docstring.
+    return f'b"{token}"'
+
+
 def get_token(src: str, magic: str) -> str:
     """Return randomly generated token to mask IPython magic with.
 
@@ -201,11 +206,11 @@ def get_token(src: str, magic: str) -> str:
     not already present anywhere else in the cell.
     """
     assert magic
-    nbytes = max(len(magic) // 2 - 1, 1)
-    token = TOKEN_HEX(nbytes)
+    n_chars = len(magic)
+    token = create_token(n_chars)
     counter = 0
     while token in src:
-        token = TOKEN_HEX(nbytes)
+        token = create_token(n_chars)
         counter += 1
         if counter > 100:
             raise AssertionError(
@@ -213,20 +218,18 @@ def get_token(src: str, magic: str) -> str:
                 "Please report a bug on https://github.com/psf/black/issues.  "
                 f"The magic might be helpful: {magic}"
             ) from None
-    if len(token) + 2 < len(magic):
-        token = f"{token}."
-    return f'"{token}"'
+    return token
 
 
 def replace_cell_magics(src: str) -> tuple[str, list[Replacement]]:
-    """Replace cell magic with token.
+    r"""Replace cell magic with token.
 
     Note that 'src' will already have been processed by IPython's
     TransformerManager().transform_cell.
 
     Example,
 
-        get_ipython().run_cell_magic('t', '-n1', 'ls =!ls\\n')
+        get_ipython().run_cell_magic('t', '-n1', 'ls =!ls\n')
 
     becomes
 
@@ -306,7 +309,7 @@ def unmask_cell(src: str, replacements: list[Replacement]) -> str:
     for replacement in replacements:
         src = src.replace(replacement.mask, replacement.src)
         # Strings in src might have been reformatted with single quotes.
-        src = src.replace(f"'{replacement.mask[1:-1]}'", replacement.src)
+        src = src.replace(f"b'{replacement.mask[2:-1]}'", replacement.src)
     return src
 
 
@@ -351,7 +354,7 @@ def _get_str_args(args: list[ast.expr]) -> list[str]:
 @dataclasses.dataclass(frozen=True)
 class CellMagic:
     name: str
-    params: Optional[str]
+    params: str | None
     body: str
 
     @property
@@ -363,7 +366,7 @@ class CellMagic:
 
 # ast.NodeVisitor + dataclass = breakage under mypyc.
 class CellMagicFinder(ast.NodeVisitor):
-    """Find cell magics.
+    r"""Find cell magics.
 
     Note that the source of the abstract syntax tree
     will already have been processed by IPython's
@@ -376,12 +379,12 @@ class CellMagicFinder(ast.NodeVisitor):
 
     would have been transformed to
 
-        get_ipython().run_cell_magic('time', '', 'foo()\\n')
+        get_ipython().run_cell_magic('time', '', 'foo()\n')
 
     and we look for instances of the latter.
     """
 
-    def __init__(self, cell_magic: Optional[CellMagic] = None) -> None:
+    def __init__(self, cell_magic: CellMagic | None = None) -> None:
         self.cell_magic = cell_magic
 
     def visit_Expr(self, node: ast.Expr) -> None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import optparse
 import pathlib
+import urllib.parse
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Iterable, Iterator, Set, cast
 
@@ -16,6 +17,8 @@ from pip._internal.req import InstallRequirement
 from pip._internal.req import parse_requirements as _parse_requirements
 from pip._internal.req.constructors import install_req_from_parsed_requirement
 from pip._vendor.pkg_resources import Requirement
+
+from .path_compat import relative_to_walk_up
 
 # The Distribution interface has changed between pkg_resources and
 # importlib.metadata, so this compat layer allows for a consistent access
@@ -140,6 +143,10 @@ def _relativize_comes_from_location(original_comes_from: str, /) -> str:
     # split on the space
     prefix, space_sep, suffix = original_comes_from.partition(" ")
 
+    # if the value part is a remote URI for pip, return the original
+    if _is_remote_pip_uri(suffix):
+        return original_comes_from
+
     file_path = pathlib.Path(suffix)
 
     # if the path was not absolute, normalize to posix-style and finish processing
@@ -147,7 +154,7 @@ def _relativize_comes_from_location(original_comes_from: str, /) -> str:
         return f"{prefix} {file_path.as_posix()}"
 
     # make it relative to the current working dir
-    suffix = file_path.relative_to(pathlib.Path.cwd()).as_posix()
+    suffix = relative_to_walk_up(file_path, pathlib.Path.cwd()).as_posix()
     return f"{prefix}{space_sep}{suffix}"
 
 
@@ -169,9 +176,24 @@ def _normalize_comes_from_location(original_comes_from: str, /) -> str:
     # split on the space
     prefix, space_sep, suffix = original_comes_from.partition(" ")
 
+    # if the value part is a remote URI for pip, return the original
+    if _is_remote_pip_uri(suffix):
+        return original_comes_from
+
     # convert to a posix-style path
     suffix = pathlib.Path(suffix).as_posix()
     return f"{prefix}{space_sep}{suffix}"
+
+
+def _is_remote_pip_uri(value: str) -> bool:
+    """
+    Test a string to see if it is a URI treated as a remote file in ``pip``.
+    Specifically this means that it's a 'file', 'http', or 'https' URI.
+
+    The test is performed by trying a URL parse and reading the scheme.
+    """
+    scheme = urllib.parse.urlsplit(value).scheme
+    return scheme in {"file", "http", "https"}
 
 
 def create_wheel_cache(cache_dir: str, format_control: str | None = None) -> WheelCache:

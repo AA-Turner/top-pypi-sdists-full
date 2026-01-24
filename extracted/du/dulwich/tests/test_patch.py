@@ -25,28 +25,37 @@ from io import BytesIO, StringIO
 from typing import NoReturn
 
 from dulwich.object_store import MemoryObjectStore
-from dulwich.objects import S_IFGITLINK, Blob, Commit, Tree
+from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, Commit, Tree
 from dulwich.patch import (
+    DiffAlgorithmNotAvailable,
+    commit_patch_id,
     get_summary,
     git_am_patch_split,
+    patch_id,
+    unified_diff_with_algorithm,
     write_blob_diff,
     write_commit_patch,
     write_object_diff,
     write_tree_diff,
 )
+from dulwich.tests.utils import make_commit
 
-from . import SkipTest, TestCase
+from . import DependencyMissing, SkipTest, TestCase
 
 
 class WriteCommitPatchTests(TestCase):
     def test_simple_bytesio(self) -> None:
         f = BytesIO()
-        c = Commit()
-        c.committer = c.author = b"Jelmer <jelmer@samba.org>"
-        c.commit_time = c.author_time = 1271350201
-        c.commit_timezone = c.author_timezone = 0
-        c.message = b"This is the first line\nAnd this is the second line.\n"
-        c.tree = Tree().id
+        c = make_commit(
+            author=b"Jelmer <jelmer@samba.org>",
+            committer=b"Jelmer <jelmer@samba.org>",
+            author_time=1271350201,
+            commit_time=1271350201,
+            author_timezone=0,
+            commit_timezone=0,
+            message=b"This is the first line\nAnd this is the second line.\n",
+            tree=Tree().id,
+        )
         write_commit_patch(f, c, b"CONTENTS", (1, 1), version="custom")
         f.seek(0)
         lines = f.readlines()
@@ -154,7 +163,7 @@ Subject:  [Dulwich-users] [PATCH] Added unit tests for
 -- 
 1.7.0.4
 """
-        c, diff, version = git_am_patch_split(BytesIO(text), "utf-8")
+        c, _diff, _version = git_am_patch_split(BytesIO(text), "utf-8")
         self.assertEqual(
             b"""\
 Added unit tests for dulwich.object_store.tree_lookup_path.
@@ -186,7 +195,7 @@ From: Jelmer Vernooij <jelmer@debian.org>
 -- 
 1.7.0.4
 """
-        c, diff, version = git_am_patch_split(BytesIO(text), "utf-8")
+        c, _diff, _version = git_am_patch_split(BytesIO(text), "utf-8")
         self.assertEqual(b"Jelmer Vernooij <jelmer@debian.org>", c.author)
         self.assertEqual(
             b"""\
@@ -215,7 +224,7 @@ From: Jelmer Vernooij <jelmer@debian.org>
  mode change 100755 => 100644 pixmaps/prey.ico
 
 """
-        c, diff, version = git_am_patch_split(BytesIO(text), "utf-8")
+        _c, _diff, version = git_am_patch_split(BytesIO(text), "utf-8")
         self.assertEqual(None, version)
 
     def test_extract_mercurial(self) -> NoReturn:
@@ -256,7 +265,7 @@ Unsubscribe : https://launchpad.net/~dulwich-users
 More help   : https://help.launchpad.net/ListHelp
 
 """
-        c, diff, version = git_am_patch_split(BytesIO(text))
+        _c, diff, version = git_am_patch_split(BytesIO(text))
         self.assertEqual(expected_diff, diff)
         self.assertEqual(None, version)
 
@@ -628,10 +637,481 @@ class DiffTests(TestCase):
 
 class GetSummaryTests(TestCase):
     def test_simple(self) -> None:
-        c = Commit()
-        c.committer = c.author = b"Jelmer <jelmer@samba.org>"
-        c.commit_time = c.author_time = 1271350201
-        c.commit_timezone = c.author_timezone = 0
-        c.message = b"This is the first line\nAnd this is the second line.\n"
-        c.tree = Tree().id
+        c = make_commit(
+            author=b"Jelmer <jelmer@samba.org>",
+            committer=b"Jelmer <jelmer@samba.org>",
+            author_time=1271350201,
+            commit_time=1271350201,
+            author_timezone=0,
+            commit_timezone=0,
+            message=b"This is the first line\nAnd this is the second line.\n",
+            tree=Tree().id,
+        )
         self.assertEqual("This-is-the-first-line", get_summary(c))
+
+
+class DiffAlgorithmTests(TestCase):
+    """Tests for diff algorithm selection."""
+
+    def test_unified_diff_with_myers(self) -> None:
+        """Test unified_diff_with_algorithm with default myers algorithm."""
+        a = [b"line1\n", b"line2\n", b"line3\n"]
+        b = [b"line1\n", b"line2 modified\n", b"line3\n"]
+
+        result = list(
+            unified_diff_with_algorithm(
+                a, b, fromfile=b"a.txt", tofile=b"b.txt", algorithm="myers"
+            )
+        )
+
+        # Should contain diff headers and the change
+        self.assertTrue(any(b"---" in line for line in result))
+        self.assertTrue(any(b"+++" in line for line in result))
+        self.assertTrue(any(b"-line2" in line for line in result))
+        self.assertTrue(any(b"+line2 modified" in line for line in result))
+
+    def test_unified_diff_with_patience_not_available(self) -> None:
+        """Test that DiffAlgorithmNotAvailable is raised when patience not available."""
+        # Temporarily mock _get_sequence_matcher to simulate ImportError
+        import dulwich.patch
+
+        original = dulwich.patch._get_sequence_matcher
+
+        def mock_get_sequence_matcher(algorithm, a, b):
+            if algorithm == "patience":
+                raise DiffAlgorithmNotAvailable(
+                    "patience", "Install with: pip install 'dulwich[patiencediff]'"
+                )
+            return original(algorithm, a, b)
+
+        try:
+            dulwich.patch._get_sequence_matcher = mock_get_sequence_matcher
+
+            a = [b"line1\n", b"line2\n", b"line3\n"]
+            b = [b"line1\n", b"line2 modified\n", b"line3\n"]
+
+            with self.assertRaises(DiffAlgorithmNotAvailable) as cm:
+                list(
+                    unified_diff_with_algorithm(
+                        a, b, fromfile=b"a.txt", tofile=b"b.txt", algorithm="patience"
+                    )
+                )
+
+            self.assertIn("patience", str(cm.exception))
+            self.assertIn("pip install", str(cm.exception))
+        finally:
+            dulwich.patch._get_sequence_matcher = original
+
+
+class PatienceDiffTests(TestCase):
+    """Tests for patience diff algorithm support."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        # Skip all patience diff tests if patiencediff is not available
+        try:
+            import patiencediff  # noqa: F401
+        except ImportError:
+            raise DependencyMissing("patiencediff")
+
+    def test_unified_diff_with_patience_available(self) -> None:
+        """Test unified_diff_with_algorithm with patience if available."""
+        a = [b"line1\n", b"line2\n", b"line3\n"]
+        b = [b"line1\n", b"line2 modified\n", b"line3\n"]
+
+        result = list(
+            unified_diff_with_algorithm(
+                a, b, fromfile=b"a.txt", tofile=b"b.txt", algorithm="patience"
+            )
+        )
+
+        # Should contain diff headers and the change
+        self.assertTrue(any(b"---" in line for line in result))
+        self.assertTrue(any(b"+++" in line for line in result))
+        self.assertTrue(any(b"-line2" in line for line in result))
+        self.assertTrue(any(b"+line2 modified" in line for line in result))
+
+    def test_unified_diff_with_patience_not_available(self) -> None:
+        """Test that DiffAlgorithmNotAvailable is raised when patience not available."""
+        # Temporarily mock _get_sequence_matcher to simulate ImportError
+        import dulwich.patch
+
+        original = dulwich.patch._get_sequence_matcher
+
+        def mock_get_sequence_matcher(algorithm, a, b):
+            if algorithm == "patience":
+                raise DiffAlgorithmNotAvailable(
+                    "patience", "Install with: pip install 'dulwich[patiencediff]'"
+                )
+            return original(algorithm, a, b)
+
+        try:
+            dulwich.patch._get_sequence_matcher = mock_get_sequence_matcher
+
+            a = [b"line1\n", b"line2\n", b"line3\n"]
+            b = [b"line1\n", b"line2 modified\n", b"line3\n"]
+
+            with self.assertRaises(DiffAlgorithmNotAvailable) as cm:
+                list(
+                    unified_diff_with_algorithm(
+                        a, b, fromfile=b"a.txt", tofile=b"b.txt", algorithm="patience"
+                    )
+                )
+
+            self.assertIn("patience", str(cm.exception))
+            self.assertIn("pip install", str(cm.exception))
+        finally:
+            dulwich.patch._get_sequence_matcher = original
+
+    def test_write_blob_diff_with_patience(self) -> None:
+        """Test write_blob_diff with patience algorithm if available."""
+        f = BytesIO()
+        old_blob = Blob()
+        old_blob.data = b"line1\nline2\nline3\n"
+        new_blob = Blob()
+        new_blob.data = b"line1\nline2 modified\nline3\n"
+
+        write_blob_diff(
+            f,
+            (b"file.txt", 0o100644, old_blob),
+            (b"file.txt", 0o100644, new_blob),
+            diff_algorithm="patience",
+        )
+
+        diff = f.getvalue()
+        self.assertIn(b"diff --git", diff)
+        self.assertIn(b"-line2", diff)
+        self.assertIn(b"+line2 modified", diff)
+
+    def test_write_object_diff_with_patience(self) -> None:
+        """Test write_object_diff with patience algorithm if available."""
+        f = BytesIO()
+        store = MemoryObjectStore()
+
+        old_blob = Blob()
+        old_blob.data = b"line1\nline2\nline3\n"
+        store.add_object(old_blob)
+
+        new_blob = Blob()
+        new_blob.data = b"line1\nline2 modified\nline3\n"
+        store.add_object(new_blob)
+
+        write_object_diff(
+            f,
+            store,
+            (b"file.txt", 0o100644, old_blob.id),
+            (b"file.txt", 0o100644, new_blob.id),
+            diff_algorithm="patience",
+        )
+
+        diff = f.getvalue()
+        self.assertIn(b"diff --git", diff)
+        self.assertIn(b"-line2", diff)
+        self.assertIn(b"+line2 modified", diff)
+
+
+class PatchIdTests(TestCase):
+    """Tests for patch_id and commit_patch_id functions."""
+
+    def test_patch_id_simple(self) -> None:
+        """Test patch_id computation with a simple diff."""
+        diff = b"""diff --git a/file.txt b/file.txt
+index 3b0f961..a116b51 644
+--- a/file.txt
++++ b/file.txt
+@@ -1,2 +1,2 @@
+-old
++new
+ same
+"""
+        pid = patch_id(diff)
+        # Patch ID should be a 40-byte hex string
+        self.assertEqual(40, len(pid))
+        self.assertTrue(all(c in b"0123456789abcdef" for c in pid))
+
+    def test_patch_id_same_for_equivalent_diffs(self) -> None:
+        """Test that equivalent patches have the same ID."""
+        # Two diffs with different line numbers but same changes
+        diff1 = b"""diff --git a/file.txt b/file.txt
+--- a/file.txt
++++ b/file.txt
+@@ -1,3 +1,3 @@
+ context
+-old line
++new line
+ context
+"""
+        diff2 = b"""diff --git a/file.txt b/file.txt
+--- a/file.txt
++++ b/file.txt
+@@ -10,3 +10,3 @@
+ context
+-old line
++new line
+ context
+"""
+        pid1 = patch_id(diff1)
+        pid2 = patch_id(diff2)
+        # Same patch content should give same patch ID
+        self.assertEqual(pid1, pid2)
+
+    def test_commit_patch_id(self) -> None:
+        """Test commit_patch_id computation."""
+        store = MemoryObjectStore()
+
+        # Create two trees
+        blob1 = Blob.from_string(b"content1\n")
+        blob2 = Blob.from_string(b"content2\n")
+        store.add_objects([(blob1, None), (blob2, None)])
+
+        tree1 = Tree()
+        tree1.add(b"file.txt", 0o644, blob1.id)
+        store.add_object(tree1)
+
+        tree2 = Tree()
+        tree2.add(b"file.txt", 0o644, blob2.id)
+        store.add_object(tree2)
+
+        # Create a commit
+        commit = Commit()
+        commit.tree = tree2.id
+        commit.parents = [ZERO_SHA]  # Fake parent
+        commit.author = commit.committer = b"Test <test@example.com>"
+        commit.author_time = commit.commit_time = 1234567890
+        commit.author_timezone = commit.commit_timezone = 0
+        commit.message = b"Test commit\n"
+        commit.encoding = b"UTF-8"
+        store.add_object(commit)
+
+        # Create parent commit
+        parent_commit = Commit()
+        parent_commit.tree = tree1.id
+        parent_commit.parents = []
+        parent_commit.author = parent_commit.committer = b"Test <test@example.com>"
+        parent_commit.author_time = parent_commit.commit_time = 1234567880
+        parent_commit.author_timezone = parent_commit.commit_timezone = 0
+        parent_commit.message = b"Parent commit\n"
+        parent_commit.encoding = b"UTF-8"
+        store.add_object(parent_commit)
+
+        # Update commit to have real parent
+        commit.parents = [parent_commit.id]
+        store.add_object(commit)
+
+        # Compute patch ID
+        pid = commit_patch_id(store, commit.id)
+        self.assertEqual(40, len(pid))
+        self.assertTrue(all(c in b"0123456789abcdef" for c in pid))
+
+
+class MailinfoTests(TestCase):
+    """Tests for mailinfo functionality."""
+
+    def test_basic_parsing(self):
+        """Test basic email parsing."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email_content = b"""From: John Doe <john@example.com>
+Date: Mon, 1 Jan 2024 12:00:00 +0000
+Subject: [PATCH] Add new feature
+Message-ID: <test@example.com>
+
+This is the commit message.
+
+More details here.
+
+---
+ file.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/file.txt b/file.txt
+--- a/file.txt
++++ b/file.txt
+@@ -1 +1,2 @@
+ line1
++line2
+--
+2.39.0
+"""
+        result = mailinfo(BytesIO(email_content))
+
+        self.assertEqual("John Doe", result.author_name)
+        self.assertEqual("john@example.com", result.author_email)
+        self.assertEqual("Add new feature", result.subject)
+        self.assertIn("This is the commit message.", result.message)
+        self.assertIn("More details here.", result.message)
+        self.assertIn("diff --git a/file.txt b/file.txt", result.patch)
+
+    def test_subject_munging(self):
+        """Test subject line munging."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        # Test with [PATCH] tag
+        email = b"""From: Test <test@example.com>
+Subject: [PATCH 1/2] Fix bug
+
+Body
+"""
+        result = mailinfo(BytesIO(email))
+        self.assertEqual("Fix bug", result.subject)
+
+        # Test with Re: prefix
+        email = b"""From: Test <test@example.com>
+Subject: Re: [PATCH] Fix bug
+
+Body
+"""
+        result = mailinfo(BytesIO(email))
+        self.assertEqual("Fix bug", result.subject)
+
+        # Test with multiple brackets
+        email = b"""From: Test <test@example.com>
+Subject: [RFC][PATCH] New feature
+
+Body
+"""
+        result = mailinfo(BytesIO(email))
+        self.assertEqual("New feature", result.subject)
+
+    def test_keep_subject(self):
+        """Test -k flag (keep subject intact)."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+Subject: [PATCH 1/2] Fix bug
+
+Body
+"""
+        result = mailinfo(BytesIO(email), keep_subject=True)
+        self.assertEqual("[PATCH 1/2] Fix bug", result.subject)
+
+    def test_keep_non_patch(self):
+        """Test -b flag (only strip [PATCH])."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+Subject: [RFC][PATCH] New feature
+
+Body
+"""
+        result = mailinfo(BytesIO(email), keep_non_patch=True)
+        self.assertEqual("[RFC] New feature", result.subject)
+
+    def test_scissors(self):
+        """Test scissors line handling."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+Subject: Test
+
+Ignore this part
+
+-- >8 --
+
+Keep this part
+
+---
+diff --git a/file.txt b/file.txt
+"""
+        result = mailinfo(BytesIO(email), scissors=True)
+        self.assertIn("Keep this part", result.message)
+        self.assertNotIn("Ignore this part", result.message)
+
+    def test_message_id(self):
+        """Test -m flag (include Message-ID)."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+Subject: Test
+Message-ID: <12345@example.com>
+
+Body text
+"""
+        result = mailinfo(BytesIO(email), message_id=True)
+        self.assertIn("Message-ID: <12345@example.com>", result.message)
+        self.assertEqual("<12345@example.com>", result.message_id)
+
+    def test_encoding(self):
+        """Test encoding handling."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        # Use explicit UTF-8 bytes with MIME encoded subject
+        email = (
+            b"From: Test <test@example.com>\n"
+            b"Subject: =?utf-8?q?Test_with_UTF-8=3A_caf=C3=A9?=\n"
+            b"Content-Type: text/plain; charset=utf-8\n"
+            b"Content-Transfer-Encoding: 8bit\n"
+            b"\n"
+            b"Body with UTF-8: " + "naïve".encode() + b"\n"
+        )
+
+        result = mailinfo(BytesIO(email), encoding="utf-8")
+        # The subject should be decoded from MIME encoding
+        self.assertIn("caf", result.subject)
+        self.assertIn("na", result.message)
+
+    def test_patch_separation(self):
+        """Test separation of message from patch."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+Subject: Test
+
+Commit message line 1
+Commit message line 2
+
+---
+ file.txt | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/file.txt b/file.txt
+"""
+        result = mailinfo(BytesIO(email))
+        self.assertIn("Commit message line 1", result.message)
+        self.assertIn("Commit message line 2", result.message)
+        self.assertIn("---", result.patch)
+        self.assertIn("diff --git", result.patch)
+        self.assertNotIn("---", result.message)
+
+    def test_no_subject(self):
+        """Test handling of missing subject."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""From: Test <test@example.com>
+
+Body text
+"""
+        result = mailinfo(BytesIO(email))
+        self.assertEqual("(no subject)", result.subject)
+
+    def test_missing_from_header(self):
+        """Test error on missing From header."""
+        from io import BytesIO
+
+        from dulwich.patch import mailinfo
+
+        email = b"""Subject: Test
+
+Body text
+"""
+        with self.assertRaises(ValueError) as cm:
+            mailinfo(BytesIO(email))
+        self.assertIn("From", str(cm.exception))

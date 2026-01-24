@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import itertools
@@ -55,10 +53,18 @@ class MockserverRequest(aiohttp.web.BaseRequest):
 
 
 class Handler:
-    def __init__(self, func, *, raw_request=False, json_response=False):
+    def __init__(
+        self,
+        func: typing.Callable,
+        *,
+        raw_request: bool = False,
+        json_response: bool = False,
+        strict: bool = False,
+    ) -> None:
         self.raw_request = raw_request
         self.json_response = json_response
         self.orig_func = func
+        self.strict = strict
 
     @cached_property
     def callqueue(self):
@@ -86,6 +92,16 @@ class Handler:
         if isinstance(response, (http.Response, aiohttp.web.Response)):
             return response
         return http.make_response(json=response)
+
+    def collect_calls(self) -> list[dict]:
+        if not self.strict:
+            return []
+
+        callqueue = self.callqueue
+        lost_calls = []
+        while callqueue.has_calls:
+            lost_calls.append(callqueue.next_call())
+        return lost_calls
 
 
 class Session:
@@ -211,6 +227,16 @@ class Session:
                 return self.get_handler(f'http://{host}{path}')
         return self.get_handler(path)
 
+    def collect_calls(self) -> list[dict]:
+        calls = []
+        for _, handler in self.regex_handlers:
+            calls.extend(handler.collect_calls())
+        for _, handler in self.prefix_handlers:
+            calls.extend(handler.collect_calls())
+        for handler in self.handlers.values():
+            calls.extend(handler.collect_calls())
+        return calls
+
 
 # pylint: disable=too-many-instance-attributes
 class Server:
@@ -256,6 +282,12 @@ class Server:
     @property
     def server_info(self) -> classes.MockserverInfo:
         return self._info
+
+    def get_debug(self) -> bool:
+        return self._mockserver_debug
+
+    def set_debug(self, enabled: bool):
+        self._mockserver_debug = enabled
 
     @contextlib.contextmanager
     def new_session(
@@ -348,11 +380,14 @@ class MockserverFixture:
         mockserver: Server,
         session: Session,
         base_prefix: str = '',
+        *,
+        strict_default: bool = False,
     ) -> None:
         self._server = mockserver
         self._session = session
         self._base_prefix = base_prefix
         self._base_prefix_re = re.escape(base_prefix)
+        self._strict_default = strict_default
 
     def new(self, prefix: str) -> 'MockserverFixture':
         """Create mockserver installer with given base prefix."""
@@ -397,6 +432,7 @@ class MockserverFixture:
         raw_request: bool = False,
         json_response: bool = False,
         regex: bool = False,
+        strict: typing.Optional[bool] = None,
     ) -> classes.GenericRequestDecorator:
         """Register basic http handler for ``path``.
 
@@ -435,6 +471,7 @@ class MockserverFixture:
             raw_request=raw_request,
             json_response=json_response,
             regex=regex,
+            strict=strict,
         )
 
     def json_handler(
@@ -444,6 +481,7 @@ class MockserverFixture:
         prefix: bool = False,
         raw_request: bool = False,
         regex: bool = False,
+        strict: typing.Optional[bool] = None,
     ) -> classes.JsonRequestDecorator:
         """Register json http handler for ``path``.
 
@@ -477,6 +515,7 @@ class MockserverFixture:
             raw_request=raw_request,
             json_response=True,
             regex=regex,
+            strict=strict,
         )
 
     def aiohttp_handler(
@@ -485,6 +524,7 @@ class MockserverFixture:
         *,
         prefix: bool = False,
         regex: bool = False,
+        strict: typing.Optional[bool] = None,
     ) -> classes.GenericRequestDecorator:
         return self._handler_installer(
             path,
@@ -492,6 +532,7 @@ class MockserverFixture:
             raw_request=True,
             json_response=False,
             regex=regex,
+            strict=strict,
         )
 
     def aiohttp_json_handler(
@@ -500,6 +541,7 @@ class MockserverFixture:
         *,
         prefix: bool = False,
         regex: bool = False,
+        strict: typing.Optional[bool] = None,
     ) -> classes.JsonRequestDecorator:
         return self._handler_installer(
             path,
@@ -507,6 +549,7 @@ class MockserverFixture:
             raw_request=True,
             json_response=True,
             regex=regex,
+            strict=strict,
         )
 
     def url(self, path: str) -> str:
@@ -542,18 +585,22 @@ class MockserverFixture:
         self,
         path: str,
         *,
+        strict: typing.Optional[bool],
         prefix: bool = False,
         raw_request: bool = False,
         json_response: bool = False,
         regex: bool = False,
     ) -> typing.Callable:
         path = self._build_fullpath(path, regex)
+        if strict is None:
+            strict = self._strict_default
 
         def decorator(func):
             handler = Handler(
                 func,
                 raw_request=raw_request,
                 json_response=json_response,
+                strict=strict,
             )
             self._session.register_handler(
                 path,
@@ -578,9 +625,28 @@ class MockserverFixture:
 MockserverSslFixture = MockserverFixture
 
 
-def _create_ssl_context(ssl_info: classes.SslCertInfo) -> ssl.SSLContext:
+def create_server(
+    *,
+    host: str,
+    port: int,
+    pytestconfig,
+    ssl_info=None,
+    loop=None,
+):
+    warnings.warn('Use mockserver_create() fixture instead', DeprecationWarning)
+
+    mockserver_socket = _create_mockserver_socket(host=host, port=port)
+    return _create_server_from_socket(
+        mockserver_socket,
+        mockserver_config=classes.MockserverConfig(),
+        ssl_cert=ssl_info,
+        loop=loop,
+    )
+
+
+def _create_ssl_context(ssl_cert: classes.SslCertInfo) -> ssl.SSLContext:
     ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_context.load_cert_chain(ssl_info.cert_path, ssl_info.private_key_path)
+    ssl_context.load_cert_chain(ssl_cert.cert_path, ssl_cert.private_key_path)
     return ssl_context
 
 
@@ -605,15 +671,18 @@ def _mocked_error_response(request, error_code) -> aiohttp.web.Response:
     ).to_aiohttp()
 
 
-def _create_server_obj(mockserver_info, pytestconfig) -> Server:
+def _create_server_obj(
+    mockserver_info: classes.MockserverInfo,
+    mockserver_config: classes.MockserverConfig,
+) -> Server:
     return Server(
         mockserver_info,
-        nofail=pytestconfig.option.mockserver_nofail,
-        mockserver_debug=pytestconfig.option.mockserver_debug,
-        tracing_enabled=pytestconfig.getini('mockserver-tracing-enabled'),
-        trace_id_header=pytestconfig.getini('mockserver-trace-id-header'),
-        span_id_header=pytestconfig.getini('mockserver-span-id-header'),
-        http_proxy_enabled=pytestconfig.getini('mockserver-http-proxy-enabled'),
+        nofail=mockserver_config.nofail,
+        mockserver_debug=mockserver_config.debug,
+        tracing_enabled=mockserver_config.tracing_enabled,
+        trace_id_header=mockserver_config.trace_id_header,
+        span_id_header=mockserver_config.span_id_header,
+        http_proxy_enabled=mockserver_config.http_proxy_enabled,
     )
 
 
@@ -629,72 +698,70 @@ def _create_web_server(server: Server, loop) -> aiohttp.web.Server:
     )
 
 
+def _create_mockserver_socket(
+    socket_path=None,
+    host='localhost',
+    port=0,
+    https=False,
+):
+    if socket_path is None:
+        sockets = net_utils.bind_socket_multiple(host, port)
+    else:
+        sockets = [net_utils.bind_unix_socket(socket_path)]
+    assert sockets
+    for sock in sockets:
+        sock.setblocking(False)
+    info = _create_mockserver_info(
+        sockets[0],
+        socket_path=socket_path,
+        host=host,
+        https=https,
+    )
+    return classes.MockserverSocket(sockets=sockets, info=info)
+
+
 @contextlib.asynccontextmanager
-async def create_server(
-    *,
-    host: str,
-    port: int,
-    pytestconfig,
-    ssl_info: classes.SslCertInfo | None,
+async def _create_server_from_socket(
+    mockserver_socket: classes.MockserverSocket,
+    mockserver_config: classes.MockserverConfig,
+    ssl_cert: classes.SslCertInfo | None = None,
     loop=None,
 ) -> typing.AsyncGenerator[Server, None]:
-    if loop is None:
-        loop = asyncio.get_running_loop()
-    ssl_context: ssl.SSLContext | None
-    if ssl_info:
-        ssl_context = _create_ssl_context(ssl_info)
+    if ssl_cert:
+        ssl_context = _create_ssl_context(ssl_cert)
     else:
         ssl_context = None
 
-    async with net_utils.create_tcp_server(
-        lambda: web_server(),
-        host=host,
-        port=port,
-        ssl=ssl_context,
-    ) as aio_server:
-        mockserver_info = _create_mockserver_info(
-            aio_server.sockets[0],
-            host,
-            ssl_info,
-        )
-        server = _create_server_obj(mockserver_info, pytestconfig)
-        web_server = _create_web_server(server, loop)
-        yield server
-
-
-@contextlib.asynccontextmanager
-async def create_unix_server(
-    socket_path: pathlib.Path,
-    *,
-    pytestconfig,
-    loop=None,
-) -> typing.AsyncGenerator[Server, None]:
     if loop is None:
         loop = asyncio.get_running_loop()
-    async with net_utils.create_unix_server(
-        lambda: web_server(),
-        path=socket_path,
-    ):
-        mockserver_info = _create_unix_mockserver_info(socket_path)
-        server = _create_server_obj(mockserver_info, pytestconfig)
-        web_server = _create_web_server(server, loop)
+
+    server = _create_server_obj(mockserver_socket.info, mockserver_config)
+    web_server = _create_web_server(server, loop)
+
+    async with net_utils.create_server_multiple(
+        web_server,
+        sockets=mockserver_socket.sockets,
+        ssl=ssl_context,
+    ) as aio_server:
         yield server
 
 
 def _create_mockserver_info(
     sock,
+    socket_path,
     host: str,
-    ssl_info: classes.SslCertInfo | None,
+    https: bool = False,
 ) -> classes.MockserverInfo:
-    sock_address = sock.getsockname()
-    schema = 'https' if ssl_info else 'http'
-    port = sock_address[1]
-    base_url = '%s://%s:%d/' % (schema, host, port)
+    if socket_path:
+        return _create_unix_mockserver_info(socket_path)
+    port = sock.getsockname()[1]
+    schema = 'https' if https else 'http'
+    base_url = f'{schema}://{host}:{port}/'
     return classes.MockserverInfo(
         host=host,
         port=port,
         base_url=base_url,
-        ssl=ssl_info,
+        https=https,
     )
 
 
@@ -704,10 +771,10 @@ def _create_unix_mockserver_info(
     return classes.MockserverInfo(
         socket_path=socket_path,
         # use localhost to avoid aiohttp complains on invalid url
-        base_url='http://localhost',
-        host=None,
-        port=None,
-        ssl=None,
+        base_url='http://localhost/',
+        host='localhost',
+        port=80,
+        https=False,
     )
 
 

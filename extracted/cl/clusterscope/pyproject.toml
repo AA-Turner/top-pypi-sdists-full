@@ -12,14 +12,17 @@ build-backend = "setuptools.build_meta"
 name = "clusterscope"
 dynamic = ["version"]
 readme = "README.md"
-description = "clusterscope is a python library to extract core information from HPC Clusters"
-requires-python = ">=3.9"
+description = "Clusterscope is a CLI and python library to extract information from HPC Clusters and Jobs."
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
   {name = "Lucca Bertoncini", email = "luccab@meta.com"},
   {name = "Kalyan Saladi", email = "skalyan@meta.com"}
 ]
-dependencies = []
+dependencies = [
+    "click>=8.0.0, !=8.3.0",
+    "click-option-group",
+]
 
 [project.scripts]
 cscope = "clusterscope.cli:main"
@@ -33,6 +36,7 @@ dev = [
   "mypy",
   "pre-commit",
   "build",
+  "types-click",
 ]
 
 [tool.setuptools]

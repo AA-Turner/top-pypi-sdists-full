@@ -41,41 +41,67 @@ class V1Message(object):
                             and the value is json key in definition.
     """
     swagger_types = {
+        'account_id': 'str',
         'assistant_id': 'str',
         'author': 'V1MessageAuthor',
         'completion_tokens': 'str',
-        'content': 'V1MessageContent',
+        'content': 'list[V1MessageContent]',
         'conversation_id': 'str',
         'created_at': 'datetime',
+        'executable': 'bool',
         'id': 'str',
+        'internal_message': 'bool',
+        'like': 'V1LikeStatus',
+        'metadata': 'dict(str, str)',
         'model': 'str',
-        'prompt_tokens': 'str'
+        'parent_conversation_id': 'str',
+        'parent_message_id': 'str',
+        'prompt_tokens': 'str',
+        'throughput': 'float'
     }
 
     attribute_map = {
+        'account_id': 'accountId',
         'assistant_id': 'assistantId',
         'author': 'author',
         'completion_tokens': 'completionTokens',
         'content': 'content',
         'conversation_id': 'conversationId',
         'created_at': 'createdAt',
+        'executable': 'executable',
         'id': 'id',
+        'internal_message': 'internalMessage',
+        'like': 'like',
+        'metadata': 'metadata',
         'model': 'model',
-        'prompt_tokens': 'promptTokens'
+        'parent_conversation_id': 'parentConversationId',
+        'parent_message_id': 'parentMessageId',
+        'prompt_tokens': 'promptTokens',
+        'throughput': 'throughput'
     }
 
-    def __init__(self, assistant_id: 'str' =None, author: 'V1MessageAuthor' =None, completion_tokens: 'str' =None, content: 'V1MessageContent' =None, conversation_id: 'str' =None, created_at: 'datetime' =None, id: 'str' =None, model: 'str' =None, prompt_tokens: 'str' =None):  # noqa: E501
+    def __init__(self, account_id: 'str' =None, assistant_id: 'str' =None, author: 'V1MessageAuthor' =None, completion_tokens: 'str' =None, content: 'list[V1MessageContent]' =None, conversation_id: 'str' =None, created_at: 'datetime' =None, executable: 'bool' =None, id: 'str' =None, internal_message: 'bool' =None, like: 'V1LikeStatus' =None, metadata: 'dict(str, str)' =None, model: 'str' =None, parent_conversation_id: 'str' =None, parent_message_id: 'str' =None, prompt_tokens: 'str' =None, throughput: 'float' =None):  # noqa: E501
         """V1Message - a model defined in Swagger"""  # noqa: E501
+        self._account_id = None
         self._assistant_id = None
         self._author = None
         self._completion_tokens = None
         self._content = None
         self._conversation_id = None
         self._created_at = None
+        self._executable = None
         self._id = None
+        self._internal_message = None
+        self._like = None
+        self._metadata = None
         self._model = None
+        self._parent_conversation_id = None
+        self._parent_message_id = None
         self._prompt_tokens = None
+        self._throughput = None
         self.discriminator = None
+        if account_id is not None:
+            self.account_id = account_id
         if assistant_id is not None:
             self.assistant_id = assistant_id
         if author is not None:
@@ -88,12 +114,47 @@ class V1Message(object):
             self.conversation_id = conversation_id
         if created_at is not None:
             self.created_at = created_at
+        if executable is not None:
+            self.executable = executable
         if id is not None:
             self.id = id
+        if internal_message is not None:
+            self.internal_message = internal_message
+        if like is not None:
+            self.like = like
+        if metadata is not None:
+            self.metadata = metadata
         if model is not None:
             self.model = model
+        if parent_conversation_id is not None:
+            self.parent_conversation_id = parent_conversation_id
+        if parent_message_id is not None:
+            self.parent_message_id = parent_message_id
         if prompt_tokens is not None:
             self.prompt_tokens = prompt_tokens
+        if throughput is not None:
+            self.throughput = throughput
+
+    @property
+    def account_id(self) -> 'str':
+        """Gets the account_id of this V1Message.  # noqa: E501
+
+
+        :return: The account_id of this V1Message.  # noqa: E501
+        :rtype: str
+        """
+        return self._account_id
+
+    @account_id.setter
+    def account_id(self, account_id: 'str'):
+        """Sets the account_id of this V1Message.
+
+
+        :param account_id: The account_id of this V1Message.  # noqa: E501
+        :type: str
+        """
+
+        self._account_id = account_id
 
     @property
     def assistant_id(self) -> 'str':
@@ -159,22 +220,22 @@ class V1Message(object):
         self._completion_tokens = completion_tokens
 
     @property
-    def content(self) -> 'V1MessageContent':
+    def content(self) -> 'list[V1MessageContent]':
         """Gets the content of this V1Message.  # noqa: E501
 
 
         :return: The content of this V1Message.  # noqa: E501
-        :rtype: V1MessageContent
+        :rtype: list[V1MessageContent]
         """
         return self._content
 
     @content.setter
-    def content(self, content: 'V1MessageContent'):
+    def content(self, content: 'list[V1MessageContent]'):
         """Sets the content of this V1Message.
 
 
         :param content: The content of this V1Message.  # noqa: E501
-        :type: V1MessageContent
+        :type: list[V1MessageContent]
         """
 
         self._content = content
@@ -222,6 +283,27 @@ class V1Message(object):
         self._created_at = created_at
 
     @property
+    def executable(self) -> 'bool':
+        """Gets the executable of this V1Message.  # noqa: E501
+
+
+        :return: The executable of this V1Message.  # noqa: E501
+        :rtype: bool
+        """
+        return self._executable
+
+    @executable.setter
+    def executable(self, executable: 'bool'):
+        """Sets the executable of this V1Message.
+
+
+        :param executable: The executable of this V1Message.  # noqa: E501
+        :type: bool
+        """
+
+        self._executable = executable
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1Message.  # noqa: E501
 
@@ -241,6 +323,69 @@ class V1Message(object):
         """
 
         self._id = id
+
+    @property
+    def internal_message(self) -> 'bool':
+        """Gets the internal_message of this V1Message.  # noqa: E501
+
+
+        :return: The internal_message of this V1Message.  # noqa: E501
+        :rtype: bool
+        """
+        return self._internal_message
+
+    @internal_message.setter
+    def internal_message(self, internal_message: 'bool'):
+        """Sets the internal_message of this V1Message.
+
+
+        :param internal_message: The internal_message of this V1Message.  # noqa: E501
+        :type: bool
+        """
+
+        self._internal_message = internal_message
+
+    @property
+    def like(self) -> 'V1LikeStatus':
+        """Gets the like of this V1Message.  # noqa: E501
+
+
+        :return: The like of this V1Message.  # noqa: E501
+        :rtype: V1LikeStatus
+        """
+        return self._like
+
+    @like.setter
+    def like(self, like: 'V1LikeStatus'):
+        """Sets the like of this V1Message.
+
+
+        :param like: The like of this V1Message.  # noqa: E501
+        :type: V1LikeStatus
+        """
+
+        self._like = like
+
+    @property
+    def metadata(self) -> 'dict(str, str)':
+        """Gets the metadata of this V1Message.  # noqa: E501
+
+
+        :return: The metadata of this V1Message.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, metadata: 'dict(str, str)'):
+        """Sets the metadata of this V1Message.
+
+
+        :param metadata: The metadata of this V1Message.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._metadata = metadata
 
     @property
     def model(self) -> 'str':
@@ -264,6 +409,48 @@ class V1Message(object):
         self._model = model
 
     @property
+    def parent_conversation_id(self) -> 'str':
+        """Gets the parent_conversation_id of this V1Message.  # noqa: E501
+
+
+        :return: The parent_conversation_id of this V1Message.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_conversation_id
+
+    @parent_conversation_id.setter
+    def parent_conversation_id(self, parent_conversation_id: 'str'):
+        """Sets the parent_conversation_id of this V1Message.
+
+
+        :param parent_conversation_id: The parent_conversation_id of this V1Message.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_conversation_id = parent_conversation_id
+
+    @property
+    def parent_message_id(self) -> 'str':
+        """Gets the parent_message_id of this V1Message.  # noqa: E501
+
+
+        :return: The parent_message_id of this V1Message.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_message_id
+
+    @parent_message_id.setter
+    def parent_message_id(self, parent_message_id: 'str'):
+        """Sets the parent_message_id of this V1Message.
+
+
+        :param parent_message_id: The parent_message_id of this V1Message.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_message_id = parent_message_id
+
+    @property
     def prompt_tokens(self) -> 'str':
         """Gets the prompt_tokens of this V1Message.  # noqa: E501
 
@@ -283,6 +470,27 @@ class V1Message(object):
         """
 
         self._prompt_tokens = prompt_tokens
+
+    @property
+    def throughput(self) -> 'float':
+        """Gets the throughput of this V1Message.  # noqa: E501
+
+
+        :return: The throughput of this V1Message.  # noqa: E501
+        :rtype: float
+        """
+        return self._throughput
+
+    @throughput.setter
+    def throughput(self, throughput: 'float'):
+        """Sets the throughput of this V1Message.
+
+
+        :param throughput: The throughput of this V1Message.  # noqa: E501
+        :type: float
+        """
+
+        self._throughput = throughput
 
     def to_dict(self) -> dict:
         """Returns the model properties as a dict"""

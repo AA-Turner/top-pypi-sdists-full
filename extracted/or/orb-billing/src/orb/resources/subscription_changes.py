@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Union, Optional
+from datetime import date
+from typing_extensions import Literal
 
 import httpx
 
 from .. import _legacy_response
-from ..types import subscription_change_apply_params
+from ..types import subscription_change_list_params, subscription_change_apply_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
-from .._base_client import make_request_options
+from ..pagination import SyncPage, AsyncPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.subscription_change_list_response import SubscriptionChangeListResponse
 from ..types.subscription_change_apply_response import SubscriptionChangeApplyResponse
 from ..types.subscription_change_cancel_response import SubscriptionChangeCancelResponse
 from ..types.subscription_change_retrieve_response import SubscriptionChangeRetrieveResponse
@@ -84,11 +88,72 @@ class SubscriptionChanges(SyncAPIResource):
             cast_to=SubscriptionChangeRetrieveResponse,
         )
 
+    def list(
+        self,
+        *,
+        cursor: Optional[str] | Omit = omit,
+        customer_id: Optional[str] | Omit = omit,
+        external_customer_id: Optional[str] | Omit = omit,
+        limit: int | Omit = omit,
+        status: Optional[Literal["pending", "applied", "cancelled"]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncPage[SubscriptionChangeListResponse]:
+        """This endpoint returns a list of pending subscription changes for a customer.
+
+        Use
+        the [Fetch Subscription Change](fetch-subscription-change) endpoint to retrieve
+        the expected subscription state after the pending change is applied.
+
+        Args:
+          cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
+              from the initial request.
+
+          limit: The number of items to fetch. Defaults to 20.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/subscription_changes",
+            page=SyncPage[SubscriptionChangeListResponse],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "customer_id": customer_id,
+                        "external_customer_id": external_customer_id,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    subscription_change_list_params.SubscriptionChangeListParams,
+                ),
+            ),
+            model=SubscriptionChangeListResponse,
+        )
+
     def apply(
         self,
         subscription_change_id: str,
         *,
         description: Optional[str] | Omit = omit,
+        mark_as_paid: Optional[bool] | Omit = omit,
+        payment_external_id: Optional[str] | Omit = omit,
+        payment_notes: Optional[str] | Omit = omit,
+        payment_received_date: Union[str, date, None] | Omit = omit,
         previously_collected_amount: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -107,7 +172,19 @@ class SubscriptionChanges(SyncAPIResource):
         Args:
           description: Description to apply to the balance transaction representing this credit.
 
-          previously_collected_amount: Amount already collected to apply to the customer's balance.
+          mark_as_paid: Mark all pending invoices that are payable as paid. If amount is also provided,
+              mark as paid and credit the difference to the customer's balance.
+
+          payment_external_id: An optional external ID to associate with the payment. Only applicable when
+              mark_as_paid is true.
+
+          payment_notes: Optional notes about the payment. Only applicable when mark_as_paid is true.
+
+          payment_received_date: A date string to specify the date the payment was received. Only applicable when
+              mark_as_paid is true. If not provided, defaults to the current date.
+
+          previously_collected_amount: Amount already collected to apply to the customer's balance. If mark_as_paid is
+              also provided, credit the difference to the customer's balance.
 
           extra_headers: Send extra headers
 
@@ -128,6 +205,10 @@ class SubscriptionChanges(SyncAPIResource):
             body=maybe_transform(
                 {
                     "description": description,
+                    "mark_as_paid": mark_as_paid,
+                    "payment_external_id": payment_external_id,
+                    "payment_notes": payment_notes,
+                    "payment_received_date": payment_received_date,
                     "previously_collected_amount": previously_collected_amount,
                 },
                 subscription_change_apply_params.SubscriptionChangeApplyParams,
@@ -251,11 +332,72 @@ class AsyncSubscriptionChanges(AsyncAPIResource):
             cast_to=SubscriptionChangeRetrieveResponse,
         )
 
+    def list(
+        self,
+        *,
+        cursor: Optional[str] | Omit = omit,
+        customer_id: Optional[str] | Omit = omit,
+        external_customer_id: Optional[str] | Omit = omit,
+        limit: int | Omit = omit,
+        status: Optional[Literal["pending", "applied", "cancelled"]] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[SubscriptionChangeListResponse, AsyncPage[SubscriptionChangeListResponse]]:
+        """This endpoint returns a list of pending subscription changes for a customer.
+
+        Use
+        the [Fetch Subscription Change](fetch-subscription-change) endpoint to retrieve
+        the expected subscription state after the pending change is applied.
+
+        Args:
+          cursor: Cursor for pagination. This can be populated by the `next_cursor` value returned
+              from the initial request.
+
+          limit: The number of items to fetch. Defaults to 20.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/subscription_changes",
+            page=AsyncPage[SubscriptionChangeListResponse],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "cursor": cursor,
+                        "customer_id": customer_id,
+                        "external_customer_id": external_customer_id,
+                        "limit": limit,
+                        "status": status,
+                    },
+                    subscription_change_list_params.SubscriptionChangeListParams,
+                ),
+            ),
+            model=SubscriptionChangeListResponse,
+        )
+
     async def apply(
         self,
         subscription_change_id: str,
         *,
         description: Optional[str] | Omit = omit,
+        mark_as_paid: Optional[bool] | Omit = omit,
+        payment_external_id: Optional[str] | Omit = omit,
+        payment_notes: Optional[str] | Omit = omit,
+        payment_received_date: Union[str, date, None] | Omit = omit,
         previously_collected_amount: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -274,7 +416,19 @@ class AsyncSubscriptionChanges(AsyncAPIResource):
         Args:
           description: Description to apply to the balance transaction representing this credit.
 
-          previously_collected_amount: Amount already collected to apply to the customer's balance.
+          mark_as_paid: Mark all pending invoices that are payable as paid. If amount is also provided,
+              mark as paid and credit the difference to the customer's balance.
+
+          payment_external_id: An optional external ID to associate with the payment. Only applicable when
+              mark_as_paid is true.
+
+          payment_notes: Optional notes about the payment. Only applicable when mark_as_paid is true.
+
+          payment_received_date: A date string to specify the date the payment was received. Only applicable when
+              mark_as_paid is true. If not provided, defaults to the current date.
+
+          previously_collected_amount: Amount already collected to apply to the customer's balance. If mark_as_paid is
+              also provided, credit the difference to the customer's balance.
 
           extra_headers: Send extra headers
 
@@ -295,6 +449,10 @@ class AsyncSubscriptionChanges(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "description": description,
+                    "mark_as_paid": mark_as_paid,
+                    "payment_external_id": payment_external_id,
+                    "payment_notes": payment_notes,
+                    "payment_received_date": payment_received_date,
                     "previously_collected_amount": previously_collected_amount,
                 },
                 subscription_change_apply_params.SubscriptionChangeApplyParams,
@@ -362,6 +520,9 @@ class SubscriptionChangesWithRawResponse:
         self.retrieve = _legacy_response.to_raw_response_wrapper(
             subscription_changes.retrieve,
         )
+        self.list = _legacy_response.to_raw_response_wrapper(
+            subscription_changes.list,
+        )
         self.apply = _legacy_response.to_raw_response_wrapper(
             subscription_changes.apply,
         )
@@ -376,6 +537,9 @@ class AsyncSubscriptionChangesWithRawResponse:
 
         self.retrieve = _legacy_response.async_to_raw_response_wrapper(
             subscription_changes.retrieve,
+        )
+        self.list = _legacy_response.async_to_raw_response_wrapper(
+            subscription_changes.list,
         )
         self.apply = _legacy_response.async_to_raw_response_wrapper(
             subscription_changes.apply,
@@ -392,6 +556,9 @@ class SubscriptionChangesWithStreamingResponse:
         self.retrieve = to_streamed_response_wrapper(
             subscription_changes.retrieve,
         )
+        self.list = to_streamed_response_wrapper(
+            subscription_changes.list,
+        )
         self.apply = to_streamed_response_wrapper(
             subscription_changes.apply,
         )
@@ -406,6 +573,9 @@ class AsyncSubscriptionChangesWithStreamingResponse:
 
         self.retrieve = async_to_streamed_response_wrapper(
             subscription_changes.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            subscription_changes.list,
         )
         self.apply = async_to_streamed_response_wrapper(
             subscription_changes.apply,

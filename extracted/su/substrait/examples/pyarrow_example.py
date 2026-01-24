@@ -8,8 +8,9 @@
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.substrait as pa_substrait
+
 import substrait
-from substrait.builders.plan import project, read_named_table
+from substrait.builders.plan import read_named_table, select
 
 arrow_schema = pa.schema([pa.field("x", pa.int32()), pa.field("y", pa.int32())])
 
@@ -24,5 +25,5 @@ substrait_expr = pa_substrait.serialize_expressions(
 pysubstrait_expr = substrait.proto.ExtendedExpression.FromString(bytes(substrait_expr))
 
 table = read_named_table("example", substrait_schema)
-table = project(table, expressions=[pysubstrait_expr])(None)
+table = select(table, expressions=[pysubstrait_expr])(None)
 print(table)

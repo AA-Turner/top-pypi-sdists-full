@@ -18,7 +18,7 @@ from setuptools import setup
 from setuptools import find_packages
 from setuptools import Extension
 
-version = '3.11.4'
+version = '3.12.1'
 
 # If CXX is defined in the environment, it will be used to link the .so
 # but setuptools will be confused if it is made of several words like 'ccache g++'
@@ -46,14 +46,14 @@ if 'CC' in os.environ and os.environ['CC'].strip().find(' ') >= 0:
 # Switches
 # ---------------------------------------------------------------------------
 
-is_standalone_build = not os.path.exists('/home/even/gdal/3.11/build/swig/python')
+is_standalone_build = not os.path.exists('/home/runner/work/gdal/gdal/python_pkgs/swig/python')
 
 if is_standalone_build:
     include_dirs = []
     library_dirs = []
 else:
-    include_dirs = ['/home/even/gdal/3.11/build/port', '/home/even/gdal/3.11/port', '/home/even/gdal/3.11/build/gcore', '/home/even/gdal/3.11/gcore', '/home/even/gdal/3.11/alg', '/home/even/gdal/3.11/ogr/', '/home/even/gdal/3.11/ogr/ogrsf_frmts', '/home/even/gdal/3.11/gnm', '/home/even/gdal/3.11/apps']
-    library_dirs = ['/home/even/gdal/3.11/build']
+    include_dirs = ['/home/runner/work/gdal/gdal/python_pkgs/port', '/home/runner/work/gdal/gdal/port', '/home/runner/work/gdal/gdal/python_pkgs/gcore', '/home/runner/work/gdal/gdal/gcore', '/home/runner/work/gdal/gdal/alg', '/home/runner/work/gdal/gdal/ogr/', '/home/runner/work/gdal/gdal/ogr/ogrsf_frmts', '/home/runner/work/gdal/gdal/gnm', '/home/runner/work/gdal/gdal/apps']
+    library_dirs = ['/home/runner/work/gdal/gdal/python_pkgs']
 libraries = ['gdal']
 
 
@@ -292,9 +292,13 @@ class gdal_ext(build_ext):
                 if pos > 0:
                     library_version = library_version[0:pos]
             library_version_num = [int(x) for x in library_version.split('.')]
-            gdal_python_version = [int(x) for x in version.split('.')]
+            bindings_version = version
+            pos = bindings_version.find(".post")
+            if pos > 0:
+                bindings_version = bindings_version[0:pos]
+            gdal_python_version = [int(x) for x in bindings_version.split('.')]
             if library_version_num < gdal_python_version:
-                raise Exception(f"Python bindings of GDAL {version} require at least libgdal {version}, but {library_version} was found")
+                raise Exception(f"Python bindings of GDAL {bindings_version} require at least libgdal {bindings_version}, but {library_version} was found")
         except gdal_config_error:
             pass
 
@@ -395,11 +399,21 @@ ext_modules = [gdal_module,
                ogr_module]
 
 GNM_ENABLED = True
+
+sources = ['extensions/gdal_wrap.cpp', 'extensions/gdalconst_wrap.c', 'extensions/osr_wrap.cpp', 'extensions/ogr_wrap.cpp']
+
 if GNM_ENABLED:
+    sources.append('extensions/gnm_wrap.cpp')
     ext_modules.append(gnm_module)
 
 if HAVE_NUMPY:
+    sources.append('extensions/gdal_array_wrap.cpp')
     ext_modules.append(array_module)
+
+if os.environ.get("GDAL_PYTHON_CHECK_SOURCE_FILES", "YES") == "YES":
+    for filename in sources:
+        if not os.path.exists(filename):
+            raise FileNotFoundError(f"Missing source file {filename}")
 
 utils_package_root = 'gdal-utils'   # path for gdal-utils sources
 packages = find_packages(utils_package_root)

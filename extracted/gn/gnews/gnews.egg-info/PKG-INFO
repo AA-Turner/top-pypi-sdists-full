@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gnews
-Version: 0.4.2
+Version: 0.4.3
 Summary: Provide an API to search for articles on Google News and returns a usable JSON response.
 Home-page: https://github.com/ranahaani/GNews/
 Author: Muhammad Abdullah
@@ -201,6 +201,22 @@ print(pakistan_news[0])
  },
  ...]
 ```
+
+### 📘 Interactive Tutorial 
+
+We have created a step-by-step **[ jupyter Notebook tutorial ]** that demonstrates:
+
+- Basic usage and setup  
+- Filtering news (by topic, location, domain, date range, etc.)
+- Exporting results (CSV, JSON)  
+- Real-world analysis: **Sentiment Analysis on news headlines**
+- Advanced usage & best practices  
+- Interactive examples you can run line-by-line
+
+👉 **Open the tutorial here:**  
+[examples/tutorial.ipynb](./examples/tutorial.ipynb)
+
+This is the best way to learn GNews hands-on.
 
 ### Get top news
 

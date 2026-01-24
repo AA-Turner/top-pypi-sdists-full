@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: fakturace
+Version: 0.7.2
+Summary: Simple invoicing and billing tool
+Home-page: https://cihar.com/
+Download-URL: https://github.com/nijel/fakturace
+Author: Michal Čihař
+Author-email: michal@cihar.com
+License: GPLv3+
+Project-URL: Issue Tracker, https://github.com/nijel/fakturace/issues
+Keywords: billing invoice
+Platform: any
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Utilities
+Requires-Python: >=3.11
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: Django
+Requires-Dist: django-vies>=6.1.0
+Requires-Dist: filelock
+Requires-Dist: jinja2
+
+Fakturace
+=========
+
+Jednoduché generování faktur:
+
+- Šablony v LaTeXu
+- Data v ini souborech
+- Všechno ukládané v Gitu
+- Python 3 API
+- Příkazová řádka

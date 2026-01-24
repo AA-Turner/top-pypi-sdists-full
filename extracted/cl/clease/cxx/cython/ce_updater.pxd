@@ -28,7 +28,7 @@ cdef extern from "ce_updater.hpp":
 
       void set_eci(object eci)
 
-      object get_singlets()
+      vector[double] get_singlets()
 
       const vector[string]& get_symbols() const
 

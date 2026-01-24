@@ -3,7 +3,7 @@ use crate::rule_config_serde::RuleConfig;
 /// Rule MD010: No tabs
 ///
 /// See [docs/md010.md](../../docs/md010.md) for full documentation, configuration, and examples.
-use crate::utils::range_utils::{LineIndex, calculate_match_range};
+use crate::utils::range_utils::calculate_match_range;
 use crate::utils::regex_cache::{HTML_COMMENT_END, HTML_COMMENT_START};
 
 mod md010_config;
@@ -20,11 +20,13 @@ pub struct MD010NoHardTabs {
 impl MD010NoHardTabs {
     pub fn new(spaces_per_tab: usize) -> Self {
         Self {
-            config: MD010Config { spaces_per_tab },
+            config: MD010Config {
+                spaces_per_tab: crate::types::PositiveUsize::from_const(spaces_per_tab),
+            },
         }
     }
 
-    pub fn from_config_struct(config: MD010Config) -> Self {
+    pub const fn from_config_struct(config: MD010Config) -> Self {
         Self { config }
     }
 
@@ -71,38 +73,71 @@ impl MD010NoHardTabs {
         count
     }
 
-    fn find_tab_positions(line: &str) -> Vec<usize> {
-        line.chars()
-            .enumerate()
-            .filter(|(_, c)| *c == '\t')
-            .map(|(i, _)| i)
-            .collect()
-    }
-
-    fn group_consecutive_tabs(tab_positions: &[usize]) -> Vec<(usize, usize)> {
-        if tab_positions.is_empty() {
-            return Vec::new();
-        }
-
+    fn find_and_group_tabs(line: &str) -> Vec<(usize, usize)> {
         let mut groups = Vec::new();
-        let mut start = tab_positions[0];
-        let mut end = tab_positions[0];
+        let mut current_group_start: Option<usize> = None;
+        let mut last_tab_pos = 0;
 
-        for &pos in tab_positions.iter().skip(1) {
-            if pos == end + 1 {
-                // Consecutive tab
-                end = pos;
-            } else {
-                // Gap found, save current group and start new one
-                groups.push((start, end + 1)); // end + 1 for exclusive end
-                start = pos;
-                end = pos;
+        for (i, c) in line.chars().enumerate() {
+            if c == '\t' {
+                if let Some(start) = current_group_start {
+                    // We're in a group - check if this tab is consecutive
+                    if i == last_tab_pos + 1 {
+                        // Consecutive tab, continue the group
+                        last_tab_pos = i;
+                    } else {
+                        // Gap found, save current group and start new one
+                        groups.push((start, last_tab_pos + 1));
+                        current_group_start = Some(i);
+                        last_tab_pos = i;
+                    }
+                } else {
+                    // Start a new group
+                    current_group_start = Some(i);
+                    last_tab_pos = i;
+                }
             }
         }
 
-        // Add the last group
-        groups.push((start, end + 1));
+        // Add the last group if there is one
+        if let Some(start) = current_group_start {
+            groups.push((start, last_tab_pos + 1));
+        }
+
         groups
+    }
+
+    /// Find lines that are inside fenced code blocks (``` or ~~~)
+    /// Returns a Vec<bool> where index i indicates if line i is inside a fenced code block
+    fn find_fenced_code_block_lines(lines: &[&str]) -> Vec<bool> {
+        let mut in_fenced_block = false;
+        let mut fence_char: Option<char> = None;
+        let mut result = vec![false; lines.len()];
+
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim_start();
+
+            if !in_fenced_block {
+                // Check for opening fence (``` or ~~~)
+                if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+                    in_fenced_block = true;
+                    fence_char = Some(trimmed.chars().next().unwrap());
+                    result[i] = true; // Mark the fence line itself as "in fenced block"
+                }
+            } else {
+                result[i] = true;
+                // Check for closing fence (must match opening fence char)
+                if let Some(fc) = fence_char {
+                    let fence_str: String = std::iter::repeat_n(fc, 3).collect();
+                    if trimmed.starts_with(&fence_str) && trimmed.trim() == fence_str {
+                        in_fenced_block = false;
+                        fence_char = None;
+                    }
+                }
+            }
+        }
+
+        result
     }
 }
 
@@ -117,7 +152,7 @@ impl Rule for MD010NoHardTabs {
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
+        let _line_index = &ctx.line_index;
 
         let mut warnings = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
@@ -125,26 +160,30 @@ impl Rule for MD010NoHardTabs {
         // Pre-compute which lines are part of HTML comments
         let html_comment_lines = Self::find_html_comment_lines(&lines);
 
+        // Pre-compute which lines are inside fenced code blocks (``` or ~~~)
+        // We only skip fenced code blocks - code has its own formatting rules
+        // (e.g., Makefiles require tabs, Go uses tabs by convention)
+        // We still flag tab-indented content because it might be accidental
+        let fenced_code_block_lines = Self::find_fenced_code_block_lines(&lines);
+
         for (line_num, &line) in lines.iter().enumerate() {
             // Skip if in HTML comment
             if html_comment_lines[line_num] {
                 continue;
             }
 
-            // Always skip code blocks
-            if let Some(line_info) = ctx.line_info(line_num + 1)
-                && line_info.in_code_block
-            {
+            // Skip if in fenced code block - code has its own formatting rules
+            if fenced_code_block_lines[line_num] {
                 continue;
             }
 
-            let tab_positions = Self::find_tab_positions(line);
-            if tab_positions.is_empty() {
+            // Process tabs directly without intermediate collection
+            let tab_groups = Self::find_and_group_tabs(line);
+            if tab_groups.is_empty() {
                 continue;
             }
 
             let leading_tabs = Self::count_leading_tabs(line);
-            let tab_groups = Self::group_consecutive_tabs(&tab_positions);
 
             // Generate warning for each group of consecutive tabs
             for (start_pos, end_pos) in tab_groups {
@@ -163,12 +202,15 @@ impl Rule for MD010NoHardTabs {
                     }
                 } else if is_leading {
                     if tab_count == 1 {
-                        format!("Found leading tab, use {} spaces instead", self.config.spaces_per_tab)
+                        format!(
+                            "Found leading tab, use {} spaces instead",
+                            self.config.spaces_per_tab.get()
+                        )
                     } else {
                         format!(
                             "Found {} leading tabs, use {} spaces instead",
                             tab_count,
-                            tab_count * self.config.spaces_per_tab
+                            tab_count * self.config.spaces_per_tab.get()
                         )
                     }
                 } else if tab_count == 1 {
@@ -178,7 +220,7 @@ impl Rule for MD010NoHardTabs {
                 };
 
                 warnings.push(LintWarning {
-                    rule_name: Some(self.name()),
+                    rule_name: Some(self.name().to_string()),
                     line: start_line,
                     column: start_col,
                     end_line,
@@ -187,7 +229,7 @@ impl Rule for MD010NoHardTabs {
                     severity: Severity::Warning,
                     fix: Some(Fix {
                         range: _line_index.line_col_to_byte_range_with_length(line_num + 1, start_pos + 1, tab_count),
-                        replacement: " ".repeat(tab_count * self.config.spaces_per_tab),
+                        replacement: " ".repeat(tab_count * self.config.spaces_per_tab.get()),
                     }),
                 });
             }
@@ -198,7 +240,6 @@ impl Rule for MD010NoHardTabs {
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
 
         let mut result = String::new();
         let lines: Vec<&str> = content.lines().collect();
@@ -206,24 +247,22 @@ impl Rule for MD010NoHardTabs {
         // Pre-compute which lines are part of HTML comments
         let html_comment_lines = Self::find_html_comment_lines(&lines);
 
-        // Pre-compute line positions for code block detection
-        let mut line_positions = Vec::with_capacity(lines.len());
-        let mut pos = 0;
-        for line in &lines {
-            line_positions.push(pos);
-            pos += line.len() + 1; // +1 for newline
-        }
+        // Pre-compute which lines are inside fenced code blocks
+        // Only skip fenced code blocks - code has its own formatting rules
+        // (e.g., Makefiles require tabs, Go uses tabs by convention)
+        let fenced_code_block_lines = Self::find_fenced_code_block_lines(&lines);
 
         for (i, line) in lines.iter().enumerate() {
             if html_comment_lines[i] {
                 // Preserve HTML comments as they are
                 result.push_str(line);
-            } else if ctx.is_in_code_block_or_span(line_positions[i]) {
-                // Always preserve code blocks as-is
+            } else if fenced_code_block_lines[i] {
+                // Preserve fenced code blocks as-is - code has its own formatting rules
                 result.push_str(line);
             } else {
-                // Replace tabs with spaces
-                result.push_str(&line.replace('\t', &" ".repeat(self.config.spaces_per_tab)));
+                // Replace tabs with spaces in regular markdown content
+                // (including tab-indented content which might be accidental)
+                result.push_str(&line.replace('\t', &" ".repeat(self.config.spaces_per_tab.get())));
             }
 
             // Add newline if not the last line without a newline
@@ -241,7 +280,7 @@ impl Rule for MD010NoHardTabs {
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
         // Skip if content is empty or has no tabs
-        ctx.content.is_empty() || !ctx.content.contains('\t')
+        ctx.content.is_empty() || !ctx.has_char('\t')
     }
 
     fn category(&self) -> RuleCategory {
@@ -283,7 +322,7 @@ mod tests {
     fn test_no_tabs() {
         let rule = MD010NoHardTabs::default();
         let content = "This is a line\nAnother line\nNo tabs here";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -292,7 +331,7 @@ mod tests {
     fn test_single_tab() {
         let rule = MD010NoHardTabs::default();
         let content = "Line with\ttab";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].line, 1);
@@ -304,7 +343,7 @@ mod tests {
     fn test_leading_tabs() {
         let rule = MD010NoHardTabs::default();
         let content = "\tIndented line\n\t\tDouble indented";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 1);
@@ -317,7 +356,7 @@ mod tests {
     fn test_fix_tabs() {
         let rule = MD010NoHardTabs::default();
         let content = "\tIndented\nNormal\tline\nNo tabs";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "    Indented\nNormal    line\nNo tabs");
     }
@@ -326,7 +365,7 @@ mod tests {
     fn test_custom_spaces_per_tab() {
         let rule = MD010NoHardTabs::new(4);
         let content = "\tIndented";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "    Indented");
     }
@@ -335,9 +374,9 @@ mod tests {
     fn test_code_blocks_always_ignored() {
         let rule = MD010NoHardTabs::default();
         let content = "Normal\tline\n```\nCode\twith\ttab\n```\nAnother\tline";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
-        // Should only flag tabs outside code blocks
+        // Should only flag tabs outside code blocks - code has its own formatting rules
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line, 1);
         assert_eq!(result[1].line, 5);
@@ -350,9 +389,10 @@ mod tests {
     fn test_code_blocks_never_checked() {
         let rule = MD010NoHardTabs::default();
         let content = "```\nCode\twith\ttab\n```";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
-        // Should never flag tabs in code blocks
+        // Should never flag tabs in code blocks - code has its own formatting rules
+        // (e.g., Makefiles require tabs, Go uses tabs by convention)
         assert_eq!(result.len(), 0);
     }
 
@@ -360,7 +400,7 @@ mod tests {
     fn test_html_comments_ignored() {
         let rule = MD010NoHardTabs::default();
         let content = "Normal\tline\n<!-- HTML\twith\ttab -->\nAnother\tline";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // Should not flag tabs in HTML comments
         assert_eq!(result.len(), 2);
@@ -372,7 +412,7 @@ mod tests {
     fn test_multiline_html_comments() {
         let rule = MD010NoHardTabs::default();
         let content = "Before\n<!--\nMultiline\twith\ttabs\ncomment\t-->\nAfter\ttab";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // Should only flag the tab after the comment
         assert_eq!(result.len(), 1);
@@ -383,7 +423,7 @@ mod tests {
     fn test_empty_lines_with_tabs() {
         let rule = MD010NoHardTabs::default();
         let content = "Normal line\n\t\t\n\t\nAnother line";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].message, "Empty line contains 2 tabs");
@@ -394,7 +434,7 @@ mod tests {
     fn test_mixed_tabs_and_spaces() {
         let rule = MD010NoHardTabs::default();
         let content = " \tMixed indentation\n\t Mixed again";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2);
     }
@@ -403,7 +443,7 @@ mod tests {
     fn test_consecutive_tabs() {
         let rule = MD010NoHardTabs::default();
         let content = "Text\t\t\tthree tabs\tand\tanother";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // Should group consecutive tabs
         assert_eq!(result.len(), 3);
@@ -411,27 +451,23 @@ mod tests {
     }
 
     #[test]
-    fn test_tab_positions() {
-        let tabs = MD010NoHardTabs::find_tab_positions("a\tb\tc");
-        assert_eq!(tabs, vec![1, 3]);
+    fn test_find_and_group_tabs() {
+        // Test finding and grouping tabs in one pass
+        let groups = MD010NoHardTabs::find_and_group_tabs("a\tb\tc");
+        assert_eq!(groups, vec![(1, 2), (3, 4)]);
 
-        let tabs = MD010NoHardTabs::find_tab_positions("\t\tabc");
-        assert_eq!(tabs, vec![0, 1]);
+        let groups = MD010NoHardTabs::find_and_group_tabs("\t\tabc");
+        assert_eq!(groups, vec![(0, 2)]);
 
-        let tabs = MD010NoHardTabs::find_tab_positions("no tabs");
-        assert!(tabs.is_empty());
-    }
-
-    #[test]
-    fn test_group_consecutive_tabs() {
-        let groups = MD010NoHardTabs::group_consecutive_tabs(&[0, 1, 2, 5, 6]);
-        assert_eq!(groups, vec![(0, 3), (5, 7)]);
-
-        let groups = MD010NoHardTabs::group_consecutive_tabs(&[1, 3, 5]);
-        assert_eq!(groups, vec![(1, 2), (3, 4), (5, 6)]);
-
-        let groups = MD010NoHardTabs::group_consecutive_tabs(&[]);
+        let groups = MD010NoHardTabs::find_and_group_tabs("no tabs");
         assert!(groups.is_empty());
+
+        // Test with consecutive and non-consecutive tabs
+        let groups = MD010NoHardTabs::find_and_group_tabs("\t\t\ta\t\tb");
+        assert_eq!(groups, vec![(0, 3), (4, 6)]);
+
+        let groups = MD010NoHardTabs::find_and_group_tabs("\ta\tb\tc");
+        assert_eq!(groups, vec![(0, 1), (2, 3), (4, 5)]);
     }
 
     #[test]
@@ -457,13 +493,13 @@ mod tests {
         let custom_spaces = 8;
         let rule = MD010NoHardTabs::new(custom_spaces);
         let content = "\tTab";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "        Tab");
 
         // Code blocks are always ignored
         let content_with_code = "```\n\tTab in code\n```";
-        let ctx = LintContext::new(content_with_code, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content_with_code, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // Tabs in code blocks are never flagged
         assert!(result.is_empty());
@@ -476,7 +512,7 @@ mod tests {
         for i in 0..1000 {
             content.push_str(&format!("Line {i}\twith\ttabs\n"));
         }
-        let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2000);
     }
@@ -485,7 +521,7 @@ mod tests {
     fn test_preserve_content() {
         let rule = MD010NoHardTabs::default();
         let content = "**Bold**\ttext\n*Italic*\ttext\n[Link](url)\ttab";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
         assert_eq!(fixed, "**Bold**    text\n*Italic*    text\n[Link](url)    tab");
     }
@@ -496,13 +532,13 @@ mod tests {
 
         // Tab at end of line
         let content = "Text\t";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
 
         // Only tabs
         let content = "\t\t\t";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].message, "Empty line contains 3 tabs");
@@ -513,10 +549,11 @@ mod tests {
         let rule = MD010NoHardTabs::default();
 
         let content = "Text\twith\ttab\n```makefile\ntarget:\n\tcommand\n\tanother\n```\nMore\ttabs";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
-        // Should always preserve tabs in all code blocks
+        // Tabs in code blocks are preserved - code has its own formatting rules
+        // (e.g., Makefiles require tabs, Go uses tabs by convention)
         let expected = "Text    with    tab\n```makefile\ntarget:\n\tcommand\n\tanother\n```\nMore    tabs";
         assert_eq!(fixed, expected);
     }

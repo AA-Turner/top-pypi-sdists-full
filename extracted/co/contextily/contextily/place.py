@@ -1,10 +1,10 @@
 """Tools for generating maps from a text search."""
+
 import geopy as gp
 import numpy as np
 import matplotlib.pyplot as plt
-import warnings
 
-from .tile import howmany, bounds2raster, bounds2img, _sm2ll, _calculate_zoom
+from .tile import howmany, bounds2raster, bounds2img, _calculate_zoom
 from .plotting import INTERPOLATION, ZOOM, add_attribution
 from . import providers
 from xyzservices import TileProvider
@@ -45,6 +45,9 @@ class Place(object):
         `rasterio` and all bands are loaded into the basemap.
         IMPORTANT: tiles are assumed to be in the Spherical Mercator
         projection (EPSG:3857), unless the `crs` keyword is specified.
+    headers : dict[str, str] or None
+        [Optional. Default: None]
+        Headers to include with requests to the tile server.
     geocoder : geopy.geocoders
         [Optional. Default: geopy.geocoders.Nominatim()] Geocoder method to process `search`
 
@@ -77,12 +80,14 @@ class Place(object):
         path=None,
         zoom_adjust=None,
         source=None,
+        headers: dict[str, str] | None = None,
         geocoder=gp.geocoders.Nominatim(user_agent=_default_user_agent),
     ):
         self.path = path
         if source is None:
             source = providers.OpenStreetMap.HOT
         self.source = source
+        self.headers = headers
         self.zoom_adjust = zoom_adjust
 
         # Get geocoded values
@@ -119,6 +124,8 @@ class Place(object):
         kwargs = {"ll": True}
         if self.source is not None:
             kwargs["source"] = self.source
+        if self.headers is not None:
+            kwargs["headers"] = self.headers
 
         try:
             if isinstance(self.path, str):
@@ -207,65 +214,3 @@ class Place(object):
             self.place, self.n_tiles, self.zoom, self.im.shape[:2]
         )
         return s
-
-
-def plot_map(
-    place, bbox=None, title=None, ax=None, axis_off=True, latlon=True, attribution=None
-):
-    """Plot a map of the given place.
-
-    Parameters
-    ----------
-    place : instance of Place or ndarray
-        The map to plot. If an ndarray, this must be an image corresponding
-        to a map. If an instance of ``Place``, the extent of the image and name
-        will be inferred from the bounding box.
-    ax : instance of matplotlib Axes object or None
-        The axis on which to plot. If None, one will be created.
-    axis_off : bool
-        Whether to turn off the axis border and ticks before plotting.
-    attribution : str
-        [Optional. Default to standard `ATTRIBUTION`] Text to be added at the
-        bottom of the axis.
-
-    Returns
-    -------
-    ax : instance of matplotlib Axes object or None
-        The axis on the map is plotted.
-    """
-    warnings.warn(
-        (
-            "The method `plot_map` is deprecated and will be removed from the"
-            " library in future versions. Please use either `add_basemap` or"
-            " the internal method `Place.plot`"
-        ),
-        DeprecationWarning,
-    )
-    if not isinstance(place, Place):
-        im = place
-        bbox = bbox
-        title = title
-    else:
-        im = place.im
-        if bbox is None:
-            bbox = place.bbox_map
-            if latlon is True:
-                # Convert w, s, e, n into lon/lat
-                w, e, s, n = bbox
-                w, s = _sm2ll(w, s)
-                e, n = _sm2ll(e, n)
-                bbox = [w, e, s, n]
-
-        title = place.place if title is None else title
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(15, 15))
-    ax.imshow(im, extent=bbox)
-    ax.set(xlabel="X", ylabel="Y")
-    if title is not None:
-        ax.set(title=title)
-    if attribution:
-        add_attribution(ax, attribution)
-    if axis_off is True:
-        ax.set_axis_off()
-    return ax

@@ -1,7 +1,8 @@
-# pyright: reportMissingTypeStubs=false, reportAny=false, reportUnusedCallResult=false, reportUnknownMemberType=false, reportUntypedFunctionDecorator=false
+# pyright: reportMissingImports=false
 import argparse
 import decimal
 import os
+import pathlib
 import sys
 import typing as t
 from collections import OrderedDict
@@ -31,6 +32,7 @@ from dbt_osmosis.core.osmosis import (
 from dbt_osmosis.core.osmosis import (
     DbtProjectContext as DbtProject,
 )
+from dbt_osmosis.workbench.components.ai_assistant import AIAssistant
 from dbt_osmosis.workbench.components.dashboard import Dashboard
 from dbt_osmosis.workbench.components.editor import Editor
 from dbt_osmosis.workbench.components.editor import TabName as EditorTab
@@ -110,7 +112,23 @@ def _get_demo_query() -> str:
 
 
 def _parse_args() -> dict[str, t.Any]:
-    """Parse command line arguments"""
+    """Parse command line arguments for the dbt-osmosis workbench.
+
+    This function parses command line arguments to allow users to specify custom
+    dbt project and profiles directories when launching the workbench. The workbench
+    can be launched with custom paths like:
+
+        streamlit run app.py -- --project-dir /path/to/project --profiles-dir /path/to/profiles
+
+    Returns:
+        A dictionary containing parsed arguments with keys 'project_dir' and 'profiles_dir'.
+        Returns an empty dict if parsing fails or no arguments are provided.
+
+    Note:
+        Streamlit consumes arguments after '--', so the args are accessed from sys.argv[1:].
+        The function is resilient to parsing errors and returns an empty dict in such cases.
+
+    """
     try:
         parser = argparse.ArgumentParser(description="dbt osmosis workbench")
         _ = parser.add_argument("--profiles-dir", help="dbt profile directory")
@@ -138,7 +156,7 @@ def inject_model() -> None:
     ctx: DbtProject = state.app.ctx
     if state.model is not None and state.model != "SCRATCH":
         path = os.path.join(ctx.runtime_cfg.project_root, state.model.original_file_path)
-        with open(path, "r") as f:
+        with pathlib.Path(path).open("r") as f:
             state.app.query = f.read()
         state.app.editor.update_content("SQL", state.app.query)
     elif state.model == "SCRATCH":
@@ -150,17 +168,16 @@ def save_model() -> None:
     ctx: DbtProject = state.app.ctx
     if state.model is not None and state.model != "SCRATCH":
         path = os.path.join(ctx.runtime_cfg.project_root, state.model.original_file_path)
-        with open(path, "w") as f:
+        with pathlib.Path(path).open("w") as f:
             _ = f.write(state.app.editor.get_content("SQL"))
         print(f"Saved model to {path}")
 
 
 def sidebar(ctx: DbtProject) -> None:
     """Render the sidebar"""
-
     with st.sidebar.expander("💡 Models", expanded=True):
         st.caption(
-            "Select a model to use as a starting point for your query. The filter supports typeahead. All changes are ephemeral unless you save the model."
+            "Select a model to use as a starting point for your query. The filter supports typeahead. All changes are ephemeral unless you save the model.",
         )
         state.app.model = st.selectbox(
             "Select a model",
@@ -183,7 +200,8 @@ def sidebar(ctx: DbtProject) -> None:
             [
                 target
                 for target in state.app.all_profiles[ctx.runtime_cfg.profile_name].get(
-                    "outputs", []
+                    "outputs",
+                    [],
                 )
             ],
             on_change=change_target,
@@ -193,7 +211,7 @@ def sidebar(ctx: DbtProject) -> None:
 
     with st.sidebar.expander("📝 Query Template"):
         st.caption(
-            "This is a template query that will be used when executing SQL. The {sql} variable will be replaced with the compiled SQL."
+            "This is a template query that will be used when executing SQL. The {sql} variable will be replaced with the compiled SQL.",
         )
         state.app.query_template = st.text_area(
             "SQL Template",
@@ -203,7 +221,7 @@ def sidebar(ctx: DbtProject) -> None:
 
     st.sidebar.write("Notes")
     st.sidebar.caption(
-        "Refresh the page to reparse dbt. This is useful if any updated models or macros in your physical project on disk have changed and are not yet reflected in the workbench as refable or updated."
+        "Refresh the page to reparse dbt. This is useful if any updated models or macros in your physical project on disk have changed and are not yet reflected in the workbench as refable or updated.",
     )
 
 
@@ -250,7 +268,7 @@ def run_query() -> None:
         ]
         state.app.query_result_df = pd.DataFrame(output)
         state.app.query_result_columns = [
-            {"field": c, "headerName": c.upper()} for c in t.cast(tuple[str], table.column_names)
+            {"field": c, "headerName": c.upper()} for c in t.cast("tuple[str]", table.column_names)
         ]
         state.app.query_result_rows = output
 
@@ -291,7 +309,8 @@ def main():
             renderer=Renderer(board, 6, 0, 6, 11, minW=3, minH=3),
             preview=Preview(board, 0, 11, 12, 9, minW=3, minH=3, query_action=run_query),
             profiler=Profiler(board, 0, 20, 8, 9, minW=3, minH=3, prof_action=run_profile),
-            feed=RssFeed(board, 8, 20, 4, 9, minW=3, minH=3),
+            ai_assistant=AIAssistant(board, 8, 20, 4, 9, minW=3, minH=3),
+            feed=RssFeed(board, 12, 20, 4, 9, minW=3, minH=3),
         )
         for v in vars(app).copy().values():
             if isinstance(v, Dashboard.Item):
@@ -311,7 +330,7 @@ def main():
             app.query = default_prompt
 
         app.ctx = create_dbt_project_context(
-            config=DbtConfiguration(project_dir=proj_dir, profiles_dir=prof_dir)
+            config=DbtConfiguration(project_dir=proj_dir, profiles_dir=prof_dir),
         )
         app.target_name = app.ctx.runtime_cfg.target_name
 
@@ -329,7 +348,7 @@ def main():
 
         app.editor.update_content("SQL", app.query)
 
-        hackernews_rss = t.cast(t.Any, feedparser.parse("https://news.ycombinator.com/rss"))
+        hackernews_rss = t.cast("t.Any", feedparser.parse("https://news.ycombinator.com/rss"))
         feed_html = []
         for entry in hackernews_rss.entries:
             feed_html.append(
@@ -342,10 +361,10 @@ def main():
                     <a href="{entry.comments}" target="_blank" style="color: #FF4136; text-decoration: none;">Comments</a>
                     </div>
                 </div>
-            """
-                )
+            """,
+                ),
             )
-        app.feed_html = "".join(t.cast(list[str], feed_html))
+        app.feed_html = "".join(t.cast("list[str]", feed_html))
     else:
         app = state.app
 
@@ -364,6 +383,7 @@ def main():
             app.renderer()
             app.preview()
             app.profiler()
+            app.ai_assistant()
             app.feed()
 
 

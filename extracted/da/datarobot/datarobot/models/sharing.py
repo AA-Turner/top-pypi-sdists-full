@@ -74,15 +74,13 @@ class SharingAccess(APIObject):
         the id of the user
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("username"): String,
-            t.Key("role"): String,
-            t.Key("can_share", default=None): t.Or(t.Bool, t.Null),
-            t.Key("can_use_data", default=None): t.Or(t.Bool, t.Null),
-            t.Key("user_id", default=None): t.Or(String, t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("username"): String,
+        t.Key("role"): String,
+        t.Key("can_share", default=None): t.Or(t.Bool, t.Null),
+        t.Key("can_use_data", default=None): t.Or(t.Bool, t.Null),
+        t.Key("user_id", default=None): t.Or(String, t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -151,16 +149,14 @@ class SharingRole(APIObject):
         role up to their own.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True): t.String,
-            t.Key("user_full_name", optional=True): t.String,
-            t.Key("name", optional=True) >> "username": t.String,
-            t.Key("role"): t.String,
-            t.Key("share_recipient_type"): t.String,
-            t.Key("can_share", optional=True, default=None): t.Or(t.Bool, t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True): t.String,
+        t.Key("user_full_name", optional=True): t.String,
+        t.Key("name", optional=True) >> "username": t.String,
+        t.Key("role"): t.String,
+        t.Key("share_recipient_type"): t.String,
+        t.Key("can_share", optional=True, default=None): t.Or(t.Bool, t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,

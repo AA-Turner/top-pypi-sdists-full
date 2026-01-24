@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 from deepeval.metrics import BaseConversationalMetric
 from deepeval.test_case import (
     ConversationalTestCase,
@@ -11,13 +11,13 @@ from deepeval.metrics.utils import (
 )
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
-from deepeval.metrics.g_eval.schema import *
 from deepeval.metrics import DeepAcyclicGraph
 from deepeval.metrics.dag.utils import (
     is_valid_dag_from_roots,
     extract_required_params,
     copy_graph,
 )
+from deepeval.metrics.api import metric_data_manager
 
 
 class ConversationalDAGMetric(BaseConversationalMetric):
@@ -34,11 +34,8 @@ class ConversationalDAGMetric(BaseConversationalMetric):
         verbose_mode: bool = False,
         _include_dag_suffix: bool = True,
     ):
-        if (
-            is_valid_dag_from_roots(
-                root_nodes=dag.root_nodes, multiturn=dag.multiturn
-            )
-            == False
+        if not is_valid_dag_from_roots(
+            root_nodes=dag.root_nodes, multiturn=dag.multiturn
         ):
             raise ValueError("Cycle detected in DAG graph.")
 
@@ -59,11 +56,16 @@ class ConversationalDAGMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ) -> float:
+        multimodal = test_case.multimodal
         check_conversational_test_case_params(
             test_case,
             extract_required_params(self.dag.root_nodes, multiturn=True),
             self,
+            False,
+            self.model,
+            multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
@@ -77,6 +79,7 @@ class ConversationalDAGMetric(BaseConversationalMetric):
                         test_case,
                         _show_indicator=False,
                         _in_component=_in_component,
+                        _log_metric_to_confident=_log_metric_to_confident,
                     )
                 )
             else:
@@ -89,6 +92,10 @@ class ConversationalDAGMetric(BaseConversationalMetric):
                         f"Score: {self.score}\nReason: {self.reason}",
                     ],
                 )
+                if _log_metric_to_confident:
+                    metric_data_manager.post_metric_if_enabled(
+                        self, test_case=test_case
+                    )
             return self.score
 
     async def a_measure(
@@ -96,11 +103,16 @@ class ConversationalDAGMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ) -> float:
+        multimodal = test_case.multimodal
         check_conversational_test_case_params(
             test_case,
             extract_required_params(self.dag.root_nodes, multiturn=True),
             self,
+            False,
+            self.model,
+            multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
@@ -119,6 +131,10 @@ class ConversationalDAGMetric(BaseConversationalMetric):
                     f"Score: {self.score}\nReason: {self.reason}",
                 ],
             )
+            if _log_metric_to_confident:
+                metric_data_manager.post_metric_if_enabled(
+                    self, test_case=test_case
+                )
             return self.score
 
     def is_successful(self) -> bool:
@@ -127,7 +143,7 @@ class ConversationalDAGMetric(BaseConversationalMetric):
         else:
             try:
                 self.success = self.score >= self.threshold
-            except:
+            except TypeError:
                 self.success = False
         return self.success
 

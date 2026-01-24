@@ -157,8 +157,9 @@ class CatalogServiceGrpcAsyncIOTransport(CatalogServiceTransport):
                 credentials identify this application to the service. If
                 none are specified, the client will attempt to ascertain
                 the credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
-                be loaded with :func:`google.auth.load_credentials_from_file`.
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
+                be loaded with :func:`google.auth.load_credentials_from_file`. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -209,9 +210,10 @@ class CatalogServiceGrpcAsyncIOTransport(CatalogServiceTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
                 This argument is ignored if a ``channel`` instance is provided.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
                 This argument is ignored if a ``channel`` instance is provided.
+                This argument will be removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A optional list of scopes needed for this
                 service. These are only used when credentials are not specified and
                 are passed to :func:`google.auth.default`.
@@ -852,7 +854,12 @@ class CatalogServiceGrpcAsyncIOTransport(CatalogServiceTransport):
     ) -> Callable[[catalog.ListEntriesRequest], Awaitable[catalog.ListEntriesResponse]]:
         r"""Return a callable for the list entries method over gRPC.
 
-        Lists Entries within an EntryGroup.
+        Lists Entries within an EntryGroup. Caution: The Vertex AI,
+        Bigtable, Spanner, Pub/Sub, Dataform, and Dataproc Metastore
+        metadata that is stored in Dataplex Universal Catalog is
+        changing. For more information, see `Changes to metadata stored
+        in Dataplex Universal
+        Catalog <https://cloud.google.com/dataplex/docs/metadata-changes>`__.
 
         Returns:
             Callable[[~.ListEntriesRequest],
@@ -878,7 +885,12 @@ class CatalogServiceGrpcAsyncIOTransport(CatalogServiceTransport):
     ) -> Callable[[catalog.GetEntryRequest], Awaitable[catalog.Entry]]:
         r"""Return a callable for the get entry method over gRPC.
 
-        Gets an Entry.
+        Gets an Entry. Caution: The Vertex AI, Bigtable, Spanner,
+        Pub/Sub, Dataform, and Dataproc Metastore metadata that is
+        stored in Dataplex Universal Catalog is changing. For more
+        information, see `Changes to metadata stored in Dataplex
+        Universal
+        Catalog <https://cloud.google.com/dataplex/docs/metadata-changes>`__.
 
         Returns:
             Callable[[~.GetEntryRequest],
@@ -904,8 +916,12 @@ class CatalogServiceGrpcAsyncIOTransport(CatalogServiceTransport):
     ) -> Callable[[catalog.LookupEntryRequest], Awaitable[catalog.Entry]]:
         r"""Return a callable for the lookup entry method over gRPC.
 
-        Looks up an entry by name using the permission on the
-        source system.
+        Looks up an entry by name using the permission on the source
+        system. Caution: The Vertex AI, Bigtable, Spanner, Pub/Sub,
+        Dataform, and Dataproc Metastore metadata that is stored in
+        Dataplex Universal Catalog is changing. For more information,
+        see `Changes to metadata stored in Dataplex Universal
+        Catalog <https://cloud.google.com/dataplex/docs/metadata-changes>`__.
 
         Returns:
             Callable[[~.LookupEntryRequest],

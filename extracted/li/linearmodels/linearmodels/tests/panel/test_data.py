@@ -30,12 +30,7 @@ TYPES = datatypes
 
 @pytest.fixture(
     params=list(product(PERC_MISSING, TYPES)),
-    ids=list(
-        map(
-            lambda x: str(int(100 * x[0])) + "-" + str(x[1]),
-            product(PERC_MISSING, TYPES),
-        )
-    ),
+    ids=[str(int(100 * x[0])) + "-" + str(x[1]) for x in product(PERC_MISSING, TYPES)],
 )
 def data(request):
     missing, datatype = request.param
@@ -63,7 +58,7 @@ def test_numpy_3d():
     assert dh.nvar == k
     assert_equal(np.reshape(x.T, (n * t, k)), dh.values2d)
     items = [f"entity.{i}" for i in range(n)]
-    obs = [i for i in range(t)]
+    obs = list(range(t))
     var_names = [f"x.{i}" for i in range(k)]
     expected_frame = panel_to_frame(
         np.reshape(x, (k, t, n)),
@@ -79,7 +74,7 @@ def test_numpy_3d():
 def test_numpy_1d():
     n = 11
     x = np.random.random(n)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"2 or 3-d array required"):
         PanelData(x)
 
 
@@ -132,7 +127,7 @@ def test_xarray_2d():
     x = xr.DataArray(
         x,
         dims=("time", "entity"),
-        coords={"entity": list("firm." + str(i) for i in range(n))},
+        coords={"entity": ["firm." + str(i) for i in range(n)]},
     )
     dh = PanelData(x)
     assert_equal(dh.values2d, np.reshape(x.values.T, (n * t, 1)))
@@ -146,8 +141,8 @@ def test_xarray_3d():
         x,
         dims=("var", "time", "entity"),
         coords={
-            "entity": list("firm." + str(i) for i in range(n)),
-            "var": list("x." + str(i) for i in range(k)),
+            "entity": ["firm." + str(i) for i in range(n)],
+            "var": ["x." + str(i) for i in range(k)],
         },
     )
     dh = PanelData(x)
@@ -187,7 +182,7 @@ def test_missing(mi_df):
 
 
 def test_incorrect_dataframe():
-    grouped = np.array(list([i] * 10 for i in range(10))).ravel()
+    grouped = np.array([[i] * 10 for i in range(10)]).ravel()
     df = DataFrame(
         {
             "a": np.arange(100),
@@ -197,18 +192,18 @@ def test_incorrect_dataframe():
         }
     )
     df = df.set_index(["a", "b", "c"])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"DataFrame input must have"):
         PanelData(df)
 
 
 def test_incorrect_types():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match=r"Only ndarrays, DataFrames"):
         PanelData(list(np.random.randn(10)))
 
 
 @pytest.mark.skipif(MISSING_XARRAY, reason="xarray is not installed")
 def test_incorrect_types_xarray():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Only 2-d or 3-d DataArrays"):
         PanelData(xr.DataArray(np.random.randn(10)))
 
 
@@ -224,7 +219,7 @@ def test_ids(mi_df):
     tids = data.time_ids
     assert tids.shape == (77, 1)
     assert len(np.unique(tids)) == 7
-    for i in range(0, 11):
+    for i in range(11):
         assert np.ptp(tids[i::7]) == 0
 
 
@@ -316,7 +311,7 @@ def test_demean_many_missing(mi_df):
     entities = mi_df.index.levels[0]
     times = mi_df.index.levels[1]
     skips = (3, 5, 2)
-    for column, skip in zip(mi_df, skips):
+    for column, skip in zip(mi_df, skips, strict=False):
         for entity in entities[::skip]:
             mi_df.loc[entity, column] = np.nan
         mi_df.index = mi_df.index.swaplevel()
@@ -392,7 +387,7 @@ def test_demean_both_large_t():
 
 def test_demean_invalid(mi_df):
     data = PanelData(mi_df)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Group must be one of"):
         data.demean("unknown")
 
 
@@ -407,7 +402,7 @@ def test_dummies(mi_df):
     tdummy_drop = data.dummies(group="time", drop_first=True)
     assert tdummy_drop.shape == (77, 6)
     assert np.all(tdummy.sum(axis=0) == 11)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Group must be one of"):
         data.dummies("unknown")
 
 
@@ -429,7 +424,7 @@ def test_series_multiindex(mi_df):
 
 def test_invalid_seires(mi_df):
     si = mi_df.reset_index()
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Series can only be used"):
         PanelData(si.iloc[:, 0])
 
 
@@ -661,14 +656,14 @@ def test_general_demean_oneway(mi_df):
     dm1 = y.demean("time")
     g = DataFrame(y.time_ids, index=y.index)
     dm2 = y.general_demean(g)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
 
     g = DataFrame(np.random.randint(0, 10, g.shape), index=y.index)
     dm2 = y.general_demean(g)
     g = Categorical(g.iloc[:, 0])
     d = get_dummies(g)
     dm1 = y.values2d - d @ lstsq(d, y.values2d, rcond=None)[0]
-    assert_allclose(dm1, dm2.values2d)
+    assert_allclose(dm1, dm2.values2d, atol=1e-10)
 
 
 def test_general_demean_twoway(mi_df):
@@ -677,7 +672,7 @@ def test_general_demean_twoway(mi_df):
     g = DataFrame(y.entity_ids, index=y.index)
     g["column2"] = Series(y.time_ids.squeeze(), index=y.index)
     dm2 = y.general_demean(g)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
 
     g = DataFrame(np.random.randint(0, 10, g.shape), index=y.index)
     dm2 = y.general_demean(g)
@@ -697,16 +692,16 @@ def test_general_unit_weighted_demean_oneway(mi_df):
     weights = PanelData(g).copy()
     weights.dataframe.iloc[:, :] = 1
     dm2 = y.general_demean(g, weights)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
     dm3 = y.general_demean(g)
-    assert_allclose(dm3.values2d, dm2.values2d)
+    assert_allclose(dm3.values2d, dm2.values2d, atol=1e-10)
 
     dm1 = y.demean("time")
     g = PanelData(DataFrame(y.time_ids, index=y.index))
     dm2 = y.general_demean(g, weights)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
     dm3 = y.general_demean(g)
-    assert_allclose(dm3.values2d, dm2.values2d)
+    assert_allclose(dm3.values2d, dm2.values2d, atol=1e-10)
 
     g = PanelData(DataFrame(np.random.randint(0, 10, g.dataframe.shape), index=y.index))
     dm2 = y.general_demean(g, weights)
@@ -714,8 +709,8 @@ def test_general_unit_weighted_demean_oneway(mi_df):
     g = Categorical(g.dataframe.iloc[:, 0])
     d = get_dummies(g)
     dm1 = y.values2d - d @ lstsq(d, y.values2d, rcond=None)[0]
-    assert_allclose(dm1, dm2.values2d)
-    assert_allclose(dm3.values2d, dm2.values2d)
+    assert_allclose(dm1, dm2.values2d, atol=1e-10)
+    assert_allclose(dm3.values2d, dm2.values2d, atol=1e-10)
 
 
 def test_general_weighted_demean_oneway(mi_df):
@@ -728,12 +723,12 @@ def test_general_weighted_demean_oneway(mi_df):
     dm1 = y.demean("entity", weights=w)
     g = PanelData(DataFrame(y.entity_ids, index=y.index))
     dm2 = y.general_demean(g, w)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
 
     dm1 = y.demean("time", weights=w)
     g = PanelData(DataFrame(y.time_ids, index=y.index))
     dm2 = y.general_demean(g, w)
-    assert_allclose(dm1.values2d, dm2.values2d)
+    assert_allclose(dm1.values2d, dm2.values2d, atol=1e-10)
 
     g = PanelData(DataFrame(np.random.randint(0, 10, g.dataframe.shape), index=y.index))
     dm2 = y.general_demean(g, w)
@@ -813,7 +808,7 @@ def test_incorrect_time_axis():
     p = panel_to_frame(
         x, items=var_names, major_axis=time, minor_axis=entities, swap=True
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"The index on the time"):
         PanelData(p)
 
     time = [1, 2, 3]
@@ -822,7 +817,7 @@ def test_incorrect_time_axis():
         x, items=var_names, major_axis=time, minor_axis=entities, swap=True
     )
     p.index = p.index.set_levels(levels=[1, datetime(1960, 1, 1), "a"], level=1)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"The index on the time dimension"):
         PanelData(p)
 
 
@@ -837,7 +832,7 @@ def test_incorrect_time_axis_xarray():
         coords={"entities": entities, "time": time, "vars": variables},
         dims=["vars", "time", "entities"],
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"The index on the time dimension"):
         PanelData(da)
 
     da = xr.DataArray(
@@ -845,7 +840,7 @@ def test_incorrect_time_axis_xarray():
         coords={"entities": entities, "time": time, "vars": variables},
         dims=["vars", "time", "entities"],
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"The index on the time dimension"):
         PanelData(da)
 
 

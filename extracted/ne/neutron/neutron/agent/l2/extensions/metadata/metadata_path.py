@@ -56,7 +56,7 @@ class FailedToInitMetadataPathExtension(n_exc.NeutronException):
                 "metadata path, error: %(msg)s")
 
 
-class MetadataPathExtensionPortInfoAPI():
+class MetadataPathExtensionPortInfoAPI:
 
     def __init__(self, cache_api):
         self.cache_api = cache_api
@@ -236,7 +236,7 @@ class MetadataPathAgentExtension(
                     "for dev %s, error: %s") % (self.META_DEV_NAME, e)
             raise RuntimeError(msg)
 
-        cidr = "%s/%s" % (
+        cidr = "{}/{}".format(
             self.provider_gateway_ip,
             netaddr.IPNetwork(self.provider_cidr).prefixlen)
         ns_dev.addr.add(cidr)

@@ -6,6 +6,9 @@ import time_machine
 from rich.align import Align
 from rich.console import Console
 from rich.segment import Segment
+from rich.table import Table
+from rich.text import Text
+from rich.rule import Rule
 
 from textual_dev.renderables import DevConsoleLog, DevConsoleNotice
 
@@ -32,7 +35,7 @@ def console():
 
 
 @time_machine.travel(TIMESTAMP)
-def test_log_message_render(console):
+def test_log_message_render(console) -> None:
     message = DevConsoleLog(
         [Segment("content")],
         path="abc/hello.py",
@@ -43,6 +46,7 @@ def test_log_message_render(console):
         severity=0,
     )
     table = next(iter(message.__rich_console__(console, console.options)))
+    assert isinstance(table, Table)
 
     assert len(table.rows) == 1
 
@@ -50,11 +54,15 @@ def test_log_message_render(console):
     left_cells = list(columns[0].cells)
     left = left_cells[0]
     right_cells = list(columns[1].cells)
+    assert isinstance(right_cells[0], Align)
     right: Align = right_cells[0]
 
     # Since we can't guarantee the timezone the tests will run in...
     local_time = datetime.fromtimestamp(TIMESTAMP)
     string_timestamp = local_time.time()
+
+    assert isinstance(left, Text)
+    assert isinstance(right.renderable, Text)
 
     assert left.plain == f"[{string_timestamp}] UNDEFINED"
     assert right.align == "right"
@@ -64,6 +72,7 @@ def test_log_message_render(console):
 def test_internal_message_render(console):
     message = DevConsoleNotice("hello")
     rule = next(iter(message.__rich_console__(console, console.options)))
+    assert isinstance(rule, Rule)
     assert rule.title == "hello"
     assert rule.characters == "─"
 

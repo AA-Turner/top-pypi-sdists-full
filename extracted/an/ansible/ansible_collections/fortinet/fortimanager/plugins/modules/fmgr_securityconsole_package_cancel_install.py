@@ -16,7 +16,6 @@ short_description: Cancel policy install and clear preview cache.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -95,7 +94,7 @@ EXAMPLES = '''
             - name: "{{ device }}"
               vdom: root
       register: r
-    - name: Poll the task
+    - name: Poll the task of installing policy package
       fortinet.fortimanager.fmgr_fact:
         facts:
           selector: "task_task"
@@ -114,7 +113,7 @@ EXAMPLES = '''
             - json
           vdoms: root
       register: r
-    - name: Poll the task
+    - name: Poll the task of generating preview report
       fortinet.fortimanager.fmgr_fact:
         facts:
           selector: "task_task"

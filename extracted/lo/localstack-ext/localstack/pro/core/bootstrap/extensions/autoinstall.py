@@ -2,7 +2,7 @@ import os.path,traceback
 from localstack import config
 from localstack.pro.core import config as pro_config
 from.repository import SubprocessLineStream,get_extension_repository
-def log(msg):print(f"Localstack extensions installer: {msg}")
+def log(msg:str):print(f"Localstack extensions installer: {msg}")
 def main():
 	if not pro_config.ACTIVATE_PRO:return
 	A=os.path.join(config.dirs.config,'extensions.txt');B=pro_config.EXTENSION_AUTO_INSTALL

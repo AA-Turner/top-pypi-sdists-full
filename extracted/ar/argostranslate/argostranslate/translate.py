@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import functools
 from typing import List
 
 import ctranslate2
-import sentencepiece as spm
-import stanza
+# import sentencepiece as spm
 from ctranslate2 import Translator
 
 from argostranslate import apis, fewshot, package, sbd, settings
 from argostranslate.models import ILanguageModel
 from argostranslate.package import Package
+from argostranslate.sbd import SpacySentencizerSmall, StanzaSentencizer
 from argostranslate.utils import info
 
 
@@ -67,7 +68,7 @@ class ITranslation:
 
         Args:
             input_text: The text to be translated.
-            num_hypotheses: Number of hypothetic results expected
+            num_hypotheses: Number of hypothetical results expected
 
         Returns:
             List of translation hypotheses
@@ -113,7 +114,7 @@ class Language:
 
     Attributes:
         code: The code representing the language.
-        name: The human readable name of the language.
+        name: The human-readable name of the language.
         translations_from: A list of the translations
             that translate from this language.
         translations_to: A list of the translations
@@ -161,17 +162,37 @@ class PackageTranslation(ITranslation):
         self.pkg = pkg
         self.translator = None
 
+        if settings.chunk_type != settings.ChunkType.SPACY and "stanza" in str(
+            pkg.packaged_sbd_path
+        ):
+            self.sentencizer = StanzaSentencizer(pkg)
+        elif settings.chunk_type != settings.ChunkType.STANZA:
+            self.sentencizer = SpacySentencizerSmall(pkg)
+        else:
+            # Any other SBD dependency should be defined as a class in the SBD module.
+            raise NotImplementedError()
+
     def hypotheses(self, input_text: str, num_hypotheses: int = 4) -> list[Hypothesis]:
         if self.translator is None:
             model_path = str(self.pkg.package_path / "model")
-            self.translator = ctranslate2.Translator(model_path, device=settings.device)
+            self.translator = ctranslate2.Translator(
+                model_path,
+                device=settings.device,
+                inter_threads=settings.inter_threads,
+                intra_threads=settings.intra_threads,
+                compute_type=settings.compute_type,
+            )
         paragraphs = ITranslation.split_into_paragraphs(input_text)
         info("paragraphs:", paragraphs)
         translated_paragraphs = []
         for paragraph in paragraphs:
             translated_paragraphs.append(
                 apply_packaged_translation(
-                    self.pkg, paragraph, self.translator, num_hypotheses
+                    self.pkg,
+                    paragraph,
+                    self.translator,
+                    self.sentencizer,
+                    num_hypotheses,
                 )
             )
         info("translated_paragraphs:", translated_paragraphs)
@@ -287,7 +308,7 @@ class CachedTranslation(ITranslation):
         translated_paragraphs = []
         for paragraph in paragraphs:
             translated_paragraph = self.cache.get(paragraph)
-            # If len() of our cached items are different than `num_hypotheses` it means that
+            # If len() of our cached items are different from `num_hypotheses` it means that
             # the search parameter is changed by caller, so we can't re-use cache, and should update it.
             if (
                 translated_paragraph is None
@@ -394,7 +415,11 @@ class FewShotTranslation(ITranslation):
 
 
 def apply_packaged_translation(
-    pkg: Package, input_text: str, translator: Translator, num_hypotheses: int = 4
+    pkg: Package,
+    input_text: str,
+    translator: Translator,
+    sentencizer: sbd.ISentenceBoundaryDetectionModel,
+    num_hypotheses: int = 4,
 ) -> list[Hypothesis]:
     """Applies the translation in pkg to translate input_text.
 
@@ -402,19 +427,24 @@ def apply_packaged_translation(
         pkg: The package that provides the translation.
         input_text: The text to be translated.
         translator: The CTranslate2 Translator
+        sentencizer: The Sentence Boundary Detection package
         num_hypotheses: The number of hypotheses to generate
 
     Returns:
-        A list of Hypothesis's for translating input_text
-
+        A list of Hypotheses objects for translated input_text.
     """
 
     info("apply_packaged_translation", input_text)
 
     # Sentence boundary detection
+    sentences = sentencizer.split_sentences(input_text)
+    info("sentences", sentences)
+    """
+    # Argos Translate 1.9 Sentence Boundary Detection (legacy)
     if pkg.type == "sbd":
         sentences = [input_text]
     elif settings.stanza_available:
+        # PJDEBUG
         stanza_pipeline = stanza.Pipeline(
             lang=pkg.from_code,
             dir=str(pkg.package_path / "stanza"),
@@ -448,14 +478,13 @@ def apply_packaged_translation(
             info("sbd_index", sbd_index)
             info(input_text[start_index:sbd_index])
             start_index = sbd_index
-    info("sentences", sentences)
+    """
 
     # Tokenization
     tokenized = [pkg.tokenizer.encode(sentence) for sentence in sentences]
     info("tokenized", tokenized)
 
     # Translation
-    BATCH_SIZE = 32
     target_prefix = None
 
     if pkg.target_prefix != "":
@@ -465,8 +494,9 @@ def apply_packaged_translation(
         tokenized,
         target_prefix=target_prefix,
         replace_unknowns=True,
-        max_batch_size=BATCH_SIZE,
-        beam_size=max(num_hypotheses, 4),
+        max_batch_size=settings.batch_size,
+        batch_type="tokens",
+        beam_size=max(num_hypotheses, settings.beam_size),
         num_hypotheses=num_hypotheses,
         length_penalty=0.2,
         return_scores=True,
@@ -479,20 +509,20 @@ def apply_packaged_translation(
         translated_tokens = []
         cumulative_score = 0
         for translated_batch in translated_batches:
-            translated_tokens += translated_batch.hypotheses[i]
+            translated_tokens.extend(translated_batch.hypotheses[i])
             cumulative_score += translated_batch.scores[i]
-        
+
         value = pkg.tokenizer.decode(translated_tokens)
-        
+
         if pkg.target_prefix != "" and value.startswith(pkg.target_prefix):
             # Remove target prefix
-            value = value[len(pkg.target_prefix):]
+            value = value[len(pkg.target_prefix) :]
 
         if len(value) > 0 and value[0] == " ":
             # Remove space at the beginning of the translation added
             # by the tokenizer.
             value = value[1:]
-        
+
         hypothesis = Hypothesis(value, cumulative_score)
         value_hypotheses.append(hypothesis)
     info("value_hypotheses:", value_hypotheses)
@@ -512,6 +542,7 @@ class InstalledTranslate:
 installed_translates: List[InstalledTranslate] = []
 
 
+@functools.lru_cache()
 def get_installed_languages() -> list[Language]:
     """Returns a list of Languages installed from packages"""
 
@@ -519,7 +550,8 @@ def get_installed_languages() -> list[Language]:
 
     if settings.model_provider == settings.ModelProvider.OPENNMT:
         packages = package.get_installed_packages()
-
+        """
+        # Legacy sbd package search (environment-dependant)
         # If stanza not available filter for sbd available
         if not settings.stanza_available:
             sbd_packages = list(filter(lambda x: x.type == "sbd", packages))
@@ -529,7 +561,7 @@ def get_installed_languages() -> list[Language]:
             packages = list(
                 filter(lambda x: x.from_code in sbd_available_codes, packages)
             )
-
+        """
         # Filter for translate packages
         packages = list(filter(lambda x: x.type == "translate", packages))
 
@@ -549,13 +581,17 @@ def get_installed_languages() -> list[Language]:
             )
             translation_to_add: CachedTranslation
             if len(contain) == 0:
-                translation_to_add = CachedTranslation(
-                    PackageTranslation(from_lang, to_lang, pkg)
-                )
-                saved_cache = InstalledTranslate()
-                saved_cache.package_key = package_key
-                saved_cache.cached_translation = translation_to_add
-                installed_translates.append(saved_cache)
+                try:
+                    translation_to_add = CachedTranslation(
+                        PackageTranslation(from_lang, to_lang, pkg)
+                    )
+                    saved_cache = InstalledTranslate()
+                    saved_cache.package_key = package_key
+                    saved_cache.cached_translation = translation_to_add
+                    installed_translates.append(saved_cache)
+                except NotImplementedError as e:
+                    info(f"Skipping package {package_key}: {e}")
+                    continue
             else:
                 translation_to_add = contain[0].cached_translation
 

@@ -1,15 +1,17 @@
 import functools
 import logging
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
-import opik.rest_api
 from opik.message_processing.batching import sequence_splitter
+from opik.message_processing import messages, streamer
 from opik.rest_api import client as rest_api_client
-from opik.rest_api.types import experiment_item as rest_experiment_item
-from opik.rest_api.types import experiment_public
-from . import experiment_item
-from .. import constants, helpers, rest_stream_parser
-from ...api_objects.prompt import Prompt
+from opik.rest_api import types as rest_api_types
+from . import experiment_item, experiments_client
+from .. import constants, helpers
+from ...api_objects.prompt import base_prompt
+
+if TYPE_CHECKING:
+    from opik.evaluation.metrics import score_result
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,13 +23,19 @@ class Experiment:
         name: Optional[str],
         dataset_name: str,
         rest_client: rest_api_client.OpikApi,
-        prompts: Optional[List[Prompt]] = None,
+        streamer: streamer.Streamer,
+        experiments_client: experiments_client.ExperimentsClient,
+        prompts: Optional[List[base_prompt.BasePrompt]] = None,
+        tags: Optional[List[str]] = None,
     ) -> None:
         self._id = id
         self._name = name
         self._dataset_name = dataset_name
         self._rest_client = rest_client
         self._prompts = prompts
+        self._streamer = streamer
+        self._experiments_client = experiments_client
+        self._tags = tags
 
     @property
     def id(self) -> str:
@@ -47,6 +55,10 @@ class Experiment:
 
         return name
 
+    @property
+    def tags(self) -> Optional[List[str]]:
+        return self._tags
+
     @functools.cached_property
     def dataset_id(self) -> str:
         return self._rest_client.datasets.get_dataset_by_identifier(
@@ -57,7 +69,7 @@ class Experiment:
     def experiments_rest_client(self) -> rest_api_client.ExperimentsClient:
         return self._rest_client.experiments
 
-    def get_experiment_data(self) -> experiment_public.ExperimentPublic:
+    def get_experiment_data(self) -> rest_api_types.experiment_public.ExperimentPublic:
         return self._rest_client.experiments.get_experiment_by_id(id=self.id)
 
     def insert(
@@ -74,8 +86,8 @@ class Experiment:
         Returns:
             None
         """
-        rest_experiment_items = [
-            rest_experiment_item.ExperimentItem(
+        experiment_item_messages = [
+            messages.ExperimentItemMessage(
                 id=helpers.generate_id(),
                 experiment_id=self.id,
                 dataset_item_id=item.dataset_item_id,
@@ -84,68 +96,62 @@ class Experiment:
             for item in experiment_items_references
         ]
 
+        # Split into batches for the streamer
         batches = sequence_splitter.split_into_batches(
-            rest_experiment_items, max_length=constants.EXPERIMENT_ITEMS_MAX_BATCH_SIZE
+            experiment_item_messages,
+            max_length=constants.FEEDBACK_SCORES_MAX_BATCH_SIZE,
         )
 
         for batch in batches:
-            LOGGER.debug("Sending experiment items batch: %s", batch)
-            self._rest_client.experiments.create_experiment_items(
-                experiment_items=batch,
+            create_experiment_items_batch_message = (
+                messages.CreateExperimentItemsBatchMessage(batch=batch)
             )
-            LOGGER.debug("Sent experiment items batch of size %d", len(batch))
+            self._streamer.put(create_experiment_items_batch_message)
 
     def get_items(
         self,
-        max_results: Optional[int] = None,
+        max_results: Optional[int] = 10000,
         truncate: bool = False,
     ) -> List[experiment_item.ExperimentItemContent]:
         """
-        Retrieves and returns a list of experiment items by streaming from the backend in batches, with an option to
-        truncate the results for each batch.
-
-        This method streams experiment items from a backend service in chunks up to the specified `max_results`
-        or until the available items are exhausted. It handles batch-wise retrieval and parsing, ensuring the client
-        receives a list of `ExperimentItemContent` objects, while respecting the constraints on maximum retrieval size
-        from the backend. If truncation is enabled, the backend may return truncated details for each item.
+        Retrieves and returns a list of experiment items for this experiment.
 
         Args:
-            max_results: Maximum number of experiment items to retrieve.
-            truncate: Whether to truncate the items returned by the backend.
+            max_results: Maximum number of experiment items to retrieve. Defaults to 10000 if not specified.
+            truncate: Whether to truncate the items returned by the backend. Defaults to False.
 
+        Returns:
+            List of ExperimentItemContent objects for this experiment.
         """
-        result: List[experiment_item.ExperimentItemContent] = []
-        max_endpoint_batch_size = rest_stream_parser.MAX_ENDPOINT_BATCH_SIZE
+        if max_results is None:
+            max_results = 10000  # TODO: remove this once we have a proper way to get all experiment items
 
-        while True:
-            if max_results is None:
-                current_batch_size = max_endpoint_batch_size
-            else:
-                current_batch_size = min(
-                    max_results - len(result), max_endpoint_batch_size
-                )
+        return self._experiments_client.find_experiment_items_for_dataset(
+            dataset_name=self.dataset_name,
+            experiment_ids=[self.id],
+            truncate=truncate,
+            max_results=max_results,
+        )
 
-            items_stream = self._rest_client.experiments.stream_experiment_items(
-                experiment_name=self.name,
-                limit=current_batch_size,
-                last_retrieved_id=result[-1].id if len(result) > 0 else None,
-                truncate=truncate,
+    def log_experiment_scores(
+        self,
+        score_results: List["score_result.ScoreResult"],
+    ) -> None:
+        """Log experiment-level scores to the backend."""
+        experiment_scores: List[rest_api_types.ExperimentScore] = []
+
+        for score_result_ in score_results:
+            if score_result_.scoring_failed:
+                continue
+
+            experiment_score = rest_api_types.ExperimentScore(
+                name=score_result_.name,
+                value=score_result_.value,
             )
+            experiment_scores.append(experiment_score)
 
-            experiment_item_compare_current_batch = (
-                rest_stream_parser.read_and_parse_stream(
-                    stream=items_stream,
-                    item_class=opik.rest_api.ExperimentItemCompare,
-                )
+        if experiment_scores:
+            self._rest_client.experiments.update_experiment(
+                id=self.id,
+                experiment_scores=experiment_scores,
             )
-
-            for item in experiment_item_compare_current_batch:
-                converted_item = experiment_item.ExperimentItemContent.from_rest_experiment_item_compare(
-                    value=item
-                )
-                result.append(converted_item)
-
-            if current_batch_size > len(experiment_item_compare_current_batch):
-                break
-
-        return result

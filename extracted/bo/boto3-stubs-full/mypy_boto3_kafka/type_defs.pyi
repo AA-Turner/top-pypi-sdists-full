@@ -3,7 +3,7 @@ Type annotations for kafka service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kafka/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -30,21 +31,17 @@ from .literals import (
     CustomerActionStatusType,
     EnhancedMonitoringType,
     KafkaVersionStatusType,
+    RebalancingStatusType,
     ReplicationStartingPositionTypeType,
     ReplicationTopicNameConfigurationTypeType,
     ReplicatorStateType,
     StorageModeType,
     TargetCompressionTypeType,
+    TopicStateType,
     UserIdentityTypeType,
     VpcConnectionStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -122,6 +119,11 @@ __all__ = (
     "DescribeConfigurationRevisionResponseTypeDef",
     "DescribeReplicatorRequestTypeDef",
     "DescribeReplicatorResponseTypeDef",
+    "DescribeTopicPartitionsRequestPaginateTypeDef",
+    "DescribeTopicPartitionsRequestTypeDef",
+    "DescribeTopicPartitionsResponseTypeDef",
+    "DescribeTopicRequestTypeDef",
+    "DescribeTopicResponseTypeDef",
     "DescribeVpcConnectionRequestTypeDef",
     "DescribeVpcConnectionResponseTypeDef",
     "EBSStorageInfoTypeDef",
@@ -182,6 +184,9 @@ __all__ = (
     "ListScramSecretsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTopicsRequestPaginateTypeDef",
+    "ListTopicsRequestTypeDef",
+    "ListTopicsResponseTypeDef",
     "ListVpcConnectionsRequestPaginateTypeDef",
     "ListVpcConnectionsRequestTypeDef",
     "ListVpcConnectionsResponseTypeDef",
@@ -201,6 +206,7 @@ __all__ = (
     "PublicAccessTypeDef",
     "PutClusterPolicyRequestTypeDef",
     "PutClusterPolicyResponseTypeDef",
+    "RebalancingTypeDef",
     "RebootBrokerRequestTypeDef",
     "RebootBrokerResponseTypeDef",
     "RejectClientVpcConnectionRequestTypeDef",
@@ -225,6 +231,8 @@ __all__ = (
     "TlsOutputTypeDef",
     "TlsTypeDef",
     "TlsUnionTypeDef",
+    "TopicInfoTypeDef",
+    "TopicPartitionInfoTypeDef",
     "TopicReplicationOutputTypeDef",
     "TopicReplicationTypeDef",
     "TopicReplicationUnionTypeDef",
@@ -248,6 +256,8 @@ __all__ = (
     "UpdateConnectivityResponseTypeDef",
     "UpdateMonitoringRequestTypeDef",
     "UpdateMonitoringResponseTypeDef",
+    "UpdateRebalancingRequestTypeDef",
+    "UpdateRebalancingResponseTypeDef",
     "UpdateReplicationInfoRequestTypeDef",
     "UpdateReplicationInfoResponseTypeDef",
     "UpdateSecurityRequestTypeDef",
@@ -280,7 +290,7 @@ class BatchAssociateScramSecretRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -296,8 +306,8 @@ class BatchDisassociateScramSecretRequestTypeDef(TypedDict):
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class BrokerCountUpdateInfoTypeDef(TypedDict):
-    CreatedBrokerIds: NotRequired[List[float]]
-    DeletedBrokerIds: NotRequired[List[float]]
+    CreatedBrokerIds: NotRequired[list[float]]
+    DeletedBrokerIds: NotRequired[list[float]]
 
 class ProvisionedThroughputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
@@ -322,7 +332,7 @@ class BrokerSoftwareInfoTypeDef(TypedDict):
     KafkaVersion: NotRequired[str]
 
 class TlsOutputTypeDef(TypedDict):
-    CertificateAuthorityArnList: NotRequired[List[str]]
+    CertificateAuthorityArnList: NotRequired[list[str]]
     Enabled: NotRequired[bool]
 
 class UnauthenticatedTypeDef(TypedDict):
@@ -334,6 +344,9 @@ class ClientVpcConnectionTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     State: NotRequired[VpcConnectionStateType]
     Owner: NotRequired[str]
+
+class RebalancingTypeDef(TypedDict):
+    Status: NotRequired[RebalancingStatusType]
 
 class StateInfoTypeDef(TypedDict):
     Code: NotRequired[str]
@@ -357,7 +370,7 @@ class ClusterOperationV2SummaryTypeDef(TypedDict):
 
 class CompatibleKafkaVersionTypeDef(TypedDict):
     SourceVersion: NotRequired[str]
-    TargetVersions: NotRequired[List[str]]
+    TargetVersions: NotRequired[list[str]]
 
 class ConfigurationInfoTypeDef(TypedDict):
     Arn: str
@@ -376,8 +389,8 @@ PublicAccessTypeDef = TypedDict(
 )
 
 class ConsumerGroupReplicationOutputTypeDef(TypedDict):
-    ConsumerGroupsToReplicate: List[str]
-    ConsumerGroupsToExclude: NotRequired[List[str]]
+    ConsumerGroupsToReplicate: list[str]
+    ConsumerGroupsToExclude: NotRequired[list[str]]
     DetectAndCopyNewConsumerGroups: NotRequired[bool]
     SynchroniseConsumerGroupOffsets: NotRequired[bool]
 
@@ -394,7 +407,7 @@ class ConsumerGroupReplicationUpdateTypeDef(TypedDict):
     SynchroniseConsumerGroupOffsets: bool
 
 class ControllerNodeInfoTypeDef(TypedDict):
-    Endpoints: NotRequired[List[str]]
+    Endpoints: NotRequired[list[str]]
 
 class CreateVpcConnectionRequestTypeDef(TypedDict):
     TargetClusterArn: str
@@ -447,6 +460,27 @@ class ReplicationStateInfoTypeDef(TypedDict):
     Code: NotRequired[str]
     Message: NotRequired[str]
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class DescribeTopicPartitionsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class TopicPartitionInfoTypeDef(TypedDict):
+    Partition: NotRequired[int]
+    Leader: NotRequired[int]
+    Replicas: NotRequired[list[int]]
+    Isr: NotRequired[list[int]]
+
+class DescribeTopicRequestTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
+
 class DescribeVpcConnectionRequestTypeDef(TypedDict):
     Arn: str
 
@@ -476,8 +510,8 @@ class JmxExporterTypeDef(TypedDict):
     EnabledInBroker: bool
 
 class KafkaClusterClientVpcConfigOutputTypeDef(TypedDict):
-    SubnetIds: List[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: list[str]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class KafkaClusterClientVpcConfigTypeDef(TypedDict):
     SubnetIds: Sequence[str]
@@ -486,11 +520,6 @@ class KafkaClusterClientVpcConfigTypeDef(TypedDict):
 class KafkaVersionTypeDef(TypedDict):
     Version: NotRequired[str]
     Status: NotRequired[KafkaVersionStatusType]
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 class ListClientVpcConnectionsRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -549,6 +578,19 @@ class ListScramSecretsRequestTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceArn: str
 
+class ListTopicsRequestTypeDef(TypedDict):
+    ClusterArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    TopicNameFilter: NotRequired[str]
+
+class TopicInfoTypeDef(TypedDict):
+    TopicArn: NotRequired[str]
+    TopicName: NotRequired[str]
+    ReplicationFactor: NotRequired[int]
+    PartitionCount: NotRequired[int]
+    OutOfSyncReplicaCount: NotRequired[int]
+
 class ListVpcConnectionsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -570,7 +612,7 @@ class NodeExporterTypeDef(TypedDict):
 class ZookeeperNodeInfoTypeDef(TypedDict):
     AttachedENIId: NotRequired[str]
     ClientVpcIpAddress: NotRequired[str]
-    Endpoints: NotRequired[List[str]]
+    Endpoints: NotRequired[list[str]]
     ZookeeperId: NotRequired[float]
     ZookeeperVersion: NotRequired[str]
 
@@ -608,8 +650,8 @@ class ScramTypeDef(TypedDict):
     Enabled: NotRequired[bool]
 
 class VpcConfigOutputTypeDef(TypedDict):
-    SubnetIds: List[str]
-    SecurityGroupIds: NotRequired[List[str]]
+    SubnetIds: list[str]
+    SecurityGroupIds: NotRequired[list[str]]
 
 class TagResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -689,10 +731,10 @@ class CreateVpcConnectionResponseTypeDef(TypedDict):
     State: VpcConnectionStateType
     Authentication: str
     VpcId: str
-    ClientSubnets: List[str]
-    SecurityGroups: List[str]
+    ClientSubnets: list[str]
+    SecurityGroups: list[str]
     CreationTime: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteClusterResponseTypeDef(TypedDict):
@@ -723,16 +765,25 @@ class DescribeConfigurationRevisionResponseTypeDef(TypedDict):
     ServerProperties: bytes
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeTopicResponseTypeDef(TypedDict):
+    TopicArn: str
+    TopicName: str
+    ReplicationFactor: int
+    PartitionCount: int
+    Configs: str
+    Status: TopicStateType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeVpcConnectionResponseTypeDef(TypedDict):
     VpcConnectionArn: str
     TargetClusterArn: str
     State: VpcConnectionStateType
     Authentication: str
     VpcId: str
-    Subnets: List[str]
-    SecurityGroups: List[str]
+    Subnets: list[str]
+    SecurityGroups: list[str]
     CreationTime: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EmptyResponseMetadataTypeDef(TypedDict):
@@ -757,12 +808,12 @@ class GetClusterPolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListScramSecretsResponseTypeDef(TypedDict):
-    SecretArnList: List[str]
+    SecretArnList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutClusterPolicyResponseTypeDef(TypedDict):
@@ -809,6 +860,11 @@ class UpdateMonitoringResponseTypeDef(TypedDict):
     ClusterOperationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateRebalancingResponseTypeDef(TypedDict):
+    ClusterArn: str
+    ClusterOperationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateReplicationInfoResponseTypeDef(TypedDict):
     ReplicatorArn: str
     ReplicatorState: ReplicatorStateType
@@ -826,12 +882,12 @@ class UpdateStorageResponseTypeDef(TypedDict):
 
 class BatchAssociateScramSecretResponseTypeDef(TypedDict):
     ClusterArn: str
-    UnprocessedScramSecrets: List[UnprocessedScramSecretTypeDef]
+    UnprocessedScramSecrets: list[UnprocessedScramSecretTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDisassociateScramSecretResponseTypeDef(TypedDict):
     ClusterArn: str
-    UnprocessedScramSecrets: List[UnprocessedScramSecretTypeDef]
+    UnprocessedScramSecrets: list[UnprocessedScramSecretTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateConfigurationRequestTypeDef(TypedDict):
@@ -872,24 +928,29 @@ class BrokerNodeInfoTypeDef(TypedDict):
     ClientSubnet: NotRequired[str]
     ClientVpcIpAddress: NotRequired[str]
     CurrentBrokerSoftwareInfo: NotRequired[BrokerSoftwareInfoTypeDef]
-    Endpoints: NotRequired[List[str]]
+    Endpoints: NotRequired[list[str]]
 
 class ListClientVpcConnectionsResponseTypeDef(TypedDict):
-    ClientVpcConnections: List[ClientVpcConnectionTypeDef]
+    ClientVpcConnections: list[ClientVpcConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class UpdateRebalancingRequestTypeDef(TypedDict):
+    ClusterArn: str
+    CurrentVersion: str
+    Rebalancing: RebalancingTypeDef
 
 class ClusterOperationStepTypeDef(TypedDict):
     StepInfo: NotRequired[ClusterOperationStepInfoTypeDef]
     StepName: NotRequired[str]
 
 class ListClusterOperationsV2ResponseTypeDef(TypedDict):
-    ClusterOperationInfoList: List[ClusterOperationV2SummaryTypeDef]
+    ClusterOperationInfoList: list[ClusterOperationV2SummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GetCompatibleKafkaVersionsResponseTypeDef(TypedDict):
-    CompatibleKafkaVersions: List[CompatibleKafkaVersionTypeDef]
+    CompatibleKafkaVersions: list[CompatibleKafkaVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateClusterConfigurationRequestTypeDef(TypedDict):
@@ -907,7 +968,7 @@ class ConfigurationTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
     Description: str
-    KafkaVersions: List[str]
+    KafkaVersions: list[str]
     LatestRevision: ConfigurationRevisionTypeDef
     Name: str
     State: ConfigurationStateType
@@ -924,14 +985,14 @@ class DescribeConfigurationResponseTypeDef(TypedDict):
     Arn: str
     CreationTime: datetime
     Description: str
-    KafkaVersions: List[str]
+    KafkaVersions: list[str]
     LatestRevision: ConfigurationRevisionTypeDef
     Name: str
     State: ConfigurationStateType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationRevisionsResponseTypeDef(TypedDict):
-    Revisions: List[ConfigurationRevisionTypeDef]
+    Revisions: list[ConfigurationRevisionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -944,26 +1005,10 @@ ConsumerGroupReplicationUnionTypeDef = Union[
     ConsumerGroupReplicationTypeDef, ConsumerGroupReplicationOutputTypeDef
 ]
 
-class EncryptionInfoTypeDef(TypedDict):
-    EncryptionAtRest: NotRequired[EncryptionAtRestTypeDef]
-    EncryptionInTransit: NotRequired[EncryptionInTransitTypeDef]
-
-class ServerlessSaslTypeDef(TypedDict):
-    Iam: NotRequired[IamTypeDef]
-
-class KafkaClusterDescriptionTypeDef(TypedDict):
-    AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
-    KafkaClusterAlias: NotRequired[str]
-    VpcConfig: NotRequired[KafkaClusterClientVpcConfigOutputTypeDef]
-
-KafkaClusterClientVpcConfigUnionTypeDef = Union[
-    KafkaClusterClientVpcConfigTypeDef, KafkaClusterClientVpcConfigOutputTypeDef
-]
-
-class ListKafkaVersionsResponseTypeDef(TypedDict):
-    KafkaVersions: List[KafkaVersionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class DescribeTopicPartitionsRequestPaginateTypeDef(TypedDict):
+    ClusterArn: str
+    TopicName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListClientVpcConnectionsRequestPaginateTypeDef(TypedDict):
     ClusterArn: str
@@ -1008,11 +1053,47 @@ class ListScramSecretsRequestPaginateTypeDef(TypedDict):
     ClusterArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListTopicsRequestPaginateTypeDef(TypedDict):
+    ClusterArn: str
+    TopicNameFilter: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListVpcConnectionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class DescribeTopicPartitionsResponseTypeDef(TypedDict):
+    Partitions: list[TopicPartitionInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class EncryptionInfoTypeDef(TypedDict):
+    EncryptionAtRest: NotRequired[EncryptionAtRestTypeDef]
+    EncryptionInTransit: NotRequired[EncryptionInTransitTypeDef]
+
+class ServerlessSaslTypeDef(TypedDict):
+    Iam: NotRequired[IamTypeDef]
+
+class KafkaClusterDescriptionTypeDef(TypedDict):
+    AmazonMskCluster: NotRequired[AmazonMskClusterTypeDef]
+    KafkaClusterAlias: NotRequired[str]
+    VpcConfig: NotRequired[KafkaClusterClientVpcConfigOutputTypeDef]
+
+KafkaClusterClientVpcConfigUnionTypeDef = Union[
+    KafkaClusterClientVpcConfigTypeDef, KafkaClusterClientVpcConfigOutputTypeDef
+]
+
+class ListKafkaVersionsResponseTypeDef(TypedDict):
+    KafkaVersions: list[KafkaVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListTopicsResponseTypeDef(TypedDict):
+    Topics: list[TopicInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListVpcConnectionsResponseTypeDef(TypedDict):
-    VpcConnections: List[VpcConnectionTypeDef]
+    VpcConnections: list[VpcConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1025,13 +1106,13 @@ class PrometheusTypeDef(TypedDict):
     NodeExporter: NotRequired[NodeExporterTypeDef]
 
 class TopicReplicationOutputTypeDef(TypedDict):
-    TopicsToReplicate: List[str]
+    TopicsToReplicate: list[str]
     CopyAccessControlListsForTopics: NotRequired[bool]
     CopyTopicConfigurations: NotRequired[bool]
     DetectAndCopyNewTopics: NotRequired[bool]
     StartingPosition: NotRequired[ReplicationStartingPositionTypeDef]
     TopicNameConfiguration: NotRequired[ReplicationTopicNameConfigurationTypeDef]
-    TopicsToExclude: NotRequired[List[str]]
+    TopicsToExclude: NotRequired[list[str]]
 
 class TopicReplicationTypeDef(TypedDict):
     TopicsToReplicate: Sequence[str]
@@ -1078,8 +1159,8 @@ class ReplicatorSummaryTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     CurrentVersion: NotRequired[str]
     IsReplicatorReference: NotRequired[bool]
-    KafkaClustersSummary: NotRequired[List[KafkaClusterSummaryTypeDef]]
-    ReplicationInfoSummaryList: NotRequired[List[ReplicationInfoSummaryTypeDef]]
+    KafkaClustersSummary: NotRequired[list[KafkaClusterSummaryTypeDef]]
+    ReplicationInfoSummaryList: NotRequired[list[ReplicationInfoSummaryTypeDef]]
     ReplicatorArn: NotRequired[str]
     ReplicatorName: NotRequired[str]
     ReplicatorResourceArn: NotRequired[str]
@@ -1106,7 +1187,7 @@ class NodeInfoTypeDef(TypedDict):
     ZookeeperNodeInfo: NotRequired[ZookeeperNodeInfoTypeDef]
 
 class ListConfigurationsResponseTypeDef(TypedDict):
-    Configurations: List[ConfigurationTypeDef]
+    Configurations: list[ConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1150,12 +1231,12 @@ class VpcConnectivityClientAuthenticationTypeDef(TypedDict):
     Tls: NotRequired[VpcConnectivityTlsTypeDef]
 
 class ListReplicatorsResponseTypeDef(TypedDict):
-    Replicators: List[ReplicatorSummaryTypeDef]
+    Replicators: list[ReplicatorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListNodesResponseTypeDef(TypedDict):
-    NodeInfoList: List[NodeInfoTypeDef]
+    NodeInfoList: list[NodeInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1164,7 +1245,7 @@ class ServerlessRequestTypeDef(TypedDict):
     ClientAuthentication: NotRequired[ServerlessClientAuthenticationTypeDef]
 
 class ServerlessTypeDef(TypedDict):
-    VpcConfigs: List[VpcConfigOutputTypeDef]
+    VpcConfigs: list[VpcConfigOutputTypeDef]
     ClientAuthentication: NotRequired[ServerlessClientAuthenticationTypeDef]
 
 class UpdateMonitoringRequestTypeDef(TypedDict):
@@ -1178,8 +1259,8 @@ class DescribeReplicatorResponseTypeDef(TypedDict):
     CreationTime: datetime
     CurrentVersion: str
     IsReplicatorReference: bool
-    KafkaClusters: List[KafkaClusterDescriptionTypeDef]
-    ReplicationInfoList: List[ReplicationInfoDescriptionTypeDef]
+    KafkaClusters: list[KafkaClusterDescriptionTypeDef]
+    ReplicationInfoList: list[ReplicationInfoDescriptionTypeDef]
     ReplicatorArn: str
     ReplicatorDescription: str
     ReplicatorName: str
@@ -1187,7 +1268,7 @@ class DescribeReplicatorResponseTypeDef(TypedDict):
     ReplicatorState: ReplicatorStateType
     ServiceExecutionRoleArn: str
     StateInfo: ReplicationStateInfoTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ReplicationInfoTypeDef(TypedDict):
@@ -1223,13 +1304,13 @@ class ConnectivityInfoTypeDef(TypedDict):
     VpcConnectivity: NotRequired[VpcConnectivityTypeDef]
 
 class BrokerNodeGroupInfoOutputTypeDef(TypedDict):
-    ClientSubnets: List[str]
+    ClientSubnets: list[str]
     InstanceType: str
     BrokerAZDistribution: NotRequired[Literal["DEFAULT"]]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     StorageInfo: NotRequired[StorageInfoTypeDef]
     ConnectivityInfo: NotRequired[ConnectivityInfoTypeDef]
-    ZoneIds: NotRequired[List[str]]
+    ZoneIds: NotRequired[list[str]]
 
 class BrokerNodeGroupInfoTypeDef(TypedDict):
     ClientSubnets: Sequence[str]
@@ -1241,7 +1322,7 @@ class BrokerNodeGroupInfoTypeDef(TypedDict):
     ZoneIds: NotRequired[Sequence[str]]
 
 class MutableClusterInfoTypeDef(TypedDict):
-    BrokerEBSVolumeInfo: NotRequired[List[BrokerEBSVolumeInfoTypeDef]]
+    BrokerEBSVolumeInfo: NotRequired[list[BrokerEBSVolumeInfoTypeDef]]
     ConfigurationInfo: NotRequired[ConfigurationInfoTypeDef]
     NumberOfBrokerNodes: NotRequired[int]
     EnhancedMonitoring: NotRequired[EnhancedMonitoringType]
@@ -1254,6 +1335,7 @@ class MutableClusterInfoTypeDef(TypedDict):
     ConnectivityInfo: NotRequired[ConnectivityInfoTypeDef]
     StorageMode: NotRequired[StorageModeType]
     BrokerCountUpdateInfo: NotRequired[BrokerCountUpdateInfoTypeDef]
+    Rebalancing: NotRequired[RebalancingTypeDef]
 
 class UpdateConnectivityRequestTypeDef(TypedDict):
     ClusterArn: str
@@ -1263,6 +1345,7 @@ class UpdateConnectivityRequestTypeDef(TypedDict):
 class ClusterInfoTypeDef(TypedDict):
     ActiveOperationArn: NotRequired[str]
     BrokerNodeGroupInfo: NotRequired[BrokerNodeGroupInfoOutputTypeDef]
+    Rebalancing: NotRequired[RebalancingTypeDef]
     ClientAuthentication: NotRequired[ClientAuthenticationOutputTypeDef]
     ClusterArn: NotRequired[str]
     ClusterName: NotRequired[str]
@@ -1276,7 +1359,7 @@ class ClusterInfoTypeDef(TypedDict):
     NumberOfBrokerNodes: NotRequired[int]
     State: NotRequired[ClusterStateType]
     StateInfo: NotRequired[StateInfoTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     ZookeeperConnectString: NotRequired[str]
     ZookeeperConnectStringTls: NotRequired[str]
     StorageMode: NotRequired[StorageModeType]
@@ -1285,6 +1368,7 @@ class ClusterInfoTypeDef(TypedDict):
 class ProvisionedTypeDef(TypedDict):
     BrokerNodeGroupInfo: BrokerNodeGroupInfoOutputTypeDef
     NumberOfBrokerNodes: int
+    Rebalancing: NotRequired[RebalancingTypeDef]
     CurrentBrokerSoftwareInfo: NotRequired[BrokerSoftwareInfoTypeDef]
     ClientAuthentication: NotRequired[ClientAuthenticationOutputTypeDef]
     EncryptionInfo: NotRequired[EncryptionInfoTypeDef]
@@ -1308,14 +1392,14 @@ class ClusterOperationInfoTypeDef(TypedDict):
     ErrorInfo: NotRequired[ErrorInfoTypeDef]
     OperationArn: NotRequired[str]
     OperationState: NotRequired[str]
-    OperationSteps: NotRequired[List[ClusterOperationStepTypeDef]]
+    OperationSteps: NotRequired[list[ClusterOperationStepTypeDef]]
     OperationType: NotRequired[str]
     SourceClusterInfo: NotRequired[MutableClusterInfoTypeDef]
     TargetClusterInfo: NotRequired[MutableClusterInfoTypeDef]
     VpcConnectionInfo: NotRequired[VpcConnectionInfoTypeDef]
 
 class ClusterOperationV2ProvisionedTypeDef(TypedDict):
-    OperationSteps: NotRequired[List[ClusterOperationStepTypeDef]]
+    OperationSteps: NotRequired[list[ClusterOperationStepTypeDef]]
     SourceClusterInfo: NotRequired[MutableClusterInfoTypeDef]
     TargetClusterInfo: NotRequired[MutableClusterInfoTypeDef]
     VpcConnectionInfo: NotRequired[VpcConnectionInfoTypeDef]
@@ -1325,7 +1409,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClustersResponseTypeDef(TypedDict):
-    ClusterInfoList: List[ClusterInfoTypeDef]
+    ClusterInfoList: list[ClusterInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1338,7 +1422,7 @@ class ClusterTypeDef(TypedDict):
     CurrentVersion: NotRequired[str]
     State: NotRequired[ClusterStateType]
     StateInfo: NotRequired[StateInfoTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     Provisioned: NotRequired[ProvisionedTypeDef]
     Serverless: NotRequired[ServerlessTypeDef]
 
@@ -1347,6 +1431,7 @@ class CreateClusterRequestTypeDef(TypedDict):
     ClusterName: str
     KafkaVersion: str
     NumberOfBrokerNodes: int
+    Rebalancing: NotRequired[RebalancingTypeDef]
     ClientAuthentication: NotRequired[ClientAuthenticationUnionTypeDef]
     ConfigurationInfo: NotRequired[ConfigurationInfoTypeDef]
     EncryptionInfo: NotRequired[EncryptionInfoTypeDef]
@@ -1360,6 +1445,7 @@ class ProvisionedRequestTypeDef(TypedDict):
     BrokerNodeGroupInfo: BrokerNodeGroupInfoUnionTypeDef
     KafkaVersion: str
     NumberOfBrokerNodes: int
+    Rebalancing: NotRequired[RebalancingTypeDef]
     ClientAuthentication: NotRequired[ClientAuthenticationUnionTypeDef]
     ConfigurationInfo: NotRequired[ConfigurationInfoTypeDef]
     EncryptionInfo: NotRequired[EncryptionInfoTypeDef]
@@ -1373,7 +1459,7 @@ class DescribeClusterOperationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClusterOperationsResponseTypeDef(TypedDict):
-    ClusterOperationInfoList: List[ClusterOperationInfoTypeDef]
+    ClusterOperationInfoList: list[ClusterOperationInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1394,7 +1480,7 @@ class DescribeClusterV2ResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListClustersV2ResponseTypeDef(TypedDict):
-    ClusterInfoList: List[ClusterTypeDef]
+    ClusterInfoList: list[ClusterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

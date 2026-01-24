@@ -9,7 +9,7 @@ description = "asyncio SMTP client"
 authors = [{ name = "Cole Maclean", email = "hi@colemaclean.dev" }]
 license = { text = "MIT" }
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["smtp", "email", "asyncio"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -46,7 +46,7 @@ path = "src/aiosmtplib/__init__.py"
 [tool.pytest.ini_options]
 pythonpath = "src"
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "function"
 minversion = "6.0"
 junit_family = "xunit2"
 addopts = ["--import-mode=importlib", "--strict-markers"]
@@ -76,6 +76,7 @@ unfixable = ["B"]
 source = ["aiosmtplib"]
 branch = true
 parallel = true
+patch = ["subprocess"]
 
 [tool.coverage.report]
 show_missing = true
@@ -83,7 +84,6 @@ exclude_lines = [
     "pass",
     "pragma: no cover",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
 ]
 
 [tool.coverage.paths]

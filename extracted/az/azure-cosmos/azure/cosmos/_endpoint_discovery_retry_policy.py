@@ -50,14 +50,7 @@ class EndpointDiscoveryRetryPolicy(object):
         self.retry_after_in_milliseconds = EndpointDiscoveryRetryPolicy.Retry_after_in_milliseconds
         self.connection_policy = connection_policy
         self.request = args[0] if args else None
-        # clear previous location-based routing directive
-        if self.request:
-            self.request.clear_route_to_location()
 
-            # Resolve the endpoint for the request and pin the resolution to the resolved endpoint
-            # This enables marking the endpoint unavailability on endpoint failover/unreachability
-            self.location_endpoint = self.global_endpoint_manager.resolve_service_endpoint(self.request)
-            self.request.route_to_location(self.location_endpoint)
 
     def ShouldRetry(self, exception):  # pylint: disable=unused-argument
         """Returns true if the request should retry based on the passed-in exception.
@@ -77,12 +70,17 @@ class EndpointDiscoveryRetryPolicy(object):
 
         self.failover_retry_count += 1
 
-        if self.location_endpoint:
+        if self.request.location_endpoint_to_route:
+            context = self.__class__.__name__
             if _OperationType.IsReadOnlyOperation(self.request.operation_type):
                 # Mark current read endpoint as unavailable
-                self.global_endpoint_manager.mark_endpoint_unavailable_for_read(self.location_endpoint)
+                self.global_endpoint_manager.mark_endpoint_unavailable_for_read(
+                    self.request.location_endpoint_to_route,
+                    True, context)
             else:
-                self.global_endpoint_manager.mark_endpoint_unavailable_for_write(self.location_endpoint)
+                self.global_endpoint_manager.mark_endpoint_unavailable_for_write(
+                    self.request.location_endpoint_to_route,
+                    True, context)
 
         # set the refresh_needed flag to ensure that endpoint list is
         # refreshed with new writable and readable locations
@@ -94,6 +92,8 @@ class EndpointDiscoveryRetryPolicy(object):
         # set location-based routing directive based on retry count
         # simulating single master writes by ensuring usePreferredLocations
         # is set to false
+        # reasoning being that 403.3 is only expected for write region failover in single writer account
+        # and we must rely on account locations as they are the source of truth
         self.request.route_to_location_with_preferred_location_flag(self.failover_retry_count, False)
 
         return True

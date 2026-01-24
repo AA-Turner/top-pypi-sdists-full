@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -243,10 +243,10 @@ class MessageResponse(proto.Message):
     r"""Response containing a list of messages. Upon delivering a
     MessageResponse to the client, the server:
 
-    -  Updates the stream's delivery cursor to one greater than the
-       cursor of the last message in the list.
-    -  Subtracts the total number of bytes and messages from the tokens
-       available to the server.
+    - Updates the stream's delivery cursor to one greater than the
+      cursor of the last message in the list.
+    - Subtracts the total number of bytes and messages from the tokens
+      available to the server.
 
     Attributes:
         messages (MutableSequence[google.cloud.pubsublite_v1.types.SequencedMessage]):

@@ -124,11 +124,11 @@ impl AsyncClient {
             None => builder,
         };
 
-        let impit =
-            pyo3_async_runtimes::tokio::get_runtime().block_on(async { Arc::new(builder.build()) });
+        let impit = pyo3_async_runtimes::tokio::get_runtime()
+            .block_on(async { builder.build().map_err(ImpitPyError) })?;
 
         Ok(Self {
-            impit,
+            impit: Arc::new(impit),
             default_encoding,
         })
     }
@@ -437,9 +437,9 @@ impl AsyncClient {
 
             match response {
                 Ok(response) => {
-                    let py_response =
-                        ImpitPyResponse::from_async(response, default_encoding, stream_value).await;
-                    Ok(py_response)
+                    ImpitPyResponse::from_async(response, default_encoding, stream_value)
+                        .await
+                        .map_err(|e| ImpitPyError(e).into())
                 }
                 Err(err) => Err(ImpitPyError(err).into()),
             }

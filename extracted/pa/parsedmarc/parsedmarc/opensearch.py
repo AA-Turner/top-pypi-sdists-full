@@ -1,27 +1,29 @@
 # -*- coding: utf-8 -*-
 
-from collections import OrderedDict
+from __future__ import annotations
+
+from typing import Any, Optional, Union
 
 from opensearchpy import (
-    Q,
-    connections,
-    Object,
+    Boolean,
+    Date,
     Document,
     Index,
-    Nested,
     InnerDoc,
     Integer,
-    Text,
-    Boolean,
     Ip,
-    Date,
+    Nested,
+    Object,
+    Q,
     Search,
+    Text,
+    connections,
 )
 from opensearchpy.helpers import reindex
 
+from parsedmarc import InvalidForensicReport
 from parsedmarc.log import logger
 from parsedmarc.utils import human_timestamp_to_datetime
-from parsedmarc import InvalidForensicReport
 
 
 class OpenSearchError(Exception):
@@ -67,6 +69,8 @@ class _AggregateReportDoc(Document):
     date_range = Date()
     date_begin = Date()
     date_end = Date()
+    normalized_timespan = Boolean()
+    original_timespan_seconds = Integer
     errors = Text()
     published_policy = Object(_PublishedPolicy)
     source_ip_address = Ip()
@@ -87,18 +91,18 @@ class _AggregateReportDoc(Document):
     dkim_results = Nested(_DKIMResult)
     spf_results = Nested(_SPFResult)
 
-    def add_policy_override(self, type_, comment):
+    def add_policy_override(self, type_: str, comment: str):
         self.policy_overrides.append(_PolicyOverride(type=type_, comment=comment))
 
-    def add_dkim_result(self, domain, selector, result):
+    def add_dkim_result(self, domain: str, selector: str, result: _DKIMResult):
         self.dkim_results.append(
             _DKIMResult(domain=domain, selector=selector, result=result)
         )
 
-    def add_spf_result(self, domain, scope, result):
+    def add_spf_result(self, domain: str, scope: str, result: _SPFResult):
         self.spf_results.append(_SPFResult(domain=domain, scope=scope, result=result))
 
-    def save(self, **kwargs):
+    def save(self, **kwargs):  # pyright: ignore[reportIncompatibleMethodOverride]
         self.passed_dmarc = False
         self.passed_dmarc = self.spf_aligned or self.dkim_aligned
 
@@ -131,21 +135,21 @@ class _ForensicSampleDoc(InnerDoc):
     body = Text()
     attachments = Nested(_EmailAttachmentDoc)
 
-    def add_to(self, display_name, address):
+    def add_to(self, display_name: str, address: str):
         self.to.append(_EmailAddressDoc(display_name=display_name, address=address))
 
-    def add_reply_to(self, display_name, address):
+    def add_reply_to(self, display_name: str, address: str):
         self.reply_to.append(
             _EmailAddressDoc(display_name=display_name, address=address)
         )
 
-    def add_cc(self, display_name, address):
+    def add_cc(self, display_name: str, address: str):
         self.cc.append(_EmailAddressDoc(display_name=display_name, address=address))
 
-    def add_bcc(self, display_name, address):
+    def add_bcc(self, display_name: str, address: str):
         self.bcc.append(_EmailAddressDoc(display_name=display_name, address=address))
 
-    def add_attachment(self, filename, content_type, sha256):
+    def add_attachment(self, filename: str, content_type: str, sha256: str):
         self.attachments.append(
             _EmailAttachmentDoc(
                 filename=filename, content_type=content_type, sha256=sha256
@@ -197,15 +201,15 @@ class _SMTPTLSPolicyDoc(InnerDoc):
 
     def add_failure_details(
         self,
-        result_type,
-        ip_address,
-        receiving_ip,
-        receiving_mx_helo,
-        failed_session_count,
-        sending_mta_ip=None,
-        receiving_mx_hostname=None,
-        additional_information_uri=None,
-        failure_reason_code=None,
+        result_type: Optional[str] = None,
+        ip_address: Optional[str] = None,
+        receiving_ip: Optional[str] = None,
+        receiving_mx_helo: Optional[str] = None,
+        failed_session_count: Optional[int] = None,
+        sending_mta_ip: Optional[str] = None,
+        receiving_mx_hostname: Optional[str] = None,
+        additional_information_uri: Optional[str] = None,
+        failure_reason_code: Union[str, int, None] = None,
     ):
         _details = _SMTPTLSFailureDetailsDoc(
             result_type=result_type,
@@ -235,13 +239,14 @@ class _SMTPTLSReportDoc(Document):
 
     def add_policy(
         self,
-        policy_type,
-        policy_domain,
-        successful_session_count,
-        failed_session_count,
-        policy_string=None,
-        mx_host_patterns=None,
-        failure_details=None,
+        policy_type: str,
+        policy_domain: str,
+        successful_session_count: int,
+        failed_session_count: int,
+        *,
+        policy_string: Optional[str] = None,
+        mx_host_patterns: Optional[list[str]] = None,
+        failure_details: Optional[str] = None,
     ):
         self.policies.append(
             policy_type=policy_type,
@@ -259,24 +264,25 @@ class AlreadySaved(ValueError):
 
 
 def set_hosts(
-    hosts,
-    use_ssl=False,
-    ssl_cert_path=None,
-    username=None,
-    password=None,
-    apiKey=None,
-    timeout=60.0,
+    hosts: Union[str, list[str]],
+    *,
+    use_ssl: Optional[bool] = False,
+    ssl_cert_path: Optional[str] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    api_key: Optional[str] = None,
+    timeout: Optional[float] = 60.0,
 ):
     """
     Sets the OpenSearch hosts to use
 
     Args:
-        hosts (str|list): A hostname or URL, or list of hostnames or URLs
+        hosts (str|list[str]): A single hostname or URL, or list of hostnames or URLs
         use_ssl (bool): Use an HTTPS connection to the server
         ssl_cert_path (str): Path to the certificate chain
         username (str): The username to use for authentication
         password (str): The password to use for authentication
-        apiKey (str): The Base64 encoded API key to use for authentication
+        api_key (str): The Base64 encoded API key to use for authentication
         timeout (float): Timeout in seconds
     """
     if not isinstance(hosts, list):
@@ -289,14 +295,14 @@ def set_hosts(
             conn_params["ca_certs"] = ssl_cert_path
         else:
             conn_params["verify_certs"] = False
-    if username:
+    if username and password:
         conn_params["http_auth"] = username + ":" + password
-    if apiKey:
-        conn_params["api_key"] = apiKey
+    if api_key:
+        conn_params["api_key"] = api_key
     connections.create_connection(**conn_params)
 
 
-def create_indexes(names, settings=None):
+def create_indexes(names: list[str], settings: Optional[dict[str, Any]] = None):
     """
     Create OpenSearch indexes
 
@@ -319,7 +325,10 @@ def create_indexes(names, settings=None):
             raise OpenSearchError("OpenSearch error: {0}".format(e.__str__()))
 
 
-def migrate_indexes(aggregate_indexes=None, forensic_indexes=None):
+def migrate_indexes(
+    aggregate_indexes: Optional[list[str]] = None,
+    forensic_indexes: Optional[list[str]] = None,
+):
     """
     Updates index mappings
 
@@ -366,18 +375,18 @@ def migrate_indexes(aggregate_indexes=None, forensic_indexes=None):
 
 
 def save_aggregate_report_to_opensearch(
-    aggregate_report,
-    index_suffix=None,
-    index_prefix=None,
-    monthly_indexes=False,
-    number_of_shards=1,
-    number_of_replicas=0,
+    aggregate_report: dict[str, Any],
+    index_suffix: Optional[str] = None,
+    index_prefix: Optional[str] = None,
+    monthly_indexes: bool = False,
+    number_of_shards: int = 1,
+    number_of_replicas: int = 0,
 ):
     """
     Saves a parsed DMARC aggregate report to OpenSearch
 
     Args:
-        aggregate_report (OrderedDict): A parsed forensic report
+        aggregate_report (dict): A parsed forensic report
         index_suffix (str): The suffix of the name of the index to save to
         index_prefix (str): The prefix of the name of the index to save to
         monthly_indexes (bool): Use monthly indexes instead of daily indexes
@@ -395,15 +404,11 @@ def save_aggregate_report_to_opensearch(
     domain = aggregate_report["policy_published"]["domain"]
     begin_date = human_timestamp_to_datetime(metadata["begin_date"], to_utc=True)
     end_date = human_timestamp_to_datetime(metadata["end_date"], to_utc=True)
-    begin_date_human = begin_date.strftime("%Y-%m-%d %H:%M:%SZ")
-    end_date_human = end_date.strftime("%Y-%m-%d %H:%M:%SZ")
+
     if monthly_indexes:
         index_date = begin_date.strftime("%Y-%m")
     else:
         index_date = begin_date.strftime("%Y-%m-%d")
-    aggregate_report["begin_date"] = begin_date
-    aggregate_report["end_date"] = end_date
-    date_range = [aggregate_report["begin_date"], aggregate_report["end_date"]]
 
     org_name_query = Q(dict(match_phrase=dict(org_name=org_name)))
     report_id_query = Q(dict(match_phrase=dict(report_id=report_id)))
@@ -421,6 +426,8 @@ def save_aggregate_report_to_opensearch(
     query = org_name_query & report_id_query & domain_query
     query = query & begin_date_query & end_date_query
     search.query = query
+    begin_date_human = begin_date.strftime("%Y-%m-%d %H:%M:%SZ")
+    end_date_human = end_date.strftime("%Y-%m-%d %H:%M:%SZ")
 
     try:
         existing = search.execute()
@@ -450,6 +457,17 @@ def save_aggregate_report_to_opensearch(
     )
 
     for record in aggregate_report["records"]:
+        begin_date = human_timestamp_to_datetime(record["interval_begin"], to_utc=True)
+        end_date = human_timestamp_to_datetime(record["interval_end"], to_utc=True)
+        normalized_timespan = record["normalized_timespan"]
+
+        if monthly_indexes:
+            index_date = begin_date.strftime("%Y-%m")
+        else:
+            index_date = begin_date.strftime("%Y-%m-%d")
+        aggregate_report["begin_date"] = begin_date
+        aggregate_report["end_date"] = end_date
+        date_range = [aggregate_report["begin_date"], aggregate_report["end_date"]]
         agg_doc = _AggregateReportDoc(
             xml_schema=aggregate_report["xml_schema"],
             org_name=metadata["org_name"],
@@ -457,8 +475,9 @@ def save_aggregate_report_to_opensearch(
             org_extra_contact_info=metadata["org_extra_contact_info"],
             report_id=metadata["report_id"],
             date_range=date_range,
-            date_begin=aggregate_report["begin_date"],
-            date_end=aggregate_report["end_date"],
+            date_begin=begin_date,
+            date_end=end_date,
+            normalized_timespan=normalized_timespan,
             errors=metadata["errors"],
             published_policy=published_policy,
             source_ip_address=record["source"]["ip_address"],
@@ -517,18 +536,18 @@ def save_aggregate_report_to_opensearch(
 
 
 def save_forensic_report_to_opensearch(
-    forensic_report,
-    index_suffix=None,
-    index_prefix=None,
-    monthly_indexes=False,
-    number_of_shards=1,
-    number_of_replicas=0,
+    forensic_report: dict[str, Any],
+    index_suffix: Optional[str] = None,
+    index_prefix: Optional[str] = None,
+    monthly_indexes: bool = False,
+    number_of_shards: int = 1,
+    number_of_replicas: int = 0,
 ):
     """
     Saves a parsed DMARC forensic report to OpenSearch
 
     Args:
-        forensic_report (OrderedDict): A parsed forensic report
+        forensic_report (dict): A parsed forensic report
         index_suffix (str): The suffix of the name of the index to save to
         index_prefix (str): The prefix of the name of the index to save to
         monthly_indexes (bool): Use monthly indexes instead of daily
@@ -548,7 +567,7 @@ def save_forensic_report_to_opensearch(
         sample_date = forensic_report["parsed_sample"]["date"]
         sample_date = human_timestamp_to_datetime(sample_date)
     original_headers = forensic_report["parsed_sample"]["headers"]
-    headers = OrderedDict()
+    headers: dict[str, Any] = {}
     for original_header in original_headers:
         headers[original_header.lower()] = original_headers[original_header]
 
@@ -684,18 +703,18 @@ def save_forensic_report_to_opensearch(
 
 
 def save_smtp_tls_report_to_opensearch(
-    report,
-    index_suffix=None,
-    index_prefix=None,
-    monthly_indexes=False,
-    number_of_shards=1,
-    number_of_replicas=0,
+    report: dict[str, Any],
+    index_suffix: Optional[str] = None,
+    index_prefix: Optional[str] = None,
+    monthly_indexes: bool = False,
+    number_of_shards: int = 1,
+    number_of_replicas: int = 0,
 ):
     """
     Saves a parsed SMTP TLS report to OpenSearch
 
     Args:
-        report (OrderedDict): A parsed SMTP TLS report
+        report (dict): A parsed SMTP TLS report
         index_suffix (str): The suffix of the name of the index to save to
         index_prefix (str): The prefix of the name of the index to save to
         monthly_indexes (bool): Use monthly indexes instead of daily indexes
@@ -705,7 +724,7 @@ def save_smtp_tls_report_to_opensearch(
     Raises:
             AlreadySaved
     """
-    logger.info("Saving aggregate report to OpenSearch")
+    logger.info("Saving SMTP TLS report to OpenSearch")
     org_name = report["organization_name"]
     report_id = report["report_id"]
     begin_date = human_timestamp_to_datetime(report["begin_date"], to_utc=True)
@@ -781,7 +800,7 @@ def save_smtp_tls_report_to_opensearch(
         policy_doc = _SMTPTLSPolicyDoc(
             policy_domain=policy["policy_domain"],
             policy_type=policy["policy_type"],
-            succesful_session_count=policy["successful_session_count"],
+            successful_session_count=policy["successful_session_count"],
             failed_session_count=policy["failed_session_count"],
             policy_string=policy_strings,
             mx_host_patterns=mx_host_patterns,

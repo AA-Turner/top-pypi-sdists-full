@@ -40,19 +40,15 @@ class FeatureAssociationFeaturelists(APIObject):
     """
 
     _path = "projects/{}/featureAssociationFeaturelists/"
-    _converter = t.Dict(
-        {
-            t.Key("featurelists"): t.List(
-                t.Dict(
-                    {
-                        t.Key("featurelist_id"): String(),
-                        t.Key("title"): String(),
-                        t.Key("has_fam"): t.Bool(),
-                    }
-                )
-            )
-        }
-    )
+    _converter = t.Dict({
+        t.Key("featurelists"): t.List(
+            t.Dict({
+                t.Key("featurelist_id"): String(),
+                t.Key("title"): String(),
+                t.Key("has_fam"): t.Bool(),
+            })
+        )
+    })
 
     def __init__(
         self,
@@ -63,9 +59,7 @@ class FeatureAssociationFeaturelists(APIObject):
         self.featurelists = featurelists
 
     def __repr__(self) -> str:
-        return "{}(project_id={}, featurelists={})".format(
-            self.__class__.__name__, self.project_id, self.featurelists
-        )
+        return "{}(project_id={}, featurelists={})".format(self.__class__.__name__, self.project_id, self.featurelists)
 
     @classmethod
     def get(cls, project_id: str) -> FeatureAssociationFeaturelists:

@@ -37,10 +37,10 @@ fn validate_create_table(it: ast::CreateTable, acc: &mut Vec<SyntaxError>) {
     for arg in arg_list.args() {
         match arg {
             ast::TableArg::Column(column) => {
-                let Some(col_name) = column.name() else {
-                    continue;
-                };
-                if type_required && column.ty().is_none() {
+                if let Some(col_name) = column.name()
+                    && type_required
+                    && column.ty().is_none()
+                {
                     let end = col_name.syntax().text_range().end();
                     acc.push(SyntaxError::new(
                         "Missing column type",
@@ -160,12 +160,6 @@ fn validate_join_expr(join_expr: ast::JoinExpr, acc: &mut Vec<SyntaxError>) {
             }
         }
         NotAllowed => {
-            if let Some(on_clause) = join.on_clause() {
-                acc.push(SyntaxError::new(
-                    format!("Join condition is not allowed for {join_name} joins."),
-                    on_clause.syntax().text_range(),
-                ));
-            }
             if let Some(using_clause) = join.using_clause() {
                 acc.push(SyntaxError::new(
                     format!("Join `using` clause is not allowed for {join_name} joins."),

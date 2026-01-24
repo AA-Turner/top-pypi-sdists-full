@@ -18,6 +18,7 @@ from typing import Any, ClassVar, Dict, List, Optional
 from connector_sdk_types.generated.models.create_account_entitlement import CreateAccountEntitlement
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class CreateAccount(BaseModel):
@@ -99,3 +100,6 @@ class CreateAccount(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

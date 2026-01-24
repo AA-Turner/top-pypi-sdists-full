@@ -9,7 +9,7 @@ from enum import Enum, auto
 from typing import List, Optional, Dict, Union
 
 from seeq.sdk import *
-from seeq.spy import _common, _login, _metadata, _search
+from seeq.spy import _common, _metadata, _search, _version
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely
 from seeq.spy._session import Session
@@ -160,13 +160,13 @@ class Item:
             # item through multiple round-trips.
             return f"[{label}] {definition.get('Custody ID', definition['ID'])}"
 
-    def find_me(self, session: Session, label, datasource_output):
+    def find_me(self, session: Session, label, datasource_output, *, status: Optional[Status] = None):
         return Item.find_item(session, self.id, datasource_output.datasource_class, datasource_output.datasource_id,
-                              self._construct_data_id(label), label=label)
+                              self._construct_data_id(label), label=label, status=status)
 
     @staticmethod
     def find_item(session: Session, item_id: str, datasource_class: str, datasource_id: str, data_id: str, *,
-                  label: str = None):
+                  label: str = None, status: Optional[Status] = None):
         # This is arguably the trickiest part of the spy.workbooks codebase: identifier management. This function is
         # a key piece to understanding how it works.
         #
@@ -188,24 +188,28 @@ class Item:
         # A label can be used to purposefully isolate or duplicate items. If a label is specified, then we never look
         # up an item directly by its ID, we fall through to the canonical Data ID format (which incorporates the
         # label). This allows many copies of a workbook to be created, for example during training scenarios.
-
         items_api = ItemsApi(session.client)
 
         if not label and item_id is not None:
             try:
-                item_output = items_api.get_item_and_all_properties(id=item_id)  # type: ItemOutputV1
+                item_output = items_api.get_item_and_all_properties(id=item_id)
+                Status.log_if(status, f'Found {item_output.type} "{item_output.name}" ({item_id}) by direct ID lookup')
                 return item_output
             except ApiException:
                 # Fall through to looking via Data ID
-                pass
+                Status.log_if(status, f'{item_id} does not exist on server')
 
         return Item.find_item_by_search(
             session,
-            f'Datasource Class=={datasource_class} && Datasource ID=={datasource_id} && Data ID=={data_id}')
+            f'Datasource Class=={datasource_class} && Datasource ID=={datasource_id} && Data ID=={data_id}',
+            status=status
+        )
 
     @staticmethod
-    def find_item_by_search(session: Session, search: str, *, scope: Optional[List[str]] = None,
-                            types: Optional[List[str]] = None) -> Optional[Union[ItemOutputV1, ItemSearchPreviewV1]]:
+    def find_item_by_search(
+            session: Session, search: str, *, scope: Optional[List[str]] = None,
+            status: Optional[Status] = None, types: Optional[List[str]] = None
+    ) -> Optional[Union[ItemOutputV1, ItemSearchPreviewV1]]:
         items_api = ItemsApi(session.client)
 
         _filters = [search, '@includeUnsearchable']
@@ -225,21 +229,27 @@ class Item:
         if types is not None:
             kwargs['types'] = types
 
-        if _login.is_sdk_module_version_at_least(62):
+        if _version.is_sdk_module_version_at_least(62):
             kwargs['include_properties'] = _search.ALL_PROPERTIES
 
+        Status.log_if(status, f'Searching for item with search_items({json.dumps(kwargs)})')
         search_results = items_api.search_items(**kwargs)
 
         if len(search_results.items) == 0:
+            Status.log_if(status, 'Item not found via search')
             return None
 
         if len(search_results.items) > 1:
             raise SPyRuntimeError('Multiple workbook/worksheet/workstep items found via search: "%s"', search)
 
-        if not _login.is_sdk_module_version_at_least(62):
-            return items_api.get_item_and_all_properties(id=search_results.items[0].id)
+        item_search_preview = search_results.items[0]
+        Status.log_if(status,
+                      f'Found {item_search_preview.type} "{item_search_preview.name}" ({item_search_preview.id})')
 
-        return search_results.items[0]
+        if not _version.is_sdk_module_version_at_least(62):
+            return items_api.get_item_and_all_properties(id=item_search_preview.id)
+
+        return item_search_preview
 
     @staticmethod
     def _get_item_output(session: Session, item_id: str) -> ItemOutputV1:
@@ -488,21 +498,16 @@ class Reference:
         return self.id == other.id and self.provenance == other.provenance and self.worksheet_id == other.worksheet_id
 
 
-def replace_items(document, item_map: ItemMap):
-    if document is None:
-        return
+def replace_items(document: str, item_map: ItemMap, chunk_size: int = 5000) -> Optional[str]:
+    keys = sorted(item_map.keys(), key=len, reverse=True)
+    lookup = {k.lower(): item_map[k] for k in keys}
 
-    new_report = copy.deepcopy(document)
-    for _id in item_map.keys():
-        matches = re.finditer(re.escape(_id), document, flags=re.IGNORECASE)
-        for match in matches:
-            _replacement = item_map[_id]
-            try:
-                new_report = re.sub(re.escape(match.group(0)), _replacement, new_report, flags=re.IGNORECASE)
-            except (TypeError, IndexError):
-                pass
-
-    return new_report
+    out = document
+    for i in range(0, len(keys), chunk_size):
+        chunk = keys[i:i + chunk_size]
+        pattern = re.compile("|".join(map(re.escape, chunk)), flags=re.IGNORECASE)
+        out = pattern.sub(lambda m: lookup.get(m.group(0).lower(), m.group(0)), out)
+    return out
 
 
 def get_canonical_server_url(session: Session):

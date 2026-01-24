@@ -222,9 +222,10 @@ class NeuralForecast:
         models: List[Any],
         freq: Union[str, int],
         local_scaler_type: Optional[str] = None,
+        local_static_scaler_type: Optional[str] = None,
     ):
         """The `core.StatsForecast` class allows you to efficiently fit multiple `NeuralForecast` models
-        for large sets of time series. It operates with pandas DataFrame `df` that identifies series
+        for large sets of time series. It operates with a pandas DataFrame `df` that identifies series
         and datestamps with the `unique_id` and `ds` columns. The `y` column denotes the target
         time series variable.
 
@@ -232,8 +233,10 @@ class NeuralForecast:
             models (List[typing.Any]): Instantiated `neuralforecast.models`
                 see [collection here](./models).
             freq (str or int): Frequency of the data. Must be a valid pandas or polars offset alias, or an integer.
-            local_scaler_type (str, optional): Scaler to apply per-serie to all features before fitting, which is inverted after predicting.
-                Can be 'standard', 'robust', 'robust-iqr', 'minmax' or 'boxcox'. Defaults to None.
+            local_scaler_type (str, optional): Scaler to apply per-serie to temporal features before fitting, which is inverted after predicting.
+                Can be 'standard', 'robust', 'robust-iqr', 'minmax' or 'boxcox'. 
+            local_static_scaler_type (str, optional): Scaler to apply to static exogenous features before fitting.
+                Can be 'standard', 'robust', 'robust-iqr', 'minmax' or 'boxcox'. 
 
         Returns:
             NeuralForecast: Returns instantiated `NeuralForecast` class.
@@ -247,8 +250,12 @@ class NeuralForecast:
         self.freq = freq
         if local_scaler_type is not None and local_scaler_type not in _type2scaler:
             raise ValueError(f"scaler_type must be one of {_type2scaler.keys()}")
+        if local_static_scaler_type is not None and local_static_scaler_type not in _type2scaler:
+            raise ValueError(f"static_scaler_type must be one of {_type2scaler.keys()}")
         self.local_scaler_type = local_scaler_type
+        self.local_static_scaler_type = local_static_scaler_type
         self.scalers_: Dict
+        self.static_scalers_: Dict
 
         # Flags and attributes
         self._fitted = False
@@ -256,25 +263,35 @@ class NeuralForecast:
         self._add_level = False
 
     def _scalers_fit_transform(self, dataset: TimeSeriesDataset) -> None:
-        self.scalers_ = {}
-        if self.local_scaler_type is None:
-            return None
-        for i, col in enumerate(dataset.temporal_cols):
-            if col == "available_mask":
-                continue
-            ga = GroupedArray(dataset.temporal[:, i].numpy(), dataset.indptr)
-            self.scalers_[col] = _type2scaler[self.local_scaler_type]().fit(ga)
-            dataset.temporal[:, i] = torch.from_numpy(self.scalers_[col].transform(ga))
+        self.scalers_, self.static_scalers_ = {}, {}
+        if self.local_scaler_type is not None:
+            for i, col in enumerate(dataset.temporal_cols):
+                if col == "available_mask":
+                    continue
+                ga = GroupedArray(dataset.temporal[:, i].numpy(), dataset.indptr)
+                self.scalers_[col] = _type2scaler[self.local_scaler_type]().fit(ga)
+                dataset.temporal[:, i] = torch.from_numpy(self.scalers_[col].transform(ga))
+        if self.local_static_scaler_type is not None and dataset.static is not None:
+            for i, col in enumerate(dataset.static_cols):
+                ga = GroupedArray(dataset.static[:, i].numpy(), np.array([0, dataset.static.shape[0]]))
+                self.static_scalers_[col] = _type2scaler[self.local_static_scaler_type]().fit(ga)
+                dataset.static[:, i] = torch.from_numpy(self.static_scalers_[col].transform(ga))
 
     def _scalers_transform(self, dataset: TimeSeriesDataset) -> None:
-        if not self.scalers_:
-            return None
-        for i, col in enumerate(dataset.temporal_cols):
-            scaler = self.scalers_.get(col, None)
-            if scaler is None:
-                continue
-            ga = GroupedArray(dataset.temporal[:, i].numpy(), dataset.indptr)
-            dataset.temporal[:, i] = torch.from_numpy(scaler.transform(ga))
+        if self.scalers_:
+            for i, col in enumerate(dataset.temporal_cols):
+                scaler = self.scalers_.get(col, None)
+                if scaler is None:
+                    continue
+                ga = GroupedArray(dataset.temporal[:, i].numpy(), dataset.indptr)
+                dataset.temporal[:, i] = torch.from_numpy(scaler.transform(ga))
+        if self.static_scalers_ and dataset.static is not None:
+            for i, col in enumerate(dataset.static_cols):
+                scaler = self.static_scalers_.get(col, None)
+                if scaler is None:
+                    continue
+                ga = GroupedArray(dataset.static[:, i].numpy(), np.array([0, dataset.static.shape[0]]))
+                dataset.static[:, i] = torch.from_numpy(scaler.transform(ga))
 
     def _scalers_target_inverse_transform(
         self, data: np.ndarray, indptr: np.ndarray
@@ -348,6 +365,11 @@ class NeuralForecast:
                 "Historic scaling isn't supported in distributed. "
                 "Please open an issue if this would be valuable to you."
             )
+        if self.local_static_scaler_type is not None:
+            raise ValueError(
+                "Static scaling isn't supported in distributed. "
+                "Please open an issue if this would be valuable to you."
+            )
         temporal_cols = [c for c in df.columns if c not in (id_col, time_col)]
         if static_df is not None:
             static_cols = [c for c in static_df.columns if c != id_col]
@@ -357,7 +379,7 @@ class NeuralForecast:
         self.id_col = id_col
         self.time_col = time_col
         self.target_col = target_col
-        self.scalers_ = {}
+        self.scalers_, self.static_scalers_ = {}, {}
         num_partitions = distributed_config.num_nodes * distributed_config.devices
         df = df.repartitionByRange(num_partitions, id_col)
         df.write.parquet(path=distributed_config.partitions_path, mode="overwrite")
@@ -393,11 +415,16 @@ class NeuralForecast:
                 "Historic scaling isn't supported when the dataset is split between files. "
                 "Please open an issue if this would be valuable to you."
             )
+        if self.local_static_scaler_type is not None:
+            raise ValueError(
+                "Static scaling isn't supported when the dataset is split between files. "
+                "Please open an issue if this would be valuable to you."
+            )
 
         self.id_col = id_col
         self.time_col = time_col
         self.target_col = target_col
-        self.scalers_ = {}
+        self.scalers_, self.static_scalers_ = {}, {}
 
         exogs = self._get_needed_exog()
         return LocalFilesTimeSeriesDataset.from_data_directories(
@@ -422,23 +449,23 @@ class NeuralForecast:
         distributed_config: Optional[DistributedConfig] = None,
         prediction_intervals: Optional[PredictionIntervals] = None,
     ) -> None:
-        """Fit the core.NeuralForecast.
+        """Fit the core.NeuralForecast
 
-        Fit `models` to a large set of time series from DataFrame `df`.
+        Fit `models` to a large set of time series from DataFrame `df`
         and store fitted models for later inspection.
 
         Args:
             df (pandas, polars or spark DataFrame, or a list of parquet files containing the series, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
-                If None, a previously stored dataset is required. Defaults to None.
-            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous. Defaults to None.
-            val_size (int, optional): Size of validation set. Defaults to 0.
-            use_init_models (bool, optional): Use initial model passed when NeuralForecast object was instantiated. Defaults to False.
-            verbose (bool): Print processing steps. Defaults to False.
-            id_col (str): Column that identifies each serie. Defaults to 'unique_id'.
-            time_col (str): Column that identifies each timestep, its values can be timestamps or integers. Defaults to 'ds'.
-            target_col (str): Column that contains the target. Defaults to 'y'.
+                If None, a previously stored dataset is required. 
+            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous.
+            val_size (int, optional): Size of validation set.
+            use_init_models (bool, optional): Use initial model passed when NeuralForecast object was instantiated.
+            verbose (bool): Print processing steps.
+            id_col (str): Column that identifies each serie.
+            time_col (str): Column that identifies each timestep, its values can be timestamps or integers.
+            target_col (str): Column that contains the target.
             distributed_config (neuralforecast.DistributedConfig): Configuration to use for DDP training. Currently only spark is supported.
-            prediction_intervals (PredictionIntervals, optional): Configuration to calibrate prediction intervals (Conformal Prediction). Defaults to None.
+            prediction_intervals (PredictionIntervals, optional): Configuration to calibrate prediction intervals (Conformal Prediction).
 
         Returns:
             NeuralForecast: Returns `NeuralForecast` class with fitted `models`.
@@ -553,7 +580,7 @@ class NeuralForecast:
 
         Args:
             df (pandas or polars DataFrame, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
-                Only required if this is different than the one used in the fit step. Defaults to None.
+                Only required if this is different than the one used in the fit step. 
         """
         if not self._fitted:
             raise Exception("You must fit the model first.")
@@ -794,14 +821,14 @@ class NeuralForecast:
 
         Args:
             df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
-                If a DataFrame is passed, it is used to generate forecasts. Defaults to None.
-            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous. Defaults to None.
-            futr_df (pandas, polars or spark DataFrame, optional): DataFrame with [`unique_id`, `ds`] columns and `df`'s future exogenous. Defaults to None.
-            verbose (bool): Print processing steps. Defaults to False.
+                If a DataFrame is passed, it is used to generate forecasts.
+            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous.
+            futr_df (pandas, polars or spark DataFrame, optional): DataFrame with [`unique_id`, `ds`] columns and `df`'s future exogenous.
+            verbose (bool): Print processing steps.
             engine (spark session): Distributed engine for inference. Only used if df is a spark dataframe or if fit was called on a spark dataframe.
-            level (list of ints or floats, optional): Confidence levels between 0 and 100. Defaults to None.
-            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. Defaults to None.
-            h (int, optional): Forecasting horizon. If None, uses the horizon of the fitted models. Defaults to None.
+            level (list of ints or floats, optional): Confidence levels between 0 and 100.
+            quantiles (list of floats, optional): Alternative to level, target quantiles to predict.
+            h (int, optional): Forecasting horizon. If None, uses the horizon of the fitted models.
             data_kwargs (kwargs): Extra arguments to be passed to the dataset within each model.
 
         Returns:
@@ -988,6 +1015,7 @@ class NeuralForecast:
         df: Optional[Union[DataFrame, SparkDataFrame]] = None,
         static_df: Optional[Union[DataFrame, SparkDataFrame]] = None,
         futr_df: Optional[Union[DataFrame, SparkDataFrame]] = None,
+        h: Optional[int] = None,
         verbose: bool = True,
         engine=None,
         level: Optional[List[Union[int, float]]] = None,
@@ -1003,13 +1031,14 @@ class NeuralForecast:
             outputs (list of int, optional): List of outputs to explain for models with multiple outputs. Defaults to [0] (first output).
             explainer (str): Name of the explainer to use. Options are 'IntegratedGradients', 'ShapleyValueSampling', 'InputXGradient'. Defaults to 'IntegratedGradients'.
             df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
-            If a DataFrame is passed, it is used to generate forecasts. Defaults to None.
-            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous. Defaults to None.
-            futr_df (pandas, polars or spark DataFrame, optional): DataFrame with [`unique_id`, `ds`] columns and `df`'s future exogenous. Defaults to None.
-            verbose (bool): Print processing steps. Defaults to False.
+            If a DataFrame is passed, it is used to generate forecasts.
+            static_df (pandas, polars or spark DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous.
+            futr_df (pandas, polars or spark DataFrame, optional): DataFrame with [`unique_id`, `ds`] columns and `df`'s future exogenous.
+            h (int): The forecast horizon. Can be larger than the horizon set during training.
+            verbose (bool): Print processing steps.
             engine (spark session): Distributed engine for inference. Only used if df is a spark dataframe or if fit was called on a spark dataframe.
-            level (list of ints or floats, optional): Confidence levels between 0 and 100. Defaults to None.
-            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. Defaults to None.
+            level (list of ints or floats, optional): Confidence levels between 0 and 100.
+            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. 
             data_kwargs (kwargs): Extra arguments to be passed to the dataset within each model.
 
         Returns:
@@ -1019,11 +1048,17 @@ class NeuralForecast:
         """
         warnings.warn("This function is beta and subject to change.")
 
+        if h is None:
+            h_explain = self.h  # Default to model's training horizon
+        else:
+            h_explain = h
+        
+        # Validate and set horizons
         if horizons is None:
-            horizons = list(range(self.h))
-        elif not horizons or len(horizons) > self.h or any(h < 0 or h >= self.h for h in horizons):
+            horizons = list(range(h_explain))
+        elif not horizons or len(horizons) > h_explain or any(h < 0 or h >= h_explain for h in horizons):
             raise ValueError(
-                f"Invalid indices. Make sure to select horizon steps within {list(range(self.h))} or set it to None to explain all horizon steps"
+                f"Invalid indices. Make sure to select horizon steps within {list(range(h_explain))} or set it to None to explain all horizon steps"
             )
 
         try:
@@ -1147,6 +1182,7 @@ class NeuralForecast:
                 df=df,
                 static_df=static_df,
                 futr_df=futr_df,
+                h=h_explain,
                 verbose=verbose,
                 engine=engine,
                 level=level,
@@ -1301,7 +1337,7 @@ class NeuralForecast:
         self,
         df: Optional[DataFrame] = None,
         static_df: Optional[DataFrame] = None,
-        n_windows: int = 1,
+        n_windows: Optional[int] = 1,
         step_size: int = 1,
         val_size: Optional[int] = 0,
         test_size: Optional[int] = None,
@@ -1324,24 +1360,24 @@ class NeuralForecast:
 
         Args:
             df (pandas or polars DataFrame, optional): DataFrame with columns [`unique_id`, `ds`, `y`] and exogenous variables.
-                If None, a previously stored dataset is required. Defaults to None.
+                If None, a previously stored dataset is required.
             static_df (pandas or polars DataFrame, optional): DataFrame with columns [`unique_id`] and static exogenous. Defaults to None.
-            n_windows (int): Number of windows used for cross validation. Defaults to 1.
-            step_size (int): Step size between each window. Defaults to 1.
+            n_windows (int, None): Number of windows used for cross validation. If None, define `test_size`.
+            step_size (int): Step size between each window.
             val_size (int, optional): Length of validation size. If passed, set `n_windows=None`. Defaults to 0.
-            test_size (int, optional): Length of test size. If passed, set `n_windows=None`. Defaults to None.
-            use_init_models (bool, optional): Use initial model passed when object was instantiated. Defaults to False.
-            verbose (bool): Print processing steps. Defaults to False.
+            test_size (int, optional): Length of test size. If passed, set `n_windows=None`. 
+            use_init_models (bool, optional): Use initial model passed when object was instantiated. 
+            verbose (bool): Print processing steps. 
             refit (bool or int): Retrain model for each cross validation window.
                 If False, the models are trained at the beginning and then used to predict each window.
-                If positive int, the models are retrained every `refit` windows. Defaults to False.
-            id_col (str): Column that identifies each serie. Defaults to 'unique_id'.
+                If positive int, the models are retrained every `refit` windows. 
+            id_col (str): Column that identifies each serie.
             time_col (str): Column that identifies each timestep, its values can be timestamps or integers. Defaults to 'ds'.
-            target_col (str): Column that contains the target. Defaults to 'y'.
+            target_col (str): Column that contains the target.
             prediction_intervals (PredictionIntervals, optional): Configuration to calibrate prediction intervals (Conformal Prediction). Defaults to None.
-            level (list of ints or floats, optional): Confidence levels between 0 and 100. Defaults to None.
-            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. Defaults to None.
-            h (int, optional): Forecasting horizon. If None, uses the horizon of the fitted models. Defaults to None.
+            level (list of ints or floats, optional): Confidence levels between 0 and 100.
+            quantiles (list of floats, optional): Alternative to level, target quantiles to predict.
+            h (int, optional): Forecasting horizon. If None, uses the horizon of the fitted models.
             data_kwargs (kwargs): Extra arguments to be passed to the dataset within each model.
 
         Returns:
@@ -1382,13 +1418,19 @@ class NeuralForecast:
         if n_windows is None and test_size is None:
             raise Exception("you must define `n_windows` or `test_size`.")
         if test_size is None and h is not None:
+            assert n_windows is not None
             test_size = h + step_size * (n_windows - 1)
         elif n_windows is None:
+            assert test_size is not None
+            assert h is not None
             if (test_size - h) % step_size:
-                raise Exception("`test_size - h` should be module `step_size`")
+                raise Exception("`test_size - h` must be divisible by `step_size`")
             n_windows = int((test_size - h) / step_size) + 1
         else:
             raise Exception("you must define `n_windows` or `test_size` but not both")
+    
+        assert n_windows is not None
+        assert test_size is not None
 
         # Recover initial model if use_init_models.
         if use_init_models:
@@ -1497,9 +1539,9 @@ class NeuralForecast:
         to predict historic values of a time series from the stored dataframe.
 
         Args:
-            step_size (int): Step size between each window. Defaults to 1.
-            level (list of ints or floats, optional): Confidence levels between 0 and 100. Defaults to None.
-            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. Defaults to None.
+            step_size (int): Step size between each window.
+            level (list of ints or floats, optional): Confidence levels between 0 and 100. 
+            quantiles (list of floats, optional): Alternative to level, target quantiles to predict. 
 
         Returns:
             fcsts_df (pandas.DataFrame): DataFrame with insample predictions for all fitted `models`.
@@ -1669,9 +1711,9 @@ class NeuralForecast:
 
         Args:
             path (str): Directory to save current status.
-            model_index (list, optional): List to specify which models from list of self.models to save. Defaults to None.
-            save_dataset (bool): Whether to save dataset or not. Defaults to True.
-            overwrite (bool): Whether to overwrite files or not. Defaults to False.
+            model_index (list, optional): List to specify which models from list of self.models to save. 
+            save_dataset (bool): Whether to save dataset or not.
+            overwrite (bool): Whether to overwrite files or not. 
         """
         # Standarize path without '/'
         if path[-1] == "/":
@@ -1743,7 +1785,9 @@ class NeuralForecast:
             "freq": self.freq,
             "_fitted": self._fitted,
             "local_scaler_type": self.local_scaler_type,
+            "local_static_scaler_type": self.local_static_scaler_type,
             "scalers_": self.scalers_,
+            "static_scalers_": self.static_scalers_,
             "id_col": self.id_col,
             "time_col": self.time_col,
             "target_col": self.target_col,
@@ -1846,6 +1890,7 @@ class NeuralForecast:
             models=models,
             freq=config_dict["freq"],
             local_scaler_type=config_dict.get("local_scaler_type", default_scalar_type),
+            local_static_scaler_type=config_dict.get("local_static_scaler_type", None)               
         )
 
         attr_to_default = {"id_col": "unique_id", "time_col": "ds", "target_col": "y"}
@@ -1870,6 +1915,7 @@ class NeuralForecast:
         neuralforecast._fitted = config_dict["_fitted"]
 
         neuralforecast.scalers_ = config_dict.get("scalers_", default_scalars_)
+        neuralforecast.static_scalers_ = config_dict.get("static_scalers_", {})
 
         return neuralforecast
 

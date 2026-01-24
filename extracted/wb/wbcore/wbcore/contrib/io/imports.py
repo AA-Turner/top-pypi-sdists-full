@@ -46,7 +46,7 @@ class ImportExportHandler:
             else:
                 return provider_id, content_type
 
-    def _model_dict_diff(self, model: Any, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _model_dict_diff(self, model: Any, data: Dict[str, Any]) -> Dict[str, Any]:  # noqa: C901
         """
         Given a model and its dictionary representation, compare them and find out the fields that are different
         Args:
@@ -168,7 +168,7 @@ class ImportExportHandler:
                 error_msg = f"\nError {e} while saving data {change_data} for object id {_object.pk}"
                 self.import_source.log += error_msg
                 if not getattr(self, "allow_update_save_failure", False):
-                    raise ImportError(error_msg)
+                    raise ImportError(error_msg) from e
             return True
         return False
 

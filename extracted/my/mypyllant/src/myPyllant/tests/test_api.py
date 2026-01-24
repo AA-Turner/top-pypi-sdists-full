@@ -50,6 +50,17 @@ async def test_login_bulex(mypyllant_aioresponses) -> None:
             assert "Authorization" in mocked_api.get_authorized_headers()
 
 
+async def test_login_glow_worm(mypyllant_aioresponses) -> None:
+    with mypyllant_aioresponses() as _:
+        async with MyPyllantAPI(
+            "test@example.com", "test", "glow-worm", None
+        ) as mocked_api:
+            assert isinstance(mocked_api.oauth_session_expires, datetime)
+            assert mocked_api.oauth_session_expires > datetime.now(timezone.utc)
+            assert mocked_api.access_token == "access_token"
+            assert "Authorization" in mocked_api.get_authorized_headers()
+
+
 async def test_login_invalid_country(mypyllant_aioresponses) -> None:
     with pytest.raises(RealmInvalid):
         MyPyllantAPI("test@example.com", "test", "sdbg", "germany")
@@ -95,6 +106,21 @@ async def test_homes(
 
         assert isinstance(home, Home), "Expected Home return type"
         await mocked_api.aiohttp_session.close()
+
+
+async def test_timezone_caching(
+    mypyllant_aioresponses, mocked_api: MyPyllantAPI, caplog
+) -> None:
+    test_data = load_test_data(DATA_DIR / "vrc700")
+    with caplog.at_level(logging.DEBUG):
+        with mypyllant_aioresponses(test_data) as _:
+            home = await anext(mocked_api.get_homes())
+            await anext(mocked_api.get_homes())
+            await mocked_api.aiohttp_session.close()
+        assert caplog.text.count(f"Fetching timezone for system {home.system_id}") == 1
+        assert (
+            caplog.text.count(f"Using cached timezone for system {home.system_id}") == 1
+        )
 
 
 @pytest.mark.parametrize("test_data", list_test_data())

@@ -1,22 +1,24 @@
 """
 .. moduleauthor:: Kevin Johnson
 """
-from importlib.util import find_spec
-from pathlib import Path
-from pkg_resources import get_distribution, DistributionNotFound
 
+from importlib.metadata import PackageNotFoundError
 
-_dist = get_distribution("ft-pandas-ta")
 try:
-    # Normalize case for Windows systems
-    here = Path(_dist.location) / __file__
-    if not here.exists():
-        # not installed, but there is another version that *is*
-        raise DistributionNotFound
-except DistributionNotFound:
+
+    from importlib.metadata import version as get_version
+    from importlib.util import find_spec
+except ImportError:  # pragma: no cover
+    from importlib.util import find_spec  # type: ignore[import]
+
+    from importlib_metadata import version as get_version  # type: ignore[import]
+
+try:
+    __version__ = get_version("ft-pandas-ta")
+except PackageNotFoundError:
     __version__ = "Please install this project with setup.py"
 
-version = __version__ = _dist.version
+version = __version__
 
 Imports = {
     "alphaVantage-api": find_spec("alphaVantageAPI") is not None,

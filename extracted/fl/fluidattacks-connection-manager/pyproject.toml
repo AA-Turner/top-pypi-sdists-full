@@ -1,0 +1,26 @@
+[project]
+name = "fluidattacks_connection_manager"
+authors = [{ name = "Product Team", email = "development@fluidattacks.com" }]
+classifiers = ["License :: OSI Approved :: MIT License"]
+requires-python = ">=3.11"
+dependencies = [
+    "fa-purity >=2.1.0, <3.0.0",
+    "fluidattacks-etl-utils >=2.0.0, <3.0.0",
+    "redshift-client >=8.0.1, <9.0.0",
+    "snowflake-client >=3.0.2, <4.0.0",
+]
+description = "Common connection utils"
+dynamic = ["version"]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[dependency-groups]
+dev = [
+    "arch-lint >=5.0.0, <6.0.0",
+    "mypy >=1.18.2, <2.0.0",
+    "pytest >=8.4.2, <9.0.0",
+    "pytest-cov >=7.0.0, <8.0.0",
+    "ruff >=0.14.1, <1.0.0",
+]

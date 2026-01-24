@@ -1,0 +1,16 @@
+name: Notebook tests
+
+on: [push, pull_request]
+
+jobs:
+  run:
+    runs-on: ubuntu-22.04
+    name: Test notebooks with nbmake
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+
+      - name: Test notebooks
+        run: |
+          pixi run test-notebooks

@@ -3,7 +3,7 @@ Type annotations for license-manager-user-subscriptions service type definitions
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_license_manager_user_subscriptions/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -26,12 +27,6 @@ from .literals import (
     LicenseServerHealthStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -106,7 +101,7 @@ __all__ = (
 )
 
 class DomainNetworkSettingsOutputTypeDef(TypedDict):
-    Subnets: List[str]
+    Subnets: list[str]
 
 class DomainNetworkSettingsTypeDef(TypedDict):
     Subnets: Sequence[str]
@@ -114,7 +109,7 @@ class DomainNetworkSettingsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -131,13 +126,14 @@ class FilterTypeDef(TypedDict):
     Value: NotRequired[str]
 
 class SettingsOutputTypeDef(TypedDict):
-    Subnets: List[str]
+    Subnets: list[str]
     SecurityGroupId: str
 
 class LicenseServerTypeDef(TypedDict):
     ProvisioningStatus: NotRequired[LicenseServerEndpointProvisioningStatusType]
     HealthStatus: NotRequired[LicenseServerHealthStatusType]
     Ipv4Address: NotRequired[str]
+    Ipv6Address: NotRequired[str]
 
 class ServerEndpointTypeDef(TypedDict):
     Endpoint: NotRequired[str]
@@ -173,7 +169,7 @@ class CreateLicenseServerEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CredentialsProviderTypeDef(TypedDict):
@@ -204,7 +200,7 @@ class LicenseServerEndpointTypeDef(TypedDict):
     LicenseServerEndpointProvisioningStatus: NotRequired[
         LicenseServerEndpointProvisioningStatusType
     ]
-    LicenseServers: NotRequired[List[LicenseServerTypeDef]]
+    LicenseServers: NotRequired[list[LicenseServerTypeDef]]
     CreationTime: NotRequired[datetime]
 
 class ListIdentityProvidersRequestPaginateTypeDef(TypedDict):
@@ -223,13 +219,15 @@ SettingsUnionTypeDef = Union[SettingsTypeDef, SettingsOutputTypeDef]
 
 class ActiveDirectorySettingsOutputTypeDef(TypedDict):
     DomainName: NotRequired[str]
-    DomainIpv4List: NotRequired[List[str]]
+    DomainIpv4List: NotRequired[list[str]]
+    DomainIpv6List: NotRequired[list[str]]
     DomainCredentialsProvider: NotRequired[CredentialsProviderTypeDef]
     DomainNetworkSettings: NotRequired[DomainNetworkSettingsOutputTypeDef]
 
 class ActiveDirectorySettingsTypeDef(TypedDict):
     DomainName: NotRequired[str]
     DomainIpv4List: NotRequired[Sequence[str]]
+    DomainIpv6List: NotRequired[Sequence[str]]
     DomainCredentialsProvider: NotRequired[CredentialsProviderTypeDef]
     DomainNetworkSettings: NotRequired[DomainNetworkSettingsTypeDef]
 
@@ -241,7 +239,7 @@ class DeleteLicenseServerEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLicenseServerEndpointsResponseTypeDef(TypedDict):
-    LicenseServerEndpoints: List[LicenseServerEndpointTypeDef]
+    LicenseServerEndpoints: list[LicenseServerEndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -282,7 +280,7 @@ class IdentityProviderSummaryTypeDef(TypedDict):
 class InstanceSummaryTypeDef(TypedDict):
     InstanceId: str
     Status: str
-    Products: List[str]
+    Products: list[str]
     LastStatusCheckDate: NotRequired[str]
     StatusMessage: NotRequired[str]
     OwnerAccountId: NotRequired[str]
@@ -322,7 +320,7 @@ class DeregisterIdentityProviderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
-    IdentityProviderSummaries: List[IdentityProviderSummaryTypeDef]
+    IdentityProviderSummaries: list[IdentityProviderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -335,7 +333,7 @@ class UpdateIdentityProviderSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListInstancesResponseTypeDef(TypedDict):
-    InstanceSummaries: List[InstanceSummaryTypeDef]
+    InstanceSummaries: list[InstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -348,12 +346,12 @@ class DisassociateUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUserAssociationsResponseTypeDef(TypedDict):
-    InstanceUserSummaries: List[InstanceUserSummaryTypeDef]
+    InstanceUserSummaries: list[InstanceUserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListProductSubscriptionsResponseTypeDef(TypedDict):
-    ProductUserSummaries: List[ProductUserSummaryTypeDef]
+    ProductUserSummaries: list[ProductUserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

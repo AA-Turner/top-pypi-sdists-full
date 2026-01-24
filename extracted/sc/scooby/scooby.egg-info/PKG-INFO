@@ -1,12 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: scooby
-Version: 0.10.2
+Version: 0.11.0
 Summary: A Great Dane turned Python environment detective
 Home-page: https://github.com/banesullivan/scooby
 Author: Dieter Werthmüller, Bane Sullivan, Alex Kaszynski, and contributors
 Author-email: info@pyvista.org
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Programming Language :: Python
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -14,8 +12,20 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Natural Language :: English
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: cpu
 License-File: LICENSE
+Provides-Extra: cpu
+Requires-Dist: psutil; extra == "cpu"
+Requires-Dist: mkl; extra == "cpu"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 # 🐶🕵️ Scooby
 
@@ -479,5 +489,3 @@ The following is a list of optional requirements and their purpose:
 
 - `psutil`: report total RAM in GiB
 - `mkl-services`: report Intel(R) Math Kernel Library version
-
-

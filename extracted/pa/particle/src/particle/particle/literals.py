@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2025, Eduardo Rodrigues and Henry Schreiner.
+# Copyright (c) 2018-2026, Eduardo Rodrigues and Henry Schreiner.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/particle for details.
@@ -19,7 +19,7 @@ Typical use cases::
     'pi+'
     >>> from particle.literals import Lambda_b_0
     >>> Lambda_b_0
-    <Particle: name="Lambda(b)0", pdgid=5122, mass=5619.60 ± 0.17 MeV>
+    <Particle: name="Lambda(b)0", pdgid=5122, mass=5619.57 ± 0.16 MeV>
     >>> Lambda_b_0.J
     0.5
 

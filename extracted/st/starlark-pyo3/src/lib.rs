@@ -41,17 +41,32 @@ use crate::starlark::typing::AstModuleTypecheck;
 use allocative::Allocative;
 use dupe::Dupe;
 use pyo3::sync::MutexExt;
-use pyo3::types::{PyDict, PyTuple};
+use pyo3::types::{PyDict, PyList, PyTuple};
 use starlark::analysis::AstModuleLint;
+use starlark::environment::GlobalsBuilder;
 use starlark::eval::Arguments;
 use starlark::starlark_simple_value;
 use starlark::values::dict::Dict;
-use starlark::values::list::AllocList;
-use starlark::values::{FreezeResult, Heap, NoSerialize, ProvidesStaticType, StarlarkValue, Value};
+use starlark::values::dict::DictRef;
+use starlark::values::list::{AllocList, ListRef};
+use starlark::values::record::Record;
+use starlark::values::structs::StructRef;
+use starlark::values::tuple::TupleRef;
+use starlark::values::FreezeResult;
+use starlark::values::Heap;
+use starlark::values::NoSerialize;
+use starlark::values::ProvidesStaticType;
+use starlark::values::StarlarkValue;
+use starlark::values::Value;
+use starlark::values::ValueLike;
 use starlark_derive::starlark_value;
 use thiserror::Error;
 
 create_exception!(starlark, StarlarkError, PyException);
+
+mod decimal;
+
+use decimal::{decimal_module, decimal_to_python, python_to_decimal, DecimalValue};
 
 // {{{ value conversion
 
@@ -98,23 +113,139 @@ fn serde_to_starlark(x: serde_json::Value, heap: &Heap) -> anyhow::Result<Value<
 
 // }}}
 
-fn value_to_pyobject(value: Value) -> PyResult<PyObject> {
+// Converts Starlark values to Python objects.
+//
+// For custom types (like RustDecimal) and nested structures (dict/list/tuple), we handle
+// conversion directly rather than going through JSON. This allows custom types to work
+// in nested structures while preserving their semantics (e.g., RustDecimal precision).
+// Primitive types still use the JSON fallback path for simplicity.
+fn value_to_pyobject(value: Value) -> PyResult<Py<PyAny>> {
+    if let Some(decimal) = value.downcast_ref::<DecimalValue>() {
+        return decimal_to_python(decimal);
+    }
+
+    if let Some(dict) = DictRef::from_value(value) {
+        return Python::attach(|py| {
+            let py_dict = PyDict::new(py);
+            for (k, v) in dict.iter() {
+                let py_key = value_to_pyobject(k)?.into_bound(py);
+                let py_val = value_to_pyobject(v)?.into_bound(py);
+                py_dict.set_item(py_key, py_val)?;
+            }
+            Ok(py_dict.into_any().unbind())
+        });
+    }
+
+    if let Some(list) = ListRef::from_value(value) {
+        return Python::attach(|py| {
+            let mut elements = Vec::with_capacity(list.len());
+            for item in list.iter() {
+                elements.push(value_to_pyobject(item)?);
+            }
+            let py_list = PyList::new(py, elements.into_iter().map(|obj| obj.into_bound(py)))?;
+            Ok(py_list.into_any().unbind())
+        });
+    }
+
+    if let Some(tuple) = TupleRef::from_value(value) {
+        return Python::attach(|py| {
+            let mut elements = Vec::with_capacity(tuple.len());
+            for item in tuple.iter() {
+                elements.push(value_to_pyobject(item)?);
+            }
+            // Convert to list for backwards compatibility with JSON path
+            let py_list = PyList::new(py, elements.into_iter().map(|obj| obj.into_bound(py)))?;
+            Ok(py_list.into_any().unbind())
+        });
+    }
+
+    if let Some(struct_ref) = StructRef::from_value(value) {
+        return Python::attach(|py| {
+            let py_dict = PyDict::new(py);
+            for (key, val) in struct_ref.iter() {
+                let py_key = key.as_str();
+                let py_val = value_to_pyobject(val)?.into_bound(py);
+                py_dict.set_item(py_key, py_val)?;
+            }
+            Ok(py_dict.into_any().unbind())
+        });
+    }
+
+    if let Some(record) = Record::from_value(value) {
+        return Python::attach(|py| {
+            let py_dict = PyDict::new(py);
+            for (key, val) in record.iter() {
+                let py_val = value_to_pyobject(val)?.into_bound(py);
+                py_dict.set_item(key, py_val)?;
+            }
+            Ok(py_dict.into_any().unbind())
+        });
+    }
+
+    if let Some(opaque) = StarlarkOpaquePythonObject::from_value(value) {
+        return Python::attach(|py| Ok(opaque.obj.clone_ref(py)));
+    }
+
     let json_val = convert_anyhow_err(value.to_json())?;
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let json = py.import("json")?;
         json.getattr("loads")?.call1((json_val,))?.extract()
     })
 }
 
-fn pyobject_to_value<'v>(obj: PyObject, heap: &'v Heap) -> PyResult<Value<'v>> {
-    Python::with_gil(|py| -> PyResult<Value<'v>> {
-        let json = py.import("json")?;
-        let json_str: String = json.getattr("dumps")?.call1((obj,))?.extract()?;
-        convert_anyhow_err(serde_to_starlark(
-            convert_serde_err(serde_json::from_str(&json_str))?,
-            heap,
-        ))
-    })
+// Converts Python objects to Starlark values.
+//
+// Mirrors value_to_pyobject's approach: handle custom types and nested structures
+// directly, falling back to JSON for primitives. This enables custom types like
+// RustDecimal to work correctly in nested structures.
+fn pyobject_to_value<'v>(obj: Bound<PyAny>, heap: &'v Heap) -> PyResult<Value<'v>> {
+    if let Some(value) = python_to_decimal(&obj, heap)? {
+        return Ok(value);
+    }
+
+    if let Ok(dict) = obj.downcast::<PyDict>() {
+        let mut mp = SmallMap::with_capacity(dict.len());
+        for (key, value) in dict.iter() {
+            // Starlark dicts require string keys
+            let key_str: String = key.extract()?;
+            let hashed_key = heap.alloc_str(&key_str).get_hashed_value();
+            let converted = pyobject_to_value(value, heap)?;
+            mp.insert_hashed(hashed_key, converted);
+        }
+        return Ok(heap.alloc(Dict::new(mp)));
+    }
+
+    if let Ok(list) = obj.downcast::<PyList>() {
+        let elements = list
+            .iter()
+            .map(|item| pyobject_to_value(item, heap))
+            .collect::<PyResult<Vec<Value<'v>>>>()?;
+        return Ok(heap.alloc(AllocList(elements)));
+    }
+
+    if let Ok(tuple) = obj.downcast::<PyTuple>() {
+        // Convert Python tuples to Starlark lists for backwards compatibility.
+        // Both Python tuples and lists become Starlark lists, and Starlark tuples
+        // also convert to Python lists (matching the old JSON path behavior).
+        let elements = tuple
+            .iter()
+            .map(|item| pyobject_to_value(item, heap))
+            .collect::<PyResult<Vec<Value<'v>>>>()?;
+        return Ok(heap.alloc(AllocList(elements)));
+    }
+
+    if let Ok(opaque) = obj.downcast::<OpaquePythonObject>() {
+        return Ok(heap.alloc(StarlarkOpaquePythonObject {
+            obj: opaque.borrow().0.clone_ref(obj.py()),
+        }));
+    }
+
+    let json = obj.py().import("json")?;
+    let json_str: String = json.getattr("dumps")?.call1((obj,))?.extract()?;
+    convert_anyhow_err(serde_to_starlark(
+        convert_serde_err(serde_json::from_str(&json_str))?,
+        heap,
+    ))
 }
 
 // }}}
@@ -257,6 +388,9 @@ impl EvalSeverity {
             starlark::analysis::EvalSeverity::Advice => "Advice".to_string(),
             starlark::analysis::EvalSeverity::Disabled => "Disabled".to_string(),
         }
+    }
+    fn __eq__(&self, other: EvalSeverity) -> bool {
+        return self.0 == other.0;
     }
     fn __str__(&self) -> String {
         self.__repr__()
@@ -563,7 +697,7 @@ impl AstModule {
     }
 
     #[pyo3(
-        text_signature = "(globals: Globals, loads: dict[str, Interface]) -> tuple[list[Error], None, None]"
+        text_signature = "(globals: Globals, loads: dict[str, Interface]) -> tuple[list[Error], Interface, tuple[Never, ...]]"
     )]
     fn typecheck<'py>(
         slf: Bound<'py, AstModule>,
@@ -605,81 +739,111 @@ impl AstModule {
 /// .. attribute:: Typing
 /// .. attribute:: Internal
 /// .. attribute:: CallStack
+/// .. attribute:: RustDecimal
 #[pyclass]
 #[derive(Clone)]
-struct LibraryExtension(starlark::environment::LibraryExtension);
+struct LibraryExtension {
+    kind: LibraryExtensionKind,
+}
+
+#[derive(Clone)]
+enum LibraryExtensionKind {
+    Upstream(starlark::environment::LibraryExtension),
+    RustDecimal,
+}
+
+macro_rules! starlark_extension {
+    ($name:ident) => {
+        LibraryExtension {
+            kind: LibraryExtensionKind::Upstream(starlark::environment::LibraryExtension::$name),
+        }
+    };
+}
+
+macro_rules! local_extension {
+    ($name:ident) => {
+        LibraryExtension {
+            kind: LibraryExtensionKind::$name,
+        }
+    };
+}
 
 #[pymethods]
 impl LibraryExtension {
     #[classattr]
     #[allow(non_snake_case)]
     fn StructType() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::StructType)
+        starlark_extension!(StructType)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn RecordType() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::RecordType)
+        starlark_extension!(RecordType)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn EnumType() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::EnumType)
+        starlark_extension!(EnumType)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Map() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Map)
+        starlark_extension!(Map)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Filter() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Filter)
+        starlark_extension!(Filter)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Partial() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Partial)
+        starlark_extension!(Partial)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Debug() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Debug)
+        starlark_extension!(Debug)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Print() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Print)
+        starlark_extension!(Print)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Pprint() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Pprint)
+        starlark_extension!(Pprint)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Breakpoint() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Breakpoint)
+        starlark_extension!(Breakpoint)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Json() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Json)
+        starlark_extension!(Json)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Typing() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Typing)
+        starlark_extension!(Typing)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn Internal() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::Internal)
+        starlark_extension!(Internal)
     }
     #[classattr]
     #[allow(non_snake_case)]
     fn CallStack() -> Self {
-        LibraryExtension(starlark::environment::LibraryExtension::CallStack)
+        starlark_extension!(CallStack)
+    }
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn RustDecimal() -> Self {
+        local_extension!(RustDecimal)
     }
 }
 
@@ -703,10 +867,53 @@ impl Globals {
     #[staticmethod]
     #[pyo3(text_signature = "(extensions: list[LibraryExtension]) -> Globals")]
     fn extended_by(extensions: Vec<LibraryExtension>) -> PyResult<Globals> {
-        let exts: Vec<starlark::environment::LibraryExtension> =
-            extensions.iter().map(|ext| ext.0).collect();
+        let mut builder = GlobalsBuilder::standard();
 
-        Ok(Globals(starlark::environment::Globals::extended_by(&exts)))
+        for ext in &extensions {
+            match &ext.kind {
+                LibraryExtensionKind::Upstream(upstream) => upstream.add(&mut builder),
+                LibraryExtensionKind::RustDecimal => decimal_module(&mut builder),
+            }
+        }
+
+        Ok(Globals(builder.build()))
+    }
+}
+
+// }}}
+
+// {{{ OpaquePythonObject
+
+#[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
+struct StarlarkOpaquePythonObject {
+    #[allocative(skip)]
+    obj: Py<PyAny>,
+}
+starlark_simple_value!(StarlarkOpaquePythonObject);
+
+impl Display for StarlarkOpaquePythonObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "<opaque python object>")
+    }
+}
+
+#[starlark_value(type = "opaque_python_object")]
+impl<'v> StarlarkValue<'v> for StarlarkOpaquePythonObject {}
+
+/// An 'opaque' Python object that can be passed to Starlark. It cannot be
+/// interacted with from the Starlark side. Upon conversion from Starlark
+/// to Python, the original wrapped object reappears.
+///
+/// .. versionadded:: 2025.2.5
+#[pyclass]
+struct OpaquePythonObject(Py<PyAny>);
+
+#[pymethods]
+impl OpaquePythonObject {
+    #[new]
+    #[pyo3(signature = (obj))]
+    fn new(obj: Py<PyAny>) -> Self {
+        OpaquePythonObject(obj)
     }
 }
 
@@ -717,7 +924,7 @@ impl Globals {
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
 struct PythonCallableValue {
     #[allocative(skip)]
-    callable: PyObject,
+    callable: Py<PyAny>,
 }
 starlark_simple_value!(PythonCallableValue);
 
@@ -735,16 +942,17 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
         args: &Arguments<'v, '_>,
         eval: &mut starlark::eval::Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        Python::with_gil(|py| -> starlark::Result<Value<'v>> {
+        Python::attach(|py| -> starlark::Result<Value<'v>> {
             // Handle positional arguments
-            let py_args: Vec<PyObject> = convert_to_starlark_err(
+            let py_args: Vec<Py<PyAny>> = convert_to_starlark_err(
                 (args
                     .positions(eval.heap())?
-                    .map(|v| -> PyResult<PyObject> { value_to_pyobject(v) }))
-                .collect::<PyResult<Vec<PyObject>>>(),
+                    .map(|v| -> PyResult<Py<PyAny>> { value_to_pyobject(v) }))
+                .collect::<PyResult<Vec<Py<PyAny>>>>(),
             )?;
+            let py_args_tuple = convert_to_starlark_err(PyTuple::new(py, py_args))?;
 
-            // Handle named arguments.
+            // Handle named arguments
             let py_kwargs = PyDict::new(py);
             for name in args.names_map()?.iter() {
                 let key = name.0.as_str();
@@ -753,11 +961,8 @@ impl<'v> StarlarkValue<'v> for PythonCallableValue {
             }
 
             convert_to_starlark_err(pyobject_to_value(
-                convert_to_starlark_err(self.callable.call(
-                    py,
-                    convert_to_starlark_err(PyTuple::new(py, py_args))?,
-                    Some(&py_kwargs),
-                ))?,
+                convert_to_starlark_err(self.callable.call(py, py_args_tuple, Some(&py_kwargs)))?
+                    .into_bound(py),
                 eval.heap(),
             ))
         })
@@ -792,14 +997,14 @@ impl Module {
         Ok(Module(Mutex::new(starlark::environment::Module::new())))
     }
 
-    fn __getitem__(slf: &Bound<Self>, name: &str) -> PyResult<PyObject> {
-        Python::with_gil(|py| match slf.borrow().0.lock().unwrap().get(name) {
+    fn __getitem__(slf: &Bound<Self>, name: &str) -> PyResult<Py<PyAny>> {
+        Python::attach(|py| match slf.borrow().0.lock().unwrap().get(name) {
             Some(val) => Ok(value_to_pyobject(val)?),
             None => Ok(py.None()),
         })
     }
 
-    fn __setitem__(slf: &Bound<Self>, name: &str, obj: PyObject) -> PyResult<()> {
+    fn __setitem__(slf: &Bound<Self>, name: &str, obj: Bound<PyAny>) -> PyResult<()> {
         let self_ref = slf.borrow();
         let self_locked = self_ref.0.lock().unwrap();
         self_locked.set(name, pyobject_to_value(obj, self_locked.heap())?);
@@ -807,7 +1012,7 @@ impl Module {
     }
 
     #[pyo3(text_signature = "(name: str, callable: Callable) -> None")]
-    fn add_callable(slf: &Bound<Self>, name: &str, callable: PyObject) {
+    fn add_callable(slf: &Bound<Self>, name: &str, callable: Py<PyAny>) {
         let self_ref = slf.borrow();
         let self_locked = self_ref.0.lock().unwrap();
         let b = self_locked.heap().alloc(PythonCallableValue { callable });
@@ -827,8 +1032,49 @@ impl Module {
 
 // {{{ FrozenModule
 
-#[pyclass]
+/// .. automethod:: call
+#[pyclass(frozen)]
 struct FrozenModule(starlark::environment::FrozenModule);
+
+#[pymethods]
+impl FrozenModule {
+    /// .. versionadded:: 2025.2.2
+    /// .. versionchanged:: 2025.2.3
+    ///
+    ///     Added support for keyword arguments.
+    #[pyo3(signature = (name, *args, **kwargs))]
+    fn call(
+        slf: &Bound<'_, FrozenModule>,
+        name: &str,
+        args: &Bound<'_, PyTuple>,
+        kwargs: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Py<PyAny>> {
+        let function = convert_anyhow_err(slf.get().0.get(name))?;
+        let module = starlark::environment::Module::new();
+        let sl_args = args
+            .iter()
+            .map(|item| pyobject_to_value(item, module.heap()))
+            .collect::<PyResult<Vec<Value<'_>>>>()?;
+        let sl_kwargs = match kwargs {
+            Some(kwarg_seq) => kwarg_seq
+                .iter()
+                .map(|(k, v)| Ok((k.extract::<String>()?, pyobject_to_value(v, module.heap())?)))
+                .collect::<PyResult<Vec<(String, Value<'_>)>>>()?,
+            None => Vec::new(),
+        };
+        let mut evaluator = starlark::eval::Evaluator::new(&module);
+        value_to_pyobject(convert_starlark_err(
+            evaluator.eval_function(
+                function.value(),
+                &sl_args,
+                &sl_kwargs
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.dupe()))
+                    .collect::<Vec<(&str, Value<'_>)>>(),
+            ),
+        )?)
+    }
+}
 
 // }}}
 
@@ -836,21 +1082,21 @@ struct FrozenModule(starlark::environment::FrozenModule);
 
 #[pyclass]
 struct FileLoader {
-    callable: PyObject,
+    callable: Py<PyAny>,
 }
 
 #[pymethods]
 impl FileLoader {
     #[new]
     #[pyo3(text_signature = "(load_func: Callable[[str], FrozenModule]) -> None")]
-    fn py_new(callable: PyObject) -> FileLoader {
+    fn py_new(callable: Py<PyAny>) -> FileLoader {
         FileLoader { callable }
     }
 }
 
 impl starlark::eval::FileLoader for FileLoader {
     fn load(&self, path: &str) -> starlark::Result<starlark::environment::FrozenModule> {
-        Python::with_gil(
+        Python::attach(
             |py| -> starlark::Result<starlark::environment::FrozenModule> {
                 let fmod: Py<FrozenModule> = convert_to_starlark_err(
                     convert_to_starlark_err(self.callable.call1(py, (path.to_string(),)))?
@@ -879,7 +1125,7 @@ fn eval(
     ast: &Bound<AstModule>,
     globals: &Globals,
     file_loader: Option<&Bound<FileLoader>>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let tail = |evaluator: &mut starlark::eval::Evaluator| {
         // Stupid: eval_module consumes the AST. Clone it.
         value_to_pyobject(convert_starlark_err(
@@ -920,6 +1166,7 @@ fn starlark_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<AstModule>()?;
     m.add_class::<LibraryExtension>()?;
     m.add_class::<Globals>()?;
+    m.add_class::<OpaquePythonObject>()?;
     m.add_class::<Module>()?;
     m.add_class::<FrozenModule>()?;
     m.add_class::<FileLoader>()?;

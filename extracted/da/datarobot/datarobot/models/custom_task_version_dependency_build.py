@@ -39,16 +39,14 @@ class CustomTaskVersionDependencyBuild(APIObject):
         Location of retrieving dependency build log
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("custom_task_id"): String(),
-            t.Key("custom_task_version_id"): String(),
-            t.Key("build_status"): String(),
-            t.Key("build_start") >> "started_at": String(),
-            t.Key("build_end", optional=True) >> "completed_at": t.Or(String(), t.Null()),
-            t.Key("build_log_location", optional=True): t.Or(String(), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("custom_task_id"): String(),
+        t.Key("custom_task_version_id"): String(),
+        t.Key("build_status"): String(),
+        t.Key("build_start") >> "started_at": String(),
+        t.Key("build_end", optional=True) >> "completed_at": t.Or(String(), t.Null()),
+        t.Key("build_log_location", optional=True): t.Or(String(), t.Null()),
+    }).ignore_extra("*")
 
     schema = _converter
 

@@ -20,6 +20,7 @@ from seeq.spy._session import Session
 from seeq.spy._status import Status
 from seeq.spy.workbooks import _item, _render
 from seeq.spy.workbooks._content import Content, DateRange, AssetSelection
+from seeq.spy.workbooks._context import WorkbookPushContext
 from seeq.spy.workbooks._item import Item
 from seeq.spy.workbooks._item_map import ItemMap, OverrideItemMap
 from seeq.spy.workbooks._user import ItemWithOwnerAndAcl, Identity
@@ -35,25 +36,25 @@ class Annotation(Item):
     _html: str
     _images: dict
 
-    def __init__(self, worksheet, annotation_type):
+    def __init__(self, parent, annotation_type):
         super().__init__()
         self.annotation_type = annotation_type
-        self.worksheet = worksheet
+        self._parent = parent
         self._html = ''
         self._images = dict()
         self.plots_to_render = set()
-        if not _common.present(self.worksheet, 'Annotation ID'):
-            self.worksheet['Annotation ID'] = _common.new_placeholder_guid()
+        if not _common.present(self._parent, 'Annotation ID'):
+            self._parent['Annotation ID'] = _common.new_placeholder_guid()
 
     @property
     def id(self):
-        # We store this on the worksheet because it's the only piece of metadata we need for the annotation and it's
-        # convenient to have it in the worksheet's JSON when saved.
-        return _common.get(self.worksheet, 'Annotation ID')
+        # We store this on the parent because it's the only piece of metadata we need for the annotation and it's
+        # convenient to have it in the parent's JSON when saved.
+        return _common.get(self._parent, 'Annotation ID')
 
     @id.setter
     def id(self, _id):
-        self.worksheet['Annotation ID'] = _id
+        self._parent['Annotation ID'] = _id
 
     def refresh_from(self, new_item, item_map: ItemMap, status: Status):
         super().refresh_from(new_item, item_map, status)
@@ -100,11 +101,17 @@ class Annotation(Item):
     def find_workstep_references(self, item_map: Optional[ItemMap] = None):
         return set()
 
+    def _get_parent_workbook(self):
+        if hasattr(self._parent, 'workbook'):
+            return self._parent.workbook
+        else:
+            return self._parent
+
     def find_workbook_links(self, session: Session, status: Status):
         if not self.html:
             return dict()
 
-        url = _common.get(self.worksheet.workbook, 'Original Server URL')
+        url = _common.get(self._get_parent_workbook(), 'Original Server URL')
         if not url:
             return dict()
 
@@ -158,7 +165,7 @@ class Annotation(Item):
         self._images = dict()
         annotations_api = AnnotationsApi(session.client)
         # Note: get_annotations() won't error if the user doesn't have access to the `annotates` IDs
-        _annotations = annotations_api.get_annotations(annotates=[self.worksheet.id])  # type: AnnotationListOutputV1
+        _annotations = annotations_api.get_annotations(annotates=[self._parent.id])  # type: AnnotationListOutputV1
 
         annotation_output = None
         for annotation_item in _annotations.items:  # type: AnnotationOutputV1
@@ -191,7 +198,7 @@ class Annotation(Item):
                 if (annotation_id, image_id) in self.images:
                     continue
 
-                self.worksheet.workbook.update_status('Pulling image', 1)
+                self._get_parent_workbook().update_status('Pulling image', 1)
 
                 api_client_url = session.get_api_url()
                 request_url = api_client_url + query_params
@@ -200,8 +207,11 @@ class Annotation(Item):
 
         return annotation_output
 
-    def push(self, session: Session, pushed_workbook_id, pushed_worksheet_id, item_map, datasource_output,
-             access_control, push_images, label, status=None):
+    def push(self, context: WorkbookPushContext, pushed_workbook_id, pushed_parent_id, item_map, datasource_output,
+             access_control, push_images, label):
+        session = context.session
+        status = context.status
+
         try:
             from bs4 import BeautifulSoup
         except ImportError:
@@ -218,8 +228,7 @@ class Annotation(Item):
         annotations_api = AnnotationsApi(session.client)
         items_api = ItemsApi(session.client)
         # Note: get_annotations() won't error if the user doesn't have access to the `annotates` IDs
-        existing_annotations = annotations_api.get_annotations(
-            annotates=[pushed_worksheet_id])  # type: AnnotationListOutputV1
+        existing_annotations = annotations_api.get_annotations(annotates=[pushed_parent_id])
 
         relevant_annotations = [a for a in existing_annotations.items if a.type == self.annotation_type]
         if len(relevant_annotations) == 0:
@@ -227,17 +236,18 @@ class Annotation(Item):
                 # Creating a report requires an OptionalReportInputV1
                 new_annotation.report_input = OptionalReportInputV1()
             else:
-                new_annotation.interests = [
-                    AnnotationInterestInputV1(interest_id=pushed_worksheet_id)
-                ]
+                new_annotation.interests = [AnnotationInterestInputV1(interest_id=pushed_parent_id)]
 
                 if isinstance(self, Journal):
                     # Reports cannot have an interest to the workbook, see CRAB-18738
                     new_annotation.interests.append(AnnotationInterestInputV1(interest_id=pushed_workbook_id))
 
-            relevant_annotation = safely(lambda: annotations_api.create_annotation(body=new_annotation),
-                                         action_description=f'create {new_annotation.type} {new_annotation.name}',
-                                         status=status)  # type: AnnotationOutputV1
+            relevant_annotation: Optional[AnnotationOutputV1] = safely(
+                lambda: annotations_api.create_annotation(body=new_annotation),
+                action_description=f'create {new_annotation.type} {new_annotation.name} '
+                                   f'for pushed parent {pushed_parent_id}',
+                status=status, dry_run=context.dry_run)
+
             if relevant_annotation is None:
                 return
         else:
@@ -245,8 +255,8 @@ class Annotation(Item):
 
         item_map[self.id] = relevant_annotation.id
 
-        html = self._push_specific(session, item_map, datasource_output, label, new_annotation, relevant_annotation,
-                                   access_control, status=status)
+        html = self._push_specific(context, item_map, datasource_output, label, new_annotation, relevant_annotation,
+                                   access_control)
 
         # Create an override map for image mapping, which can be different for the same annotation in the case of a
         # template
@@ -264,30 +274,35 @@ class Annotation(Item):
                 api_client_url = session.get_api_url()
                 request_url = api_client_url + '/annotations/%s/images' % relevant_annotation.id
 
-                self.worksheet.workbook.update_status('Pushing image', 1)
+                self._get_parent_workbook().update_status('Pushing image', 1)
 
-                response = requests.post(url=request_url,
-                                         files={
-                                             "file": (image_id, io.BytesIO(self.images[(annotation_id, image_id)]))
-                                         },
-                                         headers={
-                                             "Accept": "application/vnd.seeq.v1+json",
-                                             "x-sq-auth": session.client.auth_token
-                                         },
-                                         verify=session.https_verify_ssl)
+                if not context.dry_run:
+                    status.log(f'Uploading image file {image_id} for worksheet {pushed_parent_id}')
+                    response = requests.post(url=request_url,
+                                             files={
+                                                 "file": (image_id, io.BytesIO(self.images[(annotation_id, image_id)]))
+                                             },
+                                             headers={
+                                                 "Accept": "application/vnd.seeq.v1+json",
+                                                 "x-sq-auth": session.client.auth_token
+                                             },
+                                             verify=session.https_verify_ssl)
 
-                if response.status_code != 201:
-                    raise SPyRuntimeError(
-                        f'Could not upload image file {image_id} for worksheet {pushed_worksheet_id}:\n'
-                        f'Response code: {response.status_code}\n'
-                        f'Response content: {response.content}')
+                    if response.status_code != 201:
+                        raise SPyRuntimeError(
+                            f'Could not upload image file {image_id} for worksheet {pushed_parent_id}:\n'
+                            f'Response code: {response.status_code}\n'
+                            f'Response content: {response.content}')
 
-                link_json = json.loads(response.content)
+                    link_json = json.loads(response.content)
 
-                match = re.match(r'.*?images/(.*)', link_json['link'])
-                new_image_id = match.group(1)
+                    match = re.match(r'.*?images/(.*)', link_json['link'])
+                    new_image_id = match.group(1)
 
-                images_map[f'{image_prefix}{image_id}'] = new_image_id
+                    images_map[f'{image_prefix}{image_id}'] = new_image_id
+
+                else:
+                    status.log(f'[Dry Run] Would upload image file {image_id} for worksheet {pushed_parent_id}')
         else:
             images_map = item_map[f'Images for {self.id}']
 
@@ -306,12 +321,12 @@ class Annotation(Item):
         html = self._replace_items_in_html(OverrideItemMap(item_map, override_map=images_map), html)
 
         worksheet_link_replacement = r'links?type=workstep&amp;workbook=%s&amp;worksheet=%s&amp;' % (
-            pushed_workbook_id, pushed_worksheet_id
+            pushed_workbook_id, pushed_parent_id
         )
 
         html = re.sub(_common.WORKSHEET_LINK_REGEX, worksheet_link_replacement, html, flags=re.IGNORECASE)
 
-        original_server_url = _common.get(self.worksheet.workbook, 'Original Server URL')
+        original_server_url = _common.get(self._get_parent_workbook(), 'Original Server URL')
         new_server_url = _item.get_canonical_server_url(session)
         if original_server_url is not None and new_server_url is not None:
             item_map[original_server_url] = new_server_url
@@ -338,8 +353,9 @@ class Annotation(Item):
 
         new_annotation.created_by_id = relevant_annotation.created_by.id
         safely(lambda: annotations_api.update_annotation(id=relevant_annotation.id, body=new_annotation),
-               action_description=f'update Annotation {relevant_annotation.id}',
-               status=status, additional_errors=[400])
+               action_description=f'update Annotation {new_annotation.type} {relevant_annotation.id} for '
+                                  f'pushed parent {pushed_parent_id}',
+               status=status, additional_errors=[400], dry_run=context.dry_run)
 
         # Annotations have a lot of properties that are managed by Appserver and shouldn't be pushed. We need to push
         # only a small, curated set that are actually configuration items on the Topic Document.
@@ -367,7 +383,7 @@ class Annotation(Item):
         if len(added_or_updated_properties) > 0:
             safely(lambda: items_api.set_properties(id=relevant_annotation.id, body=added_or_updated_properties),
                    action_description=f'set properties for Annotation {relevant_annotation.id}',
-                   status=status, additional_errors=[400])
+                   status=status, additional_errors=[400], dry_run=context.dry_run)
 
         if len(deleted_properties) > 0:
             for deleted_property in deleted_properties:
@@ -375,12 +391,14 @@ class Annotation(Item):
                                                          property_name=deleted_property.name),
                        action_description=f'delete property {deleted_property.name} '
                                           f'for Annotation {relevant_annotation.id}',
-                       status=status, additional_errors=[400])
+                       status=status, additional_errors=[400], dry_run=context.dry_run)
 
         item_map[f'{FIXUP_PREFIX} - {self.id}'] = types.SimpleNamespace(id=relevant_annotation.id, body=new_annotation)
 
     @staticmethod
-    def push_fixups(session: Session, status: Status, item_map: ItemMap):
+    def push_fixups(context: WorkbookPushContext, item_map: ItemMap):
+        session = context.session
+        status = context.status
         annotations_api = AnnotationsApi(session.client)
 
         for key in item_map.keys():
@@ -393,7 +411,7 @@ class Annotation(Item):
 
             safely(lambda: annotations_api.update_annotation(id=annotation.id, body=annotation.body),
                    action_description=f'fixup Annotation {annotation.id}',
-                   status=status, additional_errors=[400])
+                   status=status, additional_errors=[400], dry_run=context.dry_run)
 
     def _replace_items_in_html(self, item_map: ItemMap, html):
         # When a workbook is duplicated via the Workbench UI, the workstep links within Journals actually refer to
@@ -401,7 +419,7 @@ class Annotation(Item):
         # workbook/worksheet they're associated with. When pulling, we accommodate this by pulling a Workstep and
         # associating it with the "proper" Worksheet object, but then during push we have to fix up the links in case
         # the "original" workbook/worksheet wasn't included in the workbooks to be pushed.
-        workstep_map = _common.get(item_map, self.worksheet.item_map_worksteps_key())
+        workstep_map = _common.get(item_map, self._parent.item_map_worksteps_key())
         if workstep_map:
             html = _item.replace_items(html, workstep_map)
 
@@ -409,14 +427,14 @@ class Annotation(Item):
 
         return html
 
-    def _push_specific(self, session: Session, item_map, datasource_output, label,
+    def _push_specific(self, context: WorkbookPushContext, item_map, datasource_output, label,
                        new_annotation: AnnotationInputV1, annotation: AnnotationOutputV1,
-                       access_control, override_content_dict=None, status=None):
+                       access_control, override_content_dict=None):
         # This will be overridden in derived classes to do some specific work like pushing Content and DateRanges
         return self.html
 
     def _get_annotation_file(self, workbook_folder):
-        return os.path.join(workbook_folder, '%s_%s' % (self.annotation_type, self.worksheet.id))
+        return os.path.join(workbook_folder, '%s_%s' % (self.annotation_type, self._parent.id))
 
     @staticmethod
     def _get_image_file(workbook_folder, image_id_tuple):
@@ -559,14 +577,21 @@ class Journal(Annotation):
     The SPy representation of a Journal, the document present in each AnalysisWorksheet.
     """
 
-    def __init__(self, worksheet):
-        super().__init__(worksheet, 'Journal')
+    def __init__(self, parent):
+        super().__init__(parent, 'Journal')
 
     @staticmethod
     def load(worksheet, workbook_folder):
         journal = Journal(worksheet)
         journal._load(workbook_folder)
         return journal
+
+    @property
+    def worksheet(self):
+        if 'AnalysisWorksheet' not in str(self._parent.__class__.__name__):
+            raise SPyRuntimeError(f'This Journal is associated with a parent of type {self._parent.__class__.__name__}'
+                                  f'and not a Worksheet.')
+        return self._parent
 
     @property
     def referenced_items(self):
@@ -576,11 +601,11 @@ class Journal(Annotation):
                                   re.IGNORECASE)
             for match in matches:
                 referenced_items.add(_item.Reference(match.group(1).upper(), _item.Reference.JOURNAL,
-                                                     self.worksheet))
+                                                     self._parent))
 
         return list(referenced_items)
 
-    def find_workstep_references(self, *, item_map: Optional[ItemMap] = None):
+    def find_workstep_references(self, *, item_map: Optional[ItemMap] = None) -> set:
         if not self.html:
             return set()
 
@@ -603,8 +628,8 @@ class Report(Annotation):
     """
     rendered_content_images: Optional[dict]
 
-    def __init__(self, worksheet):
-        super().__init__(worksheet, 'Report')
+    def __init__(self, parent):
+        super().__init__(parent, 'Report')
 
         self.rendered_content_images = None
 
@@ -615,6 +640,10 @@ class Report(Annotation):
         self.data = None
 
     @property
+    def worksheet(self):
+        return self._parent
+
+    @property
     def referenced_items(self):
         referenced_items = set()
 
@@ -622,12 +651,12 @@ class Report(Annotation):
             if _common.present(date_range, 'Condition ID'):
                 referenced_items.add(
                     _item.Reference(date_range['Condition ID'], _item.Reference.DATE_RANGE_CONDITION,
-                                    self.worksheet))
+                                    self._parent))
 
         for asset_selection in self.asset_selections.values():
             if _common.present(asset_selection, 'Asset ID'):
                 referenced_items.add(_item.Reference(asset_selection['Asset ID'], _item.Reference.ASSET_SELECTION,
-                                                     self.worksheet))
+                                                     self._parent))
 
         return list(referenced_items)
 
@@ -800,9 +829,11 @@ class Report(Annotation):
 
         self.schedule = new_item.schedule
 
-    def _push_specific(self, session: Session, item_map: ItemMap, datasource_output, label,
+    def _push_specific(self, context: WorkbookPushContext, item_map: ItemMap, datasource_output, label,
                        new_annotation: AnnotationInputV1, existing_annotation: AnnotationOutputV1,
-                       access_control, override_content_dict=None, status=None):
+                       access_control, override_content_dict=None):
+        session = context.session
+        status = context.status
         date_range_ids_to_archive = list(existing_annotation.date_range_ids)
         asset_selection_ids_to_archive = list(existing_annotation.asset_selection_ids)
         content_ids_to_archive = list(existing_annotation.content_ids)
@@ -837,12 +868,16 @@ class Report(Annotation):
         def _push_it(_item_type, _item_dict, _existing, _ids_to_archive):
             for _item_object in _item_dict.values():  # type: Union[DateRange, AssetSelection, Content]
                 try:
-                    # This push has custom error handling so always use errors='raise'
-                    _item_output = _item_object.push(session, item_map, _existing, status=Status(errors='raise'))
-                    if _item_output.id in _ids_to_archive:
-                        _ids_to_archive.remove(_item_output.id)
+                    if not context.dry_run:
+                        # This push has custom error handling so always use errors='raise'
+                        _item_output = _item_object.push(session, item_map, _existing, status=Status(errors='raise'))
+                        status.log(f'Pushed {_item_object} to {_item_output.id}')
+                        if _item_output.id in _ids_to_archive:
+                            _ids_to_archive.remove(_item_output.id)
+                    else:
+                        status.log(f'[Dry Run] Would push {_item_object}')
                 except ApiException as e:
-                    self.worksheet.workbook._push_context.status.on_error(
+                    getattr(self._get_parent_workbook(), '_push_context').status.on_error(
                         f'Error processing {_item_type}: {_item_object}\n{_common.format_exception(e)}')
 
         _push_it('Date Range', self.date_ranges, existing_date_ranges, date_range_ids_to_archive)
@@ -858,11 +893,12 @@ class Report(Annotation):
         content_api = ContentApi(session.client)
         items_api = ItemsApi(session.client)
         for content_id_to_archive in content_ids_to_archive:
-            @request_safely(action_description=f'archive Content {content_id_to_archive}', status=status)
+            @request_safely(action_description=f'archive Content {content_id_to_archive}', status=status,
+                            dry_run=context.dry_run)
             def _archive_content():
                 # Something about this call is importantly different from the regular archive_item(). Using that
                 #  method makes the Content creation act like POST instead of like PUT calls for subsequent runs.
-                content_output = content_api.get_content(id=content_id_to_archive)  # type: ContentOutputV1
+                content_output = content_api.get_content(id=content_id_to_archive)
                 content_api.update_content(id=content_id_to_archive,
                                            body=ContentInputV1(name='SPy archived this',
                                                                date_range_id=None,
@@ -879,40 +915,40 @@ class Report(Annotation):
 
             _archive_content()
 
-        self._push_notification_config(status, item_map, access_control, existing_annotation.id)
+        self._push_notification_config(context, item_map, access_control, existing_annotation.id)
 
         for asset_selection_id_to_archive in asset_selection_ids_to_archive:
             safely(
                 lambda: items_api.archive_item(id=asset_selection_id_to_archive),
                 action_description=f'archive Asset Selection {asset_selection_id_to_archive}',
-                status=status
+                status=status, dry_run=context.dry_run
             )
 
         for date_range_id_to_archive in date_range_ids_to_archive:
             safely(
                 lambda: items_api.archive_item(id=date_range_id_to_archive),
                 action_description=f'archive Date Range {date_range_id_to_archive}',
-                status=status
+                status=status, dry_run=context.dry_run
             )
 
         new_annotation.report_input = optional_report
 
         return self.html
 
-    def _push_notification_config(self, status: Status, item_map: ItemMap, access_control: str,
+    def _push_notification_config(self, context: WorkbookPushContext, item_map: ItemMap, access_control: str,
                                   existing_annotation_id: str):
+        status = context.status
         if self.schedule is None or self.schedule.get('Notification') is None:
             return
 
         _, strict = ItemWithOwnerAndAcl.parse_access_control_str(access_control)
-        datasource_maps = self.worksheet.workbook.datasource_maps
 
         def _lookup_identity(_recipient):
             if _recipient.get('Identity') is None:
                 return _recipient.get('Email')
 
             try:
-                return Identity.find_identity(status.session, _recipient['Identity'], datasource_maps, item_map)
+                return Identity.find_identity(context, _recipient['Identity'], item_map)
             except SPyDependencyNotFound:
                 if strict:
                     raise
@@ -933,12 +969,13 @@ class Report(Annotation):
                 bcc_email_recipients=_lookup_identities(notification.get('BCC Email Recipients', [])),
                 report_format=notification.get('Report Format')
             )
+
             safely(
                 lambda: notification_configurations_api.set_notification_configuration_for_report(
                     body=body, id=existing_annotation_id
                 ),
                 action_description=f'set notification for Annotation Schedule {existing_annotation_id}',
-                status=status
+                status=status, dry_run=context.dry_run
             )  # NotificationConfigurationOutputV1
 
         except NameError:

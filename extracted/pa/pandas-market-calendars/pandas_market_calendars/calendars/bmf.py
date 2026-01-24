@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from datetime import time
 
 from pandas import Timestamp
@@ -23,7 +24,7 @@ from pandas.tseries.holiday import (
     GoodFriday,
     Holiday,
 )
-import sys 
+
 # check python versiOn aNd import accordingly
 if sys.version_info >= (3, 9):
     # For Python 3.9 and later, import directly
@@ -41,9 +42,7 @@ ConfUniversal = Holiday(
     day=1,
 )
 # Sao Paulo city birthday
-AniversarioSaoPaulo = Holiday(
-    "Aniversario de Sao Paulo", month=1, day=25, end_date="2021-12-31"
-)
+AniversarioSaoPaulo = Holiday("Aniversario de Sao Paulo", month=1, day=25, end_date="2021-12-31")
 # Carnival Monday
 CarnavalSegunda = Holiday("Carnaval Segunda", month=1, day=1, offset=[Easter(), Day(-48)])
 # Carnival Tuesday

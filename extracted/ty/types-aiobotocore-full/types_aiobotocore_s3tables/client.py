@@ -3,7 +3,7 @@ Type annotations for s3tables service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -38,9 +39,12 @@ from .type_defs import (
     CreateTableResponseTypeDef,
     DeleteNamespaceRequestTypeDef,
     DeleteTableBucketEncryptionRequestTypeDef,
+    DeleteTableBucketMetricsConfigurationRequestTypeDef,
     DeleteTableBucketPolicyRequestTypeDef,
+    DeleteTableBucketReplicationRequestTypeDef,
     DeleteTableBucketRequestTypeDef,
     DeleteTablePolicyRequestTypeDef,
+    DeleteTableReplicationRequestTypeDef,
     DeleteTableRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     GetNamespaceRequestTypeDef,
@@ -49,10 +53,16 @@ from .type_defs import (
     GetTableBucketEncryptionResponseTypeDef,
     GetTableBucketMaintenanceConfigurationRequestTypeDef,
     GetTableBucketMaintenanceConfigurationResponseTypeDef,
+    GetTableBucketMetricsConfigurationRequestTypeDef,
+    GetTableBucketMetricsConfigurationResponseTypeDef,
     GetTableBucketPolicyRequestTypeDef,
     GetTableBucketPolicyResponseTypeDef,
+    GetTableBucketReplicationRequestTypeDef,
+    GetTableBucketReplicationResponseTypeDef,
     GetTableBucketRequestTypeDef,
     GetTableBucketResponseTypeDef,
+    GetTableBucketStorageClassRequestTypeDef,
+    GetTableBucketStorageClassResponseTypeDef,
     GetTableEncryptionRequestTypeDef,
     GetTableEncryptionResponseTypeDef,
     GetTableMaintenanceConfigurationRequestTypeDef,
@@ -63,29 +73,45 @@ from .type_defs import (
     GetTableMetadataLocationResponseTypeDef,
     GetTablePolicyRequestTypeDef,
     GetTablePolicyResponseTypeDef,
+    GetTableRecordExpirationConfigurationRequestTypeDef,
+    GetTableRecordExpirationConfigurationResponseTypeDef,
+    GetTableRecordExpirationJobStatusRequestTypeDef,
+    GetTableRecordExpirationJobStatusResponseTypeDef,
+    GetTableReplicationRequestTypeDef,
+    GetTableReplicationResponseTypeDef,
+    GetTableReplicationStatusRequestTypeDef,
+    GetTableReplicationStatusResponseTypeDef,
     GetTableRequestTypeDef,
     GetTableResponseTypeDef,
+    GetTableStorageClassRequestTypeDef,
+    GetTableStorageClassResponseTypeDef,
     ListNamespacesRequestTypeDef,
     ListNamespacesResponseTypeDef,
     ListTableBucketsRequestTypeDef,
     ListTableBucketsResponseTypeDef,
     ListTablesRequestTypeDef,
     ListTablesResponseTypeDef,
+    ListTagsForResourceRequestTypeDef,
+    ListTagsForResourceResponseTypeDef,
     PutTableBucketEncryptionRequestTypeDef,
     PutTableBucketMaintenanceConfigurationRequestTypeDef,
+    PutTableBucketMetricsConfigurationRequestTypeDef,
     PutTableBucketPolicyRequestTypeDef,
+    PutTableBucketReplicationRequestTypeDef,
+    PutTableBucketReplicationResponseTypeDef,
+    PutTableBucketStorageClassRequestTypeDef,
     PutTableMaintenanceConfigurationRequestTypeDef,
     PutTablePolicyRequestTypeDef,
+    PutTableRecordExpirationConfigurationRequestTypeDef,
+    PutTableReplicationRequestTypeDef,
+    PutTableReplicationResponseTypeDef,
     RenameTableRequestTypeDef,
+    TagResourceRequestTypeDef,
+    UntagResourceRequestTypeDef,
     UpdateTableMetadataLocationRequestTypeDef,
     UpdateTableMetadataLocationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -96,14 +122,15 @@ __all__ = ("S3TablesClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    MethodNotAllowedException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 
 class S3TablesClient(AioBaseClient):
@@ -211,6 +238,16 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_bucket_encryption)
         """
 
+    async def delete_table_bucket_metrics_configuration(
+        self, **kwargs: Unpack[DeleteTableBucketMetricsConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the metrics configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/delete_table_bucket_metrics_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_bucket_metrics_configuration)
+        """
+
     async def delete_table_bucket_policy(
         self, **kwargs: Unpack[DeleteTableBucketPolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -221,6 +258,16 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_bucket_policy)
         """
 
+    async def delete_table_bucket_replication(
+        self, **kwargs: Unpack[DeleteTableBucketReplicationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the replication configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/delete_table_bucket_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_bucket_replication)
+        """
+
     async def delete_table_policy(
         self, **kwargs: Unpack[DeleteTablePolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -229,6 +276,16 @@ class S3TablesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/delete_table_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_policy)
+        """
+
+    async def delete_table_replication(
+        self, **kwargs: Unpack[DeleteTableReplicationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the replication configuration for a specific table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/delete_table_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#delete_table_replication)
         """
 
     async def get_namespace(
@@ -279,6 +336,16 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_bucket_maintenance_configuration)
         """
 
+    async def get_table_bucket_metrics_configuration(
+        self, **kwargs: Unpack[GetTableBucketMetricsConfigurationRequestTypeDef]
+    ) -> GetTableBucketMetricsConfigurationResponseTypeDef:
+        """
+        Gets the metrics configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_bucket_metrics_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_bucket_metrics_configuration)
+        """
+
     async def get_table_bucket_policy(
         self, **kwargs: Unpack[GetTableBucketPolicyRequestTypeDef]
     ) -> GetTableBucketPolicyResponseTypeDef:
@@ -287,6 +354,28 @@ class S3TablesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_bucket_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_bucket_policy)
+        """
+
+    async def get_table_bucket_replication(
+        self, **kwargs: Unpack[GetTableBucketReplicationRequestTypeDef]
+    ) -> GetTableBucketReplicationResponseTypeDef:
+        """
+        Retrieves the replication configuration for a table bucket.This operation
+        returns the IAM role, <code>versionToken</code>, and replication rules that
+        define how tables in this bucket are replicated to other buckets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_bucket_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_bucket_replication)
+        """
+
+    async def get_table_bucket_storage_class(
+        self, **kwargs: Unpack[GetTableBucketStorageClassRequestTypeDef]
+    ) -> GetTableBucketStorageClassResponseTypeDef:
+        """
+        Retrieves the storage class configuration for a specific table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_bucket_storage_class.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_bucket_storage_class)
         """
 
     async def get_table_encryption(
@@ -339,6 +428,59 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_policy)
         """
 
+    async def get_table_record_expiration_configuration(
+        self, **kwargs: Unpack[GetTableRecordExpirationConfigurationRequestTypeDef]
+    ) -> GetTableRecordExpirationConfigurationResponseTypeDef:
+        """
+        Retrieves the expiration configuration settings for records in a table, and the
+        status of the configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_record_expiration_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_record_expiration_configuration)
+        """
+
+    async def get_table_record_expiration_job_status(
+        self, **kwargs: Unpack[GetTableRecordExpirationJobStatusRequestTypeDef]
+    ) -> GetTableRecordExpirationJobStatusResponseTypeDef:
+        """
+        Retrieves the status, metrics, and details of the latest record expiration job
+        for a table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_record_expiration_job_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_record_expiration_job_status)
+        """
+
+    async def get_table_replication(
+        self, **kwargs: Unpack[GetTableReplicationRequestTypeDef]
+    ) -> GetTableReplicationResponseTypeDef:
+        """
+        Retrieves the replication configuration for a specific table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_replication)
+        """
+
+    async def get_table_replication_status(
+        self, **kwargs: Unpack[GetTableReplicationStatusRequestTypeDef]
+    ) -> GetTableReplicationStatusResponseTypeDef:
+        """
+        Retrieves the replication status for a table, including the status of
+        replication to each destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_replication_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_replication_status)
+        """
+
+    async def get_table_storage_class(
+        self, **kwargs: Unpack[GetTableStorageClassRequestTypeDef]
+    ) -> GetTableStorageClassResponseTypeDef:
+        """
+        Retrieves the storage class configuration for a specific table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/get_table_storage_class.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#get_table_storage_class)
+        """
+
     async def list_namespaces(
         self, **kwargs: Unpack[ListNamespacesRequestTypeDef]
     ) -> ListNamespacesResponseTypeDef:
@@ -369,6 +511,16 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#list_tables)
         """
 
+    async def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
+    ) -> ListTagsForResourceResponseTypeDef:
+        """
+        Lists all of the tags applied to a specified Amazon S3 Tables resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/list_tags_for_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#list_tags_for_resource)
+        """
+
     async def put_table_bucket_encryption(
         self, **kwargs: Unpack[PutTableBucketEncryptionRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -390,15 +542,45 @@ class S3TablesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_bucket_maintenance_configuration)
         """
 
+    async def put_table_bucket_metrics_configuration(
+        self, **kwargs: Unpack[PutTableBucketMetricsConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Sets the metrics configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_metrics_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_bucket_metrics_configuration)
+        """
+
     async def put_table_bucket_policy(
         self, **kwargs: Unpack[PutTableBucketPolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Creates a new maintenance configuration or replaces an existing table bucket
-        policy for a table bucket.
+        Creates a new table bucket policy or replaces an existing table bucket policy
+        for a table bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_bucket_policy)
+        """
+
+    async def put_table_bucket_replication(
+        self, **kwargs: Unpack[PutTableBucketReplicationRequestTypeDef]
+    ) -> PutTableBucketReplicationResponseTypeDef:
+        """
+        Creates or updates the replication configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_bucket_replication)
+        """
+
+    async def put_table_bucket_storage_class(
+        self, **kwargs: Unpack[PutTableBucketStorageClassRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Sets or updates the storage class configuration for a table bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_bucket_storage_class.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_bucket_storage_class)
         """
 
     async def put_table_maintenance_configuration(
@@ -416,11 +598,31 @@ class S3TablesClient(AioBaseClient):
         self, **kwargs: Unpack[PutTablePolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Creates a new maintenance configuration or replaces an existing table policy
-        for a table.
+        Creates a new table policy or replaces an existing table policy for a table.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_policy.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_policy)
+        """
+
+    async def put_table_record_expiration_configuration(
+        self, **kwargs: Unpack[PutTableRecordExpirationConfigurationRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Creates or updates the expiration configuration settings for records in a
+        table, including the status of the configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_record_expiration_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_record_expiration_configuration)
+        """
+
+    async def put_table_replication(
+        self, **kwargs: Unpack[PutTableReplicationRequestTypeDef]
+    ) -> PutTableReplicationResponseTypeDef:
+        """
+        Creates or updates the replication configuration for a specific table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/put_table_replication.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#put_table_replication)
         """
 
     async def rename_table(
@@ -431,6 +633,23 @@ class S3TablesClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/rename_table.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#rename_table)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Applies one or more user-defined tags to an Amazon S3 Tables resource or
+        updates existing tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/tag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#tag_resource)
+        """
+
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
+        """
+        Removes the specified user-defined tags from an Amazon S3 Tables resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3tables/client/untag_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/client/#untag_resource)
         """
 
     async def update_table_metadata_location(
@@ -484,7 +703,7 @@ class S3TablesClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

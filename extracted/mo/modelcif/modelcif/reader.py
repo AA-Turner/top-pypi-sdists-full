@@ -63,7 +63,7 @@ class _TemplateIDMapper(IDMapper):
     """Add extra handling to IDMapper for modelcif.Template objects"""
 
     def _update_old_object(self, obj, newcls=None):
-        super(_TemplateIDMapper, self)._update_old_object(obj, newcls)
+        super()._update_old_object(obj, newcls)
         # Add missing members if the wrong class was originally instantianted
         if newcls is modelcif.CustomTemplate and not hasattr(obj, 'atoms'):
             obj.details = None
@@ -82,7 +82,7 @@ class _FeatureIDMapper(IDMapper):
             return newcls([])
 
     def _update_old_object(self, obj, newcls=None):
-        super(_FeatureIDMapper, self)._update_old_object(obj, newcls)
+        super()._update_old_object(obj, newcls)
         # Add missing members if the base class was originally instantianted
         if (newcls is modelcif.PolyResidueFeature
                 and not hasattr(obj, 'residues')):
@@ -92,6 +92,43 @@ class _FeatureIDMapper(IDMapper):
         elif (newcls is modelcif.EntityInstanceFeature
               and not hasattr(obj, 'asym_units')):
             obj.asym_units = []
+
+
+class _AtomIDMap:
+    """Mapping from atom ID (atom_site.id) to model number.
+       This is used, e.g, to determine the model for a dihedral QA metric.
+       We assume that atom IDs are numeric and are at least roughly
+       sequential (perhaps with gaps). Each model ID then maps to a simple
+       numeric range of atom IDs."""
+
+    def __init__(self):
+        self._model_to_id_range = {}
+
+    def add(self, atom_id, model_num):
+        """Add a mapping between a single atom ID and model number"""
+        try:
+            atom_id = int(atom_id)
+        except ValueError:
+            return
+        if model_num not in self._model_to_id_range:
+            self._model_to_id_range[model_num] = [atom_id, atom_id]
+        else:
+            r = self._model_to_id_range[model_num]
+            if atom_id < r[0]:
+                r[0] = atom_id
+            elif atom_id > r[1]:
+                r[1] = atom_id
+
+    def get(self, atom_id):
+        """Look up an atom ID and return the corresponding model number"""
+        # Do a dumb search through all models. If we have many models,
+        # this could be made more efficient by sorting the ranges first
+        # and doing a binary search.
+        for model_id, rng in self._model_to_id_range.items():
+            if atom_id >= rng[0] and atom_id <= rng[1]:
+                return model_id
+        raise ValueError("Atom ID %d could not be found in any model"
+                         % atom_id)
 
 
 class _SystemReader:
@@ -184,6 +221,9 @@ class _SystemReader:
         # Mapping from Entity to bool ma_model_mode flag
         self.ma_model_mode_map = {}
 
+        # Mapping from atom_site.id to model number
+        self.atom_id_to_model_num = _AtomIDMap()
+
     def finalize(self):
         # make sequence immutable (see also _make_new_entity)
         for e in self.system.entities:
@@ -216,7 +256,7 @@ class _ChemCompHandler(Handler):
     _prov_map = {'ccd core': 'core', 'ccd ma': 'ma', 'ccd local': 'local'}
 
     def __init__(self, *args):
-        super(_ChemCompHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map _chem_comp.type to corresponding subclass of ihm.ChemComp
         self.type_map = dict((x[1].type.lower(), x[1])
                              for x in inspect.getmembers(ihm, inspect.isclass)
@@ -235,7 +275,7 @@ class _ChemCompDescriptorHandler(Handler):
     category = '_ma_chem_comp_descriptor'
 
     def __init__(self, *args):
-        super(_ChemCompDescriptorHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map _chem_comp_descriptor.type to corresponding subclass of
         # modelcif.descriptor.Descriptor
         self._type_map = dict(
@@ -273,7 +313,7 @@ class _TemplatePolyHandler(Handler):
     category = '_ma_template_poly'
 
     def __init__(self, sysr):
-        super(_TemplatePolyHandler, self).__init__(sysr)
+        super().__init__(sysr)
         # Use python-ihm's _EntityPolyHandler to do most of the work here.
         # Note that we use Entity objects to store the sequence of the
         # templates, but template Entities are *not* stored in the mmCIF
@@ -451,7 +491,7 @@ class _TargetRefDBHandler(Handler):
     category = '_ma_target_ref_db_details'
 
     def __init__(self, *args):
-        super(_TargetRefDBHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map db_name to subclass of modelcif.reference.TargetReference
         self.type_map = _EnumerationMapper(modelcif.reference,
                                            modelcif.reference.TargetReference)
@@ -553,7 +593,7 @@ class _TemplateRefDBHandler(Handler):
     category = '_ma_template_ref_db_details'
 
     def __init__(self, *args):
-        super(_TemplateRefDBHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map db_name to subclass of modelcif.reference.TemplateReference
         self.type_map = _EnumerationMapper(
             modelcif.reference, modelcif.reference.TemplateReference)
@@ -621,7 +661,7 @@ class _AlignmentInfoHandler(Handler):
     category = '_ma_alignment_info'
 
     def __init__(self, *args):
-        super(_AlignmentInfoHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map type to subclass of modelcif.alignment.AlignmentType
         self._type_map = dict(
             (x[1].type.upper(), x[1])
@@ -690,7 +730,7 @@ class _AlignmentDetailsHandler(Handler):
     category = '_ma_alignment_details'
 
     def __init__(self, *args):
-        super(_AlignmentDetailsHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map denom to subclass of modelcif.alignment.Identity
         self._ident_map = _EnumerationMapper(
             modelcif.alignment, modelcif.alignment.Identity,
@@ -776,11 +816,27 @@ class _AssemblyDetailsHandler(Handler):
         a.description = assembly_description
 
 
+class _AtomSiteHandler(ihm.reader._AtomSiteHandler):
+    def __call__(self, pdbx_pdb_model_num, label_asym_id,
+                 b_iso_or_equiv: float, label_seq_id: int, label_atom_id,
+                 type_symbol, cartn_x: float, cartn_y: float, cartn_z: float,
+                 occupancy: float, group_pdb, auth_seq_id, pdbx_pdb_ins_code,
+                 auth_asym_id, label_comp_id, label_alt_id, id):
+        # Update mapping from atom ID to model number
+        self.sysr.atom_id_to_model_num.add(id, pdbx_pdb_model_num)
+
+        super().__call__(
+            pdbx_pdb_model_num, label_asym_id, b_iso_or_equiv,
+            label_seq_id, label_atom_id, type_symbol, cartn_x, cartn_y,
+            cartn_z, occupancy, group_pdb, auth_seq_id, pdbx_pdb_ins_code,
+            auth_asym_id, label_comp_id, label_alt_id)
+
+
 class _ModelListHandler(Handler):
     category = '_ma_model_list'
 
     def __init__(self, *args):
-        super(_ModelListHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map model_type to subclass of modelcif.model.Model
         self._type_map = _EnumerationMapper(
             modelcif.model, modelcif.model.Model,
@@ -849,7 +905,7 @@ class _ProtocolHandler(Handler):
     category = '_ma_protocol_step'
 
     def __init__(self, *args):
-        super(_ProtocolHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map method_type to subclass of modelcif.protocol.Step
         self._method_map = dict(
             (x[1].method_type.upper(), x[1])
@@ -913,7 +969,7 @@ class _AssociatedHandler(Handler):
     category = '_ma_entry_associated_files'
 
     def __init__(self, *args):
-        super(_AssociatedHandler, self).__init__(*args)
+        super().__init__(*args)
         self._repos_by_root = {}
         self._type_map, self._binary_type_map = _get_assoc_type_maps()
 
@@ -944,7 +1000,7 @@ class _AssociatedArchiveHandler(Handler):
     category = '_ma_associated_archive_file_details'
 
     def __init__(self, *args):
-        super(_AssociatedArchiveHandler, self).__init__(*args)
+        super().__init__(*args)
         self._type_map, self._binary_type_map = _get_assoc_type_maps()
         self._archive_files = collections.defaultdict(list)
 
@@ -1018,7 +1074,7 @@ class _QAMetricHandler(Handler):
     category = '_ma_qa_metric'
 
     def __init__(self, *args):
-        super(_QAMetricHandler, self).__init__(*args)
+        super().__init__(*args)
         # Map mode to subclass of modelcif.qa_metric.MetricMode
         self._mode_map = dict(
             (x[1].mode.upper(), x[1])
@@ -1099,6 +1155,37 @@ class _QAMetricFeaturePairwiseHandler(Handler):
         model.qa_metrics.append(metric_class(feature1, feature2, metric_value))
 
 
+class _QAMetricDihedralHandler(Handler):
+    category = '_ma_qa_metric_dihedral'
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._metrics = []
+
+    def __call__(self, atom_id_1: int, atom_id_2: int, atom_id_3: int,
+                 atom_id_4: int, metric_id, metric_value: float,
+                 quality, smarts_pattern):
+        metric_class = self.sysr.qa_by_id[metric_id]
+        qa = metric_class(atom_id_1, atom_id_2, atom_id_3, atom_id_4,
+                          metric_value, None, smarts_pattern)
+        if isinstance(quality, str):
+            quality = quality.lower()
+        # Default quality to None if invalid type read
+        try:
+            qa.quality = quality
+        except ValueError:
+            pass
+        # We don't know which model the metric applies to yet; we'll
+        # figure this out at finalize time using atom_site.id
+        self._metrics.append(qa)
+
+    def finalize(self):
+        for m in self._metrics:
+            model_id = self.sysr.atom_id_to_model_num.get(m.atom_id_1)
+            model = self.sysr.models.get_by_id(model_id)
+            model.qa_metrics.append(m)
+
+
 class ModelCIFVariant(Variant):
     """Used to select typical PDBx/ModelCIF file input.
        See :func:`read` and :class:`ihm.reader.Variant`."""
@@ -1129,7 +1216,7 @@ class ModelCIFVariant(Variant):
         _TemplatePolyHandler, _TemplateNonPolyHandler,
         _AlignmentHandler, _AlignmentInfoHandler, _AlignmentDetailsHandler,
         _TargetTemplatePolyMappingHandler,
-        _AssemblyHandler, _AssemblyDetailsHandler, ihm.reader._AtomSiteHandler,
+        _AssemblyHandler, _AssemblyDetailsHandler, _AtomSiteHandler,
         ihm.reader._PolySeqSchemeHandler, ihm.reader._NonPolySchemeHandler,
         _ModelListHandler, _ModelGroupHandler, _ModelGroupLinkHandler,
         _ProtocolHandler, _AssociatedHandler, _AssociatedArchiveHandler,
@@ -1137,7 +1224,7 @@ class ModelCIFVariant(Variant):
         _PolyResidueFeatureHandler, _EntityInstanceFeatureHandler,
         _QAMetricHandler, _QAMetricGlobalHandler, _QAMetricLocalHandler,
         _QAMetricPairwiseHandler, _QAMetricFeatureHandler,
-        _QAMetricFeaturePairwiseHandler]
+        _QAMetricFeaturePairwiseHandler, _QAMetricDihedralHandler]
 
     def get_handlers(self, sysr):
         return [h(sysr) for h in self._handlers]

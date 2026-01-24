@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Generic, Optional, Union
 
@@ -11,6 +12,7 @@ from dagster import (
     get_dagster_logger,
 )
 from dagster._annotations import preview
+from dagster._serdes import whitelist_for_serdes
 from dagster_shared.record import IHaveNew, record, record_custom
 from databricks.sdk.service import jobs
 from typing_extensions import Self, TypeVar
@@ -109,6 +111,7 @@ class DatabricksTaskDependsOnConfig:
     outcome: Optional[str]
 
 
+@whitelist_for_serdes
 @record
 class DatabricksBaseTask(ABC, Generic[T_DatabricksSdkTask]):
     task_key: str
@@ -142,6 +145,7 @@ class DatabricksBaseTask(ABC, Generic[T_DatabricksSdkTask]):
     def to_databricks_sdk_task(self) -> T_DatabricksSdkTask: ...
 
 
+@whitelist_for_serdes
 @record
 class DatabricksNotebookTask(DatabricksBaseTask[jobs.NotebookTask]):
     @property
@@ -185,6 +189,7 @@ class DatabricksNotebookTask(DatabricksBaseTask[jobs.NotebookTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksConditionTask(DatabricksBaseTask[jobs.ConditionTask]):
     @property
@@ -235,6 +240,7 @@ class DatabricksConditionTask(DatabricksBaseTask[jobs.ConditionTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksSparkPythonTask(DatabricksBaseTask[jobs.SparkPythonTask]):
     @property
@@ -281,6 +287,7 @@ class DatabricksSparkPythonTask(DatabricksBaseTask[jobs.SparkPythonTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksPythonWheelTask(DatabricksBaseTask[jobs.PythonWheelTask]):
     @property
@@ -330,6 +337,7 @@ class DatabricksPythonWheelTask(DatabricksBaseTask[jobs.PythonWheelTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksSparkJarTask(DatabricksBaseTask[jobs.SparkJarTask]):
     @property
@@ -375,6 +383,7 @@ class DatabricksSparkJarTask(DatabricksBaseTask[jobs.SparkJarTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksJobTask(DatabricksBaseTask[jobs.RunJobTask]):
     @property
@@ -419,6 +428,7 @@ class DatabricksJobTask(DatabricksBaseTask[jobs.RunJobTask]):
         )
 
 
+@whitelist_for_serdes
 @record
 class DatabricksUnknownTask(DatabricksBaseTask):
     @property
@@ -588,6 +598,10 @@ class DatabricksConfig(IHaveNew):
 
         return job_parameters
 
+    @cached_property
+    def tasks_by_task_key(self) -> dict[str, DatabricksBaseTask]:
+        return {task.task_key: task for task in self.tasks}
+
 
 @preview
 class ResolvedDatabricksNewClusterConfig(Resolvable, Model):
@@ -604,3 +618,13 @@ class ResolvedDatabricksExistingClusterConfig(Resolvable, Model):
 @preview
 class ResolvedDatabricksServerlessConfig(Resolvable, Model):
     is_serverless: bool = True
+
+
+@whitelist_for_serdes
+@record
+class DatabricksJob:
+    """Represents a Databricks Job structure for serialization."""
+
+    job_id: int
+    name: str
+    tasks: Optional[list[DatabricksBaseTask]] = None

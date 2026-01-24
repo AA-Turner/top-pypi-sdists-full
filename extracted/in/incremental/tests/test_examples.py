@@ -10,18 +10,17 @@ from importlib import metadata
 from subprocess import run
 from tempfile import TemporaryDirectory
 
-from build import ProjectBuilder, BuildBackendException
+from build import BuildBackendException, ProjectBuilder
 from build.env import DefaultIsolatedEnv
 from twisted.python.filepath import FilePath
 from twisted.trial.unittest import TestCase
 
 from incremental import Version
 
-
 TEST_DIR = FilePath(os.path.abspath(os.path.dirname(__file__)))
 
 
-def build_and_install(path):  # type: (FilePath) -> None
+def build_and_install(path: FilePath) -> None:
     with TemporaryDirectory(prefix="dist") as dist_dir:
         with DefaultIsolatedEnv(installer="pip") as env:
             env.install(
@@ -214,7 +213,7 @@ name = "example_bad_versionpy"
     def test_hatch_version_set(self):
         """
         The ``hatch version`` command can't set the version so its output
-        tells the user to use ``incremental.update`` instead.
+        tells the user to use ``incremental`` instead.
         """
         proc = run(
             ["hatch", "--no-color", "version", "24.8.0"],
@@ -222,7 +221,7 @@ name = "example_bad_versionpy"
             check=False,
             capture_output=True,
         )
-        suggestion = b"Run `python -m incremental.version --newversion 24.8.0` to set the version."
+        suggestion = b"Run `incremental update example_hatchling --newversion 24.8.0` to set the version."
 
         self.assertGreater(proc.returncode, 0)
         self.assertRegex(

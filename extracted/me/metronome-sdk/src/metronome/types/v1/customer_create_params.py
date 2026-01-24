@@ -7,7 +7,12 @@ from typing_extensions import Literal, Required, TypedDict
 
 from ..._types import SequenceNotStr
 
-__all__ = ["CustomerCreateParams", "BillingConfig", "CustomerBillingProviderConfiguration"]
+__all__ = [
+    "CustomerCreateParams",
+    "BillingConfig",
+    "CustomerBillingProviderConfiguration",
+    "CustomerRevenueSystemConfiguration",
+]
 
 
 class CustomerCreateParams(TypedDict, total=False):
@@ -20,6 +25,8 @@ class CustomerCreateParams(TypedDict, total=False):
     """Custom fields to be added eg. { "key1": "value1", "key2": "value2" }"""
 
     customer_billing_provider_configurations: Iterable[CustomerBillingProviderConfiguration]
+
+    customer_revenue_system_configurations: Iterable[CustomerRevenueSystemConfiguration]
 
     external_id: str
     """
@@ -44,8 +51,13 @@ class BillingConfig(TypedDict, total=False):
             "quickbooks_online",
             "workday",
             "gcp_marketplace",
+            "metronome",
         ]
     ]
+
+    aws_customer_account_id: str
+
+    aws_customer_id: str
 
     aws_is_subscription_product: bool
     """True if the aws_product_code is a SAAS subscription product, false otherwise."""
@@ -83,6 +95,10 @@ class BillingConfig(TypedDict, total=False):
     stripe_collection_method: Literal[
         "charge_automatically", "send_invoice", "auto_charge_payment_intent", "manually_charge_payment_intent"
     ]
+    """
+    The collection method for the customer's invoices. NOTE:
+    `auto_charge_payment_intent` and `manually_charge_payment_intent` are in beta.
+    """
 
 
 class CustomerBillingProviderConfiguration(TypedDict, total=False):
@@ -115,4 +131,28 @@ class CustomerBillingProviderConfiguration(TypedDict, total=False):
     billing through Stripe. This is only supported for Stripe billing provider
     configurations with auto_charge_payment_intent or manual_charge_payment_intent
     collection methods.
+    """
+
+
+class CustomerRevenueSystemConfiguration(TypedDict, total=False):
+    provider: Required[Literal["netsuite"]]
+    """The revenue system provider set for this configuration."""
+
+    configuration: Dict[str, object]
+    """Configuration for the revenue system provider.
+
+    The structure of this object is specific to the revenue system provider. For
+    NetSuite, this should contain `netsuite_customer_id`.
+    """
+
+    delivery_method: Literal["direct_to_billing_provider"]
+    """The method to use for delivering invoices to this customer.
+
+    If not provided, the `delivery_method_id` must be provided.
+    """
+
+    delivery_method_id: str
+    """ID of the delivery method to use for this customer.
+
+    If not provided, the `delivery_method` must be provided.
     """

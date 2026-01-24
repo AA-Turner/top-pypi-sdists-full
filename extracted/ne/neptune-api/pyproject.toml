@@ -14,11 +14,11 @@ httpx = { version = ">=0.15.4,<0.28.2", extras = ["http2"] }
 attrs = ">=21.3.0"
 python-dateutil = "^2.8.0"
 PyJWT = "^2.0.0"
-protobuf = ">=3.19.6,<7"
+protobuf = ">=4.21.1,<7"
 
 [tool.poetry]
 name = "neptune-api"
-version = "0.23.0"
+version = "0.26.0"
 description = "A client library for accessing Neptune API"
 authors = ["neptune.ai <contact@neptune.ai>"]
 repository = "https://github.com/neptune-ai/neptune-api"

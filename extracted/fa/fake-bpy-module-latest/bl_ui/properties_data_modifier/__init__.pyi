@@ -15,14 +15,12 @@ class AddModifierMenu(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def invoke(self, _context, _event) -> None:
@@ -52,14 +50,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -81,11 +77,22 @@ class ModifierAddMenu:
     MODIFIER_TYPES_TO_LABELS: typing.Any
 
     @classmethod
-    def operator_modifier_add(cls, layout, mod_type) -> None:
+    def operator_modifier_add(cls, layout, mod_type, text=None, no_icon=False) -> None:
         """
 
         :param layout:
         :param mod_type:
+        :param text:
+        :param no_icon:
+        """
+
+    @classmethod
+    def operator_modifier_add_asset(cls, layout, name, icon="NONE") -> None:
+        """
+
+        :param layout:
+        :param name:
+        :param icon:
         """
 
 class ModifierButtonsPanel:
@@ -107,14 +114,12 @@ class OBJECT_MT_modifier_add(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -136,14 +141,12 @@ class OBJECT_MT_modifier_add_color(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -165,14 +168,12 @@ class OBJECT_MT_modifier_add_deform(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -194,14 +195,12 @@ class OBJECT_MT_modifier_add_edit(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -223,14 +222,12 @@ class OBJECT_MT_modifier_add_generate(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -252,14 +249,12 @@ class OBJECT_MT_modifier_add_normals(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -281,14 +276,12 @@ class OBJECT_MT_modifier_add_physics(ModifierAddMenu, _bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

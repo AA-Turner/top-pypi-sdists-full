@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: openstacksdk
-Version: 4.7.1
+Version: 4.9.0
 Summary: An SDK for building applications to work with OpenStack
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -27,13 +27,15 @@ Requires-Dist: iso8601>=0.1.11
 Requires-Dist: jmespath>=0.9.0
 Requires-Dist: jsonpatch!=1.20,>=1.16
 Requires-Dist: keystoneauth1>=5.10.0
-Requires-Dist: os-service-types>=1.8.0
+Requires-Dist: os-service-types>=1.8.1
 Requires-Dist: pbr!=2.1.0,>=2.0.0
 Requires-Dist: platformdirs>=3
 Requires-Dist: psutil>=3.2.2
 Requires-Dist: PyYAML>=3.13
 Requires-Dist: requestsexceptions>=1.2.0
 Requires-Dist: typing-extensions>=4.12.0
+Dynamic: license-file
+Dynamic: requires-dist
 
 ============
 openstacksdk

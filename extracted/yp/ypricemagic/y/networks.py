@@ -1,8 +1,7 @@
 from enum import IntEnum
-from typing import Final, Optional, final
+from typing import Final, final
 
 from brownie import chain
-
 
 CHAINID: Final[int] = chain.id
 """
@@ -76,8 +75,14 @@ class Network(IntEnum):
     Aurora = 1313161554
     """The Chain ID for Aurora"""
 
+    Katana = 747474
+    """The Chain ID for Katana"""
+
+    Berachain = 80094
+    """The Chain ID for Berachain"""
+
     @staticmethod
-    def label(chain_id: Optional[int] = None) -> str:
+    def label(chain_id: int | None = None) -> str:
         """
         Get the label (abbreviation) for a given chain ID.
 
@@ -128,9 +133,14 @@ class Network(IntEnum):
             return "OPTI"
         elif chain_id == Network.Base:
             return "BASE"
+        elif chain_id == Network.Katana:
+            return "KATANA"
+        elif chain_id == Network.Berachain:
+            return "BERA"
+        raise ValueError(f"{chain_id} is not a known chainid")
 
     @staticmethod
-    def name(chain_id: Optional[int] = None) -> str:
+    def name(chain_id: int | None = None) -> str:  # type: ignore [override]
         """
         Get the full name of a network for a given chain ID.
 
@@ -181,9 +191,14 @@ class Network(IntEnum):
             return "Optimism"
         elif chain_id == Network.Base:
             return "Base"
+        elif chain_id == Network.Katana:
+            return "Katana"
+        elif chain_id == Network.Berachain:
+            return "Berachain"
+        raise ValueError(f"{chain_id} is not a known chainid")
 
     @staticmethod
-    def printable(chain_id: Optional[int] = None) -> str:
+    def printable(chain_id: int | None = None) -> str:
         """
         Get a printable string that identifies the network.
 
@@ -200,7 +215,10 @@ class Network(IntEnum):
         """
         if chain_id is None:
             chain_id = CHAINID
-        return Network.name(chain_id) or f"chain {chain_id}"
+        try:
+            return Network.name(chain_id)
+        except ValueError:
+            return f"chain {chain_id}"
 
 
 NETWORK_NAME: Final = Network.name()

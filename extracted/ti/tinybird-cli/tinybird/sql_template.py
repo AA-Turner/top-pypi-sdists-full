@@ -3,6 +3,7 @@ import builtins
 import linecache
 import logging
 import re
+from collections import deque
 from datetime import datetime
 from functools import lru_cache
 from io import StringIO
@@ -384,14 +385,13 @@ def array_type(types):
             if isinstance(x, Placeholder):
                 if default:
                     x = default
-                else:
-                    if _type and _type in types:
-                        if _type == "String":
-                            x = ""
-                        else:
-                            x = ",".join(map(str, [types[_type](x) for _ in range(2)]))
-                    else:
+                elif _type and _type in types:
+                    if _type == "String":
                         x = ""
+                    else:
+                        x = ",".join(map(str, [types[_type](x) for _ in range(2)]))
+                else:
+                    x = ""
             elif x is None:
                 x = default
                 if x is None:
@@ -1405,23 +1405,33 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
     namespace = {}
     template_execution_results = TemplateExecutionResults()
     for key in kwargs.get("tb_secrets", []):
+        # Avoid double-prefixing if the key already has the tb_secret_ prefix
         if is_secret_template_key(key):
             template_execution_results.add_template_param(key)
+        else:
+            template_execution_results.add_template_param(secret_template_key(key))
 
     if TB_SECRET_IN_TEST_MODE in kwargs:
         template_execution_results[TB_SECRET_IN_TEST_MODE] = None
 
-    def set_tb_secret(x):
+    def set_tb_secret(x, default=None):
         try:
             key = secret_template_key(x)
             if key in template_execution_results.template_params:
+                # secret available: Always use workspace secret regardless of test mode
                 template_execution_results.add_ch_param(x)
                 return Symbol("{" + sqlescape(x) + ": String}")
             else:
+                # secret not available: Check test mode and defaults
                 is_test_mode = TB_SECRET_IN_TEST_MODE in template_execution_results
-                if is_test_mode:
+                if default is not None:
+                    # Use provided default value
+                    return default
+                elif is_test_mode:
+                    # In test mode without default - return placeholder
                     return Symbol("{" + sqlescape(x) + ": String}")
                 else:
+                    # Not in test mode, no secret, no default - raise error
                     raise SQLTemplateException(
                         f"Cannot access secret '{x}'. Check the secret exists in the Workspace and the token has the required scope."
                     )
@@ -1571,8 +1581,6 @@ def get_var_names(t):
                     variable_names = [x for x in c.co_names if x not in _namespace and x not in reserved_vars]
                     v += list(map(lambda variable: {"line": line_number, "name": variable}, variable_names))
                 elif type(x).__name__ == "_ControlBlock":
-                    from io import StringIO
-
                     buffer = StringIO()
                     writer = CodeWriter(buffer, t)
                     x.generate(writer)
@@ -1589,6 +1597,11 @@ def get_var_names(t):
 
 
 def get_var_data(content, node_id=None):
+    """Extract variable data from a template expression.
+
+    Optimized to use a single AST traversal instead of two separate walks.
+    """
+
     def node_to_value(x):
         if type(x) in (ast.Bytes, ast.Str):
             return x.s
@@ -1639,84 +1652,6 @@ def get_var_data(content, node_id=None):
 
         return []
 
-    def _w(parsed):
-        vars = {}
-        for node in ast.walk(parsed):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
-                try:
-                    func = node.func.id
-                    # parse function args
-                    args = []
-                    for x in node.args:
-                        if type(x) == ast.Call:  # noqa: E721
-                            vars.update(_w(x))
-                        else:
-                            args.append(node_to_value(x))
-
-                    kwargs = {}
-                    for x in node.keywords:
-                        value = node_to_value(x.value)
-                        kwargs[x.arg] = value
-                        if x.arg == "default":
-                            kwargs["default"] = check_default_value(value)
-                    if func in VALID_CUSTOM_FUNCTION_NAMES:
-                        # Type definition here is set to 'String' because it comes from a
-                        # `defined(variable)` expression that does not contain any type hint.
-                        # It will be overriden in later definitions or left as is otherwise.
-                        # args[0] check is used to avoid adding unnamed parameters found in
-                        # templates like: `split_to_array('')`
-                        if args and isinstance(args[0], list):
-                            raise ValueError(f'"{args[0]}" can not be used as a variable name')
-                        if len(args) > 0 and args[0] not in vars and args[0]:
-                            vars[args[0]] = {
-                                "type": "String",
-                                "default": None,
-                                "used_in": "function_call",
-                            }
-                    elif func == "Array":
-                        if "default" not in kwargs:
-                            default = kwargs.get("default", args[2] if len(args) > 2 and args[2] else None)
-                            kwargs["default"] = check_default_value(default)
-                        if args:
-                            if isinstance(args[0], list):
-                                raise ValueError(f'"{args[0]}" can not be used as a variable name')
-                            vars[args[0]] = {
-                                "type": f"Array({args[1]})" if len(args) > 1 else "Array(String)",
-                                **kwargs,
-                            }
-                    elif func in parameter_types:
-                        # avoid variable names to be None
-                        if args and args[0] is not None:
-                            # if this is a cast use the function name to get the type
-                            if "default" not in kwargs:
-                                default = kwargs.get("default", args[1] if len(args) > 1 else None)
-                                kwargs["default"] = check_default_value(default)
-                            try:
-                                if isinstance(args[0], list):
-                                    raise ValueError(f'"{args[0]}" can not be used as a variable name')
-                                vars[args[0]] = {"type": func, **kwargs}
-                                if "default" in kwargs:
-                                    kwargs["default"] = check_default_value(kwargs["default"])
-                            except TypeError as e:
-                                logging.exception(f"pipe parsing problem {content} (node '{node_id}'):  {e}")
-                except ValueError:
-                    raise
-                except Exception as e:
-                    # if we find a problem parsing, let the parsing continue
-                    logging.exception(f"pipe parsing problem {content} (node: '{node_id}'):  {e}")
-            elif isinstance(node, ast.Name):
-                # when parent node is a call it means it's managed by the Call workflow (see above)
-                is_cast = (
-                    isinstance(node.parent, ast.Call)
-                    and isinstance(node.parent.func, ast.Name)
-                    and node.parent.func.id in parameter_types
-                )
-                is_reserved_name = node.id in reserved_vars or node.id in function_list or node.id in _namespace
-                if (not isinstance(node.parent, ast.Call) and not is_cast) and not is_reserved_name:
-                    vars[node.id] = {"type": "String", "default": None}
-
-        return vars
-
     def check_default_value(value):
         if isinstance(value, int):
             MAX_SAFE_INTEGER = 9007199254740991
@@ -1737,12 +1672,90 @@ def get_var_data(content, node_id=None):
             return parse_content(content, retries)
 
     parsed = parse_content(content)
+    vars = {}
 
-    # calculate parents for each node for later checks
-    for node in ast.walk(parsed):
+    # Single pass: traverse AST while tracking parent references
+    # Use FIFO order so children are visited in source order (matching ast.walk)
+    # because first-seen wins for duplicates like defined(a) and defined(a, ...) later.
+    queue = deque([(parsed, None)])  # (node, parent)
+    while queue:
+        node, parent = queue.popleft()
+
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            try:
+                func = node.func.id
+                # parse function args
+                args = []
+                for x in node.args:
+                    if type(x) == ast.Call:  # noqa: E721
+                        # Nested calls are traversed via `ast.iter_child_nodes` below.
+                        continue
+                    else:
+                        args.append(node_to_value(x))
+
+                kwargs = {}
+                for x in node.keywords:
+                    value = node_to_value(x.value)
+                    kwargs[x.arg] = value
+                    if x.arg == "default":
+                        kwargs["default"] = check_default_value(value)
+                if func in VALID_CUSTOM_FUNCTION_NAMES:
+                    # Type definition here is set to 'String' because it comes from a
+                    # `defined(variable)` expression that does not contain any type hint.
+                    # It will be overriden in later definitions or left as is otherwise.
+                    # args[0] check is used to avoid adding unnamed parameters found in
+                    # templates like: `split_to_array('')`
+                    if args and isinstance(args[0], list):
+                        raise ValueError(f'"{args[0]}" can not be used as a variable name')
+                    if len(args) > 0 and args[0] not in vars and args[0]:
+                        vars[args[0]] = {
+                            "type": "String",
+                            "default": None,
+                            "used_in": "function_call",
+                        }
+                elif func == "Array":
+                    if "default" not in kwargs:
+                        default = kwargs.get("default", args[2] if len(args) > 2 and args[2] else None)
+                        kwargs["default"] = check_default_value(default)
+                    if args:
+                        if isinstance(args[0], list):
+                            raise ValueError(f'"{args[0]}" can not be used as a variable name')
+                        vars[args[0]] = {
+                            "type": f"Array({args[1]})" if len(args) > 1 else "Array(String)",
+                            **kwargs,
+                        }
+                elif func in parameter_types:
+                    # avoid variable names to be None
+                    if args and args[0] is not None:
+                        # if this is a cast use the function name to get the type
+                        if "default" not in kwargs:
+                            default = kwargs.get("default", args[1] if len(args) > 1 else None)
+                            kwargs["default"] = check_default_value(default)
+                        try:
+                            if isinstance(args[0], list):
+                                raise ValueError(f'"{args[0]}" can not be used as a variable name')
+                            vars[args[0]] = {"type": func, **kwargs}
+                            if "default" in kwargs:
+                                kwargs["default"] = check_default_value(kwargs["default"])
+                        except TypeError as e:
+                            logging.exception(f"pipe parsing problem {content} (node '{node_id}'):  {e}")
+            except ValueError:
+                raise
+            except Exception as e:
+                # if we find a problem parsing, let the parsing continue
+                logging.exception(f"pipe parsing problem {content} (node: '{node_id}'):  {e}")
+        elif isinstance(node, ast.Name):
+            # when parent node is a call it means it's managed by the Call workflow (see above)
+            is_cast = (
+                isinstance(parent, ast.Call) and isinstance(parent.func, ast.Name) and parent.func.id in parameter_types
+            )
+            is_reserved_name = node.id in reserved_vars or node.id in function_list or node.id in _namespace
+            if (not isinstance(parent, ast.Call) and not is_cast) and not is_reserved_name:
+                vars[node.id] = {"type": "String", "default": None}
+
+        # Add children preserving source order so downstream precedence matches templates
         for child in ast.iter_child_nodes(node):
-            child.parent = node
-    vars = _w(parsed)
+            queue.append((child, node))
 
     return [dict(name=k, **v) for k, v in vars.items()]
 
@@ -1803,6 +1816,8 @@ def get_var_names_and_types(t, node_id=None):
     [{'name': 'symbol_id', 'type': 'Int128', 'description': 'Symbol Id', 'required': True, 'default': 11111}, {'name': 'user_id', 'type': 'Int256', 'description': 'User Id', 'default': 3555}]
     >>> get_var_names_and_types(Template("SELECT now() > {{DateTime64(timestamp, '2020-09-09 10:10:10.000')}}"))
     [{'name': 'timestamp', 'type': 'DateTime64', 'default': '2020-09-09 10:10:10.000'}]
+    >>> get_var_names_and_types(Template("select {{Int32(dup, 1)}} {{String(dup, 'last')}}"))
+    [{'name': 'dup', 'type': 'Int32', 'default': 1}, {'name': 'dup', 'type': 'String', 'default': 'last'}]
     >>> get_var_names_and_types(Template("SELECT * FROM filter_value WHERE symbol = {{Int64(symbol_id, 9223372036854775807)}}"))
     [{'name': 'symbol_id', 'type': 'Int64', 'default': '9223372036854775807'}]
     """
@@ -1832,7 +1847,7 @@ def get_var_names_and_types(t, node_id=None):
         raise SQLTemplateException(e)
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=512)
 def get_var_names_and_types_cached(t: Template):
     return get_var_names_and_types(t)
 
@@ -2266,6 +2281,18 @@ def render_sql_template(
     Traceback (most recent call last):
     ...
     tinybird.sql_template.SQLTemplateException: Template Syntax Error: Cannot access secret 'test'. Check the secret exists in the Workspace and the token has the required scope.
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [])
+    ("select * from table where str = 'default_value'", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [ 'tb_secret_test' ])
+    ('select * from table where str = {test: String}', {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', '')}}")
+    ("select * from table where str = ''", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", test_mode=True)
+    ("select * from table where str = 'default_value'", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', '')}}", test_mode=True)
+    ("select * from table where str = ''", {}, [])
+    >>> render_sql_template("select * from table where str = {{tb_secret('test', 'default_value')}}", secrets = [ 'tb_secret_test' ], test_mode=True)
+    ('select * from table where str = {test: String}', {}, [])
     >>> render_sql_template("select * from table where str = {{String(test)}} and category = {{String(category, 'shirts')}} and color = {{ Int32(color)}}", test_mode=False)
     Traceback (most recent call last):
     ...
@@ -2361,6 +2388,14 @@ def render_sql_template(
         if "'str' object has no attribute 'get'" in str(e):
             raise SQLTemplateException(
                 "'str' object has no attribute 'get'. Make sure you're using an object/dictionary where trying to use .get()",
+                documentation="/cli/advanced-templates.html",
+            )
+        raise SQLTemplateException(str(e), documentation="/cli/advanced-templates.html")
+    except IndexError as e:
+        # This happens when trying to access string indices on empty strings
+        if "string index out of range" in str(e):
+            raise SQLTemplateException(
+                "String index out of range. Check that string parameters have values before accessing specific characters (e.g., param[0]). Provide default values or add length checks in your template.",
                 documentation="/cli/advanced-templates.html",
             )
         raise SQLTemplateException(str(e), documentation="/cli/advanced-templates.html")

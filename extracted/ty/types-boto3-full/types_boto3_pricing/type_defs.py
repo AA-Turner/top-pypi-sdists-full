@@ -3,7 +3,7 @@ Type annotations for pricing service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pricing/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import FilterTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -79,14 +74,14 @@ class DescribeServicesRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class ServiceTypeDef(TypedDict):
     ServiceCode: str
-    AttributeNames: NotRequired[List[str]]
+    AttributeNames: NotRequired[list[str]]
 
 
 FilterTypeDef = TypedDict(
@@ -118,7 +113,7 @@ class PriceListTypeDef(TypedDict):
     PriceListArn: NotRequired[str]
     RegionCode: NotRequired[str]
     CurrencyCode: NotRequired[str]
-    FileFormats: NotRequired[List[str]]
+    FileFormats: NotRequired[list[str]]
 
 
 class DescribeServicesRequestPaginateTypeDef(TypedDict):
@@ -134,7 +129,7 @@ class GetAttributeValuesRequestPaginateTypeDef(TypedDict):
 
 
 class GetAttributeValuesResponseTypeDef(TypedDict):
-    AttributeValues: List[AttributeValueTypeDef]
+    AttributeValues: list[AttributeValueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -146,13 +141,13 @@ class GetPriceListFileUrlResponseTypeDef(TypedDict):
 
 class GetProductsResponseTypeDef(TypedDict):
     FormatVersion: str
-    PriceList: List[str]
+    PriceList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeServicesResponseTypeDef(TypedDict):
-    Services: List[ServiceTypeDef]
+    Services: list[ServiceTypeDef]
     FormatVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -191,6 +186,6 @@ class ListPriceListsRequestTypeDef(TypedDict):
 
 
 class ListPriceListsResponseTypeDef(TypedDict):
-    PriceLists: List[PriceListTypeDef]
+    PriceLists: list[PriceListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

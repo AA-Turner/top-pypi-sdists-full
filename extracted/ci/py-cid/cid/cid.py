@@ -1,8 +1,11 @@
-import base58
+from typing import cast
+
 from morphys import ensure_bytes, ensure_unicode
 import multibase
 import multicodec
 import multihash as mh
+
+from . import base58
 
 
 class BaseCID:
@@ -274,7 +277,7 @@ def from_bytes(cidbytes: bytes) -> CIDv0 | CIDv1:
     # refer: https://github.com/ipld/cid/issues/13#issuecomment-326490275
     if cidbytes[0] != 0 and multibase.is_encoded(cidbytes):
         # if the bytestream is multibase encoded
-        cid = multibase.decode(cidbytes)
+        cid = cast(bytes, multibase.decode(cidbytes))
 
         if len(cid) < 2:
             msg = "cid length is invalid"

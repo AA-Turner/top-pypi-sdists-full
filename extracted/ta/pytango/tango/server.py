@@ -10,20 +10,19 @@ import logging
 import functools
 import traceback
 import warnings
+import types
 
-from typing import Union, ClassVar
-from inspect import getfullargspec
+from typing import Union, ClassVar, Any
 
 try:
-    from warnings import deprecated
+    from docstring_parser import parse as parse_docstring
 except ImportError:
-    from typing_extensions import deprecated
+    parse_docstring = None
 
-from tango._tango import AttrDataFormat, AttrWriteType, PipeWriteType, DevState
-from tango._tango import DevFailed, GreenMode, SerialModel
+from tango import AttrDataFormat, AttrWriteType, CmdArgType, DevState
+from tango import DevFailed, GreenMode, SerialModel
 
 from tango.attr_data import AttrData
-from tango.pipe_data import PipeData
 from tango.device_class import DeviceClass
 from tango.device_server import (
     LatestDeviceImpl,
@@ -57,7 +56,6 @@ __all__ = (
     "LatestDeviceImpl",
     "attribute",
     "command",
-    "pipe",
     "device_property",
     "class_property",
     "run",
@@ -68,6 +66,30 @@ __all__ = (
 API_VERSION = 2
 
 # Helpers
+
+
+def __get_in_out_types_from_method_type_hints(method):
+    # If it's a bound method (has __func__), unwrap it,
+    # otherwise signature will ignore self parameter
+    if isinstance(method, types.MethodType):
+        func = method.__func__
+    else:
+        func = method
+
+    sig = inspect.signature(func)
+    params = list(sig.parameters.values())
+
+    first_arg_type = None
+    # params[0] should be self and params[1] the command argument
+    if len(params) > 1 and params[1].annotation is not inspect.Parameter.empty:
+        first_arg_type = params[1].annotation
+
+    # Check return annotation
+    return_type = sig.return_annotation
+    if return_type is inspect.Signature.empty:
+        return_type = None
+
+    return first_arg_type, return_type
 
 
 def from_typeformat_to_type(dtype, dformat):
@@ -98,7 +120,7 @@ def __get_wrapped_read_method(attribute, read_method):
         def read_attr(self, attr):
             worker = get_worker()
             ret = worker.execute(read_method, self)
-            if not attr.get_value_flag() and ret is not None:
+            if not attr.value_is_set() and ret is not None:
                 set_complex_value(attr, ret)
             return ret
 
@@ -107,7 +129,7 @@ def __get_wrapped_read_method(attribute, read_method):
         @functools.wraps(read_method)
         def read_attr(self, attr):
             ret = read_method(self)
-            if not attr.get_value_flag() and ret is not None:
+            if not attr.value_is_set() and ret is not None:
                 set_complex_value(attr, ret)
             return ret
 
@@ -307,178 +329,6 @@ def __get_attribute_type_from_hint(attribute, type_hint=None, device_klass=None)
                     attribute.dim_x = max_x
                 if max_y:
                     attribute.dim_y = max_y
-
-
-def __get_wrapped_pipe_read_method(pipe, read_method):
-    already_wrapped = hasattr(read_method, "__access_wrapped__")
-    if already_wrapped:
-        return read_method
-
-    if pipe.read_green_mode:
-
-        @functools.wraps(read_method)
-        def read_pipe(self, pipe):
-            worker = get_worker()
-            ret = worker.execute(read_method, self)
-            if ret is not None:
-                pipe.set_value(ret)
-            return ret
-
-    else:
-
-        @functools.wraps(read_method)
-        def read_pipe(self, pipe):
-            ret = read_method(self)
-            if ret is not None:
-                pipe.set_value(ret)
-            return ret
-
-    if _force_tracing:
-        read_pipe = _forcefully_traced_method(read_pipe)
-    read_pipe.__access_wrapped__ = True
-    return read_pipe
-
-
-def __patch_pipe_read_method(tango_device_klass, pipe):
-    """
-    Finds read method for pipe, wraps it with executor and adds wrapped
-    method to device dict.
-
-    :param tango_device_klass: a DeviceImpl class
-    :type tango_device_klass: class
-    :param pipe: the pipe data information
-    :type pipe: PipeData
-    """
-    read_method = getattr(pipe, "fget", None)
-    if not read_method:
-        method_name = pipe.read_method_name
-        read_method = getattr(tango_device_klass, method_name)
-
-    read_pipe = __get_wrapped_pipe_read_method(pipe, read_method)
-    method_name = f"__read_{pipe.pipe_name}_wrapper__"
-    pipe.read_method_name = method_name
-
-    setattr(tango_device_klass, method_name, read_pipe)
-
-
-def __get_wrapped_pipe_write_method(pipe, write_method):
-    already_wrapped = hasattr(write_method, "__access_wrapped__")
-    if already_wrapped:
-        return write_method
-
-    if pipe.write_green_mode:
-
-        @functools.wraps(write_method)
-        def write_pipe(self, pipe):
-            value = pipe.get_value()
-            return get_worker().execute(write_method, self, value)
-
-    else:
-
-        @functools.wraps(write_method)
-        def write_pipe(self, pipe):
-            value = pipe.get_value()
-            return write_method(self, value)
-
-    if _force_tracing:
-        write_pipe = _forcefully_traced_method(write_pipe)
-    write_pipe.__access_wrapped__ = True
-    return write_pipe
-
-
-def __patch_pipe_write_method(tango_device_klass, pipe):
-    """
-    Finds write method for pipe, wraps it with executor and adds wrapped
-    method to device dict.
-
-    :param tango_device_klass: a DeviceImpl class
-    :type tango_device_klass: class
-    :param pipe: the pipe data information
-    :type pipe: PipeData
-    """
-    write_method = getattr(pipe, "fset", None)
-    if not write_method:
-        method_name = pipe.write_method_name
-        write_method = getattr(tango_device_klass, method_name)
-
-    write_pipe = __get_wrapped_pipe_write_method(pipe, write_method)
-    method_name = f"__write_{pipe.pipe_name}_wrapper__"
-    pipe.write_method_name = method_name
-
-    setattr(tango_device_klass, method_name, write_pipe)
-
-
-def __get_wrapped_pipe_isallowed_method(pipe, isallowed_method):
-    """
-    Wraps is allowed method with executor, if needed.
-
-    :param pipe: the pipe data information
-    :type pipe: PipeData
-    :param isallowed_method: is allowed method
-    :type isallowed_method: callable
-    """
-    already_wrapped = hasattr(isallowed_method, "__access_wrapped__")
-    if already_wrapped:
-        return isallowed_method
-
-    if pipe.isallowed_green_mode:
-
-        @functools.wraps(isallowed_method)
-        def isallowed_pipe(self, request_type):
-            worker = get_worker()
-            return worker.execute(isallowed_method, self, request_type)
-
-    else:
-        isallowed_pipe = isallowed_method
-
-    if _force_tracing:
-        isallowed_pipe = _forcefully_traced_method(isallowed_pipe)
-    if isallowed_pipe is not isallowed_method:
-        isallowed_pipe.__access_wrapped__ = True
-    return isallowed_pipe
-
-
-def __patch_pipe_isallowed_method(tango_device_klass, pipe):
-    """
-    Finds isallowed method for pipe, wraps it with executor and adds
-    wrapped method to device dict.
-
-    :param tango_device_klass: a DeviceImpl class
-    :type tango_device_klass: class
-    :param pipe: the pipe data information
-    :type pipe: PipeData
-    """
-    isallowed_method = getattr(pipe, "fisallowed", None)
-    if not isallowed_method:
-        method_name = pipe.is_allowed_name
-        isallowed_method = getattr(tango_device_klass, method_name, None)
-
-    if isallowed_method:
-        isallowed_attr = __get_wrapped_pipe_isallowed_method(pipe, isallowed_method)
-        method_name = f"__is_{pipe.pipe_name}_allowed_wrapper__"
-        pipe.is_allowed_name = method_name
-
-        setattr(tango_device_klass, method_name, isallowed_attr)
-
-
-def __patch_pipe_methods(tango_device_klass, pipe):
-    """
-    Finds read, write and isallowed methods for pipe, and
-    wraps into another method to make them work.
-
-    Also patch methods with green executor, if requested.
-
-    Finally, adds pathed methods to the device dict.
-
-    :param tango_device_klass: a DeviceImpl class
-    :type tango_device_klass: class
-    :param pipe: the pipe data information
-    :type pipe: PipeData
-    """
-    __patch_pipe_read_method(tango_device_klass, pipe)
-    if pipe.pipe_write == PipeWriteType.PIPE_READ_WRITE:
-        __patch_pipe_write_method(tango_device_klass, pipe)
-    __patch_pipe_isallowed_method(tango_device_klass, pipe)
 
 
 def __get_property_type_from_hint(property, type_hint):
@@ -785,7 +635,6 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
         klass_annotations = dict(tango_device_klass.__annotations__)
 
     attr_list = {}
-    pipe_list = {}
     class_property_list = {}
     device_property_list = {}
     cmd_list = {}
@@ -808,14 +657,6 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
                     __get_attribute_type_from_hint(
                         attr_obj, device_klass=tango_device_klass
                     )
-
-        elif isinstance(attr_obj, pipe):
-            if attr_obj.pipe_name is None:
-                attr_obj._set_name(attr_name)
-            else:
-                attr_name = attr_obj.pipe_name
-            pipe_list[attr_name] = attr_obj
-            __patch_pipe_methods(tango_device_klass, attr_obj)
 
         elif isinstance(attr_obj, device_property):
             if attr_name in klass_annotations:
@@ -872,7 +713,6 @@ def __create_tango_deviceclass_klass(tango_device_klass, attrs=None):
         device_property_list=device_property_list,
         cmd_list=cmd_list,
         attr_list=attr_list,
-        pipe_list=pipe_list,
     )
     return type(_DeviceClass)(devclass_name, (_DeviceClass,), devclass_attrs)
 
@@ -897,7 +737,7 @@ def is_tango_object(arg):
     """Return tango data if the argument is a tango object,
     False otherwise.
     """
-    classes = attribute, device_property, class_property, pipe
+    classes = attribute, device_property, class_property
     if isinstance(arg, classes):
         return arg
     try:
@@ -1181,57 +1021,11 @@ class attribute(AttrData):
                 return 999.999
 
 
-    It receives multiple keyword arguments.
-
-    ===================== ================================ ======================================= =======================================================================================
-    parameter              type                                       default value                                 description
-    ===================== ================================ ======================================= =======================================================================================
-    name                   :obj:`str`                       class member name                       alternative attribute name
-    dtype                  :obj:`object`                    :obj:`~tango.CmdArgType.DevDouble`      data type (see :ref:`Data type equivalence <pytango-hlapi-datatypes>`)
-    dformat                :obj:`~tango.AttrDataFormat`     :obj:`~tango.AttrDataFormat.SCALAR`     data format
-    max_dim_x              :obj:`int`                       1                                       maximum size for x dimension (ignored for SCALAR format)
-    max_dim_y              :obj:`int`                       0                                       maximum size for y dimension (ignored for SCALAR and SPECTRUM formats)
-    display_level          :obj:`~tango.DispLevel`          :obj:`~tango.DisLevel.OPERATOR`         display level
-    polling_period         :obj:`int`                       -1                                      polling period
-    memorized              :obj:`bool`                      False                                   attribute must be memorized (only applicable to scalar, writeable attributes).  If True, the latest write value, i.e., set point, is stored in the Tango database - see also ``hw_memorized`` parameter.  Corresponds to low-level :meth:`tango.Attr.set_memorized`.
-    hw_memorized           :obj:`bool`                      False                                   memorized value will be restored by automatically calling attribute write method at startup, and after each ``Init`` command call (only applies if ``memorized`` is set to True).  Corresponds to low-level :meth:`tango.Attr.set_memorized_init`
-    access                 :obj:`~tango.AttrWriteType`      :obj:`~tango.AttrWriteType.READ`        read only/ read write / write only access
-    fget (or fread)        :obj:`str` or :obj:`callable`    ``read_<attr_name>``                    read method name or method object
-    fset (or fwrite)       :obj:`str` or :obj:`callable`    ``write_<attr_name>``                   write method name or method object
-    fisallowed             :obj:`str` or :obj:`callable`    ``is_<attr_name>_allowed``              is allowed method name or method object
-    label                  :obj:`str`                       ``<attr_name>``                         attribute label
-    enum_labels            sequence                         None                                    the list of enumeration labels (enum data type)
-    doc (or description)   :obj:`str`                       ``""``                                  attribute description
-    unit                   :obj:`str`                       ``""``                                  physical units the attribute value is in
-    standard_unit          :obj:`str`                       ``""``                                  physical standard unit
-    display_unit           :obj:`str`                       ``""``                                  physical display unit (hint for clients)
-    format                 :obj:`str`                       ``"6.2f"``                              attribute representation format
-    min_value              :obj:`str`                       None                                    minimum allowed value
-    max_value              :obj:`str`                       None                                    maximum allowed value
-    min_alarm              :obj:`str`                       None                                    minimum value to trigger attribute alarm
-    max_alarm              :obj:`str`                       None                                    maximum value to trigger attribute alarm
-    min_warning            :obj:`str`                       None                                    minimum value to trigger attribute warning
-    max_warning            :obj:`str`                       None                                    maximum value to trigger attribute warning
-    delta_val              :obj:`str`                       None
-    delta_t                :obj:`str`                       None
-    abs_change             :obj:`str`                       None                                    minimum value change between events that causes event filter to send the event
-    rel_change             :obj:`str`                       None                                    minimum relative change between events that causes event filter to send the event (%)
-    period                 :obj:`str`                       None
-    archive_abs_change     :obj:`str`                       None
-    archive_rel_change     :obj:`str`                       None
-    archive_period         :obj:`str`                       None
-    green_mode             :obj:`bool`                      True                                    Default green mode for read/write/isallowed functions. If True: run with green mode executor, if False: run directly
-    read_green_mode        :obj:`bool`                      ``green_mode`` value                    green mode for read function. If True: run with green mode executor, if False: run directly
-    write_green_mode       :obj:`bool`                      ``green_mode`` value                    green mode for write function. If True: run with green mode executor, if False: run directly
-    isallowed_green_mode   :obj:`bool`                      ``green_mode`` value                    green mode for is allowed function. If True: run with green mode executor, if False: run directly
-    forwarded              :obj:`bool`                      False                                   the attribute should be forwarded if True
-    ===================== ================================ ======================================= =======================================================================================
-
     .. note::
         avoid using *dformat* parameter. If you need a SPECTRUM
         attribute of say, boolean type, use instead ``dtype=(bool,)``.
 
-    Example of a integer writable attribute with a customized label,
+    Example of an integer writable attribute with a customized label,
     unit and description::
 
         class PowerSupply(Device):
@@ -1270,8 +1064,334 @@ class attribute(AttrData):
     In this second format, defining the `write` implicitly sets the attribute
     access to READ_WRITE.
 
+    Receives multiple keyword arguments:
+
+    :param name:
+        attribute name. `Default:` name of decorated read method, or variable assigned to.
+    :type name: str
+
+    :param dtype:
+        Data type (see :ref:`Data type equivalence <pytango-hlapi-datatypes>`).
+        `Default:` :obj:`~tango.CmdArgType.DevDouble` (:obj:`float`).
+    :type dtype: :obj:`~tango.CmdArgType`
+
+    :param dformat:
+        Data format: :obj:`~tango.AttrDataFormat.SCALAR` (0D),
+        :obj:`~tango.AttrDataFormat.SPECTRUM` (1D) or
+        :obj:`~tango.AttrDataFormat.IMAGE` (2D).
+        `Default:` :obj:`~tango.AttrDataFormat.SCALAR`.
+    :type dformat: :obj:`~tango.AttrDataFormat`
+
+    :param max_dim_x:
+        Maximum size for x dimension (ignored for :obj:`~tango.AttrDataFormat.SCALAR`
+        format).
+        `Default:` ``1``.
+    :type max_dim_x: int
+
+    :param max_dim_y:
+        Maximum size for y dimension (ignored for :obj:`~tango.AttrDataFormat.SCALAR`
+        and :obj:`~tango.AttrDataFormat.SPECTRUM` formats).
+        `Default:` ``0``.
+    :type max_dim_y: int
+
+    :param enum_labels:
+        List of enumeration label strings (for enum data type).
+        `Default:` :obj:`None`.
+    :type enum_labels: list | tuple | None
+
+    :param access:
+        Type of the attribute: read-only / read-write / write-only/ read-with-write.
+        `Default:` :obj:`~tango.AttrWriteType.READ`.
+    :type access: :obj:`~tango.AttrWriteType`
+
+    :param fget:
+        Read method name or method object. If not provided, then PyTango will
+        search the method, named ``"read_<attr_name>"``.
+    :type fget: :obj:`str` | :obj:`callable`
+
+    :param fread:
+        Alias for parameter ``fget``
+    :type fread: :obj:`str` | :obj:`callable`
+
+    :param fset:
+        Write method name or method object. If not provided, then PyTango will
+        search the method, named ``"write_<attr_name>"``.
+    :type fset: :obj:`str` | :obj:`callable`
+
+    :param fwrite:
+        Alias for parameter ``fset``
+    :type fwrite: :obj:`str` | :obj:`callable`
+
+    :param fisallowed:
+        Is-allowed method name or method object. If not provided, then PyTango
+        will search the method, named ``"is_<attr_name>_allowed"``.
+    :type fisallowed: :obj:`str` | :obj:`callable`
+
+    :param doc:
+        Attribute description.
+        `Default:` ``""`` [Note_1]_
+    :type doc: str
+
+    :param description:
+        Alias for parameter ``doc``.
+    :type doc: str
+
+    :param label:
+        Attribute label for user interfaces.
+        `Default:` ``"<attr_name>"``.
+    :type label: str
+
+    :param display_level:
+        Display level on user interfaces.
+        `Default:` :obj:`~tango.DispLevel.OPERATOR`.
+    :type display_level: :obj:`~tango.DispLevel`
+
+    :param unit:
+        Physical units the attribute value is in.
+        `Default:` ``""``.
+    :type unit: str
+
+    :param standard_unit:
+        The conversion factor to transform attribute’s value into SI units.
+        `Default:` ``""`` [Note_2]_
+    :type standard_unit: str | int | float | None
+
+    :param display_unit:
+        The conversion factor to transform attribute’s value into value usable
+        in user interfaces (hint for clients).
+        `Default:` ``""`` [Note_2]_
+    :type display_unit: str | int | float | None
+
+    :param format:
+        Attribute representation format for user interfaces.
+        `Default:` ``"6.2f"``.
+    :type format: str
+
+    :param min_value:
+        Minimum allowed value.
+        `Default:` :obj:`None` [Note_2]_
+    :type min_value: str | int | float | None
+
+    :param max_value:
+        Maximum allowed value.
+        `Default:` :obj:`None` [Note_2]_
+    :type max_value: str | int | float | None
+
+    :param min_alarm:
+        Minimum value to trigger attribute quality to be :obj:`tango.AttrQuality.ALARM`.
+        `Default:` :obj:`None` [Note_2]_
+    :type min_alarm: str | int | float | None
+
+    :param max_alarm:
+        Maximum value to trigger attribute quality to be :obj:`tango.AttrQuality.ALARM`.
+        `Default:` :obj:`None` [Note_2]_
+    :type max_alarm: str | int | float | None
+
+    :param min_warning:
+        Minimum value to trigger attribute quality to be
+        :obj:`tango.AttrQuality.WARNING`.
+        `Default:` :obj:`None` [Note_2]_
+    :type min_warning: str | int | float | None
+
+    :param max_warning:
+        Maximum value to trigger attribute quality to be
+        :obj:`tango.AttrQuality.WARNING`.
+        `Default:` :obj:`None` [Note_2]_
+    :type max_warning: str | int | float | None
+
+    :param abs_change:
+        Minimum absolute change of attribute value, that causes the change event.
+        E.g., ``abs_change = 1`` will generate an event when:
+        (current - previous) > 1.
+        `Default:` :obj:`None` [Note_2]_
+    :type abs_change: str | int | float | None
+
+    :param rel_change:
+        Minimum relative change (%) of attribute value, that causes change event.
+        E.g., ``rel_change = 1`` will generate an event when:
+        (current - previous) / previous > 1%.
+        `Default:` :obj:`None` [Note_2]_
+    :type rel_change: str | int | float | None
+
+    :param alarm_event_implemented:
+        indicates if alarm event for this attribute emitted by the code `Default:` False
+    :type alarm_event_implemented: bool
+
+    :param alarm_event_detect:
+        enable or disable filtering for alarm event emitted by the code. `Default:` False
+    :type alarm_event_detect: bool
+
+    :param change_event_implemented:
+        indicates if change event for this attribute emitted by the code `Default:` False
+    :type change_event_implemented: bool
+
+    :param change_event_detect:
+        enable or disable filtering for change event emitted by the code. E.g., if user emits event,
+        by the value changed less, then abs_change or rel_change - event will be filtered out  `Default:` False
+    :type change_event_detect: bool
+
+    :param period:
+        Time of periodic event generation in milliseconds. This is the
+        minimum time between periodic events.
+        `Default:` :obj:`None` [Note_2]_
+    :type period: str | int | None
+
+    :param archive_abs_change:
+        Minimum absolute change of attribute value, that causes the archive event.
+        E.g., ``archive_abs_change = 1`` will generate an event when:
+        (current - previous) > 1.
+        `Default:` :obj:`None` [Note_2]_
+    :type archive_abs_change: str | int | float | None
+
+    :param archive_rel_change:
+        Minimum relative change (%) of attribute value, that causes archive event.
+        E.g., ``archive_rel_change = 1`` will generate an event when:
+        (current - previous) / previous > 1%.
+        `Default:` :obj:`None` [Note_2]_
+    :type archive_rel_change: str | int | float | None
+
+    :param archive_period:
+        Time, after which the conditions of archive event are checked in milliseconds.
+        `Default:` :obj:`None` [Note_2]_
+    :type archive_period: str | int | None
+
+    :param archive_event_implemented:
+        indicates if archive event for this attribute emitted by the code `Default:` False
+    :type archive_event_implemented: bool
+
+    :param archive_event_detect:
+        enable or disable filtering for archive event emitted by the code. E.g., if user emits event,
+        by the value changed less, then archive_abs_change or archive_rel_change - event will be filtered out `Default:` False
+    :type archive_event_detect: bool
+
+    :param delta_val:
+        RDS (Read Different Set) difference between written and read values
+        that triggers the :obj:`tango.AttrQuality.ALARM` quality.
+        `Default:` :obj:`None` [Note_2]_
+    :type delta_val: str
+
+    :param delta_t:
+        Minimum time, after which RDS (Read Different Set) difference
+        is checked in milliseconds.
+        `Default:` :obj:`None` [Note_2]_
+    :type delta_t: str | int | None
+
+    :param polling_period:
+        Device polling period in milliseconds.
+        `Default:` ``-1`` (no polling) [Note_3]_
+    :type polling_period: int
+
+    :param memorized:
+        Attribute must be memorized. If :obj:`True`, the latest written value is
+        stored in the Tango database (see also ``hw_memorized``).
+        `Default:` :obj:`False`.
+    :type memorized: bool
+
+    :param hw_memorized:
+        If :obj:`True`, memorized value will be restored by calling the attribute
+        write method at startup and after each Init command
+        (only applies if ``memorized`` is :obj:`True`).
+        `Default:` :obj:`False`.
+    :type hw_memorized: bool
+
+    :param data_ready_event_implemented:
+        indicates if data ready event for this attribute emitted by the code `Default:` False
+    :type data_ready_event_implemented: bool
+
+    :param class_name:
+        name of the device class to which the attribute belongs
+        (only used for error reporting when creating the attribute).
+        `Default:` :obj:`None`
+    :type class_name: str
+
+    :param green_mode:
+        Default green mode for read/write/isallowed functions.
+        If True, run with green mode executor, otherwise run directly.
+        `Default:` :obj:`True`.
+    :type green_mode: bool
+
+    :param read_green_mode:
+        Green mode for read function.
+        `Default:` value of ``green_mode``.
+    :type read_green_mode: bool
+
+    :param write_green_mode:
+        Green mode for write function.
+        `Default:` value of ``green_mode``.
+    :type write_green_mode: bool
+
+    :param isallowed_green_mode:
+        Green mode for is_allowed function.
+        `Default:` value of ``green_mode``.
+    :type isallowed_green_mode: bool
+
+    :param forwarded:
+        If :obj:`True`, the attribute should be forwarded.
+        `Default:` :obj:`False`.
+    :type forwarded: bool
+
+    .. [Note_1]
+
+    .. note::
+        If the attribute is defined with the `@attribute` decorator,
+        then the read method docstring can be used to as the attribute description.
+        The `doc` kwarg has the highest priority, then `description` kwarg,
+        and then docstring::
+
+            class TestDevice(Device):
+
+                @attribute
+                def my_attr1(self) -> float:
+                    """This will be used as the docstring for my_attr1"""
+                    return 1.5
+
+                my_attr2 = attribute()
+
+                def read_my_attr2(self) -> float:
+                    """This docstring WON'T be used as the description"""
+                    return 2.5
+
+                @attribute(doc="This will be used as the docstring for my_attr3)
+                def my_attr3(self) -> float:
+                    """This docstring WON'T be used as the description"""
+                    return 1.5
+
+    .. [Note_2]
+
+    .. note::
+        The parameters , ``min_value``, ``max_value``, ``min_alarm``, ``max_alarm``,
+        ``min_warning``, ``max_warning``, ``delta_val``,
+        ``abs_change``, ``archive_abs_change``,
+        must be a valid numerical value, represented as either a string, int or float
+        compatible with the attribute's data type.
+
+        Parameters ``standard_unit``, ``display_unit``,
+        ``rel_change`` and ``archive_rel_change`` must be a valid numerical
+        value, represented as either a string, int or float.
+
+        Parameters ``period``, ``archive_period`` and ``delta_t``, must be
+        a valid integer value, represented as either a string or int.
+
+        In all cases, the value can also be :obj:`None`, or an empty string,
+        to use the default. Typically, disabled.
+
+    .. [Note_3]
+
+    .. warning::
+        The ``polling_period`` from the code is used *ONLY* if there is no polling period value stored in the Tango DB.
+        After the first run, the value from the code will be stored in the Tango DB and will used for the following runs,
+        even if the value in code is changed later. And vice versa: if the value in the Tango DB was changed (e.g. in Jive),
+        but the code was not, the new value from the DB will be used.
+        The value from the code will only be used again if the value in DB was deleted. Think of it like a default.
+
     .. versionadded:: 8.1.7
         added green_mode, read_green_mode and write_green_mode options
+
+    .. versionadded:: 10.1.0
+        added alarm_event_implemented, alarm_event_detect,
+        change_event_implemented, change_event_detect,
+        archive_event_implemented, archive_event_detect,
+        data_ready_event_implemented options
     '''
 
     def __init__(self, fget=None, **kwargs):
@@ -1405,185 +1525,13 @@ class attribute(AttrData):
         return type(self)(fget=fget, **self._kwargs)
 
 
-@deprecated("pipe - scheduled for removal in PyTango 10.1.0")
-class pipe(PipeData):
-    '''
-    Declares a new tango pipe in a :class:`Device`. To be used
-    like the python native :obj:`property` function.
+def __build_command_doc_in(f, dtype_in):
+    if dtype_in not in {CmdArgType.DevVoid, None}:
+        sig = inspect.signature(f)
+        params = list(sig.parameters.values())
 
-    Checkout the :ref:`pipe data types <pytango-pipe-data-types>`
-    to see what you should return on a pipe read request and what
-    to expect as argument on a pipe write request.
-
-    For example, to declare a read-only pipe called *ROI*
-    (for Region Of Interest), in a *Detector* :class:`Device` do::
-
-        class Detector(Device):
-
-            ROI = pipe()
-
-            def read_ROI(self):
-                return ('ROI', ({'name': 'x', 'value': 0},
-                                {'name': 'y', 'value': 10},
-                                {'name': 'width', 'value': 100},
-                                {'name': 'height', 'value': 200}))
-
-    The same can be achieved with (also showing that a dict can be used
-    to pass blob data)::
-
-        class Detector(Device):
-
-            @pipe
-            def ROI(self):
-                return 'ROI', dict(x=0, y=10, width=100, height=200)
-
-
-    It receives multiple keyword arguments.
-
-    ===================== ================================ ======================================= =======================================================================================
-    parameter              type                                       default value                                 description
-    ===================== ================================ ======================================= =======================================================================================
-    name                   :obj:`str`                       class member name                       alternative pipe name
-    display_level          :obj:`~tango.DispLevel`          :obj:`~tango.DisLevel.OPERATOR`         display level
-    access                 :obj:`~tango.PipeWriteType`      :obj:`~tango.PipeWriteType.READ`        read only/ read write access
-    fget (or fread)        :obj:`str` or :obj:`callable`    ``read_<pipe_name>``                    read method name or method object
-    fset (or fwrite)       :obj:`str` or :obj:`callable`    ``write_<pipe_name>``                   write method name or method object
-    fisallowed             :obj:`str` or :obj:`callable`    ``is_<pipe_name>_allowed``              is allowed method name or method object
-    label                  :obj:`str`                       ``<pipe_name>``                         pipe label
-    doc (or description)   :obj:`str`                       ``""``                                  pipe description
-    green_mode             :obj:`bool`                      True                                    Default green mode for read/write/isallowed functions. If True: run with green mode executor, if False: run directly
-    read_green_mode        :obj:`bool`                      ``green_mode`` value                    green mode for read function. If True: run with green mode executor, if False: run directly
-    write_green_mode       :obj:`bool`                      ``green_mode`` value                    green mode for write function. If True: run with green mode executor, if False: run directly
-    isallowed_green_mode   :obj:`bool`                      ``green_mode`` value                    green mode for is allowed function. If True: run with green mode executor, if False: run directly
-    ===================== ================================ ======================================= =======================================================================================
-
-    The same example with a read-write ROI, a customized label and description::
-
-        class Detector(Device):
-
-            ROI = pipe(label='Region Of Interest', doc='The active region of interest',
-                       access=PipeWriteType.PIPE_READ_WRITE)
-
-            def init_device(self):
-                Device.init_device(self)
-                self.__roi = 'ROI', dict(x=0, y=10, width=100, height=200)
-
-            def read_ROI(self):
-                return self.__roi
-
-            def write_ROI(self, roi):
-                self.__roi = roi
-
-
-    The same, but using pipe as a decorator::
-
-        class Detector(Device):
-
-            def init_device(self):
-                Device.init_device(self)
-                self.__roi = 'ROI', dict(x=0, y=10, width=100, height=200)
-
-            @pipe(label="Region Of Interest")
-            def ROI(self):
-                """The active region of interest"""
-                return self.__roi
-
-            @ROI.write
-            def ROI(self, roi):
-                self.__roi = roi
-
-    In this second format, defining the `write` / `setter` implicitly sets
-    the pipe access to READ_WRITE.
-
-    .. versionadded:: 9.2.0
-
-    .. versionadded:: 9.4.0
-        added isallowed_green_mode option
-
-    .. deprecated:: 10.0.1
-        Pipes scheduled for removal from PyTango in version 10.1.0
-    '''
-
-    def __init__(self, fget=None, **kwargs):
-        self._kwargs = dict(kwargs)
-        name = kwargs.pop("name", None)
-        class_name = kwargs.pop("class_name", None)
-        green_mode = kwargs.pop("green_mode", True)
-        self.read_green_mode = kwargs.pop("read_green_mode", green_mode)
-        self.write_green_mode = kwargs.pop("write_green_mode", green_mode)
-        self.isallowed_green_mode = kwargs.pop("isallowed_green_mode", green_mode)
-
-        if not fget:
-            fget = kwargs.pop("fread", None)
-
-        if fget:
-            if inspect.isroutine(fget):
-                self.fget = fget
-                if "doc" not in kwargs and "description" not in kwargs:
-                    if fget.__doc__ is not None:
-                        kwargs["doc"] = fget.__doc__
-            kwargs["fget"] = fget
-
-        fset = kwargs.pop("fwrite", kwargs.pop("fset", None))
-        if fset:
-            if inspect.isroutine(fset):
-                self.fset = fset
-            kwargs["fset"] = fset
-
-        fisallowed = kwargs.pop("fisallowed", None)
-        if fisallowed:
-            if inspect.isroutine(fisallowed):
-                self.fisallowed = fisallowed
-            kwargs["fisallowed"] = fisallowed
-
-        super().__init__(name, class_name)
-        self.__doc__ = kwargs.get("doc", kwargs.get("description", "TANGO pipe"))
-        self.build_from_dict(kwargs)
-
-    def get_pipe(self, obj):
-        dclass = obj.get_device_class()
-        return dclass.get_pipe_by_name(self.pipe_name)
-
-    # --------------------
-    # descriptor interface
-    # --------------------
-
-    def __get__(self, obj, objtype):
-        if obj is None:
-            return self
-        return self.get_attribute(obj)
-
-    def __set__(self, obj, value):
-        attr = self.get_attribute(obj)
-        set_complex_value(attr, value)
-
-    def setter(self, fset):
-        """
-        To be used as a decorator. Will define the decorated method
-        as a write pipe method to be called when client writes to the pipe
-        """
-        self.fset = fset
-        self.pipe_write = PipeWriteType.PIPE_READ_WRITE
-        return self
-
-    def write(self, fset):
-        """
-        To be used as a decorator. Will define the decorated method
-        as a write pipe method to be called when client writes to the pipe
-        """
-        return self.setter(fset)
-
-    def __call__(self, fget):
-        return type(self)(fget=fget, **self._kwargs)
-
-
-def __build_command_doc(f, name, dtype_in, doc_in, dtype_out, doc_out):
-    doc = f"'{name}' TANGO command"
-    if dtype_in is not None:
-        arg_spec = getfullargspec(f)
-        if len(arg_spec.args) > 1:
-            # arg[0] should be self and arg[1] the command argument
-            param_name = arg_spec.args[1]
+        if len(params) > 1:
+            param_name = params[1].name
         else:
             param_name = "arg"
         dtype_in_str = str(dtype_in)
@@ -1592,26 +1540,52 @@ def __build_command_doc(f, name, dtype_in, doc_in, dtype_out, doc_out):
                 dtype_in_str = dtype_in.__name__
             except Exception:
                 pass
-        msg = doc_in or "(not documented)"
-        doc += f"\n\n:param {param_name}: {msg}\n:type {param_name}: {dtype_in_str}"
-    if dtype_out is not None:
+        result = (
+            f":param {param_name}: (not documented)\n"
+            f":type {param_name}: {dtype_in_str}"
+        )
+    else:
+        result = "No input parameter (DevVoid)"
+    return result
+
+
+def __build_command_doc_out(dtype_out):
+    if dtype_out not in {CmdArgType.DevVoid, None}:
         dtype_out_str = str(dtype_out)
         if not isinstance(dtype_out, str):
             try:
                 dtype_out_str = dtype_out.__name__
             except Exception:
                 pass
-        msg = doc_out or "(not documented)"
-        doc += f"\n\n:return: {msg}\n:rtype: {dtype_out_str}"
+        result = f":return: (not documented)\n" f":rtype: {dtype_out_str}"
+    else:
+        result = "No output parameter (DevVoid)"
+    return result
+
+
+def __build_command_doc(name, doc_in, doc_out):
+    doc = f"'{name}' TANGO command"
+    if doc_in:
+        doc += f"\n\n{doc_in}"
+    if doc_out:
+        doc += f"\n\n{doc_out}"
     return doc
+
+
+class _DevVoid:
+    def __repr__(self):
+        return "DevVoid"
+
+    def __str__(self):
+        return "DevVoid"
 
 
 def command(
     f=None,
-    dtype_in=None,
+    dtype_in: Any = _DevVoid,
     dformat_in=None,
     doc_in="",
-    dtype_out=None,
+    dtype_out: Any = _DevVoid,
     dformat_out=None,
     doc_out="",
     display_level=None,
@@ -1702,8 +1676,8 @@ def command(
     .. versionadded:: 9.4.0
         added fisallowed option
 
-     .. versionadded:: 10.0.0
-         added cmd_green_mode and isallowed_green_mode options
+    .. versionadded:: 10.0.0
+     added cmd_green_mode and isallowed_green_mode options
 
     .. versionchanged:: 10.0.0
         the way that the green_mode parameter is interpreted was changed to be consistent with the same parameter for attributes.
@@ -1736,23 +1710,45 @@ def command(
         )
     name = f.__name__
 
-    annotations = getfullargspec(f).annotations
-    args = getfullargspec(f).args
+    first_arg_type, return_type = __get_in_out_types_from_method_type_hints(f)
 
-    if dtype_out is None and "return" in annotations:
-        dtype_out, dformat_out, _, _ = parse_type_hint(
-            annotations["return"], caller="command"
-        )
+    if dtype_out == _DevVoid:
+        if return_type is not None:
+            dtype_out, dformat_out, _, _ = parse_type_hint(
+                return_type, caller="command"
+            )
+        else:
+            dtype_out = None
 
-    annotations.pop("return", None)
-
-    if dtype_in is None and len(args) > 1 and len(annotations):
-        dtype_in, dformat_in, _, _ = parse_type_hint(
-            list(annotations.values())[-1], caller="command"
-        )
+    if dtype_in == _DevVoid:
+        if first_arg_type is not None:
+            dtype_in, dformat_in, _, _ = parse_type_hint(
+                first_arg_type, caller="command"
+            )
+        else:
+            dtype_in = None
 
     dtype_in, format_in, _ = get_attribute_type_format(dtype_in, dformat_in, None)
     dtype_out, format_out, _ = get_attribute_type_format(dtype_out, dformat_out, None)
+
+    if parse_docstring is not None and f.__doc__ is not None:
+        try:
+            parsed_doc = parse_docstring(f.__doc__)
+            if doc_in == "" and len(parsed_doc.params) > 0:
+                doc_in = (
+                    f"{parsed_doc.params[0].arg_name} ({parsed_doc.params[0].type_name}):"
+                    f" {parsed_doc.params[0].description}"
+                )
+
+            if doc_out == "" and parsed_doc.returns is not None:
+                doc_out = f"returns ({parsed_doc.returns.type_name}): {parsed_doc.returns.description}"
+        except Exception:
+            pass
+
+    if doc_in == "":
+        doc_in = __build_command_doc_in(f, dtype_in)
+    if doc_out == "":
+        doc_out = __build_command_doc_out(dtype_out)
 
     din = [from_typeformat_to_type(dtype_in, format_in), doc_in]
     dout = [from_typeformat_to_type(dtype_out, format_out), doc_out]
@@ -1775,9 +1771,7 @@ def command(
     # try to create a minimalistic __doc__
     if command_method.__doc__ is None:
         try:
-            command_method.__doc__ = __build_command_doc(
-                f, name, dtype_in, doc_in, dtype_out, doc_out
-            )
+            command_method.__doc__ = __build_command_doc(name, doc_in, doc_out)
         except Exception:
             command_method.__doc__ = "TANGO command"
 
@@ -1792,8 +1786,8 @@ def __get_wrapped_command_method(cmd_method, cmd_green_mode):
     if cmd_green_mode:
 
         @functools.wraps(cmd_method)
-        def wrapped_command_method(self, *args, **kwargs):
-            return get_worker().execute(cmd_method, self, *args, **kwargs)
+        def wrapped_command_method(*args, **kwargs):
+            return get_worker().execute(cmd_method, *args, **kwargs)
 
     else:
         wrapped_command_method = cmd_method
@@ -1915,15 +1909,15 @@ def __to_callback(callback, cb_type, green_mode):
         length = len(callback)
         if length < 1 or length > 3:
             raise TypeError(err_msg)
-        callback = callback[0]
-        if not callable(callback):
+        cb = callback[0]
+        if not callable(cb):
             raise TypeError(err_msg)
         args, kwargs = [], {}
         if length > 1:
             args = callback[1]
         if length > 2:
             kwargs = callback[2]
-        f = functools.partial(callback, *args, **kwargs)
+        f = functools.partial(cb, *args, **kwargs)
     else:
         raise TypeError(err_msg)
 

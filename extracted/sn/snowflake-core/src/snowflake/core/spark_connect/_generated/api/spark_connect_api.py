@@ -323,7 +323,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -501,7 +501,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -679,7 +679,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -855,7 +855,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -1033,7 +1033,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -1211,7 +1211,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -1249,6 +1249,346 @@ class SparkConnectApi:
         return self.api_client.call_api(
             self._root,
             "/api/v2/spark-connect/interrupt",
+            "POST",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def pull_request(self, body: StrictStr, async_req: Literal[False] = False, **kwargs) -> str: ...
+
+    @overload
+    def pull_request(self, body: StrictStr, async_req: Literal[True] = True, **kwargs) -> Future[str]: ...
+
+    @overload
+    def pull_request(self, body: StrictStr, async_req: bool = False, **kwargs) -> Union[str, Future[str]]: ...
+
+    @validate_call
+    def pull_request(self, body: StrictStr, **kwargs) -> Union[str, Future[str]]:
+        r"""It is used for sproc dataframe processor to pull Spark request from GS.  # noqa: E501
+
+        Get the next Spark request.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.pull_request(body, async_req=True)
+        >>> result = future.result()
+        :param body: (required)
+        :type body: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[str, Future[str]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.pull_request_with_http_info(body, **kwargs)
+
+    @validate_call
+    def pull_request_with_http_info(self, body: StrictStr, **kwargs):
+        r"""It is used for sproc dataframe processor to pull Spark request from GS.  # noqa: E501
+
+        Get the next Spark request.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.pull_request_with_http_info(body, async_req=True)
+        >>> result = future.result()
+        :param body: (required)
+        :type body: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[str, Future[str]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["body"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(f"Got an unexpected keyword argument '{_key}' to method pull_request")
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params["body"] is not None:
+            _body_params = _params["body"]
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            "_content_type", self.api_client.select_header_content_type(["application/json"])
+        )
+        if _content_types_list:
+            _header_params["Content-Type"] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "str",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "408": "ErrorResponse",
+            "409": "ErrorResponse",
+            "410": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/spark-connect/pull-request",
+            "POST",
+            _path_params,
+            _query_params,
+            _header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            response_types_map=_response_types_map,
+            auth_settings=_auth_settings,
+            async_req=_params.get("async_req"),
+            _return_http_data_only=_params.get("_return_http_data_only"),
+            _preload_content=_params.get("_preload_content", True),
+            _request_timeout=_params.get("_request_timeout"),
+            collection_formats=_collection_formats,
+            _request_auth=_params.get("_request_auth"),
+            _deserialize_response_fn=self.deserialize,
+        )
+
+    @overload
+    def push_response(self, body: StrictStr, async_req: Literal[False] = False, **kwargs) -> str: ...
+
+    @overload
+    def push_response(self, body: StrictStr, async_req: Literal[True] = True, **kwargs) -> Future[str]: ...
+
+    @overload
+    def push_response(self, body: StrictStr, async_req: bool = False, **kwargs) -> Union[str, Future[str]]: ...
+
+    @validate_call
+    def push_response(self, body: StrictStr, **kwargs) -> Union[str, Future[str]]:
+        r"""It is used for sproc dataframe processor to push Spark response to GS.  # noqa: E501
+
+        Executes a request from sproc that contains the Spark response.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.push_response(body, async_req=True)
+        >>> result = future.result()
+        :param body: (required)
+        :type body: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: Union[str, Future[str]]
+        """
+        kwargs["_return_http_data_only"] = True
+        return self.push_response_with_http_info(body, **kwargs)
+
+    @validate_call
+    def push_response_with_http_info(self, body: StrictStr, **kwargs):
+        r"""It is used for sproc dataframe processor to push Spark response to GS.  # noqa: E501
+
+        Executes a request from sproc that contains the Spark response.  # noqa: E501
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+
+        >>> future = api.push_response_with_http_info(body, async_req=True)
+        >>> result = future.result()
+        :param body: (required)
+        :type body: str
+        :param async_req: Whether to execute the request asynchronously.
+        :type async_req: bool, optional
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :type _return_http_data_only: bool, optional
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :type _preload_content: bool, optional
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the authentication
+                              in the spec for a single request.
+        :type _request_auth: dict, optional
+        :type _content_type: string, optional: force content-type for the request
+        :return: Returns the result object.
+                 If the method is called asynchronously,
+                 returns a Future object representing the execution of the method.
+        :rtype: tuple(Union[str, Future[str]], status_code(int), headers(HTTPHeaderDict))
+        """
+        _params = locals()
+
+        _all_params = ["body"]
+        _all_params.extend(
+            [
+                "async_req",
+                "_return_http_data_only",
+                "_preload_content",
+                "_request_timeout",
+                "_request_auth",
+                "_content_type",
+                "_headers",
+            ]
+        )
+
+        # validate the arguments
+        for _key, _val in _params["kwargs"].items():
+            if _key not in _all_params:
+                raise _APITypeError(f"Got an unexpected keyword argument '{_key}' to method push_response")
+            _params[_key] = _val
+        del _params["kwargs"]
+
+        _collection_formats = {}
+
+        # process the path parameters
+        _path_params = {}
+
+        # process the query parameters
+        _query_params = []
+
+        # process the header parameters
+        _header_params = dict(_params.get("_headers", {}))
+
+        # process the form parameters
+        _form_params = []
+        _files = {}
+
+        # process the body parameter
+        _body_params = None
+
+        if _params["body"] is not None:
+            _body_params = _params["body"]
+
+        # set the HTTP header `Accept`
+        _header_params["Accept"] = self.api_client.select_header_accept(["application/json"])
+
+        # set the HTTP header `Content-Type`
+        _content_types_list = _params.get(
+            "_content_type", self.api_client.select_header_content_type(["application/json"])
+        )
+        if _content_types_list:
+            _header_params["Content-Type"] = _content_types_list
+
+        # authentication setting
+        _auth_settings = ["ExternalOAuth", "KeyPair", "SnowflakeOAuth"]
+
+        _response_types_map = {
+            "200": "str",
+            "202": "SuccessAcceptedResponse",
+            "400": "ErrorResponse",
+            "401": "ErrorResponse",
+            "403": "ErrorResponse",
+            "404": "ErrorResponse",
+            "405": "ErrorResponse",
+            "408": "ErrorResponse",
+            "409": "ErrorResponse",
+            "410": "ErrorResponse",
+            "429": "ErrorResponse",
+            "500": "ErrorResponse",
+            "503": "ErrorResponse",
+            "504": "ErrorResponse",
+        }
+
+        return self.api_client.call_api(
+            self._root,
+            "/api/v2/spark-connect/push-response",
             "POST",
             _path_params,
             _query_params,
@@ -1389,7 +1729,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`
@@ -1567,7 +1907,7 @@ class SparkConnectApi:
         # process the body parameter
         _body_params = None
 
-        if _params["body"]:
+        if _params["body"] is not None:
             _body_params = _params["body"]
 
         # set the HTTP header `Accept`

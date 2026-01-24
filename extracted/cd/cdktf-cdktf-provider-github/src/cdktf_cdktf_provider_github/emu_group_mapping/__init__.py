@@ -1,7 +1,7 @@
 r'''
 # `github_emu_group_mapping`
 
-Refer to the Terraform Registry for docs: [`github_emu_group_mapping`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping).
+Refer to the Terraform Registry for docs: [`github_emu_group_mapping`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EmuGroupMapping(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.emuGroupMapping.EmuGroupMapping",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping github_emu_group_mapping}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping github_emu_group_mapping}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class EmuGroupMapping(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping github_emu_group_mapping} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping github_emu_group_mapping} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param group_id: Integer corresponding to the external group ID to be linked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
-        :param team_slug: Slug of the GitHub team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param group_id: Integer corresponding to the external group ID to be linked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
+        :param team_slug: Slug of the GitHub team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class EmuGroupMapping(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EmuGroupMapping to import.
-        :param import_from_id: The id of the existing EmuGroupMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EmuGroupMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EmuGroupMapping to import is found.
         '''
         if __debug__:
@@ -233,9 +233,9 @@ class EmuGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param group_id: Integer corresponding to the external group ID to be linked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
-        :param team_slug: Slug of the GitHub team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param group_id: Integer corresponding to the external group ID to be linked. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
+        :param team_slug: Slug of the GitHub team. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -340,7 +340,7 @@ class EmuGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def group_id(self) -> jsii.Number:
         '''Integer corresponding to the external group ID to be linked.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#group_id EmuGroupMapping#group_id}
         '''
         result = self._values.get("group_id")
         assert result is not None, "Required property 'group_id' is missing"
@@ -350,7 +350,7 @@ class EmuGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def team_slug(self) -> builtins.str:
         '''Slug of the GitHub team.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#team_slug EmuGroupMapping#team_slug}
         '''
         result = self._values.get("team_slug")
         assert result is not None, "Required property 'team_slug' is missing"
@@ -358,7 +358,7 @@ class EmuGroupMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/emu_group_mapping#id EmuGroupMapping#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

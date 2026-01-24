@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conint, conlist, constr, validator 
 from lusid.models.day_month import DayMonth
 from lusid.models.instrument_resolution_detail import InstrumentResolutionDetail
 from lusid.models.link import Link
@@ -34,24 +36,25 @@ class Fund(BaseModel):
     A Fund entity.  # noqa: E501
     """
     href:  Optional[StrictStr] = Field(None,alias="href", description="The specific Uniform Resource Identifier (URI) for this resource at the requested effective and asAt datetime.") 
-    id: ResourceId = Field(...)
+    id: ResourceId
     display_name:  Optional[StrictStr] = Field(None,alias="displayName", description="The name of the Fund.") 
     description:  Optional[StrictStr] = Field(None,alias="description", description="A description for the Fund.") 
     base_currency:  Optional[StrictStr] = Field(None,alias="baseCurrency", description="The base currency of the Fund in ISO 4217 currency code format. All portfolios must be of a matching base currency.") 
-    portfolio_ids: Optional[conlist(PortfolioEntityIdWithDetails)] = Field(None, alias="portfolioIds", description="A list of the portfolios on the fund, which are part of the Fund. Note: These must all have the same base currency, which must also much the Fund Base Currency.")
-    fund_configuration_id: Optional[ResourceId] = Field(None, alias="fundConfigurationId")
-    abor_id: Optional[ResourceId] = Field(None, alias="aborId")
-    share_class_instruments: Optional[conlist(InstrumentResolutionDetail)] = Field(None, alias="shareClassInstruments", description="Details the user-provided instrument identifiers and the instrument resolved from them.")
-    type:  StrictStr = Field(...,alias="type", description="The type of fund; 'Standalone', 'Master' or 'Feeder'") 
-    inception_date: datetime = Field(..., alias="inceptionDate", description="Inception date of the Fund")
-    decimal_places: Optional[conint(strict=True)] = Field(None, alias="decimalPlaces", description="Number of decimal places for reporting")
-    year_end_date: Optional[DayMonth] = Field(None, alias="yearEndDate")
-    primary_nav_type: Optional[NavTypeDefinition] = Field(None, alias="primaryNavType")
-    additional_nav_types: Optional[conlist(NavTypeDefinition)] = Field(None, alias="additionalNavTypes", description="The definitions for any additional NAVs on the Fund.")
-    properties: Optional[Dict[str, ModelProperty]] = Field(None, description="A set of properties for the Fund.")
+    investor_structure:  StrictStr = Field(...,alias="investorStructure", description="The Investor structure to be used by the Fund. Supported values are 'NonUnitised' and 'Classes'.") 
+    portfolio_ids: Optional[List[PortfolioEntityIdWithDetails]] = Field(default=None, description="A list of the portfolios on the fund, which are part of the Fund. Note: These must all have the same base currency, which must also much the Fund Base Currency.", alias="portfolioIds")
+    fund_configuration_id: Optional[ResourceId] = Field(default=None, alias="fundConfigurationId")
+    abor_id: Optional[ResourceId] = Field(default=None, alias="aborId")
+    share_class_instruments: Optional[List[InstrumentResolutionDetail]] = Field(default=None, description="Details the user-provided instrument identifiers and the instrument resolved from them.", alias="shareClassInstruments")
+    type:  Optional[StrictStr] = Field(None,alias="type", description="The type of fund; 'Standalone', 'Master' or 'Feeder'") 
+    inception_date: datetime = Field(description="Inception date of the Fund", alias="inceptionDate")
+    decimal_places: Optional[StrictInt] = Field(default=None, description="Number of decimal places for reporting", alias="decimalPlaces")
+    year_end_date: Optional[DayMonth] = Field(default=None, alias="yearEndDate")
+    primary_nav_type: Optional[NavTypeDefinition] = Field(default=None, alias="primaryNavType")
+    additional_nav_types: Optional[List[NavTypeDefinition]] = Field(default=None, description="The definitions for any additional NAVs on the Fund.", alias="additionalNavTypes")
+    properties: Optional[Dict[str, ModelProperty]] = Field(default=None, description="A set of properties for the Fund.")
     version: Optional[Version] = None
-    links: Optional[conlist(Link)] = None
-    __properties = ["href", "id", "displayName", "description", "baseCurrency", "portfolioIds", "fundConfigurationId", "aborId", "shareClassInstruments", "type", "inceptionDate", "decimalPlaces", "yearEndDate", "primaryNavType", "additionalNavTypes", "properties", "version", "links"]
+    links: Optional[List[Link]] = None
+    __properties = ["href", "id", "displayName", "description", "baseCurrency", "investorStructure", "portfolioIds", "fundConfigurationId", "aborId", "shareClassInstruments", "type", "inceptionDate", "decimalPlaces", "yearEndDate", "primaryNavType", "additionalNavTypes", "properties", "version", "links"]
 
     class Config:
         """Pydantic configuration"""
@@ -168,6 +171,11 @@ class Fund(BaseModel):
         if self.share_class_instruments is None and "share_class_instruments" in self.__fields_set__:
             _dict['shareClassInstruments'] = None
 
+        # set to None if type (nullable) is None
+        # and __fields_set__ contains the field
+        if self.type is None and "type" in self.__fields_set__:
+            _dict['type'] = None
+
         # set to None if decimal_places (nullable) is None
         # and __fields_set__ contains the field
         if self.decimal_places is None and "decimal_places" in self.__fields_set__:
@@ -205,6 +213,7 @@ class Fund(BaseModel):
             "display_name": obj.get("displayName"),
             "description": obj.get("description"),
             "base_currency": obj.get("baseCurrency"),
+            "investor_structure": obj.get("investorStructure"),
             "portfolio_ids": [PortfolioEntityIdWithDetails.from_dict(_item) for _item in obj.get("portfolioIds")] if obj.get("portfolioIds") is not None else None,
             "fund_configuration_id": ResourceId.from_dict(obj.get("fundConfigurationId")) if obj.get("fundConfigurationId") is not None else None,
             "abor_id": ResourceId.from_dict(obj.get("aborId")) if obj.get("aborId") is not None else None,
@@ -225,3 +234,5 @@ class Fund(BaseModel):
             "links": [Link.from_dict(_item) for _item in obj.get("links")] if obj.get("links") is not None else None
         })
         return _obj
+
+Fund.update_forward_refs()

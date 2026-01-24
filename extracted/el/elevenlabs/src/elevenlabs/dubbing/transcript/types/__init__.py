@@ -7,8 +7,10 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .transcript_get_transcript_for_dub_request_format_type import TranscriptGetTranscriptForDubRequestFormatType
+    from .transcript_get_transcript_for_dub_response import TranscriptGetTranscriptForDubResponse
 _dynamic_imports: typing.Dict[str, str] = {
-    "TranscriptGetTranscriptForDubRequestFormatType": ".transcript_get_transcript_for_dub_request_format_type"
+    "TranscriptGetTranscriptForDubRequestFormatType": ".transcript_get_transcript_for_dub_request_format_type",
+    "TranscriptGetTranscriptForDubResponse": ".transcript_get_transcript_for_dub_response",
 }
 
 
@@ -18,8 +20,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -31,4 +35,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["TranscriptGetTranscriptForDubRequestFormatType"]
+__all__ = ["TranscriptGetTranscriptForDubRequestFormatType", "TranscriptGetTranscriptForDubResponse"]

@@ -18,7 +18,7 @@ class Store(Managed["ctypes._Pointer[ffi.wasmtime_store_t]"]):
             engine = Engine()
         elif not isinstance(engine, Engine):
             raise TypeError("expected an Engine")
-        data_id = ffi.c_void_p(0)
+        data_id = None
         finalize = cast(0, CFUNCTYPE(None, c_void_p))
         if data:
             data_id = value._intern(data)
@@ -42,7 +42,8 @@ class Store(Managed["ctypes._Pointer[ffi.wasmtime_store_t]"]):
         """
         data = ffi.wasmtime_context_get_data(self._context())
         if data:
-            return value._unintern(data)
+            # FIXME https://github.com/bytecodealliance/wasmtime-py/issues/303
+            return value._unintern(data)  # type: ignore
         else:
             return None
 
@@ -137,8 +138,23 @@ class Store(Managed["ctypes._Pointer[ffi.wasmtime_store_t]"]):
         ffi.wasmtime_store_limiter(self.ptr(), memory_size, table_elements, instances, tables, memories)
 
 
+class StoreContext:
+    __ptr: typing.Optional["ctypes._Pointer[ffi.wasmtime_context_t]"]
+
+    def __init__(self, ptr: "ctypes._Pointer[ffi.wasmtime_context_t]"):
+        self.__ptr = ptr
+
+    def _context(self) -> "ctypes._Pointer[ffi.wasmtime_context_t]":
+        if self.__ptr is None:
+            raise ValueError("caller is no longer valid")
+        return self.__ptr
+
+    def _invalidate(self) -> None:
+        self.__ptr = None
+
+
 if typing.TYPE_CHECKING:
     from ._func import Caller
 
 
-Storelike = typing.Union[Store, "Caller"]
+Storelike = typing.Union[Store, "Caller", StoreContext]

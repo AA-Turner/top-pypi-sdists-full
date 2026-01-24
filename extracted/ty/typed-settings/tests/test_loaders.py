@@ -4,9 +4,10 @@ Tests for "typed_settings.loaders".
 
 import dataclasses
 import textwrap
+from collections.abc import Callable
 from itertools import product
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import attrs
 import pytest
@@ -20,6 +21,7 @@ from typed_settings.exceptions import (
     UnknownFormatError,
 )
 from typed_settings.loaders import (
+    DotEnvLoader,
     EnvLoader,
     FileFormat,
     FileLoader,
@@ -461,7 +463,7 @@ class TestFileLoader:
     def test_get_config_filenames(
         self,
         cfn: list[int],
-        env: Optional[list[int]],
+        env: list[int] | None,
         expected: list[int],
         fnames: list[Path],
         monkeypatch: MonkeyPatch,
@@ -470,7 +472,7 @@ class TestFileLoader:
         Config files names (cfn) can be specified explicitly or via an env var.
         It's no problem if a files does not exist.
         """
-        var: Optional[str]
+        var: str | None
         if env is not None:
             monkeypatch.setenv("CF", ":".join(str(fnames[i]) for i in env))
             var = "CF"
@@ -603,7 +605,7 @@ class TestFileLoader:
         path = tmp_path.joinpath("s.toml")
         if exists:
             path.touch()
-        p: Union[Path, str] = f"!{path}" if is_mandatory else str(path)
+        p: Path | str = f"!{path}" if is_mandatory else str(path)
         if is_path:
             p = Path(p)
         files = []
@@ -647,7 +649,7 @@ class TestEnvLoader:
         results = loader(Settings, deep_options(Settings))
         assert results == LoadedSettings({"url": "spam"}, LoaderMeta("EnvLoader"))
 
-    @pytest.mark.parametrize("delimiter", ["_", "__", "#"])
+    @pytest.mark.parametrize("delimiter", ["_", "__", ":", "@"])
     def test_nested_delimiter(self, delimiter: str, monkeypatch: MonkeyPatch) -> None:
         """
         The delimiter for for name parts of nested settings can be set by the user.
@@ -658,6 +660,64 @@ class TestEnvLoader:
         assert results == LoadedSettings(
             {"host": {"name": "test"}}, LoaderMeta("EnvLoader")
         )
+
+
+class TestDotEnvLoader:
+    """Tests for DotEnvLoader."""
+
+    @pytest.mark.parametrize("filename", [None, "vars.env"])
+    def test_from_env(
+        self, filename: str | None, tmp_path: Path, monkeypatch: MonkeyPatch
+    ) -> None:
+        """
+        Load options from .env file, ignore vars for which no settings exist.
+        """
+        path = tmp_path.joinpath(filename if filename else ".env")
+        path.write_text(
+            "T_URL=foo\n"
+            "T_HOST=spam\n"  # Haha! Just a deceit!
+            "T_HOST_PORT=25\n"
+        )
+        if filename is None:
+            monkeypatch.chdir(tmp_path)
+        loader = DotEnvLoader(prefix="T_", dotenv_path=path)
+        results = loader(Settings, deep_options(Settings))
+        assert results == LoadedSettings(
+            {"url": "foo", "host": {"port": "25"}},
+            LoaderMeta("DotEnvLoader"),
+        )
+
+    def test_no_env_prefix(self, tmp_path: Path) -> None:
+        """
+        It is okay to use an empty prefix.
+        """
+        path = tmp_path.joinpath(".env")
+        path.write_text("URL=spam")
+
+        loader = DotEnvLoader(prefix="", dotenv_path=path)
+        results = loader(Settings, deep_options(Settings))
+        assert results == LoadedSettings({"url": "spam"}, LoaderMeta("DotEnvLoader"))
+
+    @pytest.mark.parametrize("delimiter", ["_", "__", ":", "@"])
+    def test_nested_delimiter(self, delimiter: str, tmp_path: Path) -> None:
+        """
+        The delimiter for for name parts of nested settings can be set by the user.
+        """
+        path = tmp_path.joinpath(".env")
+        path.write_text(f"T_HOST{delimiter}NAME=test")
+        loader = DotEnvLoader(prefix="T_", dotenv_path=path, nested_delimiter=delimiter)
+        results = loader(Settings, deep_options(Settings))
+        assert results == LoadedSettings(
+            {"host": {"name": "test"}}, LoaderMeta("DotEnvLoader")
+        )
+
+    def test_dotenv_not_installed(self, unimport: Callable[[str], None]) -> None:
+        """
+        An error is raised if Jinja is not installed.
+        """
+        unimport("dotenv")
+        with pytest.raises(ModuleNotFoundError, match="not installed"):
+            DotEnvLoader("")
 
 
 class TestInstanceLoader:

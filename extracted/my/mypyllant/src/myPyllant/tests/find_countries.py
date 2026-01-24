@@ -4,7 +4,7 @@ import re
 import country_list  # type: ignore
 import requests
 
-from myPyllant.const import BRANDS
+from myPyllant.const import BRANDS, COUNTRIES
 
 
 def countries_with_realm(brand):
@@ -14,25 +14,38 @@ def countries_with_realm(brand):
     country_codes.sort(key=lambda x: x[1])
 
     for code, country in country_codes:
-        if code == "CZ":
-            country_name = "czechrepublic"
-        elif code == "TR":
-            country_name = "turkiye"
-        else:
-            country_name = re.sub(r"\W+", "", country.lower())
+        match code:
+            case "BA":
+                country_name = "bosnia"
+            case "CZ":
+                country_name = "czechrepublic"
+            case "MD":
+                country_name = "moldavia"
+            case "TR":
+                country_name = "turkiye"
+            case _:
+                country_name = re.sub(r"\W+", "-", country.lower())
         r = requests.head(
             f"https://identity.vaillant-group.com/auth/realms/"
             f"{brand}-{country_name}-b2c/.well-known/openid-configuration"
         )
         if r.status_code == 200:
             yield country_name, country
+        elif "-" in country_name:
+            country_name = country_name.replace("-", "")
+            r = requests.head(
+                f"https://identity.vaillant-group.com/auth/realms/"
+                f"{brand}-{country_name}-b2c/.well-known/openid-configuration"
+            )
+            if r.status_code == 200:
+                yield country_name, country
 
 
 def main():
     print("COUNTRIES = {")
     for brand in BRANDS.keys():
-        if brand == "bulex":
-            # Bulex has no country-specific realms
+        if brand not in COUNTRIES.keys():
+            # Some brands have no country-specific realms
             continue
         print(f'    "{brand}": {{')
         for country_name, country in countries_with_realm(brand):

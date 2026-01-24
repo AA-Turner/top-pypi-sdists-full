@@ -171,37 +171,35 @@ class GenericModel(APIObject, BrowserMixin):
 
     _base_model_path_template = "projects/{}/models/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("processes", optional=True): t.List(String),
-            t.Key("featurelist_name", optional=True): String,
-            t.Key("featurelist_id", optional=True): String,
-            t.Key("project_id"): String,
-            t.Key("sample_pct", optional=True): t.Float,
-            t.Key("model_type"): String,
-            t.Key("model_category"): String,
-            t.Key("model_number"): Int,
-            t.Key("model_family"): String,
-            t.Key("blueprint_id"): String,
-            t.Key("metrics"): t.Dict().allow_extra("*"),
-            t.Key("is_frozen"): t.Bool,
-            t.Key("is_starred"): t.Bool,
-            t.Key("parent_model_id", optional=True): String,
-            t.Key("is_trained_into_validation"): t.Bool,
-            t.Key("is_trained_into_holdout"): t.Bool,
-            # unsupervised clustering only
-            t.Key("number_of_clusters", optional=True): t.Int,
-            # datetime models only
-            t.Key("training_row_count", optional=True): t.Int,
-            t.Key("training_duration", optional=True): String,
-            t.Key("training_start_date", optional=True): parse_time,
-            t.Key("training_end_date", optional=True): parse_time,
-            t.Key("data_selection_method", optional=True): String,
-            t.Key("time_window_sample_pct", optional=True): Int,
-            t.Key("sampling_method", optional=True): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("processes", optional=True): t.List(String),
+        t.Key("featurelist_name", optional=True): String,
+        t.Key("featurelist_id", optional=True): String,
+        t.Key("project_id"): String,
+        t.Key("sample_pct", optional=True): t.Float,
+        t.Key("model_type"): String,
+        t.Key("model_category"): String,
+        t.Key("model_number"): Int,
+        t.Key("model_family"): String,
+        t.Key("blueprint_id"): String,
+        t.Key("metrics"): t.Dict().allow_extra("*"),
+        t.Key("is_frozen"): t.Bool,
+        t.Key("is_starred"): t.Bool,
+        t.Key("parent_model_id", optional=True): String,
+        t.Key("is_trained_into_validation"): t.Bool,
+        t.Key("is_trained_into_holdout"): t.Bool,
+        # unsupervised clustering only
+        t.Key("number_of_clusters", optional=True): t.Int,
+        # datetime models only
+        t.Key("training_row_count", optional=True): t.Int,
+        t.Key("training_duration", optional=True): String,
+        t.Key("training_start_date", optional=True): parse_time,
+        t.Key("training_end_date", optional=True): parse_time,
+        t.Key("data_selection_method", optional=True): String,
+        t.Key("time_window_sample_pct", optional=True): Int,
+        t.Key("sampling_method", optional=True): String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -363,9 +361,7 @@ class GenericModel(APIObject, BrowserMixin):
         url = f"projects/{project_id}/modelRecords/"
         if limit == 0:  # unlimited results
             query_params["limit"] = MODEL_RECORDS_CHUNK_SIZE
-            return [
-                cls.from_server_data(entry) for entry in unpaginate(url, query_params, cls._client)
-            ]
+            return [cls.from_server_data(entry) for entry in unpaginate(url, query_params, cls._client)]
         resp_data = cls._client.get(url, params=query_params).json()
         return [cls.from_server_data(item) for item in resp_data["data"]]
 
@@ -483,12 +479,8 @@ class GenericModel(APIObject, BrowserMixin):
         featurelist_id: Optional[str] = None,
         scoring_type: Optional[str] = None,
         training_row_count: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
     ) -> str:
         """
         Train the blueprint used in model on a particular featurelist or amount of data.
@@ -588,12 +580,8 @@ class GenericModel(APIObject, BrowserMixin):
         training_row_count: Optional[int] = None,
         training_duration: Optional[str] = None,
         time_window_sample_pct: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
         use_project_settings: bool = False,
         sampling_method: Optional[str] = None,
         n_clusters: Optional[int] = None,
@@ -976,10 +964,7 @@ class GenericModel(APIObject, BrowserMixin):
             and not include_prediction_intervals
             and prediction_intervals_size is not None
         ):
-            raise ValueError(
-                "Prediction intervals size cannot be specified if "
-                "include_prediction_intervals = False"
-            )
+            raise ValueError("Prediction intervals size cannot be specified if include_prediction_intervals = False")
 
         # validate interval size if provided
         if prediction_intervals_size is not None:
@@ -1177,9 +1162,7 @@ class GenericModel(APIObject, BrowserMixin):
             data = self._client.get(self._get_feature_impact_url()).json()
             use_insights_format = False
 
-        feature_impact = FeatureImpact.from_server_data(
-            data=data, use_insights_format=use_insights_format
-        )
+        feature_impact = FeatureImpact.from_server_data(data=data, use_insights_format=use_insights_format)
         if not feature_impact.ran_redundancy_detection:
             warnings.warn(
                 "Redundancy detection is not available for this model",
@@ -1236,8 +1219,7 @@ class GenericModel(APIObject, BrowserMixin):
         feature_impacts = paginated_response["data"]
 
         formatted_feature_impacts = [
-            FeatureImpact.from_server_data(data=data, use_insights_format=True)
-            for data in feature_impacts
+            FeatureImpact.from_server_data(data=data, use_insights_format=True) for data in feature_impacts
         ]
 
         from .job import (  # pylint: disable=import-outside-toplevel,cyclic-import
@@ -1399,13 +1381,9 @@ class GenericModel(APIObject, BrowserMixin):
             )
 
             with_metadata = kwargs.get("with_metadata", False)
-            feature_impact_response = FeatureImpactJob.get(
-                self.project_id, qid, with_metadata=with_metadata
-            )
+            feature_impact_response = FeatureImpactJob.get(self.project_id, qid, with_metadata=with_metadata)
         if kwargs.get("data_slice_id"):
-            wait_for_async_resolution(
-                self._client, f"status/{feature_impact_response.job_id}/", max_wait
-            )
+            wait_for_async_resolution(self._client, f"status/{feature_impact_response.job_id}/", max_wait)
             data_slice = DataSlice(id=kwargs["data_slice_id"])
 
             return self.get_feature_impact(data_slice_filter=data_slice, with_metadata=True)
@@ -1443,9 +1421,7 @@ class GenericModel(APIObject, BrowserMixin):
     def _get_feature_effect_url(self) -> str:
         return f"{self._base_model_path}{self.id}/featureEffects/"
 
-    def request_feature_effect(
-        self, row_count: Optional[int] = None, data_slice_id: Optional[str] = None
-    ):
+    def request_feature_effect(self, row_count: Optional[int] = None, data_slice_id: Optional[str] = None):
         """
         Submit request to compute Feature Effects for the model.
 
@@ -1574,9 +1550,7 @@ class GenericModel(APIObject, BrowserMixin):
             use_insights_format = False
         return FeatureEffects.from_server_data(server_data, use_insights_format=use_insights_format)
 
-    def get_feature_effects_multiclass(
-        self, source: str = "training", class_: Optional[str] = None
-    ):
+    def get_feature_effects_multiclass(self, source: str = "training", class_: Optional[str] = None):
         """
         Retrieve Feature Effects for the multiclass model.
 
@@ -1611,9 +1585,7 @@ class GenericModel(APIObject, BrowserMixin):
         ClientError
             If Feature Effects have not been computed or source is not valid value.
         """
-        return FeatureEffectsMulticlass.get(
-            project_id=self.project_id, model_id=self.id, source=source, class_=class_
-        )
+        return FeatureEffectsMulticlass.get(project_id=self.project_id, model_id=self.id, source=source, class_=class_)
 
     def get_or_request_feature_effects_multiclass(
         self,
@@ -1661,9 +1633,7 @@ class GenericModel(APIObject, BrowserMixin):
                 params = {"source": source}
                 if class_:
                     params["class"] = class_
-                feature_effects = feature_effect_job.get_result_when_complete(
-                    max_wait=max_wait, params=params
-                )
+                feature_effects = feature_effect_job.get_result_when_complete(max_wait=max_wait, params=params)
             else:
                 raise e
 
@@ -1702,9 +1672,7 @@ class GenericModel(APIObject, BrowserMixin):
             The Feature Effects data.
         """
         try:
-            feature_effect_job = self.request_feature_effect(
-                row_count=row_count, data_slice_id=data_slice_id
-            )
+            feature_effect_job = self.request_feature_effect(row_count=row_count, data_slice_id=data_slice_id)
         except JobAlreadyRequested as e:
             # if already requested it may be still running
             # check and get the jobid in that case
@@ -1730,13 +1698,11 @@ class GenericModel(APIObject, BrowserMixin):
             a dict indicating whether a model can be approximated with DataRobot Prime
             (key `can_make_prime`) and why it may be ineligible (key `message`)
         """
-        converter = t.Dict(
-            {
-                t.Key("can_make_prime"): t.Bool(),
-                t.Key("message"): String(),
-                t.Key("message_id"): Int(),
-            }
-        ).allow_extra("*")
+        converter = t.Dict({
+            t.Key("can_make_prime"): t.Bool(),
+            t.Key("message"): String(),
+            t.Key("message_id"): Int(),
+        }).allow_extra("*")
         url = f"projects/{self.project_id}/models/{self.id}/primeInfo/"
         response_data = from_api(self._client.get(url).json())
         safe_data = converter.check(response_data)
@@ -1952,11 +1918,8 @@ class GenericModel(APIObject, BrowserMixin):
                 parent_model_id = frozen_model.parent_model_id
                 source_model_id = parent_model_id
                 url = url_template.format(self.project_id, parent_model_id, source)
-                warning_message = (
-                    "{} is not available for model {}. "
-                    "Falling back to parent model {}.".format(
-                        insight_type, self.id, parent_model_id
-                    )
+                warning_message = "{} is not available for model {}. Falling back to parent model {}.".format(
+                    insight_type, self.id, parent_model_id
                 )
                 warnings.warn(warning_message, ParentModelInsightFallbackWarning, stacklevel=3)
                 response_data = self._client.get(url).json()
@@ -1968,9 +1931,7 @@ class GenericModel(APIObject, BrowserMixin):
         response_data["source_model_id"] = source_model_id
         return response_data
 
-    def _get_all_source_insight(
-        self, url_template, insight_type, fallback_to_parent_insights=False
-    ):
+    def _get_all_source_insight(self, url_template, insight_type, fallback_to_parent_insights=False):
         """
         Retrieve insight data for all sources
 
@@ -2014,9 +1975,7 @@ class GenericModel(APIObject, BrowserMixin):
             url = url_template.format(self.project_id, parent_model_id)
             warning_message = (
                 "{} is not available for all sources for model {}. "
-                "Falling back to parent model {} for missing sources".format(
-                    insight_type, self.id, parent_model_id
-                )
+                "Falling back to parent model {} for missing sources".format(insight_type, self.id, parent_model_id)
             )
             warnings.warn(warning_message, ParentModelInsightFallbackWarning, stacklevel=3)
             parent_data = self._client.get(url).json()
@@ -2082,9 +2041,7 @@ class GenericModel(APIObject, BrowserMixin):
                 url = parent_model._get_insights_url(insight_type)
                 warning_message = (
                     "{} is not available for all sources for model {}. "
-                    "Falling back to parent model {} for missing sources".format(
-                        insight_type, self.id, parent_model_id
-                    )
+                    "Falling back to parent model {} for missing sources".format(insight_type, self.id, parent_model_id)
                 )
                 warnings.warn(warning_message, ParentModelInsightFallbackWarning, stacklevel=3)
                 parent_data = self._client.get(url, params=params).json()
@@ -2119,9 +2076,7 @@ class GenericModel(APIObject, BrowserMixin):
         will_remove_version="v3.9",
         message="This method is deprecated, please use 'LiftChart.compute()' instead.",
     )
-    def request_lift_chart(
-        self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None
-    ) -> StatusCheckJob:
+    def request_lift_chart(self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None) -> StatusCheckJob:
         """
         Request the model Lift Chart for the specified source.
 
@@ -2220,18 +2175,14 @@ class GenericModel(APIObject, BrowserMixin):
                 fallback_to_parent_insights=fallback_to_parent_insights,
             )
             use_insights_format = False
-        return LiftChart.from_server_data(
-            data=response_data, use_insights_format=use_insights_format
-        )
+        return LiftChart.from_server_data(data=response_data, use_insights_format=use_insights_format)
 
     @deprecated(
         deprecated_since_version="v3.7",
         will_remove_version="v3.9",
         message="This method is deprecated, please use 'RocCurve.compute()' instead.",
     )
-    def request_roc_curve(
-        self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None
-    ) -> StatusCheckJob:
+    def request_roc_curve(self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None) -> StatusCheckJob:
         """
         Request the model Roc Curve for the specified source.
 
@@ -2380,21 +2331,17 @@ class GenericModel(APIObject, BrowserMixin):
         for insight in response_data:
             # merge bins of each combination of "entity_id + source + data_slice_id" into one list
             key = (insight["entityId"], insight["source"], insight["dataSliceId"])
-            merged_list[key].append(
-                {"targetClass": insight["targetClass"], "bins": insight["data"]["bins"]}
-            )
+            merged_list[key].append({"targetClass": insight["targetClass"], "bins": insight["data"]["bins"]})
 
         reformatted_data = []
         # format the merged data, so it can be used to build a LiftChart entity
         for key, data in merged_list.items():
-            reformatted_data.append(
-                {
-                    "source_model_id": key[0],
-                    "source": key[1],
-                    "data_slice_id": key[2],
-                    "classBins": data,
-                }
-            )
+            reformatted_data.append({
+                "source_model_id": key[0],
+                "source": key[1],
+                "data_slice_id": key[2],
+                "classBins": data,
+            })
         return reformatted_data
 
     def get_multiclass_lift_chart(
@@ -2664,9 +2611,7 @@ class GenericModel(APIObject, BrowserMixin):
             )
             use_insights_format = False
 
-        return ResidualsChart.from_server_data(
-            response_data, use_insights_format=use_insights_format
-        )
+        return ResidualsChart.from_server_data(response_data, use_insights_format=use_insights_format)
 
     @deprecated(
         deprecated_since_version="v3.7",
@@ -2744,9 +2689,7 @@ class GenericModel(APIObject, BrowserMixin):
         will_remove_version="v3.9",
         message="This method is deprecated, please use 'Residuals.compute()' instead.",
     )
-    def request_residuals_chart(
-        self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None
-    ) -> StatusCheckJob:
+    def request_residuals_chart(self, source: CHART_DATA_SOURCE, data_slice_id: Optional[str] = None) -> StatusCheckJob:
         """Request the model residuals chart for the specified source.
 
         Parameters
@@ -2853,9 +2796,7 @@ class GenericModel(APIObject, BrowserMixin):
         url_template = "projects/{}/models/{}/confusionCharts/{}/metadata/"
         for chart in charts_to_fix:
             model_id = chart.get("source_model_id", self.id)
-            metadata = self._client.get(
-                url_template.format(self.project_id, model_id, chart["source"])
-            ).json()
+            metadata = self._client.get(url_template.format(self.project_id, model_id, chart["source"])).json()
             chart["data"]["classes"] = metadata["classNames"]
 
     @deprecated(
@@ -3147,9 +3088,7 @@ class GenericModel(APIObject, BrowserMixin):
         proj = Project.get(self.project_id)
         return [model for model in proj.get_frozen_models() if model.parent_model_id == parent_id]
 
-    def request_training_predictions(
-        self, data_subset, explanation_algorithm=None, max_explanations=None
-    ):
+    def request_training_predictions(self, data_subset, explanation_algorithm=None, max_explanations=None):
         """Start a job to build training predictions
 
         Parameters
@@ -3299,9 +3238,7 @@ class GenericModel(APIObject, BrowserMixin):
         """
         from .modeljob import ModelJob  # pylint: disable=import-outside-toplevel,cyclic-import
 
-        params_list = [
-            {"parameterId": parameterID, "value": value} for parameterID, value in params.items()
-        ]
+        params_list = [{"parameterId": parameterID, "value": value} for parameterID, value in params.items()]
 
         payload = {"tuningDescription": description, "tuningParameters": params_list}
         if grid_search_arguments:
@@ -3327,64 +3264,56 @@ class GenericModel(APIObject, BrowserMixin):
 
     _UnicodeConstraint = t.Dict({}).ignore_extra("*")
 
-    _IntConstraint = t.Dict(
-        {t.Key("min"): Int, t.Key("max"): Int, t.Key("supports_grid_search"): t.Bool}
-    ).ignore_extra("*")
+    _IntConstraint = t.Dict({t.Key("min"): Int, t.Key("max"): Int, t.Key("supports_grid_search"): t.Bool}).ignore_extra(
+        "*"
+    )
 
-    _FloatConstraint = t.Dict(
-        {t.Key("min"): t.Float, t.Key("max"): t.Float, t.Key("supports_grid_search"): t.Bool}
-    ).ignore_extra("*")
+    _FloatConstraint = t.Dict({
+        t.Key("min"): t.Float,
+        t.Key("max"): t.Float,
+        t.Key("supports_grid_search"): t.Bool,
+    }).ignore_extra("*")
 
-    _IntListConstraint = t.Dict(
-        {
-            t.Key("min_length"): Int,
-            t.Key("max_length"): Int,
-            t.Key("min_val"): Int,
-            t.Key("max_val"): Int,
-            t.Key("supports_grid_search"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _IntListConstraint = t.Dict({
+        t.Key("min_length"): Int,
+        t.Key("max_length"): Int,
+        t.Key("min_val"): Int,
+        t.Key("max_val"): Int,
+        t.Key("supports_grid_search"): t.Bool,
+    }).ignore_extra("*")
 
-    _FloatListConstraint = t.Dict(
-        {
-            t.Key("min_length"): Int,
-            t.Key("max_length"): Int,
-            t.Key("min_val"): t.Float,
-            t.Key("max_val"): t.Float,
-            t.Key("supports_grid_search"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _FloatListConstraint = t.Dict({
+        t.Key("min_length"): Int,
+        t.Key("max_length"): Int,
+        t.Key("min_val"): t.Float,
+        t.Key("max_val"): t.Float,
+        t.Key("supports_grid_search"): t.Bool,
+    }).ignore_extra("*")
 
-    _Constraints = t.Dict(
-        {
-            t.Key("select", optional=True): _SelectConstraint,
-            t.Key("ascii", optional=True): _ASCIIConstraint,
-            t.Key("unicode", optional=True): _UnicodeConstraint,
-            t.Key("int", optional=True): _IntConstraint,
-            t.Key("float", optional=True): _FloatConstraint,
-            t.Key("int_list", optional=True): _IntListConstraint,
-            t.Key("float_list", optional=True): _FloatListConstraint,
-        }
-    ).ignore_extra("*")
+    _Constraints = t.Dict({
+        t.Key("select", optional=True): _SelectConstraint,
+        t.Key("ascii", optional=True): _ASCIIConstraint,
+        t.Key("unicode", optional=True): _UnicodeConstraint,
+        t.Key("int", optional=True): _IntConstraint,
+        t.Key("float", optional=True): _FloatConstraint,
+        t.Key("int_list", optional=True): _IntListConstraint,
+        t.Key("float_list", optional=True): _FloatListConstraint,
+    }).ignore_extra("*")
 
-    _TuningParameters = t.Dict(
-        {
-            t.Key("parameter_name"): String(),
-            t.Key("parameter_id"): String,
-            t.Key("default_value"): _Value,
-            t.Key("current_value"): _Value,
-            t.Key("task_name"): String,
-            t.Key("constraints"): _Constraints,
-            t.Key("vertex_id"): String,
-        }
-    ).ignore_extra("*")
+    _TuningParameters = t.Dict({
+        t.Key("parameter_name"): String(),
+        t.Key("parameter_id"): String,
+        t.Key("default_value"): _Value,
+        t.Key("current_value"): _Value,
+        t.Key("task_name"): String,
+        t.Key("constraints"): _Constraints,
+        t.Key("vertex_id"): String,
+    }).ignore_extra("*")
 
-    _TuningResponse = t.Dict(
-        {
-            t.Key("tuning_description", default=None): t.Or(String(allow_blank=True), t.Null),
-            t.Key("tuning_parameters"): t.List(_TuningParameters),
-        }
-    ).ignore_extra("*")
+    _TuningResponse = t.Dict({
+        t.Key("tuning_description", default=None): t.Or(String(allow_blank=True), t.Null),
+        t.Key("tuning_parameters"): t.List(_TuningParameters),
+    }).ignore_extra("*")
 
     def get_advanced_tuning_parameters(self) -> AdvancedTuningParamsType:
         """Get the advanced-tuning parameters available for this model.
@@ -3505,9 +3434,7 @@ class GenericModel(APIObject, BrowserMixin):
 
         return data
 
-    def start_advanced_tuning_session(
-        self, grid_search_arguments: Optional[GridSearchArguments] = None
-    ):
+    def start_advanced_tuning_session(self, grid_search_arguments: Optional[GridSearchArguments] = None):
         """Start an Advanced Tuning session.  Returns an object that helps
         set up arguments for an Advanced Tuning model execution.
 
@@ -3814,47 +3741,43 @@ class Model(GenericModel):
 
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("processes", optional=True): t.List(String),
-            t.Key("featurelist_name", optional=True): String,
-            t.Key("featurelist_id", optional=True): String,
-            t.Key("project_id"): String,
-            t.Key("sample_pct", optional=True): t.Float,
-            t.Key("model_type"): String,
-            t.Key("model_category"): String,
-            t.Key("is_frozen"): t.Bool,
-            t.Key("blueprint_id"): String,
-            t.Key("metrics"): t.Dict().allow_extra("*"),
-            t.Key("is_starred"): t.Bool,
-            t.Key("is_n_clusters_dynamically_determined", optional=True): t.Bool,
-            t.Key("monotonic_increasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("monotonic_decreasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
-            t.Key("n_clusters", optional=True): Int,
-            t.Key("has_empty_clusters", optional=True): t.Bool(),
-            t.Key("supports_monotonic_constraints", optional=True): t.Bool(),
-            t.Key("prediction_threshold", optional=True): t.Float,
-            t.Key("prediction_threshold_read_only", optional=True): t.Bool,
-            t.Key("model_number", optional=True): Int,
-            t.Key("parent_model_id", optional=True): t.Or(String(), t.Null),
-            t.Key("supports_composable_ml", optional=True): t.Bool,
-            t.Key("n_clusters", optional=True): t.Int,
-            t.Key("is_n_clusters_dynamically_determined", optional=True): t.Bool,
-            t.Key("is_trained_into_validation", optional=True): t.Bool,
-            t.Key("is_trained_into_holdout", optional=True): t.Bool,
-            t.Key(
-                "model_family_full_name", optional=True, to_name="model_family_full_name"
-            ): String,
-            t.Key("training_row_count", optional=True): Int,
-            t.Key("training_duration", optional=True): String,
-            t.Key("training_start_date", optional=True): parse_time,
-            t.Key("training_end_date", optional=True): parse_time,
-            t.Key("data_selection_method", optional=True): String,
-            t.Key("time_window_sample_pct", optional=True): Int,
-            t.Key("sampling_method", optional=True): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("processes", optional=True): t.List(String),
+        t.Key("featurelist_name", optional=True): String,
+        t.Key("featurelist_id", optional=True): String,
+        t.Key("project_id"): String,
+        t.Key("sample_pct", optional=True): t.Float,
+        t.Key("model_type"): String,
+        t.Key("model_category"): String,
+        t.Key("is_frozen"): t.Bool,
+        t.Key("blueprint_id"): String,
+        t.Key("metrics"): t.Dict().allow_extra("*"),
+        t.Key("is_starred"): t.Bool,
+        t.Key("is_n_clusters_dynamically_determined", optional=True): t.Bool,
+        t.Key("monotonic_increasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("monotonic_decreasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("n_clusters", optional=True): Int,
+        t.Key("has_empty_clusters", optional=True): t.Bool(),
+        t.Key("supports_monotonic_constraints", optional=True): t.Bool(),
+        t.Key("prediction_threshold", optional=True): t.Float,
+        t.Key("prediction_threshold_read_only", optional=True): t.Bool,
+        t.Key("model_number", optional=True): Int,
+        t.Key("parent_model_id", optional=True): t.Or(String(), t.Null),
+        t.Key("supports_composable_ml", optional=True): t.Bool,
+        t.Key("n_clusters", optional=True): t.Int,
+        t.Key("is_n_clusters_dynamically_determined", optional=True): t.Bool,
+        t.Key("is_trained_into_validation", optional=True): t.Bool,
+        t.Key("is_trained_into_holdout", optional=True): t.Bool,
+        t.Key("model_family_full_name", optional=True, to_name="model_family_full_name"): String,
+        t.Key("training_row_count", optional=True): Int,
+        t.Key("training_duration", optional=True): String,
+        t.Key("training_start_date", optional=True): parse_time,
+        t.Key("training_end_date", optional=True): parse_time,
+        t.Key("data_selection_method", optional=True): String,
+        t.Key("time_window_sample_pct", optional=True): Int,
+        t.Key("sampling_method", optional=True): String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -4049,8 +3972,7 @@ class PrimeModel(Model):
     """
 
     _converter = (
-        t.Dict({t.Key("ruleset_id"): Int(), t.Key("rule_count"): Int(), t.Key("score"): t.Float()})
-        + Model._converter
+        t.Dict({t.Key("ruleset_id"): Int(), t.Key("rule_count"): Int(), t.Key("score"): t.Float()}) + Model._converter
     ).allow_extra("*")
 
     def __init__(
@@ -4141,12 +4063,8 @@ class PrimeModel(Model):
         featurelist_id: Optional[str] = None,
         scoring_type: Optional[str] = None,
         training_row_count: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
     ) -> NoReturn:
         """
         Inherited from Model - PrimeModels cannot be retrained directly
@@ -4275,8 +4193,7 @@ class BlenderModel(Model):
     """
 
     _converter = (
-        t.Dict({t.Key("model_ids"): t.List(String), t.Key("blender_method"): String})
-        + Model._converter
+        t.Dict({t.Key("model_ids"): t.List(String), t.Key("blender_method"): String}) + Model._converter
     ).allow_extra("*")
 
     def __init__(
@@ -4696,46 +4613,40 @@ class DatetimeModel(Model):
         determine the number of clusters.
     """
 
-    _training_info_converter = t.Dict(
-        {
-            t.Key("holdout_training_start_date", default=None): parse_time,
-            t.Key("holdout_training_duration", default=None): t.Or(String(), t.Null),
-            t.Key("holdout_training_row_count", default=None): t.Or(Int(), t.Null()),
-            t.Key("holdout_training_end_date", default=None): parse_time,
-            t.Key("prediction_training_start_date"): parse_time,
-            t.Key("prediction_training_duration"): String(),
-            t.Key("prediction_training_row_count"): Int(),
-            t.Key("prediction_training_end_date"): parse_time,
-        }
-    ).ignore_extra("*")
-    _backtest_converter = t.Dict(
-        {
-            t.Key("index"): Int(),
-            t.Key("score", default=None): t.Or(t.Float(), t.Null),
-            t.Key("status"): String(),
-            t.Key("training_start_date", default=None): parse_time,
-            t.Key("training_duration", default=None): t.Or(String(), t.Null),
-            t.Key("training_row_count", default=None): t.Or(Int(), t.Null()),
-            t.Key("training_end_date", default=None): parse_time,
-        }
-    ).ignore_extra("*")
+    _training_info_converter = t.Dict({
+        t.Key("holdout_training_start_date", default=None): parse_time,
+        t.Key("holdout_training_duration", default=None): t.Or(String(), t.Null),
+        t.Key("holdout_training_row_count", default=None): t.Or(Int(), t.Null()),
+        t.Key("holdout_training_end_date", default=None): parse_time,
+        t.Key("prediction_training_start_date"): parse_time,
+        t.Key("prediction_training_duration"): String(),
+        t.Key("prediction_training_row_count"): Int(),
+        t.Key("prediction_training_end_date"): parse_time,
+    }).ignore_extra("*")
+    _backtest_converter = t.Dict({
+        t.Key("index"): Int(),
+        t.Key("score", default=None): t.Or(t.Float(), t.Null),
+        t.Key("status"): String(),
+        t.Key("training_start_date", default=None): parse_time,
+        t.Key("training_duration", default=None): t.Or(String(), t.Null),
+        t.Key("training_row_count", default=None): t.Or(Int(), t.Null()),
+        t.Key("training_end_date", default=None): parse_time,
+    }).ignore_extra("*")
     _converter = (
-        t.Dict(
-            {
-                t.Key("training_info"): _training_info_converter,
-                t.Key("time_window_sample_pct", optional=True): Int(),
-                t.Key("sampling_method", optional=True): t.Or(String(), t.Null()),
-                t.Key("holdout_score", optional=True): t.Float(),
-                t.Key("holdout_status", optional=True): String(),
-                t.Key("data_selection_method"): String(),
-                t.Key("backtests"): t.List(_backtest_converter),
-                t.Key("effective_feature_derivation_window_start", optional=True): Int(lte=0),
-                t.Key("effective_feature_derivation_window_end", optional=True): Int(lte=0),
-                t.Key("forecast_window_start", optional=True): Int(gte=0),
-                t.Key("forecast_window_end", optional=True): Int(gte=0),
-                t.Key("windows_basis_unit", optional=True): String(),
-            }
-        )
+        t.Dict({
+            t.Key("training_info"): _training_info_converter,
+            t.Key("time_window_sample_pct", optional=True): Int(),
+            t.Key("sampling_method", optional=True): t.Or(String(), t.Null()),
+            t.Key("holdout_score", optional=True): t.Float(),
+            t.Key("holdout_status", optional=True): String(),
+            t.Key("data_selection_method"): String(),
+            t.Key("backtests"): t.List(_backtest_converter),
+            t.Key("effective_feature_derivation_window_start", optional=True): Int(lte=0),
+            t.Key("effective_feature_derivation_window_end", optional=True): Int(lte=0),
+            t.Key("forecast_window_start", optional=True): Int(gte=0),
+            t.Key("forecast_window_end", optional=True): Int(gte=0),
+            t.Key("windows_basis_unit", optional=True): String(),
+        })
         + Model._converter
     ).ignore_extra("*")
 
@@ -4832,9 +4743,7 @@ class DatetimeModel(Model):
         self.forecast_window_end = forecast_window_end
         self.windows_basis_unit = windows_basis_unit
         # Private attributes
-        self._base_datetime_model_path = self._base_datetime_model_path_template.format(
-            self.project_id
-        )
+        self._base_datetime_model_path = self._base_datetime_model_path_template.format(self.project_id)
 
     def __repr__(self) -> str:
         return f"DatetimeModel({self.model_type or self.id!r})"
@@ -4856,9 +4765,7 @@ class DatetimeModel(Model):
 
         def cut_attr_level(pattern):
             if keep_attrs:
-                return [
-                    attr.replace(pattern, "", 1) for attr in keep_attrs if attr.startswith(pattern)
-                ]
+                return [attr.replace(pattern, "", 1) for attr in keep_attrs if attr.startswith(pattern)]
             else:
                 return None
 
@@ -4866,9 +4773,7 @@ class DatetimeModel(Model):
         case_converted["training_info"] = from_api(
             case_converted["training_info"], keep_attrs=cut_attr_level("training_info.")
         )
-        case_converted["backtests"] = from_api(
-            case_converted["backtests"], keep_attrs=cut_attr_level("backtests.")
-        )
+        case_converted["backtests"] = from_api(case_converted["backtests"], keep_attrs=cut_attr_level("backtests."))
         return cls.from_data(case_converted)
 
     @classmethod
@@ -4898,12 +4803,8 @@ class DatetimeModel(Model):
         featurelist_id: Optional[str] = None,
         scoring_type: Optional[str] = None,
         training_row_count: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
     ) -> NoReturn:
         """Inherited from Model - DatetimeModels cannot be retrained with this method
 
@@ -4917,10 +4818,7 @@ class DatetimeModel(Model):
 
         Use request_frozen_datetime_model instead.
         """
-        msg = (
-            "DatetimeModels cannot train frozen models by sample percent, "
-            "use request_frozen_datetime_model instead"
-        )
+        msg = "DatetimeModels cannot train frozen models by sample percent, use request_frozen_datetime_model instead"
         raise NotImplementedError(msg)
 
     def score_backtests(self):
@@ -4952,10 +4850,7 @@ class DatetimeModel(Model):
 
         Use ``backtests`` instead.
         """
-        msg = (
-            "DatetimeModels cannot request cross validation scores, "
-            "see backtests attribute instead"
-        )
+        msg = "DatetimeModels cannot request cross validation scores, see backtests attribute instead"
         raise NotImplementedError(msg)
 
     def request_training_predictions(self, data_subset, *args, **kwargs):
@@ -5130,8 +5025,7 @@ class DatetimeModel(Model):
         for data in unpaginate(url, initial_params, self._client):
             if "cluster" not in data:
                 raise ValueError(
-                    "Cluster lists can only be constructed for clustering models after "
-                    "computing the series accuracy."
+                    "Cluster lists can only be constructed for clustering models after computing the series accuracy."
                 )
             clusters.update({str(data["multiseriesValues"][0]): int(data["cluster"])})
         return clusters
@@ -5222,9 +5116,7 @@ class DatetimeModel(Model):
         if bool(training_start_date) ^ bool(training_end_date):
             raise ValueError("Both training_start_date and training_end_date must be specified.")
         if training_duration and training_row_count:
-            raise ValueError(
-                "Only one of training_duration or training_row_count should be specified."
-            )
+            raise ValueError("Only one of training_duration or training_row_count should be specified.")
         if time_window_sample_pct and not training_duration and not training_start_date:
             raise ValueError(
                 "time_window_sample_pct should only be used with either "
@@ -5612,9 +5504,7 @@ class DatetimeModel(Model):
                 params = {"source": source}
                 if class_:
                     params["class"] = class_
-                feature_effects = feature_effects_job.get_result_when_complete(
-                    max_wait=max_wait, params=params
-                )
+                feature_effects = feature_effects_job.get_result_when_complete(max_wait=max_wait, params=params)
             else:
                 raise e
 
@@ -5750,9 +5640,7 @@ class DatetimeModel(Model):
             representing Accuracy over Time plots metadata
         """
         params = {"forecastDistance": forecast_distance}
-        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/metadata/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/metadata/".format(self.project_id, self.id)
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
         server_data["modelId"] = self.id
@@ -5842,9 +5730,7 @@ class DatetimeModel(Model):
             figure.savefig("accuracy_over_time.png")
         """
         if max_wait:
-            self._compute_accuracy_over_time_plot_if_not_computed(
-                backtest, source, forecast_distance, max_wait
-            )
+            self._compute_accuracy_over_time_plot_if_not_computed(backtest, source, forecast_distance, max_wait)
 
         params = {
             "backtest": backtest,
@@ -5865,9 +5751,7 @@ class DatetimeModel(Model):
                 raise ValueError("end_date must be an instance of datetime.datetime")
             params["endDate"] = datetime_to_string(end_date, ensure_rfc_3339=True)
 
-        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/".format(self.project_id, self.id)
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
         server_data["modelId"] = self.id
@@ -5926,9 +5810,7 @@ class DatetimeModel(Model):
             figure.savefig("accuracy_over_time_preview.png")
         """
         if max_wait:
-            self._compute_accuracy_over_time_plot_if_not_computed(
-                backtest, source, forecast_distance, max_wait
-            )
+            self._compute_accuracy_over_time_plot_if_not_computed(backtest, source, forecast_distance, max_wait)
 
         params = {
             "backtest": backtest,
@@ -5937,9 +5819,7 @@ class DatetimeModel(Model):
             "seriesId": series_id,
         }
 
-        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/preview/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/accuracyOverTimePlots/preview/".format(self.project_id, self.id)
 
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
@@ -5959,9 +5839,7 @@ class DatetimeModel(Model):
             <datarobot.models.datetime_trend_plots.ForecastVsActualPlotsMetadata>`
             representing Forecast vs Actual plots metadata
         """
-        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/metadata/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/metadata/".format(self.project_id, self.id)
         server_data = self._client.get(url, params={}).json()
         server_data["projectId"] = self.project_id
         server_data["modelId"] = self.id
@@ -5975,9 +5853,9 @@ class DatetimeModel(Model):
         if not status or DATETIME_TREND_PLOTS_STATUS.NOT_COMPLETED not in status:
             return
         for forecast_distance in status[DATETIME_TREND_PLOTS_STATUS.NOT_COMPLETED]:
-            if (
-                forecast_distance_start is None or forecast_distance >= forecast_distance_start
-            ) and (forecast_distance_end is None or forecast_distance <= forecast_distance_end):
+            if (forecast_distance_start is None or forecast_distance >= forecast_distance_start) and (
+                forecast_distance_end is None or forecast_distance <= forecast_distance_end
+            ):
                 job = self.compute_datetime_trend_plots(
                     backtest=backtest,
                     source=source,
@@ -6098,9 +5976,7 @@ class DatetimeModel(Model):
                 raise ValueError("end_date must be an instance of datetime.datetime")
             params["endDate"] = datetime_to_string(end_date, ensure_rfc_3339=True)
 
-        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/".format(self.project_id, self.id)
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
         server_data["modelId"] = self.id
@@ -6154,9 +6030,7 @@ class DatetimeModel(Model):
             figure.savefig("forecast_vs_actual_preview.png")
         """
         if max_wait:
-            self._compute_forecast_vs_actual_plot_if_not_computed(
-                backtest, source, None, None, max_wait
-            )
+            self._compute_forecast_vs_actual_plot_if_not_computed(backtest, source, None, None, max_wait)
 
         params = {
             "backtest": backtest,
@@ -6164,9 +6038,7 @@ class DatetimeModel(Model):
             "seriesId": series_id,
         }
 
-        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/preview/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/forecastVsActualPlots/preview/".format(self.project_id, self.id)
 
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
@@ -6186,9 +6058,7 @@ class DatetimeModel(Model):
             <datarobot.models.datetime_trend_plots.AnomalyOverTimePlotsMetadata>`
             representing Anomaly over Time plots metadata
         """
-        url = "projects/{}/datetimeModels/{}/anomalyOverTimePlots/metadata/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/anomalyOverTimePlots/metadata/".format(self.project_id, self.id)
         server_data = self._client.get(url, params={}).json()
         server_data["projectId"] = self.project_id
         server_data["modelId"] = self.id
@@ -6360,9 +6230,7 @@ class DatetimeModel(Model):
             "seriesId": series_id,
         }
 
-        url = "projects/{}/datetimeModels/{}/anomalyOverTimePlots/preview/".format(
-            self.project_id, self.id
-        )
+        url = "projects/{}/datetimeModels/{}/anomalyOverTimePlots/preview/".format(self.project_id, self.id)
 
         server_data = self._client.get(url, params=params).json()
         server_data["projectId"] = self.project_id
@@ -6391,9 +6259,7 @@ class DatetimeModel(Model):
         AnomalyAssessmentRecord
 
         """
-        return AnomalyAssessmentRecord.compute(
-            self.project_id, self.id, backtest, source, series_id=series_id
-        )
+        return AnomalyAssessmentRecord.compute(self.project_id, self.id, backtest, source, series_id=series_id)
 
     def get_anomaly_assessment_records(
         self, backtest=None, source=None, series_id=None, limit=100, offset=0, with_data_only=False
@@ -6446,13 +6312,12 @@ class DatetimeModel(Model):
         """Return source for Feature Impact"""
         if backtest_index is None:
             return INSIGHTS_SOURCES.TRAINING
+        elif backtest_index == INSIGHTS_SOURCES.HOLDOUT:
+            return "holdout_training"
         else:
-            if backtest_index == INSIGHTS_SOURCES.HOLDOUT:
-                return "holdout_training"
-            else:
-                backtest_index = int(backtest_index)
-                backtest_index += 1
-                return "backtest_{}_training".format(str(backtest_index))
+            backtest_index = int(backtest_index)
+            backtest_index += 1
+            return "backtest_{}_training".format(str(backtest_index))
 
     def get_feature_impact(
         self,
@@ -6645,9 +6510,7 @@ class DatetimeModel(Model):
                 FeatureImpactJob,
             )
 
-            feature_impact_job = FeatureImpactJob.get(
-                self.project_id, qid, with_metadata=with_metadata
-            )
+            feature_impact_job = FeatureImpactJob.get(self.project_id, qid, with_metadata=with_metadata)
 
         if data_slice_filter and data_slice_filter is not DATA_SLICE_WITH_ID_NONE:
             # if we have slice that mean that feature_impact_job object is of type StatusCheckJob
@@ -7082,40 +6945,30 @@ class ModelParameters(APIObject):
     "Coefficients tab and pre-processing details"
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("parameters"): t.List(
-                t.Dict({t.Key("name"): String, t.Key("value"): t.Any}).ignore_extra("*")
-            ),
-            t.Key("derived_features"): t.List(
-                t.Dict(
-                    {
-                        t.Key("coefficient"): t.Float,
-                        t.Key("stage_coefficients", default=[]): t.List(
-                            t.Dict(
-                                {t.Key("stage"): String, t.Key("coefficient"): t.Float}
-                            ).ignore_extra("*")
-                        ),
-                        t.Key("derived_feature"): String,
-                        t.Key("original_feature"): String,
-                        t.Key("type"): String,
-                        t.Key("transformations"): t.List(
-                            t.Dict({t.Key("name"): String, t.Key("value"): t.Any}).ignore_extra("*")
-                        ),
-                    }
-                ).ignore_extra("*")
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("parameters"): t.List(t.Dict({t.Key("name"): String, t.Key("value"): t.Any}).ignore_extra("*")),
+        t.Key("derived_features"): t.List(
+            t.Dict({
+                t.Key("coefficient"): t.Float,
+                t.Key("stage_coefficients", default=[]): t.List(
+                    t.Dict({t.Key("stage"): String, t.Key("coefficient"): t.Float}).ignore_extra("*")
+                ),
+                t.Key("derived_feature"): String,
+                t.Key("original_feature"): String,
+                t.Key("type"): String,
+                t.Key("transformations"): t.List(
+                    t.Dict({t.Key("name"): String, t.Key("value"): t.Any}).ignore_extra("*")
+                ),
+            }).ignore_extra("*")
+        ),
+    }).ignore_extra("*")
 
     def __init__(self, parameters=None, derived_features=None) -> None:
         self.parameters = parameters
         self.derived_features = derived_features
 
     def __repr__(self) -> str:
-        return "ModelParameters({} parameters, {} features)".format(
-            len(self.parameters), len(self.derived_features)
-        )
+        return "ModelParameters({} parameters, {} features)".format(len(self.parameters), len(self.derived_features))
 
     @classmethod
     def get(cls, project_id, model_id):
@@ -7174,9 +7027,7 @@ class ClusteringModel(Model):
         AsyncTimeoutError
             If the cluster insights computation did not resolve in time
         """
-        return ClusterInsight.compute(
-            project_id=self.project_id, model_id=self.id, max_wait=max_wait
-        )
+        return ClusterInsight.compute(project_id=self.project_id, model_id=self.id, max_wait=max_wait)
 
     @property
     def insights(self) -> List[ClusterInsight]:
@@ -7272,14 +7123,12 @@ class CombinedModel(Model):
         flag indicating if this is the active combined model in segmented project
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("combined_model_id") >> "id": t.String,
-            t.Key("project_id"): t.String,
-            t.Key("segmentation_task_id"): t.String,
-            t.Key("is_active_combined_model", optional=True, default=False): t.Bool,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("combined_model_id") >> "id": t.String,
+        t.Key("project_id"): t.String,
+        t.Key("segmentation_task_id"): t.String,
+        t.Key("is_active_combined_model", optional=True, default=False): t.Bool,
+    }).ignore_extra("*")
 
     # noinspection PyMissingConstructor
     def __init__(  # pylint: disable=super-init-not-called
@@ -7409,12 +7258,8 @@ class CombinedModel(Model):
         featurelist_id: Optional[str] = None,
         scoring_type: Optional[str] = None,
         training_row_count: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
     ) -> NoReturn:
         """Inherited from Model - CombinedModels cannot be retrained directly"""
         raise NotImplementedError("CombinedModels cannot be retrained")
@@ -7425,12 +7270,8 @@ class CombinedModel(Model):
         training_row_count: Optional[int] = None,
         training_duration: Optional[str] = None,
         time_window_sample_pct: Optional[int] = None,
-        monotonic_increasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
-        monotonic_decreasing_featurelist_id: Optional[
-            Union[str, object]
-        ] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_increasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
+        monotonic_decreasing_featurelist_id: Optional[Union[str, object]] = MONOTONICITY_FEATURELIST_DEFAULT,
         use_project_settings: bool = False,
         sampling_method: Optional[str] = None,
         n_clusters: Optional[int] = None,
@@ -7480,15 +7321,13 @@ class BiasMitigatedModelInfo(APIObject):  # pylint: disable=missing-class-docstr
         "include_bias_mitigation_feature_as_predictor_variable",
     ]
     _converter = (
-        t.Dict(
-            {
-                t.Key("model_id"): String(),
-                t.Key("parent_model_id"): String(),
-                t.Key("protected_feature"): String(),
-                t.Key("bias_mitigation_technique"): String(),
-                t.Key("include_bias_mitigation_feature_as_predictor_variable"): t.Bool(),
-            }
-        )
+        t.Dict({
+            t.Key("model_id"): String(),
+            t.Key("parent_model_id"): String(),
+            t.Key("protected_feature"): String(),
+            t.Key("bias_mitigation_technique"): String(),
+            t.Key("include_bias_mitigation_feature_as_predictor_variable"): t.Bool(),
+        })
     ).ignore_extra("*")
 
     def __init__(
@@ -7508,21 +7347,17 @@ class BiasMitigatedModelInfo(APIObject):  # pylint: disable=missing-class-docstr
         )
 
     def to_dict(self) -> BiasMitigatedModelInfoType:
-        return cast(
-            "BiasMitigatedModelInfoType", {attr: getattr(self, attr) for attr in self._attributes}
-        )
+        return cast("BiasMitigatedModelInfoType", {attr: getattr(self, attr) for attr in self._attributes})
 
 
 class BiasMitigationFeatureInfo(APIObject):  # pylint: disable=missing-class-docstring
     _attributes = ["messages"]
 
-    _message_converter = t.Dict(
-        {
-            t.Key("message_text"): String(),
-            t.Key("additional_info"): t.List(String()),
-            t.Key("message_level"): String(),
-        }
-    ).ignore_extra("*")
+    _message_converter = t.Dict({
+        t.Key("message_text"): String(),
+        t.Key("additional_info"): t.List(String()),
+        t.Key("message_level"): String(),
+    }).ignore_extra("*")
 
     _converter = (t.Dict({t.Key("messages"): t.List(_message_converter)})).ignore_extra("*")
 

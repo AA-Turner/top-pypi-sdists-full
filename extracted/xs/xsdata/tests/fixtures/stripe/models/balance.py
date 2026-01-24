@@ -1,117 +1,107 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True, frozen=True, kw_only=True)
 class ConnectReserved:
     class Meta:
         name = "connect_reserved"
 
-    amount: Optional[int] = field(
-        default=None,
+    amount: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    currency: Optional[str] = field(
-        default=None,
+    currency: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True, frozen=True, kw_only=True)
 class SourceTypes:
     class Meta:
         name = "source_types"
 
-    bank_account: Optional[int] = field(
-        default=None,
+    bank_account: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    card: Optional[int] = field(
-        default=None,
+    card: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True, frozen=True, kw_only=True)
 class Available:
     class Meta:
         name = "available"
 
-    amount: Optional[int] = field(
-        default=None,
+    amount: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    currency: Optional[str] = field(
-        default=None,
+    currency: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    source_types: Optional[SourceTypes] = field(
-        default=None,
+    source_types: SourceTypes = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True, frozen=True, kw_only=True)
 class Pending:
     class Meta:
         name = "pending"
 
-    amount: Optional[int] = field(
-        default=None,
+    amount: int = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    currency: Optional[str] = field(
-        default=None,
+    currency: str = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    source_types: Optional[SourceTypes] = field(
-        default=None,
+    source_types: SourceTypes = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True, frozen=True, kw_only=True)
 class Balance:
     class Meta:
         name = "balance"
 
-    object_value: Optional[str] = field(
-        default=None,
+    object_value: str = field(
         metadata={
             "name": "object",
             "type": "Element",
             "required": True,
-        },
+        }
     )
     available: tuple[Available, ...] = field(
         default_factory=tuple,
@@ -127,12 +117,11 @@ class Balance:
             "min_occurs": 1,
         },
     )
-    livemode: Optional[bool] = field(
-        default=None,
+    livemode: bool = field(
         metadata={
             "type": "Element",
             "required": True,
-        },
+        }
     )
     pending: tuple[Pending, ...] = field(
         default_factory=tuple,

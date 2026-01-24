@@ -6,44 +6,30 @@ from collections import defaultdict
 from contextlib import contextmanager, suppress
 from itertools import permutations
 
-import bokeh
 import numpy as np
-from bokeh.core.json_encoder import serialize_json  # noqa (API import)
 from bokeh.core.property.datetime import Datetime
 from bokeh.core.validation import silence
-from bokeh.layouts import Column, Row, group_tools
-from bokeh.models import (
+from bokeh.core.validation.check import is_silenced
+from bokeh.layouts import group_tools
+from bokeh.model import Model
+from bokeh.models import CustomJS, tools
+from bokeh.models.axes import (
     CategoricalAxis,
-    CopyTool,
-    CustomJS,
-    DataRange1d,
     DatetimeAxis,
-    ExamineTool,
-    FactorRange,
-    FullscreenTool,
-    GridBox,
-    GridPlot,
-    LayoutDOM,
     LinearAxis,
     LogAxis,
     MercatorAxis,
-    Model,
-    Plot,
-    Range1d,
-    SaveTool,
-    Spacer,
-    Tabs,
-    Toolbar,
-    tools,
 )
 from bokeh.models.formatters import PrintfTickFormatter, TickFormatter
+from bokeh.models.layouts import Column, GridBox, LayoutDOM, Row, Spacer, Tabs
+from bokeh.models.plots import GridPlot, Plot
+from bokeh.models.ranges import DataRange1d, FactorRange, Range1d
 from bokeh.models.scales import CategoricalScale, LinearScale, LogScale
 from bokeh.models.tickers import BasicTicker, FixedTicker, Ticker
 from bokeh.models.widgets import DataTable, Div
 from bokeh.plotting import figure
 from bokeh.themes import built_in_themes
 from bokeh.themes.theme import Theme
-from packaging.version import Version
 
 from ...core import util
 from ...core.layout import Layout
@@ -55,19 +41,28 @@ from ...core.util import (
     callable_name,
     cftime_to_timestamp,
     cftime_types,
+    dtype_kind,
     isnumeric,
     unique_array,
 )
+from ...core.util.dependencies import _no_import_version
 from ...util.warnings import warn
 from ..util import dim_axis_label
 
-BOKEH_VERSION = Version(bokeh.__version__).release
+BOKEH_VERSION = _no_import_version("bokeh")
 BOKEH_GE_3_2_0 = BOKEH_VERSION >= (3, 2, 0)
 BOKEH_GE_3_3_0 = BOKEH_VERSION >= (3, 3, 0)
 BOKEH_GE_3_4_0 = BOKEH_VERSION >= (3, 4, 0)
 BOKEH_GE_3_5_0 = BOKEH_VERSION >= (3, 5, 0)
 BOKEH_GE_3_6_0 = BOKEH_VERSION >= (3, 6, 0)
 BOKEH_GE_3_7_0 = BOKEH_VERSION >= (3, 7, 0)
+BOKEH_GE_3_8_0 = BOKEH_VERSION >= (3, 8, 0)
+BOKEH_GE_3_9_0 = BOKEH_VERSION >= (3, 9, 0)
+
+
+if BOKEH_GE_3_8_0:
+    from bokeh.models.axes import TimedeltaAxis
+
 
 TOOL_TYPES = {
     'pan': tools.PanTool,
@@ -86,12 +81,16 @@ TOOL_TYPES = {
     'yzoom_out': tools.ZoomOutTool,
     'click': tools.TapTool,
     'tap': tools.TapTool,
+    'doubletap': tools.TapTool,
     'crosshair': tools.CrosshairTool,
+    'xcrosshair': tools.CrosshairTool,
+    'ycrosshair': tools.CrosshairTool,
     'box_select': tools.BoxSelectTool,
     'xbox_select': tools.BoxSelectTool,
     'ybox_select': tools.BoxSelectTool,
     'poly_select': tools.PolySelectTool,
     'lasso_select': tools.LassoSelectTool,
+    'auto_box_zoom': tools.BoxZoomTool,
     'box_zoom': tools.BoxZoomTool,
     'xbox_zoom': tools.BoxZoomTool,
     'ybox_zoom': tools.BoxZoomTool,
@@ -105,8 +104,24 @@ TOOL_TYPES = {
     'point_draw': tools.PointDrawTool,
     'poly_draw': tools.PolyDrawTool,
     'poly_edit': tools.PolyEditTool,
-    'freehand_draw': tools.FreehandDrawTool
+    'freehand_draw': tools.FreehandDrawTool,
+    'copy': tools.CopyTool,
+    'examine': tools.ExamineTool,
+    'fullscreen': tools.FullscreenTool,
+    'line_edit': tools.LineEditTool,
 }
+
+if BOKEH_GE_3_6_0:
+    TOOL_TYPES.update({
+        'pan_down': tools.ClickPanTool,
+        'pan_east': tools.ClickPanTool,
+        'pan_left': tools.ClickPanTool,
+        'pan_north': tools.ClickPanTool,
+        'pan_right': tools.ClickPanTool,
+        'pan_south': tools.ClickPanTool,
+        'pan_up': tools.ClickPanTool,
+        'pan_west': tools.ClickPanTool,
+    })
 
 
 def convert_timestamp(timestamp):
@@ -131,7 +146,7 @@ def decode_bytes(array):
     bokeh serialization errors
 
     """
-    if (not len(array) or (isinstance(array, arraylike_types) and array.dtype.kind != 'O')):
+    if (not len(array) or (isinstance(array, arraylike_types) and dtype_kind(array) != 'O')):
         return array
     decoded = [v.decode('utf-8') if isinstance(v, bytes) else v for v in array]
     if isinstance(array, np.ndarray):
@@ -178,12 +193,12 @@ def compute_plot_size(plot):
         width = sum([max([compute_plot_size(f)[0] for f in col]) for col in cols])
         height = sum([max([compute_plot_size(f)[1] for f in row]) for row in rows])
         return width, height
-    elif isinstance(plot, (Div, Toolbar)):
+    elif isinstance(plot, (Div, tools.Toolbar)):
         # Cannot compute size for Div or Toolbar
         return 0, 0
     elif isinstance(plot, (Row, Column, Tabs)):
         if not plot.children: return 0, 0
-        if isinstance(plot, Row) or (isinstance(plot, Toolbar) and plot.toolbar_location not in ['right', 'left']):
+        if isinstance(plot, Row) or (isinstance(plot, tools.Toolbar) and plot.toolbar_location not in ['right', 'left']):
             w_agg, h_agg = (np.sum, np.max)
         elif isinstance(plot, Tabs):
             w_agg, h_agg = (np.max, np.max)
@@ -407,19 +422,19 @@ def merge_tools(plot_grid, *, disambiguation_properties=None, hide_toolbar=False
     and `description` can be used to prevent tools from being merged.
 
     """
-    tools = []
+    plot_tools = []
     for row in plot_grid:
         for item in row:
             if isinstance(item, LayoutDOM):
                 for p in item.select(dict(type=Plot)):
-                    tools.extend(p.toolbar.tools)
+                    plot_tools.extend(p.toolbar.tools)
             if hide_toolbar and hasattr(item, 'toolbar_location'):
                 item.toolbar_location = None
             if isinstance(item, GridPlot):
                 item.toolbar_location = None
 
     def merge(tool, group):
-        if issubclass(tool, (SaveTool, CopyTool, ExamineTool, FullscreenTool)):
+        if issubclass(tool, (tools.SaveTool, tools.CopyTool, tools.ExamineTool, tools.FullscreenTool)):
             return tool()
         else:
             return None
@@ -428,15 +443,15 @@ def merge_tools(plot_grid, *, disambiguation_properties=None, hide_toolbar=False
         disambiguation_properties = {'name', 'icon', 'tags', 'description'}
 
     ignore = set()
-    for tool in tools:
+    for tool in plot_tools:
         for p in tool.properties_with_values():
             if p not in disambiguation_properties:
                 ignore.add(p)
 
     toolbar_kwargs = {"autohide": autohide}
-    if tools:
-        toolbar_kwargs["tools"] = group_tools(tools, merge=merge, ignore=ignore)
-    return Toolbar(**toolbar_kwargs)
+    if plot_tools:
+        toolbar_kwargs["tools"] = group_tools(plot_tools, merge=merge, ignore=ignore)
+    return tools.Toolbar(**toolbar_kwargs)
 
 
 def sync_legends(bokeh_layout):
@@ -525,12 +540,15 @@ def silence_warnings(*warnings):
     """Context manager for silencing bokeh validation warnings.
 
     """
+    silenced = set()
     for warning in warnings:
-        silence(warning)
+        if not is_silenced(warning):
+            silenced.add(warning)
+            silence(warning)
     try:
         yield
     finally:
-        for warning in warnings:
+        for warning in silenced:
             silence(warning, False)
 
 
@@ -724,7 +742,7 @@ def filter_toolboxes(plots):
         plots.toolbar_location = None
     elif hasattr(plots, 'children'):
         plots.children = [filter_toolboxes(child) for child in plots.children
-                          if not isinstance(child, Toolbar)]
+                          if not isinstance(child, tools.Toolbar)]
     return plots
 
 
@@ -1109,7 +1127,7 @@ def match_dim_specs(specs1, specs2):
 
 
 def get_scale(range_input, axis_type):
-    if isinstance(range_input, (DataRange1d, Range1d)) and axis_type in ["linear", "datetime", "mercator", "auto", None]:
+    if isinstance(range_input, (DataRange1d, Range1d)) and axis_type in ["linear", "datetime", "mercator", "auto", "timedelta", None]:
         return LinearScale()
     elif isinstance(range_input, (DataRange1d, Range1d)) and axis_type == "log":
         return LogScale()
@@ -1128,6 +1146,8 @@ def get_axis_class(axis_type, range_input, dim): # Copied from bokeh
         return LogAxis, {}
     elif axis_type == "datetime":
         return DatetimeAxis, {}
+    elif BOKEH_GE_3_8_0 and axis_type == "timedelta":
+        return TimedeltaAxis, {}
     elif axis_type == "mercator":
         return MercatorAxis, dict(dimension='lon' if dim == 0 else 'lat')
     elif axis_type == "auto":
@@ -1157,6 +1177,8 @@ def match_ax_type(ax, range_type):
         return range_type == 'categorical'
     elif isinstance(ax, DatetimeAxis):
         return range_type == 'datetime'
+    elif BOKEH_GE_3_8_0 and isinstance(ax, TimedeltaAxis):
+        return range_type == 'timedelta'
     else:
         return range_type in ('auto', 'log')
 
@@ -1212,7 +1234,7 @@ def dtype_fix_hook(plot, element):
             with suppress(Exception):
                 data = renderer.data_source.data
                 for k, v in data.items():
-                    if hasattr(v, "dtype") and v.dtype.kind == "U":
+                    if hasattr(v, "dtype") and dtype_kind(v) == "U":
                         data[k] = v.tolist()
 
 

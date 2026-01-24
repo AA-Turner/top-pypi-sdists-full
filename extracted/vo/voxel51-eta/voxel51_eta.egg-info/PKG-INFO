@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: voxel51-eta
-Version: 0.15.1
+Version: 0.15.2
 Summary: Extensible Toolkit for Analytics
 Home-page: https://github.com/voxel51/eta
 Author: Voxel51, Inc.
@@ -55,7 +55,7 @@ Requires-Dist: azure-storage-blob>=12.4.0; extra == "storage"
 Requires-Dist: boto3>=1.15; extra == "storage"
 Requires-Dist: google-api-python-client; extra == "storage"
 Requires-Dist: google-cloud-storage>=1.36; extra == "storage"
-Requires-Dist: httplib2<=0.15; extra == "storage"
+Requires-Dist: httplib2; extra == "storage"
 Requires-Dist: pysftp; extra == "storage"
 Dynamic: author
 Dynamic: author-email

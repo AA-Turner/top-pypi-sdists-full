@@ -1,0 +1,23 @@
+[build-system]
+build-backend = "cmeel"
+requires = ["cmeel[build]"]
+
+[project]
+description = "cmeel distribution for TinyXML-2"
+license = "Zlib"
+name = "cmeel-tinyxml2"
+requires-python = ">= 3.8"
+version = "10.0.0"
+
+[project.urls]
+homepage = "https://github.com/cmake-wheel/cmeel-tinyxml2"
+repository = "https://github.com/cmake-wheel/cmeel-tinyxml2.git"
+upstream = "http://leethomason.github.io/tinyxml2/"
+
+[tool.cmeel]
+configure-args = ["-Dtinyxml2_SHARED_LIBS=ON"]
+has-sitelib = false
+source = "tinyxml2"
+
+[tool.tomlsort]
+all = true

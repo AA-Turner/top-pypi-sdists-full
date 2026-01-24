@@ -1,0 +1,34 @@
+Metadata-Version: 2.1
+Name: barectf
+Version: 3.1.2
+Summary: Generator of ANSI C tracers which output CTF data streams
+Home-page: https://barectf.org/
+License: MIT
+Keywords: ctf,generator,tracing,bare-metal,bare-machine
+Author: Philippe Proulx
+Author-email: eeppeliteloop@gmail.com
+Requires-Python: >=3.6.2,<4
+Classifier: Development Status :: 6 - Mature
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Software Development :: Code Generators
+Requires-Dist: jinja2 (>=3.0,<4.0)
+Requires-Dist: jsonschema (>=3.2,<4.0)
+Requires-Dist: pyyaml (>=5.3,<6.0)
+Requires-Dist: setuptools
+Requires-Dist: termcolor (>=1.1,<2.0)
+Project-URL: Bug tracker, https://github.com/efficios/barectf/issues/
+Project-URL: Code review, https://review.lttng.org/admin/repos/barectf
+Project-URL: Continuous integration, https://ci.lttng.org/job/barectf_master_build/
+Project-URL: Commercial support, https://www.efficios.com/contact/
+Project-URL: Repository, https://github.com/efficios/barectf/

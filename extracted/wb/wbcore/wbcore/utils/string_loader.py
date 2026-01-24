@@ -21,7 +21,7 @@ class StringSourceLoader(importlib.abc.SourceLoader):
 
     def exec_module(self, module):
         code = self.source_to_code(self.data, self.get_filename(module.__name__))
-        exec(code, module.__dict__)
+        exec(code, module.__dict__)  # noqa: S102
 
     def get_spec(self):
         return importlib.machinery.ModuleSpec(self.MOD_NAME, self, origin=self.get_filename(self.MOD_NAME))

@@ -23,11 +23,6 @@ from botocore.response import StreamingBody
 
 from .literals import ContentTypeType, QueryParserType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -80,16 +75,16 @@ HitTypeDef = TypedDict(
     "HitTypeDef",
     {
         "id": NotRequired[str],
-        "fields": NotRequired[Dict[str, List[str]]],
-        "exprs": NotRequired[Dict[str, str]],
-        "highlights": NotRequired[Dict[str, str]],
+        "fields": NotRequired[dict[str, list[str]]],
+        "exprs": NotRequired[dict[str, str]],
+        "highlights": NotRequired[dict[str, str]],
     },
 )
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -136,31 +131,31 @@ class UploadDocumentsRequestTypeDef(TypedDict):
     contentType: ContentTypeType
 
 class BucketInfoTypeDef(TypedDict):
-    buckets: NotRequired[List[BucketTypeDef]]
+    buckets: NotRequired[list[BucketTypeDef]]
 
 class HitsTypeDef(TypedDict):
     found: NotRequired[int]
     start: NotRequired[int]
     cursor: NotRequired[str]
-    hit: NotRequired[List[HitTypeDef]]
+    hit: NotRequired[list[HitTypeDef]]
 
 class UploadDocumentsResponseTypeDef(TypedDict):
     status: str
     adds: int
     deletes: int
-    warnings: List[DocumentServiceWarningTypeDef]
+    warnings: list[DocumentServiceWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SuggestModelTypeDef(TypedDict):
     query: NotRequired[str]
     found: NotRequired[int]
-    suggestions: NotRequired[List[SuggestionMatchTypeDef]]
+    suggestions: NotRequired[list[SuggestionMatchTypeDef]]
 
 class SearchResponseTypeDef(TypedDict):
     status: SearchStatusTypeDef
     hits: HitsTypeDef
-    facets: Dict[str, BucketInfoTypeDef]
-    stats: Dict[str, FieldStatsTypeDef]
+    facets: dict[str, BucketInfoTypeDef]
+    stats: dict[str, FieldStatsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SuggestResponseTypeDef(TypedDict):

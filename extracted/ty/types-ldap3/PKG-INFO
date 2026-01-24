@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-ldap3
-Version: 2.9.13.20250622
+Version: 2.9.13.20251121
 Summary: Typing stubs for ldap3
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -18,14 +18,9 @@ Dynamic: license-file
 
 ## Typing stubs for ldap3
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`ldap3`](https://github.com/cannatag/ldap3) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `ldap3`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`ldap3`](https://github.com/cannatag/ldap3) package. It can be used by type checkers
+to check code that uses `ldap3`. This version of
 `types-ldap3` aims to provide accurate annotations for
 `ldap3==2.9.*`.
 
@@ -36,9 +31,9 @@ for more details. The source for this package can be found in the
 [`stubs/ldap3`](https://github.com/python/typeshed/tree/main/stubs/ldap3)
 directory.
 
-This package was tested with
-mypy 1.16.0,
-pyright 1.1.400,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
+
 It was generated from typeshed commit
-[`707cd57e4935d36e2c812ef6c650b8faa2890162`](https://github.com/python/typeshed/commit/707cd57e4935d36e2c812ef6c650b8faa2890162).
+[`3e1b90bb2d772781c2b6f318e0f44ef791cf5160`](https://github.com/python/typeshed/commit/3e1b90bb2d772781c2b6f318e0f44ef791cf5160).

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.testing
-Version: 6.0
+Version: 6.1
 Summary: Zope testing helpers
 Home-page: https://github.com/zopefoundation/zope.testing
 Author: Zope Foundation and Contributors
@@ -13,11 +13,11 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Framework :: Zope :: 3
@@ -25,9 +25,9 @@ Classifier: Framework :: Zope :: 4
 Classifier: Framework :: Zope :: 5
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: setuptools
 Provides-Extra: test
 Requires-Dist: zope.testrunner>=6.4; extra == "test"
 Provides-Extra: docs
@@ -39,12 +39,12 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
 Dynamic: provides-extra
-Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
@@ -127,6 +127,18 @@ Now, run ``tox`` to run the ``zope.testing`` test suite.
 =========
  Changes
 =========
+
+6.1 (2025-12-17)
+================
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
+- Fix test failures when ``fake.py`` package is installed.
+
+- Remove run-time dependency on ``setuptools``.
+
 
 6.0 (2025-09-12)
 ================

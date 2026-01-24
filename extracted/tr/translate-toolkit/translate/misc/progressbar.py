@@ -21,6 +21,9 @@ Progress bar utilities for reporting feedback on the progress of an
 application.
 """
 
+import sys
+import time
+
 
 class DotsProgressBar:
     """
@@ -28,43 +31,41 @@ class DotsProgressBar:
     action.
     """
 
-    def __init__(self):
-        import sys
-
+    def __init__(self) -> None:
         self.stderr = sys.stderr
         self.amount = 0
 
-    def show(self, verbosemessage):
+    def show(self, verbosemessage) -> None:
         """Show a dot for progress :-)."""
         # pylint: disable=W0613
         self.stderr.write(".")
         self.stderr.flush()
 
-    def close(self):
+    def close(self) -> None:
         self.stderr.write("\n")
         self.stderr.flush()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
 
 class NoProgressBar:
     """An invisible indicator that does nothing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.amount = 0
 
-    def show(self, verbosemessage):
+    def show(self, verbosemessage) -> None:
         """Show nothing for progress :-)."""
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
 class ProgressBar:
     """A plain progress bar that doesn't know very much about output."""
 
-    def __init__(self, minValue=0, maxValue=100, totalWidth=50):
+    def __init__(self, minValue=0, maxValue=100, totalWidth=50) -> None:
         self.progBar = "[]"  # This holds the progress bar string
         self.min = minValue
         self.max = maxValue
@@ -72,7 +73,7 @@ class ProgressBar:
         self.width = totalWidth
         self.amount = 0  # When amount == max, we are 100% done
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Produces the string representing the progress bar."""
         self.amount = max(self.amount, self.min)
         self.amount = min(self.amount, self.max)
@@ -89,14 +90,12 @@ class ProgressBar:
         numHashes = round(numHashes)
 
         # build a progress bar with hashes and spaces
-        self.progBar = "[%s%s] %3d%%" % (
-            "#" * numHashes,
-            " " * (allFull - numHashes),
-            percentDone,
+        self.progBar = (
+            f"[{'#' * numHashes}{' ' * (allFull - numHashes)}] {percentDone:3d}%"
         )
         return str(self.progBar)
 
-    def show(self, verbosemessage):
+    def show(self, verbosemessage) -> None:
         """Displays the progress bar."""
         # pylint: disable=W0613
         print(self)
@@ -108,55 +107,49 @@ class MessageProgressBar(ProgressBar):
     display.
     """
 
-    def __init__(self, *args, **kwargs):
-        import sys
-
+    def __init__(self, *args, **kwargs) -> None:
         self.sys = sys
         super().__init__(*args, **kwargs)
 
-    def show(self, verbosemessage):
-        self.sys.stderr.write(verbosemessage + "\n")
+    def show(self, verbosemessage) -> None:
+        self.sys.stderr.write(f"{verbosemessage}\n")
         self.sys.stderr.flush()
 
 
 class HashProgressBar(ProgressBar):
     """A ProgressBar which knows how to go back to the beginning of the line."""
 
-    def __init__(self, *args, **kwargs):
-        import sys
-
+    def __init__(self, *args, **kwargs) -> None:
         self.sys = sys
         super().__init__(*args, **kwargs)
 
-    def show(self, verbosemessage):
-        self.sys.stderr.write(str(self) + "\r")
+    def show(self, verbosemessage) -> None:
+        self.sys.stderr.write(f"{self}\r")
         self.sys.stderr.flush()
 
-    def close(self):
+    def close(self) -> None:
         self.sys.stderr.write("\n")
         self.sys.stderr.flush()
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.close()
 
 
 class VerboseProgressBar(HashProgressBar):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         self.lastwidth = 0
         super().__init__(*args, **kwargs)
 
-    def show(self, verbosemessage):
+    def show(self, verbosemessage) -> None:
         output = str(self)
-        self.sys.stderr.write("\r" + " " * self.lastwidth)
-        self.sys.stderr.write("\r" + verbosemessage + "\n")
+        self.sys.stderr.write(f"\r{' ' * self.lastwidth}")
+        self.sys.stderr.write(f"\r{verbosemessage}\n")
         self.lastwidth = len(output)
-        self.sys.stderr.write("\r" + output)
+        self.sys.stderr.write(f"\r{output}")
         self.sys.stderr.flush()
 
 
-def test(progressbar):
-    import time
-
+def test(progressbar) -> None:
     for n in range(progressbar.min, progressbar.max + 1, 5):
         progressbar.amount = n
         progressbar.show("Some message")

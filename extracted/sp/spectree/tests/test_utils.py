@@ -1,6 +1,7 @@
 import json
 
 import pytest
+from pydantic import BaseModel, computed_field
 
 from spectree.models import ValidationError
 from spectree.response import DEFAULT_CODE_DESC, Response
@@ -241,7 +242,7 @@ def test_parse_params():
     models = {
         get_model_path_key(
             f"{DemoModel.__module__}.{DemoModel.__name__}"
-        ): DemoModel.schema(ref_template="#/components/schemas/{model}")
+        ): DemoModel.model_json_schema(ref_template="#/components/schemas/{model}")
     }
     assert parse_params(demo_func, [], models) == []
     params = parse_params(demo_class.demo_method, [], models)
@@ -258,7 +259,7 @@ def test_parse_params():
 
 def test_parse_params_with_route_param_keywords():
     models = {
-        get_model_path_key("tests.common.DemoQuery"): DemoQuery.schema(
+        get_model_path_key("tests.common.DemoQuery"): DemoQuery.model_json_schema(
             ref_template="#/components/schemas/{model}"
         )
     }
@@ -299,3 +300,39 @@ def test_json_compatible_schema():
 
     schema = get_model_schema(DefaultEnumValue)
     json_schema = json_compatible_deepcopy(schema)
+
+
+def test_get_model_schema_mode_parameter():
+    """Test get_model_schema mode parameter for Pydantic v2"""
+
+    class TestModel(BaseModel):
+        """Model with computed field"""
+
+        name: str
+        value: int
+
+        @computed_field
+        @property
+        def computed_name(self) -> str:
+            """Computed field - only in serialization"""
+            return f"computed_{self.name}"
+
+    # Test validation mode - computed fields excluded
+    validation_schema = get_model_schema(TestModel, mode="validation")
+    assert "name" in validation_schema["properties"]
+    assert "value" in validation_schema["properties"]
+    assert "computed_name" not in validation_schema["properties"], (
+        "Computed field should NOT be in validation mode"
+    )
+
+    # Test serialization mode - computed fields included
+    serialization_schema = get_model_schema(TestModel, mode="serialization")
+    assert "name" in serialization_schema["properties"]
+    assert "value" in serialization_schema["properties"]
+    assert "computed_name" in serialization_schema["properties"], (
+        "Computed field SHOULD be in serialization mode"
+    )
+
+    # Verify computed field is marked as readOnly and required
+    assert serialization_schema["properties"]["computed_name"].get("readOnly") is True
+    assert "computed_name" in serialization_schema["required"]

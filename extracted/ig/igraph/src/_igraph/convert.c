@@ -374,7 +374,7 @@ int igraphmodule_PyObject_to_eigen_which_t(PyObject *o,
   w->pos = IGRAPH_EIGEN_LM;
   w->howmany = 1;
   w->il = w->iu = -1;
-  w->vl = IGRAPH_NEGINFINITY;
+  w->vl = -IGRAPH_INFINITY;
   w->vu = IGRAPH_INFINITY;
   w->vestimate = 0;
   w->balance = IGRAPH_LAPACK_DGEEVX_BALANCE_NONE;
@@ -711,6 +711,36 @@ int igraphmodule_PyObject_to_loops_t(PyObject *o, igraph_loops_t *result) {
 }
 
 /**
+ * \brief Converts a Python object to an igraph \c igraph_lpa_variant_t
+ */
+int igraphmodule_PyObject_to_lpa_variant_t(PyObject *o, igraph_lpa_variant_t *result) {
+  static igraphmodule_enum_translation_table_entry_t lpa_variant_tt[] = {
+    {"dominance", IGRAPH_LPA_DOMINANCE},
+    {"retention", IGRAPH_LPA_RETENTION},
+    {"fast", IGRAPH_LPA_FAST},
+    {0,0}
+  };
+
+  TRANSLATE_ENUM_WITH(lpa_variant_tt);
+}
+
+/**
+ * \brief Converts a Python object to an igraph \c igraph_mst_algorithm_t
+ */
+int igraphmodule_PyObject_to_mst_algorithm_t(PyObject *o, igraph_mst_algorithm_t *result) {
+  static igraphmodule_enum_translation_table_entry_t mst_algorithm_tt[] = {
+    {"auto", IGRAPH_MST_AUTOMATIC},
+    {"automatic", IGRAPH_MST_AUTOMATIC},
+    {"unweighted", IGRAPH_MST_UNWEIGHTED},
+    {"prim", IGRAPH_MST_PRIM},
+    {"kruskal", IGRAPH_MST_KRUSKAL},
+    {0,0}
+  };
+
+  TRANSLATE_ENUM_WITH(mst_algorithm_tt);
+}
+
+/**
  * \ingroup python_interface_conversion
  * \brief Converts a Python object to an igraph \c igraph_random_walk_stuck_t
  */
@@ -734,19 +764,6 @@ int igraphmodule_PyObject_to_reciprocity_t(PyObject *o, igraph_reciprocity_t *re
     {0,0}
   };
   TRANSLATE_ENUM_WITH(reciprocity_tt);
-}
-
-/**
- * \brief Converts a Python object to an igraph \c igraph_rewiring_t
- */
-int igraphmodule_PyObject_to_rewiring_t(PyObject *o, igraph_rewiring_t *result) {
-  static igraphmodule_enum_translation_table_entry_t rewiring_tt[] = {
-    {"simple", IGRAPH_REWIRING_SIMPLE},
-    {"simple_loops", IGRAPH_REWIRING_SIMPLE_LOOPS},
-    {"loops", IGRAPH_REWIRING_SIMPLE_LOOPS},
-    {0,0}
-  };
-  TRANSLATE_ENUM_WITH(rewiring_tt);
 }
 
 /**
@@ -934,7 +951,7 @@ int igraphmodule_PyObject_to_igraph_t(PyObject *o, igraph_t **result) {
 }
 
 /**
- * \brief Converts a PyLong to an igraph \c igraph_integer_t
+ * \brief Converts a PyLong to an igraph \c igraph_int_t
  *
  * Raises suitable Python exceptions when needed.
  *
@@ -945,7 +962,7 @@ int igraphmodule_PyObject_to_igraph_t(PyObject *o, igraph_t **result) {
  * \param v the result is stored here
  * \return 0 if everything was OK, 1 otherwise
  */
-int PyLong_to_integer_t(PyObject* obj, igraph_integer_t* v) {
+int PyLong_to_integer_t(PyObject* obj, igraph_int_t* v) {
   if (IGRAPH_INTEGER_SIZE == 64) {
     /* here the assumption is that sizeof(long long) == 64 bits; anyhow, this
      * is the widest integer type that we can convert a PyLong to so we cannot
@@ -970,7 +987,7 @@ int PyLong_to_integer_t(PyObject* obj, igraph_integer_t* v) {
 }
 
 /**
- * \brief Converts a Python object to an igraph \c igraph_integer_t
+ * \brief Converts a Python object to an igraph \c igraph_int_t
  *
  * Raises suitable Python exceptions when needed.
  *
@@ -978,9 +995,9 @@ int PyLong_to_integer_t(PyObject* obj, igraph_integer_t* v) {
  * \param v the result is stored here
  * \return 0 if everything was OK, 1 otherwise
  */
-int igraphmodule_PyObject_to_integer_t(PyObject *object, igraph_integer_t *v) {
+int igraphmodule_PyObject_to_integer_t(PyObject *object, igraph_int_t *v) {
   int retval;
-  igraph_integer_t num;
+  igraph_int_t num;
 
   if (object == NULL) {
   } else if (PyLong_Check(object)) {
@@ -1004,6 +1021,60 @@ int igraphmodule_PyObject_to_integer_t(PyObject *object, igraph_integer_t *v) {
   }
   PyErr_BadArgument();
   return 1;
+}
+
+/**
+ * \brief Converts a Python object to an igraph \c igraph_int_t when it is
+ * used as a limit on the number of results for some function.
+ * 
+ * This is different from \ref igraphmodule_PyObject_to_integer_t such that it
+ * converts None and positive infinity to \c IGRAPH_UNLIMITED, and it does not
+ * accept negative values.
+ *
+ * Raises suitable Python exceptions when needed.
+ *
+ * \param object the Python object to be converted
+ * \param v the result is stored here
+ * \return 0 if everything was OK, 1 otherwise
+ */
+int igraphmodule_PyObject_to_max_results_t(PyObject *object, igraph_int_t *v) {
+  int retval;
+  igraph_int_t num;
+
+  if (object != NULL) {
+    if (object == Py_None) {
+      *v = IGRAPH_UNLIMITED;
+      return 0;
+    }
+
+    if (PyNumber_Check(object)) {
+      PyObject *flt = PyNumber_Float(object);
+      if (flt == NULL) {
+        return 1;
+      }
+
+      if (PyFloat_AsDouble(flt) == IGRAPH_INFINITY) {
+        Py_DECREF(flt);
+        *v = IGRAPH_UNLIMITED;
+        return 0;
+      }
+
+      Py_DECREF(flt);
+    }
+  }
+
+  retval = igraphmodule_PyObject_to_integer_t(object, &num);
+  if (retval) {
+    return retval;
+  }
+
+  if (num < 0) {
+    PyErr_SetString(PyExc_ValueError, "expected non-negative integer, None or infinity");
+    return 1;
+  }
+
+  *v = num;
+  return 0;
 }
 
 /**
@@ -1060,7 +1131,7 @@ int igraphmodule_PyObject_to_vector_t(PyObject *list, igraph_vector_t *v, igraph
   PyObject *item, *it;
   Py_ssize_t size_hint;
   int ok;
-  igraph_integer_t number;
+  igraph_int_t number;
 
   if (PyBaseString_Check(list)) {
     /* It is highly unlikely that a string (although it is a sequence) will
@@ -1259,7 +1330,7 @@ int igraphmodule_PyObject_float_to_vector_t(PyObject *list, igraph_vector_t *v) 
  */
 int igraphmodule_PyObject_to_vector_int_t(PyObject *list, igraph_vector_int_t *v) {
   PyObject *it = 0, *item;
-  igraph_integer_t value = 0;
+  igraph_int_t value = 0;
   Py_ssize_t i, j, k;
   int ok;
 
@@ -1421,13 +1492,13 @@ int igraphmodule_PyObject_to_vector_bool_t(PyObject *list,
 
 /**
  * \ingroup python_interface_conversion
- * \brief Converts an igraph \c igraph_integer_t to a Python integer
+ * \brief Converts an igraph \c igraph_int_t to a Python integer
  *
- * \param value the \c igraph_integer_t value to be converted
+ * \param value the \c igraph_int_t value to be converted
  * \return the Python integer as a \c PyObject*, or \c NULL if an
  * error occurred
  */
-PyObject* igraphmodule_integer_t_to_PyObject(igraph_integer_t value) {
+PyObject* igraphmodule_integer_t_to_PyObject(igraph_int_t value) {
 #if IGRAPH_INTEGER_SIZE == 32
   /* minimum size of a long is 32 bits so we are okay */
   return PyLong_FromLong(value);
@@ -1435,7 +1506,7 @@ PyObject* igraphmodule_integer_t_to_PyObject(igraph_integer_t value) {
   /* minimum size of a long long is 64 bits so we are okay */
   return PyLong_FromLongLong(value);
 #else
-#  error "Unknown igraph_integer_t size"
+#  error "Unknown igraph_int_t size"
 #endif
 }
 
@@ -1574,10 +1645,10 @@ PyObject* igraphmodule_vector_int_t_to_PyList(const igraph_vector_int_t *v) {
  * \param v the \c igraph_vector_int_t containing the vector to be converted
  * \return the Python integer list as a \c PyObject*, or \c NULL if an error occurred
  */
-PyObject* igraphmodule_vector_int_t_to_PyList_with_nan(const igraph_vector_int_t *v, const igraph_integer_t nanvalue) {
+PyObject* igraphmodule_vector_int_t_to_PyList_with_nan(const igraph_vector_int_t *v, const igraph_int_t nanvalue) {
   PyObject *list, *item;
   Py_ssize_t n, i;
-  igraph_integer_t val;
+  igraph_int_t val;
 
   n = igraph_vector_int_size(v);
   if (n < 0) {
@@ -1758,7 +1829,7 @@ int igraphmodule_PyObject_to_edgelist(
 ) {
   PyObject *item, *i1, *i2, *it, *expected;
   int ok;
-  igraph_integer_t idx1=0, idx2=0;
+  igraph_int_t idx1=0, idx2=0;
 
   if (PyBaseString_Check(list)) {
     /* It is highly unlikely that a string (although it is a sequence) will
@@ -1773,13 +1844,13 @@ int igraphmodule_PyObject_to_edgelist(
    * detail that we don't want to commit ourselves to */
   if (PyMemoryView_Check(list)) {
     item = PyObject_GetAttrString(list, "itemsize");
-    expected = PyLong_FromSize_t(sizeof(igraph_integer_t));
+    expected = PyLong_FromSize_t(sizeof(igraph_int_t));
     ok = item && PyObject_RichCompareBool(item, expected, Py_EQ);
     Py_XDECREF(expected);
     Py_XDECREF(item);
     if (!ok) {
       PyErr_SetString(
-        PyExc_TypeError, "item size of buffer must match the size of igraph_integer_t"
+        PyExc_TypeError, "item size of buffer must match the size of igraph_int_t"
       );
       return 1;
     }
@@ -1933,7 +2004,7 @@ int igraphmodule_attrib_to_vector_t(PyObject *o, igraphmodule_GraphObject *self,
     /* Check whether the attribute exists and is numeric */
     igraph_attribute_type_t at;
     igraph_attribute_elemtype_t et;
-    igraph_integer_t n;
+    igraph_int_t n;
     char *name = PyUnicode_CopyAsString(o);
 
     if (attr_type == ATTRIBUTE_TYPE_VERTEX) {
@@ -1962,7 +2033,19 @@ int igraphmodule_attrib_to_vector_t(PyObject *o, igraphmodule_GraphObject *self,
       free(name);
       return 1;
     }
-    igraph_vector_init(result, n);
+    if (igraph_vector_init(result, 0)) {
+      igraphmodule_handle_igraph_error();
+      free(name);
+      free(result);
+      return 1;
+    }
+    if (igraph_vector_reserve(result, n)) {
+      igraphmodule_handle_igraph_error();
+      igraph_vector_destroy(result);
+      free(name);
+      free(result);
+      return 1;
+    }
     if (attr_type == ATTRIBUTE_TYPE_VERTEX) {
       if (igraphmodule_i_get_numeric_vertex_attr(&self->g, name,
           igraph_vss_all(), result)) {
@@ -2034,7 +2117,7 @@ int igraphmodule_attrib_to_vector_int_t(PyObject *o, igraphmodule_GraphObject *s
 
   if (PyUnicode_Check(o)) {
     igraph_vector_t* dummy = 0;
-    igraph_integer_t i, n;
+    igraph_int_t i, n;
 
     if (igraphmodule_attrib_to_vector_t(o, self, &dummy, attr_type)) {
       return 1;
@@ -2062,7 +2145,7 @@ int igraphmodule_attrib_to_vector_int_t(PyObject *o, igraphmodule_GraphObject *s
     }
 
     for (i = 0; i < n; i++) {
-      VECTOR(*result)[i] = (igraph_integer_t) VECTOR(*dummy)[i];
+      VECTOR(*result)[i] = (igraph_int_t) VECTOR(*dummy)[i];
     }
 
     igraph_vector_destroy(dummy); free(dummy);
@@ -2127,7 +2210,7 @@ int igraphmodule_attrib_to_vector_bool_t(PyObject *o, igraphmodule_GraphObject *
     return 0;
 
   if (PyUnicode_Check(o)) {
-    igraph_integer_t i, n;
+    igraph_int_t i, n;
 
     /* First, check if the attribute is a "real" boolean */
     igraph_attribute_type_t at;
@@ -2157,7 +2240,19 @@ int igraphmodule_attrib_to_vector_bool_t(PyObject *o, igraphmodule_GraphObject *
         free(name);
         return 1;
       }
-      igraph_vector_bool_init(result, n);
+      if (igraph_vector_bool_init(result, 0)) {
+        igraphmodule_handle_igraph_error();
+        free(name);
+        free(result);
+        return 1;
+      }
+      if (igraph_vector_bool_reserve(result, n)) {
+        igraph_vector_bool_destroy(result);
+        igraphmodule_handle_igraph_error();
+        free(name);
+        free(result);
+        return 1;
+      }
       if (attr_type == ATTRIBUTE_TYPE_VERTEX) {
         if (igraphmodule_i_get_boolean_vertex_attr(&self->g, name,
             igraph_vss_all(), result)) {
@@ -2193,10 +2288,15 @@ int igraphmodule_attrib_to_vector_bool_t(PyObject *o, igraphmodule_GraphObject *
 
       n = igraph_vector_size(dummy);
       result = (igraph_vector_bool_t*)calloc(1, sizeof(igraph_vector_bool_t));
-      igraph_vector_bool_init(result, n);
       if (result == 0) {
         igraph_vector_destroy(dummy); free(dummy);
         PyErr_NoMemory();
+        return 1;
+      }
+      if (igraph_vector_bool_init(result, n)) {
+        igraphmodule_handle_igraph_error();        
+        igraph_vector_destroy(dummy); free(dummy);
+        igraph_vector_bool_destroy(result); free(result);
         return 1;
       }
       for (i = 0; i < n; i++) {
@@ -2387,6 +2487,40 @@ PyObject* igraphmodule_matrix_int_t_to_PyList(const igraph_matrix_int_t *m) {
   }
 
   // return the list
+  return list;
+}
+
+/**
+ * \ingroup python_interface_conversion
+ * \brief Converts an igraph \c igraph_matrix_list_t to a Python list of lists of lists
+ *
+ * \param v the \c igraph_matrix_list_t containing the matrix list to be converted
+ * \return the Python list as a \c PyObject*, or \c NULL if an error occurred
+ */
+PyObject* igraphmodule_matrix_list_t_to_PyList(const igraph_matrix_list_t *m) {
+  PyObject *list, *item;
+  Py_ssize_t n, i;
+
+  n = igraph_matrix_list_size(m);
+  if (n < 0) {
+    return igraphmodule_handle_igraph_error();
+  }
+
+  list = PyList_New(n);
+  if (!list) {
+    return NULL;
+  }
+
+  for (i = 0; i < n; i++) {
+    item = igraphmodule_matrix_t_to_PyList(igraph_matrix_list_get_ptr(m, i),
+        IGRAPHMODULE_TYPE_FLOAT);
+    if (item == NULL) {
+      Py_DECREF(list);
+      return NULL;
+    }
+    PyList_SetItem(list, i, item);  /* will not fail */
+  }
+
   return list;
 }
 
@@ -2750,7 +2884,7 @@ int igraphmodule_PyObject_to_matrix_int_t_with_minimum_column_count(
 ) {
   Py_ssize_t nr, nc, n, i, j;
   PyObject *row, *item;
-  igraph_integer_t value;
+  igraph_int_t value;
 
   /* calculate the matrix dimensions */
   if (!PySequence_Check(o) || PyUnicode_Check(o)) {
@@ -3269,7 +3403,7 @@ int igraphmodule_append_PyIter_of_graphs_to_vector_ptr_t_with_type(PyObject *it,
  *               if we don't need name lookups.
  * \return 0 if everything was OK, 1 otherwise
  */
-int igraphmodule_PyObject_to_vid(PyObject *o, igraph_integer_t *vid, igraph_t *graph) {
+int igraphmodule_PyObject_to_vid(PyObject *o, igraph_int_t *vid, igraph_t *graph) {
   if (o == 0) {
     PyErr_SetString(PyExc_TypeError, "only non-negative integers, strings or igraph.Vertex objects can be converted to vertex IDs");
     return 1;
@@ -3328,7 +3462,7 @@ int igraphmodule_PyObject_to_vid(PyObject *o, igraph_integer_t *vid, igraph_t *g
  *               if we don't need name lookups.
  * \return 0 if everything was OK, 1 otherwise
  */
-int igraphmodule_PyObject_to_optional_vid(PyObject *o, igraph_integer_t *vid, igraph_t *graph) {
+int igraphmodule_PyObject_to_optional_vid(PyObject *o, igraph_int_t *vid, igraph_t *graph) {
   if (o == 0 || o == Py_None) {
     return 0;
   } else {
@@ -3350,7 +3484,7 @@ int igraphmodule_PyObject_to_optional_vid(PyObject *o, igraph_integer_t *vid, ig
 int igraphmodule_PyObject_to_vid_list(PyObject* o, igraph_vector_int_t* result, igraph_t* graph) {
     PyObject *iterator;
     PyObject *item;
-    igraph_integer_t vid;
+    igraph_int_t vid;
 
     if (PyBaseString_Check(o)) {
       /* exclude strings; they are iterable but cannot yield meaningful vertex IDs */
@@ -3414,8 +3548,8 @@ int igraphmodule_PyObject_to_vid_list(PyObject* o, igraph_vector_int_t* result, 
  * \return 0 if everything was OK, 1 otherwise
  */
 int igraphmodule_PyObject_to_vs_t(PyObject *o, igraph_vs_t *vs,
-    igraph_t *graph, igraph_bool_t *return_single, igraph_integer_t *single_vid) {
-  igraph_integer_t vid;
+    igraph_t *graph, igraph_bool_t *return_single, igraph_int_t *single_vid) {
+  igraph_int_t vid;
   igraph_vector_int_t vector;
 
   if (o == 0 || o == Py_None) {
@@ -3532,9 +3666,9 @@ int igraphmodule_PyObject_to_vs_t(PyObject *o, igraph_vs_t *vs,
  *               if we don't want to handle tuples.
  * \return 0 if everything was OK, 1 otherwise
  */
-int igraphmodule_PyObject_to_eid(PyObject *o, igraph_integer_t *eid, igraph_t *graph) {
+int igraphmodule_PyObject_to_eid(PyObject *o, igraph_int_t *eid, igraph_t *graph) {
   int retval;
-  igraph_integer_t vid1, vid2;
+  igraph_int_t vid1, vid2;
 
   if (!o) {
     PyErr_SetString(PyExc_TypeError,
@@ -3636,7 +3770,7 @@ int igraphmodule_PyObject_to_eid(PyObject *o, igraph_integer_t *eid, igraph_t *g
  */
 int igraphmodule_PyObject_to_es_t(PyObject *o, igraph_es_t *es, igraph_t *graph,
                   igraph_bool_t *return_single) {
-  igraph_integer_t eid;
+  igraph_int_t eid;
   igraph_vector_int_t vector;
 
   if (o == 0 || o == Py_None) {
@@ -4021,6 +4155,21 @@ int igraphmodule_PyObject_to_pagerank_algo_t(PyObject *o, igraph_pagerank_algo_t
         {0,0}
     };
   TRANSLATE_ENUM_WITH(pagerank_algo_tt);
+}
+
+/**
+ * \ingroup python_interface_conversion
+ * \brief Converts a Python object to an igraph \c igraph_metric_t
+ */
+int igraphmodule_PyObject_to_metric_t(PyObject *o, igraph_metric_t *result) {
+  static igraphmodule_enum_translation_table_entry_t metric_tt[] = {
+        {"euclidean", IGRAPH_METRIC_EUCLIDEAN},
+        {"l2", IGRAPH_METRIC_L2}, /* alias to the previous */
+        {"manhattan", IGRAPH_METRIC_MANHATTAN},
+        {"l1", IGRAPH_METRIC_L1}, /* alias to the previous */
+        {0,0}
+    };
+  TRANSLATE_ENUM_WITH(metric_tt);
 }
 
 /**

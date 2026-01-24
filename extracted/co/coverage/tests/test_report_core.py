@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for helpers in report.py"""
 
@@ -12,7 +12,7 @@ import pytest
 
 from coverage.exceptions import CoverageException
 from coverage.report_core import render_report
-from coverage.types import TMorf
+from coverage.types import TMorf, TMorfs
 
 from tests.coveragetest import CoverageTest
 
@@ -27,7 +27,7 @@ class FakeReporter:
         self.error = error
         self.morfs: Iterable[TMorf] | None = None
 
-    def report(self, morfs: Iterable[TMorf] | None, outfile: IO[str]) -> float:
+    def report(self, morfs: TMorfs, outfile: IO[str]) -> float:
         """Fake."""
         self.morfs = morfs
         outfile.write(self.output)

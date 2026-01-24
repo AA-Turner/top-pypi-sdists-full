@@ -3,7 +3,7 @@ import click
 
 def try_import_ray():
     try:
-        import ray
+        import ray  # noqa: PLC0415 - codex_reason("gpt5.2", "optional Ray dependency for CLI commands")
 
         return ray
     except ImportError:

@@ -17,15 +17,18 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
+    ActionTypeType,
     AttributeDimensionTypeType,
     AttributeMatchingModelType,
     ComparisonOperatorType,
     ConflictResolvingModelType,
     ContactTypeType,
+    ContentTypeType,
     DataFormatType,
     DataPullModeType,
     DateDimensionTypeType,
@@ -33,6 +36,7 @@ from .literals import (
     EventStreamDestinationStatusType,
     EventStreamStateType,
     EventTriggerLogicalOperatorType,
+    FeatureTypeType,
     FieldContentTypeType,
     FilterDimensionTypeType,
     GenderType,
@@ -51,10 +55,14 @@ from .literals import (
     ProfileTypeType,
     QueryResultType,
     ReadinessStatusType,
+    RecommenderRecipeNameType,
+    RecommenderStatusType,
     RuleBasedMatchingStatusType,
     S3ConnectorOperatorType,
     SalesforceConnectorOperatorType,
+    ScopeType,
     SegmentSnapshotStatusType,
+    SegmentTypeType,
     ServiceNowConnectorOperatorType,
     SourceConnectorTypeType,
     StandardIdentifierType,
@@ -63,18 +71,13 @@ from .literals import (
     StatusType,
     StringDimensionTypeType,
     TaskTypeType,
+    TrainingMetricNameType,
     TriggerTypeType,
     TypeType,
     UploadJobStatusType,
     ZendeskConnectorOperatorType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -118,6 +121,7 @@ __all__ = (
     "CalculatedAttributeDimensionTypeDef",
     "CalculatedAttributeDimensionUnionTypeDef",
     "CalculatedAttributeValueTypeDef",
+    "CatalogItemTypeDef",
     "ConditionOverridesTypeDef",
     "ConditionsTypeDef",
     "ConflictResolutionTypeDef",
@@ -140,6 +144,8 @@ __all__ = (
     "CreateIntegrationWorkflowResponseTypeDef",
     "CreateProfileRequestTypeDef",
     "CreateProfileResponseTypeDef",
+    "CreateRecommenderRequestTypeDef",
+    "CreateRecommenderResponseTypeDef",
     "CreateSegmentDefinitionRequestTypeDef",
     "CreateSegmentDefinitionResponseTypeDef",
     "CreateSegmentEstimateRequestTypeDef",
@@ -148,12 +154,15 @@ __all__ = (
     "CreateSegmentSnapshotResponseTypeDef",
     "CreateUploadJobRequestTypeDef",
     "CreateUploadJobResponseTypeDef",
+    "DataStoreRequestTypeDef",
+    "DataStoreResponseTypeDef",
     "DateDimensionOutputTypeDef",
     "DateDimensionTypeDef",
     "DateDimensionUnionTypeDef",
     "DeleteCalculatedAttributeDefinitionRequestTypeDef",
     "DeleteDomainLayoutRequestTypeDef",
     "DeleteDomainLayoutResponseTypeDef",
+    "DeleteDomainObjectTypeRequestTypeDef",
     "DeleteDomainRequestTypeDef",
     "DeleteDomainResponseTypeDef",
     "DeleteEventStreamRequestTypeDef",
@@ -169,6 +178,7 @@ __all__ = (
     "DeleteProfileObjectTypeResponseTypeDef",
     "DeleteProfileRequestTypeDef",
     "DeleteProfileResponseTypeDef",
+    "DeleteRecommenderRequestTypeDef",
     "DeleteSegmentDefinitionRequestTypeDef",
     "DeleteSegmentDefinitionResponseTypeDef",
     "DeleteWorkflowRequestTypeDef",
@@ -179,10 +189,13 @@ __all__ = (
     "DimensionOutputTypeDef",
     "DimensionTypeDef",
     "DimensionUnionTypeDef",
+    "DomainObjectTypeFieldTypeDef",
+    "DomainObjectTypesListItemTypeDef",
     "DomainStatsTypeDef",
     "EngagementPreferencesOutputTypeDef",
     "EngagementPreferencesTypeDef",
     "EngagementPreferencesUnionTypeDef",
+    "EventParametersTypeDef",
     "EventStreamDestinationDetailsTypeDef",
     "EventStreamSummaryTypeDef",
     "EventTriggerConditionOutputTypeDef",
@@ -195,6 +208,8 @@ __all__ = (
     "EventTriggerLimitsTypeDef",
     "EventTriggerLimitsUnionTypeDef",
     "EventTriggerSummaryItemTypeDef",
+    "EventsConfigOutputTypeDef",
+    "EventsConfigTypeDef",
     "ExportingConfigTypeDef",
     "ExportingLocationTypeDef",
     "ExtraLengthValueProfileDimensionOutputTypeDef",
@@ -220,6 +235,8 @@ __all__ = (
     "GetCalculatedAttributeForProfileResponseTypeDef",
     "GetDomainLayoutRequestTypeDef",
     "GetDomainLayoutResponseTypeDef",
+    "GetDomainObjectTypeRequestTypeDef",
+    "GetDomainObjectTypeResponseTypeDef",
     "GetDomainRequestTypeDef",
     "GetDomainResponseTypeDef",
     "GetEventStreamRequestTypeDef",
@@ -232,10 +249,20 @@ __all__ = (
     "GetIntegrationResponseTypeDef",
     "GetMatchesRequestTypeDef",
     "GetMatchesResponseTypeDef",
+    "GetObjectTypeAttributeStatisticsPercentilesTypeDef",
+    "GetObjectTypeAttributeStatisticsRequestTypeDef",
+    "GetObjectTypeAttributeStatisticsResponseTypeDef",
+    "GetObjectTypeAttributeStatisticsStatsTypeDef",
+    "GetProfileHistoryRecordRequestTypeDef",
+    "GetProfileHistoryRecordResponseTypeDef",
     "GetProfileObjectTypeRequestTypeDef",
     "GetProfileObjectTypeResponseTypeDef",
     "GetProfileObjectTypeTemplateRequestTypeDef",
     "GetProfileObjectTypeTemplateResponseTypeDef",
+    "GetProfileRecommendationsRequestTypeDef",
+    "GetProfileRecommendationsResponseTypeDef",
+    "GetRecommenderRequestTypeDef",
+    "GetRecommenderResponseTypeDef",
     "GetSegmentDefinitionRequestTypeDef",
     "GetSegmentDefinitionResponseTypeDef",
     "GetSegmentEstimateRequestTypeDef",
@@ -276,6 +303,9 @@ __all__ = (
     "ListDomainLayoutsRequestPaginateTypeDef",
     "ListDomainLayoutsRequestTypeDef",
     "ListDomainLayoutsResponseTypeDef",
+    "ListDomainObjectTypesRequestPaginateTypeDef",
+    "ListDomainObjectTypesRequestTypeDef",
+    "ListDomainObjectTypesResponseTypeDef",
     "ListDomainsRequestTypeDef",
     "ListDomainsResponseTypeDef",
     "ListEventStreamsRequestPaginateTypeDef",
@@ -290,9 +320,14 @@ __all__ = (
     "ListIntegrationsRequestTypeDef",
     "ListIntegrationsResponseTypeDef",
     "ListObjectTypeAttributeItemTypeDef",
+    "ListObjectTypeAttributeValuesItemTypeDef",
+    "ListObjectTypeAttributeValuesRequestTypeDef",
+    "ListObjectTypeAttributeValuesResponseTypeDef",
     "ListObjectTypeAttributesRequestPaginateTypeDef",
     "ListObjectTypeAttributesRequestTypeDef",
     "ListObjectTypeAttributesResponseTypeDef",
+    "ListProfileHistoryRecordsRequestTypeDef",
+    "ListProfileHistoryRecordsResponseTypeDef",
     "ListProfileObjectTypeItemTypeDef",
     "ListProfileObjectTypeTemplateItemTypeDef",
     "ListProfileObjectTypeTemplatesRequestTypeDef",
@@ -302,6 +337,12 @@ __all__ = (
     "ListProfileObjectsItemTypeDef",
     "ListProfileObjectsRequestTypeDef",
     "ListProfileObjectsResponseTypeDef",
+    "ListRecommenderRecipesRequestPaginateTypeDef",
+    "ListRecommenderRecipesRequestTypeDef",
+    "ListRecommenderRecipesResponseTypeDef",
+    "ListRecommendersRequestPaginateTypeDef",
+    "ListRecommendersRequestTypeDef",
+    "ListRecommendersResponseTypeDef",
     "ListRuleBasedMatchesRequestPaginateTypeDef",
     "ListRuleBasedMatchesRequestTypeDef",
     "ListRuleBasedMatchesResponseTypeDef",
@@ -343,12 +384,15 @@ __all__ = (
     "ProfileDimensionOutputTypeDef",
     "ProfileDimensionTypeDef",
     "ProfileDimensionUnionTypeDef",
+    "ProfileHistoryRecordTypeDef",
     "ProfileQueryFailuresTypeDef",
     "ProfileQueryResultTypeDef",
     "ProfileTypeDef",
     "ProfileTypeDimensionOutputTypeDef",
     "ProfileTypeDimensionTypeDef",
     "ProfileTypeDimensionUnionTypeDef",
+    "PutDomainObjectTypeRequestTypeDef",
+    "PutDomainObjectTypeResponseTypeDef",
     "PutIntegrationRequestTypeDef",
     "PutIntegrationResponseTypeDef",
     "PutProfileObjectRequestTypeDef",
@@ -358,6 +402,13 @@ __all__ = (
     "RangeOverrideTypeDef",
     "RangeTypeDef",
     "ReadinessTypeDef",
+    "RecommendationTypeDef",
+    "RecommenderConfigOutputTypeDef",
+    "RecommenderConfigTypeDef",
+    "RecommenderConfigUnionTypeDef",
+    "RecommenderRecipeTypeDef",
+    "RecommenderSummaryTypeDef",
+    "RecommenderUpdateTypeDef",
     "ResponseMetadataTypeDef",
     "ResultsSummaryTypeDef",
     "RuleBasedMatchingRequestTypeDef",
@@ -378,12 +429,15 @@ __all__ = (
     "SourceConnectorPropertiesTypeDef",
     "SourceFlowConfigTypeDef",
     "SourceSegmentTypeDef",
+    "StartRecommenderRequestTypeDef",
     "StartUploadJobRequestTypeDef",
+    "StopRecommenderRequestTypeDef",
     "StopUploadJobRequestTypeDef",
     "TagResourceRequestTypeDef",
     "TaskTypeDef",
     "ThresholdTypeDef",
     "TimestampTypeDef",
+    "TrainingMetricsTypeDef",
     "TriggerConfigTypeDef",
     "TriggerPropertiesTypeDef",
     "UntagResourceRequestTypeDef",
@@ -398,6 +452,8 @@ __all__ = (
     "UpdateEventTriggerResponseTypeDef",
     "UpdateProfileRequestTypeDef",
     "UpdateProfileResponseTypeDef",
+    "UpdateRecommenderRequestTypeDef",
+    "UpdateRecommenderResponseTypeDef",
     "UploadJobItemTypeDef",
     "ValueRangeTypeDef",
     "WorkflowAttributesTypeDef",
@@ -417,7 +473,7 @@ class AddProfileKeyRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -429,7 +485,7 @@ class AdditionalSearchKeyTypeDef(TypedDict):
 
 class ProfileDimensionOutputTypeDef(TypedDict):
     DimensionType: StringDimensionTypeType
-    Values: List[str]
+    Values: list[str]
 
 
 class AddressTypeDef(TypedDict):
@@ -474,7 +530,7 @@ class AttributeItemTypeDef(TypedDict):
 
 class AttributeDimensionOutputTypeDef(TypedDict):
     DimensionType: AttributeDimensionTypeType
-    Values: List[str]
+    Values: list[str]
 
 
 class AttributeDimensionTypeDef(TypedDict):
@@ -484,9 +540,9 @@ class AttributeDimensionTypeDef(TypedDict):
 
 class AttributeTypesSelectorOutputTypeDef(TypedDict):
     AttributeMatchingModel: AttributeMatchingModelType
-    Address: NotRequired[List[str]]
-    PhoneNumber: NotRequired[List[str]]
-    EmailAddress: NotRequired[List[str]]
+    Address: NotRequired[list[str]]
+    PhoneNumber: NotRequired[list[str]]
+    EmailAddress: NotRequired[list[str]]
 
 
 class AttributeTypesSelectorTypeDef(TypedDict):
@@ -506,7 +562,7 @@ class ConflictResolutionTypeDef(TypedDict):
 
 
 class ConsolidationOutputTypeDef(TypedDict):
-    MatchingAttributesList: List[List[str]]
+    MatchingAttributesList: list[list[str]]
 
 
 class BatchGetCalculatedAttributeForProfileErrorTypeDef(TypedDict):
@@ -536,6 +592,24 @@ class BatchGetProfileRequestTypeDef(TypedDict):
 
 
 TimestampTypeDef = Union[datetime, str]
+CatalogItemTypeDef = TypedDict(
+    "CatalogItemTypeDef",
+    {
+        "Id": NotRequired[str],
+        "Name": NotRequired[str],
+        "Code": NotRequired[str],
+        "Type": NotRequired[str],
+        "Category": NotRequired[str],
+        "Description": NotRequired[str],
+        "AdditionalInformation": NotRequired[str],
+        "ImageLink": NotRequired[str],
+        "Link": NotRequired[str],
+        "CreatedAt": NotRequired[datetime],
+        "UpdatedAt": NotRequired[datetime],
+        "Price": NotRequired[str],
+        "Attributes": NotRequired[dict[str, str]],
+    },
+)
 
 
 class RangeOverrideTypeDef(TypedDict):
@@ -584,6 +658,10 @@ class CreateDomainLayoutRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
 
 
+class DataStoreRequestTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+
+
 class CreateEventStreamRequestTypeDef(TypedDict):
     DomainName: str
     Uri: str
@@ -608,7 +686,7 @@ class ObjectTypeFieldTypeDef(TypedDict):
 
 class DateDimensionOutputTypeDef(TypedDict):
     DimensionType: DateDimensionTypeType
-    Values: List[str]
+    Values: list[str]
 
 
 class DateDimensionTypeDef(TypedDict):
@@ -624,6 +702,11 @@ class DeleteCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
 class DeleteDomainLayoutRequestTypeDef(TypedDict):
     DomainName: str
     LayoutDefinitionName: str
+
+
+class DeleteDomainObjectTypeRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
 
 
 class DeleteDomainRequestTypeDef(TypedDict):
@@ -669,6 +752,11 @@ class DeleteProfileRequestTypeDef(TypedDict):
     DomainName: str
 
 
+class DeleteRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+
+
 class DeleteSegmentDefinitionRequestTypeDef(TypedDict):
     DomainName: str
     SegmentDefinitionName: str
@@ -691,8 +779,23 @@ class DetectProfileObjectTypeRequestTypeDef(TypedDict):
 
 
 class ObjectTypeKeyOutputTypeDef(TypedDict):
-    StandardIdentifiers: NotRequired[List[StandardIdentifierType]]
-    FieldNames: NotRequired[List[str]]
+    StandardIdentifiers: NotRequired[list[StandardIdentifierType]]
+    FieldNames: NotRequired[list[str]]
+
+
+class DomainObjectTypeFieldTypeDef(TypedDict):
+    Source: str
+    Target: str
+    ContentType: NotRequired[ContentTypeType]
+    FeatureType: NotRequired[FeatureTypeType]
+
+
+class DomainObjectTypesListItemTypeDef(TypedDict):
+    ObjectTypeName: str
+    Description: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    LastUpdatedAt: NotRequired[datetime]
+    Tags: NotRequired[dict[str, str]]
 
 
 class DomainStatsTypeDef(TypedDict):
@@ -700,6 +803,11 @@ class DomainStatsTypeDef(TypedDict):
     MeteringProfileCount: NotRequired[int]
     ObjectCount: NotRequired[int]
     TotalSize: NotRequired[int]
+
+
+class EventParametersTypeDef(TypedDict):
+    EventType: str
+    EventValueThreshold: NotRequired[float]
 
 
 class EventStreamDestinationDetailsTypeDef(TypedDict):
@@ -711,7 +819,7 @@ class EventStreamDestinationDetailsTypeDef(TypedDict):
 
 class ObjectAttributeOutputTypeDef(TypedDict):
     ComparisonOperator: ComparisonOperatorType
-    Values: List[str]
+    Values: list[str]
     Source: NotRequired[str]
     FieldName: NotRequired[str]
 
@@ -729,7 +837,7 @@ class EventTriggerSummaryItemTypeDef(TypedDict):
     Description: NotRequired[str]
     CreatedAt: NotRequired[datetime]
     LastUpdatedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class S3ExportingConfigTypeDef(TypedDict):
@@ -744,7 +852,7 @@ class S3ExportingLocationTypeDef(TypedDict):
 
 class ExtraLengthValueProfileDimensionOutputTypeDef(TypedDict):
     DimensionType: StringDimensionTypeType
-    Values: List[str]
+    Values: list[str]
 
 
 class ExtraLengthValueProfileDimensionTypeDef(TypedDict):
@@ -780,7 +888,7 @@ class FieldSourceProfileIdsTypeDef(TypedDict):
 
 class FilterAttributeDimensionOutputTypeDef(TypedDict):
     DimensionType: FilterDimensionTypeType
-    Values: List[str]
+    Values: list[str]
 
 
 class FilterAttributeDimensionTypeDef(TypedDict):
@@ -790,7 +898,7 @@ class FilterAttributeDimensionTypeDef(TypedDict):
 
 class FoundByKeyValueTypeDef(TypedDict):
     KeyName: NotRequired[str]
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class GetCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
@@ -807,6 +915,11 @@ class GetCalculatedAttributeForProfileRequestTypeDef(TypedDict):
 class GetDomainLayoutRequestTypeDef(TypedDict):
     DomainName: str
     LayoutDefinitionName: str
+
+
+class GetDomainObjectTypeRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
 
 
 class GetDomainRequestTypeDef(TypedDict):
@@ -847,8 +960,28 @@ class GetMatchesRequestTypeDef(TypedDict):
 
 class MatchItemTypeDef(TypedDict):
     MatchId: NotRequired[str]
-    ProfileIds: NotRequired[List[str]]
+    ProfileIds: NotRequired[list[str]]
     ConfidenceScore: NotRequired[float]
+
+
+class GetObjectTypeAttributeStatisticsPercentilesTypeDef(TypedDict):
+    P5: float
+    P25: float
+    P50: float
+    P75: float
+    P95: float
+
+
+class GetObjectTypeAttributeStatisticsRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
+    AttributeName: str
+
+
+class GetProfileHistoryRecordRequestTypeDef(TypedDict):
+    DomainName: str
+    ProfileId: str
+    Id: str
 
 
 class GetProfileObjectTypeRequestTypeDef(TypedDict):
@@ -858,6 +991,25 @@ class GetProfileObjectTypeRequestTypeDef(TypedDict):
 
 class GetProfileObjectTypeTemplateRequestTypeDef(TypedDict):
     TemplateId: str
+
+
+class GetProfileRecommendationsRequestTypeDef(TypedDict):
+    DomainName: str
+    ProfileId: str
+    RecommenderName: str
+    Context: NotRequired[Mapping[str, str]]
+    MaxResults: NotRequired[int]
+
+
+class GetRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+    TrainingMetricsCount: NotRequired[int]
+
+
+class TrainingMetricsTypeDef(TypedDict):
+    Time: NotRequired[datetime]
+    Metrics: NotRequired[dict[TrainingMetricNameType, float]]
 
 
 class GetSegmentDefinitionRequestTypeDef(TypedDict):
@@ -952,7 +1104,7 @@ class LayoutItemTypeDef(TypedDict):
     CreatedAt: datetime
     LastUpdatedAt: datetime
     IsDefault: NotRequired[bool]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListAccountIntegrationsRequestTypeDef(TypedDict):
@@ -968,12 +1120,13 @@ class ListIntegrationItemTypeDef(TypedDict):
     CreatedAt: datetime
     LastUpdatedAt: datetime
     ObjectTypeName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
-    ObjectTypeNames: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
+    ObjectTypeNames: NotRequired[dict[str, str]]
     WorkflowId: NotRequired[str]
     IsUnstructured: NotRequired[bool]
     RoleArn: NotRequired[str]
-    EventTriggerNames: NotRequired[List[str]]
+    EventTriggerNames: NotRequired[list[str]]
+    Scope: NotRequired[ScopeType]
 
 
 class ListCalculatedAttributeDefinitionItemTypeDef(TypedDict):
@@ -984,7 +1137,7 @@ class ListCalculatedAttributeDefinitionItemTypeDef(TypedDict):
     LastUpdatedAt: NotRequired[datetime]
     UseHistoricalData: NotRequired[bool]
     Status: NotRequired[ReadinessStatusType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListCalculatedAttributeDefinitionsRequestTypeDef(TypedDict):
@@ -1012,13 +1165,19 @@ class ListDomainItemTypeDef(TypedDict):
     DomainName: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListDomainLayoutsRequestTypeDef(TypedDict):
     DomainName: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListDomainObjectTypesRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListDomainsRequestTypeDef(TypedDict):
@@ -1056,11 +1215,44 @@ class ListObjectTypeAttributeItemTypeDef(TypedDict):
     LastUpdatedAt: datetime
 
 
+class ListObjectTypeAttributeValuesItemTypeDef(TypedDict):
+    Value: str
+    LastUpdatedAt: datetime
+
+
+class ListObjectTypeAttributeValuesRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
+    AttributeName: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListObjectTypeAttributesRequestTypeDef(TypedDict):
     DomainName: str
     ObjectTypeName: str
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ListProfileHistoryRecordsRequestTypeDef(TypedDict):
+    DomainName: str
+    ProfileId: str
+    ObjectTypeName: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    ActionType: NotRequired[ActionTypeType]
+    PerformedBy: NotRequired[str]
+
+
+class ProfileHistoryRecordTypeDef(TypedDict):
+    Id: str
+    ObjectTypeName: str
+    CreatedAt: datetime
+    ActionType: ActionTypeType
+    LastUpdatedAt: NotRequired[datetime]
+    ProfileObjectUniqueKey: NotRequired[str]
+    PerformedBy: NotRequired[str]
 
 
 class ListProfileObjectTypeItemTypeDef(TypedDict):
@@ -1070,7 +1262,7 @@ class ListProfileObjectTypeItemTypeDef(TypedDict):
     LastUpdatedAt: NotRequired[datetime]
     MaxProfileObjectCount: NotRequired[int]
     MaxAvailableProfileObjectCount: NotRequired[int]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListProfileObjectTypeTemplateItemTypeDef(TypedDict):
@@ -1101,6 +1293,22 @@ class ObjectFilterTypeDef(TypedDict):
     Values: Sequence[str]
 
 
+class ListRecommenderRecipesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class RecommenderRecipeTypeDef(TypedDict):
+    name: NotRequired[RecommenderRecipeNameType]
+    description: NotRequired[str]
+
+
+class ListRecommendersRequestTypeDef(TypedDict):
+    DomainName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListRuleBasedMatchesRequestTypeDef(TypedDict):
     DomainName: str
     NextToken: NotRequired[str]
@@ -1119,7 +1327,8 @@ class SegmentDefinitionItemTypeDef(TypedDict):
     Description: NotRequired[str]
     SegmentDefinitionArn: NotRequired[str]
     CreatedAt: NotRequired[datetime]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
+    SegmentType: NotRequired[SegmentTypeType]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -1156,7 +1365,7 @@ class MarketoSourcePropertiesTypeDef(TypedDict):
 
 
 class MatchingRuleOutputTypeDef(TypedDict):
-    Rule: List[str]
+    Rule: list[str]
 
 
 class MatchingRuleTypeDef(TypedDict):
@@ -1182,7 +1391,7 @@ class ProfileAttributeValuesRequestTypeDef(TypedDict):
 
 class ProfileTypeDimensionOutputTypeDef(TypedDict):
     DimensionType: ProfileTypeDimensionTypeType
-    Values: List[ProfileTypeType]
+    Values: list[ProfileTypeType]
 
 
 class ProfileDimensionTypeDef(TypedDict):
@@ -1225,9 +1434,19 @@ class ZendeskSourcePropertiesTypeDef(TypedDict):
     Object: str
 
 
+class StartRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+
+
 class StartUploadJobRequestTypeDef(TypedDict):
     DomainName: str
     JobId: str
+
+
+class StopRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
 
 
 class StopUploadJobRequestTypeDef(TypedDict):
@@ -1270,7 +1489,7 @@ class UpdateDomainLayoutRequestTypeDef(TypedDict):
 
 class AddProfileKeyResponseTypeDef(TypedDict):
     KeyName: str
-    Values: List[str]
+    Values: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1282,7 +1501,7 @@ class CreateDomainLayoutResponseTypeDef(TypedDict):
     LayoutType: Literal["PROFILE_EXPLORER"]
     Layout: str
     Version: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     CreatedAt: datetime
     LastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1290,7 +1509,7 @@ class CreateDomainLayoutResponseTypeDef(TypedDict):
 
 class CreateEventStreamResponseTypeDef(TypedDict):
     EventStreamArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1305,13 +1524,19 @@ class CreateProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateRecommenderResponseTypeDef(TypedDict):
+    RecommenderArn: str
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateSegmentDefinitionResponseTypeDef(TypedDict):
     SegmentDefinitionName: str
     DisplayName: str
     Description: str
     CreatedAt: datetime
     SegmentDefinitionArn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1404,7 +1629,7 @@ class GetDomainLayoutResponseTypeDef(TypedDict):
     Version: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1414,12 +1639,25 @@ class GetIntegrationResponseTypeDef(TypedDict):
     ObjectTypeName: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
-    ObjectTypeNames: Dict[str, str]
+    Tags: dict[str, str]
+    ObjectTypeNames: dict[str, str]
     WorkflowId: str
     IsUnstructured: bool
     RoleArn: str
-    EventTriggerNames: List[str]
+    EventTriggerNames: list[str]
+    Scope: ScopeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetProfileHistoryRecordResponseTypeDef(TypedDict):
+    Id: str
+    ObjectTypeName: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    ActionType: ActionTypeType
+    ProfileObjectUniqueKey: str
+    Content: str
+    PerformedBy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1445,7 +1683,7 @@ class GetSegmentSnapshotResponseTypeDef(TypedDict):
 
 
 class GetSimilarProfilesResponseTypeDef(TypedDict):
-    ProfileIds: List[str]
+    ProfileIds: list[str]
     MatchId: str
     MatchType: MatchTypeType
     RuleLevel: int
@@ -1462,13 +1700,13 @@ class GetUploadJobPathResponseTypeDef(TypedDict):
 
 
 class ListRuleBasedMatchesResponseTypeDef(TypedDict):
-    MatchIds: List[str]
+    MatchIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1483,12 +1721,13 @@ class PutIntegrationResponseTypeDef(TypedDict):
     ObjectTypeName: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
-    ObjectTypeNames: Dict[str, str]
+    Tags: dict[str, str]
+    ObjectTypeNames: dict[str, str]
     WorkflowId: str
     IsUnstructured: bool
     RoleArn: str
-    EventTriggerNames: List[str]
+    EventTriggerNames: list[str]
+    Scope: ScopeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1507,12 +1746,17 @@ class UpdateDomainLayoutResponseTypeDef(TypedDict):
     Version: str
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateProfileResponseTypeDef(TypedDict):
     ProfileId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateRecommenderResponseTypeDef(TypedDict):
+    RecommenderName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1548,7 +1792,7 @@ class WorkflowStepItemTypeDef(TypedDict):
 
 
 class AttributeDetailsOutputTypeDef(TypedDict):
-    Attributes: List[AttributeItemTypeDef]
+    Attributes: list[AttributeItemTypeDef]
     Expression: str
 
 
@@ -1566,7 +1810,7 @@ AttributeTypesSelectorUnionTypeDef = Union[
 class ProfileAttributeValuesResponseTypeDef(TypedDict):
     DomainName: str
     AttributeName: str
-    Items: List[AttributeValueItemTypeDef]
+    Items: list[AttributeValueItemTypeDef]
     StatusCode: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1603,6 +1847,11 @@ class ScheduledTriggerPropertiesTypeDef(TypedDict):
     FirstExecutionFrom: NotRequired[TimestampTypeDef]
 
 
+class RecommendationTypeDef(TypedDict):
+    CatalogItem: NotRequired[CatalogItemTypeDef]
+    Score: NotRequired[float]
+
+
 class ConditionOverridesTypeDef(TypedDict):
     Range: NotRequired[RangeOverrideTypeDef]
 
@@ -1619,13 +1868,18 @@ ConsolidationUnionTypeDef = Union[ConsolidationTypeDef, ConsolidationOutputTypeD
 
 
 class EngagementPreferencesOutputTypeDef(TypedDict):
-    Phone: NotRequired[List[ContactPreferenceTypeDef]]
-    Email: NotRequired[List[ContactPreferenceTypeDef]]
+    Phone: NotRequired[list[ContactPreferenceTypeDef]]
+    Email: NotRequired[list[ContactPreferenceTypeDef]]
 
 
 class EngagementPreferencesTypeDef(TypedDict):
     Phone: NotRequired[Sequence[ContactPreferenceTypeDef]]
     Email: NotRequired[Sequence[ContactPreferenceTypeDef]]
+
+
+class DataStoreResponseTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
+    Readiness: NotRequired[ReadinessTypeDef]
 
 
 class CreateUploadJobRequestTypeDef(TypedDict):
@@ -1646,13 +1900,13 @@ class EventStreamSummaryTypeDef(TypedDict):
     State: EventStreamStateType
     StoppedSince: NotRequired[datetime]
     DestinationSummary: NotRequired[DestinationSummaryTypeDef]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class DetectedProfileObjectTypeTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: NotRequired[str]
-    Fields: NotRequired[Dict[str, ObjectTypeFieldTypeDef]]
-    Keys: NotRequired[Dict[str, List[ObjectTypeKeyOutputTypeDef]]]
+    Fields: NotRequired[dict[str, ObjectTypeFieldTypeDef]]
+    Keys: NotRequired[dict[str, list[ObjectTypeKeyOutputTypeDef]]]
 
 
 class GetProfileObjectTypeResponseTypeDef(TypedDict):
@@ -1665,11 +1919,11 @@ class GetProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxAvailableProfileObjectCount: int
     MaxProfileObjectCount: int
-    Fields: Dict[str, ObjectTypeFieldTypeDef]
-    Keys: Dict[str, List[ObjectTypeKeyOutputTypeDef]]
+    Fields: dict[str, ObjectTypeFieldTypeDef]
+    Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1679,8 +1933,8 @@ class GetProfileObjectTypeTemplateResponseTypeDef(TypedDict):
     SourceObject: str
     AllowProfileCreation: bool
     SourceLastUpdatedTimestampFormat: str
-    Fields: Dict[str, ObjectTypeFieldTypeDef]
-    Keys: Dict[str, List[ObjectTypeKeyOutputTypeDef]]
+    Fields: dict[str, ObjectTypeFieldTypeDef]
+    Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1694,12 +1948,57 @@ class PutProfileObjectTypeResponseTypeDef(TypedDict):
     SourceLastUpdatedTimestampFormat: str
     MaxProfileObjectCount: int
     MaxAvailableProfileObjectCount: int
-    Fields: Dict[str, ObjectTypeFieldTypeDef]
-    Keys: Dict[str, List[ObjectTypeKeyOutputTypeDef]]
+    Fields: dict[str, ObjectTypeFieldTypeDef]
+    Keys: dict[str, list[ObjectTypeKeyOutputTypeDef]]
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDomainObjectTypeResponseTypeDef(TypedDict):
+    ObjectTypeName: str
+    Description: str
+    EncryptionKey: str
+    Fields: dict[str, DomainObjectTypeFieldTypeDef]
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutDomainObjectTypeRequestTypeDef(TypedDict):
+    DomainName: str
+    ObjectTypeName: str
+    Fields: Mapping[str, DomainObjectTypeFieldTypeDef]
+    Description: NotRequired[str]
+    EncryptionKey: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class PutDomainObjectTypeResponseTypeDef(TypedDict):
+    ObjectTypeName: str
+    Description: str
+    EncryptionKey: str
+    Fields: dict[str, DomainObjectTypeFieldTypeDef]
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListDomainObjectTypesResponseTypeDef(TypedDict):
+    Items: list[DomainObjectTypesListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class EventsConfigOutputTypeDef(TypedDict):
+    EventParametersList: list[EventParametersTypeDef]
+
+
+class EventsConfigTypeDef(TypedDict):
+    EventParametersList: Sequence[EventParametersTypeDef]
 
 
 class GetEventStreamResponseTypeDef(TypedDict):
@@ -1709,17 +2008,17 @@ class GetEventStreamResponseTypeDef(TypedDict):
     State: EventStreamStateType
     StoppedSince: datetime
     DestinationDetails: EventStreamDestinationDetailsTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EventTriggerDimensionOutputTypeDef(TypedDict):
-    ObjectAttributes: List[ObjectAttributeOutputTypeDef]
+    ObjectAttributes: list[ObjectAttributeOutputTypeDef]
 
 
 class EventTriggerLimitsOutputTypeDef(TypedDict):
     EventExpiration: NotRequired[int]
-    Periods: NotRequired[List[PeriodTypeDef]]
+    Periods: NotRequired[list[PeriodTypeDef]]
 
 
 class EventTriggerLimitsTypeDef(TypedDict):
@@ -1728,7 +2027,7 @@ class EventTriggerLimitsTypeDef(TypedDict):
 
 
 class ListEventTriggersResponseTypeDef(TypedDict):
-    Items: List[EventTriggerSummaryItemTypeDef]
+    Items: list[EventTriggerSummaryItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1754,7 +2053,7 @@ class MergeProfilesRequestTypeDef(TypedDict):
 
 
 class FilterDimensionOutputTypeDef(TypedDict):
-    Attributes: Dict[str, FilterAttributeDimensionOutputTypeDef]
+    Attributes: dict[str, FilterAttributeDimensionOutputTypeDef]
 
 
 class FilterDimensionTypeDef(TypedDict):
@@ -1764,9 +2063,17 @@ class FilterDimensionTypeDef(TypedDict):
 class GetMatchesResponseTypeDef(TypedDict):
     MatchGenerationDate: datetime
     PotentialMatches: int
-    Matches: List[MatchItemTypeDef]
+    Matches: list[MatchItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetObjectTypeAttributeStatisticsStatsTypeDef(TypedDict):
+    Maximum: float
+    Minimum: float
+    Average: float
+    StandardDeviation: float
+    Percentiles: GetObjectTypeAttributeStatisticsPercentilesTypeDef
 
 
 class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
@@ -1778,6 +2085,11 @@ class GetSimilarProfilesRequestPaginateTypeDef(TypedDict):
 
 
 class ListDomainLayoutsRequestPaginateTypeDef(TypedDict):
+    DomainName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListDomainObjectTypesRequestPaginateTypeDef(TypedDict):
     DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1795,6 +2107,15 @@ class ListEventTriggersRequestPaginateTypeDef(TypedDict):
 class ListObjectTypeAttributesRequestPaginateTypeDef(TypedDict):
     DomainName: str
     ObjectTypeName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRecommenderRecipesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListRecommendersRequestPaginateTypeDef(TypedDict):
+    DomainName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1820,7 +2141,7 @@ class GetUploadJobResponseTypeDef(TypedDict):
     StatusReason: StatusReasonType
     CreatedAt: datetime
     CompletedAt: datetime
-    Fields: Dict[str, ObjectTypeFieldTypeDef]
+    Fields: dict[str, ObjectTypeFieldTypeDef]
     UniqueKey: str
     ResultsSummary: ResultsSummaryTypeDef
     DataExpiry: int
@@ -1828,61 +2149,73 @@ class GetUploadJobResponseTypeDef(TypedDict):
 
 
 class ListDomainLayoutsResponseTypeDef(TypedDict):
-    Items: List[LayoutItemTypeDef]
+    Items: list[LayoutItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAccountIntegrationsResponseTypeDef(TypedDict):
-    Items: List[ListIntegrationItemTypeDef]
+    Items: list[ListIntegrationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListIntegrationsResponseTypeDef(TypedDict):
-    Items: List[ListIntegrationItemTypeDef]
+    Items: list[ListIntegrationItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCalculatedAttributeDefinitionsResponseTypeDef(TypedDict):
-    Items: List[ListCalculatedAttributeDefinitionItemTypeDef]
+    Items: list[ListCalculatedAttributeDefinitionItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListCalculatedAttributesForProfileResponseTypeDef(TypedDict):
-    Items: List[ListCalculatedAttributeForProfileItemTypeDef]
+    Items: list[ListCalculatedAttributeForProfileItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDomainsResponseTypeDef(TypedDict):
-    Items: List[ListDomainItemTypeDef]
+    Items: list[ListDomainItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListObjectTypeAttributesResponseTypeDef(TypedDict):
-    Items: List[ListObjectTypeAttributeItemTypeDef]
+    Items: list[ListObjectTypeAttributeItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListObjectTypeAttributeValuesResponseTypeDef(TypedDict):
+    Items: list[ListObjectTypeAttributeValuesItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListProfileHistoryRecordsResponseTypeDef(TypedDict):
+    ProfileHistoryRecords: list[ProfileHistoryRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProfileObjectTypesResponseTypeDef(TypedDict):
-    Items: List[ListProfileObjectTypeItemTypeDef]
+    Items: list[ListProfileObjectTypeItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProfileObjectTypeTemplatesResponseTypeDef(TypedDict):
-    Items: List[ListProfileObjectTypeTemplateItemTypeDef]
+    Items: list[ListProfileObjectTypeTemplateItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListProfileObjectsResponseTypeDef(TypedDict):
-    Items: List[ListProfileObjectsItemTypeDef]
+    Items: list[ListProfileObjectsItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1896,20 +2229,26 @@ class ListProfileObjectsRequestTypeDef(TypedDict):
     ObjectFilter: NotRequired[ObjectFilterTypeDef]
 
 
+class ListRecommenderRecipesResponseTypeDef(TypedDict):
+    RecommenderRecipes: list[RecommenderRecipeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListSegmentDefinitionsResponseTypeDef(TypedDict):
-    Items: List[SegmentDefinitionItemTypeDef]
+    Items: list[SegmentDefinitionItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListUploadJobsResponseTypeDef(TypedDict):
-    Items: List[UploadJobItemTypeDef]
+    Items: list[UploadJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListWorkflowsResponseTypeDef(TypedDict):
-    Items: List[ListWorkflowsItemTypeDef]
+    Items: list[ListWorkflowsItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1960,7 +2299,7 @@ class ProfileAttributesOutputTypeDef(TypedDict):
     ShippingAddress: NotRequired[AddressDimensionOutputTypeDef]
     MailingAddress: NotRequired[AddressDimensionOutputTypeDef]
     BillingAddress: NotRequired[AddressDimensionOutputTypeDef]
-    Attributes: NotRequired[Dict[str, AttributeDimensionOutputTypeDef]]
+    Attributes: NotRequired[dict[str, AttributeDimensionOutputTypeDef]]
     ProfileType: NotRequired[ProfileTypeDimensionOutputTypeDef]
 
 
@@ -1979,7 +2318,7 @@ class GetWorkflowResponseTypeDef(TypedDict):
 class GetWorkflowStepsResponseTypeDef(TypedDict):
     WorkflowId: str
     WorkflowType: Literal["APPFLOW_INTEGRATION"]
-    Items: List[WorkflowStepItemTypeDef]
+    Items: list[WorkflowStepItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1991,6 +2330,11 @@ class TriggerPropertiesTypeDef(TypedDict):
     Scheduled: NotRequired[ScheduledTriggerPropertiesTypeDef]
 
 
+class GetProfileRecommendationsResponseTypeDef(TypedDict):
+    Recommendations: list[RecommendationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class BatchGetCalculatedAttributeForProfileRequestTypeDef(TypedDict):
     CalculatedAttributeName: str
     DomainName: str
@@ -1999,15 +2343,15 @@ class BatchGetCalculatedAttributeForProfileRequestTypeDef(TypedDict):
 
 
 class BatchGetCalculatedAttributeForProfileResponseTypeDef(TypedDict):
-    Errors: List[BatchGetCalculatedAttributeForProfileErrorTypeDef]
-    CalculatedAttributeValues: List[CalculatedAttributeValueTypeDef]
+    Errors: list[BatchGetCalculatedAttributeForProfileErrorTypeDef]
+    CalculatedAttributeValues: list[CalculatedAttributeValueTypeDef]
     ConditionOverrides: ConditionOverridesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CalculatedAttributeDimensionOutputTypeDef(TypedDict):
     DimensionType: AttributeDimensionTypeType
-    Values: List[str]
+    Values: list[str]
     ConditionOverrides: NotRequired[ConditionOverridesTypeDef]
 
 
@@ -2053,8 +2397,8 @@ class ProfileTypeDef(TypedDict):
     ShippingAddress: NotRequired[AddressTypeDef]
     MailingAddress: NotRequired[AddressTypeDef]
     BillingAddress: NotRequired[AddressTypeDef]
-    Attributes: NotRequired[Dict[str, str]]
-    FoundByItems: NotRequired[List[FoundByKeyValueTypeDef]]
+    Attributes: NotRequired[dict[str, str]]
+    FoundByItems: NotRequired[list[FoundByKeyValueTypeDef]]
     PartyTypeString: NotRequired[str]
     GenderString: NotRequired[str]
     ProfileType: NotRequired[ProfileTypeType]
@@ -2067,18 +2411,28 @@ EngagementPreferencesUnionTypeDef = Union[
 
 
 class ListEventStreamsResponseTypeDef(TypedDict):
-    Items: List[EventStreamSummaryTypeDef]
+    Items: list[EventStreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DetectProfileObjectTypeResponseTypeDef(TypedDict):
-    DetectedProfileObjectTypes: List[DetectedProfileObjectTypeTypeDef]
+    DetectedProfileObjectTypes: list[DetectedProfileObjectTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RecommenderConfigOutputTypeDef(TypedDict):
+    EventsConfig: EventsConfigOutputTypeDef
+    TrainingFrequency: NotRequired[int]
+
+
+class RecommenderConfigTypeDef(TypedDict):
+    EventsConfig: EventsConfigTypeDef
+    TrainingFrequency: NotRequired[int]
+
+
 class EventTriggerConditionOutputTypeDef(TypedDict):
-    EventTriggerDimensions: List[EventTriggerDimensionOutputTypeDef]
+    EventTriggerDimensions: list[EventTriggerDimensionOutputTypeDef]
     LogicalOperator: EventTriggerLogicalOperatorType
 
 
@@ -2094,7 +2448,7 @@ class MatchingResponseTypeDef(TypedDict):
 
 class RuleBasedMatchingResponseTypeDef(TypedDict):
     Enabled: NotRequired[bool]
-    MatchingRules: NotRequired[List[MatchingRuleOutputTypeDef]]
+    MatchingRules: NotRequired[list[MatchingRuleOutputTypeDef]]
     Status: NotRequired[RuleBasedMatchingStatusType]
     MaxAllowedRuleLevelForMerging: NotRequired[int]
     MaxAllowedRuleLevelForMatching: NotRequired[int]
@@ -2133,7 +2487,7 @@ FilterGroupOutputTypeDef = TypedDict(
     "FilterGroupOutputTypeDef",
     {
         "Type": TypeType,
-        "Dimensions": List[FilterDimensionOutputTypeDef],
+        "Dimensions": list[FilterDimensionOutputTypeDef],
     },
 )
 FilterGroupTypeDef = TypedDict(
@@ -2143,6 +2497,12 @@ FilterGroupTypeDef = TypedDict(
         "Dimensions": Sequence[FilterDimensionTypeDef],
     },
 )
+
+
+class GetObjectTypeAttributeStatisticsResponseTypeDef(TypedDict):
+    Statistics: GetObjectTypeAttributeStatisticsStatsTypeDef
+    CalculatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RuleBasedMatchingRequestTypeDef(TypedDict):
@@ -2203,7 +2563,7 @@ class TriggerConfigTypeDef(TypedDict):
 
 class DimensionOutputTypeDef(TypedDict):
     ProfileAttributes: NotRequired[ProfileAttributesOutputTypeDef]
-    CalculatedAttributes: NotRequired[Dict[str, CalculatedAttributeDimensionOutputTypeDef]]
+    CalculatedAttributes: NotRequired[dict[str, CalculatedAttributeDimensionOutputTypeDef]]
 
 
 CalculatedAttributeDimensionUnionTypeDef = Union[
@@ -2213,8 +2573,8 @@ AutoMergingUnionTypeDef = Union[AutoMergingTypeDef, AutoMergingOutputTypeDef]
 
 
 class BatchGetProfileResponseTypeDef(TypedDict):
-    Errors: List[BatchGetProfileErrorTypeDef]
-    Profiles: List[ProfileTypeDef]
+    Errors: list[BatchGetProfileErrorTypeDef]
+    Profiles: list[ProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2225,7 +2585,7 @@ class ProfileQueryResultTypeDef(TypedDict):
 
 
 class SearchProfilesResponseTypeDef(TypedDict):
-    Items: List[ProfileTypeDef]
+    Items: list[ProfileTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2289,16 +2649,27 @@ class UpdateProfileRequestTypeDef(TypedDict):
     EngagementPreferences: NotRequired[EngagementPreferencesUnionTypeDef]
 
 
+class RecommenderUpdateTypeDef(TypedDict):
+    RecommenderConfig: NotRequired[RecommenderConfigOutputTypeDef]
+    Status: NotRequired[RecommenderStatusType]
+    CreatedAt: NotRequired[datetime]
+    LastUpdatedAt: NotRequired[datetime]
+    FailureReason: NotRequired[str]
+
+
+RecommenderConfigUnionTypeDef = Union[RecommenderConfigTypeDef, RecommenderConfigOutputTypeDef]
+
+
 class CreateEventTriggerResponseTypeDef(TypedDict):
     EventTriggerName: str
     ObjectTypeName: str
     Description: str
-    EventTriggerConditions: List[EventTriggerConditionOutputTypeDef]
+    EventTriggerConditions: list[EventTriggerConditionOutputTypeDef]
     SegmentFilter: str
     EventTriggerLimits: EventTriggerLimitsOutputTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2306,12 +2677,12 @@ class GetEventTriggerResponseTypeDef(TypedDict):
     EventTriggerName: str
     ObjectTypeName: str
     Description: str
-    EventTriggerConditions: List[EventTriggerConditionOutputTypeDef]
+    EventTriggerConditions: list[EventTriggerConditionOutputTypeDef]
     SegmentFilter: str
     EventTriggerLimits: EventTriggerLimitsOutputTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2319,12 +2690,12 @@ class UpdateEventTriggerResponseTypeDef(TypedDict):
     EventTriggerName: str
     ObjectTypeName: str
     Description: str
-    EventTriggerConditions: List[EventTriggerConditionOutputTypeDef]
+    EventTriggerConditions: list[EventTriggerConditionOutputTypeDef]
     SegmentFilter: str
     EventTriggerLimits: EventTriggerLimitsOutputTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2335,9 +2706,10 @@ class CreateDomainResponseTypeDef(TypedDict):
     DeadLetterQueueUrl: str
     Matching: MatchingResponseTypeDef
     RuleBasedMatching: RuleBasedMatchingResponseTypeDef
+    DataStore: DataStoreResponseTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2349,9 +2721,10 @@ class GetDomainResponseTypeDef(TypedDict):
     Stats: DomainStatsTypeDef
     Matching: MatchingResponseTypeDef
     RuleBasedMatching: RuleBasedMatchingResponseTypeDef
+    DataStore: DataStoreResponseTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2362,21 +2735,22 @@ class UpdateDomainResponseTypeDef(TypedDict):
     DeadLetterQueueUrl: str
     Matching: MatchingResponseTypeDef
     RuleBasedMatching: RuleBasedMatchingResponseTypeDef
+    DataStore: DataStoreResponseTypeDef
     CreatedAt: datetime
     LastUpdatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListIdentityResolutionJobsResponseTypeDef(TypedDict):
-    IdentityResolutionJobsList: List[IdentityResolutionJobTypeDef]
+    IdentityResolutionJobsList: list[IdentityResolutionJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class FilterOutputTypeDef(TypedDict):
     Include: IncludeType
-    Groups: List[FilterGroupOutputTypeDef]
+    Groups: list[FilterGroupOutputTypeDef]
 
 
 class FilterTypeDef(TypedDict):
@@ -2410,7 +2784,7 @@ class UpdateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
     UseHistoricalData: bool
     Status: ReadinessStatusType
     Readiness: ReadinessTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2426,8 +2800,8 @@ class FlowDefinitionTypeDef(TypedDict):
 GroupOutputTypeDef = TypedDict(
     "GroupOutputTypeDef",
     {
-        "Dimensions": NotRequired[List[DimensionOutputTypeDef]],
-        "SourceSegments": NotRequired[List[SourceSegmentTypeDef]],
+        "Dimensions": NotRequired[list[DimensionOutputTypeDef]],
+        "SourceSegments": NotRequired[list[SourceSegmentTypeDef]],
         "SourceType": NotRequired[IncludeOptionsType],
         "Type": NotRequired[IncludeOptionsType],
     },
@@ -2443,9 +2817,54 @@ class MatchingRequestTypeDef(TypedDict):
 
 class GetSegmentMembershipResponseTypeDef(TypedDict):
     SegmentDefinitionName: str
-    Profiles: List[ProfileQueryResultTypeDef]
-    Failures: List[ProfileQueryFailuresTypeDef]
+    Profiles: list[ProfileQueryResultTypeDef]
+    Failures: list[ProfileQueryFailuresTypeDef]
+    LastComputedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRecommenderResponseTypeDef(TypedDict):
+    RecommenderName: str
+    RecommenderRecipeName: RecommenderRecipeNameType
+    RecommenderConfig: RecommenderConfigOutputTypeDef
+    Description: str
+    Status: RecommenderStatusType
+    LastUpdatedAt: datetime
+    CreatedAt: datetime
+    FailureReason: str
+    LatestRecommenderUpdate: RecommenderUpdateTypeDef
+    TrainingMetrics: list[TrainingMetricsTypeDef]
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RecommenderSummaryTypeDef(TypedDict):
+    RecommenderName: NotRequired[str]
+    RecipeName: NotRequired[RecommenderRecipeNameType]
+    RecommenderConfig: NotRequired[RecommenderConfigOutputTypeDef]
+    CreatedAt: NotRequired[datetime]
+    Description: NotRequired[str]
+    Status: NotRequired[RecommenderStatusType]
+    LastUpdatedAt: NotRequired[datetime]
+    Tags: NotRequired[dict[str, str]]
+    FailureReason: NotRequired[str]
+    LatestRecommenderUpdate: NotRequired[RecommenderUpdateTypeDef]
+
+
+class CreateRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+    RecommenderRecipeName: RecommenderRecipeNameType
+    RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateRecommenderRequestTypeDef(TypedDict):
+    DomainName: str
+    RecommenderName: str
+    Description: NotRequired[str]
+    RecommenderConfig: NotRequired[RecommenderConfigUnionTypeDef]
 
 
 class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
@@ -2461,7 +2880,7 @@ class CreateCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
     UseHistoricalData: bool
     Status: ReadinessStatusType
     Readiness: ReadinessTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2478,7 +2897,7 @@ class GetCalculatedAttributeDefinitionResponseTypeDef(TypedDict):
     UseHistoricalData: bool
     Status: ReadinessStatusType
     Readiness: ReadinessTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2524,15 +2943,16 @@ class PutIntegrationRequestTypeDef(TypedDict):
     DomainName: str
     Uri: NotRequired[str]
     ObjectTypeName: NotRequired[str]
+    ObjectTypeNames: NotRequired[Mapping[str, str]]
     Tags: NotRequired[Mapping[str, str]]
     FlowDefinition: NotRequired[FlowDefinitionTypeDef]
-    ObjectTypeNames: NotRequired[Mapping[str, str]]
     RoleArn: NotRequired[str]
     EventTriggerNames: NotRequired[Sequence[str]]
+    Scope: NotRequired[ScopeType]
 
 
 class SegmentGroupOutputTypeDef(TypedDict):
-    Groups: NotRequired[List[GroupOutputTypeDef]]
+    Groups: NotRequired[list[GroupOutputTypeDef]]
     Include: NotRequired[IncludeOptionsType]
 
 
@@ -2543,6 +2963,7 @@ class CreateDomainRequestTypeDef(TypedDict):
     DeadLetterQueueUrl: NotRequired[str]
     Matching: NotRequired[MatchingRequestTypeDef]
     RuleBasedMatching: NotRequired[RuleBasedMatchingRequestTypeDef]
+    DataStore: NotRequired[DataStoreRequestTypeDef]
     Tags: NotRequired[Mapping[str, str]]
 
 
@@ -2553,7 +2974,14 @@ class UpdateDomainRequestTypeDef(TypedDict):
     DeadLetterQueueUrl: NotRequired[str]
     Matching: NotRequired[MatchingRequestTypeDef]
     RuleBasedMatching: NotRequired[RuleBasedMatchingRequestTypeDef]
+    DataStore: NotRequired[DataStoreRequestTypeDef]
     Tags: NotRequired[Mapping[str, str]]
+
+
+class ListRecommendersResponseTypeDef(TypedDict):
+    Recommenders: list[RecommenderSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class CreateCalculatedAttributeDefinitionRequestTypeDef(TypedDict):
@@ -2586,7 +3014,9 @@ class GetSegmentDefinitionResponseTypeDef(TypedDict):
     SegmentGroups: SegmentGroupOutputTypeDef
     SegmentDefinitionArn: str
     CreatedAt: datetime
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
+    SegmentSqlQuery: str
+    SegmentType: SegmentTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2653,13 +3083,15 @@ SegmentGroupUnionTypeDef = Union[SegmentGroupTypeDef, SegmentGroupOutputTypeDef]
 
 class CreateSegmentEstimateRequestTypeDef(TypedDict):
     DomainName: str
-    SegmentQuery: SegmentGroupStructureTypeDef
+    SegmentQuery: NotRequired[SegmentGroupStructureTypeDef]
+    SegmentSqlQuery: NotRequired[str]
 
 
 class CreateSegmentDefinitionRequestTypeDef(TypedDict):
     DomainName: str
     SegmentDefinitionName: str
     DisplayName: str
-    SegmentGroups: SegmentGroupUnionTypeDef
     Description: NotRequired[str]
+    SegmentGroups: NotRequired[SegmentGroupUnionTypeDef]
+    SegmentSqlQuery: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]

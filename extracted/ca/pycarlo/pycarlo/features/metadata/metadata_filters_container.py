@@ -3,7 +3,12 @@ from typing import Any, Callable, Dict, Optional
 
 from dataclasses_json import dataclass_json
 
-from pycarlo.features.metadata import AllowBlockList, FilterEffectType, FilterType, MetadataFilter
+from pycarlo.features.metadata import (
+    FilterEffectType,
+    FilterType,
+    MetadataAllowBlockList,
+    MetadataFilter,
+)
 
 
 @dataclass_json
@@ -62,7 +67,7 @@ class MetadataFiltersContainer:
         - allowed: (project_3, dataset_1), (project_4, dataset_4)
     """
 
-    metadata_filters: AllowBlockList = field(default_factory=AllowBlockList)
+    metadata_filters: MetadataAllowBlockList = field(default_factory=MetadataAllowBlockList)
 
     @property
     def is_metadata_filtered(self) -> bool:
@@ -129,7 +134,7 @@ class MetadataFiltersContainer:
 
     @staticmethod
     def _get_effect(
-        metadata_filters: AllowBlockList,
+        metadata_filters: MetadataAllowBlockList,
         force_regexp: bool,
         condition: Optional[Callable[[MetadataFilter], bool]] = None,
         **kwargs: Any,
@@ -145,13 +150,13 @@ class MetadataFiltersContainer:
         """
         if not metadata_filters.filters or any(
             f.matches(force_regexp, **kwargs)
-            for f in metadata_filters.get_default_effect_filters(condition=condition)
+            for f in metadata_filters.get_default_effect_rules(condition=condition)
         ):
             return metadata_filters.default_effect
 
         if any(
             f.matches(force_regexp, **kwargs)
-            for f in metadata_filters.get_other_effect_filters(condition=condition)
+            for f in metadata_filters.get_other_effect_rules(condition=condition)
         ):
             return metadata_filters.other_effect
 
@@ -198,10 +203,10 @@ class MetadataFiltersContainer:
             return not project or f.matches(project=project)
 
         default_effect = self.metadata_filters.default_effect
-        default_effect_filters = self.metadata_filters.get_default_effect_filters(
+        default_effect_filters = self.metadata_filters.get_default_effect_rules(
             condition=project_condition
         )
-        other_effect_filters = self.metadata_filters.get_other_effect_filters(
+        other_effect_filters = self.metadata_filters.get_other_effect_rules(
             condition=project_condition
         )
         default_effect_op = " OR " if default_effect == FilterEffectType.ALLOW else " AND "
@@ -209,7 +214,7 @@ class MetadataFiltersContainer:
 
         default_effect_conditions = default_effect_op.join(
             [
-                f"({self._get_sql_field_condition(f, column_mapping, encoder, force_lowercase)})"
+                self._get_sql_field_condition(f, column_mapping, encoder, force_lowercase)
                 for f in default_effect_filters
             ]
         )
@@ -219,13 +224,15 @@ class MetadataFiltersContainer:
                 for f in other_effect_filters
             ]
         )
-        conditions = default_effect_conditions
-        if conditions and other_effect_conditions:
-            conditions += default_effect_op
-            conditions += "(" + other_effect_conditions + ")"
-        elif not conditions:
-            conditions = other_effect_conditions
-        return f"({conditions})" if conditions else ""
+
+        if default_effect_conditions and other_effect_conditions:
+            return f"(({default_effect_conditions}){default_effect_op}({other_effect_conditions}))"
+        elif default_effect_conditions:
+            return f"({default_effect_conditions})"
+        elif other_effect_conditions:
+            return f"({other_effect_conditions})"
+        else:
+            return None
 
     @staticmethod
     def _get_sql_field_condition(
@@ -233,7 +240,7 @@ class MetadataFiltersContainer:
         column_mapping: Dict,
         encoder: Callable[[str, str, FilterType], str],
         force_lowercase: Optional[bool] = True,
-    ):
+    ) -> str:
         # The comparison is performed case-insensitive (check MetadataFilter._safe_match)
         # We can use LOWER here since it is part of standard SQL (like AND/OR/NOT), so including it
         # here is a way to make sure that all comparisons are case-insensitive in the SQL sentences
@@ -250,4 +257,6 @@ class MetadataFiltersContainer:
                 if getattr(mf, field) is not None
             ]
         )
+        if not conditions:
+            return ""
         return f"NOT({conditions})" if mf.effect == FilterEffectType.BLOCK else f"({conditions})"

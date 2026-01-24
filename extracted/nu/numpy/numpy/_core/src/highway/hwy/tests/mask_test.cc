@@ -28,6 +28,10 @@ namespace hwy {
 namespace HWY_NAMESPACE {
 namespace {
 
+#ifndef HWY_NATIVE_MASK
+#error "Bug in set_macros-inl.h, did not set HWY_NATIVE_MASK"
+#endif
+
 struct TestMaskFromVec {
   template <typename T, class D>
   HWY_NOINLINE void operator()(T /*unused*/, D d) {
@@ -35,7 +39,7 @@ struct TestMaskFromVec {
     auto lanes = AllocateAligned<T>(N);
     HWY_ASSERT(lanes);
 
-    memset(lanes.get(), 0, N * sizeof(T));
+    ZeroBytes(lanes.get(), N * sizeof(T));
     const Mask<D> actual_false = MaskFromVec(Load(d, lanes.get()));
     HWY_ASSERT_MASK_EQ(d, MaskFalse(d), actual_false);
 

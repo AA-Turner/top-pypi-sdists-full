@@ -19,7 +19,6 @@ from typing import Optional
 
 import typer
 from click import types
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
     OUTPUT_COLUMN_NAME,
@@ -31,10 +30,11 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -46,8 +46,6 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory(
     name="dbt",
     help="Manages dbt on Snowflake projects.",
-    is_hidden=FeatureFlag.ENABLE_DBT.is_disabled,
-    preview=True,
 )
 log = logging.getLogger(__name__)
 
@@ -59,6 +57,16 @@ DBTNameArgument = identifier_argument(sf_object="DBT Project", example="my_pipel
 DBTNameOrCommandArgument = identifier_argument(
     sf_object="DBT Project", example="my_pipeline", click_type=types.StringParamType()
 )
+DefaultTargetOption = OverrideableOption(
+    None,
+    "--default-target",
+    mutually_exclusive=["unset_default_target"],
+)
+UnsetDefaultTargetOption = OverrideableOption(
+    False,
+    "--unset-default-target",
+    mutually_exclusive=["default_target"],
+)
 
 add_object_command_aliases(
     app=app,
@@ -68,7 +76,7 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all dbt projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
-    ommit_commands=["drop", "create", "describe"],
+    ommit_commands=["create"],
 )
 
 
@@ -92,21 +100,45 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
+    default_target: Optional[str] = DefaultTargetOption(
+        help="Default target for the dbt project. Mutually exclusive with --unset-default-target.",
+    ),
+    unset_default_target: Optional[bool] = UnsetDefaultTargetOption(
+        help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
+    ),
+    external_access_integrations: Optional[list[str]] = typer.Option(
+        None,
+        "--external-access-integration",
+        show_default=False,
+        help="External access integration to be used by the dbt object.",
+    ),
+    install_local_deps: Optional[bool] = typer.Option(
+        False,
+        "--install-local-deps",
+        show_default=False,
+        help="Installs local dependencies from project that don't require external access.",
+    ),
     **options,
 ) -> CommandResult:
     """
-    Copy dbt files and either recreate dbt on Snowflake if `--force` flag is
-    provided; or create a new one if it doesn't exist; or update files and
-    create a new version if it exists.
+    Upload local dbt project files and create or update a DBT project object on Snowflake.
+
+    Examples:
+        snow dbt deploy PROJECT
+        snow dbt deploy PROJECT --source=/Users/jdoe/project --force
     """
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     return QueryResult(
         DBTManager().deploy(
             name,
-            project_path.resolve(),
-            profiles_dir_path.resolve(),
+            path=project_path.resolve(),
+            profiles_path=profiles_dir_path.resolve(),
             force=force,
+            default_target=default_target,
+            unset_default_target=unset_default_target,
+            external_access_integrations=external_access_integrations,
+            install_local_deps=install_local_deps,
         )
     )
 
@@ -116,7 +148,6 @@ dbt_execute_app = SnowTyperFactory(
     help="Execute a dbt command on Snowflake. Subcommand name and all "
     "parameters following it will be passed over to dbt.",
     subcommand_metavar="DBT_COMMAND",
-    preview=True,
 )
 app.add_typer(dbt_execute_app)
 
@@ -143,7 +174,6 @@ for cmd in DBT_COMMANDS:
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         help=f"Execute {cmd} command on Snowflake. Command name and all parameters following it will be passed over to dbt.",
         add_help_option=False,
-        preview=True,
     )
     def _dbt_execute(
         ctx: typer.Context,
@@ -161,13 +191,8 @@ for cmd in DBT_COMMANDS:
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
             )
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
-
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
             result = dbt_manager.execute(*execute_args)
 
             try:

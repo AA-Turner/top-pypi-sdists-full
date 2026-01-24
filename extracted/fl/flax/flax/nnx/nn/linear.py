@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import typing as tp
+from types import MappingProxyType
 
 import jax
 import jax.numpy as jnp
@@ -26,7 +27,6 @@ from flax import nnx
 from flax.nnx import rnglib, variablelib
 from flax.nnx.module import Module, first_from
 from flax.nnx.nn import dtypes, initializers
-from flax import nnx
 from flax.typing import (
   Dtype,
   Shape,
@@ -104,19 +104,19 @@ class LinearGeneral(Module):
     ...
     >>> # equivalent to `nnx.Linear(2, 4)`
     >>> layer = nnx.LinearGeneral(2, 4, rngs=nnx.Rngs(0))
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (2, 4)
     >>> # output features (4, 5)
     >>> layer = nnx.LinearGeneral(2, (4, 5), rngs=nnx.Rngs(0))
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (2, 4, 5)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4, 5)
     >>> # apply transformation on the the second and last axes
     >>> layer = nnx.LinearGeneral((2, 3), (4, 5), axis=(1, -1), rngs=nnx.Rngs(0))
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (2, 3, 4, 5)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4, 5)
     >>> y = layer(jnp.ones((16, 2, 3)))
     >>> y.shape
@@ -139,7 +139,14 @@ class LinearGeneral(Module):
       dtype. The function should accept a tuple of ``(inputs, kernel, bias)``
       and a ``dtype`` keyword argument, and return a tuple of arrays with the
       promoted dtype.
+    preferred_element_type: Optional parameter controls the data type output by
+      the dot product. This argument is passed to ``dot_general`` function.
+      See ``jax.lax.dot`` for details.
     rngs: rng key.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the weight matrix.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias.
   """
 
   def __init__(
@@ -158,7 +165,10 @@ class LinearGeneral(Module):
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     dot_general: DotGeneralT | None = None,
     dot_general_cls: tp.Any = None,
+    preferred_element_type: Dtype | None = None,
     rngs: rnglib.Rngs,
+    kernel_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
+    bias_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     self.in_features = _canonicalize_tuple(in_features)
     self.out_features = _canonicalize_tuple(out_features)
@@ -167,12 +177,11 @@ class LinearGeneral(Module):
     self.use_bias = use_bias
     self.dtype = dtype
     self.param_dtype = param_dtype
-    self.kernel_init = kernel_init
-    self.bias_init = bias_init
     self.precision = precision
     self.dot_general = dot_general
     self.dot_general_cls = dot_general_cls
     self.promote_dtype = promote_dtype
+    self.preferred_element_type = preferred_element_type
 
     if len(self.in_features) != len(self.axis):
       raise ValueError(
@@ -200,7 +209,7 @@ class LinearGeneral(Module):
         np.prod(shape[-n_out_features:]),
       )
       flat_shape = jax.tree.map(int, flat_shape)
-      kernel = self.kernel_init(rng, flat_shape, dtype)
+      kernel = kernel_init(rng, flat_shape, dtype)
       if isinstance(kernel, variablelib.VariableMetadata):
         kernel.raw_value = jnp.reshape(kernel.raw_value, shape)
       else:
@@ -215,15 +224,14 @@ class LinearGeneral(Module):
       *self.out_features,
     )
     self.kernel = nnx.Param(
-      kernel_init_wrap(rngs.params(), kernel_shape, self.param_dtype)
+      kernel_init_wrap(rngs.params(), kernel_shape, self.param_dtype), **kernel_metadata
     )
 
     self.bias: nnx.Param[jax.Array] | None
     if self.use_bias:
-
       def bias_init_wrap(rng, shape, dtype):
         flat_shape = (int(np.prod(shape)),)
-        bias = self.bias_init(rng, flat_shape, dtype)
+        bias = bias_init(rng, flat_shape, dtype)
         if isinstance(bias, variablelib.VariableMetadata):
           bias.raw_value = jnp.reshape(bias.raw_value, shape)
         else:
@@ -232,12 +240,13 @@ class LinearGeneral(Module):
 
       bias_shape = (*batch_shape, *self.out_features)
       self.bias = nnx.Param(
-        bias_init_wrap(rngs.params(), bias_shape, self.param_dtype)
+        bias_init_wrap(rngs.params(), bias_shape, self.param_dtype),
+        **bias_metadata,
       )
     else:
-      self.bias = None
+      self.bias = nnx.data(None)
 
-  def __call__(self, inputs: Array) -> Array:
+  def __call__(self, inputs: Array, out_sharding = None) -> Array:
     """Applies a linear transformation to the inputs along multiple dimensions.
 
     Args:
@@ -259,8 +268,8 @@ class LinearGeneral(Module):
       for ax in range(inputs.ndim)
       if ax not in axis
     )
-    kernel = self.kernel.value
-    bias = self.bias.value if self.bias is not None else None
+    kernel = self.kernel[...]
+    bias = self.bias[...] if self.bias is not None else None
 
     batch_ind = tuple(range(n_batch_dims))
     contract_ind = tuple(range(n_batch_dims, n_axis + n_batch_dims))
@@ -275,11 +284,19 @@ class LinearGeneral(Module):
       dot_general = self.dot_general
     else:
       dot_general = lax.dot_general
+    # We use dot_general_kwargs for BC compatibility with
+    # user custom dot_general/dot_general_cls which may not have
+    # preferred_element_type argument to avoid breaking
+    # existing code
+    dot_general_kwargs = {'out_sharding': out_sharding}
+    if self.preferred_element_type is not None:
+      dot_general_kwargs["preferred_element_type"] = self.preferred_element_type
     out = dot_general(
       inputs,
       kernel,
       ((axis, contract_ind), (batch_axis, batch_ind)),
       precision=self.precision,
+      **dot_general_kwargs,
     )
     # dot_general output has shape [batch_dims/group_dims] + [feature_dims]
     if bias is not None:
@@ -323,7 +340,14 @@ class Linear(Module):
       dtype. The function should accept a tuple of ``(inputs, kernel, bias)``
       and a ``dtype`` keyword argument, and return a tuple of arrays with the
       promoted dtype.
+    preferred_element_type: Optional parameter controls the data type output by
+      the dot product. This argument is passed to ``dot_general`` function.
+      See ``jax.lax.dot`` for details.
     rngs: rng key.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the weight matrix.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias.
   """
 
   def __init__(
@@ -339,18 +363,25 @@ class Linear(Module):
     bias_init: Initializer = default_bias_init,
     dot_general: DotGeneralT = lax.dot_general,
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+    preferred_element_type: Dtype | None = None,
     rngs: rnglib.Rngs,
+    kernel_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
+    bias_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     kernel_key = rngs.params()
     self.kernel = nnx.Param(
-      kernel_init(kernel_key, (in_features, out_features), param_dtype)
+      kernel_init(kernel_key, (in_features, out_features), param_dtype),
+      **kernel_metadata,
     )
     self.bias: nnx.Param[jax.Array] | None
     if use_bias:
       bias_key = rngs.params()
-      self.bias = nnx.Param(bias_init(bias_key, (out_features,), param_dtype))
+      self.bias = nnx.Param(
+        bias_init(bias_key, (out_features,), param_dtype),
+        **bias_metadata,
+      )
     else:
-      self.bias = None
+      self.bias = nnx.data(None)
 
     self.in_features = in_features
     self.out_features = out_features
@@ -358,12 +389,11 @@ class Linear(Module):
     self.dtype = dtype
     self.param_dtype = param_dtype
     self.precision = precision
-    self.kernel_init = kernel_init
-    self.bias_init = bias_init
     self.dot_general = dot_general
     self.promote_dtype = promote_dtype
+    self.preferred_element_type = preferred_element_type
 
-  def __call__(self, inputs: Array) -> Array:
+  def __call__(self, inputs: Array, out_sharding = None) -> Array:
     """Applies a linear transformation to the inputs along the last dimension.
 
     Args:
@@ -372,17 +402,25 @@ class Linear(Module):
     Returns:
       The transformed input.
     """
-    kernel = self.kernel.value
-    bias = self.bias.value if self.bias is not None else None
+    kernel = self.kernel[...]
+    bias = self.bias[...] if self.bias is not None else None
 
     inputs, kernel, bias = self.promote_dtype(
       (inputs, kernel, bias), dtype=self.dtype
     )
+    # We use dot_general_kwargs for BC compatibility with
+    # user custom self.dot_general method which may not have
+    # preferred_element_type argument to avoid breaking
+    # existing code
+    dot_general_kwargs = {'out_sharding': out_sharding}
+    if self.preferred_element_type is not None:
+      dot_general_kwargs["preferred_element_type"] = self.preferred_element_type
     y = self.dot_general(
       inputs,
       kernel,
       (((inputs.ndim - 1,), (0,)), ((), ())),
       precision=self.precision,
+      **dot_general_kwargs,
     )
     assert self.use_bias == (bias is not None)
     if bias is not None:
@@ -399,9 +437,9 @@ class Einsum(Module):
     >>> import jax.numpy as jnp
     ...
     >>> layer = nnx.Einsum('nta,hab->nthb', (8, 2, 4), (8, 4), rngs=nnx.Rngs(0))
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (8, 2, 4)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (8, 4)
     >>> y = layer(jnp.ones((16, 11, 2)))
     >>> y.shape
@@ -427,7 +465,14 @@ class Einsum(Module):
       promoted dtype.
     einsum_op: An injectable alternative of `jnp.einsum` to do the computation.
       Should support same signature as `jnp.einsum`.
+    preferred_element_type: Optional parameter controls the data type output by
+      the dot product. This argument is passed to ``dot_general`` function.
+      See ``jax.lax.dot`` for details.
     rngs: rng key.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the weight matrix.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias.
   """
 
   def __init__(
@@ -443,20 +488,27 @@ class Einsum(Module):
     bias_init: Initializer = default_bias_init,
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     einsum_op: EinsumT = jnp.einsum,
+    preferred_element_type: Dtype | None = None,
     rngs: rnglib.Rngs,
+    kernel_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
+    bias_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     einsum_str = einsum_str.replace(' ', '')
     self._einsum_str_check(einsum_str)
 
     kernel_key = rngs.params()
-    self.kernel = nnx.Param(kernel_init(kernel_key, kernel_shape, param_dtype))
+    self.kernel = nnx.Param(
+      kernel_init(kernel_key, kernel_shape, param_dtype), **kernel_metadata
+    )
 
     self.bias: nnx.Param | None
     if bias_shape is not None:
       bias_key = rngs.params()
-      self.bias = nnx.Param(bias_init(bias_key, bias_shape, param_dtype))
+      self.bias = nnx.Param(
+        bias_init(bias_key, bias_shape, param_dtype), **bias_metadata
+      )
     else:
-      self.bias = None
+      self.bias = nnx.data(None)
 
     self.einsum_str = einsum_str
     self.kernel_shape = kernel_shape
@@ -464,13 +516,12 @@ class Einsum(Module):
     self.dtype = dtype
     self.param_dtype = param_dtype
     self.precision = precision
-    self.kernel_init = kernel_init
-    self.bias_init = bias_init
     self.promote_dtype = promote_dtype
     self.einsum_op = einsum_op
+    self.preferred_element_type = preferred_element_type
 
   def __call__(
-    self, inputs: Array, einsum_str: tp.Optional[str] = None
+    self, inputs: Array, einsum_str: tp.Optional[str] = None, out_sharding = None
   ) -> Array:
     """Applies a linear transformation to the inputs along the last dimension.
 
@@ -497,13 +548,22 @@ class Einsum(Module):
     inputs, kernel, bias = self.promote_dtype(
       (
         inputs,
-        self.kernel.value,
-        self.bias.value if self.bias is not None else self.bias,
+        self.kernel[...],
+        self.bias[...] if self.bias is not None else self.bias,
       ),
       dtype=self.dtype,
     )
+    # We use einsum_op_kwargs for BC compatibility with
+    # user custom self.einsum_op method which may not have
+    # preferred_element_type argument to avoid breaking
+    # existing code
+    einsum_op_kwargs = {'out_sharding': out_sharding}
+    if self.preferred_element_type is not None:
+      einsum_op_kwargs["preferred_element_type"] = self.preferred_element_type
 
-    y = self.einsum_op(einsum_str, inputs, kernel, precision=self.precision)
+    y = self.einsum_op(
+      einsum_str, inputs, kernel, precision=self.precision, **einsum_op_kwargs
+    )
 
     if bias is not None:
       broadcasted_bias_shape = self._infer_broadcasted_bias_shape(
@@ -571,9 +631,9 @@ class Conv(Module):
     >>> # valid padding
     >>> layer = nnx.Conv(in_features=3, out_features=4, kernel_size=(3,),
     ...                  padding='VALID', rngs=rngs)
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (3, 3, 4)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4,)
     >>> out = layer(x)
     >>> out.shape
@@ -582,9 +642,9 @@ class Conv(Module):
     >>> # circular padding with stride 2
     >>> layer = nnx.Conv(in_features=3, out_features=4, kernel_size=(3, 3),
     ...                  strides=2, padding='CIRCULAR', rngs=rngs)
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (3, 3, 3, 4)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4,)
     >>> out = layer(x)
     >>> out.shape
@@ -636,7 +696,14 @@ class Conv(Module):
       dtype. The function should accept a tuple of ``(inputs, kernel, bias)``
       and a ``dtype`` keyword argument, and return a tuple of arrays with the
       promoted dtype.
+    preferred_element_type: Optional parameter controls the data type output by
+      the convolution. This argument is passed to ``conv_general_dilated``
+      function. See ``jax.lax.conv_general_dilated`` for details.
     rngs: rng key.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the weight matrix.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias.
   """
 
   def __init__(
@@ -659,7 +726,10 @@ class Conv(Module):
     bias_init: Initializer = default_bias_init,
     conv_general_dilated: ConvGeneralDilatedT = lax.conv_general_dilated,
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+    preferred_element_type: Dtype | None = None,
     rngs: rnglib.Rngs,
+    kernel_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
+    bias_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     if isinstance(kernel_size, int):
       kernel_size = (kernel_size,)
@@ -672,15 +742,19 @@ class Conv(Module):
     )
     kernel_key = rngs.params()
     self.kernel_shape = kernel_shape
-    self.kernel = nnx.Param(kernel_init(kernel_key, kernel_shape, param_dtype))
+    self.kernel = nnx.Param(
+      kernel_init(kernel_key, kernel_shape, param_dtype), **kernel_metadata
+    )
 
     self.bias: nnx.Param[jax.Array] | None
     if use_bias:
       bias_shape = (out_features,)
       bias_key = rngs.params()
-      self.bias = nnx.Param(bias_init(bias_key, bias_shape, param_dtype))
+      self.bias = nnx.Param(
+        bias_init(bias_key, bias_shape, param_dtype), **bias_metadata
+      )
     else:
-      self.bias = None
+      self.bias = nnx.data(None)
 
     self.in_features = in_features
     self.out_features = out_features
@@ -695,10 +769,9 @@ class Conv(Module):
     self.dtype = dtype
     self.param_dtype = param_dtype
     self.precision = precision
-    self.kernel_init = kernel_init
-    self.bias_init = bias_init
     self.conv_general_dilated = conv_general_dilated
     self.promote_dtype = promote_dtype
+    self.preferred_element_type = preferred_element_type
 
   def __call__(self, inputs: Array) -> Array:
     """Applies a (potentially unshared) convolution to the inputs.
@@ -783,16 +856,24 @@ class Conv(Module):
         f'Shapes are: {self.mask.shape}, {self.kernel_shape}'
       )
 
-    kernel = self.kernel.value
+    kernel = self.kernel[...]
 
     if self.mask is not None:
       kernel *= self.mask
 
-    bias = self.bias.value if self.bias is not None else None
+    bias = self.bias[...] if self.bias is not None else None
 
     inputs, kernel, bias = self.promote_dtype(
       (inputs, kernel, bias), dtype=self.dtype
     )
+
+    # We use conv_kwargs for BC compatibility with
+    # user custom self.conv_general_dilated method which may not have
+    # preferred_element_type argument to avoid breaking
+    # existing code
+    conv_kwargs = {}
+    if self.preferred_element_type is not None:
+      conv_kwargs["preferred_element_type"] = self.preferred_element_type
 
     y = self.conv_general_dilated(
       inputs,
@@ -804,6 +885,7 @@ class Conv(Module):
       dimension_numbers=dimension_numbers,
       feature_group_count=self.feature_group_count,
       precision=self.precision,
+      **conv_kwargs,
     )
 
     if self.use_bias:
@@ -819,6 +901,8 @@ class Conv(Module):
 class ConvTranspose(Module):
   """Convolution Module wrapping ``lax.conv_transpose``.
 
+  **Note:** The `padding` argument behaves differently from PyTorch; see the argument description below.
+
   Example usage::
 
     >>> from flax import nnx
@@ -830,9 +914,9 @@ class ConvTranspose(Module):
     >>> # valid padding
     >>> layer = nnx.ConvTranspose(in_features=3, out_features=4, kernel_size=(3,),
     ...                           padding='VALID', rngs=rngs)
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (3, 3, 4)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4,)
     >>> out = layer(x)
     >>> out.shape
@@ -842,9 +926,9 @@ class ConvTranspose(Module):
     >>> layer = nnx.ConvTranspose(in_features=3, out_features=4, kernel_size=(6, 6),
     ...                           strides=(2, 2), padding='CIRCULAR',
     ...                           transpose_kernel=True, rngs=rngs)
-    >>> layer.kernel.value.shape
+    >>> layer.kernel.shape
     (6, 6, 4, 3)
-    >>> layer.bias.value.shape
+    >>> layer.bias.shape
     (4,)
     >>> out = layer(jnp.ones((1, 15, 15, 3)))
     >>> out.shape
@@ -865,13 +949,31 @@ class ConvTranspose(Module):
       sequence of integers.
     strides: an integer or a sequence of ``n`` integers, representing the
       inter-window strides (default: 1).
-    padding: either the string ``'SAME'``, the string ``'VALID'``, the string
-      ``'CIRCULAR'`` (periodic boundary conditions), or a sequence of ``n``
-      ``(low, high)`` integer pairs that give the padding to apply before and after each
+    padding: either a string indicating a specialized padding mode,
+      or a sequence of ``n`` ``(low, high)`` integer pairs that give the padding to apply before and after each
       spatial dimension. A single int is interpeted as applying the same padding
-      in all dims and passign a single int in a sequence causes the same padding
-      to be used on both sides. ``'CAUSAL'`` padding for a 1D convolution will
-      left-pad the convolution axis, resulting in same-sized output.
+      in all dims and a single int in a sequence causes the same padding
+      to be used on both sides.
+
+        **Note that this behavior is different from
+        PyTorch**. In PyTorch, the padding argument effectively adds ``dilation * (kernel_size - 1) - padding``
+        amount of zero padding to the input instead. This is set so that when ``torch.Conv2d`` and ``torch.ConvTranspose2d``
+        are initialized with the same parameters, they are inverses of each other in regard to the input and output shapes.
+        ``nnx.Conv`` and ``nnx.ConvTranspose`` do *not* have this behavior; if you want a ``nnx.ConvTranspose`` layer
+        to invert the shape change produced by a ``nnx.Conv`` layer with a given padding and dilation, you should explicitly pass
+        ``dilation * (kernel_size - 1) - padding`` as the `padding` argument to the ``nnx.ConvTranspose`` layer.
+
+      Strings for specifying padding modes can be one of the following:
+
+      - ``VALID`` adds ``dilation * (kernel_size - 1)`` padding to all dimensions. This is set so that a
+        ``nnx.Conv`` layer with ``VALID`` padding would produce the inverse shape transformation.
+
+      - ``SAME`` pads the input so that the output shape is the same as the input shape.
+
+      - ``CIRCULAR`` pads the input with periodic boundary conditions.
+
+      - ``CAUSAL`` padding for a 1D convolution will left-pad the convolution axis, resulting in same-sized output.
+
     kernel_dilation: an integer or a sequence of ``n`` integers, giving the
       dilation factor to apply in each spatial dimension of the convolution
       kernel (default: 1). Convolution with kernel dilation
@@ -891,7 +993,15 @@ class ConvTranspose(Module):
       dtype. The function should accept a tuple of ``(inputs, kernel, bias)``
       and a ``dtype`` keyword argument, and return a tuple of arrays with the
       promoted dtype.
+    preferred_element_type: Optional parameter controls the data type output by
+      the transposed convolution. This argument is passed to
+      ``jax.lax.conv_transpose`` function. See ``jax.lax.conv_transpose``
+      for details.
     rngs: rng key.
+    kernel_metadata: Optional metadata dictionary to set when initializing
+      the weight matrix.
+    bias_metadata: Optional metadata dictionary to set when initializing
+      the bias.
   """
 
   def __init__(
@@ -912,7 +1022,10 @@ class ConvTranspose(Module):
     bias_init: Initializer = default_bias_init,
     transpose_kernel: bool = False,
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
+    preferred_element_type: Dtype | None = None,
     rngs: rnglib.Rngs,
+    kernel_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
+    bias_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     if isinstance(kernel_size, int):
       kernel_size = (kernel_size,)
@@ -930,10 +1043,9 @@ class ConvTranspose(Module):
     self.dtype = dtype
     self.param_dtype = param_dtype
     self.precision = precision
-    self.kernel_init = kernel_init
-    self.bias_init = bias_init
     self.transpose_kernel = transpose_kernel
     self.promote_dtype = promote_dtype
+    self.preferred_element_type = preferred_element_type
 
     if self.transpose_kernel:
       kernel_shape = kernel_size + (self.out_features, in_features)
@@ -942,16 +1054,16 @@ class ConvTranspose(Module):
 
     self.kernel_shape = kernel_shape
     self.kernel = nnx.Param(
-      self.kernel_init(rngs.params(), kernel_shape, self.param_dtype)
+      kernel_init(rngs.params(), kernel_shape, self.param_dtype), **kernel_metadata
     )
 
     self.bias: nnx.Param | None
     if self.use_bias:
       self.bias = nnx.Param(
-        self.bias_init(rngs.params(), (self.out_features,), self.param_dtype)
+        bias_init(rngs.params(), (self.out_features,), self.param_dtype), **bias_metadata
       )
     else:
-      self.bias = None
+      self.bias = nnx.data(None)
 
   def __call__(self, inputs: Array) -> Array:
     """Applies a transposed convolution to the inputs.
@@ -1006,7 +1118,7 @@ class ConvTranspose(Module):
         f'Shapes are: {self.mask.shape}, {kernel_shape}'
       )
 
-    kernel = self.kernel.value
+    kernel = self.kernel[...]
 
     if self.mask is not None:
       kernel *= self.mask
@@ -1015,7 +1127,7 @@ class ConvTranspose(Module):
     if padding_lax == 'CIRCULAR':
       padding_lax = 'VALID'
 
-    bias = self.bias.value if self.bias is not None else None
+    bias = self.bias[...] if self.bias is not None else None
 
     inputs, kernel, bias = self.promote_dtype(
       (inputs, kernel, bias), dtype=self.dtype
@@ -1029,6 +1141,7 @@ class ConvTranspose(Module):
       rhs_dilation=kernel_dilation,
       transpose_kernel=self.transpose_kernel,
       precision=self.precision,
+      preferred_element_type=self.preferred_element_type
     )
 
     if self.padding == 'CIRCULAR':
@@ -1140,6 +1253,8 @@ class Embed(Module):
       or ``(query, embedding)`` during ``attend``, and a ``dtype`` keyword argument,
       and return a tuple of arrays with the promoted dtype.
     rngs: rng key.
+    embedding_metadata: Optional metadata dictionary to set when initializing
+      the embedding matrix.
   """
 
   def __init__(
@@ -1152,16 +1267,17 @@ class Embed(Module):
     embedding_init: Initializer = default_embed_init,
     promote_dtype: PromoteDtypeFn = dtypes.promote_dtype,
     rngs: rnglib.Rngs,
+    embedding_metadata: tp.Mapping[str, tp.Any] = MappingProxyType({}),
   ):
     self.embedding = nnx.Param(
-      embedding_init(rngs.params(), (num_embeddings, features), param_dtype)
+      embedding_init(rngs.params(), (num_embeddings, features), param_dtype),
+      **embedding_metadata,
     )
 
     self.num_embeddings = num_embeddings
     self.features = features
-    self.dtype = dtype or self.embedding.value.dtype
+    self.dtype = dtype or self.embedding.dtype
     self.param_dtype = param_dtype
-    self.embedding_init = embedding_init
     self.promote_dtype = promote_dtype
 
   def __call__(self, inputs: Array) -> Array:
@@ -1180,7 +1296,7 @@ class Embed(Module):
     # Use take because fancy indexing numpy arrays with JAX indices does not
     # work correctly.
     (embedding,) = self.promote_dtype(
-      (self.embedding.value,), dtype=self.dtype, inexact=False
+      (self.embedding[...],), dtype=self.dtype, inexact=False
     )
     if self.num_embeddings == 1:
       return jnp.broadcast_to(embedding, inputs.shape + (self.features,))
@@ -1200,6 +1316,6 @@ class Embed(Module):
       in NLP models.
     """
     query, embedding = self.promote_dtype(
-      (query, self.embedding.value), dtype=self.dtype
+      (query, self.embedding[...]), dtype=self.dtype
     )
     return jnp.dot(query, embedding.T)

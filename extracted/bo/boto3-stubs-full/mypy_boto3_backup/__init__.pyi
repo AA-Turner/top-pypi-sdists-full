@@ -3,7 +3,7 @@ Main interface for backup service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -31,6 +31,9 @@ Usage::
         ListRestoreJobsPaginator,
         ListRestoreTestingPlansPaginator,
         ListRestoreTestingSelectionsPaginator,
+        ListScanJobSummariesPaginator,
+        ListScanJobsPaginator,
+        ListTieringConfigurationsPaginator,
     )
 
     session = Session()
@@ -55,6 +58,9 @@ Usage::
     list_restore_jobs_paginator: ListRestoreJobsPaginator = client.get_paginator("list_restore_jobs")
     list_restore_testing_plans_paginator: ListRestoreTestingPlansPaginator = client.get_paginator("list_restore_testing_plans")
     list_restore_testing_selections_paginator: ListRestoreTestingSelectionsPaginator = client.get_paginator("list_restore_testing_selections")
+    list_scan_job_summaries_paginator: ListScanJobSummariesPaginator = client.get_paginator("list_scan_job_summaries")
+    list_scan_jobs_paginator: ListScanJobsPaginator = client.get_paginator("list_scan_jobs")
+    list_tiering_configurations_paginator: ListTieringConfigurationsPaginator = client.get_paginator("list_tiering_configurations")
     ```
 """
 
@@ -79,6 +85,9 @@ from .paginator import (
     ListRestoreJobsPaginator,
     ListRestoreTestingPlansPaginator,
     ListRestoreTestingSelectionsPaginator,
+    ListScanJobsPaginator,
+    ListScanJobSummariesPaginator,
+    ListTieringConfigurationsPaginator,
 )
 
 Client = BackupClient
@@ -105,4 +114,7 @@ __all__ = (
     "ListRestoreJobsPaginator",
     "ListRestoreTestingPlansPaginator",
     "ListRestoreTestingSelectionsPaginator",
+    "ListScanJobSummariesPaginator",
+    "ListScanJobsPaginator",
+    "ListTieringConfigurationsPaginator",
 )

@@ -4,20 +4,22 @@ requires = ["setuptools>=78.0.2"]
 
 [dependency-groups]
 dev = [
-  "coverage>=3.6",
-  "flake8>=5.0.4",
+  "coverage==7.13.0",
+  "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==1.16.1",
-  "pyright==1.1.402",
-  "pytest-cov>=2.7.1",
-  "pytest-xdist>=3.6.1",
-  "pytest>=4.5",
-  "responses==0.25.7",
-  "types-defusedxml==0.7.0.20250516",
-  "types-oauthlib==3.3.0.20250622",
-  "types-python-jose==3.5.0.20250531",
-  "types-requests-oauthlib==2.0.0.20250516",
-  "types-requests==2.32.4.20250611"
+  "mypy==1.19.1",
+  "pyright==1.1.407",
+  "pytest-cov==7.0.0",
+  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-profiling==1.8.1",
+  "pytest-xdist==3.8.0",
+  "pytest==9.0.2",
+  "responses==0.25.8",
+  "ty==0.0.3",
+  "types-defusedxml==0.7.0.20250822",
+  "types-oauthlib==3.3.0.20250822",
+  "types-requests-oauthlib==2.0.0.20250809",
+  "types-requests==2.32.4.20250913"
 ]
 
 [project]
@@ -34,18 +36,17 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python",
   "Topic :: Internet"
 ]
 dependencies = [
-  "cryptography>=1.4",
-  "defusedxml>=0.5.0",
-  "oauthlib>=1.0.3",
-  "PyJWT>=2.7.0",
-  "python3-openid>=3.0.10",
-  "requests-oauthlib>=0.6.1",
-  "requests>=2.9.1"
+  "defusedxml>=0.7.1",
+  "oauthlib>=3.3.1",
+  "PyJWT[crypto]>=2.10.1",
+  "python3-openid>=3.2.0",
+  "requests-oauthlib>=2.0.0",
+  "requests>=2.32.5"
 ]
 description = "Python social authentication made simple."
 keywords = ["oauth", "openid", "saml", "social auth"]
@@ -53,8 +54,8 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
-requires-python = ">=3.9"
-version = "4.7.0"
+requires-python = ">=3.10"
+version = "4.8.3"
 
 [project.optional-dependencies]
 all = [
@@ -67,34 +68,33 @@ allpy3 = [
   "social-auth-core[all]"
 ]
 azuread = [
-  "cryptography>=2.1.1"
+  "cryptography>=42.0.8"
 ]
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
-  "coverage>=3.6",
-  "flake8>=5.0.4",
+  "coverage==7.13.0",
+  "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==1.16.1",
-  "pyright==1.1.402",
-  "pytest-cov>=2.7.1",
-  "pytest-xdist>=3.6.1",
-  "pytest>=4.5",
-  "responses==0.25.7",
-  "types-defusedxml==0.7.0.20250516",
-  "types-oauthlib==3.3.0.20250622",
-  "types-python-jose==3.5.0.20250531",
-  "types-requests-oauthlib==2.0.0.20250516",
-  "types-requests==2.32.4.20250611"
+  "mypy==1.19.1",
+  "pyright==1.1.407",
+  "pytest-cov==7.0.0",
+  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-profiling==1.8.1",
+  "pytest-xdist==3.8.0",
+  "pytest==9.0.2",
+  "responses==0.25.8",
+  "ty==0.0.3",
+  "types-defusedxml==0.7.0.20250822",
+  "types-oauthlib==3.3.0.20250822",
+  "types-requests-oauthlib==2.0.0.20250809",
+  "types-requests==2.32.4.20250913"
 ]
 google-onetap = [
-  "google-auth~=2.40.0"
-]
-ping = [
-  "python-jose>=3.4.0,<4.0"
+  "google-auth>=2.40.0,<2.46"
 ]
 saml = [
-  "python3-saml>=1.5.0"
+  "python3-saml>=1.16.0"
 ]
 shopify = [
   "ShopifyAPI"
@@ -134,9 +134,12 @@ module = [
 executionEnvironments = [
   {reportMissingImports = "none", root = "social_core/backends/gae.py"}
 ]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 reportOptionalMemberAccess = "none"
 reportPossiblyUnboundVariable = "none"
+
+[tool.pytest.ini_options]
+addopts = "--cov=social_core --cov-report=xml --durations=10"
 
 [tool.ruff.lint]
 extend-safe-fixes = [
@@ -148,12 +151,12 @@ extend-safe-fixes = [
   "TCH",
   "UP"
 ]
+future-annotations = true
 ignore = [
   "ANN",  # TODO: Missing type annotations
   "ARG001",  # TODO: Unused function argument (mostly for API compatibility)
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "ARG003",  # TODO: Unused class method argument
-  "B026",  # TODO: Star-arg unpacking after a keyword argument is strongly discouraged
   "B904",  # TODO: use raise from
   "COM",  # CONFIG: No trailing commas
   "D",  # TODO: Missing documentation

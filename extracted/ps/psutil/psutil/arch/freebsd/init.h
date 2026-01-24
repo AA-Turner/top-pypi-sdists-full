@@ -6,12 +6,9 @@
  */
 
 #include <Python.h>
+#include <sys/types.h>
 
-typedef struct kinfo_proc kinfo_proc;
-
-// TODO: move this stuff. Does not belong here
-int psutil_get_proc_list(struct kinfo_proc **procList, size_t *procCount);
-int psutil_kinfo_proc(const pid_t pid, struct kinfo_proc *proc);
+int _psutil_pids(pid_t **pids_array, int *pids_count);
 
 PyObject *psutil_cpu_freq(PyObject *self, PyObject *args);
 PyObject *psutil_cpu_stats(PyObject *self, PyObject *args);

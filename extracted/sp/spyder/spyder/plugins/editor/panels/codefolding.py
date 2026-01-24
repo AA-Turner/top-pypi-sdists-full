@@ -403,7 +403,7 @@ class FoldingPanel(Panel):
 
         :param event: event
         """
-        super(FoldingPanel, self).mouseMoveEvent(event)
+        super().mouseMoveEvent(event)
         th = TextHelper(self.editor)
         line = th.line_nbr_from_position(event.pos().y())
 
@@ -457,7 +457,7 @@ class FoldingPanel(Panel):
         if highlight_caret_scope, else simply update the scope decorations to
         match the caret scope.
         """
-        super(FoldingPanel, self).leaveEvent(event)
+        super().leaveEvent(event)
         QApplication.restoreOverrideCursor()
         self._highlight_runner.cancel_requests()
         if not self.highlight_caret_scope:
@@ -803,7 +803,7 @@ class FoldingPanel(Panel):
         """Expands all fold triggers."""
         block = self.editor.document().firstBlock()
         while block.isValid():
-            line_number = block.BlockNumber()
+            line_number = block.blockNumber()
             if line_number in self.folding_regions:
                 end_line = self.folding_regions[line_number]
                 self.unfold_region(block, line_number, end_line)

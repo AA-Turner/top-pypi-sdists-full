@@ -9,173 +9,424 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0505 import EnterpriseWebhooksType
-from .group_0506 import SimpleInstallationType
-from .group_0507 import OrganizationSimpleWebhooksType
-from .group_0508 import RepositoryWebhooksType
-from .group_0509 import WebhooksRuleType
+from .group_0559 import ExemptionResponseType, ExemptionResponseTypeForResponse
 
 
-class WebhookBranchProtectionRuleEditedType(TypedDict):
-    """branch protection rule edited event"""
+class ExemptionRequestType(TypedDict):
+    """Exemption Request
 
-    action: Literal["edited"]
-    changes: NotRequired[WebhookBranchProtectionRuleEditedPropChangesType]
-    enterprise: NotRequired[EnterpriseWebhooksType]
-    installation: NotRequired[SimpleInstallationType]
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    repository: RepositoryWebhooksType
-    rule: WebhooksRuleType
-    sender: SimpleUserType
-
-
-class WebhookBranchProtectionRuleEditedPropChangesType(TypedDict):
-    """WebhookBranchProtectionRuleEditedPropChanges
-
-    If the action was `edited`, the changes to the rule.
+    A request from a user to be exempted from a set of rules.
     """
 
-    admin_enforced: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforcedType
+    id: NotRequired[int]
+    number: NotRequired[Union[int, None]]
+    repository_id: NotRequired[int]
+    requester_id: NotRequired[int]
+    requester_login: NotRequired[str]
+    request_type: NotRequired[
+        Literal[
+            "push_ruleset_bypass",
+            "secret_scanning",
+            "secret_scanning_closure",
+            "code_scanning_alert_dismissal",
+            "dependabot_alert_dismissal",
+        ]
     ]
-    authorized_actor_names: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNamesType
+    exemption_request_data: NotRequired[
+        Union[
+            ExemptionRequestPushRulesetBypassType,
+            ExemptionRequestSecretScanningType,
+            DismissalRequestSecretScanningType,
+            DismissalRequestCodeScanningType,
+            DismissalRequestDependabotType,
+        ]
     ]
-    authorized_actors_only: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnlyType
+    resource_identifier: NotRequired[str]
+    status: NotRequired[Literal["pending", "rejected", "cancelled", "completed"]]
+    requester_comment: NotRequired[Union[str, None]]
+    metadata: NotRequired[
+        Union[
+            ExemptionRequestSecretScanningMetadataType,
+            DismissalRequestSecretScanningMetadataType,
+            DismissalRequestCodeScanningMetadataType,
+            DismissalRequestDependabotMetadataType,
+            None,
+        ]
     ]
-    authorized_dismissal_actors_only: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnlyType
-    ]
-    linear_history_requirement_enforcement_level: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevelType
-    ]
-    lock_branch_enforcement_level: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevelType
-    ]
-    lock_allows_fork_sync: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSyncType
-    ]
-    pull_request_reviews_enforcement_level: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevelType
-    ]
-    require_last_push_approval: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApprovalType
-    ]
-    required_status_checks: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksType
-    ]
-    required_status_checks_enforcement_level: NotRequired[
-        WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevelType
-    ]
+    expires_at: NotRequired[_dt.datetime]
+    created_at: NotRequired[_dt.datetime]
+    responses: NotRequired[Union[list[ExemptionResponseType], None]]
+    html_url: NotRequired[str]
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforcedType(TypedDict):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforced"""
+class ExemptionRequestTypeForResponse(TypedDict):
+    """Exemption Request
 
-    from_: Union[bool, None]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNamesType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNames"""
-
-    from_: list[str]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnlyType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnly"""
-
-    from_: Union[bool, None]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnlyType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnly"""
-
-    from_: Union[bool, None]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevelType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcem
-    entLevel
+    A request from a user to be exempted from a set of rules.
     """
 
-    from_: Literal["off", "non_admins", "everyone"]
+    id: NotRequired[int]
+    number: NotRequired[Union[int, None]]
+    repository_id: NotRequired[int]
+    requester_id: NotRequired[int]
+    requester_login: NotRequired[str]
+    request_type: NotRequired[
+        Literal[
+            "push_ruleset_bypass",
+            "secret_scanning",
+            "secret_scanning_closure",
+            "code_scanning_alert_dismissal",
+            "dependabot_alert_dismissal",
+        ]
+    ]
+    exemption_request_data: NotRequired[
+        Union[
+            ExemptionRequestPushRulesetBypassTypeForResponse,
+            ExemptionRequestSecretScanningTypeForResponse,
+            DismissalRequestSecretScanningTypeForResponse,
+            DismissalRequestCodeScanningTypeForResponse,
+            DismissalRequestDependabotTypeForResponse,
+        ]
+    ]
+    resource_identifier: NotRequired[str]
+    status: NotRequired[Literal["pending", "rejected", "cancelled", "completed"]]
+    requester_comment: NotRequired[Union[str, None]]
+    metadata: NotRequired[
+        Union[
+            ExemptionRequestSecretScanningMetadataTypeForResponse,
+            DismissalRequestSecretScanningMetadataTypeForResponse,
+            DismissalRequestCodeScanningMetadataTypeForResponse,
+            DismissalRequestDependabotMetadataTypeForResponse,
+            None,
+        ]
+    ]
+    expires_at: NotRequired[str]
+    created_at: NotRequired[str]
+    responses: NotRequired[Union[list[ExemptionResponseTypeForResponse], None]]
+    html_url: NotRequired[str]
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevelType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevel"""
+class ExemptionRequestSecretScanningMetadataType(TypedDict):
+    """Secret Scanning Push Protection Exemption Request Metadata
 
-    from_: Literal["off", "non_admins", "everyone"]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSyncType(TypedDict):
-    """WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSync"""
-
-    from_: Union[bool, None]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevelType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLev
-    el
+    Metadata for a secret scanning push protection exemption request.
     """
 
-    from_: Literal["off", "non_admins", "everyone"]
+    label: NotRequired[str]
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests"]]
 
 
-class WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApprovalType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApproval"""
+class ExemptionRequestSecretScanningMetadataTypeForResponse(TypedDict):
+    """Secret Scanning Push Protection Exemption Request Metadata
 
-    from_: Union[bool, None]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecks"""
-
-    from_: list[str]
-
-
-class WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevelType(
-    TypedDict
-):
-    """WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementL
-    evel
+    Metadata for a secret scanning push protection exemption request.
     """
 
-    from_: Literal["off", "non_admins", "everyone"]
+    label: NotRequired[str]
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests"]]
+
+
+class DismissalRequestSecretScanningMetadataType(TypedDict):
+    """Secret scanning alert dismissal request metadata
+
+    Metadata for a secret scanning alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests", "revoked"]]
+
+
+class DismissalRequestSecretScanningMetadataTypeForResponse(TypedDict):
+    """Secret scanning alert dismissal request metadata
+
+    Metadata for a secret scanning alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests", "revoked"]]
+
+
+class DismissalRequestCodeScanningMetadataType(TypedDict):
+    """Code scanning alert dismissal request metadata
+
+    Metadata for a code scanning alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[Literal["false positive", "won't fix", "used in tests"]]
+
+
+class DismissalRequestCodeScanningMetadataTypeForResponse(TypedDict):
+    """Code scanning alert dismissal request metadata
+
+    Metadata for a code scanning alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[Literal["false positive", "won't fix", "used in tests"]]
+
+
+class DismissalRequestDependabotMetadataType(TypedDict):
+    """Dependabot alert dismissal request metadata
+
+    Metadata for a Dependabot alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[
+        Literal[
+            "fix_started", "inaccurate", "no_bandwidth", "not_used", "tolerable_risk"
+        ]
+    ]
+
+
+class DismissalRequestDependabotMetadataTypeForResponse(TypedDict):
+    """Dependabot alert dismissal request metadata
+
+    Metadata for a Dependabot alert dismissal request.
+    """
+
+    alert_title: NotRequired[str]
+    reason: NotRequired[
+        Literal[
+            "fix_started", "inaccurate", "no_bandwidth", "not_used", "tolerable_risk"
+        ]
+    ]
+
+
+class ExemptionRequestPushRulesetBypassType(TypedDict):
+    """Push ruleset bypass exemption request data
+
+    Push rules that are being requested to be bypassed.
+    """
+
+    type: NotRequired[Literal["push_ruleset_bypass"]]
+    data: NotRequired[list[ExemptionRequestPushRulesetBypassPropDataItemsType]]
+
+
+class ExemptionRequestPushRulesetBypassTypeForResponse(TypedDict):
+    """Push ruleset bypass exemption request data
+
+    Push rules that are being requested to be bypassed.
+    """
+
+    type: NotRequired[Literal["push_ruleset_bypass"]]
+    data: NotRequired[
+        list[ExemptionRequestPushRulesetBypassPropDataItemsTypeForResponse]
+    ]
+
+
+class ExemptionRequestPushRulesetBypassPropDataItemsType(TypedDict):
+    """ExemptionRequestPushRulesetBypassPropDataItems"""
+
+    ruleset_id: NotRequired[int]
+    ruleset_name: NotRequired[str]
+    total_violations: NotRequired[int]
+    rule_type: NotRequired[str]
+
+
+class ExemptionRequestPushRulesetBypassPropDataItemsTypeForResponse(TypedDict):
+    """ExemptionRequestPushRulesetBypassPropDataItems"""
+
+    ruleset_id: NotRequired[int]
+    ruleset_name: NotRequired[str]
+    total_violations: NotRequired[int]
+    rule_type: NotRequired[str]
+
+
+class DismissalRequestSecretScanningType(TypedDict):
+    """Secret scanning alert dismissal request data
+
+    Secret scanning alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["secret_scanning_closure"]]
+    data: NotRequired[list[DismissalRequestSecretScanningPropDataItemsType]]
+
+
+class DismissalRequestSecretScanningTypeForResponse(TypedDict):
+    """Secret scanning alert dismissal request data
+
+    Secret scanning alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["secret_scanning_closure"]]
+    data: NotRequired[list[DismissalRequestSecretScanningPropDataItemsTypeForResponse]]
+
+
+class DismissalRequestSecretScanningPropDataItemsType(TypedDict):
+    """DismissalRequestSecretScanningPropDataItems"""
+
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests", "revoked"]]
+    secret_type: NotRequired[str]
+    alert_number: NotRequired[str]
+
+
+class DismissalRequestSecretScanningPropDataItemsTypeForResponse(TypedDict):
+    """DismissalRequestSecretScanningPropDataItems"""
+
+    reason: NotRequired[Literal["fixed_later", "false_positive", "tests", "revoked"]]
+    secret_type: NotRequired[str]
+    alert_number: NotRequired[str]
+
+
+class DismissalRequestCodeScanningType(TypedDict):
+    """Code scanning alert dismissal request data
+
+    Code scanning alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["code_scanning_alert_dismissal"]]
+    data: NotRequired[list[DismissalRequestCodeScanningPropDataItemsType]]
+
+
+class DismissalRequestCodeScanningTypeForResponse(TypedDict):
+    """Code scanning alert dismissal request data
+
+    Code scanning alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["code_scanning_alert_dismissal"]]
+    data: NotRequired[list[DismissalRequestCodeScanningPropDataItemsTypeForResponse]]
+
+
+class DismissalRequestCodeScanningPropDataItemsType(TypedDict):
+    """DismissalRequestCodeScanningPropDataItems"""
+
+    alert_number: NotRequired[str]
+
+
+class DismissalRequestCodeScanningPropDataItemsTypeForResponse(TypedDict):
+    """DismissalRequestCodeScanningPropDataItems"""
+
+    alert_number: NotRequired[str]
+
+
+class DismissalRequestDependabotType(TypedDict):
+    """Dependabot alert dismissal request data
+
+    Dependabot alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["dependabot_alert_dismissal"]]
+    data: NotRequired[list[DismissalRequestDependabotPropDataItemsType]]
+
+
+class DismissalRequestDependabotTypeForResponse(TypedDict):
+    """Dependabot alert dismissal request data
+
+    Dependabot alerts that have dismissal requests.
+    """
+
+    type: NotRequired[Literal["dependabot_alert_dismissal"]]
+    data: NotRequired[list[DismissalRequestDependabotPropDataItemsTypeForResponse]]
+
+
+class DismissalRequestDependabotPropDataItemsType(TypedDict):
+    """DismissalRequestDependabotPropDataItems"""
+
+    alert_number: NotRequired[str]
+
+
+class DismissalRequestDependabotPropDataItemsTypeForResponse(TypedDict):
+    """DismissalRequestDependabotPropDataItems"""
+
+    alert_number: NotRequired[str]
+
+
+class ExemptionRequestSecretScanningType(TypedDict):
+    """Secret scanning push protection exemption request data
+
+    Secret scanning push protections that are being requested to be bypassed.
+    """
+
+    type: NotRequired[Literal["secret_scanning"]]
+    data: NotRequired[list[ExemptionRequestSecretScanningPropDataItemsType]]
+
+
+class ExemptionRequestSecretScanningTypeForResponse(TypedDict):
+    """Secret scanning push protection exemption request data
+
+    Secret scanning push protections that are being requested to be bypassed.
+    """
+
+    type: NotRequired[Literal["secret_scanning"]]
+    data: NotRequired[list[ExemptionRequestSecretScanningPropDataItemsTypeForResponse]]
+
+
+class ExemptionRequestSecretScanningPropDataItemsType(TypedDict):
+    """ExemptionRequestSecretScanningPropDataItems"""
+
+    secret_type: NotRequired[str]
+    locations: NotRequired[
+        list[ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsType]
+    ]
+
+
+class ExemptionRequestSecretScanningPropDataItemsTypeForResponse(TypedDict):
+    """ExemptionRequestSecretScanningPropDataItems"""
+
+    secret_type: NotRequired[str]
+    locations: NotRequired[
+        list[
+            ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsTypeForResponse
+        ]
+    ]
+
+
+class ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsType(TypedDict):
+    """ExemptionRequestSecretScanningPropDataItemsPropLocationsItems"""
+
+    commit: NotRequired[str]
+    branch: NotRequired[str]
+    path: NotRequired[str]
+
+
+class ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsTypeForResponse(
+    TypedDict
+):
+    """ExemptionRequestSecretScanningPropDataItemsPropLocationsItems"""
+
+    commit: NotRequired[str]
+    branch: NotRequired[str]
+    path: NotRequired[str]
 
 
 __all__ = (
-    "WebhookBranchProtectionRuleEditedPropChangesPropAdminEnforcedType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorNamesType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedActorsOnlyType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropAuthorizedDismissalActorsOnlyType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLinearHistoryRequirementEnforcementLevelType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLockAllowsForkSyncType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropLockBranchEnforcementLevelType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropPullRequestReviewsEnforcementLevelType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequireLastPushApprovalType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksEnforcementLevelType",
-    "WebhookBranchProtectionRuleEditedPropChangesPropRequiredStatusChecksType",
-    "WebhookBranchProtectionRuleEditedPropChangesType",
-    "WebhookBranchProtectionRuleEditedType",
+    "DismissalRequestCodeScanningMetadataType",
+    "DismissalRequestCodeScanningMetadataTypeForResponse",
+    "DismissalRequestCodeScanningPropDataItemsType",
+    "DismissalRequestCodeScanningPropDataItemsTypeForResponse",
+    "DismissalRequestCodeScanningType",
+    "DismissalRequestCodeScanningTypeForResponse",
+    "DismissalRequestDependabotMetadataType",
+    "DismissalRequestDependabotMetadataTypeForResponse",
+    "DismissalRequestDependabotPropDataItemsType",
+    "DismissalRequestDependabotPropDataItemsTypeForResponse",
+    "DismissalRequestDependabotType",
+    "DismissalRequestDependabotTypeForResponse",
+    "DismissalRequestSecretScanningMetadataType",
+    "DismissalRequestSecretScanningMetadataTypeForResponse",
+    "DismissalRequestSecretScanningPropDataItemsType",
+    "DismissalRequestSecretScanningPropDataItemsTypeForResponse",
+    "DismissalRequestSecretScanningType",
+    "DismissalRequestSecretScanningTypeForResponse",
+    "ExemptionRequestPushRulesetBypassPropDataItemsType",
+    "ExemptionRequestPushRulesetBypassPropDataItemsTypeForResponse",
+    "ExemptionRequestPushRulesetBypassType",
+    "ExemptionRequestPushRulesetBypassTypeForResponse",
+    "ExemptionRequestSecretScanningMetadataType",
+    "ExemptionRequestSecretScanningMetadataTypeForResponse",
+    "ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsType",
+    "ExemptionRequestSecretScanningPropDataItemsPropLocationsItemsTypeForResponse",
+    "ExemptionRequestSecretScanningPropDataItemsType",
+    "ExemptionRequestSecretScanningPropDataItemsTypeForResponse",
+    "ExemptionRequestSecretScanningType",
+    "ExemptionRequestSecretScanningTypeForResponse",
+    "ExemptionRequestType",
+    "ExemptionRequestTypeForResponse",
 )

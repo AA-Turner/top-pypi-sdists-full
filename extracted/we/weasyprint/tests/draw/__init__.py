@@ -4,6 +4,7 @@ import io
 from itertools import zip_longest
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from ..testing_utils import FakeHTML, resource_path
@@ -21,6 +22,8 @@ PIXELS_BY_CHAR = {
     'M': (255, 0, 255),  # magenta
     'Y': (255, 255, 0),  # yellow
     'K': (0, 0, 0),  # black
+    'P': (50, 76, 103),  # blue CMYK with ICC
+    'Q': (63, 88, 110),  # blue CMYK without ICC
     'r': (255, 0, 0),  # red
     'g': (0, 128, 0),  # half green
     'b': (0, 0, 128),  # half blue
@@ -85,7 +88,7 @@ def assert_different_renderings(name, *documents):
             if tuple(pixels_1) == tuple(pixels_2):  # pragma: no cover
                 name_1, name_2 = f'{name}_{i}', f'{name}_{j}'
                 write_png(name_1, pixels_1, width, height)
-                assert False, f'{name_1} and {name_2} are the same'
+                pytest.fail(f'{name_1} and {name_2} are the same')
 
 
 def assert_pixels_equal(name, width, height, raw, expected_raw, tolerance=0):
@@ -104,7 +107,7 @@ def assert_pixels_equal(name, width, height, raw, expected_raw, tolerance=0):
                 write_png(f'{name}.expected', expected_raw, width, height)
                 x = i % width
                 y = i // width
-                assert 0, (
+                pytest.fail(
                     f'Pixel ({x}, {y}) in {name}: '
                     f'expected rgba{expected}, got rgba{value}')
 
@@ -131,4 +134,4 @@ def html_to_pixels(html):
 def document_to_pixels(document):
     """Render an HTML document to PNG, check its size and return pixel data."""
     image = Image.open(io.BytesIO(document.write_png()))
-    return image.width, image.height, image.getdata()
+    return image.width, image.height, image.get_flattened_data()

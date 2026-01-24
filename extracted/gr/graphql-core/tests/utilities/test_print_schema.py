@@ -511,6 +511,22 @@ def describe_type_system_printer():
             """
         )
 
+    def prints_input_type_with_one_of_directive():
+        input_type = GraphQLInputObjectType(
+            name="InputType",
+            fields={"int": GraphQLInputField(GraphQLInt)},
+            is_one_of=True,
+        )
+
+        schema = GraphQLSchema(types=[input_type])
+        assert expect_printed_schema(schema) == dedent(
+            """
+            input InputType @oneOf {
+              int: Int
+            }
+            """
+        )
+
     def prints_custom_scalar():
         odd_type = GraphQLScalarType(name="Odd")
 
@@ -673,6 +689,9 @@ def describe_type_system_printer():
               url: String!
             ) on SCALAR
 
+            """Indicates an Input Object is a OneOf Input Object."""
+            directive @oneOf on INPUT_OBJECT
+
             """
             A GraphQL Schema defines the capabilities of a GraphQL server. It exposes all available types and directives on the server, as well as the entry points for query, mutation, and subscription operations.
             """
@@ -691,7 +710,7 @@ def describe_type_system_printer():
               mutationType: __Type
 
               """
-              If this server support subscription, the type that subscription operations will be rooted at.
+              If this server supports subscription, the type that subscription operations will be rooted at.
               """
               subscriptionType: __Type
 
@@ -715,6 +734,7 @@ def describe_type_system_printer():
               enumValues(includeDeprecated: Boolean = false): [__EnumValue!]
               inputFields(includeDeprecated: Boolean = false): [__InputValue!]
               ofType: __Type
+              isOneOf: Boolean
             }
 
             """An enum describing what kind of type a given `__Type` is."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: shapely
-Version: 2.1.1
+Version: 2.1.2
 Summary: Manipulation and analysis of geometric objects
 Author: Sean Gillies
 Maintainer: Shapely contributors
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst

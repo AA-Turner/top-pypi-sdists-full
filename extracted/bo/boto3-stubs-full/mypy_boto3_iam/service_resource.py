@@ -3,7 +3,7 @@ Type annotations for iam service ServiceResource.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -43,6 +43,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator, Sequence
 from datetime import datetime
 
 from boto3.resources.base import ResourceMeta, ServiceResource
@@ -126,12 +127,6 @@ from .type_defs import (
     UserTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Iterator, Sequence
-else:
-    from typing import Dict, Iterator, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -234,7 +229,7 @@ class ServiceResourceGroupsCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourcegroupscollection)
         """
 
-    def pages(self) -> Iterator[List[Group]]:
+    def pages(self) -> Iterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -294,7 +289,7 @@ class ServiceResourceInstanceProfilesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourceinstanceprofilescollection)
         """
 
-    def pages(self) -> Iterator[List[InstanceProfile]]:
+    def pages(self) -> Iterator[list[InstanceProfile]]:
         """
         A generator which yields pages of InstanceProfiles.
 
@@ -361,7 +356,7 @@ class ServiceResourcePoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourcepoliciescollection)
         """
 
-    def pages(self) -> Iterator[List[Policy]]:
+    def pages(self) -> Iterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -421,7 +416,7 @@ class ServiceResourceRolesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourcerolescollection)
         """
 
-    def pages(self) -> Iterator[List[Role]]:
+    def pages(self) -> Iterator[list[Role]]:
         """
         A generator which yields pages of Roles.
 
@@ -481,7 +476,7 @@ class ServiceResourceSamlProvidersCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourcesamlproviderscollection)
         """
 
-    def pages(self) -> Iterator[List[SamlProvider]]:
+    def pages(self) -> Iterator[list[SamlProvider]]:
         """
         A generator which yields pages of SamlProviders.
 
@@ -541,7 +536,7 @@ class ServiceResourceServerCertificatesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourceservercertificatescollection)
         """
 
-    def pages(self) -> Iterator[List[ServerCertificate]]:
+    def pages(self) -> Iterator[list[ServerCertificate]]:
         """
         A generator which yields pages of ServerCertificates.
 
@@ -601,7 +596,7 @@ class ServiceResourceUsersCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourceuserscollection)
         """
 
-    def pages(self) -> Iterator[List[User]]:
+    def pages(self) -> Iterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -665,7 +660,7 @@ class ServiceResourceVirtualMfaDevicesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#serviceresourcevirtualmfadevicescollection)
         """
 
-    def pages(self) -> Iterator[List[VirtualMfaDevice]]:
+    def pages(self) -> Iterator[list[VirtualMfaDevice]]:
         """
         A generator which yields pages of VirtualMfaDevices.
 
@@ -725,7 +720,7 @@ class CurrentUserAccessKeysCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#currentuseraccess_keys)
         """
 
-    def pages(self) -> Iterator[List[AccessKey]]:
+    def pages(self) -> Iterator[list[AccessKey]]:
         """
         A generator which yields pages of AccessKeys.
 
@@ -785,7 +780,7 @@ class CurrentUserMfaDevicesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#currentusermfa_devices)
         """
 
-    def pages(self) -> Iterator[List[MfaDevice]]:
+    def pages(self) -> Iterator[list[MfaDevice]]:
         """
         A generator which yields pages of MfaDevices.
 
@@ -845,7 +840,7 @@ class CurrentUserSigningCertificatesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#currentusersigning_certificates)
         """
 
-    def pages(self) -> Iterator[List[SigningCertificate]]:
+    def pages(self) -> Iterator[list[SigningCertificate]]:
         """
         A generator which yields pages of SigningCertificates.
 
@@ -905,7 +900,7 @@ class GroupAttachedPoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#groupattached_policies)
         """
 
-    def pages(self) -> Iterator[List[Policy]]:
+    def pages(self) -> Iterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -965,7 +960,7 @@ class GroupPoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#grouppolicies)
         """
 
-    def pages(self) -> Iterator[List[GroupPolicy]]:
+    def pages(self) -> Iterator[list[GroupPolicy]]:
         """
         A generator which yields pages of GroupPolicys.
 
@@ -1025,7 +1020,7 @@ class GroupUsersCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#groupusers)
         """
 
-    def pages(self) -> Iterator[List[User]]:
+    def pages(self) -> Iterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -1091,7 +1086,7 @@ class PolicyAttachedGroupsCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#policyattached_groups)
         """
 
-    def pages(self) -> Iterator[List[Group]]:
+    def pages(self) -> Iterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -1157,7 +1152,7 @@ class PolicyAttachedRolesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#policyattached_roles)
         """
 
-    def pages(self) -> Iterator[List[Role]]:
+    def pages(self) -> Iterator[list[Role]]:
         """
         A generator which yields pages of Roles.
 
@@ -1223,7 +1218,7 @@ class PolicyAttachedUsersCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#policyattached_users)
         """
 
-    def pages(self) -> Iterator[List[User]]:
+    def pages(self) -> Iterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -1283,7 +1278,7 @@ class PolicyVersionsCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#policyversions)
         """
 
-    def pages(self) -> Iterator[List[PolicyVersion]]:
+    def pages(self) -> Iterator[list[PolicyVersion]]:
         """
         A generator which yields pages of PolicyVersions.
 
@@ -1343,7 +1338,7 @@ class RoleAttachedPoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#roleattached_policies)
         """
 
-    def pages(self) -> Iterator[List[Policy]]:
+    def pages(self) -> Iterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -1403,7 +1398,7 @@ class RoleInstanceProfilesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#roleinstance_profiles)
         """
 
-    def pages(self) -> Iterator[List[InstanceProfile]]:
+    def pages(self) -> Iterator[list[InstanceProfile]]:
         """
         A generator which yields pages of InstanceProfiles.
 
@@ -1463,7 +1458,7 @@ class RolePoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#rolepolicies)
         """
 
-    def pages(self) -> Iterator[List[RolePolicy]]:
+    def pages(self) -> Iterator[list[RolePolicy]]:
         """
         A generator which yields pages of RolePolicys.
 
@@ -1523,7 +1518,7 @@ class UserAccessKeysCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#useraccess_keys)
         """
 
-    def pages(self) -> Iterator[List[AccessKey]]:
+    def pages(self) -> Iterator[list[AccessKey]]:
         """
         A generator which yields pages of AccessKeys.
 
@@ -1583,7 +1578,7 @@ class UserAttachedPoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#userattached_policies)
         """
 
-    def pages(self) -> Iterator[List[Policy]]:
+    def pages(self) -> Iterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -1643,7 +1638,7 @@ class UserGroupsCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#usergroups)
         """
 
-    def pages(self) -> Iterator[List[Group]]:
+    def pages(self) -> Iterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -1703,7 +1698,7 @@ class UserMfaDevicesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#usermfa_devices)
         """
 
-    def pages(self) -> Iterator[List[MfaDevice]]:
+    def pages(self) -> Iterator[list[MfaDevice]]:
         """
         A generator which yields pages of MfaDevices.
 
@@ -1763,7 +1758,7 @@ class UserPoliciesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#userpolicies)
         """
 
-    def pages(self) -> Iterator[List[UserPolicy]]:
+    def pages(self) -> Iterator[list[UserPolicy]]:
         """
         A generator which yields pages of UserPolicys.
 
@@ -1823,7 +1818,7 @@ class UserSigningCertificatesCollection(ResourceCollection):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#usersigning_certificates)
         """
 
-    def pages(self) -> Iterator[List[SigningCertificate]]:
+    def pages(self) -> Iterator[list[SigningCertificate]]:
         """
         A generator which yields pages of SigningCertificates.
 
@@ -2025,7 +2020,7 @@ class AccountSummary(ServiceResource):
     [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iam/service_resource/#accountsummary)
     """
 
-    summary_map: Dict[SummaryKeyTypeType, int]
+    summary_map: dict[SummaryKeyTypeType, int]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2108,7 +2103,7 @@ class CurrentUser(ServiceResource):
     create_date: datetime
     password_last_used: datetime
     permissions_boundary: AttachedPermissionsBoundaryTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2325,14 +2320,14 @@ class InstanceProfile(ServiceResource):
     """
 
     name: str
-    roles: List[Role]
+    roles: list[Role]
     path: str
     instance_profile_name: str
     instance_profile_id: str
     arn: str
     create_date: datetime
-    roles_attribute: List[RoleTypeDef]
-    tags: List[TagTypeDef]
+    roles_attribute: list[RoleTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2538,7 +2533,7 @@ class Policy(ServiceResource):
     description: str
     create_date: datetime
     update_date: datetime
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2708,7 +2703,7 @@ class Role(ServiceResource):
     description: str
     max_session_duration: int
     permissions_boundary: AttachedPermissionsBoundaryTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     role_last_used: RoleLastUsedTypeDef
     meta: IAMResourceMeta  # type: ignore[override]
 
@@ -2852,9 +2847,9 @@ class SamlProvider(ServiceResource):
     saml_metadata_document: str
     create_date: datetime
     valid_until: datetime
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     assertion_encryption_mode: AssertionEncryptionModeTypeType
-    private_key_list: List[SAMLPrivateKeyTypeDef]
+    private_key_list: list[SAMLPrivateKeyTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -2910,7 +2905,7 @@ class ServerCertificate(ServiceResource):
     server_certificate_metadata: ServerCertificateMetadataTypeDef
     certificate_body: str
     certificate_chain: str
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -3040,7 +3035,7 @@ class User(ServiceResource):
     create_date: datetime
     password_last_used: datetime
     permissions_boundary: AttachedPermissionsBoundaryTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:
@@ -3282,7 +3277,7 @@ class VirtualMfaDevice(ServiceResource):
     qr_code_png: bytes
     user_attribute: UserTypeDef
     enable_date: datetime
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

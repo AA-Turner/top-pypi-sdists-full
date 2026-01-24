@@ -31,7 +31,7 @@ class CustomFieldDateTypeDto(CustomFieldDtoType):
     """ # noqa: E501
     date_value: Optional[datetime] = Field(default=None, alias="dateValue")
     field_type: Optional[CustomFieldType] = Field(default=None, alias="fieldType")
-    __properties: ClassVar[List[str]] = ["FieldType", "fieldType"]
+    __properties: ClassVar[List[str]] = ["FieldType", "fieldType", "dateValue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -87,7 +87,8 @@ class CustomFieldDateTypeDto(CustomFieldDtoType):
 
         _obj = cls.model_validate({
             "FieldType": obj.get("FieldType"),
-            "fieldType": obj.get("fieldType")
+            "fieldType": obj.get("fieldType"),
+            "dateValue": obj.get("dateValue")
         })
         return _obj
 

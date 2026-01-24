@@ -1,12 +1,7 @@
 from decimal import Decimal
 
 from chellow.e.computer import SupplySource
-from chellow.e.triad import (
-    _find_triad_dates,
-    _process_triad_hh,
-    hh,
-    national_grid_import,
-)
+from chellow.e.triad import _find_triad_dates, _process_triad_hh, hh, neso_import
 from chellow.models import (
     Comm,
     Contract,
@@ -161,9 +156,7 @@ def test_process_triad_hh(sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,
@@ -285,7 +278,7 @@ def test_find_triad_dates(mocker):
     assert actual == expected
 
 
-def test_national_grid_import(mocker, sess):
+def test_neso_import(mocker, sess):
     vf = to_utc(ct_datetime(1996, 1, 1))
 
     market_role_Z = MarketRole.insert(sess, "Z", "Non-core")
@@ -335,8 +328,7 @@ def test_national_grid_import(mocker, sess):
 
     mocker.patch("chellow.e.triad.api_get", return_value={"result": {"records": []}})
 
-    s = mocker.Mock()
-    national_grid_import(sess, log, set_progress, s)
+    neso_import(sess, log, set_progress)
 
 
 def test_hh(sess):
@@ -465,9 +457,7 @@ def test_hh(sess):
         None,
         gsp_group,
         mop_contract,
-        "773",
         dc_contract,
-        "ghyy3",
         "hgjeyhuw",
         dno,
         pc,

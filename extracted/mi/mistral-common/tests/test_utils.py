@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import huggingface_hub as huggingface_hub
@@ -9,6 +8,7 @@ import requests
 
 from mistral_common.tokens.tokenizers.utils import (
     download_tokenizer_from_hf_hub,
+    get_one_valid_tokenizer_file,
     list_local_hf_repo_files,
 )
 
@@ -54,16 +54,61 @@ def test_list_local_hf_repo_files() -> None:
     ["files", "expected"],
     [
         ([], None),
+        (["unvalid1.txt", "/path/to/tekken.json"], "/path/to/tekken.json"),
+        (["unvalid1.txt", "tekken.json"], "tekken.json"),
+        (["unvalid1.txt", "/tekken.json"], "/tekken.json"),
+        (["unvalid1.txt", "sentencepiece.model"], "sentencepiece.model"),
+        (["unvalid1.txt", "sentencepiece.model.v1"], "sentencepiece.model.v1"),
+        (["unvalid1.txt", "/path/to/sentencepiece.model.v1", "sentencepiece.model.v1m1"], "sentencepiece.model.v1m1"),
+        (
+            ["unvalid1.txt", "/sentencepiece.model.v1", "/path/to/sentencepiece.model.v1m1"],
+            "/path/to/sentencepiece.model.v1m1",
+        ),
+        (
+            [
+                "unvalid1.txt",
+                "/sentencepiece.model.v1",
+                "/path/to/sentencepiece.model.v1m1",
+                "/sentencepiece.model.v1/tekken.json",
+            ],
+            "/sentencepiece.model.v1/tekken.json",
+        ),
+        (["unvalid1.txt", "sentencepiece.model", "sentencepiece.model.v1m1"], "sentencepiece.model.v1m1"),
+        (["unvalid1.txt", "unvalid2.txt"], None),
+    ],
+)
+def test_get_one_valid_tokenizer_files_abs(files: list[str], expected: str | None) -> None:
+    if expected is None:
+        with pytest.raises(ValueError):
+            get_one_valid_tokenizer_file(files=files)
+    else:
+        tokenizer = get_one_valid_tokenizer_file(files=files)
+        assert tokenizer == expected
+
+
+@pytest.mark.parametrize(
+    ["files", "expected"],
+    [
+        ([], None),
         (["unvalid1.txt", "path/to/tekken.json"], "path/to/tekken.json"),
         (["unvalid1.txt", "tekken.json"], "tekken.json"),
         (["unvalid1.txt", "sentencepiece.model"], "sentencepiece.model"),
         (["unvalid1.txt", "sentencepiece.model.v1"], "sentencepiece.model.v1"),
         (["unvalid1.txt", "sentencepiece.model.v1", "sentencepiece.model.v1m1"], "sentencepiece.model.v1m1"),
+        (
+            [
+                "unvalid1.txt",
+                "sentencepiece.model.v1",
+                "sentencepiece.model.v1m1",
+                "sentencepiece.model.v1/tekken.json",
+            ],
+            "sentencepiece.model.v1/tekken.json",
+        ),
         (["unvalid1.txt", "sentencepiece.model", "sentencepiece.model.v1m1"], "sentencepiece.model.v1m1"),
         (["unvalid1.txt", "unvalid2.txt"], None),
     ],
 )
-def test_download_tokenizer_from_hf_hub(files: list[str], expected: Optional[str]) -> None:
+def test_download_tokenizer_from_hf_hub(files: list[str], expected: str | None) -> None:
     with patch("huggingface_hub.HfApi.list_repo_files", return_value=files):
         if expected is None:
             with pytest.raises(ValueError):

@@ -1,16 +1,16 @@
 import magic
 from django.apps import apps
 from django.conf import settings
+from django.utils.module_loading import import_string
 from import_export.formats.base_formats import CSV
 from import_export.results import RowResult
 from import_export.signals import post_import
-from wbcore.utils.importlib import import_from_dotted_path
 
 
 def default_import_parse(import_source):
     resource_path = import_source.resource_kwargs["resource_path"]
     resource_kwargs = import_source.resource_kwargs["resource_kwargs"]
-    resource_class = import_from_dotted_path(resource_path)
+    resource_class = import_string(resource_path)
     resource = resource_class(**resource_kwargs)
     input_format = CSV(encoding="utf-8-sig")
 

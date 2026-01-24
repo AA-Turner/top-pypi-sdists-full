@@ -73,7 +73,11 @@ class NodeProxyAgentLayer(
         fn.add_layers(NodeProxyAgentLayer(self, "NodeProxyAgentLayer"))
     '''
 
-    def __init__(self, scope: _constructs_77d1e7e8.Construct, id: builtins.str) -> None:
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+    ) -> None:
         '''
         :param scope: -
         :param id: -

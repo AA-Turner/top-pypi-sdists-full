@@ -1,7 +1,5 @@
 """
 """
-from __future__ import annotations
-
 
 from dataclasses import dataclass
 from datetime import timedelta
@@ -12,12 +10,12 @@ from typing import TypedDict
 from typing_extensions import Callable
 from typing_extensions import Generic
 from typing_extensions import ParamSpec
-from typing_extensions import TypeAlias
 from typing_extensions import TypeVar
 
 
 Params = Tuple[Tuple[object, ...], Dict[str, Any]]
 Res = TypeVar('Res')
+Err = TypeVar('Err')
 Param = ParamSpec('Param')
 
 class EmptyKwargs(TypedDict):
@@ -27,9 +25,10 @@ class EmptyKwargs(TypedDict):
 class OkResult(Generic[Res]):
     value: Res
 @dataclass
-class ExceptionResult:
+class ExceptionResult(Generic[Err]):
     traceback: str
     error_cls: str
+    gradio_error: Err | None
 @dataclass
 class AbortedResult:
     pass
@@ -42,9 +41,9 @@ class GradioQueueEvent:
     args: tuple[Any, ...]
     kwargs: dict[str, Any]
 
-RegularResQueueResult:   TypeAlias = "OkResult[Res] | ExceptionResult | GradioQueueEvent"
-GeneratorResQueueResult: TypeAlias = "OkResult[Res] | ExceptionResult | EndResult | GradioQueueEvent"
-YieldQueueResult:        TypeAlias = "OkResult[Res] | ExceptionResult | EndResult | AbortedResult"
+RegularResQueueResult   = OkResult[Res] | ExceptionResult[Err] | GradioQueueEvent
+GeneratorResQueueResult = OkResult[Res] | ExceptionResult[Err] | EndResult | GradioQueueEvent
+YieldQueueResult        = OkResult[Res] | ExceptionResult[Err] | EndResult | AbortedResult
 
-Duration:        TypeAlias = "int | timedelta"
-DynamicDuration: TypeAlias = "Duration | Callable[Param, Duration] | None"
+Duration        = int | timedelta
+DynamicDuration = Duration | Callable[Param, Duration] | None

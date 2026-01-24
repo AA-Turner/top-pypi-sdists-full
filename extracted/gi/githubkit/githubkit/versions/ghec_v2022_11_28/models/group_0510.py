@@ -9,46 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class ExemptionResponse(GitHubModel):
-    """Exemption response
+class Tag(GitHubModel):
+    """Tag
 
-    A response to an exemption request by a delegated bypasser.
+    Tag
     """
 
-    id: Missing[int] = Field(
-        default=UNSET, description="The ID of the exemption response."
-    )
-    reviewer_id: Missing[int] = Field(
-        default=UNSET,
-        description="The ID of the user who reviewed the exemption request.",
-    )
-    reviewer_login: Missing[str] = Field(
-        default=UNSET,
-        description="The login of the user who reviewed the exemption request.",
-    )
-    status: Missing[Literal["approved", "rejected", "dismissed"]] = Field(
-        default=UNSET, description="The status of the exemption response."
-    )
-    reviewer_comment: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        description="The comment the reviewer provided when responding to the exemption request.",
-    )
-    created_at: Missing[datetime] = Field(
-        default=UNSET,
-        description="The date and time the exemption request was created.",
-    )
+    name: str = Field()
+    commit: TagPropCommit = Field()
+    zipball_url: str = Field()
+    tarball_url: str = Field()
+    node_id: str = Field()
 
 
-model_rebuild(ExemptionResponse)
+class TagPropCommit(GitHubModel):
+    """TagPropCommit"""
 
-__all__ = ("ExemptionResponse",)
+    sha: str = Field()
+    url: str = Field()
+
+
+model_rebuild(Tag)
+model_rebuild(TagPropCommit)
+
+__all__ = (
+    "Tag",
+    "TagPropCommit",
+)

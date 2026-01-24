@@ -76,6 +76,282 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_proton import (
+    EnvironmentAccountConnectionReference as _EnvironmentAccountConnectionReference_e0cad370,
+    EnvironmentTemplateReference as _EnvironmentTemplateReference_7a1abc2b,
+    IEnvironmentAccountConnectionRef as _IEnvironmentAccountConnectionRef_389c5b12,
+    IEnvironmentTemplateRef as _IEnvironmentTemplateRef_2a7db519,
+    IServiceTemplateRef as _IServiceTemplateRef_74ef1fef,
+    ServiceTemplateReference as _ServiceTemplateReference_2e63180b,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _IEnvironmentAccountConnectionRef_389c5b12, _ITaggable_36806126)
+class CfnEnvironmentAccountConnection(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentAccountConnection",
+):
+    '''Detailed data of an AWS Proton environment account connection resource.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmentaccountconnection.html
+    :cloudformationResource: AWS::Proton::EnvironmentAccountConnection
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_proton as proton
+        
+        cfn_environment_account_connection = proton.CfnEnvironmentAccountConnection(self, "MyCfnEnvironmentAccountConnection",
+            codebuild_role_arn="codebuildRoleArn",
+            component_role_arn="componentRoleArn",
+            environment_account_id="environmentAccountId",
+            environment_name="environmentName",
+            management_account_id="managementAccountId",
+            role_arn="roleArn",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        codebuild_role_arn: typing.Optional[builtins.str] = None,
+        component_role_arn: typing.Optional[builtins.str] = None,
+        environment_account_id: typing.Optional[builtins.str] = None,
+        environment_name: typing.Optional[builtins.str] = None,
+        management_account_id: typing.Optional[builtins.str] = None,
+        role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Proton::EnvironmentAccountConnection``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param codebuild_role_arn: The Amazon Resource Name (ARN) of an IAM service role in the environment account. AWS Proton uses this role to provision infrastructure resources using CodeBuild-based provisioning in the associated environment account.
+        :param component_role_arn: The Amazon Resource Name (ARN) of the IAM service role that AWS Proton uses when provisioning directly defined components in the associated environment account. It determines the scope of infrastructure that a component can provision in the account. The environment account connection must have a ``componentRoleArn`` to allow directly defined components to be associated with any environments running in the account. For more information about components, see `AWS Proton components <https://docs.aws.amazon.com/proton/latest/userguide/ag-components.html>`_ in the *AWS Proton User Guide* .
+        :param environment_account_id: The environment account that's connected to the environment account connection.
+        :param environment_name: The name of the environment that's associated with the environment account connection.
+        :param management_account_id: The ID of the management account that's connected to the environment account connection.
+        :param role_arn: The IAM service role that's associated with the environment account connection.
+        :param tags: An optional list of metadata items that you can associate with the AWS Proton environment account connection. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4856820b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEnvironmentAccountConnectionProps(
+            codebuild_role_arn=codebuild_role_arn,
+            component_role_arn=component_role_arn,
+            environment_account_id=environment_account_id,
+            environment_name=environment_name,
+            management_account_id=management_account_id,
+            role_arn=role_arn,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForEnvironmentAccountConnection")
+    @builtins.classmethod
+    def arn_for_environment_account_connection(
+        cls,
+        resource: "_IEnvironmentAccountConnectionRef_389c5b12",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6959a031237a5c4d4caf1c07e90f5ceb4f0da374ddca166f6fabcefd7769574c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironmentAccountConnection", [resource]))
+
+    @jsii.member(jsii_name="isCfnEnvironmentAccountConnection")
+    @builtins.classmethod
+    def is_cfn_environment_account_connection(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnvironmentAccountConnection.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11b3005577bf5809ebc225de13aaaac30b8ffae0f3cf6e712ee66c716b68567f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironmentAccountConnection", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b30ec85df499b3f87a92d53ab1648560e2495ee044a1fb86faf3008181494293)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__470395ff1b3bc54712f215fb1b2f6214bb182bd963a863176e86d9a96c0f1972)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the environment account connection ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''Returns the environment account connection ID.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Returns the environment account connection status.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentAccountConnectionRef")
+    def environment_account_connection_ref(
+        self,
+    ) -> "_EnvironmentAccountConnectionReference_e0cad370":
+        '''A reference to a EnvironmentAccountConnection resource.'''
+        return typing.cast("_EnvironmentAccountConnectionReference_e0cad370", jsii.get(self, "environmentAccountConnectionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="codebuildRoleArn")
+    def codebuild_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM service role in the environment account.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "codebuildRoleArn"))
+
+    @codebuild_role_arn.setter
+    def codebuild_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47f4e15b8378b0030dc5e8be607efef26d4e7bc41f9bc4d16a82239ecce2af2e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "codebuildRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="componentRoleArn")
+    def component_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM service role that AWS Proton uses when provisioning directly defined components in the associated environment account.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "componentRoleArn"))
+
+    @component_role_arn.setter
+    def component_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b976b51e7ad9d2668f5e11057b8add49417ccb62f9ec6ee2a16bfdf2cb4dab1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "componentRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentAccountId")
+    def environment_account_id(self) -> typing.Optional[builtins.str]:
+        '''The environment account that's connected to the environment account connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentAccountId"))
+
+    @environment_account_id.setter
+    def environment_account_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__36ad911396cde9a5836f2bf5c2178028454c62766b60ac3747357e9c24e96de8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentAccountId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentName")
+    def environment_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the environment that's associated with the environment account connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentName"))
+
+    @environment_name.setter
+    def environment_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d94be46146198fddc9c899c0dade14c643b597a9839643b3cc6c9f144935c502)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managementAccountId")
+    def management_account_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the management account that's connected to the environment account connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "managementAccountId"))
+
+    @management_account_id.setter
+    def management_account_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cbf14273aade064dc4e71967934b15a396069e1c949a15c0436c98dd68e54c3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managementAccountId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> typing.Optional[builtins.str]:
+        '''The IAM service role that's associated with the environment account connection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37b19867aae52947f0d449ddee0fce5ac822cd037dbd498834aaf9268ddd0cf1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An optional list of metadata items that you can associate with the AWS Proton environment account connection.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b211155911)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -101,7 +377,7 @@ class CfnEnvironmentAccountConnectionProps:
         environment_name: typing.Optional[builtins.str] = None,
         management_account_id: typing.Optional[builtins.str] = None,
         role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentAccountConnection``.
 
@@ -118,6 +394,7 @@ class CfnEnvironmentAccountConnectionProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_proton as proton
@@ -223,7 +500,7 @@ class CfnEnvironmentAccountConnectionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment account connection.
 
         A tag is a key-value pair.
@@ -233,7 +510,7 @@ class CfnEnvironmentAccountConnectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmentaccountconnection.html#cfn-proton-environmentaccountconnection-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -245,6 +522,244 @@ class CfnEnvironmentAccountConnectionProps:
         return "CfnEnvironmentAccountConnectionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEnvironmentTemplateRef_2a7db519, _ITaggable_36806126)
+class CfnEnvironmentTemplate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentTemplate",
+):
+    '''Create an environment template for AWS Proton .
+
+    For more information, see `Environment Templates <https://docs.aws.amazon.com/proton/latest/userguide/ag-templates.html>`_ in the *AWS Proton User Guide* .
+
+    You can create an environment template in one of the two following ways:
+
+    - Register and publish a *standard* environment template that instructs AWS Proton to deploy and manage environment infrastructure.
+    - Register and publish a *customer managed* environment template that connects AWS Proton to your existing provisioned infrastructure that you manage. AWS Proton *doesn't* manage your existing provisioned infrastructure. To create an environment template for customer provisioned and managed infrastructure, include the ``provisioning`` parameter and set the value to ``CUSTOMER_MANAGED`` . For more information, see `Register and publish an environment template <https://docs.aws.amazon.com/proton/latest/userguide/template-create.html>`_ in the *AWS Proton User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmenttemplate.html
+    :cloudformationResource: AWS::Proton::EnvironmentTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_proton as proton
+        
+        cfn_environment_template = proton.CfnEnvironmentTemplate(self, "MyCfnEnvironmentTemplate",
+            description="description",
+            display_name="displayName",
+            encryption_key="encryptionKey",
+            name="name",
+            provisioning="provisioning",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        encryption_key: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        provisioning: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Proton::EnvironmentTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: A description of the environment template.
+        :param display_name: The name of the environment template as displayed in the developer interface.
+        :param encryption_key: The customer provided encryption key for the environment template.
+        :param name: The name of the environment template.
+        :param provisioning: When included, indicates that the environment template is for customer provisioned and managed infrastructure.
+        :param tags: An optional list of metadata items that you can associate with the AWS Proton environment template. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef4e809ec)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnEnvironmentTemplateProps(
+            description=description,
+            display_name=display_name,
+            encryption_key=encryption_key,
+            name=name,
+            provisioning=provisioning,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForEnvironmentTemplate")
+    @builtins.classmethod
+    def arn_for_environment_template(
+        cls,
+        resource: "_IEnvironmentTemplateRef_2a7db519",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba8c0153f80943cb092bd938b4577c4018d4acd96251816e6d3af7e42cf3ab3b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEnvironmentTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnEnvironmentTemplate")
+    @builtins.classmethod
+    def is_cfn_environment_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnvironmentTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb9497953a6423a39c5ee7de0329ea2c11cf0fb0b5815cc5002c2e83043183fe)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironmentTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c118627efd9b4abeb2a81482dbdd168c0ed3de3481e90e77b6982f37546b8212)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8c572648613df63aa9379805f0276d23c54d34eb19338cf9c9de723b569d15f)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the ARN of the environment template.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="environmentTemplateRef")
+    def environment_template_ref(self) -> "_EnvironmentTemplateReference_7a1abc2b":
+        '''A reference to a EnvironmentTemplate resource.'''
+        return typing.cast("_EnvironmentTemplateReference_7a1abc2b", jsii.get(self, "environmentTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the environment template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4c3017cb6246cb9b1fe1441e75a361d9145673aca82d81b693f48652d3ee0034)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the environment template as displayed in the developer interface.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a105de5a3476c047601994ddc235a4b0cf038e8636251a999d458aa8e4b3992a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The customer provided encryption key for the environment template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
+
+    @encryption_key.setter
+    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__648690061d04f2544cc466a9b6faca374b4eef43d22368f21efa181a05f42f75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the environment template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ee300b7f87a2421c12b7d331e829f25f35ed6418d094e0f5ab731ef5da504b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisioning")
+    def provisioning(self) -> typing.Optional[builtins.str]:
+        '''When included, indicates that the environment template is for customer provisioned and managed infrastructure.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioning"))
+
+    @provisioning.setter
+    def provisioning(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13952344f4d05193e39ff94d2fe43c6b776745f5813718f927150d1f906c748e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisioning", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An optional list of metadata items that you can associate with the AWS Proton environment template.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6cbc88470)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -268,7 +783,7 @@ class CfnEnvironmentTemplateProps:
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnEnvironmentTemplate``.
 
@@ -284,6 +799,7 @@ class CfnEnvironmentTemplateProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_proton as proton
@@ -368,7 +884,7 @@ class CfnEnvironmentTemplateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An optional list of metadata items that you can associate with the AWS Proton environment template.
 
         A tag is a key-value pair.
@@ -378,7 +894,7 @@ class CfnEnvironmentTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmenttemplate.html#cfn-proton-environmenttemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -390,6 +906,239 @@ class CfnEnvironmentTemplateProps:
         return "CfnEnvironmentTemplateProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IServiceTemplateRef_74ef1fef, _ITaggable_36806126)
+class CfnServiceTemplate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_proton.CfnServiceTemplate",
+):
+    '''Create a service template.
+
+    The administrator creates a service template to define standardized infrastructure and an optional CI/CD service pipeline. Developers, in turn, select the service template from AWS Proton . If the selected service template includes a service pipeline definition, they provide a link to their source code repository. AWS Proton then deploys and manages the infrastructure defined by the selected service template. For more information, see `AWS Proton templates <https://docs.aws.amazon.com/proton/latest/userguide/ag-templates.html>`_ in the *AWS Proton User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-servicetemplate.html
+    :cloudformationResource: AWS::Proton::ServiceTemplate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_proton as proton
+        
+        cfn_service_template = proton.CfnServiceTemplate(self, "MyCfnServiceTemplate",
+            description="description",
+            display_name="displayName",
+            encryption_key="encryptionKey",
+            name="name",
+            pipeline_provisioning="pipelineProvisioning",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        encryption_key: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        pipeline_provisioning: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Proton::ServiceTemplate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param description: A description of the service template.
+        :param display_name: The service template name as displayed in the developer interface.
+        :param encryption_key: The customer provided service template encryption key that's used to encrypt data.
+        :param name: The name of the service template.
+        :param pipeline_provisioning: If ``pipelineProvisioning`` is ``true`` , a service pipeline is included in the service template. Otherwise, a service pipeline *isn't* included in the service template.
+        :param tags: An object that includes the template bundle S3 bucket path and name for the new version of a service template.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882ff9564a8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceTemplateProps(
+            description=description,
+            display_name=display_name,
+            encryption_key=encryption_key,
+            name=name,
+            pipeline_provisioning=pipeline_provisioning,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForServiceTemplate")
+    @builtins.classmethod
+    def arn_for_service_template(
+        cls,
+        resource: "_IServiceTemplateRef_74ef1fef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4eb53713489123adbaca6a4ef11b8867405a48cd760bf934756d79380cd340de)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServiceTemplate", [resource]))
+
+    @jsii.member(jsii_name="isCfnServiceTemplate")
+    @builtins.classmethod
+    def is_cfn_service_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnServiceTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5aa113b9bc00006e707a3c68d039567c95279dd1e6ad44a9b8c8f2bb689b313d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceTemplate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddd527106465752977c49de51e5880dae732ab3e117d6705c7481fc03c0ec62b)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec2b71dfda419a5086df44379f403384ee3f47ccf9f3b99eb029356df0b301fe)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the service template ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceTemplateRef")
+    def service_template_ref(self) -> "_ServiceTemplateReference_2e63180b":
+        '''A reference to a ServiceTemplate resource.'''
+        return typing.cast("_ServiceTemplateReference_2e63180b", jsii.get(self, "serviceTemplateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the service template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b28073324900aad1ec4b48a24ca1cf7e536969fe8e585a9db1b04de8f5a5660)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The service template name as displayed in the developer interface.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ccab56f5c5641a51957cc5cd6204b54532f81019d2e3f2d8745c6352de7449d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The customer provided service template encryption key that's used to encrypt data.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
+
+    @encryption_key.setter
+    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25d39f44b2de597ffe7248d3c35113c03029f9bbd75f232945e9d667d800d759)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the service template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ba71e7bd226dd89a72bb66f2008917e40b5588ceb1f0fbf3dda8348cd9d0004)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pipelineProvisioning")
+    def pipeline_provisioning(self) -> typing.Optional[builtins.str]:
+        '''If ``pipelineProvisioning`` is ``true`` , a service pipeline is included in the service template.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pipelineProvisioning"))
+
+    @pipeline_provisioning.setter
+    def pipeline_provisioning(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ceb0b8fd3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pipelineProvisioning", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An object that includes the template bundle S3 bucket path and name for the new version of a service template.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -413,7 +1162,7 @@ class CfnServiceTemplateProps:
         encryption_key: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         pipeline_provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServiceTemplate``.
 
@@ -429,6 +1178,7 @@ class CfnServiceTemplateProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_proton as proton
@@ -515,13 +1265,13 @@ class CfnServiceTemplateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An object that includes the template bundle S3 bucket path and name for the new version of a service template.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-servicetemplate.html#cfn-proton-servicetemplate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -535,940 +1285,6 @@ class CfnServiceTemplateProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_proton.EnvironmentAccountConnectionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "environment_account_connection_arn": "environmentAccountConnectionArn",
-    },
-)
-class EnvironmentAccountConnectionReference:
-    def __init__(self, *, environment_account_connection_arn: builtins.str) -> None:
-        '''A reference to a EnvironmentAccountConnection resource.
-
-        :param environment_account_connection_arn: The Arn of the EnvironmentAccountConnection resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_proton as proton
-            
-            environment_account_connection_reference = proton.EnvironmentAccountConnectionReference(
-                environment_account_connection_arn="environmentAccountConnectionArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4339f613591b1d13f4cdd7e72817b523c06b96d63af845fb8b71299852d44a5d)
-            check_type(argname="argument environment_account_connection_arn", value=environment_account_connection_arn, expected_type=type_hints["environment_account_connection_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "environment_account_connection_arn": environment_account_connection_arn,
-        }
-
-    @builtins.property
-    def environment_account_connection_arn(self) -> builtins.str:
-        '''The Arn of the EnvironmentAccountConnection resource.'''
-        result = self._values.get("environment_account_connection_arn")
-        assert result is not None, "Required property 'environment_account_connection_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EnvironmentAccountConnectionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_proton.EnvironmentTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={"environment_template_arn": "environmentTemplateArn"},
-)
-class EnvironmentTemplateReference:
-    def __init__(self, *, environment_template_arn: builtins.str) -> None:
-        '''A reference to a EnvironmentTemplate resource.
-
-        :param environment_template_arn: The Arn of the EnvironmentTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_proton as proton
-            
-            environment_template_reference = proton.EnvironmentTemplateReference(
-                environment_template_arn="environmentTemplateArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee43ee588a2ca362e30938f71f46f98002342622ea320c8e83a93ed5273f4ef1)
-            check_type(argname="argument environment_template_arn", value=environment_template_arn, expected_type=type_hints["environment_template_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "environment_template_arn": environment_template_arn,
-        }
-
-    @builtins.property
-    def environment_template_arn(self) -> builtins.str:
-        '''The Arn of the EnvironmentTemplate resource.'''
-        result = self._values.get("environment_template_arn")
-        assert result is not None, "Required property 'environment_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EnvironmentTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_proton.IEnvironmentAccountConnectionRef")
-class IEnvironmentAccountConnectionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnvironmentAccountConnection.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentAccountConnectionRef")
-    def environment_account_connection_ref(
-        self,
-    ) -> EnvironmentAccountConnectionReference:
-        '''(experimental) A reference to a EnvironmentAccountConnection resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEnvironmentAccountConnectionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnvironmentAccountConnection.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_proton.IEnvironmentAccountConnectionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentAccountConnectionRef")
-    def environment_account_connection_ref(
-        self,
-    ) -> EnvironmentAccountConnectionReference:
-        '''(experimental) A reference to a EnvironmentAccountConnection resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EnvironmentAccountConnectionReference, jsii.get(self, "environmentAccountConnectionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEnvironmentAccountConnectionRef).__jsii_proxy_class__ = lambda : _IEnvironmentAccountConnectionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_proton.IEnvironmentTemplateRef")
-class IEnvironmentTemplateRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnvironmentTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentTemplateRef")
-    def environment_template_ref(self) -> EnvironmentTemplateReference:
-        '''(experimental) A reference to a EnvironmentTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEnvironmentTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EnvironmentTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_proton.IEnvironmentTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentTemplateRef")
-    def environment_template_ref(self) -> EnvironmentTemplateReference:
-        '''(experimental) A reference to a EnvironmentTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EnvironmentTemplateReference, jsii.get(self, "environmentTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEnvironmentTemplateRef).__jsii_proxy_class__ = lambda : _IEnvironmentTemplateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_proton.IServiceTemplateRef")
-class IServiceTemplateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ServiceTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceTemplateRef")
-    def service_template_ref(self) -> "ServiceTemplateReference":
-        '''(experimental) A reference to a ServiceTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IServiceTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ServiceTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_proton.IServiceTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceTemplateRef")
-    def service_template_ref(self) -> "ServiceTemplateReference":
-        '''(experimental) A reference to a ServiceTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ServiceTemplateReference", jsii.get(self, "serviceTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IServiceTemplateRef).__jsii_proxy_class__ = lambda : _IServiceTemplateRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_proton.ServiceTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={"service_template_arn": "serviceTemplateArn"},
-)
-class ServiceTemplateReference:
-    def __init__(self, *, service_template_arn: builtins.str) -> None:
-        '''A reference to a ServiceTemplate resource.
-
-        :param service_template_arn: The Arn of the ServiceTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_proton as proton
-            
-            service_template_reference = proton.ServiceTemplateReference(
-                service_template_arn="serviceTemplateArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64b5029540f3d74b388cbe4e515dcfaa1df0a6dc93f7ea295e94290d0467232b)
-            check_type(argname="argument service_template_arn", value=service_template_arn, expected_type=type_hints["service_template_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "service_template_arn": service_template_arn,
-        }
-
-    @builtins.property
-    def service_template_arn(self) -> builtins.str:
-        '''The Arn of the ServiceTemplate resource.'''
-        result = self._values.get("service_template_arn")
-        assert result is not None, "Required property 'service_template_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ServiceTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IEnvironmentAccountConnectionRef, _ITaggable_36806126)
-class CfnEnvironmentAccountConnection(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentAccountConnection",
-):
-    '''Detailed data of an AWS Proton environment account connection resource.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmentaccountconnection.html
-    :cloudformationResource: AWS::Proton::EnvironmentAccountConnection
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_proton as proton
-        
-        cfn_environment_account_connection = proton.CfnEnvironmentAccountConnection(self, "MyCfnEnvironmentAccountConnection",
-            codebuild_role_arn="codebuildRoleArn",
-            component_role_arn="componentRoleArn",
-            environment_account_id="environmentAccountId",
-            environment_name="environmentName",
-            management_account_id="managementAccountId",
-            role_arn="roleArn",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        codebuild_role_arn: typing.Optional[builtins.str] = None,
-        component_role_arn: typing.Optional[builtins.str] = None,
-        environment_account_id: typing.Optional[builtins.str] = None,
-        environment_name: typing.Optional[builtins.str] = None,
-        management_account_id: typing.Optional[builtins.str] = None,
-        role_arn: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param codebuild_role_arn: The Amazon Resource Name (ARN) of an IAM service role in the environment account. AWS Proton uses this role to provision infrastructure resources using CodeBuild-based provisioning in the associated environment account.
-        :param component_role_arn: The Amazon Resource Name (ARN) of the IAM service role that AWS Proton uses when provisioning directly defined components in the associated environment account. It determines the scope of infrastructure that a component can provision in the account. The environment account connection must have a ``componentRoleArn`` to allow directly defined components to be associated with any environments running in the account. For more information about components, see `AWS Proton components <https://docs.aws.amazon.com/proton/latest/userguide/ag-components.html>`_ in the *AWS Proton User Guide* .
-        :param environment_account_id: The environment account that's connected to the environment account connection.
-        :param environment_name: The name of the environment that's associated with the environment account connection.
-        :param management_account_id: The ID of the management account that's connected to the environment account connection.
-        :param role_arn: The IAM service role that's associated with the environment account connection.
-        :param tags: An optional list of metadata items that you can associate with the AWS Proton environment account connection. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4856820b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnEnvironmentAccountConnectionProps(
-            codebuild_role_arn=codebuild_role_arn,
-            component_role_arn=component_role_arn,
-            environment_account_id=environment_account_id,
-            environment_name=environment_name,
-            management_account_id=management_account_id,
-            role_arn=role_arn,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b30ec85df499b3f87a92d53ab1648560e2495ee044a1fb86faf3008181494293)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__470395ff1b3bc54712f215fb1b2f6214bb182bd963a863176e86d9a96c0f1972)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the environment account connection ARN.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''Returns the environment account connection ID.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''Returns the environment account connection status.
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentAccountConnectionRef")
-    def environment_account_connection_ref(
-        self,
-    ) -> EnvironmentAccountConnectionReference:
-        '''A reference to a EnvironmentAccountConnection resource.'''
-        return typing.cast(EnvironmentAccountConnectionReference, jsii.get(self, "environmentAccountConnectionRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="codebuildRoleArn")
-    def codebuild_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an IAM service role in the environment account.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "codebuildRoleArn"))
-
-    @codebuild_role_arn.setter
-    def codebuild_role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47f4e15b8378b0030dc5e8be607efef26d4e7bc41f9bc4d16a82239ecce2af2e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "codebuildRoleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="componentRoleArn")
-    def component_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM service role that AWS Proton uses when provisioning directly defined components in the associated environment account.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "componentRoleArn"))
-
-    @component_role_arn.setter
-    def component_role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b976b51e7ad9d2668f5e11057b8add49417ccb62f9ec6ee2a16bfdf2cb4dab1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "componentRoleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentAccountId")
-    def environment_account_id(self) -> typing.Optional[builtins.str]:
-        '''The environment account that's connected to the environment account connection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentAccountId"))
-
-    @environment_account_id.setter
-    def environment_account_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36ad911396cde9a5836f2bf5c2178028454c62766b60ac3747357e9c24e96de8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environmentAccountId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentName")
-    def environment_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the environment that's associated with the environment account connection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "environmentName"))
-
-    @environment_name.setter
-    def environment_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d94be46146198fddc9c899c0dade14c643b597a9839643b3cc6c9f144935c502)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "environmentName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managementAccountId")
-    def management_account_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of the management account that's connected to the environment account connection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "managementAccountId"))
-
-    @management_account_id.setter
-    def management_account_id(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4cbf14273aade064dc4e71967934b15a396069e1c949a15c0436c98dd68e54c3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managementAccountId", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleArn")
-    def role_arn(self) -> typing.Optional[builtins.str]:
-        '''The IAM service role that's associated with the environment account connection.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
-
-    @role_arn.setter
-    def role_arn(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37b19867aae52947f0d449ddee0fce5ac822cd037dbd498834aaf9268ddd0cf1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An optional list of metadata items that you can associate with the AWS Proton environment account connection.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b211155911)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IEnvironmentTemplateRef, _ITaggable_36806126)
-class CfnEnvironmentTemplate(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_proton.CfnEnvironmentTemplate",
-):
-    '''Create an environment template for AWS Proton .
-
-    For more information, see `Environment Templates <https://docs.aws.amazon.com/proton/latest/userguide/ag-templates.html>`_ in the *AWS Proton User Guide* .
-
-    You can create an environment template in one of the two following ways:
-
-    - Register and publish a *standard* environment template that instructs AWS Proton to deploy and manage environment infrastructure.
-    - Register and publish a *customer managed* environment template that connects AWS Proton to your existing provisioned infrastructure that you manage. AWS Proton *doesn't* manage your existing provisioned infrastructure. To create an environment template for customer provisioned and managed infrastructure, include the ``provisioning`` parameter and set the value to ``CUSTOMER_MANAGED`` . For more information, see `Register and publish an environment template <https://docs.aws.amazon.com/proton/latest/userguide/template-create.html>`_ in the *AWS Proton User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-environmenttemplate.html
-    :cloudformationResource: AWS::Proton::EnvironmentTemplate
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_proton as proton
-        
-        cfn_environment_template = proton.CfnEnvironmentTemplate(self, "MyCfnEnvironmentTemplate",
-            description="description",
-            display_name="displayName",
-            encryption_key="encryptionKey",
-            name="name",
-            provisioning="provisioning",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: A description of the environment template.
-        :param display_name: The name of the environment template as displayed in the developer interface.
-        :param encryption_key: The customer provided encryption key for the environment template.
-        :param name: The name of the environment template.
-        :param provisioning: When included, indicates that the environment template is for customer provisioned and managed infrastructure.
-        :param tags: An optional list of metadata items that you can associate with the AWS Proton environment template. A tag is a key-value pair. For more information, see `AWS Proton resources and tagging <https://docs.aws.amazon.com/proton/latest/userguide/resources.html>`_ in the *AWS Proton User Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef4e809ec)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnEnvironmentTemplateProps(
-            description=description,
-            display_name=display_name,
-            encryption_key=encryption_key,
-            name=name,
-            provisioning=provisioning,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c118627efd9b4abeb2a81482dbdd168c0ed3de3481e90e77b6982f37546b8212)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a8c572648613df63aa9379805f0276d23c54d34eb19338cf9c9de723b569d15f)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the ARN of the environment template.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentTemplateRef")
-    def environment_template_ref(self) -> EnvironmentTemplateReference:
-        '''A reference to a EnvironmentTemplate resource.'''
-        return typing.cast(EnvironmentTemplateReference, jsii.get(self, "environmentTemplateRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the environment template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4c3017cb6246cb9b1fe1441e75a361d9145673aca82d81b693f48652d3ee0034)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="displayName")
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the environment template as displayed in the developer interface.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
-
-    @display_name.setter
-    def display_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a105de5a3476c047601994ddc235a4b0cf038e8636251a999d458aa8e4b3992a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''The customer provided encryption key for the environment template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
-
-    @encryption_key.setter
-    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__648690061d04f2544cc466a9b6faca374b4eef43d22368f21efa181a05f42f75)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the environment template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ee300b7f87a2421c12b7d331e829f25f35ed6418d094e0f5ab731ef5da504b5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisioning")
-    def provisioning(self) -> typing.Optional[builtins.str]:
-        '''When included, indicates that the environment template is for customer provisioned and managed infrastructure.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisioning"))
-
-    @provisioning.setter
-    def provisioning(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13952344f4d05193e39ff94d2fe43c6b776745f5813718f927150d1f906c748e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisioning", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An optional list of metadata items that you can associate with the AWS Proton environment template.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6cbc88470)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IServiceTemplateRef, _ITaggable_36806126)
-class CfnServiceTemplate(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_proton.CfnServiceTemplate",
-):
-    '''Create a service template.
-
-    The administrator creates a service template to define standardized infrastructure and an optional CI/CD service pipeline. Developers, in turn, select the service template from AWS Proton . If the selected service template includes a service pipeline definition, they provide a link to their source code repository. AWS Proton then deploys and manages the infrastructure defined by the selected service template. For more information, see `AWS Proton templates <https://docs.aws.amazon.com/proton/latest/userguide/ag-templates.html>`_ in the *AWS Proton User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-proton-servicetemplate.html
-    :cloudformationResource: AWS::Proton::ServiceTemplate
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_proton as proton
-        
-        cfn_service_template = proton.CfnServiceTemplate(self, "MyCfnServiceTemplate",
-            description="description",
-            display_name="displayName",
-            encryption_key="encryptionKey",
-            name="name",
-            pipeline_provisioning="pipelineProvisioning",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        encryption_key: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        pipeline_provisioning: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param description: A description of the service template.
-        :param display_name: The service template name as displayed in the developer interface.
-        :param encryption_key: The customer provided service template encryption key that's used to encrypt data.
-        :param name: The name of the service template.
-        :param pipeline_provisioning: If ``pipelineProvisioning`` is ``true`` , a service pipeline is included in the service template. Otherwise, a service pipeline *isn't* included in the service template.
-        :param tags: An object that includes the template bundle S3 bucket path and name for the new version of a service template.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882ff9564a8)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnServiceTemplateProps(
-            description=description,
-            display_name=display_name,
-            encryption_key=encryption_key,
-            name=name,
-            pipeline_provisioning=pipeline_provisioning,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ddd527106465752977c49de51e5880dae732ab3e117d6705c7481fc03c0ec62b)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec2b71dfda419a5086df44379f403384ee3f47ccf9f3b99eb029356df0b301fe)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the service template ARN.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceTemplateRef")
-    def service_template_ref(self) -> ServiceTemplateReference:
-        '''A reference to a ServiceTemplate resource.'''
-        return typing.cast(ServiceTemplateReference, jsii.get(self, "serviceTemplateRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the service template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b28073324900aad1ec4b48a24ca1cf7e536969fe8e585a9db1b04de8f5a5660)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="displayName")
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The service template name as displayed in the developer interface.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "displayName"))
-
-    @display_name.setter
-    def display_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ccab56f5c5641a51957cc5cd6204b54532f81019d2e3f2d8745c6352de7449d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''The customer provided service template encryption key that's used to encrypt data.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptionKey"))
-
-    @encryption_key.setter
-    def encryption_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25d39f44b2de597ffe7248d3c35113c03029f9bbd75f232945e9d667d800d759)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "encryptionKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the service template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ba71e7bd226dd89a72bb66f2008917e40b5588ceb1f0fbf3dda8348cd9d0004)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="pipelineProvisioning")
-    def pipeline_provisioning(self) -> typing.Optional[builtins.str]:
-        '''If ``pipelineProvisioning`` is ``true`` , a service pipeline is included in the service template.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pipelineProvisioning"))
-
-    @pipeline_provisioning.setter
-    def pipeline_provisioning(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ceb0b8fd3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "pipelineProvisioning", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An object that includes the template bundle S3 bucket path and name for the new version of a service template.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
 __all__ = [
     "CfnEnvironmentAccountConnection",
     "CfnEnvironmentAccountConnectionProps",
@@ -1476,73 +1292,9 @@ __all__ = [
     "CfnEnvironmentTemplateProps",
     "CfnServiceTemplate",
     "CfnServiceTemplateProps",
-    "EnvironmentAccountConnectionReference",
-    "EnvironmentTemplateReference",
-    "IEnvironmentAccountConnectionRef",
-    "IEnvironmentTemplateRef",
-    "IServiceTemplateRef",
-    "ServiceTemplateReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__92e78bba789de6e71f9d7f961684f6363d8564ac5afaa6e8f54209b72039e284(
-    *,
-    codebuild_role_arn: typing.Optional[builtins.str] = None,
-    component_role_arn: typing.Optional[builtins.str] = None,
-    environment_account_id: typing.Optional[builtins.str] = None,
-    environment_name: typing.Optional[builtins.str] = None,
-    management_account_id: typing.Optional[builtins.str] = None,
-    role_arn: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dbf81c286262c5ad8217a04b316bb2f0b0282d1464ba5d63a1b97caa00e8a493(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89231d286a017b3eab9ec8b8264aba07ec6ccebcb08bae53e0a07ad0b4990eca(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    encryption_key: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    pipeline_provisioning: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4339f613591b1d13f4cdd7e72817b523c06b96d63af845fb8b71299852d44a5d(
-    *,
-    environment_account_connection_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ee43ee588a2ca362e30938f71f46f98002342622ea320c8e83a93ed5273f4ef1(
-    *,
-    environment_template_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__64b5029540f3d74b388cbe4e515dcfaa1df0a6dc93f7ea295e94290d0467232b(
-    *,
-    service_template_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4856820b(
     scope: _constructs_77d1e7e8.Construct,
@@ -1555,6 +1307,18 @@ def _typecheckingstub__826262668de499159f2330eeadab45eb7cc0e3ce5dab7cadd5a4853b4
     management_account_id: typing.Optional[builtins.str] = None,
     role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6959a031237a5c4d4caf1c07e90f5ceb4f0da374ddca166f6fabcefd7769574c(
+    resource: _IEnvironmentAccountConnectionRef_389c5b12,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11b3005577bf5809ebc225de13aaaac30b8ffae0f3cf6e712ee66c716b68567f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1613,6 +1377,19 @@ def _typecheckingstub__952d5d229754748fd9299ff4728f53f331581c6208e0c33caa4616b21
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__92e78bba789de6e71f9d7f961684f6363d8564ac5afaa6e8f54209b72039e284(
+    *,
+    codebuild_role_arn: typing.Optional[builtins.str] = None,
+    component_role_arn: typing.Optional[builtins.str] = None,
+    environment_account_id: typing.Optional[builtins.str] = None,
+    environment_name: typing.Optional[builtins.str] = None,
+    management_account_id: typing.Optional[builtins.str] = None,
+    role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef4e809ec(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1623,6 +1400,18 @@ def _typecheckingstub__1e2a73b7ee2bc44761231bdcbade4acc70c394d7d8995376813f113ef
     name: typing.Optional[builtins.str] = None,
     provisioning: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba8c0153f80943cb092bd938b4577c4018d4acd96251816e6d3af7e42cf3ab3b(
+    resource: _IEnvironmentTemplateRef_2a7db519,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb9497953a6423a39c5ee7de0329ea2c11cf0fb0b5815cc5002c2e83043183fe(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1675,6 +1464,18 @@ def _typecheckingstub__a718c60c41780a6528ba1366f7802aa96b0bdb2f952b5fce603cf2d6c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dbf81c286262c5ad8217a04b316bb2f0b0282d1464ba5d63a1b97caa00e8a493(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    encryption_key: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    provisioning: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882ff9564a8(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -1685,6 +1486,18 @@ def _typecheckingstub__b9d6f7fcd45fb9a242859806053d250bd07d7040cbeda48256287882f
     name: typing.Optional[builtins.str] = None,
     pipeline_provisioning: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4eb53713489123adbaca6a4ef11b8867405a48cd760bf934756d79380cd340de(
+    resource: _IServiceTemplateRef_74ef1fef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5aa113b9bc00006e707a3c68d039567c95279dd1e6ad44a9b8c8f2bb689b313d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1733,6 +1546,18 @@ def _typecheckingstub__6c2d95b068209ade2ec58e4e7f9bdd418805321ebcfc007e6491b07ce
 
 def _typecheckingstub__00e30d2907243dab58015f5d20dd35d6a72df42367b8c6db016733a72ca69953(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89231d286a017b3eab9ec8b8264aba07ec6ccebcb08bae53e0a07ad0b4990eca(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    encryption_key: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    pipeline_provisioning: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

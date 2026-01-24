@@ -1,9 +1,7 @@
-from typing import List, Tuple
-
 from mistral_common.tokens.tokenizers.base import Tokenizer
 
 
-def _split_integer_list_by_value(list_: List[int], value: int) -> Tuple[List[int], ...]:
+def _split_integer_list_by_value(list_: list[int], value: int) -> tuple[list[int], ...]:
     r"""Split a list of integers by a given value.
 
     Args:
@@ -32,14 +30,14 @@ def _split_integer_list_by_value(list_: List[int], value: int) -> Tuple[List[int
 
 
 def _split_tokens_by_one_occurence_control_token(
-    list_: List[int], tokenizer: Tokenizer, control_token: str
-) -> Tuple[List[int], List[int]]:
+    list_: list[int], tokenizer: Tokenizer, control_token: str
+) -> tuple[list[int], list[int]]:
     r"""Split a list of integers by a given control token.
 
     Raises:
         ValueError: If the control token is not found in the list or if it is found more than once.
     """
-    control_token_id = tokenizer.get_control_token(control_token)
+    control_token_id = tokenizer.get_special_token(control_token)
     first, *rest = _split_integer_list_by_value(list_, control_token_id)
     if len(rest) == 0:
         raise ValueError(f"Control token {control_token} not found in the list of tokens.")

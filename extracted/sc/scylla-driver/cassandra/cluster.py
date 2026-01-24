@@ -29,7 +29,7 @@ from functools import partial, reduce, wraps
 from itertools import groupby, count, chain
 import json
 import logging
-from typing import Optional
+from typing import Optional, Union
 from warnings import warn
 from random import random
 import re
@@ -51,7 +51,7 @@ from cassandra.auth import _proxy_execute_key, PlainTextAuthProvider
 from cassandra.connection import (ConnectionException, ConnectionShutdown,
                                   ConnectionHeartbeat, ProtocolVersionUnsupported,
                                   EndPoint, DefaultEndPoint, DefaultEndPointFactory,
-                                  SniEndPointFactory, ConnectionBusy)
+                                  SniEndPointFactory, ConnectionBusy, locally_supported_compressions)
 from cassandra.cqltypes import UserType
 import cassandra.cqltypes as types
 from cassandra.encoder import Encoder
@@ -95,7 +95,6 @@ from cassandra.datastax.graph import (graph_object_row_factory, GraphOptions, Gr
                                       GraphSON3Serializer)
 from cassandra.datastax.graph.query import _request_timeout_key, _GraphSONContextRowFactory
 from cassandra.datastax import cloud as dscloud
-from cassandra.scylla.cloud import CloudConfiguration
 from cassandra.application_info import ApplicationInfoBase
 
 try:
@@ -686,7 +685,7 @@ class Cluster(object):
     Used for testing new protocol features incrementally before the new version is complete.
     """
 
-    compression = True
+    compression: Union[bool, str, None] = True
     """
     Controls compression for communications between the driver and Cassandra.
     If left as the default of :const:`True`, either lz4 or snappy compression
@@ -696,7 +695,7 @@ class Cluster(object):
     You may also set this to 'snappy' or 'lz4' to request that specific
     compression type.
 
-    Setting this to :const:`False` disables compression.
+    Setting this to :const:`False` or :const:`None` disables compression.
     """
 
     _application_info: Optional[ApplicationInfoBase] = None
@@ -1083,10 +1082,19 @@ class Cluster(object):
     used for columns in this cluster.
     """
 
-    metadata_request_timeout = datetime.timedelta(seconds=2)
+    metadata_request_timeout: Optional[float] = None
     """
-    Timeout for all queries used by driver it self.
-    Supported only by Scylla clusters.
+    Specifies a server-side timeout (in seconds) for all internal driver queries,
+    such as schema metadata lookups and cluster topology requests.
+    
+    The timeout is enforced by appending `USING TIMEOUT <timeout>` to queries
+    executed by the driver.
+    
+    - A value of `0` disables explicit timeout enforcement. In this case,
+      the driver does not add `USING TIMEOUT`, and the timeout is determined
+      by the server's defaults.
+    - Only supported when connected to Scylla clusters.
+    - If not explicitly set, defaults to the value of `control_connection_timeout`.
     """
 
     @property
@@ -1164,7 +1172,7 @@ class Cluster(object):
     def __init__(self,
                  contact_points=_NOT_SET,
                  port=9042,
-                 compression=True,
+                 compression: Union[bool, str, None] = True,
                  auth_provider=None,
                  load_balancing_policy=None,
                  reconnection_policy=None,
@@ -1205,7 +1213,7 @@ class Cluster(object):
                  cloud=None,
                  scylla_cloud=None,
                  shard_aware_options=None,
-                 metadata_request_timeout=None,
+                 metadata_request_timeout: Optional[float] = None,
                  column_encryption_policy=None,
                  application_info:Optional[ApplicationInfoBase]=None
                  ):
@@ -1229,23 +1237,7 @@ class Cluster(object):
             self.connection_class = connection_class
 
         if scylla_cloud is not None:
-            if contact_points is not _NOT_SET or ssl_context or ssl_options:
-                raise ValueError("contact_points, ssl_context, and ssl_options "
-                                 "cannot be specified with a scylla cloud configuration")
-            if shard_aware_options and not shard_aware_options.disable_shardaware_port:
-                raise ValueError("shard_aware_options.disable_shardaware_port=False "
-                                 "cannot be specified with a scylla cloud configuration")
-            uses_twisted = TwistedConnection and issubclass(self.connection_class, TwistedConnection)
-            uses_eventlet = EventletConnection and issubclass(self.connection_class, EventletConnection)
-
-            scylla_cloud_config = CloudConfiguration.create(scylla_cloud, pyopenssl=uses_twisted or uses_eventlet,
-                                                            endpoint_factory=endpoint_factory)
-            ssl_context = scylla_cloud_config.ssl_context
-            endpoint_factory = scylla_cloud_config.endpoint_factory
-            contact_points = scylla_cloud_config.contact_points
-            ssl_options = scylla_cloud_config.ssl_options
-            auth_provider = scylla_cloud_config.auth_provider
-            shard_aware_options = ShardAwareOptions(shard_aware_options, disable_shardaware_port=True)
+            raise NotImplementedError("scylla_cloud was removed and not supported anymore")
 
         if cloud is not None:
             self.cloud = cloud
@@ -1293,6 +1285,25 @@ class Cluster(object):
 
         self._resolve_hostnames()
 
+        if isinstance(compression, bool) or compression is None:
+            compression = bool(compression)
+            if compression and not locally_supported_compressions:
+                log.error(
+                    "Compression is enabled, but no compression libraries are available. "
+                    "Disabling compression, consider installing one of the Python packages: lz4 and/or python-snappy."
+                )
+                compression = False
+        elif isinstance(compression, str):
+            if not locally_supported_compressions.get(compression):
+                raise ValueError(
+                    "Compression '%s' was requested, but it is not available. "
+                    "Consider installing the corresponding Python package." % compression
+                )
+        else:
+            raise TypeError(
+                "The 'compression' option must be either a string (e.g., 'lz4' or 'snappy') "
+                "or a boolean (True to enable any available compression, False to disable it)."
+            )
         self.compression = compression
 
         if protocol_version is not _NOT_SET:
@@ -1303,8 +1314,6 @@ class Cluster(object):
         self.no_compact = no_compact
 
         self.auth_provider = auth_provider
-        if metadata_request_timeout is not None:
-            self.metadata_request_timeout = metadata_request_timeout
 
         if load_balancing_policy is not None:
             if isinstance(load_balancing_policy, type):
@@ -1415,6 +1424,7 @@ class Cluster(object):
         self.cql_version = cql_version
         self.max_schema_agreement_wait = max_schema_agreement_wait
         self.control_connection_timeout = control_connection_timeout
+        self.metadata_request_timeout = self.control_connection_timeout if metadata_request_timeout is None else metadata_request_timeout
         self.idle_heartbeat_interval = idle_heartbeat_interval
         self.idle_heartbeat_timeout = idle_heartbeat_timeout
         self.schema_event_refresh_window = schema_event_refresh_window
@@ -1725,14 +1735,6 @@ class Cluster(object):
                                   "shutting down Cluster:")
                     self.shutdown()
                     raise
-
-                # Update the information about tablet support after connection handshake.
-                self.load_balancing_policy._tablets_routing_v1 = self.control_connection._tablets_routing_v1
-                child_policy = self.load_balancing_policy.child_policy if hasattr(self.load_balancing_policy, 'child_policy') else None
-                while child_policy is not None:
-                    if hasattr(child_policy, '_tablet_routing_v1'):
-                        child_policy._tablet_routing_v1 = self.control_connection._tablets_routing_v1
-                    child_policy = child_policy.child_policy if hasattr(child_policy, 'child_policy') else None
 
                 self.profile_manager.check_supported()  # todo: rename this method
 
@@ -3109,7 +3111,7 @@ class Session(object):
         prepared_keyspace = keyspace if keyspace else None
         prepared_statement = PreparedStatement.from_message(
             response.query_id, response.bind_metadata, response.pk_indexes, self.cluster.metadata, query, prepared_keyspace,
-            self._protocol_version, response.column_metadata, response.result_metadata_id, self.cluster.column_encryption_policy)
+            self._protocol_version, response.column_metadata, response.result_metadata_id, response.is_lwt, self.cluster.column_encryption_policy)
         prepared_statement.custom_payload = future.custom_payload
 
         self.cluster.add_prepared(response.query_id, prepared_statement)
@@ -3444,9 +3446,9 @@ class ControlConnection(object):
     Internal
     """
 
-    _SELECT_PEERS = "SELECT * FROM system.peers"
+    _SELECT_PEERS = "SELECT peer, data_center, host_id, rack, release_version, rpc_address, schema_version, tokens FROM system.peers"
     _SELECT_PEERS_NO_TOKENS_TEMPLATE = "SELECT host_id, peer, data_center, rack, rpc_address, {nt_col_name}, release_version, schema_version FROM system.peers"
-    _SELECT_LOCAL = "SELECT * FROM system.local WHERE key='local'"
+    _SELECT_LOCAL = "SELECT broadcast_address, cluster_name, data_center, host_id, listen_address, partitioner, rack, release_version, rpc_address, schema_version, tokens FROM system.local WHERE key='local'"
     _SELECT_LOCAL_NO_TOKENS = "SELECT host_id, cluster_name, data_center, rack, partitioner, release_version, schema_version, rpc_address FROM system.local WHERE key='local'"
     # Used only when token_metadata_enabled is set to False
     _SELECT_LOCAL_NO_TOKENS_RPC_ADDRESS = "SELECT rpc_address FROM system.local WHERE key='local'"
@@ -3614,9 +3616,11 @@ class ControlConnection(object):
         if connection.features.sharding_info is not None:
             self._uses_peers_v2 = False
 
-        # Cassandra does not support "USING TIMEOUT"
-        self._metadata_request_timeout = None if connection.features.sharding_info is None \
-            else datetime.timedelta(seconds=self._cluster.control_connection_timeout)
+        # Only ScyllaDB supports "USING TIMEOUT"
+        # Sharding information signals it is ScyllaDB
+        self._metadata_request_timeout = None if connection.features.sharding_info is None or not self._cluster.metadata_request_timeout \
+            else datetime.timedelta(seconds=self._cluster.metadata_request_timeout)
+
         self._tablets_routing_v1 = connection.features.tablets_routing_v1
 
         # use weak references in both directions

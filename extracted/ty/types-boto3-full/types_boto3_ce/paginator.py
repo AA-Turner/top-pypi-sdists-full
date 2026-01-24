@@ -3,7 +3,7 @@ Type annotations for ce service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,14 @@ Usage::
         GetAnomalySubscriptionsPaginator,
         GetCostAndUsageComparisonsPaginator,
         GetCostComparisonDriversPaginator,
+        GetReservationPurchaseRecommendationPaginator,
+        GetRightsizingRecommendationPaginator,
+        ListCommitmentPurchaseAnalysesPaginator,
+        ListCostAllocationTagBackfillHistoryPaginator,
+        ListCostAllocationTagsPaginator,
+        ListCostCategoryDefinitionsPaginator,
+        ListCostCategoryResourceAssociationsPaginator,
+        ListSavingsPlansPurchaseRecommendationGenerationPaginator,
     )
 
     session = Session()
@@ -27,6 +35,14 @@ Usage::
     get_anomaly_subscriptions_paginator: GetAnomalySubscriptionsPaginator = client.get_paginator("get_anomaly_subscriptions")
     get_cost_and_usage_comparisons_paginator: GetCostAndUsageComparisonsPaginator = client.get_paginator("get_cost_and_usage_comparisons")
     get_cost_comparison_drivers_paginator: GetCostComparisonDriversPaginator = client.get_paginator("get_cost_comparison_drivers")
+    get_reservation_purchase_recommendation_paginator: GetReservationPurchaseRecommendationPaginator = client.get_paginator("get_reservation_purchase_recommendation")
+    get_rightsizing_recommendation_paginator: GetRightsizingRecommendationPaginator = client.get_paginator("get_rightsizing_recommendation")
+    list_commitment_purchase_analyses_paginator: ListCommitmentPurchaseAnalysesPaginator = client.get_paginator("list_commitment_purchase_analyses")
+    list_cost_allocation_tag_backfill_history_paginator: ListCostAllocationTagBackfillHistoryPaginator = client.get_paginator("list_cost_allocation_tag_backfill_history")
+    list_cost_allocation_tags_paginator: ListCostAllocationTagsPaginator = client.get_paginator("list_cost_allocation_tags")
+    list_cost_category_definitions_paginator: ListCostCategoryDefinitionsPaginator = client.get_paginator("list_cost_category_definitions")
+    list_cost_category_resource_associations_paginator: ListCostCategoryResourceAssociationsPaginator = client.get_paginator("list_cost_category_resource_associations")
+    list_savings_plans_purchase_recommendation_generation_paginator: ListSavingsPlansPurchaseRecommendationGenerationPaginator = client.get_paginator("list_savings_plans_purchase_recommendation_generation")
     ```
 """
 
@@ -48,6 +64,22 @@ from .type_defs import (
     GetCostAndUsageComparisonsResponsePaginatorTypeDef,
     GetCostComparisonDriversRequestPaginateTypeDef,
     GetCostComparisonDriversResponsePaginatorTypeDef,
+    GetReservationPurchaseRecommendationRequestPaginateTypeDef,
+    GetReservationPurchaseRecommendationResponseTypeDef,
+    GetRightsizingRecommendationRequestPaginateTypeDef,
+    GetRightsizingRecommendationResponseTypeDef,
+    ListCommitmentPurchaseAnalysesRequestPaginateTypeDef,
+    ListCommitmentPurchaseAnalysesResponseTypeDef,
+    ListCostAllocationTagBackfillHistoryRequestPaginateTypeDef,
+    ListCostAllocationTagBackfillHistoryResponseTypeDef,
+    ListCostAllocationTagsRequestPaginateTypeDef,
+    ListCostAllocationTagsResponseTypeDef,
+    ListCostCategoryDefinitionsRequestPaginateTypeDef,
+    ListCostCategoryDefinitionsResponseTypeDef,
+    ListCostCategoryResourceAssociationsRequestPaginateTypeDef,
+    ListCostCategoryResourceAssociationsResponseTypeDef,
+    ListSavingsPlansPurchaseRecommendationGenerationRequestPaginateTypeDef,
+    ListSavingsPlansPurchaseRecommendationGenerationResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -62,6 +94,14 @@ __all__ = (
     "GetAnomalySubscriptionsPaginator",
     "GetCostAndUsageComparisonsPaginator",
     "GetCostComparisonDriversPaginator",
+    "GetReservationPurchaseRecommendationPaginator",
+    "GetRightsizingRecommendationPaginator",
+    "ListCommitmentPurchaseAnalysesPaginator",
+    "ListCostAllocationTagBackfillHistoryPaginator",
+    "ListCostAllocationTagsPaginator",
+    "ListCostCategoryDefinitionsPaginator",
+    "ListCostCategoryResourceAssociationsPaginator",
+    "ListSavingsPlansPurchaseRecommendationGenerationPaginator",
 )
 
 
@@ -173,4 +213,195 @@ class GetCostComparisonDriversPaginator(_GetCostComparisonDriversPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/GetCostComparisonDrivers.html#CostExplorer.Paginator.GetCostComparisonDrivers.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#getcostcomparisondriverspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetReservationPurchaseRecommendationPaginatorBase = Paginator[
+        GetReservationPurchaseRecommendationResponseTypeDef
+    ]
+else:
+    _GetReservationPurchaseRecommendationPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetReservationPurchaseRecommendationPaginator(
+    _GetReservationPurchaseRecommendationPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/GetReservationPurchaseRecommendation.html#CostExplorer.Paginator.GetReservationPurchaseRecommendation)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#getreservationpurchaserecommendationpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetReservationPurchaseRecommendationRequestPaginateTypeDef]
+    ) -> PageIterator[GetReservationPurchaseRecommendationResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/GetReservationPurchaseRecommendation.html#CostExplorer.Paginator.GetReservationPurchaseRecommendation.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#getreservationpurchaserecommendationpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _GetRightsizingRecommendationPaginatorBase = Paginator[
+        GetRightsizingRecommendationResponseTypeDef
+    ]
+else:
+    _GetRightsizingRecommendationPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class GetRightsizingRecommendationPaginator(_GetRightsizingRecommendationPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/GetRightsizingRecommendation.html#CostExplorer.Paginator.GetRightsizingRecommendation)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#getrightsizingrecommendationpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetRightsizingRecommendationRequestPaginateTypeDef]
+    ) -> PageIterator[GetRightsizingRecommendationResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/GetRightsizingRecommendation.html#CostExplorer.Paginator.GetRightsizingRecommendation.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#getrightsizingrecommendationpaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCommitmentPurchaseAnalysesPaginatorBase = Paginator[
+        ListCommitmentPurchaseAnalysesResponseTypeDef
+    ]
+else:
+    _ListCommitmentPurchaseAnalysesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCommitmentPurchaseAnalysesPaginator(_ListCommitmentPurchaseAnalysesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCommitmentPurchaseAnalyses.html#CostExplorer.Paginator.ListCommitmentPurchaseAnalyses)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcommitmentpurchaseanalysespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCommitmentPurchaseAnalysesRequestPaginateTypeDef]
+    ) -> PageIterator[ListCommitmentPurchaseAnalysesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCommitmentPurchaseAnalyses.html#CostExplorer.Paginator.ListCommitmentPurchaseAnalyses.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcommitmentpurchaseanalysespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCostAllocationTagBackfillHistoryPaginatorBase = Paginator[
+        ListCostAllocationTagBackfillHistoryResponseTypeDef
+    ]
+else:
+    _ListCostAllocationTagBackfillHistoryPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCostAllocationTagBackfillHistoryPaginator(
+    _ListCostAllocationTagBackfillHistoryPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostAllocationTagBackfillHistory.html#CostExplorer.Paginator.ListCostAllocationTagBackfillHistory)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostallocationtagbackfillhistorypaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCostAllocationTagBackfillHistoryRequestPaginateTypeDef]
+    ) -> PageIterator[ListCostAllocationTagBackfillHistoryResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostAllocationTagBackfillHistory.html#CostExplorer.Paginator.ListCostAllocationTagBackfillHistory.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostallocationtagbackfillhistorypaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCostAllocationTagsPaginatorBase = Paginator[ListCostAllocationTagsResponseTypeDef]
+else:
+    _ListCostAllocationTagsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCostAllocationTagsPaginator(_ListCostAllocationTagsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostAllocationTags.html#CostExplorer.Paginator.ListCostAllocationTags)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostallocationtagspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCostAllocationTagsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCostAllocationTagsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostAllocationTags.html#CostExplorer.Paginator.ListCostAllocationTags.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostallocationtagspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCostCategoryDefinitionsPaginatorBase = Paginator[
+        ListCostCategoryDefinitionsResponseTypeDef
+    ]
+else:
+    _ListCostCategoryDefinitionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCostCategoryDefinitionsPaginator(_ListCostCategoryDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostCategoryDefinitions.html#CostExplorer.Paginator.ListCostCategoryDefinitions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostcategorydefinitionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCostCategoryDefinitionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCostCategoryDefinitionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostCategoryDefinitions.html#CostExplorer.Paginator.ListCostCategoryDefinitions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostcategorydefinitionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListCostCategoryResourceAssociationsPaginatorBase = Paginator[
+        ListCostCategoryResourceAssociationsResponseTypeDef
+    ]
+else:
+    _ListCostCategoryResourceAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListCostCategoryResourceAssociationsPaginator(
+    _ListCostCategoryResourceAssociationsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostCategoryResourceAssociations.html#CostExplorer.Paginator.ListCostCategoryResourceAssociations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostcategoryresourceassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCostCategoryResourceAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCostCategoryResourceAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListCostCategoryResourceAssociations.html#CostExplorer.Paginator.ListCostCategoryResourceAssociations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listcostcategoryresourceassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSavingsPlansPurchaseRecommendationGenerationPaginatorBase = Paginator[
+        ListSavingsPlansPurchaseRecommendationGenerationResponseTypeDef
+    ]
+else:
+    _ListSavingsPlansPurchaseRecommendationGenerationPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSavingsPlansPurchaseRecommendationGenerationPaginator(
+    _ListSavingsPlansPurchaseRecommendationGenerationPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListSavingsPlansPurchaseRecommendationGeneration.html#CostExplorer.Paginator.ListSavingsPlansPurchaseRecommendationGeneration)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listsavingsplanspurchaserecommendationgenerationpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self,
+        **kwargs: Unpack[ListSavingsPlansPurchaseRecommendationGenerationRequestPaginateTypeDef],
+    ) -> PageIterator[ListSavingsPlansPurchaseRecommendationGenerationResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ce/paginator/ListSavingsPlansPurchaseRecommendationGeneration.html#CostExplorer.Paginator.ListSavingsPlansPurchaseRecommendationGeneration.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ce/paginators/#listsavingsplanspurchaserecommendationgenerationpaginator)
         """

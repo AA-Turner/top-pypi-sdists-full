@@ -18,6 +18,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    List,
     Mapping,
     Optional,
     Sequence,
@@ -26,7 +27,9 @@ from typing import (
     Union,
     overload,
 )
+from uuid import UUID
 
+from zenml.enums import StepRuntime
 from zenml.logger import get_logger
 
 if TYPE_CHECKING:
@@ -68,6 +71,8 @@ def step(
     experiment_tracker: Optional[Union[bool, str]] = None,
     step_operator: Optional[Union[bool, str]] = None,
     output_materializers: Optional["OutputMaterializersSpecification"] = None,
+    environment: Optional[Dict[str, Any]] = None,
+    secrets: Optional[List[Union[UUID, str]]] = None,
     settings: Optional[Dict[str, "SettingsOrDict"]] = None,
     extra: Optional[Dict[str, Any]] = None,
     on_failure: Optional["HookSpecification"] = None,
@@ -76,6 +81,8 @@ def step(
     retry: Optional["StepRetryConfig"] = None,
     substitutions: Optional[Dict[str, str]] = None,
     cache_policy: Optional["CachePolicyOrString"] = None,
+    runtime: Optional[StepRuntime] = None,
+    heartbeat_healthy_threshold: Optional[int] = None,
 ) -> Callable[["F"], "BaseStep"]: ...
 
 
@@ -90,6 +97,8 @@ def step(
     experiment_tracker: Optional[Union[bool, str]] = None,
     step_operator: Optional[Union[bool, str]] = None,
     output_materializers: Optional["OutputMaterializersSpecification"] = None,
+    environment: Optional[Dict[str, Any]] = None,
+    secrets: Optional[List[Union[UUID, str]]] = None,
     settings: Optional[Dict[str, "SettingsOrDict"]] = None,
     extra: Optional[Dict[str, Any]] = None,
     on_failure: Optional["HookSpecification"] = None,
@@ -98,6 +107,8 @@ def step(
     retry: Optional["StepRetryConfig"] = None,
     substitutions: Optional[Dict[str, str]] = None,
     cache_policy: Optional["CachePolicyOrString"] = None,
+    runtime: Optional[StepRuntime] = None,
+    heartbeat_healthy_threshold: Optional[int] = None,
 ) -> Union["BaseStep", Callable[["F"], "BaseStep"]]:
     """Decorator to create a ZenML step.
 
@@ -119,6 +130,8 @@ def step(
             given as a dict, the keys must be a subset of the output names
             of this step. If a single value (type or string) is given, the
             materializer will be used for all outputs.
+        environment: Environment variables to set when running this step.
+        secrets: Secrets to set as environment variables when running this step.
         settings: Settings for this step.
         extra: Extra configurations for this step.
         on_failure: Callback function in event of failure of the step. Can be a
@@ -129,8 +142,16 @@ def step(
             (e.g. `module.my_function`).
         model: configuration of the model in the Model Control Plane.
         retry: configuration of step retry in case of step failure.
-        substitutions: Extra placeholders for the step name.
+        substitutions: Extra substitutions for model and artifact name
+            placeholders.
         cache_policy: Cache policy for this step.
+        runtime: The step runtime. If not configured, the step will
+            run inline unless a step operator or docker/resource settings
+            are configured. This is only applicable for dynamic
+            pipelines.
+        heartbeat_healthy_threshold: The amount of time (in minutes) that a
+            running step has not received heartbeat and is considered healthy.
+            By default, set to 30 minutes.",
 
     Returns:
         The step instance.
@@ -158,6 +179,8 @@ def step(
             experiment_tracker=experiment_tracker,
             step_operator=step_operator,
             output_materializers=output_materializers,
+            environment=environment,
+            secrets=secrets,
             settings=settings,
             extra=extra,
             on_failure=on_failure,
@@ -166,6 +189,8 @@ def step(
             retry=retry,
             substitutions=substitutions,
             cache_policy=cache_policy,
+            runtime=runtime,
+            heartbeat_healthy_threshold=heartbeat_healthy_threshold,
         )
 
         return step_instance

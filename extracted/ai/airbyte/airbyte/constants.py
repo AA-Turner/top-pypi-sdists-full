@@ -219,8 +219,26 @@ CLOUD_CLIENT_SECRET_ENV_VAR: str = "AIRBYTE_CLOUD_CLIENT_SECRET"
 CLOUD_API_ROOT_ENV_VAR: str = "AIRBYTE_CLOUD_API_URL"
 """The environment variable name for the Airbyte Cloud API URL."""
 
+CLOUD_CONFIG_API_ROOT_ENV_VAR: str = "AIRBYTE_CLOUD_CONFIG_API_URL"
+"""The environment variable name for the Airbyte Cloud Config API URL.
+
+The Config API is a separate internal API used for certain operations like
+connector builder projects and custom source definitions. This environment
+variable allows overriding the default Config API URL, which is useful when
+the public API URL has been overridden and the Config API cannot be derived
+from it automatically.
+"""
+
 CLOUD_WORKSPACE_ID_ENV_VAR: str = "AIRBYTE_CLOUD_WORKSPACE_ID"
 """The environment variable name for the Airbyte Cloud workspace ID."""
+
+CLOUD_BEARER_TOKEN_ENV_VAR: str = "AIRBYTE_CLOUD_BEARER_TOKEN"
+"""The environment variable name for the Airbyte Cloud bearer token.
+
+When set, this bearer token will be used for authentication instead of
+client credentials (client_id + client_secret). This is useful when you
+already have a valid bearer token and want to skip the OAuth2 token exchange.
+"""
 
 CLOUD_API_ROOT: str = "https://api.airbyte.com/v1"
 """The Airbyte Cloud API root URL.
@@ -237,3 +255,71 @@ Documentation:
 - https://docs.airbyte.com/api-documentation#configuration-api-deprecated
 - https://github.com/airbytehq/airbyte-platform-internal/blob/master/oss/airbyte-api/server-api/src/main/openapi/config.yaml
 """
+
+# MCP (Model Context Protocol) Constants
+
+MCP_READONLY_MODE_ENV_VAR: str = "AIRBYTE_CLOUD_MCP_READONLY_MODE"
+"""Environment variable to enable read-only mode for the MCP server.
+
+When set to "1" or "true", only tools with readOnlyHint=True will be available.
+"""
+
+MCP_DOMAINS_DISABLED_ENV_VAR: str = "AIRBYTE_MCP_DOMAINS_DISABLED"
+"""Environment variable to disable specific MCP tool domains.
+
+Accepts a comma-separated list of domain names (e.g., "local,registry").
+Tools from these domains will not be advertised by the MCP server.
+"""
+
+MCP_DOMAINS_ENV_VAR: str = "AIRBYTE_MCP_DOMAINS"
+"""Environment variable to enable specific MCP tool domains.
+
+Accepts a comma-separated list of domain names (e.g., "cloud,registry").
+If set, only tools from these domains will be advertised by the MCP server.
+"""
+
+MCP_WORKSPACE_ID_HEADER: str = "X-Airbyte-Workspace-Id"
+"""HTTP header key for passing workspace ID to the MCP server.
+
+This allows per-request workspace ID configuration when using HTTP transport.
+"""
+
+# MCP Config Arg Names (used with get_mcp_config)
+
+MCP_CONFIG_READONLY_MODE: str = "airbyte_readonly_mode"
+"""Config arg name for the legacy AIRBYTE_CLOUD_MCP_READONLY_MODE setting."""
+
+MCP_CONFIG_EXCLUDE_MODULES: str = "airbyte_exclude_modules"
+"""Config arg name for the legacy AIRBYTE_MCP_DOMAINS_DISABLED setting."""
+
+MCP_CONFIG_INCLUDE_MODULES: str = "airbyte_include_modules"
+"""Config arg name for the legacy AIRBYTE_MCP_DOMAINS setting."""
+
+MCP_CONFIG_WORKSPACE_ID: str = "workspace_id"
+"""Config arg name for the workspace ID setting."""
+
+MCP_CONFIG_BEARER_TOKEN: str = "bearer_token"
+"""Config arg name for the bearer token setting."""
+
+MCP_CONFIG_CLIENT_ID: str = "client_id"
+"""Config arg name for the client ID setting."""
+
+MCP_CONFIG_CLIENT_SECRET: str = "client_secret"
+"""Config arg name for the client secret setting."""
+
+MCP_CONFIG_API_URL: str = "api_url"
+"""Config arg name for the API URL setting."""
+
+# MCP HTTP Header Keys for credentials
+
+MCP_BEARER_TOKEN_HEADER: str = "Authorization"
+"""HTTP header key for bearer token (standard Authorization header)."""
+
+MCP_CLIENT_ID_HEADER: str = "X-Airbyte-Cloud-Client-Id"
+"""HTTP header key for client ID."""
+
+MCP_CLIENT_SECRET_HEADER: str = "X-Airbyte-Cloud-Client-Secret"
+"""HTTP header key for client secret."""
+
+MCP_API_URL_HEADER: str = "X-Airbyte-Cloud-Api-Url"
+"""HTTP header key for API URL."""

@@ -51,6 +51,8 @@ __all__ = [
     'DatascanDataDiscoverySpecStorageConfigCsvOptionsArgsDict',
     'DatascanDataDiscoverySpecStorageConfigJsonOptionsArgs',
     'DatascanDataDiscoverySpecStorageConfigJsonOptionsArgsDict',
+    'DatascanDataDocumentationSpecArgs',
+    'DatascanDataDocumentationSpecArgsDict',
     'DatascanDataProfileSpecArgs',
     'DatascanDataProfileSpecArgsDict',
     'DatascanDataProfileSpecExcludeFieldsArgs',
@@ -103,6 +105,8 @@ __all__ = [
     'DatascanExecutionSpecTriggerArgsDict',
     'DatascanExecutionSpecTriggerOnDemandArgs',
     'DatascanExecutionSpecTriggerOnDemandArgsDict',
+    'DatascanExecutionSpecTriggerOneTimeArgs',
+    'DatascanExecutionSpecTriggerOneTimeArgsDict',
     'DatascanExecutionSpecTriggerScheduleArgs',
     'DatascanExecutionSpecTriggerScheduleArgsDict',
     'DatascanExecutionStatusArgs',
@@ -123,6 +127,8 @@ __all__ = [
     'EntryGroupIamBindingConditionArgsDict',
     'EntryGroupIamMemberConditionArgs',
     'EntryGroupIamMemberConditionArgsDict',
+    'EntryLinkEntryReferenceArgs',
+    'EntryLinkEntryReferenceArgsDict',
     'EntryTypeIamBindingConditionArgs',
     'EntryTypeIamBindingConditionArgsDict',
     'EntryTypeIamMemberConditionArgs',
@@ -1572,7 +1578,23 @@ class DatascanDataDiscoverySpecStorageConfigJsonOptionsArgs:
 
 
 if not MYPY:
+    class DatascanDataDocumentationSpecArgsDict(TypedDict):
+        pass
+elif False:
+    DatascanDataDocumentationSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DatascanDataDocumentationSpecArgs:
+    def __init__(__self__):
+        pass
+
+
+if not MYPY:
     class DatascanDataProfileSpecArgsDict(TypedDict):
+        catalog_publishing_enabled: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If set, the latest DataScan job result will be published to Dataplex Catalog.
+        """
         exclude_fields: NotRequired[pulumi.Input['DatascanDataProfileSpecExcludeFieldsArgsDict']]
         """
         The fields to exclude from data profile.
@@ -1606,12 +1628,14 @@ elif False:
 @pulumi.input_type
 class DatascanDataProfileSpecArgs:
     def __init__(__self__, *,
+                 catalog_publishing_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  exclude_fields: Optional[pulumi.Input['DatascanDataProfileSpecExcludeFieldsArgs']] = None,
                  include_fields: Optional[pulumi.Input['DatascanDataProfileSpecIncludeFieldsArgs']] = None,
                  post_scan_actions: Optional[pulumi.Input['DatascanDataProfileSpecPostScanActionsArgs']] = None,
                  row_filter: Optional[pulumi.Input[_builtins.str]] = None,
                  sampling_percent: Optional[pulumi.Input[_builtins.float]] = None):
         """
+        :param pulumi.Input[_builtins.bool] catalog_publishing_enabled: If set, the latest DataScan job result will be published to Dataplex Catalog.
         :param pulumi.Input['DatascanDataProfileSpecExcludeFieldsArgs'] exclude_fields: The fields to exclude from data profile.
                If specified, the fields will be excluded from data profile, regardless of `include_fields` value.
                Structure is documented below.
@@ -1625,6 +1649,8 @@ class DatascanDataProfileSpecArgs:
                Value can range between 0.0 and 100.0 with up to 3 significant decimal digits.
                Sampling is not applied if `sampling_percent` is not specified, 0 or 100.
         """
+        if catalog_publishing_enabled is not None:
+            pulumi.set(__self__, "catalog_publishing_enabled", catalog_publishing_enabled)
         if exclude_fields is not None:
             pulumi.set(__self__, "exclude_fields", exclude_fields)
         if include_fields is not None:
@@ -1635,6 +1661,18 @@ class DatascanDataProfileSpecArgs:
             pulumi.set(__self__, "row_filter", row_filter)
         if sampling_percent is not None:
             pulumi.set(__self__, "sampling_percent", sampling_percent)
+
+    @_builtins.property
+    @pulumi.getter(name="catalogPublishingEnabled")
+    def catalog_publishing_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If set, the latest DataScan job result will be published to Dataplex Catalog.
+        """
+        return pulumi.get(self, "catalog_publishing_enabled")
+
+    @catalog_publishing_enabled.setter
+    def catalog_publishing_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "catalog_publishing_enabled", value)
 
     @_builtins.property
     @pulumi.getter(name="excludeFields")
@@ -3082,6 +3120,11 @@ if not MYPY:
         """
         The scan runs once via dataScans.run API.
         """
+        one_time: NotRequired[pulumi.Input['DatascanExecutionSpecTriggerOneTimeArgsDict']]
+        """
+        The scan runs once upon DataScan creation.
+        Structure is documented below.
+        """
         schedule: NotRequired[pulumi.Input['DatascanExecutionSpecTriggerScheduleArgsDict']]
         """
         The scan is scheduled to run periodically.
@@ -3094,14 +3137,19 @@ elif False:
 class DatascanExecutionSpecTriggerArgs:
     def __init__(__self__, *,
                  on_demand: Optional[pulumi.Input['DatascanExecutionSpecTriggerOnDemandArgs']] = None,
+                 one_time: Optional[pulumi.Input['DatascanExecutionSpecTriggerOneTimeArgs']] = None,
                  schedule: Optional[pulumi.Input['DatascanExecutionSpecTriggerScheduleArgs']] = None):
         """
         :param pulumi.Input['DatascanExecutionSpecTriggerOnDemandArgs'] on_demand: The scan runs once via dataScans.run API.
+        :param pulumi.Input['DatascanExecutionSpecTriggerOneTimeArgs'] one_time: The scan runs once upon DataScan creation.
+               Structure is documented below.
         :param pulumi.Input['DatascanExecutionSpecTriggerScheduleArgs'] schedule: The scan is scheduled to run periodically.
                Structure is documented below.
         """
         if on_demand is not None:
             pulumi.set(__self__, "on_demand", on_demand)
+        if one_time is not None:
+            pulumi.set(__self__, "one_time", one_time)
         if schedule is not None:
             pulumi.set(__self__, "schedule", schedule)
 
@@ -3116,6 +3164,19 @@ class DatascanExecutionSpecTriggerArgs:
     @on_demand.setter
     def on_demand(self, value: Optional[pulumi.Input['DatascanExecutionSpecTriggerOnDemandArgs']]):
         pulumi.set(self, "on_demand", value)
+
+    @_builtins.property
+    @pulumi.getter(name="oneTime")
+    def one_time(self) -> Optional[pulumi.Input['DatascanExecutionSpecTriggerOneTimeArgs']]:
+        """
+        The scan runs once upon DataScan creation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "one_time")
+
+    @one_time.setter
+    def one_time(self, value: Optional[pulumi.Input['DatascanExecutionSpecTriggerOneTimeArgs']]):
+        pulumi.set(self, "one_time", value)
 
     @_builtins.property
     @pulumi.getter
@@ -3141,6 +3202,38 @@ elif False:
 class DatascanExecutionSpecTriggerOnDemandArgs:
     def __init__(__self__):
         pass
+
+
+if not MYPY:
+    class DatascanExecutionSpecTriggerOneTimeArgsDict(TypedDict):
+        ttl_after_scan_completion: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Time to live for the DataScan and its results after the one-time run completes. Accepts a string with a unit suffix 's' (e.g., '7200s'). Default is 24 hours. Ranges between 0 and 31536000 seconds (1 year).
+        """
+elif False:
+    DatascanExecutionSpecTriggerOneTimeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DatascanExecutionSpecTriggerOneTimeArgs:
+    def __init__(__self__, *,
+                 ttl_after_scan_completion: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] ttl_after_scan_completion: Time to live for the DataScan and its results after the one-time run completes. Accepts a string with a unit suffix 's' (e.g., '7200s'). Default is 24 hours. Ranges between 0 and 31536000 seconds (1 year).
+        """
+        if ttl_after_scan_completion is not None:
+            pulumi.set(__self__, "ttl_after_scan_completion", ttl_after_scan_completion)
+
+    @_builtins.property
+    @pulumi.getter(name="ttlAfterScanCompletion")
+    def ttl_after_scan_completion(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Time to live for the DataScan and its results after the one-time run completes. Accepts a string with a unit suffix 's' (e.g., '7200s'). Default is 24 hours. Ranges between 0 and 31536000 seconds (1 year).
+        """
+        return pulumi.get(self, "ttl_after_scan_completion")
+
+    @ttl_after_scan_completion.setter
+    def ttl_after_scan_completion(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "ttl_after_scan_completion", value)
 
 
 if not MYPY:
@@ -3882,6 +3975,86 @@ class EntryGroupIamMemberConditionArgs:
     @description.setter
     def description(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "description", value)
+
+
+if not MYPY:
+    class EntryLinkEntryReferenceArgsDict(TypedDict):
+        name: pulumi.Input[_builtins.str]
+        """
+        The relative resource name of the referenced Entry, of the form:
+        projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}
+        """
+        path: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The path in the Entry that is referenced in the Entry Link.
+        Empty path denotes that the Entry itself is referenced in the Entry Link.
+        """
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The reference type of the Entry.
+        Possible values are: `SOURCE`, `TARGET`.
+        """
+elif False:
+    EntryLinkEntryReferenceArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class EntryLinkEntryReferenceArgs:
+    def __init__(__self__, *,
+                 name: pulumi.Input[_builtins.str],
+                 path: Optional[pulumi.Input[_builtins.str]] = None,
+                 type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] name: The relative resource name of the referenced Entry, of the form:
+               projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}
+        :param pulumi.Input[_builtins.str] path: The path in the Entry that is referenced in the Entry Link.
+               Empty path denotes that the Entry itself is referenced in the Entry Link.
+        :param pulumi.Input[_builtins.str] type: The reference type of the Entry.
+               Possible values are: `SOURCE`, `TARGET`.
+        """
+        pulumi.set(__self__, "name", name)
+        if path is not None:
+            pulumi.set(__self__, "path", path)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The relative resource name of the referenced Entry, of the form:
+        projects/{project_id_or_number}/locations/{location_id}/entryGroups/{entry_group_id}/entries/{entry_id}
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def path(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The path in the Entry that is referenced in the Entry Link.
+        Empty path denotes that the Entry itself is referenced in the Entry Link.
+        """
+        return pulumi.get(self, "path")
+
+    @path.setter
+    def path(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "path", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The reference type of the Entry.
+        Possible values are: `SOURCE`, `TARGET`.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
 
 
 if not MYPY:

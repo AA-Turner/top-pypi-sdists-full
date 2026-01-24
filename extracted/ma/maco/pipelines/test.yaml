@@ -1,0 +1,66 @@
+name: tests
+
+trigger: ["*"]
+pr: ["*"]
+
+pool:
+  vmImage: "ubuntu-22.04"
+
+jobs:
+  - job: style_test
+    strategy:
+      matrix:
+        Python3_12:
+          python.version: "3.12"
+    timeoutInMinutes: 10
+
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Set python version
+        inputs:
+          versionSpec: "$(python.version)"
+
+      - script: |
+          python -m pip install -U tox
+        displayName: Install tox
+
+      - script: |
+          python -m tox -e style
+        displayName: "Run style tests"
+
+  - job: run_test
+    strategy:
+      matrix:
+        Python3_8:
+          python.version: "3.8"
+        Python3_9:
+          python.version: "3.9"
+        Python3_10:
+          python.version: "3.10"
+        Python3_11:
+          python.version: "3.11"
+        Python3_12:
+          python.version: "3.12"
+    timeoutInMinutes: 10
+
+    steps:
+      - task: UsePythonVersion@0
+        displayName: Set python version
+        inputs:
+          versionSpec: "$(python.version)"
+
+      - script: |
+          runtests=true
+          if [ ! -d "$(pwd)/tests" ]; then
+            echo "No tests found"
+            runtest=false
+          else
+            python -m pip install -U tox
+          fi
+          echo "##vso[task.setvariable variable=runtests;]$runtests"
+        displayName: Install tox
+
+      - script: |
+          python -m tox -e py
+        displayName: "Run tests"
+        condition: and(succeeded(), eq(variables.runtests, true))

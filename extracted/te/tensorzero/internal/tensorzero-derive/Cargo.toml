@@ -1,18 +1,20 @@
 [package]
 name = "tensorzero-derive"
-version = "0.1.0"
+version = "0.0.0"
 rust-version.workspace = true
-edition = "2021"
+edition.workspace = true
 license.workspace = true
+description = "Macros for TensorZero"
 readme = "README.md"
+
 
 [lib]
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0.101"
-quote = "1.0.40"
-syn = { version = "2.0.106", features = ["full"] }
+proc-macro2 = "1.0.103"
+quote = "1.0.42"
+syn = { version = "2.0.114", features = ["full"] }
 
 [lints]
 workspace = true
@@ -21,4 +23,4 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_path_to_error.workspace = true
-trybuild = "1.0.106"
+trybuild = "1.0.114"

@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ class APIHubToolset(BaseToolset):
         apihub_resource_name: The resource name of the API in API Hub.
           Example: ``projects/test-project/locations/us-central1/apis/test-api``.
         access_token: Google Access token. Generate with gcloud cli
-          ``gcloud auth auth print-access-token``. Used for fetching API Specs from API Hub.
+          ``gcloud auth print-access-token``. Used for fetching API Specs from API Hub.
         service_account_json: The service account config as a json string.
           Required if not using default service credential. It is used for
           creating the API Hub client and fetching the API Specs from API Hub.

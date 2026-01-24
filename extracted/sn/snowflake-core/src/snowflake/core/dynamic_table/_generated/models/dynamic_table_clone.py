@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.dynamic_table._generated.models.point_of_time import PointOfTime, PointOfTimeModel
 from snowflake.core.dynamic_table._generated.models.target_lag import TargetLag, TargetLagModel
@@ -50,9 +50,10 @@ class DynamicTableClone(BaseModel):
 
     __properties = ["name", "target_lag", "warehouse", "point_of_time"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -77,7 +78,7 @@ class DynamicTableClone(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of target_lag
         if self.target_lag:
@@ -100,9 +101,9 @@ class DynamicTableClone(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return DynamicTableClone.parse_obj(obj)
+            return DynamicTableClone.model_validate(obj)
 
-        _obj = DynamicTableClone.parse_obj(
+        _obj = DynamicTableClone.model_validate(
             {
                 "name": obj.get("name"),
                 "target_lag": TargetLag.from_dict(obj.get("target_lag")) if obj.get("target_lag") is not None else None,

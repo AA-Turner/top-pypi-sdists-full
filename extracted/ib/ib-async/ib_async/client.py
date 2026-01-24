@@ -7,7 +7,8 @@ import math
 import struct
 import time
 from collections import deque
-from typing import Any, Callable, Deque, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from eventkit import Event
 
@@ -15,7 +16,7 @@ from .connection import Connection
 from .contract import Contract
 from .decoder import Decoder
 from .objects import ConnectionStats, WshEventData
-from .util import dataclassAsTuple, getLoop, run, UNSET_DOUBLE, UNSET_INTEGER
+from .util import UNSET_DOUBLE, UNSET_INTEGER, dataclassAsTuple, getLoop, run
 
 
 class Client:
@@ -127,8 +128,8 @@ class Client:
         self._numBytesRecv = 0
         self._numMsgRecv = 0
         self._isThrottling = False
-        self._msgQ: Deque[str] = deque()
-        self._timeQ: Deque[float] = deque()
+        self._msgQ: deque[str] = deque()
+        self._timeQ: deque[float] = deque()
 
     def serverVersion(self) -> int:
         return self._serverVersion
@@ -171,7 +172,7 @@ class Client:
         """Update the next reqId to be at least ``minReqId``."""
         self._reqIdSeq = max(self._reqIdSeq, minReqId)
 
-    def getAccounts(self) -> List[str]:
+    def getAccounts(self) -> list[str]:
         """Get the list of account names that are under management."""
         if not self.isReady():
             raise ConnectionError("Not connected")
@@ -187,9 +188,7 @@ class Client:
         """
         self.connectOptions = connectOptions.encode()
 
-    def connect(
-        self, host: str, port: int, clientId: int, timeout: Optional[float] = 2.0
-    ):
+    def connect(self, host: str, port: int, clientId: int, timeout: float | None = 2.0):
         """
         Connect to a running TWS or IB gateway application.
 

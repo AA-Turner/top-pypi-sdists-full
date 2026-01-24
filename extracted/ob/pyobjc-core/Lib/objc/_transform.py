@@ -532,12 +532,12 @@ def transformAttribute(name, value, class_object, protocols):
             if pos_default:
                 raise objc.BadPrototypeError(
                     f"{selname.decode()!r} expects {argcount} arguments, "
-                    f"{value!r} has between {pos-pos_default-1} and {pos-1} positional arguments"
+                    f"{value!r} has between {pos - pos_default - 1} and {pos - 1} positional arguments"
                 )
             else:
                 raise objc.BadPrototypeError(
                     f"{selname.decode()!r} expects {argcount} arguments, "
-                    f"{value!r} has {pos-1} positional arguments"
+                    f"{value!r} has {pos - 1} positional arguments"
                 )
 
     # XXX: This is needed because SomeClass.pyobjc_instanceMethods.hiddenSelector.isHidden
@@ -605,9 +605,11 @@ def returns_value(func):
             elif prev.opname != "LOAD_CONST":
                 return True
 
-        elif inst.opname == "RETURN_CONST" and consts[inst.arg] is not None:
-            # New in Python 3.12.
-            return True
+        elif (  # pragma: no branch
+            inst.opname == "RETURN_CONST" and consts[inst.arg] is not None
+        ):
+            # New in Python 3.12, dropped in 3.14
+            return True  # pragma: no cover
         prev = inst
 
     return False
@@ -673,6 +675,10 @@ class objc_method:
         self.selector = selector
         self.signature = signature
         self.isclass = isclass
+
+    @property
+    def __name__(self):
+        return self.__wrapped__.__name__
 
     def __call__(self, *args, **kwds):
         if self.__wrapped__ is None:

@@ -9,21 +9,41 @@ from typing import Any, Dict, List, Optional, Set
 
 
 def _ensure_modules():
-    spec = importlib.util.spec_from_file_location(
-        "typing_extensions",
-        location=os.path.join(
+    # Try to ensure typing_extensions is available in sys.modules
+    # pip 25.3+ no longer vendors typing_extensions, so we need to handle multiple cases
+    if "typing_extensions" not in sys.modules:
+        # First, try to load from patched pip vendor (for pip < 25.3)
+        typing_ext_path = os.path.join(
             os.path.dirname(__file__), "patched", "pip", "_vendor", "typing_extensions.py"
-        ),
-    )
-    typing_extensions = importlib.util.module_from_spec(spec)
-    sys.modules["typing_extensions"] = typing_extensions
-    spec.loader.exec_module(typing_extensions)
-    spec = importlib.util.spec_from_file_location(
-        "pipenv", location=os.path.join(os.path.dirname(__file__), "__init__.py")
-    )
-    pipenv = importlib.util.module_from_spec(spec)
-    sys.modules["pipenv"] = pipenv
-    spec.loader.exec_module(pipenv)
+        )
+        if os.path.exists(typing_ext_path):
+            spec = importlib.util.spec_from_file_location(
+                "typing_extensions",
+                location=typing_ext_path,
+            )
+            typing_extensions = importlib.util.module_from_spec(spec)
+            sys.modules["typing_extensions"] = typing_extensions
+            spec.loader.exec_module(typing_extensions)
+        else:
+            # Try to import from system (if installed as a dependency)
+            try:
+                import typing_extensions  # noqa: F401
+            except ImportError:
+                # For Python 3.10+, most typing_extensions features are in typing
+                # Create a minimal shim that re-exports from typing
+                pass
+
+    # Ensure pipenv is properly loaded with all submodules
+    # This is needed because patched pip uses absolute imports like
+    # "import pipenv.patched.pip._internal.resolution.resolvelib.resolver"
+    if "pipenv" not in sys.modules:
+        # Add the parent directory to sys.path if needed
+        pipenv_parent = os.path.dirname(os.path.dirname(__file__))
+        if pipenv_parent not in sys.path:
+            sys.path.insert(0, pipenv_parent)
+
+        # Now import pipenv properly - this will set up all submodules correctly
+        import pipenv  # noqa: F401
 
 
 def get_parser():
@@ -86,7 +106,27 @@ def handle_parsed_args(parsed):
             dep_name, pip_line = line.split(",", 1)
             packages[dep_name] = pip_line
         parsed.packages = packages
+    elif isinstance(parsed.packages, list):
+        # Convert list of package specs from command line to dict format
+        # Expected format: each item is either "name" or "name==version" etc.
+        parsed.packages = _parse_package_list(parsed.packages)
     return parsed
+
+
+def _parse_package_list(package_list):
+    """Convert a list of package specs to a dict with package names as keys."""
+    from pipenv.patched.pip._vendor.packaging.requirements import Requirement
+
+    packages = {}
+    for pkg_spec in package_list:
+        try:
+            req = Requirement(pkg_spec)
+            # Use the requirement name as key, full spec as value
+            packages[req.name] = pkg_spec
+        except Exception:  # noqa: PERF203
+            # If parsing fails, use the spec as both key and value
+            packages[pkg_spec] = pkg_spec
+    return packages
 
 
 @dataclass
@@ -446,6 +486,13 @@ def main(argv=None):
     os.environ["PYTHONIOENCODING"] = "utf-8"
     os.environ["PYTHONUNBUFFERED"] = "1"
     parsed = handle_parsed_args(parsed)
+
+    # Validate required arguments
+    if not parsed.packages:
+        parser.error("at least one package is required")
+    if not parsed.category:
+        parsed.category = "default"
+
     if not parsed.verbose:
         logging.getLogger("pipenv").setLevel(logging.WARN)
     _main(

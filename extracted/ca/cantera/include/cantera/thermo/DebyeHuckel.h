@@ -365,7 +365,7 @@ class PDSS_Water;
  * at, in the future.
  *
  * Example phase and species definitions are given in the
- * <a href="../../sphinx/html/yaml/phases.html#debye-huckel">YAML API Reference</a>.
+ * [YAML API Reference](../yaml/phases.html#debye-huckel).
  *
  * ## Application within Kinetics Managers
  *
@@ -430,32 +430,6 @@ public:
     string type() const override {
         return "Debye-Huckel";
     }
-
-    //! @}
-    //! @name  Molar Thermodynamic Properties of the Solution
-    //! @{
-
-    double enthalpy_mole() const override;
-
-    //! Molar entropy. Units: J/kmol/K.
-    /**
-     * For an ideal, constant partial molar volume solution mixture with
-     * pure species phases which exhibit zero volume expansivity:
-     * @f[
-     * \hat s(T, P, X_k) = \sum_k X_k \hat s^0_k(T)
-     *      - \hat R  \sum_k X_k \ln(X_k)
-     * @f]
-     * The reference-state pure-species entropies
-     * @f$ \hat s^0_k(T,p_{ref}) @f$ are computed by the
-     *  species thermodynamic
-     * property manager. The pure species entropies are independent of
-     * temperature since the volume expansivities are equal to zero.
-     * @see MultiSpeciesThermo
-     */
-    double entropy_mole() const override;
-
-    double gibbs_mole() const override;
-    double cp_mole() const override;
 
     //! @}
     //! @name Mechanical Equation of State Properties
@@ -910,9 +884,6 @@ protected:
 
     //! Pointer to the water property calculator
     unique_ptr<WaterProps> m_waterProps;
-
-    //! vector of size m_kk, used as a temporary holding area.
-    mutable vector<double> m_tmpV;
 
     /**
      * Stoichiometric species charge -> This is for calculations

@@ -35,9 +35,10 @@ class TestProductUnitDtoCustomFieldsValue(unittest.TestCase):
         model = ProductUnitDtoCustomFieldsValue()
         if include_optional:
             return ProductUnitDtoCustomFieldsValue(
-                bool_value = True,
-                field_type = 'Unknown',
                 field_type = '',
+                field_type = 'Unknown',
+                text_value = '',
+                bool_value = True,
                 number_value = 1.337,
                 date_value = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 file_name = '',

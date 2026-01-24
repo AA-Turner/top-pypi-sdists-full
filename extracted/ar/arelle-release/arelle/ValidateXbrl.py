@@ -147,6 +147,8 @@ class ValidateXbrl:
             if arcrole.startswith("XBRL-") or ELR is None or \
                 linkqname is None or arcqname is None:
                 continue
+            elif arcrole in self.modelXbrl.modelManager.disclosureSystem.arcroleCyclesAllowed:
+                cyclesAllowed, specSect = self.modelXbrl.modelManager.disclosureSystem.arcroleCyclesAllowed[arcrole]
             elif arcrole in XbrlConst.standardArcroleCyclesAllowed:
                 # TODO: table should be in this module, where it is used
                 cyclesAllowed, specSect = XbrlConst.standardArcroleCyclesAllowed[arcrole]
@@ -163,7 +165,7 @@ class ValidateXbrl:
                                       or arcrole in self.genericArcArcroles  \
                                       or arcrole.startswith(XbrlConst.formulaStartsWith) \
                                       or (modelXbrl.hasXDT and arcrole.startswith(XbrlConst.dimStartsWith)):
-                relsSet = modelXbrl.relationshipSet(arcrole,ELR,linkqname,arcqname)
+                relsSet = modelXbrl.relationshipSet(arcrole, ELR, linkqname, arcqname)
                 if cyclesAllowed != "any" and \
                     ((XbrlConst.isStandardExtLinkQname(linkqname) and XbrlConst.isStandardArcQname(arcqname)) \
                         or arcrole in self.genericArcArcroles):
@@ -191,7 +193,7 @@ class ValidateXbrl:
                                 modelObject=cycleFound[1:pathEndsAt], cycle=cycleFound[0], path=path,
                                 arcrole=arcrole, linkrole=ELR, linkname=linkqname, arcname=arcqname,
                                 messageCodes=("xbrlgene:violatedCyclesConstraint", "xbrl.5.1.4.3:cycles",
-                                            # from XbrlCoinst.standardArcroleCyclesAllowed
+                                            # from XbrlConst.standardArcroleCyclesAllowed
                                             "xbrl.5.2.4.2", "xbrl.5.2.5.2", "xbrl.5.2.6.2.1", "xbrl.5.2.6.2.1", "xbrl.5.2.6.2.3", "xbrl.5.2.6.2.4"))
                             break
 
@@ -426,7 +428,8 @@ class ValidateXbrl:
 
         if self.validateCalcs:
             modelXbrl.modelManager.showStatus(_("Validating instance calculations"))
-            ValidateXbrlCalcs.validate(modelXbrl, self.validateCalcs)
+            for val in ValidateXbrlCalcs.validate(modelXbrl, self.validateCalcs):
+                modelXbrl.validation(val)
             modelXbrl.profileStat(_("validateCalculations"))
 
         if self.validateUTR:

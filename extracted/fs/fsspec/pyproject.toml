@@ -9,18 +9,18 @@ description = "File-system specification"
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 maintainers = [{ name = "Martin Durant", email = "mdurant@anaconda.com" }]
 keywords = ["file"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +40,7 @@ full = [
     'dropbox',
     'dropboxdrivefs',
     'fusepy',
-    'gcsfs',
+    'gcsfs >2024.2.0',
     'libarchive-c',
     'ocifs',
     'panel',
@@ -48,7 +48,7 @@ full = [
     'pyarrow >= 1',
     'pygit2',
     'requests',
-    's3fs',
+    's3fs >2024.2.0',
     'smbprotocol',
     'tqdm',
 ]
@@ -117,7 +117,7 @@ test_full = [
     'tqdm',
     'urllib3',
     'zarr',
-    'zstandard; python_version < "3.14"',
+    'backports.zstd; python_version < "3.14"',
 ]
 test_downstream = [
     "dask[dataframe,test]",
@@ -194,6 +194,8 @@ ignore = [
 	"B026",
 	# No explicit `stacklevel` keyword argument found
 	"B028",
+    # `zip` without explicit `strict` keyword
+    "B905",
     # Assigning lambda expression
     "E731",
     # Ambiguous variable names
@@ -220,8 +222,6 @@ ignore = [
     "SIM115",
     "SIM117",
     "TC003",
-    # https://github.com/astral-sh/ruff/issues/7871
-    "UP038",
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "W191",
     "E111",

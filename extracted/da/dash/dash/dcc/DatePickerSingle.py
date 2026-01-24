@@ -7,13 +7,10 @@ from dash.development.base_component import Component, _explicitize_args
 import datetime
 
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -150,7 +147,7 @@ class DatePickerSingle(Component):
         kept after the browser quit. session: window.sessionStorage, data
         is cleared once the browser quit."""
 
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ["children"]
     _namespace = "dash_core_components"
     _type = "DatePickerSingle"

@@ -16,18 +16,22 @@ KnownModelName = TypeAliasType(
         "anthropic/claude-3-opus-latest",
         "anthropic/claude-3-opus-20240229",
         "anthropic/claude-3-haiku-20240307",
-        # Cohere Models
+        # Cohere Models - https://docs.cohere.com/docs/models
         "cohere/c4ai-aya-expanse-32b",
         "cohere/c4ai-aya-expanse-8b",
         "cohere/command",
         "cohere/command-light",
         "cohere/command-light-nightly",
         "cohere/command-nightly",
-        "cohere/command-r",
-        "cohere/command-r-03-2024",
+        "cohere/command-a-03-2025",
+        "cohere/command-r7b-12-2024",
+        "cohere/command-a-translate-08-2025",
+        "cohere/command-a-reasoning-08-2025",
+        "cohere/command-r",  # deprecated 2025-09-15
+        "cohere/command-r-03-2024",  # deprecated 2025-09-15
         "cohere/command-r-08-2024",
-        "cohere/command-r-plus",
-        "cohere/command-r-plus-04-2024",
+        "cohere/command-r-plus",  # deprecated 2025-09-15
+        "cohere/command-r-plus-04-2024",  # deprecated 2025-09-15
         "cohere/command-r-plus-08-2024",
         "cohere/command-r7b-12-2024",
         # OpenAI Models
@@ -75,8 +79,8 @@ KnownModelName = TypeAliasType(
         "mistral/ministral-3b-latest",
         "mistral/ministral-8b-latest",
         # Google Models
-        "google/gemini-1.5-flash",
-        "google/gemini-1.5-flash-8b",
+        "google/gemini-3-flash",
+        "google/gemini-3-flash-8b",
         "google/gemini-1.5-pro",
         "google/gemini-2.0-flash-exp",
         "google/gemini-2.0-flash-thinking-exp-01-21",
@@ -88,7 +92,7 @@ KnownModelName = TypeAliasType(
         "google/gemini-2.5-pro-exp-03-25",
         "google/gemini-2.5-pro-preview-03-25",
         # VertexAI Models
-        "vertexai/gemini-1.5-flash",
+        "vertexai/gemini-3-flash",
         "vertexai/gemini-1.5-pro",
         "vertexai/gemini-2.0-flash-exp",
         "vertexai/gemini-2.0-flash-001",
@@ -97,8 +101,8 @@ KnownModelName = TypeAliasType(
         "vertexai/gemini-2.5-pro-exp-03-25",
         "vertexai/gemini-2.5-flash-preview-04-17",
         # Generative AI models
-        "generative-ai/gemini-1.5-flash",
-        "generative-ai/gemini-1.5-flash-8b",
+        "generative-ai/gemini-3-flash",
+        "generative-ai/gemini-3-flash-8b",
         "generative-ai/gemini-1.5-pro",
         "generative-ai/gemini-2.0-flash-exp",
         "generative-ai/gemini-2.0-flash-thinking-exp-01-21",

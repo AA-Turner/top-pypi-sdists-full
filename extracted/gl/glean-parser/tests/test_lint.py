@@ -581,6 +581,7 @@ def test_redefined_ping():
         ({"metric": {"data_reviews": [""], "no_lint": ["EMPTY_DATAREVIEW"]}}, 0),
         ({"metric": {"data_reviews": ["TODO"]}}, 1),
         ({"metric": {"data_reviews": ["TODO"], "no_lint": ["EMPTY_DATAREVIEW"]}}, 0),
+        ({"metric": {"data_reviews": ["TBD"]}}, 1),
     ],
 )
 def test_empty_datareviews(metric, num_nits):
@@ -753,3 +754,210 @@ def test_events_data_sensitivity_from_file():
     assert nits[1].check_name == "HIGHER_DATA_SENSITIVITY_REQUIRED"
     assert nits[1].name == "event.no_data_sensitivity"
     assert "data sensitivity" in nits[1].msg
+
+
+@pytest.mark.parametrize(
+    "content,num_nits",
+    [
+        (
+            {
+                "valid_expire_lint": {
+                    "type": "counter",
+                    "expires": "2100-01-01",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR"],
+                }
+            },
+            0,
+        ),
+        (
+            {
+                "too_many_no_lints": {
+                    "type": "counter",
+                    "expires": "2100-01-01",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR", "UNIT_IN_NAME", "UNUSED_NO_LINT"],
+                }
+            },
+            0,
+        ),
+        (
+            {
+                "too_many_no_lints": {
+                    "type": "counter",
+                    "expires": "2100-01-01",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR", "UNIT_IN_NAME"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "not_applying_no_lint": {
+                    "type": "counter",
+                    "expires": "never",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR"],
+                }
+            },
+            1,
+        ),
+    ],
+)
+def test_unused_no_lint_warning(content, num_nits):
+    content = {"cat": content}
+    content = util.add_required(content)
+    all_metrics = parser.parse_objects(content)
+
+    errs = list(all_metrics)
+    assert len(errs) == 0
+
+    nits = lint.lint_metrics(all_metrics.value)
+    assert len(nits) == num_nits
+    if num_nits > 0:
+        assert set(["UNUSED_NO_LINT"]) == set(
+            v.check_name for v in nits
+        )
+
+@pytest.mark.parametrize(
+    "content,num_nits",
+    [
+        (
+            {
+                "unknown_lint": {
+                    "type": "counter",
+                    "expires": "2100-01-01",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR", "DOES_NOT_EXIST", "UNKNOWN_LINT"],
+                }
+            },
+            0,
+        ),
+        (
+            {
+                "unknown_lint": {
+                    "type": "counter",
+                    "expires": "2100-01-01",
+                    "no_lint": ["EXPIRATION_DATE_TOO_FAR", "DOES_NOT_EXIST"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "unknown_lint": {
+                    "type": "counter",
+                    "expires": "never",
+                    "no_lint": ["DOES_NOT_EXIST"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "ping_lint": {
+                    "type": "counter",
+                    "expires": "never",
+                    "no_lint": ["REDUNDANT_PING"],
+                }
+            },
+            1,
+        ),
+    ],
+)
+def test_unknown_lint_warning(content, num_nits):
+    content = {"cat": content}
+    content = util.add_required(content)
+    all_metrics = parser.parse_objects(content)
+
+    errs = list(all_metrics)
+    assert len(errs) == 0
+
+    nits = lint.lint_metrics(all_metrics.value)
+    assert len(nits) == num_nits
+    if num_nits > 0:
+        assert set(["UNKNOWN_LINT"]) == set(
+            v.check_name for v in nits
+        )
+
+
+@pytest.mark.parametrize(
+    "content,num_nits",
+    [
+        (
+            {
+                "plain_event": {
+                    "type": "event",
+                }
+            },
+            0,
+        ),
+        (
+            {
+                "event_on_metrics": {
+                    "type": "event",
+                    "send_in_pings": ["metrics"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "event_on_metrics_and_events": {
+                    "type": "event",
+                    "send_in_pings": ["metrics", "events"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "event_on_baseline": {
+                    "type": "event",
+                    "send_in_pings": ["baseline"],
+                    "no_lint": ["BASELINE_PING"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "event_on_baseline_and_metrics": {
+                    "type": "event",
+                    "send_in_pings": ["baseline", "metrics"],
+                    "no_lint": ["BASELINE_PING"],
+                }
+            },
+            1,
+        ),
+        (
+            {
+                "no_lint_events_on_metrics": {
+                    "type": "event",
+                    "send_in_pings": ["metrics", "events"],
+                    "no_lint": ["EVENT_ON_NON_EVENTS_PING"],
+                }
+            },
+            0,
+        ),
+        (
+            {
+                "default_ping": {
+                    "type": "event",
+                    "send_in_pings": ["default"],
+                }
+            },
+            0,
+        ),
+    ],
+)
+def test_events_on_metrics_ping(content, num_nits):
+    content = {"cat": content}
+    content = util.add_required(content)
+    all_metrics = parser.parse_objects(content)
+
+    errs = list(all_metrics)
+    assert len(errs) == 0
+
+    nits = lint.lint_metrics(all_metrics.value)
+    assert len(nits) == num_nits
+    if num_nits > 0:
+        assert set(["EVENT_ON_NON_EVENTS_PING"]) == set(
+            v.check_name for v in nits
+        )

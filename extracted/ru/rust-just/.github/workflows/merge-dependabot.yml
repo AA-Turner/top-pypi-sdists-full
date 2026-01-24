@@ -28,14 +28,14 @@ jobs:
           pr-number: ${{ github.event.pull_request.number }}
       - name: Checkout PR branch
         if: steps.metadata.outputs.package-ecosystem == 'npm_and_yarn'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.ref }}
       - name: Install node
         if: steps.metadata.outputs.package-ecosystem == 'npm_and_yarn'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 18
+          node-version: 24
           registry-url: "https://registry.npmjs.org"
       - name: Build package
         if: steps.metadata.outputs.package-ecosystem == 'npm_and_yarn'
@@ -58,7 +58,7 @@ jobs:
           pr-number: ${{ github.event.pull_request.number }}
       - name: Assign me as assignee
         if: steps.metadata.outputs.package-ecosystem == 'npm_and_yarn' && (steps.metadata.outputs.update-type == 'version-update:semver-major' || steps.build.outcome == 'failure')
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             try {
@@ -71,9 +71,9 @@ jobs:
             } catch (error) {
               core.setFailed(error.message);
             }
-      - name: Enable auto-merge for Dependabot PRs
+      - name: Merge Dependabot PR
         if: ${{ !(steps.metadata.outputs.package-ecosystem == 'npm_and_yarn' && (steps.metadata.outputs.update-type == 'version-update:semver-major' || steps.build.outcome == 'failure')) }}
-        run: gh pr merge --auto --merge "$PR_URL"
+        run: gh pr merge --merge -R gnpaone/rust-just "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}

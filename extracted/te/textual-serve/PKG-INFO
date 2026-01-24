@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: textual-serve
-Version: 1.1.2
+Version: 1.1.3
 Summary: Turn your Textual TUIs in to web applications
 Project-URL: Homepage, https://github.com/Textualize/textual-serve
 Author-email: Will McGugan <will@textualize.io>

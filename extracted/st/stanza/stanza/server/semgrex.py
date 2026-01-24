@@ -34,6 +34,8 @@ same document over and over, though.
 
 import argparse
 import copy
+import os
+import re
 
 import stanza
 from stanza.protobuf import SemgrexRequest, SemgrexResponse
@@ -62,7 +64,7 @@ def build_request(doc, semgrex_patterns, enhanced=False):
             for token in sentence.tokens:
                 for word in token.words:
                     add_token(query.token, word, token)
-                    add_word_to_graph(query.graph, word, sent_idx, word_idx)
+                    add_word_to_graph(query.graph, word, sent_idx)
 
                     word_idx = word_idx + 1
 
@@ -95,7 +97,7 @@ class Semgrex(JavaProtobufContext):
         request = build_request(doc, semgrex_patterns)
         return self.process_request(request)
 
-def annotate_doc(doc, semgrex_result, semgrex_patterns, matches_only):
+def annotate_doc(doc, semgrex_result, semgrex_patterns, matches_only, exclude_matches):
     """
     Put comments on the sentences which describe the matching semgrex patterns
     """
@@ -103,14 +105,18 @@ def annotate_doc(doc, semgrex_result, semgrex_patterns, matches_only):
     if isinstance(semgrex_patterns, str):
         semgrex_patterns = [semgrex_patterns]
     matching_sentences = []
+    nonmatching_sentences = []
     for sentence, graph_result in zip(doc.sentences, semgrex_result.result):
         sentence_matched = False
         for semgrex_pattern, pattern_result in zip(semgrex_patterns, graph_result.result):
             semgrex_pattern = semgrex_pattern.replace("\n", " ")
             if len(pattern_result.match) == 0:
-                sentence.add_comment("# semgrex pattern |%s| did not match!" % semgrex_pattern)
+                if not matches_only:
+                    sentence.add_comment("# semgrex pattern |%s| did not match!" % semgrex_pattern)
             else:
                 sentence_matched = True
+                highlight_tokens = []
+                highlight_edges = []
                 for match in pattern_result.match:
                     match_word = "%d:%s" % (match.matchIndex, sentence.words[match.matchIndex-1].text)
                     if len(match.node) == 0:
@@ -120,10 +126,21 @@ def annotate_doc(doc, semgrex_result, semgrex_patterns, matches_only):
                                         for node in match.node]
                         node_matches = "  " + " ".join(node_matches)
                     sentence.add_comment("# semgrex pattern |%s| matched at %s%s" % (semgrex_pattern, match_word, node_matches))
+                    highlight_tokens.append(match.matchIndex)
+                    for edge in match.edge:
+                        highlight_edges.append(edge.target)
+                if len(highlight_tokens) > 0:
+                    sentence.add_comment("# highlight tokens = %s" % (" ".join("%d" % x for x in highlight_tokens)))
+                if len(highlight_edges) > 0:
+                    sentence.add_comment("# highlight deprels = %s" % (" ".join("%d" % x for x in highlight_edges)))
         if sentence_matched:
             matching_sentences.append(sentence)
+        else:
+            nonmatching_sentences.append(sentence)
     if matches_only:
         doc.sentences = matching_sentences
+    elif exclude_matches:
+        doc.sentences = nonmatching_sentences
     return doc
 
 
@@ -138,33 +155,55 @@ def main():
     --no_print_input to not print the input
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', type=str, default=None, help="Input file to process (otherwise will process a sample text)")
+    parser.add_argument('--input', type=str, default=None, help='Process this file or directory')
+    parser.add_argument('--input_filter', type=str, default=None, help='Only process files that match this regex')
     parser.add_argument('semgrex', type=str, nargs="*", default=["{}=source >obj=zzz {}=target"], help="Semgrex to apply to the text.  The default looks for sentences with objects")
     parser.add_argument('--semgrex_file', type=str, default=None, help="File to read semgrex patterns from - relevant in case the pattern you want to use doesn't work well on the command line, for example")
     parser.add_argument('--print_input', dest='print_input', action='store_true', default=False, help="Print the input alongside the output - gets kind of noisy")
     parser.add_argument('--no_print_input', dest='print_input', action='store_false', help="Don't print the input alongside the output - gets kind of noisy")
-    parser.add_argument('--matches_only', action='store_true', default=False, help="Only print the matching sentences")
+
+    parser.add_argument('--matches_only', action='store_true', default=True, help="Only print the matching sentences")
+    parser.add_argument('--no_matches_only', dest='matches_only', action='store_false', help="Only print the matching sentences")
+    parser.add_argument('--exclude_matches', action='store_true', default=False, help="Only print the NON-matching sentences")
+
     parser.add_argument('--enhanced', action='store_true', default=False, help='Use the enhanced dependencies instead of the basic')
+    parser.add_argument('--no_combined_doc', dest='combined_doc', action='store_false', default=True, help='By default, combine all the input docs into one big document.  Allows for easier secondary processing like sorting')
     args = parser.parse_args()
 
     if args.semgrex_file:
         with open(args.semgrex_file) as fin:
             args.semgrex = [x.strip() for x in fin.readlines() if x.strip()]
 
-    if args.input_file:
-        doc = CoNLL.conll2doc(input_file=args.input_file, ignore_gapping=False)
+    if args.input:
+        if os.path.isfile(args.input):
+            docs = [CoNLL.conll2doc(input_file=args.input, ignore_gapping=False)]
+        else:
+            filenames = sorted(os.listdir(args.input))
+            if args.input_filter:
+                input_filter = re.compile(args.input_filter)
+                filenames = [x for x in filenames if input_filter.match(x)]
+            filenames = [os.path.join(args.input, filename) for filename in filenames]
+            filenames = [filename for filename in filenames if os.path.isfile(filename)]
+            docs = [CoNLL.conll2doc(input_file=filename, ignore_gapping=False) for filename in filenames]
     else:
         nlp = stanza.Pipeline('en', processors='tokenize,pos,lemma,depparse')
-        doc = nlp('Uro ruined modern.  Fortunately, Wotc banned him.')
+        docs = [nlp('Uro ruined modern.  Fortunately, Wotc banned him.')]
 
-    if args.print_input:
-        print("{:C}".format(doc))
-        print()
-        print("-" * 75)
-        print()
-    semgrex_result = process_doc(doc, *args.semgrex, enhanced=args.enhanced)
-    doc = annotate_doc(doc, semgrex_result, args.semgrex, args.matches_only)
-    print("{:C}".format(doc))
+    if args.combined_doc:
+        sentences = [sent for doc in docs for sent in doc.sentences]
+        docs = [docs[0]]
+        docs[0].sentences = sentences
+
+    for doc in docs:
+        if args.print_input:
+            print("{:C}".format(doc))
+            print()
+            print("-" * 75)
+            print()
+        semgrex_result = process_doc(doc, *args.semgrex, enhanced=args.enhanced)
+        doc = annotate_doc(doc, semgrex_result, args.semgrex, args.matches_only, args.exclude_matches)
+        if len(doc.sentences) > 0:
+            print("{:C}\n".format(doc))
 
 if __name__ == '__main__':
     main()

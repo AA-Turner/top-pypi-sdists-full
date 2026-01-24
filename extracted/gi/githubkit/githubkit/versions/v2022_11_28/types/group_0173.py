@@ -9,17 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing import Union
+from typing_extensions import TypedDict
 
 
-class RepositoryRuleCommitAuthorEmailPatternPropParametersType(TypedDict):
-    """RepositoryRuleCommitAuthorEmailPatternPropParameters"""
+class CodeOfConductSimpleType(TypedDict):
+    """Code Of Conduct Simple
 
-    name: NotRequired[str]
-    negate: NotRequired[bool]
-    operator: Literal["starts_with", "ends_with", "contains", "regex"]
-    pattern: str
+    Code of Conduct Simple
+    """
+
+    url: str
+    key: str
+    name: str
+    html_url: Union[str, None]
 
 
-__all__ = ("RepositoryRuleCommitAuthorEmailPatternPropParametersType",)
+class CodeOfConductSimpleTypeForResponse(TypedDict):
+    """Code Of Conduct Simple
+
+    Code of Conduct Simple
+    """
+
+    url: str
+    key: str
+    name: str
+    html_url: Union[str, None]
+
+
+__all__ = (
+    "CodeOfConductSimpleType",
+    "CodeOfConductSimpleTypeForResponse",
+)

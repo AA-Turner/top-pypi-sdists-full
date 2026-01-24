@@ -17,15 +17,6 @@
 namespace Cantera
 {
 
-void IdealGasConstPressureMoleReactor::setThermo(ThermoPhase& thermo)
-{
-    if (thermo.type() != "ideal-gas") {
-        throw CanteraError("IdealGasConstPressureMoleReactor::setThermo",
-                           "Incompatible phase type provided");
-    }
-    ConstPressureMoleReactor::setThermo(thermo);
-}
-
 void IdealGasConstPressureMoleReactor::getState(double* y)
 {
     if (m_thermo == 0) {
@@ -45,6 +36,10 @@ void IdealGasConstPressureMoleReactor::getState(double* y)
 
 void IdealGasConstPressureMoleReactor::initialize(double t0)
 {
+    if (m_thermo->type() != "ideal-gas") {
+        throw CanteraError("IdealGasConstPressureMoleReactor::initialize",
+                           "Incompatible phase type '{}' provided", m_thermo->type());
+    }
     ConstPressureMoleReactor::initialize(t0);
     m_hk.resize(m_nsp, 0.0);
 }
@@ -95,7 +90,7 @@ void IdealGasConstPressureMoleReactor::eval(double time, double* LHS, double* RH
     // add terms for outlets
     for (auto outlet : m_outlet) {
         for (size_t n = 0; n < m_nsp; n++) {
-            // flow of species into system and dilution by other species
+            // flow of species out of system
             dndt[n] -= outlet->outletSpeciesMassFlowRate(n) * imw[n];
         }
     }
@@ -156,9 +151,11 @@ Eigen::SparseMatrix<double> IdealGasConstPressureMoleReactor::jacobian()
         vector<double> prod_rates(curr_kin->nTotalSpecies());
         curr_kin->getNetProductionRates(prod_rates.data());
         for (size_t i = 0; i < curr_kin->nTotalSpecies(); i++) {
-            size_t row = speciesIndex(curr_kin->kineticsSpeciesName(i));
-            if (row != npos) {
+            try {
+                size_t row = speciesIndex(curr_kin->kineticsSpeciesName(i));
                 netProductionRates[row] += prod_rates[i];
+            } catch (...) {
+                // species do not map
             }
         }
     }
@@ -238,13 +235,14 @@ Eigen::SparseMatrix<double> IdealGasConstPressureMoleReactor::jacobian()
 
 size_t IdealGasConstPressureMoleReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + m_sidx;
-    } else if (nm == "temperature") {
+    if (nm == "temperature") {
         return 0;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + m_sidx;
+    } catch (const CanteraError&) {
+        throw CanteraError("IdealGasConstPressureReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -267,8 +265,26 @@ string IdealGasConstPressureMoleReactor::componentName(size_t k) {
             }
         }
     }
-    throw CanteraError("IdealGasConstPressureMoleReactor::componentName",
-                       "Index is out of bounds.");
+    throw IndexError("IdealGasConstPressureMoleReactor::componentName",
+        "components", k, m_nv);
+}
+
+double IdealGasConstPressureMoleReactor::upperBound(size_t k) const {
+    if (k == 0) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 1.5 * m_thermo->maxTemp();
+    } else {
+        return BigNumber; // moles of a bulk or surface species
+    }
+}
+
+double IdealGasConstPressureMoleReactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        //@todo: Revise pending resolution of https://github.com/Cantera/enhancements/issues/229
+        return 0.5 * m_thermo->minTemp();
+    } else {
+        return ConstPressureMoleReactor::lowerBound(k);
+    }
 }
 
 }

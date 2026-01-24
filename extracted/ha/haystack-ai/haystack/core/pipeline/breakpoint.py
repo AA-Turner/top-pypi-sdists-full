@@ -3,16 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
-from copy import deepcopy
-from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from networkx import MultiDiGraph
 
 from haystack import logging
-from haystack.core.errors import BreakpointException, PipelineInvalidPipelineSnapshotError
+from haystack.core.errors import PipelineInvalidPipelineSnapshotError
+from haystack.core.pipeline.utils import _deepcopy_with_exceptions
 from haystack.dataclasses import ChatMessage
 from haystack.dataclasses.breakpoints import (
     AgentBreakpoint,
@@ -27,15 +26,12 @@ from haystack.utils.misc import _get_output_dir
 
 if TYPE_CHECKING:
     from haystack.components.agents.agent import _ExecutionContext
-    from haystack.tools.tool import Tool
-    from haystack.tools.toolset import Toolset
+    from haystack.tools import ToolsType
 
 logger = logging.getLogger(__name__)
 
 
-def _validate_break_point_against_pipeline(
-    break_point: Union[Breakpoint, AgentBreakpoint], graph: MultiDiGraph
-) -> None:
+def _validate_break_point_against_pipeline(break_point: Breakpoint | AgentBreakpoint, graph: MultiDiGraph) -> None:
     """
     Validates the breakpoints passed to the pipeline.
 
@@ -114,7 +110,7 @@ def _validate_pipeline_snapshot_against_pipeline(pipeline_snapshot: PipelineSnap
     )
 
 
-def load_pipeline_snapshot(file_path: Union[str, Path]) -> PipelineSnapshot:
+def load_pipeline_snapshot(file_path: str | Path) -> PipelineSnapshot:
     """
     Load a saved pipeline snapshot.
 
@@ -144,118 +140,147 @@ def load_pipeline_snapshot(file_path: Union[str, Path]) -> PipelineSnapshot:
     return pipeline_snapshot
 
 
-def _save_pipeline_snapshot_to_file(
-    *, pipeline_snapshot: PipelineSnapshot, snapshot_file_path: Union[str, Path], dt: datetime
-) -> None:
+def _save_pipeline_snapshot(pipeline_snapshot: PipelineSnapshot, raise_on_failure: bool = True) -> str | None:
     """
     Save the pipeline snapshot dictionary to a JSON file.
 
+    - The filename is generated based on the component name, visit count, and timestamp.
+        - The component name is taken from the break point's `component_name`.
+        - The visit count is taken from the pipeline state's `component_visits` for the component name.
+        - The timestamp is taken from the pipeline snapshot's `timestamp` or the current time if not available.
+    - The file path is taken from the break point's `snapshot_file_path`.
+    - If the `snapshot_file_path` is None, the function will return without saving.
+
     :param pipeline_snapshot: The pipeline snapshot to save.
-    :param snapshot_file_path: The path where to save the file.
-    :param dt: The datetime object for timestamping.
+    :param raise_on_failure: If True, raises an exception if saving fails. If False, logs the error and returns.
+
+    :returns:
+        The full path to the saved JSON file, or None if `snapshot_file_path` is None.
     :raises:
-        ValueError: If the snapshot_file_path is not a string or a Path object.
         Exception: If saving the JSON snapshot fails.
     """
-    snapshot_file_path = Path(snapshot_file_path) if isinstance(snapshot_file_path, str) else snapshot_file_path
-    if not isinstance(snapshot_file_path, Path):
-        raise ValueError("Debug path must be a string or a Path object.")
+    break_point = pipeline_snapshot.break_point
+    snapshot_file_path = (
+        break_point.break_point.snapshot_file_path
+        if isinstance(break_point, AgentBreakpoint)
+        else break_point.snapshot_file_path
+    )
 
-    snapshot_file_path.mkdir(exist_ok=True)
+    if snapshot_file_path is None:
+        return None
+
+    dt = pipeline_snapshot.timestamp or datetime.now()
+    snapshot_dir = Path(snapshot_file_path)
 
     # Generate filename
     # We check if the agent_name is provided to differentiate between agent and non-agent breakpoints
-    if isinstance(pipeline_snapshot.break_point, AgentBreakpoint):
-        agent_name = pipeline_snapshot.break_point.agent_name
-        component_name = pipeline_snapshot.break_point.break_point.component_name
-        visit_nr = pipeline_snapshot.pipeline_state.component_visits.get(component_name, 0)
-        file_name = f"{agent_name}_{component_name}_{visit_nr}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+    if isinstance(break_point, AgentBreakpoint):
+        agent_name = break_point.agent_name
+        component_name = break_point.break_point.component_name
     else:
-        component_name = pipeline_snapshot.break_point.component_name
-        visit_nr = pipeline_snapshot.pipeline_state.component_visits.get(component_name, 0)
-        file_name = f"{component_name}_{visit_nr}_{dt.strftime('%Y_%m_%d_%H_%M_%S')}.json"
+        component_name = break_point.component_name
+        agent_name = None
+
+    visit_nr = pipeline_snapshot.pipeline_state.component_visits.get(component_name, 0)
+    timestamp = dt.strftime("%Y_%m_%d_%H_%M_%S")
+    file_name = f"{agent_name + '_' if agent_name else ''}{component_name}_{visit_nr}_{timestamp}.json"
+    full_path = snapshot_dir / file_name
 
     try:
-        with open(snapshot_file_path / file_name, "w") as f_out:
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        with open(full_path, "w") as f_out:
             json.dump(pipeline_snapshot.to_dict(), f_out, indent=2)
-        logger.info(f"Pipeline snapshot saved at: {file_name}")
-    except Exception as e:
-        logger.error(f"Failed to save pipeline snapshot: {str(e)}")
-        raise
+        logger.info(
+            "Pipeline snapshot saved to '{full_path}'. You can use this file to debug or resume the pipeline.",
+            full_path=full_path,
+        )
+    except Exception as error:
+        logger.error("Failed to save pipeline snapshot to '{full_path}'. Error: {e}", full_path=full_path, e=error)
+        if raise_on_failure:
+            raise
+
+    return str(full_path)
 
 
 def _create_pipeline_snapshot(
     *,
     inputs: dict[str, Any],
-    break_point: Union[AgentBreakpoint, Breakpoint],
+    component_inputs: dict[str, Any],
+    break_point: AgentBreakpoint | Breakpoint,
     component_visits: dict[str, int],
-    original_input_data: Optional[dict[str, Any]] = None,
-    ordered_component_names: Optional[list[str]] = None,
-    include_outputs_from: Optional[set[str]] = None,
-    pipeline_outputs: Optional[dict[str, Any]] = None,
+    original_input_data: dict[str, Any],
+    ordered_component_names: list[str],
+    include_outputs_from: set[str],
+    pipeline_outputs: dict[str, Any],
 ) -> PipelineSnapshot:
     """
     Create a snapshot of the pipeline at the point where the breakpoint was triggered.
 
     :param inputs: The current pipeline snapshot inputs.
+    :param component_inputs: The inputs to the component that triggered the breakpoint.
     :param break_point: The breakpoint that triggered the snapshot, can be AgentBreakpoint or Breakpoint.
     :param component_visits: The visit count of the component that triggered the breakpoint.
     :param original_input_data: The original input data.
     :param ordered_component_names: The ordered component names.
     :param include_outputs_from: Set of component names whose outputs should be included in the pipeline results.
+    :param pipeline_outputs: The current outputs of the pipeline.
+    :returns:
+        A PipelineSnapshot containing the state of the pipeline at the point of the breakpoint.
     """
-    dt = datetime.now()
+    if isinstance(break_point, AgentBreakpoint):
+        component_name = break_point.agent_name
+    else:
+        component_name = break_point.component_name
 
     transformed_original_input_data = _transform_json_structure(original_input_data)
-    transformed_inputs = _transform_json_structure(inputs)
+    transformed_inputs = _transform_json_structure({**inputs, component_name: component_inputs})
+
+    try:
+        serialized_inputs = _serialize_value_with_schema(transformed_inputs)
+    except Exception as error:
+        logger.warning(
+            "Failed to serialize the inputs of the current pipeline state. "
+            "The inputs in the snapshot will be replaced with an empty dictionary. Error: {e}",
+            e=error,
+        )
+        serialized_inputs = {}
+
+    try:
+        serialized_original_input_data = _serialize_value_with_schema(transformed_original_input_data)
+    except Exception as error:
+        logger.warning(
+            "Failed to serialize original input data for `pipeline.run`. "
+            "This likely occurred due to non-serializable object types. "
+            "The snapshot will store an empty dictionary instead. Error: {e}",
+            e=error,
+        )
+        serialized_original_input_data = {}
+
+    try:
+        serialized_pipeline_outputs = _serialize_value_with_schema(pipeline_outputs)
+    except Exception as error:
+        logger.warning(
+            "Failed to serialize outputs of the current pipeline state. "
+            "This likely occurred due to non-serializable object types. "
+            "The snapshot will store an empty dictionary instead. Error: {e}",
+            e=error,
+        )
+        serialized_pipeline_outputs = {}
 
     pipeline_snapshot = PipelineSnapshot(
         pipeline_state=PipelineState(
-            inputs=_serialize_value_with_schema(transformed_inputs),  # current pipeline inputs
-            component_visits=component_visits,
-            pipeline_outputs=pipeline_outputs or {},
+            inputs=serialized_inputs, component_visits=component_visits, pipeline_outputs=serialized_pipeline_outputs
         ),
-        timestamp=dt,
+        timestamp=datetime.now(),
         break_point=break_point,
-        original_input_data=_serialize_value_with_schema(transformed_original_input_data),
-        ordered_component_names=ordered_component_names or [],
-        include_outputs_from=include_outputs_from or set(),
+        original_input_data=serialized_original_input_data,
+        ordered_component_names=ordered_component_names,
+        include_outputs_from=include_outputs_from,
     )
     return pipeline_snapshot
 
 
-def _save_pipeline_snapshot(pipeline_snapshot: PipelineSnapshot) -> PipelineSnapshot:
-    """
-    Save the pipeline snapshot to a file.
-
-    :param pipeline_snapshot: The pipeline snapshot to save.
-
-    :returns:
-        The dictionary containing the snapshot of the pipeline containing the following keys:
-        - input_data: The original input data passed to the pipeline.
-        - timestamp: The timestamp of the breakpoint.
-        - pipeline_breakpoint: The component name and visit count that triggered the breakpoint.
-        - pipeline_state: The state of the pipeline when the breakpoint was triggered containing the following keys:
-            - inputs: The current state of inputs for pipeline components.
-            - component_visits: The visit count of the components when the breakpoint was triggered.
-            - ordered_component_names: The order of components in the pipeline.
-    """
-    break_point = pipeline_snapshot.break_point
-    if isinstance(break_point, AgentBreakpoint):
-        snapshot_file_path = break_point.break_point.snapshot_file_path
-    else:
-        snapshot_file_path = break_point.snapshot_file_path
-
-    if snapshot_file_path is not None:
-        dt = pipeline_snapshot.timestamp or datetime.now()
-        _save_pipeline_snapshot_to_file(
-            pipeline_snapshot=pipeline_snapshot, snapshot_file_path=snapshot_file_path, dt=dt
-        )
-
-    return pipeline_snapshot
-
-
-def _transform_json_structure(data: Union[dict[str, Any], list[Any], Any]) -> Any:
+def _transform_json_structure(data: dict[str, Any] | list[Any] | Any) -> Any:
     """
     Transforms a JSON structure by removing the 'sender' key and moving the 'value' to the top level.
 
@@ -285,28 +310,6 @@ def _transform_json_structure(data: Union[dict[str, Any], list[Any], Any]) -> An
     return data
 
 
-def _trigger_break_point(*, pipeline_snapshot: PipelineSnapshot, pipeline_outputs: dict[str, Any]) -> None:
-    """
-    Trigger a breakpoint by saving a snapshot and raising exception.
-
-    :param pipeline_snapshot: The current pipeline snapshot containing the state and break point
-    :param pipeline_outputs: Current pipeline outputs
-    :raises PipelineBreakpointException: When breakpoint is triggered
-    """
-    _save_pipeline_snapshot(pipeline_snapshot=pipeline_snapshot)
-
-    if isinstance(pipeline_snapshot.break_point, Breakpoint):
-        component_name = pipeline_snapshot.break_point.component_name
-    else:
-        component_name = pipeline_snapshot.break_point.agent_name
-
-    component_visits = pipeline_snapshot.pipeline_state.component_visits
-    msg = f"Breaking at component {component_name} at visit count {component_visits[component_name]}"
-    raise BreakpointException(
-        message=msg, component=component_name, inputs=pipeline_snapshot.pipeline_state.inputs, results=pipeline_outputs
-    )
-
-
 def _create_agent_snapshot(
     *, component_visits: dict[str, int], agent_breakpoint: AgentBreakpoint, component_inputs: dict[str, Any]
 ) -> AgentSnapshot:
@@ -319,8 +322,10 @@ def _create_agent_snapshot(
     """
     return AgentSnapshot(
         component_inputs={
-            "chat_generator": _serialize_value_with_schema(deepcopy(component_inputs["chat_generator"])),
-            "tool_invoker": _serialize_value_with_schema(deepcopy(component_inputs["tool_invoker"])),
+            "chat_generator": _serialize_value_with_schema(
+                _deepcopy_with_exceptions(component_inputs["chat_generator"])
+            ),
+            "tool_invoker": _serialize_value_with_schema(_deepcopy_with_exceptions(component_inputs["tool_invoker"])),
         },
         component_visits=component_visits,
         break_point=agent_breakpoint,
@@ -328,20 +333,19 @@ def _create_agent_snapshot(
     )
 
 
-def _validate_tool_breakpoint_is_valid(
-    agent_breakpoint: AgentBreakpoint, tools: Union[list["Tool"], "Toolset"]
-) -> None:
+def _validate_tool_breakpoint_is_valid(agent_breakpoint: AgentBreakpoint, tools: "ToolsType") -> None:
     """
     Validates the AgentBreakpoint passed to the agent.
 
     Validates that the tool name in ToolBreakpoints correspond to a tool available in the agent.
 
     :param agent_breakpoint: AgentBreakpoint object containing breakpoints for the agent components.
-    :param tools: List of Tool objects or a Toolset that the agent can use.
+    :param tools: A list of Tool and/or Toolset objects, or a Toolset that the agent can use.
     :raises ValueError: If any tool name in ToolBreakpoints is not available in the agent's tools.
     """
+    from haystack.tools.utils import flatten_tools_or_toolsets  # avoid circular import
 
-    available_tool_names = {tool.name for tool in tools}
+    available_tool_names = {tool.name for tool in flatten_tools_or_toolsets(tools)}
     tool_breakpoint = agent_breakpoint.break_point
     # Assert added for mypy to pass, but this is already checked before this function is called
     assert isinstance(tool_breakpoint, ToolBreakpoint)
@@ -350,11 +354,7 @@ def _validate_tool_breakpoint_is_valid(
 
 
 def _create_pipeline_snapshot_from_chat_generator(
-    *,
-    execution_context: "_ExecutionContext",
-    agent_name: Optional[str] = None,
-    break_point: Optional[AgentBreakpoint] = None,
-    parent_snapshot: Optional[PipelineSnapshot] = None,
+    *, execution_context: "_ExecutionContext", agent_name: str | None = None, break_point: AgentBreakpoint | None = None
 ) -> PipelineSnapshot:
     """
     Create a pipeline snapshot when a chat generator breakpoint is raised or an exception during execution occurs.
@@ -364,7 +364,6 @@ def _create_pipeline_snapshot_from_chat_generator(
     :param break_point: An optional AgentBreakpoint object. If provided, it will be used instead of creating a new one.
         A scenario where a new breakpoint is created is when an exception occurs during chat generation and we want to
         capture the state at that point.
-    :param parent_snapshot: An optional parent PipelineSnapshot to build upon.
     :returns:
         A PipelineSnapshot containing the state of the pipeline and agent at the point of the breakpoint or exception.
     """
@@ -391,30 +390,16 @@ def _create_pipeline_snapshot_from_chat_generator(
             "tool_invoker": {"messages": [], "state": execution_context.state, **execution_context.tool_invoker_inputs},
         },
     )
-    if parent_snapshot is None:
-        # Create an empty pipeline snapshot if no parent snapshot is provided
-        final_snapshot = PipelineSnapshot(
-            pipeline_state=PipelineState(inputs={}, component_visits={}, pipeline_outputs={}),
-            timestamp=agent_snapshot.timestamp,
-            break_point=agent_snapshot.break_point,
-            agent_snapshot=agent_snapshot,
-            original_input_data={},
-            ordered_component_names=[],
-            include_outputs_from=set(),
-        )
-    else:
-        final_snapshot = replace(parent_snapshot, agent_snapshot=agent_snapshot)
 
-    return final_snapshot
+    return PipelineSnapshot._from_agent_snapshot(agent_snapshot=agent_snapshot)
 
 
 def _create_pipeline_snapshot_from_tool_invoker(
     *,
     execution_context: "_ExecutionContext",
-    tool_name: Optional[str] = None,
-    agent_name: Optional[str] = None,
-    break_point: Optional[AgentBreakpoint] = None,
-    parent_snapshot: Optional[PipelineSnapshot] = None,
+    tool_name: str | None = None,
+    agent_name: str | None = None,
+    break_point: AgentBreakpoint | None = None,
 ) -> PipelineSnapshot:
     """
     Create a pipeline snapshot when a tool invoker breakpoint is raised or an exception during execution occurs.
@@ -425,7 +410,6 @@ def _create_pipeline_snapshot_from_tool_invoker(
     :param break_point: An optional AgentBreakpoint object. If provided, it will be used instead of creating a new one.
         A scenario where a new breakpoint is created is when an exception occurs during tool execution and we want to
         capture the state at that point.
-    :param parent_snapshot: An optional parent PipelineSnapshot to build upon.
     :returns:
         A PipelineSnapshot containing the state of the pipeline and agent at the point of the breakpoint or exception.
     """
@@ -455,94 +439,24 @@ def _create_pipeline_snapshot_from_tool_invoker(
             },
         },
     )
-    if parent_snapshot is None:
-        # Create an empty pipeline snapshot if no parent snapshot is provided
-        final_snapshot = PipelineSnapshot(
-            pipeline_state=PipelineState(inputs={}, component_visits={}, pipeline_outputs={}),
-            timestamp=agent_snapshot.timestamp,
-            break_point=agent_snapshot.break_point,
-            agent_snapshot=agent_snapshot,
-            original_input_data={},
-            ordered_component_names=[],
-            include_outputs_from=set(),
-        )
-    else:
-        final_snapshot = replace(parent_snapshot, agent_snapshot=agent_snapshot)
 
-    return final_snapshot
+    # Create an empty pipeline snapshot
+    return PipelineSnapshot._from_agent_snapshot(agent_snapshot=agent_snapshot)
 
 
-def _trigger_chat_generator_breakpoint(*, pipeline_snapshot: PipelineSnapshot) -> None:
+def _should_trigger_tool_invoker_breakpoint(break_point: ToolBreakpoint, llm_messages: list[ChatMessage]) -> bool:
     """
-    Trigger a breakpoint before ChatGenerator execution in Agent.
+    Determine if a tool invoker breakpoint should be triggered based on the provided ToolBreakpoint and LLM messages.
 
-    :param pipeline_snapshot: PipelineSnapshot object containing the state of the pipeline and Agent snapshot.
-    :raises BreakpointException: Always raised when this function is called, indicating a breakpoint has been triggered.
+    :param break_point: The ToolBreakpoint to check against.
+    :param llm_messages: A list of ChatMessage objects representing the LLM messages.
+    :returns:
+        True if the breakpoint should be triggered, False otherwise.
     """
-    if not isinstance(pipeline_snapshot.break_point, AgentBreakpoint):
-        raise ValueError("PipelineSnapshot must contain an AgentBreakpoint to trigger a chat generator breakpoint.")
-
-    if not isinstance(pipeline_snapshot.agent_snapshot, AgentSnapshot):
-        raise ValueError("PipelineSnapshot must contain an AgentSnapshot to trigger a chat generator breakpoint.")
-
-    break_point = pipeline_snapshot.break_point.break_point
-    _save_pipeline_snapshot(pipeline_snapshot=pipeline_snapshot)
-    msg = (
-        f"Breaking at {break_point.component_name} visit count "
-        f"{pipeline_snapshot.agent_snapshot.component_visits[break_point.component_name]}"
-    )
-    logger.info(msg)
-    raise BreakpointException(
-        message=msg,
-        component=break_point.component_name,
-        inputs=pipeline_snapshot.agent_snapshot.component_inputs,
-        results=pipeline_snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["state"],
-    )
-
-
-def _trigger_tool_invoker_breakpoint(*, llm_messages: list[ChatMessage], pipeline_snapshot: PipelineSnapshot) -> None:
-    """
-    Check if a tool call breakpoint should be triggered before executing the tool invoker.
-
-    :param llm_messages: List of ChatMessage objects containing potential tool calls.
-    :param pipeline_snapshot: PipelineSnapshot object containing the state of the pipeline and Agent snapshot.
-    :raises BreakpointException: If the breakpoint is triggered, indicating a breakpoint has been reached for a tool
-        call.
-    """
-    if not pipeline_snapshot.agent_snapshot:
-        raise ValueError("PipelineSnapshot must contain an AgentSnapshot to trigger a tool call breakpoint.")
-
-    if not isinstance(pipeline_snapshot.agent_snapshot.break_point.break_point, ToolBreakpoint):
-        return
-
-    tool_breakpoint = pipeline_snapshot.agent_snapshot.break_point.break_point
-
     # Check if we should break for this specific tool or all tools
-    if tool_breakpoint.tool_name is None:
+    if break_point.tool_name is None:
         # Break for any tool call
-        should_break = any(msg.tool_call for msg in llm_messages)
-    else:
-        # Break only for the specific tool
-        should_break = any(
-            msg.tool_call and msg.tool_call.tool_name == tool_breakpoint.tool_name for msg in llm_messages
-        )
+        return any(msg.tool_call for msg in llm_messages)
 
-    if not should_break:
-        return  # No breakpoint triggered
-
-    _save_pipeline_snapshot(pipeline_snapshot=pipeline_snapshot)
-
-    msg = (
-        f"Breaking at {tool_breakpoint.component_name} visit count "
-        f"{pipeline_snapshot.agent_snapshot.component_visits[tool_breakpoint.component_name]}"
-    )
-    if tool_breakpoint.tool_name:
-        msg += f" for tool {tool_breakpoint.tool_name}"
-    logger.info(msg)
-
-    raise BreakpointException(
-        message=msg,
-        component=tool_breakpoint.component_name,
-        inputs=pipeline_snapshot.agent_snapshot.component_inputs,
-        results=pipeline_snapshot.agent_snapshot.component_inputs["tool_invoker"]["serialized_data"]["state"],
-    )
+    # Break only for the specific tool
+    return any(tc.tool_name == break_point.tool_name for msg in llm_messages for tc in msg.tool_calls or [])

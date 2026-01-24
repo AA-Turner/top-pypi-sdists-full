@@ -1,13 +1,11 @@
 """Yandex search engine."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from random import SystemRandom
-from typing import Any
+from typing import Any, ClassVar
 
-from ..base import BaseSearchEngine
-from ..results import TextResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import TextResult
 
 random = SystemRandom()
 
@@ -23,14 +21,20 @@ class Yandex(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//li[contains(@class, 'serp-item')]"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "title": ".//h3//text()",
         "href": ".//h3//a/@href",
         "body": ".//div[contains(@class, 'text')]//text()",
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,  # noqa: ARG002
+        safesearch: str,  # noqa: ARG002
+        timelimit: str | None,  # noqa: ARG002
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         payload = {

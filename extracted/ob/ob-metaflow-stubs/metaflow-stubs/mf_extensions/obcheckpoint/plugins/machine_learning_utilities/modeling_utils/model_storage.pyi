@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.764273                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.931982                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ if typing.TYPE_CHECKING:
 from ..datastore.core import ObjectStorage as ObjectStorage
 from ..datastore.core import DatastoreInterface as DatastoreInterface
 from ..datastore.core import STORAGE_FORMATS as STORAGE_FORMATS
+from ..datastore.core import warning_message as warning_message
 from .exceptions import ModelException as ModelException
 from ..exceptions import KeyNotFoundError as KeyNotFoundError
 from ..datastructures import ModelArtifact as ModelArtifact
@@ -64,6 +65,40 @@ class ModelDatastore(metaflow.mf_extensions.obcheckpoint.plugins.machine_learnin
     def load(self, model_id, path):
         ...
     def list(self, *args, **kwargs):
+        ...
+    def delete(self, model_artifact: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.ModelArtifact) -> bool:
+        """
+        Delete a model from all stores.
+        
+        Deletion order:
+        1. Delete artifact data (files/tarball)
+        2. Delete artifact metadata
+        3. Delete task metadata
+        
+        Parameters
+        ----------
+        model_artifact : ModelArtifact
+            The model artifact to delete.
+        
+        Returns
+        -------
+        bool
+            True if all deletions were successful.
+        
+        Raises
+        ------
+        ValueError
+            If required datastores are not initialized.
+        """
+        ...
+    @classmethod
+    def init_delete_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, model_artifact: metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.datastructures.ModelArtifact):
+        """
+        Initialize datastore for delete operations from a model artifact.
+        
+        This creates a datastore instance with access to all three stores
+        needed for complete model deletion.
+        """
         ...
     @classmethod
     def init_read_store(cls, storage_backend: metaflow.datastore.datastore_storage.DataStoreStorage, pathspec: typing.Optional[str] = None, attempt: typing.Optional[str] = None, model_key = None, *args, **kwargs):

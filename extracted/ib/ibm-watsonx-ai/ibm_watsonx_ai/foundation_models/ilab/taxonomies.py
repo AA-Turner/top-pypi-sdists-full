@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -12,6 +12,7 @@ from ibm_watsonx_ai.foundation_models.ilab.helper import BaseRuns, wait_for_run_
 from ibm_watsonx_ai.helpers.connections import (
     DataConnection,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
 
@@ -138,7 +139,7 @@ class TaxonomyImport:
         :returns: status of taxonomy import
         :rtype: str
         """
-        return self.get_run_details().get("entity", {}).get("status", {}).get("state")
+        return get_from_json(self.get_run_details(), ["entity", "status", "state"])
 
     def delete_run(self) -> str:
         """Delete taxonomy import run"""
@@ -204,7 +205,7 @@ class TaxonomiesRuns(BaseRuns):
         """
         taxonomy_import_details = self.get_run_details(taxonomy_import_id)
         taxonomy_import = TaxonomyImport(
-            taxonomy_import_details.get("metadata", {}).get("name"), self._client
+            get_from_json(taxonomy_import_details, ["metadata", "name"]), self._client
         )
         taxonomy_import.id = taxonomy_import_id
         return taxonomy_import
@@ -253,11 +254,10 @@ class Taxonomies(WMLResource):
                 name="my_taxonomy",
                 data_reference=DataConnection(
                     location=GithubLocation(
-                        secret_manager_url="...",
-                        secret_id="...",
-                        path="."
+                        secret_manager_url="...", secret_id="...", path="."
                     )
-                ))
+                ),
+            )
         """
         name = name if name else f"{self.ilab_tuner_name}_taxonomy"
         payload = {

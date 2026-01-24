@@ -27,18 +27,14 @@ def from_edit_mesh(mesh: bpy.types.Mesh) -> bmesh.types.BMesh:
     """Return a BMesh from this mesh, currently the mesh must already be in editmode.
 
     :param mesh: The editmode mesh.
-    :type mesh: bpy.types.Mesh
     :return: the BMesh associated with this mesh.
-    :rtype: bmesh.types.BMesh
     """
 
 def new(*, use_operators: bool = True) -> bmesh.types.BMesh:
     """
 
     :param use_operators: Support calling operators in `bmesh.ops` (uses some extra memory per vert/edge/face).
-    :type use_operators: bool
     :return: Return a new, empty BMesh.
-    :rtype: bmesh.types.BMesh
     """
 
 def update_edit_mesh(
@@ -48,9 +44,6 @@ def update_edit_mesh(
     optionally recalculating n-gon tessellation.
 
         :param mesh: The editmode mesh.
-        :type mesh: bpy.types.Mesh
         :param loop_triangles: Option to recalculate n-gon tessellation.
-        :type loop_triangles: bool
         :param destructive: Use when geometry has been added or removed.
-        :type destructive: bool
     """

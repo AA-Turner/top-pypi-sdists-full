@@ -44,7 +44,7 @@ def _find_dim(grp, dimname):
             except:
                 raise ValueError("cannot find dimension %s in this group or parent groups" % dimname)
     if dim is None:
-        raise KeyError("dimension %s not defined in group %s or any group in it's family tree" % (dimname, grp.path))
+        raise KeyError("dimension %s not defined in group %s or any group in its family tree" % (dimname, grp.path))
     else:
         return dim
 
@@ -426,11 +426,11 @@ Boolean array must have the same shape as the data along this dimension."""
 
         #    ITERABLE    #
         elif np.iterable(e) and np.array(e).dtype.kind in 'i':  # Sequence of integers
-            start[...,i] = np.apply_along_axis(lambda x: e*x, i, np.ones(sdim[:-1]))
-            indices[...,i] = np.apply_along_axis(lambda x: np.arange(sdim[i])*x, i, np.ones(sdim[:-1], int))
-
-            count[...,i] = 1
-            stride[...,i] = 1
+            if start[...,i].size:
+                start[...,i] = np.apply_along_axis(lambda x: e*x, i, np.ones(sdim[:-1]))
+                indices[...,i] = np.apply_along_axis(lambda x: np.arange(sdim[i])*x, i, np.ones(sdim[:-1], int))
+                count[...,i] = 1
+                stride[...,i] = 1
 
         #   all that's left is SCALAR INTEGER    #
         else:

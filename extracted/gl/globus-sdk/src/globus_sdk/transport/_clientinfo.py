@@ -10,8 +10,7 @@ from __future__ import annotations
 
 import typing as t
 
-from globus_sdk import exc
-from globus_sdk.version import __version__
+from globus_sdk import __version__, exc
 
 _RESERVED_CHARS = ";,="
 

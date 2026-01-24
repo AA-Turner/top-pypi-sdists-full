@@ -1,0 +1,152 @@
+[project]
+name = "contrast-agent"
+authors = [{ name = "Contrast Security, Inc.", email = "python@contrastsecurity.com"}]
+classifiers=[
+    "Development Status :: 5 - Production/Stable",
+    # Audience
+    "Intended Audience :: Developers",
+    # License; commercial
+    # supported languages
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version"]
+dependencies = [
+    "requests>=2.4.2,<3",
+    "contrast-agent-lib~=0.12.0",
+    "contrast-fireball==0.1.22"
+]
+description = "Contrast Security's agent for Python web frameworks"
+keywords = ["security development"]
+license = "LicenseRef-ContrastSecurity-ContrastPlatformLicense"
+license-files = [ "LICENSE.txt" ]
+# Do not add an upper limit here - doing so will cause users on too-new python versions
+# to receive the last release of the python agent that did not specify an upper limit.
+# At the time of writing, this is 5.18.9 (Mar 2023), which is obviously not desirable.
+# Instead, use the machinery in setup.py.
+# See https://discuss.python.org/t/requires-python-upper-limits/12663
+requires-python = ">=3.9"
+readme = "README.md"
+
+[project.optional-dependencies]
+debug = [
+    "viztracer>=0.16.3,<1.1.0"
+]
+
+[project.urls]
+"Contrast" = "https://www.contrastsecurity.com"
+"Change Log" = "https://docs.contrastsecurity.com/en/python-agent-release-notes-and-archive.html"
+"Support" = "https://support.contrastsecurity.com"
+"Trouble Shooting" = "https://support.contrastsecurity.com/hc/en-us/search?utf8=%E2%9C%93&query=Python"
+"Wiki" = "https://docs.contrastsecurity.com/"
+
+[project.scripts]
+"contrast-python-run" = "contrast.scripts.runner:runner"
+"contrast-fix-interpreter-permissions" = "contrast.scripts.fix_interpreter_permissions:fix_interpreter_permissions"
+"contrast-validate-config" = "contrast.scripts.validate_config:validate_config"
+"contrast-propagator-check" = "contrast.scripts.propagator_check:propagator_check"
+
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2,<10"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools_scm]
+write_to = "src/contrast/version.py"
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+extend-exclude = [
+  "src/contrast_vendor/",
+  "*.golden",
+  "tests/agent/data/rewriter/source/",
+]
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "DJ",
+    "E",
+    "F",
+    "NPY",
+    "PD",
+    "PERF",
+    "PIE",
+    "PLC",
+    "PLE",
+    "PLR",
+    "PT",
+    "SIM",
+    "UP",
+    "W",
+    "FA",
+# we may want to add these eventually
+    # "RUF",
+    # "RET",
+    # "ANN",
+]
+ignore = [
+    # checks we want eventually, when there's more time:
+
+    "E501",  # Line too long
+    "PT011",  # set `match` param in `pytest.raises`
+
+    # checks we probably never want:
+
+    "PLC0415", # import-outside-top-level (late imports are useful for testing with instrumentation)
+    "PLR09",  # category of "too many *" checks such as "too many arguments", etc
+    "PLR2004", # magic value used in comparison
+]
+
+
+[tool.ruff.lint.extend-per-file-ignores]
+# https://github.com/astral-sh/ruff/issues/10662
+"tests/**/test_*.py" = ["F811"]
+"tests/**/conftest.py" = ["F811"]
+
+[tool.ruff.per-file-target-version]
+"tests/**/python_12_plus_only/*.py" = "py312"
+"tests/**/python_14_plus_only/*.py" = "py314"
+
+[tool.pytest.ini_options]
+testpaths = "tests integration-tests/test-create-config-script"
+filterwarnings = [
+  "error::DeprecationWarning",
+  # for DeprecatedWarning which doesn't work for some reason if not like this
+  "error:.*Call to deprecated.*",
+  "error::PendingDeprecationWarning",
+  "error::pytest.PytestUnhandledThreadExceptionWarning",
+  "error::pytest.PytestUnraisableExceptionWarning",
+  "error::RuntimeWarning",
+  "ignore::DeprecationWarning:pip._vendor.*",
+  "ignore::DeprecationWarning:wrapt.*",
+  "ignore::DeprecationWarning:jinja2.*",
+  "ignore::DeprecationWarning:pyramid.*",
+  "ignore::DeprecationWarning:aiohttp.*",
+  # Both filter pkg_resources warnings are required because we have vendored dependencies that still use it.
+  # In addition the same dependency a vendored package uses (paste) uses the legacy style method of declaring a namespace package
+  "ignore:pkg_resources.*:DeprecationWarning",
+  "ignore:Deprecated call to .*pkg_resources.declare_namespace.*:DeprecationWarning",
+  "ignore:ast.Ellipsis is deprecated.*:DeprecationWarning",
+  "ignore:.*datetime.datetime.utc.*:DeprecationWarning",  # from older dependency or maybe pytest
+
+  # defusedxml was deprecated long ago but we still test it.
+  "ignore:.*defusedxml.lxml:DeprecationWarning",
+  # turn off YAMLLoadWarning about unsafe yaml since we have to test for unsafe use
+  "ignore:.*calling yaml.load.*as the default Loader is unsafe.*",
+  # we still test these functions
+  "ignore:.*'flask.helpers.safe_join' is deprecated.*",
+  "ignore:.*'utils.escape' is deprecated.*",
+  "ignore:.*unicode_internal codec has been deprecated.*",
+  "ignore:.*'cgi' is deprecated.*",
+  "ignore::contrast.utils.exceptions.deprecation_warning.ContrastDeprecationWarning",
+]
+markers = [
+    "needs_runner: mark the test as requiring contrast-python-run"
+]
+timeout = 300 # in seconds => 5m
+xfail_strict = true
+asyncio_mode = "auto"
+addopts = "--ignore=tests/performance"

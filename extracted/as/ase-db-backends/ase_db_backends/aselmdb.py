@@ -28,14 +28,18 @@ class LMDBDatabase(Database):
         use_lock_file: bool = True,
         serial: bool = True,
         readonly: bool = False,
+        readahead: bool = True,
         *args,
         **kwargs,
     ) -> None:
         """
-        For the most part, this is identical to the other ASE db initializatoins
+        For the most part, this is identical to the other ASE db
+        initializatoins
 
         LMDB-specific:
-            readonly (bool): whether to open lmdb in read-only mode, useful for fast AI/ML training
+            readonly (bool): whether to open lmdb in read-only
+            mode, useful for fast AI/ML training
+            readahead (bool): whether to use the LMDB readahead option
 
         ASE database options:
             use_lock_file: whether to use the ASE lock file implementation
@@ -54,31 +58,47 @@ class LMDBDatabase(Database):
         # to make sure there's no parallel locks
         self.readonly = readonly
 
+        # Toggle readahead (good for seq read, bad for random read)
+        self.readahead = readahead
+
+        self._env = None
+        self._open_lmdb_env()
+
+        # Load all ids based on keys in the DB.
+        self.ids = []
+        self.deleted_ids = set()
+        self._load_ids()
+
+    @property
+    def env(self):
+        if self._env is None or self._env_pid != os.getpid():
+            self._open_lmdb_env()
+        return self._env
+
+    def _open_lmdb_env(self):
         if self.readonly:
             # Open a new env
-            self.env = lmdb.open(
+            self._env = lmdb.open(
                 str(self.filename),
                 subdir=False,
                 meminit=False,
                 map_async=True,
                 readonly=True,
                 lock=False,
+                readahead=self.readahead,
             )
 
         else:
             # Open a new env with write access
-            self.env = lmdb.open(
+            self._env = lmdb.open(
                 str(self.filename),
                 map_size=2**41,  # 2Tb max size, typical for older FS
                 subdir=False,
                 meminit=False,
                 map_async=True,
+                readahead=self.readahead,
             )
-
-        # Load all ids based on keys in the DB.
-        self.ids = []
-        self.deleted_ids = set()
-        self._load_ids()
+        self._env_pid = os.getpid()
 
     def __enter__(self):
         # If we're in a context manager, get a transaction that we
@@ -138,7 +158,8 @@ class LMDBDatabase(Database):
 
         constraints = row.get("constraints")
         if constraints:
-            dct["constraints"] = [constraint.todict() for constraint in constraints]
+            dct["constraints"] = [
+                constraint.todict() for constraint in constraints]
 
         # json doesn't like Cell objects, so make it an array
         dct["cell"] = np.asarray(dct["cell"])
@@ -153,12 +174,13 @@ class LMDBDatabase(Database):
                 idx = self._nextid
                 nextid = idx + 1
             else:
-                # We have an index already, so let's make sure there's nothing already
-                # at that row
+                # We have an index already, so let's make sure there's
+                # nothing already at that row
                 data = txn.get(encode_key(f"{idx}"))
                 assert data is not None
 
-            # Add the new entry, compressing and encoding the dictionary as json
+            # Add the new entry, compressing and encoding the
+            # dictionary as json
             txn.put(
                 encode_key(f"{idx}"),
                 encode_object(dct, compress=True, json_encode=True),
@@ -192,7 +214,10 @@ class LMDBDatabase(Database):
 
         # update the data or key/value pairs for the row
         if data is not None or key_value_pairs is not None:
-            self._write(atoms=row, idx=idx, key_value_pairs=key_value_pairs, data=data)
+            self._write(atoms=row,
+                        idx=idx,
+                        key_value_pairs=key_value_pairs,
+                        data=data)
 
     def _write_deleted_ids(self):
         # Get a transaction to write with
@@ -201,13 +226,15 @@ class LMDBDatabase(Database):
             # Write the current list of deleted ids
             txn.put(
                 encode_key("deleted_ids"),
-                encode_object(list(self.deleted_ids), compress=True, json_encode=True),
+                encode_object(list(self.deleted_ids),
+                              compress=True, json_encode=True),
             )
         finally:
             self._flush_txn(txn)
 
     def _get_txn(self, write):
-        # if we already have a txn attached to this object (eg we made one with a context manager),
+        # if we already have a txn attached to this object
+        # (eg we made one with a context manager),
         # use that. Otherwise, make a new transaction to use
         if hasattr(self, "txn"):
             return self.txn
@@ -215,7 +242,8 @@ class LMDBDatabase(Database):
             return self.env.begin(write=write)
 
     def _flush_txn(self, txn):
-        # If we have a txn attached to this object, we're in a context manager, so don't commit.
+        # If we have a txn attached to this object, we're
+        # in a context manager, so don't commit.
         # otherwise, commit this so the txn gets cleaned up!
         if not hasattr(self, "txn"):
             txn.commit()
@@ -224,7 +252,8 @@ class LMDBDatabase(Database):
         # Get a transaction to write against
         txn = self._get_txn(write=True)
         try:
-            # Delete the data, remove from the ids, and add to deleted ids, one at a time
+            # Delete the data, remove from the ids, and
+            # add to deleted ids, one at a time
             for idx in ids:
                 txn.delete(encode_key(f"{idx}"))
                 self.ids.remove(idx)
@@ -245,14 +274,17 @@ class LMDBDatabase(Database):
         finally:
             self._flush_txn(txn)
         if row_data is not None:
-            dct = decode_bytestream(row_data, decompress=True, json_decode=True)
+            dct = decode_bytestream(row_data,
+                                    decompress=True, json_decode=True)
         else:
             raise KeyError(f"Id {idx} missing from the database!")
         if not include_data:
             dct.pop("data", None)
 
-        # Anything that's a calculator property should be an array if it's more than a number
-        # This is important for things like fmax, which assume forces is an array (and will fail if it's
+        # Anything that's a calculator property should be
+        # an array if it's more than a number
+        # This is important for things like fmax, which assume
+        # forces is an array (and will fail if it's
         # a list of lists)
         for key in all_properties:
             if key in dct and isinstance(dct[key], list):
@@ -264,9 +296,9 @@ class LMDBDatabase(Database):
 
     def _get_row_by_index(self, index: int, include_data: bool = True):
         """Auxiliary function to get the ith entry, rather than a specific id
-        In AI/ML training, we often want to just grab the ith entry in the db, rather
-        than trying to find the entry ahead of time. We can then move very fast, pulling from
-        range(0,len(db))
+        In AI/ML training, we often want to just grab the ith entry in the
+        db, rather than trying to find the entry ahead of time. We can then
+        move very fast, pulling from range(0,len(db))
         """
         return self._get_row(self.ids[index])
 
@@ -316,7 +348,7 @@ class LMDBDatabase(Database):
             rows += missing
 
             if limit:
-                rows = rows[offset : offset + limit]
+                rows = rows[offset:offset + limit]
             for _, row in rows:
                 yield row
             return
@@ -358,7 +390,8 @@ class LMDBDatabase(Database):
         try:
             nextid_data = txn.get(encode_key("nextid"))
             return (
-                decode_bytestream(nextid_data, decompress=True, json_decode=True)
+                decode_bytestream(nextid_data, decompress=True,
+                                  json_decode=True)
                 if nextid_data
                 else 1
             )
@@ -384,11 +417,12 @@ class LMDBDatabase(Database):
         """Load ids from the DB
 
         Since ASE db ids are mostly 1-N integers, but can be missing entries
-        if ids have been deleted. To save space and operating under the assumption
-        that there will probably not be many deletions in most FAIR chemistry datasets,
-        we just store the deleted ids.
+        if ids have been deleted. To save space and operating under
+        the assumption that there will probably not be many deletions in most
+        FAIR chemistry datasets, we just store the deleted ids.
 
-        This is a bad idea if you repeatedly read/write/delete to the same DB file
+        This is a bad idea if you repeatedly read/write/delete to the
+        same DB file
         """
 
         # Load the deleted ids
@@ -400,16 +434,18 @@ class LMDBDatabase(Database):
 
         if deleted_ids_data is not None:
             self.deleted_ids = set(
-                decode_bytestream(deleted_ids_data, decompress=True, json_decode=True)
+                decode_bytestream(deleted_ids_data,
+                                  decompress=True, json_decode=True)
             )
 
         # Reconstruct the full id list
-        self.ids = [i for i in range(1, self._nextid) if i not in self.deleted_ids]
+        self.ids = [i for i in range(1, self._nextid)
+                    if i not in self.deleted_ids]
 
     def get_all_key_names(self):
         """
-        We don't have a choice but to loop over all rows to find all keys. This could be done
-        faster if we stored this list of keys in the db too.
+        We don't have a choice but to loop over all rows to find all keys.
+        This could be done faster if we stored this list of keys in the db too.
         """
         return set.union(
             *[set(self._get_row(id).key_value_pairs.keys()) for id in self.ids]
@@ -418,8 +454,8 @@ class LMDBDatabase(Database):
     @property
     def metadata(self):
         """
-        metadata is a helpful json-encoded dict to help us understand the context
-        of this database
+        metadata is a helpful json-encoded dict to help us understand the
+        context of this database
         """
         txn = self._get_txn(write=False)
         try:
@@ -427,7 +463,8 @@ class LMDBDatabase(Database):
         finally:
             self._flush_txn(txn)
         if metadata_stream is not None:
-            return decode_bytestream(metadata_stream, decompress=True, json_decode=True)
+            return decode_bytestream(metadata_stream,
+                                     decompress=True, json_decode=True)
         else:
             return {}
 

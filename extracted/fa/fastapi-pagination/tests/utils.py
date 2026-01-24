@@ -1,32 +1,23 @@
 from collections.abc import Callable, Coroutine
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 from faker import Faker
+from fastapi import __version__
 from pydantic import BaseModel
 
-from fastapi_pagination.utils import IS_PYDANTIC_V2
+from fastapi_pagination.pydantic.v2 import is_pydantic_v2_model
 
 faker = Faker()
 
 T = TypeVar("T", bound=BaseModel)
 
-if IS_PYDANTIC_V2:
-    from pydantic import TypeAdapter
 
-    def parse_obj_as(tp: Any, obj: Any) -> Any:
-        return TypeAdapter(tp).validate_python(obj, from_attributes=True)
-
-    def parse_obj(model: type[T], obj: Any) -> T:
+def parse_obj(model: type[T], obj: Any) -> T:
+    if is_pydantic_v2_model(model):
         return model.model_validate(obj, from_attributes=True)
-else:
-    from pydantic import parse_obj_as as _parse_obj_as
 
-    def parse_obj_as(tp: Any, obj: Any) -> Any:
-        return _parse_obj_as(tp, obj)
-
-    def parse_obj(model: type[T], obj: Any) -> T:
-        return model.parse_obj(obj)
+    return model.parse_obj(obj)
 
 
 def normalize(model: type[T], *models: Any) -> list[T]:
@@ -41,7 +32,7 @@ async def maybe_async(obj: Any) -> Any:
 
 
 def create_ctx(
-    ctx: Callable[[], Union[AbstractContextManager[Any], AbstractAsyncContextManager[Any]]],
+    ctx: Callable[[], AbstractContextManager[Any] | AbstractAsyncContextManager[Any]],
     is_async: bool,
 ) -> Any:
     async def ctx_func():
@@ -55,11 +46,14 @@ def create_ctx(
     return ctx_func
 
 
+IS_FASTAPI_V_0_112_4_OR_NEWER = tuple(int(part) for part in __version__.split(".") if part.isdigit()) >= (0, 112, 4)
+
+
 __all__ = [
+    "IS_FASTAPI_V_0_112_4_OR_NEWER",
     "create_ctx",
     "faker",
     "maybe_async",
     "normalize",
     "parse_obj",
-    "parse_obj_as",
 ]

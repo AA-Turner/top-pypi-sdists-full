@@ -34,10 +34,21 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import os
 import sys
+from typing import Sequence
+
+from phonopy.interface.calculator import (
+    add_arguments_of_calculators,
+    calculator_info,
+)
 
 
-def fix_deprecated_option_names(argv):
+def fix_deprecated_option_names(argv) -> list[str]:
     """Replace underscore in command option name by hyphen."""
     deprecated = []
     for i, v in enumerate(argv[1:]):
@@ -51,7 +62,7 @@ def fix_deprecated_option_names(argv):
     return deprecated
 
 
-def show_deprecated_option_warnings(deprecated):
+def show_deprecated_option_warnings(deprecated: list[str]):
     """Show warning when underscore is included in command option name."""
     lines = [
         "Option names with underscores are deprecated, by which",
@@ -66,15 +77,11 @@ def show_deprecated_option_warnings(deprecated):
     print("")
 
 
-def get_parser(load_phonopy_yaml=False):
+def get_parser(
+    load_phonopy_yaml: bool = False,
+) -> tuple[argparse.ArgumentParser, list[str]]:
     """Return ArgumentParser instance."""
     deprecated = fix_deprecated_option_names(sys.argv)
-    import argparse
-
-    from phonopy.interface.calculator import (
-        add_arguments_of_calculators,
-        calculator_info,
-    )
 
     try:
         parser = argparse.ArgumentParser(
@@ -416,7 +423,7 @@ def get_parser(load_phonopy_yaml=False):
         "--hdf5-compression",
         dest="hdf5_compression",
         default=None,
-        help="hdf5 compression filter (default: gzip)",
+        help='hdf5 compression filter (default: "gzip") and "none" for no compression',
     )
     parser.add_argument(
         "--irreps",
@@ -932,3 +939,50 @@ def get_parser(load_phonopy_yaml=False):
         )
 
     return parser, deprecated
+
+
+@dataclasses.dataclass
+class PhonopyMockArgs:
+    """Mock args of ArgumentParser.
+
+    Default values should be None to centralize them in Settings and
+    PhonopySettings classes.
+
+    """
+
+    anime: str | None = None
+    band_paths: str | None = None
+    band_points: int | None = None
+    cell_filename: str | os.PathLike | None = None
+    conf_filename: str | os.PathLike | None = None
+    create_force_sets: list[str | os.PathLike] | None = None
+    create_force_sets_zero: list[str | os.PathLike] | None = None
+    fc_symmetry: bool | None = None
+    fc_spg_symmetry: bool | None = None
+    filename: Sequence[os.PathLike | str] | None = None
+    frequency_conversion_factor: float | None = None
+    hdf5_compression: str | None = None
+    is_check_symmetry: bool | None = None
+    is_eigenvectors: bool | None = None
+    is_graph_plot: bool | None = None
+    is_graph_save: bool | None = None
+    is_hdf5: bool | None = None
+    is_legend: bool | None = None
+    is_displacement: bool | None = None
+    log_level: int | None = None
+    magmoms: str | None = None
+    mesh_numbers: str | None = None
+    qpoints: str | None = None
+    save_params: bool | None = None
+    supercell_dimension: str | None = None
+    thermal_displacement_matrices_cif: float | None = None
+    use_pypolymlp: bool | None = None
+    write_dynamical_matrices: bool | None = None
+
+    def __iter__(self):
+        """Make self iterable to support in."""
+        return (getattr(self, field.name) for field in dataclasses.fields(self))
+
+    def __contains__(self, item):
+        """Implement in operator."""
+        return item in (field.name for field in dataclasses.fields(self))

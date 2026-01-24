@@ -24,4 +24,5 @@ def dbt_profile_target():
         "user": os.getenv("DBT_USER", "sys"),
         "pass": os.getenv("DBT_PASS", "exasol"),
         "dbname": "DB",
+        "validate_server_certificate": False,
     }

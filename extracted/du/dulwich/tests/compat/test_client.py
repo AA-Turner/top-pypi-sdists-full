@@ -32,6 +32,7 @@ import sys
 import tarfile
 import tempfile
 import threading
+from collections.abc import Iterator
 from contextlib import suppress
 from io import BytesIO
 from typing import NoReturn
@@ -65,9 +66,8 @@ class DulwichClientTestBase:
         self.dest = os.path.join(self.gitroot, "dest")
         file.ensure_dir_exists(self.dest)
         run_git_or_fail(["init", "--quiet", "--bare"], cwd=self.dest)
-
-    def tearDown(self) -> None:
-        rmtree_ro(self.gitroot)
+        # Register cleanup to run after test's cleanup handlers
+        self.addCleanup(rmtree_ro, self.gitroot)
 
     def assertDestEqualsSrc(self) -> None:
         repo_dir = os.path.join(self.gitroot, "server_new.export")
@@ -88,10 +88,23 @@ class DulwichClientTestBase:
         with repo.Repo(srcpath) as src:
             sendrefs = dict(src.get_refs())
             del sendrefs[b"HEAD"]
+
+            # Wrap generate_pack_data to match expected signature
+            def generate_pack_data_wrapper(
+                have: set[bytes],
+                want: set[bytes],
+                *,
+                ofs_delta: bool = False,
+                progress=None,
+            ) -> tuple[int, Iterator]:
+                return src.generate_pack_data(
+                    have, want, progress=progress, ofs_delta=ofs_delta
+                )
+
             c.send_pack(
                 self._build_path("/dest"),
                 lambda _: sendrefs,
-                src.generate_pack_data,
+                generate_pack_data_wrapper,
             )
 
     def test_send_pack(self) -> None:
@@ -137,7 +150,20 @@ class DulwichClientTestBase:
                 )
             sendrefs = dict(local.get_refs())
             del sendrefs[b"HEAD"]
-            c.send_pack(remote_path, lambda _: sendrefs, local.generate_pack_data)
+
+            # Wrap generate_pack_data to match expected signature
+            def generate_pack_data_wrapper(
+                have: set[bytes],
+                want: set[bytes],
+                *,
+                ofs_delta: bool = False,
+                progress=None,
+            ) -> tuple[int, Iterator]:
+                return local.generate_pack_data(
+                    have, want, progress=progress, ofs_delta=ofs_delta
+                )
+
+            c.send_pack(remote_path, lambda _: sendrefs, generate_pack_data_wrapper)
         with repo.Repo(server_new_path) as remote:
             self.assertEqual(remote.head(), commit_id)
 
@@ -148,10 +174,23 @@ class DulwichClientTestBase:
         with repo.Repo(srcpath) as src:
             sendrefs = dict(src.get_refs())
             del sendrefs[b"HEAD"]
+
+            # Wrap generate_pack_data to match expected signature
+            def generate_pack_data_wrapper(
+                have: set[bytes],
+                want: set[bytes],
+                *,
+                ofs_delta: bool = False,
+                progress=None,
+            ) -> tuple[int, Iterator]:
+                return src.generate_pack_data(
+                    have, want, progress=progress, ofs_delta=ofs_delta
+                )
+
             c.send_pack(
                 self._build_path("/dest"),
                 lambda _: sendrefs,
-                src.generate_pack_data,
+                generate_pack_data_wrapper,
             )
             self.assertDestEqualsSrc()
 
@@ -171,6 +210,7 @@ class DulwichClientTestBase:
     def disable_ff_and_make_dummy_commit(self):
         # disable non-fast-forward pushes to the server
         dest = repo.Repo(os.path.join(self.gitroot, "dest"))
+        self.addCleanup(dest.close)
         run_git_or_fail(
             ["config", "receive.denyNonFastForwards", "true"], cwd=dest.path
         )
@@ -180,7 +220,20 @@ class DulwichClientTestBase:
     def compute_send(self, src):
         sendrefs = dict(src.get_refs())
         del sendrefs[b"HEAD"]
-        return sendrefs, src.generate_pack_data
+
+        # Wrap generate_pack_data to match expected signature
+        def generate_pack_data_wrapper(
+            have: set[bytes],
+            want: set[bytes],
+            *,
+            ofs_delta: bool = False,
+            progress=None,
+        ) -> tuple[int, Iterator]:
+            return src.generate_pack_data(
+                have, want, progress=progress, ofs_delta=ofs_delta
+            )
+
+        return sendrefs, generate_pack_data_wrapper
 
     def test_send_pack_one_error(self) -> None:
         dest, dummy_commit = self.disable_ff_and_make_dummy_commit()
@@ -240,6 +293,7 @@ class DulwichClientTestBase:
     def test_fetch_pack_with_nondefault_symref(self) -> None:
         c = self._client()
         src = repo.Repo(os.path.join(self.gitroot, "server_new.export"))
+        self.addCleanup(src.close)
         src.refs.add_if_new(b"refs/heads/main", src.refs[b"refs/heads/master"])
         src.refs.set_symbolic_ref(b"HEAD", b"refs/heads/main")
         with repo.Repo(os.path.join(self.gitroot, "dest")) as dest:
@@ -299,37 +353,90 @@ class DulwichClientTestBase:
                 },
             )
 
-    def test_repeat(self) -> None:
+    def test_fetch_pack_deepen_since(self) -> None:
         c = self._client()
         with repo.Repo(os.path.join(self.gitroot, "dest")) as dest:
-            result = c.fetch(self._build_path("/server_new.export"), dest)
-            for r in result.refs.items():
-                dest.refs.set_if_equals(r[0], None, r[1])
-            self.assertDestEqualsSrc()
-            result = c.fetch(self._build_path("/server_new.export"), dest)
-            for r in result.refs.items():
-                dest.refs.set_if_equals(r[0], None, r[1])
-            self.assertDestEqualsSrc()
-
-    def test_fetch_empty_pack(self) -> None:
-        c = self._client()
-        with repo.Repo(os.path.join(self.gitroot, "dest")) as dest:
-            result = c.fetch(self._build_path("/server_new.export"), dest)
-            for r in result.refs.items():
-                dest.refs.set_if_equals(r[0], None, r[1])
-            self.assertDestEqualsSrc()
-
-            def dw(refs, **kwargs):
-                return list(refs.values())
-
+            # Fetch commits since a specific date
+            # Using Unix timestamp - the test repo has commits around 1265755064 (Feb 2010)
+            # So we use a timestamp between first and last commit
             result = c.fetch(
                 self._build_path("/server_new.export"),
                 dest,
-                determine_wants=dw,
+                shallow_since="1265755100",
             )
             for r in result.refs.items():
                 dest.refs.set_if_equals(r[0], None, r[1])
-            self.assertDestEqualsSrc()
+            # Verify that shallow commits were created
+            shallow = dest.get_shallow()
+            self.assertIsNotNone(shallow)
+            self.assertGreater(len(shallow), 0)
+
+    def test_fetch_pack_deepen_not(self) -> None:
+        c = self._client()
+        with repo.Repo(os.path.join(self.gitroot, "dest")) as dest:
+            # Fetch excluding commits reachable from a specific ref
+            result = c.fetch(
+                self._build_path("/server_new.export"),
+                dest,
+                shallow_exclude=["refs/heads/branch"],
+            )
+            for r in result.refs.items():
+                dest.refs.set_if_equals(r[0], None, r[1])
+            # Verify that shallow commits were created
+            shallow = dest.get_shallow()
+            self.assertIsNotNone(shallow)
+            self.assertGreater(len(shallow), 0)
+
+    def test_fetch_pack_deepen_since_and_not(self) -> None:
+        c = self._client()
+        with repo.Repo(os.path.join(self.gitroot, "dest")) as dest:
+            # Fetch combining deepen-since and deepen-not
+            result = c.fetch(
+                self._build_path("/server_new.export"),
+                dest,
+                shallow_since="1265755100",
+                shallow_exclude=["refs/heads/branch"],
+            )
+            for r in result.refs.items():
+                dest.refs.set_if_equals(r[0], None, r[1])
+            # Verify that shallow commits were created
+            shallow = dest.get_shallow()
+            self.assertIsNotNone(shallow)
+            self.assertGreater(len(shallow), 0)
+
+    def test_repeat(self) -> None:
+        c = self._client()
+        dest = repo.Repo(os.path.join(self.gitroot, "dest"))
+        self.addCleanup(dest.close)
+        result = c.fetch(self._build_path("/server_new.export"), dest)
+        for r in result.refs.items():
+            dest.refs.set_if_equals(r[0], None, r[1])
+        self.assertDestEqualsSrc()
+        result = c.fetch(self._build_path("/server_new.export"), dest)
+        for r in result.refs.items():
+            dest.refs.set_if_equals(r[0], None, r[1])
+        self.assertDestEqualsSrc()
+
+    def test_fetch_empty_pack(self) -> None:
+        c = self._client()
+        dest = repo.Repo(os.path.join(self.gitroot, "dest"))
+        self.addCleanup(dest.close)
+        result = c.fetch(self._build_path("/server_new.export"), dest)
+        for r in result.refs.items():
+            dest.refs.set_if_equals(r[0], None, r[1])
+        self.assertDestEqualsSrc()
+
+        def dw(refs, **kwargs):
+            return list(refs.values())
+
+        result = c.fetch(
+            self._build_path("/server_new.export"),
+            dest,
+            determine_wants=dw,
+        )
+        for r in result.refs.items():
+            dest.refs.set_if_equals(r[0], None, r[1])
+        self.assertDestEqualsSrc()
 
     def test_incremental_fetch_pack(self) -> None:
         self.test_fetch_pack()
@@ -457,7 +564,6 @@ class DulwichTCPClientTest(CompatTestCase, DulwichClientTestBase):
         self.process.wait()
         self.process.stdout.close()
         self.process.stderr.close()
-        DulwichClientTestBase.tearDown(self)
         CompatTestCase.tearDown(self)
 
     def _client(self):
@@ -492,11 +598,18 @@ class TestSSHVendor:
         port=None,
         password=None,
         key_filename=None,
+        ssh_command=None,
         protocol_version=None,
     ):
-        cmd, path = command.split(" ")
-        cmd = cmd.split("-", 1)
-        path = path.replace("'", "")
+        # Handle both bytes and string commands
+        if isinstance(command, bytes):
+            cmd, path = command.split(b" ")
+            cmd = cmd.decode("utf-8").split("-", 1)
+            path = path.decode("utf-8").replace("'", "")
+        else:
+            cmd, path = command.split(" ")
+            cmd = cmd.split("-", 1)
+            path = path.replace("'", "")
         env = dict(os.environ)
         if protocol_version is None:
             protocol_version = protocol.DEFAULT_GIT_PROTOCOL_VERSION_FETCH
@@ -522,7 +635,6 @@ class DulwichMockSSHClientTest(CompatTestCase, DulwichClientTestBase):
         client.get_ssh_vendor = TestSSHVendor
 
     def tearDown(self) -> None:
-        DulwichClientTestBase.tearDown(self)
         CompatTestCase.tearDown(self)
         client.get_ssh_vendor = self.real_vendor
 
@@ -544,7 +656,6 @@ class DulwichSubprocessClientTest(CompatTestCase, DulwichClientTestBase):
         DulwichClientTestBase.setUp(self)
 
     def tearDown(self) -> None:
-        DulwichClientTestBase.tearDown(self)
         CompatTestCase.tearDown(self)
 
     def _client(self):
@@ -732,7 +843,6 @@ class DulwichHttpClientTest(CompatTestCase, DulwichClientTestBase):
         run_git_or_fail(["config", "http.receivepack", "true"], cwd=self.dest)
 
     def tearDown(self) -> None:
-        DulwichClientTestBase.tearDown(self)
         CompatTestCase.tearDown(self)
         self._httpd.shutdown()
         self._httpd.socket.close()

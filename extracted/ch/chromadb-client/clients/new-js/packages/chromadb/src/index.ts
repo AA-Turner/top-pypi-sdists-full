@@ -15,3 +15,5 @@ export * from "./embedding-function";
 export * from "./cloud-client";
 export * from "./errors";
 export * from "./collection-configuration";
+export * from "./execution";
+export * from "./schema";

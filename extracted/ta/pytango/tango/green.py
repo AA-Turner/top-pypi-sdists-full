@@ -4,12 +4,17 @@
 
 # Imports
 import os
+import inspect
+import textwrap
+import re
+
 from functools import wraps
 
 from threading import get_ident
 
 # Tango imports
 from tango._tango import GreenMode
+from tango.utils import _forcefully_traced_method
 
 __all__ = (
     "get_green_mode",
@@ -211,7 +216,7 @@ def get_object_executor(obj, green_mode=None):
 # Green modifiers
 
 
-def green(fn=None, consume_green_mode=True):
+def green(fn=None, consume_green_mode=True, update_signature_and_docstring=False):
     """Make a function green. Can be used as a decorator."""
 
     def decorator(fn):
@@ -224,6 +229,59 @@ def green(fn=None, consume_green_mode=True):
             green_mode = access("green_mode", None)
             executor = get_object_executor(obj, green_mode)
             return executor.run(fn, args, kwargs, wait=wait, timeout=timeout)
+
+        sig = inspect.signature(fn)
+
+        if update_signature_and_docstring:
+
+            # Build green parameters
+            green_mode_param = inspect.Parameter(
+                "green_mode",
+                kind=inspect.Parameter.KEYWORD_ONLY,
+                default=None,
+                annotation=None,
+            )
+
+            wait_param = inspect.Parameter(
+                "wait",
+                kind=inspect.Parameter.KEYWORD_ONLY,
+                default=None,
+                annotation=None,
+            )
+
+            timeout_param = inspect.Parameter(
+                "timeout",
+                kind=inspect.Parameter.KEYWORD_ONLY,
+                default=None,
+                annotation=None,
+            )
+
+            # Append it to the existing parameters
+            old_params = list(sig.parameters.values())
+            add_kwargs = False
+            if old_params[-1].kind == inspect.Parameter.VAR_KEYWORD:
+                old_params = old_params[:-1]
+                add_kwargs = True
+
+            if "green_mode" in [param.name for param in old_params]:
+                new_params = old_params + [wait_param, timeout_param]
+            else:
+                new_params = old_params + [green_mode_param, wait_param, timeout_param]
+
+            if add_kwargs:
+                new_params += [
+                    inspect.Parameter("kwargs", kind=inspect.Parameter.VAR_KEYWORD)
+                ]
+
+            new_sig = sig.replace(parameters=new_params)
+
+            if greener.__doc__ is not None:
+                fill_green_doc(greener)
+
+            greener.__signature__ = new_sig
+
+        else:
+            greener.__signature__ = sig
 
         return greener
 
@@ -238,6 +296,55 @@ def green_callback(fn, obj=None, green_mode=None):
 
     @wraps(fn)
     def greener(*args, **kwargs):
-        return executor.submit(fn, *args, **kwargs)
+        return executor.submit(_forcefully_traced_method(fn), *args, **kwargs)
 
     return greener
+
+
+__GREEN_KWARGS__ = "green_mode=None, wait=True, timeout=None"
+__GREEN_KWARGS_DESCRIPTION__ = """
+:param green_mode: Defaults to the current tango GreenMode. Refer to :meth:`~tango.DeviceProxy.get_green_mode` and :meth:`~tango.DeviceProxy.set_green_mode` for more details.
+:type green_mode: :obj:`tango.GreenMode`, optional
+
+:param wait: Specifies whether to wait for the result. If `green_mode` is *Synchronous*, this parameter is ignored as the operation always waits for the result. This parameter is also ignored when `green_mode` is Synchronous.
+:type wait: bool, optional
+
+:param timeout: The number of seconds to wait for the result. If set to `None`, there is no limit on the wait time. This parameter is ignored when `green_mode` is Synchronous or when `wait` is False.
+:type timeout: float, optional
+"""
+__GREEN_RAISES__ = """
+:throws: :obj:`TimeoutError`: (green_mode == Futures) If the future didn't finish executing before the given timeout.
+:throws: :obj:`Timeout`: (green_mode == Gevent) If the async result didn't finish executing before the given timeout.
+"""
+
+
+def fill_green_doc(method):
+    """
+    Replace the __GREEN_KWARGS__ __GREEN_KWARGS_DESCRIPTION__ placeholders in `doc`
+    preserving the placeholder’s indentation.
+    """
+
+    dedented = textwrap.dedent(method.__doc__)
+    dedented = dedented.replace("__GREEN_KWARGS__", __GREEN_KWARGS__)
+
+    m = re.search(
+        r"^(?P<indent>[ \t]*)__GREEN_KWARGS_DESCRIPTION__", dedented, flags=re.MULTILINE
+    )
+    if not m:
+        return
+
+    indent = m.group("indent")
+
+    indented_desc = textwrap.indent(__GREEN_KWARGS_DESCRIPTION__.strip("\n"), indent)
+    indented_raises = textwrap.indent(__GREEN_RAISES__.strip("\n"), indent)
+
+    dedented = re.sub(
+        r"^[ \t]*__GREEN_KWARGS_DESCRIPTION__",
+        indented_desc,
+        dedented,
+        flags=re.MULTILINE,
+    )
+
+    method.__doc__ = re.sub(
+        r"^[ \t]*__GREEN_RAISES__", indented_raises, dedented, flags=re.MULTILINE
+    )

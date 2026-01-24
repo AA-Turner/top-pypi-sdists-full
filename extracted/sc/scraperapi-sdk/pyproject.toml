@@ -1,0 +1,37 @@
+[tool.poetry]
+name = "scraperapi-sdk"
+version = "1.6.0"
+description = "ScraperAPI Python SDK"
+authors = ["ScraperAPI"]
+readme = "README.md"
+
+[project]
+name = "scraperapi-sdk"
+requires-python = ">= 3.8"
+
+[project.urls]
+Homepage = "https://scraperapi.com"
+Documentation = "https://docs.scraperapi.com"
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+requests = "2.31.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.3.0"
+requests-mock = "^1.11.0"
+pytest = "^8.1.1"
+pytest-cov = "^5.0.0"
+pytest-factoryboy = "^2.7.0"
+
+
+[tool.poetry.group.test.dependencies]
+requests-mock = "^1.11.0"
+pytest = "^8.1.1"
+pytest-cov = "^5.0.0"
+pytest-factoryboy = "^2.7.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

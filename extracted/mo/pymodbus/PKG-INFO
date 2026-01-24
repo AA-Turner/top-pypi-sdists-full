@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymodbus
-Version: 3.11.2
+Version: 3.11.4
 Summary: A fully featured modbus protocol stack in python
 Author: Galen Collins, Jan Iversen
 Maintainer: dhoomakethu, janiversen
@@ -36,8 +36,6 @@ License-File: LICENSE
 License-File: AUTHORS.rst
 Provides-Extra: serial
 Requires-Dist: pyserial>=3.5; extra == "serial"
-Provides-Extra: repl
-Requires-Dist: pymodbus-repl>=2.0.4; extra == "repl"
 Provides-Extra: simulator
 Requires-Dist: aiohttp>=3.8.6; python_version < "3.12" and extra == "simulator"
 Requires-Dist: aiohttp>=3.10.6; python_version >= "3.12" and extra == "simulator"
@@ -48,22 +46,22 @@ Requires-Dist: sphinx-rtd-theme>=2.0.0; extra == "documentation"
 Provides-Extra: development
 Requires-Dist: build>=1.2.2; extra == "development"
 Requires-Dist: codespell>=2.3.0; extra == "development"
-Requires-Dist: coverage>=7.6.1; extra == "development"
-Requires-Dist: mypy>=1.11.2; extra == "development"
-Requires-Dist: pylint>=3.3.0; extra == "development"
-Requires-Dist: pytest>=8.3.3; extra == "development"
-Requires-Dist: pytest-asyncio>=0.24.0; extra == "development"
-Requires-Dist: pytest-cov>=5.0.0; extra == "development"
+Requires-Dist: coverage>=7.10.7; extra == "development"
+Requires-Dist: mypy>=1.18.2; extra == "development"
+Requires-Dist: pylint>=4.0.0; extra == "development"
+Requires-Dist: pytest>=8.4.2; extra == "development"
+Requires-Dist: pytest-asyncio>=1.2.0; extra == "development"
+Requires-Dist: pytest-cov>=7.0.0; extra == "development"
 Requires-Dist: pytest-profiling>=1.7.0; python_version < "3.13" and extra == "development"
 Requires-Dist: pytest-timeout>=2.3.1; extra == "development"
 Requires-Dist: pytest-xdist>=3.6.1; extra == "development"
 Requires-Dist: pytest-aiohttp>=1.0.5; extra == "development"
-Requires-Dist: ruff>=0.8.2; extra == "development"
-Requires-Dist: twine>=5.1.1; extra == "development"
+Requires-Dist: ruff>=0.13.1; extra == "development"
+Requires-Dist: twine>=6.2.0; extra == "development"
 Requires-Dist: types-Pygments; extra == "development"
 Requires-Dist: types-pyserial; extra == "development"
 Provides-Extra: all
-Requires-Dist: pymodbus[development,documentation,repl,serial,simulator]; extra == "all"
+Requires-Dist: pymodbus[development,documentation,serial,simulator]; extra == "all"
 Dynamic: license-file
 
 PyModbus - A Python Modbus Stack
@@ -103,7 +101,7 @@ as well as the
 `API_changes <https://github.com/pymodbus-dev/pymodbus/blob/dev/API_changes.rst>`_
 files.
 
-Current release is `3.11.2 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.11.2>`_.
+Current release is `3.11.4 <https://github.com/pymodbus-dev/pymodbus/releases/tag/v3.11.4>`_.
 
 Bleeding edge (not released) is `dev <https://github.com/pymodbus-dev/pymodbus/tree/dev>`_.
 
@@ -116,14 +114,12 @@ Source code on `github <https://github.com/pymodbus-dev/pymodbus>`_
 
 Full documentation for newest releases as well as the bleeding edge (dev) `readthedocs <https://pymodbus.readthedocs.io>`_
 
-
 Pymodbus in a nutshell
 ----------------------
 Pymodbus consist of 5 parts:
 
 - **client**, connect to your favorite device(s)
 - **server**, simulate your favorite device(s)
-- **repl**, a commandline text based client/server simulator
 - **simulator**, an html based server simulator
 - **examples**, showing both simple and advances usage
 
@@ -165,17 +161,6 @@ Server Features
 * Work on RS485 in parallel with other devices
 
 `Server documentation <https://pymodbus.readthedocs.io/en/latest/source/server.html>`_
-
-
-REPL Features
-^^^^^^^^^^^^^
-- Server/client commandline emulator
-- Easy test of real device (client)
-- Easy test of client app (server)
-- Simulation of broken requests/responses
-- Simulation of error responses (hard to provoke in real devices)
-
-`REPL documentation <https://github.com/pymodbus-dev/repl>`_
 
 
 Simulator Features
@@ -250,7 +235,6 @@ This will install pymodbus with the pyserial dependency.
 
 Pymodbus offers a number of extra options:
 
-- **repl**, needed by pymodbus.repl
 - **serial**, needed for serial communication
 - **simulator**, needed by pymodbus.simulator
 - **documentation**, needed to generate documentation

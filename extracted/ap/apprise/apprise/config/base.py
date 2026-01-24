@@ -26,6 +26,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 from __future__ import annotations
 
+from collections import deque
 import os
 import re
 import time
@@ -34,11 +35,13 @@ import yaml
 
 from .. import common, plugins
 from ..asset import AppriseAsset
+from ..logger import logging
 from ..manager_config import ConfigurationManager
 from ..manager_plugins import NotificationManager
 from ..url import URLBase
 from ..utils.cwe312 import cwe312_url
 from ..utils.parse import GET_SCHEMA_RE, parse_bool, parse_list, parse_urls
+from ..utils.time import zoneinfo
 
 # Test whether token is valid or not
 VALID_TOKEN = re.compile(r"(?P<token>[a-z0-9][a-z0-9_]+)", re.I)
@@ -213,6 +216,11 @@ class ConfigBase(URLBase):
         # Execute our config parse function which always returns a tuple
         # of our servers and our configuration
         servers, configs = fn(content=content, asset=asset)
+
+        # Free memory
+        del content
+
+        # Add entry to our server list
         self._cached_servers.extend(servers)
 
         # Configuration files were detected; recursively populate them
@@ -307,9 +315,6 @@ class ConfigBase(URLBase):
                 # if we reach here, we can now add this servers found
                 # in this configuration file to our list
                 self._cached_servers.extend(cfg_plugin.servers(asset=asset))
-
-                # We no longer need our configuration object
-                del cfg_plugin
 
             else:
                 # CWE-312 (Secure Logging) Handling
@@ -666,7 +671,7 @@ class ConfigBase(URLBase):
         valid_line_re = re.compile(
             r"^\s*(?P<line>([;#]+(?P<comment>.*))|"
             r"(\s*(?P<tags>[a-z0-9, \t_-]+)\s*=|=)?\s*"
-            r"((?P<url>[a-z0-9]{1,12}://.*)|(?P<assign>[a-z0-9, \t_-]+))|"
+            r"((?P<url>[a-z0-9]{1,32}://.*)|(?P<assign>[a-z0-9, \t_-]+))|"
             r"include\s+(?P<config>.+))?\s*$",
             re.I,
         )
@@ -890,10 +895,29 @@ class ConfigBase(URLBase):
         # global asset object
         #
         asset = asset if isinstance(asset, AppriseAsset) else AppriseAsset()
+
+        # Prepare our default timezone
+        default_timezone = asset.tzinfo
+
+        # Acquire our asset tokens
         tokens = result.get("asset", None)
         if tokens and isinstance(tokens, dict):
-            for k, v in tokens.items():
+            raw_tz = tokens.get("timezone", tokens.get("tz"))
+            if isinstance(raw_tz, str):
+                default_timezone = zoneinfo(re.sub(r"[^\w/-]+", "", raw_tz))
+                if not default_timezone:
+                    ConfigBase.logger.warning(
+                        'Ignored invalid timezone "%s"', raw_tz)
+                    default_timezone = asset.tzinfo
+                else:
+                    asset._tzinfo = default_timezone
 
+            elif raw_tz is not None:
+                ConfigBase.logger.warning(
+                    'Ignored invalid timezone "%r"', raw_tz)
+
+            # Iterate over remaining tokens
+            for k, v in tokens.items():
                 if k.startswith("_") or k.endswith("_"):
                     # Entries are considered reserved if they start or end
                     # with an underscore
@@ -935,7 +959,7 @@ class ConfigBase(URLBase):
         #
         global_tags = set()
 
-        tags = result.get("tag", None)
+        tags = result.get("tag", result.get("tags", None))
         if tags and isinstance(tags, (list, tuple, str)):
             # Store any preset tags
             global_tags = set(parse_list(tags, cast=str))
@@ -1188,12 +1212,15 @@ class ConfigBase(URLBase):
             # Track our entries
             entry = 0
 
+            # Prepare our results for post-processing
+            results = deque(results)
+
             while len(results):
                 # Increment our entry count
                 entry += 1
 
                 # Grab our first item
-                _results = results.pop(0)
+                _results = results.popleft()
 
                 if _results["schema"] not in N_MGR:
                     # the arguments are invalid or can not be used.
@@ -1213,6 +1240,20 @@ class ConfigBase(URLBase):
                         set(parse_list(_results["tag"], cast=str))
                         | global_tags
                     )
+                    if "tags" in _results:
+                        ConfigBase.logger.warning((
+                            "URL #{}: {} contains both 'tag' and 'tags' "
+                            "keyword").format(no + 1, url))
+                        del _results["tags"]
+
+                elif "tags" in _results:
+                    # Tidy our list up
+                    _results["tag"] = (
+                        set(parse_list(_results["tags"], cast=str))
+                        | global_tags
+                    )
+                    # Should not carry forward
+                    del _results["tags"]
 
                 else:
                     # Just use the global settings
@@ -1229,16 +1270,15 @@ class ConfigBase(URLBase):
                         )
                         del _results[key]
 
-                ConfigBase.logger.trace(
-                    "URL #{}: {} unpacked as:{}{}".format(
+                if ConfigBase.logger.isEnabledFor(logging.TRACE):
+                    ConfigBase.logger.trace(
+                        "URL #%d: %s unpacked as:%s%s",
                         no + 1,
                         url,
                         os.linesep,
                         os.linesep.join(
-                            [f'{k}="{a}"' for k, a in _results.items()]
-                        ),
+                            [f'{k}="{a}"' for k, a in _results.items()]),
                     )
-                )
 
                 # Prepare our Asset Object
                 _results["asset"] = asset
@@ -1301,6 +1341,7 @@ class ConfigBase(URLBase):
             # if we reach here, we successfully loaded our data
             servers.append(plugin)
 
+        preloaded.clear()
         return (servers, configs)
 
     def pop(self, index: int = -1) -> object:
@@ -1316,6 +1357,11 @@ class ConfigBase(URLBase):
 
         # Pop the element off of the stack
         return self._cached_servers.pop(index)
+
+    def clear_cache(self) -> None:
+        """Cleans cache"""
+        self._cached_servers = None
+        self._cached_time = None
 
     @staticmethod
     def _special_token_handler(

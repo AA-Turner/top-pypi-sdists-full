@@ -7,17 +7,19 @@ from ..utils import (
     _set_input_data,
     _set_output_data,
     _set_usage_data,
+    _create_mcp_execute_tool_spans,
 )
 
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from agents import Agent
-    from typing import Any
+    from typing import Any, Optional
 
 
-def ai_client_span(agent, get_response_kwargs):
-    # type: (Agent, dict[str, Any]) -> sentry_sdk.tracing.Span
+def ai_client_span(
+    agent: "Agent", get_response_kwargs: "dict[str, Any]"
+) -> "sentry_sdk.tracing.Span":
     # TODO-anton: implement other types of operations. Now "chat" is hardcoded.
     model_name = agent.model.model if hasattr(agent.model, "model") else agent.model
     span = sentry_sdk.start_span(
@@ -28,12 +30,23 @@ def ai_client_span(agent, get_response_kwargs):
     # TODO-anton: remove hardcoded stuff and replace something that also works for embedding and so on
     span.set_data(SPANDATA.GEN_AI_OPERATION_NAME, "chat")
 
+    _set_agent_data(span, agent)
+    _set_input_data(span, get_response_kwargs)
+
     return span
 
 
-def update_ai_client_span(span, agent, get_response_kwargs, result):
-    # type: (sentry_sdk.tracing.Span, Agent, dict[str, Any], Any) -> None
-    _set_agent_data(span, agent)
+def update_ai_client_span(
+    span: "sentry_sdk.tracing.Span",
+    agent: "Agent",
+    get_response_kwargs: "dict[str, Any]",
+    result: "Any",
+    response_model: "Optional[str]" = None,
+) -> None:
     _set_usage_data(span, result.usage)
-    _set_input_data(span, get_response_kwargs)
     _set_output_data(span, result)
+    _create_mcp_execute_tool_spans(span, result)
+
+    # Set response model if captured from raw response
+    if response_model is not None:
+        span.set_data(SPANDATA.GEN_AI_RESPONSE_MODEL, response_model)

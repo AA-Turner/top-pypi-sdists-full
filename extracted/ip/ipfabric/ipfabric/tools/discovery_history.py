@@ -63,7 +63,7 @@ class DiscoveryHistory(BaseModel):
                 daterange=int(snapshot.start.timestamp()), columns=columns, sort=sort, ts_format=ts_format
             )
         }
-        history, no_history = list(), list()
+        history, no_history = [], []
         for device in self.ipf.inventory.devices.all(
             columns=["sn", "hostname", "loginIp", "loginIpv4", "loginIpv6", "loginType"]
         ):

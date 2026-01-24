@@ -63,6 +63,46 @@ class AttributeTest(DiskTestCase):
                 # record type unsupported for .df
                 assert R.df[0][""].values == np.array(fill, dtype=dtype)
 
+    @pytest.mark.parametrize(
+        "dtype, fill",
+        [
+            (np.float32, np.float32(1.5)),
+            (np.float64, np.float64(2.5)),
+            (np.int32, 42),
+            (np.int64, 123),
+            (str, "new_fill"),
+            (np.dtype(bytes), b"xyz"),
+            (np.dtype("complex64"), (1.0 + 2.0j)),
+            (np.dtype("complex128"), (3.0 + 4.0j)),
+            (np.dtype("complex64"), np.complex64([1.0 + 2.0j])),
+            (np.dtype("complex128"), np.complex128([3.0 + 4.0j])),
+        ],
+    )
+    def test_fill_value_setter(self, dtype, fill):
+        attr = tiledb.Attr("test_attr", dtype=dtype)
+        attr.fill = fill
+        assert attr.fill == fill
+
+    def test_fill_value_setter_wrong_types(self):
+        # Test setting a number on a string attribute
+        # Should fail because integers don't have .encode() method
+        attr_str = tiledb.Attr("test_attr", dtype=str)
+        with pytest.raises(
+            AttributeError, match="'int' object has no attribute 'encode'"
+        ):
+            attr_str.fill = 42
+
+        # Test setting a string on a numeric attribute
+        # Should fail with ValueError from numpy array conversion
+        attr_int = tiledb.Attr("test_attr", dtype=np.int32)
+        with pytest.raises(ValueError, match="invalid literal"):
+            attr_int.fill = "not_a_number"
+
+        # Test setting a float on an int attribute (this should work, with truncation)
+        attr_int = tiledb.Attr("test_attr", dtype=np.int32)
+        attr_int.fill = 3.7
+        assert attr_int.fill == 3  # Should truncate to 3
+
     def test_full_attribute(self, capfd):
         filter_list = tiledb.FilterList([tiledb.ZstdFilter(10)])
         filter_list = tiledb.FilterList([tiledb.ZstdFilter(10)])
@@ -195,6 +235,13 @@ class AttributeTest(DiskTestCase):
         attr = tiledb.Attr(name="foo", dtype="blob")
         self.assertEqual(attr, attr)
         self.assertEqual(attr.dtype, np.bytes_)
+        self.assertTrue(attr.isvar)  # for blobs var is True if not specified
+
+        attr1 = tiledb.Attr(name="foo", dtype="blob", var=True)
+        self.assertTrue(attr1.isvar)
+
+        attr2 = tiledb.Attr(name="foo", dtype="blob", var=False)
+        self.assertFalse(attr2.isvar)
 
     def test_blob_attribute_dump(self, capfd):
         attr = tiledb.Attr(name="foo", dtype="blob")
@@ -247,6 +294,65 @@ class AttributeTest(DiskTestCase):
             assert A.schema.attr("A").dtype == np.bytes_
             assert A.schema.attr("A").isascii
             assert_array_equal(A[:]["A"], np.asarray(ascii_data, dtype=np.bytes_))
+
+    @pytest.mark.parametrize("sparse", [True, False])
+    def test_fixed_size_blob_attribute(self, sparse):
+        path = self.path("test_fixed_blob")
+        dom = tiledb.Domain(
+            tiledb.Dim(name="d", domain=(1, 4), tile=1, dtype=np.uint32)
+        )
+        attrs = [tiledb.Attr(name="a", dtype="blob", var=False)]
+
+        schema = tiledb.ArraySchema(domain=dom, attrs=attrs, sparse=sparse)
+        tiledb.Array.create(path, schema)
+
+        # Fixed-size blob attribute stores single bytes per cell
+        blob_data = [b"a", b"b", b"c", b"d"]
+
+        with tiledb.open(path, "w") as A:
+            if sparse:
+                A[np.arange(1, 5)] = blob_data
+            else:
+                A[:] = np.asarray(blob_data, dtype=np.bytes_)
+
+        with tiledb.open(path, "r") as A:
+            assert A.schema.nattr == 1
+            assert A.schema.attr("a").ncells == 1
+            assert not A.schema.attr("a").isvar
+            assert A.schema.attr("a").dtype == np.dtype("|S0")  # numpy representation
+            assert (
+                A.schema.attr("a")._tiledb_dtype == tiledb.libtiledb.DataType.BLOB
+            )  # TileDB type
+            assert_array_equal(A[:]["a"], np.asarray(blob_data, dtype=np.bytes_))
+
+    @pytest.mark.parametrize("sparse", [True, False])
+    def test_var_blob_attribute(self, sparse):
+        path = self.path("test_var_blob")
+        dom = tiledb.Domain(
+            tiledb.Dim(name="d", domain=(1, 4), tile=1, dtype=np.uint32)
+        )
+        attrs = [tiledb.Attr(name="a", dtype="blob", var=True)]
+
+        schema = tiledb.ArraySchema(domain=dom, attrs=attrs, sparse=sparse)
+        tiledb.Array.create(path, schema)
+
+        # Variable-length blob attribute can store different sized blobs per cell
+        blob_data = [b"a", b"bb", b"ccc", b"dddd"]
+
+        with tiledb.open(path, "w") as A:
+            if sparse:
+                A[np.arange(1, 5)] = blob_data
+            else:
+                A[:] = blob_data
+
+        with tiledb.open(path, "r") as A:
+            assert A.schema.nattr == 1
+            assert A.schema.attr("a").isvar
+            assert A.schema.attr("a").dtype == np.dtype("|S0")  # numpy representation
+            assert (
+                A.schema.attr("a")._tiledb_dtype == tiledb.libtiledb.DataType.BLOB
+            )  # TileDB type
+            assert_array_equal(A[:]["a"], np.array(blob_data, dtype=np.bytes_))
 
     def test_modify_attribute_in_schema(self):
         path = self.path("test_modify_attribute_in_schema")

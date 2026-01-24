@@ -263,11 +263,7 @@ class CommunityTests(unittest.TestCase):
         g.es["weight"] = 1
         g[0, 1] = g[1, 2] = g[2, 0] = g[3, 4] = 10
 
-        # We need to specify the desired cluster count explicitly; this is
-        # because edge betweenness-based detection does not play well with
-        # modularity-based cluster count selection (the edge weights have
-        # different semantics) so we need to give igraph a hint
-        cl = g.community_edge_betweenness(weights="weight").as_clustering(n=2)
+        cl = g.community_edge_betweenness(weights="weight").as_clustering()
         self.assertMembershipsEqual(cl, [0, 0, 0, 1, 1])
         self.assertAlmostEqual(cl.q, 0.2750, places=3)
 
@@ -280,11 +276,66 @@ class CommunityTests(unittest.TestCase):
         cl = g.community_leading_eigenvector(2)
         self.assertMembershipsEqual(cl, [0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
         self.assertAlmostEqual(cl.q, 0.4523, places=3)
+        
+    def testFluidCommunities(self):
+        # Test with a simple graph: two cliques connected by a single edge
+        g = Graph.Full(5) + Graph.Full(5)
+        g.add_edges([(0, 5)])
+        
+        # Test basic functionality - should find 2 communities
+        cl = g.community_fluid_communities(2)
+        self.assertEqual(len(set(cl.membership)), 2)
+        self.assertMembershipsEqual(cl, [0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
+        
+        # Test with 3 cliques
+        g = Graph.Full(4) + Graph.Full(4) + Graph.Full(4)
+        g += [(0, 4), (4, 8)]  # Connect the cliques
+        cl = g.community_fluid_communities(3)
+        self.assertEqual(len(set(cl.membership)), 3)
+        self.assertMembershipsEqual(cl, [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2])
+        
+        # Test error conditions
+        # Number of communities must be positive
+        with self.assertRaises(Exception):
+            g.community_fluid_communities(0)
+        
+        # Number of communities cannot exceed number of vertices
+        with self.assertRaises(Exception):
+            g.community_fluid_communities(g.vcount() + 1)
+        
+        # Test with disconnected graph (should raise error)
+        g_disconnected = Graph.Full(3) + Graph.Full(3)  # No connecting edge
+        with self.assertRaises(Exception):
+            g_disconnected.community_fluid_communities(2)
+        
+        # Test with single vertex (edge case)
+        g_single = Graph(1)
+        cl = g_single.community_fluid_communities(1)
+        self.assertEqual(cl.membership, [0])
+        
+        # Test with small connected graph
+        g_small = Graph([(0, 1), (1, 2), (2, 0)])  # Triangle
+        cl = g_small.community_fluid_communities(1)
+        self.assertEqual(len(set(cl.membership)), 1)
+        self.assertEqual(cl.membership, [0, 0, 0])
+        
+        # Test deterministic behavior on simple structure
+        # Note: Fluid communities can be non-deterministic due to randomization,
+        # but on very simple structures it should be consistent
+        g_path = Graph([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)])
+        cl = g_path.community_fluid_communities(2)
+        self.assertEqual(len(set(cl.membership)), 2)
+        
+        # Test that it returns a VertexClustering object
+        g = Graph.Full(6)
+        cl = g.community_fluid_communities(2)
+        self.assertIsInstance(cl, VertexClustering)
+        self.assertEqual(len(cl.membership), g.vcount())
 
     def testInfomap(self):
         g = Graph.Famous("zachary")
         cl = g.community_infomap()
-        self.assertAlmostEqual(cl.codelength, 4.60605, places=3)
+        self.assertAlmostEqual(cl.codelength, 4.31179, places=3)
         self.assertAlmostEqual(cl.q, 0.40203, places=3)
         self.assertMembershipsEqual(
             cl,
@@ -483,6 +534,55 @@ class CommunityTests(unittest.TestCase):
                 ok = True
                 break
         self.assertTrue(ok)
+        
+    def testVoronoi(self):
+        # Test 1: Two disconnected cliques - should find exactly 2 communities
+        g = Graph.Full(5) + Graph.Full(5)  # Two separate complete graphs
+        cl = g.community_voronoi()
+
+        # Should find exactly 2 communities
+        self.assertEqual(len(cl), 2)
+
+        # Vertices 0-4 should be in one community, vertices 5-9 in another
+        communities = [set(), set()]
+        for vertex, community in enumerate(cl.membership):
+            communities[community].add(vertex)
+
+        # One community should have vertices 0-4, the other should have 5-9
+        expected_communities = [{0, 1, 2, 3, 4}, {5, 6, 7, 8, 9}]
+        self.assertEqual(
+            set(frozenset(c) for c in communities),
+            set(frozenset(c) for c in expected_communities)
+        )
+
+        # Test 2: Two cliques connected by a single bridge edge
+        g = Graph.Full(4) + Graph.Full(4)
+        g.add_edges([(0, 4)])  # Bridge connecting the two cliques
+
+        cl = g.community_voronoi()
+
+        # Should still find 2 communities (bridge is weak)
+        self.assertEqual(len(cl), 2)
+
+        # Check that vertices within each clique are in the same community
+        # Vertices 0,1,2,3 should be together, and 4,5,6,7 should be together
+        comm_0123 = {cl.membership[i] for i in [0, 1, 2, 3]}
+        comm_4567 = {cl.membership[i] for i in [4, 5, 6, 7]}
+
+        self.assertEqual(len(comm_0123), 1)  # All in same community
+        self.assertEqual(len(comm_4567), 1)  # All in same community
+        self.assertNotEqual(comm_0123, comm_4567)  # Different communities
+
+        # Test 3: Three disconnected triangles
+        g = Graph(9)
+        g.add_edges([(0, 1), (1, 2), (2, 0),  # Triangle 1
+                     (3, 4), (4, 5), (5, 3),  # Triangle 2
+                     (6, 7), (7, 8), (8, 6)]) # Triangle 3
+
+        cl = g.community_voronoi()
+
+        # Should find exactly 3 communities
+        self.assertEqual(len(cl), 3)
 
     def testWalktrap(self):
         g = Graph.Full(5) + Graph.Full(5) + Graph.Full(5)

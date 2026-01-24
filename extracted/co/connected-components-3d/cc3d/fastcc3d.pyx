@@ -963,8 +963,8 @@ def color_connectivity_graph(
   cdef int sy = shape[1]
   cdef int sz = shape[2]
 
-  if connectivity in [6, 26] and sz > 1 and dtype != np.uint32:
-    raise ValueError(f"Only uint32 is supported for 3d connectivites. Got: {vcg.dtype}")
+  if connectivity in [18, 26] and sz > 1 and dtype != np.uint32:
+    raise ValueError(f"Only uint32 is supported for 18 and 26 connected. Got: {vcg.dtype}")
 
   cdef uint8_t[:,:,:] arr_memview8u
   cdef uint32_t[:,:,:] arr_memview32u
@@ -1185,7 +1185,7 @@ def contacts(
   labels:np.ndarray, 
   int connectivity=26, 
   surface_area:bool = True, 
-  anisotropy:Tuple[int,int,int] = (1,1,1)
+  anisotropy:Union[Tuple[float,float,float], Tuple[float,float]] = (1,1,1)
 ) -> Dict[Tuple[int,int], float]:
   """
   Get the N-connected region adjacancy graph of a 3D image
@@ -1207,6 +1207,9 @@ def contacts(
   while len(labels.shape) < 3:
     labels = labels[..., np.newaxis ]
 
+  while len(anisotropy) < 3:
+    anisotropy = tuple(anisotropy) + (1,)
+
   return _contacts(labels, connectivity, surface_area, anisotropy)
 
 def _contacts(
@@ -1215,13 +1218,8 @@ def _contacts(
   surface_area=True,
   anisotropy=(1,1,1), 
 ):
-  if connectivity == 8 and labels.shape[2] == 1:
-    connectivity = 26
-  if connectivity == 4 and labels.shape[2] == 1:
-    connectivity = 6
-
-  if connectivity not in (6, 18, 26):
-    raise ValueError("Only 6, 18, and 26 connectivities are supported. Got: " + str(connectivity))
+  if connectivity not in (4, 8, 6, 18, 26):
+    raise ValueError(f"Only (2d) 4, 8, (3d) 6, 18, and 26 connectivities are supported. Got: {connectivity}")
 
   labels = np.asfortranarray(labels)
 

@@ -1,5 +1,5 @@
 # comtypes version numbers follow semver (http://semver.org/) and PEP 440
-__version__ = "1.4.12"
+__version__ = "1.4.15"
 
 try:
     from _ctypes import COMError  # noqa
@@ -18,6 +18,22 @@ import atexit
 import logging
 import sys
 
+if sys.version_info >= (3, 15):
+    import warnings
+
+    _PYVER = f"{sys.version_info.major}.{sys.version_info.minor}"
+    warnings.warn(
+        (
+            f"You are running 'comtypes' on Python {_PYVER}, where the behavior of "
+            "enum types (such as IntFlag) may differ from Python <= 3.14.\n"
+            f"It is recommended to use a version compatible with Python {_PYVER}.\n"
+            "See: https://github.com/enthought/comtypes/issues/894"
+        ),
+        FutureWarning,
+        stacklevel=2,
+    )
+
+
 # HACK: Workaround for projects that depend on this package
 # There should be several projects around the world that depend on this package
 # and indirectly reference the symbols of `ctypes` from `comtypes`.
@@ -26,7 +42,7 @@ import sys
 from ctypes import *  # noqa  # type: ignore
 from ctypes import HRESULT, OleDLL, WinDLL, _SimpleCData, c_int, c_ulong
 from ctypes.wintypes import DWORD, LPVOID
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ctypes import _CData  # only in `typeshed`, private in runtime
@@ -172,10 +188,10 @@ def CoUninitialize():
 # global registries.
 
 # allows to find interface classes by guid strings (iid)
-com_interface_registry: Dict[str, Type["IUnknown"]] = {}
+com_interface_registry: dict[str, type["IUnknown"]] = {}
 
 # allows to find coclasses by guid strings (clsid)
-com_coclass_registry: Dict[str, Type["CoClass"]] = {}
+com_coclass_registry: dict[str, type["CoClass"]] = {}
 
 
 ################################################################

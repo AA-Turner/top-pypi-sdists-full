@@ -9,35 +9,31 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0210 import RepositoryRuleFilePathRestrictionPropParameters
 
-class NetworkSettings(GitHubModel):
-    """Hosted compute network settings resource
 
-    A hosted compute network settings resource.
+class RepositoryRuleFilePathRestriction(GitHubModel):
+    """file_path_restriction
+
+    Prevent commits that include changes in specified file and folder paths from
+    being pushed to the commit graph. This includes absolute paths that contain file
+    names.
     """
 
-    id: str = Field(
-        description="The unique identifier of the network settings resource."
-    )
-    network_configuration_id: Missing[str] = Field(
-        default=UNSET,
-        description="The identifier of the network configuration that is using this settings resource.",
-    )
-    name: str = Field(description="The name of the network settings resource.")
-    subnet_id: str = Field(
-        description="The subnet this network settings resource is configured for."
-    )
-    region: str = Field(
-        description="The location of the subnet this network settings resource is configured for."
+    type: Literal["file_path_restriction"] = Field()
+    parameters: Missing[RepositoryRuleFilePathRestrictionPropParameters] = Field(
+        default=UNSET
     )
 
 
-model_rebuild(NetworkSettings)
+model_rebuild(RepositoryRuleFilePathRestriction)
 
-__all__ = ("NetworkSettings",)
+__all__ = ("RepositoryRuleFilePathRestriction",)

@@ -2,8 +2,8 @@ import sys
 import types
 from collections.abc import Callable, Iterator
 from opcode import *  # `dis` re-exports it as a part of public API
-from typing import IO, Any, NamedTuple
-from typing_extensions import Self, TypeAlias
+from typing import IO, Any, Final, NamedTuple
+from typing_extensions import Self, TypeAlias, disjoint_base
 
 __all__ = [
     "code_info",
@@ -88,65 +88,71 @@ else:
         starts_line: int | None
         is_jump_target: bool
 
-class Instruction(_Instruction):
-    if sys.version_info < (3, 13):
+if sys.version_info >= (3, 12):
+    class Instruction(_Instruction):
+        if sys.version_info < (3, 13):
+            def _disassemble(self, lineno_width: int = 3, mark_as_current: bool = False, offset_width: int = 4) -> str: ...
+        if sys.version_info >= (3, 13):
+            @property
+            def oparg(self) -> int:
+                """Alias for Instruction.arg."""
+                ...
+            @property
+            def baseopcode(self) -> int:
+                """
+                Numeric code for the base operation if operation is specialized.
+
+                Otherwise equal to Instruction.opcode.
+                """
+                ...
+            @property
+            def baseopname(self) -> str:
+                """
+                Human readable name for the base operation if operation is specialized.
+
+                Otherwise equal to Instruction.opname.
+                """
+                ...
+            @property
+            def cache_offset(self) -> int:
+                """Start index of the cache entries following the operation."""
+                ...
+            @property
+            def end_offset(self) -> int:
+                """End index of the cache entries following the operation."""
+                ...
+            @property
+            def jump_target(self) -> int:
+                """
+                Bytecode index of the jump target if this is a jump operation.
+
+                Otherwise return None.
+                """
+                ...
+            @property
+            def is_jump_target(self) -> bool:
+                """True if other code jumps to here, otherwise False"""
+                ...
+        if sys.version_info >= (3, 14):
+            @staticmethod
+            def make(
+                opname: str,
+                arg: int | None,
+                argval: Any,
+                argrepr: str,
+                offset: int,
+                start_offset: int,
+                starts_line: bool,
+                line_number: int | None,
+                label: int | None = None,
+                positions: Positions | None = None,
+                cache_info: list[tuple[str, int, Any]] | None = None,
+            ) -> Instruction: ...
+
+else:
+    @disjoint_base
+    class Instruction(_Instruction):
         def _disassemble(self, lineno_width: int = 3, mark_as_current: bool = False, offset_width: int = 4) -> str: ...
-    if sys.version_info >= (3, 13):
-        @property
-        def oparg(self) -> int:
-            """Alias for Instruction.arg."""
-            ...
-        @property
-        def baseopcode(self) -> int:
-            """
-            Numeric code for the base operation if operation is specialized.
-
-            Otherwise equal to Instruction.opcode.
-            """
-            ...
-        @property
-        def baseopname(self) -> str:
-            """
-            Human readable name for the base operation if operation is specialized.
-
-            Otherwise equal to Instruction.opname.
-            """
-            ...
-        @property
-        def cache_offset(self) -> int:
-            """Start index of the cache entries following the operation."""
-            ...
-        @property
-        def end_offset(self) -> int:
-            """End index of the cache entries following the operation."""
-            ...
-        @property
-        def jump_target(self) -> int:
-            """
-            Bytecode index of the jump target if this is a jump operation.
-
-            Otherwise return None.
-            """
-            ...
-        @property
-        def is_jump_target(self) -> bool:
-            """True if other code jumps to here, otherwise False"""
-            ...
-    if sys.version_info >= (3, 14):
-        @staticmethod
-        def make(
-            opname: str,
-            arg: int | None,
-            argval: Any,
-            argrepr: str,
-            offset: int,
-            start_offset: int,
-            starts_line: bool,
-            line_number: int | None,
-            label: int | None = None,
-            positions: Positions | None = None,
-            cache_info: list[tuple[str, int, Any]] | None = None,
-        ) -> Instruction: ...
 
 class Bytecode:
     codeobj: types.CodeType
@@ -204,7 +210,7 @@ class Bytecode:
     def info(self) -> str: ...
     def dis(self) -> str: ...
 
-COMPILER_FLAG_NAMES: dict[int, str]
+COMPILER_FLAG_NAMES: Final[dict[int, str]]
 
 def findlabels(code: _HaveCodeType) -> list[int]: ...
 def findlinestarts(code: _HaveCodeType) -> Iterator[tuple[int, int]]: ...

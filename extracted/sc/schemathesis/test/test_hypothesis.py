@@ -2,43 +2,52 @@ import datetime
 from base64 import b64decode
 
 import pytest
-from hypothesis import HealthCheck, assume, find, given, settings
+from hypothesis import HealthCheck, Phase, assume, find, given, settings
 from hypothesis import strategies as st
+from hypothesis.internal.observability import with_observability_callback
 
 import schemathesis
-from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.hypothesis import examples
-from schemathesis.generation.meta import CaseMetadata, GenerationInfo, PhaseInfo
+from schemathesis.generation.meta import CaseMetadata, FuzzingPhaseData, GenerationInfo, PhaseInfo, TestPhase
 from schemathesis.generation.modes import GenerationMode
-from schemathesis.schemas import APIOperation, OperationDefinition, ParameterSet, PayloadAlternatives
-from schemathesis.specs.openapi._hypothesis import (
-    _get_body_strategy,
-    jsonify_python_specific_types,
-    make_positive_strategy,
-    quote_all,
+from schemathesis.schemas import APIOperation, OperationDefinition, PayloadAlternatives
+from schemathesis.specs.openapi._hypothesis import jsonify_python_specific_types, quote_all
+from schemathesis.specs.openapi.adapter import v2
+from schemathesis.specs.openapi.adapter.parameters import (
+    OpenApiBody,
+    OpenApiParameter,
+    OpenApiParameterSet,
+    form_data_to_json_schema,
 )
-from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
-from schemathesis.specs.openapi.parameters import OpenAPI20Body, OpenAPI20CompositeBody, OpenAPI20Parameter
 from schemathesis.transport.serialization import Binary
 from test.utils import assert_requests_call
 
 
 def make_operation(schema, **kwargs) -> APIOperation:
-    return APIOperation("/users", "POST", definition=OperationDefinition({}, {}, "foo"), schema=schema, **kwargs)
+    return APIOperation(
+        "/users",
+        "POST",
+        definition=OperationDefinition({}),
+        schema=schema,
+        responses=schema._parse_responses({}, ""),
+        security=schema._parse_security({}),
+        **kwargs,
+    )
 
 
-@pytest.mark.parametrize("location", sorted(LOCATION_TO_CONTAINER))
+@pytest.mark.parametrize("location", sorted(set(ParameterLocation) - {ParameterLocation.UNKNOWN}))
 @pytest.mark.filterwarnings("ignore:.*method is good for exploring strategies.*")
 def test_get_examples(location, swagger_20):
-    if location == "body":
+    if location == ParameterLocation.BODY:
         # In Open API 2.0, the `body` parameter has a name, which is ignored
         # But we'd like to use this object as a payload; therefore, we put one extra level of nesting
         example = expected = {"name": "John"}
         media_type = "application/json"
         cls = PayloadAlternatives
-        parameter_cls = OpenAPI20Body
-        kwargs = {"media_type": media_type}
+        parameter_cls = OpenApiBody
+        kwargs = {"media_type": media_type, "resource_name": None, "is_required": True}
         definition = {
             "in": location,
             "name": "name",
@@ -50,8 +59,8 @@ def test_get_examples(location, swagger_20):
         example = "John"
         expected = {"name": example}
         media_type = None  # there is no payload
-        cls = ParameterSet
-        parameter_cls = OpenAPI20Parameter
+        cls = OpenApiParameterSet
+        parameter_cls = OpenApiParameter
         kwargs = {}
         definition = {
             "in": location,
@@ -60,17 +69,33 @@ def test_get_examples(location, swagger_20):
             "type": "string",
             "x-example": example,
         }
-    container = LOCATION_TO_CONTAINER[location]
+    container = location.container_name
+    if location == ParameterLocation.BODY:
+        param_set = cls([parameter_cls.from_definition(definition=definition, adapter=v2, name_to_uri={}, **kwargs)])
+    else:
+        param_set = cls(
+            location, [parameter_cls.from_definition(definition=definition, adapter=v2, name_to_uri={}, **kwargs)]
+        )
     operation = make_operation(
         swagger_20,
-        **{container: cls([parameter_cls(definition, **kwargs)])},
+        **{container: param_set},
     )
     strategies = operation.get_strategies_from_examples()
     assert len(strategies) == 1
     assert strategies[0].example() == operation.Case(
         media_type=media_type,
         _meta=CaseMetadata(
-            generation=GenerationInfo(time=0.0, mode=GenerationMode.POSITIVE), components={}, phase=PhaseInfo.fuzzing()
+            generation=GenerationInfo(time=0.0, mode=GenerationMode.POSITIVE),
+            components={},
+            phase=PhaseInfo(
+                name=TestPhase.FUZZING,
+                data=FuzzingPhaseData(
+                    description="",
+                    parameter=None,
+                    parameter_location=None,
+                    location=None,
+                ),
+            ),
         ),
         **{container: expected},
     )
@@ -81,20 +106,25 @@ def test_no_body_in_get(swagger_20):
     operation = APIOperation(
         path="/api/success",
         method="GET",
-        definition=OperationDefinition({}, {}, "foo"),
+        definition=OperationDefinition({}),
         schema=swagger_20,
-        query=ParameterSet(
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
+        query=OpenApiParameterSet(
+            ParameterLocation.QUERY,
             [
-                OpenAPI20Parameter(
-                    {
+                OpenApiParameter.from_definition(
+                    definition={
                         "required": True,
                         "in": "query",
                         "type": "string",
                         "name": "key",
                         "x-example": "John",
-                    }
+                    },
+                    name_to_uri={},
+                    adapter=v2,
                 )
-            ]
+            ],
         ),
     )
     strategies = operation.get_strategies_from_examples()
@@ -107,12 +137,21 @@ def test_custom_strategies(swagger_20):
     schemathesis.openapi.format("even_4_digits", st.from_regex(r"\A[0-9]{4}\Z").filter(lambda x: int(x) % 2 == 0))
     operation = make_operation(
         swagger_20,
-        query=ParameterSet(
+        query=OpenApiParameterSet(
+            ParameterLocation.QUERY,
             [
-                OpenAPI20Parameter(
-                    {"name": "id", "in": "query", "required": True, "type": "string", "format": "even_4_digits"}
+                OpenApiParameter.from_definition(
+                    definition={
+                        "name": "id",
+                        "in": "query",
+                        "required": True,
+                        "type": "string",
+                        "format": "even_4_digits",
+                    },
+                    name_to_uri={},
+                    adapter=v2,
                 )
-            ]
+            ],
         ),
     )
     result = operation.as_strategy().example()
@@ -121,21 +160,27 @@ def test_custom_strategies(swagger_20):
 
 
 def test_default_strategies_binary(swagger_20):
-    body = OpenAPI20CompositeBody.from_parameters(
-        {
-            "name": "upfile",
-            "in": "formData",
-            "type": "file",
-            "required": True,
-        },
+    body = OpenApiBody.from_form_parameters(
+        definition=form_data_to_json_schema(
+            [
+                {
+                    "name": "upfile",
+                    "in": "formData",
+                    "type": "file",
+                    "required": True,
+                }
+            ]
+        ),
+        name_to_uri={},
         media_type="multipart/form-data",
+        adapter=v2,
     )
     operation = make_operation(swagger_20, body=PayloadAlternatives([body]))
     swagger_20.raw_schema["consumes"] = ["multipart/form-data"]
     case = examples.generate_one(operation.as_strategy())
     assert isinstance(case.body["upfile"], Binary)
     kwargs = case.as_transport_kwargs(base_url="http://127.0.0.1")
-    assert kwargs["files"] == [("upfile", case.body["upfile"].data)]
+    assert kwargs["files"] == [("upfile", case.body["upfile"])]
 
 
 def test_merge_length_into_pattern(ctx):
@@ -153,6 +198,40 @@ def test_merge_length_into_pattern(ctx):
                                     "minLength": 460,
                                     "maxLength": 465,
                                     "pattern": "^[a-z]+$",
+                                },
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                },
+            },
+        }
+    )
+
+    schema = schemathesis.openapi.from_dict(schema)
+    operation = schema["/data"]["POST"]
+
+    @given(operation.as_strategy())
+    @settings(max_examples=1)
+    def test(case):
+        pass
+
+    test()
+
+
+def test_required_without_properties(ctx):
+    schema = ctx.openapi.build_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "additionalProperties": False,
+                                    "type": "object",
+                                    "required": ["A"],
                                 },
                             }
                         },
@@ -208,9 +287,18 @@ def test_default_strategies_bytes(swagger_20):
         swagger_20,
         body=PayloadAlternatives(
             [
-                OpenAPI20Body(
-                    {"in": "body", "name": "byte", "required": True, "schema": {"type": "string", "format": "byte"}},
+                OpenApiBody.from_definition(
+                    definition={
+                        "in": "body",
+                        "name": "byte",
+                        "required": True,
+                        "schema": {"type": "string", "format": "byte"},
+                    },
+                    is_required=True,
                     media_type="text/plain",
+                    name_to_uri={},
+                    resource_name=None,
+                    adapter=v2,
                 )
             ]
         ),
@@ -241,10 +329,15 @@ def test_valid_headers(openapi2_base_url, swagger_20, definition):
     operation = APIOperation(
         "/api/success",
         "GET",
-        definition=OperationDefinition({}, {}, "foo"),
+        definition=OperationDefinition({}),
         schema=swagger_20,
+        responses=swagger_20._parse_responses({}, ""),
+        security=swagger_20._parse_security({}),
         base_url=openapi2_base_url,
-        headers=ParameterSet([OpenAPI20Parameter(definition)]),
+        headers=OpenApiParameterSet(
+            ParameterLocation.HEADER,
+            [OpenApiParameter.from_definition(definition=definition, name_to_uri={}, adapter=v2)],
+        ),
     )
 
     @given(case=operation.as_strategy())
@@ -436,10 +529,9 @@ def test_optional_payload(ctx, version):
             "content": {"application/json": {"schema": {"type": "string"}}}
         }
     schema = schemathesis.openapi.from_dict(raw_schema)
-    operation = schema["/users"]["post"]
-    strategy = _get_body_strategy(operation.body[0], make_positive_strategy, operation, GenerationConfig())
+    strategy = schema["/users"]["post"].as_strategy()
     # Then `None` could be generated by Schemathesis
-    assert find(strategy, lambda x: x is NOT_SET) is NOT_SET
+    assert find(strategy, lambda x: x.body is NOT_SET).body is NOT_SET
 
 
 @given(data=st.data())
@@ -512,3 +604,17 @@ def test_health_check_failed_large_base_example(ctx, cli, snapshot_cli, openapi3
         )
         == snapshot_cli
     )
+
+
+def test_hypothesis_observability_serialization(ctx):
+    # Hypothesis observability serializes all dataclass fields on generated values
+    schema = ctx.openapi.build_schema({"/test": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    schema = schemathesis.openapi.from_dict(schema)
+
+    @given(case=schema["/test"]["GET"].as_strategy())
+    @settings(max_examples=1, database=None, phases=[Phase.generate])
+    def test(case):
+        pass
+
+    with with_observability_callback(lambda _: None):
+        test()

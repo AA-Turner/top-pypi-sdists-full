@@ -3,7 +3,7 @@ Type annotations for account service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_account/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -39,6 +40,8 @@ from .type_defs import (
     GetAlternateContactResponseTypeDef,
     GetContactInformationRequestTypeDef,
     GetContactInformationResponseTypeDef,
+    GetGovCloudAccountInformationRequestTypeDef,
+    GetGovCloudAccountInformationResponseTypeDef,
     GetPrimaryEmailRequestTypeDef,
     GetPrimaryEmailResponseTypeDef,
     GetRegionOptStatusRequestTypeDef,
@@ -52,11 +55,6 @@ from .type_defs import (
     StartPrimaryEmailUpdateResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -65,13 +63,14 @@ else:
 __all__ = ("AccountClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class AccountClient(BaseClient):
     """
@@ -180,6 +179,17 @@ class AccountClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_contact_information.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_account/client/#get_contact_information)
+        """
+
+    def get_gov_cloud_account_information(
+        self, **kwargs: Unpack[GetGovCloudAccountInformationRequestTypeDef]
+    ) -> GetGovCloudAccountInformationResponseTypeDef:
+        """
+        Retrieves information about the GovCloud account linked to the specified
+        standard account (if it exists) including the GovCloud account ID and state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/account/client/get_gov_cloud_account_information.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_account/client/#get_gov_cloud_account_information)
         """
 
     def get_primary_email(

@@ -1,19 +1,19 @@
-# This file is part of parallel-ssh.
+#  This file is part of parallel-ssh.
+#  Copyright (C) 2014-2025 Panos Kittenis.
+#  Copyright (C) 2014-2025 parallel-ssh Contributors.
 #
-# Copyright (C) 2014-2022 Panos Kittenis and contributors.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from collections import deque
 
@@ -27,7 +27,7 @@ from gevent.timeout import Timeout as GTimeout
 from ssh2.error_codes import LIBSSH2_ERROR_EAGAIN
 from ssh2.exceptions import SFTPHandleError, SFTPProtocolError, \
     Timeout as SSH2Timeout
-from ssh2.session import Session, LIBSSH2_SESSION_BLOCK_INBOUND, LIBSSH2_SESSION_BLOCK_OUTBOUND
+from ssh2.session import Session, LIBSSH2_SESSION_BLOCK_INBOUND, LIBSSH2_SESSION_BLOCK_OUTBOUND, LIBSSH2_FLAG_COMPRESS
 from ssh2.sftp import LIBSSH2_FXF_READ, LIBSSH2_FXF_CREAT, LIBSSH2_FXF_WRITE, \
     LIBSSH2_FXF_TRUNC, LIBSSH2_SFTP_S_IRUSR, LIBSSH2_SFTP_S_IRGRP, \
     LIBSSH2_SFTP_S_IWUSR, LIBSSH2_SFTP_S_IXUSR, LIBSSH2_SFTP_S_IROTH, \
@@ -110,6 +110,8 @@ class SSHClient(BaseSSHClient):
                  keepalive_seconds=60,
                  identity_auth=True,
                  ipv6_only=False,
+                 compress=False,
+                 keyboard_interactive=False,
                  ):
         """
         :param host: Host name or IP to connect to.
@@ -158,9 +160,17 @@ class SSHClient(BaseSSHClient):
           for the host or raise NoIPv6AddressFoundError otherwise. Note this will
           disable connecting to an IPv4 address if an IP address is provided instead.
         :type ipv6_only: bool
+        :param compress: Enable/Disable compression on the client. Defaults to off.
+        :type compress: bool
+        :param keyboard_interactive: Enable/Disable keyboard interactive authentication with provided username and
+          password. An `InvalidAPIUse` error is raised when keyboard_interactive is enabled without a provided password.
+          Defaults to off.
+        :type keyboard_interactive: bool
 
         :raises: :py:class:`pssh.exceptions.PKeyFileError` on errors finding
           provided private key.
+        :raises: :py:class:`pssh.exceptions.InvalidAPIUseError` when `keyboard_interactive=True` with no password
+          provided.
         """
         self.forward_ssh_agent = forward_ssh_agent
         self._forward_requested = False
@@ -182,6 +192,8 @@ class SSHClient(BaseSSHClient):
                 timeout=timeout,
                 keepalive_seconds=keepalive_seconds,
                 identity_auth=identity_auth,
+                compress=compress,
+                keyboard_interactive=keyboard_interactive,
             )
             proxy_host = '127.0.0.1'
         self._chan_stdout_lock = RLock()
@@ -194,6 +206,8 @@ class SSHClient(BaseSSHClient):
             proxy_host=proxy_host, proxy_port=proxy_port,
             identity_auth=identity_auth,
             ipv6_only=ipv6_only,
+            compress=compress,
+            keyboard_interactive=keyboard_interactive,
         )
 
     def _shell(self, channel):
@@ -206,7 +220,10 @@ class SSHClient(BaseSSHClient):
                        allow_agent=True, timeout=None,
                        forward_ssh_agent=False,
                        keepalive_seconds=60,
-                       identity_auth=True):
+                       identity_auth=True,
+                       compress=False,
+                       keyboard_interactive=False,
+                       ):
         assert isinstance(self.port, int)
         try:
             self._proxy_client = SSHClient(
@@ -216,6 +233,8 @@ class SSHClient(BaseSSHClient):
                 timeout=timeout, forward_ssh_agent=forward_ssh_agent,
                 identity_auth=identity_auth,
                 keepalive_seconds=keepalive_seconds,
+                compress=compress,
+                keyboard_interactive=keyboard_interactive,
                 _auth_thread_pool=False)
         except Exception as ex:
             msg = "Proxy authentication failed. " \
@@ -263,6 +282,8 @@ class SSHClient(BaseSSHClient):
 
     def _init_session(self, retries=1):
         self.session = Session()
+        if self.compress:
+            self.session.flag(LIBSSH2_FLAG_COMPRESS)
 
         if self.timeout:
             # libssh2 timeout is in ms
@@ -310,7 +331,9 @@ class SSHClient(BaseSSHClient):
         )
 
     def _password_auth(self):
-        self.session.userauth_password(self.user, self.password)
+        if self.keyboard_interactive:
+            return self.session.userauth_keyboardinteractive(self.user, self.password)
+        return self.session.userauth_password(self.user, self.password)
 
     def _open_session(self):
         chan = self.eagain(self.session.open_session)

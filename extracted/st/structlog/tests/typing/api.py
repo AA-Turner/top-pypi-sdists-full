@@ -78,13 +78,14 @@ formatter = structlog.stdlib.ProcessorFormatter(
     processors=[
         structlog.processors.CallsiteParameterAdder(),
         structlog.processors.CallsiteParameterAdder(
-            set(CallsiteParameter), ["threading"]
+            {CallsiteParameter.FILENAME}, ["threading"]
         ),
         structlog.processors.CallsiteParameterAdder(
-            set(CallsiteParameter), additional_ignores=["threading"]
+            {CallsiteParameter.LINENO}, additional_ignores=["threading"]
         ),
         structlog.processors.CallsiteParameterAdder(
-            parameters=set(CallsiteParameter), additional_ignores=["threading"]
+            parameters={CallsiteParameter.FUNC_NAME},
+            additional_ignores=["threading"],
         ),
         structlog.processors.CallsiteParameterAdder(
             [
@@ -358,3 +359,55 @@ fbl.info("Hello %s! The answer is %d.", "World", 42, x=1)
 level: int = fbl.get_effective_level()
 is_active: bool = fbl.is_enabled_for(logging.INFO)
 is_active = fbl.is_enabled_for(20)
+
+
+# contextvars
+
+
+@structlog.contextvars.bound_contextvars(x=42)
+def f() -> None:
+    with structlog.contextvars.bound_contextvars(y=23):
+        pass
+
+
+# ConsoleRenderer properties
+
+cr = structlog.dev.ConsoleRenderer.get_active()
+
+cr.exception_formatter
+cr.exception_formatter = structlog.dev.plain_traceback
+cr.exception_formatter = structlog.dev.better_traceback
+
+cr.columns
+cr.columns = [
+    structlog.dev.Column(
+        "", structlog.dev.KeyValueColumnFormatter("", "", "", repr, 0)
+    )
+]
+
+cr.colors
+cr.colors = False
+
+cr.force_colors
+cr.force_colors = False
+
+cr.level_styles
+cr.level_styles = {"info": "foo"}
+
+cr.sort_keys
+cr.sort_keys = True
+
+cr.pad_level
+cr.pad_level = True
+
+cr.pad_event_to
+cr.pad_event_to = 42
+
+cr.timestamp_key
+cr.timestamp_key = "ts"
+
+cr.event_key
+cr.event_key = "le event"
+
+cr.repr_native_str
+cr.repr_native_str = True

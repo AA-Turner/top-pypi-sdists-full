@@ -399,7 +399,20 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     def _extract_content(chunk: Any) -> str:
         if not chunk.choices:
             return ""
-        return chunk.choices[0].delta.content or ""
+        content = chunk.choices[0].delta.content
+        if content is None:
+            return ""
+        # Handle Databricks streaming format where content can be a list of content items
+        # See https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#content-item
+        if isinstance(content, list):
+            # Extract text from text items only.
+            text_parts = [
+                item["text"]
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item
+            ]
+            return "".join(text_parts)
+        return content
 
     message = ChatCompletionMessage(
         role="assistant", content="".join(map(_extract_content, chunks))

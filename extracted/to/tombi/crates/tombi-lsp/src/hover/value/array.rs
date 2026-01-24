@@ -8,17 +8,17 @@ use tombi_schema_store::{
 };
 
 use crate::{
+    HoverContent,
     comment_directive::get_array_comment_directive_content_with_schema_uri,
     hover::{
+        GetHoverContent, HoverValueContent,
         all_of::get_all_of_hover_content,
         any_of::get_any_of_hover_content,
         comment::get_value_comment_directive_hover_content,
-        constraints::{build_enumerate_values, ValueConstraints},
+        constraints::{ValueConstraints, build_enum_values},
         display_value::DisplayValue,
         one_of::get_one_of_hover_content,
-        GetHoverContent, HoverValueContent,
     },
-    HoverContent,
 };
 
 impl GetHoverContent for tombi_document_tree::Array {
@@ -38,13 +38,11 @@ impl GetHoverContent for tombi_document_tree::Array {
         async move {
             if let Some((comment_directive_context, schema_uri)) =
                 get_array_comment_directive_content_with_schema_uri(self, position, accessors)
-            {
-                if let Some(hover_content) =
+                && let Some(hover_content) =
                     get_value_comment_directive_hover_content(comment_directive_context, schema_uri)
                         .await
-                {
-                    return Some(hover_content);
-                }
+            {
+                return Some(hover_content);
             }
 
             if let Some(Ok(DocumentSchema {
@@ -108,8 +106,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                                                 if keys.is_empty()
                                             && self.kind()
                                                 == tombi_document_tree::ArrayKind::ArrayOfTable
-                                        {
-                                            if let Some(constraints) =
+                                            && let Some(constraints) =
                                                 &mut hover_value_content.constraints
                                             {
                                                 constraints.min_items = array_schema.min_items;
@@ -117,7 +114,6 @@ impl GetHoverContent for tombi_document_tree::Array {
                                                 constraints.unique_items =
                                                     array_schema.unique_items;
                                             }
-                                        }
 
                                                 if hover_value_content.title.is_none()
                                                     && hover_value_content.description.is_none()
@@ -189,7 +185,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                             &current_schema.definitions,
                             schema_context,
                         )
-                        .await
+                        .await;
                     }
                     ValueSchema::AnyOf(any_of_schema) => {
                         return get_any_of_hover_content(
@@ -202,7 +198,7 @@ impl GetHoverContent for tombi_document_tree::Array {
                             &current_schema.definitions,
                             schema_context,
                         )
-                        .await
+                        .await;
                     }
                     ValueSchema::AllOf(all_of_schema) => {
                         return get_all_of_hover_content(
@@ -300,11 +296,9 @@ impl GetHoverContent for ArraySchema {
                 accessors: Accessors::from(accessors.to_vec()),
                 value_type: ValueType::Array,
                 constraints: Some(ValueConstraints {
-                    enumerate: build_enumerate_values(
-                        &self.const_value,
-                        &self.enumerate,
-                        |value| DisplayValue::try_from(value).ok(),
-                    ),
+                    r#enum: build_enum_values(&self.const_value, &self.r#enum, |value| {
+                        DisplayValue::try_from(value).ok()
+                    }),
                     default: self
                         .default
                         .as_ref()

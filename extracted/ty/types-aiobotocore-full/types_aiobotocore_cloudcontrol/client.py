@@ -3,7 +3,7 @@ Type annotations for cloudcontrol service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudcontrol/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -49,11 +50,6 @@ from .type_defs import (
 )
 from .waiter import ResourceRequestSuccessWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -64,28 +60,28 @@ __all__ = ("CloudControlApiClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClientTokenConflictException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConcurrentOperationException: Type[BotocoreClientError]
-    GeneralServiceException: Type[BotocoreClientError]
-    HandlerFailureException: Type[BotocoreClientError]
-    HandlerInternalFailureException: Type[BotocoreClientError]
-    InvalidCredentialsException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    NetworkFailureException: Type[BotocoreClientError]
-    NotStabilizedException: Type[BotocoreClientError]
-    NotUpdatableException: Type[BotocoreClientError]
-    PrivateTypeException: Type[BotocoreClientError]
-    RequestTokenNotFoundException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceInternalErrorException: Type[BotocoreClientError]
-    ServiceLimitExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TypeNotFoundException: Type[BotocoreClientError]
-    UnsupportedActionException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClientTokenConflictException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConcurrentOperationException: type[BotocoreClientError]
+    GeneralServiceException: type[BotocoreClientError]
+    HandlerFailureException: type[BotocoreClientError]
+    HandlerInternalFailureException: type[BotocoreClientError]
+    InvalidCredentialsException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    NetworkFailureException: type[BotocoreClientError]
+    NotStabilizedException: type[BotocoreClientError]
+    NotUpdatableException: type[BotocoreClientError]
+    PrivateTypeException: type[BotocoreClientError]
+    RequestTokenNotFoundException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceInternalErrorException: type[BotocoreClientError]
+    ServiceLimitExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TypeNotFoundException: type[BotocoreClientError]
+    UnsupportedActionException: type[BotocoreClientError]
 
 
 class CloudControlApiClient(AioBaseClient):
@@ -243,7 +239,7 @@ class CloudControlApiClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

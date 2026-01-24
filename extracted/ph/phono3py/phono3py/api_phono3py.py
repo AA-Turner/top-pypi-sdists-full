@@ -61,7 +61,7 @@ from phonopy.harmonic.force_constants import (
     symmetrize_compact_force_constants,
     symmetrize_force_constants,
 )
-from phonopy.interface.fc_calculator import get_fc2
+from phonopy.interface.fc_calculator import get_fc_solver
 from phonopy.interface.mlp import PhonopyMLP
 from phonopy.interface.pypolymlp import (
     PypolymlpParams,
@@ -77,9 +77,8 @@ from phonopy.structure.cells import (
     Primitive,
     Supercell,
     get_primitive,
-    get_primitive_matrix,
+    get_primitive_matrix_with_auto,
     get_supercell,
-    guess_primitive_matrix,
     shape_supercell_matrix,
 )
 from phonopy.structure.symmetry import Symmetry
@@ -171,15 +170,24 @@ class Phono3py:
     def __init__(
         self,
         unitcell: PhonopyAtoms,
-        supercell_matrix: ArrayLike | None = None,
-        primitive_matrix: str | ArrayLike | None = None,
-        phonon_supercell_matrix: ArrayLike | None = None,
+        supercell_matrix: Sequence[int]
+        | Sequence[Sequence[int]]
+        | NDArray
+        | None = None,
+        primitive_matrix: Literal["P", "F", "I", "A", "C", "R", "auto"]
+        | Sequence[Sequence[float]]
+        | NDArray
+        | None = None,
+        phonon_supercell_matrix: Sequence[int]
+        | Sequence[Sequence[int]]
+        | NDArray
+        | None = None,
         cutoff_frequency: float = 1e-4,
         frequency_factor_to_THz: float | None = None,
         is_symmetry: bool = True,
         is_mesh_symmetry: bool = True,
         use_grg: bool = False,
-        SNF_coordinates: str = "reciprocal",
+        SNF_coordinates: Literal["reciprocal", "direct"] = "reciprocal",
         make_r0_average: bool = True,
         symprec: float = 1e-5,
         calculator: str | None = None,
@@ -225,7 +233,7 @@ class Phono3py:
             Default is True.
         use_grg : bool, optional
             Use generalized regular grid when True. Default is False.
-        SNF_coordinates : str, optional
+        SNF_coordinates : Literal["direct", "reciprocal"], optional
             `reciprocal` or `direct`. Space of coordinates to generate grid
             generating matrix either in direct or reciprocal space. The default
             is `reciprocal`.
@@ -251,7 +259,7 @@ class Phono3py:
         self._is_symmetry = is_symmetry
         self._is_mesh_symmetry = is_mesh_symmetry
         self._use_grg = use_grg
-        self._SNF_coordinates = SNF_coordinates
+        self._SNF_coordinates: Literal["reciprocal", "direct"] = SNF_coordinates
 
         self._make_r0_average = make_r0_average
 
@@ -264,7 +272,9 @@ class Phono3py:
         self._supercell_matrix = np.array(
             shape_supercell_matrix(supercell_matrix), dtype="int64", order="C"
         )
-        self._primitive_matrix = self._determine_primitive_matrix(primitive_matrix)
+        self._primitive_matrix = get_primitive_matrix_with_auto(
+            self._unitcell, primitive_matrix, symprec=self._symprec
+        )
         self._nac_params = None
         if phonon_supercell_matrix is not None:
             self._phonon_supercell_matrix = np.array(
@@ -319,6 +329,7 @@ class Phono3py:
 
         # Force constants
         self._fc2 = None
+        self._fc2_cutoff = None  # available only symfc
         self._fc3 = None
         self._fc3_nonzero_indices = None  # available only symfc
         self._fc3_cutoff = None  # available only symfc
@@ -388,7 +399,11 @@ class Phono3py:
 
     @property
     def fc3_cutoff(self) -> float | None:
-        """Return cutoff value of fc3."""
+        """Return cutoff value of fc3.
+
+        Available only when symfc is used.
+
+        """
         return self._fc3_cutoff
 
     @property
@@ -407,6 +422,15 @@ class Phono3py:
     @fc2.setter
     def fc2(self, fc2):
         self._fc2 = fc2
+
+    @property
+    def fc2_cutoff(self) -> float | None:
+        """Return cutoff value of fc2.
+
+        Available only when symfc is used.
+
+        """
+        return self._fc2_cutoff
 
     @property
     def force_constants(self) -> NDArray | None:
@@ -879,7 +903,7 @@ class Phono3py:
         return self._thermal_conductivity
 
     @property
-    def displacements(self):
+    def displacements(self) -> NDArray:
         """Setter and getter displacements in supercells.
 
         There are two types of displacement dataset. See the docstring
@@ -951,7 +975,7 @@ class Phono3py:
         self._supercells_with_displacements = None
 
     @property
-    def forces(self):
+    def forces(self) -> NDArray | None:
         """Setter and getter of forces in displacement dataset.
 
         A set of atomic forces in displaced supercells. The order of
@@ -972,7 +996,7 @@ class Phono3py:
         self._set_forces_energies(values, target="forces")
 
     @property
-    def supercell_energies(self):
+    def supercell_energies(self) -> NDArray | None:
         """Setter and getter of supercell energies in displacement dataset.
 
         A set of supercell energies of displaced supercells. The order of
@@ -1584,6 +1608,7 @@ class Phono3py:
             options = symfc_solver.options
             if options is not None and "cutoff" in options:
                 self._fc3_cutoff = options["cutoff"].get(3, None)
+                self._fc2_cutoff = options["cutoff"].get(2, None)
             if fc3_nonzero_elems is not None:
                 if is_compact_fc:
                     self._fc3_nonzero_indices = np.array(
@@ -1718,22 +1743,30 @@ class Phono3py:
         if self._log_level:
             print("Computing phonon fc2.", flush=True)
 
-        self._fc2 = get_fc2(
+        fc_solver = get_fc_solver(
             self._phonon_supercell,
             disp_dataset,
             primitive=self._phonon_primitive,
             fc_calculator=fc_calculator,
             fc_calculator_options=fc_calculator_options,
+            orders=[2],
             is_compact_fc=is_compact_fc,
             symmetry=self._phonon_supercell_symmetry,
             log_level=self._log_level,
         )
+        self._fc2 = fc_solver.force_constants[2]
 
         if symmetrize_fc2 and (fc_calculator is None or fc_calculator == "traditional"):
             self.symmetrize_fc2(
                 use_symfc_projector=use_symfc_projector and fc_calculator is None,
                 options=fc_calculator_options,
             )
+
+        if fc_calculator == "symfc":
+            symfc_solver = cast(SymfcFCSolver, fc_solver.fc_solver)
+            options = symfc_solver.options
+            if options is not None and "cutoff" in options:
+                self._fc2_cutoff = options["cutoff"].get(2, None)
 
     def symmetrize_fc2(
         self,
@@ -1852,7 +1885,7 @@ class Phono3py:
     def run_imag_self_energy(
         self,
         grid_points,
-        temperatures,
+        temperatures: NDArray | Sequence,
         frequency_points=None,
         frequency_step=None,
         num_frequency_points=None,
@@ -2174,7 +2207,7 @@ class Phono3py:
         write_gamma: bool = False,
         read_gamma: bool = False,
         is_N_U: bool = False,
-        conductivity_type: str | None = None,
+        conductivity_type: Literal["wigner", "kubo"] | None = None,
         write_kappa: bool = False,
         write_gamma_detail: bool = False,
         write_collision: bool = False,
@@ -2182,7 +2215,7 @@ class Phono3py:
         write_pp: bool = False,
         read_pp: bool = False,
         write_LBTE_solution: bool = False,
-        compression: str = "gzip",
+        compression: Literal["gzip", "lzf"] | int | None = "gzip",
         input_filename: str | None = None,
         output_filename: str | None = None,
         log_level: int | None = None,
@@ -2750,15 +2783,6 @@ class Phono3py:
 
         return get_primitive(supercell, t_mat, self._symprec, store_dense_svecs=True)
 
-    def _determine_primitive_matrix(
-        self, primitive_matrix: str | ArrayLike | None
-    ) -> NDArray | None:
-        pmat = get_primitive_matrix(primitive_matrix, symprec=self._symprec)
-        if isinstance(pmat, str) and pmat == "auto":
-            return guess_primitive_matrix(self._unitcell, symprec=self._symprec)
-        else:
-            return pmat
-
     def _set_mesh_numbers(
         self,
         mesh: float | ArrayLike,
@@ -2766,16 +2790,35 @@ class Phono3py:
         # initialization related to mesh
         self._interaction = None
 
-        self._bz_grid = BZGrid(
-            mesh,
-            lattice=self._primitive.cell,
-            symmetry_dataset=self._primitive_symmetry.dataset,
-            is_time_reversal=self._is_symmetry,
-            use_grg=self._use_grg,
-            force_SNF=False,
-            SNF_coordinates=self._SNF_coordinates,
-            store_dense_gp_map=True,
-        )
+        try:
+            self._bz_grid = BZGrid(
+                mesh,
+                lattice=self._primitive.cell,
+                symmetry_dataset=self._primitive_symmetry.dataset,
+                is_time_reversal=self._is_symmetry,
+                use_grg=self._use_grg,
+                force_SNF=False,
+                SNF_coordinates=self._SNF_coordinates,
+                store_dense_gp_map=True,
+            )
+        except RuntimeError as e:
+            if "Grid symmetry is broken." in str(e) and isinstance(mesh, (float, int)):
+                self._bz_grid = BZGrid(
+                    mesh,
+                    lattice=self._primitive.cell,
+                    symmetry_dataset=self._primitive_symmetry.dataset,
+                    is_time_reversal=self._is_symmetry,
+                    use_grg=True,
+                    force_SNF=False,
+                    SNF_coordinates=self._SNF_coordinates,
+                    store_dense_gp_map=True,
+                )
+            else:
+                msg = (
+                    "Grid symmetry is broken. If grid symmetry is uncertain, "
+                    "try automatic mesh generation using a scalar value."
+                )
+                raise RuntimeError(msg) from e
 
     def _init_dynamical_matrix(self):
         if self._interaction is None:
@@ -2907,7 +2950,9 @@ class Phono3py:
             raise RuntimeError("Dataset for fc2 does not exist.")
 
         if "first_atoms" in self._phonon_dataset:
-            for disp, v in zip(self._phonon_dataset["first_atoms"], values):
+            for disp, v in zip(
+                self._phonon_dataset["first_atoms"], values, strict=True
+            ):
                 if target == "forces":
                     disp[target] = np.array(v, dtype="double", order="C")
                 elif target == "supercell_energies":

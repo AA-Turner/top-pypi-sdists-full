@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/wandb/wandb/core/internal/gqlmock"
 	"github.com/wandb/wandb/core/internal/observabilitytest"
+	"github.com/wandb/wandb/core/internal/settings"
 	. "github.com/wandb/wandb/core/pkg/launch"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -47,20 +48,6 @@ func writeDiffFile(t *testing.T, fdir string) {
 	_ = f.Close()
 }
 
-func toWrapperPb(val interface{}) interface{} {
-	switch v := val.(type) {
-	case string:
-		return &wrapperspb.StringValue{
-			Value: v,
-		}
-	case bool:
-		return &wrapperspb.BoolValue{
-			Value: v,
-		}
-	}
-	return nil
-}
-
 func writeFile(t *testing.T, fdir string, fname string, content string) {
 	f, err := os.OpenFile(filepath.Join(fdir, fname), os.O_CREATE|os.O_WRONLY, 0777)
 	assert.Nil(t, err)
@@ -84,7 +71,8 @@ func TestJobBuilderRepo(t *testing.T) {
 			"codePath": "/path/to/train.py",
 		}
 
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		writeRequirements(t, fdir)
@@ -92,15 +80,19 @@ func TestJobBuilderRepo(t *testing.T) {
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
-		settings := &spb.Settings{
-			Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project: wrapperspb.String("testProject"),
+			Entity:  wrapperspb.String("testEntity"),
+			RunId:   wrapperspb.String("testRunId"),
+			SyncDir: wrapperspb.String(syncDir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, err)
 		assert.Equal(t, "job-example.com__path_to_train.py", artifact.Name)
@@ -122,9 +114,21 @@ func TestJobBuilderRepo(t *testing.T) {
 				err = json.NewDecoder(jobFile).Decode(&data)
 				assert.Nil(t, err)
 				assert.Equal(t, "3.11.2", data["runtime"])
-				assert.Equal(t, "1234567890", data["source"].(map[string]interface{})["git"].(map[string]interface{})["commit"])
-				assert.Equal(t, "example.com", data["source"].(map[string]interface{})["git"].(map[string]interface{})["remote"])
-				assert.Equal(t, []interface{}([]interface{}{"python3.11", "/path/to/train.py"}), data["source"].(map[string]interface{})["entrypoint"])
+				assert.Equal(
+					t,
+					"1234567890",
+					data["source"].(map[string]interface{})["git"].(map[string]interface{})["commit"],
+				)
+				assert.Equal(
+					t,
+					"example.com",
+					data["source"].(map[string]interface{})["git"].(map[string]interface{})["remote"],
+				)
+				assert.Equal(
+					t,
+					[]interface{}([]interface{}{"python3.11", "/path/to/train.py"}),
+					data["source"].(map[string]interface{})["entrypoint"],
+				)
 			}
 		}
 	})
@@ -132,7 +136,8 @@ func TestJobBuilderRepo(t *testing.T) {
 	t.Run("Build repo sourced notebook job", func(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		_, err = os.Create(filepath.Join(fdir, "Untitled.ipynb"))
@@ -157,17 +162,21 @@ func TestJobBuilderRepo(t *testing.T) {
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
-		settings := &spb.Settings{
-			Project:      toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:       toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:        toWrapperPb("testRunId").(*wrapperspb.StringValue),
-			FilesDir:     toWrapperPb(fdir).(*wrapperspb.StringValue),
-			XJupyter:     toWrapperPb(true).(*wrapperspb.BoolValue),
-			XJupyterRoot: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project:      wrapperspb.String("testProject"),
+			Entity:       wrapperspb.String("testEntity"),
+			RunId:        wrapperspb.String("testRunId"),
+			SyncDir:      wrapperspb.String(syncDir),
+			XJupyter:     wrapperspb.Bool(true),
+			XJupyterRoot: wrapperspb.String(fdir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, err)
 		assert.Equal(t, "job-example.com_Untitled.ipynb", artifact.Name)
@@ -189,9 +198,21 @@ func TestJobBuilderRepo(t *testing.T) {
 				err = json.NewDecoder(jobFile).Decode(&data)
 				assert.Nil(t, err)
 				assert.Equal(t, "3.11.2", data["runtime"])
-				assert.Equal(t, "1234567890", data["source"].(map[string]interface{})["git"].(map[string]interface{})["commit"])
-				assert.Equal(t, "example.com", data["source"].(map[string]interface{})["git"].(map[string]interface{})["remote"])
-				assert.Equal(t, []interface{}([]interface{}{"python3.11", "Untitled.ipynb"}), data["source"].(map[string]interface{})["entrypoint"])
+				assert.Equal(
+					t,
+					"1234567890",
+					data["source"].(map[string]interface{})["git"].(map[string]interface{})["commit"],
+				)
+				assert.Equal(
+					t,
+					"example.com",
+					data["source"].(map[string]interface{})["git"].(map[string]interface{})["remote"],
+				)
+				assert.Equal(
+					t,
+					[]interface{}([]interface{}{"python3.11", "Untitled.ipynb"}),
+					data["source"].(map[string]interface{})["entrypoint"],
+				)
 			}
 		}
 	})
@@ -205,22 +226,27 @@ func TestJobBuilderArtifact(t *testing.T) {
 			"codePath": "/path/to/train.py",
 		}
 
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		writeRequirements(t, fdir)
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
-		settings := &spb.Settings{
-			Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project: wrapperspb.String("testProject"),
+			Entity:  wrapperspb.String("testEntity"),
+			RunId:   wrapperspb.String("testRunId"),
+			SyncDir: wrapperspb.String(syncDir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifactRecord := &spb.ArtifactRecord{
 			Name: "testArtifact",
 			Type: "code",
@@ -247,9 +273,17 @@ func TestJobBuilderArtifact(t *testing.T) {
 				err = json.NewDecoder(jobFile).Decode(&data)
 				assert.Nil(t, err)
 				assert.Equal(t, "3.11.2", data["runtime"])
-				assert.Equal(t, "wandb-artifact://_id/testArtifactId", data["source"].(map[string]interface{})["artifact"])
+				assert.Equal(
+					t,
+					"wandb-artifact://_id/testArtifactId",
+					data["source"].(map[string]interface{})["artifact"],
+				)
 				assert.Equal(t, "artifact", data["source_type"])
-				assert.Equal(t, []interface{}([]interface{}{"python3.11", "/path/to/train.py"}), data["source"].(map[string]interface{})["entrypoint"])
+				assert.Equal(
+					t,
+					[]interface{}([]interface{}{"python3.11", "/path/to/train.py"}),
+					data["source"].(map[string]interface{})["entrypoint"],
+				)
 			}
 		}
 	})
@@ -257,7 +291,8 @@ func TestJobBuilderArtifact(t *testing.T) {
 	t.Run("Build artifact sourced notebook job", func(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		_, err = os.Create(filepath.Join(fdir, "Untitled.ipynb"))
@@ -278,17 +313,21 @@ func TestJobBuilderArtifact(t *testing.T) {
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
-		settings := &spb.Settings{
-			Project:      toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:       toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:        toWrapperPb("testRunId").(*wrapperspb.StringValue),
-			FilesDir:     toWrapperPb(fdir).(*wrapperspb.StringValue),
-			XJupyter:     toWrapperPb(true).(*wrapperspb.BoolValue),
-			XJupyterRoot: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project:      wrapperspb.String("testProject"),
+			Entity:       wrapperspb.String("testEntity"),
+			RunId:        wrapperspb.String("testRunId"),
+			SyncDir:      wrapperspb.String(syncDir),
+			XJupyter:     wrapperspb.Bool(true),
+			XJupyterRoot: wrapperspb.String(fdir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifactRecord := &spb.ArtifactRecord{
 			Name: "testArtifact",
 			Type: "code",
@@ -314,9 +353,17 @@ func TestJobBuilderArtifact(t *testing.T) {
 				err = json.NewDecoder(jobFile).Decode(&data)
 				assert.Nil(t, err)
 				assert.Equal(t, "3.11.2", data["runtime"])
-				assert.Equal(t, "wandb-artifact://_id/testArtifactId", data["source"].(map[string]interface{})["artifact"])
+				assert.Equal(
+					t,
+					"wandb-artifact://_id/testArtifactId",
+					data["source"].(map[string]interface{})["artifact"],
+				)
 				assert.Equal(t, "artifact", data["source_type"])
-				assert.Equal(t, []interface{}([]interface{}{"python3.11", "Untitled.ipynb"}), data["source"].(map[string]interface{})["entrypoint"])
+				assert.Equal(
+					t,
+					[]interface{}([]interface{}{"python3.11", "Untitled.ipynb"}),
+					data["source"].(map[string]interface{})["entrypoint"],
+				)
 			}
 		}
 	})
@@ -330,23 +377,28 @@ func TestJobBuilderImage(t *testing.T) {
 			"python": "3.11.2",
 		}
 
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		writeRequirements(t, fdir)
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
 
-		settings := &spb.Settings{
-			Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project: wrapperspb.String("testProject"),
+			Entity:  wrapperspb.String("testEntity"),
+			RunId:   wrapperspb.String("testRunId"),
+			SyncDir: wrapperspb.String(syncDir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, err)
 		assert.Equal(t, "job-testImage", artifact.Name)
@@ -369,7 +421,11 @@ func TestJobBuilderImage(t *testing.T) {
 				assert.Nil(t, err)
 				assert.Equal(t, "3.11.2", data["runtime"])
 				assert.Equal(t, "image", data["source_type"])
-				assert.Equal(t, "testImage:testTag", data["source"].(map[string]interface{})["image"])
+				assert.Equal(
+					t,
+					"testImage:testTag",
+					data["source"].(map[string]interface{})["image"],
+				)
 			}
 		}
 	})
@@ -378,15 +434,19 @@ func TestJobBuilderDisabledOrMissingFiles(t *testing.T) {
 	t.Run("Disabled", func(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
-		settings := &spb.Settings{
-			Project: toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:  toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:   toWrapperPb("testRunId").(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project: wrapperspb.String("testProject"),
+			Entity:  wrapperspb.String("testEntity"),
+			RunId:   wrapperspb.String("testRunId"),
 			DisableJobCreation: &wrapperspb.BoolValue{
 				Value: true,
 			},
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, err)
 		assert.Nil(t, artifact)
@@ -395,11 +455,15 @@ func TestJobBuilderDisabledOrMissingFiles(t *testing.T) {
 	t.Run("Missing requirements file", func(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
-		fdir := filepath.Join(os.TempDir(), "test")
-		settings := &spb.Settings{
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		syncDir := filepath.Join(os.TempDir(), "test")
+		settingsProto := &spb.Settings{
+			SyncDir: wrapperspb.String(syncDir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, artifact)
 		assert.Nil(t, err)
@@ -408,16 +472,21 @@ func TestJobBuilderDisabledOrMissingFiles(t *testing.T) {
 	t.Run("Missing metadata file", func(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		writeRequirements(t, fdir)
 
-		settings := &spb.Settings{
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			SyncDir: wrapperspb.String(syncDir),
 		}
 
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, artifact)
 		assert.NotNil(t, err)
@@ -428,20 +497,25 @@ func TestJobBuilderDisabledOrMissingFiles(t *testing.T) {
 		ctx := context.Background()
 		gql := gqlmock.NewMockClient()
 		metadata := map[string]interface{}{}
-		fdir := filepath.Join(os.TempDir(), "test")
+		syncDir := filepath.Join(os.TempDir(), "test")
+		fdir := filepath.Join(syncDir, "files")
 		err := os.MkdirAll(fdir, 0777)
 		assert.Nil(t, err)
 		writeRequirements(t, fdir)
 		writeWandbMetadata(t, fdir, metadata)
 
 		defer func() {
-			_ = os.RemoveAll(fdir)
+			_ = os.RemoveAll(syncDir)
 		}()
 
-		settings := &spb.Settings{
-			FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			SyncDir: wrapperspb.String(syncDir),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		artifact, err := jobBuilder.Build(ctx, gql, nil, nil)
 		assert.Nil(t, artifact)
 		assert.Nil(t, err)
@@ -450,10 +524,10 @@ func TestJobBuilderDisabledOrMissingFiles(t *testing.T) {
 
 func TestJobBuilderHandleUseArtifactRecord(t *testing.T) {
 	t.Run("HandleUseArtifactRecord repo type", func(t *testing.T) {
-		settings := &spb.Settings{
-			Project: toWrapperPb("testProject").(*wrapperspb.StringValue),
-			Entity:  toWrapperPb("testEntity").(*wrapperspb.StringValue),
-			RunId:   toWrapperPb("testRunId").(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			Project: wrapperspb.String("testProject"),
+			Entity:  wrapperspb.String("testEntity"),
+			RunId:   wrapperspb.String("testRunId"),
 		}
 		artifactRecord := &spb.Record{
 			RecordType: &spb.Record_UseArtifact{
@@ -482,13 +556,17 @@ func TestJobBuilderHandleUseArtifactRecord(t *testing.T) {
 			},
 		}
 
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		jobBuilder.HandleUseArtifactRecord(artifactRecord)
 		assert.Equal(t, "testID", *jobBuilder.PartialJobID)
 	})
 
 	t.Run("HandleUseArtifactRecord disabled when use non partial artifact job", func(t *testing.T) {
-		settings := &spb.Settings{}
+		settingsProto := &spb.Settings{}
 		artifactRecord := &spb.Record{
 			RecordType: &spb.Record_UseArtifact{
 				UseArtifact: &spb.UseArtifactRecord{
@@ -499,39 +577,50 @@ func TestJobBuilderHandleUseArtifactRecord(t *testing.T) {
 				},
 			},
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		jobBuilder.HandleUseArtifactRecord(artifactRecord)
 		assert.True(t, jobBuilder.Disable)
 
 	})
 
-	t.Run("HandleUseArtifactRecord disables job builder when handling partial job with no name", func(t *testing.T) {
-		settings := &spb.Settings{}
-		artifactRecord := &spb.Record{
-			RecordType: &spb.Record_UseArtifact{
-				UseArtifact: &spb.UseArtifactRecord{
-					Id:   "testID",
-					Type: "job",
-					Name: "partialArtifact",
-					Partial: &spb.PartialJobArtifact{
-						JobName: "",
-						SourceInfo: &spb.JobSource{
-							SourceType: "image",
-							Runtime:    "3.11.2",
-							Source: &spb.Source{
-								Image: &spb.ImageSource{
-									Image: "testImage:v0",
+	t.Run(
+		"HandleUseArtifactRecord disables job builder when handling partial job with no name",
+		func(t *testing.T) {
+			settingsProto := &spb.Settings{}
+			artifactRecord := &spb.Record{
+				RecordType: &spb.Record_UseArtifact{
+					UseArtifact: &spb.UseArtifactRecord{
+						Id:   "testID",
+						Type: "job",
+						Name: "partialArtifact",
+						Partial: &spb.PartialJobArtifact{
+							JobName: "",
+							SourceInfo: &spb.JobSource{
+								SourceType: "image",
+								Runtime:    "3.11.2",
+								Source: &spb.Source{
+									Image: &spb.ImageSource{
+										Image: "testImage:v0",
+									},
 								},
 							},
 						},
 					},
 				},
-			},
-		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
-		jobBuilder.HandleUseArtifactRecord(artifactRecord)
-		assert.True(t, jobBuilder.Disable)
-	})
+			}
+			jobBuilder := NewJobBuilder(
+				settings.From(settingsProto),
+				observabilitytest.NewTestLogger(t),
+				true,
+			)
+			jobBuilder.HandleUseArtifactRecord(artifactRecord)
+			assert.True(t, jobBuilder.Disable)
+		},
+	)
 
 }
 func TestJobBuilderGetSourceType(t *testing.T) {
@@ -540,7 +629,7 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 		noRepoIngredientsError := "no repo job ingredients found, but source type set to repo"
 		commit := "1234567890"
 		remote := "example.com"
-		settings := &spb.Settings{
+		settingsProto := &spb.Settings{
 			JobSource: &wrapperspb.StringValue{
 				Value: string(sourceType),
 			},
@@ -567,7 +656,11 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 				expectedError:      &noRepoIngredientsError,
 			},
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		for _, testCase := range testCases {
 			res, err := jobBuilder.GetSourceType(testCase.metadata)
 			if testCase.expectedSourceType != nil {
@@ -587,7 +680,7 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 	t.Run("GetSourceType job type specified artifact", func(t *testing.T) {
 		sourceType := ArtifactSourceType
 		noArtifactIngredientsError := "no artifact job ingredients found, but source type set to artifact"
-		settings := &spb.Settings{
+		settingsProto := &spb.Settings{
 			JobSource: &wrapperspb.StringValue{
 				Value: string(sourceType),
 			},
@@ -611,7 +704,11 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 		}
 
 		for index, testCase := range testCases {
-			jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+			jobBuilder := NewJobBuilder(
+				settings.From(settingsProto),
+				observabilitytest.NewTestLogger(t),
+				true,
+			)
 			if index == 0 {
 				jobBuilder.SetRunCodeArtifact("testID", "testName")
 			}
@@ -634,7 +731,7 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 		sourceType := ImageSourceType
 		imageName := "testImage"
 		noImageIngredientsError := "no image job ingredients found, but source type set to image"
-		settings := &spb.Settings{
+		settingsProto := &spb.Settings{
 			JobSource: &wrapperspb.StringValue{
 				Value: string(sourceType),
 			},
@@ -658,7 +755,11 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 				expectedError:      &noImageIngredientsError,
 			},
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		for _, testCase := range testCases {
 
 			res, err := jobBuilder.GetSourceType(testCase.metadata)
@@ -680,34 +781,55 @@ func TestJobBuilderGetSourceType(t *testing.T) {
 func TestUtilFunctions(t *testing.T) {
 
 	t.Run("makeArtifactNameSafe truncates to 128 characters", func(t *testing.T) {
-		name := MakeArtifactNameSafe("this is a very long name that is longer than 128 characters and should be truncated down to one hundred and twenty eight characters with the first 63 chars, and the last 63 chars separated by ..")
-		assert.Equal(t, "this_is_a_very_long_name_that_is_longer_than_128_characters_and.._with_the_first_63_chars__and_the_last_63_chars_separated_by_..", name)
+		name := MakeArtifactNameSafe(
+			"this is a very long name that is longer than 128 characters and should be truncated down to one hundred and twenty eight characters with the first 63 chars, and the last 63 chars separated by ..",
+		)
+		assert.Equal(
+			t,
+			"this_is_a_very_long_name_that_is_longer_than_128_characters_and.._with_the_first_63_chars__and_the_last_63_chars_separated_by_..",
+			name,
+		)
 
 	})
 	t.Run("handlePathsAboveRoot works when notebook started above git root", func(t *testing.T) {
-		settings := &spb.Settings{
-			XJupyterRoot: toWrapperPb("/path/to/jupyterRoot").(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			XJupyterRoot: wrapperspb.String("/path/to/jupyterRoot"),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
-		path, err := jobBuilder.HandlePathsAboveRoot("gitRoot/a/notebook.ipynb", "/path/to/jupyterRoot/gitRoot")
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
+		path, err := jobBuilder.HandlePathsAboveRoot(
+			"gitRoot/a/notebook.ipynb",
+			"/path/to/jupyterRoot/gitRoot",
+		)
 		assert.Nil(t, err)
 		assert.Equal(t, "a/notebook.ipynb", path)
 	})
 	t.Run("handlePathsAboveRoot works when notebook started below git root", func(t *testing.T) {
-		settings := &spb.Settings{
-			XJupyterRoot: toWrapperPb("/path/to/gitRoot/jupyterRoot").(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			XJupyterRoot: wrapperspb.String("/path/to/gitRoot/jupyterRoot"),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		path, err := jobBuilder.HandlePathsAboveRoot("a/notebook.ipynb", "/path/to/gitRoot")
 		assert.Nil(t, err)
 		assert.Equal(t, "jupyterRoot/a/notebook.ipynb", path)
 	})
 
 	t.Run("handlePathsAboveRoot works when notebook started at git root", func(t *testing.T) {
-		settings := &spb.Settings{
-			XJupyterRoot: toWrapperPb("/path/to/gitRoot").(*wrapperspb.StringValue),
+		settingsProto := &spb.Settings{
+			XJupyterRoot: wrapperspb.String("/path/to/gitRoot"),
 		}
-		jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+		jobBuilder := NewJobBuilder(
+			settings.From(settingsProto),
+			observabilitytest.NewTestLogger(t),
+			true,
+		)
 		path, err := jobBuilder.HandlePathsAboveRoot("a/notebook.ipynb", "/path/to/gitRoot")
 		assert.Nil(t, err)
 		assert.Equal(t, "a/notebook.ipynb", path)
@@ -730,7 +852,8 @@ func TestWandbConfigParameters(t *testing.T) {
 		"codePath": "/path/to/train.py",
 	}
 
-	fdir := filepath.Join(os.TempDir(), "test")
+	syncDir := filepath.Join(os.TempDir(), "test")
+	fdir := filepath.Join(syncDir, "files")
 	err := os.MkdirAll(fdir, 0777)
 	assert.Nil(t, err)
 	writeRequirements(t, fdir)
@@ -738,15 +861,19 @@ func TestWandbConfigParameters(t *testing.T) {
 	writeWandbMetadata(t, fdir, metadata)
 
 	defer func() {
-		_ = os.RemoveAll(fdir)
+		_ = os.RemoveAll(syncDir)
 	}()
-	settings := &spb.Settings{
-		Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-		Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-		RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-		FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+	settingsProto := &spb.Settings{
+		Project: wrapperspb.String("testProject"),
+		Entity:  wrapperspb.String("testEntity"),
+		RunId:   wrapperspb.String("testRunId"),
+		SyncDir: wrapperspb.String(syncDir),
 	}
-	jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+	jobBuilder := NewJobBuilder(
+		settings.From(settingsProto),
+		observabilitytest.NewTestLogger(t),
+		true,
+	)
 	runConfig := map[string]interface{}{
 		"key1": "value1",
 		"key2": "value2",
@@ -762,7 +889,10 @@ func TestWandbConfigParameters(t *testing.T) {
 		InputSource: &spb.JobInputSource{
 			Source: &spb.JobInputSource_RunConfig{},
 		},
-		IncludePaths: []*spb.JobInputPath{{Path: []string{"key1"}}, {Path: []string{"key3", "key4"}}},
+		IncludePaths: []*spb.JobInputPath{
+			{Path: []string{"key1"}},
+			{Path: []string{"key3", "key4"}},
+		},
 		ExcludePaths: []*spb.JobInputPath{{Path: []string{"key3", "key4", "key6"}}},
 	})
 	artifact, err := jobBuilder.Build(ctx, gql, runConfig, nil)
@@ -817,7 +947,8 @@ func TestWandbConfigParametersWithInputSchema(t *testing.T) {
 		"codePath": "/path/to/train.py",
 	}
 
-	fdir := filepath.Join(os.TempDir(), "test")
+	syncDir := filepath.Join(os.TempDir(), "test")
+	fdir := filepath.Join(syncDir, "files")
 	err := os.MkdirAll(fdir, 0777)
 	assert.Nil(t, err)
 	writeRequirements(t, fdir)
@@ -825,15 +956,19 @@ func TestWandbConfigParametersWithInputSchema(t *testing.T) {
 	writeWandbMetadata(t, fdir, metadata)
 
 	defer func() {
-		_ = os.RemoveAll(fdir)
+		_ = os.RemoveAll(syncDir)
 	}()
-	settings := &spb.Settings{
-		Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-		Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-		RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-		FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+	settingsProto := &spb.Settings{
+		Project: wrapperspb.String("testProject"),
+		Entity:  wrapperspb.String("testEntity"),
+		RunId:   wrapperspb.String("testRunId"),
+		SyncDir: wrapperspb.String(syncDir),
 	}
-	jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+	jobBuilder := NewJobBuilder(
+		settings.From(settingsProto),
+		observabilitytest.NewTestLogger(t),
+		true,
+	)
 	runConfig := map[string]interface{}{
 		"key1": "value1",
 		"key2": "value2",
@@ -865,7 +1000,10 @@ func TestWandbConfigParametersWithInputSchema(t *testing.T) {
 		InputSource: &spb.JobInputSource{
 			Source: &spb.JobInputSource_RunConfig{},
 		},
-		IncludePaths: []*spb.JobInputPath{{Path: []string{"key1"}}, {Path: []string{"key3", "key4"}}},
+		IncludePaths: []*spb.JobInputPath{
+			{Path: []string{"key1"}},
+			{Path: []string{"key3", "key4"}},
+		},
 		ExcludePaths: []*spb.JobInputPath{{Path: []string{"key3", "key4", "key6"}}},
 		InputSchema:  string(inputSchema),
 	})
@@ -910,7 +1048,8 @@ func TestConfigFileParameters(t *testing.T) {
 		},
 		"codePath": "/path/to/train.py",
 	}
-	fdir := filepath.Join(os.TempDir(), "test")
+	syncDir := filepath.Join(os.TempDir(), "test")
+	fdir := filepath.Join(syncDir, "files")
 	err := os.MkdirAll(fdir, 0777)
 	assert.Nil(t, err)
 	writeRequirements(t, fdir)
@@ -922,15 +1061,19 @@ func TestConfigFileParameters(t *testing.T) {
 	yamlContents := "key1: value1\nkey2: value2\nkey3:\n  key4:\n    key6: value6\n    key7: value7\n  key5: value5\n"
 	writeFile(t, configDir, "config.yaml", yamlContents)
 	defer func() {
-		_ = os.RemoveAll(fdir)
+		_ = os.RemoveAll(syncDir)
 	}()
-	settings := &spb.Settings{
-		Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-		Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-		RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-		FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+	settingsProto := &spb.Settings{
+		Project: wrapperspb.String("testProject"),
+		Entity:  wrapperspb.String("testEntity"),
+		RunId:   wrapperspb.String("testRunId"),
+		SyncDir: wrapperspb.String(syncDir),
 	}
-	jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+	jobBuilder := NewJobBuilder(
+		settings.From(settingsProto),
+		observabilitytest.NewTestLogger(t),
+		true,
+	)
 
 	jobBuilder.HandleJobInputRequest(&spb.JobInputRequest{
 		InputSource: &spb.JobInputSource{
@@ -989,7 +1132,8 @@ func TestConfigFileParametersWithInputSchema(t *testing.T) {
 		},
 		"codePath": "/path/to/train.py",
 	}
-	fdir := filepath.Join(os.TempDir(), "test")
+	syncDir := filepath.Join(os.TempDir(), "test")
+	fdir := filepath.Join(syncDir, "files")
 	err := os.MkdirAll(fdir, 0777)
 	assert.Nil(t, err)
 	writeRequirements(t, fdir)
@@ -1001,15 +1145,19 @@ func TestConfigFileParametersWithInputSchema(t *testing.T) {
 	yamlContents := "key1: value1\nkey2: value2\nkey3:\n  key4:\n    key6: value6\n    key7: value7\n  key5: value5\n"
 	writeFile(t, configDir, "config.yaml", yamlContents)
 	defer func() {
-		_ = os.RemoveAll(fdir)
+		_ = os.RemoveAll(syncDir)
 	}()
-	settings := &spb.Settings{
-		Project:  toWrapperPb("testProject").(*wrapperspb.StringValue),
-		Entity:   toWrapperPb("testEntity").(*wrapperspb.StringValue),
-		RunId:    toWrapperPb("testRunId").(*wrapperspb.StringValue),
-		FilesDir: toWrapperPb(fdir).(*wrapperspb.StringValue),
+	settingsProto := &spb.Settings{
+		Project: wrapperspb.String("testProject"),
+		Entity:  wrapperspb.String("testEntity"),
+		RunId:   wrapperspb.String("testRunId"),
+		SyncDir: wrapperspb.String(syncDir),
 	}
-	jobBuilder := NewJobBuilder(settings, observabilitytest.NewTestLogger(t), true)
+	jobBuilder := NewJobBuilder(
+		settings.From(settingsProto),
+		observabilitytest.NewTestLogger(t),
+		true,
+	)
 
 	inputSchema, _ := json.Marshal(map[string]interface{}{
 		"type": "object",

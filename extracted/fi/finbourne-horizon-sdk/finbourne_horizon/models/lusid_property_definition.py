@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.resource_id import ResourceId
 
 class LusidPropertyDefinition(BaseModel):
@@ -32,7 +34,7 @@ class LusidPropertyDefinition(BaseModel):
     scope:  StrictStr = Field(...,alias="scope", description="The scope of this definition.") 
     code:  StrictStr = Field(...,alias="code", description="The code of this definition.") 
     display_name:  StrictStr = Field(...,alias="displayName", description="The name used when this definition is displayed.") 
-    data_type_id: ResourceId = Field(..., alias="dataTypeId")
+    data_type_id: ResourceId = Field(alias="dataTypeId")
     description:  StrictStr = Field(...,alias="description", description="") 
     lifetime:  StrictStr = Field(...,alias="lifetime", description="") 
     constraint_style:  StrictStr = Field(...,alias="constraintStyle", description="") 
@@ -98,3 +100,5 @@ class LusidPropertyDefinition(BaseModel):
             "constraint_style": obj.get("constraintStyle")
         })
         return _obj
+
+LusidPropertyDefinition.update_forward_refs()

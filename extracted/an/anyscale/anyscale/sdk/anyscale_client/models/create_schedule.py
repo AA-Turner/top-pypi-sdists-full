@@ -38,6 +38,7 @@ class CreateSchedule(object):
         'project_id': 'str',
         'config': 'CreateProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
+        'tags': 'dict(str, str)',
         'schedule': 'ScheduleConfig'
     }
 
@@ -47,10 +48,11 @@ class CreateSchedule(object):
         'project_id': 'project_id',
         'config': 'config',
         'job_queue_config': 'job_queue_config',
+        'tags': 'tags',
         'schedule': 'schedule'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, schedule=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, local_vars_configuration=None):  # noqa: E501
         """CreateSchedule - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -61,6 +63,7 @@ class CreateSchedule(object):
         self._project_id = None
         self._config = None
         self._job_queue_config = None
+        self._tags = None
         self._schedule = None
         self.discriminator = None
 
@@ -72,6 +75,8 @@ class CreateSchedule(object):
         self.config = config
         if job_queue_config is not None:
             self.job_queue_config = job_queue_config
+        if tags is not None:
+            self.tags = tags
         self.schedule = schedule
 
     @property
@@ -190,6 +195,29 @@ class CreateSchedule(object):
         """
 
         self._job_queue_config = job_queue_config
+
+    @property
+    def tags(self):
+        """Gets the tags of this CreateSchedule.  # noqa: E501
+
+        Tags to associate with the job  # noqa: E501
+
+        :return: The tags of this CreateSchedule.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this CreateSchedule.
+
+        Tags to associate with the job  # noqa: E501
+
+        :param tags: The tags of this CreateSchedule.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     @property
     def schedule(self):

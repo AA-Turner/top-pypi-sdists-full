@@ -1,0 +1,38 @@
+[project]
+name = "django-zeal"
+version = "2.0.4"
+description = "Detect N+1s in your Django app"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+extend-select = [
+    "I",   # isort
+    "N",   # naming
+    "B",   # bugbear
+    "FIX", # disallow FIXME/TODO comments
+    "F",   # pyflakes
+    "T20", # flake8-print
+    "ERA", # commented-out code
+    "UP",  # pyupgrade
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "djangoproject.settings"
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+addopts = "--nomigrations"
+markers = ["nozeal: disable the auto-setup of zeal in a test"]

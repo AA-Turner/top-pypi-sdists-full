@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-opensearch-dsl
-Version: 0.7.0
+Version: 0.8.0
 Summary: Wrapper around opensearch-py for django models
 Home-page: https://github.com/qcoumes/django-opensearch-dsl
 Author: Quentin Coumes (Codoc)
@@ -26,7 +26,7 @@ Classifier: Natural Language :: English
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: opensearch-py>=2.2.0
-Requires-Dist: dateutils
+Requires-Dist: python-dateutil
 Provides-Extra: celery
 Requires-Dist: celery>=4.1.0; extra == "celery"
 Dynamic: author
@@ -168,6 +168,18 @@ class CarDocument(Document):
 ```
 
 # Changelog
+
+### 0.8.0 (2025-11-24)
+
+* Add `--using` and `--database` options to the CLI to respectively specify which
+  OpenSearch and database connection to use [#87](https://github.com/Codoc-os/django-opensearch-dsl/pull/87)).
+
+**BREAKING CHANGES**:
+
+* `django_opensearch_dsl.documents.Document.get_queryset` now take an optional `alias` argument to specify which
+  database connection to use.
+* `django_opensearch_dsl.documents.Document.get_indexing_queryset` now take an optional `alias` argument to specify
+  which database connection to use.
 
 ### 0.7.0 (2025-04-11)
 

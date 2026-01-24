@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: BSD-2-Clause
 
-import numba.core.types as types
+import sys
+import numba.cuda.types as types
 from numba.cuda._internal.cuda_fp16 import (
     typing_registry,
     target_registry,
@@ -73,7 +74,6 @@ from numba.cuda._internal.cuda_fp16 import (
     __hadd,
     __hadd_rn,
     __hadd_sat,
-    __hcmadd,
     __hdiv as hdiv,
     __hdiv,
     __heq as heq,
@@ -136,7 +136,7 @@ from numba.cuda._internal.cuda_fp16 import (
     htrunc,
 )
 
-from numba.extending import overload
+from numba.cuda.extending import overload
 import math
 
 
@@ -189,6 +189,13 @@ def log10_ol(a):
 @overload(math.exp, target="cuda")
 def exp_ol(a):
     return _make_unary(a, hexp)
+
+
+if sys.version_info >= (3, 11):
+
+    @overload(math.exp2, target="cuda")
+    def exp2_ol(a):
+        return _make_unary(a, hexp2)
 
 
 @overload(math.tanh, target="cuda")
@@ -287,7 +294,6 @@ __all__ = [
     "__hadd",
     "__hadd_rn",
     "__hadd_sat",
-    "__hcmadd",
     "hdiv",
     "__hdiv",
     "heq",

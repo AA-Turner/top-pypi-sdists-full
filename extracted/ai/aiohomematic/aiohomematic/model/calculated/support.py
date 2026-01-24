@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 A number of functions used to calculate values based on existing data.
 
@@ -16,10 +16,47 @@ from typing import Final
 
 from aiohomematic.support import extract_exc_args
 
+_DEFAULT_PRESSURE_HPA: Final = 1013.25
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-def _calculate_heat_index(temperature: float, humidity: int) -> float:
+def calculate_dew_point_spread(*, temperature: float, humidity: int) -> float | None:
+    """
+    Calculate the dew point spread.
+
+    Dew point spread = Difference between current air temperature and dew point.
+    Specifies the safety margin against condensation(K).
+    """
+    if dew_point := calculate_dew_point(temperature=temperature, humidity=humidity):
+        return round(temperature - dew_point, 2)
+    return None
+
+
+def calculate_enthalpy(
+    *, temperature: float, humidity: int, pressure_hPa: float = _DEFAULT_PRESSURE_HPA
+) -> float | None:
+    """
+    Calculate the enthalpy based on temperature and humidity.
+
+    Calculates the specific enthalpy of humid air in kJ/kg (relative to dry air).
+    temperature: Air temperature in °C
+    humidity: Relative humidity in %
+    pressure_hPa: Air pressure (default: 1013.25 hPa)
+
+    """
+    # Saturation vapor pressure according to Magnus in hPa
+    e_s = 6.112 * math.exp((17.62 * temperature) / (243.12 + temperature))
+    e = humidity / 100.0 * e_s  # aktueller Dampfdruck in hPa
+
+    # Mixing ratio (g water / kg dry air)
+    r = 622 * e / (pressure_hPa - e)
+
+    # Specific enthalpy (kJ/kg dry air)
+    h = 1.006 * temperature + r * (2501 + 1.86 * temperature) / 1000  # in kJ/kg
+    return round(h, 2)
+
+
+def _calculate_heat_index(*, temperature: float, humidity: int) -> float:
     """
     Calculate the Heat Index (feels like temperature) based on the NOAA equation.
 
@@ -30,7 +67,6 @@ def _calculate_heat_index(temperature: float, humidity: int) -> float:
     [4] https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3801457/
 
     """
-
     # SI units (Celsius)
     c1 = -8.78469475556
     c2 = 1.61139411
@@ -68,7 +104,7 @@ def _calculate_heat_index(temperature: float, humidity: int) -> float:
     return heat_index_celsius
 
 
-def _calculate_wind_chill(temperature: float, wind_speed: float) -> float | None:
+def _calculate_wind_chill(*, temperature: float, wind_speed: float) -> float | None:
     """
     Calculate the Wind Chill (feels like temperature) based on NOAA.
 
@@ -84,7 +120,7 @@ def _calculate_wind_chill(temperature: float, wind_speed: float) -> float | None
     return float(13.12 + (0.6215 * temperature) - 11.37 * wind_speed**0.16 + 0.3965 * temperature * wind_speed**0.16)
 
 
-def calculate_vapor_concentration(temperature: float, humidity: int) -> float | None:
+def calculate_vapor_concentration(*, temperature: float, humidity: int) -> float | None:
     """Calculate the vapor concentration."""
     try:
         abs_temperature = temperature + 273.15
@@ -105,7 +141,7 @@ def calculate_vapor_concentration(temperature: float, humidity: int) -> float | 
     return None
 
 
-def calculate_apparent_temperature(temperature: float, humidity: int, wind_speed: float) -> float | None:
+def calculate_apparent_temperature(*, temperature: float, humidity: int, wind_speed: float) -> float | None:
     """Calculate the apparent temperature based on NOAA."""
     try:
         if temperature <= 10 and wind_speed > 4.8:
@@ -130,15 +166,15 @@ def calculate_apparent_temperature(temperature: float, humidity: int, wind_speed
     return None
 
 
-def calculate_dew_point(temperature: float, humidity: int) -> float | None:
+def calculate_dew_point(*, temperature: float, humidity: int) -> float | None:
     """Calculate the dew point."""
     try:
         a0 = 373.15 / (273.15 + temperature)
         s = -7.90298 * (a0 - 1)
-        s += 5.02808 * math.log(a0, 10)
+        s += 5.02808 * math.log10(a0)
         s += -1.3816e-7 * (pow(10, (11.344 * (1 - 1 / a0))) - 1)
         s += 8.1328e-3 * (pow(10, (-3.49149 * (a0 - 1))) - 1)
-        s += math.log(1013.246, 10)
+        s += math.log10(1013.246)
         vp = pow(10, s - 3) * humidity
         td = math.log(vp / 0.61078)
 
@@ -155,13 +191,13 @@ def calculate_dew_point(temperature: float, humidity: int) -> float | None:
     return None
 
 
-def calculate_frost_point(temperature: float, humidity: int) -> float | None:
+def calculate_frost_point(*, temperature: float, humidity: int) -> float | None:
     """Calculate the frost point."""
     try:
-        if (dewpoint := calculate_dew_point(temperature=temperature, humidity=humidity)) is None:
+        if (dew_point := calculate_dew_point(temperature=temperature, humidity=humidity)) is None:
             return None
         t = temperature + 273.15
-        td = dewpoint + 273.15
+        td = dew_point + 273.15
 
         return round((td + (2671.02 / ((2954.61 / t) + 2.193665 * math.log(t) - 13.3448)) - t) - 273.15, 1)
     except ValueError as verr:
@@ -177,7 +213,7 @@ def calculate_frost_point(temperature: float, humidity: int) -> float | None:
 
 
 def calculate_operating_voltage_level(
-    operating_voltage: float | None, low_bat_limit: float | None, voltage_max: float | None
+    *, operating_voltage: float | None, low_bat_limit: float | None, voltage_max: float | None
 ) -> float | None:
     """Return the operating voltage level."""
     if operating_voltage is None or low_bat_limit is None or voltage_max is None:

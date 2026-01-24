@@ -56,13 +56,6 @@ class Assistant(ModelNormal):
     """
 
     allowed_values = {
-        ('status',): {
-            'INITIALIZING': "Initializing",
-            'FAILED': "Failed",
-            'READY': "Ready",
-            'TERMINATING': "Terminating",
-            'INITIALIZATIONFAILED': "InitializationFailed",
-        },
     }
 
     validations = {

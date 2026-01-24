@@ -23,6 +23,8 @@ class UpdateUserRequestBodyTypedDict(TypedDict):
     r"""The first name to assign to the user"""
     last_name: NotRequired[Nullable[str]]
     r"""The last name to assign to the user"""
+    locale: NotRequired[Nullable[str]]
+    r"""The locale to assign to the user (e.g., \"en-US\", \"fr-FR\")"""
     primary_email_address_id: NotRequired[Nullable[str]]
     r"""The ID of the email address to set as primary.
     It must be verified, and present on the current user.
@@ -92,7 +94,7 @@ class UpdateUserRequestBodyTypedDict(TypedDict):
     create_organization_enabled: NotRequired[Nullable[bool]]
     r"""If true, the user can create organizations with the Frontend API."""
     legal_accepted_at: NotRequired[Nullable[str]]
-    r"""A custom timestamps denoting _when_ the user accepted legal requirements, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
+    r"""A custom timestamp denoting _when_ the user accepted legal requirements, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
     skip_legal_checks: NotRequired[Nullable[bool]]
     r"""When set to `true` all legal checks are skipped.
     It is not recommended to skip legal checks unless you are migrating a user to Clerk.
@@ -101,6 +103,8 @@ class UpdateUserRequestBodyTypedDict(TypedDict):
     r"""The maximum number of organizations the user can create. 0 means unlimited."""
     created_at: NotRequired[Nullable[str]]
     r"""A custom date/time denoting _when_ the user signed up to the application, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
+    bypass_client_trust: NotRequired[Nullable[bool]]
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
 
 
 class UpdateUserRequestBody(BaseModel):
@@ -114,6 +118,9 @@ class UpdateUserRequestBody(BaseModel):
 
     last_name: OptionalNullable[str] = UNSET
     r"""The last name to assign to the user"""
+
+    locale: OptionalNullable[str] = UNSET
+    r"""The locale to assign to the user (e.g., \"en-US\", \"fr-FR\")"""
 
     primary_email_address_id: OptionalNullable[str] = UNSET
     r"""The ID of the email address to set as primary.
@@ -202,7 +209,7 @@ class UpdateUserRequestBody(BaseModel):
     r"""If true, the user can create organizations with the Frontend API."""
 
     legal_accepted_at: OptionalNullable[str] = UNSET
-    r"""A custom timestamps denoting _when_ the user accepted legal requirements, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
+    r"""A custom timestamp denoting _when_ the user accepted legal requirements, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
 
     skip_legal_checks: OptionalNullable[bool] = UNSET
     r"""When set to `true` all legal checks are skipped.
@@ -215,12 +222,16 @@ class UpdateUserRequestBody(BaseModel):
     created_at: OptionalNullable[str] = UNSET
     r"""A custom date/time denoting _when_ the user signed up to the application, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
 
+    bypass_client_trust: OptionalNullable[bool] = UNSET
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = [
             "external_id",
             "first_name",
             "last_name",
+            "locale",
             "primary_email_address_id",
             "notify_primary_email_address_changed",
             "primary_phone_number_id",
@@ -243,11 +254,13 @@ class UpdateUserRequestBody(BaseModel):
             "skip_legal_checks",
             "create_organizations_limit",
             "created_at",
+            "bypass_client_trust",
         ]
         nullable_fields = [
             "external_id",
             "first_name",
             "last_name",
+            "locale",
             "primary_email_address_id",
             "notify_primary_email_address_changed",
             "primary_phone_number_id",
@@ -267,6 +280,7 @@ class UpdateUserRequestBody(BaseModel):
             "skip_legal_checks",
             "create_organizations_limit",
             "created_at",
+            "bypass_client_trust",
         ]
         null_default_fields = []
 

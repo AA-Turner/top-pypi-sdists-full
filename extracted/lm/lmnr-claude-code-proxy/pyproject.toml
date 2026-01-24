@@ -1,0 +1,22 @@
+[project]
+dependencies = [
+  "httpx>=0.27.0",
+]
+description = "Thin proxy server for Claude Code and Laminar tracing"
+name = "lmnr-claude-code-proxy"
+readme = "README.md"
+requires-python = ">=3.10"
+version = "0.1.10"
+
+[dependency-groups]
+dev = [
+  "maturin>=1.10.1",
+]
+
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1.0,<2.0"]
+
+[tool.maturin]
+features = ["python"]
+manifest-path = "bin/Cargo.toml"

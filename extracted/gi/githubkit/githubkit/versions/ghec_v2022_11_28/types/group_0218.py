@@ -9,17 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0219 import (
+    CommitCommentEventPropCommentType,
+    CommitCommentEventPropCommentTypeForResponse,
+)
 
 
-class ApiInsightsSummaryStatsType(TypedDict):
-    """Summary Stats
+class CommitCommentEventType(TypedDict):
+    """CommitCommentEvent"""
 
-    API Insights usage summary stats for an organization
-    """
-
-    total_request_count: NotRequired[int]
-    rate_limited_request_count: NotRequired[int]
+    action: str
+    comment: CommitCommentEventPropCommentType
 
 
-__all__ = ("ApiInsightsSummaryStatsType",)
+class CommitCommentEventTypeForResponse(TypedDict):
+    """CommitCommentEvent"""
+
+    action: str
+    comment: CommitCommentEventPropCommentTypeForResponse
+
+
+__all__ = (
+    "CommitCommentEventType",
+    "CommitCommentEventTypeForResponse",
+)

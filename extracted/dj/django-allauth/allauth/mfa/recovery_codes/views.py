@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
 
@@ -17,7 +18,7 @@ from allauth.utils import get_form_class
 @method_decorator(reauthentication_required, name="dispatch")
 class GenerateRecoveryCodesView(FormView):
     form_class = GenerateRecoveryCodesForm
-    template_name = "mfa/recovery_codes/generate." + account_settings.TEMPLATE_EXTENSION
+    template_name = f"mfa/recovery_codes/generate.{account_settings.TEMPLATE_EXTENSION}"
     success_url = reverse_lazy("mfa_view_recovery_codes")
 
     def form_valid(self, form):
@@ -50,6 +51,7 @@ generate_recovery_codes = GenerateRecoveryCodesView.as_view()
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(never_cache, name="dispatch")
 class DownloadRecoveryCodesView(TemplateView):
     template_name = "mfa/recovery_codes/download.txt"
     content_type = "text/plain"
@@ -79,7 +81,7 @@ download_recovery_codes = DownloadRecoveryCodesView.as_view()
 
 @method_decorator(login_required, name="dispatch")
 class ViewRecoveryCodesView(TemplateView):
-    template_name = "mfa/recovery_codes/index." + account_settings.TEMPLATE_EXTENSION
+    template_name = f"mfa/recovery_codes/index.{account_settings.TEMPLATE_EXTENSION}"
 
     def get_context_data(self, **kwargs):
         ret = super().get_context_data(**kwargs)

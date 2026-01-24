@@ -3,7 +3,7 @@ Type annotations for ssm-sap service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,9 +14,13 @@ Usage::
     from types_aiobotocore_ssm_sap.paginator import (
         ListApplicationsPaginator,
         ListComponentsPaginator,
+        ListConfigurationCheckDefinitionsPaginator,
+        ListConfigurationCheckOperationsPaginator,
         ListDatabasesPaginator,
         ListOperationEventsPaginator,
         ListOperationsPaginator,
+        ListSubCheckResultsPaginator,
+        ListSubCheckRuleResultsPaginator,
     )
 
     session = get_session()
@@ -25,9 +29,13 @@ Usage::
 
         list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
         list_components_paginator: ListComponentsPaginator = client.get_paginator("list_components")
+        list_configuration_check_definitions_paginator: ListConfigurationCheckDefinitionsPaginator = client.get_paginator("list_configuration_check_definitions")
+        list_configuration_check_operations_paginator: ListConfigurationCheckOperationsPaginator = client.get_paginator("list_configuration_check_operations")
         list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
         list_operation_events_paginator: ListOperationEventsPaginator = client.get_paginator("list_operation_events")
         list_operations_paginator: ListOperationsPaginator = client.get_paginator("list_operations")
+        list_sub_check_results_paginator: ListSubCheckResultsPaginator = client.get_paginator("list_sub_check_results")
+        list_sub_check_rule_results_paginator: ListSubCheckRuleResultsPaginator = client.get_paginator("list_sub_check_rule_results")
     ```
 """
 
@@ -43,12 +51,20 @@ from .type_defs import (
     ListApplicationsOutputTypeDef,
     ListComponentsInputPaginateTypeDef,
     ListComponentsOutputTypeDef,
+    ListConfigurationCheckDefinitionsInputPaginateTypeDef,
+    ListConfigurationCheckDefinitionsOutputTypeDef,
+    ListConfigurationCheckOperationsInputPaginateTypeDef,
+    ListConfigurationCheckOperationsOutputTypeDef,
     ListDatabasesInputPaginateTypeDef,
     ListDatabasesOutputTypeDef,
     ListOperationEventsInputPaginateTypeDef,
     ListOperationEventsOutputTypeDef,
     ListOperationsInputPaginateTypeDef,
     ListOperationsOutputTypeDef,
+    ListSubCheckResultsInputPaginateTypeDef,
+    ListSubCheckResultsOutputTypeDef,
+    ListSubCheckRuleResultsInputPaginateTypeDef,
+    ListSubCheckRuleResultsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -60,9 +76,13 @@ else:
 __all__ = (
     "ListApplicationsPaginator",
     "ListComponentsPaginator",
+    "ListConfigurationCheckDefinitionsPaginator",
+    "ListConfigurationCheckOperationsPaginator",
     "ListDatabasesPaginator",
     "ListOperationEventsPaginator",
     "ListOperationsPaginator",
+    "ListSubCheckResultsPaginator",
+    "ListSubCheckRuleResultsPaginator",
 )
 
 
@@ -105,6 +125,52 @@ class ListComponentsPaginator(_ListComponentsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListComponents.html#SsmSap.Paginator.ListComponents.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listcomponentspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListConfigurationCheckDefinitionsPaginatorBase = AioPaginator[
+        ListConfigurationCheckDefinitionsOutputTypeDef
+    ]
+else:
+    _ListConfigurationCheckDefinitionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListConfigurationCheckDefinitionsPaginator(_ListConfigurationCheckDefinitionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListConfigurationCheckDefinitions.html#SsmSap.Paginator.ListConfigurationCheckDefinitions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listconfigurationcheckdefinitionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConfigurationCheckDefinitionsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListConfigurationCheckDefinitionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListConfigurationCheckDefinitions.html#SsmSap.Paginator.ListConfigurationCheckDefinitions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listconfigurationcheckdefinitionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListConfigurationCheckOperationsPaginatorBase = AioPaginator[
+        ListConfigurationCheckOperationsOutputTypeDef
+    ]
+else:
+    _ListConfigurationCheckOperationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListConfigurationCheckOperationsPaginator(_ListConfigurationCheckOperationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListConfigurationCheckOperations.html#SsmSap.Paginator.ListConfigurationCheckOperations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listconfigurationcheckoperationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConfigurationCheckOperationsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListConfigurationCheckOperationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListConfigurationCheckOperations.html#SsmSap.Paginator.ListConfigurationCheckOperations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listconfigurationcheckoperationspaginator)
         """
 
 
@@ -168,4 +234,46 @@ class ListOperationsPaginator(_ListOperationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListOperations.html#SsmSap.Paginator.ListOperations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listoperationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSubCheckResultsPaginatorBase = AioPaginator[ListSubCheckResultsOutputTypeDef]
+else:
+    _ListSubCheckResultsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListSubCheckResultsPaginator(_ListSubCheckResultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListSubCheckResults.html#SsmSap.Paginator.ListSubCheckResults)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listsubcheckresultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSubCheckResultsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListSubCheckResultsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListSubCheckResults.html#SsmSap.Paginator.ListSubCheckResults.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listsubcheckresultspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSubCheckRuleResultsPaginatorBase = AioPaginator[ListSubCheckRuleResultsOutputTypeDef]
+else:
+    _ListSubCheckRuleResultsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListSubCheckRuleResultsPaginator(_ListSubCheckRuleResultsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListSubCheckRuleResults.html#SsmSap.Paginator.ListSubCheckRuleResults)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listsubcheckruleresultspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSubCheckRuleResultsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListSubCheckRuleResultsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm-sap/paginator/ListSubCheckRuleResults.html#SsmSap.Paginator.ListSubCheckRuleResults.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ssm_sap/paginators/#listsubcheckruleresultspaginator)
         """

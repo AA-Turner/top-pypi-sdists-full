@@ -35,6 +35,7 @@ class UpdateWebsocketTriggerJsonBody:
         is_flow (bool):
         filters (List['UpdateWebsocketTriggerJsonBodyFiltersItem']):
         can_return_message (bool):
+        can_return_error_result (bool):
         initial_messages (Union[Unset, List[Union['UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0',
             'UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1']]]):
         url_runnable_args (Union[Unset, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]): The arguments to pass to the
@@ -42,7 +43,7 @@ class UpdateWebsocketTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateWebsocketTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, UpdateWebsocketTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateWebsocketTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     url: str
@@ -51,6 +52,7 @@ class UpdateWebsocketTriggerJsonBody:
     is_flow: bool
     filters: List["UpdateWebsocketTriggerJsonBodyFiltersItem"]
     can_return_message: bool
+    can_return_error_result: bool
     initial_messages: Union[
         Unset,
         List[
@@ -82,6 +84,7 @@ class UpdateWebsocketTriggerJsonBody:
             filters.append(filters_item)
 
         can_return_message = self.can_return_message
+        can_return_error_result = self.can_return_error_result
         initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             initial_messages = []
@@ -119,6 +122,7 @@ class UpdateWebsocketTriggerJsonBody:
                 "is_flow": is_flow,
                 "filters": filters,
                 "can_return_message": can_return_message,
+                "can_return_error_result": can_return_error_result,
             }
         )
         if initial_messages is not UNSET:
@@ -168,6 +172,8 @@ class UpdateWebsocketTriggerJsonBody:
             filters.append(filters_item)
 
         can_return_message = d.pop("can_return_message")
+
+        can_return_error_result = d.pop("can_return_error_result")
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -229,6 +235,7 @@ class UpdateWebsocketTriggerJsonBody:
             is_flow=is_flow,
             filters=filters,
             can_return_message=can_return_message,
+            can_return_error_result=can_return_error_result,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

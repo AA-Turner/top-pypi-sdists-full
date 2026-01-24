@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
@@ -20,6 +26,13 @@ class TestRoutes:
     @parametrize
     def test_method_list(self, client: LlamaStackClient) -> None:
         route = client.routes.list()
+        assert_matches_type(RouteListResponse, route, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: LlamaStackClient) -> None:
+        route = client.routes.list(
+            api_filter="v1",
+        )
         assert_matches_type(RouteListResponse, route, path=["response"])
 
     @parametrize
@@ -51,6 +64,13 @@ class TestAsyncRoutes:
     @parametrize
     async def test_method_list(self, async_client: AsyncLlamaStackClient) -> None:
         route = await async_client.routes.list()
+        assert_matches_type(RouteListResponse, route, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncLlamaStackClient) -> None:
+        route = await async_client.routes.list(
+            api_filter="v1",
+        )
         assert_matches_type(RouteListResponse, route, path=["response"])
 
     @parametrize

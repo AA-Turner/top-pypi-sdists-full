@@ -24,10 +24,6 @@ from botocore.response import StreamingBody
 
 from .literals import StartSelectorTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-else:
-    from typing import Dict
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -44,7 +40,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 

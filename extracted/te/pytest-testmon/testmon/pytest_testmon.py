@@ -111,7 +111,7 @@ def pytest_addoption(parser):
         action="store_true",
         dest="tmnet",
         help=(
-            "This is used for internal beta. Please don't use. You can go to https://www.testmon.net/ to register."
+            "Use tmnet cloud for storage instead of .testmondata file used by --testmon (see https://www.testmon.net)."
         ),
     )
 
@@ -165,24 +165,52 @@ def init_testmon_data(config: Config):
                     )
                 else:
                     tmnet_api_key = os.getenv("TMNET_API_KEY")
-            elif tmnet_api_key is None:
-                logger.warning(
-                    "TMNET_API_KEY not set.",
+
+            if not tmnet_api_key.strip():
+                raise ValueError(
+                    "TMNET_API_KEY is required when using --tmnet. "
+                    "Please set it in pytest.ini, pyproject.toml, or as an environment variable. "
                 )
+
             rpc_proxy = xmlrpc.client.ServerProxy(
                 url,
                 allow_none=True,
-                headers=[("x-api-key", tmnet_api_key)],
+                headers=[("x-api-key", tmnet_api_key.strip())],
             )
 
-    testmon_data = TestmonData(
-        rootdir=config.rootdir.strpath,
-        database=rpc_proxy,
-        environment=environment,
-        system_packages=system_packages,
-        readonly=get_running_as(config) == "worker",
-    )
-    testmon_data.determine_stable(bool(rpc_proxy))
+    # Check if we're a worker and have exec_id from controller
+    running_as = get_running_as(config)
+    exec_id = None
+    system_packages_change = None
+    files_of_interest = None
+
+    if running_as == "worker" and hasattr(config, "workerinput"):
+        # Use exec_id sent from controller
+        exec_id = config.workerinput.get("testmon_exec_id")
+        system_packages_change = config.workerinput.get(
+            "testmon_system_packages_change"
+        )
+        files_of_interest = config.workerinput.get("testmon_files_of_interest")
+
+    if running_as == "worker" and exec_id is not None:
+        # Initialize for xdist worker run
+        testmon_data: TestmonData = TestmonData.for_worker(
+            rootdir=config.rootdir.strpath,
+            exec_id=exec_id,
+            database=rpc_proxy,
+            system_packages_change=system_packages_change,
+            files_of_interest=files_of_interest,
+            environment=environment,
+        )
+    else:
+        # Initialize for local run (controller or single process)
+        testmon_data: TestmonData = TestmonData.for_local_run(
+            rootdir=config.rootdir.strpath,
+            database=rpc_proxy,
+            environment=environment,
+            system_packages=system_packages,
+        )
+    testmon_data.determine_stable()
     config.testmon_data = testmon_data
 
 
@@ -321,7 +349,9 @@ def pytest_unconfigure(config):
 
 
 class TestmonCollect:
-    def __init__(self, testmon, testmon_data, running_as="single", cov_plugin=None):
+    def __init__(
+        self, testmon, testmon_data: TestmonData, running_as="single", cov_plugin=None
+    ):
         self.testmon_data: TestmonData = testmon_data
         self.testmon: TestmonCollector = testmon
         self._running_as = running_as
@@ -371,7 +401,9 @@ class TestmonCollect:
         if call.when == "teardown":
             report = result.get_result()
             report.nodes_files_lines = self.testmon.get_batch_coverage_data()
-            result.force_result(report)
+            result.force_result(
+                report
+            )  # under xdist, report is serialized on the worker and sent to the controller
 
     @pytest.hookimpl
     def pytest_runtest_logreport(self, report):
@@ -411,6 +443,32 @@ class TestmonCollect:
 class TestmonXdistSync:
     def __init__(self):
         self.await_nodes = 0
+
+    def pytest_configure_node(self, node):
+        """
+        Send exec_id and related data from controller to worker during xdist initialization.
+        This avoids each worker having to independently determine the environment and check
+        for package changes.
+
+        Note: This hook is called on the controller side for each worker node.
+        The node.config here is the controller's config, not the worker's config.
+        """
+        # Verify we're on the controller (not a worker)
+        # node.config in this hook is the controller's config
+        running_as = get_running_as(node.config)
+        if running_as != "controller":
+            return  # Safety check: only run on controller
+
+        # Only proceed if testmon_data has been initialized and workerinput exists
+        if hasattr(node.config, "testmon_data") and hasattr(node, "workerinput"):
+            testmon_data: TestmonData = node.config.testmon_data
+            node.workerinput["testmon_exec_id"] = testmon_data.exec_id
+            node.workerinput[
+                "testmon_system_packages_change"
+            ] = testmon_data.system_packages_change
+            node.workerinput[
+                "testmon_files_of_interest"
+            ] = testmon_data.files_of_interest
 
     def pytest_testnodeready(self, node):  # pylint: disable=unused-argument
         self.await_nodes += 1
@@ -455,7 +513,7 @@ def format_time_saved(seconds):
 
 
 class TestmonSelect:
-    def __init__(self, config, testmon_data):
+    def __init__(self, config, testmon_data: TestmonData):
         self.testmon_data: TestmonData = testmon_data
         self.config = config
 

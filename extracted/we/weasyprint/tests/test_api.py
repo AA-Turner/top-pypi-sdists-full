@@ -19,11 +19,12 @@ from PIL import Image
 
 from weasyprint import CSS, HTML, __main__, default_url_fetcher
 from weasyprint.pdf.anchors import resolve_links
-from weasyprint.pdf.metadata import generate_rdf_metadata
-from weasyprint.urls import path2url
 
 from .draw import parse_pixels
 from .testing_utils import FakeHTML, assert_no_logs, capture_logs, resource_path
+
+from weasyprint.urls import (  # isort:skip
+    FatalURLFetchingError, URLFetcher, URLFetcherResponse, URLFetchingError, path2url)
 
 try:
     # Available in Python 3.11+
@@ -109,6 +110,62 @@ def _run(args, stdin=b''):
     return stdout.getvalue()
 
 
+def _gzip_compress(data):
+    file_obj = io.BytesIO()
+    gzip_file = gzip.GzipFile(fileobj=file_obj, mode='wb')
+    gzip_file.write(data)
+    gzip_file.close()
+    return file_obj.getvalue()
+
+
+@contextlib.contextmanager
+def http_server():
+    handlers = {
+        '/gzip': lambda env: (
+            (_gzip_compress(b'<html test=ok>'), {'Content-Encoding': 'gzip'})
+            if 'gzip' in env.get('HTTP_ACCEPT_ENCODING', '') else
+            (b'<html test=accept-encoding-header-fail>', {})
+        ),
+        '/deflate': lambda env: (
+            (zlib.compress(b'<html test=ok>'), {'Content-Encoding': 'deflate'})
+            if 'deflate' in env.get('HTTP_ACCEPT_ENCODING', '') else
+            (b'<html test=accept-encoding-header-fail>', {})
+        ),
+        '/raw-deflate': lambda env: (
+            # Remove zlib header and checksum
+            (zlib.compress(b'<html test=ok>')[2:-4], {'Content-Encoding': 'deflate'})
+            if 'deflate' in env.get('HTTP_ACCEPT_ENCODING', '') else
+            (b'<html test=accept-encoding-header-fail>', {})
+        ),
+        '/redirect': lambda env: (b'', {'Location': '/gzip'}),
+    }
+
+    def wsgi_app(environ, start_response):
+        handler = handlers.get(environ['PATH_INFO'])
+        if handler:
+            response, headers = handler(environ)
+            status = '301 Moved Permanently' if 'Location' in headers else '200 OK'
+            headers = [(str(name), str(value)) for name, value in headers.items()]
+        else:  # pragma: no cover
+            status = '404 Not Found'
+            response = b''
+            headers = []
+        start_response(status, headers)
+        return [response]
+
+    # Port 0: let the OS pick an available port number
+    # https://stackoverflow.com/a/1365284/1162888
+    server = wsgiref.simple_server.make_server('127.0.0.1', 0, wsgi_app)
+    _host, port = server.socket.getsockname()
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        yield f'http://127.0.0.1:{port}'
+    finally:
+        server.shutdown()
+        thread.join()
+
+
 class FakeFile:
     def __init__(self):
         self.chunks = []
@@ -177,12 +234,12 @@ def test_css_parsing():
         # Using 'encoding' adds a CSSCharsetRule
         h1_rule, = css.matcher.lower_local_name_selectors['h1']
         assert h1_rule[3] == 'before'
-        assert h1_rule[4][0][0] == 'content'
-        assert h1_rule[4][0][1][0][1] == 'I løvë Unicode'
-        assert h1_rule[4][1][0] == 'background_image'
-        assert h1_rule[4][1][1][0][0] == 'url'
-        assert h1_rule[4][1][1][0][1].startswith('file:')
-        assert h1_rule[4][1][1][0][1].endswith('tests/resources/pattern.png')
+        assert h1_rule[4][0][0][0] == 'content'
+        assert h1_rule[4][0][0][1][0][1] == 'I løvë Unicode'
+        assert h1_rule[4][0][1][0] == 'background_image'
+        assert h1_rule[4][0][1][1][0][0] == 'url'
+        assert h1_rule[4][0][1][1][0][1].startswith('file:')
+        assert h1_rule[4][0][1][1][0][1].endswith('tests/resources/pattern.png')
 
     _test_resource(CSS, 'utf8-test.css', check_css)
     _test_resource(CSS, 'latin1-test.css', check_css, encoding='latin1')
@@ -244,7 +301,7 @@ def check_png_pattern(assert_pixels_equal, png_bytes, x2=False, blank=False,
         '''
     image = Image.open(io.BytesIO(png_bytes))
     width, height, pixels = parse_pixels(expected_pixels)
-    assert_pixels_equal(width, height, image.getdata(), pixels)
+    assert_pixels_equal(width, height, image.get_flattened_data(), pixels)
 
 
 @assert_no_logs
@@ -361,7 +418,7 @@ def test_command_line_render(tmp_path):
         _run(f'{(tmp_path / "combined.html")} out4.pdf')
         assert (tmp_path / 'out4.pdf').read_bytes() == pdf_bytes
 
-        _run(f'{path2url((tmp_path / "combined.html"))} out5.pdf')
+        _run(f'{path2url(tmp_path / "combined.html")} out5.pdf')
         assert (tmp_path / 'out5.pdf').read_bytes() == pdf_bytes
 
         _run('linked.html --debug out6.pdf')  # test relative URLs
@@ -454,27 +511,29 @@ def test_command_line_render(tmp_path):
         _run('--version')
 
 
-@pytest.mark.parametrize('version, pdf_version', (
-    (1, '1.4'),
-    (2, '1.7'),
-    (3, '1.7'),
-    (4, '2.0'),
-))
+@pytest.mark.parametrize(('version', 'pdf_version'), [
+    ('1a', '1.4'),
+    ('2b', '1.7'),
+    ('3u', '1.7'),
+    ('4e', '2.0'),
+])
+@assert_no_logs
 def test_pdfa(version, pdf_version):
     stdout = _run(
-        f'--pdf-variant=pdf/a-{version}b --uncompressed-pdf - -', b'test')
+        f'--pdf-variant=pdf/a-{version} --uncompressed-pdf - -', b'<html lang=en>test')
     assert f'PDF-{pdf_version}'.encode() in stdout
-    assert f'part="{version}"'.encode() in stdout
+    assert f'part="{version[0]}"'.encode() in stdout
 
 
-@pytest.mark.parametrize('version, pdf_version', (
-    (1, '1.4'),
-    (2, '1.7'),
-    (3, '1.7'),
-    (4, '2.0'),
-))
+@pytest.mark.parametrize(('version', 'pdf_version'), [
+    ('1a', '1.4'),
+    ('2b', '1.7'),
+    ('3u', '1.7'),
+    ('4e', '2.0'),
+])
+@assert_no_logs
 def test_pdfa_compressed(version, pdf_version):
-    stdout = _run(f'--pdf-variant=pdf/a-{version}b - -', b'test')
+    stdout = _run(f'--pdf-variant=pdf/a-{version} - -', b'<html lang=en>test')
     assert f'PDF-{pdf_version}'.encode() in stdout
 
 
@@ -484,41 +543,48 @@ def test_pdfa1b_cidset():
     assert b'CIDSet' in stdout
 
 
-@pytest.mark.parametrize('version, pdf_version', (
+@pytest.mark.parametrize(('version', 'pdf_version'), [
     (1, '1.7'),
     (2, '2.0'),
-))
+])
+@assert_no_logs
 def test_pdfua(version, pdf_version):
-    stdout = _run(f'--pdf-variant=pdf/ua-{version} --uncompressed-pdf - -', b'test')
+    stdout = _run(
+        f'--pdf-variant=pdf/ua-{version} --uncompressed-pdf - -', b'<html lang=en>test')
     assert f'PDF-{pdf_version}'.encode() in stdout
     assert f'part="{version}"'.encode() in stdout
 
 
-@pytest.mark.parametrize('version, pdf_version', (
+@pytest.mark.parametrize(('version', 'pdf_version'), [
     (1, '1.7'),
     (2, '2.0'),
-))
+])
+@assert_no_logs
 def test_pdfua_compressed(version, pdf_version):
-    stdout = _run(f'--pdf-variant=pdf/ua-{version} - -', b'test')
+    stdout = _run(f'--pdf-variant=pdf/ua-{version} - -', b'<html lang=en>test')
     assert f'PDF-{pdf_version}'.encode() in stdout
 
 
+@assert_no_logs
 def test_pdf_tags():
-    stdout = _run('--pdf-tags --uncompressed-pdf - -', b'<article>test')
+    stdout = _run('--pdf-tags --uncompressed-pdf - -', b'<html lang=en><article>test')
     assert b'/StructTreeRoot' in stdout
     assert b'/Art' in stdout
 
 
+@assert_no_logs
 def test_pdf_identifier():
     stdout = _run('--pdf-identifier=abc --uncompressed-pdf - -', b'test')
     assert b'abc' in stdout
 
 
+@assert_no_logs
 def test_pdf_version():
     stdout = _run('--pdf-version=1.4 --uncompressed-pdf - -', b'test')
     assert b'PDF-1.4' in stdout
 
 
+@assert_no_logs
 def test_pdf_custom_metadata():
     stdout = _run(
         '--custom-metadata --uncompressed-pdf - -',
@@ -527,6 +593,7 @@ def test_pdf_custom_metadata():
     assert b'value' in stdout
 
 
+@assert_no_logs
 def test_bad_pdf_custom_metadata():
     stdout = _run(
         '--custom-metadata --uncompressed-pdf - -',
@@ -534,6 +601,7 @@ def test_bad_pdf_custom_metadata():
     assert b'value' not in stdout
 
 
+@assert_no_logs
 def test_partial_pdf_custom_metadata():
     stdout = _run(
         '--custom-metadata --uncompressed-pdf - -',
@@ -542,23 +610,27 @@ def test_partial_pdf_custom_metadata():
     assert b'value' in stdout
 
 
+@assert_no_logs
 def test_pdf_srgb():
     stdout = _run('--srgb --uncompressed-pdf - -', b'test')
     assert b'sRGB' in stdout
 
 
+@assert_no_logs
 def test_pdf_no_srgb():
     stdout = _run('--uncompressed-pdf - -', b'test')
     assert b'sRGB' not in stdout
 
 
+@assert_no_logs
 def test_pdf_font_name():
     # Regression test for #2396.
     stdout = _run('--uncompressed-pdf - -', b'<div style="font-family:weasyprint">test')
     assert b'+weasyprint/' in stdout
 
 
-def test_cmap():
+@assert_no_logs
+def test_to_unicode():
     # Regression test for #2388.
     stdout = _run('--uncompressed-pdf --full-fonts - -', b'test')
     matches = re.findall(b'(\\d+) beginbfchar', stdout)
@@ -567,7 +639,8 @@ def test_cmap():
         assert int(match) <= 100
 
 
-def test_cmap_rtl():
+@assert_no_logs
+def test_to_unicode_rtl():
     # Regression test for #378.
     stdout = _run(
         '--uncompressed-pdf -e utf-8 - -',
@@ -576,7 +649,75 @@ def test_cmap_rtl():
     assert b'<00d0> <0628>' in stdout
 
 
-@pytest.mark.parametrize('html, fields', (
+@assert_no_logs
+def test_no_redirect():
+    with http_server() as root_url:
+        _run(f'--no-http-redirect {root_url}/gzip -')
+        with pytest.raises(URLFetchingError):
+            _run(f'--no-http-redirect {root_url}/bad -')
+        with pytest.raises(URLFetchingError):
+            _run(f'--no-http-redirect {root_url}/redirect -')
+        with capture_logs() as logs:
+            _run(
+                '--no-http-redirect - -',
+                f'<link rel=stylesheet href="{root_url}/redirect">'.encode())
+        assert len(logs) == 1
+        assert 'Failed to load stylesheet' in logs[0]
+
+
+@assert_no_logs
+def test_fail_on_error():
+    with http_server() as root_url:
+        _run(f'--fail-on-http-error {root_url}/gzip -')
+        _run(f'--fail-on-http-error {root_url}/redirect -')
+        with pytest.raises(FatalURLFetchingError):
+            _run(f'--fail-on-http-error {root_url}/bad -')
+        with pytest.raises(FatalURLFetchingError):
+            _run(
+                '--fail-on-http-error - -',
+                f'<link rel=stylesheet href="{root_url}/bad">'.encode())
+
+
+@assert_no_logs
+def test_no_redirect_fail_on_error():
+    with http_server() as root_url:
+        _run(f'--no-http-redirect --fail-on-http-error {root_url}/gzip -')
+        with pytest.raises(FatalURLFetchingError):
+            _run(f'--no-http-redirect --fail-on-http-error {root_url}/redirect -')
+        with pytest.raises(FatalURLFetchingError):
+            _run(f'--no-http-redirect --fail-on-http-error {root_url}/bad -')
+        with pytest.raises(FatalURLFetchingError):
+            _run(
+                '--no-http-redirect --fail-on-http-error - -',
+                f'<link rel=stylesheet href="{root_url}/bad">'.encode())
+
+
+@assert_no_logs
+@pytest.mark.parametrize('command', [
+    '- -',
+    '--allowed-protocols file - -',
+    '--allowed-protocols file,http - -',
+    '--allowed-protocols file,file - -',
+    '--allowed-protocols Http,File - -',
+])
+def test_allowed_protocols(command):
+    _run(command, f'<img src="{path2url(resource_path("pattern.png"))}">'.encode())
+
+
+@pytest.mark.parametrize('command', [
+    '--allowed-protocols http - -',
+    '--allowed-protocols http,https - -',
+    '--allowed-protocols filetest - -',
+    '--allowed-protocols "" - -',
+])
+def test_disallowed_protocols(command):
+    with capture_logs() as logs:
+        _run(command, f'<img src="{path2url(resource_path("pattern.png"))}">'.encode())
+    assert len(logs) == 1
+    assert 'URI uses disallowed protocol' in logs[0]
+
+
+@pytest.mark.parametrize(('html', 'fields'), [
     ('<input>', ['/Tx', '/V ()']),
     ('<input value="">', ['/Tx', '/V ()']),
     ('<input type="checkbox">', ['/Btn']),
@@ -598,7 +739,7 @@ def test_cmap_rtl():
      '<option value="b" selected>B</option>'
      '<option value="c" selected>C</option>'
      '</select>', ['/Ch', '/Opt', '[(b) (c)]']),
-))
+])
 def test_pdf_inputs(html, fields):
     stdout = _run('--pdf-forms --uncompressed-pdf - -', html.encode())
     assert b'AcroForm' in stdout
@@ -608,11 +749,11 @@ def test_pdf_inputs(html, fields):
     assert b'AcroForm' not in stdout
 
 
-@pytest.mark.parametrize('css, with_forms, without_forms', (
+@pytest.mark.parametrize(('css', 'with_forms', 'without_forms'), [
     ('appearance: auto', True, True),
     ('appearance: none', False, False),
     ('', True, False),
-))
+])
 def test_appearance(css, with_forms, without_forms):
     html = f'<input style="{css}">'.encode()
     assert with_forms is (
@@ -622,7 +763,7 @@ def test_appearance(css, with_forms, without_forms):
 
 
 def test_appearance_non_input():
-    html = '<div style="appearance: auto">'.encode()
+    html = b'<div style="appearance: auto">'
     assert b'AcroForm' not in _run('--pdf-forms --uncompressed-pdf - -', html)
 
 
@@ -718,7 +859,7 @@ def test_low_level_api(assert_pixels_equal):
     assert _png_size(document.copy([page_2]).write_png()) == (6, 4)
 
 
-@pytest.mark.parametrize('html, expected_by_page, expected_tree, round', (
+@pytest.mark.parametrize(('html', 'expected_by_page', 'expected_tree', 'round'), [
     ('''
         <style>h1, h2, h3, h4 { height: 10px }</style>
         <h1>a</h1>
@@ -867,7 +1008,7 @@ def test_low_level_api(assert_pixels_equal):
                    transform: skew(45deg, 45deg)">!
     ''', [[(1, '!', (-5, -5), 'open')]], [('!', (0, -5, -5), [], 'open')],
      True),
-))
+])
 @assert_no_logs
 def test_assert_bookmarks(html, expected_by_page, expected_tree, round):
     document = FakeHTML(string=html).render()
@@ -1107,8 +1248,9 @@ def test_links_12():
 uses_relative.append('weasyprint-custom')
 
 
+@pytest.mark.filterwarnings('ignore')
 @assert_no_logs
-def test_url_fetcher(assert_pixels_equal):
+def test_deprecated_url_fetcher(assert_pixels_equal):
     path = resource_path('pattern.png')
     pattern_png = path.read_bytes()
 
@@ -1149,7 +1291,6 @@ def test_url_fetcher(assert_pixels_equal):
     test('<style>@import "weasyprint-custom:foo/bar.css";</style><body>')
     test('<style>@import url(weasyprint-custom:foo/bar.css);</style><body>')
     test('<style>@import url("weasyprint-custom:foo/bar.css");</style><body>')
-    test('<link rel=stylesheet href="weasyprint-custom:foo/bar.css"><body>')
 
     with capture_logs() as logs:
         test('<body><img src="custom:foo/bar">', blank=True)
@@ -1172,6 +1313,108 @@ def test_url_fetcher(assert_pixels_equal):
         url_fetcher=fetcher_2).render()
 
 
+class Fetcher(URLFetcher):
+    def fetch(self, url, headers=None):
+        if url.startswith('fatal:'):
+            raise FatalURLFetchingError('Fatal error')
+        elif 'forbidden' in url:
+            raise FatalURLFetchingError('Forbidden URL')
+        elif url.startswith('bad:'):
+            raise ValueError('Bad protocol')
+        elif url == 'redirect:':
+            return self.fetch('weasyprint-custom:foo/bar.css')
+        elif url == 'weasyprint-custom:foo/%C3%A9_%e9_pattern':
+            pattern_png = resource_path('pattern.png').read_bytes()
+            return URLFetcherResponse(url, pattern_png, {'Content-Type': 'image/png'})
+        elif url == 'weasyprint-custom:foo/bar.css':
+            return URLFetcherResponse(
+                url, 'body { background: url(é_%e9_pattern)'.encode('iso-8859-15'),
+                {'Content-Type': 'text/css;charset=iso-8859-15'})
+        elif url == 'weasyprint-custom:foo/bar.no':
+            return URLFetcherResponse(
+                url, 'body { background: red }', {'Content-Type': 'text/no'})
+        else:
+            return super().fetch(url, headers)
+
+
+@pytest.mark.parametrize('html', [
+    '<body><img src="pattern.png">',
+    f'<body><img src="{resource_path("pattern.png").as_uri()}">',
+    f'<body><img src="{resource_path("pattern.png").as_uri()}?ignored">',
+    '<body><img src="weasyprint-custom:foo/é_%e9_pattern">',
+    '<body style="background: url(weasyprint-custom:foo/é_%e9_pattern)">',
+    '<body><li style="list-style: inside url(weasyprint-custom:foo/é_%e9_pattern)">',
+    '<link rel=stylesheet href="weasyprint-custom:foo/bar.css"><body>',
+    '<link rel=stylesheet href="redirect:"><body>',
+    '<style>@import "weasyprint-custom:foo/bar.css";</style><body>',
+    '<style>@import url(weasyprint-custom:foo/bar.css);</style><body>',
+    '<style>@import url("weasyprint-custom:foo/bar.css");</style><body>',
+])
+@assert_no_logs
+def test_url_fetcher(html, assert_pixels_equal):
+    base_url = str(resource_path('dummy.html'))
+    css = CSS(string='@page{size:8px;margin:2px} body{font-size:0}', base_url=base_url)
+    html = FakeHTML(string=html, url_fetcher=Fetcher(), base_url=base_url)
+    check_png_pattern(assert_pixels_equal, html.write_png(stylesheets=[css]))
+
+
+@assert_no_logs
+def test_url_fetcher_default(assert_pixels_equal):
+    html = '<body><img src="pattern.png">'
+    base_url = str(resource_path('dummy.html'))
+    css = CSS(string='@page{size:8px;margin:2px} body{font-size:0}', base_url=base_url)
+    html = FakeHTML(string=html, url_fetcher=URLFetcher(), base_url=base_url)
+    check_png_pattern(assert_pixels_equal, html.write_png(stylesheets=[css]))
+
+
+@assert_no_logs
+def test_url_fetcher_bad_image(assert_pixels_equal):
+    string = '<body><img src="custom:foo/bar">'
+    css = CSS(string='@page { size: 8px; margin: 2px } body { font-size: 0 }')
+    with capture_logs() as logs:
+        html = FakeHTML(string=string, url_fetcher=Fetcher())
+        png = html.write_png(stylesheets=[css])
+    assert len(logs) == 1
+    assert logs[0].startswith("ERROR: Failed to load image at 'custom:foo/bar'")
+    check_png_pattern(assert_pixels_equal, png, blank=True)
+
+
+@assert_no_logs
+def test_url_fetcher_bad_stylesheet(assert_pixels_equal):
+    string = (
+        '<link rel=stylesheet href="weasyprint-custom:foo/bar.css">'
+        '<link rel=stylesheet href="weasyprint-custom:foo/bar.no"><body>')
+    with capture_logs() as logs:
+        FakeHTML(string=string, url_fetcher=Fetcher()).write_png()
+    assert len(logs) == 1
+    assert logs[0].startswith('ERROR: Unsupported stylesheet type text/no')
+
+
+@assert_no_logs
+def test_url_fetcher_non_fatal_error(assert_pixels_equal):
+    string = '<link rel=stylesheet href="bad:foo/bar.no"><body>'
+    with capture_logs() as logs:
+        FakeHTML(string=string, url_fetcher=Fetcher()).write_png()
+    assert len(logs) == 1
+    assert 'Bad protocol' in logs[0]
+
+
+@assert_no_logs
+def test_url_fetcher_fatal_error(assert_pixels_equal):
+    string = '<link rel=stylesheet href="fatal:foo/bar.no"><body>'
+    with pytest.raises(FatalURLFetchingError, match='Fatal error'):
+        FakeHTML(string=string, url_fetcher=Fetcher()).write_png()
+
+
+@assert_no_logs
+def test_url_fetcher_default_fail_on_errors(assert_pixels_equal):
+    html = '<body><img src="unknown.png">'
+    base_url = str(resource_path('dummy.html'))
+    url_fetcher = URLFetcher(fail_on_errors=True)
+    with pytest.raises(FatalURLFetchingError, match='Error fetching'):
+        FakeHTML(string=html, url_fetcher=url_fetcher, base_url=base_url).write_png()
+
+
 def assert_meta(html, **meta):
     meta.setdefault('title', None)
     meta.setdefault('authors', [])
@@ -1183,7 +1426,7 @@ def assert_meta(html, **meta):
     meta.setdefault('attachments', [])
     meta.setdefault('lang', None)
     meta.setdefault('custom', {})
-    meta.setdefault('generate_rdf_metadata', generate_rdf_metadata)
+    meta.setdefault('xmp_metadata', [])
     assert vars(FakeHTML(string=html).render().metadata) == meta
 
 
@@ -1260,64 +1503,45 @@ def test_html_meta_4():
 
 @assert_no_logs
 def test_http():
-    def gzip_compress(data):
-        file_obj = io.BytesIO()
-        gzip_file = gzip.GzipFile(fileobj=file_obj, mode='wb')
-        gzip_file.write(data)
-        gzip_file.close()
-        return file_obj.getvalue()
-
-    @contextlib.contextmanager
-    def http_server(handlers):
-        def wsgi_app(environ, start_response):
-            handler = handlers.get(environ['PATH_INFO'])
-            if handler:
-                status = str('200 OK')
-                response, headers = handler(environ)
-                headers = [(str(name), str(value)) for name, value in headers]
-            else:  # pragma: no cover
-                status = str('404 Not Found')
-                response = b''
-                headers = []
-            start_response(status, headers)
-            return [response]
-
-        # Port 0: let the OS pick an available port number
-        # https://stackoverflow.com/a/1365284/1162888
-        server = wsgiref.simple_server.make_server('127.0.0.1', 0, wsgi_app)
-        _host, port = server.socket.getsockname()
-        thread = threading.Thread(target=server.serve_forever)
-        thread.start()
-        try:
-            yield f'http://127.0.0.1:{port}'
-        finally:
-            server.shutdown()
-            thread.join()
-
-    with http_server({
-        '/gzip': lambda env: (
-            (gzip_compress(b'<html test=ok>'), [('Content-Encoding', 'gzip')])
-            if 'gzip' in env.get('HTTP_ACCEPT_ENCODING', '') else
-            (b'<html test=accept-encoding-header-fail>', [])
-        ),
-        '/deflate': lambda env: (
-            (zlib.compress(b'<html test=ok>'),
-             [('Content-Encoding', 'deflate')])
-            if 'deflate' in env.get('HTTP_ACCEPT_ENCODING', '') else
-            (b'<html test=accept-encoding-header-fail>', [])
-        ),
-        '/raw-deflate': lambda env: (
-            # Remove zlib header and checksum
-            (zlib.compress(b'<html test=ok>')[2:-4],
-             [('Content-Encoding', 'deflate')])
-            if 'deflate' in env.get('HTTP_ACCEPT_ENCODING', '') else
-            (b'<html test=accept-encoding-header-fail>', [])
-        ),
-    }) as root_url:
+    with http_server() as root_url:
         assert HTML(f'{root_url}/gzip').etree_element.get('test') == 'ok'
         assert HTML(f'{root_url}/deflate').etree_element.get('test') == 'ok'
-        assert HTML(
-            f'{root_url}/raw-deflate').etree_element.get('test') == 'ok'
+        assert HTML(f'{root_url}/raw-deflate').etree_element.get('test') == 'ok'
+        assert HTML(f'{root_url}/redirect').etree_element.get('test') == 'ok'
+
+        url_fetcher = URLFetcher()
+        HTML(f'{root_url}/redirect', url_fetcher=url_fetcher).render()
+        with capture_logs() as logs:
+            HTML(
+                string=f'<link rel=stylesheet href="{root_url}/redirect">',
+                url_fetcher=url_fetcher).render()
+        assert len(logs) == 1
+        assert 'Unsupported stylesheet' in logs[0]
+
+        url_fetcher = URLFetcher(allow_redirects=False)
+        with pytest.raises(URLFetchingError, match='301'):
+            HTML(f'{root_url}/redirect', url_fetcher=url_fetcher).render()
+        with capture_logs() as logs:
+            HTML(
+                string=f'<link rel=stylesheet href="{root_url}/redirect">',
+                url_fetcher=url_fetcher).render()
+        assert len(logs) == 1
+        assert '301' in logs[0]
+
+        url_fetcher = URLFetcher(fail_on_errors=True)
+        HTML(f'{root_url}/redirect', url_fetcher=url_fetcher).render()
+        with pytest.raises(FatalURLFetchingError, match='Error fetching'):
+            HTML(
+                string=f'<img src="{root_url}/bad">',
+                url_fetcher=url_fetcher).render()
+
+        url_fetcher = URLFetcher(allow_redirects=False, fail_on_errors=True)
+        with pytest.raises(FatalURLFetchingError, match='Error fetching'):
+            HTML(f'{root_url}/redirect', url_fetcher=url_fetcher).render()
+        with pytest.raises(FatalURLFetchingError, match='Error fetching'):
+            HTML(
+                string=f'<link rel=stylesheet href="{root_url}/redirect">',
+                url_fetcher=url_fetcher).render()
 
 
 @assert_no_logs

@@ -1,7 +1,6 @@
-import sys
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, Dict, Optional, Tuple, TypeVar, Union, overload
+from typing import Any, TypeVar, overload
 
 from .function import Function
 from .overload import get_overloads
@@ -13,12 +12,7 @@ __all__ = ["Dispatcher", "dispatch", "clear_all_cache"]
 T = TypeVar("T", bound=Callable[..., Any])
 
 
-_dataclass_kw_args: Dict[str, Any] = {}
-if sys.version_info >= (3, 10):  # pragma: specific no cover 3.8 3.9
-    _dataclass_kw_args |= {"slots": True}
-
-
-@dataclass(frozen=True, **_dataclass_kw_args)
+@dataclass(frozen=True, slots=True)
 class Dispatcher:
     """A namespace for functions.
 
@@ -34,18 +28,20 @@ class Dispatcher:
     """
 
     warn_redefinition: bool = False
-    functions: Dict[str, Function] = field(default_factory=dict)
-    classes: Dict[str, Dict[str, Function]] = field(default_factory=dict)
+    functions: dict[str, Function] = field(default_factory=dict)
+    classes: dict[str, dict[str, Function]] = field(default_factory=dict)
 
     @overload
-    def __call__(self, method: T, precedence: int = ...) -> T: ...
+    def __call__(self, method: T, /, *, precedence: int = ...) -> T: ...
 
     @overload
-    def __call__(self, method: None, precedence: int) -> Callable[[T], T]: ...
+    def __call__(
+        self, method: None = ..., /, *, precedence: int
+    ) -> Callable[[T], T]: ...
 
     def __call__(
-        self, method: Optional[T] = None, precedence: int = 0
-    ) -> Union[T, Callable[[T], T]]:
+        self, method: T | None = None, /, *, precedence: int = 0
+    ) -> T | Callable[[T], T]:
         """Decorator to register for a particular signature.
 
         Args:
@@ -72,7 +68,7 @@ class Dispatcher:
         return self._add_method(method, None, precedence=precedence)
 
     def multi(
-        self, *signatures: Union[Signature, Tuple[TypeHint, ...]]
+        self, *signatures: Signature | tuple[TypeHint, ...]
     ) -> Callable[[Callable], Function]:
         """Decorator to register multiple signatures at once.
 
@@ -95,18 +91,18 @@ class Dispatcher:
                     f"`plum.signature.Signature`."
                 )
 
-        def decorator(method: Callable) -> Function:
+        def decorator(method: Callable, /) -> Function:
             # The precedence will not be used, so we can safely set it to `None`.
             return self._add_method(method, *resolved_signatures, precedence=None)
 
         return decorator
 
-    def abstract(self, method: Callable) -> Function:
+    def abstract(self, method: Callable, /) -> Function:
         """Decorator for an abstract function definition. The abstract function
         definition does not implement any methods."""
         return self._get_function(method)
 
-    def _get_function(self, method: Callable) -> Function:
+    def _get_function(self, method: Callable, /) -> Function:
         # If a class is the owner, use a namespace specific for that class. Otherwise,
         # use the global namespace.
         if is_in_class(method):
@@ -132,8 +128,8 @@ class Dispatcher:
     def _add_method(
         self,
         method: Callable,
-        *signatures: Optional[Signature],
-        precedence: Optional[int],
+        *signatures: Signature | None,
+        precedence: int | None,
     ) -> Function:
         f = self._get_function(method)
         for signature in signatures:

@@ -9,14 +9,13 @@ from pathlib import (
 )
 from typing import (
     Final,
-    List,
 )
 
 from eth_typing import (
     ChainId,
 )
 
-from faster_eth_utils import (
+from faster_eth_utils.exceptions import (
     ValidationError,
 )
 
@@ -32,7 +31,7 @@ class Network:
     symbol: ChainId
 
 
-def initialize_network_objects() -> List[Network]:
+def initialize_network_objects() -> list[Network]:
     networks_obj = []
 
     networks_json_path = os.path.abspath(

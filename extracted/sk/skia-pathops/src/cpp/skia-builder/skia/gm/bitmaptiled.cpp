@@ -11,13 +11,17 @@
 #include "include/core/SkColor.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkRect.h"
+#include "include/core/SkTiledImageUtils.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#endif
 
 // This test exercises Ganesh's drawing of tiled bitmaps. In particular, that the offsets and the
 // extents of the tiles don't cause gaps between tiles.
-static void draw_tile_bitmap_with_fractional_offset(SkCanvas* canvas, bool vertical) {
+static void draw_tile_bitmap_with_fractional_offset(SkCanvas* canvas, bool vertical, bool manual) {
     // This should match kBmpSmallTileSize in SkGpuDevice.cpp. Note that our canvas size is tuned
     // to this constant as well.
     const int kTileSize = 1 << 10;
@@ -27,6 +31,7 @@ static void draw_tile_bitmap_with_fractional_offset(SkCanvas* canvas, bool verti
     const int kBitmapLongEdge = 7 * kTileSize;
     const int kBitmapShortEdge = 1 * kTileSize;
 
+#if defined(SK_GANESH)
     if (auto dContext = GrAsDirectContext(canvas->recordingContext())) {
         // To trigger tiling, we also need the image to be more than 50% of the cache, so we
         // ensure the cache is sized to make that true.
@@ -36,6 +41,7 @@ static void draw_tile_bitmap_with_fractional_offset(SkCanvas* canvas, bool verti
         const size_t newMaxResourceBytes = kBitmapBytes + (kBitmapBytes / 2);
         dContext->setResourceCacheLimit(newMaxResourceBytes);
     }
+#endif
 
     // Construct our bitmap as either very wide or very tall
     SkBitmap bmp;
@@ -46,26 +52,38 @@ static void draw_tile_bitmap_with_fractional_offset(SkCanvas* canvas, bool verti
     // Draw ten strips with varying fractional offset to catch any rasterization issues with tiling
     for (int i = 0; i < 10; ++i) {
         float offset = i * 0.1f;
-        if (vertical) {
-            canvas->drawImageRect(bmp.asImage(),
-                                  SkRect::MakeXYWH(0, (kTileSize - 50) + offset, 32, 1124.0f),
-                                  SkRect::MakeXYWH(37.0f * i, 0.0f, 32.0f, 1124.0f),
-                                  SkSamplingOptions(), nullptr,
-                                  SkCanvas::kStrict_SrcRectConstraint);
+
+        SkRect src = vertical ? SkRect::MakeXYWH(0, (kTileSize - 50) + offset, 32, 1124.0f)
+                              : SkRect::MakeXYWH((kTileSize - 50) + offset, 0, 1124, 32);
+        SkRect dst = vertical ? SkRect::MakeXYWH(37.0f * i, 0.0f, 32.0f, 1124.0f)
+                              : SkRect::MakeXYWH(0.0f, 37.0f * i, 1124.0f, 32.0f);
+
+        if (manual) {
+            SkTiledImageUtils::DrawImageRect(canvas, bmp.asImage(), src, dst, SkSamplingOptions(),
+                                             /* paint= */ nullptr,
+                                             SkCanvas::kStrict_SrcRectConstraint);
         } else {
-            canvas->drawImageRect(bmp.asImage(),
-                                  SkRect::MakeXYWH((kTileSize - 50) + offset, 0, 1124, 32),
-                                  SkRect::MakeXYWH(0.0f, 37.0f * i, 1124.0f, 32.0f),
-                                  SkSamplingOptions(), nullptr,
+            canvas->drawImageRect(bmp.asImage(), src, dst, SkSamplingOptions(),
+                                  /* paint= */ nullptr,
                                   SkCanvas::kStrict_SrcRectConstraint);
         }
     }
 }
 
-DEF_SIMPLE_GM_BG(bitmaptiled_fractional_horizontal, canvas, 1124, 365, SK_ColorBLACK) {
-    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ false);
+// In Graphite, it is always the client's responsibility to manually do tiled image draws, so we
+// only run the non-manual tests in Ganesh.
+#if defined(SK_GANESH)
+DEF_SIMPLE_GPU_GM_BG(bitmaptiled_fractional_horizontal, rContext, canvas, 1124, 365, SK_ColorBLACK) {
+    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ false, /* manual= */ false);
 }
+DEF_SIMPLE_GPU_GM_BG(bitmaptiled_fractional_vertical, rContext, canvas, 365, 1124, SK_ColorBLACK) {
+    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ true, /* manual= */ false);
+}
+#endif
 
-DEF_SIMPLE_GM_BG(bitmaptiled_fractional_vertical, canvas, 365, 1124, SK_ColorBLACK) {
-    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ true);
+DEF_SIMPLE_GM_BG(bitmaptiled_fractional_horizontal_manual, canvas, 1124, 365, SK_ColorBLACK) {
+    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ false, /* manual= */ true);
+}
+DEF_SIMPLE_GM_BG(bitmaptiled_fractional_vertical_manual, canvas, 365, 1124, SK_ColorBLACK) {
+    draw_tile_bitmap_with_fractional_offset(canvas, /* vertical= */ true, /* manual= */ true);
 }

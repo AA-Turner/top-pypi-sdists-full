@@ -1,5 +1,5 @@
 # 2.6.9 symbols.py
-# Bug in 2.6 is having multiple COME_FROMs due to the
+# Bug in 2.6 is having multple COME_FROMs due to the
 # "and" in the "if" clause
 
 # RUNNABLE
@@ -10,7 +10,7 @@ if __name__:
         assert False
 
 # 2.6.9 transformer.py
-# Bug in 2.6 is multiple COME_FROMs as a result
+# Bug in 2.6 is multple COME_FROMs as a result
 # of the "or" in the "assert"
 
 # In PyPy the assert is handled via PyPy's unique JUMP_IF_NOT_DEBUG

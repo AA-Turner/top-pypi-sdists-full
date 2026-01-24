@@ -1,13 +1,14 @@
+"""Clustering related toolbox."""
 from sklearn.metrics.cluster import silhouette_score as sklearn_silhouette
 from scipy.spatial.distance import cdist
 import numpy
 
+from tslearn.bases import TimeSeriesMixin
 from tslearn.metrics import cdist_dtw, cdist_soft_dtw_normalized
 from tslearn.preprocessing import TimeSeriesResampler
 from tslearn.utils import to_time_series_dataset, to_time_series
 
 __author__ = 'Romain Tavenard romain.tavenard[at]univ-rennes2.fr'
-
 
 
 class EmptyClusterError(Exception):
@@ -106,12 +107,12 @@ def silhouette_score(X, labels, metric=None, sample_size=None,
         parallelization.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See scikit-learns'
-        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n-jobs>`_
+        `Glossary <https://scikit-learn.org/stable/glossary.html#term-n_jobs>`_
         for more details.
 
     verbose : int (default: 0)
         If nonzero, print information about the inertia while learning
-        the model and joblib progress messages are printed.  
+        the model and joblib progress messages are printed.
 
     random_state : int, RandomState instance or None, optional (default: None)
         The generator used to randomly select a subset of samples.  If int,
@@ -179,7 +180,7 @@ def silhouette_score(X, labels, metric=None, sample_size=None,
         sklearn_X = cdist_soft_dtw_normalized(X, **metric_params_)
     elif metric == "euclidean":
         X_ = to_time_series_dataset(X)
-        X_ = X_.reshape((X.shape[0], -1))
+        X_ = X_.reshape((X_.shape[0], -1))
         sklearn_X = cdist(X_, X_, metric="euclidean")
     else:
         X_ = to_time_series_dataset(X)
@@ -206,7 +207,7 @@ def _check_initial_guess(init, n_clusters):
             " {} given".format(n_clusters, init.shape[0])
 
 
-class TimeSeriesCentroidBasedClusteringMixin:
+class TimeSeriesCentroidBasedClusteringMixin(TimeSeriesMixin):
     """Mixin class for centroid-based clustering of time series."""
     def _post_fit(self, X_fitted, centroids, inertia):
         if numpy.isfinite(inertia) and (centroids is not None):
@@ -216,3 +217,4 @@ class TimeSeriesCentroidBasedClusteringMixin:
             self.inertia_ = inertia
         else:
             self._X_fit = None
+        self.n_features_in_ = X_fitted.shape[-1]

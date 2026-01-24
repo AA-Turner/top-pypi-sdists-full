@@ -47,6 +47,7 @@ class WriteCloud(object):
         'cluster_management_stack_version': 'ClusterManagementStackVersions',
         'is_private_service_cloud': 'bool',
         'auto_add_user': 'bool',
+        'lineage_tracking_enabled': 'bool',
         'external_id': 'str',
         'creator_id': 'str'
     }
@@ -66,11 +67,12 @@ class WriteCloud(object):
         'cluster_management_stack_version': 'cluster_management_stack_version',
         'is_private_service_cloud': 'is_private_service_cloud',
         'auto_add_user': 'auto_add_user',
+        'lineage_tracking_enabled': 'lineage_tracking_enabled',
         'external_id': 'external_id',
         'creator_id': 'creator_id'
     }
 
-    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, external_id=None, creator_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, provider=None, compute_stack=None, region=None, credentials=None, config=None, is_k8s=False, is_aioa=False, availability_zones=None, is_bring_your_own_resource=None, is_private_cloud=False, cluster_management_stack_version=None, is_private_service_cloud=None, auto_add_user=False, lineage_tracking_enabled=False, external_id=None, creator_id=None, local_vars_configuration=None):  # noqa: E501
         """WriteCloud - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -90,6 +92,7 @@ class WriteCloud(object):
         self._cluster_management_stack_version = None
         self._is_private_service_cloud = None
         self._auto_add_user = None
+        self._lineage_tracking_enabled = None
         self._external_id = None
         self._creator_id = None
         self.discriminator = None
@@ -118,6 +121,8 @@ class WriteCloud(object):
             self.is_private_service_cloud = is_private_service_cloud
         if auto_add_user is not None:
             self.auto_add_user = auto_add_user
+        if lineage_tracking_enabled is not None:
+            self.lineage_tracking_enabled = lineage_tracking_enabled
         if external_id is not None:
             self.external_id = external_id
         if creator_id is not None:
@@ -452,6 +457,29 @@ class WriteCloud(object):
         """
 
         self._auto_add_user = auto_add_user
+
+    @property
+    def lineage_tracking_enabled(self):
+        """Gets the lineage_tracking_enabled of this WriteCloud.  # noqa: E501
+
+        Whether lineage tracking is enabled for this cloud.  # noqa: E501
+
+        :return: The lineage_tracking_enabled of this WriteCloud.  # noqa: E501
+        :rtype: bool
+        """
+        return self._lineage_tracking_enabled
+
+    @lineage_tracking_enabled.setter
+    def lineage_tracking_enabled(self, lineage_tracking_enabled):
+        """Sets the lineage_tracking_enabled of this WriteCloud.
+
+        Whether lineage tracking is enabled for this cloud.  # noqa: E501
+
+        :param lineage_tracking_enabled: The lineage_tracking_enabled of this WriteCloud.  # noqa: E501
+        :type: bool
+        """
+
+        self._lineage_tracking_enabled = lineage_tracking_enabled
 
     @property
     def external_id(self):

@@ -4,15 +4,16 @@ use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
 use crate::error::Error;
 use crate::http::TensorzeroHttpClient;
-use crate::inference::types::batch::BatchRequestRow;
-use crate::inference::types::batch::PollBatchInferenceResponse;
-use crate::inference::types::batch::StartBatchProviderInferenceResponse;
 use crate::inference::types::Latency;
 use crate::inference::types::ModelInferenceRequest;
 use crate::inference::types::PeekableProviderInferenceResponseStream;
 use crate::inference::types::ProviderInferenceResponse;
 use crate::inference::types::ProviderInferenceResponseStreamInner;
+use crate::inference::types::batch::BatchRequestRow;
+use crate::inference::types::batch::PollBatchInferenceResponse;
+use crate::inference::types::batch::StartBatchProviderInferenceResponse;
 use crate::model::ModelProvider;
+use async_trait::async_trait;
 use futures::Future;
 use futures::Stream;
 use reqwest_eventsource::Event;
@@ -20,13 +21,14 @@ use std::borrow::Cow;
 use std::fmt::Debug;
 use std::pin::Pin;
 use tokio::time::Instant;
+use uuid::Uuid;
 
 /// A helper type for preserving custom errors when working with `reqwest_eventsource`
 /// This is currently used by `stream_openai` to allow using it with a provider
 /// that needs to do additional validation when streaming (e.g. Sagemaker)
 pub enum TensorZeroEventError {
     TensorZero(Error),
-    EventSource(reqwest_eventsource::Error),
+    EventSource(Box<reqwest_eventsource::Error>),
 }
 
 pub trait InferenceProvider {
@@ -67,20 +69,25 @@ pub trait InferenceProvider {
 /// AWS sdk.
 ///
 /// Currently, we only implement `WrappedProvider` for `OpenAI`
+#[async_trait]
 pub trait WrappedProvider: Debug {
     fn thought_block_provider_type_suffix(&self) -> Cow<'static, str>;
 
-    fn make_body<'a>(
+    async fn make_body<'a>(
         &'a self,
         request: ModelProviderRequest<'a>,
     ) -> Result<serde_json::Value, Error>;
 
+    #[expect(clippy::too_many_arguments)]
     fn parse_response(
         &self,
         request: &ModelInferenceRequest,
         raw_request: String,
         raw_response: String,
         latency: Latency,
+        model_name: &str,
+        provider_name: &str,
+        model_inference_id: Uuid,
     ) -> Result<ProviderInferenceResponse, Error>;
 
     fn stream_events(
@@ -89,5 +96,7 @@ pub trait WrappedProvider: Debug {
             Box<dyn Stream<Item = Result<Event, TensorZeroEventError>> + Send + 'static>,
         >,
         start_time: Instant,
+        raw_request: &str,
+        model_inference_id: Uuid,
     ) -> ProviderInferenceResponseStreamInner;
 }

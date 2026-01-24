@@ -9,7 +9,7 @@ from typing import Optional, Dict, Tuple
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from domaintools.api import API
-from domaintools.constants import Endpoint, FEEDS_PRODUCTS_LIST, OutputFormat
+from domaintools.constants import Endpoint, RTTF_PRODUCTS_LIST, OutputFormat
 from domaintools.cli.utils import get_file_extension
 from domaintools.exceptions import ServiceException
 from domaintools._version import current as version
@@ -58,7 +58,9 @@ class DTCLICommand:
             datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
             return value
         except:
-            raise typer.BadParameter(f"{value} is neither an integer or a valid ISO 8601 datetime string in UTC form")
+            raise typer.BadParameter(
+                f"{value} is neither an integer or a valid ISO 8601 datetime string in UTC form"
+            )
 
     @staticmethod
     def validate_source_file_extension(value: str):
@@ -78,7 +80,9 @@ class DTCLICommand:
         ext = get_file_extension(value)
 
         if ext.lower() not in VALID_EXTENSIONS:
-            raise typer.BadParameter(f"{value} is not in valid extensions. Valid file extensions: {VALID_EXTENSIONS}")
+            raise typer.BadParameter(
+                f"{value} is not in valid extensions. Valid file extensions: {VALID_EXTENSIONS}"
+            )
 
         return value
 
@@ -110,8 +114,8 @@ class DTCLICommand:
     def _get_formatted_output(cls, cmd_name: str, response, out_format: str = "json"):
         if cmd_name in ("available_api_calls",):
             return "\n".join(response)
-        if response.product in FEEDS_PRODUCTS_LIST:
-            return "\n".join([data for data in response.response()])
+        if response.product in RTTF_PRODUCTS_LIST:
+            pass  # do nothing
         return str(getattr(response, out_format) if out_format != "list" else response.as_list())
 
     @classmethod
@@ -180,6 +184,7 @@ class DTCLICommand:
             out_file = params.pop("out_file", sys.stdout)
             verify_ssl = params.pop("no_verify_ssl", False)
             always_sign_api_key = params.pop("no_sign_api_key", False)
+            header_authentication = params.pop("no_header_authentication", False)
             source = None
 
             if "src_file" in params:
@@ -202,7 +207,7 @@ class DTCLICommand:
                 transient=True,
             ) as progress:
 
-                progress.add_task(
+                task_id = progress.add_task(
                     description=f"Using api credentials with a username of: [cyan]{user}[/cyan]\nExecuting [green]{name}[/green] api call...",
                     total=None,
                 )
@@ -214,29 +219,39 @@ class DTCLICommand:
                     verify_ssl=verify_ssl,
                     rate_limit=rate_limit,
                     always_sign_api_key=always_sign_api_key,
+                    header_authentication=header_authentication,
                 )
                 dt_api_func = getattr(dt_api, name)
-
                 params = params | kwargs
 
                 response = dt_api_func(**params)
-                progress.add_task(
+                progress.update(
+                    task_id,
                     description=f"Preparing results with format of {response_format}...",
-                    total=None,
                 )
 
-                output = cls._get_formatted_output(cmd_name=name, response=response, out_format=response_format)
+                output = cls._get_formatted_output(
+                    cmd_name=name, response=response, out_format=response_format
+                )
 
                 if isinstance(out_file, _io.TextIOWrapper):
+                    progress.update(
+                        task_id,
+                        description=f"Printing the results with format of {response_format}...",
+                    )
                     # use rich `print` command to prettify the ouput in sys.stdout
-                    if response.product in FEEDS_PRODUCTS_LIST:
-                        print(output)
+                    if name not in ("available_api_calls",) and response.product in RTTF_PRODUCTS_LIST:
+                        for feeds in response.response():
+                            print(feeds)
                     else:
                         print(response)
                 else:
+                    progress.update(
+                        task_id,
+                        description=f"Writing results to {out_file}",
+                    )
                     # if it's a file then write
                     out_file.write(output if output.endswith("\n") else output + "\n")
-                time.sleep(0.25)
         except Exception as e:
             if isinstance(e, ServiceException):
                 code = typer.style(getattr(e, "code", 400), fg=typer.colors.BRIGHT_RED)

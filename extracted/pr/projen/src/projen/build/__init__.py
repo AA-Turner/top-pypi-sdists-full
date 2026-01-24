@@ -68,8 +68,8 @@ class AddPostBuildJobCommandsOptions:
         checkout_repo: typing.Optional[builtins.bool] = None,
         install_deps: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``BuildWorkflow.addPostBuildJobCommands``.
 
@@ -142,7 +142,7 @@ class AddPostBuildJobCommandsOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -150,16 +150,16 @@ class AddPostBuildJobCommandsOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Tools that should be installed before the commands are run.
 
         :stability: experimental
         '''
         result = self._values.get("tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -187,8 +187,8 @@ class AddPostBuildJobTaskOptions:
         self,
         *,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``BuildWorkflow.addPostBuildJobTask``.
 
@@ -229,7 +229,7 @@ class AddPostBuildJobTaskOptions:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -237,16 +237,16 @@ class AddPostBuildJobTaskOptions:
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
-    def tools(self) -> typing.Optional[_Tools_75b93a2a]:
+    def tools(self) -> typing.Optional["_Tools_75b93a2a"]:
         '''(experimental) Tools that should be installed before the task is run.
 
         :stability: experimental
         '''
         result = self._values.get("tools")
-        return typing.cast(typing.Optional[_Tools_75b93a2a], result)
+        return typing.cast(typing.Optional["_Tools_75b93a2a"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -271,28 +271,28 @@ class BuildWorkflow(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        build_task: _Task_9fa875b6,
+        build_task: "_Task_9fa875b6",
         artifacts_directory: typing.Optional[builtins.str] = None,
         container_image: typing.Optional[builtins.str] = None,
-        git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param project: -
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
-        :param git_identity: (experimental) Git identity to use for the workflow. Default: - default identity
+        :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
@@ -331,24 +331,24 @@ class BuildWorkflow(
         self,
         id: builtins.str,
         *,
-        steps: typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]],
-        container: typing.Optional[typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]] = None,
+        steps: typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]],
+        container: typing.Optional[typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
-        defaults: typing.Optional[typing.Union[_JobDefaults_965f0d10, typing.Dict[builtins.str, typing.Any]]] = None,
+        defaults: typing.Optional[typing.Union["_JobDefaults_965f0d10", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Any = None,
-        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union[_JobStepOutput_acebe827, typing.Dict[builtins.str, typing.Any]]]] = None,
+        outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["_JobStepOutput_acebe827", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        services: typing.Optional[typing.Mapping[builtins.str, typing.Union[_ContainerOptions_f50907af, typing.Dict[builtins.str, typing.Any]]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        services: typing.Optional[typing.Mapping[builtins.str, typing.Union["_ContainerOptions_f50907af", typing.Dict[builtins.str, typing.Any]]]] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
-        tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
-        permissions: typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]],
+        tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]],
         concurrency: typing.Any = None,
         if_: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         needs: typing.Optional[typing.Sequence[builtins.str]] = None,
-        strategy: typing.Optional[typing.Union[_JobStrategy_15089712, typing.Dict[builtins.str, typing.Any]]] = None,
+        strategy: typing.Optional[typing.Union["_JobStrategy_15089712", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Adds another job to the build workflow which is executed after the build job succeeded.
 
@@ -413,8 +413,8 @@ class BuildWorkflow(
         checkout_repo: typing.Optional[builtins.bool] = None,
         install_deps: typing.Optional[builtins.bool] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Run a sequence of commands as a job within the build workflow which is executed after the build job succeeded.
 
@@ -449,11 +449,11 @@ class BuildWorkflow(
     @jsii.member(jsii_name="addPostBuildJobTask")
     def add_post_build_job_task(
         self,
-        task: _Task_9fa875b6,
+        task: "_Task_9fa875b6",
         *,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        tools: typing.Optional[typing.Union[_Tools_75b93a2a, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        tools: typing.Optional[typing.Union["_Tools_75b93a2a", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Run a task as a job within the build workflow which is executed after the build job succeeded.
 
@@ -481,7 +481,7 @@ class BuildWorkflow(
         return typing.cast(None, jsii.invoke(self, "addPostBuildJobTask", [task, options]))
 
     @jsii.member(jsii_name="addPostBuildSteps")
-    def add_post_build_steps(self, *steps: _JobStep_c3287c05) -> None:
+    def add_post_build_steps(self, *steps: "_JobStep_c3287c05") -> None:
         '''(experimental) Adds steps that are executed after the build.
 
         :param steps: The job steps.
@@ -529,9 +529,9 @@ class BuildWorkflowCommonOptions:
         *,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
+        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param env: (experimental) Build environment variables. Default: {}
@@ -588,7 +588,7 @@ class BuildWorkflowCommonOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional[_JobPermissions_3b5b53dc]:
+    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
         '''(experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.WRITE }``
@@ -596,10 +596,10 @@ class BuildWorkflowCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional[_JobPermissions_3b5b53dc], result)
+        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before the build.
 
         :default: []
@@ -607,10 +607,10 @@ class BuildWorkflowCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(experimental) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -618,7 +618,7 @@ class BuildWorkflowCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -657,17 +657,17 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         *,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
-        permissions: typing.Optional[typing.Union[_JobPermissions_3b5b53dc, typing.Dict[builtins.str, typing.Any]]] = None,
-        pre_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_task: _Task_9fa875b6,
+        permissions: typing.Optional[typing.Union["_JobPermissions_3b5b53dc", typing.Dict[builtins.str, typing.Any]]] = None,
+        pre_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_task: "_Task_9fa875b6",
         artifacts_directory: typing.Optional[builtins.str] = None,
         container_image: typing.Optional[builtins.str] = None,
-        git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param env: (experimental) Build environment variables. Default: {}
@@ -678,7 +678,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :param build_task: (experimental) The task to execute in order to build the project.
         :param artifacts_directory: (experimental) A name of a directory that includes build artifacts. Default: "dist"
         :param container_image: (experimental) The container image to use for builds. Default: - the default workflow container
-        :param git_identity: (experimental) Git identity to use for the workflow. Default: - default identity
+        :param git_identity: (experimental) Git identity to use for the workflow. Default: - default GitHub Actions user
         :param mutable_build: (experimental) Automatically update files modified during builds to pull-request branches. This means that any files synthesized by projen or e.g. test snapshots will always be up-to-date before a PR is merged. Implies that PR builds do not have anti-tamper checks. This is enabled by default only if ``githubTokenSecret`` is set. Otherwise it is disabled, which implies that file changes that happen during build will not be pushed back to the branch. Default: true
         :param post_build_steps: (experimental) Steps to execute after build. Default: []
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
@@ -760,7 +760,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions(self) -> typing.Optional[_JobPermissions_3b5b53dc]:
+    def permissions(self) -> typing.Optional["_JobPermissions_3b5b53dc"]:
         '''(experimental) Permissions granted to the build job To limit job permissions for ``contents``, the desired permissions have to be explicitly set, e.g.: ``{ contents: JobPermission.NONE }``.
 
         :default: ``{ contents: JobPermission.WRITE }``
@@ -768,10 +768,10 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("permissions")
-        return typing.cast(typing.Optional[_JobPermissions_3b5b53dc], result)
+        return typing.cast(typing.Optional["_JobPermissions_3b5b53dc"], result)
 
     @builtins.property
-    def pre_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def pre_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute before the build.
 
         :default: []
@@ -779,10 +779,10 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("pre_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(experimental) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -790,17 +790,17 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def build_task(self) -> _Task_9fa875b6:
+    def build_task(self) -> "_Task_9fa875b6":
         '''(experimental) The task to execute in order to build the project.
 
         :stability: experimental
         '''
         result = self._values.get("build_task")
         assert result is not None, "Required property 'build_task' is missing"
-        return typing.cast(_Task_9fa875b6, result)
+        return typing.cast("_Task_9fa875b6", result)
 
     @builtins.property
     def artifacts_directory(self) -> typing.Optional[builtins.str]:
@@ -825,15 +825,15 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) Git identity to use for the workflow.
 
-        :default: - default identity
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -856,7 +856,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build.
 
         :default: []
@@ -864,7 +864,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -880,7 +880,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -888,7 +888,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

@@ -64,7 +64,7 @@ pub fn test_character_ranges(test: CharacterRangeTest) {
     let rule = create_rule_by_name(test.rule_name).unwrap_or_else(|| panic!("Unknown rule: {}", test.rule_name));
 
     // Run the rule check
-    let ctx = LintContext::new(test.content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(test.content, rumdl_lib::config::MarkdownFlavor::Standard, None);
     let warnings = rule
         .check(&ctx)
         .unwrap_or_else(|e| panic!("Rule {} failed to check content: {}", test.rule_name, e));
@@ -191,12 +191,10 @@ pub fn extract_highlighted_text(content: &str, warning: &LintWarning) -> String 
 /// Create a rule instance by name for dynamic testing
 pub fn create_rule_by_name(rule_name: &str) -> Option<Box<dyn Rule>> {
     match rule_name {
-        "MD001" => Some(Box::new(MD001HeadingIncrement)),
-        "MD002" => Some(Box::new(MD002FirstHeadingH1::new(1))),
+        "MD001" => Some(Box::new(MD001HeadingIncrement::default())),
         "MD003" => Some(Box::new(MD003HeadingStyle::new(HeadingStyle::Consistent))),
         "MD004" => Some(Box::new(MD004UnorderedListStyle::new(UnorderedListStyle::Consistent))),
         "MD005" => Some(Box::new(MD005ListIndent::default())),
-        "MD006" => Some(Box::new(MD006StartBullets)),
         "MD007" => Some(Box::new(MD007ULIndent::new(2))),
         "MD009" => Some(Box::new(MD009TrailingSpaces::new(2, false))),
         "MD010" => Some(Box::new(MD010NoHardTabs::new(4))),
@@ -267,7 +265,7 @@ mod tests {
     fn test_extract_highlighted_text_single_line() {
         let content = "This is a test line";
         let warning = LintWarning {
-            rule_name: Some("TEST"),
+            rule_name: Some("TEST".to_string()),
             line: 1,
             column: 6,
             end_line: 1,
@@ -285,7 +283,7 @@ mod tests {
     fn test_extract_highlighted_text_multi_line() {
         let content = "Line 1\nLine 2\nLine 3";
         let warning = LintWarning {
-            rule_name: Some("TEST"),
+            rule_name: Some("TEST".to_string()),
             line: 1,
             column: 6,
             end_line: 2,

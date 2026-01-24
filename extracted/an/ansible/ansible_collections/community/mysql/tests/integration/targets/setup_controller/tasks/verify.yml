@@ -33,14 +33,6 @@
       when:
         - connector_name == 'pymysql'
 
-    - name: Assert that mysql_info module used the expected version of mysqlclient
-      assert:
-        that:
-          - primary_info.connector_name == 'MySQLdb'
-          - primary_info.connector_version == connector_version
-      when:
-        - connector_name == 'mysqlclient'
-
     - name: Get the python version in use
       ansible.builtin.shell:
         cmd: echo $( $(command -v python || command -v python3) -V )

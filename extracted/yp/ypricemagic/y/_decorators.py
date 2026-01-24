@@ -1,18 +1,22 @@
 from asyncio import iscoroutinefunction
+from collections.abc import Awaitable, Callable
 from functools import partial, wraps
 from logging import getLogger
-from typing import Callable, TypeVar, Union
+from typing import Final, TypeAlias, TypeVar
 
 from a_sync import debugging
 from typing_extensions import ParamSpec
 
-
 P = ParamSpec("P")
 T = TypeVar("T")
 
+CoroFn: TypeAlias = Callable[P, Awaitable[T]]
 
-stuck_coro_logger = getLogger("y.stuck?")
-stuck_coro_debugger = partial(debugging.stuck_coro_debugger, logger=stuck_coro_logger)
+
+stuck_coro_logger: Final = getLogger("y.stuck?")
+stuck_coro_debugger: Final[Callable[[CoroFn[P, T]], CoroFn[P, T]]] = partial(
+    debugging.stuck_coro_debugger, logger=stuck_coro_logger
+)
 
 
 def continue_on_revert(func: Callable[P, T]) -> Callable[P, T]:
@@ -54,7 +58,7 @@ def continue_on_revert(func: Callable[P, T]) -> Callable[P, T]:
     if iscoroutinefunction(func):
 
         @wraps(func)
-        async def continue_on_revert_wrap(*args: P.args, **kwargs: P.kwargs) -> Union[T, None]:
+        async def continue_on_revert_wrap(*args: P.args, **kwargs: P.kwargs) -> T | None:
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
@@ -63,7 +67,7 @@ def continue_on_revert(func: Callable[P, T]) -> Callable[P, T]:
     elif callable(func):
 
         @wraps(func)
-        def continue_on_revert_wrap(*args: P.args, **kwargs: P.kwargs) -> Union[T, None]:
+        def continue_on_revert_wrap(*args: P.args, **kwargs: P.kwargs) -> T | None:
             try:
                 return func(*args, **kwargs)
             except Exception as e:

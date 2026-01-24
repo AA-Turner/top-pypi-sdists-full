@@ -1,4 +1,4 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Union
-
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 from streamlit import config
 from streamlit.errors import StreamlitAPIException
@@ -37,7 +35,7 @@ if TYPE_CHECKING:
     from streamlit.source_util import PageHash, PageInfo
 
 SectionHeader: TypeAlias = str
-PageType: TypeAlias = Union[str, Path, Callable[[], None], StreamlitPage]
+PageType: TypeAlias = str | Path | Callable[[], None] | StreamlitPage
 
 
 def convert_to_streamlit_page(
@@ -318,7 +316,7 @@ def _navigation(
     else:
         nav_sections = {
             section: [convert_to_streamlit_page(p) for p in section_pages]
-            for section, section_pages in pages.items()  # ty: ignore[possibly-unbound-attribute]
+            for section, section_pages in pages.items()
         }
     page_list = pages_from_nav_sections(nav_sections)
 

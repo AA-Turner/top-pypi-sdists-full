@@ -88,6 +88,7 @@ class TestUserSettingsMiddlewareLoginFlow(TestCase):
         self.request.LANGUAGE_CODE = 'en'
         self.request.user.profile.language = 'de'
         self.request.user.profile.night_mode = True
+        self.request.user.profile.minimize_sidebar = False
         self.request.user.is_anonymous = False
         self.response = Mock()
         self.response.content = 'hello world'
@@ -173,3 +174,26 @@ class TestUserSettingsMiddlewareLoginFlow(TestCase):
             self.response
             )
         self.assertEqual(self.request.session["NIGHT_MODE"], True)
+
+    def test_middleware_set_mimimize_sidebar(self):
+        """
+        tests the middleware will always set minimize_sidebar to False (default)
+        """
+
+        response = self.middleware.process_response(
+            self.request,
+            self.response
+            )
+        self.assertEqual(self.request.session["MINIMIZE_SIDEBAR"], False)
+
+    def test_middleware_minimize_sidebar_when_set(self):
+        """
+        tests the middleware will set mimimize_sidebar to True from DB
+        """
+
+        self.request.user.profile.minimize_sidebar = True
+        response = self.middleware.process_response(
+            self.request,
+            self.response
+            )
+        self.assertEqual(self.request.session["MINIMIZE_SIDEBAR"], True)

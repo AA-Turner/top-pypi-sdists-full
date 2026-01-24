@@ -10,11 +10,12 @@ extra_xgboost = ['xgboost']
 extra_pyspark = ['pyspark']
 extra_lightgbm = ['lightgbm']
 extra_tensorflow = ['tensorflow_decision_forests']
+extra_ai = ['langchain-openai']
 
 
 setup(
     name='dtreeviz',
-    version='2.2.2',
+    version='2.3.2',
     url='https://github.com/parrt/dtreeviz',
     license='MIT',
     packages=find_packages(),
@@ -24,15 +25,16 @@ setup(
         'numpy',
         'scikit-learn',
         'matplotlib',
-        'colour',
-        'pytest'
+        'colour'
     ],
     extras_require={
         'xgboost': extra_xgboost,
         'pyspark': extra_pyspark,
         'lightgbm': extra_lightgbm,
         'tensorflow_decision_forests': extra_tensorflow,
-        'all': extra_xgboost + extra_pyspark + extra_lightgbm + extra_tensorflow,
+        'ai': extra_ai,
+        'all': extra_xgboost + extra_pyspark + extra_lightgbm + extra_tensorflow + extra_ai,
+        'dev': ['pytest']
     },
     python_requires='>=3.6',
     author='Terence Parr, Tudor Lapusan, and Prince Grover',

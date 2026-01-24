@@ -18,43 +18,37 @@ import trafaret as t
 from datarobot.models.api_object import APIObject
 from datarobot.utils.pagination import unpaginate
 
-sidecar_model_metric_validation_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("target_column_name", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("prompt_column_name", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("deployment_id"): t.String,
-        t.Key("validation_status"): t.String,
-        t.Key("model_id"): t.String,
-        t.Key("deployment_access_data", optional=True, default=None): t.Or(
-            t.Null,
-            t.Dict(
-                {
-                    t.Key("prediction_api_url"): t.String,
-                    t.Key("datarobot_key", optional=True, default=None): t.Or(t.Null, t.String),
-                    t.Key("authorization_header"): t.String,
-                    t.Key("input_type"): t.String,
-                    t.Key("model_type"): t.String,
-                }
-            ).ignore_extra("*"),
-        ),
-        t.Key("tenant_id"): t.String,
-        t.Key("user_id"): t.String,
-        t.Key("creation_date"): t.String,
-        t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("deployment_name", optional=True, default=None): t.Or(
-            t.Null, t.String(allow_blank=True)
-        ),
-        t.Key("user_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
-        t.Key("use_case_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("prediction_timeout"): t.Int,
-        t.Key("playground_id", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("citations_prefix_column_name", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("response_column_name", optional=True, default=None): t.Or(t.Null, t.String),
-        t.Key("expected_response_column_name", optional=True, default=None): t.Or(t.Null, t.String),
-    }
-).ignore_extra("*")
+sidecar_model_metric_validation_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("target_column_name", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("prompt_column_name", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("deployment_id"): t.String,
+    t.Key("validation_status"): t.String,
+    t.Key("model_id"): t.String,
+    t.Key("deployment_access_data", optional=True, default=None): t.Or(
+        t.Null,
+        t.Dict({
+            t.Key("prediction_api_url"): t.String,
+            t.Key("datarobot_key", optional=True, default=None): t.Or(t.Null, t.String),
+            t.Key("authorization_header"): t.String,
+            t.Key("input_type"): t.String,
+            t.Key("model_type"): t.String,
+        }).ignore_extra("*"),
+    ),
+    t.Key("tenant_id"): t.String,
+    t.Key("user_id"): t.String,
+    t.Key("creation_date"): t.String,
+    t.Key("error_message", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("deployment_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
+    t.Key("user_name", optional=True, default=None): t.Or(t.Null, t.String(allow_blank=True)),
+    t.Key("use_case_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("prediction_timeout"): t.Int,
+    t.Key("playground_id", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("citations_prefix_column_name", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("response_column_name", optional=True, default=None): t.Or(t.Null, t.String),
+    t.Key("expected_response_column_name", optional=True, default=None): t.Or(t.Null, t.String),
+}).ignore_extra("*")
 
 
 class SidecarModelMetricValidation(APIObject):

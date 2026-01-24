@@ -16,11 +16,13 @@ T = TypeVar("T", bound="HttpTriggerRetry")
 
 @_attrs_define
 class HttpTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, HttpTriggerRetryConstant]):
-        exponential (Union[Unset, HttpTriggerRetryExponential]):
-        retry_if (Union[Unset, HttpTriggerRetryRetryIf]):
+        constant (Union[Unset, HttpTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, HttpTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, HttpTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "HttpTriggerRetryConstant"] = UNSET

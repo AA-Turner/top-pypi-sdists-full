@@ -6,15 +6,14 @@ import datetime
 import math
 from typing import Any
 from typing import cast
-from typing import Dict
 from typing import overload
-import warnings
 
 from optuna import distributions
 from optuna import logging
 from optuna._convert_positional_args import convert_positional_args
 from optuna._deprecated import deprecated_func
 from optuna._typing import JSONSerializable
+from optuna._warnings import optuna_warn
 from optuna.distributions import _convert_old_distribution_to_new_distribution
 from optuna.distributions import BaseDistribution
 from optuna.distributions import CategoricalChoiceType
@@ -355,7 +354,7 @@ class FrozenTrial(BaseTrial):
         value = self._params[name]
         param_value_in_internal_repr = distribution.to_internal_repr(value)
         if not distribution._contains(param_value_in_internal_repr):
-            warnings.warn(
+            optuna_warn(
                 "The value {} of the parameter '{}' is out of "
                 "the range of the distribution {}.".format(value, name, distribution)
             )
@@ -450,7 +449,7 @@ class FrozenTrial(BaseTrial):
 
     @system_attrs.setter
     def system_attrs(self, value: Mapping[str, JSONSerializable]) -> None:
-        self._system_attrs = cast(Dict[str, Any], value)
+        self._system_attrs = cast(dict[str, Any], value)
 
     @property
     def last_step(self) -> int | None:

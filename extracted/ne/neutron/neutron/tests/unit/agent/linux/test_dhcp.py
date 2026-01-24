@@ -58,7 +58,7 @@ class FakeDNSAssignment:
         self.ip_address = ip_address
         self.fqdn = self.hostname
         if domain:
-            self.fqdn = '{}.{}.'.format(self.hostname, domain)
+            self.fqdn = f'{self.hostname}.{domain}.'
 
 
 class DhcpOpt:
@@ -1180,7 +1180,7 @@ class TestDhcpBase(TestBase):
                 self.called.append('enable')
 
             def disable(self, retain_port=False, block=False):
-                self.called.append('disable {} {}'.format(retain_port, block))
+                self.called.append(f'disable {retain_port} {block}')
 
             def reload_allocations(self):
                 pass
@@ -1449,7 +1449,7 @@ class TestDnsmasq(TestBase):
                     has_stateless=True, dhcp_t1=0, dhcp_t2=0,
                     bridged=True):
         def mock_get_conf_file_name(kind):
-            return '/dhcp/{}/{}'.format(network.id, kind)
+            return f'/dhcp/{network.id}/{kind}'
 
         # Empty string passed to --conf-file in dnsmasq is invalid
         # we must force '' to '/dev/null' because the dhcp agent
@@ -1692,7 +1692,7 @@ class TestDnsmasq(TestBase):
             '00:00:80:aa:bb:cc 192.168.0.2 * *',
             '00:00:0f:aa:bb:cc 192.168.0.3 * *',
             '00:00:0f:rr:rr:rr 192.168.0.1 * *\n']
-        expected = "\n".join(['{} {}'.format(timestamp, le)
+        expected = "\n".join([f'{timestamp} {le}'
                              for le in expected])
         with mock.patch.object(dhcp.Dnsmasq, 'get_conf_file_name') as conf_fn:
             conf_fn.return_value = '/foo/leases'
@@ -2506,6 +2506,7 @@ class TestDnsmasq(TestBase):
         mock_dhcp_release6_supported.assert_called_once_with()
 
     def test_release_for_ipv6_lease_no_dhcp_release6(self):
+        self.conf.set_override('enable_isolated_metadata', False)
         dnsmasq = self._get_dnsmasq(FakeDualNetwork())
 
         ip1 = 'fdca:3ba5:a17a::1'
@@ -2518,12 +2519,12 @@ class TestDnsmasq(TestBase):
                                                 'client_id': 'client_id',
                                                 'server_id': 'server_id'}
                           })
-        ipw = mock.patch(
-            'neutron.agent.linux.ip_lib.IpNetnsCommand.execute').start()
+        mock_dhcp_release6 = mock.patch.object(priv_dhcp,
+                                               'dhcp_release6').start()
         dnsmasq._IS_DHCP_RELEASE6_SUPPORTED = False
         dnsmasq._release_unused_leases()
         # Verify that dhcp_release6 is not called when it is not present
-        ipw.assert_not_called()
+        mock_dhcp_release6.assert_not_called()
 
     def test_release_unused_leases_with_dhcp_port(self):
         dnsmasq = self._get_dnsmasq(FakeNetworkDhcpPort())
@@ -3619,7 +3620,7 @@ class TestDictModel(base.BaseTestCase):
         self.assertIsNone(self.dm.get('a'))
 
     def test__str(self):
-        reference = 'a={}, b={}'.format(self._a, self._b)
+        reference = f'a={self._a}, b={self._b}'
         self.assertEqual(reference, str(self.dm))
 
     def test__getitem(self):

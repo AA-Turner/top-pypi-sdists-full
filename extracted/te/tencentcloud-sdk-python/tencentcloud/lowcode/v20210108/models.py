@@ -475,6 +475,8 @@ class DataSourceDetail(AbstractModel):
         :param _DbSourceType: DB来源类型
 注意：此字段可能返回 null，表示取不到有效值。
         :type DbSourceType: str
+        :param _StagingSwitch: 模型预览状态开关
+        :type StagingSwitch: bool
         """
         self._Id = None
         self._Title = None
@@ -514,6 +516,7 @@ class DataSourceDetail(AbstractModel):
         self._PreviewTableName = None
         self._PublishedTableName = None
         self._DbSourceType = None
+        self._StagingSwitch = None
 
     @property
     def Id(self):
@@ -959,6 +962,17 @@ class DataSourceDetail(AbstractModel):
     def DbSourceType(self, DbSourceType):
         self._DbSourceType = DbSourceType
 
+    @property
+    def StagingSwitch(self):
+        r"""模型预览状态开关
+        :rtype: bool
+        """
+        return self._StagingSwitch
+
+    @StagingSwitch.setter
+    def StagingSwitch(self, StagingSwitch):
+        self._StagingSwitch = StagingSwitch
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -1011,6 +1025,7 @@ class DataSourceDetail(AbstractModel):
         self._PreviewTableName = params.get("PreviewTableName")
         self._PublishedTableName = params.get("PublishedTableName")
         self._DbSourceType = params.get("DbSourceType")
+        self._StagingSwitch = params.get("StagingSwitch")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2769,12 +2784,15 @@ class DescribeRelatedUsersRequest(AbstractModel):
         :type PageSize: int
         :param _EnvType: 环境类型
         :type EnvType: str
+        :param _RoleStringId: 新角色id
+        :type RoleStringId: str
         """
         self._RoleId = None
         self._EnvId = None
         self._PageNo = None
         self._PageSize = None
         self._EnvType = None
+        self._RoleStringId = None
 
     @property
     def RoleId(self):
@@ -2831,6 +2849,17 @@ class DescribeRelatedUsersRequest(AbstractModel):
     def EnvType(self, EnvType):
         self._EnvType = EnvType
 
+    @property
+    def RoleStringId(self):
+        r"""新角色id
+        :rtype: str
+        """
+        return self._RoleStringId
+
+    @RoleStringId.setter
+    def RoleStringId(self, RoleStringId):
+        self._RoleStringId = RoleStringId
+
 
     def _deserialize(self, params):
         self._RoleId = params.get("RoleId")
@@ -2838,6 +2867,7 @@ class DescribeRelatedUsersRequest(AbstractModel):
         self._PageNo = params.get("PageNo")
         self._PageSize = params.get("PageSize")
         self._EnvType = params.get("EnvType")
+        self._RoleStringId = params.get("RoleStringId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

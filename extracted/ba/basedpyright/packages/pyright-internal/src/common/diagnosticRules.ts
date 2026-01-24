@@ -16,6 +16,7 @@ export enum DiagnosticRule {
     strictDictionaryInference = 'strictDictionaryInference',
     analyzeUnannotatedFunctions = 'analyzeUnannotatedFunctions',
     strictParameterNoneValue = 'strictParameterNoneValue',
+    enableBasedFeatures = 'enableBasedFeatures',
     enableExperimentalFeatures = 'enableExperimentalFeatures',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
     enableReachabilityAnalysis = 'enableReachabilityAnalysis',
@@ -102,7 +103,6 @@ export enum DiagnosticRule {
     reportUnnecessaryTypeIgnoreComment = 'reportUnnecessaryTypeIgnoreComment',
     reportMatchNotExhaustive = 'reportMatchNotExhaustive',
     reportUnreachable = 'reportUnreachable',
-    reportShadowedImports = 'reportShadowedImports',
     reportImplicitOverride = 'reportImplicitOverride',
 
     // basedpyright options:
@@ -120,4 +120,5 @@ export enum DiagnosticRule {
     reportUnannotatedClassAttribute = 'reportUnannotatedClassAttribute',
     reportIncompatibleUnannotatedOverride = 'reportIncompatibleUnannotatedOverride',
     reportInvalidAbstractMethod = 'reportInvalidAbstractMethod',
+    reportSelfClsDefault = 'reportSelfClsDefault',
 }

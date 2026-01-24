@@ -38,18 +38,36 @@ class NequIPCalculator(Calculator):
     implemented_properties = ["energy", "energies", "forces", "stress", "free_energy"]
 
     @classmethod
-    def _handle_chemical_symbols(
+    def _handle_chemical_species_map(
         cls,
-        chemical_symbols: Optional[Union[List[str], Dict[str, str]]],
+        chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]],
         type_names: List[str],
-    ) -> Union[List[str], Dict[str, str]]:
-        """Handle chemical symbols fallback to type names with warning."""
-        if chemical_symbols is None:
+    ) -> Dict[str, str]:
+        """Handle chemical species map fallback to identity map with warning.
+
+        Args:
+            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to atom type names.
+                If ``None`` (default), uses identity mapping with warning.
+                If ``True``, uses identity mapping without warning.
+                If dict, uses the provided mapping.
+            type_names (List[str]): list of model type names.
+
+        Returns:
+            Dict[str, str]: the chemical species to atom type mapping.
+        """
+        if chemical_species_to_atom_type_map is None:
             warnings.warn(
-                "Trying to use model type names as chemical symbols; this may not be correct for your model (and may cause an error if model type names are not chemical symbols)! To avoid this warning, please provide `chemical_symbols` explicitly."
+                "Defaulting to using model type names as chemical symbols. "
+                "If the model type names correspond exactly to chemical species (e.g., 'H', 'C', 'O'), this is correct. "
+                "Otherwise, this is wrong and will cause errors. "
+                "To silence this warning, explicitly set `chemical_species_to_atom_type_map=True` for identity mapping, "
+                "or provide the correct mapping as a dict."
             )
-            chemical_symbols = type_names
-        return chemical_symbols
+            chemical_species_to_atom_type_map = {t: t for t in type_names}
+        elif chemical_species_to_atom_type_map is True:
+            # explicitly requested identity mapping without warning
+            chemical_species_to_atom_type_map = {t: t for t in type_names}
+        return chemical_species_to_atom_type_map
 
     def __init__(
         self,
@@ -82,16 +100,38 @@ class NequIPCalculator(Calculator):
         cls,
         compile_path: str,
         device: Union[str, torch.device] = "cpu",
+        chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]] = None,
         chemical_symbols: Optional[Union[List[str], Dict[str, str]]] = None,
         **kwargs,
     ):
         """Creates a :class:`~nequip.ase.NequIPCalculator` from a compiled model file.
 
         Args:
-            compile_path (str): path to compiled model file
-            device (torch.device): the device to use
-            chemical_symbols (List[str] or Dict[str, str]): mapping between chemical symbols and model type names
+            compile_path (str): path to compiled model file.
+            device (str or torch.device): the device to use (e.g., ``"cpu"`` or ``"cuda"``).
+            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to model type names.
+                If ``None`` (default), uses identity mapping with warning.
+                If ``True``, uses identity mapping without warning.
+                If dict, uses the provided mapping.
         """
+        # TODO: eventually remove this check
+        # check for deprecated API usage
+        if chemical_symbols is not None:
+            raise ValueError(
+                "The `chemical_symbols` parameter is no longer supported. "
+                "Please use `chemical_species_to_atom_type_map` instead.\n\n"
+                "Old usage:\n"
+                "  calc = NequIPCalculator.from_compiled_model(\n"
+                "      'model.pth',\n"
+                "      chemical_symbols=['H', 'C', 'O']\n"
+                "  )\n\n"
+                "New usage:\n"
+                "  calc = NequIPCalculator.from_compiled_model(\n"
+                "      'model.pth',\n"
+                "      chemical_species_to_atom_type_map={'H': 'H', 'C': 'C', 'O': 'O'}\n"
+                "  )\n"
+            )
+
         from nequip.model.inference_models import load_compiled_model
         from nequip.scripts._compile_utils import PAIR_NEQUIP_INPUTS, ASE_OUTPUTS
 
@@ -105,14 +145,19 @@ class NequIPCalculator(Calculator):
         # create neighbor list transform with per-edge-type cutoffs if available
         neighbor_transform = _create_neighbor_transform(metadata, r_max, type_names)
 
-        # use `type_names` metadata as substitute for `chemical_symbols` if latter not provided
-        chemical_symbols = cls._handle_chemical_symbols(chemical_symbols, type_names)
+        # use `type_names` metadata as identity map if not provided
+        chemical_species_to_atom_type_map = cls._handle_chemical_species_map(
+            chemical_species_to_atom_type_map, type_names
+        )
 
         return cls(
             model=model,
             device=device,
             transforms=[
-                ChemicalSpeciesToAtomTypeMapper(chemical_symbols),
+                ChemicalSpeciesToAtomTypeMapper(
+                    model_type_names=type_names,
+                    chemical_species_to_atom_type_map=chemical_species_to_atom_type_map,
+                ),
                 neighbor_transform,
             ],
             **kwargs,
@@ -123,7 +168,7 @@ class NequIPCalculator(Calculator):
         cls,
         model_path: str,
         device: Union[str, torch.device] = "cpu",
-        chemical_symbols: Optional[Union[List[str], Dict[str, str]]] = None,
+        chemical_species_to_atom_type_map: Optional[Union[Dict[str, str], bool]] = None,
         allow_tf32: bool = False,
         model_name: str = _SOLE_MODEL_KEY,
         **kwargs,
@@ -136,11 +181,14 @@ class NequIPCalculator(Calculator):
 
         Args:
             model_path (str): path to a checkpoint file, package file, or nequip.net model ID
-                            (format: nequip.net:group-name/model-name:version)
-            device (torch.device): the device to use
-            chemical_symbols (List[str] or Dict[str, str]): mapping between chemical symbols and model type names
-            allow_tf32 (bool): whether to allow TensorFloat32 operations (default ``False``)
-            model_name (str): key to select the model from ModuleDict (default for single model case)
+                (format: nequip.net:group-name/model-name:version).
+            device (str or torch.device): the device to use (e.g., ``"cpu"`` or ``"cuda"``).
+            chemical_species_to_atom_type_map (Dict[str, str] or bool or None): mapping from chemical species to model type names.
+                If ``None`` (default), uses identity mapping with warning.
+                If ``True``, uses identity mapping without warning.
+                If dict, uses the provided mapping.
+            allow_tf32 (bool): whether to allow TensorFloat32 operations (default ``False``).
+            model_name (str): key to select the model from ModuleDict (default for single model case).
         """
         from nequip.model.saved_models.load_utils import load_saved_model
 
@@ -162,7 +210,9 @@ class NequIPCalculator(Calculator):
             model.metadata, r_max, type_names
         )
 
-        chemical_symbols = cls._handle_chemical_symbols(chemical_symbols, type_names)
+        chemical_species_to_atom_type_map = cls._handle_chemical_species_map(
+            chemical_species_to_atom_type_map, type_names
+        )
 
         # build nequip calculator
         if "transforms" in kwargs:
@@ -172,7 +222,10 @@ class NequIPCalculator(Calculator):
             model=model,
             device=device,
             transforms=[
-                ChemicalSpeciesToAtomTypeMapper(chemical_symbols),
+                ChemicalSpeciesToAtomTypeMapper(
+                    model_type_names=type_names,
+                    chemical_species_to_atom_type_map=chemical_species_to_atom_type_map,
+                ),
                 neighbor_transform,
             ],
             **kwargs,
@@ -225,6 +278,12 @@ class NequIPCalculator(Calculator):
             stress_voigt = full_3x3_to_voigt_6_stress(stress)
             self.results["stress"] = stress_voigt
 
+        self.save_extra_outputs(out)
+
+    def save_extra_outputs(self, out: AtomicDataDict.Type):
+        # subclasses can implement this method to process extra outputs without code duplication
+        pass
+
 
 def _create_neighbor_transform(
     metadata: dict, r_max: float, type_names: List[str]
@@ -233,9 +292,9 @@ def _create_neighbor_transform(
     if metadata.get(graph_model.PER_EDGE_TYPE_CUTOFF_KEY, None) is not None:
         per_edge_type_cutoff = metadata[graph_model.PER_EDGE_TYPE_CUTOFF_KEY]
         if isinstance(per_edge_type_cutoff, str):
-            from nequip.nn.embedding.utils import parse_per_edge_type_cutoff_metadata
+            from nequip.nn.embedding.utils import cutoff_str_to_fulldict
 
-            per_edge_type_cutoff = parse_per_edge_type_cutoff_metadata(
+            per_edge_type_cutoff = cutoff_str_to_fulldict(
                 per_edge_type_cutoff, type_names
             )
 

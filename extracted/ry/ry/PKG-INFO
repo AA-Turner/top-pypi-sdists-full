@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ry
-Version: 0.0.58
+Version: 0.0.81
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Rust
@@ -32,15 +33,15 @@ Project-URL: Source, https://github.com/jessekrubin/ry
 
 # ry
 
-A growing collection of Python shims around Rust crates; fast, async-first, and
-ergonomic.
-
 [![PyPI](https://img.shields.io/pypi/v/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
 [![PyPI - Wheel](https://img.shields.io/pypi/wheel/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/ry?style=flat-square&cacheSeconds=600)](https://pypistats.org/packages/ry)
 [![PyPI - Status](https://img.shields.io/pypi/status/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
 [![PyPI - License](https://img.shields.io/pypi/l/ry?style=flat-square&cacheSeconds=600)](https://pypi.org/project/ry/)
+
+A growing collection of Python shims around Rust crates; fast, async-first, and
+ergonomic.
 
 **DOCS:** [ryo3.dev](https://ryo3.dev) (WIP)
 
@@ -50,22 +51,26 @@ ergonomic.
 
 ## Highlights
 
-- **Async-first HTTP client:** Built on `reqwest`, with a `fetch`-like API.
-  Supports streaming, zero-copy IO via the buffer protocol, timeouts,
-  redirect-following, and native JSON parsing via `jiter`.
+- **Async-first client and blocking/sync client:** Built on `reqwest`, with a
+  `fetch`-like API. Supports streaming, zero-copy IO via the buffer protocol,
+  timeouts, redirect-following, and native JSON (de)serialization via
+  `serde`/`jiter`.
+- **`jiff` based datetime library:** comprehensive datetime library based on
+  `jiff` (pydantic-compatible).
 - **Async file I/O:** Built on `tokio`, with an `AsyncFile` API similar to
   `aiofiles` and `anyio`'s async-file api. Supports buffered reads/writes,
   truncation, streaming reads, and `anyio` compatibility.
 - **(de)compression:** (de)compression tools for `zstd`, `brotli`, `gzip`, and
   `bzip2`.
-- **Datetime utilities via `jiff`:** Fast, accurate, timezone-aware datetime
-  parsing and formatting, with `datetime` interop and much more
 - **Miscellaneous bindings:** Includes crates like `globset`, `walkdir`,
-  `sqlformat`, `unindent`, `xxhash`, and more.
+  `sqlformat`, `unindent`, `twox-hash`, and more.
 - **Designed for ergonomics:** Async where it matters. Simple where possible.
   Python-native behavior with minimal friction.
 - **Type Annotated:** All public APIs are (painstakingly) type annotated.
 - **Performant:** Speed without the words "blazingly fast." [^1]
+- **Pydantic Integration:** ry data types (mostly) work good w/ pydantic.
+- **Not slop:** written by a human [^2]
+- **No emojis**
 
 ## Install
 
@@ -113,38 +118,44 @@ _(aka: questions that I have been asking myself)_
 
 ## Crate bindings
 
-- wrapped crates:
-  - `std` - many stdlib types and apis
-  - `bytes`
-  - `dirs`
-  - `glob`
-  - `heck`
-  - `http`
-  - `jiter`
-  - `reqwest`
-  - `shlex`
-  - `size`
-  - `sqlformat`
-  - `tokio` (`fs` and `process`)
-  - `unindent`
-  - `url`
-  - `uuid`
-  - `which`
-  - compression:
-    - `brotli`
-    - `bzip2`
-    - `flate2`
-    - `zstd`
-  - hashing:
-    - `fnv`
-    - `xxhash`
-  - burnt-sushi:
-    - `globset` (formerly [globsters](https://pypi.org/project/globsters/))
-    - `jiff`
-    - `memchr`
-    - `regex` (WIP ~ very incomplete)
-    - `same-file`
-    - `walkdir`
+| **crate**       | **ryo3-crate**                                                                        |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `std`           | [`ryo3-std`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-std)             |
+| `bytes`         | [`ryo3-bytes`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-bytes)         |
+| `bzip2`         | [`ryo3-bzip2`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-bzip2)         |
+| `dirs`          | [`ryo3-dirs`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-dirs)           |
+| `fspath`        | [`ryo3-fspath`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-fspath)       |
+| `glob`          | [`ryo3-glob`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-glob)           |
+| `heck`          | [`ryo3-heck`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-heck)           |
+| `http`          | [`ryo3-http`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-http)           |
+| `jiter`         | [`ryo3-jiter`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-jiter)         |
+| `json`          | [`ryo3-json`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-json)           |
+| `pydantic`      | [`ryo3-pydantic`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-pydantic)   |
+| `reqwest`       | [`ryo3-reqwest`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-reqwest)     |
+| `serde`         | [`ryo3-serde`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-serde)         |
+| `shlex`         | [`ryo3-shlex`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-shlex)         |
+| `size`          | [`ryo3-size`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-size)           |
+| `sqlformat`     | [`ryo3-sqlformat`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-sqlformat) |
+| `tokio`         | [`ryo3-tokio`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-tokio)         |
+| `ulid`          | [`ryo3-ulid`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-ulid)           |
+| `unindent`      | [`ryo3-unindent`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-unindent)   |
+| `url`           | [`ryo3-url`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-url)             |
+| `uuid`          | [`ryo3-uuid`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-uuid)           |
+| `which`         | [`ryo3-which`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-which)         |
+| **Compression** | **~**                                                                                 |
+| `brotli`        | [`ryo3-brotli`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-brotli)       |
+| `flate2`        | [`ryo3-flate2`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-flate2)       |
+| `zstd`          | [`ryo3-zstd`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-zstd)           |
+| **Hashing**     | **~**                                                                                 |
+| `fnv`           | [`ryo3-fnv`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-fnv)             |
+| `twox-hash`     | [`ryo3-twox-hash`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-twox-hash) |
+| **@BurntSushi** | **~**                                                                                 |
+| `globset`       | [`ryo3-globset`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-globset)     |
+| `jiff`          | [`ryo3-jiff`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-jiff)           |
+| `memchr`        | [`ryo3-memchr`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-memchr)       |
+| `regex`         | [`ryo3-regex`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-regex)         |
+| `same-file`     | [`ryo3-same-file`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-same-file) |
+| `walkdir`       | [`ryo3-walkdir`](https://github.com/jessekrubin/ry/tree/main/crates/ryo3-walkdir)     |
 
 ---
 
@@ -160,9 +171,12 @@ _(aka: questions that I have been asking myself)_
 
 ## SEE ALSO
 
-- utiles (web-map tile utils): https://github.com/jessekrubin/utiles
+- [utiles](https://github.com/jessekrubin/utiles): web-map tile utils
 
-[^1]: Release‑version benchmarks of `ry` (via `pytest-benchmark`) showed no real
+[^1]:
+    Release‑version benchmarks of `ry` (via `pytest-benchmark`) showed no real
     performance variance, regardless of whether "blazingly fast" appeared in the
     README or docs.
+
+[^2]: Artisanal, hand-crafted, small-batch software.
 

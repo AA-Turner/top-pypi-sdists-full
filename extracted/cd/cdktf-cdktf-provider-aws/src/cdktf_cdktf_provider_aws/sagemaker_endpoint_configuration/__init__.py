@@ -1,7 +1,7 @@
 r'''
 # `aws_sagemaker_endpoint_configuration`
 
-Refer to the Terraform Registry for docs: [`aws_sagemaker_endpoint_configuration`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration).
+Refer to the Terraform Registry for docs: [`aws_sagemaker_endpoint_configuration`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class SagemakerEndpointConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.sagemakerEndpointConfiguration.SagemakerEndpointConfiguration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration aws_sagemaker_endpoint_configuration}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration aws_sagemaker_endpoint_configuration}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class SagemakerEndpointConfiguration(
         production_variants: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerEndpointConfigurationProductionVariants", typing.Dict[builtins.str, typing.Any]]]],
         async_inference_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationAsyncInferenceConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         data_capture_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationDataCaptureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
@@ -70,21 +71,22 @@ class SagemakerEndpointConfiguration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration aws_sagemaker_endpoint_configuration} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration aws_sagemaker_endpoint_configuration} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param production_variants: production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
-        :param async_inference_config: async_inference_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
-        :param data_capture_config: data_capture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
-        :param shadow_production_variants: shadow_production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.
+        :param production_variants: production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
+        :param async_inference_config: async_inference_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
+        :param data_capture_config: data_capture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#execution_role_arn SagemakerEndpointConfiguration#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
+        :param shadow_production_variants: shadow_production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -101,6 +103,7 @@ class SagemakerEndpointConfiguration(
             production_variants=production_variants,
             async_inference_config=async_inference_config,
             data_capture_config=data_capture_config,
+            execution_role_arn=execution_role_arn,
             id=id,
             kms_key_arn=kms_key_arn,
             name=name,
@@ -133,7 +136,7 @@ class SagemakerEndpointConfiguration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the SagemakerEndpointConfiguration to import.
-        :param import_from_id: The id of the existing SagemakerEndpointConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing SagemakerEndpointConfiguration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the SagemakerEndpointConfiguration to import is found.
         '''
         if __debug__:
@@ -152,8 +155,8 @@ class SagemakerEndpointConfiguration(
         client_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
-        :param client_config: client_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
+        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
+        :param client_config: client_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
         '''
         value = SagemakerEndpointConfigurationAsyncInferenceConfig(
             output_config=output_config, client_config=client_config
@@ -173,12 +176,12 @@ class SagemakerEndpointConfiguration(
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capture_options: capture_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param initial_sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.
-        :param capture_content_type_header: capture_content_type_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
-        :param enable_capture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param capture_options: capture_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param initial_sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.
+        :param capture_content_type_header: capture_content_type_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
+        :param enable_capture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         value = SagemakerEndpointConfigurationDataCaptureConfig(
             capture_options=capture_options,
@@ -224,6 +227,10 @@ class SagemakerEndpointConfiguration(
     @jsii.member(jsii_name="resetDataCaptureConfig")
     def reset_data_capture_config(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDataCaptureConfig", []))
+
+    @jsii.member(jsii_name="resetExecutionRoleArn")
+    def reset_execution_role_arn(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExecutionRoleArn", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -318,6 +325,11 @@ class SagemakerEndpointConfiguration(
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationDataCaptureConfig"], jsii.get(self, "dataCaptureConfigInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="executionRoleArnInput")
+    def execution_role_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleArnInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
@@ -367,6 +379,18 @@ class SagemakerEndpointConfiguration(
     @jsii.member(jsii_name="tagsInput")
     def tags_input(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "tagsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c3be272d4eef174261e0d7924c99adfc899f2bb24c54b36c08912b710fe9e043)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -466,8 +490,8 @@ class SagemakerEndpointConfigurationAsyncInferenceConfig:
         client_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
-        :param client_config: client_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
+        :param output_config: output_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
+        :param client_config: client_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
         '''
         if isinstance(output_config, dict):
             output_config = SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig(**output_config)
@@ -489,7 +513,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfig:
     ) -> "SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig":
         '''output_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#output_config SagemakerEndpointConfiguration#output_config}
         '''
         result = self._values.get("output_config")
         assert result is not None, "Required property 'output_config' is missing"
@@ -501,7 +525,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfig:
     ) -> typing.Optional["SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig"]:
         '''client_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#client_config SagemakerEndpointConfiguration#client_config}
         '''
         result = self._values.get("client_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig"], result)
@@ -532,7 +556,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig:
         max_concurrent_invocations_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_invocations_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.
+        :param max_concurrent_invocations_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__783605fe56ba8b2713e1157214d3797f8c0fcadce21cc398f2e043ac3d71ea5f)
@@ -543,7 +567,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig:
 
     @builtins.property
     def max_concurrent_invocations_per_instance(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.'''
         result = self._values.get("max_concurrent_invocations_per_instance")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -640,10 +664,10 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig:
         s3_failure_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_output_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
-        :param s3_failure_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.
+        :param s3_output_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
+        :param s3_failure_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.
         '''
         if isinstance(notification_config, dict):
             notification_config = SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfig(**notification_config)
@@ -665,14 +689,14 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig:
 
     @builtins.property
     def s3_output_path(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.'''
         result = self._values.get("s3_output_path")
         assert result is not None, "Required property 's3_output_path' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -682,14 +706,14 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig:
     ) -> typing.Optional["SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfig"]:
         '''notification_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
         '''
         result = self._values.get("notification_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfig"], result)
 
     @builtins.property
     def s3_failure_path(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.'''
         result = self._values.get("s3_failure_path")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -723,9 +747,9 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotification
         success_topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.
-        :param include_inference_response_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.
-        :param success_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.
+        :param error_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.
+        :param include_inference_response_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.
+        :param success_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7d32fc8df0086d95be699e9c9ee144b21afd21163f8235e33d87ba17398f4674)
@@ -742,7 +766,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotification
 
     @builtins.property
     def error_topic(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.'''
         result = self._values.get("error_topic")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -750,13 +774,13 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotification
     def include_inference_response_in(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.'''
         result = self._values.get("include_inference_response_in")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def success_topic(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.'''
         result = self._values.get("success_topic")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -904,9 +928,9 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigOutputRefere
         success_topic: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param error_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.
-        :param include_inference_response_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.
-        :param success_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.
+        :param error_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#error_topic SagemakerEndpointConfiguration#error_topic}.
+        :param include_inference_response_in: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#include_inference_response_in SagemakerEndpointConfiguration#include_inference_response_in}.
+        :param success_topic: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#success_topic SagemakerEndpointConfiguration#success_topic}.
         '''
         value = SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfigNotificationConfig(
             error_topic=error_topic,
@@ -1038,7 +1062,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputReference(
         max_concurrent_invocations_per_instance: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrent_invocations_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.
+        :param max_concurrent_invocations_per_instance: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrent_invocations_per_instance SagemakerEndpointConfiguration#max_concurrent_invocations_per_instance}.
         '''
         value = SagemakerEndpointConfigurationAsyncInferenceConfigClientConfig(
             max_concurrent_invocations_per_instance=max_concurrent_invocations_per_instance,
@@ -1056,10 +1080,10 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputReference(
         s3_failure_path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param s3_output_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
-        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
-        :param s3_failure_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.
+        :param s3_output_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_output_path SagemakerEndpointConfiguration#s3_output_path}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param notification_config: notification_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#notification_config SagemakerEndpointConfiguration#notification_config}
+        :param s3_failure_path: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#s3_failure_path SagemakerEndpointConfiguration#s3_failure_path}.
         '''
         value = SagemakerEndpointConfigurationAsyncInferenceConfigOutputConfig(
             s3_output_path=s3_output_path,
@@ -1134,6 +1158,7 @@ class SagemakerEndpointConfigurationAsyncInferenceConfigOutputReference(
         "production_variants": "productionVariants",
         "async_inference_config": "asyncInferenceConfig",
         "data_capture_config": "dataCaptureConfig",
+        "execution_role_arn": "executionRoleArn",
         "id": "id",
         "kms_key_arn": "kmsKeyArn",
         "name": "name",
@@ -1158,6 +1183,7 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         production_variants: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerEndpointConfigurationProductionVariants", typing.Dict[builtins.str, typing.Any]]]],
         async_inference_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationAsyncInferenceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
         data_capture_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationDataCaptureConfig", typing.Dict[builtins.str, typing.Any]]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
@@ -1175,17 +1201,18 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param production_variants: production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
-        :param async_inference_config: async_inference_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
-        :param data_capture_config: data_capture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.
-        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
-        :param shadow_production_variants: shadow_production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.
+        :param production_variants: production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
+        :param async_inference_config: async_inference_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
+        :param data_capture_config: data_capture_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#execution_role_arn SagemakerEndpointConfiguration#execution_role_arn}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.
+        :param name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
+        :param shadow_production_variants: shadow_production_variants block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1205,6 +1232,7 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
             check_type(argname="argument production_variants", value=production_variants, expected_type=type_hints["production_variants"])
             check_type(argname="argument async_inference_config", value=async_inference_config, expected_type=type_hints["async_inference_config"])
             check_type(argname="argument data_capture_config", value=data_capture_config, expected_type=type_hints["data_capture_config"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -1234,6 +1262,8 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
             self._values["async_inference_config"] = async_inference_config
         if data_capture_config is not None:
             self._values["data_capture_config"] = data_capture_config
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
         if id is not None:
             self._values["id"] = id
         if kms_key_arn is not None:
@@ -1321,7 +1351,7 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationProductionVariants"]]:
         '''production_variants block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#production_variants SagemakerEndpointConfiguration#production_variants}
         '''
         result = self._values.get("production_variants")
         assert result is not None, "Required property 'production_variants' is missing"
@@ -1333,7 +1363,7 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[SagemakerEndpointConfigurationAsyncInferenceConfig]:
         '''async_inference_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#async_inference_config SagemakerEndpointConfiguration#async_inference_config}
         '''
         result = self._values.get("async_inference_config")
         return typing.cast(typing.Optional[SagemakerEndpointConfigurationAsyncInferenceConfig], result)
@@ -1344,14 +1374,20 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional["SagemakerEndpointConfigurationDataCaptureConfig"]:
         '''data_capture_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#data_capture_config SagemakerEndpointConfiguration#data_capture_config}
         '''
         result = self._values.get("data_capture_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationDataCaptureConfig"], result)
 
     @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#execution_role_arn SagemakerEndpointConfiguration#execution_role_arn}.'''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#id SagemakerEndpointConfiguration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1361,19 +1397,19 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_arn SagemakerEndpointConfiguration#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name SagemakerEndpointConfiguration#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#name_prefix SagemakerEndpointConfiguration#name_prefix}.'''
         result = self._values.get("name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1381,7 +1417,7 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#region SagemakerEndpointConfiguration#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1392,20 +1428,20 @@ class SagemakerEndpointConfigurationConfig(_cdktf_9a9027ec.TerraformMetaArgument
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationShadowProductionVariants"]]]:
         '''shadow_production_variants block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#shadow_production_variants SagemakerEndpointConfiguration#shadow_production_variants}
         '''
         result = self._values.get("shadow_production_variants")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationShadowProductionVariants"]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags SagemakerEndpointConfiguration#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#tags_all SagemakerEndpointConfiguration#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1445,12 +1481,12 @@ class SagemakerEndpointConfigurationDataCaptureConfig:
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param capture_options: capture_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param initial_sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.
-        :param capture_content_type_header: capture_content_type_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
-        :param enable_capture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param capture_options: capture_options block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param initial_sampling_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.
+        :param capture_content_type_header: capture_content_type_header block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
+        :param enable_capture: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         if isinstance(capture_content_type_header, dict):
             capture_content_type_header = SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader(**capture_content_type_header)
@@ -1480,7 +1516,7 @@ class SagemakerEndpointConfigurationDataCaptureConfig:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationDataCaptureConfigCaptureOptions"]]:
         '''capture_options block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_options SagemakerEndpointConfiguration#capture_options}
         '''
         result = self._values.get("capture_options")
         assert result is not None, "Required property 'capture_options' is missing"
@@ -1488,14 +1524,14 @@ class SagemakerEndpointConfigurationDataCaptureConfig:
 
     @builtins.property
     def destination_s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
         result = self._values.get("destination_s3_uri")
         assert result is not None, "Required property 'destination_s3_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def initial_sampling_percentage(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_sampling_percentage SagemakerEndpointConfiguration#initial_sampling_percentage}.'''
         result = self._values.get("initial_sampling_percentage")
         assert result is not None, "Required property 'initial_sampling_percentage' is missing"
         return typing.cast(jsii.Number, result)
@@ -1506,7 +1542,7 @@ class SagemakerEndpointConfigurationDataCaptureConfig:
     ) -> typing.Optional["SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader"]:
         '''capture_content_type_header block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_content_type_header SagemakerEndpointConfiguration#capture_content_type_header}
         '''
         result = self._values.get("capture_content_type_header")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader"], result)
@@ -1515,13 +1551,13 @@ class SagemakerEndpointConfigurationDataCaptureConfig:
     def enable_capture(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_capture SagemakerEndpointConfiguration#enable_capture}.'''
         result = self._values.get("enable_capture")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1553,8 +1589,8 @@ class SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader:
         json_content_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param csv_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.
-        :param json_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.
+        :param csv_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.
+        :param json_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14fddbe6445dac48556f62969a5c092a3eacebebb68750eb1e1d4fc268acc52a)
@@ -1568,13 +1604,13 @@ class SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader:
 
     @builtins.property
     def csv_content_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.'''
         result = self._values.get("csv_content_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def json_content_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.'''
         result = self._values.get("json_content_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1678,7 +1714,7 @@ class SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeaderOut
 class SagemakerEndpointConfigurationDataCaptureConfigCaptureOptions:
     def __init__(self, *, capture_mode: builtins.str) -> None:
         '''
-        :param capture_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_mode SagemakerEndpointConfiguration#capture_mode}.
+        :param capture_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_mode SagemakerEndpointConfiguration#capture_mode}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bd21ea76fe37867a6dd7207eb5b15b1270736487ddcae38eb0835c1200364174)
@@ -1689,7 +1725,7 @@ class SagemakerEndpointConfigurationDataCaptureConfigCaptureOptions:
 
     @builtins.property
     def capture_mode(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#capture_mode SagemakerEndpointConfiguration#capture_mode}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#capture_mode SagemakerEndpointConfiguration#capture_mode}.'''
         result = self._values.get("capture_mode")
         assert result is not None, "Required property 'capture_mode' is missing"
         return typing.cast(builtins.str, result)
@@ -1888,8 +1924,8 @@ class SagemakerEndpointConfigurationDataCaptureConfigOutputReference(
         json_content_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param csv_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.
-        :param json_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.
+        :param csv_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#csv_content_types SagemakerEndpointConfiguration#csv_content_types}.
+        :param json_content_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#json_content_types SagemakerEndpointConfiguration#json_content_types}.
         '''
         value = SagemakerEndpointConfigurationDataCaptureConfigCaptureContentTypeHeader(
             csv_content_types=csv_content_types, json_content_types=json_content_types
@@ -2047,7 +2083,6 @@ class SagemakerEndpointConfigurationDataCaptureConfigOutputReference(
     jsii_type="@cdktf/provider-aws.sagemakerEndpointConfiguration.SagemakerEndpointConfigurationProductionVariants",
     jsii_struct_bases=[],
     name_mapping={
-        "model_name": "modelName",
         "accelerator_type": "acceleratorType",
         "container_startup_health_check_timeout_in_seconds": "containerStartupHealthCheckTimeoutInSeconds",
         "core_dump_config": "coreDumpConfig",
@@ -2058,6 +2093,7 @@ class SagemakerEndpointConfigurationDataCaptureConfigOutputReference(
         "instance_type": "instanceType",
         "managed_instance_scaling": "managedInstanceScaling",
         "model_data_download_timeout_in_seconds": "modelDataDownloadTimeoutInSeconds",
+        "model_name": "modelName",
         "routing_config": "routingConfig",
         "serverless_config": "serverlessConfig",
         "variant_name": "variantName",
@@ -2068,7 +2104,6 @@ class SagemakerEndpointConfigurationProductionVariants:
     def __init__(
         self,
         *,
-        model_name: builtins.str,
         accelerator_type: typing.Optional[builtins.str] = None,
         container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
         core_dump_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -2079,27 +2114,28 @@ class SagemakerEndpointConfigurationProductionVariants:
         instance_type: typing.Optional[builtins.str] = None,
         managed_instance_scaling: typing.Optional[typing.Union["SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling", typing.Dict[builtins.str, typing.Any]]] = None,
         model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        model_name: typing.Optional[builtins.str] = None,
         routing_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerEndpointConfigurationProductionVariantsRoutingConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
         serverless_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationProductionVariantsServerlessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         variant_name: typing.Optional[builtins.str] = None,
         volume_size_in_gb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.
-        :param accelerator_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.
-        :param container_startup_health_check_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.
-        :param core_dump_config: core_dump_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
-        :param enable_ssm_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.
-        :param inference_ami_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.
-        :param initial_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.
-        :param initial_variant_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.
-        :param managed_instance_scaling: managed_instance_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
-        :param model_data_download_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
-        :param serverless_config: serverless_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
-        :param variant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.
-        :param volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.
+        :param accelerator_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.
+        :param container_startup_health_check_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.
+        :param core_dump_config: core_dump_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
+        :param enable_ssm_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.
+        :param inference_ami_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.
+        :param initial_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.
+        :param initial_variant_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.
+        :param managed_instance_scaling: managed_instance_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
+        :param model_data_download_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.
+        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
+        :param serverless_config: serverless_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
+        :param variant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.
+        :param volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.
         '''
         if isinstance(core_dump_config, dict):
             core_dump_config = SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig(**core_dump_config)
@@ -2109,7 +2145,6 @@ class SagemakerEndpointConfigurationProductionVariants:
             serverless_config = SagemakerEndpointConfigurationProductionVariantsServerlessConfig(**serverless_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d6d0780f8f3c6a31b6ffc7228c7474b45c20464094621414fec68bb65b8174a1)
-            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
             check_type(argname="argument accelerator_type", value=accelerator_type, expected_type=type_hints["accelerator_type"])
             check_type(argname="argument container_startup_health_check_timeout_in_seconds", value=container_startup_health_check_timeout_in_seconds, expected_type=type_hints["container_startup_health_check_timeout_in_seconds"])
             check_type(argname="argument core_dump_config", value=core_dump_config, expected_type=type_hints["core_dump_config"])
@@ -2120,13 +2155,12 @@ class SagemakerEndpointConfigurationProductionVariants:
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument managed_instance_scaling", value=managed_instance_scaling, expected_type=type_hints["managed_instance_scaling"])
             check_type(argname="argument model_data_download_timeout_in_seconds", value=model_data_download_timeout_in_seconds, expected_type=type_hints["model_data_download_timeout_in_seconds"])
+            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
             check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
             check_type(argname="argument serverless_config", value=serverless_config, expected_type=type_hints["serverless_config"])
             check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
             check_type(argname="argument volume_size_in_gb", value=volume_size_in_gb, expected_type=type_hints["volume_size_in_gb"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_name": model_name,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if accelerator_type is not None:
             self._values["accelerator_type"] = accelerator_type
         if container_startup_health_check_timeout_in_seconds is not None:
@@ -2147,6 +2181,8 @@ class SagemakerEndpointConfigurationProductionVariants:
             self._values["managed_instance_scaling"] = managed_instance_scaling
         if model_data_download_timeout_in_seconds is not None:
             self._values["model_data_download_timeout_in_seconds"] = model_data_download_timeout_in_seconds
+        if model_name is not None:
+            self._values["model_name"] = model_name
         if routing_config is not None:
             self._values["routing_config"] = routing_config
         if serverless_config is not None:
@@ -2157,15 +2193,8 @@ class SagemakerEndpointConfigurationProductionVariants:
             self._values["volume_size_in_gb"] = volume_size_in_gb
 
     @builtins.property
-    def model_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.'''
-        result = self._values.get("model_name")
-        assert result is not None, "Required property 'model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def accelerator_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.'''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2173,7 +2202,7 @@ class SagemakerEndpointConfigurationProductionVariants:
     def container_startup_health_check_timeout_in_seconds(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.'''
         result = self._values.get("container_startup_health_check_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2183,7 +2212,7 @@ class SagemakerEndpointConfigurationProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig"]:
         '''core_dump_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
         '''
         result = self._values.get("core_dump_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig"], result)
@@ -2192,31 +2221,31 @@ class SagemakerEndpointConfigurationProductionVariants:
     def enable_ssm_access(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.'''
         result = self._values.get("enable_ssm_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def inference_ami_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.'''
         result = self._values.get("inference_ami_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def initial_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.'''
         result = self._values.get("initial_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def initial_variant_weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.'''
         result = self._values.get("initial_variant_weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2226,16 +2255,22 @@ class SagemakerEndpointConfigurationProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling"]:
         '''managed_instance_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
         '''
         result = self._values.get("managed_instance_scaling")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling"], result)
 
     @builtins.property
     def model_data_download_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.'''
         result = self._values.get("model_data_download_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def model_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.'''
+        result = self._values.get("model_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def routing_config(
@@ -2243,7 +2278,7 @@ class SagemakerEndpointConfigurationProductionVariants:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationProductionVariantsRoutingConfig"]]]:
         '''routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
         '''
         result = self._values.get("routing_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationProductionVariantsRoutingConfig"]]], result)
@@ -2254,20 +2289,20 @@ class SagemakerEndpointConfigurationProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationProductionVariantsServerlessConfig"]:
         '''serverless_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
         '''
         result = self._values.get("serverless_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationProductionVariantsServerlessConfig"], result)
 
     @builtins.property
     def variant_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.'''
         result = self._values.get("variant_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def volume_size_in_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.'''
         result = self._values.get("volume_size_in_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2296,8 +2331,8 @@ class SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig:
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d076aa9449b6dfab6d2b6377a6186f0a0f3a05ede9da2cd8ac0018aad5f768a7)
@@ -2311,14 +2346,14 @@ class SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig:
 
     @builtins.property
     def destination_s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
         result = self._values.get("destination_s3_uri")
         assert result is not None, "Required property 'destination_s3_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2521,9 +2556,9 @@ class SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling:
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
-        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
+        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
+        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26ead371255661b36e9d2ffa4af6212901d6097b6fefd02427898fbf2b16f969)
@@ -2540,19 +2575,19 @@ class SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling:
 
     @builtins.property
     def max_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.'''
         result = self._values.get("max_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.'''
         result = self._values.get("min_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2703,8 +2738,8 @@ class SagemakerEndpointConfigurationProductionVariantsOutputReference(
         kms_key_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         value = SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig(
             destination_s3_uri=destination_s3_uri, kms_key_id=kms_key_id
@@ -2721,9 +2756,9 @@ class SagemakerEndpointConfigurationProductionVariantsOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
-        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
+        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
+        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
         '''
         value = SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling(
             max_instance_count=max_instance_count,
@@ -2755,9 +2790,9 @@ class SagemakerEndpointConfigurationProductionVariantsOutputReference(
         provisioned_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
-        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
-        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
+        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
+        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
         '''
         value = SagemakerEndpointConfigurationProductionVariantsServerlessConfig(
             max_concurrency=max_concurrency,
@@ -2806,6 +2841,10 @@ class SagemakerEndpointConfigurationProductionVariantsOutputReference(
     @jsii.member(jsii_name="resetModelDataDownloadTimeoutInSeconds")
     def reset_model_data_download_timeout_in_seconds(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetModelDataDownloadTimeoutInSeconds", []))
+
+    @jsii.member(jsii_name="resetModelName")
+    def reset_model_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetModelName", []))
 
     @jsii.member(jsii_name="resetRoutingConfig")
     def reset_routing_config(self) -> None:
@@ -3106,7 +3145,7 @@ class SagemakerEndpointConfigurationProductionVariantsOutputReference(
 class SagemakerEndpointConfigurationProductionVariantsRoutingConfig:
     def __init__(self, *, routing_strategy: builtins.str) -> None:
         '''
-        :param routing_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.
+        :param routing_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__353169f103c3c7c8ec3e939b016a4c29d0dcc9a1f825e45ea8579b2c7e20995a)
@@ -3117,7 +3156,7 @@ class SagemakerEndpointConfigurationProductionVariantsRoutingConfig:
 
     @builtins.property
     def routing_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.'''
         result = self._values.get("routing_strategy")
         assert result is not None, "Required property 'routing_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -3306,9 +3345,9 @@ class SagemakerEndpointConfigurationProductionVariantsServerlessConfig:
         provisioned_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
-        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
-        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
+        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
+        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9bfe4354037be8b481f267a6f203076a98f02151679c69f77619e86510c1d9bc)
@@ -3324,21 +3363,21 @@ class SagemakerEndpointConfigurationProductionVariantsServerlessConfig:
 
     @builtins.property
     def max_concurrency(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.'''
         result = self._values.get("max_concurrency")
         assert result is not None, "Required property 'max_concurrency' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def memory_size_in_mb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.'''
         result = self._values.get("memory_size_in_mb")
         assert result is not None, "Required property 'memory_size_in_mb' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def provisioned_concurrency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.'''
         result = self._values.get("provisioned_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3451,7 +3490,6 @@ class SagemakerEndpointConfigurationProductionVariantsServerlessConfigOutputRefe
     jsii_type="@cdktf/provider-aws.sagemakerEndpointConfiguration.SagemakerEndpointConfigurationShadowProductionVariants",
     jsii_struct_bases=[],
     name_mapping={
-        "model_name": "modelName",
         "accelerator_type": "acceleratorType",
         "container_startup_health_check_timeout_in_seconds": "containerStartupHealthCheckTimeoutInSeconds",
         "core_dump_config": "coreDumpConfig",
@@ -3462,6 +3500,7 @@ class SagemakerEndpointConfigurationProductionVariantsServerlessConfigOutputRefe
         "instance_type": "instanceType",
         "managed_instance_scaling": "managedInstanceScaling",
         "model_data_download_timeout_in_seconds": "modelDataDownloadTimeoutInSeconds",
+        "model_name": "modelName",
         "routing_config": "routingConfig",
         "serverless_config": "serverlessConfig",
         "variant_name": "variantName",
@@ -3472,7 +3511,6 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     def __init__(
         self,
         *,
-        model_name: builtins.str,
         accelerator_type: typing.Optional[builtins.str] = None,
         container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
         core_dump_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3483,27 +3521,28 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
         instance_type: typing.Optional[builtins.str] = None,
         managed_instance_scaling: typing.Optional[typing.Union["SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScaling", typing.Dict[builtins.str, typing.Any]]] = None,
         model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        model_name: typing.Optional[builtins.str] = None,
         routing_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
         serverless_config: typing.Optional[typing.Union["SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         variant_name: typing.Optional[builtins.str] = None,
         volume_size_in_gb: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.
-        :param accelerator_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.
-        :param container_startup_health_check_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.
-        :param core_dump_config: core_dump_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
-        :param enable_ssm_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.
-        :param inference_ami_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.
-        :param initial_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.
-        :param initial_variant_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.
-        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.
-        :param managed_instance_scaling: managed_instance_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
-        :param model_data_download_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.
-        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
-        :param serverless_config: serverless_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
-        :param variant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.
-        :param volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.
+        :param accelerator_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.
+        :param container_startup_health_check_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.
+        :param core_dump_config: core_dump_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
+        :param enable_ssm_access: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.
+        :param inference_ami_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.
+        :param initial_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.
+        :param initial_variant_weight: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.
+        :param instance_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.
+        :param managed_instance_scaling: managed_instance_scaling block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
+        :param model_data_download_timeout_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.
+        :param model_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.
+        :param routing_config: routing_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
+        :param serverless_config: serverless_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
+        :param variant_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.
+        :param volume_size_in_gb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.
         '''
         if isinstance(core_dump_config, dict):
             core_dump_config = SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig(**core_dump_config)
@@ -3513,7 +3552,6 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
             serverless_config = SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig(**serverless_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__01391016e396c324c4f94244d3c38ee88ee45365d696ae1a033340076fe2a1e7)
-            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
             check_type(argname="argument accelerator_type", value=accelerator_type, expected_type=type_hints["accelerator_type"])
             check_type(argname="argument container_startup_health_check_timeout_in_seconds", value=container_startup_health_check_timeout_in_seconds, expected_type=type_hints["container_startup_health_check_timeout_in_seconds"])
             check_type(argname="argument core_dump_config", value=core_dump_config, expected_type=type_hints["core_dump_config"])
@@ -3524,13 +3562,12 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
             check_type(argname="argument managed_instance_scaling", value=managed_instance_scaling, expected_type=type_hints["managed_instance_scaling"])
             check_type(argname="argument model_data_download_timeout_in_seconds", value=model_data_download_timeout_in_seconds, expected_type=type_hints["model_data_download_timeout_in_seconds"])
+            check_type(argname="argument model_name", value=model_name, expected_type=type_hints["model_name"])
             check_type(argname="argument routing_config", value=routing_config, expected_type=type_hints["routing_config"])
             check_type(argname="argument serverless_config", value=serverless_config, expected_type=type_hints["serverless_config"])
             check_type(argname="argument variant_name", value=variant_name, expected_type=type_hints["variant_name"])
             check_type(argname="argument volume_size_in_gb", value=volume_size_in_gb, expected_type=type_hints["volume_size_in_gb"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "model_name": model_name,
-        }
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if accelerator_type is not None:
             self._values["accelerator_type"] = accelerator_type
         if container_startup_health_check_timeout_in_seconds is not None:
@@ -3551,6 +3588,8 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
             self._values["managed_instance_scaling"] = managed_instance_scaling
         if model_data_download_timeout_in_seconds is not None:
             self._values["model_data_download_timeout_in_seconds"] = model_data_download_timeout_in_seconds
+        if model_name is not None:
+            self._values["model_name"] = model_name
         if routing_config is not None:
             self._values["routing_config"] = routing_config
         if serverless_config is not None:
@@ -3561,15 +3600,8 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
             self._values["volume_size_in_gb"] = volume_size_in_gb
 
     @builtins.property
-    def model_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.'''
-        result = self._values.get("model_name")
-        assert result is not None, "Required property 'model_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def accelerator_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#accelerator_type SagemakerEndpointConfiguration#accelerator_type}.'''
         result = self._values.get("accelerator_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3577,7 +3609,7 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     def container_startup_health_check_timeout_in_seconds(
         self,
     ) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#container_startup_health_check_timeout_in_seconds SagemakerEndpointConfiguration#container_startup_health_check_timeout_in_seconds}.'''
         result = self._values.get("container_startup_health_check_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3587,7 +3619,7 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig"]:
         '''core_dump_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#core_dump_config SagemakerEndpointConfiguration#core_dump_config}
         '''
         result = self._values.get("core_dump_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig"], result)
@@ -3596,31 +3628,31 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     def enable_ssm_access(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#enable_ssm_access SagemakerEndpointConfiguration#enable_ssm_access}.'''
         result = self._values.get("enable_ssm_access")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def inference_ami_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#inference_ami_version SagemakerEndpointConfiguration#inference_ami_version}.'''
         result = self._values.get("inference_ami_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def initial_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_instance_count SagemakerEndpointConfiguration#initial_instance_count}.'''
         result = self._values.get("initial_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def initial_variant_weight(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#initial_variant_weight SagemakerEndpointConfiguration#initial_variant_weight}.'''
         result = self._values.get("initial_variant_weight")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#instance_type SagemakerEndpointConfiguration#instance_type}.'''
         result = self._values.get("instance_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3630,16 +3662,22 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScaling"]:
         '''managed_instance_scaling block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#managed_instance_scaling SagemakerEndpointConfiguration#managed_instance_scaling}
         '''
         result = self._values.get("managed_instance_scaling")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScaling"], result)
 
     @builtins.property
     def model_data_download_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_data_download_timeout_in_seconds SagemakerEndpointConfiguration#model_data_download_timeout_in_seconds}.'''
         result = self._values.get("model_data_download_timeout_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def model_name(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#model_name SagemakerEndpointConfiguration#model_name}.'''
+        result = self._values.get("model_name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def routing_config(
@@ -3647,7 +3685,7 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig"]]]:
         '''routing_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_config SagemakerEndpointConfiguration#routing_config}
         '''
         result = self._values.get("routing_config")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig"]]], result)
@@ -3658,20 +3696,20 @@ class SagemakerEndpointConfigurationShadowProductionVariants:
     ) -> typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig"]:
         '''serverless_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#serverless_config SagemakerEndpointConfiguration#serverless_config}
         '''
         result = self._values.get("serverless_config")
         return typing.cast(typing.Optional["SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig"], result)
 
     @builtins.property
     def variant_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#variant_name SagemakerEndpointConfiguration#variant_name}.'''
         result = self._values.get("variant_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def volume_size_in_gb(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#volume_size_in_gb SagemakerEndpointConfiguration#volume_size_in_gb}.'''
         result = self._values.get("volume_size_in_gb")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3700,8 +3738,8 @@ class SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig:
         kms_key_id: builtins.str,
     ) -> None:
         '''
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c6dfd6cb4d35ec343ed42baae5d196c969e23bd96d7c66133b9671f51ce92f9d)
@@ -3714,14 +3752,14 @@ class SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig:
 
     @builtins.property
     def destination_s3_uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.'''
         result = self._values.get("destination_s3_uri")
         assert result is not None, "Required property 'destination_s3_uri' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def kms_key_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.'''
         result = self._values.get("kms_key_id")
         assert result is not None, "Required property 'kms_key_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3921,9 +3959,9 @@ class SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScali
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
-        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
+        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
+        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4af40dd4d0353f58c1f0d26f4289982fa3f3602a0f7c8e4293e563c9cbaf76a5)
@@ -3940,19 +3978,19 @@ class SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScali
 
     @builtins.property
     def max_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.'''
         result = self._values.get("max_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def min_instance_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.'''
         result = self._values.get("min_instance_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def status(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.'''
         result = self._values.get("status")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -4103,8 +4141,8 @@ class SagemakerEndpointConfigurationShadowProductionVariantsOutputReference(
         kms_key_id: builtins.str,
     ) -> None:
         '''
-        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
-        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
+        :param destination_s3_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#destination_s3_uri SagemakerEndpointConfiguration#destination_s3_uri}.
+        :param kms_key_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#kms_key_id SagemakerEndpointConfiguration#kms_key_id}.
         '''
         value = SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig(
             destination_s3_uri=destination_s3_uri, kms_key_id=kms_key_id
@@ -4121,9 +4159,9 @@ class SagemakerEndpointConfigurationShadowProductionVariantsOutputReference(
         status: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
-        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
-        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
+        :param max_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_instance_count SagemakerEndpointConfiguration#max_instance_count}.
+        :param min_instance_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#min_instance_count SagemakerEndpointConfiguration#min_instance_count}.
+        :param status: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#status SagemakerEndpointConfiguration#status}.
         '''
         value = SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScaling(
             max_instance_count=max_instance_count,
@@ -4155,9 +4193,9 @@ class SagemakerEndpointConfigurationShadowProductionVariantsOutputReference(
         provisioned_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
-        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
-        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
+        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
+        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
         '''
         value = SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig(
             max_concurrency=max_concurrency,
@@ -4206,6 +4244,10 @@ class SagemakerEndpointConfigurationShadowProductionVariantsOutputReference(
     @jsii.member(jsii_name="resetModelDataDownloadTimeoutInSeconds")
     def reset_model_data_download_timeout_in_seconds(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetModelDataDownloadTimeoutInSeconds", []))
+
+    @jsii.member(jsii_name="resetModelName")
+    def reset_model_name(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetModelName", []))
 
     @jsii.member(jsii_name="resetRoutingConfig")
     def reset_routing_config(self) -> None:
@@ -4506,7 +4548,7 @@ class SagemakerEndpointConfigurationShadowProductionVariantsOutputReference(
 class SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig:
     def __init__(self, *, routing_strategy: builtins.str) -> None:
         '''
-        :param routing_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.
+        :param routing_strategy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d45021756c826ffd6233c864ec16c0d07c4e69967aa3d2ce0b307ea1cdc616f0)
@@ -4517,7 +4559,7 @@ class SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig:
 
     @builtins.property
     def routing_strategy(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#routing_strategy SagemakerEndpointConfiguration#routing_strategy}.'''
         result = self._values.get("routing_strategy")
         assert result is not None, "Required property 'routing_strategy' is missing"
         return typing.cast(builtins.str, result)
@@ -4706,9 +4748,9 @@ class SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig:
         provisioned_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
-        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
-        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
+        :param max_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.
+        :param memory_size_in_mb: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.
+        :param provisioned_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__39f4a8f984366965f3aa8f5838f8a9dd93300ff93e1449e86c5c5220f0ac42eb)
@@ -4724,21 +4766,21 @@ class SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig:
 
     @builtins.property
     def max_concurrency(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#max_concurrency SagemakerEndpointConfiguration#max_concurrency}.'''
         result = self._values.get("max_concurrency")
         assert result is not None, "Required property 'max_concurrency' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def memory_size_in_mb(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#memory_size_in_mb SagemakerEndpointConfiguration#memory_size_in_mb}.'''
         result = self._values.get("memory_size_in_mb")
         assert result is not None, "Required property 'memory_size_in_mb' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def provisioned_concurrency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/sagemaker_endpoint_configuration#provisioned_concurrency SagemakerEndpointConfiguration#provisioned_concurrency}.'''
         result = self._values.get("provisioned_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4900,6 +4942,7 @@ def _typecheckingstub__400ab2f4777265a946b6b8276b052755086c5de235865af9ee8aab00f
     production_variants: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointConfigurationProductionVariants, typing.Dict[builtins.str, typing.Any]]]],
     async_inference_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationAsyncInferenceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     data_capture_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationDataCaptureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
@@ -4936,6 +4979,12 @@ def _typecheckingstub__fb8802dbe0982b4f40b7e562c738d89c0f9fffac7c5e654624f677a09
 
 def _typecheckingstub__3928d439f0992d35785ab0ce88003b92b0dc06b075a1b993cd6207e9ee6a150d(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointConfigurationShadowProductionVariants, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c3be272d4eef174261e0d7924c99adfc899f2bb24c54b36c08912b710fe9e043(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5122,6 +5171,7 @@ def _typecheckingstub__ef24afb957de9c40da6864604adacf6f822a5eefe8dc09dd46c7147fb
     production_variants: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointConfigurationProductionVariants, typing.Dict[builtins.str, typing.Any]]]],
     async_inference_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationAsyncInferenceConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     data_capture_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationDataCaptureConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
@@ -5290,7 +5340,6 @@ def _typecheckingstub__e55edf7c4ecbbea61f3edaff35308ff3ae9b20d4fdbb139243e578978
 
 def _typecheckingstub__d6d0780f8f3c6a31b6ffc7228c7474b45c20464094621414fec68bb65b8174a1(
     *,
-    model_name: builtins.str,
     accelerator_type: typing.Optional[builtins.str] = None,
     container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     core_dump_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationProductionVariantsCoreDumpConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5301,6 +5350,7 @@ def _typecheckingstub__d6d0780f8f3c6a31b6ffc7228c7474b45c20464094621414fec68bb65
     instance_type: typing.Optional[builtins.str] = None,
     managed_instance_scaling: typing.Optional[typing.Union[SagemakerEndpointConfigurationProductionVariantsManagedInstanceScaling, typing.Dict[builtins.str, typing.Any]]] = None,
     model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    model_name: typing.Optional[builtins.str] = None,
     routing_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointConfigurationProductionVariantsRoutingConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
     serverless_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationProductionVariantsServerlessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     variant_name: typing.Optional[builtins.str] = None,
@@ -5615,7 +5665,6 @@ def _typecheckingstub__37041801e08c53ac59d9289fbab25eb59ca3c620ec86da0130a55bfd5
 
 def _typecheckingstub__01391016e396c324c4f94244d3c38ee88ee45365d696ae1a033340076fe2a1e7(
     *,
-    model_name: builtins.str,
     accelerator_type: typing.Optional[builtins.str] = None,
     container_startup_health_check_timeout_in_seconds: typing.Optional[jsii.Number] = None,
     core_dump_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationShadowProductionVariantsCoreDumpConfig, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5626,6 +5675,7 @@ def _typecheckingstub__01391016e396c324c4f94244d3c38ee88ee45365d696ae1a033340076
     instance_type: typing.Optional[builtins.str] = None,
     managed_instance_scaling: typing.Optional[typing.Union[SagemakerEndpointConfigurationShadowProductionVariantsManagedInstanceScaling, typing.Dict[builtins.str, typing.Any]]] = None,
     model_data_download_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+    model_name: typing.Optional[builtins.str] = None,
     routing_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[SagemakerEndpointConfigurationShadowProductionVariantsRoutingConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
     serverless_config: typing.Optional[typing.Union[SagemakerEndpointConfigurationShadowProductionVariantsServerlessConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     variant_name: typing.Optional[builtins.str] = None,

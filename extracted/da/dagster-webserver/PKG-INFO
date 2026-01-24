@@ -1,24 +1,24 @@
 Metadata-Version: 2.4
 Name: dagster-webserver
-Version: 1.11.11
+Version: 1.12.12
 Summary: Web UI for dagster.
 Home-page: https://github.com/dagster-io/dagster
 Author: Dagster Labs
 Author-email: hello@dagsterlabs.com
 License: Apache-2.0
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.10,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click<9.0,>=7.0
-Requires-Dist: dagster==1.11.11
-Requires-Dist: dagster-graphql==1.11.11
+Requires-Dist: dagster==1.12.12
+Requires-Dist: dagster-graphql==1.12.12
 Requires-Dist: starlette!=0.36.0
 Requires-Dist: uvicorn[standard]
 Provides-Extra: notebook

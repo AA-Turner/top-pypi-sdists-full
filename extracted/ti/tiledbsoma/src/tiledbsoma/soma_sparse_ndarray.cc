@@ -40,20 +40,17 @@ void load_soma_sparse_ndarray(py::module& m) {
                std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
                 ArrowSchema index_column_schema;
                 ArrowArray index_column_array;
-                uintptr_t
-                    index_column_schema_ptr = (uintptr_t)(&index_column_schema);
-                uintptr_t
-                    index_column_array_ptr = (uintptr_t)(&index_column_array);
-                index_column_info.attr("_export_to_c")(
-                    index_column_array_ptr, index_column_schema_ptr);
+                uintptr_t index_column_schema_ptr = (uintptr_t)(&index_column_schema);
+                uintptr_t index_column_array_ptr = (uintptr_t)(&index_column_array);
+                index_column_info.attr("_export_to_c")(index_column_array_ptr, index_column_schema_ptr);
 
                 try {
                     SOMASparseNDArray::create(
                         uri,
                         format,
                         ArrowTable(
-                            std::make_unique<ArrowArray>(index_column_array),
-                            std::make_unique<ArrowSchema>(index_column_schema)),
+                            make_managed_unique<ArrowArray>(index_column_array),
+                            make_managed_unique<ArrowSchema>(index_column_schema)),
                         context,
                         platform_config,
                         timestamp);
@@ -62,8 +59,6 @@ void load_soma_sparse_ndarray(py::module& m) {
                 } catch (const std::exception& e) {
                     TPY_ERROR_LOC(e.what());
                 }
-                index_column_array.release(&index_column_array);
-                index_column_schema.release(&index_column_schema);
             },
             "uri"_a,
             py::kw_only(),
@@ -79,8 +74,7 @@ void load_soma_sparse_ndarray(py::module& m) {
                 std::string_view,
                 OpenMode,
                 std::shared_ptr<SOMAContext>,
-                std::optional<std::pair<uint64_t, uint64_t>>>(
-                &SOMASparseNDArray::open),
+                std::optional<std::pair<uint64_t, uint64_t>>>(&SOMASparseNDArray::open),
             "uri"_a,
             "mode"_a,
             "context"_a,
@@ -91,6 +85,7 @@ void load_soma_sparse_ndarray(py::module& m) {
         .def_static("exists", &SOMASparseNDArray::exists)
 
         .def_property_readonly("shape", &SOMASparseNDArray::shape)
-        .def_property_readonly("maxshape", &SOMASparseNDArray::maxshape);
+        .def_property_readonly("maxshape", &SOMASparseNDArray::maxshape)
+        .def("delete_cells", py::overload_cast<const CoordinateValueFilters&>(&SOMASparseNDArray::delete_cells));
 }
 }  // namespace libtiledbsomacpp

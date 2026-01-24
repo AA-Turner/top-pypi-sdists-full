@@ -1,13 +1,12 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.utils import print_text_header_h2
 from ibm_watsonx_ai.wml_client_error import WMLClientError, WrongMetaProps
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -37,7 +36,7 @@ class Factsheets(WMLResource):
 
     def register_model_entry(
         self, model_id: str, meta_props: dict[str, str], catalog_id: str | None = None
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Link WML Model to Model Entry
 
         :param model_id: ID of the published model/asset
@@ -62,9 +61,12 @@ class Factsheets(WMLResource):
         .. code-block:: python
 
             meta_props = {
-                client.factsheets.ConfigurationMetaNames.ASSET_ID: '83a53931-a8c0-4c2f-8319-c793155e7517'}
+                client.factsheets.ConfigurationMetaNames.ASSET_ID: "83a53931-a8c0-4c2f-8319-c793155e7517"
+            }
 
-            registration_details = client.factsheets.register_model_entry(model_id, catalog_id, meta_props)
+            registration_details = client.factsheets.register_model_entry(
+                model_id, catalog_id, meta_props
+            )
 
         or
 
@@ -72,9 +74,12 @@ class Factsheets(WMLResource):
 
             meta_props = {
                 client.factsheets.ConfigurationMetaNames.NAME: "New model entry",
-                client.factsheets.ConfigurationMetaNames.DESCRIPTION: "New model entry"}
+                client.factsheets.ConfigurationMetaNames.DESCRIPTION: "New model entry",
+            }
 
-            registration_details = client.factsheets.register_model_entry(model_id, meta_props)
+            registration_details = client.factsheets.register_model_entry(
+                model_id, meta_props
+            )
 
         """
         Factsheets._validate_type(model_id, "model_id", str, True)
@@ -85,10 +90,8 @@ class Factsheets(WMLResource):
 
         if catalog_id is not None:
             params["catalog_id"] = catalog_id
-            if "project_id" in params:
-                del params["project_id"]
-            elif "space_id" in params:
-                del params["space_id"]
+            params.pop("project_id", None)
+            params.pop("space_id", None)
 
         name_in = self.ConfigurationMetaNames.NAME in metaProps
         description_in = self.ConfigurationMetaNames.DESCRIPTION in metaProps
@@ -107,10 +110,8 @@ class Factsheets(WMLResource):
         else:
             raise WrongMetaProps(reason=reason)
 
-        url = self._client._href_definitions.get_wkc_model_register_href(model_id)
-
-        response = requests.post(
-            url,
+        response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_wkc_model_register_href(model_id),
             json=metaProps,
             params=params,  # version is mandatory
             headers=self._client._get_headers(),
@@ -132,7 +133,7 @@ class Factsheets(WMLResource):
 
         return response.json()
 
-    def list_model_entries(self, catalog_id: str | None = None) -> dict:
+    def list_model_entries(self, catalog_id: str | None = None) -> dict[str, Any]:
         """Return all WKC Model Entry assets for a catalog.
 
         :param catalog_id: catalog ID where you want to register model. If no catalog_id is provided, WKC Model Entry assets from all catalogs are listed.
@@ -157,8 +158,8 @@ class Factsheets(WMLResource):
         else:
             url = self._client._href_definitions.get_wkc_model_list_all_href()
 
-        response = requests.get(
-            url,
+        response = self._client.httpx_client.get(
+            url=url,
             params=self._client._params(),  # version is mandatory
             headers=self._client._get_headers(),
         )
@@ -191,33 +192,33 @@ class Factsheets(WMLResource):
 
         .. code-block:: python
 
-            model_entries = client.factsheets.unregister_model_entry(asset_id='83a53931-a8c0-4c2f-8319-c793155e7517',
-                                                                     catalog_id='34553931-a8c0-4c2f-8319-c793155e7517')
+            model_entries = client.factsheets.unregister_model_entry(
+                asset_id="83a53931-a8c0-4c2f-8319-c793155e7517",
+                catalog_id="34553931-a8c0-4c2f-8319-c793155e7517",
+            )
 
         or
 
         .. code-block:: python
 
-            client.set.default_space('98f53931-a8c0-4c2f-8319-c793155e7517')
-            model_entries = client.factsheets.unregister_model_entry(asset_id='83a53931-a8c0-4c2f-8319-c793155e7517')
+            client.set.default_space("98f53931-a8c0-4c2f-8319-c793155e7517")
+            model_entries = client.factsheets.unregister_model_entry(
+                asset_id="83a53931-a8c0-4c2f-8319-c793155e7517"
+            )
 
         """
         Factsheets._validate_type(asset_id, "asset_id", str, True)
         Factsheets._validate_type(catalog_id, "catalog_id", str, False)
-        url = self._client._href_definitions.get_wkc_model_delete_href(asset_id)
 
         params = self._client._params()
+
         if catalog_id is not None:
             params["catalog_id"] = catalog_id
+            params.pop("project_id", None)
+            params.pop("space_id", None)
 
-            if "space_id" in str(params):
-                del params["space_id"]
-
-            elif "project_id" in str(params):
-                del params["project_id"]
-
-        response = requests.delete(
-            url,
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_wkc_model_delete_href(asset_id),
             params=params,  # version is mandatory
             headers=self._client._get_headers(),
         )

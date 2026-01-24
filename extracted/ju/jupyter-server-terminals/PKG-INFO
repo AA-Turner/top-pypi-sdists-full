@@ -1,8 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jupyter_server_terminals
-Version: 0.5.3
+Version: 0.5.4
 Summary: A Jupyter Server Extension Providing Terminals.
 Project-URL: Homepage, https://jupyter.org
+Project-URL: Documentation, https://jupyter-server-terminals.readthedocs.io
+Project-URL: Funding, https://jupyter.org/about#donate
+Project-URL: Source, https://github.com/jupyter-server/jupyter_server_terminals
+Project-URL: Tracker, https://github.com/jupyter-server/jupyter_server_terminals/issues
 Author-email: Jupyter Development Team <jupyter@googlegroups.com>
 License: BSD 3-Clause License
         

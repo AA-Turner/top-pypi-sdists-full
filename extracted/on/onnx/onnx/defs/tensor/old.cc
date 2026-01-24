@@ -13,7 +13,7 @@
 
 namespace ONNX_NAMESPACE {
 
-static const char* GridSample_ver20_doc = R"DOC(
+static constexpr const char* GridSample_ver20_doc = R"DOC(
 Given an input `X` and a flow-field `grid`, computes the output `Y` using `X` values and pixel locations from the `grid`.
 For spatial input `X` with shape (N, C, H, W), the `grid` will have shape (N, H_out, W_out, 2),
 the output `Y` will have shape (N, C, H_out, W_out). For volumetric input `X` with shape (N, C, D, H, W),
@@ -111,7 +111,147 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(GridSample_ver20_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { gridSampleShapeInference(ctx); }));
 
-static const char* Cast_ver23_doc = R"DOC(
+static constexpr const char* Cast_ver24_doc = R"DOC(
+The operator casts the elements of a given input tensor to a data type
+specified by the 'to' argument and returns an output tensor of the same size in
+the converted type. The 'to' argument must be one of the data types specified
+in the 'DataType' enum field in the TensorProto message.
+
+Casting from string tensor in plain (e.g., "3.14" and "1000") and scientific numeric representations
+(e.g., "1e-5" and "1E8") to float types is supported. For example, converting string "100.5" to an integer may
+yield result 100. There are some string literals reserved for special floating-point values;
+"+INF" (and "INF"), "-INF", and "NaN" are positive infinity, negative infinity, and not-a-number, respectively.
+Any string which can exactly match "+INF" in a case-insensitive way would be mapped to positive infinite. Similarly,
+this case-insensitive rule is applied to "INF" and "NaN". When casting from numeric tensors
+to string tensors, plain floating-point representation (such as "314.15926") would be used.
+Converting non-numerical-literal string such as "Hello World!" is an undefined behavior. Cases
+of converting string representing floating-point arithmetic value, such as "2.718", to INT is an undefined behavior.
+
+Conversion from a numerical type to any numerical type is always allowed.
+User must be aware of precision loss and value change caused by range difference between two types.
+For example, a 64-bit float 3.1415926459 may be round to a 32-bit float 3.141592. Similarly, converting
+an integer 36 to Boolean may produce 1 because we truncate bits which can't be stored in the targeted type.
+
+In more detail, the conversion among numerical types should follow these rules
+if the destination type is not a float 8 type.
+
+* Casting from floating point to:
+  * floating point: +/- infinity if OOR (out of range).
+  * fixed point: undefined if OOR.
+  * bool: +/- 0.0 to False; all else to True.
+* Casting from fixed point to:
+  * floating point: +/- infinity if OOR. (+ infinity in the case of uint)
+  * fixed point: when OOR, discard higher bits and reinterpret (with respect to two's complement representation for
+    signed types). For example, 200 (int16) -> -56 (int8).
+  * bool: zero to False; nonzero to True.
+* Casting from bool to:
+  * floating point: `{1.0, 0.0}`.
+  * fixed point: `{1, 0}`.
+  * bool: no change.
+
+Float 8 types (E4M3FN, E4M3FNUZ, E5M2, E5M2FNUZ) were introduced to speed up the training of
+deep models. By default the conversion of a float *x* obeys
+to the following rules. `[x]` means the value rounded to
+the target mantissa width.
+
+| x                 | E4M3FN   | E4M3FNUZ | E5M2     | E5M2FNUZ |
+| ----------------- | -------- | -------- | -------- | -------- |
+| 0                 | 0        | 0        | 0        | 0        |
+| -0                | -0       | 0        | -0       | 0        |
+| NaN               | NaN      | NaN      | NaN      | NaN      |
+| Inf               | FLT_MAX  | FLT_MAX  | FLT_MAX  | FLT_MAX  |
+| -Inf              | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+| \[x\] > FLT_MAX   | FLT_MAX  | FLT_MAX  | FLT_MAX  | FLT_MAX  |
+| \[x\] \< -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX | -FLT_MAX |
+| else              | RNE      | RNE      | RNE      | RNE      |
+
+The behavior changes if the parameter 'saturate' is set to False.
+The rules then become:
+
+| x                 | E4M3FN | E4M3FNUZ | E5M2 | E5M2FNUZ |
+| ----------------- | ------ | -------- | ---- | -------- |
+| 0                 | 0      | 0        | 0    | 0        |
+| -0                | -0     | 0        | -0   | 0        |
+| NaN               | NaN    | NaN      | NaN  | NaN      |
+| -NaN              | -NaN   | NaN      | -NaN | NaN      |
+| Inf               | NaN    | NaN      | Inf  | NaN      |
+| -Inf              | -NaN   | NaN      | -Inf | NaN      |
+| \[x\] > FLT_MAX   | NaN    | NaN      | Inf  | NaN      |
+| \[x\] \< -FLT_MAX | NaN    | NaN      | -Inf | NaN      |
+| else              | RNE    | RNE      | RNE  | RNE      |
+
+FLOAT8E8M0 type was introduced to enable [Microscaling (MX) formats](https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf).
+When casting to FLOAT8E8M0, the rounding behavior can be specified using the `round_mode` and `saturate` attributes.
+The current CUDA behavior is to round up and saturate. Casting negative values to FLOAT8E8M0 gives undefined behavior.
+The following table describes the casting behavior of special values to FLOAT8E8M0 in the two most common cases.
+
+| x                 | saturate + up | non-saturate + nearest |
+| ----------------- | ------------- | ---------------------  |
+| 0                 | 0             | NaN                    |
+| -0                | Unspecified   | Unspecified            |
+| NaN               | NaN           | NaN                    |
+| Inf               | E8M0_MAX      | NaN                    |
+| x > E8M0_MAX      | E8M0_MAX      | NaN                    |
+| x \< E8M0_MIN     | E8M0_MIN      | NaN                    |
+| x \< 0            | Unspecified   | Unspecified            |
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Cast,
+    24,
+    OpSchema()
+        .SetDoc(Cast_ver24_doc)
+        .Attr(
+            "to",
+            "The data type to which the elements of the input tensor are cast. "
+            "Strictly must be one of the types from DataType enum in TensorProto",
+            AttributeProto::INT)
+        .Attr(
+            "saturate",
+            "The parameter defines how the conversion behaves if an input value is out of "
+            "range of the destination type. It only applies for float 8 conversion "
+            "(float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz, float8e8m0). It is true by default. "
+            "All cases are fully described in the tables inserted in the operator description.",
+            AttributeProto::INT,
+            static_cast<int64_t>(1))
+        .Attr(
+            "round_mode",
+            "Rounding mode for conversion to float8e8m0. It only applies to casting to float8e8m0 and is `up` by default. "
+            "`up`: round to nearest value away from zero, "
+            "`down`: round to nearest value towards zero, "
+            "`nearest`: round to nearest value and ties round up.",
+            AttributeProto::STRING,
+            std::string("up"))
+        .Input(0, "input", "Input tensor to be cast.", "T1", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Output(
+            0,
+            "output",
+            "Output tensor with the same shape as input with type "
+            "specified by the 'to' argument",
+            "T2",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::Differentiable)
+        .TypeConstraint(
+            "T1",
+            OpSchema::all_non_complex_tensor_types_ir12(),
+            "Constrain input types. Casting from complex is not supported.")
+        .TypeConstraint(
+            "T2",
+            OpSchema::all_non_complex_tensor_types_ir12(),
+            "Constrain output types. Casting to complex is not supported.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          propagateElemTypeFromAttributeToOutput(ctx, "to", 0);
+          if (hasNInputShapes(ctx, 1)) {
+            propagateShapeFromInputToOutput(ctx, 0, 0);
+          }
+        })
+        .PartialDataPropagationFunction([](DataPropagationContext& ctx) {
+          PropagateShapeDataFromInputToOutput(ctx, 0);
+        }));
+
+static constexpr const char* Cast_ver23_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -228,7 +368,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Cast_ver19_doc = R"DOC(
+static constexpr const char* Cast_ver19_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -434,7 +574,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Cast_ver13_doc = R"DOC(
+static constexpr const char* Cast_ver13_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -537,7 +677,85 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* CastLike_ver23_doc = R"DOC(
+static constexpr const char* CastLike_ver24_doc = R"DOC(
+The operator casts the elements of a given input tensor (the first input) to
+the same data type as the elements of the second input tensor.
+See documentation of the Cast operator for further details.
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    CastLike,
+    24,
+    OpSchema()
+        .SetDoc(CastLike_ver24_doc)
+        .Attr(
+            "saturate",
+            "The parameter defines how the conversion behaves if an input value is out of "
+            "range of the destination type. It only applies for float 8 conversion "
+            "(float8e4m3fn, float8e4m3fnuz, float8e5m2, float8e5m2fnuz, float8e8m0). It is true by default. "
+            "Please refer to operator Cast description for further details.",
+            AttributeProto::INT,
+            static_cast<int64_t>(1))
+        .Attr(
+            "round_mode",
+            "Rounding mode for conversion to float8e8m0. It only applies to casting to float8e8m0 and is `up` by default. "
+            "`up`: round to nearest value away from zero, "
+            "`down`: round to nearest value towards zero, "
+            "`nearest`: round to nearest value and ties round up. "
+            "Please refer to operator Cast description for further details.",
+            AttributeProto::STRING,
+            std::string("up"))
+        .Input(0, "input", "Input tensor to be cast.", "T1", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Input(
+            1,
+            "target_type",
+            "The (first) input tensor will be cast to produce a tensor of the same type as this (second input) tensor.",
+            "T2",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::NonDifferentiable)
+        .Output(
+            0,
+            "output",
+            "Output tensor produced by casting the first input tensor to have the same type as the second input tensor.",
+            "T2",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::Differentiable)
+        .TypeConstraint(
+            "T1",
+            OpSchema::all_non_complex_tensor_types_ir12(),
+            "Constrain input types. Casting from complex is not supported.")
+        .TypeConstraint(
+            "T2",
+            OpSchema::all_non_complex_tensor_types_ir12(),
+            "Constrain output types. Casting to complex is not supported.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          propagateElemTypeFromInputToOutput(ctx, 1, 0);
+          if (hasNInputShapes(ctx, 1)) {
+            propagateShapeFromInputToOutput(ctx, 0, 0);
+          }
+        })
+        .SetNodeDeterminism(OpSchema::NodeDeterminism::Deterministic)
+        .SetContextDependentFunctionBodyBuilder(
+            [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
+              auto target_type = ctx.getInputType(1);
+              if ((target_type == nullptr) || (!target_type->has_tensor_type())) {
+                // we cannot create a correct function body without knowing the target element type
+                return false;
+              }
+              auto target_elt_type = target_type->tensor_type().elem_type();
+              FunctionBuilder builder(functionProto);
+              builder.Add(
+                  MakeString("output = Cast <to= ", (int64_t)(target_elt_type), ", saturate: int = @saturate> (input)")
+                      .c_str());
+              schema.BuildFunction(functionProto);
+              return true;
+            }));
+
+static constexpr const char* CastLike_ver23_doc = R"DOC(
 The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
@@ -589,6 +807,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             propagateShapeFromInputToOutput(ctx, 0, 0);
           }
         })
+        .SetNodeDeterminism(OpSchema::NodeDeterminism::Deterministic)
         .SetContextDependentFunctionBodyBuilder(
             [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
               auto target_type = ctx.getInputType(1);
@@ -605,7 +824,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               return true;
             }));
 
-static const char* CastLike_ver21_doc = R"DOC(
+static constexpr const char* CastLike_ver21_doc = R"DOC(
 The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
@@ -657,6 +876,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             propagateShapeFromInputToOutput(ctx, 0, 0);
           }
         })
+        .SetNodeDeterminism(OpSchema::NodeDeterminism::Deterministic)
         .SetContextDependentFunctionBodyBuilder(
             [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
               auto target_type = ctx.getInputType(1);
@@ -673,7 +893,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               return true;
             }));
 
-static const char* CastLike_ver19_doc = R"DOC(
+static constexpr const char* CastLike_ver19_doc = R"DOC(
 The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
@@ -759,6 +979,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             propagateShapeFromInputToOutput(ctx, 0, 0);
           }
         })
+        .SetNodeDeterminism(OpSchema::NodeDeterminism::Deterministic)
         .SetContextDependentFunctionBodyBuilder(
             [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
               auto target_type = ctx.getInputType(1);
@@ -775,7 +996,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               return true;
             }));
 
-static const char* CastLike_ver15_doc = R"DOC(
+static constexpr const char* CastLike_ver15_doc = R"DOC(
 The operator casts the elements of a given input tensor (the first input) to
 the same data type as the elements of the second input tensor.
 See documentation of the Cast operator for further details.
@@ -845,6 +1066,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             propagateShapeFromInputToOutput(ctx, 0, 0);
           }
         })
+        .SetNodeDeterminism(OpSchema::NodeDeterminism::Deterministic)
         .SetContextDependentFunctionBodyBuilder(
             [](const FunctionBodyBuildContext& ctx, const OpSchema& schema, FunctionProto& functionProto) -> bool {
               auto target_type = ctx.getInputType(1);
@@ -859,7 +1081,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               return true;
             }));
 
-static const char* Cast_ver9_doc = R"DOC(
+static constexpr const char* Cast_ver9_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -937,7 +1159,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* GridSample_ver16_doc = R"DOC(
+static constexpr const char* GridSample_ver16_doc = R"DOC(
 Given an input `X` and a flow-field `grid`, computes the output `Y` using `X` values and pixel locations from `grid`.
 Currently, only spatial (4-D) inputs are supported. For input `X` with shape (N, C, H, W) and `grid` with shape (N, H_out, W_out, 2),
 the output `Y` will have shape (N, C, H_out, W_out).
@@ -1024,7 +1246,171 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(GridSample_ver16_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { gridSampleShapeInference(ctx); }));
 
-static const char* Reshape_ver23_doc = R"DOC(
+static constexpr const char* Reshape_ver24_doc = R"DOC(
+Reshape the input tensor similar to numpy.reshape.
+First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
+At most one dimension of the new shape can be -1. In this case, the value is
+inferred from the size of the tensor and the remaining dimensions. A dimension
+could also be 0, in which case the actual dimension value is unchanged (i.e. taken
+from the input tensor). If 'allowzero' is set, and the new shape includes 0, the
+dimension will be set explicitly to zero (i.e. not taken from input tensor).
+Shape (second input) could be an empty shape, which means converting to a scalar.
+The input tensor's shape and the output tensor's shape are required to have the same number of elements.
+
+If the attribute 'allowzero' is set, it is invalid for the specified shape to
+contain both a zero value and -1, as the value of the dimension corresponding
+to -1 cannot be determined uniquely.
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Reshape,
+    24,
+    OpSchema()
+        .SetDoc(Reshape_ver24_doc)
+        .Attr(
+            "allowzero",
+            "(Optional) By default, when any value in the 'shape' input is equal to zero "
+            "the corresponding dimension value is copied from the input tensor dynamically. "
+            "allowzero=1 indicates that if any value in the 'shape' input is set to zero, "
+            "the zero value is honored, similar to NumPy.",
+            AttributeProto::INT,
+            static_cast<int64_t>(0))
+        .Input(0, "data", "An input tensor.", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Input(
+            1,
+            "shape",
+            "Specified shape for output.",
+            "tensor(int64)",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::NonDifferentiable)
+        .Output(0, "reshaped", "Reshaped data.", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .TypeConstraint("T", OpSchema::all_tensor_types_ir12(), "Constrain input and output types to all tensor types.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          // Type inference
+          propagateElemTypeFromInputToOutput(ctx, 0, 0);
+          bool found;
+          TensorShapeProto targetShapeProto = getShapeInput(ctx, 1, found);
+          if (!found) {
+            return;
+          }
+
+          int allowzero = static_cast<int>(getAttribute(ctx, "allowzero", 0));
+
+          // Iterate through targetShape, adding dimensions in the outputShape
+          // TensorProto. If the targetShape dimension is -1, we do not set the
+          // dimension value in this iteration, but we record the Dimension. If
+          // targetShape dimension is 0, we attempt to propagate the dimension
+          // value/param. If the value cannot be inferred, we set the flag in
+          // the unresolveZeros vector. If targetShape dimension is positive, we
+          // set the dimension value in the outputShape. We track the product of
+          // the dimensions we are setting outputShape in the outputProduct
+          // variable. The outputProduct will potentially be used for inferring
+          // a dimension marked -1.
+          auto* outputShape = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+          TensorShapeProto::Dimension* negativeOneDim = nullptr;
+          const auto& dataInputTensorType = ctx.getInputType(0)->tensor_type();
+          std::vector<bool> unresolvedZeros(targetShapeProto.dim_size(), false);
+          int64_t outputProduct = 1;
+          bool outputProductValid = true;
+          for (int i = 0; i < static_cast<int>(targetShapeProto.dim_size()); ++i) {
+            // Add a new dimension to outputShape
+            auto* new_dim = outputShape->add_dim();
+            if (targetShapeProto.dim(i).has_dim_param()) {
+              // There is a tricky edge case here. It is possible that the value of
+              // symbolic dim can be -1 or 0 at runtime. In that case simply propagating this
+              // symbol can be erroneous. This should be a very rare scenario and in such a
+              // case an option is to turn off data propagation during shape inference.
+              new_dim->set_dim_param(targetShapeProto.dim(i).dim_param());
+              outputProductValid = false;
+            } else {
+              if (!targetShapeProto.dim(i).has_dim_value()) {
+                outputProductValid = false;
+                // treat this dim as unknown dim
+                continue;
+              }
+
+              const auto dim_value = targetShapeProto.dim(i).dim_value();
+
+              if (dim_value == -1) {
+                // Check if multiple -1's. If not, set negativeOneDim, marking
+                // this dimension to potentially be filled in later.
+                if (negativeOneDim) {
+                  fail_shape_inference("Target shape may not have multiple -1 dimensions.");
+                }
+                negativeOneDim = new_dim;
+              } else if (dim_value == 0) {
+                // Check if data input has a shape and if the index i is within
+                // its bounds. If these conditions are satisfied, any dimension
+                // value/param should be propagated. If dimension value cannot be
+                // inferred, set the corresponding  unresolvedZeros flag to true.
+                // If allowzero is set however, do not propagate values, since output
+                // dimension is explicitly zero.
+                if (allowzero == 0) {
+                  unresolvedZeros[i] = true;
+                  if (dataInputTensorType.has_shape()) {
+                    if (i >= dataInputTensorType.shape().dim_size()) {
+                      fail_shape_inference("Invalid position of 0.");
+                    }
+                    if (dataInputTensorType.shape().dim(i).has_dim_value()) {
+                      const auto& input_dim_value = dataInputTensorType.shape().dim(i).dim_value();
+                      new_dim->set_dim_value(input_dim_value);
+                      outputProduct *= input_dim_value;
+                      unresolvedZeros[i] = false;
+                    } else if (dataInputTensorType.shape().dim(i).has_dim_param()) {
+                      new_dim->set_dim_param(dataInputTensorType.shape().dim(i).dim_param());
+                    }
+                  }
+                } else {
+                  new_dim->set_dim_value(dim_value);
+                  outputProduct *= dim_value;
+                }
+              } else if (dim_value > 0) {
+                // Set the dimension value to dim_value
+                new_dim->set_dim_value(dim_value);
+                outputProduct *= dim_value;
+              } else {
+                // Check if value is less than -1; fail if so
+                fail_shape_inference("Invalid dimension value: ", dim_value);
+              }
+            }
+          }
+          // If negativeOneDim has been set, we attempt to infer its value. This
+          // can be done if all dimension values for the data input tensor shape
+          // are known other than the ones corresponding to unresolvedZeros
+          // flags.
+          if (negativeOneDim && outputProductValid) {
+            // First, attempt to compute product of data input shape dimensions
+            // that are not marked by unresolvedZeros. If not possible, set the
+            // inputProductValid flag to false.
+            if (!outputProduct) {
+              fail_shape_inference("Invalid Target shape product of 0. Product cannot be 0 in combination with -1");
+            }
+            int64_t inputProduct = 1;
+            bool inputProductValid = true;
+            if (!dataInputTensorType.has_shape()) {
+              inputProductValid = false;
+            } else {
+              for (int i = 0; i < dataInputTensorType.shape().dim_size(); ++i) {
+                if (dataInputTensorType.shape().dim(i).has_dim_value()) {
+                  inputProduct *= dataInputTensorType.shape().dim(i).dim_value();
+                } else if (i >= static_cast<int>(unresolvedZeros.size()) || !unresolvedZeros[i]) {
+                  inputProductValid = false;
+                  break;
+                }
+              }
+            }
+            if (inputProductValid) {
+              if (inputProduct % outputProduct != 0) {
+                fail_shape_inference("Dimension could not be inferred: incompatible shapes");
+              }
+              negativeOneDim->set_dim_value(inputProduct / outputProduct);
+            }
+          }
+        }));
+
+static constexpr const char* Reshape_ver23_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -1188,7 +1574,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Reshape_ver19_doc = R"DOC(
+static constexpr const char* Reshape_ver19_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -1500,7 +1886,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Reshape_ver13_doc = R"DOC(
+static constexpr const char* Reshape_ver13_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -1552,7 +1938,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           const auto& dataInputTensorType = ctx.getInputType(0)->tensor_type();
           std::vector<bool> unresolvedZeros(targetShape.size(), false);
           int64_t outputProduct = 1;
-          for (int i = 0; i < static_cast<int>(targetShape.size()); ++i) {
+          for (size_t i = 0; i < targetShape.size(); ++i) {
             // Add a new dimension to outputShape
             auto* new_dim = outputShape->add_dim();
             if (targetShape[i] == -1) {
@@ -1569,7 +1955,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               // inferred, set the corresponding  unresolvedZeros flag to true.
               unresolvedZeros[i] = true;
               if (dataInputTensorType.has_shape()) {
-                if (i >= dataInputTensorType.shape().dim_size()) {
+                if (i >= static_cast<size_t>(dataInputTensorType.shape().dim_size())) {
                   fail_shape_inference("Invalid position of 0");
                 }
                 if (dataInputTensorType.shape().dim(i).has_dim_value()) {
@@ -1626,7 +2012,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Reshape_ver5_doc = R"DOC(
+static constexpr const char* Reshape_ver5_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -1745,7 +2131,110 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Shape_ver23_doc = R"DOC(
+static constexpr const char* Shape_ver24_doc = R"DOC(
+Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
+Optional attributes start and end can be used to compute a slice of the input tensor's shape.
+If start axis is omitted, the slice starts from axis 0.
+The end axis, if specified, is exclusive (and the returned value will not include the size of that axis).
+If the end axis is omitted, the axes upto the last one will be included.
+Negative axes indicate counting back from the last axis.
+Note that axes will be clamped to the range [0, r], where r is the
+rank of the input tensor if they are out-of-range (after adding r in the case of
+negative axis). Thus, specifying any end value > r is equivalent to specifying an end
+value of r, and specifying any start value < -r is equivalent to specifying a start
+value of 0. If start > end, the result will be an empty shape.
+
+Examples:
+
+```
+Input tensor with shape: [2, 3, 4]
+No attributes specified.
+Output: [2, 3, 4]
+```
+
+```
+Input tensor with shape: [2, 3, 4]
+start: -1
+Output: [4]
+```
+
+```
+Input tensor with shape: [2, 3, 4]
+end: -1
+Output: [2, 3]
+```
+
+```
+Input tensor with shape: [2, 3, 4]
+start: 1
+end: 2
+Output: [3]
+```
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Shape,
+    24,
+    OpSchema()
+        .SetDoc(Shape_ver24_doc)
+        .Input(0, "data", "An input tensor.", "T", OpSchema::Single, true, 1, OpSchema::NonDifferentiable)
+        .Output(0, "shape", "Shape of the input tensor", "T1", OpSchema::Single, true, 1, OpSchema::NonDifferentiable)
+        .Attr(
+            "start",
+            "(Optional) Starting axis for slicing the shape. Default value is 0."
+            "Negative value means counting dimensions from the back.",
+            AttributeProto::INT,
+            static_cast<int64_t>(0))
+        .Attr(
+            "end",
+            "(Optional) Ending axis for slicing the shape. "
+            "Negative value means counting dimensions from the back. "
+            "If omitted, sizes of all axes upto (including) the last one will be included.",
+            AttributeProto::INT,
+            OPTIONAL_VALUE)
+        .TypeConstraint("T", OpSchema::all_tensor_types_ir12(), "Input tensor can be of arbitrary type.")
+        .TypeConstraint("T1", {"tensor(int64)"}, "Constrain output to int64 tensor.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          ctx.getOutputType(0)->mutable_tensor_type()->set_elem_type(TensorProto::INT64);
+          auto* output_shape = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+          auto* output_length = output_shape->add_dim();
+
+          if (!hasNInputShapes(ctx, 1)) {
+            return;
+          }
+
+          int64_t rank = static_cast<int64_t>(ctx.getInputType(0)->tensor_type().shape().dim_size());
+          int64_t start = getAttribute(ctx, "start", 0);
+          if (start < 0)
+            start += rank;
+          start = (start < 0) ? 0 : (start > rank) ? rank : start;
+          int64_t end = getAttribute(ctx, "end", rank);
+          if (end < 0)
+            end += rank;
+          end = (end < 0) ? 0 : (end > rank) ? rank : end;
+          output_length->set_dim_value((end - start) < 0 ? 0 : (end - start));
+        })
+        .PartialDataPropagationFunction([](DataPropagationContext& ctx) {
+          if (hasInputShape(ctx, 0)) {
+            auto& input_shape = ctx.getInputType(0)->tensor_type().shape();
+            int64_t rank = static_cast<int64_t>(input_shape.dim_size());
+            int64_t start = getAttribute(ctx, "start", 0);
+            if (start < 0)
+              start += rank;
+            start = (start < 0) ? 0 : (start > rank) ? rank : start;
+            int64_t end = getAttribute(ctx, "end", rank);
+            if (end < 0)
+              end += rank;
+            end = (end < 0) ? 0 : (end > rank) ? rank : end;
+            TensorShapeProto output_shape;
+            for (int64_t d = start; d < end; ++d) {
+              *output_shape.add_dim() = input_shape.dim(static_cast<int>(d));
+            }
+            ctx.addOutputData(0, std::move(output_shape));
+          }
+        }));
+
+static constexpr const char* Shape_ver23_doc = R"DOC(
 Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
 Optional attributes start and end can be used to compute a slice of the input tensor's shape.
 If start axis is omitted, the slice starts from axis 0.
@@ -1848,7 +2337,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Shape_ver13_doc = R"DOC(
+static constexpr const char* Shape_ver13_doc = R"DOC(
 Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
 )DOC";
 
@@ -1890,7 +2379,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         })
         .PartialDataPropagationFunction([](DataPropagationContext& ctx) { ShapeOp13DataPropagator(ctx); }));
 
-static const char* Shape_ver1_doc = R"DOC(
+static constexpr const char* Shape_ver1_doc = R"DOC(
 Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
 )DOC";
 
@@ -1918,7 +2407,41 @@ ONNX_OPERATOR_SET_SCHEMA(
         })
         .PartialDataPropagationFunction([](DataPropagationContext& ctx) { ShapeOp13DataPropagator(ctx); }));
 
-static const char* Size_ver23_doc = R"DOC(
+static constexpr const char* Size_ver24_doc = R"DOC(
+Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Size,
+    24,
+    OpSchema()
+        .SetDoc(Size_ver24_doc)
+        .Input(0, "data", "An input tensor.", "T", OpSchema::Single, true, 1, OpSchema::NonDifferentiable)
+        .Output(
+            0,
+            "size",
+            "Total number of elements of the input tensor",
+            "T1",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::NonDifferentiable)
+        .TypeConstraint("T", OpSchema::all_tensor_types_ir12(), "Input tensor can be of arbitrary type.")
+        .TypeConstraint("T1", {"tensor(int64)"}, "Constrain output to int64 tensor, which should be a scalar though.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          ctx.getOutputType(0)->mutable_tensor_type()->set_elem_type(TensorProto::INT64);
+          ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+        })
+        .PartialDataPropagationFunction([](DataPropagationContext& ctx) {
+          const auto input_data = ctx.getInputData(0);
+          if (input_data != nullptr) {
+            TensorShapeProto tsp;
+            tsp.mutable_dim()->Add()->set_dim_value(input_data->dim_size());
+            ctx.addOutputData(0, std::move(tsp));
+          }
+        }));
+
+static constexpr const char* Size_ver23_doc = R"DOC(
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 )DOC";
 
@@ -1952,7 +2475,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Size_ver1_doc = R"DOC(
+static constexpr const char* Size_ver1_doc = R"DOC(
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 )DOC";
 
@@ -2046,7 +2569,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Split_ver11_doc =
+static constexpr const char* Split_ver11_doc =
     R"DOC(Split a tensor into a list of tensors, along the specified
 'axis'. Lengths of the parts can be specified using argument 'split'.
 Otherwise, the tensor is split to equal sized parts.
@@ -2129,7 +2652,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Split_ver13_doc =
+static constexpr const char* Split_ver13_doc =
     R"DOC(Split a tensor into a list of tensors, along the specified
 'axis'. Lengths of the parts can be specified using input 'split'.
 Otherwise, the tensor is split to equal sized parts.
@@ -2237,7 +2760,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Slice_ver11_doc = R"DOC(
+static constexpr const char* Slice_ver11_doc = R"DOC(
 Produces a slice of the input tensor along multiple axes. Similar to numpy:
 https://numpy.org/doc/stable/reference/routines.indexing.html
 Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end
@@ -2324,7 +2847,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               (hasInputShape(ctx, 4) && !ctx.getInputData(4))) {
             const auto input_rank = ctx.getInputType(0)->tensor_type().shape().dim_size();
             // we can infer the output rank - it never changes
-            for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
             }
             return;
@@ -2386,7 +2909,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             }
           }
 
-          for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+          for (int i = 0; i < input_rank; ++i) {
             // first update rank of output dim
             auto* output_dim = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
             const auto& input_dim = input_shape.dim((int)i);
@@ -2463,17 +2986,76 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Transpose_ver23_doc = R"DOC(
-Transpose the input tensor similar to numpy.transpose. For example, when
-perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
-will be (2, 1, 3).
-)DOC";
+ONNX_OPERATOR_SET_SCHEMA(
+    Transpose,
+    24,
+    OpSchema()
+        .SetDoc(Transpose_doc)
+        .Attr(
+            "perm",
+            "A list of integers. By default, reverse the dimensions, "
+            "otherwise permute the axes according to the values given. "
+            "Its length must be equal to the rank of the input.",
+            AttributeProto::INTS,
+            OPTIONAL_VALUE)
+        .Input(0, "data", "An input tensor.", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Output(0, "transposed", "Transposed output.", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .TypeConstraint("T", OpSchema::all_tensor_types_ir12(), "Constrain input and output types to all tensor types.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          propagateElemTypeFromInputToOutput(ctx, 0, 0);
+          if (!hasNInputShapes(ctx, 1)) {
+            return;
+          }
+          auto input_type = ctx.getInputType(0);
+          const TensorShapeProto& shape = input_type->tensor_type().shape();
+          std::vector<int64_t> perm;
+          bool has_perm_attr = getRepeatedAttribute(ctx, "perm", perm);
+          if (!has_perm_attr) {
+            perm.reserve(shape.dim_size());
+            for (int i = shape.dim_size() - 1; i >= 0; --i)
+              perm.push_back(i);
+          } else if (!perm.empty()) {
+            // check if every index is valid
+            std::vector<bool> seen(shape.dim_size(), false);
+            for (int64_t fromDimIndex : perm) {
+              if (!(0 <= fromDimIndex && fromDimIndex < shape.dim_size())) {
+                std::ostringstream oss;
+                oss << "Invalid attribute perm {" << perm[0];
+                for (size_t i = 1; i != perm.size(); ++i) {
+                  oss << ", " << perm[i];
+                }
+                oss << "}, input shape = {";
+                if (shape.dim_size() > 0) {
+                  oss << shape.dim(0).dim_value();
+                  for (int i = 1; i != shape.dim_size(); ++i) {
+                    oss << ", " << shape.dim(i).dim_value();
+                  }
+                  oss << "}";
+                }
+                fail_type_inference(oss.str());
+              } else {
+                // check if any perm is repeated
+                if (seen[fromDimIndex]) {
+                  fail_type_inference("Attribute perm for Transpose has repeated value: ", fromDimIndex);
+                }
+                seen[fromDimIndex] = true;
+              }
+            }
+          }
+
+          getOutputShape(ctx, 0);
+
+          propagateElemTypeFromInputToOutput(ctx, 0, 0);
+          for (int64_t i : perm) {
+            appendSingleDimCopiedFromInputTypeToOutputType(ctx, 0, 0, static_cast<size_t>(i));
+          }
+        }));
 
 ONNX_OPERATOR_SET_SCHEMA(
     Transpose,
     23,
     OpSchema()
-        .SetDoc(Transpose_ver23_doc)
+        .SetDoc(Transpose_doc)
         .Attr(
             "perm",
             "A list of integers. By default, reverse the dimensions, "
@@ -2534,17 +3116,11 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Transpose_ver13_doc = R"DOC(
-Transpose the input tensor similar to numpy.transpose. For example, when
-perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
-will be (2, 1, 3).
-)DOC";
-
 ONNX_OPERATOR_SET_SCHEMA(
     Transpose,
     21,
     OpSchema()
-        .SetDoc(Transpose_ver13_doc)
+        .SetDoc(Transpose_doc)
         .Attr(
             "perm",
             "A list of integers. By default, reverse the dimensions, "
@@ -2609,7 +3185,7 @@ ONNX_OPERATOR_SET_SCHEMA(
     Transpose,
     13,
     OpSchema()
-        .SetDoc(Transpose_ver13_doc)
+        .SetDoc(Transpose_doc)
         .Attr(
             "perm",
             "A list of integers. By default, reverse the dimensions, "
@@ -2669,17 +3245,11 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Transpose_ver1_doc = R"DOC(
-Transpose the input tensor similar to numpy.transpose. For example, when
-perm=(1, 0, 2), given an input tensor of shape (1, 2, 3), the output shape
-will be (2, 1, 3).
-)DOC";
-
 ONNX_OPERATOR_SET_SCHEMA(
     Transpose,
     1,
     OpSchema()
-        .SetDoc(Transpose_ver1_doc)
+        .SetDoc(Transpose_doc)
         .Attr(
             "perm",
             "A list of integers. By default, reverse the dimensions, "
@@ -2736,7 +3306,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterND_ver16_doc = R"DOC(
+static constexpr const char* ScatterND_ver16_doc = R"DOC(
 ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
 and `updates` tensor of rank q + r - indices.shape[-1] - 1. The output of the operation
 is produced by creating a copy of the input `data`, and then updating its value to values
@@ -2762,7 +3332,7 @@ The `output` is calculated via the following equation:
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] = updates[idx]
+        output[tuple(indices[idx])] = updates[idx]
 The order of iteration in the above loop is not specified.
 In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
 This ensures that the output value does not depend on the iteration order.
@@ -2775,12 +3345,12 @@ When `reduction` is set to "add", `output` is calculated as follows:
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] += updates[idx]
+        output[tuple(indices[idx])] += updates[idx]
 When `reduction` is set to "mul", `output` is calculated as follows:
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] *= updates[idx]
+        output[tuple(indices[idx])] *= updates[idx]
 This operator is the inverse of GatherND.
 Example 1:
 ```
@@ -2846,7 +3416,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterND_ver13_doc = R"DOC(
+static constexpr const char* ScatterND_ver13_doc = R"DOC(
 ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
 and `updates` tensor of rank q + r - indices.shape[-1] - 1. The output of the operation
 is produced by creating a copy of the input `data`, and then updating its value to values
@@ -2874,7 +3444,7 @@ The `output` is calculated via the following equation:
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] = updates[idx]
+        output[tuple(indices[idx])] = updates[idx]
 
 The order of iteration in the above loop is not specified.
 In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
@@ -2939,7 +3509,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterND_ver11_doc = R"DOC(
+static constexpr const char* ScatterND_ver11_doc = R"DOC(
 ScatterND takes three inputs `data` tensor of rank r >= 1, `indices` tensor of rank q >= 1,
 and `updates` tensor of rank q + r - indices.shape[-1] - 1. The output of the operation
 is produced by creating a copy of the input `data`, and then updating its value to values
@@ -2967,7 +3537,7 @@ The `output` is calculated via the following equation:
     output = np.copy(data)
     update_indices = indices.shape[:-1]
     for idx in np.ndindex(update_indices):
-        output[indices[idx]] = updates[idx]
+        output[tuple(indices[idx])] = updates[idx]
 
 The order of iteration in the above loop is not specified.
 In particular, indices should not have duplicate entries: that is, if idx1 != idx2, then indices[idx1] != indices[idx2].
@@ -3016,7 +3586,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterElements_ver16_doc = R"DOC(
+static constexpr const char* ScatterElements_ver16_doc = R"DOC(
 ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
 rank r >= 1 and an optional attribute axis that identifies an axis of `data`
 (by default, the outer-most axis, that is axis 0). The output of the operation
@@ -3136,7 +3706,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterElements_ver13_doc = R"DOC(
+static constexpr const char* ScatterElements_ver13_doc = R"DOC(
 ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
 rank r >= 1 and an optional attribute axis that identifies an axis of `data`
 (by default, the outer-most axis, that is axis 0). The output of the operation
@@ -3239,7 +3809,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* ScatterElements_ver11_doc = R"DOC(
+static constexpr const char* ScatterElements_ver11_doc = R"DOC(
 ScatterElements takes three inputs `data`, `updates`, and `indices` of the same
 rank r >= 1 and an optional attribute axis that identifies an axis of `data`
 (by default, the outer-most axis, that is axis 0). The output of the operation
@@ -3322,7 +3892,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Gather_ver11_doc = R"DOC(
+static constexpr const char* Gather_ver11_doc = R"DOC(
 Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
 entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
 them in an output tensor of rank q + (r - 1).
@@ -3434,7 +4004,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         })
         .PartialDataPropagationFunction([](DataPropagationContext& ctx) { GatherOp13DataPropagator(ctx); }));
 
-static const char* GatherElements_ver11_doc = R"DOC(
+static constexpr const char* GatherElements_ver11_doc = R"DOC(
 
 GatherElements takes two inputs `data` and `indices` of the same rank r >= 1
 and an optional attribute `axis` that identifies an axis of `data`
@@ -3522,7 +4092,110 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Squeeze_ver23_doc = R"DOC(
+static constexpr const char* Squeeze_ver24_doc = R"DOC(
+Remove single-dimensional entries from the shape of a tensor.
+Takes an input `axes` with a list of axes to squeeze.
+If `axes` is not provided, all the single dimensions will be removed from
+the shape. If an axis is selected with shape entry not equal to one, an error is raised.
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Squeeze,
+    24,
+    OpSchema()
+        .SetDoc(Squeeze_ver24_doc)
+        .Input(
+            0,
+            "data",
+            "Tensors with at least max(dims) dimensions.",
+            "T",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::Differentiable)
+        .Input(
+            1,
+            "axes",
+            "1D tensor of integers indicating the dimensions to squeeze. Negative value means counting dimensions "
+            "from the back. Accepted range is [-r, r-1] where r = rank(data).",
+            "tensor(int64)",
+            OpSchema::Optional,
+            true,
+            1,
+            OpSchema::NonDifferentiable)
+        .Output(
+            0,
+            "squeezed",
+            "Reshaped tensor with same data as input.",
+            "T",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::Differentiable)
+        .TypeConstraint(
+            "T",
+            OpSchema::all_tensor_types_ir12(),
+            "Constrain input and output types to all tensor types up to IRv12.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          propagateElemTypeFromInputToOutput(ctx, 0, 0);
+          if (!hasNInputShapes(ctx, 1)) {
+            return;
+          }
+
+          std::vector<int64_t> axes;
+          size_t num_inputs = ctx.getNumInputs();
+          bool axes_not_specified = false;
+
+          if ((num_inputs == 2) && ctx.getInputType(1)) { //'axes' is input
+            auto axes_proto = ctx.getInputData(1);
+            if (axes_proto == nullptr) {
+              // skip if axes is not an initializer
+              return;
+            }
+            axes = ParseData<int64_t>(axes_proto);
+          } else {
+            // axes not specified
+            axes_not_specified = true;
+          }
+
+          const auto& input_shape = ctx.getInputType(0)->tensor_type().shape();
+          const auto input_ndim = input_shape.dim_size();
+          checkAxesRange(axes, input_ndim);
+          adjustNegativeAxes(axes, input_ndim);
+
+          for (int i = 0; i < input_ndim; ++i) {
+            if (!input_shape.dim(i).has_dim_value() && axes_not_specified) {
+              // if dim has a symbolic value and the axes spec want to act on all dims,
+              // return early because we can't infer the shape
+              return;
+            }
+          }
+
+          ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+
+          for (int i = 0; i < input_ndim; ++i) {
+            if (axes_not_specified && input_shape.dim(i).dim_value() == 1) {
+              // if axes not specified, do not keep shape if the dimension is equal to one
+              continue;
+            } else if (!axes_not_specified && std::find(axes.begin(), axes.end(), i) != axes.end()) {
+              // if axes wants to explicitly act on this dim, fail explicitly only if the
+              // dim is numerical and != 1. If the dim is 1 or symbolic, remove it. If
+              // the dim is symbolic, runtime engines should check that the dimension is
+              // actually 1 when the op is evaluated
+              if (input_shape.dim(i).has_dim_value() && input_shape.dim(i).dim_value() != 1) {
+                fail_shape_inference(
+                    "Dimension of input ", i, " must be 1 instead of ", input_shape.dim(i).dim_value());
+              }
+            } else {
+              *ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim() = input_shape.dim(i);
+            }
+          }
+        })
+        .PartialDataPropagationFunction([](DataPropagationContext& ctx) {
+          PropagateShapeDataFromInputToOutput(ctx, 0);
+        }));
+
+static constexpr const char* Squeeze_ver23_doc = R"DOC(
 Remove single-dimensional entries from the shape of a tensor.
 Takes an input `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
@@ -3625,7 +4298,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Squeeze_ver13_doc = R"DOC(
+static constexpr const char* Squeeze_ver13_doc = R"DOC(
 Remove single-dimensional entries from the shape of a tensor.
 Takes an input `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
@@ -3821,7 +4494,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Squeeze_ver11_doc = R"DOC(
+static constexpr const char* Squeeze_ver11_doc = R"DOC(
 Remove single-dimensional entries from the shape of a tensor.
 Takes a  parameter `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
@@ -3883,7 +4556,91 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Unsqueeze_ver23_doc = R"DOC(
+static constexpr const char* Unsqueeze_ver24_doc = R"DOC(
+Insert single-dimensional entries to the shape of an input tensor (`data`).
+Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`).
+
+For example, given an input tensor (`data`) of shape [3, 4, 5], then
+Unsqueeze(data, axes=[0, 4]) outputs a tensor (`expanded`) containing same data as `data` but with shape [1, 3, 4, 5, 1].
+
+The input `axes` should not contain any duplicate entries. It is an error if it contains duplicates.
+The rank of the output tensor (`output_rank`) is the rank of the input tensor (`data`) plus the number of values in `axes`.
+Each value in `axes` should be within the (inclusive) range [-output_rank , output_rank - 1].
+The order of values in `axes` does not matter and can come in any order.
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Unsqueeze,
+    24,
+    OpSchema()
+        .SetDoc(Unsqueeze_ver24_doc)
+        .Input(0, "data", "Original tensor", "T", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Input(
+            1,
+            "axes",
+            "1D tensor of integers indicating the dimensions to be inserted. Negative value means counting dimensions "
+            "from the back. Accepted range is [-r, r-1] where r = rank(expanded).",
+            "tensor(int64)",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::NonDifferentiable)
+        .Output(
+            0,
+            "expanded",
+            "Reshaped tensor with same data as input.",
+            "T",
+            OpSchema::Single,
+            true,
+            1,
+            OpSchema::Differentiable)
+        .TypeConstraint(
+            "T",
+            OpSchema::all_tensor_types_ir12(),
+            "Constrain input and output types to all tensor types up to IRv12.")
+        .TypeAndShapeInferenceFunction([](InferenceContext& ctx) {
+          propagateElemTypeFromInputToOutput(ctx, 0, 0);
+          if (!hasNInputShapes(ctx, 1)) {
+            return;
+          }
+          std::vector<int64_t> axes;
+          auto axes_proto = ctx.getInputData(1);
+          if (axes_proto == nullptr) {
+            // skip if axes is not an initializer
+            return;
+          }
+          axes = ParseData<int64_t>(axes_proto);
+          ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
+          const auto& input_shape = ctx.getInputType(0)->tensor_type().shape();
+          const auto input_ndim = input_shape.dim_size();
+          const auto output_ndim = input_ndim + static_cast<int>(axes.size());
+          checkAxesRange(axes, output_ndim);
+          adjustNegativeAxes(axes, output_ndim);
+          checkDuplicateAxes(axes, output_ndim);
+          // sort after correcting negative axes values (if any)
+          std::sort(axes.begin(), axes.end());
+
+          int j = 0;
+          for (int i = 0; i < input_ndim; ++i) {
+            while (static_cast<size_t>(j) < axes.size() &&
+                   axes[j] == ctx.getOutputType(0)->tensor_type().shape().dim_size()) {
+              ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(1);
+              ++j;
+            }
+            *ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim() =
+                ctx.getInputType(0)->tensor_type().shape().dim(i);
+          }
+          while (static_cast<size_t>(j) < axes.size() &&
+                 axes[j] == ctx.getOutputType(0)->tensor_type().shape().dim_size()) {
+            ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim()->set_dim_value(1);
+            ++j;
+          }
+        })
+        .PartialDataPropagationFunction([](DataPropagationContext& ctx) {
+          PropagateShapeDataFromInputToOutput(ctx, 0);
+        }));
+
+static constexpr const char* Unsqueeze_ver23_doc = R"DOC(
 Insert single-dimensional entries to the shape of an input tensor (`data`).
 Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`).
 
@@ -3967,7 +4724,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Unsqueeze_ver13_doc = R"DOC(
+static constexpr const char* Unsqueeze_ver13_doc = R"DOC(
 Insert single-dimensional entries to the shape of an input tensor (`data`).
 Takes one required input `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`).
 
@@ -4119,7 +4876,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           PropagateShapeDataFromInputToOutput(ctx, 0);
         }));
 
-static const char* Unsqueeze_ver11_doc = R"DOC(
+static constexpr const char* Unsqueeze_ver11_doc = R"DOC(
 Insert single-dimensional entries to the shape of an input tensor (`data`).
 Takes one required argument `axes` - which contains a list of dimension indices and this operator will insert a dimension of value `1` into the corresponding index of the output tensor (`expanded`).
 
@@ -4205,7 +4962,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* SpaceToDepth_ver1_doc =
+static constexpr const char* SpaceToDepth_ver1_doc =
     R"DOC(SpaceToDepth rearranges blocks of spatial data into depth. More specifically,
 this op outputs a copy of the input tensor where values from the height and width dimensions
 are moved to the depth dimension.
@@ -4249,7 +5006,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* DepthToSpace_ver11_doc =
+static constexpr const char* DepthToSpace_ver11_doc =
     R"DOC(DepthToSpace rearranges (permutes) data from depth into blocks of spatial data.
 This is the reverse transformation of SpaceToDepth. More specifically, this op outputs a copy of
 the input tensor where values from the depth dimension are moved in spatial blocks to the height
@@ -4322,7 +5079,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Tile_ver6_doc =
+static constexpr const char* Tile_ver6_doc =
     R"DOC(Constructs a tensor by tiling a given tensor.
 This is the same as function `tile` in Numpy, but no broadcast.
 For example A = [[1, 2], [3, 4]], B = [1, 2], tile(A, B) = [[1, 2, 1, 2], [3, 4, 3, 4]]
@@ -4381,7 +5138,7 @@ ONNX_OPERATOR_SET_SCHEMA(
                   "to the number of input dimensions.");
             }
 
-            for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               const auto& input_dim = input_shape.dim((int)i);
               auto* output_dim = output_shape->add_dim();
               if (input_dim.has_dim_value()) {
@@ -4392,21 +5149,21 @@ ONNX_OPERATOR_SET_SCHEMA(
             // Infer output shape's rank in any case (if repeats data is not
             // available)
             auto* output_shape_0 = getOutputShape(ctx, 0);
-            for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               output_shape_0->add_dim();
             }
           }
           return;
         }));
 
-static const char* Resize_ver18_doc = R"DOC(
+static constexpr const char* Resize_ver18_doc = R"DOC(
 Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
 Each dimension value of the output tensor is: <br/>
   `output_dimension = floor(input_dimension * (roi_end - roi_start) * scale)` <br/>
 if input \"sizes\" is not specified.
 )DOC";
 
-static const char* Resize_ver18_attr_coordinate_transformation_mode_doc = R"DOC(
+static constexpr const char* Resize_ver18_attr_coordinate_transformation_mode_doc = R"DOC(
 This attribute describes how to transform the coordinate in the resized tensor to the coordinate in the original tensor. <br/>
 
 The coordinate of each dimension is transformed individually. Let's describe a case using axis x as an example.
@@ -4428,7 +5185,7 @@ if coordinate_transformation_mode is `"tf_crop_and_resize"`, <br/>
 `x_original = length_resized > 1 ? start_x * (length_original - 1) + x_resized * (end_x - start_x) * (length_original - 1) / (length_resized - 1) : 0.5 * (start_x + end_x) * (length_original - 1)`
 .)DOC";
 
-static const char* Resize_ver18_attr_keep_aspect_ratio_policy_doc = R"DOC(
+static constexpr const char* Resize_ver18_attr_keep_aspect_ratio_policy_doc = R"DOC(
 This attribute describes how to interpret the `sizes` input with regard to keeping the original aspect ratio of the input, and it is not applicable when
 the `scales` input is used. <br/>
 
@@ -4554,13 +5311,13 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(Resize_ver18_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { resizeShapeInference_opset13_to_18(ctx); }));
 
-static const char* Resize_ver13_doc = R"DOC(
+static constexpr const char* Resize_ver13_doc = R"DOC(
 Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \"sizes\" is not specified.
 )DOC";
 
-static const char* Resize_ver13_attr_coordinate_transformation_mode_doc = R"DOC(
+static constexpr const char* Resize_ver13_attr_coordinate_transformation_mode_doc = R"DOC(
 This attribute describes how to transform the coordinate in the resized tensor to the coordinate in the original tensor. <br/>
 
 The coordinate of each dimension is transformed individually. Let's describe a case using axis x as an example.
@@ -4663,13 +5420,13 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(Resize_ver13_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { resizeShapeInference_opset13_to_18(ctx); }));
 
-static const char* Resize_ver11_doc = R"DOC(
+static constexpr const char* Resize_ver11_doc = R"DOC(
 Resize the input tensor. In general, it calculates every value in the output tensor as a weighted average of neighborhood (a.k.a. sampling locations) in the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * (roi_end - roi_start) * scale) if input \"sizes\" is not specified.
 )DOC";
 
-static const char* Resize_attr_coordinate_transformation_mode_ver11_doc = R"DOC(
+static constexpr const char* Resize_attr_coordinate_transformation_mode_ver11_doc = R"DOC(
 This attribute describes how to transform the coordinate in the resized tensor to the coordinate in the original tensor. <br/>
 
 The coordinate of each dimension is transformed individually. Let's describe a case using axis x as an example.
@@ -4760,6 +5517,26 @@ ONNX_OPERATOR_SET_SCHEMA(
             "Constrain roi type to float or double.")
         .SetDoc(Resize_ver11_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { resizeShapeInference_opset11_to_12(ctx); }));
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Identity,
+    24,
+    OpSchema()
+        .SetDoc("Identity operator")
+        .Input(0, "input", "Input tensor", "V", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .Output(0, "output", "Tensor to copy input into.", "V", OpSchema::Single, true, 1, OpSchema::Differentiable)
+        .TypeConstraint(
+            "V",
+            []() {
+              auto t = OpSchema::all_tensor_types_ir12();
+              auto s = OpSchema::all_tensor_sequence_types();
+              auto o = OpSchema::all_optional_types();
+              t.insert(t.end(), s.begin(), s.end());
+              t.insert(t.end(), o.begin(), o.end());
+              return t;
+            }(),
+            "Constrain input and output types to all tensor, sequence, and optional types.")
+        .TypeAndShapeInferenceFunction(propagateShapeAndTypeFromFirstInput));
 
 ONNX_OPERATOR_SET_SCHEMA(
     Identity,
@@ -4937,7 +5714,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           updateOutputShape(ctx, 0, output_shape);
         }));
 
-static const char* GatherND_ver12_doc = R"DOC(
+static constexpr const char* GatherND_ver12_doc = R"DOC(
 Given `data` tensor of rank `r` >= 1, `indices` tensor of rank `q` >= 1, and `batch_dims` integer `b`, this operator gathers
 slices of `data` into an output tensor of rank `q + r - indices_shape[-1] - 1 - b`.
 
@@ -5096,7 +5873,119 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Pad_ver23_doc = R"DOC(
+static constexpr const char* Pad_ver24_doc = R"DOC(
+Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
+a padded tensor (`output`) is generated.
+
+The three supported `modes` are (similar to corresponding modes supported by `numpy.pad`):
+
+1) `constant`(default) - pads with a given constant value as specified by `constant_value` (which defaults to 0, empty string, or False)
+
+2) `reflect` - pads with the reflection of the vector mirrored on the first and last values of the vector along each axis
+
+3) `edge` - pads with the edge values of array
+
+4) `wrap` - wrap-around padding as if the data tensor forms a torus
+
+
+Example 1 (`constant` mode):
+
+Insert 0 pads to the beginning of the second dimension.
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+
+pads = [0, 2, 0, 0]
+
+mode = 'constant'
+
+constant_value = 0.0
+
+output = [
+    [0.0, 0.0, 1.0, 1.2],
+    [0.0, 0.0, 2.3, 3.4],
+    [0.0, 0.0, 4.5, 5.7],
+]
+```
+
+Example 2 (`reflect` mode):
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+
+pads = [0, 2, 0, 0]
+
+mode = 'reflect'
+
+output = [
+    [1.0, 1.2, 1.0, 1.2],
+    [2.3, 3.4, 2.3, 3.4],
+    [4.5, 5.7, 4.5, 5.7],
+]
+```
+
+Example 3 (`edge` mode):
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+
+pads = [0, 2, 0, 0]
+
+mode = 'edge'
+
+output = [
+    [1.0, 1.0, 1.0, 1.2],
+    [2.3, 2.3, 2.3, 3.4],
+    [4.5, 4.5, 4.5, 5.7],
+]
+```
+
+Example 4 (`wrap` mode):
+
+```
+data = [
+    [1.0, 1.2],
+    [2.3, 3.4],
+    [4.5, 5.7],
+]
+
+pads = [2, 1, 1, 1]
+
+mode = 'wrap'
+
+output = [
+    [3.4, 2.3, 3.4, 2.3],
+    [5.7, 4.5, 5.7, 4.5],
+    [1.2, 1.0, 1.2, 1.0],
+    [3.4, 2.3, 3.4, 2.3],
+    [5.7, 4.5, 5.7, 4.5],
+    [1.2, 1.0, 1.2, 1.0],
+]
+```
+)DOC";
+
+ONNX_OPERATOR_SET_SCHEMA(
+    Pad,
+    24,
+    OpSchema().FillUsing(PadDocGenerator(
+        Pad_ver24_doc,
+        "Supported modes: `constant`(default), `reflect`, `edge`, `wrap`",
+        OpSchema::all_tensor_types_ir12(),
+        "Constrain input and output types to all tensor types up to IRv12.")));
+
+static constexpr const char* Pad_ver23_doc = R"DOC(
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
@@ -5208,7 +6097,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         OpSchema::all_tensor_types_ir11(),
         "Constrain input and output types to all tensor types up to IRv11.")));
 
-static const char* Pad_ver19_doc = R"DOC(
+static constexpr const char* Pad_ver19_doc = R"DOC(
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
@@ -5326,7 +6215,7 @@ ONNX_OPERATOR_SET_SCHEMA(
     OpSchema().FillUsing(
         PadDocGenerator(Pad_ver19_doc, "Supported modes: `constant`(default), `reflect`, `edge`, `wrap`")));
 
-static const char* Pad_ver11_doc = R"DOC(
+static constexpr const char* Pad_ver11_doc = R"DOC(
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
@@ -5456,7 +6345,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             }
 
             auto* output_shape = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
-            for (size_t i = 0; static_cast<int64_t>(i) < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               const auto& input_dim = input_shape.dim((int)i);
               auto* output_dim = output_shape->add_dim();
               if (input_dim.has_dim_value()) {
@@ -5468,14 +6357,14 @@ ONNX_OPERATOR_SET_SCHEMA(
           } else {
             // Infer output shapes' rank in any case
             auto* output_shape_0 = getOutputShape(ctx, 0);
-            for (size_t i = 0; static_cast<int64_t>(i) < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               output_shape_0->add_dim();
             }
           }
           return;
         }));
 
-static const char* Cast_ver1_doc = R"DOC(
+static constexpr const char* Cast_ver1_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -5531,7 +6420,7 @@ ONNX_OPERATOR_SET_SCHEMA(
              "tensor(bool)"},
             "Constrain output types. Casting to strings and complex are not supported."));
 
-static const char* Cast_ver6_doc = R"DOC(
+static constexpr const char* Cast_ver6_doc = R"DOC(
 The operator casts the elements of a given input tensor to a data type
 specified by the 'to' argument and returns an output tensor of the same size in
 the converted type. The 'to' argument must be one of the data types specified
@@ -5593,7 +6482,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Concat_ver1_doc = R"DOC(Concatenate a list of tensors into a single tensor)DOC";
+static constexpr const char* Concat_ver1_doc = R"DOC(Concatenate a list of tensors into a single tensor)DOC";
 
 ONNX_OPERATOR_SET_SCHEMA(
     Concat,
@@ -5672,7 +6561,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Split_ver1_doc =
+static constexpr const char* Split_ver1_doc =
     R"DOC(Split a tensor into a list of tensors, along the specified
 'axis'. The lengths of the split can be specified using argument 'axis' or
 optional second input blob to the operator. Otherwise, the tensor is split
@@ -5694,7 +6583,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         .Attr("split", "length of each output", AttributeProto::INTS, OPTIONAL_VALUE)
         .SetDoc(Split_ver1_doc));
 
-static const char* Pad_ver1_doc = R"DOC(
+static constexpr const char* Pad_ver1_doc = R"DOC(
 Given `data` tensor, paddings, mode, and value.
 Example:
   Insert 0 paddings to the beginning of the second dimension.
@@ -5736,7 +6625,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain input and output types to float tensors."));
 
-static const char* Reshape_ver1_doc = R"DOC(
+static constexpr const char* Reshape_ver1_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 It takes a tensor as input and an argument `shape`. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -5762,7 +6651,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             {"tensor(float16)", "tensor(float)", "tensor(double)"},
             "Constrain input and output types to float tensors."));
 
-static const char* Upsample_ver1_doc = R"DOC(
+static constexpr const char* Upsample_ver1_doc = R"DOC(
 Upsample the input tensor.
 The width and height of the output tensor are:
   output_width = floor(input_width * width_scale),
@@ -5832,7 +6721,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "Constrain output types to bool, int32, int64, float16, float, double tensors.")
         .SetDoc(Upsample_ver1_doc));
 
-static const char* Upsample_ver7_doc = R"DOC(
+static constexpr const char* Upsample_ver7_doc = R"DOC(
 Upsample the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
@@ -5896,7 +6785,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           } // nullptr != scales
         }));
 
-static const char* Upsample_ver9_doc = R"DOC(
+static constexpr const char* Upsample_ver9_doc = R"DOC(
 Upsample the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
@@ -5923,7 +6812,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(Upsample_ver9_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { resizeShapeInference_opset7_to_10(ctx); }));
 
-static const char* Resize_ver10_doc = R"DOC(
+static constexpr const char* Resize_ver10_doc = R"DOC(
 Resize the input tensor.
 Each dimension value of the output tensor is:
   output_dimension = floor(input_dimension * scale).
@@ -5951,7 +6840,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         .SetDoc(Resize_ver10_doc)
         .TypeAndShapeInferenceFunction([](InferenceContext& ctx) { resizeShapeInference_opset7_to_10(ctx); }));
 
-static const char* Slice_ver1_doc = R"DOC(
+static constexpr const char* Slice_ver1_doc = R"DOC(
 Produces a slice of the input tensor along multiple axes. Similar to numpy:
 https://numpy.org/doc/stable/reference/routines.indexing.html
 Slices uses `axes`, `starts` and `ends` attributes to specify the start and end
@@ -6067,7 +6956,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Slice_ver10_doc = R"DOC(
+static constexpr const char* Slice_ver10_doc = R"DOC(
 Produces a slice of the input tensor along multiple axes. Similar to numpy:
 https://numpy.org/doc/stable/reference/routines.indexing.html
 Slices uses `starts`, `ends`, `axes` and `steps` inputs to specify the start and end
@@ -6144,7 +7033,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               (hasInputShape(ctx, 4) && !ctx.getInputData(4))) {
             const auto input_rank = ctx.getInputType(0)->tensor_type().shape().dim_size();
             // we can infer the output rank - it never changes
-            for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
             }
             return;
@@ -6206,10 +7095,10 @@ ONNX_OPERATOR_SET_SCHEMA(
             }
           }
 
-          for (size_t i = 0; (int64_t)i < input_rank; ++i) {
+          for (int i = 0; i < input_rank; ++i) {
             // first update rank of output dim
             auto* output_dim = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
-            const auto& input_dim = input_shape.dim((int)i);
+            const auto& input_dim = input_shape.dim(i);
             if (input_dim.has_dim_value()) {
               output_dim->set_dim_value(input_dim.dim_value());
             } else if (input_dim.has_dim_param()) {
@@ -6274,7 +7163,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Scatter_ver9_doc = R"DOC(
+static constexpr const char* Scatter_ver9_doc = R"DOC(
 Given `data`, `updates` and `indices` input tensors of rank r >= 1, write the values provided by `updates`
 into the first input, `data`, along `axis` dimension of `data` (by default outer-most one as axis=0) at corresponding `indices`.
 For each entry in `updates`, the target index in `data` is specified by corresponding entry in `indices`
@@ -6332,7 +7221,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* DepthToSpace_ver1_doc =
+static constexpr const char* DepthToSpace_ver1_doc =
     R"DOC(DepthToSpace rearranges (permutes) data from depth into blocks of spatial data.
 This is the reverse transformation of SpaceToDepth. More specifically, this op outputs a copy of
 the input tensor where values from the depth dimension are moved in spatial blocks to the height
@@ -6377,7 +7266,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Gather_ver1_doc = R"DOC(
+static constexpr const char* Gather_ver1_doc = R"DOC(
 Given `data` tensor of rank r >= 1, and `indices` tensor of rank q, gather
 entries of the axis dimension of `data` (by default outer-most one as axis=0) indexed by `indices`, and concatenates
 them in an output tensor of rank q + (r - 1).
@@ -6477,7 +7366,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         })
         .PartialDataPropagationFunction([](DataPropagationContext& ctx) { GatherOp13DataPropagator(ctx); }));
 
-static const char* Squeeze_ver1_doc = R"DOC(
+static constexpr const char* Squeeze_ver1_doc = R"DOC(
 Remove single-dimensional entries from the shape of a tensor.
 Takes a  parameter `axes` with a list of axes to squeeze.
 If `axes` is not provided, all the single dimensions will be removed from
@@ -6535,7 +7424,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Unsqueeze_ver1_doc = R"DOC(
+static constexpr const char* Unsqueeze_ver1_doc = R"DOC(
 Insert single-dimensional entries to the shape of a tensor.
 Takes one required argument `axes`, a list of dimensions that will be inserted.
 Dimension indices in `axes` are as seen in the output tensor. For example:
@@ -6587,7 +7476,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* OneHot_ver9_doc = R"DOC(
+static constexpr const char* OneHot_ver9_doc = R"DOC(
     Produces a one-hot tensor based on inputs.
     The locations represented by the index values in the 'indices' input tensor will have 'on_value'
     and the other locations will have 'off_value' in the output tensor, where 'on_value' and 'off_value'
@@ -6731,7 +7620,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Compress_ver9_doc = R"DOC(
+static constexpr const char* Compress_ver9_doc = R"DOC(
     Selects slices from an input tensor along a given axis where condition evaluates to True for each axis index.
     In case axis is not provided, input is flattened before elements are selected.
     Compress behaves like numpy.compress: https://docs.scipy.org/doc/numpy/reference/generated/numpy.compress.html
@@ -6761,7 +7650,7 @@ ONNX_OPERATOR_SET_SCHEMA(
         .TypeConstraint("T", OpSchema::all_tensor_types(), "Constrain input and output types to all tensor types.")
         .TypeConstraint("T1", {"tensor(bool)"}, "Constrain to boolean tensors."));
 
-static const char* Split_ver2_doc =
+static constexpr const char* Split_ver2_doc =
     R"DOC(Split a tensor into a list of tensors, along the specified
 'axis'. Lengths of the parts can be specified using argument 'split'.
 Otherwise, the tensor is split to equal sized parts.
@@ -6832,7 +7721,7 @@ ONNX_OPERATOR_SET_SCHEMA(
               fail_shape_inference("The input is not evenly splittable");
             }
             int chunk_size = split_dim_value / num_outputs;
-            for (int i = 0; i < static_cast<int>(ctx.getNumOutputs()); i++) {
+            for (size_t i = 0; i < ctx.getNumOutputs(); i++) {
               split.push_back(chunk_size);
             }
           }
@@ -6842,7 +7731,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Pad_ver2_doc = R"DOC(
+static constexpr const char* Pad_ver2_doc = R"DOC(
 Given `data` tensor, pads, mode, and value.
 Example:
   Insert 0 pads to the beginning of the second dimension.
@@ -6902,7 +7791,7 @@ ONNX_OPERATOR_SET_SCHEMA(
 
           ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
 
-          for (size_t i = 0; (int64_t)i < input_shape.dim_size(); ++i) {
+          for (int i = 0; i < input_shape.dim_size(); ++i) {
             auto* newdim = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape()->add_dim();
             if (ctx.getInputType(0)->tensor_type().shape().dim((int)i).has_dim_value()) {
               newdim->set_dim_value(
@@ -6914,7 +7803,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* GatherND_ver11_doc = R"DOC(
+static constexpr const char* GatherND_ver11_doc = R"DOC(
 Given `data` tensor of rank `r` >= 1, and `indices` tensor of rank `q` >= 1, this operator gathers
 slices of `data` into an output tensor of rank `q + r - indices_shape[-1] - 1`.
 
@@ -7059,7 +7948,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "Constrain input and output types to all tensor and sequence types.")
         .TypeAndShapeInferenceFunction(propagateShapeAndTypeFromFirstInput));
 
-static const char* Where_ver9_doc = R"DOC(
+static constexpr const char* Where_ver9_doc = R"DOC(
 Return elements, either from X or Y, depending on condition.
 Where behaves like
 [numpy.where](https://docs.scipy.org/doc/numpy/reference/generated/numpy.where.html)
@@ -7122,7 +8011,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Pad_ver13_doc = R"DOC(
+static constexpr const char* Pad_ver13_doc = R"DOC(
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
@@ -7260,7 +8149,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             }
 
             auto* output_shape = ctx.getOutputType(0)->mutable_tensor_type()->mutable_shape();
-            for (size_t i = 0; static_cast<int64_t>(i) < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               const auto& input_dim = input_shape.dim((int)i);
               auto* output_dim = output_shape->add_dim();
               if (input_dim.has_dim_value()) {
@@ -7272,14 +8161,14 @@ ONNX_OPERATOR_SET_SCHEMA(
           } else {
             // Infer output shapes' rank in any case
             auto* output_shape_0 = getOutputShape(ctx, 0);
-            for (size_t i = 0; static_cast<int64_t>(i) < input_rank; ++i) {
+            for (int i = 0; i < input_rank; ++i) {
               output_shape_0->add_dim();
             }
           }
           return;
         }));
 
-static const char* Pad_ver18_doc = R"DOC(
+static constexpr const char* Pad_ver18_doc = R"DOC(
 Given a tensor containing the data to be padded (`data`), a tensor containing the number of start and end pad values for axis (`pads`), (optionally) a `mode`, and (optionally) `constant_value`,
 a padded tensor (`output`) is generated.
 
@@ -7382,7 +8271,7 @@ ONNX_OPERATOR_SET_SCHEMA(
             "Constrain input and output types to all tensor, sequence, and optional types.")
         .TypeAndShapeInferenceFunction(propagateShapeAndTypeFromFirstInput));
 
-static const char* Reshape_ver14_doc = R"DOC(
+static constexpr const char* Reshape_ver14_doc = R"DOC(
 Reshape the input tensor similar to numpy.reshape.
 First input is the data tensor, second input is a shape tensor which specifies the output shape. It outputs the reshaped tensor.
 At most one dimension of the new shape can be -1. In this case, the value is
@@ -7546,7 +8435,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Shape_ver19_doc = R"DOC(
+static constexpr const char* Shape_ver19_doc = R"DOC(
 Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
 Optional attributes start and end can be used to compute a slice of the input tensor's shape.
 If start axis is omitted, the slice starts from axis 0.
@@ -7649,7 +8538,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Shape_ver15_doc = R"DOC(
+static constexpr const char* Shape_ver15_doc = R"DOC(
 Takes a tensor as input and outputs an 1D int64 tensor containing the shape of the input tensor.
 Optional attributes start and end can be used to compute a slice of the input tensor's shape.
 If start axis is omitted, the slice starts from axis 0.
@@ -7814,7 +8703,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Size_ver19_doc = R"DOC(
+static constexpr const char* Size_ver19_doc = R"DOC(
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 )DOC";
 
@@ -7848,7 +8737,7 @@ ONNX_OPERATOR_SET_SCHEMA(
           }
         }));
 
-static const char* Size_ver13_doc = R"DOC(
+static constexpr const char* Size_ver13_doc = R"DOC(
 Takes a tensor as input and outputs a int64 scalar that equals to the total number of elements of the input tensor.
 )DOC";
 

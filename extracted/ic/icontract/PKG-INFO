@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: icontract
-Version: 2.7.1
+Version: 2.7.2
 Summary: Provide design-by-contract with informative violation messages.
 Home-page: https://github.com/Parquery/icontract
 Author: Marko Ristin
@@ -9,19 +9,21 @@ License: License :: OSI Approved :: MIT License
 Keywords: design-by-contract precondition postcondition validation
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE.txt
 Requires-Dist: asttokens<3,>=2
 Requires-Dist: contextvars; python_version == "3.6"
 Requires-Dist: typing_extensions
 Provides-Extra: dev
-Requires-Dist: pylint==2.17.5; python_version >= "3.7" and extra == "dev"
+Requires-Dist: pylint==2.17.5; (python_version >= "3.7" and python_version < "3.12") and extra == "dev"
+Requires-Dist: pylint==4.0.2; python_version >= "3.12" and extra == "dev"
 Requires-Dist: tox>=3.0.0; extra == "dev"
 Requires-Dist: pydocstyle<7,>=6.3.0; extra == "dev"
 Requires-Dist: coverage<7,>=6.5.0; extra == "dev"
@@ -33,10 +35,22 @@ Requires-Dist: py-cpuinfo<6,>=5.0.0; extra == "dev"
 Requires-Dist: typeguard<5,>=2; extra == "dev"
 Requires-Dist: astor==0.8.1; extra == "dev"
 Requires-Dist: numpy<2,>=1; extra == "dev"
-Requires-Dist: mypy==1.5.1; python_version >= "3.8" and extra == "dev"
+Requires-Dist: mypy==1.5.1; (python_version >= "3.8" and python_version < "3.12") and extra == "dev"
+Requires-Dist: mypy==1.18.2; python_version >= "3.12" and extra == "dev"
 Requires-Dist: black==23.9.1; python_version >= "3.8" and extra == "dev"
 Requires-Dist: deal<5,>=4; python_version >= "3.8" and extra == "dev"
 Requires-Dist: asyncstdlib==3.9.1; python_version >= "3.8" and extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 icontract
 =========

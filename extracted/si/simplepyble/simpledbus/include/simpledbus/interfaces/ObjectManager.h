@@ -5,11 +5,11 @@
 
 #include <functional>
 
-namespace SimpleDBus {
+namespace SimpleDBus::Interfaces {
 
 class ObjectManager : public Interface {
   public:
-    ObjectManager(std::shared_ptr<Connection> conn, std::string bus_name, std::string path);
+    ObjectManager(std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> proxy);
     virtual ~ObjectManager() = default;
 
     // Names are made matching the ones from the DBus specification
@@ -23,4 +23,4 @@ class ObjectManager : public Interface {
     static const SimpleDBus::AutoRegisterInterface<ObjectManager> registry;
 };
 
-}  // namespace SimpleDBus
+}  // namespace SimpleDBus::Interfaces

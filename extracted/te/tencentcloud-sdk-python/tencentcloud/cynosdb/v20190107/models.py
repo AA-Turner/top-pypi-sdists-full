@@ -41,6 +41,14 @@ class Ability(AbstractModel):
         :type NoSupportTransparentDataEncryptionReason: str
         :param _IsSupportManualLogic: 是否支持手动发起逻辑备份
         :type IsSupportManualLogic: str
+        :param _IsSupportGlobalEncryption: 是否支持开启全局加密
+        :type IsSupportGlobalEncryption: str
+        :param _NoSupportGlobalEncryptionReason: 不支持全局加密的原因
+        :type NoSupportGlobalEncryptionReason: str
+        :param _NoSupportTransparentDataEncryptionReasonCode: 不支持透明加密原因状态码
+        :type NoSupportTransparentDataEncryptionReasonCode: str
+        :param _NoSupportGlobalEncryptionReasonCode: 不支持全局加密原因状态码
+        :type NoSupportGlobalEncryptionReasonCode: str
         """
         self._IsSupportSlaveZone = None
         self._NonsupportSlaveZoneReason = None
@@ -50,6 +58,10 @@ class Ability(AbstractModel):
         self._IsSupportTransparentDataEncryption = None
         self._NoSupportTransparentDataEncryptionReason = None
         self._IsSupportManualLogic = None
+        self._IsSupportGlobalEncryption = None
+        self._NoSupportGlobalEncryptionReason = None
+        self._NoSupportTransparentDataEncryptionReasonCode = None
+        self._NoSupportGlobalEncryptionReasonCode = None
 
     @property
     def IsSupportSlaveZone(self):
@@ -139,6 +151,50 @@ class Ability(AbstractModel):
     def IsSupportManualLogic(self, IsSupportManualLogic):
         self._IsSupportManualLogic = IsSupportManualLogic
 
+    @property
+    def IsSupportGlobalEncryption(self):
+        r"""是否支持开启全局加密
+        :rtype: str
+        """
+        return self._IsSupportGlobalEncryption
+
+    @IsSupportGlobalEncryption.setter
+    def IsSupportGlobalEncryption(self, IsSupportGlobalEncryption):
+        self._IsSupportGlobalEncryption = IsSupportGlobalEncryption
+
+    @property
+    def NoSupportGlobalEncryptionReason(self):
+        r"""不支持全局加密的原因
+        :rtype: str
+        """
+        return self._NoSupportGlobalEncryptionReason
+
+    @NoSupportGlobalEncryptionReason.setter
+    def NoSupportGlobalEncryptionReason(self, NoSupportGlobalEncryptionReason):
+        self._NoSupportGlobalEncryptionReason = NoSupportGlobalEncryptionReason
+
+    @property
+    def NoSupportTransparentDataEncryptionReasonCode(self):
+        r"""不支持透明加密原因状态码
+        :rtype: str
+        """
+        return self._NoSupportTransparentDataEncryptionReasonCode
+
+    @NoSupportTransparentDataEncryptionReasonCode.setter
+    def NoSupportTransparentDataEncryptionReasonCode(self, NoSupportTransparentDataEncryptionReasonCode):
+        self._NoSupportTransparentDataEncryptionReasonCode = NoSupportTransparentDataEncryptionReasonCode
+
+    @property
+    def NoSupportGlobalEncryptionReasonCode(self):
+        r"""不支持全局加密原因状态码
+        :rtype: str
+        """
+        return self._NoSupportGlobalEncryptionReasonCode
+
+    @NoSupportGlobalEncryptionReasonCode.setter
+    def NoSupportGlobalEncryptionReasonCode(self, NoSupportGlobalEncryptionReasonCode):
+        self._NoSupportGlobalEncryptionReasonCode = NoSupportGlobalEncryptionReasonCode
+
 
     def _deserialize(self, params):
         self._IsSupportSlaveZone = params.get("IsSupportSlaveZone")
@@ -149,6 +205,10 @@ class Ability(AbstractModel):
         self._IsSupportTransparentDataEncryption = params.get("IsSupportTransparentDataEncryption")
         self._NoSupportTransparentDataEncryptionReason = params.get("NoSupportTransparentDataEncryptionReason")
         self._IsSupportManualLogic = params.get("IsSupportManualLogic")
+        self._IsSupportGlobalEncryption = params.get("IsSupportGlobalEncryption")
+        self._NoSupportGlobalEncryptionReason = params.get("NoSupportGlobalEncryptionReason")
+        self._NoSupportTransparentDataEncryptionReasonCode = params.get("NoSupportTransparentDataEncryptionReasonCode")
+        self._NoSupportGlobalEncryptionReasonCode = params.get("NoSupportGlobalEncryptionReasonCode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -554,7 +614,9 @@ class AddInstancesRequest(AbstractModel):
         :type Memory: int
         :param _ReadOnlyCount: 新增只读实例数，取值范围为(0,15]
         :type ReadOnlyCount: int
-        :param _DeviceType: 实例机器类型
+        :param _DeviceType: 实例机器类型，支持值如下：
+- common：表示通用型
+- exclusive：表示独享型
         :type DeviceType: str
         :param _InstanceGrpId: 实例组ID，在已有RO组中新增实例时使用，不传则新增RO组。当前版本不建议传输该值。
         :type InstanceGrpId: str
@@ -649,7 +711,9 @@ class AddInstancesRequest(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""实例机器类型
+        r"""实例机器类型，支持值如下：
+- common：表示通用型
+- exclusive：表示独享型
         :rtype: str
         """
         return self._DeviceType
@@ -2842,12 +2906,15 @@ class BinlogItem(AbstractModel):
         :type FinishTime: str
         :param _BinlogId: Binlog文件ID
         :type BinlogId: int
+        :param _CrossRegions: binlog所跨地域
+        :type CrossRegions: list of str
         """
         self._FileName = None
         self._FileSize = None
         self._StartTime = None
         self._FinishTime = None
         self._BinlogId = None
+        self._CrossRegions = None
 
     @property
     def FileName(self):
@@ -2904,6 +2971,17 @@ class BinlogItem(AbstractModel):
     def BinlogId(self, BinlogId):
         self._BinlogId = BinlogId
 
+    @property
+    def CrossRegions(self):
+        r"""binlog所跨地域
+        :rtype: list of str
+        """
+        return self._CrossRegions
+
+    @CrossRegions.setter
+    def CrossRegions(self, CrossRegions):
+        self._CrossRegions = CrossRegions
+
 
     def _deserialize(self, params):
         self._FileName = params.get("FileName")
@@ -2911,6 +2989,7 @@ class BinlogItem(AbstractModel):
         self._StartTime = params.get("StartTime")
         self._FinishTime = params.get("FinishTime")
         self._BinlogId = params.get("BinlogId")
+        self._CrossRegions = params.get("CrossRegions")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4468,10 +4547,12 @@ class ClusterInstanceDetail(AbstractModel):
         :param _InstanceDeviceType: 实例机器类型
         :type InstanceDeviceType: str
         :param _InstanceStorageType: 实例存储类型
+说明：仅当要查询的资源为 LibraDB 时，此参数才会返回值。
         :type InstanceStorageType: str
         :param _DbMode: 数据库类型
         :type DbMode: str
         :param _NodeList: 节点列表
+说明：仅当要查询的资源为 LibraDB 时，此参数才会返回值。
         :type NodeList: list of str
         """
         self._InstanceId = None
@@ -4661,6 +4742,7 @@ class ClusterInstanceDetail(AbstractModel):
     @property
     def InstanceStorageType(self):
         r"""实例存储类型
+说明：仅当要查询的资源为 LibraDB 时，此参数才会返回值。
         :rtype: str
         """
         return self._InstanceStorageType
@@ -4683,6 +4765,7 @@ class ClusterInstanceDetail(AbstractModel):
     @property
     def NodeList(self):
         r"""节点列表
+说明：仅当要查询的资源为 LibraDB 时，此参数才会返回值。
         :rtype: list of str
         """
         return self._NodeList
@@ -6138,7 +6221,9 @@ class CreateClustersRequest(AbstractModel):
         :type AdminPassword: str
         :param _Port: 端口，默认3306，取值范围[0, 65535)
         :type Port: int
-        :param _PayMode: 计费模式，按量计费：0，包年包月：1。默认按量计费。
+        :param _PayMode: 计费模式，支持值为0和1，默认值为0。
+取值为0，表示按量计费。
+取值为1，表示包年包月。
         :type PayMode: int
         :param _Count: 购买集群数，可选值范围[1,50]，默认为1
         :type Count: int
@@ -6219,6 +6304,8 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
         :type AutoArchive: str
         :param _AutoArchiveDelayHours: 暂停后的归档处理时间
         :type AutoArchiveDelayHours: int
+        :param _CynosVersion: 内核小版本号
+        :type CynosVersion: str
         """
         self._Zone = None
         self._VpcId = None
@@ -6265,6 +6352,7 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
         self._ProxyConfig = None
         self._AutoArchive = None
         self._AutoArchiveDelayHours = None
+        self._CynosVersion = None
 
     @property
     def Zone(self):
@@ -6416,7 +6504,9 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
 
     @property
     def PayMode(self):
-        r"""计费模式，按量计费：0，包年包月：1。默认按量计费。
+        r"""计费模式，支持值为0和1，默认值为0。
+取值为0，表示按量计费。
+取值为1，表示包年包月。
         :rtype: int
         """
         return self._PayMode
@@ -6783,6 +6873,17 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
     def AutoArchiveDelayHours(self, AutoArchiveDelayHours):
         self._AutoArchiveDelayHours = AutoArchiveDelayHours
 
+    @property
+    def CynosVersion(self):
+        r"""内核小版本号
+        :rtype: str
+        """
+        return self._CynosVersion
+
+    @CynosVersion.setter
+    def CynosVersion(self, CynosVersion):
+        self._CynosVersion = CynosVersion
+
 
     def _deserialize(self, params):
         self._Zone = params.get("Zone")
@@ -6847,6 +6948,7 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
             self._ProxyConfig._deserialize(params.get("ProxyConfig"))
         self._AutoArchive = params.get("AutoArchive")
         self._AutoArchiveDelayHours = params.get("AutoArchiveDelayHours")
+        self._CynosVersion = params.get("CynosVersion")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6859,6 +6961,626 @@ cpu最大值，可选范围参考DescribeServerlessInstanceSpecs接口返回
 
 class CreateClustersResponse(AbstractModel):
     r"""CreateClusters返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TranId: 冻结流水ID
+        :type TranId: str
+        :param _DealNames: 订单号
+        :type DealNames: list of str
+        :param _ResourceIds: 资源ID列表（该字段已不再维护，请使用dealNames字段查询接口DescribeResourcesByDealName获取资源ID）
+        :type ResourceIds: list of str
+        :param _ClusterIds: 集群ID列表（该字段已不再维护，请使用dealNames字段查询接口DescribeResourcesByDealName获取集群ID）
+        :type ClusterIds: list of str
+        :param _BigDealIds: 大订单号
+注意：此字段可能返回 null，表示取不到有效值。
+        :type BigDealIds: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TranId = None
+        self._DealNames = None
+        self._ResourceIds = None
+        self._ClusterIds = None
+        self._BigDealIds = None
+        self._RequestId = None
+
+    @property
+    def TranId(self):
+        r"""冻结流水ID
+        :rtype: str
+        """
+        return self._TranId
+
+    @TranId.setter
+    def TranId(self, TranId):
+        self._TranId = TranId
+
+    @property
+    def DealNames(self):
+        r"""订单号
+        :rtype: list of str
+        """
+        return self._DealNames
+
+    @DealNames.setter
+    def DealNames(self, DealNames):
+        self._DealNames = DealNames
+
+    @property
+    def ResourceIds(self):
+        r"""资源ID列表（该字段已不再维护，请使用dealNames字段查询接口DescribeResourcesByDealName获取资源ID）
+        :rtype: list of str
+        """
+        return self._ResourceIds
+
+    @ResourceIds.setter
+    def ResourceIds(self, ResourceIds):
+        self._ResourceIds = ResourceIds
+
+    @property
+    def ClusterIds(self):
+        r"""集群ID列表（该字段已不再维护，请使用dealNames字段查询接口DescribeResourcesByDealName获取集群ID）
+        :rtype: list of str
+        """
+        return self._ClusterIds
+
+    @ClusterIds.setter
+    def ClusterIds(self, ClusterIds):
+        self._ClusterIds = ClusterIds
+
+    @property
+    def BigDealIds(self):
+        r"""大订单号
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._BigDealIds
+
+    @BigDealIds.setter
+    def BigDealIds(self, BigDealIds):
+        self._BigDealIds = BigDealIds
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TranId = params.get("TranId")
+        self._DealNames = params.get("DealNames")
+        self._ResourceIds = params.get("ResourceIds")
+        self._ClusterIds = params.get("ClusterIds")
+        self._BigDealIds = params.get("BigDealIds")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateIntegrateClusterRequest(AbstractModel):
+    r"""CreateIntegrateCluster请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Zone: 可用区
+        :type Zone: str
+        :param _VpcId: 所属VPC网络ID
+        :type VpcId: str
+        :param _SubnetId: 所属子网ID
+        :type SubnetId: str
+        :param _DbVersion: 数据库版本，取值范围: 
+<li> MYSQL可选值：5.7，8.0 </li>
+        :type DbVersion: str
+        :param _ProjectId: 所属项目ID
+        :type ProjectId: int
+        :param _ClusterName: 集群名称，长度小于64个字符，每个字符取值范围：大/小写字母，数字，特殊符号（'-','_','.'）
+        :type ClusterName: str
+        :param _AdminPassword: 账号密码(8-64个字符，包含大小写英文字母、数字和符号~!@#$%^&*_-+=`|\(){}[]:;'<>,.?/中的任意三种)
+        :type AdminPassword: str
+        :param _Port: 端口，默认3306，取值范围[0, 65535)
+        :type Port: int
+        :param _PayMode: 计费模式，按量计费：0，包年包月：1。默认按量计费。
+        :type PayMode: int
+        :param _Count: 购买集群数，可选值范围[1,3]，默认为1
+        :type Count: int
+        :param _StorageLimit: 普通实例存储上限，单位GB
+当DbType为MYSQL，且存储计费模式为预付费时，该参数需不大于cpu与memory对应存储规格上限
+        :type StorageLimit: int
+        :param _TimeSpan: 包年包月购买时长
+        :type TimeSpan: int
+        :param _TimeUnit: 包年包月购买时长单位，['s','d','m','y']
+        :type TimeUnit: str
+        :param _AutoRenewFlag: 包年包月购买是否自动续费，默认为0。
+0标识默认续费方式，1表示自动续费，2表示不自动续费。
+        :type AutoRenewFlag: int
+        :param _AutoVoucher: 是否自动选择代金券 1是 0否 默认为0
+        :type AutoVoucher: int
+        :param _ResourceTags: 集群创建需要绑定的tag数组信息
+        :type ResourceTags: list of Tag
+        :param _StoragePayMode: 集群存储计费模式，按量计费：0，包年包月：1。默认按量计费
+当DbType为MYSQL时，在集群计算计费模式为后付费（包括DbMode为SERVERLESS）时，存储计费模式仅可为按量计费
+回档与克隆均不支持包年包月存储
+        :type StoragePayMode: int
+        :param _SecurityGroupIds: 安全组id数组
+        :type SecurityGroupIds: list of str
+        :param _AlarmPolicyIds: 告警策略Id数组
+        :type AlarmPolicyIds: list of str
+        :param _ClusterParams: 参数数组，暂时支持character_set_server （utf8｜latin1｜gbk｜utf8mb4） ，lower_case_table_names，1-大小写不敏感，0-大小写敏感
+        :type ClusterParams: list of ParamItem
+        :param _DealMode: 交易模式，0-下单且支付，1-下单
+        :type DealMode: int
+        :param _ParamTemplateId: 参数模板ID，可以通过查询参数模板信息DescribeParamTemplates获得参数模板ID
+        :type ParamTemplateId: int
+        :param _SlaveZone: 多可用区地址
+        :type SlaveZone: str
+        :param _InstanceInitInfos: 实例初始化配置信息，主要用于购买集群时选不同规格实例
+        :type InstanceInitInfos: list of IntegrateInstanceInfo
+        :param _GdnId: 全球数据库唯一标识
+        :type GdnId: str
+        :param _ProxyConfig: 数据库代理配置
+        :type ProxyConfig: :class:`tencentcloud.cynosdb.v20190107.models.ProxyConfigInfo`
+        :param _AutoArchive: 是否自动归档
+        :type AutoArchive: str
+        :param _AutoArchiveDelayHours: 暂停后的归档处理时间
+        :type AutoArchiveDelayHours: int
+        :param _EncryptMethod: 加密方法（由加密算法和密钥对版本组成）
+        :type EncryptMethod: str
+        :param _IntegrateCreateClusterConfig: 集成集群配置信息
+        :type IntegrateCreateClusterConfig: :class:`tencentcloud.cynosdb.v20190107.models.IntegrateCreateClusterConfig`
+        :param _StorageVersion: 存储架构类型。 枚举值：1.0/2.0 默认值：1.0
+        :type StorageVersion: str
+        """
+        self._Zone = None
+        self._VpcId = None
+        self._SubnetId = None
+        self._DbVersion = None
+        self._ProjectId = None
+        self._ClusterName = None
+        self._AdminPassword = None
+        self._Port = None
+        self._PayMode = None
+        self._Count = None
+        self._StorageLimit = None
+        self._TimeSpan = None
+        self._TimeUnit = None
+        self._AutoRenewFlag = None
+        self._AutoVoucher = None
+        self._ResourceTags = None
+        self._StoragePayMode = None
+        self._SecurityGroupIds = None
+        self._AlarmPolicyIds = None
+        self._ClusterParams = None
+        self._DealMode = None
+        self._ParamTemplateId = None
+        self._SlaveZone = None
+        self._InstanceInitInfos = None
+        self._GdnId = None
+        self._ProxyConfig = None
+        self._AutoArchive = None
+        self._AutoArchiveDelayHours = None
+        self._EncryptMethod = None
+        self._IntegrateCreateClusterConfig = None
+        self._StorageVersion = None
+
+    @property
+    def Zone(self):
+        r"""可用区
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
+    @property
+    def VpcId(self):
+        r"""所属VPC网络ID
+        :rtype: str
+        """
+        return self._VpcId
+
+    @VpcId.setter
+    def VpcId(self, VpcId):
+        self._VpcId = VpcId
+
+    @property
+    def SubnetId(self):
+        r"""所属子网ID
+        :rtype: str
+        """
+        return self._SubnetId
+
+    @SubnetId.setter
+    def SubnetId(self, SubnetId):
+        self._SubnetId = SubnetId
+
+    @property
+    def DbVersion(self):
+        r"""数据库版本，取值范围: 
+<li> MYSQL可选值：5.7，8.0 </li>
+        :rtype: str
+        """
+        return self._DbVersion
+
+    @DbVersion.setter
+    def DbVersion(self, DbVersion):
+        self._DbVersion = DbVersion
+
+    @property
+    def ProjectId(self):
+        r"""所属项目ID
+        :rtype: int
+        """
+        return self._ProjectId
+
+    @ProjectId.setter
+    def ProjectId(self, ProjectId):
+        self._ProjectId = ProjectId
+
+    @property
+    def ClusterName(self):
+        r"""集群名称，长度小于64个字符，每个字符取值范围：大/小写字母，数字，特殊符号（'-','_','.'）
+        :rtype: str
+        """
+        return self._ClusterName
+
+    @ClusterName.setter
+    def ClusterName(self, ClusterName):
+        self._ClusterName = ClusterName
+
+    @property
+    def AdminPassword(self):
+        r"""账号密码(8-64个字符，包含大小写英文字母、数字和符号~!@#$%^&*_-+=`|\(){}[]:;'<>,.?/中的任意三种)
+        :rtype: str
+        """
+        return self._AdminPassword
+
+    @AdminPassword.setter
+    def AdminPassword(self, AdminPassword):
+        self._AdminPassword = AdminPassword
+
+    @property
+    def Port(self):
+        r"""端口，默认3306，取值范围[0, 65535)
+        :rtype: int
+        """
+        return self._Port
+
+    @Port.setter
+    def Port(self, Port):
+        self._Port = Port
+
+    @property
+    def PayMode(self):
+        r"""计费模式，按量计费：0，包年包月：1。默认按量计费。
+        :rtype: int
+        """
+        return self._PayMode
+
+    @PayMode.setter
+    def PayMode(self, PayMode):
+        self._PayMode = PayMode
+
+    @property
+    def Count(self):
+        r"""购买集群数，可选值范围[1,3]，默认为1
+        :rtype: int
+        """
+        return self._Count
+
+    @Count.setter
+    def Count(self, Count):
+        self._Count = Count
+
+    @property
+    def StorageLimit(self):
+        r"""普通实例存储上限，单位GB
+当DbType为MYSQL，且存储计费模式为预付费时，该参数需不大于cpu与memory对应存储规格上限
+        :rtype: int
+        """
+        return self._StorageLimit
+
+    @StorageLimit.setter
+    def StorageLimit(self, StorageLimit):
+        self._StorageLimit = StorageLimit
+
+    @property
+    def TimeSpan(self):
+        r"""包年包月购买时长
+        :rtype: int
+        """
+        return self._TimeSpan
+
+    @TimeSpan.setter
+    def TimeSpan(self, TimeSpan):
+        self._TimeSpan = TimeSpan
+
+    @property
+    def TimeUnit(self):
+        r"""包年包月购买时长单位，['s','d','m','y']
+        :rtype: str
+        """
+        return self._TimeUnit
+
+    @TimeUnit.setter
+    def TimeUnit(self, TimeUnit):
+        self._TimeUnit = TimeUnit
+
+    @property
+    def AutoRenewFlag(self):
+        r"""包年包月购买是否自动续费，默认为0。
+0标识默认续费方式，1表示自动续费，2表示不自动续费。
+        :rtype: int
+        """
+        return self._AutoRenewFlag
+
+    @AutoRenewFlag.setter
+    def AutoRenewFlag(self, AutoRenewFlag):
+        self._AutoRenewFlag = AutoRenewFlag
+
+    @property
+    def AutoVoucher(self):
+        r"""是否自动选择代金券 1是 0否 默认为0
+        :rtype: int
+        """
+        return self._AutoVoucher
+
+    @AutoVoucher.setter
+    def AutoVoucher(self, AutoVoucher):
+        self._AutoVoucher = AutoVoucher
+
+    @property
+    def ResourceTags(self):
+        r"""集群创建需要绑定的tag数组信息
+        :rtype: list of Tag
+        """
+        return self._ResourceTags
+
+    @ResourceTags.setter
+    def ResourceTags(self, ResourceTags):
+        self._ResourceTags = ResourceTags
+
+    @property
+    def StoragePayMode(self):
+        r"""集群存储计费模式，按量计费：0，包年包月：1。默认按量计费
+当DbType为MYSQL时，在集群计算计费模式为后付费（包括DbMode为SERVERLESS）时，存储计费模式仅可为按量计费
+回档与克隆均不支持包年包月存储
+        :rtype: int
+        """
+        return self._StoragePayMode
+
+    @StoragePayMode.setter
+    def StoragePayMode(self, StoragePayMode):
+        self._StoragePayMode = StoragePayMode
+
+    @property
+    def SecurityGroupIds(self):
+        r"""安全组id数组
+        :rtype: list of str
+        """
+        return self._SecurityGroupIds
+
+    @SecurityGroupIds.setter
+    def SecurityGroupIds(self, SecurityGroupIds):
+        self._SecurityGroupIds = SecurityGroupIds
+
+    @property
+    def AlarmPolicyIds(self):
+        r"""告警策略Id数组
+        :rtype: list of str
+        """
+        return self._AlarmPolicyIds
+
+    @AlarmPolicyIds.setter
+    def AlarmPolicyIds(self, AlarmPolicyIds):
+        self._AlarmPolicyIds = AlarmPolicyIds
+
+    @property
+    def ClusterParams(self):
+        r"""参数数组，暂时支持character_set_server （utf8｜latin1｜gbk｜utf8mb4） ，lower_case_table_names，1-大小写不敏感，0-大小写敏感
+        :rtype: list of ParamItem
+        """
+        return self._ClusterParams
+
+    @ClusterParams.setter
+    def ClusterParams(self, ClusterParams):
+        self._ClusterParams = ClusterParams
+
+    @property
+    def DealMode(self):
+        r"""交易模式，0-下单且支付，1-下单
+        :rtype: int
+        """
+        return self._DealMode
+
+    @DealMode.setter
+    def DealMode(self, DealMode):
+        self._DealMode = DealMode
+
+    @property
+    def ParamTemplateId(self):
+        r"""参数模板ID，可以通过查询参数模板信息DescribeParamTemplates获得参数模板ID
+        :rtype: int
+        """
+        return self._ParamTemplateId
+
+    @ParamTemplateId.setter
+    def ParamTemplateId(self, ParamTemplateId):
+        self._ParamTemplateId = ParamTemplateId
+
+    @property
+    def SlaveZone(self):
+        r"""多可用区地址
+        :rtype: str
+        """
+        return self._SlaveZone
+
+    @SlaveZone.setter
+    def SlaveZone(self, SlaveZone):
+        self._SlaveZone = SlaveZone
+
+    @property
+    def InstanceInitInfos(self):
+        r"""实例初始化配置信息，主要用于购买集群时选不同规格实例
+        :rtype: list of IntegrateInstanceInfo
+        """
+        return self._InstanceInitInfos
+
+    @InstanceInitInfos.setter
+    def InstanceInitInfos(self, InstanceInitInfos):
+        self._InstanceInitInfos = InstanceInitInfos
+
+    @property
+    def GdnId(self):
+        r"""全球数据库唯一标识
+        :rtype: str
+        """
+        return self._GdnId
+
+    @GdnId.setter
+    def GdnId(self, GdnId):
+        self._GdnId = GdnId
+
+    @property
+    def ProxyConfig(self):
+        r"""数据库代理配置
+        :rtype: :class:`tencentcloud.cynosdb.v20190107.models.ProxyConfigInfo`
+        """
+        return self._ProxyConfig
+
+    @ProxyConfig.setter
+    def ProxyConfig(self, ProxyConfig):
+        self._ProxyConfig = ProxyConfig
+
+    @property
+    def AutoArchive(self):
+        r"""是否自动归档
+        :rtype: str
+        """
+        return self._AutoArchive
+
+    @AutoArchive.setter
+    def AutoArchive(self, AutoArchive):
+        self._AutoArchive = AutoArchive
+
+    @property
+    def AutoArchiveDelayHours(self):
+        r"""暂停后的归档处理时间
+        :rtype: int
+        """
+        return self._AutoArchiveDelayHours
+
+    @AutoArchiveDelayHours.setter
+    def AutoArchiveDelayHours(self, AutoArchiveDelayHours):
+        self._AutoArchiveDelayHours = AutoArchiveDelayHours
+
+    @property
+    def EncryptMethod(self):
+        r"""加密方法（由加密算法和密钥对版本组成）
+        :rtype: str
+        """
+        return self._EncryptMethod
+
+    @EncryptMethod.setter
+    def EncryptMethod(self, EncryptMethod):
+        self._EncryptMethod = EncryptMethod
+
+    @property
+    def IntegrateCreateClusterConfig(self):
+        r"""集成集群配置信息
+        :rtype: :class:`tencentcloud.cynosdb.v20190107.models.IntegrateCreateClusterConfig`
+        """
+        return self._IntegrateCreateClusterConfig
+
+    @IntegrateCreateClusterConfig.setter
+    def IntegrateCreateClusterConfig(self, IntegrateCreateClusterConfig):
+        self._IntegrateCreateClusterConfig = IntegrateCreateClusterConfig
+
+    @property
+    def StorageVersion(self):
+        r"""存储架构类型。 枚举值：1.0/2.0 默认值：1.0
+        :rtype: str
+        """
+        return self._StorageVersion
+
+    @StorageVersion.setter
+    def StorageVersion(self, StorageVersion):
+        self._StorageVersion = StorageVersion
+
+
+    def _deserialize(self, params):
+        self._Zone = params.get("Zone")
+        self._VpcId = params.get("VpcId")
+        self._SubnetId = params.get("SubnetId")
+        self._DbVersion = params.get("DbVersion")
+        self._ProjectId = params.get("ProjectId")
+        self._ClusterName = params.get("ClusterName")
+        self._AdminPassword = params.get("AdminPassword")
+        self._Port = params.get("Port")
+        self._PayMode = params.get("PayMode")
+        self._Count = params.get("Count")
+        self._StorageLimit = params.get("StorageLimit")
+        self._TimeSpan = params.get("TimeSpan")
+        self._TimeUnit = params.get("TimeUnit")
+        self._AutoRenewFlag = params.get("AutoRenewFlag")
+        self._AutoVoucher = params.get("AutoVoucher")
+        if params.get("ResourceTags") is not None:
+            self._ResourceTags = []
+            for item in params.get("ResourceTags"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._ResourceTags.append(obj)
+        self._StoragePayMode = params.get("StoragePayMode")
+        self._SecurityGroupIds = params.get("SecurityGroupIds")
+        self._AlarmPolicyIds = params.get("AlarmPolicyIds")
+        if params.get("ClusterParams") is not None:
+            self._ClusterParams = []
+            for item in params.get("ClusterParams"):
+                obj = ParamItem()
+                obj._deserialize(item)
+                self._ClusterParams.append(obj)
+        self._DealMode = params.get("DealMode")
+        self._ParamTemplateId = params.get("ParamTemplateId")
+        self._SlaveZone = params.get("SlaveZone")
+        if params.get("InstanceInitInfos") is not None:
+            self._InstanceInitInfos = []
+            for item in params.get("InstanceInitInfos"):
+                obj = IntegrateInstanceInfo()
+                obj._deserialize(item)
+                self._InstanceInitInfos.append(obj)
+        self._GdnId = params.get("GdnId")
+        if params.get("ProxyConfig") is not None:
+            self._ProxyConfig = ProxyConfigInfo()
+            self._ProxyConfig._deserialize(params.get("ProxyConfig"))
+        self._AutoArchive = params.get("AutoArchive")
+        self._AutoArchiveDelayHours = params.get("AutoArchiveDelayHours")
+        self._EncryptMethod = params.get("EncryptMethod")
+        if params.get("IntegrateCreateClusterConfig") is not None:
+            self._IntegrateCreateClusterConfig = IntegrateCreateClusterConfig()
+            self._IntegrateCreateClusterConfig._deserialize(params.get("IntegrateCreateClusterConfig"))
+        self._StorageVersion = params.get("StorageVersion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateIntegrateClusterResponse(AbstractModel):
+    r"""CreateIntegrateCluster返回参数结构体
 
     """
 
@@ -7128,48 +7850,60 @@ class CreateProxyEndPointRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ClusterId: 集群ID
+        :param _ClusterId: 集群 ID。
         :type ClusterId: str
-        :param _UniqueVpcId: 私有网络ID，默认与集群私有网络ID保持一致
+        :param _UniqueVpcId: 私有网络 ID，默认与集群私有网络 ID 保持一致。
         :type UniqueVpcId: str
-        :param _UniqueSubnetId: 私有网络子网ID，默认与集群子网ID保持一致
+        :param _UniqueSubnetId: 私有网络子网 ID，默认与集群子网 ID 保持一致。
         :type UniqueSubnetId: str
-        :param _ConnectionPoolType: 连接池类型：SessionConnectionPool(会话级别连接池 )
+        :param _ConnectionPoolType: 连接池类型：SessionConnectionPool（会话级别连接池）。
         :type ConnectionPoolType: str
-        :param _OpenConnectionPool: 是否开启连接池,yes-开启，no-不开启
+        :param _OpenConnectionPool: 是否开启连接池。
+yes：表示开启。
+no：表示不开启。
         :type OpenConnectionPool: str
-        :param _ConnectionPoolTimeOut: 连接池阈值：单位（秒）
+        :param _ConnectionPoolTimeOut: 连接池阈值：单位（秒），可选范围：0 - 300秒。
         :type ConnectionPoolTimeOut: int
-        :param _SecurityGroupIds: 绑定的安全组ID数组
+        :param _SecurityGroupIds: 绑定的安全组 ID 数组。
         :type SecurityGroupIds: list of str
-        :param _Description: 描述说明
+        :param _Description: 描述说明。
         :type Description: str
-        :param _Vip: 想要绑定的vip信息，需与UniqueVpcId对应。
+        :param _Vip: 想要绑定的 vip 信息，需与 UniqueVpcId 对应。
         :type Vip: str
         :param _WeightMode: 权重模式：
-system-系统分配，custom-自定义
+system：系统分配。
+custom：自定义。
         :type WeightMode: str
-        :param _AutoAddRo: 是否自动添加只读实例，yes-是，no-不自动添加
+        :param _AutoAddRo: 是否自动添加只读实例。
+yes：表示自动添加只读实例。
+no：表示不自动添加只读实例。
         :type AutoAddRo: str
         :param _FailOver: 是否开启故障转移。
-yes：开启
-no：不开启。
-数据库代理出现故障时，链接地址将会路由到主实例
+yes：表示开启，开启后，当数据库代理出现故障时，连接地址将会路由到主实例。
+no：表示不开启。
+说明：
+仅当 RwType 参数值为 READWRITE 时，才支持设置此项。
         :type FailOver: str
         :param _ConsistencyType: 一致性类型：
-eventual,global,session
+eventual：最终一致性。
+global：全局一致性。
+session：会话一致性。
+说明：
+仅当 RwType 参数值为 READWRITE 时，才支持设置此项。
         :type ConsistencyType: str
         :param _RwType: 读写属性：
-READWRITE,READONLY
+READWRITE：表示读写分离。当此参数值为 READWRITE 时，才支持设置 FailOver、ConsistencyType 参数。
+READONLY：表示只读。
         :type RwType: str
-        :param _ConsistencyTimeOut: 一致性超时时间。取值范围：0~1000000（微秒）,设置0则表示若只读实例出现延迟, 导致一致性策略不满足, 请求将一直等待
+        :param _ConsistencyTimeOut: 一致性超时时间。取值范围：0 ~ 1000000（微秒）。设置为0时，表示若只读实例出现延迟导致一致性策略不满足时，请求将一直等待。
         :type ConsistencyTimeOut: int
-        :param _TransSplit: 是否开启事务拆分。在一个事务中拆分读和写到不同的实例上去执行
+        :param _TransSplit: 是否开启事务拆分。开启后，在一个事务中拆分读和写到不同的实例上去执行。
         :type TransSplit: bool
-        :param _AccessMode: 连接模式：
-nearby,balance
+        :param _AccessMode: 接入模式：
+nearby：就近访问。
+balance：均衡分配。
         :type AccessMode: str
-        :param _InstanceWeights: 实例权重
+        :param _InstanceWeights: 实例权重。
         :type InstanceWeights: list of ProxyInstanceWeight
         """
         self._ClusterId = None
@@ -7193,7 +7927,7 @@ nearby,balance
 
     @property
     def ClusterId(self):
-        r"""集群ID
+        r"""集群 ID。
         :rtype: str
         """
         return self._ClusterId
@@ -7204,7 +7938,7 @@ nearby,balance
 
     @property
     def UniqueVpcId(self):
-        r"""私有网络ID，默认与集群私有网络ID保持一致
+        r"""私有网络 ID，默认与集群私有网络 ID 保持一致。
         :rtype: str
         """
         return self._UniqueVpcId
@@ -7215,7 +7949,7 @@ nearby,balance
 
     @property
     def UniqueSubnetId(self):
-        r"""私有网络子网ID，默认与集群子网ID保持一致
+        r"""私有网络子网 ID，默认与集群子网 ID 保持一致。
         :rtype: str
         """
         return self._UniqueSubnetId
@@ -7226,7 +7960,7 @@ nearby,balance
 
     @property
     def ConnectionPoolType(self):
-        r"""连接池类型：SessionConnectionPool(会话级别连接池 )
+        r"""连接池类型：SessionConnectionPool（会话级别连接池）。
         :rtype: str
         """
         return self._ConnectionPoolType
@@ -7237,7 +7971,9 @@ nearby,balance
 
     @property
     def OpenConnectionPool(self):
-        r"""是否开启连接池,yes-开启，no-不开启
+        r"""是否开启连接池。
+yes：表示开启。
+no：表示不开启。
         :rtype: str
         """
         return self._OpenConnectionPool
@@ -7248,7 +7984,7 @@ nearby,balance
 
     @property
     def ConnectionPoolTimeOut(self):
-        r"""连接池阈值：单位（秒）
+        r"""连接池阈值：单位（秒），可选范围：0 - 300秒。
         :rtype: int
         """
         return self._ConnectionPoolTimeOut
@@ -7259,7 +7995,7 @@ nearby,balance
 
     @property
     def SecurityGroupIds(self):
-        r"""绑定的安全组ID数组
+        r"""绑定的安全组 ID 数组。
         :rtype: list of str
         """
         return self._SecurityGroupIds
@@ -7270,7 +8006,7 @@ nearby,balance
 
     @property
     def Description(self):
-        r"""描述说明
+        r"""描述说明。
         :rtype: str
         """
         return self._Description
@@ -7281,7 +8017,7 @@ nearby,balance
 
     @property
     def Vip(self):
-        r"""想要绑定的vip信息，需与UniqueVpcId对应。
+        r"""想要绑定的 vip 信息，需与 UniqueVpcId 对应。
         :rtype: str
         """
         return self._Vip
@@ -7293,7 +8029,8 @@ nearby,balance
     @property
     def WeightMode(self):
         r"""权重模式：
-system-系统分配，custom-自定义
+system：系统分配。
+custom：自定义。
         :rtype: str
         """
         return self._WeightMode
@@ -7304,7 +8041,9 @@ system-系统分配，custom-自定义
 
     @property
     def AutoAddRo(self):
-        r"""是否自动添加只读实例，yes-是，no-不自动添加
+        r"""是否自动添加只读实例。
+yes：表示自动添加只读实例。
+no：表示不自动添加只读实例。
         :rtype: str
         """
         return self._AutoAddRo
@@ -7316,9 +8055,10 @@ system-系统分配，custom-自定义
     @property
     def FailOver(self):
         r"""是否开启故障转移。
-yes：开启
-no：不开启。
-数据库代理出现故障时，链接地址将会路由到主实例
+yes：表示开启，开启后，当数据库代理出现故障时，连接地址将会路由到主实例。
+no：表示不开启。
+说明：
+仅当 RwType 参数值为 READWRITE 时，才支持设置此项。
         :rtype: str
         """
         return self._FailOver
@@ -7330,7 +8070,11 @@ no：不开启。
     @property
     def ConsistencyType(self):
         r"""一致性类型：
-eventual,global,session
+eventual：最终一致性。
+global：全局一致性。
+session：会话一致性。
+说明：
+仅当 RwType 参数值为 READWRITE 时，才支持设置此项。
         :rtype: str
         """
         return self._ConsistencyType
@@ -7342,7 +8086,8 @@ eventual,global,session
     @property
     def RwType(self):
         r"""读写属性：
-READWRITE,READONLY
+READWRITE：表示读写分离。当此参数值为 READWRITE 时，才支持设置 FailOver、ConsistencyType 参数。
+READONLY：表示只读。
         :rtype: str
         """
         return self._RwType
@@ -7353,7 +8098,7 @@ READWRITE,READONLY
 
     @property
     def ConsistencyTimeOut(self):
-        r"""一致性超时时间。取值范围：0~1000000（微秒）,设置0则表示若只读实例出现延迟, 导致一致性策略不满足, 请求将一直等待
+        r"""一致性超时时间。取值范围：0 ~ 1000000（微秒）。设置为0时，表示若只读实例出现延迟导致一致性策略不满足时，请求将一直等待。
         :rtype: int
         """
         return self._ConsistencyTimeOut
@@ -7364,7 +8109,7 @@ READWRITE,READONLY
 
     @property
     def TransSplit(self):
-        r"""是否开启事务拆分。在一个事务中拆分读和写到不同的实例上去执行
+        r"""是否开启事务拆分。开启后，在一个事务中拆分读和写到不同的实例上去执行。
         :rtype: bool
         """
         return self._TransSplit
@@ -7375,8 +8120,9 @@ READWRITE,READONLY
 
     @property
     def AccessMode(self):
-        r"""连接模式：
-nearby,balance
+        r"""接入模式：
+nearby：就近访问。
+balance：均衡分配。
         :rtype: str
         """
         return self._AccessMode
@@ -7387,7 +8133,7 @@ nearby,balance
 
     @property
     def InstanceWeights(self):
-        r"""实例权重
+        r"""实例权重。
         :rtype: list of ProxyInstanceWeight
         """
         return self._InstanceWeights
@@ -7438,11 +8184,11 @@ class CreateProxyEndPointResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _FlowId: 异步流程ID
+        :param _FlowId: 异步流程 ID。
         :type FlowId: int
-        :param _TaskId: 异步任务ID
+        :param _TaskId: 异步任务 ID。
         :type TaskId: int
-        :param _ProxyGroupId: 数据库代理组ID
+        :param _ProxyGroupId: 数据库代理组 ID。
         :type ProxyGroupId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -7454,7 +8200,7 @@ class CreateProxyEndPointResponse(AbstractModel):
 
     @property
     def FlowId(self):
-        r"""异步流程ID
+        r"""异步流程 ID。
         :rtype: int
         """
         return self._FlowId
@@ -7465,7 +8211,7 @@ class CreateProxyEndPointResponse(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""异步任务ID
+        r"""异步任务 ID。
         :rtype: int
         """
         return self._TaskId
@@ -7476,7 +8222,7 @@ class CreateProxyEndPointResponse(AbstractModel):
 
     @property
     def ProxyGroupId(self):
-        r"""数据库代理组ID
+        r"""数据库代理组 ID。
         :rtype: str
         """
         return self._ProxyGroupId
@@ -7799,7 +8545,7 @@ class CreateResourcePackageRequest(AbstractModel):
         :param _PackageVersion: 资源包版本
 base-基础版本，common-通用版本，enterprise-企业版本
         :type PackageVersion: str
-        :param _PackageSpec: 资源包大小，计算资源单位：万个；存储资源：GB
+        :param _PackageSpec: 资源包大小，计算资源单位：个；存储资源：GB
         :type PackageSpec: float
         :param _ExpireDay: 资源包有效期，单位:天
         :type ExpireDay: int
@@ -7864,7 +8610,7 @@ base-基础版本，common-通用版本，enterprise-企业版本
 
     @property
     def PackageSpec(self):
-        r"""资源包大小，计算资源单位：万个；存储资源：GB
+        r"""资源包大小，计算资源单位：个；存储资源：GB
         :rtype: float
         """
         return self._PackageSpec
@@ -8822,7 +9568,16 @@ class CynosdbClusterDetail(AbstractModel):
         :type Zone: str
         :param _PhysicalZone: 物理可用区
         :type PhysicalZone: str
-        :param _Status: 状态
+        :param _Status: 状态，支持的值如下：
+- creating：创建中
+- running：运行中
+- isolating：隔离中
+- isolated：已隔离
+- activating：从回收站重新恢复
+- offlining：下线中
+- offlined：已下线
+- deleting：删除中
+- deleted：已删除
         :type Status: str
         :param _StatusDesc: 状态描述
         :type StatusDesc: str
@@ -9046,7 +9801,16 @@ pausing
 
     @property
     def Status(self):
-        r"""状态
+        r"""状态，支持的值如下：
+- creating：创建中
+- running：运行中
+- isolating：隔离中
+- isolated：已隔离
+- activating：从回收站重新恢复
+- offlining：下线中
+- offlined：已下线
+- deleting：删除中
+- deleted：已删除
         :rtype: str
         """
         return self._Status
@@ -10742,6 +11506,14 @@ class CynosdbInstanceDetail(AbstractModel):
         :param _Zone: 可用区
         :type Zone: str
         :param _Status: 实例状态
+creating：创建中
+running：运行中
+isolating：隔离中
+isolated：已隔离
+activating：恢复中
+offlining：下线中
+offlined：已下线
+
         :type Status: str
         :param _StatusDesc: 实例状态中文描述
         :type StatusDesc: str
@@ -10934,6 +11706,14 @@ pause
     @property
     def Status(self):
         r"""实例状态
+creating：创建中
+running：运行中
+isolating：隔离中
+isolated：已隔离
+activating：恢复中
+offlining：下线中
+offlined：已下线
+
         :rtype: str
         """
         return self._Status
@@ -15432,7 +16212,7 @@ class DescribeBinlogsRequest(AbstractModel):
         :type EndTime: str
         :param _Offset: 偏移量
         :type Offset: int
-        :param _Limit: 限制条数
+        :param _Limit: 限制条数，默认值为20
         :type Limit: int
         """
         self._ClusterId = None
@@ -15487,7 +16267,7 @@ class DescribeBinlogsRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""限制条数
+        r"""限制条数，默认值为20
         :rtype: int
         """
         return self._Limit
@@ -17093,11 +17873,17 @@ class DescribeClusterTransparentEncryptInfoResponse(AbstractModel):
         :param _KeyRegion: 加密秘钥地域
 
         :type KeyRegion: str
+        :param _KeyType: 秘钥类型
+        :type KeyType: str
+        :param _IsOpenGlobalEncryption: 是否已经开启全局加密
+        :type IsOpenGlobalEncryption: bool
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._KeyId = None
         self._KeyRegion = None
+        self._KeyType = None
+        self._IsOpenGlobalEncryption = None
         self._RequestId = None
 
     @property
@@ -17124,6 +17910,28 @@ class DescribeClusterTransparentEncryptInfoResponse(AbstractModel):
         self._KeyRegion = KeyRegion
 
     @property
+    def KeyType(self):
+        r"""秘钥类型
+        :rtype: str
+        """
+        return self._KeyType
+
+    @KeyType.setter
+    def KeyType(self, KeyType):
+        self._KeyType = KeyType
+
+    @property
+    def IsOpenGlobalEncryption(self):
+        r"""是否已经开启全局加密
+        :rtype: bool
+        """
+        return self._IsOpenGlobalEncryption
+
+    @IsOpenGlobalEncryption.setter
+    def IsOpenGlobalEncryption(self, IsOpenGlobalEncryption):
+        self._IsOpenGlobalEncryption = IsOpenGlobalEncryption
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -17138,6 +17946,8 @@ class DescribeClusterTransparentEncryptInfoResponse(AbstractModel):
     def _deserialize(self, params):
         self._KeyId = params.get("KeyId")
         self._KeyRegion = params.get("KeyRegion")
+        self._KeyType = params.get("KeyType")
+        self._IsOpenGlobalEncryption = params.get("IsOpenGlobalEncryption")
         self._RequestId = params.get("RequestId")
 
 
@@ -17337,7 +18147,7 @@ class DescribeDBSecurityGroupsRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例ID（InstanceId与InstanceGroupId必须任选一个传入）
         :type InstanceId: str
-        :param _InstanceGroupId: 实例组ID（InstanceId与InstanceGroupId必须任选一个传入）
+        :param _InstanceGroupId: 实例组 ID，可通过 [DescribeClusterInstanceGroups](https://cloud.tencent.com/document/product/1003/103934) 接口查询。
         :type InstanceGroupId: str
         """
         self._InstanceId = None
@@ -17360,7 +18170,7 @@ class DescribeDBSecurityGroupsRequest(AbstractModel):
 
     @property
     def InstanceGroupId(self):
-        r"""实例组ID（InstanceId与InstanceGroupId必须任选一个传入）
+        r"""实例组 ID，可通过 [DescribeClusterInstanceGroups](https://cloud.tencent.com/document/product/1003/103934) 接口查询。
         :rtype: str
         """
         return self._InstanceGroupId
@@ -18774,6 +19584,130 @@ class DescribeInstancesWithinSameClusterResponse(AbstractModel):
     def _deserialize(self, params):
         self._TotalCount = params.get("TotalCount")
         self._InstanceIds = params.get("InstanceIds")
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeIntegrateTaskRequest(AbstractModel):
+    r"""DescribeIntegrateTask请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BigDealId: 大订单id，大订单id和子订单id必须二选一
+        :type BigDealId: str
+        :param _DealNames: 订单列表
+        :type DealNames: list of str
+        """
+        self._BigDealId = None
+        self._DealNames = None
+
+    @property
+    def BigDealId(self):
+        r"""大订单id，大订单id和子订单id必须二选一
+        :rtype: str
+        """
+        return self._BigDealId
+
+    @BigDealId.setter
+    def BigDealId(self, BigDealId):
+        self._BigDealId = BigDealId
+
+    @property
+    def DealNames(self):
+        r"""订单列表
+        :rtype: list of str
+        """
+        return self._DealNames
+
+    @DealNames.setter
+    def DealNames(self, DealNames):
+        self._DealNames = DealNames
+
+
+    def _deserialize(self, params):
+        self._BigDealId = params.get("BigDealId")
+        self._DealNames = params.get("DealNames")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeIntegrateTaskResponse(AbstractModel):
+    r"""DescribeIntegrateTask返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CurrentStep: 当前步骤
+        :type CurrentStep: str
+        :param _CurrentProgress: 当前进度
+        :type CurrentProgress: str
+        :param _TaskStatus: 任务状态
+        :type TaskStatus: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._CurrentStep = None
+        self._CurrentProgress = None
+        self._TaskStatus = None
+        self._RequestId = None
+
+    @property
+    def CurrentStep(self):
+        r"""当前步骤
+        :rtype: str
+        """
+        return self._CurrentStep
+
+    @CurrentStep.setter
+    def CurrentStep(self, CurrentStep):
+        self._CurrentStep = CurrentStep
+
+    @property
+    def CurrentProgress(self):
+        r"""当前进度
+        :rtype: str
+        """
+        return self._CurrentProgress
+
+    @CurrentProgress.setter
+    def CurrentProgress(self, CurrentProgress):
+        self._CurrentProgress = CurrentProgress
+
+    @property
+    def TaskStatus(self):
+        r"""任务状态
+        :rtype: str
+        """
+        return self._TaskStatus
+
+    @TaskStatus.setter
+    def TaskStatus(self, TaskStatus):
+        self._TaskStatus = TaskStatus
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._CurrentStep = params.get("CurrentStep")
+        self._CurrentProgress = params.get("CurrentProgress")
+        self._TaskStatus = params.get("TaskStatus")
         self._RequestId = params.get("RequestId")
 
 
@@ -22722,8 +23656,16 @@ class GdnTaskInfo(AbstractModel):
         :type StandbyClusterRegion: str
         :param _StandbyClusterId: 从集群ID
         :type StandbyClusterId: str
-        :param _StandbyClusterName: 从集群别名
+        :param _StandbyClusterName: 从集群名称
         :type StandbyClusterName: str
+        :param _ForceSwitchGdn: 是否已强切
+        :type ForceSwitchGdn: str
+        :param _Code: 返回码
+        :type Code: int
+        :param _Message: 提示信息
+        :type Message: str
+        :param _IsSupportForce: 是否支持强切
+        :type IsSupportForce: str
         """
         self._GdnId = None
         self._GdnName = None
@@ -22732,6 +23674,10 @@ class GdnTaskInfo(AbstractModel):
         self._StandbyClusterRegion = None
         self._StandbyClusterId = None
         self._StandbyClusterName = None
+        self._ForceSwitchGdn = None
+        self._Code = None
+        self._Message = None
+        self._IsSupportForce = None
 
     @property
     def GdnId(self):
@@ -22801,7 +23747,7 @@ class GdnTaskInfo(AbstractModel):
 
     @property
     def StandbyClusterName(self):
-        r"""从集群别名
+        r"""从集群名称
         :rtype: str
         """
         return self._StandbyClusterName
@@ -22809,6 +23755,50 @@ class GdnTaskInfo(AbstractModel):
     @StandbyClusterName.setter
     def StandbyClusterName(self, StandbyClusterName):
         self._StandbyClusterName = StandbyClusterName
+
+    @property
+    def ForceSwitchGdn(self):
+        r"""是否已强切
+        :rtype: str
+        """
+        return self._ForceSwitchGdn
+
+    @ForceSwitchGdn.setter
+    def ForceSwitchGdn(self, ForceSwitchGdn):
+        self._ForceSwitchGdn = ForceSwitchGdn
+
+    @property
+    def Code(self):
+        r"""返回码
+        :rtype: int
+        """
+        return self._Code
+
+    @Code.setter
+    def Code(self, Code):
+        self._Code = Code
+
+    @property
+    def Message(self):
+        r"""提示信息
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
+    def IsSupportForce(self):
+        r"""是否支持强切
+        :rtype: str
+        """
+        return self._IsSupportForce
+
+    @IsSupportForce.setter
+    def IsSupportForce(self, IsSupportForce):
+        self._IsSupportForce = IsSupportForce
 
 
     def _deserialize(self, params):
@@ -22819,6 +23809,243 @@ class GdnTaskInfo(AbstractModel):
         self._StandbyClusterRegion = params.get("StandbyClusterRegion")
         self._StandbyClusterId = params.get("StandbyClusterId")
         self._StandbyClusterName = params.get("StandbyClusterName")
+        self._ForceSwitchGdn = params.get("ForceSwitchGdn")
+        self._Code = params.get("Code")
+        self._Message = params.get("Message")
+        self._IsSupportForce = params.get("IsSupportForce")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GoodsPrice(AbstractModel):
+    r"""商品价格
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstancePrice: 实例价格
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InstancePrice: :class:`tencentcloud.cynosdb.v20190107.models.TradePrice`
+        :param _StoragePrice: 存储价格
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StoragePrice: :class:`tencentcloud.cynosdb.v20190107.models.TradePrice`
+        :param _GoodsSpec: 商品规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GoodsSpec: :class:`tencentcloud.cynosdb.v20190107.models.GoodsSpec`
+        """
+        self._InstancePrice = None
+        self._StoragePrice = None
+        self._GoodsSpec = None
+
+    @property
+    def InstancePrice(self):
+        r"""实例价格
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.cynosdb.v20190107.models.TradePrice`
+        """
+        return self._InstancePrice
+
+    @InstancePrice.setter
+    def InstancePrice(self, InstancePrice):
+        self._InstancePrice = InstancePrice
+
+    @property
+    def StoragePrice(self):
+        r"""存储价格
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.cynosdb.v20190107.models.TradePrice`
+        """
+        return self._StoragePrice
+
+    @StoragePrice.setter
+    def StoragePrice(self, StoragePrice):
+        self._StoragePrice = StoragePrice
+
+    @property
+    def GoodsSpec(self):
+        r"""商品规格
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.cynosdb.v20190107.models.GoodsSpec`
+        """
+        return self._GoodsSpec
+
+    @GoodsSpec.setter
+    def GoodsSpec(self, GoodsSpec):
+        self._GoodsSpec = GoodsSpec
+
+
+    def _deserialize(self, params):
+        if params.get("InstancePrice") is not None:
+            self._InstancePrice = TradePrice()
+            self._InstancePrice._deserialize(params.get("InstancePrice"))
+        if params.get("StoragePrice") is not None:
+            self._StoragePrice = TradePrice()
+            self._StoragePrice._deserialize(params.get("StoragePrice"))
+        if params.get("GoodsSpec") is not None:
+            self._GoodsSpec = GoodsSpec()
+            self._GoodsSpec._deserialize(params.get("GoodsSpec"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GoodsSpec(AbstractModel):
+    r"""商品规格
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GoodsNum: 商品数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type GoodsNum: int
+        :param _Cpu: CPU核数，PREPAID与POSTPAID实例类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Cpu: int
+        :param _Memory: 内存大小，单位G，PREPAID与POSTPAID实例类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Memory: int
+        :param _Ccu: Ccu大小，serverless类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Ccu: float
+        :param _StorageLimit: 存储大小，PREPAID存储类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StorageLimit: int
+        :param _TimeSpan: 购买时长
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TimeSpan: int
+        :param _TimeUnit: 时长单位
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TimeUnit: str
+        :param _DeviceType: 机器类型
+        :type DeviceType: str
+        """
+        self._GoodsNum = None
+        self._Cpu = None
+        self._Memory = None
+        self._Ccu = None
+        self._StorageLimit = None
+        self._TimeSpan = None
+        self._TimeUnit = None
+        self._DeviceType = None
+
+    @property
+    def GoodsNum(self):
+        r"""商品数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._GoodsNum
+
+    @GoodsNum.setter
+    def GoodsNum(self, GoodsNum):
+        self._GoodsNum = GoodsNum
+
+    @property
+    def Cpu(self):
+        r"""CPU核数，PREPAID与POSTPAID实例类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Cpu
+
+    @Cpu.setter
+    def Cpu(self, Cpu):
+        self._Cpu = Cpu
+
+    @property
+    def Memory(self):
+        r"""内存大小，单位G，PREPAID与POSTPAID实例类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Memory
+
+    @Memory.setter
+    def Memory(self, Memory):
+        self._Memory = Memory
+
+    @property
+    def Ccu(self):
+        r"""Ccu大小，serverless类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Ccu
+
+    @Ccu.setter
+    def Ccu(self, Ccu):
+        self._Ccu = Ccu
+
+    @property
+    def StorageLimit(self):
+        r"""存储大小，PREPAID存储类型必传
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._StorageLimit
+
+    @StorageLimit.setter
+    def StorageLimit(self, StorageLimit):
+        self._StorageLimit = StorageLimit
+
+    @property
+    def TimeSpan(self):
+        r"""购买时长
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TimeSpan
+
+    @TimeSpan.setter
+    def TimeSpan(self, TimeSpan):
+        self._TimeSpan = TimeSpan
+
+    @property
+    def TimeUnit(self):
+        r"""时长单位
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._TimeUnit
+
+    @TimeUnit.setter
+    def TimeUnit(self, TimeUnit):
+        self._TimeUnit = TimeUnit
+
+    @property
+    def DeviceType(self):
+        r"""机器类型
+        :rtype: str
+        """
+        return self._DeviceType
+
+    @DeviceType.setter
+    def DeviceType(self, DeviceType):
+        self._DeviceType = DeviceType
+
+
+    def _deserialize(self, params):
+        self._GoodsNum = params.get("GoodsNum")
+        self._Cpu = params.get("Cpu")
+        self._Memory = params.get("Memory")
+        self._Ccu = params.get("Ccu")
+        self._StorageLimit = params.get("StorageLimit")
+        self._TimeSpan = params.get("TimeSpan")
+        self._TimeUnit = params.get("TimeUnit")
+        self._DeviceType = params.get("DeviceType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -23011,7 +24238,9 @@ class InquirePriceCreateRequest(AbstractModel):
         :type InstancePayMode: str
         :param _StoragePayMode: 存储购买类型，可选值为：PREPAID, POSTPAID
         :type StoragePayMode: str
-        :param _DeviceType: 实例设备类型
+        :param _DeviceType: 实例设备类型，支持值如下：
+- common：表示通用型
+- exclusive：表示独享型
         :type DeviceType: str
         :param _Cpu: CPU核数，PREPAID与POSTPAID实例类型必传
         :type Cpu: int
@@ -23084,7 +24313,9 @@ class InquirePriceCreateRequest(AbstractModel):
 
     @property
     def DeviceType(self):
-        r"""实例设备类型
+        r"""实例设备类型，支持值如下：
+- common：表示通用型
+- exclusive：表示独享型
         :rtype: str
         """
         return self._DeviceType
@@ -23429,6 +24660,140 @@ class InquirePriceModifyResponse(AbstractModel):
         if params.get("StoragePrice") is not None:
             self._StoragePrice = TradePrice()
             self._StoragePrice._deserialize(params.get("StoragePrice"))
+        self._RequestId = params.get("RequestId")
+
+
+class InquirePriceMultiSpecRequest(AbstractModel):
+    r"""InquirePriceMultiSpec请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Zone: 可用区,每个地域提供最佳实践
+        :type Zone: str
+        :param _InstancePayMode: 实例购买类型，可选值为：PREPAID, POSTPAID, SERVERLESS
+        :type InstancePayMode: str
+        :param _StoragePayMode: 存储购买类型，可选值为：PREPAID, POSTPAID
+        :type StoragePayMode: str
+        :param _GoodsSpecs: 商品规格
+        :type GoodsSpecs: list of GoodsSpec
+        """
+        self._Zone = None
+        self._InstancePayMode = None
+        self._StoragePayMode = None
+        self._GoodsSpecs = None
+
+    @property
+    def Zone(self):
+        r"""可用区,每个地域提供最佳实践
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
+    @property
+    def InstancePayMode(self):
+        r"""实例购买类型，可选值为：PREPAID, POSTPAID, SERVERLESS
+        :rtype: str
+        """
+        return self._InstancePayMode
+
+    @InstancePayMode.setter
+    def InstancePayMode(self, InstancePayMode):
+        self._InstancePayMode = InstancePayMode
+
+    @property
+    def StoragePayMode(self):
+        r"""存储购买类型，可选值为：PREPAID, POSTPAID
+        :rtype: str
+        """
+        return self._StoragePayMode
+
+    @StoragePayMode.setter
+    def StoragePayMode(self, StoragePayMode):
+        self._StoragePayMode = StoragePayMode
+
+    @property
+    def GoodsSpecs(self):
+        r"""商品规格
+        :rtype: list of GoodsSpec
+        """
+        return self._GoodsSpecs
+
+    @GoodsSpecs.setter
+    def GoodsSpecs(self, GoodsSpecs):
+        self._GoodsSpecs = GoodsSpecs
+
+
+    def _deserialize(self, params):
+        self._Zone = params.get("Zone")
+        self._InstancePayMode = params.get("InstancePayMode")
+        self._StoragePayMode = params.get("StoragePayMode")
+        if params.get("GoodsSpecs") is not None:
+            self._GoodsSpecs = []
+            for item in params.get("GoodsSpecs"):
+                obj = GoodsSpec()
+                obj._deserialize(item)
+                self._GoodsSpecs.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class InquirePriceMultiSpecResponse(AbstractModel):
+    r"""InquirePriceMultiSpec返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GoodsPrice: 商品价格
+        :type GoodsPrice: list of GoodsPrice
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._GoodsPrice = None
+        self._RequestId = None
+
+    @property
+    def GoodsPrice(self):
+        r"""商品价格
+        :rtype: list of GoodsPrice
+        """
+        return self._GoodsPrice
+
+    @GoodsPrice.setter
+    def GoodsPrice(self, GoodsPrice):
+        self._GoodsPrice = GoodsPrice
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("GoodsPrice") is not None:
+            self._GoodsPrice = []
+            for item in params.get("GoodsPrice"):
+                obj = GoodsPrice()
+                obj._deserialize(item)
+                self._GoodsPrice.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -24436,6 +25801,57 @@ class InstanceInitInfo(AbstractModel):
         
 
 
+class InstanceNameWeight(AbstractModel):
+    r"""实例权重
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceName: 实例名称，创建集群中InstanceInitInfo.InstanceName所指定名称
+        :type InstanceName: str
+        :param _Weight: 权重
+        :type Weight: int
+        """
+        self._InstanceName = None
+        self._Weight = None
+
+    @property
+    def InstanceName(self):
+        r"""实例名称，创建集群中InstanceInitInfo.InstanceName所指定名称
+        :rtype: str
+        """
+        return self._InstanceName
+
+    @InstanceName.setter
+    def InstanceName(self, InstanceName):
+        self._InstanceName = InstanceName
+
+    @property
+    def Weight(self):
+        r"""权重
+        :rtype: int
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+
+    def _deserialize(self, params):
+        self._InstanceName = params.get("InstanceName")
+        self._Weight = params.get("Weight")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class InstanceNetInfo(AbstractModel):
     r"""实例网络信息
 
@@ -24874,6 +26290,188 @@ class InstanceSpec(AbstractModel):
         self._StockCount = params.get("StockCount")
         self._MaxCpu = params.get("MaxCpu")
         self._MinCpu = params.get("MinCpu")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IntegrateCreateClusterConfig(AbstractModel):
+    r"""集成集群配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BinlogSaveDays: binlog保留天数[7,1830]
+        :type BinlogSaveDays: int
+        :param _BackupSaveDays: 备份保留天数[7,1830]
+        :type BackupSaveDays: int
+        :param _SemiSyncTimeout: 半同步超时时间[1000,4294967295]
+        :type SemiSyncTimeout: int
+        :param _ProxyEndPointConfigs: proxy连接地址配置信息
+        :type ProxyEndPointConfigs: list of ProxyEndPointConfigInfo
+        """
+        self._BinlogSaveDays = None
+        self._BackupSaveDays = None
+        self._SemiSyncTimeout = None
+        self._ProxyEndPointConfigs = None
+
+    @property
+    def BinlogSaveDays(self):
+        r"""binlog保留天数[7,1830]
+        :rtype: int
+        """
+        return self._BinlogSaveDays
+
+    @BinlogSaveDays.setter
+    def BinlogSaveDays(self, BinlogSaveDays):
+        self._BinlogSaveDays = BinlogSaveDays
+
+    @property
+    def BackupSaveDays(self):
+        r"""备份保留天数[7,1830]
+        :rtype: int
+        """
+        return self._BackupSaveDays
+
+    @BackupSaveDays.setter
+    def BackupSaveDays(self, BackupSaveDays):
+        self._BackupSaveDays = BackupSaveDays
+
+    @property
+    def SemiSyncTimeout(self):
+        r"""半同步超时时间[1000,4294967295]
+        :rtype: int
+        """
+        return self._SemiSyncTimeout
+
+    @SemiSyncTimeout.setter
+    def SemiSyncTimeout(self, SemiSyncTimeout):
+        self._SemiSyncTimeout = SemiSyncTimeout
+
+    @property
+    def ProxyEndPointConfigs(self):
+        r"""proxy连接地址配置信息
+        :rtype: list of ProxyEndPointConfigInfo
+        """
+        return self._ProxyEndPointConfigs
+
+    @ProxyEndPointConfigs.setter
+    def ProxyEndPointConfigs(self, ProxyEndPointConfigs):
+        self._ProxyEndPointConfigs = ProxyEndPointConfigs
+
+
+    def _deserialize(self, params):
+        self._BinlogSaveDays = params.get("BinlogSaveDays")
+        self._BackupSaveDays = params.get("BackupSaveDays")
+        self._SemiSyncTimeout = params.get("SemiSyncTimeout")
+        if params.get("ProxyEndPointConfigs") is not None:
+            self._ProxyEndPointConfigs = []
+            for item in params.get("ProxyEndPointConfigs"):
+                obj = ProxyEndPointConfigInfo()
+                obj._deserialize(item)
+                self._ProxyEndPointConfigs.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IntegrateInstanceInfo(AbstractModel):
+    r"""实例初始化配置信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Cpu: 实例cpu
+        :type Cpu: int
+        :param _Memory: 实例内存
+        :type Memory: int
+        :param _InstanceType: 实例类型 rw/ro
+        :type InstanceType: str
+        :param _InstanceCount: 实例个数,范围[1,15]
+        :type InstanceCount: int
+        :param _DeviceType: 实例机器类型 common-公通用型,exclusive-独享型
+        :type DeviceType: str
+        """
+        self._Cpu = None
+        self._Memory = None
+        self._InstanceType = None
+        self._InstanceCount = None
+        self._DeviceType = None
+
+    @property
+    def Cpu(self):
+        r"""实例cpu
+        :rtype: int
+        """
+        return self._Cpu
+
+    @Cpu.setter
+    def Cpu(self, Cpu):
+        self._Cpu = Cpu
+
+    @property
+    def Memory(self):
+        r"""实例内存
+        :rtype: int
+        """
+        return self._Memory
+
+    @Memory.setter
+    def Memory(self, Memory):
+        self._Memory = Memory
+
+    @property
+    def InstanceType(self):
+        r"""实例类型 rw/ro
+        :rtype: str
+        """
+        return self._InstanceType
+
+    @InstanceType.setter
+    def InstanceType(self, InstanceType):
+        self._InstanceType = InstanceType
+
+    @property
+    def InstanceCount(self):
+        r"""实例个数,范围[1,15]
+        :rtype: int
+        """
+        return self._InstanceCount
+
+    @InstanceCount.setter
+    def InstanceCount(self, InstanceCount):
+        self._InstanceCount = InstanceCount
+
+    @property
+    def DeviceType(self):
+        r"""实例机器类型 common-公通用型,exclusive-独享型
+        :rtype: str
+        """
+        return self._DeviceType
+
+    @DeviceType.setter
+    def DeviceType(self, DeviceType):
+        self._DeviceType = DeviceType
+
+
+    def _deserialize(self, params):
+        self._Cpu = params.get("Cpu")
+        self._Memory = params.get("Memory")
+        self._InstanceType = params.get("InstanceType")
+        self._InstanceCount = params.get("InstanceCount")
+        self._DeviceType = params.get("DeviceType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -27065,6 +28663,100 @@ class ModifyClusterDatabaseResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class ModifyClusterGlobalEncryptionRequest(AbstractModel):
+    r"""ModifyClusterGlobalEncryption请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ClusterId: 集群id
+        :type ClusterId: str
+        :param _IsOpenGlobalEncryption: 开启或关闭全局加密
+        :type IsOpenGlobalEncryption: bool
+        """
+        self._ClusterId = None
+        self._IsOpenGlobalEncryption = None
+
+    @property
+    def ClusterId(self):
+        r"""集群id
+        :rtype: str
+        """
+        return self._ClusterId
+
+    @ClusterId.setter
+    def ClusterId(self, ClusterId):
+        self._ClusterId = ClusterId
+
+    @property
+    def IsOpenGlobalEncryption(self):
+        r"""开启或关闭全局加密
+        :rtype: bool
+        """
+        return self._IsOpenGlobalEncryption
+
+    @IsOpenGlobalEncryption.setter
+    def IsOpenGlobalEncryption(self, IsOpenGlobalEncryption):
+        self._IsOpenGlobalEncryption = IsOpenGlobalEncryption
+
+
+    def _deserialize(self, params):
+        self._ClusterId = params.get("ClusterId")
+        self._IsOpenGlobalEncryption = params.get("IsOpenGlobalEncryption")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyClusterGlobalEncryptionResponse(AbstractModel):
+    r"""ModifyClusterGlobalEncryption返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: 异步任务id
+        :type TaskId: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""异步任务id
+        :rtype: int
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyClusterNameRequest(AbstractModel):
     r"""ModifyClusterName请求参数结构体
 
@@ -28987,7 +30679,7 @@ class ModifyProxyRwSplitRequest(AbstractModel):
         :param _WeightMode: 读写权重分配模式；系统自动分配："system"， 自定义："custom"
         :type WeightMode: str
         :param _InstanceWeights: 实例只读权重。
-该参数必填。
+
         :type InstanceWeights: list of ProxyInstanceWeight
         :param _FailOver: 是否开启故障转移，代理出现故障后，连接地址将路由到主实例，取值："yes" , "no"
         :type FailOver: str
@@ -29014,6 +30706,10 @@ SessionConnectionPool
         :param _ConnectionPoolTimeOut: 连接池时间。
 可选范围:0~300（秒）
         :type ConnectionPoolTimeOut: int
+        :param _ApNodeAsRoNode: 是否将libra节点当作普通RO节点
+        :type ApNodeAsRoNode: bool
+        :param _ApQueryToOtherNode: libra节点故障，是否转发给其他节点
+        :type ApQueryToOtherNode: bool
         """
         self._ClusterId = None
         self._ProxyGroupId = None
@@ -29030,6 +30726,8 @@ SessionConnectionPool
         self._OpenConnectionPool = None
         self._ConnectionPoolType = None
         self._ConnectionPoolTimeOut = None
+        self._ApNodeAsRoNode = None
+        self._ApQueryToOtherNode = None
 
     @property
     def ClusterId(self):
@@ -29090,7 +30788,7 @@ SessionConnectionPool
     @property
     def InstanceWeights(self):
         r"""实例只读权重。
-该参数必填。
+
         :rtype: list of ProxyInstanceWeight
         """
         return self._InstanceWeights
@@ -29205,6 +30903,28 @@ SessionConnectionPool
     def ConnectionPoolTimeOut(self, ConnectionPoolTimeOut):
         self._ConnectionPoolTimeOut = ConnectionPoolTimeOut
 
+    @property
+    def ApNodeAsRoNode(self):
+        r"""是否将libra节点当作普通RO节点
+        :rtype: bool
+        """
+        return self._ApNodeAsRoNode
+
+    @ApNodeAsRoNode.setter
+    def ApNodeAsRoNode(self, ApNodeAsRoNode):
+        self._ApNodeAsRoNode = ApNodeAsRoNode
+
+    @property
+    def ApQueryToOtherNode(self):
+        r"""libra节点故障，是否转发给其他节点
+        :rtype: bool
+        """
+        return self._ApQueryToOtherNode
+
+    @ApQueryToOtherNode.setter
+    def ApQueryToOtherNode(self, ApQueryToOtherNode):
+        self._ApQueryToOtherNode = ApQueryToOtherNode
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -29227,6 +30947,8 @@ SessionConnectionPool
         self._OpenConnectionPool = params.get("OpenConnectionPool")
         self._ConnectionPoolType = params.get("ConnectionPoolType")
         self._ConnectionPoolTimeOut = params.get("ConnectionPoolTimeOut")
+        self._ApNodeAsRoNode = params.get("ApNodeAsRoNode")
+        self._ApQueryToOtherNode = params.get("ApQueryToOtherNode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -29600,6 +31322,8 @@ class ModifyServerlessStrategyRequest(AbstractModel):
         :type MaxRoCount: int
         :param _AutoArchive: 是否开启归档，可选范围<li>yes</li><li>no</li>默认值:yes
         :type AutoArchive: str
+        :param _UpgradeType: 升级类型。 默认值：upgradeImmediate。 可选值： upgradeImmediate：立即完成修改 upgradeInMaintain：在维护时间窗口内完成修改
+        :type UpgradeType: str
         """
         self._ClusterId = None
         self._AutoPause = None
@@ -29613,6 +31337,7 @@ class ModifyServerlessStrategyRequest(AbstractModel):
         self._MinRoCount = None
         self._MaxRoCount = None
         self._AutoArchive = None
+        self._UpgradeType = None
 
     @property
     def ClusterId(self):
@@ -29748,6 +31473,17 @@ class ModifyServerlessStrategyRequest(AbstractModel):
     def AutoArchive(self, AutoArchive):
         self._AutoArchive = AutoArchive
 
+    @property
+    def UpgradeType(self):
+        r"""升级类型。 默认值：upgradeImmediate。 可选值： upgradeImmediate：立即完成修改 upgradeInMaintain：在维护时间窗口内完成修改
+        :rtype: str
+        """
+        return self._UpgradeType
+
+    @UpgradeType.setter
+    def UpgradeType(self, UpgradeType):
+        self._UpgradeType = UpgradeType
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -29762,6 +31498,7 @@ class ModifyServerlessStrategyRequest(AbstractModel):
         self._MinRoCount = params.get("MinRoCount")
         self._MaxRoCount = params.get("MaxRoCount")
         self._AutoArchive = params.get("AutoArchive")
+        self._UpgradeType = params.get("UpgradeType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -29781,14 +31518,19 @@ class ModifyServerlessStrategyResponse(AbstractModel):
         r"""
         :param _FlowId: 异步流程id
         :type FlowId: int
+        :param _TaskId: 任务id
+        :type TaskId: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._FlowId = None
+        self._TaskId = None
         self._RequestId = None
 
     @property
     def FlowId(self):
+        warnings.warn("parameter `FlowId` is deprecated", DeprecationWarning) 
+
         r"""异步流程id
         :rtype: int
         """
@@ -29796,7 +31538,20 @@ class ModifyServerlessStrategyResponse(AbstractModel):
 
     @FlowId.setter
     def FlowId(self, FlowId):
+        warnings.warn("parameter `FlowId` is deprecated", DeprecationWarning) 
+
         self._FlowId = FlowId
+
+    @property
+    def TaskId(self):
+        r"""任务id
+        :rtype: int
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
 
     @property
     def RequestId(self):
@@ -29812,6 +31567,7 @@ class ModifyServerlessStrategyResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._FlowId = params.get("FlowId")
+        self._TaskId = params.get("TaskId")
         self._RequestId = params.get("RequestId")
 
 
@@ -31099,11 +32855,14 @@ class OpenClusterTransparentEncryptRequest(AbstractModel):
         :type KeyId: str
         :param _KeyRegion: 秘钥地域
         :type KeyRegion: str
+        :param _IsOpenGlobalEncryption: 是否开启全局加密
+        :type IsOpenGlobalEncryption: bool
         """
         self._ClusterId = None
         self._KeyType = None
         self._KeyId = None
         self._KeyRegion = None
+        self._IsOpenGlobalEncryption = None
 
     @property
     def ClusterId(self):
@@ -31149,12 +32908,24 @@ class OpenClusterTransparentEncryptRequest(AbstractModel):
     def KeyRegion(self, KeyRegion):
         self._KeyRegion = KeyRegion
 
+    @property
+    def IsOpenGlobalEncryption(self):
+        r"""是否开启全局加密
+        :rtype: bool
+        """
+        return self._IsOpenGlobalEncryption
+
+    @IsOpenGlobalEncryption.setter
+    def IsOpenGlobalEncryption(self, IsOpenGlobalEncryption):
+        self._IsOpenGlobalEncryption = IsOpenGlobalEncryption
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
         self._KeyType = params.get("KeyType")
         self._KeyId = params.get("KeyId")
         self._KeyRegion = params.get("KeyRegion")
+        self._IsOpenGlobalEncryption = params.get("IsOpenGlobalEncryption")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33429,6 +35200,107 @@ class ProxyConfig(AbstractModel):
         
 
 
+class ProxyConfigInfo(AbstractModel):
+    r"""访问代理配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ProxyCount: 数据库代理组节点个数。该参数不再建议使用,建议使用ProxyZones
+        :type ProxyCount: int
+        :param _Cpu: cpu核数
+        :type Cpu: int
+        :param _Mem: 内存
+        :type Mem: int
+        :param _Description: 描述说明
+        :type Description: str
+        :param _ProxyZones: 数据库节点信息（该参数与ProxyCount需要任选一个输入）
+        :type ProxyZones: list of ProxyZone
+        """
+        self._ProxyCount = None
+        self._Cpu = None
+        self._Mem = None
+        self._Description = None
+        self._ProxyZones = None
+
+    @property
+    def ProxyCount(self):
+        r"""数据库代理组节点个数。该参数不再建议使用,建议使用ProxyZones
+        :rtype: int
+        """
+        return self._ProxyCount
+
+    @ProxyCount.setter
+    def ProxyCount(self, ProxyCount):
+        self._ProxyCount = ProxyCount
+
+    @property
+    def Cpu(self):
+        r"""cpu核数
+        :rtype: int
+        """
+        return self._Cpu
+
+    @Cpu.setter
+    def Cpu(self, Cpu):
+        self._Cpu = Cpu
+
+    @property
+    def Mem(self):
+        r"""内存
+        :rtype: int
+        """
+        return self._Mem
+
+    @Mem.setter
+    def Mem(self, Mem):
+        self._Mem = Mem
+
+    @property
+    def Description(self):
+        r"""描述说明
+        :rtype: str
+        """
+        return self._Description
+
+    @Description.setter
+    def Description(self, Description):
+        self._Description = Description
+
+    @property
+    def ProxyZones(self):
+        r"""数据库节点信息（该参数与ProxyCount需要任选一个输入）
+        :rtype: list of ProxyZone
+        """
+        return self._ProxyZones
+
+    @ProxyZones.setter
+    def ProxyZones(self, ProxyZones):
+        self._ProxyZones = ProxyZones
+
+
+    def _deserialize(self, params):
+        self._ProxyCount = params.get("ProxyCount")
+        self._Cpu = params.get("Cpu")
+        self._Mem = params.get("Mem")
+        self._Description = params.get("Description")
+        if params.get("ProxyZones") is not None:
+            self._ProxyZones = []
+            for item in params.get("ProxyZones"):
+                obj = ProxyZone()
+                obj._deserialize(item)
+                self._ProxyZones.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ProxyConnectionPoolInfo(AbstractModel):
     r"""数据库代理连接池信息
 
@@ -33485,6 +35357,137 @@ class ProxyConnectionPoolInfo(AbstractModel):
         self._ConnectionPoolTimeOut = params.get("ConnectionPoolTimeOut")
         self._OpenConnectionPool = params.get("OpenConnectionPool")
         self._ConnectionPoolType = params.get("ConnectionPoolType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ProxyEndPointConfigInfo(AbstractModel):
+    r"""集成集群proxy地址配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _UniqueVpcId: 所属VPC网络ID
+        :type UniqueVpcId: str
+        :param _UniqueSubnetId: 所属子网ID
+        :type UniqueSubnetId: str
+        :param _SecurityGroupIds: 安全组id数组
+        :type SecurityGroupIds: list of str
+        :param _WeightMode: 权重模式： system-系统分配，custom-自定义
+        :type WeightMode: str
+        :param _AutoAddRo: 是否自动添加只读实例，yes-是，no-不自动添加
+        :type AutoAddRo: str
+        :param _RwType: 读写属性： READWRITE,READONLY
+        :type RwType: str
+        :param _InstanceNameWeights: 权重信息
+        :type InstanceNameWeights: list of InstanceNameWeight
+        """
+        self._UniqueVpcId = None
+        self._UniqueSubnetId = None
+        self._SecurityGroupIds = None
+        self._WeightMode = None
+        self._AutoAddRo = None
+        self._RwType = None
+        self._InstanceNameWeights = None
+
+    @property
+    def UniqueVpcId(self):
+        r"""所属VPC网络ID
+        :rtype: str
+        """
+        return self._UniqueVpcId
+
+    @UniqueVpcId.setter
+    def UniqueVpcId(self, UniqueVpcId):
+        self._UniqueVpcId = UniqueVpcId
+
+    @property
+    def UniqueSubnetId(self):
+        r"""所属子网ID
+        :rtype: str
+        """
+        return self._UniqueSubnetId
+
+    @UniqueSubnetId.setter
+    def UniqueSubnetId(self, UniqueSubnetId):
+        self._UniqueSubnetId = UniqueSubnetId
+
+    @property
+    def SecurityGroupIds(self):
+        r"""安全组id数组
+        :rtype: list of str
+        """
+        return self._SecurityGroupIds
+
+    @SecurityGroupIds.setter
+    def SecurityGroupIds(self, SecurityGroupIds):
+        self._SecurityGroupIds = SecurityGroupIds
+
+    @property
+    def WeightMode(self):
+        r"""权重模式： system-系统分配，custom-自定义
+        :rtype: str
+        """
+        return self._WeightMode
+
+    @WeightMode.setter
+    def WeightMode(self, WeightMode):
+        self._WeightMode = WeightMode
+
+    @property
+    def AutoAddRo(self):
+        r"""是否自动添加只读实例，yes-是，no-不自动添加
+        :rtype: str
+        """
+        return self._AutoAddRo
+
+    @AutoAddRo.setter
+    def AutoAddRo(self, AutoAddRo):
+        self._AutoAddRo = AutoAddRo
+
+    @property
+    def RwType(self):
+        r"""读写属性： READWRITE,READONLY
+        :rtype: str
+        """
+        return self._RwType
+
+    @RwType.setter
+    def RwType(self, RwType):
+        self._RwType = RwType
+
+    @property
+    def InstanceNameWeights(self):
+        r"""权重信息
+        :rtype: list of InstanceNameWeight
+        """
+        return self._InstanceNameWeights
+
+    @InstanceNameWeights.setter
+    def InstanceNameWeights(self, InstanceNameWeights):
+        self._InstanceNameWeights = InstanceNameWeights
+
+
+    def _deserialize(self, params):
+        self._UniqueVpcId = params.get("UniqueVpcId")
+        self._UniqueSubnetId = params.get("UniqueSubnetId")
+        self._SecurityGroupIds = params.get("SecurityGroupIds")
+        self._WeightMode = params.get("WeightMode")
+        self._AutoAddRo = params.get("AutoAddRo")
+        self._RwType = params.get("RwType")
+        if params.get("InstanceNameWeights") is not None:
+            self._InstanceNameWeights = []
+            for item in params.get("InstanceNameWeights"):
+                obj = InstanceNameWeight()
+                obj._deserialize(item)
+                self._InstanceNameWeights.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -33814,6 +35817,10 @@ class ProxyGroupRwInfo(AbstractModel):
         :type TransSplit: bool
         :param _AccessMode: 连接模式，可选值：balance，nearby
         :type AccessMode: str
+        :param _ApNodeAsRoNode: 是否将libra节点当作普通RO节点
+        :type ApNodeAsRoNode: bool
+        :param _ApQueryToOtherNode: libra节点故障，是否转发给其他节点
+        :type ApQueryToOtherNode: bool
         """
         self._ConsistencyType = None
         self._ConsistencyTimeOut = None
@@ -33825,6 +35832,8 @@ class ProxyGroupRwInfo(AbstractModel):
         self._RwType = None
         self._TransSplit = None
         self._AccessMode = None
+        self._ApNodeAsRoNode = None
+        self._ApQueryToOtherNode = None
 
     @property
     def ConsistencyType(self):
@@ -33936,6 +35945,28 @@ class ProxyGroupRwInfo(AbstractModel):
     def AccessMode(self, AccessMode):
         self._AccessMode = AccessMode
 
+    @property
+    def ApNodeAsRoNode(self):
+        r"""是否将libra节点当作普通RO节点
+        :rtype: bool
+        """
+        return self._ApNodeAsRoNode
+
+    @ApNodeAsRoNode.setter
+    def ApNodeAsRoNode(self, ApNodeAsRoNode):
+        self._ApNodeAsRoNode = ApNodeAsRoNode
+
+    @property
+    def ApQueryToOtherNode(self):
+        r"""libra节点故障，是否转发给其他节点
+        :rtype: bool
+        """
+        return self._ApQueryToOtherNode
+
+    @ApQueryToOtherNode.setter
+    def ApQueryToOtherNode(self, ApQueryToOtherNode):
+        self._ApQueryToOtherNode = ApQueryToOtherNode
+
 
     def _deserialize(self, params):
         self._ConsistencyType = params.get("ConsistencyType")
@@ -33953,6 +35984,8 @@ class ProxyGroupRwInfo(AbstractModel):
         self._RwType = params.get("RwType")
         self._TransSplit = params.get("TransSplit")
         self._AccessMode = params.get("AccessMode")
+        self._ApNodeAsRoNode = params.get("ApNodeAsRoNode")
+        self._ApQueryToOtherNode = params.get("ApQueryToOtherNode")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -34423,6 +36456,8 @@ class QueryFilter(AbstractModel):
 
     @property
     def Operator(self):
+        warnings.warn("parameter `Operator` is deprecated", DeprecationWarning) 
+
         r"""操作符
         :rtype: str
         """
@@ -34430,6 +36465,8 @@ class QueryFilter(AbstractModel):
 
     @Operator.setter
     def Operator(self, Operator):
+        warnings.warn("parameter `Operator` is deprecated", DeprecationWarning) 
+
         self._Operator = Operator
 
 
@@ -34456,7 +36493,7 @@ class QueryParamFilter(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Names: 搜索字段，目前支持："InstanceId", "ProjectId", "InstanceName", "Vip"
+        :param _Names: 搜索字段，目前支持：ProxyGroupId
         :type Names: list of str
         :param _Values: 搜索字符串
         :type Values: list of str
@@ -34469,7 +36506,7 @@ class QueryParamFilter(AbstractModel):
 
     @property
     def Names(self):
-        r"""搜索字段，目前支持："InstanceId", "ProjectId", "InstanceName", "Vip"
+        r"""搜索字段，目前支持：ProxyGroupId
         :rtype: list of str
         """
         return self._Names
@@ -40115,6 +42152,12 @@ class TradePrice(AbstractModel):
         :type UnitPriceDiscount: int
         :param _ChargeUnit: 计费价格单位
         :type ChargeUnit: str
+        :param _UnitPriceHighPrecision: 高精度下不包含优惠价格
+        :type UnitPriceHighPrecision: str
+        :param _UnitPriceDiscountHighPrecision: 高精度下优惠后价格
+        :type UnitPriceDiscountHighPrecision: str
+        :param _AmountUnit: 货币单位
+        :type AmountUnit: str
         """
         self._TotalPrice = None
         self._Discount = None
@@ -40122,6 +42165,9 @@ class TradePrice(AbstractModel):
         self._UnitPrice = None
         self._UnitPriceDiscount = None
         self._ChargeUnit = None
+        self._UnitPriceHighPrecision = None
+        self._UnitPriceDiscountHighPrecision = None
+        self._AmountUnit = None
 
     @property
     def TotalPrice(self):
@@ -40189,6 +42235,39 @@ class TradePrice(AbstractModel):
     def ChargeUnit(self, ChargeUnit):
         self._ChargeUnit = ChargeUnit
 
+    @property
+    def UnitPriceHighPrecision(self):
+        r"""高精度下不包含优惠价格
+        :rtype: str
+        """
+        return self._UnitPriceHighPrecision
+
+    @UnitPriceHighPrecision.setter
+    def UnitPriceHighPrecision(self, UnitPriceHighPrecision):
+        self._UnitPriceHighPrecision = UnitPriceHighPrecision
+
+    @property
+    def UnitPriceDiscountHighPrecision(self):
+        r"""高精度下优惠后价格
+        :rtype: str
+        """
+        return self._UnitPriceDiscountHighPrecision
+
+    @UnitPriceDiscountHighPrecision.setter
+    def UnitPriceDiscountHighPrecision(self, UnitPriceDiscountHighPrecision):
+        self._UnitPriceDiscountHighPrecision = UnitPriceDiscountHighPrecision
+
+    @property
+    def AmountUnit(self):
+        r"""货币单位
+        :rtype: str
+        """
+        return self._AmountUnit
+
+    @AmountUnit.setter
+    def AmountUnit(self, AmountUnit):
+        self._AmountUnit = AmountUnit
+
 
     def _deserialize(self, params):
         self._TotalPrice = params.get("TotalPrice")
@@ -40197,6 +42276,9 @@ class TradePrice(AbstractModel):
         self._UnitPrice = params.get("UnitPrice")
         self._UnitPriceDiscount = params.get("UnitPriceDiscount")
         self._ChargeUnit = params.get("ChargeUnit")
+        self._UnitPriceHighPrecision = params.get("UnitPriceHighPrecision")
+        self._UnitPriceDiscountHighPrecision = params.get("UnitPriceDiscountHighPrecision")
+        self._AmountUnit = params.get("AmountUnit")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -40765,6 +42847,10 @@ class UpgradeProxyRequest(AbstractModel):
         :type IsInMaintainPeriod: str
         :param _ProxyZones: 数据库代理节点信息
         :type ProxyZones: list of ProxyZone
+        :param _IsRollUpgrade: 是否滚动升级
+        :type IsRollUpgrade: str
+        :param _RollUpgradeWaitingTime: 滚动升级等待时间，单位：秒
+        :type RollUpgradeWaitingTime: int
         """
         self._ClusterId = None
         self._Cpu = None
@@ -40774,6 +42860,8 @@ class UpgradeProxyRequest(AbstractModel):
         self._ReloadBalance = None
         self._IsInMaintainPeriod = None
         self._ProxyZones = None
+        self._IsRollUpgrade = None
+        self._RollUpgradeWaitingTime = None
 
     @property
     def ClusterId(self):
@@ -40863,6 +42951,28 @@ class UpgradeProxyRequest(AbstractModel):
     def ProxyZones(self, ProxyZones):
         self._ProxyZones = ProxyZones
 
+    @property
+    def IsRollUpgrade(self):
+        r"""是否滚动升级
+        :rtype: str
+        """
+        return self._IsRollUpgrade
+
+    @IsRollUpgrade.setter
+    def IsRollUpgrade(self, IsRollUpgrade):
+        self._IsRollUpgrade = IsRollUpgrade
+
+    @property
+    def RollUpgradeWaitingTime(self):
+        r"""滚动升级等待时间，单位：秒
+        :rtype: int
+        """
+        return self._RollUpgradeWaitingTime
+
+    @RollUpgradeWaitingTime.setter
+    def RollUpgradeWaitingTime(self, RollUpgradeWaitingTime):
+        self._RollUpgradeWaitingTime = RollUpgradeWaitingTime
+
 
     def _deserialize(self, params):
         self._ClusterId = params.get("ClusterId")
@@ -40878,6 +42988,8 @@ class UpgradeProxyRequest(AbstractModel):
                 obj = ProxyZone()
                 obj._deserialize(item)
                 self._ProxyZones.append(obj)
+        self._IsRollUpgrade = params.get("IsRollUpgrade")
+        self._RollUpgradeWaitingTime = params.get("RollUpgradeWaitingTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

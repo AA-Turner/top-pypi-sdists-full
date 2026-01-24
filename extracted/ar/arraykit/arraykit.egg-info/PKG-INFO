@@ -1,17 +1,16 @@
 Metadata-Version: 2.4
 Name: arraykit
-Version: 1.1.0
+Version: 1.2.0
 Summary: Array utilities for StaticFrame
-Home-page: https://github.com/static-frame/arraykit
 Author: Christopher Ariza, Brandt Bucher, Charles Burkland
-License: MIT
-Keywords: numpy array
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/static-frame/arraykit
+Keywords: numpy,array
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -19,22 +18,32 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: numpy>=1.24.3
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+
+
+
+.. image:: https://img.shields.io/pypi/pyversions/arraykit.svg
+  :target: https://pypi.org/project/arraykit
+
+.. image:: https://img.shields.io/pypi/v/arraykit.svg
+  :target: https://pypi.org/project/arraykit
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/arraykit.svg
+  :target: https://anaconda.org/conda-forge/arraykit
+
+.. image:: https://img.shields.io/github/actions/workflow/status/static-frame/arraykit/ci.yml?branch=master&label=build&logo=Github
+  :target: https://github.com/static-frame/arraykit/actions/workflows/ci.yml
+
+
+arraykit
+=============
 
 The ArrayKit library provides utilities for creating and transforming NumPy arrays, implementing performance-critical StaticFrame operations as Python C extensions.
 
@@ -54,6 +63,11 @@ ArrayKit requires the following:
 
 What is New in ArrayKit
 -------------------------
+
+1.2.0
+............
+
+Now building wheels for Python 3.14 and 3.14t.
 
 
 1.1.0

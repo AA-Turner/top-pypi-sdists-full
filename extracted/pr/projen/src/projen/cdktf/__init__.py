@@ -65,6 +65,7 @@ from ..github.workflows import (
     JobStep as _JobStep_c3287c05, Triggers as _Triggers_e9ae7617
 )
 from ..javascript import (
+    AuditOptions as _AuditOptions_429c62df,
     BiomeOptions as _BiomeOptions_452ab984,
     BuildWorkflowOptions as _BuildWorkflowOptions_b756f97f,
     BundlerOptions as _BundlerOptions_d60b85ed,
@@ -112,7 +113,7 @@ class ConstructLibraryCdktf(
         *,
         cdktf_version: builtins.str,
         constructs_version: typing.Optional[builtins.str] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         author: builtins.str,
         author_address: builtins.str,
         repository_url: builtins.str,
@@ -120,14 +121,14 @@ class ConstructLibraryCdktf(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
@@ -135,75 +136,77 @@ class ConstructLibraryCdktf(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -216,7 +219,7 @@ class ConstructLibraryCdktf(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -227,61 +230,62 @@ class ConstructLibraryCdktf(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param cdktf_version: (experimental) Minimum target version this library is tested against. Default: "^0.13.0"
@@ -323,7 +327,9 @@ class ConstructLibraryCdktf(
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -337,7 +343,7 @@ class ConstructLibraryCdktf(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -359,7 +365,7 @@ class ConstructLibraryCdktf(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -451,6 +457,7 @@ class ConstructLibraryCdktf(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -499,6 +506,8 @@ class ConstructLibraryCdktf(
             typescript_version=typescript_version,
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
+            audit_deps=audit_deps,
+            audit_deps_options=audit_deps_options,
             auto_approve_upgrades=auto_approve_upgrades,
             biome=biome,
             biome_options=biome_options,
@@ -627,6 +636,7 @@ class ConstructLibraryCdktf(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -648,6 +658,7 @@ class ConstructLibraryCdktf(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -737,6 +748,8 @@ class ConstructLibraryCdktf(
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
+        "audit_deps": "auditDeps",
+        "audit_deps_options": "auditDepsOptions",
         "auto_approve_upgrades": "autoApproveUpgrades",
         "biome": "biome",
         "biome_options": "biomeOptions",
@@ -821,32 +834,33 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -859,7 +873,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -870,88 +884,90 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
@@ -960,17 +976,17 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         author: builtins.str,
         author_address: builtins.str,
@@ -979,16 +995,16 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdktf_version: builtins.str,
         constructs_version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1000,6 +1016,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -1089,7 +1106,9 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -1103,7 +1122,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -1125,7 +1144,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
@@ -1198,6 +1217,8 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(audit_deps_options, dict):
+            audit_deps_options = _AuditOptions_429c62df(**audit_deps_options)
         if isinstance(biome_options, dict):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
@@ -1255,6 +1276,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -1344,6 +1366,8 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
+            check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
             check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
@@ -1440,6 +1464,8 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -1616,6 +1642,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if audit_deps is not None:
+            self._values["audit_deps"] = audit_deps
+        if audit_deps_options is not None:
+            self._values["audit_deps_options"] = audit_deps_options
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
         if biome is not None:
@@ -1786,25 +1816,25 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -1812,7 +1842,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -1832,13 +1862,24 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -1865,7 +1906,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -1873,7 +1914,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -1887,7 +1928,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -1895,10 +1936,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -1906,7 +1947,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -1923,7 +1964,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -1934,7 +1975,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -1972,7 +2013,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -1980,7 +2021,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -2007,7 +2048,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -2017,10 +2058,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -2030,10 +2071,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -2041,7 +2082,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -2060,7 +2101,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -2072,7 +2113,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -2088,7 +2129,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -2098,7 +2139,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -2237,7 +2278,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[_CodeArtifactOptions_e4782b3e]:
+    def code_artifact_options(self) -> typing.Optional["_CodeArtifactOptions_e4782b3e"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -2247,7 +2288,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[_CodeArtifactOptions_e4782b3e], result)
+        return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2407,7 +2448,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_access(self) -> typing.Optional[_NpmAccess_134fa228]:
+    def npm_access(self) -> typing.Optional["_NpmAccess_134fa228"]:
         '''(experimental) Access level of the npm package.
 
         :default:
@@ -2419,7 +2460,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("npm_access")
-        return typing.cast(typing.Optional[_NpmAccess_134fa228], result)
+        return typing.cast(typing.Optional["_NpmAccess_134fa228"], result)
 
     @builtins.property
     def npm_provenance(self) -> typing.Optional[builtins.bool]:
@@ -2488,7 +2529,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
+    def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -2496,7 +2537,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[_NodePackageManager_3eb53bf6], result)
+        return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -2513,13 +2554,13 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
     @builtins.property
     def peer_dependency_options(
         self,
-    ) -> typing.Optional[_PeerDependencyOptions_99d7d493]:
+    ) -> typing.Optional["_PeerDependencyOptions_99d7d493"]:
         '''(experimental) Options for ``peerDeps``.
 
         :stability: experimental
         '''
         result = self._values.get("peer_dependency_options")
-        return typing.cast(typing.Optional[_PeerDependencyOptions_99d7d493], result)
+        return typing.cast(typing.Optional["_PeerDependencyOptions_99d7d493"], result)
 
     @builtins.property
     def peer_deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2580,7 +2621,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
     @builtins.property
     def scoped_packages_options(
         self,
-    ) -> typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]]:
+    ) -> typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]]:
         '''(experimental) Options for privately hosted scoped packages.
 
         :default: - fetch all scoped packages from the public npm registry
@@ -2588,7 +2629,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("scoped_packages_options")
-        return typing.cast(typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]], result)
+        return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
 
     @builtins.property
     def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2617,7 +2658,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def yarn_berry_options(self) -> typing.Optional[_YarnBerryOptions_b6942539]:
+    def yarn_berry_options(self) -> typing.Optional["_YarnBerryOptions_b6942539"]:
         '''(experimental) Options for Yarn Berry.
 
         :default: - Yarn Berry v4 with all default options
@@ -2625,7 +2666,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("yarn_berry_options")
-        return typing.cast(typing.Optional[_YarnBerryOptions_b6942539], result)
+        return typing.cast(typing.Optional["_YarnBerryOptions_b6942539"], result)
 
     @builtins.property
     def bump_package(self) -> typing.Optional[builtins.str]:
@@ -2726,7 +2767,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -2734,7 +2775,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -2773,7 +2814,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -2781,12 +2822,12 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -2804,7 +2845,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -2890,7 +2931,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[_ReleaseTrigger_e4dc221f]:
+    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -2898,7 +2939,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -2927,13 +2968,13 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -2975,7 +3016,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -2983,7 +3024,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def default_release_branch(self) -> builtins.str:
@@ -3009,8 +3050,34 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def audit_deps(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run security audit on dependencies.
+
+        When enabled, creates an "audit" task that checks for known security vulnerabilities
+        in dependencies. By default, runs during every build and checks for "high" severity
+        vulnerabilities or above in all dependencies (including dev dependencies).
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_deps_options(self) -> typing.Optional["_AuditOptions_429c62df"]:
+        '''(experimental) Security audit options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps_options")
+        return typing.cast(typing.Optional["_AuditOptions_429c62df"], result)
+
+    @builtins.property
     def auto_approve_upgrades(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued).
+        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured).
 
         Throw if set to true but ``autoApproveOptions`` are not defined.
 
@@ -3033,7 +3100,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+    def biome_options(self) -> typing.Optional["_BiomeOptions_452ab984"]:
         '''(experimental) Biome options.
 
         :default: - default options
@@ -3041,7 +3108,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("biome_options")
-        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
+        return typing.cast(typing.Optional["_BiomeOptions_452ab984"], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -3055,16 +3122,18 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def build_workflow_options(self) -> typing.Optional[_BuildWorkflowOptions_b756f97f]:
+    def build_workflow_options(
+        self,
+    ) -> typing.Optional["_BuildWorkflowOptions_b756f97f"]:
         '''(experimental) Options for PR build workflow.
 
         :stability: experimental
         '''
         result = self._values.get("build_workflow_options")
-        return typing.cast(typing.Optional[_BuildWorkflowOptions_b756f97f], result)
+        return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(deprecated) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -3074,19 +3143,19 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: deprecated
         '''
         result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def bundler_options(self) -> typing.Optional[_BundlerOptions_d60b85ed]:
+    def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
         :stability: experimental
         '''
         result = self._values.get("bundler_options")
-        return typing.cast(typing.Optional[_BundlerOptions_d60b85ed], result)
+        return typing.cast(typing.Optional["_BundlerOptions_d60b85ed"], result)
 
     @builtins.property
-    def check_licenses(self) -> typing.Optional[_LicenseCheckerOptions_80bcd362]:
+    def check_licenses(self) -> typing.Optional["_LicenseCheckerOptions_80bcd362"]:
         '''(experimental) Configure which licenses should be deemed acceptable for use by dependencies.
 
         This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered.
@@ -3096,7 +3165,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("check_licenses")
-        return typing.cast(typing.Optional[_LicenseCheckerOptions_80bcd362], result)
+        return typing.cast(typing.Optional["_LicenseCheckerOptions_80bcd362"], result)
 
     @builtins.property
     def code_cov(self) -> typing.Optional[builtins.bool]:
@@ -3156,7 +3225,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional[_DependabotOptions_0cedc635]:
+    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -3164,7 +3233,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional[_DependabotOptions_0cedc635], result)
+        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -3172,7 +3241,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
 
         Cannot be used in conjunction with ``dependabot``.
 
-        :default: true
+        :default: - ``true`` for root projects, ``false`` for subprojects
 
         :stability: experimental
         '''
@@ -3182,7 +3251,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
     @builtins.property
     def deps_upgrade_options(
         self,
-    ) -> typing.Optional[_UpgradeDependenciesOptions_1d8ce4da]:
+    ) -> typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"]:
         '''(experimental) Options for ``UpgradeDependencies``.
 
         :default: - default options
@@ -3190,7 +3259,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("deps_upgrade_options")
-        return typing.cast(typing.Optional[_UpgradeDependenciesOptions_1d8ce4da], result)
+        return typing.cast(typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"], result)
 
     @builtins.property
     def gitignore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3213,7 +3282,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def jest_options(self) -> typing.Optional[_JestOptions_a085f64e]:
+    def jest_options(self) -> typing.Optional["_JestOptions_a085f64e"]:
         '''(experimental) Jest options.
 
         :default: - default options
@@ -3221,7 +3290,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("jest_options")
-        return typing.cast(typing.Optional[_JestOptions_a085f64e], result)
+        return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -3265,13 +3334,13 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -3296,7 +3365,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def prettier_options(self) -> typing.Optional[_PrettierOptions_41a5f203]:
+    def prettier_options(self) -> typing.Optional["_PrettierOptions_41a5f203"]:
         '''(experimental) Prettier options.
 
         :default: - default options
@@ -3304,7 +3373,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("prettier_options")
-        return typing.cast(typing.Optional[_PrettierOptions_41a5f203], result)
+        return typing.cast(typing.Optional["_PrettierOptions_41a5f203"], result)
 
     @builtins.property
     def projen_dev_dependency(self) -> typing.Optional[builtins.bool]:
@@ -3329,7 +3398,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options for .projenrc.js.
 
         :default: - default options
@@ -3337,7 +3406,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projen_version(self) -> typing.Optional[builtins.str]:
@@ -3412,7 +3481,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -3420,18 +3489,18 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use in workflows.
 
-        :default: - GitHub Actions
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -3524,7 +3593,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def eslint_options(self) -> typing.Optional[_EslintOptions_824f60bb]:
+    def eslint_options(self) -> typing.Optional["_EslintOptions_824f60bb"]:
         '''(experimental) Eslint options.
 
         :default: - opinionated default options
@@ -3532,7 +3601,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("eslint_options")
-        return typing.cast(typing.Optional[_EslintOptions_824f60bb], result)
+        return typing.cast(typing.Optional["_EslintOptions_824f60bb"], result)
 
     @builtins.property
     def libdir(self) -> typing.Optional[builtins.str]:
@@ -3558,13 +3627,13 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcOptions_514ec2ee]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcOptions_514ec2ee"]:
         '''(experimental) Options for .projenrc.ts.
 
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_514ec2ee], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_514ec2ee"], result)
 
     @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
@@ -3605,7 +3674,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tsconfig(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom TSConfig.
 
         :default: - default options
@@ -3613,10 +3682,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("tsconfig")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
-    def tsconfig_dev(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig_dev(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom tsconfig options for the development tsconfig.json file (used for testing).
 
         :default: - use the production tsconfig options
@@ -3624,7 +3693,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("tsconfig_dev")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
     def tsconfig_dev_file(self) -> typing.Optional[builtins.str]:
@@ -3638,13 +3707,13 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ts_jest_options(self) -> typing.Optional[_TsJestOptions_3c0597c1]:
+    def ts_jest_options(self) -> typing.Optional["_TsJestOptions_3c0597c1"]:
         '''(experimental) Options for ts-jest.
 
         :stability: experimental
         '''
         result = self._values.get("ts_jest_options")
-        return typing.cast(typing.Optional[_TsJestOptions_3c0597c1], result)
+        return typing.cast(typing.Optional["_TsJestOptions_3c0597c1"], result)
 
     @builtins.property
     def typescript_version(self) -> typing.Optional[builtins.str]:
@@ -3744,14 +3813,14 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dotnet(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def dotnet(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''
         :deprecated: use ``publishToNuget``
 
         :stability: deprecated
         '''
         result = self._values.get("dotnet")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
     def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3788,7 +3857,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def publish_to_go(self) -> typing.Optional[_JsiiGoTarget_921d41d5]:
+    def publish_to_go(self) -> typing.Optional["_JsiiGoTarget_921d41d5"]:
         '''(experimental) Publish Go bindings to a git repository.
 
         :default: - no publishing
@@ -3796,10 +3865,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("publish_to_go")
-        return typing.cast(typing.Optional[_JsiiGoTarget_921d41d5], result)
+        return typing.cast(typing.Optional["_JsiiGoTarget_921d41d5"], result)
 
     @builtins.property
-    def publish_to_maven(self) -> typing.Optional[_JsiiJavaTarget_1ed05aaa]:
+    def publish_to_maven(self) -> typing.Optional["_JsiiJavaTarget_1ed05aaa"]:
         '''(experimental) Publish to maven.
 
         :default: - no publishing
@@ -3807,10 +3876,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("publish_to_maven")
-        return typing.cast(typing.Optional[_JsiiJavaTarget_1ed05aaa], result)
+        return typing.cast(typing.Optional["_JsiiJavaTarget_1ed05aaa"], result)
 
     @builtins.property
-    def publish_to_nuget(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def publish_to_nuget(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''(experimental) Publish to NuGet.
 
         :default: - no publishing
@@ -3818,10 +3887,10 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("publish_to_nuget")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
-    def publish_to_pypi(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def publish_to_pypi(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''(experimental) Publish to pypi.
 
         :default: - no publishing
@@ -3829,17 +3898,17 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("publish_to_pypi")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def python(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''
         :deprecated: use ``publishToPyPi``
 
         :stability: deprecated
         '''
         result = self._values.get("python")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
     def rootdir(self) -> typing.Optional[builtins.str]:
@@ -3852,7 +3921,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def catalog(self) -> typing.Optional[_Catalog_baa0a70e]:
+    def catalog(self) -> typing.Optional["_Catalog_baa0a70e"]:
         '''(experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:.
 
         https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION
@@ -3870,7 +3939,7 @@ class ConstructLibraryCdktfOptions(_ConstructLibraryOptions_dcd2adc0):
         :stability: experimental
         '''
         result = self._values.get("catalog")
-        return typing.cast(typing.Optional[_Catalog_baa0a70e], result)
+        return typing.cast(typing.Optional["_Catalog_baa0a70e"], result)
 
     @builtins.property
     def cdktf_version(self) -> builtins.str:
@@ -3924,6 +3993,7 @@ def _typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4013,6 +4083,8 @@ def _typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    audit_deps: typing.Optional[builtins.bool] = None,
+    audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
     biome: typing.Optional[builtins.bool] = None,
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: glom
-Version: 24.11.0
+Version: 25.12.0
 Summary: A declarative object transformer and formatter, for conglomerating nested data.
 Home-page: https://github.com/mahmoud/glom
 Author: Mahmoud Hashemi and Kurt Rose
@@ -27,7 +27,7 @@ Description: # glom
         * Built-in data exploration and debugging features
         
         All of that and more, available as a [fully-documented][rtd],
-        pure-Python package, tested on Python 3.7+, as well as
+        pure-Python package, tested on Python 3.7-3.14, as well as
         PyPy3. Installation is as easy as:
         
         ```
@@ -126,6 +126,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: BSD License

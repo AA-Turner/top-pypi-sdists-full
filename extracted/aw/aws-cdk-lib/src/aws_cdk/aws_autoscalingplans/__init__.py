@@ -64,246 +64,13 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_autoscalingplans.CfnScalingPlanProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_source": "applicationSource",
-        "scaling_instructions": "scalingInstructions",
-    },
+from ..interfaces.aws_autoscalingplans import (
+    IScalingPlanRef as _IScalingPlanRef_fa4c9a8d,
+    ScalingPlanReference as _ScalingPlanReference_455da2cc,
 )
-class CfnScalingPlanProps:
-    def __init__(
-        self,
-        *,
-        application_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.ApplicationSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-        scaling_instructions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.ScalingInstructionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-    ) -> None:
-        '''Properties for defining a ``CfnScalingPlan``.
-
-        :param application_source: A CloudFormation stack or a set of tags. You can create one scaling plan per application source. The ``ApplicationSource`` property must be present to ensure interoperability with the AWS Auto Scaling console.
-        :param scaling_instructions: The scaling instructions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_autoscalingplans as autoscalingplans
-            
-            cfn_scaling_plan_props = autoscalingplans.CfnScalingPlanProps(
-                application_source=autoscalingplans.CfnScalingPlan.ApplicationSourceProperty(
-                    cloud_formation_stack_arn="cloudFormationStackArn",
-                    tag_filters=[autoscalingplans.CfnScalingPlan.TagFilterProperty(
-                        key="key",
-            
-                        # the properties below are optional
-                        values=["values"]
-                    )]
-                ),
-                scaling_instructions=[autoscalingplans.CfnScalingPlan.ScalingInstructionProperty(
-                    max_capacity=123,
-                    min_capacity=123,
-                    resource_id="resourceId",
-                    scalable_dimension="scalableDimension",
-                    service_namespace="serviceNamespace",
-                    target_tracking_configurations=[autoscalingplans.CfnScalingPlan.TargetTrackingConfigurationProperty(
-                        target_value=123,
-            
-                        # the properties below are optional
-                        customized_scaling_metric_specification=autoscalingplans.CfnScalingPlan.CustomizedScalingMetricSpecificationProperty(
-                            metric_name="metricName",
-                            namespace="namespace",
-                            statistic="statistic",
-            
-                            # the properties below are optional
-                            dimensions=[autoscalingplans.CfnScalingPlan.MetricDimensionProperty(
-                                name="name",
-                                value="value"
-                            )],
-                            unit="unit"
-                        ),
-                        disable_scale_in=False,
-                        estimated_instance_warmup=123,
-                        predefined_scaling_metric_specification=autoscalingplans.CfnScalingPlan.PredefinedScalingMetricSpecificationProperty(
-                            predefined_scaling_metric_type="predefinedScalingMetricType",
-            
-                            # the properties below are optional
-                            resource_label="resourceLabel"
-                        ),
-                        scale_in_cooldown=123,
-                        scale_out_cooldown=123
-                    )],
-            
-                    # the properties below are optional
-                    customized_load_metric_specification=autoscalingplans.CfnScalingPlan.CustomizedLoadMetricSpecificationProperty(
-                        metric_name="metricName",
-                        namespace="namespace",
-                        statistic="statistic",
-            
-                        # the properties below are optional
-                        dimensions=[autoscalingplans.CfnScalingPlan.MetricDimensionProperty(
-                            name="name",
-                            value="value"
-                        )],
-                        unit="unit"
-                    ),
-                    disable_dynamic_scaling=False,
-                    predefined_load_metric_specification=autoscalingplans.CfnScalingPlan.PredefinedLoadMetricSpecificationProperty(
-                        predefined_load_metric_type="predefinedLoadMetricType",
-            
-                        # the properties below are optional
-                        resource_label="resourceLabel"
-                    ),
-                    predictive_scaling_max_capacity_behavior="predictiveScalingMaxCapacityBehavior",
-                    predictive_scaling_max_capacity_buffer=123,
-                    predictive_scaling_mode="predictiveScalingMode",
-                    scaling_policy_update_behavior="scalingPolicyUpdateBehavior",
-                    scheduled_action_buffer_time=123
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b5a71af72c27f77a865bc0edee362942fe0ce9f4fb025c76878b2ae1d62108f)
-            check_type(argname="argument application_source", value=application_source, expected_type=type_hints["application_source"])
-            check_type(argname="argument scaling_instructions", value=scaling_instructions, expected_type=type_hints["scaling_instructions"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_source": application_source,
-            "scaling_instructions": scaling_instructions,
-        }
-
-    @builtins.property
-    def application_source(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ApplicationSourceProperty"]:
-        '''A CloudFormation stack or a set of tags.
-
-        You can create one scaling plan per application source. The ``ApplicationSource`` property must be present to ensure interoperability with the AWS Auto Scaling console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html#cfn-autoscalingplans-scalingplan-applicationsource
-        '''
-        result = self._values.get("application_source")
-        assert result is not None, "Required property 'application_source' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ApplicationSourceProperty"], result)
-
-    @builtins.property
-    def scaling_instructions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ScalingInstructionProperty"]]]:
-        '''The scaling instructions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html#cfn-autoscalingplans-scalingplan-scalinginstructions
-        '''
-        result = self._values.get("scaling_instructions")
-        assert result is not None, "Required property 'scaling_instructions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ScalingInstructionProperty"]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnScalingPlanProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_autoscalingplans.IScalingPlanRef")
-class IScalingPlanRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ScalingPlan.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="scalingPlanRef")
-    def scaling_plan_ref(self) -> "ScalingPlanReference":
-        '''(experimental) A reference to a ScalingPlan resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IScalingPlanRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ScalingPlan.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_autoscalingplans.IScalingPlanRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="scalingPlanRef")
-    def scaling_plan_ref(self) -> "ScalingPlanReference":
-        '''(experimental) A reference to a ScalingPlan resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ScalingPlanReference", jsii.get(self, "scalingPlanRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IScalingPlanRef).__jsii_proxy_class__ = lambda : _IScalingPlanRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_autoscalingplans.ScalingPlanReference",
-    jsii_struct_bases=[],
-    name_mapping={"scaling_plan_id": "scalingPlanId"},
-)
-class ScalingPlanReference:
-    def __init__(self, *, scaling_plan_id: builtins.str) -> None:
-        '''A reference to a ScalingPlan resource.
-
-        :param scaling_plan_id: The Id of the ScalingPlan resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_autoscalingplans as autoscalingplans
-            
-            scaling_plan_reference = autoscalingplans.ScalingPlanReference(
-                scaling_plan_id="scalingPlanId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4fd29a571e5ed472083c4c8dcd53a6fd7071823c7d30c14ce31a71ed1539927b)
-            check_type(argname="argument scaling_plan_id", value=scaling_plan_id, expected_type=type_hints["scaling_plan_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scaling_plan_id": scaling_plan_id,
-        }
-
-    @builtins.property
-    def scaling_plan_id(self) -> builtins.str:
-        '''The Id of the ScalingPlan resource.'''
-        result = self._values.get("scaling_plan_id")
-        assert result is not None, "Required property 'scaling_plan_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ScalingPlanReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IScalingPlanRef)
+@jsii.implements(_IInspectable_c2943556, _IScalingPlanRef_fa4c9a8d)
 class CfnScalingPlan(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -406,13 +173,14 @@ class CfnScalingPlan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application_source: typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.ApplicationSourceProperty", typing.Dict[builtins.str, typing.Any]]],
-        scaling_instructions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.ScalingInstructionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        application_source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.ApplicationSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        scaling_instructions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.ScalingInstructionProperty", typing.Dict[builtins.str, typing.Any]]]]],
     ) -> None:
-        '''
+        '''Create a new ``AWS::AutoScalingPlans::ScalingPlan``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_source: A CloudFormation stack or a set of tags. You can create one scaling plan per application source. The ``ApplicationSource`` property must be present to ensure interoperability with the AWS Auto Scaling console.
@@ -429,8 +197,20 @@ class CfnScalingPlan(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnScalingPlan")
+    @builtins.classmethod
+    def is_cfn_scaling_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnScalingPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__df123c3e31a1992cf2ca10a9f9f7ffc4388bce21736632fa95eda1e54d8b33e6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScalingPlan", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -490,22 +270,22 @@ class CfnScalingPlan(
 
     @builtins.property
     @jsii.member(jsii_name="scalingPlanRef")
-    def scaling_plan_ref(self) -> ScalingPlanReference:
+    def scaling_plan_ref(self) -> "_ScalingPlanReference_455da2cc":
         '''A reference to a ScalingPlan resource.'''
-        return typing.cast(ScalingPlanReference, jsii.get(self, "scalingPlanRef"))
+        return typing.cast("_ScalingPlanReference_455da2cc", jsii.get(self, "scalingPlanRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationSource")
     def application_source(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ApplicationSourceProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ApplicationSourceProperty"]:
         '''A CloudFormation stack or a set of tags.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ApplicationSourceProperty"], jsii.get(self, "applicationSource"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ApplicationSourceProperty"], jsii.get(self, "applicationSource"))
 
     @application_source.setter
     def application_source(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ApplicationSourceProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ApplicationSourceProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a721769056e4619e1ee277f601acfbdbe547965f1c733bf538c475beff7d51c)
@@ -516,14 +296,14 @@ class CfnScalingPlan(
     @jsii.member(jsii_name="scalingInstructions")
     def scaling_instructions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ScalingInstructionProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ScalingInstructionProperty"]]]:
         '''The scaling instructions.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ScalingInstructionProperty"]]], jsii.get(self, "scalingInstructions"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ScalingInstructionProperty"]]], jsii.get(self, "scalingInstructions"))
 
     @scaling_instructions.setter
     def scaling_instructions(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.ScalingInstructionProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ScalingInstructionProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__84d46aca6fa846baa355545baca0b08763bb6b5f55f52e18f9dd85b2f276217c)
@@ -543,7 +323,7 @@ class CfnScalingPlan(
             self,
             *,
             cloud_formation_stack_arn: typing.Optional[builtins.str] = None,
-            tag_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            tag_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.TagFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''``ApplicationSource`` is a property of `ScalingPlan <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html>`_ that specifies the application source to use with a scaling plan. You can create one scaling plan per application source.
 
@@ -593,7 +373,7 @@ class CfnScalingPlan(
         @builtins.property
         def tag_filters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.TagFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.TagFilterProperty"]]]]:
             '''A set of tag filters (keys and values).
 
             Each tag filter specified must contain a key with values as optional. Each scaling plan can include up to 50 keys, and each key can include up to 20 values.
@@ -605,7 +385,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-applicationsource.html#cfn-autoscalingplans-scalingplan-applicationsource-tagfilters
             '''
             result = self._values.get("tag_filters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.TagFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.TagFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -636,7 +416,7 @@ class CfnScalingPlan(
             metric_name: builtins.str,
             namespace: builtins.str,
             statistic: builtins.str,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             unit: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``CustomizedLoadMetricSpecification`` is a subproperty of `ScalingInstruction <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-scalinginstruction.html>`_ that specifies a customized load metric for predictive scaling to use with a scaling plan.
@@ -731,7 +511,7 @@ class CfnScalingPlan(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.MetricDimensionProperty"]]]]:
             '''The dimensions of the metric.
 
             Conditional: If you published your metric with dimensions, you must specify the same dimensions in your customized load metric specification.
@@ -739,7 +519,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-customizedloadmetricspecification.html#cfn-autoscalingplans-scalingplan-customizedloadmetricspecification-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.MetricDimensionProperty"]]]], result)
 
         @builtins.property
         def unit(self) -> typing.Optional[builtins.str]:
@@ -779,7 +559,7 @@ class CfnScalingPlan(
             metric_name: builtins.str,
             namespace: builtins.str,
             statistic: builtins.str,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.MetricDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             unit: typing.Optional[builtins.str] = None,
         ) -> None:
             '''``CustomizedScalingMetricSpecification`` is a subproperty of `TargetTrackingConfiguration <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-targettrackingconfiguration.html>`_ that specifies a customized scaling metric for a target tracking configuration to use with a scaling plan.
@@ -871,7 +651,7 @@ class CfnScalingPlan(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.MetricDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.MetricDimensionProperty"]]]]:
             '''The dimensions of the metric.
 
             Conditional: If you published your metric with dimensions, you must specify the same dimensions in your scaling policy.
@@ -879,7 +659,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-customizedscalingmetricspecification.html#cfn-autoscalingplans-scalingplan-customizedscalingmetricspecification-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.MetricDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.MetricDimensionProperty"]]]], result)
 
         @builtins.property
         def unit(self) -> typing.Optional[builtins.str]:
@@ -1176,10 +956,10 @@ class CfnScalingPlan(
             resource_id: builtins.str,
             scalable_dimension: builtins.str,
             service_namespace: builtins.str,
-            target_tracking_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            customized_load_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.CustomizedLoadMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            disable_dynamic_scaling: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            predefined_load_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.PredefinedLoadMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            target_tracking_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.TargetTrackingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            customized_load_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.CustomizedLoadMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disable_dynamic_scaling: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            predefined_load_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.PredefinedLoadMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             predictive_scaling_max_capacity_behavior: typing.Optional[builtins.str] = None,
             predictive_scaling_max_capacity_buffer: typing.Optional[jsii.Number] = None,
             predictive_scaling_mode: typing.Optional[builtins.str] = None,
@@ -1392,7 +1172,7 @@ class CfnScalingPlan(
         @builtins.property
         def target_tracking_configurations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.TargetTrackingConfigurationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.TargetTrackingConfigurationProperty"]]]:
             '''The target tracking configurations (up to 10).
 
             Each of these structures must specify a unique scaling metric and a target value for the metric.
@@ -1401,12 +1181,12 @@ class CfnScalingPlan(
             '''
             result = self._values.get("target_tracking_configurations")
             assert result is not None, "Required property 'target_tracking_configurations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.TargetTrackingConfigurationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.TargetTrackingConfigurationProperty"]]], result)
 
         @builtins.property
         def customized_load_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.CustomizedLoadMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.CustomizedLoadMetricSpecificationProperty"]]:
             '''The customized load metric to use for predictive scaling.
 
             This property or a *PredefinedLoadMetricSpecification* is required when configuring predictive scaling, and cannot be used otherwise.
@@ -1414,12 +1194,12 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-scalinginstruction.html#cfn-autoscalingplans-scalingplan-scalinginstruction-customizedloadmetricspecification
             '''
             result = self._values.get("customized_load_metric_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.CustomizedLoadMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.CustomizedLoadMetricSpecificationProperty"]], result)
 
         @builtins.property
         def disable_dynamic_scaling(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Controls whether dynamic scaling is disabled.
 
             When dynamic scaling is enabled, AWS Auto Scaling creates target tracking scaling policies based on the specified target tracking configurations.
@@ -1429,12 +1209,12 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-scalinginstruction.html#cfn-autoscalingplans-scalingplan-scalinginstruction-disabledynamicscaling
             '''
             result = self._values.get("disable_dynamic_scaling")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def predefined_load_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.PredefinedLoadMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.PredefinedLoadMetricSpecificationProperty"]]:
             '''The predefined load metric to use for predictive scaling.
 
             This property or a *CustomizedLoadMetricSpecification* is required when configuring predictive scaling, and cannot be used otherwise.
@@ -1442,7 +1222,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-scalinginstruction.html#cfn-autoscalingplans-scalingplan-scalinginstruction-predefinedloadmetricspecification
             '''
             result = self._values.get("predefined_load_metric_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.PredefinedLoadMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.PredefinedLoadMetricSpecificationProperty"]], result)
 
         @builtins.property
         def predictive_scaling_max_capacity_behavior(
@@ -1623,10 +1403,10 @@ class CfnScalingPlan(
             self,
             *,
             target_value: jsii.Number,
-            customized_scaling_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.CustomizedScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            disable_scale_in: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            customized_scaling_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.CustomizedScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            disable_scale_in: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             estimated_instance_warmup: typing.Optional[jsii.Number] = None,
-            predefined_scaling_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnScalingPlan.PredefinedScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            predefined_scaling_metric_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.PredefinedScalingMetricSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scale_in_cooldown: typing.Optional[jsii.Number] = None,
             scale_out_cooldown: typing.Optional[jsii.Number] = None,
         ) -> None:
@@ -1717,7 +1497,7 @@ class CfnScalingPlan(
         @builtins.property
         def customized_scaling_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.CustomizedScalingMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.CustomizedScalingMetricSpecificationProperty"]]:
             '''A customized metric.
 
             You can specify either a predefined metric or a customized metric.
@@ -1725,12 +1505,12 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-targettrackingconfiguration.html#cfn-autoscalingplans-scalingplan-targettrackingconfiguration-customizedscalingmetricspecification
             '''
             result = self._values.get("customized_scaling_metric_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.CustomizedScalingMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.CustomizedScalingMetricSpecificationProperty"]], result)
 
         @builtins.property
         def disable_scale_in(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether scale in by the target tracking scaling policy is disabled.
 
             If the value is ``true`` , scale in is disabled and the target tracking scaling policy doesn't remove capacity from the scalable resource. Otherwise, scale in is enabled and the target tracking scaling policy can remove capacity from the scalable resource.
@@ -1740,7 +1520,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-targettrackingconfiguration.html#cfn-autoscalingplans-scalingplan-targettrackingconfiguration-disablescalein
             '''
             result = self._values.get("disable_scale_in")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def estimated_instance_warmup(self) -> typing.Optional[jsii.Number]:
@@ -1756,7 +1536,7 @@ class CfnScalingPlan(
         @builtins.property
         def predefined_scaling_metric_specification(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.PredefinedScalingMetricSpecificationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.PredefinedScalingMetricSpecificationProperty"]]:
             '''A predefined metric.
 
             You can specify either a predefined metric or a customized metric.
@@ -1764,7 +1544,7 @@ class CfnScalingPlan(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-autoscalingplans-scalingplan-targettrackingconfiguration.html#cfn-autoscalingplans-scalingplan-targettrackingconfiguration-predefinedscalingmetricspecification
             '''
             result = self._values.get("predefined_scaling_metric_specification")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnScalingPlan.PredefinedScalingMetricSpecificationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.PredefinedScalingMetricSpecificationProperty"]], result)
 
         @builtins.property
         def scale_in_cooldown(self) -> typing.Optional[jsii.Number]:
@@ -1800,29 +1580,160 @@ class CfnScalingPlan(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_autoscalingplans.CfnScalingPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_source": "applicationSource",
+        "scaling_instructions": "scalingInstructions",
+    },
+)
+class CfnScalingPlanProps:
+    def __init__(
+        self,
+        *,
+        application_source: typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.ApplicationSourceProperty", typing.Dict[builtins.str, typing.Any]]],
+        scaling_instructions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScalingPlan.ScalingInstructionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+    ) -> None:
+        '''Properties for defining a ``CfnScalingPlan``.
+
+        :param application_source: A CloudFormation stack or a set of tags. You can create one scaling plan per application source. The ``ApplicationSource`` property must be present to ensure interoperability with the AWS Auto Scaling console.
+        :param scaling_instructions: The scaling instructions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_autoscalingplans as autoscalingplans
+            
+            cfn_scaling_plan_props = autoscalingplans.CfnScalingPlanProps(
+                application_source=autoscalingplans.CfnScalingPlan.ApplicationSourceProperty(
+                    cloud_formation_stack_arn="cloudFormationStackArn",
+                    tag_filters=[autoscalingplans.CfnScalingPlan.TagFilterProperty(
+                        key="key",
+            
+                        # the properties below are optional
+                        values=["values"]
+                    )]
+                ),
+                scaling_instructions=[autoscalingplans.CfnScalingPlan.ScalingInstructionProperty(
+                    max_capacity=123,
+                    min_capacity=123,
+                    resource_id="resourceId",
+                    scalable_dimension="scalableDimension",
+                    service_namespace="serviceNamespace",
+                    target_tracking_configurations=[autoscalingplans.CfnScalingPlan.TargetTrackingConfigurationProperty(
+                        target_value=123,
+            
+                        # the properties below are optional
+                        customized_scaling_metric_specification=autoscalingplans.CfnScalingPlan.CustomizedScalingMetricSpecificationProperty(
+                            metric_name="metricName",
+                            namespace="namespace",
+                            statistic="statistic",
+            
+                            # the properties below are optional
+                            dimensions=[autoscalingplans.CfnScalingPlan.MetricDimensionProperty(
+                                name="name",
+                                value="value"
+                            )],
+                            unit="unit"
+                        ),
+                        disable_scale_in=False,
+                        estimated_instance_warmup=123,
+                        predefined_scaling_metric_specification=autoscalingplans.CfnScalingPlan.PredefinedScalingMetricSpecificationProperty(
+                            predefined_scaling_metric_type="predefinedScalingMetricType",
+            
+                            # the properties below are optional
+                            resource_label="resourceLabel"
+                        ),
+                        scale_in_cooldown=123,
+                        scale_out_cooldown=123
+                    )],
+            
+                    # the properties below are optional
+                    customized_load_metric_specification=autoscalingplans.CfnScalingPlan.CustomizedLoadMetricSpecificationProperty(
+                        metric_name="metricName",
+                        namespace="namespace",
+                        statistic="statistic",
+            
+                        # the properties below are optional
+                        dimensions=[autoscalingplans.CfnScalingPlan.MetricDimensionProperty(
+                            name="name",
+                            value="value"
+                        )],
+                        unit="unit"
+                    ),
+                    disable_dynamic_scaling=False,
+                    predefined_load_metric_specification=autoscalingplans.CfnScalingPlan.PredefinedLoadMetricSpecificationProperty(
+                        predefined_load_metric_type="predefinedLoadMetricType",
+            
+                        # the properties below are optional
+                        resource_label="resourceLabel"
+                    ),
+                    predictive_scaling_max_capacity_behavior="predictiveScalingMaxCapacityBehavior",
+                    predictive_scaling_max_capacity_buffer=123,
+                    predictive_scaling_mode="predictiveScalingMode",
+                    scaling_policy_update_behavior="scalingPolicyUpdateBehavior",
+                    scheduled_action_buffer_time=123
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b5a71af72c27f77a865bc0edee362942fe0ce9f4fb025c76878b2ae1d62108f)
+            check_type(argname="argument application_source", value=application_source, expected_type=type_hints["application_source"])
+            check_type(argname="argument scaling_instructions", value=scaling_instructions, expected_type=type_hints["scaling_instructions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_source": application_source,
+            "scaling_instructions": scaling_instructions,
+        }
+
+    @builtins.property
+    def application_source(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ApplicationSourceProperty"]:
+        '''A CloudFormation stack or a set of tags.
+
+        You can create one scaling plan per application source. The ``ApplicationSource`` property must be present to ensure interoperability with the AWS Auto Scaling console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html#cfn-autoscalingplans-scalingplan-applicationsource
+        '''
+        result = self._values.get("application_source")
+        assert result is not None, "Required property 'application_source' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ApplicationSourceProperty"], result)
+
+    @builtins.property
+    def scaling_instructions(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ScalingInstructionProperty"]]]:
+        '''The scaling instructions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-autoscalingplans-scalingplan.html#cfn-autoscalingplans-scalingplan-scalinginstructions
+        '''
+        result = self._values.get("scaling_instructions")
+        assert result is not None, "Required property 'scaling_instructions' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnScalingPlan.ScalingInstructionProperty"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScalingPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnScalingPlan",
     "CfnScalingPlanProps",
-    "IScalingPlanRef",
-    "ScalingPlanReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__4b5a71af72c27f77a865bc0edee362942fe0ce9f4fb025c76878b2ae1d62108f(
-    *,
-    application_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ApplicationSourceProperty, typing.Dict[builtins.str, typing.Any]]],
-    scaling_instructions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ScalingInstructionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4fd29a571e5ed472083c4c8dcd53a6fd7071823c7d30c14ce31a71ed1539927b(
-    *,
-    scaling_plan_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__8845a217500d0a413cb4f3d41fb46473a55d2418ee7613a0fc607b2a0d0b40a8(
     scope: _constructs_77d1e7e8.Construct,
@@ -1830,6 +1741,12 @@ def _typecheckingstub__8845a217500d0a413cb4f3d41fb46473a55d2418ee7613a0fc607b2a0
     *,
     application_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ApplicationSourceProperty, typing.Dict[builtins.str, typing.Any]]],
     scaling_instructions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ScalingInstructionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df123c3e31a1992cf2ca10a9f9f7ffc4388bce21736632fa95eda1e54d8b33e6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1949,6 +1866,14 @@ def _typecheckingstub__3d15be1e020fc65e292d16afa62400b5cc6467919970cb90ed733cc0a
     predefined_scaling_metric_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.PredefinedScalingMetricSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scale_in_cooldown: typing.Optional[jsii.Number] = None,
     scale_out_cooldown: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b5a71af72c27f77a865bc0edee362942fe0ce9f4fb025c76878b2ae1d62108f(
+    *,
+    application_source: typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ApplicationSourceProperty, typing.Dict[builtins.str, typing.Any]]],
+    scaling_instructions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScalingPlan.ScalingInstructionProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass

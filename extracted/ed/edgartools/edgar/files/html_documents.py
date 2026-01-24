@@ -1,7 +1,7 @@
 import re
 import warnings
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import pandas as pd
 from bs4 import BeautifulSoup, Comment, NavigableString, Tag, XMLParsedAsHTMLWarning
@@ -10,6 +10,15 @@ from rich.table import Table
 
 from edgar.datatools import clean_column_text, table_html_to_dataframe
 from edgar.richtools import repr_rich
+
+# Deprecation warning for legacy HtmlDocument
+warnings.warn(
+    "edgar.files.html_documents module (including HtmlDocument) is deprecated and will be removed in v6.0. "
+    "Please use edgar.documents.HTMLParser instead. "
+    "See migration guide: https://edgartools.readthedocs.io/en/latest/migration/",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
@@ -62,8 +71,8 @@ class DocumentData:
     def __init__(self,
                  data: pd.DataFrame,
                  schema_refs: Optional[List[str]] = None,
-                 context: Dict[str, Dict[str, Union[str, None]]] = None,
-                 units: Dict[str, str] = None):
+                 context: Optional[Dict[str, Dict[str, Union[str, None]]]] = None,
+                 units: Optional[Dict[str, str]] = None):
         self.data = data
         self.context = context or {}
         self.units = units or {}
@@ -226,7 +235,7 @@ class Block:
     def to_markdown(self) -> str:
         return self.text
 
-    def get_text(self) -> List[str]:
+    def get_text(self) -> Optional[str]:
         return self.text
 
     def is_empty(self):
@@ -481,11 +490,11 @@ class HtmlDocument:
         text_ = "".join([block.get_text() for block in blocks])
         return text_.strip()
 
-    def generate_text_chunks(self, ignore_tables: bool = False) -> List[str]:
+    def generate_text_chunks(self, ignore_tables: bool = False) -> Generator[str, None, None]:
         for chunk in self.generate_chunks(ignore_tables=ignore_tables):
             yield HtmlDocument._render_blocks(chunk)
 
-    def generate_chunks(self, ignore_tables: bool = False) -> List[List[Block]]:
+    def generate_chunks(self, ignore_tables: bool = False) -> Generator[List[Block], None, None]:
         current_chunk = []
         accumulating_regular_text = False
         header_detected = False

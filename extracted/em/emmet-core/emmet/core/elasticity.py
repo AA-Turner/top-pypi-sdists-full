@@ -11,11 +11,12 @@ from pymatgen.core.structure import Structure
 from pymatgen.core.tensors import TensorMapping
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-from emmet.core.common import Status
 from emmet.core.material_property import PropertyDoc
 from emmet.core.math import Matrix3D, MatrixVoigt
-from emmet.core.mpid import MPID
 from emmet.core.settings import EmmetSettings
+from emmet.core.types.enums import TaskState
+from emmet.core.types.pymatgen_types.structure_adapter import StructureType
+from emmet.core.types.typing import IdentifierType
 
 SETTINGS = EmmetSettings()
 
@@ -107,7 +108,7 @@ class FittingData(BaseModel):
     second_pk_stresses: list[Matrix3D] = Field(
         description="Second Piola-Kirchhoff stress tensors on structures"
     )
-    deformation_tasks: list[MPID] | None = Field(
+    deformation_tasks: list[IdentifierType] | None = Field(
         None,
         description="Deformation task ids corresponding to the strained structures",
     )
@@ -119,7 +120,7 @@ class FittingData(BaseModel):
     equilibrium_cauchy_stress: Matrix3D | None = Field(
         None, description="Cauchy stress tensor of the relaxed structure"
     )
-    optimization_task: MPID | None = Field(
+    optimization_task: IdentifierType | None = Field(
         None, description="Optimization task corresponding to the relaxed structure"
     )
     optimization_dir_name: str | None = Field(
@@ -168,6 +169,11 @@ class WarningMessage(BaseModel):
 class ElasticityDoc(PropertyDoc):
     property_name: str = "elasticity"
 
+    structure: StructureType | None = Field(
+        None,
+        description="Structure to compute the elasticity",
+    )
+
     order: int = Field(
         default=2, description="Order of the expansion of the elastic tensor"
     )
@@ -206,13 +212,9 @@ class ElasticityDoc(PropertyDoc):
         None, description="Method used to fit the elastic tensor"
     )
 
-    state: Status | None = Field(
+    state: TaskState | None = Field(
         None,
         description="State of the fitting/analysis: `successful` or `failed`",
-    )
-
-    structure: Structure | None = Field(
-        None, description="Structure used to compute the elasticity.", exclude=False
     )
 
     @classmethod
@@ -221,11 +223,11 @@ class ElasticityDoc(PropertyDoc):
         structure: Structure,
         deformations: list[Deformation],
         stresses: list[Stress],
-        material_id: MPID | None = None,
-        deformation_task_ids: list[MPID] | None = None,
+        material_id: IdentifierType | None = None,
+        deformation_task_ids: list[IdentifierType] | None = None,
         deformation_dir_names: list[str] | None = None,
         equilibrium_stress: Stress | None = None,
-        optimization_task_id: MPID | None = None,
+        optimization_task_id: IdentifierType | None = None,
         optimization_dir_name: str | None = None,
         fitting_method: str = "finite_difference",
         **kwargs,
@@ -304,7 +306,7 @@ class ElasticityDoc(PropertyDoc):
             et_doc = None
             ct_doc = None
             derived_props = {}
-            state = Status("failed")
+            state = TaskState("failed")
             warnings = [CM.FITTING.format(e)]
 
         else:
@@ -330,7 +332,7 @@ class ElasticityDoc(PropertyDoc):
             except np.linalg.LinAlgError as e:
                 ct_doc = None
                 derived_props = {}
-                state = Status("failed")
+                state = TaskState("failed")
                 warnings = [CM.COMPLIANCE.format(e)]
 
         # fitting data
@@ -338,7 +340,7 @@ class ElasticityDoc(PropertyDoc):
         n_states = len(p_deforms) + len(d_deforms)
         if n_states != 24:
             warnings.append(CM.N_STATES.format(n_states))
-            state = Status("failed")
+            state = TaskState("failed")
 
         fitting_data = FittingData(
             deformations=[x.tolist() for x in p_deforms],  # type: ignore
@@ -363,7 +365,7 @@ class ElasticityDoc(PropertyDoc):
             fitting_method=fitting_method,
             warnings=warnings,
             state=state,
-            deprecated=state == Status("failed"),
+            deprecated=state == TaskState("failed"),
             **derived_props,
             **kwargs,
         )
@@ -372,9 +374,9 @@ class ElasticityDoc(PropertyDoc):
 def generate_primary_fitting_data(
     deforms: list[Deformation],
     stresses: list[Stress],
-    task_ids: list[MPID] | None = None,
+    task_ids: list[IdentifierType] | None = None,
     dir_names: list[str] | None = None,
-) -> tuple[list[Strain], list[Stress], list[MPID] | None, list[str] | None]:
+) -> tuple[list[Strain], list[Stress], list[IdentifierType] | None, list[str] | None]:
     """
     Get the primary fitting data, i.e. data obtained from a calculation.
 
@@ -653,7 +655,7 @@ def sanity_check(
     elastic_doc: ElasticTensorDoc,
     strains: list[Strain],
     derived_props: dict[str, Any],
-) -> tuple[Status, list[str]]:
+) -> tuple[TaskState, list[str]]:
     """
     Post analysis to generate warnings if any.
 
@@ -709,6 +711,6 @@ def sanity_check(
     if v > high:
         warnings.append(WM.LARGE_YOUNG_MODULUS.format(v, high))
 
-    state = Status("failed") if failed else Status("successful")
+    state = TaskState("failed") if failed else TaskState("successful")
 
     return state, warnings

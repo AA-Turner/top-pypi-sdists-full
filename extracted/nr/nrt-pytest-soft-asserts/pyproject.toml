@@ -1,0 +1,54 @@
+[project]
+
+name='nrt-pytest-soft-asserts'
+
+version='2.0.0'
+
+authors=[
+{ name='Eyal Tuzon', email='eyal.tuzon.dev@gmail.com' },
+]
+
+description='Soft asserts for pytest'
+
+keywords=[
+'python', 'python3', 'python-3', 'pytest',
+'soft', 'assert', 'asserts', 'assertion' ,'assertions', 'soft-assert',
+'soft-asserts', 'soft-assertion', 'soft-assertions',
+'test', 'test-framework', 'unit-testing'
+]
+
+readme='README.md'
+requires-python='>=3.8'
+
+classifiers=[
+'Programming Language :: Python :: 3',
+'Programming Language :: Python :: 3.8',
+'Programming Language :: Python :: 3.9',
+'Programming Language :: Python :: 3.10',
+'Programming Language :: Python :: 3.11',
+'Programming Language :: Python :: 3.12',
+'Programming Language :: Python :: 3.13',
+'Programming Language :: Python :: 3.14',
+'Operating System :: OS Independent',
+'Framework :: Pytest',
+'Topic :: Software Development :: Testing',
+'Topic :: Software Development :: Testing :: Unit',
+'Topic :: Software Development :: Libraries',
+'Development Status :: 5 - Production/Stable',
+
+]
+
+dynamic=['dependencies']
+
+license='MIT'
+
+[project.urls]
+
+'Homepage'='https://github.com/etuzon/python-nrt-pytest-soft-asserts'
+'Bug Tracker'='https://github.com/etuzon/python-nrt-pytest-soft-asserts/issues'
+'documentation'='https://github.com/etuzon/python-nrt-pytest-soft-asserts/wiki'
+
+[tool.setuptools]
+
+packages = ['nrt_pytest_soft_asserts']
+py-modules = []

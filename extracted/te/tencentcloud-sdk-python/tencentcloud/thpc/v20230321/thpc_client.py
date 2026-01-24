@@ -562,6 +562,29 @@ class ThpcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyClusterDeletionProtection(self, request):
+        r"""修改集群删除保护状态
+
+        :param request: Request instance for ModifyClusterDeletionProtection.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.ModifyClusterDeletionProtectionRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.ModifyClusterDeletionProtectionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyClusterDeletionProtection", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyClusterDeletionProtectionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyInitNodeScripts(self, request):
         r"""本接口 (ModifyInitNodeScripts) 用于修改节点初始化脚本。
 
@@ -576,6 +599,29 @@ class ThpcClient(AbstractClient):
             body = self.call("ModifyInitNodeScripts", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyInitNodeScriptsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyNodeAttribute(self, request):
+        r"""本接口用于修改节点属性
+
+        :param request: Request instance for ModifyNodeAttribute.
+        :type request: :class:`tencentcloud.thpc.v20230321.models.ModifyNodeAttributeRequest`
+        :rtype: :class:`tencentcloud.thpc.v20230321.models.ModifyNodeAttributeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyNodeAttribute", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyNodeAttributeResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

@@ -5,10 +5,18 @@
  * found in the LICENSE file.
  */
 
-#include "src/core/SkBlendModePriv.h"
+#include "include/core/SkBlendMode.h"
 
+#include "include/core/SkColor.h"
+#include "include/core/SkPaint.h"
 #include "src/base/SkVx.h"
+#include "src/core/SkBlendModePriv.h"
+#include "src/core/SkColorData.h"
 #include "src/core/SkRasterPipeline.h"
+#include "src/core/SkRasterPipelineOpContexts.h"
+#include "src/core/SkRasterPipelineOpList.h"
+
+#include <optional>
 
 bool SkBlendMode_ShouldPreScaleCoverage(SkBlendMode mode, bool rgb_coverage) {
     // The most important things we do here are:
@@ -87,41 +95,41 @@ bool SkBlendMode_AsCoeff(SkBlendMode mode, SkBlendModeCoeff* src, SkBlendModeCoe
 }
 
 void SkBlendMode_AppendStages(SkBlendMode mode, SkRasterPipeline* p) {
-    auto stage = SkRasterPipelineOp::srcover;
     switch (mode) {
-        case SkBlendMode::kClear:    stage = SkRasterPipelineOp::clear; break;
+        case SkBlendMode::kClear:    p->append(SkRasterPipelineOp::clear); return;
         case SkBlendMode::kSrc:      return;  // This stage is a no-op.
-        case SkBlendMode::kDst:      stage = SkRasterPipelineOp::move_dst_src; break;
-        case SkBlendMode::kSrcOver:  stage = SkRasterPipelineOp::srcover; break;
-        case SkBlendMode::kDstOver:  stage = SkRasterPipelineOp::dstover; break;
-        case SkBlendMode::kSrcIn:    stage = SkRasterPipelineOp::srcin; break;
-        case SkBlendMode::kDstIn:    stage = SkRasterPipelineOp::dstin; break;
-        case SkBlendMode::kSrcOut:   stage = SkRasterPipelineOp::srcout; break;
-        case SkBlendMode::kDstOut:   stage = SkRasterPipelineOp::dstout; break;
-        case SkBlendMode::kSrcATop:  stage = SkRasterPipelineOp::srcatop; break;
-        case SkBlendMode::kDstATop:  stage = SkRasterPipelineOp::dstatop; break;
-        case SkBlendMode::kXor:      stage = SkRasterPipelineOp::xor_; break;
-        case SkBlendMode::kPlus:     stage = SkRasterPipelineOp::plus_; break;
-        case SkBlendMode::kModulate: stage = SkRasterPipelineOp::modulate; break;
+        case SkBlendMode::kDst:      p->append(SkRasterPipelineOp::move_dst_src); return;
+        case SkBlendMode::kSrcOver:  p->append(SkRasterPipelineOp::srcover); return;
+        case SkBlendMode::kDstOver:  p->append(SkRasterPipelineOp::dstover); return;
+        case SkBlendMode::kSrcIn:    p->append(SkRasterPipelineOp::srcin); return;
+        case SkBlendMode::kDstIn:    p->append(SkRasterPipelineOp::dstin); return;
+        case SkBlendMode::kSrcOut:   p->append(SkRasterPipelineOp::srcout); return;
+        case SkBlendMode::kDstOut:   p->append(SkRasterPipelineOp::dstout); return;
+        case SkBlendMode::kSrcATop:  p->append(SkRasterPipelineOp::srcatop); return;
+        case SkBlendMode::kDstATop:  p->append(SkRasterPipelineOp::dstatop); return;
+        case SkBlendMode::kXor:      p->append(SkRasterPipelineOp::xor_); return;
+        case SkBlendMode::kPlus:     p->append(SkRasterPipelineOp::plus_); return;
+        case SkBlendMode::kModulate: p->append(SkRasterPipelineOp::modulate); return;
 
-        case SkBlendMode::kScreen:     stage = SkRasterPipelineOp::screen; break;
-        case SkBlendMode::kOverlay:    stage = SkRasterPipelineOp::overlay; break;
-        case SkBlendMode::kDarken:     stage = SkRasterPipelineOp::darken; break;
-        case SkBlendMode::kLighten:    stage = SkRasterPipelineOp::lighten; break;
-        case SkBlendMode::kColorDodge: stage = SkRasterPipelineOp::colordodge; break;
-        case SkBlendMode::kColorBurn:  stage = SkRasterPipelineOp::colorburn; break;
-        case SkBlendMode::kHardLight:  stage = SkRasterPipelineOp::hardlight; break;
-        case SkBlendMode::kSoftLight:  stage = SkRasterPipelineOp::softlight; break;
-        case SkBlendMode::kDifference: stage = SkRasterPipelineOp::difference; break;
-        case SkBlendMode::kExclusion:  stage = SkRasterPipelineOp::exclusion; break;
-        case SkBlendMode::kMultiply:   stage = SkRasterPipelineOp::multiply; break;
+        case SkBlendMode::kScreen:     p->append(SkRasterPipelineOp::screen); return;
+        case SkBlendMode::kOverlay:    p->append(SkRasterPipelineOp::overlay); return;
+        case SkBlendMode::kDarken:     p->append(SkRasterPipelineOp::darken); return;
+        case SkBlendMode::kLighten:    p->append(SkRasterPipelineOp::lighten); return;
+        case SkBlendMode::kColorDodge: p->append(SkRasterPipelineOp::colordodge); return;
+        case SkBlendMode::kColorBurn:  p->append(SkRasterPipelineOp::colorburn); return;
+        case SkBlendMode::kHardLight:  p->append(SkRasterPipelineOp::hardlight); return;
+        case SkBlendMode::kSoftLight:  p->append(SkRasterPipelineOp::softlight); return;
+        case SkBlendMode::kDifference: p->append(SkRasterPipelineOp::difference); return;
+        case SkBlendMode::kExclusion:  p->append(SkRasterPipelineOp::exclusion); return;
+        case SkBlendMode::kMultiply:   p->append(SkRasterPipelineOp::multiply); return;
 
-        case SkBlendMode::kHue:        stage = SkRasterPipelineOp::hue; break;
-        case SkBlendMode::kSaturation: stage = SkRasterPipelineOp::saturation; break;
-        case SkBlendMode::kColor:      stage = SkRasterPipelineOp::color; break;
-        case SkBlendMode::kLuminosity: stage = SkRasterPipelineOp::luminosity; break;
+        case SkBlendMode::kHue:        p->append(SkRasterPipelineOp::hue); return;
+        case SkBlendMode::kSaturation: p->append(SkRasterPipelineOp::saturation); return;
+        case SkBlendMode::kColor:      p->append(SkRasterPipelineOp::color); return;
+        case SkBlendMode::kLuminosity: p->append(SkRasterPipelineOp::luminosity); return;
+        default:                       p->append(SkRasterPipelineOp::srcover); return;
     }
-    p->append(stage);
+    SkUNREACHABLE;
 }
 
 SkPMColor4f SkBlendMode_Apply(SkBlendMode mode, const SkPMColor4f& src, const SkPMColor4f& dst) {
@@ -143,9 +151,8 @@ SkPMColor4f SkBlendMode_Apply(SkBlendMode mode, const SkPMColor4f& src, const Sk
     SkPMColor4f            src_storage = src,
                            dst_storage = dst,
                            res_storage;
-    SkRasterPipeline_MemoryCtx src_ctx = { &src_storage, 0 },
-                               dst_ctx = { &dst_storage, 0 },
-                               res_ctx = { &res_storage, 0 };
+    SkRasterPipelineContexts::MemoryCtx src_ctx = {&src_storage, 0}, dst_ctx = {&dst_storage, 0},
+                                        res_ctx = {&res_storage, 0};
 
     p.append(SkRasterPipelineOp::load_f32, &dst_ctx);
     p.append(SkRasterPipelineOp::move_src_dst);
@@ -154,4 +161,80 @@ SkPMColor4f SkBlendMode_Apply(SkBlendMode mode, const SkPMColor4f& src, const Sk
     p.append(SkRasterPipelineOp::store_f32, &res_ctx);
     p.run(0,0, 1,1);
     return res_storage;
+}
+
+const char* SkBlendMode_Name(SkBlendMode bm) {
+    switch (bm) {
+        case SkBlendMode::kClear:      return "Clear";
+        case SkBlendMode::kSrc:        return "Src";
+        case SkBlendMode::kDst:        return "Dst";
+        case SkBlendMode::kSrcOver:    return "SrcOver";
+        case SkBlendMode::kDstOver:    return "DstOver";
+        case SkBlendMode::kSrcIn:      return "SrcIn";
+        case SkBlendMode::kDstIn:      return "DstIn";
+        case SkBlendMode::kSrcOut:     return "SrcOut";
+        case SkBlendMode::kDstOut:     return "DstOut";
+        case SkBlendMode::kSrcATop:    return "SrcATop";
+        case SkBlendMode::kDstATop:    return "DstATop";
+        case SkBlendMode::kXor:        return "Xor";
+        case SkBlendMode::kPlus:       return "Plus";
+        case SkBlendMode::kModulate:   return "Modulate";
+        case SkBlendMode::kScreen:     return "Screen";
+
+        case SkBlendMode::kOverlay:    return "Overlay";
+        case SkBlendMode::kDarken:     return "Darken";
+        case SkBlendMode::kLighten:    return "Lighten";
+        case SkBlendMode::kColorDodge: return "ColorDodge";
+        case SkBlendMode::kColorBurn:  return "ColorBurn";
+        case SkBlendMode::kHardLight:  return "HardLight";
+        case SkBlendMode::kSoftLight:  return "SoftLight";
+        case SkBlendMode::kDifference: return "Difference";
+        case SkBlendMode::kExclusion:  return "Exclusion";
+        case SkBlendMode::kMultiply:   return "Multiply";
+
+        case SkBlendMode::kHue:        return "Hue";
+        case SkBlendMode::kSaturation: return "Saturation";
+        case SkBlendMode::kColor:      return "Color";
+        case SkBlendMode::kLuminosity: return "Luminosity";
+    }
+    SkUNREACHABLE;
+}
+
+static bool just_solid_color(const SkPaint& p) {
+    return SK_AlphaOPAQUE == p.getAlpha() && !p.getColorFilter() && !p.getShader();
+}
+
+SkBlendFastPath CheckFastPath(const SkPaint& paint, bool dstIsOpaque) {
+    const auto bm = paint.asBlendMode();
+    if (!bm) {
+        return SkBlendFastPath::kNormal;
+    }
+    switch (bm.value()) {
+        case SkBlendMode::kSrcOver:
+            return SkBlendFastPath::kSrcOver;
+        case SkBlendMode::kSrc:
+            if (just_solid_color(paint)) {
+                return SkBlendFastPath::kSrcOver;
+            }
+            return SkBlendFastPath::kNormal;
+        case SkBlendMode::kDst:
+            return SkBlendFastPath::kSkipDrawing;
+        case SkBlendMode::kDstOver:
+            if (dstIsOpaque) {
+                return SkBlendFastPath::kSkipDrawing;
+            }
+            return SkBlendFastPath::kNormal;
+        case SkBlendMode::kSrcIn:
+            if (dstIsOpaque && just_solid_color(paint)) {
+                return SkBlendFastPath::kSrcOver;
+            }
+            return SkBlendFastPath::kNormal;
+        case SkBlendMode::kDstIn:
+            if (just_solid_color(paint)) {
+                return SkBlendFastPath::kSkipDrawing;
+            }
+            return SkBlendFastPath::kNormal;
+        default:
+            return SkBlendFastPath::kNormal;
+    }
 }

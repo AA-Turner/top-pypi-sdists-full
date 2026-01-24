@@ -1,7 +1,7 @@
-import typing
 from concurrent import futures
 
 import grpc
+import typing_extensions as typing
 from testproto.grpc import dummy_pb2, dummy_pb2_grpc
 
 ADDRESS = "localhost:22222"
@@ -25,17 +25,17 @@ class Servicer(dummy_pb2_grpc.DummyServiceServicer):
 
     def StreamUnary(
         self,
-        request: typing.Iterator[dummy_pb2.DummyRequest],
+        request_iterator: typing.Iterator[dummy_pb2.DummyRequest],
         context: grpc.ServicerContext,
     ) -> dummy_pb2.DummyReply:
-        return dummy_pb2.DummyReply(value="".join(data.value for data in request))
+        return dummy_pb2.DummyReply(value="".join(data.value for data in request_iterator))
 
     def StreamStream(
         self,
-        request: typing.Iterator[dummy_pb2.DummyRequest],
+        request_iterator: typing.Iterator[dummy_pb2.DummyRequest],
         context: grpc.ServicerContext,
     ) -> typing.Iterator[dummy_pb2.DummyReply]:
-        for data in request:
+        for data in request_iterator:
             yield dummy_pb2.DummyReply(value=data.value.upper())
 
 
@@ -64,7 +64,7 @@ def test_grpc() -> None:
     assert result4.value == "GRPC"
 
     # test future() in MultiCallable
-    future_test: grpc.CallFuture[dummy_pb2.DummyReply] = client.UnaryUnary.future(request)
+    future_test: grpc._CallFuture[dummy_pb2.DummyReply] = client.UnaryUnary.future(request)
     result5 = future_test.result()
     print(result5)
     assert result5.value == "grpc"
@@ -75,3 +75,13 @@ def test_grpc() -> None:
     assert result6.value == "grpc"
 
     server.stop(None)
+
+    class TestAttribute:
+        stub: dummy_pb2_grpc.DummyServiceStub
+
+        def __init__(self) -> None:
+            self.stub = dummy_pb2_grpc.DummyServiceStub(grpc.insecure_channel(ADDRESS))
+
+        def test(self) -> None:
+            val = self.stub.UnaryUnary(dummy_pb2.DummyRequest(value="test"))
+            typing.assert_type(val, dummy_pb2.DummyReply)

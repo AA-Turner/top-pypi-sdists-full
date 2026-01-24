@@ -80,7 +80,10 @@ urlpatterns = [
     path('night/', views.NightModeRedirectView.as_view(), name='nightmode'),
 
     # Theme Change
-    path('theme/', views.ThemeRedirectView.as_view(), name='theme')
+    path('theme/', views.ThemeRedirectView.as_view(), name='theme'),
+
+    # Minimize Menu
+    path('minimize-sidebar/', views.MinimizeSidebarRedirectView.as_view(), name='minimize_sidebar')
 ]
 
 url_hooks = get_hooks("url_hook")

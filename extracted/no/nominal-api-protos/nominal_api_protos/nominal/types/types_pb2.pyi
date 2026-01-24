@@ -35,6 +35,8 @@ class IngestStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SUCCEEDED: _ClassVar[IngestStatus]
     FAILED: _ClassVar[IngestStatus]
     IN_PROGRESS: _ClassVar[IngestStatus]
+    DELETION_IN_PROGRESS: _ClassVar[IngestStatus]
+    DELETED: _ClassVar[IngestStatus]
 
 class NominalDataType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -57,6 +59,8 @@ INGEST_STATUS_UNSPECIFIED: IngestStatus
 SUCCEEDED: IngestStatus
 FAILED: IngestStatus
 IN_PROGRESS: IngestStatus
+DELETION_IN_PROGRESS: IngestStatus
+DELETED: IngestStatus
 NOMINAL_DATA_TYPE_UNSPECIFIED: NominalDataType
 DOUBLE: NominalDataType
 STRING: NominalDataType

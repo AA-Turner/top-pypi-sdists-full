@@ -1,4 +1,5 @@
 import copy
+import os
 import pickle
 import sys
 from datetime import datetime
@@ -62,7 +63,7 @@ def test_uuid_setattr() -> None:
     uuid = uuid_utils.UUID(int=223359875637754765292326297443183672862)
 
     with pytest.raises(TypeError):
-        uuid.int = 123  # type: ignore
+        uuid.int = 123  # type: ignore[misc]
 
 
 def test_uuid1() -> None:
@@ -129,19 +130,15 @@ def test_uuid_comparisons() -> None:
 
     assert uuid_1 < uuid_2
     assert uuid_1 <= uuid_2
+    assert uuid_1 != uuid_2
+    assert uuid_2 > uuid_1
+    assert uuid_2 >= uuid_1
 
     uuid_1 = uuid_utils.uuid8(b"1234567812345678")
     uuid_2 = uuid_utils.uuid8(b"1234567812345678")
 
     assert uuid_1 == uuid_2
     assert hash(uuid_1) == hash(uuid_2)
-    assert not uuid_1 != uuid_2
-
-    uuid_1 = uuid_utils.uuid8(b"1234567812345678")
-    uuid_2 = uuid_utils.uuid8(b"1234567812345677")
-
-    assert uuid_1 > uuid_2
-    assert uuid_1 >= uuid_2
 
 
 @pytest.mark.parametrize("version", [1, 2, 3, 4, 5, 7, 8])
@@ -205,6 +202,32 @@ def test_is_safe() -> None:
     assert uuid_utils.uuid4().is_safe is SafeUUID.unknown
 
 
-@pytest.mark.xfail(sys.platform == "linux", reason="Might fail in Github Actions")
 def test_getnode() -> None:
     assert uuid_utils.getnode() == getnode()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Does not run on Windows")
+def test_reseed_is_called_when_forking() -> None:
+    read_end, write_end = os.pipe()
+    uuid_utils.uuid4()
+
+    pid = os.fork()
+    if pid == 0:
+        os.close(read_end)
+        next_uuid_child = str(uuid_utils.uuid4())
+        with os.fdopen(write_end, "w") as write_pipe:
+            write_pipe.write(next_uuid_child)
+        os._exit(0)
+
+    os.close(write_end)
+    next_parent_uuid = uuid_utils.uuid4()
+    os.waitpid(pid, 0)
+    with os.fdopen(read_end) as read_pipe:
+        uuid_from_pipe = uuid_utils.UUID(read_pipe.read())
+
+    assert next_parent_uuid != uuid_from_pipe
+
+
+def test_max_and_nil() -> None:
+    assert uuid_utils.UUID("ffffffff-ffff-ffff-ffff-ffffffffffff") == uuid_utils.MAX
+    assert uuid_utils.UUID("00000000-0000-0000-0000-000000000000") == uuid_utils.NIL

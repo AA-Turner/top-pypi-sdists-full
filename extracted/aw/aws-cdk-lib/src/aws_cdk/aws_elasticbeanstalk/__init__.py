@@ -67,123 +67,590 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.ApplicationReference",
-    jsii_struct_bases=[],
-    name_mapping={"application_name": "applicationName"},
+from ..interfaces.aws_elasticbeanstalk import (
+    ApplicationReference as _ApplicationReference_007fdae7,
+    ApplicationVersionReference as _ApplicationVersionReference_198fa3c9,
+    ConfigurationTemplateReference as _ConfigurationTemplateReference_a0091062,
+    EnvironmentReference as _EnvironmentReference_71071798,
+    IApplicationRef as _IApplicationRef_776a7ba1,
+    IApplicationVersionRef as _IApplicationVersionRef_09a8ab3c,
+    IConfigurationTemplateRef as _IConfigurationTemplateRef_3b882d17,
+    IEnvironmentRef as _IEnvironmentRef_16e2854d,
 )
-class ApplicationReference:
-    def __init__(self, *, application_name: builtins.str) -> None:
-        '''A reference to a Application resource.
 
-        :param application_name: The ApplicationName of the Application resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IApplicationRef_776a7ba1)
+class CfnApplication(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication",
+):
+    '''Specify an AWS Elastic Beanstalk application by using the AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
 
-        Example::
+    The AWS::ElasticBeanstalk::Application resource is an AWS Elastic Beanstalk Beanstalk resource type that specifies an Elastic Beanstalk application.
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            application_reference = elasticbeanstalk.ApplicationReference(
-                application_name="applicationName"
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-application.html
+    :cloudformationResource: AWS::ElasticBeanstalk::Application
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+        
+        cfn_application = elasticbeanstalk.CfnApplication(self, "MyCfnApplication",
+            application_name="applicationName",
+            description="description",
+            resource_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty(
+                service_role="serviceRole",
+                version_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
+                    max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
+                        delete_source_from_s3=False,
+                        enabled=False,
+                        max_age_in_days=123
+                    ),
+                    max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
+                        delete_source_from_s3=False,
+                        enabled=False,
+                        max_count=123
+                    )
+                )
             )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffe6233c8172dda463bf1895e421a68f97cf946e353323db3a518216756870ee)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The ApplicationName of the Application resource.'''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
         )
+    '''
 
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.ApplicationVersionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "application_version_id": "applicationVersionId",
-    },
-)
-class ApplicationVersionReference:
     def __init__(
         self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
         *,
-        application_name: builtins.str,
-        application_version_id: builtins.str,
+        application_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        resource_lifecycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationResourceLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''A reference to a ApplicationVersion resource.
+        '''Create a new ``AWS::ElasticBeanstalk::Application``.
 
-        :param application_name: The ApplicationName of the ApplicationVersion resource.
-        :param application_version_id: The Id of the ApplicationVersion resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            application_version_reference = elasticbeanstalk.ApplicationVersionReference(
-                application_name="applicationName",
-                application_version_id="applicationVersionId"
-            )
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param application_name: A name for the Elastic Beanstalk application. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the application name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param description: Your description of the application.
+        :param resource_lifecycle_config: Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d130f0464c3ace118b0914eb2214c0cb3bb48c811f4cfa4f9b2805a44e1c29a4)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument application_version_id", value=application_version_id, expected_type=type_hints["application_version_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "application_version_id": application_version_id,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The ApplicationName of the ApplicationVersion resource.'''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def application_version_id(self) -> builtins.str:
-        '''The Id of the ApplicationVersion resource.'''
-        result = self._values.get("application_version_id")
-        assert result is not None, "Required property 'application_version_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ApplicationVersionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+            type_hints = typing.get_type_hints(_typecheckingstub__2037a8b39c672f9e224a0d55f87a787c8f06cc34801647c616c1d3544fc61b01)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnApplicationProps(
+            application_name=application_name,
+            description=description,
+            resource_lifecycle_config=resource_lifecycle_config,
         )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForApplication")
+    @builtins.classmethod
+    def arn_for_application(cls, resource: "_IApplicationRef_776a7ba1") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e9a5aa59a4674660b0a4f58c7a469fed835a0eb6f54e77a23de596b6cb62f9d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForApplication", [resource]))
+
+    @jsii.member(jsii_name="fromApplicationName")
+    @builtins.classmethod
+    def from_application_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        application_name: builtins.str,
+    ) -> "_IApplicationRef_776a7ba1":
+        '''Creates a new IApplicationRef from a applicationName.
+
+        :param scope: -
+        :param id: -
+        :param application_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64e0e228a9756a4fe5df231bf425c7ec6801763aba68b5b5c88a2c7a3e01d60)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+        return typing.cast("_IApplicationRef_776a7ba1", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
+
+    @jsii.member(jsii_name="isCfnApplication")
+    @builtins.classmethod
+    def is_cfn_application(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplication.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfafc129c9f5c2fc5d186e47ff3f61ca0d5cd50b7ab4983eb391741434472faa)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplication", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67008ad4d98231202ed96bd8356ff5d52d6ab2ac0b949ec39dee9c2e5b28516c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94e3218203e8d26f754fc4833f6d89df4a7aed57f2b40ba41097383e596f90ec)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationRef")
+    def application_ref(self) -> "_ApplicationReference_007fdae7":
+        '''A reference to a Application resource.'''
+        return typing.cast("_ApplicationReference_007fdae7", jsii.get(self, "applicationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="applicationName")
+    def application_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the Elastic Beanstalk application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationName"))
+
+    @application_name.setter
+    def application_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9c6bf36c756c98eefc03fcfa7fc47b01fa9a2e1bbbcdea2614f2cbbe19f2ac5e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Your description of the application.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c92d2b49bcac99b2f1f38ca944c407acf1d8ac8d05cf0061b761bacef80edaeb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceLifecycleConfig")
+    def resource_lifecycle_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationResourceLifecycleConfigProperty"]]:
+        '''Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationResourceLifecycleConfigProperty"]], jsii.get(self, "resourceLifecycleConfig"))
+
+    @resource_lifecycle_config.setter
+    def resource_lifecycle_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationResourceLifecycleConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8a75fb3cf2d34861537e2d37fd676dbea69752fd913fa7086637904894d1654f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceLifecycleConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "service_role": "serviceRole",
+            "version_lifecycle_config": "versionLifecycleConfig",
+        },
+    )
+    class ApplicationResourceLifecycleConfigProperty:
+        def __init__(
+            self,
+            *,
+            service_role: typing.Optional[builtins.str] = None,
+            version_lifecycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationVersionLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Use the ``ApplicationResourceLifecycleConfig`` property type to specify lifecycle settings for resources that belong to an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
+
+            The resource lifecycle configuration for an application. Defines lifecycle settings for resources that belong to the application, and the service role that Elastic Beanstalk assumes in order to apply lifecycle settings. The version lifecycle configuration defines lifecycle settings for application versions.
+
+            ``ApplicationResourceLifecycleConfig`` is a property of the `AWS::ElasticBeanstalk::Application <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk.html>`_ resource.
+
+            :param service_role: The ARN of an IAM service role that Elastic Beanstalk has permission to assume. The ``ServiceRole`` property is required the first time that you provide a ``ResourceLifecycleConfig`` for the application. After you provide it once, Elastic Beanstalk persists the Service Role with the application, and you don't need to specify it again. You can, however, specify it in subsequent updates to change the Service Role to another value.
+            :param version_lifecycle_config: Defines lifecycle settings for application versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                application_resource_lifecycle_config_property = elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty(
+                    service_role="serviceRole",
+                    version_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
+                        max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
+                            delete_source_from_s3=False,
+                            enabled=False,
+                            max_age_in_days=123
+                        ),
+                        max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
+                            delete_source_from_s3=False,
+                            enabled=False,
+                            max_count=123
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__cab1602adff55377880de5336c8a2e9ecfcfe203ea299cbb9dec79dc27168b2c)
+                check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
+                check_type(argname="argument version_lifecycle_config", value=version_lifecycle_config, expected_type=type_hints["version_lifecycle_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if service_role is not None:
+                self._values["service_role"] = service_role
+            if version_lifecycle_config is not None:
+                self._values["version_lifecycle_config"] = version_lifecycle_config
+
+        @builtins.property
+        def service_role(self) -> typing.Optional[builtins.str]:
+            '''The ARN of an IAM service role that Elastic Beanstalk has permission to assume.
+
+            The ``ServiceRole`` property is required the first time that you provide a ``ResourceLifecycleConfig`` for the application. After you provide it once, Elastic Beanstalk persists the Service Role with the application, and you don't need to specify it again. You can, however, specify it in subsequent updates to change the Service Role to another value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html#cfn-elasticbeanstalk-application-applicationresourcelifecycleconfig-servicerole
+            '''
+            result = self._values.get("service_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def version_lifecycle_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationVersionLifecycleConfigProperty"]]:
+            '''Defines lifecycle settings for application versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html#cfn-elasticbeanstalk-application-applicationresourcelifecycleconfig-versionlifecycleconfig
+            '''
+            result = self._values.get("version_lifecycle_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationVersionLifecycleConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationResourceLifecycleConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_age_rule": "maxAgeRule", "max_count_rule": "maxCountRule"},
+    )
+    class ApplicationVersionLifecycleConfigProperty:
+        def __init__(
+            self,
+            *,
+            max_age_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.MaxAgeRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            max_count_rule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.MaxCountRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Use the ``ApplicationVersionLifecycleConfig`` property type to specify application version lifecycle settings for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
+
+            The application version lifecycle settings for an application. Defines the rules that Elastic Beanstalk applies to an application's versions in order to avoid hitting the per-region limit for application versions.
+
+            When Elastic Beanstalk deletes an application version from its database, you can no longer deploy that version to an environment. The source bundle remains in S3 unless you configure the rule to delete it.
+
+            ``ApplicationVersionLifecycleConfig`` is a property of the `ApplicationResourceLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html>`_ property type.
+
+            :param max_age_rule: Specify a max age rule to restrict the length of time that application versions are retained for an application.
+            :param max_count_rule: Specify a max count rule to restrict the number of application versions that are retained for an application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                application_version_lifecycle_config_property = elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
+                    max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
+                        delete_source_from_s3=False,
+                        enabled=False,
+                        max_age_in_days=123
+                    ),
+                    max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
+                        delete_source_from_s3=False,
+                        enabled=False,
+                        max_count=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__57d77f447c2f85e748e224d6919c6b28bd509c15cb6d45958762ec3dddfd0a31)
+                check_type(argname="argument max_age_rule", value=max_age_rule, expected_type=type_hints["max_age_rule"])
+                check_type(argname="argument max_count_rule", value=max_count_rule, expected_type=type_hints["max_count_rule"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_age_rule is not None:
+                self._values["max_age_rule"] = max_age_rule
+            if max_count_rule is not None:
+                self._values["max_count_rule"] = max_count_rule
+
+        @builtins.property
+        def max_age_rule(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MaxAgeRuleProperty"]]:
+            '''Specify a max age rule to restrict the length of time that application versions are retained for an application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html#cfn-elasticbeanstalk-application-applicationversionlifecycleconfig-maxagerule
+            '''
+            result = self._values.get("max_age_rule")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MaxAgeRuleProperty"]], result)
+
+        @builtins.property
+        def max_count_rule(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MaxCountRuleProperty"]]:
+            '''Specify a max count rule to restrict the number of application versions that are retained for an application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html#cfn-elasticbeanstalk-application-applicationversionlifecycleconfig-maxcountrule
+            '''
+            result = self._values.get("max_count_rule")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.MaxCountRuleProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationVersionLifecycleConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.MaxAgeRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delete_source_from_s3": "deleteSourceFromS3",
+            "enabled": "enabled",
+            "max_age_in_days": "maxAgeInDays",
+        },
+    )
+    class MaxAgeRuleProperty:
+        def __init__(
+            self,
+            *,
+            delete_source_from_s3: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            max_age_in_days: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Use the ``MaxAgeRule`` property type to specify a max age rule to restrict the length of time that application versions are retained for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
+
+            A lifecycle rule that deletes application versions after the specified number of days.
+
+            ``MaxAgeRule`` is a property of the `ApplicationVersionLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html>`_ property type.
+
+            :param delete_source_from_s3: Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
+            :param enabled: Specify ``true`` to apply the rule, or ``false`` to disable it.
+            :param max_age_in_days: Specify the number of days to retain an application versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                max_age_rule_property = elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
+                    delete_source_from_s3=False,
+                    enabled=False,
+                    max_age_in_days=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__85ed97d29f0279d47ee3340de9177215f38b5a970ec931a1b64762af5da76bfd)
+                check_type(argname="argument delete_source_from_s3", value=delete_source_from_s3, expected_type=type_hints["delete_source_from_s3"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument max_age_in_days", value=max_age_in_days, expected_type=type_hints["max_age_in_days"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delete_source_from_s3 is not None:
+                self._values["delete_source_from_s3"] = delete_source_from_s3
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if max_age_in_days is not None:
+                self._values["max_age_in_days"] = max_age_in_days
+
+        @builtins.property
+        def delete_source_from_s3(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-deletesourcefroms3
+            '''
+            result = self._values.get("delete_source_from_s3")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specify ``true`` to apply the rule, or ``false`` to disable it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def max_age_in_days(self) -> typing.Optional[jsii.Number]:
+            '''Specify the number of days to retain an application versions.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-maxageindays
+            '''
+            result = self._values.get("max_age_in_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaxAgeRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.MaxCountRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "delete_source_from_s3": "deleteSourceFromS3",
+            "enabled": "enabled",
+            "max_count": "maxCount",
+        },
+    )
+    class MaxCountRuleProperty:
+        def __init__(
+            self,
+            *,
+            delete_source_from_s3: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            max_count: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Use the ``MaxAgeRule`` property type to specify a max count rule to restrict the number of application versions that are retained for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
+
+            A lifecycle rule that deletes the oldest application version when the maximum count is exceeded.
+
+            ``MaxCountRule`` is a property of the `ApplicationVersionLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html>`_ property type.
+
+            :param delete_source_from_s3: Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
+            :param enabled: Specify ``true`` to apply the rule, or ``false`` to disable it.
+            :param max_count: Specify the maximum number of application versions to retain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+                
+                max_count_rule_property = elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
+                    delete_source_from_s3=False,
+                    enabled=False,
+                    max_count=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a27816fed8fa85ae75502cf6691d26ee691b6c71d47f8b4fab4ea659dbf0d13d)
+                check_type(argname="argument delete_source_from_s3", value=delete_source_from_s3, expected_type=type_hints["delete_source_from_s3"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument max_count", value=max_count, expected_type=type_hints["max_count"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if delete_source_from_s3 is not None:
+                self._values["delete_source_from_s3"] = delete_source_from_s3
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if max_count is not None:
+                self._values["max_count"] = max_count
+
+        @builtins.property
+        def delete_source_from_s3(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-deletesourcefroms3
+            '''
+            result = self._values.get("delete_source_from_s3")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specify ``true`` to apply the rule, or ``false`` to disable it.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def max_count(self) -> typing.Optional[jsii.Number]:
+            '''Specify the maximum number of application versions to retain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-maxcount
+            '''
+            result = self._values.get("max_count")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MaxCountRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -201,7 +668,7 @@ class CfnApplicationProps:
         *,
         application_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        resource_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationResourceLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_lifecycle_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplication.ApplicationResourceLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApplication``.
 
@@ -277,13 +744,13 @@ class CfnApplicationProps:
     @builtins.property
     def resource_lifecycle_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationResourceLifecycleConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationResourceLifecycleConfigProperty"]]:
         '''Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-application.html#cfn-elasticbeanstalk-application-resourcelifecycleconfig
         '''
         result = self._values.get("resource_lifecycle_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationResourceLifecycleConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApplication.ApplicationResourceLifecycleConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -297,1405 +764,7 @@ class CfnApplicationProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "source_bundle": "sourceBundle",
-        "description": "description",
-    },
-)
-class CfnApplicationVersionProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        source_bundle: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnApplicationVersion``.
-
-        :param application_name: The name of the Elastic Beanstalk application that is associated with this application version.
-        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
-        :param description: A description of this application version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            cfn_application_version_props = elasticbeanstalk.CfnApplicationVersionProps(
-                application_name="applicationName",
-                source_bundle=elasticbeanstalk.CfnApplicationVersion.SourceBundleProperty(
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key"
-                ),
-            
-                # the properties below are optional
-                description="description"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument source_bundle", value=source_bundle, expected_type=type_hints["source_bundle"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "source_bundle": source_bundle,
-        }
-        if description is not None:
-            self._values["description"] = description
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the Elastic Beanstalk application that is associated with this application version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_bundle(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationVersion.SourceBundleProperty"]:
-        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.
-
-        .. epigraph::
-
-           The Amazon S3 bucket must be in the same region as the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-sourcebundle
-        '''
-        result = self._values.get("source_bundle")
-        assert result is not None, "Required property 'source_bundle' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationVersion.SourceBundleProperty"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of this application version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnApplicationVersionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnConfigurationTemplateProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "description": "description",
-        "environment_id": "environmentId",
-        "option_settings": "optionSettings",
-        "platform_arn": "platformArn",
-        "solution_stack_name": "solutionStackName",
-        "source_configuration": "sourceConfiguration",
-    },
-)
-class CfnConfigurationTemplateProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        environment_id: typing.Optional[builtins.str] = None,
-        option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationTemplate.ConfigurationOptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        platform_arn: typing.Optional[builtins.str] = None,
-        solution_stack_name: typing.Optional[builtins.str] = None,
-        source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationTemplate.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnConfigurationTemplate``.
-
-        :param application_name: The name of the Elastic Beanstalk application to associate with this configuration template.
-        :param description: An optional description for this configuration.
-        :param environment_id: The ID of an environment whose settings you want to use to create the configuration template. You must specify ``EnvironmentId`` if you don't specify ``PlatformArn`` , ``SolutionStackName`` , or ``SourceConfiguration`` .
-        :param option_settings: Option values for the Elastic Beanstalk configuration, such as the instance type. If specified, these values override the values obtained from the solution stack or the source configuration template. For a complete list of Elastic Beanstalk configuration options, see `Option Values <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
-        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform. For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . .. epigraph:: If you specify ``PlatformArn`` , then don't specify ``SolutionStackName`` .
-        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) that this configuration uses. For example, ``64bit Amazon Linux 2013.09 running Tomcat 7 Java 7`` . A solution stack specifies the operating system, runtime, and application server for a configuration template. It also determines the set of configuration options as well as the possible and default values. For more information, see `Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts.platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . You must specify ``SolutionStackName`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SourceConfiguration`` . Use the ```ListAvailableSolutionStacks`` <https://docs.aws.amazon.com/elasticbeanstalk/latest/api/API_ListAvailableSolutionStacks.html>`_ API to obtain a list of available solution stacks.
-        :param source_configuration: An Elastic Beanstalk configuration template to base this one on. If specified, Elastic Beanstalk uses the configuration values from the specified configuration template to create a new configuration. Values specified in ``OptionSettings`` override any values obtained from the ``SourceConfiguration`` . You must specify ``SourceConfiguration`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SolutionStackName`` . Constraint: If both solution stack name and source configuration are specified, the solution stack of the source configuration template must match the specified solution stack name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            cfn_configuration_template_props = elasticbeanstalk.CfnConfigurationTemplateProps(
-                application_name="applicationName",
-            
-                # the properties below are optional
-                description="description",
-                environment_id="environmentId",
-                option_settings=[elasticbeanstalk.CfnConfigurationTemplate.ConfigurationOptionSettingProperty(
-                    namespace="namespace",
-                    option_name="optionName",
-            
-                    # the properties below are optional
-                    resource_name="resourceName",
-                    value="value"
-                )],
-                platform_arn="platformArn",
-                solution_stack_name="solutionStackName",
-                source_configuration=elasticbeanstalk.CfnConfigurationTemplate.SourceConfigurationProperty(
-                    application_name="applicationName",
-                    template_name="templateName"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__796fd0fbbd75363f93a84b4414ff29f987c772572666882bfec89de9a1ec0553)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
-            check_type(argname="argument option_settings", value=option_settings, expected_type=type_hints["option_settings"])
-            check_type(argname="argument platform_arn", value=platform_arn, expected_type=type_hints["platform_arn"])
-            check_type(argname="argument solution_stack_name", value=solution_stack_name, expected_type=type_hints["solution_stack_name"])
-            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if environment_id is not None:
-            self._values["environment_id"] = environment_id
-        if option_settings is not None:
-            self._values["option_settings"] = option_settings
-        if platform_arn is not None:
-            self._values["platform_arn"] = platform_arn
-        if solution_stack_name is not None:
-            self._values["solution_stack_name"] = solution_stack_name
-        if source_configuration is not None:
-            self._values["source_configuration"] = source_configuration
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the Elastic Beanstalk application to associate with this configuration template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''An optional description for this configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment_id(self) -> typing.Optional[builtins.str]:
-        '''The ID of an environment whose settings you want to use to create the configuration template.
-
-        You must specify ``EnvironmentId`` if you don't specify ``PlatformArn`` , ``SolutionStackName`` , or ``SourceConfiguration`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-environmentid
-        '''
-        result = self._values.get("environment_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def option_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]]:
-        '''Option values for the Elastic Beanstalk configuration, such as the instance type.
-
-        If specified, these values override the values obtained from the solution stack or the source configuration template. For a complete list of Elastic Beanstalk configuration options, see `Option Values <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-optionsettings
-        '''
-        result = self._values.get("option_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]], result)
-
-    @builtins.property
-    def platform_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the custom platform.
-
-        For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
-        .. epigraph::
-
-           If you specify ``PlatformArn`` , then don't specify ``SolutionStackName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-platformarn
-        '''
-        result = self._values.get("platform_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def solution_stack_name(self) -> typing.Optional[builtins.str]:
-        '''The name of an Elastic Beanstalk solution stack (platform version) that this configuration uses.
-
-        For example, ``64bit Amazon Linux 2013.09 running Tomcat 7 Java 7`` . A solution stack specifies the operating system, runtime, and application server for a configuration template. It also determines the set of configuration options as well as the possible and default values. For more information, see `Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts.platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
-
-        You must specify ``SolutionStackName`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SourceConfiguration`` .
-
-        Use the ```ListAvailableSolutionStacks`` <https://docs.aws.amazon.com/elasticbeanstalk/latest/api/API_ListAvailableSolutionStacks.html>`_ API to obtain a list of available solution stacks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-solutionstackname
-        '''
-        result = self._values.get("solution_stack_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def source_configuration(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.SourceConfigurationProperty"]]:
-        '''An Elastic Beanstalk configuration template to base this one on.
-
-        If specified, Elastic Beanstalk uses the configuration values from the specified configuration template to create a new configuration.
-
-        Values specified in ``OptionSettings`` override any values obtained from the ``SourceConfiguration`` .
-
-        You must specify ``SourceConfiguration`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SolutionStackName`` .
-
-        Constraint: If both solution stack name and source configuration are specified, the solution stack of the source configuration template must match the specified solution stack name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-sourceconfiguration
-        '''
-        result = self._values.get("source_configuration")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.SourceConfigurationProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnConfigurationTemplateProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnEnvironmentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "cname_prefix": "cnamePrefix",
-        "description": "description",
-        "environment_name": "environmentName",
-        "operations_role": "operationsRole",
-        "option_settings": "optionSettings",
-        "platform_arn": "platformArn",
-        "solution_stack_name": "solutionStackName",
-        "tags": "tags",
-        "template_name": "templateName",
-        "tier": "tier",
-        "version_label": "versionLabel",
-    },
-)
-class CfnEnvironmentProps:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        cname_prefix: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        environment_name: typing.Optional[builtins.str] = None,
-        operations_role: typing.Optional[builtins.str] = None,
-        option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.OptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        platform_arn: typing.Optional[builtins.str] = None,
-        solution_stack_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_name: typing.Optional[builtins.str] = None,
-        tier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.TierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        version_label: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEnvironment``.
-
-        :param application_name: The name of the application that is associated with this environment.
-        :param cname_prefix: If specified, the environment attempts to use this value as the prefix for the CNAME in your Elastic Beanstalk environment URL. If not specified, the CNAME is generated automatically by appending a random alphanumeric string to the environment name.
-        :param description: Your description for this environment.
-        :param environment_name: A unique name for the environment. Constraint: Must be from 4 to 40 characters in length. The name can contain only letters, numbers, and hyphens. It can't start or end with a hyphen. This name must be unique within a region in your account. If you don't specify the ``CNAMEPrefix`` parameter, the environment name becomes part of the CNAME, and therefore part of the visible URL for your application. If you don't specify an environment name, AWS CloudFormation generates a unique physical ID and uses that ID for the environment name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param operations_role: .. epigraph:: The operations role feature of AWS Elastic Beanstalk is in beta release and is subject to change. The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role. If specified, Elastic Beanstalk uses the operations role for permissions to downstream services during this call and during subsequent calls acting on this environment. To specify an operations role, you must have the ``iam:PassRole`` permission for the role.
-        :param option_settings: Key-value pairs defining configuration options for this environment, such as the instance type. These options override the values that are defined in the solution stack or the `configuration template <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-beanstalk-configurationtemplate.html>`_ . If you remove any options during a stack update, the removed options retain their current values.
-        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform to use with the environment. For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . .. epigraph:: If you specify ``PlatformArn`` , don't specify ``SolutionStackName`` .
-        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) to use with the environment. If specified, Elastic Beanstalk sets the configuration values to the default values associated with the specified solution stack. For a list of current solution stacks, see `Elastic Beanstalk Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/platforms/platforms-supported.html>`_ in the *AWS Elastic Beanstalk Platforms* guide. .. epigraph:: If you specify ``SolutionStackName`` , don't specify ``PlatformArn`` or ``TemplateName`` .
-        :param tags: Specifies the tags applied to resources in the environment.
-        :param template_name: The name of the Elastic Beanstalk configuration template to use with the environment. .. epigraph:: If you specify ``TemplateName`` , then don't specify ``SolutionStackName`` .
-        :param tier: Specifies the tier to use in creating this environment. The environment tier that you choose determines whether Elastic Beanstalk provisions resources to support a web application that handles HTTP(S) requests or a web application that handles background-processing tasks.
-        :param version_label: The name of the application version to deploy. Default: If not specified, Elastic Beanstalk attempts to deploy the sample application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            cfn_environment_props = elasticbeanstalk.CfnEnvironmentProps(
-                application_name="applicationName",
-            
-                # the properties below are optional
-                cname_prefix="cnamePrefix",
-                description="description",
-                environment_name="environmentName",
-                operations_role="operationsRole",
-                option_settings=[elasticbeanstalk.CfnEnvironment.OptionSettingProperty(
-                    namespace="namespace",
-                    option_name="optionName",
-            
-                    # the properties below are optional
-                    resource_name="resourceName",
-                    value="value"
-                )],
-                platform_arn="platformArn",
-                solution_stack_name="solutionStackName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                template_name="templateName",
-                tier=elasticbeanstalk.CfnEnvironment.TierProperty(
-                    name="name",
-                    type="type",
-                    version="version"
-                ),
-                version_label="versionLabel"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9bf8840bb336097f9a8ab8a2978d262cc75efab262110246ba9ccd4885b1eb0)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument cname_prefix", value=cname_prefix, expected_type=type_hints["cname_prefix"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-            check_type(argname="argument operations_role", value=operations_role, expected_type=type_hints["operations_role"])
-            check_type(argname="argument option_settings", value=option_settings, expected_type=type_hints["option_settings"])
-            check_type(argname="argument platform_arn", value=platform_arn, expected_type=type_hints["platform_arn"])
-            check_type(argname="argument solution_stack_name", value=solution_stack_name, expected_type=type_hints["solution_stack_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-            check_type(argname="argument version_label", value=version_label, expected_type=type_hints["version_label"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-        }
-        if cname_prefix is not None:
-            self._values["cname_prefix"] = cname_prefix
-        if description is not None:
-            self._values["description"] = description
-        if environment_name is not None:
-            self._values["environment_name"] = environment_name
-        if operations_role is not None:
-            self._values["operations_role"] = operations_role
-        if option_settings is not None:
-            self._values["option_settings"] = option_settings
-        if platform_arn is not None:
-            self._values["platform_arn"] = platform_arn
-        if solution_stack_name is not None:
-            self._values["solution_stack_name"] = solution_stack_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_name is not None:
-            self._values["template_name"] = template_name
-        if tier is not None:
-            self._values["tier"] = tier
-        if version_label is not None:
-            self._values["version_label"] = version_label
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The name of the application that is associated with this environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-applicationname
-        '''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cname_prefix(self) -> typing.Optional[builtins.str]:
-        '''If specified, the environment attempts to use this value as the prefix for the CNAME in your Elastic Beanstalk environment URL.
-
-        If not specified, the CNAME is generated automatically by appending a random alphanumeric string to the environment name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-cnameprefix
-        '''
-        result = self._values.get("cname_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Your description for this environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def environment_name(self) -> typing.Optional[builtins.str]:
-        '''A unique name for the environment.
-
-        Constraint: Must be from 4 to 40 characters in length. The name can contain only letters, numbers, and hyphens. It can't start or end with a hyphen. This name must be unique within a region in your account.
-
-        If you don't specify the ``CNAMEPrefix`` parameter, the environment name becomes part of the CNAME, and therefore part of the visible URL for your application.
-
-        If you don't specify an environment name, AWS CloudFormation generates a unique physical ID and uses that ID for the environment name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ .
-        .. epigraph::
-
-           If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-environmentname
-        '''
-        result = self._values.get("environment_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def operations_role(self) -> typing.Optional[builtins.str]:
-        '''.. epigraph::
-
-   The operations role feature of AWS Elastic Beanstalk is in beta release and is subject to change.
-
-        The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role. If specified, Elastic Beanstalk uses the operations role for permissions to downstream services during this call and during subsequent calls acting on this environment. To specify an operations role, you must have the ``iam:PassRole`` permission for the role.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-operationsrole
-        '''
-        result = self._values.get("operations_role")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def option_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.OptionSettingProperty"]]]]:
-        '''Key-value pairs defining configuration options for this environment, such as the instance type.
-
-        These options override the values that are defined in the solution stack or the `configuration template <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-beanstalk-configurationtemplate.html>`_ . If you remove any options during a stack update, the removed options retain their current values.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-optionsettings
-        '''
-        result = self._values.get("option_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.OptionSettingProperty"]]]], result)
-
-    @builtins.property
-    def platform_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the custom platform to use with the environment.
-
-        For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
-        .. epigraph::
-
-           If you specify ``PlatformArn`` , don't specify ``SolutionStackName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-platformarn
-        '''
-        result = self._values.get("platform_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def solution_stack_name(self) -> typing.Optional[builtins.str]:
-        '''The name of an Elastic Beanstalk solution stack (platform version) to use with the environment.
-
-        If specified, Elastic Beanstalk sets the configuration values to the default values associated with the specified solution stack. For a list of current solution stacks, see `Elastic Beanstalk Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/platforms/platforms-supported.html>`_ in the *AWS Elastic Beanstalk Platforms* guide.
-        .. epigraph::
-
-           If you specify ``SolutionStackName`` , don't specify ``PlatformArn`` or ``TemplateName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-solutionstackname
-        '''
-        result = self._values.get("solution_stack_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Specifies the tags applied to resources in the environment.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def template_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the Elastic Beanstalk configuration template to use with the environment.
-
-        .. epigraph::
-
-           If you specify ``TemplateName`` , then don't specify ``SolutionStackName`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-templatename
-        '''
-        result = self._values.get("template_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tier(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.TierProperty"]]:
-        '''Specifies the tier to use in creating this environment.
-
-        The environment tier that you choose determines whether Elastic Beanstalk provisions resources to support a web application that handles HTTP(S) requests or a web application that handles background-processing tasks.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-tier
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.TierProperty"]], result)
-
-    @builtins.property
-    def version_label(self) -> typing.Optional[builtins.str]:
-        '''The name of the application version to deploy.
-
-        Default: If not specified, Elastic Beanstalk attempts to deploy the sample application.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-versionlabel
-        '''
-        result = self._values.get("version_label")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEnvironmentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.ConfigurationTemplateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "application_name": "applicationName",
-        "template_name": "templateName",
-    },
-)
-class ConfigurationTemplateReference:
-    def __init__(
-        self,
-        *,
-        application_name: builtins.str,
-        template_name: builtins.str,
-    ) -> None:
-        '''A reference to a ConfigurationTemplate resource.
-
-        :param application_name: The ApplicationName of the ConfigurationTemplate resource.
-        :param template_name: The TemplateName of the ConfigurationTemplate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            configuration_template_reference = elasticbeanstalk.ConfigurationTemplateReference(
-                application_name="applicationName",
-                template_name="templateName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eba30eb460bce4f9c05ce872c300cfae068c27c849228a29358b11c48f8755a1)
-            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "application_name": application_name,
-            "template_name": template_name,
-        }
-
-    @builtins.property
-    def application_name(self) -> builtins.str:
-        '''The ApplicationName of the ConfigurationTemplate resource.'''
-        result = self._values.get("application_name")
-        assert result is not None, "Required property 'application_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def template_name(self) -> builtins.str:
-        '''The TemplateName of the ConfigurationTemplate resource.'''
-        result = self._values.get("template_name")
-        assert result is not None, "Required property 'template_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ConfigurationTemplateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.EnvironmentReference",
-    jsii_struct_bases=[],
-    name_mapping={"environment_name": "environmentName"},
-)
-class EnvironmentReference:
-    def __init__(self, *, environment_name: builtins.str) -> None:
-        '''A reference to a Environment resource.
-
-        :param environment_name: The EnvironmentName of the Environment resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-            
-            environment_reference = elasticbeanstalk.EnvironmentReference(
-                environment_name="environmentName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b27e9d45355210985ac1b8e67eea4973103fba0a17f1f5d1c9e95ddaa662617)
-            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "environment_name": environment_name,
-        }
-
-    @builtins.property
-    def environment_name(self) -> builtins.str:
-        '''The EnvironmentName of the Environment resource.'''
-        result = self._values.get("environment_name")
-        assert result is not None, "Required property 'environment_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EnvironmentReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticbeanstalk.IApplicationRef")
-class IApplicationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Application.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticbeanstalk.IApplicationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''(experimental) A reference to a Application resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationRef).__jsii_proxy_class__ = lambda : _IApplicationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticbeanstalk.IApplicationVersionRef")
-class IApplicationVersionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationVersion.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationVersionRef")
-    def application_version_ref(self) -> ApplicationVersionReference:
-        '''(experimental) A reference to a ApplicationVersion resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IApplicationVersionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ApplicationVersion.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticbeanstalk.IApplicationVersionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationVersionRef")
-    def application_version_ref(self) -> ApplicationVersionReference:
-        '''(experimental) A reference to a ApplicationVersion resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ApplicationVersionReference, jsii.get(self, "applicationVersionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IApplicationVersionRef).__jsii_proxy_class__ = lambda : _IApplicationVersionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticbeanstalk.IConfigurationTemplateRef")
-class IConfigurationTemplateRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ConfigurationTemplate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationTemplateRef")
-    def configuration_template_ref(self) -> ConfigurationTemplateReference:
-        '''(experimental) A reference to a ConfigurationTemplate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IConfigurationTemplateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ConfigurationTemplate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticbeanstalk.IConfigurationTemplateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="configurationTemplateRef")
-    def configuration_template_ref(self) -> ConfigurationTemplateReference:
-        '''(experimental) A reference to a ConfigurationTemplate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(ConfigurationTemplateReference, jsii.get(self, "configurationTemplateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IConfigurationTemplateRef).__jsii_proxy_class__ = lambda : _IConfigurationTemplateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_elasticbeanstalk.IEnvironmentRef")
-class IEnvironmentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Environment.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> EnvironmentReference:
-        '''(experimental) A reference to a Environment resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEnvironmentRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Environment.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_elasticbeanstalk.IEnvironmentRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> EnvironmentReference:
-        '''(experimental) A reference to a Environment resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEnvironmentRef).__jsii_proxy_class__ = lambda : _IEnvironmentRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationRef)
-class CfnApplication(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication",
-):
-    '''Specify an AWS Elastic Beanstalk application by using the AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
-
-    The AWS::ElasticBeanstalk::Application resource is an AWS Elastic Beanstalk Beanstalk resource type that specifies an Elastic Beanstalk application.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-application.html
-    :cloudformationResource: AWS::ElasticBeanstalk::Application
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-        
-        cfn_application = elasticbeanstalk.CfnApplication(self, "MyCfnApplication",
-            application_name="applicationName",
-            description="description",
-            resource_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty(
-                service_role="serviceRole",
-                version_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
-                    max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
-                        delete_source_from_s3=False,
-                        enabled=False,
-                        max_age_in_days=123
-                    ),
-                    max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
-                        delete_source_from_s3=False,
-                        enabled=False,
-                        max_count=123
-                    )
-                )
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        application_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        resource_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationResourceLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param application_name: A name for the Elastic Beanstalk application. If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the application name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
-        :param description: Your description of the application.
-        :param resource_lifecycle_config: Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2037a8b39c672f9e224a0d55f87a787c8f06cc34801647c616c1d3544fc61b01)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApplicationProps(
-            application_name=application_name,
-            description=description,
-            resource_lifecycle_config=resource_lifecycle_config,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67008ad4d98231202ed96bd8356ff5d52d6ab2ac0b949ec39dee9c2e5b28516c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94e3218203e8d26f754fc4833f6d89df4a7aed57f2b40ba41097383e596f90ec)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationRef")
-    def application_ref(self) -> ApplicationReference:
-        '''A reference to a Application resource.'''
-        return typing.cast(ApplicationReference, jsii.get(self, "applicationRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="applicationName")
-    def application_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the Elastic Beanstalk application.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "applicationName"))
-
-    @application_name.setter
-    def application_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c6bf36c756c98eefc03fcfa7fc47b01fa9a2e1bbbcdea2614f2cbbe19f2ac5e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "applicationName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Your description of the application.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c92d2b49bcac99b2f1f38ca944c407acf1d8ac8d05cf0061b761bacef80edaeb)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceLifecycleConfig")
-    def resource_lifecycle_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationResourceLifecycleConfigProperty"]]:
-        '''Specifies an application resource lifecycle configuration to prevent your application from accumulating too many versions.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationResourceLifecycleConfigProperty"]], jsii.get(self, "resourceLifecycleConfig"))
-
-    @resource_lifecycle_config.setter
-    def resource_lifecycle_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationResourceLifecycleConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8a75fb3cf2d34861537e2d37fd676dbea69752fd913fa7086637904894d1654f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceLifecycleConfig", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "service_role": "serviceRole",
-            "version_lifecycle_config": "versionLifecycleConfig",
-        },
-    )
-    class ApplicationResourceLifecycleConfigProperty:
-        def __init__(
-            self,
-            *,
-            service_role: typing.Optional[builtins.str] = None,
-            version_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.ApplicationVersionLifecycleConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Use the ``ApplicationResourceLifecycleConfig`` property type to specify lifecycle settings for resources that belong to an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
-
-            The resource lifecycle configuration for an application. Defines lifecycle settings for resources that belong to the application, and the service role that Elastic Beanstalk assumes in order to apply lifecycle settings. The version lifecycle configuration defines lifecycle settings for application versions.
-
-            ``ApplicationResourceLifecycleConfig`` is a property of the `AWS::ElasticBeanstalk::Application <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-beanstalk.html>`_ resource.
-
-            :param service_role: The ARN of an IAM service role that Elastic Beanstalk has permission to assume. The ``ServiceRole`` property is required the first time that you provide a ``ResourceLifecycleConfig`` for the application. After you provide it once, Elastic Beanstalk persists the Service Role with the application, and you don't need to specify it again. You can, however, specify it in subsequent updates to change the Service Role to another value.
-            :param version_lifecycle_config: Defines lifecycle settings for application versions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-                
-                application_resource_lifecycle_config_property = elasticbeanstalk.CfnApplication.ApplicationResourceLifecycleConfigProperty(
-                    service_role="serviceRole",
-                    version_lifecycle_config=elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
-                        max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
-                            delete_source_from_s3=False,
-                            enabled=False,
-                            max_age_in_days=123
-                        ),
-                        max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
-                            delete_source_from_s3=False,
-                            enabled=False,
-                            max_count=123
-                        )
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__cab1602adff55377880de5336c8a2e9ecfcfe203ea299cbb9dec79dc27168b2c)
-                check_type(argname="argument service_role", value=service_role, expected_type=type_hints["service_role"])
-                check_type(argname="argument version_lifecycle_config", value=version_lifecycle_config, expected_type=type_hints["version_lifecycle_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if service_role is not None:
-                self._values["service_role"] = service_role
-            if version_lifecycle_config is not None:
-                self._values["version_lifecycle_config"] = version_lifecycle_config
-
-        @builtins.property
-        def service_role(self) -> typing.Optional[builtins.str]:
-            '''The ARN of an IAM service role that Elastic Beanstalk has permission to assume.
-
-            The ``ServiceRole`` property is required the first time that you provide a ``ResourceLifecycleConfig`` for the application. After you provide it once, Elastic Beanstalk persists the Service Role with the application, and you don't need to specify it again. You can, however, specify it in subsequent updates to change the Service Role to another value.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html#cfn-elasticbeanstalk-application-applicationresourcelifecycleconfig-servicerole
-            '''
-            result = self._values.get("service_role")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def version_lifecycle_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationVersionLifecycleConfigProperty"]]:
-            '''Defines lifecycle settings for application versions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html#cfn-elasticbeanstalk-application-applicationresourcelifecycleconfig-versionlifecycleconfig
-            '''
-            result = self._values.get("version_lifecycle_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.ApplicationVersionLifecycleConfigProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ApplicationResourceLifecycleConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"max_age_rule": "maxAgeRule", "max_count_rule": "maxCountRule"},
-    )
-    class ApplicationVersionLifecycleConfigProperty:
-        def __init__(
-            self,
-            *,
-            max_age_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.MaxAgeRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            max_count_rule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplication.MaxCountRuleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''Use the ``ApplicationVersionLifecycleConfig`` property type to specify application version lifecycle settings for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
-
-            The application version lifecycle settings for an application. Defines the rules that Elastic Beanstalk applies to an application's versions in order to avoid hitting the per-region limit for application versions.
-
-            When Elastic Beanstalk deletes an application version from its database, you can no longer deploy that version to an environment. The source bundle remains in S3 unless you configure the rule to delete it.
-
-            ``ApplicationVersionLifecycleConfig`` is a property of the `ApplicationResourceLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationresourcelifecycleconfig.html>`_ property type.
-
-            :param max_age_rule: Specify a max age rule to restrict the length of time that application versions are retained for an application.
-            :param max_count_rule: Specify a max count rule to restrict the number of application versions that are retained for an application.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-                
-                application_version_lifecycle_config_property = elasticbeanstalk.CfnApplication.ApplicationVersionLifecycleConfigProperty(
-                    max_age_rule=elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
-                        delete_source_from_s3=False,
-                        enabled=False,
-                        max_age_in_days=123
-                    ),
-                    max_count_rule=elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
-                        delete_source_from_s3=False,
-                        enabled=False,
-                        max_count=123
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__57d77f447c2f85e748e224d6919c6b28bd509c15cb6d45958762ec3dddfd0a31)
-                check_type(argname="argument max_age_rule", value=max_age_rule, expected_type=type_hints["max_age_rule"])
-                check_type(argname="argument max_count_rule", value=max_count_rule, expected_type=type_hints["max_count_rule"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if max_age_rule is not None:
-                self._values["max_age_rule"] = max_age_rule
-            if max_count_rule is not None:
-                self._values["max_count_rule"] = max_count_rule
-
-        @builtins.property
-        def max_age_rule(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaxAgeRuleProperty"]]:
-            '''Specify a max age rule to restrict the length of time that application versions are retained for an application.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html#cfn-elasticbeanstalk-application-applicationversionlifecycleconfig-maxagerule
-            '''
-            result = self._values.get("max_age_rule")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaxAgeRuleProperty"]], result)
-
-        @builtins.property
-        def max_count_rule(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaxCountRuleProperty"]]:
-            '''Specify a max count rule to restrict the number of application versions that are retained for an application.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html#cfn-elasticbeanstalk-application-applicationversionlifecycleconfig-maxcountrule
-            '''
-            result = self._values.get("max_count_rule")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnApplication.MaxCountRuleProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ApplicationVersionLifecycleConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.MaxAgeRuleProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "delete_source_from_s3": "deleteSourceFromS3",
-            "enabled": "enabled",
-            "max_age_in_days": "maxAgeInDays",
-        },
-    )
-    class MaxAgeRuleProperty:
-        def __init__(
-            self,
-            *,
-            delete_source_from_s3: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            max_age_in_days: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Use the ``MaxAgeRule`` property type to specify a max age rule to restrict the length of time that application versions are retained for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
-
-            A lifecycle rule that deletes application versions after the specified number of days.
-
-            ``MaxAgeRule`` is a property of the `ApplicationVersionLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html>`_ property type.
-
-            :param delete_source_from_s3: Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
-            :param enabled: Specify ``true`` to apply the rule, or ``false`` to disable it.
-            :param max_age_in_days: Specify the number of days to retain an application versions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-                
-                max_age_rule_property = elasticbeanstalk.CfnApplication.MaxAgeRuleProperty(
-                    delete_source_from_s3=False,
-                    enabled=False,
-                    max_age_in_days=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__85ed97d29f0279d47ee3340de9177215f38b5a970ec931a1b64762af5da76bfd)
-                check_type(argname="argument delete_source_from_s3", value=delete_source_from_s3, expected_type=type_hints["delete_source_from_s3"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument max_age_in_days", value=max_age_in_days, expected_type=type_hints["max_age_in_days"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if delete_source_from_s3 is not None:
-                self._values["delete_source_from_s3"] = delete_source_from_s3
-            if enabled is not None:
-                self._values["enabled"] = enabled
-            if max_age_in_days is not None:
-                self._values["max_age_in_days"] = max_age_in_days
-
-        @builtins.property
-        def delete_source_from_s3(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-deletesourcefroms3
-            '''
-            result = self._values.get("delete_source_from_s3")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specify ``true`` to apply the rule, or ``false`` to disable it.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def max_age_in_days(self) -> typing.Optional[jsii.Number]:
-            '''Specify the number of days to retain an application versions.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxagerule.html#cfn-elasticbeanstalk-application-maxagerule-maxageindays
-            '''
-            result = self._values.get("max_age_in_days")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MaxAgeRuleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplication.MaxCountRuleProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "delete_source_from_s3": "deleteSourceFromS3",
-            "enabled": "enabled",
-            "max_count": "maxCount",
-        },
-    )
-    class MaxCountRuleProperty:
-        def __init__(
-            self,
-            *,
-            delete_source_from_s3: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            max_count: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''Use the ``MaxAgeRule`` property type to specify a max count rule to restrict the number of application versions that are retained for an AWS Elastic Beanstalk application when defining an AWS::ElasticBeanstalk::Application resource in an AWS CloudFormation template.
-
-            A lifecycle rule that deletes the oldest application version when the maximum count is exceeded.
-
-            ``MaxCountRule`` is a property of the `ApplicationVersionLifecycleConfig <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-applicationversionlifecycleconfig.html>`_ property type.
-
-            :param delete_source_from_s3: Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
-            :param enabled: Specify ``true`` to apply the rule, or ``false`` to disable it.
-            :param max_count: Specify the maximum number of application versions to retain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
-                
-                max_count_rule_property = elasticbeanstalk.CfnApplication.MaxCountRuleProperty(
-                    delete_source_from_s3=False,
-                    enabled=False,
-                    max_count=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__a27816fed8fa85ae75502cf6691d26ee691b6c71d47f8b4fab4ea659dbf0d13d)
-                check_type(argname="argument delete_source_from_s3", value=delete_source_from_s3, expected_type=type_hints["delete_source_from_s3"])
-                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-                check_type(argname="argument max_count", value=max_count, expected_type=type_hints["max_count"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if delete_source_from_s3 is not None:
-                self._values["delete_source_from_s3"] = delete_source_from_s3
-            if enabled is not None:
-                self._values["enabled"] = enabled
-            if max_count is not None:
-                self._values["max_count"] = max_count
-
-        @builtins.property
-        def delete_source_from_s3(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Set to ``true`` to delete a version's source bundle from Amazon S3 when Elastic Beanstalk deletes the application version.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-deletesourcefroms3
-            '''
-            result = self._values.get("delete_source_from_s3")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def enabled(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specify ``true`` to apply the rule, or ``false`` to disable it.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-enabled
-            '''
-            result = self._values.get("enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def max_count(self) -> typing.Optional[jsii.Number]:
-            '''Specify the maximum number of application versions to retain.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticbeanstalk-application-maxcountrule.html#cfn-elasticbeanstalk-application-maxcountrule-maxcount
-            '''
-            result = self._values.get("max_count")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "MaxCountRuleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IApplicationVersionRef)
+@jsii.implements(_IInspectable_c2943556, _IApplicationVersionRef_09a8ab3c)
 class CfnApplicationVersion(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1732,14 +801,15 @@ class CfnApplicationVersion(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application_name: builtins.str,
-        source_bundle: typing.Union[_IResolvable_da3f097b, typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
+        source_bundle: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ElasticBeanstalk::ApplicationVersion``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_name: The name of the Elastic Beanstalk application that is associated with this application version.
@@ -1758,8 +828,20 @@ class CfnApplicationVersion(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnApplicationVersion")
+    @builtins.classmethod
+    def is_cfn_application_version(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnApplicationVersion.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e69f0bfa5f56be49010c43fbbc7650a730c0d8fbcac6fd0197fbd29abac80bac)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnApplicationVersion", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1790,9 +872,9 @@ class CfnApplicationVersion(
 
     @builtins.property
     @jsii.member(jsii_name="applicationVersionRef")
-    def application_version_ref(self) -> ApplicationVersionReference:
+    def application_version_ref(self) -> "_ApplicationVersionReference_198fa3c9":
         '''A reference to a ApplicationVersion resource.'''
-        return typing.cast(ApplicationVersionReference, jsii.get(self, "applicationVersionRef"))
+        return typing.cast("_ApplicationVersionReference_198fa3c9", jsii.get(self, "applicationVersionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1824,14 +906,14 @@ class CfnApplicationVersion(
     @jsii.member(jsii_name="sourceBundle")
     def source_bundle(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnApplicationVersion.SourceBundleProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationVersion.SourceBundleProperty"]:
         '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnApplicationVersion.SourceBundleProperty"], jsii.get(self, "sourceBundle"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationVersion.SourceBundleProperty"], jsii.get(self, "sourceBundle"))
 
     @source_bundle.setter
     def source_bundle(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnApplicationVersion.SourceBundleProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnApplicationVersion.SourceBundleProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e851d2ec17de05de650c602ffaa2d9d6d18f2cb17466abca441fe30ac1b50d80)
@@ -1920,7 +1002,111 @@ class CfnApplicationVersion(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IConfigurationTemplateRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnApplicationVersionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "source_bundle": "sourceBundle",
+        "description": "description",
+    },
+)
+class CfnApplicationVersionProps:
+    def __init__(
+        self,
+        *,
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
+        source_bundle: typing.Union["_IResolvable_da3f097b", typing.Union["CfnApplicationVersion.SourceBundleProperty", typing.Dict[builtins.str, typing.Any]]],
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnApplicationVersion``.
+
+        :param application_name: The name of the Elastic Beanstalk application that is associated with this application version.
+        :param source_bundle: The Amazon S3 bucket and key that identify the location of the source bundle for this version. .. epigraph:: The Amazon S3 bucket must be in the same region as the environment.
+        :param description: A description of this application version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+            
+            cfn_application_version_props = elasticbeanstalk.CfnApplicationVersionProps(
+                application_name="applicationName",
+                source_bundle=elasticbeanstalk.CfnApplicationVersion.SourceBundleProperty(
+                    s3_bucket="s3Bucket",
+                    s3_key="s3Key"
+                ),
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument source_bundle", value=source_bundle, expected_type=type_hints["source_bundle"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+            "source_bundle": source_bundle,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def application_name(
+        self,
+    ) -> typing.Union[builtins.str, "_IApplicationRef_776a7ba1"]:
+        '''The name of the Elastic Beanstalk application that is associated with this application version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IApplicationRef_776a7ba1"], result)
+
+    @builtins.property
+    def source_bundle(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnApplicationVersion.SourceBundleProperty"]:
+        '''The Amazon S3 bucket and key that identify the location of the source bundle for this version.
+
+        .. epigraph::
+
+           The Amazon S3 bucket must be in the same region as the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-sourcebundle
+        '''
+        result = self._values.get("source_bundle")
+        assert result is not None, "Required property 'source_bundle' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnApplicationVersion.SourceBundleProperty"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of this application version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-applicationversion.html#cfn-elasticbeanstalk-applicationversion-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnApplicationVersionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IConfigurationTemplateRef_3b882d17)
 class CfnConfigurationTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1968,18 +1154,19 @@ class CfnConfigurationTemplate(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application_name: builtins.str,
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
         description: typing.Optional[builtins.str] = None,
         environment_id: typing.Optional[builtins.str] = None,
-        option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationTemplate.ConfigurationOptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        option_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationTemplate.ConfigurationOptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         platform_arn: typing.Optional[builtins.str] = None,
         solution_stack_name: typing.Optional[builtins.str] = None,
-        source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnConfigurationTemplate.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationTemplate.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ElasticBeanstalk::ConfigurationTemplate``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_name: The name of the Elastic Beanstalk application to associate with this configuration template.
@@ -2006,8 +1193,20 @@ class CfnConfigurationTemplate(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnConfigurationTemplate")
+    @builtins.classmethod
+    def is_cfn_configuration_template(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConfigurationTemplate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d287471ec6020273f33718505f1ea66ff6e27a8352e8dc57d0b394647974402d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfigurationTemplate", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2054,9 +1253,9 @@ class CfnConfigurationTemplate(
 
     @builtins.property
     @jsii.member(jsii_name="configurationTemplateRef")
-    def configuration_template_ref(self) -> ConfigurationTemplateReference:
+    def configuration_template_ref(self) -> "_ConfigurationTemplateReference_a0091062":
         '''A reference to a ConfigurationTemplate resource.'''
-        return typing.cast(ConfigurationTemplateReference, jsii.get(self, "configurationTemplateRef"))
+        return typing.cast("_ConfigurationTemplateReference_a0091062", jsii.get(self, "configurationTemplateRef"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -2101,14 +1300,14 @@ class CfnConfigurationTemplate(
     @jsii.member(jsii_name="optionSettings")
     def option_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]]:
         '''Option values for the Elastic Beanstalk configuration, such as the instance type.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]], jsii.get(self, "optionSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]], jsii.get(self, "optionSettings"))
 
     @option_settings.setter
     def option_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__13d3d231a3a5e4ac5f74ffd51d127adf4d05bd0317b35ba4f5efa5c5b5d9d444)
@@ -2145,14 +1344,14 @@ class CfnConfigurationTemplate(
     @jsii.member(jsii_name="sourceConfiguration")
     def source_configuration(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.SourceConfigurationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.SourceConfigurationProperty"]]:
         '''An Elastic Beanstalk configuration template to base this one on.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.SourceConfigurationProperty"]], jsii.get(self, "sourceConfiguration"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.SourceConfigurationProperty"]], jsii.get(self, "sourceConfiguration"))
 
     @source_configuration.setter
     def source_configuration(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnConfigurationTemplate.SourceConfigurationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.SourceConfigurationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5a7ef0aa6a6895a3055a35a82ea9af1c29b76ca8fa807de3e85b831b17f7da10)
@@ -2352,7 +1551,203 @@ class CfnConfigurationTemplate(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEnvironmentRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnConfigurationTemplateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "description": "description",
+        "environment_id": "environmentId",
+        "option_settings": "optionSettings",
+        "platform_arn": "platformArn",
+        "solution_stack_name": "solutionStackName",
+        "source_configuration": "sourceConfiguration",
+    },
+)
+class CfnConfigurationTemplateProps:
+    def __init__(
+        self,
+        *,
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
+        description: typing.Optional[builtins.str] = None,
+        environment_id: typing.Optional[builtins.str] = None,
+        option_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationTemplate.ConfigurationOptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        platform_arn: typing.Optional[builtins.str] = None,
+        solution_stack_name: typing.Optional[builtins.str] = None,
+        source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationTemplate.SourceConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationTemplate``.
+
+        :param application_name: The name of the Elastic Beanstalk application to associate with this configuration template.
+        :param description: An optional description for this configuration.
+        :param environment_id: The ID of an environment whose settings you want to use to create the configuration template. You must specify ``EnvironmentId`` if you don't specify ``PlatformArn`` , ``SolutionStackName`` , or ``SourceConfiguration`` .
+        :param option_settings: Option values for the Elastic Beanstalk configuration, such as the instance type. If specified, these values override the values obtained from the solution stack or the source configuration template. For a complete list of Elastic Beanstalk configuration options, see `Option Values <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
+        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform. For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . .. epigraph:: If you specify ``PlatformArn`` , then don't specify ``SolutionStackName`` .
+        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) that this configuration uses. For example, ``64bit Amazon Linux 2013.09 running Tomcat 7 Java 7`` . A solution stack specifies the operating system, runtime, and application server for a configuration template. It also determines the set of configuration options as well as the possible and default values. For more information, see `Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts.platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . You must specify ``SolutionStackName`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SourceConfiguration`` . Use the ```ListAvailableSolutionStacks`` <https://docs.aws.amazon.com/elasticbeanstalk/latest/api/API_ListAvailableSolutionStacks.html>`_ API to obtain a list of available solution stacks.
+        :param source_configuration: An Elastic Beanstalk configuration template to base this one on. If specified, Elastic Beanstalk uses the configuration values from the specified configuration template to create a new configuration. Values specified in ``OptionSettings`` override any values obtained from the ``SourceConfiguration`` . You must specify ``SourceConfiguration`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SolutionStackName`` . Constraint: If both solution stack name and source configuration are specified, the solution stack of the source configuration template must match the specified solution stack name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+            
+            cfn_configuration_template_props = elasticbeanstalk.CfnConfigurationTemplateProps(
+                application_name="applicationName",
+            
+                # the properties below are optional
+                description="description",
+                environment_id="environmentId",
+                option_settings=[elasticbeanstalk.CfnConfigurationTemplate.ConfigurationOptionSettingProperty(
+                    namespace="namespace",
+                    option_name="optionName",
+            
+                    # the properties below are optional
+                    resource_name="resourceName",
+                    value="value"
+                )],
+                platform_arn="platformArn",
+                solution_stack_name="solutionStackName",
+                source_configuration=elasticbeanstalk.CfnConfigurationTemplate.SourceConfigurationProperty(
+                    application_name="applicationName",
+                    template_name="templateName"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__796fd0fbbd75363f93a84b4414ff29f987c772572666882bfec89de9a1ec0553)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument environment_id", value=environment_id, expected_type=type_hints["environment_id"])
+            check_type(argname="argument option_settings", value=option_settings, expected_type=type_hints["option_settings"])
+            check_type(argname="argument platform_arn", value=platform_arn, expected_type=type_hints["platform_arn"])
+            check_type(argname="argument solution_stack_name", value=solution_stack_name, expected_type=type_hints["solution_stack_name"])
+            check_type(argname="argument source_configuration", value=source_configuration, expected_type=type_hints["source_configuration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if environment_id is not None:
+            self._values["environment_id"] = environment_id
+        if option_settings is not None:
+            self._values["option_settings"] = option_settings
+        if platform_arn is not None:
+            self._values["platform_arn"] = platform_arn
+        if solution_stack_name is not None:
+            self._values["solution_stack_name"] = solution_stack_name
+        if source_configuration is not None:
+            self._values["source_configuration"] = source_configuration
+
+    @builtins.property
+    def application_name(
+        self,
+    ) -> typing.Union[builtins.str, "_IApplicationRef_776a7ba1"]:
+        '''The name of the Elastic Beanstalk application to associate with this configuration template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IApplicationRef_776a7ba1"], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional description for this configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of an environment whose settings you want to use to create the configuration template.
+
+        You must specify ``EnvironmentId`` if you don't specify ``PlatformArn`` , ``SolutionStackName`` , or ``SourceConfiguration`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-environmentid
+        '''
+        result = self._values.get("environment_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def option_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]]:
+        '''Option values for the Elastic Beanstalk configuration, such as the instance type.
+
+        If specified, these values override the values obtained from the solution stack or the source configuration template. For a complete list of Elastic Beanstalk configuration options, see `Option Values <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/command-options.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-optionsettings
+        '''
+        result = self._values.get("option_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.ConfigurationOptionSettingProperty"]]]], result)
+
+    @builtins.property
+    def platform_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the custom platform.
+
+        For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
+        .. epigraph::
+
+           If you specify ``PlatformArn`` , then don't specify ``SolutionStackName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-platformarn
+        '''
+        result = self._values.get("platform_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def solution_stack_name(self) -> typing.Optional[builtins.str]:
+        '''The name of an Elastic Beanstalk solution stack (platform version) that this configuration uses.
+
+        For example, ``64bit Amazon Linux 2013.09 running Tomcat 7 Java 7`` . A solution stack specifies the operating system, runtime, and application server for a configuration template. It also determines the set of configuration options as well as the possible and default values. For more information, see `Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/concepts.platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
+
+        You must specify ``SolutionStackName`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SourceConfiguration`` .
+
+        Use the ```ListAvailableSolutionStacks`` <https://docs.aws.amazon.com/elasticbeanstalk/latest/api/API_ListAvailableSolutionStacks.html>`_ API to obtain a list of available solution stacks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-solutionstackname
+        '''
+        result = self._values.get("solution_stack_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.SourceConfigurationProperty"]]:
+        '''An Elastic Beanstalk configuration template to base this one on.
+
+        If specified, Elastic Beanstalk uses the configuration values from the specified configuration template to create a new configuration.
+
+        Values specified in ``OptionSettings`` override any values obtained from the ``SourceConfiguration`` .
+
+        You must specify ``SourceConfiguration`` if you don't specify ``PlatformArn`` , ``EnvironmentId`` , or ``SolutionStackName`` .
+
+        Constraint: If both solution stack name and source configuration are specified, the solution stack of the source configuration template must match the specified solution stack name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-configurationtemplate.html#cfn-elasticbeanstalk-configurationtemplate-sourceconfiguration
+        '''
+        result = self._values.get("source_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationTemplate.SourceConfigurationProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationTemplateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEnvironmentRef_16e2854d, _ITaggable_36806126)
 class CfnEnvironment(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2368,6 +1763,7 @@ class CfnEnvironment(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
@@ -2406,23 +1802,24 @@ class CfnEnvironment(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        application_name: builtins.str,
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
         cname_prefix: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         environment_name: typing.Optional[builtins.str] = None,
         operations_role: typing.Optional[builtins.str] = None,
-        option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.OptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        option_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.OptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         platform_arn: typing.Optional[builtins.str] = None,
         solution_stack_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_name: typing.Optional[builtins.str] = None,
-        tier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEnvironment.TierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_name: typing.Optional[typing.Union[builtins.str, "_IConfigurationTemplateRef_3b882d17"]] = None,
+        tier: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.TierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         version_label: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::ElasticBeanstalk::Environment``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param application_name: The name of the application that is associated with this environment.
@@ -2459,8 +1856,20 @@ class CfnEnvironment(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEnvironment")
+    @builtins.classmethod
+    def is_cfn_environment(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEnvironment.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8502985a74725dadb84c0dfc9d57c0d9396e9aa23ad536722535a48245db304e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEnvironment", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2511,15 +1920,15 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="environmentRef")
-    def environment_ref(self) -> EnvironmentReference:
+    def environment_ref(self) -> "_EnvironmentReference_71071798":
         '''A reference to a Environment resource.'''
-        return typing.cast(EnvironmentReference, jsii.get(self, "environmentRef"))
+        return typing.cast("_EnvironmentReference_71071798", jsii.get(self, "environmentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="applicationName")
@@ -2592,14 +2001,14 @@ class CfnEnvironment(
     @jsii.member(jsii_name="optionSettings")
     def option_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.OptionSettingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.OptionSettingProperty"]]]]:
         '''Key-value pairs defining configuration options for this environment, such as the instance type.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.OptionSettingProperty"]]]], jsii.get(self, "optionSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.OptionSettingProperty"]]]], jsii.get(self, "optionSettings"))
 
     @option_settings.setter
     def option_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.OptionSettingProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.OptionSettingProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7600abd455a41ff1c834927848b4c43cc4b499702ee8a19f3bf0da07cd3e84ee)
@@ -2634,12 +2043,12 @@ class CfnEnvironment(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Specifies the tags applied to resources in the environment.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b89946348997537ce6938ca9985772322b3f46254f3b2d8a8534f716f9e584ac)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2662,14 +2071,14 @@ class CfnEnvironment(
     @jsii.member(jsii_name="tier")
     def tier(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.TierProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.TierProperty"]]:
         '''Specifies the tier to use in creating this environment.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.TierProperty"]], jsii.get(self, "tier"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.TierProperty"]], jsii.get(self, "tier"))
 
     @tier.setter
     def tier(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEnvironment.TierProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.TierProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__26b98f48829b19de15f9b899e224ed744dacdd8304b8d311e0612315637bb776)
@@ -2908,9 +2317,302 @@ class CfnEnvironment(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_elasticbeanstalk.CfnEnvironmentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "application_name": "applicationName",
+        "cname_prefix": "cnamePrefix",
+        "description": "description",
+        "environment_name": "environmentName",
+        "operations_role": "operationsRole",
+        "option_settings": "optionSettings",
+        "platform_arn": "platformArn",
+        "solution_stack_name": "solutionStackName",
+        "tags": "tags",
+        "template_name": "templateName",
+        "tier": "tier",
+        "version_label": "versionLabel",
+    },
+)
+class CfnEnvironmentProps:
+    def __init__(
+        self,
+        *,
+        application_name: typing.Union[builtins.str, "_IApplicationRef_776a7ba1"],
+        cname_prefix: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        environment_name: typing.Optional[builtins.str] = None,
+        operations_role: typing.Optional[builtins.str] = None,
+        option_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.OptionSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        platform_arn: typing.Optional[builtins.str] = None,
+        solution_stack_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_name: typing.Optional[typing.Union[builtins.str, "_IConfigurationTemplateRef_3b882d17"]] = None,
+        tier: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEnvironment.TierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        version_label: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEnvironment``.
+
+        :param application_name: The name of the application that is associated with this environment.
+        :param cname_prefix: If specified, the environment attempts to use this value as the prefix for the CNAME in your Elastic Beanstalk environment URL. If not specified, the CNAME is generated automatically by appending a random alphanumeric string to the environment name.
+        :param description: Your description for this environment.
+        :param environment_name: A unique name for the environment. Constraint: Must be from 4 to 40 characters in length. The name can contain only letters, numbers, and hyphens. It can't start or end with a hyphen. This name must be unique within a region in your account. If you don't specify the ``CNAMEPrefix`` parameter, the environment name becomes part of the CNAME, and therefore part of the visible URL for your application. If you don't specify an environment name, AWS CloudFormation generates a unique physical ID and uses that ID for the environment name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+        :param operations_role: .. epigraph:: The operations role feature of AWS Elastic Beanstalk is in beta release and is subject to change. The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role. If specified, Elastic Beanstalk uses the operations role for permissions to downstream services during this call and during subsequent calls acting on this environment. To specify an operations role, you must have the ``iam:PassRole`` permission for the role.
+        :param option_settings: Key-value pairs defining configuration options for this environment, such as the instance type. These options override the values that are defined in the solution stack or the `configuration template <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-beanstalk-configurationtemplate.html>`_ . If you remove any options during a stack update, the removed options retain their current values.
+        :param platform_arn: The Amazon Resource Name (ARN) of the custom platform to use with the environment. For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* . .. epigraph:: If you specify ``PlatformArn`` , don't specify ``SolutionStackName`` .
+        :param solution_stack_name: The name of an Elastic Beanstalk solution stack (platform version) to use with the environment. If specified, Elastic Beanstalk sets the configuration values to the default values associated with the specified solution stack. For a list of current solution stacks, see `Elastic Beanstalk Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/platforms/platforms-supported.html>`_ in the *AWS Elastic Beanstalk Platforms* guide. .. epigraph:: If you specify ``SolutionStackName`` , don't specify ``PlatformArn`` or ``TemplateName`` .
+        :param tags: Specifies the tags applied to resources in the environment.
+        :param template_name: The name of the Elastic Beanstalk configuration template to use with the environment. .. epigraph:: If you specify ``TemplateName`` , then don't specify ``SolutionStackName`` .
+        :param tier: Specifies the tier to use in creating this environment. The environment tier that you choose determines whether Elastic Beanstalk provisions resources to support a web application that handles HTTP(S) requests or a web application that handles background-processing tasks.
+        :param version_label: The name of the application version to deploy. Default: If not specified, Elastic Beanstalk attempts to deploy the sample application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_elasticbeanstalk as elasticbeanstalk
+            
+            cfn_environment_props = elasticbeanstalk.CfnEnvironmentProps(
+                application_name="applicationName",
+            
+                # the properties below are optional
+                cname_prefix="cnamePrefix",
+                description="description",
+                environment_name="environmentName",
+                operations_role="operationsRole",
+                option_settings=[elasticbeanstalk.CfnEnvironment.OptionSettingProperty(
+                    namespace="namespace",
+                    option_name="optionName",
+            
+                    # the properties below are optional
+                    resource_name="resourceName",
+                    value="value"
+                )],
+                platform_arn="platformArn",
+                solution_stack_name="solutionStackName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                template_name="templateName",
+                tier=elasticbeanstalk.CfnEnvironment.TierProperty(
+                    name="name",
+                    type="type",
+                    version="version"
+                ),
+                version_label="versionLabel"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9bf8840bb336097f9a8ab8a2978d262cc75efab262110246ba9ccd4885b1eb0)
+            check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
+            check_type(argname="argument cname_prefix", value=cname_prefix, expected_type=type_hints["cname_prefix"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument environment_name", value=environment_name, expected_type=type_hints["environment_name"])
+            check_type(argname="argument operations_role", value=operations_role, expected_type=type_hints["operations_role"])
+            check_type(argname="argument option_settings", value=option_settings, expected_type=type_hints["option_settings"])
+            check_type(argname="argument platform_arn", value=platform_arn, expected_type=type_hints["platform_arn"])
+            check_type(argname="argument solution_stack_name", value=solution_stack_name, expected_type=type_hints["solution_stack_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_name", value=template_name, expected_type=type_hints["template_name"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+            check_type(argname="argument version_label", value=version_label, expected_type=type_hints["version_label"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "application_name": application_name,
+        }
+        if cname_prefix is not None:
+            self._values["cname_prefix"] = cname_prefix
+        if description is not None:
+            self._values["description"] = description
+        if environment_name is not None:
+            self._values["environment_name"] = environment_name
+        if operations_role is not None:
+            self._values["operations_role"] = operations_role
+        if option_settings is not None:
+            self._values["option_settings"] = option_settings
+        if platform_arn is not None:
+            self._values["platform_arn"] = platform_arn
+        if solution_stack_name is not None:
+            self._values["solution_stack_name"] = solution_stack_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_name is not None:
+            self._values["template_name"] = template_name
+        if tier is not None:
+            self._values["tier"] = tier
+        if version_label is not None:
+            self._values["version_label"] = version_label
+
+    @builtins.property
+    def application_name(
+        self,
+    ) -> typing.Union[builtins.str, "_IApplicationRef_776a7ba1"]:
+        '''The name of the application that is associated with this environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-applicationname
+        '''
+        result = self._values.get("application_name")
+        assert result is not None, "Required property 'application_name' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IApplicationRef_776a7ba1"], result)
+
+    @builtins.property
+    def cname_prefix(self) -> typing.Optional[builtins.str]:
+        '''If specified, the environment attempts to use this value as the prefix for the CNAME in your Elastic Beanstalk environment URL.
+
+        If not specified, the CNAME is generated automatically by appending a random alphanumeric string to the environment name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-cnameprefix
+        '''
+        result = self._values.get("cname_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Your description for this environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def environment_name(self) -> typing.Optional[builtins.str]:
+        '''A unique name for the environment.
+
+        Constraint: Must be from 4 to 40 characters in length. The name can contain only letters, numbers, and hyphens. It can't start or end with a hyphen. This name must be unique within a region in your account.
+
+        If you don't specify the ``CNAMEPrefix`` parameter, the environment name becomes part of the CNAME, and therefore part of the visible URL for your application.
+
+        If you don't specify an environment name, AWS CloudFormation generates a unique physical ID and uses that ID for the environment name. For more information, see `Name Type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ .
+        .. epigraph::
+
+           If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-environmentname
+        '''
+        result = self._values.get("environment_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def operations_role(self) -> typing.Optional[builtins.str]:
+        '''.. epigraph::
+
+   The operations role feature of AWS Elastic Beanstalk is in beta release and is subject to change.
+
+        The Amazon Resource Name (ARN) of an existing IAM role to be used as the environment's operations role. If specified, Elastic Beanstalk uses the operations role for permissions to downstream services during this call and during subsequent calls acting on this environment. To specify an operations role, you must have the ``iam:PassRole`` permission for the role.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-operationsrole
+        '''
+        result = self._values.get("operations_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def option_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.OptionSettingProperty"]]]]:
+        '''Key-value pairs defining configuration options for this environment, such as the instance type.
+
+        These options override the values that are defined in the solution stack or the `configuration template <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-beanstalk-configurationtemplate.html>`_ . If you remove any options during a stack update, the removed options retain their current values.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-optionsettings
+        '''
+        result = self._values.get("option_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.OptionSettingProperty"]]]], result)
+
+    @builtins.property
+    def platform_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the custom platform to use with the environment.
+
+        For more information, see `Custom Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/custom-platforms.html>`_ in the *AWS Elastic Beanstalk Developer Guide* .
+        .. epigraph::
+
+           If you specify ``PlatformArn`` , don't specify ``SolutionStackName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-platformarn
+        '''
+        result = self._values.get("platform_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def solution_stack_name(self) -> typing.Optional[builtins.str]:
+        '''The name of an Elastic Beanstalk solution stack (platform version) to use with the environment.
+
+        If specified, Elastic Beanstalk sets the configuration values to the default values associated with the specified solution stack. For a list of current solution stacks, see `Elastic Beanstalk Supported Platforms <https://docs.aws.amazon.com/elasticbeanstalk/latest/platforms/platforms-supported.html>`_ in the *AWS Elastic Beanstalk Platforms* guide.
+        .. epigraph::
+
+           If you specify ``SolutionStackName`` , don't specify ``PlatformArn`` or ``TemplateName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-solutionstackname
+        '''
+        result = self._values.get("solution_stack_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Specifies the tags applied to resources in the environment.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def template_name(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IConfigurationTemplateRef_3b882d17"]]:
+        '''The name of the Elastic Beanstalk configuration template to use with the environment.
+
+        .. epigraph::
+
+           If you specify ``TemplateName`` , then don't specify ``SolutionStackName`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-templatename
+        '''
+        result = self._values.get("template_name")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IConfigurationTemplateRef_3b882d17"]], result)
+
+    @builtins.property
+    def tier(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.TierProperty"]]:
+        '''Specifies the tier to use in creating this environment.
+
+        The environment tier that you choose determines whether Elastic Beanstalk provisions resources to support a web application that handles HTTP(S) requests or a web application that handles background-processing tasks.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-tier
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEnvironment.TierProperty"]], result)
+
+    @builtins.property
+    def version_label(self) -> typing.Optional[builtins.str]:
+        '''The name of the application version to deploy.
+
+        Default: If not specified, Elastic Beanstalk attempts to deploy the sample application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticbeanstalk-environment.html#cfn-elasticbeanstalk-environment-versionlabel
+        '''
+        result = self._values.get("version_label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEnvironmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "ApplicationReference",
-    "ApplicationVersionReference",
     "CfnApplication",
     "CfnApplicationProps",
     "CfnApplicationVersion",
@@ -2919,94 +2621,9 @@ __all__ = [
     "CfnConfigurationTemplateProps",
     "CfnEnvironment",
     "CfnEnvironmentProps",
-    "ConfigurationTemplateReference",
-    "EnvironmentReference",
-    "IApplicationRef",
-    "IApplicationVersionRef",
-    "IConfigurationTemplateRef",
-    "IEnvironmentRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__ffe6233c8172dda463bf1895e421a68f97cf946e353323db3a518216756870ee(
-    *,
-    application_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d130f0464c3ace118b0914eb2214c0cb3bb48c811f4cfa4f9b2805a44e1c29a4(
-    *,
-    application_name: builtins.str,
-    application_version_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__31c1735cd136eec2821ea76e53787fc49838698c06b9830e11f3e4a61ecceab7(
-    *,
-    application_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    resource_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationResourceLifecycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96(
-    *,
-    application_name: builtins.str,
-    source_bundle: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__796fd0fbbd75363f93a84b4414ff29f987c772572666882bfec89de9a1ec0553(
-    *,
-    application_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    environment_id: typing.Optional[builtins.str] = None,
-    option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.ConfigurationOptionSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    platform_arn: typing.Optional[builtins.str] = None,
-    solution_stack_name: typing.Optional[builtins.str] = None,
-    source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9bf8840bb336097f9a8ab8a2978d262cc75efab262110246ba9ccd4885b1eb0(
-    *,
-    application_name: builtins.str,
-    cname_prefix: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    environment_name: typing.Optional[builtins.str] = None,
-    operations_role: typing.Optional[builtins.str] = None,
-    option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.OptionSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    platform_arn: typing.Optional[builtins.str] = None,
-    solution_stack_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_name: typing.Optional[builtins.str] = None,
-    tier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.TierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    version_label: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eba30eb460bce4f9c05ce872c300cfae068c27c849228a29358b11c48f8755a1(
-    *,
-    application_name: builtins.str,
-    template_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6b27e9d45355210985ac1b8e67eea4973103fba0a17f1f5d1c9e95ddaa662617(
-    *,
-    environment_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__2037a8b39c672f9e224a0d55f87a787c8f06cc34801647c616c1d3544fc61b01(
     scope: _constructs_77d1e7e8.Construct,
@@ -3015,6 +2632,26 @@ def _typecheckingstub__2037a8b39c672f9e224a0d55f87a787c8f06cc34801647c616c1d3544
     application_name: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     resource_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationResourceLifecycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e9a5aa59a4674660b0a4f58c7a469fed835a0eb6f54e77a23de596b6cb62f9d(
+    resource: _IApplicationRef_776a7ba1,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64e0e228a9756a4fe5df231bf425c7ec6801763aba68b5b5c88a2c7a3e01d60(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    application_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfafc129c9f5c2fc5d186e47ff3f61ca0d5cd50b7ab4983eb391741434472faa(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3083,13 +2720,28 @@ def _typecheckingstub__a27816fed8fa85ae75502cf6691d26ee691b6c71d47f8b4fab4ea659d
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__31c1735cd136eec2821ea76e53787fc49838698c06b9830e11f3e4a61ecceab7(
+    *,
+    application_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    resource_lifecycle_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplication.ApplicationResourceLifecycleConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1c1516c528cdf5646f1fbc2db47de8d7888e64c08ccc28b6b1ea3f1c451b19a4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application_name: builtins.str,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
     source_bundle: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e69f0bfa5f56be49010c43fbbc7650a730c0d8fbcac6fd0197fbd29abac80bac(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3132,17 +2784,32 @@ def _typecheckingstub__bab0ce5312d0bfddca943d9bb19c1093f2bc6756b952bafc260c4c84b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0d59bfde6ef9919e591cebecf28041cd2684a7628953d69fbe6a460205d95f96(
+    *,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
+    source_bundle: typing.Union[_IResolvable_da3f097b, typing.Union[CfnApplicationVersion.SourceBundleProperty, typing.Dict[builtins.str, typing.Any]]],
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e16e4991a410c838f73cd94150f707bdc9d297ed64ed0f67e1bf183266f36923(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application_name: builtins.str,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
     description: typing.Optional[builtins.str] = None,
     environment_id: typing.Optional[builtins.str] = None,
     option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.ConfigurationOptionSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     platform_arn: typing.Optional[builtins.str] = None,
     solution_stack_name: typing.Optional[builtins.str] = None,
     source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d287471ec6020273f33718505f1ea66ff6e27a8352e8dc57d0b394647974402d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3219,11 +2886,24 @@ def _typecheckingstub__a3fd0a38fbd1739c9c00badb2a396cea51ea99ab2d5bec33851b4206c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__796fd0fbbd75363f93a84b4414ff29f987c772572666882bfec89de9a1ec0553(
+    *,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
+    description: typing.Optional[builtins.str] = None,
+    environment_id: typing.Optional[builtins.str] = None,
+    option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.ConfigurationOptionSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    platform_arn: typing.Optional[builtins.str] = None,
+    solution_stack_name: typing.Optional[builtins.str] = None,
+    source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationTemplate.SourceConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2cf0ef6beb55fa53b1a8e411b9c9453f886af4235facc3424c0cc16848847d3a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    application_name: builtins.str,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
     cname_prefix: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     environment_name: typing.Optional[builtins.str] = None,
@@ -3232,9 +2912,15 @@ def _typecheckingstub__2cf0ef6beb55fa53b1a8e411b9c9453f886af4235facc3424c0cc1684
     platform_arn: typing.Optional[builtins.str] = None,
     solution_stack_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_name: typing.Optional[builtins.str] = None,
+    template_name: typing.Optional[typing.Union[builtins.str, _IConfigurationTemplateRef_3b882d17]] = None,
     tier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.TierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     version_label: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8502985a74725dadb84c0dfc9d57c0d9396e9aa23ad536722535a48245db304e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3338,6 +3024,24 @@ def _typecheckingstub__20ebf44ad0b64564e5b4154c6f5b2e8a52f2ed1b20db6288a5f6c8278
     name: typing.Optional[builtins.str] = None,
     type: typing.Optional[builtins.str] = None,
     version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9bf8840bb336097f9a8ab8a2978d262cc75efab262110246ba9ccd4885b1eb0(
+    *,
+    application_name: typing.Union[builtins.str, _IApplicationRef_776a7ba1],
+    cname_prefix: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    environment_name: typing.Optional[builtins.str] = None,
+    operations_role: typing.Optional[builtins.str] = None,
+    option_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.OptionSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    platform_arn: typing.Optional[builtins.str] = None,
+    solution_stack_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_name: typing.Optional[typing.Union[builtins.str, _IConfigurationTemplateRef_3b882d17]] = None,
+    tier: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEnvironment.TierProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    version_label: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

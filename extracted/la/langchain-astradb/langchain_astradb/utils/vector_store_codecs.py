@@ -216,7 +216,14 @@ class _AstraDBVectorStoreDocumentCodec(ABC):
 
     @abstractmethod
     def metadata_key_to_field_identifier(self, md_key: str) -> str:
-        """Express an 'abstract' metadata key as a full Data API field identifier."""
+        """Express an 'abstract' metadata key as a full Data API field identifier.
+
+        Args:
+            md_key: the metadata key.
+
+        Returns:
+            the full Data API field identifier.
+        """
 
     @abstractmethod
     def encode_vectorize_sort(self, query_text: str) -> dict[str, Any]:
@@ -249,7 +256,7 @@ class _AstraDBVectorStoreDocumentCodec(ABC):
         Args:
             vector: a query vector (if applicable) or None.
             vectorize: a query text for vectorize search (if applicable) or None.
-                Exactly one of ``vector`` and ``vectorize`` must not be None.
+                Exactly one of `vector` and `vectorize` must not be None.
             lexical: the search query text for the lexical part of the hybrid search.
 
         Returns:

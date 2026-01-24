@@ -7,10 +7,12 @@ from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
+
 from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.guardian.utils import reload_permissions
 from wbcore.permissions.mixins import PermissionMixin
 from wbcore.utils.itertools import get_inheriting_subclasses
+from wbcore.workers import Queue
 
 
 class PermissionObjectModelMixin(PermissionMixin):
@@ -113,7 +115,7 @@ def post_save_user(sender, instance, created, **kwargs):
         transaction.on_commit(lambda: assign_object_permissions_for_user_as_task.delay(instance.id))  # type: ignore
 
 
-@shared_task
+@shared_task(queue=Queue.DEFAULT.value)
 def assign_user_permissions_for_object_as_task(
     content_type_id: int, instance_id: int, prune_existing: bool | None = True
 ):
@@ -127,7 +129,7 @@ def assign_user_permissions_for_object_as_task(
             instance.reload_permissions(prune_existing=prune_existing)  # type: ignore
 
 
-@shared_task
+@shared_task(queue=Queue.DEFAULT.value)
 def assign_object_permissions_for_user_as_task(user_id: int):
     """
     Utility function to create object permission from user decoupling from the main thread

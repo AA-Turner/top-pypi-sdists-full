@@ -10,7 +10,6 @@ from ..errors import (
     MissingClaimError,
     InvalidClaimError,
     ExpiredTokenError,
-    InvalidTokenError,
 )
 
 Claims = dict[str, Any]
@@ -35,14 +34,25 @@ class ClaimsOption(TypedDict, total=False):
     values: list[str | int | bool] | list[str] | list[int] | list[bool]
 
 
-class ClaimsRegistry:
+class BaseClaimsRegistry:
     """Requesting "claims" for JWT with the given conditions."""
 
     def __init__(self, **kwargs: ClaimsOption):
         self.options = kwargs
-        self.essential_keys = {key for key in kwargs if kwargs[key].get("essential")}
+
+    @property
+    def essential_keys(self) -> set[str]:
+        """Returns the essential claim names."""
+        return {key for key in self.options if self.options[key].get("essential")}
 
     def check_value(self, claim_name: str, value: Any) -> None:
+        """
+        Validates a given claim value based on predefined options.
+
+        :param claim_name: The name of the claim to validate.
+        :param value: The value of the claim to be validated.
+        :raises InvalidClaimError: If the value does not meet the claim's validation requirements.
+        """
         option = self.options.get(claim_name)
         if not option:
             return
@@ -69,6 +79,13 @@ class ClaimsRegistry:
                 raise InvalidClaimError(claim_name)
 
     def validate(self, claims: dict[str, Any]) -> None:
+        """
+        Validates the provided claims against specified requirements and checks.
+
+        :param claims: A dictionary containing claims to validate.
+        :raises InvalidClaimError: Raised if any claim fails validation.
+        :raises MissingClaimError: Raised if one or more essential keys are missing.
+        """
         missed_keys = {key for key in self.essential_keys if claims.get(key) is None}
         if missed_keys:
             raise MissingClaimError(",".join(sorted(missed_keys)))
@@ -82,7 +99,7 @@ class ClaimsRegistry:
                 self.check_value(key, value)
 
 
-class JWTClaimsRegistry(ClaimsRegistry):
+class JWTClaimsRegistry(BaseClaimsRegistry):
     """A claims registry for validating JWT claims.
 
     :param now: timestamp of "now" time
@@ -99,6 +116,7 @@ class JWTClaimsRegistry(ClaimsRegistry):
 
     @property
     def now(self) -> int:
+        """Returns the current timestamp."""
         if callable(self._now):
             return self._now()
         return self._now
@@ -113,9 +131,9 @@ class JWTClaimsRegistry(ClaimsRegistry):
         containing a NumericDate value.  Use of this claim is OPTIONAL.
         """
         if not _validate_numeric_time(value):
-            raise InvalidClaimError("exp")
+            raise InvalidClaimError("exp", "Claim 'exp' must be a NumericDate value")
         if value < (self.now - self.leeway):
-            raise ExpiredTokenError()
+            raise ExpiredTokenError("exp")
         self.check_value("exp", value)
 
     def validate_nbf(self, value: int) -> None:
@@ -128,9 +146,9 @@ class JWTClaimsRegistry(ClaimsRegistry):
         NumericDate value.  Use of this claim is OPTIONAL.
         """
         if not _validate_numeric_time(value):
-            raise InvalidClaimError("nbf")
+            raise InvalidClaimError("nbf", "Claim 'nbf' must be a NumericDate value")
         if value > (self.now + self.leeway):
-            raise InvalidTokenError()
+            raise InvalidClaimError("nbf", "The token is not yet valid")
         self.check_value("nbf", value)
 
     def validate_iat(self, value: int) -> None:
@@ -140,9 +158,9 @@ class JWTClaimsRegistry(ClaimsRegistry):
         claim is OPTIONAL.
         """
         if not _validate_numeric_time(value):
-            raise InvalidClaimError("iat")
+            raise InvalidClaimError("iat", "Claim 'iat' must be a NumericDate value")
         if value > (self.now + self.leeway):
-            raise InvalidTokenError()
+            raise InvalidClaimError("iat", "The token was issued in the future")
         self.check_value("iat", value)
 
 

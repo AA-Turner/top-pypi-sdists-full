@@ -20,14 +20,20 @@ def build_safety_options(
     policy_file="",
     safety_project=None,
     temp_requirements_name="",
+    quiet=False,
 ):
     options = [
         "--audit-and-monitor" if audit_and_monitor else "--disable-audit-and-monitor",
         "--exit-code" if exit_code else "--continue-on-error",
     ]
-    formats = {"full-report": "--full-report", "minimal": "--json"}
+    # Map output formats to safety CLI options
+    # "minimal" maps to --short-report for concise output
+    formats = {"full-report": "--full-report", "minimal": "--short-report"}
 
-    if output in formats:
+    # When quiet mode is enabled, force JSON output so we can parse it
+    if quiet:
+        options.append("--output=json")
+    elif output in formats:
         options.append(formats.get(output, ""))
     elif output not in ["screen", "default"]:
         options.append(f"--output={output}")
@@ -45,7 +51,8 @@ def build_safety_options(
     if temp_requirements_name:
         temp_requirements_path = str(Path(temp_requirements_name).absolute())
         options.extend(["--file", temp_requirements_path])
-        console.print(f"[dim]Using requirements file: {temp_requirements_path}[/dim]")
+        if not quiet:
+            console.print(f"[dim]Using requirements file: {temp_requirements_path}[/dim]")
 
     return options
 
@@ -94,16 +101,21 @@ def get_requirements(project, use_installed, categories):
             _cmd + ["-m", "pip", "list", "--format=freeze"],
             is_verbose=project.s.is_verbose(),
         )
+    # Use sys.executable -m pipenv to ensure pipenv is found even if not on PATH
+    # See: https://github.com/pypa/pipenv/issues/6042
     elif categories:
         return run_command(
-            ["pipenv", "requirements", "--categories", categories],
+            [sys.executable, "-m", "pipenv", "requirements", "--categories", categories],
             is_verbose=project.s.is_verbose(),
         )
     else:
-        return run_command(["pipenv", "requirements"], is_verbose=project.s.is_verbose())
+        return run_command(
+            [sys.executable, "-m", "pipenv", "requirements"],
+            is_verbose=project.s.is_verbose(),
+        )
 
 
-def create_temp_requirements(project, requirements):
+def create_temp_requirements(project, requirements, quiet=False):
     """Create a temporary requirements file that safety can access."""
     # Use the current directory which should be accessible
     temp_file_path = os.path.join(os.getcwd(), f"safety_requirements_{os.getpid()}.txt")
@@ -114,7 +126,10 @@ def create_temp_requirements(project, requirements):
 
     # Make sure the file exists and log its path
     if os.path.exists(temp_file_path):
-        console.print(f"[dim]Created temporary requirements file: {temp_file_path}[/dim]")
+        if not quiet:
+            console.print(
+                f"[dim]Created temporary requirements file: {temp_file_path}[/dim]"
+            )
     else:
         err.print(
             f"[red]Failed to create temporary requirements file at {temp_file_path}[/red]"
@@ -145,13 +160,14 @@ def is_safety_installed(project=None, system=False):
         return False
 
 
-def install_safety(project, system=False, auto_install=False):
+def install_safety(project, system=False, auto_install=False, quiet=False):
     """Install safety and its dependencies."""
     python = project_python(project, system=system)
 
-    console.print(
-        "[yellow bold]Safety package is required for vulnerability scanning but not installed.[/yellow bold]"
-    )
+    if not quiet:
+        console.print(
+            "[yellow bold]Safety package is required for vulnerability scanning but not installed.[/yellow bold]"
+        )
 
     install = auto_install
     if not auto_install:
@@ -161,12 +177,14 @@ def install_safety(project, system=False, auto_install=False):
         )
 
     if not install:
-        console.print(
-            "[yellow]Vulnerability scanning skipped. Install safety with 'pip install pipenv[safety]'[/yellow]"
-        )
+        if not quiet:
+            console.print(
+                "[yellow]Vulnerability scanning skipped. Install safety with 'pip install pipenv[safety]'[/yellow]"
+            )
         return False
 
-    console.print("[green]Installing safety...[/green]")
+    if not quiet:
+        console.print("[green]Installing safety...[/green]")
     # Install safety directly rather than as an extra to ensure it works in development mode
     cmd = [python, "-m", "pip", "install", "safety>=3.0.0", "typer>=0.9.0", "--quiet"]
     c = run_command(cmd)
@@ -177,7 +195,8 @@ def install_safety(project, system=False, auto_install=False):
         )
         return False
 
-    console.print("[green]Safety installed successfully![/green]")
+    if not quiet:
+        console.print("[green]Safety installed successfully![/green]")
     return True
 
 
@@ -292,10 +311,10 @@ def do_check(  # noqa: PLR0913
     elif not quiet and not project.s.is_quiet():
         err.print(
             "[yellow bold]DEPRECATION WARNING:[/yellow bold] "
-            "The 'check' command is deprecated and will be unsupported beyond 01 June 2025.\n"
-            "In future versions, 'check' will run the 'scan' command by default.\n"
-            "Use [green]--scan[/green] option to run the new scan command now, or switch to [green]pipenv scan[/green].\n"
-            "The scan command requires an API key which you can obtain from https://pyup.io"
+            "The 'check' command using Safety is deprecated and will be removed in a future release.\n"
+            "Please migrate to [green]pipenv audit[/green] which uses pip-audit for vulnerability scanning.\n"
+            "pip-audit uses the Python Packaging Advisory Database and requires no API key.\n"
+            "Alternatively, use [green]--scan[/green] to use Safety's scan command (requires API key from https://pyup.io)"
         )
 
     if not system:
@@ -337,7 +356,7 @@ def do_check(  # noqa: PLR0913
             )
 
     requirements = get_requirements(project, use_installed, categories)
-    temp_requirements = create_temp_requirements(project, requirements)
+    temp_requirements = create_temp_requirements(project, requirements, quiet=quiet)
 
     try:
         options = build_safety_options(
@@ -348,12 +367,16 @@ def do_check(  # noqa: PLR0913
             policy_file=policy_file,
             safety_project=safety_project,
             temp_requirements_name=temp_requirements.name,
+            quiet=quiet,
         )
 
         # Check if safety is installed
         if not is_safety_installed(project, system=system):
-            if not install_safety(project, system=system, auto_install=auto_install):
-                console.print("[yellow]Vulnerability scanning aborted.[/yellow]")
+            if not install_safety(
+                project, system=system, auto_install=auto_install, quiet=quiet
+            ):
+                if not quiet:
+                    console.print("[yellow]Vulnerability scanning aborted.[/yellow]")
                 return
 
             # Check again after installation

@@ -2782,7 +2782,7 @@ _aalineColor(SDL_Surface *dst, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
         /*
          * Not-so-portable version: erradj = ((Uint64)dx << 32) / (Uint64)dy;
          */
-        erradj = ((dx << 16) / dy) << 16;
+        erradj = (Uint32)((dx << 16) / dy) << 16;
 
         /*
          * draw all pixels other than the first and last
@@ -2819,7 +2819,7 @@ _aalineColor(SDL_Surface *dst, Sint16 x1, Sint16 y1, Sint16 x2, Sint16 y2,
         /*
          * Not-so-portable version: erradj = ((Uint64)dy << 32) / (Uint64)dx;
          */
-        erradj = ((dy << 16) / dx) << 16;
+        erradj = (Uint32)((dy << 16) / dx) << 16;
 
         /*
          * draw all pixels other than the first and last
@@ -3254,10 +3254,10 @@ arcColor(SDL_Surface *dst, Sint16 x, Sint16 y, Sint16 rad, Sint16 start,
     //     \|/
     //------+------ +x
     //     /|\
-	//  3 / | \ 0
+    //  3 / | \ 0
     //   /  |  \
-	//  / 2 | 1 \
-	//      +y
+    //  / 2 | 1 \
+    //      +y
 
     // Initially reset bitmask to 0x00000000
     // the set whether or not to keep drawing a given octant.

@@ -27,6 +27,7 @@ concurrency:
 
 env:
   IS_CRON: 'true'
+  PY_COLORS: "1"
 
 permissions:
   contents: read
@@ -34,7 +35,13 @@ permissions:
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
-    if: (github.repository == 'astropy/astropy' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Extra CI')))
+    if: |
+      github.repository == 'astropy/astropy' && (
+        github.event_name == 'schedule' ||
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'Extra CI')
+      )
     env:
       ARCH_ON_CI: "normal"
     strategy:
@@ -63,10 +70,10 @@ jobs:
             python: '3.13'
             toxenv: py313-test-devinfra
 
-          - name: Python 3.13 on macOS (x86_64) with all optional dependencies
-            os: macos-13
-            python: '3.13'
-            toxenv: py313-test-alldeps
+          - name: Python 3.13t (free-threading) with recommended dependencies
+            os: ubuntu-latest
+            python: '3.13t'
+            toxenv: py313t-test-recdeps
 
           - name: Documentation link check
             os: ubuntu-latest
@@ -76,12 +83,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
       with:
         persist-credentials: false
         fetch-depth: 0
     - name: Set up Python
-      uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55  # v5.5.0
+      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c  # v6.0.0
       with:
         python-version: ${{ matrix.python }}
     - name: Install language-pack-de and tzdata
@@ -107,9 +114,15 @@ jobs:
     # (e.g., big-endian or 32-bit OS) with numpy 2.
 
     runs-on: ubuntu-24.04
-    name: Python 3.12
+    name: Emulated arch
     # keep condition in sync with test_arm64
-    if: (github.repository == 'astropy/astropy' && (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Extra CI')))
+    if: |
+      github.repository == 'astropy/astropy' && (
+        github.event_name == 'schedule' ||
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'Extra CI')
+      )
     env:
       ARCH_ON_CI: ${{ matrix.arch }}
 
@@ -122,11 +135,11 @@ jobs:
           - arch: armv7
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: uraimo/run-on-arch-action@4141da824ffb5eda88d221d9cf835f6a61ed98d9 # v3.0.0
+      - uses: uraimo/run-on-arch-action@d94c13912ea685de38fccc1109385b83fd79427d # v3.0.1
         name: Run tests
         id: build
         with:
@@ -170,6 +183,6 @@ jobs:
             # cython and pyerfa versions in ubuntu repos are too old currently
             pip install -U cython setuptools packaging
             pip install -U --no-build-isolation pyerfa
-            ASTROPY_USE_SYSTEM_ALL=1 pip3 install -v --no-build-isolation -e .[test]
-            pip3 list
-            python3 -m pytest --pyargs astropy -m "not hypothesis"
+            ASTROPY_USE_SYSTEM_ALL=1 pip install -v --no-build-isolation -e .[test]
+            pip list
+            python3 -m pytest --strict-markers --pyargs astropy -m "not hypothesis"

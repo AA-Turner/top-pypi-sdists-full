@@ -19,6 +19,10 @@ namespace Cantera
 //! A simple thermodynamic model for a bulk phase, assuming a lattice of solid
 //! atoms
 /*!
+ * @deprecated To be removed after %Cantera 3.2. Can be replaced by use of
+ *     IdealSolidSolnPhase with the site density used to set the molar density of each
+ *     constituent species.
+ *
  * The bulk consists of a matrix of equivalent sites whose molar density does
  * not vary with temperature or pressure. The thermodynamics obeys the ideal
  * solution laws. The phase and the pure species phases which comprise the
@@ -218,7 +222,7 @@ public:
      * computed first by the species reference state thermodynamic property
      * manager and then a small pressure dependent term is added in.
      *
-     * \see MultiSpeciesThermo
+     * @see MultiSpeciesThermo
      */
     double enthalpy_mole() const override;
 
@@ -239,6 +243,12 @@ public:
      * @see MultiSpeciesThermo
      */
     double entropy_mole() const override;
+
+    //! Molar Gibbs function of the solution. Units: J/kmol
+    /*!
+     * Uses thermodynamic property relations.
+     */
+    double gibbs_mole() const override;
 
     //! Molar heat capacity at constant pressure of the solution.
     //! Units: J/kmol/K.

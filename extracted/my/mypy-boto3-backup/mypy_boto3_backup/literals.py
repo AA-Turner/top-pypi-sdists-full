@@ -31,9 +31,11 @@ __all__ = (
     "ConditionTypeType",
     "CopyJobStateType",
     "CopyJobStatusType",
+    "EncryptionKeyTypeType",
     "IndexStatusType",
     "IndexType",
     "LegalHoldStatusType",
+    "LifecycleDeleteAfterEventType",
     "ListBackupJobsPaginatorName",
     "ListBackupPlanTemplatesPaginatorName",
     "ListBackupPlanVersionsPaginatorName",
@@ -53,6 +55,10 @@ __all__ = (
     "ListRestoreJobsPaginatorName",
     "ListRestoreTestingPlansPaginatorName",
     "ListRestoreTestingSelectionsPaginatorName",
+    "ListScanJobSummariesPaginatorName",
+    "ListScanJobsPaginatorName",
+    "ListTieringConfigurationsPaginatorName",
+    "MalwareScannerType",
     "MpaRevokeSessionStatusType",
     "MpaSessionStatusType",
     "PaginatorName",
@@ -65,6 +71,14 @@ __all__ = (
     "RestoreTestingRecoveryPointSelectionAlgorithmType",
     "RestoreTestingRecoveryPointTypeType",
     "RestoreValidationStatusType",
+    "RuleExecutionTypeType",
+    "ScanFindingType",
+    "ScanJobStateType",
+    "ScanJobStatusType",
+    "ScanModeType",
+    "ScanResourceTypeType",
+    "ScanResultStatusType",
+    "ScanStateType",
     "ServiceName",
     "StorageClassType",
     "VaultStateType",
@@ -135,9 +149,11 @@ CopyJobStatusType = Literal[
     "PARTIAL",
     "RUNNING",
 ]
+EncryptionKeyTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 IndexStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
 IndexType = Literal["DISABLED", "ENABLED"]
 LegalHoldStatusType = Literal["ACTIVE", "CANCELED", "CANCELING", "CREATING"]
+LifecycleDeleteAfterEventType = Literal["DELETE_AFTER_COPY"]
 ListBackupJobsPaginatorName = Literal["list_backup_jobs"]
 ListBackupPlanTemplatesPaginatorName = Literal["list_backup_plan_templates"]
 ListBackupPlanVersionsPaginatorName = Literal["list_backup_plan_versions"]
@@ -159,6 +175,10 @@ ListRestoreJobsByProtectedResourcePaginatorName = Literal["list_restore_jobs_by_
 ListRestoreJobsPaginatorName = Literal["list_restore_jobs"]
 ListRestoreTestingPlansPaginatorName = Literal["list_restore_testing_plans"]
 ListRestoreTestingSelectionsPaginatorName = Literal["list_restore_testing_selections"]
+ListScanJobSummariesPaginatorName = Literal["list_scan_job_summaries"]
+ListScanJobsPaginatorName = Literal["list_scan_jobs"]
+ListTieringConfigurationsPaginatorName = Literal["list_tiering_configurations"]
+MalwareScannerType = Literal["GUARDDUTY"]
 MpaRevokeSessionStatusType = Literal["FAILED", "PENDING"]
 MpaSessionStatusType = Literal["APPROVED", "FAILED", "PENDING"]
 RecoveryPointStatusType = Literal[
@@ -174,6 +194,25 @@ RestoreTestingRecoveryPointSelectionAlgorithmType = Literal[
 ]
 RestoreTestingRecoveryPointTypeType = Literal["CONTINUOUS", "SNAPSHOT"]
 RestoreValidationStatusType = Literal["FAILED", "SUCCESSFUL", "TIMED_OUT", "VALIDATING"]
+RuleExecutionTypeType = Literal["CONTINUOUS", "CONTINUOUS_AND_SNAPSHOTS", "SNAPSHOTS"]
+ScanFindingType = Literal["MALWARE"]
+ScanJobStateType = Literal["CANCELED", "COMPLETED", "COMPLETED_WITH_ISSUES", "FAILED"]
+ScanJobStatusType = Literal[
+    "AGGREGATE_ALL",
+    "ANY",
+    "CANCELED",
+    "COMPLETED",
+    "COMPLETED_WITH_ISSUES",
+    "CREATED",
+    "FAILED",
+    "RUNNING",
+]
+ScanModeType = Literal["FULL_SCAN", "INCREMENTAL_SCAN"]
+ScanResourceTypeType = Literal["EBS", "EC2", "S3"]
+ScanResultStatusType = Literal["NO_THREATS_FOUND", "THREATS_FOUND"]
+ScanStateType = Literal[
+    "CANCELED", "COMPLETED", "COMPLETED_WITH_ISSUES", "CREATED", "FAILED", "RUNNING"
+]
 StorageClassType = Literal["COLD", "DELETED", "WARM"]
 VaultStateType = Literal["AVAILABLE", "CREATING", "FAILED"]
 VaultTypeType = Literal[
@@ -206,7 +245,7 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
+    "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
     "athena",
@@ -218,8 +257,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -273,6 +314,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -371,7 +413,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -410,8 +451,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -446,6 +485,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -455,18 +495,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -488,8 +530,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -504,15 +544,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -543,8 +584,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -595,16 +636,7 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
     "list_backup_jobs",
@@ -626,6 +658,9 @@ PaginatorName = Literal[
     "list_restore_jobs_by_protected_resource",
     "list_restore_testing_plans",
     "list_restore_testing_selections",
+    "list_scan_job_summaries",
+    "list_scan_jobs",
+    "list_tiering_configurations",
 ]
 RegionName = Literal[
     "af-south-1",
@@ -641,6 +676,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

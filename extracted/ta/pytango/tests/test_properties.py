@@ -9,6 +9,7 @@ except ImportError:
 
 import pytest
 
+from typing import Any
 from tango import (
     DevFailed,
     PyTangoUserWarning,  # noqa
@@ -107,16 +108,23 @@ if npt:
             assert_close(proxy.get_prop(), expected(value))
 
 
-def test_device_property_with_default_value(general_typed_values):
+@pytest.mark.parametrize("input_type", [str, Any])
+def test_device_property_with_default_value(general_typed_values, input_type):
     dtype, values, expected = general_typed_values
     patched_dtype = dtype if dtype != (bool,) else (int,)
 
-    default = values[0]
+    if isinstance(input_type, str) and isinstance(values[0], list):
+        default_set = [str(v) for v in values[0]]
+    elif isinstance(input_type, str):
+        default_set = str(values[0])
+    else:
+        default_set = values[0]
+    default_expected = values[0]
     value = values[1]
 
     class TestDevice(Device):
-        prop_without_db_value = device_property(dtype=dtype, default_value=default)
-        prop_with_db_value = device_property(dtype=dtype, default_value=default)
+        prop_without_db_value = device_property(dtype=dtype, default_value=default_set)
+        prop_with_db_value = device_property(dtype=dtype, default_value=default_set)
 
         @command(dtype_out=patched_dtype)
         def get_prop_without_db_value(self):
@@ -129,7 +137,7 @@ def test_device_property_with_default_value(general_typed_values):
     with DeviceTestContext(
         TestDevice, properties={"prop_with_db_value": value}
     ) as proxy:
-        assert_close(proxy.get_prop_without_db_value(), expected(default))
+        assert_close(proxy.get_prop_without_db_value(), expected(default_expected))
         assert_close(proxy.get_prop_with_db_value(), expected(value))
 
 

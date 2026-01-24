@@ -11,6 +11,7 @@ from . import clip as clip
 from . import connect_to_output as connect_to_output
 from . import console as console
 from . import constraint as constraint
+from . import copy_global_transform as copy_global_transform
 from . import file as file
 from . import freestyle as freestyle
 from . import geometry_nodes as geometry_nodes

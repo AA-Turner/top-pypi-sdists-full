@@ -2,7 +2,7 @@ import os
 import re
 from logging import getLogger
 from pathlib import Path
-from typing import Any, Callable, Generator, Literal
+from typing import IO, Any, Callable, Generator, Literal, cast
 
 from pydantic import (
     BaseModel,
@@ -11,6 +11,7 @@ from pydantic import (
 
 from inspect_ai._util._async import current_async_backend, run_coroutine
 from inspect_ai._util.constants import ALL_LOG_FORMATS, EVAL_LOG_FORMAT
+from inspect_ai._util.dateutil import UtcDatetimeStr
 from inspect_ai._util.error import EvalError
 from inspect_ai._util.file import (
     FileInfo,
@@ -22,7 +23,11 @@ from inspect_ai.log._condense import resolve_sample_attachments
 from inspect_ai.log._log import EvalSampleSummary
 
 from ._log import EvalLog, EvalMetric, EvalSample
-from ._recorders import recorder_type_for_format, recorder_type_for_location
+from ._recorders import (
+    recorder_type_for_bytes,
+    recorder_type_for_format,
+    recorder_type_for_location,
+)
 
 logger = getLogger(__name__)
 
@@ -64,12 +69,13 @@ class LogOverview(BaseModel):
 
     version: int
     status: Literal["started", "success", "cancelled", "error"]
+    invalidated: bool = Field(default=False)
     error: EvalError | None = Field(default=None)
 
     model: str
 
-    started_at: str
-    completed_at: str
+    started_at: UtcDatetimeStr | Literal[""]
+    completed_at: UtcDatetimeStr | Literal[""]
 
     primary_metric: EvalMetric | None = Field(default=None)
 
@@ -227,7 +233,6 @@ def write_log_dir_manifest(
     names = [manifest_eval_log_name(log, log_dir, fs.sep) for log in logs]
     headers = read_eval_log_headers(logs)
 
-    headers[0].reductions = None
     manifest_logs = dict(zip(names, headers))
 
     # form target path and write
@@ -240,21 +245,23 @@ def write_log_dir_manifest(
 
 
 def read_eval_log(
-    log_file: str | Path | EvalLogInfo,
+    log_file: str | Path | EvalLogInfo | IO[bytes],
     header_only: bool = False,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     format: Literal["eval", "json", "auto"] = "auto",
 ) -> EvalLog:
     """Read an evaluation log.
 
     Args:
-       log_file (str | FileInfo): Log file to read.
+       log_file (str | Path | EvalLogInfo | IO[bytes]): Log file to read.
+          When providing IO[bytes], the returned EvalLog will have an
+          empty location (which can be set manually if needed).
        header_only (bool): Read only the header (i.e. exclude
           the "samples" and "logging" fields). Defaults to False.
        resolve_attachments (bool): Resolve attachments (duplicated content blocks)
           to their full content.
        format (Literal["eval", "json", "auto"]): Read from format
-          (defaults to 'auto' based on `log_file` extension)
+          (defaults to 'auto' based on `log_file` extension).
 
     Returns:
        EvalLog object read from file.
@@ -278,45 +285,61 @@ def read_eval_log(
 
 
 async def read_eval_log_async(
-    log_file: str | Path | EvalLogInfo,
+    log_file: str | Path | EvalLogInfo | IO[bytes],
     header_only: bool = False,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     format: Literal["eval", "json", "auto"] = "auto",
 ) -> EvalLog:
     """Read an evaluation log.
 
     Args:
-       log_file (str | FileInfo): Log file to read.
+       log_file (str | Path | EvalLogInfo | IO[bytes]): Log file to read.
+          When providing IO[bytes], the returned EvalLog will have an
+          empty location (which can be set manually if needed).
        header_only (bool): Read only the header (i.e. exclude
           the "samples" and "logging" fields). Defaults to False.
        resolve_attachments (bool): Resolve attachments (duplicated content blocks)
           to their full content.
        format (Literal["eval", "json", "auto"]): Read from format
-          (defaults to 'auto' based on `log_file` extension)
+          (defaults to 'auto' based on `log_file` extension).
 
     Returns:
        EvalLog object read from file.
     """
-    # resolve to file path
-    log_file = (
-        log_file
-        if isinstance(log_file, str)
-        else log_file.as_posix()
-        if isinstance(log_file, Path)
-        else log_file.name
-    )
-    logger.debug(f"Reading eval log from {log_file}")
+    is_bytes = not isinstance(log_file, (str, Path, EvalLogInfo))
+    if is_bytes:
+        log_bytes = cast("IO[bytes]", log_file)
+        if format == "auto":
+            recorder_type = recorder_type_for_bytes(log_bytes)
+        else:
+            recorder_type = recorder_type_for_format(format)
 
-    # get recorder type
-    if format == "auto":
-        recorder_type = recorder_type_for_location(log_file)
+        logger.debug("Reading eval log from stream")
+        log = await recorder_type.read_log_bytes(log_bytes, header_only)
     else:
-        recorder_type = recorder_type_for_format(format)
-    log = await recorder_type.read_log(log_file, header_only)
+        # resolve to file path
+        log_file = (
+            log_file
+            if isinstance(log_file, str)
+            else log_file.as_posix()
+            if isinstance(log_file, Path)
+            else log_file.name
+        )
+        logger.debug(f"Reading eval log from {log_file}")
+
+        # get recorder type
+        if format == "auto":
+            recorder_type = recorder_type_for_location(log_file)
+        else:
+            recorder_type = recorder_type_for_format(format)
+        log = await recorder_type.read_log(log_file, header_only)
 
     # resolve attachement if requested
     if resolve_attachments and log.samples:
-        log.samples = [resolve_sample_attachments(sample) for sample in log.samples]
+        log.samples = [
+            resolve_sample_attachments(sample, resolve_attachments)
+            for sample in log.samples
+        ]
 
     # provide sample ids if they aren't there
     if log.eval.dataset.sample_ids is None and log.samples is not None:
@@ -326,7 +349,8 @@ async def read_eval_log_async(
                 sample_ids[sample.id] = None
         log.eval.dataset.sample_ids = list(sample_ids.keys())
 
-    logger.debug(f"Completed reading eval log from {log_file}")
+    location = "stream" if is_bytes else log_file
+    logger.debug(f"Completed reading eval log from {location}")
 
     return log
 
@@ -352,7 +376,7 @@ def read_eval_log_sample(
     id: int | str | None = None,
     epoch: int = 1,
     uuid: str | None = None,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     format: Literal["eval", "json", "auto"] = "auto",
 ) -> EvalSample:
     """Read a sample from an evaluation log.
@@ -395,7 +419,7 @@ async def read_eval_log_sample_async(
     id: int | str | None = None,
     epoch: int = 1,
     uuid: str | None = None,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     format: Literal["eval", "json", "auto"] = "auto",
 ) -> EvalSample:
     """Read a sample from an evaluation log.
@@ -438,7 +462,7 @@ async def read_eval_log_sample_async(
     sample = await recorder_type.read_log_sample(log_file, id, epoch, uuid)
 
     if resolve_attachments:
-        sample = resolve_sample_attachments(sample)
+        sample = resolve_sample_attachments(sample, resolve_attachments)
 
     return sample
 
@@ -501,7 +525,7 @@ async def read_eval_log_sample_summaries_async(
 def read_eval_log_samples(
     log_file: str | Path | EvalLogInfo,
     all_samples_required: bool = True,
-    resolve_attachments: bool = False,
+    resolve_attachments: bool | Literal["full", "core"] = False,
     format: Literal["eval", "json", "auto"] = "auto",
 ) -> Generator[EvalSample, None, None]:
     """Read all samples from an evaluation log incrementally.
@@ -536,7 +560,9 @@ def read_eval_log_samples(
         )
 
     # if the status is not success and all_samples_required, this is an error
-    if log_header.status != "success" and all_samples_required:
+    if all_samples_required and (
+        log_header.status != "success" or log_header.invalidated
+    ):
         raise RuntimeError(
             f"This log does not have all samples (status={log_header.status}). "
             + "Specify all_samples_required=False to read the samples that exist."
@@ -710,6 +736,7 @@ def to_overview(header: EvalLog) -> LogOverview:
         task_version=header.eval.task_version,
         version=header.version,
         status=header.status,
+        invalidated=header.invalidated,
         error=header.error,
         model=header.eval.model,
         started_at=header.stats.started_at,

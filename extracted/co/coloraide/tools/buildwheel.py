@@ -11,8 +11,8 @@ import hashlib
 
 # Notebook specific wheels
 NOTEBOOK_WHEELS = [
-    "https://files.pythonhosted.org/packages/96/2b/34cc11786bc00d0f04d0f5fdc3a2b1ae0b6239eef72d3d345805f9ad92a1/markdown-3.8.2-py3-none-any.whl",  # noqa: E501
-    "https://files.pythonhosted.org/packages/98/d4/10bb14004d3c792811e05e21b5e5dcae805aacb739bd12a0540967b99592/pymdown_extensions-10.16-py3-none-any.whl",  # noqa: E501
+    "https://files.pythonhosted.org/packages/70/81/54e3ce63502cd085a0c556652a4e1b919c45a446bd1e5300e10c44c8c521/markdown-3.10-py3-none-any.whl",  # noqa: E501
+    "https://files.pythonhosted.org/packages/ea/10/47caf89cbb52e5bb764696fd52a8c591a2f0e851a93270c05a17f36000b5/pymdown_extensions-10.20-py3-none-any.whl"  # noqa: E501
 ]
 
 NOTEBOOK_PYODIDE_PKGS = [
@@ -21,12 +21,12 @@ NOTEBOOK_PYODIDE_PKGS = [
 
 # Wheels required in addition to the current project
 PLAYGROUND_WHEELS = [
-    "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl",  # noqa: E501
+    "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl"  # noqa: E501
 ]
 
 PLAYGROUND_PYODIDE_PKGS = ['micropip']
 
-MKDOCS_YML = 'docs/src/mkdocs.yml'
+ZENSICAL_YML = 'docs/src/zensical.yml'
 
 RE_CONFIG = re.compile(r'playground-config.*?\.js')
 RE_BUILD = re.compile(r'Successfully built ([-_0-9.a-zA-Z]+?\.whl)')
@@ -152,17 +152,17 @@ if __name__ == "__main__":
 
         for demo in ['colorpicker', '3d_models']:
             colorpicker = ''
-            with open(f'docs/src/markdown/demos/{demo}.html') as f:
+            with open(f'docs/src/markdown/examples/{demo}.html') as f:
                 colorpicker = re.sub(r"(?m)(^[ ]*let package = ').*?(')", fr'\1{package}\2', f.read())
             if colorpicker:
-                with open(f'docs/src/markdown/demos/{demo}.html', 'w') as f:
+                with open(f'docs/src/markdown/examples/{demo}.html', 'w') as f:
                     f.write(colorpicker)
 
         # Update `mkdocs` source to reference wheel config
-        with open(MKDOCS_YML, 'rb') as f:
+        with open(ZENSICAL_YML, 'rb') as f:
             mkdocs = f.read().decode('utf-8')
         mkdocs = RE_CONFIG.sub(f'playground-config-{hsh}.js', mkdocs)
-        with open(MKDOCS_YML, 'wb') as f:
+        with open(ZENSICAL_YML, 'wb') as f:
             f.write(mkdocs.encode('utf-8'))
 
     print("FAILED :(" if status else "SUCCESS :)")

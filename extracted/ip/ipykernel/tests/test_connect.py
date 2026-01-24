@@ -2,7 +2,6 @@
 
 # Copyright (c) IPython Development Team.
 # Distributed under the terms of the Modified BSD License.
-
 import errno
 import json
 import os
@@ -18,6 +17,21 @@ from ipykernel import connect
 from ipykernel.kernelapp import IPKernelApp
 
 from .utils import TemporaryWorkingDirectory
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _enable_tracemalloc():
+    try:
+        import tracemalloc
+    except ModuleNotFoundError:
+        # pypy
+        tracemalloc = None
+    if tracemalloc is not None:
+        tracemalloc.start()
+    yield
+    if tracemalloc is not None:
+        tracemalloc.stop()
+
 
 sample_info: dict = {
     "ip": "1.2.3.4",

@@ -15,7 +15,13 @@ from .utils import resource_files
 class TestSSIReader(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.h3i = resource_files(__package__).joinpath("data", "hmms", "db", "Thioesterase.hmm.h3i")
+        cls._h3i = resource_files(__package__).joinpath("data", "hmms", "db", "Thioesterase.hmm.h3i")
+
+    @property
+    def h3i(self):
+        if not self._h3i.exists():
+            self.skipTest("data files not available")
+        return self._h3i
 
     def test_init_error_filenotfound(self):
         self.assertRaises(
@@ -27,18 +33,18 @@ class TestSSIReader(unittest.TestCase):
 
     def test_find_name(self):
         with easel.SSIReader(self.h3i) as reader:
-            entry = reader.find_name(b"Thioesterase")
+            entry = reader.find_name("Thioesterase")
             self.assertEqual(entry.fd, 0)
             self.assertEqual(entry.record_offset, 0)
 
     def test_find_name_closed(self):
         with easel.SSIReader(self.h3i) as reader:
             reader.close()
-            self.assertRaises(ValueError, reader.find_name, b"Thioesterase")
+            self.assertRaises(ValueError, reader.find_name, "Thioesterase")
 
     def test_find_name_error(self):
         with easel.SSIReader(self.h3i) as reader:
-            self.assertRaises(KeyError, reader.find_name, b"Ketosynthase")
+            self.assertRaises(KeyError, reader.find_name, "Ketosynthase")
 
     def test_file_info(self):
         with easel.SSIReader(self.h3i) as reader:
@@ -59,6 +65,7 @@ class TestSSIReader(unittest.TestCase):
 class TestSSIWriter(unittest.TestCase):
     def test_init_error_fileexists(self):
         with tempfile.NamedTemporaryFile() as tmp:
+            self.assertTrue(os.path.exists(tmp.name))
             self.assertRaises(
                 FileExistsError, easel.SSIWriter, tmp.name, exclusive=True
             )

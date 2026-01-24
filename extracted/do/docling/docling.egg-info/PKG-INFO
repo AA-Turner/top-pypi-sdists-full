@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.54.0
+Version: 2.70.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Author-email: Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>, Nikos Livathinos <nli@zurich.ibm.com>, Ahmed Nassar <ahn@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Peter Staar <taa@zurich.ibm.com>
 License-Expression: MIT
@@ -17,34 +17,35 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <4.0,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3.0.0,>=2.0.0
-Requires-Dist: docling-core[chunking]<3.0.0,>=2.48.2
-Requires-Dist: docling-parse<5.0.0,>=4.4.0
+Requires-Dist: docling-core[chunking]<3.0.0,>=2.50.1
+Requires-Dist: docling-parse<5.0.0,>=4.7.0
 Requires-Dist: docling-ibm-models<4,>=3.9.1
 Requires-Dist: filetype<2.0.0,>=1.2.0
-Requires-Dist: pypdfium2!=4.30.1,<5.0.0,>=4.30.0
+Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0
 Requires-Dist: pydantic-settings<3.0.0,>=2.3.0
 Requires-Dist: huggingface_hub<1,>=0.23
 Requires-Dist: requests<3.0.0,>=2.32.2
-Requires-Dist: easyocr<2.0,>=1.7
+Requires-Dist: ocrmac<2.0.0,>=1.0.0; sys_platform == "darwin"
+Requires-Dist: rapidocr<4.0.0,>=3.3
 Requires-Dist: certifi>=2024.7.4
 Requires-Dist: rtree<2.0.0,>=1.3.0
-Requires-Dist: typer<0.17.0,>=0.12.5
+Requires-Dist: typer<0.20.0,>=0.12.5
 Requires-Dist: python-docx<2.0.0,>=1.1.2
 Requires-Dist: python-pptx<2.0.0,>=1.0.2
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3
 Requires-Dist: pandas<3.0.0,>=2.1.4
 Requires-Dist: marko<3.0.0,>=2.1.2
 Requires-Dist: openpyxl<4.0.0,>=3.1.5
-Requires-Dist: lxml<6.0.0,>=4.0.0
+Requires-Dist: lxml<7.0.0,>=4.0.0
 Requires-Dist: pillow<12.0.0,>=10.0.0
 Requires-Dist: tqdm<5.0.0,>=4.65.0
 Requires-Dist: pluggy<2.0.0,>=1.0.0
@@ -52,6 +53,8 @@ Requires-Dist: pylatexenc<3.0,>=2.10
 Requires-Dist: scipy<2.0.0,>=1.6.0
 Requires-Dist: accelerate<2,>=1.0.0
 Requires-Dist: polyfactory>=2.22.2
+Provides-Extra: easyocr
+Requires-Dist: easyocr<2.0,>=1.7; extra == "easyocr"
 Provides-Extra: tesserocr
 Requires-Dist: tesserocr<3.0.0,>=2.7.1; extra == "tesserocr"
 Provides-Extra: ocrmac
@@ -60,13 +63,12 @@ Provides-Extra: vlm
 Requires-Dist: transformers<5.0.0,>=4.46.0; extra == "vlm"
 Requires-Dist: accelerate<2.0.0,>=1.2.1; extra == "vlm"
 Requires-Dist: mlx-vlm<1.0.0,>=0.3.0; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "vlm"
-Requires-Dist: vllm<1.0.0,>=0.10.0; (python_version >= "3.10" and sys_platform == "linux" and platform_machine == "x86_64") and extra == "vlm"
 Requires-Dist: qwen-vl-utils>=0.0.11; extra == "vlm"
 Provides-Extra: rapidocr
-Requires-Dist: rapidocr<4.0.0,>=3.3; python_version < "3.14" and extra == "rapidocr"
-Requires-Dist: onnxruntime<2.0.0,>=1.7.0; extra == "rapidocr"
-Requires-Dist: modelscope>=1.29.0; extra == "rapidocr"
+Requires-Dist: rapidocr<4.0.0,>=3.3; extra == "rapidocr"
+Requires-Dist: onnxruntime<2.0.0,>=1.7.0; python_version < "3.14" and extra == "rapidocr"
 Provides-Extra: asr
+Requires-Dist: mlx-whisper>=0.4.3; (python_version >= "3.10" and sys_platform == "darwin" and platform_machine == "arm64") and extra == "asr"
 Requires-Dist: openai-whisper>=20250625; extra == "asr"
 Dynamic: license-file
 
@@ -94,6 +96,7 @@ Dynamic: license-file
 [![PyPI Downloads](https://static.pepy.tech/badge/docling/month)](https://pepy.tech/projects/docling)
 [![Docling Actor](https://apify.com/actor-badge?actor=vancura/docling?fpr=docling)](https://apify.com/vancura/docling)
 [![Chat with Dosu](https://dosu.dev/dosu-chat-badge.svg)](https://app.dosu.dev/097760a8-135e-4789-8234-90c8837d7f1c/ask?utm_source=github)
+[![Discord](https://img.shields.io/discord/1399788921306746971?color=6A7EC2&logo=discord&logoColor=ffffff)](https://docling.ai/discord)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/10101/badge)](https://www.bestpractices.dev/projects/10101)
 [![LF AI & Data](https://img.shields.io/badge/LF%20AI%20%26%20Data-003778?logo=linuxfoundation&logoColor=fff&color=0094ff&labelColor=003778)](https://lfaidata.foundation/projects/)
 
@@ -131,6 +134,8 @@ To use Docling, simply install `docling` from your package manager, e.g. pip:
 ```bash
 pip install docling
 ```
+
+> **Note:** Python 3.9 support was dropped in docling version 2.70.0. Please use Python 3.10 or higher.
 
 Works on macOS, Linux and Windows environments. Both x86_64 and arm64 architectures.
 

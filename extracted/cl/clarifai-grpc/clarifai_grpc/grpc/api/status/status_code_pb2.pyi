@@ -272,6 +272,7 @@ class _StatusCodeEnumTypeWrapper(
     RUNNER_STREAM_END: _StatusCode.ValueType  # 25606
     RUNNER_ITEM_CANCELLED: _StatusCode.ValueType  # 25607
     RUNNER_PROCESSING_FAILED: _StatusCode.ValueType  # 25608
+    RUNNER_SPECIAL_HANDLING_NOT_COMPLETE: _StatusCode.ValueType  # 25609
     NODEPOOL_DOES_NOT_EXIST: _StatusCode.ValueType  # 25700
     """Nodepool related codes 257xx"""
     NODEPOOL_INVALID_ARGUMENT: _StatusCode.ValueType  # 25701
@@ -305,6 +306,13 @@ class _StatusCodeEnumTypeWrapper(
     """Pipeline related codes 263xx"""
     PIPELINE_INVALID_ARGUMENT: _StatusCode.ValueType  # 26301
     PIPELINE_INVALID_REQUEST: _StatusCode.ValueType  # 26302
+    ARTIFACT_DOES_NOT_EXIST: _StatusCode.ValueType  # 26400
+    """Artifact related codes 264xx"""
+    ARTIFACT_INVALID_ARGUMENT: _StatusCode.ValueType  # 26401
+    ARTIFACT_INVALID_REQUEST: _StatusCode.ValueType  # 26402
+    ARTIFACT_VERSION_DOES_NOT_EXIST: _StatusCode.ValueType  # 26403
+    ARTIFACT_VERSION_INVALID_ARGUMENT: _StatusCode.ValueType  # 26404
+    ARTIFACT_VERSION_INVALID_REQUEST: _StatusCode.ValueType  # 26405
     INPUT_SUCCESS: _StatusCode.ValueType  # 30000
     """Input:Image related 30xxx"""
     INPUT_PENDING: _StatusCode.ValueType  # 30001
@@ -438,12 +446,14 @@ class _StatusCodeEnumTypeWrapper(
     REDIS_STREAM_ERR: _StatusCode.ValueType  # 45003
     REDIS_NO_CONSUMERS: _StatusCode.ValueType  # 45004
     REDIS_STREAM_BACKOFF: _StatusCode.ValueType  # 45005
+    REDIS_CHANNEL_ERR: _StatusCode.ValueType  # 45006
     SIGNUP_EVENT_ERROR: _StatusCode.ValueType  # 46001
     """Sift Science 46xxx"""
     SIGNUP_FLAGGED: _StatusCode.ValueType  # 46002
     FILETYPE_UNSUPPORTED: _StatusCode.ValueType  # 46003
     LOGIN_EVENT_ERROR: _StatusCode.ValueType  # 46004
     SIFT_UNCATEGORIZED_ERROR: _StatusCode.ValueType  # 46005
+    USER_FLAGGED: _StatusCode.ValueType  # 46006
     APP_COUNT_INVALID_MESSAGE: _StatusCode.ValueType  # 47001
     """Application counts related errors 470xx"""
     APP_COUNT_UPDATE_INCREMENT_FAILED: _StatusCode.ValueType  # 47002
@@ -482,7 +492,11 @@ class _StatusCodeEnumTypeWrapper(
     TASK_FAILED: _StatusCode.ValueType  # 54005
     """An error occurred during add-task-annotations or add-auto-annotations pipeline."""
     TASK_IDLE: _StatusCode.ValueType  # 54006
-    """When an Auto Annotation task job has finished processing its last batch and is waiting for more dataset assets."""
+    """Task is waiting for user action.
+    Examples:
+    - When an Auto Annotation task job has finished processing its last batch and is waiting for more dataset assets.
+    - When an Auto Annotation task job for a video livestream input is waiting for user to create a task deployment.
+    """
     TASK_CONFLICT: _StatusCode.ValueType  # 54100
     """The task operation is in conflict with the current state of the server."""
     TASK_NOT_IMPLEMENTED: _StatusCode.ValueType  # 54101
@@ -507,7 +521,9 @@ class _StatusCodeEnumTypeWrapper(
     LABEL_ORDER_SUCCESS: _StatusCode.ValueType  # 55003
     LABEL_ORDER_CANCELED: _StatusCode.ValueType  # 55004
     LICENSE_ACTIVE: _StatusCode.ValueType  # 60000
-    """License Related Status Code 600xx"""
+    """License Related Status Code 600xx
+    DEPRECATED: License feature is fully deprecated now.
+    """
     LICENSE_DOES_NOT_EXIST: _StatusCode.ValueType  # 60001
     LICENSE_NEED_UPDATE: _StatusCode.ValueType  # 60002
     LICENSE_EXPIRED: _StatusCode.ValueType  # 60003
@@ -565,6 +581,7 @@ class _StatusCodeEnumTypeWrapper(
     JOB_CANCELLED: _StatusCode.ValueType  # 64004
     JOB_UNEXPECTED_ERROR: _StatusCode.ValueType  # 64006
     JOB_CONFLICT: _StatusCode.ValueType  # 64007
+    JOB_PAUSED: _StatusCode.ValueType  # 64008
     AUTH_MISSING_IDP_ASSOC: _StatusCode.ValueType  # 65000
     """auth issues
     TODO: Knowledge graph related 80xxx
@@ -584,6 +601,9 @@ class _StatusCodeEnumTypeWrapper(
     BILLING_MISSING_TOKENS: _StatusCode.ValueType  # 69001
     LOG_ENTRIES_INVALID_REQUEST: _StatusCode.ValueType  # 70000
     """Logs related issues: 70000;"""
+    TWILIO_MAX_VERIFICATION_BEGIN_EXCEEDED: _StatusCode.ValueType  # 71003
+    """Twilio related issues: 71xxx"""
+    TWILIO_MAX_VERIFICATION_CHECK_EXCEEDED: _StatusCode.ValueType  # 71004
     INTERNAL_SERVER_ISSUE: _StatusCode.ValueType  # 98004
     """Internal issues: 98xxx"""
     INTERNAL_FETCHING_ISSUE: _StatusCode.ValueType  # 98005
@@ -862,6 +882,7 @@ RUNNER_STREAM_START: StatusCode.ValueType  # 25605
 RUNNER_STREAM_END: StatusCode.ValueType  # 25606
 RUNNER_ITEM_CANCELLED: StatusCode.ValueType  # 25607
 RUNNER_PROCESSING_FAILED: StatusCode.ValueType  # 25608
+RUNNER_SPECIAL_HANDLING_NOT_COMPLETE: StatusCode.ValueType  # 25609
 NODEPOOL_DOES_NOT_EXIST: StatusCode.ValueType  # 25700
 """Nodepool related codes 257xx"""
 NODEPOOL_INVALID_ARGUMENT: StatusCode.ValueType  # 25701
@@ -895,6 +916,13 @@ PIPELINE_DOES_NOT_EXIST: StatusCode.ValueType  # 26300
 """Pipeline related codes 263xx"""
 PIPELINE_INVALID_ARGUMENT: StatusCode.ValueType  # 26301
 PIPELINE_INVALID_REQUEST: StatusCode.ValueType  # 26302
+ARTIFACT_DOES_NOT_EXIST: StatusCode.ValueType  # 26400
+"""Artifact related codes 264xx"""
+ARTIFACT_INVALID_ARGUMENT: StatusCode.ValueType  # 26401
+ARTIFACT_INVALID_REQUEST: StatusCode.ValueType  # 26402
+ARTIFACT_VERSION_DOES_NOT_EXIST: StatusCode.ValueType  # 26403
+ARTIFACT_VERSION_INVALID_ARGUMENT: StatusCode.ValueType  # 26404
+ARTIFACT_VERSION_INVALID_REQUEST: StatusCode.ValueType  # 26405
 INPUT_SUCCESS: StatusCode.ValueType  # 30000
 """Input:Image related 30xxx"""
 INPUT_PENDING: StatusCode.ValueType  # 30001
@@ -1028,12 +1056,14 @@ REDIS_SCRIPT_EXITED_WITH_FAILURE: StatusCode.ValueType  # 45002
 REDIS_STREAM_ERR: StatusCode.ValueType  # 45003
 REDIS_NO_CONSUMERS: StatusCode.ValueType  # 45004
 REDIS_STREAM_BACKOFF: StatusCode.ValueType  # 45005
+REDIS_CHANNEL_ERR: StatusCode.ValueType  # 45006
 SIGNUP_EVENT_ERROR: StatusCode.ValueType  # 46001
 """Sift Science 46xxx"""
 SIGNUP_FLAGGED: StatusCode.ValueType  # 46002
 FILETYPE_UNSUPPORTED: StatusCode.ValueType  # 46003
 LOGIN_EVENT_ERROR: StatusCode.ValueType  # 46004
 SIFT_UNCATEGORIZED_ERROR: StatusCode.ValueType  # 46005
+USER_FLAGGED: StatusCode.ValueType  # 46006
 APP_COUNT_INVALID_MESSAGE: StatusCode.ValueType  # 47001
 """Application counts related errors 470xx"""
 APP_COUNT_UPDATE_INCREMENT_FAILED: StatusCode.ValueType  # 47002
@@ -1072,7 +1102,11 @@ TASK_WONT_DO: StatusCode.ValueType  # 54003
 TASK_FAILED: StatusCode.ValueType  # 54005
 """An error occurred during add-task-annotations or add-auto-annotations pipeline."""
 TASK_IDLE: StatusCode.ValueType  # 54006
-"""When an Auto Annotation task job has finished processing its last batch and is waiting for more dataset assets."""
+"""Task is waiting for user action.
+Examples:
+- When an Auto Annotation task job has finished processing its last batch and is waiting for more dataset assets.
+- When an Auto Annotation task job for a video livestream input is waiting for user to create a task deployment.
+"""
 TASK_CONFLICT: StatusCode.ValueType  # 54100
 """The task operation is in conflict with the current state of the server."""
 TASK_NOT_IMPLEMENTED: StatusCode.ValueType  # 54101
@@ -1097,7 +1131,9 @@ LABEL_ORDER_IN_PROGRESS: StatusCode.ValueType  # 55002
 LABEL_ORDER_SUCCESS: StatusCode.ValueType  # 55003
 LABEL_ORDER_CANCELED: StatusCode.ValueType  # 55004
 LICENSE_ACTIVE: StatusCode.ValueType  # 60000
-"""License Related Status Code 600xx"""
+"""License Related Status Code 600xx
+DEPRECATED: License feature is fully deprecated now.
+"""
 LICENSE_DOES_NOT_EXIST: StatusCode.ValueType  # 60001
 LICENSE_NEED_UPDATE: StatusCode.ValueType  # 60002
 LICENSE_EXPIRED: StatusCode.ValueType  # 60003
@@ -1155,6 +1191,7 @@ JOB_FAILED: StatusCode.ValueType  # 64003
 JOB_CANCELLED: StatusCode.ValueType  # 64004
 JOB_UNEXPECTED_ERROR: StatusCode.ValueType  # 64006
 JOB_CONFLICT: StatusCode.ValueType  # 64007
+JOB_PAUSED: StatusCode.ValueType  # 64008
 AUTH_MISSING_IDP_ASSOC: StatusCode.ValueType  # 65000
 """auth issues
 TODO: Knowledge graph related 80xxx
@@ -1174,6 +1211,9 @@ BILLING_INVALID_INFO: StatusCode.ValueType  # 69000
 BILLING_MISSING_TOKENS: StatusCode.ValueType  # 69001
 LOG_ENTRIES_INVALID_REQUEST: StatusCode.ValueType  # 70000
 """Logs related issues: 70000;"""
+TWILIO_MAX_VERIFICATION_BEGIN_EXCEEDED: StatusCode.ValueType  # 71003
+"""Twilio related issues: 71xxx"""
+TWILIO_MAX_VERIFICATION_CHECK_EXCEEDED: StatusCode.ValueType  # 71004
 INTERNAL_SERVER_ISSUE: StatusCode.ValueType  # 98004
 """Internal issues: 98xxx"""
 INTERNAL_FETCHING_ISSUE: StatusCode.ValueType  # 98005

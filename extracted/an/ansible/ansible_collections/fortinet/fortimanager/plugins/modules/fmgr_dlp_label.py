@@ -16,7 +16,6 @@ short_description: Configure labels used by DLP blocking.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.10.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -111,6 +113,10 @@ options:
                         aliases: ['mpip-label-name']
                         type: str
                         description: Name of MPIP label.
+                    fortidata_label_name:
+                        aliases: ['fortidata-label-name']
+                        type: str
+                        description: Name of FortiData label
             mpip_type:
                 aliases: ['mpip-type']
                 type: str
@@ -127,6 +133,7 @@ options:
                 description: Label type.
                 choices:
                     - 'mpip'
+                    - 'fortidata'
 '''
 
 EXAMPLES = '''
@@ -142,8 +149,8 @@ EXAMPLES = '''
     - name: Configure labels used by DLP blocking.
       fortinet.fortimanager.fmgr_dlp_label:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -156,8 +163,9 @@ EXAMPLES = '''
           #   - guid: <string>
           #     id: <integer>
           #     mpip_label_name: <string>
+          #     fortidata_label_name: <string>
           # mpip_type: <value in [local, remote]>
-          # type: <value in [mpip]>
+          # type: <value in [mpip, fortidata]>
 '''
 
 RETURN = '''
@@ -214,6 +222,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'dlp_label': {
             'type': 'dict',
             'v_range': [['7.6.3', '']],
@@ -226,13 +235,14 @@ def main():
                     'options': {
                         'guid': {'v_range': [['7.6.3', '']], 'type': 'str'},
                         'id': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'mpip-label-name': {'v_range': [['7.6.3', '']], 'type': 'str'}
+                        'mpip-label-name': {'v_range': [['7.6.3', '']], 'type': 'str'},
+                        'fortidata-label-name': {'v_range': [['7.6.4', '']], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
                 'mpip-type': {'v_range': [['7.6.3', '']], 'choices': ['local', 'remote'], 'type': 'str'},
                 'name': {'v_range': [['7.6.3', '']], 'required': True, 'type': 'str'},
-                'type': {'v_range': [['7.6.3', '']], 'choices': ['mpip'], 'type': 'str'}
+                'type': {'v_range': [['7.6.3', '']], 'choices': ['mpip', 'fortidata'], 'type': 'str'}
             }
         }
     }

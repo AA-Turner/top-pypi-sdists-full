@@ -3,7 +3,7 @@ Type annotations for iotsecuretunneling service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_iotsecuretunneling/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import ClientModeType, ConnectionStatusType, TunnelStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -72,12 +67,12 @@ class DescribeTunnelRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class DestinationConfigOutputTypeDef(TypedDict):
-    services: List[str]
+    services: list[str]
     thingName: NotRequired[str]
 
 class DestinationConfigTypeDef(TypedDict):
@@ -127,7 +122,7 @@ class RotateTunnelAccessTokenResponseTypeDef(TypedDict):
 DestinationConfigUnionTypeDef = Union[DestinationConfigTypeDef, DestinationConfigOutputTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -135,7 +130,7 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 class ListTunnelsResponseTypeDef(TypedDict):
-    tunnelSummaries: List[TunnelSummaryTypeDef]
+    tunnelSummaries: list[TunnelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -148,7 +143,7 @@ class TunnelTypeDef(TypedDict):
     description: NotRequired[str]
     destinationConfig: NotRequired[DestinationConfigOutputTypeDef]
     timeoutConfig: NotRequired[TimeoutConfigTypeDef]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
     createdAt: NotRequired[datetime]
     lastUpdatedAt: NotRequired[datetime]
 

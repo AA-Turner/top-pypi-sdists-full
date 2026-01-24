@@ -40,13 +40,11 @@ class Residuals(BaseInsight):
         ```
     """
 
-    HISTOGRAM_BIN = t.Dict(
-        {
-            t.Key("interval_start"): t.Float(),
-            t.Key("interval_end"): t.Float(),
-            t.Key("occurrences"): t.Int(),
-        }
-    ).ignore_extra("*")
+    HISTOGRAM_BIN = t.Dict({
+        t.Key("interval_start"): t.Float(),
+        t.Key("interval_end"): t.Float(),
+        t.Key("occurrences"): t.Int(),
+    }).ignore_extra("*")
 
     INSIGHT_NAME = "residuals"
     INSIGHT_DATA = {

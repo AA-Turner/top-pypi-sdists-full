@@ -13,22 +13,23 @@ use common_display::{
     tree::TreeDisplay,
 };
 use common_error::DaftResult;
+use common_metrics::QueryID;
 use common_partitioning::PartitionRef;
-use daft_local_plan::{LocalPhysicalPlan, LocalPhysicalPlanRef};
+use common_treenode::ConcreteTreeNode;
+use daft_local_plan::{LocalNodeContext, LocalPhysicalPlan, LocalPhysicalPlanRef};
 use daft_logical_plan::{InMemoryInfo, partitioning::ClusteringSpecRef, stats::StatsState};
 use daft_schema::schema::SchemaRef;
 use futures::{Stream, StreamExt, stream::BoxStream};
-use itertools::Itertools;
 use materialize::materialize_all_pipeline_outputs;
 
 use crate::{
-    plan::PlanID,
+    plan::{PlanExecutionContext, QueryIdx, TaskIDCounter},
     scheduling::{
-        scheduler::{SchedulerHandle, SubmittableTask},
-        task::{SchedulingStrategy, SwordfishTask, Task, TaskContext},
+        scheduler::SchedulerHandle,
+        task::{SwordfishTask, SwordfishTaskBuilder},
         worker::WorkerId,
     },
-    stage::{StageConfig, StageExecutionContext, StageID},
+    statistics::stats::{DefaultRuntimeStats, RuntimeStats},
     utils::channel::{Receiver, ReceiverStream},
 };
 
@@ -39,6 +40,7 @@ mod concat;
 mod distinct;
 mod explode;
 mod filter;
+mod glob_scan_source;
 mod in_memory_source;
 mod into_batches;
 mod into_partitions;
@@ -57,6 +59,7 @@ mod top_n;
 mod translate;
 mod udf;
 mod unpivot;
+mod vllm;
 mod window;
 
 pub(crate) use translate::logical_plan_to_pipeline_node;
@@ -86,7 +89,6 @@ impl MaterializedOutput {
         &self.partition
     }
 
-    #[allow(dead_code)]
     pub fn worker_id(&self) -> &WorkerId {
         &self.worker_id
     }
@@ -102,18 +104,61 @@ impl MaterializedOutput {
             .collect()
     }
 
-    pub fn num_rows(&self) -> DaftResult<usize> {
+    pub fn num_rows(&self) -> usize {
         self.partition
             .iter()
             .map(|partition| partition.num_rows())
             .sum()
     }
 
-    pub fn size_bytes(&self) -> DaftResult<usize> {
+    pub fn size_bytes(&self) -> usize {
         self.partition
             .iter()
-            .map(|partition| partition.size_bytes().map(|size| size.unwrap_or(0)))
+            .map(|partition| partition.size_bytes())
             .sum()
+    }
+
+    pub fn into_in_memory_scan_with_psets(
+        materialized_outputs: Vec<Self>,
+        schema: SchemaRef,
+        node_id: NodeID,
+    ) -> (LocalPhysicalPlanRef, HashMap<String, Vec<PartitionRef>>) {
+        let total_size_bytes = materialized_outputs
+            .iter()
+            .map(|output| output.size_bytes())
+            .sum::<usize>();
+        let total_num_rows = materialized_outputs
+            .iter()
+            .map(|output| output.num_rows())
+            .sum::<usize>();
+
+        let info = InMemoryInfo::new(
+            schema,
+            node_id.to_string(),
+            None,
+            materialized_outputs.len(),
+            total_size_bytes,
+            total_num_rows,
+            None,
+            None,
+        );
+
+        let in_memory_scan = LocalPhysicalPlan::in_memory_scan(
+            info,
+            StatsState::NotMaterialized,
+            LocalNodeContext {
+                origin_node_id: Some(node_id as usize),
+                additional: None,
+            },
+        );
+
+        let partition_refs = materialized_outputs
+            .into_iter()
+            .flat_map(|output| output.into_inner().0)
+            .collect::<Vec<_>>();
+        let psets = HashMap::from([(node_id.to_string(), partition_refs)]);
+
+        (in_memory_scan, psets)
     }
 }
 
@@ -140,80 +185,146 @@ impl PipelineNodeConfig {
 
 #[derive(Clone)]
 pub(super) struct PipelineNodeContext {
-    pub plan_id: PlanID,
-    pub stage_id: StageID,
+    pub query_idx: QueryIdx,
+    pub query_id: QueryID,
     pub node_id: NodeID,
     pub node_name: NodeName,
-    pub child_ids: Vec<NodeID>,
-    pub child_names: Vec<NodeName>,
-    pub logical_node_id: Option<NodeID>,
 }
 
 impl PipelineNodeContext {
     pub fn new(
-        stage_config: &StageConfig,
+        query_idx: QueryIdx,
+        query_id: QueryID,
         node_id: NodeID,
         node_name: NodeName,
-        child_ids: Vec<NodeID>,
-        child_names: Vec<NodeName>,
-        logical_node_id: Option<NodeID>,
     ) -> Self {
         Self {
-            plan_id: stage_config.plan_id,
-            stage_id: stage_config.stage_id,
+            query_idx,
+            query_id,
             node_id,
             node_name,
-            child_ids,
-            child_names,
-            logical_node_id,
         }
     }
 
     pub fn to_hashmap(&self) -> HashMap<String, String> {
         HashMap::from([
-            ("plan_id".to_string(), self.plan_id.to_string()),
-            ("stage_id".to_string(), self.stage_id.to_string()),
+            ("query_id".to_string(), self.query_id.to_string()),
             ("node_id".to_string(), self.node_id.to_string()),
             ("node_name".to_string(), self.node_name.to_string()),
-            ("child_ids".to_string(), self.child_ids.iter().join(",")),
-            ("child_names".to_string(), self.child_names.iter().join(",")),
-            (
-                "logical_node_id".to_string(),
-                self.logical_node_id.unwrap_or(0).to_string(),
-            ),
         ])
     }
 }
 
-pub(crate) trait DistributedPipelineNode: Send + Sync + TreeDisplay {
+pub(crate) trait PipelineNodeImpl: Send + Sync {
     fn context(&self) -> &PipelineNodeContext;
     fn config(&self) -> &PipelineNodeConfig;
-    #[allow(dead_code)]
-    fn children(&self) -> Vec<Arc<dyn DistributedPipelineNode>>;
-    fn produce_tasks(
-        self: Arc<Self>,
-        stage_context: &mut StageExecutionContext,
-    ) -> SubmittableTaskStream;
-    fn as_tree_display(&self) -> &dyn TreeDisplay;
+    fn runtime_stats(&self) -> Arc<dyn RuntimeStats> {
+        Arc::new(DefaultRuntimeStats::new(
+            self.node_id(),
+            self.context().query_id.clone(),
+        ))
+    }
+
+    fn children(&self) -> Vec<DistributedPipelineNode>;
+    fn produce_tasks(self: Arc<Self>, plan_context: &mut PlanExecutionContext)
+    -> TaskBuilderStream;
     fn name(&self) -> NodeName {
         self.context().node_name
     }
-    #[allow(dead_code)]
-    fn plan_id(&self) -> PlanID {
-        self.context().plan_id
-    }
-    #[allow(dead_code)]
-    fn stage_id(&self) -> StageID {
-        self.context().stage_id
-    }
     fn node_id(&self) -> NodeID {
         self.context().node_id
+    }
+    fn multiline_display(&self, verbose: bool) -> Vec<String>;
+}
+
+#[derive(Clone)]
+pub(crate) struct DistributedPipelineNode {
+    op: Arc<dyn PipelineNodeImpl>,
+    children: Vec<DistributedPipelineNode>,
+}
+
+impl DistributedPipelineNode {
+    pub fn new(op: Arc<dyn PipelineNodeImpl>) -> Self {
+        let children = op.children();
+        Self { op, children }
+    }
+
+    fn context(&self) -> &PipelineNodeContext {
+        self.op.context()
+    }
+    fn config(&self) -> &PipelineNodeConfig {
+        self.op.config()
+    }
+    pub fn node_id(&self) -> NodeID {
+        self.op.node_id()
+    }
+    pub fn name(&self) -> NodeName {
+        self.op.name()
+    }
+    pub fn num_partitions(&self) -> usize {
+        self.op.config().clustering_spec.num_partitions()
+    }
+    pub fn runtime_stats(&self) -> Arc<dyn RuntimeStats> {
+        self.op.runtime_stats()
+    }
+    pub fn produce_tasks(self, plan_context: &mut PlanExecutionContext) -> TaskBuilderStream {
+        self.op.produce_tasks(plan_context)
+    }
+    fn as_tree_display(&self) -> &dyn TreeDisplay {
+        self
+    }
+}
+
+impl ConcreteTreeNode for DistributedPipelineNode {
+    fn children(&self) -> Vec<&Self> {
+        self.children.iter().collect()
+    }
+
+    fn take_children(mut self) -> (Self, Vec<Self>) {
+        let children = std::mem::take(&mut self.children);
+        (self, children)
+    }
+
+    fn with_new_children(self, children: Vec<Self>) -> DaftResult<Self> {
+        Ok(Self {
+            op: self.op.clone(),
+            children,
+        })
+    }
+}
+
+impl TreeDisplay for DistributedPipelineNode {
+    fn display_as(&self, level: DisplayLevel) -> String {
+        match level {
+            DisplayLevel::Compact => self.get_name(),
+            DisplayLevel::Default => self.op.multiline_display(false).join("\n"),
+            DisplayLevel::Verbose => self.op.multiline_display(true).join("\n"),
+        }
+    }
+
+    fn repr_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id(),
+            "type": self.op.name(),
+            "name": self.name(),
+        })
+    }
+
+    fn get_children(&self) -> Vec<&dyn TreeDisplay> {
+        self.children
+            .iter()
+            .map(|child| child.as_tree_display())
+            .collect()
+    }
+
+    fn get_name(&self) -> String {
+        self.context().node_name.to_string()
     }
 }
 
 /// Visualize a distributed pipeline as Mermaid markdown
 pub fn viz_distributed_pipeline_mermaid(
-    root: &dyn DistributedPipelineNode,
+    root: &DistributedPipelineNode,
     display_type: DisplayLevel,
     bottom_up: bool,
     subgraph_options: Option<SubgraphOptions>,
@@ -221,170 +332,70 @@ pub fn viz_distributed_pipeline_mermaid(
     let mut output = String::new();
     let mut visitor =
         MermaidDisplayVisitor::new(&mut output, display_type, bottom_up, subgraph_options);
-    visitor.fmt(root.as_tree_display()).unwrap();
+    visitor.fmt(root).unwrap();
     output
 }
 
 /// Visualize a distributed pipeline as ASCII text
-pub fn viz_distributed_pipeline_ascii(root: &dyn DistributedPipelineNode, simple: bool) -> String {
+pub fn viz_distributed_pipeline_ascii(root: &DistributedPipelineNode, simple: bool) -> String {
     let mut s = String::new();
     let level = if simple {
         DisplayLevel::Compact
     } else {
         DisplayLevel::Default
     };
-    fmt_tree_gitstyle(root.as_tree_display(), 0, &mut s, level).unwrap();
+    fmt_tree_gitstyle(root, 0, &mut s, level).unwrap();
     s
 }
 
-pub(crate) struct SubmittableTaskStream {
-    task_stream: BoxStream<'static, SubmittableTask<SwordfishTask>>,
+pub(crate) struct TaskBuilderStream {
+    task_builder_stream: BoxStream<'static, SwordfishTaskBuilder>,
 }
 
-impl From<Receiver<SubmittableTask<SwordfishTask>>> for SubmittableTaskStream {
-    fn from(receiver: Receiver<SubmittableTask<SwordfishTask>>) -> Self {
-        let task_stream = ReceiverStream::new(receiver).boxed();
-        Self { task_stream }
+impl From<Receiver<SwordfishTaskBuilder>> for TaskBuilderStream {
+    fn from(receiver: Receiver<SwordfishTaskBuilder>) -> Self {
+        let task_builder_stream = ReceiverStream::new(receiver).boxed();
+        Self {
+            task_builder_stream,
+        }
     }
 }
 
-impl SubmittableTaskStream {
-    fn new(task_stream: BoxStream<'static, SubmittableTask<SwordfishTask>>) -> Self {
-        Self { task_stream }
+impl TaskBuilderStream {
+    fn new(task_builder_stream: BoxStream<'static, SwordfishTaskBuilder>) -> Self {
+        Self {
+            task_builder_stream,
+        }
     }
 
     pub fn materialize(
         self,
         scheduler_handle: SchedulerHandle<SwordfishTask>,
+        query_idx: QueryIdx,
+        task_id_counter: TaskIDCounter,
     ) -> impl Stream<Item = DaftResult<MaterializedOutput>> + Send + Unpin + 'static {
-        materialize_all_pipeline_outputs(self.task_stream, scheduler_handle, None)
+        let stream = self
+            .task_builder_stream
+            .map(move |builder| builder.build(query_idx, &task_id_counter));
+        materialize_all_pipeline_outputs(stream, scheduler_handle, None)
     }
 
-    pub fn pipeline_instruction<F>(
-        self,
-        node: Arc<dyn DistributedPipelineNode>,
-        plan_builder: F,
-    ) -> Self
+    pub fn pipeline_instruction<F>(self, node: Arc<dyn PipelineNodeImpl>, plan_builder: F) -> Self
     where
         F: Fn(LocalPhysicalPlanRef) -> LocalPhysicalPlanRef + Send + Sync + 'static,
     {
-        let task_stream = self
-            .task_stream
-            .map(move |task| append_plan_to_existing_task(task, &node, &plan_builder))
+        let task_builder_stream = self
+            .task_builder_stream
+            .map(move |builder| builder.map_plan(node.as_ref(), &plan_builder))
             .boxed();
-        Self::new(task_stream)
+        Self::new(task_builder_stream)
     }
 }
 
-impl Stream for SubmittableTaskStream {
-    type Item = SubmittableTask<SwordfishTask>;
+impl Stream for TaskBuilderStream {
+    type Item = SwordfishTaskBuilder;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.task_stream.poll_next_unpin(cx)
+        self.task_builder_stream.poll_next_unpin(cx)
     }
-}
-
-fn make_in_memory_scan_from_materialized_outputs(
-    materialized_outputs: &[MaterializedOutput],
-    schema: SchemaRef,
-    node_id: NodeID,
-) -> DaftResult<LocalPhysicalPlanRef> {
-    let num_partitions = materialized_outputs.len();
-    let mut total_size_bytes = 0;
-    let mut total_num_rows = 0;
-
-    for materialized_output in materialized_outputs {
-        total_size_bytes += materialized_output.size_bytes()?;
-        total_num_rows += materialized_output.num_rows()?;
-    }
-
-    let info = InMemoryInfo::new(
-        schema,
-        node_id.to_string(),
-        None,
-        num_partitions,
-        total_size_bytes,
-        total_num_rows,
-        None,
-        None,
-    );
-    let in_memory_source_plan =
-        LocalPhysicalPlan::in_memory_scan(info, StatsState::NotMaterialized);
-    Ok(in_memory_source_plan)
-}
-
-fn make_new_task_from_materialized_outputs<F>(
-    task_context: TaskContext,
-    materialized_outputs: Vec<MaterializedOutput>,
-    node: &Arc<dyn DistributedPipelineNode>,
-    plan_builder: F,
-    scheduling_strategy: Option<SchedulingStrategy>,
-) -> DaftResult<SubmittableTask<SwordfishTask>>
-where
-    F: FnOnce(LocalPhysicalPlanRef) -> LocalPhysicalPlanRef + Send + Sync + 'static,
-{
-    let in_memory_source_plan = make_in_memory_scan_from_materialized_outputs(
-        &materialized_outputs,
-        node.config().schema.clone(),
-        node.node_id(),
-    )?;
-    let partition_refs = materialized_outputs
-        .into_iter()
-        .flat_map(|output| output.into_inner().0)
-        .collect::<Vec<_>>();
-    let plan = plan_builder(in_memory_source_plan);
-    let psets = HashMap::from([(node.node_id().to_string(), partition_refs)]);
-
-    let task = SwordfishTask::new(
-        task_context,
-        plan,
-        node.config().execution_config.clone(),
-        psets,
-        scheduling_strategy.unwrap_or(SchedulingStrategy::Spread),
-        node.context().to_hashmap(),
-    );
-    Ok(SubmittableTask::new(task))
-}
-
-fn make_in_memory_task_from_materialized_outputs(
-    task_context: TaskContext,
-    materialized_outputs: Vec<MaterializedOutput>,
-    node: &Arc<dyn DistributedPipelineNode>,
-    scheduling_strategy: Option<SchedulingStrategy>,
-) -> DaftResult<SubmittableTask<SwordfishTask>> {
-    make_new_task_from_materialized_outputs(
-        task_context,
-        materialized_outputs,
-        node,
-        |input| input,
-        scheduling_strategy,
-    )
-}
-
-fn append_plan_to_existing_task<F>(
-    submittable_task: SubmittableTask<SwordfishTask>,
-    node: &Arc<dyn DistributedPipelineNode>,
-    plan_builder: &F,
-) -> SubmittableTask<SwordfishTask>
-where
-    F: Fn(LocalPhysicalPlanRef) -> LocalPhysicalPlanRef + Send + Sync + 'static,
-{
-    let plan = submittable_task.task().plan();
-    let new_plan = plan_builder(plan);
-    let scheduling_strategy = submittable_task.task().strategy().clone();
-    let psets = submittable_task.task().psets().clone();
-    let config = submittable_task.task().config().clone();
-    let mut task_context = submittable_task.task().task_context();
-    if let Some(logical_node_id) = node.context().logical_node_id {
-        task_context.add_logical_node_id(logical_node_id);
-    }
-
-    submittable_task.with_new_task(SwordfishTask::new(
-        task_context,
-        new_plan,
-        config,
-        psets,
-        scheduling_strategy,
-        node.context().to_hashmap(),
-    ))
 }

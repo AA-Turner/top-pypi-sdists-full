@@ -36,9 +36,8 @@ from sql.conditionals import Coalesce
 from sql.functions import Function
 from sql.operators import BinaryOperator, Concat
 
-from trytond import __series__
+from trytond import __series__, config
 from trytond.backend.database import DatabaseInterface, SQLType
-from trytond.config import config, parse_uri
 from trytond.sql.operators import RangeOperator
 from trytond.tools import grouped_slice, reduce_ids
 from trytond.tools.gevent import is_gevent_monkey_patched
@@ -53,9 +52,6 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 os.environ['PGTZ'] = os.environ.get('TZ', '')
-_timeout = config.getint('database', 'timeout')
-_minconn = config.getint('database', 'minconn', default=1)
-_maxconn = config.getint('database', 'maxconn', default=64)
 _default_name = config.get('database', 'default_name', default='template1')
 
 
@@ -74,7 +70,7 @@ def replace_special_values(s, **mapping):
 class LoggingCursor(cursor):
     def execute(self, sql, args=None):
         if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(self.mogrify(sql, args))
+            logger.debug('query: %s', self.mogrify(sql, args).decode())
         cursor.execute(self, sql, args)
 
 
@@ -205,7 +201,7 @@ class Database(DatabaseInterface):
     _has_proc = defaultdict(lambda: defaultdict(dict))
     _extensions = defaultdict(dict)
     _search_full_text_languages = defaultdict(dict)
-    flavor = Flavor(ilike=True)
+    flavor = Flavor(ilike=True, filter_=True)
 
     TYPES_MAPPING = {
         'SMALLINT': SQLType('INT2', 'INT2'),
@@ -224,8 +220,9 @@ class Database(DatabaseInterface):
         with cls._lock:
             now = datetime.now()
             databases = cls._databases[os.getpid()]
+            timeout = config.getint('database', 'timeout')
             for database in list(databases.values()):
-                if ((now - database._last_use).total_seconds() > _timeout
+                if ((now - database._last_use).total_seconds() > timeout
                         and database.name != name
                         and not database._connpool._used):
                     database.close()
@@ -233,9 +230,11 @@ class Database(DatabaseInterface):
                 inst = databases[name]
             else:
                 inst = DatabaseInterface.__new__(cls, name=name)
+                minconn = config.getint('database', 'minconn', default=1)
+                maxconn = config.getint('database', 'maxconn', default=64)
                 try:
                     inst._connpool = ThreadedConnectionPool(
-                        _minconn, _maxconn, **cls._connection_params(name),
+                        minconn, maxconn, **cls._connection_params(name),
                         cursor_factory=LoggingCursor)
                 except Exception:
                     logger.error(
@@ -252,7 +251,7 @@ class Database(DatabaseInterface):
 
     @classmethod
     def _connection_params(cls, name):
-        uri = parse_uri(config.get('database', 'uri'))
+        uri = config.parse_uri(config.get('database', 'uri'))
         if uri.path and uri.path != '/':
             warnings.warn("The path specified in the URI will be overridden")
         params = {
@@ -267,7 +266,9 @@ class Database(DatabaseInterface):
 
     def get_connection(
             self, autocommit=False, readonly=False, statement_timeout=None):
-        retry = max(config.getint('database', 'retry'), _maxconn)
+        retry = max(
+            config.getint('database', 'retry'),
+            config.getint('database', 'maxconn', default=64))
         for count in range(retry, -1, -1):
             try:
                 conn = self._connpool.getconn()
@@ -329,9 +330,20 @@ class Database(DatabaseInterface):
         cursor = connection.cursor()
         cursor.execute(SQL("DROP DATABASE {}")
             .format(Identifier(database_name)))
+        cls.clear_cache()
+
+    @classmethod
+    def clear_cache(cls):
         cls._list_cache.clear()
-        cls._has_proc.pop(database_name, None)
-        cls._search_full_text_languages.pop(database_name, None)
+        cls._list_cache_timestamp.clear()
+        cls._search_path = None
+        cls._current_user = None
+        cls._has_returning = None
+        cls._has_insert_on_conflict = None
+        cls._has_select_for_skip_locked = None
+        cls._has_proc.clear()
+        cls._extensions.clear()
+        cls._search_full_text_languages.clear()
 
     def get_version(self, connection):
         version = connection.server_version
@@ -439,27 +451,32 @@ class Database(DatabaseInterface):
         return True
 
     def nextid(self, connection, table, count=1):
+        column = 'id' if not table.endswith('__history') else '__id'
         cursor = connection.cursor()
         cursor.execute(
             "SELECT nextval(pg_get_serial_sequence(format(%s, %s), %s)) "
             "FROM generate_series(1, %s)",
-            ('%I', table, 'id', count))
+            ('%I', table, column, count))
         if count == 1:
             return cursor.fetchone()[0]
         else:
             return [id for id, in cursor]
 
     def setnextid(self, connection, table, value):
+        if self.currid(connection, table) >= value:
+            return
+        column = 'id' if not table.endswith('__history') else '__id'
         cursor = connection.cursor()
         cursor.execute(
             "SELECT setval(pg_get_serial_sequence(format(%s, %s), %s), %s)",
-            ('%I', table, 'id', value))
+            ('%I', table, column, value))
 
     def currid(self, connection, table):
+        column = 'id' if not table.endswith('__history') else '__id'
         cursor = connection.cursor()
         cursor.execute(
             "SELECT pg_get_serial_sequence(format(%s, %s), %s)",
-            ('%I', table, 'id'))
+            ('%I', table, column))
         sequence_name, = cursor.fetchone()
         cursor.execute(f"SELECT last_value FROM {sequence_name}")
         return cursor.fetchone()[0]
@@ -520,6 +537,16 @@ class Database(DatabaseInterface):
                 'FROM information_schema.tables '
                 'WHERE table_name = %s AND table_schema = %s',
                 (table_name, schema))
+            if cursor.rowcount:
+                return schema
+
+    def get_view_schema(self, connection, view_name):
+        cursor = connection.cursor()
+        for schema in self.search_path:
+            cursor.execute('SELECT 1 '
+                'FROM pg_matviews '
+                'WHERE matviewname = %s AND schemaname = %s',
+                (view_name, schema))
             if cursor.rowcount:
                 return schema
 
@@ -590,9 +617,6 @@ class Database(DatabaseInterface):
             return ForSkipLocked
         else:
             return For
-
-    def has_window_functions(self):
-        return True
 
     @classmethod
     def has_sequence(cls):
@@ -850,6 +874,36 @@ class Database(DatabaseInterface):
 
     def json_contains(self, column, json):
         return JSONContains(Cast(column, 'jsonb'), Cast(json, 'jsonb'))
+
+    @classmethod
+    def has_materialized_views(cls):
+        return True
+
+    def create_materialized_view(self, connection, view_name, query):
+        cursor = connection.cursor()
+        cursor.execute(
+            SQL(
+                "CREATE MATERIALIZED VIEW IF NOT EXISTS {} AS {} "
+                "WITH NO DATA"
+                ).format(Identifier(view_name), SQL(str(query))),
+            query.params)
+        cursor.execute(
+            SQL("CREATE UNIQUE INDEX ON {}(id)").format(Identifier(view_name)))
+
+    def drop_materialized_view(self, connection, view_name):
+        cursor = connection.cursor()
+        cursor.execute(
+            SQL("DROP MATERIALIZED VIEW {}").format(Identifier(view_name)))
+
+    def refresh_materialized_view(
+            self, connection, view_name, concurrently=True):
+        cursor = connection.cursor()
+        cursor.execute(
+            SQL("REFRESH MATERIALIZED VIEW {} {}")
+            .format(
+                SQL('CONCURRENTLY' if concurrently else ''),
+                Identifier(view_name)
+                ))
 
 
 register_type(UNICODE)

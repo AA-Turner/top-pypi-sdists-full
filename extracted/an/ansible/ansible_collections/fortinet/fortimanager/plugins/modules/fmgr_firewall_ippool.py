@@ -16,7 +16,6 @@ short_description: Configure IPv4 IP pools.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -561,6 +563,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_ippool': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -606,7 +609,7 @@ def main():
                         'add-nat64-route': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'cgn-client-ipv6shift': {'v_range': [['6.2.9', '6.2.13'], ['6.4.7', '6.4.15'], ['7.0.2', '']], 'type': 'int'},
                         'nat64': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'subnet-broadcast-in-ippool': {'v_range': [['7.0.5', '7.0.13'], ['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                        'subnet-broadcast-in-ippool': {'v_range': [['7.0.5', '7.0.15'], ['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                         'exclude-ip': {'v_range': [['7.2.2', '']], 'type': 'raw'},
                         'pba-interim-log': {'v_range': [['7.4.3', '']], 'type': 'int'},
                         'client-prefix-length': {'v_range': [['7.6.0', '']], 'type': 'int'},
@@ -643,7 +646,7 @@ def main():
                 'add-nat64-route': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'nat64': {'v_range': [['7.0.1', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'cgn-client-ipv6shift': {'v_range': [['6.2.9', '6.2.13'], ['6.4.7', '6.4.15'], ['7.0.2', '']], 'type': 'int'},
-                'subnet-broadcast-in-ippool': {'v_range': [['7.0.5', '7.0.13'], ['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'subnet-broadcast-in-ippool': {'v_range': [['7.0.5', '7.0.15'], ['7.2.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'exclude-ip': {'v_range': [['7.2.2', '']], 'type': 'raw'},
                 'pba-interim-log': {'v_range': [['7.4.3', '']], 'type': 'int'},
                 'client-prefix-length': {'v_range': [['7.6.0', '']], 'type': 'int'},

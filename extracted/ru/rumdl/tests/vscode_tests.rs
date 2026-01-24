@@ -57,102 +57,40 @@ mod mock_tests {
 
 #[test]
 fn test_vscode_extension_creation_error() {
-    // Save and modify PATH to ensure commands aren't found
-    let original_path = std::env::var("PATH").ok();
+    // Test error handling when no editors are available
+    // Use dependency injection instead of modifying PATH
 
-    unsafe {
-        std::env::set_var("PATH", "/nonexistent");
+    // Mock command checker that always returns false (no commands found)
+    let no_commands_checker = |_cmd: &str| false;
 
-        let result = VsCodeExtension::new();
+    let result = VsCodeExtension::find_code_command_impl(no_commands_checker);
 
-        // The test behavior depends on the system:
-        // - On some systems, setting PATH prevents finding commands (result.is_err() == true)
-        // - On others, commands might still be found through other means (result.is_ok() == true)
-        // Both are valid behaviors, so we test for either case
+    // Should return an error
+    assert!(result.is_err());
 
-        if result.is_err() {
-            // If it failed as expected, verify the error message
-            if let Err(e) = result {
-                assert!(e.contains("not found"));
-                assert!(e.contains("code") || e.contains("cursor") || e.contains("windsurf"));
-            }
-        } else {
-            // If it succeeded despite PATH change, that's also acceptable
-            // This can happen if VS Code is installed in a way that doesn't rely on PATH
-            assert!(result.is_ok());
-        }
-
-        // Restore PATH
-        if let Some(path) = original_path {
-            std::env::set_var("PATH", path);
-        }
+    // Error message should mention that no editors were found
+    if let Err(e) = result {
+        assert!(e.contains("not found"));
+        assert!(e.contains("code") || e.contains("cursor") || e.contains("windsurf"));
     }
 }
 
 #[test]
 fn test_find_all_editors_empty_path() {
-    // Save and clear PATH
-    let original_path = std::env::var("PATH").ok();
+    // Test that find_all_editors returns empty when no commands are available
+    // Use dependency injection instead of modifying PATH
 
-    unsafe {
-        std::env::set_var("PATH", "/nonexistent");
+    // Mock command checker that always returns false (no commands found)
+    let no_commands_checker = |_cmd: &str| false;
 
-        let editors = VsCodeExtension::find_all_editors();
-        // Should return empty vec when no editors are found
-        assert!(editors.is_empty());
+    let editors = VsCodeExtension::find_all_editors_impl(no_commands_checker);
 
-        // Restore PATH
-        if let Some(path) = original_path {
-            std::env::set_var("PATH", path);
-        }
-    }
+    // Should return empty vec when no editors are found
+    assert!(editors.is_empty());
 }
 
-#[test]
-fn test_term_program_variations() {
-    let original_term = std::env::var("TERM_PROGRAM").ok();
-
-    unsafe {
-        // Test various TERM_PROGRAM values
-        let test_cases = vec![
-            ("vscode", "code"),
-            ("VSCode", "code"), // Test case insensitive
-            ("VSCODE", "code"),
-            ("cursor", "cursor"),
-            ("Cursor", "cursor"),
-            ("CURSOR", "cursor"),
-            ("windsurf", "windsurf"),
-            ("Windsurf", "windsurf"),
-            ("WINDSURF", "windsurf"),
-            ("terminal", ""), // Unknown terminal
-            ("iterm2", ""),   // Another unknown terminal
-        ];
-
-        for (term_value, expected_cmd) in test_cases {
-            std::env::set_var("TERM_PROGRAM", term_value);
-
-            let result = VsCodeExtension::current_editor_from_env();
-
-            if expected_cmd.is_empty() {
-                assert!(result.is_none(), "Expected None for TERM_PROGRAM={term_value}");
-            } else {
-                // Result depends on whether the command exists
-                // We're testing the logic, not the actual command existence
-                if let Some((cmd, _)) = result {
-                    assert_eq!(cmd, expected_cmd);
-                }
-                // Command might not exist on this system
-            }
-        }
-
-        // Restore original
-        if let Some(term) = original_term {
-            std::env::set_var("TERM_PROGRAM", term);
-        } else {
-            std::env::remove_var("TERM_PROGRAM");
-        }
-    }
-}
+// Note: test_term_program_variations is now covered by unit tests in src/vscode.rs
+// where it can test the internal implementation without modifying environment variables
 
 #[test]
 fn test_handle_vscode_command_status_flag() {

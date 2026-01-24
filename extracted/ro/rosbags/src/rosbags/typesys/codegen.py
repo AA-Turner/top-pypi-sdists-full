@@ -31,7 +31,7 @@ def get_typehint(desc: FieldDesc) -> str:
     if desc[0] == Nodetype.BASE:
         if desc[1][0] == 'string':
             return 'str'
-        typ = 'int' if desc[1][0] in {'char', 'byte'} else desc[1][0]
+        typ = 'int' if desc[1][0] in {'char', 'byte', 'octet'} else desc[1][0]
         match = INTLIKE.match(typ)
         assert match, typ
         return match.group(1)
@@ -49,6 +49,7 @@ def get_typehint(desc: FieldDesc) -> str:
                 'bool': 'bool_',
                 'byte': 'uint8',
                 'char': 'uint8',
+                'octet': 'uint8',
             }.get(typ, typ)
             return f'np.ndarray[tuple[int, ...], np.dtype[np.{typ}]]'
 
@@ -88,7 +89,7 @@ def generate_python_code(
         '# THIS FILE IS GENERATED, DO NOT EDIT',
         '"""Message type definitions."""',
         '',
-        '# ruff: noqa: N801,N814,N816,TC004',
+        '# ruff: noqa: N801,N816,RUF100,TC004',
         '',
         'from __future__ import annotations',
         '',

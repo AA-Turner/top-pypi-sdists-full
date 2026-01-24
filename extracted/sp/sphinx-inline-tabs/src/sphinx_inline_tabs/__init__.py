@@ -2,21 +2,24 @@
 
 import os
 
-__version__ = "2023.04.21"
+from sphinx.application import Sphinx
+
+__version__ = "2025.12.21.14"
 __all__ = ["setup"]
 
 
-def setup(app):
+def setup(app: Sphinx):
     """Entry point for sphinx theming."""
     app.require_sphinx("3.0")
 
     # We do imports from Sphinx, after validating the Sphinx version
-    from ._impl import TabDirective, TabHtmlTransform, _TabInput, _TabLabel
+    from ._impl import TabContainer, TabDirective, TabHtmlTransform, TabInput, TabLabel
 
     app.add_directive("tab", TabDirective)
     app.add_post_transform(TabHtmlTransform)
-    app.add_node(_TabInput, html=(_TabInput.visit, _TabInput.depart))
-    app.add_node(_TabLabel, html=(_TabLabel.visit, _TabLabel.depart))
+    app.add_node(TabInput, html=(TabInput.visit, TabInput.depart))
+    app.add_node(TabLabel, html=(TabLabel.visit, TabLabel.depart))
+    app.add_node(TabContainer, xml=(lambda _, __: None, lambda _, __: None))
 
     # Include our static assets
     static_dir = os.path.join(os.path.dirname(__file__), "static")

@@ -3,10 +3,10 @@ use std::borrow::Cow;
 use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, SchemaContext, SchemaUri};
 
-use crate::{hover::display_value::GetEnumerate, HoverContent};
+use crate::{HoverContent, hover::display_value::GetEnum};
 
 use super::{
-    constraints::ValueConstraints, display_value::DisplayValue, GetHoverContent, HoverValueContent,
+    GetHoverContent, HoverValueContent, constraints::ValueConstraints, display_value::DisplayValue,
 };
 
 pub fn get_all_of_hover_content<'a: 'b, 'b, T>(
@@ -32,7 +32,8 @@ where
         let mut title_description_set = ahash::AHashSet::new();
         let mut value_type_set = indexmap::IndexSet::new();
         let mut constraints = None;
-        let mut enumerate_values = Vec::new();
+        let mut enum_values = Vec::new();
+        let mut result_accessors = tombi_schema_store::Accessors::from(accessors.to_vec());
         let default = all_of_schema
             .default
             .as_ref()
@@ -53,10 +54,10 @@ where
             if let Some(values) = current_schema
                 .value_schema
                 .as_ref()
-                .get_enumerate(schema_uri, definitions, schema_context)
+                .get_enum(schema_uri, definitions, schema_context)
                 .await
             {
-                enumerate_values.extend(values);
+                enum_values.extend(values);
             }
 
             if let Some(hover_content) = value
@@ -84,12 +85,19 @@ where
                         if let Some(c) = hover_value_content.constraints {
                             constraints = Some(c);
                         }
+
+                        // Use the accessors from the successfully resolved schema if they're more specific
+                        if hover_value_content.accessors.as_ref().len()
+                            > result_accessors.as_ref().len()
+                        {
+                            result_accessors = hover_value_content.accessors;
+                        }
                     }
                     HoverContent::Directive(hover_content) => {
-                        return Some(HoverContent::Directive(hover_content))
+                        return Some(HoverContent::Directive(hover_content));
                     }
                     HoverContent::DirectiveContent(hover_content) => {
-                        return Some(HoverContent::DirectiveContent(hover_content))
+                        return Some(HoverContent::DirectiveContent(hover_content));
                     }
                 }
             }
@@ -129,12 +137,12 @@ where
             }
         }
 
-        if !enumerate_values.is_empty() {
+        if !enum_values.is_empty() {
             if let Some(constraints) = constraints.as_mut() {
-                constraints.enumerate = Some(enumerate_values);
+                constraints.r#enum = Some(enum_values);
             } else {
                 constraints = Some(ValueConstraints {
-                    enumerate: Some(enumerate_values),
+                    r#enum: Some(enum_values),
                     ..Default::default()
                 });
             }
@@ -143,7 +151,7 @@ where
         Some(HoverContent::Value(HoverValueContent {
             title,
             description,
-            accessors: tombi_schema_store::Accessors::from(accessors.to_vec()),
+            accessors: result_accessors,
             value_type,
             constraints,
             schema_uri: Some(schema_uri.to_owned()),
@@ -169,7 +177,7 @@ impl GetHoverContent for tombi_schema_store::AllOfSchema {
 
             let mut title_description_set = ahash::AHashSet::new();
             let mut value_type_set = indexmap::IndexSet::new();
-            let mut enumerate_values = Vec::new();
+            let mut enum_values = Vec::new();
             let default = self
                 .default
                 .as_ref()
@@ -201,10 +209,10 @@ impl GetHoverContent for tombi_schema_store::AllOfSchema {
 
                 if let Some(values) = value_schema
                     .as_ref()
-                    .get_enumerate(&schema_uri, &definitions, schema_context)
+                    .get_enum(&schema_uri, &definitions, schema_context)
                     .await
                 {
-                    enumerate_values.extend(values);
+                    enum_values.extend(values);
                 }
             }
 
@@ -252,12 +260,12 @@ impl GetHoverContent for tombi_schema_store::AllOfSchema {
                 }
             }
 
-            if !enumerate_values.is_empty() {
+            if !enum_values.is_empty() {
                 if let Some(constraints) = hover_value_content.constraints.as_mut() {
-                    constraints.enumerate = Some(enumerate_values);
+                    constraints.r#enum = Some(enum_values);
                 } else {
                     hover_value_content.constraints = Some(ValueConstraints {
-                        enumerate: Some(enumerate_values),
+                        r#enum: Some(enum_values),
                         ..Default::default()
                     });
                 }

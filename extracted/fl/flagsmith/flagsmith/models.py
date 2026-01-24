@@ -3,10 +3,9 @@ from __future__ import annotations
 import typing
 from dataclasses import dataclass, field
 
-from flag_engine.result.types import EvaluationResult, FlagResult
-
 from flagsmith.analytics import AnalyticsProcessor
 from flagsmith.exceptions import FlagsmithFeatureDoesNotExistError
+from flagsmith.types import SDKEvaluationResult, SDKFlagResult
 
 
 @dataclass
@@ -29,13 +28,18 @@ class Flag(BaseFlag):
     @classmethod
     def from_evaluation_result(
         cls,
-        flag: FlagResult,
+        flag_result: SDKFlagResult,
     ) -> Flag:
-        return Flag(
-            enabled=flag["enabled"],
-            value=flag["value"],
-            feature_name=flag["name"],
-            feature_id=int(flag["feature_key"]),
+        if metadata := flag_result.get("metadata"):
+            return Flag(
+                enabled=flag_result["enabled"],
+                value=flag_result["value"],
+                feature_name=flag_result["name"],
+                feature_id=metadata["id"],
+            )
+        raise ValueError(
+            "FlagResult metadata is missing. Cannot create Flag instance. "
+            "This means a bug in the SDK, please report it."
         )
 
     @classmethod
@@ -57,19 +61,15 @@ class Flags:
     @classmethod
     def from_evaluation_result(
         cls,
-        evaluation_result: EvaluationResult,
+        evaluation_result: SDKEvaluationResult,
         analytics_processor: typing.Optional[AnalyticsProcessor],
         default_flag_handler: typing.Optional[typing.Callable[[str], DefaultFlag]],
     ) -> Flags:
         return cls(
             flags={
-                flag["name"]: Flag(
-                    enabled=flag["enabled"],
-                    value=flag["value"],
-                    feature_name=flag["name"],
-                    feature_id=int(flag["feature_key"]),
-                )
-                for flag in evaluation_result["flags"]
+                flag_name: flag
+                for flag_name, flag_result in evaluation_result["flags"].items()
+                if (flag := Flag.from_evaluation_result(flag_result))
             },
             default_flag_handler=default_flag_handler,
             _analytics_processor=analytics_processor,

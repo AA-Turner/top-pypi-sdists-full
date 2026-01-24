@@ -18,6 +18,7 @@ Usage::
         ListPlanExecutionsPaginator,
         ListPlansInRegionPaginator,
         ListPlansPaginator,
+        ListRoute53HealthChecksInRegionPaginator,
         ListRoute53HealthChecksPaginator,
         PlanEvaluationStatusPassedWaiter,
         PlanExecutionCompletedWaiter,
@@ -35,6 +36,7 @@ Usage::
     list_plan_executions_paginator: ListPlanExecutionsPaginator = client.get_paginator("list_plan_executions")
     list_plans_in_region_paginator: ListPlansInRegionPaginator = client.get_paginator("list_plans_in_region")
     list_plans_paginator: ListPlansPaginator = client.get_paginator("list_plans")
+    list_route53_health_checks_in_region_paginator: ListRoute53HealthChecksInRegionPaginator = client.get_paginator("list_route53_health_checks_in_region")
     list_route53_health_checks_paginator: ListRoute53HealthChecksPaginator = client.get_paginator("list_route53_health_checks")
     ```
 """
@@ -47,6 +49,7 @@ from .paginator import (
     ListPlanExecutionsPaginator,
     ListPlansInRegionPaginator,
     ListPlansPaginator,
+    ListRoute53HealthChecksInRegionPaginator,
     ListRoute53HealthChecksPaginator,
 )
 from .waiter import PlanEvaluationStatusPassedWaiter, PlanExecutionCompletedWaiter
@@ -62,6 +65,7 @@ __all__ = (
     "ListPlanExecutionsPaginator",
     "ListPlansInRegionPaginator",
     "ListPlansPaginator",
+    "ListRoute53HealthChecksInRegionPaginator",
     "ListRoute53HealthChecksPaginator",
     "PlanEvaluationStatusPassedWaiter",
     "PlanExecutionCompletedWaiter",

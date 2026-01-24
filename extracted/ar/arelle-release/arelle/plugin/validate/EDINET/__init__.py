@@ -9,8 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from arelle.ModelXbrl import ModelXbrl
+from arelle.ValidateXbrl import ValidateXbrl
 from arelle.Version import authorLabel, copyrightLabel
 from . import Constants
+from .ControllerPluginData import ControllerPluginData
 from .ValidationPluginExtension import ValidationPluginExtension
 from .rules import contexts, edinet, frta, gfm, manifests, upload
 
@@ -18,12 +20,8 @@ PLUGIN_NAME = "Validate EDINET"
 DISCLOSURE_SYSTEM_VALIDATION_TYPE = "EDINET"
 RELEVELER_MAP: dict[str, dict[str, tuple[str, str | None]]] = {
     "ERROR": {
-        # Silence, duplicated by EDINET.EC5002E
-        "xbrl.4.8.2:sharesFactUnit-notSharesMeasure": ("ERROR", None),
-        # Silence, duplicated by EDINET.EC5002E
-        "xbrl.4.8.2:sharesFactUnit-notSingleMeasure": ("ERROR", None),
-        # Silence, duplicated by EDINET.EC5700W.GFM.1.7.2
-        "xbrl.5.2.5.2.1:zeroWeight": ("ERROR", None),
+        # Re-code to EDINET version
+        "GFM.1.1.3": ("WARNING", "EDINET.EC5700W.GFM.1.1.3"),
     },
 }
 
@@ -56,8 +54,15 @@ def fileSourceEntrypointFiles(*args: Any, **kwargs: Any) -> list[dict[str, Any]]
 
 
 def loggingSeverityReleveler(modelXbrl: ModelXbrl, level: str, messageCode: str, args: Any, **kwargs: Any) -> tuple[str | None, str | None]:
-    if level in RELEVELER_MAP:
-        return RELEVELER_MAP[level].get(messageCode, (level, messageCode))
+    if level not in RELEVELER_MAP:
+        return level, messageCode
+    messageCodes = list(args.get('messageCodes') or [])
+    if messageCode is not None:
+        messageCodes.append(messageCode)
+    for code in messageCodes:
+        result =  RELEVELER_MAP[level].get(code)
+        if result is not None:
+            return result
     return level, messageCode
 
 
@@ -71,6 +76,13 @@ def validateFileSource(*args: Any, **kwargs: Any) -> None:
 
 def validateFinally(*args: Any, **kwargs: Any) -> None:
     return validationPlugin.validateFinally(*args, **kwargs)
+
+
+def validateXbrlStart(val: ValidateXbrl, *args: Any, **kwargs: Any) -> None:
+    # TODO: See ControllerPluginData.loadedModelXbrls comment
+    controllerPluginData = ControllerPluginData.get(val.modelXbrl.modelManager.cntlr, PLUGIN_NAME)
+    controllerPluginData.addModelXbrl(val.modelXbrl)
+    return validationPlugin.validateXbrlStart(val, *args, **kwargs)
 
 
 def validateXbrlFinally(*args: Any, **kwargs: Any) -> None:
@@ -92,5 +104,6 @@ __pluginInfo__ = {
     "Validate.Complete": validateComplete,
     "Validate.FileSource": validateFileSource,
     "Validate.XBRL.Finally": validateXbrlFinally,
+    'Validate.XBRL.Start': validateXbrlStart,
     "ValidateFormula.Finished": validateFinally,
 }

@@ -1,0 +1,185 @@
+[project]
+name = "cclib"
+dynamic = ["version"]
+description = "parsers and algorithms for computational chemistry"
+readme = "README.md"
+authors = [
+    {name = "cclib development team", email = "cclib@googlegroups.com"}
+]
+maintainers = [
+    {name = "cclib development team", email = "cclib@googlegroups.com"}
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "numpy",
+    "packaging>=19.0",
+    "periodictable",
+    "scipy>=1.2.0",
+]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/cclib/cclib/issues"
+Changelog = "https://github.com/cclib/cclib/blob/master/doc/sphinx/changelog.rst"
+Documentation = "http://cclib.github.io/"
+Homepage = "https://github.com/cclib/cclib"
+
+[project.scripts]
+ccframe = "cclib.scripts.ccframe:main"
+ccget = "cclib.scripts.ccget:ccget"
+ccwrite = "cclib.scripts.ccwrite:main"
+cda = "cclib.scripts.cda:main"
+
+[project.optional-dependencies]
+bridges = [
+    "ase>=3.21",
+    "biopython",
+    "openbabel",
+    "pandas",
+    "pyscf",
+    "qc-iodata>=1.0.0a2",
+]
+docs = [
+    "sphinx",
+    "sphinx_rtd_theme",
+]
+test = [
+    "pytest",
+    "coverage",
+    "pytest-cov",
+]
+dev = ["cclib[bridges,docs,test]"]
+all = ["cclib[bridges]"]
+
+[build-system]
+requires = ["setuptools >= 61.0", "versioningit~=2.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+zip-safe = false
+
+[tool.setuptools.package-dir]
+cclib = "cclib"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+# default is FUTURE,STDLIB,THIRDPARTY,FIRSTPARTY,LOCALFOLDER
+# Placing third-party imports at the end makes their inclusion more obvious
+sections = ["FUTURE", "STDLIB", "FIRSTPARTY", "THIRDPARTY", "LOCALFOLDER"]
+
+[tool.ruff]
+line-length = 100
+src = ["cclib"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint]
+select = []
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+section-order = ["future", "standard-library", "first-party", "third-party", "local-folder"]
+
+[tool.ruff.per-file-ignores]
+"test/test*.py" = [
+    "PLR2004", # magic value comparison
+    "S101",    # use of assert detected
+    "TCH002",  # third party import (for pytest)
+]
+
+[tool.mypy]
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+
+scripts_are_modules = true
+warn_unused_configs = true
+
+# Disallow dynamic typing
+# disallow_any_unimported = true
+# disallow_any_expr = true
+# disallow_any_decorated = true
+# disallow_any_explicit = true
+# disallow_any_generics = true
+# disallow_subclassing_any = true
+
+# Untyped definitions and calls
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+# check_untyped_defs = true
+disallow_untyped_decorators = true
+
+# None and optional handling
+
+# Configuring warnings
+warn_unused_ignores = true
+#warn_return_any = true
+#warn_unreachable = true
+
+# Miscellaneous
+#warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "Bio.PDB.Atom",
+    "Bio.PDB.Superimposer",
+    "PyQuante.CGBF",
+    "PyQuante.Molecule",
+    "PyQuante.hartree_fock",
+    "ase",
+    "ase.calculators.calculator",
+    "ase.calculators.emt",
+    "ase.io.trajectory",
+    "h5py",
+    "horton",
+    "horton.io.iodata",
+    "iodata",
+    "iodata.api",
+    "iodata.orbitals",
+    "openbabel",
+    "openbabel.pybel",
+    "periodictable",
+    "psi4",
+    "psi4.core",
+    "pybel",
+    "pyquante2",
+    "pyscf",
+    "pyvtk",
+    "pyvtk.DataSetAttr",
+    "scipy",
+    "scipy.constants",
+    "scipy.spatial",
+    "scipy.spatial.transform",
+    "skip",
+    "test_data",
+    "common",
+]
+ignore_missing_imports = true
+
+[tool.versioningit.format]
+method = {module = "versioningit_override", value = "cclib_format", module-dir = "tools"}
+
+[tool.versioningit.template-fields.version-tuple]
+pep440 = true
+
+[tool.versioningit.vcs]
+method = "git"
+match = ["v*"]
+
+[tool.versioningit.write]
+file = "cclib/_version.py"

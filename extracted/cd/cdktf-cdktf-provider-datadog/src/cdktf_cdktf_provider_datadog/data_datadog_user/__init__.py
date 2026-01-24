@@ -1,7 +1,7 @@
 r'''
 # `data_datadog_user`
 
-Refer to the Terraform Registry for docs: [`data_datadog_user`](https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user).
+Refer to the Terraform Registry for docs: [`data_datadog_user`](https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DataDatadogUser(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.dataDatadogUser.DataDatadogUser",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user datadog_user}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user datadog_user}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class DataDatadogUser(
         *,
         filter: builtins.str,
         exact_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        exclude_service_accounts: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -62,13 +63,14 @@ class DataDatadogUser(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user datadog_user} Data Source.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user datadog_user} Data Source.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#filter DataDatadogUser#filter}
-        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#id DataDatadogUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#filter DataDatadogUser#filter}
+        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
+        :param exclude_service_accounts: When true, service accounts are excluded from the result. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exclude_service_accounts DataDatadogUser#exclude_service_accounts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#id DataDatadogUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -84,6 +86,7 @@ class DataDatadogUser(
         config = DataDatadogUserConfig(
             filter=filter,
             exact_match=exact_match,
+            exclude_service_accounts=exclude_service_accounts,
             id=id,
             connection=connection,
             count=count,
@@ -109,7 +112,7 @@ class DataDatadogUser(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DataDatadogUser to import.
-        :param import_from_id: The id of the existing DataDatadogUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DataDatadogUser that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DataDatadogUser to import is found.
         '''
         if __debug__:
@@ -123,6 +126,10 @@ class DataDatadogUser(
     @jsii.member(jsii_name="resetExactMatch")
     def reset_exact_match(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetExactMatch", []))
+
+    @jsii.member(jsii_name="resetExcludeServiceAccounts")
+    def reset_exclude_service_accounts(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetExcludeServiceAccounts", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -209,6 +216,13 @@ class DataDatadogUser(
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "exactMatchInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="excludeServiceAccountsInput")
+    def exclude_service_accounts_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "excludeServiceAccountsInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="filterInput")
     def filter_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "filterInput"))
@@ -232,6 +246,23 @@ class DataDatadogUser(
             type_hints = typing.get_type_hints(_typecheckingstub__3629a2e0b181115691143bf53c46fe5a890f629caf8f3dc0a0fcd944d3fa1e5a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "exactMatch", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="excludeServiceAccounts")
+    def exclude_service_accounts(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "excludeServiceAccounts"))
+
+    @exclude_service_accounts.setter
+    def exclude_service_accounts(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93569844c508f100ac2c483018dd37d9c6655946eda196065ca5893095d0e4fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludeServiceAccounts", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="filter")
@@ -271,6 +302,7 @@ class DataDatadogUser(
         "provisioners": "provisioners",
         "filter": "filter",
         "exact_match": "exactMatch",
+        "exclude_service_accounts": "excludeServiceAccounts",
         "id": "id",
     },
 )
@@ -287,6 +319,7 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         filter: builtins.str,
         exact_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        exclude_service_accounts: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -297,9 +330,10 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#filter DataDatadogUser#filter}
-        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#id DataDatadogUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param filter: Filter all users by the given string. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#filter DataDatadogUser#filter}
+        :param exact_match: When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
+        :param exclude_service_accounts: When true, service accounts are excluded from the result. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exclude_service_accounts DataDatadogUser#exclude_service_accounts}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#id DataDatadogUser#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -314,6 +348,7 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument filter", value=filter, expected_type=type_hints["filter"])
             check_type(argname="argument exact_match", value=exact_match, expected_type=type_hints["exact_match"])
+            check_type(argname="argument exclude_service_accounts", value=exclude_service_accounts, expected_type=type_hints["exclude_service_accounts"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "filter": filter,
@@ -334,6 +369,8 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if exact_match is not None:
             self._values["exact_match"] = exact_match
+        if exclude_service_accounts is not None:
+            self._values["exclude_service_accounts"] = exclude_service_accounts
         if id is not None:
             self._values["id"] = id
 
@@ -405,7 +442,7 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def filter(self) -> builtins.str:
         '''Filter all users by the given string.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#filter DataDatadogUser#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#filter DataDatadogUser#filter}
         '''
         result = self._values.get("filter")
         assert result is not None, "Required property 'filter' is missing"
@@ -417,14 +454,25 @@ class DataDatadogUserConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''When true, ``filter`` string is exact matched against the user's ``email``, followed by ``name`` attribute. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exact_match DataDatadogUser#exact_match}
         '''
         result = self._values.get("exact_match")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def exclude_service_accounts(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''When true, service accounts are excluded from the result. Defaults to ``false``.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#exclude_service_accounts DataDatadogUser#exclude_service_accounts}
+        '''
+        result = self._values.get("exclude_service_accounts")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.74.0/docs/data-sources/user#id DataDatadogUser#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.82.0/docs/data-sources/user#id DataDatadogUser#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -457,6 +505,7 @@ def _typecheckingstub__15f177ad869c4625f33fcc1cbb99b29d9a9a66a282a2941d1360f4de8
     *,
     filter: builtins.str,
     exact_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    exclude_service_accounts: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
@@ -479,6 +528,12 @@ def _typecheckingstub__b97b4a5e025989694f7488de9e34b71b58968246da70b4403200e4363
     pass
 
 def _typecheckingstub__3629a2e0b181115691143bf53c46fe5a890f629caf8f3dc0a0fcd944d3fa1e5a(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93569844c508f100ac2c483018dd37d9c6655946eda196065ca5893095d0e4fb(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
@@ -507,6 +562,7 @@ def _typecheckingstub__c81880cdc52963d47f07b307a81c955bdb8829b9a04d218367496a71a
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     filter: builtins.str,
     exact_match: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    exclude_service_accounts: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

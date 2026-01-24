@@ -17,9 +17,7 @@ from typing import Any, Dict, List, Optional
 from datarobot.utils import camelize
 
 
-def exclude_if(
-    field_name: str, field_value: Any, if_matches: Optional[List[Any]] | None = None
-) -> Dict[str, Any]:
+def exclude_if(field_name: str, field_value: Any, if_matches: Optional[List[Any]] | None = None) -> Dict[str, Any]:
     """
     Several API fields are optional but do not accept blank or empty values.
     This function returns a dict to use with update() to construct an API payload.

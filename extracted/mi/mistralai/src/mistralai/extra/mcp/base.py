@@ -1,11 +1,14 @@
-from typing import Optional, Union
 import logging
 import typing
+from collections.abc import Sequence
 from contextlib import AsyncExitStack
-from typing import Protocol, Any
+from typing import Any, Protocol
 
-from mcp import ClientSession
-from mcp.types import ListPromptsResult, EmbeddedResource, ImageContent, TextContent
+from mcp import ClientSession  # pyright: ignore[reportMissingImports]
+from mcp.types import (  # pyright: ignore[reportMissingImports]
+    ContentBlock,
+    ListPromptsResult,
+)
 
 from mistralai.extra.exceptions import MCPException
 from mistralai.models import (
@@ -20,8 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 class MCPSystemPrompt(typing.TypedDict):
-    description: Optional[str]
-    messages: list[Union[SystemMessageTypedDict, AssistantMessageTypedDict]]
+    description: str | None
+    messages: list[SystemMessageTypedDict | AssistantMessageTypedDict]
 
 
 class MCPClientProtocol(Protocol):
@@ -29,7 +32,7 @@ class MCPClientProtocol(Protocol):
 
     _name: str
 
-    async def initialize(self, exit_stack: Optional[AsyncExitStack]) -> None:
+    async def initialize(self, exit_stack: AsyncExitStack | None) -> None:
         ...
 
     async def aclose(self) -> None:
@@ -39,7 +42,7 @@ class MCPClientProtocol(Protocol):
         ...
 
     async def execute_tool(
-        self, name: str, arguments: dict
+        self, name: str, arguments: dict[str, Any]
     ) -> list[TextChunkTypedDict]:
         ...
 
@@ -57,20 +60,18 @@ class MCPClientBase(MCPClientProtocol):
 
     _session: ClientSession
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, name: str | None = None):
         self._name = name or self.__class__.__name__
-        self._exit_stack: Optional[AsyncExitStack] = None
+        self._exit_stack: AsyncExitStack | None = None
         self._is_initialized = False
 
-    def _convert_content(
-        self, mcp_content: Union[TextContent, ImageContent, EmbeddedResource]
-    ) -> TextChunkTypedDict:
+    def _convert_content(self, mcp_content: ContentBlock) -> TextChunkTypedDict:
         if not mcp_content.type == "text":
             raise MCPException("Only supporting text tool responses for now.")
         return {"type": "text", "text": mcp_content.text}
 
     def _convert_content_list(
-        self, mcp_contents: list[Union[TextContent, ImageContent, EmbeddedResource]]
+        self, mcp_contents: Sequence[ContentBlock]
     ) -> list[TextChunkTypedDict]:
         content_chunks = []
         for mcp_content in mcp_contents:
@@ -108,7 +109,7 @@ class MCPClientBase(MCPClientProtocol):
             "description": prompt_result.description,
             "messages": [
                 typing.cast(
-                    Union[SystemMessageTypedDict, AssistantMessageTypedDict],
+                    SystemMessageTypedDict | AssistantMessageTypedDict,
                     {
                         "role": message.role,
                         "content": self._convert_content(mcp_content=message.content),
@@ -121,7 +122,7 @@ class MCPClientBase(MCPClientProtocol):
     async def list_system_prompts(self) -> ListPromptsResult:
         return await self._session.list_prompts()
 
-    async def initialize(self, exit_stack: Optional[AsyncExitStack] = None) -> None:
+    async def initialize(self, exit_stack: AsyncExitStack | None = None) -> None:
         """Initialize the MCP session."""
         # client is already initialized so return
         if self._is_initialized:

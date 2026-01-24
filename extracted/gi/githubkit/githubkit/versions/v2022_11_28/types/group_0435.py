@@ -9,42 +9,34 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0059 import MarketplaceListingPlanType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class UserMarketplacePurchaseType(TypedDict):
-    """User Marketplace Purchase
+class StargazerType(TypedDict):
+    """Stargazer
 
-    User Marketplace Purchase
+    Stargazer
     """
 
-    billing_cycle: str
-    next_billing_date: Union[datetime, None]
-    unit_count: Union[int, None]
-    on_free_trial: bool
-    free_trial_ends_on: Union[datetime, None]
-    updated_at: Union[datetime, None]
-    account: MarketplaceAccountType
-    plan: MarketplaceListingPlanType
+    starred_at: _dt.datetime
+    user: Union[None, SimpleUserType]
 
 
-class MarketplaceAccountType(TypedDict):
-    """Marketplace Account"""
+class StargazerTypeForResponse(TypedDict):
+    """Stargazer
 
-    url: str
-    id: int
-    type: str
-    node_id: NotRequired[str]
-    login: str
-    email: NotRequired[Union[str, None]]
-    organization_billing_email: NotRequired[Union[str, None]]
+    Stargazer
+    """
+
+    starred_at: str
+    user: Union[None, SimpleUserTypeForResponse]
 
 
 __all__ = (
-    "MarketplaceAccountType",
-    "UserMarketplacePurchaseType",
+    "StargazerType",
+    "StargazerTypeForResponse",
 )

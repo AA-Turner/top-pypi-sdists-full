@@ -1,24 +1,22 @@
 Metadata-Version: 2.4
 Name: zigpy
-Version: 0.83.0
+Version: 0.90.0
 Summary: Library implementing a Zigbee stack
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0
 Project-URL: repository, https://github.com/zigpy/zigpy
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYING
 Requires-Dist: attrs
 Requires-Dist: aiohttp
-Requires-Dist: aiosqlite>=0.20.0
+Requires-Dist: aiosqlite<0.22.0,>=0.20.0
 Requires-Dist: crccheck
 Requires-Dist: cryptography
-Requires-Dist: async-timeout; python_version < "3.11"
 Requires-Dist: voluptuous
 Requires-Dist: jsonschema
-Requires-Dist: pyserial-asyncio; platform_system != "Windows"
-Requires-Dist: pyserial-asyncio!=0.5; platform_system == "Windows"
+Requires-Dist: pyserial-asyncio-fast
 Requires-Dist: typing_extensions
 Requires-Dist: frozendict
 Provides-Extra: testing
@@ -26,6 +24,7 @@ Requires-Dist: tomli; extra == "testing"
 Requires-Dist: asynctest; extra == "testing"
 Requires-Dist: coveralls; extra == "testing"
 Requires-Dist: coverage[toml]; extra == "testing"
+Requires-Dist: filelock; extra == "testing"
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: pytest-asyncio<1.0.0; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"
@@ -55,7 +54,7 @@ The **[ZHA integration component for Home Assistant](https://www.home-assistant.
 
 zigpy have ability to download and perform Zigbee OTAU (Over-The-Air Updates) of Zigbee devices firmware. The Zigbee OTA update firmware image files should conform to standard Zigbee OTA format and OTA provider source URLs need to be published for public availability. Updates from a local OTA update directory also is also supported and can be used as an option for offline firmware updates if user provide correct Zigbee OTA formatted firmware files themselves.
 
-Support for automatic download from existing online OTA providers in zigpy OTA provider code is currently only available for IKEA, Inovelli, LEDVANCE/OSRAM, and SONOFF/ITEAD devices. Support for additional OTA providers for other manufacturers devices could be added to zigpy in the future, if device manufacturers publish their firmware images publicly and developers contribute the needed download code for them.
+Support for automatic download from existing online OTA providers in zigpy OTA provider code is currently only available for IKEA, Inovelli, LEDVANCE/OSRAM, SONOFF/ITEAD, and ThirdReality (3reality) devices. Support for additional OTA providers for other manufacturers devices could be added to zigpy in the future, if device manufacturers publish their firmware images publicly and developers contribute the needed download code for them.
 
 ## How to install and test, report bugs, or contribute to this project
 

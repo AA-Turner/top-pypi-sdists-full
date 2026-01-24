@@ -12,7 +12,7 @@ this submodule validates that there exists a one-to-one mapping between public
 attributes exported by the :mod:`beartype.typing` and :mod:`typing` submodules.
 
 Caveats
-----------
+-------
 **This submodule only tests correspondence** (i.e., the one-to-one attribute
 mapping detailed above). This submodule does *not* test low-level functionality
 of attributes declared by the :mod:`beartype.typing` submodule. Why? Because
@@ -49,6 +49,7 @@ def test_api_typing() -> None:
     import typing as official_typing
     from beartype import typing as beartype_typing
     from beartype._util.py.utilpyversion import (
+        IS_PYTHON_AT_MOST_3_16,
         IS_PYTHON_AT_LEAST_3_13,
     )
 
@@ -114,7 +115,6 @@ def test_api_typing() -> None:
         'AsyncIterable',
         'AsyncIterator',
         'Awaitable',
-        'ByteString',
         'Callable',
         'ChainMap',
         'Collection',
@@ -162,20 +162,27 @@ def test_api_typing() -> None:
     }
 
     # ..................{ MAGIC ~ version                    }..................
+    # If the active Python interpreter targets Python <= 3.16...
+    if IS_PYTHON_AT_MOST_3_16:
+        # Add all hard-deprecated public "typing" attributes that have since
+        # been permanently removed under newer Python versions.
+        TYPING_ATTR_UNEQUAL_NAMES.add('ByteString')
+    # Else, the active Python interpreter targets Python >= 3.17.
+
     # If the active Python interpreter targets Python >= 3.13...
     if IS_PYTHON_AT_LEAST_3_13:
-        # Add all soft-deprecated public "typing" attributes only
-        # dynamically defined by the typing.__getattr__() dunder method and
-        # thus inaccessible to the introspection performed above.
+        # Add all soft-deprecated public "typing" attributes only dynamically
+        # defined by the typing.__getattr__() dunder method and thus
+        # inaccessible to the introspection performed above.
         TYPING_ATTR_PUBLIC_DYNAMIC_NAMES.add(
             # This is an odd one, frankly. The typing.__getattr__() dunder
-            # method now dynamically exports both the "AsyncContextManager"
-            # and "ContextManager" ABCs. For unknown reasons, the
-            # introspection performed below *ONLY* detects the former as
-            # undefined by the "typing" module. Why? No idea. Clearly, both
-            # are defined. *shrug*
+            # method now dynamically exports both the "AsyncContextManager" and
+            # "ContextManager" ABCs. For unknown reasons, the introspection
+            # performed below *ONLY* detects the former as undefined by the
+            # "typing" module. Why? No idea. Clearly, both are defined. *shrug*
             'AsyncContextManager',  # <-- no idea, but just go with it
         )
+    # Else, the active Python interpreter targets Python <= 3.12.
 
     # ..................{ LOCALS                             }..................
     # Set of the names of *ALL* attributes (both public and private) declared by
@@ -236,6 +243,8 @@ def test_api_typing() -> None:
     # of either "beartype.typing" or "typing" but *NOT* both).
     DIFFERENT_TYPING_ATTR_NAMES = (
         BEARTYPE_TYPING_ATTR_NAMES ^ OFFICIAL_TYPING_ATTR_NAMES)
+    # print(f'beartype.typing: {"ByteString" in BEARTYPE_TYPING_ATTR_NAMES}')
+    # print(f'typing: {"ByteString" in OFFICIAL_TYPING_ATTR_NAMES}')
 
     # Set of the basenames of all public attributes declared by the "typing"
     # module whose values are identical to those declared by the
@@ -246,7 +255,7 @@ def test_api_typing() -> None:
     # ..................{ ASSERTS                            }..................
     #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     # CAUTION: When this assertion fails, the culprit is *USUALLY* the "typing"
-    # module for the active Python module, which has probably erroneously
+    # module for the active Python version, which has probably erroneously
     # publicized one or more public attributes. In this case, the names of these
     # attributes *MUST* be manually added to the
     # "TYPING_ATTR_PUBLIC_BAD_NAMES" set defined far above.

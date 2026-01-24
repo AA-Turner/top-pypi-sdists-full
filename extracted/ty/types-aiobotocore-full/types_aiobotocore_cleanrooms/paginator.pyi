@@ -3,7 +3,7 @@ Type annotations for cleanrooms service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -14,6 +14,7 @@ Usage::
     from types_aiobotocore_cleanrooms.paginator import (
         ListAnalysisTemplatesPaginator,
         ListCollaborationAnalysisTemplatesPaginator,
+        ListCollaborationChangeRequestsPaginator,
         ListCollaborationConfiguredAudienceModelAssociationsPaginator,
         ListCollaborationIdNamespaceAssociationsPaginator,
         ListCollaborationPrivacyBudgetTemplatesPaginator,
@@ -39,6 +40,7 @@ Usage::
 
         list_analysis_templates_paginator: ListAnalysisTemplatesPaginator = client.get_paginator("list_analysis_templates")
         list_collaboration_analysis_templates_paginator: ListCollaborationAnalysisTemplatesPaginator = client.get_paginator("list_collaboration_analysis_templates")
+        list_collaboration_change_requests_paginator: ListCollaborationChangeRequestsPaginator = client.get_paginator("list_collaboration_change_requests")
         list_collaboration_configured_audience_model_associations_paginator: ListCollaborationConfiguredAudienceModelAssociationsPaginator = client.get_paginator("list_collaboration_configured_audience_model_associations")
         list_collaboration_id_namespace_associations_paginator: ListCollaborationIdNamespaceAssociationsPaginator = client.get_paginator("list_collaboration_id_namespace_associations")
         list_collaboration_privacy_budget_templates_paginator: ListCollaborationPrivacyBudgetTemplatesPaginator = client.get_paginator("list_collaboration_privacy_budget_templates")
@@ -71,6 +73,8 @@ from .type_defs import (
     ListAnalysisTemplatesOutputTypeDef,
     ListCollaborationAnalysisTemplatesInputPaginateTypeDef,
     ListCollaborationAnalysisTemplatesOutputTypeDef,
+    ListCollaborationChangeRequestsInputPaginateTypeDef,
+    ListCollaborationChangeRequestsOutputTypeDef,
     ListCollaborationConfiguredAudienceModelAssociationsInputPaginateTypeDef,
     ListCollaborationConfiguredAudienceModelAssociationsOutputTypeDef,
     ListCollaborationIdNamespaceAssociationsInputPaginateTypeDef,
@@ -115,6 +119,7 @@ else:
 __all__ = (
     "ListAnalysisTemplatesPaginator",
     "ListCollaborationAnalysisTemplatesPaginator",
+    "ListCollaborationChangeRequestsPaginator",
     "ListCollaborationConfiguredAudienceModelAssociationsPaginator",
     "ListCollaborationIdNamespaceAssociationsPaginator",
     "ListCollaborationPrivacyBudgetTemplatesPaginator",
@@ -170,6 +175,26 @@ class ListCollaborationAnalysisTemplatesPaginator(_ListCollaborationAnalysisTemp
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListCollaborationAnalysisTemplates.html#CleanRoomsService.Paginator.ListCollaborationAnalysisTemplates.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listcollaborationanalysistemplatespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCollaborationChangeRequestsPaginatorBase = AioPaginator[
+        ListCollaborationChangeRequestsOutputTypeDef
+    ]
+else:
+    _ListCollaborationChangeRequestsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListCollaborationChangeRequestsPaginator(_ListCollaborationChangeRequestsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListCollaborationChangeRequests.html#CleanRoomsService.Paginator.ListCollaborationChangeRequests)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listcollaborationchangerequestspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCollaborationChangeRequestsInputPaginateTypeDef]
+    ) -> AioPageIterator[ListCollaborationChangeRequestsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/paginator/ListCollaborationChangeRequests.html#CleanRoomsService.Paginator.ListCollaborationChangeRequests.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/paginators/#listcollaborationchangerequestspaginator)
         """
 
 if TYPE_CHECKING:

@@ -18,6 +18,7 @@ import functools
 import re
 import time
 from unittest import mock
+import uuid
 
 import netaddr
 from neutron_lib.api.definitions import external_net
@@ -40,8 +41,8 @@ from neutron.conf.plugins.ml2.drivers.ovn import ovn_conf
 from neutron.db import ovn_hash_ring_db
 from neutron.db import ovn_revision_numbers_db as db_rev
 from neutron.plugins.ml2 import db as ml2_db
+from neutron.plugins.ml2.drivers.ovn.agent import neutron_agent as n_agent
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovsdb_monitor
-from neutron.tests import base as tests_base
 from neutron.tests.functional import base
 from neutron.tests.unit.extensions import test_securitygroup as test_sg
 
@@ -97,6 +98,34 @@ class TestOVNMechanismDriver(base.TestOVNFunctionalBase):
         for ovn_hr in ovn_hrs:
             self.assertEqual(int(start_time.timestamp()),
                              ovn_hr.created_at.timestamp())
+
+
+class TestOvsdbPersistUuid(base.TestOVNFunctionalBase):
+
+    def _create_port(self, name, net_id):
+        data = {'port': {'name': name,
+                         'tenant_id': self._tenant_id,
+                         'network_id': net_id}}
+
+        req = self.new_create_request('ports', data, self.fmt)
+        res = req.get_response(self.api)
+        return self.deserialize(self.fmt, res)['port']['id']
+
+    def test_old_network_new_port(self):
+        if not utils.ovs_persist_uuid_supported(self.nb_api):
+            self.skipTest("OVS persist_uuid not supported")
+        mock_supported = mock.patch.object(utils, 'ovs_persist_uuid_supported',
+                                           return_value=False).start()
+        network = self._make_network(self.fmt, 'n1', True)
+        network_id = network['network']['id']
+        self._create_subnet(self.fmt, network_id, '10.0.0.0/24')
+        n1_ls = self.nb_api.ls_get(
+            utils.ovn_name(network_id)).execute(check_error=True)
+        self.assertNotEqual(uuid.UUID(network_id), n1_ls.uuid)
+        mock_supported.return_value = True
+        port = self._create_port("n1_port", network_id)
+        port_lsp = self.nb_api.lsp_get(port).execute(check_error=True)
+        self.assertIn(port_lsp, n1_ls.ports)
 
 
 class TestPortBinding(base.TestOVNFunctionalBase):
@@ -472,7 +501,6 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
         check = functools.partial(self._is_ovn_port_type, port_id, type)
         n_utils.wait_until_true(check, timeout=10)
 
-    @tests_base.unstable_test("bug 1865453")
     def test_virtual_port_created_before(self):
         virt_port = self._create_port()
         virt_ip = virt_port['fixed_ips'][0]['ip_address']
@@ -508,7 +536,6 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
             backup['id'],
             ovn_vport.options[ovn_const.LSP_OPTIONS_VIRTUAL_PARENTS_KEY])
 
-    @tests_base.unstable_test("bug 1865453")
     def test_virtual_port_update_address_pairs(self):
         primary = self._create_port()
         backup = self._create_port()
@@ -517,7 +544,7 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
 
         # Assert the virt port does not yet have the type virtual (no
         # address pairs were set yet)
-        self._check_port_type(virt_port['id'], ''),
+        self._check_port_type(virt_port['id'], '')
         ovn_vport = self._find_port_row(virt_port['id'])
         self.assertNotIn(ovn_const.LSP_OPTIONS_VIRTUAL_PARENTS_KEY,
                          ovn_vport.options)
@@ -528,7 +555,7 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
         self._set_allowed_address_pair(primary['id'], virt_ip)
 
         # Assert the virt port is now updated
-        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL),
+        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL)
         ovn_vport = self._find_port_row(virt_port['id'])
         self.assertEqual(
             virt_ip,
@@ -541,7 +568,7 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
         self._set_allowed_address_pair(backup['id'], virt_ip)
 
         # Assert the virt port now includes the backup port as a parent
-        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL),
+        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL)
         ovn_vport = self._find_port_row(virt_port['id'])
         self.assertEqual(
             virt_ip,
@@ -557,7 +584,7 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
         self._unset_allowed_address_pair(primary['id'])
 
         # Assert the virt port now only has the backup port as a parent
-        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL),
+        self._check_port_type(virt_port['id'], ovn_const.LSP_TYPE_VIRTUAL)
         ovn_vport = self._find_port_row(virt_port['id'])
         self.assertEqual(
             virt_ip,
@@ -571,14 +598,13 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
 
         # Assert the virt port is not type virtual anymore and the virtual
         # port options are cleared
-        self._check_port_type(virt_port['id'], ''),
+        self._check_port_type(virt_port['id'], '')
         ovn_vport = self._find_port_row(virt_port['id'])
         self.assertNotIn(ovn_const.LSP_OPTIONS_VIRTUAL_PARENTS_KEY,
                          ovn_vport.options)
         self.assertNotIn(ovn_const.LSP_OPTIONS_VIRTUAL_IP_KEY,
                          ovn_vport.options)
 
-    @tests_base.unstable_test("bug 1865453")
     def test_virtual_port_created_after(self):
         primary = self._create_port(fixed_ip='10.0.0.11')
         backup = self._create_port(fixed_ip='10.0.0.12')
@@ -605,7 +631,6 @@ class TestVirtualPorts(base.TestOVNFunctionalBase):
             backup['id'],
             ovn_vport.options[ovn_const.LSP_OPTIONS_VIRTUAL_PARENTS_KEY])
 
-    @tests_base.unstable_test("bug 1865453")
     def test_virtual_port_delete_parents(self):
         primary = self._create_port()
         backup = self._create_port()
@@ -1124,8 +1149,6 @@ class TestVlanTransparencyOptions(base.TestOVNFunctionalBase):
 
     def setUp(self):
         common_conf.register_core_common_config_opts()
-        common_conf.cfg.CONF.set_override('vlan_qinq', True)
-        common_conf.cfg.CONF.set_override('vlan_transparent', True)
         super().setUp()
         self._ovn_client = self.mech_driver._ovn_client
 
@@ -1381,11 +1404,10 @@ class TestAgentApi(base.TestOVNFunctionalBase):
     def _check_chassis_registers(self, present=True):
         chassis = self.sb_api.lookup('Chassis', self.chassis, default=None)
         chassis_name = chassis.name if chassis else None
-        if self.sb_api.is_table_present('Chassis_Private'):
-            ch_private = self.sb_api.lookup(
-                'Chassis_Private', self.chassis, default=None)
-            ch_private_name = ch_private.name if ch_private else None
-            self.assertEqual(chassis_name, ch_private_name)
+        ch_private = self.sb_api.lookup(
+            'Chassis_Private', self.chassis, default=None)
+        ch_private_name = ch_private.name if ch_private else None
+        self.assertEqual(chassis_name, ch_private_name)
         if present:
             self.assertEqual(self.chassis, chassis_name)
         else:
@@ -1429,6 +1451,13 @@ class TestAgentApi(base.TestOVNFunctionalBase):
         self.assertCountEqual(list(self.agent_types.values()), agent_ids)
 
     def test_agent_delete(self):
+        agent_cache = n_agent.AgentCache(mock.ANY)
+
+        def wait_until_removed(agent_id):
+            n_utils.wait_until_true(
+                lambda: agent_cache.agents.get(agent_id) is None,
+                timeout=5)
+
         # Non OVN agent deletion.
         agent_id = self.agent_types[self.TEST_AGENT]
         self.plugin.delete_agent(self.context, agent_id)
@@ -1444,6 +1473,7 @@ class TestAgentApi(base.TestOVNFunctionalBase):
         self._check_chassis_registers()
         self.plugin.delete_agent(self.context, controller_id)
         self._check_chassis_registers(present=False)
+        wait_until_removed(controller_id)
         self.assertRaises(agent_exc.AgentNotFound, self.plugin.get_agent,
                           self.context, controller_id)
         self.assertEqual(
@@ -1451,6 +1481,7 @@ class TestAgentApi(base.TestOVNFunctionalBase):
             self.plugin.get_agent(self.context, metadata_id)['id'])
 
         self.plugin.delete_agent(self.context, metadata_id)
+        wait_until_removed(metadata_id)
         self.assertRaises(agent_exc.AgentNotFound, self.plugin.get_agent,
                           self.context, metadata_id)
 

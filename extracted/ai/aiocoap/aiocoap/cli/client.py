@@ -85,6 +85,16 @@ def augment_parser_for_either(p):
         action="store_false",
         default=True,
     )
+    p.add_argument(
+        "--no-sec",
+        # Can be "Send request without any security" once it actually does
+        # anything; until then, it's fine as a no-op to not impede changing
+        # scripts later.
+        help=argparse.SUPPRESS,
+        dest="sec",
+        action="store_false",
+        default=None,
+    )
 
 
 def augment_parser_for_interactive(p, *, prescreen=False):
@@ -670,5 +680,9 @@ async def main(args=None):
         await interactive(globalopts)
 
 
+def sync_main(args=None):
+    asyncio.run(main(args=args))
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    sync_main()

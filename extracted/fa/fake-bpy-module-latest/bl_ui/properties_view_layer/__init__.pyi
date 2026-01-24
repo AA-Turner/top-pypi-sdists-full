@@ -15,14 +15,12 @@ class VIEWLAYER_MT_lightgroup_sync(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -45,14 +43,12 @@ class VIEWLAYER_PT_context_layer(ViewLayerButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -82,14 +78,12 @@ class VIEWLAYER_PT_eevee_layer_passes_data(ViewLayerButtonsPanel, _bpy_types.Pan
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -113,14 +107,12 @@ class VIEWLAYER_PT_eevee_layer_passes_light(ViewLayerButtonsPanel, _bpy_types.Pa
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -143,14 +135,12 @@ class VIEWLAYER_PT_filter(ViewLayerButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -172,14 +162,12 @@ class VIEWLAYER_PT_layer(ViewLayerButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -206,14 +194,12 @@ class VIEWLAYER_PT_layer_custom_props(rna_prop_ui.PropertyPanel, _bpy_types.Pane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEWLAYER_PT_layer_passes(ViewLayerButtonsPanel, _bpy_types.Panel):
@@ -229,14 +215,12 @@ class VIEWLAYER_PT_layer_passes(ViewLayerButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -259,14 +243,12 @@ class VIEWLAYER_PT_layer_passes_aov(ViewLayerAOVPanelHelper, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEWLAYER_PT_layer_passes_cryptomatte(
@@ -285,14 +267,12 @@ class VIEWLAYER_PT_layer_passes_cryptomatte(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEWLAYER_PT_layer_passes_lightgroups(
@@ -311,14 +291,12 @@ class VIEWLAYER_PT_layer_passes_lightgroups(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEWLAYER_PT_override(ViewLayerButtonsPanel, _bpy_types.Panel):
@@ -335,14 +313,12 @@ class VIEWLAYER_PT_override(ViewLayerButtonsPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -365,14 +341,12 @@ class VIEWLAYER_PT_workbench_layer_passes_data(ViewLayerButtonsPanel, _bpy_types
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -385,18 +359,23 @@ class VIEWLAYER_UL_aov(_bpy_types.UIList):
     bl_rna: typing.Any
     id_data: typing.Any
 
+    @staticmethod
+    def aov_icon(item) -> None:
+        """
+
+        :param item:
+        """
+
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(

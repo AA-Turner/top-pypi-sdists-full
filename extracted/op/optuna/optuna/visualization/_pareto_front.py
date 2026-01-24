@@ -4,10 +4,10 @@ from collections.abc import Callable
 from collections.abc import Sequence
 from typing import Any
 from typing import NamedTuple
-import warnings
 
 import optuna
 from optuna import _deprecated
+from optuna._warnings import optuna_warn
 from optuna.samplers._base import _CONSTRAINTS_KEY
 from optuna.study import Study
 from optuna.study._multi_objective import _get_pareto_front_trials_by_trials
@@ -186,13 +186,13 @@ def _get_pareto_front_info(
         msg = _deprecated._DEPRECATION_WARNING_TEMPLATE.format(
             name="`axis_order`", d_ver="3.0.0", r_ver="5.0.0"
         )
-        warnings.warn(msg, FutureWarning)
+        optuna_warn(msg, FutureWarning)
 
     if constraints_func is not None:
         msg = _deprecated._DEPRECATION_WARNING_TEMPLATE.format(
             name="`constraints_func`", d_ver="4.0.0", r_ver="6.0.0"
         )
-        warnings.warn(msg, FutureWarning)
+        optuna_warn(msg, FutureWarning)
 
     if targets is not None and axis_order is not None:
         raise ValueError(
@@ -250,7 +250,7 @@ def _get_pareto_front_info(
             if not isinstance(v, Sequence):
                 raise ValueError(
                     "`targets` should return a sequence of target values."
-                    " your `targets` returns {}".format(type(v))
+                    f" your `targets` returns {type(v)}"
                 )
         return [(trial, list(v)) for trial, v in zip(trials, target_values)]
 
@@ -283,7 +283,7 @@ def _get_pareto_front_info(
     if n_targets not in (2, 3):
         raise ValueError(
             "`plot_pareto_front` function only supports 2 or 3 targets."
-            " you used {} targets now.".format(n_targets)
+            f" you used {n_targets} targets now."
         )
 
     if target_names is None:

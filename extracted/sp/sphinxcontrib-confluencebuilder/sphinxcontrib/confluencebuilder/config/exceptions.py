@@ -66,6 +66,19 @@ default alignment for tables, figures, etc. Accepted values include 'left',
 ''')
 
 
+class ConfluenceDefaultTableWidthError(ConfluenceConfigError):
+    def __init__(self, msg):
+        super().__init__(f'''\
+{msg}
+
+The option 'confluence_default_table_width' has been provided to override the
+default width for tables. Accepted values include a string or a positive
+integer. String values will be interpreted by units supported by the markup
+processed. Strings without units or integer values will be interpreted as a
+pixel value.
+''')
+
+
 class ConfluenceDomainIndicesConfigError(ConfluenceConfigError):
     def __init__(self):
         super().__init__('''\
@@ -252,18 +265,6 @@ class ConfluencePublishListConfigError(ConfluenceConfigError):
 The value type permitted for this publish list option can either be a list of
 document names or a string pointing to a file containing documents. Document
 names are relative to the documentation's source directory.
-''')
-
-
-class ConfluencePublishMissingParentPageConfigError(ConfluenceConfigError):
-    def __init__(self):
-        super().__init__('''\
-parent page (holder) name not set
-
-When a parent page identifier check has been configured with the option
-'confluence_parent_page_id_check', no parent page name has been provided with
-the 'confluence_parent_page' option. Ensure the name of the parent page name
-is provided as well.
 ''')
 
 

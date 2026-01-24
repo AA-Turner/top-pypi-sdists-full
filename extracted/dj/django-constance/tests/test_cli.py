@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.management import CommandError
 from django.core.management import call_command
 from django.test import TransactionTestCase
+from django.test import override_settings
 from django.utils import timezone
 from django.utils.encoding import smart_str
 
@@ -20,10 +21,10 @@ class CliTestCase(TransactionTestCase):
 
     def test_help(self):
         with contextlib.suppress(SystemExit):
-            call_command('constance', '--help')
+            call_command("constance", "--help")
 
     def test_list(self):
-        call_command('constance', 'list', stdout=self.out)
+        call_command("constance", "list", stdout=self.out)
 
         self.assertEqual(
             set(self.out.getvalue().splitlines()),
@@ -51,16 +52,16 @@ class CliTestCase(TransactionTestCase):
         )
 
     def test_get(self):
-        call_command('constance', *('get EMAIL_VALUE'.split()), stdout=self.out)
+        call_command("constance", *(["get", "EMAIL_VALUE"]), stdout=self.out)
 
-        self.assertEqual(self.out.getvalue().strip(), 'test@example.com')
+        self.assertEqual(self.out.getvalue().strip(), "test@example.com")
 
     def test_set(self):
-        call_command('constance', *('set EMAIL_VALUE blah@example.com'.split()), stdout=self.out)
+        call_command("constance", *(["set", "EMAIL_VALUE", "blah@example.com"]), stdout=self.out)
 
-        self.assertEqual(config.EMAIL_VALUE, 'blah@example.com')
+        self.assertEqual(config.EMAIL_VALUE, "blah@example.com")
 
-        call_command('constance', *('set', 'DATETIME_VALUE', '2011-09-24', '12:30:25'), stdout=self.out)
+        call_command("constance", *("set", "DATETIME_VALUE", "2011-09-24", "12:30:25"), stdout=self.out)
 
         expected = datetime(2011, 9, 24, 12, 30, 25)
         if settings.USE_TZ:
@@ -70,50 +71,70 @@ class CliTestCase(TransactionTestCase):
     def test_get_invalid_name(self):
         self.assertRaisesMessage(
             CommandError,
-            'NOT_A_REAL_CONFIG is not defined in settings.CONSTANCE_CONFIG',
+            "NOT_A_REAL_CONFIG is not defined in settings.CONSTANCE_CONFIG",
             call_command,
-            'constance',
-            'get',
-            'NOT_A_REAL_CONFIG',
+            "constance",
+            "get",
+            "NOT_A_REAL_CONFIG",
         )
 
     def test_set_invalid_name(self):
         self.assertRaisesMessage(
             CommandError,
-            'NOT_A_REAL_CONFIG is not defined in settings.CONSTANCE_CONFIG',
+            "NOT_A_REAL_CONFIG is not defined in settings.CONSTANCE_CONFIG",
             call_command,
-            'constance',
-            'set',
-            'NOT_A_REAL_CONFIG',
-            'foo',
+            "constance",
+            "set",
+            "NOT_A_REAL_CONFIG",
+            "foo",
         )
 
     def test_set_invalid_value(self):
         self.assertRaisesMessage(
             CommandError,
-            'Enter a valid email address.',
+            "Enter a valid email address.",
             call_command,
-            'constance',
-            'set',
-            'EMAIL_VALUE',
-            'not a valid email',
+            "constance",
+            "set",
+            "EMAIL_VALUE",
+            "not a valid email",
         )
 
     def test_set_invalid_multi_value(self):
         self.assertRaisesMessage(
             CommandError,
-            'Enter a list of values.',
+            "Enter a list of values.",
             call_command,
-            'constance',
-            'set',
-            'DATETIME_VALUE',
-            '2011-09-24 12:30:25',
+            "constance",
+            "set",
+            "DATETIME_VALUE",
+            "2011-09-24 12:30:25",
         )
 
     def test_delete_stale_records(self):
+        self._populate_database_with_default_values()
         initial_count = Constance.objects.count()
 
-        Constance.objects.create(key='STALE_KEY', value=None)
-        call_command('constance', 'remove_stale_keys', stdout=self.out)
+        Constance.objects.create(key="STALE_KEY", value=None)
+        call_command("constance", "remove_stale_keys", stdout=self.out)
 
         self.assertEqual(Constance.objects.count(), initial_count, msg=self.out)
+
+    @override_settings(
+        CONSTANCE_DATABASE_PREFIX="constance:",
+    )
+    def test_delete_stale_records_respects_prefix(self):
+        self._populate_database_with_default_values()
+        initial_count = Constance.objects.count()
+
+        call_command("constance", "remove_stale_keys", stdout=self.out)
+
+        self.assertEqual(Constance.objects.count(), initial_count, msg=self.out)
+
+    def _populate_database_with_default_values(self):
+        """
+        Helper function to populate the database with default values defined
+        in settings since that's not done automatically at startup
+        """
+        for key, (value, *_) in settings.CONSTANCE_CONFIG.items():
+            Constance.objects.create(key=f"{getattr(settings, 'CONSTANCE_DATABASE_PREFIX', '')}{key}", value=value)

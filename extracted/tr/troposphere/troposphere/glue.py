@@ -587,6 +587,76 @@ class DevEndpoint(AWSObject):
     }
 
 
+class IntegrationConfig(AWSProperty):
+    """
+    `IntegrationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-integration-integrationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContinuousSync": (boolean, False),
+        "RefreshInterval": (str, False),
+        "SourceProperties": (dict, False),
+    }
+
+
+class Integration(AWSObject):
+    """
+    `Integration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-integration.html>`__
+    """
+
+    resource_type = "AWS::Glue::Integration"
+
+    props: PropsDictType = {
+        "AdditionalEncryptionContext": (dict, False),
+        "DataFilter": (str, False),
+        "Description": (str, False),
+        "IntegrationConfig": (IntegrationConfig, False),
+        "IntegrationName": (str, True),
+        "KmsKeyId": (str, False),
+        "SourceArn": (str, True),
+        "Tags": (Tags, False),
+        "TargetArn": (str, True),
+    }
+
+
+class SourceProcessingProperties(AWSProperty):
+    """
+    `SourceProcessingProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-integrationresourceproperty-sourceprocessingproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "RoleArn": (str, True),
+    }
+
+
+class TargetProcessingProperties(AWSProperty):
+    """
+    `TargetProcessingProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-integrationresourceproperty-targetprocessingproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConnectionName": (str, False),
+        "EventBusArn": (str, False),
+        "KmsArn": (str, False),
+        "RoleArn": (str, True),
+    }
+
+
+class IntegrationResourceProperty(AWSObject):
+    """
+    `IntegrationResourceProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-integrationresourceproperty.html>`__
+    """
+
+    resource_type = "AWS::Glue::IntegrationResourceProperty"
+
+    props: PropsDictType = {
+        "ResourceArn": (str, True),
+        "SourceProcessingProperties": (SourceProcessingProperties, False),
+        "Tags": (Tags, False),
+        "TargetProcessingProperties": (TargetProcessingProperties, False),
+    }
+
+
 class ConnectionsList(AWSProperty):
     """
     `ConnectionsList <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-job-connectionslist.html>`__

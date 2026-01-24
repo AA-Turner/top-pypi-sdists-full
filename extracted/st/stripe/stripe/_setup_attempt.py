@@ -3,16 +3,9 @@
 from stripe._expandable_field import ExpandableField
 from stripe._list_object import ListObject
 from stripe._listable_api_resource import ListableAPIResource
-from stripe._request_options import RequestOptions
 from stripe._stripe_object import StripeObject
 from typing import ClassVar, List, Optional, Union
-from typing_extensions import (
-    Literal,
-    NotRequired,
-    TypedDict,
-    Unpack,
-    TYPE_CHECKING,
-)
+from typing_extensions import Literal, Unpack, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stripe._account import Account
@@ -25,6 +18,7 @@ if TYPE_CHECKING:
     from stripe._payment_method import PaymentMethod
     from stripe._setup_intent import SetupIntent
     from stripe._source import Source
+    from stripe.params._setup_attempt_list_params import SetupAttemptListParams
 
 
 class SetupAttempt(ListableAPIResource["SetupAttempt"]):
@@ -270,9 +264,11 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                     "asn_bank",
                     "bunq",
                     "buut",
+                    "finom",
                     "handelsbanken",
                     "ing",
                     "knab",
+                    "mollie",
                     "moneyou",
                     "n26",
                     "nn",
@@ -286,7 +282,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                 ]
             ]
             """
-            The customer's bank. Can be one of `abn_amro`, `asn_bank`, `bunq`, `buut`, `handelsbanken`, `ing`, `knab`, `moneyou`, `n26`, `nn`, `rabobank`, `regiobank`, `revolut`, `sns_bank`, `triodos_bank`, `van_lanschot`, or `yoursafe`.
+            The customer's bank. Can be one of `abn_amro`, `asn_bank`, `bunq`, `buut`, `finom`, `handelsbanken`, `ing`, `knab`, `mollie`, `moneyou`, `n26`, `nn`, `rabobank`, `regiobank`, `revolut`, `sns_bank`, `triodos_bank`, `van_lanschot`, or `yoursafe`.
             """
             bic: Optional[
                 Literal[
@@ -295,10 +291,12 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                     "BITSNL2A",
                     "BUNQNL2A",
                     "BUUTNL2A",
+                    "FNOMNL22",
                     "FVLBNL22",
                     "HANDNL2A",
                     "INGBNL2A",
                     "KNABNL2H",
+                    "MLLENL2A",
                     "MOYONL21",
                     "NNBANL2G",
                     "NTSBDEB1",
@@ -353,6 +351,9 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
             pass
 
         class Paypal(StripeObject):
+            pass
+
+        class Payto(StripeObject):
             pass
 
         class RevolutPay(StripeObject):
@@ -417,6 +418,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
         naver_pay: Optional[NaverPay]
         nz_bank_account: Optional[NzBankAccount]
         paypal: Optional[Paypal]
+        payto: Optional[Payto]
         revolut_pay: Optional[RevolutPay]
         sepa_debit: Optional[SepaDebit]
         sofort: Optional[Sofort]
@@ -443,6 +445,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
             "naver_pay": NaverPay,
             "nz_bank_account": NzBankAccount,
             "paypal": Paypal,
+            "payto": Payto,
             "revolut_pay": RevolutPay,
             "sepa_debit": SepaDebit,
             "sofort": Sofort,
@@ -452,7 +455,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
     class SetupError(StripeObject):
         advice_code: Optional[str]
         """
-        For card errors resulting from a card issuer decline, a short string indicating [how to proceed with an error](https://stripe.com/docs/declines#retrying-issuer-declines) if they provide one.
+        For card errors resulting from a card issuer decline, a short string indicating [how to proceed with an error](https://docs.stripe.com/declines#retrying-issuer-declines) if they provide one.
         """
         charge: Optional[str]
         """
@@ -466,6 +469,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                 "account_information_mismatch",
                 "account_invalid",
                 "account_number_invalid",
+                "account_token_required_for_v2_account",
                 "acss_debit_session_incomplete",
                 "alipay_upgrade_required",
                 "amount_too_large",
@@ -509,6 +513,8 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                 "email_invalid",
                 "expired_card",
                 "financial_connections_account_inactive",
+                "financial_connections_account_pending_account_numbers",
+                "financial_connections_account_unavailable_account_numbers",
                 "financial_connections_no_successful_transaction_refresh",
                 "forwarding_api_inactive",
                 "forwarding_api_invalid_parameter",
@@ -568,6 +574,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
                 "payment_intent_mandate_invalid",
                 "payment_intent_payment_attempt_expired",
                 "payment_intent_payment_attempt_failed",
+                "payment_intent_rate_limit_exceeded",
                 "payment_intent_unexpected_state",
                 "payment_method_bank_account_already_verified",
                 "payment_method_bank_account_blocked",
@@ -641,15 +648,15 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
             ]
         ]
         """
-        For some errors that could be handled programmatically, a short string indicating the [error code](https://stripe.com/docs/error-codes) reported.
+        For some errors that could be handled programmatically, a short string indicating the [error code](https://docs.stripe.com/error-codes) reported.
         """
         decline_code: Optional[str]
         """
-        For card errors resulting from a card issuer decline, a short string indicating the [card issuer's reason for the decline](https://stripe.com/docs/declines#issuer-declines) if they provide one.
+        For card errors resulting from a card issuer decline, a short string indicating the [card issuer's reason for the decline](https://docs.stripe.com/declines#issuer-declines) if they provide one.
         """
         doc_url: Optional[str]
         """
-        A URL to more information about the [error code](https://stripe.com/docs/error-codes) reported.
+        A URL to more information about the [error code](https://docs.stripe.com/error-codes) reported.
         """
         message: Optional[str]
         """
@@ -675,19 +682,19 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
         see the history of payment attempts for a particular session.
 
         A PaymentIntent transitions through
-        [multiple statuses](https://stripe.com/docs/payments/intents#intent-statuses)
+        [multiple statuses](https://docs.stripe.com/payments/paymentintents/lifecycle)
         throughout its lifetime as it interfaces with Stripe.js to perform
         authentication flows and ultimately creates at most one successful charge.
 
-        Related guide: [Payment Intents API](https://stripe.com/docs/payments/payment-intents)
+        Related guide: [Payment Intents API](https://docs.stripe.com/payments/payment-intents)
         """
         payment_method: Optional["PaymentMethod"]
         """
         PaymentMethod objects represent your customer's payment instruments.
-        You can use them with [PaymentIntents](https://stripe.com/docs/payments/payment-intents) to collect payments or save them to
+        You can use them with [PaymentIntents](https://docs.stripe.com/payments/payment-intents) to collect payments or save them to
         Customer objects to store instrument details for future payments.
 
-        Related guides: [Payment Methods](https://stripe.com/docs/payments/payment-methods) and [More Payment Scenarios](https://stripe.com/docs/payments/more-payment-scenarios).
+        Related guides: [Payment Methods](https://docs.stripe.com/payments/payment-methods) and [More Payment Scenarios](https://docs.stripe.com/payments/more-payment-scenarios).
         """
         payment_method_type: Optional[str]
         """
@@ -701,7 +708,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
         """
         A SetupIntent guides you through the process of setting up and saving a customer's payment credentials for future payments.
         For example, you can use a SetupIntent to set up and save your customer's card without immediately collecting a payment.
-        Later, you can use [PaymentIntents](https://stripe.com/docs/api#payment_intents) to drive the payment flow.
+        Later, you can use [PaymentIntents](https://api.stripe.com#payment_intents) to drive the payment flow.
 
         Create a SetupIntent when you're ready to collect your customer's payment credentials.
         Don't maintain long-lived, unconfirmed SetupIntents because they might not be valid.
@@ -712,9 +719,9 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
         For example, cardholders in [certain regions](https://stripe.com/guides/strong-customer-authentication) might need to be run through
         [Strong Customer Authentication](https://docs.stripe.com/strong-customer-authentication) during payment method collection
         to streamline later [off-session payments](https://docs.stripe.com/payments/setup-intents).
-        If you use the SetupIntent with a [Customer](https://stripe.com/docs/api#setup_intent_object-customer),
+        If you use the SetupIntent with a [Customer](https://api.stripe.com#setup_intent_object-customer),
         it automatically attaches the resulting payment method to that Customer after successful setup.
-        We recommend using SetupIntents or [setup_future_usage](https://stripe.com/docs/api#payment_intent_object-setup_future_usage) on
+        We recommend using SetupIntents or [setup_future_usage](https://api.stripe.com#payment_intent_object-setup_future_usage) on
         PaymentIntents to save payment methods to prevent saving invalid or unoptimized payment methods.
 
         By using SetupIntents, you can reduce friction for your customers, even as regulations change over time.
@@ -734,56 +741,9 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
         The type of error returned. One of `api_error`, `card_error`, `idempotency_error`, or `invalid_request_error`
         """
 
-    class ListParams(RequestOptions):
-        created: NotRequired["SetupAttempt.ListParamsCreated|int"]
-        """
-        A filter on the list, based on the object `created` field. The value
-        can be a string with an integer Unix timestamp or a
-        dictionary with a number of different query options.
-        """
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        setup_intent: str
-        """
-        Only return SetupAttempts created by the SetupIntent specified by
-        this ID.
-        """
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-
-    class ListParamsCreated(TypedDict):
-        gt: NotRequired[int]
-        """
-        Minimum value to filter by (exclusive)
-        """
-        gte: NotRequired[int]
-        """
-        Minimum value to filter by (inclusive)
-        """
-        lt: NotRequired[int]
-        """
-        Maximum value to filter by (exclusive)
-        """
-        lte: NotRequired[int]
-        """
-        Maximum value to filter by (inclusive)
-        """
-
     application: Optional[ExpandableField["Application"]]
     """
-    The value of [application](https://stripe.com/docs/api/setup_intents/object#setup_intent_object-application) on the SetupIntent at the time of this confirmation.
+    The value of [application](https://docs.stripe.com/api/setup_intents/object#setup_intent_object-application) on the SetupIntent at the time of this confirmation.
     """
     attach_to_self: Optional[bool]
     """
@@ -797,7 +757,11 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
     """
     customer: Optional[ExpandableField["Customer"]]
     """
-    The value of [customer](https://stripe.com/docs/api/setup_intents/object#setup_intent_object-customer) on the SetupIntent at the time of this confirmation.
+    The value of [customer](https://docs.stripe.com/api/setup_intents/object#setup_intent_object-customer) on the SetupIntent at the time of this confirmation.
+    """
+    customer_account: Optional[str]
+    """
+    The value of [customer_account](https://docs.stripe.com/api/setup_intents/object#setup_intent_object-customer_account) on the SetupIntent at the time of this confirmation.
     """
     flow_directions: Optional[List[Literal["inbound", "outbound"]]]
     """
@@ -819,7 +783,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
     """
     on_behalf_of: Optional[ExpandableField["Account"]]
     """
-    The value of [on_behalf_of](https://stripe.com/docs/api/setup_intents/object#setup_intent_object-on_behalf_of) on the SetupIntent at the time of this confirmation.
+    The value of [on_behalf_of](https://docs.stripe.com/api/setup_intents/object#setup_intent_object-on_behalf_of) on the SetupIntent at the time of this confirmation.
     """
     payment_method: ExpandableField["PaymentMethod"]
     """
@@ -840,12 +804,12 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
     """
     usage: str
     """
-    The value of [usage](https://stripe.com/docs/api/setup_intents/object#setup_intent_object-usage) on the SetupIntent at the time of this confirmation, one of `off_session` or `on_session`.
+    The value of [usage](https://docs.stripe.com/api/setup_intents/object#setup_intent_object-usage) on the SetupIntent at the time of this confirmation, one of `off_session` or `on_session`.
     """
 
     @classmethod
     def list(
-        cls, **params: Unpack["SetupAttempt.ListParams"]
+        cls, **params: Unpack["SetupAttemptListParams"]
     ) -> ListObject["SetupAttempt"]:
         """
         Returns a list of SetupAttempts that associate with a provided SetupIntent.
@@ -865,7 +829,7 @@ class SetupAttempt(ListableAPIResource["SetupAttempt"]):
 
     @classmethod
     async def list_async(
-        cls, **params: Unpack["SetupAttempt.ListParams"]
+        cls, **params: Unpack["SetupAttemptListParams"]
     ) -> ListObject["SetupAttempt"]:
         """
         Returns a list of SetupAttempts that associate with a provided SetupIntent.

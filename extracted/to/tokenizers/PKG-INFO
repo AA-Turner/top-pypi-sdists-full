@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokenizers
-Version: 0.22.1
+Version: 0.22.2
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
@@ -21,8 +21,8 @@ Requires-Dist: pytest-asyncio ; extra == 'testing'
 Requires-Dist: requests ; extra == 'testing'
 Requires-Dist: numpy ; extra == 'testing'
 Requires-Dist: datasets ; extra == 'testing'
-Requires-Dist: black==22.3 ; extra == 'testing'
 Requires-Dist: ruff ; extra == 'testing'
+Requires-Dist: ty ; extra == 'testing'
 Requires-Dist: sphinx ; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme ; extra == 'docs'
 Requires-Dist: setuptools-rust ; extra == 'docs'
@@ -207,4 +207,8 @@ tokenizer = Tokenizer.from_file("byte-level-bpe.tokenizer.json")
 
 encoded = tokenizer.encode("I can feel the magic, can you?")
 ```
+
+### Typing support and `stub.py`
+
+The compiled PyO3 extension does not expose type annotations, so editors and type checkers would otherwise see most objects as `Any`. The `stub.py` helper walks the loaded extension modules, renders `.pyi` stub files (plus minimal forwarding `__init__.py` shims), and formats them so that tools like mypy/pyright can understand the public API. Run `python stub.py` whenever you change the Python-visible surface to keep the generated stubs in sync.
 

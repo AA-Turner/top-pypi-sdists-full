@@ -1,0 +1,130 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "centrifuge-python"
+description = "WebSocket SDK for Centrifugo (and any Centrifuge-based server) on top of Python asyncio library"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [
+    { name = "Alexander Emelin (Centrifugal Labs LTD)", email = "" },
+    { name = "Katant Savelev", email = "" }
+]
+keywords = [
+    "Centrifugo",
+    "Centrifuge",
+    "WebSocket",
+    "Pub/Sub",
+    "Realtime",
+]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Development Status :: 4 - Beta",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Framework :: AsyncIO",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Networking",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+    "Typing :: Typed",
+]
+dependencies = [
+    "websockets>=14.0.0,<16.0.0",
+    "protobuf>=4.23.4,<7.0.0",
+]
+
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "ruff~=0.1.4",
+    "pre-commit~=3.5.0",
+]
+
+[tool.hatch.envs.default]
+features = ["dev"]
+post-install-commands = ["pre-commit install"]
+
+[tool.hatch.envs.default.scripts]
+reformat = "ruff format ."
+lint = "ruff . --fix"
+
+[tool.hatch.build.targets.wheel]
+packages = ["centrifuge"]
+
+[[tool.hatch.envs.test.matrix]]
+python = ["38", "39", "310", "311", "312"]
+
+[tool.hatch.version]
+path = "centrifuge/__meta__.py"
+
+[tool.ruff]
+preview = true
+line-length = 99
+select = [
+    "PL", # pylint
+    "F", # pyflakes
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "C90", # mccabe
+    "N", # pep8-naming
+    "YTT", # flake8-2020
+    "S", # flake8-bandit
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "C40", # flake8-comprehensions
+    "T10", # flake8-debugger
+    "EXE", # flake8-executable
+    "ICN", # flake8-import-conventions
+    "G", # flake8-logging-format
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PT", # flake8-pytest-style
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "TCH", # flake8-type-checking
+    "ARG", # flake8-unused-arguments
+    "PGH", # pygrep-hooks
+    "RSE", # flake8-raise
+    "RUF", # ruff
+]
+ignore = [
+    "PLR0913", # Aligns with other SDKs.
+    "C901", # TODO: solve this one, too complex functions
+    "PLR0911", # TODO: solve this one, too many return statements
+    "PLR0915", # TODO, solve this one, too many statements
+    "RUF006", # TODO: solve this one, store a reference to the return value of `ensure_future`
+    "PLR2004", # TODO: solve this one, magic value
+    "PLR0917", # Aligns with other SDKs.
+]
+exclude = [
+    "centrifuge/protocol/client_pb2.py",
+    "tests/data/5/delta",
+    "tests/data/5/target",
+    "tests/data/5/origin",
+    "tests/data/4/delta",
+    "tests/data/3/delta",
+    "tests/data/1/delta",
+]
+
+
+[tool.ruff.per-file-ignores]
+"tests/**.py" = [
+    "PT009", # Use a regular `assert` instead of unittest-style `assertTrue`
+    "S101", # Use of assert detected
+]
+"example.py" = [
+    "S105", # Yes, token is hard-coded in the example.
+    "PLR6301", # Seems fine for the example.
+]

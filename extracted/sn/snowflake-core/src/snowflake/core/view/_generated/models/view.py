@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr, field_validator
 
 from snowflake.core.view._generated.models.view_column import ViewColumn, ViewColumnModel
 
@@ -46,15 +46,15 @@ class View(BaseModel):
     comment : str, optional
         user comment associated to an object in the dictionary
     created_on : datetime, optional
-        Date and time when the view was created.
+        Date and time when the view was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the view is stored
+        Database in which the view is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the view is stored
+        Schema in which the view is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the view
+        Role that owns the view — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the view
+        The type of role that owns the view — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -104,9 +104,10 @@ class View(BaseModel):
             raise ValueError("must validate the enum values ('PERMANENT','TEMPORARY')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -139,7 +140,7 @@ class View(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in columns (list)
         _items = []
@@ -162,9 +163,9 @@ class View(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return View.parse_obj(obj)
+            return View.model_validate(obj)
 
-        _obj = View.parse_obj(
+        _obj = View.model_validate(
             {
                 "name": obj.get("name"),
                 "secure": obj.get("secure"),

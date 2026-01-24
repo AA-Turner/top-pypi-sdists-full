@@ -90,6 +90,13 @@ SZ_PUBLIC sz_bool_t sz_equal_serial(sz_cptr_t a, sz_cptr_t b, sz_size_t length);
 /** @copydoc sz_order */
 SZ_PUBLIC sz_ordering_t sz_order_serial(sz_cptr_t a, sz_size_t a_length, sz_cptr_t b, sz_size_t b_length);
 
+#if SZ_USE_WESTMERE
+/** @copydoc sz_equal */
+SZ_PUBLIC sz_bool_t sz_equal_westmere(sz_cptr_t a, sz_cptr_t b, sz_size_t length);
+/** @copydoc sz_order */
+SZ_PUBLIC sz_ordering_t sz_order_westmere(sz_cptr_t a, sz_size_t a_length, sz_cptr_t b, sz_size_t b_length);
+#endif
+
 #if SZ_USE_HASWELL
 /** @copydoc sz_equal */
 SZ_PUBLIC sz_bool_t sz_equal_haswell(sz_cptr_t a, sz_cptr_t b, sz_size_t length);
@@ -112,6 +119,77 @@ SZ_PUBLIC sz_ordering_t sz_order_neon(sz_cptr_t a, sz_size_t a_length, sz_cptr_t
 #endif
 
 #pragma endregion // Core API
+
+/* SSE implementation of the string search algorithms for Westmere processors and newer.
+ *  Very minimalistic (compared to AVX-512), but still faster than the serial implementation.
+ */
+#pragma region Westmere Implementation
+#if SZ_USE_WESTMERE
+#if defined(__clang__)
+#pragma clang attribute push(__attribute__((target("sse4.2"))), apply_to = function)
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC target("sse4.2")
+#endif
+
+SZ_PUBLIC sz_ordering_t sz_order_westmere(sz_cptr_t a, sz_size_t a_length, sz_cptr_t b, sz_size_t b_length) {
+    //! Before optimizing this, read the "Operations Not Worth Optimizing" in Contributions Guide:
+    //! https://github.com/ashvardanian/StringZilla/blob/main/CONTRIBUTING.md#general-performance-observations
+    return sz_order_serial(a, a_length, b, b_length);
+}
+
+SZ_PUBLIC sz_bool_t sz_equal_westmere(sz_cptr_t a, sz_cptr_t b, sz_size_t length) {
+    if (length < 8) {
+        sz_cptr_t const a_end = a + length;
+        while (a != a_end && *a == *b) a++, b++;
+        return (sz_bool_t)(a_end == a);
+    }
+    // We can use 2x 64-bit interleaving loads for each string, and then compare them for equality.
+    // The same approach is used in GLibC and was suggest by Denis Yaroshevskiy.
+    // https://codebrowser.dev/glibc/glibc/sysdeps/x86_64/multiarch/memcmp-sse4.1.S.html#518
+    // It shouldn't improve performance on microbenchmarks, but should be better in practice.
+    else if (length <= 16) {
+        sz_u64_t a_first_word = sz_u64_load(a).u64;
+        sz_u64_t b_first_word = sz_u64_load(b).u64;
+        sz_u64_t a_second_word = sz_u64_load(a + length - 8).u64;
+        sz_u64_t b_second_word = sz_u64_load(b + length - 8).u64;
+        return (sz_bool_t)((a_first_word == b_first_word) & (a_second_word == b_second_word));
+    }
+    // We can use 2x 128-bit interleaving loads for each string, and then compare them for equality.
+    else if (length <= 32) {
+        sz_u128_vec_t a_first_vec, b_first_vec, a_second_vec, b_second_vec;
+        a_first_vec.xmm = _mm_lddqu_si128((__m128i const *)(a));
+        b_first_vec.xmm = _mm_lddqu_si128((__m128i const *)(b));
+        a_second_vec.xmm = _mm_lddqu_si128((__m128i const *)(a + length - 16));
+        b_second_vec.xmm = _mm_lddqu_si128((__m128i const *)(b + length - 16));
+        return (sz_bool_t)(_mm_movemask_epi8(_mm_and_si128( //
+                               _mm_cmpeq_epi8(a_first_vec.xmm, b_first_vec.xmm),
+                               _mm_cmpeq_epi8(a_second_vec.xmm, b_second_vec.xmm))) == 0xFFFF);
+    }
+    else {
+        sz_size_t i = 0;
+        sz_u128_vec_t a_vec, b_vec;
+        do {
+            a_vec.xmm = _mm_lddqu_si128((__m128i const *)(a + i));
+            b_vec.xmm = _mm_lddqu_si128((__m128i const *)(b + i));
+            // One approach can be to use "movemasks", but we could also use a bitwise
+            // matching like `_mm_testnzc_si128`.
+            if (_mm_movemask_epi8(_mm_cmpeq_epi8(a_vec.xmm, b_vec.xmm)) != 0xFFFF) return sz_false_k;
+            i += 16;
+        } while (i + 16 <= length);
+        a_vec.xmm = _mm_lddqu_si128((__m128i const *)(a + length - 16));
+        b_vec.xmm = _mm_lddqu_si128((__m128i const *)(b + length - 16));
+        return (sz_bool_t)(_mm_movemask_epi8(_mm_cmpeq_epi8(a_vec.xmm, b_vec.xmm)) == 0xFFFF);
+    }
+}
+
+#if defined(__clang__)
+#pragma clang attribute pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+#endif            // SZ_USE_WESTMERE
+#pragma endregion // Westmere Implementation
 
 #pragma region Serial Implementation
 
@@ -269,10 +347,9 @@ SZ_PUBLIC sz_ordering_t sz_order_skylake(sz_cptr_t a, sz_size_t a_length, sz_cpt
     b_vec.zmm = _mm512_maskz_loadu_epi8(head_mask, b);
     __mmask64 mask_not_equal = _mm512_cmpneq_epi8_mask(a_vec.zmm, b_vec.zmm);
     if (mask_not_equal != 0) {
+        // Reload from original memory (L1 cached) to avoid ZMM-to-stack spill.
         sz_u64_t first_diff = _tzcnt_u64(mask_not_equal);
-        char a_char = a_vec.u8s[first_diff];
-        char b_char = b_vec.u8s[first_diff];
-        return sz_order_scalars_(a_char, b_char);
+        return sz_order_scalars_(a[first_diff], b[first_diff]);
     }
     else if (head_length == a_length && head_length == b_length) { return sz_equal_k; }
     else { a += head_length, b += head_length, a_length -= head_length, b_length -= head_length; }
@@ -284,10 +361,9 @@ SZ_PUBLIC sz_ordering_t sz_order_skylake(sz_cptr_t a, sz_size_t a_length, sz_cpt
         b_vec.zmm = _mm512_loadu_si512(b);
         mask_not_equal = _mm512_cmpneq_epi8_mask(a_vec.zmm, b_vec.zmm);
         if (mask_not_equal != 0) {
+            // Reload from original memory (L1 cached) to avoid ZMM-to-stack spill.
             sz_u64_t first_diff = _tzcnt_u64(mask_not_equal);
-            char a_char = a_vec.u8s[first_diff];
-            char b_char = b_vec.u8s[first_diff];
-            return sz_order_scalars_(a_char, b_char);
+            return sz_order_scalars_(a[first_diff], b[first_diff]);
         }
         a += 64, b += 64, a_length -= 64, b_length -= 64;
     }
@@ -303,10 +379,9 @@ SZ_PUBLIC sz_ordering_t sz_order_skylake(sz_cptr_t a, sz_size_t a_length, sz_cpt
         // been cheaper, if we didn't have to apply `_mm256_movemask_epi8` afterwards.
         mask_not_equal = _mm512_cmpneq_epi8_mask(a_vec.zmm, b_vec.zmm);
         if (mask_not_equal != 0) {
+            // Reload from original memory (L1 cached) to avoid ZMM-to-stack spill.
             sz_u64_t first_diff = _tzcnt_u64(mask_not_equal);
-            char a_char = a_vec.u8s[first_diff];
-            char b_char = b_vec.u8s[first_diff];
-            return sz_order_scalars_(a_char, b_char);
+            return sz_order_scalars_(a[first_diff], b[first_diff]);
         }
         // From logic perspective, the hardest cases are "abc\0" and "abc".
         // The result must be `sz_greater_k`, as the latter is shorter.
@@ -354,10 +429,10 @@ SZ_PUBLIC sz_bool_t sz_equal_skylake(sz_cptr_t a, sz_cptr_t b, sz_size_t length)
 #pragma region NEON Implementation
 #if SZ_USE_NEON
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+simd"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+simd"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+simd")
+#pragma GCC target("+simd")
 #endif
 
 SZ_PUBLIC sz_ordering_t sz_order_neon(sz_cptr_t a, sz_size_t a_length, sz_cptr_t b, sz_size_t b_length) {
@@ -401,10 +476,10 @@ SZ_PUBLIC sz_bool_t sz_equal_neon(sz_cptr_t a, sz_cptr_t b, sz_size_t length) {
 #pragma region SVE Implementation
 #if SZ_USE_SVE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve")
+#pragma GCC target("+sve")
 #endif
 
 SZ_PUBLIC sz_bool_t sz_equal_sve(sz_cptr_t a, sz_cptr_t b, sz_size_t length) {
@@ -448,7 +523,7 @@ SZ_DYNAMIC sz_bool_t sz_equal(sz_cptr_t a, sz_cptr_t b, sz_size_t length) {
     return sz_equal_skylake(a, b, length);
 #elif SZ_USE_HASWELL
     return sz_equal_haswell(a, b, length);
-#elif SZ_USE_SVE
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     return sz_equal_sve(a, b, length);
 #elif SZ_USE_NEON
     return sz_equal_neon(a, b, length);
@@ -462,7 +537,7 @@ SZ_DYNAMIC sz_ordering_t sz_order(sz_cptr_t a, sz_size_t a_length, sz_cptr_t b, 
     return sz_order_skylake(a, a_length, b, b_length);
 #elif SZ_USE_HASWELL
     return sz_order_haswell(a, a_length, b, b_length);
-#elif SZ_USE_SVE
+#elif SZ_USE_SVE && SZ_ENFORCE_SVE_OVER_NEON
     return sz_order_sve(a, a_length, b, b_length);
 #elif SZ_USE_NEON
     return sz_order_neon(a, a_length, b, b_length);

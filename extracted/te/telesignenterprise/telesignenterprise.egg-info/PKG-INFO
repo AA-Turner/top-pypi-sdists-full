@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: telesignenterprise
-Version: 3.0.0
+Version: 3.0.1
 Summary: Telesign Enterprise SDK
 Home-page: https://github.com/telesign/python_telesign
 Author: TeleSign Corp.
@@ -22,3 +22,8 @@ Classifier: Programming Language :: Python :: 3.4
 Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12

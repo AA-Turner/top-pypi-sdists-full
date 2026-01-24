@@ -1,15 +1,18 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from ibm_watsonx_ai.utils.utils import get_from_json
+
 __all__ = ["TabularIterableDataset"]
 
 import logging
 import os
-from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Any, Iterator, cast
 from warnings import warn
@@ -104,42 +107,50 @@ class TabularIterableDataset(IterableDataset):
         .. code-block:: python
 
             experiment_metadata = {
-                    "prediction_column": 'species',
-                    "prediction_type": "classification",
-                    "project_id": os.environ.get('PROJECT_ID'),
-                    'credentials': credentials
+                "prediction_column": "species",
+                "prediction_type": "classification",
+                "project_id": os.environ.get("PROJECT_ID"),
+                "credentials": credentials,
             }
 
-            connection = DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')
+            connection = DataConnection(
+                data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2"
+            )
 
 
     **Example: default sampling - read first 1 GB of data**
 
         .. code-block:: python
 
-            iterable_dataset = TabularIterableDataset(connection=connection,
-                                                      enable_sampling=True,
-                                                      sampling_type='first_n_records',
-                                                      sample_size_limit = 1GB,
-                                                      experiment_metadata=experiment_metadata)
+            iterable_dataset = TabularIterableDataset(
+                connection=connection,
+                enable_sampling=True,
+                sampling_type="first_n_records",
+                sample_size_limit=1073741824,  # 1GB in Bytes
+                experiment_metadata=experiment_metadata,
+            )
 
     **Example: read all data records in batches/no subsampling**
 
         .. code-block:: python
 
-            iterable_dataset = TabularIterableDataset(connection=connection,
-                                                      enable_sampling=False,
-                                                      experiment_metadata=experiment_metadata)
+            iterable_dataset = TabularIterableDataset(
+                connection=connection,
+                enable_sampling=False,
+                experiment_metadata=experiment_metadata,
+            )
 
     **Example: stratified/random sampling**
 
         .. code-block:: python
 
-            iterable_dataset = TabularIterableDataset(connection=connection,
-                                                      enable_sampling=True,
-                                                      sampling_type='stratified',
-                                                      sample_size_limit = 1GB,
-                                                      experiment_metadata=experiment_metadata)
+            iterable_dataset = TabularIterableDataset(
+                connection=connection,
+                enable_sampling=True,
+                sampling_type="stratified",
+                sample_size_limit=1073741824,  # 1GB in Bytes
+                experiment_metadata=experiment_metadata,
+            )
 
     """
 
@@ -173,7 +184,7 @@ class TabularIterableDataset(IterableDataset):
             )
         self.binary_data = binary_data
         self.sampling_type = sampling_type
-        self.read_to_file = kwargs.get("read_to_file")
+        self.read_to_file: str | Path | None = kwargs.get("read_to_file")
         self.authorized = self._check_authorization()
         self._set_size_limit(total_size_limit)
         self.total_nrows_limit = total_nrows_limit
@@ -187,6 +198,9 @@ class TabularIterableDataset(IterableDataset):
 
         else:
             dict_connection = connection
+
+        if not get_from_json(dict_connection, ["location", "container"]):
+            dict_connection.get("location", {}).pop("container", None)
         # --- end note
 
         self.experiment_metadata = cast(dict[str, Any], self.experiment_metadata)
@@ -205,25 +219,25 @@ class TabularIterableDataset(IterableDataset):
 
                 self.enable_sampling = True
 
-                if self.experiment_metadata.get("prediction_type") in [
-                    PredictionType.REGRESSION
-                ]:
-                    self.sampling_type = SamplingTypes.RANDOM
-                elif self.experiment_metadata.get("prediction_type") in [
-                    PredictionType.CLASSIFICATION,
-                    PredictionType.BINARY,
-                    PredictionType.MULTICLASS,
-                ]:
-                    self.sampling_type = SamplingTypes.STRATIFIED
+                match self.experiment_metadata.get("prediction_type"):
+                    case PredictionType.REGRESSION:
+                        self.sampling_type = SamplingTypes.RANDOM
+                    case (
+                        PredictionType.CLASSIFICATION
+                        | PredictionType.BINARY
+                        | PredictionType.MULTICLASS
+                    ):
+                        self.sampling_type = SamplingTypes.STRATIFIED
         # --- end note
 
         # if number_of_batch_rows is provided, batch_size does not matter anymore
         if self.authorized:
             is_cos_asset = bool(
-                kwargs.get("flight_parameters", {})
-                .get("datasource_type", {})
-                .get("entity", {})
-                .get("name", "")
+                get_from_json(
+                    kwargs,
+                    ["flight_parameters", "datasource_type", "entity", "name"],
+                    "",
+                )
                 == "bluemixcloudobjectstorage"
             )
             # first used headers from experiment metadata if they were set.
@@ -245,27 +259,32 @@ class TabularIterableDataset(IterableDataset):
 
             headers_ = cast(dict, headers_)
             number_of_batch_rows = cast(int, number_of_batch_rows)
+            prediction_column = cast(
+                str, self.experiment_metadata.get("prediction_column")
+            )
+            prediction_type = cast(str, self.experiment_metadata.get("prediction_type"))
 
             def get_flight_conn() -> FlightConnection:
                 conn = FlightConnection(
                     headers=headers_,
                     sampling_type=self.sampling_type,
-                    label=self.experiment_metadata.get("prediction_column"),
-                    learning_type=self.experiment_metadata.get("prediction_type"),
+                    label=prediction_column,
+                    learning_type=prediction_type,
                     params=self.experiment_metadata,
                     project_id=self.experiment_metadata.get(
                         "project_id",
                         getattr(self._api_client, "default_project_id", None),
                     ),
                     space_id=self.experiment_metadata.get(
-                        "space_id", getattr(self._api_client, "default_space_id", None)
+                        "space_id",
+                        getattr(self._api_client, "default_space_id", None),
                     ),
                     asset_id=(
                         None
                         if is_cos_asset
-                        else dict_connection.get("location", {}).get("id")
+                        else get_from_json(dict_connection, ["location", "id"])
                     ),  # do not pass asset id for data assets located on COS
-                    connection_id=dict_connection.get("connection", {}).get("id"),
+                    connection_id=get_from_json(dict_connection, ["connection", "id"]),
                     data_location=dict_connection,
                     data_batch_size_limit=self.sample_size_limit,
                     flight_parameters=flight_parameters,
@@ -306,7 +325,7 @@ class TabularIterableDataset(IterableDataset):
                     batch_size=sample_size_limit,
                 )
 
-            self._get_conn = get_local_conn
+            self._get_conn = get_local_conn  # type: ignore[assignment]
         else:
             raise NotImplementedError(
                 "For local data read please use 'fs' (file system) connection type. "
@@ -331,7 +350,7 @@ class TabularIterableDataset(IterableDataset):
 
             # Your code here...
 
-            conn.close() # FlightConnection instances must be closed after use
+            conn.close()  # FlightConnection instances must be closed after use
         """
         from ibm_watsonx_ai.helpers.connections.flight_service import FlightConnection
 
@@ -447,7 +466,7 @@ class TabularIterableDataset(IterableDataset):
         return flight_parameters
 
     def write(
-        self, data: pd.DataFrame | None = None, file_path: str | None = None
+        self, data: pd.DataFrame | None = None, file_path: str | Path | None = None
     ) -> None:
         """
         Writes data into the data source connection.
@@ -457,7 +476,7 @@ class TabularIterableDataset(IterableDataset):
 
         :param file_path: path to the local file to be saved in a source data connection (binary transfer).
             'data' or 'file_path' need to be provided
-        :type file_path: str, optional
+        :type file_path: str | Path, optional
         """
         if (data is None and file_path is None) or (
             data is not None and file_path is not None
@@ -469,20 +488,20 @@ class TabularIterableDataset(IterableDataset):
                 f"'data' need to be a pandas DataFrame, you provided: '{type(data)}'."
             )
 
-        if file_path is not None and not isinstance(file_path, str):
+        if file_path is not None and not isinstance(file_path, (str, Path)):
             raise TypeError(
-                f"'file_path' need to be a string, you provided: '{type(file_path)}'."
+                f"'file_path' need to be a string or Path, you provided: '{type(file_path)}'."
             )
 
-        from ibm_watsonx_ai.helpers.connections.flight_service import FlightConnection
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
 
-        self._get_conn = cast(Callable[[], FlightConnection], self._get_conn)
         if data is not None:
             with self._get_conn() as connection:
                 connection.write_data(data)
 
         else:
-            file_path = cast(str, file_path)
+            file_path = cast(Path, file_path)
             with self._get_conn() as connection:
                 connection.write_binary_data(file_path)
 
@@ -500,7 +519,7 @@ class TabularIterableDataset(IterableDataset):
                     if self.binary_data:
                         yield from connection.read_binary_data(
                             read_to_file=self.read_to_file
-                        )  # type: ignore[return-value]
+                        )
                     else:
                         self.total_size_limit = None
                         yield from connection.iterable_read()

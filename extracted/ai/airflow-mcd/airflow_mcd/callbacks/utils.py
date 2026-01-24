@@ -1,7 +1,7 @@
 import json
 import logging
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
@@ -241,13 +241,34 @@ class AirflowEventsClientUtils:
     def _get_next_retry_datetime(cls, ti: TaskInstance) -> Optional[str]:
         if not hasattr(ti, "task") or not ti.task or not ti.end_date:
             return None
-        return cls._get_optional_datetime_isoformat(ti.next_retry_datetime())
+        
+        # Handle Airflow 3.2 compatibility where RuntimeTaskInstance doesn't have next_retry_datetime method
+        if airflow_major_version() >= 3:
+            # In Airflow 3, RuntimeTaskInstance doesn't have next_retry_datetime method
+            # Return None as we cannot determine the next retry datetime
+            return None
+        else:
+            # In Airflow 1 and 2, use the next_retry_datetime method
+            return cls._get_optional_datetime_isoformat(ti.next_retry_datetime())
 
     @classmethod
     def _get_lineage_dict(cls, o: Any) -> Dict:
-        attrs = deepcopy(asdict(o))
-        attrs['type'] = str(type(o))
-        return attrs
+        """Convert a lineage object to a dictionary representation.
+        
+        Handles both dataclass and non-dataclass objects gracefully.
+        """
+        # Determine the source of attributes based on object type
+        if is_dataclass(o):
+            attrs = asdict(o)
+        elif isinstance(o, dict):
+            attrs = o
+        elif hasattr(o, '__dict__'):
+            attrs = o.__dict__
+        else:
+            attrs = {'value': str(o)}
+        
+        # Add type information and return deep copy
+        return {**deepcopy(attrs), 'type': str(type(o))}
 
     @classmethod
     def _get_lineage_list(cls, ti: TaskInstance, attr: str) -> List[Dict]:

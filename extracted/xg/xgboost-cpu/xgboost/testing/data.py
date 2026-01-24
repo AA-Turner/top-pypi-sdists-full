@@ -1,5 +1,6 @@
 # pylint: disable=invalid-name, too-many-lines
 """Utilities for data generation."""
+import gc
 import multiprocessing
 import os
 import string
@@ -15,6 +16,7 @@ from typing import (
     List,
     NamedTuple,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -28,13 +30,13 @@ from numpy import typing as npt
 from numpy.random import Generator as RNG
 from scipy import sparse
 
-from ..core import DMatrix, QuantileDMatrix
+from ..core import DataIter, DMatrix, QuantileDMatrix
 from ..data import is_pd_cat_dtype, pandas_pyarrow_mapper
 from ..sklearn import ArrayLike, XGBRanker
 from ..training import train as train_fn
 
 if TYPE_CHECKING:
-    from ..compat import DataFrame as DataFrameT
+    from pandas import DataFrame as DataFrameT
 else:
     DataFrameT = Any
 
@@ -44,7 +46,7 @@ memory = joblib.Memory("./cachedir", verbose=0)
 
 def np_dtypes(
     n_samples: int, n_features: int
-) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+) -> Generator[Union[Tuple[np.ndarray, np.ndarray], Tuple[list, list]], None, None]:
     """Enumerate all supported dtypes from numpy."""
     pd = pytest.importorskip("pandas")
 
@@ -90,12 +92,12 @@ def np_dtypes(
     orig = rng.binomial(1, 0.5, size=n_samples * n_features).reshape(
         n_samples, n_features
     )
-    for dtype in [np.bool_, bool]:
-        X = np.array(orig, dtype=dtype)
+    for dtype1 in [np.bool_, bool]:
+        X = np.array(orig, dtype=dtype1)
         yield orig, X
 
-    for dtype in [np.bool_, bool]:
-        X = np.array(orig, dtype=dtype)
+    for dtype2 in [np.bool_, bool]:
+        X = np.array(orig, dtype=dtype2)
         df_orig = pd.DataFrame(orig)
         df = pd.DataFrame(X)
         yield df_orig, df
@@ -148,9 +150,11 @@ def pd_dtypes() -> Generator:
 
     # Categorical
     orig = orig.astype("category")
+    for c in orig.columns:
+        orig[c] = orig[c].cat.rename_categories(int)
     for Null in (np.nan, None, pd.NA):
         df = pd.DataFrame(
-            {"f0": [1.0, 2.0, Null, 3.0], "f1": [3.0, 2.0, Null, 1.0]},
+            {"f0": [1, 2, Null, 3], "f1": [3, 2, Null, 1]},
             dtype=pd.CategoricalDtype(),
         )
         yield orig, df
@@ -237,10 +241,58 @@ def check_inf(rng: RNG) -> None:
 
 @memory.cache
 def get_california_housing() -> Tuple[np.ndarray, np.ndarray]:
-    """Fetch the California housing dataset from sklearn."""
-    datasets = pytest.importorskip("sklearn.datasets")
-    data = datasets.fetch_california_housing()
-    return data.data, data.target
+    """Synthesize a dataset similar to the sklearn California housing dataset.
+
+    The real one can be obtained via:
+
+    .. code-block::
+
+        import sklearn.datasets
+
+        X, y = sklearn.datasets.fetch_california_housing(return_X_y=True)
+
+    """
+    n_samples = 20640
+    rng = np.random.default_rng(2025)
+
+    pd = pytest.importorskip("pandas")
+
+    def mixture_2comp(
+        means: List[float], sigmas: List[float], weights: List[float]
+    ) -> np.ndarray:
+        l0 = rng.normal(
+            size=(int(n_samples * weights[0])), loc=means[0], scale=sigmas[0]
+        )
+        l1 = rng.normal(size=(n_samples - l0.shape[0]), loc=means[1], scale=sigmas[1])
+        return np.concatenate([l0, l1], axis=0)
+
+    def norm(mean: float, std: float) -> np.ndarray:
+        return rng.normal(loc=mean, scale=std, size=(n_samples,))
+
+    df = pd.DataFrame(
+        {
+            "Longitude": mixture_2comp(
+                [-118.0703597, -121.85682825],
+                [0.7897320650373969, 0.7248398629412008],
+                [0.60402556, 0.39597444],
+            ),
+            "Latitude": mixture_2comp(
+                [37.84266317, 33.86030848],
+                [1.0643911549736087, 0.5049274656834589],
+                [0.44485062, 0.55514938],
+            ),
+            "MedInc": norm(mean=3.8706710029069766, std=1.8997756945748738),
+            "HouseAge": norm(mean=28.639486434108527, std=12.585252725724606),
+            "AveRooms": norm(mean=5.428999742190376, std=2.474113202333516),
+            "AveBedrms": norm(mean=1.096675149606208, std=0.47389937625774475),
+            "Population": norm(mean=1425.4767441860465, std=1132.434687757615),
+            "AveOccup": norm(mean=3.0706551594363742, std=10.385797959128219),
+            "MedHouseVal": norm(mean=2.068558169089147, std=1.1539282040412253),
+        }
+    )
+    X = df[df.columns.difference(["MedHouseVal"])].to_numpy()
+    y = df["MedHouseVal"].to_numpy()
+    return X, y
 
 
 @memory.cache
@@ -656,7 +708,7 @@ def init_rank_score(
     # random sample
     rng = np.random.default_rng(1994)
     n_samples = int(X.shape[0] * sample_rate)
-    index = np.arange(0, X.shape[0], dtype=np.uint64)
+    index: npt.NDArray = np.arange(0, X.shape[0], dtype=np.uint64)
     rng.shuffle(index)
     index = index[:n_samples]
 
@@ -965,6 +1017,7 @@ def make_categorical(
     shuffle: bool = False,
     random_state: int = 1994,
     cat_dtype: np.typing.DTypeLike = np.int64,
+    device: str = "cpu",
 ) -> Tuple[ArrayLike, np.ndarray]:
     """Generate categorical features for test.
 
@@ -989,23 +1042,28 @@ def make_categorical(
     """
     pd = pytest.importorskip("pandas")
 
+    # Use different rngs for column and rows. We can change the `n_samples` without
+    # changing the column type.
     rng = np.random.RandomState(random_state)
+    row_rng = np.random.RandomState(random_state + 1)
 
     df = pd.DataFrame()
     for i in range(n_features):
         choice = rng.binomial(1, cat_ratio, size=1)[0]
         if choice == 1:
             if np.issubdtype(cat_dtype, np.str_):
+                # we rely on using the feature index as the seed to generate the same
+                # categories for multiple calls to `make_categorical`.
                 categories = np.array(unique_random_strings(n_categories, i))
-                c = rng.choice(categories, size=n_samples, replace=True)
+                c = row_rng.choice(categories, size=n_samples, replace=True)
             else:
                 categories = np.arange(0, n_categories)
-                c = rng.randint(low=0, high=n_categories, size=n_samples)
+                c = row_rng.randint(low=0, high=n_categories, size=n_samples)
 
             df[str(i)] = pd.Series(c, dtype="category")
             df[str(i)] = df[str(i)].cat.set_categories(categories)
         else:
-            num = rng.randint(low=0, high=n_categories, size=n_samples)
+            num = row_rng.randint(low=0, high=n_categories, size=n_samples)
             df[str(i)] = pd.Series(num, dtype=num.dtype)
 
     label = np.zeros(shape=(n_samples,))
@@ -1018,7 +1076,7 @@ def make_categorical(
 
     if sparsity > 0.0:
         for i in range(n_features):
-            index = rng.randint(
+            index = row_rng.randint(
                 low=0, high=n_samples - 1, size=int(n_samples * sparsity)
             )
             df.iloc[index, i] = np.nan
@@ -1031,7 +1089,74 @@ def make_categorical(
 
     if shuffle:
         columns = list(df.columns)
-        rng.shuffle(columns)
+        row_rng.shuffle(columns)
         df = df[columns]
 
+    if device != "cpu":
+        assert device in ["cuda", "gpu"]
+        import cudf
+        import cupy
+
+        df = cudf.from_pandas(df)
+        label = cupy.array(label)
     return df, label
+
+
+class IteratorForTest(DataIter):
+    """Iterator for testing streaming DMatrix. (external memory, quantile)"""
+
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        X: Sequence,
+        y: Sequence,
+        w: Optional[Sequence],
+        *,
+        cache: Optional[str],
+        on_host: bool = False,
+        min_cache_page_bytes: Optional[int] = None,
+    ) -> None:
+        assert len(X) == len(y)
+        self.X = X
+        self.y = y
+        self.w = w
+        self.it = 0
+        super().__init__(
+            cache_prefix=cache,
+            on_host=on_host,
+            min_cache_page_bytes=min_cache_page_bytes,
+        )
+
+    def next(self, input_data: Callable) -> bool:
+        if self.it == len(self.X):
+            return False
+
+        with pytest.raises(TypeError, match="Keyword argument"):
+            input_data(self.X[self.it], self.y[self.it], None)
+
+        # Use copy to make sure the iterator doesn't hold a reference to the data.
+        input_data(
+            data=self.X[self.it].copy(),
+            label=self.y[self.it].copy(),
+            weight=self.w[self.it].copy() if self.w else None,
+        )
+        gc.collect()  # clear up the copy, see if XGBoost access freed memory.
+        self.it += 1
+        return True
+
+    def reset(self) -> None:
+        self.it = 0
+
+    def as_arrays(
+        self,
+    ) -> Tuple[Union[np.ndarray, sparse.csr_matrix], ArrayLike, Optional[ArrayLike]]:
+        """Return concatenated arrays."""
+        if isinstance(self.X[0], sparse.csr_matrix):
+            X = sparse.vstack(self.X, format="csr")
+        else:
+            X = np.concatenate(self.X, axis=0)
+        y = np.concatenate(self.y, axis=0)
+        if self.w:
+            w = np.concatenate(self.w, axis=0)
+        else:
+            w = None
+        return X, y, w

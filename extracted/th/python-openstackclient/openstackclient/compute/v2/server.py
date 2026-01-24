@@ -21,6 +21,7 @@ import getpass
 import json
 import logging
 import os
+import typing as ty
 
 from cliff import columns as cliff_columns
 import iso8601
@@ -28,11 +29,11 @@ from openstack import exceptions as sdk_exceptions
 from openstack import utils as sdk_utils
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
 from openstackclient.api import compute_v2
+from openstackclient import command
 from openstackclient.common import envvars
 from openstackclient.common import pagination
 from openstackclient.i18n import _
@@ -44,7 +45,7 @@ LOG = logging.getLogger(__name__)
 IMAGE_STRING_FOR_BFV = 'N/A (booted from volume)'
 
 
-class PowerStateColumn(cliff_columns.FormattableColumn):
+class PowerStateColumn(cliff_columns.FormattableColumn[int]):
     """Generate a formatted string of a server's power state."""
 
     power_states = [
@@ -65,7 +66,7 @@ class PowerStateColumn(cliff_columns.FormattableColumn):
             return 'N/A'
 
 
-class AddressesColumn(cliff_columns.FormattableColumn):
+class AddressesColumn(cliff_columns.FormattableColumn[ty.Any]):
     """Generate a formatted string of a server's addresses."""
 
     def human_readable(self):
@@ -86,7 +87,7 @@ class AddressesColumn(cliff_columns.FormattableColumn):
         }
 
 
-class HostColumn(cliff_columns.FormattableColumn):
+class HostColumn(cliff_columns.FormattableColumn[str | None]):
     """Generate a formatted string of a hostname."""
 
     def human_readable(self):
@@ -183,9 +184,17 @@ def _prep_server_detail(compute_client, image_client, server, *, refresh=True):
         'updated_at': 'updated',
         'user_data': 'OS-EXT-SRV-ATTR:user_data',
         'vm_state': 'OS-EXT-STS:vm_state',
-        'pinned_availability_zone': 'pinned_availability_zone',
-        'scheduler_hints': 'scheduler_hints',
     }
+    # NOTE(ratailor): microversion 2.96 introduces
+    # pinned_availability_zone support
+    if sdk_utils.supports_microversion(compute_client, '2.96'):
+        column_map['pinned_availability_zone'] = 'pinned_availability_zone'
+
+    # NOTE(ratailor): microversion 2.100 introduces
+    # scheduler_hints support
+    if sdk_utils.supports_microversion(compute_client, '2.100'):
+        column_map['scheduler_hints'] = 'scheduler_hints'
+
     # Some columns returned by openstacksdk should not be shown because they're
     # either irrelevant or duplicates
     ignored_columns = {
@@ -239,6 +248,11 @@ def _prep_server_detail(compute_client, image_client, server, *, refresh=True):
     #  content from request_spec on detailed responses
     if not sdk_utils.supports_microversion(compute_client, '2.100'):
         info.pop('scheduler_hints', None)
+
+    # NOTE(ratailor): microversion 2.96 introduces
+    # pinned_availability_zone support
+    if not sdk_utils.supports_microversion(compute_client, '2.96'):
+        info.pop('pinned_availability_zone', None)
 
     # Convert the image blob to a name
     image_info = info.get('image', {})
@@ -326,10 +340,11 @@ def _prep_server_detail(compute_client, image_client, server, *, refresh=True):
             info['OS-EXT-STS:power_state']
         )
 
-    if 'scheduler_hints' in info:
-        info['scheduler_hints'] = format_columns.DictListColumn(
-            info.pop('scheduler_hints', {}),
-        )
+    if sdk_utils.supports_microversion(compute_client, '2.100'):
+        if 'scheduler_hints' in info:
+            info['scheduler_hints'] = format_columns.DictListColumn(
+                info.pop('scheduler_hints', {}),
+            )
 
     return info
 
@@ -2166,7 +2181,9 @@ class CreateServerDump(command.Command):
     def take_action(self, parsed_args):
         compute_client = self.app.client_manager.compute
         for name_or_id in parsed_args.server:
-            server = compute_client.find_server(name_or_id)
+            server = compute_client.find_server(
+                name_or_id, ignore_missing=False
+            )
             server.trigger_crash_dump(compute_client)
 
 
@@ -2209,23 +2226,48 @@ class DeleteServer(command.Command):
                 self.app.stdout.flush()
 
         compute_client = self.app.client_manager.compute
+
+        deleted_servers = []
         for server in parsed_args.server:
-            server_obj = compute_client.find_server(
-                server,
-                ignore_missing=False,
-                all_projects=parsed_args.all_projects,
-            )
+            try:
+                server_obj = compute_client.find_server(
+                    server,
+                    ignore_missing=False,
+                    all_projects=parsed_args.all_projects,
+                )
 
-            compute_client.delete_server(server_obj, force=parsed_args.force)
+                compute_client.delete_server(
+                    server_obj, force=parsed_args.force
+                )
+                deleted_servers.append(server_obj)
+            except Exception as e:
+                LOG.error(
+                    _(
+                        "Failed to delete server with "
+                        "name or ID '%(server)s': %(e)s"
+                    ),
+                    {'server': server, 'e': e},
+                )
 
-            if parsed_args.wait:
+        if parsed_args.wait:
+            for server_obj in deleted_servers:
                 try:
                     compute_client.wait_for_delete(
                         server_obj, callback=_show_progress
                     )
                 except sdk_exceptions.ResourceTimeout:
                     msg = _('Error deleting server: %s') % server_obj.id
+                    deleted_servers.remove(server_obj)
                     raise exceptions.CommandError(msg)
+
+        fails = len(parsed_args.server) - len(deleted_servers)
+        if fails > 0:
+            total = len(parsed_args.server)
+            msg = _("%(fails)s of %(total)s servers failed to delete.") % {
+                'fails': fails,
+                'total': total,
+            }
+            raise exceptions.CommandError(msg)
 
 
 class PercentAction(argparse.Action):
@@ -2838,18 +2880,21 @@ class ListServer(command.Lister):
         if parsed_args.long:
             columns += (
                 'availability_zone',
-                'pinned_availability_zone',
                 'hypervisor_hostname',
                 'metadata',
-                'scheduler_hints',
             )
             column_headers += (
                 'Availability Zone',
-                'Pinned Availability Zone',
                 'Host',
                 'Properties',
-                'Scheduler Hints',
             )
+            if sdk_utils.supports_microversion(compute_client, '2.96'):
+                columns += ('pinned_availability_zone',)
+                column_headers += ('Pinned Availability Zone',)
+
+            if sdk_utils.supports_microversion(compute_client, '2.100'):
+                columns += ('scheduler_hints',)
+                column_headers += ('Scheduler Hints',)
 
         if parsed_args.all_projects:
             columns += ('project_id',)
@@ -2887,10 +2932,11 @@ class ListServer(command.Lister):
                     column_headers += ('Availability Zone',)
                 if c in (
                     'pinned_availability_zone',
-                    "Pinned Availability Zone",
+                    'Pinned Availability Zone',
                 ):
-                    columns += ('Pinned Availability Zone',)
-                    column_headers += ('Pinned Availability Zone',)
+                    if sdk_utils.supports_microversion(compute_client, '2.96'):
+                        columns += ('pinned_availability_zone',)
+                        column_headers += ('Pinned Availability Zone',)
                 if c in ('Host', "host"):
                     columns += ('hypervisor_hostname',)
                     column_headers += ('Host',)
@@ -2901,8 +2947,11 @@ class ListServer(command.Lister):
                     'scheduler_hints',
                     "Scheduler Hints",
                 ):
-                    columns += ('scheduler_hints',)
-                    column_headers += ('Scheduler Hints',)
+                    if sdk_utils.supports_microversion(
+                        compute_client, '2.100'
+                    ):
+                        columns += ('scheduler_hints',)
+                        column_headers += ('Scheduler Hints',)
 
             # remove duplicates
             column_headers = tuple(dict.fromkeys(column_headers))

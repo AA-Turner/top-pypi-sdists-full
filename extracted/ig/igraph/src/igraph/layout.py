@@ -6,7 +6,6 @@ Layout-related code in the igraph library.
 This package contains the implementation of the L{Layout} object.
 """
 
-
 from math import sin, cos, pi
 
 from igraph._igraph import GraphBase
@@ -16,6 +15,7 @@ from igraph.statistics import RunningMean
 
 __all__ = (
     "Layout",
+    "align_layout",
     "_layout",
     "_layout_auto",
     "_layout_sugiyama",
@@ -56,6 +56,14 @@ class Layout:
         >>> layout[1] = coords
         >>> print(layout[1])
         [0, 3]
+
+    Optionally, a layout may have I{edge routing} information attached to
+    each edge in the layout in the L{edge_routing} property.
+
+    @ivar edge_routing: C{None} if no edge routing information is available,
+    or a list of lists of control point coordinates, one for each edge. When
+    an edge has control points, it should be drawn in a way that the edge
+    passes through all the control points in the order they appear in the list.
     """
 
     def __init__(self, coords=None, dim=None):
@@ -69,6 +77,8 @@ class Layout:
         length of the coordinate list is zero, otherwise it should be left as
         is.
         """
+        self.edge_routing = None
+
         if coords is not None:
             self._coords = [list(coord) for coord in coords]
         else:
@@ -534,6 +544,28 @@ def _layout(graph, layout=None, *args, **kwds):
     return layout
 
 
+def align_layout(graph, layout):
+    """Aligns a graph layout with the coordinate axes
+
+    This function centers a vertex layout on the coordinate system origin and
+    rotates the layout to achieve a visually pleasing alignment with the coordinate
+    axes. Doing this is particularly useful with force-directed layouts such as
+    L{Graph.layout_fruchterman_reingold}. Layouts in arbitrary dimensional spaces
+    are supported.
+
+    @param graph: the graph that the layout is associated with.
+    @param layout: the L{Layout} object containing the vertex coordinates
+      to align.
+    @return: a new aligned L{Layout} object.
+    """
+    from igraph._igraph import _align_layout
+
+    if not isinstance(layout, Layout):
+        layout = Layout(layout)
+
+    return Layout(_align_layout(graph, layout.coords))
+
+
 def _layout_auto(graph, *args, **kwds):
     """Chooses and runs a suitable layout function based on simple
     topological properties of the graph.
@@ -609,7 +641,6 @@ def _layout_sugiyama(
     hgap=1,
     vgap=1,
     maxiter=100,
-    return_extended_graph=False,
 ):
     """Places the vertices using a layered Sugiyama layout.
 
@@ -650,33 +681,16 @@ def _layout_sugiyama(
     @param maxiter: maximum number of iterations to take in the crossing
       reduction step. Increase this if you feel that you are getting too many
       edge crossings.
-    @param return_extended_graph: specifies that the extended graph with the
-      added dummy vertices should also be returned. When this is C{True}, the
-      result will be a tuple containing the layout and the extended graph. The
-      first |V| nodes of the extended graph will correspond to the nodes of the
-      original graph, the remaining ones are dummy nodes. Plotting the extended
-      graph with the returned layout and hidden dummy nodes will produce a layout
-      that is similar to the original graph, but with the added edge bends.
-      The extended graph also contains an edge attribute called C{_original_eid}
-      which specifies the ID of the edge in the original graph from which the
-      edge of the extended graph was created.
-    @return: the calculated layout, which may (and usually will) have more rows
-      than the number of vertices; the remaining rows correspond to the dummy
-      nodes introduced in the layering step. When C{return_extended_graph} is
-      C{True}, it will also contain the extended graph.
+    @return: the calculated layout and an additional list of matrices where the
+      i-th matrix contains the control points of edge I{i} in the original graph
+      (or an empty matrix if no control points are needed on the edge)
     """
-    if not return_extended_graph:
-        return Layout(
-            GraphBase._layout_sugiyama(
-                graph, layers, weights, hgap, vgap, maxiter, return_extended_graph
-            )
-        )
-
-    layout, extd_graph, extd_to_orig_eids = GraphBase._layout_sugiyama(
-        graph, layers, weights, hgap, vgap, maxiter, return_extended_graph
+    coords, routing = GraphBase._layout_sugiyama(
+        graph, layers, weights, hgap, vgap, maxiter
     )
-    extd_graph.es["_original_eid"] = extd_to_orig_eids
-    return Layout(layout), extd_graph
+    layout = Layout(coords)
+    layout.edge_routing = routing
+    return layout
 
 
 def _layout_method_wrapper(func):

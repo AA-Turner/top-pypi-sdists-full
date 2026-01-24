@@ -17,9 +17,7 @@ from .helpers import (apply_regex, assert_existence, diff_summary, patch_summary
 MPL_VERSION = Version(matplotlib.__version__)
 FTV = matplotlib.ft2font.__freetype_version__.replace('.', '')
 VERSION_ID = f"mpl{MPL_VERSION.major}{MPL_VERSION.minor}_ft{FTV}"
-HASH_LIBRARY = Path(__file__).parent / 'subtest' / 'hashes' / (VERSION_ID + ".json")
-RESULT_LIBRARY = Path(__file__).parent / 'result_hashes' / (VERSION_ID + ".json")
-HASH_LIBRARY_FLAG = rf'--mpl-hash-library={HASH_LIBRARY}'
+HASH_LIBRARY_FLAG = r'--mpl-hash-library={hash_library}'
 FULL_BASELINE_PATH = Path(__file__).parent / 'subtest' / 'baseline'
 
 BASELINE_IMAGES_FLAG_REL = ['--mpl-baseline-path=baseline', '--mpl-baseline-relative']
@@ -49,8 +47,19 @@ REGEX_STRS = [
 ]
 
 
+def xdist_args(n_workers):
+    try:
+        import xdist
+        if n_workers is None:
+            return ["-p", "no:xdist"]
+        else:
+            return ["-n", str(n_workers)]
+    except ImportError:
+        return []
+
+
 def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=True,
-                has_result_hashes=False, generating_hashes=False,
+                has_result_hashes=False, generating_hashes=False, testing_hashes=False, n_xdist_workers=None,
                 update_baseline=UPDATE_BASELINE, update_summary=UPDATE_SUMMARY):
     """ Run pytest (within pytest) and check JSON summary report.
 
@@ -72,6 +81,11 @@ def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=Tru
     generating_hashes : bool, optional, default=False
         Whether `--mpl-generate-hash-library` was specified and
         both of `--mpl-hash-library` and `hash_library=` were not.
+    testing_hashes : bool, optional, default=False
+        Whether the subtest is comparing hashes and therefore needs baseline hashes generated.
+    n_xdist_workers : str or int, optional, default=None
+        Number of xdist workers to use, or "auto" to use all available cores.
+        None will disable xdist. If pytest-xdist is not installed, this will be ignored.
     """
     if update_baseline and update_summary:
         raise ValueError("Cannot enable both `update_baseline` and `update_summary`.")
@@ -86,14 +100,30 @@ def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=Tru
     results_path = tmp_path / 'results'
     results_path.mkdir()
 
+    baseline_hash_library = tmp_path / 'hashes' / 'baseline.json'
+    expected_result_hash_library = tmp_path / 'hashes' / 'expected_result.json'
+
     # Configure the arguments to run the test
     pytest_args = [sys.executable, '-m', 'pytest', str(TEST_FILE)]
     mpl_args = ['--mpl', rf'--mpl-results-path={results_path.as_posix()}',
                 f'--mpl-generate-summary={summaries}']
     if update_baseline:
         mpl_args += [rf'--mpl-generate-path={FULL_BASELINE_PATH}']
-        if HASH_LIBRARY.exists():
-            mpl_args += [rf'--mpl-generate-hash-library={HASH_LIBRARY}']
+    args = [
+        HASH_LIBRARY_FLAG.format(hash_library=baseline_hash_library)
+        if x == HASH_LIBRARY_FLAG else x
+        for x in args
+    ]
+
+    if testing_hashes or has_result_hashes or generating_hashes:
+        hash_gen_args = [f'--mpl-generate-hash-library={expected_result_hash_library}']
+        if " ".join(HASH_COMPARISON_MODE) in " ".join(args):
+            hash_gen_args += HASH_COMPARISON_MODE
+        subprocess.call(pytest_args + hash_gen_args)
+        shutil.copy(expected_result_hash_library, baseline_hash_library)
+        transform_hashes(baseline_hash_library)
+
+    pytest_args.extend(xdist_args(n_xdist_workers))
 
     # Run the test and record exit status
     status = subprocess.call(pytest_args + mpl_args + args)
@@ -102,9 +132,6 @@ def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=Tru
     if update_baseline:
         assert status == 0
         transform_images(FULL_BASELINE_PATH)  # Make image comparison tests fail correctly
-        if HASH_LIBRARY.exists():
-            shutil.copy(HASH_LIBRARY, RESULT_LIBRARY)
-            transform_hashes(HASH_LIBRARY)  # Make hash comparison tests fail correctly
         pytest.skip("Skipping testing, since `update_baseline` is enabled.")
         return
 
@@ -135,7 +162,8 @@ def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=Tru
 
     # Compare summaries
     diff_summary(baseline_summary, result_summary,
-                 baseline_hash_library=HASH_LIBRARY, result_hash_library=RESULT_LIBRARY,
+                 baseline_hash_library=baseline_hash_library,
+                 result_hash_library=expected_result_hash_library,
                  generating_hashes=generating_hashes)
 
     # Ensure reported images exist
@@ -146,12 +174,12 @@ def run_subtest(baseline_summary_name, tmp_path, args, summaries=None, xfail=Tru
         result_hash_file = tmp_path / 'results' / has_result_hashes
         has_result_hashes = True  # convert to bool after processing str
     else:
-        result_hash_file = tmp_path / 'results' / HASH_LIBRARY.name
+        result_hash_file = tmp_path / 'results' / 'baseline.json'
 
     # Compare the generated hash library to the expected hash library
     if has_result_hashes:
         assert result_hash_file.exists()
-        with open(RESULT_LIBRARY, "r") as f:
+        with open(expected_result_hash_library, "r") as f:
             baseline = json.load(f)
         with open(result_hash_file, "r") as f:
             result = json.load(f)
@@ -173,54 +201,80 @@ def test_default(tmp_path):
     run_subtest('test_default', tmp_path, [*IMAGE_COMPARISON_MODE])
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_hash(tmp_path):
-    run_subtest('test_hash', tmp_path, [HASH_LIBRARY_FLAG, *HASH_COMPARISON_MODE])
+    run_subtest('test_hash', tmp_path,
+                [HASH_LIBRARY_FLAG, *HASH_COMPARISON_MODE],
+                testing_hashes=True)
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_results_always(tmp_path):
     run_subtest('test_results_always', tmp_path,
                 [HASH_LIBRARY_FLAG, BASELINE_IMAGES_FLAG_ABS, '--mpl-results-always'],
                 has_result_hashes=True)
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_html(tmp_path):
     run_subtest('test_results_always', tmp_path,
                 [HASH_LIBRARY_FLAG, BASELINE_IMAGES_FLAG_ABS], summaries=['html'],
                 has_result_hashes=True)
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 200_000
+    assert "Baseline image differs" in html_path.read_text()
     assert (tmp_path / 'results' / 'extra.js').exists()
     assert (tmp_path / 'results' / 'styles.css').exists()
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
+@pytest.mark.parametrize("num_workers", [None, 0, 1, 2])
+def test_html_xdist(request, tmp_path, num_workers):
+    if not request.config.pluginmanager.hasplugin("xdist"):
+        pytest.skip("Skipping: pytest-xdist is not installed")
+    run_subtest('test_results_always', tmp_path,
+                [HASH_LIBRARY_FLAG, BASELINE_IMAGES_FLAG_ABS], summaries=['html'],
+                has_result_hashes=True, n_xdist_workers=num_workers)
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 200_000
+    assert "Baseline image differs" in html_path.read_text()
+    assert (tmp_path / 'results' / 'extra.js').exists()
+    assert (tmp_path / 'results' / 'styles.css').exists()
+    if num_workers is not None:
+        assert len(list((tmp_path / 'results').glob('generated-hashes-xdist-*-*.json'))) == 0
+        assert len(list((tmp_path / 'results').glob('results-xdist-*-*.json'))) == num_workers
+
+
 def test_html_hashes_only(tmp_path):
     run_subtest('test_html_hashes_only', tmp_path,
                 [HASH_LIBRARY_FLAG, *HASH_COMPARISON_MODE],
                 summaries=['html'], has_result_hashes=True)
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 100_000
+    assert "Baseline hash differs" in html_path.read_text()
     assert (tmp_path / 'results' / 'extra.js').exists()
     assert (tmp_path / 'results' / 'styles.css').exists()
 
 
 def test_html_images_only(tmp_path):
     run_subtest('test_html_images_only', tmp_path, [*IMAGE_COMPARISON_MODE], summaries=['html'])
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 200_000
+    assert "Baseline image differs" in html_path.read_text()
     assert (tmp_path / 'results' / 'extra.js').exists()
     assert (tmp_path / 'results' / 'styles.css').exists()
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_basic_html(tmp_path):
     run_subtest('test_results_always', tmp_path,
                 [HASH_LIBRARY_FLAG, *BASELINE_IMAGES_FLAG_REL], summaries=['basic-html'],
                 has_result_hashes=True)
-    assert (tmp_path / 'results' / 'fig_comparison_basic.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison_basic.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 20_000
+    assert "hash comparison, although" in html_path.read_text()
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_generate(tmp_path):
     # generating hashes and images; no testing
     run_subtest('test_generate', tmp_path,
@@ -235,7 +289,6 @@ def test_generate_images_only(tmp_path):
                 [rf'--mpl-generate-path={tmp_path}', *IMAGE_COMPARISON_MODE], xfail=False)
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_generate_hashes_only(tmp_path):
     # generating hashes; testing images
     run_subtest('test_generate_hashes_only', tmp_path,
@@ -243,7 +296,6 @@ def test_generate_hashes_only(tmp_path):
                 generating_hashes=True)
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_html_generate(tmp_path):
     # generating hashes and images; no testing
     run_subtest('test_html_generate', tmp_path,
@@ -251,7 +303,31 @@ def test_html_generate(tmp_path):
                  rf'--mpl-generate-hash-library={tmp_path / "test_hashes.json"}'],
                 summaries=['html'], xfail=False, has_result_hashes="test_hashes.json",
                 generating_hashes=True)
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 100_000
+    assert "Baseline image was generated" in html_path.read_text()
+
+
+@pytest.mark.parametrize("num_workers", [None, 0, 1, 2])
+def test_html_generate_xdist(request, tmp_path, num_workers):
+    # generating hashes and images; no testing
+    if not request.config.pluginmanager.hasplugin("xdist"):
+        pytest.skip("Skipping: pytest-xdist is not installed")
+    run_subtest('test_html_generate', tmp_path,
+                [rf'--mpl-generate-path={tmp_path}',
+                 rf'--mpl-generate-hash-library={tmp_path / "test_hashes.json"}'],
+                summaries=['html'], xfail=False, has_result_hashes="test_hashes.json",
+                generating_hashes=True, n_xdist_workers=num_workers)
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 100_000
+    assert "Baseline image was generated" in html_path.read_text()
+    assert (tmp_path / 'results' / 'extra.js').exists()
+    assert (tmp_path / 'results' / 'styles.css').exists()
+    if num_workers is not None:
+        assert len(list((tmp_path / 'results').glob('generated-hashes-xdist-*-*.json'))) == num_workers
+        assert len(list((tmp_path / 'results').glob('results-xdist-*-*.json'))) == num_workers
 
 
 def test_html_generate_images_only(tmp_path):
@@ -259,29 +335,51 @@ def test_html_generate_images_only(tmp_path):
     run_subtest('test_html_generate_images_only', tmp_path,
                 [rf'--mpl-generate-path={tmp_path}', *IMAGE_COMPARISON_MODE],
                 summaries=['html'], xfail=False)
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 100_000
+    assert "Baseline image was generated" in html_path.read_text()
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_html_generate_hashes_only(tmp_path):
     # generating hashes; testing images
     run_subtest('test_html_generate_hashes_only', tmp_path,
                 [rf'--mpl-generate-hash-library={tmp_path / "test_hashes.json"}'],
                 summaries=['html'], has_result_hashes="test_hashes.json", generating_hashes=True)
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 200_000
+    assert "Baseline hash was generated" in html_path.read_text()
 
 
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_html_run_generate_hashes_only(tmp_path):
     # generating hashes; testing hashes
     run_subtest('test_html_hashes_only', tmp_path,
                 [rf'--mpl-generate-hash-library={tmp_path / "test_hashes.json"}',
                  HASH_LIBRARY_FLAG, *HASH_COMPARISON_MODE],
                 summaries=['html'], has_result_hashes="test_hashes.json")
-    assert (tmp_path / 'results' / 'fig_comparison.html').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 100_000
+    assert "Baseline hash differs" in html_path.read_text()
 
 
 # Run a hybrid mode test last so if generating hash libraries, it includes all the hashes.
-@pytest.mark.skipif(not HASH_LIBRARY.exists(), reason="No hash library for this mpl version")
 def test_hybrid(tmp_path):
-    run_subtest('test_hybrid', tmp_path, [HASH_LIBRARY_FLAG, BASELINE_IMAGES_FLAG_ABS])
+    run_subtest('test_hybrid', tmp_path, [HASH_LIBRARY_FLAG, BASELINE_IMAGES_FLAG_ABS], testing_hashes=True)
+
+
+@pytest.mark.parametrize("num_workers", [None, 0, 1, 2])
+def test_html_no_json(tmp_path, num_workers):
+    # Previous tests require JSON summary to be generated to function correctly.
+    # This test ensures HTML summary generation works without JSON summary.
+    results_path = tmp_path / 'results'
+    results_path.mkdir()
+    mpl_args = ['--mpl', rf'--mpl-results-path={results_path.as_posix()}',
+                '--mpl-generate-summary=html', *xdist_args(num_workers)]
+    subprocess.call([sys.executable, '-m', 'pytest', str(TEST_FILE), *mpl_args])
+    assert not (tmp_path / 'results' / 'results.json').exists()
+    html_path = tmp_path / 'results' / 'fig_comparison.html'
+    assert html_path.exists()
+    assert html_path.stat().st_size > 200_000
+    assert "Baseline image differs" in html_path.read_text()

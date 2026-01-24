@@ -1,10 +1,10 @@
 use bstr::Finder;
 use hashbrown::HashMap;
 use pyo3::prelude::*;
-use pyo3::sync::GILProtected;
+use pyo3::sync::MutexExt;
 use pyo3::types::{PyAny, PyDict, PyFrame, PyList, PyModule};
 use pyo3::{PyErr, Python};
-use std::cell::RefCell;
+use std::sync::Mutex;
 use ulid::Ulid;
 
 use super::utils;
@@ -31,15 +31,15 @@ pub struct PluginProcessor {
     /// The subtype of the Kolo frame.
     subtype: Option<String>,
     /// A Python function used to add additional filtering logic.
-    call: Option<PyObject>,
+    call: Option<Py<PyAny>>,
     /// A Python function used to add additional processing logic.
-    process: Option<PyObject>,
+    process: Option<Py<PyAny>>,
     /// A list of events to filter against.
     events: Option<Vec<String>>,
     /// A Python dictionary used to store information between different process calls.
     context: Py<PyDict>,
     /// A Rust dictionary mapping the Python `id` of a frame to the Kolo `frame_id`.
-    frame_ids: GILProtected<RefCell<HashMap<usize, String>>>,
+    frame_ids: Mutex<HashMap<usize, String>>,
 }
 
 impl std::fmt::Debug for PluginProcessor {
@@ -72,7 +72,7 @@ fn get_subtype(plugin_data: &Bound<'_, PyDict>) -> Result<Option<String>, PyErr>
 }
 
 /// Load a frame processor's `call` function from a plugin_data dictionary
-fn get_callable(plugin_data: &Bound<'_, PyDict>, key: &str) -> Option<PyObject> {
+fn get_callable(plugin_data: &Bound<'_, PyDict>, key: &str) -> Option<Py<PyAny>> {
     let callable = plugin_data.get_item(key).expect(utils::STRING_KEY);
 
     match callable {
@@ -139,7 +139,7 @@ impl PluginProcessor {
             // Cloning here is just bumping the reference count. This is what we want,
             // so Python knows we need `context` to continue to exist.
             context: context.clone().unbind(),
-            frame_ids: GILProtected::new(HashMap::new().into()),
+            frame_ids: Mutex::new(HashMap::new()),
         })
     }
 
@@ -149,7 +149,7 @@ impl PluginProcessor {
         py: Python,
         frame: &Bound<'_, PyAny>,
         event: Event,
-        arg: &PyObject,
+        arg: &Py<PyAny>,
         filename: &str,
     ) -> Result<bool, PyErr> {
         let filename_matches = self.filename_finder.find(filename).is_some();
@@ -169,36 +169,35 @@ impl PluginProcessor {
     ///
     /// Store the Python `id` of the frame and the Kolo `frame_id` in `self.frame_ids` for use
     /// later.
-    fn create_frame_id(&self, pyframe: &Bound<'_, PyFrame>) -> String {
+    fn create_frame_id(&self, pyframe: &Bound<'_, PyFrame>) -> PyResult<String> {
         let py = pyframe.py();
         let pyframe_id = pyframe.as_ptr() as usize;
         let frame_id = Ulid::new();
         let frame_id = format!("frm_{}", frame_id.to_string());
         self.frame_ids
-            .get(py)
-            .borrow_mut()
+            .lock_py_attached(py).expect("mutex poisoned")
             .insert(pyframe_id, frame_id.clone());
-        frame_id
+        Ok(frame_id)
     }
 
     /// Get the Kolo `frame_id` for a Python frame object.
     ///
     /// If the Python frame has been seen before, get the `frame_id` from `self.frame_ids`.
     /// Otherwise create a new one.
-    fn get_frame_id(&self, pyframe: &Bound<'_, PyFrame>) -> String {
+    fn get_frame_id(&self, pyframe: &Bound<'_, PyFrame>) -> PyResult<String> {
         let py = pyframe.py();
         let pyframe_id = pyframe.as_ptr() as usize;
-        match self.frame_ids.get(py).borrow().get(&pyframe_id) {
-            Some(frame_id) => frame_id.clone(),
+        match self.frame_ids.lock_py_attached(py).expect("mutex poisoned").get(&pyframe_id) {
+            Some(frame_id) => Ok(frame_id.clone()),
             None => {
                 let frame_id = Ulid::new();
-                format!("frm_{}", frame_id.to_string())
+                Ok(format!("frm_{}", frame_id.to_string()))
             }
         }
     }
 
     /// Get or create a new Kolo `frame_id` for a given Python frame object
-    fn frame_id(&self, pyframe: &Bound<'_, PyFrame>, event: Event) -> String {
+    fn frame_id(&self, pyframe: &Bound<'_, PyFrame>, event: Event) -> PyResult<String> {
         match event {
             Event::Call => self.create_frame_id(pyframe),
             Event::Return => self.get_frame_id(pyframe),
@@ -215,7 +214,7 @@ impl PluginProcessor {
         py: Python,
         pyframe: &Bound<'_, PyFrame>,
         event: Event,
-        arg: &PyObject,
+        arg: &Py<PyAny>,
         call_frames: Vec<(Bound<'_, PyAny>, String)>,
         lightweight_repr: bool,
     ) -> Result<Option<(String, utils::SerializedFrame)>, PyErr> {
@@ -230,8 +229,8 @@ impl PluginProcessor {
         }
 
         // Set standard frame data
-        let data = PyDict::new_bound(py);
-        let frame_id = self.frame_id(pyframe, event);
+        let data = PyDict::new(py);
+        let frame_id = self.frame_id(pyframe, event)?;
         data.set_item("frame_id", frame_id.clone())
             .expect(utils::STRING_KEY);
         data.set_item("timestamp", utils::timestamp())
@@ -305,14 +304,14 @@ fn load_plugin_data(
         {
             Some(build_context) => {
                 if build_context.is_none() {
-                    PyDict::new_bound(py)
+                    PyDict::new(py)
                 } else {
-                    build_context.call1((config,))?.downcast_into()?
+                    build_context.call1((config,))?.cast_into()?
                 }
             }
-            None => PyDict::new_bound(py),
+            None => PyDict::new(py),
         };
-        for co_name in co_names.iter()? {
+        for co_name in co_names.try_iter()? {
             let co_name: String = co_name?.extract()?;
             let processor = PluginProcessor::new(plugin_data, &context)?;
             processors.entry(co_name).or_default().push(processor);
@@ -326,7 +325,7 @@ pub fn load_plugins(
     py: Python,
     config: &Bound<'_, PyDict>,
 ) -> Result<HashMap<String, Vec<PluginProcessor>>, PyErr> {
-    let kolo_plugins = PyModule::import_bound(py, "kolo.plugins")
+    let kolo_plugins = PyModule::import(py, "kolo.plugins")
         .expect("kolo.plugins should always be importable");
     let load = kolo_plugins
         .getattr("load_plugin_data")
@@ -335,7 +334,7 @@ pub fn load_plugins(
         .call1((config,))
         .expect("load_plugin_data should be callable");
     let plugins = plugins
-        .downcast()
+        .cast()
         .expect("load_plugin_data should return a list");
     load_plugin_data(py, plugins, config)
 }
@@ -345,20 +344,20 @@ mod tests {
     use super::*;
     use crate::_kolo::utils;
     use pyo3::exceptions::{PyKeyError, PyTypeError, PyValueError};
-    use pyo3::types::PyBytes;
+    use pyo3::types::{PyBytes, PyTuple};
     use testresult::TestResult;
 
     fn load_msgpack(py: Python<'_>, data: Vec<u8>) -> Bound<'_, PyAny> {
         let serialize =
-            PyModule::import_bound(py, "kolo.serialize").expect("Could not import kolo.serialize");
-        let data = PyBytes::new_bound(py, &data);
+            PyModule::import(py, "kolo.serialize").expect("Could not import kolo.serialize");
+        let data = PyBytes::new(py, &data);
         serialize
             .call_method1("load_msgpack", (data,))
             .expect("Invalid msgpack data")
     }
 
     fn assert_error_message(py: Python, err: PyErr, expected: &str) -> TestResult {
-        let message = err.value_bound(py).getattr("args")?.get_item(0)?;
+        let message = err.value(py).getattr("args")?.get_item(0)?;
         let message: &str = message.extract()?;
         assert_eq!(message, expected);
         Ok(())
@@ -372,7 +371,9 @@ mod tests {
     ) -> TestResult {
         let err = PluginProcessor::new(plugin_data, context).unwrap_err();
         assert!(err.is_instance_of::<PyKeyError>(py));
-        assert!(err.value_bound(py).getattr("args")?.eq((key,))?);
+        let args_tuple = err.value(py).getattr("args")?;
+        let expected = PyTuple::new(py, [key])?;
+        assert!(args_tuple.eq(&expected)?);
         Ok(())
     }
 
@@ -389,11 +390,11 @@ mod tests {
 
     #[test]
     fn test_new() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let context = PyDict::new_bound(py);
-            let plugin_data = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let context = PyDict::new(py);
+            let plugin_data = PyDict::new(py);
             assert_keyerror(py, &context, &plugin_data, "path_fragment")?;
 
             plugin_data.set_item("path_fragment", py.None())?;
@@ -468,11 +469,11 @@ mod tests {
 
     #[test]
     fn test_debug() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let context = PyDict::new_bound(py);
-            let plugin_data = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let context = PyDict::new(py);
+            let plugin_data = PyDict::new(py);
 
             plugin_data.set_item("path_fragment", "kolo").unwrap();
             plugin_data.set_item("call_type", "call").unwrap();
@@ -495,39 +496,39 @@ mod tests {
 
     #[test]
     fn test_matches() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let context = PyDict::new_bound(py);
-            let plugin_data = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let context = PyDict::new(py);
+            let plugin_data = PyDict::new(py);
             plugin_data.set_item("path_fragment", "kolo")?;
             plugin_data.set_item("call_type", "call")?;
             plugin_data.set_item("return_type", "return")?;
 
             let processor = PluginProcessor::new(&plugin_data, &context)?;
-            let frame = PyModule::from_code_bound(
+            let frame = PyModule::from_code(
                 py,
-                "
+                c"
 import inspect
 
 frame = inspect.currentframe()
                 ",
-                "kolo/filename.py",
-                "module",
+                c"kolo/filename.py",
+                c"module",
             )?
             .getattr("frame")?;
-            let (filename, _) = utils::filename_with_lineno(frame.downcast()?, py)?;
+            let (filename, _) = utils::filename_with_lineno(frame.cast()?, py)?;
             let processor_match =
                 processor.matches_frame(py, &frame, Event::Call, &py.None(), &filename);
             assert!(processor_match?);
 
-            let call = PyModule::from_code_bound(
+            let call = PyModule::from_code(
                 py,
-                "def call(frame, event, arg, context):
+                c"def call(frame, event, arg, context):
                     return event == 'call'
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("call")?;
 
@@ -540,13 +541,13 @@ frame = inspect.currentframe()
                 processor.matches_frame(py, &frame, Event::Return, &py.None(), &filename);
             assert!(!processor_match?);
 
-            let invalid_return_type = PyModule::from_code_bound(
+            let invalid_return_type = PyModule::from_code(
                 py,
-                "def call(frame, event, arg, context):
+                c"def call(frame, event, arg, context):
                     return 'call'
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("call")?;
 
@@ -571,28 +572,28 @@ frame = inspect.currentframe()
 
     #[test]
     fn test_process() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let context = PyDict::new_bound(py);
-            let plugin_data = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let context = PyDict::new(py);
+            let plugin_data = PyDict::new(py);
             plugin_data.set_item("path_fragment", "kolo")?;
             plugin_data.set_item("call_type", "call")?;
             plugin_data.set_item("return_type", "return")?;
 
             let processor = PluginProcessor::new(&plugin_data, &context)?;
-            let frame = PyModule::from_code_bound(
+            let frame = PyModule::from_code(
                 py,
-                "
+                c"
 import inspect
 
 frame = inspect.currentframe()
                 ",
-                "kolo/filename.py",
-                "module",
+                c"kolo/filename.py",
+                c"module",
             )?
             .getattr("frame")?;
-            let frame = frame.downcast()?;
+            let frame = frame.cast()?;
 
             let (frame_type, data) = processor
                 .process(py, frame, Event::Call, &py.None(), vec![], false)?
@@ -624,15 +625,15 @@ frame = inspect.currentframe()
             let subtype: &str = subtype.extract()?;
             assert_eq!(subtype, "rust");
 
-            let process = PyModule::from_code_bound(
+            let process = PyModule::from_code(
                 py,
-                "def process(frame, event, arg, context):
+                c"def process(frame, event, arg, context):
                     return {
                         'event': event,
                     }
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("process")?;
             plugin_data.set_item("process", process)?;
@@ -645,13 +646,13 @@ frame = inspect.currentframe()
             let event: &str = event.extract()?;
             assert_eq!(event, "call");
 
-            let invalid_return_type = PyModule::from_code_bound(
+            let invalid_return_type = PyModule::from_code(
                 py,
-                "def process(frame, event, arg, context):
+                c"def process(frame, event, arg, context):
                     return 'process'
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("process")?;
             plugin_data.set_item("process", invalid_return_type)?;
@@ -670,9 +671,9 @@ frame = inspect.currentframe()
             assert!(err.is_instance_of::<PyTypeError>(py));
             assert_error_message(py, err, "'str' object is not callable")?;
 
-            let weird_mapping = PyModule::from_code_bound(
+            let weird_mapping = PyModule::from_code(
                 py,
-                "
+                c"
 from collections.abc import Mapping
 
 
@@ -690,8 +691,8 @@ class WeirdMapping(Mapping):
 def process(frame, event, arg, context):
     return WeirdMapping()
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("process")?;
             plugin_data.set_item("process", weird_mapping)?;
@@ -707,22 +708,22 @@ def process(frame, event, arg, context):
 
     #[test]
     fn test_load_plugin_data() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let plugins = PyList::empty_bound(py);
-            let config = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let plugins = PyList::empty(py);
+            let config = PyDict::new(py);
 
             let processors = load_plugin_data(py, &plugins, &config)?;
             assert_eq!(processors.len(), 0);
 
-            let plugins = PyList::new_bound(py, vec![py.None()]);
+            let plugins = PyList::new(py, vec![py.None()])?;
             let err = load_plugin_data(py, &plugins, &config).unwrap_err();
             assert!(err.is_instance_of::<PyTypeError>(py));
             assert_error_message(py, err, "'NoneType' object cannot be converted to 'PyDict'")?;
 
-            let plugin_data = PyDict::new_bound(py);
-            let plugins = PyList::new_bound(py, vec![&plugin_data]);
+            let plugin_data = PyDict::new(py);
+            let plugins = PyList::new(py, vec![&plugin_data])?;
             let err = load_plugin_data(py, &plugins, &config).unwrap_err();
             assert!(err.is_instance_of::<PyKeyError>(py));
             assert_error_message(py, err, "co_names")?;
@@ -741,17 +742,17 @@ def process(frame, event, arg, context):
                 "'NoneType' object cannot be converted to 'PyString'",
             )?;
 
-            let weird_co_names = PyModule::from_code_bound(
+            let weird_co_names = PyModule::from_code(
                 py,
-                "
+                c"
 def weird_gen():
     raise ValueError('Weird')
     yield
 
 weird = weird_gen()
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("weird")?;
 
@@ -781,13 +782,13 @@ weird = weird_gen()
             assert!(err.is_instance_of::<PyTypeError>(py));
             assert_error_message(py, err, "'str' object is not callable")?;
 
-            let invalid_return_type = PyModule::from_code_bound(
+            let invalid_return_type = PyModule::from_code(
                 py,
-                "def build_context(config):
+                c"def build_context(config):
                     return 'invalid'
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("build_context")?;
             plugin_data.set_item("build_context", invalid_return_type)?;
@@ -795,13 +796,13 @@ weird = weird_gen()
             assert!(err.is_instance_of::<PyTypeError>(py));
             assert_error_message(py, err, "'str' object cannot be converted to 'PyDict'")?;
 
-            let build_context = PyModule::from_code_bound(
+            let build_context = PyModule::from_code(
                 py,
-                "def build_context(config):
+                c"def build_context(config):
                     return {'frame_ids': []}
                 ",
-                "",
-                "",
+                c"",
+                c"",
             )?
             .getattr("build_context")?;
             plugin_data.set_item("build_context", build_context)?;
@@ -820,10 +821,10 @@ weird = weird_gen()
 
     #[test]
     fn test_load_plugins() -> TestResult {
-        pyo3::prepare_freethreaded_python();
+        Python::initialize();
 
-        Python::with_gil(|py| {
-            let config = PyDict::new_bound(py);
+        Python::attach(|py| {
+            let config = PyDict::new(py);
             let processors = load_plugins(py, &config)?;
             assert!(!processors.is_empty());
             Ok(())

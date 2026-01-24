@@ -3,7 +3,7 @@ Type annotations for inspector service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_inspector/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -104,11 +105,6 @@ from .type_defs import (
     UpdateAssessmentTargetRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -117,18 +113,18 @@ else:
 __all__ = ("InspectorClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AgentsAlreadyRunningAssessmentException: Type[BotocoreClientError]
-    AssessmentRunInProgressException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidCrossAccountRoleException: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NoSuchEntityException: Type[BotocoreClientError]
-    PreviewGenerationInProgressException: Type[BotocoreClientError]
-    ServiceTemporarilyUnavailableException: Type[BotocoreClientError]
-    UnsupportedFeatureException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AgentsAlreadyRunningAssessmentException: type[BotocoreClientError]
+    AssessmentRunInProgressException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidCrossAccountRoleException: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NoSuchEntityException: type[BotocoreClientError]
+    PreviewGenerationInProgressException: type[BotocoreClientError]
+    ServiceTemporarilyUnavailableException: type[BotocoreClientError]
+    UnsupportedFeatureException: type[BotocoreClientError]
 
 class InspectorClient(BaseClient):
     """

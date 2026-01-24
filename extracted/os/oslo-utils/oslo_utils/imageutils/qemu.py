@@ -27,6 +27,7 @@ Helper methods to deal with images.
 
 import json
 import re
+from typing import Any
 
 import debtcollector
 
@@ -46,14 +47,29 @@ class QemuImgInfo:
     However 'human' format support will be dropped in next cycle and only
     'json' format will be supported. Prefer to use 'json' instead of 'human'.
     """
-    BACKING_FILE_RE = re.compile((r"^(.*?)\s*\(actual\s+path\s*:"
-                                  r"\s+(.*?)\)\s*$"), re.I)
-    TOP_LEVEL_RE = re.compile(r"^([\w\d\s\_\-]+):(.*)$")
-    SIZE_RE = re.compile(r"([0-9]+[eE][-+][0-9]+|\d*\.?\d+)"
-                         r"\s*(\w+)?(\s*\(\s*(\d+)\s+bytes\s*\))?",
-                         re.I)
 
-    def __init__(self, cmd_output=None, format='human'):
+    BACKING_FILE_RE = re.compile(
+        (
+            r"^(.*?)\s*\(actual\s+path\s*:"
+            r"\s+(.*?)\)\s*$"
+        ),
+        re.I,
+    )
+    TOP_LEVEL_RE = re.compile(r"^([\w\d\s\_\-]+):(.*)$")
+    SIZE_RE = re.compile(
+        r"([0-9]+[eE][-+][0-9]+|\d*\.?\d+)"
+        r"\s*(\w+)?(\s*\(\s*(\d+)\s+bytes\s*\))?",
+        re.I,
+    )
+
+    def __init__(
+        self,
+        cmd_output: str | bytes | bytearray | None = None,
+        format: str = 'human',
+    ) -> None:
+        if isinstance(cmd_output, bytes | bytearray):
+            cmd_output = cmd_output.decode()
+
         if format == 'json':
             details = json.loads(cmd_output or '{}')
             self.image = details.get('filename')
@@ -72,7 +88,8 @@ class QemuImgInfo:
                     'The human format is deprecated and the format parameter '
                     'will be removed. Use explicitly json instead',
                     version="xena",
-                    category=FutureWarning)
+                    category=FutureWarning,
+                )
             details = self._parse(cmd_output or '')
             self.image = details.get('image')
             self.backing_file = details.get('backing_file')
@@ -85,25 +102,25 @@ class QemuImgInfo:
             self.encrypted = details.get('encrypted')
             self.format_specific = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         lines = [
-            'image: %s' % self.image,
-            'file_format: %s' % self.file_format,
-            'virtual_size: %s' % self.virtual_size,
-            'disk_size: %s' % self.disk_size,
-            'cluster_size: %s' % self.cluster_size,
-            'backing_file: %s' % self.backing_file,
-            'backing_file_format: %s' % self.backing_file_format,
+            f'image: {self.image}',
+            f'file_format: {self.file_format}',
+            f'virtual_size: {self.virtual_size}',
+            f'disk_size: {self.disk_size}',
+            f'cluster_size: {self.cluster_size}',
+            f'backing_file: {self.backing_file}',
+            f'backing_file_format: {self.backing_file_format}',
         ]
         if self.snapshots:
-            lines.append("snapshots: %s" % self.snapshots)
+            lines.append(f"snapshots: {self.snapshots}")
         if self.encrypted:
-            lines.append("encrypted: %s" % self.encrypted)
+            lines.append(f"encrypted: {self.encrypted}")
         if self.format_specific:
-            lines.append("format_specific: %s" % self.format_specific)
+            lines.append(f"format_specific: {self.format_specific}")
         return "\n".join(lines)
 
-    def _canonicalize(self, field):
+    def _canonicalize(self, field: str) -> str:
         # Standardize on underscores/lc/no dash and no spaces
         # since qemu seems to have mixed outputs here... and
         # this format allows for better integration with python
@@ -113,7 +130,7 @@ class QemuImgInfo:
             field = field.replace(c, '_')
         return field
 
-    def _extract_bytes(self, details):
+    def _extract_bytes(self, details: str) -> int:
         # Replace it with the byte amount
         real_size = self.SIZE_RE.search(details)
         if not real_size:
@@ -130,12 +147,16 @@ class QemuImgInfo:
         # Allow abbreviated unit such as K to mean KB for compatibility.
         if len(unit_of_measure) == 1 and unit_of_measure != 'B':
             unit_of_measure += 'B'
-        return strutils.string_to_bytes(
-            '{}{}'.format(magnitude, unit_of_measure),
-            return_int=True)
+        return int(
+            strutils.string_to_bytes(
+                f'{magnitude}{unit_of_measure}', return_int=True
+            )
+        )
 
-    def _extract_details(self, root_cmd, root_details, lines_after):
-        real_details = root_details
+    def _extract_details(
+        self, root_cmd: str, root_details: str, lines_after: list[str]
+    ) -> str | int | list[dict[str, str]]:
+        real_details: str | int | list[dict[str, str]] = root_details
         if root_cmd == 'backing_file':
             # Replace it with the real backing file
             backing_match = self.BACKING_FILE_RE.match(root_details)
@@ -148,7 +169,7 @@ class QemuImgInfo:
             else:
                 real_details = self._extract_bytes(root_details)
         elif root_cmd == 'file_format':
-            real_details = real_details.strip().lower()
+            real_details = root_details.strip().lower()
         elif root_cmd == 'snapshot_list':
             # Next line should be a header, starting with 'ID'
             if not lines_after or not lines_after.pop(0).startswith("ID"):
@@ -169,16 +190,18 @@ class QemuImgInfo:
                 if len(date_pieces) != 3:
                     break
                 lines_after.pop(0)
-                real_details.append({
-                    'id': line_pieces[0],
-                    'tag': line_pieces[1],
-                    'vm_size': line_pieces[2],
-                    'date': line_pieces[3],
-                    'vm_clock': line_pieces[4] + " " + line_pieces[5],
-                })
+                real_details.append(
+                    {
+                        'id': line_pieces[0],
+                        'tag': line_pieces[1],
+                        'vm_size': line_pieces[2],
+                        'date': line_pieces[3],
+                        'vm_clock': line_pieces[4] + " " + line_pieces[5],
+                    }
+                )
         return real_details
 
-    def _parse(self, cmd_output):
+    def _parse(self, cmd_output: str) -> dict[str, Any]:
         # Analysis done of qemu-img.c to figure out what is going on here
         # Find all points start with some chars and then a ':' then a newline
         # and then handle the results of those 'top level' items in a separate

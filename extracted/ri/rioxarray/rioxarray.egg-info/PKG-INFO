@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rioxarray
-Version: 0.19.0
+Version: 0.20.0
 Summary: geospatial xarray extension powered by rasterio
 Maintainer: rioxarray Contributors
 License: Apache
@@ -16,14 +16,13 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: LICENSE_datacube
@@ -33,7 +32,7 @@ Requires-Dist: packaging
 Requires-Dist: rasterio>=1.4.3
 Requires-Dist: xarray>=2024.7.0
 Requires-Dist: pyproj>=3.3
-Requires-Dist: numpy>=1.23
+Requires-Dist: numpy>=2
 Provides-Extra: interp
 Requires-Dist: scipy; extra == "interp"
 Provides-Extra: all
@@ -51,7 +50,7 @@ rasterio xarray extension.
    :alt: Join the chat at https://gitter.im/rioxarray/community
    :target: https://gitter.im/rioxarray/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
 
-.. image:: https://img.shields.io/badge/all_contributors-42-orange.svg?style=flat-square
+.. image:: https://img.shields.io/badge/all_contributors-43-orange.svg?style=flat-square
     :alt: All Contributors
     :target: https://github.com/corteva/rioxarray/blob/master/AUTHORS.rst
 

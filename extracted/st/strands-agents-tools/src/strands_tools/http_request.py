@@ -27,7 +27,6 @@ from typing import Any, Dict, Optional, Union
 from urllib.parse import urlparse
 
 import markdownify
-import readabilipy.simple_json
 import requests
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 from requests.adapters import HTTPAdapter
@@ -52,7 +51,7 @@ TOOL_SPEC = {
         "JWT, AWS SigV4, Digest auth, and enterprise authentication patterns. Automatically reads tokens from "
         "environment variables (GITHUB_TOKEN, GITLAB_TOKEN, AWS credentials, etc.) when auth_env_var is specified. "
         "Use environment(action='list') to view available variables. Includes session management, metrics, "
-        "streaming support, cookie handling, redirect control, and optional HTML to markdown conversion."
+        "streaming support, cookie handling, redirect control, proxy support, and optional HTML to markdown conversion."
     ),
     "inputSchema": {
         "json": {
@@ -178,6 +177,15 @@ TOOL_SPEC = {
                         "expiry": {"type": "integer"},
                     },
                 },
+                "proxies": {
+                    "type": "object",
+                    "description": "Dictionary mapping protocol or protocol and hostname to the URL of the proxy.",
+                    "properties": {
+                        "http": {"type": "string"},
+                        "https": {"type": "string"},
+                        "ftp": {"type": "string"},
+                    },
+                },
             },
             "required": ["method", "url"],
         }
@@ -192,21 +200,17 @@ REQUEST_METRICS = collections.defaultdict(list)
 
 
 def extract_content_from_html(html: str) -> str:
-    """Extract and convert HTML content to Markdown format.
+    """Convert HTML content to Markdown format.
 
     Args:
         html: Raw HTML content to process
 
     Returns:
-        Simplified markdown version of the content, or original HTML if conversion fails
+        Markdown version of the content, or original HTML if conversion fails
     """
     try:
-        ret = readabilipy.simple_json.simple_json_from_html_string(html, use_readability=True)
-        if not ret.get("content"):
-            return html
-
         content = markdownify.markdownify(
-            ret["content"],
+            html,
             heading_style=markdownify.ATX,
         )
         return content
@@ -604,7 +608,16 @@ def http_request(tool: ToolUse, **kwargs: Any) -> ToolResult:
         http_request(
             method="GET",
             url="https://example.com/article",
-            convert_to_markdown=True,  # Converts HTML content to readable markdown
+            convert_to_markdown=True,  # Converts HTML content to markdown
+        )
+        ```
+
+    7. Using proxy:
+        ```python
+        http_request(
+            method="GET",
+            url="https://example.com/api",
+            proxies={"https": "https://proxy.example.com:8080"},
         )
         ```
 
@@ -747,6 +760,7 @@ def http_request(tool: ToolUse, **kwargs: Any) -> ToolResult:
             "verify": verify,
             "auth": auth,
             "allow_redirects": tool_input.get("allow_redirects", True),
+            "proxies": tool_input.get("proxies", None),
         }
 
         # Set max_redirects if specified

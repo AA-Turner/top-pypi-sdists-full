@@ -1,6 +1,9 @@
 import hashlib
 import logging
+import re
+import requests
 from typing import Generator, Literal, Optional
+from urllib.parse import unquote
 
 from azure.devops.connection import Connection
 from azure.devops.exceptions import AzureDevOpsServiceError
@@ -11,12 +14,15 @@ from azure.devops.v7_0.wiki.models import GitVersionDescriptor
 from langchain_core.documents import Document
 from langchain_core.tools import ToolException
 from msrest.authentication import BasicAuthentication
-from pydantic import create_model, PrivateAttr, SecretStr
+from pydantic import create_model, PrivateAttr, SecretStr, BaseModel
 from pydantic import model_validator
 from pydantic.fields import Field
 
+import alita_sdk.tools.ado.work_item
+from ..repos import ReposApiWrapper
 from ...non_code_indexer_toolkit import NonCodeIndexerToolkit
 from ...utils.available_tools_decorator import extend_with_parent_available_tools
+from ...utils.content_parser import parse_file_content
 from ....runtime.utils.utils import IndexerKeywords
 
 logger = logging.getLogger(__name__)
@@ -29,22 +35,48 @@ GetWikiInput = create_model(
 GetPageByPathInput = create_model(
     "GetPageByPathInput",
     wiki_identified=(str, Field(description="Wiki ID or wiki name")),
-    page_name=(str, Field(description="Wiki page path"))
+    page_name=(str, Field(description="Wiki page path")),
+    image_description_prompt=(Optional[str],
+                              Field(description="Prompt which is used for image description", default=None))
 )
 
 GetPageByIdInput = create_model(
     "GetPageByIdInput",
     wiki_identified=(str, Field(description="Wiki ID or wiki name")),
-    page_id=(int, Field(description="Wiki page ID"))
+    page_id=(int, Field(description="Wiki page ID")),
+    image_description_prompt=(Optional[str],
+                              Field(description="Prompt which is used for image description", default=None))
 )
+
+
+class GetPageInput(BaseModel):
+    """Input schema for get_wiki_page tool with validation."""
+    wiki_identified: str = Field(description="Wiki ID or wiki name")
+    page_path: Optional[str] = Field(default=None, description="Wiki page path (e.g., '/MB_Heading/MB_2')")
+    page_id: Optional[int] = Field(default=None, description="Wiki page ID")
+    include_content: Optional[bool] = Field(default=False, description="Whether to include page content in the response. If True, content will be processed for image descriptions.")
+    image_description_prompt: Optional[str] = Field(default=None, description="Prompt which is used for image description when include_content is True")
+    recursion_level: Optional[str] = Field(default="oneLevel", description="Level of recursion to retrieve sub-pages. Options: 'none' (no subpages), 'oneLevel' (direct children only), 'full' (all descendants). Defaults to 'oneLevel'.")
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_inputs(cls, values):
+        """Validator to ensure at least one of page_path or page_id is provided."""
+        page_path = values.get('page_path')
+        page_id = values.get('page_id')
+        if not page_path and not page_id:
+            raise ValueError("At least one of 'page_path' or 'page_id' must be provided")
+        return values
+
 
 ModifyPageInput = create_model(
     "ModifyPageInput",
     wiki_identified=(str, Field(description="Wiki ID or wiki name")),
     page_name=(str, Field(description="Wiki page name")),
     page_content=(str, Field(description="Wiki page content")),
-    version_identifier=(str, Field(description="Version string identifier (name of tag/branch, SHA1 of commit)")),
-    version_type=(Optional[str], Field(description="Version type (branch, tag, or commit). Determines how Id is interpreted", default="branch"))
+    version_identifier=(str, Field(description="Version string identifier (name of tag/branch, SHA1 of commit). Usually for wiki the branch is 'wikiMaster'")),
+    version_type=(Optional[str], Field(description="Version type (branch, tag, or commit). Determines how Id is interpreted", default="branch")),
+    expanded=(Optional[bool], Field(description="Whether to return the full page object or just its simplified version.", default=False))
 )
 
 RenamePageInput = create_model(
@@ -55,6 +87,76 @@ RenamePageInput = create_model(
     version_identifier=(str, Field(description="Version string identifier (name of tag/branch, SHA1 of commit)")),
     version_type=(Optional[str], Field(description="Version type (branch, tag, or commit). Determines how Id is interpreted", default="branch"))
 )
+
+
+def _format_wiki_page_response(wiki_page_response, expanded: bool = False, include_content: bool = False):
+    """Format wiki page response.
+
+    Args:
+        wiki_page_response: The WikiPageResponse object from Azure DevOps API
+        expanded: If True, returns comprehensive page metadata. If False, returns simplified format.
+        include_content: If True and expanded=True, includes the page content in the response.
+
+    Returns:
+        Dictionary with eTag and page information. Format depends on expanded parameter.
+    """
+    try:
+        if expanded:
+            # Comprehensive metadata format
+            page = wiki_page_response.page
+
+            # Process sub_pages if present
+            sub_pages = []
+            if page and hasattr(page, 'sub_pages') and page.sub_pages:
+                for sub_page in page.sub_pages:
+                    sub_page_dict = {
+                        'id': sub_page.id if hasattr(sub_page, 'id') else None,
+                        'path': sub_page.path if hasattr(sub_page, 'path') else None,
+                        'order': sub_page.order if hasattr(sub_page, 'order') else None,
+                        'git_item_path': sub_page.git_item_path if hasattr(sub_page, 'git_item_path') else None,
+                        'url': sub_page.url if hasattr(sub_page, 'url') else None,
+                        'remote_url': sub_page.remote_url if hasattr(sub_page, 'remote_url') else None,
+                    }
+                    # Recursively process nested sub_pages if present
+                    if hasattr(sub_page, 'sub_pages') and sub_page.sub_pages:
+                        sub_page_dict['sub_pages'] = [
+                            {
+                                'id': sp.id if hasattr(sp, 'id') else None,
+                                'path': sp.path if hasattr(sp, 'path') else None,
+                                'order': sp.order if hasattr(sp, 'order') else None,
+                            }
+                            for sp in sub_page.sub_pages
+                        ]
+                    sub_pages.append(sub_page_dict)
+
+            result = {
+                'eTag': wiki_page_response.eTag,
+                'page': {
+                    'id': page.id if page else None,
+                    'path': page.path if page else None,
+                    'git_item_path': page.git_item_path if page and hasattr(page, 'git_item_path') else None,
+                    'remote_url': page.remote_url if page and hasattr(page, 'remote_url') else None,
+                    'url': page.url if page else None,
+                    'order': page.order if page and hasattr(page, 'order') else None,
+                    'is_parent_page': page.is_parent_page if page and hasattr(page, 'is_parent_page') else None,
+                    'is_non_conformant': page.is_non_conformant if page and hasattr(page, 'is_non_conformant') else None,
+                    'sub_pages': sub_pages,
+                }
+            }
+            # Include content if requested
+            if include_content and page and hasattr(page, 'content'):
+                result['page']['content'] = page.content
+            return result
+        else:
+            # Simplified format for backward compatibility
+            return {
+                "eTag": wiki_page_response.eTag,
+                "id": wiki_page_response.page.id,
+                "page": wiki_page_response.page.url
+            }
+    except Exception as e:
+        logger.error(f"Unable to format wiki page response: {wiki_page_response}, error: {str(e)}")
+        return wiki_page_response
 
 
 class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
@@ -82,7 +184,29 @@ class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
             cls._core_client = connection.clients.get_core_client()
 
         except Exception as e:
-            return ImportError(f"Failed to connect to Azure DevOps: {e}")
+            error_msg = str(e).lower()
+            if "expired" in error_msg or "token" in error_msg and ("invalid" in error_msg or "unauthorized" in error_msg):
+                raise ValueError(
+                    "Azure DevOps connection failed: Your access token has expired or is invalid. "
+                    "Please refresh your token in the toolkit configuration."
+                )
+            elif "401" in error_msg or "unauthorized" in error_msg:
+                raise ValueError(
+                    "Azure DevOps connection failed: Authentication failed. "
+                    "Please check your credentials in the toolkit configuration."
+                )
+            elif "404" in error_msg or "not found" in error_msg:
+                raise ValueError(
+                    "Azure DevOps connection failed: Organization or project not found. "
+                    "Please verify your organization URL and project name."
+                )
+            elif "timeout" in error_msg or "timed out" in error_msg:
+                raise ValueError(
+                    "Azure DevOps connection failed: Connection timed out. "
+                    "Please check your network connection and try again."
+                )
+            else:
+                raise ValueError(f"Azure DevOps connection failed: {e}")
 
         return super().validate_toolkit(values)
 
@@ -94,23 +218,222 @@ class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
             logger.error(f"Error during the attempt to extract wiki: {str(e)}")
             return ToolException(f"Error during the attempt to extract wiki: {str(e)}")
 
-    def get_wiki_page_by_path(self, wiki_identified: str, page_name: str):
+    def get_wiki_page_by_path(self, wiki_identified: str, page_name: str, image_description_prompt=None):
         """Extract ADO wiki page content."""
         try:
-            return self._client.get_page(project=self.project, wiki_identifier=wiki_identified, path=page_name,
-                                         include_content=True).page.content
+            return self._process_images(self._client.get_page(project=self.project, wiki_identifier=wiki_identified, path=page_name,
+                                         include_content=True).page.content,
+                                        image_description_prompt=image_description_prompt, wiki_identified=wiki_identified)
         except Exception as e:
             logger.error(f"Error during the attempt to extract wiki page: {str(e)}")
             return ToolException(f"Error during the attempt to extract wiki page: {str(e)}")
 
-    def get_wiki_page_by_id(self, wiki_identified: str, page_id: int):
+    def get_wiki_page_by_id(self, wiki_identified: str, page_id: int, image_description_prompt=None):
         """Extract ADO wiki page content."""
         try:
-            return (self._client.get_page_by_id(project=self.project, wiki_identifier=wiki_identified, id=page_id,
-                                                include_content=True).page.content)
+            return self._process_images(self._client.get_page_by_id(project=self.project, wiki_identifier=wiki_identified, id=page_id,
+                                                include_content=True).page.content,
+                                        image_description_prompt=image_description_prompt, wiki_identified=wiki_identified)
         except Exception as e:
             logger.error(f"Error during the attempt to extract wiki page: {str(e)}")
             return ToolException(f"Error during the attempt to extract wiki page: {str(e)}")
+
+    def get_wiki_page(self, wiki_identified: str, page_path: Optional[str] = None, page_id: Optional[int] = None,
+                      include_content: bool = False, image_description_prompt: Optional[str] = None,
+                      recursion_level: str = "oneLevel"):
+        """Get wiki page metadata and optionally content.
+
+        Retrieves comprehensive metadata for a wiki page including eTag, id, path, git_item_path,
+        remote_url, url, sub_pages, order, and other properties. Optionally includes page content.
+        Supports lookup by either page_id (takes precedence) or page_path.
+
+        Args:
+            wiki_identified: Wiki ID or wiki name
+            page_path: Wiki page path (e.g., '/MB_Heading/MB_2'). Optional if page_id is provided.
+            page_id: Wiki page ID. Optional if page_path is provided. Takes precedence over page_path.
+            include_content: Whether to include page content in response. Defaults to False (metadata only).
+            image_description_prompt: Optional prompt for image description when include_content is True.
+            recursion_level: Level of recursion to retrieve sub-pages. Options: 'none' (no subpages),
+                           'oneLevel' (direct children only), 'full' (all descendants). Defaults to 'oneLevel'.
+
+        Returns:
+            Dictionary containing eTag and comprehensive page metadata including id, path, git_item_path,
+            remote_url, url, sub_pages, order, is_parent_page, is_non_conformant, and optionally content.
+
+        Raises:
+            ToolException: If page/wiki not found, authentication fails, or other errors occur.
+        """
+        try:
+            # Validate that at least one identifier is provided
+            if not page_path and not page_id:
+                raise ToolException("At least one of 'page_path' or 'page_id' must be provided")
+
+            # Fetch page using page_id (priority) or page_path
+            if page_id:
+                logger.info(f"Fetching wiki page by ID: {page_id} from wiki: {wiki_identified}")
+                wiki_page_response = self._client.get_page_by_id(
+                    project=self.project,
+                    wiki_identifier=wiki_identified,
+                    id=page_id,
+                    include_content=include_content,
+                    recursion_level=recursion_level
+                )
+            else:
+                logger.info(f"Fetching wiki page by path: {page_path} from wiki: {wiki_identified}")
+                wiki_page_response = self._client.get_page(
+                    project=self.project,
+                    wiki_identifier=wiki_identified,
+                    path=page_path,
+                    include_content=include_content,
+                    recursion_level=recursion_level
+                )
+
+            # Format response with comprehensive metadata
+            result = _format_wiki_page_response(
+                wiki_page_response,
+                expanded=True,
+                include_content=include_content
+            )
+
+            # Process images in content if requested
+            if include_content and result.get('page', {}).get('content'):
+                processed_content = self._process_images(
+                    result['page']['content'],
+                    image_description_prompt=image_description_prompt,
+                    wiki_identified=wiki_identified
+                )
+                result['page']['content'] = processed_content
+
+            return result
+
+        except AzureDevOpsServiceError as e:
+            error_msg = str(e).lower()
+
+            # Page not found errors
+            if "404" in error_msg or "not found" in error_msg or "does not exist" in error_msg:
+                identifier = f"ID {page_id}" if page_id else f"path '{page_path}'"
+                logger.error(f"Page {identifier} not found in wiki '{wiki_identified}': {str(e)}")
+                return ToolException(
+                    f"Page {identifier} not found in wiki '{wiki_identified}'. "
+                    f"Please verify the page exists and the identifier is correct."
+                )
+
+            # Path validation errors
+            elif "path" in error_msg and ("correct" in error_msg or "invalid" in error_msg):
+                logger.error(f"Invalid page path '{page_path}' in wiki '{wiki_identified}': {str(e)}")
+                return ToolException(
+                    f"Invalid page path '{page_path}'. Please ensure the path format is correct (e.g., '/PageName')."
+                )
+
+            # Wiki not found errors
+            elif "wiki" in error_msg and ("not found" in error_msg or "does not exist" in error_msg):
+                logger.error(f"Wiki '{wiki_identified}' not found: {str(e)}")
+                return ToolException(
+                    f"Wiki '{wiki_identified}' not found. Please verify the wiki identifier is correct."
+                )
+
+            # Authentication/authorization errors
+            elif "401" in error_msg or "unauthorized" in error_msg or "authentication" in error_msg:
+                logger.error(f"Authentication failed for wiki '{wiki_identified}': {str(e)}")
+                return ToolException(
+                    f"Authentication failed. Please check your access token is valid and has permission to access wiki '{wiki_identified}'."
+                )
+
+            elif "403" in error_msg or "forbidden" in error_msg or "permission" in error_msg:
+                logger.error(f"Permission denied for wiki '{wiki_identified}': {str(e)}")
+                return ToolException(
+                    f"Permission denied. You do not have access to wiki '{wiki_identified}' or page {page_id if page_id else page_path}."
+                )
+
+            # Generic Azure DevOps service errors
+            else:
+                logger.error(f"Azure DevOps service error while fetching page: {str(e)}")
+                return ToolException(f"Error accessing wiki page: {str(e)}")
+
+        except ValueError as e:
+            logger.error(f"Validation error: {str(e)}")
+            return ToolException(f"Validation error: {str(e)}")
+
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            # Timeout errors
+            if "timeout" in error_msg or "timed out" in error_msg:
+                logger.error(f"Connection timeout while fetching page: {str(e)}")
+                return ToolException(
+                    f"Connection timeout. Please check your network connection and try again."
+                )
+
+            # Generic errors
+            logger.error(f"Unexpected error during wiki page retrieval: {str(e)}")
+            return ToolException(f"Unexpected error during wiki page retrieval: {str(e)}")
+
+    def _process_images(self, page_content: str, wiki_identified: str, image_description_prompt=None):
+
+        image_pattern = r"!\[(.*?)\]\((.*?)\)"
+        matches = re.findall(image_pattern, page_content)
+
+        # Initialize repos_wrapper once for all attachments in this page
+        repos_wrapper = None
+        has_attachments = any(url.startswith("/.attachments/") for _, url in matches)
+        
+        if has_attachments:
+            try:
+                wiki_master_branch = "wikiMaster"
+                wiki = self._client.get_wiki(project=self.project, wiki_identifier=wiki_identified)
+                repository_id = wiki.repository_id
+                repos_wrapper = ReposApiWrapper(
+                    organization_url=self.organization_url,
+                    project=self.project,
+                    token=self.token.get_secret_value(),
+                    repository_id=repository_id,
+                    base_branch=wiki_master_branch,
+                    active_branch=wiki_master_branch,
+                    llm=self.llm
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize repos wrapper for wiki '{wiki_identified}': {str(e)}")
+
+        for image_name, image_url in matches:
+            if image_url.startswith("/.attachments/"):
+                try:
+                    if repos_wrapper is None:
+                        raise Exception("Repos wrapper not initialized")
+                    description = self.process_attachment(attachment_url=image_url,
+                                                          attachment_name=image_name,
+                                                          image_description_prompt=image_description_prompt,
+                                                          repos_wrapper=repos_wrapper)
+                except Exception as e:
+                    logger.error(f"Error parsing attachment: {str(e)}")
+                    description = f"Error parsing attachment: {image_url}"
+            else:
+                try:
+                    response = requests.get(image_url)
+                    response.raise_for_status()
+                    file_content = response.content
+                    description = parse_file_content(
+                        file_content=file_content,
+                        file_name="image.png",
+                        llm=self.llm,
+                        prompt=image_description_prompt
+                    )
+                except Exception as e:
+                    logger.error(f"Error fetching external image: {str(e)}")
+                    description = f"Error fetching external image: image_url"
+
+            new_image_markdown = f"![{image_name}]({description})"
+            page_content = page_content.replace(f"![{image_name}]({image_url})", new_image_markdown)
+        return page_content
+
+    def process_attachment(self, attachment_url, attachment_name, repos_wrapper, image_description_prompt):
+        file_path = unquote(attachment_url.lstrip('/'))
+        attachment_content = repos_wrapper.download_file(path=file_path)
+        return parse_file_content(
+            file_content=attachment_content,
+            file_name=attachment_name,
+            llm=self.llm,
+            prompt=image_description_prompt
+        )
 
     def delete_page_by_path(self, wiki_identified: str, page_name: str):
         """Extract ADO wiki page content."""
@@ -166,7 +489,7 @@ class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
             logger.error(f"Unable to rename wiki page: {str(e)}")
             return ToolException(f"Unable to rename wiki page: {str(e)}")
 
-    def modify_wiki_page(self, wiki_identified: str, page_name: str, page_content: str, version_identifier: str, version_type: str = "branch"):
+    def modify_wiki_page(self, wiki_identified: str, page_name: str, page_content: str, version_identifier: str, version_type: str = "branch", expanded: Optional[bool] = False):
         """Create or Update ADO wiki page content."""
         try:
             all_wikis = [wiki.name for wiki in self._client.get_all_wikis(project=self.project)]
@@ -197,24 +520,24 @@ class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
                     return ToolException(f"Unable to extract page by path {page_name}: {str(get_page_e)}")
 
             try:
-                return self._client.create_or_update_page(
+                return _format_wiki_page_response(self._client.create_or_update_page(
                     project=self.project,
                     wiki_identifier=wiki_identified,
                     path=page_name,
                     parameters=WikiPageCreateOrUpdateParameters(content=page_content),
                     version=version,
                     version_descriptor=GitVersionDescriptor(version=version_identifier, version_type=version_type)
-                )
+                ), expanded=expanded)
             except AzureDevOpsServiceError as e:
                 if "The version '{0}' either is invalid or does not exist." in str(e):
                     # Retry the request without version_descriptor
-                    return self._client.create_or_update_page(
+                    return _format_wiki_page_response(wiki_page_response=self._client.create_or_update_page(
                         project=self.project,
                         wiki_identifier=wiki_identified,
                         path=page_name,
                         parameters=WikiPageCreateOrUpdateParameters(content=page_content),
                         version=version
-                    )
+                    ), expanded=expanded)
                 else:
                     raise
         except Exception as e:
@@ -262,6 +585,12 @@ class AzureDevOpsApiWrapper(NonCodeIndexerToolkit):
                 "description": self.get_wiki.__doc__,
                 "args_schema": GetWikiInput,
                 "ref": self.get_wiki,
+            },
+            {
+                "name": "get_wiki_page",
+                "description": self.get_wiki_page.__doc__,
+                "args_schema": GetPageInput,
+                "ref": self.get_wiki_page,
             },
             {
                 "name": "get_wiki_page_by_path",

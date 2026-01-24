@@ -1,20 +1,25 @@
+from importlib.metadata import version
+import json
 import logging
 from uuid import UUID
-from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, Literal, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Generic, Iterable, Literal, Optional, Type, Union, cast
 from typing_extensions import TypeGuard
 
-from pydantic import SerializationInfo, field_serializer
+from pydantic import Field, SerializationInfo, field_serializer, field_validator, model_serializer
 
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
+from vellum.utils.json_encoder import VellumJsonEncoder
 from vellum.workflows.errors import WorkflowError
 from vellum.workflows.outputs.base import BaseOutput
 from vellum.workflows.references import ExternalInputReference
-from vellum.workflows.types.definition import serialize_type_encoder_with_id
+from vellum.workflows.types.definition import CodeResourceDefinition, serialize_type_encoder_with_id
 from vellum.workflows.types.generics import InputsType, OutputsType, StateType
 
+from ..triggers import BaseTrigger
 from .node import (
     NodeExecutionFulfilledEvent,
     NodeExecutionInitiatedEvent,
+    NodeExecutionLogEvent,
     NodeExecutionPausedEvent,
     NodeExecutionRejectedEvent,
     NodeExecutionResumedEvent,
@@ -24,9 +29,35 @@ from .stream import WorkflowEventGenerator
 from .types import BaseEvent, default_serializer
 
 if TYPE_CHECKING:
+    from vellum.workflows.nodes.bases.base import BaseNode
     from vellum.workflows.workflows.base import BaseWorkflow
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_body_with_enricher(
+    event: "_BaseWorkflowEvent", body: "_BaseWorkflowExecutionBody", info: SerializationInfo
+) -> "_BaseWorkflowExecutionBody":
+    """
+    Helper function to serialize event body with optional event enrichment.
+
+    This function is used by both WorkflowExecutionInitiatedEvent and WorkflowExecutionFulfilledEvent
+    to apply event enrichment if an event_enricher is provided in the serialization context.
+    """
+    context = info.context if info and hasattr(info, "context") else {}
+    if context and "event_enricher" in context and callable(context["event_enricher"]):
+        try:
+            enriched_event = context["event_enricher"](event)
+            return enriched_event.body
+        except Exception:
+            try:
+                sdk_version = version("vellum-ai")
+            except Exception:
+                sdk_version = None
+            logger.exception("Error in event_enricher", extra={"sentry_tags": {"sdk_version": sdk_version}})
+            return body
+    else:
+        return body
 
 
 class _BaseWorkflowExecutionBody(UniversalBaseModel):
@@ -83,13 +114,32 @@ class WorkflowExecutionInitiatedBody(_BaseWorkflowExecutionBody, Generic[InputsT
     # This field will be populated during serialization by the serialize_body method
     workflow_version_exec_config: Optional[Any] = None
 
+    # This field can be populated with arbitrary server metadata during event enrichment
+    server_metadata: Optional[Dict[str, Any]] = None
+
+    trigger: Optional[Type[BaseTrigger]] = None
+
+    # Raw inputs from trigger event data, used to include trigger attributes in serialized inputs.
+    # This field is excluded from serialization and only used to merge into the inputs field.
+    raw_inputs: Optional[Dict[str, Any]] = Field(default=None, exclude=True)
+
     @field_serializer("inputs")
     def serialize_inputs(self, inputs: InputsType, _info: Any) -> Dict[str, Any]:
-        return default_serializer(inputs)
+        serialized = default_serializer(inputs)
+        # Merge raw_inputs (trigger event data) with serialized inputs
+        if self.raw_inputs:
+            return {**self.raw_inputs, **serialized}
+        return serialized
 
     @field_serializer("initial_state")
     def serialize_initial_state(self, initial_state: Optional[StateType], _info: Any) -> Optional[Dict[str, Any]]:
         return default_serializer(initial_state)
+
+    @field_serializer("trigger")
+    def serialize_trigger(self, trigger: Optional[Type[BaseTrigger]], _info: Any) -> Optional[Dict[str, Any]]:
+        if trigger is None:
+            return None
+        return serialize_type_encoder_with_id(trigger)
 
 
 class WorkflowExecutionInitiatedEvent(_BaseWorkflowEvent, Generic[InputsType, StateType]):
@@ -108,16 +158,9 @@ class WorkflowExecutionInitiatedEvent(_BaseWorkflowEvent, Generic[InputsType, St
     def serialize_body(
         self, body: WorkflowExecutionInitiatedBody[InputsType, StateType], info: SerializationInfo
     ) -> WorkflowExecutionInitiatedBody[InputsType, StateType]:
-        context = info.context if info and hasattr(info, "context") else {}
-        if context and "event_enricher" in context and callable(context["event_enricher"]):
-            try:
-                event = context["event_enricher"](self)
-                return event.body
-            except Exception as e:
-                logger.exception(f"Error in event_enricher: {e}")
-                return body
-        else:
-            return body
+        return cast(
+            WorkflowExecutionInitiatedBody[InputsType, StateType], _serialize_body_with_enricher(self, body, info)
+        )
 
 
 class WorkflowExecutionStreamingBody(_BaseWorkflowExecutionBody):
@@ -137,21 +180,58 @@ class WorkflowExecutionStreamingEvent(_BaseWorkflowEvent):
         return self.body.output
 
 
-class WorkflowExecutionFulfilledBody(_BaseWorkflowExecutionBody, Generic[OutputsType]):
+class WorkflowExecutionFulfilledBody(_BaseWorkflowExecutionBody, Generic[OutputsType, StateType]):
     outputs: OutputsType
+    final_state: Optional[StateType] = None
+
+    # This field can be populated with arbitrary server metadata during event enrichment
+    server_metadata: Optional[Dict[str, Any]] = None
 
     @field_serializer("outputs")
     def serialize_outputs(self, outputs: OutputsType, _info: Any) -> Dict[str, Any]:
         return default_serializer(outputs)
 
+    @field_serializer("final_state")
+    def serialize_final_state(self, final_state: Optional[StateType], _info: Any) -> Optional[Dict[str, Any]]:
+        if final_state is None:
+            return None
+        state_dict = {k: v for k, v in final_state if k != "meta"}
+        return default_serializer(state_dict)
 
-class WorkflowExecutionFulfilledEvent(_BaseWorkflowEvent, Generic[OutputsType]):
+
+class WorkflowExecutionFulfilledEvent(_BaseWorkflowEvent, Generic[OutputsType, StateType]):
     name: Literal["workflow.execution.fulfilled"] = "workflow.execution.fulfilled"
-    body: WorkflowExecutionFulfilledBody[OutputsType]
+    body: WorkflowExecutionFulfilledBody[OutputsType, StateType]
 
     @property
     def outputs(self) -> OutputsType:
         return self.body.outputs
+
+    @property
+    def final_state(self) -> Optional[StateType]:
+        return self.body.final_state
+
+    @field_serializer("body")
+    def serialize_body(
+        self, body: WorkflowExecutionFulfilledBody[OutputsType, StateType], info: SerializationInfo
+    ) -> WorkflowExecutionFulfilledBody[OutputsType, StateType]:
+        return cast(
+            WorkflowExecutionFulfilledBody[OutputsType, StateType], _serialize_body_with_enricher(self, body, info)
+        )
+
+    @model_serializer(mode="plain", when_used="json")
+    def serialize_model(self, info: SerializationInfo) -> Dict[str, Any]:
+        serialized = super().serialize_model(info)
+
+        if (
+            self._event_max_size is not None
+            and len(json.dumps(serialized, cls=VellumJsonEncoder)) > self._event_max_size
+            and "body" in serialized
+            and isinstance(serialized["body"], dict)
+        ):
+            serialized["body"]["outputs"] = {}
+
+        return serialized
 
 
 class WorkflowExecutionRejectedBody(_BaseWorkflowExecutionBody):
@@ -166,6 +246,10 @@ class WorkflowExecutionRejectedEvent(_BaseWorkflowEvent):
     @property
     def error(self) -> WorkflowError:
         return self.body.error
+
+    @property
+    def stacktrace(self) -> Optional[str]:
+        return self.body.stacktrace
 
 
 class WorkflowExecutionPausedBody(_BaseWorkflowExecutionBody):
@@ -192,10 +276,25 @@ class WorkflowExecutionResumedEvent(_BaseWorkflowEvent):
 
 class WorkflowExecutionSnapshottedBody(_BaseWorkflowExecutionBody, Generic[StateType]):
     state: StateType
+    edited_by: Optional[Type["BaseNode"]] = None
+
+    @field_validator("edited_by", mode="before")
+    @classmethod
+    def validate_edited_by(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        value = CodeResourceDefinition.model_validate(value)
+        return value.decode()
 
     @field_serializer("state")
     def serialize_state(self, state: StateType, _info: Any) -> Dict[str, Any]:
         return default_serializer(state)
+
+    @field_serializer("edited_by")
+    def serialize_edited_by(self, edited_by: Optional[Type["BaseNode"]], _info: Any) -> Optional[Dict[str, Any]]:
+        if edited_by is None:
+            return None
+        return serialize_type_encoder_with_id(edited_by)
 
 
 class WorkflowExecutionSnapshottedEvent(_BaseWorkflowEvent, Generic[StateType]):
@@ -218,6 +317,7 @@ GenericWorkflowEvent = Union[
     NodeExecutionRejectedEvent,
     NodeExecutionPausedEvent,
     NodeExecutionResumedEvent,
+    NodeExecutionLogEvent,
 ]
 
 WorkflowEvent = Union[

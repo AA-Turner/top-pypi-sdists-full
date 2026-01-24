@@ -15,7 +15,6 @@ __all__ = [
     "FilterCidrBlockCidrBlockPatternFilter",
     "FilterCreatedAt",
     "FilterCreatedAtDateRangeFilter",
-    "Page",
 ]
 
 
@@ -28,14 +27,14 @@ class AccessIPRangeListParams(TypedDict, total=False):
     Supports complex bracket operations for dynamic filtering.
     """
 
-    page: Page
-    """Consolidated page parameter (deepObject style).
+    page_number: Annotated[int, PropertyInfo(alias="page[number]")]
 
-    Originally: page[number], page[size]
-    """
+    page_size: Annotated[int, PropertyInfo(alias="page[size]")]
 
 
 class FilterCidrBlockCidrBlockPatternFilter(TypedDict, total=False):
+    """CIDR block pattern matching operations"""
+
     contains: str
     """Filter CIDR blocks containing the specified string"""
 
@@ -50,6 +49,8 @@ FilterCidrBlock: TypeAlias = Union[str, FilterCidrBlockCidrBlockPatternFilter]
 
 
 class FilterCreatedAtDateRangeFilter(TypedDict, total=False):
+    """Date range filtering operations"""
+
     gt: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """Filter for creation date-time greater than"""
 
@@ -67,6 +68,11 @@ FilterCreatedAt: TypeAlias = Union[Union[str, datetime], FilterCreatedAtDateRang
 
 
 class FilterTyped(TypedDict, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[cidr_block], filter[cidr_block][startswith], filter[cidr_block][endswith], filter[cidr_block][contains], filter[created_at]. Supports complex bracket operations for dynamic filtering.
+    """
+
     cidr_block: FilterCidrBlock
     """Filter by exact CIDR block match"""
 
@@ -75,9 +81,3 @@ class FilterTyped(TypedDict, total=False):
 
 
 Filter: TypeAlias = Union[FilterTyped, Dict[str, object]]
-
-
-class Page(TypedDict, total=False):
-    number: int
-
-    size: int

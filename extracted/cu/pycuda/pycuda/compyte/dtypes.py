@@ -26,7 +26,11 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 """
 
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
+
 import numpy as np
+from numpy.typing import DTypeLike
 
 
 class TypeNameNotKnown(RuntimeError):  # noqa: N818
@@ -36,11 +40,14 @@ class TypeNameNotKnown(RuntimeError):  # noqa: N818
 # {{{ registry
 
 class DTypeRegistry:
-    def __init__(self):
-        self.dtype_to_name = {}
-        self.name_to_dtype = {}
+    def __init__(self) -> None:
+        self.dtype_to_name: dict[np.dtype[Any] | str, str] = {}
+        self.name_to_dtype: dict[str, np.dtype[Any]] = {}
 
-    def get_or_register_dtype(self, c_names, dtype=None):
+    def get_or_register_dtype(
+                self,
+                names: str | Sequence[str],
+                dtype: DTypeLike | None = None) -> np.dtype[Any]:
         """Get or register a :class:`numpy.dtype` associated with the C type names
         in the string list *c_names*. If *dtype* is `None`, no registration is
         performed, and the :class:`numpy.dtype` must already have been registered.
@@ -57,12 +64,12 @@ class DTypeRegistry:
         .. versionadded:: 2012.2
         """
 
-        if isinstance(c_names, str):
-            c_names = [c_names]
+        if isinstance(names, str):
+            names = [names]
 
         if dtype is None:
             from pytools import single_valued
-            return single_valued(self.name_to_dtype[name] for name in c_names)
+            return single_valued(self.name_to_dtype[name] for name in names)
 
         dtype = np.dtype(dtype)
 
@@ -77,24 +84,24 @@ class DTypeRegistry:
             assert existing_dtype == dtype
             dtype = existing_dtype
 
-        for nm in c_names:
+        for nm in names:
             try:
                 name_dtype = self.name_to_dtype[nm]
             except KeyError:
                 self.name_to_dtype[nm] = dtype
             else:
                 if name_dtype != dtype:
-                    raise RuntimeError("name '%s' already registered to "
-                            "different dtype" % nm)
+                    raise RuntimeError(
+                        f"name '{nm}' already registered to different dtype")
 
         if not existed:
-            self.dtype_to_name[dtype] = c_names[0]
+            self.dtype_to_name[dtype] = names[0]
         if str(dtype) not in self.dtype_to_name:
-            self.dtype_to_name[str(dtype)] = c_names[0]
+            self.dtype_to_name[str(dtype)] = names[0]
 
         return dtype
 
-    def dtype_to_ctype(self, dtype):
+    def dtype_to_ctype(self, dtype: DTypeLike) -> str:
         if dtype is None:
             raise ValueError("dtype may not be None")
 
@@ -103,14 +110,18 @@ class DTypeRegistry:
         try:
             return self.dtype_to_name[dtype]
         except KeyError:
-            raise ValueError("unable to map dtype '%s'" % dtype) from None
+            raise ValueError(f"unable to map dtype '{dtype}'") from None
 
 # }}}
 
 
 # {{{ C types
 
-def fill_registry_with_c_types(reg, respect_windows, include_bool=True):
+def fill_registry_with_c_types(
+            reg: DTypeRegistry,
+            respect_windows: bool,
+            include_bool: bool = True
+        ) -> None:
     import struct
     from sys import platform
 
@@ -135,26 +146,23 @@ def fill_registry_with_c_types(reg, respect_windows, include_bool=True):
         else:
             i64_name = "long"
 
-        reg.get_or_register_dtype(
-                [i64_name, "%s int" % i64_name, "signed %s int" % i64_name,
-                    "%s signed int" % i64_name],
+        reg.get_or_register_dtype([
+                i64_name,
+                f"{i64_name} int",
+                f"signed {i64_name} int",
+                f"{i64_name} signed int"],
                 np.int64)
-        reg.get_or_register_dtype(
-                ["unsigned %s" % i64_name, "unsigned %s int" % i64_name,
-                    "%s unsigned int" % i64_name],
+        reg.get_or_register_dtype([
+                f"unsigned {i64_name}",
+                f"unsigned {i64_name} int",
+                f"{i64_name} unsigned int"],
                 np.uint64)
-
-    # http://projects.scipy.org/numpy/ticket/2017
-    if is_64_bit:
-        reg.get_or_register_dtype(["unsigned %s" % i64_name], np.uintp)
-    else:
-        reg.get_or_register_dtype(["unsigned"], np.uintp)
 
     reg.get_or_register_dtype("float", np.float32)
     reg.get_or_register_dtype("double", np.float64)
 
 
-def fill_registry_with_opencl_c_types(reg):
+def fill_registry_with_opencl_c_types(reg: DTypeRegistry) -> None:
     reg.get_or_register_dtype(["char", "signed char"], np.int8)
     reg.get_or_register_dtype(["uchar", "unsigned char"], np.uint8)
     reg.get_or_register_dtype(["short", "signed short",
@@ -180,7 +188,7 @@ def fill_registry_with_opencl_c_types(reg):
     reg.get_or_register_dtype("double", np.float64)
 
 
-def fill_registry_with_c99_stdint_types(reg):
+def fill_registry_with_c99_stdint_types(reg: DTypeRegistry) -> None:
     reg.get_or_register_dtype("bool", np.bool_)
 
     reg.get_or_register_dtype("int8_t", np.int8)
@@ -197,7 +205,7 @@ def fill_registry_with_c99_stdint_types(reg):
     reg.get_or_register_dtype("double", np.float64)
 
 
-def fill_registry_with_c99_complex_types(reg):
+def fill_registry_with_c99_complex_types(reg: DTypeRegistry) -> None:
     reg.get_or_register_dtype("float complex", np.complex64)
     reg.get_or_register_dtype("double complex", np.complex128)
     reg.get_or_register_dtype("long double complex", np.clongdouble)
@@ -217,7 +225,7 @@ dtype_to_ctype = TYPE_REGISTRY.dtype_to_ctype
 get_or_register_dtype = TYPE_REGISTRY.get_or_register_dtype
 
 
-def _fill_dtype_registry(respect_windows, include_bool=True):
+def _fill_dtype_registry(respect_windows: bool, include_bool: bool = True) -> None:
     fill_registry_with_c_types(
             TYPE_REGISTRY, respect_windows, include_bool)
 
@@ -226,12 +234,21 @@ def _fill_dtype_registry(respect_windows, include_bool=True):
 
 # {{{ c declarator parsing
 
-def parse_c_arg_backend(c_arg, scalar_arg_factory, vec_arg_factory,
-        name_to_dtype=None):
+ArgTypeT = TypeVar("ArgTypeT")
+
+
+def parse_c_arg_backend(
+            c_arg: str,
+            scalar_arg_factory: Callable[[np.dtype[Any], str], ArgTypeT],
+            vec_arg_factory: Callable[[np.dtype[Any], str], ArgTypeT],
+            name_to_dtype: Callable[[str], np.dtype[Any]] | DTypeRegistry | None = None,
+        ) -> ArgTypeT:
     if isinstance(name_to_dtype, DTypeRegistry):
-        name_to_dtype = name_to_dtype.name_to_dtype__getitem__
+        name_to_dtype_clbl = name_to_dtype.name_to_dtype.__getitem__
     elif name_to_dtype is None:
-        name_to_dtype = NAME_TO_DTYPE.__getitem__
+        name_to_dtype_clbl = NAME_TO_DTYPE.__getitem__
+    else:
+        name_to_dtype_clbl = name_to_dtype
 
     c_arg = (c_arg
             .replace("const", "")
@@ -245,7 +262,7 @@ def parse_c_arg_backend(c_arg, scalar_arg_factory, vec_arg_factory,
     decl_match = decl_re.search(c_arg)
 
     if decl_match is None:
-        raise ValueError("couldn't parse C declarator '%s'" % c_arg)
+        raise ValueError(f"couldn't parse C declarator '{c_arg}'")
 
     name = decl_match.group(2)
 
@@ -258,16 +275,20 @@ def parse_c_arg_backend(c_arg, scalar_arg_factory, vec_arg_factory,
     tp = " ".join(tp.split())
 
     try:
-        dtype = name_to_dtype(tp)
+        dtype = name_to_dtype_clbl(tp)
     except KeyError:
-        raise ValueError("unknown type '%s'" % tp) from None
+        raise ValueError(f"unknown type '{tp}'") from None
 
     return arg_class(dtype, name)
 
 # }}}
 
 
-def register_dtype(dtype, c_names, alias_ok=False):
+def register_dtype(
+            dtype: DTypeLike,
+            c_names: Sequence[str] | str,
+            alias_ok: bool = False
+        ) -> None:
     from warnings import warn
     warn("register_dtype is deprecated. Use get_or_register_dtype instead.",
             DeprecationWarning, stacklevel=2)
@@ -280,9 +301,12 @@ def register_dtype(dtype, c_names, alias_ok=False):
     # check if we've seen this dtype before and error out if a) it was seen before
     # and b) alias_ok is False.
 
-    if not alias_ok and dtype in TYPE_REGISTRY.dtype_to_name:
-        raise RuntimeError("dtype '%s' already registered (as '%s', new names '%s')"
-                % (dtype, TYPE_REGISTRY.dtype_to_name[dtype], ", ".join(c_names)))
+    name = TYPE_REGISTRY.dtype_to_name.get(dtype)
+    if not alias_ok and name is not None:
+        c_names_join = "', '".join(c_names)
+        raise RuntimeError(
+                f"dtype '{dtype}' already registered "
+                f"(as '{name}', new names '{c_names_join}')")
 
     TYPE_REGISTRY.get_or_register_dtype(c_names, dtype)
 

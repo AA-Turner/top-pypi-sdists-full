@@ -27,6 +27,7 @@ _KAFKA_SASL_MECHANISM_NAME = "KAFKA_SASL_MECHANISM"
 _KAFKA_SASL_USERNAME_NAME = "KAFKA_SASL_USERNAME"
 _KAFKA_SASL_PASSWORD_NAME = "KAFKA_SASL_PASSWORD"
 _KAFKA_ADDITIONAL_KAFKA_ARGS_NAME = "KAFKA_ADDITIONAL_KAFKA_ARGS"
+_KAFKA_DEAD_LETTER_QUEUE_TOPIC = "KAFKA_DEAD_LETTER_QUEUE_TOPIC"
 
 
 class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True):
@@ -165,7 +166,10 @@ class KafkaSource(StreamSource, SinkIntegrationProtocol, BaseModel, frozen=True)
             ),
             name=name,
             late_arrival_deadline=late_arrival_deadline,
-            dead_letter_queue_topic=dead_letter_queue_topic,
+            dead_letter_queue_topic=dead_letter_queue_topic
+            or load_integration_variable(
+                name=_KAFKA_DEAD_LETTER_QUEUE_TOPIC, integration_name=name, override=integration_variable_override
+            ),
             ssl_ca_file=ssl_ca_file
             or load_integration_variable(
                 name=_KAFKA_SSL_CA_FILE_NAME, integration_name=name, override=integration_variable_override

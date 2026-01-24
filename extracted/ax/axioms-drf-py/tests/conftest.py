@@ -1,0 +1,112 @@
+"""Pytest configuration and shared fixtures for axioms-drf-py tests."""
+
+import json
+import uuid
+import pytest
+import jwt
+from jwcrypto import jwk
+
+
+@pytest.fixture
+def test_key():
+    """Generate test RSA key for JWT signing."""
+    key = jwk.JWK.generate(kty='RSA', size=2048, kid='test-key-id')
+    return key
+
+
+@pytest.fixture
+def mock_jwks_data(test_key):
+    """Generate mock JWKS data from test key."""
+    public_key = test_key.export_public(as_dict=True)
+    jwks = {'keys': [public_key]}
+    return json.dumps(jwks).encode('utf-8')
+
+
+@pytest.fixture(autouse=True)
+def mock_jwks_fetch(monkeypatch, mock_jwks_data):
+    """Mock JWKS fetch to return test keys."""
+    from unittest.mock import MagicMock
+    from axioms_core import helper as core_helper
+
+    # Mock the JWKS manager to return test keys
+    mock_manager = MagicMock()
+    mock_manager.get_jwks.return_value = mock_jwks_data
+
+    monkeypatch.setattr(core_helper, '_jwks_manager', mock_manager)
+
+
+@pytest.fixture
+def apply_middleware():
+    """Apply AccessTokenMiddleware to a request."""
+    from axioms_drf.middleware import AccessTokenMiddleware
+
+    def _apply(request):
+        middleware = AccessTokenMiddleware(get_response=lambda r: None)
+        middleware.process_request(request)
+        return request
+
+    return _apply
+
+
+@pytest.fixture
+def factory():
+    """Create API request factory that applies middleware automatically."""
+    from rest_framework.test import APIRequestFactory
+    from axioms_drf.middleware import AccessTokenMiddleware
+
+    class MiddlewareAPIRequestFactory(APIRequestFactory):
+        def generic(self, method, path, data='', content_type='application/octet-stream', secure=False, **extra):
+            request = super().generic(method, path, data, content_type, secure, **extra)
+            middleware = AccessTokenMiddleware(get_response=lambda r: None)
+            middleware.process_request(request)
+            return request
+
+    return MiddlewareAPIRequestFactory()
+
+
+def generate_jwt_token(key, claims, alg='RS256', include_kid=True, include_jti=True, custom_header=None):
+    """Generate a JWT token with specified claims and algorithm using PyJWT.
+
+    Args:
+        key: JWK key for signing.
+        claims: Dictionary or JSON string of claims.
+        alg: Algorithm to use (default: RS256).
+        include_kid: Whether to include kid in header (default: True).
+        include_jti: Whether to add jti (JWT ID) claim (default: True).
+        custom_header: Custom header dict to override defaults.
+
+    Returns:
+        str: Serialized JWT token.
+    """
+    # Convert claims to dict if it's a JSON string
+    if isinstance(claims, str):
+        claims_dict = json.loads(claims)
+    else:
+        claims_dict = claims.copy()
+
+    # Add jti (JWT ID) if not present and requested
+    if include_jti and 'jti' not in claims_dict:
+        claims_dict['jti'] = str(uuid.uuid4())
+
+    # Build headers
+    if custom_header:
+        headers = custom_header
+    else:
+        headers = {}
+        if include_kid:
+            headers['kid'] = key.kid
+
+    # Convert JWK to PyJWT-compatible key
+    key_json = key.export_private() if hasattr(key, 'export_private') else key.export_public()
+    algorithm = jwt.algorithms.get_default_algorithms()[alg]
+    pyjwt_key = algorithm.from_jwk(key_json)
+
+    # Generate token using PyJWT
+    token = jwt.encode(
+        payload=claims_dict,
+        key=pyjwt_key,
+        algorithm=alg,
+        headers=headers
+    )
+
+    return token

@@ -3,7 +3,7 @@ Type annotations for backup-gateway service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup_gateway/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import HypervisorStateType, SyncMetadataStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -110,12 +105,12 @@ class AssociateGatewayToServerInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class BandwidthRateLimitIntervalOutputTypeDef(TypedDict):
-    DaysOfWeek: List[int]
+    DaysOfWeek: list[int]
     EndHourOfDay: int
     EndMinuteOfHour: int
     StartHourOfDay: int
@@ -325,7 +320,7 @@ class UpdateHypervisorOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetBandwidthRateLimitScheduleOutputTypeDef(TypedDict):
-    BandwidthRateLimitIntervals: List[BandwidthRateLimitIntervalOutputTypeDef]
+    BandwidthRateLimitIntervals: list[BandwidthRateLimitIntervalOutputTypeDef]
     GatewayArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -349,7 +344,7 @@ class ImportHypervisorConfigurationInputTypeDef(TypedDict):
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     ResourceArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceInputTypeDef(TypedDict):
@@ -367,7 +362,7 @@ class GatewayDetailsTypeDef(TypedDict):
     VpcEndpoint: NotRequired[str]
 
 class ListGatewaysOutputTypeDef(TypedDict):
-    Gateways: List[GatewayTypeDef]
+    Gateways: list[GatewayTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -378,7 +373,7 @@ class GetHypervisorOutputTypeDef(TypedDict):
 class GetHypervisorPropertyMappingsOutputTypeDef(TypedDict):
     HypervisorArn: str
     IamRoleArn: str
-    VmwareToAwsTagMappings: List[VmwareToAwsTagMappingTypeDef]
+    VmwareToAwsTagMappings: list[VmwareToAwsTagMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutHypervisorPropertyMappingsInputTypeDef(TypedDict):
@@ -387,7 +382,7 @@ class PutHypervisorPropertyMappingsInputTypeDef(TypedDict):
     VmwareToAwsTagMappings: Sequence[VmwareToAwsTagMappingTypeDef]
 
 class ListHypervisorsOutputTypeDef(TypedDict):
-    Hypervisors: List[HypervisorTypeDef]
+    Hypervisors: list[HypervisorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -402,7 +397,7 @@ class ListVirtualMachinesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListVirtualMachinesOutputTypeDef(TypedDict):
-    VirtualMachines: List[VirtualMachineTypeDef]
+    VirtualMachines: list[VirtualMachineTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -413,7 +408,7 @@ class VirtualMachineDetailsTypeDef(TypedDict):
     Name: NotRequired[str]
     Path: NotRequired[str]
     ResourceArn: NotRequired[str]
-    VmwareTags: NotRequired[List[VmwareTagTypeDef]]
+    VmwareTags: NotRequired[list[VmwareTagTypeDef]]
 
 class PutBandwidthRateLimitScheduleInputTypeDef(TypedDict):
     BandwidthRateLimitIntervals: Sequence[BandwidthRateLimitIntervalUnionTypeDef]

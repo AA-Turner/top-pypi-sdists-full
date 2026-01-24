@@ -1,42 +1,66 @@
 // SPDX-FileCopyrightText: 2022 James R. Barlow
 // SPDX-License-Identifier: MPL-2.0
 
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+#include <regex>
 #include <sstream>
 #include <type_traits>
-#include <cerrno>
-#include <cstring>
-#include <cstdio>
-#include <regex>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include "pikepdf.h"
 
+#include <qpdf/Pl_Flate.hh>
 #include <qpdf/QPDFExc.hh>
+#include <qpdf/QPDFLogger.hh>
 #include <qpdf/QPDFSystemError.hh>
 #include <qpdf/QPDFUsage.hh>
 #include <qpdf/QUtil.hh>
-#include <qpdf/QPDFLogger.hh>
-#include <qpdf/Pl_Flate.hh>
 
-#include <pybind11/stl.h>
-#include <pybind11/iostream.h>
 #include <pybind11/buffer_info.h>
 #include <pybind11/gil_safe_call_once.h>
+#include <pybind11/iostream.h>
+#include <pybind11/stl.h>
 
+#include "namepath.h"
+#include "parsers.h"
 #include "qpdf_pagelist.h"
 #include "utils.h"
-#include "parsers.h"
 
-uint DECIMAL_PRECISION = 15;
-bool MMAP_DEFAULT      = false;
+static constinit std::atomic<uint> DECIMAL_PRECISION = 15;
+static constinit std::atomic<bool> MMAP_DEFAULT = false;
+static constinit std::atomic<bool> EXPLICIT_CONVERSION_MODE = false;
+
+// Thread-local counter for explicit_conversion() context manager nesting.
+// When > 0, the current thread is inside one or more context managers and
+// explicit mode takes precedence over the global EXPLICIT_CONVERSION_MODE.
+static thread_local int thread_explicit_depth = 0;
+
+uint get_decimal_precision()
+{
+    return DECIMAL_PRECISION.load();
+}
+bool get_mmap_default()
+{
+    return MMAP_DEFAULT.load();
+}
+bool get_explicit_conversion_mode()
+{
+    // Thread-local context manager takes precedence over global setting
+    if (thread_explicit_depth > 0) {
+        return true;
+    }
+    return EXPLICIT_CONVERSION_MODE.load();
+}
 
 class TemporaryErrnoChange {
 public:
     TemporaryErrnoChange(int val)
     {
         stored = errno;
-        errno  = val;
+        errno = val;
     }
     ~TemporaryErrnoChange() { errno = stored; }
 
@@ -120,12 +144,12 @@ bool is_object_type_assertion_error(const std::runtime_error &e)
     return std::regex_search(e.what(), error_pattern);
 }
 
-PYBIND11_MODULE(_core, m)
+PYBIND11_MODULE(_core, m, py::mod_gil_not_used())
 {
     // py::options options;
     // options.disable_function_signatures();
 
-    m.doc()            = "pikepdf provides a Pythonic interface for qpdf";
+    m.doc() = "pikepdf provides a Pythonic interface for qpdf";
     m.attr("__name__") = "pikepdf._core";
     m.def("qpdf_version", &QPDF::QPDFVersion, "Get libqpdf version");
 
@@ -141,6 +165,7 @@ PYBIND11_MODULE(_core, m)
     init_annotation(m);
     init_embeddedfiles(m);
     init_matrix(m);
+    init_namepath(m);
     init_nametree(m);
     init_numbertree(m);
     init_page(m);
@@ -175,22 +200,40 @@ PYBIND11_MODULE(_core, m)
             [](std::string s) { return translate_qpdf_logic_error(s).first; },
             "Used to test interpretation of qpdf errors.")
         .def("set_decimal_precision",
-            [](uint prec) {
-                DECIMAL_PRECISION = prec;
-                return DECIMAL_PRECISION;
-            })
-        .def("get_decimal_precision", []() { return DECIMAL_PRECISION; })
+            [](uint prec) { return DECIMAL_PRECISION.exchange(prec); })
+        .def("get_decimal_precision", []() { return DECIMAL_PRECISION.load(); })
         .def(
             "get_access_default_mmap",
-            []() { return MMAP_DEFAULT; },
+            []() { return MMAP_DEFAULT.load(); },
             "Return True if default access is to use mmap.")
         .def(
             "set_access_default_mmap",
-            [](bool mmap) {
-                MMAP_DEFAULT = mmap;
-                return MMAP_DEFAULT;
-            },
+            [](bool mmap) { return MMAP_DEFAULT.exchange(mmap); },
             "If True, ``pikepdf.open(...access_mode=access_default)`` will use mmap.")
+        .def(
+            "_get_explicit_conversion_mode",
+            []() { return EXPLICIT_CONVERSION_MODE.load(); },
+            "Return True if explicit conversion mode is enabled (global baseline).")
+        .def(
+            "_get_effective_explicit_mode",
+            []() { return get_explicit_conversion_mode(); },
+            "Return True if explicit mode is active (includes thread-local override).")
+        .def(
+            "_set_explicit_conversion_mode",
+            [](bool mode) { return EXPLICIT_CONVERSION_MODE.exchange(mode); },
+            "Set explicit conversion mode (global baseline). Returns previous value.")
+        .def(
+            "_enter_thread_explicit_mode",
+            []() { ++thread_explicit_depth; },
+            "Enter thread-local explicit conversion mode (for context manager).")
+        .def(
+            "_exit_thread_explicit_mode",
+            []() {
+                if (thread_explicit_depth > 0) {
+                    --thread_explicit_depth;
+                }
+            },
+            "Exit thread-local explicit conversion mode (for context manager).")
         .def("set_flate_compression_level",
             [](int level) {
                 if (-1 <= level && level <= 9) {
@@ -276,4 +319,11 @@ PYBIND11_MODULE(_core, m)
     m.attr("__version__") = "dev";
 #endif
     // clang-format on
+
+#ifdef Py_GIL_DISABLED
+    m.attr("__threading__") = "freethreading";
+    py::print("Warning: pikepdf freethreading support is unstable");
+#else
+    m.attr("__threading__") = "gil";
+#endif
 }

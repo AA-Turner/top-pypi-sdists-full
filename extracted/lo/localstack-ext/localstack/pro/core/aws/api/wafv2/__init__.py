@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -45,6 +45,7 @@ OutputUrl = str
 PaginationLimit = int
 ParameterExceptionParameter = str
 PolicyString = str
+PricingPlanFeatureName = str
 ProductDescription = str
 ProductId = str
 ProductLink = str
@@ -52,6 +53,7 @@ ProductTitle = str
 RegexPatternString = str
 RegistrationPagePathString = str
 ReleaseNotes = str
+RequiredPricingPlanName = str
 ResourceArn = str
 ResponseCode = int
 ResponseContent = str
@@ -423,6 +425,7 @@ class LabelMatchScope(StrEnum):
 class LogScope(StrEnum):
     CUSTOMER = "CUSTOMER"
     SECURITY_LAKE = "SECURITY_LAKE"
+    CLOUDWATCH_TELEMETRY_RULE_MANAGED = "CLOUDWATCH_TELEMETRY_RULE_MANAGED"
 
 
 class LogType(StrEnum):
@@ -666,6 +669,29 @@ class WAFExpiredManagedRuleGroupVersionException(ServiceException):
     status_code: int = 400
 
 
+class DisallowedFeature(TypedDict, total=False):
+    """A WAF feature that is not supported by the CloudFront pricing plan
+    associated with the web ACL.
+    """
+
+    Feature: PricingPlanFeatureName | None
+    RequiredPricingPlan: RequiredPricingPlanName | None
+
+
+DisallowedFeatures = list[DisallowedFeature]
+
+
+class WAFFeatureNotIncludedInPricingPlanException(ServiceException):
+    """The operation failed because the specified WAF feature isn't supported
+    by the CloudFront pricing plan associated with the web ACL.
+    """
+
+    code: str = "WAFFeatureNotIncludedInPricingPlanException"
+    sender_fault: bool = False
+    status_code: int = 400
+    DisallowedFeatures: DisallowedFeatures | None
+
+
 class WAFInternalErrorException(ServiceException):
     """Your request is valid, but WAF couldn’t perform the operation because of
     a system problem. Retry your request.
@@ -703,9 +729,9 @@ class WAFInvalidParameterException(ServiceException):
     code: str = "WAFInvalidParameterException"
     sender_fault: bool = False
     status_code: int = 400
-    Field: Optional[ParameterExceptionField]
-    Parameter: Optional[ParameterExceptionParameter]
-    Reason: Optional[ErrorReason]
+    Field: ParameterExceptionField | None
+    Parameter: ParameterExceptionParameter | None
+    Reason: ErrorReason | None
 
 
 class WAFInvalidPermissionPolicyException(ServiceException):
@@ -759,7 +785,7 @@ class WAFLimitsExceededException(ServiceException):
     code: str = "WAFLimitsExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    SourceType: Optional[SourceType]
+    SourceType: SourceType | None
 
 
 class WAFLogDestinationPermissionIssueException(ServiceException):
@@ -871,7 +897,7 @@ class WAFUnsupportedAggregateKeyTypeException(ServiceException):
 
 
 Timestamp = datetime
-TokenDomains = List[TokenDomain]
+TokenDomains = list[TokenDomain]
 
 
 class APIKeySummary(TypedDict, total=False):
@@ -886,17 +912,17 @@ class APIKeySummary(TypedDict, total=False):
     in the *WAF Developer Guide*.
     """
 
-    TokenDomains: Optional[TokenDomains]
-    APIKey: Optional[APIKey]
-    CreationTimestamp: Optional[Timestamp]
-    Version: Optional[APIKeyVersion]
+    TokenDomains: TokenDomains | None
+    APIKey: APIKey | None
+    CreationTimestamp: Timestamp | None
+    Version: APIKeyVersion | None
 
 
-APIKeySummaries = List[APIKeySummary]
-APIKeyTokenDomains = List[TokenDomain]
+APIKeySummaries = list[APIKeySummary]
+APIKeyTokenDomains = list[TokenDomain]
 ASN = int
-ResponseInspectionJsonFailureValues = List[FailureValue]
-ResponseInspectionJsonSuccessValues = List[SuccessValue]
+ResponseInspectionJsonFailureValues = list[FailureValue]
+ResponseInspectionJsonSuccessValues = list[SuccessValue]
 
 
 class ResponseInspectionJson(TypedDict, total=False):
@@ -914,8 +940,8 @@ class ResponseInspectionJson(TypedDict, total=False):
     FailureValues: ResponseInspectionJsonFailureValues
 
 
-ResponseInspectionBodyContainsFailureStrings = List[FailureValue]
-ResponseInspectionBodyContainsSuccessStrings = List[SuccessValue]
+ResponseInspectionBodyContainsFailureStrings = list[FailureValue]
+ResponseInspectionBodyContainsSuccessStrings = list[SuccessValue]
 
 
 class ResponseInspectionBodyContains(TypedDict, total=False):
@@ -932,8 +958,8 @@ class ResponseInspectionBodyContains(TypedDict, total=False):
     FailureStrings: ResponseInspectionBodyContainsFailureStrings
 
 
-ResponseInspectionHeaderFailureValues = List[FailureValue]
-ResponseInspectionHeaderSuccessValues = List[SuccessValue]
+ResponseInspectionHeaderFailureValues = list[FailureValue]
+ResponseInspectionHeaderSuccessValues = list[SuccessValue]
 
 
 class ResponseInspectionHeader(TypedDict, total=False):
@@ -950,8 +976,8 @@ class ResponseInspectionHeader(TypedDict, total=False):
     FailureValues: ResponseInspectionHeaderFailureValues
 
 
-ResponseInspectionStatusCodeFailureCodes = List[FailureCode]
-ResponseInspectionStatusCodeSuccessCodes = List[SuccessCode]
+ResponseInspectionStatusCodeFailureCodes = list[FailureCode]
+ResponseInspectionStatusCodeSuccessCodes = list[SuccessCode]
 
 
 class ResponseInspectionStatusCode(TypedDict, total=False):
@@ -993,10 +1019,10 @@ class ResponseInspection(TypedDict, total=False):
     disabled.
     """
 
-    StatusCode: Optional[ResponseInspectionStatusCode]
-    Header: Optional[ResponseInspectionHeader]
-    BodyContains: Optional[ResponseInspectionBodyContains]
-    Json: Optional[ResponseInspectionJson]
+    StatusCode: ResponseInspectionStatusCode | None
+    Header: ResponseInspectionHeader | None
+    BodyContains: ResponseInspectionBodyContains | None
+    Json: ResponseInspectionJson | None
 
 
 class AddressField(TypedDict, total=False):
@@ -1009,7 +1035,7 @@ class AddressField(TypedDict, total=False):
     Identifier: FieldIdentifier
 
 
-AddressFields = List[AddressField]
+AddressFields = list[AddressField]
 
 
 class PhoneNumberField(TypedDict, total=False):
@@ -1022,7 +1048,7 @@ class PhoneNumberField(TypedDict, total=False):
     Identifier: FieldIdentifier
 
 
-PhoneNumberFields = List[PhoneNumberField]
+PhoneNumberFields = list[PhoneNumberField]
 
 
 class EmailField(TypedDict, total=False):
@@ -1071,11 +1097,11 @@ class RequestInspectionACFP(TypedDict, total=False):
     """
 
     PayloadType: PayloadType
-    UsernameField: Optional[UsernameField]
-    PasswordField: Optional[PasswordField]
-    EmailField: Optional[EmailField]
-    PhoneNumberFields: Optional[PhoneNumberFields]
-    AddressFields: Optional[AddressFields]
+    UsernameField: UsernameField | None
+    PasswordField: PasswordField | None
+    EmailField: EmailField | None
+    PhoneNumberFields: PhoneNumberFields | None
+    AddressFields: AddressFields | None
 
 
 class AWSManagedRulesACFPRuleSet(TypedDict, total=False):
@@ -1094,8 +1120,8 @@ class AWSManagedRulesACFPRuleSet(TypedDict, total=False):
     CreationPath: CreationPathString
     RegistrationPagePath: RegistrationPagePathString
     RequestInspection: RequestInspectionACFP
-    ResponseInspection: Optional[ResponseInspection]
-    EnableRegexInPath: Optional[Boolean]
+    ResponseInspection: ResponseInspection | None
+    EnableRegexInPath: Boolean | None
 
 
 class RequestInspection(TypedDict, total=False):
@@ -1130,9 +1156,9 @@ class AWSManagedRulesATPRuleSet(TypedDict, total=False):
     """
 
     LoginPath: String
-    RequestInspection: Optional[RequestInspection]
-    ResponseInspection: Optional[ResponseInspection]
-    EnableRegexInPath: Optional[Boolean]
+    RequestInspection: RequestInspection | None
+    ResponseInspection: ResponseInspection | None
+    EnableRegexInPath: Boolean | None
 
 
 class Regex(TypedDict, total=False):
@@ -1141,10 +1167,10 @@ class Regex(TypedDict, total=False):
     group ``AWSManagedRulesAntiDDoSRuleSet``.
     """
 
-    RegexString: Optional[RegexPatternString]
+    RegexString: RegexPatternString | None
 
 
-RegularExpressionList = List[Regex]
+RegularExpressionList = list[Regex]
 
 
 class ClientSideAction(TypedDict, total=False):
@@ -1153,8 +1179,8 @@ class ClientSideAction(TypedDict, total=False):
     """
 
     UsageOfAction: UsageOfAction
-    Sensitivity: Optional[SensitivityToAct]
-    ExemptUriRegularExpressions: Optional[RegularExpressionList]
+    Sensitivity: SensitivityToAct | None
+    ExemptUriRegularExpressions: RegularExpressionList | None
 
 
 class ClientSideActionConfig(TypedDict, total=False):
@@ -1182,7 +1208,7 @@ class AWSManagedRulesAntiDDoSRuleSet(TypedDict, total=False):
     """
 
     ClientSideActionConfig: ClientSideActionConfig
-    SensitivityToBlock: Optional[SensitivityToAct]
+    SensitivityToBlock: SensitivityToAct | None
 
 
 class AWSManagedRulesBotControlRuleSet(TypedDict, total=False):
@@ -1199,7 +1225,7 @@ class AWSManagedRulesBotControlRuleSet(TypedDict, total=False):
     """
 
     InspectionLevel: InspectionLevel
-    EnableMachineLearning: Optional[EnableMachineLearning]
+    EnableMachineLearning: EnableMachineLearning | None
 
 
 class ActionCondition(TypedDict, total=False):
@@ -1243,7 +1269,7 @@ class CustomHTTPHeader(TypedDict, total=False):
     Value: CustomHTTPHeaderValue
 
 
-CustomHTTPHeaders = List[CustomHTTPHeader]
+CustomHTTPHeaders = list[CustomHTTPHeader]
 
 
 class CustomRequestHandling(TypedDict, total=False):
@@ -1269,7 +1295,7 @@ class AllowAction(TypedDict, total=False):
     values for RuleAction and web ACL DefaultAction.
     """
 
-    CustomRequestHandling: Optional[CustomRequestHandling]
+    CustomRequestHandling: CustomRequestHandling | None
 
 
 class ForwardedIPConfig(TypedDict, total=False):
@@ -1293,7 +1319,7 @@ class ForwardedIPConfig(TypedDict, total=False):
     FallbackBehavior: FallbackBehavior
 
 
-AsnList = List[ASN]
+AsnList = list[ASN]
 
 
 class AsnMatchStatement(TypedDict, total=False):
@@ -1307,7 +1333,7 @@ class AsnMatchStatement(TypedDict, total=False):
     """
 
     AsnList: AsnList
-    ForwardedIPConfig: Optional[ForwardedIPConfig]
+    ForwardedIPConfig: ForwardedIPConfig | None
 
 
 class TextTransformation(TypedDict, total=False):
@@ -1319,7 +1345,7 @@ class TextTransformation(TypedDict, total=False):
     Type: TextTransformationType
 
 
-TextTransformations = List[TextTransformation]
+TextTransformations = list[TextTransformation]
 
 
 class UriFragment(TypedDict, total=False):
@@ -1334,7 +1360,7 @@ class UriFragment(TypedDict, total=False):
     ``"UriFragment": { "MatchPattern": { "All": {} }, "MatchScope": "KEY", "OversizeHandling": "MATCH" }``
     """
 
-    FallbackBehavior: Optional[FallbackBehavior]
+    FallbackBehavior: FallbackBehavior | None
 
 
 class JA4Fingerprint(TypedDict, total=False):
@@ -1401,7 +1427,7 @@ class HeaderOrder(TypedDict, total=False):
     OversizeHandling: OversizeHandling
 
 
-CookieNames = List[SingleCookieName]
+CookieNames = list[SingleCookieName]
 
 
 class CookieMatchPattern(TypedDict, total=False):
@@ -1415,9 +1441,9 @@ class CookieMatchPattern(TypedDict, total=False):
     ``"MatchPattern": { "IncludedCookies": [ "session-id-time", "session-id" ] }``
     """
 
-    All: Optional[All]
-    IncludedCookies: Optional[CookieNames]
-    ExcludedCookies: Optional[CookieNames]
+    All: All | None
+    IncludedCookies: CookieNames | None
+    ExcludedCookies: CookieNames | None
 
 
 class Cookies(TypedDict, total=False):
@@ -1437,7 +1463,7 @@ class Cookies(TypedDict, total=False):
     OversizeHandling: OversizeHandling
 
 
-HeaderNames = List[FieldToMatchData]
+HeaderNames = list[FieldToMatchData]
 
 
 class HeaderMatchPattern(TypedDict, total=False):
@@ -1451,9 +1477,9 @@ class HeaderMatchPattern(TypedDict, total=False):
     ``"MatchPattern": { "ExcludedHeaders": [ "KeyToExclude1", "KeyToExclude2" ] }``
     """
 
-    All: Optional[All]
-    IncludedHeaders: Optional[HeaderNames]
-    ExcludedHeaders: Optional[HeaderNames]
+    All: All | None
+    IncludedHeaders: HeaderNames | None
+    ExcludedHeaders: HeaderNames | None
 
 
 class Headers(TypedDict, total=False):
@@ -1476,7 +1502,7 @@ class Headers(TypedDict, total=False):
     OversizeHandling: OversizeHandling
 
 
-JsonPointerPaths = List[JsonPointerPath]
+JsonPointerPaths = list[JsonPointerPath]
 
 
 class JsonMatchPattern(TypedDict, total=False):
@@ -1485,8 +1511,8 @@ class JsonMatchPattern(TypedDict, total=False):
     with the FieldToMatch option ``JsonBody``.
     """
 
-    All: Optional[All]
-    IncludedPaths: Optional[JsonPointerPaths]
+    All: All | None
+    IncludedPaths: JsonPointerPaths | None
 
 
 class JsonBody(TypedDict, total=False):
@@ -1512,8 +1538,8 @@ class JsonBody(TypedDict, total=False):
 
     MatchPattern: JsonMatchPattern
     MatchScope: JsonMatchScope
-    InvalidFallbackBehavior: Optional[BodyParsingFallbackBehavior]
-    OversizeHandling: Optional[OversizeHandling]
+    InvalidFallbackBehavior: BodyParsingFallbackBehavior | None
+    OversizeHandling: OversizeHandling | None
 
 
 class Method(TypedDict, total=False):
@@ -1537,7 +1563,7 @@ class Body(TypedDict, total=False):
     FieldToMatch specification.
     """
 
-    OversizeHandling: Optional[OversizeHandling]
+    OversizeHandling: OversizeHandling | None
 
 
 class QueryString(TypedDict, total=False):
@@ -1636,20 +1662,20 @@ class FieldToMatch(TypedDict, total=False):
           for the web ACL.
     """
 
-    SingleHeader: Optional[SingleHeader]
-    SingleQueryArgument: Optional[SingleQueryArgument]
-    AllQueryArguments: Optional[AllQueryArguments]
-    UriPath: Optional[UriPath]
-    QueryString: Optional[QueryString]
-    Body: Optional[Body]
-    Method: Optional[Method]
-    JsonBody: Optional[JsonBody]
-    Headers: Optional[Headers]
-    Cookies: Optional[Cookies]
-    HeaderOrder: Optional[HeaderOrder]
-    JA3Fingerprint: Optional[JA3Fingerprint]
-    JA4Fingerprint: Optional[JA4Fingerprint]
-    UriFragment: Optional[UriFragment]
+    SingleHeader: SingleHeader | None
+    SingleQueryArgument: SingleQueryArgument | None
+    AllQueryArguments: AllQueryArguments | None
+    UriPath: UriPath | None
+    QueryString: QueryString | None
+    Body: Body | None
+    Method: Method | None
+    JsonBody: JsonBody | None
+    Headers: Headers | None
+    Cookies: Cookies | None
+    HeaderOrder: HeaderOrder | None
+    JA3Fingerprint: JA3Fingerprint | None
+    JA4Fingerprint: JA4Fingerprint | None
+    UriFragment: UriFragment | None
 
 
 class RegexMatchStatement(TypedDict, total=False):
@@ -1724,7 +1750,7 @@ class ChallengeAction(TypedDict, total=False):
     ACL default actions.
     """
 
-    CustomRequestHandling: Optional[CustomRequestHandling]
+    CustomRequestHandling: CustomRequestHandling | None
 
 
 class CaptchaAction(TypedDict, total=False):
@@ -1758,7 +1784,7 @@ class CaptchaAction(TypedDict, total=False):
     ACL default actions.
     """
 
-    CustomRequestHandling: Optional[CustomRequestHandling]
+    CustomRequestHandling: CustomRequestHandling | None
 
 
 class CountAction(TypedDict, total=False):
@@ -1769,7 +1795,7 @@ class CountAction(TypedDict, total=False):
     values for RuleAction and web ACL DefaultAction.
     """
 
-    CustomRequestHandling: Optional[CustomRequestHandling]
+    CustomRequestHandling: CustomRequestHandling | None
 
 
 class CustomResponse(TypedDict, total=False):
@@ -1784,8 +1810,8 @@ class CustomResponse(TypedDict, total=False):
     """
 
     ResponseCode: ResponseStatusCode
-    CustomResponseBodyKey: Optional[EntityName]
-    ResponseHeaders: Optional[CustomHTTPHeaders]
+    CustomResponseBodyKey: EntityName | None
+    ResponseHeaders: CustomHTTPHeaders | None
 
 
 class BlockAction(TypedDict, total=False):
@@ -1796,7 +1822,7 @@ class BlockAction(TypedDict, total=False):
     values for RuleAction and web ACL DefaultAction.
     """
 
-    CustomResponse: Optional[CustomResponse]
+    CustomResponse: CustomResponse | None
 
 
 class RuleAction(TypedDict, total=False):
@@ -1805,11 +1831,11 @@ class RuleAction(TypedDict, total=False):
     action setting.
     """
 
-    Block: Optional[BlockAction]
-    Allow: Optional[AllowAction]
-    Count: Optional[CountAction]
-    Captcha: Optional[CaptchaAction]
-    Challenge: Optional[ChallengeAction]
+    Block: BlockAction | None
+    Allow: AllowAction | None
+    Count: CountAction | None
+    Captcha: CaptchaAction | None
+    Challenge: ChallengeAction | None
 
 
 class RuleActionOverride(TypedDict, total=False):
@@ -1835,7 +1861,7 @@ class RuleActionOverride(TypedDict, total=False):
     ActionToUse: RuleAction
 
 
-RuleActionOverrides = List[RuleActionOverride]
+RuleActionOverrides = list[RuleActionOverride]
 
 
 class ManagedRuleGroupConfig(TypedDict, total=False):
@@ -1871,17 +1897,17 @@ class ManagedRuleGroupConfig(TypedDict, total=False):
     For example specifications, see the examples section of CreateWebACL.
     """
 
-    LoginPath: Optional[LoginPathString]
-    PayloadType: Optional[PayloadType]
-    UsernameField: Optional[UsernameField]
-    PasswordField: Optional[PasswordField]
-    AWSManagedRulesBotControlRuleSet: Optional[AWSManagedRulesBotControlRuleSet]
-    AWSManagedRulesATPRuleSet: Optional[AWSManagedRulesATPRuleSet]
-    AWSManagedRulesACFPRuleSet: Optional[AWSManagedRulesACFPRuleSet]
-    AWSManagedRulesAntiDDoSRuleSet: Optional[AWSManagedRulesAntiDDoSRuleSet]
+    LoginPath: LoginPathString | None
+    PayloadType: PayloadType | None
+    UsernameField: UsernameField | None
+    PasswordField: PasswordField | None
+    AWSManagedRulesBotControlRuleSet: AWSManagedRulesBotControlRuleSet | None
+    AWSManagedRulesATPRuleSet: AWSManagedRulesATPRuleSet | None
+    AWSManagedRulesACFPRuleSet: AWSManagedRulesACFPRuleSet | None
+    AWSManagedRulesAntiDDoSRuleSet: AWSManagedRulesAntiDDoSRuleSet | None
 
 
-ManagedRuleGroupConfigs = List[ManagedRuleGroupConfig]
+ManagedRuleGroupConfigs = list[ManagedRuleGroupConfig]
 
 
 class Statement(TypedDict, total=False):
@@ -1891,22 +1917,22 @@ class Statement(TypedDict, total=False):
     For example specifications, see the examples section of CreateWebACL.
     """
 
-    ByteMatchStatement: Optional["ByteMatchStatement"]
-    SqliMatchStatement: Optional["SqliMatchStatement"]
-    XssMatchStatement: Optional["XssMatchStatement"]
-    SizeConstraintStatement: Optional["SizeConstraintStatement"]
-    GeoMatchStatement: Optional["GeoMatchStatement"]
-    RuleGroupReferenceStatement: Optional["RuleGroupReferenceStatement"]
-    IPSetReferenceStatement: Optional["IPSetReferenceStatement"]
-    RegexPatternSetReferenceStatement: Optional["RegexPatternSetReferenceStatement"]
-    RateBasedStatement: Optional["RateBasedStatement"]
-    AndStatement: Optional["AndStatement"]
-    OrStatement: Optional["OrStatement"]
-    NotStatement: Optional["NotStatement"]
-    ManagedRuleGroupStatement: Optional["ManagedRuleGroupStatement"]
-    LabelMatchStatement: Optional["LabelMatchStatement"]
-    RegexMatchStatement: Optional["RegexMatchStatement"]
-    AsnMatchStatement: Optional["AsnMatchStatement"]
+    ByteMatchStatement: "ByteMatchStatement | None"
+    SqliMatchStatement: "SqliMatchStatement | None"
+    XssMatchStatement: "XssMatchStatement | None"
+    SizeConstraintStatement: "SizeConstraintStatement | None"
+    GeoMatchStatement: "GeoMatchStatement | None"
+    RuleGroupReferenceStatement: "RuleGroupReferenceStatement | None"
+    IPSetReferenceStatement: "IPSetReferenceStatement | None"
+    RegexPatternSetReferenceStatement: "RegexPatternSetReferenceStatement | None"
+    RateBasedStatement: "RateBasedStatement | None"
+    AndStatement: "AndStatement | None"
+    OrStatement: "OrStatement | None"
+    NotStatement: "NotStatement | None"
+    ManagedRuleGroupStatement: "ManagedRuleGroupStatement | None"
+    LabelMatchStatement: "LabelMatchStatement | None"
+    RegexMatchStatement: "RegexMatchStatement | None"
+    AsnMatchStatement: "AsnMatchStatement | None"
 
 
 class ExcludedRule(TypedDict, total=False):
@@ -1920,7 +1946,7 @@ class ExcludedRule(TypedDict, total=False):
     Name: EntityName
 
 
-ExcludedRules = List[ExcludedRule]
+ExcludedRules = list[ExcludedRule]
 
 
 class ManagedRuleGroupStatement(TypedDict, total=False):
@@ -1946,11 +1972,11 @@ class ManagedRuleGroupStatement(TypedDict, total=False):
 
     VendorName: VendorName
     Name: EntityName
-    Version: Optional[VersionKeyString]
-    ExcludedRules: Optional[ExcludedRules]
-    ScopeDownStatement: Optional[Statement]
-    ManagedRuleGroupConfigs: Optional[ManagedRuleGroupConfigs]
-    RuleActionOverrides: Optional[RuleActionOverrides]
+    Version: VersionKeyString | None
+    ExcludedRules: ExcludedRules | None
+    ScopeDownStatement: Statement | None
+    ManagedRuleGroupConfigs: ManagedRuleGroupConfigs | None
+    RuleActionOverrides: RuleActionOverrides | None
 
 
 class NotStatement(TypedDict, total=False):
@@ -1961,7 +1987,7 @@ class NotStatement(TypedDict, total=False):
     Statement: Statement
 
 
-Statements = List[Statement]
+Statements = list[Statement]
 
 
 class OrStatement(TypedDict, total=False):
@@ -2147,21 +2173,21 @@ class RateBasedStatementCustomKey(TypedDict, total=False):
     handling.
     """
 
-    Header: Optional[RateLimitHeader]
-    Cookie: Optional[RateLimitCookie]
-    QueryArgument: Optional[RateLimitQueryArgument]
-    QueryString: Optional[RateLimitQueryString]
-    HTTPMethod: Optional[RateLimitHTTPMethod]
-    ForwardedIP: Optional[RateLimitForwardedIP]
-    IP: Optional[RateLimitIP]
-    LabelNamespace: Optional[RateLimitLabelNamespace]
-    UriPath: Optional[RateLimitUriPath]
-    JA3Fingerprint: Optional[RateLimitJA3Fingerprint]
-    JA4Fingerprint: Optional[RateLimitJA4Fingerprint]
-    ASN: Optional[RateLimitAsn]
+    Header: RateLimitHeader | None
+    Cookie: RateLimitCookie | None
+    QueryArgument: RateLimitQueryArgument | None
+    QueryString: RateLimitQueryString | None
+    HTTPMethod: RateLimitHTTPMethod | None
+    ForwardedIP: RateLimitForwardedIP | None
+    IP: RateLimitIP | None
+    LabelNamespace: RateLimitLabelNamespace | None
+    UriPath: RateLimitUriPath | None
+    JA3Fingerprint: RateLimitJA3Fingerprint | None
+    JA4Fingerprint: RateLimitJA4Fingerprint | None
+    ASN: RateLimitAsn | None
 
 
-RateBasedStatementCustomKeys = List[RateBasedStatementCustomKey]
+RateBasedStatementCustomKeys = list[RateBasedStatementCustomKey]
 EvaluationWindowSec = int
 RateLimit = int
 
@@ -2265,11 +2291,11 @@ class RateBasedStatement(TypedDict, total=False):
     """
 
     Limit: RateLimit
-    EvaluationWindowSec: Optional[EvaluationWindowSec]
+    EvaluationWindowSec: EvaluationWindowSec | None
     AggregateKeyType: RateBasedStatementAggregateKeyType
-    ScopeDownStatement: Optional[Statement]
-    ForwardedIPConfig: Optional[ForwardedIPConfig]
-    CustomKeys: Optional[RateBasedStatementCustomKeys]
+    ScopeDownStatement: Statement | None
+    ForwardedIPConfig: ForwardedIPConfig | None
+    CustomKeys: RateBasedStatementCustomKeys | None
 
 
 class RegexPatternSetReferenceStatement(TypedDict, total=False):
@@ -2322,7 +2348,7 @@ class IPSetReferenceStatement(TypedDict, total=False):
     """
 
     ARN: ResourceArn
-    IPSetForwardedIPConfig: Optional[IPSetForwardedIPConfig]
+    IPSetForwardedIPConfig: IPSetForwardedIPConfig | None
 
 
 class RuleGroupReferenceStatement(TypedDict, total=False):
@@ -2338,11 +2364,11 @@ class RuleGroupReferenceStatement(TypedDict, total=False):
     """
 
     ARN: ResourceArn
-    ExcludedRules: Optional[ExcludedRules]
-    RuleActionOverrides: Optional[RuleActionOverrides]
+    ExcludedRules: ExcludedRules | None
+    RuleActionOverrides: RuleActionOverrides | None
 
 
-CountryCodes = List[CountryCode]
+CountryCodes = list[CountryCode]
 
 
 class GeoMatchStatement(TypedDict, total=False):
@@ -2380,8 +2406,8 @@ class GeoMatchStatement(TypedDict, total=False):
     Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`__.
     """
 
-    CountryCodes: Optional[CountryCodes]
-    ForwardedIPConfig: Optional[ForwardedIPConfig]
+    CountryCodes: CountryCodes | None
+    ForwardedIPConfig: ForwardedIPConfig | None
 
 
 Size = int
@@ -2431,7 +2457,7 @@ class SqliMatchStatement(TypedDict, total=False):
 
     FieldToMatch: FieldToMatch
     TextTransformations: TextTransformations
-    SensitivityLevel: Optional[SensitivityLevel]
+    SensitivityLevel: SensitivityLevel | None
 
 
 SearchString = bytes
@@ -2452,7 +2478,7 @@ class ByteMatchStatement(TypedDict, total=False):
     PositionalConstraint: PositionalConstraint
 
 
-AttributeValues = List[AttributeValue]
+AttributeValues = list[AttributeValue]
 
 
 class ApplicationAttribute(TypedDict, total=False):
@@ -2461,11 +2487,11 @@ class ApplicationAttribute(TypedDict, total=False):
     packs.
     """
 
-    Name: Optional[AttributeName]
-    Values: Optional[AttributeValues]
+    Name: AttributeName | None
+    Values: AttributeValues | None
 
 
-ApplicationAttributes = List[ApplicationAttribute]
+ApplicationAttributes = list[ApplicationAttribute]
 
 
 class ApplicationConfig(TypedDict, total=False):
@@ -2473,7 +2499,7 @@ class ApplicationConfig(TypedDict, total=False):
     the application.
     """
 
-    Attributes: Optional[ApplicationAttributes]
+    Attributes: ApplicationAttributes | None
 
 
 class AssociateWebACLRequest(ServiceRequest):
@@ -2508,7 +2534,7 @@ class RequestBodyAssociatedResourceTypeConfig(TypedDict, total=False):
     DefaultSizeInspectionLimit: SizeInspectionLimit
 
 
-RequestBody = Dict[AssociatedResourceType, RequestBodyAssociatedResourceTypeConfig]
+RequestBody = dict[AssociatedResourceType, RequestBodyAssociatedResourceTypeConfig]
 
 
 class AssociationConfig(TypedDict, total=False):
@@ -2528,7 +2554,7 @@ class AssociationConfig(TypedDict, total=False):
     (8,192 bytes).
     """
 
-    RequestBody: Optional[RequestBody]
+    RequestBody: RequestBody | None
 
 
 CapacityUnit = int
@@ -2549,7 +2575,7 @@ class CaptchaConfig(TypedDict, total=False):
     available at the web ACL level and in each rule.
     """
 
-    ImmunityTimeProperty: Optional[ImmunityTimeProperty]
+    ImmunityTimeProperty: ImmunityTimeProperty | None
 
 
 SolveTimestamp = int
@@ -2560,9 +2586,9 @@ class CaptchaResponse(TypedDict, total=False):
     ``CAPTCHA`` token.
     """
 
-    ResponseCode: Optional[ResponseCode]
-    SolveTimestamp: Optional[SolveTimestamp]
-    FailureReason: Optional[FailureReason]
+    ResponseCode: ResponseCode | None
+    SolveTimestamp: SolveTimestamp | None
+    FailureReason: FailureReason | None
 
 
 class ChallengeConfig(TypedDict, total=False):
@@ -2570,7 +2596,7 @@ class ChallengeConfig(TypedDict, total=False):
     available at the web ACL level and in each rule.
     """
 
-    ImmunityTimeProperty: Optional[ImmunityTimeProperty]
+    ImmunityTimeProperty: ImmunityTimeProperty | None
 
 
 class ChallengeResponse(TypedDict, total=False):
@@ -2578,9 +2604,9 @@ class ChallengeResponse(TypedDict, total=False):
     token.
     """
 
-    ResponseCode: Optional[ResponseCode]
-    SolveTimestamp: Optional[SolveTimestamp]
-    FailureReason: Optional[FailureReason]
+    ResponseCode: ResponseCode | None
+    SolveTimestamp: SolveTimestamp | None
+    FailureReason: FailureReason | None
 
 
 class VisibilityConfig(TypedDict, total=False):
@@ -2602,7 +2628,7 @@ class Label(TypedDict, total=False):
     Name: LabelName
 
 
-Labels = List[Label]
+Labels = list[Label]
 
 
 class NoneAction(TypedDict, total=False):
@@ -2622,8 +2648,8 @@ class NoneAction(TypedDict, total=False):
 OverrideAction = TypedDict(
     "OverrideAction",
     {
-        "Count": Optional[CountAction],
-        "None": Optional[NoneAction],
+        "Count": CountAction | None,
+        "None": NoneAction | None,
     },
     total=False,
 )
@@ -2639,15 +2665,15 @@ class Rule(TypedDict, total=False):
     Name: EntityName
     Priority: RulePriority
     Statement: Statement
-    Action: Optional[RuleAction]
-    OverrideAction: Optional[OverrideAction]
-    RuleLabels: Optional[Labels]
+    Action: RuleAction | None
+    OverrideAction: OverrideAction | None
+    RuleLabels: Labels | None
     VisibilityConfig: VisibilityConfig
-    CaptchaConfig: Optional[CaptchaConfig]
-    ChallengeConfig: Optional[ChallengeConfig]
+    CaptchaConfig: CaptchaConfig | None
+    ChallengeConfig: ChallengeConfig | None
 
 
-Rules = List[Rule]
+Rules = list[Rule]
 
 
 class CheckCapacityRequest(ServiceRequest):
@@ -2659,7 +2685,7 @@ ConsumedCapacity = int
 
 
 class CheckCapacityResponse(TypedDict, total=False):
-    Capacity: Optional[ConsumedCapacity]
+    Capacity: ConsumedCapacity | None
 
 
 class LabelNameCondition(TypedDict, total=False):
@@ -2671,11 +2697,11 @@ class LabelNameCondition(TypedDict, total=False):
 class Condition(TypedDict, total=False):
     """A single match condition for a Filter."""
 
-    ActionCondition: Optional[ActionCondition]
-    LabelNameCondition: Optional[LabelNameCondition]
+    ActionCondition: ActionCondition | None
+    LabelNameCondition: LabelNameCondition | None
 
 
-Conditions = List[Condition]
+Conditions = list[Condition]
 
 
 class CreateAPIKeyRequest(ServiceRequest):
@@ -2684,7 +2710,7 @@ class CreateAPIKeyRequest(ServiceRequest):
 
 
 class CreateAPIKeyResponse(TypedDict, total=False):
-    APIKey: Optional[APIKey]
+    APIKey: APIKey | None
 
 
 class Tag(TypedDict, total=False):
@@ -2707,17 +2733,17 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
-IPAddresses = List[IPAddress]
+TagList = list[Tag]
+IPAddresses = list[IPAddress]
 
 
 class CreateIPSetRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     IPAddressVersion: IPAddressVersion
     Addresses: IPAddresses
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class IPSetSummary(TypedDict, total=False):
@@ -2727,23 +2753,23 @@ class IPSetSummary(TypedDict, total=False):
     the IPSetReferenceStatement to use the address set in a Rule.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    Description: Optional[EntityDescription]
-    LockToken: Optional[LockToken]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Id: EntityId | None
+    Description: EntityDescription | None
+    LockToken: LockToken | None
+    ARN: ResourceArn | None
 
 
 class CreateIPSetResponse(TypedDict, total=False):
-    Summary: Optional[IPSetSummary]
+    Summary: IPSetSummary | None
 
 
 class CreateRegexPatternSetRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     RegularExpressionList: RegularExpressionList
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class RegexPatternSetSummary(TypedDict, total=False):
@@ -2754,15 +2780,15 @@ class RegexPatternSetSummary(TypedDict, total=False):
     set in a Rule.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    Description: Optional[EntityDescription]
-    LockToken: Optional[LockToken]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Id: EntityId | None
+    Description: EntityDescription | None
+    LockToken: LockToken | None
+    ARN: ResourceArn | None
 
 
 class CreateRegexPatternSetResponse(TypedDict, total=False):
-    Summary: Optional[RegexPatternSetSummary]
+    Summary: RegexPatternSetSummary | None
 
 
 class CustomResponseBody(TypedDict, total=False):
@@ -2774,18 +2800,18 @@ class CustomResponseBody(TypedDict, total=False):
     Content: ResponseContent
 
 
-CustomResponseBodies = Dict[EntityName, CustomResponseBody]
+CustomResponseBodies = dict[EntityName, CustomResponseBody]
 
 
 class CreateRuleGroupRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
     Capacity: CapacityUnit
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
-    Tags: Optional[TagList]
-    CustomResponseBodies: Optional[CustomResponseBodies]
+    Tags: TagList | None
+    CustomResponseBodies: CustomResponseBodies | None
 
 
 class RuleGroupSummary(TypedDict, total=False):
@@ -2795,15 +2821,15 @@ class RuleGroupSummary(TypedDict, total=False):
     the RuleGroupReferenceStatement to use the rule group in a Rule.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    Description: Optional[EntityDescription]
-    LockToken: Optional[LockToken]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Id: EntityId | None
+    Description: EntityDescription | None
+    LockToken: LockToken | None
+    ARN: ResourceArn | None
 
 
 class CreateRuleGroupResponse(TypedDict, total=False):
-    Summary: Optional[RuleGroupSummary]
+    Summary: RuleGroupSummary | None
 
 
 class OnSourceDDoSProtectionConfig(TypedDict, total=False):
@@ -2814,7 +2840,7 @@ class OnSourceDDoSProtectionConfig(TypedDict, total=False):
     ALBLowReputationMode: LowReputationMode
 
 
-FieldToProtectKeys = List[FieldToProtectKeyName]
+FieldToProtectKeys = list[FieldToProtectKeyName]
 
 
 class FieldToProtect(TypedDict, total=False):
@@ -2823,7 +2849,7 @@ class FieldToProtect(TypedDict, total=False):
     """
 
     FieldType: FieldToProtectType
-    FieldKeys: Optional[FieldToProtectKeys]
+    FieldKeys: FieldToProtectKeys | None
 
 
 class DataProtection(TypedDict, total=False):
@@ -2833,11 +2859,11 @@ class DataProtection(TypedDict, total=False):
 
     Field: FieldToProtect
     Action: DataProtectionAction
-    ExcludeRuleMatchDetails: Optional[Boolean]
-    ExcludeRateBasedDetails: Optional[Boolean]
+    ExcludeRuleMatchDetails: Boolean | None
+    ExcludeRateBasedDetails: Boolean | None
 
 
-DataProtections = List[DataProtection]
+DataProtections = list[DataProtection]
 
 
 class DataProtectionConfig(TypedDict, total=False):
@@ -2862,26 +2888,26 @@ class DefaultAction(TypedDict, total=False):
     action must be a terminating action.
     """
 
-    Block: Optional[BlockAction]
-    Allow: Optional[AllowAction]
+    Block: BlockAction | None
+    Allow: AllowAction | None
 
 
 class CreateWebACLRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
     DefaultAction: DefaultAction
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
-    DataProtectionConfig: Optional[DataProtectionConfig]
-    Tags: Optional[TagList]
-    CustomResponseBodies: Optional[CustomResponseBodies]
-    CaptchaConfig: Optional[CaptchaConfig]
-    ChallengeConfig: Optional[ChallengeConfig]
-    TokenDomains: Optional[TokenDomains]
-    AssociationConfig: Optional[AssociationConfig]
-    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
-    ApplicationConfig: Optional[ApplicationConfig]
+    DataProtectionConfig: DataProtectionConfig | None
+    Tags: TagList | None
+    CustomResponseBodies: CustomResponseBodies | None
+    CaptchaConfig: CaptchaConfig | None
+    ChallengeConfig: ChallengeConfig | None
+    TokenDomains: TokenDomains | None
+    AssociationConfig: AssociationConfig | None
+    OnSourceDDoSProtectionConfig: OnSourceDDoSProtectionConfig | None
+    ApplicationConfig: ApplicationConfig | None
 
 
 class WebACLSummary(TypedDict, total=False):
@@ -2891,15 +2917,15 @@ class WebACLSummary(TypedDict, total=False):
     operations like AssociateWebACL.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    Description: Optional[EntityDescription]
-    LockToken: Optional[LockToken]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Id: EntityId | None
+    Description: EntityDescription | None
+    LockToken: LockToken | None
+    ARN: ResourceArn | None
 
 
 class CreateWebACLResponse(TypedDict, total=False):
-    Summary: Optional[WebACLSummary]
+    Summary: WebACLSummary | None
 
 
 class DeleteAPIKeyRequest(ServiceRequest):
@@ -2917,7 +2943,7 @@ class DeleteFirewallManagerRuleGroupsRequest(ServiceRequest):
 
 
 class DeleteFirewallManagerRuleGroupsResponse(TypedDict, total=False):
-    NextWebACLLockToken: Optional[LockToken]
+    NextWebACLLockToken: LockToken | None
 
 
 class DeleteIPSetRequest(ServiceRequest):
@@ -2933,8 +2959,8 @@ class DeleteIPSetResponse(TypedDict, total=False):
 
 class DeleteLoggingConfigurationRequest(ServiceRequest):
     ResourceArn: ResourceArn
-    LogType: Optional[LogType]
-    LogScope: Optional[LogScope]
+    LogType: LogType | None
+    LogScope: LogScope | None
 
 
 class DeleteLoggingConfigurationResponse(TypedDict, total=False):
@@ -2992,22 +3018,22 @@ class ManagedProductDescriptor(TypedDict, total=False):
     rule group.
     """
 
-    VendorName: Optional[VendorName]
-    ManagedRuleSetName: Optional[EntityName]
-    ProductId: Optional[ProductId]
-    ProductLink: Optional[ProductLink]
-    ProductTitle: Optional[ProductTitle]
-    ProductDescription: Optional[ProductDescription]
-    SnsTopicArn: Optional[ResourceArn]
-    IsVersioningSupported: Optional[Boolean]
-    IsAdvancedManagedRuleSet: Optional[Boolean]
+    VendorName: VendorName | None
+    ManagedRuleSetName: EntityName | None
+    ProductId: ProductId | None
+    ProductLink: ProductLink | None
+    ProductTitle: ProductTitle | None
+    ProductDescription: ProductDescription | None
+    SnsTopicArn: ResourceArn | None
+    IsVersioningSupported: Boolean | None
+    IsAdvancedManagedRuleSet: Boolean | None
 
 
-ManagedProductDescriptors = List[ManagedProductDescriptor]
+ManagedProductDescriptors = list[ManagedProductDescriptor]
 
 
 class DescribeAllManagedProductsResponse(TypedDict, total=False):
-    ManagedProducts: Optional[ManagedProductDescriptors]
+    ManagedProducts: ManagedProductDescriptors | None
 
 
 class DescribeManagedProductsByVendorRequest(ServiceRequest):
@@ -3016,14 +3042,14 @@ class DescribeManagedProductsByVendorRequest(ServiceRequest):
 
 
 class DescribeManagedProductsByVendorResponse(TypedDict, total=False):
-    ManagedProducts: Optional[ManagedProductDescriptors]
+    ManagedProducts: ManagedProductDescriptors | None
 
 
 class DescribeManagedRuleGroupRequest(ServiceRequest):
     VendorName: VendorName
     Name: EntityName
     Scope: Scope
-    VersionName: Optional[VersionKeyString]
+    VersionName: VersionKeyString | None
 
 
 class LabelSummary(TypedDict, total=False):
@@ -3038,10 +3064,10 @@ class LabelSummary(TypedDict, total=False):
        Statement definition of a rule.
     """
 
-    Name: Optional[LabelName]
+    Name: LabelName | None
 
 
-LabelSummaries = List[LabelSummary]
+LabelSummaries = list[LabelSummary]
 
 
 class RuleSummary(TypedDict, total=False):
@@ -3052,21 +3078,21 @@ class RuleSummary(TypedDict, total=False):
     a Rule.
     """
 
-    Name: Optional[EntityName]
-    Action: Optional[RuleAction]
+    Name: EntityName | None
+    Action: RuleAction | None
 
 
-RuleSummaries = List[RuleSummary]
+RuleSummaries = list[RuleSummary]
 
 
 class DescribeManagedRuleGroupResponse(TypedDict, total=False):
-    VersionName: Optional[VersionKeyString]
-    SnsTopicArn: Optional[ResourceArn]
-    Capacity: Optional[CapacityUnit]
-    Rules: Optional[RuleSummaries]
-    LabelNamespace: Optional[LabelName]
-    AvailableLabels: Optional[LabelSummaries]
-    ConsumedLabels: Optional[LabelSummaries]
+    VersionName: VersionKeyString | None
+    SnsTopicArn: ResourceArn | None
+    Capacity: CapacityUnit | None
+    Rules: RuleSummaries | None
+    LabelNamespace: LabelName | None
+    AvailableLabels: LabelSummaries | None
+    ConsumedLabels: LabelSummaries | None
 
 
 class DisassociateWebACLRequest(ServiceRequest):
@@ -3085,7 +3111,7 @@ class Filter(TypedDict, total=False):
     Conditions: Conditions
 
 
-Filters = List[Filter]
+Filters = list[Filter]
 
 
 class FirewallManagerStatement(TypedDict, total=False):
@@ -3094,8 +3120,8 @@ class FirewallManagerStatement(TypedDict, total=False):
     reference.
     """
 
-    ManagedRuleGroupStatement: Optional[ManagedRuleGroupStatement]
-    RuleGroupReferenceStatement: Optional[RuleGroupReferenceStatement]
+    ManagedRuleGroupStatement: ManagedRuleGroupStatement | None
+    RuleGroupReferenceStatement: RuleGroupReferenceStatement | None
 
 
 class FirewallManagerRuleGroup(TypedDict, total=False):
@@ -3108,7 +3134,7 @@ class FirewallManagerRuleGroup(TypedDict, total=False):
     VisibilityConfig: VisibilityConfig
 
 
-FirewallManagerRuleGroups = List[FirewallManagerRuleGroup]
+FirewallManagerRuleGroups = list[FirewallManagerRuleGroup]
 
 
 class GenerateMobileSdkReleaseUrlRequest(ServiceRequest):
@@ -3117,7 +3143,7 @@ class GenerateMobileSdkReleaseUrlRequest(ServiceRequest):
 
 
 class GenerateMobileSdkReleaseUrlResponse(TypedDict, total=False):
-    Url: Optional[DownloadUrl]
+    Url: DownloadUrl | None
 
 
 class GetDecryptedAPIKeyRequest(ServiceRequest):
@@ -3126,8 +3152,8 @@ class GetDecryptedAPIKeyRequest(ServiceRequest):
 
 
 class GetDecryptedAPIKeyResponse(TypedDict, total=False):
-    TokenDomains: Optional[TokenDomains]
-    CreationTimestamp: Optional[Timestamp]
+    TokenDomains: TokenDomains | None
+    CreationTimestamp: Timestamp | None
 
 
 class GetIPSetRequest(ServiceRequest):
@@ -3151,20 +3177,20 @@ class IPSet(TypedDict, total=False):
     Name: EntityName
     Id: EntityId
     ARN: ResourceArn
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     IPAddressVersion: IPAddressVersion
     Addresses: IPAddresses
 
 
 class GetIPSetResponse(TypedDict, total=False):
-    IPSet: Optional[IPSet]
-    LockToken: Optional[LockToken]
+    IPSet: IPSet | None
+    LockToken: LockToken | None
 
 
 class GetLoggingConfigurationRequest(ServiceRequest):
     ResourceArn: ResourceArn
-    LogType: Optional[LogType]
-    LogScope: Optional[LogScope]
+    LogType: LogType | None
+    LogScope: LogScope | None
 
 
 class LoggingFilter(TypedDict, total=False):
@@ -3179,8 +3205,8 @@ class LoggingFilter(TypedDict, total=False):
     DefaultBehavior: FilterBehavior
 
 
-RedactedFields = List[FieldToMatch]
-LogDestinationConfigs = List[ResourceArn]
+RedactedFields = list[FieldToMatch]
+LogDestinationConfigs = list[ResourceArn]
 
 
 class LoggingConfiguration(TypedDict, total=False):
@@ -3229,15 +3255,15 @@ class LoggingConfiguration(TypedDict, total=False):
 
     ResourceArn: ResourceArn
     LogDestinationConfigs: LogDestinationConfigs
-    RedactedFields: Optional[RedactedFields]
-    ManagedByFirewallManager: Optional[Boolean]
-    LoggingFilter: Optional[LoggingFilter]
-    LogType: Optional[LogType]
-    LogScope: Optional[LogScope]
+    RedactedFields: RedactedFields | None
+    ManagedByFirewallManager: Boolean | None
+    LoggingFilter: LoggingFilter | None
+    LogType: LogType | None
+    LogScope: LogScope | None
 
 
 class GetLoggingConfigurationResponse(TypedDict, total=False):
-    LoggingConfiguration: Optional[LoggingConfiguration]
+    LoggingConfiguration: LoggingConfiguration | None
 
 
 class GetManagedRuleSetRequest(ServiceRequest):
@@ -3259,15 +3285,15 @@ class ManagedRuleSetVersion(TypedDict, total=False):
     ``UpdateManagedRuleSetVersionExpiryDate``.
     """
 
-    AssociatedRuleGroupArn: Optional[ResourceArn]
-    Capacity: Optional[CapacityUnit]
-    ForecastedLifetime: Optional[TimeWindowDay]
-    PublishTimestamp: Optional[Timestamp]
-    LastUpdateTimestamp: Optional[Timestamp]
-    ExpiryTimestamp: Optional[Timestamp]
+    AssociatedRuleGroupArn: ResourceArn | None
+    Capacity: CapacityUnit | None
+    ForecastedLifetime: TimeWindowDay | None
+    PublishTimestamp: Timestamp | None
+    LastUpdateTimestamp: Timestamp | None
+    ExpiryTimestamp: Timestamp | None
 
 
-PublishedVersions = Dict[VersionKeyString, ManagedRuleSetVersion]
+PublishedVersions = dict[VersionKeyString, ManagedRuleSetVersion]
 
 
 class ManagedRuleSet(TypedDict, total=False):
@@ -3288,15 +3314,15 @@ class ManagedRuleSet(TypedDict, total=False):
     Name: EntityName
     Id: EntityId
     ARN: ResourceArn
-    Description: Optional[EntityDescription]
-    PublishedVersions: Optional[PublishedVersions]
-    RecommendedVersion: Optional[VersionKeyString]
-    LabelNamespace: Optional[LabelName]
+    Description: EntityDescription | None
+    PublishedVersions: PublishedVersions | None
+    RecommendedVersion: VersionKeyString | None
+    LabelNamespace: LabelName | None
 
 
 class GetManagedRuleSetResponse(TypedDict, total=False):
-    ManagedRuleSet: Optional[ManagedRuleSet]
-    LockToken: Optional[LockToken]
+    ManagedRuleSet: ManagedRuleSet | None
+    LockToken: LockToken | None
 
 
 class GetMobileSdkReleaseRequest(ServiceRequest):
@@ -3316,14 +3342,14 @@ class MobileSdkRelease(TypedDict, total=False):
     in the *WAF Developer Guide*.
     """
 
-    ReleaseVersion: Optional[VersionKeyString]
-    Timestamp: Optional[Timestamp]
-    ReleaseNotes: Optional[ReleaseNotes]
-    Tags: Optional[TagList]
+    ReleaseVersion: VersionKeyString | None
+    Timestamp: Timestamp | None
+    ReleaseNotes: ReleaseNotes | None
+    Tags: TagList | None
 
 
 class GetMobileSdkReleaseResponse(TypedDict, total=False):
-    MobileSdkRelease: Optional[MobileSdkRelease]
+    MobileSdkRelease: MobileSdkRelease | None
 
 
 class GetPermissionPolicyRequest(ServiceRequest):
@@ -3331,14 +3357,14 @@ class GetPermissionPolicyRequest(ServiceRequest):
 
 
 class GetPermissionPolicyResponse(TypedDict, total=False):
-    Policy: Optional[PolicyString]
+    Policy: PolicyString | None
 
 
 class GetRateBasedStatementManagedKeysRequest(ServiceRequest):
     Scope: Scope
     WebACLName: EntityName
     WebACLId: EntityId
-    RuleGroupRuleName: Optional[EntityName]
+    RuleGroupRuleName: EntityName | None
     RuleName: EntityName
 
 
@@ -3361,13 +3387,13 @@ class RateBasedStatementManagedKeysIPSet(TypedDict, total=False):
     the rate limit, WAF limits those with the highest rates.
     """
 
-    IPAddressVersion: Optional[IPAddressVersion]
-    Addresses: Optional[IPAddresses]
+    IPAddressVersion: IPAddressVersion | None
+    Addresses: IPAddresses | None
 
 
 class GetRateBasedStatementManagedKeysResponse(TypedDict, total=False):
-    ManagedKeysIPV4: Optional[RateBasedStatementManagedKeysIPSet]
-    ManagedKeysIPV6: Optional[RateBasedStatementManagedKeysIPSet]
+    ManagedKeysIPV4: RateBasedStatementManagedKeysIPSet | None
+    ManagedKeysIPV6: RateBasedStatementManagedKeysIPSet | None
 
 
 class GetRegexPatternSetRequest(ServiceRequest):
@@ -3384,23 +3410,23 @@ class RegexPatternSet(TypedDict, total=False):
     RegexPatternSetReferenceStatement.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    ARN: Optional[ResourceArn]
-    Description: Optional[EntityDescription]
-    RegularExpressionList: Optional[RegularExpressionList]
+    Name: EntityName | None
+    Id: EntityId | None
+    ARN: ResourceArn | None
+    Description: EntityDescription | None
+    RegularExpressionList: RegularExpressionList | None
 
 
 class GetRegexPatternSetResponse(TypedDict, total=False):
-    RegexPatternSet: Optional[RegexPatternSet]
-    LockToken: Optional[LockToken]
+    RegexPatternSet: RegexPatternSet | None
+    LockToken: LockToken | None
 
 
 class GetRuleGroupRequest(ServiceRequest):
-    Name: Optional[EntityName]
-    Scope: Optional[Scope]
-    Id: Optional[EntityId]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Scope: Scope | None
+    Id: EntityId | None
+    ARN: ResourceArn | None
 
 
 class RuleGroup(TypedDict, total=False):
@@ -3415,18 +3441,18 @@ class RuleGroup(TypedDict, total=False):
     Id: EntityId
     Capacity: CapacityUnit
     ARN: ResourceArn
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
-    LabelNamespace: Optional[LabelName]
-    CustomResponseBodies: Optional[CustomResponseBodies]
-    AvailableLabels: Optional[LabelSummaries]
-    ConsumedLabels: Optional[LabelSummaries]
+    LabelNamespace: LabelName | None
+    CustomResponseBodies: CustomResponseBodies | None
+    AvailableLabels: LabelSummaries | None
+    ConsumedLabels: LabelSummaries | None
 
 
 class GetRuleGroupResponse(TypedDict, total=False):
-    RuleGroup: Optional[RuleGroup]
-    LockToken: Optional[LockToken]
+    RuleGroup: RuleGroup | None
+    LockToken: LockToken | None
 
 
 ListMaxItems = int
@@ -3474,11 +3500,11 @@ class HTTPHeader(TypedDict, total=False):
     of the web requests.
     """
 
-    Name: Optional[HeaderName]
-    Value: Optional[HeaderValue]
+    Name: HeaderName | None
+    Value: HeaderValue | None
 
 
-HTTPHeaders = List[HTTPHeader]
+HTTPHeaders = list[HTTPHeader]
 SampleWeight = int
 
 
@@ -3488,12 +3514,12 @@ class HTTPRequest(TypedDict, total=False):
     contains information about one of the web requests.
     """
 
-    ClientIP: Optional[IPString]
-    Country: Optional[Country]
-    URI: Optional[URIString]
-    Method: Optional[HTTPMethod]
-    HTTPVersion: Optional[HTTPVersion]
-    Headers: Optional[HTTPHeaders]
+    ClientIP: IPString | None
+    Country: Country | None
+    URI: URIString | None
+    Method: HTTPMethod | None
+    HTTPVersion: HTTPVersion | None
+    Headers: HTTPHeaders | None
 
 
 class SampledHTTPRequest(TypedDict, total=False):
@@ -3506,24 +3532,24 @@ class SampledHTTPRequest(TypedDict, total=False):
 
     Request: HTTPRequest
     Weight: SampleWeight
-    Timestamp: Optional[Timestamp]
-    Action: Optional[Action]
-    RuleNameWithinRuleGroup: Optional[EntityName]
-    RequestHeadersInserted: Optional[HTTPHeaders]
-    ResponseCodeSent: Optional[ResponseStatusCode]
-    Labels: Optional[Labels]
-    CaptchaResponse: Optional[CaptchaResponse]
-    ChallengeResponse: Optional[ChallengeResponse]
-    OverriddenAction: Optional[Action]
+    Timestamp: Timestamp | None
+    Action: Action | None
+    RuleNameWithinRuleGroup: EntityName | None
+    RequestHeadersInserted: HTTPHeaders | None
+    ResponseCodeSent: ResponseStatusCode | None
+    Labels: Labels | None
+    CaptchaResponse: CaptchaResponse | None
+    ChallengeResponse: ChallengeResponse | None
+    OverriddenAction: Action | None
 
 
-SampledHTTPRequests = List[SampledHTTPRequest]
+SampledHTTPRequests = list[SampledHTTPRequest]
 
 
 class GetSampledRequestsResponse(TypedDict, total=False):
-    SampledRequests: Optional[SampledHTTPRequests]
-    PopulationSize: Optional[PopulationSize]
-    TimeWindow: Optional[TimeWindow]
+    SampledRequests: SampledHTTPRequests | None
+    PopulationSize: PopulationSize | None
+    TimeWindow: TimeWindow | None
 
 
 class GetWebACLForResourceRequest(ServiceRequest):
@@ -3549,85 +3575,85 @@ class WebACL(TypedDict, total=False):
     Id: EntityId
     ARN: ResourceArn
     DefaultAction: DefaultAction
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
-    DataProtectionConfig: Optional[DataProtectionConfig]
-    Capacity: Optional[ConsumedCapacity]
-    PreProcessFirewallManagerRuleGroups: Optional[FirewallManagerRuleGroups]
-    PostProcessFirewallManagerRuleGroups: Optional[FirewallManagerRuleGroups]
-    ManagedByFirewallManager: Optional[Boolean]
-    LabelNamespace: Optional[LabelName]
-    CustomResponseBodies: Optional[CustomResponseBodies]
-    CaptchaConfig: Optional[CaptchaConfig]
-    ChallengeConfig: Optional[ChallengeConfig]
-    TokenDomains: Optional[TokenDomains]
-    AssociationConfig: Optional[AssociationConfig]
-    RetrofittedByFirewallManager: Optional[Boolean]
-    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
-    ApplicationConfig: Optional[ApplicationConfig]
+    DataProtectionConfig: DataProtectionConfig | None
+    Capacity: ConsumedCapacity | None
+    PreProcessFirewallManagerRuleGroups: FirewallManagerRuleGroups | None
+    PostProcessFirewallManagerRuleGroups: FirewallManagerRuleGroups | None
+    ManagedByFirewallManager: Boolean | None
+    LabelNamespace: LabelName | None
+    CustomResponseBodies: CustomResponseBodies | None
+    CaptchaConfig: CaptchaConfig | None
+    ChallengeConfig: ChallengeConfig | None
+    TokenDomains: TokenDomains | None
+    AssociationConfig: AssociationConfig | None
+    RetrofittedByFirewallManager: Boolean | None
+    OnSourceDDoSProtectionConfig: OnSourceDDoSProtectionConfig | None
+    ApplicationConfig: ApplicationConfig | None
 
 
 class GetWebACLForResourceResponse(TypedDict, total=False):
-    WebACL: Optional[WebACL]
+    WebACL: WebACL | None
 
 
 class GetWebACLRequest(ServiceRequest):
-    Name: Optional[EntityName]
-    Scope: Optional[Scope]
-    Id: Optional[EntityId]
-    ARN: Optional[ResourceArn]
+    Name: EntityName | None
+    Scope: Scope | None
+    Id: EntityId | None
+    ARN: ResourceArn | None
 
 
 class GetWebACLResponse(TypedDict, total=False):
-    WebACL: Optional[WebACL]
-    LockToken: Optional[LockToken]
-    ApplicationIntegrationURL: Optional[OutputUrl]
+    WebACL: WebACL | None
+    LockToken: LockToken | None
+    ApplicationIntegrationURL: OutputUrl | None
 
 
-IPSetSummaries = List[IPSetSummary]
+IPSetSummaries = list[IPSetSummary]
 
 
 class ListAPIKeysRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ListAPIKeysResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    APIKeySummaries: Optional[APIKeySummaries]
-    ApplicationIntegrationURL: Optional[OutputUrl]
+    NextMarker: NextMarker | None
+    APIKeySummaries: APIKeySummaries | None
+    ApplicationIntegrationURL: OutputUrl | None
 
 
 class ListAvailableManagedRuleGroupVersionsRequest(ServiceRequest):
     VendorName: VendorName
     Name: EntityName
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ManagedRuleGroupVersion(TypedDict, total=False):
     """Describes a single version of a managed rule group."""
 
-    Name: Optional[VersionKeyString]
-    LastUpdateTimestamp: Optional[Timestamp]
+    Name: VersionKeyString | None
+    LastUpdateTimestamp: Timestamp | None
 
 
-ManagedRuleGroupVersions = List[ManagedRuleGroupVersion]
+ManagedRuleGroupVersions = list[ManagedRuleGroupVersion]
 
 
 class ListAvailableManagedRuleGroupVersionsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    Versions: Optional[ManagedRuleGroupVersions]
-    CurrentDefaultVersion: Optional[VersionKeyString]
+    NextMarker: NextMarker | None
+    Versions: ManagedRuleGroupVersions | None
+    CurrentDefaultVersion: VersionKeyString | None
 
 
 class ListAvailableManagedRuleGroupsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ManagedRuleGroupSummary(TypedDict, total=False):
@@ -3641,50 +3667,50 @@ class ManagedRuleGroupSummary(TypedDict, total=False):
     through Amazon Web Services Marketplace.
     """
 
-    VendorName: Optional[VendorName]
-    Name: Optional[EntityName]
-    VersioningSupported: Optional[Boolean]
-    Description: Optional[EntityDescription]
+    VendorName: VendorName | None
+    Name: EntityName | None
+    VersioningSupported: Boolean | None
+    Description: EntityDescription | None
 
 
-ManagedRuleGroupSummaries = List[ManagedRuleGroupSummary]
+ManagedRuleGroupSummaries = list[ManagedRuleGroupSummary]
 
 
 class ListAvailableManagedRuleGroupsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    ManagedRuleGroups: Optional[ManagedRuleGroupSummaries]
+    NextMarker: NextMarker | None
+    ManagedRuleGroups: ManagedRuleGroupSummaries | None
 
 
 class ListIPSetsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ListIPSetsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    IPSets: Optional[IPSetSummaries]
+    NextMarker: NextMarker | None
+    IPSets: IPSetSummaries | None
 
 
 class ListLoggingConfigurationsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
-    LogScope: Optional[LogScope]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
+    LogScope: LogScope | None
 
 
-LoggingConfigurations = List[LoggingConfiguration]
+LoggingConfigurations = list[LoggingConfiguration]
 
 
 class ListLoggingConfigurationsResponse(TypedDict, total=False):
-    LoggingConfigurations: Optional[LoggingConfigurations]
-    NextMarker: Optional[NextMarker]
+    LoggingConfigurations: LoggingConfigurations | None
+    NextMarker: NextMarker | None
 
 
 class ListManagedRuleSetsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ManagedRuleSetSummary(TypedDict, total=False):
@@ -3700,86 +3726,86 @@ class ManagedRuleSetSummary(TypedDict, total=False):
     ``UpdateManagedRuleSetVersionExpiryDate``.
     """
 
-    Name: Optional[EntityName]
-    Id: Optional[EntityId]
-    Description: Optional[EntityDescription]
-    LockToken: Optional[LockToken]
-    ARN: Optional[ResourceArn]
-    LabelNamespace: Optional[LabelName]
+    Name: EntityName | None
+    Id: EntityId | None
+    Description: EntityDescription | None
+    LockToken: LockToken | None
+    ARN: ResourceArn | None
+    LabelNamespace: LabelName | None
 
 
-ManagedRuleSetSummaries = List[ManagedRuleSetSummary]
+ManagedRuleSetSummaries = list[ManagedRuleSetSummary]
 
 
 class ListManagedRuleSetsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    ManagedRuleSets: Optional[ManagedRuleSetSummaries]
+    NextMarker: NextMarker | None
+    ManagedRuleSets: ManagedRuleSetSummaries | None
 
 
 class ListMobileSdkReleasesRequest(ServiceRequest):
     Platform: Platform
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
 class ReleaseSummary(TypedDict, total=False):
     """High level information for an SDK release."""
 
-    ReleaseVersion: Optional[VersionKeyString]
-    Timestamp: Optional[Timestamp]
+    ReleaseVersion: VersionKeyString | None
+    Timestamp: Timestamp | None
 
 
-ReleaseSummaries = List[ReleaseSummary]
+ReleaseSummaries = list[ReleaseSummary]
 
 
 class ListMobileSdkReleasesResponse(TypedDict, total=False):
-    ReleaseSummaries: Optional[ReleaseSummaries]
-    NextMarker: Optional[NextMarker]
+    ReleaseSummaries: ReleaseSummaries | None
+    NextMarker: NextMarker | None
 
 
 class ListRegexPatternSetsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
-RegexPatternSetSummaries = List[RegexPatternSetSummary]
+RegexPatternSetSummaries = list[RegexPatternSetSummary]
 
 
 class ListRegexPatternSetsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    RegexPatternSets: Optional[RegexPatternSetSummaries]
+    NextMarker: NextMarker | None
+    RegexPatternSets: RegexPatternSetSummaries | None
 
 
 class ListResourcesForWebACLRequest(ServiceRequest):
     WebACLArn: ResourceArn
-    ResourceType: Optional[ResourceType]
+    ResourceType: ResourceType | None
 
 
-ResourceArns = List[ResourceArn]
+ResourceArns = list[ResourceArn]
 
 
 class ListResourcesForWebACLResponse(TypedDict, total=False):
-    ResourceArns: Optional[ResourceArns]
+    ResourceArns: ResourceArns | None
 
 
 class ListRuleGroupsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
-RuleGroupSummaries = List[RuleGroupSummary]
+RuleGroupSummaries = list[RuleGroupSummary]
 
 
 class ListRuleGroupsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    RuleGroups: Optional[RuleGroupSummaries]
+    NextMarker: NextMarker | None
+    RuleGroups: RuleGroupSummaries | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
     ResourceARN: ResourceArn
 
 
@@ -3799,27 +3825,27 @@ class TagInfoForResource(TypedDict, total=False):
     manage or view tags through the WAF console.
     """
 
-    ResourceARN: Optional[ResourceArn]
-    TagList: Optional[TagList]
+    ResourceARN: ResourceArn | None
+    TagList: TagList | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    TagInfoForResource: Optional[TagInfoForResource]
+    NextMarker: NextMarker | None
+    TagInfoForResource: TagInfoForResource | None
 
 
 class ListWebACLsRequest(ServiceRequest):
     Scope: Scope
-    NextMarker: Optional[NextMarker]
-    Limit: Optional[PaginationLimit]
+    NextMarker: NextMarker | None
+    Limit: PaginationLimit | None
 
 
-WebACLSummaries = List[WebACLSummary]
+WebACLSummaries = list[WebACLSummary]
 
 
 class ListWebACLsResponse(TypedDict, total=False):
-    NextMarker: Optional[NextMarker]
-    WebACLs: Optional[WebACLSummaries]
+    NextMarker: NextMarker | None
+    WebACLs: WebACLSummaries | None
 
 
 class PutLoggingConfigurationRequest(ServiceRequest):
@@ -3827,7 +3853,7 @@ class PutLoggingConfigurationRequest(ServiceRequest):
 
 
 class PutLoggingConfigurationResponse(TypedDict, total=False):
-    LoggingConfiguration: Optional[LoggingConfiguration]
+    LoggingConfiguration: LoggingConfiguration | None
 
 
 class VersionToPublish(TypedDict, total=False):
@@ -3844,11 +3870,11 @@ class VersionToPublish(TypedDict, total=False):
     ``UpdateManagedRuleSetVersionExpiryDate``.
     """
 
-    AssociatedRuleGroupArn: Optional[ResourceArn]
-    ForecastedLifetime: Optional[TimeWindowDay]
+    AssociatedRuleGroupArn: ResourceArn | None
+    ForecastedLifetime: TimeWindowDay | None
 
 
-VersionsToPublish = Dict[VersionKeyString, VersionToPublish]
+VersionsToPublish = dict[VersionKeyString, VersionToPublish]
 
 
 class PutManagedRuleSetVersionsRequest(ServiceRequest):
@@ -3856,12 +3882,12 @@ class PutManagedRuleSetVersionsRequest(ServiceRequest):
     Scope: Scope
     Id: EntityId
     LockToken: LockToken
-    RecommendedVersion: Optional[VersionKeyString]
-    VersionsToPublish: Optional[VersionsToPublish]
+    RecommendedVersion: VersionKeyString | None
+    VersionsToPublish: VersionsToPublish | None
 
 
 class PutManagedRuleSetVersionsResponse(TypedDict, total=False):
-    NextLockToken: Optional[LockToken]
+    NextLockToken: LockToken | None
 
 
 class PutPermissionPolicyRequest(ServiceRequest):
@@ -3873,7 +3899,7 @@ class PutPermissionPolicyResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -3898,13 +3924,13 @@ class UpdateIPSetRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
     Id: EntityId
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     Addresses: IPAddresses
     LockToken: LockToken
 
 
 class UpdateIPSetResponse(TypedDict, total=False):
-    NextLockToken: Optional[LockToken]
+    NextLockToken: LockToken | None
 
 
 class UpdateManagedRuleSetVersionExpiryDateRequest(ServiceRequest):
@@ -3917,37 +3943,37 @@ class UpdateManagedRuleSetVersionExpiryDateRequest(ServiceRequest):
 
 
 class UpdateManagedRuleSetVersionExpiryDateResponse(TypedDict, total=False):
-    ExpiringVersion: Optional[VersionKeyString]
-    ExpiryTimestamp: Optional[Timestamp]
-    NextLockToken: Optional[LockToken]
+    ExpiringVersion: VersionKeyString | None
+    ExpiryTimestamp: Timestamp | None
+    NextLockToken: LockToken | None
 
 
 class UpdateRegexPatternSetRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
     Id: EntityId
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     RegularExpressionList: RegularExpressionList
     LockToken: LockToken
 
 
 class UpdateRegexPatternSetResponse(TypedDict, total=False):
-    NextLockToken: Optional[LockToken]
+    NextLockToken: LockToken | None
 
 
 class UpdateRuleGroupRequest(ServiceRequest):
     Name: EntityName
     Scope: Scope
     Id: EntityId
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
     LockToken: LockToken
-    CustomResponseBodies: Optional[CustomResponseBodies]
+    CustomResponseBodies: CustomResponseBodies | None
 
 
 class UpdateRuleGroupResponse(TypedDict, total=False):
-    NextLockToken: Optional[LockToken]
+    NextLockToken: LockToken | None
 
 
 class UpdateWebACLRequest(ServiceRequest):
@@ -3955,27 +3981,27 @@ class UpdateWebACLRequest(ServiceRequest):
     Scope: Scope
     Id: EntityId
     DefaultAction: DefaultAction
-    Description: Optional[EntityDescription]
-    Rules: Optional[Rules]
+    Description: EntityDescription | None
+    Rules: Rules | None
     VisibilityConfig: VisibilityConfig
-    DataProtectionConfig: Optional[DataProtectionConfig]
+    DataProtectionConfig: DataProtectionConfig | None
     LockToken: LockToken
-    CustomResponseBodies: Optional[CustomResponseBodies]
-    CaptchaConfig: Optional[CaptchaConfig]
-    ChallengeConfig: Optional[ChallengeConfig]
-    TokenDomains: Optional[TokenDomains]
-    AssociationConfig: Optional[AssociationConfig]
-    OnSourceDDoSProtectionConfig: Optional[OnSourceDDoSProtectionConfig]
-    ApplicationConfig: Optional[ApplicationConfig]
+    CustomResponseBodies: CustomResponseBodies | None
+    CaptchaConfig: CaptchaConfig | None
+    ChallengeConfig: ChallengeConfig | None
+    TokenDomains: TokenDomains | None
+    AssociationConfig: AssociationConfig | None
+    OnSourceDDoSProtectionConfig: OnSourceDDoSProtectionConfig | None
+    ApplicationConfig: ApplicationConfig | None
 
 
 class UpdateWebACLResponse(TypedDict, total=False):
-    NextLockToken: Optional[LockToken]
+    NextLockToken: LockToken | None
 
 
 class Wafv2Api:
-    service = "wafv2"
-    version = "2019-07-29"
+    service: str = "wafv2"
+    version: str = "2019-07-29"
 
     @handler("AssociateWebACL")
     def associate_web_acl(
@@ -4032,6 +4058,8 @@ class Wafv2Api:
         :raises WAFNonexistentItemException:
         :raises WAFUnavailableEntityException:
         :raises WAFInvalidOperationException:
+        :raises WAFLimitsExceededException:
+        :raises WAFFeatureNotIncludedInPricingPlanException:
         """
         raise NotImplementedError
 
@@ -5405,6 +5433,7 @@ class Wafv2Api:
         :raises WAFInvalidOperationException:
         :raises WAFLimitsExceededException:
         :raises WAFLogDestinationPermissionIssueException:
+        :raises WAFFeatureNotIncludedInPricingPlanException:
         """
         raise NotImplementedError
 
@@ -5929,5 +5958,6 @@ class Wafv2Api:
         :raises WAFInvalidOperationException:
         :raises WAFExpiredManagedRuleGroupVersionException:
         :raises WAFConfigurationWarningException:
+        :raises WAFFeatureNotIncludedInPricingPlanException:
         """
         raise NotImplementedError

@@ -88,7 +88,6 @@ class OnlineStreamer(BaseStreamer):
         self,
         beat_duration: float,
         connection: RestServerConnection,
-        initial_offset: int,
         experiment_key: str,
         api_key: str,
         run_id: str,
@@ -116,7 +115,7 @@ class OnlineStreamer(BaseStreamer):
         use_raw_throttling_messages: bool = True,
         progress_callback_interval: float = PROGRESS_CALLBACK_INTERVAL,
     ) -> None:
-        super().__init__(initial_offset=initial_offset, queue_timeout=beat_duration)
+        super().__init__(queue_timeout=beat_duration)
 
         self.daemon = True
         self.name = "OnlineStreamer(experiment=%r)" % experiment_key
@@ -212,7 +211,7 @@ class OnlineStreamer(BaseStreamer):
     def _current_handler_context(self) -> HandlerContext:
         return HandlerContext(
             message_loop_active=self.is_message_loop_active(),
-            push_back_callback=self.put_message_in_q,
+            push_back_callback=self.messages.put,
             report_error_callback=lambda report: self._report_experiment_error(
                 report.message, report.has_crashed
             ),
@@ -240,7 +239,7 @@ class OnlineStreamer(BaseStreamer):
                 return CloseMessage()
 
             # check if any retry incident should be released and its messages retried
-            if self._retry_incidents_manager.has_incidents():
+            if self._retry_incidents_manager.has_active_incidents():
                 incidents = self._retry_incidents_manager.release_outdated_incidents(
                     now=time.time()
                 )
@@ -452,10 +451,11 @@ class OnlineStreamer(BaseStreamer):
 
         LOGGER.debug(
             ""
-            "OnlineStreamer: waiting for finish. Message queue flushed: %s, batches flushed: %s, uploads flushed: %s",
+            "OnlineStreamer: waiting for finish. Message queue flushed: %s, batches flushed: %s, uploads flushed: %s, throttling incidents detected: %d",
             message_queue_flushed,
             batches_flushed,
             uploads_flushed,
+            self._retry_incidents_manager.registered_incidents_count,
         )
 
         if not self._is_msg_queue_empty() or not self._file_upload_manager.all_done():
@@ -478,6 +478,8 @@ class OnlineStreamer(BaseStreamer):
 
         self._file_upload_manager.join()
 
+        self._clean_throttled_experiment_mark()
+
         elapsed = time.time() - wf_start_time
         LOGGER.debug(
             "OnlineStreamer: wait_for_finish completed successfully, elapsed: %r",
@@ -485,6 +487,24 @@ class OnlineStreamer(BaseStreamer):
         )
 
         return True
+
+    def _clean_throttled_experiment_mark(self):
+        if (
+            self._retry_incidents_manager.registered_incidents_count > 0
+            and not self._retry_incidents_manager.has_active_incidents()
+        ):
+            LOGGER.debug("Cleaning throttled experiment mark")
+            try:
+                self._rest_api_client.set_experiment_not_throttled(
+                    experiment_key=self.experiment_key
+                )
+            except Exception as ex:
+                LOGGER.warning(
+                    "Failed to clean throttled experiment mark (%s). Reason: %s",
+                    self.experiment_key,
+                    ex,
+                    exc_info=True,
+                )
 
     def _clean_file_uploads(self) -> None:
         self.message_handler.clean_file_uploads()
@@ -509,7 +529,8 @@ class OnlineStreamer(BaseStreamer):
 
     def _is_msg_queue_empty(self) -> bool:
         empty = (
-            self.messages.empty() and not self._retry_incidents_manager.has_incidents()
+            self.messages.empty()
+            and not self._retry_incidents_manager.has_active_incidents()
         )
 
         if not empty:
@@ -517,7 +538,7 @@ class OnlineStreamer(BaseStreamer):
                 "OnlineStreamer: Messages queue is not empty, %d messages remaining, streamer closed: %s, has retry incidents: %s",
                 self._get_remaining_messages(),
                 self.closed,
-                self._retry_incidents_manager.has_incidents(),
+                self._retry_incidents_manager.has_active_incidents(),
             )
 
         return empty

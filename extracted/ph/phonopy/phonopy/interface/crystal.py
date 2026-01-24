@@ -35,6 +35,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import sys
+import warnings
 
 import numpy as np
 
@@ -99,18 +100,18 @@ def read_crystal(filename):
         print(
             "CRYSTAL-interface: Magnetic structure, "
             "number of operations without spin: %d"
-            % len(symmetry.get_symmetry_operations()["rotations"])
+            % len(symmetry.symmetry_operations["rotations"])
         )
         print(
             "CRYSTAL-interface: Spacegroup without spin: %s"
             % symmetry.get_international_table()
         )
 
-        cell.set_magnetic_moments(magmoms)
+        cell.magnetic_moments = magmoms
         symmetry = Symmetry(cell, symprec=1e-5)
         print(
             "CRYSTAL-interface: Magnetic structure, number of operations with spin: %d"
-            % len(symmetry.get_symmetry_operations()["rotations"])
+            % len(symmetry.symmetry_operations["rotations"])
         )
         print("")
 
@@ -121,6 +122,27 @@ def write_crystal(
     filename, cell, conv_numbers, template_file="TEMPLATE", write_symmetry=False
 ):
     """Write cell to file."""
+    if conv_numbers is None:
+        # NAT<200: all-electron BS 	Given Z, NAT=Z, NAT'=Z+100
+        # NAT>200: valence-electron BS 	Given Z, NAT=Z+200, NAT'=Z+300
+        conv_numbers = cell.numbers
+        warnings.warn(
+            (
+                "No CRYSTAL conventional atomic numbers provided, "
+                "so generating from atomic numbers instead. "
+                "If you want to use a different basis set as specified "
+                "with additions to the hundreds place, "
+                "please provide the conventional atomic numbers explicitly."
+            ),
+            UserWarning,
+            stacklevel=2,
+        )
+    if len(cell.positions) != len(conv_numbers):
+        raise ValueError(
+            f"Length of conv_numbers ({len(conv_numbers)}) does not match "
+            f"number of atoms ({len(cell.positions)})."
+        )
+
     # Write geometry in EXTERNAL file (fort.34)
     f_ext = open(filename + ".ext", "w")
     f_ext.write(get_crystal_structure(cell, conv_numbers, write_symmetry))
@@ -197,7 +219,7 @@ def write_supercells_with_displacements(
     write_crystal(
         pre_filename, supercell, convnum_super, template_file, write_symmetry=False
     )
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = "{pre_filename}-{0:0{width}}".format(
             i, pre_filename=pre_filename, width=width
         )
@@ -221,8 +243,8 @@ def get_crystal_structure(cell, conv_numbers, write_symmetry=False):
     # Symmetry operators
     if write_symmetry:
         symmetry = Symmetry(cell, symprec=1e-5)
-        rotations = symmetry.get_symmetry_operations()["rotations"]
-        translations = symmetry.get_symmetry_operations()["translations"]
+        rotations = symmetry.symmetry_operations["rotations"]
+        translations = symmetry.symmetry_operations["translations"]
         N_symmops = 0
         symmlines = ""
         for i in range(0, len(rotations)):
@@ -244,7 +266,7 @@ def get_crystal_structure(cell, conv_numbers, write_symmetry=False):
     # Number of atoms in the unit cell (asymmetric unit)
     lines += ("%d\n") % len(positions)
     # Conventional atomic number and cartesian coordinates of the atoms
-    for i, pos in zip(conv_numbers, positions):
+    for i, pos in zip(conv_numbers, positions, strict=True):
         lines += ("  %d " + "%16.12f" * 3 + "\n") % (i, pos[0], pos[1], pos[2])
 
     return lines

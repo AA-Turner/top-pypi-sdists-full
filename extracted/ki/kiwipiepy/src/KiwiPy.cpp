@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <fstream>
 #include <algorithm>
+#include <mutex>
+#include <shared_mutex>
 
 #define USE_NUMPY
 #define MAIN_MODULE
@@ -17,6 +19,8 @@
 using namespace std;
 using namespace kiwi;
 
+static py::Module gModule{ "_kiwipiepy", "Kiwi API for Python" };
+
 vector<pair<u16string, size_t>> pyExtractSubstrings(const u16string& str, size_t minCnt, size_t minLength, size_t maxLength, bool longestOnly, const u16string& stopChr)
 {
 	if (stopChr.size() > 1)
@@ -27,23 +31,8 @@ vector<pair<u16string, size_t>> pyExtractSubstrings(const u16string& str, size_t
 	return extractSubstrings(str.data(), str.data() + str.size(), minCnt, minLength, maxLength, longestOnly, stopChr.empty() ? 0 : stopChr[0]);
 }
 
-static py::Module gModule{ "_kiwipiepy", "Kiwi API for Python", [](PyModuleDef& def)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "_extract_substrings", PY_METHOD(&pyExtractSubstrings), METH_VARARGS | METH_KEYWORDS, "" },
-		{ nullptr }
-	};
-	def.m_methods = methods;
-
-} };
-
 struct TypoTransformerObject : py::CObject<TypoTransformerObject>
 {
-	static constexpr const char* _name = "kiwipiepy._TypoTransformer";
-	static constexpr const char* _name_in_module = "_TypoTransformer";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	TypoTransformer tt;
 	PreparedTypoTransformer ptt;
 	bool prepared = false;
@@ -66,10 +55,10 @@ struct TypoTransformerObject : py::CObject<TypoTransformerObject>
 
 		py::foreach<PyObject*>(defs, [&](PyObject* item)
 		{
-			auto orig = py::toCpp<std::vector<std::string>>(PyTuple_GET_ITEM(item, 0));
-			auto error = py::toCpp<std::vector<std::string>>(PyTuple_GET_ITEM(item, 1));
-			auto cost = py::toCpp<float>(PyTuple_GET_ITEM(item, 2));
-			PyObject* cond = PyTuple_GET_ITEM(item, 3);
+			auto orig = py::toCpp<std::vector<std::string>>(PyTuple_GetItem(item, 0));
+			auto error = py::toCpp<std::vector<std::string>>(PyTuple_GetItem(item, 1));
+			auto cost = py::toCpp<float>(PyTuple_GetItem(item, 2));
+			PyObject* cond = PyTuple_GetItem(item, 3);
 			CondVowel condVowel = CondVowel::none;
 			if (cond == Py_None)
 			{
@@ -126,7 +115,7 @@ struct TypoTransformerObject : py::CObject<TypoTransformerObject>
 	py::UniqueObj getDefs() const
 	{
 		py::UniqueObj ret{ PyList_New(0) };
-		vector<pair<tuple<KString, KString, CondVowel>, float>> defs{ tt.getTypos().begin(), tt.getTypos().end() };
+		vector<pair<tuple<KString, KString, CondVowel, Dialect>, float>> defs{ tt.getTypos().begin(), tt.getTypos().end() };
 		sort(defs.begin(), defs.end());
 		for (auto& p : defs)
 		{
@@ -154,12 +143,21 @@ struct TypoTransformerObject : py::CObject<TypoTransformerObject>
 
 	PreparedTypoTransformer& getPtt()
 	{
-		if (!prepared) ptt = tt.prepare();
-		prepared = true;
+		if (!prepared)
+		{
+#ifdef Py_GIL_DISABLED
+			Py_BEGIN_CRITICAL_SECTION(this);
+#endif
+			ptt = tt.prepare();
+			prepared = true;
+#ifdef Py_GIL_DISABLED
+			Py_END_CRITICAL_SECTION();
+#endif
+		}
 		return ptt;
 	}
 
-	py::UniqueObj generate(const char* orig, float costThreshold = 2.5)
+	py::UniqueObj generate(const string& orig, float costThreshold = 2.5)
 	{
 		py::UniqueObj ret{ PyList_New(0) };
 		for (auto r : getPtt().generate(utf8To16(orig), costThreshold))
@@ -170,36 +168,10 @@ struct TypoTransformerObject : py::CObject<TypoTransformerObject>
 	}
 };
 
-py::TypeWrapper<TypoTransformerObject> _TypoTransformerSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "generate", PY_METHOD(&TypoTransformerObject::generate), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "copy", PY_METHOD(&TypoTransformerObject::copy), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "update", PY_METHOD(&TypoTransformerObject::update), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "scale_cost", PY_METHOD(&TypoTransformerObject::scaleCost), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	obj.tp_methods = methods;
-
-	static PyGetSetDef getsets[] =
-	{
-		{ "_continual_typo_cost", PY_GETTER(&TypoTransformerObject::getContinualTypoCost), nullptr, "", nullptr },
-		{ "_lengthening_typo_cost", PY_GETTER(&TypoTransformerObject::getLengtheningTypoCost), nullptr, "", nullptr },
-		{ "_defs", PY_GETTER(&TypoTransformerObject::getDefs), nullptr, "", nullptr },
-		{ nullptr },
-	};
-	obj.tp_getset = getsets;
-} };
-
 struct HSDatasetIterObject;
 
 struct HSDatasetObject : py::CObject<HSDatasetObject>
 {
-	static constexpr const char* _name = "kiwipiepy._HSDataset";
-	static constexpr const char* _name_in_module = "_HSDataset";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	HSDataset hsd;
 
 	py::UniqueCObj<HSDatasetIterObject> iter() const
@@ -280,45 +252,8 @@ struct HSDatasetObject : py::CObject<HSDatasetObject>
 	}
 };
 
-py::TypeWrapper<HSDatasetObject> _HSDatasetSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "get_vocab_info", PY_METHOD(&HSDatasetObject::getVocabInfo), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "get_sent", PY_METHOD(&HSDatasetObject::getSent), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "estim_vocab_frequency", PY_METHOD(&HSDatasetObject::estimVocabFrequency), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "extract_prefixes", PY_METHOD(&HSDatasetObject::extractPrefixes), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	static PyGetSetDef getsets[] =
-	{
-		{ (char*)"vocab_size", PY_GETTER(&HSDatasetObject::getVocabSize), nullptr, "", nullptr },
-		{ (char*)"knlm_vocab_size", PY_GETTER(&HSDatasetObject::getKnlmVocabSize), nullptr, "", nullptr },
-		{ (char*)"ngram_node_size", PY_GETTER(&HSDatasetObject::getNgramNodeSize), nullptr, "", nullptr },
-		{ (char*)"batch_size", PY_GETTER(&HSDatasetObject::getBatchSize), nullptr, "", nullptr },
-		{ (char*)"window_size", PY_GETTER(&HSDatasetObject::getWindowSize), nullptr, "", nullptr },
-		{ (char*)"num_sents", PY_GETTER(&HSDatasetObject::numSents), nullptr, "", nullptr },
-		{ (char*)"window_token_validness", PY_GETTER(&HSDatasetObject::getWindowTokenValidness), nullptr, "", nullptr },
-		{ nullptr },
-	};
-	static PySequenceMethods seq = {
-		PY_LENFUNC(&HSDatasetObject::len),
-		nullptr,
-		nullptr,
-		nullptr,
-	};
-
-	obj.tp_methods = methods;
-	obj.tp_getset = getsets;
-	obj.tp_as_sequence = &seq;
-} };
-
 struct HSDatasetIterObject : py::CObject<HSDatasetIterObject>
 {
-	static constexpr const char* _name = "kiwipiepy._HSDatasetIter";
-	static constexpr const char* _name_in_module = "_HSDatasetIter";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	py::UniqueCObj<HSDatasetObject> obj;
 
 	using _InitArgs = std::tuple<py::UniqueCObj<HSDatasetObject>>;
@@ -342,18 +277,24 @@ struct HSDatasetIterObject : py::CObject<HSDatasetIterObject>
 		const size_t batchSize = obj->hsd.getBatchSize();
 		const size_t causalContextSize = obj->hsd.getCausalContextSize();
 		const size_t windowSize = obj->hsd.getWindowSize();
-		npy_intp sizes[2] = { (npy_intp)batchSize * 4, (npy_intp)(causalContextSize + windowSize) };
-		py::UniqueObj inData{ PyArray_EMPTY(2, sizes, NPY_INT64, 0) };
-		py::UniqueObj outData{ PyArray_EMPTY(1, sizes, NPY_INT64, 0) };
-		py::UniqueObj lmLProbsData{ PyArray_EMPTY(1, sizes, NPY_FLOAT32, 0) };
-		py::UniqueObj outNgramNodeData{ PyArray_EMPTY(1, sizes, NPY_INT64, 0) };
+		const size_t bs = batchSize * 4, ws = causalContextSize + windowSize;
+		int64_t* inDataPtr = nullptr;
+		int64_t* outDataPtr = nullptr;
+		float* lmLProbsPtr = nullptr;
+		int64_t* outNgramNodePtr = nullptr;
+		int64_t* ulInDataPtr = nullptr;
+		int64_t* ulOutDataPtr = nullptr;
+		py::UniqueObj inData = py::newEmptyArray(inDataPtr, bs, ws);
+		py::UniqueObj outData = py::newEmptyArray(outDataPtr, bs);
+		py::UniqueObj lmLProbsData = py::newEmptyArray(lmLProbsPtr, bs);
+		py::UniqueObj outNgramNodeData = py::newEmptyArray(outNgramNodePtr, bs);
 		py::UniqueObj ulInData;
 		py::UniqueObj ulOutData;
 
 		if (obj->hsd.doesGenerateUnlikelihoods())
 		{
-			ulInData = py::UniqueObj{ PyArray_EMPTY(2, sizes, NPY_INT64, 0) };
-			ulOutData = py::UniqueObj{ PyArray_EMPTY(1, sizes, NPY_INT64, 0) };
+			ulInData = py::newEmptyArray(ulInDataPtr, bs, ws);
+			ulOutData = py::newEmptyArray(ulOutDataPtr, bs);
 		}
 
 		float restLm = 0;
@@ -361,14 +302,14 @@ struct HSDatasetIterObject : py::CObject<HSDatasetIterObject>
 		size_t ulDataSize = 0;
 
 		const size_t sz = obj->hsd.next(
-			(int64_t*)PyArray_DATA((PyArrayObject*)inData.get()),
-			(int64_t*)PyArray_DATA((PyArrayObject*)outData.get()),
-			(float*)PyArray_DATA((PyArrayObject*)lmLProbsData.get()),
-			(int64_t*)PyArray_DATA((PyArrayObject*)outNgramNodeData.get()),
+			inDataPtr,
+			outDataPtr,
+			lmLProbsPtr,
+			outNgramNodePtr,
 			restLm,
 			restLmCnt,
-			ulInData ? (int64_t*)PyArray_DATA((PyArrayObject*)ulInData.get()) : nullptr,
-			ulOutData ? (int64_t*)PyArray_DATA((PyArrayObject*)ulOutData.get()) : nullptr,
+			ulInDataPtr,
+			ulOutDataPtr,
 			&ulDataSize
 		);
 		if (!sz) throw py::ExcPropagation{};
@@ -393,23 +334,15 @@ struct HSDatasetIterObject : py::CObject<HSDatasetIterObject>
 		}
 		else
 		{
-		return py::buildPyTuple(inData, outData, lmLProbsData, outNgramNodeData, restLm, restLmCnt);
+			return py::buildPyTuple(inData, outData, lmLProbsData, outNgramNodeData, restLm, restLmCnt);
 		}
 	}
 };
-
-py::TypeWrapper<HSDatasetIterObject> _HSDatasetIterSetter{ gModule, [](PyTypeObject& obj)
-{
-} };
 
 struct KNLangModelObject;
 
 struct KNLangModelNextTokensResultObject : py::CObject<KNLangModelNextTokensResultObject>
 {
-	static constexpr const char* _name = "kiwipiepy._KNLangModelNextTokensResult";
-	static constexpr const char* _name_in_module = "_KNLangModelNextTokensResult";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT;
-
 	using _InitArgs = std::tuple<>;
 
 	py::UniqueObj inArray, outIdx, outLl;
@@ -442,24 +375,8 @@ struct KNLangModelNextTokensResultObject : py::CObject<KNLangModelNextTokensResu
 	}
 };
 
-
-py::TypeWrapper<KNLangModelNextTokensResultObject> _KNLangModelNextTokensResultObjectSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PySequenceMethods seq = {
-		PY_LENFUNC(&KNLangModelNextTokensResultObject::len),
-		nullptr,
-		nullptr,
-		PY_SSIZEARGFUNC(&KNLangModelNextTokensResultObject::getitem),
-	};
-	obj.tp_as_sequence = &seq;
-} };
-
 struct KNLangModelEvaluateResultObject : py::CObject<KNLangModelEvaluateResultObject>
 {
-	static constexpr const char* _name = "kiwipiepy._KNLangModelEvaluateResult";
-	static constexpr const char* _name_in_module = "_KNLangModelEvaluateResult";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT;
-
 	using _InitArgs = std::tuple<>;
 
 	py::UniqueObj inArray, outLl;
@@ -514,30 +431,8 @@ struct KNLangModelEvaluateResultObject : py::CObject<KNLangModelEvaluateResultOb
 	
 };
 
-
-py::TypeWrapper<KNLangModelEvaluateResultObject> _KNLangModelEvaluateResultObjectSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMappingMethods map = {
-		PY_LENFUNC(&KNLangModelEvaluateResultObject::len),
-		PY_BINARYFUNC(&KNLangModelEvaluateResultObject::getitem),
-		nullptr,
-	};
-	obj.tp_as_mapping = &map;
-	obj.tp_getattro = PY_BINARYFUNC(&KNLangModelEvaluateResultObject::getattr);
-
-	static PyMethodDef methods[] = 	{
-		{ "__dir__", PY_METHOD(&KNLangModelEvaluateResultObject::dir), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	obj.tp_methods = methods;
-} };
-
 struct KNLangModelObject : py::CObject<KNLangModelObject>
 {
-	static constexpr const char* _name = "kiwipiepy._KNLangModel";
-	static constexpr const char* _name_in_module = "_KNLangModel";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	std::unique_ptr<lm::KnLangModelBase> langModel;
 	std::unique_ptr<utils::ThreadPool> workers;
 	ClusterData clusterData;
@@ -568,24 +463,24 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 
 		py::foreach<PyObject*>(arrays.get(), [&](PyObject* item)
 		{
-			if (!PyArray_Check(item)) throw py::ValueError{ "arrays must be a list of numpy arrays." };
-			const size_t dims = PyArray_NDIM((PyArrayObject*)item);
+			const int dtype = py::getArrayDtype(item);
+			if (dtype < 0) throw py::ValueError{ "arrays must be a list of numpy arrays." };
+			const size_t dims = py::getArrayNdim(item);
 			if (dims != 1) throw py::ValueError{ "arrays must be a list of 1D numpy arrays." };
-			const size_t len = PyArray_DIM((PyArrayObject*)item, 0);
-			const auto dtype = PyArray_TYPE((PyArrayObject*)item);
-			if (dtype == NPY_UINT16 || dtype == NPY_INT16)
+			const size_t len = py::getArraySize(item);
+			if (dtype == py::NPY_UINT16 || dtype == py::NPY_INT16)
 			{
-				auto* ptr = (const uint16_t*)PyArray_DATA((PyArrayObject*)item);
+				auto* ptr = (const uint16_t*)py::getArrayDataPtr(item);
 				pfCnt.addArray(ptr, ptr + len);
 			}
-			else if (dtype == NPY_UINT32 || dtype == NPY_INT32)
+			else if (dtype == py::NPY_UINT32 || dtype == py::NPY_INT32)
 			{
-				auto* ptr = (const uint32_t*)PyArray_DATA((PyArrayObject*)item);
+				auto* ptr = (const uint32_t*)py::getArrayDataPtr(item);
 				pfCnt.addArray(ptr, ptr + len);
 			}
-			else if (dtype == NPY_UINT64 || dtype == NPY_INT64)
+			else if (dtype == py::NPY_UINT64 || dtype == py::NPY_INT64)
 			{
-				auto* ptr = (const uint64_t*)PyArray_DATA((PyArrayObject*)item);
+				auto* ptr = (const uint64_t*)py::getArrayDataPtr(item);
 				pfCnt.addArray(ptr, ptr + len);
 			}
 			else
@@ -597,7 +492,8 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		auto lm = pfCnt.buildLM(minCf, bosTokenId, eosTokenId, unkTokenId, ArchType::balanced);
 
 		auto* clsType = (PyTypeObject*)cls.get();
-		py::UniqueCObj<KNLangModelObject> ret{ (KNLangModelObject*)clsType->tp_new(clsType, nullptr, nullptr) };
+		py::UniqueCObj<KNLangModelObject> ret{ PyObject_New(KNLangModelObject, clsType) };
+		new (ret.get()) KNLangModelObject{ };
 		ret->langModel = std::move(lm);
 		ret->initClusterData();
 		if (numWorkers >= 1)
@@ -627,12 +523,13 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		return workers ? workers->size() : 0;
 	}
 
-	static py::UniqueObj load(py::UniqueObj cls, const char* path, size_t numWorkers)
+	static py::UniqueObj load(py::UniqueObj cls, const string& path, size_t numWorkers)
 	{
 		auto lm = lm::KnLangModelBase::create(utils::MMap(path), ArchType::balanced);
 
 		auto* clsType = (PyTypeObject*)cls.get();
-		py::UniqueCObj<KNLangModelObject> ret{ (KNLangModelObject*)clsType->tp_new(clsType, nullptr, nullptr) };
+		py::UniqueCObj<KNLangModelObject> ret{ PyObject_New(KNLangModelObject, clsType) };
+		new (ret.get()) KNLangModelObject{ };
 		ret->langModel = std::move(lm);
 		ret->initClusterData();
 		if (numWorkers >= 1)
@@ -642,7 +539,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		return ret;
 	}
 
-	void save(const char* path) const
+	void save(const string& path) const
 	{
 		ofstream ofs;
 		if (!openFile(ofs, path, ios_base::binary | ios_base::out))
@@ -658,18 +555,17 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		{
 			throw py::ValueError{ "numWorkers must be greater than 0 when `deferred=True`." };
 		}
-		if (!PyArray_Check(obj.get())) throw py::ValueError{ "obj must be a numpy array." };
-		const size_t dims = PyArray_NDIM((PyArrayObject*)obj.get());
+		const int dtype = py::getArrayDtype(obj.get());
+		if (dtype < 0) throw py::ValueError{ "obj must be a numpy array." };
+		const size_t dims = py::getArrayNdim(obj.get());
 		if (dims != 1) throw py::ValueError{ "obj must be a 1D numpy array." };
-		const size_t len = PyArray_DIM((PyArrayObject*)obj.get(), 0);
-		const auto dtype = PyArray_TYPE((PyArrayObject*)obj.get());
-		const void* inData = PyArray_DATA((PyArrayObject*)obj.get());
+		const size_t len = py::getArraySize(obj.get());
+		const void* inData = py::getArrayDataPtr(obj.get());
 
-		npy_intp sizes[2] = { (npy_intp)len, (npy_intp)topN };
-		py::UniqueObj outIdx{ PyArray_EMPTY(2, sizes, NPY_UINT32, 0) };
-		py::UniqueObj outLl{ PyArray_EMPTY(2, sizes, NPY_FLOAT32, 0) };
-		auto* idxData = (uint32_t*)PyArray_DATA((PyArrayObject*)outIdx.get());
-		auto* llData = (float*)PyArray_DATA((PyArrayObject*)outLl.get());
+		uint32_t* idxData = nullptr;
+		float* llData = nullptr;
+		py::UniqueObj outIdx = py::newEmptyArray(idxData, len, topN);
+		py::UniqueObj outLl = py::newEmptyArray(llData, len, topN);
 
 		if (deferred)
 		{
@@ -679,7 +575,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 			ret->outLl = move(outLl);
 			Py_INCREF(this);
 			ret->parent = py::UniqueCObj<KNLangModelObject>{ (KNLangModelObject*)this };
-			if (dtype == NPY_UINT16 || dtype == NPY_INT16)
+			if (dtype == py::NPY_UINT16 || dtype == py::NPY_INT16)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -687,7 +583,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 					langModel->predictTopN(ptr, ptr + len, topN, idxData, llData);
 				});
 			}
-			else if (dtype == NPY_UINT32 || dtype == NPY_INT32)
+			else if (dtype == py::NPY_UINT32 || dtype == py::NPY_INT32)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -695,7 +591,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 					langModel->predictTopN(ptr, ptr + len, topN, idxData, llData);
 				});
 			}
-			else if (dtype == NPY_UINT64 || dtype == NPY_INT64)
+			else if (dtype == py::NPY_UINT64 || dtype == py::NPY_INT64)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -711,17 +607,17 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		}
 		else
 		{
-			if (dtype == NPY_UINT16 || dtype == NPY_INT16)
+			if (dtype == py::NPY_UINT16 || dtype == py::NPY_INT16)
 			{
 				auto* ptr = (const uint16_t*)inData;
 				langModel->predictTopN(ptr, ptr + len, topN, idxData, llData);
 			}
-			else if (dtype == NPY_UINT32 || dtype == NPY_INT32)
+			else if (dtype == py::NPY_UINT32 || dtype == py::NPY_INT32)
 			{
 				auto* ptr = (const uint32_t*)inData;
 				langModel->predictTopN(ptr, ptr + len, topN, idxData, llData);
 			}
-			else if (dtype == NPY_UINT64 || dtype == NPY_INT64)
+			else if (dtype == py::NPY_UINT64 || dtype == py::NPY_INT64)
 			{
 				auto* ptr = (const uint64_t*)inData;
 				langModel->predictTopN(ptr, ptr + len, topN, idxData, llData);
@@ -752,16 +648,16 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		{
 			throw py::ValueError{ "numWorkers must be greater than 0 when `deferred=True`." };
 		}
-		if (!PyArray_Check(obj.get())) throw py::ValueError{ "obj must be a numpy array." };
-		const size_t dims = PyArray_NDIM((PyArrayObject*)obj.get());
+		const int dtype = py::getArrayDtype(obj.get());
+		if (dtype < 0) throw py::ValueError{ "obj must be a numpy array." };
+		const size_t dims = py::getArrayNdim(obj.get());
 		if (dims != 1) throw py::ValueError{ "obj must be a 1D numpy array." };
-		const size_t len = PyArray_DIM((PyArrayObject*)obj.get(), 0);
-		const auto dtype = PyArray_TYPE((PyArrayObject*)obj.get());
-		const void* inData = PyArray_DATA((PyArrayObject*)obj.get());
+		const size_t len = py::getArraySize(obj.get());
+		const void* inData = py::getArrayDataPtr(obj.get());
 
-		npy_intp sizes[1] = { (npy_intp)len, };
-		py::UniqueObj outLl{ PyArray_EMPTY(1, sizes, NPY_FLOAT32, 0) };
-		auto* llData = (float*)PyArray_DATA((PyArrayObject*)outLl.get());
+		float* llData = nullptr;
+		py::UniqueObj outLl = py::newEmptyArray(llData, len);
+		
 		if (deferred)
 		{
 			auto ret = py::makeNewObject<KNLangModelEvaluateResultObject>();
@@ -769,7 +665,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 			ret->outLl = move(outLl);
 			Py_INCREF(this);
 			ret->parent = py::UniqueCObj<KNLangModelObject>{ (KNLangModelObject*)this };
-			if (dtype == NPY_UINT16 || dtype == NPY_INT16)
+			if (dtype == py::NPY_UINT16 || dtype == py::NPY_INT16)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -777,7 +673,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 					evaluateWithCluster(ptr, len, llData);
 				});
 			}
-			else if (dtype == NPY_UINT32 || dtype == NPY_INT32)
+			else if (dtype == py::NPY_UINT32 || dtype == py::NPY_INT32)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -785,7 +681,7 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 					evaluateWithCluster(ptr, len, llData);
 				});
 			}
-			else if (dtype == NPY_UINT64 || dtype == NPY_INT64)
+			else if (dtype == py::NPY_UINT64 || dtype == py::NPY_INT64)
 			{
 				ret->future = workers->enqueue([=](size_t threadIdx)
 				{
@@ -801,17 +697,17 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 		}
 		else
 		{
-			if (dtype == NPY_UINT16 || dtype == NPY_INT16)
+			if (dtype == py::NPY_UINT16 || dtype == py::NPY_INT16)
 			{
 				auto* ptr = (const uint16_t*)inData;
 				evaluateWithCluster(ptr, len, llData);
 			}
-			else if (dtype == NPY_UINT32 || dtype == NPY_INT32)
+			else if (dtype == py::NPY_UINT32 || dtype == py::NPY_INT32)
 			{
 				auto* ptr = (const uint32_t*)inData;
 				evaluateWithCluster(ptr, len, llData);
 			}
-			else if (dtype == NPY_UINT64 || dtype == NPY_INT64)
+			else if (dtype == py::NPY_UINT64 || dtype == py::NPY_INT64)
 			{
 				auto* ptr = (const uint64_t*)inData;
 				evaluateWithCluster(ptr, len, llData);
@@ -825,29 +721,6 @@ struct KNLangModelObject : py::CObject<KNLangModelObject>
 	}
 };
 
-py::TypeWrapper<KNLangModelObject> _KNLangModelObjectSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "from_arrays", PY_METHOD(&KNLangModelObject::fromArrays), METH_VARARGS | METH_KEYWORDS | METH_STATIC, ""},
-		{ "load", PY_METHOD(&KNLangModelObject::load), METH_VARARGS | METH_KEYWORDS | METH_STATIC, ""},
-		{ "save", PY_METHOD(&KNLangModelObject::save), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "next_tokens", PY_METHOD(&KNLangModelObject::nextTokens), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "evaluate", PY_METHOD(&KNLangModelObject::evaluate), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	static PyGetSetDef getsets[] =
-	{
-		{ "_ngram_size", PY_GETTER(&KNLangModelObject::ngramSize), nullptr, "", nullptr },
-		{ "_vocab_size", PY_GETTER(&KNLangModelObject::vocabSize), nullptr, "", nullptr },
-		{ "_num_nodes", PY_GETTER(&KNLangModelObject::numNodes), nullptr, "", nullptr },
-		{ "_num_workers", PY_GETTER(&KNLangModelObject::numWorkers), nullptr, "", nullptr },
-		{ nullptr },
-	};
-	obj.tp_methods = methods;
-	obj.tp_getset = getsets;
-} };
-
 struct ContextSpan
 {
 	const uint32_t* data = nullptr;
@@ -856,42 +729,66 @@ struct ContextSpan
 	ContextSpan(const uint32_t* _data = nullptr, size_t _size = 0) : data(_data), size(_size) {}
 };
 
+template<class Ty>
+void setValueFromAttr(Ty& val, PyObject* obj, const char* attr)
+{
+	py::UniqueObj ret{ PyObject_GetAttrString(obj, attr) };
+	if (!ret) throw py::ExcPropagation{};
+	py::toCpp<Ty>(ret.get(), val);
+}
+
+KiwiConfig toKiwiConfig(PyObject* obj)
+{
+	KiwiConfig c;
+	setValueFromAttr(c.integrateAllomorph, obj, "integrate_allomorph");
+	setValueFromAttr(c.cutOffThreshold, obj, "cutoff_threshold");
+	setValueFromAttr(c.unkFormScoreScale, obj, "unk_form_score_scale");
+	setValueFromAttr(c.unkFormScoreBias, obj, "unk_form_score_bias");
+	setValueFromAttr(c.spacePenalty, obj, "space_penalty");
+	setValueFromAttr(c.typoCostWeight, obj, "typo_cost_weight");
+	setValueFromAttr(c.maxUnkFormSize, obj, "max_unk_form_size");
+	setValueFromAttr(c.spaceTolerance, obj, "space_tolerance");
+	return c;
+}
+
 struct KiwiObject : py::CObject<KiwiObject>
 {
-	static constexpr const char* _name = "kiwipiepy._Kiwi";
-	static constexpr const char* _name_in_module = "_Kiwi";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	KiwiBuilder builder;
-	Kiwi kiwi;
+	mutable std::shared_ptr<Kiwi> kiwi;
 	TypoTransformerObject* typos = nullptr;
 	float typoCostThreshold = 2.5f;
 	Vector<vector<u16string>> contextForms;
 	Vector<pair<Vector<uint32_t>, Vector<size_t>>> contextAnalyses;
 
+#ifdef Py_GIL_DISABLED
+	std::unique_ptr<std::shared_mutex> rwMutex;
+#endif
+
 	using _InitArgs = std::tuple<
 		size_t,
-		std::optional<const char*>,
+		std::optional<string>,
 		bool,
 		bool,
 		bool,
 		bool,
 		std::string,
 		PyObject*,
-		float
+		float,
+		Dialect
 	>;
 
 	KiwiObject() = default;
 
 	KiwiObject(size_t numThreads, 
-		std::optional<const char*> modelPath = {}, 
+		const std::optional<string>& modelPath = {}, 
 		bool integrateAllomorph = true, 
 		bool loadDefaultDict = true, 
 		bool loadTypoDict = true, 
 		bool loadMultiDict = true,
 		const std::string& modelType = {},
 		PyObject* _typos = nullptr, 
-		float _typoCostThreshold = 2.5f
+		float _typoCostThreshold = 2.5f,
+		Dialect enabledDialects = Dialect::standard
 	)
 	{
 		if (_typos == nullptr || _typos == Py_None)
@@ -960,26 +857,24 @@ struct KiwiObject : py::CObject<KiwiObject>
 			throw py::ValueError{ "invalid model type: " + modelType };
 		}
 
-		builder = KiwiBuilder{ spath, numThreads, (BuildOption)boptions, mtype };
+		builder = KiwiBuilder{ spath, numThreads, (BuildOption)boptions, mtype, enabledDialects };
+#ifdef Py_GIL_DISABLED
+		rwMutex = std::make_unique<std::shared_mutex>();
+#endif
 	}
 
-	void doPrepare()
+	std::shared_ptr<Kiwi> doPrepare() const
 	{
-		if (kiwi.ready()) return;
-		kiwi = builder.build(typos ? typos->tt : getDefaultTypoSet(DefaultTypoSet::withoutTypo), typoCostThreshold);
-		py::UniqueObj handler{ PyObject_GetAttrString((PyObject*)this, "_on_build") };
-		if (handler)
-		{
-			py::UniqueObj res{ PyObject_CallFunctionObjArgs(handler.get(), nullptr)};
-			if (!res) throw py::ExcPropagation{};
-		}
-		else
-		{
-			PyErr_Clear();
-		}
+		if (auto k = kiwi) return k;
+#ifdef Py_GIL_DISABLED
+		std::unique_lock lock{ *rwMutex };
+		if (kiwi) return kiwi;
+#endif
+		kiwi = std::make_shared<Kiwi>(builder.build(typos ? typos->tt : getDefaultTypoSet(DefaultTypoSet::withoutTypo), typoCostThreshold));
+		return kiwi;
 	}
 
-	void convertContextToReadableForm(const vector<uint32_t>& context, vector<u16string>& forms, pair<Vector<uint32_t>, Vector<size_t>>& analyses) const
+	void convertContextToReadableForm(Kiwi* kiwi, const vector<uint32_t>& context, vector<u16string>& forms, pair<Vector<uint32_t>, Vector<size_t>>& analyses) const
 	{
 		Vector<ContextSpan> spans;
 		const uint32_t delimiter = -1;
@@ -1011,7 +906,7 @@ struct KiwiObject : py::CObject<KiwiObject>
 
 		for (auto& span : spans)
 		{
-			auto joiner = kiwi.newJoiner(false);
+			auto joiner = kiwi->newJoiner(false);
 			for (size_t i = 0; i < span.size; ++i)
 			{
 				joiner.add(span.data[i]);
@@ -1022,28 +917,40 @@ struct KiwiObject : py::CObject<KiwiObject>
 		}
 	}
 
-	void prepareContextMap(const lm::CoNgramModelBase* cong)
+	void prepareContextMap(Kiwi* kiwi, const lm::CoNgramModelBase* cong)
 	{
 		if (!contextForms.empty()) return;
+#ifdef Py_GIL_DISABLED
+		std::unique_lock lock{ *rwMutex };
+		if (!contextForms.empty()) return;
+#endif
 
 		auto contextMap = cong->getContextWordMap();
 		for (size_t i = 0; i < contextMap.size(); ++i)
 		{
 			vector<u16string> forms;
 			pair<Vector<uint32_t>, Vector<size_t>> analyses;
-			convertContextToReadableForm(contextMap[i], forms, analyses);
+			convertContextToReadableForm(kiwi, contextMap[i], forms, analyses);
 			contextForms.emplace_back(std::move(forms));
 			contextAnalyses.emplace_back(std::move(analyses));
 		}
 	}
 
-	std::pair<uint32_t, bool> addUserWord(const char* word, const char* tag = "NNP", float score = 0, std::optional<const char*> origWord = {});
-	bool addPreAnalyzedWord(const char* form, PyObject* oAnalyzed = nullptr, float score = 0);
-	std::vector<std::pair<uint32_t, std::u16string>> addRule(const char* tag, PyObject* replacer, float score = 0);
-	py::UniqueObj analyze(PyObject* text, size_t topN = 1, Match matchOptions = Match::all, bool echo = false, PyObject* blockList = Py_None, bool openEnding = false, PyObject* pretokenized = Py_None);
+	std::pair<uint32_t, bool> addUserWord(const string& word, const string& tag = "NNP", float score = 0, const std::optional<string>& origWord = {});
+	bool addPreAnalyzedWord(const string& form, PyObject* oAnalyzed = nullptr, float score = 0, Dialect dialect = Dialect::standard);
+	std::vector<std::pair<uint32_t, std::u16string>> addRule(const string& tag, PyObject* replacer, float score = 0);
+	py::UniqueObj analyze(PyObject* text, size_t topN = 1, 
+		Match matchOptions = Match::all, 
+		bool echo = false, 
+		PyObject* blockList = Py_None, 
+		bool openEnding = false, 
+		Dialect allowedDialects = Dialect::standard,
+		float dialectCost = 3.f,
+		PyObject* pretokenized = Py_None,
+		PyObject* config = Py_None);
 	py::UniqueObj extractAddWords(PyObject* sentences, size_t minCnt = 10, size_t maxWordLen = 10, float minScore = 0.25f, float posScore = -3, bool lmFilter = true);
 	py::UniqueObj extractWords(PyObject* sentences, size_t minCnt, size_t maxWordLen = 10, float minScore = 0.25f, float posScore = -3, bool lmFilter = true) const;
-	size_t loadUserDictionary(const char* path);
+	size_t loadUserDictionary(const string& path);
 	py::UniqueObj getMorpheme(size_t id);
 	py::UniqueObj join(PyObject* morphs, bool lmSearch = true, bool returnPositions = false);
 	py::UniqueObj mostSimilarMorphemes(PyObject* retTy, PyObject* target, size_t topN);
@@ -1054,7 +961,7 @@ struct KiwiObject : py::CObject<KiwiObject>
 	
 	void convertHSData(
 		PyObject* inputPathes, 
-		const char* outputPath,
+		const string& outputPath,
 		PyObject* morphemeDefPath = nullptr,
 		size_t morphemeDefMinCnt = 0,
 		bool generateOovDict = false,
@@ -1068,6 +975,8 @@ struct KiwiObject : py::CObject<KiwiObject>
 		float dropout = 0, 
 		float dropoutOnHistory = 0,
 		float nounAugmentingProb = 0,
+		float emojiAugmentingProb = 0,
+		float sbAugmentingProb = 0,
 		size_t generateUnlikelihoods = -1,
 		PyObject* tokenFilter = nullptr, 
 		PyObject* windowFilter = nullptr, 
@@ -1081,147 +990,57 @@ struct KiwiObject : py::CObject<KiwiObject>
 
 	py::UniqueObj listAllScripts() const;
 
-	float getCutOffThreshold() const
+	py::UniqueObj getGlobalConfig() const
 	{
-		return kiwi.getCutOffThreshold();
+		auto kiwiInst = doPrepare();
+		auto config = kiwiInst->getGlobalConfig();
+		static const char* keys[] = {
+			"integrate_allomorph",
+			"cutoff_threshold",
+			"unk_form_score_scale",
+			"unk_form_score_bias",
+			"space_penalty",
+			"typo_cost_weight",
+			"max_unk_form_size",
+			"space_tolerance",
+		};
+
+		return py::buildPyDict(
+			keys,
+			config.integrateAllomorph,
+			config.cutOffThreshold,
+			config.unkFormScoreScale,
+			config.unkFormScoreBias,
+			config.spacePenalty,
+			config.typoCostWeight,
+			config.maxUnkFormSize,
+			config.spaceTolerance
+		);
 	}
 
-	void setCutOffThreshold(float v)
+	void setGlobalConfig(PyObject* config)
 	{
-		kiwi.setCutOffThreshold(v);
-	}
-
-	size_t getMaxUnkFormSize() const
-	{
-		return kiwi.getMaxUnkFormSize();
-	}
-
-	void setMaxUnkFormSize(size_t v)
-	{
-		kiwi.setMaxUnkFormSize(v);
-	}
-
-	float getUnkScoreBias() const
-	{
-		return kiwi.getUnkScoreBias();
-	}
-
-	void setUnkScoreBias(float v)
-	{
-		kiwi.setUnkScoreBias(v);
-	}
-
-	float getUnkScoreScale() const
-	{
-		return kiwi.getUnkScoreScale();
-	}
-
-	void setUnkScoreScale(float v)
-	{
-		kiwi.setUnkScoreScale(v);
-	}
-
-	bool getIntegrateAllomorph() const
-	{
-		return kiwi.getIntegrateAllomorph();
-	}
-
-	void setIntegrateAllomorph(bool v)
-	{
-		kiwi.setIntegrateAllomorph(v);
-	}
-
-	size_t getSpaceTolerance() const
-	{
-		return kiwi.getSpaceTolerance();
-	}
-
-	void setSpaceTolerance(size_t v)
-	{
-		kiwi.setSpaceTolerance(v);
-	}
-
-	float getSpacePenalty() const
-	{
-		return kiwi.getSpacePenalty();
-	}
-
-	void setSpacePenalty(float v)
-	{
-		kiwi.setSpacePenalty(v);
-	}
-
-	float getTypoCostWeight() const
-	{
-		return kiwi.getTypoCostWeight();
-	}
-
-	void setTypoCostWeight(float v)
-	{
-		kiwi.setTypoCostWeight(v);
+		auto kiwiInst = doPrepare();
+		kiwiInst->setGlobalConfig(toKiwiConfig(config));
 	}
 
 	size_t getNumWorkers() const
 	{
-		return kiwi.getNumThreads();
+		auto kiwiInst = doPrepare();
+		return kiwiInst->getNumThreads();
 	}
 
 	const char* getModelType()
 	{
-		doPrepare();
-		return modelTypeToStr(kiwi.getLangModel()->getType());
+		return modelTypeToStr(builder.getModelType());
 	}
 };
 
-py::TypeWrapper<KiwiObject> _KiwiSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "add_user_word", PY_METHOD(&KiwiObject::addUserWord), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "add_pre_analyzed_word", PY_METHOD(&KiwiObject::addPreAnalyzedWord), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "add_rule", PY_METHOD(&KiwiObject::addRule), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "load_user_dictionary", PY_METHOD(&KiwiObject::loadUserDictionary), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "extract_words", PY_METHOD(&KiwiObject::extractWords), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "extract_add_words", PY_METHOD(&KiwiObject::extractAddWords), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "analyze", PY_METHOD(&KiwiObject::analyze), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "morpheme", PY_METHOD(&KiwiObject::getMorpheme), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "join", PY_METHOD(&KiwiObject::join), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "convert_hsdata", PY_METHOD(&KiwiObject::convertHSData), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "make_hsdataset", PY_METHOD(&KiwiObject::makeHSDataset), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "list_all_scripts", PY_METHOD(&KiwiObject::listAllScripts), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "most_similar_morphemes", PY_METHOD(&KiwiObject::mostSimilarMorphemes), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "most_similar_contexts", PY_METHOD(&KiwiObject::mostSimilarContexts), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "predict_next_morpheme", PY_METHOD(&KiwiObject::predictNextMorpheme), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "morpheme_similarity", PY_METHOD(&KiwiObject::morphemeSimilarity), METH_VARARGS | METH_KEYWORDS, "" },
-		{ "context_similarity", PY_METHOD(&KiwiObject::contextSimilarity), METH_VARARGS | METH_KEYWORDS, "" },
-		{ nullptr }
-	};
-	static PyGetSetDef getsets[] =
-	{
-		{ (char*)"_cutoff_threshold", PY_GETTER(&KiwiObject::getCutOffThreshold), PY_SETTER(&KiwiObject::setCutOffThreshold), "", nullptr },
-		{ (char*)"_integrate_allomorph", PY_GETTER(&KiwiObject::getIntegrateAllomorph), PY_SETTER(&KiwiObject::setIntegrateAllomorph), "", nullptr },
-		{ (char*)"_unk_score_bias", PY_GETTER(&KiwiObject::getUnkScoreBias), PY_SETTER(&KiwiObject::setUnkScoreBias), "", nullptr },
-		{ (char*)"_unk_score_scale", PY_GETTER(&KiwiObject::getUnkScoreScale), PY_SETTER(&KiwiObject::setUnkScoreScale), "", nullptr },
-		{ (char*)"_max_unk_form_size", PY_GETTER(&KiwiObject::getMaxUnkFormSize), PY_SETTER(&KiwiObject::setMaxUnkFormSize), "", nullptr },
-		{ (char*)"_space_tolerance", PY_GETTER(&KiwiObject::getSpaceTolerance), PY_SETTER(&KiwiObject::setSpaceTolerance), "", nullptr },
-		{ (char*)"_space_penalty", PY_GETTER(&KiwiObject::getSpacePenalty), PY_SETTER(&KiwiObject::setSpacePenalty), "", nullptr },
-		{ (char*)"_typo_cost_weight", PY_GETTER(&KiwiObject::getTypoCostWeight), PY_SETTER(&KiwiObject::setTypoCostWeight), "", nullptr },
-		{ (char*)"_typo_cost_threshold", PY_GETTER(&KiwiObject::typoCostThreshold), PY_SETTER(&KiwiObject::typoCostThreshold), "", nullptr },
-		{ (char*)"_num_workers", PY_GETTER(&KiwiObject::getNumWorkers), nullptr, "", nullptr },
-		{ (char*)"_model_type", PY_GETTER(&KiwiObject::getModelType), nullptr, "", nullptr },
-		{ nullptr },
-	};
-	obj.tp_methods = methods;
-	obj.tp_getset = getsets;
-}};
-
 struct TokenObject : py::CObject<TokenObject>
 {
-	static constexpr const char* _name = "kiwipiepy.Token";
-	static constexpr const char* _name_in_module = "Token";
-
+	std::weak_ptr<Kiwi> kiwiInst;
 	u16string _form, _raw_form;
-	const char* _tag = nullptr;
+	string _tag;
 	size_t resultHash = 0;
 	uint32_t _pos = 0, _len = 0, _wordPosition = 0, _sentPosition = 0, _subSentPosition = 0, _lineNumber = 0;
 	int32_t _pairedToken = -1, _sense = 0;
@@ -1232,6 +1051,7 @@ struct TokenObject : py::CObject<TokenObject>
 	py::UniqueObj _userValue;
 	POSTag _rawTag = POSTag::unknown;
 	ScriptType _script = ScriptType::unknown;
+	uint16_t _dialect = 0;
 	bool _regularity = false;
 
 	using _InitArgs = std::tuple<int>;
@@ -1359,48 +1179,6 @@ struct TokenObject : py::CObject<TokenObject>
 	}
 };
 
-py::TypeWrapper<TokenObject> _TokenSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyGetSetDef getsets[] =
-	{
-		{ (char*)"form", PY_GETTER(&TokenObject::_form), nullptr, "", nullptr },
-		{ (char*)"tag", PY_GETTER(&TokenObject::_tag), nullptr, "", nullptr},
-		{ (char*)"start", PY_GETTER(&TokenObject::_pos), nullptr, "", nullptr},
-		{ (char*)"len", PY_GETTER(&TokenObject::_len), nullptr, "", nullptr},
-		{ (char*)"end", PY_GETTER(&TokenObject::end), nullptr, "", nullptr},
-		{ (char*)"span", PY_GETTER(&TokenObject::span), nullptr, "", nullptr},
-		{ (char*)"id", PY_GETTER(&TokenObject::_morphId), nullptr, "", nullptr},
-		{ (char*)"word_position", PY_GETTER(&TokenObject::_wordPosition), nullptr, "", nullptr},
-		{ (char*)"sent_position", PY_GETTER(&TokenObject::_sentPosition), nullptr, "", nullptr},
-		{ (char*)"sub_sent_position", PY_GETTER(&TokenObject::_subSentPosition), nullptr, "", nullptr},
-		{ (char*)"line_number", PY_GETTER(&TokenObject::_lineNumber), nullptr, "", nullptr},
-		{ (char*)"base_form", PY_GETTER(&TokenObject::baseForm), nullptr, "", nullptr},
-		{ (char*)"base_id", PY_GETTER(&TokenObject::baseId), nullptr, "", nullptr},
-		{ (char*)"tagged_form", PY_GETTER(&TokenObject::taggedForm), nullptr, "", nullptr},
-		{ (char*)"form_tag", PY_GETTER(&TokenObject::formTag), nullptr, "", nullptr},
-		{ (char*)"score", PY_GETTER(&TokenObject::_score), nullptr, "", nullptr},
-		{ (char*)"typo_cost", PY_GETTER(&TokenObject::_typoCost), nullptr, "", nullptr},
-		{ (char*)"raw_form", PY_GETTER(&TokenObject::_raw_form), nullptr, "", nullptr},
-		{ (char*)"regularity", PY_GETTER(&TokenObject::regularity), nullptr, "", nullptr},
-		{ (char*)"lemma", PY_GETTER(&TokenObject::lemma), nullptr, "", nullptr},
-		{ (char*)"paired_token", PY_GETTER(&TokenObject::_pairedToken), nullptr, "", nullptr},
-		{ (char*)"user_value", PY_GETTER(&TokenObject::_userValue), nullptr, "", nullptr},
-		{ (char*)"script", PY_GETTER(&TokenObject::script), nullptr, "", nullptr},
-		{ (char*)"sense", PY_GETTER(&TokenObject::_sense), nullptr, "", nullptr},
-		{ nullptr },
-	};
-
-	static PySequenceMethods seq = {
-		PY_LENFUNC(&TokenObject::len),
-		nullptr,
-		nullptr,
-		PY_SSIZEARGFUNC(&TokenObject::getitem),
-	};
-
-	obj.tp_getset = getsets;
-	obj.tp_as_sequence = &seq;
-} };
-
 inline size_t hashTokenInfo(const vector<TokenInfo>& tokens)
 {
 	size_t ret = 1;
@@ -1439,9 +1217,8 @@ inline const char* getTagStr(const POSTag tag, const u16string& form)
 	return tagToString(tag);
 }
 
-py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, vector<py::UniqueObj>&& userValues = {})
+py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, const shared_ptr<Kiwi>& kiwiInst, vector<py::UniqueObj>&& userValues = {})
 {
-	auto& kiwi = kiwiObj->kiwi;
 	// set the following objects semi-immortal. (they are neither freed nor managed)
 	// it prevents crashes at Python3.12
 	static PyObject* userValuesAttr = py::buildPyValue("_user_values").release();
@@ -1455,7 +1232,7 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 		py::UniqueObj rList{ PyList_New(p.first.size()) };
 		size_t jdx = 0;
 		size_t u32offset = 0;
-		size_t resultHash = hashTokenInfo(p.first);
+		const size_t resultHash = hashTokenInfo(p.first);
 		for (auto& q : p.first)
 		{
 			size_t u32chrs = 0;
@@ -1465,6 +1242,7 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 			}
 
 			auto tItem = py::makeNewObject<TokenObject>();
+			tItem->kiwiInst = kiwiInst;
 			tItem->_form = move(q.str);
 			tItem->_regularity = !isIrregular(q.tag);
 			tItem->_rawTag = q.tag;
@@ -1479,10 +1257,12 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 			tItem->_score = q.score;
 			tItem->_typoCost = q.typoCost;
 			tItem->_morph = q.morph;
-			tItem->_morphId = q.morph ? kiwi.morphToId(q.morph) : -1;
-			tItem->_baseMorph = q.morph ? (q.morph->origMorphemeId ?  kiwi.idToMorph(q.morph->origMorphemeId) : q.morph) : nullptr;
-			tItem->_raw_form = q.typoCost ? kiwi.getTypoForm(q.typoFormId) : tItem->_form;
+			tItem->_morphId = q.morph ? kiwiInst->morphToId(q.morph) : -1;
+			tItem->_baseMorph = (q.morph && !!q.dialect) ? kiwiInst->idToMorph(q.morph->lmMorphemeId) : 
+				(q.morph ? (q.morph->origMorphemeId ? kiwiInst->idToMorph(q.morph->origMorphemeId) : q.morph) : nullptr);
+			tItem->_raw_form = q.typoCost ? kiwiInst->getTypoForm(q.typoFormId) : tItem->_form;
 			tItem->_pairedToken = q.pairedToken;
+			tItem->_dialect = (uint16_t)q.dialect;
 			if (q.tag == POSTag::sl || q.tag == POSTag::sh || q.tag == POSTag::sw || q.tag == POSTag::w_emoji)
 			{
 				tItem->_script = q.script;
@@ -1509,14 +1289,14 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 				auto v = PyDict_GetItem(tItem->_userValue.get(), tagAttr);
 				if (v)
 				{
-					tItem->_tag = PyUnicode_AsUTF8(v);
+					tItem->_tag = py::toCpp<string>(v);
 				}
 			}
 
-			PyList_SET_ITEM(rList.get(), jdx++, (PyObject*)tItem.release());
+			PyList_SetItem(rList.get(), jdx++, (PyObject*)tItem.release());
 			u32offset += u32chrs;
 		}
-		PyList_SET_ITEM(retList.get(), idx++, py::buildPyTuple(move(rList), p.second).release());
+		PyList_SetItem(retList.get(), idx++, py::buildPyTuple(move(rList), p.second).release());
 	}
 	return retList;
 }
@@ -1541,12 +1321,10 @@ inline POSTag parseTag(const u16string& tag)
 
 struct MorphemeSetObject : py::CObject<MorphemeSetObject>
 {
-	static constexpr const char* _name = "kiwipiepy._MorphemeSet";
-	static constexpr const char* _name_in_module = "_MorphemeSet";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	py::UniqueCObj<KiwiObject> kiwi;
-	std::unordered_set<const kiwi::Morpheme*> morphSet;
+	std::vector<std::tuple<string, POSTag, uint8_t>> morphList;
+	mutable std::weak_ptr<Kiwi> kiwiPtr;
+	mutable std::unordered_set<const kiwi::Morpheme*> morphSet;
 
 	using _InitArgs = std::tuple<py::UniqueCObj<KiwiObject>>;
 
@@ -1555,44 +1333,63 @@ struct MorphemeSetObject : py::CObject<MorphemeSetObject>
 	MorphemeSetObject(py::UniqueCObj<KiwiObject>&& _kiwi)
 	{
 		kiwi = std::move(_kiwi);
-		kiwi->doPrepare();
 	}
 
 	void update(PyObject* morphs)
 	{
+		morphList.clear();
 		morphSet.clear();
 
 		py::foreach<PyObject*>(morphs, [&](PyObject* item)
 		{
-			if (PyTuple_Check(item) && PyTuple_GET_SIZE(item) == 2)
+			if (PyTuple_Check(item) && (PyTuple_Size(item) == 2 || PyTuple_Size(item) == 3))
 			{
-				auto form = py::toCpp<string>(PyTuple_GET_ITEM(item, 0));
-				auto stag = py::toCpp<string>(PyTuple_GET_ITEM(item, 1));
+				auto form = py::toCpp<string>(PyTuple_GetItem(item, 0));
+				auto stag = py::toCpp<string>(PyTuple_GetItem(item, 1));
+				uint8_t senseId = undefSenseId;
+				if (PyTuple_Size(item) == 3)
+				{
+					senseId = (uint8_t)py::toCpp<size_t>(PyTuple_GetItem(item, 2));
+				}
 				POSTag tag = POSTag::unknown;
 				if (!stag.empty())
 				{
 					tag = parseTag(stag.c_str());
 				}
-				auto m = kiwi->kiwi.findMorphemes(utf8To16(form), tag);
-				morphSet.insert(m.begin(), m.end());
+				morphList.emplace_back(form, tag, senseId);
 			}
 			else
 			{
 				throw py::ForeachFailed{};
 			}
-		}, "`morphs` must be an iterable of `str`.");
+		}, "`morphs` must be an iterable of `tuple`.");
+	}
+
+	const std::unordered_set<const kiwi::Morpheme*>& getMorphemeSet() const
+	{
+		auto kiwiInst = kiwiPtr.lock();
+		if (!kiwiInst)
+		{
+			morphSet.clear();
+			kiwiPtr = kiwiInst = kiwi->doPrepare();
+		}
+		if (morphSet.empty())
+		{
+			for (auto& p : morphList)
+			{
+				auto form = utf8To16(std::get<0>(p));
+				auto tag = std::get<1>(p);
+				auto senseId = std::get<2>(p);
+				auto morphs = kiwiInst->findMorphemes(form, tag, senseId);
+				for (auto m : morphs)
+				{
+					morphSet.insert(m);
+				}
+			}
+		}
+		return morphSet;
 	}
 };
-
-py::TypeWrapper<MorphemeSetObject> _MorphemeSetSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "_update", PY_METHOD(&MorphemeSetObject::update), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	obj.tp_methods = methods;
-} };
 
 inline SwTokenizerConfig convertToConfig(PyObject* obj)
 {
@@ -1632,26 +1429,23 @@ inline SwTokenizerConfig convertToConfig(PyObject* obj)
 
 struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 {
-	static constexpr const char* _name = "kiwipiepy._SwTokenizer";
-	static constexpr const char* _name_in_module = "_SwTokenizer";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	py::UniqueCObj<KiwiObject> kiwi;
+	std::shared_ptr<Kiwi> kiwiInst;
 	kiwi::SwTokenizer tokenizer;
 
-	using _InitArgs = std::tuple<py::UniqueCObj<KiwiObject>, const char*>;
+	using _InitArgs = std::tuple<py::UniqueCObj<KiwiObject>, string>;
 
 	SwTokenizerObject() = default;
 
-	SwTokenizerObject(py::UniqueCObj<KiwiObject>&& _kiwi, const char* path)
+	SwTokenizerObject(py::UniqueCObj<KiwiObject>&& _kiwi, const string& path)
 	{
 		kiwi = std::move(_kiwi);
-		kiwi->doPrepare();
+		kiwiInst = kiwi->doPrepare();
 		std::ifstream ifs;
-		tokenizer = kiwi::SwTokenizer::load(kiwi->kiwi, openFile(ifs, path));
+		tokenizer = kiwi::SwTokenizer::load(*kiwiInst, openFile(ifs, path));
 	}
 
-	void save(const char* path) const
+	void save(const string& path) const
 	{
 		std::ofstream ofs;
 		tokenizer.save(openFile(ofs, path));
@@ -1773,8 +1567,8 @@ struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 		trainCfg.removeRepetitive = removeRepetitive;
 		trainCfg.preventMixedDigitTokens = !!preventMixedDigitTokens;
 		
-		kiwi->doPrepare();
-		UnigramSwTrainer trainer{ kiwi->kiwi, cfg, trainCfg };
+		auto kiwiInst = kiwi->doPrepare();
+		UnigramSwTrainer trainer{ *kiwiInst, cfg, trainCfg };
 		py::UniqueObj methodNames[] {
 			py::buildPyValue("begin_tokenization"),
 			py::buildPyValue("proc_tokenization"),
@@ -1908,39 +1702,6 @@ struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 		}
 	}
 };
-
-py::TypeWrapper<SwTokenizerObject> _SwTokenizerSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "encode", PY_METHOD(&SwTokenizerObject::encode), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "encode_from_morphs", PY_METHOD(&SwTokenizerObject::encodeFromMorphs), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "tokenize_encode", PY_METHOD(&SwTokenizerObject::tokenizeAndEncode), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "decode", PY_METHOD(&SwTokenizerObject::decode), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "_train", PY_METHOD(&SwTokenizerObject::train), METH_VARARGS | METH_KEYWORDS | METH_STATIC, ""},
-		{ "save", PY_METHOD(&SwTokenizerObject::save), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-
-	static PyGetSetDef getsets[] =
-	{
-		{ (char*)"_config", PY_GETTER(&SwTokenizerObject::config), nullptr, "", nullptr},
-		{ (char*)"_vocab", PY_GETTER(&SwTokenizerObject::vocab), nullptr, "", nullptr},
-		{ (char*)"_kiwi", PY_GETTER(&SwTokenizerObject::kiwi), nullptr, "", nullptr},
-		{ nullptr },
-	};
-
-	static PySequenceMethods seq = {
-		PY_LENFUNC(&SwTokenizerObject::len),
-		nullptr,
-		nullptr,
-		nullptr,
-	};
-
-	obj.tp_methods = methods;
-	obj.tp_getset = getsets;
-	obj.tp_as_sequence = &seq;
-} };
 
 inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpans(PyObject* obj)
 {
@@ -2115,15 +1876,16 @@ auto makeFutureCarrier(std::future<FutureTy>&& future, CarriedTy&& carried)
 
 struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, FutureCarrier<vector<TokenResult>, vector<py::UniqueObj>>>
 {
-	static constexpr const char* _name = "kiwipiepy._ResIter";
-	static constexpr const char* _name_in_module = "_ResIter";
-
 	py::UniqueCObj<KiwiObject> kiwi;
+	std::shared_ptr<Kiwi> kiwiInst;
 	py::UniqueCObj<MorphemeSetObject> blocklist;
 	py::UniqueObj pretokenizedCallable;
+#ifdef Py_GIL_DISABLED
+	std::shared_lock<std::shared_mutex> lock;
+#endif
 	size_t topN = 1;
-	Match matchOptions = Match::all;
-	bool openEnding = false;
+	AnalyzeOption options;
+	KiwiConfig config;
 
 	KiwiResIter() = default;
 	KiwiResIter(KiwiResIter&&) = default;
@@ -2139,7 +1901,7 @@ struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, Fut
 		return py::handleExc([&]()
 		{
 			if (v.first.size() > topN) v.first.erase(v.first.begin() + topN, v.first.end());
-			return resToPyList(move(v.first), kiwi.get(), move(v.second));
+			return resToPyList(move(v.first), kiwi.get(), kiwiInst, move(v.second));
 		});
 	}
 
@@ -2164,28 +1926,25 @@ struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, Fut
 			updatePretokenizedSpanToU16(pretokenized.first, so);
 		}
 		return makeFutureCarrier(
-			kiwi->kiwi.asyncAnalyze(move(so.str), topN, 
-				AnalyzeOption{ matchOptions, blocklist ? &blocklist->morphSet : nullptr, openEnding }, 
-				move(pretokenized.first)
+			kiwiInst->asyncAnalyze(move(so.str), topN, 
+				options,
+				move(pretokenized.first),
+				config
 			),
 			move(pretokenized.second)
 		);
 	}
 };
 
-py::TypeWrapper<KiwiResIter> _ResIterSetter{ gModule, [](PyTypeObject&)
-{
-} };
-
 using EncodeResult = pair<vector<uint32_t>, vector<pair<uint32_t, uint32_t>>>;
 
 struct SwTokenizerResIter : public py::ResultIter<SwTokenizerResIter, EncodeResult>
 {
-	static constexpr const char* _name = "kiwipiepy._SwTokenizerResIter";
-	static constexpr const char* _name_in_module = "_SwTokenizerResIter";
-
 	py::UniqueCObj<SwTokenizerObject> tokenizer;
 	bool returnOffsets = false;
+#ifdef Py_GIL_DISABLED
+	std::shared_lock<std::shared_mutex> lock;
+#endif
 
 	SwTokenizerResIter() = default;
 	SwTokenizerResIter(SwTokenizerResIter&&) = default;
@@ -2208,10 +1967,6 @@ struct SwTokenizerResIter : public py::ResultIter<SwTokenizerResIter, EncodeResu
 		return tokenizer->tokenizer.asyncEncodeOffset(py::toCpp<string>(next), true);
 	}
 };
-
-py::TypeWrapper<SwTokenizerResIter> _SwTokenizerResIterSetter{ gModule, [](PyTypeObject&)
-{
-} };
 
 inline void chrOffsetsToTokenOffsets(const vector<TokenInfo>& tokens, vector<pair<uint32_t, uint32_t>>& offsets)
 {
@@ -2244,9 +1999,6 @@ using TokenEncodeResult = tuple<vector<TokenResult>, vector<uint32_t>, vector<pa
 
 struct SwTokenizerResTEIter : public py::ResultIter<SwTokenizerResTEIter, TokenEncodeResult>
 {
-	static constexpr const char* _name = "kiwipiepy._SwTokenizerResTEIter";
-	static constexpr const char* _name_in_module = "_SwTokenizerResTEIter";
-
 	py::UniqueCObj<SwTokenizerObject> tokenizer;
 	bool returnOffsets = false;
 
@@ -2261,29 +2013,25 @@ struct SwTokenizerResTEIter : public py::ResultIter<SwTokenizerResTEIter, TokenE
 
 	py::UniqueObj buildPy(TokenEncodeResult&& v)
 	{
-		if (returnOffsets) return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get()), get<1>(v), get<2>(v));
-		return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get()), get<1>(v));
+		if (returnOffsets) return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst), get<1>(v), get<2>(v));
+		return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst), get<1>(v));
 	}
 
 	future<TokenEncodeResult> feedNext(py::SharedObj&& next)
 	{
 		if (!PyUnicode_Check(next)) throw py::ValueError{ "`tokenize_encode` requires an instance of `str` or an iterable of `str`." };
-		auto* pool = tokenizer->kiwi->kiwi.getThreadPool();
+		auto* pool = tokenizer->kiwiInst->getThreadPool();
 		if (!pool) throw py::RuntimeError{ "async mode is unavailable in num_workers == 0" };
 		return pool->enqueue([&](size_t, const string& text)
 		{
 			vector<pair<uint32_t, uint32_t>> offsets;
-			auto res = tokenizer->kiwi->kiwi.analyze(text, 1, Match::allWithNormalizing | Match::zCoda);
+			auto res = tokenizer->kiwiInst->analyze(text, 1, Match::allWithNormalizing | Match::zCoda);
 			auto tokenIds = tokenizer->tokenizer.encode(res[0].first.data(), res[0].first.size(), returnOffsets ? &offsets : nullptr);
 			if (returnOffsets) chrOffsetsToTokenOffsets(res[0].first, offsets);
 			return make_tuple(move(res), move(tokenIds), move(offsets));
 		}, py::toCpp<string>(next));
 	}
 };
-
-py::TypeWrapper<SwTokenizerResTEIter> _SwTokenizerResTEIterSetter{ gModule, [](PyTypeObject&)
-{
-} };
 
 py::UniqueObj SwTokenizerObject::encode(PyObject* text, bool returnOffsets) const
 {
@@ -2310,7 +2058,7 @@ py::UniqueObj SwTokenizerObject::encode(PyObject* text, bool returnOffsets) cons
 	ret->inputIter = move(iter);
 	ret->returnOffsets = !!returnOffsets;
 		
-	for (size_t i = 0; i < kiwi->kiwi.getNumThreads() * 16; ++i)
+	for (size_t i = 0; i < kiwiInst->getNumThreads() * 16; ++i)
 	{
 		if (!ret->feed()) break;
 	}
@@ -2343,6 +2091,9 @@ py::UniqueObj SwTokenizerObject::encodeFromMorphs(PyObject* morphs, bool returnO
 			tokens.emplace_back(form, pos, spaceness);
 		}
 	}, "`encodeFromMorphs` requires an iterable of `Tuple[str, str, bool]` parameters.");
+#ifdef Py_GIL_DISABLED
+	std::shared_lock lock{ *kiwi->rwMutex };
+#endif
 	vector<pair<uint32_t, uint32_t>> offsets;
 	auto tokenIds = tokenizer.encode(tokens, returnOffsets ? &offsets : nullptr);
 	if (returnOffsets)
@@ -2360,16 +2111,16 @@ py::UniqueObj SwTokenizerObject::tokenizeAndEncode(PyObject* text, bool returnOf
 	if (PyUnicode_Check(text))
 	{
 		vector<pair<uint32_t, uint32_t>> offsets;
-		auto res = tokenizer.getKiwi()->analyze(py::toCpp<string>(text), 1, Match::allWithNormalizing | Match::zCoda);
+		auto res = kiwiInst->analyze(py::toCpp<string>(text), 1, Match::allWithNormalizing | Match::zCoda);
 		auto tokenIds = tokenizer.encode(res[0].first.data(), res[0].first.size(), returnOffsets ? &offsets : nullptr);
 		if (returnOffsets)
 		{
 			chrOffsetsToTokenOffsets(res[0].first, offsets);
-			return py::buildPyTuple(resToPyList(move(res), kiwi.get()), tokenIds, offsets);
+			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst), tokenIds, offsets);
 		}
 		else
 		{
-			return py::buildPyTuple(resToPyList(move(res), kiwi.get()), tokenIds);
+			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst), tokenIds);
 		}
 	}
 
@@ -2382,7 +2133,7 @@ py::UniqueObj SwTokenizerObject::tokenizeAndEncode(PyObject* text, bool returnOf
 	ret->inputIter = move(iter);
 	ret->returnOffsets = !!returnOffsets;
 
-	for (size_t i = 0; i < kiwi->kiwi.getNumThreads() * 16; ++i)
+	for (size_t i = 0; i < kiwiInst->getNumThreads() * 16; ++i)
 	{
 		if (!ret->feed()) break;
 	}
@@ -2394,9 +2145,12 @@ std::string SwTokenizerObject::decode(PyObject* ids, bool ignoreErrors) const
 	return tokenizer.decode(py::toCpp<vector<uint32_t>>(ids), !!ignoreErrors);
 }
 
-std::pair<uint32_t, bool> KiwiObject::addUserWord(const char* word, const char* tag, float score, std::optional<const char*> origWord)
+std::pair<uint32_t, bool> KiwiObject::addUserWord(const string& word, const string& tag, float score, const std::optional<string>& origWord)
 {	
-	auto pos = parseTag(tag);
+#ifdef Py_GIL_DISABLED
+	std::unique_lock lock{ *rwMutex };
+#endif
+	auto pos = parseTag(tag.c_str());
 	std::pair<uint32_t, bool> added = std::make_pair(0, false);
 	if (origWord)
 	{
@@ -2406,13 +2160,13 @@ std::pair<uint32_t, bool> KiwiObject::addUserWord(const char* word, const char* 
 	{
 		added = builder.addWord(utf8To16(word), pos, score);
 	}
-	if (added.second) kiwi = Kiwi{};
+	if (added.second) kiwi.reset();
 	return added;
 }
 
-bool KiwiObject::addPreAnalyzedWord(const char* form, PyObject* oAnalyzed, float score)
+bool KiwiObject::addPreAnalyzedWord(const string& form, PyObject* oAnalyzed, float score, Dialect dialect)
 {
-	vector<pair<u16string, POSTag>> analyzed;
+	vector<tuple<u16string, POSTag, uint8_t>> analyzed;
 	vector<pair<size_t, size_t>> positions;
 	py::foreach<PyObject*>(oAnalyzed, [&](PyObject* item)
 	{
@@ -2424,20 +2178,31 @@ bool KiwiObject::addPreAnalyzedWord(const char* form, PyObject* oAnalyzed, float
 			{
 				throw py::ValueError{ "`analyzed` must be in format `{form}/{tag}`, but given : " + py::repr(item)};
 			}
-			analyzed.emplace_back(str.substr(0, p), parseTag(str.substr(p + 1)));
+			analyzed.emplace_back(str.substr(0, p), parseTag(str.substr(p + 1)), undefSenseId);
 		}
 		else if (PySequence_Check(item))
 		{
 			if (Py_SIZE(item) == 2)
 			{
-				auto p = py::toCpp<pair<u16string, const char*>>(item);
-				analyzed.emplace_back(p.first, parseTag(p.second));
+				auto p = py::toCpp<pair<u16string, string>>(item);
+				analyzed.emplace_back(p.first, parseTag(p.second.c_str()), undefSenseId);
+			}
+			else if (Py_SIZE(item) == 3)
+			{
+				auto p = py::toCpp<tuple<u16string, string, uint8_t>>(item);
+				analyzed.emplace_back(get<0>(p), parseTag(get<1>(p).c_str()), get<2>(p));
+			}
+			else if (Py_SIZE(item) == 4)
+			{
+				auto t = py::toCpp<tuple<u16string, string, size_t, size_t>>(item);
+				analyzed.emplace_back(get<0>(t), parseTag(get<1>(t).c_str()), undefSenseId);
+				positions.emplace_back(get<2>(t), get<3>(t));
 			}
 			else
 			{
-				auto t = py::toCpp<tuple<u16string, const char*, size_t, size_t>>(item);
-				analyzed.emplace_back(get<0>(t), parseTag(get<1>(t)));
-				positions.emplace_back(get<2>(t), get<3>(t));
+				auto t = py::toCpp<tuple<u16string, string, uint8_t, size_t, size_t>>(item);
+				analyzed.emplace_back(get<0>(t), parseTag(get<1>(t).c_str()), get<2>(t));
+				positions.emplace_back(get<3>(t), get<4>(t));
 			}
 		}
 		else
@@ -2449,31 +2214,39 @@ bool KiwiObject::addPreAnalyzedWord(const char* form, PyObject* oAnalyzed, float
 	{
 		throw py::ValueError{ "All items of `analyzed` must be in the type `Tuple[str, str]` or `Tuple[str, str, int, int]`."};
 	}
-
-	auto added = builder.addPreAnalyzedWord(utf8To16(form), analyzed, positions, score);
-	if (added) kiwi = Kiwi{};
+#ifdef Py_GIL_DISABLED
+	std::unique_lock lock{ *rwMutex };
+#endif
+	auto added = builder.addPreAnalyzedWord(utf8To16(form), analyzed, positions, score, dialect);
+	if (added) kiwi.reset();
 	return added;
 }
 
-std::vector<std::pair<uint32_t, std::u16string>> KiwiObject::addRule(const char* tag, PyObject* replacer, float score)
+std::vector<std::pair<uint32_t, std::u16string>> KiwiObject::addRule(const string& tag, PyObject* replacer, float score)
 {
 	if (!PyCallable_Check(replacer)) throw py::ValueError{ "`replacer` must be an callable." };
 
-	auto pos = parseTag(tag);
+#ifdef Py_GIL_DISABLED
+	std::unique_lock lock{ *rwMutex };
+#endif
+	auto pos = parseTag(tag.c_str());
 	auto added = builder.addRule(pos, [&](const u16string& input)
 	{
 		py::UniqueObj ret{ PyObject_CallFunctionObjArgs(replacer, py::UniqueObj{ py::buildPyValue(input) }.get(), nullptr) };
 		if (!ret) throw py::ExcPropagation{};
 		return py::toCpp<u16string>(ret.get());
 	}, score);
-	if (!added.empty()) kiwi = Kiwi{};
+	if (!added.empty()) kiwi.reset();
 	return added;
 }
 
-size_t KiwiObject::loadUserDictionary(const char* path)
+size_t KiwiObject::loadUserDictionary(const string& path)
 {
-	auto ret = builder.loadDictionary(path);
-	if (ret) kiwi = Kiwi{};
+#ifdef Py_GIL_DISABLED
+	std::unique_lock lock{ *rwMutex };
+#endif
+	size_t ret = builder.loadDictionary(path);
+	if (ret) kiwi.reset();
 	return ret;
 }
 
@@ -2509,15 +2282,18 @@ py::UniqueObj KiwiObject::extractWords(PyObject* sentences, size_t minCnt, size_
 	{
 		auto v = py::buildPyTuple(utf16To8(r.form).c_str(), r.score, r.freq, r.posScore[POSTag::nnp]);
 		if (!v) throw py::ExcPropagation{};
-		PyList_SET_ITEM(retList.get(), idx++, v.release());
+		PyList_SetItem(retList.get(), idx++, v.release());
 	}
 	return retList;
 }
 
 py::UniqueObj KiwiObject::extractAddWords(PyObject* sentences, size_t minCnt, size_t maxWordLen, float minScore, float posScore, bool lmFilter)
 {
+#ifdef Py_GIL_DISABLED
+	std::unique_lock lock{ *rwMutex };
+#endif
 	auto res = builder.extractAddWords(obj2reader(sentences), minCnt, maxWordLen, minScore, posScore, lmFilter);
-	kiwi = Kiwi{};
+	kiwi.reset();
 
 	py::UniqueObj retList{ PyList_New(res.size()) };
 	size_t idx = 0;
@@ -2525,19 +2301,24 @@ py::UniqueObj KiwiObject::extractAddWords(PyObject* sentences, size_t minCnt, si
 	{
 		auto v = py::buildPyTuple(utf16To8(r.form).c_str(), r.score, r.freq, r.posScore[POSTag::nnp]);
 		if (!v) throw py::ExcPropagation{};
-		PyList_SET_ITEM(retList.get(), idx++, v.release());
+		PyList_SetItem(retList.get(), idx++, v.release());
 	}
 	return retList;
 }
 
-py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, Match matchOptions, bool echo, PyObject* blockList, bool openEnding, PyObject* pretokenized)
+py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, 
+	Match matchOptions, bool echo, PyObject* blockList, bool openEnding, 
+	Dialect allowedDialects, float dialectCost,
+	PyObject* pretokenized, PyObject* config)
 {
-	doPrepare();
+	auto kiwiInst = doPrepare();
+	KiwiConfig cConfig = toKiwiConfig(config);
+
 	if (PyUnicode_Check(text))
 	{
 		const unordered_set<const Morpheme*>* morphs = nullptr;
 		pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> pretokenizedSpans;
-		if (blockList != Py_None) morphs = &((MorphemeSetObject*)blockList)->morphSet;
+		if (blockList != Py_None) morphs = &((MorphemeSetObject*)blockList)->getMorphemeSet();
 		if (PyCallable_Check(pretokenized))
 		{
 			py::UniqueObj ptResult{ PyObject_CallFunctionObjArgs(pretokenized, text, nullptr) };
@@ -2559,10 +2340,9 @@ py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, Match matchOption
 			so = py::toCpp<py::StringWithOffset<u16string>>(text);
 			updatePretokenizedSpanToU16(pretokenizedSpans.first, so);
 		}
-
-		auto res = kiwi.analyze(so.str, topN, AnalyzeOption{ matchOptions, morphs, openEnding }, pretokenizedSpans.first);
+		auto res = kiwiInst->analyze(so.str, topN, AnalyzeOption{ matchOptions, morphs, openEnding, allowedDialects, dialectCost}, pretokenizedSpans.first, cConfig);
 		if (res.size() > topN) res.erase(res.begin() + topN, res.end());
-		return resToPyList(move(res), this, move(pretokenizedSpans.second));
+		return resToPyList(move(res), this, kiwiInst, move(pretokenizedSpans.second));
 	}
 	else
 	{
@@ -2574,12 +2354,15 @@ py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, Match matchOption
 		Py_INCREF(this);
 		ret->inputIter = move(iter);
 		ret->topN = topN;
-		ret->matchOptions = matchOptions;
-		ret->openEnding = openEnding;
+		ret->options = AnalyzeOption{ matchOptions, nullptr, openEnding, allowedDialects, dialectCost };
+		ret->config = cConfig;
 		ret->echo = !!echo;
+		ret->kiwiInst = kiwiInst;
+
 		if (blockList != Py_None)
 		{
 			ret->blocklist = py::UniqueCObj<MorphemeSetObject>{ (MorphemeSetObject*)blockList };
+			ret->options.blocklist = &ret->blocklist->getMorphemeSet();
 			Py_INCREF(blockList);
 		}
 
@@ -2593,7 +2376,7 @@ py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, Match matchOption
 			throw py::ValueError{ "`analyze` of multiple inputs requires a callable `pretokenized` argument." };
 		}
 
-		for (size_t i = 0; i < kiwi.getNumThreads() * 16; ++i)
+		for (size_t i = 0; i < kiwiInst->getNumThreads() * 16; ++i)
 		{
 			if (!ret->feed()) break;
 		}
@@ -2603,11 +2386,13 @@ py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN, Match matchOption
 
 py::UniqueObj KiwiObject::getMorpheme(size_t id)
 {
+	auto kiwiInst = doPrepare();
+
 	auto ret = py::makeNewObject<TokenObject>();
-	doPrepare();
-	auto* morph = kiwi.idToMorph(id);
+	auto* morph = kiwiInst->idToMorph(id);
 	if (!morph) throw py::ValueError{ "out of range" };
 	auto joinedForm = joinHangul(morph->getForm());
+	ret->kiwiInst = kiwiInst;
 	ret->_form = move(joinedForm);
 	ret->_tag = getTagStr(morph->tag, ret->_form);
 	ret->_baseMorph = ret->_morph = morph;
@@ -2619,13 +2404,13 @@ py::UniqueObj KiwiObject::getMorpheme(size_t id)
 
 py::UniqueObj KiwiObject::join(PyObject* morphs, bool lmSearch, bool returnPositions)
 {
-	doPrepare();
-	auto joiner = kiwi.newJoiner(!!lmSearch);
+	auto kiwiInst = doPrepare();
+	auto joiner = kiwiInst->newJoiner(!!lmSearch);
 	size_t prevHash = 0;
 	size_t prevEnd = 0;
 	py::foreach<PyObject*>(morphs, [&](PyObject* item)
 	{
-		if (PyObject_IsInstance(item, _TokenSetter.getTypeObj()))
+		if (PyObject_IsInstance(item, (PyObject*)py::Type<TokenObject>))
 		{
 			auto& token = *((TokenObject*)item);
 			cmb::Space space = cmb::Space::none;
@@ -2633,8 +2418,8 @@ py::UniqueObj KiwiObject::join(PyObject* morphs, bool lmSearch, bool returnPosit
 			{
 				space = token._pos <= prevEnd ? cmb::Space::no_space : cmb::Space::insert_space;
 			}
-
-			if (token._morph && token._morph->kform && !token._morph->kform->empty())
+			
+			if (!token.kiwiInst.expired() && token._morph && token._morph->kform && !token._morph->kform->empty())
 			{
 				joiner.add(token._morphId, space);
 			}
@@ -2647,20 +2432,20 @@ py::UniqueObj KiwiObject::join(PyObject* morphs, bool lmSearch, bool returnPosit
 		}
 		else if (PyTuple_Check(item) && PyTuple_Size(item) == 2)
 		{
-			const char* form = py::toCpp<const char*>(PyTuple_GET_ITEM(item, 0));
-			const char* tag = py::toCpp<const char*>(PyTuple_GET_ITEM(item, 1));
-			const char* p = strchr(tag, '-');
-			joiner.add(utf8To16(form), parseTag(tag), p ? false : true);
+			string form = py::toCpp<string>(PyTuple_GetItem(item, 0));
+			string tag = py::toCpp<string>(PyTuple_GetItem(item, 1));
+			const char* p = strchr(tag.c_str(), '-');
+			joiner.add(utf8To16(form), parseTag(tag.c_str()), p ? false : true);
 			prevHash = 0;
 			prevEnd = 0;
 		}
 		else if (PyTuple_Check(item) && PyTuple_Size(item) == 3)
 		{
-			const char* form = py::toCpp<const char*>(PyTuple_GET_ITEM(item, 0));
-			const char* tag = py::toCpp<const char*>(PyTuple_GET_ITEM(item, 1));
-			const char* p = strchr(tag, '-');
-			cmb::Space space = PyObject_IsTrue(PyTuple_GET_ITEM(item, 2)) ? cmb::Space::insert_space : cmb::Space::no_space;
-			joiner.add(utf8To16(form), parseTag(tag), p ? false : true, space);
+			string form = py::toCpp<string>(PyTuple_GetItem(item, 0));
+			string tag = py::toCpp<string>(PyTuple_GetItem(item, 1));
+			const char* p = strchr(tag.c_str(), '-');
+			cmb::Space space = PyObject_IsTrue(PyTuple_GetItem(item, 2)) ? cmb::Space::insert_space : cmb::Space::no_space;
+			joiner.add(utf8To16(form), parseTag(tag.c_str()), p ? false : true, space);
 			prevHash = 0;
 			prevEnd = 0;
 		}
@@ -2699,23 +2484,28 @@ py::UniqueObj KiwiObject::join(PyObject* morphs, bool lmSearch, bool returnPosit
 }
 
 template<class E>
-inline uint32_t convertToMorphId(const Kiwi& kiwi, PyObject* target, E&& errorMsg)
+inline uint32_t convertToMorphId(const Kiwi* kiwi, PyObject* target, E&& errorMsg)
 {
-	if (PyUnicode_Check(target) || (PyTuple_Check(target) && PyTuple_GET_SIZE(target) == 2))
+	if (PyUnicode_Check(target) || (PyTuple_Check(target) && (PyTuple_Size(target) == 2 || PyTuple_Size(target) == 3)))
 	{
 		u16string form;
 		POSTag tag = POSTag::unknown;
+		uint8_t senseId = undefSenseId;
 		if (PyUnicode_Check(target))
 		{
 			form = py::toCpp<u16string>(target);
 		}
 		else
 		{
-			form = py::toCpp<u16string>(PyTuple_GET_ITEM(target, 0));
-			tag = parseTag(py::toCpp<u16string>(PyTuple_GET_ITEM(target, 1)));
+			form = py::toCpp<u16string>(PyTuple_GetItem(target, 0));
+			tag = parseTag(py::toCpp<u16string>(PyTuple_GetItem(target, 1)));
+			if (PyTuple_Size(target) > 2)
+			{
+				senseId = py::toCpp<uint8_t>(PyTuple_GetItem(target, 2));
+			}
 		}
 
-		auto cands = kiwi.findMorphemes(form, tag);
+		auto cands = kiwi->findMorphemes(form, tag, senseId);
 		if (cands.empty())
 		{
 			throw py::ValueError{ "No morpheme found for the given form: " + utf16To8(form) };
@@ -2728,6 +2518,9 @@ inline uint32_t convertToMorphId(const Kiwi& kiwi, PyObject* target, E&& errorMs
 				errMsg += utf16To8(form);
 				errMsg.push_back('/');
 				errMsg += tagToString(c->tag);
+				errMsg.push_back('_');
+				errMsg.push_back('_');
+				errMsg += to_string(c->senseId);
 				errMsg.push_back(',');
 				errMsg.push_back(' ');
 			}
@@ -2747,36 +2540,37 @@ inline uint32_t convertToMorphId(const Kiwi& kiwi, PyObject* target, E&& errorMs
 	}
 }
 
-inline Vector<uint32_t> convertToIds(const Kiwi& kiwi, PyObject* iterable)
+inline Vector<uint32_t> convertToIds(const Kiwi* kiwi, PyObject* iterable)
 {
 	Vector<uint32_t> ids;
 	py::foreach<PyObject*>(iterable, [&](PyObject* item)
 	{
-		ids.emplace_back(convertToMorphId(kiwi, item, "`prefix` must be an instance of `str`, `Tuple[str, str]` or `int`."));
-	}, "`prefix` must be an iterable of `Tuple[str, str]` or `int`");
+		ids.emplace_back(convertToMorphId(kiwi, item, "`prefix` must be an instance of `str`, `Tuple[str, str]`, `Tuple[str, str, int]` or `int`."));
+	}, "`prefix` must be an iterable of `Tuple[str, str]`, `Tuple[str, str, int]` or `int`");
 	return ids;
 }
 
 py::UniqueObj KiwiObject::mostSimilarMorphemes(PyObject* retTy, PyObject* target, size_t topN)
 {
-	doPrepare();
-	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwi.getLangModel());
+	auto kiwiInst = doPrepare();
+	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwiInst->getLangModel());
 	if (!congLm)
 	{
 		throw py::ValueError{ "`most_similar_morphemes` is supported only for CoNgramModel." };
 	}
 
-	const uint32_t targetId = convertToMorphId(kiwi, target, "`target` must be an instance of `str`, `Tuple[str, str]` or `int`.");
+	const uint32_t targetId = convertToMorphId(kiwiInst.get(), target, "`target` must be an instance of `str`, `Tuple[str, str]`, `Tuple[str, str, int]` or `int`.");
 	Vector<pair<uint32_t, float>> output(topN);
 	output.resize(congLm->mostSimilarWords(targetId, topN, output.data()));
 	
 	py::UniqueObj ret{ PyList_New(output.size()) };
 	for (size_t i = 0; i < output.size(); ++i)
 	{
-		auto* morph = kiwi.idToMorph(output[i].first);
-		PyList_SET_ITEM(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
+		auto* morph = kiwiInst->idToMorph(output[i].first);
+		PyList_SetItem(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
 			joinHangul(morph->getForm()), 
 			tagToString(morph->tag),
+			morph->senseId,
 			output[i].first,
 			output[i].second
 		).get()));
@@ -2786,20 +2580,20 @@ py::UniqueObj KiwiObject::mostSimilarMorphemes(PyObject* retTy, PyObject* target
 
 py::UniqueObj KiwiObject::mostSimilarContexts(PyObject* retTy, PyObject* target, PyObject* contextId, size_t topN)
 {
-	doPrepare();
-	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwi.getLangModel());
+	auto kiwiInst = doPrepare();
+	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwiInst->getLangModel());
 	if (!congLm)
 	{
 		throw py::ValueError{ "`most_similar_contexts` is supported only for CoNgramModel." };
 	}
+	prepareContextMap(kiwiInst.get(), congLm);
 
 	Vector<uint32_t> targetIds;
 	if (target != Py_None)
 	{
-		targetIds = convertToIds(kiwi, target);
+		targetIds = convertToIds(kiwiInst.get(), target);
 	}
-	prepareContextMap(congLm);
-
+	
 	const uint32_t targetContextId = target == Py_None ?
 		PyLong_AsLong(contextId) :
 		congLm->toContextId(targetIds.data(), targetIds.size());
@@ -2814,7 +2608,7 @@ py::UniqueObj KiwiObject::mostSimilarContexts(PyObject* retTy, PyObject* target,
 	py::UniqueObj ret{ PyList_New(output.size()) };
 	for (size_t i = 0; i < output.size(); ++i)
 	{
-		auto* morph = kiwi.idToMorph(output[i].first);
+		auto* morph = kiwiInst->idToMorph(output[i].first);
 		auto& forms = contextForms[output[i].first];
 		auto& analysesData = contextAnalyses[output[i].first].first;
 		auto& analysesPtr = contextAnalyses[output[i].first].second;
@@ -2827,15 +2621,16 @@ py::UniqueObj KiwiObject::mostSimilarContexts(PyObject* retTy, PyObject* target,
 			py::UniqueObj morphs{ PyList_New(end - start) };
 			for (size_t k = start; k < end; ++k)
 			{
-				auto* morph = kiwi.idToMorph(analysesData[k]);
-				PyList_SET_ITEM(morphs.get(), k - start, py::buildPyTuple(
+				auto* morph = kiwiInst->idToMorph(analysesData[k]);
+				PyList_SetItem(morphs.get(), k - start, py::buildPyTuple(
 					joinHangul(morph->getForm()),
-					tagToString(morph->tag)
+					tagToString(morph->tag),
+					morph->senseId
 				).release());
 			}
-			PyList_SET_ITEM(analysisList.get(), j, morphs.release());
+			PyList_SetItem(analysisList.get(), j, morphs.release());
 		}
-		PyList_SET_ITEM(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
+		PyList_SetItem(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
 			forms,
 			analysisList.get(),
 			output[i].first,
@@ -2847,18 +2642,18 @@ py::UniqueObj KiwiObject::mostSimilarContexts(PyObject* retTy, PyObject* target,
 
 py::UniqueObj KiwiObject::predictNextMorpheme(PyObject* retTy, PyObject* prefix, PyObject* bgPrefix, float bgWeight, size_t topN)
 {
-	doPrepare();
-	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwi.getLangModel());
+	auto kiwiInst = doPrepare();
+	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwiInst->getLangModel());
 	if (!congLm)
 	{
 		throw py::ValueError{ "`predict_next_morpheme` is supported only for CoNgramModel." };
 	}
 
-	Vector<uint32_t> prefixIds = convertToIds(kiwi, prefix);
+	Vector<uint32_t> prefixIds = convertToIds(kiwiInst.get(), prefix);
 	Vector<uint32_t> bgPrefixIds;
 	if (bgPrefix != Py_None)
 	{
-		bgPrefixIds = convertToIds(kiwi, bgPrefix);
+		bgPrefixIds = convertToIds(kiwiInst.get(), bgPrefix);
 	}
 
 	const uint32_t prefixContextId = congLm->toContextId(prefixIds.data(), prefixIds.size());
@@ -2876,10 +2671,11 @@ py::UniqueObj KiwiObject::predictNextMorpheme(PyObject* retTy, PyObject* prefix,
 	py::UniqueObj ret{ PyList_New(output.size()) };
 	for (size_t i = 0; i < output.size(); ++i)
 	{
-		auto* morph = kiwi.idToMorph(output[i].first);
-		PyList_SET_ITEM(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
+		auto* morph = kiwiInst->idToMorph(output[i].first);
+		PyList_SetItem(ret.get(), i, PyObject_CallObject(retTy, py::buildPyTuple(
 			joinHangul(morph->getForm()),
 			tagToString(morph->tag),
+			morph->senseId,
 			output[i].first,
 			output[i].second
 		).get()));
@@ -2889,30 +2685,30 @@ py::UniqueObj KiwiObject::predictNextMorpheme(PyObject* retTy, PyObject* prefix,
 
 float KiwiObject::morphemeSimilarity(PyObject* a, PyObject* b)
 {
-	doPrepare();
-	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwi.getLangModel());
+	auto kiwiInst = doPrepare();
+	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwiInst->getLangModel());
 	if (!congLm)
 	{
 		throw py::ValueError{ "`morpheme_similarity` is supported only for CoNgramModel." };
 	}
 
-	const uint32_t aId = convertToMorphId(kiwi, a, "`morpheme1` must be an instance of `str`, `Tuple[str, str]` or `int`.");
-	const uint32_t bId = convertToMorphId(kiwi, b, "`morpheme2` must be an instance of `str`, `Tuple[str, str]` or `int`.");
+	const uint32_t aId = convertToMorphId(kiwiInst.get(), a, "`morpheme1` must be an instance of `str`, `Tuple[str, str]`, `Tuple[str, str, int]` or `int`.");
+	const uint32_t bId = convertToMorphId(kiwiInst.get(), b, "`morpheme2` must be an instance of `str`, `Tuple[str, str]`, `Tuple[str, str, int]` or `int`.");
 
 	return congLm->wordSimilarity(aId, bId);
 }
 
 float KiwiObject::contextSimilarity(PyObject* a, PyObject* b)
 {
-	doPrepare();
-	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwi.getLangModel());
+	auto kiwiInst = doPrepare();
+	auto congLm = dynamic_cast<const lm::CoNgramModelBase*>(kiwiInst->getLangModel());
 	if (!congLm)
 	{
 		throw py::ValueError{ "`morpheme_similarity` is supported only for CoNgramModel." };
 	}
 
-	const Vector<uint32_t> aId = convertToIds(kiwi, a);
-	const Vector<uint32_t> bId = convertToIds(kiwi, b);
+	const Vector<uint32_t> aId = convertToIds(kiwiInst.get(), a);
+	const Vector<uint32_t> bId = convertToIds(kiwiInst.get(), b);
 
 	const uint32_t aContextId = congLm->toContextId(aId.data(), aId.size());
 	const uint32_t bContextId = congLm->toContextId(bId.data(), bId.size());
@@ -2921,7 +2717,7 @@ float KiwiObject::contextSimilarity(PyObject* a, PyObject* b)
 
 void KiwiObject::convertHSData(
 	PyObject* inputPathes,
-	const char* outputPath,
+	const string& outputPath,
 	PyObject* morphemeDefPath,
 	size_t morphemeDefMinCnt,
 	bool generateOovDict,
@@ -2935,29 +2731,27 @@ void KiwiObject::convertHSData(
 		morphemeDefPathStr = py::toCpp<string>(morphemeDefPath);
 	}
 
-	vector<pair<pair<string, POSTag>, pair<string, POSTag>>> transformMap;
+	vector<pair<pair<string, POSTag>, vector<pair<string, POSTag>>>> transformMap;
 	if (transform && transform != Py_None)
 	{
-		py::UniqueObj iter{ PyObject_GetIter(transform) };
-		if (!iter) throw py::ValueError{ "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`." };
-		py::foreach<PyObject*>(iter.get(), [&](PyObject* item)
+		py::foreach<PyObject*>(transform, [&](PyObject* item)
 		{
-			if (PyTuple_Check(item) && PyTuple_Size(item) == 2)
+			pair<string, POSTag> key;
+			vector<pair<string, POSTag>> values;
+			py::foreach<pair<string, string>>(item, [&](const pair<string, string>& token)
 			{
-				auto a = py::toCpp<pair<string, string>>(PyTuple_GET_ITEM(item, 0));
-				auto b = py::toCpp<pair<string, string>>(PyTuple_GET_ITEM(item, 1));
-				POSTag aTag = parseTag(a.second.c_str());
-				POSTag bTag = parseTag(b.second.c_str());
-				transformMap.emplace_back(
-					make_pair(a.first, aTag),
-					make_pair(b.first, bTag)
-				);
-			}
-			else
-			{
-				throw py::ValueError{ "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`." };
-			}
-		}, "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`.");
+				const POSTag tag = parseTag(token.second.c_str());
+				if (key.first.empty())
+				{
+					key = make_pair(token.first, tag);
+				}
+				else
+				{
+					values.emplace_back(token.first, tag);
+				}
+			}, "`transform` must be an iterable of `List[Tuple[str, str]]`.");
+			transformMap.emplace_back(key, move(values));
+		}, "`transform` must be an iterable of `List[Tuple[str, str]]`.");
 	}
 
 	builder.convertHSData(py::toCpp<vector<string>>(inputPathes), 
@@ -2977,6 +2771,8 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 	float dropout, 
 	float dropoutOnHistory,
 	float nounAugmentingProb,
+	float emojiAugmentingProb,
+	float sbAugmentingProb,
 	size_t generateUnlikelihoods,
 	PyObject* tokenFilter, 
 	PyObject* windowFilter, 
@@ -3013,29 +2809,27 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 		};
 	}
 
-	vector<pair<pair<string, POSTag>, pair<string, POSTag>>> transformMap;
+	vector<pair<pair<string, POSTag>, vector<pair<string, POSTag>>>> transformMap;
 	if (transform && transform != Py_None)
 	{
-		py::UniqueObj iter{ PyObject_GetIter(transform) };
-		if (!iter) throw py::ValueError{ "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`." };
-		py::foreach<PyObject*>(iter.get(), [&](PyObject* item)
+		py::foreach<PyObject*>(transform, [&](PyObject* item)
 		{
-			if (PyTuple_Check(item) && PyTuple_Size(item) == 2)
+			pair<string, POSTag> key;
+			vector<pair<string, POSTag>> values;
+			py::foreach<pair<string, string>>(item, [&](const pair<string, string>& token)
 			{
-				auto a = py::toCpp<pair<string, string>>(PyTuple_GET_ITEM(item, 0));
-				auto b = py::toCpp<pair<string, string>>(PyTuple_GET_ITEM(item, 1));
-				POSTag aTag = parseTag(a.second.c_str());
-				POSTag bTag = parseTag(b.second.c_str());
-				transformMap.emplace_back(
-					make_pair(a.first, aTag), 
-					make_pair(b.first, bTag)
-				);
-			}
-			else
-			{
-				throw py::ValueError{ "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`." };
-			}
-		}, "`transform` must be an iterable of `Tuple[Tuple[str, str], Tuple[str, str]]`.");
+				const POSTag tag = parseTag(token.second.c_str());
+				if (key.first.empty())
+				{
+					key = make_pair(token.first, tag);
+				}
+				else
+				{
+					values.emplace_back(token.first, tag);
+				}
+			}, "`transform` must be an iterable of `List[Tuple[str, str]]`.");
+			transformMap.emplace_back(key, move(values));
+		}, "`transform` must be an iterable of `List[Tuple[str, str]]`.");
 	}
 
 	string morphemeDefPathStr;
@@ -3050,10 +2844,14 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 		causalContextSize, 
 		windowSize, 
 		numWorkers, 
-		dropout, 
-		dropoutOnHistory,
-		nounAugmentingProb,
-		generateUnlikelihoods,
+		HSDatasetOption {
+			dropout,
+			dropoutOnHistory,
+			nounAugmentingProb,
+			emojiAugmentingProb,
+			sbAugmentingProb,
+			generateUnlikelihoods,
+		},
 		tf, 
 		wf, 
 		splitRatio, 
@@ -3095,13 +2893,13 @@ py::UniqueObj KiwiObject::listAllScripts() const
 
 struct NgramExtractorObject : py::CObject<NgramExtractorObject>
 {
-	static constexpr const char* _name = "kiwipiepy._NgramExtractor";
-	static constexpr const char* _name_in_module = "_NgramExtractor";
-	static constexpr int _flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
-
 	using _InitArgs = std::tuple<PyObject*, bool>;
 
 	NgramExtractor ne;
+	std::shared_ptr<Kiwi> kiwiInst;
+#ifdef Py_GIL_DISABLED
+	std::unique_ptr<std::shared_mutex> rwMutex;
+#endif
 
 	NgramExtractorObject() = default;
 
@@ -3111,19 +2909,28 @@ struct NgramExtractorObject : py::CObject<NgramExtractorObject>
 		{
 			throw py::ValueError{ "`kiwi` must be an instance of `Kiwi`." };
 		}
-		((KiwiObject*)kiwi)->doPrepare();
-		ne = NgramExtractor{ ((KiwiObject*)kiwi)->kiwi, gatherLmScore };
+		kiwiInst = ((KiwiObject*)kiwi)->doPrepare();
+		ne = NgramExtractor{ *kiwiInst.get(), gatherLmScore};
+#ifdef Py_GIL_DISABLED
+		rwMutex = std::make_unique<std::shared_mutex>();
+#endif
 	}
 
 	size_t add(PyObject* texts)
 	{
 		if (PyUnicode_Check(texts))
 		{
+#ifdef Py_GIL_DISABLED
+			std::unique_lock lock{ *rwMutex };
+#endif
 			return ne.addText(py::toCpp<u16string>(texts));
 		}
 		else
 		{
 			py::UniqueObj iter{ PyObject_GetIter(texts) };
+#ifdef Py_GIL_DISABLED
+			std::unique_lock lock{ *rwMutex };
+#endif
 			auto ret = ne.addTexts([&]()
 			{
 				py::UniqueObj text{ PyIter_Next(iter.get()) };
@@ -3142,6 +2949,9 @@ struct NgramExtractorObject : py::CObject<NgramExtractorObject>
 
 	py::UniqueObj extract(PyObject* retTy, size_t maxCandidates, size_t minCnt, size_t maxLength, float minScore, size_t numWorkers)
 	{
+#ifdef Py_GIL_DISABLED
+		std::shared_lock lock{ *rwMutex };
+#endif
 		auto ret = ne.extract(maxCandidates, minCnt, maxLength, minScore, numWorkers);
 		py::UniqueObj retList{ PyList_New(0) };
 		for (auto& r : ret)
@@ -3161,32 +2971,139 @@ struct NgramExtractorObject : py::CObject<NgramExtractorObject>
 	}
 };
 
-py::TypeWrapper<NgramExtractorObject> _NgramExtractorSetter{ gModule, [](PyTypeObject& obj)
-{
-	static PyMethodDef methods[] =
-	{
-		{ "add", PY_METHOD(&NgramExtractorObject::add), METH_VARARGS | METH_KEYWORDS, ""},
-		{ "extract", PY_METHOD(&NgramExtractorObject::extract), METH_VARARGS | METH_KEYWORDS, ""},
-		{ nullptr }
-	};
-	obj.tp_methods = methods;
-
-	static PyGetSetDef getsets[] =
-	{
-		{ nullptr },
-	};
-	obj.tp_getset = getsets;
-} };
-
-
 PyMODINIT_FUNC PyInit__kiwipiepy()
 {
-	import_array();
 	py::CustomExcHandler::add<kiwi::IOException, py::OSError>();
+	py::CustomExcHandler::add<kiwi::SerializationException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::FormatException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::UnicodeException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::UnknownMorphemeException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::SwTokenizerException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::Exception, py::Exception>();
-	return gModule.init();
+
+	return gModule.init(
+		py::define<TypoTransformerObject>("kiwipiepy._TypoTransformer", "_TypoTransformer", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&TypoTransformerObject::generate>("generate")
+		.template method<&TypoTransformerObject::copy>("copy")
+		.template method<&TypoTransformerObject::update>("update")
+		.template method<&TypoTransformerObject::scaleCost>("scale_cost")
+		.template property<&TypoTransformerObject::getContinualTypoCost>("_continual_typo_cost")
+		.template property<&TypoTransformerObject::getLengtheningTypoCost>("_lengthening_typo_cost")
+		.template property<&TypoTransformerObject::getDefs>("_defs"),
+
+		py::define<HSDatasetObject>("kiwipiepy._HSDataset", "_HSDataset", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&HSDatasetObject::getVocabInfo>("get_vocab_info")
+		.template method<&HSDatasetObject::getSent>("get_sent")
+		.template method<&HSDatasetObject::estimVocabFrequency>("estim_vocab_frequency")
+		.template method<&HSDatasetObject::extractPrefixes>("extract_prefixes")
+		.template property<&HSDatasetObject::getVocabSize>("vocab_size")
+		.template property<&HSDatasetObject::getKnlmVocabSize>("knlm_vocab_size")
+		.template property<&HSDatasetObject::getNgramNodeSize>("ngram_node_size")
+		.template property<&HSDatasetObject::getBatchSize>("batch_size")
+		.template property<&HSDatasetObject::getWindowSize>("window_size")
+		.template property<&HSDatasetObject::numSents>("num_sents")
+		.template property<&HSDatasetObject::getWindowTokenValidness>("window_token_validness")
+		.template sqLen<&HSDatasetObject::len>(),
+
+		py::define<HSDatasetIterObject>("kiwipiepy._HSDatasetIter", "_HSDatasetIter", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE),
+
+		py::define<KNLangModelNextTokensResultObject>("kiwipiepy._KNLangModelNextTokensResult", "_KNLangModelNextTokensResult")
+		.template sqLen<&KNLangModelNextTokensResultObject::len>()
+		.template sqGetItem<&KNLangModelNextTokensResultObject::getitem>(),
+
+		py::define<KNLangModelEvaluateResultObject>("kiwipiepy._KNLangModelEvaluateResult", "_KNLangModelEvaluateResult")
+		.template method<&KNLangModelEvaluateResultObject::dir>("__dir__")
+		.template mpLen<&KNLangModelEvaluateResultObject::len>()
+		.template mpGetItem<&KNLangModelEvaluateResultObject::getitem>()
+		.template getAttrO<&KNLangModelEvaluateResultObject::getattr>(),
+
+		py::define<KNLangModelObject>("kiwipiepy._KNLangModel", "_KNLangModel", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template staticMethod<&KNLangModelObject::fromArrays>("from_arrays")
+		.template staticMethod<&KNLangModelObject::load>("load")
+		.template method<&KNLangModelObject::save>("save")
+		.template method<&KNLangModelObject::nextTokens>("next_tokens")
+		.template method<&KNLangModelObject::evaluate>("evaluate")
+		.template property<&KNLangModelObject::ngramSize>("_ngram_size")
+		.template property<&KNLangModelObject::vocabSize>("_vocab_size")
+		.template property<&KNLangModelObject::numNodes>("_num_nodes")
+		.template property<&KNLangModelObject::numWorkers>("_num_workers"),
+
+		py::define<KiwiObject>("kiwipiepy._Kiwi", "_Kiwi", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&KiwiObject::addUserWord>("add_user_word")
+		.template method<&KiwiObject::addPreAnalyzedWord>("add_pre_analyzed_word")
+		.template method<&KiwiObject::addRule>("add_rule")
+		.template method<&KiwiObject::loadUserDictionary>("load_user_dictionary")
+		.template method<&KiwiObject::extractWords>("extract_words")
+		.template method<&KiwiObject::extractAddWords>("extract_add_words")
+		.template method<&KiwiObject::analyze>("analyze")
+		.template method<&KiwiObject::getMorpheme>("morpheme")
+		.template method<&KiwiObject::join>("join")
+		.template method<&KiwiObject::convertHSData>("convert_hsdata")
+		.template method<&KiwiObject::makeHSDataset>("make_hsdataset")
+		.template method<&KiwiObject::listAllScripts>("list_all_scripts")
+		.template method<&KiwiObject::mostSimilarMorphemes>("most_similar_morphemes")
+		.template method<&KiwiObject::mostSimilarContexts>("most_similar_contexts")
+		.template method<&KiwiObject::predictNextMorpheme>("predict_next_morpheme")
+		.template method<&KiwiObject::morphemeSimilarity>("morpheme_similarity")
+		.template method<&KiwiObject::contextSimilarity>("context_similarity")
+		.template property<&KiwiObject::getGlobalConfig, &KiwiObject::setGlobalConfig>("__global_config")
+		.template property<&KiwiObject::typoCostThreshold, &KiwiObject::typoCostThreshold>("_typo_cost_threshold")
+		.template property<&KiwiObject::getNumWorkers>("_num_workers")
+		.template property<&KiwiObject::getModelType>("_model_type"),
+
+		py::define<TokenObject>("kiwipiepy.Token", "Token")
+		.template property<&TokenObject::_form>("form")
+		.template property<&TokenObject::_tag>("tag")
+		.template property<&TokenObject::_pos>("start")
+		.template property<&TokenObject::_len>("len")
+		.template property<&TokenObject::end>("end")
+		.template property<&TokenObject::span>("span")
+		.template property<&TokenObject::_morphId>("id")
+		.template property<&TokenObject::_wordPosition>("word_position")
+		.template property<&TokenObject::_sentPosition>("sent_position")
+		.template property<&TokenObject::_subSentPosition>("sub_sent_position")
+		.template property<&TokenObject::_lineNumber>("line_number")
+		.template property<&TokenObject::baseForm>("base_form")
+		.template property<&TokenObject::baseId>("base_id")
+		.template property<&TokenObject::taggedForm>("tagged_form")
+		.template property<&TokenObject::formTag>("form_tag")
+		.template property<&TokenObject::_score>("score")
+		.template property<&TokenObject::_typoCost>("typo_cost")
+		.template property<&TokenObject::_raw_form>("raw_form")
+		.template property<&TokenObject::regularity>("regularity")
+		.template property<&TokenObject::lemma>("lemma")
+		.template property<&TokenObject::_pairedToken>("paired_token")
+		.template property<&TokenObject::_userValue>("user_value")
+		.template property<&TokenObject::script>("script")
+		.template property<&TokenObject::_sense>("sense")
+		.template property<&TokenObject::_dialect>("dialect")
+		.template sqLen<&TokenObject::len>()
+		.template sqGetItem<&TokenObject::getitem>(),
+
+		py::define<MorphemeSetObject>("kiwipiepy._MorphemeSet", "_MorphemeSet", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&MorphemeSetObject::update>("_update"),
+
+		py::define<SwTokenizerObject>("kiwipiepy._SwTokenizer", "_SwTokenizer", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&SwTokenizerObject::encode>("encode")
+		.template method<&SwTokenizerObject::encodeFromMorphs>("encode_from_morphs")
+		.template method<&SwTokenizerObject::tokenizeAndEncode>("tokenize_encode")
+		.template method<&SwTokenizerObject::decode>("decode")
+		.template staticMethod<&SwTokenizerObject::train>("_train")
+		.template method<&SwTokenizerObject::save>("save")
+		.template property<&SwTokenizerObject::config>("_config")
+		.template property<&SwTokenizerObject::vocab>("_vocab")
+		.template property<&SwTokenizerObject::kiwi>("_kiwi")
+		.template sqLen<&SwTokenizerObject::len>(),
+
+		py::define<KiwiResIter>("kiwipiepy._ResIter", "_ResIter"),
+
+		py::define<SwTokenizerResIter>("kiwipiepy._SwTokenizerResIter", "_SwTokenizerResIter"),
+
+		py::define<SwTokenizerResTEIter>("kiwipiepy._SwTokenizerResTEIter", "_SwTokenizerResTEIter"),
+
+		py::define<NgramExtractorObject>("kiwipiepy._NgramExtractor", "_NgramExtractor", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&NgramExtractorObject::add>("add")
+		.template method<&NgramExtractorObject::extract>("extract")
+		.template staticMethod<&pyExtractSubstrings>("_extract_substrings")
+	);
 }

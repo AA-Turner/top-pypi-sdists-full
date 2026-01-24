@@ -107,8 +107,10 @@ def validate(
         errors.append(error)
         return errors
 
-    for validation_error in validator(schema).iter_errors(data):  # type: ignore[call-arg]
-        if isinstance(validation_error, jsonschema.ValidationError):
+    for validation_error in validator(schema).iter_errors(data):
+        if isinstance(
+            validation_error, jsonschema.ValidationError
+        ):  # pragma: no branch
             error = JsonSchemaError(
                 message=validation_error.message,
                 data_path=to_path(validation_error.absolute_path),

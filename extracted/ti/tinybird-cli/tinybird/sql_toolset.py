@@ -1,12 +1,14 @@
 import copy
 import logging
 import re
+import threading
 from collections import defaultdict
 from datetime import datetime
 from functools import lru_cache
 from typing import FrozenSet, List, Optional, Set, Tuple, Union
 
 from chtoolset import query as chquery
+from lru import LRU
 from toposort import toposort
 
 from tinybird.ch_utils.constants import COPY_ENABLED_TABLE_FUNCTIONS, ENABLED_TABLE_FUNCTIONS
@@ -144,7 +146,135 @@ def format_where_for_mutation_command(where_clause: str) -> str:
     return f"DELETE WHERE {quoted_condition[1:-1]}"
 
 
-@lru_cache(maxsize=2**13)
+# Functions that take table/dictionary names as string literal arguments.
+# Normalizing these would cause incorrect cache hits since different table names
+# would map to the same cache key.
+# See: https://clickhouse.com/docs/en/sql-reference/functions/other-functions#joinget
+#      https://clickhouse.com/docs/en/sql-reference/functions/ext-dict-functions
+#      https://clickhouse.com/docs/en/sql-reference/table-functions/cluster
+#      https://clickhouse.com/docs/en/sql-reference/table-functions/remote
+_FUNCTIONS_WITH_TABLE_NAME_ARGS = re.compile(
+    r"\b(?:joinGet|joinGetOrNull|dictGet\w*|dictHas|dictIsIn|hasColumnInTable|remote|cluster|clusterAllReplicas)\s*\(",
+    re.IGNORECASE,
+)
+
+
+def _normalize_sql_for_cache(sql: str) -> str:
+    """Normalize SQL for cache key purposes.
+
+    Uses normalize_query_keep_names which replaces literal values with placeholders
+    while preserving table/column names, so queries with the same structure share
+    cache entries.
+
+    However, some functions like joinGet(), dictGet*, remote(), cluster(), and
+    clusterAllReplicas() take table/dictionary names as arguments. Normalizing these
+    would incorrectly map different tables to the same cache key, so we fall back to
+    using the original SQL for such queries.
+
+    >>> _normalize_sql_for_cache("SELECT * FROM events WHERE id = 'alice'")
+    'SELECT * FROM events WHERE id = ?'
+    >>> _normalize_sql_for_cache("SELECT * FROM events WHERE id = 123 AND name = 'bob'")
+    'SELECT * FROM events WHERE id = ? AND name = ?'
+    >>> _normalize_sql_for_cache("SELECT * FROM events")
+    'SELECT * FROM events'
+    >>> _normalize_sql_for_cache("SELECT joinGet('my_table', 'col', id) FROM t")
+    "SELECT joinGet('my_table', 'col', id) FROM t"
+    >>> _normalize_sql_for_cache("SELECT dictGet('my_dict', 'value', id) FROM t")
+    "SELECT dictGet('my_dict', 'value', id) FROM t"
+    >>> _normalize_sql_for_cache("SELECT * FROM remote('host', db, table)")
+    "SELECT * FROM remote('host', db, table)"
+    >>> _normalize_sql_for_cache("SELECT * FROM cluster('cluster_name', db, table)")
+    "SELECT * FROM cluster('cluster_name', db, table)"
+    >>> _normalize_sql_for_cache("not valid sql at all")
+    'not valid sql at all'
+    """
+    # Skip normalization for queries with functions that have table names as arguments
+    if _FUNCTIONS_WITH_TABLE_NAME_ARGS.search(sql):
+        return sql
+
+    try:
+        return chquery.normalize_query_keep_names(sql)
+    except Exception:
+        return sql
+
+
+# Cache for sql_get_used_tables using normalized SQL as key.
+# Uses lru-dict (C extension) for a fast LRU implementation.
+_sql_get_used_tables_cache: LRU = LRU(2**15)
+_sql_get_used_tables_cache_lock = threading.Lock()
+_sql_get_used_tables_cache_hits = 0
+_sql_get_used_tables_cache_misses = 0
+
+
+def sql_get_used_tables_cache_info() -> dict:
+    """Return cache statistics for sql_get_used_tables."""
+    with _sql_get_used_tables_cache_lock:
+        return {
+            "hits": _sql_get_used_tables_cache_hits,
+            "misses": _sql_get_used_tables_cache_misses,
+            "size": len(_sql_get_used_tables_cache),
+            "maxsize": _sql_get_used_tables_cache.get_size(),
+        }
+
+
+def sql_get_used_tables_cache_clear() -> None:
+    """Clear the sql_get_used_tables cache."""
+    global _sql_get_used_tables_cache_hits, _sql_get_used_tables_cache_misses
+    with _sql_get_used_tables_cache_lock:
+        _sql_get_used_tables_cache.clear()
+        _sql_get_used_tables_cache_hits = 0
+        _sql_get_used_tables_cache_misses = 0
+
+
+def _sql_get_used_tables_impl(
+    sql: str,
+    raising: bool,
+    default_database: str,
+    table_functions: bool,
+    function_allow_list: Optional[FrozenSet[str]],
+    function_deny_list: Optional[FrozenSet[str]],
+    settings_allow_list: Optional[FrozenSet[str]],
+    settings_deny_list: Optional[FrozenSet[str]],
+) -> tuple[List[Tuple[str, str, str]], bool]:
+    """Extract tables from SQL (uncached implementation).
+
+    Returns a tuple of (result, cacheable) where cacheable indicates whether the
+    result is safe to store in the cache.
+    """
+    try:
+        _function_allow_list = list() if function_allow_list is None else list(function_allow_list)
+        _function_deny_list = list() if function_deny_list is None else list(function_deny_list)
+        _settings_allow_list = list() if settings_allow_list is None else list(settings_allow_list)
+        _settings_deny_list = list() if settings_deny_list is None else list(settings_deny_list)
+
+        tables: List[Tuple[str, str, str]] = chquery.tables(
+            sql,
+            default_database=default_database,
+            function_allow_list=_function_allow_list,
+            function_deny_list=_function_deny_list,
+            query_settings_allow_list=_settings_allow_list,
+            query_settings_deny_list=_settings_deny_list,
+        )
+        if not table_functions:
+            tables = [(t[0], t[1], "") for t in tables if t[0] or t[1]]
+
+        return tables, True
+    except ValueError as e:
+        if raising:
+            msg = str(e)
+            if "is restricted. Contact support@tinybird.co" in msg:
+                raise InvalidFunction(msg=msg) from e
+            elif "Unknown function tb_secret" in msg:
+                raise InvalidFunction(msg="Unknown function tb_secret. Usage: {{tb_secret('secret_name')}}") from e
+            elif "Unknown function tb_var" in msg:
+                raise InvalidFunction(msg="Unknown function tb_var. Usage: {{tb_var('var_name')}}") from e
+            raise
+        # Do not cache this fallback result: the returned sql string can contain
+        # sensitive literal values, and the normalized cache key could collide
+        # across different queries.
+        return [(default_database, sql, "")], False
+
+
 def sql_get_used_tables_cached(
     sql: str,
     raising: bool = False,
@@ -152,10 +282,17 @@ def sql_get_used_tables_cached(
     table_functions: bool = True,
     function_allow_list: Optional[FrozenSet[str]] = None,
     function_deny_list: Optional[FrozenSet[str]] = None,
+    settings_allow_list: Optional[FrozenSet[str]] = None,
+    settings_deny_list: Optional[FrozenSet[str]] = None,
 ) -> List[Tuple[str, str, str]]:
     """More like: get used sql names
 
     Returns a list of tuples: (database_or_namespace, table_name, table_func).
+
+    Uses normalized SQL as cache key to improve hit ratio for templated queries.
+    The normalization replaces literal values with placeholders while preserving
+    table/column names, so queries with the same structure share cache entries.
+
     >>> sql_get_used_tables("SELECT 1 FROM the_table")
     [('', 'the_table', '')]
     >>> sql_get_used_tables("SELECT 1 FROM the_database.the_table")
@@ -173,30 +310,47 @@ def sql_get_used_tables_cached(
     >>> sql_get_used_tables("SELECT * FROM `d_d3926a`.`t_976af08ec4b547419e729c63e754b17b`", table_functions=False)
     [('d_d3926a', 't_976af08ec4b547419e729c63e754b17b', '')]
     """
-    try:
-        _function_allow_list = list() if function_allow_list is None else list(function_allow_list)
-        _function_deny_list = list() if function_deny_list is None else list(function_deny_list)
+    global _sql_get_used_tables_cache_hits, _sql_get_used_tables_cache_misses
 
-        tables: List[Tuple[str, str, str]] = chquery.tables(
-            sql,
-            default_database=default_database,
-            function_allow_list=_function_allow_list,
-            function_deny_list=_function_deny_list,
-        )
-        if not table_functions:
-            return [(t[0], t[1], "") for t in tables if t[0] or t[1]]
-        return tables
-    except ValueError as e:
-        if raising:
-            msg = str(e)
-            if "is restricted. Contact support@tinybird.co" in msg:
-                raise InvalidFunction(msg=msg) from e
-            elif "Unknown function tb_secret" in msg:
-                raise InvalidFunction(msg="Unknown function tb_secret. Usage: {{tb_secret('secret_name')}}") from e
-            elif "Unknown function tb_var" in msg:
-                raise InvalidFunction(msg="Unknown function tb_var. Usage: {{tb_var('var_name')}}") from e
-            raise
-        return [(default_database, sql, "")]
+    # Build cache key using normalized SQL
+    normalized_sql = _normalize_sql_for_cache(sql)
+    cache_key = (
+        normalized_sql,
+        raising,
+        default_database,
+        table_functions,
+        function_allow_list,
+        function_deny_list,
+        settings_allow_list,
+        settings_deny_list,
+    )
+
+    # Single lookup with hit/miss tracking
+    with _sql_get_used_tables_cache_lock:
+        cached_value = _sql_get_used_tables_cache.get(cache_key)
+        if cached_value is not None:
+            _sql_get_used_tables_cache_hits += 1
+            return cached_value
+        _sql_get_used_tables_cache_misses += 1
+
+    # Compute outside lock to avoid blocking other threads
+    result, cacheable = _sql_get_used_tables_impl(
+        sql,
+        raising,
+        default_database,
+        table_functions,
+        function_allow_list,
+        function_deny_list,
+        settings_allow_list,
+        settings_deny_list,
+    )
+
+    if cacheable:
+        # Store result in cache
+        with _sql_get_used_tables_cache_lock:
+            _sql_get_used_tables_cache.setdefault(cache_key, result)
+
+    return result
 
 
 def sql_get_used_tables(
@@ -206,6 +360,8 @@ def sql_get_used_tables(
     table_functions: bool = True,
     function_allow_list: Optional[FrozenSet[str]] = None,
     function_deny_list: Optional[FrozenSet[str]] = None,
+    settings_allow_list: Optional[FrozenSet[str]] = None,
+    settings_deny_list: Optional[FrozenSet[str]] = None,
 ) -> List[Tuple[str, str, str]]:
     """More like: get used sql names
 
@@ -213,7 +369,8 @@ def sql_get_used_tables(
     """
     function_allow_hashable_list = frozenset() if function_allow_list is None else function_allow_list
     function_deny_hashable_list = frozenset() if function_deny_list is None else function_deny_list
-
+    settings_allow_hashable_list = frozenset() if settings_allow_list is None else settings_allow_list
+    settings_deny_hashable_list = frozenset() if settings_deny_list is None else settings_deny_list
     return copy.copy(
         sql_get_used_tables_cached(
             sql,
@@ -222,6 +379,8 @@ def sql_get_used_tables(
             table_functions,
             function_allow_list=function_allow_hashable_list,
             function_deny_list=function_deny_hashable_list,
+            settings_allow_list=settings_allow_hashable_list,
+            settings_deny_list=settings_deny_hashable_list,
         )
     )
 
@@ -301,7 +460,7 @@ def replacements_to_tuples(replacements: dict) -> dict:
     return parsed_replacements
 
 
-@lru_cache(maxsize=2**13)
+@lru_cache(maxsize=2**15)
 def replace_tables_chquery_cached(
     sql: str,
     sorted_replacements: Optional[tuple] = None,
@@ -309,16 +468,18 @@ def replace_tables_chquery_cached(
     output_one_line: bool = False,
     timestamp: Optional[datetime] = None,
     function_allow_list: Optional[FrozenSet[str]] = None,
+    settings_allow_list: Optional[FrozenSet[str]] = None,
 ) -> str:
     replacements = dict(sorted_replacements) if sorted_replacements else {}
     _function_allow_list = list() if function_allow_list is None else list(function_allow_list)
-
+    _settings_allow_list = list() if settings_allow_list is None else list(settings_allow_list)
     return chquery.replace_tables(
         sql,
         replacements,
         default_database=default_database,
         one_line=output_one_line,
         function_allow_list=_function_allow_list,
+        query_settings_allow_list=_settings_allow_list,
     )
 
 
@@ -332,6 +493,7 @@ def replace_tables(
     output_one_line: bool = False,
     timestamp: Optional[datetime] = None,
     function_allow_list: Optional[FrozenSet[str]] = None,
+    settings_allow_list: Optional[FrozenSet[str]] = None,
     original_replacements: Optional[dict] = None,
 ) -> str:
     """
@@ -340,10 +502,16 @@ def replace_tables(
     It also validates the sql to verify it's valid and doesn't use unknown or prohibited functions
     """
     hashable_list = frozenset() if function_allow_list is None else function_allow_list
+    hashable_settings_list = frozenset() if settings_allow_list is None else settings_allow_list
     if not replacements:
         # Always call replace_tables to do validation and formatting
         return replace_tables_chquery_cached(
-            sql, None, output_one_line=output_one_line, timestamp=timestamp, function_allow_list=hashable_list
+            sql,
+            None,
+            output_one_line=output_one_line,
+            timestamp=timestamp,
+            function_allow_list=hashable_list,
+            settings_allow_list=hashable_settings_list,
         )
 
     _replaced_with = set()
@@ -366,6 +534,7 @@ def replace_tables(
         raising=True,
         table_functions=check_functions,
         function_allow_list=function_allow_list,
+        settings_allow_list=settings_allow_list,
     )
     seen_tables = set()
     table: Union[Tuple[str, str], Tuple[str, str, str]]
@@ -411,7 +580,12 @@ def replace_tables(
 
     if not deps_sorted:
         return replace_tables_chquery_cached(
-            sql, None, output_one_line=output_one_line, timestamp=timestamp, function_allow_list=hashable_list
+            sql,
+            None,
+            output_one_line=output_one_line,
+            timestamp=timestamp,
+            function_allow_list=hashable_list,
+            settings_allow_list=hashable_settings_list,
         )
 
     for current_deps in deps_sorted:
@@ -450,10 +624,16 @@ def replace_tables(
                 output_one_line=output_one_line,
                 timestamp=timestamp,
                 function_allow_list=hashable_list,
+                settings_allow_list=hashable_settings_list,
             )
         else:
             sql = replace_tables_chquery_cached(
-                sql, None, output_one_line=output_one_line, timestamp=timestamp, function_allow_list=hashable_list
+                sql,
+                None,
+                output_one_line=output_one_line,
+                timestamp=timestamp,
+                function_allow_list=hashable_list,
+                settings_allow_list=hashable_settings_list,
             )
 
     # Fix for empty database names in JOINs - remove empty backticks like ``.table_name

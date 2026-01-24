@@ -1,11 +1,19 @@
 #include <simpledbus/advanced/Interface.h>
+#include <simpledbus/advanced/Proxy.h>
 #include <simpledbus/base/Exceptions.h>
+#include <simpledbus/interfaces/Properties.h>
 
 using namespace SimpleDBus;
 
-Interface::Interface(std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path,
-                     const std::string& interface_name)
-    : _conn(conn), _bus_name(bus_name), _path(path), _interface_name(interface_name), _loaded(true) {}
+Interface::Interface(std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> proxy, const std::string& interface_name)
+    : _conn(conn),
+      _proxy(proxy),
+      _bus_name(proxy->bus_name()),
+      _path(proxy->path()),
+      _interface_name(interface_name),
+      _loaded(true) {}
+
+std::shared_ptr<Proxy> Interface::proxy() const { return _proxy.lock(); }
 
 // ----- LIFE CYCLE -----
 
@@ -38,88 +46,33 @@ Message Interface::create_method_call(const std::string& method_name) {
 
 // ----- PROPERTIES -----
 
-Holder Interface::property_collect() {
-    std::scoped_lock lock(_property_update_mutex);
-    SimpleDBus::Holder properties = SimpleDBus::Holder::create_dict();
-    for (const auto& [key, value] : _properties) {
-        properties.dict_append(SimpleDBus::Holder::Type::STRING, key, value);
-    }
-    return properties;
-}
-
-Holder Interface::property_collect_single(const std::string& property_name) {
-    std::scoped_lock lock(_property_update_mutex);
-    // TODO: Check if property exists
-    return _properties[property_name];
-}
-
-void Interface::property_modify(const std::string& property_name, const Holder& value) {
-    std::scoped_lock lock(_property_update_mutex);
-    _properties[property_name] = value;
-    property_changed(property_name);
-}
-
-Holder Interface::property_get_all() {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "GetAll");
-
-    Holder h_interface = Holder::create_string(_interface_name);
-    query_msg.append_argument(h_interface, "s");
-
-    Message reply_msg = _conn->send_with_reply_and_block(query_msg);
-    Holder result = reply_msg.extract();
-    return result;
-}
-
-Holder Interface::property_get(const std::string& property_name) {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "Get");
-
-    Holder h_interface = Holder::create_string(_interface_name);
-    query_msg.append_argument(h_interface, "s");
-
-    Holder h_name = Holder::create_string(property_name);
-    query_msg.append_argument(h_name, "s");
-
-    Message reply_msg = _conn->send_with_reply_and_block(query_msg);
-    Holder result = reply_msg.extract();
-    return result;
-}
-
-void Interface::property_set(const std::string& property_name, const Holder& value) {
-    Message query_msg = Message::create_method_call(_bus_name, _path, "org.freedesktop.DBus.Properties", "Set");
-
-    Holder h_interface = Holder::create_string(_interface_name);
-    query_msg.append_argument(h_interface, "s");
-
-    Holder h_name = Holder::create_string(property_name);
-    query_msg.append_argument(h_name, "s");
-
-    query_msg.append_argument(value, "v");
-
-    _conn->send_with_reply_and_block(query_msg);
-}
-
 void Interface::property_refresh(const std::string& property_name) {
     if (!_loaded || !_property_valid_map[property_name]) {
         return;
     }
 
     bool cb_property_changed_required = false;
-    _property_update_mutex.lock();
+
     try {
         // NOTE: Due to the way Bluez handles underlying devices and the fact that
         //       they can be removed before the callback reaches back (race condition),
         //       `property_get` can sometimes fail. Because of this, the update
         //       statement is surrounded by a try-catch statement.
-        Holder property_latest = property_get(property_name);
+        auto properties_interface = std::dynamic_pointer_cast<SimpleDBus::Interfaces::Properties>(proxy()->interface_get("org.freedesktop.DBus.Properties"));
+        Holder property_latest = properties_interface->Get(_interface_name, property_name);
+
+        _property_update_mutex.lock();
         _property_valid_map[property_name] = true;
         if (_properties[property_name] != property_latest) {
             _properties[property_name] = property_latest;
             cb_property_changed_required = true;
         }
+        _property_update_mutex.unlock();
     } catch (const Exception::SendFailed& e) {
+        _property_update_mutex.lock();
         _property_valid_map[property_name] = true;
+        _property_update_mutex.unlock();
     }
-    _property_update_mutex.unlock();
 
     if (cb_property_changed_required) {
         property_changed(property_name);

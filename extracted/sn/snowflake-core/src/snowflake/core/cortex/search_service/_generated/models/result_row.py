@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ResultRow(BaseModel):
@@ -35,9 +35,10 @@ class ResultRow(BaseModel):
 
     __properties = ["columns"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -62,7 +63,7 @@ class ResultRow(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -77,9 +78,9 @@ class ResultRow(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ResultRow.parse_obj(obj)
+            return ResultRow.model_validate(obj)
 
-        _obj = ResultRow.parse_obj(
+        _obj = ResultRow.model_validate(
             {
                 "columns": obj.get("columns"),
             }

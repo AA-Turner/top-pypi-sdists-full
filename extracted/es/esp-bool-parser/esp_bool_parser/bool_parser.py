@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022-2025 Espressif Systems (Shanghai) CO LTD
+# SPDX-FileCopyrightText: 2022-2026 Espressif Systems (Shanghai) CO LTD
 # SPDX-License-Identifier: Apache-2.0
 import operator
 import os
@@ -19,17 +19,24 @@ from pyparsing import (
     Suppress,
     Word,
     alphas,
-    delimitedList,
     hexnums,
-    infixNotation,
     nums,
     opAssoc,
 )
 
 from .utils import (
+    _IS_OLD_PYPARSING,
     InvalidInput,
+    pp_parse_string,
+    pp_set_parse_action,
     to_version,
 )
+
+if _IS_OLD_PYPARSING:
+    from pyparsing import delimitedList as DelimitedList
+    from pyparsing import infixNotation as infix_notation
+else:
+    from pyparsing import DelimitedList, infix_notation
 
 
 class Stmt:
@@ -200,34 +207,33 @@ class BoolAnd(BoolExpr):
         return all(stmt.get_value(target, config_name) for stmt in self.bool_stmts)
 
 
-CAP_WORD = Word(alphas.upper(), nums + alphas.upper() + '_').setParseAction(ChipAttr)
+CAP_WORD = pp_set_parse_action(Word(alphas.upper(), nums + alphas.upper() + '_'))(ChipAttr)
 
 DECIMAL_NUMBER = Word(nums)
 HEX_NUMBER = Literal('0x') + Word(hexnums)
-INTEGER = (HEX_NUMBER | DECIMAL_NUMBER).setParseAction(Integer)
+INTEGER = pp_set_parse_action(HEX_NUMBER | DECIMAL_NUMBER)(Integer)
 
-STRING = QuotedString('"').setParseAction(String)
+STRING = pp_set_parse_action(QuotedString('"'))(String)
 
-LIST = Suppress('[') + delimitedList(INTEGER | STRING).setParseAction(List_) + Suppress(']')
+LIST = Suppress('[') + pp_set_parse_action(DelimitedList(INTEGER | STRING))(List_) + Suppress(']')
 
 BOOL_OPERAND = CAP_WORD | INTEGER | STRING | LIST
 
-EQ = Keyword('==').setParseAction(lambda t: t[0])
-NE = Keyword('!=').setParseAction(lambda t: t[0])
-LE = Keyword('<=').setParseAction(lambda t: t[0])
-LT = Keyword('<').setParseAction(lambda t: t[0])
-GE = Keyword('>=').setParseAction(lambda t: t[0])
-GT = Keyword('>').setParseAction(lambda t: t[0])
-NOT_IN = Keyword('not in').setParseAction(lambda t: t[0])
-IN = Keyword('in').setParseAction(lambda t: t[0])
+EQ = pp_set_parse_action(Keyword('=='))(lambda t: t[0])
+NE = pp_set_parse_action(Keyword('!='))(lambda t: t[0])
+LE = pp_set_parse_action(Keyword('<='))(lambda t: t[0])
+LT = pp_set_parse_action(Keyword('<'))(lambda t: t[0])
+GE = pp_set_parse_action(Keyword('>='))(lambda t: t[0])
+GT = pp_set_parse_action(Keyword('>'))(lambda t: t[0])
+NOT_IN = pp_set_parse_action(Keyword('not in'))(lambda t: t[0])
+IN = pp_set_parse_action(Keyword('in'))(lambda t: t[0])
 
-BOOL_STMT = BOOL_OPERAND + (EQ | NE | LE | LT | GE | GT | NOT_IN | IN) + BOOL_OPERAND
-BOOL_STMT.setParseAction(BoolStmt)
+BOOL_STMT = pp_set_parse_action(BOOL_OPERAND + (EQ | NE | LE | LT | GE | GT | NOT_IN | IN) + BOOL_OPERAND)(BoolStmt)
 
 AND = Keyword('and')
 OR = Keyword('or')
 
-BOOL_EXPR = infixNotation(
+BOOL_EXPR = infix_notation(
     BOOL_STMT,
     [
         (AND, 2, opAssoc.LEFT, BoolAnd),
@@ -267,4 +273,4 @@ def parse_bool_expr(stmt: str) -> BoolStmt:
             print(value)
             # Output: True
     """
-    return BOOL_EXPR.parseString(stmt)[0]
+    return pp_parse_string(BOOL_EXPR)(stmt)[0]

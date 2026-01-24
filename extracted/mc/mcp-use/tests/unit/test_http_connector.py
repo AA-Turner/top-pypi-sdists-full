@@ -6,15 +6,16 @@ import unittest
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
-import aiohttp
 from mcp import McpError
 from mcp.types import EmptyResult, ErrorData, Prompt, Resource, Tool
 
-from mcp_use.connectors.http import HttpConnector
-from mcp_use.task_managers import SseConnectionManager
+from mcp_use.client.auth.bearer import BearerAuth
+from mcp_use.client.connectors.http import HttpConnector
+from mcp_use.client.middleware.middleware import CallbackClientSession
+from mcp_use.client.task_managers import SseConnectionManager
 
 
-@patch("mcp_use.connectors.base.logger")
+@patch("mcp_use.client.connectors.base.logger")
 class TestHttpConnectorInitialization(unittest.TestCase):
     """Tests for HttpConnector initialization."""
 
@@ -23,7 +24,7 @@ class TestHttpConnectorInitialization(unittest.TestCase):
         connector = HttpConnector(base_url="http://localhost:8000")
 
         self.assertEqual(connector.base_url, "http://localhost:8000")
-        self.assertIsNone(connector.auth_token)
+        self.assertIsNone(connector._auth)
         self.assertEqual(connector.headers, {})
         self.assertIsNone(connector.client_session)
         self.assertIsNone(connector._connection_manager)
@@ -32,10 +33,11 @@ class TestHttpConnectorInitialization(unittest.TestCase):
 
     def test_init_with_auth_token(self, _):
         """Test initialization with auth token."""
-        connector = HttpConnector(base_url="http://localhost:8000", auth_token="test_token")
+        connector = HttpConnector(base_url="http://localhost:8000", auth="test_token")
 
         self.assertEqual(connector.base_url, "http://localhost:8000")
-        self.assertEqual(connector.auth_token, "test_token")
+        self.assertIsInstance(connector._auth, BearerAuth)
+        self.assertEqual(connector._auth.token.get_secret_value(), "test_token")
         self.assertEqual(connector.headers, {"Authorization": "Bearer test_token"})
         self.assertIsNone(connector.client_session)
         self.assertIsNone(connector._connection_manager)
@@ -48,7 +50,7 @@ class TestHttpConnectorInitialization(unittest.TestCase):
         connector = HttpConnector(base_url="http://localhost:8000", headers=headers)
 
         self.assertEqual(connector.base_url, "http://localhost:8000")
-        self.assertIsNone(connector.auth_token)
+        self.assertIsNone(connector._auth)
         self.assertEqual(connector.headers, headers)
         self.assertIsNone(connector.client_session)
         self.assertIsNone(connector._connection_manager)
@@ -58,13 +60,13 @@ class TestHttpConnectorInitialization(unittest.TestCase):
     def test_init_with_auth_token_and_headers(self, _):
         """Test initialization with both auth token and headers."""
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        connector = HttpConnector(base_url="http://localhost:8000", auth_token="test_token", headers=headers)
+        connector = HttpConnector(base_url="http://localhost:8000", auth="test_token", headers=headers)
 
         expected_headers = headers.copy()
         expected_headers["Authorization"] = "Bearer test_token"
 
         self.assertEqual(connector.base_url, "http://localhost:8000")
-        self.assertEqual(connector.auth_token, "test_token")
+        self.assertEqual(connector._auth.token.get_secret_value(), "test_token")
         self.assertEqual(connector.headers, expected_headers)
         self.assertIsNone(connector.client_session)
         self.assertIsNone(connector._connection_manager)
@@ -77,7 +79,7 @@ class TestHttpConnectorInitialization(unittest.TestCase):
         self.assertEqual(connector.base_url, "http://localhost:8000")
 
 
-@patch("mcp_use.connectors.base.logger")
+@patch("mcp_use.client.connectors.base.logger")
 class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
     """Tests for HttpConnector connection methods."""
 
@@ -94,9 +96,9 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         self.mock_client_session = MagicMock()
         self.mock_client_session.__aenter__ = AsyncMock()
 
-    @patch("mcp_use.connectors.http.SseConnectionManager")
-    @patch("mcp_use.connectors.http.StreamableHttpConnectionManager")
-    @patch("mcp_use.connectors.http.ClientSession")
+    @patch("mcp_use.client.connectors.http.SseConnectionManager")
+    @patch("mcp_use.client.connectors.http.StreamableHttpConnectionManager")
+    @patch("mcp_use.client.connectors.http.ClientSession")
     async def test_connect_with_sse(self, mock_client_session_class, mock_streamable_cm_class, mock_sse_cm_class, _):
         """Test connecting to the MCP implementation using SSE fallback."""
         # Setup streamable HTTP to fail during initialization
@@ -159,8 +161,8 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         self.assertTrue(self.connector._connected)
         self.assertIsNotNone(self.connector.client_session)
 
-    @patch("mcp_use.connectors.http.StreamableHttpConnectionManager")
-    @patch("mcp_use.connectors.http.ClientSession")
+    @patch("mcp_use.client.connectors.http.StreamableHttpConnectionManager")
+    @patch("mcp_use.client.connectors.http.ClientSession")
     async def test_connect_with_streamable_http(self, mock_client_session_class, mock_cm_class, _):
         """Test connecting to the MCP implementation using streamable HTTP."""
         # Setup streamable HTTP connection manager
@@ -191,7 +193,7 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         await self.connector.connect()
 
         # Verify streamable HTTP connection manager was used
-        mock_cm_class.assert_called_once_with("http://localhost:8000", {}, 5, 300)
+        mock_cm_class.assert_called_once_with("http://localhost:8000", {}, 5, 300, auth=None, httpx_client_factory=ANY)
         mock_cm_instance.start.assert_called_once()
 
         # Verify client session was created and initialized
@@ -200,6 +202,7 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
             "write_stream",
             sampling_callback=None,
             elicitation_callback=None,
+            list_roots_callback=ANY,
             message_handler=ANY,
             logging_callback=None,
             client_info=ANY,
@@ -213,7 +216,7 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         mock_client_session_instance.list_prompts.assert_called_once()
 
         # Verify final state
-        self.assertEqual(self.connector.client_session, mock_client_session_instance)
+        self.assertIsInstance(self.connector.client_session, CallbackClientSession)
         self.assertEqual(self.connector._connection_manager, mock_cm_instance)
         self.assertTrue(self.connector._connected)
         self.assertTrue(self.connector._initialized)
@@ -221,7 +224,7 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         self.assertEqual(len(self.connector._resources), 1)
         self.assertEqual(len(self.connector._prompts), 1)
 
-    @patch("mcp_use.connectors.http.StreamableHttpConnectionManager")
+    @patch("mcp_use.client.connectors.http.StreamableHttpConnectionManager")
     async def test_sse_connect_already_connected(self, mock_cm_class, _):
         """Test connecting when already connected."""
         # Set up the connector as already connected
@@ -233,8 +236,8 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         # Verify connection manager was not created or started
         mock_cm_class.assert_not_called()
 
-    @patch("mcp_use.connectors.http.SseConnectionManager")
-    @patch("mcp_use.connectors.http.StreamableHttpConnectionManager")
+    @patch("mcp_use.client.connectors.http.SseConnectionManager")
+    @patch("mcp_use.client.connectors.http.StreamableHttpConnectionManager")
     async def test_connect_failure(self, mock_streamable_cm_class, mock_sse_cm_class, _):
         """Test handling connection failures."""
         # Setup mocks for streamable HTTP failure
@@ -296,7 +299,7 @@ class TestHttpConnectorConnection(IsolatedAsyncioTestCase):
         self.assertFalse(self.connector._connected)
 
 
-@patch("mcp_use.connectors.base.logger")
+@patch("mcp_use.client.connectors.base.logger")
 class TestHttpConnectorOperations(IsolatedAsyncioTestCase):
     """Tests for HttpConnector operations."""
 
@@ -449,34 +452,5 @@ class TestHttpConnectorOperations(IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError) as context:
             await self.connector.read_resource("test/resource")
-
-        self.assertEqual(str(context.exception), "MCP client is not connected")
-
-    async def test_request(self, _):
-        """Test sending a request."""
-        self.connector.client_session.request.return_value = {"result": "success"}
-
-        result = await self.connector.request("test_method", {"param": "value"})
-
-        self.connector.client_session.request.assert_called_once_with(
-            {"method": "test_method", "params": {"param": "value"}}
-        )
-        self.assertEqual(result, {"result": "success"})
-
-    async def test_request_no_params(self, _):
-        """Test sending a request without params."""
-        self.connector.client_session.request.return_value = {"result": "success"}
-
-        result = await self.connector.request("test_method")
-
-        self.connector.client_session.request.assert_called_once_with({"method": "test_method", "params": {}})
-        self.assertEqual(result, {"result": "success"})
-
-    async def test_request_no_client(self, _):
-        """Test sending a request when not connected."""
-        self.connector.client_session = None
-
-        with self.assertRaises(RuntimeError) as context:
-            await self.connector.request("test_method")
 
         self.assertEqual(str(context.exception), "MCP client is not connected")

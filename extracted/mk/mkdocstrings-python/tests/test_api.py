@@ -92,7 +92,7 @@ def _fixture_public_objects(public_api: griffe.Module) -> list[griffe.Object | g
 def _fixture_inventory() -> Inventory:
     inventory_file = Path(__file__).parent.parent / "site" / "objects.inv"
     if not inventory_file.exists():
-        raise pytest.skip("The objects inventory is not available.")
+        pytest.skip("The objects inventory is not available.")  # ty: ignore[call-non-callable]
     with inventory_file.open("rb") as file:
         return Inventory.parse_sphinx(file)
 
@@ -138,7 +138,9 @@ def test_api_matches_inventory(inventory: Inventory, public_objects: list[griffe
     """All public objects are added to the inventory."""
     ignore_names = {"__getattr__", "__init__", "__repr__", "__str__", "__post_init__"}
     not_in_inventory = [
-        obj.path for obj in public_objects if obj.name not in ignore_names and obj.path not in inventory
+        f"{obj.relative_filepath}:{obj.lineno}: {obj.path}"
+        for obj in public_objects
+        if obj.name not in ignore_names and obj.path not in inventory
     ]
     msg = "Objects not in the inventory (try running `make run mkdocs build`):\n{paths}"
     assert not not_in_inventory, msg.format(paths="\n".join(sorted(not_in_inventory)))
@@ -160,10 +162,6 @@ def test_inventory_matches_api(
     public_api_paths = {obj.path for obj in public_objects}
     public_api_paths.add("mkdocstrings_handlers")
     public_api_paths.add("mkdocstrings_handlers.python")
-    # YORE: Bump 2: Remove block.
-    public_api_paths.add("mkdocstrings_handlers.python.config")
-    public_api_paths.add("mkdocstrings_handlers.python.handler")
-    public_api_paths.add("mkdocstrings_handlers.python.rendering")
 
     for item in inventory.values():
         if item.domain == "py" and "(" not in item.name and _module_or_child("mkdocstrings_handlers.python", item.name):

@@ -13,6 +13,7 @@ from PyObjCTest.test_metadata_function import (
     oldDoubleFunc,
     getGetter,
     get2ndGetter,
+    function_list,
 )
 from PyObjCTest.test_deprecations import deprecation_warnings
 
@@ -379,3 +380,126 @@ class TestFunctions(TestCase):
     def test_function_type_subscript(self):
         f = objc.function[2, 3]
         self.assertIsGenericAlias(f, objc.function, (2, 3))
+
+    def test_vector_function_fails(self):
+        m = {}
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Vector types not supported by libffi caller"
+        ):
+            objc.loadBundleFunctions(bundle, m, [("NSCountFrames", b"<2I>", "", {})])
+
+        objc.loadFunctionList(
+            function_list,
+            m,
+            [
+                (
+                    "getDoubleFunc",
+                    b"^?",
+                    "",
+                    {
+                        "retval": {
+                            "callable": {
+                                "retval": {"type": b"<2i>"},
+                                "arguments": {
+                                    0: {"type": objc._C_INT},
+                                },
+                            }
+                        }
+                    },
+                ),
+            ],
+        )
+
+        with self.assertRaisesRegex(
+            NotImplementedError, "Vector types not supported by libffi caller"
+        ):
+            m["getDoubleFunc"]()
+
+    def test_bad_argument(self):
+        m = {}
+
+        objc.loadBundleFunctions(bundle, m, [("NSFrameAddress", b"QQ", "", {})])
+
+        NSFrameAddress = m["NSFrameAddress"]
+        with self.assertRaisesRegex(
+            ValueError, "depythonifying 'unsigned long long', got 'str'"
+        ):
+            NSFrameAddress("a")
+
+    def test_byref_in_encoding(self):
+        m = {}
+        objc.loadFunctionList(
+            function_list,
+            m,
+            [
+                (
+                    "add_integers",
+                    b"in^in^i",
+                ),
+                (
+                    "get_integer",
+                    b"vo^i",
+                ),
+                (
+                    "double_integer",
+                    b"vN^i",
+                ),
+            ],
+        )
+        self.assertIn("add_integers", m)
+        self.assertIn("get_integer", m)
+        self.assertIn("double_integer", m)
+
+        self.assertEqual(m["add_integers"](1, 2), 3)
+        self.assertEqual(m["get_integer"](None), 42)
+        self.assertEqual(m["double_integer"](99), 2 * 99)
+
+    def test_byref_as_metadata(self):
+        m = {}
+        objc.loadFunctionList(
+            function_list,
+            m,
+            [
+                (
+                    "add_integers",
+                    b"i^i^i",
+                    "",
+                    {
+                        "arguments": {
+                            0: {"type_modifier": objc._C_IN},
+                            1: {"type_modifier": objc._C_IN},
+                        }
+                    },
+                ),
+                (
+                    "get_integer",
+                    b"v^i",
+                    "",
+                    {
+                        "arguments": {
+                            0: {"type_modifier": objc._C_OUT},
+                        }
+                    },
+                ),
+                (
+                    "double_integer",
+                    b"v^i",
+                    "",
+                    {
+                        "arguments": {
+                            0: {"type_modifier": objc._C_INOUT, "type": b"^i20"},
+                        }
+                    },
+                ),
+            ],
+        )
+        self.assertIn("add_integers", m)
+        self.assertIn("get_integer", m)
+        self.assertIn("double_integer", m)
+
+        self.assertEqual(m["add_integers"](1, 2), 3)
+        self.assertEqual(m["get_integer"](None), 42)
+        self.assertEqual(m["double_integer"](99), 2 * 99)
+
+        self.assertArgHasType(m["double_integer"], 0, b"N^i")

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// Copyright ijl (2018-2025)
 
 use crate::serialize::buffer::SmallFixedBuffer;
 use crate::typeref::INT_ATTR_STR;
@@ -7,11 +8,11 @@ use serde::ser::{Serialize, Serializer};
 
 #[repr(transparent)]
 pub(crate) struct UUID {
-    ptr: *mut pyo3_ffi::PyObject,
+    ptr: *mut crate::ffi::PyObject,
 }
 
 impl UUID {
-    pub fn new(ptr: *mut pyo3_ffi::PyObject) -> Self {
+    pub fn new(ptr: *mut crate::ffi::PyObject) -> Self {
         UUID { ptr: ptr }
     }
 
@@ -28,22 +29,12 @@ impl UUID {
             let mut buffer: [c_uchar; 16] = [0; 16];
             unsafe {
                 // test_uuid_overflow
-                #[cfg(not(Py_3_13))]
-                crate::ffi::_PyLong_AsByteArray(
-                    py_int.cast::<pyo3_ffi::PyLongObject>(),
+                crate::ffi::PyLong_AsByteArray(
+                    py_int.cast::<crate::ffi::PyLongObject>(),
                     buffer.as_mut_ptr(),
                     16,
                     1, // little_endian
                     0, // is_signed
-                );
-                #[cfg(Py_3_13)]
-                crate::ffi::_PyLong_AsByteArray(
-                    py_int.cast::<pyo3_ffi::PyLongObject>(),
-                    buffer.as_mut_ptr(),
-                    16,
-                    1, // little_endian
-                    0, // is_signed
-                    0,
                 );
             };
             value = u128::from_le_bytes(buffer);

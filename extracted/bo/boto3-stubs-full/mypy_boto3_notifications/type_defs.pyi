@@ -3,7 +3,7 @@ Type annotations for notifications service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_notifications/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -38,12 +39,6 @@ from .literals import (
     TextPartTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -170,7 +165,7 @@ class AggregationKeyTypeDef(TypedDict):
 class SummarizationDimensionOverviewTypeDef(TypedDict):
     name: str
     count: int
-    sampleValues: NotRequired[List[str]]
+    sampleValues: NotRequired[list[str]]
 
 class AssociateChannelRequestTypeDef(TypedDict):
     arn: str
@@ -202,7 +197,7 @@ class EventRuleStatusSummaryTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -363,7 +358,7 @@ TextPartValueTypeDef = TypedDict(
     {
         "type": TextPartTypeType,
         "displayText": NotRequired[str],
-        "textByLocale": NotRequired[Dict[LocaleCodeType, str]],
+        "textByLocale": NotRequired[dict[LocaleCodeType, str]],
         "url": NotRequired[str],
     },
 )
@@ -391,7 +386,7 @@ ResourceTypeDef = TypedDict(
         "id": NotRequired[str],
         "arn": NotRequired[str],
         "detailUrl": NotRequired[str],
-        "tags": NotRequired[List[str]],
+        "tags": NotRequired[list[str]],
     },
 )
 
@@ -415,15 +410,15 @@ class UpdateNotificationConfigurationRequestTypeDef(TypedDict):
     aggregationDuration: NotRequired[AggregationDurationType]
 
 class AggregationDetailTypeDef(TypedDict):
-    summarizationDimensions: NotRequired[List[SummarizationDimensionDetailTypeDef]]
+    summarizationDimensions: NotRequired[list[SummarizationDimensionDetailTypeDef]]
 
 class AggregationSummaryTypeDef(TypedDict):
     eventCount: int
-    aggregatedBy: List[AggregationKeyTypeDef]
+    aggregatedBy: list[AggregationKeyTypeDef]
     aggregatedAccounts: SummarizationDimensionOverviewTypeDef
     aggregatedRegions: SummarizationDimensionOverviewTypeDef
     aggregatedOrganizationalUnits: NotRequired[SummarizationDimensionOverviewTypeDef]
-    additionalSummarizationDimensions: NotRequired[List[SummarizationDimensionOverviewTypeDef]]
+    additionalSummarizationDimensions: NotRequired[list[SummarizationDimensionOverviewTypeDef]]
 
 class EventRuleStructureTypeDef(TypedDict):
     arn: str
@@ -432,14 +427,14 @@ class EventRuleStructureTypeDef(TypedDict):
     source: str
     eventType: str
     eventPattern: str
-    regions: List[str]
-    managedRules: List[str]
-    statusSummaryByRegion: Dict[str, EventRuleStatusSummaryTypeDef]
+    regions: list[str]
+    managedRules: list[str]
+    statusSummaryByRegion: dict[str, EventRuleStatusSummaryTypeDef]
 
 class CreateEventRuleResponseTypeDef(TypedDict):
     arn: str
     notificationConfigurationArn: str
-    statusSummaryByRegion: Dict[str, EventRuleStatusSummaryTypeDef]
+    statusSummaryByRegion: dict[str, EventRuleStatusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateNotificationConfigurationResponseTypeDef(TypedDict):
@@ -454,9 +449,9 @@ class GetEventRuleResponseTypeDef(TypedDict):
     source: str
     eventType: str
     eventPattern: str
-    regions: List[str]
-    managedRules: List[str]
-    statusSummaryByRegion: Dict[str, EventRuleStatusSummaryTypeDef]
+    regions: list[str]
+    managedRules: list[str]
+    statusSummaryByRegion: dict[str, EventRuleStatusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetManagedNotificationConfigurationResponseTypeDef(TypedDict):
@@ -478,23 +473,23 @@ class GetNotificationConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListChannelsResponseTypeDef(TypedDict):
-    channels: List[str]
+    channels: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListOrganizationalUnitsResponseTypeDef(TypedDict):
-    organizationalUnits: List[str]
+    organizationalUnits: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateEventRuleResponseTypeDef(TypedDict):
     arn: str
     notificationConfigurationArn: str
-    statusSummaryByRegion: Dict[str, EventRuleStatusSummaryTypeDef]
+    statusSummaryByRegion: dict[str, EventRuleStatusSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateNotificationConfigurationResponseTypeDef(TypedDict):
@@ -523,7 +518,7 @@ class MessageComponentsTypeDef(TypedDict):
     headline: NotRequired[str]
     paragraphSummary: NotRequired[str]
     completeDescription: NotRequired[str]
-    dimensions: NotRequired[List[DimensionTypeDef]]
+    dimensions: NotRequired[list[DimensionTypeDef]]
 
 class GetNotificationsAccessForOrganizationResponseTypeDef(TypedDict):
     notificationsAccessForOrganization: NotificationsAccessForOrganizationTypeDef
@@ -567,7 +562,7 @@ class ListOrganizationalUnitsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListManagedNotificationChannelAssociationsResponseTypeDef(TypedDict):
-    channelAssociations: List[ManagedNotificationChannelAssociationSummaryTypeDef]
+    channelAssociations: list[ManagedNotificationChannelAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -631,17 +626,17 @@ class ListNotificationEventsRequestTypeDef(TypedDict):
     organizationalUnitId: NotRequired[str]
 
 class ListManagedNotificationConfigurationsResponseTypeDef(TypedDict):
-    managedNotificationConfigurations: List[ManagedNotificationConfigurationStructureTypeDef]
+    managedNotificationConfigurations: list[ManagedNotificationConfigurationStructureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListMemberAccountsResponseTypeDef(TypedDict):
-    memberAccounts: List[MemberAccountTypeDef]
+    memberAccounts: list[MemberAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListNotificationConfigurationsResponseTypeDef(TypedDict):
-    notificationConfigurations: List[NotificationConfigurationStructureTypeDef]
+    notificationConfigurations: list[NotificationConfigurationStructureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -666,7 +661,7 @@ class SourceEventMetadataTypeDef(TypedDict):
     source: str
     eventOccurrenceTime: datetime
     eventType: str
-    relatedResources: List[ResourceTypeDef]
+    relatedResources: list[ResourceTypeDef]
     eventOriginRegion: NotRequired[str]
 
 class ManagedNotificationChildEventSummaryTypeDef(TypedDict):
@@ -678,12 +673,12 @@ class ManagedNotificationChildEventSummaryTypeDef(TypedDict):
     notificationType: NotificationTypeType
 
 class ListEventRulesResponseTypeDef(TypedDict):
-    eventRules: List[EventRuleStructureTypeDef]
+    eventRules: list[EventRuleStructureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListNotificationHubsResponseTypeDef(TypedDict):
-    notificationHubs: List[NotificationHubOverviewTypeDef]
+    notificationHubs: list[NotificationHubOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -695,7 +690,7 @@ ManagedNotificationChildEventTypeDef = TypedDict(
         "messageComponents": MessageComponentsTypeDef,
         "notificationType": NotificationTypeType,
         "aggregateManagedNotificationEventArn": str,
-        "textParts": Dict[str, TextPartValueTypeDef],
+        "textParts": dict[str, TextPartValueTypeDef],
         "sourceEventDetailUrl": NotRequired[str],
         "sourceEventDetailUrlDisplayText": NotRequired[str],
         "eventStatus": NotRequired[EventStatusType],
@@ -712,7 +707,7 @@ ManagedNotificationEventTypeDef = TypedDict(
         "id": str,
         "messageComponents": MessageComponentsTypeDef,
         "notificationType": NotificationTypeType,
-        "textParts": Dict[str, TextPartValueTypeDef],
+        "textParts": dict[str, TextPartValueTypeDef],
         "sourceEventDetailUrl": NotRequired[str],
         "sourceEventDetailUrlDisplayText": NotRequired[str],
         "eventStatus": NotRequired[EventStatusType],
@@ -733,7 +728,7 @@ class ManagedNotificationEventOverviewTypeDef(TypedDict):
     aggregationEventType: NotRequired[AggregationEventTypeType]
     organizationalUnitId: NotRequired[str]
     aggregationSummary: NotRequired[AggregationSummaryTypeDef]
-    aggregatedNotificationRegions: NotRequired[List[str]]
+    aggregatedNotificationRegions: NotRequired[list[str]]
 
 class NotificationEventOverviewTypeDef(TypedDict):
     arn: str
@@ -754,8 +749,8 @@ NotificationEventTypeDef = TypedDict(
         "sourceEventMetadata": SourceEventMetadataTypeDef,
         "messageComponents": MessageComponentsTypeDef,
         "notificationType": NotificationTypeType,
-        "textParts": Dict[str, TextPartValueTypeDef],
-        "media": List[MediaElementTypeDef],
+        "textParts": dict[str, TextPartValueTypeDef],
+        "media": list[MediaElementTypeDef],
         "sourceEventDetailUrl": NotRequired[str],
         "sourceEventDetailUrlDisplayText": NotRequired[str],
         "eventStatus": NotRequired[EventStatusType],
@@ -792,12 +787,12 @@ class GetManagedNotificationEventResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListManagedNotificationEventsResponseTypeDef(TypedDict):
-    managedNotificationEvents: List[ManagedNotificationEventOverviewTypeDef]
+    managedNotificationEvents: list[ManagedNotificationEventOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListNotificationEventsResponseTypeDef(TypedDict):
-    notificationEvents: List[NotificationEventOverviewTypeDef]
+    notificationEvents: list[NotificationEventOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -809,6 +804,6 @@ class GetNotificationEventResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListManagedNotificationChildEventsResponseTypeDef(TypedDict):
-    managedNotificationChildEvents: List[ManagedNotificationChildEventOverviewTypeDef]
+    managedNotificationChildEvents: list[ManagedNotificationChildEventOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

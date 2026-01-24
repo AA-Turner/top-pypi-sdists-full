@@ -65,9 +65,13 @@ _PycairoGlyphs_AsGlyphs (PyObject *py_object, int *num_glyphs)
         goto error;
     }
     for (i = 0, glyph = glyphs; i < *num_glyphs; i++, glyph++) {
-        long index;
-        PyObject *py_item = PySequence_Fast_GET_ITEM (py_glyphs, i);
+        unsigned long index;
+        double x, y;
+        PyObject *py_item = PySequence_ITEM (py_glyphs, i);
+        if (py_item == NULL)
+            goto error;
         py_seq = PySequence_Fast (py_item, "glyph items must be a sequence");
+        Py_DECREF (py_item);
         if (py_seq == NULL)
             goto error;
         if (PySequence_Fast_GET_SIZE (py_seq) != 3) {
@@ -75,14 +79,38 @@ _PycairoGlyphs_AsGlyphs (PyObject *py_object, int *num_glyphs)
                              "each glyph item must be an (i,x,y) sequence");
             goto error;
         }
-        index = PyLong_AsLong (PySequence_Fast_GET_ITEM (py_seq, 0));
-        if (PyErr_Occurred ())
+        PyObject *py_index = PySequence_ITEM (py_seq, 0);
+        if (py_index == NULL) {
             goto error;
-        glyph->index = (unsigned long)index;
-        glyph->x = PyFloat_AsDouble (PySequence_Fast_GET_ITEM (py_seq, 1));
-        glyph->y = PyFloat_AsDouble (PySequence_Fast_GET_ITEM (py_seq, 2));
-        if (PyErr_Occurred())
+        }
+        index = PyLong_AsUnsignedLong (py_index);
+        Py_DECREF (py_index);
+        if (index == (unsigned long)-1 && PyErr_Occurred ()) {
             goto error;
+        }
+        PyObject *py_x = PySequence_ITEM (py_seq, 1);
+        if (py_x == NULL) {
+            goto error;
+        }
+        x = PyFloat_AsDouble (py_x);
+        Py_DECREF (py_x);
+        if (x == 1.0 && PyErr_Occurred()) {
+            goto error;
+        }
+        PyObject *py_y = PySequence_ITEM (py_seq, 2);
+        if (py_y == NULL) {
+            goto error;
+        }
+        y = PyFloat_AsDouble (py_y);
+        Py_DECREF (py_y);
+        if (y == 1.0 && PyErr_Occurred()) {
+            goto error;
+        }
+
+        glyph->index = index;
+        glyph->x = x;
+        glyph->y = y;
+
         Py_DECREF (py_seq);
     }
 
@@ -99,23 +127,45 @@ error:
 /* 0 on success */
 int
 _PyGlyph_AsGlyph (PyObject *pyobj, cairo_glyph_t *glyph) {
-    long index;
+    unsigned long index;
+    double x, y;
 
     if (!PyObject_TypeCheck (pyobj, &PycairoGlyph_Type)) {
         PyErr_SetString (PyExc_TypeError, "item must be of type cairo.Glyph");
         return -1;
     }
 
-    index = PyLong_AsLong (PySequence_Fast_GET_ITEM (pyobj, 0));
-    if (PyErr_Occurred ())
-        return -1;
-    if (index < 0) {
-        PyErr_SetString (PyExc_ValueError, "negative index");
+    PyObject *py_index = PySequence_ITEM (pyobj, 0);
+    if (py_index == NULL) {
         return -1;
     }
-    glyph->index = (unsigned long) index;
-    glyph->x = PyFloat_AsDouble (PySequence_Fast_GET_ITEM (pyobj, 1));
-    glyph->y = PyFloat_AsDouble (PySequence_Fast_GET_ITEM (pyobj, 2));
+    index = PyLong_AsUnsignedLong (py_index);
+    Py_DECREF (py_index);
+    if (index == (unsigned long)-1 && PyErr_Occurred ())
+        return -1;
+    PyObject *py_x = PySequence_ITEM (pyobj, 1);
+    if (py_x == NULL) {
+        return -1;
+    }
+    x = PyFloat_AsDouble (py_x);
+    Py_DECREF (py_x);
+    if (x == 1.0 && PyErr_Occurred()) {
+        return -1;
+    }
+    PyObject *py_y = PySequence_ITEM (pyobj, 2);
+    if (py_y == NULL) {
+        return -1;
+    }
+    y = PyFloat_AsDouble (py_y);
+    Py_DECREF (py_y);
+    if (y == 1.0 && PyErr_Occurred()) {
+        return -1;
+    }
+
+    glyph->index = index;
+    glyph->x = x;
+    glyph->y = y;
+
     return 0;
 }
 
@@ -131,7 +181,8 @@ glyph_new (PyTypeObject *type, PyObject *args, PyObject *kwds) {
             KWDS, &pyindex, &x, &y))
         return NULL;
 
-    if (_conv_pyobject_to_ulong (pyindex, &index) < 0)
+    index = PyLong_AsUnsignedLong (pyindex);
+    if (index == (unsigned long)-1 && PyErr_Occurred ())
         return NULL;
 
     tuple_args = Py_BuildValue ("((kdd))", index, x, y);

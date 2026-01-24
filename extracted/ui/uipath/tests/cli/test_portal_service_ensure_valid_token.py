@@ -11,17 +11,11 @@ import time
 from unittest.mock import Mock, patch
 
 import pytest
+from click.testing import CliRunner
+from uipath.runtime.errors import UiPathRuntimeError
 
 from uipath._cli._auth._portal_service import PortalService
-from uipath._cli._auth._url_utils import set_force_flag
-
-
-@pytest.fixture(autouse=True)
-def reset_force_flag():
-    """Reset the force flag before each test to ensure clean state."""
-    set_force_flag(False)
-    yield
-    set_force_flag(False)
+from uipath.platform.common import TokenData
 
 
 @pytest.fixture
@@ -82,9 +76,18 @@ class TestPortalServiceEnsureValidToken:
     @pytest.mark.parametrize(
         "domain, expected_token_url",
         [
-            ("cloud", "https://cloud.uipath.com/identity_/connect/token"),
-            ("alpha", "https://alpha.uipath.com/identity_/connect/token"),
-            ("staging", "https://staging.uipath.com/identity_/connect/token"),
+            (
+                "https://cloud.uipath.com",
+                "https://cloud.uipath.com/identity_/connect/token",
+            ),
+            (
+                "https://alpha.uipath.com",
+                "https://alpha.uipath.com/identity_/connect/token",
+            ),
+            (
+                "https://staging.uipath.com",
+                "https://staging.uipath.com/identity_/connect/token",
+            ),
             (
                 "https://custom.automationsuite.org",
                 "https://custom.automationsuite.org/identity_/connect/token",
@@ -112,7 +115,7 @@ class TestPortalServiceEnsureValidToken:
             ),
             patch(
                 "uipath._cli._auth._portal_service.get_auth_data",
-                return_value=expired_auth_data,
+                return_value=TokenData.model_validate(expired_auth_data),
             ),
             patch(
                 "uipath._cli._auth._portal_service.get_parsed_token_data",
@@ -124,7 +127,7 @@ class TestPortalServiceEnsureValidToken:
             patch(
                 "uipath._cli._auth._portal_service.update_env_file"
             ) as mock_update_env,
-            patch("uipath._cli._auth._portal_service.select_tenant"),
+            patch.object(PortalService, "_select_tenant"),
         ):
             # Create a mock HTTP client
             mock_client = Mock()
@@ -164,7 +167,9 @@ class TestPortalServiceEnsureValidToken:
             )
 
             # Verify auth file was updated
-            mock_update_auth.assert_called_once_with(sample_token_data)
+            mock_update_auth.assert_called_once()
+            call_args = mock_update_auth.call_args[0][0]
+            assert call_args.access_token == sample_token_data["access_token"]
 
             # Verify env file was updated
             mock_update_env.assert_called_with(
@@ -182,30 +187,32 @@ class TestPortalServiceEnsureValidToken:
         os.environ["UIPATH_URL"] = "https://test.example.com/org/tenant"
 
         try:
-            with (
-                patch(
-                    "uipath._cli._auth._oidc_utils.OidcUtils.get_auth_config",
-                    return_value=mock_auth_config,
-                ),
-                patch(
-                    "uipath._cli._auth._portal_service.get_auth_data",
-                    return_value=valid_auth_data,
-                ),
-                patch(
-                    "uipath._cli._auth._portal_service.get_parsed_token_data",
-                    return_value=valid_auth_data,
-                ),
-            ):
-                # Create PortalService instance
-                portal_service = PortalService("cloud")
-                mock_client = Mock()
-                portal_service._client = mock_client
+            runner = CliRunner()
+            with runner.isolated_filesystem():
+                with (
+                    patch(
+                        "uipath._cli._auth._oidc_utils.OidcUtils.get_auth_config",
+                        return_value=mock_auth_config,
+                    ),
+                    patch(
+                        "uipath._cli._auth._portal_service.get_auth_data",
+                        return_value=TokenData.model_validate(valid_auth_data),
+                    ),
+                    patch(
+                        "uipath._cli._auth._portal_service.get_parsed_token_data",
+                        return_value=valid_auth_data,
+                    ),
+                ):
+                    # Create PortalService instance
+                    portal_service = PortalService("cloud")
+                    mock_client = Mock()
+                    portal_service._client = mock_client
 
-                # Test ensure_valid_token
-                portal_service.ensure_valid_token()
+                    # Test ensure_valid_token
+                    portal_service.ensure_valid_token()
 
-                # Verify no refresh request was made (token is still valid)
-                mock_client.post.assert_not_called()
+                    # Verify no refresh request was made (token is still valid)
+                    mock_client.post.assert_not_called()
 
         finally:
             if "UIPATH_URL" in os.environ:
@@ -236,7 +243,7 @@ class TestPortalServiceEnsureValidToken:
             ),
             patch(
                 "uipath._cli._auth._portal_service.get_auth_data",
-                return_value=auth_data_no_refresh,
+                return_value=TokenData.model_validate(auth_data_no_refresh),
             ),
             patch(
                 "uipath._cli._auth._portal_service.get_parsed_token_data",
@@ -248,7 +255,9 @@ class TestPortalServiceEnsureValidToken:
             portal_service._client = Mock()
 
             # Test should raise exception
-            with pytest.raises(Exception, match="Refresh token not found"):
+            with pytest.raises(
+                UiPathRuntimeError, match="The refresh token could not be retrieved"
+            ):
                 portal_service.ensure_valid_token()
 
     @pytest.mark.parametrize(
@@ -286,7 +295,7 @@ class TestPortalServiceEnsureValidToken:
                 ),
                 patch(
                     "uipath._cli._auth._portal_service.get_auth_data",
-                    return_value=expired_auth_data,
+                    return_value=TokenData.model_validate(expired_auth_data),
                 ),
                 patch(
                     "uipath._cli._auth._portal_service.get_parsed_token_data",
@@ -294,7 +303,7 @@ class TestPortalServiceEnsureValidToken:
                 ),
                 patch("uipath._cli._auth._portal_service.update_auth_file"),
                 patch("uipath._cli._auth._portal_service.update_env_file"),
-                patch("uipath._cli._auth._portal_service.select_tenant"),
+                patch.object(PortalService, "_select_tenant"),
             ):
                 # Create a mock HTTP client
                 mock_client = Mock()

@@ -15,15 +15,35 @@ under the License.
 """
 
 import datetime as dt
-import pandas as pd
 from typing import Any, Type
 
-from gs_quant.api.gs.backtests_xasset.response_datatypes.risk_result import RiskResultsByDate, RefType
-from gs_quant.api.gs.backtests_xasset.response_datatypes.risk_result_datatypes import FloatWithData, StringWithData, \
-    VectorWithData, MatrixWithData, RiskResultWithData
+import pandas as pd
 
-_type_to_datatype_map = {'float': FloatWithData, 'string': StringWithData,
-                         'vector': VectorWithData, 'matrix': MatrixWithData}
+from gs_quant.api.gs.backtests_xasset.response_datatypes.risk_result import (
+    RiskResultsByDate,
+    RefType,
+    RiskResultsError,
+    RiskResults,
+)
+from gs_quant.api.gs.backtests_xasset.response_datatypes.risk_result_datatypes import (
+    FloatWithData,
+    StringWithData,
+    VectorWithData,
+    MatrixWithData,
+    RiskResultWithData,
+    DefnValuesWithData,
+    DictsWithData,
+)
+from gs_quant.priceable import PriceableImpl
+
+_type_to_datatype_map = {
+    'float': FloatWithData,
+    'string': StringWithData,
+    'vector': VectorWithData,
+    'matrix': MatrixWithData,
+    'defn': DefnValuesWithData,
+    'dict': DictsWithData
+}
 
 
 def map_result_to_datatype(data: Any) -> Type[RiskResultWithData]:
@@ -35,6 +55,10 @@ def map_result_to_datatype(data: Any) -> Type[RiskResultWithData]:
         return VectorWithData
     if isinstance(data, pd.DataFrame):
         return MatrixWithData
+    if isinstance(data, PriceableImpl):
+        return DefnValuesWithData
+    if isinstance(data, dict):
+        return DictsWithData
     raise ValueError('Cannot assign result type to data')
 
 
@@ -42,7 +66,10 @@ def decode_risk_result_with_data(r: dict) -> RiskResultWithData:
     return _type_to_datatype_map[r['type']].from_dict(r)
 
 
-def decode_risk_result(d: dict) -> RiskResultsByDate:
+def decode_risk_result(d: dict) -> RiskResults:
     refs = {RefType(k): v for k, v in d['refs'].items()}
-    result = {dt.date.fromisoformat(k): decode_risk_result_with_data(v) for k, v in d['result'].items()}
-    return RiskResultsByDate(refs, result)
+    if 'result' in d:
+        result = {dt.date.fromisoformat(k): decode_risk_result_with_data(v) for k, v in d['result'].items()}
+        return RiskResultsByDate(refs, result)
+    else:
+        return RiskResultsError(refs, d['error'], d['trace_id'])

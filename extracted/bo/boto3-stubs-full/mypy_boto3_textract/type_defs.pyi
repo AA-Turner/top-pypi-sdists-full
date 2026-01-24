@@ -3,7 +3,7 @@ Type annotations for textract service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_textract/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -35,12 +36,6 @@ from .literals import (
     TextTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -156,7 +151,7 @@ class AdapterOverviewTypeDef(TypedDict):
     AdapterId: NotRequired[str]
     AdapterName: NotRequired[str]
     CreationTime: NotRequired[datetime]
-    FeatureTypes: NotRequired[List[FeatureTypeType]]
+    FeatureTypes: NotRequired[list[FeatureTypeType]]
 
 class AdapterTypeDef(TypedDict):
     AdapterId: str
@@ -177,7 +172,7 @@ class AdapterVersionOverviewTypeDef(TypedDict):
     AdapterId: NotRequired[str]
     AdapterVersion: NotRequired[str]
     CreationTime: NotRequired[datetime]
-    FeatureTypes: NotRequired[List[FeatureTypeType]]
+    FeatureTypes: NotRequired[list[FeatureTypeType]]
     Status: NotRequired[AdapterVersionStatusType]
     StatusMessage: NotRequired[str]
 
@@ -186,13 +181,13 @@ class DocumentMetadataTypeDef(TypedDict):
 
 class HumanLoopActivationOutputTypeDef(TypedDict):
     HumanLoopArn: NotRequired[str]
-    HumanLoopActivationReasons: NotRequired[List[str]]
+    HumanLoopActivationReasons: NotRequired[list[str]]
     HumanLoopActivationConditionsEvaluationResults: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -206,14 +201,14 @@ QueryOutputTypeDef = TypedDict(
     {
         "Text": str,
         "Alias": NotRequired[str],
-        "Pages": NotRequired[List[str]],
+        "Pages": NotRequired[list[str]],
     },
 )
 RelationshipTypeDef = TypedDict(
     "RelationshipTypeDef",
     {
         "Type": NotRequired[RelationshipTypeType],
-        "Ids": NotRequired[List[str]],
+        "Ids": NotRequired[list[str]],
     },
 )
 
@@ -247,7 +242,7 @@ class DetectedSignatureTypeDef(TypedDict):
 
 class SplitDocumentTypeDef(TypedDict):
     Index: NotRequired[int]
-    Pages: NotRequired[List[int]]
+    Pages: NotRequired[list[int]]
 
 class UndetectedSignatureTypeDef(TypedDict):
     Page: NotRequired[int]
@@ -257,7 +252,7 @@ class ExpenseCurrencyTypeDef(TypedDict):
     Confidence: NotRequired[float]
 
 class ExpenseGroupPropertyTypeDef(TypedDict):
-    Types: NotRequired[List[str]]
+    Types: NotRequired[list[str]]
     Id: NotRequired[str]
 
 ExpenseTypeTypeDef = TypedDict(
@@ -286,7 +281,7 @@ class GetDocumentAnalysisRequestTypeDef(TypedDict):
 
 class WarningTypeDef(TypedDict):
     ErrorCode: NotRequired[str]
-    Pages: NotRequired[List[int]]
+    Pages: NotRequired[list[int]]
 
 class GetDocumentTextDetectionRequestTypeDef(TypedDict):
     JobId: str
@@ -378,23 +373,23 @@ class GetAdapterResponseTypeDef(TypedDict):
     AdapterName: str
     CreationTime: datetime
     Description: str
-    FeatureTypes: List[FeatureTypeType]
+    FeatureTypes: list[FeatureTypeType]
     AutoUpdate: AutoUpdateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAdapterVersionsResponseTypeDef(TypedDict):
-    AdapterVersions: List[AdapterVersionOverviewTypeDef]
+    AdapterVersions: list[AdapterVersionOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAdaptersResponseTypeDef(TypedDict):
-    Adapters: List[AdapterOverviewTypeDef]
+    Adapters: list[AdapterOverviewTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartDocumentAnalysisResponseTypeDef(TypedDict):
@@ -418,7 +413,7 @@ class UpdateAdapterResponseTypeDef(TypedDict):
     AdapterName: str
     CreationTime: datetime
     Description: str
-    FeatureTypes: List[FeatureTypeType]
+    FeatureTypes: list[FeatureTypeType]
     AutoUpdate: AutoUpdateType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -439,15 +434,15 @@ DocumentGroupTypeDef = TypedDict(
     "DocumentGroupTypeDef",
     {
         "Type": NotRequired[str],
-        "SplitDocuments": NotRequired[List[SplitDocumentTypeDef]],
-        "DetectedSignatures": NotRequired[List[DetectedSignatureTypeDef]],
-        "UndetectedSignatures": NotRequired[List[UndetectedSignatureTypeDef]],
+        "SplitDocuments": NotRequired[list[SplitDocumentTypeDef]],
+        "DetectedSignatures": NotRequired[list[DetectedSignatureTypeDef]],
+        "UndetectedSignatures": NotRequired[list[UndetectedSignatureTypeDef]],
     },
 )
 
 class GeometryTypeDef(TypedDict):
     BoundingBox: NotRequired[BoundingBoxTypeDef]
-    Polygon: NotRequired[List[PointTypeDef]]
+    Polygon: NotRequired[list[PointTypeDef]]
     RotationAngle: NotRequired[float]
 
 class HumanLoopConfigTypeDef(TypedDict):
@@ -480,8 +475,8 @@ class ListAdaptersRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class PageClassificationTypeDef(TypedDict):
-    PageType: List[PredictionTypeDef]
-    PageNumber: List[PredictionTypeDef]
+    PageType: list[PredictionTypeDef]
+    PageNumber: list[PredictionTypeDef]
 
 QueryUnionTypeDef = Union[QueryTypeDef, QueryOutputTypeDef]
 
@@ -521,14 +516,14 @@ class GetAdapterVersionResponseTypeDef(TypedDict):
     AdapterId: str
     AdapterVersion: str
     CreationTime: datetime
-    FeatureTypes: List[FeatureTypeType]
+    FeatureTypes: list[FeatureTypeType]
     Status: AdapterVersionStatusType
     StatusMessage: str
     DatasetConfig: AdapterVersionDatasetConfigTypeDef
     KMSKeyId: str
     OutputConfig: OutputConfigTypeDef
-    EvaluationMetrics: List[AdapterVersionEvaluationMetricTypeDef]
-    Tags: Dict[str, str]
+    EvaluationMetrics: list[AdapterVersionEvaluationMetricTypeDef]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 IdentityDocumentFieldTypeDef = TypedDict(
@@ -549,8 +544,8 @@ class DetectDocumentTextRequestTypeDef(TypedDict):
     Document: DocumentTypeDef
 
 class LendingSummaryTypeDef(TypedDict):
-    DocumentGroups: NotRequired[List[DocumentGroupTypeDef]]
-    UndetectedDocumentTypes: NotRequired[List[str]]
+    DocumentGroups: NotRequired[list[DocumentGroupTypeDef]]
+    UndetectedDocumentTypes: NotRequired[list[str]]
 
 BlockTypeDef = TypedDict(
     "BlockTypeDef",
@@ -565,8 +560,8 @@ BlockTypeDef = TypedDict(
         "ColumnSpan": NotRequired[int],
         "Geometry": NotRequired[GeometryTypeDef],
         "Id": NotRequired[str],
-        "Relationships": NotRequired[List[RelationshipTypeDef]],
-        "EntityTypes": NotRequired[List[EntityTypeType]],
+        "Relationships": NotRequired[list[RelationshipTypeDef]],
+        "EntityTypes": NotRequired[list[EntityTypeType]],
         "SelectionStatus": NotRequired[SelectionStatusType],
         "Page": NotRequired[int],
         "Query": NotRequired[QueryOutputTypeDef],
@@ -601,29 +596,29 @@ class GetLendingAnalysisSummaryResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
     JobStatus: JobStatusType
     Summary: LendingSummaryTypeDef
-    Warnings: List[WarningTypeDef]
+    Warnings: list[WarningTypeDef]
     StatusMessage: str
     AnalyzeLendingModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AnalyzeDocumentResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
-    Blocks: List[BlockTypeDef]
+    Blocks: list[BlockTypeDef]
     HumanLoopActivationOutput: HumanLoopActivationOutputTypeDef
     AnalyzeDocumentModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DetectDocumentTextResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
-    Blocks: List[BlockTypeDef]
+    Blocks: list[BlockTypeDef]
     DetectDocumentTextModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDocumentAnalysisResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
     JobStatus: JobStatusType
-    Blocks: List[BlockTypeDef]
-    Warnings: List[WarningTypeDef]
+    Blocks: list[BlockTypeDef]
+    Warnings: list[WarningTypeDef]
     StatusMessage: str
     AnalyzeDocumentModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -632,8 +627,8 @@ class GetDocumentAnalysisResponseTypeDef(TypedDict):
 class GetDocumentTextDetectionResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
     JobStatus: JobStatusType
-    Blocks: List[BlockTypeDef]
-    Warnings: List[WarningTypeDef]
+    Blocks: list[BlockTypeDef]
+    Warnings: list[WarningTypeDef]
     StatusMessage: str
     DetectDocumentTextModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -641,8 +636,8 @@ class GetDocumentTextDetectionResponseTypeDef(TypedDict):
 
 class IdentityDocumentTypeDef(TypedDict):
     DocumentIndex: NotRequired[int]
-    IdentityDocumentFields: NotRequired[List[IdentityDocumentFieldTypeDef]]
-    Blocks: NotRequired[List[BlockTypeDef]]
+    IdentityDocumentFields: NotRequired[list[IdentityDocumentFieldTypeDef]]
+    Blocks: NotRequired[list[BlockTypeDef]]
 
 ExpenseFieldTypeDef = TypedDict(
     "ExpenseFieldTypeDef",
@@ -652,7 +647,7 @@ ExpenseFieldTypeDef = TypedDict(
         "ValueDetection": NotRequired[ExpenseDetectionTypeDef],
         "PageNumber": NotRequired[int],
         "Currency": NotRequired[ExpenseCurrencyTypeDef],
-        "GroupProperties": NotRequired[List[ExpenseGroupPropertyTypeDef]],
+        "GroupProperties": NotRequired[list[ExpenseGroupPropertyTypeDef]],
     },
 )
 LendingFieldTypeDef = TypedDict(
@@ -660,7 +655,7 @@ LendingFieldTypeDef = TypedDict(
     {
         "Type": NotRequired[str],
         "KeyDetection": NotRequired[LendingDetectionTypeDef],
-        "ValueDetections": NotRequired[List[LendingDetectionTypeDef]],
+        "ValueDetections": NotRequired[list[LendingDetectionTypeDef]],
     },
 )
 
@@ -683,31 +678,31 @@ class StartDocumentAnalysisRequestTypeDef(TypedDict):
     AdaptersConfig: NotRequired[AdaptersConfigTypeDef]
 
 class AnalyzeIDResponseTypeDef(TypedDict):
-    IdentityDocuments: List[IdentityDocumentTypeDef]
+    IdentityDocuments: list[IdentityDocumentTypeDef]
     DocumentMetadata: DocumentMetadataTypeDef
     AnalyzeIDModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class LineItemFieldsTypeDef(TypedDict):
-    LineItemExpenseFields: NotRequired[List[ExpenseFieldTypeDef]]
+    LineItemExpenseFields: NotRequired[list[ExpenseFieldTypeDef]]
 
 class LendingDocumentTypeDef(TypedDict):
-    LendingFields: NotRequired[List[LendingFieldTypeDef]]
-    SignatureDetections: NotRequired[List[SignatureDetectionTypeDef]]
+    LendingFields: NotRequired[list[LendingFieldTypeDef]]
+    SignatureDetections: NotRequired[list[SignatureDetectionTypeDef]]
 
 class LineItemGroupTypeDef(TypedDict):
     LineItemGroupIndex: NotRequired[int]
-    LineItems: NotRequired[List[LineItemFieldsTypeDef]]
+    LineItems: NotRequired[list[LineItemFieldsTypeDef]]
 
 class ExpenseDocumentTypeDef(TypedDict):
     ExpenseIndex: NotRequired[int]
-    SummaryFields: NotRequired[List[ExpenseFieldTypeDef]]
-    LineItemGroups: NotRequired[List[LineItemGroupTypeDef]]
-    Blocks: NotRequired[List[BlockTypeDef]]
+    SummaryFields: NotRequired[list[ExpenseFieldTypeDef]]
+    LineItemGroups: NotRequired[list[LineItemGroupTypeDef]]
+    Blocks: NotRequired[list[BlockTypeDef]]
 
 class AnalyzeExpenseResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
-    ExpenseDocuments: List[ExpenseDocumentTypeDef]
+    ExpenseDocuments: list[ExpenseDocumentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ExtractionTypeDef(TypedDict):
@@ -718,8 +713,8 @@ class ExtractionTypeDef(TypedDict):
 class GetExpenseAnalysisResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
     JobStatus: JobStatusType
-    ExpenseDocuments: List[ExpenseDocumentTypeDef]
-    Warnings: List[WarningTypeDef]
+    ExpenseDocuments: list[ExpenseDocumentTypeDef]
+    Warnings: list[WarningTypeDef]
     StatusMessage: str
     AnalyzeExpenseModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -728,13 +723,13 @@ class GetExpenseAnalysisResponseTypeDef(TypedDict):
 class LendingResultTypeDef(TypedDict):
     Page: NotRequired[int]
     PageClassification: NotRequired[PageClassificationTypeDef]
-    Extractions: NotRequired[List[ExtractionTypeDef]]
+    Extractions: NotRequired[list[ExtractionTypeDef]]
 
 class GetLendingAnalysisResponseTypeDef(TypedDict):
     DocumentMetadata: DocumentMetadataTypeDef
     JobStatus: JobStatusType
-    Results: List[LendingResultTypeDef]
-    Warnings: List[WarningTypeDef]
+    Results: list[LendingResultTypeDef]
+    Warnings: list[WarningTypeDef]
     StatusMessage: str
     AnalyzeLendingModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef

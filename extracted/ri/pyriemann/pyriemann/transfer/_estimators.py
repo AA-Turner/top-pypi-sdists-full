@@ -18,7 +18,6 @@ from ..optimization.grassmann import (
 from ._tools import decode_domains
 from ..classification import MDM
 from ..preprocessing import Whitening
-from ..utils import deprecated
 from ..utils.base import invsqrtm, powm, sqrtm
 from ..utils.distance import distance
 from ..utils.geodesic import geodesic
@@ -161,14 +160,6 @@ class TLCenter(TransformerMixin, BaseEstimator):
         """Init"""
         self.target_domain = target_domain
         self.metric = metric
-
-    @property
-    @deprecated(
-        "Attribute `recenter_` is deprecated and will be removed in 0.10.0; "
-        "please use `centers_`."
-    )
-    def recenter_(self):
-        return self.centers_
 
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLCenter.
@@ -365,14 +356,6 @@ class TLScale(TransformerMixin, BaseEstimator):
         self.centered_data = centered_data
         self.metric = metric
 
-    @property
-    @deprecated(
-        "Attribute `dispersions_` is deprecated and will be removed in 0.10.0;"
-        " please use `scales_`."
-    )
-    def dispersions_(self):
-        return self.scales_
-
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLScale.
 
@@ -533,14 +516,6 @@ class TLScale(TransformerMixin, BaseEstimator):
         return X_new
 
 
-@deprecated(
-    "TLStretch is deprecated and will be removed in 0.10.0; "
-    "please use TLScale."
-)
-class TLStretch(TLScale):
-    pass
-
-
 class TLRotate(TransformerMixin, BaseEstimator):
     """Rotation for transfer learning.
 
@@ -588,6 +563,12 @@ class TLRotate(TransformerMixin, BaseEstimator):
         If "max", all components are kept.
     n_clusters : int, default=3
         For inputs in tangent space, number of clusters used to split data.
+    tol_step : float, default=1e-9
+        For inputs in manifold, stopping criterion based on the norm of
+        the descent direction.
+    maxiter : int, default=10_000
+        For inputs in manifold, maximum number of iterations in the
+        optimization procedure.
 
     Attributes
     ----------
@@ -602,7 +583,7 @@ class TLRotate(TransformerMixin, BaseEstimator):
     -----
     .. versionadded:: 0.4
     .. versionchanged:: 0.8
-        Added support for tangent space rotation.
+        Add support for tangent space rotation.
 
     References
     ----------
@@ -630,6 +611,8 @@ class TLRotate(TransformerMixin, BaseEstimator):
         expl_var=0.999,
         n_components=1,
         n_clusters=3,
+        tol_step=1e-9,
+        maxiter=10_000,
     ):
         """Init"""
         self.target_domain = target_domain
@@ -639,6 +622,8 @@ class TLRotate(TransformerMixin, BaseEstimator):
         self.expl_var = expl_var
         self.n_components = n_components
         self.n_clusters = n_clusters
+        self.tol_step = tol_step
+        self.maxiter = maxiter
 
     def fit(self, X, y_enc, sample_weight=None):
         """Fit TLRotate.
@@ -704,6 +689,8 @@ class TLRotate(TransformerMixin, BaseEstimator):
                 M_target,
                 weights=self.weights,
                 metric=self.metric,
+                tol_step=self.tol_step,
+                maxiter=self.maxiter,
             ) for d in source_domains
         )
 
@@ -951,7 +938,11 @@ class TLEstimator(BaseEstimator):
         else:
             self.estimator.fit(X_dec, y_dec, sample_weight=weights)
 
+        self._is_fitted = True
         return self
+
+    def __sklearn_is_fitted__(self):
+        return hasattr(self, "_is_fitted") and self._is_fitted
 
     def predict(self, X):
         """Get the predictions.

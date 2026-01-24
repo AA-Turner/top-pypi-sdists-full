@@ -1,6 +1,9 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.kubernetes.v1 import events_pb2 as _events_pb2
+from chalk._gen.chalk.kubernetes.v1 import horizontalpodautoscaler_pb2 as _horizontalpodautoscaler_pb2
 from chalk._gen.chalk.kubernetes.v1 import persistentvolume_pb2 as _persistentvolume_pb2
+from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as _scaledobject_pb2
+from chalk._gen.chalk.kubernetes.v1 import serviceaccounts_pb2 as _serviceaccounts_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -81,4 +84,51 @@ class GetKubernetesPersistentVolumesResponse(_message.Message):
     def __init__(
         self,
         volumes: _Optional[_Iterable[_Union[_persistentvolume_pb2.ChalkKubernetesPersistentVolume, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetKubernetesServiceAccountsRequest(_message.Message):
+    __slots__ = ("cluster_name", "namespace", "label_selector")
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    cluster_name: str
+    namespace: str
+    label_selector: str
+    def __init__(
+        self, cluster_name: _Optional[str] = ..., namespace: _Optional[str] = ..., label_selector: _Optional[str] = ...
+    ) -> None: ...
+
+class GetKubernetesServiceAccountsResponse(_message.Message):
+    __slots__ = ("service_accounts",)
+    SERVICE_ACCOUNTS_FIELD_NUMBER: _ClassVar[int]
+    service_accounts: _containers.RepeatedCompositeFieldContainer[_serviceaccounts_pb2.KubernetesServiceAccount]
+    def __init__(
+        self,
+        service_accounts: _Optional[_Iterable[_Union[_serviceaccounts_pb2.KubernetesServiceAccount, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetKubernetesAutoscalersRequest(_message.Message):
+    __slots__ = ("cluster_name", "namespace", "label_selector")
+    CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    cluster_name: str
+    namespace: str
+    label_selector: str
+    def __init__(
+        self, cluster_name: _Optional[str] = ..., namespace: _Optional[str] = ..., label_selector: _Optional[str] = ...
+    ) -> None: ...
+
+class GetKubernetesAutoscalersResponse(_message.Message):
+    __slots__ = ("hpas", "scaledobjects")
+    HPAS_FIELD_NUMBER: _ClassVar[int]
+    SCALEDOBJECTS_FIELD_NUMBER: _ClassVar[int]
+    hpas: _containers.RepeatedCompositeFieldContainer[_horizontalpodautoscaler_pb2.KubernetesHorizontalPodAutoscaler]
+    scaledobjects: _containers.RepeatedCompositeFieldContainer[_scaledobject_pb2.KubernetesScaledObject]
+    def __init__(
+        self,
+        hpas: _Optional[
+            _Iterable[_Union[_horizontalpodautoscaler_pb2.KubernetesHorizontalPodAutoscaler, _Mapping]]
+        ] = ...,
+        scaledobjects: _Optional[_Iterable[_Union[_scaledobject_pb2.KubernetesScaledObject, _Mapping]]] = ...,
     ) -> None: ...

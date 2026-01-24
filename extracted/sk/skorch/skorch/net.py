@@ -30,6 +30,7 @@ from skorch.dataset import ValidSplit
 from skorch.dataset import get_len
 from skorch.dataset import unpack_data
 from skorch.exceptions import DeviceWarning
+from skorch.exceptions import NotInitializedError
 from skorch.exceptions import SkorchAttributeError
 from skorch.exceptions import SkorchTrainingImpossibleError
 from skorch.history import History
@@ -48,7 +49,6 @@ from skorch.utils import params_for
 from skorch.utils import to_device
 from skorch.utils import to_numpy
 from skorch.utils import to_tensor
-from skorch.utils import get_default_torch_load_kwargs
 
 
 # pylint: disable=too-many-instance-attributes
@@ -816,24 +816,9 @@ class NeuralNet(BaseEstimator):
         module : torch.nn.Module or torch._dynamo.OptimizedModule
           The compiled module if ``compile=True``, otherwise the uncompiled module.
 
-        Raises
-        ------
-        ValueError
-          If ``compile=True`` but ``torch.compile`` is not available, raise an
-          error.
-
         """
-        # TODO: adjust docstring once we no longer support PyTorch versions without compile
         if not self.compile:
             return module
-
-        # Whether torch.compile is available (PyTorch 2.0 and up)
-        torch_compile_available = hasattr(torch, 'compile')
-        if not torch_compile_available:
-            raise ValueError(
-                "Setting compile=True but torch.compile is not available. Please "
-                f"check that your installed PyTorch version ({torch.__version__}) "
-                "supports torch.compile (requires v1.14, v2.0 or higher)")
 
         params = self.get_params_for('compile')
         module_compiled = torch.compile(module, **params)
@@ -1376,6 +1361,20 @@ class NeuralNet(BaseEstimator):
             attributes or [module + '_' for module in self._modules] or ['module_']
         )
         check_is_fitted(self, attributes, *args, **kwargs)
+
+    def __sklearn_is_fitted__(self):
+        """This method is called when sklearn's ``check_is_fitted`` is used.
+
+        Explained here:
+        https://scikit-learn.org/stable/auto_examples/developing_estimators/sklearn_is_fitted.html
+        """
+        is_fitted = False
+        try:
+            self.check_is_fitted()
+            is_fitted = True
+        except NotInitializedError:
+            pass
+        return is_fitted
 
     def trim_for_prediction(self):
         """Remove all attributes not required for prediction.
@@ -2256,7 +2255,7 @@ class NeuralNet(BaseEstimator):
         map_location = get_map_location(state['device'])
         load_kwargs = {'map_location': map_location}
         state['device'] = self._check_device(state['device'], map_location)
-        torch_load_kwargs = state.get('torch_load_kwargs') or get_default_torch_load_kwargs()
+        torch_load_kwargs = state.get('torch_load_kwargs') or {"weights_only": True}
 
         with tempfile.SpooledTemporaryFile() as f:
             unpickler = _TorchLoadUnpickler(
@@ -2669,7 +2668,7 @@ class NeuralNet(BaseEstimator):
         else:
             torch_load_kwargs = self.torch_load_kwargs
             if torch_load_kwargs is None:
-                torch_load_kwargs = get_default_torch_load_kwargs()
+                torch_load_kwargs = {"weights_only": True}
 
             def _get_state_dict(f_name):
                 map_location = get_map_location(self.device)

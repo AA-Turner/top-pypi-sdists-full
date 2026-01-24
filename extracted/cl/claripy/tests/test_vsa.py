@@ -1,6 +1,7 @@
 # pylint: disable=missing-class-docstring,no-self-use,no-member
 from __future__ import annotations
 
+import contextlib
 import unittest
 
 import claripy
@@ -232,12 +233,11 @@ class TestVSA(unittest.TestCase):  # pylint: disable=no-member,function-redefine
         # SI = claripy.StridedInterval
 
         # Disable the use of DiscreteStridedIntervalSet
-        claripy.backends.backend_vsa.strided_interval.allow_dsis = False
-
-        # Signedness/unsignedness conversion
-        si1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
-        assert vsa_model(si1)._signed_bounds() == [(0x0, 0x7FFFFFFF), (-0x80000000, -0x1)]
-        assert vsa_model(si1)._unsigned_bounds() == [(0x0, 0xFFFFFFFF)]
+        with claripy.backends.backend_vsa.strided_interval._allow_dsis(False):
+            # Signedness/unsignedness conversion
+            si1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
+            assert vsa_model(si1)._signed_bounds() == [(0x0, 0x7FFFFFFF), (-0x80000000, -0x1)]
+            assert vsa_model(si1)._unsigned_bounds() == [(0x0, 0xFFFFFFFF)]
 
 
 class TestVSAJoin(unittest.TestCase):  # pylint: disable=no-member,function-redefined
@@ -294,22 +294,22 @@ class TestVSAOperations(unittest.TestCase):  # pylint: disable=no-member functio
         self.b = claripy.backends.vsa
 
         # Disable the use of DiscreteStridedIntervalSet
-        claripy.backends.backend_vsa.strided_interval.allow_dsis = False
+        with claripy.backends.backend_vsa.strided_interval._allow_dsis(False):
 
-        # Integers
-        self.si1 = claripy.SI(bits=32, stride=0, lower_bound=10, upper_bound=10)
-        self.si2 = claripy.SI(bits=32, stride=0, lower_bound=10, upper_bound=10)
-        self.si3 = claripy.SI(bits=32, stride=0, lower_bound=28, upper_bound=28)
+            # Integers
+            self.si1 = claripy.SI(bits=32, stride=0, lower_bound=10, upper_bound=10)
+            self.si2 = claripy.SI(bits=32, stride=0, lower_bound=10, upper_bound=10)
+            self.si3 = claripy.SI(bits=32, stride=0, lower_bound=28, upper_bound=28)
 
-        # Strided intervals
-        self.si_a = claripy.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
-        self.si_b = claripy.SI(bits=32, stride=2, lower_bound=-100, upper_bound=200)
-        self.si_c = claripy.SI(bits=32, stride=3, lower_bound=-100, upper_bound=200)
-        self.si_d = claripy.SI(bits=32, stride=2, lower_bound=50, upper_bound=60)
-        self.si_e = claripy.SI(bits=16, stride=1, lower_bound=0x2000, upper_bound=0x3000)
-        self.si_f = claripy.SI(bits=16, stride=1, lower_bound=0, upper_bound=255)
-        self.si_g = claripy.SI(bits=16, stride=1, lower_bound=0, upper_bound=0xFF)
-        self.si_h = claripy.SI(bits=32, stride=0, lower_bound=0x80000000, upper_bound=0x80000000)
+            # Strided intervals
+            self.si_a = claripy.SI(bits=32, stride=2, lower_bound=10, upper_bound=20)
+            self.si_b = claripy.SI(bits=32, stride=2, lower_bound=-100, upper_bound=200)
+            self.si_c = claripy.SI(bits=32, stride=3, lower_bound=-100, upper_bound=200)
+            self.si_d = claripy.SI(bits=32, stride=2, lower_bound=50, upper_bound=60)
+            self.si_e = claripy.SI(bits=16, stride=1, lower_bound=0x2000, upper_bound=0x3000)
+            self.si_f = claripy.SI(bits=16, stride=1, lower_bound=0, upper_bound=255)
+            self.si_g = claripy.SI(bits=16, stride=1, lower_bound=0, upper_bound=0xFF)
+            self.si_h = claripy.SI(bits=32, stride=0, lower_bound=0x80000000, upper_bound=0x80000000)
 
     def is_equal(self, ast_0, ast_1):
         return claripy.backends.vsa.identical(ast_0, ast_1)
@@ -732,235 +732,6 @@ class TestVSAOperations(unittest.TestCase):  # pylint: disable=no-member functio
     # assert claripy.backends.vsa.is_true(vsa_model(claripy.excavate_ite(if_3).args[1]) == vsa_model(vs_2)))
 
 
-class TestVSAConstraintToSI(unittest.TestCase):  # pylint: disable=no-member,function-redefined
-    def setUp(self):
-        self.b = claripy.backends.vsa
-        self.s = claripy.SolverVSA()  # pylint:disable=unused-variable
-        claripy.backends.backend_vsa.strided_interval.allow_dsis = False
-
-    def test_if_si_equals_1(self):
-        # If(SI == 0, 1, 0) == 1
-        s1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(1, 1), claripy.BVV(0, 1)) == claripy.BVV(1, 1)
-        ast_false = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(1, 1), claripy.BVV(0, 1)) != claripy.BVV(1, 1)
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s1
-        # True side: claripy.SI<32>0[0, 0]
-        assert claripy.backends.vsa.is_true(
-            trueside_replacement[0][1] == claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat is True
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s1
-        # False side; claripy.SI<32>1[1, 2]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1], claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=2)
-        )
-
-    def test_if_si_less_than_or_equal_1(self):
-        # If(SI == 0, 1, 0) <= 1
-        s1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(1, 1), claripy.BVV(0, 1)) <= claripy.BVV(1, 1)
-        ast_false = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(1, 1), claripy.BVV(0, 1)) > claripy.BVV(1, 1)
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat  # Always satisfiable
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert not falseside_sat  # Not satisfiable
-
-    def test_if_si_greater_than_15(self):
-        # If(SI == 0, 20, 10) > 15
-        s1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(20, 32), claripy.BVV(10, 32)) > claripy.BVV(15, 32)
-        ast_false = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(20, 32), claripy.BVV(10, 32)) <= claripy.BVV(
-            15, 32
-        )
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s1
-        # True side: SI<32>0[0, 0]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1], claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s1
-        # False side; SI<32>1[1, 2]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1], claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=2)
-        )
-
-    def test_if_si_greater_than_or_equal_15(self):
-        # If(SI == 0, 20, 10) >= 15
-        s1 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(15, 32), claripy.BVV(10, 32)) >= claripy.BVV(15, 32)
-        ast_false = claripy.If(s1 == claripy.BVV(0, 32), claripy.BVV(15, 32), claripy.BVV(10, 32)) < claripy.BVV(15, 32)
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s1
-        # True side: SI<32>0[0, 0]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1], claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s1
-        # False side; SI<32>0[0,0]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1], claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=2)
-        )
-
-    def test_extract_and_concat(self):
-        # Extract(0, 0, Concat(BVV(0, 63), If(SI == 0, 1, 0))) == 1
-        s2 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = (
-            claripy.Extract(
-                0, 0, claripy.Concat(claripy.BVV(0, 63), claripy.If(s2 == 0, claripy.BVV(1, 1), claripy.BVV(0, 1)))
-            )
-            == 1
-        )
-        ast_false = (
-            claripy.Extract(
-                0, 0, claripy.Concat(claripy.BVV(0, 63), claripy.If(s2 == 0, claripy.BVV(1, 1), claripy.BVV(0, 1)))
-            )
-            != 1
-        )
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s2
-        # True side: claripy.SI<32>0[0, 0]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1], claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s2
-        # False side; claripy.SI<32>1[1, 2]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1], claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=2)
-        )
-
-    def test_zero_extend_and_extract(self):
-        # Extract(0, 0, ZeroExt(32, If(SI == 0, BVV(1, 32), BVV(0, 32)))) == 1
-        s3 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=2)
-        ast_true = (
-            claripy.Extract(0, 0, claripy.ZeroExt(32, claripy.If(s3 == 0, claripy.BVV(1, 32), claripy.BVV(0, 32)))) == 1
-        )
-        ast_false = (
-            claripy.Extract(0, 0, claripy.ZeroExt(32, claripy.If(s3 == 0, claripy.BVV(1, 32), claripy.BVV(0, 32)))) != 1
-        )
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s3
-        # True side: claripy.SI<32>0[0, 0]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1], claripy.SI(bits=32, stride=0, lower_bound=0, upper_bound=0)
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s3
-        # False side; claripy.SI<32>1[1, 2]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1], claripy.SI(bits=32, stride=1, lower_bound=1, upper_bound=2)
-        )
-
-    def test_extract_zero_extend_if_expr(self):
-        # Extract(0, 0, ZeroExt(32, If(Extract(32, 0, (SI & claripy.SI)) < 0, BVV(1, 1), BVV(0, 1))))
-        s4 = claripy.SI(bits=64, stride=1, lower_bound=0, upper_bound=0xFFFFFFFFFFFFFFFF)
-        ast_true = (
-            claripy.Extract(
-                0,
-                0,
-                claripy.ZeroExt(
-                    32,
-                    claripy.If(claripy.Extract(31, 0, (s4 & s4)).SLT(0), claripy.BVV(1, 32), claripy.BVV(0, 32)),
-                ),
-            )
-            == 1
-        )
-        ast_false = (
-            claripy.Extract(
-                0,
-                0,
-                claripy.ZeroExt(
-                    32,
-                    claripy.If(claripy.Extract(31, 0, (s4 & s4)).SLT(0), claripy.BVV(1, 32), claripy.BVV(0, 32)),
-                ),
-            )
-            != 1
-        )
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s4[31:0]
-        # True side: claripy.SI<32>0[0, 0]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1],
-            claripy.SI(bits=32, stride=1, lower_bound=-0x80000000, upper_bound=-1),
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s4[31:0]
-        # False side; claripy.SI<32>1[1, 2]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1],
-            claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0x7FFFFFFF),
-        )
-
-    def test_top_si_not_equal_neg1(self):
-        # TOP_SI != -1
-        s5 = claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFF)
-        ast_true = s5 == claripy.SI(bits=32, stride=1, lower_bound=0xFFFFFFFF, upper_bound=0xFFFFFFFF)
-        ast_false = s5 != claripy.SI(bits=32, stride=1, lower_bound=0xFFFFFFFF, upper_bound=0xFFFFFFFF)
-
-        trueside_sat, trueside_replacement = self.b.constraint_to_si(ast_true)
-        assert trueside_sat
-        assert len(trueside_replacement) == 1
-        assert trueside_replacement[0][0] is s5
-        # True side: claripy.SI<32>0xFFFFFFFF[0xFFFFFFFF, 0xFFFFFFFF]
-        assert claripy.backends.vsa.identical(
-            trueside_replacement[0][1],
-            claripy.SI(bits=32, stride=1, lower_bound=0xFFFFFFFF, upper_bound=0xFFFFFFFF),
-        )
-
-        falseside_sat, falseside_replacement = self.b.constraint_to_si(ast_false)
-        assert falseside_sat
-        assert len(falseside_replacement) == 1
-        assert falseside_replacement[0][0] is s5
-        # False side: claripy.SI<32>0xFFFFFFFF[0, 0xFFFFFFFE]
-        assert claripy.backends.vsa.identical(
-            falseside_replacement[0][1],
-            claripy.SI(bits=32, stride=1, lower_bound=0, upper_bound=0xFFFFFFFE),
-        )
-
-    #     # TODO: Add some more insane test cases
-
-
 class TestVSADiscreteValueSet(unittest.TestCase):  # pylint: disable=no-member,function-redefined
     def setUp(self):
         # Set backend
@@ -968,13 +739,9 @@ class TestVSADiscreteValueSet(unittest.TestCase):  # pylint: disable=no-member,f
         self.s = claripy.SolverVSA()  # pylint:disable=unused-variable
 
         # Allow the use of DiscreteStridedIntervalSet
-        claripy.backends.backend_vsa.strided_interval.allow_dsis = True
-        claripy.backends.vsa.downsize()
-
-    def tearDown(self):
-        # Disable DiscreteStridedIntervalSet after tests
-        claripy.backends.backend_vsa.strided_interval.allow_dsis = False
-        claripy.backends.vsa.downsize()
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(claripy.backends.backend_vsa.strided_interval._allow_dsis(True))
+            self.addCleanup(stack.pop_all().close)
 
     def test_union_operations(self):
         # Union operations
@@ -1156,10 +923,10 @@ class TestReverseOperations(unittest.TestCase):  # pylint: disable=no-member,fun
         r2 = x.intersection(y.reversed).reversed
         r3 = x.reversed.intersection(y.reversed).reversed
 
-        assert self.backend.convert(r0).max == 1337
-        assert self.backend.convert(r1).max == 1337
-        assert self.backend.convert(r2).max == 1337
-        assert self.backend.convert(r3).max == 1337
+        assert self.backend.convert(r0).max() == 1337
+        assert self.backend.convert(r1).max() == 1337
+        assert self.backend.convert(r2).max() == 1337
+        assert self.backend.convert(r3).max() == 1337
 
     def test_reverse_discrete_strided_interval_set(self):
         # Reversing a DiscreteStridedIntervalSet

@@ -24,7 +24,7 @@ setup(
     long_description_content_type="text/markdown",
     license="BSD 3",
     packages=find_packages(exclude=["tests*", "releasenotes", "scripts"]),
-    package_data={"ddapm_test_agent": ["py.typed"]},
+    package_data={"ddapm_test_agent": ["py.typed", "templates/*", "static/*"]},
     python_requires=">=3.8",
     install_requires=[
         "aiohttp",
@@ -33,13 +33,15 @@ setup(
         "requests",
         "typing_extensions",
         "yarl",
-        "vcrpy",
         "requests-aws4auth",
+        "jinja2>=3.0.0",
+        "pyyaml",
         # ddtrace libraries officially support opentelemetry-proto 1.33.1
         # which implements the v1.7.0 spec
         "opentelemetry-proto>1.33.0,<1.37.0",
         "protobuf>=3.19.0",
         "grpcio>=1.66.2,<2.0",
+        "pywin32; sys_platform == 'win32'",
     ],
     tests_require=testing_deps,
     setup_requires=["setuptools_scm"],

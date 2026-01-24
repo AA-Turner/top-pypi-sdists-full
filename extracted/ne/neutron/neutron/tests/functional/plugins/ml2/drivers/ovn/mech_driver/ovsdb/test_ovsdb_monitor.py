@@ -69,6 +69,37 @@ class WaitForChassisPrivateCreateEvent(event.WaitEvent):
         super().__init__(events, 'Chassis_Private', conditions, timeout=15)
 
 
+class WaitForChassisAgentDeleteEvent(event.WaitEvent):
+    event_name = 'WaitForChassisAgentDeleteEvent'
+
+    def __init__(self):
+        events = (self.ROW_UPDATE,)
+        super().__init__(events, 'SB_Global', {}, timeout=15)
+
+    def match_fn(self, event, row, old=None):
+        try:
+            return (old.external_ids.get('delete_agent') !=
+                    row.external_ids['delete_agent'])
+        except (AttributeError, KeyError):
+            return False
+
+
+class WaitForPortBindingFIPEvent(event.WaitEvent):
+    event_name = 'WaitForPortBindingFIPEvent'
+
+    def __init__(self, fip):
+        events = (self.ROW_UPDATE, )
+        self._fip = fip
+        super().__init__(events, 'Port_Binding', {}, timeout=15)
+
+    def match_fn(self, event, row, old=None):
+        try:
+            return (row.external_ids[ovn_const.OVN_PORT_FIP_EXT_ID_KEY] ==
+                    self._fip)
+        except (AttributeError, KeyError):
+            return False
+
+
 class DistributedLockTestEvent(event.WaitEvent):
     ONETIME = False
     COUNTER = 0
@@ -105,6 +136,17 @@ class WaitForLogicalRouterPortCreateEvent(event.WaitEvent):
 
 class GlobalTestEvent(DistributedLockTestEvent):
     GLOBAL = True
+
+
+class WaitForPortBindingCreateEvent(event.WaitEvent):
+    event_name = 'WaitForPortBindingCreateEvent'
+
+    def __init__(self, net_name):
+        table = 'Port_Binding'
+        events = (self.ROW_CREATE,)
+        conditions = (('external_ids', '=',
+                       {ovn_const.OVN_NETWORK_NAME_EXT_ID_KEY: net_name}),)
+        super().__init__(events, table, conditions, timeout=15)
 
 
 class TestNBDbMonitor(testlib_api.MySQLTestCaseMixin,
@@ -219,10 +261,15 @@ class TestNBDbMonitor(testlib_api.MySQLTestCaseMixin,
         port = self.create_port()
 
         # Ensure that the MAC_Binding entry gets deleted after creating a FIP
+        fip_event = WaitForPortBindingFIPEvent('100.0.0.21')
+        self.mech_driver.sb_ovn.idl.notify_handler.watch_event(fip_event)
         fip = self._create_fip(port, '100.0.0.21')
+        self.assertTrue(fip_event.wait())
+        # TODO(ralonsoh): restore the timeout=15 value (or even lower) once
+        # the eventlet removal finishes.
         n_utils.wait_until_true(
             lambda: not self._check_mac_binding_exists(macb_id),
-            timeout=15, sleep=1)
+            timeout=30, sleep=1)
 
         # Now that the FIP is created, add a new MAC_Binding entry with the
         # same IP address
@@ -231,9 +278,11 @@ class TestNBDbMonitor(testlib_api.MySQLTestCaseMixin,
 
         # Ensure that the MAC_Binding entry gets deleted after deleting the FIP
         self.l3_plugin.delete_floatingip(self.context, fip['id'])
+        # TODO(ralonsoh): restore the timeout=15 value (or even lower) once
+        # the eventlet removal finishes.
         n_utils.wait_until_true(
             lambda: not self._check_mac_binding_exists(macb_id),
-            timeout=15, sleep=1)
+            timeout=30, sleep=1)
 
     def _test_port_binding_and_status(self, port_id, action, status):
         # This function binds or unbinds port to chassis and
@@ -288,7 +337,8 @@ class TestNBDbMonitor(testlib_api.MySQLTestCaseMixin,
             worker_list.append(worker)
 
         # Refresh the hash rings just in case
-        [worker.idl._hash_ring.refresh() for worker in worker_list]
+        for worker in worker_list:
+            worker.idl._hash_ring.refresh()
 
         # Assert we have 11 active workers in the ring
         self.assertEqual(
@@ -708,7 +758,7 @@ class TestAgentMonitor(base.TestOVNFunctionalBase):
         n_utils.wait_until_true(
             lambda:
             isinstance(neutron_agent.AgentCache().get(self.chassis_name),
-            neutron_agent.ControllerAgent))
+                       neutron_agent.ControllerAgent))
 
         # Change back to gw chassis
         self.sb_api.db_set(
@@ -719,7 +769,7 @@ class TestAgentMonitor(base.TestOVNFunctionalBase):
         n_utils.wait_until_true(
             lambda:
             isinstance(neutron_agent.AgentCache().get(self.chassis_name),
-            neutron_agent.ControllerGatewayAgent))
+                       neutron_agent.ControllerGatewayAgent))
 
     def test_agent_updated_at_use_nb_cfg_timestamp(self):
         def check_agent_ts():
@@ -808,6 +858,25 @@ class TestAgentMonitor(base.TestOVNFunctionalBase):
             self.fail('Agent did not go up after sync is done')
         self.assertTrue(check_nb_cfg_timestamp_is_not_null())
 
+    def test_agent_removal(self):
+        agents = neutron_agent.AgentCache().get_agents()
+        agent_id = agents[0].agent_id
+
+        row_event = WaitForChassisAgentDeleteEvent()
+        self.mech_driver.sb_ovn.idl.notify_handler.watch_event(row_event)
+        # Send the SB_Global event to delete an agent from the local caches.
+        self.sb_api.db_set(
+            'SB_Global', '.',
+            ('external_ids', {'delete_agent': agent_id})).execute(
+            check_error=True)
+        self.sb_api.db_remove(
+            'SB_Global', '.', 'external_ids', delete_agent=agent_id,
+            if_exists=True).execute(check_error=True)
+
+        self.assertTrue(row_event.wait())
+        self.assertEqual([],
+                         neutron_agent.AgentCache().get_agents())
+
 
 class TestOvnIdlProbeInterval(base.TestOVNFunctionalBase):
     def setUp(self):
@@ -889,8 +958,13 @@ class TestPortBindingChassisEvent(base.TestOVNFunctionalBase,
         self.net = self._make_network(
             self.fmt, 'ext_net', True, as_admin=True, **kwargs)
         self._make_subnet(self.fmt, self.net, '20.0.10.1', '20.0.10.0/24')
+
+        pb_event = WaitForPortBindingCreateEvent(
+            ovn_utils.ovn_name(self.net['network']['id']))
+        self.mech_driver.sb_ovn.idl.notify_handler.watch_event(pb_event)
         port_res = self._create_port(self.fmt, self.net['network']['id'])
         self.port = self.deserialize(self.fmt, port_res)['port']
+        self.assertTrue(pb_event.wait())
 
         self.ext_api = test_extensions.setup_extensions_middleware(
             test_l3.L3TestExtensionManager())

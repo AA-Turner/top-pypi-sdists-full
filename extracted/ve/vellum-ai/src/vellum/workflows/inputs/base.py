@@ -1,7 +1,8 @@
-from typing import Any, Dict, Iterator, Set, Tuple, Type, Union, get_args, get_origin
+from typing import Any, Callable, Dict, Iterator, Set, Tuple, Type, Union, cast, get_args, get_origin
 from typing_extensions import dataclass_transform
 
 from pydantic import GetCoreSchemaHandler
+from pydantic.fields import FieldInfo
 from pydantic_core import core_schema
 
 from vellum.workflows.constants import undefined
@@ -9,7 +10,7 @@ from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import WorkflowInitializationException
 from vellum.workflows.references import ExternalInputReference, WorkflowInputReference
 from vellum.workflows.references.input import InputReference
-from vellum.workflows.types.utils import get_class_attr_names, infer_types
+from vellum.workflows.types.utils import coerce_to_declared_type, get_class_attr_names, infer_types
 
 
 @dataclass_transform(kw_only_default=True)
@@ -41,7 +42,10 @@ class _BaseInputsMeta(type):
             else:
                 return WorkflowInputReference(name=name, types=types, instance=instance, inputs_class=cls)
 
-        return super().__getattribute__(name)
+        if getattr(cls, "__descriptor_class__", None) is ExternalInputReference:
+            return ExternalInputReference(name=name, types=(), instance=undefined, inputs_class=cls)
+        else:
+            return WorkflowInputReference(name=name, types=(), instance=undefined, inputs_class=cls)
 
     def __iter__(cls) -> Iterator[InputReference]:
         # We iterate through the inheritance hierarchy to find all the WorkflowInputReference attached to this
@@ -70,7 +74,7 @@ class BaseInputs(metaclass=_BaseInputsMeta):
         Initialize BaseInputs with provided keyword arguments.
 
         Validation logic:
-        1. Ensures all required fields (non-Optional types) either:
+        1. Ensures all required fields (values without defaults, regardless of Optional or not) either:
         - Have a value provided in kwargs, or
         - Have a default value defined in the class
         2. Validates that no None values are provided for required fields
@@ -84,28 +88,73 @@ class BaseInputs(metaclass=_BaseInputsMeta):
         """
         for name, field_type in self.__class__.__annotations__.items():
             # Get the value (either from kwargs or class default)
-            value = kwargs.get(name)
+            value = kwargs.get(name, undefined)
             has_default = name in vars(self.__class__)
 
-            if value is None and not has_default:
-                # Check if field_type allows None
-                origin = get_origin(field_type)
-                args = get_args(field_type)
-                if not (origin is Union and type(None) in args):
+            # If no value provided, check for default
+            if value is undefined and has_default:
+                default_value = vars(self.__class__)[name]
+                # Check if default is a FieldInfo with default_factory
+                if isinstance(default_value, FieldInfo):
+                    if default_value.default_factory is not None:
+                        value = cast(Callable[[], Any], default_value.default_factory)()
+                    elif hasattr(default_value, "default") and default_value.default is not ...:
+                        # Use the default value directly
+                        value = default_value.default
+                else:
+                    # Regular default value
+                    value = default_value
+
+            # Check if field_type allows None
+            origin = get_origin(field_type)
+            args = get_args(field_type)
+            is_optional = origin is Union and type(None) in args
+
+            if value is undefined and not has_default:
+                # All fields without defaults must be provided, even if Optional
+                raise WorkflowInitializationException(
+                    message=f"Required input variables '{name}' should have defined value",
+                    code=WorkflowErrorCode.INVALID_INPUTS,
+                    workflow_definition=self.__class__.__parent_class__,
+                )
+
+            # Validate that None is not provided for non-Optional fields
+            if value is None and not is_optional:
+                raise WorkflowInitializationException(
+                    message=f"Required input variables '{name}' should have defined value",
+                    code=WorkflowErrorCode.INVALID_INPUTS,
+                    workflow_definition=self.__class__.__parent_class__,
+                )
+
+            # Set the value on the instance (either from kwargs or default)
+            if value is not undefined:
+                # Coerce the value to the declared type if needed
+                # For Optional types, extract the non-None type for coercion
+                coercion_type = field_type
+                if is_optional:
+                    non_none_args = [arg for arg in args if arg is not type(None)]
+                    if len(non_none_args) == 1:
+                        coercion_type = non_none_args[0]
+
+                try:
+                    value = coerce_to_declared_type(value, coercion_type, name)
+                except ValueError as e:
                     raise WorkflowInitializationException(
-                        message=f"Required input variables {name} should have defined value",
+                        message=str(e),
                         code=WorkflowErrorCode.INVALID_INPUTS,
                         workflow_definition=self.__class__.__parent_class__,
                     )
 
-            # If value provided in kwargs, set it on the instance
-            if name in kwargs:
                 setattr(self, name, value)
 
     def __iter__(self) -> Iterator[Tuple[InputReference, Any]]:
         for input_descriptor in self.__class__:
             if hasattr(self, input_descriptor.name):
                 yield (input_descriptor, getattr(self, input_descriptor.name))
+
+    def __vellum_encode__(self) -> Dict[str, Any]:
+        """Return a JSON-serializable representation of this inputs object."""
+        return {descriptor.name: value for descriptor, value in self if value is not undefined}
 
     @classmethod
     def __get_pydantic_core_schema__(

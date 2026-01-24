@@ -16,9 +16,7 @@ def cell(
     """Returns cell noise value at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :return: The cell noise value.
-    :rtype: float
     """
 
 def cell_vector(
@@ -28,9 +26,7 @@ def cell_vector(
     """Returns cell noise vector at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :return: The cell noise vector.
-    :rtype: mathutils.Vector
     """
 
 def fractal(
@@ -45,16 +41,11 @@ def fractal(
     """Returns the fractal Brownian motion (fBm) noise value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param H: The fractal increment factor.
-    :type H: float
     :param lacunarity: The gap between successive frequencies.
-    :type lacunarity: float
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param noise_basis: A noise basis string.
     :return: The fractal Brownian motion noise value.
-    :rtype: float
     """
 
 def hetero_terrain(
@@ -70,18 +61,12 @@ def hetero_terrain(
     """Returns the heterogeneous terrain value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param H: The fractal dimension of the roughest areas.
-    :type H: float
     :param lacunarity: The gap between successive frequencies.
-    :type lacunarity: float
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param offset: The height of the terrain above sea level.
-    :type offset: float
     :param noise_basis: A noise basis string.
     :return: The heterogeneous terrain value.
-    :rtype: float
     """
 
 def hybrid_multi_fractal(
@@ -98,20 +83,13 @@ def hybrid_multi_fractal(
     """Returns hybrid multifractal value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param H: The fractal dimension of the roughest areas.
-    :type H: float
     :param lacunarity: The gap between successive frequencies.
-    :type lacunarity: float
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param offset: The height of the terrain above sea level.
-    :type offset: float
     :param gain: Scaling applied to the values.
-    :type gain: float
     :param noise_basis: A noise basis string.
     :return: The hybrid multifractal value.
-    :rtype: float
     """
 
 def multi_fractal(
@@ -126,16 +104,11 @@ def multi_fractal(
     """Returns multifractal noise value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param H: The fractal increment factor.
-    :type H: float
     :param lacunarity: The gap between successive frequencies.
-    :type lacunarity: float
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param noise_basis: A noise basis string.
     :return: The multifractal noise value.
-    :rtype: float
     """
 
 def noise(
@@ -147,10 +120,8 @@ def noise(
     """Returns noise value from the noise basis at the position specified.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param noise_basis: A noise basis string.
     :return: The noise value.
-    :rtype: float
     """
 
 def noise_vector(
@@ -162,35 +133,28 @@ def noise_vector(
     """Returns the noise vector from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param noise_basis: A noise basis string.
     :return: The noise vector.
-    :rtype: mathutils.Vector
     """
 
 def random() -> float:
     """Returns a random number in the range [0, 1).
 
     :return: The random number.
-    :rtype: float
     """
 
 def random_unit_vector(*, size: int = 3) -> mathutils.Vector:
     """Returns a unit vector with random entries.
 
     :param size: The size of the vector to be produced, in the range [2, 4].
-    :type size: int
     :return: The random unit vector.
-    :rtype: mathutils.Vector
     """
 
 def random_vector(*, size: int = 3) -> mathutils.Vector:
     """Returns a vector with random entries in the range (-1, 1).
 
     :param size: The size of the vector to be produced.
-    :type size: int
     :return: The random vector.
-    :rtype: mathutils.Vector
     """
 
 def ridged_multi_fractal(
@@ -207,20 +171,13 @@ def ridged_multi_fractal(
     """Returns ridged multifractal value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param H: The fractal dimension of the roughest areas.
-    :type H: float
     :param lacunarity: The gap between successive frequencies.
-    :type lacunarity: float
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param offset: The height of the terrain above sea level.
-    :type offset: float
     :param gain: Scaling applied to the values.
-    :type gain: float
     :param noise_basis: A noise basis string.
     :return: The ridged multifractal value.
-    :rtype: float
     """
 
 def seed_set(
@@ -231,7 +188,6 @@ def seed_set(
 
         :param seed: Seed used for the random generator.
     When seed is zero, the current time will be used instead.
-        :type seed: int
     """
 
 def turbulence(
@@ -247,18 +203,12 @@ def turbulence(
     """Returns the turbulence value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param hard: Specifies whether returned turbulence is hard (sharp transitions) or soft (smooth transitions).
-    :type hard: bool
     :param noise_basis: A noise basis string.
     :param amplitude_scale: The amplitude scaling factor.
-    :type amplitude_scale: float
     :param frequency_scale: The frequency scaling factor
-    :type frequency_scale: float
     :return: The turbulence value.
-    :rtype: float
     """
 
 def turbulence_vector(
@@ -274,18 +224,12 @@ def turbulence_vector(
     """Returns the turbulence vector from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param octaves: The number of different noise frequencies used.
-    :type octaves: int
     :param hard: Specifies whether returned turbulence is hard (sharp transitions) or soft (smooth transitions).
-    :type hard: bool
     :param noise_basis: A noise basis string.
     :param amplitude_scale: The amplitude scaling factor.
-    :type amplitude_scale: float
     :param frequency_scale: The frequency scaling factor
-    :type frequency_scale: float
     :return: The turbulence vector.
-    :rtype: mathutils.Vector
     """
 
 def variable_lacunarity(
@@ -299,13 +243,10 @@ def variable_lacunarity(
     """Returns variable lacunarity noise value, a distorted variety of noise, from noise type 1 distorted by noise type 2 at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param distortion: The amount of distortion.
-    :type distortion: float
     :param noise_type1: A noise type string.
     :param noise_type2: A noise type string.
     :return: The variable lacunarity noise value.
-    :rtype: float
     """
 
 def voronoi(
@@ -318,10 +259,7 @@ def voronoi(
     """Returns a list of distances to the four closest features and their locations.
 
     :param position: The position to evaluate the selected noise function.
-    :type position: collections.abc.Sequence[float] | mathutils.Vector
     :param distance_metric: A distance metric string.
     :param exponent: The exponent for Minkowski distance metric.
-    :type exponent: float
     :return: A list of distances to the four closest features and their locations.
-    :rtype: list[list[float] | list[mathutils.Vector]]
     """

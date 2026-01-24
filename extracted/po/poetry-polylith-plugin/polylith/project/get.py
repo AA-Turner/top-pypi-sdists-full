@@ -62,6 +62,7 @@ def get_packages_for_projects(root: Path) -> List[dict]:
             "path": d["path"],
             "type": d["type"],
             "deps": toml.get_project_dependencies(d["toml"]),
+            "exclude": toml.collect_configured_exclude_patterns(d["toml"]),
         }
         for d in toml_files
     ]
@@ -69,18 +70,18 @@ def get_packages_for_projects(root: Path) -> List[dict]:
 
 def _get_poetry_template(pyproject: dict) -> str:
     if repo.is_pep_621_ready(pyproject):
-        return templates.poetry_pep621_pyproject
+        return templates.poetry_pep621_pyproject_template
 
-    return templates.poetry_pyproject
+    return templates.poetry_pyproject_template
 
 
 def guess_project_template(pyproject: dict) -> str:
     if repo.is_poetry(pyproject):
         template = _get_poetry_template(pyproject)
     elif repo.is_hatch(pyproject):
-        template = templates.hatch_pyproject
+        template = templates.hatch_pyproject_template
     elif repo.is_pdm(pyproject):
-        template = templates.pdm_pyproject
+        template = templates.pdm_pyproject_template
     else:
         raise ValueError("Failed to guess the type of Project")
 

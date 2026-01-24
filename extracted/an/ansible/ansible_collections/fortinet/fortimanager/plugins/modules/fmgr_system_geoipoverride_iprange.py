@@ -16,7 +16,6 @@ short_description: Table of IP ranges assigned to country.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -130,12 +132,12 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_system_geoipoverride_iprange:
         bypass_validation: false
         adom: ansible
-        geoip-override: ansible-test-geoipoverride # name
+        geoip_override: ansible-test-geoipoverride # name
         state: present
         system_geoipoverride_iprange:
-          end-ip: 222.222.222.25
+          end_ip: 222.222.222.25
           id: 1
-          start-ip: 222.222.222.2
+          start_ip: 222.222.222.2
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -152,8 +154,8 @@ EXAMPLES = '''
           selector: "system_geoipoverride_iprange"
           params:
             adom: "ansible"
-            geoip-override: "ansible-test-geoipoverride" # name
-            ip-range: "your_value"
+            geoip_override: "ansible-test-geoipoverride" # name
+            ip_range: "your_value"
 '''
 
 RETURN = '''
@@ -212,6 +214,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'geoip-override': {'type': 'str', 'api_name': 'geoip_override'},
         'geoip_override': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_geoipoverride_iprange': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

@@ -301,22 +301,10 @@ global___Cluster = Cluster
 class ClusterConfigSet(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
-    GREENPLUM_CONFIG_SET_6_17_FIELD_NUMBER: builtins.int
-    GREENPLUM_CONFIG_SET_6_19_FIELD_NUMBER: builtins.int
-    GREENPLUM_CONFIG_SET_6_21_FIELD_NUMBER: builtins.int
-    GREENPLUM_CONFIG_SET_6_22_FIELD_NUMBER: builtins.int
     GREENPLUM_CONFIG_SET_6_FIELD_NUMBER: builtins.int
     POOL_FIELD_NUMBER: builtins.int
     BACKGROUND_ACTIVITIES_FIELD_NUMBER: builtins.int
     PXF_CONFIG_FIELD_NUMBER: builtins.int
-    @property
-    def greenplum_config_set_6_17(self) -> yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_17: ...
-    @property
-    def greenplum_config_set_6_19(self) -> yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_19: ...
-    @property
-    def greenplum_config_set_6_21(self) -> yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_21: ...
-    @property
-    def greenplum_config_set_6_22(self) -> yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_22: ...
     @property
     def greenplum_config_set_6(self) -> yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6: ...
     @property
@@ -332,18 +320,14 @@ class ClusterConfigSet(google.protobuf.message.Message):
     def __init__(
         self,
         *,
-        greenplum_config_set_6_17: yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_17 | None = ...,
-        greenplum_config_set_6_19: yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_19 | None = ...,
-        greenplum_config_set_6_21: yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_21 | None = ...,
-        greenplum_config_set_6_22: yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6_22 | None = ...,
         greenplum_config_set_6: yandex.cloud.mdb.greenplum.v1.config_pb2.GreenplumConfigSet6 | None = ...,
         pool: yandex.cloud.mdb.greenplum.v1.config_pb2.ConnectionPoolerConfigSet | None = ...,
         background_activities: yandex.cloud.mdb.greenplum.v1.config_pb2.BackgroundActivitiesConfig | None = ...,
         pxf_config: yandex.cloud.mdb.greenplum.v1.pxf_pb2.PXFConfigSet | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["background_activities", b"background_activities", "greenplum_config", b"greenplum_config", "greenplum_config_set_6", b"greenplum_config_set_6", "greenplum_config_set_6_17", b"greenplum_config_set_6_17", "greenplum_config_set_6_19", b"greenplum_config_set_6_19", "greenplum_config_set_6_21", b"greenplum_config_set_6_21", "greenplum_config_set_6_22", b"greenplum_config_set_6_22", "pool", b"pool", "pxf_config", b"pxf_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["background_activities", b"background_activities", "greenplum_config", b"greenplum_config", "greenplum_config_set_6", b"greenplum_config_set_6", "greenplum_config_set_6_17", b"greenplum_config_set_6_17", "greenplum_config_set_6_19", b"greenplum_config_set_6_19", "greenplum_config_set_6_21", b"greenplum_config_set_6_21", "greenplum_config_set_6_22", b"greenplum_config_set_6_22", "pool", b"pool", "pxf_config", b"pxf_config"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["greenplum_config", b"greenplum_config"]) -> typing.Literal["greenplum_config_set_6_17", "greenplum_config_set_6_19", "greenplum_config_set_6_21", "greenplum_config_set_6_22", "greenplum_config_set_6"] | None: ...
+    def HasField(self, field_name: typing.Literal["background_activities", b"background_activities", "greenplum_config", b"greenplum_config", "greenplum_config_set_6", b"greenplum_config_set_6", "pool", b"pool", "pxf_config", b"pxf_config"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["background_activities", b"background_activities", "greenplum_config", b"greenplum_config", "greenplum_config_set_6", b"greenplum_config_set_6", "pool", b"pool", "pxf_config", b"pxf_config"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["greenplum_config", b"greenplum_config"]) -> typing.Literal["greenplum_config_set_6"] | None: ...
 
 global___ClusterConfigSet = ClusterConfigSet
 
@@ -386,6 +370,7 @@ class GreenplumConfig(google.protobuf.message.Message):
     ZONE_ID_FIELD_NUMBER: builtins.int
     SUBNET_ID_FIELD_NUMBER: builtins.int
     ASSIGN_PUBLIC_IP_FIELD_NUMBER: builtins.int
+    FULL_VERSION_FIELD_NUMBER: builtins.int
     version: builtins.str
     """Version of the Greenplum® server software."""
     zone_id: builtins.str
@@ -399,6 +384,8 @@ class GreenplumConfig(google.protobuf.message.Message):
 
     After the cluster has been created, this setting cannot be changed.
     """
+    full_version: builtins.str
+    """Full version"""
     @property
     def backup_window_start(self) -> google.type.timeofday_pb2.TimeOfDay:
         """Time to start the daily backup, in the UTC timezone."""
@@ -421,9 +408,10 @@ class GreenplumConfig(google.protobuf.message.Message):
         zone_id: builtins.str = ...,
         subnet_id: builtins.str = ...,
         assign_public_ip: builtins.bool = ...,
+        full_version: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["access", b"access", "backup_retain_period_days", b"backup_retain_period_days", "backup_window_start", b"backup_window_start"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access", b"access", "assign_public_ip", b"assign_public_ip", "backup_retain_period_days", b"backup_retain_period_days", "backup_window_start", b"backup_window_start", "subnet_id", b"subnet_id", "version", b"version", "zone_id", b"zone_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["access", b"access", "assign_public_ip", b"assign_public_ip", "backup_retain_period_days", b"backup_retain_period_days", "backup_window_start", b"backup_window_start", "full_version", b"full_version", "subnet_id", b"subnet_id", "version", b"version", "zone_id", b"zone_id"]) -> None: ...
 
 global___GreenplumConfig = GreenplumConfig
 

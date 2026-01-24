@@ -85,8 +85,10 @@ class JsonHttpClient:
         )
 
 
-def create_client() -> JsonHttpClient:
+def create_client(base_url: str | None = None) -> JsonHttpClient:
     """Create the auth http client."""
+    url = base_url if base_url is not None else LANGSMITH_AUTH_ENDPOINT
+
     return JsonHttpClient(
         httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(
@@ -97,7 +99,7 @@ def create_client() -> JsonHttpClient:
                 ),
             ),
             timeout=httpx.Timeout(2.0),
-            base_url=LANGSMITH_AUTH_ENDPOINT,
+            base_url=url,
         )
     )
 
@@ -109,20 +111,23 @@ async def close_auth_client() -> None:
         await _client.client.aclose()
 
 
-async def initialize_auth_client() -> None:
+async def initialize_auth_client(base_url: str | None = None) -> None:
     """Initialize the auth http client."""
     await close_auth_client()
     global _client
-    _client = create_client()
+    _client = create_client(base_url=base_url)
 
 
 @asynccontextmanager
-async def auth_client() -> AsyncGenerator[JsonHttpClient, None]:
+async def auth_client(
+    base_url: str | None = None,
+) -> AsyncGenerator[JsonHttpClient, None]:
     """Get the auth http client."""
+    url = base_url if base_url is not None else LANGSMITH_AUTH_ENDPOINT
     # pytest does something funny with event loops,
     # so we can't use a global pool for tests
-    if LANGSMITH_AUTH_ENDPOINT.startswith("http://localhost"):
-        client = create_client()
+    if url.startswith("http://localhost"):
+        client = create_client(base_url=url)
         try:
             yield client
         finally:
@@ -135,5 +140,5 @@ async def auth_client() -> AsyncGenerator[JsonHttpClient, None]:
         if found:
             yield _client
         else:
-            await initialize_auth_client()
+            await initialize_auth_client(base_url=url)
             yield _client

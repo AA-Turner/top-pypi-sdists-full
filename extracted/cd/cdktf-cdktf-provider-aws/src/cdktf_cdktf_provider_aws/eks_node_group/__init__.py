@@ -1,7 +1,7 @@
 r'''
 # `aws_eks_node_group`
 
-Refer to the Terraform Registry for docs: [`aws_eks_node_group`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group).
+Refer to the Terraform Registry for docs: [`aws_eks_node_group`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class EksNodeGroup(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.eksNodeGroup.EksNodeGroup",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group aws_eks_node_group}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group aws_eks_node_group}.'''
 
     def __init__(
         self,
@@ -83,34 +83,34 @@ class EksNodeGroup(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group aws_eks_node_group} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group aws_eks_node_group} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.
-        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.
-        :param ami_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.
-        :param capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.
-        :param disk_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.
-        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#labels EksNodeGroup#labels}.
-        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
-        :param node_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.
-        :param node_group_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.
-        :param node_repair_config: node_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#region EksNodeGroup#region}
-        :param release_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.
-        :param remote_access: remote_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags EksNodeGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#taint EksNodeGroup#taint}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
-        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.
+        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.
+        :param ami_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.
+        :param capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.
+        :param disk_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.
+        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#labels EksNodeGroup#labels}.
+        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
+        :param node_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.
+        :param node_group_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.
+        :param node_repair_config: node_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#region EksNodeGroup#region}
+        :param release_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.
+        :param remote_access: remote_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags EksNodeGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#taint EksNodeGroup#taint}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
+        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -172,7 +172,7 @@ class EksNodeGroup(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the EksNodeGroup to import.
-        :param import_from_id: The id of the existing EksNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing EksNodeGroup that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the EksNodeGroup to import is found.
         '''
         if __debug__:
@@ -192,9 +192,9 @@ class EksNodeGroup(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#name EksNodeGroup#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#name EksNodeGroup#name}.
         '''
         value = EksNodeGroupLaunchTemplate(version=version, id=id, name=name)
 
@@ -205,11 +205,28 @@ class EksNodeGroup(
         self,
         *,
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        max_parallel_nodes_repaired_count: typing.Optional[jsii.Number] = None,
+        max_parallel_nodes_repaired_percentage: typing.Optional[jsii.Number] = None,
+        max_unhealthy_node_threshold_count: typing.Optional[jsii.Number] = None,
+        max_unhealthy_node_threshold_percentage: typing.Optional[jsii.Number] = None,
+        node_repair_config_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.
+        :param max_parallel_nodes_repaired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_count EksNodeGroup#max_parallel_nodes_repaired_count}.
+        :param max_parallel_nodes_repaired_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_percentage EksNodeGroup#max_parallel_nodes_repaired_percentage}.
+        :param max_unhealthy_node_threshold_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_count EksNodeGroup#max_unhealthy_node_threshold_count}.
+        :param max_unhealthy_node_threshold_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_percentage EksNodeGroup#max_unhealthy_node_threshold_percentage}.
+        :param node_repair_config_overrides: node_repair_config_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config_overrides EksNodeGroup#node_repair_config_overrides}
         '''
-        value = EksNodeGroupNodeRepairConfig(enabled=enabled)
+        value = EksNodeGroupNodeRepairConfig(
+            enabled=enabled,
+            max_parallel_nodes_repaired_count=max_parallel_nodes_repaired_count,
+            max_parallel_nodes_repaired_percentage=max_parallel_nodes_repaired_percentage,
+            max_unhealthy_node_threshold_count=max_unhealthy_node_threshold_count,
+            max_unhealthy_node_threshold_percentage=max_unhealthy_node_threshold_percentage,
+            node_repair_config_overrides=node_repair_config_overrides,
+        )
 
         return typing.cast(None, jsii.invoke(self, "putNodeRepairConfig", [value]))
 
@@ -221,8 +238,8 @@ class EksNodeGroup(
         source_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ec2_ssh_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.
-        :param source_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.
+        :param ec2_ssh_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.
+        :param source_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.
         '''
         value = EksNodeGroupRemoteAccess(
             ec2_ssh_key=ec2_ssh_key,
@@ -240,9 +257,9 @@ class EksNodeGroup(
         min_size: jsii.Number,
     ) -> None:
         '''
-        :param desired_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.
-        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.
-        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.
+        :param desired_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.
+        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.
+        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.
         '''
         value = EksNodeGroupScalingConfig(
             desired_size=desired_size, max_size=max_size, min_size=min_size
@@ -272,9 +289,9 @@ class EksNodeGroup(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#create EksNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#delete EksNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update EksNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#create EksNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#delete EksNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update EksNodeGroup#update}.
         '''
         value = EksNodeGroupTimeouts(create=create, delete=delete, update=update)
 
@@ -288,8 +305,8 @@ class EksNodeGroup(
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_unavailable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.
-        :param max_unavailable_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.
+        :param max_unavailable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.
+        :param max_unavailable_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.
         '''
         value = EksNodeGroupUpdateConfig(
             max_unavailable=max_unavailable,
@@ -864,30 +881,30 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.
-        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
-        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.
-        :param ami_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.
-        :param capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.
-        :param disk_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.
-        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.
-        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#labels EksNodeGroup#labels}.
-        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
-        :param node_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.
-        :param node_group_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.
-        :param node_repair_config: node_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#region EksNodeGroup#region}
-        :param release_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.
-        :param remote_access: remote_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags EksNodeGroup#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.
-        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#taint EksNodeGroup#taint}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
-        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.
+        :param cluster_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.
+        :param node_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
+        :param subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.
+        :param ami_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.
+        :param capacity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.
+        :param disk_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.
+        :param force_update_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param instance_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.
+        :param labels: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#labels EksNodeGroup#labels}.
+        :param launch_template: launch_template block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
+        :param node_group_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.
+        :param node_group_name_prefix: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.
+        :param node_repair_config: node_repair_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#region EksNodeGroup#region}
+        :param release_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.
+        :param remote_access: remote_access block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags EksNodeGroup#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.
+        :param taint: taint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#taint EksNodeGroup#taint}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
+        :param update_config: update_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1063,14 +1080,14 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def cluster_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#cluster_name EksNodeGroup#cluster_name}.'''
         result = self._values.get("cluster_name")
         assert result is not None, "Required property 'cluster_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def node_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_role_arn EksNodeGroup#node_role_arn}.'''
         result = self._values.get("node_role_arn")
         assert result is not None, "Required property 'node_role_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1079,7 +1096,7 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scaling_config(self) -> "EksNodeGroupScalingConfig":
         '''scaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#scaling_config EksNodeGroup#scaling_config}
         '''
         result = self._values.get("scaling_config")
         assert result is not None, "Required property 'scaling_config' is missing"
@@ -1087,26 +1104,26 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#subnet_ids EksNodeGroup#subnet_ids}.'''
         result = self._values.get("subnet_ids")
         assert result is not None, "Required property 'subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
     def ami_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ami_type EksNodeGroup#ami_type}.'''
         result = self._values.get("ami_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def capacity_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#capacity_type EksNodeGroup#capacity_type}.'''
         result = self._values.get("capacity_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def disk_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#disk_size EksNodeGroup#disk_size}.'''
         result = self._values.get("disk_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1114,13 +1131,13 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def force_update_version(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#force_update_version EksNodeGroup#force_update_version}.'''
         result = self._values.get("force_update_version")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1130,13 +1147,13 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#instance_types EksNodeGroup#instance_types}.'''
         result = self._values.get("instance_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#labels EksNodeGroup#labels}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#labels EksNodeGroup#labels}.'''
         result = self._values.get("labels")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1144,20 +1161,20 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def launch_template(self) -> typing.Optional["EksNodeGroupLaunchTemplate"]:
         '''launch_template block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#launch_template EksNodeGroup#launch_template}
         '''
         result = self._values.get("launch_template")
         return typing.cast(typing.Optional["EksNodeGroupLaunchTemplate"], result)
 
     @builtins.property
     def node_group_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name EksNodeGroup#node_group_name}.'''
         result = self._values.get("node_group_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def node_group_name_prefix(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_group_name_prefix EksNodeGroup#node_group_name_prefix}.'''
         result = self._values.get("node_group_name_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1165,7 +1182,7 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def node_repair_config(self) -> typing.Optional["EksNodeGroupNodeRepairConfig"]:
         '''node_repair_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config EksNodeGroup#node_repair_config}
         '''
         result = self._values.get("node_repair_config")
         return typing.cast(typing.Optional["EksNodeGroupNodeRepairConfig"], result)
@@ -1174,14 +1191,14 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#region EksNodeGroup#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#region EksNodeGroup#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def release_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#release_version EksNodeGroup#release_version}.'''
         result = self._values.get("release_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1189,20 +1206,20 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def remote_access(self) -> typing.Optional["EksNodeGroupRemoteAccess"]:
         '''remote_access block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#remote_access EksNodeGroup#remote_access}
         '''
         result = self._values.get("remote_access")
         return typing.cast(typing.Optional["EksNodeGroupRemoteAccess"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags EksNodeGroup#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags EksNodeGroup#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#tags_all EksNodeGroup#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1212,7 +1229,7 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksNodeGroupTaint"]]]:
         '''taint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#taint EksNodeGroup#taint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#taint EksNodeGroup#taint}
         '''
         result = self._values.get("taint")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksNodeGroupTaint"]]], result)
@@ -1221,7 +1238,7 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["EksNodeGroupTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#timeouts EksNodeGroup#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["EksNodeGroupTimeouts"], result)
@@ -1230,14 +1247,14 @@ class EksNodeGroupConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def update_config(self) -> typing.Optional["EksNodeGroupUpdateConfig"]:
         '''update_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update_config EksNodeGroup#update_config}
         '''
         result = self._values.get("update_config")
         return typing.cast(typing.Optional["EksNodeGroupUpdateConfig"], result)
 
     @builtins.property
     def version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.'''
         result = self._values.get("version")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1267,9 +1284,9 @@ class EksNodeGroupLaunchTemplate:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#name EksNodeGroup#name}.
+        :param version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#name EksNodeGroup#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5abf61a73b877e590a9705030076717742a8271c08a0fd3b0ae459bcf274da7f)
@@ -1286,14 +1303,14 @@ class EksNodeGroupLaunchTemplate:
 
     @builtins.property
     def version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#version EksNodeGroup#version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#version EksNodeGroup#version}.'''
         result = self._values.get("version")
         assert result is not None, "Required property 'version' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#id EksNodeGroup#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#id EksNodeGroup#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1303,7 +1320,7 @@ class EksNodeGroupLaunchTemplate:
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#name EksNodeGroup#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#name EksNodeGroup#name}.'''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1417,31 +1434,98 @@ class EksNodeGroupLaunchTemplateOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.eksNodeGroup.EksNodeGroupNodeRepairConfig",
     jsii_struct_bases=[],
-    name_mapping={"enabled": "enabled"},
+    name_mapping={
+        "enabled": "enabled",
+        "max_parallel_nodes_repaired_count": "maxParallelNodesRepairedCount",
+        "max_parallel_nodes_repaired_percentage": "maxParallelNodesRepairedPercentage",
+        "max_unhealthy_node_threshold_count": "maxUnhealthyNodeThresholdCount",
+        "max_unhealthy_node_threshold_percentage": "maxUnhealthyNodeThresholdPercentage",
+        "node_repair_config_overrides": "nodeRepairConfigOverrides",
+    },
 )
 class EksNodeGroupNodeRepairConfig:
     def __init__(
         self,
         *,
         enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        max_parallel_nodes_repaired_count: typing.Optional[jsii.Number] = None,
+        max_parallel_nodes_repaired_percentage: typing.Optional[jsii.Number] = None,
+        max_unhealthy_node_threshold_count: typing.Optional[jsii.Number] = None,
+        max_unhealthy_node_threshold_percentage: typing.Optional[jsii.Number] = None,
+        node_repair_config_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.
+        :param max_parallel_nodes_repaired_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_count EksNodeGroup#max_parallel_nodes_repaired_count}.
+        :param max_parallel_nodes_repaired_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_percentage EksNodeGroup#max_parallel_nodes_repaired_percentage}.
+        :param max_unhealthy_node_threshold_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_count EksNodeGroup#max_unhealthy_node_threshold_count}.
+        :param max_unhealthy_node_threshold_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_percentage EksNodeGroup#max_unhealthy_node_threshold_percentage}.
+        :param node_repair_config_overrides: node_repair_config_overrides block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config_overrides EksNodeGroup#node_repair_config_overrides}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b5f40022825c8b842d7a7e2f9a54f46fd249e7bef03aa705365cf14ab7a5c4a)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument max_parallel_nodes_repaired_count", value=max_parallel_nodes_repaired_count, expected_type=type_hints["max_parallel_nodes_repaired_count"])
+            check_type(argname="argument max_parallel_nodes_repaired_percentage", value=max_parallel_nodes_repaired_percentage, expected_type=type_hints["max_parallel_nodes_repaired_percentage"])
+            check_type(argname="argument max_unhealthy_node_threshold_count", value=max_unhealthy_node_threshold_count, expected_type=type_hints["max_unhealthy_node_threshold_count"])
+            check_type(argname="argument max_unhealthy_node_threshold_percentage", value=max_unhealthy_node_threshold_percentage, expected_type=type_hints["max_unhealthy_node_threshold_percentage"])
+            check_type(argname="argument node_repair_config_overrides", value=node_repair_config_overrides, expected_type=type_hints["node_repair_config_overrides"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
             self._values["enabled"] = enabled
+        if max_parallel_nodes_repaired_count is not None:
+            self._values["max_parallel_nodes_repaired_count"] = max_parallel_nodes_repaired_count
+        if max_parallel_nodes_repaired_percentage is not None:
+            self._values["max_parallel_nodes_repaired_percentage"] = max_parallel_nodes_repaired_percentage
+        if max_unhealthy_node_threshold_count is not None:
+            self._values["max_unhealthy_node_threshold_count"] = max_unhealthy_node_threshold_count
+        if max_unhealthy_node_threshold_percentage is not None:
+            self._values["max_unhealthy_node_threshold_percentage"] = max_unhealthy_node_threshold_percentage
+        if node_repair_config_overrides is not None:
+            self._values["node_repair_config_overrides"] = node_repair_config_overrides
 
     @builtins.property
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#enabled EksNodeGroup#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def max_parallel_nodes_repaired_count(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_count EksNodeGroup#max_parallel_nodes_repaired_count}.'''
+        result = self._values.get("max_parallel_nodes_repaired_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_parallel_nodes_repaired_percentage(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_parallel_nodes_repaired_percentage EksNodeGroup#max_parallel_nodes_repaired_percentage}.'''
+        result = self._values.get("max_parallel_nodes_repaired_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_unhealthy_node_threshold_count(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_count EksNodeGroup#max_unhealthy_node_threshold_count}.'''
+        result = self._values.get("max_unhealthy_node_threshold_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_unhealthy_node_threshold_percentage(self) -> typing.Optional[jsii.Number]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unhealthy_node_threshold_percentage EksNodeGroup#max_unhealthy_node_threshold_percentage}.'''
+        result = self._values.get("max_unhealthy_node_threshold_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def node_repair_config_overrides(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides"]]]:
+        '''node_repair_config_overrides block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_repair_config_overrides EksNodeGroup#node_repair_config_overrides}
+        '''
+        result = self._values.get("node_repair_config_overrides")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1453,6 +1537,289 @@ class EksNodeGroupNodeRepairConfig:
         return "EksNodeGroupNodeRepairConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.eksNodeGroup.EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides",
+    jsii_struct_bases=[],
+    name_mapping={
+        "min_repair_wait_time_mins": "minRepairWaitTimeMins",
+        "node_monitoring_condition": "nodeMonitoringCondition",
+        "node_unhealthy_reason": "nodeUnhealthyReason",
+        "repair_action": "repairAction",
+    },
+)
+class EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides:
+    def __init__(
+        self,
+        *,
+        min_repair_wait_time_mins: jsii.Number,
+        node_monitoring_condition: builtins.str,
+        node_unhealthy_reason: builtins.str,
+        repair_action: builtins.str,
+    ) -> None:
+        '''
+        :param min_repair_wait_time_mins: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#min_repair_wait_time_mins EksNodeGroup#min_repair_wait_time_mins}.
+        :param node_monitoring_condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_monitoring_condition EksNodeGroup#node_monitoring_condition}.
+        :param node_unhealthy_reason: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_unhealthy_reason EksNodeGroup#node_unhealthy_reason}.
+        :param repair_action: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#repair_action EksNodeGroup#repair_action}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d4160d4ef5ef38ee156f2a0a141a4e30858a2df0f6db6610b52cae2343aad21)
+            check_type(argname="argument min_repair_wait_time_mins", value=min_repair_wait_time_mins, expected_type=type_hints["min_repair_wait_time_mins"])
+            check_type(argname="argument node_monitoring_condition", value=node_monitoring_condition, expected_type=type_hints["node_monitoring_condition"])
+            check_type(argname="argument node_unhealthy_reason", value=node_unhealthy_reason, expected_type=type_hints["node_unhealthy_reason"])
+            check_type(argname="argument repair_action", value=repair_action, expected_type=type_hints["repair_action"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "min_repair_wait_time_mins": min_repair_wait_time_mins,
+            "node_monitoring_condition": node_monitoring_condition,
+            "node_unhealthy_reason": node_unhealthy_reason,
+            "repair_action": repair_action,
+        }
+
+    @builtins.property
+    def min_repair_wait_time_mins(self) -> jsii.Number:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#min_repair_wait_time_mins EksNodeGroup#min_repair_wait_time_mins}.'''
+        result = self._values.get("min_repair_wait_time_mins")
+        assert result is not None, "Required property 'min_repair_wait_time_mins' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def node_monitoring_condition(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_monitoring_condition EksNodeGroup#node_monitoring_condition}.'''
+        result = self._values.get("node_monitoring_condition")
+        assert result is not None, "Required property 'node_monitoring_condition' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def node_unhealthy_reason(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#node_unhealthy_reason EksNodeGroup#node_unhealthy_reason}.'''
+        result = self._values.get("node_unhealthy_reason")
+        assert result is not None, "Required property 'node_unhealthy_reason' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def repair_action(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#repair_action EksNodeGroup#repair_action}.'''
+        result = self._values.get("repair_action")
+        assert result is not None, "Required property 'repair_action' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.eksNodeGroup.EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2fdff329cddfc9ed01e5b19e9ccc0c12ab232ac30772d1b24a8d1cd108c7eb2f)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb0687acb8d82fa47dffe45e21cd00e175d13a4119184e373da4f9c35c62e973)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9da32878e3680101f095e92fc700d2b065705674060d16936c538296e5a90a9c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6581ec0790775f18e83c04f5ffbd5794ba7e20dd6076d654e44f51fe79087ba6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f19c27c1c926be32d2bf759b212c6bf00c83bd6e30e1083b2b47f98595c0969)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d65aab83d887be627825528a197076152af2641e919def844bb9a3449a2545b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.eksNodeGroup.EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3ddd7c62df7225a4e3c0fa1591a5c76814435e7414609f3af1a4596c36dd53a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="minRepairWaitTimeMinsInput")
+    def min_repair_wait_time_mins_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "minRepairWaitTimeMinsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeMonitoringConditionInput")
+    def node_monitoring_condition_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodeMonitoringConditionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeUnhealthyReasonInput")
+    def node_unhealthy_reason_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "nodeUnhealthyReasonInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="repairActionInput")
+    def repair_action_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "repairActionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="minRepairWaitTimeMins")
+    def min_repair_wait_time_mins(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "minRepairWaitTimeMins"))
+
+    @min_repair_wait_time_mins.setter
+    def min_repair_wait_time_mins(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c606a4426d8d0f488257dad53ab35fae0d4bb204a2a652743c219aca81f6205b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "minRepairWaitTimeMins", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeMonitoringCondition")
+    def node_monitoring_condition(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodeMonitoringCondition"))
+
+    @node_monitoring_condition.setter
+    def node_monitoring_condition(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5fa6a439c2084a39587dd2687b3bfc3b607b9d8a1efe0756a1dd6ff41d9cfd3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeMonitoringCondition", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeUnhealthyReason")
+    def node_unhealthy_reason(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "nodeUnhealthyReason"))
+
+    @node_unhealthy_reason.setter
+    def node_unhealthy_reason(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23e16aebf2d8faff6be38ed4f199bff5cbd3aafddbf6cd1413d8c90c141a7f4e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "nodeUnhealthyReason", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="repairAction")
+    def repair_action(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "repairAction"))
+
+    @repair_action.setter
+    def repair_action(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52bee1de2d615a38ca925320b27691fdf38c5d3c4a928c7fc62eb2aa08160a85)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "repairAction", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b6f915d1d0d1781baa28274c99b34fd54f9f72ff59b9b9680b93baf8a9c556a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 class EksNodeGroupNodeRepairConfigOutputReference(
@@ -1475,9 +1842,49 @@ class EksNodeGroupNodeRepairConfigOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putNodeRepairConfigOverrides")
+    def put_node_repair_config_overrides(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a1dcc37770f034433c37c8a25ecda2fcc092dec4b31ef36a10bf69f5522b25b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putNodeRepairConfigOverrides", [value]))
+
     @jsii.member(jsii_name="resetEnabled")
     def reset_enabled(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEnabled", []))
+
+    @jsii.member(jsii_name="resetMaxParallelNodesRepairedCount")
+    def reset_max_parallel_nodes_repaired_count(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxParallelNodesRepairedCount", []))
+
+    @jsii.member(jsii_name="resetMaxParallelNodesRepairedPercentage")
+    def reset_max_parallel_nodes_repaired_percentage(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxParallelNodesRepairedPercentage", []))
+
+    @jsii.member(jsii_name="resetMaxUnhealthyNodeThresholdCount")
+    def reset_max_unhealthy_node_threshold_count(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxUnhealthyNodeThresholdCount", []))
+
+    @jsii.member(jsii_name="resetMaxUnhealthyNodeThresholdPercentage")
+    def reset_max_unhealthy_node_threshold_percentage(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxUnhealthyNodeThresholdPercentage", []))
+
+    @jsii.member(jsii_name="resetNodeRepairConfigOverrides")
+    def reset_node_repair_config_overrides(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetNodeRepairConfigOverrides", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeRepairConfigOverrides")
+    def node_repair_config_overrides(
+        self,
+    ) -> EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesList:
+        return typing.cast(EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesList, jsii.get(self, "nodeRepairConfigOverrides"))
 
     @builtins.property
     @jsii.member(jsii_name="enabledInput")
@@ -1485,6 +1892,37 @@ class EksNodeGroupNodeRepairConfigOutputReference(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enabledInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelNodesRepairedCountInput")
+    def max_parallel_nodes_repaired_count_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxParallelNodesRepairedCountInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelNodesRepairedPercentageInput")
+    def max_parallel_nodes_repaired_percentage_input(
+        self,
+    ) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxParallelNodesRepairedPercentageInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxUnhealthyNodeThresholdCountInput")
+    def max_unhealthy_node_threshold_count_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxUnhealthyNodeThresholdCountInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxUnhealthyNodeThresholdPercentageInput")
+    def max_unhealthy_node_threshold_percentage_input(
+        self,
+    ) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxUnhealthyNodeThresholdPercentageInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="nodeRepairConfigOverridesInput")
+    def node_repair_config_overrides_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]], jsii.get(self, "nodeRepairConfigOverridesInput"))
 
     @builtins.property
     @jsii.member(jsii_name="enabled")
@@ -1500,6 +1938,54 @@ class EksNodeGroupNodeRepairConfigOutputReference(
             type_hints = typing.get_type_hints(_typecheckingstub__3b505955e5da71dc4baa91581480248964185b3714a90313179200a12b0be373)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "enabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelNodesRepairedCount")
+    def max_parallel_nodes_repaired_count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxParallelNodesRepairedCount"))
+
+    @max_parallel_nodes_repaired_count.setter
+    def max_parallel_nodes_repaired_count(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18edf536307b982076180f16b6a31163669db3b507c7bceaee979a1c4af30d35)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxParallelNodesRepairedCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxParallelNodesRepairedPercentage")
+    def max_parallel_nodes_repaired_percentage(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxParallelNodesRepairedPercentage"))
+
+    @max_parallel_nodes_repaired_percentage.setter
+    def max_parallel_nodes_repaired_percentage(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdc82c5dc5be7eb53681c1065e628c67b85c60ca549cd4cb3a2fc3eff98b2a2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxParallelNodesRepairedPercentage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxUnhealthyNodeThresholdCount")
+    def max_unhealthy_node_threshold_count(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxUnhealthyNodeThresholdCount"))
+
+    @max_unhealthy_node_threshold_count.setter
+    def max_unhealthy_node_threshold_count(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb980d55bcc35d0495b587b229c1032389ac48a4001db5149ef4b37a8f77ac69)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxUnhealthyNodeThresholdCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxUnhealthyNodeThresholdPercentage")
+    def max_unhealthy_node_threshold_percentage(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxUnhealthyNodeThresholdPercentage"))
+
+    @max_unhealthy_node_threshold_percentage.setter
+    def max_unhealthy_node_threshold_percentage(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__16f1254c0e1ed5a5e48f13aa3e6c47a4b136bda0fdfc69408e79050e6bd47177)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxUnhealthyNodeThresholdPercentage", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -1533,8 +2019,8 @@ class EksNodeGroupRemoteAccess:
         source_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
-        :param ec2_ssh_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.
-        :param source_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.
+        :param ec2_ssh_key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.
+        :param source_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2167075d2f0a4fb44ad5e4e3d6a146c33b4c83232c61c961625f3016bbbbac93)
@@ -1548,13 +2034,13 @@ class EksNodeGroupRemoteAccess:
 
     @builtins.property
     def ec2_ssh_key(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#ec2_ssh_key EksNodeGroup#ec2_ssh_key}.'''
         result = self._values.get("ec2_ssh_key")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def source_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#source_security_group_ids EksNodeGroup#source_security_group_ids}.'''
         result = self._values.get("source_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1952,9 +2438,9 @@ class EksNodeGroupScalingConfig:
         min_size: jsii.Number,
     ) -> None:
         '''
-        :param desired_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.
-        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.
-        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.
+        :param desired_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.
+        :param max_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.
+        :param min_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1e1397e5edd53fca1b3cff520dadda40a8737822e5a4a21d11ab62c8bcc13376)
@@ -1969,21 +2455,21 @@ class EksNodeGroupScalingConfig:
 
     @builtins.property
     def desired_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#desired_size EksNodeGroup#desired_size}.'''
         result = self._values.get("desired_size")
         assert result is not None, "Required property 'desired_size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def max_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_size EksNodeGroup#max_size}.'''
         result = self._values.get("max_size")
         assert result is not None, "Required property 'max_size' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def min_size(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#min_size EksNodeGroup#min_size}.'''
         result = self._values.get("min_size")
         assert result is not None, "Required property 'min_size' is missing"
         return typing.cast(jsii.Number, result)
@@ -2098,9 +2584,9 @@ class EksNodeGroupTaint:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#effect EksNodeGroup#effect}.
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#key EksNodeGroup#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#value EksNodeGroup#value}.
+        :param effect: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#effect EksNodeGroup#effect}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#key EksNodeGroup#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#value EksNodeGroup#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__062d8f7189bf549bc34cc13423170497ffd5fb325b622bcc3a5a6e8fea49aa7e)
@@ -2116,21 +2602,21 @@ class EksNodeGroupTaint:
 
     @builtins.property
     def effect(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#effect EksNodeGroup#effect}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#effect EksNodeGroup#effect}.'''
         result = self._values.get("effect")
         assert result is not None, "Required property 'effect' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#key EksNodeGroup#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#key EksNodeGroup#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#value EksNodeGroup#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#value EksNodeGroup#value}.'''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2349,9 +2835,9 @@ class EksNodeGroupTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#create EksNodeGroup#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#delete EksNodeGroup#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update EksNodeGroup#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#create EksNodeGroup#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#delete EksNodeGroup#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update EksNodeGroup#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56a27c9e893329e1a7637e13154b9933f2ecaa35b187024fb37f124493a7516c)
@@ -2368,19 +2854,19 @@ class EksNodeGroupTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#create EksNodeGroup#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#create EksNodeGroup#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#delete EksNodeGroup#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#delete EksNodeGroup#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#update EksNodeGroup#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#update EksNodeGroup#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2513,8 +2999,8 @@ class EksNodeGroupUpdateConfig:
         max_unavailable_percentage: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_unavailable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.
-        :param max_unavailable_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.
+        :param max_unavailable: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.
+        :param max_unavailable_percentage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1855b9a7d33bec0b3e7692e2e5e15b716b67a3e5c98254695f5bd24113a12df)
@@ -2528,13 +3014,13 @@ class EksNodeGroupUpdateConfig:
 
     @builtins.property
     def max_unavailable(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable EksNodeGroup#max_unavailable}.'''
         result = self._values.get("max_unavailable")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_unavailable_percentage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group#max_unavailable_percentage EksNodeGroup#max_unavailable_percentage}.'''
         result = self._values.get("max_unavailable_percentage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2631,6 +3117,9 @@ __all__ = [
     "EksNodeGroupLaunchTemplate",
     "EksNodeGroupLaunchTemplateOutputReference",
     "EksNodeGroupNodeRepairConfig",
+    "EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides",
+    "EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesList",
+    "EksNodeGroupNodeRepairConfigNodeRepairConfigOverridesOutputReference",
     "EksNodeGroupNodeRepairConfigOutputReference",
     "EksNodeGroupRemoteAccess",
     "EksNodeGroupRemoteAccessOutputReference",
@@ -2889,6 +3378,98 @@ def _typecheckingstub__9a79800306091d8a772899f635da0ebe6cadb4634a259107dedfe05bf
 def _typecheckingstub__4b5f40022825c8b842d7a7e2f9a54f46fd249e7bef03aa705365cf14ab7a5c4a(
     *,
     enabled: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    max_parallel_nodes_repaired_count: typing.Optional[jsii.Number] = None,
+    max_parallel_nodes_repaired_percentage: typing.Optional[jsii.Number] = None,
+    max_unhealthy_node_threshold_count: typing.Optional[jsii.Number] = None,
+    max_unhealthy_node_threshold_percentage: typing.Optional[jsii.Number] = None,
+    node_repair_config_overrides: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d4160d4ef5ef38ee156f2a0a141a4e30858a2df0f6db6610b52cae2343aad21(
+    *,
+    min_repair_wait_time_mins: jsii.Number,
+    node_monitoring_condition: builtins.str,
+    node_unhealthy_reason: builtins.str,
+    repair_action: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2fdff329cddfc9ed01e5b19e9ccc0c12ab232ac30772d1b24a8d1cd108c7eb2f(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eb0687acb8d82fa47dffe45e21cd00e175d13a4119184e373da4f9c35c62e973(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9da32878e3680101f095e92fc700d2b065705674060d16936c538296e5a90a9c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6581ec0790775f18e83c04f5ffbd5794ba7e20dd6076d654e44f51fe79087ba6(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f19c27c1c926be32d2bf759b212c6bf00c83bd6e30e1083b2b47f98595c0969(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d65aab83d887be627825528a197076152af2641e919def844bb9a3449a2545b(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3ddd7c62df7225a4e3c0fa1591a5c76814435e7414609f3af1a4596c36dd53a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c606a4426d8d0f488257dad53ab35fae0d4bb204a2a652743c219aca81f6205b(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5fa6a439c2084a39587dd2687b3bfc3b607b9d8a1efe0756a1dd6ff41d9cfd3c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23e16aebf2d8faff6be38ed4f199bff5cbd3aafddbf6cd1413d8c90c141a7f4e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__52bee1de2d615a38ca925320b27691fdf38c5d3c4a928c7fc62eb2aa08160a85(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b6f915d1d0d1781baa28274c99b34fd54f9f72ff59b9b9680b93baf8a9c556a(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2900,8 +3481,38 @@ def _typecheckingstub__7b45b3e3b1473c95ac9896c788ed7242b55199a902bcfed08c8dfe893
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3a1dcc37770f034433c37c8a25ecda2fcc092dec4b31ef36a10bf69f5522b25b(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[EksNodeGroupNodeRepairConfigNodeRepairConfigOverrides, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3b505955e5da71dc4baa91581480248964185b3714a90313179200a12b0be373(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18edf536307b982076180f16b6a31163669db3b507c7bceaee979a1c4af30d35(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cdc82c5dc5be7eb53681c1065e628c67b85c60ca549cd4cb3a2fc3eff98b2a2b(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb980d55bcc35d0495b587b229c1032389ac48a4001db5149ef4b37a8f77ac69(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16f1254c0e1ed5a5e48f13aa3e6c47a4b136bda0fdfc69408e79050e6bd47177(
+    value: jsii.Number,
 ) -> None:
     """Type checking stubs"""
     pass

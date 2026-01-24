@@ -38,7 +38,7 @@ from zenml.integrations.aws.flavors.sagemaker_step_operator_flavor import (
 )
 from zenml.integrations.aws.step_operators.sagemaker_step_operator_entrypoint_config import (
     SAGEMAKER_ESTIMATOR_STEP_ENV_VAR_SIZE_LIMIT,
-    SagemakerEntrypointConfiguration,
+    SagemakerStepOperatorEntrypointConfiguration,
 )
 from zenml.logger import get_logger
 from zenml.stack import Stack, StackValidator
@@ -52,7 +52,7 @@ from zenml.utils.string_utils import random_str
 if TYPE_CHECKING:
     from zenml.config.base_settings import BaseSettings
     from zenml.config.step_run_info import StepRunInfo
-    from zenml.models import PipelineDeploymentBase
+    from zenml.models import PipelineSnapshotBase
 
 logger = get_logger(__name__)
 
@@ -94,7 +94,7 @@ class SagemakerStepOperator(BaseStepOperator):
         Returns:
             The entrypoint configuration class for this step operator.
         """
-        return SagemakerEntrypointConfiguration
+        return SagemakerStepOperatorEntrypointConfiguration
 
     @property
     def validator(self) -> Optional[StackValidator]:
@@ -140,18 +140,18 @@ class SagemakerStepOperator(BaseStepOperator):
         )
 
     def get_docker_builds(
-        self, deployment: "PipelineDeploymentBase"
+        self, snapshot: "PipelineSnapshotBase"
     ) -> List["BuildConfiguration"]:
         """Gets the Docker builds required for the component.
 
         Args:
-            deployment: The pipeline deployment for which to get the builds.
+            snapshot: The pipeline snapshot for which to get the builds.
 
         Returns:
             The required Docker builds.
         """
         builds = []
-        for step_name, step in deployment.step_configurations.items():
+        for step_name, step in snapshot.step_configurations.items():
             if step.config.uses_step_operator(self.name):
                 build = BuildConfiguration(
                     key=SAGEMAKER_DOCKER_IMAGE_KEY,

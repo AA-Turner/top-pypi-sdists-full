@@ -14,7 +14,7 @@
 
 from collections.abc import Iterable, MutableMapping
 from itertools import chain
-from typing import Any, Optional
+from typing import Any
 
 import celpy
 import pytest
@@ -28,7 +28,7 @@ from protovalidate.internal.cel_field_presence import InterpretedRunner
 
 # Version of the cel-spec that this implementation is conformant with.
 # This should be kept in sync with the version in ../Makefile.
-CEL_SPEC_VERSION = "v0.24.0"
+CEL_SPEC_VERSION = "v0.25.1"
 
 skipped_tests = [
     # cel-python seems to have a bug with ints and booleans in the same map which evaluate to the same value
@@ -66,7 +66,7 @@ def build_variables(bindings: MutableMapping[str, eval_pb2.ExprValue]) -> dict[A
     return binder
 
 
-def get_expected_result(test: simple_pb2.SimpleTest) -> Optional[str]:
+def get_expected_result(test: simple_pb2.SimpleTest) -> str | None:
     if test.HasField("value"):
         val = test.value
         if val.HasField("string_value"):
@@ -74,7 +74,7 @@ def get_expected_result(test: simple_pb2.SimpleTest) -> Optional[str]:
     return None
 
 
-def get_eval_error_message(test: simple_pb2.SimpleTest) -> Optional[str]:
+def get_eval_error_message(test: simple_pb2.SimpleTest) -> str | None:
     if test.HasField("eval_error"):
         err_set = test.eval_error
         if len(err_set.errors) == 1:

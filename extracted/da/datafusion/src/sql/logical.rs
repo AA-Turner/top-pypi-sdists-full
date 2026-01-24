@@ -17,6 +17,13 @@
 
 use std::sync::Arc;
 
+use datafusion::logical_expr::{DdlStatement, LogicalPlan, Statement};
+use datafusion_proto::logical_plan::{AsLogicalPlan, DefaultLogicalExtensionCodec};
+use prost::Message;
+use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
+use pyo3::types::PyBytes;
+
 use crate::context::PySessionContext;
 use crate::errors::PyDataFusionResult;
 use crate::expr::aggregate::PyAggregate;
@@ -42,6 +49,7 @@ use crate::expr::extension::PyExtension;
 use crate::expr::filter::PyFilter;
 use crate::expr::join::PyJoin;
 use crate::expr::limit::PyLimit;
+use crate::expr::logical_node::LogicalNode;
 use crate::expr::projection::PyProjection;
 use crate::expr::recursive_query::PyRecursiveQuery;
 use crate::expr::repartition::PyRepartition;
@@ -56,14 +64,8 @@ use crate::expr::union::PyUnion;
 use crate::expr::unnest::PyUnnest;
 use crate::expr::values::PyValues;
 use crate::expr::window::PyWindowExpr;
-use datafusion::logical_expr::{DdlStatement, LogicalPlan, Statement};
-use datafusion_proto::logical_plan::{AsLogicalPlan, DefaultLogicalExtensionCodec};
-use prost::Message;
-use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyBytes};
 
-use crate::expr::logical_node::LogicalNode;
-
-#[pyclass(name = "LogicalPlan", module = "datafusion", subclass)]
+#[pyclass(frozen, name = "LogicalPlan", module = "datafusion", subclass)]
 #[derive(Debug, Clone)]
 pub struct PyLogicalPlan {
     pub(crate) plan: Arc<LogicalPlan>,
@@ -206,7 +208,7 @@ impl PyLogicalPlan {
             })?;
 
         let codec = DefaultLogicalExtensionCodec {};
-        let plan = proto_plan.try_into_logical_plan(&ctx.ctx, &codec)?;
+        let plan = proto_plan.try_into_logical_plan(&ctx.ctx.task_ctx(), &codec)?;
         Ok(Self::new(plan))
     }
 }

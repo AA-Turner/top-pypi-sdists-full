@@ -1,17 +1,18 @@
 import hashlib
-from collections import defaultdict
+import sys
+import types
+from collections import defaultdict, deque
 from dataclasses import MISSING, Field as _Field
-from datetime import datetime, date, time, tzinfo
+from datetime import datetime, date, time, tzinfo, timezone, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict, cast
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .decorators import setup_recursive_safe_function
-from ..constants import PY310_OR_ABOVE, PY311_OR_ABOVE
+from ..constants import PY310_OR_ABOVE, PY311_OR_ABOVE, PY314_OR_ABOVE
 from ..log import LOG
 from ..type_def import DefFactory, ExplicitNull, PyNotRequired, NoneType
 from ..utils.function_builder import FunctionBuilder
 from ..utils.object_path import split_object_path
-from ..utils.type_conv import as_datetime_v1, as_date_v1, as_time_v1
 from ..utils.typing_compat import get_origin_v2
 
 
@@ -20,15 +21,130 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 # UTC Time Zone
-UTC = ZoneInfo('UTC')
+if PY311_OR_ABOVE:
+    # https://docs.python.org/3/library/datetime.html#datetime.UTC
+    from datetime import UTC
+else:
+    UTC: timezone = timezone.utc
 
+# UTC time zone (no offset)
+ZERO: timedelta = timedelta(0)
 
 _BUILTIN_COLLECTION_TYPES = frozenset({
     list,
     set,
     dict,
-    tuple
+    tuple,
+    frozenset,
 })
+
+# FIXME: Python 3.9 doesn't have `types.EllipsisType` or `types.NotImplementedType`
+EllipsisType = getattr(types, 'EllipsisType', type(Ellipsis))
+NotImplementedType = getattr(types, 'NotImplementedType', type(NotImplemented))
+
+LEAF_TYPES_NO_BYTES = frozenset({
+    # Common JSON Serializable types
+    NoneType,
+    bool,
+    int,
+    float,
+    str,
+    # Other common types
+    complex,
+    # exclude bytes, since the serialization process is slightly different
+    # Other types that are also unaffected by deepcopy
+    EllipsisType,
+    NotImplementedType,
+    types.CodeType,
+    types.BuiltinFunctionType,
+    types.FunctionType,
+    type,
+    range,
+    property,
+})
+
+# Atomic immutable types which don't require any recursive handling and for which deepcopy
+# returns the same object. We can provide a fast-path for these types in asdict and astuple.
+#
+# Credits: `_ATOMIC_TYPES` from `dataclasses.py`
+LEAF_TYPES = LEAF_TYPES_NO_BYTES | {bytes}
+
+SEQUENCE_ORIGINS = frozenset({
+    list,
+    tuple,
+    set,
+    frozenset,
+    deque
+})
+
+MAPPING_ORIGINS = frozenset({
+    dict,
+    defaultdict
+})
+
+
+def get_zoneinfo(key: str) -> ZoneInfo:
+    try:
+        return ZoneInfo(key)
+    except ZoneInfoNotFoundError:
+        if sys.platform.startswith('win'):
+            try:
+                import tzdata  # noqa: F401
+            except Exception:
+                raise ZoneInfoNotFoundError(
+                    f'No time zone found with key {key!r}. '
+                    'On Windows, install tzdata or install Dataclass Wizard with the tz extra:\n'
+                    '    pip install dataclass-wizard[tz]'
+                ) from None
+            else:
+                return ZoneInfo(key)
+        raise
+
+
+def ensure_type_ref(extras, tp, *, name=None, prefix='', is_builtin=False) -> str:
+    """
+    Return a safe symbol name for `tp` to use in generated code.
+
+    Adds entries to `extras['locals']` only when required (non-builtins,
+    non-collection literals, and cases where a stable local alias is needed).
+    """
+    if tp is NoneType:
+        return 'None'
+
+    if name is None:
+        name = tp.__name__
+
+    # Common built-in collections: always use the literal names directly.
+    if tp in _BUILTIN_COLLECTION_TYPES:
+        return name
+
+    mod = tp.__module__
+
+    # Builtins: can be referenced directly without injecting into locals.
+    # Includes str/int/float/bool/bytes and also built-in collection types.
+    if mod == 'builtins':
+        return name
+
+    if is_builtin or mod == 'collections':
+        LOG.debug('Ensuring %s=%s', name, name)
+        extras['locals'].setdefault(name, tp)
+        return name
+
+    _locals = extras['locals']
+
+    # If the type name is safe and not used yet, inject it.
+    # You may want stricter collision checks here.
+    if name not in _locals:
+        _locals[name] = tp
+        return name
+
+    # Collision: create a unique alias.
+    # TODO might need to handle `var_name`
+    alias = f'{prefix}{name}'
+    LOG.debug('Adding %s=%s', alias, name)
+    _locals.setdefault(alias, tp)
+
+    return alias
 
 
 class TypeInfo:
@@ -49,6 +165,8 @@ class TypeInfo:
         'prefix',
         # index of assignment (ex. `2 -> v1[2]`, *or* a string `"key" -> v4["key"]`)
         'index',
+        # explicit value name (overrides prefix + index)
+        'val_name',
         # optional attribute, that indicates if we should wrap the
         # assignment with `name` -- ex. `(1, 2)` -> `deque((1, 2))`
         '_wrapped',
@@ -63,6 +181,7 @@ class TypeInfo:
                  i=1,
                  field_i=1,
                  prefix='v',
+                 val_name=None,
                  index=None):
 
         self.name = name
@@ -71,6 +190,7 @@ class TypeInfo:
         self.i = i
         self.field_i = field_i
         self.prefix = prefix
+        self.val_name = val_name
         self.index = index
 
     def replace(self, **changes):
@@ -82,6 +202,14 @@ class TypeInfo:
         current_values = {slot: getattr(self, slot)
                           for slot in TypeInfo.__slots__
                           if not slot.startswith('_')}
+
+
+        if ((new_idx := changes.get('index')) is not None
+            and (curr_idx := current_values['index']) is not None):
+            if isinstance(curr_idx, (int, str)):
+                changes['index'] = (curr_idx, new_idx)
+            else:
+                changes['index'] = curr_idx + (new_idx, )
 
         # Apply the changes
         current_values.update(changes)
@@ -102,13 +230,12 @@ class TypeInfo:
 
     @staticmethod
     def ensure_in_locals(extras, *tps, **name_to_tp):
-        _locals = extras['locals']
-
-        for tp in tps:
-            _locals.setdefault(tp.__name__, tp)
+        names = [ensure_type_ref(extras, tp) for tp in tps]
 
         for name, tp in name_to_tp.items():
-            _locals.setdefault(name, tp)
+            extras['locals'].setdefault(name, tp)
+
+        return names
 
     def type_name(self, extras, bound=None):
         """Return type name as string (useful for `Union` type checks)"""
@@ -119,12 +246,27 @@ class TypeInfo:
             extras, force=True, bound=bound)
 
     def v(self):
-        return (f'{self.prefix}{self.i}' if (idx := self.index) is None
-                else f'{self.prefix}{self.i}[{idx}]')
+        val_name = self.val_name
+        if val_name is None:
+            val_name = f'{self.prefix}{self.i}'
+        idx = self.index
+        if idx is None:
+            return val_name
+        else:
+            if isinstance(idx, (int, str)):
+                return f'{val_name}[{idx}]'
+            return f"{val_name}{''.join(f'[{i}]' for i in idx)}"
+
+    def v_for_def(self):
+        """
+        Returns a safe value for function `def` statements (e.g., no
+        dot (.) or indices [])
+        """
+        return f'{self.prefix}{self.i}'
 
     def v_and_next(self):
         next_i = self.i + 1
-        return self.v(), f'v{next_i}', next_i
+        return self.v(), f'{self.prefix}{next_i}', next_i
 
     def v_and_next_k_v(self):
         next_i = self.i + 1
@@ -145,9 +287,8 @@ class TypeInfo:
         return result
 
     def wrap(self, result: str, extras, force=False, prefix='', bound=None):
-        if (tn := self._wrap_inner(
-                extras, prefix=prefix, force=force,
-                bound=bound)) is not None:
+        tn = self._wrap_inner(extras, prefix=prefix, force=force, bound=bound)
+        if tn is not None:
             result = f'{tn}({result})'
 
         setattr(self, '_wrapped', result)
@@ -175,6 +316,9 @@ class TypeInfo:
             name = 'None' if tp is NoneType else tp.__name__
             return_name = True
 
+        # If the type is the bound itself, treat it as "builtin" in naming
+        # (i.e., don't generate unique alias)
+        #
         # This ensures we don't create a "unique" name
         # if it's a non-subclass, e.g. ensures we end
         # up with `date` instead of `date_123`.
@@ -182,19 +326,13 @@ class TypeInfo:
             is_builtin = tp is bound
 
         if tp not in _BUILTIN_COLLECTION_TYPES:
-            if (mod := tp.__module__) == 'builtins':
-                tn = name
-            elif (is_builtin
-                  or mod == 'collections'):
-                tn = name
-                LOG.debug(f'Ensuring %s=%s', tn, name)
-                extras['locals'].setdefault(tn, tp)
-            else:
-                tn = f'{prefix}{name}_{self.field_i}'
-                LOG.debug(f'Adding %s=%s', tn, name)
-                extras['locals'][tn] = tp
-
-            return tn
+            return ensure_type_ref(
+                extras,
+                tp,
+                name=name,
+                prefix=prefix,
+                is_builtin=is_builtin,
+            )
 
         return name if return_name else None
 
@@ -245,7 +383,7 @@ class PatternBase:
             # expect time zone as first argument
             tz_info, *patterns = patterns
             if isinstance(tz_info, str):
-                tz_info = ZoneInfo(tz_info)
+                tz_info = get_zoneinfo(tz_info)
         else:
             patterns = (patterns, ) if patterns.__class__ is str else patterns
 
@@ -259,7 +397,11 @@ class PatternBase:
         return self.__getitem__(patterns)
 
     @setup_recursive_safe_function(add_cls=False)
-    def load_to_pattern(self, tp: TypeInfo, extras: Extras):
+    def load_to_pattern(self, tp, extras):
+        from .type_conv import as_datetime_v1, as_date_v1, as_time_v1
+
+        v = tp.v()
+
         pb = cast(PatternBase, tp.origin)
         patterns = pb.patterns
         tz_info = getattr(pb, 'tz_info', None)
@@ -316,31 +458,31 @@ class PatternBase:
 
         if is_datetime:
             _as_func = '__as_datetime'
-            _as_func_args = f'v1, {_fromtimestamp}, __tz' if has_tz else f'v1, {_fromtimestamp}'
+            _as_func_args = f'{v}, {_fromtimestamp}, __tz' if has_tz else f'{v}, {_fromtimestamp}'
             name_to_func[_as_func] = as_datetime_v1
             # `datetime` has a `fromtimestamp` method
             name_to_func[_fromtimestamp] = __base__.fromtimestamp
             end_part = ''
         elif is_date:
             _as_func = '__as_date'
-            _as_func_args = f'v1, {_fromtimestamp}'
+            _as_func_args = f'{v}, {_fromtimestamp}'
             name_to_func[_as_func] = as_date_v1
             # `date` has a `fromtimestamp` method
             name_to_func[_fromtimestamp] = __base__.fromtimestamp
             end_part = '.date()'
         else:
             _as_func = '__as_time'
-            _as_func_args = f'v1, cls'
+            _as_func_args = f'{v}, cls'
             name_to_func[_as_func] = as_time_v1
             end_part = '.timetz()' if has_tz else '.time()'
 
         tp.ensure_in_locals(extras, **name_to_func)
 
         if PY311_OR_ABOVE:
-            _parse_iso_string = f'{_fromisoformat}(v1){tz_part}'
+            _parse_iso_string = f'{_fromisoformat}({v}){tz_part}'
             errors_to_except = (TypeError, )
         else:  # pragma: no cover
-            _parse_iso_string = f"{_fromisoformat}(v1.replace('Z', '+00:00', 1)){tz_part}"
+            _parse_iso_string = f"{_fromisoformat}({v}.replace('Z', '+00:00', 1)){tz_part}"
             errors_to_except = (AttributeError, TypeError)
         # temp fix for Python 3.11+, since `time.fromisoformat` is updated
         # to support more formats, such as "-" and "+" in strings.
@@ -353,7 +495,7 @@ class PatternBase:
                     if is_subclass_time:
                         tz_arg = '__tz, ' if has_tz else ''
 
-                        fn_gen.add_line(f'__dt = {_strptime}(v1, {p!r})')
+                        fn_gen.add_line(f'__dt = {_strptime}({v}, {p!r})')
                         fn_gen.add_line('return cls('
                                         '__dt.hour, '
                                         '__dt.minute, '
@@ -361,7 +503,7 @@ class PatternBase:
                                         '__dt.microsecond, '
                                         f'{tz_arg}fold=__dt.fold)')
                     else:
-                        fn_gen.add_line(f'return {_strptime}(v1, {p!r}){tz_part}{end_part}')
+                        fn_gen.add_line(f'return {_strptime}({v}, {p!r}){tz_part}{end_part}')
                 with fn_gen.except_(Exception):
                     fn_gen.add_line('pass')
             # If that doesn't work, fallback to `time.fromisoformat`
@@ -383,13 +525,13 @@ class PatternBase:
                 for p in patterns:
                     with fn_gen.try_():
                         if is_subclass_date:
-                            fn_gen.add_line(f'__dt = {_strptime}(v1, {p!r})')
+                            fn_gen.add_line(f'__dt = {_strptime}({v}, {p!r})')
                             fn_gen.add_line('return cls('
                                             '__dt.year, '
                                             '__dt.month, '
                                             '__dt.day)')
                         elif is_subclass_time:
-                            fn_gen.add_line(f'__dt = {_strptime}(v1, {p!r})')
+                            fn_gen.add_line(f'__dt = {_strptime}({v}, {p!r})')
                             tz_arg = '__tz, ' if has_tz else ''
 
                             fn_gen.add_line('return cls('
@@ -399,13 +541,13 @@ class PatternBase:
                                             '__dt.microsecond, '
                                             f'{tz_arg}fold=__dt.fold)')
                         else:
-                            fn_gen.add_line(f'return {_strptime}(v1, {p!r}){tz_part}{end_part}')
+                            fn_gen.add_line(f'return {_strptime}({v}, {p!r}){tz_part}{end_part}')
                     with fn_gen.except_(Exception):
                         fn_gen.add_line('pass')
         # Raise a helpful error if we are unable to parse
         # the date string with the provided patterns.
         fn_gen.add_line(
-            'raise ValueError(f"Unable to parse the string \'{v1}\' '
+            f'raise ValueError(f"Unable to parse the string \'{{{v}}}\' '
             f'with the provided patterns: {patterns!r}")')
 
     def __repr__(self):
@@ -451,6 +593,50 @@ UTCDateTimePattern = PatternBase(datetime, tz_info=UTC)
 UTCTimePattern = PatternBase(time, tz_info=UTC)
 
 
+def _normalize_alias_path_args(all_paths, load, dump):
+    """Normalize `AliasPath` arguments and canonicalize path values."""
+    if load is not None:
+        all_paths = load
+        load = None
+        dump = ExplicitNull
+
+    elif dump is not None:
+        all_paths = dump
+        dump = None
+        load = ExplicitNull
+
+    if isinstance(all_paths, str):
+        all_paths = (split_object_path(all_paths),)
+    else:
+        all_paths = tuple([
+            split_object_path(a) if isinstance(a, str) else a
+            for a in all_paths
+        ])
+
+    return all_paths, load, dump
+
+
+def _normalize_alias_args(default, default_factory, all_aliases, load, dump, env):
+    """Normalize `Alias` arguments and canonicalize alias values."""
+
+    if default is not MISSING and default_factory is not MISSING:
+        raise ValueError('cannot specify both default and default_factory')
+
+    if all_aliases:
+        load = dump = all_aliases
+
+    elif load is not None and isinstance(load, str):
+        load = (load,)
+
+    elif env is not None:
+        if isinstance(env, str):
+            env = (env,)
+        elif env is True:
+            env = load
+
+    return all_aliases, load, dump, env
+
+
 # Instances of Field are only ever created from within this module,
 # and only from the field() function, although Field instances are
 # exposed externally as (conceptually) read-only objects.
@@ -458,20 +644,159 @@ UTCTimePattern = PatternBase(time, tz_info=UTC)
 # name and type are filled in after the fact, not in __init__.
 # They're not known at the time this class is instantiated, but it's
 # convenient if they're available later.
+
+# noinspection PyPep8Naming,PyShadowingBuiltins
+def Env(*load,
+        default=MISSING,
+        default_factory=MISSING,
+        init=True, repr=True,
+        hash=None, compare=True, metadata=None,
+        **field_kwargs):
+
+    # noinspection PyTypeChecker
+    return Alias(
+        env=load,
+        default=default,
+        default_factory=default_factory,
+        init=init,
+        repr=repr,
+        hash=hash,
+        compare=compare,
+        metadata=metadata,
+        **field_kwargs,
+    )
+
+# In Python 3.14, dataclasses adds a new parameter to the :class:`Field`
+# constructor: `doc`
 #
-# When cls._FIELDS is filled in with a list of Field objects, the name
-# and type fields will have been populated.
+# Ref: https://docs.python.org/3.14/library/dataclasses.html#dataclasses.field
+if PY314_OR_ABOVE:
+    # noinspection PyPep8Naming,PyShadowingBuiltins
+    def Alias(
+        *all,
+        load=None,
+        dump=None,
+        env=None,
+        skip=False,
+        default=MISSING,
+        default_factory=MISSING,
+        init=True,
+        repr=True,
+        hash=None,
+        compare=True,
+        metadata=None,
+        kw_only=False,
+        doc=None,
+    ):
+
+        all, load, dump, env = _normalize_alias_args(default, default_factory, all, load, dump, env)
+
+        return Field(
+            load,
+            dump,
+            env,
+            skip,
+            None,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+            kw_only,
+            doc,
+        )
+
+    # noinspection PyPep8Naming,PyShadowingBuiltins
+    def AliasPath(
+        *all,
+        load=None,
+        dump=None,
+        skip=False,
+        default=MISSING,
+        default_factory=MISSING,
+        init=True,
+        repr=True,
+        hash=None,
+        compare=True,
+        metadata=None,
+        kw_only=False,
+        doc=None,
+    ):
+        all, load, dump = _normalize_alias_path_args(all, load, dump)
+
+        return Field(
+            load,
+            dump,
+            load,
+            skip,
+            all,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+            kw_only,
+            doc,
+        )
+
+    class Field(_Field):
+
+        __slots__ = ("load_alias", "dump_alias", "env_vars", "skip", "path")
+
+        # noinspection PyShadowingBuiltins
+        def __init__(
+            self,
+            load_alias,
+            dump_alias,
+            env_vars,
+            skip,
+            path,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+            kw_only,
+            doc=None,
+        ):
+
+            # noinspection PyArgumentList
+            super().__init__(
+                default,
+                default_factory,
+                init,
+                repr,
+                hash,
+                compare,
+                metadata,
+                kw_only,
+                doc,
+            )
+
+            self.load_alias = load_alias
+            self.dump_alias = dump_alias
+            self.env_vars = env_vars
+            self.skip = skip
+            self.path = path
+
 
 # In Python 3.10, dataclasses adds a new parameter to the :class:`Field`
 # constructor: `kw_only`
 #
 # Ref: https://docs.python.org/3.10/library/dataclasses.html#dataclasses.dataclass
-if PY310_OR_ABOVE:  # pragma: no cover
+elif PY310_OR_ABOVE:  # pragma: no cover
 
     # noinspection PyPep8Naming,PyShadowingBuiltins
     def Alias(*all,
               load=None,
               dump=None,
+              env=None,
               skip=False,
               default=MISSING,
               default_factory=MISSING,
@@ -479,17 +804,23 @@ if PY310_OR_ABOVE:  # pragma: no cover
               hash=None, compare=True,
               metadata=None, kw_only=False):
 
-        if default is not MISSING and default_factory is not MISSING:
-            raise ValueError('cannot specify both default and default_factory')
+        all, load, dump, env = _normalize_alias_args(default, default_factory, all, load, dump, env)
 
-        if all:
-            load = dump = all
-
-        elif load is not None and isinstance(load, str):
-            load = (load, )
-
-        return Field(load, dump, skip, None, default, default_factory, init, repr,
-                     hash, compare, metadata, kw_only)
+        return Field(
+            load,
+            dump,
+            env,
+            skip,
+            None,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+            kw_only,
+        )
 
     # noinspection PyPep8Naming,PyShadowingBuiltins
     def AliasPath(*all,
@@ -501,47 +832,48 @@ if PY310_OR_ABOVE:  # pragma: no cover
                   init=True, repr=True,
                   hash=None, compare=True,
                   metadata=None, kw_only=False):
+        all, load, dump = _normalize_alias_path_args(all, load, dump)
 
-        if load is not None:
-            all = load
-            load = None
-            dump = ExplicitNull
-
-        elif dump is not None:
-            all = dump
-            dump = None
-            load = ExplicitNull
-
-        if isinstance(all, str):
-            all = (split_object_path(all), )
-        else:
-            all = tuple([
-                split_object_path(a) if isinstance(a, str) else a
-                for a in all
-            ])
-
-        return Field(load, dump, skip, all, default, default_factory, init, repr,
-                     hash, compare, metadata, kw_only)
-
+        return Field(
+            load,
+            dump,
+            load,
+            skip,
+            all,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+            kw_only,
+        )
 
     class Field(_Field):
 
         __slots__ = ('load_alias',
                      'dump_alias',
+                     'env_vars',
                      'skip',
                      'path')
 
         # noinspection PyShadowingBuiltins
         def __init__(self,
-                     load_alias, dump_alias, skip, path,
+                     load_alias, dump_alias, env_vars, skip, path,
                      default, default_factory, init, repr, hash, compare,
                      metadata, kw_only):
 
             super().__init__(default, default_factory, init, repr, hash,
                              compare, metadata, kw_only)
 
+            if path is not None:
+                if isinstance(path, str):
+                    path = split_object_path(path) if path else (path, )
+
             self.load_alias = load_alias
             self.dump_alias = dump_alias
+            self.env_vars = env_vars
             self.skip = skip
             self.path = path
 
@@ -550,24 +882,29 @@ else:  # pragma: no cover
     def Alias(*all,
               load=None,
               dump=None,
+              env=None,
               skip=False,
               default=MISSING,
               default_factory=MISSING,
               init=True, repr=True,
               hash=None, compare=True, metadata=None):
 
-        if default is not MISSING and default_factory is not MISSING:
-            raise ValueError('cannot specify both default and default_factory')
+        all, load, dump, env = _normalize_alias_args(default, default_factory, all, load, dump, env)
 
-        if all:
-            load = dump = all
-
-        elif load is not None and isinstance(load, str):
-            load = (load, )
-
-        return Field(load, dump, skip, None,
-                     default, default_factory, init, repr,
-                     hash, compare, metadata)
+        return Field(
+            load,
+            dump,
+            env,
+            skip,
+            None,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+        )
 
     # noinspection PyPep8Naming,PyShadowingBuiltins
     def AliasPath(*all,
@@ -579,47 +916,47 @@ else:  # pragma: no cover
                   init=True, repr=True,
                   hash=None, compare=True,
                   metadata=None):
+        all, load, dump = _normalize_alias_path_args(all, load, dump)
 
-        if load is not None:
-            all = load
-            load = None
-            dump = ExplicitNull
-
-        elif dump is not None:
-            all = dump
-            dump = None
-            load = ExplicitNull
-
-        if isinstance(all, str):
-            all = (split_object_path(all), )
-        else:
-            all = tuple([
-                split_object_path(a) if isinstance(a, str) else a
-                for a in all
-            ])
-
-        return Field(load, dump, skip, all, default, default_factory, init, repr,
-                     hash, compare, metadata)
-
+        return Field(
+            load,
+            dump,
+            load,
+            skip,
+            all,
+            default,
+            default_factory,
+            init,
+            repr,
+            hash,
+            compare,
+            metadata,
+        )
 
     class Field(_Field):
 
         __slots__ = ('load_alias',
                      'dump_alias',
+                     'env_vars',
                      'skip',
                      'path')
 
         # noinspection PyArgumentList,PyShadowingBuiltins
         def __init__(self,
-                     load_alias, dump_alias, skip, path,
+                     load_alias, dump_alias, env_vars, skip, path,
                      default, default_factory, init, repr, hash, compare,
                      metadata):
 
             super().__init__(default, default_factory, init, repr, hash,
                              compare, metadata)
 
+            if path is not None:
+                if isinstance(path, str):
+                    path = split_object_path(path) if path else (path,)
+
             self.load_alias = load_alias
             self.dump_alias = dump_alias
+            self.env_vars = env_vars
             self.skip = skip
             self.path = path
 

@@ -11,8 +11,8 @@ from threading import Lock
 import packaging.version
 
 from argostranslate import networking, settings
-from argostranslate.utils import error, info
-from argostranslate.tokenizer import SentencePieceTokenizer, BPETokenizer
+from argostranslate.tokenizer import BPETokenizer, SentencePieceTokenizer
+from argostranslate.utils import error, info, warning
 
 """
 ## `package` module example usage
@@ -59,7 +59,7 @@ class IPackage:
 
 
     Packages are a zip archive of a directory with metadata.json
-    in its root the .argosmodel file extension. By default a
+    in its root the .argosmodel file extension. By default, an
     OpenNMT CTranslate2 directory named model/ is expected in the root directory
     along with a sentencepiece model named sentencepiece.model or a bpe.model
     for tokenizing and Stanza data for sentence boundary detection.
@@ -196,7 +196,20 @@ class Package(IPackage):
         with open(metadata_path) as metadata_file:
             metadata = json.load(metadata_file)
             self.load_metadata_from_json(metadata)
-        
+
+        """ As of spacy multilingual support, the sbd package shall depend on the Argos package's content"""
+        stanza_package = package_path / "stanza"
+        spacy_package = package_path / "spacy"
+
+        if stanza_package.exists():  # Stanza tokenizer within the package
+            self.packaged_sbd_path = stanza_package
+        elif (
+            spacy_package.exists()
+        ):  # Explicit/language-specific spacy model within the package
+            self.packaged_sbd_path = spacy_package
+        else:  # None if no sbd package embedded in the argos package (will default to cache)
+            self.packaged_sbd_path = None
+
         sp_model_path = package_path / "sentencepiece.model"
         bpe_model_path = package_path / "bpe.model"
 
@@ -250,6 +263,11 @@ def install_from_path(path: Path):
         with zipfile.ZipFile(path, "r") as zipf:
             zipf.extractall(path=settings.package_data_dir)
 
+        # Clear language cache after package installation
+        from argostranslate.translate import get_installed_languages
+
+        get_installed_languages.cache_clear()
+
 
 class AvailablePackage(IPackage):
     """A package available for download and installation"""
@@ -261,7 +279,7 @@ class AvailablePackage(IPackage):
     def download(self) -> Path:
         """Downloads the AvailablePackage and returns its path"""
         filename = argospm_package_name(self) + ".argosmodel"
-
+        """
         # Install sbd package if needed
         if self.type == "translate" and not settings.stanza_available:
             if (
@@ -275,7 +293,7 @@ class AvailablePackage(IPackage):
                 for sbd_package in sbd_packages:
                     download_path = sbd_package.download()
                     install_from_path(download_path)
-
+        """
         filepath = settings.downloads_dir / filename
         if not filepath.exists():
             data = networking.get_from(self.links)
@@ -304,13 +322,18 @@ def uninstall(pkg: Package):
     with package_lock:
         shutil.rmtree(pkg.package_path)
 
+        # Clear language cache after package uninstallation
+        from argostranslate.translate import get_installed_languages
+
+        get_installed_languages.cache_clear()
+
 
 def get_installed_packages(path: Path = None) -> list[Package]:
     """Return a list of installed Packages
 
     Looks for packages in <home>/.argos-translate/local/share/packages by
     default. Will also look in the directory specified
-    in the ARGOS_TRANSLATE_PACKAGE_DIR environment variable
+    in the ARGOS_PACKAGE_DIR environment variable
     if it is set.
 
     Args:
@@ -351,7 +374,7 @@ def get_available_packages() -> list[AvailablePackage]:
             for metadata in index:
                 package = AvailablePackage(metadata)
                 packages.append(package)
-
+            """
             # If stanza not available filter for sbd available
             if not settings.stanza_available:
                 installed_and_available_packages = packages + get_installed_packages()
@@ -367,7 +390,7 @@ def get_available_packages() -> list[AvailablePackage]:
                     filter(lambda x: x.from_code in sbd_available_codes, packages)
                 )
                 return packages + sbd_packages
-
+            """
             return packages
     except FileNotFoundError:
         update_package_index()
@@ -387,6 +410,32 @@ def argospm_package_name(pkg: IPackage) -> str:
     if pkg.from_code and pkg.to_code:
         to_return += "-" + pkg.from_code + "_" + pkg.to_code
     return to_return
+
+
+def install_package_for_language_pair(from_code: str, to_code: str) -> bool:
+    """Installs the necessary package to translate between a pair of languages
+
+    Args:
+        from_code (str): The ISO 639 code for the language being translated from
+        to_code (str): The ISO 639 code for the language being translated to
+
+    Returns:
+        True if the package was installed successfully,
+        False if the installation failed or was not possible
+    """
+    available_packages = get_available_packages()
+    try:
+        package_to_install = next(
+            filter(
+                lambda x: x.from_code == from_code and x.to_code == to_code,
+                available_packages,
+            )
+        )
+    except StopIteration:
+        return False
+
+    install_from_path(package_to_install.download())
+    return True
 
 
 def load_available_packages() -> list[Package]:

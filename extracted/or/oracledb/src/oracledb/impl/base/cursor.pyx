@@ -135,20 +135,6 @@ cdef class BaseCursorImpl:
                 return json.loads(value)
         return converter
 
-    cdef int _check_binds(self, uint32_t num_execs) except -1:
-        """
-        Checks that all binds are capable of handling the number of executions
-        provided.
-        """
-        cdef BindVar bind_var
-        for bind_var in self.bind_vars:
-            if bind_var is None or bind_var.var_impl is None:
-                continue
-            if bind_var.var_impl.num_elements < num_execs:
-                errors._raise_err(errors.ERR_INCORRECT_VAR_ARRAYSIZE,
-                                  var_arraysize=bind_var.var_impl.num_elements,
-                                  required_arraysize=num_execs)
-
     cdef int _close(self, bint in_del) except -1:
         """
         Internal method for closing the cursor.
@@ -166,6 +152,7 @@ cdef class BaseCursorImpl:
         adjustments.
         """
         cdef:
+            ArrowSchemaImpl schema_impl
             object var, pub_metadata
             BaseConnImpl conn_impl
             BaseVarImpl var_impl
@@ -205,14 +192,25 @@ cdef class BaseCursorImpl:
         # otherwise, create a new variable using the provided fetch metadata
         var_impl = self._create_var_impl(conn)
         var_impl.num_elements = self._fetch_array_size
-        var_impl.metadata = metadata.copy()
+        if self.schema_impl is not None:
+            schema_impl = self.schema_impl.child_schemas[pos]
+            metadata.check_convert_to_arrow(schema_impl)
+            var_impl.metadata = OracleMetadata.from_arrow_schema(schema_impl)
+            if metadata.dbtype.num in (DB_TYPE_NUM_NUMBER,
+                                       DB_TYPE_NUM_BINARY_DOUBLE,
+                                       DB_TYPE_NUM_BINARY_FLOAT) \
+                    and schema_impl.arrow_type in (NANOARROW_TYPE_DOUBLE,
+                                                   NANOARROW_TYPE_FLOAT):
+                var_impl.metadata.dbtype = metadata.dbtype
+        else:
+            var_impl.metadata = metadata.copy()
         var_impl._fetch_metadata = metadata
 
         # adjust the variable based on the defaults specified by the user, if
         # applicable
         db_type_num = metadata.dbtype.num
         if db_type_num == DB_TYPE_NUM_NUMBER:
-            if C_DEFAULTS.fetch_decimals:
+            if self.fetch_decimals:
                 var_impl.metadata._py_type_num = PY_TYPE_NUM_DECIMAL
         elif metadata.is_oson and db_type_num != DB_TYPE_NUM_JSON:
             conn_impl = self._get_conn_impl()
@@ -221,7 +219,7 @@ cdef class BaseCursorImpl:
             var_impl.outconverter = conn_impl.decode_oson
         elif metadata.is_json and db_type_num != DB_TYPE_NUM_JSON:
             var_impl.outconverter = self._build_json_converter_fn()
-        elif not C_DEFAULTS.fetch_lobs or self.fetching_arrow:
+        elif not self.fetch_lobs or self.fetching_arrow:
             if db_type_num == DB_TYPE_NUM_BLOB:
                 var_impl.metadata.dbtype = DB_TYPE_LONG_RAW
                 var_impl._fetch_metadata.dbtype = DB_TYPE_LONG_RAW
@@ -328,6 +326,13 @@ cdef class BaseCursorImpl:
         Initializes the fetch variable lists in preparation for creating the
         fetch variables used in fetching rows from the database.
         """
+        cdef ssize_t num_schema_columns
+        if self.schema_impl is not None:
+            num_schema_columns = len(self.schema_impl.child_schemas)
+            if num_schema_columns != num_columns:
+                errors._raise_err(errors.ERR_WRONG_REQUESTED_SCHEMA_LENGTH,
+                                  num_schema_columns=num_schema_columns,
+                                  num_fetched_columns=num_columns)
         self.fetch_metadata = [None] * num_columns
         self.fetch_vars = [None] * num_columns
         self.fetch_var_impls = [None] * num_columns
@@ -409,6 +414,10 @@ cdef class BaseCursorImpl:
         finally:
             self.set_input_sizes = False
 
+        # set default values of fetch options
+        self.fetch_lobs = C_DEFAULTS.fetch_lobs
+        self.fetch_decimals = C_DEFAULTS.fetch_decimals
+
         # perform bind
         if parameters is not None:
             self.bind_one(cursor, parameters)
@@ -417,12 +426,16 @@ cdef class BaseCursorImpl:
         self.warning = None
         self.rowcount = 0
 
-    def _prepare_for_executemany(self, object cursor, str statement,
-                                 object parameters):
+    def _prepare_for_executemany(
+        self,
+        object cursor,
+        str statement,
+        object parameters,
+        uint32_t batch_size = 2 ** 32 - 1,
+    ):
         """
         Internal method for preparing a statement for execution multiple times.
         """
-        cdef DataFrameImpl df_impl
 
         # prepare statement, if necessary
         if statement is None and self.statement is None:
@@ -433,31 +446,20 @@ cdef class BaseCursorImpl:
         finally:
             self.set_input_sizes = False
 
-        # perform bind, if applicable
-        if isinstance(parameters, int):
-            num_execs = parameters
-            if self.bind_vars is not None:
-                self._check_binds(num_execs)
-        elif isinstance(parameters, list):
-            num_execs = len(parameters)
-            if parameters:
-                self.bind_many(cursor, parameters)
-        elif isinstance(parameters, PY_TYPE_DATAFRAME):
-            df_impl = parameters._impl
-            num_execs = self.bind_arrow_arrays(cursor, df_impl.arrays)
-        elif hasattr(parameters, "__arrow_c_stream__"):
-            df_impl = DataFrameImpl.from_arrow_stream(parameters)
-            num_execs = self.bind_arrow_arrays(cursor, df_impl.arrays)
-        else:
-            errors._raise_err(errors.ERR_WRONG_EXECUTEMANY_PARAMETERS_TYPE)
-
         # clear any warning and reset rowcount
         self.warning = None
         self.rowcount = 0
 
-        return num_execs
+        # return a batch load manager
+        return BatchLoadManager.create_for_executemany(
+            cursor,
+            self,
+            parameters,
+            batch_size,
+        )
 
-    cdef int _reset_bind_vars(self, uint32_t num_rows) except -1:
+    cdef int _reset_bind_vars(self, uint64_t array_offset,
+                              uint32_t num_rows) except -1:
         """
         Reset all of the existing bind variables. If any bind variables don't
         have enough space to store the number of rows specified, expand and
@@ -470,7 +472,7 @@ cdef class BaseCursorImpl:
             for i in range(len(self.bind_vars)):
                 bind_var = <BindVar> self.bind_vars[i]
                 if bind_var.var_impl is not None:
-                    bind_var.var_impl._on_reset_bind(num_rows)
+                    bind_var.var_impl._on_reset_bind(array_offset, num_rows)
                 bind_var.has_value = False
 
     def _set_oci_attr(self, uint32_t attr_num, uint32_t attr_type,
@@ -489,44 +491,6 @@ cdef class BaseCursorImpl:
                               var_arraysize=var.num_elements,
                               required_arraysize=self.arraysize)
 
-    cdef object bind_arrow_arrays(self, object cursor, list arrays):
-        """
-        Internal method for binding Arrow arrays. The number of elements in the
-        array is returned for use by the caller.
-        """
-        cdef:
-            ArrowArrayImpl array
-            int64_t num_rows
-            BindVar bind_var
-            ssize_t i
-        conn = cursor.connection
-        array = arrays[0]
-        array.get_length(&num_rows)
-        self._reset_bind_vars(num_rows)
-        self.bind_vars = []
-        for i, array in enumerate(arrays):
-            bind_var = BindVar.__new__(BindVar)
-            bind_var.pos = i + 1
-            bind_var._create_var_from_arrow_array(conn, self, array)
-            self.bind_vars.append(bind_var)
-        return num_rows
-
-    cdef int bind_many(self, object cursor, list parameters) except -1:
-        """
-        Internal method used for binding multiple rows of data.
-        """
-        cdef:
-            bint defer_type_assignment
-            ssize_t i, num_rows
-            object params_row
-        type_handler = self._get_input_type_handler()
-        num_rows = len(parameters)
-        self._reset_bind_vars(num_rows)
-        for i, params_row in enumerate(parameters):
-            defer_type_assignment = (i < num_rows - 1)
-            self._bind_values(cursor, type_handler, params_row, num_rows, i,
-                              defer_type_assignment)
-
     cdef int bind_one(self, object cursor, object parameters) except -1:
         """
         Internal method used for binding a single row of data.
@@ -539,7 +503,7 @@ cdef class BaseCursorImpl:
             BindVar bind_var
             dict dict_params
         type_handler = self._get_input_type_handler()
-        self._reset_bind_vars(num_rows)
+        self._reset_bind_vars(0, num_rows)
         self._bind_values(cursor, type_handler, parameters, num_rows, row_num,
                           defer_type_assignment)
 
@@ -548,12 +512,16 @@ cdef class BaseCursorImpl:
         Flush all buffers and return an Oracle Data frame.
         """
         cdef:
+            ArrowArrayImpl array_impl
             DataFrameImpl df_impl
             BaseVarImpl var_impl
         df_impl = DataFrameImpl.__new__(DataFrameImpl)
+        df_impl.schema_impls = []
         df_impl.arrays = []
         for var_impl in self.fetch_var_impls:
-            df_impl.arrays.append(var_impl._finish_building_arrow_array())
+            array_impl = var_impl._finish_building_arrow_array()
+            df_impl.schema_impls.append(array_impl.schema_impl)
+            df_impl.arrays.append(array_impl)
         return PY_TYPE_DATAFRAME._from_impl(df_impl)
 
     def close(self, bint in_del=False):
@@ -593,7 +561,8 @@ cdef class BaseCursorImpl:
     def execute(self, cursor):
         errors._raise_not_supported("executing a statement")
 
-    def executemany(self, cursor, num_execs, batcherrors, arraydmlrowcounts):
+    def executemany(self, object cursor, uint32_t num_execs, bint batcherrors,
+                    bint arraydmlrowcounts, uint32_t offset=0):
         errors._raise_not_supported("executing a statement in batch")
 
     def fetch_next_row(self, cursor):

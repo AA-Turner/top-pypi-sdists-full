@@ -2,7 +2,6 @@ from typing import Any
 
 import yaml
 from airflow.models.connection import Connection
-from airflow.models.variable import Variable
 
 
 def _get_connections(yaml_dict: dict[str, Any]) -> dict[str, Connection]:
@@ -15,16 +14,16 @@ def _get_connections(yaml_dict: dict[str, Any]) -> dict[str, Connection]:
     return connections
 
 
-def _get_variables(yaml_dict: dict[str, Any]) -> dict[str, Variable]:
+def _get_variables(yaml_dict: dict[str, Any]) -> dict[str, str]:
     variables = {}
     for i in yaml_dict["variables"]:
-        variables[i["variable_name"]] = Variable(key=i["variable_name"], val=i["variable_value"])
+        variables[i["variable_name"]] = i["variable_value"]
     return variables
 
 
 def parse_settings_file(
     file_path: str,
-) -> tuple[dict[str, Connection], dict[str, Variable]]:
+) -> tuple[dict[str, Connection], dict[str, str]]:
     """
     This function parses an astronomer-style settings.yaml file and returns created connections and variables.
 

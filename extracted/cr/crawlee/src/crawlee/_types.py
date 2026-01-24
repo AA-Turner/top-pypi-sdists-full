@@ -1,56 +1,52 @@
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
+from copy import deepcopy
 from dataclasses import dataclass
-from enum import Enum
-from typing import TYPE_CHECKING, Annotated, Any, Callable, Literal, Optional, Protocol, TypeVar, Union, cast, overload
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol, TypedDict, TypeVar, cast, overload
 
 from pydantic import ConfigDict, Field, PlainValidator, RootModel
-from typing_extensions import NotRequired, TypeAlias, TypedDict, Unpack
 
 from crawlee._utils.docs import docs_group
 
 if TYPE_CHECKING:
+    import json
     import logging
     import re
-    from collections.abc import Coroutine, Sequence
+    from collections.abc import Callable, Coroutine, Sequence
+
+    from typing_extensions import NotRequired, Required, Self, Unpack
 
     from crawlee import Glob, Request
     from crawlee._request import RequestOptions
+    from crawlee.configuration import Configuration
     from crawlee.http_clients import HttpResponse
     from crawlee.proxy_configuration import ProxyInfo
     from crawlee.sessions import Session
-    from crawlee.storage_clients.models import DatasetItemsListPage
+    from crawlee.storage_clients import StorageClient
     from crawlee.storages import KeyValueStore
-    from crawlee.storages._dataset import ExportToKwargs, GetDataKwargs
 
     # Workaround for https://github.com/pydantic/pydantic/issues/9445
     J = TypeVar('J', bound='JsonSerializable')
-    JsonSerializable: TypeAlias = Union[
-        list[J],
-        dict[str, J],
-        str,
-        bool,
-        int,
-        float,
-        None,
-    ]
+    JsonSerializable = list[J] | dict[str, J] | str | bool | int | float | None
 else:
     from pydantic import JsonValue as JsonSerializable
 
 T = TypeVar('T')
 
-HttpMethod: TypeAlias = Literal['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH']
+HttpMethod = Literal['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH']
 
-HttpPayload: TypeAlias = bytes
+HttpPayload = bytes
 
-RequestTransformAction: TypeAlias = Literal['skip', 'unchanged']
+RequestTransformAction = Literal['skip', 'unchanged']
 
-EnqueueStrategy: TypeAlias = Literal['all', 'same-domain', 'same-hostname', 'same-origin']
+EnqueueStrategy = Literal['all', 'same-domain', 'same-hostname', 'same-origin']
 """Enqueue strategy to be used for determining which links to extract and enqueue."""
 
-SkippedReason: TypeAlias = Literal['robots_txt']
+SkippedReason = Literal['robots_txt']
+
+LogLevel = Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
 
 def _normalize_headers(headers: Mapping[str, str]) -> dict[str, str]:
@@ -60,17 +56,21 @@ def _normalize_headers(headers: Mapping[str, str]) -> dict[str, str]:
     return dict(sorted_headers)
 
 
-@docs_group('Data structures')
+@docs_group('Other')
 class HttpHeaders(RootModel, Mapping[str, str]):
     """A dictionary-like object representing HTTP headers."""
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
 
-    root: Annotated[
-        dict[str, str],
-        PlainValidator(lambda value: _normalize_headers(value)),
-        Field(default_factory=dict),
-    ] = {}
+    # Workaround for Pydantic and type checkers when using Annotated with default_factory
+    if TYPE_CHECKING:
+        root: dict[str, str] = {}
+    else:
+        root: Annotated[
+            dict[str, str],
+            PlainValidator(lambda value: _normalize_headers(value)),
+            Field(default_factory=lambda: dict[str, str]()),
+        ]
 
     def __getitem__(self, key: str) -> str:
         return self.root[key.lower()]
@@ -91,23 +91,23 @@ class HttpHeaders(RootModel, Mapping[str, str]):
         combined_headers = {**other, **self.root}
         return HttpHeaders(combined_headers)
 
-    def __iter__(self) -> Iterator[str]:  # type: ignore[override]
+    def __iter__(self) -> Iterator[str]:  # ty: ignore[invalid-method-override]
         yield from self.root
 
     def __len__(self) -> int:
         return len(self.root)
 
 
-@docs_group('Data structures')
+@docs_group('Configuration')
 class ConcurrencySettings:
     """Concurrency settings for AutoscaledPool."""
 
     def __init__(
         self,
         min_concurrency: int = 1,
-        max_concurrency: int = 200,
+        max_concurrency: int = 100,
         max_tasks_per_minute: float = float('inf'),
-        desired_concurrency: int | None = None,
+        desired_concurrency: int = 10,
     ) -> None:
         """Initialize a new instance.
 
@@ -120,31 +120,25 @@ class ConcurrencySettings:
             desired_concurrency: The desired number of tasks that should be running parallel on the start of the pool,
                 if there is a large enough supply of them. By default, it is `min_concurrency`.
         """
-        if desired_concurrency is not None and desired_concurrency < 1:
-            raise ValueError('desired_concurrency must be 1 or larger')
-
         if min_concurrency < 1:
             raise ValueError('min_concurrency must be 1 or larger')
 
         if max_concurrency < min_concurrency:
             raise ValueError('max_concurrency cannot be less than min_concurrency')
 
+        if desired_concurrency < min_concurrency:
+            raise ValueError('desired_concurrency cannot be less than min_concurrency')
+
+        if desired_concurrency > max_concurrency:
+            raise ValueError('desired_concurrency cannot be greater than max_concurrency')
+
         if max_tasks_per_minute <= 0:
             raise ValueError('max_tasks_per_minute must be positive')
 
         self.min_concurrency = min_concurrency
         self.max_concurrency = max_concurrency
-        self.desired_concurrency = desired_concurrency if desired_concurrency is not None else min_concurrency
+        self.desired_concurrency = desired_concurrency
         self.max_tasks_per_minute = max_tasks_per_minute
-
-
-@docs_group('Data structures')
-class StorageTypes(str, Enum):
-    """Possible Crawlee storage types."""
-
-    DATASET = 'Dataset'
-    KEY_VALUE_STORE = 'Key-value store'
-    REQUEST_QUEUE = 'Request queue'
 
 
 class EnqueueLinksKwargs(TypedDict):
@@ -184,15 +178,27 @@ class AddRequestsKwargs(EnqueueLinksKwargs):
     requests: Sequence[str | Request]
     """Requests to be added to the `RequestManager`."""
 
+    rq_id: str | None
+    """ID of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias` can be provided."""
+
+    rq_name: str | None
+    """Name of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias` can be provided.
+    """
+
+    rq_alias: str | None
+    """Alias of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias` can be provided.
+    """
+
 
 class PushDataKwargs(TypedDict):
     """Keyword arguments for dataset's `push_data` method."""
 
 
 class PushDataFunctionCall(PushDataKwargs):
-    data: JsonSerializable
+    data: list[dict[str, Any]] | dict[str, Any]
     dataset_id: str | None
     dataset_name: str | None
+    dataset_alias: str | None
 
 
 class KeyValueStoreInterface(Protocol):
@@ -255,37 +261,55 @@ class KeyValueStoreChangeRecords:
 class RequestHandlerRunResult:
     """Record of calls to storage-related context helpers."""
 
-    def __init__(self, *, key_value_store_getter: GetKeyValueStoreFunction) -> None:
+    def __init__(
+        self,
+        *,
+        key_value_store_getter: GetKeyValueStoreFunction,
+        request: Request,
+    ) -> None:
         self._key_value_store_getter = key_value_store_getter
         self.add_requests_calls = list[AddRequestsKwargs]()
         self.push_data_calls = list[PushDataFunctionCall]()
-        self.key_value_store_changes = dict[tuple[Optional[str], Optional[str]], KeyValueStoreChangeRecords]()
+        self.key_value_store_changes = dict[tuple[str | None, str | None, str | None], KeyValueStoreChangeRecords]()
+
+        # Isolated copies for handler execution
+        self._request = deepcopy(request)
+
+    @property
+    def request(self) -> Request:
+        return self._request
 
     async def add_requests(
         self,
         requests: Sequence[str | Request],
+        rq_id: str | None = None,
+        rq_name: str | None = None,
+        rq_alias: str | None = None,
         **kwargs: Unpack[EnqueueLinksKwargs],
     ) -> None:
         """Track a call to the `add_requests` context helper."""
-        self.add_requests_calls.append(AddRequestsKwargs(requests=requests, **kwargs))
+        specified_params = sum(1 for param in [rq_id, rq_name, rq_alias] if param is not None)
+        if specified_params > 1:
+            raise ValueError('Only one of `rq_id`, `rq_name` or `rq_alias` can be provided.')
+        self.add_requests_calls.append(
+            AddRequestsKwargs(requests=requests, rq_id=rq_id, rq_name=rq_name, rq_alias=rq_alias, **kwargs)
+        )
 
     async def push_data(
         self,
-        data: JsonSerializable,
+        data: list[dict[str, Any]] | dict[str, Any],
         dataset_id: str | None = None,
         dataset_name: str | None = None,
+        dataset_alias: str | None = None,
         **kwargs: Unpack[PushDataKwargs],
     ) -> None:
         """Track a call to the `push_data` context helper."""
-        from crawlee.storages._dataset import Dataset
-
-        await Dataset.check_and_serialize(data)
-
         self.push_data_calls.append(
             PushDataFunctionCall(
                 data=data,
                 dataset_id=dataset_id,
                 dataset_name=dataset_name,
+                dataset_alias=dataset_alias,
                 **kwargs,
             )
         )
@@ -295,13 +319,22 @@ class RequestHandlerRunResult:
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
     ) -> KeyValueStoreInterface:
-        if (id, name) not in self.key_value_store_changes:
-            self.key_value_store_changes[id, name] = KeyValueStoreChangeRecords(
-                await self._key_value_store_getter(id=id, name=name)
+        if (id, name, alias) not in self.key_value_store_changes:
+            self.key_value_store_changes[id, name, alias] = KeyValueStoreChangeRecords(
+                await self._key_value_store_getter(id=id, name=name, alias=alias)
             )
 
-        return self.key_value_store_changes[id, name]
+        return self.key_value_store_changes[id, name, alias]
+
+    def apply_request_changes(self, target: Request) -> None:
+        """Apply tracked changes from handler copy to original request."""
+        if self.request.user_data != target.user_data:
+            target.user_data = self.request.user_data
+
+        if self.request.headers != target.headers:
+            target.headers = self.request.headers
 
 
 @docs_group('Functions')
@@ -315,12 +348,21 @@ class AddRequestsFunction(Protocol):
     def __call__(
         self,
         requests: Sequence[str | Request],
+        rq_id: str | None = None,
+        rq_name: str | None = None,
+        rq_alias: str | None = None,
         **kwargs: Unpack[EnqueueLinksKwargs],
     ) -> Coroutine[None, None, None]:
         """Call dunder method.
 
         Args:
             requests: Requests to be added to the `RequestManager`.
+            rq_id: ID of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias` can be
+                provided.
+            rq_name: Name of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias`
+                can be provided.
+            rq_alias: Alias of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias`
+                can be provided.
             **kwargs: Additional keyword arguments.
         """
 
@@ -348,12 +390,21 @@ class EnqueueLinksFunction(Protocol):
         label: str | None = None,
         user_data: dict[str, Any] | None = None,
         transform_request_function: Callable[[RequestOptions], RequestOptions | RequestTransformAction] | None = None,
+        rq_id: str | None = None,
+        rq_name: str | None = None,
+        rq_alias: str | None = None,
         **kwargs: Unpack[EnqueueLinksKwargs],
     ) -> Coroutine[None, None, None]: ...
 
     @overload
     def __call__(
-        self, *, requests: Sequence[str | Request] | None = None, **kwargs: Unpack[EnqueueLinksKwargs]
+        self,
+        *,
+        requests: Sequence[str | Request] | None = None,
+        rq_id: str | None = None,
+        rq_name: str | None = None,
+        rq_alias: str | None = None,
+        **kwargs: Unpack[EnqueueLinksKwargs],
     ) -> Coroutine[None, None, None]: ...
 
     def __call__(
@@ -364,6 +415,9 @@ class EnqueueLinksFunction(Protocol):
         user_data: dict[str, Any] | None = None,
         transform_request_function: Callable[[RequestOptions], RequestOptions | RequestTransformAction] | None = None,
         requests: Sequence[str | Request] | None = None,
+        rq_id: str | None = None,
+        rq_name: str | None = None,
+        rq_alias: str | None = None,
         **kwargs: Unpack[EnqueueLinksKwargs],
     ) -> Coroutine[None, None, None]:
         """Call enqueue links function.
@@ -381,6 +435,12 @@ class EnqueueLinksFunction(Protocol):
                 - `'skip'` to exclude the request from being enqueued,
                 - `'unchanged'` to use the original request options without modification.
             requests: Requests to be added to the `RequestManager`.
+            rq_id: ID of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias` can be
+                provided.
+            rq_name: Name of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias`
+                can be provided.
+            rq_alias: Alias of the `RequestQueue` to add the requests to. Only one of `rq_id`, `rq_name` or `rq_alias`
+                can be provided.
             **kwargs: Additional keyword arguments.
         """
 
@@ -421,55 +481,6 @@ class ExtractLinksFunction(Protocol):
 
 
 @docs_group('Functions')
-class ExportToFunction(Protocol):
-    """A function for exporting data from a `Dataset`.
-
-    It simplifies the process of exporting data from a `Dataset`. It opens the specified one and exports
-    its content to a `KeyValueStore`.
-    """
-
-    def __call__(
-        self,
-        dataset_id: str | None = None,
-        dataset_name: str | None = None,
-        **kwargs: Unpack[ExportToKwargs],
-    ) -> Coroutine[None, None, None]:
-        """Call dunder method.
-
-        Args:
-            dataset_id: The ID of the `Dataset` to export data from.
-            dataset_name: The name of the `Dataset` to export data from.
-            **kwargs: Additional keyword arguments.
-        """
-
-
-@docs_group('Functions')
-class GetDataFunction(Protocol):
-    """A function for retrieving data from a `Dataset`.
-
-    It simplifies the process of accessing data from a `Dataset`. It opens the specified one and retrieves
-    data based on the provided parameters. It allows filtering and pagination.
-    """
-
-    def __call__(
-        self,
-        dataset_id: str | None = None,
-        dataset_name: str | None = None,
-        **kwargs: Unpack[GetDataKwargs],
-    ) -> Coroutine[None, None, DatasetItemsListPage]:
-        """Call dunder method.
-
-        Args:
-            dataset_id: ID of the `Dataset` to get data from.
-            dataset_name: Name of the `Dataset` to get data from.
-            **kwargs: Additional keyword arguments.
-
-        Returns:
-            A page of retrieved items.
-        """
-
-
-@docs_group('Functions')
 class GetKeyValueStoreFunction(Protocol):
     """A function for accessing a `KeyValueStore`.
 
@@ -481,12 +492,14 @@ class GetKeyValueStoreFunction(Protocol):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
     ) -> Coroutine[None, None, KeyValueStore]:
         """Call dunder method.
 
         Args:
             id: The ID of the `KeyValueStore` to get.
-            name: The name of the `KeyValueStore` to get.
+            name: The name of the `KeyValueStore` to get (global scope, named storage).
+            alias: The alias of the `KeyValueStore` to get (run scope, unnamed storage).
         """
 
 
@@ -501,12 +514,14 @@ class GetKeyValueStoreFromRequestHandlerFunction(Protocol):
         *,
         id: str | None = None,
         name: str | None = None,
+        alias: str | None = None,
     ) -> Coroutine[None, None, KeyValueStoreInterface]:
         """Call dunder method.
 
         Args:
             id: The ID of the `KeyValueStore` to get.
-            name: The name of the `KeyValueStore` to get.
+            name: The name of the `KeyValueStore` to get (global scope, named storage).
+            alias: The alias of the `KeyValueStore` to get (run scope, unnamed storage).
         """
 
 
@@ -520,9 +535,10 @@ class PushDataFunction(Protocol):
 
     def __call__(
         self,
-        data: JsonSerializable,
+        data: list[dict[str, Any]] | dict[str, Any],
         dataset_id: str | None = None,
         dataset_name: str | None = None,
+        dataset_alias: str | None = None,
         **kwargs: Unpack[PushDataKwargs],
     ) -> Coroutine[None, None, None]:
         """Call dunder method.
@@ -530,7 +546,8 @@ class PushDataFunction(Protocol):
         Args:
             data: The data to push to the `Dataset`.
             dataset_id: The ID of the `Dataset` to push the data to.
-            dataset_name: The name of the `Dataset` to push the data to.
+            dataset_name: The name of the `Dataset` to push the data to (global scope, named storage).
+            dataset_alias: The alias of the `Dataset` to push the data to (run scope, unnamed storage).
             **kwargs: Additional keyword arguments.
         """
 
@@ -564,7 +581,7 @@ class SendRequestFunction(Protocol):
         """
 
 
-@docs_group('Data structures')
+@docs_group('Other')
 @dataclasses.dataclass
 class PageSnapshot:
     """Snapshot of a crawled page."""
@@ -577,18 +594,6 @@ class PageSnapshot:
 
     def __bool__(self) -> bool:
         return bool(self.screenshot or self.html)
-
-
-@docs_group('Functions')
-class GetPageSnapshot(Protocol):
-    """A function for getting snapshot of a page."""
-
-    def __call__(self) -> Coroutine[None, None, PageSnapshot]:
-        """Get page snapshot.
-
-        Returns:
-            Snapshot of a page.
-        """
 
 
 @docs_group('Functions')
@@ -616,7 +621,7 @@ class UseStateFunction(Protocol):
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class BasicCrawlingContext:
     """Basic crawling context.
 
@@ -658,3 +663,151 @@ class BasicCrawlingContext:
     def __hash__(self) -> int:
         """Return hash of the context. Each context is considered unique."""
         return id(self)
+
+    def create_modified_copy(
+        self,
+        push_data: PushDataFunction | None = None,
+        add_requests: AddRequestsFunction | None = None,
+        get_key_value_store: GetKeyValueStoreFromRequestHandlerFunction | None = None,
+    ) -> Self:
+        """Create a modified copy of the crawling context with specified changes."""
+        modifications = dict[str, Any]()
+
+        if push_data is not None:
+            modifications['push_data'] = push_data
+        if add_requests is not None:
+            modifications['add_requests'] = add_requests
+        if get_key_value_store is not None:
+            modifications['get_key_value_store'] = get_key_value_store
+
+        return dataclasses.replace(self, **modifications)
+
+
+class GetDataKwargs(TypedDict):
+    """Keyword arguments for dataset's `get_data` method."""
+
+    offset: NotRequired[int]
+    """Skips the specified number of items at the start."""
+
+    limit: NotRequired[int | None]
+    """The maximum number of items to retrieve. Unlimited if None."""
+
+    clean: NotRequired[bool]
+    """Return only non-empty items and excludes hidden fields. Shortcut for `skip_hidden` and `skip_empty`."""
+
+    desc: NotRequired[bool]
+    """Set to True to sort results in descending order."""
+
+    fields: NotRequired[list[str]]
+    """Fields to include in each item. Sorts fields as specified if provided."""
+
+    omit: NotRequired[list[str]]
+    """Fields to exclude from each item."""
+
+    unwind: NotRequired[list[str]]
+    """Unwinds items by a specified array field, turning each element into a separate item."""
+
+    skip_empty: NotRequired[bool]
+    """Excludes empty items from the results if True."""
+
+    skip_hidden: NotRequired[bool]
+    """Excludes fields starting with '#' if True."""
+
+    flatten: NotRequired[list[str]]
+    """Fields to be flattened in returned items."""
+
+    view: NotRequired[str]
+    """Specifies the dataset view to be used."""
+
+
+class ExportToKwargs(TypedDict):
+    """Keyword arguments for dataset's `export_to` method."""
+
+    key: Required[str]
+    """The key under which to save the data."""
+
+    content_type: NotRequired[Literal['json', 'csv']]
+    """The format in which to export the data. Either 'json' or 'csv'."""
+
+    to_kvs_id: NotRequired[str]
+    """ID of the key-value store to save the exported file."""
+
+    to_kvs_name: NotRequired[str]
+    """Name of the key-value store to save the exported file."""
+
+    to_kvs_storage_client: NotRequired[StorageClient]
+    """The storage client to use for saving the exported file."""
+
+    to_kvs_configuration: NotRequired[Configuration]
+    """The configuration to use for saving the exported file."""
+
+
+class ExportDataJsonKwargs(TypedDict):
+    """Keyword arguments for dataset's `export_data_json` method."""
+
+    skipkeys: NotRequired[bool]
+    """If True (default: False), dict keys that are not of a basic type (str, int, float, bool, None) will be skipped
+    instead of raising a `TypeError`."""
+
+    ensure_ascii: NotRequired[bool]
+    """Determines if non-ASCII characters should be escaped in the output JSON string."""
+
+    check_circular: NotRequired[bool]
+    """If False (default: True), skips the circular reference check for container types. A circular reference will
+    result in a `RecursionError` or worse if unchecked."""
+
+    allow_nan: NotRequired[bool]
+    """If False (default: True), raises a ValueError for out-of-range float values (nan, inf, -inf) to strictly comply
+    with the JSON specification. If True, uses their JavaScript equivalents (NaN, Infinity, -Infinity)."""
+
+    cls: NotRequired[type[json.JSONEncoder]]
+    """Allows specifying a custom JSON encoder."""
+
+    indent: NotRequired[int]
+    """Specifies the number of spaces for indentation in the pretty-printed JSON output."""
+
+    separators: NotRequired[tuple[str, str]]
+    """A tuple of (item_separator, key_separator). The default is (', ', ': ') if indent is None and (',', ': ')
+    otherwise."""
+
+    default: NotRequired[Callable]
+    """A function called for objects that can't be serialized otherwise. It should return a JSON-encodable version
+    of the object or raise a `TypeError`."""
+
+    sort_keys: NotRequired[bool]
+    """Specifies whether the output JSON object should have keys sorted alphabetically."""
+
+
+class ExportDataCsvKwargs(TypedDict):
+    """Keyword arguments for dataset's `export_data_csv` method."""
+
+    dialect: NotRequired[str]
+    """Specifies a dialect to be used in CSV parsing and writing."""
+
+    delimiter: NotRequired[str]
+    """A one-character string used to separate fields. Defaults to ','."""
+
+    doublequote: NotRequired[bool]
+    """Controls how instances of `quotechar` inside a field should be quoted. When True, the character is doubled;
+    when False, the `escapechar` is used as a prefix. Defaults to True."""
+
+    escapechar: NotRequired[str]
+    """A one-character string used to escape the delimiter if `quoting` is set to `QUOTE_NONE` and the `quotechar`
+    if `doublequote` is False. Defaults to None, disabling escaping."""
+
+    lineterminator: NotRequired[str]
+    """The string used to terminate lines produced by the writer. Defaults to '\\r\\n'."""
+
+    quotechar: NotRequired[str]
+    """A one-character string used to quote fields containing special characters, like the delimiter or quotechar,
+    or fields containing new-line characters. Defaults to '\"'."""
+
+    quoting: NotRequired[int]
+    """Controls when quotes should be generated by the writer and recognized by the reader. Can take any of
+    the `QUOTE_*` constants, with a default of `QUOTE_MINIMAL`."""
+
+    skipinitialspace: NotRequired[bool]
+    """When True, spaces immediately following the delimiter are ignored. Defaults to False."""
+
+    strict: NotRequired[bool]
+    """When True, raises an exception on bad CSV input. Defaults to False."""

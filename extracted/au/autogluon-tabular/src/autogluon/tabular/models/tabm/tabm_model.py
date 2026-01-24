@@ -15,13 +15,13 @@ import time
 import pandas as pd
 
 from autogluon.common.utils.resource_utils import ResourceManager
-from autogluon.core.models import AbstractModel
 from autogluon.tabular import __version__
+from autogluon.tabular.models.abstract.abstract_torch_model import AbstractTorchModel
 
 logger = logging.getLogger(__name__)
 
 
-class TabMModel(AbstractModel):
+class TabMModel(AbstractTorchModel):
     """
     TabM is an efficient ensemble of MLPs that is trained simultaneously with mostly shared parameters.
 
@@ -39,6 +39,7 @@ class TabMModel(AbstractModel):
     ag_key = "TABM"
     ag_name = "TabM"
     ag_priority = 85
+    seed_name = "random_state"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -86,7 +87,7 @@ class TabMModel(AbstractModel):
         if X_val is None:
             from autogluon.core.utils import generate_train_test_split
 
-            X_train, X_val, y_train, y_val = generate_train_test_split(
+            X, X_val, y, y_val = generate_train_test_split(
                 X=X,
                 y=y,
                 problem_type=self.problem_type,
@@ -97,7 +98,7 @@ class TabMModel(AbstractModel):
         hyp = self._get_model_params()
         bool_to_cat = hyp.pop("bool_to_cat", True)
 
-        X = self.preprocess(X, is_train=True, bool_to_cat=bool_to_cat)
+        X = self.preprocess(X, y=y, is_train=True, bool_to_cat=bool_to_cat)
         if X_val is not None:
             X_val = self.preprocess(X_val)
 
@@ -141,12 +142,13 @@ class TabMModel(AbstractModel):
 
         return X
 
-    def _set_default_params(self):
-        default_params = dict(
-            random_state=0,
-        )
-        for param, val in default_params.items():
-            self._set_default_param_value(param, val)
+    def get_device(self) -> str:
+        return self.model.device_.type
+
+    def _set_device(self, device: str):
+        device = self.to_torch_device(device)
+        self.model.device_ = device
+        self.model.model_ = self.model.model_.to(device)
 
     @classmethod
     def supported_problem_types(cls) -> list[str] | None:
@@ -261,6 +263,15 @@ class TabMModel(AbstractModel):
 
         return mem_total
 
+    def _get_default_auxiliary_params(self) -> dict:
+        default_auxiliary_params = super()._get_default_auxiliary_params()
+        default_auxiliary_params.update(
+            {
+                "max_batch_size": 16384,  # avoid excessive VRAM usage
+            }
+        )
+        return default_auxiliary_params
+
     @classmethod
     def get_tabm_auto_batch_size(cls, n_samples: int) -> int:
         # by Yury Gorishniy, inferred from the choices in the TabM paper.
@@ -278,7 +289,10 @@ class TabMModel(AbstractModel):
 
     @classmethod
     def _class_tags(cls):
-        return {"can_estimate_memory_usage_static": True}
+        return {
+            "can_estimate_memory_usage_static": True,
+            "reset_torch_threads": True,
+        }
 
     def _more_tags(self) -> dict:
         # TODO: Need to add train params support, track best epoch

@@ -1,4 +1,4 @@
-# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2025)
+# Copyright (c) Streamlit Inc. (2018-2022) Snowflake Inc. (2022-2026)
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import os
 import threading
-from collections.abc import ItemsView, Iterator, KeysView, Mapping, ValuesView
+from collections.abc import Callable, ItemsView, Iterator, KeysView, Mapping, ValuesView
 from copy import deepcopy
 from typing import (
     Any,
-    Callable,
     Final,
     NoReturn,
 )
@@ -261,9 +260,9 @@ class Secrets(Mapping[str, Any]):
             # the default config for secrets contains two paths. It's likely one of will not have secrets file.
             return {}, False
 
-        try:
-            import toml
+        import toml
 
+        try:
             secrets.update(toml.loads(secrets_file_str))
         except (TypeError, toml.TomlDecodeError) as ex:
             msg = (
@@ -461,8 +460,7 @@ class Secrets(Mapping[str, Any]):
                 return value
             return AttrDict(value)
         # We add FileNotFoundError since __getattr__ is expected to only raise
-        # AttributeError. Without handling FileNotFoundError, unittests.mocks
-        # fails during mock creation on Python3.9
+        # AttributeError and mocking utilities expect that contract.
         except (KeyError, FileNotFoundError):
             raise AttributeError(_missing_attr_error_message(key))
 

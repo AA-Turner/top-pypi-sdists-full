@@ -52,6 +52,7 @@ from .action_start_recording_params import ActionStartRecordingParams as ActionS
 from .action_start_streaming_params import ActionStartStreamingParams as ActionStartStreamingParams
 from .action_stop_playback_response import ActionStopPlaybackResponse as ActionStopPlaybackResponse
 from .google_transcription_language import GoogleTranscriptionLanguage as GoogleTranscriptionLanguage
+from .telnyx_transcription_language import TelnyxTranscriptionLanguage as TelnyxTranscriptionLanguage
 from .action_resume_recording_params import ActionResumeRecordingParams as ActionResumeRecordingParams
 from .action_start_playback_response import ActionStartPlaybackResponse as ActionStartPlaybackResponse
 from .action_stop_recording_response import ActionStopRecordingResponse as ActionStopRecordingResponse
@@ -90,6 +91,21 @@ from .action_stop_noise_suppression_response import (
 from .action_switch_supervisor_role_response import (
     ActionSwitchSupervisorRoleResponse as ActionSwitchSupervisorRoleResponse,
 )
+from .action_add_ai_assistant_messages_params import (
+    ActionAddAIAssistantMessagesParams as ActionAddAIAssistantMessagesParams,
+)
 from .action_start_noise_suppression_response import (
     ActionStartNoiseSuppressionResponse as ActionStartNoiseSuppressionResponse,
+)
+from .transcription_engine_azure_config_param import (
+    TranscriptionEngineAzureConfigParam as TranscriptionEngineAzureConfigParam,
+)
+from .transcription_engine_google_config_param import (
+    TranscriptionEngineGoogleConfigParam as TranscriptionEngineGoogleConfigParam,
+)
+from .transcription_engine_telnyx_config_param import (
+    TranscriptionEngineTelnyxConfigParam as TranscriptionEngineTelnyxConfigParam,
+)
+from .action_add_ai_assistant_messages_response import (
+    ActionAddAIAssistantMessagesResponse as ActionAddAIAssistantMessagesResponse,
 )

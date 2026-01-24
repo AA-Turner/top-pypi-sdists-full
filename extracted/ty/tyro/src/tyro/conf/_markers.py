@@ -31,7 +31,7 @@ With this configuration, the CLI would accept: ``python script.py input.txt --ou
 PositionalRequiredArgs = Annotated[T, None]
 """Make all required arguments (those without default values) positional.
 
-This marker applies to an entire interface when passed to the `config` parameter of `tyro.cli()`.
+This marker applies to an entire interface when passed to the `config` parameter of :func:``tyro.cli()``.
 
 Example::
 
@@ -42,14 +42,6 @@ Example::
 
     args = tyro.cli(Args, config=(tyro.conf.PositionalRequiredArgs,))
 """
-
-# Private marker. For when an argument is not only positional in the CLI, but also in
-# the callable.
-_PositionalCall = Annotated[T, None]
-
-# Private markers for when arguments should be passed in via *args or **kwargs.
-_UnpackArgsCall = Annotated[T, None]
-_UnpackKwargsCall = Annotated[T, None]
 
 # Private marker.
 _OPTIONAL_GROUP = Annotated[T, None]
@@ -124,6 +116,48 @@ Example::
 This marker can be applied to specific boolean fields or globally using the config parameter.
 """
 
+UsePythonSyntaxForLiteralCollections = Annotated[T, None]
+"""Use Python literal syntax for collection types containing literal-compatible types.
+
+By default, collection types are flattened into multiple command-line
+arguments. With :data:`UsePythonSyntaxForLiteralCollections`, collections accept
+Python literal syntax as a single string argument.
+
+Example::
+
+    # Default behavior
+    values: list[int]
+    # Usage: python script.py --values 1 2 3
+
+    # With UsePythonSyntaxForLiteralCollections
+    tyro.cli(Config, config=(tyro.conf.UsePythonSyntaxForLiteralCollections,))
+    # Usage: python script.py --values "[1, 2, 3]"
+    #        python script.py --mapping "{'a': 1, 'b': 2}"
+    #        python script.py --dims (128,128,128)
+
+    # Works with nested structures
+    nested: list[tuple[str, int]]
+    # Usage: python script.py --nested "[('a', 1), ('b', 2)]"
+
+    mapping: dict[str, list[int]]
+    # Usage: python script.py --mapping "{'x': [1, 2], 'y': [3, 4]}"
+
+    # Works with Literal types
+    from typing import Literal
+    modes: list[Literal["train", "eval", "test"]]
+    # Usage: python script.py --modes "['train', 'eval']"
+
+This is useful for deeply nested types and wandb sweeps, where only a single
+input value is allowed per argument.
+
+The marker uses ``ast.literal_eval()`` for parsing, which only supports Python
+literals: ``str``, ``bytes``, ``int``, ``float``, ``complex``, ``bool``,
+``None``, and the collection types ``list``, ``tuple``, ``dict``, ``set``.
+``typing.Literal`` types are also supported. Nested structures of these types
+are supported. If incompatible types are detected (e.g., ``pathlib.Path``,
+custom classes), the marker is ignored and the field is handled normally.
+"""
+
 FlagCreatePairsOff = Annotated[T, None]
 """Disable creation of matching flag pairs for boolean types.
 
@@ -172,31 +206,52 @@ Example::
 This can be applied to specific union fields or globally with the config parameter.
 """
 
-ConsolidateSubcommandArgs = Annotated[T, None]
-"""Consolidate arguments for nested subcommands to make CLI less position-sensitive.
+CascadeSubcommandArgs = Annotated[T, None]
+"""Make arguments cascade downward through subcommand hierarchy and enable implicit subcommand selection.
 
-By default, tyro generates CLI interfaces where arguments apply to the directly preceding
-subcommand, which creates position-dependent behavior:
+By default, tyro generates CLI interfaces where arguments apply to the directly
+preceding subcommand, which creates position-dependent behavior:
 
 .. code-block:: bash
 
     # Default behavior - position matters
     python x.py {--root options} s1 {--s1 options} s2 {--s2 options}
 
-With :data:`ConsolidateSubcommandArgs`, all arguments are moved to the end, after all subcommands:
+Arguments marked with :data:`CascadeSubcommandArgs` become visible at their
+definition point and all following parsers. This allows arguments and
+subcommands to be intermixed more flexibly.
 
 .. code-block:: bash
 
-    # With ConsolidateSubcommandArgs - all options at the end
-    python x.py s1 s2 {--root, s1, and s2 options}
+    # More flexible!
+    python x.py {--root options} s1 {--root, --s1 options} s2 {--root, --s1, --s2 options}
 
-This makes the interface more robust to argument reordering, but has a tradeoff: if
-root options are required (have no defaults), all subcommands must be specified
-before providing those required arguments.
+**Implicit subcommand selection:** When a union type has a default value,
+using arguments or nested subcommand selectors that belong to the default
+subcommand will automatically select it without requiring explicit selection.
 
-Example::
+.. code-block:: bash
 
-    tyro.cli(NestedConfig, config=(tyro.conf.ConsolidateSubcommandArgs,))
+    # Without implicit selection (explicit subcommand required):
+    python x.py mode:mode-a --mode.option value
+
+    # With implicit selection (subcommand selected automatically):
+    python x.py --mode.option value
+
+This marker can be applied globally via :func:``tyro.cli()``'s ``config=``
+argument, to entire dataclasses, or to individual arguments.
+
+**Cascading behavior:** An argument defined at level N is visible at level N
+and all levels below it (N+1, N+2, ...). Arguments from a subcommand do not
+cascade upward to parent parsers.
+"""
+
+ConsolidateSubcommandArgs = CascadeSubcommandArgs
+"""Consolidate arguments for nested subcommands to make CLI less position-sensitive.
+
+.. deprecated:: 1.0.0
+   Use :data:`CascadeSubcommandArgs` instead. :data:`ConsolidateSubcommandArgs` is an
+   alias for :data:`CascadeSubcommandArgs` and will be removed in a future version.
 """
 
 OmitSubcommandPrefixes = Annotated[T, None]
@@ -373,6 +428,28 @@ None`` will raise an error. This can be useful when used in conjunction with
 
 This only impacts union types. For cases like ``field: None`` where only
 ``None`` is allowed, we still accept ``--field None``.
+"""
+
+NewSubcommandForDefaults = Annotated[T, None]
+"""Create a new 'default' subcommand when unions over structs have a default
+value.
+
+Example::
+
+    @dataclass
+    class Config:
+        x: NewSubcommandForDefaults[StructA | StructB] = StructA(...)
+
+This example would create three subcommands: ``x:struct-a``, ``x:struct-b``,
+and ``x:default``.
+
+When a union field has a default value, tyro normally matches it to an existing
+subcommand based on type compatibility and overwrites that subcommand's
+defaults with values from the provided default. This means the original
+subcommand loses its original default values. This marker is useful for making
+sure that original subcommand defaults are preserved.
+
+Tip: consider also applying :data:`CascadeSubcommandArgs`.
 """
 
 

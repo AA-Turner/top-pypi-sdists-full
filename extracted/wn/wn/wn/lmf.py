@@ -33,25 +33,31 @@ class LMFWarning(Warning):
     """Issued on non-conforming LFM values."""
 
 
-SUPPORTED_VERSIONS = {'1.0', '1.1', '1.2', '1.3'}
+SUPPORTED_VERSIONS = {'1.0', '1.1', '1.2', '1.3', '1.4'}
 _XMLDECL = b'<?xml version="1.0" encoding="UTF-8"?>'
 _XMLSPACEATTR = 'http://www.w3.org/XML/1998/namespace space'  # xml:space
 _DOCTYPE = '<!DOCTYPE LexicalResource SYSTEM "{schema}">'
 _SCHEMAS = {
-    '1.0': 'http://globalwordnet.github.io/schemas/WN-LMF-1.0.dtd',
-    '1.1': 'http://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd',
-    '1.2': 'http://globalwordnet.github.io/schemas/WN-LMF-1.2.dtd',
-    '1.3': 'http://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd',
+    '1.0': 'https://globalwordnet.github.io/schemas/WN-LMF-1.0.dtd',
+    '1.1': 'https://globalwordnet.github.io/schemas/WN-LMF-1.1.dtd',
+    '1.2': 'https://globalwordnet.github.io/schemas/WN-LMF-1.2.dtd',
+    '1.3': 'https://globalwordnet.github.io/schemas/WN-LMF-1.3.dtd',
+    '1.4': 'https://globalwordnet.github.io/schemas/WN-LMF-1.4.dtd',
 }
 _DOCTYPES = {
     _DOCTYPE.format(schema=schema): version for version, schema in _SCHEMAS.items()
 }
+_DOCTYPES.update(
+    (_DOCTYPE.format(schema=schema.replace("https://", "http://")), version)
+    for version, schema in _SCHEMAS.items()
+)
 
 _DC_URIS = {
     '1.0': 'http://purl.org/dc/elements/1.1/',
     '1.1': 'https://globalwordnet.github.io/schemas/dc/',
     '1.2': 'https://globalwordnet.github.io/schemas/dc/',
     '1.3': 'https://globalwordnet.github.io/schemas/dc/',
+    '1.4': 'https://globalwordnet.github.io/schemas/dc/',
 }
 _DC_ATTRS = [
     'contributor',
@@ -113,6 +119,7 @@ _VALID_ELEMS = {
     '1.1': _LMF_1_1_ELEMS,
     '1.2': _LMF_1_1_ELEMS,  # no new elements
     '1.3': _LMF_1_1_ELEMS,  # no new elements
+    '1.4': _LMF_1_1_ELEMS,  # no new elements
 }
 _LIST_ELEMS = {  # elements that collect into lists
     'Lexicon',
@@ -237,6 +244,7 @@ class Sense(_HasId, _HasSynset, _HasMeta, total=False):
     relations: list[Relation]
     examples: list[Example]
     counts: list[Count]
+    n: int
     lexicalized: bool
     adjposition: str
     subcat: list[str]
@@ -297,6 +305,7 @@ class _LexicalEntryBase(_HasId, _HasMeta, total=False):
 
 class LexicalEntry(_LexicalEntryBase):
     lemma: Lemma
+    index: str
 
 
 class ExternalLexicalEntry(_HasId, _External, total=False):
@@ -620,6 +629,8 @@ def _validate_senses(elems: list[_Elem], extension: bool) -> None:
             elem['lexicalized'] = False if elem['lexicalized'] == 'false' else True
         if elem.get('subcat'):
             elem['subcat'] = elem['subcat'].split()
+        if elem.get('n'):
+            elem['n'] = int(elem['n'])
 
 
 def _validate_frames(elems: list[_Elem]) -> None:
@@ -762,6 +773,8 @@ def _dump_lexical_entry(
             elem.append(_build_lemma(entry['lemma'], version))
     else:
         entry = cast(LexicalEntry, entry)
+        if version >= (1, 4) and entry.get('index'):
+            attrib['index'] = entry['index']
         attrib.update(_meta_dict(entry.get('meta')))
         elem = ET.Element('LexicalEntry', attrib=attrib)
         elem.append(_build_lemma(entry['lemma'], version))
@@ -847,6 +860,8 @@ def _build_sense(
     else:
         sense = cast(Sense, sense)
         attrib['synset'] = sense['synset']
+        if version >= (1, 4) and sense.get('n'):
+            attrib['n'] = str(sense['n'])
         attrib.update(_meta_dict(sense.get('meta')))
         if not sense.get('lexicalized', True):
             attrib['lexicalized'] = 'false'
@@ -863,10 +878,12 @@ def _build_sense(
 
 
 def _build_example(example: Example) -> ET.Element:
-    elem = ET.Element('Example')
-    elem.text = example['text']
+    attrib: dict[str, str] = {}
     if example.get('language'):
-        elem.set('language', example['language'])
+        attrib['language'] = example['language']
+    attrib.update(_meta_dict(example.get('meta')))
+    elem = ET.Element('Example', attrib=attrib)
+    elem.text = example['text']
     return elem
 
 
@@ -954,7 +971,7 @@ def _build_syntactic_behaviour(
 
 
 def _tostring(
-        elem: ET.Element, level: int, short_empty_elements: bool = True
+    elem: ET.Element, level: int, short_empty_elements: bool = True
 ) -> str:
     _indent(elem, level)
     return ('  ' * level) + ET.tostring(

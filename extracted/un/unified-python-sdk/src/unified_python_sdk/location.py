@@ -60,6 +60,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -425,6 +429,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -441,7 +446,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -514,6 +519,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -530,7 +536,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -603,6 +609,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -619,7 +626,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -692,6 +699,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -708,7 +716,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -781,6 +789,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -797,7 +806,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCommerceLocations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -870,6 +879,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -886,7 +896,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listCommerceLocations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -959,6 +969,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -975,7 +986,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listHrisLocations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1048,6 +1059,7 @@ class Location(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1064,7 +1076,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listHrisLocations",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1140,6 +1152,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1156,7 +1169,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1232,6 +1245,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1248,7 +1262,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1324,6 +1338,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1340,7 +1355,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1416,6 +1431,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1432,7 +1448,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1505,6 +1521,7 @@ class Location(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1521,7 +1538,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1599,6 +1616,7 @@ class Location(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1615,7 +1633,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1693,6 +1711,7 @@ class Location(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1709,7 +1728,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1787,6 +1806,7 @@ class Location(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1803,7 +1823,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1884,6 +1904,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1900,7 +1921,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1976,6 +1997,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.commerce_location, False, False, "json", shared.CommerceLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1992,7 +2014,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateCommerceLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2068,6 +2090,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2084,7 +2107,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2160,6 +2183,7 @@ class Location(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.hris_location, False, False, "json", shared.HrisLocation
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2176,7 +2200,7 @@ class Location(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateHrisLocation",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

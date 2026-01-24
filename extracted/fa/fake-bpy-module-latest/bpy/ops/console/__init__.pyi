@@ -8,22 +8,14 @@ def autocomplete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Evaluate the namespace up until the cursor and give a list of options or complete the name if there is only one
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Evaluate the namespace up until the cursor and give a list of options or complete the name if there is only one"""
 
 def banner(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Print a message when the terminal initializes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Print a message when the terminal initializes"""
 
 def clear(
     execution_context: int | str | None = None,
@@ -35,12 +27,8 @@ def clear(
 ) -> None:
     """Clear text by type
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param scrollback: Scrollback, Clear the scrollback history
-    :type scrollback: bool | None
     :param history: History, Clear the command history
-    :type history: bool | None
     """
 
 def clear_line(
@@ -48,11 +36,7 @@ def clear_line(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Clear the line and store in history
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Clear the line and store in history"""
 
 def copy(
     execution_context: int | str | None = None,
@@ -63,10 +47,7 @@ def copy(
 ) -> None:
     """Copy selected text to clipboard
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param delete: Delete Selection, Whether to delete the selection after copying
-    :type delete: bool | None
     """
 
 def copy_as_script(
@@ -74,11 +55,7 @@ def copy_as_script(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the console contents for use in a script
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the console contents for use in a script"""
 
 def delete(
     execution_context: int | str | None = None,
@@ -92,10 +69,7 @@ def delete(
 ) -> None:
     """Delete text by cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Which part of the text to delete
-    :type type: typing.Literal['NEXT_CHARACTER','PREVIOUS_CHARACTER','NEXT_WORD','PREVIOUS_WORD'] | None
     """
 
 def execute(
@@ -107,10 +81,7 @@ def execute(
 ) -> None:
     """Execute the current console line as a Python expression
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param interactive: interactive
-    :type interactive: bool | None
     """
 
 def history_append(
@@ -124,14 +95,9 @@ def history_append(
 ) -> None:
     """Append history at cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param text: Text, Text to insert at the cursor position
-    :type text: str
     :param current_character: Cursor, The index of the cursor
-    :type current_character: int | None
     :param remove_duplicates: Remove Duplicates, Remove duplicate items in the history
-    :type remove_duplicates: bool | None
     """
 
 def history_cycle(
@@ -143,10 +109,7 @@ def history_cycle(
 ) -> None:
     """Cycle through history
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param reverse: Reverse, Reverse cycle history
-    :type reverse: bool | None
     """
 
 def indent(
@@ -154,22 +117,14 @@ def indent(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add 4 spaces at line beginning
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add 4 spaces at line beginning"""
 
 def indent_or_autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Indent selected text or autocomplete
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Indent selected text or autocomplete"""
 
 def insert(
     execution_context: int | str | None = None,
@@ -180,10 +135,7 @@ def insert(
 ) -> None:
     """Insert text at cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param text: Text, Text to insert at the cursor position
-    :type text: str
     """
 
 def language(
@@ -195,10 +147,7 @@ def language(
 ) -> None:
     """Set the current language for this console
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param language: Language
-    :type language: str
     """
 
 def move(
@@ -219,12 +168,8 @@ def move(
 ) -> None:
     """Move cursor position
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type, Where to move cursor to
-    :type type: typing.Literal['LINE_BEGIN','LINE_END','PREVIOUS_CHARACTER','NEXT_CHARACTER','PREVIOUS_WORD','NEXT_WORD'] | None
     :param select: Select, Whether to select while moving
-    :type select: bool | None
     """
 
 def paste(
@@ -236,10 +181,7 @@ def paste(
 ) -> None:
     """Paste text from clipboard
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only)
-    :type selection: bool | None
     """
 
 def scrollback_append(
@@ -252,12 +194,8 @@ def scrollback_append(
 ) -> None:
     """Append scrollback text by type
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param text: Text, Text to insert at the cursor position
-    :type text: str
     :param type: Type, Console output type
-    :type type: typing.Literal['OUTPUT','INPUT','INFO','ERROR'] | None
     """
 
 def select_all(
@@ -265,41 +203,25 @@ def select_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all the text
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all the text"""
 
 def select_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the console selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the console selection"""
 
 def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select word at cursor position
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select word at cursor position"""
 
 def unindent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete 4 spaces from line beginning
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete 4 spaces from line beginning"""

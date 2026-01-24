@@ -8,15 +8,19 @@ from __future__ import annotations
 
 import enum
 import re
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, Callable, Iterator, Sequence, cast
+from typing import TYPE_CHECKING, cast
 
 from schemathesis import errors
 from schemathesis.core.errors import (
-    RECURSIVE_REFERENCE_ERROR_MESSAGE,
+    AuthenticationError,
+    HookExecutionError,
+    InfiniteRecursiveReference,
     InvalidTransition,
     SerializationNotPossible,
+    UnresolvableReference,
     format_exception,
     get_request_error_extras,
     get_request_error_message,
@@ -28,7 +32,7 @@ if TYPE_CHECKING:
     import requests
     from requests.exceptions import ChunkedEncodingError
 
-__all__ = ["EngineErrorInfo", "DeadlineExceeded", "UnsupportedRecursiveReference", "UnexpectedError"]
+__all__ = ["EngineErrorInfo", "DeadlineExceeded", "UnexpectedError"]
 
 
 class DeadlineExceeded(errors.SchemathesisError):
@@ -41,13 +45,6 @@ class DeadlineExceeded(errors.SchemathesisError):
         return cls(
             f"Test running time is too slow! It took {runtime:.2f}ms, which exceeds the deadline of {deadline:.2f}ms.\n"
         )
-
-
-class UnsupportedRecursiveReference(errors.SchemathesisError):
-    """Recursive reference is impossible to resolve due to current limitations."""
-
-    def __init__(self) -> None:
-        super().__init__(RECURSIVE_REFERENCE_ERROR_MESSAGE)
 
 
 class UnexpectedError(errors.SchemathesisError):
@@ -103,12 +100,13 @@ class EngineErrorInfo:
             return "Schema Error"
 
         return {
-            RuntimeErrorKind.SCHEMA_UNSUPPORTED: "Unsupported Schema",
             RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND: "Missing Open API links",
             RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE: "Invalid OpenAPI Links Definition",
             RuntimeErrorKind.HYPOTHESIS_UNSUPPORTED_GRAPHQL_SCALAR: "Unknown GraphQL Scalar",
             RuntimeErrorKind.SERIALIZATION_UNBOUNDED_PREFIX: "XML serialization error",
             RuntimeErrorKind.SERIALIZATION_NOT_POSSIBLE: "Serialization not possible",
+            RuntimeErrorKind.AUTHENTICATION_ERROR: "Authentication Error",
+            RuntimeErrorKind.HOOK_EXECUTION_ERROR: "Hook Error",
         }.get(self._kind, "Runtime Error")
 
     @property
@@ -120,32 +118,17 @@ class EngineErrorInfo:
         if isinstance(self._error, requests.RequestException):
             return get_request_error_message(self._error)
 
-        if self._kind == RuntimeErrorKind.SCHEMA_UNSUPPORTED:
-            return str(self._error).strip()
-
         if self._kind == RuntimeErrorKind.HYPOTHESIS_UNSUPPORTED_GRAPHQL_SCALAR and isinstance(
             self._error, hypothesis.errors.InvalidArgument
         ):
             scalar_name = scalar_name_from_error(self._error)
             return f"Scalar type '{scalar_name}' is not recognized"
 
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_HEALTH_CHECK_DATA_TOO_LARGE:
-            return HEALTH_CHECK_MESSAGE_DATA_TOO_LARGE
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_HEALTH_CHECK_FILTER_TOO_MUCH:
-            return HEALTH_CHECK_MESSAGE_FILTER_TOO_MUCH
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_HEALTH_CHECK_TOO_SLOW:
-            return HEALTH_CHECK_MESSAGE_TOO_SLOW
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_HEALTH_CHECK_LARGE_BASE_EXAMPLE:
-            return HEALTH_CHECK_MESSAGE_LARGE_BASE_EXAMPLE
-
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE:
-            return f"{self._error}. Possible reasons:"
-
         if self._kind in (
             RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION,
             RuntimeErrorKind.SCHEMA_GENERIC,
         ):
-            return self._error.message  # type: ignore
+            return self._error.message  # type: ignore[attr-defined]
 
         return str(self._error)
 
@@ -156,13 +139,6 @@ class EngineErrorInfo:
 
         if isinstance(self._error, requests.RequestException):
             return get_request_error_extras(self._error)
-
-        if self._kind == RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE:
-            return [
-                "- Contradictory schema constraints, such as a minimum value exceeding the maximum.",
-                "- Invalid schema definitions for headers or cookies, for example allowing for non-ASCII characters.",
-                "- Excessive schema complexity, which hinders parameter generation.",
-            ]
 
         return []
 
@@ -175,7 +151,8 @@ class EngineErrorInfo:
         return self._kind not in (
             RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION,
             RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE,
-            RuntimeErrorKind.SCHEMA_UNSUPPORTED,
+            RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE,
+            RuntimeErrorKind.SCHEMA_INVALID_INFINITE_RECURSION,
             RuntimeErrorKind.SCHEMA_GENERIC,
             RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND,
             RuntimeErrorKind.SERIALIZATION_NOT_POSSIBLE,
@@ -190,6 +167,12 @@ class EngineErrorInfo:
 
     @cached_property
     def traceback(self) -> str:
+        # For AuthenticationError, show only the original exception's traceback
+        if isinstance(self._error, AuthenticationError) and self._error.__cause__ is not None:
+            return format_exception(self._error.__cause__, with_traceback=True)
+        # For HookExecutionError, show only the original exception's traceback
+        if isinstance(self._error, HookExecutionError):
+            return format_exception(self._error.original_error, with_traceback=True)
         return format_exception(self._error, with_traceback=True)
 
     def format(self, *, bold: Callable[[str], str] = str, indent: str = "    ") -> str:
@@ -217,7 +200,7 @@ class EngineErrorInfo:
             message.extend(f"{indent}{extra}" for extra in extras)
 
         if self._code_sample is not None:
-            message.append(f"\nReproduce with: \n\n    {self._code_sample}")
+            message.append(f"\nReproduce with:\n\n    {self._code_sample}")
 
         # Suggestion
         suggestion = get_runtime_error_suggestion(self._kind, bold=bold)
@@ -235,28 +218,32 @@ def scalar_name_from_error(exception: hypothesis.errors.InvalidArgument) -> str:
 
 
 def extract_health_check_error(error: hypothesis.errors.FailedHealthCheck) -> hypothesis.HealthCheck | None:
-    from hypothesis import HealthCheck
+    from schemathesis.generation.hypothesis.reporting import HEALTH_CHECK_TITLES
 
-    match = re.search(r"add HealthCheck\.(\w+) to the suppress_health_check ", str(error))
-    if match:
-        return {
-            "data_too_large": HealthCheck.data_too_large,
-            "filter_too_much": HealthCheck.filter_too_much,
-            "too_slow": HealthCheck.too_slow,
-            "large_base_example": HealthCheck.large_base_example,
-        }.get(match.group(1))
+    for key, title in HEALTH_CHECK_TITLES.items():
+        if title in str(error):
+            return key
     return None
 
 
 def get_runtime_error_suggestion(error_type: RuntimeErrorKind, bold: Callable[[str], str] = str) -> str | None:
     """Get a user-friendly suggestion for handling the error."""
+    from hypothesis import HealthCheck
+
+    from schemathesis.generation.hypothesis.reporting import HEALTH_CHECK_ACTIONS
 
     def _format_health_check_suggestion(label: str) -> str:
-        return f"Bypass this health check using {bold(f'`--suppress-health-check={label}`')}."
+        base = {
+            "data_too_large": HEALTH_CHECK_ACTIONS[HealthCheck.data_too_large],
+            "filter_too_much": HEALTH_CHECK_ACTIONS[HealthCheck.filter_too_much],
+            "too_slow": HEALTH_CHECK_ACTIONS[HealthCheck.too_slow],
+            "large_base_example": HEALTH_CHECK_ACTIONS[HealthCheck.large_base_example],
+        }[label]
+        return f"{base} or bypass this health check using {bold(f'`--suppress-health-check={label}`')}."
 
     return {
         RuntimeErrorKind.CONNECTION_SSL: f"Bypass SSL verification with {bold('`--tls-verify=false`')}.",
-        RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE: "Examine the schema for inconsistencies and consider simplifying it.",
+        RuntimeErrorKind.HYPOTHESIS_UNSATISFIABLE: "Review all parameters and request body schemas for conflicting constraints.",
         RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND: "Review your endpoint filters to include linked operations",
         RuntimeErrorKind.SCHEMA_INVALID_REGULAR_EXPRESSION: "Ensure your regex is compatible with Python's syntax.\n"
         "For guidance, visit: https://docs.python.org/3/library/re.html",
@@ -271,28 +258,6 @@ def get_runtime_error_suggestion(error_type: RuntimeErrorKind, bold: Callable[[s
     }.get(error_type)
 
 
-HEALTH_CHECK_MESSAGE_DATA_TOO_LARGE = """There's a notable occurrence of examples surpassing the maximum size limit.
-Typically, generating excessively large examples can compromise the quality of test outcomes.
-
-Consider revising the schema to more accurately represent typical use cases
-or applying constraints to reduce the data size."""
-HEALTH_CHECK_MESSAGE_FILTER_TOO_MUCH = """A significant number of generated examples are being filtered out, indicating
-that the schema's constraints may be too complex.
-
-This level of filtration can slow down testing and affect the distribution
-of generated data. Review and simplify the schema constraints where
-possible to mitigate this issue."""
-HEALTH_CHECK_MESSAGE_TOO_SLOW = "Data generation is extremely slow. Consider reducing the complexity of the schema."
-HEALTH_CHECK_MESSAGE_LARGE_BASE_EXAMPLE = """A health check has identified that the smallest example derived from the schema
-is excessively large, potentially leading to inefficient test execution.
-
-This is commonly due to schemas that specify large-scale data structures by
-default, such as an array with an extensive number of elements.
-
-Consider revising the schema to more accurately represent typical use cases
-or applying constraints to reduce the data size."""
-
-
 @enum.unique
 class RuntimeErrorKind(str, enum.Enum):
     """Classification of runtime errors."""
@@ -301,6 +266,9 @@ class RuntimeErrorKind(str, enum.Enum):
     CONNECTION_SSL = "connection_ssl"
     CONNECTION_OTHER = "connection_other"
     NETWORK_OTHER = "network_other"
+
+    # Authentication issues
+    AUTHENTICATION_ERROR = "authentication_error"
 
     # Hypothesis issues
     HYPOTHESIS_UNSATISFIABLE = "hypothesis_unsatisfiable"
@@ -312,9 +280,12 @@ class RuntimeErrorKind(str, enum.Enum):
 
     SCHEMA_INVALID_REGULAR_EXPRESSION = "schema_invalid_regular_expression"
     SCHEMA_INVALID_STATE_MACHINE = "schema_invalid_state_machine"
+    SCHEMA_INVALID_INFINITE_RECURSION = "schema_invalid_infinite_recursion"
+    SCHEMA_INVALID_UNRESOLVABLE_REFERENCE = "schema_invalid_unresolvable_reference"
     SCHEMA_NO_LINKS_FOUND = "schema_no_links_found"
-    SCHEMA_UNSUPPORTED = "schema_unsupported"
     SCHEMA_GENERIC = "schema_generic"
+
+    HOOK_EXECUTION_ERROR = "hook_execution_error"
 
     SERIALIZATION_NOT_POSSIBLE = "serialization_not_possible"
     SERIALIZATION_UNBOUNDED_PREFIX = "serialization_unbounded_prefix"
@@ -327,6 +298,10 @@ def _classify(*, error: Exception) -> RuntimeErrorKind:
     import hypothesis.errors
     import requests
     from hypothesis import HealthCheck
+
+    # Authentication errors
+    if isinstance(error, AuthenticationError):
+        return RuntimeErrorKind.AUTHENTICATION_ERROR
 
     # Network-related errors
     if isinstance(error, requests.RequestException):
@@ -359,6 +334,10 @@ def _classify(*, error: Exception) -> RuntimeErrorKind:
         # Comes from `hypothesis-graphql`
         return RuntimeErrorKind.HYPOTHESIS_UNSUPPORTED_GRAPHQL_SCALAR
 
+    # Hook errors
+    if isinstance(error, errors.HookExecutionError):
+        return RuntimeErrorKind.HOOK_EXECUTION_ERROR
+
     # Schema errors
     if isinstance(error, errors.InvalidSchema):
         if isinstance(error, errors.InvalidRegexPattern):
@@ -368,9 +347,10 @@ def _classify(*, error: Exception) -> RuntimeErrorKind:
         return RuntimeErrorKind.SCHEMA_INVALID_STATE_MACHINE
     if isinstance(error, errors.NoLinksFound):
         return RuntimeErrorKind.SCHEMA_NO_LINKS_FOUND
-    if isinstance(error, UnsupportedRecursiveReference):
-        # Recursive references are not supported right now
-        return RuntimeErrorKind.SCHEMA_UNSUPPORTED
+    if isinstance(error, InfiniteRecursiveReference):
+        return RuntimeErrorKind.SCHEMA_INVALID_INFINITE_RECURSION
+    if isinstance(error, UnresolvableReference):
+        return RuntimeErrorKind.SCHEMA_INVALID_UNRESOLVABLE_REFERENCE
     if isinstance(error, errors.SerializationError):
         if isinstance(error, errors.UnboundPrefix):
             return RuntimeErrorKind.SERIALIZATION_UNBOUNDED_PREFIX
@@ -386,8 +366,7 @@ def deduplicate_errors(errors: Sequence[Exception]) -> Iterator[Exception]:
     for error in errors:
         # Collect media types
         if isinstance(error, SerializationNotPossible):
-            for media_type in error.media_types:
-                serialization_media_types.add(media_type)
+            serialization_media_types.update(error.media_types)
             continue
 
         message = canonicalize_error_message(error)
@@ -414,8 +393,18 @@ def canonicalize_error_message(error: Exception, with_traceback: bool = True) ->
 
 def clear_hypothesis_notes(exc: Exception) -> None:
     notes = getattr(exc, "__notes__", [])
-    if any("while generating" in note for note in notes):
-        notes.clear()
+    if not notes:
+        return
+    # Keep "Falsifying example" blocks as they show operation sequences
+    # Only remove "You can reproduce" blocks (non-working for Schemathesis)
+    # and "while generating" messages (internal Hypothesis details)
+    filtered_notes = [
+        note
+        for note in notes
+        if not ("while generating" in note or note.strip().startswith("You can reproduce this example"))
+    ]
+    if filtered_notes != notes:
+        exc.__notes__ = filtered_notes  # type: ignore[attr-defined]
 
 
 def is_unrecoverable_network_error(exc: Exception) -> bool:
@@ -443,7 +432,7 @@ def is_unrecoverable_network_error(exc: Exception) -> bool:
 
         return False
 
-    if isinstance(exc, (requests.Timeout, requests.exceptions.ChunkedEncodingError)):
+    if isinstance(exc, requests.Timeout | requests.exceptions.ChunkedEncodingError):
         return True
     if isinstance(exc.__context__, ProtocolError):
         if len(exc.__context__.args) == 2 and isinstance(exc.__context__.args[1], RemoteDisconnected):
@@ -470,9 +459,26 @@ class UnrecoverableNetworkError:
 
 @dataclass
 class TestingState:
-    unrecoverable_network_error: UnrecoverableNetworkError | None
+    # Dict keyed by exception id to handle hypothesis reporting any of the encountered errors
+    _unrecoverable_network_errors: dict[int, UnrecoverableNetworkError]
 
-    __slots__ = ("unrecoverable_network_error",)
+    __slots__ = ("_unrecoverable_network_errors",)
 
     def __init__(self) -> None:
-        self.unrecoverable_network_error = None
+        self._unrecoverable_network_errors = {}
+
+    def store_unrecoverable_network_error(self, error: UnrecoverableNetworkError) -> None:
+        """Store an unrecoverable network error keyed by exception identity."""
+        self._unrecoverable_network_errors[id(error.error)] = error
+
+    def get_code_sample_for(self, exc: BaseException) -> str | None:
+        """Get the code sample for a matching exception, if any."""
+        error = self._unrecoverable_network_errors.get(id(exc))
+        return error.code_sample if error is not None else None
+
+    @property
+    def unrecoverable_network_error(self) -> UnrecoverableNetworkError | None:
+        """Return any stored unrecoverable network error (for backward compatibility)."""
+        if self._unrecoverable_network_errors:
+            return next(iter(self._unrecoverable_network_errors.values()))
+        return None

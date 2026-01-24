@@ -12,7 +12,7 @@ from collate_sqllineage.core.parser.sqlfluff.extractors.lineage_holder_extractor
     LineageHolderExtractor,
 )
 from collate_sqllineage.core.parser.sqlfluff.models import SqlFluffSubQuery
-from collate_sqllineage.core.parser.sqlfluff.utils import has_alias, retrieve_segments
+from collate_sqllineage.core.parser.sqlfluff.utils import retrieve_segments
 
 
 class DmlCteExtractor(LineageHolderExtractor):
@@ -66,21 +66,22 @@ class DmlCteExtractor(LineageHolderExtractor):
                 )
 
             identifier = None
+            bracketed_node = None
             if segment.type == "common_table_expression":
-                segment_has_alias = has_alias(segment)
                 sub_segments = retrieve_segments(segment)
                 for sub_segment in sub_segments:
                     if sub_segment.type == "identifier":
                         identifier = sub_segment.raw
-                        if not segment_has_alias:
-                            holder.add_cte(SqlFluffSubQuery.of(sub_segment, identifier))
                     if sub_segment.type == "bracketed":
+                        bracketed_node = sub_segment
                         for sq in self.parse_subquery(sub_segment):
                             if identifier:
                                 sq.alias = identifier
                             subqueries.append(sq)
-                        if segment_has_alias:
-                            holder.add_cte(SqlFluffSubQuery.of(sub_segment, identifier))
+
+                # Add CTE once, using the bracketed node regardless of whether AS is present
+                if identifier and bracketed_node:
+                    holder.add_cte(SqlFluffSubQuery.of(bracketed_node, identifier))
 
         # By recursively extracting each extractor of the parent and merge, we're doing Depth-first search
         for sq in subqueries:

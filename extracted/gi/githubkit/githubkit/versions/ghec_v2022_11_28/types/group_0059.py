@@ -9,37 +9,48 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0017 import AppPermissionsType, AppPermissionsTypeForResponse
 
 
-class AmazonS3OidcConfigType(TypedDict):
-    """AmazonS3OIDCConfig
+class EnterpriseOrganizationInstallationType(TypedDict):
+    """Enterprise Organization Installation
 
-    Amazon S3 OIDC Config for audit log streaming configuration.
+    A GitHub App Installation on an enterprise-owned organization
     """
 
-    bucket: str
-    region: str
-    key_id: str
-    authentication_type: Literal["oidc"]
-    arn_role: str
+    id: int
+    app_slug: NotRequired[str]
+    client_id: str
+    repository_selection: Literal["all", "selected"]
+    repositories_url: str
+    permissions: AppPermissionsType
+    events: NotRequired[list[str]]
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
 
 
-class SplunkConfigType(TypedDict):
-    """SplunkConfig
+class EnterpriseOrganizationInstallationTypeForResponse(TypedDict):
+    """Enterprise Organization Installation
 
-    Splunk Config for Audit Log Stream Configuration
+    A GitHub App Installation on an enterprise-owned organization
     """
 
-    domain: str
-    port: int
-    key_id: str
-    encrypted_token: str
-    ssl_verify: bool
+    id: int
+    app_slug: NotRequired[str]
+    client_id: str
+    repository_selection: Literal["all", "selected"]
+    repositories_url: str
+    permissions: AppPermissionsTypeForResponse
+    events: NotRequired[list[str]]
+    created_at: str
+    updated_at: str
 
 
 __all__ = (
-    "AmazonS3OidcConfigType",
-    "SplunkConfigType",
+    "EnterpriseOrganizationInstallationType",
+    "EnterpriseOrganizationInstallationTypeForResponse",
 )

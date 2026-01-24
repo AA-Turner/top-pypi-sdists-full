@@ -38,7 +38,7 @@ class RepeatedCapability(object):
 		return out
 
 	@classmethod
-	def clsm_assert_type(cls, enum_value: Enum or int, enum_type) -> None:
+	def clsm_assert_type(cls, enum_value: Enum | int, enum_type) -> None:
 		"""Static assertion function to check if the entered value is a member of the defined repcap enum.
 		In addition, the integer value is also supported."""
 		if isinstance(enum_value, int):
@@ -47,7 +47,7 @@ class RepeatedCapability(object):
 			raise TypeError(f"RepCap value must be of type '{enum_type}'. Entered value type: {type(enum_value)}, value '{enum_value}'")
 
 	@classmethod
-	def clsm_get_direct_cmd_value_int(cls, enum_value: Enum or int, enum_type) -> int:
+	def clsm_get_direct_cmd_value_int(cls, enum_value: Enum | int, enum_type) -> int:
 		"""Static function to get an integer interpretation of a direct enum value
 		Does not work with Empty or Default"""
 		RepeatedCapability.clsm_assert_type(enum_value, enum_type)
@@ -57,7 +57,7 @@ class RepeatedCapability(object):
 		return enum_value.value
 
 	@classmethod
-	def clsm_is_default_value(cls, enum_value: Enum or int, enum_type) -> bool:
+	def clsm_is_default_value(cls, enum_value: Enum | int, enum_type) -> bool:
 		"""Returns True, if the entered value is enum.Default"""
 		return cls.clsm_get_direct_cmd_value_int(enum_value, enum_type) == VALUE_DEFAULT
 
@@ -66,7 +66,7 @@ class RepeatedCapability(object):
 		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)
 
 	@classmethod
-	def clsm_skip_header_value(cls, enum_value: Enum or int, enum_type) -> bool:
+	def clsm_skip_header_value(cls, enum_value: Enum | int, enum_type) -> bool:
 		"""Returns True, if the entered value is enum.SkipHeader."""
 		return cls.clsm_get_direct_cmd_value_int(enum_value, enum_type) == VALUE_SKIP_HEADER
 
@@ -74,7 +74,7 @@ class RepeatedCapability(object):
 		"""Returns True, if the entered value is enum.SkipHeader."""
 		return RepeatedCapability.clsm_is_default_value(self._enum_value, self.enum_type)
 
-	def set_enum_value(self, enum_value: Enum or int) -> None:
+	def set_enum_value(self, enum_value: Enum | int) -> None:
 		"""Sets new enum value. Can not be Default"""
 		if RepeatedCapability.clsm_is_default_value(enum_value, self.enum_type):
 			raise ValueError(f"Setting RepCap enum value '{enum_value}' is not allowed. Please select a concrete value")
@@ -96,7 +96,7 @@ class RepeatedCapability(object):
 		return self.enum_type == enum_type
 
 	@classmethod
-	def clsm_get_cmd_string_value(cls, enum_value: Enum or int, enum_type) -> str:
+	def clsm_get_cmd_string_value(cls, enum_value: Enum | int, enum_type) -> str:
 		"""Class method version of the get_cmd_string_value().
 		Converts RepCap integer value to string
 		ValueEmpty is converted to "" (Not valid, but tolerated)

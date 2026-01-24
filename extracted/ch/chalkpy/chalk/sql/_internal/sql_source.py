@@ -163,6 +163,7 @@ class SQLSourceKind(str, Enum):
     athena = "athena"
     duckdb = "duckdb"
     dynamodb = "dynamodb"
+    mssql = "mssql"
     mysql = "mysql"
     postgres = "postgres"
     redshift = "redshift"
@@ -213,10 +214,31 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         if getattr(self, "kind", None) != SQLSourceKind.trino:
             engine_args.setdefault("pool_pre_ping", env_var_bool("USE_CLIENT_POOL_PRE_PING"))
             async_engine_args.setdefault("pool_pre_ping", env_var_bool("USE_CLIENT_POOL_PRE_PING"))
-        self.engine_args = engine_args
-        self.async_engine_args = async_engine_args
+        # Store raw args internally, expose filtered versions via properties
+        self._raw_engine_args = engine_args
+        self._raw_async_engine_args = async_engine_args
         self._engine = None
         self._async_engine = None
+
+    @property
+    def engine_args(self) -> Dict[str, Any]:
+        """Engine arguments with native_args filtered out for SQLAlchemy."""
+        return {k: v for k, v in self._raw_engine_args.items() if k != "native_args"}
+
+    @engine_args.setter
+    def engine_args(self, args: dict[str, Any]):
+        """Set raw engine args (for backward compatibility)."""
+        self._raw_engine_args = args
+
+    @property
+    def async_engine_args(self) -> Dict[str, Any]:
+        """Async engine arguments with native_args filtered out for SQLAlchemy."""
+        return {k: v for k, v in self._raw_async_engine_args.items() if k != "native_args"}
+
+    @async_engine_args.setter
+    def async_engine_args(self, args: dict[str, Any]):
+        """Set raw async engine args (for backward compatibility)."""
+        self._raw_async_engine_args = args
 
     @property
     def _engine_args(self):
@@ -237,6 +259,16 @@ class BaseSQLSource(BaseSQLSourceProtocol):
     def _async_engine_args(self, args: dict[str, Any]):
         """Backcompat support for private subclassing of BaseSQLSource"""
         self.async_engine_args = args
+
+    @property
+    def native_args(self) -> Dict[str, Any]:
+        """Native arguments to be passed to the underlying database driver.
+
+        These arguments are extracted from engine_args and async_engine_args
+        and are not passed to SQLAlchemy's create_engine or create_async_engine.
+        Instead, they should be used by subclasses to configure native driver connections.
+        """
+        return self._raw_engine_args.get("native_args", {})
 
     def get_sqlglot_dialect(self) -> Union[str, None]:
         """Returns the name of the SQL dialect (if it has one) for `sqlglot` to parse the SQL string.
@@ -831,6 +863,7 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         if self._engine is None:
             self.register_sqlalchemy_compiler_overrides()
             self._check_engine_isolation_level()
+            # engine_args property already filters out native_args
             self._engine = create_engine(url=self.local_engine_url(), **self.engine_args)
         return self._engine
 
@@ -840,6 +873,7 @@ class BaseSQLSource(BaseSQLSourceProtocol):
         if self._async_engine is None:
             self.register_sqlalchemy_compiler_overrides()
             self._check_engine_isolation_level()
+            # async_engine_args property already filters out native_args
             self._async_engine = create_async_engine(url=self.async_local_engine_url(), **self.async_engine_args)
         return self._async_engine
 

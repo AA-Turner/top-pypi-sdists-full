@@ -493,29 +493,29 @@ class GitlabContainerRunner(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         gitlab_runner_version: builtins.str,
         gitlabtoken: builtins.str,
         concurrent_jobs: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
         ebs_size: typing.Optional[jsii.Number] = None,
-        ec2iamrole: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        ec2iamrole: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         ec2type: typing.Optional[builtins.str] = None,
         enabled_imd_sv2: typing.Optional[builtins.bool] = None,
         gitlab_runner_image: typing.Optional[builtins.str] = None,
         gitlaburl: typing.Optional[builtins.str] = None,
         instance_interruption_behavior: typing.Optional["InstanceInterruptionBehavior"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        on_demand_ebs_config: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume] = None,
+        on_demand_ebs_config: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume"] = None,
         runner_description: typing.Optional[builtins.str] = None,
-        selfvpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        spot_ebs_config: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        selfvpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        spot_ebs_config: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         spot_fleet: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         valid_until: typing.Optional[builtins.str] = None,
-        vpc_subnet: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnet: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -593,7 +593,7 @@ class GitlabContainerRunner(
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "createUserData", [props, token_parameter_store_name]))
 
     @jsii.member(jsii_name="expireAfter")
-    def expire_after(self, duration: _aws_cdk_ceddda9d.Duration) -> None:
+    def expire_after(self, duration: "_aws_cdk_ceddda9d.Duration") -> None:
         '''(experimental) Add expire time function for spotfleet runner !!! .
 
         :param duration: - Block duration.
@@ -607,30 +607,30 @@ class GitlabContainerRunner(
 
     @builtins.property
     @jsii.member(jsii_name="defaultRunnerSG")
-    def default_runner_sg(self) -> _aws_cdk_aws_ec2_ceddda9d.ISecurityGroup:
+    def default_runner_sg(self) -> "_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup":
         '''(experimental) The EC2 runner's default SecurityGroup.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup, jsii.get(self, "defaultRunnerSG"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup", jsii.get(self, "defaultRunnerSG"))
 
     @builtins.property
     @jsii.member(jsii_name="runnerEc2")
-    def runner_ec2(self) -> _aws_cdk_aws_ec2_ceddda9d.IInstance:
+    def runner_ec2(self) -> "_aws_cdk_aws_ec2_ceddda9d.IInstance":
         '''(experimental) This represents a Runner EC2 instance , !!! only support On-demand runner instance !!!
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IInstance, jsii.get(self, "runnerEc2"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IInstance", jsii.get(self, "runnerEc2"))
 
     @builtins.property
     @jsii.member(jsii_name="runnerRole")
-    def runner_role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def runner_role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role assumed by the Runner instance .
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "runnerRole"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "runnerRole"))
 
     @builtins.property
     @jsii.member(jsii_name="spotFleetInstanceId")
@@ -652,12 +652,12 @@ class GitlabContainerRunner(
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The EC2 runner's vpc.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, jsii.get(self, "vpc"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", jsii.get(self, "vpc"))
 
 
 @jsii.data_type(
@@ -693,23 +693,23 @@ class GitlabContainerRunnerProps:
         gitlab_runner_version: builtins.str,
         gitlabtoken: builtins.str,
         concurrent_jobs: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
         ebs_size: typing.Optional[jsii.Number] = None,
-        ec2iamrole: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        ec2iamrole: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         ec2type: typing.Optional[builtins.str] = None,
         enabled_imd_sv2: typing.Optional[builtins.bool] = None,
         gitlab_runner_image: typing.Optional[builtins.str] = None,
         gitlaburl: typing.Optional[builtins.str] = None,
         instance_interruption_behavior: typing.Optional["InstanceInterruptionBehavior"] = None,
         key_name: typing.Optional[builtins.str] = None,
-        on_demand_ebs_config: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume] = None,
+        on_demand_ebs_config: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume"] = None,
         runner_description: typing.Optional[builtins.str] = None,
-        selfvpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        spot_ebs_config: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        selfvpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        spot_ebs_config: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         spot_fleet: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
         valid_until: typing.Optional[builtins.str] = None,
-        vpc_subnet: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_subnet: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) GitlabContainerRunner Props.
 
@@ -845,7 +845,7 @@ class GitlabContainerRunnerProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def docker_volumes(self) -> typing.Optional[typing.List[DockerVolumes]]:
+    def docker_volumes(self) -> typing.Optional[typing.List["DockerVolumes"]]:
         '''(experimental) add another Gitlab Container Runner Docker Volumes Path at job runner runtime.
 
         more detail see https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnersdocker-section
@@ -864,7 +864,7 @@ class GitlabContainerRunnerProps:
             ],
         '''
         result = self._values.get("docker_volumes")
-        return typing.cast(typing.Optional[typing.List[DockerVolumes]], result)
+        return typing.cast(typing.Optional[typing.List["DockerVolumes"]], result)
 
     @builtins.property
     def ebs_size(self) -> typing.Optional[jsii.Number]:
@@ -878,7 +878,7 @@ class GitlabContainerRunnerProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def ec2iamrole(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def ec2iamrole(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) IAM role for the Gitlab Runner Instance .
 
         :default: - new Role for Gitlab Runner Instance , attach AmazonSSMManagedInstanceCore Policy .
@@ -896,7 +896,7 @@ class GitlabContainerRunnerProps:
             new GitlabContainerRunner(stack, 'runner', { gitlabtoken: 'GITLAB_TOKEN', ec2iamrole: role });
         '''
         result = self._values.get("ec2iamrole")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def ec2type(self) -> typing.Optional[builtins.str]:
@@ -983,7 +983,7 @@ class GitlabContainerRunnerProps:
     @builtins.property
     def on_demand_ebs_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume]:
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume"]:
         '''(experimental) Gitlab Runner instance EBS config.
 
         :default: - onDemandEbsConfig=BlockDeviceVolume.ebs(60)
@@ -995,7 +995,7 @@ class GitlabContainerRunnerProps:
             const runner = new GitlabContainerRunner(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', onDemandEbsConfig: BlockDeviceVolume.ebs(60)});
         '''
         result = self._values.get("on_demand_ebs_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.BlockDeviceVolume"], result)
 
     @builtins.property
     def runner_description(self) -> typing.Optional[builtins.str]:
@@ -1013,7 +1013,7 @@ class GitlabContainerRunnerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def selfvpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def selfvpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''(experimental) VPC for the Gitlab Runner .
 
         :default: - new VPC will be created , 1 Vpc , 2 Public Subnet .
@@ -1036,12 +1036,12 @@ class GitlabContainerRunnerProps:
             new GitlabContainerRunner(stack, 'runner', { gitlabtoken: 'GITLAB_TOKEN', selfvpc: newvpc });
         '''
         result = self._values.get("selfvpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
     def spot_ebs_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty]:
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty"]:
         '''(experimental) Gitlab Runner instance EBS config.
 
         :default: - spotEbsConfig={ volumeSize: 60}
@@ -1053,7 +1053,7 @@ class GitlabContainerRunnerProps:
             const runner = new GitlabContainerRunner(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', ebsConfig: { volumeSize: 60}});
         '''
         result = self._values.get("spot_ebs_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty"], result)
 
     @builtins.property
     def spot_fleet(self) -> typing.Optional[builtins.bool]:
@@ -1094,7 +1094,9 @@ class GitlabContainerRunnerProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def vpc_subnet(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnet(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) VPC subnet for the spot fleet.
 
         :default: - public subnet
@@ -1118,7 +1120,7 @@ class GitlabContainerRunnerProps:
             });
         '''
         result = self._values.get("vpc_subnet")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1144,26 +1146,26 @@ class GitlabRunnerAutoscaling(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         gitlab_runner_version: builtins.str,
         gitlab_token: builtins.str,
         alarms: typing.Optional[typing.Sequence[typing.Mapping[typing.Any, typing.Any]]] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ebs_config: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_config: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         ebs_size: typing.Optional[jsii.Number] = None,
         gitlab_runner_image: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
-        instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        instance_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         instance_type: typing.Optional[builtins.str] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         spot_instance: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnet: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnet: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -1222,19 +1224,19 @@ class GitlabRunnerAutoscaling(
         gitlab_token: builtins.str,
         alarms: typing.Optional[typing.Sequence[typing.Mapping[typing.Any, typing.Any]]] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ebs_config: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_config: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         ebs_size: typing.Optional[jsii.Number] = None,
         gitlab_runner_image: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
-        instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        instance_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         instance_type: typing.Optional[builtins.str] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         spot_instance: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnet: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnet: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> typing.List[builtins.str]:
         '''
         :param gitlab_runner_version: (experimental) Gitlab Runner version Please give me gitlab runner version.
@@ -1283,48 +1285,48 @@ class GitlabRunnerAutoscaling(
 
     @builtins.property
     @jsii.member(jsii_name="autoscalingGroup")
-    def autoscaling_group(self) -> _aws_cdk_aws_autoscaling_ceddda9d.AutoScalingGroup:
+    def autoscaling_group(self) -> "_aws_cdk_aws_autoscaling_ceddda9d.AutoScalingGroup":
         '''(experimental) This represents a Runner Auto Scaling Group.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_autoscaling_ceddda9d.AutoScalingGroup, jsii.get(self, "autoscalingGroup"))
+        return typing.cast("_aws_cdk_aws_autoscaling_ceddda9d.AutoScalingGroup", jsii.get(self, "autoscalingGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="instanceRole")
-    def instance_role(self) -> _aws_cdk_aws_iam_ceddda9d.IRole:
+    def instance_role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
         '''(experimental) The IAM role assumed by the Runner instance.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IRole, jsii.get(self, "instanceRole"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "instanceRole"))
 
     @builtins.property
     @jsii.member(jsii_name="securityGroup")
-    def security_group(self) -> _aws_cdk_aws_ec2_ceddda9d.ISecurityGroup:
+    def security_group(self) -> "_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup":
         '''(experimental) The EC2 runner's default SecurityGroup.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup, jsii.get(self, "securityGroup"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup", jsii.get(self, "securityGroup"))
 
     @builtins.property
     @jsii.member(jsii_name="topicAlarm")
-    def topic_alarm(self) -> _aws_cdk_aws_sns_ceddda9d.ITopic:
+    def topic_alarm(self) -> "_aws_cdk_aws_sns_ceddda9d.ITopic":
         '''(experimental) The SNS topic to suscribe alarms for EC2 runner's metrics.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_sns_ceddda9d.ITopic, jsii.get(self, "topicAlarm"))
+        return typing.cast("_aws_cdk_aws_sns_ceddda9d.ITopic", jsii.get(self, "topicAlarm"))
 
     @builtins.property
     @jsii.member(jsii_name="vpc")
-    def vpc(self) -> _aws_cdk_aws_ec2_ceddda9d.IVpc:
+    def vpc(self) -> "_aws_cdk_aws_ec2_ceddda9d.IVpc":
         '''(experimental) The EC2 runner's VPC.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.IVpc, jsii.get(self, "vpc"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.IVpc", jsii.get(self, "vpc"))
 
 
 @jsii.data_type(
@@ -1358,19 +1360,19 @@ class GitlabRunnerAutoscalingProps:
         gitlab_token: builtins.str,
         alarms: typing.Optional[typing.Sequence[typing.Mapping[typing.Any, typing.Any]]] = None,
         desired_capacity: typing.Optional[jsii.Number] = None,
-        docker_volumes: typing.Optional[typing.Sequence[typing.Union[DockerVolumes, typing.Dict[builtins.str, typing.Any]]]] = None,
-        ebs_config: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty, typing.Dict[builtins.str, typing.Any]]] = None,
+        docker_volumes: typing.Optional[typing.Sequence[typing.Union["DockerVolumes", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ebs_config: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty", typing.Dict[builtins.str, typing.Any]]] = None,
         ebs_size: typing.Optional[jsii.Number] = None,
         gitlab_runner_image: typing.Optional[builtins.str] = None,
         gitlab_url: typing.Optional[builtins.str] = None,
-        instance_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        instance_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         instance_type: typing.Optional[builtins.str] = None,
         max_capacity: typing.Optional[jsii.Number] = None,
         min_capacity: typing.Optional[jsii.Number] = None,
         spot_instance: typing.Optional[builtins.bool] = None,
         tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnet: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnet: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) GitlabRunnerAutoscaling Props.
 
@@ -1512,7 +1514,7 @@ class GitlabRunnerAutoscalingProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def docker_volumes(self) -> typing.Optional[typing.List[DockerVolumes]]:
+    def docker_volumes(self) -> typing.Optional[typing.List["DockerVolumes"]]:
         '''(experimental) add another Gitlab Container Runner Docker Volumes Path at job runner runtime.
 
         more detail see https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnersdocker-section
@@ -1531,12 +1533,12 @@ class GitlabRunnerAutoscalingProps:
             ],
         '''
         result = self._values.get("docker_volumes")
-        return typing.cast(typing.Optional[typing.List[DockerVolumes]], result)
+        return typing.cast(typing.Optional[typing.List["DockerVolumes"]], result)
 
     @builtins.property
     def ebs_config(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty]:
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty"]:
         '''(experimental) Gitlab Runner instance EBS config.
 
         :default: - ebsConfig={ volumeSize: 60}
@@ -1548,7 +1550,7 @@ class GitlabRunnerAutoscalingProps:
             const runner = new GitlabRunnerAutoscaling(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', ebsConfig: { volumeSize: 60}});
         '''
         result = self._values.get("ebs_config")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.CfnLaunchTemplate.EbsProperty"], result)
 
     @builtins.property
     def ebs_size(self) -> typing.Optional[jsii.Number]:
@@ -1592,7 +1594,7 @@ class GitlabRunnerAutoscalingProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def instance_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def instance_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) IAM role for the Gitlab Runner Instance .
 
         :default: - new Role for Gitlab Runner Instance , attach AmazonSSMManagedInstanceCore Policy .
@@ -1610,7 +1612,7 @@ class GitlabRunnerAutoscalingProps:
             new GitlabRunnerAutoscaling(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', instanceRole: role });
         '''
         result = self._values.get("instance_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional[builtins.str]:
@@ -1680,7 +1682,7 @@ class GitlabRunnerAutoscalingProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''(experimental) VPC for the Gitlab Runner .
 
         :default: - A new VPC will be created.
@@ -1703,10 +1705,12 @@ class GitlabRunnerAutoscalingProps:
             new GitlabRunnerAutoscaling(stack, 'runner', { gitlabToken: 'GITLAB_TOKEN', vpc: newVpc });
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def vpc_subnet(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnet(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) VPC subnet.
 
         :default: - SubnetType.PRIVATE subnet
@@ -1730,7 +1734,7 @@ class GitlabRunnerAutoscalingProps:
             });
         '''
         result = self._values.get("vpc_subnet")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

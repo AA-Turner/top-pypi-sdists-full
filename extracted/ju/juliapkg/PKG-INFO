@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: juliapkg
-Version: 0.1.20
+Version: 0.1.22
 Summary: Julia version manager and package manager
 Project-URL: Homepage, http://github.com/JuliaPy/pyjuliapkg
 Project-URL: Repository, http://github.com/JuliaPy/pyjuliapkg.git

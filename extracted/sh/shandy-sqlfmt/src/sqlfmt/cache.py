@@ -1,5 +1,5 @@
 import pickle
-import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -7,11 +7,6 @@ from platformdirs import user_cache_dir
 
 from sqlfmt.mode import Mode
 from sqlfmt.report import STDIN_PATH, SqlFormatResult
-
-if sys.version_info >= (3, 8):
-    from importlib import metadata
-else:
-    import importlib_metadata as metadata
 
 Cache = Dict[Path, Tuple[float, int]]
 
@@ -36,7 +31,13 @@ def load_cache() -> Cache:
         with cache_file.open("rb") as f:
             cache: Cache = pickle.load(f)
             return cache
-    except (pickle.UnpicklingError, ValueError, IndexError, FileNotFoundError):
+    except (
+        pickle.UnpicklingError,
+        ValueError,
+        IndexError,
+        FileNotFoundError,
+        ModuleNotFoundError,
+    ):
         return {}
 
 

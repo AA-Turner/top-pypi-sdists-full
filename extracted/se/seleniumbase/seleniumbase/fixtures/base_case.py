@@ -32,7 +32,6 @@ Improvements include making WebDriver more robust, reliable, and flexible.
 Page elements are given enough time to load before WebDriver acts on them.
 Code becomes greatly simplified and easier to maintain."""
 
-import codecs
 import colorama
 import fasteners
 import json
@@ -93,6 +92,7 @@ __all__ = ["BaseCase"]
 
 logging.getLogger("requests").setLevel(logging.ERROR)
 logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("websocket").setLevel(logging.CRITICAL)
 urllib3.disable_warnings()
 LOGGER.setLevel(logging.WARNING)
 is_linux = shared_utils.is_linux()
@@ -114,9 +114,7 @@ class BaseCase(unittest.TestCase):
         self.driver = None
         self.environment = None
         self.env = None  # Add a shortened version of self.environment
-        self.version_list = [
-            int(i) for i in __version__.split(".") if i.isdigit()
-        ]
+        self.version_list = shared_utils.make_version_list(__version__)
         self.version_tuple = tuple(self.version_list)
         self.version_info = self.version_tuple
         self.time = time.time
@@ -224,11 +222,28 @@ class BaseCase(unittest.TestCase):
                 [sys.executable, "-m", "pytest", file, "-s", *all_args]
             )
 
-    def open(self, url):
+    def open(self, url, **kwargs):
         """Navigates the current browser window to the specified page."""
         self.__check_scope()
         if self.__is_cdp_swap_needed():
-            self.cdp.open(url)
+            self.cdp.open(url, **kwargs)
+            return
+        elif (
+            getattr(self.driver, "_is_using_uc", None)
+            # and getattr(self.driver, "_is_using_auth", None)
+            and not getattr(self.driver, "_is_using_cdp", None)
+        ):
+            # Auth in UC Mode requires CDP Mode
+            # (and now we're always forcing it)
+            logging.info("open() in UC Mode now always activates CDP Mode.")
+            self.activate_cdp_mode(url, **kwargs)
+            return
+        elif (
+            getattr(self.driver, "_is_using_uc", None)
+            and getattr(self.driver, "_is_using_cdp", None)
+        ):
+            self.disconnect()
+            self.cdp.open(url, **kwargs)
             return
         self._check_browser()
         if self.__needs_minimum_wait():
@@ -1296,8 +1311,11 @@ class BaseCase(unittest.TestCase):
         self.__check_scope()
         return self.execute_script("return window.location.origin;")
 
-    def get_page_source(self):
-        if self.__is_cdp_swap_needed():
+    def get_html(self, *args, **kwargs):
+        return self.get_page_source(*args, **kwargs)
+
+    def get_page_source(self, *args, **kwargs):
+        if self.__is_cdp_swap_needed(*args, **kwargs):
             return self.cdp.get_page_source()
         self.wait_for_ready_state_complete()
         if self.__needs_minimum_wait:
@@ -1336,7 +1354,7 @@ class BaseCase(unittest.TestCase):
         if self.__is_cdp_swap_needed():
             self.cdp.go_back()
             return
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             self.save_recorded_actions()
         pre_action_url = None
         with suppress(Exception):
@@ -1364,7 +1382,7 @@ class BaseCase(unittest.TestCase):
         if self.__is_cdp_swap_needed():
             self.cdp.go_forward()
             return
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             self.save_recorded_actions()
         self.__last_page_load_url = None
         self.driver.forward()
@@ -1503,6 +1521,10 @@ class BaseCase(unittest.TestCase):
     ):
         """Returns True if the element attribute/value is found.
         If the value is not specified, the attribute only needs to exist."""
+        if self.__is_cdp_swap_needed():
+            return self.cdp.is_attribute_present(
+                selector, attribute, value=value
+            )
         self.wait_for_ready_state_complete()
         time.sleep(0.01)
         selector, by = self.__recalculate_selector(selector, by)
@@ -1616,14 +1638,14 @@ class BaseCase(unittest.TestCase):
     def click_link_text(self, link_text, timeout=None):
         """This method clicks link text on a page."""
         self.__check_scope()
-        if self.__is_cdp_swap_needed():
-            self.cdp.find_element(link_text, timeout=timeout).click()
-            return
-        self.__skip_if_esc()
         if not timeout:
             timeout = settings.SMALL_TIMEOUT
         if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
             timeout = self.__get_new_timeout(timeout)
+        if self.__is_cdp_swap_needed():
+            self.cdp.find_element(link_text, timeout=timeout).click()
+            return
+        self.__skip_if_esc()
         link_text = self.__get_type_checked_text(link_text)
         if self.__is_cdp_swap_needed():
             self.cdp.click_link(link_text)
@@ -2394,7 +2416,7 @@ class BaseCase(unittest.TestCase):
         If a "timeout" is provided, waits that long for the element
         to appear before giving up and returning without a click()."""
         if self.__is_cdp_swap_needed():
-            self.cdp.click_if_visible(selector)
+            self.cdp.click_if_visible(selector, timeout=timeout)
             return
         self.wait_for_ready_state_complete()
         if self.is_element_visible(selector, by=by):
@@ -2404,6 +2426,7 @@ class BaseCase(unittest.TestCase):
                 self.wait_for_element_visible(
                     selector, by=by, timeout=timeout
                 )
+                self.sleep(0.2)
             if self.is_element_visible(selector, by=by):
                 self.click(selector, by=by)
 
@@ -2696,7 +2719,7 @@ class BaseCase(unittest.TestCase):
         original_by = by
         selector, by = self.__recalculate_selector(selector, by)
         if self.__is_cdp_swap_needed():
-            self.cdp.gui_hover_element(selector)
+            self.cdp.hover_element(selector)
             return
         self.wait_for_element_visible(
             original_selector, by=original_by, timeout=timeout
@@ -2741,7 +2764,7 @@ class BaseCase(unittest.TestCase):
             click_selector, click_by
         )
         if self.__is_cdp_swap_needed():
-            self.cdp.gui_hover_and_click(hover_selector, click_selector)
+            self.cdp.hover_and_click(hover_selector, click_selector)
             return
         dropdown_element = self.wait_for_element_visible(
             original_selector, by=original_by, timeout=timeout
@@ -3425,6 +3448,46 @@ class BaseCase(unittest.TestCase):
             file_path = os.path.join(abs_path, html_file)
         self.open("file://" + file_path)
 
+    def evaluate(self, expression):
+        """Run a JavaScript expression and return the result."""
+        self.__check_scope()
+        if self.__is_cdp_swap_needed():
+            return self.cdp.evaluate(expression)
+        self._check_browser()
+        original_expression = expression
+        expression = expression.strip()
+        exp_list = expression.split("\n")
+        if exp_list and exp_list[-1].strip().startswith("return "):
+            expression = (
+                "\n".join(exp_list[0:-1]) + "\n"
+                + exp_list[-1].strip()[len("return "):]
+            ).strip()
+        evaluation = self.driver.execute_cdp_cmd(
+            "Runtime.evaluate",
+            {
+                "expression": expression
+            },
+        )
+        if "value" in evaluation["result"]:
+            return evaluation["result"]["value"]
+        elif evaluation["result"]["type"] == "undefined":
+            return None
+        elif "exceptionDetails" in evaluation:
+            raise Exception(evaluation["result"]["description"], expression)
+        elif evaluation["result"]["type"] == "object":
+            if "return " not in original_expression:
+                expression = "return " + original_expression.strip()
+            # Need to use execute_script() to return a WebDriver object.
+            # If this causes duplicate evaluation, don't use evaluate().
+            return self.execute_script(expression)
+        elif evaluation["result"]["type"] == "function":
+            return {}  # This is what sb.cdp.evaluate returns
+        elif "description" in evaluation["result"]:
+            # At this point, the description is the exception
+            raise Exception(evaluation["result"]["description"], expression)
+        else:  # Possibly an unhandled case if reached
+            return None
+
     def execute_script(self, script, *args, **kwargs):
         self.__check_scope()
         if self.__is_cdp_swap_needed():
@@ -3576,8 +3639,17 @@ class BaseCase(unittest.TestCase):
             self.cdp.maximize()
             return
         self._check_browser()
-        self.driver.maximize_window()
+        try:
+            self.driver.maximize_window()
+        except Exception:
+            with suppress(Exception):
+                width = self.execute_script("return screen.availWidth;")
+                height = self.execute_script("return screen.availHeight;")
+                self.set_window_rect(0, 0, width, height)
         self.__demo_mode_pause_if_active(tiny=True)
+
+    def maximize(self):
+        self.maximize_window()
 
     def minimize_window(self):
         self.__check_scope()
@@ -3587,6 +3659,9 @@ class BaseCase(unittest.TestCase):
         self._check_browser()
         self.driver.minimize_window()
         self.__demo_mode_pause_if_active(tiny=True)
+
+    def minimize(self):
+        self.minimize_window()
 
     def reset_window_size(self):
         self.__check_scope()
@@ -3927,10 +4002,23 @@ class BaseCase(unittest.TestCase):
         Reverts self.set_content_to_frame()."""
         self.set_content_to_default(nested=True)
 
-    def open_new_window(self, switch_to=True):
+    def open_new_window(self, switch_to=True, **kwargs):
         """Opens a new browser tab/window and switches to it by default."""
+        url = None
+        if self.__looks_like_a_page_url(str(switch_to)):
+            # Different API for CDP Mode: First arg is a `url`.
+            # (Also, don't break backwards compat for reg mode)
+            url = switch_to
+            switch_to = True
         if self.__is_cdp_swap_needed():
-            self.cdp.open_new_tab(switch_to=switch_to)
+            self.cdp.open_new_tab(url=url, switch_to=switch_to, **kwargs)
+            return
+        elif (
+            getattr(self.driver, "_is_using_uc", None)
+            and getattr(self.driver, "_is_using_cdp", None)
+        ):
+            self.disconnect()
+            self.cdp.open_new_tab(url=url, switch_to=switch_to, **kwargs)
             return
         self.wait_for_ready_state_complete()
         if switch_to:
@@ -4343,7 +4431,7 @@ class BaseCase(unittest.TestCase):
                 if self.is_chromium():
                     try:
                         if self.maximize_option:
-                            self.driver.maximize_window()
+                            self.maximize_window()
                             self.wait_for_ready_state_complete()
                         else:
                             pass  # Now handled in browser_launcher.py
@@ -4353,7 +4441,7 @@ class BaseCase(unittest.TestCase):
                 elif self.browser == "firefox":
                     try:
                         if self.maximize_option:
-                            self.driver.maximize_window()
+                            self.maximize_window()
                             self.wait_for_ready_state_complete()
                         else:
                             with suppress(Exception):
@@ -4363,7 +4451,7 @@ class BaseCase(unittest.TestCase):
                 elif self.browser == "safari":
                     if self.maximize_option:
                         try:
-                            self.driver.maximize_window()
+                            self.maximize_window()
                             self.wait_for_ready_state_complete()
                         except Exception:
                             pass  # Keep existing browser resolution
@@ -4681,7 +4769,7 @@ class BaseCase(unittest.TestCase):
         if not os.path.exists(file_path):
             os.makedirs(file_path)
         cookies_file_path = os.path.join(file_path, name)
-        cookies_file = codecs.open(cookies_file_path, "w+", encoding="utf-8")
+        cookies_file = open(cookies_file_path, mode="w+", encoding="utf-8")
         cookies_file.writelines(json_cookies)
         cookies_file.close()
 
@@ -4840,7 +4928,7 @@ class BaseCase(unittest.TestCase):
             self.driver.add_cookie(cookie)
 
     def __set_esc_skip(self):
-        if hasattr(self, "esc_end") and self.esc_end:
+        if getattr(self, "esc_end", None):
             script = (
                 """document.onkeydown = function(evt) {
                     evt = evt || window.event;
@@ -4858,7 +4946,7 @@ class BaseCase(unittest.TestCase):
             self.execute_script(script)
 
     def __skip_if_esc(self):
-        if hasattr(self, "esc_end") and self.esc_end:
+        if getattr(self, "esc_end", None):
             if self.execute_script("return document.sb_esc_end;") == "yes":
                 self.skip()
 
@@ -4880,8 +4968,7 @@ class BaseCase(unittest.TestCase):
         self.__disable_beforeunload_as_needed()
         if (
             self.page_load_strategy == "none"
-            and hasattr(settings, "SKIP_JS_WAITS")
-            and settings.SKIP_JS_WAITS
+            and getattr(settings, "SKIP_JS_WAITS", None)
         ):
             time.sleep(0.01)
             if self.undetectable:
@@ -4902,10 +4989,7 @@ class BaseCase(unittest.TestCase):
 
     def sleep(self, seconds):
         self.__check_scope()
-        if (
-            not hasattr(sb_config, "time_limit")
-            or (hasattr(sb_config, "time_limit") and not sb_config.time_limit)
-        ):
+        if not getattr(sb_config, "time_limit", None):
             time.sleep(seconds)
         elif seconds < 0.4:
             shared_utils.check_if_time_limit_exceeded()
@@ -4920,11 +5004,7 @@ class BaseCase(unittest.TestCase):
                 if now_ms >= stop_ms:
                     break
                 time.sleep(0.2)
-        if (
-            self.recorder_mode
-            and hasattr(sb_config, "record_sleep")
-            and sb_config.record_sleep
-        ):
+        if self.recorder_mode and getattr(sb_config, "record_sleep", None):
             time_stamp = self.execute_script("return Date.now();")
             origin = self.get_origin()
             action = ["sleep", seconds, origin, time_stamp]
@@ -4982,23 +5062,32 @@ class BaseCase(unittest.TestCase):
 
     def activate_cdp_mode(self, url=None, **kwargs):
         """Activate CDP Mode with the URL and kwargs."""
-        if hasattr(self.driver, "_is_using_uc") and self.driver._is_using_uc:
+        if getattr(self.driver, "_is_using_uc", None):
             if self.__is_cdp_swap_needed():
                 return  # CDP Mode is already active
             if not self.is_connected():
                 self.driver.connect()
             current_url = self.get_current_url()
             if not current_url.startswith(("about", "data", "chrome")):
-                self.open("about:blank")
+                self.driver.get("about:blank")
             self.driver.uc_open_with_cdp_mode(url, **kwargs)
         else:
             self.get_new_driver(undetectable=True)
             self.driver.uc_open_with_cdp_mode(url, **kwargs)
         self.cdp = self.driver.cdp
+        if hasattr(self.cdp, "solve_captcha"):
+            self.solve_captcha = self.cdp.solve_captcha
+        if hasattr(self.cdp, "click_captcha"):
+            self.click_captcha = self.cdp.click_captcha
+        if hasattr(self.cdp, "find_element_by_text"):
+            self.find_element_by_text = self.cdp.find_element_by_text
+        if getattr(self.driver, "_is_using_auth", None):
+            with suppress(Exception):
+                self.cdp.loop.run_until_complete(self.cdp.page.wait(0.25))
+        self.undetectable = True
 
     def activate_recorder(self):
-        """Activate Recorder Mode on the current tab/window.
-        For persistent Recorder Mode, use the extension instead."""
+        """Activate Recorder Mode on the newest tab / window."""
         from seleniumbase.js_code.recorder_js import recorder_js
 
         if not self.is_chromium():
@@ -5011,7 +5100,7 @@ class BaseCase(unittest.TestCase):
                 "The %s Recorder is for Chromium only!\n"
                 "    (Supported browsers: Chrome and Edge)" % sc
             )
-        url = self.driver.current_url
+        url = self.get_current_url()
         if url.startswith(("data:", "about:", "chrome:", "edge:")):
             message = (
                 "The URL in Recorder-Mode cannot start with: "
@@ -5019,8 +5108,9 @@ class BaseCase(unittest.TestCase):
             )
             print("\n" + message)
             return
-        if self.recorder_ext:
+        if self.recorder_ext and not self.undetectable:
             return  # The Recorder extension is already active
+        self.switch_to_newest_tab()
         with suppress(Exception):
             recorder_on = self.get_session_storage_item("recorder_activated")
             if not recorder_on == "yes":
@@ -5421,6 +5511,20 @@ class BaseCase(unittest.TestCase):
                 srt_actions[n][0] = "_skip"
         for n in range(len(srt_actions)):
             if (
+                (srt_actions[n][0] == "begin" or srt_actions[n][0] == "_url_")
+                and n > 1
+                and (
+                    srt_actions[n - 1][0] == "f_url"
+                    or srt_actions[n - 1][0] == "_url_"
+                )
+                and srt_actions[n][2] == srt_actions[n - 1][2]
+                and (
+                    int(srt_actions[n][3]) - int(srt_actions[n - 1][3]) < 4800
+                )
+            ):
+                srt_actions[n][0] = "_skip"
+        for n in range(len(srt_actions)):
+            if (
                 srt_actions[n][0] == "input"
                 and n > 2
                 and srt_actions[n - 1][0] == "js_cl"
@@ -5629,14 +5733,13 @@ class BaseCase(unittest.TestCase):
         methodname = self._testMethodName
         context_filename = None
         if (
-            hasattr(sb_config, "is_context_manager")
-            and sb_config.is_context_manager
+            getattr(sb_config, "is_context_manager", None)
             and (filename == "base_case.py" or methodname == "runTest")
         ):
             import traceback
             stack_base = traceback.format_stack()[0].split(os.sep)[-1]
             test_base = stack_base.split(", in ")[0]
-            if hasattr(self, "cm_filename") and self.cm_filename:
+            if getattr(self, "cm_filename", None):
                 filename = self.cm_filename
             else:
                 filename = test_base.split('"')[0]
@@ -5653,7 +5756,7 @@ class BaseCase(unittest.TestCase):
                 classname = "MyTestClass"
             methodname = methodname.replace("[", "__").replace("]", "")
             methodname = re.sub(r"[\W]", "_", methodname)
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             classname = sb_config.behave_feature.name
             classname = classname.replace("/", " ").replace(" & ", " ")
             classname = re.sub(r"[^\w" + r"_ " + r"]", "", classname)
@@ -5721,7 +5824,7 @@ class BaseCase(unittest.TestCase):
         extra_file_name = "__init__.py"
         extra_file_path = os.path.join(recordings_folder, extra_file_name)
         if not os.path.exists(extra_file_path):
-            out_file = codecs.open(extra_file_path, "w+", "utf-8")
+            out_file = open(extra_file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             sys.stdout.write("\nCreated recordings%s__init__.py" % os.sep)
@@ -5769,7 +5872,7 @@ class BaseCase(unittest.TestCase):
         extra_file_name = "pytest.ini"
         extra_file_path = os.path.join(recordings_folder, extra_file_name)
         if not os.path.exists(extra_file_path):
-            out_file = codecs.open(extra_file_path, "w+", "utf-8")
+            out_file = open(extra_file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             sys.stdout.write("\nCreated recordings%spytest.ini" % os.sep)
@@ -5790,7 +5893,7 @@ class BaseCase(unittest.TestCase):
         extra_file_name = "setup.cfg"
         extra_file_path = os.path.join(recordings_folder, extra_file_name)
         if not os.path.exists(extra_file_path):
-            out_file = codecs.open(extra_file_path, "w+", "utf-8")
+            out_file = open(extra_file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             sys.stdout.write("\nCreated recordings%ssetup.cfg" % os.sep)
@@ -5801,14 +5904,14 @@ class BaseCase(unittest.TestCase):
             test_id = sb_config._test_id
             file_name = test_id.split("::")[0].split("/")[-1].split("\\")[-1]
             file_name = file_name.split(".py")[0] + "_rec.py"
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             file_name = sb_config.behave_scenario.filename.replace(".", "_")
             file_name = file_name.split("/")[-1].split("\\")[-1] + "_rec.py"
             file_name = file_name
         elif context_filename:
             file_name = context_filename
         file_path = os.path.join(recordings_folder, file_name)
-        out_file = codecs.open(file_path, "w+", "utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines("\r\n".join(data))
         out_file.close()
         rec_message = ">>> RECORDING SAVED as: "
@@ -5820,7 +5923,7 @@ class BaseCase(unittest.TestCase):
             if terminal_size > 30 and star_len > terminal_size:
                 star_len = terminal_size
         spc = "\n\n"
-        if hasattr(self, "rec_print") and self.rec_print:
+        if getattr(self, "rec_print", None):
             spc = ""
             sys.stdout.write("\nCreated recordings%s%s" % (os.sep, file_name))
             print()
@@ -5841,7 +5944,7 @@ class BaseCase(unittest.TestCase):
             rec_message = rec_message.replace(">>>", c2 + ">>>" + cr)
         print("%s%s%s%s%s\n%s" % (spc, rec_message, c1, file_path, cr, stars))
 
-        if hasattr(self, "rec_behave") and self.rec_behave:
+        if getattr(self, "rec_behave", None):
             # Also generate necessary behave-gherkin files.
             self.__process_recorded_behave_actions(srt_actions, colorama)
 
@@ -5852,7 +5955,7 @@ class BaseCase(unittest.TestCase):
         filename = self.__get_filename()
         feature_class = None
         scenario_test = None
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             feature_class = sb_config.behave_feature.name
             scenario_test = sb_config.behave_scenario.name
         else:
@@ -5906,11 +6009,11 @@ class BaseCase(unittest.TestCase):
                 os.makedirs(steps_folder)
 
         file_name = filename.split(".")[0]
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             file_name = sb_config.behave_scenario.filename.replace(".", "_")
         file_name = file_name.split("/")[-1].split("\\")[-1] + "_rec.feature"
         file_path = os.path.join(features_folder, file_name)
-        out_file = codecs.open(file_path, "w+", "utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines("\r\n".join(data))
         out_file.close()
 
@@ -5923,7 +6026,7 @@ class BaseCase(unittest.TestCase):
             if terminal_size > 30 and star_len > terminal_size:
                 star_len = terminal_size
         spc = "\n"
-        if hasattr(self, "rec_print") and self.rec_print:
+        if getattr(self, "rec_print", None):
             spc = ""
             print()
             if " " not in file_path:
@@ -5948,7 +6051,7 @@ class BaseCase(unittest.TestCase):
         file_name = "__init__.py"
         file_path = os.path.join(features_folder, file_name)
         if not os.path.exists(file_path):
-            out_file = codecs.open(file_path, "w+", "utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             print("Created recordings/features/__init__.py")
@@ -5961,7 +6064,7 @@ class BaseCase(unittest.TestCase):
         file_name = "behave.ini"
         file_path = os.path.join(features_folder, file_name)
         if not os.path.exists(file_path):
-            out_file = codecs.open(file_path, "w+", "utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             print("Created recordings/features/behave.ini")
@@ -6000,7 +6103,7 @@ class BaseCase(unittest.TestCase):
         file_name = "environment.py"
         file_path = os.path.join(features_folder, file_name)
         if not os.path.exists(file_path):
-            out_file = codecs.open(file_path, "w+", "utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             print("Created recordings/features/environment.py")
@@ -6010,7 +6113,7 @@ class BaseCase(unittest.TestCase):
         file_name = "__init__.py"
         file_path = os.path.join(steps_folder, file_name)
         if not os.path.exists(file_path):
-            out_file = codecs.open(file_path, "w+", "utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             print("Created recordings/features/steps/__init__.py")
@@ -6021,7 +6124,7 @@ class BaseCase(unittest.TestCase):
         file_name = "imported.py"
         file_path = os.path.join(steps_folder, file_name)
         if not os.path.exists(file_path):
-            out_file = codecs.open(file_path, "w+", "utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines("\r\n".join(data))
             out_file.close()
             print("Created recordings/features/steps/imported.py")
@@ -6248,7 +6351,12 @@ class BaseCase(unittest.TestCase):
         scroll - the option to scroll to the element first (Default: True)
         timeout - the time to wait for the element to appear """
         self.__check_scope()
-        if not self.__is_cdp_swap_needed():
+        if self.__is_cdp_swap_needed():
+            if page_utils.is_xpath_selector(selector):
+                if "contains(" in selector:
+                    self.cdp.highlight(selector)
+                    return
+        else:
             self._check_browser()
         self.__skip_if_esc()
         if isinstance(selector, WebElement):
@@ -6293,6 +6401,7 @@ class BaseCase(unittest.TestCase):
         By default, "html" will be used as the CSS Selector target.
         You can specify how many times in-a-row the action happens."""
         self.__check_scope()
+        self._check_browser()
         if times < 1:
             return
         element = self.wait_for_element_present(selector)
@@ -6315,6 +6424,7 @@ class BaseCase(unittest.TestCase):
         By default, "html" will be used as the CSS Selector target.
         You can specify how many times in-a-row the action happens."""
         self.__check_scope()
+        self._check_browser()
         if times < 1:
             return
         element = self.wait_for_element_present(selector)
@@ -6337,6 +6447,7 @@ class BaseCase(unittest.TestCase):
         By default, "html" will be used as the CSS Selector target.
         You can specify how many times in-a-row the action happens."""
         self.__check_scope()
+        self._check_browser()
         if times < 1:
             return
         element = self.wait_for_element_present(selector)
@@ -6359,6 +6470,7 @@ class BaseCase(unittest.TestCase):
         By default, "html" will be used as the CSS Selector target.
         You can specify how many times in-a-row the action happens."""
         self.__check_scope()
+        self._check_browser()
         if times < 1:
             return
         element = self.wait_for_element_present(selector)
@@ -6495,6 +6607,34 @@ class BaseCase(unittest.TestCase):
         with suppress(Exception):
             self.execute_script(scroll_script)
             time.sleep(0.012)
+
+    def scroll_by_y(self, y):
+        """Scrolls page by y pixels."""
+        self.__check_scope()
+        y = int(y)
+        if self.__is_cdp_swap_needed():
+            self.cdp.scroll_by_y(y)
+            return
+        scroll_script = "window.scrollBy(0, %s);" % y
+        with suppress(Exception):
+            self.execute_script(scroll_script)
+            time.sleep(0.012)
+
+    def scroll_up(self, amount=25):
+        """Scrolls up as a percentage of the page."""
+        if self.__is_cdp_swap_needed():
+            self.cdp.scroll_up(amount)
+            return
+        amount = self.get_window_size()["height"] * amount / 100
+        self.execute_script("window.scrollBy(0, -%s);" % amount)
+
+    def scroll_down(self, amount=25):
+        """Scrolls down as a percentage of the page."""
+        if self.__is_cdp_swap_needed():
+            self.cdp.scroll_down(amount)
+            return
+        amount = self.get_window_size()["height"] * amount / 100
+        self.execute_script("window.scrollBy(0, %s);" % amount)
 
     def click_xpath(self, xpath):
         """Technically, self.click() automatically detects xpath selectors,
@@ -7239,21 +7379,6 @@ class BaseCase(unittest.TestCase):
             with pip_find_lock:
                 with suppress(Exception):
                     shared_utils.make_writable(constants.PipInstall.FINDLOCK)
-                if sys.version_info < (3, 9):
-                    # Fix bug in newer cryptography for Python 3.7 and 3.8:
-                    # "pyo3_runtime.PanicException: Python API call failed"
-                    try:
-                        import cryptography
-                        if cryptography.__version__ != "39.0.2":
-                            del cryptography  # To get newer ver
-                            shared_utils.pip_install(
-                                "cryptography", version="39.0.2"
-                            )
-                            import cryptography
-                    except Exception:
-                        shared_utils.pip_install(
-                            "cryptography", version="39.0.2"
-                        )
                 try:
                     from pdfminer.high_level import extract_text
                 except Exception:
@@ -7545,7 +7670,11 @@ class BaseCase(unittest.TestCase):
                 destination_folder = constants.Files.DOWNLOADS_FOLDER
             if not os.path.exists(destination_folder):
                 os.makedirs(destination_folder)
-        page_utils._download_file_to(file_url, destination_folder)
+        agent = self.get_user_agent()
+        headers = {"user-agent": agent}
+        page_utils._download_file_to(
+            file_url, destination_folder, headers=headers
+        )
         if self.recorder_mode and self.__current_url_is_recordable():
             if self.get_session_storage_item("pause_recorder") == "no":
                 time_stamp = self.execute_script("return Date.now();")
@@ -7569,8 +7698,10 @@ class BaseCase(unittest.TestCase):
                 destination_folder = constants.Files.DOWNLOADS_FOLDER
             if not os.path.exists(destination_folder):
                 os.makedirs(destination_folder)
+        agent = self.get_user_agent()
+        headers = {"user-agent": agent}
         page_utils._download_file_to(
-            file_url, destination_folder, new_file_name
+            file_url, destination_folder, new_file_name, headers=headers
         )
 
     def save_data_as(self, data, file_name, destination_folder=None):
@@ -8496,33 +8627,9 @@ class BaseCase(unittest.TestCase):
 
     def get_mfa_code(self, totp_key=None):
         """Same as get_totp_code() and get_google_auth_password().
-        Returns a time-based one-time password based on the
-        Google Authenticator algorithm for multi-factor authentication.
-        If the "totp_key" is not specified, this method defaults
-        to using the one provided in [seleniumbase/config/settings.py].
-        Google Authenticator codes expire & change at 30-sec intervals.
-        If the fetched password expires in the next 1.2 seconds, waits
-        for a new one before returning it (may take up to 1.2 seconds).
-        See https://pyotp.readthedocs.io/en/latest/ for details."""
-        import pyotp
-
-        if not totp_key:
-            totp_key = settings.TOTP_KEY
-
-        epoch_interval = time.time() / 30.0
-        cycle_lifespan = float(epoch_interval) - int(epoch_interval)
-        if float(cycle_lifespan) > 0.96:
-            # Password expires in the next 1.2 seconds. Wait for a new one.
-            for i in range(30):
-                time.sleep(0.04)
-                epoch_interval = time.time() / 30.0
-                cycle_lifespan = float(epoch_interval) - int(epoch_interval)
-                if not float(cycle_lifespan) > 0.96:
-                    # The new password cycle has begun
-                    break
-
-        totp = pyotp.TOTP(totp_key)
-        return str(totp.now())
+        Returns a time-based one-time password based on the Google
+        Authenticator algorithm for multi-factor authentication."""
+        return shared_utils.get_mfa_code(totp_key)
 
     def enter_mfa_code(
         self, selector, totp_key=None, by="css selector", timeout=None
@@ -8706,6 +8813,9 @@ class BaseCase(unittest.TestCase):
         if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
             timeout = self.__get_new_timeout(timeout)
         selector, by = self.__recalculate_selector(selector, by)
+        if self.__is_cdp_swap_needed():
+            self.cdp.set_value(selector, text)
+            return
         self.wait_for_ready_state_complete()
         element = page_actions.wait_for_element_present(
             self.driver, selector, by, timeout
@@ -8726,10 +8836,14 @@ class BaseCase(unittest.TestCase):
         if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
             timeout = self.__get_new_timeout(timeout)
         selector, by = self.__recalculate_selector(selector, by)
-        self.wait_for_ready_state_complete()
-        element = page_actions.wait_for_element_present(
-            self.driver, selector, by, timeout
-        )
+        element = None
+        if self.__is_cdp_swap_needed():
+            element = self.cdp.select(selector, timeout=timeout)
+        else:
+            self.wait_for_ready_state_complete()
+            element = page_actions.wait_for_element_present(
+                self.driver, selector, by, timeout
+            )
         if element.tag_name.lower() in ["input", "textarea"]:
             self.js_update_text(selector, text, by=by, timeout=timeout)
             return
@@ -8921,7 +9035,7 @@ class BaseCase(unittest.TestCase):
                 self.__passed_then_skipped = True
             self.__will_be_skipped = True
             sb_config._results[test_id] = "Skipped"
-        if hasattr(self, "with_db_reporting") and self.with_db_reporting:
+        if getattr(self, "with_db_reporting", None):
             if self.is_pytest:
                 self.__skip_reason = reason
             else:
@@ -9192,9 +9306,9 @@ class BaseCase(unittest.TestCase):
         """Same as self.refresh_page()"""
         self.refresh_page()
 
-    def open_new_tab(self, switch_to=True):
+    def open_new_tab(self, switch_to=True, **kwargs):
         """Same as self.open_new_window()"""
-        self.open_new_window(switch_to=switch_to)
+        self.open_new_window(switch_to=switch_to, **kwargs)
 
     def switch_to_tab(self, tab, timeout=None):
         """Same as self.switch_to_window()
@@ -9211,85 +9325,50 @@ class BaseCase(unittest.TestCase):
         """Same as self.switch_to_newest_window()"""
         self.switch_to_newest_window()
 
+    def save_as_html(self, name, folder=None):
+        """Same as self.save_page_source()"""
+        self.save_page_source(name, folder=folder)
+
     def input(
         self, selector, text, by="css selector", timeout=None, retry=False
     ):
         """Same as self.update_text()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.LARGE_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
-        selector, by = self.__recalculate_selector(selector, by)
         self.update_text(selector, text, by=by, timeout=timeout, retry=retry)
 
     def fill(
         self, selector, text, by="css selector", timeout=None, retry=False
     ):
         """Same as self.update_text()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.LARGE_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
-        selector, by = self.__recalculate_selector(selector, by)
         self.update_text(selector, text, by=by, timeout=timeout, retry=retry)
 
     def write(
         self, selector, text, by="css selector", timeout=None, retry=False
     ):
         """Same as self.update_text()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.LARGE_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
-        selector, by = self.__recalculate_selector(selector, by)
         self.update_text(selector, text, by=by, timeout=timeout, retry=retry)
 
     def click_link(self, link_text, timeout=None):
         """Same as self.click_link_text()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.SMALL_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
         self.click_link_text(link_text, timeout=timeout)
 
     def click_partial_link(self, partial_link_text, timeout=None):
         """Same as self.click_partial_link_text()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.SMALL_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
         self.click_partial_link_text(partial_link_text, timeout=timeout)
 
     def right_click(self, selector, by="css selector", timeout=None):
         """Same as self.context_click()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.SMALL_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
         self.context_click(selector, by=by, timeout=timeout)
+
+    def hover_element(self, selector, by="css selector", timeout=None):
+        """Same as self.hover()"""
+        return self.hover(selector, by=by, timeout=timeout)
 
     def hover_on_element(self, selector, by="css selector", timeout=None):
         """Same as self.hover()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.SMALL_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
         return self.hover(selector, by=by, timeout=timeout)
 
     def hover_over_element(self, selector, by="css selector", timeout=None):
         """Same as self.hover()"""
-        self.__check_scope()
-        if not timeout:
-            timeout = settings.SMALL_TIMEOUT
-        if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
-            timeout = self.__get_new_timeout(timeout)
         return self.hover(selector, by=by, timeout=timeout)
 
     def wait_for_element_visible(
@@ -9614,7 +9693,7 @@ class BaseCase(unittest.TestCase):
         To force a print during multithreaded tests, use: "sys.stderr.write()".
         To print without the new-line character end, use: "sys.stdout.write()".
         """
-        if hasattr(sb_config, "_multithreaded") and sb_config._multithreaded:
+        if getattr(sb_config, "_multithreaded", None):
             if not isinstance(msg, str):
                 with suppress(Exception):
                     msg = str(msg)
@@ -9660,9 +9739,11 @@ class BaseCase(unittest.TestCase):
 
     def activate_messenger(self):
         self.__check_scope()
-        self._check_browser()
+        if not self.__is_cdp_swap_needed():
+            self._check_browser()
         js_utils.activate_messenger(self.driver)
-        self.wait_for_ready_state_complete()
+        if not self.__is_cdp_swap_needed():
+            self.wait_for_ready_state_complete()
 
     def set_messenger_theme(
         self, theme="default", location="default", max_messages="default"
@@ -10051,6 +10132,21 @@ class BaseCase(unittest.TestCase):
         if self.timeout_multiplier and timeout == settings.SMALL_TIMEOUT:
             timeout = self.__get_new_timeout(timeout)
         if self.__is_cdp_swap_needed():
+            if self.demo_mode:
+                selector, by = self.__recalculate_selector(
+                    selector, by, xp_ok=False
+                )
+                a_t = "ASSERT"
+                if self._language != "English":
+                    from seleniumbase.fixtures.words import SD
+
+                    a_t = SD.translate_assert(self._language)
+                messenger_post = "<b>%s %s</b>: %s" % (
+                    a_t, by.upper(), selector
+                )
+                self.__highlight_with_assert_success(
+                    messenger_post, selector, by
+                )
             self.cdp.assert_element(selector, timeout=timeout)
             return True
         if isinstance(selector, list):
@@ -10175,7 +10271,7 @@ class BaseCase(unittest.TestCase):
         text = self.__get_type_checked_text(text)
         selector, by = self.__recalculate_selector(selector, by)
         if self.__is_cdp_swap_needed():
-            return self.cdp.find_element(selector, timeout=timeout)
+            return self.cdp.wait_for_text(text, selector, timeout=timeout)
         elif self.__is_shadow_selector(selector):
             return self.__wait_for_shadow_text_visible(text, selector, timeout)
         return page_actions.wait_for_text_visible(
@@ -10345,6 +10441,20 @@ class BaseCase(unittest.TestCase):
                         messenger_post, selector, by
                     )
         elif self.__is_cdp_swap_needed():
+            if self.demo_mode:
+                a_t = "ASSERT TEXT"
+                i_n = "in"
+                if self._language != "English":
+                    from seleniumbase.fixtures.words import SD
+
+                    a_t = SD.translate_assert_text(self._language)
+                    i_n = SD.translate_in(self._language)
+                messenger_post = "<b>%s</b>: {%s} %s %s: %s" % (
+                    a_t, text, i_n, by.upper(), selector
+                )
+                self.__highlight_with_assert_success(
+                    messenger_post, selector, by
+                )
             self.cdp.assert_text(text, selector, timeout=timeout)
             return True
         elif self.__is_shadow_selector(selector):
@@ -10532,6 +10642,8 @@ class BaseCase(unittest.TestCase):
             timeout = settings.LARGE_TIMEOUT
         if self.timeout_multiplier and timeout == settings.LARGE_TIMEOUT:
             timeout = self.__get_new_timeout(timeout)
+        if self.__is_cdp_swap_needed():
+            return self.cdp.find_element_by_text(text=link_text, tag_name="a")
         return self.wait_for_element_visible(
             link_text, by="link text", timeout=timeout
         )
@@ -11078,7 +11190,7 @@ class BaseCase(unittest.TestCase):
             return  # Skip the rest when deferred visual asserts are used
         the_html = visual_helper.get_sbs_html()
         file_path = os.path.join(test_logpath, constants.SideBySide.HTML_FILE)
-        out_file = codecs.open(file_path, "w+", encoding="utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines(the_html)
         out_file.close()
 
@@ -11238,16 +11350,16 @@ class BaseCase(unittest.TestCase):
             self.save_screenshot(
                 baseline_png, visual_baseline_path, selector="body"
             )
-            out_file = codecs.open(page_url_file, "w+", encoding="utf-8")
+            out_file = open(page_url_file, mode="w+", encoding="utf-8")
             out_file.writelines(page_url)
             out_file.close()
-            out_file = codecs.open(level_1_file, "w+", encoding="utf-8")
+            out_file = open(level_1_file, mode="w+", encoding="utf-8")
             out_file.writelines(json.dumps(level_1))
             out_file.close()
-            out_file = codecs.open(level_2_file, "w+", encoding="utf-8")
+            out_file = open(level_2_file, mode="w+", encoding="utf-8")
             out_file.writelines(json.dumps(level_2))
             out_file.close()
-            out_file = codecs.open(level_3_file, "w+", encoding="utf-8")
+            out_file = open(level_3_file, mode="w+", encoding="utf-8")
             out_file.writelines(json.dumps(level_3))
             out_file.close()
 
@@ -11386,7 +11498,7 @@ class BaseCase(unittest.TestCase):
             alpha_n_d_name = "".join([x if x.isalnum() else "_" for x in name])
             side_by_side_name = "side_by_side_%s.html" % alpha_n_d_name
             file_path = os.path.join(test_logpath, side_by_side_name)
-            out_file = codecs.open(file_path, "w+", encoding="utf-8")
+            out_file = open(file_path, mode="w+", encoding="utf-8")
             out_file.writelines(the_html)
             out_file.close()
 
@@ -11409,7 +11521,14 @@ class BaseCase(unittest.TestCase):
 
     def __is_cdp_swap_needed(self):
         """If the driver is disconnected, use a CDP method when available."""
-        return shared_utils.is_cdp_swap_needed(self.driver)
+        cdp_swap_needed = shared_utils.is_cdp_swap_needed(self.driver)
+        if cdp_swap_needed:
+            if not self.cdp:
+                self.cdp = self.driver.cdp
+                self.undetectable = True
+            return True
+        else:
+            return False
 
     ############
 
@@ -12071,7 +12190,7 @@ class BaseCase(unittest.TestCase):
             with suppress(Exception):
                 os.makedirs(saved_presentations_folder)
         file_path = os.path.join(saved_presentations_folder, filename)
-        out_file = codecs.open(file_path, "w+", encoding="utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines(the_html)
         out_file.close()
         if self._output_file_saves:
@@ -12766,7 +12885,7 @@ class BaseCase(unittest.TestCase):
             with suppress(Exception):
                 os.makedirs(saved_charts_folder)
         file_path = os.path.join(saved_charts_folder, filename)
-        out_file = codecs.open(file_path, "w+", encoding="utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines(the_html)
         out_file.close()
         if self._output_file_saves:
@@ -13825,7 +13944,7 @@ class BaseCase(unittest.TestCase):
                simulateClick(someLink);"""
             % css_selector
         )
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             self.save_recorded_actions()
         try:
             self.execute_script(script)
@@ -13873,7 +13992,7 @@ class BaseCase(unittest.TestCase):
                var someLink = arguments[0];
                simulateClick(someLink);"""
         )
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             self.save_recorded_actions()
         try:
             self.execute_script(script, element)
@@ -13925,6 +14044,9 @@ class BaseCase(unittest.TestCase):
         timeout=None,
         center=None,
     ):
+        if self.__is_cdp_swap_needed():
+            self.cdp.click_with_offset(selector, x, y, center=center)
+            return
         self.wait_for_ready_state_complete()
         if self.__needs_minimum_wait():
             time.sleep(0.14)
@@ -14002,7 +14124,7 @@ class BaseCase(unittest.TestCase):
             )
             raise Exception(message)
         except InvalidArgumentException:
-            if not self.browser == "chrome":
+            if not self.is_chromium():
                 raise
             chrome_version = self.driver.capabilities["browserVersion"]
             major_chrome_version = chrome_version.split(".")[0]
@@ -14077,7 +14199,7 @@ class BaseCase(unittest.TestCase):
         selector = self.convert_to_css_selector(selector, by=by)
         selector = self.__make_css_match_first_element_only(selector)
         click_script = """jQuery('%s')[0].click();""" % selector
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             self.save_recorded_actions()
         self.safe_execute_script(click_script)
 
@@ -14233,8 +14355,7 @@ class BaseCase(unittest.TestCase):
     def __needs_minimum_wait(self):
         if (
             self.page_load_strategy == "none"
-            and hasattr(settings, "SKIP_JS_WAITS")
-            and settings.SKIP_JS_WAITS
+            and getattr(settings, "SKIP_JS_WAITS", None)
         ):
             return True
         else:
@@ -14470,7 +14591,8 @@ class BaseCase(unittest.TestCase):
                 sb_config._virtual_display = self._xvfb_display
                 if "DISPLAY" not in os.environ.keys():
                     print(
-                        "\nX11 display failed! Will use regular xvfb!"
+                        "\n  X11 display failed! Is Xvfb installed? "
+                        "\n  Try this: `sudo apt install -y xvfb`"
                     )
                     self.__activate_standard_virtual_display()
                 else:
@@ -14483,7 +14605,10 @@ class BaseCase(unittest.TestCase):
                     print("\n" + str(e.msg))
                 else:
                     print(e)
-                print("\nX11 display failed! Will use regular xvfb!")
+                print(
+                    "\n  X11 display failed! Is Xvfb installed? "
+                    "\n  Try this: `sudo apt install -y xvfb`"
+                )
                 self.__activate_standard_virtual_display()
                 return
             pyautogui_is_installed = False
@@ -14491,11 +14616,11 @@ class BaseCase(unittest.TestCase):
                 import pyautogui
                 with suppress(Exception):
                     use_pyautogui_ver = constants.PyAutoGUI.VER
-                    if pyautogui.__version__ != use_pyautogui_ver:
+                    u_pv = shared_utils.make_version_tuple(use_pyautogui_ver)
+                    pv = shared_utils.make_version_tuple(pyautogui.__version__)
+                    if pv < u_pv:
                         del pyautogui  # To get newer ver
-                        shared_utils.pip_install(
-                            "pyautogui", version=use_pyautogui_ver
-                        )
+                        shared_utils.pip_install("pyautogui", version="Latest")
                         import pyautogui
                 pyautogui_is_installed = True
             except Exception:
@@ -14504,9 +14629,7 @@ class BaseCase(unittest.TestCase):
                     "Installing now..."
                 )
                 print("\n" + message)
-                shared_utils.pip_install(
-                    "pyautogui", version=constants.PyAutoGUI.VER
-                )
+                shared_utils.pip_install("pyautogui", version="Latest")
                 import pyautogui
                 pyautogui_is_installed = True
             if (
@@ -14564,10 +14687,7 @@ class BaseCase(unittest.TestCase):
 
     def __disable_beforeunload_as_needed(self):
         """Disables beforeunload as needed. Also resets frame_switch state."""
-        if (
-            hasattr(self, "_disable_beforeunload")
-            and self._disable_beforeunload
-        ):
+        if getattr(self, "_disable_beforeunload", None):
             self.disable_beforeunload()
         if self.recorder_mode:
             try:
@@ -14619,7 +14739,7 @@ class BaseCase(unittest.TestCase):
                 try:
                     shadow_root = element.shadow_root
                 except Exception:
-                    if self.browser == "chrome":
+                    if self.is_chromium():
                         chrome_dict = self.driver.capabilities["chrome"]
                         chrome_dr_version = chrome_dict["chromedriverVersion"]
                         chromedriver_version = chrome_dr_version.split(" ")[0]
@@ -15368,9 +15488,9 @@ class BaseCase(unittest.TestCase):
                 self.__skip_reason = None
                 self.testcase_manager.insert_testcase_data(data_payload)
                 self.case_start_time = int(time.time() * 1000.0)
-        elif hasattr(self, "is_behave") and self.is_behave:
+        elif getattr(self, "is_behave", None):
             self.__initialize_variables()
-        elif hasattr(self, "is_nosetest") and self.is_nosetest:
+        elif getattr(self, "is_nosetest", None):
             pass  # Setup performed in plugins for pynose
         else:
             # Pure Python run. (Eg. SB() and Driver() Managers)
@@ -15461,7 +15581,7 @@ class BaseCase(unittest.TestCase):
                 "Invalid input for Mobile Emulator device metrics!\n"
                 "Expecting a comma-separated string with integer values\n"
                 "for Width/Height, and an int or float for Pixel-Ratio.\n"
-                'Example: --metrics="411,731,3" '
+                'Example: --metrics="412,732,3" '
             )
             if len(metrics_list) != 3:
                 raise Exception(exception_string)
@@ -15562,7 +15682,7 @@ class BaseCase(unittest.TestCase):
                 )
                 raise Exception(message)
 
-        if not hasattr(self, "is_nosetest") or not self.is_nosetest:
+        if not getattr(self, "is_nosetest", None):
             # Xvfb Virtual Display activation for Linux
             self.__activate_virtual_display_as_needed()
 
@@ -15738,10 +15858,7 @@ class BaseCase(unittest.TestCase):
         self.__last_page_screenshot_png is for all screenshot log files."""
         SCREENSHOT_SKIPPED = constants.Warnings.SCREENSHOT_SKIPPED
         SCREENSHOT_UNDEFINED = constants.Warnings.SCREENSHOT_UNDEFINED
-        if (
-            hasattr(self, "no_screenshot_after_test")
-            and self.no_screenshot_after_test
-        ):
+        if getattr(self, "no_screenshot_after_test", None):
             from seleniumbase.core import encoded_images
 
             NO_SCREENSHOT = encoded_images.get_no_screenshot_png()
@@ -15772,10 +15889,7 @@ class BaseCase(unittest.TestCase):
                         ignore_test_time_limit=True,
                     )
                 try:
-                    if (
-                        hasattr(settings, "SCREENSHOT_WITH_BACKGROUND")
-                        and settings.SCREENSHOT_WITH_BACKGROUND
-                    ):
+                    if getattr(settings, "SCREENSHOT_WITH_BACKGROUND", None):
                         self.__last_page_screenshot = (
                             self.driver.get_screenshot_as_base64()
                         )
@@ -15846,11 +15960,10 @@ class BaseCase(unittest.TestCase):
         exc_message = None
         if (
             hasattr(self, "_outcome")
-            and hasattr(self._outcome, "errors")
-            and self._outcome.errors
+            and getattr(self._outcome, "errors", None)
         ):
             try:
-                exc_message = self._outcome.errors[0][1][1]
+                exc_message = self._outcome.errors[-1][1][1]
             except Exception:
                 exc_message = "(Unknown Exception)"
         else:
@@ -15935,8 +16048,7 @@ class BaseCase(unittest.TestCase):
     def __delay_driver_quit(self):
         delay_driver_quit = False
         if (
-            hasattr(self, "_using_sb_fixture")
-            and self._using_sb_fixture
+            getattr(self, "_using_sb_fixture", None)
             and "--pdb" in sys.argv
             and self.__has_exception()
             and len(self._drivers_list) == 1
@@ -15992,14 +16104,22 @@ class BaseCase(unittest.TestCase):
         has_exception = False
         if hasattr(sys, "last_traceback") and sys.last_traceback is not None:
             has_exception = True
-        elif hasattr(self, "is_context_manager") and self.is_context_manager:
+        elif getattr(self, "is_context_manager", None):
             if self.with_testing_base and self._has_failure:
                 return True
             else:
                 return False
         elif hasattr(self, "_outcome") and hasattr(self._outcome, "errors"):
-            if self._outcome.errors:
-                has_exception = True
+            if python3_11_or_newer:
+                if (
+                    self._outcome.errors
+                    and self._outcome.errors[-1]
+                    and self._outcome.errors[-1][1]
+                ):
+                    has_exception = True
+            else:
+                if self._outcome.errors:
+                    has_exception = True
         else:
             has_exception = sys.exc_info()[1] is not None
         if self.__will_be_skipped and hasattr(self, "_using_sb_fixture"):
@@ -16008,7 +16128,7 @@ class BaseCase(unittest.TestCase):
 
     def __get_test_id(self):
         """The id used in various places such as the test log path."""
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             file_name = sb_config.behave_scenario.filename
             file_name = file_name.replace("/", ".").replace("\\", ".")
             scenario_name = sb_config.behave_scenario.name
@@ -16018,7 +16138,7 @@ class BaseCase(unittest.TestCase):
             scenario_name = scenario_name.replace(" ", "_")
             test_id = "%s.%s" % (file_name, scenario_name)
             return test_id
-        elif hasattr(self, "is_context_manager") and self.is_context_manager:
+        elif getattr(self, "is_context_manager", None):
             if hasattr(self, "_manager_saved_id"):
                 self.__saved_id = self._manager_saved_id
             if self.__saved_id:
@@ -16030,7 +16150,7 @@ class BaseCase(unittest.TestCase):
                 import traceback
                 stack_base = traceback.format_stack()[0].split(os.sep)[-1]
                 test_base = stack_base.split(", in ")[0]
-                if hasattr(self, "cm_filename") and self.cm_filename:
+                if getattr(self, "cm_filename", None):
                     filename = self.cm_filename
                 else:
                     filename = test_base.split('"')[0]
@@ -16045,12 +16165,12 @@ class BaseCase(unittest.TestCase):
         )
         if self._sb_test_identifier and len(str(self._sb_test_identifier)) > 6:
             test_id = self._sb_test_identifier
-        elif hasattr(self, "_using_sb_fixture") and self._using_sb_fixture:
+        elif getattr(self, "_using_sb_fixture", None):
             test_id = sb_config._latest_display_id
         test_id = test_id.replace(".py::", ".").replace("::", ".")
         test_id = test_id.replace("/", ".").replace("\\", ".")
         test_id = test_id.replace(" ", "_")
-        # Linux filename length limit for `codecs.open(filename)` = 255
+        # Linux filename length limit for `open(filename)` = 255
         # 255 - len("latest_logs/") - len("/basic_test_info.txt") = 223
         if len(test_id) <= 223:
             return test_id
@@ -16067,7 +16187,7 @@ class BaseCase(unittest.TestCase):
                 return full_name.split("] ")[0] + "]"
             else:
                 return full_name.split(" ")[0]
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             return self.__get_test_id()
         test_id = "%s.%s.%s" % (
             self.__class__.__module__.split(".")[-1],
@@ -16088,7 +16208,7 @@ class BaseCase(unittest.TestCase):
                 return full_name.split("] ")[0] + "]"
             else:
                 return full_name.split(" ")[0]
-        if hasattr(self, "is_behave") and self.is_behave:
+        if getattr(self, "is_behave", None):
             file_name = sb_config.behave_scenario.filename
             line_num = sb_config.behave_line_num
             scenario_name = sb_config.behave_scenario.name
@@ -16121,7 +16241,7 @@ class BaseCase(unittest.TestCase):
         if "PYTEST_CURRENT_TEST" in os.environ:
             test_id = os.environ["PYTEST_CURRENT_TEST"].split(" ")[0]
             filename = test_id.split("::")[0].split("/")[-1]
-        elif hasattr(self, "is_behave") and self.is_behave:
+        elif getattr(self, "is_behave", None):
             filename = sb_config.behave_scenario.filename
             filename = filename.split("/")[-1].split("\\")[-1]
         else:
@@ -16157,8 +16277,7 @@ class BaseCase(unittest.TestCase):
             sb_config._pdb_failure = True
         elif (
             self.is_pytest
-            and hasattr(sb_config, "_pdb_failure")
-            and sb_config._pdb_failure
+            and getattr(sb_config, "_pdb_failure", None)
             and not has_exception
         ):
             return  # Handle case where "pytest --pdb" marks failures as Passed
@@ -16328,7 +16447,7 @@ class BaseCase(unittest.TestCase):
                     dash_pie = json.dumps(sb_config._saved_dashboard_pie)
                     dash_pie_loc = constants.Dashboard.DASH_PIE
                     pie_path = os.path.join(abs_path, dash_pie_loc)
-                    pie_file = codecs.open(pie_path, "w+", encoding="utf-8")
+                    pie_file = open(pie_path, mode="w+", encoding="utf-8")
                     pie_file.writelines(dash_pie)
                     pie_file.close()
         DASH_PIE_PNG_1 = constants.Dashboard.get_dash_pie_1()
@@ -16488,7 +16607,7 @@ class BaseCase(unittest.TestCase):
         )
         abs_path = os.path.abspath(".")
         file_path = os.path.join(abs_path, "dashboard.html")
-        out_file = codecs.open(file_path, "w+", encoding="utf-8")
+        out_file = open(file_path, mode="w+", encoding="utf-8")
         out_file.writelines(the_html)
         out_file.close()
         sb_config._dash_html = the_html
@@ -16501,7 +16620,7 @@ class BaseCase(unittest.TestCase):
             dash_json = json.dumps((_results, _display_id, _rt, _tlp, d_stats))
             dash_json_loc = constants.Dashboard.DASH_JSON
             dash_jsonpath = os.path.join(abs_path, dash_json_loc)
-            dash_json_file = codecs.open(dash_jsonpath, "w+", encoding="utf-8")
+            dash_json_file = open(dash_jsonpath, mode="w+", encoding="utf-8")
             dash_json_file.writelines(dash_json)
             dash_json_file.close()
 
@@ -16552,7 +16671,7 @@ class BaseCase(unittest.TestCase):
             self.__check_scope()
         except Exception:
             return
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             # In case tearDown() leaves the origin, save actions first.
             self.save_recorded_actions()
         if (
@@ -16747,7 +16866,7 @@ class BaseCase(unittest.TestCase):
         if not hasattr(self, "_using_sb_fixture") and self.__called_teardown:
             # This test already called tearDown()
             return
-        if hasattr(self, "recorder_mode") and self.recorder_mode:
+        if getattr(self, "recorder_mode", None):
             page_actions._reconnect_if_disconnected(self.driver)
             try:
                 self.__process_recorded_actions()
@@ -16982,7 +17101,7 @@ class BaseCase(unittest.TestCase):
                     self.testcase_manager.update_testcase_log_url(data_payload)
         else:
             # (Pynose / Behave / Pure Python)
-            if hasattr(self, "is_behave") and self.is_behave:
+            if getattr(self, "is_behave", None):
                 if sb_config.behave_scenario.status.name == "failed":
                     has_exception = True
                     sb_config._has_exception = True
@@ -17042,8 +17161,8 @@ class BaseCase(unittest.TestCase):
                     self._last_page_url = self.get_current_url()
                 except Exception:
                     self._last_page_url = "(Error: Unknown URL)"
-            if hasattr(self, "is_behave") and self.is_behave and has_exception:
-                if hasattr(sb_config, "pdb_option") and sb_config.pdb_option:
+            if getattr(self, "is_behave", None) and has_exception:
+                if getattr(sb_config, "pdb_option", None):
                     if (
                         hasattr(sb_config, "behave_step")
                         and hasattr(sb_config.behave_step, "exc_traceback")
@@ -17051,24 +17170,14 @@ class BaseCase(unittest.TestCase):
                         self.__activate_behave_post_mortem_debug_mode()
             if self._final_debug:
                 self.__activate_debug_mode_in_teardown()
-            elif (
-                hasattr(sb_config, "_do_sb_post_mortem")
-                and sb_config._do_sb_post_mortem
-            ):
+            elif getattr(sb_config, "_do_sb_post_mortem", None):
                 self.__activate_sb_mgr_post_mortem_debug_mode()
-            elif (
-                hasattr(sb_config, "_do_sb_final_trace")
-                and sb_config._do_sb_final_trace
-            ):
+            elif getattr(sb_config, "_do_sb_final_trace", None):
                 self.__activate_debug_mode_in_teardown()
             # (Pynose / Behave / Pure Python) Close all open browser windows
             self.__quit_all_drivers()
         # Resume tearDown() for all test runners, (Pytest / Pynose / Behave)
-        if (
-            hasattr(self, "_xvfb_display")
-            and self._xvfb_display
-            and not self._reuse_session
-        ):
+        if getattr(self, "_xvfb_display", None) and not self._reuse_session:
             # Stop the Xvfb virtual display launched from BaseCase
             try:
                 if hasattr(self._xvfb_display, "stop"):
@@ -17080,16 +17189,9 @@ class BaseCase(unittest.TestCase):
             except Exception:
                 pass
         if (
-            hasattr(sb_config, "_virtual_display")
-            and sb_config._virtual_display
+            getattr(sb_config, "_virtual_display", None)
             and hasattr(sb_config._virtual_display, "stop")
-            and (
-                not hasattr(sb_config, "reuse_session")
-                or (
-                    hasattr(sb_config, "reuse_session")
-                    and not sb_config.reuse_session
-                )
-            )
+            and not getattr(sb_config, "reuse_session", None)
         ):
             # CDP Mode may launch a 2nd Xvfb virtual display
             try:

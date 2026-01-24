@@ -38,6 +38,18 @@ class MjBody(BodyComponent):
         setBackgroundColor = self.context['setBackgroundColor']
         setBackgroundColor(self.get_attr('background-color'))
 
-        html_attrs = self.html_attrs(class_=self.get_attr('css-class'), style='div')
+        globalData = self.context.get('globalData', {})
+        attrs = {
+            'aria-roledescription': 'email',
+            'class': self.get_attr('css-class'),
+            'style': 'div',
+            'role': 'article',
+            'lang': globalData.get('lang') or self.context.get('lang'),
+            'dir': globalData.get('dir_') or self.context.get('dir_'),
+        }
+        title = globalData.get('title')
+        if title:
+            attrs['aria-label'] = title
+        html_attrs = self.html_attrs(**attrs)
         children_str = self.renderChildren()
         return f'<div {html_attrs}>{children_str}</div>'

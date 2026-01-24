@@ -3,7 +3,7 @@ Type annotations for mediaconvert service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -57,6 +58,8 @@ from .type_defs import (
     DisassociateCertificateRequestTypeDef,
     GetJobRequestTypeDef,
     GetJobResponseTypeDef,
+    GetJobsQueryResultsRequestTypeDef,
+    GetJobsQueryResultsResponseTypeDef,
     GetJobTemplateRequestTypeDef,
     GetJobTemplateResponseTypeDef,
     GetPolicyResponseTypeDef,
@@ -82,6 +85,8 @@ from .type_defs import (
     PutPolicyResponseTypeDef,
     SearchJobsRequestTypeDef,
     SearchJobsResponseTypeDef,
+    StartJobsQueryRequestTypeDef,
+    StartJobsQueryResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateJobTemplateRequestTypeDef,
@@ -92,12 +97,6 @@ from .type_defs import (
     UpdateQueueResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -106,13 +105,14 @@ else:
 __all__ = ("MediaConvertClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class MediaConvertClient(AioBaseClient):
     """
@@ -151,7 +151,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def associate_certificate(
         self, **kwargs: Unpack[AssociateCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an AWS Certificate Manager (ACM) Amazon Resource Name (ARN) with AWS
         Elemental MediaConvert.
@@ -160,7 +160,7 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#associate_certificate)
         """
 
-    async def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> Dict[str, Any]:
+    async def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently cancel a job.
 
@@ -210,7 +210,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def create_resource_share(
         self, **kwargs: Unpack[CreateResourceShareRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new resource share request for MediaConvert resources with AWS Support.
 
@@ -220,7 +220,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def delete_job_template(
         self, **kwargs: Unpack[DeleteJobTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Permanently delete a job template you have created.
 
@@ -228,7 +228,7 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#delete_job_template)
         """
 
-    async def delete_policy(self) -> Dict[str, Any]:
+    async def delete_policy(self) -> dict[str, Any]:
         """
         Permanently delete a policy that you created.
 
@@ -236,7 +236,7 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#delete_policy)
         """
 
-    async def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently delete a preset you have created.
 
@@ -244,7 +244,7 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#delete_preset)
         """
 
-    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Permanently delete a queue you have created.
 
@@ -265,7 +265,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def disassociate_certificate(
         self, **kwargs: Unpack[DisassociateCertificateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an association between the Amazon Resource Name (ARN) of an AWS
         Certificate Manager (ACM) certificate and an AWS Elemental MediaConvert
@@ -291,6 +291,17 @@ class MediaConvertClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/get_job_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#get_job_template)
+        """
+
+    async def get_jobs_query_results(
+        self, **kwargs: Unpack[GetJobsQueryResultsRequestTypeDef]
+    ) -> GetJobsQueryResultsResponseTypeDef:
+        """
+        Retrieve a JSON array of up to twenty of your most recent jobs matched by a
+        jobs query.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/get_jobs_query_results.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#get_jobs_query_results)
         """
 
     async def get_policy(self) -> GetPolicyResponseTypeDef:
@@ -407,7 +418,17 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#search_jobs)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def start_jobs_query(
+        self, **kwargs: Unpack[StartJobsQueryRequestTypeDef]
+    ) -> StartJobsQueryResponseTypeDef:
+        """
+        Start an asynchronous jobs query using the provided filters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mediaconvert/client/start_jobs_query.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#start_jobs_query)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add tags to a MediaConvert queue, preset, or job template.
 
@@ -415,7 +436,7 @@ class MediaConvertClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediaconvert/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags from a MediaConvert queue, preset, or job template.
 
@@ -538,7 +559,7 @@ class MediaConvertClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

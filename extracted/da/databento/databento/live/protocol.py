@@ -7,6 +7,7 @@ from functools import singledispatchmethod
 from typing import Final
 
 import databento_dbn
+from databento_dbn import DBNRecord
 from databento_dbn import Metadata
 from databento_dbn import Schema
 from databento_dbn import SType
@@ -19,7 +20,6 @@ from databento.common.iterator import chunk
 from databento.common.parsing import optional_datetime_to_unix_nanoseconds
 from databento.common.parsing import symbols_list_to_list
 from databento.common.publishers import Dataset
-from databento.common.types import DBNRecord
 from databento.common.validation import validate_enum
 from databento.common.validation import validate_semantic_string
 from databento.live.gateway import AuthenticationRequest
@@ -311,13 +311,14 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
         list[SubscriptionRequest]
 
         """
-        logger.info(
-            "sending subscription to %s:%s %s start=%s snapshot=%s",
+        logger.debug(
+            "sending subscription request schema=%s stype_in=%s symbols='%s' start='%s' snapshot=%s id=%s",
             schema,
             stype_in,
             symbols,
             start if start is not None else "now",
             snapshot,
+            subscription_id,
         )
 
         stype_in_valid = validate_enum(stype_in, SType, "stype_in")
@@ -339,6 +340,12 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
             )
             subscriptions.append(message)
 
+        if len(subscriptions) > 1:
+            logger.debug(
+                "batched subscription into %d requests id=%s",
+                len(subscriptions),
+                subscription_id,
+            )
         self.transport.writelines(map(bytes, subscriptions))
         return subscriptions
 
@@ -372,7 +379,8 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
                     continue
                 if isinstance(record, databento_dbn.ErrorMsg):
                     logger.error(
-                        "gateway error: %s",
+                        "gateway error code=%s err='%s'",
+                        record.code,
                         record.err,
                     )
                     self._error_msgs.append(record.err)
@@ -381,7 +389,8 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
                         logger.debug("gateway heartbeat")
                     else:
                         logger.info(
-                            "gateway message: %s",
+                            "system message code=%s msg='%s'",
+                            record.code,
                             record.msg,
                         )
                 self.received_record(record)
@@ -412,11 +421,14 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
 
     @_handle_gateway_message.register(Greeting)
     def _(self, message: Greeting) -> None:
-        logger.debug("greeting received by remote gateway v%s", message.lsg_version)
+        logger.debug(
+            "greeting received by remote gateway version='%s'",
+            message.lsg_version,
+        )
 
     @_handle_gateway_message.register(ChallengeRequest)
     def _(self, message: ChallengeRequest) -> None:
-        logger.debug("received CRAM challenge: %s", message.cram)
+        logger.debug("received CRAM challenge cram='%s'", message.cram)
         response = cram.get_challenge_response(message.cram, self.__api_key)
         auth_request = AuthenticationRequest(
             auth=response,
@@ -424,22 +436,29 @@ class DatabentoLiveProtocol(asyncio.BufferedProtocol):
             ts_out=str(int(self._ts_out)),
             heartbeat_interval_s=self._heartbeat_interval_s,
         )
-        logger.debug("sending CRAM challenge response: %s", str(auth_request).strip())
+        logger.debug(
+            "sending CRAM challenge response auth='%s' dataset=%s encoding=%s ts_out=%s heartbeat_interval_s=%s client='%s'",
+            auth_request.auth,
+            auth_request.dataset,
+            auth_request.encoding,
+            auth_request.ts_out,
+            auth_request.heartbeat_interval_s,
+            auth_request.client,
+        )
         self.transport.write(bytes(auth_request))
 
     @_handle_gateway_message.register(AuthenticationResponse)
     def _(self, message: AuthenticationResponse) -> None:
         if message.success == "0":
-            logger.error("CRAM authentication failed: %s", message.error)
+            logger.error("CRAM authentication error: %s", message.error)
             self.authenticated.set_exception(
-                BentoError(f"User authentication failed: {message.error}"),
+                BentoError(message.error),
             )
             self.transport.close()
         else:
             session_id = message.session_id
 
             logger.debug(
-                "CRAM authenticated session id assigned `%s`",
-                session_id,
+                "CRAM authentication successful",
             )
             self.authenticated.set_result(session_id)

@@ -574,7 +574,8 @@ class LeapHybridCQMSampler(_ScopedSamplerMixin):
         >>> from dwave.system import LeapHybridCQMSampler   # doctest: +SKIP
         >>> with LeapHybridCQMSampler() as sampler:         # doctest: +SKIP
         ...     sampleset = sampler.sample_cqm(cqm)
-        ...     print(sampleset.first)
+        ...     feasible_results = sampleset.filter(lambda d: d.is_feasible)
+        ...     print(feasible_results.first)
         Sample(sample={'i': 2.0, 'j': 2.0}, energy=-4.0, num_occurrences=1,
         ...            is_feasible=True, is_satisfied=array([ True]))
 
@@ -1030,6 +1031,12 @@ class LeapHybridNLSampler(_ScopedSamplerMixin):
             return LeapHybridNLSampler.SampleResult(model, info)
 
         result = self._executor.submit(collect)
+
+        if not hasattr(result, 'wait_id'):
+            # the id is stored in the info field, but we add it to the result
+            # future to be consistent with the other samplers here (and to
+            # enable early id retrieval)
+            result.wait_id = future.wait_id
 
         return result
 

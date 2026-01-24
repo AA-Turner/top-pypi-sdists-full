@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # std lib
 from functools import partial
 from math import atan
@@ -10,14 +12,17 @@ except ImportError:
     class cupy(object):
         ndarray = False
 
-import dask.array as da
+try:
+    import dask.array as da
+except ImportError:
+    da = None
+
 import numpy as np
 import xarray as xr
 from numba import cuda
 
 # local modules
-from xrspatial.utils import (ArrayTypeFunctionMapping, cuda_args, get_dataarray_resolution, ngjit,
-                             not_implemented_func)
+from xrspatial.utils import (ArrayTypeFunctionMapping, cuda_args, get_dataarray_resolution, ngjit)
 
 
 @ngjit
@@ -62,6 +67,21 @@ def _run_dask_numpy(data: da.Array,
                            depth=(1, 1),
                            boundary=np.nan,
                            meta=np.array(()))
+    return out
+
+
+def _run_dask_cupy(data: da.Array,
+                   cellsize_x: Union[int, float],
+                   cellsize_y: Union[int, float]) -> da.Array:
+    data = data.astype(cupy.float32)
+    _func = partial(_run_cupy,
+                    cellsize_x=cellsize_x,
+                    cellsize_y=cellsize_y)
+
+    out = data.map_overlap(_func,
+                           depth=(1, 1),
+                           boundary=cupy.nan,
+                           meta=cupy.array(()))
     return out
 
 
@@ -163,9 +183,7 @@ def slope(agg: xr.DataArray,
         numpy_func=_run_numpy,
         cupy_func=_run_cupy,
         dask_func=_run_dask_numpy,
-        dask_cupy_func=lambda *args: not_implemented_func(
-            *args, messages='slope() does not support dask with cupy backed DataArray'  # noqa
-        ),
+        dask_cupy_func=_run_dask_cupy,
     )
     out = mapper(agg)(agg.data, cellsize_x, cellsize_y)
 

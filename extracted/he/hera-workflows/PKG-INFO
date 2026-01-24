@@ -1,30 +1,31 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: hera-workflows
-Version: 5.25.1
+Version: 5.27.0
 Summary: Hera makes Python code easy to orchestrate on Argo Workflows through native Python integrations. It lets you construct and submit your Workflows entirely in Python.
 License: Apache-2.0
+License-File: LICENSE
 Author: Flaviu Vadan
 Author-email: flaviuvadan@gmail.com
 Maintainer: Sambhav Kothari
 Maintainer-email: sambhavs.email@gmail.com
-Requires-Python: >=3.9,<4
+Requires-Python: >=3.10,<4
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Provides-Extra: async-client
 Provides-Extra: cli
 Provides-Extra: experimental
 Provides-Extra: yaml
 Requires-Dist: black (>=24.1.0) ; extra == "cli"
-Requires-Dist: cappa (>=0.22.1,<0.31.0) ; extra == "cli"
+Requires-Dist: cappa (>=0.22.1,<0.32.0) ; extra == "cli"
 Requires-Dist: httpx (>=0.28.1,<0.29.0) ; extra == "async-client"
 Requires-Dist: pydantic[email] (>=1.10.15,<3.0)
 Requires-Dist: pyyaml (>=6.0) ; extra == "yaml" or extra == "cli"

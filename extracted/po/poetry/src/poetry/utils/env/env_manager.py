@@ -19,6 +19,7 @@ import virtualenv
 from cleo.io.null_io import NullIO
 from poetry.core.constraints.version import Version
 
+from poetry.console.exceptions import PoetryConsoleError
 from poetry.toml.file import TOMLFile
 from poetry.utils._compat import WINDOWS
 from poetry.utils._compat import encode
@@ -284,9 +285,8 @@ class EnvManager:
         if python_path.is_file():
             # Validate env name if provided env is a full path to python
             try:
-                encoding = "locale" if sys.version_info >= (3, 10) else None
                 env_dir = subprocess.check_output(
-                    [python, "-c", GET_ENV_PATH_ONELINER], text=True, encoding=encoding
+                    [python, "-c", GET_ENV_PATH_ONELINER], text=True, encoding="locale"
                 ).strip("\n")
                 env_name = Path(env_dir).name
                 if not self.check_env_is_for_current_project(
@@ -329,11 +329,10 @@ class EnvManager:
             pass
 
         try:
-            encoding = "locale" if sys.version_info >= (3, 10) else None
             python_version_string = subprocess.check_output(
                 [python, "-c", GET_PYTHON_VERSION_ONELINER],
                 text=True,
-                encoding=encoding,
+                encoding="locale",
             )
         except CalledProcessError as e:
             raise EnvCommandError(e)
@@ -396,7 +395,6 @@ class EnvManager:
 
         create_venv = self._poetry.config.get("virtualenvs.create")
         in_project_venv = self.use_in_project_venv()
-        use_poetry_python = self._poetry.config.get("virtualenvs.use-poetry-python")
         venv_prompt = self._poetry.config.get("virtualenvs.prompt")
 
         specific_python_requested = python is not None
@@ -421,7 +419,7 @@ class EnvManager:
             # If an executable has been specified, we stop there
             # and notify the user of the incompatibility.
             # Otherwise, we try to find a compatible Python version.
-            if specific_python_requested and use_poetry_python:
+            if specific_python_requested:
                 raise NoCompatiblePythonVersionFoundError(
                     self._poetry.package.python_versions,
                     python.patch_version.to_string(),
@@ -443,10 +441,20 @@ class EnvManager:
             venv = venv_path / name
 
         if venv_prompt is not None:
-            venv_prompt = venv_prompt.format(
-                project_name=self._poetry.package.name or "virtualenv",
-                python_version=python.minor_version.to_string(),
-            )
+            try:
+                venv_prompt = venv_prompt.format(
+                    project_name=self._poetry.package.name or "virtualenv",
+                    python_version=python.minor_version.to_string(),
+                )
+            except KeyError as e:
+                raise PoetryConsoleError(
+                    f"Invalid template variable '{e.args[0]}' in 'virtualenvs.prompt' setting.\n"
+                    f"Valid variables are: {{project_name}}, {{python_version}}"
+                ) from e
+            except ValueError as e:
+                raise PoetryConsoleError(
+                    f"Invalid template string in 'virtualenvs.prompt' setting: {e}"
+                ) from e
 
         if not venv.exists():
             if create_venv is False:

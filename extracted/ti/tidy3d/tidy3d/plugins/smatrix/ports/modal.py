@@ -8,6 +8,7 @@ from tidy3d.components.data.data_array import DataArray
 from tidy3d.components.geometry.base import Box
 from tidy3d.components.mode_spec import ModeSpec
 from tidy3d.components.types import Direction
+from tidy3d.plugins.smatrix.ports.base import AbstractBasePort
 
 
 class ModalPortDataArray(DataArray):
@@ -36,8 +37,12 @@ class ModalPortDataArray(DataArray):
     _data_attrs = {"long_name": "modal port matrix element"}
 
 
-class Port(Box):
-    """Specifies a port in the scattering matrix."""
+class Port(AbstractBasePort, Box):
+    """Specifies a port for S-matrix calculation.
+
+    A port defines a location and a set of modes for which the S-matrix
+    is calculated.
+    """
 
     direction: Direction = pd.Field(
         ...,
@@ -48,10 +53,4 @@ class Port(Box):
         ModeSpec(),
         title="Mode Specification",
         description="Specifies how the mode solver will solve for the modes of the port.",
-    )
-    name: str = pd.Field(
-        ...,
-        title="Name",
-        description="Unique name for the port.",
-        min_length=1,
     )

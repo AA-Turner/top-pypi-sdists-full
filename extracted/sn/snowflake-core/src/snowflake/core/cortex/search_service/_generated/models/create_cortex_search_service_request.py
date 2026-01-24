@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
 from snowflake.core.cortex.search_service._generated.models.scheduling_state import (
     SchedulingState,
@@ -51,23 +51,23 @@ class CreateCortexSearchServiceRequest(BaseModel):
     comment : str, optional
         Specifies a comment for the cortex search service
     created_on : datetime, optional
-        Date and time when the cortex search service was created.
+        Date and time when the cortex search service was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the cortex search service is stored
+        Database in which the cortex search service is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the cortex search service is stored
+        Schema in which the cortex search service is stored — **Read-only:** *any user-provided value will be ignored.*
     source_data_num_rows : int, optional
-        Number of rows in the materialized source data feeding into the cortex search service.
+        Number of rows in the materialized source data feeding into the cortex search service — **Read-only:** *any user-provided value will be ignored.*
     data_timestamp : datetime, optional
-        Date and time as of which data existent in base tables is now serving.
+        Date and time as of which data existent in base tables is now serving — **Read-only:** *any user-provided value will be ignored.*
     indexing_state : SchedulingState, optional
 
     serving_state : SchedulingState, optional
 
     indexing_error : str, optional
-        Error encountered during the latest indexing pipeline of the cortex search service, if any.
+        Error encountered during the latest indexing pipeline of the cortex search service, if any — **Read-only:** *any user-provided value will be ignored.*
     serving_data_bytes : int, optional
-        Size of the serving index, in bytes.
+        Size of the serving index, in bytes — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -124,9 +124,10 @@ class CreateCortexSearchServiceRequest(BaseModel):
         "serving_data_bytes",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -161,7 +162,7 @@ class CreateCortexSearchServiceRequest(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of target_lag
         if self.target_lag:
@@ -180,9 +181,9 @@ class CreateCortexSearchServiceRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return CreateCortexSearchServiceRequest.parse_obj(obj)
+            return CreateCortexSearchServiceRequest.model_validate(obj)
 
-        _obj = CreateCortexSearchServiceRequest.parse_obj(
+        _obj = CreateCortexSearchServiceRequest.model_validate(
             {
                 "name": obj.get("name"),
                 "search_column": obj.get("search_column"),

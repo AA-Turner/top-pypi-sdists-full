@@ -19,17 +19,20 @@ from .datatest import (
     CODING_EXPLICIT_UTF8_TEST,
     EDITABLE_PACKAGE_TEST,
     EXTENDED_OPARGS_TEST,
-    IMPORT_CALL_TEST,
     MAYBE_TEST,
     MAYBE_TEST_NEW,
     NAMESPACE_TEST,
-    NESTED_NAMESPACE_TEST,
+    NAMESPACE_TEST_1,
+    NAMESPACE_TEST_2,
     PACKAGE_TEST,
     RELATIVE_IMPORT_TEST,
     RELATIVE_IMPORT_TEST_2,
     RELATIVE_IMPORT_TEST_3,
     RELATIVE_IMPORT_TEST_4,
     SAME_NAME_AS_BAD_TEST,
+    SCAN_CODE_IMPORT_CALL_TEST,
+    SCAN_CODE_IMPORT_MODULE_TEST,
+    SCAN_CODE_TEST,
     SUB_PACKAGE_TEST,
 )
 
@@ -62,8 +65,9 @@ def _do_test(
     **kwargs,
 ) -> None:
     test_dir.create(source)
+    path = kwargs.pop("path", sys.path)
     finder = modulefinder_class(
-        ConstantsModule(), path=[test_dir.path, *sys.path], **kwargs
+        ConstantsModule(), path=[test_dir.path, *path], **kwargs
     )
     finder.include_module(import_this)
     if report:
@@ -82,11 +86,11 @@ def _do_test(
         CODING_EXPLICIT_CP1252_TEST,
         CODING_EXPLICIT_UTF8_TEST,
         EXTENDED_OPARGS_TEST,
-        IMPORT_CALL_TEST,
         MAYBE_TEST,
         MAYBE_TEST_NEW,
         NAMESPACE_TEST,
-        NESTED_NAMESPACE_TEST,
+        NAMESPACE_TEST_1,
+        NAMESPACE_TEST_2,
         PACKAGE_TEST,
         RELATIVE_IMPORT_TEST,
         RELATIVE_IMPORT_TEST_2,
@@ -101,11 +105,11 @@ def _do_test(
         "coding_explicit_cp1252_test",
         "coding_explicit_utf8_test",
         "extended_opargs_test",
-        "import_call_test",
         "maybe_test",
         "maybe_test_new",
         "namespace_test",
-        "nested_namespace_test",
+        "namespace_test_1",
+        "namespace_test_2",
         "package_test",
         "relative_import_test",
         "relative_import_test_2",
@@ -139,6 +143,39 @@ def test_bytecode(tmp_package) -> None:
     _do_test(tmp_package, *BYTECODE_TEST)
 
 
+@pytest.mark.parametrize(
+    ("import_this", "modules", "missing", "maybe_missing", "source"),
+    [
+        SCAN_CODE_TEST,
+        SCAN_CODE_IMPORT_CALL_TEST,
+        SCAN_CODE_IMPORT_MODULE_TEST,
+    ],
+    ids=[
+        "scan_code_test",
+        "scan_code_import_call_test",
+        "scan_code_import_module_test",
+    ],
+)
+def test_scancode(
+    tmp_package,
+    import_this,
+    modules,
+    missing,
+    maybe_missing,
+    source,
+) -> None:
+    """Provides test cases for ModuleFinder class."""
+    _do_test(
+        tmp_package,
+        import_this,
+        modules,
+        missing,
+        maybe_missing,
+        source,
+        path=[],
+    )
+
+
 def test_zip_include_packages(tmp_package) -> None:
     """Provides test cases for ModuleFinder class."""
     _do_test(
@@ -161,10 +198,6 @@ def test_zip_exclude_packages(tmp_package) -> None:
     )
 
 
-@pytest.mark.skipif(
-    sys.version_info < (3, 10),
-    reason="Python 3.10+ needed for editable packages",
-)
 def test_editable_packages(tmp_package) -> None:
     """Provides test cases for ModuleFinder class."""
     tmp_package.create(EDITABLE_PACKAGE_TEST[4])

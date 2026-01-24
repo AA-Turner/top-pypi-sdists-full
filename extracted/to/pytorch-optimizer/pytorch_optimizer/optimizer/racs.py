@@ -5,27 +5,28 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class RACS(BaseOptimizer):
-    r"""Row and Column Scaled SGD.
+    """Row and Column Scaled SGD.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param beta: float. momentum factor.
-    :param alpha: float. scaler.
-    :param gamma: float. limiter threshold.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): learning rate.
+        beta (float): momentum factor.
+        alpha (float): scaler.
+        gamma (float): limiter threshold.
+        weight_decay (float): weight decay (L2 penalty).
+        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): fix weight decay.
+        eps (float): term added to the denominator to improve numerical stability.
+        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
         beta: float = 0.9,
         alpha: float = 0.05,
@@ -46,7 +47,7 @@ class RACS(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'beta': beta,
             'alpha': alpha,
@@ -62,22 +63,20 @@ class RACS(BaseOptimizer):
     def __str__(self) -> str:
         return 'RACS'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        pass
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta = group['beta']
 
@@ -138,30 +137,31 @@ class RACS(BaseOptimizer):
 
 
 class Alice(BaseOptimizer):
-    r"""Adaptive low-dimensional subspace estimation.
+    """Adaptive low-dimensional subspace estimation.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-        beta3=0 for Alice-0 optimizer.
-    :param alpha: float. scaler.
-    :param alpha_c: float. compensation scaler.
-    :param update_interval: int. update interval.
-    :param rank: int. rank.
-    :param gamma: limiter threshold.
-    :param leading_basis: int. leading basis.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): learning rate.
+        betas (Betas): coefficients used for computing running averages of gradient and the squared Hessian trace.
+            beta3=0 for Alice-0 optimizer.
+        alpha (float): scaler.
+        alpha_c (float): compensation scaler.
+        update_interval (int): update interval.
+        rank (int): rank.
+        gamma (float): limiter threshold.
+        leading_basis (int): leading basis.
+        weight_decay (float): weight decay (L2 penalty).
+        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): fix weight decay.
+        eps (float): term added to the denominator to improve numerical stability.
+        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 0.02,
-        betas: BETAS = (0.9, 0.9, 0.999),
+        betas: Betas = (0.9, 0.9, 0.999),
         alpha: float = 0.3,
         alpha_c: float = 0.4,
         update_interval: int = 200,
@@ -189,7 +189,7 @@ class Alice(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'alpha': alpha,
@@ -209,8 +209,9 @@ class Alice(BaseOptimizer):
     def __str__(self) -> str:
         return 'Alice'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        pass
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
 
     @staticmethod
     def subspace_iteration(
@@ -266,18 +267,15 @@ class Alice(BaseOptimizer):
         return c_t, phi
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2, beta3 = group['betas']
             rank, leading_basis = group['rank'], group['leading_basis']

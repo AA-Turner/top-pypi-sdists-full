@@ -12,8 +12,15 @@ import typing
 import itertools
 import jinja2
 from dataclasses import dataclass, is_dataclass
-from typing import TypeVar, Literal, Generic, Optional, Any, Union
-from collections.abc import Callable, Iterable, Iterator
+from typing import Any, Generic, Literal, TypeVar
+from collections import deque, Counter
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Set,
+)
 
 from beartype import beartype, BeartypeConf
 from beartype.door import is_bearable
@@ -25,14 +32,18 @@ from .compat import (
     T,
     get_origin,
     is_any,
+    is_bare_counter,
+    is_bare_deque,
     is_bare_dict,
     is_bare_list,
     is_bare_opt,
     is_bare_set,
     is_bare_tuple,
     is_class_var,
+    is_counter,
     is_datetime,
     is_datetime_instance,
+    is_deque,
     is_dict,
     is_enum,
     is_generic,
@@ -68,6 +79,7 @@ from .core import (
     add_func,
     coerce_object,
     disabled,
+    get_transparent_field,
     strict,
     fields,
     is_instance,
@@ -142,16 +154,17 @@ class Serializer(Generic[T], metaclass=abc.ABCMeta):
 
 def _make_serialize(
     cls_name: str,
-    fields: Iterable[Union[str, tuple[str, type[Any]], tuple[str, type[Any], Any]]],
+    fields: Iterable[str | tuple[str, type[Any]] | tuple[str, type[Any], Any]],
     *args: Any,
-    rename_all: Optional[str] = None,
+    rename_all: str | None = None,
     reuse_instances_default: bool = False,
     convert_sets_default: bool = False,
-    serializer: Optional[SerializeFunc] = None,
+    serializer: SerializeFunc | None = None,
     tagging: Tagging = DefaultTagging,
     type_check: TypeCheck = disabled,
     serialize_class_var: bool = False,
-    class_serializer: Optional[ClassSerializer] = None,
+    transparent: bool = False,
+    class_serializer: ClassSerializer | None = None,
     **kwargs: Any,
 ) -> type[Any]:
     """
@@ -167,6 +180,7 @@ def _make_serialize(
         tagging=tagging,
         type_check=type_check,
         serialize_class_var=serialize_class_var,
+        transparent=transparent,
         **kwargs,
     )
     return C
@@ -180,15 +194,16 @@ GENERATION_STACK = []
 
 @dataclass_transform()
 def serialize(
-    _cls: Optional[type[T]] = None,
-    rename_all: Optional[str] = None,
+    _cls: type[T] | None = None,
+    rename_all: str | None = None,
     reuse_instances_default: bool = False,
     convert_sets_default: bool = False,
-    serializer: Optional[SerializeFunc] = None,
+    serializer: SerializeFunc | None = None,
     tagging: Tagging = DefaultTagging,
     type_check: TypeCheck = strict,
     serialize_class_var: bool = False,
-    class_serializer: Optional[ClassSerializer] = None,
+    transparent: bool = False,
+    class_serializer: ClassSerializer | None = None,
     **kwargs: Any,
 ) -> type[T]:
     """
@@ -217,6 +232,9 @@ def serialize(
         if not is_dataclass(cls):
             dataclass(cls)
 
+        if transparent:
+            get_transparent_field(cls)
+
         if type_check.is_strict():
             serde_beartype = beartype(conf=BeartypeConf(violation_type=SerdeError))
             serde_beartype(cls)
@@ -226,7 +244,7 @@ def serialize(
         # Create a scope storage used by serde.
         # Each class should get own scope. Child classes can not share scope with parent class.
         # That's why we need the "scope.cls is not cls" check.
-        scope: Optional[Scope] = getattr(cls, SERDE_SCOPE, None)
+        scope: Scope | None = getattr(cls, SERDE_SCOPE, None)
         if scope is None or scope.cls is not cls:
             scope = Scope(
                 cls,
@@ -234,6 +252,7 @@ def serialize(
                 convert_sets_default=convert_sets_default,
             )
             setattr(cls, SERDE_SCOPE, scope)
+        scope.transparent = transparent
 
         class_serializers: list[ClassSerializer] = list(
             itertools.chain(GLOBAL_CLASS_SERIALIZER, [class_serializer] if class_serializer else [])
@@ -343,7 +362,7 @@ def is_dataclass_without_se(cls: type[Any]) -> bool:
         return False
     if not hasattr(cls, SERDE_SCOPE):
         return True
-    scope: Optional[Scope] = getattr(cls, SERDE_SCOPE)
+    scope: Scope | None = getattr(cls, SERDE_SCOPE)
     if not scope:
         return True
     return TO_DICT not in scope.funcs
@@ -352,10 +371,10 @@ def is_dataclass_without_se(cls: type[Any]) -> bool:
 def to_obj(
     o: Any,
     named: bool,
-    reuse_instances: Optional[bool] = None,
-    convert_sets: Optional[bool] = None,
+    reuse_instances: bool | None = None,
+    convert_sets: bool | None = None,
     skip_none: bool = False,
-    c: Optional[Any] = None,
+    c: Any | None = None,
 ) -> Any:
     def serializable_to_obj(object: Any) -> Any:
         serde_scope: Scope = getattr(object, SERDE_SCOPE)
@@ -392,14 +411,18 @@ def to_obj(
             return serializable_to_obj(o)
         elif is_serializable(o):
             return serializable_to_obj(o)
-        elif is_bearable(o, list):  # pyright: ignore[reportArgumentType]
+        elif is_bearable(o, list):  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
             return [thisfunc(e) for e in o]
-        elif is_bearable(o, tuple):  # pyright: ignore[reportArgumentType]
+        elif is_bearable(o, tuple):  # type: ignore[arg-type]  # pyright: ignore[reportArgumentType]
             return tuple(thisfunc(e) for e in o)
-        elif is_bearable(o, set):  # pyright: ignore[reportArgumentType]
-            return [thisfunc(e) for e in o]
-        elif is_bearable(o, dict):  # pyright: ignore[reportArgumentType]
+        elif isinstance(o, Mapping):
             return {k: thisfunc(v) for k, v in o.items()}
+        elif isinstance(o, Set):
+            return [thisfunc(e) for e in o]
+        elif isinstance(o, deque):
+            return [thisfunc(e) for e in o]
+        elif isinstance(o, Counter):
+            return dict(o)
         elif is_str_serializable_instance(o) or is_datetime_instance(o):
             se_cls = o.__class__ if not c or c is Any else c
             return CACHE.serialize(
@@ -425,9 +448,9 @@ def astuple(v: Any) -> tuple[Any, ...]:
 
 def to_tuple(
     o: Any,
-    c: Optional[type[Any]] = None,
-    reuse_instances: Optional[bool] = None,
-    convert_sets: Optional[bool] = None,
+    c: type[Any] | None = None,
+    reuse_instances: bool | None = None,
+    convert_sets: bool | None = None,
     skip_none: bool = False,
 ) -> tuple[Any, ...]:
     """
@@ -468,9 +491,9 @@ def asdict(v: Any) -> dict[Any, Any]:
 
 def to_dict(
     o: Any,
-    c: Optional[type[Any]] = None,
-    reuse_instances: Optional[bool] = None,
-    convert_sets: Optional[bool] = None,
+    c: type[Any] | None = None,
+    reuse_instances: bool | None = None,
+    convert_sets: bool | None = None,
     skip_none: bool = False,
 ) -> dict[Any, Any]:
     """
@@ -595,6 +618,20 @@ def {{func}}(obj, reuse_instances = None, convert_sets = None, skip_none = False
   {% endfor -%}
   return res
 """,
+            "transparent_dict": """
+def {{func}}(obj, reuse_instances = None, convert_sets = None, skip_none = False):
+  if reuse_instances is None:
+    reuse_instances = {{serde_scope.reuse_instances_default}}
+  if convert_sets is None:
+    convert_sets = {{serde_scope.convert_sets_default}}
+  if not is_dataclass(obj):
+    return copy.deepcopy(obj)
+
+  res = {{rvalue(field)}}
+  if skip_none and res is None:
+    return None
+  return res
+""",
             "iter": """
 def {{func}}(obj, reuse_instances=None, convert_sets=None, skip_none=False):
   if reuse_instances is None:
@@ -611,6 +648,20 @@ def {{func}}(obj, reuse_instances=None, convert_sets=None, skip_none=False):
   {% endif -%}
   {% endfor -%}
   )
+""",
+            "transparent_iter": """
+def {{func}}(obj, reuse_instances=None, convert_sets=None, skip_none=False):
+  if reuse_instances is None:
+    reuse_instances = {{serde_scope.reuse_instances_default}}
+  if convert_sets is None:
+    convert_sets = {{serde_scope.convert_sets_default}}
+  if not is_dataclass(obj):
+    return copy.deepcopy(obj)
+
+  res = {{rvalue(field)}}
+  if skip_none and res is None:
+    return None
+  return res
 """,
             "union": """
 def {{func}}(obj, reuse_instances, convert_sets, skip_none=False):
@@ -648,10 +699,10 @@ def {{func}}(obj, reuse_instances, convert_sets, skip_none=False):
 
 def render_to_tuple(
     cls: type[Any],
-    legacy_class_serializer: Optional[SerializeFunc] = None,
+    legacy_class_serializer: SerializeFunc | None = None,
     type_check: TypeCheck = strict,
     serialize_class_var: bool = False,
-    class_serializer: Optional[ClassSerializer] = None,
+    class_serializer: ClassSerializer | None = None,
 ) -> str:
     renderer = Renderer(
         TO_ITER,
@@ -661,22 +712,33 @@ def render_to_tuple(
         class_serializer=class_serializer,
         class_name=typename(cls),
     )
-    return jinja2_env.get_template("iter").render(
-        func=TO_ITER,
-        serde_scope=getattr(cls, SERDE_SCOPE),
-        fields=sefields(cls, serialize_class_var),
-        type_check=type_check,
-        rvalue=renderer.render,
-    )
+    serde_scope = getattr(cls, SERDE_SCOPE)
+    if serde_scope.transparent:
+        transparent = [f for f in sefields(cls, serialize_class_var) if not f.skip]
+        return jinja2_env.get_template("transparent_iter").render(
+            func=TO_ITER,
+            serde_scope=serde_scope,
+            field=transparent[0],
+            type_check=type_check,
+            rvalue=renderer.render,
+        )
+    else:
+        return jinja2_env.get_template("iter").render(
+            func=TO_ITER,
+            serde_scope=serde_scope,
+            fields=sefields(cls, serialize_class_var),
+            type_check=type_check,
+            rvalue=renderer.render,
+        )
 
 
 def render_to_dict(
     cls: type[Any],
-    case: Optional[str] = None,
-    legacy_class_serializer: Optional[SerializeFunc] = None,
+    case: str | None = None,
+    legacy_class_serializer: SerializeFunc | None = None,
     type_check: TypeCheck = strict,
     serialize_class_var: bool = False,
-    class_serializer: Optional[ClassSerializer] = None,
+    class_serializer: ClassSerializer | None = None,
 ) -> str:
     renderer = Renderer(
         TO_DICT,
@@ -686,14 +748,26 @@ def render_to_dict(
         class_name=typename(cls),
     )
     lrenderer = LRenderer(case, serialize_class_var)
-    return jinja2_env.get_template("dict").render(
-        func=TO_DICT,
-        serde_scope=getattr(cls, SERDE_SCOPE),
-        fields=sefields(cls, serialize_class_var),
-        type_check=type_check,
-        lvalue=lrenderer.render,
-        rvalue=renderer.render,
-    )
+    serde_scope = getattr(cls, SERDE_SCOPE)
+    if serde_scope.transparent:
+        transparent = [f for f in sefields(cls, serialize_class_var) if not f.skip]
+        return jinja2_env.get_template("transparent_dict").render(
+            func=TO_DICT,
+            serde_scope=serde_scope,
+            field=transparent[0],
+            type_check=type_check,
+            lvalue=lrenderer.render,
+            rvalue=renderer.render,
+        )
+    else:
+        return jinja2_env.get_template("dict").render(
+            func=TO_DICT,
+            serde_scope=serde_scope,
+            fields=sefields(cls, serialize_class_var),
+            type_check=type_check,
+            lvalue=lrenderer.render,
+            rvalue=renderer.render,
+        )
 
 
 def render_union_func(
@@ -723,7 +797,7 @@ class LRenderer:
     Render lvalue for various types.
     """
 
-    case: Optional[str]
+    case: str | None
     serialize_class_var: bool = False
 
     def render(self, arg: SeField[Any]) -> str:
@@ -756,12 +830,12 @@ class Renderer:
     """
 
     func: str
-    legacy_class_serializer: Optional[SerializeFunc] = None
+    legacy_class_serializer: SerializeFunc | None = None
     suppress_coerce: bool = False
     """ Suppress type coercing because generated union serializer has its own type checking """
     serialize_class_var: bool = False
-    class_serializer: Optional[ClassSerializer] = None
-    class_name: Optional[str] = None
+    class_serializer: ClassSerializer | None = None
+    class_name: str | None = None
 
     def render(self, arg: SeField[Any]) -> str:
         """
@@ -788,6 +862,10 @@ class Renderer:
             res = self.list(arg)
         elif is_set(arg.type):
             res = self.set(arg)
+        elif is_deque(arg.type):
+            res = self.deque(arg)
+        elif is_counter(arg.type):
+            res = self.counter(arg)
         elif is_dict(arg.type):
             res = self.dict(arg)
         elif is_tuple(arg.type):
@@ -820,7 +898,7 @@ class Renderer:
             res = f"{arg.varname} if reuse_instances else {arg.varname}.isoformat()"
         elif is_none(arg.type):
             res = "None"
-        elif is_any(arg.type) or is_bearable(arg.type, TypeVar):  # pyright: ignore
+        elif is_any(arg.type) or is_bearable(arg.type, TypeVar):  # type: ignore[arg-type]  # pyright: ignore
             res = f"to_obj({arg.varname}, True, False, False, skip_none, typing.Any)"
         elif is_generic(arg.type):
             origin = get_origin(arg.type)
@@ -833,11 +911,7 @@ class Renderer:
             arg.type = type_args(arg.type)[0]
             res = self.render(arg)
         elif is_pep695_type_alias(arg.type):
-            res = self.render(
-                SeField(
-                    name=arg.name, type=arg.type.__value__, parent=SeField(None.__class__, "obj")
-                )
-            )
+            res = self.render(dataclasses.replace(arg, type=arg.type.__value__))
         else:
             res = f"raise_unsupported_type({arg.varname})"
 
@@ -894,7 +968,8 @@ class Renderer:
         Render rvalue for list.
         """
         if is_bare_list(arg.type):
-            return arg.varname
+            origin = get_origin(arg.type) or arg.type
+            return arg.varname if origin is list else f"list({arg.varname})"
         else:
             earg = arg[0]
             earg.name = "v"
@@ -913,6 +988,28 @@ class Renderer:
                 f"[{self.render(earg)} for v in {arg.varname}] "
                 f"if convert_sets else set({self.render(earg)} for v in {arg.varname})"
             )
+
+    def deque(self, arg: SeField[Any]) -> str:
+        """
+        Render rvalue for deque.
+        """
+        if is_bare_deque(arg.type):
+            return f"list({arg.varname})"
+        else:
+            earg = arg[0]
+            earg.name = "v"
+            return f"[{self.render(earg)} for v in {arg.varname}]"
+
+    def counter(self, arg: SeField[Any]) -> str:
+        """
+        Render rvalue for Counter.
+        """
+        if is_bare_counter(arg.type):
+            return f"dict({arg.varname})"
+        else:
+            karg = arg[0]
+            karg.name = "k"
+            return f"{{{self.render(karg)}: v for k, v in {arg.varname}.items()}}"
 
     def tuple(self, arg: SeField[Any]) -> str:
         """

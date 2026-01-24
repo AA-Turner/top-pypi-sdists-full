@@ -377,67 +377,65 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         information on the prediction environment of a deployment
     creator : dict
         information about the creator of a deployment
+    tags : list[dict[str,str]]
+        Information about the deployment's tags.
     """
 
     _path = "deployments/"
-    _default_prediction_server_converter = t.Dict(
-        {
+    _default_prediction_server_converter = t.Dict({
+        t.Key("id", optional=True): String(allow_blank=True),
+        t.Key("url", optional=True): String(allow_blank=True),
+        t.Key("datarobot-key", optional=True): String(allow_blank=True),
+    }).allow_extra("*")
+    _model_converter = t.Dict({
+        t.Key("id", optional=True): String(),
+        t.Key("type", optional=True): String(allow_blank=True),
+        t.Key("target_name", optional=True): String(allow_blank=True),
+        t.Key("project_id", optional=True): String(allow_blank=True),
+    }).allow_extra("*")
+    _model_package_converter = t.Dict({
+        t.Key("id", optional=True): String(),
+        t.Key("name", optional=True): String(allow_blank=True),
+        t.Key("registered_model_id", optional=True): String(allow_blank=True),
+    }).allow_extra("*")
+    _prediction_usage = t.Dict({
+        t.Key("daily_rates", optional=True): t.List(t.Float()),
+        t.Key("last_timestamp", optional=True): String >> dateutil.parser.parse,
+    }).allow_extra("*")
+    _health = t.Dict({
+        t.Key("status", optional=True): String(allow_blank=True),
+        t.Key("message", optional=True): String(allow_blank=True),
+        t.Key("start_date", optional=True): String >> dateutil.parser.parse,
+        t.Key("end_date", optional=True): String >> dateutil.parser.parse,
+    }).allow_extra("*")
+    _tags = t.List(
+        t.Dict({
             t.Key("id", optional=True): String(allow_blank=True),
-            t.Key("url", optional=True): String(allow_blank=True),
-            t.Key("datarobot-key", optional=True): String(allow_blank=True),
-        }
-    ).allow_extra("*")
-    _model_converter = t.Dict(
-        {
-            t.Key("id", optional=True): String(),
-            t.Key("type", optional=True): String(allow_blank=True),
-            t.Key("target_name", optional=True): String(allow_blank=True),
-            t.Key("project_id", optional=True): String(allow_blank=True),
-        }
-    ).allow_extra("*")
-    _model_package_converter = t.Dict(
-        {
-            t.Key("id", optional=True): String(),
             t.Key("name", optional=True): String(allow_blank=True),
-            t.Key("registered_model_id", optional=True): String(allow_blank=True),
-        }
-    ).allow_extra("*")
-    _prediction_usage = t.Dict(
-        {
-            t.Key("daily_rates", optional=True): t.List(t.Float()),
-            t.Key("last_timestamp", optional=True): String >> dateutil.parser.parse,
-        }
-    ).allow_extra("*")
-    _health = t.Dict(
-        {
-            t.Key("status", optional=True): String(allow_blank=True),
-            t.Key("message", optional=True): String(allow_blank=True),
-            t.Key("start_date", optional=True): String >> dateutil.parser.parse,
-            t.Key("end_date", optional=True): String >> dateutil.parser.parse,
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("label", optional=True): String(allow_blank=True),
-            t.Key("description", optional=True): t.Or(String(allow_blank=True), t.Null()),
-            t.Key("status", optional=True): t.Or(String(), t.Null()),
-            t.Key("default_prediction_server", optional=True): _default_prediction_server_converter,
-            t.Key("importance", optional=True): t.Or(String(), t.Null()),
-            t.Key("model", optional=True): _model_converter,
-            t.Key("model_package", optional=True): _model_package_converter,
-            t.Key("prediction_usage", optional=True): _prediction_usage,
-            t.Key("permissions", optional=True): t.List(String),
-            t.Key("service_health", optional=True): _health,
-            t.Key("model_health", optional=True): _health,
-            t.Key("accuracy_health", optional=True): _health,
-            t.Key("fairness_health", optional=True): _health,
-            t.Key("governance", optional=True): t.Dict().allow_extra("*"),
-            t.Key("owners", optional=True): t.Dict().allow_extra("*"),
-            t.Key("prediction_environment", optional=True): t.Dict().allow_extra("*"),
-            t.Key("creator", optional=True): t.Dict().allow_extra("*"),
-        }
-    ).allow_extra("*")
+            t.Key("value", optional=True): String(allow_blank=True),
+        }).allow_extra("*")
+    )
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("label", optional=True): String(allow_blank=True),
+        t.Key("description", optional=True): t.Or(String(allow_blank=True), t.Null()),
+        t.Key("status", optional=True): t.Or(String(), t.Null()),
+        t.Key("default_prediction_server", optional=True): _default_prediction_server_converter,
+        t.Key("importance", optional=True): t.Or(String(), t.Null()),
+        t.Key("model", optional=True): _model_converter,
+        t.Key("model_package", optional=True): _model_package_converter,
+        t.Key("prediction_usage", optional=True): _prediction_usage,
+        t.Key("permissions", optional=True): t.List(String),
+        t.Key("service_health", optional=True): _health,
+        t.Key("model_health", optional=True): _health,
+        t.Key("accuracy_health", optional=True): _health,
+        t.Key("fairness_health", optional=True): _health,
+        t.Key("governance", optional=True): t.Dict().allow_extra("*"),
+        t.Key("owners", optional=True): t.Dict().allow_extra("*"),
+        t.Key("prediction_environment", optional=True): t.Dict().allow_extra("*"),
+        t.Key("creator", optional=True): t.Dict().allow_extra("*"),
+        t.Key("tags", optional=True): _tags,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -459,6 +457,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         owners: Optional[Dict[str, Any]] = None,
         prediction_environment: Optional[Dict[str, Any]] = None,
         creator: Optional[Dict[str, Any]] = None,
+        tags: Optional[List[Dict[str, str]]] = None,
     ) -> None:
         self.id = id
         self.label = label
@@ -478,6 +477,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         self.owners = owners
         self.prediction_environment = prediction_environment
         self.creator = creator
+        self.tags = tags or []
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.label or self.id})"
@@ -636,9 +636,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         url = f"{cls._path}fromLeaderboard/"
         response = cls._client.post(url, data=payload)
-        deployment_loc = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        deployment_loc = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         deployment_id = get_id_from_location(deployment_loc)
         return cls.get(deployment_id)
 
@@ -654,9 +652,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         importance: Optional[str] = None,
     ) -> TDeployment:
         # check if model package of the custom model image is already created
-        existing_model_packages = unpaginate(
-            "modelPackages/", {"model_id": custom_model_entity_id}, cls._client
-        )
+        existing_model_packages = unpaginate("modelPackages/", {"model_id": custom_model_entity_id}, cls._client)
 
         try:
             model_package_id = next(existing_model_packages)["id"]
@@ -671,9 +667,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
                 route = "fromCustomModelImage"
             model_package_payload = {field_name: custom_model_entity_id}
 
-            model_package_id = cls._client.post(
-                f"modelPackages/{route}/", data=model_package_payload
-            ).json()["id"]
+            model_package_id = cls._client.post(f"modelPackages/{route}/", data=model_package_payload).json()["id"]
 
         # create deployment from the model package
         deployment_payload = {
@@ -751,7 +745,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         prediction_environment_id: Optional[str] = None,
         importance: Optional[str] = None,
         user_provided_id: Optional[str] = None,
-        additional_metadata: Optional[Dict[str, str]] = None,
+        additional_metadata: Optional[List[Dict[str, str]]] = None,
         max_wait: int = DEFAULT_MAX_WAIT,
     ) -> TDeployment:
         """Create a deployment from a DataRobot model package (version).
@@ -773,8 +767,9 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             Deployment importance level.
         user_provided_id : Optional[str]
             A user-provided unique ID associated with a deployment definition in a remote git repository.
-        additional_metadata : dict, optional
-            'Key/Value pair dict, with additional metadata'
+        additional_metadata : list[dict], optional
+            List of key/value dictionaries with additional metadata. For example,
+            [{"key": "Department", "value": "Engineering"}, {"key": "Location", "value": "Boston"}]
         max_wait : Optional[int]
             The amount of seconds to wait for successful resolution of a deployment creation job.
             Deployment supports making predictions only after a deployment creating job
@@ -995,9 +990,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         elif source_type == LocalSourceType.DATA_FRAME:
             pass
         else:
-            raise InvalidUsageError(
-                f"Unable to parse source ({source}) as filepath, DataFrame, or file."
-            )
+            raise InvalidUsageError(f"Unable to parse source ({source}) as filepath, DataFrame, or file.")
         return BatchPredictionJob.score_pandas(
             self,
             source,
@@ -1091,9 +1084,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         url = f"{self._path}{self.id}/status/"
         payload = {"status": status}
         response = self._client.patch(url, data=payload)
-        deployment_loc = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        deployment_loc = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
 
         deployment_id = get_id_from_location(deployment_loc)
         deployment = Deployment.get(deployment_id)
@@ -1159,9 +1150,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         if new_model_id is None and new_registered_model_version_id is None:
             raise ValueError("Must specify either new_model_id or new_registered_model_version_id.")
         if new_model_id is not None and new_registered_model_version_id is not None:
-            raise ValueError(
-                "Cannot specify both new_model_id and new_registered_model_version_id."
-            )
+            raise ValueError("Cannot specify both new_model_id and new_registered_model_version_id.")
 
         payload = {"reason": reason}
         if new_model_id is not None:
@@ -1171,9 +1160,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         url = f"{self._path}{self.id}/model/"
         response = self._client.patch(url, data=payload)
-        deployment_loc = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        deployment_loc = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
         deployment_id = get_id_from_location(deployment_loc)
         deployment = Deployment.get(deployment_id)
         self.model = deployment.model
@@ -1243,9 +1230,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         url = f"{self._path}{self.id}/model/"
         response = self._client.patch(url, data=payload)
-        deployment_loc = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        deployment_loc = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
         deployment_id = get_id_from_location(deployment_loc)
         deployment = Deployment.get(deployment_id)
         self.model = deployment.model
@@ -1302,9 +1287,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         if new_model_id is None and new_registered_model_version_id is None:
             raise ValueError("Must specify either new_model_id or new_registered_model_version_id.")
         if new_model_id is not None and new_registered_model_version_id is not None:
-            raise ValueError(
-                "Cannot specify both new_model_id and new_registered_model_version_id."
-            )
+            raise ValueError("Cannot specify both new_model_id and new_registered_model_version_id.")
 
         url = f"{self._path}{self.id}/model/validation/"
         payload = {}
@@ -1416,14 +1399,10 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         """
 
         if not isinstance(data, (list, pd.DataFrame)):
-            raise ValueError(
-                "data should be either a list of dict-like objects or a pandas.DataFrame"
-            )
+            raise ValueError("data should be either a list of dict-like objects or a pandas.DataFrame")
 
         if not isinstance(batch_size, int) or batch_size < 1:
-            raise ValueError(
-                "batch_size should be an integer and should be greater than or equals to one"
-            )
+            raise ValueError("batch_size should be an integer and should be greater than or equals to one")
 
         if isinstance(data, pd.DataFrame):
             data = data.to_dict(orient="records")
@@ -1542,6 +1521,11 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         .. versionadded:: v2.27
 
+        For time series deployments using the date/time format `%Y-%m-%d %H:%M:%S.%f`,
+        DataRobot automatically populates a `v2` in front of the timestamp format
+        (`forecast_date_format`). Date/time values submitted in prediction data
+        should not include this `v2` prefix. Other timestamp formats are not affected.
+
         Returns
         -------
         settings : ForecastDateSettings
@@ -1567,6 +1551,14 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         Updating predictions by forecast date setting is an asynchronous process,
         which means some preparatory work may be performed after the initial request is completed.
         This function will not return until all preparatory work is fully finished.
+
+        For time series deployments using the date/time format `%Y-%m-%d %H:%M:%S.%f`,
+        DataRobot automatically populates a `v2` in front of the timestamp format
+        (`forecast_date_format`). If you are updating predictions by forecast date
+        settings for a Time Series deployment with date/time format
+        `%Y-%m-%d %H:%M:%S.%f`, you must add the `v2` prefix to your submitted
+        `forecast_date_format` parameter. Date/time values submitted in prediction data
+        should not include this `v2` prefix. Other timestamp formats are not affected.
 
         Examples
         --------
@@ -1604,12 +1596,10 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         payload["predictions_by_forecast_date"]["enabled"] = enable_predictions_by_forecast_date
         if enable_predictions_by_forecast_date:
             assert forecast_date_column_name, (
-                "Please specify 'forecast_date_column_name' or set "
-                "'enable_predictions_by_forecast_date' to False"
+                "Please specify 'forecast_date_column_name' or set 'enable_predictions_by_forecast_date' to False"
             )
             assert forecast_date_format, (
-                "Please specify 'forecast_date_format' or set "
-                "'enable_predictions_by_forecast_date' to False"
+                "Please specify 'forecast_date_format' or set 'enable_predictions_by_forecast_date' to False"
             )
             payload["predictions_by_forecast_date"]["column_name"] = forecast_date_column_name
             payload["predictions_by_forecast_date"]["datetime_format"] = forecast_date_format
@@ -1782,9 +1772,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         response_json = cast(ServerDataDictType, from_api(self._client.get(url).json()))
         return cast("ChallengerReplaySettings", response_json)
 
-    def update_challenger_replay_settings(
-        self, enabled: bool, schedule: Optional[Schedule] = None
-    ) -> None:
+    def update_challenger_replay_settings(self, enabled: bool, schedule: Optional[Schedule] = None) -> None:
         """Update challenger replay settings of this deployment.
 
         .. versionadded:: v3.4
@@ -1818,11 +1806,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         response_json = cast(ServerDataDictType, from_api(self._client.get(url).json()))
         return cast(
             "DriftTrackingSettings",
-            {
-                key: value
-                for key, value in response_json.items()
-                if key in ["target_drift", "feature_drift"]
-            },
+            {key: value for key, value in response_json.items() if key in ["target_drift", "feature_drift"]},
         )
 
     def update_drift_tracking_settings(
@@ -1872,9 +1856,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         """
 
         url = f"{self._path}{self.id}/settings/"
-        response_json = cast(
-            ServerDataDictType, from_api(self._client.get(url).json(), keep_null_keys=True)
-        )
+        response_json = cast(ServerDataDictType, from_api(self._client.get(url).json(), keep_null_keys=True))
         return cast(str, response_json.get("association_id"))
 
     def update_association_id_settings(
@@ -1903,9 +1885,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         if column_names:
             payload["associationId"]["columnNames"] = column_names
         if required_in_prediction_requests is not None:
-            payload["associationId"][
-                "requiredInPredictionRequests"
-            ] = required_in_prediction_requests
+            payload["associationId"]["requiredInPredictionRequests"] = required_in_prediction_requests
         if not payload:
             raise ValueError()
 
@@ -1933,14 +1913,10 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
         """
 
         url = f"{self._path}{self.id}/settings/"
-        response_json = cast(
-            ServerDataDictType, from_api(self._client.get(url).json(), keep_null_keys=True)
-        )
+        response_json = cast(ServerDataDictType, from_api(self._client.get(url).json(), keep_null_keys=True))
         return cast(Dict[str, bool], response_json.get("predictions_data_collection"))
 
-    def update_predictions_data_collection_settings(
-        self, enabled: bool, max_wait: int = DEFAULT_MAX_WAIT
-    ) -> None:
+    def update_predictions_data_collection_settings(self, enabled: bool, max_wait: int = DEFAULT_MAX_WAIT) -> None:
         """Update predictions data collection settings of this deployment.
 
         .. versionadded:: v2.21
@@ -2003,9 +1979,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             seconds to wait for successful resolution
         """
 
-        payload: Dict[str, Dict[str, Union[None, bool, Dict[str, Optional[float]]]]] = defaultdict(
-            dict
-        )
+        payload: Dict[str, Dict[str, Union[None, bool, Dict[str, Optional[float]]]]] = defaultdict(dict)
         payload["prediction_warning"]["enabled"] = prediction_warning_enabled
         if use_default_boundaries is True:
             payload["prediction_warning"]["custom_boundaries"] = None
@@ -2708,9 +2682,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             >>> '5df109112ca582033ff44084'
         """
         url = f"{self._path}{self.id}/model/secondaryDatasetConfiguration/"
-        payload: Dict[str, Union[str, List[str]]] = {
-            "secondaryDatasetConfigId": secondary_dataset_config_id
-        }
+        payload: Dict[str, Union[str, List[str]]] = {"secondaryDatasetConfigId": secondary_dataset_config_id}
         if credential_ids:
             payload["credentialsIds"] = credential_ids
         self._client.patch(url, data=payload)
@@ -2908,9 +2880,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
                     "includePredictionIntervals": include_prediction_intervals,
                 },
             )
-            retrieve_url = wait_for_async_resolution(
-                self._client, response.headers["Location"], max_wait=max_wait
-            )
+            retrieve_url = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
             response = self._client.get(retrieve_url)
         else:
             retrieve_url = f"{self._path}{self.id}/scoringCode/"
@@ -3045,11 +3015,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
     def update_shared_roles(
         self,
-        roles: List[
-            Union[
-                DeploymentGrantSharedRoleWithId, DeploymentGrantSharedRoleWithUsername, SharingRole
-            ]
-        ],
+        roles: List[Union[DeploymentGrantSharedRoleWithId, DeploymentGrantSharedRoleWithUsername, SharingRole]],
     ) -> None:
         """
         Share a deployment with a user, group, or organization
@@ -3438,9 +3404,7 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
 
         return cast(List[ACCURACY_METRIC], data)
 
-    def update_accuracy_metrics_settings(
-        self, accuracy_metrics: List[ACCURACY_METRIC]
-    ) -> List[ACCURACY_METRIC]:
+    def update_accuracy_metrics_settings(self, accuracy_metrics: List[ACCURACY_METRIC]) -> List[ACCURACY_METRIC]:
         """
         Update accuracy metrics settings for this deployment.
 
@@ -3539,6 +3503,67 @@ class Deployment(APIObject, MonitoringDataQueryBuilderMixin, BrowserMixin):
             data=payload,
             keep_attrs=["retrainingUserId", "datasetId", "predictionEnvironmentId"],
         )
+
+    def _find_tag_by_id(self, id: str) -> Optional[dict[str, Any]]:
+        """Search for a deployment tag by its ID."""
+        for tag in self.tags:
+            if tag["id"] == id:
+                return tag
+
+        return None
+
+    def create_tag(self, name: str, value: str) -> dict[str, str]:
+        """Create a new deployment tag.
+
+        Parameters
+        ----------
+        name : str
+            The name of the deployment tag.
+        value : str
+            The value of the deployment tag.
+        """
+        url = f"{self._path}{self.id}/tags/"
+        payload = {"name": name, "value": value}
+        result = self._client.post(url, json=payload).json()
+        payload.update(result)
+        self.tags.append(payload)
+        return payload
+
+    def update_tag(self, id: str, name: str, value: str) -> dict[str, str]:
+        """Update an existing deployment tag.
+
+        Parameters
+        ----------
+        id : str
+            The ID of the deployment tag.
+        name : str
+            The new name of the deployment tag.
+        value : str
+            The new value of the deployment tag.
+        """
+        url = f"{self._path}{self.id}/tags/{id}/"
+        payload = {"name": name, "value": value}
+        self._client.patch(url, json=payload)
+        payload.update({"id": id})
+        tag = self._find_tag_by_id(id)
+        if tag:
+            tag.update(payload)
+        return payload
+
+    def delete_tag(self, id: str) -> None:
+        """Deletes the deployment tag specified by ID.
+
+        Parameters
+        ----------
+        id : str
+            The ID of the deployment tag to delete.
+        """
+        url = f"{self._path}{self.id}/tags/{id}/"
+        self._client.delete(url)
+
+        tag = self._find_tag_by_id(id)
+        if tag:
+            self.tags.remove(tag)
 
 
 class DeploymentListFilters:
@@ -3647,7 +3672,6 @@ class DeploymentListFilters:
         tag_keys: Optional[List[str]] = None,
         tag_values: Optional[List[str]] = None,
     ) -> None:
-
         self.role = _check(String(), role)
         self.service_health = _check(t.List(String()), service_health)
         self.model_health = _check(t.List(String()), model_health)
@@ -3667,9 +3691,7 @@ class DeploymentListFilters:
         if self.model_health:
             query_args["modelHealth"] = self._list_to_comma_separated_string(self.model_health)
         if self.accuracy_health:
-            query_args["accuracyHealth"] = self._list_to_comma_separated_string(
-                self.accuracy_health
-            )
+            query_args["accuracyHealth"] = self._list_to_comma_separated_string(self.accuracy_health)
         if self.execution_environment_type:
             query_args["executionEnvironmentType"] = self._list_to_comma_separated_string(
                 self.execution_environment_type

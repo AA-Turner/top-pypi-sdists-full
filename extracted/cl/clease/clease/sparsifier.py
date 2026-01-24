@@ -1,5 +1,3 @@
-from typing import List, Tuple
-
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -25,7 +23,7 @@ class Sparsifier:
 
     def sparsify(
         self, fitter: LinearRegression, X: np.ndarray, y: np.ndarray
-    ) -> Tuple[List[int], np.ndarray]:
+    ) -> tuple[list[int], np.ndarray]:
         """
         Remove the feature corresponding to the smallest coefficient
         iteratively. On each step, modified Afaike information

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 D. Card (1995), "Using Geographic Variation in College Proximity to Estimate
@@ -46,6 +46,5 @@ xpersq                   exper**2
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "card.csv.bz2")

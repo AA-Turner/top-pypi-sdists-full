@@ -46,10 +46,14 @@ protected:
                                      SmallVector<ConstantValue>& values,
                                      SmallVector<ConstantValue*>& localPtrs);
 
-    bool isFullyCovered(const CaseStatement& stmt) const;
+    bool isFullyCovered(const CaseStatement& stmt, const Statement* knownBranch,
+                        bool isKnown) const;
 
     /// Tracking for how many steps we've taken while analyzing the body of a loop.
     uint32_t forLoopSteps = 0;
+
+    /// Set to true if we're currently walking through an unrolled for loop.
+    bool inUnrolledForLoop = false;
 
     /// An optional diagnostics collection. If provided, warnings encountered during
     /// analysis will be added to it.
@@ -298,7 +302,6 @@ protected:
 
         // If the branch is known we can visit it explicitly,
         // otherwise we need to merge states for all case items.
-        // TODO: report warnings from the eval here?
         auto [knownBranch, isKnown] = stmt.getKnownBranch(evalContext);
 
         auto initialState = std::move(state);
@@ -319,7 +322,7 @@ protected:
 
         // Determine whether the case statement has full coverage of all possible
         // inputs, such that we're guaranteed to select one of the case items.
-        const bool covered = isFullyCovered(stmt);
+        const bool covered = isFullyCovered(stmt, knownBranch, isKnown);
 
         if (stmt.defaultCase) {
             // If the case input is fully covered by item expressions,
@@ -411,7 +414,7 @@ protected:
 
         SmallVector<ConstantValue> iterValues;
         SmallVector<ConstantValue*> localPtrs;
-        const bool isOuterLoop = forLoopSteps == 0;
+        auto oldForLoopSteps = forLoopSteps;
         auto bodyWillExecute = WillExecute::Maybe;
         TState bodyState, exitState;
         if (stmt.stopExpr) {
@@ -447,6 +450,7 @@ protected:
         }
         else {
             // We have a set of iteration values that we can use to unroll the loop.
+            auto savedUnrollFlag = std::exchange(inUnrolledForLoop, true);
             for (size_t i = 0; i < iterValues.size();) {
                 for (auto local : localPtrs)
                     *local = std::move(iterValues[i++]);
@@ -456,6 +460,7 @@ protected:
                 for (auto step : stmt.steps)
                     visit(*step);
             }
+            inUnrolledForLoop = savedUnrollFlag;
         }
 
         // Clean up any locals we may have created.
@@ -464,8 +469,7 @@ protected:
                 evalContext.deleteLocal(var);
         }
 
-        if (isOuterLoop)
-            forLoopSteps = 0;
+        forLoopSteps = oldForLoopSteps;
 
         if (bodyWillExecute == WillExecute::Yes)
             (DERIVED).meetState(exitState, state);

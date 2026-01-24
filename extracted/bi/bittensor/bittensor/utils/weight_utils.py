@@ -8,6 +8,7 @@ import numpy as np
 from bittensor_wallet import Keypair
 from numpy.typing import NDArray
 from scalecodec import U16, ScaleBytes, Vec
+from bittensor.core.types import Weights as MaybeSplit
 
 from bittensor.utils.btlogging import logging
 from bittensor.utils.registration import legacy_torch_api_compat, torch, use_torch
@@ -21,18 +22,18 @@ U32_MAX = 4294967295
 U16_MAX = 65535
 
 
-# Uses in `bittensor.utils.weight_utils.process_weights_for_netuid`
 @legacy_torch_api_compat
 def normalize_max_weight(
     x: Union[NDArray[np.float32], "torch.FloatTensor"], limit: float = 0.1
 ) -> Union[NDArray[np.float32], "torch.FloatTensor"]:
     """Normalizes the tensor x so that sum(x) = 1 and the max value is not greater than the limit.
-    Args:
-        x (:obj:`np.float32`): Tensor to be max_value normalized.
+
+    Parameters:
+        x: Tensor to be max_value normalized.
         limit: float: Max value after normalization.
 
     Returns:
-        y (:obj:`np.float32`): Normalized x tensor.
+        y: Normalized x tensor.
     """
     epsilon = 1e-7  # For numerical stability after normalization
 
@@ -70,7 +71,6 @@ def normalize_max_weight(
         return y
 
 
-# Metagraph uses this function.
 def convert_weight_uids_and_vals_to_tensor(
     n: int, uids: list[int], weights: list[int]
 ) -> Union[NDArray[np.float32], "torch.FloatTensor"]:
@@ -78,13 +78,13 @@ def convert_weight_uids_and_vals_to_tensor(
     Converts weights and uids from chain representation into a np.array (inverse operation from
     convert_weights_and_uids_for_emit).
 
-    Args:
-        n (int): number of neurons on network.
-        uids (list[int]): Tensor of uids as destinations for passed weights.
-        weights (list[int]): Tensor of weights.
+    Parameters:
+        n: number of neurons on network.
+        uids: Tensor of uids as destinations for passed weights.
+        weights: Tensor of weights.
 
     Returns:
-        row_weights (np.float32 or torch.FloatTensor): Converted row weights.
+        Converted row weights.
     """
     row_weights = (
         torch.zeros([n], dtype=torch.float32)
@@ -101,21 +101,20 @@ def convert_weight_uids_and_vals_to_tensor(
     return row_weights
 
 
-# Metagraph uses this function.
 def convert_root_weight_uids_and_vals_to_tensor(
     n: int, uids: list[int], weights: list[int], subnets: list[int]
 ) -> Union[NDArray[np.float32], "torch.FloatTensor"]:
     """Converts root weights and uids from chain representation into a np.array or torch FloatTensor
     (inverse operation from convert_weights_and_uids_for_emit)
 
-    Args:
-        n (int): number of neurons on network.
-        uids (list[int]): Tensor of uids as destinations for passed weights.
-        weights (list[int]): Tensor of weights.
-        subnets (list[int]): list of subnets on the network.
+    Parameters:
+        n: number of neurons on network.
+        uids: Tensor of uids as destinations for passed weights.
+        weights: Tensor of weights.
+        subnets: list of subnets on the network.
 
     Returns:
-        row_weights (np.float32): Converted row weights.
+        Converted row weights.
     """
     row_weights = (
         torch.zeros([n], dtype=torch.float32)
@@ -145,13 +144,13 @@ def convert_bond_uids_and_vals_to_tensor(
 ) -> Union[NDArray[np.int64], "torch.LongTensor"]:
     """Converts bond and uids from chain representation into a np.array.
 
-    Args:
-        n (int): number of neurons on network.
-        uids (list[int]): Tensor of uids as destinations for passed bonds.
-        bonds (list[int]): Tensor of bonds.
+    Parameters:
+        n: number of neurons on network.
+        uids: Tensor of uids as destinations for passed bonds.
+        bonds: Tensor of bonds.
 
     Returns:
-        row_bonds (np.float32): Converted row bonds.
+        Converted row bonds.
     """
     row_bonds = (
         torch.zeros([n], dtype=torch.int64)
@@ -163,20 +162,19 @@ def convert_bond_uids_and_vals_to_tensor(
     return row_bonds
 
 
-# This is used by the community via `bittensor.api.extrinsics.set_weights.set_weights_extrinsic`
 def convert_weights_and_uids_for_emit(
     uids: Union[NDArray[np.int64], "torch.LongTensor"],
     weights: Union[NDArray[np.float32], "torch.FloatTensor"],
 ) -> tuple[list[int], list[int]]:
     """Converts weights into integer u32 representation that sum to MAX_INT_WEIGHT.
 
-    Args:
-        uids (np.int64):Tensor of uids as destinations for passed weights.
-        weights (np.float32):Tensor of weights.
+    Parameters:
+        uids:Tensor of uids as destinations for passed weights.
+        weights:Tensor of weights.
 
     Returns:
-        weight_uids (list[int]): Uids as a list.
-        weight_vals (list[int]): Weights as a list.
+        weight_uids: Uids as a list.
+        weight_vals: Weights as a list.
     """
     # Checks.
     weights = weights.tolist()
@@ -225,23 +223,22 @@ def process_weights_for_netuid(
     tuple[NDArray[np.int64], NDArray[np.float32]],
 ]:
     """
-    Processes weight tensors for a given subnet id using the provided weight and UID arrays, applying constraints
-    and normalization based on the subtensor and metagraph data. This function can handle both NumPy arrays and PyTorch
+    Processes weight tensors for a given subnet id using the provided weight and UID arrays, applying constraints and
+    normalization based on the subtensor and metagraph data. This function can handle both NumPy arrays and PyTorch
     tensors.
 
-    Args:
-        uids (Union[NDArray[np.int64], "torch.Tensor"]): Array of unique identifiers of the neurons.
-        weights (Union[NDArray[np.float32], "torch.Tensor"]): Array of weights associated with the user IDs.
-        netuid (int): The network uid to process weights for.
-        subtensor (Subtensor): Subtensor instance to access blockchain data.
-        metagraph (Optional[Metagraph]): Metagraph instance for additional network data. If None, it is fetched from
-            the subtensor using the netuid.
-        exclude_quantile (int): Quantile threshold for excluding lower weights. Defaults to ``0``.
+    Parameters:
+        uids: Array of unique identifiers of the neurons.
+        weights: Array of weights associated with the user IDs.
+        netuid: The network uid to process weights for.
+        subtensor: Subtensor instance to access blockchain data.
+        metagraph: Metagraph instance for additional network data. If None, it is fetched from the subtensor using the
+            netuid.
+        exclude_quantile: Quantile threshold for excluding lower weights.
 
     Returns:
-        Union[tuple["torch.Tensor", "torch.FloatTensor"], tuple[NDArray[np.int64], NDArray[np.float32]]]: tuple
-            containing the array of user IDs and the corresponding normalized weights. The data type of the return
-            matches the type of the input weights (NumPy or PyTorch).
+        Tuple containing the array of user IDs and the corresponding normalized weights. The data type of the return
+        matches the type of the input weights (NumPy or PyTorch).
     """
 
     logging.debug("process_weights_for_netuid()")
@@ -275,22 +272,20 @@ def process_weights(
     tuple[NDArray[np.int64], NDArray[np.float32]],
 ]:
     """
-    Processes weight tensors for a given weights and UID arrays and hyperparams, applying constraints
-    and normalization based on the subtensor and metagraph data. This function can handle both NumPy arrays and PyTorch
-    tensors.
+    Processes weight tensors for a given weights and UID arrays and hyperparams, applying constraints and normalization
+    based on the subtensor and metagraph data. This function can handle both NumPy arrays and PyTorch tensors.
 
-    Args:
-        uids (Union[NDArray[np.int64], "torch.Tensor"]): Array of unique identifiers of the neurons.
-        weights (Union[NDArray[np.float32], "torch.Tensor"]): Array of weights associated with the user IDs.
-        num_neurons (int): The number of neurons in the network.
-        min_allowed_weights (Optional[int]): Subnet hyperparam Minimum number of allowed weights.
-        max_weight_limit (Optional[float]): Subnet hyperparam Maximum weight limit.
-        exclude_quantile (int): Quantile threshold for excluding lower weights. Defaults to ``0``.
+    Parameters:
+        uids: Array of unique identifiers of the neurons.
+        weights: Array of weights associated with the user IDs.
+        num_neurons: The number of neurons in the network.
+        min_allowed_weights: Subnet hyperparam Minimum number of allowed weights.
+        max_weight_limit: Subnet hyperparam Maximum weight limit.
+        exclude_quantile: Quantile threshold for excluding lower weights.
 
     Returns:
-        Union[tuple["torch.Tensor", "torch.FloatTensor"], tuple[NDArray[np.int64], NDArray[np.float32]]]: tuple
-            containing the array of user IDs and the corresponding normalized weights. The data type of the return
-            matches the type of the input weights (NumPy or PyTorch).
+        Tuple containing the array of user IDs and the corresponding normalized weights. The data type of the return
+        matches the type of the input weights (NumPy or PyTorch).
     """
     logging.debug("process_weights()")
     logging.debug(f"weights: {weights}")
@@ -400,13 +395,13 @@ def generate_weight_hash(
     """
     Generate a valid commit hash from the provided weights.
 
-    Args:
-        address (str): The account identifier. Wallet ss58_address.
-        netuid (int): The network unique identifier.
-        uids (list[int]): The list of UIDs.
-        salt (list[int]): The salt to add to hash.
-        values (list[int]): The list of weight values.
-        version_key (int): The version key.
+    Parameters:
+        address: The account identifier. Wallet ss58_address.
+        netuid: The subnet unique identifier.
+        uids: The list of UIDs.
+        salt: The salt to add to hash.
+        values: The list of weight values.
+        version_key: The version key.
 
     Returns:
         str: The generated commit hash.
@@ -448,9 +443,9 @@ def convert_uids_and_weights(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Converts netuids and weights to numpy arrays if they are not already.
 
-    Arguments:
-        uids (Union[NDArray[np.int64], list]): The uint64 uids of destination neurons.
-        weights (Union[NDArray[np.float32], list]): The weights to set. These must be floated.
+    Parameters:
+        uids: The uint64 uids of destination neurons.
+        weights: The weights to set. These must be floated.
 
     Returns:
         tuple[ndarray, ndarray]: Bytes converted netuids and weights.
@@ -468,10 +463,9 @@ def convert_and_normalize_weights_and_uids(
 ) -> tuple[list[int], list[int]]:
     """Converts weights and uids to numpy arrays if they are not already.
 
-    Arguments:
-        uids (Union[NDArray[np.int64], torch.LongTensor, list]): The ``uint64`` uids of destination neurons.
-        weights (Union[NDArray[np.float32], torch.FloatTensor, list]): The weights to set. These must be ``float`` s
-            and correspond to the passed ``uid`` s.
+    Parameters:
+        uids: The ``uint64`` uids of destination neurons.
+        weights: The weights to set. These must be ``float`` s and correspond to the passed ``uid`` s.
 
     Returns:
         weight_uids, weight_vals: Bytes converted weights and uids
@@ -479,3 +473,42 @@ def convert_and_normalize_weights_and_uids(
 
     # Reformat and normalize and return
     return convert_weights_and_uids_for_emit(*convert_uids_and_weights(uids, weights))
+
+
+def convert_maybe_split_to_u16(maybe_split: MaybeSplit) -> list[int]:
+    # Convert np.ndarray to list
+    if isinstance(maybe_split, np.ndarray):
+        maybe_split = maybe_split.tolist()
+
+    # Ensure we now work with list of numbers
+    if not isinstance(maybe_split, list) or not maybe_split:
+        raise ValueError("maybe_split must be a non-empty list or array of numbers.")
+
+    # Ensure all elements are valid numbers
+    try:
+        values = [float(x) for x in maybe_split]
+    except Exception:
+        raise ValueError("maybe_split must contain numeric values (int or float).")
+
+    if any(x < 0 for x in values):
+        raise ValueError("maybe_split cannot contain negative values.")
+
+    total = sum(values)
+    if total <= 0:
+        raise ValueError("maybe_split must sum to a positive value.")
+
+    # Normalize to sum = 1.0
+    normalized = [x / total for x in values]
+
+    # Scale to u16 and round
+    u16_vals = [round(val * U16_MAX) for val in normalized]
+
+    # Fix rounding error
+    diff = sum(u16_vals) - U16_MAX
+    if diff != 0:
+        max_idx = u16_vals.index(max(u16_vals))
+        u16_vals[max_idx] -= diff
+
+    assert sum(u16_vals) == U16_MAX, "Final split must sum to U16_MAX (65535)."
+
+    return u16_vals

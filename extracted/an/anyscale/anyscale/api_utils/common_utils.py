@@ -65,17 +65,16 @@ def source_cloud_id_and_project_id(
                     parent_cloud_id=cloud_id
                 ).result
                 project_id = project.id
+    elif not project_id:
+        # 3. Cloud, no project
+        # (Use the default project of the cloud)
+        project = external_api.get_default_project(parent_cloud_id=cloud_id).result
+        project_id = project.id
     else:
-        if not project_id:
-            # 3. Cloud, no project
-            # (Use the default project of the cloud)
-            project = external_api.get_default_project(parent_cloud_id=cloud_id).result
-            project_id = project.id
-        else:
-            # 4. Cloud, project
-            # (Verify that the project is in the cloud)
-            project = external_api.get_project(project_id).result
-            assert (
-                project.parent_cloud_id == cloud_id
-            ), f"Project {project_id} is not in cloud {cloud_id}."
+        # 4. Cloud, project
+        # (Verify that the project is in the cloud)
+        project = external_api.get_project(project_id).result
+        assert (
+            project.parent_cloud_id == cloud_id
+        ), f"Project {project_id} is not in cloud {cloud_id}."
     return (cloud_id, project_id)  # type: ignore

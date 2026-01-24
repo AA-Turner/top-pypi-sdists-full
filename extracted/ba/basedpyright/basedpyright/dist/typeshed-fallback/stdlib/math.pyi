@@ -204,8 +204,6 @@ def gcd(*integers: SupportsIndex) -> int:
     ...
 def hypot(*coordinates: _SupportsFloatOrIndex) -> float:
     """
-    hypot(*coordinates) -> value
-
     Multidimensional Euclidean distance from the origin to a point.
 
     Roughly equivalent to:
@@ -413,7 +411,7 @@ if sys.version_info >= (3, 12):
 
         Roughly equivalent to:
 
-            sum(itertools.starmap(operator.mul, zip(p, q, strict=True)))
+            sum(map(operator.mul, p, q, strict=True))
 
         For float and mixed int/float inputs, the intermediate products
         and sums are computed with extended precision.

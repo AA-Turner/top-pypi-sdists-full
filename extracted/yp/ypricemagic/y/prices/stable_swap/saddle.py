@@ -1,5 +1,4 @@
 import logging
-from typing import List, Optional
 
 from a_sync import a_sync, cgather
 from web3.exceptions import ContractLogicError
@@ -10,14 +9,7 @@ from y import convert
 from y.classes.common import ERC20
 from y.constants import CONNECTED_TO_MAINNET
 from y.contracts import has_method, has_methods
-from y.datatypes import (
-    Address,
-    AddressOrContract,
-    AnyAddressType,
-    Block,
-    UsdPrice,
-    UsdValue,
-)
+from y.datatypes import Address, AddressOrContract, AnyAddressType, Block, UsdPrice, UsdValue
 from y.prices import magic
 from y.utils.multicall import multicall_same_func_same_contract_different_inputs
 
@@ -93,7 +85,7 @@ async def get_pool(token_address: AnyAddressType) -> Address:
 
 
 @a_sync(default="sync")
-async def get_price(token_address: AddressOrContract, block: Optional[Block] = None) -> UsdPrice:
+async def get_price(token_address: AddressOrContract, block: Block | None = None) -> UsdPrice:
     """
     Calculate the price of a Saddle LP token in USD.
 
@@ -120,7 +112,7 @@ async def get_price(token_address: AddressOrContract, block: Optional[Block] = N
 @a_sync(default="sync")
 async def get_tvl(
     token_address: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ) -> UsdValue:
     """
@@ -141,7 +133,7 @@ async def get_tvl(
     See Also:
         - :func:`get_price`
     """
-    tokens: List[ERC20]
+    tokens: list[ERC20]
     pool, tokens = await cgather(
         get_pool(token_address, sync=False),
         get_tokens(token_address, block, sync=False),
@@ -162,7 +154,7 @@ async def get_tvl(
 
 
 @a_sync(default="sync")
-async def get_tokens(token_address: AnyAddressType, block: Optional[Block] = None) -> List[ERC20]:
+async def get_tokens(token_address: AnyAddressType, block: Block | None = None) -> list[ERC20]:
     """
     Retrieve the list of tokens in a Saddle LP token pool.
 

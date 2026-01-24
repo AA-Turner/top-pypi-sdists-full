@@ -12,6 +12,7 @@ use indexmap::IndexMap;
 use crate::{
     Catalog, Identifier, Table, TableRef,
     error::{CatalogError, CatalogResult},
+    pattern::{match_pattern, parse_qualified_pattern},
 };
 
 type NamespaceTableMap = IndexMap<Option<String>, IndexMap<String, Arc<MemoryTable>>>;
@@ -19,7 +20,8 @@ type NamespaceTableMap = IndexMap<Option<String>, IndexMap<String, Arc<MemoryTab
 /// A catalog entirely stored in-memory.
 ///
 /// Supports tables without namespaces or with a single level namespace.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct MemoryCatalog {
     name: String,
     /// map of optional namespace -> table name -> table
@@ -58,7 +60,8 @@ impl MemoryCatalog {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct MemoryTable {
     name: String,
     info: Arc<RwLock<InMemoryInfo>>,
@@ -225,32 +228,60 @@ impl Catalog for MemoryCatalog {
 
     fn list_tables(&self, pattern: Option<&str>) -> CatalogResult<Vec<Identifier>> {
         let tables = self.tables.read().unwrap();
-        if let Some(pat) = pattern {
-            if let Some(namespace_tables) = tables.get(&Some(pat.to_string())) {
-                Ok(namespace_tables
-                    .keys()
-                    .map(|table_name| Identifier::new(vec![pat, table_name]))
-                    .collect())
-            } else {
-                Ok(vec![])
+
+        let (namespace_filter, table_pattern) = match pattern {
+            Some(pat) => {
+                let parsed = parse_qualified_pattern(pat);
+                (parsed.namespace, Some(parsed.table))
             }
-        } else {
-            Ok(tables
-                .iter()
-                .flat_map(|(namespace, namespace_tables)| {
-                    namespace_tables
-                        .keys()
-                        .map(move |table_name| match namespace {
-                            Some(ns) => Identifier::new(vec![ns, table_name]),
-                            None => Identifier::simple(table_name),
-                        })
-                })
-                .collect())
-        }
+            None => (None, None),
+        };
+
+        let ns_table_pairs: Vec<(Option<String>, String)> = match namespace_filter {
+            Some(ns_filter) => {
+                // Only list tables from the specified namespace
+                tables
+                    .get(&Some(ns_filter.to_string()))
+                    .iter()
+                    .flat_map(|namespace_tables| {
+                        namespace_tables
+                            .keys()
+                            .map(|table_name| (Some(ns_filter.to_string()), table_name.clone()))
+                    })
+                    .collect()
+            }
+            None => {
+                // List tables from all namespaces
+                tables
+                    .iter()
+                    .flat_map(|(namespace, namespace_tables)| {
+                        namespace_tables
+                            .keys()
+                            .map(|table_name| (namespace.clone(), table_name.clone()))
+                    })
+                    .collect()
+            }
+        };
+
+        let result = ns_table_pairs
+            .iter()
+            .filter_map(|(namespace, table_name)| {
+                if table_pattern.is_none_or(|pat| match_pattern(table_name, pat)) {
+                    Some(match namespace {
+                        Some(ns) => Identifier::new(vec![ns, table_name]),
+                        None => Identifier::simple(table_name),
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(result)
     }
 
     #[cfg(feature = "python")]
-    fn to_py(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::PyObject> {
+    fn to_py(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::Py<pyo3::PyAny>> {
         use pyo3::{intern, types::PyAnyMethods};
 
         use crate::python::PyCatalog;
@@ -310,7 +341,7 @@ impl Table for MemoryTable {
 
         let pset = MicroPartitionSet::empty();
         let runner = daft_runners::get_or_create_runner()?;
-        pyo3::Python::with_gil(|py| {
+        pyo3::Python::attach(|py| {
             for (i, res) in runner.run_iter_tables(py, plan, None)?.enumerate() {
                 let mp = res?;
                 pset.set_partition(i, &mp)?;
@@ -354,7 +385,7 @@ impl Table for MemoryTable {
     }
 
     #[cfg(feature = "python")]
-    fn to_py(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::PyObject> {
+    fn to_py(&self, py: pyo3::Python<'_>) -> pyo3::PyResult<pyo3::Py<pyo3::PyAny>> {
         use pyo3::{intern, types::PyAnyMethods};
 
         use crate::python::PyTable;

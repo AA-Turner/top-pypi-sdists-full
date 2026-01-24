@@ -19,7 +19,6 @@ from .matrix_config import MatrixConfig
 from .tiered_config import TieredConfig
 from .package_config import PackageConfig
 from .billable_metric_tiny import BillableMetricTiny
-from .transform_price_filter import TransformPriceFilter
 from .billing_cycle_configuration import BillingCycleConfiguration
 from .unit_conversion_rate_config import UnitConversionRateConfig
 from .matrix_with_allocation_config import MatrixWithAllocationConfig
@@ -29,97 +28,154 @@ from .dimensional_price_configuration import DimensionalPriceConfiguration
 __all__ = [
     "Price",
     "UnitPrice",
+    "UnitPriceCompositePriceFilter",
     "UnitPriceConversionRateConfig",
     "TieredPrice",
+    "TieredPriceCompositePriceFilter",
     "TieredPriceConversionRateConfig",
     "BulkPrice",
+    "BulkPriceCompositePriceFilter",
     "BulkPriceConversionRateConfig",
+    "BulkWithFiltersPrice",
+    "BulkWithFiltersPriceBulkWithFiltersConfig",
+    "BulkWithFiltersPriceBulkWithFiltersConfigFilter",
+    "BulkWithFiltersPriceBulkWithFiltersConfigTier",
+    "BulkWithFiltersPriceCompositePriceFilter",
+    "BulkWithFiltersPriceConversionRateConfig",
     "PackagePrice",
+    "PackagePriceCompositePriceFilter",
     "PackagePriceConversionRateConfig",
     "MatrixPrice",
+    "MatrixPriceCompositePriceFilter",
     "MatrixPriceConversionRateConfig",
     "ThresholdTotalAmountPrice",
+    "ThresholdTotalAmountPriceCompositePriceFilter",
     "ThresholdTotalAmountPriceConversionRateConfig",
     "ThresholdTotalAmountPriceThresholdTotalAmountConfig",
     "ThresholdTotalAmountPriceThresholdTotalAmountConfigConsumptionTable",
     "TieredPackagePrice",
+    "TieredPackagePriceCompositePriceFilter",
     "TieredPackagePriceConversionRateConfig",
     "TieredPackagePriceTieredPackageConfig",
     "TieredPackagePriceTieredPackageConfigTier",
     "TieredWithMinimumPrice",
+    "TieredWithMinimumPriceCompositePriceFilter",
     "TieredWithMinimumPriceConversionRateConfig",
     "TieredWithMinimumPriceTieredWithMinimumConfig",
     "TieredWithMinimumPriceTieredWithMinimumConfigTier",
     "GroupedTieredPrice",
+    "GroupedTieredPriceCompositePriceFilter",
     "GroupedTieredPriceConversionRateConfig",
     "GroupedTieredPriceGroupedTieredConfig",
     "GroupedTieredPriceGroupedTieredConfigTier",
     "TieredPackageWithMinimumPrice",
+    "TieredPackageWithMinimumPriceCompositePriceFilter",
     "TieredPackageWithMinimumPriceConversionRateConfig",
     "TieredPackageWithMinimumPriceTieredPackageWithMinimumConfig",
     "TieredPackageWithMinimumPriceTieredPackageWithMinimumConfigTier",
     "PackageWithAllocationPrice",
+    "PackageWithAllocationPriceCompositePriceFilter",
     "PackageWithAllocationPriceConversionRateConfig",
     "PackageWithAllocationPricePackageWithAllocationConfig",
     "UnitWithPercentPrice",
+    "UnitWithPercentPriceCompositePriceFilter",
     "UnitWithPercentPriceConversionRateConfig",
     "UnitWithPercentPriceUnitWithPercentConfig",
     "MatrixWithAllocationPrice",
+    "MatrixWithAllocationPriceCompositePriceFilter",
     "MatrixWithAllocationPriceConversionRateConfig",
     "TieredWithProrationPrice",
+    "TieredWithProrationPriceCompositePriceFilter",
     "TieredWithProrationPriceConversionRateConfig",
     "TieredWithProrationPriceTieredWithProrationConfig",
     "TieredWithProrationPriceTieredWithProrationConfigTier",
     "UnitWithProrationPrice",
+    "UnitWithProrationPriceCompositePriceFilter",
     "UnitWithProrationPriceConversionRateConfig",
     "UnitWithProrationPriceUnitWithProrationConfig",
     "GroupedAllocationPrice",
+    "GroupedAllocationPriceCompositePriceFilter",
     "GroupedAllocationPriceConversionRateConfig",
     "GroupedAllocationPriceGroupedAllocationConfig",
     "BulkWithProrationPrice",
     "BulkWithProrationPriceBulkWithProrationConfig",
     "BulkWithProrationPriceBulkWithProrationConfigTier",
+    "BulkWithProrationPriceCompositePriceFilter",
     "BulkWithProrationPriceConversionRateConfig",
     "GroupedWithProratedMinimumPrice",
+    "GroupedWithProratedMinimumPriceCompositePriceFilter",
     "GroupedWithProratedMinimumPriceConversionRateConfig",
     "GroupedWithProratedMinimumPriceGroupedWithProratedMinimumConfig",
     "GroupedWithMeteredMinimumPrice",
+    "GroupedWithMeteredMinimumPriceCompositePriceFilter",
     "GroupedWithMeteredMinimumPriceConversionRateConfig",
     "GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfig",
     "GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfigScalingFactor",
     "GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfigUnitAmount",
     "GroupedWithMinMaxThresholdsPrice",
+    "GroupedWithMinMaxThresholdsPriceCompositePriceFilter",
     "GroupedWithMinMaxThresholdsPriceConversionRateConfig",
     "GroupedWithMinMaxThresholdsPriceGroupedWithMinMaxThresholdsConfig",
     "MatrixWithDisplayNamePrice",
+    "MatrixWithDisplayNamePriceCompositePriceFilter",
     "MatrixWithDisplayNamePriceConversionRateConfig",
     "MatrixWithDisplayNamePriceMatrixWithDisplayNameConfig",
     "MatrixWithDisplayNamePriceMatrixWithDisplayNameConfigUnitAmount",
     "GroupedTieredPackagePrice",
+    "GroupedTieredPackagePriceCompositePriceFilter",
     "GroupedTieredPackagePriceConversionRateConfig",
     "GroupedTieredPackagePriceGroupedTieredPackageConfig",
     "GroupedTieredPackagePriceGroupedTieredPackageConfigTier",
     "MaxGroupTieredPackagePrice",
+    "MaxGroupTieredPackagePriceCompositePriceFilter",
     "MaxGroupTieredPackagePriceConversionRateConfig",
     "MaxGroupTieredPackagePriceMaxGroupTieredPackageConfig",
     "MaxGroupTieredPackagePriceMaxGroupTieredPackageConfigTier",
     "ScalableMatrixWithUnitPricingPrice",
+    "ScalableMatrixWithUnitPricingPriceCompositePriceFilter",
     "ScalableMatrixWithUnitPricingPriceConversionRateConfig",
     "ScalableMatrixWithUnitPricingPriceScalableMatrixWithUnitPricingConfig",
     "ScalableMatrixWithUnitPricingPriceScalableMatrixWithUnitPricingConfigMatrixScalingFactor",
     "ScalableMatrixWithTieredPricingPrice",
+    "ScalableMatrixWithTieredPricingPriceCompositePriceFilter",
     "ScalableMatrixWithTieredPricingPriceConversionRateConfig",
     "ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfig",
     "ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfigMatrixScalingFactor",
     "ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfigTier",
     "CumulativeGroupedBulkPrice",
+    "CumulativeGroupedBulkPriceCompositePriceFilter",
     "CumulativeGroupedBulkPriceConversionRateConfig",
     "CumulativeGroupedBulkPriceCumulativeGroupedBulkConfig",
     "CumulativeGroupedBulkPriceCumulativeGroupedBulkConfigDimensionValue",
+    "CumulativeGroupedAllocationPrice",
+    "CumulativeGroupedAllocationPriceCompositePriceFilter",
+    "CumulativeGroupedAllocationPriceConversionRateConfig",
+    "CumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig",
     "MinimumCompositePrice",
+    "MinimumCompositePriceCompositePriceFilter",
     "MinimumCompositePriceConversionRateConfig",
-    "MinimumCompositePriceMinimumConfig",
+    "MinimumCompositePriceMinimumCompositeConfig",
+    "PercentCompositePrice",
+    "PercentCompositePriceCompositePriceFilter",
+    "PercentCompositePriceConversionRateConfig",
+    "PercentCompositePricePercentConfig",
+    "EventOutputPrice",
+    "EventOutputPriceCompositePriceFilter",
+    "EventOutputPriceConversionRateConfig",
+    "EventOutputPriceEventOutputConfig",
 ]
+
+
+class UnitPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
 
 UnitPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
@@ -137,7 +193,7 @@ class UnitPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[UnitPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -158,6 +214,10 @@ class UnitPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -196,6 +256,17 @@ class UnitPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class TieredPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 TieredPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
@@ -212,7 +283,7 @@ class TieredPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[TieredPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -233,6 +304,10 @@ class TieredPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -271,6 +346,17 @@ class TieredPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class BulkPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 BulkPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
@@ -290,7 +376,7 @@ class BulkPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[BulkPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -311,6 +397,10 @@ class BulkPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -346,6 +436,137 @@ class BulkPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class BulkWithFiltersPriceBulkWithFiltersConfigFilter(BaseModel):
+    """Configuration for a single property filter"""
+
+    property_key: str
+    """Event property key to filter on"""
+
+    property_value: str
+    """Event property value to match"""
+
+
+class BulkWithFiltersPriceBulkWithFiltersConfigTier(BaseModel):
+    """Configuration for a single bulk pricing tier"""
+
+    unit_amount: str
+    """Amount per unit"""
+
+    tier_lower_bound: Optional[str] = None
+    """The lower bound for this tier"""
+
+
+class BulkWithFiltersPriceBulkWithFiltersConfig(BaseModel):
+    """Configuration for bulk_with_filters pricing"""
+
+    filters: List[BulkWithFiltersPriceBulkWithFiltersConfigFilter]
+    """Property filters to apply (all must match)"""
+
+    tiers: List[BulkWithFiltersPriceBulkWithFiltersConfigTier]
+    """Bulk tiers for rating based on total usage volume"""
+
+
+class BulkWithFiltersPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
+BulkWithFiltersPriceConversionRateConfig: TypeAlias = Annotated[
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
+]
+
+
+class BulkWithFiltersPrice(BaseModel):
+    id: str
+
+    billable_metric: Optional[BillableMetricTiny] = None
+
+    billing_cycle_configuration: BillingCycleConfiguration
+
+    billing_mode: Literal["in_advance", "in_arrear"]
+
+    bulk_with_filters_config: BulkWithFiltersPriceBulkWithFiltersConfig
+    """Configuration for bulk_with_filters pricing"""
+
+    cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
+
+    composite_price_filters: Optional[List[BulkWithFiltersPriceCompositePriceFilter]] = None
+
+    conversion_rate: Optional[float] = None
+
+    conversion_rate_config: Optional[BulkWithFiltersPriceConversionRateConfig] = None
+
+    created_at: datetime
+
+    credit_allocation: Optional[Allocation] = None
+
+    currency: str
+
+    discount: Optional[Discount] = None
+
+    external_price_id: Optional[str] = None
+
+    fixed_price_quantity: Optional[float] = None
+
+    invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
+
+    item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
+
+    maximum: Optional[Maximum] = None
+
+    maximum_amount: Optional[str] = None
+
+    metadata: Dict[str, str]
+    """User specified key-value pairs for the resource.
+
+    If not present, this defaults to an empty dictionary. Individual keys can be
+    removed by setting the value to `null`, and the entire metadata mapping can be
+    cleared by setting `metadata` to `null`.
+    """
+
+    minimum: Optional[Minimum] = None
+
+    minimum_amount: Optional[str] = None
+
+    price_model_type: Literal["bulk_with_filters"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
+
+    name: str
+
+    plan_phase_order: Optional[int] = None
+
+    price_type: Literal["usage_price", "fixed_price", "composite_price"]
+
+    replaces_price_id: Optional[str] = None
+    """The price id this price replaces.
+
+    This price will take the place of the replaced price in plan version migrations.
+    """
+
+    dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
+
+
+class PackagePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 PackagePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
@@ -362,7 +583,7 @@ class PackagePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[PackagePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -383,6 +604,10 @@ class PackagePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -421,6 +646,17 @@ class PackagePrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class MatrixPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 MatrixPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
@@ -437,7 +673,7 @@ class MatrixPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[MatrixPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -458,6 +694,10 @@ class MatrixPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     matrix_config: MatrixConfig
     """Configuration for matrix pricing"""
@@ -496,20 +736,34 @@ class MatrixPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class ThresholdTotalAmountPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 ThresholdTotalAmountPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class ThresholdTotalAmountPriceThresholdTotalAmountConfigConsumptionTable(BaseModel):
+    """Configuration for a single threshold"""
+
     threshold: str
-    """Quantity threshold"""
 
     total_amount: str
     """Total amount for this threshold"""
 
 
 class ThresholdTotalAmountPriceThresholdTotalAmountConfig(BaseModel):
+    """Configuration for threshold_total_amount pricing"""
+
     consumption_table: List[ThresholdTotalAmountPriceThresholdTotalAmountConfigConsumptionTable]
     """
     When the quantity consumed passes a provided threshold, the configured total
@@ -531,7 +785,7 @@ class ThresholdTotalAmountPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[ThresholdTotalAmountPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -552,6 +806,10 @@ class ThresholdTotalAmountPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -590,22 +848,35 @@ class ThresholdTotalAmountPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class TieredPackagePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 TieredPackagePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class TieredPackagePriceTieredPackageConfigTier(BaseModel):
+    """Configuration for a single tier with business logic"""
+
     per_unit: str
     """Price per package"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
 
 class TieredPackagePriceTieredPackageConfig(BaseModel):
+    """Configuration for tiered_package pricing"""
+
     package_size: str
-    """Package size"""
 
     tiers: List[TieredPackagePriceTieredPackageConfigTier]
     """Apply tiered pricing after rounding up the quantity to the package size.
@@ -627,7 +898,7 @@ class TieredPackagePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[TieredPackagePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -648,6 +919,10 @@ class TieredPackagePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -686,23 +961,36 @@ class TieredPackagePrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class TieredWithMinimumPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 TieredWithMinimumPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class TieredWithMinimumPriceTieredWithMinimumConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     minimum_amount: str
-    """Minimum amount"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class TieredWithMinimumPriceTieredWithMinimumConfig(BaseModel):
+    """Configuration for tiered_with_minimum pricing"""
+
     tiers: List[TieredWithMinimumPriceTieredWithMinimumConfigTier]
     """Tiered pricing with a minimum amount dependent on the volume tier.
 
@@ -727,7 +1015,7 @@ class TieredWithMinimumPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[TieredWithMinimumPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -748,6 +1036,10 @@ class TieredWithMinimumPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -786,20 +1078,34 @@ class TieredWithMinimumPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedTieredPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedTieredPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedTieredPriceGroupedTieredConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class GroupedTieredPriceGroupedTieredConfig(BaseModel):
+    """Configuration for grouped_tiered pricing"""
+
     grouping_key: str
     """The billable metric property used to group before tiering"""
 
@@ -821,7 +1127,7 @@ class GroupedTieredPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedTieredPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -845,6 +1151,10 @@ class GroupedTieredPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -880,25 +1190,36 @@ class GroupedTieredPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class TieredPackageWithMinimumPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 TieredPackageWithMinimumPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class TieredPackageWithMinimumPriceTieredPackageWithMinimumConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     minimum_amount: str
-    """Minimum amount"""
 
     per_unit: str
-    """Price per package"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
 
 class TieredPackageWithMinimumPriceTieredPackageWithMinimumConfig(BaseModel):
+    """Configuration for tiered_package_with_minimum pricing"""
+
     package_size: float
-    """Package size"""
 
     tiers: List[TieredPackageWithMinimumPriceTieredPackageWithMinimumConfigTier]
     """Apply tiered pricing after rounding up the quantity to the package size.
@@ -918,7 +1239,7 @@ class TieredPackageWithMinimumPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[TieredPackageWithMinimumPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -939,6 +1260,10 @@ class TieredPackageWithMinimumPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -977,20 +1302,30 @@ class TieredPackageWithMinimumPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class PackageWithAllocationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 PackageWithAllocationPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class PackageWithAllocationPricePackageWithAllocationConfig(BaseModel):
+    """Configuration for package_with_allocation pricing"""
+
     allocation: str
-    """Usage allocation"""
 
     package_amount: str
-    """Price per package"""
 
     package_size: str
-    """Package size"""
 
 
 class PackageWithAllocationPrice(BaseModel):
@@ -1004,7 +1339,7 @@ class PackageWithAllocationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[PackageWithAllocationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1025,6 +1360,10 @@ class PackageWithAllocationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1063,12 +1402,25 @@ class PackageWithAllocationPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class UnitWithPercentPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 UnitWithPercentPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class UnitWithPercentPriceUnitWithPercentConfig(BaseModel):
+    """Configuration for unit_with_percent pricing"""
+
     percent: str
     """What percent, out of 100, of the calculated total to charge"""
 
@@ -1087,7 +1439,7 @@ class UnitWithPercentPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[UnitWithPercentPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1108,6 +1460,10 @@ class UnitWithPercentPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1146,6 +1502,17 @@ class UnitWithPercentPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class MatrixWithAllocationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 MatrixWithAllocationPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
@@ -1162,7 +1529,7 @@ class MatrixWithAllocationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[MatrixWithAllocationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1183,6 +1550,10 @@ class MatrixWithAllocationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     matrix_with_allocation_config: MatrixWithAllocationConfig
     """Configuration for matrix_with_allocation pricing"""
@@ -1221,12 +1592,25 @@ class MatrixWithAllocationPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class TieredWithProrationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 TieredWithProrationPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class TieredWithProrationPriceTieredWithProrationConfigTier(BaseModel):
+    """Configuration for a single tiered with proration tier"""
+
     tier_lower_bound: str
     """Inclusive tier starting value"""
 
@@ -1235,6 +1619,8 @@ class TieredWithProrationPriceTieredWithProrationConfigTier(BaseModel):
 
 
 class TieredWithProrationPriceTieredWithProrationConfig(BaseModel):
+    """Configuration for tiered_with_proration pricing"""
+
     tiers: List[TieredWithProrationPriceTieredWithProrationConfigTier]
     """
     Tiers for rating based on total usage quantities into the specified tier with
@@ -1253,7 +1639,7 @@ class TieredWithProrationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[TieredWithProrationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1274,6 +1660,10 @@ class TieredWithProrationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1312,12 +1702,25 @@ class TieredWithProrationPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class UnitWithProrationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 UnitWithProrationPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class UnitWithProrationPriceUnitWithProrationConfig(BaseModel):
+    """Configuration for unit_with_proration pricing"""
+
     unit_amount: str
     """Rate per unit of usage"""
 
@@ -1333,7 +1736,7 @@ class UnitWithProrationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[UnitWithProrationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1354,6 +1757,10 @@ class UnitWithProrationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1392,12 +1799,25 @@ class UnitWithProrationPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedAllocationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedAllocationPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedAllocationPriceGroupedAllocationConfig(BaseModel):
+    """Configuration for grouped_allocation pricing"""
+
     allocation: str
     """Usage allocation per group"""
 
@@ -1419,7 +1839,7 @@ class GroupedAllocationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedAllocationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1443,6 +1863,10 @@ class GroupedAllocationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1479,6 +1903,8 @@ class GroupedAllocationPrice(BaseModel):
 
 
 class BulkWithProrationPriceBulkWithProrationConfigTier(BaseModel):
+    """Configuration for a single bulk pricing tier with proration"""
+
     unit_amount: str
     """Cost per unit"""
 
@@ -1487,8 +1913,21 @@ class BulkWithProrationPriceBulkWithProrationConfigTier(BaseModel):
 
 
 class BulkWithProrationPriceBulkWithProrationConfig(BaseModel):
+    """Configuration for bulk_with_proration pricing"""
+
     tiers: List[BulkWithProrationPriceBulkWithProrationConfigTier]
     """Bulk tiers for rating based on total usage volume"""
+
+
+class BulkWithProrationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
 
 
 BulkWithProrationPriceConversionRateConfig: TypeAlias = Annotated[
@@ -1510,7 +1949,7 @@ class BulkWithProrationPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[BulkWithProrationPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1531,6 +1970,10 @@ class BulkWithProrationPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1566,12 +2009,25 @@ class BulkWithProrationPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedWithProratedMinimumPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedWithProratedMinimumPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedWithProratedMinimumPriceGroupedWithProratedMinimumConfig(BaseModel):
+    """Configuration for grouped_with_prorated_minimum pricing"""
+
     grouping_key: str
     """How to determine the groups that should each have a minimum"""
 
@@ -1593,7 +2049,7 @@ class GroupedWithProratedMinimumPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedWithProratedMinimumPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1617,6 +2073,10 @@ class GroupedWithProratedMinimumPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1652,28 +2112,42 @@ class GroupedWithProratedMinimumPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedWithMeteredMinimumPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedWithMeteredMinimumPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfigScalingFactor(BaseModel):
+    """Configuration for a scaling factor"""
+
     scaling_factor: str
-    """Scaling factor"""
 
     scaling_value: str
-    """Scaling value"""
 
 
 class GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfigUnitAmount(BaseModel):
+    """Configuration for a unit amount"""
+
     pricing_value: str
-    """Pricing value"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class GroupedWithMeteredMinimumPriceGroupedWithMeteredMinimumConfig(BaseModel):
+    """Configuration for grouped_with_metered_minimum pricing"""
+
     grouping_key: str
     """Used to partition the usage into groups.
 
@@ -1710,7 +2184,7 @@ class GroupedWithMeteredMinimumPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedWithMeteredMinimumPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1734,6 +2208,10 @@ class GroupedWithMeteredMinimumPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1769,12 +2247,25 @@ class GroupedWithMeteredMinimumPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedWithMinMaxThresholdsPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedWithMinMaxThresholdsPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedWithMinMaxThresholdsPriceGroupedWithMinMaxThresholdsConfig(BaseModel):
+    """Configuration for grouped_with_min_max_thresholds pricing"""
+
     grouping_key: str
     """The event property used to group before applying thresholds"""
 
@@ -1799,7 +2290,7 @@ class GroupedWithMinMaxThresholdsPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedWithMinMaxThresholdsPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1823,6 +2314,10 @@ class GroupedWithMinMaxThresholdsPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -1858,12 +2353,25 @@ class GroupedWithMinMaxThresholdsPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class MatrixWithDisplayNamePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 MatrixWithDisplayNamePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class MatrixWithDisplayNamePriceMatrixWithDisplayNameConfigUnitAmount(BaseModel):
+    """Configuration for a unit amount item"""
+
     dimension_value: str
     """The dimension value"""
 
@@ -1875,6 +2383,8 @@ class MatrixWithDisplayNamePriceMatrixWithDisplayNameConfigUnitAmount(BaseModel)
 
 
 class MatrixWithDisplayNamePriceMatrixWithDisplayNameConfig(BaseModel):
+    """Configuration for matrix_with_display_name pricing"""
+
     dimension: str
     """Used to determine the unit rate"""
 
@@ -1893,7 +2403,7 @@ class MatrixWithDisplayNamePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[MatrixWithDisplayNamePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -1914,6 +2424,10 @@ class MatrixWithDisplayNamePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     matrix_with_display_name_config: MatrixWithDisplayNamePriceMatrixWithDisplayNameConfig
     """Configuration for matrix_with_display_name pricing"""
@@ -1952,25 +2466,38 @@ class MatrixWithDisplayNamePrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class GroupedTieredPackagePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 GroupedTieredPackagePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class GroupedTieredPackagePriceGroupedTieredPackageConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     per_unit: str
-    """Price per package"""
+    """Per package"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
 
 class GroupedTieredPackagePriceGroupedTieredPackageConfig(BaseModel):
+    """Configuration for grouped_tiered_package pricing"""
+
     grouping_key: str
     """The event property used to group before tiering"""
 
     package_size: str
-    """Package size"""
 
     tiers: List[GroupedTieredPackagePriceGroupedTieredPackageConfigTier]
     """Apply tiered pricing after rounding up the quantity to the package size.
@@ -1990,7 +2517,7 @@ class GroupedTieredPackagePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[GroupedTieredPackagePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2014,6 +2541,10 @@ class GroupedTieredPackagePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -2049,27 +2580,40 @@ class GroupedTieredPackagePrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class MaxGroupTieredPackagePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 MaxGroupTieredPackagePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class MaxGroupTieredPackagePriceMaxGroupTieredPackageConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
     """Per unit amount"""
 
 
 class MaxGroupTieredPackagePriceMaxGroupTieredPackageConfig(BaseModel):
+    """Configuration for max_group_tiered_package pricing"""
+
     grouping_key: str
     """
     The event property used to group before tiering the group with the highest value
     """
 
     package_size: str
-    """Package size"""
 
     tiers: List[MaxGroupTieredPackagePriceMaxGroupTieredPackageConfigTier]
     """Apply tiered pricing to the largest group after grouping with the provided key."""
@@ -2086,7 +2630,7 @@ class MaxGroupTieredPackagePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[MaxGroupTieredPackagePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2107,6 +2651,10 @@ class MaxGroupTieredPackagePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     max_group_tiered_package_config: MaxGroupTieredPackagePriceMaxGroupTieredPackageConfig
     """Configuration for max_group_tiered_package pricing"""
@@ -2145,23 +2693,35 @@ class MaxGroupTieredPackagePrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class ScalableMatrixWithUnitPricingPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 ScalableMatrixWithUnitPricingPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class ScalableMatrixWithUnitPricingPriceScalableMatrixWithUnitPricingConfigMatrixScalingFactor(BaseModel):
+    """Configuration for a single matrix scaling factor"""
+
     first_dimension_value: str
-    """First dimension value"""
 
     scaling_factor: str
-    """Scaling factor"""
 
     second_dimension_value: Optional[str] = None
-    """Second dimension value (optional)"""
 
 
 class ScalableMatrixWithUnitPricingPriceScalableMatrixWithUnitPricingConfig(BaseModel):
+    """Configuration for scalable_matrix_with_unit_pricing pricing"""
+
     first_dimension: str
     """Used to determine the unit rate"""
 
@@ -2191,7 +2751,7 @@ class ScalableMatrixWithUnitPricingPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[ScalableMatrixWithUnitPricingPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2212,6 +2772,10 @@ class ScalableMatrixWithUnitPricingPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -2250,31 +2814,43 @@ class ScalableMatrixWithUnitPricingPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class ScalableMatrixWithTieredPricingPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 ScalableMatrixWithTieredPricingPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfigMatrixScalingFactor(BaseModel):
+    """Configuration for a single matrix scaling factor"""
+
     first_dimension_value: str
-    """First dimension value"""
 
     scaling_factor: str
-    """Scaling factor"""
 
     second_dimension_value: Optional[str] = None
-    """Second dimension value (optional)"""
 
 
 class ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfigTier(BaseModel):
+    """Configuration for a single tier entry with business logic"""
+
     tier_lower_bound: str
-    """Tier lower bound"""
 
     unit_amount: str
-    """Per unit amount"""
 
 
 class ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfig(BaseModel):
+    """Configuration for scalable_matrix_with_tiered_pricing pricing"""
+
     first_dimension: str
     """Used for the scalable matrix first dimension"""
 
@@ -2284,7 +2860,6 @@ class ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfig(
     """Apply a scaling factor to each dimension"""
 
     tiers: List[ScalableMatrixWithTieredPricingPriceScalableMatrixWithTieredPricingConfigTier]
-    """Tier pricing structure"""
 
     second_dimension: Optional[str] = None
     """Used for the scalable matrix second dimension (optional)"""
@@ -2301,7 +2876,7 @@ class ScalableMatrixWithTieredPricingPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[ScalableMatrixWithTieredPricingPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2322,6 +2897,10 @@ class ScalableMatrixWithTieredPricingPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -2362,12 +2941,25 @@ class ScalableMatrixWithTieredPricingPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class CumulativeGroupedBulkPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 CumulativeGroupedBulkPriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
 class CumulativeGroupedBulkPriceCumulativeGroupedBulkConfigDimensionValue(BaseModel):
+    """Configuration for a dimension value entry"""
+
     grouping_key: str
     """Grouping key value"""
 
@@ -2379,11 +2971,12 @@ class CumulativeGroupedBulkPriceCumulativeGroupedBulkConfigDimensionValue(BaseMo
 
 
 class CumulativeGroupedBulkPriceCumulativeGroupedBulkConfig(BaseModel):
+    """Configuration for cumulative_grouped_bulk pricing"""
+
     dimension_values: List[CumulativeGroupedBulkPriceCumulativeGroupedBulkConfigDimensionValue]
     """Each tier lower bound must have the same group of values."""
 
     group: str
-    """Grouping key name"""
 
 
 class CumulativeGroupedBulkPrice(BaseModel):
@@ -2397,7 +2990,7 @@ class CumulativeGroupedBulkPrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[CumulativeGroupedBulkPriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2421,6 +3014,10 @@ class CumulativeGroupedBulkPrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -2456,12 +3053,131 @@ class CumulativeGroupedBulkPrice(BaseModel):
     dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
 
 
+class CumulativeGroupedAllocationPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
+CumulativeGroupedAllocationPriceConversionRateConfig: TypeAlias = Annotated[
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
+]
+
+
+class CumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig(BaseModel):
+    """Configuration for cumulative_grouped_allocation pricing"""
+
+    cumulative_allocation: str
+    """The overall allocation across all groups"""
+
+    group_allocation: str
+    """The allocation per individual group"""
+
+    grouping_key: str
+    """The event property used to group usage before applying allocations"""
+
+    unit_amount: str
+    """The amount to charge for each unit outside of the allocation"""
+
+
+class CumulativeGroupedAllocationPrice(BaseModel):
+    id: str
+
+    billable_metric: Optional[BillableMetricTiny] = None
+
+    billing_cycle_configuration: BillingCycleConfiguration
+
+    billing_mode: Literal["in_advance", "in_arrear"]
+
+    cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
+
+    composite_price_filters: Optional[List[CumulativeGroupedAllocationPriceCompositePriceFilter]] = None
+
+    conversion_rate: Optional[float] = None
+
+    conversion_rate_config: Optional[CumulativeGroupedAllocationPriceConversionRateConfig] = None
+
+    created_at: datetime
+
+    credit_allocation: Optional[Allocation] = None
+
+    cumulative_grouped_allocation_config: CumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig
+    """Configuration for cumulative_grouped_allocation pricing"""
+
+    currency: str
+
+    discount: Optional[Discount] = None
+
+    external_price_id: Optional[str] = None
+
+    fixed_price_quantity: Optional[float] = None
+
+    invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
+
+    item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
+
+    maximum: Optional[Maximum] = None
+
+    maximum_amount: Optional[str] = None
+
+    metadata: Dict[str, str]
+    """User specified key-value pairs for the resource.
+
+    If not present, this defaults to an empty dictionary. Individual keys can be
+    removed by setting the value to `null`, and the entire metadata mapping can be
+    cleared by setting `metadata` to `null`.
+    """
+
+    minimum: Optional[Minimum] = None
+
+    minimum_amount: Optional[str] = None
+
+    price_model_type: Literal["cumulative_grouped_allocation"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
+
+    name: str
+
+    plan_phase_order: Optional[int] = None
+
+    price_type: Literal["usage_price", "fixed_price", "composite_price"]
+
+    replaces_price_id: Optional[str] = None
+    """The price id this price replaces.
+
+    This price will take the place of the replaced price in plan version migrations.
+    """
+
+    dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
+
+
+class MinimumCompositePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
 MinimumCompositePriceConversionRateConfig: TypeAlias = Annotated[
     Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
 ]
 
 
-class MinimumCompositePriceMinimumConfig(BaseModel):
+class MinimumCompositePriceMinimumCompositeConfig(BaseModel):
+    """Configuration for minimum_composite pricing"""
+
     minimum_amount: str
     """The minimum amount to apply"""
 
@@ -2480,7 +3196,7 @@ class MinimumCompositePrice(BaseModel):
 
     cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
 
-    composite_price_filters: Optional[List[TransformPriceFilter]] = None
+    composite_price_filters: Optional[List[MinimumCompositePriceCompositePriceFilter]] = None
 
     conversion_rate: Optional[float] = None
 
@@ -2501,6 +3217,10 @@ class MinimumCompositePrice(BaseModel):
     invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
 
     item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
 
     maximum: Optional[Maximum] = None
 
@@ -2518,10 +3238,217 @@ class MinimumCompositePrice(BaseModel):
 
     minimum_amount: Optional[str] = None
 
-    minimum_config: MinimumCompositePriceMinimumConfig
-    """Configuration for minimum pricing"""
+    minimum_composite_config: MinimumCompositePriceMinimumCompositeConfig
+    """Configuration for minimum_composite pricing"""
 
-    price_model_type: Literal["minimum"] = FieldInfo(alias="model_type")
+    price_model_type: Literal["minimum_composite"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
+
+    name: str
+
+    plan_phase_order: Optional[int] = None
+
+    price_type: Literal["usage_price", "fixed_price", "composite_price"]
+
+    replaces_price_id: Optional[str] = None
+    """The price id this price replaces.
+
+    This price will take the place of the replaced price in plan version migrations.
+    """
+
+    dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
+
+
+class PercentCompositePriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
+PercentCompositePriceConversionRateConfig: TypeAlias = Annotated[
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
+]
+
+
+class PercentCompositePricePercentConfig(BaseModel):
+    """Configuration for percent pricing"""
+
+    percent: float
+    """What percent of the component subtotals to charge"""
+
+
+class PercentCompositePrice(BaseModel):
+    id: str
+
+    billable_metric: Optional[BillableMetricTiny] = None
+
+    billing_cycle_configuration: BillingCycleConfiguration
+
+    billing_mode: Literal["in_advance", "in_arrear"]
+
+    cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
+
+    composite_price_filters: Optional[List[PercentCompositePriceCompositePriceFilter]] = None
+
+    conversion_rate: Optional[float] = None
+
+    conversion_rate_config: Optional[PercentCompositePriceConversionRateConfig] = None
+
+    created_at: datetime
+
+    credit_allocation: Optional[Allocation] = None
+
+    currency: str
+
+    discount: Optional[Discount] = None
+
+    external_price_id: Optional[str] = None
+
+    fixed_price_quantity: Optional[float] = None
+
+    invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
+
+    item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
+
+    maximum: Optional[Maximum] = None
+
+    maximum_amount: Optional[str] = None
+
+    metadata: Dict[str, str]
+    """User specified key-value pairs for the resource.
+
+    If not present, this defaults to an empty dictionary. Individual keys can be
+    removed by setting the value to `null`, and the entire metadata mapping can be
+    cleared by setting `metadata` to `null`.
+    """
+
+    minimum: Optional[Minimum] = None
+
+    minimum_amount: Optional[str] = None
+
+    price_model_type: Literal["percent"] = FieldInfo(alias="model_type")
+    """The pricing model type"""
+
+    name: str
+
+    percent_config: PercentCompositePricePercentConfig
+    """Configuration for percent pricing"""
+
+    plan_phase_order: Optional[int] = None
+
+    price_type: Literal["usage_price", "fixed_price", "composite_price"]
+
+    replaces_price_id: Optional[str] = None
+    """The price id this price replaces.
+
+    This price will take the place of the replaced price in plan version migrations.
+    """
+
+    dimensional_price_configuration: Optional[DimensionalPriceConfiguration] = None
+
+
+class EventOutputPriceCompositePriceFilter(BaseModel):
+    field: Literal["price_id", "item_id", "price_type", "currency", "pricing_unit_id"]
+    """The property of the price to filter on."""
+
+    operator: Literal["includes", "excludes"]
+    """Should prices that match the filter be included or excluded."""
+
+    values: List[str]
+    """The IDs or values that match this filter."""
+
+
+EventOutputPriceConversionRateConfig: TypeAlias = Annotated[
+    Union[UnitConversionRateConfig, TieredConversionRateConfig], PropertyInfo(discriminator="conversion_rate_type")
+]
+
+
+class EventOutputPriceEventOutputConfig(BaseModel):
+    """Configuration for event_output pricing"""
+
+    unit_rating_key: str
+    """The key in the event data to extract the unit rate from."""
+
+    default_unit_rate: Optional[str] = None
+    """
+    If provided, this amount will be used as the unit rate when an event does not
+    have a value for the `unit_rating_key`. If not provided, events missing a unit
+    rate will be ignored.
+    """
+
+    grouping_key: Optional[str] = None
+    """An optional key in the event data to group by (e.g., event ID).
+
+    All events will also be grouped by their unit rate.
+    """
+
+
+class EventOutputPrice(BaseModel):
+    id: str
+
+    billable_metric: Optional[BillableMetricTiny] = None
+
+    billing_cycle_configuration: BillingCycleConfiguration
+
+    billing_mode: Literal["in_advance", "in_arrear"]
+
+    cadence: Literal["one_time", "monthly", "quarterly", "semi_annual", "annual", "custom"]
+
+    composite_price_filters: Optional[List[EventOutputPriceCompositePriceFilter]] = None
+
+    conversion_rate: Optional[float] = None
+
+    conversion_rate_config: Optional[EventOutputPriceConversionRateConfig] = None
+
+    created_at: datetime
+
+    credit_allocation: Optional[Allocation] = None
+
+    currency: str
+
+    discount: Optional[Discount] = None
+
+    event_output_config: EventOutputPriceEventOutputConfig
+    """Configuration for event_output pricing"""
+
+    external_price_id: Optional[str] = None
+
+    fixed_price_quantity: Optional[float] = None
+
+    invoicing_cycle_configuration: Optional[BillingCycleConfiguration] = None
+
+    item: ItemSlim
+    """
+    A minimal representation of an Item containing only the essential identifying
+    information.
+    """
+
+    maximum: Optional[Maximum] = None
+
+    maximum_amount: Optional[str] = None
+
+    metadata: Dict[str, str]
+    """User specified key-value pairs for the resource.
+
+    If not present, this defaults to an empty dictionary. Individual keys can be
+    removed by setting the value to `null`, and the entire metadata mapping can be
+    cleared by setting `metadata` to `null`.
+    """
+
+    minimum: Optional[Minimum] = None
+
+    minimum_amount: Optional[str] = None
+
+    price_model_type: Literal["event_output"] = FieldInfo(alias="model_type")
     """The pricing model type"""
 
     name: str
@@ -2544,6 +3471,7 @@ Price: TypeAlias = Annotated[
         UnitPrice,
         TieredPrice,
         BulkPrice,
+        BulkWithFiltersPrice,
         PackagePrice,
         MatrixPrice,
         ThresholdTotalAmountPrice,
@@ -2567,7 +3495,10 @@ Price: TypeAlias = Annotated[
         ScalableMatrixWithUnitPricingPrice,
         ScalableMatrixWithTieredPricingPrice,
         CumulativeGroupedBulkPrice,
+        CumulativeGroupedAllocationPrice,
         MinimumCompositePrice,
+        PercentCompositePrice,
+        EventOutputPrice,
     ],
     PropertyInfo(discriminator="price_model_type"),
 ]

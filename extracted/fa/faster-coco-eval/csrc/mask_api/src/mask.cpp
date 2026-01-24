@@ -21,31 +21,15 @@ typedef std::ptrdiff_t ssize_t;
 
 using namespace pybind11::literals;
 
-template <typename T>
-std::vector<T> flatten(const std::vector<std::vector<T>> &input) {
-        std::vector<T> result;
-        // Предварительно выделяем память для ускорения (опционально)
-        size_t total_size = 0;
-        for (const auto &inner : input) {
-                total_size += inner.size();
-        }
-        result.reserve(total_size);
-
-        for (const auto &inner : input) {
-                result.insert(result.end(), inner.begin(), inner.end());
-        }
-        return result;
-}
-
 namespace mask_api {
 
 namespace Mask {
 
 // Converts an RLE object to a Python bytes object using its toString() method.
-py::bytes rleToString(const RLE &R) { return py::bytes(R.toString()); }
+py::bytes rleToString(const RLE& R) { return py::bytes(R.toString()); }
 
 // Simple wrapper for RLE::frString
-RLE rleFrString(const std::string &s, const uint64_t &h, const uint64_t &w) {
+RLE rleFrString(const std::string& s, const uint64_t& h, const uint64_t& w) {
         return RLE::frString(s, h, w);
 }
 
@@ -64,7 +48,7 @@ RLE rleFrString(const std::string &s, const uint64_t &h, const uint64_t &w) {
 // each mask, it traverses all elements in column-major order. It counts
 // consecutive runs of identical values and stores the counts in a vector, which
 // is then used to construct an RLE object.
-std::vector<RLE> rleEncode(const py::array_t<uint8_t, py::array::f_style> &M,
+std::vector<RLE> rleEncode(const py::array_t<uint8_t, py::array::f_style>& M,
                            uint64_t h, uint64_t w, uint64_t n) {
         auto mask = M.unchecked<3>();
 
@@ -73,9 +57,16 @@ std::vector<RLE> rleEncode(const py::array_t<uint8_t, py::array::f_style> &M,
 
         for (uint64_t i = 0; i < n; ++i) {
                 std::vector<uint64_t> cnts;
-                cnts.reserve(
-                    h * w /
-                    2);  // Reserve estimated size to avoid reallocations
+                // Improved allocation strategy: adaptive sizing based on mask
+                // characteristics
+                size_t min_reserve = 16;  // Minimum reasonable size
+                size_t max_reserve =
+                    h * w / 4;  // Maximum for very complex masks
+                size_t perimeter_estimate =
+                    2 * (h + w);  // Typical perimeter-based estimate
+                size_t estimated_size = std::max(
+                    min_reserve, std::min(max_reserve, perimeter_estimate));
+                cnts.reserve(estimated_size);
 
                 uint8_t prev = 0;
                 uint64_t count = 0;
@@ -116,34 +107,27 @@ std::vector<RLE> rleEncode(const py::array_t<uint8_t, py::array::f_style> &M,
 // For each RLE object, it extracts the bounding box using the toBbox() method
 // and appends the results to a flat std::vector<double>. Finally, the function
 // returns a NumPy array of shape [n, 4] containing all bounding boxes.
-py::array rleToBbox(const std::vector<RLE> &R, std::optional<uint64_t> n) {
+py::array rleToBbox(const std::vector<RLE>& R, std::optional<uint64_t> n) {
         size_t count = n.value_or(R.size());
-        std::vector<double> result;
-        result.reserve(count * 4);
+
+        // Create py::array_t with proper memory management using shape vector
+        std::vector<py::ssize_t> shape = {static_cast<py::ssize_t>(count), 4};
+        py::array_t<double> result(shape);
+
+        auto buf = result.mutable_unchecked<2>();
 
         for (size_t i = 0; i < count && i < R.size(); ++i) {
                 auto bbox = R[i].toBbox();
-                result.insert(result.end(), bbox.begin(), bbox.end());
+                for (size_t j = 0; j < 4 && j < bbox.size(); ++j) {
+                        buf(i, j) = bbox[j];
+                }
         }
 
-        return py::array(py::buffer_info(
-            result.data(),                            // Pointer to buffer
-            sizeof(double),                           // Size of one scalar
-            py::format_descriptor<double>::format(),  // Python struct-style
-                                                      // format descriptor
-                                                      // (const char*)
-            2,                                        // Number of dimensions
-            std::vector<ssize_t>{static_cast<ssize_t>(count), 4},  // Shape
-            std::vector<ssize_t>{
-                static_cast<ssize_t>(4 *
-                                     sizeof(double)),  // Strides (row stride)
-                static_cast<ssize_t>(sizeof(double))}
-            // Strides (column stride)
-            ));
+        return result;
 }
 
 // Assumes _frString and rleToBbox are defined elsewhere and compatible.
-py::array_t<double> toBbox(const std::vector<py::dict> &R) {
+py::array_t<double> toBbox(const std::vector<py::dict>& R) {
         std::vector<RLE> rles = _frString(R);
         return rleToBbox(rles, rles.size());
 }
@@ -166,7 +150,7 @@ py::array_t<double> toBbox(const std::vector<py::dict> &R) {
 // box array, and passes it to RLE::frBbox to create the RLE mask. All resulting
 // RLE objects are collected in a std::vector<RLE> which is returned to the
 // caller. Throws std::invalid_argument if the input vector is too small.
-std::vector<RLE> rleFrBbox(const std::vector<double> &bb, uint64_t h,
+std::vector<RLE> rleFrBbox(const std::vector<double>& bb, uint64_t h,
                            uint64_t w, uint64_t n) {
         std::vector<RLE> result;
         result.reserve(n);
@@ -177,10 +161,19 @@ std::vector<RLE> rleFrBbox(const std::vector<double> &bb, uint64_t h,
                     "Input vector bb has insufficient size");
         }
 
+        // Reuse single bbox vector to minimize allocations (4 doubles = 32
+        // bytes)
+        std::vector<double> bbox(4);
+
         for (uint64_t i = 0; i < n; ++i) {
-                // Extract bounding box coordinates for the i-th box
-                std::vector<double> bbox{bb[i * 4 + 0], bb[i * 4 + 1],
-                                         bb[i * 4 + 2], bb[i * 4 + 3]};
+                // Efficiently copy 4 consecutive values without temporary
+                // object creation
+                size_t base_idx = i * 4;
+                bbox[0] = bb[base_idx + 0];
+                bbox[1] = bb[base_idx + 1];
+                bbox[2] = bb[base_idx + 2];
+                bbox[3] = bb[base_idx + 3];
+
                 // Convert the bounding box to RLE and add to the result
                 result.emplace_back(RLE::frBbox(bbox, h, w));
         }
@@ -188,25 +181,25 @@ std::vector<RLE> rleFrBbox(const std::vector<double> &bb, uint64_t h,
 }
 
 // Simple wrapper for RLE::frPoly, ignoring parameter k and forwarding xy, h, w
-RLE rleFrPoly(const std::vector<double> &xy, const uint64_t &k,
-              const uint64_t &h, const uint64_t &w) {
+RLE rleFrPoly(const std::vector<double>& xy, const uint64_t& k,
+              const uint64_t& h, const uint64_t& w) {
         // 'k' is unused, kept for compatibility with calling convention
         return RLE::frPoly(xy, h, w);
 }
 
 // Converts a vector of RLE objects to a vector of Python dicts using
 // RLE::toDict().
-std::vector<py::dict> _toString(const std::vector<RLE> &rles) {
+std::vector<py::dict> _toString(const std::vector<RLE>& rles) {
         std::vector<py::dict> result;
         result.reserve(rles.size());
-        for (const auto &rle : rles) {
+        for (const auto& rle : rles) {
                 result.push_back(rle.toDict());
         }
         return result;
 }
 
 // internal conversion from compressed RLE format to Python RLEs object
-std::vector<RLE> _frString(const std::vector<py::dict> &R) {
+std::vector<RLE> _frString(const std::vector<py::dict>& R) {
         std::vector<RLE> result;
         for (uint64_t i = 0; i < R.size(); i++) {
                 std::pair<uint64_t, uint64_t> size =
@@ -219,7 +212,7 @@ std::vector<RLE> _frString(const std::vector<py::dict> &R) {
 }
 
 std::vector<py::dict> encode(
-    const py::array_t<uint8_t, py::array::f_style> &M) {
+    const py::array_t<uint8_t, py::array::f_style>& M) {
         return _toString(rleEncode(M, M.shape(0), M.shape(1), M.shape(2)));
 }
 
@@ -242,7 +235,7 @@ std::vector<py::dict> encode(
 // Usage:
 //  std::vector<RLE> rle_masks = ...;
 //  py::array_t<uint8_t, py::array::f_style> masks = rleDecode(rle_masks);
-py::array_t<uint8_t, py::array::f_style> rleDecode(const std::vector<RLE> &R) {
+py::array_t<uint8_t, py::array::f_style> rleDecode(const std::vector<RLE>& R) {
         if (R.empty()) return {};
 
         uint64_t h = R[0].h;
@@ -286,47 +279,47 @@ py::array_t<uint8_t, py::array::f_style> rleDecode(const std::vector<RLE> &R) {
 
 // decode mask from compressed list of RLE string or RLEs object
 py::array_t<uint8_t, py::array::f_style> decode(
-    const std::vector<py::dict> &R) {
+    const std::vector<py::dict>& R) {
         return rleDecode(_frString(R));
 }
 
-std::vector<py::dict> erode_3x3(const std::vector<py::dict> &rleObjs,
-                                const int &dilation) {
+std::vector<py::dict> erode_3x3(const std::vector<py::dict>& rleObjs,
+                                const int& dilation) {
         std::vector<RLE> rles = _frString(rleObjs);
         std::transform(
             rles.begin(), rles.end(), rles.begin(),
-            [dilation](const RLE &rle) { return rle.erode_3x3(dilation); });
+            [dilation](const RLE& rle) { return rle.erode_3x3(dilation); });
         return _toString(rles);
 }
 
-std::vector<py::dict> toBoundary(const std::vector<py::dict> &rleObjs,
-                                 const double &dilation_ratio = 0.02) {
+std::vector<py::dict> toBoundary(const std::vector<py::dict>& rleObjs,
+                                 const double& dilation_ratio = 0.02) {
         std::vector<RLE> rles = _frString(rleObjs);
         std::transform(rles.begin(), rles.end(), rles.begin(),
-                       [&dilation_ratio](RLE const &rle) {
+                       [&dilation_ratio](RLE const& rle) {
                                return rle.toBoundary(dilation_ratio);
                        });
 
         return _toString(rles);
 }
 
-py::dict merge(const std::vector<py::dict> &rleObjs, const int &intersect = 0) {
+py::dict merge(const std::vector<py::dict>& rleObjs, const int& intersect = 0) {
         return _toString({RLE::merge(_frString(rleObjs), intersect)})[0];
 }
-py::dict merge(const std::vector<py::dict> &rleObjs) {
+py::dict merge(const std::vector<py::dict>& rleObjs) {
         return merge(rleObjs, 0);
 }
 
-py::array_t<uint64_t> area(const std::vector<py::dict> &rleObjs) {
+py::array_t<uint64_t> area(const std::vector<py::dict>& rleObjs) {
         std::vector<RLE> rles = _frString(rleObjs);
         std::vector<uint64_t> areas(rles.size());
         std::transform(rles.begin(), rles.end(), areas.begin(),
-                       [](RLE const &rle) { return rle.area(); });
+                       [](RLE const& rle) { return rle.area(); });
         return py::array(areas.size(), areas.data());
 }
 
-std::vector<py::dict> frPoly(const std::vector<std::vector<double>> &poly,
-                             const uint64_t &h, const uint64_t &w) {
+std::vector<py::dict> frPoly(const std::vector<std::vector<double>>& poly,
+                             const uint64_t& h, const uint64_t& w) {
         std::vector<RLE> rles;
         for (uint64_t i = 0; i < poly.size(); i++) {
                 rles.emplace_back(RLE::frPoly(poly[i], h, w));
@@ -334,19 +327,19 @@ std::vector<py::dict> frPoly(const std::vector<std::vector<double>> &poly,
         return _toString(rles);
 }
 
-std::vector<py::dict> frBbox(const std::vector<std::vector<double>> &bb,
-                             const uint64_t &h, const uint64_t &w) {
+std::vector<py::dict> frBbox(const std::vector<std::vector<double>>& bb,
+                             const uint64_t& h, const uint64_t& w) {
         std::vector<RLE> rles;
         rles.reserve(bb.size());  // Reserve memory for efficiency
 
         // Convert each bounding box to an RLE object
-        for (const auto &box : bb) {
+        for (const auto& box : bb) {
                 rles.emplace_back(RLE::frBbox(box, h, w));
         }
         return _toString(rles);
 }
 
-std::vector<py::dict> rleToUncompressedRLE(const std::vector<RLE> &R) {
+std::vector<py::dict> rleToUncompressedRLE(const std::vector<RLE>& R) {
         std::vector<py::dict> result;
         for (uint64_t i = 0; i < R.size(); i++) {
                 std::vector<uint64_t> size = {R[i].h, R[i].w};
@@ -356,11 +349,11 @@ std::vector<py::dict> rleToUncompressedRLE(const std::vector<RLE> &R) {
         return result;
 }
 
-std::vector<py::dict> toUncompressedRLE(const std::vector<py::dict> &Rles) {
+std::vector<py::dict> toUncompressedRLE(const std::vector<py::dict>& Rles) {
         return rleToUncompressedRLE(_frString(Rles));
 }
 
-std::vector<py::dict> frUncompressedRLE(const std::vector<py::dict> &ucRles) {
+std::vector<py::dict> frUncompressedRLE(const std::vector<py::dict>& ucRles) {
         std::vector<RLE> rles;
         for (uint64_t i = 0; i < ucRles.size(); i++) {
                 std::pair<uint64_t, uint64_t> size =
@@ -388,9 +381,9 @@ std::vector<py::dict> frUncompressedRLE(const std::vector<py::dict> &ucRles) {
 // Returns:
 //   - vector<double>: m*n IoU values between every dt and gt box (row-major:
 //   o[d*n + g])
-std::vector<double> bbIou(const std::vector<double> &dt,
-                          const std::vector<double> &gt, std::size_t m,
-                          std::size_t n, const std::vector<int> &iscrowd) {
+std::vector<double> bbIou(const std::vector<double>& dt,
+                          const std::vector<double>& gt, std::size_t m,
+                          std::size_t n, const std::vector<int>& iscrowd) {
         std::vector<double> o(m * n, 0.0);
 
         // Optional: check input sizes for early exit or error
@@ -436,20 +429,25 @@ std::vector<double> bbIou(const std::vector<double> &dt,
         return o;
 }
 
-std::vector<double> rleIou(const std::vector<RLE> &dt,
-                           const std::vector<RLE> &gt, const uint64_t &m,
-                           const uint64_t &n, const std::vector<int> &iscrowd) {
+std::vector<double> rleIou(const std::vector<RLE>& dt,
+                           const std::vector<RLE>& gt, const uint64_t& m,
+                           const uint64_t& n, const std::vector<int>& iscrowd) {
         uint64_t g, d;
         std::vector<double> db, gb;
         int crowd;
 
+        // Pre-allocate memory to avoid reallocations
+        db.reserve(m * 4);
+        gb.reserve(n * 4);
+
+        // Avoid intermediate vector creation and double copying
         for (uint64_t i = 0; i < m; i++) {
-                std::vector<double> bbox = dt[i].toBbox();
-                std::copy(bbox.begin(), bbox.end(), std::back_inserter(db));
+                const auto bbox = dt[i].toBbox();
+                db.insert(db.end(), bbox.begin(), bbox.end());
         }
         for (uint64_t i = 0; i < n; i++) {
-                std::vector<double> bbox = gt[i].toBbox();
-                std::copy(bbox.begin(), bbox.end(), std::back_inserter(gb));
+                const auto bbox = gt[i].toBbox();
+                gb.insert(gb.end(), bbox.begin(), bbox.end());
         }
 
         std::vector<double> o = bbIou(db, gb, m, n, iscrowd);
@@ -513,14 +511,56 @@ std::vector<double> rleIou(const std::vector<RLE> &dt,
 //   - 1D vector of bounding box coordinates (size: N*4).
 // Throws:
 //   - std::out_of_range if input is not of shape Nx4.
-std::vector<double> _preproc_bbox_array(const py::object &pyobj) {
-        auto array = pyobj.cast<std::vector<std::vector<double>>>();
-        if (!array.empty() && array[0].size() == 4) {
-                return flatten(array);
+std::vector<double> _preproc_bbox_array(const py::object& pyobj) {
+        // Try to cast directly to numpy array for better performance
+        if (py::isinstance<py::array_t<double>>(pyobj)) {
+                auto arr = pyobj.cast<py::array_t<double>>();
+                if (arr.ndim() == 2 && arr.shape(1) == 4) {
+                        auto buf = arr.unchecked<2>();
+                        std::vector<double> result;
+                        result.reserve(arr.shape(0) * 4);
+
+                        for (py::ssize_t i = 0; i < arr.shape(0); ++i) {
+                                for (py::ssize_t j = 0; j < 4; ++j) {
+                                        result.emplace_back(buf(i, j));
+                                }
+                        }
+                        return result;
+                }
+                throw std::out_of_range(
+                    "numpy ndarray input is only for *bounding boxes* and "
+                    "should have "
+                    "Nx4 dimension");
         }
-        throw std::out_of_range(
-            "numpy ndarray input is only for *bounding boxes* and should have "
-            "Nx4 dimension");
+
+        // Fallback to vector<vector<double>> for other types
+        auto array = pyobj.cast<std::vector<std::vector<double>>>();
+        if (array.empty()) {
+                return std::vector<double>{};
+        }
+
+        if (array[0].size() != 4) {
+                throw std::out_of_range(
+                    "numpy ndarray input is only for *bounding boxes* and "
+                    "should have "
+                    "Nx4 dimension");
+        }
+
+        // Optimize: directly create flat vector
+        std::vector<double> result;
+        result.reserve(array.size() * 4);
+
+        for (const auto& bbox : array) {
+                if (bbox.size() != 4) {
+                        throw std::out_of_range(
+                            "numpy ndarray input is only for *bounding boxes* "
+                            "and should have "
+                            "Nx4 dimension");
+                }
+                result.insert(result.end(), bbox.begin(), bbox.end());
+        }
+
+        return result;
 }
 
 // Preprocesses a Python object into a flat vector of bounding boxes or a vector
@@ -534,7 +574,7 @@ std::vector<double> _preproc_bbox_array(const py::object &pyobj) {
 // Throws:
 //   - std::out_of_range if the input type is unsupported or malformed.
 std::tuple<std::variant<std::vector<RLE>, std::vector<double>>, size_t>
-_preproc(const py::object &pyobj) {
+_preproc(const py::object& pyobj) {
         std::string type = py::str(py::type::of(pyobj));
         if (type == "<class 'numpy.ndarray'>") {
                 auto result = _preproc_bbox_array(pyobj);
@@ -549,12 +589,19 @@ _preproc(const py::object &pyobj) {
                     sub_type == "<class 'numpy.ndarray'>") {
                         auto matrix =
                             pyobj.cast<std::vector<std::vector<double>>>();
-                        for (const auto &item : matrix) {
+                        for (const auto& item : matrix) {
                                 if (item.size() != 4) {
                                         goto check_rle;
                                 }
                         }
-                        auto result = flatten(matrix);
+                        // Optimize: directly create flat vector without
+                        // flatten() call
+                        std::vector<double> result;
+                        result.reserve(matrix.size() * 4);
+                        for (const auto& bbox : matrix) {
+                                result.insert(result.end(), bbox.begin(),
+                                              bbox.end());
+                        }
                         return {result, result.size() / 4};
                 }
         check_rle:
@@ -584,8 +631,8 @@ _preproc(const py::object &pyobj) {
 // Throws:
 //   - std::out_of_range if types differ or iscrowd length mismatches gt count.
 std::variant<py::array_t<double, py::array::f_style>, std::vector<double>> iou(
-    const py::object &dt, const py::object &gt,
-    const std::vector<int> &iscrowd) {
+    const py::object& dt, const py::object& gt,
+    const std::vector<int>& iscrowd) {
         auto [_dt, m] = _preproc(dt);
         auto [_gt, n] = _preproc(gt);
 
@@ -604,12 +651,12 @@ std::variant<py::array_t<double, py::array::f_style>, std::vector<double>> iou(
 
         std::vector<double> iou_result;
         if (std::holds_alternative<std::vector<double>>(_dt)) {
-                const auto &_dt_box = std::get<std::vector<double>>(_dt);
-                const auto &_gt_box = std::get<std::vector<double>>(_gt);
+                const auto& _dt_box = std::get<std::vector<double>>(_dt);
+                const auto& _gt_box = std::get<std::vector<double>>(_gt);
                 iou_result = bbIou(_dt_box, _gt_box, m, n, iscrowd);
         } else {
-                const auto &_dt_rle = std::get<std::vector<RLE>>(_dt);
-                const auto &_gt_rle = std::get<std::vector<RLE>>(_gt);
+                const auto& _dt_rle = std::get<std::vector<RLE>>(_dt);
+                const auto& _gt_rle = std::get<std::vector<RLE>>(_gt);
                 iou_result = rleIou(_dt_rle, _gt_rle, m, n, iscrowd);
         }
         return py::array(iou_result.size(), iou_result.data()).reshape({m, n});
@@ -632,7 +679,7 @@ std::variant<py::array_t<double, py::array::f_style>, std::vector<double>> iou(
 //   - std::out_of_range if the input list is empty or has invalid shape.
 //   - py::type_error if the input type is not supported.
 std::variant<pybind11::dict, std::vector<pybind11::dict>> frPyObjects(
-    const py::object &pyobj, const uint64_t &h, const uint64_t &w) {
+    const py::object& pyobj, const uint64_t& h, const uint64_t& w) {
         std::vector<RLE> rles;
         std::string type = py::str(py::type::of(pyobj));
 
@@ -707,20 +754,20 @@ std::variant<pybind11::dict, std::vector<pybind11::dict>> frPyObjects(
 //   - pybind11::dict containing the RLE-encoded mask if conversion succeeds.
 //   - Otherwise, returns the original py::object if conversion fails with
 //   py::type_error.
-std::variant<pybind11::dict, py::object> segmToRle(const py::object &pyobj,
-                                                   const uint64_t &w,
-                                                   const uint64_t &h) {
+std::variant<pybind11::dict, py::object> segmToRle(const py::object& pyobj,
+                                                   const uint64_t& w,
+                                                   const uint64_t& h) {
         try {
                 RLE rle = RLE::frSegm(pyobj, w, h);
                 return rle.toDict();
-        } catch (py::type_error const &) {
+        } catch (py::type_error const&) {
                 return pyobj;
         }
 }
 
-std::vector<py::dict> processRleToBoundary(const std::vector<RLE> &rles,
-                                           const double &dilation_ratio,
-                                           const size_t &cpu_count) {
+std::vector<py::dict> processRleToBoundary(const std::vector<RLE>& rles,
+                                           const double& dilation_ratio,
+                                           const size_t& cpu_count) {
         py::gil_scoped_release release;
         std::vector<std::tuple<uint64_t, uint64_t, std::string>> result(
             rles.size());
@@ -732,34 +779,77 @@ std::vector<py::dict> processRleToBoundary(const std::vector<RLE> &rles,
         };
 
         size_t start = 0;
-        size_t step = 1000;
+        // Adaptive step size based on input size and CPU count
+        // For small batches, distribute work more evenly across threads
+        size_t min_step = std::max(
+            size_t(1),
+            rles.size() / (cpu_count * 4));  // At least 4 work units per thread
+        size_t max_step = 1000;              // Keep reasonable upper bound
+        size_t step =
+            std::max(min_step, std::min(max_step, rles.size() / cpu_count));
         size_t end = step;
         if (end > rles.size()) end = rles.size();
 
         while (start < rles.size()) {
-                std::vector<std::future<void>> rle_futures(cpu_count);
+                std::vector<std::future<void>> rle_futures;
+                rle_futures.reserve(cpu_count);
 
                 size_t thread = 0;
-                for (thread = 0; thread < cpu_count; thread++) {
-                        rle_futures[thread] =
-                            std::async(std::launch::async, process, start, end,
-                                       dilation_ratio);
+                try {
+                        // Launch async tasks
+                        for (thread = 0; thread < cpu_count; thread++) {
+                                rle_futures.emplace_back(
+                                    std::async(std::launch::async, process,
+                                               start, end, dilation_ratio));
 
-                        start += step;
-                        end += step;
+                                start += step;
+                                end += step;
 
-                        if (end > rles.size()) end = rles.size();
-                        if (start >= rles.size()) {
-                                thread++;
-                                break;
+                                if (end > rles.size()) end = rles.size();
+                                if (start >= rles.size()) {
+                                        thread++;
+                                        break;
+                                }
                         }
-                }
 
-                for (size_t i = 0; i < thread; i++) {
-                        rle_futures[i].wait();
+                        // Wait for all tasks with proper exception handling
+                        std::exception_ptr first_exception = nullptr;
+                        for (size_t i = 0; i < rle_futures.size(); i++) {
+                                try {
+                                        rle_futures[i]
+                                            .get();  // get() to catch
+                                                     // exceptions from threads
+                                } catch (...) {
+                                        if (!first_exception) {
+                                                first_exception =
+                                                    std::current_exception();
+                                        }
+                                        // Continue waiting for other threads to
+                                        // complete
+                                }
+                        }
+
+                        // Re-throw the first exception if any occurred
+                        if (first_exception) {
+                                std::rethrow_exception(first_exception);
+                        }
+
+                } catch (...) {
+                        // Ensure all futures are properly cleaned up on
+                        // exception
+                        for (auto& future : rle_futures) {
+                                if (future.valid()) {
+                                        try {
+                                                future.wait();  // Ensure thread
+                                                                // completion
+                                        } catch (...) {
+                                                // Ignore exceptions during
+                                                // cleanup
+                                        }
+                                }
+                        }
+                        throw;  // Re-throw the original exception
                 }
-                rle_futures.clear();
-                rle_futures.shrink_to_fit();
         }
 
         py::gil_scoped_acquire acquire;
@@ -794,38 +884,62 @@ std::vector<py::dict> processRleToBoundary(const std::vector<RLE> &rles,
 // Returns:
 //   - None. All updates are performed in place on the anns vector.
 void calculateRleForAllAnnotations(
-    const std::vector<py::dict> &anns,
-    const std::unordered_map<uint64_t, std::tuple<uint64_t, uint64_t>>
-        &image_info,
-    const bool &compute_rle, const bool &compute_boundary,
-    const double &dilation_ratio, const size_t &cpu_count) {
-        if (compute_rle) {
-                size_t ann_count = anns.size();
-                std::vector<RLE> rles(ann_count);
-                for (size_t i = 0; i < ann_count; i++) {
+    const std::vector<py::dict>& anns,
+    const std::unordered_map<uint64_t, std::tuple<uint64_t, uint64_t>>&
+        image_info,
+    const bool& compute_rle, const bool& compute_boundary,
+    const double& dilation_ratio, const size_t& cpu_count) {
+        if (!compute_rle) return;
+
+        size_t ann_count = anns.size();
+
+        // Adaptive batch size to prevent excessive memory usage
+        const size_t MAX_BATCH_SIZE =
+            2000;  // Adjustable based on available memory
+        const size_t MIN_BATCH_SIZE = 100;
+        size_t batch_size =
+            std::min(MAX_BATCH_SIZE, std::max(MIN_BATCH_SIZE, ann_count / 10));
+
+        // Process annotations in batches to reduce memory footprint
+        for (size_t batch_start = 0; batch_start < ann_count;
+             batch_start += batch_size) {
+                size_t batch_end =
+                    std::min(batch_start + batch_size, ann_count);
+                size_t current_batch_size = batch_end - batch_start;
+
+                // Create RLE objects for current batch
+                std::vector<RLE> batch_rles;
+                batch_rles.reserve(current_batch_size);
+                std::vector<size_t> valid_indices;
+                valid_indices.reserve(current_batch_size);
+
+                for (size_t i = batch_start; i < batch_end; i++) {
                         if (anns[i].contains("segmentation")) {
                                 uint64_t image_id =
                                     anns[i]["image_id"].cast<uint64_t>();
-                                std::tuple<uint64_t, uint64_t> image_hw =
-                                    image_info.at(image_id);
-                                rles[i] =
-                                    RLE::frSegm(anns[i]["segmentation"],
-                                                std::get<1>(image_hw),  // width
-                                                std::get<0>(image_hw)  // height
-                                    );
+                                auto image_hw = image_info.at(image_id);
+                                batch_rles.emplace_back(RLE::frSegm(
+                                    anns[i]["segmentation"],
+                                    std::get<1>(image_hw),  // width
+                                    std::get<0>(image_hw)   // height
+                                    ));
+                                valid_indices.push_back(i);
                         }
                 }
-                std::vector<py::dict> boundary_array;
 
-                if (compute_boundary) {
-                        boundary_array = processRleToBoundary(
-                            rles, dilation_ratio, cpu_count);
+                // Process boundaries for current batch if needed
+                std::vector<py::dict> batch_boundaries;
+                if (compute_boundary && !batch_rles.empty()) {
+                        batch_boundaries = processRleToBoundary(
+                            batch_rles, dilation_ratio, cpu_count);
                 }
 
-                for (size_t i = 0; i < ann_count; i++) {
-                        anns[i]["rle"] = rles[i].toDict();
-                        if (compute_boundary) {
-                                anns[i]["boundary"] = boundary_array[i];
+                // Store results back to annotations
+                for (size_t j = 0; j < valid_indices.size(); j++) {
+                        size_t ann_idx = valid_indices[j];
+                        anns[ann_idx]["rle"] = batch_rles[j].toDict();
+                        if (compute_boundary && j < batch_boundaries.size()) {
+                                anns[ann_idx]["boundary"] = batch_boundaries[j];
                         }
                 }
         }

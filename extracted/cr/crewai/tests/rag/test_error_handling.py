@@ -3,7 +3,6 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from crewai.knowledge.storage.knowledge_storage import (  # type: ignore[import-untyped]
     KnowledgeStorage,
 )
@@ -55,7 +54,7 @@ def test_knowledge_storage_invalid_embedding_config(mock_get_client: MagicMock) 
     mock_get_client.return_value = MagicMock()
 
     with patch(
-        "crewai.knowledge.storage.knowledge_storage.get_embedding_function"
+        "crewai.knowledge.storage.knowledge_storage.build_embedder"
     ) as mock_get_embedding:
         mock_get_embedding.side_effect = ValueError(
             "Unsupported provider: invalid_provider"

@@ -1,40 +1,44 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: fast-depends
-Version: 2.4.12
+Version: 3.0.5
 Summary: FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported.
-Project-URL: Homepage, https://lancetnik.github.io/FastDepends/
-Project-URL: Documentation, https://lancetnik.github.io/FastDepends/
-Project-URL: Tracker, https://github.com/Lancetnik/FastDepends/issues
-Project-URL: Source, https://github.com/Lancetnik/FastDepends
-Author-email: Nikita Pastukhov <nikita@pastukhov-dev.com>
+Keywords: fastapi,dependency injection
+Author: Nikita Pastukhov
+Author-email: Nikita Pastukhov <nikita@pastukhov-dev.ru>
+License-Expression: MIT
 License-File: LICENSE
-Keywords: dependency injection,fastapi
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Framework :: Pydantic
-Classifier: Framework :: Pydantic :: 1
-Classifier: Framework :: Pydantic :: 2
-Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Information Technology
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Topic :: Software Development
-Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
-Requires-Dist: anyio<5.0.0,>=3.0.0
-Requires-Dist: pydantic!=1.8,!=1.8.1,<3.0.0,>=1.7.4
-Requires-Dist: typing-extensions<4.12.1; python_version < '3.9'
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Framework :: Pydantic
+Classifier: Framework :: Pydantic :: 1
+Classifier: Framework :: Pydantic :: 2
+Requires-Dist: anyio>=4.0.0,<5.0.0
+Requires-Dist: typing-extensions!=4.12.1
+Requires-Dist: msgspec ; extra == 'msgspec'
+Requires-Dist: pydantic>=1.7.4,!=1.8,!=1.8.1,<3.0.0 ; extra == 'pydantic'
+Requires-Python: >=3.10
+Project-URL: Documentation, https://lancetnik.github.io/FastDepends/
+Project-URL: Homepage, https://lancetnik.github.io/FastDepends/
+Project-URL: Source, https://github.com/Lancetnik/FastDepends
+Project-URL: Tracker, https://github.com/Lancetnik/FastDepends/issues
+Provides-Extra: msgspec
+Provides-Extra: pydantic
 Description-Content-Type: text/markdown
 
 # FastDepends
@@ -63,7 +67,7 @@ Description-Content-Type: text/markdown
 
 ---
 
-Documentation: https://lancetnik.github.io/FastDepends/
+Documentation: <https://lancetnik.github.io/FastDepends/>
 
 ---
 

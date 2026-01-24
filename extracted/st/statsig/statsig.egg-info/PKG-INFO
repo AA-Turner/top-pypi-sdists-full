@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: statsig
-Version: 0.64.0
+Version: 0.67.0
 Summary: Statsig Python Server SDK
 Home-page: https://github.com/statsig-io/python-sdk
 Author: Tore Hanssen, Jiakan Wang
@@ -12,8 +12,31 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: ua_parser
+Requires-Dist: ip3country
+Requires-Dist: grpcio
+Requires-Dist: protobuf
+Requires-Dist: ijson
+Requires-Dist: typing-extensions
+Requires-Dist: brotli
+Provides-Extra: test
+Requires-Dist: requests; extra == "test"
+Requires-Dist: user_agents; extra == "test"
+Requires-Dist: semver; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Statsig Python Server SDK
 [![tests](https://github.com/statsig-io/python-sdk/actions/workflows/test.yml/badge.svg)](https://github.com/statsig-io/python-sdk/actions/workflows/test.yml)

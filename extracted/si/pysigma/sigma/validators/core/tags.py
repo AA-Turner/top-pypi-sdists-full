@@ -1,6 +1,7 @@
 from collections import Counter
 from dataclasses import dataclass
-from typing import ClassVar, List, Set
+from typing import ClassVar, Set, Union, Pattern
+from sigma.correlations import SigmaCorrelationRule
 from sigma.rule import SigmaRule, SigmaRuleTag
 from sigma.validators.base import (
     SigmaRuleValidator,
@@ -8,17 +9,8 @@ from sigma.validators.base import (
     SigmaValidationIssue,
     SigmaValidationIssueSeverity,
 )
-from sigma.data.mitre_attack import (
-    mitre_attack_tactics,
-    mitre_attack_techniques,
-    mitre_attack_intrusion_sets,
-    mitre_attack_software,
-)
-from sigma.data.mitre_d3fend import (
-    mitre_d3fend_tactics,
-    mitre_d3fend_techniques,
-    mitre_d3fend_artifacts,
-)
+from sigma.data import mitre_attack
+from sigma.data import mitre_d3fend
 import re
 
 
@@ -32,7 +24,7 @@ class InvalidTagFormatIssue(SigmaValidationIssue):
 class TagFormatValidator(SigmaTagValidator):
     """Validate rule tag namespace and name allowed char"""
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
         tags_pattern = re.compile(r"^[a-z0-9\-\_]+\.[a-z0-9\-\_\.]+$")
 
         if tags_pattern.match(str(tag)) is None:
@@ -52,13 +44,24 @@ class ATTACKTagValidator(SigmaTagValidator):
 
     def __init__(self) -> None:
         self.allowed_tags = (
-            {tactic.lower() for tactic in mitre_attack_tactics.values()}
-            .union({technique.lower() for technique in mitre_attack_techniques.keys()})
-            .union({intrusion_set.lower() for intrusion_set in mitre_attack_intrusion_sets.keys()})
-            .union({software.lower() for software in mitre_attack_software.keys()})
+            {tactic.lower() for tactic in mitre_attack.mitre_attack_tactics.values()}
+            .union({technique.lower() for technique in mitre_attack.mitre_attack_techniques.keys()})
+            .union(
+                {
+                    intrusion_set.lower()
+                    for intrusion_set in mitre_attack.mitre_attack_intrusion_sets.keys()
+                }
+            )
+            .union({software.lower() for software in mitre_attack.mitre_attack_software.keys()})
+            .union(
+                {datasource.lower() for datasource in mitre_attack.mitre_attack_datasources.keys()}
+            )
+            .union(
+                {mitigation.lower() for mitigation in mitre_attack.mitre_attack_mitigations.keys()}
+            )
         )
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
         if tag.namespace == "attack" and tag.name not in self.allowed_tags:
             return [InvalidATTACKTagIssue([self.rule], tag)]
         return []
@@ -76,12 +79,12 @@ class D3FENDTagValidator(SigmaTagValidator):
 
     def __init__(self) -> None:
         self.allowed_tags = (
-            {tactic.lower() for tactic in mitre_d3fend_tactics.keys()}
-            .union({technique.lower() for technique in mitre_d3fend_techniques.keys()})
-            .union({artefact for artefact in mitre_d3fend_artifacts.keys()})
+            {tactic.lower() for tactic in mitre_d3fend.mitre_d3fend_tactics.keys()}
+            .union({technique.lower() for technique in mitre_d3fend.mitre_d3fend_techniques.keys()})
+            .union({artefact for artefact in mitre_d3fend.mitre_d3fend_artifacts.keys()})
         )
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
         if tag.namespace == "d3fend" and tag.name not in self.allowed_tags:
             return [InvalidD3FENDagIssue([self.rule], tag)]
         return []
@@ -97,7 +100,9 @@ class InvalidTLPTagIssue(SigmaValidationIssue):
 class TLPTagValidatorBase(SigmaTagValidator):
     """Base class for TLP tag validation"""
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
+    allowed_tags: ClassVar[set[str]] = set()
+
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
         if tag.namespace == "tlp" and tag.name not in self.allowed_tags:
             return [InvalidTLPTagIssue([self.rule], tag)]
         return []
@@ -106,7 +111,7 @@ class TLPTagValidatorBase(SigmaTagValidator):
 class TLPv1TagValidator(TLPTagValidatorBase):
     """Validation of TLP tags according to old version 1 standard."""
 
-    allowed_tags: Set[str] = {
+    allowed_tags: ClassVar[set[str]] = {
         "white",
         "green",
         "amber",
@@ -117,7 +122,7 @@ class TLPv1TagValidator(TLPTagValidatorBase):
 class TLPv2TagValidator(TLPTagValidatorBase):
     """Validation of TLP tags according to version 2 standard."""
 
-    allowed_tags: Set[str] = {
+    allowed_tags: ClassVar[set[str]] = {
         "clear",
         "green",
         "amber",
@@ -129,7 +134,9 @@ class TLPv2TagValidator(TLPTagValidatorBase):
 class TLPTagValidator(TLPTagValidatorBase):
     """Validation of TLP tags from all versions of the TLP standard."""
 
-    allowed_tags: Set[str] = TLPv1TagValidator.allowed_tags.union(TLPv2TagValidator.allowed_tags)
+    allowed_tags: ClassVar[set[str]] = TLPv1TagValidator.allowed_tags.union(
+        TLPv2TagValidator.allowed_tags
+    )
 
 
 @dataclass
@@ -142,7 +149,7 @@ class DuplicateTagIssue(SigmaValidationIssue):
 class DuplicateTagValidator(SigmaRuleValidator):
     """Validate rule tag uniqueness."""
 
-    def validate(self, rule: SigmaRule) -> List[SigmaValidationIssue]:
+    def validate(self, rule: Union[SigmaRule, SigmaCorrelationRule]) -> list[SigmaValidationIssue]:
         tags = Counter(rule.tags)
         return [DuplicateTagIssue([rule], tag) for tag, count in tags.items() if count > 1]
 
@@ -167,7 +174,7 @@ class NamespaceTagValidator(SigmaTagValidator):
         "tlp",
     }
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
         if tag.namespace not in self.allowed_namespace:
             return [InvalidNamespaceTagIssue([self.rule], tag)]
         return []
@@ -183,9 +190,11 @@ class InvalidPatternTagIssue(SigmaValidationIssue):
 class TagPatternValidatorBase(SigmaTagValidator):
     """Base class for tag pattern validation"""
 
-    def validate_tag(self, tag: SigmaRuleTag) -> List[SigmaValidationIssue]:
-        tags_pattern = re.compile(self.pattern)
-        if tag.namespace == self.namespace and tags_pattern.match(tag.name) is None:
+    namespace: ClassVar[str] = ""
+    pattern: ClassVar[Pattern[str]] = re.compile("")
+
+    def validate_tag(self, tag: SigmaRuleTag) -> list[SigmaValidationIssue]:
+        if tag.namespace == self.namespace and self.pattern.match(tag.name) is None:
             return [InvalidPatternTagIssue([self.rule], tag)]
         return []
 
@@ -193,26 +202,26 @@ class TagPatternValidatorBase(SigmaTagValidator):
 class CARTagValidator(TagPatternValidatorBase):
     """Validate rule CAR tag"""
 
-    namespace = "car"
-    pattern = r"\d{4}-\d{2}-\d{3}$"
+    namespace: ClassVar[str] = "car"
+    pattern: ClassVar[Pattern[str]] = re.compile(r"\d{4}-\d{2}-\d{3}$")
 
 
 class CVETagValidator(TagPatternValidatorBase):
     """Validate rule CVE tag"""
 
-    namespace = "cve"
-    pattern = r"^\d+-\d+$"
+    namespace: ClassVar[str] = "cve"
+    pattern: ClassVar[Pattern[str]] = re.compile(r"^\d+-\d+$")
 
 
 class DetectionTagValidator(TagPatternValidatorBase):
     """Validate rule detection tag"""
 
-    namespace = "detection"
-    pattern = r"dfir|emerging-threats|threat-hunting"
+    namespace: ClassVar[str] = "detection"
+    pattern: ClassVar[Pattern[str]] = re.compile(r"dfir|emerging-threats|threat-hunting")
 
 
 class STPTagValidator(TagPatternValidatorBase):
     """Validate rule STP tag"""
 
-    namespace = "stp"
-    pattern = r"^[1-5]{1}[auk]{0,1}$"
+    namespace: ClassVar[str] = "stp"
+    pattern: ClassVar[Pattern[str]] = re.compile(r"^[1-5]{1}[auk]{0,1}$")

@@ -336,8 +336,12 @@ class PDBList:
         try:
             urlcleanup()
             urlretrieve(url, filename)
-        except OSError:
-            print("Desired structure doesn't exist")
+        except OSError as e:
+            print(
+                "Desired structure not found or download failed."
+                f" '{pdb_code}': {str(e)}"
+            )
+            return None
         else:
             with gzip.open(filename, "rb") as gz:
                 with open(final_file, "wb") as out:
@@ -412,10 +416,10 @@ class PDBList:
         self,
         pdb_codes: list[str],
         obsolete: bool = False,
-        pdir: Optional[str] = None,
-        file_format: Optional[str] = None,
+        pdir: str | None = None,
+        file_format: str | None = None,
         overwrite: bool = False,
-        max_num_threads: Optional[int] = None,
+        max_num_threads: int | None = None,
     ):
         """Fetch set of PDB structure files from the PDB server and store them locally.
 
@@ -576,9 +580,9 @@ class PDBList:
 
     def download_all_assemblies(
         self,
-        listfile: Optional[str] = None,
-        file_format: Optional[str] = None,
-        max_num_threads: Optional[int] = None,
+        listfile: str | None = None,
+        file_format: str | None = None,
+        max_num_threads: int | None = None,
     ):
         """Retrieve all biological assemblies not in the local PDB copy.
 
@@ -608,9 +612,9 @@ class PDBList:
 
     def download_entire_pdb(
         self,
-        listfile: Optional[str] = None,
-        file_format: Optional[str] = None,
-        max_num_threads: Optional[int] = None,
+        listfile: str | None = None,
+        file_format: str | None = None,
+        max_num_threads: int | None = None,
     ):
         """Retrieve all PDB entries not present in the local PDB copy.
 
@@ -643,9 +647,9 @@ class PDBList:
 
     def download_obsolete_entries(
         self,
-        listfile: Optional[str] = None,
-        file_format: Optional[str] = None,
-        max_num_threads: Optional[int] = None,
+        listfile: str | None = None,
+        file_format: str | None = None,
+        max_num_threads: int | None = None,
     ):
         """Retrieve all obsolete PDB entries not present in local obsolete PDB copy.
 

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Type, TypeVar, Union
 
+from benchling_api_client.v2.stable.extensions import NotPresentError
 from benchling_api_client.v2.types import UNSET, Unset
 from dataclasses_json import DataClassJsonMixin
 
@@ -83,11 +84,12 @@ def custom_fields(source: Dict[str, Any]) -> CustomFields:
     return CustomFields.from_dict(source)
 
 
-def unset_as_none(source: Union[Unset, None, T]) -> Optional[T]:
-    """Given a value that may be UNSET, produces an Optional[] where UNSET will be treated as None."""
-    if source is UNSET:
+def unset_as_none(attr_fn: Callable[[], T]) -> Optional[T]:
+    """Given an attribute accessor that may raise a NotPresentError, produces an Optional[] where the NotPresentError will be treated as None."""
+    try:
+        return attr_fn()
+    except NotPresentError:
         return None
-    return source  # type: ignore
 
 
 def schema_fields_query_param(schema_fields: Optional[Dict[str, Any]]) -> Optional[SchemaFieldsQueryParam]:

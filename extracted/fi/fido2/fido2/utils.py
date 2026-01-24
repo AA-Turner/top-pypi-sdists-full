@@ -286,7 +286,10 @@ class _DataClassMapping(Mapping[_T, Any]):
                 f"{cls.__name__}.from_dict called with non-Mapping data of type"
                 f"{type(data)}"
             )
+        return cls._parse_from_dict(data)
 
+    @classmethod
+    def _parse_from_dict(cls: type[Self], data: Mapping[_T, Any]) -> Self:
         kwargs = {}
         hints = get_type_hints(cls)
         for f in fields(cls):

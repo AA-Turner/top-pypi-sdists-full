@@ -27,6 +27,9 @@ class NeuralClient(NamespacedClient):
         "filter_path",
         "flat_stat_paths",
         "human",
+        "include_all_nodes",
+        "include_individual_nodes",
+        "include_info",
         "include_metadata",
         "pretty",
         "source",
@@ -43,29 +46,38 @@ class NeuralClient(NamespacedClient):
         Provides information about the current status of the neural-search plugin.
 
 
-        :arg node_id: Comma-separated list of node IDs or names to limit
-            the returned information; leave empty to get information from all nodes.
-        :arg stat: Comma-separated list of stats to retrieve; use empty
-            string to retrieve all stats.
+        :arg node_id: A comma-separated list of node IDs or names to
+            limit the returned information; leave empty to get information from all
+            nodes.
+        :arg stat: A comma-separated list of stats to retrieve; use
+            empty string to retrieve all stats.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_stat_paths: Whether to return stats in the flat form,
             which can improve readability, especially for heavily nested stats. For
             example, the flat form of `"processors": { "ingest": {
             "text_embedding_executions": 20181212 } }` is
             `"processors.ingest.text_embedding_executions": "20181212"`. Default is
             false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg include_all_nodes: When `true` includes aggregated
+            statistics across all nodes in the `all_nodes` category. When `false`,
+            excludes the `all_nodes` category from the response. Default is True.
+        :arg include_individual_nodes: When `true` includes statistics
+            for individual nodes in the `nodes` category. When `false`, excludes the
+            `nodes` category from the response. Default is True.
+        :arg include_info: When `true` includes cluster-wide information
+            in the `info` category. When `false`, excludes the `info` category from
+            the response. Default is True.
         :arg include_metadata: Whether to return stat metadata instead
             of the raw stat value, includes additional information about the stat.
             These can include things like type hints, time since last stats being
             recorded, or recent rolling interval values Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.

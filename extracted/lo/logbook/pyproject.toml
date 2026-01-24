@@ -1,10 +1,11 @@
 [build-system]
-requires = ["setuptools", "Cython; python_implementation == 'CPython'"]
+requires = ["setuptools", "setuptools-rust>=1.11.1; python_implementation == 'CPython'"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "Logbook"
-license = { text = "BSD-3-Clause" }
+version = "1.9.2"
+license = "BSD-3-Clause"
 authors = [
     { name = "Armin Ronacher", email = "armin.ronacher@active-4.com" },
     { name = "Georg Brandl" },
@@ -21,29 +22,68 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    "Topic :: System :: Logging",
 ]
 requires-python = ">=3.9"
-dynamic = ["version"]
+dependencies = [
+    "typing-extensions>=4.14.0",
+]
 
 [project.urls]
 Documentation = "https://logbook.readthedocs.io"
 "Source Code" = "https://github.com/getlogbook/logbook"
 
 [project.optional-dependencies]
-test = ["pytest>=6", "pytest-rerunfailures"]
-dev = ["Logbook[test]", "tox>=4"]
-execnet = ["execnet>=1.0.9"]
+all = ["Logbook[brotli,execnet,jinja,nteventlog,redis,sqlalchemy,zmq]"]
+brotli = [
+    "brotli>=1.1.0; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.1.0.0; platform_python_implementation != 'CPython'",
+]
+compression = ["Logbook[brotli]"] # Deprecated: use brotli extra directly
+execnet = ["execnet>=1.5"]
+jinja = ["Jinja2>=2.11.3"]
+nteventlog = [
+    "pywin32>=227; sys_platform == 'win32' and python_version=='3.9'",
+    "pywin32>=302; sys_platform == 'win32' and python_version=='3.10'",
+    "pywin32>=303; sys_platform == 'win32' and python_version=='3.11'",
+    "pywin32>=306; sys_platform == 'win32' and python_version=='3.12'",
+    "pywin32>=307; sys_platform == 'win32' and python_version=='3.13'",
+    "pywin32>=311; sys_platform == 'win32' and python_version>='3.14'",
+]
+redis = ["redis>=4.6.0"]
 sqlalchemy = ["sqlalchemy>=1.4"]
-redis = ["redis"]
-zmq = ["pyzmq"]
-jinja = ["Jinja2"]
-compression = ["brotli"]
-all = ["Logbook[execnet,sqlalchemy,redis,zmq,jinja,compression,nteventlog]"]
-nteventlog = ["pywin32; platform_system == 'Windows'"]
-docs = ["Sphinx>=5"]
+zmq = ["pyzmq>=27.0.2"]
 
-[tool.setuptools.dynamic]
-version = { attr = "logbook.__version__.__version__" }
+[dependency-groups]
+check-sdist = [
+    "check-sdist>=1.2.0",
+]
+coverage = [
+    "coverage[toml]>=7.10.7",
+]
+dev = [
+    { include-group = "check-sdist" },
+    { include-group = "coverage" },
+    { include-group = "nox" },
+    { include-group = "test" },
+    "ruff==0.13.1",
+]
+docs = [
+    "furo>=2025.7.19",
+    "sphinx>=7.4.7",
+]
+gevent = [
+    "gevent>=25.5.1",
+]
+nox = [
+    "nox>=2025.5.1",
+]
+test = [
+    "pytest>=8.4.0",
+    "pytest-rerunfailures>=15.1",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -55,8 +95,69 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.isort]
-profile = "black"
+[tool.coverage.run]
+branch = true
+relative_files = true
+source_pkgs = ["logbook"]
+source_dirs = ["tests/"]
+parallel = true
+concurrency = ["thread"]
+
+[tool.coverage.paths]
+crabwalk = [
+    "src/logbook",
+    "*.nox/*/lib*/python*/site-packages/logbook",
+    "*.nox\\*\\Lib\\site-packages\\logbook",
+]
+tests = [
+    "tests/",
+    "tests\\",
+]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F", # ruff defaults
+    "I", # isort
+    "UP", # pyupgrade
+    "B0", # flake8-bugbear
+    "RUF", # ruff-specific
+]
+ignore = [
+    "RUF012", # maybe once we have more type annotations
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["logbook._fallback.FrozenSequence"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "universal2", "arm64"]
+
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.12"
+
+[tool.uv]
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "setup.py" },
+    { file = "src/rust/**/*.rs" },
+    { file = "src/logbook/**/*.py" },
+    { file = "src/rust/Cargo.toml" },
+    { file = "Cargo.toml" },
+    { file = "Cargo.lock" },
+    { env = "DISABLE_LOGBOOK_CEXT" },
+    { env = "SETUPTOOLS_RUST_CARGO_PROFILE" },
+    { env = "RUSTFLAGS" },
+]
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'win32' and platform_machine == 'x86'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'win32' and platform_machine == 'ARM64'",
+]
+required-version = ">=0.8.19" # https://github.com/astral-sh/uv/pull/15921
+
+[tool.check-sdist]
+git-only = [".gitignore", ".readthedocs.yaml"]

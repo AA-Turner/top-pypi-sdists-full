@@ -24,13 +24,17 @@ def change_index_dtype(
         >>> import janitor
         >>> rng = np.random.default_rng(seed=0)
         >>> np.random.seed(0)
-        >>> tuples = list(zip(*[['bar', 'bar', 'baz', 'baz',
-        ...             'foo', 'foo', 'qux', 'qux'],
-        ...              [1.0, 2.0, 1.0, 2.0,
-        ...               1.0, 2.0, 1.0, 2.0]]))
-        >>> idx = pd.MultiIndex.from_tuples(tuples, names=['first', 'second'])
-        >>> df = pd.DataFrame(np.random.randn(8, 2), index=idx, columns=['A', 'B'])
-        >>> df
+        >>> tuples = list(
+        ...     zip(
+        ...         *[
+        ...             ["bar", "bar", "baz", "baz", "foo", "foo", "qux", "qux"],
+        ...             [1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0],
+        ...         ]
+        ...     )
+        ... )
+        >>> idx = pd.MultiIndex.from_tuples(tuples, names=["first", "second"])
+        >>> df = pd.DataFrame(np.random.randn(8, 2), index=idx, columns=["A", "B"])
+        >>> df  # doctest: +NORMALIZE_WHITESPACE
                              A         B
         first second
         bar   1.0     1.764052  0.400157
@@ -41,8 +45,8 @@ def change_index_dtype(
               2.0     0.144044  1.454274
         qux   1.0     0.761038  0.121675
               2.0     0.443863  0.333674
-        >>> outcome=df.change_index_dtype(dtype=str)
-        >>> outcome
+        >>> outcome = df.change_index_dtype(dtype=str)
+        >>> outcome  # doctest: +NORMALIZE_WHITESPACE
                              A         B
         first second
         bar   1.0     1.764052  0.400157
@@ -57,8 +61,8 @@ def change_index_dtype(
         first     object
         second    object
         dtype: object
-        >>> outcome=df.change_index_dtype(dtype={'second':int})
-        >>> outcome
+        >>> outcome = df.change_index_dtype(dtype={"second": int})
+        >>> outcome  # doctest: +NORMALIZE_WHITESPACE
                              A         B
         first second
         bar   1       1.764052  0.400157
@@ -73,8 +77,8 @@ def change_index_dtype(
         first     object
         second     int64
         dtype: object
-        >>> outcome=df.change_index_dtype(dtype={0:'category',1:int})
-        >>> outcome
+        >>> outcome = df.change_index_dtype(dtype={0: "category", 1: int})
+        >>> outcome  # doctest: +NORMALIZE_WHITESPACE
                              A         B
         first second
         bar   1       1.764052  0.400157
@@ -92,7 +96,7 @@ def change_index_dtype(
 
     Args:
         df: A pandas DataFrame.
-        dtype : Use a str or dtype to cast the entire Index
+        dtype: Use a str or dtype to cast the entire Index
             to the same type.
             Alternatively, use a dictionary to change the MultiIndex
             to new dtypes.
@@ -107,30 +111,40 @@ def change_index_dtype(
     if axis not in {"index", "columns"}:
         raise ValueError("axis should be either index or columns.")
 
-    df = df[:]
+    df = df.copy()
     current_index = getattr(df, axis)
+
+    # Check if index contains tuples (common after transposing MultiIndex DataFrames)
+    # If so, convert to MultiIndex to support dictionary dtype mapping
     if not isinstance(current_index, pd.MultiIndex):
         if isinstance(dtype, dict):
-            raise TypeError(
-                "Changing the dtype via a dictionary "
-                "is not supported for a single index."
-            )
-        current_index = current_index.astype(dtype)
-        setattr(df, axis, current_index)
-        return df
+            # Check if all index values are tuples of the same length
+            if len(current_index) > 0 and all(
+                isinstance(val, tuple) and len(val) == len(current_index[0])
+                for val in current_index
+            ):
+                # Convert tuple Index to MultiIndex
+                tuples = list(current_index)
+                current_index = pd.MultiIndex.from_tuples(tuples, names=None)
+                setattr(df, axis, current_index)
+            else:
+                raise TypeError(
+                    "Changing the dtype via a dictionary "
+                    "is not supported for a single index."
+                )
+        else:
+            current_index = current_index.astype(dtype)
+            setattr(df, axis, current_index)
+            return df
 
     if not isinstance(dtype, dict):
-        dtype = {
-            level_number: dtype
-            for level_number in range(current_index.nlevels)
-        }
+        dtype = {level_number: dtype for level_number in range(current_index.nlevels)}
 
     all_str = all(isinstance(level, str) for level in dtype)
     all_int = all(isinstance(level, int) for level in dtype)
     if not all_str | all_int:
         raise TypeError(
-            "The levels in the dictionary "
-            "should be either all strings or all integers."
+            "The levels in the dictionary should be either all strings or all integers."
         )
 
     dtype = {

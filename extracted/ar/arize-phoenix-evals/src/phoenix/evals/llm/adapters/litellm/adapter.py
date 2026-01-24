@@ -1,30 +1,40 @@
 import base64
 import json
 import logging
-from typing import Any, Dict, Type, Union, cast
+from typing import Any, Dict, List, Type, Union, cast
 from urllib.parse import urlparse
 
 from phoenix.evals.exceptions import PhoenixUnsupportedAudioFormat
 from phoenix.evals.legacy.templates import MultimodalPrompt, PromptPartContentType
 from phoenix.evals.utils import SUPPORTED_AUDIO_FORMATS, get_audio_format_from_base64
 
+from ...prompts import Message, MessageRole, PromptLike
 from ...registries import register_provider
 from ...types import BaseLLMAdapter, ObjectGenerationMethod
 from .client import LiteLLMClient
 from .factories import (
     create_anthropic_client,
+    create_bedrock_client,
+    create_litellm_client,
     create_openai_client,
+    create_vertex_client,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def get_litellm_rate_limit_errors() -> list[Type[Exception]]:
-    from litellm import RateLimitError as LiteLLMRateLimitError  # type: ignore[attr-defined]
+    from litellm import RateLimitError as LiteLLMRateLimitError
 
     return [LiteLLMRateLimitError]
 
 
+@register_provider(
+    provider="openai",
+    client_factory=create_openai_client,
+    get_rate_limit_errors=get_litellm_rate_limit_errors,
+    dependencies=["litellm"],
+)
 @register_provider(
     provider="anthropic",
     client_factory=create_anthropic_client,
@@ -32,14 +42,26 @@ def get_litellm_rate_limit_errors() -> list[Type[Exception]]:
     dependencies=["litellm"],
 )
 @register_provider(
-    provider="openai",
-    client_factory=create_openai_client,
+    provider="vertex",
+    client_factory=create_vertex_client,
+    get_rate_limit_errors=get_litellm_rate_limit_errors,
+    dependencies=["litellm"],
+)
+@register_provider(
+    provider="bedrock",
+    client_factory=create_bedrock_client,
+    get_rate_limit_errors=get_litellm_rate_limit_errors,
+    dependencies=["litellm", "boto3"],
+)
+@register_provider(
+    provider="litellm",
+    client_factory=create_litellm_client,
     get_rate_limit_errors=get_litellm_rate_limit_errors,
     dependencies=["litellm"],
 )
 class LiteLLMAdapter(BaseLLMAdapter):
-    def __init__(self, client: LiteLLMClient):
-        self.client = client
+    def __init__(self, client: LiteLLMClient, model: str):
+        super().__init__(client, model)
         self._validate_client()
         self._import_litellm()
 
@@ -63,7 +85,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
         except ImportError:
             raise ImportError("LiteLLM package not installed. Run: pip install litellm")
 
-    def generate_text(self, prompt: Union[str, MultimodalPrompt], **kwargs: Any) -> str:
+    def generate_text(self, prompt: Union[PromptLike, MultimodalPrompt], **kwargs: Any) -> str:
         """Generate text using LiteLLM."""
         messages = self._build_messages(prompt)
 
@@ -79,7 +101,9 @@ class LiteLLMAdapter(BaseLLMAdapter):
             logger.error(f"LiteLLM completion failed: {e}")
             raise
 
-    async def async_generate_text(self, prompt: Union[str, MultimodalPrompt], **kwargs: Any) -> str:
+    async def async_generate_text(
+        self, prompt: Union[PromptLike, MultimodalPrompt], **kwargs: Any
+    ) -> str:
         """Async text generation using LiteLLM."""
         messages = self._build_messages(prompt)
 
@@ -97,7 +121,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     def generate_object(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         method: ObjectGenerationMethod = ObjectGenerationMethod.AUTO,
         **kwargs: Any,
@@ -150,7 +174,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     async def async_generate_object(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         method: ObjectGenerationMethod = ObjectGenerationMethod.AUTO,
         **kwargs: Any,
@@ -204,7 +228,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     def _generate_with_structured_output(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -233,7 +257,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     def _generate_with_tool_calling(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -258,7 +282,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     async def _async_generate_with_structured_output(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -287,7 +311,7 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
     async def _async_generate_with_tool_calling(
         self,
-        prompt: Union[str, MultimodalPrompt],
+        prompt: Union[PromptLike, MultimodalPrompt],
         schema: Dict[str, Any],
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -342,11 +366,65 @@ class LiteLLMAdapter(BaseLLMAdapter):
 
         return tool_definition
 
-    def _build_messages(self, prompt: Union[str, MultimodalPrompt]) -> list[dict[str, Any]]:
-        messages: list[dict[str, Any]] = []
+    def _transform_messages_to_openai(self, messages: List[Message]) -> list[dict[str, Any]]:
+        """Transform List[Message] TypedDict to OpenAI/LiteLLM format.
+
+        LiteLLM uses OpenAI message format and handles provider-specific conversions internally.
+
+        Args:
+            messages: List of Message TypedDicts with MessageRole enum.
+
+        Returns:
+            List of OpenAI-formatted message dicts.
+        """
+        openai_messages: list[dict[str, Any]] = []
+
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+
+            # Map MessageRole enum to OpenAI role strings
+            if role == MessageRole.AI:
+                openai_role = "assistant"
+            elif role == MessageRole.USER:
+                openai_role = "user"
+            elif role == MessageRole.SYSTEM:
+                openai_role = "system"
+            else:
+                # Fallback for any unexpected roles
+                openai_role = role.value if isinstance(role, MessageRole) else str(role)
+
+            # Handle content - can be string or List[ContentPart]
+            if isinstance(content, str):
+                openai_messages.append({"role": openai_role, "content": content})
+            else:
+                # Extract text from TextContentPart items only
+                text_parts = []
+                for part in content:
+                    if part.get("type") == "text" and "text" in part:
+                        text_parts.append(part["text"])
+
+                # Join all text parts with newlines
+                combined_text = "\n".join(text_parts)
+                openai_messages.append({"role": openai_role, "content": combined_text})
+
+        return openai_messages
+
+    def _build_messages(self, prompt: Union[PromptLike, MultimodalPrompt]) -> list[dict[str, Any]]:
         if isinstance(prompt, str):
             return [{"role": "user", "content": prompt}]
-        else:
+
+        if isinstance(prompt, list):
+            # Check if this is List[Message] with MessageRole enum
+            if prompt and isinstance(prompt[0].get("role"), MessageRole):
+                # Transform List[Message] to OpenAI format
+                return self._transform_messages_to_openai(cast(List[Message], prompt))
+            # Already in OpenAI message format (backward compatibility)
+            return cast(list[dict[str, Any]], prompt)
+
+        # Handle legacy MultimodalPrompt
+        messages: list[dict[str, Any]] = []
+        if isinstance(prompt, MultimodalPrompt):
             for part in prompt.parts:
                 if part.content_type == PromptPartContentType.TEXT:
                     messages.append({"role": "user", "content": part.content})
@@ -388,7 +466,12 @@ class LiteLLMAdapter(BaseLLMAdapter):
                     )
                 else:
                     raise ValueError(f"Unsupported content type: {part.content_type}")
-        return messages
+            return messages
+
+        # If we get here, prompt is an unexpected type
+        raise ValueError(
+            f"Expected prompt to be str, list, or MultimodalPrompt, got {type(prompt).__name__}"
+        )
 
     def _ensure_additional_properties_false(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """

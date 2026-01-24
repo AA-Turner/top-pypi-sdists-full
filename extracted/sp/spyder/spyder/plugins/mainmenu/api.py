@@ -70,7 +70,9 @@ class ApplicationMenus:
     Consoles = 'consoles_menu'
     Projects = 'projects_menu'
     Tools = 'tools_menu'
-    View = 'view_menu'
+    Window = 'window_menu'
+    # For backward compat with plugins targeting Spyder <6.1
+    View = 'window_menu'
     Help = 'help_menu'
 
 
@@ -89,25 +91,26 @@ class EditMenuSections:
     UndoRedo = 'undo_redo_section'
     Copy = 'copy_section'
     Editor = 'editor_section'
+    Formatting = 'formatting_section'
 
 
 class SearchMenuSections:
     FindInText = 'find_text_section'
+    Cursor = 'cursor_section'
     FindInFiles = 'find_files_section'
 
 
 class SourceMenuSections:
     Options = 'options_section'
     Linting = 'linting_section'
-    Cursor = 'cursor_section'
-    Formatting = 'formatting_section'
-    CodeAnalysis = 'code_analysis_section'
+    Autofix = 'autofix_section'
 
 
 class RunMenuSections:
     Run = 'run_section'
     RunExtras = 'run_extras_section'
     RunInExecutors = 'executors_section'
+    Profile = 'profile_section'
 
 class DebugMenuSections:
     StartDebug = 'start_debug_section'
@@ -127,12 +130,11 @@ class ProjectsMenuSections:
 
 
 class ToolsMenuSections:
-    Tools = 'tools_section'
-    External = 'external_section'
-    Extras = 'extras_section'
+    Managers = 'managers_section'
+    Preferences = 'preferences_section'
 
 
-class ViewMenuSections:
+class WindowMenuSections:
     Top = 'top_section'
     Pane = 'pane_section'
     Toolbar = 'toolbar_section'
@@ -140,10 +142,14 @@ class ViewMenuSections:
     Bottom = 'bottom_section'
 
 
+# For backward compat with plugins targeting Spyder <6.1
+ViewMenuSections = WindowMenuSections
+
+
 class HelpMenuSections:
     Documentation = 'documentation_section'
-    Support = 'support_section'
     ExternalDocumentation = 'external_documentation_section'
+    Support = 'support_section'
     About = 'about_section'
 
 

@@ -1,5 +1,5 @@
 import asyncio
-import platform
+import inspect
 import sys
 from functools import _CacheInfo, partial
 from typing import Callable
@@ -27,7 +27,10 @@ async def test_alru_cache_deco(check_lru: Callable[..., None]) -> None:
     async def coro() -> None:
         pass
 
-    assert asyncio.iscoroutinefunction(coro)
+    if sys.version_info >= (3, 12):
+        assert inspect.iscoroutinefunction(coro)
+    if sys.version_info < (3, 14):
+        assert asyncio.iscoroutinefunction(coro)
 
     check_lru(coro, hits=0, misses=0, cache=0, tasks=0)
 
@@ -41,7 +44,10 @@ async def test_alru_cache_deco_called(check_lru: Callable[..., None]) -> None:
     async def coro() -> None:
         pass
 
-    assert asyncio.iscoroutinefunction(coro)
+    if sys.version_info >= (3, 12):
+        assert inspect.iscoroutinefunction(coro)
+    if sys.version_info < (3, 14):
+        assert asyncio.iscoroutinefunction(coro)
 
     check_lru(coro, hits=0, misses=0, cache=0, tasks=0)
 
@@ -56,7 +62,10 @@ async def test_alru_cache_fn_called(check_lru: Callable[..., None]) -> None:
 
     coro_wrapped = alru_cache(coro)
 
-    assert asyncio.iscoroutinefunction(coro_wrapped)
+    if sys.version_info >= (3, 12):
+        assert inspect.iscoroutinefunction(coro_wrapped)
+    if sys.version_info < (3, 14):
+        assert asyncio.iscoroutinefunction(coro)
 
     check_lru(coro_wrapped, hits=0, misses=0, cache=0, tasks=0)
 
@@ -142,8 +151,8 @@ async def test_alru_cache_dict_not_shared(check_lru: Callable[..., None]) -> Non
     assert ret1 == ret2
 
     assert (
-        coro1._LRUCacheWrapper__cache[1].fut.result()  # type: ignore[attr-defined]
-        == coro2._LRUCacheWrapper__cache[1].fut.result()  # type: ignore[attr-defined]
+        coro1._LRUCacheWrapper__cache[1].task.result()  # type: ignore[attr-defined]
+        == coro2._LRUCacheWrapper__cache[1].task.result()  # type: ignore[attr-defined]
     )
     assert coro1._LRUCacheWrapper__cache != coro2._LRUCacheWrapper__cache  # type: ignore[attr-defined]
     assert coro1._LRUCacheWrapper__cache.keys() == coro2._LRUCacheWrapper__cache.keys()  # type: ignore[attr-defined]
@@ -190,10 +199,6 @@ async def test_alru_cache_method() -> None:
     )
 
 
-@pytest.mark.xfail(
-    sys.version_info[:2] == (3, 9) and platform.python_implementation() != "PyPy",
-    reason="#511",
-)
 async def test_alru_cache_classmethod() -> None:
     class A:
         offset = 3

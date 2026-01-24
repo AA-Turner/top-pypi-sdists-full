@@ -3,7 +3,7 @@ Type annotations for cloudformation service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -31,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeAccountLimitsPaginator,
     DescribeChangeSetPaginator,
+    DescribeEventsPaginator,
     DescribeStackEventsPaginator,
     DescribeStacksPaginator,
     ListChangeSetsPaginator,
@@ -83,6 +85,8 @@ from .type_defs import (
     DescribeChangeSetHooksOutputTypeDef,
     DescribeChangeSetInputTypeDef,
     DescribeChangeSetOutputTypeDef,
+    DescribeEventsInputTypeDef,
+    DescribeEventsOutputTypeDef,
     DescribeGeneratedTemplateInputTypeDef,
     DescribeGeneratedTemplateOutputTypeDef,
     DescribeOrganizationsAccessInputTypeDef,
@@ -128,6 +132,8 @@ from .type_defs import (
     ExecuteStackRefactorInputTypeDef,
     GetGeneratedTemplateInputTypeDef,
     GetGeneratedTemplateOutputTypeDef,
+    GetHookResultInputTypeDef,
+    GetHookResultOutputTypeDef,
     GetStackPolicyInputTypeDef,
     GetStackPolicyOutputTypeDef,
     GetTemplateInputTypeDef,
@@ -223,12 +229,6 @@ from .waiter import (
     TypeRegistrationCompleteWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -237,36 +237,36 @@ else:
 __all__ = ("CloudFormationClient",)
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    CFNRegistryException: Type[BotocoreClientError]
-    ChangeSetNotFoundException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentResourcesLimitExceededException: Type[BotocoreClientError]
-    CreatedButModifiedException: Type[BotocoreClientError]
-    GeneratedTemplateNotFoundException: Type[BotocoreClientError]
-    HookResultNotFoundException: Type[BotocoreClientError]
-    InsufficientCapabilitiesException: Type[BotocoreClientError]
-    InvalidChangeSetStatusException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidStateTransitionException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NameAlreadyExistsException: Type[BotocoreClientError]
-    OperationIdAlreadyExistsException: Type[BotocoreClientError]
-    OperationInProgressException: Type[BotocoreClientError]
-    OperationNotFoundException: Type[BotocoreClientError]
-    OperationStatusCheckFailedException: Type[BotocoreClientError]
-    ResourceScanInProgressException: Type[BotocoreClientError]
-    ResourceScanLimitExceededException: Type[BotocoreClientError]
-    ResourceScanNotFoundException: Type[BotocoreClientError]
-    StackInstanceNotFoundException: Type[BotocoreClientError]
-    StackNotFoundException: Type[BotocoreClientError]
-    StackRefactorNotFoundException: Type[BotocoreClientError]
-    StackSetNotEmptyException: Type[BotocoreClientError]
-    StackSetNotFoundException: Type[BotocoreClientError]
-    StaleRequestException: Type[BotocoreClientError]
-    TokenAlreadyExistsException: Type[BotocoreClientError]
-    TypeConfigurationNotFoundException: Type[BotocoreClientError]
-    TypeNotFoundException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    CFNRegistryException: type[BotocoreClientError]
+    ChangeSetNotFoundException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentResourcesLimitExceededException: type[BotocoreClientError]
+    CreatedButModifiedException: type[BotocoreClientError]
+    GeneratedTemplateNotFoundException: type[BotocoreClientError]
+    HookResultNotFoundException: type[BotocoreClientError]
+    InsufficientCapabilitiesException: type[BotocoreClientError]
+    InvalidChangeSetStatusException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidStateTransitionException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NameAlreadyExistsException: type[BotocoreClientError]
+    OperationIdAlreadyExistsException: type[BotocoreClientError]
+    OperationInProgressException: type[BotocoreClientError]
+    OperationNotFoundException: type[BotocoreClientError]
+    OperationStatusCheckFailedException: type[BotocoreClientError]
+    ResourceScanInProgressException: type[BotocoreClientError]
+    ResourceScanLimitExceededException: type[BotocoreClientError]
+    ResourceScanNotFoundException: type[BotocoreClientError]
+    StackInstanceNotFoundException: type[BotocoreClientError]
+    StackNotFoundException: type[BotocoreClientError]
+    StackRefactorNotFoundException: type[BotocoreClientError]
+    StackSetNotEmptyException: type[BotocoreClientError]
+    StackSetNotFoundException: type[BotocoreClientError]
+    StaleRequestException: type[BotocoreClientError]
+    TokenAlreadyExistsException: type[BotocoreClientError]
+    TypeConfigurationNotFoundException: type[BotocoreClientError]
+    TypeNotFoundException: type[BotocoreClientError]
 
 class CloudFormationClient(AioBaseClient):
     """
@@ -303,7 +303,7 @@ class CloudFormationClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#generate_presigned_url)
         """
 
-    async def activate_organizations_access(self) -> Dict[str, Any]:
+    async def activate_organizations_access(self) -> dict[str, Any]:
         """
         Activate trusted access with Organizations.
 
@@ -315,8 +315,8 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ActivateTypeInputTypeDef]
     ) -> ActivateTypeOutputTypeDef:
         """
-        Activates a public third-party extension, making it available for use in stack
-        templates.
+        Activates a public third-party extension, such as a resource or module, to make
+        it available for use in stack templates in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/activate_type.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#activate_type)
@@ -327,7 +327,7 @@ class CloudFormationClient(AioBaseClient):
     ) -> BatchDescribeTypeConfigurationsOutputTypeDef:
         """
         Returns configuration data for the specified CloudFormation extensions, from
-        the CloudFormation registry for the account and Region.
+        the CloudFormation registry in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/batch_describe_type_configurations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#batch_describe_type_configurations)
@@ -345,10 +345,10 @@ class CloudFormationClient(AioBaseClient):
 
     async def continue_update_rollback(
         self, **kwargs: Unpack[ContinueUpdateRollbackInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        For a specified stack that's in the <code>UPDATE_ROLLBACK_FAILED</code> state,
-        continues rolling it back to the <code>UPDATE_ROLLBACK_COMPLETE</code> state.
+        Continues rolling back a stack from <code>UPDATE_ROLLBACK_FAILED</code> to
+        <code>UPDATE_ROLLBACK_COMPLETE</code> state.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/continue_update_rollback.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#continue_update_rollback)
@@ -412,13 +412,13 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[CreateStackSetInputTypeDef]
     ) -> CreateStackSetOutputTypeDef:
         """
-        Creates a stack set.
+        Creates a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/create_stack_set.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#create_stack_set)
         """
 
-    async def deactivate_organizations_access(self) -> Dict[str, Any]:
+    async def deactivate_organizations_access(self) -> dict[str, Any]:
         """
         Deactivates trusted access with Organizations.
 
@@ -426,10 +426,10 @@ class CloudFormationClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#deactivate_organizations_access)
         """
 
-    async def deactivate_type(self, **kwargs: Unpack[DeactivateTypeInputTypeDef]) -> Dict[str, Any]:
+    async def deactivate_type(self, **kwargs: Unpack[DeactivateTypeInputTypeDef]) -> dict[str, Any]:
         """
-        Deactivates a public extension that was previously activated in this account
-        and Region.
+        Deactivates a public third-party extension, such as a resource or module, or a
+        CloudFormation Hook when you no longer use it.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/deactivate_type.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#deactivate_type)
@@ -437,7 +437,7 @@ class CloudFormationClient(AioBaseClient):
 
     async def delete_change_set(
         self, **kwargs: Unpack[DeleteChangeSetInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified change set.
 
@@ -478,15 +478,15 @@ class CloudFormationClient(AioBaseClient):
 
     async def delete_stack_set(
         self, **kwargs: Unpack[DeleteStackSetInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a stack set.
+        Deletes a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/delete_stack_set.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#delete_stack_set)
         """
 
-    async def deregister_type(self, **kwargs: Unpack[DeregisterTypeInputTypeDef]) -> Dict[str, Any]:
+    async def deregister_type(self, **kwargs: Unpack[DeregisterTypeInputTypeDef]) -> dict[str, Any]:
         """
         Marks an extension or extension version as <code>DEPRECATED</code> in the
         CloudFormation registry, removing it from active use.
@@ -521,11 +521,21 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeChangeSetHooksInputTypeDef]
     ) -> DescribeChangeSetHooksOutputTypeDef:
         """
-        Returns hook-related information for the change set and a list of changes that
+        Returns Hook-related information for the change set and a list of changes that
         CloudFormation makes when you run the change set.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/describe_change_set_hooks.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#describe_change_set_hooks)
+        """
+
+    async def describe_events(
+        self, **kwargs: Unpack[DescribeEventsInputTypeDef]
+    ) -> DescribeEventsOutputTypeDef:
+        """
+        Returns CloudFormation events based on flexible query criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/describe_events.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#describe_events)
         """
 
     async def describe_generated_template(
@@ -678,7 +688,8 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeTypeInputTypeDef]
     ) -> DescribeTypeOutputTypeDef:
         """
-        Returns detailed information about an extension that has been registered.
+        Returns detailed information about an extension from the CloudFormation
+        registry in your current account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/describe_type.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#describe_type)
@@ -723,7 +734,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[DetectStackSetDriftInputTypeDef]
     ) -> DetectStackSetDriftOutputTypeDef:
         """
-        Detect drift on a stack set.
+        Detect drift on a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/detect_stack_set_drift.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#detect_stack_set_drift)
@@ -741,7 +752,7 @@ class CloudFormationClient(AioBaseClient):
 
     async def execute_change_set(
         self, **kwargs: Unpack[ExecuteChangeSetInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a stack using the input information that was provided when the
         specified change set was created.
@@ -768,6 +779,17 @@ class CloudFormationClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/get_generated_template.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#get_generated_template)
+        """
+
+    async def get_hook_result(
+        self, **kwargs: Unpack[GetHookResultInputTypeDef]
+    ) -> GetHookResultOutputTypeDef:
+        """
+        Retrieves detailed information and remediation guidance for a Hook invocation
+        result.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/get_hook_result.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#get_hook_result)
         """
 
     async def get_stack_policy(
@@ -804,7 +826,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ImportStacksToStackSetInputTypeDef]
     ) -> ImportStacksToStackSetOutputTypeDef:
         """
-        Import existing stacks into a new stack sets.
+        Import existing stacks into a new StackSets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/import_stacks_to_stack_set.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#import_stacks_to_stack_set)
@@ -845,8 +867,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ListHookResultsInputTypeDef]
     ) -> ListHookResultsOutputTypeDef:
         """
-        Returns summaries of invoked Hooks when a change set or Cloud Control API
-        operation target is provided.
+        Returns summaries of invoked Hooks.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_hook_results.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_hook_results)
@@ -907,7 +928,7 @@ class CloudFormationClient(AioBaseClient):
     ) -> ListStackInstancesOutputTypeDef:
         """
         Returns summary information about stack instances that are associated with the
-        specified stack set.
+        specified StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_instances.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_stack_instances)
@@ -948,7 +969,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ListStackSetAutoDeploymentTargetsInputTypeDef]
     ) -> ListStackSetAutoDeploymentTargetsOutputTypeDef:
         """
-        Returns summary information about deployment targets for a stack set.
+        Returns summary information about deployment targets for a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_auto_deployment_targets.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_stack_set_auto_deployment_targets)
@@ -958,7 +979,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ListStackSetOperationResultsInputTypeDef]
     ) -> ListStackSetOperationResultsOutputTypeDef:
         """
-        Returns summary information about the results of a stack set operation.
+        Returns summary information about the results of a StackSet operation.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_operation_results.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_stack_set_operation_results)
@@ -968,7 +989,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ListStackSetOperationsInputTypeDef]
     ) -> ListStackSetOperationsOutputTypeDef:
         """
-        Returns summary information about operations performed on a stack set.
+        Returns summary information about operations performed on a StackSet.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_set_operations.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_stack_set_operations)
@@ -978,7 +999,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[ListStackSetsInputTypeDef]
     ) -> ListStackSetsOutputTypeDef:
         """
-        Returns summary information about stack sets that are associated with the user.
+        Returns summary information about StackSets that are associated with the user.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_stack_sets.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_stack_sets)
@@ -1017,8 +1038,9 @@ class CloudFormationClient(AioBaseClient):
 
     async def list_types(self, **kwargs: Unpack[ListTypesInputTypeDef]) -> ListTypesOutputTypeDef:
         """
-        Returns summary information about extension that have been registered with
-        CloudFormation.
+        Returns summary information about all extensions, including your private
+        resource types, modules, and Hooks as well as all public extensions from Amazon
+        Web Services and third-party publishers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/list_types.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#list_types)
@@ -1037,7 +1059,7 @@ class CloudFormationClient(AioBaseClient):
 
     async def record_handler_progress(
         self, **kwargs: Unpack[RecordHandlerProgressInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reports progress of a resource handler to CloudFormation.
 
@@ -1091,8 +1113,8 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[SetTypeConfigurationInputTypeDef]
     ) -> SetTypeConfigurationOutputTypeDef:
         """
-        Specifies the configuration data for a registered CloudFormation extension, in
-        the given account and Region.
+        Specifies the configuration data for a CloudFormation extension, such as a
+        resource or Hook, in the given account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/set_type_configuration.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#set_type_configuration)
@@ -1100,7 +1122,7 @@ class CloudFormationClient(AioBaseClient):
 
     async def set_type_default_version(
         self, **kwargs: Unpack[SetTypeDefaultVersionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specify the default version of an extension.
 
@@ -1130,10 +1152,9 @@ class CloudFormationClient(AioBaseClient):
 
     async def stop_stack_set_operation(
         self, **kwargs: Unpack[StopStackSetOperationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Stops an in-progress operation on a stack set and its associated stack
-        instances.
+        Stops an in-progress operation on a StackSet and its associated stack instances.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/stop_stack_set_operation.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#stop_stack_set_operation)
@@ -1183,7 +1204,7 @@ class CloudFormationClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateStackSetInputTypeDef]
     ) -> UpdateStackSetOutputTypeDef:
         """
-        Updates the stack set and associated stack instances in the specified accounts
+        Updates the StackSet and associated stack instances in the specified accounts
         and Amazon Web Services Regions.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/update_stack_set.html)
@@ -1225,6 +1246,17 @@ class CloudFormationClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_change_set"]
     ) -> DescribeChangeSetPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudformation/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_events"]
+    ) -> DescribeEventsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1548,7 +1580,7 @@ class CloudFormationClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

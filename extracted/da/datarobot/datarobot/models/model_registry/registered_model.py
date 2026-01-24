@@ -240,9 +240,7 @@ class RegisteredModelListFilters:
         if self.created_by:
             query_args["createdBy"] = self.created_by
         if self.compatible_with_leaderboard_model_id:
-            query_args["compatibleWithLeaderboardModelId"] = (
-                self.compatible_with_leaderboard_model_id
-            )
+            query_args["compatibleWithLeaderboardModelId"] = self.compatible_with_leaderboard_model_id
         if self.compatible_with_model_package_id:
             query_args["compatibleWithModelPackageId"] = self.compatible_with_model_package_id
         if self.for_challenger:
@@ -294,20 +292,18 @@ class RegisteredModel(APIObject, BrowserMixin):
 
     _user_metadata = t.Dict().allow_extra("*")
     _target = t.Dict().allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-            t.Key("created_at"): t.String() >> dateutil.parser.parse,
-            t.Key("modified_at"): t.String() >> dateutil.parser.parse,
-            t.Key("modified_by", optional=True): t.Or(_user_metadata, t.Null),
-            t.Key("target"): _target,
-            t.Key("created_by"): _user_metadata,
-            t.Key("last_version_num"): t.Int(),
-            t.Key("is_archived"): t.Bool(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+        t.Key("created_at"): t.String() >> dateutil.parser.parse,
+        t.Key("modified_at"): t.String() >> dateutil.parser.parse,
+        t.Key("modified_by", optional=True): t.Or(_user_metadata, t.Null),
+        t.Key("target"): _target,
+        t.Key("created_by"): _user_metadata,
+        t.Key("last_version_num"): t.Int(),
+        t.Key("is_archived"): t.Bool(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -455,9 +451,7 @@ class RegisteredModel(APIObject, BrowserMixin):
         cls._client.delete(url)
 
     @classmethod
-    def update(
-        cls: Type[TRegisteredModel], registered_model_id: str, name: str
-    ) -> TRegisteredModel:
+    def update(cls: Type[TRegisteredModel], registered_model_id: str, name: str) -> TRegisteredModel:
         """
         Update the name of a registered model.
 

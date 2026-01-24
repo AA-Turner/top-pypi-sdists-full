@@ -3,13 +3,75 @@
 //! everything needed to perform such validation in runtime.
 use crate::{
     error::{error, no_error, ErrorIterator},
+    evaluation::{Annotations, ErrorDescription, Evaluation, EvaluationNode},
     node::SchemaNode,
-    output::{Annotations, ErrorDescription, Output, OutputUnit},
-    paths::LazyLocation,
+    paths::{LazyLocation, Location, RefTracker},
     Draft, ValidationError, ValidationOptions,
 };
+use ahash::AHashMap;
 use serde_json::Value;
-use std::{collections::VecDeque, sync::Arc};
+
+// Re-export LazyEvaluationPath from paths module
+pub(crate) use crate::paths::LazyEvaluationPath;
+
+/// Validation state for cycle detection and memoization.
+#[derive(Default)]
+pub struct ValidationContext {
+    validating: Vec<(usize, usize)>,
+    /// Lazy-initialized cache for recursive schema validation.
+    is_valid_cache: Option<AHashMap<(usize, usize), bool>>,
+}
+
+impl ValidationContext {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns `true` if cycle detected.
+    #[inline]
+    pub(crate) fn enter(&mut self, node_id: usize, instance: &Value) -> bool {
+        let key = (node_id, std::ptr::from_ref::<Value>(instance) as usize);
+        if self.validating.contains(&key) {
+            return true;
+        }
+        self.validating.push(key);
+        false
+    }
+
+    #[inline]
+    pub(crate) fn exit(&mut self, node_id: usize, instance: &Value) {
+        let key = (node_id, std::ptr::from_ref::<Value>(instance) as usize);
+        let popped = self.validating.pop();
+        debug_assert_eq!(
+            popped,
+            Some(key),
+            "ValidationContext::exit called out of order"
+        );
+    }
+
+    /// Only caches arrays/objects to avoid false hits from stack address reuse.
+    #[inline]
+    pub(crate) fn get_cached_result(&self, node_id: usize, instance: &Value) -> Option<bool> {
+        if !matches!(instance, Value::Array(_) | Value::Object(_)) {
+            return None;
+        }
+        let cache = self.is_valid_cache.as_ref()?;
+        let key = (node_id, std::ptr::from_ref::<Value>(instance) as usize);
+        cache.get(&key).copied()
+    }
+
+    /// Only caches arrays/objects to avoid false hits from stack address reuse.
+    #[inline]
+    pub(crate) fn cache_result(&mut self, node_id: usize, instance: &Value, result: bool) {
+        if !matches!(instance, Value::Array(_) | Value::Object(_)) {
+            return;
+        }
+        let key = (node_id, std::ptr::from_ref::<Value>(instance) as usize);
+        self.is_valid_cache
+            .get_or_insert_with(AHashMap::new)
+            .insert(key, result);
+    }
+}
 
 /// The Validate trait represents a predicate over some JSON value. Some validators are very simple
 /// predicates such as "a value which is a string", whereas others may be much more complex,
@@ -19,142 +81,168 @@ use std::{collections::VecDeque, sync::Arc};
 /// in that case the `is_valid` function is sufficient. Sometimes applications will want more
 /// detail about why a schema has failed, in which case the `validate` method can be used to
 /// iterate over the errors produced by this validator. Finally, applications may be interested in
-/// annotations produced by schemas over valid results, in this case the `apply` method can be used
+/// annotations produced by schemas over valid results, in this case the `evaluate` method can be used
 /// to obtain this information.
 ///
 /// If you are implementing `Validate` it is often sufficient to implement `validate` and
-/// `is_valid`. `apply` is only necessary for validators which compose other validators. See the
-/// documentation for `apply` for more information.
+/// `is_valid`. `evaluate` is only necessary for validators which compose other validators. See the
+/// documentation for `evaluate` for more information.
+///
+/// # Context Types
+///
+/// - `is_valid` takes `LightweightContext`: Only cycle detection, zero path tracking overhead.
+/// - `validate`, `iter_errors`, `evaluate` take `ValidationContext`: Cycle detection + evaluation path tracking.
 pub(crate) trait Validate: Send + Sync {
-    fn iter_errors<'i>(&self, instance: &'i Value, location: &LazyLocation) -> ErrorIterator<'i> {
-        match self.validate(instance, location) {
+    fn iter_errors<'i>(
+        &self,
+        instance: &'i Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> ErrorIterator<'i> {
+        match self.validate(instance, location, tracker, ctx) {
             Ok(()) => no_error(),
             Err(err) => error(err),
         }
     }
-    // The same as above, but does not construct ErrorIterator.
-    // It is faster for cases when the result is not needed (like anyOf), since errors are
-    // not constructed
-    fn is_valid(&self, instance: &Value) -> bool;
+
+    fn is_valid(&self, instance: &Value, ctx: &mut ValidationContext) -> bool;
 
     fn validate<'i>(
         &self,
         instance: &'i Value,
         location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
     ) -> Result<(), ValidationError<'i>>;
 
-    /// `apply` applies this validator and any sub-validators it is composed of to the value in
-    /// question and collects the resulting annotations or errors. Note that the result of `apply`
-    /// is a `PartialApplication`.
-    ///
-    /// What does "partial" mean in this context? Each validator can produce annotations or errors
-    /// in the case of successful or unsuccessful validation respectively. We're ultimately
-    /// producing these errors and annotations to produce the "basic" output format as specified in
-    /// the 2020-12 draft specification. In this format each annotation or error must include a
-    /// json pointer to the keyword in the schema and to the property in the instance. However,
-    /// most validators don't know where they are in the schema tree so we allow them to return the
-    /// errors or annotations they produce directly and leave it up to the parent validator to fill
-    /// in the path information. This means that only validators which are composed of other
-    /// validators must implement `apply`, for validators on the leaves of the validator tree the
-    /// default implementation which is defined in terms of `validate` will suffice.
-    ///
-    /// If you are writing a validator which is composed of other validators then your validator will
-    /// need to store references to the `SchemaNode`s which contain those other validators.
-    /// `SchemaNode` stores information about where it is in the schema tree and therefore provides an
-    /// `apply_rooted` method which returns a full `BasicOutput`. `BasicOutput` implements `AddAssign`
-    /// so a typical pattern is to compose results from sub validators using `+=` and then use the
-    /// `From<BasicOutput> for PartialApplication` impl to convert the composed outputs into a
-    /// `PartialApplication` to return. For example, here is the implementation of
-    /// `IfThenValidator`
-    ///
-    /// ```rust,ignore
-    /// // Note that self.schema is a `SchemaNode` and we use `apply_rooted` to return a `BasicOutput`
-    /// let mut if_result = self.schema.apply_rooted(instance, instance_path);
-    /// if if_result.is_valid() {
-    ///     // here we use the `AddAssign` implementation to combine the results of subschemas
-    ///     if_result += self
-    ///         .then_schema
-    ///         .apply_rooted(instance, instance_path);
-    ///     // Here we use the `From<BasicOutput> for PartialApplication impl
-    ///     if_result.into()
-    /// } else {
-    ///     self.else_schema
-    ///         .apply_rooted(instance, instance_path)
-    ///         .into()
-    /// }
-    /// ```
-    ///
-    /// `BasicOutput` also implements `Sum<BasicOutput>` and `FromIterator<BasicOutput<'a>> for PartialApplication<'a>`
-    /// so you can use `sum()` and `collect()` in simple cases.
-    fn apply<'a>(&'a self, instance: &Value, location: &LazyLocation) -> PartialApplication<'a> {
+    fn evaluate(
+        &self,
+        instance: &Value,
+        location: &LazyLocation,
+        tracker: Option<&RefTracker>,
+        ctx: &mut ValidationContext,
+    ) -> EvaluationResult {
         let errors: Vec<ErrorDescription> = self
-            .iter_errors(instance, location)
-            .map(ErrorDescription::from)
+            .iter_errors(instance, location, tracker, ctx)
+            .map(|e| ErrorDescription::from_validation_error(&e))
             .collect();
         if errors.is_empty() {
-            PartialApplication::valid_empty()
+            EvaluationResult::valid_empty()
         } else {
-            PartialApplication::invalid_empty(errors)
+            EvaluationResult::invalid_empty(errors)
         }
+    }
+
+    /// Returns the canonical location for this validator's schemaLocation output.
+    ///
+    /// Per JSON Schema spec, schemaLocation "MUST NOT include by-reference applicators
+    /// such as `$ref` or `$dynamicRef`". For most validators, the keyword location is the
+    /// canonical location, so this returns `None` by default.
+    ///
+    /// `RefValidator` and similar by-reference validators override this to return
+    /// the target schema's canonical location (e.g., `/$defs/item` instead of
+    /// `/properties/foo/$ref`).
+    fn canonical_location(&self) -> Option<&Location> {
+        None
     }
 }
 
-/// The result of applying a validator to an instance. As explained in the documentation for
-/// `Validate::apply` this is a "partial" result because it does not include information about
+/// The result of evaluating a validator against an instance. This is a "partial" result because it does not include information about
 /// where the error or annotation occurred.
-#[derive(Clone, PartialEq)]
-pub(crate) enum PartialApplication<'a> {
+#[derive(PartialEq)]
+pub(crate) enum EvaluationResult {
     Valid {
         /// Annotations produced by this validator
-        annotations: Option<Annotations<'a>>,
-        /// Any outputs produced by validators which are children of this validator
-        child_results: VecDeque<OutputUnit<Annotations<'a>>>,
+        annotations: Option<Annotations>,
+        /// Children evaluation nodes
+        children: Vec<EvaluationNode>,
     },
     Invalid {
         /// Errors which caused this schema to be invalid
         errors: Vec<ErrorDescription>,
-        /// Any error outputs produced by child validators of this validator
-        child_results: VecDeque<OutputUnit<ErrorDescription>>,
+        /// Children evaluation nodes
+        children: Vec<EvaluationNode>,
+        /// Potential annotations that should be reported as dropped on failure
+        annotations: Option<Annotations>,
     },
 }
 
-impl<'a> PartialApplication<'a> {
-    /// Create an empty `PartialApplication` which is valid
-    pub(crate) fn valid_empty() -> PartialApplication<'static> {
-        PartialApplication::Valid {
+impl EvaluationResult {
+    /// Create an empty `EvaluationResult` which is valid
+    pub(crate) fn valid_empty() -> EvaluationResult {
+        EvaluationResult::Valid {
             annotations: None,
-            child_results: VecDeque::new(),
+            children: Vec::new(),
         }
     }
 
-    /// Create an empty `PartialApplication` which is invalid
-    pub(crate) fn invalid_empty(errors: Vec<ErrorDescription>) -> PartialApplication<'static> {
-        PartialApplication::Invalid {
+    /// Create an empty `EvaluationResult` which is invalid
+    pub(crate) fn invalid_empty(errors: Vec<ErrorDescription>) -> EvaluationResult {
+        EvaluationResult::Invalid {
             errors,
-            child_results: VecDeque::new(),
+            children: Vec::new(),
+            annotations: None,
         }
     }
 
     /// Set the annotation that will be returned for the current validator. If this
-    /// `PartialApplication` is invalid then this method does nothing
-    pub(crate) fn annotate(&mut self, new_annotations: Annotations<'a>) {
+    /// `EvaluationResult` is invalid then this method does nothing
+    pub(crate) fn annotate(&mut self, new_annotations: Annotations) {
         match self {
-            Self::Valid { annotations, .. } => *annotations = Some(new_annotations),
-            Self::Invalid { .. } => {}
+            Self::Valid { annotations, .. } | Self::Invalid { annotations, .. } => {
+                *annotations = Some(new_annotations);
+            }
         }
     }
 
     /// Set the error that will be returned for the current validator. If this
-    /// `PartialApplication` is valid then this method converts this application into
-    /// `PartialApplication::Invalid`
+    /// `EvaluationResult` is valid then this method converts this application into
+    /// `EvaluationResult::Invalid`
     pub(crate) fn mark_errored(&mut self, error: ErrorDescription) {
         match self {
             Self::Invalid { errors, .. } => errors.push(error),
-            Self::Valid { .. } => {
+            Self::Valid {
+                annotations,
+                children,
+            } => {
                 *self = Self::Invalid {
                     errors: vec![error],
-                    child_results: VecDeque::new(),
+                    children: std::mem::take(children),
+                    annotations: annotations.take(),
                 }
+            }
+        }
+    }
+
+    pub(crate) fn from_children(children: Vec<EvaluationNode>) -> EvaluationResult {
+        if children.iter().any(|node| !node.valid) {
+            EvaluationResult::Invalid {
+                errors: Vec::new(),
+                children,
+                annotations: None,
+            }
+        } else {
+            EvaluationResult::Valid {
+                annotations: None,
+                children,
+            }
+        }
+    }
+}
+
+impl From<EvaluationNode> for EvaluationResult {
+    fn from(node: EvaluationNode) -> Self {
+        if node.valid {
+            EvaluationResult::Valid {
+                annotations: None,
+                children: vec![node],
+            }
+        } else {
+            EvaluationResult::Invalid {
+                errors: Vec::new(),
+                children: vec![node],
+                annotations: None,
             }
         }
     }
@@ -165,10 +253,10 @@ impl<'a> PartialApplication<'a> {
 /// This structure represents a JSON Schema that has been parsed and compiled into
 /// an efficient internal representation for validation. It contains the root node
 /// of the schema tree and the configuration options used during compilation.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Validator {
     pub(crate) root: SchemaNode,
-    pub(crate) config: Arc<ValidationOptions>,
+    pub(crate) draft: Draft,
 }
 
 impl Validator {
@@ -212,31 +300,47 @@ impl Validator {
     /// # }
     /// ```
     ///
-    /// For sync validation, use [`options`] instead.
+    /// For sync validation, use [`options()`](crate::options()) instead.
     #[cfg(feature = "resolve-async")]
     #[must_use]
-    pub fn async_options() -> ValidationOptions<Arc<dyn referencing::AsyncRetrieve>> {
+    pub fn async_options() -> ValidationOptions<std::sync::Arc<dyn referencing::AsyncRetrieve>> {
         ValidationOptions::default()
     }
     /// Create a validator using the default options.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the supplied `schema` is invalid for the selected draft or references cannot be resolved.
     pub fn new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         Self::options().build(schema)
     }
     /// Create a validator using the default async options.
     #[cfg(feature = "resolve-async")]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the supplied `schema` is invalid for the selected draft or references cannot be resolved.
     pub async fn async_new(schema: &Value) -> Result<Validator, ValidationError<'static>> {
         Self::async_options().build(schema).await
     }
     /// Validate `instance` against `schema` and return the first error if any.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first [`ValidationError`] describing why `instance` does not satisfy the schema.
     #[inline]
     pub fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
-        self.root.validate(instance, &LazyLocation::new())
+        let mut ctx = ValidationContext::new();
+        self.root
+            .validate(instance, &LazyLocation::new(), None, &mut ctx)
     }
     /// Run validation against `instance` and return an iterator over [`ValidationError`] in the error case.
     #[inline]
     #[must_use]
     pub fn iter_errors<'i>(&'i self, instance: &'i Value) -> ErrorIterator<'i> {
-        self.root.iter_errors(instance, &LazyLocation::new())
+        let mut ctx = ValidationContext::new();
+        self.root
+            .iter_errors(instance, &LazyLocation::new(), None, &mut ctx)
     }
     /// Run validation against `instance` but return a boolean result instead of an iterator.
     /// It is useful for cases, where it is important to only know the fact if the data is valid or not.
@@ -244,79 +348,33 @@ impl Validator {
     #[must_use]
     #[inline]
     pub fn is_valid(&self, instance: &Value) -> bool {
-        self.root.is_valid(instance)
+        let mut ctx = ValidationContext::new();
+        self.root.is_valid(instance, &mut ctx)
     }
-    /// Apply the schema and return an [`Output`]. No actual work is done at this point, the
-    /// evaluation of the schema is deferred until a method is called on the `Output`. This is
-    /// because different output formats will have different performance characteristics.
-    ///
-    /// # Examples
-    ///
-    /// "basic" output format
-    ///
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use serde_json::json;
-    ///
-    /// let schema = json!({
-    ///     "title": "string value",
-    ///     "type": "string"
-    /// });
-    /// let instance = json!("some string");
-    ///
-    /// let validator = jsonschema::validator_for(&schema)
-    ///     .expect("Invalid schema");
-    ///
-    /// let output = validator.apply(&instance).basic();
-    /// assert_eq!(
-    ///     serde_json::to_value(output)?,
-    ///     json!({
-    ///         "valid": true,
-    ///         "annotations": [
-    ///             {
-    ///                 "keywordLocation": "",
-    ///                 "instanceLocation": "",
-    ///                 "annotations": {
-    ///                     "title": "string value"
-    ///                 }
-    ///             }
-    ///         ]
-    ///     })
-    /// );
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Evaluate the schema and expose structured output formats.
     #[must_use]
-    pub const fn apply<'a, 'b>(&'a self, instance: &'b Value) -> Output<'a, 'b> {
-        Output::new(self, &self.root, instance)
+    #[inline]
+    pub fn evaluate(&self, instance: &Value) -> Evaluation {
+        let mut ctx = ValidationContext::new();
+        let root = self
+            .root
+            .evaluate_instance(instance, &LazyLocation::new(), None, &mut ctx);
+        Evaluation::new(root)
     }
-
     /// The [`Draft`] which was used to build this validator.
     #[must_use]
     pub fn draft(&self) -> Draft {
-        self.config.draft()
-    }
-
-    /// The [`ValidationOptions`] that were used to build this validator.
-    #[must_use]
-    pub fn config(&self) -> Arc<ValidationOptions> {
-        Arc::clone(&self.config)
+        self.draft
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        error::ValidationError,
-        keywords::custom::Keyword,
-        paths::{LazyLocation, Location},
-        types::JsonType,
-        Validator,
-    };
+    use crate::{error::ValidationError, keywords::custom::Keyword, paths::Location, Validator};
     use fancy_regex::Regex;
     use num_cmp::NumCmp;
-    use once_cell::sync::Lazy;
     use serde_json::{json, Map, Value};
+    use std::sync::LazyLock;
 
     #[cfg(not(target_arch = "wasm32"))]
     fn load(path: &str, idx: usize) -> Value {
@@ -377,25 +435,16 @@ mod tests {
 
     #[test]
     fn custom_keyword_definition() {
-        /// Define a custom validator that verifies the object's keys consist of
-        /// only ASCII representable characters.
-        /// NOTE: This could be done with `propertyNames` + `pattern` but will be slower due to
-        /// regex usage.
+        // Define a custom validator that verifies the object's keys consist of
+        // only ASCII representable characters.
+        // NOTE: This could be done with `propertyNames` + `pattern` but will be slower due to
+        // regex usage.
         struct CustomObjectValidator;
         impl Keyword for CustomObjectValidator {
-            fn validate<'i>(
-                &self,
-                instance: &'i Value,
-                location: &LazyLocation,
-            ) -> Result<(), ValidationError<'i>> {
+            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 for key in instance.as_object().unwrap().keys() {
                     if !key.is_ascii() {
-                        return Err(ValidationError::custom(
-                            Location::new(),
-                            location.into(),
-                            instance,
-                            "Key is not ASCII",
-                        ));
+                        return Err(ValidationError::custom("Key is not ASCII"));
                     }
                 }
                 Ok(())
@@ -414,18 +463,15 @@ mod tests {
         fn custom_object_type_factory<'a>(
             _: &'a Map<String, Value>,
             schema: &'a Value,
-            path: Location,
+            _path: Location,
         ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
             const EXPECTED: &str = "ascii-keys";
             if schema.as_str() == Some(EXPECTED) {
                 Ok(Box::new(CustomObjectValidator))
             } else {
-                Err(ValidationError::constant_string(
-                    Location::new(),
-                    path,
-                    schema,
-                    EXPECTED,
-                ))
+                Err(ValidationError::schema(format!(
+                    "Expected '{EXPECTED}', got {schema}"
+                )))
             }
         }
 
@@ -456,37 +502,29 @@ mod tests {
 
     #[test]
     fn custom_format_and_override_keyword() {
-        /// Check that a string has some number of digits followed by a dot followed by exactly 2 digits.
+        // Check that a string has some number of digits followed by a dot followed by exactly 2 digits.
         fn currency_format_checker(s: &str) -> bool {
-            static CURRENCY_RE: Lazy<Regex> = Lazy::new(|| {
+            static CURRENCY_RE: LazyLock<Regex> = LazyLock::new(|| {
                 Regex::new("^(0|([1-9]+[0-9]*))(\\.[0-9]{2})$").expect("Invalid regex")
             });
             CURRENCY_RE.is_match(s).expect("Invalid regex")
         }
-        /// A custom keyword validator that overrides "minimum"
-        /// so that "minimum" may apply to "currency"-formatted strings as well.
+        // A custom keyword validator that overrides "minimum"
+        // so that "minimum" may apply to "currency"-formatted strings as well.
         struct CustomMinimumValidator {
             limit: f64,
-            limit_val: Value,
             with_currency_format: bool,
-            location: Location,
         }
 
         impl Keyword for CustomMinimumValidator {
-            fn validate<'i>(
-                &self,
-                instance: &'i Value,
-                location: &LazyLocation,
-            ) -> Result<(), ValidationError<'i>> {
+            fn validate<'i>(&self, instance: &'i Value) -> Result<(), ValidationError<'i>> {
                 if self.is_valid(instance) {
                     Ok(())
                 } else {
-                    Err(ValidationError::minimum(
-                        self.location.clone(),
-                        location.into(),
-                        instance,
-                        self.limit_val.clone(),
-                    ))
+                    Err(ValidationError::custom(format!(
+                        "value is less than the minimum of {}",
+                        self.limit
+                    )))
                 }
             }
 
@@ -521,31 +559,23 @@ mod tests {
             }
         }
 
-        /// Build a validator that overrides the standard `minimum` keyword
+        // Build a validator that overrides the standard `minimum` keyword
         fn custom_minimum_factory<'a>(
             parent: &'a Map<String, Value>,
             schema: &'a Value,
-            location: Location,
+            _path: Location,
         ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
             let limit = if let Value::Number(limit) = schema {
                 limit.as_f64().expect("Always valid")
             } else {
-                return Err(ValidationError::single_type_error(
-                    // There is no metaschema definition for a custom keyword, hence empty `schema` pointer
-                    Location::new(),
-                    location,
-                    schema,
-                    JsonType::Number,
-                ));
+                return Err(ValidationError::schema("minimum must be a number"));
             };
             let with_currency_format = parent
                 .get("format")
                 .is_some_and(|format| format == "currency");
             Ok(Box::new(CustomMinimumValidator {
                 limit,
-                limit_val: schema.clone(),
                 with_currency_format,
-                location,
             }))
         }
 
@@ -597,18 +627,133 @@ mod tests {
         assert!(validator.validate(&instance).is_err());
         assert!(!validator.is_valid(&instance));
 
-        // Invalid `minimum` value
+        // Invalid `minimum` value - meta-schema validation catches this first
         let schema = json!({ "minimum": "foo" });
         let error = crate::options()
             .with_keyword("minimum", custom_minimum_factory)
             .build(&schema)
             .expect_err("Should fail");
+        // The meta-schema validates before our factory runs, so we get a type error
         assert_eq!(error.to_string(), "\"foo\" is not of type \"number\"");
+    }
+
+    #[test]
+    fn custom_keyword_validation_error_paths() {
+        struct AlwaysFailValidator;
+        impl Keyword for AlwaysFailValidator {
+            fn validate<'i>(&self, _instance: &'i Value) -> Result<(), ValidationError<'i>> {
+                Err(ValidationError::custom("always fails"))
+            }
+            fn is_valid(&self, _instance: &Value) -> bool {
+                false
+            }
+        }
+
+        fn always_fail_factory<'a>(
+            _: &'a Map<String, Value>,
+            _: &'a Value,
+            _: Location,
+        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+            Ok(Box::new(AlwaysFailValidator))
+        }
+
+        let schema = json!({
+            "properties": {
+                "name": { "alwaysFail": true }
+            }
+        });
+        let validator = crate::options()
+            .with_keyword("alwaysFail", always_fail_factory)
+            .build(&schema)
+            .expect("Valid schema");
+
+        let instance = json!({"name": "test"});
+        let error = validator.validate(&instance).expect_err("Should fail");
+        assert_eq!(error.instance_path().as_str(), "/name");
+        assert_eq!(error.schema_path().as_str(), "/properties/name/alwaysFail");
+        assert_eq!(
+            error.evaluation_path().as_str(),
+            "/properties/name/alwaysFail"
+        );
+    }
+
+    #[test]
+    fn custom_keyword_factory_error_schema_path() {
+        fn failing_factory<'a>(
+            _: &'a Map<String, Value>,
+            _: &'a Value,
+            _: Location,
+        ) -> Result<Box<dyn Keyword>, ValidationError<'a>> {
+            Err(ValidationError::schema("invalid schema value"))
+        }
+
+        let schema = json!({
+            "properties": {
+                "field": { "myKeyword": "bad-value" }
+            }
+        });
+        let error = crate::options()
+            .with_keyword("myKeyword", failing_factory)
+            .build(&schema)
+            .expect_err("Should fail");
+        assert_eq!(error.to_string(), "invalid schema value");
+        assert_eq!(error.schema_path().as_str(), "/properties/field/myKeyword");
     }
 
     #[test]
     fn test_validator_is_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<Validator>();
+    }
+
+    #[test]
+    fn test_validator_clone() {
+        let schema = json!({"type": "string", "minLength": 3});
+        let validator = crate::validator_for(&schema).expect("Valid schema");
+
+        // Clone the validator
+        let cloned = validator.clone();
+
+        // Both validators should work independently
+        assert!(validator.is_valid(&json!("hello")));
+        assert!(!validator.is_valid(&json!("hi")));
+
+        assert!(cloned.is_valid(&json!("hello")));
+        assert!(!cloned.is_valid(&json!("hi")));
+
+        // Verify they validate the same way
+        assert_eq!(
+            validator.is_valid(&json!("test")),
+            cloned.is_valid(&json!("test"))
+        );
+    }
+
+    #[test]
+    fn ref_with_required_multiple_missing_clones_deferred_eval_path() {
+        // Tests the Deferred branch of LazyEvaluationPath::clone()
+        // When $ref is involved and multiple required properties are missing,
+        // the eval_path is cloned for each error
+        let schema = json!({
+            "$defs": {
+                "Person": {
+                    "type": "object",
+                    "required": ["name", "age", "email"]
+                }
+            },
+            "$ref": "#/$defs/Person"
+        });
+        let validator = crate::validator_for(&schema).expect("Valid schema");
+        let instance = json!({});
+
+        let errors: Vec<_> = validator.iter_errors(&instance).collect();
+
+        // Should have 3 errors for the 3 missing required properties
+        assert_eq!(errors.len(), 3);
+
+        // All errors should have evaluation paths that include the $ref traversal
+        for error in &errors {
+            assert_eq!(error.schema_path().as_str(), "/$defs/Person/required");
+            assert_eq!(error.evaluation_path().as_str(), "/$ref/required");
+        }
     }
 }

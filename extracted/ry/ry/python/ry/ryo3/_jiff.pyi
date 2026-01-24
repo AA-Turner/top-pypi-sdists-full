@@ -1,6 +1,7 @@
 """ryo3-jiff types"""
 
 import datetime as pydt
+import sys
 import typing as t
 
 from ry._types import (
@@ -9,8 +10,8 @@ from ry._types import (
     DateTimeRoundTypedDict,
     DateTimeTypedDict,
     DateTypedDict,
-    FromStr,
     ISOWeekDateTypedDict,
+    OffsetInfoDict,
     OffsetRoundTypedDict,
     OffsetTypedDict,
     SignedDurationRoundTypedDict,
@@ -22,23 +23,37 @@ from ry._types import (
     TimestampRoundTypedDict,
     TimestampTypedDict,
     TimeTypedDict,
+    TimeZoneDict,
+    ZonedDateTimeDifferenceTypedDict,
+    ZonedDateTimeRoundTypedDict,
+    ZonedDateTimeTypedDict,
+)
+from ry.protocols import (
+    FromStr,
+    Strftime,
     ToPy,
     ToPyDate,
     ToPyDateTime,
     ToPyTime,
     ToPyTimeDelta,
     ToPyTzInfo,
-    ZonedDateTimeDifferenceTypedDict,
-    ZonedDateTimeRoundTypedDict,
-    ZonedDateTimeTypedDict,
-    deprecated,
+    ToString,
+    _Parse,
 )
 from ry.ryo3 import Duration
 from ry.ryo3._jiff_tz import TimezoneDbName
 
-_T = t.TypeVar("_T")
-_TDict = t.TypeVar("_TDict")
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    from typing_extensions import deprecated
 
+_T = t.TypeVar("_T")
+_Temporal = t.TypeVar(
+    "_Temporal", bound=ZonedDateTime | DateTime | Timestamp | Date | Time
+)
+
+_TDict = t.TypeVar("_TDict")
 TimezoneName: t.TypeAlias = TimezoneDbName | str
 JiffUnit: t.TypeAlias = t.Literal[
     "year",
@@ -127,7 +142,15 @@ WeekdayInt: t.TypeAlias = t.Literal[
 Weekday: t.TypeAlias = WeekdayStr | WeekdayInt
 
 @t.final
-class Date(ToPy[pydt.date], ToPyDate):
+class Date(
+    # protocols
+    FromStr,
+    Strftime,
+    ToPyDate,
+    ToPy[pydt.date],
+    ToString,
+    _Parse,
+):
     MIN: t.ClassVar[Date]
     MAX: t.ClassVar[Date]
     ZERO: t.ClassVar[Date]
@@ -142,7 +165,7 @@ class Date(ToPy[pydt.date], ToPyDate):
     # =========================================================================
     # STRING
     # =========================================================================
-    def string(self) -> str: ...
+    def to_string(self) -> str: ...
     def isoformat(self) -> str: ...
 
     # =========================================================================
@@ -169,13 +192,17 @@ class Date(ToPy[pydt.date], ToPyDate):
     # CLASSMETHODS
     # =========================================================================
     @classmethod
-    def from_iso_week_date(cls, year: int, week: int, weekday: int) -> t.Self: ...
+    def from_iso_week_date(cls, iso_week_date: ISOWeekDate) -> t.Self: ...
     @classmethod
     def today(cls) -> t.Self: ...
     @classmethod
+    def now(cls) -> t.Self:
+        """Same as today for parity with other date/time types"""
+
+    @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
 
     # =========================================================================
     # STRPTIME/STRFTIME
@@ -245,6 +272,7 @@ class Date(ToPy[pydt.date], ToPyDate):
     def nth_weekday_of_month(self, nth: int, weekday: Weekday) -> t.Self: ...
     def replace(
         self,
+        *,
         year: int | None = None,
         month: int | None = None,
         day: int | None = None,
@@ -252,8 +280,8 @@ class Date(ToPy[pydt.date], ToPyDate):
         day_of_year: int | None = None,
         day_of_year_no_leap: int | None = None,
     ) -> t.Self: ...
-    def series(self, span: TimeSpan) -> JiffSeries[t.Self]: ...
-    def to_datetime(self, t: Time) -> DateTime: ...
+    def series(self, period: TimeSpan) -> JiffSeries[t.Self]: ...
+    def to_datetime(self, time: Time) -> DateTime: ...
     def to_zoned(self, tz: TimeZone) -> ZonedDateTime: ...
     def tomorrow(self) -> t.Self: ...
     def yesterday(self) -> t.Self: ...
@@ -283,7 +311,14 @@ class Date(ToPy[pydt.date], ToPyDate):
     ) -> TimeSpan: ...
 
 @t.final
-class Time(ToPy[pydt.time], ToPyTime, FromStr):
+class Time(
+    # protocols
+    FromStr,
+    Strftime,
+    ToPyTime,
+    ToPy[pydt.time],
+    _Parse,
+):
     MIN: t.ClassVar[Time]
     MAX: t.ClassVar[Time]
 
@@ -298,7 +333,7 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     # =========================================================================
     # STRING
     # =========================================================================
-    def string(self) -> str: ...
+    def to_string(self) -> str: ...
     def isoformat(self) -> str: ...
 
     # =========================================================================
@@ -342,7 +377,7 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
 
     # =========================================================================
     # PROPERTIES
@@ -397,6 +432,7 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     def on(self, year: int, month: int, day: int) -> DateTime: ...
     def replace(
         self,
+        *,
         hour: int | None = None,
         minute: int | None = None,
         second: int | None = None,
@@ -408,12 +444,13 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     def round(
         self,
         smallest: _TimeRoundSmallest = "nanosecond",
-        mode: JiffRoundMode | None = None,
-        increment: int | None = None,
+        *,
+        mode: JiffRoundMode = "half-expand",
+        increment: int = 1,
     ) -> t.Self: ...
     def _round(self, options: TimeRound) -> t.Self: ...
-    def series(self, span: TimeSpan) -> JiffSeries[t.Self]: ...
-    def to_datetime(self, d: Date) -> DateTime: ...
+    def series(self, period: TimeSpan) -> JiffSeries[t.Self]: ...
+    def to_datetime(self, date: Date) -> DateTime: ...
 
     # =========================================================================
     # SINCE/UNTIL
@@ -422,7 +459,7 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     def _until(self, other: TimeDifference) -> TimeSpan: ...
     def since(
         self,
-        other: Time | DateTime | ZonedDateTime,
+        t: Time | DateTime | ZonedDateTime,
         *,
         smallest: t.Literal[
             "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"
@@ -436,7 +473,7 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     ) -> TimeSpan: ...
     def until(
         self,
-        other: Time | DateTime | ZonedDateTime,
+        t: Time | DateTime | ZonedDateTime,
         *,
         smallest: t.Literal[
             "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"
@@ -450,7 +487,16 @@ class Time(ToPy[pydt.time], ToPyTime, FromStr):
     ) -> TimeSpan: ...
 
 @t.final
-class DateTime(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
+class DateTime(
+    # protocols
+    FromStr,
+    Strftime,
+    ToPyDate,
+    ToPyDateTime,
+    ToPyTime,
+    ToPy[pydt.datetime],
+    _Parse,
+):
     MIN: t.ClassVar[DateTime]
     MAX: t.ClassVar[DateTime]
     ZERO: t.ClassVar[DateTime]
@@ -465,7 +511,7 @@ class DateTime(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
         second: int = 0,
         nanosecond: int = 0,
     ) -> None: ...
-    def string(self) -> str: ...
+    def to_string(self) -> str: ...
     def isoformat(self) -> str: ...
 
     # =========================================================================
@@ -478,13 +524,13 @@ class DateTime(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
 
     # =========================================================================
     # PYTHON CONVERSIONS
     # =========================================================================
     @classmethod
-    def from_pydatetime(cls, dt: pydt.datetime) -> t.Self: ...
+    def from_pydatetime(cls, datetime: pydt.datetime) -> t.Self: ...
     def to_py(self) -> pydt.datetime: ...
     def to_pydate(self) -> pydt.date: ...
     def to_pydatetime(self) -> pydt.datetime: ...
@@ -580,14 +626,14 @@ class DateTime(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
         self,
         smallest: _DateTimeRoundSmallest = "nanosecond",
         *,
-        mode: JiffRoundMode | None = None,
-        increment: int | None = None,
+        mode: JiffRoundMode = "half-expand",
+        increment: int = 1,
     ) -> t.Self: ...
     def _round(self, options: DateTimeRound) -> t.Self: ...
     def saturating_add(
         self, other: TimeSpan | SignedDuration | Duration | pydt.timedelta
     ) -> t.Self: ...
-    def series(self, span: TimeSpan) -> JiffSeries[t.Self]: ...
+    def series(self, period: TimeSpan) -> JiffSeries[t.Self]: ...
     def start_of_day(self) -> t.Self: ...
     def time(self) -> Time: ...
     def to_zoned(self, tz: TimeZone) -> ZonedDateTime: ...
@@ -644,11 +690,25 @@ class DateTime(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
         increment: int = 1,
     ) -> TimeSpan: ...
 
+class TimeZoneTransition(t.TypedDict):
+    timestamp: Timestamp
+    offset: Offset
+    dst: bool
+    abbreviation: str
+
 @t.final
-class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
+class TimeZone(
+    # protocols
+    FromStr,
+    ToPyTzInfo,
+    ToPy[pydt.tzinfo],
+    _Parse,
+):
+    UTC: t.ClassVar[TimeZone]
+
     def __init__(self, name: TimezoneName) -> None: ...
     def __eq__(self, other: object) -> bool: ...
-    def __call__(self) -> t.Self: ...
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Self: ...
 
     # =========================================================================
     # PYTHON CONVERSIONS
@@ -656,10 +716,14 @@ class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
 
     def to_py(self) -> pydt.tzinfo: ...
     def to_pytzinfo(self) -> pydt.tzinfo: ...
+    def to_dict(self) -> TimeZoneDict: ...
     @classmethod
     def from_str(cls, s: TimezoneName) -> t.Self: ...
     @classmethod
+    def parse(cls, s: str | bytes) -> t.Self: ...
+    @classmethod
     def from_pytzinfo(cls, tz: pydt.tzinfo) -> t.Self: ...
+    def to_offset_info(self, timestamp: Timestamp) -> OffsetInfoDict: ...
 
     # =========================================================================
     # PROPERTIES
@@ -675,9 +739,9 @@ class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
     @classmethod
     def fixed(cls, offset: Offset) -> t.Self: ...
     @classmethod
-    def get(cls, name: TimezoneName) -> t.Self: ...
+    def get(cls, tz_name: TimezoneName) -> t.Self: ...
     @classmethod
-    def posix(cls, name: TimezoneName) -> t.Self: ...
+    def posix(cls, tz_name: TimezoneName) -> t.Self: ...
     @classmethod
     def system(cls) -> t.Self: ...
     @classmethod
@@ -686,12 +750,12 @@ class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
     def tzif(cls, name: str, data: bytes) -> t.Self: ...
     @classmethod
     def utc(cls) -> t.Self: ...
-
+    def equiv(self, other: t.Self | pydt.tzinfo | str) -> bool: ...
     # =========================================================================
     # INSTANCE METHODS
     # =========================================================================
     def iana_name(self) -> str | None: ...
-    def to_datetime(self, dt: Timestamp) -> DateTime: ...
+    def to_datetime(self, timestamp: Timestamp) -> DateTime: ...
     def to_fixed_offset(self) -> Offset:
         """Return a TimeZone with a fixed offset equivalent to this TimeZone.
 
@@ -705,9 +769,20 @@ class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
         """
 
     def to_offset(self, timestamp: Timestamp) -> Offset: ...
-    def to_timestamp(self, dt: DateTime) -> Timestamp: ...
-    def to_zoned(self, other: DateTime) -> ZonedDateTime: ...
-
+    def to_timestamp(self, datetime: DateTime) -> Timestamp: ...
+    def to_zoned(self, datetime: DateTime) -> ZonedDateTime: ...
+    def preceding(
+        self,
+        timestamp: Timestamp,
+        /,
+        limit: int | None = None,
+    ) -> list[TimeZoneTransition]: ...
+    def following(
+        self,
+        timestamp: Timestamp,
+        /,
+        limit: int | None = None,
+    ) -> list[TimeZoneTransition]: ...
     # =========================================================================
     # NOT IMPLEMENTED
     # =========================================================================
@@ -715,7 +790,13 @@ class TimeZone(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
     def to_ambiguous_zoned(self) -> t.NoReturn: ...
 
 @t.final
-class SignedDuration(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
+class SignedDuration(
+    # protocols
+    FromStr,
+    ToPyTimeDelta,
+    ToPy[pydt.timedelta],
+    _Parse,
+):
     MIN: t.ClassVar[SignedDuration]
     MAX: t.ClassVar[SignedDuration]
     ZERO: t.ClassVar[SignedDuration]
@@ -726,9 +807,6 @@ class SignedDuration(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     # OPERATORS/DUNDERS
     # =========================================================================
     def __hash__(self) -> int: ...
-    def __mul__(self, other: int) -> t.Self: ...
-    def __rmul__(self, other: int) -> t.Self: ...
-    def __sub__(self, other: t.Self) -> t.Self: ...
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...
     def __lt__(self, other: object) -> bool: ...
@@ -736,63 +814,77 @@ class SignedDuration(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     def __gt__(self, other: object) -> bool: ...
     def __ge__(self, other: object) -> bool: ...
     def __neg__(self) -> t.Self: ...
-    def __add__(self, other: t.Self) -> t.Self: ...
+    @t.overload
+    def __add__(self, other: t.Self | Duration | pydt.timedelta) -> t.Self: ...
+    @t.overload
+    def __add__(self, val: _Temporal) -> _Temporal: ...
+    def __radd__(self, other: t.Self | Duration | pydt.timedelta) -> t.Self: ...
+    def __sub__(self, other: t.Self | Duration | pydt.timedelta) -> t.Self: ...
+    def __rsub__(self, other: t.Self | Duration | pydt.timedelta) -> t.Self: ...
+    def __mul__(self, other: int) -> t.Self: ...
+    def __rmul__(self, other: int) -> t.Self: ...
     def __abs__(self) -> t.Self: ...
     def __float__(self) -> float: ...
     def __int__(self) -> int: ...
     def __bool__(self) -> bool: ...
     @t.overload
-    def __truediv__(self, other: t.Self) -> float: ...
+    def __truediv__(self, other: t.Self | pydt.timedelta) -> float: ...
     @t.overload
     def __truediv__(self, other: float) -> t.Self: ...
     def abs(self) -> t.Self: ...
     def unsigned_abs(self) -> Duration: ...
-    def __richcmp__(self, other: t.Self | pydt.timedelta, op: int) -> bool: ...
-
+    def __richcmp__(self, other: t.Self, op: int) -> bool: ...
+    # =========================================================================
+    # EQUIV
+    # =========================================================================
+    def equiv(self, other: t.Self | Duration | pydt.timedelta) -> bool: ...
     # =========================================================================
     # STRING
     # =========================================================================
-    def string(self, *, friendly: bool = False) -> str: ...
+    def isoformat(self) -> str: ...
+    @classmethod
+    def from_isoformat(cls, s: str) -> t.Self: ...
+    def to_string(self, *, friendly: bool = False) -> str: ...
     def friendly(self) -> str: ...
 
     # =========================================================================
     # PYTHON CONVERSIONS
     # =========================================================================
     @classmethod
-    def from_pytimedelta(cls, td: pydt.timedelta) -> t.Self: ...
+    def from_pytimedelta(cls, delta: pydt.timedelta) -> t.Self: ...
     def to_py(self) -> pydt.timedelta: ...
     def to_pytimedelta(self) -> pydt.timedelta: ...
     def to_dict(self) -> SignedDurationTypedDict: ...
-
     # =========================================================================
     # CLASS METHODS
     # =========================================================================
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
-    def from_hours(cls, n: int) -> t.Self: ...
+    def from_hours(cls, hours: int) -> t.Self: ...
     @classmethod
-    def from_micros(cls, n: int) -> t.Self: ...
+    def from_micros(cls, micros: int) -> t.Self: ...
     @classmethod
-    def from_millis(cls, n: int) -> t.Self: ...
+    def from_millis(cls, millis: int) -> t.Self: ...
     @classmethod
-    def from_mins(cls, n: int) -> t.Self: ...
+    def from_mins(cls, mins: int) -> t.Self: ...
     @classmethod
-    def from_nanos(cls, n: int) -> t.Self: ...
+    def from_nanos(cls, nanos: int) -> t.Self: ...
     @classmethod
-    def from_secs(cls, n: int) -> t.Self: ...
+    def from_secs(cls, secs: float) -> t.Self: ...
     @classmethod
-    def from_secs_f32(cls, n: float) -> t.Self: ...
+    def from_secs_f32(cls, secs: float) -> t.Self: ...
     @classmethod
-    def from_secs_f64(cls, n: float) -> t.Self: ...
-
+    def from_secs_f64(cls, secs: float) -> t.Self: ...
     # =========================================================================
     # PROPERTIES
     # =========================================================================
     @property
     def is_negative(self) -> bool: ...
+    @property
+    def is_positive(self) -> bool: ...
     @property
     def is_zero(self) -> bool: ...
     @property
@@ -805,6 +897,12 @@ class SignedDuration(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     def seconds(self) -> int: ...
     @property
     def microseconds(self) -> int: ...
+    @property
+    def subsec_micros(self) -> int: ...
+    @property
+    def subsec_millis(self) -> int: ...
+    @property
+    def subsec_nanos(self) -> int: ...
 
     # =========================================================================
     # INSTANCE METHODS
@@ -826,18 +924,14 @@ class SignedDuration(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     def checked_sub(self, other: t.Self) -> t.Self | None: ...
     def div_duration_f32(self, other: t.Self) -> float: ...
     def div_duration_f64(self, other: t.Self) -> float: ...
-    def div_f32(self, other: int) -> float: ...
-    def div_f64(self, other: int) -> float: ...
-    def is_positive(self) -> bool: ...
-    def mul_f32(self, other: int) -> t.Self: ...
-    def mul_f64(self, other: int) -> t.Self: ...
+    def div_f32(self, n: float) -> float: ...
+    def div_f64(self, n: float) -> float: ...
+    def mul_f32(self, n: float) -> t.Self: ...
+    def mul_f64(self, n: float) -> t.Self: ...
     def saturating_add(self, other: t.Self) -> t.Self: ...
     def saturating_mul(self, other: int) -> t.Self: ...
     def saturating_sub(self, other: t.Self) -> t.Self: ...
     def signum(self) -> t.Literal[-1, 0, 1]: ...
-    def subsec_micros(self) -> int: ...
-    def subsec_millis(self) -> int: ...
-    def subsec_nanos(self) -> int: ...
     def to_timespan(self) -> TimeSpan: ...
     def round(
         self,
@@ -856,7 +950,13 @@ TimeSpanArithmetic: t.TypeAlias = (
 )
 
 @t.final
-class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
+class TimeSpan(
+    # protocols
+    ToPy[pydt.timedelta],
+    ToPyTimeDelta,
+    FromStr,
+    _Parse,
+):
     def __init__(
         self,
         years: int = 0,
@@ -874,7 +974,10 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     # =========================================================================
     # STRING
     # =========================================================================
-    def string(self, *, friendly: bool = False) -> str: ...
+    def isoformat(self) -> str: ...
+    @classmethod
+    def from_isoformat(cls, s: str) -> t.Self: ...
+    def to_string(self, *, friendly: bool = False) -> str: ...
     def friendly(self) -> str: ...
     def repr_full(self) -> str: ...
 
@@ -882,7 +985,7 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     # PYTHON CONVERSIONS
     # =========================================================================
     @classmethod
-    def from_pytimedelta(cls, td: pydt.timedelta) -> t.Self: ...
+    def from_pytimedelta(cls, delta: pydt.timedelta) -> t.Self: ...
     def to_pytimedelta(self) -> pydt.timedelta: ...
     def to_py(self) -> pydt.timedelta: ...
 
@@ -892,7 +995,7 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
     def parse_common_iso(cls, s: str) -> t.Self: ...
 
@@ -929,10 +1032,10 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     # =========================================================================
     # OPERATORS
     # =========================================================================
-    def __add__(
-        self,
-        val: TimeSpanArithmetic,
-    ) -> t.Self: ...
+    @t.overload
+    def __add__(self, val: TimeSpanArithmetic) -> t.Self: ...
+    @t.overload
+    def __add__(self, val: _Temporal) -> _Temporal: ...
     def __sub__(
         self,
         val: TimeSpanArithmetic,
@@ -953,9 +1056,9 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     # =========================================================================
     # ARITHMETIC METHODS
     # =========================================================================
-    def add(self, val: TimeSpanArithmetic) -> t.Self: ...
+    def add(self, other: TimeSpanArithmetic) -> t.Self: ...
     def mul(self, other: int) -> t.Self: ...
-    def sub(self, val: TimeSpanArithmetic) -> t.Self: ...
+    def sub(self, other: TimeSpanArithmetic) -> t.Self: ...
 
     # =========================================================================
     # INSTANCE METHODS
@@ -963,6 +1066,7 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
 
     def abs(self) -> t.Self: ...
     def to_dict(self) -> TimeSpanTypedDict: ...
+    def fieldwise(self) -> TimeSpanTypedDict: ...
     def compare(
         self,
         other: t.Self,
@@ -986,16 +1090,18 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
     ) -> t.Self: ...
     def round(
         self,
-        smallest: JiffUnit,
+        smallest: JiffUnit = "nanosecond",
         increment: int = 1,
         *,
         relative: ZonedDateTime | Date | DateTime | None = None,
         largest: JiffUnit | None = None,
-        mode: JiffRoundMode | None = None,
+        mode: JiffRoundMode = "half-expand",
+        days_are_24_hours: bool = False,
     ) -> t.Self: ...
     def signum(self) -> t.Literal[-1, 0, 1]: ...
     def to_signed_duration(
-        self, relative: ZonedDateTime | Date | DateTime
+        self,
+        relative: ZonedDateTime | Date | DateTime | None = None,
     ) -> SignedDuration: ...
     def total(
         self,
@@ -1003,32 +1109,45 @@ class TimeSpan(ToPy[pydt.timedelta], ToPyTimeDelta, FromStr):
         relative: ZonedDateTime | Date | DateTime | None = None,
         *,
         days_are_24_hours: bool = False,
-    ) -> int: ...
-    def total_seconds(self) -> float: ...
-    def _years(self, years: int) -> t.Self: ...
-    def _months(self, months: int) -> t.Self: ...
-    def _weeks(self, weeks: int) -> t.Self: ...
-    def _days(self, days: int) -> t.Self: ...
-    def _hours(self, hours: int) -> t.Self: ...
-    def _minutes(self, minutes: int) -> t.Self: ...
-    def _seconds(self, seconds: int) -> t.Self: ...
-    def _milliseconds(self, milliseconds: int) -> t.Self: ...
-    def _microseconds(self, microseconds: int) -> t.Self: ...
-    def _nanoseconds(self, nanoseconds: int) -> t.Self: ...
+    ) -> float: ...
+    def total_seconds(
+        self,
+        relative: ZonedDateTime | Date | DateTime | None = None,
+        *,
+        days_are_24_hours: bool = False,
+    ) -> float: ...
+    def _years(self, years: int, /) -> t.Self: ...
+    def _months(self, months: int, /) -> t.Self: ...
+    def _weeks(self, weeks: int, /) -> t.Self: ...
+    def _days(self, days: int, /) -> t.Self: ...
+    def _hours(self, hours: int, /) -> t.Self: ...
+    def _minutes(self, minutes: int, /) -> t.Self: ...
+    def _seconds(self, seconds: int, /) -> t.Self: ...
+    def _milliseconds(self, milliseconds: int, /) -> t.Self: ...
+    def _microseconds(self, microseconds: int, /) -> t.Self: ...
+    def _nanoseconds(self, nanoseconds: int, /) -> t.Self: ...
 
 @t.final
-class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
-    """
-    A representation of a timestamp with second and nanosecond precision.
+class Timestamp(
+    # protocols
+    FromStr,
+    Strftime,
+    ToPyDate,
+    ToPyDateTime,
+    ToPyTime,
+    ToPy[pydt.datetime],
+    _Parse,
+):
+    """An instant in time represented as the number of nanoseconds since the Unix epoch.
+
+    A timestamp is always in the Unix timescale with a UTC offset of zero.
     """
 
     MIN: t.ClassVar[Timestamp]
     MAX: t.ClassVar[Timestamp]
     UNIX_EPOCH: t.ClassVar[Timestamp]
 
-    def __init__(
-        self, second: int | None = None, nanosecond: int | None = None
-    ) -> None: ...
+    def __init__(self, second: int = 0, nanosecond: int = 0) -> None: ...
 
     # =========================================================================
     # CLASS METHODS
@@ -1038,7 +1157,7 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
     def from_millisecond(cls, millisecond: int) -> t.Self: ...
     @classmethod
@@ -1076,7 +1195,7 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     # PYTHON CONVERSIONS
     # =========================================================================
     @classmethod
-    def from_pydatetime(cls, dt: pydt.datetime) -> t.Self: ...
+    def from_pydatetime(cls, datetime: pydt.datetime) -> t.Self: ...
     def to_py(self) -> pydt.datetime: ...
     def to_pydate(self) -> pydt.date: ...
     def to_pydatetime(self) -> pydt.datetime: ...
@@ -1111,11 +1230,126 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     def __format__(self, fmt: str) -> str: ...
 
     # =========================================================================
+    # PROPERTIES
+    # =========================================================================
+    @property
+    def second(self) -> int:
+        """Return the second component of the timestamp
+
+        Returns:
+            int: The second component of the timestamp.
+
+        Examples:
+            >>> import ry
+            >>> ts = ry.Timestamp(5, 123_456_789)
+            >>> ts.second
+            5
+            >>> ts = ry.Timestamp(-5, -123_456_789)
+            >>> ts.second
+            -5
+
+        """
+
+    @property
+    def nanosecond(self) -> int:
+        """Return the nanosecond component (-999_999_999..999_999_999)
+
+        Returns:
+            int: The nanosecond component of the timestamp (-999_999_999..999_999_999).
+
+        Examples:
+            >>> import ry
+            >>> ts = ry.Timestamp(5, 123_456_789)
+            >>> ts.nanosecond
+            123456789
+            >>> ts = ry.Timestamp(5, 999_999_999)
+            >>> ts.nanosecond
+            999999999
+            >>> ts = ry.Timestamp(-5, -123_456_789)
+            >>> ts.nanosecond
+            -123456789
+            >>> ts = ry.Timestamp(-5, -999_999_999)
+            >>> ts.nanosecond
+            -999999999
+
+        """
+
+    @property
+    def subsec_microsecond(self) -> int:
+        """Return the subsecond microsecond component (-999_999..999_999)
+
+        Returns:
+            int: subsecond microsecond component of the timestamp
+
+        Examples:
+            >>> import ry
+            >>> ts = ry.Timestamp(5, 123_456_789)
+            >>> ts.subsec_microsecond
+            123456
+            >>> ts = ry.Timestamp(5, 999_999_999)
+            >>> ts.subsec_microsecond
+            999999
+            >>> ts = ry.Timestamp(-5, -123_456_789)
+            >>> ts.subsec_microsecond
+            -123456
+            >>> ts = ry.Timestamp(-5, -999_999_999)
+            >>> ts.subsec_microsecond
+            -999999
+
+        """
+    @property
+    def subsec_millisecond(self) -> int:
+        """Return the subsecond millisecond component (-999..999)
+
+        Returns:
+            int: The subsecond millisecond component of the timestamp (-999..999).
+
+        Examples:
+            >>> import ry
+            >>> ts = ry.Timestamp(5, 123_456_789)
+            >>> ts.subsec_millisecond
+            123
+            >>> ts = ry.Timestamp(5, 999_999_999)
+            >>> ts.subsec_millisecond
+            999
+            >>> ts = ry.Timestamp(-5, -123_456_789)
+            >>> ts.subsec_millisecond
+            -123
+            >>> ts = ry.Timestamp(-5, -999_999_999)
+            >>> ts.subsec_millisecond
+            -999
+
+        """
+    @property
+    def subsec_nanosecond(self) -> int:
+        """Return the subsecond nanosecond component (-999_999_999..999_999_999)
+
+        Returns:
+            int: The subsecond nanosecond component of the timestamp (-999_999_999..999_999_999).
+
+        Examples:
+            >>> import ry
+            >>> ts = ry.Timestamp(5, 123_456_789)
+            >>> ts.subsec_nanosecond
+            123456789
+            >>> ts = ry.Timestamp(5, 999_999_999)
+            >>> ts.subsec_nanosecond
+            999999999
+            >>> ts = ry.Timestamp(-5, -123_456_789)
+            >>> ts.subsec_nanosecond
+            -123456789
+            >>> ts = ry.Timestamp(-5, -999_999_999)
+            >>> ts.subsec_nanosecond
+            -999999999
+
+        """
+    # =========================================================================
     # INSTANCE METHODS
     # =========================================================================
-
     def date(self) -> Date: ...
     def datetime(self) -> DateTime: ...
+    def isoformat(self) -> str: ...
+    def iso_week_date(self) -> ISOWeekDate: ...
     def time(self) -> Time: ...
     def as_microsecond(self) -> int: ...
     def as_millisecond(self) -> int: ...
@@ -1126,14 +1360,11 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     @deprecated("intz is deprecated, use in_tz instead")
     def intz(self, tz: TimezoneName) -> ZonedDateTime:
         """Deprecated ~ use `in_tz`"""
-
+    @property
     def is_zero(self) -> bool: ...
-    def series(self, span: TimeSpan) -> JiffSeries[t.Self]: ...
+    def series(self, period: TimeSpan) -> JiffSeries[t.Self]: ...
     def signum(self) -> t.Literal[-1, 0, 1]: ...
-    def string(self) -> str: ...
-    def subsec_microsecond(self) -> int: ...
-    def subsec_millisecond(self) -> int: ...
-    def subsec_nanosecond(self) -> int: ...
+    def to_string(self) -> str: ...
     def to_zoned(self, time_zone: TimeZone) -> ZonedDateTime: ...
 
     # =========================================================================
@@ -1173,7 +1404,7 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
     def duration_until(self, other: t.Self) -> SignedDuration: ...
     def round(
         self,
-        unit: _TimestampRoundSmallest = "nanosecond",
+        smallest: _TimestampRoundSmallest = "nanosecond",
         *,
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
@@ -1182,7 +1413,15 @@ class Timestamp(ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, FromStr):
 
 @t.final
 class ZonedDateTime(
-    ToPy[pydt.datetime], ToPyDate, ToPyTime, ToPyDateTime, ToPyTzInfo, FromStr
+    # protocols
+    ToPy[pydt.datetime],
+    ToPyDate,
+    ToPyTime,
+    ToPyDateTime,
+    ToPyTzInfo,
+    FromStr,
+    _Parse,
+    Strftime,
 ):
     def __init__(
         self,
@@ -1200,7 +1439,7 @@ class ZonedDateTime(
     # PYTHON CONVERSIONS
     # =========================================================================
     @classmethod
-    def from_pydatetime(cls, dt: pydt.datetime) -> t.Self: ...
+    def from_pydatetime(cls, datetime: pydt.datetime) -> t.Self: ...
     def to_dict(self) -> ZonedDateTimeTypedDict: ...
     def to_py(self) -> pydt.datetime: ...
     def to_pydate(self) -> pydt.date: ...
@@ -1218,7 +1457,7 @@ class ZonedDateTime(
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
     def from_rfc2822(cls, s: str) -> t.Self: ...
     @classmethod
@@ -1267,7 +1506,7 @@ class ZonedDateTime(
     # =========================================================================
     # STRING/FORMAT
     # =========================================================================
-    def string(self) -> str: ...
+    def to_string(self) -> str: ...
     def to_rfc2822(self) -> str: ...
     def format_rfc2822(self) -> str: ...
     def isoformat(self) -> str: ...
@@ -1366,8 +1605,12 @@ class ZonedDateTime(
         nanosecond: int | None = None,
         subsec_nanosecond: int | None = None,
         offset: Offset | None = None,
-        offset_conflict: t.Any = None,
-        disambiguation: t.Any = None,
+        offset_conflict: t.Literal[
+            "always-offset", "always-timezone", "prefer-offset", "reject"
+        ]
+        | None = None,
+        disambiguation: t.Literal["compatible", "earliest", "latest", "reject"]
+        | None = None,
     ) -> t.Self: ...
     def round(
         self,
@@ -1377,6 +1620,7 @@ class ZonedDateTime(
         increment: int = 1,
     ) -> t.Self: ...
     def _round(self, options: ZonedDateTimeRound) -> t.Self: ...
+    def series(self, period: TimeSpan) -> JiffSeries[t.Self]: ...
     def start_of_day(self) -> t.Self: ...
     def time(self) -> Time: ...
     def timestamp(self) -> Timestamp: ...
@@ -1407,7 +1651,13 @@ class ZonedDateTime(
     ) -> TimeSpan: ...
 
 @t.final
-class ISOWeekDate:
+class ISOWeekDate(
+    # protocols
+    ToPy[pydt.date],
+    ToPyDate,
+    FromStr,
+    _Parse,
+):
     MIN: t.ClassVar[ISOWeekDate]
     MAX: t.ClassVar[ISOWeekDate]
     ZERO: t.ClassVar[ISOWeekDate]
@@ -1432,9 +1682,11 @@ class ISOWeekDate:
     @classmethod
     def from_date(cls, date: Date) -> t.Self: ...
     @classmethod
+    def from_pydate(cls, date: pydt.date) -> t.Self: ...
+    @classmethod
     def from_str(cls, s: str) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
     def today(cls) -> t.Self: ...
     @classmethod
@@ -1454,24 +1706,37 @@ class ISOWeekDate:
     # INSTANCE METHODS
     # =========================================================================
     def date(self) -> Date: ...
-    def string(self) -> str: ...
+    def isoformat(self) -> str: ...
+    def to_py(self) -> pydt.date: ...
+    def to_pydate(self) -> pydt.date: ...
+    def to_string(self) -> str: ...
     def to_dict(self) -> ISOWeekDateTypedDict: ...
 
 @t.final
-class Offset(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
+class Offset(
+    # protocols
+    ToPy[pydt.tzinfo],
+    ToPyTzInfo,
+    ToPyTimeDelta,
+    FromStr,
+    _Parse,
+):
     MIN: t.ClassVar[Offset]
     MAX: t.ClassVar[Offset]
     UTC: t.ClassVar[Offset]
     ZERO: t.ClassVar[Offset]
 
     def __init__(
-        self, hours: int | None = None, seconds: int | None = None
+        self,
+        hours: int = 0,
+        minutes: int = 0,
+        seconds: int = 0,
     ) -> None: ...
 
     # =========================================================================
     # STRING
     # =========================================================================
-    def string(self) -> str: ...
+    def to_string(self) -> str: ...
 
     # =========================================================================
     # OPERATORS/DUNDERS
@@ -1490,16 +1755,19 @@ class Offset(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
     # =========================================================================
     # __FROM__
     @classmethod
+    def from_pytimedelta(cls, delta: pydt.timedelta) -> t.Self: ...
+    @classmethod
     def from_pytzinfo(cls, tz: pydt.tzinfo) -> t.Self: ...
     @classmethod
-    def parse(cls, s: str) -> t.Self: ...
+    def parse(cls, s: str | bytes) -> t.Self: ...
     @classmethod
     def from_str(cls, s: str) -> t.Self: ...
 
     # __TO__
-    def to_py(self) -> pydt.tzinfo: ...
-    def to_pytzinfo(self) -> pydt.tzinfo: ...
     def to_dict(self) -> OffsetTypedDict: ...
+    def to_py(self) -> pydt.tzinfo: ...
+    def to_pytimedelta(self) -> pydt.timedelta: ...
+    def to_pytzinfo(self) -> pydt.tzinfo: ...
 
     # =========================================================================
     # PROPERTIES
@@ -1549,6 +1817,7 @@ class Offset(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
     # =========================================================================
     def duration_since(self, other: Offset) -> SignedDuration: ...
     def duration_until(self, other: Offset) -> SignedDuration: ...
+    def isoformat(self) -> str: ...
     def negate(self) -> t.Self: ...
     def since(self, other: t.Self) -> TimeSpan: ...
     def until(self, other: t.Self) -> TimeSpan: ...
@@ -1564,15 +1833,15 @@ class Offset(ToPy[pydt.tzinfo], ToPyTzInfo, FromStr):
 # =============================================================================
 # DIFFERENCE
 # =============================================================================
-_Tobj = t.TypeVar("_Tobj", Date, DateTime, Time, Timestamp, ZonedDateTime)
+_TObj = t.TypeVar("_TObj", Date, DateTime, Time, Timestamp, ZonedDateTime)
 
 @t.type_check_only
-class _Difference(t.Generic[_Tobj, _TDict]):
+class _Difference(t.Generic[_TObj, _TDict]):
     def __init__(
         self,
-        obj: _Tobj,
+        obj: _TObj,
         *,
-        smallest: JiffUnit | None = None,
+        smallest: JiffUnit,
         largest: JiffUnit | None = None,
         mode: JiffRoundMode | None = None,
         increment: int | None = None,
@@ -1593,21 +1862,76 @@ class _Difference(t.Generic[_Tobj, _TDict]):
     def to_dict(self) -> _TDict: ...
 
 @t.final
-class DateDifference(_Difference[Date, DateDifferenceTypedDict]): ...
+class DateDifference(_Difference[Date, DateDifferenceTypedDict]):
+    def __init__(
+        self,
+        obj: Date,
+        *,
+        smallest: JiffUnit = "day",
+        largest: JiffUnit | None = None,
+        mode: JiffRoundMode = "trunc",
+        increment: int = 1,
+    ) -> None: ...
+    @property
+    def date(self) -> Date: ...
 
 @t.final
-class DateTimeDifference(_Difference[DateTime, DateTimeDifferenceTypedDict]): ...
+class DateTimeDifference(_Difference[DateTime, DateTimeDifferenceTypedDict]):
+    def __init__(
+        self,
+        obj: DateTime,
+        *,
+        smallest: JiffUnit = "nanosecond",
+        largest: JiffUnit | None = None,
+        mode: JiffRoundMode = "trunc",
+        increment: int = 1,
+    ) -> None: ...
+    @property
+    def datetime(self) -> DateTime: ...
 
 @t.final
-class TimeDifference(_Difference[Time, TimeDifferenceTypedDict]): ...
+class TimeDifference(_Difference[Time, TimeDifferenceTypedDict]):
+    def __init__(
+        self,
+        obj: Time,
+        *,
+        smallest: JiffUnit = "nanosecond",
+        largest: JiffUnit | None = None,
+        mode: JiffRoundMode = "trunc",
+        increment: int = 1,
+    ) -> None: ...
+    @property
+    def time(self) -> Time: ...
 
 @t.final
-class TimestampDifference(_Difference[Timestamp, TimestampDifferenceTypedDict]): ...
+class TimestampDifference(_Difference[Timestamp, TimestampDifferenceTypedDict]):
+    def __init__(
+        self,
+        obj: Timestamp,
+        *,
+        smallest: JiffUnit = "nanosecond",
+        largest: JiffUnit | None = None,
+        mode: JiffRoundMode = "trunc",
+        increment: int = 1,
+    ) -> None: ...
+    @property
+    def timestamp(self) -> Timestamp: ...
 
 @t.final
 class ZonedDateTimeDifference(
     _Difference[ZonedDateTime, ZonedDateTimeDifferenceTypedDict]
-): ...
+):
+    def __init__(
+        self,
+        obj: ZonedDateTime,
+        *,
+        smallest: JiffUnit = "nanosecond",
+        largest: JiffUnit | None = None,
+        mode: JiffRoundMode = "trunc",
+        increment: int = 1,
+    ) -> None: ...
+    @property
+    def zoned(self) -> ZonedDateTime: ...
 
 # =============================================================================
 # ROUND
@@ -1646,7 +1970,7 @@ class DateTimeRound(_Round[_DateTimeRoundSmallest, DateTimeRoundTypedDict]):
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, dt: DateTime) -> DateTime: ...
+    def round(self, ob: DateTime) -> DateTime: ...
 
 @t.final
 class SignedDurationRound(
@@ -1659,7 +1983,7 @@ class SignedDurationRound(
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, sd: SignedDuration) -> SignedDuration: ...
+    def round(self, ob: SignedDuration) -> SignedDuration: ...
 
 @t.final
 class TimeRound(_Round[_TimeRoundSmallest, TimeRoundTypedDict]):
@@ -1670,7 +1994,7 @@ class TimeRound(_Round[_TimeRoundSmallest, TimeRoundTypedDict]):
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, dt: Time) -> Time: ...
+    def round(self, ob: Time) -> Time: ...
 
 @t.final
 class TimestampRound(_Round[_TimestampRoundSmallest, TimestampRoundTypedDict]):
@@ -1681,7 +2005,7 @@ class TimestampRound(_Round[_TimestampRoundSmallest, TimestampRoundTypedDict]):
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, dt: Timestamp) -> Timestamp: ...
+    def round(self, ob: Timestamp) -> Timestamp: ...
 
 @t.final
 class ZonedDateTimeRound(
@@ -1694,7 +2018,7 @@ class ZonedDateTimeRound(
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, dt: ZonedDateTime) -> ZonedDateTime: ...
+    def round(self, ob: ZonedDateTime) -> ZonedDateTime: ...
 
 @t.final
 class OffsetRound(_Round[_OffsetRoundSmallest, OffsetRoundTypedDict]):
@@ -1705,13 +2029,15 @@ class OffsetRound(_Round[_OffsetRoundSmallest, OffsetRoundTypedDict]):
         mode: JiffRoundMode = "half-expand",
         increment: int = 1,
     ) -> None: ...
-    def round(self, dt: Offset) -> Offset: ...
+    def round(self, ob: Offset) -> Offset: ...
 
 @t.type_check_only
 class JiffSeries(t.Protocol[_T]):
     def __iter__(self) -> JiffSeries[_T]: ...
     def __next__(self) -> _T: ...
-    def take(self, n: int) -> list[_T]: ...
+    def take(self, n: int = 1) -> list[_T]: ...
+    def take_until(self, value: _T) -> list[_T]: ...
+    def collect(self) -> list[_T]: ...
 
 def date(year: int, month: int, day: int) -> Date: ...
 def time(

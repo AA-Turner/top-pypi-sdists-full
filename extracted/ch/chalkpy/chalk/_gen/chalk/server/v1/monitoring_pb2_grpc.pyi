@@ -7,6 +7,14 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
+from chalk._gen.chalk.server.v1.incident_pb2 import (
+    GetIncidentAlertsChartRequest,
+    GetIncidentAlertsChartResponse,
+    GetIncidentRequest,
+    GetIncidentResponse,
+    ListIncidentsRequest,
+    ListIncidentsResponse,
+)
 from chalk._gen.chalk.server.v1.monitoring_pb2 import (
     AddIncidentIoIntegrationRequest,
     AddIncidentIoIntegrationResponse,
@@ -24,6 +32,10 @@ from chalk._gen.chalk.server.v1.monitoring_pb2 import (
     GetIncidentIoIntegrationResponse,
     GetPagerDutyIntegrationRequest,
     GetPagerDutyIntegrationResponse,
+    GetSlackIntegrationRequest,
+    GetSlackIntegrationResponse,
+    ListAlertChannelsRequest,
+    ListAlertChannelsResponse,
     SetDefaultPagerDutyIntegrationRequest,
     SetDefaultPagerDutyIntegrationResponse,
     TestIncidentIoIntegrationRequest,
@@ -95,6 +107,26 @@ class MonitoringServiceStub:
     GetIncidentIoIntegration: UnaryUnaryMultiCallable[
         GetIncidentIoIntegrationRequest,
         GetIncidentIoIntegrationResponse,
+    ]
+    ListIncidents: UnaryUnaryMultiCallable[
+        ListIncidentsRequest,
+        ListIncidentsResponse,
+    ]
+    GetIncident: UnaryUnaryMultiCallable[
+        GetIncidentRequest,
+        GetIncidentResponse,
+    ]
+    GetIncidentAlertsChart: UnaryUnaryMultiCallable[
+        GetIncidentAlertsChartRequest,
+        GetIncidentAlertsChartResponse,
+    ]
+    ListAlertChannels: UnaryUnaryMultiCallable[
+        ListAlertChannelsRequest,
+        ListAlertChannelsResponse,
+    ]
+    GetSlackIntegration: UnaryUnaryMultiCallable[
+        GetSlackIntegrationRequest,
+        GetSlackIntegrationResponse,
     ]
 
 class MonitoringServiceServicer(metaclass=ABCMeta):
@@ -176,5 +208,35 @@ class MonitoringServiceServicer(metaclass=ABCMeta):
         request: GetIncidentIoIntegrationRequest,
         context: ServicerContext,
     ) -> GetIncidentIoIntegrationResponse: ...
+    @abstractmethod
+    def ListIncidents(
+        self,
+        request: ListIncidentsRequest,
+        context: ServicerContext,
+    ) -> ListIncidentsResponse: ...
+    @abstractmethod
+    def GetIncident(
+        self,
+        request: GetIncidentRequest,
+        context: ServicerContext,
+    ) -> GetIncidentResponse: ...
+    @abstractmethod
+    def GetIncidentAlertsChart(
+        self,
+        request: GetIncidentAlertsChartRequest,
+        context: ServicerContext,
+    ) -> GetIncidentAlertsChartResponse: ...
+    @abstractmethod
+    def ListAlertChannels(
+        self,
+        request: ListAlertChannelsRequest,
+        context: ServicerContext,
+    ) -> ListAlertChannelsResponse: ...
+    @abstractmethod
+    def GetSlackIntegration(
+        self,
+        request: GetSlackIntegrationRequest,
+        context: ServicerContext,
+    ) -> GetSlackIntegrationResponse: ...
 
 def add_MonitoringServiceServicer_to_server(servicer: MonitoringServiceServicer, server: Server) -> None: ...

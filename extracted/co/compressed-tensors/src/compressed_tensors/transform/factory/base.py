@@ -13,11 +13,19 @@
 # limitations under the License.
 
 from abc import ABC, abstractmethod
-from collections import defaultdict
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional
 
 import torch
 import torch.nn.utils.parametrize as P
+import tqdm
+from compressed_tensors.modeling.attention import (
+    initialize_hooked_attention,
+    register_query_hook,
+)
+from compressed_tensors.modeling.kvcache import (
+    initialize_hooked_kv_cache,
+    register_key_hook,
+)
 from compressed_tensors.registry.registry import RegistryMixin, T
 from compressed_tensors.transform import (
     TransformArgs,
@@ -36,6 +44,7 @@ from compressed_tensors.utils import (
 from compressed_tensors.utils.internal import InternalModule
 from torch import Tensor
 from torch.nn import Module, Parameter
+from transformers import PreTrainedModel
 
 
 __all__ = ["TransformFactory", "TransformBase"]
@@ -56,7 +65,6 @@ class TransformFactory(RegistryMixin, ABC):
         self.name = name
         self.scheme = scheme
         self.generator = torch.Generator()
-        self.transforms = list()
         if seed is not None:
             self.generator.manual_seed(seed)
 
@@ -84,22 +92,27 @@ class TransformFactory(RegistryMixin, ABC):
         """
         raise NotImplementedError()
 
-    def apply_to_model(self, model: Module):
+    def apply_to_model(self, model: Module, use_tqdm=True):
         """
         Create transforms and apply them to the model
 
         :param model: module to apply transforms to
         """
-        for arg in self.scheme.apply:
-            for _, module in match_named_modules(model, arg.targets, arg.ignore):
-                self._apply_to_module(module, arg)
+        modules_args = [
+            (module, arg)
+            for arg in self.scheme.apply
+            for _, module in match_named_modules(model, arg.targets, arg.ignore)
+        ]
 
-        self._update_tied_weights()
+        desc = f"Applying {self.name} transforms"
+        for module, arg in tqdm.tqdm(modules_args, desc=desc, disable=(not use_tqdm)):
+            self._apply_to_module(model, module, arg)
 
-    def _apply_to_module(self, module: Module, args: TransformArgs):
+    def _apply_to_module(self, model: Module, module: Module, args: TransformArgs):
         """
         Create transforms and apply them to the module
 
+        :param model: model which module belongs to
         :param module: target module to apply transforms to
         :param args: defines how the transform will be applied to the target module
         """
@@ -113,7 +126,6 @@ class TransformFactory(RegistryMixin, ABC):
         # create transform as submodule
         transform_name = f"{self.name}_{args.location}"
         transform = self.create_transform(module, args)
-        self.transforms.append(transform)
         register_offload_module(module, transform_name, transform)
 
         # register input transformation hook
@@ -154,34 +166,30 @@ class TransformFactory(RegistryMixin, ABC):
 
             module.register_forward_hook(output_hook)
 
-        # other locations such as q_attn and k_attn have not been implemented
+        # register query hook to attention
+        elif args.location == TransformLocation.Q_ATTN:
+            if not isinstance(model, PreTrainedModel):
+                raise ValueError(f"Cannot hook attention of model: {model}")
+
+            def query_hook(_, query_states):
+                return transform(query_states)
+
+            initialize_hooked_attention(model, module)
+            register_query_hook(module, query_hook)
+
+        # register key hook to kvcache
+        elif args.location == TransformLocation.K_CACHE:
+            if not isinstance(model, PreTrainedModel):
+                raise ValueError(f"Cannot hook attention of model: {model}")
+
+            def key_hook(_, key_states):
+                return transform(key_states)
+
+            initialize_hooked_kv_cache(model, module)
+            register_key_hook(module, key_hook)
+
         else:
             raise NotImplementedError()
-
-    def _update_tied_weights(self):
-        """
-        Populate the `_dynamic_tied_weights_keys` attribute of transforms,
-        which is used by transformers to detect and remove shared pointers
-        during saving
-        """
-        # map from data_ptrs to keys
-        ptr_to_keys: dict[int, List[Tuple[TransformBase, str]]] = defaultdict(list)
-        for transform in self.transforms:
-            for name, param in transform.named_parameters(recurse=False):
-                # NOTE: previously asserted that parent._hf_hook.place_submodules=False
-                if has_offloaded_params(transform):
-                    param = transform._hf_hook.weights_map[name]
-                ptr_to_keys[param.data_ptr()].append((transform, name))
-
-        # populate `_dynamic_tied_weights_keys` if there is more than one key
-        # and ensure that they share tensors
-        for shared_keys in ptr_to_keys.values():
-            if len(shared_keys) > 1:
-                tensor = getattr(shared_keys[0][0], shared_keys[0][1])
-
-                for transform, name in shared_keys:
-                    transform._dynamic_tied_weights_keys.add(name)
-                    setattr(transform, name, tensor)
 
 
 class TransformBase(InternalModule, ABC):
@@ -191,11 +199,7 @@ class TransformBase(InternalModule, ABC):
 
     args: TransformArgs
     weight: Parameter
-    _dynamic_tied_weights_keys: Set[str]
-
-    def __init__(self):
-        super().__init__()
-        self._dynamic_tied_weights_keys = set()
+    _dynamic_tied_weights_keys: List[str] = ["weight"]
 
     @abstractmethod
     def forward(self, value: Tensor) -> Tensor:

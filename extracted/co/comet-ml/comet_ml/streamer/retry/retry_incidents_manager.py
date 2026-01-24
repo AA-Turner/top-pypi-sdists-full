@@ -47,12 +47,14 @@ class RetryIncidentsManager:
 
     def __init__(self):
         self.incidents: Dict[str, ActiveRetryIncident] = {}
+        self.registered_incidents_count = 0
         self.__incident_lock__ = threading.RLock()
 
     def add_or_update_incident(
         self, message_type: str, reset_at: float, messages: List[BaseMessage]
     ):
         with self.__incident_lock__:
+            self.registered_incidents_count += 1
             if message_type not in self.incidents:
                 self.incidents[message_type] = ActiveRetryIncident(
                     message_type, reset_at, messages=set(messages)
@@ -64,7 +66,16 @@ class RetryIncidentsManager:
         with self.__incident_lock__:
             return self.incidents.get(message_type)
 
-    def has_incidents(self) -> bool:
+    def has_active_incidents(self) -> bool:
+        """
+        Checks whether there are any active incidents associated with the object.
+
+        This method evaluates if the `incidents` list contains one or more entries, indicating
+        the presence of active incidents waiting to be released.
+
+        Returns:
+            bool: True if there are active incidents, otherwise False.
+        """
         return len(self.incidents) > 0
 
     def messages_to_retry(self) -> int:

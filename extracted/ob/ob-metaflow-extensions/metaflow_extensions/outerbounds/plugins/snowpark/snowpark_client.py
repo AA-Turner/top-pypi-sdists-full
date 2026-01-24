@@ -10,14 +10,15 @@ from metaflow.exception import MetaflowException
 class SnowparkClient(object):
     def __init__(
         self,
-        account: str,
-        user: str,
-        password: str,
-        role: str,
-        database: str,
-        warehouse: str,
-        schema: str,
+        account: str = None,
+        user: str = None,
+        password: str = None,
+        role: str = None,
+        database: str = None,
+        warehouse: str = None,
+        schema: str = None,
         autocommit: bool = True,
+        integration: str = None,
     ):
         try:
             from snowflake.core import Root
@@ -27,22 +28,48 @@ class SnowparkClient(object):
         except (NameError, ImportError, ModuleNotFoundError):
             raise SnowflakeException(
                 "Could not import module 'snowflake'.\n\nInstall Snowflake "
-                "Python package (https://pypi.org/project/snowflake/) first.\n"
-                "You can install the module by executing - "
-                "%s -m pip install snowflake\n"
+                "Python packages first:\n"
+                "  snowflake==1.8.0\n"
+                "  snowflake-connector-python==3.18.0\n"
+                "  snowflake-snowpark-python==1.40.0\n\n"
+                "You can install them by executing:\n"
+                "%s -m pip install snowflake==1.8.0 snowflake-connector-python==3.18.0 snowflake-snowpark-python==1.40.0\n"
                 "or equivalent through your favorite Python package manager."
                 % sys.executable
             )
 
+        if integration:
+            # Use OAuth authentication via Outerbounds integration
+            from metaflow_extensions.outerbounds.plugins.snowflake.snowflake import (
+                get_oauth_connection_params,
+            )
+
+            self.connection_parameters = get_oauth_connection_params(
+                user=user or "",
+                role=role or "",
+                integration=integration,
+                schema=schema or "",
+                account=account,
+                warehouse=warehouse,
+                database=database,
+            )
+            self.connection_parameters["autocommit"] = autocommit
+        else:
+            # Password-based authentication
+            self.connection_parameters = {
+                "account": account,
+                "user": user,
+                "password": password,
+                "role": role,
+                "warehouse": warehouse,
+                "database": database,
+                "schema": schema,
+                "autocommit": autocommit,
+            }
+
+        # Remove None values from connection parameters
         self.connection_parameters = {
-            "account": account,
-            "user": user,
-            "password": password,
-            "role": role,
-            "warehouse": warehouse,
-            "database": database,
-            "schema": schema,
-            "autocommit": autocommit,
+            k: v for k, v in self.connection_parameters.items() if v is not None
         }
 
         try:

@@ -106,9 +106,9 @@ impl<'me> SparseWriter<'me> {
             let encoded_dimension = encode_u32(dimension_id);
             let (commited_blocks, mut offset_values) = match self.old_reader.as_ref() {
                 Some(reader) => {
-                    let blocks = reader.get_blocks(&encoded_dimension).await?.collect();
+                    let blocks = reader.get_block_maxes(&encoded_dimension).await?.collect();
                     let offset_values = reader
-                        .get_offset_values(&encoded_dimension, ..)
+                        .get_offset_values(&encoded_dimension)
                         .await?
                         .collect();
                     (blocks, offset_values)

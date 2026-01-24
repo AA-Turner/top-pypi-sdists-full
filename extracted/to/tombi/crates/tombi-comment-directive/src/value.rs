@@ -272,9 +272,9 @@ pub enum SortMethod {
     VersionSort,
 }
 
-impl Into<tombi_x_keyword::TableKeysOrder> for SortMethod {
-    fn into(self) -> tombi_x_keyword::TableKeysOrder {
-        match self {
+impl From<SortMethod> for tombi_x_keyword::TableKeysOrder {
+    fn from(val: SortMethod) -> Self {
+        match val {
             SortMethod::Ascending => tombi_x_keyword::TableKeysOrder::Ascending,
             SortMethod::Descending => tombi_x_keyword::TableKeysOrder::Descending,
             SortMethod::VersionSort => tombi_x_keyword::TableKeysOrder::VersionSort,
@@ -282,9 +282,9 @@ impl Into<tombi_x_keyword::TableKeysOrder> for SortMethod {
     }
 }
 
-impl Into<tombi_x_keyword::ArrayValuesOrder> for SortMethod {
-    fn into(self) -> tombi_x_keyword::ArrayValuesOrder {
-        match self {
+impl From<SortMethod> for tombi_x_keyword::ArrayValuesOrder {
+    fn from(val: SortMethod) -> Self {
+        match val {
             SortMethod::Ascending => tombi_x_keyword::ArrayValuesOrder::Ascending,
             SortMethod::Descending => tombi_x_keyword::ArrayValuesOrder::Descending,
             SortMethod::VersionSort => tombi_x_keyword::ArrayValuesOrder::VersionSort,
@@ -367,7 +367,7 @@ pub struct WarnRuleOptions {
     ///
     #[cfg_attr(feature = "jsonschema", schemars(default = "crate::default_false"))]
     #[cfg_attr(feature = "jsonschema", schemars(extend("enum" = [true])))]
-    disabled: Option<bool>,
+    pub disabled: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, serde::Deserialize)]
@@ -381,7 +381,7 @@ pub struct ErrorRuleOptions {
     ///
     #[cfg_attr(feature = "jsonschema", schemars(default = "crate::default_false"))]
     #[cfg_attr(feature = "jsonschema", schemars(extend("enum" = [true])))]
-    disabled: Option<bool>,
+    pub disabled: Option<bool>,
 }
 
 impl From<&WarnRuleOptions> for SeverityLevelDefaultWarn {
@@ -421,15 +421,50 @@ pub struct CommonLintRules {
     ///
     pub const_value: Option<ErrorRuleOptions>,
 
-    /// # Enumerate
+    /// # Enum
     ///
-    /// Check if the value is one of the values in the enumerate.
+    /// Check if the value is one of the values in the enum.
     ///
-    pub enumerate: Option<ErrorRuleOptions>,
+    r#enum: Option<ErrorRuleOptions>,
+
+    /// # Enum
+    ///
+    /// 🚧 Deprecated 🚧
+    ///
+    /// Please use `lint.rules.enum` instead.
+    #[deprecated(note = "Please use `lint.rules.enum` instead.")]
+    enumerate: Option<ErrorRuleOptions>,
 
     /// # Deprecated
     ///
     /// Check if the value is deprecated.
     ///
     pub deprecated: Option<WarnRuleOptions>,
+
+    /// # Unused No Quality Assurance
+    ///
+    /// Check if the lint is disabled but not actually used.
+    ///
+    pub unused_noqa: Option<WarnRuleOptions>,
+
+    /// # One of multiple match
+    ///
+    /// Check if more than one schema in the `oneOf` is valid.
+    ///
+    pub one_of_multiple_match: Option<ErrorRuleOptions>,
+
+    /// # Not schema match
+    ///
+    /// Check if the value does not match the `not` schema.
+    ///
+    pub not_schema_match: Option<ErrorRuleOptions>,
+}
+
+impl CommonLintRules {
+    pub fn r#enum(&self) -> Option<&ErrorRuleOptions> {
+        self.r#enum.as_ref().or(
+            #[allow(deprecated)]
+            self.enumerate.as_ref(),
+        )
+    }
 }

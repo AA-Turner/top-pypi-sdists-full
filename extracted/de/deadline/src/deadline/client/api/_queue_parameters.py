@@ -15,6 +15,7 @@ from ..job_bundle.parameters import (
     parameter_definition_difference,
     validate_job_parameter,
 )
+from ..ui._utils import tr
 
 
 @api.record_function_latency_telemetry_event()
@@ -22,9 +23,13 @@ def get_queue_parameter_definitions(
     *, farmId: str, queueId: str, config=None
 ) -> list[JobParameter]:
     """
-    This gets all the queue parameters definitions from the specified Queue. It does so
-    by getting all the full templates for queue environments, and then combining
+    This gets all the queue parameter definitions for the specified [Deadline Cloud queue].
+
+    It does so by getting all the full templates for [queue environments], and then combining
     them equivalently to the Deadline Cloud service logic.
+
+    [Deadline Cloud queue]: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/queues.html
+    [queue environments]: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/create-queue-environment.html
     """
     deadline = get_boto3_client("deadline", config=config)
     response = _call_paginated_deadline_list_api(
@@ -59,8 +64,8 @@ def get_queue_parameter_definitions(
                     parameter["userInterface"] = {
                         "control": get_ui_control_for_parameter_definition(parameter)
                     }
-                parameter["userInterface"]["groupLabel"] = (
-                    f"Queue Environment: {template['environment']['name']}"
+                parameter["userInterface"]["groupLabel"] = tr("Queue Environment: {name}").format(
+                    name=template["environment"]["name"]
                 )
             existing_parameter = queue_parameters_definitions.get(parameter["name"])
             if existing_parameter:

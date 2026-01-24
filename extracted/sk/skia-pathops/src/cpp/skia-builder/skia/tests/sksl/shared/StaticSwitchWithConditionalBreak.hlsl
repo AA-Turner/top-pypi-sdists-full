@@ -1,6 +1,6 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float _10_unknownInput : packoffset(c0);
+    float _11_unknownInput : packoffset(c0);
 };
 
 
@@ -19,7 +19,7 @@ void frag_main()
         case 0:
         {
             value = 0.0f;
-            if (_10_unknownInput == 2.0f)
+            if (_11_unknownInput == 2.0f)
             {
                 break;
             }

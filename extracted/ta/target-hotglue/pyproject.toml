@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "target-hotglue"
-version = "0.1.4"
+version = "0.1.8"
 description = "`target-hotglue` is an SDK for building Singer Targets for hotglue."
 authors = ["hotglue"]
 keywords = [

@@ -5,14 +5,18 @@
 # The geemap community will maintain the extra features.                         #
 # *******************************************************************************#
 
+import json
 import os
+import shutil
+
+import box
+import ipywidgets as widgets
 import numpy as np
 import pandas as pd
-import ipywidgets as widgets
 
 from .basemaps import xyz_to_plotly
 from .common import *
-from .osm import *
+from . import coreutils
 from . import examples
 
 
@@ -21,7 +25,8 @@ try:
     import plotly.graph_objects as go
 except ImportError:
     raise ImportError(
-        "This module requires the plotly package. Please install it using 'pip install plotly'."
+        "This module requires the plotly package. "
+        "Please install it using 'pip install plotly'."
     )
 
 basemaps = xyz_to_plotly()
@@ -33,18 +38,19 @@ class Canvas:
     def __init__(
         self,
         map,
-        map_min_width="90%",
-        map_max_width="98%",
-        map_refresh=False,
+        map_min_width: str = "90%",
+        map_max_width: str = "98%",
+        map_refresh: bool = False,
         **kwargs,
     ):
         """Initialize the Canvas.
 
         Args:
             map (go.FigureWidget): The map to display.
-            map_min_width (str, optional): The minimum width of the map. Defaults to '90%'.
-            map_max_width (str, optional): The maximum width of the map. Defaults to '98%'.
-            map_refresh (bool, optional): Whether to refresh the map when the map is resized. Defaults to False.
+            map_min_width: The minimum width of the map. Defaults to '90%'.
+            map_max_width: The maximum width of the map. Defaults to '98%'.
+            map_refresh: Whether to refresh the map when the map is resized. Defaults to
+              False.
         """
         from .toolbar import plotly_toolbar
 
@@ -77,25 +83,37 @@ class Canvas:
 
 
 class Map(go.FigureWidget):
-    """The Map class inherits the Plotly FigureWidget class. More info at https://plotly.com/python/figurewidget."""
+    """The Map class inherits the Plotly FigureWidget class.
+
+    More info at https://plotly.com/python/figurewidget.
+    """
 
     def __init__(
-        self, center=(20, 0), zoom=1, basemap="open-street-map", height=600, **kwargs
+        self,
+        center: tuple[int, int] = (20, 0),
+        zoom: int = 1,
+        basemap: str = "open-street-map",
+        height: int = 600,
+        **kwargs,
     ):
-        """Initializes a map. More info at https://plotly.com/python/mapbox-layers/
+        """Initializes a map.
+
+        More info at https://plotly.com/python/mapbox-layers/.
 
         Args:
-            center (tuple, optional): Center of the map. Defaults to (20, 0).
-            zoom (int, optional): Zoom level of the map. Defaults to 1.
-            basemap (str, optional): Can be one of string from "open-street-map", "carto-positron", "carto-darkmatter", "stamen-terrain", "stamen-toner" or "stamen-watercolor" . Defaults to 'open-street-map'.
-            height (int, optional): Height of the map. Defaults to 600.
+            center: Center of the map. Defaults to (20, 0).
+            zoom: Zoom level of the map. Defaults to 1.
+            basemap: Can be one of string from "open-street-map", "carto-positron",
+                "carto-darkmatter", "stamen-terrain", "stamen-toner" or
+                "stamen-watercolor". Defaults to 'open-street-map'.
+            height: Height of the map. Defaults to 600.
         """
-        # Authenticates Earth Engine and initializes an Earth Engine session
+        # Authenticates Earth Engine and initializes an Earth Engine session.
         if "ee_initialize" not in kwargs.keys():
             kwargs["ee_initialize"] = True
 
         if kwargs["ee_initialize"]:
-            ee_initialize()
+            coreutils.ee_initialize()
 
         kwargs.pop("ee_initialize")
 
@@ -115,19 +133,20 @@ class Map(go.FigureWidget):
 
     def show(
         self,
-        toolbar=True,
-        map_min_width="91%",
-        map_max_width="98%",
-        refresh=False,
+        toolbar: bool = True,
+        map_min_width: str = "91%",
+        map_max_width: str = "98%",
+        refresh: bool = False,
         **kwargs,
     ):
         """Shows the map.
 
         Args:
-            toolbar (bool, optional): Whether to show the toolbar. Defaults to True.
-            map_min_width (str, optional): The minimum width of the map. Defaults to '91%'.
-            map_max_width (str, optional): The maximum width of the map. Defaults to '98%'.
-            refresh (bool, optional): Whether to refresh the map when the map is resized. Defaults to False.
+            toolbar: Whether to show the toolbar. Defaults to True.
+            map_min_width: The minimum width of the map. Defaults to '91%'.
+            map_max_width: The maximum width of the map. Defaults to '98%'.
+            refresh: Whether to refresh the map when the map is resized. Defaults to
+                False.
 
         Returns:
             Canvas: [description]
@@ -143,7 +162,7 @@ class Map(go.FigureWidget):
             )
             return canvas.canvas
 
-    def clear_controls(self):
+    def clear_controls(self) -> None:
         """Removes all controls from the map."""
         config = {
             "scrollZoom": True,
@@ -154,11 +173,13 @@ class Map(go.FigureWidget):
         }
         self.show(toolbar=False, config=config)
 
-    def add_controls(self, controls):
+    def add_controls(self, controls) -> None:
         """Adds controls to the map.
 
         Args:
-            controls (list): List of controls to add, e.g., ['drawline', 'drawopenpath', 'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape'] See https://bit.ly/33Tmqxr
+            controls (list): List of controls to add, e.g., ['drawline', 'drawopenpath',
+                'drawclosedpath', 'drawcircle', 'drawrect', 'eraseshape'] See
+                https://bit.ly/33Tmqxr
         """
         if isinstance(controls, str):
             controls = [controls]
@@ -169,28 +190,30 @@ class Map(go.FigureWidget):
 
         self.update_layout(modebar_add=controls)
 
-    def remove_controls(self, controls):
+    def remove_controls(self, controls) -> None:
         """Removes controls to the map.
 
         Args:
-            controls (list): List of controls to remove, e.g., ["zoomin", "zoomout", "toimage", "pan", "resetview"]. See https://bit.ly/3Jk7wkb
+            controls (list): List of controls to remove, e.g., ["zoomin", "zoomout",
+                "toimage", "pan", "resetview"]. See https://bit.ly/3Jk7wkb
         """
         if isinstance(controls, str):
             controls = [controls]
         elif not isinstance(controls, list):
             raise ValueError(
-                "Controls must be a string or a list of strings. See https://bit.ly/3Jk7wkb"
+                "Controls must be a string or a list of strings. "
+                "See https://bit.ly/3Jk7wkb"
             )
 
         self.update_layout(modebar_remove=controls)
 
-    def set_center(self, lat, lon, zoom=None):
+    def set_center(self, lat: float, lon: float, zoom: int | None = None) -> None:
         """Sets the center of the map.
 
         Args:
-            lat (float): Latitude.
-            lon (float): Longitude.
-            zoom (int, optional): Zoom level of the map. Defaults to None.
+            lat: Latitude.
+            lon: Longitude.
+            zoom: Zoom level of the map. Defaults to None.
         """
         self.update_layout(
             mapbox=dict(
@@ -199,11 +222,11 @@ class Map(go.FigureWidget):
             )
         )
 
-    def add_basemap(self, basemap="ROADMAP"):
+    def add_basemap(self, basemap: str = "ROADMAP") -> None:
         """Adds a basemap to the map.
 
         Args:
-            basemap (str, optional): Can be one of string from basemaps. Defaults to 'ROADMAP'.
+            basemap: Can be one of string from basemaps. Defaults to 'ROADMAP'.
         """
         if basemap not in basemaps:
             raise ValueError(
@@ -215,11 +238,11 @@ class Map(go.FigureWidget):
         layers = list(self.layout.mapbox.layers) + [basemaps[basemap]]
         self.update_layout(mapbox_layers=layers)
 
-    def remove_basemap(self, name):
+    def remove_basemap(self, name: str) -> None:
         """Removes a basemap from the map.
 
         Args:
-            name (str): Name of the basemap to remove.
+            name: Name of the basemap to remove.
         """
         layers = list(self.layout.mapbox.layers)
         layers = [layer for layer in layers if layer["name"] != name]
@@ -229,8 +252,12 @@ class Map(go.FigureWidget):
         """Adds a mapbox layer to the map.
 
         Args:
-            layer (str | dict): Layer to add. Can be "basic", "streets", "outdoors", "light", "dark", "satellite", or "satellite-streets". See https://plotly.com/python/mapbox-layers/ and https://docs.mapbox.com/mapbox-gl-js/style-spec/
-            access_token (str, optional): The Mapbox Access token. It can be set as an environment variable "MAPBOX_TOKEN". Defaults to None.
+            layer (str | dict): Layer to add. Can be "basic", "streets", "outdoors",
+                "light", "dark", "satellite", or "satellite-streets". See
+                https://plotly.com/python/mapbox-layers/ and
+                https://docs.mapbox.com/mapbox-gl-js/style-spec/
+            access_token (str, optional): The Mapbox Access token. It can be set as an
+                environment variable "MAPBOX_TOKEN". Defaults to None.
         """
 
         if access_token is None:
@@ -240,22 +267,22 @@ class Map(go.FigureWidget):
             mapbox_style=style, mapbox_layers=[], mapbox_accesstoken=access_token
         )
 
-    def add_layer(self, layer, name=None, **kwargs):
+    def add_layer(self, layer, name: str | None = None, **kwargs) -> None:
         """Adds a layer to the map.
 
         Args:
             layer (plotly.graph_objects): Layer to add.
-            name (str, optional): Name of the layer. Defaults to None.
+            name: Name of the layer. Defaults to None.
         """
         if isinstance(name, str):
             layer.name = name
         self.add_trace(layer, **kwargs)
 
-    def remove_layer(self, name):
+    def remove_layer(self, name: str) -> None:
         """Removes a layer from the map.
 
         Args:
-            name (str): Name of the layer to remove.
+            name: Name of the layer to remove.
         """
         if name in self.get_data_layers():
             self.data = [layer for layer in self.data if layer.name != name]
@@ -264,11 +291,11 @@ class Map(go.FigureWidget):
                 layer for layer in self.layout.mapbox.layers if layer["name"] != name
             ]
 
-    def clear_layers(self, clear_basemap=False):
+    def clear_layers(self, clear_basemap: bool = False) -> None:
         """Clears all layers from the map.
 
         Args:
-            clear_basemap (bool, optional): If True, clears the basemap. Defaults to False.
+            clear_basemap: If True, clears the basemap. Defaults to False.
         """
         if clear_basemap:
             self.data = []
@@ -277,10 +304,7 @@ class Map(go.FigureWidget):
                 self.data = self.data[:1]
 
     def get_layers(self):
-        """Returns a dictionary of all layers in the map.
-        Returns:
-            dict: A dictionary of all layers in the map.
-        """
+        """Returns a dictionary of all layers in the map."""
         layers = {}
 
         for layer in self.layout.mapbox.layers:
@@ -294,12 +318,7 @@ class Map(go.FigureWidget):
         return layers
 
     def get_tile_layers(self):
-        """Returns a dictionary of tile layers in the map.
-
-        Returns:
-            dict: A dictionary of tile layers in the map.
-        """
-
+        """Returns a dictionary of tile layers in the map."""
         layers = {}
 
         for layer in self.layout.mapbox.layers:
@@ -309,11 +328,7 @@ class Map(go.FigureWidget):
         return layers
 
     def get_data_layers(self):
-        """Returns a dictionary of data layers in the map.
-
-        Returns:
-            dict: A dictionary of data layers in the map.
-        """
+        """Returns a dictionary of data layers in the map."""
 
         layers = {}
 
@@ -323,14 +338,14 @@ class Map(go.FigureWidget):
 
         return layers
 
-    def find_layer_index(self, name):
+    def find_layer_index(self, name: str) -> int | None:
         """Finds the index of a layer.
 
         Args:
-            name (str): Name of the layer to find.
+            name: Name of the layer to find.
 
         Returns:
-            int: Index of the layer.
+            Index of the layer.
         """
         for i, layer in enumerate(self.data):
             if layer.name == name:
@@ -342,12 +357,12 @@ class Map(go.FigureWidget):
 
         return None
 
-    def set_layer_visibility(self, name, show=True):
+    def set_layer_visibility(self, name: str, show: bool = True) -> None:
         """Sets the visibility of a layer.
 
         Args:
-            name (str): Name of the layer to set.
-            show (bool, optional): If True, shows the layer. Defaults to True.
+            name: Name of the layer to set.
+            show: If True, shows the layer. Defaults to True.
         """
 
         if name in self.get_tile_layers():
@@ -359,12 +374,12 @@ class Map(go.FigureWidget):
         else:
             print(f"Layer {name} not found.")
 
-    def set_layer_opacity(self, name, opacity=1):
+    def set_layer_opacity(self, name: str, opacity: float = 1.0) -> None:
         """Sets the visibility of a layer.
 
         Args:
-            name (str): Name of the layer to set.
-            opacity (float, optional): Opacity of the layer. Defaults to 1.
+            name: Name of the layer to set.
+            opacity: Opacity of the layer. Defaults to 1.0.
         """
 
         if name in self.get_tile_layers():
@@ -382,21 +397,20 @@ class Map(go.FigureWidget):
 
     def add_tile_layer(
         self,
-        url,
-        name="TileLayer",
-        attribution="",
-        opacity=1.0,
+        url: str,
+        name: str = "TileLayer",
+        attribution: str = "",
+        opacity: float = 1.0,
         **kwargs,
-    ):
+    ) -> None:
         """Adds a TileLayer to the map.
 
         Args:
-            url (str): The URL of the tile layer.
-            name (str, optional): Name of the layer. Defaults to 'TileLayer'.
-            attribution (str): The attribution to use. Defaults to "".
-            opacity (float, optional): The opacity of the layer. Defaults to 1.
+            url: The URL of the tile layer.
+            name: Name of the layer. Defaults to 'TileLayer'.
+            attribution: The attribution to use. Defaults to "".
+            opacity: The opacity of the layer. Defaults to 1.
         """
-
         layer = {
             "below": "traces",
             "sourcetype": "raster",
@@ -409,19 +423,23 @@ class Map(go.FigureWidget):
         self.update_layout(mapbox_layers=layers)
 
     def add_ee_layer(
-        self, ee_object, vis_params={}, name=None, shown=True, opacity=1.0, **kwargs
+        self,
+        ee_object,
+        vis_params={},
+        name: str | None = None,
+        shown: bool = True,
+        opacity: float = 1.0,
+        **kwargs,
     ):
         """Adds a given EE object to the map as a layer.
 
         Args:
             ee_object (Collection|Feature|Image|MapId): The object to add to the map.
             vis_params (dict, optional): The visualization parameters. Defaults to {}.
-            name (str, optional): The name of the layer. Defaults to 'Layer N'.
-            shown (bool, optional): A flag indicating whether the layer should be on by default. Defaults to True.
-            opacity (float, optional): The layer's opacity represented as a number between 0 and 1. Defaults to 1.
+            name: The name of the layer. Defaults to 'Layer N'.
+            shown: A flag indicating whether the layer should be on by default. Defaults to True.
+            opacity: The layer's opacity represented as a number between 0 and 1. Defaults to 1.
         """
-        from box import Box
-
         image = None
 
         if vis_params is None:
@@ -438,7 +456,10 @@ class Map(go.FigureWidget):
             and not isinstance(ee_object, ee.Feature)
             and not isinstance(ee_object, ee.Geometry)
         ):
-            err_str = "\n\nThe image argument in 'addLayer' function must be an instance of one of ee.Image, ee.Geometry, ee.Feature or ee.FeatureCollection."
+            err_str = (
+                "The image argument in 'addLayer' function must be an instance of "
+                "one of ee.Image, ee.Geometry, ee.Feature, or ee.FeatureCollection."
+            )
             raise AttributeError(err_str)
 
         if (
@@ -474,14 +495,14 @@ class Map(go.FigureWidget):
         if "palette" in vis_params:
             if isinstance(vis_params["palette"], tuple):
                 vis_params["palette"] = list(vis_params["palette"])
-            if isinstance(vis_params["palette"], Box):
+            if isinstance(vis_params["palette"], box.Box):
                 try:
                     vis_params["palette"] = vis_params["palette"]["default"]
                 except Exception as e:
                     print("The provided palette is invalid.")
                     raise Exception(e)
             elif isinstance(vis_params["palette"], str):
-                vis_params["palette"] = check_cmap(vis_params["palette"])
+                vis_params["palette"] = coreutils.check_cmap(vis_params["palette"])
             elif not isinstance(vis_params["palette"], list):
                 raise ValueError(
                     "The palette must be a list of colors or a string or a Box object."
@@ -498,24 +519,30 @@ class Map(go.FigureWidget):
 
     def add_cog_layer(
         self,
-        url,
-        name="Untitled",
-        attribution="",
-        opacity=1.0,
+        url: str,
+        name: str = "Untitled",
+        attribution: str = "",
+        opacity: float = 1.0,
         bands=None,
-        titiler_endpoint=None,
+        titiler_endpoint: str | None = None,
         **kwargs,
     ):
         """Adds a COG TileLayer to the map.
 
         Args:
-            url (str): The URL of the COG tile layer, e.g., 'https://github.com/opengeos/data/releases/download/raster/Libya-2023-07-01.tif'
-            name (str, optional): The layer name to use for the layer. Defaults to 'Untitled'.
-            attribution (str, optional): The attribution to use. Defaults to ''.
-            opacity (float, optional): The opacity of the layer. Defaults to 1.
+            url: The URL of the COG tile layer, e.g.,
+                https://github.com/opengeos/data/releases/download/raster/Libya-2023-07-01.tif
+            name: The layer name to use for the layer. Defaults to 'Untitled'.
+            attribution: The attribution to use. Defaults to ''.
+            opacity: The opacity of the layer. Defaults to 1.
             bands (list, optional): The bands to use. Defaults to None.
-            titiler_endpoint (str, optional): Titiler endpoint. Defaults to "https://titiler.xyz".
-            **kwargs: Arbitrary keyword arguments, including bidx, expression, nodata, unscale, resampling, rescale, color_formula, colormap, colormap_name, return_mask. See https://developmentseed.org/titiler/endpoints/cog/ and https://cogeotiff.github.io/rio-tiler/colormap/. To select a certain bands, use bidx=[1, 2, 3]
+            titiler_endpoint: Titiler endpoint. Defaults to
+                https://giswqs-titiler-endpoint.hf.space.
+            **kwargs: Arbitrary keyword arguments, including bidx, expression, nodata,
+              unscale, resampling, rescale, color_formula, colormap, colormap_name,
+              return_mask. See https://developmentseed.org/titiler/endpoints/cog/ and
+              https://cogeotiff.github.io/rio-tiler/colormap/. To select a certain
+              bands, use bidx=[1, 2, 3]
         """
         tile_url = cog_tile(url, bands, titiler_endpoint, **kwargs)
         center = cog_center(url, titiler_endpoint)  # (lon, lat)
@@ -524,29 +551,35 @@ class Map(go.FigureWidget):
 
     def add_stac_layer(
         self,
-        url=None,
-        collection=None,
-        item=None,
+        url: str | None = None,
+        collection: str | None = None,
+        item: str | None = None,
         assets=None,
         bands=None,
-        titiler_endpoint=None,
-        name="STAC Layer",
-        attribution="",
-        opacity=1.0,
+        titiler_endpoint: str | None = None,
+        name: str = "STAC Layer",
+        attribution: str = "",
+        opacity: float = 1.0,
         **kwargs,
     ):
         """Adds a STAC TileLayer to the map.
 
         Args:
-            url (str): HTTP URL to a STAC item, e.g., https://canada-spot-ortho.s3.amazonaws.com/canada_spot_orthoimages/canada_spot5_orthoimages/S5_2007/S5_11055_6057_20070622/S5_11055_6057_20070622.json
-            collection (str): The Microsoft Planetary Computer STAC collection ID, e.g., landsat-8-c2-l2.
-            item (str): The Microsoft Planetary Computer STAC item ID, e.g., LC08_L2SP_047027_20201204_02_T1.
-            assets (str | list): The Microsoft Planetary Computer STAC asset ID, e.g., ["SR_B7", "SR_B5", "SR_B4"].
+            url: HTTP URL to a STAC item, e.g.,
+                https://canada-spot-ortho.s3.amazonaws.com/canada_spot_orthoimages/canada_spot5_orthoimages/S5_2007/S5_11055_6057_20070622/S5_11055_6057_20070622.json
+            collection: The Microsoft Planetary Computer STAC collection ID, e.g.,
+                landsat-8-c2-l2.
+            item: The Microsoft Planetary Computer STAC item ID, e.g.,
+                LC08_L2SP_047027_20201204_02_T1.
+            assets (str | list): The Microsoft Planetary Computer STAC asset ID, e.g.,
+                ["SR_B7", "SR_B5", "SR_B4"].
             bands (list): A list of band names, e.g., ["SR_B7", "SR_B5", "SR_B4"]
-            titiler_endpoint (str, optional): Titiler endpoint, e.g., "https://titiler.xyz", "planetary-computer", "pc". Defaults to None.
-            name (str, optional): The layer name to use for the layer. Defaults to 'STAC Layer'.
-            attribution (str, optional): The attribution to use. Defaults to ''.
-            opacity (float, optional): The opacity of the layer. Defaults to 1.
+            titiler_endpoint: Titiler endpoint, e.g.,
+                "https://giswqs-titiler-endpoint.hf.space", "planetary-computer",
+                "pc". Defaults to None.
+            name: The layer name to use for the layer. Defaults to 'STAC Layer'.
+            attribution: The attribution to use. Defaults to ''.
+            opacity: The opacity of the layer. Defaults to 1.
         """
         tile_url = stac_tile(
             url, collection, item, assets, bands, titiler_endpoint, **kwargs
@@ -557,24 +590,27 @@ class Map(go.FigureWidget):
 
     def add_planet_by_month(
         self,
-        year=2016,
-        month=1,
-        api_key=None,
-        token_name="PLANET_API_KEY",
-        name=None,
-        attribution="",
-        opacity=1.0,
-    ):
-        """Adds Planet global mosaic by month to the map. To get a Planet API key, see https://developers.planet.com/quickstart/apis/
+        year: int = 2016,
+        month: int = 1,
+        api_key: str | None = None,
+        token_name: str = "PLANET_API_KEY",
+        name: str | None = None,
+        attribution: str = "",
+        opacity: float = 1.0,
+    ) -> None:
+        """Adds Planet global mosaic by month to the map.
+
+        To get a Planet API key, see https://developers.planet.com/quickstart/apis/
 
         Args:
-            year (int, optional): The year of Planet global mosaic, must be >=2016. Defaults to 2016.
-            month (int, optional): The month of Planet global mosaic, must be 1-12. Defaults to 1.
-            api_key (str, optional): The Planet API key. Defaults to None.
-            token_name (str, optional): The environment variable name of the API key. Defaults to "PLANET_API_KEY".
-            name (str, optional): Name of the layer. Defaults to 'TileLayer'.
-            attribution (str): The attribution to use. Defaults to "".
-            opacity (float, optional): The opacity of the layer. Defaults to 1.
+            year: The year of Planet global mosaic, must be >=2016. Defaults to 2016.
+            month: The month of Planet global mosaic, must be 1-12. Defaults to 1.
+            api_key: The Planet API key. Defaults to None.
+            token_name: The environment variable name of the API key. Defaults to
+                "PLANET_API_KEY".
+            name: Name of the layer. Defaults to 'TileLayer'.
+            attribution: The attribution to use. Defaults to "".
+            opacity: The opacity of the layer. Defaults to 1.
         """
         if name is None:
             name = str(year) + "-" + str(month).zfill(2)
@@ -585,24 +621,27 @@ class Map(go.FigureWidget):
 
     def add_planet_by_quarter(
         self,
-        year=2016,
-        quarter=1,
-        api_key=None,
-        token_name="PLANET_API_KEY",
-        name=None,
-        attribution="",
-        opacity=1.0,
-    ):
-        """Adds Planet global mosaic by month to the map. To get a Planet API key, see https://developers.planet.com/quickstart/apis/
+        year: int = 2016,
+        quarter: int = 1,
+        api_key: str | None = None,
+        token_name: str = "PLANET_API_KEY",
+        name: str | None = None,
+        attribution: str = "",
+        opacity: float = 1.0,
+    ) -> None:
+        """Adds Planet global mosaic by month to the map.
+
+        To get a Planet API key, see https://developers.planet.com/quickstart/apis/
 
         Args:
-            year (int, optional): The year of Planet global mosaic, must be >=2016. Defaults to 2016.
-            quarter (int, optional): The quarter of Planet global mosaic, must be 1-4. Defaults to 1.
-            api_key (str, optional): The Planet API key. Defaults to None.
-            token_name (str, optional): The environment variable name of the API key. Defaults to "PLANET_API_KEY".
-            name (str, optional): Name of the layer. Defaults to 'TileLayer'.
-            attribution (str): The attribution to use. Defaults to "".
-            opacity (float, optional): The opacity of the layer. Defaults to 1.
+            year: The year of Planet global mosaic, must be >=2016. Defaults to 2016.
+            quarter: The quarter of Planet global mosaic, must be 1-4. Defaults to 1.
+            api_key: The Planet API key. Defaults to None.
+            token_name: The environment variable name of the API key. Defaults to
+                "PLANET_API_KEY".
+            name: Name of the layer. Defaults to 'TileLayer'.
+            attribution: The attribution to use. Defaults to "".
+            opacity: The opacity of the layer. Defaults to 1.
         """
         if name is None:
             name = str(year) + "-" + "q" + str(quarter)
@@ -611,33 +650,54 @@ class Map(go.FigureWidget):
             tile_url, name=name, attribution=attribution, opacity=opacity
         )
 
-    def save(self, file, format=None, width=None, height=None, scale=None, **kwargs):
-        """Convert a map to a static image and write it to a file or writeable object
+    def save(
+        self,
+        file: str,
+        format: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        scale: int | None = None,
+        **kwargs,
+    ) -> None:
+        """Convert a map to a static image and write it to a file or writeable object.
 
         Args:
-            file (str): A string representing a local file path or a writeable object (e.g. a pathlib.Path object or an open file descriptor)
-            format (str, optional): The desired image format. One of png, jpg, jpeg, webp, svg, pdf, eps. Defaults to None.
-            width (int, optional): The width of the exported image in layout pixels. If the `scale` property is 1.0, this will also be the width of the exported image in physical pixels. Defaults to None.
-            height (int, optional): The height of the exported image in layout pixels. If the `scale` property is 1.0, this will also be the height of the exported image in physical pixels. Defaults to None.
-            scale (int, optional): The scale factor to use when exporting the figure. A scale factor larger than 1.0 will increase the image resolution with respect to the figure's layout pixel dimensions. Whereas as scale factor of less than 1.0 will decrease the image resolution. Defaults to None.
+            file: A string representing a local file path or a writeable object (e.g. a
+                pathlib.Path object or an open file descriptor)
+            format: The desired image format. One of png, jpg, jpeg, webp, svg, pdf,
+                eps. Defaults to None.
+            width: The width of the exported image in layout pixels. If the `scale`
+                property is 1.0, this will also be the width of the exported image in
+                physical pixels. Defaults to None.
+            height: The height of the exported image in layout pixels. If the `scale`
+                property is 1.0, this will also be the height of the exported image in
+                physical pixels. Defaults to None.
+            scale: The scale factor to use when exporting the figure. A scale factor
+                larger than 1.0 will increase the image resolution with respect to the
+                figure's layout pixel dimensions. Whereas as scale factor of less than
+                1.0 will decrease the image resolution. Defaults to None.
         """
         self.write_image(
             file, format=format, width=width, height=height, scale=scale, **kwargs
         )
 
     def add_choropleth_map(
-        self, data, name=None, z=None, colorscale="Viridis", **kwargs
-    ):
+        self,
+        data: str,
+        name: str | None = None,
+        z: str | None = None,
+        colorscale: str = "Viridis",
+        **kwargs,
+    ) -> None:
         """Adds a choropleth map to the map.
 
         Args:
-            data (str): File path to vector data, e.g., https://raw.githubusercontent.com/giswqs/leafmap/master/examples/data/countries.geojson
-            name (str, optional): Name of the layer. Defaults to None.
-            z (str, optional): Z value of the data. Defaults to None.
-            colorscale (str, optional): Color scale of the data. Defaults to "Viridis".
+            data: File path to vector data, e.g.,
+                https://raw.githubusercontent.com/giswqs/leafmap/master/examples/data/countries.geojson
+            name: Name of the layer. Defaults to None.
+            z: Z value of the data. Defaults to None.
+            colorscale: Color scale of the data. Defaults to "Viridis".
         """
-        check_package("geopandas")
-        import json
         import geopandas as gpd
 
         gdf = gpd.read_file(data).to_crs(epsg=4326)
@@ -652,7 +712,7 @@ class Map(go.FigureWidget):
             **kwargs,
         )
 
-    def add_scatter_plot_demo(self, **kwargs):
+    def add_scatter_plot_demo(self, **kwargs) -> None:
         """Adds a scatter plot to the map."""
         lons = np.random.random(1000) * 360.0
         lats = np.random.random(1000) * 180.0 - 90.0
@@ -664,27 +724,30 @@ class Map(go.FigureWidget):
     def add_heatmap(
         self,
         data,
-        latitude="latitude",
-        longitude="longitude",
-        z="value",
-        radius=10,
-        colorscale=None,
-        name="Heat map",
+        latitude: str = "latitude",
+        longitude: str = "longitude",
+        z: str = "value",
+        radius: int = 10,
+        colorscale: str | None = None,
+        name: str = "Heat map",
         **kwargs,
-    ):
-        """Adds a heat map to the map. Reference: https://plotly.com/python/mapbox-density-heatmaps
+    ) -> None:
+        """Adds a heat map to the map.
+
+        Reference: https://plotly.com/python/mapbox-density-heatmaps
 
         Args:
-            data (str | pd.DataFrame): File path or HTTP URL to the input file or a . For example, https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv
-            latitude (str, optional): The column name of latitude. Defaults to "latitude".
-            longitude (str, optional): The column name of longitude. Defaults to "longitude".
-            z (str, optional): The column name of z values. Defaults to "value".
-            radius (int, optional): Radius of each “point” of the heatmap. Defaults to 25.
-            colorscale (str, optional): Color scale of the data, e.g., Viridis. See https://plotly.com/python/builtin-colorscales. Defaults to None.
-            name (str, optional): Layer name to use. Defaults to "Heat map".
-
+            data (str | pd.DataFrame): File path or HTTP URL to the input file or a '.'
+                For example,
+                https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv
+            latitude: The column name of latitude. Defaults to "latitude".
+            longitude: The column name of longitude. Defaults to "longitude".
+            z: The column name of z values. Defaults to "value".
+            radius: Radius of each “point” of the heatmap. Defaults to 10.
+            colorscale: Color scale of the data, e.g., Viridis. See
+                https://plotly.com/python/builtin-colorscales. Defaults to None.
+            name: Layer name to use. Defaults to "Heat map".
         """
-
         if isinstance(data, str):
             df = pd.read_csv(data)
         elif isinstance(data, pd.DataFrame):
@@ -703,10 +766,11 @@ class Map(go.FigureWidget):
         )
         self.add_trace(heatmap)
 
-    def add_heatmap_demo(self, **kwargs):
+    def add_heatmap_demo(self, **kwargs) -> None:
         """Adds a heatmap to the map."""
         quakes = pd.read_csv(
-            "https://raw.githubusercontent.com/plotly/datasets/master/earthquakes-23k.csv"
+            "https://raw.githubusercontent.com/"
+            "plotly/datasets/master/earthquakes-23k.csv"
         )
         heatmap = go.Densitymapbox(
             lat=quakes.Latitude,
@@ -723,23 +787,25 @@ class Map(go.FigureWidget):
     def add_gdf(
         self,
         gdf,
-        label_col=None,
-        color_col=None,
+        label_col: str | None = None,
+        color_col: str | None = None,
         labels=None,
-        opacity=1.0,
+        opacity: float = 1.0,
         zoom=None,
-        color_continuous_scale="Viridis",
+        color_continuous_scale: str = "Viridis",
         **kwargs,
-    ):
+    ) -> None:
         """Adds a GeoDataFrame to the map.
 
         Args:
             gdf (GeoDataFrame): A GeoDataFrame.
-            label_col (str, optional): The column name of locations. Defaults to None.
-            color_col (str, optional): The column name of color. Defaults to None.
+            label_col: The column name of locations. Defaults to None.
+            color_col: The column name of color. Defaults to None.
+            labels: TODO
+            opacity: TODO
+            zoom: TODO
+            color_continuous_scale: TODO
         """
-
-        check_package("geopandas", "https://geopandas.org")
         import geopandas as gpd
 
         if isinstance(gdf, str):
@@ -781,13 +847,11 @@ class Map(go.FigureWidget):
         self.set_center(center_lat, center_lon, zoom)
 
 
-def fix_widget_error():
-    """
-    Fix FigureWidget - 'mapbox._derived' Value Error.
+def fix_widget_error() -> None:
+    """Fix FigureWidget - 'mapbox._derived' Value Error.
+
     Adopted from: https://github.com/plotly/plotly.py/issues/2570#issuecomment-738735816
     """
-    import shutil
-
     basedatatypesPath = os.path.join(
         os.path.dirname(os.__file__), "site-packages", "plotly", "basedatatypes.py"
     )
@@ -795,8 +859,8 @@ def fix_widget_error():
     backup_file = basedatatypesPath.replace(".py", "_bk.py")
     shutil.copyfile(basedatatypesPath, backup_file)
 
-    # read basedatatypes.py
-    with open(basedatatypesPath, "r") as f:
+    # Read basedatatypes.py.
+    with open(basedatatypesPath) as f:
         lines = f.read()
 
     find = "if not BaseFigure._is_key_path_compatible(key_path_str, self.layout):"
@@ -805,9 +869,9 @@ def fix_widget_error():
                 if key_path_str == "mapbox._derived":
                     return"""
 
-    # add new text
+    # Add new text.
     lines = lines.replace(find, replace)
 
-    # overwrite old 'basedatatypes.py'
+    # Overwrite old 'basedatatypes.py'.
     with open(basedatatypesPath, "w") as f:
         f.write(lines)

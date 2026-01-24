@@ -1,6 +1,8 @@
 import json
 import logging
 import os
+import pathlib
+import sys
 import webbrowser
 from threading import Semaphore, Thread, main_thread
 from typing import Any
@@ -11,7 +13,13 @@ from webview.dom import _dnd_state
 from webview.menu import Menu, MenuAction, MenuSeparator
 from webview.models import Request, Response
 from webview.screen import Screen
-from webview.util import DEFAULT_HTML, create_cookie, js_bridge_call, inject_pywebview, parse_file_type
+from webview.util import (
+    DEFAULT_HTML,
+    create_cookie,
+    inject_pywebview,
+    js_bridge_call,
+    parse_file_type,
+)
 from webview.window import FixPoint, Window
 
 logger = logging.getLogger('pywebview')
@@ -40,6 +48,8 @@ webkit_ver = webkit.get_major_version(), webkit.get_minor_version(), webkit.get_
 
 _app = None
 _app_actions = {}  # action_label: function
+
+cert = None
 
 
 class BrowserView:
@@ -109,7 +119,7 @@ class BrowserView:
         # Set window background color
         style_provider = gtk.CssProvider()
         style_provider.load_from_data(
-            'GtkWindow {{ background-color: {}; }}'.format(window.background_color).encode()
+            f'GtkWindow {{ background-color: {window.background_color}; }}'.encode()
         )
         gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(), style_provider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
@@ -130,25 +140,55 @@ class BrowserView:
 
         self.js_bridge = BrowserView.JSBridge(window)
 
-        storage_path = _state['storage_path'] or os.path.join(os.path.expanduser('~'), '.pywebview')
+        if _state['private_mode']:
+            # Create ephemeral context for private mode
+            web_context = webkit.WebContext.new_ephemeral()
+        elif _state['storage_path']:
+            storage_path = _state['storage_path']
 
-        if not os.path.exists(storage_path):
-            os.makedirs(storage_path)
+            # Create storage directory if it doesn't exist
+            if not os.path.exists(storage_path):
+                os.makedirs(storage_path)
 
-        web_context = webkit.WebContext.get_default()
+            # Create website data manager with storage directories
+            self.website_data_manager = webkit.WebsiteDataManager(
+                base_data_directory=storage_path,
+                base_cache_directory=os.path.join(storage_path, 'cache'),
+                local_storage_directory=os.path.join(storage_path, 'localstorage'),
+                indexeddb_directory=os.path.join(storage_path, 'indexeddb'),
+                websql_directory=os.path.join(storage_path, 'websql'),
+                hsts_cache_directory=os.path.join(storage_path, 'hsts'),
+                itp_directory=os.path.join(storage_path, 'itp'),
+                service_worker_registrations_directory=os.path.join(storage_path, 'serviceworkers'),
+                dom_cache_directory=os.path.join(storage_path, 'domcache'),
+            )
+            web_context = webkit.WebContext.new_with_website_data_manager(self.website_data_manager)
+        else:
+            web_context = webkit.WebContext.get_default()
+
         self.cookie_manager = web_context.get_cookie_manager()
 
         if not _state['private_mode']:
+            script_name = pathlib.Path(sys.argv[0]).name
+            if script_name in ['python', 'python3', '-c', '']:
+                script_name = 'pywebview'
+            storage_path = _state['storage_path'] or os.path.expanduser(f'~/.cache/{script_name}/')
+
             self.cookie_manager.set_persistent_storage(
-                os.path.join(storage_path, 'cookies'), webkit.CookiePersistentStorage.SQLITE
+                os.path.join(storage_path, 'cookies'), webkit.CookiePersistentStorage.TEXT
             )
+
+        if cert:
+            web_context.allow_tls_certificate_for_host(cert, '127.0.0.1')
 
         self.manager = webkit.UserContentManager()
         self.manager.register_script_message_handler('jsBridge')
         self.manager.connect('script-message-received', self.on_js_bridge_call)
 
         self.request_headers_mutated = False
-        self.webview = webkit.WebView().new_with_user_content_manager(self.manager)
+
+        # Create WebView with the configured context
+        self.webview = webkit.WebView(user_content_manager=self.manager, web_context=web_context)
         self.webview.connect('notify::visible', self.on_webview_ready)
         self.webview.connect('load_changed', self.on_load_finish)
         self.webview.connect('decide-policy', self.on_navigation)
@@ -340,15 +380,21 @@ class BrowserView:
         self.pywebview_window.events.request_sent.set(request_)
 
         if (
-            request_.headers == original_headers or
-            not headers or
-            self.request_headers_mutated or
-            url != self.pywebview_window.real_url
+            request_.headers == original_headers
+            or not headers
+            or self.request_headers_mutated
+            or url != self.pywebview_window.real_url
         ):
             return
 
-        missing_headers = {k: v for k, v in request_.headers.items() if k not in original_headers or original_headers[k] != v}
-        extra_headers = {k: str(v) for k, v in original_headers.items() if k not in request_.headers}
+        missing_headers = {
+            k: v
+            for k, v in request_.headers.items()
+            if k not in original_headers or original_headers[k] != v
+        }
+        extra_headers = {
+            k: str(v) for k, v in original_headers.items() if k not in request_.headers
+        }
 
         for k, v in missing_headers.items():
             headers.append(k, v)
@@ -356,7 +402,7 @@ class BrowserView:
         for k in extra_headers:
             headers.remove(k)
 
-        #headers.append('X-Handled', 'true')
+        # headers.append('X-Handled', 'true')
         webview.stop_loading()
         self.request_headers_mutated = True
         webview.load_request(request)
@@ -468,7 +514,7 @@ class BrowserView:
         self.window.resize(width, height)
 
     def move(self, x, y):
-        self.window.move(self.screen.x+x, self.screen.y+y)
+        self.window.move(self.screen.x + x, self.screen.y + y)
 
     def maximize(self):
         glib.idle_add(self.window.maximize)
@@ -596,21 +642,20 @@ class BrowserView:
         def _evaluate_js():
             try:
                 self.webview.evaluate_javascript(
-                        script=script,
-                        length=len(script),
-                        world_name=None,
-                        source_uri=None,
-                        cancellable=None,
-                        callback=_callback)
+                    script=script,
+                    length=len(script),
+                    world_name=None,
+                    source_uri=None,
+                    cancellable=None,
+                    callback=_callback,
+                )
             except Exception:
                 logger.exception('Error evaluating JavaScript')
                 result_semaphore.release()
 
-
         def _callback(webview, task):
             nonlocal result
             try:
-                s = script
                 value = webview.evaluate_javascript_finish(task)
                 res = self._convert_js_value(value)
 
@@ -663,6 +708,7 @@ class BrowserView:
     def _headers_to_dict(self, headers):
         def _assign(k, v):
             headers_dict[k] = v
+
         headers_dict = {}
 
         if headers:
@@ -696,7 +742,7 @@ def create_window(window):
         create()
 
     if window.uid == 'master':
-        main_thread().pydev_do_not_trace = True # vs code debugger hang fix
+        main_thread().pydev_do_not_trace = True  # vs code debugger hang fix
         _app.connect('activate', create_master_callback)
         _app.run()
         _app = None
@@ -733,9 +779,8 @@ def toggle_fullscreen(uid):
 
 
 def add_tls_cert(certfile):
-    web_context = webkit.WebContext.get_default()
+    global cert
     cert = Gio.TlsCertificate.new_from_file(certfile)
-    web_context.allow_tls_certificate_for_host(cert, '127.0.0.1')
 
 
 def set_on_top(uid, top):
@@ -862,7 +907,6 @@ def create_confirmation_dialog(title, message, uid):
 
 
 def create_menu(app_menu_list):
-
     def action_callback(action, parameter):
         function = _app_actions.get(action.get_name())
         if function is None:
@@ -873,15 +917,13 @@ def create_menu(app_menu_list):
     def create_submenu(title, line_items, supermenu, action_prepend=''):
         m = Gio.Menu.new()
         current_section = Gio.Menu.new()
-        action_prepend = '{}_{}'.format(action_prepend, title)
+        action_prepend = f'{action_prepend}_{title}'
         for menu_line_item in line_items:
             if isinstance(menu_line_item, MenuSeparator):
                 m.append_section(None, current_section)
                 current_section = Gio.Menu.new()
             elif isinstance(menu_line_item, MenuAction):
-                action_label = '{}_{}'.format(action_prepend, menu_line_item.title).replace(
-                    ' ', '_'
-                )
+                action_label = f'{action_prepend}_{menu_line_item.title}'.replace(' ', '_')
                 while action_label in _app_actions.keys():
                     action_label += '_'
                 _app_actions[action_label] = menu_line_item.function
@@ -904,17 +946,19 @@ def create_menu(app_menu_list):
     menubar = Gio.Menu()
 
     for app_menu in app_menu_list:
+        # Ignore '__app__' menus (macOS-only feature)
+        if app_menu.title == '__app__':
+            continue
         create_submenu(app_menu.title, app_menu.items, menubar)
 
     return menubar
-
 
 
 def get_active_window():
     active_window = None
     try:
         active_window = _app.get_active_window()
-    except:
+    except Exception:
         return None
 
     active_window_number = active_window.get_id()

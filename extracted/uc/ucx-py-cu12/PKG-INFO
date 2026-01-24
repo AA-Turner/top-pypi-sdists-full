@@ -1,0 +1,72 @@
+Metadata-Version: 2.4
+Name: ucx-py-cu12
+Version: 0.45.0
+Summary: Python Bindings for the Unified Communication X library (UCX)
+Author: NVIDIA Corporation
+License: BSD-3-Clause
+Project-URL: Homepage, https://github.com/rapidsai/ucx-py
+Project-URL: Documentation, https://ucx-py.readthedocs.io/en/stable/
+Project-URL: Source, https://github.com/rapidsai/ucx-py
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Hardware
+Classifier: Topic :: System :: Systems Administration
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: libucx-cu12<1.19,>=1.15.0
+Requires-Dist: numpy<3.0a0,>=1.23
+Requires-Dist: pynvml<13.0.0a0,>=12.0.0
+Provides-Extra: test
+Requires-Dist: cloudpickle; extra == "test"
+Requires-Dist: cudf-cu12==25.8.*; extra == "test"
+Requires-Dist: cupy-cuda12x>=12.0.0; extra == "test"
+Requires-Dist: distributed; extra == "test"
+Requires-Dist: numba<0.62.0a0,>=0.59.1; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-rerunfailures; extra == "test"
+Requires-Dist: pytest==7.*; extra == "test"
+Requires-Dist: rapids-dask-dependency==25.8.*; extra == "test"
+Dynamic: license-file
+
+> [!WARNING]
+> UCX-Py is deprecated and will be phased out soon, version 0.45 (RAPIDS 25.08) is expected to be the last release. Projects that rely on UCX-Py are advised to migrate to [UCXX](https://github.com/rapidsai/ucxx) immediately.
+
+[![https://ucx-py.readthedocs.io/en/latest/](https://readthedocs.org/projects/ucx-py/badge/ "ReadTheDocs")]( https://ucx-py.readthedocs.io/en/latest/ )
+
+# Python Bindings for UCX
+
+## Installing
+
+Users can either [install with Conda]( https://ucx-py.readthedocs.io/en/latest/install.html#conda ) or [build from source]( https://ucx-py.readthedocs.io/en/latest/install.html#source ).
+
+## Testing
+
+To run ucx-py's tests, just use ``pytest``:
+
+```bash
+pytest -v
+```
+
+### TCP Support
+
+In order to use TCP add `tcp` to `UCX_TLS` and set `UCXPY_IFNAME` to the network interface you want to use. Some setup examples:
+
+```bash
+# TCP using "eth0" and CUDA support
+export UCX_TLS=tcp,cuda_copy,cuda_ipc
+export UCXPY_IFNAME="eth0"
+
+# InfiniBand using "ib0" and CUDA support
+export UCX_TLS=rc,cuda_copy,cuda_ipc
+export UCXPY_IFNAME="ib0"
+
+# TCP using "eno0" and no CUDA support
+export UCX_TLS=tcp
+export UCXPY_IFNAME="eno0"
+```

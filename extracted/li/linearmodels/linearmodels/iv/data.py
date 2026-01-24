@@ -8,7 +8,6 @@ import copy
 from typing import Any, Union
 
 import numpy as np
-import pandas
 import pandas as pd
 from pandas.api.types import is_numeric_dtype, is_string_dtype
 
@@ -18,9 +17,7 @@ dim_err = "{0} has too many dims.  Maximum is 2, actual is {1}"
 type_err = "Only ndarrays, DataArrays and Series and DataFrames are supported"
 
 
-def convert_columns(
-    s: pd.Series, drop_first: bool
-) -> linearmodels.typing.data.AnyPandas:
+def convert_columns(s: pd.Series, drop_first: bool) -> linearmodels.typing.AnyPandas:
     if isinstance(s.dtype, pd.CategoricalDtype):
         out = pd.get_dummies(s, drop_first=drop_first)
         # TODO: Remove once pandas typing fixed
@@ -29,7 +26,7 @@ def convert_columns(
     return s
 
 
-def expand_categoricals(x: pandas.DataFrame, drop_first: bool) -> pd.DataFrame:
+def expand_categoricals(x: pd.DataFrame, drop_first: bool) -> pd.DataFrame:
     if x.shape[1] == 0:
         return x
     return pd.concat(
@@ -123,7 +120,7 @@ class IVData:
                 all_numeric = all_numeric and is_numeric_dtype(dt)
                 if not (is_numeric_dtype(dt) or isinstance(dt, pd.CategoricalDtype)):
                     raise ValueError(
-                        "Only numeric, string  or categorical " "data permitted"
+                        "Only numeric, string  or categorical data permitted"
                     )
 
             if convert_dummies:
@@ -138,9 +135,9 @@ class IVData:
 
         else:
             try:
-                import xarray as xr
-            except ImportError:
-                raise TypeError(type_err)
+                import xarray as xr  # noqa: PLC0415
+            except ImportError as exc:
+                raise TypeError(type_err) from exc
             if isinstance(x, xr.DataArray):
                 if x.ndim == 1:
                     x = xr.concat([x], dim=var_name)
@@ -161,7 +158,7 @@ class IVData:
 
         if nobs is not None:
             if self._ndarray.shape[0] != nobs:
-                msg = "Array required to have {nobs} obs, has " "{act}".format(
+                msg = "Array required to have {nobs} obs, has {act}".format(
                     nobs=nobs, act=self._ndarray.shape[0]
                 )
                 raise ValueError(msg)
@@ -172,7 +169,7 @@ class IVData:
         return self._pandas
 
     @property
-    def ndarray(self) -> linearmodels.typing.data.NumericArray:
+    def ndarray(self) -> linearmodels.typing.NumericArray:
         """ndarray view of data, always 2d"""
         return self._ndarray
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: serpent
-Version: 1.41
+Version: 1.42
 Summary: Serialization based on ast.literal_eval
 Home-page: https://github.com/irmen/Serpent
 Author: Irmen de Jong
@@ -17,6 +17,17 @@ Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development
 Requires-Python: >=3.2
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 
 Serpent is a simple serialization library based on ast.literal_eval.
@@ -152,4 +163,3 @@ When you run this it prints:
   'timestamp': '2013-04-02T00:23:00.924000',
   'unicode': '€'}
     
-

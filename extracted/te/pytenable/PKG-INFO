@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTenable
-Version: 1.8.4
+Version: 1.9.0
 Summary: Python library to interface into Tenable's products and applications
 Author: Tenable, Inc.
 Author-email: Steve McGrath <smcgrath@tenable.com>
@@ -32,10 +32,9 @@ Requires-Dist: python-box>=4.0
 Requires-Dist: defusedxml>=0.5.0
 Requires-Dist: urllib3>=1.26.18
 Requires-Dist: typing-extensions>=4.0.1
-Requires-Dist: dataclasses>=0.8; python_version == "3.6"
 Requires-Dist: requests-toolbelt>=1.0.0
-Requires-Dist: gql>=3.5.0
-Requires-Dist: graphql-core>=3.2.3
+Requires-Dist: gql>=4.0.0
+Requires-Dist: graphql-core>=3.2.6
 Requires-Dist: pydantic>=2.5.3
 Requires-Dist: pydantic-extra-types>=2.3.0
 Provides-Extra: pkcs12

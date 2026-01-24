@@ -1,0 +1,16 @@
+[project]
+name = "app3"
+version = "0.1.0"
+dependencies = [
+  "anyio",
+  "app2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "ruff",
+]
+
+[tool.uv.sources]
+app2 = { workspace = true }

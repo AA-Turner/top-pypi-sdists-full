@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: resvg_py
-Version: 0.2.3
+Version: 0.2.6
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -8,9 +8,9 @@ License-File: LICENSE
 Author-email: baseplate-admin <61817579+baseplate-admin@users.noreply.github.com>
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/baseplate-admin/resvg-py
-Project-URL: Issues, https://github.com/baseplate-admin/resvg-py/issues
 Project-URL: Documentation, https://resvg-py.readthedocs.io/
+Project-URL: Issues, https://github.com/baseplate-admin/resvg-py/issues
+Project-URL: Source Code, https://github.com/baseplate-admin/resvg-py
 
 # resvg_py
 
@@ -40,13 +40,14 @@ print(resvg_py.svg_to_bytes(svg_string=svg_string))
 
 ```
 
-(if you want a more complex solution please check the [api](https://resvg-py.readthedocs.io/en/latest/resvg.html) or [usage](https://resvg-py.readthedocs.io/en/latest/usage.html). It exposes everything resvg has.)
+(if you have a complex use case, please check the [api](https://resvg-py.readthedocs.io/en/latest/resvg.html) or [usage](https://resvg-py.readthedocs.io/en/latest/usage.html). It mostly re-exposes everything of resvg)
 
 ## Requires
 
--   Python 3.8 or higher
+-   Python 3.9 or higher
 
 ---
 
 This library is feature complete in my opinion.
+
 

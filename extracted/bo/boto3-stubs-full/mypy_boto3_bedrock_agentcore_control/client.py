@@ -3,22 +3,23 @@ Type annotations for bedrock-agentcore-control service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
     from boto3.session import Session
-    from mypy_boto3_bedrock_agentcore_control.client import BedrockAgentCoreControlPlaneFrontingLayerClient
+    from mypy_boto3_bedrock_agentcore_control.client import BedrockAgentCoreControlClient
 
     session = Session()
-    client: BedrockAgentCoreControlPlaneFrontingLayerClient = session.client("bedrock-agentcore-control")
+    client: BedrockAgentCoreControlClient = session.client("bedrock-agentcore-control")
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -32,10 +33,16 @@ from .paginator import (
     ListApiKeyCredentialProvidersPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
+    ListEvaluatorsPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
+    ListOnlineEvaluationConfigsPaginator,
+    ListPoliciesPaginator,
+    ListPolicyEnginesPaginator,
+    ListPolicyGenerationAssetsPaginator,
+    ListPolicyGenerationsPaginator,
     ListWorkloadIdentitiesPaginator,
 )
 from .type_defs import (
@@ -49,6 +56,8 @@ from .type_defs import (
     CreateBrowserResponseTypeDef,
     CreateCodeInterpreterRequestTypeDef,
     CreateCodeInterpreterResponseTypeDef,
+    CreateEvaluatorRequestTypeDef,
+    CreateEvaluatorResponseTypeDef,
     CreateGatewayRequestTypeDef,
     CreateGatewayResponseTypeDef,
     CreateGatewayTargetRequestTypeDef,
@@ -57,6 +66,12 @@ from .type_defs import (
     CreateMemoryOutputTypeDef,
     CreateOauth2CredentialProviderRequestTypeDef,
     CreateOauth2CredentialProviderResponseTypeDef,
+    CreateOnlineEvaluationConfigRequestTypeDef,
+    CreateOnlineEvaluationConfigResponseTypeDef,
+    CreatePolicyEngineRequestTypeDef,
+    CreatePolicyEngineResponseTypeDef,
+    CreatePolicyRequestTypeDef,
+    CreatePolicyResponseTypeDef,
     CreateWorkloadIdentityRequestTypeDef,
     CreateWorkloadIdentityResponseTypeDef,
     DeleteAgentRuntimeEndpointRequestTypeDef,
@@ -68,6 +83,8 @@ from .type_defs import (
     DeleteBrowserResponseTypeDef,
     DeleteCodeInterpreterRequestTypeDef,
     DeleteCodeInterpreterResponseTypeDef,
+    DeleteEvaluatorRequestTypeDef,
+    DeleteEvaluatorResponseTypeDef,
     DeleteGatewayRequestTypeDef,
     DeleteGatewayResponseTypeDef,
     DeleteGatewayTargetRequestTypeDef,
@@ -75,6 +92,13 @@ from .type_defs import (
     DeleteMemoryInputTypeDef,
     DeleteMemoryOutputTypeDef,
     DeleteOauth2CredentialProviderRequestTypeDef,
+    DeleteOnlineEvaluationConfigRequestTypeDef,
+    DeleteOnlineEvaluationConfigResponseTypeDef,
+    DeletePolicyEngineRequestTypeDef,
+    DeletePolicyEngineResponseTypeDef,
+    DeletePolicyRequestTypeDef,
+    DeletePolicyResponseTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     DeleteWorkloadIdentityRequestTypeDef,
     GetAgentRuntimeEndpointRequestTypeDef,
     GetAgentRuntimeEndpointResponseTypeDef,
@@ -86,6 +110,8 @@ from .type_defs import (
     GetBrowserResponseTypeDef,
     GetCodeInterpreterRequestTypeDef,
     GetCodeInterpreterResponseTypeDef,
+    GetEvaluatorRequestTypeDef,
+    GetEvaluatorResponseTypeDef,
     GetGatewayRequestTypeDef,
     GetGatewayResponseTypeDef,
     GetGatewayTargetRequestTypeDef,
@@ -94,6 +120,16 @@ from .type_defs import (
     GetMemoryOutputTypeDef,
     GetOauth2CredentialProviderRequestTypeDef,
     GetOauth2CredentialProviderResponseTypeDef,
+    GetOnlineEvaluationConfigRequestTypeDef,
+    GetOnlineEvaluationConfigResponseTypeDef,
+    GetPolicyEngineRequestTypeDef,
+    GetPolicyEngineResponseTypeDef,
+    GetPolicyGenerationRequestTypeDef,
+    GetPolicyGenerationResponseTypeDef,
+    GetPolicyRequestTypeDef,
+    GetPolicyResponseTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResponseTypeDef,
     GetTokenVaultRequestTypeDef,
     GetTokenVaultResponseTypeDef,
     GetWorkloadIdentityRequestTypeDef,
@@ -110,6 +146,8 @@ from .type_defs import (
     ListBrowsersResponseTypeDef,
     ListCodeInterpretersRequestTypeDef,
     ListCodeInterpretersResponseTypeDef,
+    ListEvaluatorsRequestTypeDef,
+    ListEvaluatorsResponseTypeDef,
     ListGatewaysRequestTypeDef,
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestTypeDef,
@@ -118,12 +156,28 @@ from .type_defs import (
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestTypeDef,
     ListOauth2CredentialProvidersResponseTypeDef,
+    ListOnlineEvaluationConfigsRequestTypeDef,
+    ListOnlineEvaluationConfigsResponseTypeDef,
+    ListPoliciesRequestTypeDef,
+    ListPoliciesResponseTypeDef,
+    ListPolicyEnginesRequestTypeDef,
+    ListPolicyEnginesResponseTypeDef,
+    ListPolicyGenerationAssetsRequestTypeDef,
+    ListPolicyGenerationAssetsResponseTypeDef,
+    ListPolicyGenerationsRequestTypeDef,
+    ListPolicyGenerationsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListWorkloadIdentitiesRequestTypeDef,
     ListWorkloadIdentitiesResponseTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
     SetTokenVaultCMKRequestTypeDef,
     SetTokenVaultCMKResponseTypeDef,
+    StartPolicyGenerationRequestTypeDef,
+    StartPolicyGenerationResponseTypeDef,
+    SynchronizeGatewayTargetsRequestTypeDef,
+    SynchronizeGatewayTargetsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAgentRuntimeEndpointRequestTypeDef,
@@ -132,6 +186,8 @@ from .type_defs import (
     UpdateAgentRuntimeResponseTypeDef,
     UpdateApiKeyCredentialProviderRequestTypeDef,
     UpdateApiKeyCredentialProviderResponseTypeDef,
+    UpdateEvaluatorRequestTypeDef,
+    UpdateEvaluatorResponseTypeDef,
     UpdateGatewayRequestTypeDef,
     UpdateGatewayResponseTypeDef,
     UpdateGatewayTargetRequestTypeDef,
@@ -140,47 +196,54 @@ from .type_defs import (
     UpdateMemoryOutputTypeDef,
     UpdateOauth2CredentialProviderRequestTypeDef,
     UpdateOauth2CredentialProviderResponseTypeDef,
+    UpdateOnlineEvaluationConfigRequestTypeDef,
+    UpdateOnlineEvaluationConfigResponseTypeDef,
+    UpdatePolicyEngineRequestTypeDef,
+    UpdatePolicyEngineResponseTypeDef,
+    UpdatePolicyRequestTypeDef,
+    UpdatePolicyResponseTypeDef,
     UpdateWorkloadIdentityRequestTypeDef,
     UpdateWorkloadIdentityResponseTypeDef,
 )
-from .waiter import MemoryCreatedWaiter
+from .waiter import (
+    MemoryCreatedWaiter,
+    PolicyActiveWaiter,
+    PolicyDeletedWaiter,
+    PolicyEngineActiveWaiter,
+    PolicyEngineDeletedWaiter,
+    PolicyGenerationCompletedWaiter,
+)
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
     from typing_extensions import Literal, Unpack
 
 
-__all__ = ("BedrockAgentCoreControlPlaneFrontingLayerClient",)
+__all__ = ("BedrockAgentCoreControlClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DecryptionFailure: Type[BotocoreClientError]
-    EncryptionFailure: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottledException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DecryptionFailure: type[BotocoreClientError]
+    EncryptionFailure: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottledException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
-class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
+class BedrockAgentCoreControlClient(BaseClient):
     """
-    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control.html#BedrockAgentCoreControlPlaneFrontingLayer.Client)
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control.html#BedrockAgentCoreControl.Client)
     [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/)
     """
 
@@ -189,9 +252,9 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
     @property
     def exceptions(self) -> Exceptions:
         """
-        BedrockAgentCoreControlPlaneFrontingLayerClient exceptions.
+        BedrockAgentCoreControlClient exceptions.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control.html#BedrockAgentCoreControlPlaneFrontingLayer.Client)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control.html#BedrockAgentCoreControl.Client)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#exceptions)
         """
 
@@ -263,6 +326,16 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_code_interpreter)
         """
 
+    def create_evaluator(
+        self, **kwargs: Unpack[CreateEvaluatorRequestTypeDef]
+    ) -> CreateEvaluatorResponseTypeDef:
+        """
+        Creates a custom evaluator for agent quality assessment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_evaluator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_evaluator)
+        """
+
     def create_gateway(
         self, **kwargs: Unpack[CreateGatewayRequestTypeDef]
     ) -> CreateGatewayResponseTypeDef:
@@ -303,6 +376,37 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_oauth2_credential_provider)
         """
 
+    def create_online_evaluation_config(
+        self, **kwargs: Unpack[CreateOnlineEvaluationConfigRequestTypeDef]
+    ) -> CreateOnlineEvaluationConfigResponseTypeDef:
+        """
+        Creates an online evaluation configuration for continuous monitoring of agent
+        performance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_online_evaluation_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_online_evaluation_config)
+        """
+
+    def create_policy(
+        self, **kwargs: Unpack[CreatePolicyRequestTypeDef]
+    ) -> CreatePolicyResponseTypeDef:
+        """
+        Creates a policy within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_policy)
+        """
+
+    def create_policy_engine(
+        self, **kwargs: Unpack[CreatePolicyEngineRequestTypeDef]
+    ) -> CreatePolicyEngineResponseTypeDef:
+        """
+        Creates a new policy engine within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_policy_engine.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_policy_engine)
+        """
+
     def create_workload_identity(
         self, **kwargs: Unpack[CreateWorkloadIdentityRequestTypeDef]
     ) -> CreateWorkloadIdentityResponseTypeDef:
@@ -335,7 +439,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
     def delete_api_key_credential_provider(
         self, **kwargs: Unpack[DeleteApiKeyCredentialProviderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an API key credential provider.
 
@@ -361,6 +465,16 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_code_interpreter.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_code_interpreter)
+        """
+
+    def delete_evaluator(
+        self, **kwargs: Unpack[DeleteEvaluatorRequestTypeDef]
+    ) -> DeleteEvaluatorResponseTypeDef:
+        """
+        Deletes a custom evaluator.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_evaluator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_evaluator)
         """
 
     def delete_gateway(
@@ -395,7 +509,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
     def delete_oauth2_credential_provider(
         self, **kwargs: Unpack[DeleteOauth2CredentialProviderRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an OAuth2 credential provider.
 
@@ -403,9 +517,50 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_oauth2_credential_provider)
         """
 
+    def delete_online_evaluation_config(
+        self, **kwargs: Unpack[DeleteOnlineEvaluationConfigRequestTypeDef]
+    ) -> DeleteOnlineEvaluationConfigResponseTypeDef:
+        """
+        Deletes an online evaluation configuration and stops any ongoing evaluation
+        processes associated with it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_online_evaluation_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_online_evaluation_config)
+        """
+
+    def delete_policy(
+        self, **kwargs: Unpack[DeletePolicyRequestTypeDef]
+    ) -> DeletePolicyResponseTypeDef:
+        """
+        Deletes an existing policy from the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_policy)
+        """
+
+    def delete_policy_engine(
+        self, **kwargs: Unpack[DeletePolicyEngineRequestTypeDef]
+    ) -> DeletePolicyEngineResponseTypeDef:
+        """
+        Deletes an existing policy engine from the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_policy_engine.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_policy_engine)
+        """
+
+    def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the resource-based policy for a specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_resource_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_resource_policy)
+        """
+
     def delete_workload_identity(
         self, **kwargs: Unpack[DeleteWorkloadIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a workload identity.
 
@@ -461,6 +616,17 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_code_interpreter)
         """
 
+    def get_evaluator(
+        self, **kwargs: Unpack[GetEvaluatorRequestTypeDef]
+    ) -> GetEvaluatorResponseTypeDef:
+        """
+        Retrieves detailed information about an evaluator, including its configuration,
+        status, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_evaluator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_evaluator)
+        """
+
     def get_gateway(self, **kwargs: Unpack[GetGatewayRequestTypeDef]) -> GetGatewayResponseTypeDef:
         """
         Retrieves information about a specific Gateway.
@@ -495,6 +661,58 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_oauth2_credential_provider.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_oauth2_credential_provider)
+        """
+
+    def get_online_evaluation_config(
+        self, **kwargs: Unpack[GetOnlineEvaluationConfigRequestTypeDef]
+    ) -> GetOnlineEvaluationConfigResponseTypeDef:
+        """
+        Retrieves detailed information about an online evaluation configuration,
+        including its rules, data sources, evaluators, and execution status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_online_evaluation_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_online_evaluation_config)
+        """
+
+    def get_policy(self, **kwargs: Unpack[GetPolicyRequestTypeDef]) -> GetPolicyResponseTypeDef:
+        """
+        Retrieves detailed information about a specific policy within the AgentCore
+        Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_policy)
+        """
+
+    def get_policy_engine(
+        self, **kwargs: Unpack[GetPolicyEngineRequestTypeDef]
+    ) -> GetPolicyEngineResponseTypeDef:
+        """
+        Retrieves detailed information about a specific policy engine within the
+        AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_engine.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_policy_engine)
+        """
+
+    def get_policy_generation(
+        self, **kwargs: Unpack[GetPolicyGenerationRequestTypeDef]
+    ) -> GetPolicyGenerationResponseTypeDef:
+        """
+        Retrieves information about a policy generation request within the AgentCore
+        Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_policy_generation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_policy_generation)
+        """
+
+    def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy for a specified resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_resource_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_resource_policy)
         """
 
     def get_token_vault(
@@ -577,6 +795,17 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_code_interpreters)
         """
 
+    def list_evaluators(
+        self, **kwargs: Unpack[ListEvaluatorsRequestTypeDef]
+    ) -> ListEvaluatorsResponseTypeDef:
+        """
+        Lists all available evaluators, including both builtin evaluators provided by
+        the service and custom evaluators created by the user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_evaluators.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_evaluators)
+        """
+
     def list_gateway_targets(
         self, **kwargs: Unpack[ListGatewayTargetsRequestTypeDef]
     ) -> ListGatewayTargetsResponseTypeDef:
@@ -618,6 +847,59 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_oauth2_credential_providers)
         """
 
+    def list_online_evaluation_configs(
+        self, **kwargs: Unpack[ListOnlineEvaluationConfigsRequestTypeDef]
+    ) -> ListOnlineEvaluationConfigsResponseTypeDef:
+        """
+        Lists all online evaluation configurations in the account, providing summary
+        information about each configuration's status and settings.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_online_evaluation_configs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_online_evaluation_configs)
+        """
+
+    def list_policies(
+        self, **kwargs: Unpack[ListPoliciesRequestTypeDef]
+    ) -> ListPoliciesResponseTypeDef:
+        """
+        Retrieves a list of policies within the AgentCore Policy engine.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policies.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_policies)
+        """
+
+    def list_policy_engines(
+        self, **kwargs: Unpack[ListPolicyEnginesRequestTypeDef]
+    ) -> ListPolicyEnginesResponseTypeDef:
+        """
+        Retrieves a list of policy engines within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_engines.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_policy_engines)
+        """
+
+    def list_policy_generation_assets(
+        self, **kwargs: Unpack[ListPolicyGenerationAssetsRequestTypeDef]
+    ) -> ListPolicyGenerationAssetsResponseTypeDef:
+        """
+        Retrieves a list of generated policy assets from a policy generation request
+        within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generation_assets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_policy_generation_assets)
+        """
+
+    def list_policy_generations(
+        self, **kwargs: Unpack[ListPolicyGenerationsRequestTypeDef]
+    ) -> ListPolicyGenerationsResponseTypeDef:
+        """
+        Retrieves a list of policy generation requests within the AgentCore Policy
+        system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_policy_generations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_policy_generations)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -638,6 +920,17 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_workload_identities)
         """
 
+    def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Creates or updates a resource-based policy for a resource with the specified
+        resourceArn.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/put_resource_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#put_resource_policy)
+        """
+
     def set_token_vault_cmk(
         self, **kwargs: Unpack[SetTokenVaultCMKRequestTypeDef]
     ) -> SetTokenVaultCMKResponseTypeDef:
@@ -648,7 +941,28 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#set_token_vault_cmk)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def start_policy_generation(
+        self, **kwargs: Unpack[StartPolicyGenerationRequestTypeDef]
+    ) -> StartPolicyGenerationResponseTypeDef:
+        """
+        Initiates the AI-powered generation of Cedar policies from natural language
+        descriptions within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/start_policy_generation.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#start_policy_generation)
+        """
+
+    def synchronize_gateway_targets(
+        self, **kwargs: Unpack[SynchronizeGatewayTargetsRequestTypeDef]
+    ) -> SynchronizeGatewayTargetsResponseTypeDef:
+        """
+        The gateway targets.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/synchronize_gateway_targets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#synchronize_gateway_targets)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to a resource with the specified resourceArn.
 
@@ -656,7 +970,7 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -692,6 +1006,16 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_api_key_credential_provider.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_api_key_credential_provider)
+        """
+
+    def update_evaluator(
+        self, **kwargs: Unpack[UpdateEvaluatorRequestTypeDef]
+    ) -> UpdateEvaluatorResponseTypeDef:
+        """
+        Updates a custom evaluator's configuration, description, or evaluation level.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_evaluator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_evaluator)
         """
 
     def update_gateway(
@@ -732,6 +1056,37 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_oauth2_credential_provider.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_oauth2_credential_provider)
+        """
+
+    def update_online_evaluation_config(
+        self, **kwargs: Unpack[UpdateOnlineEvaluationConfigRequestTypeDef]
+    ) -> UpdateOnlineEvaluationConfigResponseTypeDef:
+        """
+        Updates an online evaluation configuration's settings, including rules, data
+        sources, evaluators, and execution status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_online_evaluation_config.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_online_evaluation_config)
+        """
+
+    def update_policy(
+        self, **kwargs: Unpack[UpdatePolicyRequestTypeDef]
+    ) -> UpdatePolicyResponseTypeDef:
+        """
+        Updates an existing policy within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_policy.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_policy)
+        """
+
+    def update_policy_engine(
+        self, **kwargs: Unpack[UpdatePolicyEngineRequestTypeDef]
+    ) -> UpdatePolicyEngineResponseTypeDef:
+        """
+        Updates an existing policy engine within the AgentCore Policy system.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_policy_engine.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_policy_engine)
         """
 
     def update_workload_identity(
@@ -812,6 +1167,17 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_evaluators"]
+    ) -> ListEvaluatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_gateway_targets"]
     ) -> ListGatewayTargetsPaginator:
         """
@@ -856,6 +1222,61 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_online_evaluation_configs"]
+    ) -> ListOnlineEvaluationConfigsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policies"]
+    ) -> ListPoliciesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_engines"]
+    ) -> ListPolicyEnginesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_generation_assets"]
+    ) -> ListPolicyGenerationAssetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_policy_generations"]
+    ) -> ListPolicyGenerationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_workload_identities"]
     ) -> ListWorkloadIdentitiesPaginator:
         """
@@ -865,9 +1286,65 @@ class BedrockAgentCoreControlPlaneFrontingLayerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["memory_created"]
     ) -> MemoryCreatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_active"]
+    ) -> PolicyActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_deleted"]
+    ) -> PolicyDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_engine_active"]
+    ) -> PolicyEngineActiveWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_engine_deleted"]
+    ) -> PolicyEngineDeletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["policy_generation_completed"]
+    ) -> PolicyGenerationCompletedWaiter:
         """
         Returns an object that can wait for some condition.
 

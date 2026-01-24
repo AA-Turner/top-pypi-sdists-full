@@ -1,3 +1,0 @@
-from typing import Any
-
-def join(rooted_trees, label_attribute: Any | None = ...): ...

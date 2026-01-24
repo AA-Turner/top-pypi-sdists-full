@@ -38,9 +38,11 @@ impl<'src: 'run, 'run> RecipeResolver<'src, 'run> {
       }
 
       for dependency in &recipe.dependencies {
-        for argument in &dependency.arguments {
-          for variable in argument.variables() {
-            resolver.resolve_variable(&variable, &recipe.parameters)?;
+        for group in &dependency.arguments {
+          for argument in group {
+            for variable in argument.variables() {
+              resolver.resolve_variable(&variable, &recipe.parameters)?;
+            }
           }
         }
       }
@@ -136,7 +138,7 @@ impl<'src: 'run, 'run> RecipeResolver<'src, 'run> {
       // recipe depends on itself
       let first = stack[0];
       stack.push(first);
-      return Err(
+      Err(
         dependency.recipe.last().error(CircularRecipeDependency {
           recipe: recipe.name(),
           circle: stack
@@ -145,7 +147,7 @@ impl<'src: 'run, 'run> RecipeResolver<'src, 'run> {
             .copied()
             .collect(),
         }),
-      );
+      )
     } else if let Some(unresolved) = self.unresolved_recipes.remove(name) {
       // recipe is as of yet unresolved
       Ok(Some(self.resolve_recipe(stack, unresolved)?))

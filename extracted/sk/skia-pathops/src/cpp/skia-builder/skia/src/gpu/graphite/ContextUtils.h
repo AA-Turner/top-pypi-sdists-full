@@ -8,90 +8,79 @@
 #ifndef skgpu_graphite_ContextUtils_DEFINED
 #define skgpu_graphite_ContextUtils_DEFINED
 
-#include "src/gpu/graphite/PaintParamsKey.h"
-#include "src/gpu/graphite/PipelineDataCache.h"
+#include "src/core/SkSLTypeShared.h"
+#include "src/gpu/graphite/Uniform.h"
+
+#include <cstdint>
+#include <optional>
+#include <string>
 
 class SkColorInfo;
 class SkM44;
+enum class SkBlendMode;
+struct SkIRect;
 
 namespace skgpu {
-class Swizzle;
-}
+enum class BackendApi : unsigned int;
 
-namespace skgpu::graphite {
-
-class DrawParams;
-class GraphicsPipelineDesc;
+namespace graphite {
+class Caps;
+class ComputeStep;
+enum class Coverage;
+class FloatStorageManager;
+class Geometry;
 class PaintParams;
+class PaintParamsKeyBuilder;
 class PipelineDataGatherer;
 class Recorder;
+struct RenderPassDesc;
 class RenderStep;
-class RuntimeEffectDictionary;
+struct ResourceBindingRequirements;
+class ShaderCodeDictionary;
+enum class TextureFormat : uint8_t;
+class UniformManager;
 class UniquePaintParamsID;
 
-struct ResourceBindingRequirements;
 
-struct FragSkSLInfo {
-    std::string fSkSL;
-    BlendInfo fBlendInfo;
-    bool fRequiresLocalCoords = false;
-    int fNumTexturesAndSamplers = 0;
-};
+enum class Layout : uint8_t;
 
-std::tuple<UniquePaintParamsID, const UniformDataBlock*, const TextureDataBlock*>
-ExtractPaintData(Recorder*,
-                 PipelineDataGatherer* gatherer,
-                 PaintParamsKeyBuilder* builder,
-                 const Layout layout,
-                 const SkM44& local2Dev,
-                 const PaintParams&,
-                 const SkColorInfo& targetColorInfo);
+// Intrinsic uniforms used by every program created in Graphite.
+//
+// `viewport` should hold the actual viewport set as backend state (defining the NDC -> pixel
+// transform). The viewport's dimensions are used to define the SkDevice->NDC transform applied in
+// the vertex shader, but this assumes that the (0,0) device coordinate maps to the corner of the
+// top-left of the NDC cube. The viewport's origin is used in the fragment shader to reconstruct
+// the logical fragment coordinate from the target's current frag coord (which are not relative to
+// active viewport).
+//
+// It is assumed that `dstReadBounds` is in the same coordinate space as the `viewport` (e.g.
+// final backing target's pixel coords) and that its width and height match the dimensions of the
+// texture to be sampled for dst reads.
+static constexpr Uniform kIntrinsicUniforms[] = { {"viewport",      SkSLType::kFloat4},
+                                                  {"dstReadBounds", SkSLType::kFloat4} };
 
-std::tuple<const UniformDataBlock*, const TextureDataBlock*> ExtractRenderStepData(
-        UniformDataCache* uniformDataCache,
-        TextureDataCache* textureDataCache,
-        PipelineDataGatherer* gatherer,
-        const Layout layout,
-        const RenderStep* step,
-        const DrawParams& params);
+void CollectIntrinsicUniforms(const Caps* caps,
+                              SkIRect viewport,
+                              SkIRect dstReadBounds,
+                              UniformManager*);
 
-std::string GetSkSLVS(const ResourceBindingRequirements&,
-                      const RenderStep* step,
-                      bool defineShadingSsboIndexVarying,
-                      bool defineLocalCoordsVarying);
+// Returns whether or not hardware blending can be used. If not, we must perform a dst read within
+// the shader. If an SkBlender is used instead of an SkBlendMode, it can never use hardware blending
+bool CanUseHardwareBlending(const Caps*, TextureFormat, SkBlendMode, Coverage);
 
-FragSkSLInfo GetSkSLFS(const ResourceBindingRequirements&,
-                       const ShaderCodeDictionary*,
-                       const RuntimeEffectDictionary*,
-                       const RenderStep* renderStep,
-                       UniquePaintParamsID paintID,
-                       bool useStorageBuffers,
-                       skgpu::Swizzle writeSwizzle);
+std::string GetPipelineLabel(const ShaderCodeDictionary*,
+                             const RenderPassDesc& renderPassDesc,
+                             const RenderStep* renderStep,
+                             UniquePaintParamsID paintID);
 
-std::string EmitPaintParamsUniforms(int bufferID,
-                                    const char* name,
-                                    const Layout layout,
-                                    const std::vector<PaintParamsKey::BlockReader>&);
-std::string EmitRenderStepUniforms(int bufferID,
-                                   const char* name,
-                                   const Layout layout,
-                                   SkSpan<const Uniform> uniforms);
-std::string EmitPaintParamsStorageBuffer(int bufferID,
-                                         const char* bufferTypePrefix,
-                                         const char* bufferNamePrefix,
-                                         const std::vector<PaintParamsKey::BlockReader>& readers);
-std::string EmitStorageBufferAccess(const char* bufferNamePrefix,
-                                    const char* ssboIndex,
-                                    const char* uniformName);
-std::string EmitTexturesAndSamplers(const ResourceBindingRequirements&,
-                                    const std::vector<PaintParamsKey::BlockReader>&,
-                                    int* binding);
+// TODO(b/396420770): Right now, BuildComputeSkSL must consider the backend in order to make certain
+// decisions. It would be ideal if we could make this more backend-agnostic, perhaps by having a
+// compute-specific equivalent to ResourceBindingRequirements.
+std::string BuildComputeSkSL(const Caps*, const ComputeStep*, BackendApi);
+
 std::string EmitSamplerLayout(const ResourceBindingRequirements&, int* binding);
-std::string EmitVaryings(const RenderStep* step,
-                         const char* direction,
-                         bool emitShadingSsboIndexVarying,
-                         bool emitLocalCoordsVarying);
 
-} // namespace skgpu::graphite
+} // namespace graphite
+} // namespace skgpu
 
 #endif // skgpu_graphite_ContextUtils_DEFINED

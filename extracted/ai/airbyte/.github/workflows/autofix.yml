@@ -1,0 +1,40 @@
+name: Auto-fix when '/autofix' Slash Command is used
+
+on:
+  workflow_dispatch: {}
+  repository_dispatch:
+    types: [autofix-command]
+
+env:
+  AIRBYTE_ANALYTICS_ID: ${{ vars.AIRBYTE_ANALYTICS_ID }}
+
+jobs:
+  python-autofix:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@f06b870e0a91d23284a3013acc55e6f88ab4b904 # v7
+      with:
+        version: "latest"
+        python-version: '3.10'
+
+    - name: Install dev dependencies
+      # We only need helper libraries
+      run: uv sync --group dev
+
+    - name: Format code
+      run: uv run ruff format .
+
+    - name: Commit changes
+      run: |
+        git config --global user.name "Airbyte Automation Bot"
+        git config --global user.email "no-reply@airbyte.io"
+        git add .
+        git diff-index --quiet HEAD || git commit -m "Format code with black"
+
+    - name: Push changes
+      uses: ad-m/github-push-action@77c5b412c50b723d2a4fbc6d71fb5723bcd439aa # v1.0.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}

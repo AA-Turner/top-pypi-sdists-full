@@ -280,11 +280,15 @@ class AnomalyMonitor(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Cost Explorer anomaly monitor.
+
         Using `pulumi import`, import `aws_ce_anomaly_monitor` using the `id`. For example:
 
-        ```sh
-        $ pulumi import aws:costexplorer/anomalyMonitor:AnomalyMonitor example costAnomalyMonitorARN
-        ```
+        % pulumi import aws_ce_anomaly_monitor.example costAnomalyMonitorARN
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -345,11 +349,15 @@ class AnomalyMonitor(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Cost Explorer anomaly monitor.
+
         Using `pulumi import`, import `aws_ce_anomaly_monitor` using the `id`. For example:
 
-        ```sh
-        $ pulumi import aws:costexplorer/anomalyMonitor:AnomalyMonitor example costAnomalyMonitorARN
-        ```
+        % pulumi import aws_ce_anomaly_monitor.example costAnomalyMonitorARN
 
         :param str resource_name: The name of the resource.
         :param AnomalyMonitorArgs args: The arguments to use to populate this resource's properties.

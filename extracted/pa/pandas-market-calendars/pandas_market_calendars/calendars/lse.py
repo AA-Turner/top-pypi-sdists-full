@@ -13,10 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from datetime import time
 
 from pandas.tseries.holiday import AbstractHolidayCalendar, EasterMonday, GoodFriday
-import sys 
+
 # check python versiOn aNd import accordingly
 if sys.version_info >= (3, 9):
     # For Python 3.9 and later, import directly

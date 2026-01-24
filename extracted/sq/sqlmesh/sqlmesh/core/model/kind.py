@@ -23,7 +23,7 @@ from sqlmesh.utils.pydantic import (
     PydanticModel,
     SQLGlotBool,
     SQLGlotColumn,
-    SQLGlotListOfColumnsOrStar,
+    SQLGlotListOfFieldsOrStar,
     SQLGlotListOfFields,
     SQLGlotPositiveInt,
     SQLGlotString,
@@ -120,6 +120,10 @@ class ModelKindMixin:
         return self.model_kind_name == ModelKindName.MANAGED
 
     @property
+    def is_dbt_custom(self) -> bool:
+        return self.model_kind_name == ModelKindName.DBT_CUSTOM
+
+    @property
     def is_symbolic(self) -> bool:
         """A symbolic model is one that doesn't execute at all."""
         return self.model_kind_name in (ModelKindName.EMBEDDED, ModelKindName.EXTERNAL)
@@ -150,6 +154,11 @@ class ModelKindMixin:
     def supports_python_models(self) -> bool:
         return True
 
+    @property
+    def supports_grants(self) -> bool:
+        """Whether this model kind supports grants configuration."""
+        return self.is_materialized or self.is_view
+
 
 class ModelKindName(str, ModelKindMixin, Enum):
     """The kind of model, determining how this data is computed and stored in the warehouse."""
@@ -170,6 +179,7 @@ class ModelKindName(str, ModelKindMixin, Enum):
     EXTERNAL = "EXTERNAL"
     CUSTOM = "CUSTOM"
     MANAGED = "MANAGED"
+    DBT_CUSTOM = "DBT_CUSTOM"
 
     @property
     def model_kind_name(self) -> t.Optional[ModelKindName]:
@@ -842,7 +852,7 @@ class SCDType2ByTimeKind(_SCDType2Kind):
 
 class SCDType2ByColumnKind(_SCDType2Kind):
     name: t.Literal[ModelKindName.SCD_TYPE_2_BY_COLUMN] = ModelKindName.SCD_TYPE_2_BY_COLUMN
-    columns: SQLGlotListOfColumnsOrStar
+    columns: SQLGlotListOfFieldsOrStar
     execution_time_as_valid_from: SQLGlotBool = False
     updated_at_name: t.Optional[SQLGlotColumn] = None
 
@@ -885,6 +895,46 @@ class ManagedKind(_ModelKind):
     @property
     def supports_python_models(self) -> bool:
         return False
+
+
+class DbtCustomKind(_ModelKind):
+    name: t.Literal[ModelKindName.DBT_CUSTOM] = ModelKindName.DBT_CUSTOM
+    materialization: str
+    adapter: str = "default"
+    definition: str
+    dialect: t.Optional[str] = Field(None, validate_default=True)
+
+    _dialect_validator = kind_dialect_validator
+
+    @field_validator("materialization", "adapter", "definition", mode="before")
+    @classmethod
+    def _validate_fields(cls, v: t.Any) -> str:
+        return validate_string(v)
+
+    @property
+    def data_hash_values(self) -> t.List[t.Optional[str]]:
+        return [
+            *super().data_hash_values,
+            self.materialization,
+            self.definition,
+            self.adapter,
+            self.dialect,
+        ]
+
+    def to_expression(
+        self, expressions: t.Optional[t.List[exp.Expression]] = None, **kwargs: t.Any
+    ) -> d.ModelKind:
+        return super().to_expression(
+            expressions=[
+                *(expressions or []),
+                *_properties(
+                    {
+                        "materialization": exp.Literal.string(self.materialization),
+                        "adapter": exp.Literal.string(self.adapter),
+                    }
+                ),
+            ],
+        )
 
 
 class EmbeddedKind(_ModelKind):
@@ -992,6 +1042,7 @@ ModelKind = t.Annotated[
         SCDType2ByColumnKind,
         CustomKind,
         ManagedKind,
+        DbtCustomKind,
     ],
     Field(discriminator="name"),
 ]
@@ -1011,6 +1062,7 @@ MODEL_KIND_NAME_TO_TYPE: t.Dict[str, t.Type[ModelKind]] = {
     ModelKindName.SCD_TYPE_2_BY_COLUMN: SCDType2ByColumnKind,
     ModelKindName.CUSTOM: CustomKind,
     ModelKindName.MANAGED: ManagedKind,
+    ModelKindName.DBT_CUSTOM: DbtCustomKind,
 }
 
 
@@ -1052,6 +1104,18 @@ def create_model_kind(v: t.Any, dialect: str, defaults: t.Dict[str, t.Any]) -> M
                     and defaults.get(on_change_property) is not None
                 ):
                     props[on_change_property] = defaults.get(on_change_property)
+
+        # only pass the batch_concurrency user default to models inheriting from _IncrementalBy
+        # that don't explicitly set it in the model definition, but ignore subclasses of _IncrementalBy
+        # that hardcode a specific batch_concurrency
+        if issubclass(kind_type, _IncrementalBy):
+            BATCH_CONCURRENCY: t.Final = "batch_concurrency"
+            if (
+                props.get(BATCH_CONCURRENCY) is None
+                and defaults.get(BATCH_CONCURRENCY) is not None
+                and kind_type.all_field_infos()[BATCH_CONCURRENCY].default is None
+            ):
+                props[BATCH_CONCURRENCY] = defaults.get(BATCH_CONCURRENCY)
 
         if kind_type == CustomKind:
             # load the custom materialization class and check if it uses a custom kind type

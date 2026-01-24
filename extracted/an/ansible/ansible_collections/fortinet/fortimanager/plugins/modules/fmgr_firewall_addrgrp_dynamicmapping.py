@@ -16,7 +16,6 @@ short_description: Configure IPv4 address groups.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -171,6 +173,7 @@ options:
                     - 'default'
                     - 'ztna-ems-tag'
                     - 'ztna-geo-tag'
+                    - 'telemetry'
 '''
 
 EXAMPLES = '''
@@ -193,7 +196,7 @@ EXAMPLES = '''
           _scope:
             - name: FGT_AWS # need a valid device name
               vdom: root # need a valid vdom name under the device
-          allow-routing: disable
+          allow_routing: disable
           color: 1
           member: "ansible-test1"
           visibility: enable
@@ -272,6 +275,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'addrgrp': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_addrgrp_dynamicmapping': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -290,7 +294,7 @@ def main():
                 'global-object': {'v_range': [['6.4.0', '']], 'type': 'int'},
                 'type': {'v_range': [['6.4.0', '']], 'choices': ['default', 'array', 'folder'], 'type': 'str'},
                 'fabric-object': {'v_range': [['6.4.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'category': {'v_range': [['7.0.0', '']], 'choices': ['default', 'ztna-ems-tag', 'ztna-geo-tag'], 'type': 'str'}
+                'category': {'v_range': [['7.0.0', '']], 'choices': ['default', 'ztna-ems-tag', 'ztna-geo-tag', 'telemetry'], 'type': 'str'}
             }
         }
     }

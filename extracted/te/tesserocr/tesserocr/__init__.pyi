@@ -442,7 +442,7 @@ class PyPageIterator:
         """
         ...
 
-    def BoundingBox(self, level: RIL, padding: int = 0) -> luple[int, int, int, int]:
+    def BoundingBox(self, level: RIL, padding: int = 0) -> tuple[int, int, int, int]:
         """Return the bounding rectangle of the current object at the given level.
 
         See comment on coordinate system above.
@@ -894,6 +894,20 @@ class PyTessBaseAPI:
     Raises:
         :exc:`RuntimeError`: If `init` is ``True`` and API initialization fails.
     """
+
+    def __init__(self,
+                 path: str = ...,
+                 lang: str = ...,
+                 oem: OEM = ...,
+                 psm: PSM = ...,
+                 configs: typing.Optional[typing.List[str]] = None,
+                 variables: typing.Optional[typing.Dict[str, str]] = None,
+                 set_only_non_debug_params: bool = False,
+                 init: bool = True) -> None: ...
+
+    def __enter__(self) -> 'PyTessBaseAPI': ...
+
+    def __exit__(self, exc_type: typing.Any, exc_val: typing.Any, exc_tb: typing.Any) -> None: ...
 
     @staticmethod
     def Version() -> str:
@@ -1655,6 +1669,57 @@ class PyTessBaseAPI:
 
         Args:
             margin (float): orientation margin.
+        """
+        ...
+
+    def SetInputName(self, name: str) -> None:
+        """Set the name of the input file. Needed for training and reading a UNLV zone file.
+
+        Args:
+            name (str): Input file name.
+        """
+        ...
+
+    def GetInputName(self) -> str:
+        """Return the name previously set by SetInputName.
+
+        Returns:
+            str: Input file name.
+        """
+        ...
+
+    def SetInputImage(self, image: PIL.Image) -> None:
+        """Set the input image as a Pix. This is useful for debugging.
+
+        Args:
+            image (PIL.Image): Input image.
+        """
+        ...
+
+    def GetInputImage(self) -> PIL.Image:
+        """Return the input image as a Pix.
+
+        Returns:
+            PIL.Image: Input image or None if no image was set.
+        """
+        ...
+
+    def GetSourceYResolution(self) -> int:
+        """Return the source resolution (in pixels per inch) of the image.
+
+        Returns:
+            int: Source resolution in pixels per inch.
+        """
+        ...
+
+    def IsValidWord(self, word: str) -> bool:
+        """Check whether the given word is valid according to Tesseract's language model.
+
+        Args:
+            word (str): Word to check.
+
+        Returns:
+            bool: True if the word is valid.
         """
         ...
 

@@ -1,125 +1,125 @@
 """
-This module contains Handler classes. A Handler manages a collection of Nexus
-service handlers. It receives and responds to incoming Nexus requests, dispatching to
-the corresponding operation handler.
-
-A description of the dispatch logic follows.
-
-There are two cases:
-
-Case 1: Every user service handler class has a corresponding service definition
-===============================================================================
-
-I.e., there are service definitions that look like::
-
-    @service
-    class MyServiceDefinition:
-        my_op: nexusrpc.Operation[I, O]
-
-
-and every service handler class looks like::
-
-    @service_handler(service=MyServiceDefinition)
-    class MyServiceHandler:
-        @sync_operation
-        def my_op(self, ...)
-
-
-Import time
------------
-
-1. The @service decorator builds a ServiceDefinition instance and attaches it to
-   MyServiceDefinition.
-
-   The ServiceDefinition contains `name` and a map of Operation instances,
-   keyed by Operation.name (this is the publicly advertised name).
-
-   An Operation contains `name`, `method_name`, and input and output types.
-
-2. The @sync_operation decorator builds a second Operation instance and attaches
-   it to a factory method that is attached to the my_op method object.
-
-3. The @service_handler decorator acquires the ServiceDefinition instance from
-   MyServiceDefinition and attaches it to the MyServiceHandler class.
-
-
-Handler-registration time
--------------------------
-
-1. Handler.__init__ is called with [MyServiceHandler()]
-
-2. A ServiceHandler instance is built from the user service handler class. This comprises a
-   ServiceDefinition and a map {op.name: OperationHandler}. The map is built by taking
-   every operation in the service definition and locating the operation handler factory method
-   whose *method name* matches the method name of the operation in the service definition.
-
-3. Finally we build a map {service_definition.name: ServiceHandler} using the service definition
-   in each ServiceHandler.
-
-Request-handling time
----------------------
-
-Now suppose a request has arrived for service S and operation O.
-
-1. The Handler does self.service_handlers[S], yielding an instance of ServiceHandler.
-
-2. The ServiceHandler does self.operation_handlers[O], yielding an instance of
-   OperationHandler
-
-Therefore we require that Handler.service_handlers and ServiceHandler.operation_handlers
-are keyed by the publicly advertised service and operation name respectively. This was achieved
-at steps (3) and (2) respectively.
-
-
-Case 2: There exists a user service handler class without a corresponding service definition
-============================================================================================
-
-I.e., at least one user service handler class looks like::
-
-    @service_handler
-    class MyServiceHandler:
-        @sync_operation
-        def my_op(...)
-
-This follows Case 1 with the following differences at import time:
-
-- Step (1) does not occur.
-- At step (3) the ServiceDefinition is synthesized by the @service_handler decorator from
-  MyServiceHandler.
+This module contains Handler classes. A Handler manages a collection of Nexus service
+handlers. It receives and responds to incoming Nexus requests, dispatching to the
+corresponding operation handler.
 """
+
+# A description of the dispatch logic follows.
+
+# There are two cases:
+
+# Case 1: Every user service handler class has a corresponding service definition
+# ===============================================================================
+
+# I.e., there are service definitions that look like::
+
+#     @service
+#     class MyServiceDefinition:
+#         my_op: nexusrpc.Operation[I, O]
+
+
+# and every service handler class looks like::
+
+#     @service_handler(service=MyServiceDefinition)
+#     class MyServiceHandler:
+#         @sync_operation
+#         def my_op(self, ...)
+
+
+# Import time
+# -----------
+
+# 1. The @service decorator builds a ServiceDefinition instance and attaches it to
+#    MyServiceDefinition.
+
+#    The ServiceDefinition contains `name` and a map of OperationDefinition instances, keyed
+#    by OperationDefinition.name (this is the publicly advertised name).
+
+#    OperationDefinition contains `name`, `method_name`, and input and output types, all
+#    non-None.
+
+#    Operation is the sugar version of OperationDefinition. It is identical to
+#    OperationDefinition except that `method_name`, and the input and output types may be
+#    None.
+
+# 2. The @sync_operation decorator builds an Operation instance and attaches it to a factory
+#    method that is attached to the my_op method object.
+
+# 3. The @service_handler decorator acquires the ServiceDefinition instance from
+#    MyServiceDefinition and attaches it to the MyServiceHandler class.
+
+
+# Handler-registration time
+# -------------------------
+
+# 4. Handler.__init__ is called with [MyServiceHandler()]
+
+# 5. A ServiceHandler instance is built from the user service handler class. This comprises
+#    a ServiceDefinition and a map {op.name: OperationHandler}. The map is built by taking
+#    every operation definition in the service definition and locating the operation handler
+#    factory method whose *method name* matches the method name of the operation definition.
+
+# 6. Finally we build a map {service_definition.name: ServiceHandler} using the service
+#    definition in each ServiceHandler.
+
+# Request-handling time
+# ---------------------
+
+# Now suppose a request has arrived for service s and operation o.
+
+# 7. The Handler does self.service_handlers[s], yielding an instance of ServiceHandler.
+
+# 8. The ServiceHandler does self.operation_handlers[o], yielding an instance of
+#    OperationHandler
+
+# Therefore we require that Handler.service_handlers and ServiceHandler.operation_handlers
+# are keyed by the publicly advertised service and operation name respectively. This was
+# achieved at steps (3) and (2) respectively.
+
+
+# Case 2: There exists a user service handler class without a corresponding service definition
+# ============================================================================================
+
+# I.e., at least one user service handler class looks like::
+
+#     @service_handler
+#     class MyServiceHandler:
+#         @sync_operation
+#         def my_op(...)
+
+# This follows Case 1 with the following differences at import time:
+
+# - Step (1) does not occur.
+# - At step (3) the ServiceDefinition is synthesized by the @service_handler decorator
+#   from MyServiceHandler. An error will be thrown if the user did not supply input and
+#   output type annotations on their operation handler methods (they do not have to do
+#   this under Case 1).
 
 from __future__ import annotations
 
 import asyncio
 import concurrent.futures
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Mapping,
-    Optional,
-    Sequence,
-    Union,
-)
+from typing import Any, Callable, Optional, Union, cast
 
 from typing_extensions import Self, TypeGuard
 
-from nexusrpc._common import HandlerError, HandlerErrorType, OperationInfo
+from nexusrpc._common import HandlerError, HandlerErrorType
 from nexusrpc._serializer import LazyValueT
 from nexusrpc._service import ServiceDefinition
 from nexusrpc._util import get_service_definition, is_async_callable
 
 from ._common import (
     CancelOperationContext,
-    FetchOperationInfoContext,
-    FetchOperationResultContext,
+    OperationContext,
     StartOperationContext,
     StartOperationResultAsync,
     StartOperationResultSync,
 )
 from ._operation_handler import (
+    MiddlewareSafeOperationHandler,
     OperationHandler,
     collect_operation_handler_factories_by_method_name,
 )
@@ -143,30 +143,6 @@ class AbstractHandler(ABC):
     ]: ...
 
     @abstractmethod
-    def fetch_operation_info(
-        self, ctx: FetchOperationInfoContext, token: str
-    ) -> Union[OperationInfo, Awaitable[OperationInfo]]:
-        """Handle a Fetch Operation Info request.
-
-        Args:
-            ctx: The operation context.
-            token: The operation token.
-        """
-        ...
-
-    @abstractmethod
-    def fetch_operation_result(
-        self, ctx: FetchOperationResultContext, token: str
-    ) -> Union[Any, Awaitable[Any]]:
-        """Handle a Fetch Operation Result request.
-
-        Args:
-            ctx: The operation context.
-            token: The operation token.
-        """
-        ...
-
-    @abstractmethod
     def cancel_operation(
         self, ctx: CancelOperationContext, token: str
     ) -> Union[None, Awaitable[None]]:
@@ -179,7 +155,7 @@ class AbstractHandler(ABC):
         ...
 
 
-class BaseServiceCollectionHandler(AbstractHandler):
+class BaseServiceCollectionHandler(AbstractHandler, ABC):
     """
     A Nexus handler, managing a collection of Nexus service handlers.
 
@@ -274,7 +250,9 @@ class Handler(BaseServiceCollectionHandler):
         self,
         user_service_handlers: Sequence[Any],
         executor: Optional[concurrent.futures.Executor] = None,
+        middleware: Sequence[OperationHandlerMiddleware] | None = None,
     ):
+        self._middleware = cast(Sequence[OperationHandlerMiddleware], middleware or [])
         super().__init__(user_service_handlers, executor=executor)
         if not self.executor:
             self._validate_all_operation_handlers_are_async()
@@ -294,17 +272,11 @@ class Handler(BaseServiceCollectionHandler):
             input: The input to the operation, as a LazyValue.
         """
         service_handler = self._get_service_handler(ctx.service)
-        op_handler = service_handler._get_operation_handler(ctx.operation)
-        op = service_handler.service.operations[ctx.operation]
-        deserialized_input = await input.consume(as_type=op.input_type)
-        # TODO(preview): apply middleware stack
-        if is_async_callable(op_handler.start):
-            return await op_handler.start(ctx, deserialized_input)
-        else:
-            assert self.executor
-            return await self.executor.submit_to_event_loop(
-                op_handler.start, ctx, deserialized_input
-            )
+        op_handler = self._get_operation_handler(ctx, service_handler, ctx.operation)
+
+        op_defn = service_handler.service.operation_definitions[ctx.operation]
+        deserialized_input = await input.consume(as_type=op_defn.input_type)
+        return await op_handler.start(ctx, deserialized_input)
 
     async def cancel_operation(self, ctx: CancelOperationContext, token: str) -> None:
         """Handle a Cancel Operation request.
@@ -314,47 +286,29 @@ class Handler(BaseServiceCollectionHandler):
             token: The operation token.
         """
         service_handler = self._get_service_handler(ctx.service)
-        op_handler = service_handler._get_operation_handler(ctx.operation)
-        if is_async_callable(op_handler.cancel):
-            return await op_handler.cancel(ctx, token)
-        else:
-            assert self.executor
-            return self.executor.submit(op_handler.cancel, ctx, token).result()
+        op_handler = self._get_operation_handler(ctx, service_handler, ctx.operation)
+        return await op_handler.cancel(ctx, token)
 
-    async def fetch_operation_info(
-        self, ctx: FetchOperationInfoContext, token: str
-    ) -> OperationInfo:
-        service_handler = self._get_service_handler(ctx.service)
-        op_handler = service_handler._get_operation_handler(ctx.operation)
-        if is_async_callable(op_handler.fetch_info):
-            return await op_handler.fetch_info(ctx, token)
-        else:
-            assert self.executor
-            return self.executor.submit(op_handler.fetch_info, ctx, token).result()
+    def _get_operation_handler(
+        self, ctx: OperationContext, service_handler: ServiceHandler, operation: str
+    ) -> MiddlewareSafeOperationHandler:
+        """
+        Get the specified handler for the specified operation from the given service_handler and apply all middleware.
+        """
+        op_handler: MiddlewareSafeOperationHandler = _EnsuredAwaitableOperationHandler(
+            self.executor, service_handler.get_operation_handler(operation)
+        )
 
-    async def fetch_operation_result(
-        self, ctx: FetchOperationResultContext, token: str
-    ) -> Any:
-        if ctx.wait is not None or ctx.headers.get("request-timeout"):
-            raise NotImplementedError(
-                "The Nexus SDK is in pre-release and does not support the fetch result "
-                "wait parameter or request-timeout header."
-            )
-        service_handler = self._get_service_handler(ctx.service)
-        op_handler = service_handler._get_operation_handler(ctx.operation)
-        if is_async_callable(op_handler.fetch_result):
-            return await op_handler.fetch_result(ctx, token)
-        else:
-            assert self.executor
-            return self.executor.submit(op_handler.fetch_result, ctx, token).result()
+        for middleware in reversed(self._middleware):
+            op_handler = middleware.intercept(ctx, op_handler)
+
+        return op_handler
 
     def _validate_all_operation_handlers_are_async(self) -> None:
         for service_handler in self.service_handlers.values():
             for op_handler in service_handler.operation_handlers.values():
-                self._assert_async_callable(op_handler.start)
-                self._assert_async_callable(op_handler.cancel)
-                self._assert_async_callable(op_handler.fetch_info)
-                self._assert_async_callable(op_handler.fetch_result)
+                _ = self._assert_async_callable(op_handler.start)
+                _ = self._assert_async_callable(op_handler.cancel)
 
     def _assert_async_callable(
         self, method: Callable[..., Any]
@@ -407,30 +361,28 @@ class ServiceHandler:
             user_instance.__class__, service
         )
         op_handlers = {
-            op_name: factories_by_method_name[op.method_name](user_instance)
-            for op_name, op in service.operations.items()
-            # TODO(preview): op.method_name should be non-nullable
-            if op.method_name
+            name: factories_by_method_name[defn.method_name](user_instance)
+            for name, defn in service.operation_definitions.items()
         }
         return cls(
             service=service,
             operation_handlers=op_handlers,
         )
 
-    def _get_operation_handler(self, operation: str) -> OperationHandler[Any, Any]:
+    def get_operation_handler(self, operation_name: str) -> OperationHandler[Any, Any]:
         """Return an operation handler, given the operation name."""
-        if operation not in self.service.operations:
+        if operation_name not in self.service.operation_definitions:
             raise HandlerError(
                 f"Nexus service definition '{self.service.name}' has no operation "
-                f"'{operation}'. There are {len(self.service.operations)} operations "
+                f"'{operation_name}'. There are {len(self.service.operation_definitions)} operations "
                 f"in the definition.",
                 type=HandlerErrorType.NOT_FOUND,
             )
-        operation_handler = self.operation_handlers.get(operation)
+        operation_handler = self.operation_handlers.get(operation_name)
         if operation_handler is None:
             raise HandlerError(
                 f"Nexus service implementation '{self.service.name}' has no handler for "
-                f"operation '{operation}'. There are {len(self.operation_handlers)} "
+                f"operation '{operation_name}'. There are {len(self.operation_handlers)} "
                 f"available operation handlers.",
                 type=HandlerErrorType.NOT_FOUND,
             )
@@ -458,3 +410,70 @@ class _Executor:
         self, fn: Callable[..., Any], *args: Any
     ) -> concurrent.futures.Future[Any]:
         return self._executor.submit(fn, *args)
+
+
+class OperationHandlerMiddleware(ABC):
+    """
+    Middleware for operation handlers.
+
+    This should be extended by any operation handler middelware.
+    """
+
+    @abstractmethod
+    def intercept(
+        self,
+        ctx: OperationContext,  # type: ignore[reportUnusedParameter]
+        next: MiddlewareSafeOperationHandler,
+    ) -> MiddlewareSafeOperationHandler:
+        """
+        Method called for intercepting operation handlers.
+
+        Args:
+            ctx: The :py:class:`OperationContext` that will be passed to the operation handler.
+            next: The underlying operation handler that this middleware
+                should delegate to.
+
+        Returns:
+            The new middleware that will be used to invoke
+            :py:attr:`OperationHandler.start` or :py:attr:`OperationHandler.cancel`.
+        """
+        ...
+
+
+class _EnsuredAwaitableOperationHandler(MiddlewareSafeOperationHandler):
+    """
+    An :py:class:`AwaitableOperationHandler` that wraps an :py:class:`OperationHandler` and uses an :py:class:`_Executor` to ensure
+    that the :py:attr:`start` and :py:attr:`cancel` methods are awaitable.
+    """
+
+    def __init__(
+        self,
+        executor: _Executor | None,
+        op_handler: OperationHandler[Any, Any],
+    ):
+        self._executor = executor
+        self._op_handler = op_handler
+
+    async def start(
+        self, ctx: StartOperationContext, input: Any
+    ) -> StartOperationResultSync[Any] | StartOperationResultAsync:
+        """
+        Start the operation using the wrapped :py:class:`OperationHandler`.
+        """
+        if is_async_callable(self._op_handler.start):
+            return await self._op_handler.start(ctx, input)
+        else:
+            assert self._executor
+            return await self._executor.submit_to_event_loop(
+                self._op_handler.start, ctx, input
+            )
+
+    async def cancel(self, ctx: CancelOperationContext, token: str) -> None:
+        """
+        Cancel an operation using the wrapped :py:class:`OperationHandler`.
+        """
+        if is_async_callable(self._op_handler.cancel):
+            return await self._op_handler.cancel(ctx, token)
+        else:
+            assert self._executor
+            return self._executor.submit(self._op_handler.cancel, ctx, token).result()

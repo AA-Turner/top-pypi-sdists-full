@@ -19,9 +19,10 @@ Import related utilities and helper functions.
 
 import sys
 import traceback
+from typing import Any
 
 
-def import_class(import_str):
+def import_class(import_str: str) -> Any:
     """Returns a class from a string including module and class.
 
     .. versionadded:: 0.3
@@ -31,12 +32,12 @@ def import_class(import_str):
     try:
         return getattr(sys.modules[mod_str], class_str)
     except AttributeError:
-        raise ImportError('Class %s cannot be found (%s)' %
-                          (class_str,
-                           traceback.format_exception(*sys.exc_info())))
+        raise ImportError(
+            f'Class {class_str} cannot be found ({traceback.format_exception(*sys.exc_info())})'
+        )
 
 
-def import_object(import_str, *args, **kwargs):
+def import_object(import_str: str, *args: Any, **kwargs: Any) -> Any:
     """Import a class and return an instance of it.
 
     .. versionadded:: 0.3
@@ -44,7 +45,9 @@ def import_object(import_str, *args, **kwargs):
     return import_class(import_str)(*args, **kwargs)
 
 
-def import_object_ns(name_space, import_str, *args, **kwargs):
+def import_object_ns(
+    name_space: str, import_str: str, *args: Any, **kwargs: Any
+) -> Any:
     """Tries to import object from default namespace.
 
     Imports a class and return an instance of it, first by trying
@@ -57,7 +60,7 @@ def import_object_ns(name_space, import_str, *args, **kwargs):
        Don't capture :exc:`ImportError` when instanciating the object, only
        when importing the object class.
     """
-    import_value = "{}.{}".format(name_space, import_str)
+    import_value = f"{name_space}.{import_str}"
     try:
         cls = import_class(import_value)
     except ImportError:
@@ -65,7 +68,7 @@ def import_object_ns(name_space, import_str, *args, **kwargs):
     return cls(*args, **kwargs)
 
 
-def import_module(import_str):
+def import_module(import_str: str) -> Any:
     """Import a module.
 
     .. versionadded:: 0.3
@@ -74,7 +77,9 @@ def import_module(import_str):
     return sys.modules[import_str]
 
 
-def import_versioned_module(module, version, submodule=None):
+def import_versioned_module(
+    module: str, version: str | int, submodule: str | None = None
+) -> Any:
     """Import a versioned module in format {module}.v{version][.{submodule}].
 
     :param module: the module name.
@@ -89,15 +94,15 @@ def import_versioned_module(module, version, submodule=None):
     """
 
     # NOTE(gcb) Disallow parameter version include character '.'
-    if '.' in '%s' % version:
+    if '.' in f'{version}':
         raise ValueError("Parameter version shouldn't include character '.'.")
-    module_str = '{}.v{}'.format(module, version)
+    module_str = f'{module}.v{version}'
     if submodule:
         module_str = '.'.join((module_str, submodule))
     return import_module(module_str)
 
 
-def try_import(import_str, default=None):
+def try_import(import_str: str, default: Any = None) -> Any:
     """Try to import a module and if it fails return default."""
     try:
         return import_module(import_str)
@@ -105,7 +110,7 @@ def try_import(import_str, default=None):
         return default
 
 
-def import_any(module, *modules):
+def import_any(module: str, *modules: str) -> Any:
     """Try to import a module from a list of modules.
 
     :param modules: A list of modules to try and import
@@ -119,5 +124,6 @@ def import_any(module, *modules):
         if imported_module:
             return imported_module
 
-    raise ImportError('Unable to import any modules from the list %s' %
-                      str(modules))
+    raise ImportError(
+        f'Unable to import any modules from the list {str(modules)}'
+    )

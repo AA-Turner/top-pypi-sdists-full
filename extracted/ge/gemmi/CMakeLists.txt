@@ -471,12 +471,12 @@ if (USE_PYTHON)
   endif()
   nanobind_add_module(gemmi_py NOMINSIZE
           python/gemmi.cpp python/align.cpp
-          python/ccp4.cpp python/chemcomp.cpp python/cif.cpp python/custom.cpp
+          python/ccp4.cpp python/chemcomp.cpp python/cif.cpp
           python/elem.cpp python/grid.cpp python/hkl.cpp
           python/meta.cpp python/mol.cpp python/monlib.cpp
           python/mtz.cpp python/read.cpp python/recgrid.cpp
           python/scaling.cpp python/search.cpp
-          python/sf.cpp python/sym.cpp python/topo.cpp
+          python/sf.cpp python/small.cpp python/sym.cpp python/topo.cpp
           python/unitcell.cpp python/write.cpp)
 
   if (STANDALONE_PYTHON_MODULE)
@@ -499,6 +499,12 @@ if (USE_PYTHON)
             "${CMAKE_CURRENT_SOURCE_DIR}/python/gemmi/__init__.py"
             ${py_dir}/gemmi/__init__.py
     BYPRODUCTS ${py_dir}/gemmi/__init__.py)
+  add_custom_command(TARGET gemmi_py POST_BUILD
+    COMMENT "Copying gemmi/fetch.py"
+    COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_CURRENT_SOURCE_DIR}/python/gemmi/fetch.py"
+            ${py_dir}/gemmi/fetch.py
+    BYPRODUCTS ${py_dir}/gemmi/fetch.py)
 
   # nanobind gives warnings with -Wpedantic and -Wshadow
   if(CMAKE_CXX_FLAGS MATCHES "-Wshadow")
@@ -606,6 +612,7 @@ if (USE_PYTHON)
           FILES_MATCHING PATTERN "*.py"
           PATTERN "[._]*" EXCLUDE)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${py_dir}/gemmi/__init__.py"
+                "${CMAKE_CURRENT_BINARY_DIR}/${py_dir}/gemmi/fetch.py"
           DESTINATION "${Python_SITEARCH}/gemmi" COMPONENT py)
   if (GENERATE_STUBS AND NOT CMAKE_CROSSCOMPILING)
     install(FILES

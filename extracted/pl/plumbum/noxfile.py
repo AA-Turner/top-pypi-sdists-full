@@ -1,12 +1,18 @@
+#!/usr/bin/env -S uv run
+
+# /// script
+# dependencies = ["nox>=2025.2.9"]
+# ///
+
 from __future__ import annotations
 
 import nox
 
-ALL_PYTHONS = ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
-
-nox.needs_version = ">=2024.3.2"
-nox.options.sessions = ["lint", "pylint", "tests"]
+nox.needs_version = ">=2025.2.9"
 nox.options.default_venv_backend = "uv|virtualenv"
+
+PYPROJECT = nox.project.load_toml()
+ALL_PYTHONS = nox.project.python_versions(PYPROJECT)
 
 
 @nox.session(reuse_venv=True)
@@ -24,7 +30,7 @@ def pylint(session):
     Run pylint.
     """
 
-    session.install(".", "paramiko", "ipython", "pylint")
+    session.install("-e.", "paramiko", "ipython", "pylint")
     session.run("pylint", "plumbum", *session.posargs)
 
 
@@ -33,17 +39,19 @@ def tests(session):
     """
     Run the unit and regular tests.
     """
-    session.install("-e", ".[test]")
+    test_deps = nox.project.dependency_groups(PYPROJECT, "test")
+    session.install("-e.", *test_deps)
     session.run("pytest", *session.posargs, env={"PYTHONTRACEMALLOC": "5"})
 
 
-@nox.session(reuse_venv=True)
+@nox.session(reuse_venv=True, default=False)
 def docs(session):
     """
     Build the docs. Pass "serve" to serve.
     """
 
-    session.install("-e", ".[docs]")
+    doc_deps = nox.project.dependency_groups(PYPROJECT, "docs")
+    session.install("-e.", *doc_deps)
     session.chdir("docs")
     session.run("sphinx-build", "-M", "html", ".", "_build")
 
@@ -55,7 +63,7 @@ def docs(session):
             session.log("Unsupported argument to docs")
 
 
-@nox.session
+@nox.session(default=False)
 def build(session):
     """
     Build an SDist and wheel.
@@ -63,3 +71,7 @@ def build(session):
 
     session.install("build")
     session.run("python", "-m", "build")
+
+
+if __name__ == "__main__":
+    nox.main()

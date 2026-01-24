@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.new_nats_trigger_mode import NewNatsTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -25,10 +26,10 @@ class NewNatsTrigger:
         subjects (List[str]):
         stream_name (Union[Unset, str]):
         consumer_name (Union[Unset, str]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, NewNatsTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewNatsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, NewNatsTriggerRetry]):
+        retry (Union[Unset, NewNatsTriggerRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -39,7 +40,7 @@ class NewNatsTrigger:
     subjects: List[str]
     stream_name: Union[Unset, str] = UNSET
     consumer_name: Union[Unset, str] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, NewNatsTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewNatsTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewNatsTriggerRetry"] = UNSET
@@ -55,7 +56,10 @@ class NewNatsTrigger:
 
         stream_name = self.stream_name
         consumer_name = self.consumer_name
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -81,8 +85,8 @@ class NewNatsTrigger:
             field_dict["stream_name"] = stream_name
         if consumer_name is not UNSET:
             field_dict["consumer_name"] = consumer_name
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -114,7 +118,12 @@ class NewNatsTrigger:
 
         consumer_name = d.pop("consumer_name", UNSET)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, NewNatsTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = NewNatsTriggerMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -141,7 +150,7 @@ class NewNatsTrigger:
             subjects=subjects,
             stream_name=stream_name,
             consumer_name=consumer_name,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.user._generated.models.containing_scope import ContainingScope, ContainingScopeModel
 from snowflake.core.user._generated.models.securable import Securable, SecurableModel
@@ -41,9 +41,9 @@ class Grant(BaseModel):
     privileges : list[str], optional
         List of privileges to be granted.
     created_on : datetime, optional
-        Date and time when the grant was created
+        Date and time when the grant was created — **Read-only:** *any user-provided value will be ignored.*
     granted_by : str, optional
-        The role that granted this privilege to this grantee
+        The role that granted this privilege to this grantee — **Read-only:** *any user-provided value will be ignored.*
     """
 
     securable: Optional[Securable] = None
@@ -60,9 +60,10 @@ class Grant(BaseModel):
 
     __properties = ["securable", "containing_scope", "securable_type", "privileges", "created_on", "granted_by"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -92,7 +93,7 @@ class Grant(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of securable
         if self.securable:
@@ -115,9 +116,9 @@ class Grant(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Grant.parse_obj(obj)
+            return Grant.model_validate(obj)
 
-        _obj = Grant.parse_obj(
+        _obj = Grant.model_validate(
             {
                 "securable": Securable.from_dict(obj.get("securable")) if obj.get("securable") is not None else None,
                 "containing_scope": ContainingScope.from_dict(obj.get("containing_scope"))

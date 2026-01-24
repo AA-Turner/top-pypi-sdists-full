@@ -7,7 +7,7 @@ project(
     VERSION ${SIMPLEBLE_VERSION_BASE}
     DESCRIPTION "The ultimate fully-fledged cross-platform library for Bluetooth Low Energy (BLE)."
     HOMEPAGE_URL "https://github.com/simpleble/simpleble"
-    LANGUAGES CXX
+    LANGUAGES CXX C
 )
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../cmake/epilogue.cmake)
@@ -29,11 +29,13 @@ set(SIMPLEBLE_PRIVATE_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/builders
     ${CMAKE_CURRENT_SOURCE_DIR}/src/external
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/safe
     ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/external
-    ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/include)
 
 set(SIMPLEBLE_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Advanced.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Adapter.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Peripheral.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/frontends/base/Service.cpp
@@ -46,6 +48,7 @@ set(SIMPLEBLE_SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/CharacteristicBase.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/common/DescriptorBase.cpp
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Config.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Exceptions.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Logging.cpp
@@ -144,6 +147,52 @@ target_compile_definitions(simpleble PRIVATE
                         SIMPLEBLE_BACKEND_IOS=$<BOOL:${SIMPLEBLE_BACKEND_IOS}>
                         SIMPLEBLE_BACKEND_ANDROID=$<BOOL:${SIMPLEBLE_BACKEND_ANDROID}>)
 
+# Dongl Source File Selection
+set(SIMPLEBLE_DONGL_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelper.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/BackendDongl.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/AdapterDongl.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/PeripheralDongl.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/Protocol.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/ProtocolBase.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/serial/Wire.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/src/nanopb/pb_common.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/src/nanopb/pb_decode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../dependencies/internal/src/nanopb/pb_encode.c
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/d2h.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/h2d.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/basic.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/simpleble.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/softdevice.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/softdevice_gap.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/softdevice_gattc.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/softdevice_gatts.pb.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/protocol/softdevice_types.pb.c)
+
+if(SIMPLEBLE_PLAIN)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperNull.cpp)
+elseif(SIMPLEBLE_BACKEND_LINUX)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperLinux.cpp)
+elseif(SIMPLEBLE_BACKEND_WINDOWS)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperWindows.cpp)
+elseif(SIMPLEBLE_BACKEND_MACOS)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperApple.cpp)
+elseif(SIMPLEBLE_BACKEND_IOS)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperNull.cpp)
+elseif(SIMPLEBLE_BACKEND_ANDROID)
+    list(APPEND SIMPLEBLE_DONGL_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl/usb/UsbHelperNull.cpp)
+endif()
+
 # Detect the operating system and load the necessary dependencies
 if(SIMPLEBLE_PLAIN)
     message(STATUS "Plain Flavor Requested")
@@ -207,6 +256,41 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Message.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/base/Path.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/ObjectManager.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/src/interfaces/Properties.cpp
+
+        # Legacy BlueZ backend
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/BackendBluezLegacy.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/AdapterLinuxLegacy.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/PeripheralLinuxLegacy.cpp
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Agent.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Device.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Characteristic.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Exceptions.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Service.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Adapter.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Bluez.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/BluezRoot.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/BluezOrg.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/BluezOrgBluez.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/Descriptor.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/Adapter1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/Agent1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/GattDescriptor1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/GattCharacteristic1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/GattService1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/Device1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/Battery1.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/AgentManager1.cpp
+
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/advanced/Interface.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/advanced/Proxy.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/base/Connection.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/base/Exceptions.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/base/Holder.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/base/Message.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/base/Path.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/src/interfaces/ObjectManager.cpp
     )
 
     target_link_libraries(simpleble PUBLIC pthread)
@@ -214,7 +298,8 @@ elseif(SIMPLEBLE_BACKEND_LINUX)
 
     target_include_directories(simpleble PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../simplebluez/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/include)
+        ${CMAKE_CURRENT_SOURCE_DIR}/../simpledbus/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/linux_legacy/include)
 
     set_property(TARGET simpleble PROPERTY INSTALL_RPATH $ORIGIN)
 
@@ -259,7 +344,7 @@ elseif(SIMPLEBLE_BACKEND_MACOS OR SIMPLEBLE_BACKEND_IOS)
     target_link_libraries(simpleble PUBLIC "-framework Foundation" "-framework CoreBluetooth" ObjC)
 
     if(SIMPLEBLE_BACKEND_MACOS)
-        target_link_libraries(simpleble PUBLIC "-framework IOBluetooth")
+        target_link_libraries(simpleble PUBLIC "-framework IOBluetooth" "-framework IOKit")
     endif()
 
     target_sources(simpleble PRIVATE
@@ -281,6 +366,7 @@ elseif(SIMPLEBLE_BACKEND_ANDROID)
     #add_compile_options(-DANDROID -D__ANDROID_API__=${ANDROID_NATIVE_API_LEVEL})
 
     target_sources(simpleble PRIVATE
+        ${SIMPLEJNI_SOURCES}
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/AdapterAndroid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/PeripheralAndroid.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/BackendAndroid.cpp
@@ -303,6 +389,12 @@ elseif(SIMPLEBLE_BACKEND_ANDROID)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/android/types/java/util/Set.cpp)
     target_link_libraries(simpleble PUBLIC android nativehelper log)
 endif()
+
+target_sources(simpleble PRIVATE
+    ${SIMPLEBLE_DONGL_SOURCES})
+
+target_include_directories(simpleble PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/dongl)
 
 apply_build_options(simpleble
     "${PRIVATE_COMPILE_DEFINITIONS}"

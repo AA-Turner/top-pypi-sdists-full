@@ -16,9 +16,7 @@ AUTH_HEADER_TYPES = api_settings.AUTH_HEADER_TYPES
 if TYPE_CHECKING:
     from wbcore.contrib.authentication.models import User
 else:
-    from django.contrib.auth import get_user_model
-
-    User = get_user_model()
+    from wbcore.contrib.authentication.models.users import User
 
 
 class TokenAuthentication(DRFTokenAuthentication):

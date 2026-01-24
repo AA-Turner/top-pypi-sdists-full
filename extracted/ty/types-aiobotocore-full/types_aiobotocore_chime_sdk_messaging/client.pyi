@@ -3,7 +3,7 @@ Type annotations for chime-sdk-messaging service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime_sdk_messaging/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -73,6 +74,7 @@ from .type_defs import (
     GetChannelMessageResponseTypeDef,
     GetChannelMessageStatusRequestTypeDef,
     GetChannelMessageStatusResponseTypeDef,
+    GetMessagingSessionEndpointRequestTypeDef,
     GetMessagingSessionEndpointResponseTypeDef,
     GetMessagingStreamingConfigurationsRequestTypeDef,
     GetMessagingStreamingConfigurationsResponseTypeDef,
@@ -122,11 +124,6 @@ from .type_defs import (
     UpdateChannelResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -135,16 +132,16 @@ else:
 __all__ = ("ChimeSDKMessagingClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ServiceFailureException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottledClientException: Type[BotocoreClientError]
-    UnauthorizedClientException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ServiceFailureException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottledClientException: type[BotocoreClientError]
+    UnauthorizedClientException: type[BotocoreClientError]
 
 class ChimeSDKMessagingClient(AioBaseClient):
     """
@@ -447,7 +444,9 @@ class ChimeSDKMessagingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime_sdk_messaging/client/#get_channel_message_status)
         """
 
-    async def get_messaging_session_endpoint(self) -> GetMessagingSessionEndpointResponseTypeDef:
+    async def get_messaging_session_endpoint(
+        self, **kwargs: Unpack[GetMessagingSessionEndpointRequestTypeDef]
+    ) -> GetMessagingSessionEndpointResponseTypeDef:
         """
         The details of the endpoint for the messaging session.
 
@@ -611,7 +610,7 @@ class ChimeSDKMessagingClient(AioBaseClient):
         self, **kwargs: Unpack[RedactChannelMessageRequestTypeDef]
     ) -> RedactChannelMessageResponseTypeDef:
         """
-        Redacts message content, but not metadata.
+        Redacts message content and metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/chime-sdk-messaging/client/redact_channel_message.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_chime_sdk_messaging/client/#redact_channel_message)
@@ -706,7 +705,7 @@ class ChimeSDKMessagingClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

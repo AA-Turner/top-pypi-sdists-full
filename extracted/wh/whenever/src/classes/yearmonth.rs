@@ -66,7 +66,7 @@ impl YearMonth {
     }
 }
 
-impl PyWrapped for YearMonth {}
+impl PySimpleAlloc for YearMonth {}
 
 impl Display for YearMonth {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -75,6 +75,9 @@ impl Display for YearMonth {
 }
 
 fn __new__(cls: HeapType<YearMonth>, args: PyTuple, kwargs: Option<PyDict>) -> PyReturn {
+    if args.len() == 1 && kwargs.map_or(0, |d| d.len()) == 0 {
+        return parse_iso(cls, args.iter().next().unwrap());
+    }
     let mut year: c_long = 0;
     let mut month: c_long = 0;
     parse_args_kwargs!(args, kwargs, c"ll:YearMonth", year, month);
@@ -84,7 +87,7 @@ fn __new__(cls: HeapType<YearMonth>, args: PyTuple, kwargs: Option<PyDict>) -> P
 }
 
 fn __repr__(_: PyType, slf: YearMonth) -> PyReturn {
-    format!("YearMonth({slf})").to_py()
+    format!("YearMonth(\"{slf}\")").to_py()
 }
 
 fn __str__(_: PyType, slf: YearMonth) -> PyReturn {
@@ -144,15 +147,29 @@ static mut SLOTS: &[PyType_Slot] = &[
     },
 ];
 
-fn format_common_iso(cls: PyType, slf: YearMonth) -> PyReturn {
+fn format_iso(cls: PyType, slf: YearMonth) -> PyReturn {
     __str__(cls, slf)
 }
 
-fn parse_common_iso(cls: HeapType<YearMonth>, arg: PyObj) -> PyReturn {
-    let py_str = arg.cast::<PyStr>().ok_or_type_err("argument must be str")?;
+fn parse_iso(cls: HeapType<YearMonth>, arg: PyObj) -> PyReturn {
+    let py_str = arg
+        .cast_allow_subclass::<PyStr>()
+        // NOTE: this exception message also needs to make sense when
+        // called through the constructor
+        .ok_or_type_err("When parsing from ISO format, the argument must be str")?;
     YearMonth::parse(py_str.as_utf8()?)
         .ok_or_else_value_err(|| format!("Invalid format: {arg}"))?
         .to_obj(cls)
+}
+
+fn format_common_iso(cls: PyType, slf: YearMonth) -> PyReturn {
+    deprecation_warn(c"format_common_iso() has been renamed to format_iso()")?;
+    format_iso(cls, slf)
+}
+
+fn parse_common_iso(cls: HeapType<YearMonth>, arg: PyObj) -> PyReturn {
+    deprecation_warn(c"parse_common_iso() has been renamed to parse_iso()")?;
+    parse_iso(cls, arg)
 }
 
 fn __reduce__(cls: HeapType<YearMonth>, slf: YearMonth) -> PyResult<Owned<PyTuple>> {
@@ -183,12 +200,12 @@ fn replace(
         handle_kwargs("replace", kwargs, |key, value, eq| {
             if eq(key, str_year) {
                 year = value
-                    .cast::<PyInt>()
+                    .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("year must be an integer")?
                     .to_long()?;
             } else if eq(key, str_month) {
                 month = value
-                    .cast::<PyInt>()
+                    .cast_allow_subclass::<PyInt>()
                     .ok_or_type_err("month must be an integer")?
                     .to_long()?;
             } else {
@@ -205,7 +222,7 @@ fn replace(
 fn on_day(cls: HeapType<YearMonth>, slf: YearMonth, arg: PyObj) -> PyReturn {
     let YearMonth { year, month } = slf;
     let day = arg
-        .cast::<PyInt>()
+        .cast_allow_subclass::<PyInt>()
         .ok_or_type_err("day must be an integer")?
         .to_long()?
         .try_into()
@@ -221,12 +238,10 @@ static mut METHODS: &[PyMethodDef] = &[
     method0!(YearMonth, __copy__, c""),
     method1!(YearMonth, __deepcopy__, c""),
     method0!(YearMonth, __reduce__, c""),
-    method0!(
-        YearMonth,
-        format_common_iso,
-        doc::YEARMONTH_FORMAT_COMMON_ISO
-    ),
-    classmethod1!(YearMonth, parse_common_iso, doc::YEARMONTH_PARSE_COMMON_ISO),
+    method0!(YearMonth, format_iso, doc::YEARMONTH_FORMAT_ISO),
+    method0!(YearMonth, format_common_iso, c""), // deprecated alias
+    classmethod1!(YearMonth, parse_iso, doc::YEARMONTH_PARSE_ISO),
+    classmethod1!(YearMonth, parse_common_iso, c""), // deprecated alias
     method1!(YearMonth, on_day, doc::YEARMONTH_ON_DAY),
     method_kwargs!(YearMonth, replace, doc::YEARMONTH_REPLACE),
     classmethod_kwargs!(
@@ -239,7 +254,7 @@ static mut METHODS: &[PyMethodDef] = &[
 
 pub(crate) fn unpickle(state: &State, arg: PyObj) -> PyReturn {
     let py_bytes = arg
-        .cast::<PyBytes>()
+        .cast_exact::<PyBytes>()
         .ok_or_type_err("Invalid pickle data")?;
     let mut packed = py_bytes.as_bytes()?;
     if packed.len() != 3 {

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: keystoneauth1
-Version: 5.12.0
+Version: 5.13.0
 Summary: Authentication Library for OpenStack Identity
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -40,6 +40,8 @@ Provides-Extra: betamax
 Requires-Dist: betamax>=0.7.0; extra == "betamax"
 Requires-Dist: fixtures>=3.0.0; extra == "betamax"
 Requires-Dist: PyYAML>=3.13; extra == "betamax"
+Dynamic: license-file
+Dynamic: requires-dist
 
 ========================
 Team and repository tags

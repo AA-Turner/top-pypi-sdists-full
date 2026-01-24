@@ -38,7 +38,10 @@ class TestSecretsDataDto(unittest.TestCase):
                 ai_validation_result = 'Unknown',
                 validity_status = 'NotApplicable',
                 validity_check_time = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
-                verified_validation_url = ''
+                verified_validation_url = '',
+                commit_author_names = [
+                    ''
+                    ]
             )
         else:
             return SecretsDataDto(

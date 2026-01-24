@@ -203,7 +203,10 @@ class Node:
         ...
     @property
     def child(self) -> Node | None:
-        """Return the child node."""
+        """Alias for the `first_child` property.
+
+        **Deprecated**. Please use `first_child` instead.
+        """
         ...
     @property
     def parent(self) -> Node | None:
@@ -588,7 +591,7 @@ class HTMLParser:
         query : str
         default : bool, default None
             Default value to return if there is no match.
-        strict: bool, default True
+        strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
 
 

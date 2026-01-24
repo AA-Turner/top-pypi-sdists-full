@@ -1,12 +1,14 @@
 #![doc = include_str!("../README.md")]
-
-use pyo3::exceptions::{PyNotImplementedError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
-use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
-use pyo3::types::{PyTuple, PyType};
+use pyo3::types::PyTuple;
+use pyo3::{BoundObject, prelude::*};
 use ryo3_bytes::PyBytes;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use ryo3_macro_rules::{any_repr, py_type_err, py_value_err, py_value_error, pytodo};
+use std::sync::OnceLock;
+
+static NODE_CACHE: OnceLock<u64> = OnceLock::new();
 
 pub(crate) const RESERVED_NCS: &str = "reserved for NCS compatibility";
 pub(crate) const RFC_4122: &str = "specified in RFC 4122";
@@ -14,7 +16,7 @@ pub(crate) const RESERVED_MICROSOFT: &str = "reserved for Microsoft compatibilit
 pub(crate) const RESERVED_FUTURE: &str = "reserved for future definition";
 
 // TODO: module name fix must be `ry.uuid` fix submodule name
-#[pyclass(name = "UUID", frozen, weakref)]
+#[pyclass(name = "UUID", frozen, immutable_type, skip_from_py_object, weakref)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.uuid"))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
@@ -59,9 +61,7 @@ fn get_version(uuid: u8) -> PyResult<uuid::Version> {
         6 => Ok(uuid::Version::SortMac),
         7 => Ok(uuid::Version::SortRand),
         8 => Ok(uuid::Version::Custom),
-        _ => Err(PyValueError::new_err(format!(
-            "Invalid UUID version: {uuid}. Must be between 1 and 8."
-        ))),
+        _ => py_value_err!("Invalid UUID version: {uuid}. Must be between 1 and 8."),
     }
 }
 
@@ -141,32 +141,46 @@ impl PyUuid {
         PyTuple::new(py, vec![self.0.hyphenated().to_string()])
     }
 
+    #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+    fn __hash__(&self) -> isize {
+        #[cfg(target_pointer_width = "64")]
+        const M: u128 = (1u128 << 61) - 1;
+
+        #[cfg(target_pointer_width = "32")]
+        const M: u128 = (1u128 << 31) - 1;
+        (self.0.as_u128() % M) as isize
+    }
+
+    // not totally sure if this is needed...
+    #[cfg(not(any(target_pointer_width = "32", target_pointer_width = "64")))]
     fn __hash__(&self) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
         let mut hasher = DefaultHasher::new();
         self.0.hash(&mut hasher);
         hasher.finish()
     }
 
-    fn string(&self) -> String {
-        self.0.to_string()
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> String {
+        self.__str__()
     }
 
     fn __str__(&self) -> String {
-        self.string()
+        self.0.to_string()
     }
 
     fn __repr__(&self) -> String {
-        format!("UUID('{}')", self.string())
+        format!("UUID('{}')", self.py_to_string())
     }
 
     fn __int__(&self) -> u128 {
         self.0.as_u128()
     }
 
+    // this is aight bc the hash is stable and does match python...
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: pyo3::basic::CompareOp) -> PyResult<bool> {
-        if let Ok(rs_uuid) = other.cast::<Self>() {
+        if let Ok(rs_uuid) = other.cast_exact::<Self>() {
             let other = rs_uuid.get();
-
             match op {
                 pyo3::basic::CompareOp::Eq => Ok(self.0 == other.0),
                 pyo3::basic::CompareOp::Ne => Ok(self.0 != other.0),
@@ -205,30 +219,40 @@ impl PyUuid {
 
     // static/class methods
     #[staticmethod]
-    fn from_hex(hex: &str) -> PyResult<Self> {
-        uuid::Uuid::parse_str(hex)
+    fn from_pyuuid(ob: CPythonUuid) -> Self {
+        Self::from(ob.0)
+    }
+
+    #[staticmethod]
+    fn from_hex(hexstr: &str) -> PyResult<Self> {
+        Self::from_str(hexstr)
+    }
+
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        uuid::Uuid::parse_str(s)
             .map(PyUuid)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[staticmethod]
-    fn from_int(int: u128) -> Self {
-        Self::from(uuid::Uuid::from_bytes(int.to_be_bytes()))
+    fn from_int(i: u128) -> Self {
+        Self::from(uuid::Uuid::from_bytes(i.to_be_bytes()))
     }
 
     #[staticmethod]
     #[pyo3(name = "from_bytes")]
     #[expect(clippy::needless_pass_by_value)]
-    fn from_pybytes(bytes: PyBytes) -> PyResult<Self> {
-        uuid::Uuid::from_slice(bytes.as_ref())
+    fn from_pybytes(b: PyBytes) -> PyResult<Self> {
+        uuid::Uuid::from_slice(b.as_ref())
             .map(PyUuid)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     #[staticmethod]
     #[expect(clippy::needless_pass_by_value)]
-    fn from_bytes_le(bytes: PyBytes) -> PyResult<Self> {
-        uuid::Uuid::from_slice_le(bytes.as_ref())
+    fn from_bytes_le(b: PyBytes) -> PyResult<Self> {
+        uuid::Uuid::from_slice_le(b.as_ref())
             .map(PyUuid)
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
@@ -258,7 +282,6 @@ impl PyUuid {
         Ok(Self(uuid))
     }
 
-    #[getter]
     fn __bytes__<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
         let bytes = self.0.as_bytes().to_vec();
         pyo3::types::PyBytes::new(py, &bytes)
@@ -325,11 +348,13 @@ impl PyUuid {
         ((self.int().wrapping_shr(64)) & 0xffff) as u16
     }
 
+    /// The 60-bit timestamp as a count of 100-nanosecond intervals since
+    /// Gregorian epoch (1582-10-15 00:00:00) for versions 1 and 6, or the
+    /// 48-bit timestamp in milliseconds since Unix epoch (1970-01-01 00:00:00)
+    /// for version 7.
     #[getter]
     fn time(&self) -> u64 {
-        let high = u64::from(self.time_hi_version()) & 0x0fff;
-        let mid = u64::from(self.time_mid());
-        high.wrapping_shl(48) | mid.wrapping_shl(32) | u64::from(self.time_low())
+        self.py_time()
     }
 
     #[getter]
@@ -364,66 +389,226 @@ impl PyUuid {
     fn is_nil(&self) -> bool {
         self.0.is_nil()
     }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
+        let py = value.py();
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(s) = value.extract::<&str>() {
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(b) = value.extract::<[u8; 16]>() {
+            // let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_int(u128::from_be_bytes(b)).into_pyobject(py)
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(v) = value.extract::<CPythonUuid>() {
+            Self::from(v.0).into_pyobject(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("UUID conversion error: {valtype}")
+        }
+    }
+
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Self>> {
+        use ryo3_macro_rules::py_value_error;
+        Self::from_any(value).map_err(|e| py_value_error!("UUID validation error: {e}"))
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
+    }
+}
+
+#[cfg(not(Py_3_14))]
+impl PyUuid {
+    fn py_time(&self) -> u64 {
+        let high = u64::from(self.time_hi_version()) & 0x0fff;
+        let mid = u64::from(self.time_mid());
+        high.wrapping_shl(48) | mid.wrapping_shl(32) | u64::from(self.time_low())
+    }
+}
+
+#[cfg(Py_3_14)]
+impl PyUuid {
+    fn py_time(&self) -> u64 {
+        let version_rfc = (
+            self.version(),
+            matches!(self.0.get_variant(), uuid::Variant::RFC4122),
+        );
+        match version_rfc {
+            (6, true) => {
+                (u64::from(self.time_low()) << 28)
+                    | (u64::from(self.time_mid()) << 12)
+                    | (u64::from(self.time_hi_version()) & 0x0fff)
+            }
+            (7, true) => (self.0.as_u128() >> 80) as u64,
+            // should be 1 and/or any other versions but idk if it is actually
+            // implemented?
+            _ => {
+                let high = u64::from(self.time_hi_version()) & 0x0fff;
+                let mid = u64::from(self.time_mid());
+                high.wrapping_shl(48) | mid.wrapping_shl(32) | u64::from(self.time_low())
+            }
+        }
+    }
 }
 
 #[pyfunction(name = "getnode")]
-pub fn getnode() -> PyResult<u64> {
-    Err(PyNotImplementedError::new_err("not implemented"))
+pub fn getnode(py: Python<'_>) -> PyResult<u64> {
+    if let Some(v) = NODE_CACHE.get() {
+        return Ok(*v);
+    }
+    let node_py: u64 = py.import("uuid")?.getattr("getnode")?.call0()?.extract()?;
+    if node_py > 0xFF_FFFF_FFFF_FFFF {
+        py_value_err!("uuid.getnode() returned >48 bits")
+    } else {
+        let _ = NODE_CACHE.set(node_py);
+        Ok(node_py)
+    }
+}
+
+/// Generate a UUID from a host ID, sequence number, and the current time.
+///
+/// If node is not given, `getnode()` is used to obtain the hardware address.
+/// If `clock_seq` is given, it is used as the sequence number; otherwise a
+/// random 14-bit sequence number is chosen.
+#[pyfunction(signature = (node=None, clock_seq=None))]
+#[expect(unused_variables)]
+pub fn uuid1(node: Option<u64>, clock_seq: Option<u16>) -> PyResult<PyUuid> {
+    pytodo!("UUID1 is not implemented yet")
 }
 
 #[pyfunction]
-pub fn uuid1() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID1 is not implemented yet",
-    ))
-}
-#[pyfunction]
-pub fn uuid2() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID2 is not implemented yet",
-    ))
-}
-
-#[pyfunction]
-pub fn uuid3() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID3 is not implemented yet",
-    ))
+pub fn uuid3(namespace: &PyUuid, name: &Bound<'_, PyAny>) -> PyResult<PyUuid> {
+    if let Ok(s) = name.extract::<&str>() {
+        Ok(uuid::Uuid::new_v3(&namespace.0, s.as_bytes()).into())
+    } else if let Ok(b) = name.extract::<&[u8]>() {
+        Ok(uuid::Uuid::new_v3(&namespace.0, b).into())
+    } else {
+        py_type_err!("uuid3(): name must be str or bytes-like")
+    }
 }
 
 #[pyfunction]
 pub fn uuid4() -> PyResult<PyUuid> {
-    let u = uuid::Uuid::new_v4();
-    Ok(PyUuid(u))
+    Ok(PyUuid(uuid::Uuid::new_v4()))
 }
 
 #[pyfunction]
-pub fn uuid5() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID5 is not implemented yet",
-    ))
+pub fn uuid5(namespace: &PyUuid, name: &Bound<'_, PyAny>) -> PyResult<PyUuid> {
+    if let Ok(s) = name.extract::<&str>() {
+        Ok(uuid::Uuid::new_v5(&namespace.0, s.as_bytes()).into())
+    } else if let Ok(b) = name.extract::<&[u8]>() {
+        Ok(uuid::Uuid::new_v5(&namespace.0, b).into())
+    } else {
+        py_type_err!("uuid5(): name must be str or bytes-like")
+    }
 }
 
-#[pyfunction]
-pub fn uuid6() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID6 is not implemented yet",
-    ))
+/// Generate a UUID from a sequence number and the current time according to RFC 9562, §5.6.
+///
+/// This is an alternative to `uuid1()` to improve database locality.
+///
+/// When node is not specified, `getnode()` is used to obtain the hardware
+/// address as a 48-bit positive integer. When a sequence number `clock_seq` is
+/// not specified, a pseudo-random 14-bit positive integer is generated.
+///
+/// If node or `clock_seq` exceed their expected bit count, only their least
+/// significant bits are kept.
+///
+/// # Panics
+///
+/// This function will panic if it fails to convert the node ID to a 6-byte, but
+/// there is no-way-jose that could happen AFAICT.
+#[pyfunction(signature = (node=None, clock_seq=None))]
+pub fn uuid6(py: Python<'_>, node: Option<u64>, clock_seq: Option<u16>) -> PyResult<PyUuid> {
+    let node = node.map_or_else(|| getnode(py), |n| Ok(n & 0xFFFF_FFFF_FFFF))?;
+    let node_arr = node.to_be_bytes();
+    let node_id: &[u8; 6] = &node_arr[2..8].try_into().expect("no-way-jose");
+    if let Some(_clock_seq) = clock_seq {
+        pytodo!("uuid6 with clock_seq is not implemented yet")
+    }
+    Ok(uuid::Uuid::now_v6(node_id).into())
 }
 
-#[pyfunction]
-pub fn uuid7() -> PyResult<PyUuid> {
-    Err(PyNotImplementedError::new_err(
-        "UUID7 is not implemented yet",
-    ))
+#[pyfunction(signature = (timestamp=None))]
+pub fn uuid7(timestamp: Option<u64>) -> PyResult<PyUuid> {
+    match timestamp {
+        Some(ms) => {
+            // check ms < 2^60 bc UUIDv7 uses 60 bits for timestamp
+            const MAX_MS: u64 = (1u64 << 60) - 1;
+            if ms > MAX_MS {
+                py_value_err!("timestamp too large")
+            } else {
+                let secs = ms / 1000;
+                #[expect(clippy::cast_possible_truncation)]
+                let nanos = ((ms % 1000) * 1_000_000) as u32;
+                let ts = uuid::Timestamp::from_unix(uuid::NoContext, secs, nanos);
+                Ok(uuid::Uuid::new_v7(ts).into())
+            }
+        }
+        None => Ok(uuid::Uuid::now_v7().into()),
+    }
 }
 
-#[pyfunction]
-#[expect(clippy::needless_pass_by_value)]
-pub fn uuid8(b: PyBytes) -> PyResult<PyUuid> {
-    uuid::Bytes::try_from(b.as_slice())
-        .map(|b| PyUuid::from(uuid::Uuid::new_v8(b)))
-        .map_err(|_| PyValueError::new_err("UUID8 must be 16 bytes long"))
+#[pyfunction(
+    signature = (a = None, b = None, c = None, *, buf = None),
+)]
+pub fn uuid8(
+    a: Option<u64>,
+    b: Option<u16>,
+    c: Option<u64>,
+    buf: Option<PyBytes>,
+) -> PyResult<PyUuid> {
+    use rand::RngCore;
+
+    if let Some(bts) = buf {
+        match (a, b, c) {
+            (None, None, None) => {}
+            _ => {
+                return py_value_err!("uuid8(): pass either bytes=... or a/b/c, not both",);
+            }
+        }
+        // extract the bytes as [u8; 16]
+        let slice: &[u8; 16] = bts
+            .as_slice()
+            .try_into()
+            .map_err(|_| py_value_error!("uuid8(bytes=...): bytes must be exactly 16 bytes",))?;
+        return Ok(PyUuid::from(uuid::Uuid::new_v8(*slice)));
+    }
+
+    let mut rng = rand::rng();
+
+    let mut ubuf: [u8; 16] = [0; 16];
+    let a48: u64 = a.unwrap_or_else(|| rng.next_u64()) & ((1u64 << 48) - 1);
+    let b12: u16 = b.unwrap_or_else(|| (rng.next_u32() & 0xFFFF) as u16) & 0x0FFF;
+    let c62: u64 = c.unwrap_or_else(|| rng.next_u64()) & ((1u64 << 62) - 1);
+
+    // least significant 48 bits of a
+    ubuf[0..6].copy_from_slice(&a48.to_be_bytes()[2..]);
+    // least significant 12 bits of b
+    ubuf[6..8].copy_from_slice(&b12.to_be_bytes());
+    // least significant 62 bits of c
+    ubuf[8..16].copy_from_slice(&c62.to_be_bytes());
+
+    Ok(PyUuid::from(uuid::Uuid::new_v8(ubuf)))
 }
 
 // ----------------------------------------------------------------------------
@@ -441,22 +626,89 @@ impl From<CPythonUuid> for uuid::Uuid {
     }
 }
 
-fn get_uuid_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
-    static UUID_CLS: PyOnceLock<Py<PyType>> = PyOnceLock::new();
-    UUID_CLS.import(py, "uuid", "UUID")
+fn get_uuid_ob_pointer(py: Python) -> usize {
+    let uuid_mod = py.import("uuid").expect("uuid to be importable");
+    // get a uuid how orjson does it...
+    let uuid_ob = uuid_mod
+        .getattr("NAMESPACE_DNS")
+        .expect("uuid.NAMESPACE_DNS to be available");
+    let uuid_type = uuid_ob.get_type();
+
+    let uuid_type_ptr = uuid_type.as_type_ptr() as usize;
+    // make sure we drop the reference
+    drop(uuid_mod);
+    drop(uuid_ob);
+    drop(uuid_type);
+    uuid_type_ptr
 }
 
-impl FromPyObject<'_> for CPythonUuid {
-    fn extract_bound(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let py = obj.py();
-        let uuid_cls = get_uuid_cls(py)?;
+fn py_uuid_type_ptr(py: Python) -> usize {
+    static UUID_TYPE_PTR: PyOnceLock<usize> = PyOnceLock::new();
+    *UUID_TYPE_PTR.get_or_init(py, || get_uuid_ob_pointer(py))
+}
 
-        if obj.is_instance(uuid_cls)? {
+// ORIG VERSION THAT USES INSTANCE CHECK
+// ```
+// fn get_uuid_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
+//     static UUID_CLS: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+//     UUID_CLS.import(py, "uuid", "UUID")
+// }
+// impl FromPyObject<'_> for CPythonUuid {
+//     fn extract_bound(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
+//         let py = obj.py();
+//         let uuid_cls = get_uuid_cls(py)?;
+
+//         if obj.is_instance(uuid_cls)? {
+//             let uuid_int: u128 = obj.getattr(intern!(py, "int"))?.extract()?;
+//             let bytes = uuid_int.to_be_bytes();
+//             Ok(Self(uuid::Uuid::from_bytes(bytes)))
+//         } else {
+//             Err(PyTypeError::new_err("Expected a `uuid.UUID` instance."))
+//         }
+//     }
+// }
+// ``````
+
+// NEW VERSION THAT USES TYPE POINTER COMPARISON
+impl<'py> FromPyObject<'_, 'py> for CPythonUuid {
+    type Error = pyo3::PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let py = obj.py();
+        let uuid_cls_ptr = py_uuid_type_ptr(obj.py());
+        let obj_ptr = obj.get_type().as_type_ptr() as usize;
+        if obj_ptr == uuid_cls_ptr {
             let uuid_int: u128 = obj.getattr(intern!(py, "int"))?.extract()?;
             let bytes = uuid_int.to_be_bytes();
             Ok(Self(uuid::Uuid::from_bytes(bytes)))
         } else {
-            Err(PyTypeError::new_err("Expected a `uuid.UUID` instance."))
+            py_type_err!("Expected a `uuid.UUID` instance.",)
         }
+    }
+}
+
+#[cfg(feature = "pydantic")]
+impl ryo3_pydantic::GetPydanticCoreSchemaCls for PyUuid {
+    fn get_pydantic_core_schema<'py>(
+        cls: &Bound<'py, pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::interns;
+
+        let py = source.py();
+        let core_schema = ryo3_pydantic::core_schema(py)?;
+        let uuid_schema = core_schema.call_method(intern!(py, "uuid_schema"), (), None)?;
+        let validation_fn = cls.getattr(interns::_pydantic_validate(py))?;
+        let args = PyTuple::new(py, vec![&validation_fn, &uuid_schema])?;
+        let string_serialization_schema =
+            core_schema.call_method(interns::to_string_ser_schema(py), (), None)?;
+        let serialization_kwargs = pyo3::types::PyDict::new(py);
+        serialization_kwargs.set_item(interns::serialization(py), &string_serialization_schema)?;
+        core_schema.call_method(
+            interns::no_info_wrap_validator_function(py),
+            args,
+            Some(&serialization_kwargs),
+        )
     }
 }

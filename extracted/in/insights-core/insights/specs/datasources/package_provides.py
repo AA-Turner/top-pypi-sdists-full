@@ -76,6 +76,10 @@ def cmd_and_pkg(broker):
                 pkg_cmd.append("{0} {1}".format(cmd, pkg))
         if pkg_cmd:
             return DatasourceProvider(
-                '\n'.join(pkg_cmd), relative_path='insights_datasources/package_provides_command'
+                '\n'.join(pkg_cmd),
+                relative_path='insights_datasources/package_provides_command',
+                ds=Specs.package_provides_command,
+                ctx=broker.get(HostContext),
+                cleaner=broker.get("cleaner"),
             )
     raise SkipComponent

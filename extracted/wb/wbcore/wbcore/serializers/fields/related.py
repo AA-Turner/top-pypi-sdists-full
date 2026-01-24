@@ -29,7 +29,7 @@ class WBCoreManyRelatedField(ListFieldMixin, WBCoreSerializerFieldMixin, ManyRel
         self.child_relation.context["view"] = self.view
         self.child_relation._evaluate_read_only(field_name, parent)
         if not self.child_relation.read_only and hasattr(self.child_relation, "_queryset"):
-            setattr(self.child_relation, "queryset", self.child_relation._queryset)
+            self.child_relation.queryset = self.child_relation._queryset
 
     def get_representation(self, request: Request, field_name: str) -> tuple[str, dict]:
         key, representation = self.child_relation.get_representation(request, field_name)
@@ -58,7 +58,7 @@ class PrimaryKeyRelatedField(WBCoreSerializerFieldMixin, serializers.PrimaryKeyR
     )
 
     def __init__(self, *args, queryset=None, read_only=False, **kwargs):
-        self.field_type = kwargs.pop("field_type", WBCoreType.SELECT.value)
+        self.field_type = kwargs.pop("field_type", WBCoreType.PRIMARY_KEY.value)
         if callable(read_only) and queryset is not None:
             self._queryset = queryset  # we unset any given queryset to be compliant with the RelatedField assertion
             queryset = None
@@ -72,7 +72,7 @@ class PrimaryKeyRelatedField(WBCoreSerializerFieldMixin, serializers.PrimaryKeyR
         super().bind(field_name, parent)
         # In case we had to unset the queryset attribute because read_only was a callable, we reinstate it here.
         if not self.read_only and hasattr(self, "_queryset"):
-            setattr(self, "queryset", self._queryset)
+            self.queryset = self._queryset
 
     @classmethod
     def many_init(cls, *args, **kwargs):
@@ -103,7 +103,7 @@ class PrimaryKeyRelatedField(WBCoreSerializerFieldMixin, serializers.PrimaryKeyR
         # In case we annotate the representation, we need to ensure that the value is an object
         if isinstance(value, (list, tuple, set)):
             return [self.to_representation(d) for d in value]
-        try:
+        with suppress(Exception):  # TODO: investigate what exception are we expecting here
             if isinstance(value, str):
                 try:
                     value = int(value)
@@ -112,8 +112,6 @@ class PrimaryKeyRelatedField(WBCoreSerializerFieldMixin, serializers.PrimaryKeyR
             if isinstance(value, int):
                 value = PKOnlyObject(value)
             return super().to_representation(value)
-        except Exception:
-            pass
         return None
 
     def get_queryset(self):

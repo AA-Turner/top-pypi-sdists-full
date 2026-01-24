@@ -4,28 +4,27 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-// These files are really basic, used everywere within the project
+// These files are really basic, used everywhere within the project
 // but they take a while (seconds!) to process.
 // We don't want to waste those seconds for each cpp file, so we
 // use this precompiled header.
 
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
-#define BOOST_ALLOW_DEPRECATED_HEADERS
-
-#include <boost/python.hpp>
-#include <boost/version.hpp>
-#include <boost/python/copy_const_reference.hpp>
-#include <boost/python/copy_non_const_reference.hpp>
-#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
-#include <boost/python/return_value_policy.hpp>
-#include <boost/python/handle.hpp>
-#include <boost/mpl/if.hpp>
 #include <cassert>
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <memory>
+#include <vector>
 
-namespace bopy = boost::python;
+#include <pybind11/pybind11.h>
+#include <pybind11/functional.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pytypes.h>
+#include <pybind11/chrono.h>
+#include <pybind11/native_enum.h>
 
-// #include <tango/tango.h>
+#include <tango/tango.h>
+
+namespace py = pybind11;

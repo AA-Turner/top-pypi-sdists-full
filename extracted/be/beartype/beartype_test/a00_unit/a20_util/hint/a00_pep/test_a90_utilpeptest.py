@@ -41,8 +41,9 @@ def test_is_hint_pep_typing(hints_pep_meta) -> None:
     # Assert this tester accepts PEP-compliant type hints defined by the
     # "typing" module.
     for hint_pep_meta in hints_pep_meta:
-        assert is_hint_pep_typing(hint_pep_meta.hint) is (
-            hint_pep_meta.is_typing)
+        # Localize this hint to simplify debugging.
+        hint = hint_pep_meta.hint
+        assert is_hint_pep_typing(hint) is hint_pep_meta.is_typing
 
     # Assert this tester rejects non-PEP-compliant type hints.
     for not_hint_pep in NOT_HINTS_PEP:
@@ -70,8 +71,9 @@ def test_is_hint_pep_type_typing(hints_pep_meta) -> None:
     # Assert this tester accepts PEP-compliant type hints defined by the
     # "typing" module.
     for hint_pep_meta in hints_pep_meta:
-        assert is_hint_pep_type_typing(hint_pep_meta.hint) is (
-            hint_pep_meta.is_type_typing)
+        # Localize this hint to simplify debugging.
+        hint = hint_pep_meta.hint
+        assert is_hint_pep_type_typing(hint) is hint_pep_meta.is_type_typing
 
     # Assert this tester rejects non-PEP-compliant type hints.
     for not_hint_pep in NOT_HINTS_PEP:
@@ -161,7 +163,7 @@ def test_is_hint_pep_subbed(hints_pep_meta, hints_nonpep_meta) -> None:
 #     from beartype._util.hint.pep.utilpeptest import is_hint_pep_uncached
 #     from beartype._util.py.utilpyversion import IS_PYTHON_AT_LEAST_3_9
 #     from beartype_test.a00_unit.data.hint.data_hint import NOT_HINTS_PEP
-#     from beartype_test.a00_unit.data.hint.pep.data_pep import (
+#     from beartype_test.a00_unit.data.hint.pep.data_pepfixture import (
 #         HINTS_PEP_META)
 #
 #     # Assert this tester accepts concrete PEP-compliant type hints.

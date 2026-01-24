@@ -23,10 +23,7 @@ class Exit(Command):
         exit()
 
     def completion(self, state: ReplState):
-        if state.pod:
-            return {Exit.COMMAND: None}
+        return {Exit.COMMAND: None}
 
-        return {}
-
-    def help(self, _: ReplState):
-        return f'{Exit.COMMAND}\t exit kaqing <Ctrl-D>'
+    def help(self, state: ReplState):
+        return super().help(state, 'exit kaqing  <Ctrl-D>')

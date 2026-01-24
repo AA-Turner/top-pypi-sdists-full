@@ -48,8 +48,19 @@ config = forge.get_config()
 
 THREAD_POOL_SIZE = int(os.environ.get("POOL_SIZE", 20))
 
-JSON_SECTIONS = ["GRAPH_DATA", "URL", "JSON", "KEY_VALUE", "PROCESS_TREE",
-                 "TABLE", "IMAGE", "MULTI", "ORDERED_KEY_VALUE", "TIMELINE"]
+JSON_SECTIONS = [
+    "GRAPH_DATA",
+    "IMAGE",
+    "JSON",
+    "KEY_VALUE",
+    "MULTI",
+    "ORDERED_KEY_VALUE",
+    "PROCESS_TREE",
+    "SANDBOX",
+    "TABLE",
+    "TIMELINE"
+    "URL",
+]
 
 
 class AssemblylineDatastore(object):
@@ -1166,9 +1177,25 @@ class AssemblylineDatastore(object):
                                                        as_obj=False, as_dictionary=False)]
 
         # Recursively update the service data with the service delta while stripping nulls
-        services = [recursive_update(data.as_primitives(strip_null=True), delta.as_primitives(strip_null=True),
-                                     stop_keys=['config'])
-                    for data, delta in zip(service_data, service_delta)]
+        services = []
+        for data, delta in zip(service_data, service_delta):
+            data = data.as_primitives(strip_null=True)
+            delta = delta.as_primitives(strip_null=True)
+            service = recursive_update(data, delta, stop_keys=['config'])
+
+            # Check if there's any configurations that were removed in the delta based on the current version of the service
+            for key in list(service.get('config', {}).keys()):
+                if key not in data.get('config', {}):
+                    service['config'].pop(key, None)
+
+            # Check for any submission parameters that aren't applicable to the current version of the service
+            if data.get('submission_params'):
+                current_params = [param['name'] for param in data['submission_params']]
+                for param in list(service.get('submission_params', [])):
+                    if param['name'] not in current_params:
+                        service['submission_params'].remove(param)
+
+            services.append(service)
 
         # Return as an objet if needs be...
         if as_obj:

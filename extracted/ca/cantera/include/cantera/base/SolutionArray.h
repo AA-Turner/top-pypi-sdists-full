@@ -112,12 +112,25 @@ public:
     }
 
     //! Retrieve associated Solution object
+    //! @deprecated To be removed after %Cantera 3.2. Renamed to phase().
     shared_ptr<Solution> solution() {
+        warn_deprecated("SolutionArray::solution",
+            "To be removed after Cantera 3.2. Renamed to phase().");
+        return m_sol;
+    }
+
+    //! Retrieve associated Solution object
+    //! @since New in %Cantera 3.2
+    shared_ptr<Solution> phase() {
         return m_sol;
     }
 
     //! Retrieve associated ThermoPhase object
     shared_ptr<ThermoPhase> thermo();
+
+    //! Retrieve associated Transport model
+    //! @since New in %Cantera 3.2
+    string transportModel();
 
     //! Retrieve list of component names
     vector<string> componentNames() const;
@@ -125,8 +138,10 @@ public:
     /**
      *  Check whether SolutionArray contains a component.
      *  A component is a property defining state or auxiliary variable.
+     *  @param name  name of component
+     *  @param checkAlias  if `true` (default), check alias mapping
      */
-    bool hasComponent(const string& name) const;
+    bool hasComponent(const string& name, bool checkAlias=true) const;
 
     /**
      *  Retrieve a component of the SolutionArray by name.
@@ -399,6 +414,9 @@ protected:
     bool m_shared = false; //!< `true` if data are shared from another object
     vector<int> m_active; //!< Vector of locations referencing active entries
 };
+
+//! Return mapping of component alias names to standardized component names.
+const map<string, string>& _componentAliasMap();
 
 }
 

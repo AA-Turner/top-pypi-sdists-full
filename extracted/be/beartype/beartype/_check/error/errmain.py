@@ -117,15 +117,15 @@ from beartype.roar._roarexc import (
     _BeartypeCallHintPepRaiseException,
 )
 from beartype.typing import Optional
-from beartype._check.convert.convsanify import sanify_hint_any
+from beartype._check.convert.convmain import sanify_hint_any
 from beartype._check.error.errcause import ViolationCause
 from beartype._check.metadata.metacheck import BeartypeCheckMeta
 from beartype._conf.confmain import BeartypeConf
 from beartype._conf.confcommon import BEARTYPE_CONF_DEFAULT
 from beartype._conf.confenum import BeartypeViolationVerbosity
 from beartype._data.func.datafuncarg import ARG_NAME_RETURN
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import (
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import (
     TypeException,
     TypeStack,
 )
@@ -211,7 +211,7 @@ def get_func_pith_violation(
     # Hint annotating this parameter or return if this parameter or return is
     # annotated *OR* the placeholder sentinel otherwise (i.e., if this parameter
     # or return is unannotated).
-    hint = check_meta.func_arg_name_to_hint.get(pith_name, SENTINEL)
+    hint = check_meta.func_annotations.get(pith_name, SENTINEL)
 
     # If this parameter or return is unannotated, raise an exception.
     #
@@ -224,7 +224,7 @@ def get_func_pith_violation(
             f'{repr(check_meta.func)} parameter "{pith_name}" unannotated '
             f'(or originally annotated but since deleted) in '
             f'"__annotations__" dunder dictionary:\n'
-            f'{repr(check_meta.func_arg_name_to_hint)}'
+            f'{repr(check_meta.func_annotations)}'
         )
     # Else, this parameter or return is annotated.
 

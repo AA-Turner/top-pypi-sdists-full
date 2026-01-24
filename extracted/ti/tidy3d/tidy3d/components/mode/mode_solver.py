@@ -6,19 +6,26 @@ from __future__ import annotations
 
 from functools import wraps
 from math import isclose
-from typing import Literal, Optional, Union, get_args
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, get_args
 
 import numpy as np
 import pydantic.v1 as pydantic
 import xarray as xr
 
-from tidy3d.components.base import Tidy3dBaseModel, cached_property, skip_if_fields_missing
+from tidy3d.components.base import (
+    Tidy3dBaseModel,
+    cached_property,
+    skip_if_fields_missing,
+)
 from tidy3d.components.boundary import PML, Absorber, Boundary, BoundarySpec, PECBoundary, StablePML
 from tidy3d.components.data.data_array import (
     FreqModeDataArray,
     ModeIndexDataArray,
     ScalarModeFieldCylindricalDataArray,
     ScalarModeFieldDataArray,
+    _make_current_data_array,
+    _make_impedance_data_array,
+    _make_voltage_data_array,
 )
 from tidy3d.components.data.monitor_data import ModeSolverData
 from tidy3d.components.data.sim_data import SimulationData
@@ -31,6 +38,16 @@ from tidy3d.components.medium import (
     IsotropicUniformMediumType,
     LossyMetalMedium,
 )
+from tidy3d.components.microwave.data.dataset import TransmissionLineDataset
+from tidy3d.components.microwave.data.monitor_data import MicrowaveModeSolverData
+from tidy3d.components.microwave.impedance_calculator import (
+    CurrentIntegralType,
+    ImpedanceCalculator,
+    VoltageIntegralType,
+)
+from tidy3d.components.microwave.mode_spec import MicrowaveModeSpec
+from tidy3d.components.microwave.monitor import MicrowaveModeMonitor, MicrowaveModeSolverMonitor
+from tidy3d.components.microwave.path_integrals.factory import make_path_integrals
 from tidy3d.components.mode_spec import ModeSpec
 from tidy3d.components.monitor import ModeMonitor, ModeSolverMonitor
 from tidy3d.components.scene import Scene
@@ -55,14 +72,19 @@ from tidy3d.components.types import (
     PlotScale,
     Symmetry,
 )
+from tidy3d.components.types.mode_spec import ModeSpecType
+from tidy3d.components.types.monitor_data import ModeSolverDataType
 from tidy3d.components.validators import (
     validate_freqs_min,
     validate_freqs_not_empty,
 )
 from tidy3d.components.viz import make_ax, plot_params_pml
-from tidy3d.constants import C_0
+from tidy3d.constants import C_0, fp_eps
 from tidy3d.exceptions import SetupError, ValidationError
 from tidy3d.log import log
+
+if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
 from tidy3d.packaging import supports_local_subpixel, tidy3d_extras
 
 # Importing the local solver may not work if e.g. scipy is not installed
@@ -101,7 +123,7 @@ def require_fdtd_simulation(fn):
     """Decorate a function to check that ``simulation`` is an FDTD ``Simulation``."""
 
     @wraps(fn)
-    def _fn(self, **kwargs):
+    def _fn(self, **kwargs: Any):
         """New decorated function."""
         if not isinstance(self.simulation, Simulation):
             raise SetupError(
@@ -146,10 +168,11 @@ class ModeSolver(Tidy3dBaseModel):
         discriminator=TYPE_TAG_STR,
     )
 
-    mode_spec: ModeSpec = pydantic.Field(
+    mode_spec: ModeSpecType = pydantic.Field(
         ...,
         title="Mode specification",
         description="Container with specifications about the modes to be solved for.",
+        discriminator=TYPE_TAG_STR,
     )
 
     freqs: FreqArray = pydantic.Field(
@@ -168,6 +191,12 @@ class ModeSolver(Tidy3dBaseModel):
         title="Colocate fields",
         description="Toggle whether fields should be colocated to grid cell boundaries (i.e. "
         "primal grid nodes). Default is ``True``.",
+    )
+
+    conjugated_dot_product: bool = pydantic.Field(
+        True,
+        title="Conjugated Dot Product",
+        description="Use conjugated or non-conjugated dot product for mode decomposition.",
     )
 
     fields: tuple[EMField, ...] = pydantic.Field(
@@ -244,6 +273,8 @@ class ModeSolver(Tidy3dBaseModel):
         self._warn_thick_pml(simulation=self.simulation, plane=self.plane, mode_spec=self.mode_spec)
         self._validate_rotate_structures()
         self._validate_num_grid_points()
+        if self._has_microwave_mode_spec:
+            self._validate_microwave_mode_spec(mode_spec=self.mode_spec, plane=self.plane)
 
     @classmethod
     def _warn_thick_pml(
@@ -252,7 +283,7 @@ class ModeSolver(Tidy3dBaseModel):
         plane: Box,
         mode_spec: ModeSpec,
         msg_prefix: str = "'ModeSolver'",
-    ):
+    ) -> None:
         """Warn if the pml covers a significant portion of the mode plane."""
         coord_0, coord_1 = cls._plane_grid(
             simulation=simulation,
@@ -280,7 +311,7 @@ class ModeSolver(Tidy3dBaseModel):
         return Box.from_bounds(*mode_plane_bnds)
 
     @classmethod
-    def _validate_mode_plane_radius(cls, mode_spec: ModeSpec, plane: Box, sim_geom: Box):
+    def _validate_mode_plane_radius(cls, mode_spec: ModeSpec, plane: Box, sim_geom: Box) -> None:
         """Validate that the radius of a mode spec with a bend is not smaller than half the size of
         the plane along the radial direction."""
 
@@ -293,7 +324,7 @@ class ModeSolver(Tidy3dBaseModel):
         _, plane_axs = mode_plane.pop_axis([0, 1, 2], mode_plane.size.index(0.0))
         radial_ax = plane_axs[(mode_spec.bend_axis + 1) % 2]
 
-        if np.abs(mode_spec.bend_radius) < mode_plane.size[radial_ax] / 2:
+        if np.abs(mode_spec.bend_radius) <= mode_plane.size[radial_ax] / 2 + fp_eps:
             raise ValueError(
                 "Mode solver bend radius is smaller than half the mode plane size "
                 "along the radial axis, which can produce wrong results."
@@ -315,6 +346,11 @@ class ModeSolver(Tidy3dBaseModel):
                 "Too many grid points on the modal plane. Please reduce the modal plane size, apply a coarser grid, "
                 "or reduce the number of modes."
             )
+
+    @classmethod
+    def _validate_microwave_mode_spec(cls, mode_spec: MicrowaveModeSpec, plane: Box) -> None:
+        """Validate that the microwave mode spec is correctly setup."""
+        mode_spec._check_path_integrals_within_box(plane)
 
     @cached_property
     def normal_axis(self) -> Axis:
@@ -340,7 +376,7 @@ class ModeSolver(Tidy3dBaseModel):
         normal_axis = plane.size.index(0.0)
         mode_symmetry = list(simulation.symmetry)
         for dim in range(3):
-            if simulation.center[dim] != plane.center[dim]:
+            if not isclose(simulation.center[dim], plane.center[dim]):
                 mode_symmetry[dim] = 0
         _, solver_sym = plane.pop_axis(mode_symmetry, axis=normal_axis)
         return solver_sym
@@ -418,8 +454,14 @@ class ModeSolver(Tidy3dBaseModel):
         """Get the number of spatial points, number of freqs, and number of modes requested."""
         num_cells = np.prod(self._solver_grid.num_cells)
         num_modes = self.mode_spec.num_modes
-        num_freqs = len(self.freqs)
+        num_freqs = len(self._sampling_freqs)
         return num_cells, num_freqs, num_modes
+
+    @property
+    def _has_microwave_mode_spec(self) -> bool:
+        """Check if the mode solver is using a :class:`.MicrowaveModeSpec`.,
+        and will thus be creating :class:`.MicrowaveModeSolverData`."""
+        return isinstance(self.mode_spec, MicrowaveModeSpec)
 
     def solve(self) -> ModeSolverData:
         """:class:`.ModeSolverData` containing the field and effective index data.
@@ -436,39 +478,14 @@ class ModeSolver(Tidy3dBaseModel):
         )
         return self.data
 
-    def _freqs_for_group_index(self) -> FreqArray:
+    def _freqs_for_group_index(self, freqs: FreqArray) -> FreqArray:
         """Get frequencies used to compute group index."""
-        f_step = self.mode_spec.group_index_step
-        fractional_steps = (1 - f_step, 1, 1 + f_step)
-        return np.outer(self.freqs, fractional_steps).flatten()
+        return self.mode_spec._freqs_for_group_index(freqs=self.freqs)
 
-    def _remove_freqs_for_group_index(self) -> FreqArray:
-        """Remove frequencies used to compute group index.
-
-        Returns
-        -------
-        FreqArray
-            Filtered frequency array with only original values.
-        """
-        return np.array(self.freqs[1 : len(self.freqs) : 3])
-
-    def _get_data_with_group_index(self) -> ModeSolverData:
-        """:class:`.ModeSolverData` with fields, effective and group indices on unexpanded grid.
-
-        Returns
-        -------
-        ModeSolverData
-            :class:`.ModeSolverData` object containing the effective and group indices, and mode
-            fields.
-        """
-
-        # create a copy with the required frequencies for numerical differentiation
-        mode_spec = self.mode_spec.copy(update={"group_index_step": False})
-        mode_solver = self.copy(
-            update={"freqs": self._freqs_for_group_index(), "mode_spec": mode_spec}
-        )
-
-        return mode_solver.data_raw._group_index_post_process(self.mode_spec.group_index_step)
+    @cached_property
+    def _sampling_freqs(self) -> FreqArray:
+        """Get frequencies used to compute group index and interpolation."""
+        return self.mode_spec._sampling_freqs_mode_solver(freqs=self.freqs)
 
     @cached_property
     def grid_snapped(self) -> Grid:
@@ -491,23 +508,22 @@ class ModeSolver(Tidy3dBaseModel):
         return simulation._snap_zero_dim(grid_snapped, skip_axis=normal_axis)
 
     @cached_property
-    def data_raw(self) -> ModeSolverData:
+    def data_raw(self) -> ModeSolverDataType:
         """:class:`.ModeSolverData` containing the field and effective index on unexpanded grid.
 
         Returns
         -------
-        ModeSolverData
-            :class:`.ModeSolverData` object containing the effective index and mode fields.
+        ModeSolverDataType
+            A mode solver data type object containing the effective index and mode fields.
         """
-
-        if self.mode_spec.group_index_step > 0:
-            return self._get_data_with_group_index()
 
         if self.mode_spec.angle_rotation and np.abs(self.mode_spec.angle_theta) > 0:
             return self.rotated_mode_solver_data
 
         # Compute data on the Yee grid
         mode_solver_data = self._data_on_yee_grid()
+        if self._has_microwave_mode_spec:
+            mode_solver_data = MicrowaveModeSolverData(**mode_solver_data.dict(exclude={"type"}))
 
         # Colocate to grid boundaries if requested
         if self.colocate:
@@ -517,16 +533,38 @@ class ModeSolver(Tidy3dBaseModel):
         self._normalize_modes(mode_solver_data=mode_solver_data)
 
         # filter polarization if requested
-        if self.mode_spec.filter_pol is not None:
-            self._filter_polarization(mode_solver_data=mode_solver_data)
+        mode_solver_data = self._filter_polarization(mode_solver_data=mode_solver_data)
 
-        # sort modes if requested
-        if self.mode_spec.track_freq and len(self.freqs) > 1:
-            mode_solver_data = mode_solver_data.overlap_sort(self.mode_spec.track_freq)
+        # filter and sort modes if requested by sort_spec
+        mode_solver_data = mode_solver_data.sort_modes(
+            sort_spec=self.mode_spec.sort_spec,
+            track_freq=self.mode_spec.track_freq,
+        )
 
         self._field_decay_warning(mode_solver_data.symmetry_expanded)
-
         mode_solver_data = self._filter_components(mode_solver_data)
+
+        if self.mode_spec.group_index_step > 0:
+            mode_solver_data = mode_solver_data._group_index_post_process(
+                self.mode_spec.group_index_step
+            )
+
+        if self.mode_spec._is_interp_spec_applied(self.freqs):
+            # set interp_spec back
+            interp_spec = self.mode_spec.interp_spec.updated_copy(reduce_data=True)
+            mode_solver_data = mode_solver_data.updated_copy(
+                monitor=mode_solver_data.monitor.updated_copy(
+                    freqs=self.freqs,
+                    mode_spec=self.mode_spec.updated_copy(interp_spec=interp_spec),
+                )
+            )
+
+            if not self.mode_spec.interp_spec.reduce_data:
+                mode_solver_data = mode_solver_data.interpolated_copy
+
+        # Calculate and add the characteristic impedance
+        if self._has_microwave_mode_spec:
+            mode_solver_data = self._add_microwave_data(mode_solver_data)
         return mode_solver_data
 
     @cached_property
@@ -563,15 +601,7 @@ class ModeSolver(Tidy3dBaseModel):
         # # if self.mode_spec.bend_radius is None, use this instead
         #     solver_ref_data_straight = self._ref_data_straight(mode_solver_data=solver_ref_data)
 
-        try:
-            solver = self.reduced_simulation_copy
-        except Exception as e:
-            solver = self
-            log.warning(
-                "Mode solver reduced_simulation_copy failed. "
-                "Falling back to non-reduced simulation, which may be slower. "
-                f"Exception: {e!s}"
-            )
+        solver = self._reduced_simulation_copy_with_fallback
 
         # Compute the mode solution by rotating the reference data to the monitor plane
         rotated_mode_fields = self._mode_rotation(
@@ -588,10 +618,10 @@ class ModeSolver(Tidy3dBaseModel):
         # to compute the backward propagation mode solution using a mode solver
         # with direction "-".
         eps_spec = []
-        for _ in self.freqs:
+        for _ in solver.freqs:
             eps_spec.append("tensorial_complex")
         # finite grid corrections
-        grid_factors = solver._grid_correction(
+        grid_factors, relative_grid_distances = solver._grid_correction(
             simulation=solver.simulation,
             plane=solver.plane,
             mode_spec=solver.mode_spec,
@@ -610,6 +640,8 @@ class ModeSolver(Tidy3dBaseModel):
             grid_primal_correction=grid_factors[0],
             grid_dual_correction=grid_factors[1],
             eps_spec=eps_spec,
+            grid_distances_primal=relative_grid_distances[0],
+            grid_distances_dual=relative_grid_distances[1],
             **rotated_mode_fields,
         )
 
@@ -953,7 +985,7 @@ class ModeSolver(Tidy3dBaseModel):
                 xyz_coords = solver.grid_snapped[field_name].to_list
                 x, y, z = (coord.copy() for coord in xyz_coords)
 
-            f = np.atleast_1d(self.freqs)
+            f = np.atleast_1d(self._sampling_freqs)
             mode_index = np.arange(self.mode_spec.num_modes)
 
             # Initialize output arrays
@@ -1122,22 +1154,32 @@ class ModeSolver(Tidy3dBaseModel):
 
         return bend_center
 
-    def _data_on_yee_grid(self) -> ModeSolverData:
-        """Solve for all modes, and construct data with fields on the Yee grid."""
-
+    @cached_property
+    def _reduced_simulation_copy_with_fallback(self) -> ModeSolver:
+        """Try to get a reduced simulation copy. If it fails, fall back to the non-reduced simulation."""
         # we try to do reduced simulation copy for efficiency
         # it should never fail -- if it does, this is likely due to an oversight
         # in the Simulation.subsection method. but falling back to non-reduced
         # simulation prevents unneeded errors in this case
         try:
-            solver = self.reduced_simulation_copy
+            return self.reduced_simulation_copy
         except Exception as e:
-            solver = self
             log.warning(
                 "Mode solver reduced_simulation_copy failed. "
                 "Falling back to non-reduced simulation, which may be slower. "
                 f"Exception: {e!s}"
             )
+            return self
+
+    def _data_on_yee_grid(self) -> ModeSolverData:
+        """Solve for all modes, and construct data with fields on the Yee grid."""
+        solver = self._reduced_simulation_copy_with_fallback
+
+        # set freqs to the sampling frequencies
+        # temporary remove interp_spec
+        solver = solver.updated_copy(
+            freqs=self._sampling_freqs, mode_spec=self.mode_spec.updated_copy(interp_spec=None)
+        )
 
         _, _solver_coords = solver.plane.pop_axis(
             solver._solver_grid.boundaries.to_list, axis=solver.normal_axis
@@ -1174,7 +1216,7 @@ class ModeSolver(Tidy3dBaseModel):
             data_dict[field_name] = scalar_field_data
 
         # finite grid corrections
-        grid_factors = solver._grid_correction(
+        grid_factors, relative_grid_distances = solver._grid_correction(
             simulation=solver.simulation,
             plane=solver.plane,
             mode_spec=solver.mode_spec,
@@ -1192,6 +1234,8 @@ class ModeSolver(Tidy3dBaseModel):
             grid_expanded=grid_expanded,
             grid_primal_correction=grid_factors[0],
             grid_dual_correction=grid_factors[1],
+            grid_distances_primal=relative_grid_distances[0],
+            grid_distances_dual=relative_grid_distances[1],
             eps_spec=eps_spec,
             **data_dict,
         )
@@ -1246,7 +1290,7 @@ class ModeSolver(Tidy3dBaseModel):
             data_dict[field_name] = scalar_field_data
 
         # finite grid corrections
-        grid_factors = self._grid_correction(
+        grid_factors, relative_grid_distances = self._grid_correction(
             simulation=self.simulation,
             plane=self.plane,
             mode_spec=self.mode_spec,
@@ -1264,6 +1308,8 @@ class ModeSolver(Tidy3dBaseModel):
             grid_expanded=grid_expanded,
             grid_primal_correction=grid_factors[0],
             grid_dual_correction=grid_factors[1],
+            grid_distances_primal=relative_grid_distances[0],
+            grid_distances_dual=relative_grid_distances[1],
             eps_spec=eps_spec,
             **data_dict,
         )
@@ -1301,18 +1347,19 @@ class ModeSolver(Tidy3dBaseModel):
             data_dict_colocated[key] = field.interp(**colocate_coords).astype(field.dtype)
 
         # Update data
-        mode_solver_monitor = self.to_mode_solver_monitor(name=MODE_MONITOR_NAME)
+        mode_solver_monitor = self.to_mode_solver_monitor(
+            name=MODE_MONITOR_NAME,
+            mode_spec=mode_solver_data.monitor.mode_spec,
+            freqs=mode_solver_data.monitor.freqs,
+        )
         grid_expanded = self.simulation.discretize_monitor(mode_solver_monitor)
         data_dict_colocated.update({"monitor": mode_solver_monitor, "grid_expanded": grid_expanded})
-        mode_solver_data = mode_solver_data._updated(update=data_dict_colocated)
-
+        mode_solver_data = mode_solver_data.updated_copy(**data_dict_colocated, deep=False)
         return mode_solver_data
 
-    def _normalize_modes(self, mode_solver_data: ModeSolverData):
+    def _normalize_modes(self, mode_solver_data: ModeSolverData) -> None:
         """Normalize modes. Note: this modifies ``mode_solver_data`` in-place."""
-        scaling = np.sqrt(np.abs(mode_solver_data.flux))
-        for field in mode_solver_data.field_components.values():
-            field /= scaling
+        mode_solver_data._normalize_modes()
 
     def _filter_components(self, mode_solver_data: ModeSolverData):
         skip_components = {
@@ -1323,11 +1370,20 @@ class ModeSolver(Tidy3dBaseModel):
         return mode_solver_data.updated_copy(**skip_components, validate=False)
 
     def _filter_polarization(self, mode_solver_data: ModeSolverData):
-        """Filter polarization. Note: this modifies ``mode_solver_data`` in-place."""
+        """Filter polarization."""
+        filter_pol = self.mode_spec.filter_pol
+        if filter_pol is None:
+            return mode_solver_data
+
+        num_freqs = len(self._sampling_freqs)
+        num_modes = self.mode_spec.num_modes
+        identity = np.arange(num_modes)
+        sort_inds_2d = np.tile(identity, (num_freqs, 1))
+
         pol_frac = mode_solver_data.pol_fraction
-        for ifreq in range(len(self.freqs)):
-            te_frac = pol_frac.te.isel(f=ifreq)
-            if self.mode_spec.filter_pol == "te":
+        for ifreq in range(num_freqs):
+            te_frac = pol_frac.te.isel(f=ifreq).values
+            if filter_pol == "te":
                 sort_inds = np.concatenate(
                     (
                         np.where(te_frac >= 0.5)[0],
@@ -1335,7 +1391,7 @@ class ModeSolver(Tidy3dBaseModel):
                         np.where(np.isnan(te_frac))[0],
                     )
                 )
-            elif self.mode_spec.filter_pol == "tm":
+            elif filter_pol == "tm":
                 sort_inds = np.concatenate(
                     (
                         np.where(te_frac <= 0.5)[0],
@@ -1343,22 +1399,73 @@ class ModeSolver(Tidy3dBaseModel):
                         np.where(np.isnan(te_frac))[0],
                     )
                 )
-            for data in [
-                *list(mode_solver_data.field_components.values()),
-                mode_solver_data.n_complex,
-                mode_solver_data.grid_primal_correction,
-                mode_solver_data.grid_dual_correction,
-            ]:
-                data.values[..., ifreq, :] = data.values[..., ifreq, sort_inds]
+            sort_inds_2d[ifreq, : len(sort_inds)] = sort_inds
+
+        # If no reordering needed across all frequencies, skip
+        if np.all(sort_inds_2d == np.tile(identity, (num_freqs, 1))):
+            return mode_solver_data
+
+        return mode_solver_data._apply_mode_reorder(sort_inds_2d)
+
+    def _make_path_integrals(
+        self,
+    ) -> tuple[tuple[Optional[VoltageIntegralType]], tuple[Optional[CurrentIntegralType]]]:
+        """Wrapper for making path integrals from the MicrowaveModeSpec. Note: overriden in the backend to support
+        auto creation of path integrals."""
+        if not self._has_microwave_mode_spec:
+            raise ValueError(
+                "Cannot make path integrals for when 'mode_spec' is not a 'MicrowaveModeSpec'."
+            )
+        return make_path_integrals(self.mode_spec)
+
+    def _add_microwave_data(
+        self, mode_solver_data: MicrowaveModeSolverData
+    ) -> MicrowaveModeSolverData:
+        """Calculate and add microwave data to ``mode_solver_data`` which uses the path specifications."""
+        voltage_integrals, current_integrals = self._make_path_integrals()
+        # Need to operate on the full symmetry expanded fields
+        mode_solver_data_expanded = mode_solver_data.symmetry_expanded_copy
+        Z0_list = []
+        V_list = []
+        I_list = []
+        if len(voltage_integrals) == 1 and self.mode_spec.num_modes > 1:
+            voltage_integrals = voltage_integrals * self.mode_spec.num_modes
+            current_integrals = current_integrals * self.mode_spec.num_modes
+        for mode_index in range(self.mode_spec.num_modes):
+            vi = voltage_integrals[mode_index]
+            ci = current_integrals[mode_index]
+            if vi is None and ci is None:
+                continue
+            impedance_calc = ImpedanceCalculator(
+                voltage_integral=voltage_integrals[mode_index],
+                current_integral=current_integrals[mode_index],
+            )
+            single_mode_data = mode_solver_data_expanded._isel(mode_index=[mode_index])
+            Z0, voltage, current = impedance_calc.compute_impedance(
+                single_mode_data, return_voltage_and_current=True
+            )
+            Z0_list.append(Z0)
+            V_list.append(voltage)
+            I_list.append(current)
+        all_mode_Z0 = xr.concat(Z0_list, dim="mode_index")
+        all_mode_Z0 = _make_impedance_data_array(all_mode_Z0)
+        all_mode_V = xr.concat(V_list, dim="mode_index")
+        all_mode_V = _make_voltage_data_array(all_mode_V)
+        all_mode_I = xr.concat(I_list, dim="mode_index")
+        all_mode_I = _make_current_data_array(all_mode_I)
+        mw_data = TransmissionLineDataset(
+            Z0=all_mode_Z0, voltage_coeffs=all_mode_V, current_coeffs=all_mode_I
+        )
+        return mode_solver_data.updated_copy(transmission_line_data=mw_data)
 
     @cached_property
-    def data(self) -> ModeSolverData:
+    def data(self) -> ModeSolverDataType:
         """:class:`.ModeSolverData` containing the field and effective index data.
 
         Returns
         -------
-        ModeSolverData
-            :class:`.ModeSolverData` object containing the effective index and mode fields.
+        ModeSolverDataType
+            A mode solver data type object containing the effective index and mode fields.
         """
         mode_solver_data = self.data_raw
         return mode_solver_data.symmetry_expanded_copy
@@ -1719,7 +1826,7 @@ class ModeSolver(Tidy3dBaseModel):
 
         return ((Ex, Ey, Ez), (Hx, Hy, Hz))
 
-    def _field_decay_warning(self, field_data: ModeSolverData):
+    def _field_decay_warning(self, field_data: ModeSolverData) -> None:
         """Warn if any of the modes do not decay at the edges."""
         _, plane_dims = self.plane.pop_axis(["x", "y", "z"], axis=self.normal_axis)
         field_sizes = field_data.Ex.sizes
@@ -1752,24 +1859,38 @@ class ModeSolver(Tidy3dBaseModel):
         mode_spec: ModeSpec,
         n_complex: ModeIndexDataArray,
         direction: Direction,
-    ) -> [FreqModeDataArray, FreqModeDataArray]:
-        """Correct the fields due to propagation on the grid.
+    ) -> tuple[
+        tuple[FreqModeDataArray, FreqModeDataArray], tuple[tuple[float, ...], tuple[float, ...]]
+    ]:
+        """
+        Compute grid correction factors for the mode fields.
 
-        Return a copy of the :class:`.ModeSolverData` with the fields renormalized to account
-        for propagation on a finite grid along the propagation direction. The fields are assumed to
-        have ``E exp(1j k r)`` dependence on the finite grid and are then resampled using linear
-        interpolation to the exact position of the mode plane. This is needed to correctly compute
-        overlap with fields that come from a :class:`.FieldMonitor` placed in the same grid.
+        This method calculates the phase correction factors necessary to account for propagation
+        on a finite numerical grid along the propagation direction (normal to the mode plane).
+        The correction is based on the assumed ``E * exp(1j k r)`` field dependence, where the
+        fields are resampled using linear interpolation to precisely match the mode plane position.
+        This is needed to correctly compute overlap with fields that come from
+        a :class:`.FieldMonitor` placed in the same grid.
 
         Parameters
         ----------
-        grid : :class:`.Grid`
-            Numerical grid on which the modes are assumed to propagate.
+        simulation : MODE_SIMULATION_TYPE
+            Simulation object, which provides the grid structure.
+        plane : Box
+            The mode plane (its normal and center define the propagation direction and position).
+        mode_spec : ModeSpec
+            Mode specification with relevant propagation angle and properties.
+        n_complex : ModeIndexDataArray
+            Complex effective index array for the modes.
+        direction : Direction
+            Direction of propagation; "+" for forward or "-" for backward.
 
         Returns
         -------
-        :class:`.ModeSolverData`
-            Copy of the data with renormalized fields.
+        tuple of FreqModeDataArray
+            A tuple of two FreqModeDataArray objects:
+            (phase_primal, phase_dual), containing the correction phase factors for the primal
+            (tangential E field) and dual (tangential H field) grid locations, respectively.
         """
         normal_axis = plane.size.index(0.0)
         normal_pos = float(plane.center[normal_axis])
@@ -1783,27 +1904,43 @@ class ModeSolver(Tidy3dBaseModel):
         normal_dual = grid.centers.to_list[normal_axis]
         normal_dual = xr.DataArray(normal_dual, coords={normal_dim: normal_dual})
 
-        # Propagation phase at the primal and dual locations. The k-vector is along the propagation
-        # direction, so angle_theta has to be taken into account. The distance along the propagation
-        # direction is the distance along the normal direction over cosine(theta).
-        cos_theta = np.cos(mode_spec.angle_theta)
-        k_vec = cos_theta * 2 * np.pi * n_complex * n_complex.f / C_0
-        if direction == "-":
-            k_vec *= -1
-        phase_primal = np.exp(1j * k_vec * (normal_primal - normal_pos))
-        phase_dual = np.exp(1j * k_vec * (normal_dual - normal_pos))
+        def find_closest_distances_to_grid_points(
+            normal_pos: float, grid_coords: ArrayFloat1D
+        ) -> tuple[float, float]:
+            """Find the closest points to the normal position in the grid coordinates."""
 
-        # Fields are modified by a linear interpolation to the exact monitor position
-        if normal_primal.size > 1:
-            phase_primal = phase_primal.interp(**{normal_dim: normal_pos})
-        else:
-            phase_primal = phase_primal.squeeze(dim=normal_dim)
-        if normal_dual.size > 1:
-            phase_dual = phase_dual.interp(**{normal_dim: normal_pos})
-        else:
-            phase_dual = phase_dual.squeeze(dim=normal_dim)
+            if grid_coords.size == 1:
+                return [float(grid_coords.data[0] - normal_pos)]
 
-        return FreqModeDataArray(phase_primal), FreqModeDataArray(phase_dual)
+            distances = grid_coords.data - normal_pos
+            # First, find the signed distance to the closest grid point
+            closest_distance_ind = np.argmin(np.abs(distances))
+            closest_distance = distances[closest_distance_ind]
+
+            # Then, if the closest distance is positive, take the previous point, otherwise take the next point
+            if closest_distance > 0:
+                first_dist = distances[closest_distance_ind - 1]
+                second_dist = distances[closest_distance_ind]
+            else:
+                first_dist = distances[closest_distance_ind]
+                second_dist = distances[closest_distance_ind + 1]
+
+            # Return the two closest points
+            return [first_dist, second_dist]
+
+        primal_closest_distances = find_closest_distances_to_grid_points(normal_pos, normal_primal)
+        dual_closest_distances = find_closest_distances_to_grid_points(normal_pos, normal_dual)
+
+        grid_correction_factors = ModeSolverData._grid_correction_factors(
+            primal_closest_distances,
+            dual_closest_distances,
+            mode_spec,
+            n_complex,
+            direction,
+            normal_dim,
+        )
+
+        return grid_correction_factors, (primal_closest_distances, dual_closest_distances)
 
     @property
     def _is_tensorial(self) -> bool:
@@ -1818,7 +1955,7 @@ class ModeSolver(Tidy3dBaseModel):
     def _intersecting_media(self) -> list:
         """List of media (including simulation background) intersecting the mode plane."""
         total_structures = [self.simulation.scene.background_structure]
-        total_structures += list(self.simulation.structures)
+        total_structures += list(self.simulation.volumetric_structures)
         return self.simulation.scene.intersecting_media(self.plane, total_structures)
 
     @cached_property
@@ -1838,7 +1975,13 @@ class ModeSolver(Tidy3dBaseModel):
         A separate check is done inside the solver, which looks at the actual
         eps and mu and uses a tolerance to determine whether to use real or complex fields, so
         the actual behavior may differ from what's predicted by this property."""
-        check_freqs = np.unique([np.amin(self.freqs), np.amax(self.freqs), np.mean(self.freqs)])
+        check_freqs = np.unique(
+            [
+                np.amin(self._sampling_freqs),
+                np.amax(self._sampling_freqs),
+                np.mean(self._sampling_freqs),
+            ]
+        )
         for int_mat in self._intersecting_media:
             for freq in check_freqs:
                 max_imag_eps = np.amax(np.abs(np.imag(int_mat.eps_model(freq))))
@@ -1878,9 +2021,9 @@ class ModeSolver(Tidy3dBaseModel):
         direction: Direction = None,
         mode_index: pydantic.NonNegativeInt = 0,
         num_freqs: pydantic.PositiveInt = 1,
-        **kwargs,
+        **kwargs: Any,
     ) -> ModeSource:
-        """Creates :class:`.ModeSource` from a :class:`ModeSolver` instance plus additional
+        """Creates :class:`.ModeSource` from a :class:`.ModeSolver` instance plus additional
         specifications.
 
         Parameters
@@ -1917,7 +2060,7 @@ class ModeSolver(Tidy3dBaseModel):
     def to_monitor(
         self, freqs: Optional[list[float]] = None, name: Optional[str] = None
     ) -> ModeMonitor:
-        """Creates :class:`ModeMonitor` from a :class:`ModeSolver` instance plus additional
+        """Creates :class:`ModeMonitor` from a :class:`.ModeSolver` instance plus additional
         specifications.
 
         Parameters
@@ -1944,18 +2087,28 @@ class ModeSolver(Tidy3dBaseModel):
                 "The default value of 'None' is for backwards compatibility and is not accepted."
             )
 
-        return ModeMonitor(
+        mode_solver_monitor_type = ModeMonitor
+        if self._has_microwave_mode_spec:
+            mode_solver_monitor_type = MicrowaveModeMonitor
+
+        return mode_solver_monitor_type(
             center=self.plane.center,
             size=self.plane.size,
             freqs=freqs,
             mode_spec=self.mode_spec,
+            colocate=self.colocate,
+            conjugated_dot_product=self.conjugated_dot_product,
             name=name,
         )
 
     def to_mode_solver_monitor(
-        self, name: str, colocate: Optional[bool] = None
+        self,
+        name: str,
+        colocate: Optional[bool] = None,
+        mode_spec: Optional[ModeSpec] = None,
+        freqs: Optional[list[float]] = None,
     ) -> ModeSolverMonitor:
-        """Creates :class:`ModeSolverMonitor` from a :class:`ModeSolver` instance.
+        """Creates :class:`ModeSolverMonitor` from a :class:`.ModeSolver` instance.
 
         Parameters
         ----------
@@ -1963,24 +2116,40 @@ class ModeSolver(Tidy3dBaseModel):
             Name of the monitor.
         colocate : bool
             Whether to colocate fields or compute on the Yee grid. If not provided, the value
-            set in the :class:`ModeSolver` instance is used.
+            set in the :class:`.ModeSolver` instance is used.
+        mode_spec : ModeSpec
+            Mode specification to use for the monitor.
+            If not specified, uses the mode specification from the mode solver.
+        freqs : list[float]
+            Frequencies to include in Monitor (Hz).
+            If not specified, uses the frequencies from the mode solver.
 
         Returns
         -------
         :class:`.ModeSolverMonitor`
             Mode monitor with specifications taken from the ModeSolver instance and ``name``.
         """
+        if mode_spec is None:
+            mode_spec = self.mode_spec
+
+        if freqs is None:
+            freqs = self.freqs
 
         if colocate is None:
             colocate = self.colocate
 
-        return ModeSolverMonitor(
+        mode_solver_monitor_type = ModeSolverMonitor
+        if self._has_microwave_mode_spec:
+            mode_solver_monitor_type = MicrowaveModeSolverMonitor
+
+        return mode_solver_monitor_type(
             size=self.plane.size,
             center=self.plane.center,
-            mode_spec=self.mode_spec,
-            freqs=self.freqs,
+            mode_spec=mode_spec,
+            freqs=freqs,
             direction=self.direction,
             colocate=colocate,
+            conjugated_dot_product=self.conjugated_dot_product,
             name=name,
         )
 
@@ -1991,7 +2160,7 @@ class ModeSolver(Tidy3dBaseModel):
         direction: Direction = None,
         mode_index: pydantic.NonNegativeInt = 0,
     ) -> Simulation:
-        """Creates :class:`Simulation` from a :class:`ModeSolver`. Creates a copy of
+        """Creates :class:`.Simulation` from a :class:`.ModeSolver`. Creates a copy of
         the ModeSolver's original simulation with a ModeSource added corresponding to
         the ModeSolver parameters.
 
@@ -2025,7 +2194,7 @@ class ModeSolver(Tidy3dBaseModel):
         freqs: Optional[list[float]] = None,
         name: Optional[str] = None,
     ) -> Simulation:
-        """Creates :class:`.Simulation` from a :class:`ModeSolver`. Creates a copy of
+        """Creates :class:`.Simulation` from a :class:`.ModeSolver`. Creates a copy of
         the ModeSolver's original simulation with a mode monitor added corresponding to
         the ModeSolver parameters.
 
@@ -2053,7 +2222,7 @@ class ModeSolver(Tidy3dBaseModel):
         self,
         name: str,
     ) -> Simulation:
-        """Creates :class:`Simulation` from a :class:`ModeSolver`. Creates a
+        """Creates :class:`.Simulation` from a :class:`.ModeSolver`. Creates a
         copy of the ModeSolver's original simulation with a mode solver monitor
         added corresponding to the ModeSolver parameters.
 
@@ -2083,7 +2252,8 @@ class ModeSolver(Tidy3dBaseModel):
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         ax: Ax = None,
-        **sel_kwargs,
+        cmap: Optional[Union[str, Colormap]] = None,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the field for a :class:`.ModeSolverData` with :class:`.Simulation` plot overlaid.
 
@@ -2110,6 +2280,8 @@ class ModeSolver(Tidy3dBaseModel):
             inferred from the data and other keyword arguments.
         ax : matplotlib.axes._subplots.Axes = None
             matplotlib axes to plot on, if not specified, one is created.
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data.
         sel_kwargs : keyword arguments used to perform ``.sel()`` selection in the monitor data.
             These kwargs can select over the spatial dimensions (``x``, ``y``, ``z``),
             frequency or time dimensions (``f``, ``t``) or `mode_index`, if applicable.
@@ -2134,6 +2306,7 @@ class ModeSolver(Tidy3dBaseModel):
             vmin=vmin,
             vmax=vmax,
             ax=ax,
+            cmap=cmap,
             **sel_kwargs,
         )
 
@@ -2143,7 +2316,7 @@ class ModeSolver(Tidy3dBaseModel):
         hlim: Optional[tuple[float, float]] = None,
         vlim: Optional[tuple[float, float]] = None,
         fill_structures: bool = True,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         """Plot the mode plane simulation's components.
 
@@ -2313,7 +2486,7 @@ class ModeSolver(Tidy3dBaseModel):
     def plot_grid(
         self,
         ax: Ax = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> Ax:
         """Plot the mode plane cell boundaries as lines.
 
@@ -2534,7 +2707,7 @@ class ModeSolver(Tidy3dBaseModel):
 
         return a_center, h_lim, v_lim, t_axes
 
-    def _validate_modes_size(self):
+    def _validate_modes_size(self) -> None:
         """Make sure that the total size of the modes fields is not too large."""
         monitor = self.to_mode_solver_monitor(name=MODE_MONITOR_NAME)
         num_cells = self.simulation._monitor_num_cells(monitor)
@@ -2548,7 +2721,7 @@ class ModeSolver(Tidy3dBaseModel):
                 "frequencies or modes."
             )
 
-    def validate_pre_upload(self, source_required: bool = True):
+    def validate_pre_upload(self) -> None:
         """Validate the fully initialized mode solver is ok for upload to our servers."""
         self._validate_modes_size()
 
@@ -2601,6 +2774,7 @@ class ModeSolver(Tidy3dBaseModel):
             region=new_sim_box,
             monitors=[],
             sources=[],
+            internal_absorbers=[],
             warn_symmetry_expansion=False,  # we already warn upon mode solver creation
             grid_spec="identical",
             boundary_spec=new_bspec,
@@ -2609,6 +2783,7 @@ class ModeSolver(Tidy3dBaseModel):
             include_pml_cells=True,
             validate_geometries=False,
             deep_copy=False,
+            low_freq_smoothing=None,
         )
         # Let's only validate mode solver where geometry validation is skipped: geometry replaced by its bounding
         # box
@@ -2644,7 +2819,7 @@ class ModeSolver(Tidy3dBaseModel):
         :class:`.ModeSolver` webapi."""
         return self.to_fdtd_mode_solver()
 
-    def _patch_data(self, data: ModeSolverData):
+    def _patch_data(self, data: ModeSolverData) -> None:
         """
         Patch the :class:`.ModeSolver` with the provided data so that
         it will be used everywhere instead of locally-computed data.
@@ -2663,3 +2838,15 @@ class ModeSolver(Tidy3dBaseModel):
         self._cached_properties["data_raw"] = data
         self._cached_properties.pop("data", None)
         self._cached_properties.pop("sim_data", None)
+
+    def plot_3d(self, width=800, height=800) -> None:
+        """Render 3D plot of ``ModeSolver`` (in jupyter notebook only).
+        Parameters
+        ----------
+        width : float = 800
+            width of the 3d view dom's size
+        height : float = 800
+            height of the 3d view dom's size
+
+        """
+        return self.simulation.plot_3d(width=width, height=height)

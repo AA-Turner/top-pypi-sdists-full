@@ -510,6 +510,12 @@ class Faker:
         """
         ...
 
+    def bank(self) -> str:
+        """
+        Generate a bank name.
+        """
+        ...
+
     def bank_country(self) -> str:
         """
         Generate the bank provider's ISO 3166-1 alpha-2 country code.
@@ -3026,12 +3032,6 @@ class Faker:
         """
         ...
 
-    def bank(self) -> str:
-        """
-        Generate a bank name.
-        """
-        ...
-
     def large_company(self) -> str:
         """
         :example: 'SOCAR'
@@ -3762,6 +3762,29 @@ class Faker:
     def random_good_service_adjective_chain(self) -> str: ...
     def random_noun_ish_good_trait(self) -> str: ...
     def random_object_of_concern(self) -> str: ...
+    def ape_code(self, version: Optional[str] = ...) -> str:
+        """
+        Generate an APE code (also known as NAF code).
+        It identify french company main branch of activity.
+
+        It provide numbers from nomenclature `version` `naf-2003` (default)
+        or `naf-2025`.
+        To have it generate a truly random (and possibly invalid number) set
+        `version` to `None`
+
+
+        :param version: Set to ``"naf-2003"`` to return a valid NAF 2003 APE code.
+        Set to ``"naf-2025"`` to return a valid NAF 2025 APE code.
+        Set to ``None`` to return a truly random and possibly invalid number
+        Defaults to ``"naf-2003"``
+
+        :sample:
+        :sample: version="naf-2003"
+        :sample: version="naf-2025"
+        :sample: version=None
+        """
+        ...
+
     def catch_phrase_attribute(self) -> str:
         """
         Returns a random catch phrase attribute.
@@ -3791,6 +3814,22 @@ class Faker:
         """
         Generates a IDE number (9 digits).
         http://www.bfs.admin.ch/bfs/portal/fr/index/themen/00/05/blank/03/02.html
+        """
+        ...
+
+    def rcs_number(self, city: str = ..., letter: str = ..., siren: str = ...) -> str:
+        """
+        Generate a RCS number for french companies.
+        It is a concatenation of "RCS", a city name, a letter A (if sole proprietorships, or B other companies)
+        and the company SIREN
+
+        :param city: Force city name
+        :param letter: Force letter
+        :param siren: Force SIREN
+
+        :sample:
+        :sample: siren="123 456 789"
+        :sample: city="Lyon" letter="B" siren="123 456 789"
         """
         ...
 

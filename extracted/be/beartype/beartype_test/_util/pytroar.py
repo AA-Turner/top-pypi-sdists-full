@@ -7,7 +7,7 @@
 **Hear beartype tests roar** as it handles errors and warnings.
 
 This submodule defines hierarchies of :mod:`beartype_test`-specific exceptions
-and warnings emitted by unit and functional tests and fixtures.
+and warnings emitted by unit and integration tests and fixtures.
 '''
 
 # ....................{ IMPORTS                            }....................
@@ -19,7 +19,7 @@ and warnings emitted by unit and functional tests and fixtures.
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 from abc import ABCMeta as _ABCMeta
 from beartype.roar import BeartypeException
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatyping import TypeException
 from contextlib import contextmanager
 from pytest import raises
 
@@ -77,7 +77,7 @@ class BeartypeTestException(BeartypeException, metaclass=_ABCMeta):
     Abstract base class of all **beartype test exceptions.**
 
     Instances of subclasses of this exception are raised at test time from
-    :mod:`beartype_test`-specific unit and functional tests and fixtures.
+    :mod:`beartype_test`-specific unit and integration tests and fixtures.
     '''
 
     pass

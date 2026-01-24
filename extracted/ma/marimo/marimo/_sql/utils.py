@@ -1,6 +1,7 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
 from marimo import _loggers
@@ -19,6 +20,8 @@ if TYPE_CHECKING:
     from polars._typing import ConnectionOrCursor
 
 LOGGER = _loggers.marimo_logger()
+
+CHEAP_DISCOVERY_DATABASES = ["duckdb", "sqlite", "mysql", "postgresql"]
 
 
 def wrapped_sql(
@@ -43,11 +46,18 @@ def wrapped_sql(
     except ContextNotInitializedError:
         relation = connection.sql(query=query)
     else:
-        relation = eval(
-            "connection.sql(query=query)",
-            ctx.globals,
-            {"query": query, "connection": connection},
+        install_connection = (
+            ctx.execution_context.with_connection
+            if ctx.execution_context is not None
+            else nullcontext
         )
+        with install_connection(connection):
+            relation = eval(
+                "connection.sql(query=query)",
+                ctx.globals,
+                {"query": query, "connection": connection},
+            )
+
     return relation
 
 
@@ -56,7 +66,7 @@ def try_convert_to_polars(
     query: str,
     connection: ConnectionOrCursor,
     lazy: bool,
-) -> tuple[Optional[pl.DataFrame | pl.LazyFrame], Optional[str]]:
+) -> tuple[Optional[pl.DataFrame | pl.LazyFrame], Optional[Exception]]:
     """Try to convert the query to a polars dataframe.
 
     Returns:
@@ -183,6 +193,51 @@ def is_explain_query(query: str) -> bool:
     return query.lstrip().lower().startswith("explain ")
 
 
+def wrap_query_with_explain(query: str) -> str:
+    """
+    Wrap a SQL query with an EXPLAIN query if it is not already.
+
+    If the query is just comments, return it. Executing this would return nothing.
+    """
+    if is_explain_query(query):
+        return query
+
+    return f"EXPLAIN {query}"
+
+
+def is_query_empty(query: str) -> bool:
+    """Check if a SQL query is empty or just comments"""
+    stripped = query.strip()
+    if not stripped:
+        return True
+
+    # If the query starts with -- or /*, it's likely just comments
+    if stripped.startswith("--") or stripped.startswith("/*"):
+        import re
+
+        # Remove /* */ comments
+        no_block_comments = re.sub(r"/\*.*?\*/", "", query, flags=re.DOTALL)
+
+        # Remove -- comments (just split on \n and check each line)
+        lines = no_block_comments.split("\n")
+        for line in lines:
+            # Find first non-whitespace character
+            for char in line:
+                if char.isspace():
+                    continue
+                elif char == "-":
+                    if line.strip().startswith("--"):
+                        break  # This line is a comment, continue to next line
+                    else:
+                        return False  # Found non-comment content
+                else:
+                    return False  # Found non-comment content
+        return True
+
+    # If it doesn't start with comment markers, it's not empty
+    return False
+
+
 def extract_explain_content(df: Any) -> str:
     """Extract all content from a DataFrame for EXPLAIN queries.
 
@@ -217,3 +272,43 @@ def extract_explain_content(df: Any) -> str:
     except Exception as e:
         LOGGER.debug("Failed to extract explain content: %s", e)
         return repr(df)
+
+
+def strip_explain_from_error_message(error_message: str) -> str:
+    """Strip EXPLAIN from an error message. Also adjusts the caret position
+
+    Example:
+    ```
+    LINE 1: EXPLAIN SELECT * FROM t
+                                  ^
+    ```
+    becomes
+    ```
+    LINE 1: SELECT * FROM t
+                          ^
+    ```
+    """
+    # Find the first occurrence of "EXPLAIN " and replace it
+    explain_pos = error_message.find("EXPLAIN ")
+    if explain_pos == -1:
+        return error_message
+
+    explain_length = len("EXPLAIN ")
+
+    # Replace the first "EXPLAIN " with empty string
+    result = (
+        error_message[:explain_pos]
+        + error_message[explain_pos + explain_length :]
+    )
+
+    # Find the next newline and strip the same amount from the next line
+    next_newline = result.find("\n", explain_pos)
+    if next_newline != -1 and next_newline + explain_length < len(result):
+        # Remove the same length from the beginning of the next line
+        # This is the caret position
+        result = (
+            result[: next_newline + 1]
+            + result[next_newline + 1 + explain_length :]
+        )
+
+    return result

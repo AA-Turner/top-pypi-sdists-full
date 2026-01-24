@@ -8,21 +8,9 @@
 #include "slang/ast/expressions/MiscExpressions.h"
 
 #include "slang/ast/ASTSerializer.h"
+#include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Compilation.h"
 #include "slang/ast/EvalContext.h"
-#include "slang/ast/TimingControl.h"
-#include "slang/ast/expressions/AssertionExpr.h"
-#include "slang/ast/expressions/ConversionExpression.h"
-#include "slang/ast/expressions/OperatorExpressions.h"
-#include "slang/ast/symbols/BlockSymbols.h"
-#include "slang/ast/symbols/ClassSymbols.h"
-#include "slang/ast/symbols/InstanceSymbols.h"
-#include "slang/ast/symbols/MemberSymbols.h"
-#include "slang/ast/symbols/ParameterSymbols.h"
-#include "slang/ast/symbols/SubroutineSymbols.h"
-#include "slang/ast/symbols/VariableSymbols.h"
-#include "slang/ast/types/AllTypes.h"
-#include "slang/ast/types/NetType.h"
 #include "slang/diagnostics/AnalysisDiags.h"
 #include "slang/diagnostics/ConstEvalDiags.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
@@ -402,24 +390,6 @@ ConstantValue NamedValueExpression::evalImpl(EvalContext& context) const {
             break;
     }
 
-    // Special casing for covergroup expressions: they are required to be
-    // constant, except they can also reference local non-elaboration constants
-    // and non-ref formal args.
-    if (context.flags.has(EvalFlags::CovergroupExpr)) {
-        if (symbol.kind == SymbolKind::FormalArgument) {
-            if (symbol.as<FormalArgumentSymbol>().direction == ArgumentDirection::Ref)
-                context.addDiag(diag::CoverageExprVar, sourceRange);
-        }
-        else if (VariableSymbol::isKind(symbol.kind)) {
-            if (!symbol.as<VariableSymbol>().flags.has(VariableFlags::Const))
-                context.addDiag(diag::CoverageExprVar, sourceRange);
-        }
-        else if (symbol.kind != SymbolKind::Parameter && symbol.kind != SymbolKind::EnumValue) {
-            context.addDiag(diag::CoverageExprVar, sourceRange);
-        }
-        return nullptr;
-    }
-
     // If we reach this point, the variable was not found, which should mean that
     // it's not actually constant.
     auto& diag = context.addDiag(diag::ConstEvalNonConstVariable, sourceRange) << symbol.name;
@@ -439,6 +409,10 @@ LValue NamedValueExpression::evalLValueImpl(EvalContext& context) const {
     }
 
     return LValue(*cv);
+}
+
+bool NamedValueExpression::isEquivalentImpl(const NamedValueExpression& rhs) const {
+    return &symbol == &rhs.symbol;
 }
 
 bool NamedValueExpression::checkConstant(EvalContext& context) const {
@@ -495,14 +469,19 @@ bool NamedValueExpression::checkConstant(EvalContext& context) const {
     return true;
 }
 
-HierarchicalValueExpression::HierarchicalValueExpression(const Scope& scope,
-                                                         const ValueSymbol& symbol,
+HierarchicalValueExpression::HierarchicalValueExpression(const ValueSymbol& symbol,
                                                          const HierarchicalReference& ref,
                                                          SourceRange sourceRange) :
     ValueExpressionBase(ExpressionKind::HierarchicalValue, symbol, sourceRange), ref(ref) {
     SLANG_ASSERT(ref.target == &symbol);
     this->ref.expr = this;
+}
 
+HierarchicalValueExpression::HierarchicalValueExpression(const Scope& scope,
+                                                         const ValueSymbol& symbol,
+                                                         const HierarchicalReference& ref,
+                                                         SourceRange sourceRange) :
+    HierarchicalValueExpression(symbol, ref, sourceRange) {
     if (this->ref.isUpward())
         scope.getCompilation().noteUpwardReference(scope, this->ref);
 }
@@ -537,6 +516,12 @@ ConstantValue HierarchicalValueExpression::evalImpl(EvalContext& context) const 
             context.addDiag(diag::ConstEvalHierarchicalName, sourceRange) << symbol.name;
             return nullptr;
     }
+}
+
+bool HierarchicalValueExpression::isEquivalentImpl(const HierarchicalValueExpression& rhs) const {
+    // We say two hierarchical value expressions are equivalent if they refer to the same symbol,
+    // even if their hierarchical paths differ.
+    return &symbol == &rhs.symbol;
 }
 
 Expression& DataTypeExpression::fromSyntax(Compilation& compilation, const DataTypeSyntax& syntax,
@@ -595,9 +580,12 @@ Expression& ArbitrarySymbolExpression::fromSyntax(Compilation& comp, const NameS
                                                     &hierRef, syntax.sourceRange());
 }
 
+bool ArbitrarySymbolExpression::isEquivalentImpl(const ArbitrarySymbolExpression& rhs) const {
+    return symbol == rhs.symbol;
+}
+
 void ArbitrarySymbolExpression::serializeTo(ASTSerializer& serializer) const {
-    if (symbol)
-        serializer.writeLink("symbol", *symbol);
+    serializer.writeLink("symbol", *symbol);
 }
 
 ConstantValue LValueReferenceExpression::evalImpl(EvalContext& context) const {
@@ -615,7 +603,7 @@ Expression& ClockingEventExpression::fromSyntax(const ClockingPropertyExprSyntax
     // clock to use. We don't want usage inside of an always_comb to report an error
     // about passing time, so clear out the context's procedure to avoid that.
     ASTContext context(argContext);
-    context.clearInstanceAndProc();
+    context.clearSymbolCtx();
     context.flags |= ASTFlags::NonProcedural;
 
     auto& comp = context.getCompilation();
@@ -625,6 +613,10 @@ Expression& ClockingEventExpression::fromSyntax(const ClockingPropertyExprSyntax
         context.addDiag(diag::UnexpectedClockingExpr, syntax.expr->sourceRange());
 
     return *comp.emplace<ClockingEventExpression>(comp.getVoidType(), timing, syntax.sourceRange());
+}
+
+bool ClockingEventExpression::isEquivalentImpl(const ClockingEventExpression& rhs) const {
+    return timingControl.isEquivalentTo(rhs.timingControl);
 }
 
 void ClockingEventExpression::serializeTo(ASTSerializer& serializer) const {
@@ -756,12 +748,12 @@ bool AssertionInstanceExpression::checkAssertionArg(const PropertyExprSyntax& pr
     return true;
 }
 
-static const AssertionExpr& bindAssertionBody(const Symbol& symbol, const SyntaxNode& syntax,
-                                              const ASTContext& context,
-                                              SourceLocation outputLocalVarArgLoc,
-                                              AssertionInstanceDetails& instance,
-                                              SmallVectorBase<const Symbol*>& localVars) {
-    auto createLocals = [&](auto& syntaxType) {
+static const AssertionExpr& bindAssertionBody(
+    const Symbol& symbol, const SyntaxNode& syntax, const ASTContext& context,
+    SourceLocation outputLocalVarArgLoc, AssertionInstanceDetails& instance,
+    SmallVectorBase<const LocalAssertionVarSymbol*>& localVars) {
+
+    auto createLocals = [&](auto& syntaxType, std::span<const AssertionPortSymbol* const> ports) {
         auto& scope = symbol.as<Scope>();
         for (auto varSyntax : syntaxType.variables) {
             SmallVector<const LocalAssertionVarSymbol*> vars;
@@ -785,11 +777,21 @@ static const AssertionExpr& bindAssertionBody(const Symbol& symbol, const Syntax
                 }
             }
         }
+
+        // Local variable formal args act as if they were local variable declarations,
+        // rather than going through the usual argument substitution process.
+        for (auto formal : ports) {
+            if (formal->isLocalVar()) {
+                auto& var = LocalAssertionVarSymbol::fromPort(*context.scope, *formal);
+                instance.localVars.emplace(var.name, &var);
+                localVars.push_back(&var);
+            }
+        }
     };
 
     if (symbol.kind == SymbolKind::Sequence) {
         auto& sds = syntax.as<SequenceDeclarationSyntax>();
-        createLocals(sds);
+        createLocals(sds, symbol.as<SequenceSymbol>().ports);
 
         auto& result = AssertionExpr::bind(*sds.seqExpr, context);
         result.requireSequence(context);
@@ -806,7 +808,7 @@ static const AssertionExpr& bindAssertionBody(const Symbol& symbol, const Syntax
     }
     else {
         auto& pds = syntax.as<PropertyDeclarationSyntax>();
-        createLocals(pds);
+        createLocals(pds, symbol.as<PropertySymbol>().ports);
         return AssertionExpr::bind(*pds.propertySpec, context);
     }
 }
@@ -902,7 +904,7 @@ Expression& AssertionInstanceExpression::fromLookup(const Symbol& symbol,
     bool bad = false;
     uint32_t orderedIndex = 0;
     SourceLocation outputLocalVarArgLoc;
-    SmallVector<std::tuple<const Symbol*, ActualArg>, 4> actualArgs;
+    SmallVector<std::tuple<const AssertionPortSymbol*, ActualArg>, 4> actualArgs;
 
     for (auto formal : formalPorts) {
         const ASTContext* argCtx = &context;
@@ -1033,7 +1035,7 @@ Expression& AssertionInstanceExpression::fromLookup(const Symbol& symbol,
     auto bodySyntax = symbol.getSyntax();
     SLANG_ASSERT(bodySyntax);
 
-    SmallVector<const Symbol*> localVars;
+    SmallVector<const LocalAssertionVarSymbol*> localVars;
     auto& body = bindAssertionBody(symbol, *bodySyntax, bodyContext, outputLocalVarArgLoc, instance,
                                    localVars);
 
@@ -1131,7 +1133,7 @@ Expression& AssertionInstanceExpression::makeDefault(const Symbol& symbol) {
     auto bodySyntax = symbol.getSyntax();
     SLANG_ASSERT(bodySyntax);
 
-    SmallVector<const Symbol*> localVars;
+    SmallVector<const LocalAssertionVarSymbol*> localVars;
     auto& body = bindAssertionBody(symbol, *bodySyntax, bodyContext, outputLocalVarArgLoc, instance,
                                    localVars);
 
@@ -1141,6 +1143,45 @@ Expression& AssertionInstanceExpression::makeDefault(const Symbol& symbol) {
     result->localVars = localVars.copy(comp);
     return *result;
 }
+
+struct CheckerArgVisitor : public ASTVisitor<CheckerArgVisitor, true, true> {
+    const ASTContext& context;
+    SourceRange argRange;
+
+    CheckerArgVisitor(const ASTContext& context, const AssertionPortSymbol& formal,
+                      const Expression& actual, SourceRange argRange) :
+        context(context), argRange(argRange) {
+
+        // Checker arguments that contain references to automatic variables or
+        // const cast expressions can only be used in assertion expressions.
+        if (context.flags.has(ASTFlags::AssertionExpr) ||
+            formal.getParentScope()->asSymbol().kind != SymbolKind::CheckerInstanceBody) {
+            return;
+        }
+
+        actual.visit(*this);
+    }
+
+    void handle(const NamedValueExpression& expr) {
+        if (auto var = expr.symbol.as_if<VariableSymbol>();
+            var && var->lifetime == VariableLifetime::Automatic) {
+            auto& diag = context.addDiag(diag::CheckerAutoVarRef, expr.sourceRange) << var->name;
+            diag.addNote(diag::NoteExpandedHere, argRange);
+        }
+        visitDefault(expr);
+    }
+
+    void handle(const ConversionExpression& expr) {
+        if (expr.isConstCast) {
+            auto& diag = context.addDiag(diag::CheckerConstCast, expr.sourceRange);
+            diag.addNote(diag::NoteExpandedHere, argRange);
+        }
+        visitDefault(expr);
+    }
+};
+
+static const PropertyExprSyntax* EvaluatingPlaceholder =
+    reinterpret_cast<const PropertyExprSyntax*>(UINTPTR_MAX);
 
 Expression& AssertionInstanceExpression::bindPort(const Symbol& symbol, SourceRange range,
                                                   const ASTContext& instanceCtx) {
@@ -1221,12 +1262,27 @@ Expression& AssertionInstanceExpression::bindPort(const Symbol& symbol, SourceRa
         return badExpr(comp, nullptr);
     }
 
-    auto [propExpr, argCtx] = it->second;
+    auto& argTuple = const_cast<std::tuple<const syntax::PropertyExprSyntax*, ASTContext>&>(
+        it->second);
+
+    auto propExpr = std::get<0>(argTuple);
+    auto argCtx = std::get<1>(argTuple);
     if (!propExpr) {
         // The expression can be null when making default instances of
         // sequences and properties. Just return an invalid expression.
         return badExpr(comp, nullptr);
     }
+
+    // We need to detect recursive usage of this argument in its own binding.
+    // The modification via const_cast here is a bit gross but we restore the
+    // value at the end of the function so it should be safe.
+    if (propExpr == EvaluatingPlaceholder) {
+        instanceCtx.addDiag(diag::RecursiveDefinition, range) << formal.name;
+        return badExpr(comp, nullptr);
+    }
+
+    std::get<0>(argTuple) = EvaluatingPlaceholder;
+    auto guard = ScopeGuard([&] { std::get<0>(argTuple) = propExpr; });
 
     auto [seqExpr, regExpr] = decomposePropExpr(*propExpr);
 
@@ -1245,6 +1301,7 @@ Expression& AssertionInstanceExpression::bindPort(const Symbol& symbol, SourceRa
             // if possible and fall back to an assertion expression if not.
             if (regExpr) {
                 auto& result = selfDetermined(comp, *regExpr, argCtx, argCtx.flags);
+                CheckerArgVisitor(instanceCtx, formal, result, range);
                 result.sourceRange = range;
                 return result;
             }
@@ -1292,6 +1349,7 @@ Expression& AssertionInstanceExpression::bindPort(const Symbol& symbol, SourceRa
                 return badExpr(comp, nullptr);
 
             auto& expr = selfDetermined(comp, *regExpr, argCtx, argCtx.flags);
+            CheckerArgVisitor(instanceCtx, formal, expr, range);
             expr.sourceRange = range;
 
             if (!instanceCtx.flags.has(ASTFlags::LValue) && !expr.type->isMatching(type)) {
@@ -1302,6 +1360,22 @@ Expression& AssertionInstanceExpression::bindPort(const Symbol& symbol, SourceRa
             return expr;
         }
     }
+}
+
+bool AssertionInstanceExpression::isEquivalentImpl(const AssertionInstanceExpression& rhs) const {
+    return &symbol == &rhs.symbol && isRecursiveProperty == rhs.isRecursiveProperty &&
+           std::ranges::equal(arguments, rhs.arguments, [](auto& a, auto& b) {
+               return std::visit(
+                   [](auto&& la, auto&& ra) {
+                       if constexpr (std::is_same_v<decltype(la), decltype(ra)>) {
+                           return la->isEquivalentTo(*ra);
+                       }
+                       else {
+                           return false;
+                       }
+                   },
+                   std::get<1>(a), std::get<1>(b));
+           });
 }
 
 void AssertionInstanceExpression::serializeTo(ASTSerializer& serializer) const {
@@ -1380,6 +1454,10 @@ Expression::EffectiveSign MinTypMaxExpression::getEffectiveSignImpl(bool isForCo
     return selected().getEffectiveSign(isForConversion);
 }
 
+bool MinTypMaxExpression::isEquivalentImpl(const MinTypMaxExpression& rhs) const {
+    return selected().isEquivalentTo(rhs.selected());
+}
+
 void MinTypMaxExpression::serializeTo(ASTSerializer& serializer) const {
     serializer.write("selected", selected());
 }
@@ -1404,6 +1482,10 @@ Expression& CopyClassExpression::fromSyntax(Compilation& compilation,
 ConstantValue CopyClassExpression::evalImpl(EvalContext& context) const {
     context.addDiag(diag::ConstEvalClassType, sourceRange);
     return nullptr;
+}
+
+bool CopyClassExpression::isEquivalentImpl(const CopyClassExpression& rhs) const {
+    return sourceExpr().isEquivalentTo(rhs.sourceExpr());
 }
 
 void CopyClassExpression::serializeTo(ASTSerializer& serializer) const {
@@ -1487,6 +1569,14 @@ Expression& DistExpression::fromSyntax(Compilation& comp, const ExpressionOrDist
         return badExpr(comp, result);
 
     return *result;
+}
+
+bool DistExpression::isEquivalentImpl(const DistExpression& rhs) const {
+    return left().isEquivalentTo(rhs.left()) &&
+           std::ranges::equal(items_, rhs.items_,
+                              [](auto& a, auto& b) { return a.isEquivalentTo(b); }) &&
+           bool(defaultWeight_) == bool(rhs.defaultWeight_) &&
+           (!defaultWeight_ || defaultWeight_->isEquivalentTo(*rhs.defaultWeight_));
 }
 
 void DistExpression::serializeTo(ASTSerializer& serializer) const {
@@ -1591,6 +1681,11 @@ ConstantValue TaggedUnionExpression::evalImpl(EvalContext& context) const {
 
         return result;
     }
+}
+
+bool TaggedUnionExpression::isEquivalentImpl(const TaggedUnionExpression& rhs) const {
+    return &member == &rhs.member && bool(valueExpr) == bool(rhs.valueExpr) &&
+           (!valueExpr || valueExpr->isEquivalentTo(*rhs.valueExpr));
 }
 
 void TaggedUnionExpression::serializeTo(ASTSerializer& serializer) const {

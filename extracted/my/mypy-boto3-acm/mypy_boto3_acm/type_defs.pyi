@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -39,12 +40,6 @@ from .literals import (
     ValidationMethodType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -121,13 +116,13 @@ CertificateSummaryTypeDef = TypedDict(
     {
         "CertificateArn": NotRequired[str],
         "DomainName": NotRequired[str],
-        "SubjectAlternativeNameSummaries": NotRequired[List[str]],
+        "SubjectAlternativeNameSummaries": NotRequired[list[str]],
         "HasAdditionalSubjectAlternativeNames": NotRequired[bool],
         "Status": NotRequired[CertificateStatusType],
         "Type": NotRequired[CertificateTypeType],
         "KeyAlgorithm": NotRequired[KeyAlgorithmType],
-        "KeyUsages": NotRequired[List[KeyUsageNameType]],
-        "ExtendedKeyUsages": NotRequired[List[ExtendedKeyUsageNameType]],
+        "KeyUsages": NotRequired[list[KeyUsageNameType]],
+        "ExtendedKeyUsages": NotRequired[list[ExtendedKeyUsageNameType]],
         "ExportOption": NotRequired[CertificateExportType],
         "InUse": NotRequired[bool],
         "Exported": NotRequired[bool],
@@ -155,7 +150,7 @@ class WaiterConfigTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -255,12 +250,12 @@ class ImportCertificateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCertificatesResponseTypeDef(TypedDict):
-    CertificateSummaryList: List[CertificateSummaryTypeDef]
+    CertificateSummaryList: list[CertificateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForCertificateResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RequestCertificateResponseTypeDef(TypedDict):
@@ -285,7 +280,7 @@ class RequestCertificateRequestTypeDef(TypedDict):
 
 class DomainValidationTypeDef(TypedDict):
     DomainName: str
-    ValidationEmails: NotRequired[List[str]]
+    ValidationEmails: NotRequired[list[str]]
     ValidationDomain: NotRequired[str]
     ValidationStatus: NotRequired[DomainStatusType]
     ResourceRecord: NotRequired[ResourceRecordTypeDef]
@@ -317,7 +312,7 @@ class ListCertificatesRequestPaginateTypeDef(TypedDict):
 
 class RenewalSummaryTypeDef(TypedDict):
     RenewalStatus: RenewalStatusType
-    DomainValidationOptions: List[DomainValidationTypeDef]
+    DomainValidationOptions: list[DomainValidationTypeDef]
     UpdatedAt: datetime
     RenewalStatusReason: NotRequired[FailureReasonType]
 
@@ -326,9 +321,9 @@ CertificateDetailTypeDef = TypedDict(
     {
         "CertificateArn": NotRequired[str],
         "DomainName": NotRequired[str],
-        "SubjectAlternativeNames": NotRequired[List[str]],
+        "SubjectAlternativeNames": NotRequired[list[str]],
         "ManagedBy": NotRequired[Literal["CLOUDFRONT"]],
-        "DomainValidationOptions": NotRequired[List[DomainValidationTypeDef]],
+        "DomainValidationOptions": NotRequired[list[DomainValidationTypeDef]],
         "Serial": NotRequired[str],
         "Subject": NotRequired[str],
         "Issuer": NotRequired[str],
@@ -342,12 +337,12 @@ CertificateDetailTypeDef = TypedDict(
         "NotAfter": NotRequired[datetime],
         "KeyAlgorithm": NotRequired[KeyAlgorithmType],
         "SignatureAlgorithm": NotRequired[str],
-        "InUseBy": NotRequired[List[str]],
+        "InUseBy": NotRequired[list[str]],
         "FailureReason": NotRequired[FailureReasonType],
         "Type": NotRequired[CertificateTypeType],
         "RenewalSummary": NotRequired[RenewalSummaryTypeDef],
-        "KeyUsages": NotRequired[List[KeyUsageTypeDef]],
-        "ExtendedKeyUsages": NotRequired[List[ExtendedKeyUsageTypeDef]],
+        "KeyUsages": NotRequired[list[KeyUsageTypeDef]],
+        "ExtendedKeyUsages": NotRequired[list[ExtendedKeyUsageTypeDef]],
         "CertificateAuthorityArn": NotRequired[str],
         "RenewalEligibility": NotRequired[RenewalEligibilityType],
         "Options": NotRequired[CertificateOptionsTypeDef],

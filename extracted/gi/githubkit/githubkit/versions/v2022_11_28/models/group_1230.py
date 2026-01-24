@@ -9,61 +9,92 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
-from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
+from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-
-class UsersUsernameAttestationsBulkListPostResponse200(GitHubModel):
-    """UsersUsernameAttestationsBulkListPostResponse200"""
-
-    attestations_subject_digests: Missing[
-        UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigests
-    ] = Field(default=UNSET, description="Mapping of subject digest to bundles.")
-    page_info: Missing[UsersUsernameAttestationsBulkListPostResponse200PropPageInfo] = (
-        Field(default=UNSET, description="Information about the current page.")
-    )
-
-
-class UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigests(
-    ExtraGitHubModel
-):
-    """UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigests
-
-    Mapping of subject digest to bundles.
-    """
-
-
-class UsersUsernameAttestationsBulkListPostResponse200PropPageInfo(GitHubModel):
-    """UsersUsernameAttestationsBulkListPostResponse200PropPageInfo
-
-    Information about the current page.
-    """
-
-    has_next: Missing[bool] = Field(
-        default=UNSET, description="Indicates whether there is a next page."
-    )
-    has_previous: Missing[bool] = Field(
-        default=UNSET, description="Indicates whether there is a previous page."
-    )
-    next_: Missing[str] = Field(
-        default=UNSET, alias="next", description="The cursor to the next page."
-    )
-    previous: Missing[str] = Field(
-        default=UNSET, description="The cursor to the previous page."
-    )
-
-
-model_rebuild(UsersUsernameAttestationsBulkListPostResponse200)
-model_rebuild(
-    UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigests
+from .group_0175 import RepositoryRulesetBypassActor
+from .group_0176 import RepositoryRulesetConditions
+from .group_0187 import (
+    RepositoryRuleCreation,
+    RepositoryRuleDeletion,
+    RepositoryRuleNonFastForward,
+    RepositoryRuleRequiredSignatures,
 )
-model_rebuild(UsersUsernameAttestationsBulkListPostResponse200PropPageInfo)
+from .group_0188 import RepositoryRuleUpdate
+from .group_0190 import RepositoryRuleRequiredLinearHistory
+from .group_0191 import RepositoryRuleMergeQueue
+from .group_0193 import RepositoryRuleRequiredDeployments
+from .group_0195 import RepositoryRulePullRequest
+from .group_0197 import RepositoryRuleRequiredStatusChecks
+from .group_0199 import RepositoryRuleCommitMessagePattern
+from .group_0201 import RepositoryRuleCommitAuthorEmailPattern
+from .group_0203 import RepositoryRuleCommitterEmailPattern
+from .group_0205 import RepositoryRuleBranchNamePattern
+from .group_0207 import RepositoryRuleTagNamePattern
+from .group_0209 import RepositoryRuleFilePathRestriction
+from .group_0211 import RepositoryRuleMaxFilePathLength
+from .group_0213 import RepositoryRuleFileExtensionRestriction
+from .group_0215 import RepositoryRuleMaxFileSize
+from .group_0218 import RepositoryRuleWorkflows
+from .group_0220 import RepositoryRuleCodeScanning
+from .group_0222 import RepositoryRuleCopilotCodeReview
 
-__all__ = (
-    "UsersUsernameAttestationsBulkListPostResponse200",
-    "UsersUsernameAttestationsBulkListPostResponse200PropAttestationsSubjectDigests",
-    "UsersUsernameAttestationsBulkListPostResponse200PropPageInfo",
-)
+
+class ReposOwnerRepoRulesetsRulesetIdPutBody(GitHubModel):
+    """ReposOwnerRepoRulesetsRulesetIdPutBody"""
+
+    name: Missing[str] = Field(default=UNSET, description="The name of the ruleset.")
+    target: Missing[Literal["branch", "tag", "push"]] = Field(
+        default=UNSET, description="The target of the ruleset"
+    )
+    enforcement: Missing[Literal["disabled", "active", "evaluate"]] = Field(
+        default=UNSET,
+        description="The enforcement level of the ruleset. `evaluate` allows admins to test rules before enforcing them. Admins can view insights on the Rule Insights page (`evaluate` is only available with GitHub Enterprise).",
+    )
+    bypass_actors: Missing[list[RepositoryRulesetBypassActor]] = Field(
+        default=UNSET,
+        description="The actors that can bypass the rules in this ruleset",
+    )
+    conditions: Missing[RepositoryRulesetConditions] = Field(
+        default=UNSET,
+        title="Repository ruleset conditions for ref names",
+        description="Parameters for a repository ruleset ref name condition",
+    )
+    rules: Missing[
+        list[
+            Union[
+                RepositoryRuleCreation,
+                RepositoryRuleUpdate,
+                RepositoryRuleDeletion,
+                RepositoryRuleRequiredLinearHistory,
+                RepositoryRuleMergeQueue,
+                RepositoryRuleRequiredDeployments,
+                RepositoryRuleRequiredSignatures,
+                RepositoryRulePullRequest,
+                RepositoryRuleRequiredStatusChecks,
+                RepositoryRuleNonFastForward,
+                RepositoryRuleCommitMessagePattern,
+                RepositoryRuleCommitAuthorEmailPattern,
+                RepositoryRuleCommitterEmailPattern,
+                RepositoryRuleBranchNamePattern,
+                RepositoryRuleTagNamePattern,
+                RepositoryRuleFilePathRestriction,
+                RepositoryRuleMaxFilePathLength,
+                RepositoryRuleFileExtensionRestriction,
+                RepositoryRuleMaxFileSize,
+                RepositoryRuleWorkflows,
+                RepositoryRuleCodeScanning,
+                RepositoryRuleCopilotCodeReview,
+            ]
+        ]
+    ] = Field(default=UNSET, description="An array of rules within the ruleset.")
+
+
+model_rebuild(ReposOwnerRepoRulesetsRulesetIdPutBody)
+
+__all__ = ("ReposOwnerRepoRulesetsRulesetIdPutBody",)

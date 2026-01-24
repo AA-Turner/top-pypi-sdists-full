@@ -25,6 +25,17 @@ class AccessPolicy(AWSObject):
     }
 
 
+class EncryptionConfig(AWSProperty):
+    """
+    `EncryptionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-collection-encryptionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AWSOwnedKey": (boolean, False),
+        "KmsKeyArn": (str, False),
+    }
+
+
 class Collection(AWSObject):
     """
     `Collection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html>`__
@@ -33,7 +44,9 @@ class Collection(AWSObject):
     resource_type = "AWS::OpenSearchServerless::Collection"
 
     props: PropsDictType = {
+        "CollectionGroupName": (str, False),
         "Description": (str, False),
+        "EncryptionConfig": (EncryptionConfig, False),
         "Name": (str, True),
         "StandbyReplicas": (str, False),
         "Tags": (Tags, False),
@@ -80,7 +93,7 @@ class Method(AWSProperty):
     """
 
     props: PropsDictType = {
-        "Engine": (str, True),
+        "Engine": (str, False),
         "Name": (str, True),
         "Parameters": (Parameters, False),
         "SpaceType": (str, False),
@@ -142,6 +155,17 @@ class LifecyclePolicy(AWSObject):
     }
 
 
+class IamFederationConfigOptions(AWSProperty):
+    """
+    `IamFederationConfigOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-securityconfig-iamfederationconfigoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "GroupAttribute": (str, False),
+        "UserAttribute": (str, False),
+    }
+
+
 class IamIdentityCenterConfigOptions(AWSProperty):
     """
     `IamIdentityCenterConfigOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-securityconfig-iamidentitycenterconfigoptions.html>`__
@@ -180,6 +204,7 @@ class SecurityConfig(AWSObject):
 
     props: PropsDictType = {
         "Description": (str, False),
+        "IamFederationOptions": (IamFederationConfigOptions, False),
         "IamIdentityCenterOptions": (IamIdentityCenterConfigOptions, False),
         "Name": (str, False),
         "SamlOptions": (SamlConfigOptions, False),

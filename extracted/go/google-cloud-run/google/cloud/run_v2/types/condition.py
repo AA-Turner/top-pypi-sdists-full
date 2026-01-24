@@ -45,7 +45,7 @@ class Condition(proto.Message):
             https://github.com/knative/serving/blob/main/docs/spec/errors.md#error-conditions-and-reporting
             Types common to all resources include:
 
-            -  "Ready": True when the Resource is ready.
+            - "Ready": True when the Resource is ready.
         state (google.cloud.run_v2.types.Condition.State):
             State of the condition.
         message (str):
@@ -254,6 +254,9 @@ class Condition(proto.Message):
                 cancelled.
             DELETED (5):
                 The execution was deleted.
+            DELAYED_START_PENDING (6):
+                A delayed execution is waiting for a start
+                time.
         """
         EXECUTION_REASON_UNDEFINED = 0
         JOB_STATUS_SERVICE_POLLING_ERROR = 1
@@ -261,6 +264,7 @@ class Condition(proto.Message):
         CANCELLED = 3
         CANCELLING = 4
         DELETED = 5
+        DELAYED_START_PENDING = 6
 
     type_: str = proto.Field(
         proto.STRING,

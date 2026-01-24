@@ -1,8 +1,7 @@
 import logging
-
-from gehomesdk.erd.converters.abstract import ErdReadOnlyConverter
-from gehomesdk.erd.converters.primitives import *
-from gehomesdk.erd.values.laundry import ErdDownloadedCycleRequest
+from ..abstract import ErdReadOnlyConverter
+from ..primitives import *
+from ...values.laundry import ErdDownloadedCycleRequest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -11,4 +10,4 @@ class ErdDownloadedCycleRequestConverter(ErdReadOnlyConverter[ErdDownloadedCycle
         try:
             return ErdDownloadedCycleRequest(erd_decode_int(value))
         except (KeyError, ValueError):
-            return ErdDownloadedCycleRequest.OFF
+            return ErdDownloadedCycleRequest.NOT_DEFINED

@@ -1,7 +1,7 @@
 r'''
 # `github_repository_custom_property`
 
-Refer to the Terraform Registry for docs: [`github_repository_custom_property`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property).
+Refer to the Terraform Registry for docs: [`github_repository_custom_property`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryCustomProperty(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryCustomProperty.RepositoryCustomProperty",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property github_repository_custom_property}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property github_repository_custom_property}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class RepositoryCustomProperty(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property github_repository_custom_property} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property github_repository_custom_property} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param property_name: Name of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
-        :param property_type: Type of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
-        :param property_value: Value of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
-        :param repository: Name of the repository which the custom properties should be on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param property_name: Name of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
+        :param property_type: Type of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
+        :param property_value: Value of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
+        :param repository: Name of the repository which the custom properties should be on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class RepositoryCustomProperty(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryCustomProperty to import.
-        :param import_from_id: The id of the existing RepositoryCustomProperty that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryCustomProperty that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryCustomProperty to import is found.
         '''
         if __debug__:
@@ -272,11 +272,11 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param property_name: Name of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
-        :param property_type: Type of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
-        :param property_value: Value of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
-        :param repository: Name of the repository which the custom properties should be on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param property_name: Name of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
+        :param property_type: Type of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
+        :param property_value: Value of the custom property. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
+        :param repository: Name of the repository which the custom properties should be on. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -385,7 +385,7 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def property_name(self) -> builtins.str:
         '''Name of the custom property.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_name RepositoryCustomProperty#property_name}
         '''
         result = self._values.get("property_name")
         assert result is not None, "Required property 'property_name' is missing"
@@ -395,7 +395,7 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def property_type(self) -> builtins.str:
         '''Type of the custom property.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_type RepositoryCustomProperty#property_type}
         '''
         result = self._values.get("property_type")
         assert result is not None, "Required property 'property_type' is missing"
@@ -405,7 +405,7 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def property_value(self) -> typing.List[builtins.str]:
         '''Value of the custom property.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#property_value RepositoryCustomProperty#property_value}
         '''
         result = self._values.get("property_value")
         assert result is not None, "Required property 'property_value' is missing"
@@ -415,7 +415,7 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''Name of the repository which the custom properties should be on.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#repository RepositoryCustomProperty#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -423,7 +423,7 @@ class RepositoryCustomPropertyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_custom_property#id RepositoryCustomProperty#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

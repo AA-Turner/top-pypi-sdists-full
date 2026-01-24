@@ -19,7 +19,7 @@ from ._functions import _Function
 from ._utils.async_utils import synchronizer
 from ._utils.deprecation import deprecation_warning
 from ._utils.function_utils import callable_has_non_self_params
-from .config import logger
+from .config import config
 from .exception import InvalidError
 
 MAX_MAX_BATCH_SIZE = 1000
@@ -46,6 +46,7 @@ class _PartialFunctionFlags(enum.IntFlag):
     BATCHED = 64
     CONCURRENT = 128
     CLUSTERED = 256  # Experimental: Clustered functions
+    HTTP_WEB_INTERFACE = 512  # Experimental: HTTP server
 
     @staticmethod
     def all() -> int:
@@ -76,6 +77,7 @@ class _PartialFunctionParams:
     target_concurrent_inputs: Optional[int] = None
     build_timeout: Optional[int] = None
     rdma: Optional[bool] = None
+    http_config: Optional[api_pb2.HTTPConfig] = None
 
     def update(self, other: "_PartialFunctionParams") -> None:
         """Update self with params set in other."""
@@ -93,6 +95,26 @@ NullaryFuncOrMethod = Union[Callable[[], Any], Callable[[Any], Any]]
 NullaryMethod = Callable[[Any], Any]
 
 
+def verify_concurrent_params(params: _PartialFunctionParams, is_flash: bool = False) -> None:
+    def _verify_concurrent_params_with_flash_settings(params: _PartialFunctionParams) -> None:
+        if params.max_concurrent_inputs is not None:
+            raise TypeError(
+                "@modal.concurrent(max_inputs=...) is not yet supported for Flash functions. "
+                "Use `@modal.concurrent(target_inputs=...)` instead."
+            )
+        if params.target_concurrent_inputs is None:
+            raise TypeError("`@modal.concurrent()` missing required argument: `target_inputs`.")
+
+    def _verify_concurrent_params(params: _PartialFunctionParams) -> None:
+        if params.max_concurrent_inputs is None:
+            raise TypeError("`@modal.concurrent()` missing required argument: `max_inputs`.")
+
+    if is_flash:
+        _verify_concurrent_params_with_flash_settings(params)
+    else:
+        _verify_concurrent_params(params)
+
+
 class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
     """Object produced by a decorator in the `modal` namespace
 
@@ -103,7 +125,6 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
     user_cls: Optional[type] = None  # class
     flags: _PartialFunctionFlags
     params: _PartialFunctionParams
-    registered: bool
 
     def __init__(
         self,
@@ -119,7 +140,6 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
             self.user_cls = None
         self.flags = flags
         self.params = params
-        self.registered = False
         self.validate_flag_composition()
 
     def stack(self, flags: _PartialFunctionFlags, params: _PartialFunctionParams) -> typing_extensions.Self:
@@ -134,13 +154,11 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
         uses_interface_flags = self.flags & _PartialFunctionFlags.interface_flags()
         uses_lifecycle_flags = self.flags & _PartialFunctionFlags.lifecycle_flags()
         if uses_interface_flags and uses_lifecycle_flags:
-            self.registered = True  # Hacky, avoid false-positive warning
             raise InvalidError("Interface decorators cannot be combined with lifecycle decorators.")
 
         has_web_interface = self.flags & _PartialFunctionFlags.WEB_INTERFACE
         has_callable_interface = self.flags & _PartialFunctionFlags.CALLABLE_INTERFACE
         if has_web_interface and has_callable_interface:
-            self.registered = True  # Hacky, avoid false-positive warning
             raise InvalidError("Callable decorators cannot be combined with web interface decorators.")
 
     def validate_obj_compatibility(
@@ -152,20 +170,17 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
         uses_lifecycle_flags = self.flags & _PartialFunctionFlags.lifecycle_flags()
         uses_interface_flags = self.flags & _PartialFunctionFlags.interface_flags()
         if self.user_cls is not None and (uses_lifecycle_flags or uses_interface_flags):
-            self.registered = True  # Hacky, avoid false-positive warning
             raise InvalidError(
                 f"Cannot apply `@modal.{decorator_name}` to a class. Hint: consider applying to a method instead."
             )
 
         wrapped_object = self.raw_f or self.user_cls
         if isinstance(wrapped_object, _Function):
-            self.registered = True  # Hacky, avoid false-positive warning
             raise InvalidError(
                 f"Cannot stack `@modal.{decorator_name}` on top of `@app.function`."
                 " Hint: swap the order of the decorators."
             )
         elif isinstance(wrapped_object, _Cls):
-            self.registered = True  # Hacky, avoid false-positive warning
             raise InvalidError(
                 f"Cannot stack `@modal.{decorator_name}` on top of `@app.cls()`."
                 " Hint: swap the order of the decorators."
@@ -174,15 +189,12 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
         # Run some assertions about a callable wrappee defined by the specific decorator used
         if self.raw_f is not None:
             if not callable(self.raw_f):
-                self.registered = True  # Hacky, avoid false-positive warning
                 raise InvalidError(f"The object wrapped by `@modal.{decorator_name}` must be callable.")
 
             if require_sync and inspect.iscoroutinefunction(self.raw_f):
-                self.registered = True  # Hacky, avoid false-positive warning
                 raise InvalidError(f"The `@modal.{decorator_name}` decorator can't be applied to an async function.")
 
             if require_nullary and callable_has_non_self_params(self.raw_f):
-                self.registered = True  # Hacky, avoid false-positive warning
                 raise InvalidError(f"Functions decorated by `@modal.{decorator_name}` can't have parameters.")
 
     def _get_raw_f(self) -> Callable[P, ReturnType]:
@@ -199,7 +211,7 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
         # of the type PartialFunction and this descriptor would be triggered when accessing it,
         #
         # However, modal classes are *actually* Cls instances (which isn't reflected in type checkers
-        # due to Python's lack of type chekcing intersection types), so at runtime the Cls instance would
+        # due to Python's lack of type checking intersection types), so at runtime the Cls instance would
         # use its __getattr__ rather than this descriptor.
         assert self.raw_f is not None  # Should only be relevant in a method context
         k = self.raw_f.__name__
@@ -221,17 +233,6 @@ class _PartialFunction(typing.Generic[P, ReturnType, OriginalReturnType]):
             # since we don't have the instance info here we just return the PartialFunction itself
             # to let it be bound to a variable and become a Function later on
             return self  # type: ignore  # this returns a PartialFunction in a special internal case
-
-    def __del__(self):
-        if self.registered is False:
-            if self.raw_f is not None:
-                name, object_type, suggestion = self.raw_f.__name__, "function", "@app.function or @app.cls"
-            elif self.user_cls is not None:
-                name, object_type, suggestion = self.user_cls.__name__, "class", "@app.cls"
-            logger.warning(
-                f"The `{name}` {object_type} was never registered with the App."
-                f" Did you forget an {suggestion} decorator?"
-            )
 
 
 def _find_partial_methods_for_user_cls(user_cls: type[Any], flags: int) -> dict[str, _PartialFunction]:
@@ -378,6 +379,7 @@ def _fastapi_endpoint(
         method=method,
         web_endpoint_docs=docs,
         requested_suffix=label or "",
+        ephemeral_suffix=config.get("dev_suffix"),
         async_mode=api_pb2.WEBHOOK_ASYNC_MODE_AUTO,
         custom_domains=_parse_custom_domains(custom_domains),
         requires_proxy_auth=requires_proxy_auth,
@@ -446,6 +448,7 @@ def _web_endpoint(
         method=method,
         web_endpoint_docs=docs,
         requested_suffix=label or "",
+        ephemeral_suffix=config.get("dev_suffix"),
         async_mode=api_pb2.WEBHOOK_ASYNC_MODE_AUTO,
         custom_domains=_parse_custom_domains(custom_domains),
         requires_proxy_auth=requires_proxy_auth,
@@ -505,6 +508,7 @@ def _asgi_app(
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_ASGI_APP,
         requested_suffix=label or "",
+        ephemeral_suffix=config.get("dev_suffix"),
         async_mode=api_pb2.WEBHOOK_ASYNC_MODE_AUTO,
         custom_domains=_parse_custom_domains(custom_domains),
         requires_proxy_auth=requires_proxy_auth,
@@ -562,6 +566,7 @@ def _wsgi_app(
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_WSGI_APP,
         requested_suffix=label or "",
+        ephemeral_suffix=config.get("dev_suffix"),
         async_mode=api_pb2.WEBHOOK_ASYNC_MODE_AUTO,
         custom_domains=_parse_custom_domains(custom_domains),
         requires_proxy_auth=requires_proxy_auth,
@@ -623,6 +628,7 @@ def _web_server(
     webhook_config = api_pb2.WebhookConfig(
         type=api_pb2.WEBHOOK_TYPE_WEB_SERVER,
         requested_suffix=label or "",
+        ephemeral_suffix=config.get("dev_suffix"),
         async_mode=api_pb2.WEBHOOK_ASYNC_MODE_AUTO,
         custom_domains=_parse_custom_domains(custom_domains),
         web_server_port=port,
@@ -760,7 +766,7 @@ def _batched(
 def _concurrent(
     _warn_parentheses_missing=None,  # mdmd:line-hidden
     *,
-    max_inputs: int,  # Hard limit on each container's input concurrency
+    max_inputs: Optional[int] = None,  # Hard limit on each container's input concurrency
     target_inputs: Optional[int] = None,  # Input concurrency that Modal's autoscaler should target
 ) -> Callable[
     [Union[Callable[P, ReturnType], _PartialFunction[P, ReturnType, ReturnType]]],
@@ -812,7 +818,7 @@ def _concurrent(
             "Positional arguments are not allowed. Did you forget parentheses? Suggestion: `@modal.concurrent()`."
         )
 
-    if target_inputs and target_inputs > max_inputs:
+    if max_inputs is not None and target_inputs is not None and target_inputs > max_inputs:
         raise InvalidError("`target_inputs` parameter cannot be greater than `max_inputs`.")
 
     flags = _PartialFunctionFlags.CONCURRENT

@@ -1,7 +1,7 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from itertools import chain
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field
 from pydantic.dataclasses import dataclass
 from typing_extensions import Self
 
@@ -20,10 +20,9 @@ class WeightData(Data):
     calendar_date: date
     weight: int
     source_type: str
-    weight_delta: float
+    weight_delta: float | None
     timestamp_gmt: int
-    datetime_utc: datetime = Field(..., alias="timestamp_gmt")
-    datetime_local: datetime = Field(..., alias="date")
+    timestamp_local: int = Field(alias="date")
     bmi: float | None = None
     body_fat: float | None = None
     body_water: float | None = None
@@ -33,26 +32,36 @@ class WeightData(Data):
     visceral_fat: float | None = None
     metabolic_age: int | None = None
 
-    @field_validator("datetime_local", mode="before")
-    @classmethod
-    def to_localized_datetime(cls, v: int, info: ValidationInfo) -> datetime:
-        return get_localized_datetime(info.data["timestamp_gmt"], v)
+    @property
+    def datetime_utc(self) -> datetime:
+        return datetime.fromtimestamp(
+            self.timestamp_gmt / 1000, tz=timezone.utc
+        )
+
+    @property
+    def datetime_local(self) -> datetime:
+        return get_localized_datetime(self.timestamp_gmt, self.timestamp_local)
 
     @classmethod
     def get(
-        cls, day: date | str, *, client: http.Client | None = None
+        cls,
+        day: date | str | None = None,
+        *,
+        client: http.Client | None = None,
     ) -> Self | None:
         client = client or http.client
+        day = format_end_date(day)
         path = f"/weight-service/weight/dayview/{day}"
         data = client.connectapi(path)
+        assert isinstance(data, dict), (
+            f"Expected dict from {path}, got {type(data).__name__}"
+        )
         day_weight_list = data["dateWeightList"] if data else []
 
         if not day_weight_list:
             return None
 
-        # Get first (most recent) weight entry for the day
-        weight_data = camel_to_snake_dict(day_weight_list[0])
-        return cls(**weight_data)
+        return cls(**camel_to_snake_dict(day_weight_list[0]))
 
     @classmethod
     def list(
@@ -69,6 +78,9 @@ class WeightData(Data):
 
         data = client.connectapi(
             f"/weight-service/weight/range/{start}/{end}?includeAll=true"
+        )
+        assert isinstance(data, dict), (
+            f"Expected dict from weight range API, got {type(data).__name__}"
         )
         weight_summaries = data["dailyWeightSummaries"] if data else []
         weight_metrics = chain.from_iterable(

@@ -5,11 +5,8 @@ correctly.
 
 import pytest
 
-from nexusrpc import OperationInfo
 from nexusrpc.handler import (
     CancelOperationContext,
-    FetchOperationInfoContext,
-    FetchOperationResultContext,
     Handler,
     OperationHandler,
     StartOperationContext,
@@ -24,7 +21,7 @@ def test_service_must_use_decorator():
         pass
 
     with pytest.raises(RuntimeError):
-        Handler([Service()])
+        _ = Handler([Service()])
 
 
 def test_services_are_collected():
@@ -40,18 +37,6 @@ def test_services_are_collected():
             ctx: CancelOperationContext,
             token: str,
         ) -> None: ...
-
-        async def fetch_info(
-            self,
-            ctx: FetchOperationInfoContext,
-            token: str,
-        ) -> OperationInfo: ...
-
-        async def fetch_result(
-            self,
-            ctx: FetchOperationResultContext,
-            token: str,
-        ) -> int: ...
 
     @service_handler
     class Service1:
@@ -77,4 +62,4 @@ def test_service_names_must_be_unique():
         pass
 
     with pytest.raises(RuntimeError):
-        Handler([Service1(), Service2()])
+        _ = Handler([Service1(), Service2()])

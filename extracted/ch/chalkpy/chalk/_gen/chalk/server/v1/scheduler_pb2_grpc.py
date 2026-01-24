@@ -25,6 +25,21 @@ class SchedulerServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.FromString,
         )
+        self.GetScheduledResolverRun = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/GetScheduledResolverRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunResponse.FromString,
+        )
+        self.ListScheduledResolverRuns = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/ListScheduledResolverRuns",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsResponse.FromString,
+        )
+        self.CancelScheduledResolverRun = channel.unary_unary(
+            "/chalk.server.v1.SchedulerService/CancelScheduledResolverRun",
+            request_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.FromString,
+        )
 
 
 class SchedulerServiceServicer(object):
@@ -42,6 +57,24 @@ class SchedulerServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetScheduledResolverRun(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListScheduledResolverRuns(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CancelScheduledResolverRun(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_SchedulerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +87,21 @@ def add_SchedulerServiceServicer_to_server(servicer, server):
             servicer.ManualTriggerScheduledQuery,
             request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.SerializeToString,
+        ),
+        "GetScheduledResolverRun": grpc.unary_unary_rpc_method_handler(
+            servicer.GetScheduledResolverRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunResponse.SerializeToString,
+        ),
+        "ListScheduledResolverRuns": grpc.unary_unary_rpc_method_handler(
+            servicer.ListScheduledResolverRuns,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsResponse.SerializeToString,
+        ),
+        "CancelScheduledResolverRun": grpc.unary_unary_rpc_method_handler(
+            servicer.CancelScheduledResolverRun,
+            request_deserializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.SchedulerService", rpc_method_handlers)
@@ -112,6 +160,93 @@ class SchedulerService(object):
             "/chalk.server.v1.SchedulerService/ManualTriggerScheduledQuery",
             chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_scheduler__pb2.ManualTriggerScheduledQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetScheduledResolverRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/GetScheduledResolverRun",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.GetScheduledResolverRunResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListScheduledResolverRuns(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/ListScheduledResolverRuns",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.ListScheduledResolverRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CancelScheduledResolverRun(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.SchedulerService/CancelScheduledResolverRun",
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_scheduler__pb2.CancelScheduledResolverRunResponse.FromString,
             options,
             channel_credentials,
             insecure,

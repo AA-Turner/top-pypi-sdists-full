@@ -1,19 +1,19 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: poethepoet
-Version: 0.37.0
+Version: 0.40.0
 Summary: A task runner that works well with poetry and uv.
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: automation,tasks,task-runner,plugin,poetry,poe
 Author: Nat Noordanus
 Author-email: n@noordan.us
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,8 +26,8 @@ Classifier: Topic :: Software Development :: Testing
 Provides-Extra: poetry-plugin
 Requires-Dist: pastel (>=0.2.1,<0.3.0)
 Requires-Dist: poetry (>=1.2.0,<3.0.0) ; (python_version < "4.0") and (extra == "poetry-plugin")
-Requires-Dist: pyyaml (>=6.0.2,<7.0)
-Requires-Dist: tomli (>=1.2.2) ; python_version < "3.11"
+Requires-Dist: pyyaml (>=6.0.3,<7.0)
+Requires-Dist: tomli (>=1.3.0) ; python_version < "3.11"
 Project-URL: Documentation, https://poethepoet.natn.io/
 Project-URL: Homepage, https://poethepoet.natn.io/
 Project-URL: Issues, https://github.com/nat-n/poethepoet/issues
@@ -39,8 +39,9 @@ Description-Content-Type: text/markdown
 
 <img alt="Poe the Poet" src="https://raw.githubusercontent.com/nat-n/poethepoet/main/docs/_static/poe_logo_x2000.png" height="200" width="200" align="left"/>
 
-[![Python versions](https://img.shields.io/badge/python-3.9%20%E2%80%93%203.13-blue)](https://pypi.org/project/poethepoet/)
+[![Python versions](https://img.shields.io/badge/python-3.10%20%E2%80%93%203.13-blue)](https://pypi.org/project/poethepoet/)
 [![PyPI version](https://img.shields.io/pypi/v/poethepoet.svg)](https://pypi.org/project/poethepoet/)
+[![Download stats](https://img.shields.io/pypi/dm/poethepoet.svg)](https://pypistats.org/packages/poethepoet)
 [![License](https://img.shields.io/pypi/l/ansicolortags.svg)](https://github.com/nat-n/poethepoet/blob/doc/init-sphinx/LICENSE)
 
 **A batteries included task runner that works well with [poetry](https://python-poetry.org/) or [uv](https://docs.astral.sh/uv/).**
@@ -69,7 +70,7 @@ Description-Content-Type: text/markdown
 
 - ✅ Tasks are [self documenting](https://poethepoet.natn.io/guides/help_guide.html), with optional help messages (just run `poe` with no arguments)
 
-- ✅ Tasks can be composed into [sequences](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-sequences) or [DAGs](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-graphs)
+- ✅ Tasks can be composed to run in [sequence](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-sequences), in [parallel](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-to-run-in-parallel), or as a [DAG](https://poethepoet.natn.io/guides/composition_guide.html#composing-tasks-into-graphs).
 
 - ✅ Works with [`.env` files](https://poethepoet.natn.io/tasks/options.html#loading-environment-variables-from-an-env-file)
 
@@ -92,7 +93,7 @@ Description-Content-Type: text/markdown
 
   ```toml
   [tool.poetry.requires-plugins]
-  poethepoet = ">=0.35"
+  poethepoet = ">=0.39"
   ```
 
 2. Define some tasks in your **pyproject.toml**

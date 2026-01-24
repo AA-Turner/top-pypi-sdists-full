@@ -38,6 +38,7 @@ from google.cloud.artifactregistry_v1.types.artifact import (
     GetMavenArtifactRequest,
     GetNpmPackageRequest,
     GetPythonPackageRequest,
+    ImageManifest,
     ListDockerImagesRequest,
     ListDockerImagesResponse,
     ListMavenArtifactsRequest,
@@ -57,6 +58,11 @@ from google.cloud.artifactregistry_v1.types.attachment import (
     GetAttachmentRequest,
     ListAttachmentsRequest,
     ListAttachmentsResponse,
+)
+from google.cloud.artifactregistry_v1.types.export import (
+    ExportArtifactMetadata,
+    ExportArtifactRequest,
+    ExportArtifactResponse,
 )
 from google.cloud.artifactregistry_v1.types.file import (
     DeleteFileRequest,
@@ -156,6 +162,7 @@ __all__ = (
     "GetMavenArtifactRequest",
     "GetNpmPackageRequest",
     "GetPythonPackageRequest",
+    "ImageManifest",
     "ListDockerImagesRequest",
     "ListDockerImagesResponse",
     "ListMavenArtifactsRequest",
@@ -173,6 +180,9 @@ __all__ = (
     "GetAttachmentRequest",
     "ListAttachmentsRequest",
     "ListAttachmentsResponse",
+    "ExportArtifactMetadata",
+    "ExportArtifactRequest",
+    "ExportArtifactResponse",
     "DeleteFileRequest",
     "File",
     "GetFileRequest",

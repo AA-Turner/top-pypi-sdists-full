@@ -879,6 +879,7 @@ LAYBASIC_PUBLIC Class<lay::LayoutViewBase> decl_LayoutViewBase (decl_Dispatcher,
   gsi::method ("active_cellview_index=|#active_setview_index=|#set_active_cellview_index", &lay::LayoutViewBase::set_active_cellview_index, gsi::arg ("index"),
     "@brief Makes the cellview with the given index the active one (shown in hierarchy browser)\n"
     "See \\active_cellview_index.\n"
+    "Note, that this changing the active cell view index has side effects such as terminating an editing operation.\n"
     "\n"
     "This method has been renamed from set_active_cellview_index to active_cellview_index= in version 0.25. "
     "The original name is still available, but is deprecated."
@@ -1780,6 +1781,21 @@ LAYBASIC_PUBLIC Class<lay::LayoutViewBase> decl_LayoutViewBase (decl_Dispatcher,
     "This event is triggered after the current layer list was changed - i.e. a new tab was selected.\n"
     "\n"
     "This event was introduced in version 0.25.\n"
+  ) +
+  gsi::event ("on_current_layer_changed", static_cast<tl::event<const lay::LayerPropertiesConstIterator &> (lay::LayoutViewBase::*)> (&lay::LayoutViewBase::current_layer_changed_event), gsi::arg ("new_layer"),
+    "@brief An event indicating the current layer has changed\n"
+    "@param new_layer The layer iterator of the new current layer\n"
+    "\n"
+    "This event is triggered after the current layer was changed - i.e. a new layer is selected in the layer list.\n"
+    "\n"
+    "This event was introduced in version 0.30.5.\n"
+  ) +
+  gsi::event ("on_selected_layers_changed", static_cast<tl::Event (lay::LayoutViewBase::*)> (&lay::LayoutViewBase::selected_layers_changed_event),
+    "@brief An event indicating the layer selection has changed\n"
+    "\n"
+    "This event is triggered after the layer selection was changed - i.e. layers got selected or unselected.\n"
+    "\n"
+    "This event was introduced in version 0.30.5.\n"
   ) +
   gsi::event ("on_cell_visibility_changed", static_cast<tl::Event (lay::LayoutViewBase::*)> (&lay::LayoutViewBase::cell_visibility_changed_event),
     "@brief An event indicating that the visibility of one or more cells has changed\n"

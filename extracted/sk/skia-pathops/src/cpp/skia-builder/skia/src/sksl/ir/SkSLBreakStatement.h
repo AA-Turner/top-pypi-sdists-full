@@ -8,8 +8,8 @@
 #ifndef SKSL_BREAKSTATEMENT
 #define SKSL_BREAKSTATEMENT
 
-#include "include/private/SkSLStatement.h"
 #include "src/sksl/ir/SkSLExpression.h"
+#include "src/sksl/ir/SkSLStatement.h"
 
 namespace SkSL {
 
@@ -20,15 +20,10 @@ class BreakStatement final : public Statement {
 public:
     inline static constexpr Kind kIRNodeKind = Kind::kBreak;
 
-    BreakStatement(Position pos)
-        : INHERITED(pos, kIRNodeKind) {}
+    explicit BreakStatement(Position pos) : INHERITED(pos, kIRNodeKind) {}
 
     static std::unique_ptr<Statement> Make(Position pos) {
         return std::make_unique<BreakStatement>(pos);
-    }
-
-    std::unique_ptr<Statement> clone() const override {
-        return std::make_unique<BreakStatement>(fPosition);
     }
 
     std::string description() const override {

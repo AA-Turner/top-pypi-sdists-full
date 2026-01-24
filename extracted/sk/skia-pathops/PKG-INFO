@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: skia-pathops
-Version: 0.8.0.post2
+Version: 0.9.1
 Summary: Python access to operations on paths using the Skia library
 Home-page: https://github.com/fonttools/skia-pathops
 Author: Khaled Hosny, Cosimo Lupo
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: testing
@@ -23,6 +23,17 @@ Requires-Dist: pytest; extra == "testing"
 Requires-Dist: coverage; extra == "testing"
 Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: pytest-randomly; extra == "testing"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-python
+Dynamic: summary
 
 [![Githun CI Status](https://github.com/fonttools/skia-pathops/workflows/Build%20+%20Deploy/badge.svg)](https://github.com/fonttools/skia-pathops/actions?query=workflow%3A%22Build+%2B+Deploy%22)
 [![Appveyor CI Status](https://ci.appveyor.com/api/projects/status/jv7g1e0m0vyopbej?svg=true)](https://ci.appveyor.com/project/fonttools/skia-pathops/branch/master)

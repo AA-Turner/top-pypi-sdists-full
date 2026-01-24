@@ -170,15 +170,15 @@ class BashExecFunction(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         script: builtins.str,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
         dockerfile: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -207,8 +207,8 @@ class BashExecFunction(
 
     @builtins.property
     @jsii.member(jsii_name="handler")
-    def handler(self) -> _aws_cdk_aws_lambda_ceddda9d.DockerImageFunction:
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.DockerImageFunction, jsii.get(self, "handler"))
+    def handler(self) -> "_aws_cdk_aws_lambda_ceddda9d.DockerImageFunction":
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.DockerImageFunction", jsii.get(self, "handler"))
 
 
 @jsii.data_type(
@@ -228,11 +228,11 @@ class BashExecFunctionProps:
         self,
         *,
         script: builtins.str,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
         dockerfile: typing.Optional[builtins.str] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''
         :param script: The path of the shell script to be executed.
@@ -274,13 +274,13 @@ class BashExecFunctionProps:
     @builtins.property
     def architecture(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"]:
         '''Custom lambda Image Architecture.
 
         :default: - lambda.Architecture.X86_64
         '''
         result = self._values.get("architecture")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"], result)
 
     @builtins.property
     def dockerfile(self) -> typing.Optional[builtins.str]:
@@ -297,16 +297,16 @@ class BashExecFunctionProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''Custom lambda execution role.
 
         :default: - auto generated role.
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''The function execution time (in seconds) after which Lambda terminates the function.
 
         Because the execution time affects cost, set this value based on the function's expected execution time.
@@ -314,7 +314,7 @@ class BashExecFunctionProps:
         :default: - Duration.seconds(60)
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -335,16 +335,16 @@ class CertbotDnsRoute53Job(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         certbot_options: typing.Union["CertbotOptions", typing.Dict[builtins.str, typing.Any]],
-        destination_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        zone: _aws_cdk_aws_route53_ceddda9d.IHostedZone,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        destination_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        zone: "_aws_cdk_aws_route53_ceddda9d.IHostedZone",
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
         enabled_lambda_function_url: typing.Optional[builtins.bool] = None,
-        function_url_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule] = None,
+        function_url_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -392,12 +392,12 @@ class CertbotDnsRoute53JobProps:
         self,
         *,
         certbot_options: typing.Union["CertbotOptions", typing.Dict[builtins.str, typing.Any]],
-        destination_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        zone: _aws_cdk_aws_route53_ceddda9d.IHostedZone,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        destination_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        zone: "_aws_cdk_aws_route53_ceddda9d.IHostedZone",
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
         enabled_lambda_function_url: typing.Optional[builtins.bool] = None,
-        function_url_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule] = None,
+        function_url_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"] = None,
     ) -> None:
         '''
         :param certbot_options: certbot cmd options.
@@ -443,29 +443,29 @@ class CertbotDnsRoute53JobProps:
         return typing.cast("CertbotOptions", result)
 
     @builtins.property
-    def destination_bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def destination_bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''The S3 bucket to store certificate.'''
         result = self._values.get("destination_bucket")
         assert result is not None, "Required property 'destination_bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     @builtins.property
-    def zone(self) -> _aws_cdk_aws_route53_ceddda9d.IHostedZone:
+    def zone(self) -> "_aws_cdk_aws_route53_ceddda9d.IHostedZone":
         '''The HostZone on route53 to dns-01 challenge.'''
         result = self._values.get("zone")
         assert result is not None, "Required property 'zone' is missing"
-        return typing.cast(_aws_cdk_aws_route53_ceddda9d.IHostedZone, result)
+        return typing.cast("_aws_cdk_aws_route53_ceddda9d.IHostedZone", result)
 
     @builtins.property
     def architecture(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"]:
         '''Custom lambda Image Architecture.
 
         :default: - lambda.Architecture.X86_64
         '''
         result = self._values.get("architecture")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"], result)
 
     @builtins.property
     def enabled_lambda_function_url(self) -> typing.Optional[builtins.bool]:
@@ -479,22 +479,22 @@ class CertbotDnsRoute53JobProps:
     @builtins.property
     def function_url_options(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions]:
+    ) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions"]:
         '''Options to add a url to a Lambda function.
 
         :default: - authType: lambda.FunctionUrlAuthType.NONE
         '''
         result = self._values.get("function_url_options")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions"], result)
 
     @builtins.property
-    def schedule(self) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule]:
+    def schedule(self) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"]:
         '''run the Job with defined schedule.
 
         :default: - no schedule
         '''
         result = self._values.get("schedule")
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -515,16 +515,16 @@ class CertbotDnsRoute53JobPython(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         certbot_options: typing.Union["CertbotOptions", typing.Dict[builtins.str, typing.Any]],
-        destination_bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-        zone: _aws_cdk_aws_route53_ceddda9d.IHostedZone,
-        architecture: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.Architecture] = None,
+        destination_bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+        zone: "_aws_cdk_aws_route53_ceddda9d.IHostedZone",
+        architecture: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.Architecture"] = None,
         enabled_lambda_function_url: typing.Optional[builtins.bool] = None,
-        function_url_options: typing.Optional[typing.Union[_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[_aws_cdk_aws_events_ceddda9d.Schedule] = None,
+        function_url_options: typing.Optional[typing.Union["_aws_cdk_aws_lambda_ceddda9d.FunctionUrlOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional["_aws_cdk_aws_events_ceddda9d.Schedule"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -646,10 +646,10 @@ class LambdaFunctionProps:
     def __init__(
         self,
         *,
-        architecture: _aws_cdk_aws_lambda_ceddda9d.Architecture,
-        timeout: _aws_cdk_ceddda9d.Duration,
+        architecture: "_aws_cdk_aws_lambda_ceddda9d.Architecture",
+        timeout: "_aws_cdk_ceddda9d.Duration",
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param architecture: 
@@ -673,16 +673,16 @@ class LambdaFunctionProps:
             self._values["role"] = role
 
     @builtins.property
-    def architecture(self) -> _aws_cdk_aws_lambda_ceddda9d.Architecture:
+    def architecture(self) -> "_aws_cdk_aws_lambda_ceddda9d.Architecture":
         result = self._values.get("architecture")
         assert result is not None, "Required property 'architecture' is missing"
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.Architecture, result)
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.Architecture", result)
 
     @builtins.property
-    def timeout(self) -> _aws_cdk_ceddda9d.Duration:
+    def timeout(self) -> "_aws_cdk_ceddda9d.Duration":
         result = self._values.get("timeout")
         assert result is not None, "Required property 'timeout' is missing"
-        return typing.cast(_aws_cdk_ceddda9d.Duration, result)
+        return typing.cast("_aws_cdk_ceddda9d.Duration", result)
 
     @builtins.property
     def environment(
@@ -692,9 +692,9 @@ class LambdaFunctionProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -715,13 +715,13 @@ class LambdaPythonFunction(
 ):
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        architecture: _aws_cdk_aws_lambda_ceddda9d.Architecture,
-        timeout: _aws_cdk_ceddda9d.Duration,
+        architecture: "_aws_cdk_aws_lambda_ceddda9d.Architecture",
+        timeout: "_aws_cdk_ceddda9d.Duration",
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -746,8 +746,8 @@ class LambdaPythonFunction(
 
     @builtins.property
     @jsii.member(jsii_name="handler")
-    def handler(self) -> _aws_cdk_aws_lambda_python_alpha_49328424.PythonFunction:
-        return typing.cast(_aws_cdk_aws_lambda_python_alpha_49328424.PythonFunction, jsii.get(self, "handler"))
+    def handler(self) -> "_aws_cdk_aws_lambda_python_alpha_49328424.PythonFunction":
+        return typing.cast("_aws_cdk_aws_lambda_python_alpha_49328424.PythonFunction", jsii.get(self, "handler"))
 
 
 __all__ = [

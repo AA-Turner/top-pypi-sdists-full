@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -71,12 +72,6 @@ from .literals import (
     VerifySoftwareTokenResponseTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -417,7 +412,7 @@ class AttributeTypeTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -639,9 +634,9 @@ class IdentityProviderTypeTypeDef(TypedDict):
     UserPoolId: NotRequired[str]
     ProviderName: NotRequired[str]
     ProviderType: NotRequired[IdentityProviderTypeTypeType]
-    ProviderDetails: NotRequired[Dict[str, str]]
-    AttributeMapping: NotRequired[Dict[str, str]]
-    IdpIdentifiers: NotRequired[List[str]]
+    ProviderDetails: NotRequired[dict[str, str]]
+    AttributeMapping: NotRequired[dict[str, str]]
+    IdpIdentifiers: NotRequired[list[str]]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
 
@@ -664,7 +659,7 @@ class TermsTypeTypeDef(TypedDict):
     TermsName: str
     TermsSource: Literal["LINK"]
     Enforcement: Literal["NONE"]
-    Links: Dict[str, str]
+    Links: dict[str, str]
     CreationDate: datetime
     LastModifiedDate: datetime
 
@@ -979,7 +974,7 @@ class WebAuthnCredentialDescriptionTypeDef(TypedDict):
     CredentialId: str
     FriendlyCredentialName: str
     RelyingPartyId: str
-    AuthenticatorTransports: List[str]
+    AuthenticatorTransports: list[str]
     CreatedAt: datetime
     AuthenticatorAttachment: NotRequired[str]
 
@@ -1010,8 +1005,8 @@ class RevokeTokenRequestTypeDef(TypedDict):
     ClientSecret: NotRequired[str]
 
 class RiskExceptionConfigurationTypeOutputTypeDef(TypedDict):
-    BlockedIPRangeList: NotRequired[List[str]]
-    SkippedIPRangeList: NotRequired[List[str]]
+    BlockedIPRangeList: NotRequired[list[str]]
+    SkippedIPRangeList: NotRequired[list[str]]
 
 class RiskExceptionConfigurationTypeTypeDef(TypedDict):
     BlockedIPRangeList: NotRequired[Sequence[str]]
@@ -1022,7 +1017,7 @@ class StringAttributeConstraintsTypeTypeDef(TypedDict):
     MaxLength: NotRequired[str]
 
 class SignInPolicyTypeOutputTypeDef(TypedDict):
-    AllowedFirstAuthFactors: NotRequired[List[AuthFactorTypeType]]
+    AllowedFirstAuthFactors: NotRequired[list[AuthFactorTypeType]]
 
 class SignInPolicyTypeTypeDef(TypedDict):
     AllowedFirstAuthFactors: NotRequired[Sequence[AuthFactorTypeType]]
@@ -1081,7 +1076,7 @@ class UpdateTermsRequestTypeDef(TypedDict):
     Links: NotRequired[Mapping[str, str]]
 
 class UserAttributeUpdateSettingsTypeOutputTypeDef(TypedDict):
-    AttributesRequireVerificationBeforeUpdate: NotRequired[List[VerifiedAttributeTypeType]]
+    AttributesRequireVerificationBeforeUpdate: NotRequired[list[VerifiedAttributeTypeType]]
 
 class UserAttributeUpdateSettingsTypeTypeDef(TypedDict):
     AttributesRequireVerificationBeforeUpdate: NotRequired[Sequence[VerifiedAttributeTypeType]]
@@ -1098,7 +1093,7 @@ class VerifyUserAttributeRequestTypeDef(TypedDict):
     Code: str
 
 class AccountRecoverySettingTypeOutputTypeDef(TypedDict):
-    RecoveryMechanisms: NotRequired[List[RecoveryOptionTypeTypeDef]]
+    RecoveryMechanisms: NotRequired[list[RecoveryOptionTypeTypeDef]]
 
 class AccountRecoverySettingTypeTypeDef(TypedDict):
     RecoveryMechanisms: NotRequired[Sequence[RecoveryOptionTypeTypeDef]]
@@ -1132,7 +1127,7 @@ class AdminUpdateUserAttributesRequestTypeDef(TypedDict):
 
 class DeviceTypeTypeDef(TypedDict):
     DeviceKey: NotRequired[str]
-    DeviceAttributes: NotRequired[List[AttributeTypeTypeDef]]
+    DeviceAttributes: NotRequired[list[AttributeTypeTypeDef]]
     DeviceCreateDate: NotRequired[datetime]
     DeviceLastModifiedDate: NotRequired[datetime]
     DeviceLastAuthenticatedDate: NotRequired[datetime]
@@ -1165,7 +1160,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class GetCSVHeaderResponseTypeDef(TypedDict):
     UserPoolId: str
-    CSVHeader: List[str]
+    CSVHeader: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSigningCertificateResponseTypeDef(TypedDict):
@@ -1175,16 +1170,16 @@ class GetSigningCertificateResponseTypeDef(TypedDict):
 class GetUserAuthFactorsResponseTypeDef(TypedDict):
     Username: str
     PreferredMfaSetting: str
-    UserMFASettingList: List[str]
-    ConfiguredUserAuthFactors: List[AuthFactorTypeType]
+    UserMFASettingList: list[str]
+    ConfiguredUserAuthFactors: list[AuthFactorTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartWebAuthnRegistrationResponseTypeDef(TypedDict):
-    CredentialCreationOptions: Dict[str, Any]
+    CredentialCreationOptions: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateUserPoolDomainResponseTypeDef(TypedDict):
@@ -1208,14 +1203,14 @@ class AdminLinkProviderForUserRequestTypeDef(TypedDict):
 
 class AdminGetUserResponseTypeDef(TypedDict):
     Username: str
-    UserAttributes: List[AttributeTypeTypeDef]
+    UserAttributes: list[AttributeTypeTypeDef]
     UserCreateDate: datetime
     UserLastModifiedDate: datetime
     Enabled: bool
     UserStatus: UserStatusTypeType
-    MFAOptions: List[MFAOptionTypeTypeDef]
+    MFAOptions: list[MFAOptionTypeTypeDef]
     PreferredMfaSetting: str
-    UserMFASettingList: List[str]
+    UserMFASettingList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AdminSetUserSettingsRequestTypeDef(TypedDict):
@@ -1225,10 +1220,10 @@ class AdminSetUserSettingsRequestTypeDef(TypedDict):
 
 class GetUserResponseTypeDef(TypedDict):
     Username: str
-    UserAttributes: List[AttributeTypeTypeDef]
-    MFAOptions: List[MFAOptionTypeTypeDef]
+    UserAttributes: list[AttributeTypeTypeDef]
+    MFAOptions: list[MFAOptionTypeTypeDef]
     PreferredMfaSetting: str
-    UserMFASettingList: List[str]
+    UserMFASettingList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SetUserSettingsRequestTypeDef(TypedDict):
@@ -1237,12 +1232,12 @@ class SetUserSettingsRequestTypeDef(TypedDict):
 
 class UserTypeTypeDef(TypedDict):
     Username: NotRequired[str]
-    Attributes: NotRequired[List[AttributeTypeTypeDef]]
+    Attributes: NotRequired[list[AttributeTypeTypeDef]]
     UserCreateDate: NotRequired[datetime]
     UserLastModifiedDate: NotRequired[datetime]
     Enabled: NotRequired[bool]
     UserStatus: NotRequired[UserStatusTypeType]
-    MFAOptions: NotRequired[List[MFAOptionTypeTypeDef]]
+    MFAOptions: NotRequired[list[MFAOptionTypeTypeDef]]
 
 class AdminListGroupsForUserRequestPaginateTypeDef(TypedDict):
     Username: str
@@ -1285,7 +1280,7 @@ class ListUsersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class AdminListGroupsForUserResponseTypeDef(TypedDict):
-    Groups: List[GroupTypeTypeDef]
+    Groups: list[GroupTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1298,7 +1293,7 @@ class GetGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupTypeTypeDef]
+    Groups: list[GroupTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1327,8 +1322,8 @@ class ManagedLoginBrandingTypeTypeDef(TypedDict):
     ManagedLoginBrandingId: NotRequired[str]
     UserPoolId: NotRequired[str]
     UseCognitoProvidedValues: NotRequired[bool]
-    Settings: NotRequired[Dict[str, Any]]
-    Assets: NotRequired[List[AssetTypeOutputTypeDef]]
+    Settings: NotRequired[dict[str, Any]]
+    Assets: NotRequired[list[AssetTypeOutputTypeDef]]
     CreationDate: NotRequired[datetime]
     LastModifiedDate: NotRequired[datetime]
 
@@ -1351,7 +1346,7 @@ class AuthEventTypeTypeDef(TypedDict):
     CreationDate: NotRequired[datetime]
     EventResponse: NotRequired[EventResponseTypeType]
     EventRisk: NotRequired[EventRiskTypeTypeDef]
-    ChallengeResponses: NotRequired[List[ChallengeResponseTypeTypeDef]]
+    ChallengeResponses: NotRequired[list[ChallengeResponseTypeTypeDef]]
     EventContextData: NotRequired[EventContextDataTypeTypeDef]
     EventFeedback: NotRequired[EventFeedbackTypeTypeDef]
 
@@ -1383,12 +1378,12 @@ class SignUpResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateUserAttributesResponseTypeDef(TypedDict):
-    CodeDeliveryDetailsList: List[CodeDeliveryDetailsTypeTypeDef]
+    CodeDeliveryDetailsList: list[CodeDeliveryDetailsTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CompromisedCredentialsRiskConfigurationTypeOutputTypeDef(TypedDict):
     Actions: CompromisedCredentialsActionsTypeTypeDef
-    EventFilter: NotRequired[List[EventFilterTypeType]]
+    EventFilter: NotRequired[list[EventFilterTypeType]]
 
 class CompromisedCredentialsRiskConfigurationTypeTypeDef(TypedDict):
     Actions: CompromisedCredentialsActionsTypeTypeDef
@@ -1499,7 +1494,7 @@ class ResourceServerTypeTypeDef(TypedDict):
     UserPoolId: NotRequired[str]
     Identifier: NotRequired[str]
     Name: NotRequired[str]
-    Scopes: NotRequired[List[ResourceServerScopeTypeTypeDef]]
+    Scopes: NotRequired[list[ResourceServerScopeTypeTypeDef]]
 
 class UpdateResourceServerRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1528,7 +1523,7 @@ class DescribeUserImportJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUserImportJobsResponseTypeDef(TypedDict):
-    UserImportJobs: List[UserImportJobTypeTypeDef]
+    UserImportJobs: list[UserImportJobTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
@@ -1601,15 +1596,15 @@ class UserPoolClientTypeTypeDef(TypedDict):
     AccessTokenValidity: NotRequired[int]
     IdTokenValidity: NotRequired[int]
     TokenValidityUnits: NotRequired[TokenValidityUnitsTypeTypeDef]
-    ReadAttributes: NotRequired[List[str]]
-    WriteAttributes: NotRequired[List[str]]
-    ExplicitAuthFlows: NotRequired[List[ExplicitAuthFlowsTypeType]]
-    SupportedIdentityProviders: NotRequired[List[str]]
-    CallbackURLs: NotRequired[List[str]]
-    LogoutURLs: NotRequired[List[str]]
+    ReadAttributes: NotRequired[list[str]]
+    WriteAttributes: NotRequired[list[str]]
+    ExplicitAuthFlows: NotRequired[list[ExplicitAuthFlowsTypeType]]
+    SupportedIdentityProviders: NotRequired[list[str]]
+    CallbackURLs: NotRequired[list[str]]
+    LogoutURLs: NotRequired[list[str]]
     DefaultRedirectURI: NotRequired[str]
-    AllowedOAuthFlows: NotRequired[List[OAuthFlowTypeType]]
-    AllowedOAuthScopes: NotRequired[List[str]]
+    AllowedOAuthFlows: NotRequired[list[OAuthFlowTypeType]]
+    AllowedOAuthScopes: NotRequired[list[str]]
     AllowedOAuthFlowsUserPoolClient: NotRequired[bool]
     AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeTypeDef]
     PreventUserExistenceErrors: NotRequired[PreventUserExistenceErrorTypesType]
@@ -1670,22 +1665,22 @@ class LambdaConfigTypeTypeDef(TypedDict):
     KMSKeyID: NotRequired[str]
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
-    Providers: List[ProviderDescriptionTypeDef]
+    Providers: list[ProviderDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTermsResponseTypeDef(TypedDict):
-    Terms: List[TermsDescriptionTypeTypeDef]
+    Terms: list[TermsDescriptionTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListUserPoolClientsResponseTypeDef(TypedDict):
-    UserPoolClients: List[UserPoolClientDescriptionTypeDef]
+    UserPoolClients: list[UserPoolClientDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListWebAuthnCredentialsResponseTypeDef(TypedDict):
-    Credentials: List[WebAuthnCredentialDescriptionTypeDef]
+    Credentials: list[WebAuthnCredentialDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1740,7 +1735,7 @@ class AdminGetDeviceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AdminListDevicesResponseTypeDef(TypedDict):
-    Devices: List[DeviceTypeTypeDef]
+    Devices: list[DeviceTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
@@ -1749,7 +1744,7 @@ class GetDeviceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDevicesResponseTypeDef(TypedDict):
-    Devices: List[DeviceTypeTypeDef]
+    Devices: list[DeviceTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
@@ -1758,12 +1753,12 @@ class AdminCreateUserResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListUsersInGroupResponseTypeDef(TypedDict):
-    Users: List[UserTypeTypeDef]
+    Users: list[UserTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeTypeDef]
+    Users: list[UserTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
@@ -1786,22 +1781,22 @@ class UpdateManagedLoginBrandingResponseTypeDef(TypedDict):
 AssetTypeUnionTypeDef = Union[AssetTypeTypeDef, AssetTypeOutputTypeDef]
 
 class AdminListUserAuthEventsResponseTypeDef(TypedDict):
-    AuthEvents: List[AuthEventTypeTypeDef]
+    AuthEvents: list[AuthEventTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class AdminInitiateAuthResponseTypeDef(TypedDict):
     ChallengeName: ChallengeNameTypeType
     Session: str
-    ChallengeParameters: Dict[str, str]
+    ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
-    AvailableChallenges: List[ChallengeNameTypeType]
+    AvailableChallenges: list[ChallengeNameTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AdminRespondToAuthChallengeResponseTypeDef(TypedDict):
     ChallengeName: ChallengeNameTypeType
     Session: str
-    ChallengeParameters: Dict[str, str]
+    ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1812,15 +1807,15 @@ class GetTokensFromRefreshTokenResponseTypeDef(TypedDict):
 class InitiateAuthResponseTypeDef(TypedDict):
     ChallengeName: ChallengeNameTypeType
     Session: str
-    ChallengeParameters: Dict[str, str]
+    ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
-    AvailableChallenges: List[ChallengeNameTypeType]
+    AvailableChallenges: list[ChallengeNameTypeType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RespondToAuthChallengeResponseTypeDef(TypedDict):
     ChallengeName: ChallengeNameTypeType
     Session: str
-    ChallengeParameters: Dict[str, str]
+    ChallengeParameters: dict[str, str]
     AuthenticationResult: AuthenticationResultTypeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1858,7 +1853,7 @@ class DescribeResourceServerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListResourceServersResponseTypeDef(TypedDict):
-    ResourceServers: List[ResourceServerTypeTypeDef]
+    ResourceServers: list[ResourceServerTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1916,7 +1911,7 @@ class UserPoolDescriptionTypeTypeDef(TypedDict):
 
 class LogDeliveryConfigurationTypeTypeDef(TypedDict):
     UserPoolId: str
-    LogConfigurations: List[LogConfigurationTypeTypeDef]
+    LogConfigurations: list[LogConfigurationTypeTypeDef]
 
 class SetLogDeliveryConfigurationRequestTypeDef(TypedDict):
     UserPoolId: str
@@ -1939,10 +1934,10 @@ class UserPoolTypeTypeDef(TypedDict):
     Status: NotRequired[StatusTypeType]
     LastModifiedDate: NotRequired[datetime]
     CreationDate: NotRequired[datetime]
-    SchemaAttributes: NotRequired[List[SchemaAttributeTypeTypeDef]]
-    AutoVerifiedAttributes: NotRequired[List[VerifiedAttributeTypeType]]
-    AliasAttributes: NotRequired[List[AliasAttributeTypeType]]
-    UsernameAttributes: NotRequired[List[UsernameAttributeTypeType]]
+    SchemaAttributes: NotRequired[list[SchemaAttributeTypeTypeDef]]
+    AutoVerifiedAttributes: NotRequired[list[VerifiedAttributeTypeType]]
+    AliasAttributes: NotRequired[list[AliasAttributeTypeType]]
+    UsernameAttributes: NotRequired[list[UsernameAttributeTypeType]]
     SmsVerificationMessage: NotRequired[str]
     EmailVerificationMessage: NotRequired[str]
     EmailVerificationSubject: NotRequired[str]
@@ -1954,7 +1949,7 @@ class UserPoolTypeTypeDef(TypedDict):
     EstimatedNumberOfUsers: NotRequired[int]
     EmailConfiguration: NotRequired[EmailConfigurationTypeTypeDef]
     SmsConfiguration: NotRequired[SmsConfigurationTypeTypeDef]
-    UserPoolTags: NotRequired[Dict[str, str]]
+    UserPoolTags: NotRequired[dict[str, str]]
     SmsConfigurationFailure: NotRequired[str]
     EmailConfigurationFailure: NotRequired[str]
     Domain: NotRequired[str]
@@ -1983,7 +1978,7 @@ class UpdateManagedLoginBrandingRequestTypeDef(TypedDict):
     Assets: NotRequired[Sequence[AssetTypeUnionTypeDef]]
 
 class ListUserPoolsResponseTypeDef(TypedDict):
-    UserPools: List[UserPoolDescriptionTypeTypeDef]
+    UserPools: list[UserPoolDescriptionTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

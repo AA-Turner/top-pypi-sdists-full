@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rpaframework-windows
-Version: 10.0.0
+Version: 10.0.3
 Summary: Windows library for RPA Framework
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -27,10 +27,10 @@ Requires-Dist: dataclasses>=0.7; python_version >= '3.6' and python_version < '3
 Requires-Dist: fire>=0.7.0
 Requires-Dist: psutil>=5.9.0; platform_system == 'Windows'
 Requires-Dist: pynput-robocorp-fork>=5.0.0
-Requires-Dist: pywin32<307,>=300; platform_system == 'Windows' and python_version != '3.8.1'
+Requires-Dist: pywin32<=311,>=300; platform_system == 'Windows' and python_version != '3.8.1'
 Requires-Dist: robotframework!=4.0.1,!=6.1.0,<8.0.0,>=4.0.0
 Requires-Dist: robotframework-pythonlibcore>=4.2.0
-Requires-Dist: rpaframework-core>=12.0.2
+Requires-Dist: rpaframework-core>=12.1.0
 Requires-Dist: uiautomation>=2.0.15
 Description-Content-Type: text/x-rst
 

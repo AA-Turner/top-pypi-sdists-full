@@ -3,7 +3,7 @@ Type annotations for datapipeline service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_datapipeline/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,17 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import OperatorTypeType, TaskStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -112,7 +107,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -194,14 +189,14 @@ ValidationErrorTypeDef = TypedDict(
     "ValidationErrorTypeDef",
     {
         "id": NotRequired[str],
-        "errors": NotRequired[List[str]],
+        "errors": NotRequired[list[str]],
     },
 )
 ValidationWarningTypeDef = TypedDict(
     "ValidationWarningTypeDef",
     {
         "id": NotRequired[str],
-        "warnings": NotRequired[List[str]],
+        "warnings": NotRequired[list[str]],
     },
 )
 
@@ -264,7 +259,7 @@ class EvaluateExpressionOutputTypeDef(TypedDict):
 
 
 class QueryObjectsOutputTypeDef(TypedDict):
-    ids: List[str]
+    ids: list[str]
     marker: str
     hasMoreResults: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -294,9 +289,9 @@ class ListPipelinesInputPaginateTypeDef(TypedDict):
 class PipelineDescriptionTypeDef(TypedDict):
     pipelineId: str
     name: str
-    fields: List[FieldTypeDef]
+    fields: list[FieldTypeDef]
     description: NotRequired[str]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 
 PipelineObjectOutputTypeDef = TypedDict(
@@ -304,7 +299,7 @@ PipelineObjectOutputTypeDef = TypedDict(
     {
         "id": str,
         "name": str,
-        "fields": List[FieldTypeDef],
+        "fields": list[FieldTypeDef],
     },
 )
 PipelineObjectTypeDef = TypedDict(
@@ -329,7 +324,7 @@ class PollForTaskInputTypeDef(TypedDict):
 
 
 class ListPipelinesOutputTypeDef(TypedDict):
-    pipelineIdList: List[PipelineIdNameTypeDef]
+    pipelineIdList: list[PipelineIdNameTypeDef]
     marker: str
     hasMoreResults: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -346,7 +341,7 @@ ParameterObjectOutputTypeDef = TypedDict(
     "ParameterObjectOutputTypeDef",
     {
         "id": str,
-        "attributes": List[ParameterAttributeTypeDef],
+        "attributes": list[ParameterAttributeTypeDef],
     },
 )
 ParameterObjectTypeDef = TypedDict(
@@ -359,26 +354,26 @@ ParameterObjectTypeDef = TypedDict(
 
 
 class PutPipelineDefinitionOutputTypeDef(TypedDict):
-    validationErrors: List[ValidationErrorTypeDef]
-    validationWarnings: List[ValidationWarningTypeDef]
+    validationErrors: list[ValidationErrorTypeDef]
+    validationWarnings: list[ValidationWarningTypeDef]
     errored: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ValidatePipelineDefinitionOutputTypeDef(TypedDict):
-    validationErrors: List[ValidationErrorTypeDef]
-    validationWarnings: List[ValidationWarningTypeDef]
+    validationErrors: list[ValidationErrorTypeDef]
+    validationWarnings: list[ValidationWarningTypeDef]
     errored: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribePipelinesOutputTypeDef(TypedDict):
-    pipelineDescriptionList: List[PipelineDescriptionTypeDef]
+    pipelineDescriptionList: list[PipelineDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeObjectsOutputTypeDef(TypedDict):
-    pipelineObjects: List[PipelineObjectOutputTypeDef]
+    pipelineObjects: list[PipelineObjectOutputTypeDef]
     marker: str
     hasMoreResults: bool
     ResponseMetadata: ResponseMetadataTypeDef
@@ -388,7 +383,7 @@ class TaskObjectTypeDef(TypedDict):
     taskId: NotRequired[str]
     pipelineId: NotRequired[str]
     attemptId: NotRequired[str]
-    objects: NotRequired[Dict[str, PipelineObjectOutputTypeDef]]
+    objects: NotRequired[dict[str, PipelineObjectOutputTypeDef]]
 
 
 PipelineObjectUnionTypeDef = Union[PipelineObjectTypeDef, PipelineObjectOutputTypeDef]
@@ -399,9 +394,9 @@ class QueryTypeDef(TypedDict):
 
 
 class GetPipelineDefinitionOutputTypeDef(TypedDict):
-    pipelineObjects: List[PipelineObjectOutputTypeDef]
-    parameterObjects: List[ParameterObjectOutputTypeDef]
-    parameterValues: List[ParameterValueTypeDef]
+    pipelineObjects: list[PipelineObjectOutputTypeDef]
+    parameterObjects: list[ParameterObjectOutputTypeDef]
+    parameterValues: list[ParameterValueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

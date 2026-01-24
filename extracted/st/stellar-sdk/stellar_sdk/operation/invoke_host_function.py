@@ -1,4 +1,5 @@
-from typing import ClassVar, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -13,7 +14,8 @@ class InvokeHostFunction(Operation):
 
     Threshold: Medium
 
-    See `Interacting with Soroban via Stellar <https://soroban.stellar.org/docs/fundamentals-and-concepts/invoking-contracts-with-transactions>`_.
+    See `Invoke Host Function <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#invoke-host-function>`_.
+    See `Interacting with Soroban via Stellar <https://developers.stellar.org/docs/learn/fundamentals/contract-development/contract-interactions/stellar-transaction>`_.
 
     :param host_function: The host function to invoke.
     :param auth: The authorizations required to execute the host function.
@@ -27,12 +29,12 @@ class InvokeHostFunction(Operation):
     def __init__(
         self,
         host_function: stellar_xdr.HostFunction,
-        auth: Optional[Sequence[stellar_xdr.SorobanAuthorizationEntry]] = None,
-        source: Optional[Union[MuxedAccount, str]] = None,
+        auth: Sequence[stellar_xdr.SorobanAuthorizationEntry] | None = None,
+        source: MuxedAccount | str | None = None,
     ):
         super().__init__(source)
         self.host_function = host_function
-        self.auth: List[stellar_xdr.SorobanAuthorizationEntry] = (
+        self.auth: list[stellar_xdr.SorobanAuthorizationEntry] = (
             list(auth) if auth else []
         )
 

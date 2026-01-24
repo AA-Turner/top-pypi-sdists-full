@@ -1,23 +1,20 @@
 use crate::utils::fast_hash;
-use crate::utils::range_utils::LineIndex;
 use crate::utils::regex_cache::{escape_regex, get_cached_fancy_regex};
 
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
 use fancy_regex::Regex;
-use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
 
 mod md044_config;
 use md044_config::MD044Config;
 
-lazy_static! {
-    static ref HTML_COMMENT_REGEX: Regex = Regex::new(r"<!--([\s\S]*?)-->").unwrap();
-    // Reference definition pattern - matches [ref]: url "title"
-    static ref REF_DEF_REGEX: regex::Regex = regex::Regex::new(
-        r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#
-    ).unwrap();
-}
+static HTML_COMMENT_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<!--([\s\S]*?)-->").unwrap());
+// Reference definition pattern - matches [ref]: url "title"
+static REF_DEF_REGEX: LazyLock<regex::Regex> = LazyLock::new(|| {
+    regex::Regex::new(r#"(?m)^[ ]{0,3}\[([^\]]+)\]:\s*([^\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?$"#).unwrap()
+});
 
 type WarningPosition = (usize, usize, String); // (line, column, found_name)
 
@@ -43,7 +40,7 @@ type WarningPosition = (usize, usize, String); // (line, column, found_name)
 /// ```yaml
 /// MD044:
 ///   names: []                # List of proper names to check for correct capitalization
-///   code_blocks_excluded: true  # Whether to exclude code blocks from checking
+///   code-blocks: false       # Whether to check code blocks (default: false)
 /// ```
 ///
 /// Example configuration:
@@ -51,7 +48,7 @@ type WarningPosition = (usize, usize, String); // (line, column, found_name)
 /// ```yaml
 /// MD044:
 ///   names: ["JavaScript", "Node.js", "TypeScript"]
-///   code_blocks_excluded: true
+///   code-blocks: true
 /// ```
 ///
 /// ## Performance Optimizations
@@ -67,7 +64,7 @@ type WarningPosition = (usize, usize, String); // (line, column, found_name)
 ///
 /// - **Word Boundaries**: Only matches complete words, not substrings within other words
 /// - **Case Sensitivity**: Properly handles case-specific matching
-/// - **Code Blocks**: Optionally excludes code blocks where capitalization may be intentionally different
+/// - **Code Blocks**: Optionally checks code blocks (controlled by code-blocks setting)
 /// - **Markdown Formatting**: Handles proper names within Markdown formatting elements
 ///
 /// ## Fix Behavior
@@ -80,6 +77,8 @@ pub struct MD044ProperNames {
     config: MD044Config,
     // Cache the combined regex pattern string
     combined_pattern: Option<String>,
+    // Precomputed lowercase name variants for fast pre-checks
+    name_variants: Vec<String>,
     // Cache for name violations by content hash
     content_cache: Arc<Mutex<HashMap<u64, Vec<WarningPosition>>>>,
 }
@@ -89,12 +88,15 @@ impl MD044ProperNames {
         let config = MD044Config {
             names,
             code_blocks,
+            html_elements: true, // Default to checking HTML elements
             html_comments: true, // Default to checking HTML comments
         };
         let combined_pattern = Self::create_combined_pattern(&config);
+        let name_variants = Self::build_name_variants(&config);
         Self {
             config,
             combined_pattern,
+            name_variants,
             content_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -102,19 +104,21 @@ impl MD044ProperNames {
     // Helper function for consistent ASCII normalization
     fn ascii_normalize(s: &str) -> String {
         s.replace(['é', 'è', 'ê', 'ë'], "e")
-            .replace(['à', 'á', 'â', 'ä'], "a")
+            .replace(['à', 'á', 'â', 'ä', 'ã', 'å'], "a")
             .replace(['ï', 'î', 'í', 'ì'], "i")
             .replace(['ü', 'ú', 'ù', 'û'], "u")
-            .replace(['ö', 'ó', 'ò', 'ô'], "o")
+            .replace(['ö', 'ó', 'ò', 'ô', 'õ'], "o")
             .replace('ñ', "n")
             .replace('ç', "c")
     }
 
     pub fn from_config_struct(config: MD044Config) -> Self {
         let combined_pattern = Self::create_combined_pattern(&config);
+        let name_variants = Self::build_name_variants(&config);
         Self {
             config,
             combined_pattern,
+            name_variants,
             content_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -167,6 +171,31 @@ impl MD044ProperNames {
         Some(format!(r"(?i)({})", patterns.join("|")))
     }
 
+    fn build_name_variants(config: &MD044Config) -> Vec<String> {
+        let mut variants = HashSet::new();
+        for name in &config.names {
+            let lower_name = name.to_lowercase();
+            variants.insert(lower_name.clone());
+
+            let lower_no_dots = lower_name.replace('.', "");
+            if lower_name != lower_no_dots {
+                variants.insert(lower_no_dots);
+            }
+
+            let ascii_normalized = Self::ascii_normalize(&lower_name);
+            if ascii_normalized != lower_name {
+                variants.insert(ascii_normalized.clone());
+
+                let ascii_no_dots = ascii_normalized.replace('.', "");
+                if ascii_normalized != ascii_no_dots {
+                    variants.insert(ascii_no_dots);
+                }
+            }
+        }
+
+        variants.into_iter().collect()
+    }
+
     // Find all name violations in the content and return positions
     fn find_name_violations(&self, content: &str, ctx: &crate::lint_context::LintContext) -> Vec<WarningPosition> {
         // Early return: if no names configured or content is empty
@@ -175,31 +204,12 @@ impl MD044ProperNames {
         }
 
         // Early return: quick check if any of the configured names might be in content
-        let content_lower = content.to_lowercase();
-        let has_potential_matches = self.config.names.iter().any(|name| {
-            let name_lower = name.to_lowercase();
-            let name_no_dots = name_lower.replace('.', "");
-
-            // Check direct match
-            if content_lower.contains(&name_lower) || content_lower.contains(&name_no_dots) {
-                return true;
-            }
-
-            // Also check ASCII-normalized version
-            let ascii_normalized = Self::ascii_normalize(&name_lower);
-
-            if ascii_normalized != name_lower {
-                if content_lower.contains(&ascii_normalized) {
-                    return true;
-                }
-                let ascii_no_dots = ascii_normalized.replace('.', "");
-                if ascii_normalized != ascii_no_dots && content_lower.contains(&ascii_no_dots) {
-                    return true;
-                }
-            }
-
-            false
-        });
+        let content_lower = if content.is_ascii() {
+            content.to_ascii_lowercase()
+        } else {
+            content.to_lowercase()
+        };
+        let has_potential_matches = self.name_variants.iter().any(|name| content_lower.contains(name));
 
         if !has_potential_matches {
             return Vec::new();
@@ -209,8 +219,9 @@ impl MD044ProperNames {
         let hash = fast_hash(content);
         {
             // Use a separate scope for borrowing to minimize lock time
-            let cache = self.content_cache.lock().unwrap();
-            if let Some(cached) = cache.get(&hash) {
+            if let Ok(cache) = self.content_cache.lock()
+                && let Some(cached) = cache.get(&hash)
+            {
                 return cached.clone();
             }
         }
@@ -229,7 +240,7 @@ impl MD044ProperNames {
         // Use ctx.lines for better performance
         for (line_idx, line_info) in ctx.lines.iter().enumerate() {
             let line_num = line_idx + 1;
-            let line = &line_info.content;
+            let line = line_info.content(ctx.content);
 
             // Skip code fence lines (```language or ~~~language)
             let trimmed = line.trim_start();
@@ -237,8 +248,13 @@ impl MD044ProperNames {
                 continue;
             }
 
-            // Skip if in code block
-            if self.config.code_blocks && line_info.in_code_block {
+            // Skip if in code block (when code_blocks = false)
+            if !self.config.code_blocks && line_info.in_code_block {
+                continue;
+            }
+
+            // Skip if in HTML block (when html_elements = false)
+            if !self.config.html_elements && line_info.in_html_block {
                 continue;
             }
 
@@ -254,31 +270,14 @@ impl MD044ProperNames {
                 continue;
             }
 
+            // Skip JSX expressions and MDX comments (MDX flavor)
+            if line_info.in_jsx_expression || line_info.in_mdx_comment {
+                continue;
+            }
+
             // Early return: skip lines that don't contain any potential matches
             let line_lower = line.to_lowercase();
-            let has_line_matches = self.config.names.iter().any(|name| {
-                let name_lower = name.to_lowercase();
-                let name_no_dots = name_lower.replace('.', "");
-
-                // Check direct match
-                if line_lower.contains(&name_lower) || line_lower.contains(&name_no_dots) {
-                    return true;
-                }
-
-                // Also check ASCII-normalized version
-                let ascii_normalized = Self::ascii_normalize(&name_lower);
-                if ascii_normalized != name_lower {
-                    if line_lower.contains(&ascii_normalized) {
-                        return true;
-                    }
-                    let ascii_no_dots = ascii_normalized.replace('.', "");
-                    if ascii_normalized != ascii_no_dots && line_lower.contains(&ascii_no_dots) {
-                        return true;
-                    }
-                }
-
-                false
-            });
+            let has_line_matches = self.name_variants.iter().any(|name| line_lower.contains(name));
 
             if !has_line_matches {
                 continue;
@@ -300,8 +299,8 @@ impl MD044ProperNames {
                             continue; // Not at word boundary
                         }
 
-                        // Skip if in inline code when code_blocks is true
-                        if self.config.code_blocks {
+                        // Skip if in inline code when code_blocks is false
+                        if !self.config.code_blocks {
                             let byte_pos = line_info.byte_offset + cap.start();
                             if ctx.is_in_code_block_or_span(byte_pos) {
                                 continue;
@@ -329,8 +328,10 @@ impl MD044ProperNames {
             }
         }
 
-        // Store in cache
-        self.content_cache.lock().unwrap().insert(hash, violations.clone());
+        // Store in cache (ignore if mutex is poisoned)
+        if let Ok(mut cache) = self.content_cache.lock() {
+            cache.insert(hash, violations.clone());
+        }
         violations
     }
 
@@ -488,14 +489,14 @@ impl Rule for MD044ProperNames {
             return Ok(Vec::new());
         }
 
-        let line_index = LineIndex::new(content.to_string());
+        let line_index = &ctx.line_index;
         let violations = self.find_name_violations(content, ctx);
 
         let warnings = violations
             .into_iter()
             .filter_map(|(line, column, found_name)| {
                 self.get_proper_name_for(&found_name).map(|proper_name| LintWarning {
-                    rule_name: Some(self.name()),
+                    rule_name: Some(self.name().to_string()),
                     line,
                     column,
                     end_line: line,
@@ -547,7 +548,7 @@ impl Rule for MD044ProperNames {
 
             if let Some(line_violations) = violations_by_line.get(&line_num) {
                 // This line has violations, fix them
-                let mut fixed_line = line_info.content.clone();
+                let mut fixed_line = line_info.content(ctx.content).to_string();
 
                 for (col_num, found_name) in line_violations {
                     if let Some(proper_name) = self.get_proper_name_for(found_name) {
@@ -566,7 +567,7 @@ impl Rule for MD044ProperNames {
                 fixed_lines.push(fixed_line);
             } else {
                 // No violations on this line, keep it as is
-                fixed_lines.push(line_info.content.clone());
+                fixed_lines.push(line_info.content(ctx.content).to_string());
             }
         }
 
@@ -605,7 +606,7 @@ mod tests {
     use crate::lint_context::LintContext;
 
     fn create_context(content: &str) -> LintContext<'_> {
-        LintContext::new(content, crate::config::MarkdownFlavor::Standard)
+        LintContext::new(content, crate::config::MarkdownFlavor::Standard, None)
     }
 
     #[test]
@@ -658,13 +659,13 @@ mod tests {
     }
 
     #[test]
-    fn test_names_in_code_blocks_ignored() {
+    fn test_names_in_code_blocks_checked_by_default() {
         let rule = MD044ProperNames::new(vec!["JavaScript".to_string()], true);
 
         let content = r#"Here is some text with JavaScript.
 
 ```javascript
-// This javascript should be ignored
+// This javascript should be checked
 const lang = "javascript";
 ```
 
@@ -673,16 +674,17 @@ But this javascript should be flagged."#;
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        assert_eq!(result.len(), 1, "Should only flag javascript outside code blocks");
-        assert_eq!(result[0].line, 8);
-        assert_eq!(result[0].message, "Proper name 'javascript' should be 'JavaScript'");
+        assert_eq!(result.len(), 3, "Should flag javascript inside and outside code blocks");
+        assert_eq!(result[0].line, 4);
+        assert_eq!(result[1].line, 5);
+        assert_eq!(result[2].line, 8);
     }
 
     #[test]
-    fn test_names_in_code_blocks_not_ignored_when_disabled() {
+    fn test_names_in_code_blocks_ignored_when_disabled() {
         let rule = MD044ProperNames::new(
             vec!["JavaScript".to_string()],
-            false, // code_blocks = false means check inside code blocks
+            false, // code_blocks = false means skip code blocks
         );
 
         let content = r#"```
@@ -694,22 +696,23 @@ javascript in code block
 
         assert_eq!(
             result.len(),
-            1,
-            "Should flag javascript in code blocks when code_blocks is false"
+            0,
+            "Should not flag javascript in code blocks when code_blocks is false"
         );
     }
 
     #[test]
-    fn test_names_in_inline_code_ignored() {
+    fn test_names_in_inline_code_checked_by_default() {
         let rule = MD044ProperNames::new(vec!["JavaScript".to_string()], true);
 
         let content = "This is `javascript` in inline code and javascript outside.";
         let ctx = create_context(content);
         let result = rule.check(&ctx).unwrap();
 
-        // When code_blocks=true, inline code should be excluded
-        assert_eq!(result.len(), 1, "Should only flag javascript outside inline code");
-        assert_eq!(result[0].column, 41); // javascript outside
+        // When code_blocks=true, inline code should be checked
+        assert_eq!(result.len(), 2, "Should flag javascript inside and outside inline code");
+        assert_eq!(result[0].column, 10); // javascript in inline code
+        assert_eq!(result[1].column, 41); // javascript outside
     }
 
     #[test]
@@ -747,6 +750,7 @@ javascript in code block
         let config = MD044Config {
             names: vec!["GitHub".to_string(), "GitLab".to_string(), "DevOps".to_string()],
             code_blocks: true,
+            html_elements: true,
             html_comments: true,
         };
         let rule = MD044ProperNames::from_config_struct(config);
@@ -839,7 +843,7 @@ javascript in code block
     }
 
     #[test]
-    fn test_fix_preserves_code_blocks() {
+    fn test_fix_checks_code_blocks_by_default() {
         let rule = MD044ProperNames::new(vec!["JavaScript".to_string()], true);
 
         let content = r#"I love javascript.
@@ -856,7 +860,7 @@ More javascript here."#;
         let expected = r#"I love JavaScript.
 
 ```
-const lang = "javascript";
+const lang = "JavaScript";
 ```
 
 More JavaScript here."#;
@@ -886,7 +890,7 @@ Third line with RUST and PYTHON."#;
     fn test_default_config() {
         let config = MD044Config::default();
         assert!(config.names.is_empty());
-        assert!(config.code_blocks);
+        assert!(!config.code_blocks); // Default is false (skip code blocks)
     }
 
     #[test]
@@ -949,7 +953,8 @@ Third line with RUST and PYTHON."#;
     fn test_html_comments_not_checked_when_disabled() {
         let config = MD044Config {
             names: vec!["JavaScript".to_string()],
-            code_blocks: true,
+            code_blocks: true,    // Check code blocks
+            html_elements: true,  // Check HTML elements
             html_comments: false, // Don't check HTML comments
         };
         let rule = MD044ProperNames::from_config_struct(config);
@@ -970,7 +975,8 @@ More javascript outside."#;
     fn test_html_comments_checked_when_enabled() {
         let config = MD044Config {
             names: vec!["JavaScript".to_string()],
-            code_blocks: true,
+            code_blocks: true,   // Check code blocks
+            html_elements: true, // Check HTML elements
             html_comments: true, // Check HTML comments
         };
         let rule = MD044ProperNames::from_config_struct(config);
@@ -993,8 +999,9 @@ More javascript outside."#;
     fn test_multiline_html_comments() {
         let config = MD044Config {
             names: vec!["Python".to_string(), "JavaScript".to_string()],
-            code_blocks: true,
-            html_comments: false,
+            code_blocks: true,    // Check code blocks
+            html_elements: true,  // Check HTML elements
+            html_comments: false, // Don't check HTML comments
         };
         let rule = MD044ProperNames::from_config_struct(config);
 
@@ -1018,8 +1025,9 @@ More javascript outside."#;
     fn test_fix_preserves_html_comments_when_disabled() {
         let config = MD044Config {
             names: vec!["JavaScript".to_string()],
-            code_blocks: true,
-            html_comments: false,
+            code_blocks: true,    // Check code blocks
+            html_elements: true,  // Check HTML elements
+            html_comments: false, // Don't check HTML comments
         };
         let rule = MD044ProperNames::from_config_struct(config);
 

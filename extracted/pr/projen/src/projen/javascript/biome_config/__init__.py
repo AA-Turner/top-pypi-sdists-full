@@ -123,7 +123,7 @@ class AssistConfiguration:
     def __init__(
         self,
         *,
-        actions: typing.Optional[typing.Union[Actions, typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Optional[typing.Union["Actions", typing.Dict[builtins.str, typing.Any]]] = None,
         enabled: typing.Optional[builtins.bool] = None,
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -151,14 +151,14 @@ class AssistConfiguration:
             self._values["includes"] = includes
 
     @builtins.property
-    def actions(self) -> typing.Optional[Actions]:
+    def actions(self) -> typing.Optional["Actions"]:
         '''(experimental) Whether Biome should fail in CLI if the assist were not applied to the code.
 
         :stability: experimental
         :schema: AssistConfiguration#actions
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[Actions], result)
+        return typing.cast(typing.Optional["Actions"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -174,7 +174,8 @@ class AssistConfiguration:
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of glob patterns.
 
-        Biome will include files/folders that will match these patterns.
+        Biome will include files/folders that will
+        match these patterns.
 
         :stability: experimental
         :schema: AssistConfiguration#includes
@@ -239,7 +240,7 @@ class BiomeConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[AssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["AssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         css: typing.Optional[typing.Union["CssConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         extends: typing.Optional[typing.Sequence[builtins.str]] = None,
         files: typing.Optional[typing.Union["FilesConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -353,14 +354,14 @@ class BiomeConfiguration:
             self._values["vcs"] = vcs
 
     @builtins.property
-    def assist(self) -> typing.Optional[AssistConfiguration]:
+    def assist(self) -> typing.Optional["AssistConfiguration"]:
         '''(experimental) Specific configuration for assists.
 
         :stability: experimental
         :schema: BiomeConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[AssistConfiguration], result)
+        return typing.cast(typing.Optional["AssistConfiguration"], result)
 
     @builtins.property
     def css(self) -> typing.Optional["CssConfiguration"]:
@@ -584,7 +585,7 @@ class CssConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[CssAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["CssAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["CssFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         globals: typing.Optional[typing.Sequence[builtins.str]] = None,
         linter: typing.Optional[typing.Union["CssLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -629,14 +630,14 @@ class CssConfiguration:
             self._values["parser"] = parser
 
     @builtins.property
-    def assist(self) -> typing.Optional[CssAssistConfiguration]:
+    def assist(self) -> typing.Optional["CssAssistConfiguration"]:
         '''(experimental) CSS assist options.
 
         :stability: experimental
         :schema: CssConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[CssAssistConfiguration], result)
+        return typing.cast(typing.Optional["CssAssistConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["CssFormatterConfiguration"]:
@@ -718,7 +719,7 @@ class CssFormatterConfiguration:
         :param enabled: (experimental) Control the formatter for CSS (and its super languages) files.
         :param indent_style: (experimental) The indent style applied to CSS (and its super languages) files.
         :param indent_width: (experimental) The size of the indentation applied to CSS (and its super languages) files. Default to 2. Default: 2.
-        :param line_ending: (experimental) The type of line ending applied to CSS (and its super languages) files.
+        :param line_ending: (experimental) The type of line ending applied to CSS (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to CSS (and its super languages) files. Defaults to 80. Default: 80.
         :param quote_style: (experimental) The type of quotes used in CSS code. Defaults to double. Default: double.
 
@@ -784,6 +785,8 @@ class CssFormatterConfiguration:
     @builtins.property
     def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending applied to CSS (and its super languages) files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
 
         :stability: experimental
         :schema: CssFormatterConfiguration#lineEnding
@@ -880,6 +883,7 @@ class CssLinterConfiguration:
     name_mapping={
         "allow_wrong_line_comments": "allowWrongLineComments",
         "css_modules": "cssModules",
+        "tailwind_directives": "tailwindDirectives",
     },
 )
 class CssParserConfiguration:
@@ -888,11 +892,13 @@ class CssParserConfiguration:
         *,
         allow_wrong_line_comments: typing.Optional[builtins.bool] = None,
         css_modules: typing.Optional[builtins.bool] = None,
+        tailwind_directives: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options that changes how the CSS parser behaves.
 
         :param allow_wrong_line_comments: (experimental) Allow comments to appear on incorrect lines in ``.css`` files.
         :param css_modules: (experimental) Enables parsing of CSS Modules specific features.
+        :param tailwind_directives: (experimental) Enables parsing of Tailwind CSS 4.0 directives and functions.
 
         :stability: experimental
         :schema: CssParserConfiguration
@@ -901,11 +907,14 @@ class CssParserConfiguration:
             type_hints = typing.get_type_hints(_typecheckingstub__8529582f37794a4d2a6c31671f27c3add8085e862adbf314c4f633b00295f518)
             check_type(argname="argument allow_wrong_line_comments", value=allow_wrong_line_comments, expected_type=type_hints["allow_wrong_line_comments"])
             check_type(argname="argument css_modules", value=css_modules, expected_type=type_hints["css_modules"])
+            check_type(argname="argument tailwind_directives", value=tailwind_directives, expected_type=type_hints["tailwind_directives"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if allow_wrong_line_comments is not None:
             self._values["allow_wrong_line_comments"] = allow_wrong_line_comments
         if css_modules is not None:
             self._values["css_modules"] = css_modules
+        if tailwind_directives is not None:
+            self._values["tailwind_directives"] = tailwind_directives
 
     @builtins.property
     def allow_wrong_line_comments(self) -> typing.Optional[builtins.bool]:
@@ -925,6 +934,16 @@ class CssParserConfiguration:
         :schema: CssParserConfiguration#cssModules
         '''
         result = self._values.get("css_modules")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tailwind_directives(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables parsing of Tailwind CSS 4.0 directives and functions.
+
+        :stability: experimental
+        :schema: CssParserConfiguration#tailwindDirectives
+        '''
+        result = self._values.get("tailwind_directives")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -947,17 +966,24 @@ class Expand(enum.Enum):
     '''
 
     AUTO = "AUTO"
-    '''(experimental) auto.
+    '''(experimental) Objects are expanded when the first property has a leading newline.
+
+    Arrays are always
+    expanded if they are shorter than the line width. (auto)
 
     :stability: experimental
     '''
     ALWAYS = "ALWAYS"
-    '''(experimental) always.
+    '''(experimental) Objects and arrays are always expanded.
+
+    (always)
 
     :stability: experimental
     '''
     NEVER = "NEVER"
-    '''(experimental) never.
+    '''(experimental) Objects and arrays are never expanded, if they are shorter than the line width.
+
+    (never)
 
     :stability: experimental
     '''
@@ -984,8 +1010,8 @@ class FilesConfiguration:
     ) -> None:
         '''(experimental) The configuration of the filesystem.
 
-        :param experimental_scanner_ignores: (experimental) Set of file and folder names that should be unconditionally ignored by Biome's scanner. Biome maintains an internal list of default ignore entries, which is based on user feedback and which may change in any release. This setting allows overriding this internal list completely. This is considered an advanced feature that users *should* not need to tweak themselves, but they can as a last resort. This setting can only be configured in root configurations, and is ignored in nested configs. Entries must be file or folder *names*. Specific paths and globs are not supported. Examples where this may be useful: ```jsonc { "files": { "experimentalScannerIgnores": [ // You almost certainly don't want to scan your ``.git`` // folder, which is why it's already ignored by default: ".git", // But the scanner does scan ``node_modules`` by default. If // you *really* don't want this, you can ignore it like // this: "node_modules", // But it's probably better to ignore a specific dependency. // For instance, one that happens to be particularly slow to // scan: "RedisCommander.d.ts", ], } } ``` Please be aware that rules relying on the module graph or type inference information may be negatively affected if dependencies of your project aren't (fully) scanned.
-        :param ignore_unknown: (experimental) Tells Biome to not emit diagnostics when handling files that doesn't know.
+        :param experimental_scanner_ignores: (experimental) **Deprecated:** Please use *force-ignore syntax* in ``files.includes`` instead: `https://biomejs.dev/reference/configuration/#filesincludes <https://biomejs.dev/reference/configuration/#filesincludes>`_. Set of file and folder names that should be unconditionally ignored by Biome's scanner.
+        :param ignore_unknown: (experimental) Tells Biome to not emit diagnostics when handling files that it doesn't know.
         :param includes: (experimental) A list of glob patterns. Biome will handle only those files/folders that will match these patterns.
         :param max_size: (experimental) The maximum allowed size for source code files in bytes. Files above this limit will be ignored for performance reasons. Defaults to 1 MiB Default: 1 MiB
 
@@ -1012,23 +1038,10 @@ class FilesConfiguration:
     def experimental_scanner_ignores(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Set of file and folder names that should be unconditionally ignored by Biome's scanner.
+        '''(experimental) **Deprecated:** Please use *force-ignore syntax* in ``files.includes`` instead: `https://biomejs.dev/reference/configuration/#filesincludes <https://biomejs.dev/reference/configuration/#filesincludes>`_.
 
-        Biome maintains an internal list of default ignore entries, which is based on user feedback and which may change in any release. This setting allows overriding this internal list completely.
-
-        This is considered an advanced feature that users *should* not need to tweak themselves, but they can as a last resort. This setting can only be configured in root configurations, and is ignored in nested configs.
-
-        Entries must be file or folder *names*. Specific paths and globs are not supported.
-
-        Examples where this may be useful:
-
-        ```jsonc { "files": { "experimentalScannerIgnores": [ // You almost certainly don't want to scan your ``.git`` // folder, which is why it's already ignored by default: ".git",
-
-        // But the scanner does scan ``node_modules`` by default. If // you *really* don't want this, you can ignore it like // this: "node_modules",
-
-        // But it's probably better to ignore a specific dependency. // For instance, one that happens to be particularly slow to // scan: "RedisCommander.d.ts", ], } } ```
-
-        Please be aware that rules relying on the module graph or type inference information may be negatively affected if dependencies of your project aren't (fully) scanned.
+        Set of file and folder names that should be unconditionally ignored by
+        Biome's scanner.
 
         :stability: experimental
         :schema: FilesConfiguration#experimentalScannerIgnores
@@ -1038,7 +1051,7 @@ class FilesConfiguration:
 
     @builtins.property
     def ignore_unknown(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Tells Biome to not emit diagnostics when handling files that doesn't know.
+        '''(experimental) Tells Biome to not emit diagnostics when handling files that it doesn't know.
 
         :stability: experimental
         :schema: FilesConfiguration#ignoreUnknown
@@ -1050,7 +1063,8 @@ class FilesConfiguration:
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of glob patterns.
 
-        Biome will handle only those files/folders that will match these patterns.
+        Biome will handle only those files/folders that will
+        match these patterns.
 
         :stability: experimental
         :schema: FilesConfiguration#includes
@@ -1062,7 +1076,8 @@ class FilesConfiguration:
     def max_size(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The maximum allowed size for source code files in bytes.
 
-        Files above this limit will be ignored for performance reasons. Defaults to 1 MiB
+        Files above
+        this limit will be ignored for performance reasons. Defaults to 1 MiB
 
         :default: 1 MiB
 
@@ -1106,11 +1121,11 @@ class FormatterConfiguration:
     def __init__(
         self,
         *,
-        attribute_position: typing.Optional[AttributePosition] = None,
+        attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        expand: typing.Optional[Expand] = None,
+        expand: typing.Optional["Expand"] = None,
         format_with_errors: typing.Optional[builtins.bool] = None,
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         indent_style: typing.Optional["IndentStyle"] = None,
@@ -1126,7 +1141,7 @@ class FormatterConfiguration:
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
         :param enabled: 
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
-        :param format_with_errors: (experimental) Stores whether formatting should be allowed to proceed if a given file has syntax errors.
+        :param format_with_errors: (experimental) Whether formatting should be allowed to proceed if a given file has syntax errors.
         :param includes: (experimental) A list of glob patterns. The formatter will include files/folders that will match these patterns.
         :param indent_style: (experimental) The indent style.
         :param indent_width: (experimental) The size of the indentation, 2 by default.
@@ -1178,7 +1193,7 @@ class FormatterConfiguration:
             self._values["use_editorconfig"] = use_editorconfig
 
     @builtins.property
-    def attribute_position(self) -> typing.Optional[AttributePosition]:
+    def attribute_position(self) -> typing.Optional["AttributePosition"]:
         '''(experimental) The attribute position style in HTML-ish languages.
 
         Defaults to auto.
@@ -1189,7 +1204,7 @@ class FormatterConfiguration:
         :schema: FormatterConfiguration#attributePosition
         '''
         result = self._values.get("attribute_position")
-        return typing.cast(typing.Optional[AttributePosition], result)
+        return typing.cast(typing.Optional["AttributePosition"], result)
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
@@ -1225,10 +1240,14 @@ class FormatterConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def expand(self) -> typing.Optional[Expand]:
+    def expand(self) -> typing.Optional["Expand"]:
         '''(experimental) Whether to expand arrays and objects on multiple lines.
 
-        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
+        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline,
+        and array literals are formatted on a single line if it fits in the line.
+        When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list.
+        When set to ``never``, these literals are formatted on a single line if it fits in the line.
+        When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
 
         :default: auto".
 
@@ -1236,11 +1255,11 @@ class FormatterConfiguration:
         :schema: FormatterConfiguration#expand
         '''
         result = self._values.get("expand")
-        return typing.cast(typing.Optional[Expand], result)
+        return typing.cast(typing.Optional["Expand"], result)
 
     @builtins.property
     def format_with_errors(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Stores whether formatting should be allowed to proceed if a given file has syntax errors.
+        '''(experimental) Whether formatting should be allowed to proceed if a given file has syntax errors.
 
         :stability: experimental
         :schema: FormatterConfiguration#formatWithErrors
@@ -1252,7 +1271,8 @@ class FormatterConfiguration:
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of glob patterns.
 
-        The formatter will include files/folders that will match these patterns.
+        The formatter will include files/folders that will
+        match these patterns.
 
         :stability: experimental
         :schema: FormatterConfiguration#includes
@@ -1380,7 +1400,7 @@ class GraphqlConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[GraphqlAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["GraphqlAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["GraphqlFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["GraphqlLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1413,14 +1433,14 @@ class GraphqlConfiguration:
             self._values["linter"] = linter
 
     @builtins.property
-    def assist(self) -> typing.Optional[GraphqlAssistConfiguration]:
+    def assist(self) -> typing.Optional["GraphqlAssistConfiguration"]:
         '''(experimental) Assist options.
 
         :stability: experimental
         :schema: GraphqlConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[GraphqlAssistConfiguration], result)
+        return typing.cast(typing.Optional["GraphqlAssistConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["GraphqlFormatterConfiguration"]:
@@ -1484,7 +1504,7 @@ class GraphqlFormatterConfiguration:
         :param enabled: (experimental) Control the formatter for GraphQL files.
         :param indent_style: (experimental) The indent style applied to GraphQL files.
         :param indent_width: (experimental) The size of the indentation applied to GraphQL files. Default to 2. Default: 2.
-        :param line_ending: (experimental) The type of line ending applied to GraphQL files.
+        :param line_ending: (experimental) The type of line ending applied to GraphQL files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to GraphQL files. Defaults to 80. Default: 80.
         :param quote_style: (experimental) The type of quotes used in GraphQL code. Defaults to double. Default: double.
 
@@ -1567,6 +1587,8 @@ class GraphqlFormatterConfiguration:
     @builtins.property
     def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending applied to GraphQL files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration#lineEnding
@@ -1708,7 +1730,7 @@ class GritConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[GritAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["GritAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["GritFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["GritLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1741,14 +1763,14 @@ class GritConfiguration:
             self._values["linter"] = linter
 
     @builtins.property
-    def assist(self) -> typing.Optional[GritAssistConfiguration]:
+    def assist(self) -> typing.Optional["GritAssistConfiguration"]:
         '''(experimental) Assist options.
 
         :stability: experimental
         :schema: GritConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[GritAssistConfiguration], result)
+        return typing.cast(typing.Optional["GritAssistConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["GritFormatterConfiguration"]:
@@ -1945,38 +1967,125 @@ class GritLinterConfiguration:
 
 
 @jsii.data_type(
+    jsii_type="projen.javascript.biome_config.HtmlAssistConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled"},
+)
+class HtmlAssistConfiguration:
+    def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Options that changes how the HTML assist behaves.
+
+        :param enabled: (experimental) Control the assist for HTML (and its super languages) files.
+
+        :stability: experimental
+        :schema: HtmlAssistConfiguration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f12d37d14edd5b34740aa842931963f60cd55f179c839350e2c9eb8d0ce519a)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the assist for HTML (and its super languages) files.
+
+        :stability: experimental
+        :schema: HtmlAssistConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HtmlAssistConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="projen.javascript.biome_config.HtmlConfiguration",
     jsii_struct_bases=[],
-    name_mapping={"formatter": "formatter", "parser": "parser"},
+    name_mapping={
+        "assist": "assist",
+        "experimental_full_support_enabled": "experimentalFullSupportEnabled",
+        "formatter": "formatter",
+        "linter": "linter",
+        "parser": "parser",
+    },
 )
 class HtmlConfiguration:
     def __init__(
         self,
         *,
+        assist: typing.Optional[typing.Union["HtmlAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        experimental_full_support_enabled: typing.Optional[builtins.bool] = None,
         formatter: typing.Optional[typing.Union["HtmlFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["HtmlLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["HtmlParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options applied to HTML files.
 
+        :param assist: 
+        :param experimental_full_support_enabled: (experimental) Enables full support for HTML, Vue, Svelte and Astro files.
         :param formatter: (experimental) HTML formatter options.
+        :param linter: (experimental) HTML linter options.
         :param parser: (experimental) HTML parsing options.
 
         :stability: experimental
         :schema: HtmlConfiguration
         '''
+        if isinstance(assist, dict):
+            assist = HtmlAssistConfiguration(**assist)
         if isinstance(formatter, dict):
             formatter = HtmlFormatterConfiguration(**formatter)
+        if isinstance(linter, dict):
+            linter = HtmlLinterConfiguration(**linter)
         if isinstance(parser, dict):
             parser = HtmlParserConfiguration(**parser)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded)
+            check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
+            check_type(argname="argument experimental_full_support_enabled", value=experimental_full_support_enabled, expected_type=type_hints["experimental_full_support_enabled"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
+            check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
             check_type(argname="argument parser", value=parser, expected_type=type_hints["parser"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if assist is not None:
+            self._values["assist"] = assist
+        if experimental_full_support_enabled is not None:
+            self._values["experimental_full_support_enabled"] = experimental_full_support_enabled
         if formatter is not None:
             self._values["formatter"] = formatter
+        if linter is not None:
+            self._values["linter"] = linter
         if parser is not None:
             self._values["parser"] = parser
+
+    @builtins.property
+    def assist(self) -> typing.Optional["HtmlAssistConfiguration"]:
+        '''
+        :stability: experimental
+        :schema: HtmlConfiguration#assist
+        '''
+        result = self._values.get("assist")
+        return typing.cast(typing.Optional["HtmlAssistConfiguration"], result)
+
+    @builtins.property
+    def experimental_full_support_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables full support for HTML, Vue, Svelte and Astro files.
+
+        :stability: experimental
+        :schema: HtmlConfiguration#experimentalFullSupportEnabled
+        '''
+        result = self._values.get("experimental_full_support_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["HtmlFormatterConfiguration"]:
@@ -1987,6 +2096,16 @@ class HtmlConfiguration:
         '''
         result = self._values.get("formatter")
         return typing.cast(typing.Optional["HtmlFormatterConfiguration"], result)
+
+    @builtins.property
+    def linter(self) -> typing.Optional["HtmlLinterConfiguration"]:
+        '''(experimental) HTML linter options.
+
+        :stability: experimental
+        :schema: HtmlConfiguration#linter
+        '''
+        result = self._values.get("linter")
+        return typing.cast(typing.Optional["HtmlLinterConfiguration"], result)
 
     @builtins.property
     def parser(self) -> typing.Optional["HtmlParserConfiguration"]:
@@ -2030,7 +2149,7 @@ class HtmlFormatterConfiguration:
     def __init__(
         self,
         *,
-        attribute_position: typing.Optional[AttributePosition] = None,
+        attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         indent_script_and_style: typing.Optional[builtins.bool] = None,
@@ -2049,7 +2168,7 @@ class HtmlFormatterConfiguration:
         :param indent_script_and_style: (experimental) Whether to indent the ``<script>`` and ``<style>`` tags for HTML (and its super languages). Defaults to false. Default: false.
         :param indent_style: (experimental) The indent style applied to HTML (and its super languages) files.
         :param indent_width: (experimental) The size of the indentation applied to HTML (and its super languages) files. Default to 2. Default: 2.
-        :param line_ending: (experimental) The type of line ending applied to HTML (and its super languages) files.
+        :param line_ending: (experimental) The type of line ending applied to HTML (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to HTML (and its super languages) files. Defaults to 80. Default: 80.
         :param self_close_void_elements: (experimental) Whether void elements should be self-closed. Defaults to never. Default: never.
         :param whitespace_sensitivity: (experimental) Whether to account for whitespace sensitivity when formatting HTML (and its super languages). Defaults to "css". Default: css".
@@ -2092,7 +2211,7 @@ class HtmlFormatterConfiguration:
             self._values["whitespace_sensitivity"] = whitespace_sensitivity
 
     @builtins.property
-    def attribute_position(self) -> typing.Optional[AttributePosition]:
+    def attribute_position(self) -> typing.Optional["AttributePosition"]:
         '''(experimental) The attribute position style in HTML elements.
 
         Defaults to auto.
@@ -2103,7 +2222,7 @@ class HtmlFormatterConfiguration:
         :schema: HtmlFormatterConfiguration#attributePosition
         '''
         result = self._values.get("attribute_position")
-        return typing.cast(typing.Optional[AttributePosition], result)
+        return typing.cast(typing.Optional["AttributePosition"], result)
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
@@ -2171,6 +2290,8 @@ class HtmlFormatterConfiguration:
     def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending applied to HTML (and its super languages) files.
 
+        ``auto`` uses CRLF on Windows and LF on other platforms.
+
         :stability: experimental
         :schema: HtmlFormatterConfiguration#lineEnding
         '''
@@ -2232,6 +2353,49 @@ class HtmlFormatterConfiguration:
 
 
 @jsii.data_type(
+    jsii_type="projen.javascript.biome_config.HtmlLinterConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled"},
+)
+class HtmlLinterConfiguration:
+    def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
+        '''(experimental) Options that changes how the HTML linter behaves.
+
+        :param enabled: (experimental) Control the linter for HTML (and its super languages) files.
+
+        :stability: experimental
+        :schema: HtmlLinterConfiguration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__271da6fb8e26ef7e9c2ec0ea9fc3487d2975824399c15a87994edbcfcdd37131)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if enabled is not None:
+            self._values["enabled"] = enabled
+
+    @builtins.property
+    def enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Control the linter for HTML (and its super languages) files.
+
+        :stability: experimental
+        :schema: HtmlLinterConfiguration#enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HtmlLinterConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="projen.javascript.biome_config.HtmlParserConfiguration",
     jsii_struct_bases=[],
     name_mapping={"interpolation": "interpolation"},
@@ -2282,12 +2446,12 @@ class IndentStyle(enum.Enum):
     '''
 
     TAB = "TAB"
-    '''(experimental) tab.
+    '''(experimental) Indent with Tab (tab).
 
     :stability: experimental
     '''
     SPACE = "SPACE"
-    '''(experimental) space.
+    '''(experimental) Indent with Space (space).
 
     :stability: experimental
     '''
@@ -2352,7 +2516,7 @@ class JsConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[JsAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["JsAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["JsFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         globals: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsx_runtime: typing.Optional["JsxRuntime"] = None,
@@ -2402,14 +2566,14 @@ class JsConfiguration:
             self._values["parser"] = parser
 
     @builtins.property
-    def assist(self) -> typing.Optional[JsAssistConfiguration]:
+    def assist(self) -> typing.Optional["JsAssistConfiguration"]:
         '''(experimental) Assist options.
 
         :stability: experimental
         :schema: JsConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[JsAssistConfiguration], result)
+        return typing.cast(typing.Optional["JsAssistConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["JsFormatterConfiguration"]:
@@ -2501,13 +2665,13 @@ class JsFormatterConfiguration:
     def __init__(
         self,
         *,
-        arrow_parentheses: typing.Optional[ArrowParentheses] = None,
-        attribute_position: typing.Optional[AttributePosition] = None,
+        arrow_parentheses: typing.Optional["ArrowParentheses"] = None,
+        attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        expand: typing.Optional[Expand] = None,
-        indent_style: typing.Optional[IndentStyle] = None,
+        expand: typing.Optional["Expand"] = None,
+        indent_style: typing.Optional["IndentStyle"] = None,
         indent_width: typing.Optional[jsii.Number] = None,
         jsx_quote_style: typing.Optional["QuoteStyle"] = None,
         line_ending: typing.Optional["LineEnding"] = None,
@@ -2516,7 +2680,7 @@ class JsFormatterConfiguration:
         quote_properties: typing.Optional["QuoteProperties"] = None,
         quote_style: typing.Optional["QuoteStyle"] = None,
         semicolons: typing.Optional["Semicolons"] = None,
-        trailing_commas: typing.Optional["TrailingCommas"] = None,
+        trailing_commas: typing.Optional["JsTrailingCommas"] = None,
     ) -> None:
         '''(experimental) Formatting options specific to the JavaScript files.
 
@@ -2529,7 +2693,7 @@ class JsFormatterConfiguration:
         :param indent_style: (experimental) The indent style applied to JavaScript (and its super languages) files.
         :param indent_width: (experimental) The size of the indentation applied to JavaScript (and its super languages) files. Default to 2. Default: 2.
         :param jsx_quote_style: (experimental) The type of quotes used in JSX. Defaults to double. Default: double.
-        :param line_ending: (experimental) The type of line ending applied to JavaScript (and its super languages) files.
+        :param line_ending: (experimental) The type of line ending applied to JavaScript (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to JavaScript (and its super languages) files. Defaults to 80. Default: 80.
         :param operator_linebreak: (experimental) When breaking binary expressions into multiple lines, whether to break them before or after the binary operator. Defaults to "after". Default: after".
         :param quote_properties: (experimental) When properties in objects are quoted. Defaults to asNeeded. Default: asNeeded.
@@ -2593,7 +2757,7 @@ class JsFormatterConfiguration:
             self._values["trailing_commas"] = trailing_commas
 
     @builtins.property
-    def arrow_parentheses(self) -> typing.Optional[ArrowParentheses]:
+    def arrow_parentheses(self) -> typing.Optional["ArrowParentheses"]:
         '''(experimental) Whether to add non-necessary parentheses to arrow functions.
 
         Defaults to "always".
@@ -2604,10 +2768,10 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration#arrowParentheses
         '''
         result = self._values.get("arrow_parentheses")
-        return typing.cast(typing.Optional[ArrowParentheses], result)
+        return typing.cast(typing.Optional["ArrowParentheses"], result)
 
     @builtins.property
-    def attribute_position(self) -> typing.Optional[AttributePosition]:
+    def attribute_position(self) -> typing.Optional["AttributePosition"]:
         '''(experimental) The attribute position style in JSX elements.
 
         Defaults to auto.
@@ -2618,7 +2782,7 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration#attributePosition
         '''
         result = self._values.get("attribute_position")
-        return typing.cast(typing.Optional[AttributePosition], result)
+        return typing.cast(typing.Optional["AttributePosition"], result)
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
@@ -2659,10 +2823,14 @@ class JsFormatterConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def expand(self) -> typing.Optional[Expand]:
+    def expand(self) -> typing.Optional["Expand"]:
         '''(experimental) Whether to expand arrays and objects on multiple lines.
 
-        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
+        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline,
+        and array literals are formatted on a single line if it fits in the line.
+        When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list.
+        When set to ``never``, these literals are formatted on a single line if it fits in the line.
+        When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
 
         :default: auto".
 
@@ -2670,17 +2838,17 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration#expand
         '''
         result = self._values.get("expand")
-        return typing.cast(typing.Optional[Expand], result)
+        return typing.cast(typing.Optional["Expand"], result)
 
     @builtins.property
-    def indent_style(self) -> typing.Optional[IndentStyle]:
+    def indent_style(self) -> typing.Optional["IndentStyle"]:
         '''(experimental) The indent style applied to JavaScript (and its super languages) files.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#indentStyle
         '''
         result = self._values.get("indent_style")
-        return typing.cast(typing.Optional[IndentStyle], result)
+        return typing.cast(typing.Optional["IndentStyle"], result)
 
     @builtins.property
     def indent_width(self) -> typing.Optional[jsii.Number]:
@@ -2713,6 +2881,8 @@ class JsFormatterConfiguration:
     @builtins.property
     def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending applied to JavaScript (and its super languages) files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
 
         :stability: experimental
         :schema: JsFormatterConfiguration#lineEnding
@@ -2787,7 +2957,7 @@ class JsFormatterConfiguration:
         return typing.cast(typing.Optional["Semicolons"], result)
 
     @builtins.property
-    def trailing_commas(self) -> typing.Optional["TrailingCommas"]:
+    def trailing_commas(self) -> typing.Optional["JsTrailingCommas"]:
         '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
 
         Defaults to "all".
@@ -2798,7 +2968,7 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration#trailingCommas
         '''
         result = self._values.get("trailing_commas")
-        return typing.cast(typing.Optional["TrailingCommas"], result)
+        return typing.cast(typing.Optional["JsTrailingCommas"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2946,6 +3116,31 @@ class JsParserConfiguration:
         )
 
 
+@jsii.enum(jsii_type="projen.javascript.biome_config.JsTrailingCommas")
+class JsTrailingCommas(enum.Enum):
+    '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures for JavaScript/TypeScript files.
+
+    :stability: experimental
+    :schema: JsTrailingCommas
+    '''
+
+    ALL = "ALL"
+    '''(experimental) all.
+
+    :stability: experimental
+    '''
+    ES5 = "ES5"
+    '''(experimental) es5.
+
+    :stability: experimental
+    '''
+    NONE = "NONE"
+    '''(experimental) none.
+
+    :stability: experimental
+    '''
+
+
 @jsii.data_type(
     jsii_type="projen.javascript.biome_config.JsonAssistConfiguration",
     jsii_struct_bases=[],
@@ -2953,7 +3148,7 @@ class JsParserConfiguration:
 )
 class JsonAssistConfiguration:
     def __init__(self, *, enabled: typing.Optional[builtins.bool] = None) -> None:
-        '''(experimental) Linter options specific to the JSON linter.
+        '''(experimental) Assist options specific to the JSON linter.
 
         :param enabled: (experimental) Control the assist for JSON (and its super languages) files.
 
@@ -3003,7 +3198,7 @@ class JsonConfiguration:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[JsonAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["JsonAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         formatter: typing.Optional[typing.Union["JsonFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["JsonLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["JsonParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -3043,14 +3238,14 @@ class JsonConfiguration:
             self._values["parser"] = parser
 
     @builtins.property
-    def assist(self) -> typing.Optional[JsonAssistConfiguration]:
+    def assist(self) -> typing.Optional["JsonAssistConfiguration"]:
         '''(experimental) Assist options.
 
         :stability: experimental
         :schema: JsonConfiguration#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[JsonAssistConfiguration], result)
+        return typing.cast(typing.Optional["JsonAssistConfiguration"], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["JsonFormatterConfiguration"]:
@@ -3114,12 +3309,12 @@ class JsonFormatterConfiguration:
         *,
         bracket_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        expand: typing.Optional[Expand] = None,
-        indent_style: typing.Optional[IndentStyle] = None,
+        expand: typing.Optional["Expand"] = None,
+        indent_style: typing.Optional["IndentStyle"] = None,
         indent_width: typing.Optional[jsii.Number] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
-        trailing_commas: typing.Optional["TrailingCommas2"] = None,
+        trailing_commas: typing.Optional["JsonTrailingCommas"] = None,
     ) -> None:
         '''
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
@@ -3127,7 +3322,7 @@ class JsonFormatterConfiguration:
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
         :param indent_style: (experimental) The indent style applied to JSON (and its super languages) files.
         :param indent_width: (experimental) The size of the indentation applied to JSON (and its super languages) files. Default to 2. Default: 2.
-        :param line_ending: (experimental) The type of line ending applied to JSON (and its super languages) files.
+        :param line_ending: (experimental) The type of line ending applied to JSON (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to JSON (and its super languages) files. Defaults to 80. Default: 80.
         :param trailing_commas: (experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures. Defaults to "none". Default: none".
 
@@ -3187,10 +3382,14 @@ class JsonFormatterConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def expand(self) -> typing.Optional[Expand]:
+    def expand(self) -> typing.Optional["Expand"]:
         '''(experimental) Whether to expand arrays and objects on multiple lines.
 
-        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
+        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline,
+        and array literals are formatted on a single line if it fits in the line.
+        When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list.
+        When set to ``never``, these literals are formatted on a single line if it fits in the line.
+        When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
 
         :default: auto".
 
@@ -3198,17 +3397,17 @@ class JsonFormatterConfiguration:
         :schema: JsonFormatterConfiguration#expand
         '''
         result = self._values.get("expand")
-        return typing.cast(typing.Optional[Expand], result)
+        return typing.cast(typing.Optional["Expand"], result)
 
     @builtins.property
-    def indent_style(self) -> typing.Optional[IndentStyle]:
+    def indent_style(self) -> typing.Optional["IndentStyle"]:
         '''(experimental) The indent style applied to JSON (and its super languages) files.
 
         :stability: experimental
         :schema: JsonFormatterConfiguration#indentStyle
         '''
         result = self._values.get("indent_style")
-        return typing.cast(typing.Optional[IndentStyle], result)
+        return typing.cast(typing.Optional["IndentStyle"], result)
 
     @builtins.property
     def indent_width(self) -> typing.Optional[jsii.Number]:
@@ -3227,6 +3426,8 @@ class JsonFormatterConfiguration:
     @builtins.property
     def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending applied to JSON (and its super languages) files.
+
+        ``auto`` uses CRLF on Windows and LF on other platforms.
 
         :stability: experimental
         :schema: JsonFormatterConfiguration#lineEnding
@@ -3249,7 +3450,7 @@ class JsonFormatterConfiguration:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def trailing_commas(self) -> typing.Optional["TrailingCommas2"]:
+    def trailing_commas(self) -> typing.Optional["JsonTrailingCommas"]:
         '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
 
         Defaults to "none".
@@ -3260,7 +3461,7 @@ class JsonFormatterConfiguration:
         :schema: JsonFormatterConfiguration#trailingCommas
         '''
         result = self._values.get("trailing_commas")
-        return typing.cast(typing.Optional["TrailingCommas2"], result)
+        return typing.cast(typing.Optional["JsonTrailingCommas"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3382,6 +3583,26 @@ class JsonParserConfiguration:
         )
 
 
+@jsii.enum(jsii_type="projen.javascript.biome_config.JsonTrailingCommas")
+class JsonTrailingCommas(enum.Enum):
+    '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures for JSON files.
+
+    :stability: experimental
+    :schema: JsonTrailingCommas
+    '''
+
+    NONE = "NONE"
+    '''(experimental) none.
+
+    :stability: experimental
+    '''
+    ALL = "ALL"
+    '''(experimental) all.
+
+    :stability: experimental
+    '''
+
+
 @jsii.enum(jsii_type="projen.javascript.biome_config.JsxRuntime")
 class JsxRuntime(enum.Enum):
     '''(experimental) Indicates the type of runtime or transformation used for interpreting JSX.
@@ -3391,12 +3612,22 @@ class JsxRuntime(enum.Enum):
     '''
 
     TRANSPARENT = "TRANSPARENT"
-    '''(experimental) transparent.
+    '''(experimental) Indicates a modern or native JSX environment, that doesn't require special handling by Biome.
+
+    (transparent)
 
     :stability: experimental
     '''
     REACT_CLASSIC = "REACT_CLASSIC"
-    '''(experimental) reactClassic.
+    '''(experimental) Indicates a classic React environment that requires the ``React`` import.
+
+    Corresponds to the ``react`` value for the ``jsx`` option in TypeScript's
+    ``tsconfig.json``.
+
+    This option should only be necessary if you cannot upgrade to a React
+    version that supports the new JSX runtime. For more information about
+    the old vs. new JSX runtime, please see:
+    `https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html <https://legacy.reactjs.org/blog/2020/09/22/introducing-the-new-jsx-transform.html>`_ (reactClassic)
 
     :stability: experimental
     '''
@@ -3410,17 +3641,22 @@ class LineEnding(enum.Enum):
     '''
 
     LF = "LF"
-    '''(experimental) lf.
+    '''(experimental) Line Feed only (\\n), common on Linux and macOS as well as inside git repos (lf).
 
     :stability: experimental
     '''
     CRLF = "CRLF"
-    '''(experimental) crlf.
+    '''(experimental) Carriage Return + Line Feed characters (\\r\\n), common on Windows (crlf).
 
     :stability: experimental
     '''
     CR = "CR"
-    '''(experimental) cr.
+    '''(experimental) Carriage Return character only (\\r), used very rarely (cr).
+
+    :stability: experimental
+    '''
+    AUTO = "AUTO"
+    '''(experimental) Automatically use CRLF on Windows and LF on other platforms (auto).
 
     :stability: experimental
     '''
@@ -3500,7 +3736,8 @@ class LinterConfiguration:
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of glob patterns.
 
-        The analyzer will handle only those files/folders that will match these patterns.
+        The analyzer will handle only those files/folders that will
+        match these patterns.
 
         :stability: experimental
         :schema: LinterConfiguration#includes
@@ -3538,12 +3775,12 @@ class OperatorLinebreak(enum.Enum):
     '''
 
     AFTER = "AFTER"
-    '''(experimental) after.
+    '''(experimental) The operator is placed after the expression (after).
 
     :stability: experimental
     '''
     BEFORE = "BEFORE"
-    '''(experimental) before.
+    '''(experimental) The operator is placed before the expression (before).
 
     :stability: experimental
     '''
@@ -3558,7 +3795,7 @@ class OverrideAssistConfiguration:
     def __init__(
         self,
         *,
-        actions: typing.Optional[typing.Union[Actions, typing.Dict[builtins.str, typing.Any]]] = None,
+        actions: typing.Optional[typing.Union["Actions", typing.Dict[builtins.str, typing.Any]]] = None,
         enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -3581,14 +3818,14 @@ class OverrideAssistConfiguration:
             self._values["enabled"] = enabled
 
     @builtins.property
-    def actions(self) -> typing.Optional[Actions]:
+    def actions(self) -> typing.Optional["Actions"]:
         '''(experimental) List of actions.
 
         :stability: experimental
         :schema: OverrideAssistConfiguration#actions
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[Actions], result)
+        return typing.cast(typing.Optional["Actions"], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -3677,16 +3914,16 @@ class OverrideFormatterConfiguration:
     def __init__(
         self,
         *,
-        attribute_position: typing.Optional[AttributePosition] = None,
+        attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
-        expand: typing.Optional[Expand] = None,
+        expand: typing.Optional["Expand"] = None,
         format_with_errors: typing.Optional[builtins.bool] = None,
         indent_size: typing.Optional[jsii.Number] = None,
-        indent_style: typing.Optional[IndentStyle] = None,
+        indent_style: typing.Optional["IndentStyle"] = None,
         indent_width: typing.Optional[jsii.Number] = None,
-        line_ending: typing.Optional[LineEnding] = None,
+        line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
@@ -3743,14 +3980,14 @@ class OverrideFormatterConfiguration:
             self._values["line_width"] = line_width
 
     @builtins.property
-    def attribute_position(self) -> typing.Optional[AttributePosition]:
+    def attribute_position(self) -> typing.Optional["AttributePosition"]:
         '''(experimental) The attribute position style.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#attributePosition
         '''
         result = self._values.get("attribute_position")
-        return typing.cast(typing.Optional[AttributePosition], result)
+        return typing.cast(typing.Optional["AttributePosition"], result)
 
     @builtins.property
     def bracket_same_line(self) -> typing.Optional[builtins.bool]:
@@ -3786,10 +4023,14 @@ class OverrideFormatterConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def expand(self) -> typing.Optional[Expand]:
+    def expand(self) -> typing.Optional["Expand"]:
         '''(experimental) Whether to expand arrays and objects on multiple lines.
 
-        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
+        When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline,
+        and array literals are formatted on a single line if it fits in the line.
+        When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list.
+        When set to ``never``, these literals are formatted on a single line if it fits in the line.
+        When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto".
 
         :default: auto".
 
@@ -3797,7 +4038,7 @@ class OverrideFormatterConfiguration:
         :schema: OverrideFormatterConfiguration#expand
         '''
         result = self._values.get("expand")
-        return typing.cast(typing.Optional[Expand], result)
+        return typing.cast(typing.Optional["Expand"], result)
 
     @builtins.property
     def format_with_errors(self) -> typing.Optional[builtins.bool]:
@@ -3820,14 +4061,14 @@ class OverrideFormatterConfiguration:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def indent_style(self) -> typing.Optional[IndentStyle]:
+    def indent_style(self) -> typing.Optional["IndentStyle"]:
         '''(experimental) The indent style.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#indentStyle
         '''
         result = self._values.get("indent_style")
-        return typing.cast(typing.Optional[IndentStyle], result)
+        return typing.cast(typing.Optional["IndentStyle"], result)
 
     @builtins.property
     def indent_width(self) -> typing.Optional[jsii.Number]:
@@ -3840,14 +4081,14 @@ class OverrideFormatterConfiguration:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def line_ending(self) -> typing.Optional[LineEnding]:
+    def line_ending(self) -> typing.Optional["LineEnding"]:
         '''(experimental) The type of line ending.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration#lineEnding
         '''
         result = self._values.get("line_ending")
-        return typing.cast(typing.Optional[LineEnding], result)
+        return typing.cast(typing.Optional["LineEnding"], result)
 
     @builtins.property
     def line_width(self) -> typing.Optional[jsii.Number]:
@@ -3979,17 +4220,17 @@ class OverridePattern:
     def __init__(
         self,
         *,
-        assist: typing.Optional[typing.Union[OverrideAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        css: typing.Optional[typing.Union[CssConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        files: typing.Optional[typing.Union[OverrideFilesConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        formatter: typing.Optional[typing.Union[OverrideFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        graphql: typing.Optional[typing.Union[GraphqlConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        grit: typing.Optional[typing.Union[GritConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        html: typing.Optional[typing.Union[HtmlConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        assist: typing.Optional[typing.Union["OverrideAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        css: typing.Optional[typing.Union["CssConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        files: typing.Optional[typing.Union["OverrideFilesConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        formatter: typing.Optional[typing.Union["OverrideFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        graphql: typing.Optional[typing.Union["GraphqlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        grit: typing.Optional[typing.Union["GritConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        html: typing.Optional[typing.Union["HtmlConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         includes: typing.Optional[typing.Sequence[builtins.str]] = None,
-        javascript: typing.Optional[typing.Union[JsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-        linter: typing.Optional[typing.Union[OverrideLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+        javascript: typing.Optional[typing.Union["JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        json: typing.Optional[typing.Union["JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        linter: typing.Optional[typing.Union["OverrideLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -4070,80 +4311,81 @@ class OverridePattern:
             self._values["plugins"] = plugins
 
     @builtins.property
-    def assist(self) -> typing.Optional[OverrideAssistConfiguration]:
+    def assist(self) -> typing.Optional["OverrideAssistConfiguration"]:
         '''(experimental) Specific configuration for the Json language.
 
         :stability: experimental
         :schema: OverridePattern#assist
         '''
         result = self._values.get("assist")
-        return typing.cast(typing.Optional[OverrideAssistConfiguration], result)
+        return typing.cast(typing.Optional["OverrideAssistConfiguration"], result)
 
     @builtins.property
-    def css(self) -> typing.Optional[CssConfiguration]:
+    def css(self) -> typing.Optional["CssConfiguration"]:
         '''(experimental) Specific configuration for the CSS language.
 
         :stability: experimental
         :schema: OverridePattern#css
         '''
         result = self._values.get("css")
-        return typing.cast(typing.Optional[CssConfiguration], result)
+        return typing.cast(typing.Optional["CssConfiguration"], result)
 
     @builtins.property
-    def files(self) -> typing.Optional[OverrideFilesConfiguration]:
+    def files(self) -> typing.Optional["OverrideFilesConfiguration"]:
         '''(experimental) Specific configuration for the filesystem.
 
         :stability: experimental
         :schema: OverridePattern#files
         '''
         result = self._values.get("files")
-        return typing.cast(typing.Optional[OverrideFilesConfiguration], result)
+        return typing.cast(typing.Optional["OverrideFilesConfiguration"], result)
 
     @builtins.property
-    def formatter(self) -> typing.Optional[OverrideFormatterConfiguration]:
+    def formatter(self) -> typing.Optional["OverrideFormatterConfiguration"]:
         '''(experimental) Specific configuration for the Json language.
 
         :stability: experimental
         :schema: OverridePattern#formatter
         '''
         result = self._values.get("formatter")
-        return typing.cast(typing.Optional[OverrideFormatterConfiguration], result)
+        return typing.cast(typing.Optional["OverrideFormatterConfiguration"], result)
 
     @builtins.property
-    def graphql(self) -> typing.Optional[GraphqlConfiguration]:
+    def graphql(self) -> typing.Optional["GraphqlConfiguration"]:
         '''(experimental) Specific configuration for the Graphql language.
 
         :stability: experimental
         :schema: OverridePattern#graphql
         '''
         result = self._values.get("graphql")
-        return typing.cast(typing.Optional[GraphqlConfiguration], result)
+        return typing.cast(typing.Optional["GraphqlConfiguration"], result)
 
     @builtins.property
-    def grit(self) -> typing.Optional[GritConfiguration]:
+    def grit(self) -> typing.Optional["GritConfiguration"]:
         '''(experimental) Specific configuration for the GritQL language.
 
         :stability: experimental
         :schema: OverridePattern#grit
         '''
         result = self._values.get("grit")
-        return typing.cast(typing.Optional[GritConfiguration], result)
+        return typing.cast(typing.Optional["GritConfiguration"], result)
 
     @builtins.property
-    def html(self) -> typing.Optional[HtmlConfiguration]:
+    def html(self) -> typing.Optional["HtmlConfiguration"]:
         '''(experimental) Specific configuration for the GritQL language.
 
         :stability: experimental
         :schema: OverridePattern#html
         '''
         result = self._values.get("html")
-        return typing.cast(typing.Optional[HtmlConfiguration], result)
+        return typing.cast(typing.Optional["HtmlConfiguration"], result)
 
     @builtins.property
     def includes(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) A list of glob patterns.
 
-        Biome will include files/folders that will match these patterns.
+        Biome will include files/folders that will
+        match these patterns.
 
         :stability: experimental
         :schema: OverridePattern#includes
@@ -4152,34 +4394,34 @@ class OverridePattern:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def javascript(self) -> typing.Optional[JsConfiguration]:
+    def javascript(self) -> typing.Optional["JsConfiguration"]:
         '''(experimental) Specific configuration for the JavaScript language.
 
         :stability: experimental
         :schema: OverridePattern#javascript
         '''
         result = self._values.get("javascript")
-        return typing.cast(typing.Optional[JsConfiguration], result)
+        return typing.cast(typing.Optional["JsConfiguration"], result)
 
     @builtins.property
-    def json(self) -> typing.Optional[JsonConfiguration]:
+    def json(self) -> typing.Optional["JsonConfiguration"]:
         '''(experimental) Specific configuration for the Json language.
 
         :stability: experimental
         :schema: OverridePattern#json
         '''
         result = self._values.get("json")
-        return typing.cast(typing.Optional[JsonConfiguration], result)
+        return typing.cast(typing.Optional["JsonConfiguration"], result)
 
     @builtins.property
-    def linter(self) -> typing.Optional[OverrideLinterConfiguration]:
+    def linter(self) -> typing.Optional["OverrideLinterConfiguration"]:
         '''(experimental) Specific configuration for the Json language.
 
         :stability: experimental
         :schema: OverridePattern#linter
         '''
         result = self._values.get("linter")
-        return typing.cast(typing.Optional[OverrideLinterConfiguration], result)
+        return typing.cast(typing.Optional["OverrideLinterConfiguration"], result)
 
     @builtins.property
     def plugins(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4249,17 +4491,17 @@ class RuleDomainValue(enum.Enum):
     '''
 
     ALL = "ALL"
-    '''(experimental) all.
+    '''(experimental) Enables all the rules that belong to this domain (all).
 
     :stability: experimental
     '''
     NONE = "NONE"
-    '''(experimental) none.
+    '''(experimental) Disables all the rules that belong to this domain (none).
 
     :stability: experimental
     '''
     RECOMMENDED = "RECOMMENDED"
-    '''(experimental) recommended.
+    '''(experimental) Enables only the recommended rules for this domain (recommended).
 
     :stability: experimental
     '''
@@ -4444,12 +4686,12 @@ class SelfCloseVoidElements(enum.Enum):
     '''
 
     NEVER = "NEVER"
-    '''(experimental) never.
+    '''(experimental) The ``/`` inside void elements is removed by the formatter (never).
 
     :stability: experimental
     '''
     ALWAYS = "ALWAYS"
-    '''(experimental) always.
+    '''(experimental) The ``/`` inside void elements is always added (always).
 
     :stability: experimental
     '''
@@ -4497,11 +4739,11 @@ class Source:
     ) -> None:
         '''(experimental) A list of rules that belong to this group.
 
-        :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order.
+        :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order. See `https://biomejs.dev/assist/actions/organize-imports <https://biomejs.dev/assist/actions/organize-imports>`_
         :param recommended: (experimental) Enables the recommended rules for this group.
-        :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements.
-        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order.
-        :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules.
+        :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See `https://biomejs.dev/assist/actions/use-sorted-attributes <https://biomejs.dev/assist/actions/use-sorted-attributes>`_
+        :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See `https://biomejs.dev/assist/actions/use-sorted-keys <https://biomejs.dev/assist/actions/use-sorted-keys>`_
+        :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See `https://biomejs.dev/assist/actions/use-sorted-properties <https://biomejs.dev/assist/actions/use-sorted-properties>`_
 
         :stability: experimental
         :schema: Source
@@ -4529,6 +4771,8 @@ class Source:
     def organize_imports(self) -> typing.Any:
         '''(experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order.
 
+        See `https://biomejs.dev/assist/actions/organize-imports <https://biomejs.dev/assist/actions/organize-imports>`_
+
         :stability: experimental
         :schema: Source#organizeImports
         '''
@@ -4549,6 +4793,8 @@ class Source:
     def use_sorted_attributes(self) -> typing.Any:
         '''(experimental) Enforce attribute sorting in JSX elements.
 
+        See `https://biomejs.dev/assist/actions/use-sorted-attributes <https://biomejs.dev/assist/actions/use-sorted-attributes>`_
+
         :stability: experimental
         :schema: Source#useSortedAttributes
         '''
@@ -4559,6 +4805,8 @@ class Source:
     def use_sorted_keys(self) -> typing.Any:
         '''(experimental) Sort the keys of a JSON object in natural order.
 
+        See `https://biomejs.dev/assist/actions/use-sorted-keys <https://biomejs.dev/assist/actions/use-sorted-keys>`_
+
         :stability: experimental
         :schema: Source#useSortedKeys
         '''
@@ -4568,6 +4816,8 @@ class Source:
     @builtins.property
     def use_sorted_properties(self) -> typing.Any:
         '''(experimental) Enforce ordering of CSS properties and nested rules.
+
+        See `https://biomejs.dev/assist/actions/use-sorted-properties <https://biomejs.dev/assist/actions/use-sorted-properties>`_
 
         :stability: experimental
         :schema: Source#useSortedProperties
@@ -4585,50 +4835,6 @@ class Source:
         return "Source(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.enum(jsii_type="projen.javascript.biome_config.TrailingCommas")
-class TrailingCommas(enum.Enum):
-    '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures.
-
-    :stability: experimental
-    :schema: TrailingCommas
-    '''
-
-    ALL = "ALL"
-    '''(experimental) all.
-
-    :stability: experimental
-    '''
-    ES5 = "ES5"
-    '''(experimental) es5.
-
-    :stability: experimental
-    '''
-    NONE = "NONE"
-    '''(experimental) none.
-
-    :stability: experimental
-    '''
-
-
-@jsii.enum(jsii_type="projen.javascript.biome_config.TrailingCommas2")
-class TrailingCommas2(enum.Enum):
-    '''
-    :stability: experimental
-    :schema: TrailingCommas2
-    '''
-
-    NONE = "NONE"
-    '''(experimental) none.
-
-    :stability: experimental
-    '''
-    ALL = "ALL"
-    '''(experimental) all.
-
-    :stability: experimental
-    '''
 
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.VcsClientKind")
@@ -4661,7 +4867,7 @@ class VcsConfiguration:
     def __init__(
         self,
         *,
-        client_kind: typing.Optional[VcsClientKind] = None,
+        client_kind: typing.Optional["VcsClientKind"] = None,
         default_branch: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[builtins.bool] = None,
         root: typing.Optional[builtins.str] = None,
@@ -4698,14 +4904,14 @@ class VcsConfiguration:
             self._values["use_ignore_file"] = use_ignore_file
 
     @builtins.property
-    def client_kind(self) -> typing.Optional[VcsClientKind]:
+    def client_kind(self) -> typing.Optional["VcsClientKind"]:
         '''(experimental) The kind of client.
 
         :stability: experimental
         :schema: VcsConfiguration#clientKind
         '''
         result = self._values.get("client_kind")
-        return typing.cast(typing.Optional[VcsClientKind], result)
+        return typing.cast(typing.Optional["VcsClientKind"], result)
 
     @builtins.property
     def default_branch(self) -> typing.Optional[builtins.str]:
@@ -4731,9 +4937,12 @@ class VcsConfiguration:
     def root(self) -> typing.Optional[builtins.str]:
         '''(experimental) The folder where Biome should check for VCS files.
 
-        By default, Biome will use the same folder where ``biome.json`` was found.
+        By default, Biome will use the same
+        folder where ``biome.json`` was found.
 
-        If Biome can't find the configuration, it will attempt to use the current working directory. If no current working directory can't be found, Biome won't use the VCS integration, and a diagnostic will be emitted
+        If Biome can't find the configuration, it will attempt to use the current working directory.
+        If no current working directory can't be found, Biome won't use the VCS integration, and a diagnostic
+        will be emitted
 
         :stability: experimental
         :schema: VcsConfiguration#root
@@ -4745,7 +4954,8 @@ class VcsConfiguration:
     def use_ignore_file(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Whether Biome should use the VCS ignore file.
 
-        When [true], Biome will ignore the files specified in the ignore file.
+        When [true], Biome will ignore the files
+        specified in the ignore file.
 
         :stability: experimental
         :schema: VcsConfiguration#useIgnoreFile
@@ -4771,11 +4981,22 @@ class WhitespaceSensitivity(enum.Enum):
 
     The following two cases won't produce the same output:
 
-    |                |      html      |    output    | | -------------- | :------------: | :----------: | | with spaces    | ``1<b> 2 </b>3`` | 1 2 3 | | without spaces |  ``1<b>2</b>3``  |  123  |
+    |                |      html      |    output    |
+    | -------------- | :------------: | :----------: |
+    | with spaces    | ``1<b> 2 </b>3`` | 1 2 3 |
+    | without spaces |  ``1<b>2</b>3``  |  123  |
 
     This happens because whitespace is significant in inline elements.
 
-    As a consequence of this, the formatter must format blocks that look like this (assume a small line width, <20): ``html <span>really long content</span> `` as this, where the content hugs the tags: ``html <span >really long content</span > ``
+    As a consequence of this, the formatter must format blocks that look like this (assume a small line width, <20)::
+
+       <span>really long content</span>
+
+    as this, where the content hugs the tags::
+
+       <span
+       >really long content</span
+       >
 
     Note that this is only necessary for inline elements. Block elements do not have this restriction.
 
@@ -4784,17 +5005,31 @@ class WhitespaceSensitivity(enum.Enum):
     '''
 
     CSS = "CSS"
-    '''(experimental) css.
+    '''(experimental) The formatter considers whitespace significant for elements that have an "inline" display style by default in browser's user agent style sheets.
+
+    (css)
 
     :stability: experimental
     '''
     STRICT = "STRICT"
-    '''(experimental) strict.
+    '''(experimental) Leading and trailing whitespace in content is considered significant for all elements.
+
+    The formatter should leave at least one whitespace character if whitespace is present.
+    Otherwise, if there is no whitespace, it should not add any after ``>`` or before ``<``. In other words, if there's no whitespace, the text content should hug the tags.
+
+    Example of text hugging the tags::
+
+       <b
+       >content</b
+       >
+       ``` (strict)
 
     :stability: experimental
     '''
     IGNORE = "IGNORE"
-    '''(experimental) ignore.
+    '''(experimental) Whitespace is considered insignificant.
+
+    The formatter is free to remove or add whitespace as it sees fit. (ignore)
 
     :stability: experimental
     '''
@@ -4822,8 +5057,10 @@ __all__ = [
     "GritConfiguration",
     "GritFormatterConfiguration",
     "GritLinterConfiguration",
+    "HtmlAssistConfiguration",
     "HtmlConfiguration",
     "HtmlFormatterConfiguration",
+    "HtmlLinterConfiguration",
     "HtmlParserConfiguration",
     "IndentStyle",
     "JsAssistConfiguration",
@@ -4831,11 +5068,13 @@ __all__ = [
     "JsFormatterConfiguration",
     "JsLinterConfiguration",
     "JsParserConfiguration",
+    "JsTrailingCommas",
     "JsonAssistConfiguration",
     "JsonConfiguration",
     "JsonFormatterConfiguration",
     "JsonLinterConfiguration",
     "JsonParserConfiguration",
+    "JsonTrailingCommas",
     "JsxRuntime",
     "LineEnding",
     "LinterConfiguration",
@@ -4852,8 +5091,6 @@ __all__ = [
     "SelfCloseVoidElements",
     "Semicolons",
     "Source",
-    "TrailingCommas",
-    "TrailingCommas2",
     "VcsClientKind",
     "VcsConfiguration",
     "WhitespaceSensitivity",
@@ -4941,6 +5178,7 @@ def _typecheckingstub__8529582f37794a4d2a6c31671f27c3add8085e862adbf314c4f633b00
     *,
     allow_wrong_line_comments: typing.Optional[builtins.bool] = None,
     css_modules: typing.Optional[builtins.bool] = None,
+    tailwind_directives: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5043,9 +5281,19 @@ def _typecheckingstub__4f328d623f0baa93f52695005ba45f28881c95ae610fde354116a44bc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4f12d37d14edd5b34740aa842931963f60cd55f179c839350e2c9eb8d0ce519a(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded(
     *,
+    assist: typing.Optional[typing.Union[HtmlAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    experimental_full_support_enabled: typing.Optional[builtins.bool] = None,
     formatter: typing.Optional[typing.Union[HtmlFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    linter: typing.Optional[typing.Union[HtmlLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     parser: typing.Optional[typing.Union[HtmlParserConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5063,6 +5311,13 @@ def _typecheckingstub__bcbf243ebdc0f288a10a4e6b68dc5a1ff88f4d8abe5566f57f212bf10
     line_width: typing.Optional[jsii.Number] = None,
     self_close_void_elements: typing.Optional[SelfCloseVoidElements] = None,
     whitespace_sensitivity: typing.Optional[WhitespaceSensitivity] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__271da6fb8e26ef7e9c2ec0ea9fc3487d2975824399c15a87994edbcfcdd37131(
+    *,
+    enabled: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5110,7 +5365,7 @@ def _typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e0118365
     quote_properties: typing.Optional[QuoteProperties] = None,
     quote_style: typing.Optional[QuoteStyle] = None,
     semicolons: typing.Optional[Semicolons] = None,
-    trailing_commas: typing.Optional[TrailingCommas] = None,
+    trailing_commas: typing.Optional[JsTrailingCommas] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5157,7 +5412,7 @@ def _typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a
     indent_width: typing.Optional[jsii.Number] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
-    trailing_commas: typing.Optional[TrailingCommas2] = None,
+    trailing_commas: typing.Optional[JsonTrailingCommas] = None,
 ) -> None:
     """Type checking stubs"""
     pass

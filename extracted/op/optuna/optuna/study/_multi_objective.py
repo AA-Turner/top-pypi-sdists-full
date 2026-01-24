@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 import optuna
 from optuna.study._constrained_optimization import _get_feasible_trials
 from optuna.study._study_direction import StudyDirection
-from optuna.trial import FrozenTrial
 from optuna.trial import TrialState
+
+
+if TYPE_CHECKING:
+    from optuna.trial import FrozenTrial
 
 
 def _get_pareto_front_trials_by_trials(
@@ -91,7 +96,7 @@ def _fast_non_domination_rank(
     if len(penalty) != len(loss_values):
         raise ValueError(
             "The length of penalty and loss_values must be same, but got "
-            f"len(penalty)={len(penalty)} and len(loss_values)={len(loss_values)}."
+            f"{len(penalty)=} and {len(loss_values)=}."
         )
 
     ranks = np.full(len(loss_values), -1, dtype=int)
@@ -126,11 +131,8 @@ def _is_pareto_front_nd(unique_lexsorted_loss_values: np.ndarray) -> np.ndarray:
     loss_values = unique_lexsorted_loss_values[:, 1:]
     n_trials = loss_values.shape[0]
     on_front = np.zeros(n_trials, dtype=bool)
-    # TODO(nabenabe): Replace with the following once Python 3.8 is dropped.
-    # remaining_indices: np.ndarray[tuple[int], np.dtype[np.signedinteger]] = ...
-    remaining_indices: np.ndarray[tuple[int, ...], np.dtype[np.signedinteger]] = np.arange(
-        n_trials
-    )
+    remaining_indices: np.ndarray[tuple[int], np.dtype[np.signedinteger]] = np.arange(n_trials)
+    # NOTE(nabenabe): Please check `_compute_exclusive_hv` in wfg.py when you modify this function.
     while len(remaining_indices):
         # NOTE: trials[j] cannot dominate trials[i] for i < j because of lexsort.
         # Therefore, remaining_indices[0] is always non-dominated.
@@ -138,9 +140,10 @@ def _is_pareto_front_nd(unique_lexsorted_loss_values: np.ndarray) -> np.ndarray:
         nondominated_and_not_top = np.any(
             loss_values[remaining_indices] < loss_values[new_nondominated_index], axis=1
         )
-        # TODO(nabenabe): Replace with the following once Python 3.8 is dropped.
-        # ... = cast(np.ndarray[tuple[int], np.dtype[np.signedinteger]], ...)
-        remaining_indices = remaining_indices[nondominated_and_not_top]
+        remaining_indices = cast(
+            np.ndarray[tuple[int], np.dtype[np.signedinteger]],
+            remaining_indices[nondominated_and_not_top],
+        )
 
     return on_front
 

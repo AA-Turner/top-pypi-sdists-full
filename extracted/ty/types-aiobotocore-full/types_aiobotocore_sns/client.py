@@ -3,7 +3,7 @@ Type annotations for sns service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -107,12 +108,6 @@ from .type_defs import (
     VerifySMSSandboxPhoneNumberInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -123,41 +118,41 @@ __all__ = ("SNSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AuthorizationErrorException: Type[BotocoreClientError]
-    BatchEntryIdsNotDistinctException: Type[BotocoreClientError]
-    BatchRequestTooLongException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentAccessException: Type[BotocoreClientError]
-    EmptyBatchRequestException: Type[BotocoreClientError]
-    EndpointDisabledException: Type[BotocoreClientError]
-    FilterPolicyLimitExceededException: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    InvalidBatchEntryIdException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidSecurityException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    KMSAccessDeniedException: Type[BotocoreClientError]
-    KMSDisabledException: Type[BotocoreClientError]
-    KMSInvalidStateException: Type[BotocoreClientError]
-    KMSNotFoundException: Type[BotocoreClientError]
-    KMSOptInRequired: Type[BotocoreClientError]
-    KMSThrottlingException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    OptedOutException: Type[BotocoreClientError]
-    PlatformApplicationDisabledException: Type[BotocoreClientError]
-    ReplayLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    StaleTagException: Type[BotocoreClientError]
-    SubscriptionLimitExceededException: Type[BotocoreClientError]
-    TagLimitExceededException: Type[BotocoreClientError]
-    TagPolicyException: Type[BotocoreClientError]
-    ThrottledException: Type[BotocoreClientError]
-    TooManyEntriesInBatchRequestException: Type[BotocoreClientError]
-    TopicLimitExceededException: Type[BotocoreClientError]
-    UserErrorException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    VerificationException: Type[BotocoreClientError]
+    AuthorizationErrorException: type[BotocoreClientError]
+    BatchEntryIdsNotDistinctException: type[BotocoreClientError]
+    BatchRequestTooLongException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentAccessException: type[BotocoreClientError]
+    EmptyBatchRequestException: type[BotocoreClientError]
+    EndpointDisabledException: type[BotocoreClientError]
+    FilterPolicyLimitExceededException: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    InvalidBatchEntryIdException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidSecurityException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    KMSAccessDeniedException: type[BotocoreClientError]
+    KMSDisabledException: type[BotocoreClientError]
+    KMSInvalidStateException: type[BotocoreClientError]
+    KMSNotFoundException: type[BotocoreClientError]
+    KMSOptInRequired: type[BotocoreClientError]
+    KMSThrottlingException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    OptedOutException: type[BotocoreClientError]
+    PlatformApplicationDisabledException: type[BotocoreClientError]
+    ReplayLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    StaleTagException: type[BotocoreClientError]
+    SubscriptionLimitExceededException: type[BotocoreClientError]
+    TagLimitExceededException: type[BotocoreClientError]
+    TagPolicyException: type[BotocoreClientError]
+    ThrottledException: type[BotocoreClientError]
+    TooManyEntriesInBatchRequestException: type[BotocoreClientError]
+    TopicLimitExceededException: type[BotocoreClientError]
+    UserErrorException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    VerificationException: type[BotocoreClientError]
 
 
 class SNSClient(AioBaseClient):
@@ -253,7 +248,7 @@ class SNSClient(AioBaseClient):
 
     async def create_sms_sandbox_phone_number(
         self, **kwargs: Unpack[CreateSMSSandboxPhoneNumberInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a destination phone number to an Amazon Web Services account in the SMS
         sandbox and sends a one-time password (OTP) to that phone number.
@@ -295,7 +290,7 @@ class SNSClient(AioBaseClient):
 
     async def delete_sms_sandbox_phone_number(
         self, **kwargs: Unpack[DeleteSMSSandboxPhoneNumberInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Web Services account's verified or pending phone number from
         the SMS sandbox.
@@ -484,7 +479,7 @@ class SNSClient(AioBaseClient):
 
     async def opt_in_phone_number(
         self, **kwargs: Unpack[OptInPhoneNumberInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this request to opt in a phone number that is opted out, which enables you
         to resume sending SMS messages to the number.
@@ -558,7 +553,7 @@ class SNSClient(AioBaseClient):
 
     async def set_sms_attributes(
         self, **kwargs: Unpack[SetSMSAttributesInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this request to set the default settings for sending SMS messages and
         receiving daily SMS usage reports.
@@ -596,7 +591,7 @@ class SNSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/client/#subscribe)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add tags to the specified Amazon SNS topic.
 
@@ -614,7 +609,7 @@ class SNSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sns/client/#unsubscribe)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove tags from the specified Amazon SNS topic.
 
@@ -624,7 +619,7 @@ class SNSClient(AioBaseClient):
 
     async def verify_sms_sandbox_phone_number(
         self, **kwargs: Unpack[VerifySMSSandboxPhoneNumberInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Verifies a destination phone number with a one-time password (OTP) for the
         calling Amazon Web Services account.
@@ -729,7 +724,7 @@ class SNSClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

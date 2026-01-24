@@ -8,7 +8,7 @@ from abc import ABCMeta, abstractmethod
 from copy import deepcopy
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from dateutil.tz import gettz
 
@@ -17,10 +17,14 @@ from pyathena.util import strtobool
 _logger = logging.getLogger(__name__)  # type: ignore
 
 
-def _to_date(varchar_value: Optional[str]) -> Optional[date]:
-    if varchar_value is None:
+def _to_date(value: Optional[Union[str, datetime, date]]) -> Optional[date]:
+    if value is None:
         return None
-    return datetime.strptime(varchar_value, "%Y-%m-%d").date()
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return datetime.strptime(value, "%Y-%m-%d").date()
 
 
 def _to_datetime(varchar_value: Optional[str]) -> Optional[datetime]:
@@ -336,7 +340,9 @@ def _parse_map_native(inner: str) -> Optional[Dict[str, Any]]:
 
 
 def _parse_named_struct(inner: str) -> Optional[Dict[str, Any]]:
-    """Parse named struct format: a=1, b=2.
+    """Parse named struct format: key1=value1, key2=value2.
+
+    Supports nested structs: outer={inner_key=inner_value}, field=value.
 
     Args:
         inner: Interior content of struct without braces.
@@ -346,8 +352,8 @@ def _parse_named_struct(inner: str) -> Optional[Dict[str, Any]]:
     """
     result = {}
 
-    # Simple split by comma for basic cases
-    pairs = [pair.strip() for pair in inner.split(",")]
+    # Use smart split to handle nested structures
+    pairs = _split_array_items(inner)
 
     for pair in pairs:
         if "=" not in pair:
@@ -357,9 +363,17 @@ def _parse_named_struct(inner: str) -> Optional[Dict[str, Any]]:
         key = key.strip()
         value = value.strip()
 
-        # Skip pairs with special characters (safety check)
-        if any(char in key for char in '{}="') or any(char in value for char in '{}="'):
+        # Skip if key contains special characters (safety check)
+        if any(char in key for char in '{}="'):
             continue
+
+        # Handle nested struct values
+        if value.startswith("{") and value.endswith("}"):
+            # Try to parse as nested struct
+            nested_struct = _to_struct(value)
+            if nested_struct is not None:
+                result[key] = nested_struct
+                continue
 
         # Convert value to appropriate type
         result[key] = _convert_value(value)
@@ -509,6 +523,22 @@ class Converter(metaclass=ABCMeta):
             type_: The Athena data type name to remove.
         """
         self.mappings.pop(type_, None)
+
+    def get_dtype(self, type_: str, precision: int = 0, scale: int = 0) -> Optional[Type[Any]]:
+        """Get the data type for a given Athena type.
+
+        Subclasses may override this to provide custom type handling
+        (e.g., for decimal types with precision and scale).
+
+        Args:
+            type_: The Athena data type name.
+            precision: The precision for decimal types.
+            scale: The scale for decimal types.
+
+        Returns:
+            The corresponding Python type, or None if not found.
+        """
+        return self._types.get(type_)
 
     def update(self, mappings: Dict[str, Callable[[Optional[str]], Optional[Any]]]) -> None:
         """Update multiple conversion functions at once.

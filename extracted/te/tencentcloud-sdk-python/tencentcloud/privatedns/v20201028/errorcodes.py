@@ -29,8 +29,17 @@ FAILEDOPERATION = 'FailedOperation'
 # 私有域关联VPC失败。
 FAILEDOPERATION_BINDZONEVPCFAILED = 'FailedOperation.BindZoneVpcFailed'
 
+# 创建解析记录异常。
+FAILEDOPERATION_CREATERECORDERROR = 'FailedOperation.CreateRecordError'
+
 # 记录创建失败。
 FAILEDOPERATION_CREATERECORDFAILED = 'FailedOperation.CreateRecordFailed'
+
+# 创建终端节点异常。
+FAILEDOPERATION_CREATEVPCENDPOINTERROR = 'FailedOperation.CreateVpcEndPointError'
+
+# 创建终端节点失败。
+FAILEDOPERATION_CREATEVPCENDPOINTFAILED = 'FailedOperation.CreateVpcEndPointFailed'
 
 # 私有域创建失败。
 FAILEDOPERATION_CREATEZONEFAILED = 'FailedOperation.CreateZoneFailed'
@@ -44,8 +53,17 @@ FAILEDOPERATION_DELETELASTBINDVPCRECORDFAILED = 'FailedOperation.DeleteLastBindV
 # 记录删除失败。
 FAILEDOPERATION_DELETERECORDFAILED = 'FailedOperation.DeleteRecordFailed'
 
+# 删除终端节点失败。
+FAILEDOPERATION_DELETEVPCENDPOINTFAILED = 'FailedOperation.DeleteVpcEndPointFailed'
+
 # 解析域删除失败。
 FAILEDOPERATION_DELETEZONEFAILED = 'FailedOperation.DeleteZoneFailed'
+
+# 获取临时凭证失败
+FAILEDOPERATION_GETTMPCREDFAILED = 'FailedOperation.GetTmpCredFailed'
+
+# 您的账号在同一区域内创建终端节点数量已达上限。
+FAILEDOPERATION_INBOUNDOVERLIMIT = 'FailedOperation.InboundOverLimit'
 
 # 记录修改失败。
 FAILEDOPERATION_MODIFYRECORDFAILED = 'FailedOperation.ModifyRecordFailed'
@@ -67,6 +85,21 @@ INVALIDPARAMETER = 'InvalidParameter'
 
 # 已经存在绑定的账号。
 INVALIDPARAMETER_ACCOUNTEXIST = 'InvalidParameter.AccountExist'
+
+# 终端节点已经绑定了转发规则。
+INVALIDPARAMETER_ENDPOINTBINDFORWARDRULE = 'InvalidParameter.EndPointBindForwardRule'
+
+# 终端节点不存在。
+INVALIDPARAMETER_ENDPOINTNOTEXISTS = 'InvalidParameter.EndPointNotExists'
+
+# 终端节点服务不存在。
+INVALIDPARAMETER_ENDPOINTSERVICENOTEXIST = 'InvalidParameter.EndPointServiceNotExist'
+
+# 转发规则不存在。
+INVALIDPARAMETER_FORWARDRULENOTEXIST = 'InvalidParameter.ForwardRuleNotExist'
+
+# 私有域已经绑定过转发规则。
+INVALIDPARAMETER_FORWARDRULEZONEREPEATBIND = 'InvalidParameter.ForwardRuleZoneRepeatBind'
 
 # 非法CIDR。
 INVALIDPARAMETER_ILLEGALCIDR = 'InvalidParameter.IllegalCidr'
@@ -91,6 +124,9 @@ INVALIDPARAMETER_ILLEGALVPCINFO = 'InvalidParameter.IllegalVpcInfo'
 
 # MX 必须为5-50之间且为5的倍数。
 INVALIDPARAMETER_INVALIDMX = 'InvalidParameter.InvalidMX'
+
+# 文件类型不支持。
+INVALIDPARAMETER_INVALIDZONEFILEFORMAT = 'InvalidParameter.InvalidZoneFileFormat'
 
 # 该记录类型不支持 MX 优先级设置
 INVALIDPARAMETER_MXNOTSUPPORTED = 'InvalidParameter.MXNotSupported'
@@ -140,6 +176,9 @@ INVALIDPARAMETER_VPCBINDED = 'InvalidParameter.VpcBinded'
 # 当前VPC已关联相同主域名。
 INVALIDPARAMETER_VPCBINDEDMAINDOMAIN = 'InvalidParameter.VpcBindedMainDomain'
 
+# 相同私有域不能绑定相同的VPC。
+INVALIDPARAMETER_VPCCONFLICT = 'InvalidParameter.VpcConflict'
+
 # VPC关联反解析域超过限制。
 INVALIDPARAMETER_VPCPTRZONEBINDEXCEED = 'InvalidParameter.VpcPtrZoneBindExceed'
 
@@ -154,6 +193,9 @@ INVALIDPARAMETERVALUE_ILLEGALTTLVALUE = 'InvalidParameterValue.IllegalTTLValue'
 
 # 内部保留域名，不支持创建。
 INVALIDPARAMETERVALUE_RESERVEDDOMAIN = 'InvalidParameterValue.ReservedDomain'
+
+# uin没有录入白名单，无权限访问
+INVALIDPARAMETERVALUE_UINNOTINWHITELIST = 'InvalidParameterValue.UinNotInWhiteList'
 
 # 超过配额限制。
 LIMITEXCEEDED = 'LimitExceeded'
@@ -193,6 +235,9 @@ RESOURCENOTFOUND_SERVICENOTSUBSCRIBED = 'ResourceNotFound.ServiceNotSubscribed'
 
 # 资源不可用。
 RESOURCEUNAVAILABLE = 'ResourceUnavailable'
+
+# 未添加平台账号到当前终端节点服务的白名单内。
+RESOURCEUNAVAILABLE_SERVICEWHITELISTNOTADDED = 'ResourceUnavailable.ServiceWhiteListNotAdded'
 
 # TLD增值包已过期。
 RESOURCEUNAVAILABLE_TLDPACKAGEEXPIRED = 'ResourceUnavailable.TldPackageExpired'

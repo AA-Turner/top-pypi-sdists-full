@@ -66,7 +66,7 @@ async def _start_ui_bundler_process():
             "watch",
             "-o",
             UI_ROOT_DIR,
-            env=os.environ,
+            env=dict(os.environ),
         )
         pid = process.pid
         logger.info("Started UI bundler process [%d]", pid)

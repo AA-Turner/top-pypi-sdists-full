@@ -67,6 +67,276 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces.aws_appsync import IGraphQLApiRef as _IGraphQLApiRef_d46d77ba
+from ..interfaces.aws_elasticloadbalancingv2 import (
+    ILoadBalancerRef as _ILoadBalancerRef_13acd8f1
+)
+from ..interfaces.aws_kinesisfirehose import (
+    IDeliveryStreamRef as _IDeliveryStreamRef_678f5e53
+)
+from ..interfaces.aws_logs import ILogGroupRef as _ILogGroupRef_874d025a
+from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+from ..interfaces.aws_wafv2 import (
+    IIPSetRef as _IIPSetRef_7ceca2ca,
+    ILoggingConfigurationRef as _ILoggingConfigurationRef_d8299b46,
+    IPSetReference as _IPSetReference_1b447a31,
+    IRegexPatternSetRef as _IRegexPatternSetRef_4af57c5a,
+    IRuleGroupRef as _IRuleGroupRef_42ed609b,
+    IWebACLAssociationRef as _IWebACLAssociationRef_16e76921,
+    IWebACLRef as _IWebACLRef_3dd0843c,
+    LoggingConfigurationReference as _LoggingConfigurationReference_1cb27b11,
+    RegexPatternSetReference as _RegexPatternSetReference_247d9777,
+    RuleGroupReference as _RuleGroupReference_f7804c21,
+    WebACLAssociationReference as _WebACLAssociationReference_f2f05891,
+    WebACLReference as _WebACLReference_21f0435a,
+)
+
+
+@jsii.implements(_IInspectable_c2943556, _IIPSetRef_7ceca2ca, _ITaggable_36806126)
+class CfnIPSet(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnIPSet",
+):
+    '''.. epigraph::
+
+   This is the latest version of *AWS WAF* , named AWS WAF V2, released in November, 2019.
+
+    For information, including how to migrate your AWS WAF resources from the prior release, see the `AWS WAF developer guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
+
+    Use an ``IPSet`` to identify web requests that originate from specific IP addresses or ranges of IP addresses. For example, if you're receiving a lot of requests from a ranges of IP addresses, you can configure AWS WAF to block them using an IP set that lists those IP addresses.
+
+    You use an IP set by providing its Amazon Resource Name (ARN) to the rule statement ``IPSetReferenceStatement`` , when you add a rule to a rule group or web ACL.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-ipset.html
+    :cloudformationResource: AWS::WAFv2::IPSet
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_wafv2 as wafv2
+        
+        cfn_iPSet = wafv2.CfnIPSet(self, "MyCfnIPSet",
+            addresses=["addresses"],
+            ip_address_version="ipAddressVersion",
+            scope="scope",
+        
+            # the properties below are optional
+            description="description",
+            name="name",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope_: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        addresses: typing.Sequence[builtins.str],
+        ip_address_version: builtins.str,
+        scope: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::WAFv2::IPSet``.
+
+        :param scope_: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param addresses: Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want AWS WAF to inspect for in incoming requests. All addresses must be specified using Classless Inter-Domain Routing (CIDR) notation. AWS WAF supports all IPv4 and IPv6 CIDR ranges except for ``/0`` . Example address strings: - For requests that originated from the IP address 192.0.2.44, specify ``192.0.2.44/32`` . - For requests that originated from IP addresses from 192.0.2.0 to 192.0.2.255, specify ``192.0.2.0/24`` . - For requests that originated from the IP address 1111:0000:0000:0000:0000:0000:0000:0111, specify ``1111:0000:0000:0000:0000:0000:0000:0111/128`` . - For requests that originated from IP addresses 1111:0000:0000:0000:0000:0000:0000:0000 to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify ``1111:0000:0000:0000:0000:0000:0000:0000/64`` . For more information about CIDR notation, see the Wikipedia entry `Classless Inter-Domain Routing <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ . Example JSON ``Addresses`` specifications: - Empty array: ``"Addresses": []`` - Array with one address: ``"Addresses": ["192.0.2.44/32"]`` - Array with three addresses: ``"Addresses": ["192.0.2.44/32", "192.0.2.0/24", "192.0.0.0/16"]`` - INVALID specification: ``"Addresses": [""]`` INVALID
+        :param ip_address_version: The version of the IP addresses, either ``IPV4`` or ``IPV6`` .
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param description: A description of the IP set that helps with identification.
+        :param name: The name of the IP set. You cannot change the name of an ``IPSet`` after you create it.
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__039afc69c65e0dd02b0d7963f7fa0f2983949d351922a3fbe8afc7cd0aa22eab)
+            check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnIPSetProps(
+            addresses=addresses,
+            ip_address_version=ip_address_version,
+            scope=scope,
+            description=description,
+            name=name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope_, id, props])
+
+    @jsii.member(jsii_name="arnForIPSet")
+    @builtins.classmethod
+    def arn_for_ip_set(cls, resource: "_IIPSetRef_7ceca2ca") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__201f713fec3926208232a5faee8c8e61640f612aa9c6020f96795d8c0e1eb50c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIPSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnIPSet")
+    @builtins.classmethod
+    def is_cfn_ip_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIPSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7564cba29b99e6e900ec89091c6d2949da9647ea05940e08b70feec6d66cc02f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIPSet", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0600a367beb5e92220f305b2a290f7e6c367a23cdd9bdc5ba244ae1705a05b3a)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__179e205b0ee0cdd8de882b8a3fba1a899c4ff7e936aa2de1283121509e783188)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the IP set.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the IP set.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="ipSetRef")
+    def ip_set_ref(self) -> "_IPSetReference_1b447a31":
+        '''A reference to a IPSet resource.'''
+        return typing.cast("_IPSetReference_1b447a31", jsii.get(self, "ipSetRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="addresses")
+    def addresses(self) -> typing.List[builtins.str]:
+        '''Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want AWS WAF to inspect for in incoming requests.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "addresses"))
+
+    @addresses.setter
+    def addresses(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0f10a155b121165e58778a83d62545cfbfc395feeb362e4b1d092ad6be31ca8d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "addresses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipAddressVersion")
+    def ip_address_version(self) -> builtins.str:
+        '''The version of the IP addresses, either ``IPV4`` or ``IPV6`` .'''
+        return typing.cast(builtins.str, jsii.get(self, "ipAddressVersion"))
+
+    @ip_address_version.setter
+    def ip_address_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a699244d4dfb348990708737607c0caf993fb45f4f6ad29f480c33b8209331d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipAddressVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scope")
+    def scope(self) -> builtins.str:
+        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.'''
+        return typing.cast(builtins.str, jsii.get(self, "scope"))
+
+    @scope.setter
+    def scope(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__feee99d99d65eba762ddaa0e8744a3087cf92dbcdebb488d058953dbb010e8f7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the IP set that helps with identification.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68a24131e312bc846012992c64cf5b9592365c9af854d2d4c50e4921aa058bb0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the IP set.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c0c9ed63000c100a64f48977af0d5bcd4c1fdd0ec76ceef0e3e0d45fbe40fbe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae99337cdeb3e6b180e6ec4bbd7c9dfc2db1e07a5a4932f80d44ab784640f76a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -90,13 +360,13 @@ class CfnIPSetProps:
         scope: builtins.str,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnIPSet``.
 
         :param addresses: Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want AWS WAF to inspect for in incoming requests. All addresses must be specified using Classless Inter-Domain Routing (CIDR) notation. AWS WAF supports all IPv4 and IPv6 CIDR ranges except for ``/0`` . Example address strings: - For requests that originated from the IP address 192.0.2.44, specify ``192.0.2.44/32`` . - For requests that originated from IP addresses from 192.0.2.0 to 192.0.2.255, specify ``192.0.2.0/24`` . - For requests that originated from the IP address 1111:0000:0000:0000:0000:0000:0000:0111, specify ``1111:0000:0000:0000:0000:0000:0000:0111/128`` . - For requests that originated from IP addresses 1111:0000:0000:0000:0000:0000:0000:0000 to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify ``1111:0000:0000:0000:0000:0000:0000:0000/64`` . For more information about CIDR notation, see the Wikipedia entry `Classless Inter-Domain Routing <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ . Example JSON ``Addresses`` specifications: - Empty array: ``"Addresses": []`` - Array with one address: ``"Addresses": ["192.0.2.44/32"]`` - Array with three addresses: ``"Addresses": ["192.0.2.44/32", "192.0.2.0/24", "192.0.0.0/16"]`` - INVALID specification: ``"Addresses": [""]`` INVALID
         :param ip_address_version: The version of the IP addresses, either ``IPV4`` or ``IPV6`` .
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
         :param description: A description of the IP set that helps with identification.
         :param name: The name of the IP set. You cannot change the name of an ``IPSet`` after you create it.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
@@ -106,6 +376,7 @@ class CfnIPSetProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_wafv2 as wafv2
@@ -186,7 +457,7 @@ class CfnIPSetProps:
     def scope(self) -> builtins.str:
         '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
 
-        A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
+        A regional application can be an Application Load Balancer (ALB), an  REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
         .. epigraph::
 
            For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
@@ -218,7 +489,7 @@ class CfnIPSetProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.
 
         The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
@@ -229,7 +500,7 @@ class CfnIPSetProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-ipset.html#cfn-wafv2-ipset-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -243,1858 +514,7 @@ class CfnIPSetProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnLoggingConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "log_destination_configs": "logDestinationConfigs",
-        "resource_arn": "resourceArn",
-        "logging_filter": "loggingFilter",
-        "redacted_fields": "redactedFields",
-    },
-)
-class CfnLoggingConfigurationProps:
-    def __init__(
-        self,
-        *,
-        log_destination_configs: typing.Sequence[builtins.str],
-        resource_arn: builtins.str,
-        logging_filter: typing.Any = None,
-        redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnLoggingConfiguration``.
-
-        :param log_destination_configs: The logging destination configuration that you want to associate with the web ACL. .. epigraph:: You can associate one logging destination to a web ACL.
-        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate with ``LogDestinationConfigs`` .
-        :param logging_filter: Filtering that specifies which web requests are kept in the logs and which are dropped. You can filter on the rule action and on the web request labels that were applied by matching rules during web ACL evaluation.
-        :param redacted_fields: The parts of the request that you want to keep out of the logs. For example, if you redact the ``SingleHeader`` field, the ``HEADER`` field in the logs will be ``REDACTED`` for all rules that use the ``SingleHeader`` ``FieldToMatch`` setting. If you configure data protection for the web ACL, the protection applies to the data that AWS WAF sends to the logs. Redaction applies only to the component that's specified in the rule's ``FieldToMatch`` setting, so the ``SingleHeader`` redaction doesn't apply to rules that use the ``Headers`` ``FieldToMatch`` . .. epigraph:: You can specify only the following fields for redaction: ``UriPath`` , ``QueryString`` , ``SingleHeader`` , and ``Method`` . > This setting has no impact on request sampling. You can only exclude fields from request sampling by disabling sampling in the web ACL visibility configuration or by configuring data protection for the web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            # json_body: Any
-            # logging_filter: Any
-            # method: Any
-            # query_string: Any
-            # single_header: Any
-            # uri_path: Any
-            
-            cfn_logging_configuration_props = wafv2.CfnLoggingConfigurationProps(
-                log_destination_configs=["logDestinationConfigs"],
-                resource_arn="resourceArn",
-            
-                # the properties below are optional
-                logging_filter=logging_filter,
-                redacted_fields=[wafv2.CfnLoggingConfiguration.FieldToMatchProperty(
-                    json_body=json_body,
-                    method=method,
-                    query_string=query_string,
-                    single_header=single_header,
-                    uri_path=uri_path
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__713893ab58a2ac0a37391a960bcaeb40dad62a9addec656d6016e0911ff1d752)
-            check_type(argname="argument log_destination_configs", value=log_destination_configs, expected_type=type_hints["log_destination_configs"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument logging_filter", value=logging_filter, expected_type=type_hints["logging_filter"])
-            check_type(argname="argument redacted_fields", value=redacted_fields, expected_type=type_hints["redacted_fields"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "log_destination_configs": log_destination_configs,
-            "resource_arn": resource_arn,
-        }
-        if logging_filter is not None:
-            self._values["logging_filter"] = logging_filter
-        if redacted_fields is not None:
-            self._values["redacted_fields"] = redacted_fields
-
-    @builtins.property
-    def log_destination_configs(self) -> typing.List[builtins.str]:
-        '''The logging destination configuration that you want to associate with the web ACL.
-
-        .. epigraph::
-
-           You can associate one logging destination to a web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-logdestinationconfigs
-        '''
-        result = self._values.get("log_destination_configs")
-        assert result is not None, "Required property 'log_destination_configs' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the web ACL that you want to associate with ``LogDestinationConfigs`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def logging_filter(self) -> typing.Any:
-        '''Filtering that specifies which web requests are kept in the logs and which are dropped.
-
-        You can filter on the rule action and on the web request labels that were applied by matching rules during web ACL evaluation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-loggingfilter
-        '''
-        result = self._values.get("logging_filter")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def redacted_fields(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FieldToMatchProperty"]]]]:
-        '''The parts of the request that you want to keep out of the logs.
-
-        For example, if you redact the ``SingleHeader`` field, the ``HEADER`` field in the logs will be ``REDACTED`` for all rules that use the ``SingleHeader`` ``FieldToMatch`` setting.
-
-        If you configure data protection for the web ACL, the protection applies to the data that AWS WAF sends to the logs.
-
-        Redaction applies only to the component that's specified in the rule's ``FieldToMatch`` setting, so the ``SingleHeader`` redaction doesn't apply to rules that use the ``Headers`` ``FieldToMatch`` .
-        .. epigraph::
-
-           You can specify only the following fields for redaction: ``UriPath`` , ``QueryString`` , ``SingleHeader`` , and ``Method`` . > This setting has no impact on request sampling. You can only exclude fields from request sampling by disabling sampling in the web ACL visibility configuration or by configuring data protection for the web ACL.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-redactedfields
-        '''
-        result = self._values.get("redacted_fields")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FieldToMatchProperty"]]]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnLoggingConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnRegexPatternSetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "regular_expression_list": "regularExpressionList",
-        "scope": "scope",
-        "description": "description",
-        "name": "name",
-        "tags": "tags",
-    },
-)
-class CfnRegexPatternSetProps:
-    def __init__(
-        self,
-        *,
-        regular_expression_list: typing.Sequence[builtins.str],
-        scope: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRegexPatternSet``.
-
-        :param regular_expression_list: The regular expression patterns in the set.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-        :param description: A description of the set that helps with identification.
-        :param name: The name of the set. You cannot change the name after you create the set.
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            cfn_regex_pattern_set_props = wafv2.CfnRegexPatternSetProps(
-                regular_expression_list=["regularExpressionList"],
-                scope="scope",
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4655926f3e763ad1701fea25b17a982c17326f38b7601267b5b7b6462571865e)
-            check_type(argname="argument regular_expression_list", value=regular_expression_list, expected_type=type_hints["regular_expression_list"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regular_expression_list": regular_expression_list,
-            "scope": scope,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def regular_expression_list(self) -> typing.List[builtins.str]:
-        '''The regular expression patterns in the set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-regularexpressionlist
-        '''
-        result = self._values.get("regular_expression_list")
-        assert result is not None, "Required property 'regular_expression_list' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
-
-        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
-        .. epigraph::
-
-           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-scope
-        '''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the set that helps with identification.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the set.
-
-        You cannot change the name after you create the set.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.
-
-        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-        .. epigraph::
-
-           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRegexPatternSetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "capacity": "capacity",
-        "scope": "scope",
-        "visibility_config": "visibilityConfig",
-        "available_labels": "availableLabels",
-        "consumed_labels": "consumedLabels",
-        "custom_response_bodies": "customResponseBodies",
-        "description": "description",
-        "name": "name",
-        "rules": "rules",
-        "tags": "tags",
-    },
-)
-class CfnRuleGroupProps:
-    def __init__(
-        self,
-        *,
-        capacity: jsii.Number,
-        scope: builtins.str,
-        visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        available_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnRuleGroup``.
-
-        :param capacity: The web ACL capacity units (WCUs) required for this rule group. When you create your own rule group, you define this, and you cannot change it after creation. When you add or modify the rules in a rule group, AWS WAF enforces this limit. AWS WAF uses WCUs to calculate and control the operating resources that are used to run your rules, rule groups, and web ACLs. AWS WAF calculates capacity differently for each rule type, to reflect the relative cost of each rule. Simple rules that cost little to run use fewer WCUs than more complex rules that use more processing power. Rule group capacity is fixed at creation, which helps users plan their web ACL WCU usage when they use a rule group. The WCU limit for web ACLs is 1,500.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
-        :param available_labels: The labels that one or more rules in this rule group add to matching web requests. These labels are defined in the ``RuleLabels`` for a ``Rule`` .
-        :param consumed_labels: The labels that one or more rules in this rule group match against in label match statements. These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
-        :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
-        :param description: A description of the rule group that helps with identification.
-        :param name: The name of the rule group. You cannot change the name of a rule group after you create it.
-        :param rules: The rule statements used to identify the web requests that you want to allow, block, or count. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8dfa44d9c30297c12ad00bd34bbd4b85ea5438f4127e7e97226c16565c6ef5b)
-            check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument visibility_config", value=visibility_config, expected_type=type_hints["visibility_config"])
-            check_type(argname="argument available_labels", value=available_labels, expected_type=type_hints["available_labels"])
-            check_type(argname="argument consumed_labels", value=consumed_labels, expected_type=type_hints["consumed_labels"])
-            check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "capacity": capacity,
-            "scope": scope,
-            "visibility_config": visibility_config,
-        }
-        if available_labels is not None:
-            self._values["available_labels"] = available_labels
-        if consumed_labels is not None:
-            self._values["consumed_labels"] = consumed_labels
-        if custom_response_bodies is not None:
-            self._values["custom_response_bodies"] = custom_response_bodies
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if rules is not None:
-            self._values["rules"] = rules
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def capacity(self) -> jsii.Number:
-        '''The web ACL capacity units (WCUs) required for this rule group.
-
-        When you create your own rule group, you define this, and you cannot change it after creation. When you add or modify the rules in a rule group, AWS WAF enforces this limit.
-
-        AWS WAF uses WCUs to calculate and control the operating resources that are used to run your rules, rule groups, and web ACLs. AWS WAF calculates capacity differently for each rule type, to reflect the relative cost of each rule. Simple rules that cost little to run use fewer WCUs than more complex rules that use more processing power. Rule group capacity is fixed at creation, which helps users plan their web ACL WCU usage when they use a rule group. The WCU limit for web ACLs is 1,500.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-capacity
-        '''
-        result = self._values.get("capacity")
-        assert result is not None, "Required property 'capacity' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
-
-        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
-        .. epigraph::
-
-           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-scope
-        '''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def visibility_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"]:
-        '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-visibilityconfig
-        '''
-        result = self._values.get("visibility_config")
-        assert result is not None, "Required property 'visibility_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"], result)
-
-    @builtins.property
-    def available_labels(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]]:
-        '''The labels that one or more rules in this rule group add to matching web requests.
-
-        These labels are defined in the ``RuleLabels`` for a ``Rule`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-availablelabels
-        '''
-        result = self._values.get("available_labels")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]], result)
-
-    @builtins.property
-    def consumed_labels(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]]:
-        '''The labels that one or more rules in this rule group match against in label match statements.
-
-        These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-consumedlabels
-        '''
-        result = self._values.get("consumed_labels")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]], result)
-
-    @builtins.property
-    def custom_response_bodies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseBodyProperty"]]]]:
-        '''A map of custom response keys and content bodies.
-
-        When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group.
-
-        For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
-
-        For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-customresponsebodies
-        '''
-        result = self._values.get("custom_response_bodies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseBodyProperty"]]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the rule group that helps with identification.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the rule group.
-
-        You cannot change the name of a rule group after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleProperty"]]]]:
-        '''The rule statements used to identify the web requests that you want to allow, block, or count.
-
-        Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-rules
-        '''
-        result = self._values.get("rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.
-
-        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-        .. epigraph::
-
-           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnRuleGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACLAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={"resource_arn": "resourceArn", "web_acl_arn": "webAclArn"},
-)
-class CfnWebACLAssociationProps:
-    def __init__(
-        self,
-        *,
-        resource_arn: builtins.str,
-        web_acl_arn: builtins.str,
-    ) -> None:
-        '''Properties for defining a ``CfnWebACLAssociation``.
-
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the web ACL. The ARN must be in one of the following formats: - For an Application Load Balancer: ``arn: *partition* :elasticloadbalancing: *region* : *account-id* :loadbalancer/app/ *load-balancer-name* / *load-balancer-id*`` - For an Amazon API Gateway REST API: ``arn: *partition* :apigateway: *region* ::/restapis/ *api-id* /stages/ *stage-name*`` - For an AWS AppSync GraphQL API: ``arn: *partition* :appsync: *region* : *account-id* :apis/ *GraphQLApiId*`` - For an Amazon Cognito user pool: ``arn: *partition* :cognito-idp: *region* : *account-id* :userpool/ *user-pool-id*`` - For an AWS App Runner service: ``arn: *partition* :apprunner: *region* : *account-id* :service/ *apprunner-service-name* / *apprunner-service-id*`` - For an AWS Verified Access instance: ``arn: *partition* :ec2: *region* : *account-id* :verified-access-instance/ *instance-id*`` - For an AWS Amplify instance: ``arn: *partition* :amplify: *region* : *account-id* :apps/ *app-id*``
-        :param web_acl_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate with the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html
-        :exampleMetadata: infused
-
-        Example::
-
-            # api: appsync.EventApi
-            # web_acl: wafv2.CfnWebACL
-            
-            
-            # Associate waf with Event API
-            wafv2.CfnWebACLAssociation(self, "WafAssociation",
-                resource_arn=api.api_arn,
-                web_acl_arn=web_acl.attr_arn
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93cbb499bbbd2600e53f0e1d138ab15569244c877052ef575c5114953859a4db)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-            "web_acl_arn": web_acl_arn,
-        }
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource to associate with the web ACL.
-
-        The ARN must be in one of the following formats:
-
-        - For an Application Load Balancer: ``arn: *partition* :elasticloadbalancing: *region* : *account-id* :loadbalancer/app/ *load-balancer-name* / *load-balancer-id*``
-        - For an Amazon API Gateway REST API: ``arn: *partition* :apigateway: *region* ::/restapis/ *api-id* /stages/ *stage-name*``
-        - For an AWS AppSync GraphQL API: ``arn: *partition* :appsync: *region* : *account-id* :apis/ *GraphQLApiId*``
-        - For an Amazon Cognito user pool: ``arn: *partition* :cognito-idp: *region* : *account-id* :userpool/ *user-pool-id*``
-        - For an AWS App Runner service: ``arn: *partition* :apprunner: *region* : *account-id* :service/ *apprunner-service-name* / *apprunner-service-id*``
-        - For an AWS Verified Access instance: ``arn: *partition* :ec2: *region* : *account-id* :verified-access-instance/ *instance-id*``
-        - For an AWS Amplify instance: ``arn: *partition* :amplify: *region* : *account-id* :apps/ *app-id*``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html#cfn-wafv2-webaclassociation-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the web ACL that you want to associate with the resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html#cfn-wafv2-webaclassociation-webaclarn
-        '''
-        result = self._values.get("web_acl_arn")
-        assert result is not None, "Required property 'web_acl_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebACLAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACLProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_action": "defaultAction",
-        "scope": "scope",
-        "visibility_config": "visibilityConfig",
-        "association_config": "associationConfig",
-        "captcha_config": "captchaConfig",
-        "challenge_config": "challengeConfig",
-        "custom_response_bodies": "customResponseBodies",
-        "data_protection_config": "dataProtectionConfig",
-        "description": "description",
-        "name": "name",
-        "on_source_d_do_s_protection_config": "onSourceDDoSProtectionConfig",
-        "rules": "rules",
-        "tags": "tags",
-        "token_domains": "tokenDomains",
-    },
-)
-class CfnWebACLProps:
-    def __init__(
-        self,
-        *,
-        default_action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DefaultActionProperty", typing.Dict[builtins.str, typing.Any]]],
-        scope: builtins.str,
-        visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        association_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AssociationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnWebACL``.
-
-        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` . For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
-        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
-        :param association_config: Specifies custom configurations for the associations between the web ACL and protected resources. Use this to customize the maximum size of the request body that your protected resources forward to AWS WAF for inspection. You can customize this setting for CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources. The default setting is 16 KB (16,384 bytes). .. epigraph:: You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ . For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
-        :param captcha_config: Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``CaptchaConfig`` .
-        :param challenge_config: Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``ChallengeConfig`` .
-        :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
-        :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
-        :param description: A description of the web ACL that helps with identification.
-        :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
-        :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
-        :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-        :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838f10b75f)
-            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument visibility_config", value=visibility_config, expected_type=type_hints["visibility_config"])
-            check_type(argname="argument association_config", value=association_config, expected_type=type_hints["association_config"])
-            check_type(argname="argument captcha_config", value=captcha_config, expected_type=type_hints["captcha_config"])
-            check_type(argname="argument challenge_config", value=challenge_config, expected_type=type_hints["challenge_config"])
-            check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
-            check_type(argname="argument data_protection_config", value=data_protection_config, expected_type=type_hints["data_protection_config"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument on_source_d_do_s_protection_config", value=on_source_d_do_s_protection_config, expected_type=type_hints["on_source_d_do_s_protection_config"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument token_domains", value=token_domains, expected_type=type_hints["token_domains"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_action": default_action,
-            "scope": scope,
-            "visibility_config": visibility_config,
-        }
-        if association_config is not None:
-            self._values["association_config"] = association_config
-        if captcha_config is not None:
-            self._values["captcha_config"] = captcha_config
-        if challenge_config is not None:
-            self._values["challenge_config"] = challenge_config
-        if custom_response_bodies is not None:
-            self._values["custom_response_bodies"] = custom_response_bodies
-        if data_protection_config is not None:
-            self._values["data_protection_config"] = data_protection_config
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if on_source_d_do_s_protection_config is not None:
-            self._values["on_source_d_do_s_protection_config"] = on_source_d_do_s_protection_config
-        if rules is not None:
-            self._values["rules"] = rules
-        if tags is not None:
-            self._values["tags"] = tags
-        if token_domains is not None:
-            self._values["token_domains"] = token_domains
-
-    @builtins.property
-    def default_action(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.DefaultActionProperty"]:
-        '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-defaultaction
-        '''
-        result = self._values.get("default_action")
-        assert result is not None, "Required property 'default_action' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.DefaultActionProperty"], result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
-
-        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
-        .. epigraph::
-
-           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-
-        For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-scope
-        '''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def visibility_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"]:
-        '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-visibilityconfig
-        '''
-        result = self._values.get("visibility_config")
-        assert result is not None, "Required property 'visibility_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"], result)
-
-    @builtins.property
-    def association_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AssociationConfigProperty"]]:
-        '''Specifies custom configurations for the associations between the web ACL and protected resources.
-
-        Use this to customize the maximum size of the request body that your protected resources forward to AWS WAF for inspection. You can customize this setting for CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources. The default setting is 16 KB (16,384 bytes).
-        .. epigraph::
-
-           You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ .
-
-        For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-associationconfig
-        '''
-        result = self._values.get("association_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AssociationConfigProperty"]], result)
-
-    @builtins.property
-    def captcha_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]]:
-        '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.
-
-        If you don't specify this, AWS WAF uses its default settings for ``CaptchaConfig`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-captchaconfig
-        '''
-        result = self._values.get("captcha_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]], result)
-
-    @builtins.property
-    def challenge_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]]:
-        '''Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings.
-
-        If you don't specify this, AWS WAF uses its default settings for ``ChallengeConfig`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-challengeconfig
-        '''
-        result = self._values.get("challenge_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]], result)
-
-    @builtins.property
-    def custom_response_bodies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseBodyProperty"]]]]:
-        '''A map of custom response keys and content bodies.
-
-        When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL.
-
-        For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
-
-        For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-customresponsebodies
-        '''
-        result = self._values.get("custom_response_bodies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseBodyProperty"]]]], result)
-
-    @builtins.property
-    def data_protection_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectionConfigProperty"]]:
-        '''Specifies data protection to apply to the web request data for the web ACL.
-
-        This is a web ACL level data protection option.
-
-        The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-dataprotectionconfig
-        '''
-        result = self._values.get("data_protection_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectionConfigProperty"]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the web ACL that helps with identification.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the web ACL.
-
-        You cannot change the name of a web ACL after you create it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def on_source_d_do_s_protection_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]]:
-        '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-onsourceddosprotectionconfig
-        '''
-        result = self._values.get("on_source_d_do_s_protection_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]], result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]]:
-        '''The rule statements used to identify the web requests that you want to manage.
-
-        Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-rules
-        '''
-        result = self._values.get("rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.
-
-        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
-        .. epigraph::
-
-           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def token_domains(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the domains that AWS WAF should accept in a web request token.
-
-        This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-tokendomains
-        '''
-        result = self._values.get("token_domains")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnWebACLProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.IIPSetRef")
-class IIPSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a IPSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> "IPSetReference":
-        '''(experimental) A reference to a IPSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIPSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a IPSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.IIPSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> "IPSetReference":
-        '''(experimental) A reference to a IPSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IPSetReference", jsii.get(self, "ipSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIPSetRef).__jsii_proxy_class__ = lambda : _IIPSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.ILoggingConfigurationRef")
-class ILoggingConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="loggingConfigurationRef")
-    def logging_configuration_ref(self) -> "LoggingConfigurationReference":
-        '''(experimental) A reference to a LoggingConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ILoggingConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a LoggingConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.ILoggingConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="loggingConfigurationRef")
-    def logging_configuration_ref(self) -> "LoggingConfigurationReference":
-        '''(experimental) A reference to a LoggingConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("LoggingConfigurationReference", jsii.get(self, "loggingConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ILoggingConfigurationRef).__jsii_proxy_class__ = lambda : _ILoggingConfigurationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.IPSetReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "ip_set_arn": "ipSetArn",
-        "ip_set_id": "ipSetId",
-        "ip_set_name": "ipSetName",
-        "scope": "scope",
-    },
-)
-class IPSetReference:
-    def __init__(
-        self,
-        *,
-        ip_set_arn: builtins.str,
-        ip_set_id: builtins.str,
-        ip_set_name: builtins.str,
-        scope: builtins.str,
-    ) -> None:
-        '''A reference to a IPSet resource.
-
-        :param ip_set_arn: The ARN of the IPSet resource.
-        :param ip_set_id: The Id of the IPSet resource.
-        :param ip_set_name: The Name of the IPSet resource.
-        :param scope: The Scope of the IPSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            i_pSet_reference = {
-                "ip_set_arn": "ipSetArn",
-                "ip_set_id": "ipSetId",
-                "ip_set_name": "ipSetName",
-                "scope": "scope"
-            }
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__760379f44d7b43382485462e0c355e629a98b73d4ff6c76b74f73da19e82b2c8)
-            check_type(argname="argument ip_set_arn", value=ip_set_arn, expected_type=type_hints["ip_set_arn"])
-            check_type(argname="argument ip_set_id", value=ip_set_id, expected_type=type_hints["ip_set_id"])
-            check_type(argname="argument ip_set_name", value=ip_set_name, expected_type=type_hints["ip_set_name"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "ip_set_arn": ip_set_arn,
-            "ip_set_id": ip_set_id,
-            "ip_set_name": ip_set_name,
-            "scope": scope,
-        }
-
-    @builtins.property
-    def ip_set_arn(self) -> builtins.str:
-        '''The ARN of the IPSet resource.'''
-        result = self._values.get("ip_set_arn")
-        assert result is not None, "Required property 'ip_set_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ip_set_id(self) -> builtins.str:
-        '''The Id of the IPSet resource.'''
-        result = self._values.get("ip_set_id")
-        assert result is not None, "Required property 'ip_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def ip_set_name(self) -> builtins.str:
-        '''The Name of the IPSet resource.'''
-        result = self._values.get("ip_set_name")
-        assert result is not None, "Required property 'ip_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''The Scope of the IPSet resource.'''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IPSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.IRegexPatternSetRef")
-class IRegexPatternSetRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> "RegexPatternSetReference":
-        '''(experimental) A reference to a RegexPatternSet resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRegexPatternSetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RegexPatternSet.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.IRegexPatternSetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> "RegexPatternSetReference":
-        '''(experimental) A reference to a RegexPatternSet resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RegexPatternSetReference", jsii.get(self, "regexPatternSetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRegexPatternSetRef).__jsii_proxy_class__ = lambda : _IRegexPatternSetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.IRuleGroupRef")
-class IRuleGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleGroupRef")
-    def rule_group_ref(self) -> "RuleGroupReference":
-        '''(experimental) A reference to a RuleGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRuleGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RuleGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.IRuleGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="ruleGroupRef")
-    def rule_group_ref(self) -> "RuleGroupReference":
-        '''(experimental) A reference to a RuleGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RuleGroupReference", jsii.get(self, "ruleGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRuleGroupRef).__jsii_proxy_class__ = lambda : _IRuleGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.IWebACLAssociationRef")
-class IWebACLAssociationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> "WebACLAssociationReference":
-        '''(experimental) A reference to a WebACLAssociation resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWebACLAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACLAssociation.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.IWebACLAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> "WebACLAssociationReference":
-        '''(experimental) A reference to a WebACLAssociation resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WebACLAssociationReference", jsii.get(self, "webAclAssociationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWebACLAssociationRef).__jsii_proxy_class__ = lambda : _IWebACLAssociationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_wafv2.IWebACLRef")
-class IWebACLRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a WebACL.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> "WebACLReference":
-        '''(experimental) A reference to a WebACL resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IWebACLRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a WebACL.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_wafv2.IWebACLRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> "WebACLReference":
-        '''(experimental) A reference to a WebACL resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("WebACLReference", jsii.get(self, "webAclRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IWebACLRef).__jsii_proxy_class__ = lambda : _IWebACLRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.LoggingConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_arn": "resourceArn"},
-)
-class LoggingConfigurationReference:
-    def __init__(self, *, resource_arn: builtins.str) -> None:
-        '''A reference to a LoggingConfiguration resource.
-
-        :param resource_arn: The ResourceArn of the LoggingConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            logging_configuration_reference = wafv2.LoggingConfigurationReference(
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95a8611c5fbea96b4ec81174907e1162b2e5b64fcf1141449ea5ae710a04da94)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The ResourceArn of the LoggingConfiguration resource.'''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "LoggingConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.RegexPatternSetReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "regex_pattern_set_arn": "regexPatternSetArn",
-        "regex_pattern_set_id": "regexPatternSetId",
-        "regex_pattern_set_name": "regexPatternSetName",
-        "scope": "scope",
-    },
-)
-class RegexPatternSetReference:
-    def __init__(
-        self,
-        *,
-        regex_pattern_set_arn: builtins.str,
-        regex_pattern_set_id: builtins.str,
-        regex_pattern_set_name: builtins.str,
-        scope: builtins.str,
-    ) -> None:
-        '''A reference to a RegexPatternSet resource.
-
-        :param regex_pattern_set_arn: The ARN of the RegexPatternSet resource.
-        :param regex_pattern_set_id: The Id of the RegexPatternSet resource.
-        :param regex_pattern_set_name: The Name of the RegexPatternSet resource.
-        :param scope: The Scope of the RegexPatternSet resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            regex_pattern_set_reference = wafv2.RegexPatternSetReference(
-                regex_pattern_set_arn="regexPatternSetArn",
-                regex_pattern_set_id="regexPatternSetId",
-                regex_pattern_set_name="regexPatternSetName",
-                scope="scope"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d67ce9eb1156ad32d7d813c3bf1a6b5e6023852da31c716d08c0b9eefa78839e)
-            check_type(argname="argument regex_pattern_set_arn", value=regex_pattern_set_arn, expected_type=type_hints["regex_pattern_set_arn"])
-            check_type(argname="argument regex_pattern_set_id", value=regex_pattern_set_id, expected_type=type_hints["regex_pattern_set_id"])
-            check_type(argname="argument regex_pattern_set_name", value=regex_pattern_set_name, expected_type=type_hints["regex_pattern_set_name"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "regex_pattern_set_arn": regex_pattern_set_arn,
-            "regex_pattern_set_id": regex_pattern_set_id,
-            "regex_pattern_set_name": regex_pattern_set_name,
-            "scope": scope,
-        }
-
-    @builtins.property
-    def regex_pattern_set_arn(self) -> builtins.str:
-        '''The ARN of the RegexPatternSet resource.'''
-        result = self._values.get("regex_pattern_set_arn")
-        assert result is not None, "Required property 'regex_pattern_set_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regex_pattern_set_id(self) -> builtins.str:
-        '''The Id of the RegexPatternSet resource.'''
-        result = self._values.get("regex_pattern_set_id")
-        assert result is not None, "Required property 'regex_pattern_set_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def regex_pattern_set_name(self) -> builtins.str:
-        '''The Name of the RegexPatternSet resource.'''
-        result = self._values.get("regex_pattern_set_name")
-        assert result is not None, "Required property 'regex_pattern_set_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''The Scope of the RegexPatternSet resource.'''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RegexPatternSetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.RuleGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "rule_group_arn": "ruleGroupArn",
-        "rule_group_id": "ruleGroupId",
-        "rule_group_name": "ruleGroupName",
-        "scope": "scope",
-    },
-)
-class RuleGroupReference:
-    def __init__(
-        self,
-        *,
-        rule_group_arn: builtins.str,
-        rule_group_id: builtins.str,
-        rule_group_name: builtins.str,
-        scope: builtins.str,
-    ) -> None:
-        '''A reference to a RuleGroup resource.
-
-        :param rule_group_arn: The ARN of the RuleGroup resource.
-        :param rule_group_id: The Id of the RuleGroup resource.
-        :param rule_group_name: The Name of the RuleGroup resource.
-        :param scope: The Scope of the RuleGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            rule_group_reference = wafv2.RuleGroupReference(
-                rule_group_arn="ruleGroupArn",
-                rule_group_id="ruleGroupId",
-                rule_group_name="ruleGroupName",
-                scope="scope"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be6d0be6dd88ebd4739761e478ce36119788b60fb46e3ecb210b7edcd347510e)
-            check_type(argname="argument rule_group_arn", value=rule_group_arn, expected_type=type_hints["rule_group_arn"])
-            check_type(argname="argument rule_group_id", value=rule_group_id, expected_type=type_hints["rule_group_id"])
-            check_type(argname="argument rule_group_name", value=rule_group_name, expected_type=type_hints["rule_group_name"])
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "rule_group_arn": rule_group_arn,
-            "rule_group_id": rule_group_id,
-            "rule_group_name": rule_group_name,
-            "scope": scope,
-        }
-
-    @builtins.property
-    def rule_group_arn(self) -> builtins.str:
-        '''The ARN of the RuleGroup resource.'''
-        result = self._values.get("rule_group_arn")
-        assert result is not None, "Required property 'rule_group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_group_id(self) -> builtins.str:
-        '''The Id of the RuleGroup resource.'''
-        result = self._values.get("rule_group_id")
-        assert result is not None, "Required property 'rule_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rule_group_name(self) -> builtins.str:
-        '''The Name of the RuleGroup resource.'''
-        result = self._values.get("rule_group_name")
-        assert result is not None, "Required property 'rule_group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''The Scope of the RuleGroup resource.'''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RuleGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.WebACLAssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={"resource_arn": "resourceArn", "web_acl_arn": "webAclArn"},
-)
-class WebACLAssociationReference:
-    def __init__(
-        self,
-        *,
-        resource_arn: builtins.str,
-        web_acl_arn: builtins.str,
-    ) -> None:
-        '''A reference to a WebACLAssociation resource.
-
-        :param resource_arn: The ResourceArn of the WebACLAssociation resource.
-        :param web_acl_arn: The WebACLArn of the WebACLAssociation resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            web_aCLAssociation_reference = wafv2.WebACLAssociationReference(
-                resource_arn="resourceArn",
-                web_acl_arn="webAclArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f1b19b5ad7d386f312ee7c55e4a37384223daa67f8b7b696c47a1e5ae4e5ca6)
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-            check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_arn": resource_arn,
-            "web_acl_arn": web_acl_arn,
-        }
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The ResourceArn of the WebACLAssociation resource.'''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_arn(self) -> builtins.str:
-        '''The WebACLArn of the WebACLAssociation resource.'''
-        result = self._values.get("web_acl_arn")
-        assert result is not None, "Required property 'web_acl_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WebACLAssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_wafv2.WebACLReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "scope": "scope",
-        "web_acl_arn": "webAclArn",
-        "web_acl_id": "webAclId",
-        "web_acl_name": "webAclName",
-    },
-)
-class WebACLReference:
-    def __init__(
-        self,
-        *,
-        scope: builtins.str,
-        web_acl_arn: builtins.str,
-        web_acl_id: builtins.str,
-        web_acl_name: builtins.str,
-    ) -> None:
-        '''A reference to a WebACL resource.
-
-        :param scope: The Scope of the WebACL resource.
-        :param web_acl_arn: The ARN of the WebACL resource.
-        :param web_acl_id: The Id of the WebACL resource.
-        :param web_acl_name: The Name of the WebACL resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_wafv2 as wafv2
-            
-            web_aCLReference = wafv2.WebACLReference(
-                scope="scope",
-                web_acl_arn="webAclArn",
-                web_acl_id="webAclId",
-                web_acl_name="webAclName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84d08e8ec9ff2d86c79e8d398187572ea3e490d5400ed775bdb02793354f3bb1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
-            check_type(argname="argument web_acl_id", value=web_acl_id, expected_type=type_hints["web_acl_id"])
-            check_type(argname="argument web_acl_name", value=web_acl_name, expected_type=type_hints["web_acl_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "scope": scope,
-            "web_acl_arn": web_acl_arn,
-            "web_acl_id": web_acl_id,
-            "web_acl_name": web_acl_name,
-        }
-
-    @builtins.property
-    def scope(self) -> builtins.str:
-        '''The Scope of the WebACL resource.'''
-        result = self._values.get("scope")
-        assert result is not None, "Required property 'scope' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_arn(self) -> builtins.str:
-        '''The ARN of the WebACL resource.'''
-        result = self._values.get("web_acl_arn")
-        assert result is not None, "Required property 'web_acl_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_id(self) -> builtins.str:
-        '''The Id of the WebACL resource.'''
-        result = self._values.get("web_acl_id")
-        assert result is not None, "Required property 'web_acl_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def web_acl_name(self) -> builtins.str:
-        '''The Name of the WebACL resource.'''
-        result = self._values.get("web_acl_name")
-        assert result is not None, "Required property 'web_acl_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "WebACLReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IIPSetRef, _ITaggable_36806126)
-class CfnIPSet(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_wafv2.CfnIPSet",
-):
-    '''.. epigraph::
-
-   This is the latest version of *AWS WAF* , named AWS WAF V2, released in November, 2019.
-
-    For information, including how to migrate your AWS WAF resources from the prior release, see the `AWS WAF developer guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
-
-    Use an ``IPSet`` to identify web requests that originate from specific IP addresses or ranges of IP addresses. For example, if you're receiving a lot of requests from a ranges of IP addresses, you can configure AWS WAF to block them using an IP set that lists those IP addresses.
-
-    You use an IP set by providing its Amazon Resource Name (ARN) to the rule statement ``IPSetReferenceStatement`` , when you add a rule to a rule group or web ACL.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-ipset.html
-    :cloudformationResource: AWS::WAFv2::IPSet
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_wafv2 as wafv2
-        
-        cfn_iPSet = wafv2.CfnIPSet(self, "MyCfnIPSet",
-            addresses=["addresses"],
-            ip_address_version="ipAddressVersion",
-            scope="scope",
-        
-            # the properties below are optional
-            description="description",
-            name="name",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope_: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        addresses: typing.Sequence[builtins.str],
-        ip_address_version: builtins.str,
-        scope: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope_: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param addresses: Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want AWS WAF to inspect for in incoming requests. All addresses must be specified using Classless Inter-Domain Routing (CIDR) notation. AWS WAF supports all IPv4 and IPv6 CIDR ranges except for ``/0`` . Example address strings: - For requests that originated from the IP address 192.0.2.44, specify ``192.0.2.44/32`` . - For requests that originated from IP addresses from 192.0.2.0 to 192.0.2.255, specify ``192.0.2.0/24`` . - For requests that originated from the IP address 1111:0000:0000:0000:0000:0000:0000:0111, specify ``1111:0000:0000:0000:0000:0000:0000:0111/128`` . - For requests that originated from IP addresses 1111:0000:0000:0000:0000:0000:0000:0000 to 1111:0000:0000:0000:ffff:ffff:ffff:ffff, specify ``1111:0000:0000:0000:0000:0000:0000:0000/64`` . For more information about CIDR notation, see the Wikipedia entry `Classless Inter-Domain Routing <https://docs.aws.amazon.com/https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing>`_ . Example JSON ``Addresses`` specifications: - Empty array: ``"Addresses": []`` - Array with one address: ``"Addresses": ["192.0.2.44/32"]`` - Array with three addresses: ``"Addresses": ["192.0.2.44/32", "192.0.2.0/24", "192.0.0.0/16"]`` - INVALID specification: ``"Addresses": [""]`` INVALID
-        :param ip_address_version: The version of the IP addresses, either ``IPV4`` or ``IPV6`` .
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
-        :param description: A description of the IP set that helps with identification.
-        :param name: The name of the IP set. You cannot change the name of an ``IPSet`` after you create it.
-        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__039afc69c65e0dd02b0d7963f7fa0f2983949d351922a3fbe8afc7cd0aa22eab)
-            check_type(argname="argument scope_", value=scope_, expected_type=type_hints["scope_"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnIPSetProps(
-            addresses=addresses,
-            ip_address_version=ip_address_version,
-            scope=scope,
-            description=description,
-            name=name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope_, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0600a367beb5e92220f305b2a290f7e6c367a23cdd9bdc5ba244ae1705a05b3a)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__179e205b0ee0cdd8de882b8a3fba1a899c4ff7e936aa2de1283121509e783188)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the IP set.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID of the IP set.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="ipSetRef")
-    def ip_set_ref(self) -> IPSetReference:
-        '''A reference to a IPSet resource.'''
-        return typing.cast(IPSetReference, jsii.get(self, "ipSetRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="addresses")
-    def addresses(self) -> typing.List[builtins.str]:
-        '''Contains an array of strings that specifies zero or more IP addresses or blocks of IP addresses that you want AWS WAF to inspect for in incoming requests.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "addresses"))
-
-    @addresses.setter
-    def addresses(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f10a155b121165e58778a83d62545cfbfc395feeb362e4b1d092ad6be31ca8d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "addresses", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="ipAddressVersion")
-    def ip_address_version(self) -> builtins.str:
-        '''The version of the IP addresses, either ``IPV4`` or ``IPV6`` .'''
-        return typing.cast(builtins.str, jsii.get(self, "ipAddressVersion"))
-
-    @ip_address_version.setter
-    def ip_address_version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a699244d4dfb348990708737607c0caf993fb45f4f6ad29f480c33b8209331d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "ipAddressVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="scope")
-    def scope(self) -> builtins.str:
-        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.'''
-        return typing.cast(builtins.str, jsii.get(self, "scope"))
-
-    @scope.setter
-    def scope(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__feee99d99d65eba762ddaa0e8744a3087cf92dbcdebb488d058953dbb010e8f7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "scope", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the IP set that helps with identification.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68a24131e312bc846012992c64cf5b9592365c9af854d2d4c50e4921aa058bb0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the IP set.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5c0c9ed63000c100a64f48977af0d5bcd4c1fdd0ec76ceef0e3e0d45fbe40fbe)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae99337cdeb3e6b180e6ec4bbd7c9dfc2db1e07a5a4932f80d44ab784640f76a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, ILoggingConfigurationRef)
+@jsii.implements(_IInspectable_c2943556, _ILoggingConfigurationRef_d8299b46)
 class CfnLoggingConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2158,15 +578,16 @@ class CfnLoggingConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        log_destination_configs: typing.Sequence[builtins.str],
-        resource_arn: builtins.str,
+        log_destination_configs: typing.Sequence[typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e"]],
+        resource_arn: typing.Union[builtins.str, "_IWebACLRef_3dd0843c"],
         logging_filter: typing.Any = None,
-        redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        redacted_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFv2::LoggingConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param log_destination_configs: The logging destination configuration that you want to associate with the web ACL. .. epigraph:: You can associate one logging destination to a web ACL.
@@ -2187,8 +608,20 @@ class CfnLoggingConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnLoggingConfiguration")
+    @builtins.classmethod
+    def is_cfn_logging_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLoggingConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03d46ac18dd0cd80eae02e5cb61b39a9b5df1758dfbecd26949a2192e5e8e3c6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLoggingConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2219,14 +652,14 @@ class CfnLoggingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="attrManagedByFirewallManager")
-    def attr_managed_by_firewall_manager(self) -> _IResolvable_da3f097b:
+    def attr_managed_by_firewall_manager(self) -> "_IResolvable_da3f097b":
         '''Indicates whether the logging configuration was created by AWS Firewall Manager , as part of an AWS WAF policy configuration.
 
         If true, only Firewall Manager can modify or delete the configuration.
 
         :cloudformationAttribute: ManagedByFirewallManager
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrManagedByFirewallManager"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrManagedByFirewallManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2235,9 +668,9 @@ class CfnLoggingConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="loggingConfigurationRef")
-    def logging_configuration_ref(self) -> LoggingConfigurationReference:
+    def logging_configuration_ref(self) -> "_LoggingConfigurationReference_1cb27b11":
         '''A reference to a LoggingConfiguration resource.'''
-        return typing.cast(LoggingConfigurationReference, jsii.get(self, "loggingConfigurationRef"))
+        return typing.cast("_LoggingConfigurationReference_1cb27b11", jsii.get(self, "loggingConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="logDestinationConfigs")
@@ -2282,14 +715,14 @@ class CfnLoggingConfiguration(
     @jsii.member(jsii_name="redactedFields")
     def redacted_fields(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FieldToMatchProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FieldToMatchProperty"]]]]:
         '''The parts of the request that you want to keep out of the logs.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FieldToMatchProperty"]]]], jsii.get(self, "redactedFields"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FieldToMatchProperty"]]]], jsii.get(self, "redactedFields"))
 
     @redacted_fields.setter
     def redacted_fields(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FieldToMatchProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FieldToMatchProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77098387595faa6bc77b294170e26602e484493e0515112c5936ba88ceb70e6c)
@@ -2364,8 +797,8 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            action_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_name_condition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            action_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.ActionConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_name_condition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.LabelNameConditionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A single match condition for a log filter.
 
@@ -2403,7 +836,7 @@ class CfnLoggingConfiguration(
         @builtins.property
         def action_condition(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.ActionConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.ActionConditionProperty"]]:
             '''A single action condition.
 
             This is the action setting that a log record must contain in order to meet the condition.
@@ -2411,12 +844,12 @@ class CfnLoggingConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-loggingconfiguration-condition.html#cfn-wafv2-loggingconfiguration-condition-actioncondition
             '''
             result = self._values.get("action_condition")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.ActionConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.ActionConditionProperty"]], result)
 
         @builtins.property
         def label_name_condition(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.LabelNameConditionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LabelNameConditionProperty"]]:
             '''A single label name condition.
 
             This is the fully qualified label name that a log record must contain in order to meet the condition. Fully qualified labels have a prefix, optional namespaces, and label name. The prefix identifies the rule group or web ACL context of the rule that added the label.
@@ -2424,7 +857,7 @@ class CfnLoggingConfiguration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-loggingconfiguration-condition.html#cfn-wafv2-loggingconfiguration-condition-labelnamecondition
             '''
             result = self._values.get("label_name_condition")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.LabelNameConditionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.LabelNameConditionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2597,7 +1030,7 @@ class CfnLoggingConfiguration(
             self,
             *,
             behavior: builtins.str,
-            conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.ConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             requirement: builtins.str,
         ) -> None:
             '''A single logging filter, used in ``LoggingFilter`` .
@@ -2652,14 +1085,14 @@ class CfnLoggingConfiguration(
         @builtins.property
         def conditions(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.ConditionProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.ConditionProperty"]]]:
             '''Match conditions for the filter.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-loggingconfiguration-filter.html#cfn-wafv2-loggingconfiguration-filter-conditions
             '''
             result = self._values.get("conditions")
             assert result is not None, "Required property 'conditions' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.ConditionProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.ConditionProperty"]]], result)
 
         @builtins.property
         def requirement(self) -> builtins.str:
@@ -2697,7 +1130,7 @@ class CfnLoggingConfiguration(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.MatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.MatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             invalid_fallback_behavior: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2743,13 +1176,13 @@ class CfnLoggingConfiguration(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.MatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.MatchPatternProperty"]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-loggingconfiguration-jsonbody.html#cfn-wafv2-loggingconfiguration-jsonbody-matchpattern
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.MatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.MatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -2843,7 +1276,7 @@ class CfnLoggingConfiguration(
             self,
             *,
             default_behavior: builtins.str,
-            filters: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnLoggingConfiguration.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            filters: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.FilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Filtering that specifies which web requests are kept in the logs and which are dropped, defined for a web ACL's ``LoggingConfiguration`` .
 
@@ -2899,14 +1332,14 @@ class CfnLoggingConfiguration(
         @builtins.property
         def filters(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FilterProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FilterProperty"]]]:
             '''The filters that you want to apply to the logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-loggingconfiguration-loggingfilter.html#cfn-wafv2-loggingconfiguration-loggingfilter-filters
             '''
             result = self._values.get("filters")
             assert result is not None, "Required property 'filters' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnLoggingConfiguration.FilterProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FilterProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3049,7 +1482,148 @@ class CfnLoggingConfiguration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IRegexPatternSetRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnLoggingConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "log_destination_configs": "logDestinationConfigs",
+        "resource_arn": "resourceArn",
+        "logging_filter": "loggingFilter",
+        "redacted_fields": "redactedFields",
+    },
+)
+class CfnLoggingConfigurationProps:
+    def __init__(
+        self,
+        *,
+        log_destination_configs: typing.Sequence[typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e"]],
+        resource_arn: typing.Union[builtins.str, "_IWebACLRef_3dd0843c"],
+        logging_filter: typing.Any = None,
+        redacted_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLoggingConfiguration.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLoggingConfiguration``.
+
+        :param log_destination_configs: The logging destination configuration that you want to associate with the web ACL. .. epigraph:: You can associate one logging destination to a web ACL.
+        :param resource_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate with ``LogDestinationConfigs`` .
+        :param logging_filter: Filtering that specifies which web requests are kept in the logs and which are dropped. You can filter on the rule action and on the web request labels that were applied by matching rules during web ACL evaluation.
+        :param redacted_fields: The parts of the request that you want to keep out of the logs. For example, if you redact the ``SingleHeader`` field, the ``HEADER`` field in the logs will be ``REDACTED`` for all rules that use the ``SingleHeader`` ``FieldToMatch`` setting. If you configure data protection for the web ACL, the protection applies to the data that AWS WAF sends to the logs. Redaction applies only to the component that's specified in the rule's ``FieldToMatch`` setting, so the ``SingleHeader`` redaction doesn't apply to rules that use the ``Headers`` ``FieldToMatch`` . .. epigraph:: You can specify only the following fields for redaction: ``UriPath`` , ``QueryString`` , ``SingleHeader`` , and ``Method`` . > This setting has no impact on request sampling. You can only exclude fields from request sampling by disabling sampling in the web ACL visibility configuration or by configuring data protection for the web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafv2 as wafv2
+            
+            # json_body: Any
+            # logging_filter: Any
+            # method: Any
+            # query_string: Any
+            # single_header: Any
+            # uri_path: Any
+            
+            cfn_logging_configuration_props = wafv2.CfnLoggingConfigurationProps(
+                log_destination_configs=["logDestinationConfigs"],
+                resource_arn="resourceArn",
+            
+                # the properties below are optional
+                logging_filter=logging_filter,
+                redacted_fields=[wafv2.CfnLoggingConfiguration.FieldToMatchProperty(
+                    json_body=json_body,
+                    method=method,
+                    query_string=query_string,
+                    single_header=single_header,
+                    uri_path=uri_path
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__713893ab58a2ac0a37391a960bcaeb40dad62a9addec656d6016e0911ff1d752)
+            check_type(argname="argument log_destination_configs", value=log_destination_configs, expected_type=type_hints["log_destination_configs"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument logging_filter", value=logging_filter, expected_type=type_hints["logging_filter"])
+            check_type(argname="argument redacted_fields", value=redacted_fields, expected_type=type_hints["redacted_fields"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "log_destination_configs": log_destination_configs,
+            "resource_arn": resource_arn,
+        }
+        if logging_filter is not None:
+            self._values["logging_filter"] = logging_filter
+        if redacted_fields is not None:
+            self._values["redacted_fields"] = redacted_fields
+
+    @builtins.property
+    def log_destination_configs(
+        self,
+    ) -> typing.List[typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e"]]:
+        '''The logging destination configuration that you want to associate with the web ACL.
+
+        .. epigraph::
+
+           You can associate one logging destination to a web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-logdestinationconfigs
+        '''
+        result = self._values.get("log_destination_configs")
+        assert result is not None, "Required property 'log_destination_configs' is missing"
+        return typing.cast(typing.List[typing.Union[builtins.str, "_IDeliveryStreamRef_678f5e53", "_ILogGroupRef_874d025a", "_IBucketRef_3debe44e"]], result)
+
+    @builtins.property
+    def resource_arn(self) -> typing.Union[builtins.str, "_IWebACLRef_3dd0843c"]:
+        '''The Amazon Resource Name (ARN) of the web ACL that you want to associate with ``LogDestinationConfigs`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IWebACLRef_3dd0843c"], result)
+
+    @builtins.property
+    def logging_filter(self) -> typing.Any:
+        '''Filtering that specifies which web requests are kept in the logs and which are dropped.
+
+        You can filter on the rule action and on the web request labels that were applied by matching rules during web ACL evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-loggingfilter
+        '''
+        result = self._values.get("logging_filter")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def redacted_fields(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FieldToMatchProperty"]]]]:
+        '''The parts of the request that you want to keep out of the logs.
+
+        For example, if you redact the ``SingleHeader`` field, the ``HEADER`` field in the logs will be ``REDACTED`` for all rules that use the ``SingleHeader`` ``FieldToMatch`` setting.
+
+        If you configure data protection for the web ACL, the protection applies to the data that AWS WAF sends to the logs.
+
+        Redaction applies only to the component that's specified in the rule's ``FieldToMatch`` setting, so the ``SingleHeader`` redaction doesn't apply to rules that use the ``Headers`` ``FieldToMatch`` .
+        .. epigraph::
+
+           You can specify only the following fields for redaction: ``UriPath`` , ``QueryString`` , ``SingleHeader`` , and ``Method`` . > This setting has no impact on request sampling. You can only exclude fields from request sampling by disabling sampling in the web ACL visibility configuration or by configuring data protection for the web ACL.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-loggingconfiguration.html#cfn-wafv2-loggingconfiguration-redactedfields
+        '''
+        result = self._values.get("redacted_fields")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnLoggingConfiguration.FieldToMatchProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLoggingConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRegexPatternSetRef_4af57c5a, _ITaggable_36806126)
 class CfnRegexPatternSet(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3071,6 +1645,7 @@ class CfnRegexPatternSet(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_wafv2 as wafv2
@@ -3091,20 +1666,21 @@ class CfnRegexPatternSet(
 
     def __init__(
         self,
-        scope_: _constructs_77d1e7e8.Construct,
+        scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         regular_expression_list: typing.Sequence[builtins.str],
         scope: builtins.str,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFv2::RegexPatternSet``.
+
         :param scope_: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param regular_expression_list: The regular expression patterns in the set.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
         :param description: A description of the set that helps with identification.
         :param name: The name of the set. You cannot change the name after you create the set.
         :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
@@ -3123,8 +1699,34 @@ class CfnRegexPatternSet(
 
         jsii.create(self.__class__, self, [scope_, id, props])
 
+    @jsii.member(jsii_name="arnForRegexPatternSet")
+    @builtins.classmethod
+    def arn_for_regex_pattern_set(
+        cls,
+        resource: "_IRegexPatternSetRef_4af57c5a",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7fe577888e5b3e8cd39fb3ecf6e411adfb5dc3ce1dcd51c7e7d18726416dda1f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRegexPatternSet", [resource]))
+
+    @jsii.member(jsii_name="isCfnRegexPatternSet")
+    @builtins.classmethod
+    def is_cfn_regex_pattern_set(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRegexPatternSet.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60ad2477b0ebf8d65011f5aa85fad8b5943a379644acfb98c470ab1a83251a8e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRegexPatternSet", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3178,15 +1780,15 @@ class CfnRegexPatternSet(
 
     @builtins.property
     @jsii.member(jsii_name="regexPatternSetRef")
-    def regex_pattern_set_ref(self) -> RegexPatternSetReference:
+    def regex_pattern_set_ref(self) -> "_RegexPatternSetReference_247d9777":
         '''A reference to a RegexPatternSet resource.'''
-        return typing.cast(RegexPatternSetReference, jsii.get(self, "regexPatternSetRef"))
+        return typing.cast("_RegexPatternSetReference_247d9777", jsii.get(self, "regexPatternSetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="regularExpressionList")
@@ -3242,19 +1844,160 @@ class CfnRegexPatternSet(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a1e0f3d5ecf30ff25c1225094facbc468c6ce74c69952e7917c75a8a3a98376)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IRuleGroupRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnRegexPatternSetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "regular_expression_list": "regularExpressionList",
+        "scope": "scope",
+        "description": "description",
+        "name": "name",
+        "tags": "tags",
+    },
+)
+class CfnRegexPatternSetProps:
+    def __init__(
+        self,
+        *,
+        regular_expression_list: typing.Sequence[builtins.str],
+        scope: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRegexPatternSet``.
+
+        :param regular_expression_list: The regular expression patterns in the set.
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param description: A description of the set that helps with identification.
+        :param name: The name of the set. You cannot change the name after you create the set.
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_wafv2 as wafv2
+            
+            cfn_regex_pattern_set_props = wafv2.CfnRegexPatternSetProps(
+                regular_expression_list=["regularExpressionList"],
+                scope="scope",
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4655926f3e763ad1701fea25b17a982c17326f38b7601267b5b7b6462571865e)
+            check_type(argname="argument regular_expression_list", value=regular_expression_list, expected_type=type_hints["regular_expression_list"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "regular_expression_list": regular_expression_list,
+            "scope": scope,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def regular_expression_list(self) -> typing.List[builtins.str]:
+        '''The regular expression patterns in the set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-regularexpressionlist
+        '''
+        result = self._values.get("regular_expression_list")
+        assert result is not None, "Required property 'regular_expression_list' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def scope(self) -> builtins.str:
+        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
+
+        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an  REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
+        .. epigraph::
+
+           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-scope
+        '''
+        result = self._values.get("scope")
+        assert result is not None, "Required property 'scope' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the set that helps with identification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the set.
+
+        You cannot change the name after you create the set.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.
+
+        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+        .. epigraph::
+
+           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-regexpatternset.html#cfn-wafv2-regexpatternset-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRegexPatternSetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRuleGroupRef_42ed609b, _ITaggable_36806126)
 class CfnRuleGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3281,25 +2024,26 @@ class CfnRuleGroup(
 
     def __init__(
         self,
-        scope_: _constructs_77d1e7e8.Construct,
+        scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         capacity: jsii.Number,
         scope: builtins.str,
-        visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        available_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        available_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        consumed_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFv2::RuleGroup``.
+
         :param scope_: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param capacity: The web ACL capacity units (WCUs) required for this rule group. When you create your own rule group, you define this, and you cannot change it after creation. When you add or modify the rules in a rule group, AWS WAF enforces this limit. AWS WAF uses WCUs to calculate and control the operating resources that are used to run your rules, rule groups, and web ACLs. AWS WAF calculates capacity differently for each rule type, to reflect the relative cost of each rule. Simple rules that cost little to run use fewer WCUs than more complex rules that use more processing power. Rule group capacity is fixed at creation, which helps users plan their web ACL WCU usage when they use a rule group. The WCU limit for web ACLs is 1,500.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
         :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
         :param available_labels: The labels that one or more rules in this rule group add to matching web requests. These labels are defined in the ``RuleLabels`` for a ``Rule`` .
         :param consumed_labels: The labels that one or more rules in this rule group match against in label match statements. These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
@@ -3328,8 +2072,31 @@ class CfnRuleGroup(
 
         jsii.create(self.__class__, self, [scope_, id, props])
 
+    @jsii.member(jsii_name="arnForRuleGroup")
+    @builtins.classmethod
+    def arn_for_rule_group(cls, resource: "_IRuleGroupRef_42ed609b") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__baeae4b260465d3d290925f1b2728f47b446311cacba91113fb14ac94e4220b3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRuleGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnRuleGroup")
+    @builtins.classmethod
+    def is_cfn_rule_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRuleGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd47367da248021ec82bc4ae177cda81c8e0ca5ca287b1469be34bff90508b5b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRuleGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3398,15 +2165,15 @@ class CfnRuleGroup(
 
     @builtins.property
     @jsii.member(jsii_name="ruleGroupRef")
-    def rule_group_ref(self) -> RuleGroupReference:
+    def rule_group_ref(self) -> "_RuleGroupReference_f7804c21":
         '''A reference to a RuleGroup resource.'''
-        return typing.cast(RuleGroupReference, jsii.get(self, "ruleGroupRef"))
+        return typing.cast("_RuleGroupReference_f7804c21", jsii.get(self, "ruleGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="capacity")
@@ -3438,14 +2205,14 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="visibilityConfig")
     def visibility_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"]:
         '''Defines and enables Amazon CloudWatch metrics and web request sample collection.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"], jsii.get(self, "visibilityConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"], jsii.get(self, "visibilityConfig"))
 
     @visibility_config.setter
     def visibility_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59c44d25e9138a6e2331abe9c20e650b2a9a6f305b0d924cd2ec4eb2a2b53c82)
@@ -3456,14 +2223,14 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="availableLabels")
     def available_labels(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]]:
         '''The labels that one or more rules in this rule group add to matching web requests.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]], jsii.get(self, "availableLabels"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]], jsii.get(self, "availableLabels"))
 
     @available_labels.setter
     def available_labels(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__87efb1e72c16cf174a66f5de7e3a1acb593ad15b2a49891fedc3a05d24744ab7)
@@ -3474,14 +2241,14 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="consumedLabels")
     def consumed_labels(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]]:
         '''The labels that one or more rules in this rule group match against in label match statements.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]], jsii.get(self, "consumedLabels"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]], jsii.get(self, "consumedLabels"))
 
     @consumed_labels.setter
     def consumed_labels(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelSummaryProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__151ac040118628222af413c1e8037639c78074fcbf0820eca1183493bbc6a276)
@@ -3492,14 +2259,14 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="customResponseBodies")
     def custom_response_bodies(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseBodyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseBodyProperty"]]]]:
         '''A map of custom response keys and content bodies.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseBodyProperty"]]]], jsii.get(self, "customResponseBodies"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseBodyProperty"]]]], jsii.get(self, "customResponseBodies"))
 
     @custom_response_bodies.setter
     def custom_response_bodies(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseBodyProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseBodyProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c6734af8825be0006d3866bbb0cbe92224af63291661891e57e0c75552c6b52)
@@ -3536,14 +2303,14 @@ class CfnRuleGroup(
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleProperty"]]]]:
         '''The rule statements used to identify the web requests that you want to allow, block, or count.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleProperty"]]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleProperty"]]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c59df75c410f1ef0e87781b4669ef58e1c494a030dbd329d9d3b33e5e5689c36)
@@ -3552,12 +2319,12 @@ class CfnRuleGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__df568e15c9e5493c807ab95814a97752a3859d4a0ead8c75ede59149decb8658)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3572,7 +2339,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Allow traffic towards application.
 
@@ -3606,13 +2373,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]]:
             '''Custom request handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-allow.html#cfn-wafv2-rulegroup-allow-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3634,7 +2401,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A logical rule statement used to combine other rule statements with AND logic.
 
@@ -4117,7 +2884,7 @@ class CfnRuleGroup(
         @builtins.property
         def statements(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]]]:
             '''The statements to combine with AND logic.
 
             You can use any statements that can be nested.
@@ -4126,7 +2893,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("statements")
             assert result is not None, "Required property 'statements' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4151,8 +2918,8 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
 
@@ -4191,7 +2958,7 @@ class CfnRuleGroup(
         @builtins.property
         def asn_list(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''Contains one or more Autonomous System Numbers (ASNs).
 
             ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
@@ -4199,12 +2966,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-asnlist
             '''
             result = self._values.get("asn_list")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -4212,7 +2979,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-asnmatchstatement.html#cfn-wafv2-rulegroup-asnmatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4234,7 +3001,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            custom_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Block traffic towards application.
 
@@ -4272,13 +3039,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseProperty"]]:
             '''Custom response.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-block.html#cfn-wafv2-rulegroup-block-customresponse
             '''
             result = self._values.get("custom_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomResponseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4379,9 +3146,9 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             positional_constraint: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             search_string: typing.Optional[builtins.str] = None,
             search_string_base64: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4493,14 +3260,14 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-bytematchstatement.html#cfn-wafv2-rulegroup-bytematchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def positional_constraint(self) -> builtins.str:
@@ -4540,7 +3307,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -4549,7 +3316,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         @builtins.property
         def search_string(self) -> typing.Optional[builtins.str]:
@@ -4601,7 +3368,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            immunity_time_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            immunity_time_property: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations.
 
@@ -4634,13 +3401,13 @@ class CfnRuleGroup(
         @builtins.property
         def immunity_time_property(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ImmunityTimePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ImmunityTimePropertyProperty"]]:
             '''Determines how long a ``CAPTCHA`` timestamp in the token remains valid after the client successfully solves a ``CAPTCHA`` puzzle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-captchaconfig.html#cfn-wafv2-rulegroup-captchaconfig-immunitytimeproperty
             '''
             result = self._values.get("immunity_time_property")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ImmunityTimePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ImmunityTimePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4662,7 +3429,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Checks valid token exists with request.
 
@@ -4696,13 +3463,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]]:
             '''Custom request handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-captcha.html#cfn-wafv2-rulegroup-captcha-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4724,7 +3491,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            immunity_time_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            immunity_time_property: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies how AWS WAF should handle ``Challenge`` evaluations.
 
@@ -4757,13 +3524,13 @@ class CfnRuleGroup(
         @builtins.property
         def immunity_time_property(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ImmunityTimePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ImmunityTimePropertyProperty"]]:
             '''Determines how long a challenge timestamp in the token remains valid after the client successfully responds to a challenge.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-challengeconfig.html#cfn-wafv2-rulegroup-challengeconfig-immunitytimeproperty
             '''
             result = self._values.get("immunity_time_property")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ImmunityTimePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ImmunityTimePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4785,7 +3552,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Checks that the request has a valid token with an unexpired challenge timestamp and, if not, returns a browser challenge to the client.
 
@@ -4819,13 +3586,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]]:
             '''Custom request handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-challenge.html#cfn-wafv2-rulegroup-challenge-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4946,7 +3713,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CookieMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CookieMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             oversize_handling: builtins.str,
         ) -> None:
@@ -4997,7 +3764,7 @@ class CfnRuleGroup(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CookieMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CookieMatchPatternProperty"]:
             '''The filter to use to identify the subset of cookies to inspect in a web request.
 
             You must specify exactly one setting: either ``All`` , ``IncludedCookies`` , or ``ExcludedCookies`` .
@@ -5008,7 +3775,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CookieMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CookieMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -5062,7 +3829,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Count traffic towards application.
 
@@ -5096,13 +3863,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]]:
             '''Custom request handling.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-count.html#cfn-wafv2-rulegroup-count-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5194,7 +3961,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            insert_headers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            insert_headers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Custom request handling behavior that inserts custom headers into a web request.
 
@@ -5230,7 +3997,7 @@ class CfnRuleGroup(
         @builtins.property
         def insert_headers(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomHTTPHeaderProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomHTTPHeaderProperty"]]]:
             '''The HTTP headers to insert into the request. Duplicate header names are not allowed.
 
             For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
@@ -5239,7 +4006,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("insert_headers")
             assert result is not None, "Required property 'insert_headers' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomHTTPHeaderProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomHTTPHeaderProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5344,7 +4111,7 @@ class CfnRuleGroup(
             *,
             response_code: jsii.Number,
             custom_response_body_key: typing.Optional[builtins.str] = None,
-            response_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            response_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A custom response to send to the client.
 
@@ -5415,7 +4182,7 @@ class CfnRuleGroup(
         @builtins.property
         def response_headers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomHTTPHeaderProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomHTTPHeaderProperty"]]]]:
             '''The HTTP headers to use in the response.
 
             You can specify any header name except for ``content-type`` . Duplicate header names are not allowed.
@@ -5425,7 +4192,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-customresponse.html#cfn-wafv2-rulegroup-customresponse-responseheaders
             '''
             result = self._values.get("response_headers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CustomHTTPHeaderProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomHTTPHeaderProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5462,17 +4229,17 @@ class CfnRuleGroup(
             self,
             *,
             all_query_arguments: typing.Any = None,
-            body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cookies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            json_body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.JsonBodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cookies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            json_body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JsonBodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             method: typing.Any = None,
             query_string: typing.Any = None,
             single_header: typing.Any = None,
             single_query_argument: typing.Any = None,
-            uri_fragment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.UriFragmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_fragment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.UriFragmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path: typing.Any = None,
         ) -> None:
             '''Specifies a web request component to be used in a rule match statement or in a logging configuration.
@@ -5628,7 +4395,7 @@ class CfnRuleGroup(
         @builtins.property
         def body(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.BodyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.BodyProperty"]]:
             '''Inspect the request body as plain text.
 
             The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form.
@@ -5644,12 +4411,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-body
             '''
             result = self._values.get("body")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.BodyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.BodyProperty"]], result)
 
         @builtins.property
         def cookies(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CookiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CookiesProperty"]]:
             '''Inspect the request cookies.
 
             You must configure scope and pattern matching filters in the ``Cookies`` object, to define the set of cookies and the parts of the cookies that AWS WAF inspects.
@@ -5659,12 +4426,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-cookies
             '''
             result = self._values.get("cookies")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CookiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CookiesProperty"]], result)
 
         @builtins.property
         def headers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.HeadersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeadersProperty"]]:
             '''Inspect the request headers.
 
             You must configure scope and pattern matching filters in the ``Headers`` object, to define the set of headers to and the parts of the headers that AWS WAF inspects.
@@ -5674,12 +4441,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-headers
             '''
             result = self._values.get("headers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.HeadersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeadersProperty"]], result)
 
         @builtins.property
         def ja3_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JA3FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JA3FingerprintProperty"]]:
             '''Available for use with Amazon CloudFront distributions and Application Load Balancers.
 
             Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information.
@@ -5694,12 +4461,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-ja3fingerprint
             '''
             result = self._values.get("ja3_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JA3FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JA3FingerprintProperty"]], result)
 
         @builtins.property
         def ja4_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JA4FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JA4FingerprintProperty"]]:
             '''Available for use with Amazon CloudFront distributions and Application Load Balancers.
 
             Match against the request's JA4 fingerprint. The JA4 fingerprint is a 36-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information.
@@ -5714,12 +4481,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-ja4fingerprint
             '''
             result = self._values.get("ja4_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JA4FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JA4FingerprintProperty"]], result)
 
         @builtins.property
         def json_body(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JsonBodyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JsonBodyProperty"]]:
             '''Inspect the request body as JSON.
 
             The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form.
@@ -5735,7 +4502,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-jsonbody
             '''
             result = self._values.get("json_body")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JsonBodyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JsonBodyProperty"]], result)
 
         @builtins.property
         def method(self) -> typing.Any:
@@ -5790,7 +4557,7 @@ class CfnRuleGroup(
         @builtins.property
         def uri_fragment(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.UriFragmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.UriFragmentProperty"]]:
             '''Inspect fragments of the request URI.
 
             You must configure scope and pattern matching filters in the ``UriFragment`` object, to define the fragment of a URI that AWS WAF inspects.
@@ -5800,7 +4567,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-fieldtomatch.html#cfn-wafv2-rulegroup-fieldtomatch-urifragment
             '''
             result = self._values.get("uri_fragment")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.UriFragmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.UriFragmentProperty"]], result)
 
         @builtins.property
         def uri_path(self) -> typing.Any:
@@ -5934,7 +4701,7 @@ class CfnRuleGroup(
             self,
             *,
             country_codes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement that labels web requests by country and region and that matches against web requests based on country code.
 
@@ -5995,7 +4762,7 @@ class CfnRuleGroup(
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -6006,7 +4773,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-geomatchstatement.html#cfn-wafv2-rulegroup-geomatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6127,7 +4894,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.HeaderMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.HeaderMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             oversize_handling: builtins.str,
         ) -> None:
@@ -6180,7 +4947,7 @@ class CfnRuleGroup(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.HeaderMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderMatchPatternProperty"]:
             '''The filter to use to identify the subset of headers to inspect in a web request.
 
             You must specify exactly one setting: either ``All`` , ``IncludedHeaders`` , or ``ExcludedHeaders`` .
@@ -6191,7 +4958,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.HeaderMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.HeaderMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -6368,7 +5135,7 @@ class CfnRuleGroup(
             self,
             *,
             arn: builtins.str,
-            ip_set_forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.IPSetForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_set_forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.IPSetForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement used to detect web requests coming from particular IP addresses or address ranges.
 
@@ -6422,7 +5189,7 @@ class CfnRuleGroup(
         @builtins.property
         def ip_set_forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.IPSetForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -6433,7 +5200,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ipsetreferencestatement.html#cfn-wafv2-rulegroup-ipsetreferencestatement-ipsetforwardedipconfig
             '''
             result = self._values.get("ip_set_forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.IPSetForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6650,7 +5417,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.JsonMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.JsonMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             invalid_fallback_behavior: typing.Optional[builtins.str] = None,
             oversize_handling: typing.Optional[builtins.str] = None,
@@ -6711,7 +5478,7 @@ class CfnRuleGroup(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JsonMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JsonMatchPatternProperty"]:
             '''The patterns to look for in the JSON body.
 
             AWS WAF inspects the results of these pattern matches against the rule inspection criteria.
@@ -6720,7 +5487,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.JsonMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.JsonMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -7065,7 +5832,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            statement: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
+            statement: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A logical rule statement used to negate the results of another rule statement.
 
@@ -7548,7 +6315,7 @@ class CfnRuleGroup(
         @builtins.property
         def statement(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]:
             '''The statement to negate.
 
             You can use any statement that can be nested.
@@ -7557,7 +6324,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("statement")
             assert result is not None, "Required property 'statement' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7579,7 +6346,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A logical rule statement used to combine other rule statements with OR logic.
 
@@ -8062,7 +6829,7 @@ class CfnRuleGroup(
         @builtins.property
         def statements(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]]]:
             '''The statements to combine with OR logic.
 
             You can use any statements that can be nested.
@@ -8071,7 +6838,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("statements")
             assert result is not None, "Required property 'statements' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8107,17 +6874,17 @@ class CfnRuleGroup(
             self,
             *,
             asn: typing.Any = None,
-            cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cookie: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             forwarded_ip: typing.Any = None,
-            header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             http_method: typing.Any = None,
             ip: typing.Any = None,
-            ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitJA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitJA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_namespace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitLabelNamespaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_argument: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitQueryArgumentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitQueryStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            uri_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateLimitUriPathProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitJA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitJA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_namespace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitLabelNamespaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_argument: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitQueryArgumentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitQueryStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_path: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateLimitUriPathProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies a single custom aggregate key for a rate-base rule.
 
@@ -8255,7 +7022,7 @@ class CfnRuleGroup(
         @builtins.property
         def cookie(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitCookieProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitCookieProperty"]]:
             '''Use the value of a cookie in the request as an aggregate key.
 
             Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
@@ -8263,7 +7030,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-cookie
             '''
             result = self._values.get("cookie")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitCookieProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitCookieProperty"]], result)
 
         @builtins.property
         def forwarded_ip(self) -> typing.Any:
@@ -8283,7 +7050,7 @@ class CfnRuleGroup(
         @builtins.property
         def header(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitHeaderProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitHeaderProperty"]]:
             '''Use the value of a header in the request as an aggregate key.
 
             Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -8291,7 +7058,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-header
             '''
             result = self._values.get("header")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitHeaderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitHeaderProperty"]], result)
 
         @builtins.property
         def http_method(self) -> typing.Any:
@@ -8318,7 +7085,7 @@ class CfnRuleGroup(
         @builtins.property
         def ja3_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitJA3FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitJA3FingerprintProperty"]]:
             '''Use the request's JA3 fingerprint as an aggregate key.
 
             If you use a single JA3 fingerprint as your custom key, then each value fully defines an aggregation instance.
@@ -8326,12 +7093,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-ja3fingerprint
             '''
             result = self._values.get("ja3_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitJA3FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitJA3FingerprintProperty"]], result)
 
         @builtins.property
         def ja4_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitJA4FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitJA4FingerprintProperty"]]:
             '''Use the request's JA4 fingerprint as an aggregate key.
 
             If you use a single JA4 fingerprint as your custom key, then each value fully defines an aggregation instance.
@@ -8339,12 +7106,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-ja4fingerprint
             '''
             result = self._values.get("ja4_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitJA4FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitJA4FingerprintProperty"]], result)
 
         @builtins.property
         def label_namespace(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitLabelNamespaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitLabelNamespaceProperty"]]:
             '''Use the specified label namespace as an aggregate key.
 
             Each distinct fully qualified label name that has the specified label namespace contributes to the aggregation instance. If you use just one label namespace as your custom key, then each label name fully defines an aggregation instance.
@@ -8356,12 +7123,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-labelnamespace
             '''
             result = self._values.get("label_namespace")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitLabelNamespaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitLabelNamespaceProperty"]], result)
 
         @builtins.property
         def query_argument(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitQueryArgumentProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitQueryArgumentProperty"]]:
             '''Use the specified query argument as an aggregate key.
 
             Each distinct value for the named query argument contributes to the aggregation instance. If you use a single query argument as your custom key, then each value fully defines an aggregation instance.
@@ -8369,12 +7136,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-queryargument
             '''
             result = self._values.get("query_argument")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitQueryArgumentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitQueryArgumentProperty"]], result)
 
         @builtins.property
         def query_string(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitQueryStringProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitQueryStringProperty"]]:
             '''Use the request's query string as an aggregate key.
 
             Each distinct string contributes to the aggregation instance. If you use just the query string as your custom key, then each string fully defines an aggregation instance.
@@ -8382,12 +7149,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-querystring
             '''
             result = self._values.get("query_string")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitQueryStringProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitQueryStringProperty"]], result)
 
         @builtins.property
         def uri_path(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitUriPathProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitUriPathProperty"]]:
             '''Use the request's URI path as an aggregate key.
 
             Each distinct URI path contributes to the aggregation instance. If you use just the URI path as your custom key, then each URI path fully defines an aggregation instance.
@@ -8395,7 +7162,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatementcustomkey.html#cfn-wafv2-rulegroup-ratebasedstatementcustomkey-uripath
             '''
             result = self._values.get("uri_path")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateLimitUriPathProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateLimitUriPathProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8426,10 +7193,10 @@ class CfnRuleGroup(
             *,
             aggregate_key_type: builtins.str,
             limit: jsii.Number,
-            custom_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateBasedStatementCustomKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateBasedStatementCustomKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             evaluation_window_sec: typing.Optional[jsii.Number] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scope_down_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scope_down_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rate-based rule counts incoming requests and rate limits requests when they are coming at too fast a rate.
 
@@ -9021,13 +7788,13 @@ class CfnRuleGroup(
         @builtins.property
         def custom_keys(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateBasedStatementCustomKeyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateBasedStatementCustomKeyProperty"]]]]:
             '''Specifies the aggregate keys to use in a rate-base rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatement.html#cfn-wafv2-rulegroup-ratebasedstatement-customkeys
             '''
             result = self._values.get("custom_keys")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateBasedStatementCustomKeyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateBasedStatementCustomKeyProperty"]]]], result)
 
         @builtins.property
         def evaluation_window_sec(self) -> typing.Optional[jsii.Number]:
@@ -9047,7 +7814,7 @@ class CfnRuleGroup(
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -9060,12 +7827,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatement.html#cfn-wafv2-rulegroup-ratebasedstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ForwardedIPConfigurationProperty"]], result)
 
         @builtins.property
         def scope_down_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]]:
             '''An optional nested statement that narrows the scope of the web requests that are evaluated and managed by the rate-based statement.
 
             When you use a scope-down statement, the rate-based rule only tracks and rate limits requests that match the scope-down statement. You can use any nestable ``Statement`` in the scope-down statement, and you can nest statements at any level, the same as you can for a rule statement.
@@ -9073,7 +7840,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-ratebasedstatement.html#cfn-wafv2-rulegroup-ratebasedstatement-scopedownstatement
             '''
             result = self._values.get("scope_down_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9096,7 +7863,7 @@ class CfnRuleGroup(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a cookie as an aggregate key for a rate-based rule.
 
@@ -9144,7 +7911,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -9153,7 +7920,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9176,7 +7943,7 @@ class CfnRuleGroup(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a header as an aggregate key for a rate-based rule.
 
@@ -9224,7 +7991,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -9233,7 +8000,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9432,7 +8199,7 @@ class CfnRuleGroup(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a query argument in the request as an aggregate key for a rate-based rule.
 
@@ -9480,7 +8247,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -9489,7 +8256,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9511,7 +8278,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies the request's query string as an aggregate key for a rate-based rule.
 
@@ -9545,7 +8312,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -9554,7 +8321,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9576,7 +8343,7 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies the request's URI path as an aggregate key for a rate-based rule.
 
@@ -9610,7 +8377,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -9619,7 +8386,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9645,9 +8412,9 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             regex_string: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
@@ -9743,14 +8510,14 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexmatchstatement.html#cfn-wafv2-rulegroup-regexmatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def regex_string(self) -> builtins.str:
@@ -9765,7 +8532,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -9774,7 +8541,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9801,8 +8568,8 @@ class CfnRuleGroup(
             self,
             *,
             arn: builtins.str,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement used to search web request components for matches with regular expressions.
 
@@ -9912,19 +8679,19 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-regexpatternsetreferencestatement.html#cfn-wafv2-rulegroup-regexpatternsetreferencestatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -9933,7 +8700,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10108,12 +8875,12 @@ class CfnRuleGroup(
             *,
             name: builtins.str,
             priority: jsii.Number,
-            statement: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
-            visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            statement: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
+            visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            captcha_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            challenge_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A single rule, which you can use in a ``WebACL`` or ``RuleGroup`` to identify web requests that you want to manage in some way.
 
@@ -10680,19 +9447,19 @@ class CfnRuleGroup(
         @builtins.property
         def statement(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"]:
             '''The AWS WAF processing statement for the rule, for example ``ByteMatchStatement`` or ``SizeConstraintStatement`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-rule.html#cfn-wafv2-rulegroup-rule-statement
             '''
             result = self._values.get("statement")
             assert result is not None, "Required property 'statement' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.StatementProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.StatementProperty"], result)
 
         @builtins.property
         def visibility_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"]:
             '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
 
             If you change the name of a ``Rule`` after you create it and you want the rule's metric name to reflect the change, update the metric name as well. AWS WAF doesn't automatically update the metric name.
@@ -10701,12 +9468,12 @@ class CfnRuleGroup(
             '''
             result = self._values.get("visibility_config")
             assert result is not None, "Required property 'visibility_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.VisibilityConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"], result)
 
         @builtins.property
         def action(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleActionProperty"]]:
             '''The action that AWS WAF should take on a web request when it matches the rule statement.
 
             Settings at the web ACL level can override the rule action setting.
@@ -10714,12 +9481,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-rule.html#cfn-wafv2-rulegroup-rule-action
             '''
             result = self._values.get("action")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RuleActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleActionProperty"]], result)
 
         @builtins.property
         def captcha_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CaptchaConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CaptchaConfigProperty"]]:
             '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations.
 
             If you don't specify this, AWS WAF uses the ``CAPTCHA`` configuration that's defined for the web ACL.
@@ -10727,12 +9494,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-rule.html#cfn-wafv2-rulegroup-rule-captchaconfig
             '''
             result = self._values.get("captcha_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.CaptchaConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CaptchaConfigProperty"]], result)
 
         @builtins.property
         def challenge_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ChallengeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ChallengeConfigProperty"]]:
             '''Specifies how AWS WAF should handle ``Challenge`` evaluations.
 
             If you don't specify this, AWS WAF uses the challenge configuration that's defined for the web ACL.
@@ -10740,12 +9507,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-rule.html#cfn-wafv2-rulegroup-rule-challengeconfig
             '''
             result = self._values.get("challenge_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ChallengeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ChallengeConfigProperty"]], result)
 
         @builtins.property
         def rule_labels(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelProperty"]]]]:
             '''Labels to apply to web requests that match the rule match statement.
 
             AWS WAF applies fully qualified labels to matching web requests. A fully qualified label is the concatenation of a label namespace and a rule label. The rule's rule group or web ACL defines the label namespace.
@@ -10767,7 +9534,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-rule.html#cfn-wafv2-rulegroup-rule-rulelabels
             '''
             result = self._values.get("rule_labels")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10913,9 +9680,9 @@ class CfnRuleGroup(
             self,
             *,
             comparison_operator: builtins.str,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             size: jsii.Number,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
@@ -11031,14 +9798,14 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sizeconstraintstatement.html#cfn-wafv2-rulegroup-sizeconstraintstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def size(self) -> jsii.Number:
@@ -11053,7 +9820,7 @@ class CfnRuleGroup(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -11062,7 +9829,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11088,8 +9855,8 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             sensitivity_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A rule statement that inspects for malicious SQL code.
@@ -11191,19 +9958,19 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-sqlimatchstatement.html#cfn-wafv2-rulegroup-sqlimatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -11212,7 +9979,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         @builtins.property
         def sensitivity_level(self) -> typing.Optional[builtins.str]:
@@ -11264,20 +10031,20 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.LabelMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            not_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.NotStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            or_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.OrStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rate_based_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RateBasedStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            regex_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RegexMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            regex_pattern_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.RegexPatternSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            size_constraint_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.SizeConstraintStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqli_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.SqliMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            xss_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.XssMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            and_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            byte_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            geo_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_set_reference_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            not_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.NotStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.OrStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rate_based_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RateBasedStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regex_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RegexMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regex_pattern_set_reference_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RegexPatternSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            size_constraint_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.SizeConstraintStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqli_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.SqliMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            xss_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.XssMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
@@ -11809,7 +10576,7 @@ class CfnRuleGroup(
         @builtins.property
         def and_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AndStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AndStatementProperty"]]:
             '''A logical rule statement used to combine other rule statements with AND logic.
 
             You provide more than one ``Statement`` within the ``AndStatement`` .
@@ -11817,12 +10584,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-andstatement
             '''
             result = self._values.get("and_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AndStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AndStatementProperty"]], result)
 
         @builtins.property
         def asn_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AsnMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AsnMatchStatementProperty"]]:
             '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
 
             For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
@@ -11830,12 +10597,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-asnmatchstatement
             '''
             result = self._values.get("asn_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.AsnMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.AsnMatchStatementProperty"]], result)
 
         @builtins.property
         def byte_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ByteMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ByteMatchStatementProperty"]]:
             '''A rule statement that defines a string match search for AWS WAF to apply to web requests.
 
             The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
@@ -11843,12 +10610,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-bytematchstatement
             '''
             result = self._values.get("byte_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.ByteMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.ByteMatchStatementProperty"]], result)
 
         @builtins.property
         def geo_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.GeoMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.GeoMatchStatementProperty"]]:
             '''A rule statement that labels web requests by country and region and that matches against web requests based on country code.
 
             A geo match rule labels every request that it inspects regardless of whether it finds a match.
@@ -11867,12 +10634,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-geomatchstatement
             '''
             result = self._values.get("geo_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.GeoMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.GeoMatchStatementProperty"]], result)
 
         @builtins.property
         def ip_set_reference_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.IPSetReferenceStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetReferenceStatementProperty"]]:
             '''A rule statement used to detect web requests coming from particular IP addresses or address ranges.
 
             To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement.
@@ -11882,12 +10649,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-ipsetreferencestatement
             '''
             result = self._values.get("ip_set_reference_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.IPSetReferenceStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.IPSetReferenceStatementProperty"]], result)
 
         @builtins.property
         def label_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelMatchStatementProperty"]]:
             '''A rule statement to match against labels that have been added to the web request by rules that have already run in the web ACL.
 
             The label match statement provides the label or namespace string to search for. The label string can represent a part or all of the fully qualified label name that had been added to the web request. Fully qualified labels have a prefix, optional namespaces, and label name. The prefix identifies the rule group or web ACL context of the rule that added the label. If you do not provide the fully qualified name in your label match string, AWS WAF performs the search for labels that were added in the same context as the label match statement.
@@ -11895,12 +10662,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-labelmatchstatement
             '''
             result = self._values.get("label_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.LabelMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelMatchStatementProperty"]], result)
 
         @builtins.property
         def not_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.NotStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.NotStatementProperty"]]:
             '''A logical rule statement used to negate the results of another rule statement.
 
             You provide one ``Statement`` within the ``NotStatement`` .
@@ -11908,12 +10675,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-notstatement
             '''
             result = self._values.get("not_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.NotStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.NotStatementProperty"]], result)
 
         @builtins.property
         def or_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.OrStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.OrStatementProperty"]]:
             '''A logical rule statement used to combine other rule statements with OR logic.
 
             You provide more than one ``Statement`` within the ``OrStatement`` .
@@ -11921,12 +10688,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-orstatement
             '''
             result = self._values.get("or_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.OrStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.OrStatementProperty"]], result)
 
         @builtins.property
         def rate_based_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateBasedStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateBasedStatementProperty"]]:
             '''A rate-based rule counts incoming requests and rate limits requests when they are coming at too fast a rate.
 
             The rule categorizes requests according to your aggregation criteria, collects them into aggregation instances, and counts and rate limits the requests for each instance.
@@ -11973,23 +10740,23 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-ratebasedstatement
             '''
             result = self._values.get("rate_based_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RateBasedStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RateBasedStatementProperty"]], result)
 
         @builtins.property
         def regex_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RegexMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RegexMatchStatementProperty"]]:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-regexmatchstatement
             '''
             result = self._values.get("regex_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RegexMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RegexMatchStatementProperty"]], result)
 
         @builtins.property
         def regex_pattern_set_reference_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RegexPatternSetReferenceStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RegexPatternSetReferenceStatementProperty"]]:
             '''A rule statement used to search web request components for matches with regular expressions.
 
             To use this, create a ``RegexPatternSet`` that specifies the expressions that you want to detect, then use the ARN of that set in this statement. A web request matches the pattern set rule statement if the request component matches any of the patterns in the set.
@@ -11999,12 +10766,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-regexpatternsetreferencestatement
             '''
             result = self._values.get("regex_pattern_set_reference_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.RegexPatternSetReferenceStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RegexPatternSetReferenceStatementProperty"]], result)
 
         @builtins.property
         def size_constraint_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SizeConstraintStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SizeConstraintStatementProperty"]]:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
             For example, you can use a size constraint statement to look for query strings that are longer than 100 bytes.
@@ -12016,12 +10783,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-sizeconstraintstatement
             '''
             result = self._values.get("size_constraint_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SizeConstraintStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SizeConstraintStatementProperty"]], result)
 
         @builtins.property
         def sqli_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SqliMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SqliMatchStatementProperty"]]:
             '''A rule statement that inspects for malicious SQL code.
 
             Attackers insert malicious SQL code into web requests to do things like modify your database or extract data from it.
@@ -12029,12 +10796,12 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-sqlimatchstatement
             '''
             result = self._values.get("sqli_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.SqliMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.SqliMatchStatementProperty"]], result)
 
         @builtins.property
         def xss_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.XssMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.XssMatchStatementProperty"]]:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
             In XSS attacks, the attacker uses vulnerabilities in a benign website as a vehicle to inject malicious client-site scripts into other legitimate web browsers.
@@ -12042,7 +10809,7 @@ class CfnRuleGroup(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-statement.html#cfn-wafv2-rulegroup-statement-xssmatchstatement
             '''
             result = self._values.get("xss_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.XssMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.XssMatchStatementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12208,9 +10975,9 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            cloud_watch_metrics_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            cloud_watch_metrics_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             metric_name: builtins.str,
-            sampled_requests_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            sampled_requests_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
 
@@ -12247,7 +11014,7 @@ class CfnRuleGroup(
         @builtins.property
         def cloud_watch_metrics_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether the associated resource sends metrics to Amazon CloudWatch.
 
             For the list of available metrics, see `AWS WAF Metrics <https://docs.aws.amazon.com/waf/latest/developerguide/monitoring-cloudwatch.html#waf-metrics>`_ in the *AWS WAF Developer Guide* .
@@ -12259,7 +11026,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("cloud_watch_metrics_enabled")
             assert result is not None, "Required property 'cloud_watch_metrics_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def metric_name(self) -> builtins.str:
@@ -12276,7 +11043,7 @@ class CfnRuleGroup(
         @builtins.property
         def sampled_requests_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether AWS WAF should store a sampling of the web requests that match the rules.
 
             You can view the sampled requests through the AWS WAF console.
@@ -12290,7 +11057,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("sampled_requests_enabled")
             assert result is not None, "Required property 'sampled_requests_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12315,8 +11082,8 @@ class CfnRuleGroup(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
@@ -12410,19 +11177,19 @@ class CfnRuleGroup(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-rulegroup-xssmatchstatement.html#cfn-wafv2-rulegroup-xssmatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -12431,7 +11198,7 @@ class CfnRuleGroup(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRuleGroup.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12445,7 +11212,233 @@ class CfnRuleGroup(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IWebACLRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnRuleGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "capacity": "capacity",
+        "scope": "scope",
+        "visibility_config": "visibilityConfig",
+        "available_labels": "availableLabels",
+        "consumed_labels": "consumedLabels",
+        "custom_response_bodies": "customResponseBodies",
+        "description": "description",
+        "name": "name",
+        "rules": "rules",
+        "tags": "tags",
+    },
+)
+class CfnRuleGroupProps:
+    def __init__(
+        self,
+        *,
+        capacity: jsii.Number,
+        scope: builtins.str,
+        visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        available_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        consumed_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.LabelSummaryProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRuleGroup.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRuleGroup``.
+
+        :param capacity: The web ACL capacity units (WCUs) required for this rule group. When you create your own rule group, you define this, and you cannot change it after creation. When you add or modify the rules in a rule group, AWS WAF enforces this limit. AWS WAF uses WCUs to calculate and control the operating resources that are used to run your rules, rule groups, and web ACLs. AWS WAF calculates capacity differently for each rule type, to reflect the relative cost of each rule. Simple rules that cost little to run use fewer WCUs than more complex rules that use more processing power. Rule group capacity is fixed at creation, which helps users plan their web ACL WCU usage when they use a rule group. The WCU limit for web ACLs is 1,500.
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
+        :param available_labels: The labels that one or more rules in this rule group add to matching web requests. These labels are defined in the ``RuleLabels`` for a ``Rule`` .
+        :param consumed_labels: The labels that one or more rules in this rule group match against in label match statements. These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
+        :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
+        :param description: A description of the rule group that helps with identification.
+        :param name: The name of the rule group. You cannot change the name of a rule group after you create it.
+        :param rules: The rule statements used to identify the web requests that you want to allow, block, or count. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8dfa44d9c30297c12ad00bd34bbd4b85ea5438f4127e7e97226c16565c6ef5b)
+            check_type(argname="argument capacity", value=capacity, expected_type=type_hints["capacity"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument visibility_config", value=visibility_config, expected_type=type_hints["visibility_config"])
+            check_type(argname="argument available_labels", value=available_labels, expected_type=type_hints["available_labels"])
+            check_type(argname="argument consumed_labels", value=consumed_labels, expected_type=type_hints["consumed_labels"])
+            check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capacity": capacity,
+            "scope": scope,
+            "visibility_config": visibility_config,
+        }
+        if available_labels is not None:
+            self._values["available_labels"] = available_labels
+        if consumed_labels is not None:
+            self._values["consumed_labels"] = consumed_labels
+        if custom_response_bodies is not None:
+            self._values["custom_response_bodies"] = custom_response_bodies
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if rules is not None:
+            self._values["rules"] = rules
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def capacity(self) -> jsii.Number:
+        '''The web ACL capacity units (WCUs) required for this rule group.
+
+        When you create your own rule group, you define this, and you cannot change it after creation. When you add or modify the rules in a rule group, AWS WAF enforces this limit.
+
+        AWS WAF uses WCUs to calculate and control the operating resources that are used to run your rules, rule groups, and web ACLs. AWS WAF calculates capacity differently for each rule type, to reflect the relative cost of each rule. Simple rules that cost little to run use fewer WCUs than more complex rules that use more processing power. Rule group capacity is fixed at creation, which helps users plan their web ACL WCU usage when they use a rule group. The WCU limit for web ACLs is 1,500.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-capacity
+        '''
+        result = self._values.get("capacity")
+        assert result is not None, "Required property 'capacity' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def scope(self) -> builtins.str:
+        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
+
+        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an  REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
+        .. epigraph::
+
+           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-scope
+        '''
+        result = self._values.get("scope")
+        assert result is not None, "Required property 'scope' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def visibility_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"]:
+        '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-visibilityconfig
+        '''
+        result = self._values.get("visibility_config")
+        assert result is not None, "Required property 'visibility_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.VisibilityConfigProperty"], result)
+
+    @builtins.property
+    def available_labels(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]]:
+        '''The labels that one or more rules in this rule group add to matching web requests.
+
+        These labels are defined in the ``RuleLabels`` for a ``Rule`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-availablelabels
+        '''
+        result = self._values.get("available_labels")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]], result)
+
+    @builtins.property
+    def consumed_labels(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]]:
+        '''The labels that one or more rules in this rule group match against in label match statements.
+
+        These labels are defined in a ``LabelMatchStatement`` specification, in the ``Statement`` definition of a rule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-consumedlabels
+        '''
+        result = self._values.get("consumed_labels")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.LabelSummaryProperty"]]]], result)
+
+    @builtins.property
+    def custom_response_bodies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseBodyProperty"]]]]:
+        '''A map of custom response keys and content bodies.
+
+        When you create a rule with a block action, you can send a custom response to the web request. You define these for the rule group, and then use them in the rules that you define in the rule group.
+
+        For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
+
+        For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-customresponsebodies
+        '''
+        result = self._values.get("custom_response_bodies")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.CustomResponseBodyProperty"]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the rule group that helps with identification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the rule group.
+
+        You cannot change the name of a rule group after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleProperty"]]]]:
+        '''The rule statements used to identify the web requests that you want to allow, block, or count.
+
+        Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-rules
+        '''
+        result = self._values.get("rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRuleGroup.RuleProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.
+
+        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+        .. epigraph::
+
+           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-rulegroup.html#cfn-wafv2-rulegroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRuleGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IWebACLRef_3dd0843c, _ITaggable_36806126)
 class CfnWebACL(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12461,7 +11454,7 @@ class CfnWebACL(
 
     The rules in a web ACL can be a combination of explicitly defined rules and rule groups that you reference from the web ACL. The rule groups can be rule groups that you manage or rule groups that are managed by others.
 
-    You can associate a web ACL with one or more AWS resources to protect. The resources can be an Amazon CloudFront distribution, an Amazon API Gateway REST API, an Application Load Balancer , an AWS AppSync GraphQL API , an Amazon Cognito user pool, an AWS App Runner service, an AWS Amplify application, or an AWS Verified Access instance.
+    You can associate a web ACL with one or more AWS resources to protect. The resources can be an Amazon CloudFront distribution, an  REST API, an Application Load Balancer , an AWS AppSync GraphQL API , an Amazon Cognito user pool, an AWS App Runner service, an AWS Amplify application, or an AWS Verified Access instance.
 
     For more information, see `Web access control lists (web ACLs) <https://docs.aws.amazon.com/waf/latest/developerguide/web-acl.html>`_ in the *AWS WAF developer guide* .
 
@@ -12469,7 +11462,7 @@ class CfnWebACL(
 
     If you use Shield Advanced automatic application layer DDoS mitigation, the web ACLs that you use with automatic mitigation have a rule group rule whose name starts with ``ShieldMitigationRuleGroup`` . This rule is used for automatic mitigations and it's managed for you in the web ACL by Shield Advanced and AWS WAF . You'll see the rule listed among the web ACL rules when you view the web ACL through the AWS WAF interfaces.
 
-    When you manage the web ACL through AWS CloudFormation interfaces, you won't see the Shield Advanced rule. AWS CloudFormation doesn't include this type of rule in the stack drift status between the actual configuration of the web ACL and your web ACL template.
+    When you manage the web ACL through CloudFormation interfaces, you won't see the Shield Advanced rule. CloudFormation doesn't include this type of rule in the stack drift status between the actual configuration of the web ACL and your web ACL template.
 
     Don't add the Shield Advanced rule group rule to your web ACL template. The rule shouldn't be in your template. When you update the web ACL template in a stack, the Shield Advanced rule is maintained for you by AWS WAF in the resulting web ACL.
 
@@ -12486,30 +11479,33 @@ class CfnWebACL(
 
     def __init__(
         self,
-        scope_: _constructs_77d1e7e8.Construct,
+        scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        default_action: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DefaultActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        default_action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DefaultActionProperty", typing.Dict[builtins.str, typing.Any]]],
         scope: builtins.str,
-        visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        association_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AssociationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        application_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        association_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AssociationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        captcha_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        challenge_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        on_source_d_do_s_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFv2::WebACL``.
+
         :param scope_: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
-        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` . For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` . For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
         :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
+        :param application_config: Returns a list of ``ApplicationAttribute`` s.
         :param association_config: Specifies custom configurations for the associations between the web ACL and protected resources. Use this to customize the maximum size of the request body that your protected resources forward to AWS WAF for inspection. You can customize this setting for CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources. The default setting is 16 KB (16,384 bytes). .. epigraph:: You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ . For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
         :param captcha_config: Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``CaptchaConfig`` .
         :param challenge_config: Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``ChallengeConfig`` .
@@ -12530,6 +11526,7 @@ class CfnWebACL(
             default_action=default_action,
             scope=scope,
             visibility_config=visibility_config,
+            application_config=application_config,
             association_config=association_config,
             captcha_config=captcha_config,
             challenge_config=challenge_config,
@@ -12545,8 +11542,31 @@ class CfnWebACL(
 
         jsii.create(self.__class__, self, [scope_, id, props])
 
+    @jsii.member(jsii_name="arnForWebACL")
+    @builtins.classmethod
+    def arn_for_web_acl(cls, resource: "_IWebACLRef_3dd0843c") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__29507d6097c3a609b45bd6193fde456a7bf0b8092b71e159f6482bdc25de1a89)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWebACL", [resource]))
+
+    @jsii.member(jsii_name="isCfnWebACL")
+    @builtins.classmethod
+    def is_cfn_web_acl(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebACL.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9fd7cc3650dd2dfb0bf0e2b6980960265d7623305b91414bcefeab8bae0193cf)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebACL", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -12626,28 +11646,28 @@ class CfnWebACL(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="webAclRef")
-    def web_acl_ref(self) -> WebACLReference:
+    def web_acl_ref(self) -> "_WebACLReference_21f0435a":
         '''A reference to a WebACL resource.'''
-        return typing.cast(WebACLReference, jsii.get(self, "webAclRef"))
+        return typing.cast("_WebACLReference_21f0435a", jsii.get(self, "webAclRef"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultAction")
     def default_action(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.DefaultActionProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.DefaultActionProperty"]:
         '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.DefaultActionProperty"], jsii.get(self, "defaultAction"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.DefaultActionProperty"], jsii.get(self, "defaultAction"))
 
     @default_action.setter
     def default_action(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnWebACL.DefaultActionProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnWebACL.DefaultActionProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2278a10121edfa33bcba416640471cade86cfa4cd26e23a8e52483acce0b053c)
@@ -12671,14 +11691,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="visibilityConfig")
     def visibility_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"]:
         '''Defines and enables Amazon CloudWatch metrics and web request sample collection.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"], jsii.get(self, "visibilityConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"], jsii.get(self, "visibilityConfig"))
 
     @visibility_config.setter
     def visibility_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c31cd418fc7ecfcb56c27ca59f7e1a72ad63669e0587305727953071e54beba5)
@@ -12686,17 +11706,35 @@ class CfnWebACL(
         jsii.set(self, "visibilityConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="applicationConfig")
+    def application_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationConfigProperty"]]:
+        '''Returns a list of ``ApplicationAttribute`` s.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationConfigProperty"]], jsii.get(self, "applicationConfig"))
+
+    @application_config.setter
+    def application_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ead4c1be355009abdb5c2bef2a7b836cddf9001fdb29e766c4445e21aa5b7091)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "applicationConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="associationConfig")
     def association_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AssociationConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AssociationConfigProperty"]]:
         '''Specifies custom configurations for the associations between the web ACL and protected resources.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AssociationConfigProperty"]], jsii.get(self, "associationConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AssociationConfigProperty"]], jsii.get(self, "associationConfig"))
 
     @association_config.setter
     def association_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AssociationConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AssociationConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cd4131e7b800e93fe8dbfa57a0b3448dcc676e6dccccd567162368dbc7b9aa88)
@@ -12707,14 +11745,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="captchaConfig")
     def captcha_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]]:
         '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]], jsii.get(self, "captchaConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]], jsii.get(self, "captchaConfig"))
 
     @captcha_config.setter
     def captcha_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bec4912672ad4c39c01367d956dcf8b3173f9726891f89f7bcb98f5d113a5b96)
@@ -12725,14 +11763,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="challengeConfig")
     def challenge_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]]:
         '''Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]], jsii.get(self, "challengeConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]], jsii.get(self, "challengeConfig"))
 
     @challenge_config.setter
     def challenge_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e91b2b602941cac006704e7fffe237dd7367bae62a80676a727ef6f2d0ff5748)
@@ -12743,14 +11781,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="customResponseBodies")
     def custom_response_bodies(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseBodyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseBodyProperty"]]]]:
         '''A map of custom response keys and content bodies.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseBodyProperty"]]]], jsii.get(self, "customResponseBodies"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseBodyProperty"]]]], jsii.get(self, "customResponseBodies"))
 
     @custom_response_bodies.setter
     def custom_response_bodies(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseBodyProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseBodyProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5782b9cc65df721fabb81b38101a49b0dce480579e9b262edcfe915ec2bb91ee)
@@ -12761,14 +11799,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="dataProtectionConfig")
     def data_protection_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectionConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectionConfigProperty"]]:
         '''Specifies data protection to apply to the web request data for the web ACL.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectionConfigProperty"]], jsii.get(self, "dataProtectionConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectionConfigProperty"]], jsii.get(self, "dataProtectionConfig"))
 
     @data_protection_config.setter
     def data_protection_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectionConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectionConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c8fdb8c606175920c3facb5c8db0632e7cdc7bedffcd3c6c787bab31ba6f6474)
@@ -12805,14 +11843,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="onSourceDDoSProtectionConfig")
     def on_source_d_do_s_protection_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]]:
         '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]], jsii.get(self, "onSourceDDoSProtectionConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]], jsii.get(self, "onSourceDDoSProtectionConfig"))
 
     @on_source_d_do_s_protection_config.setter
     def on_source_d_do_s_protection_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1180464a1661a74085b880efee37841284ce892adac9d3cda8cb5c117c625ba2)
@@ -12823,14 +11861,14 @@ class CfnWebACL(
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]]:
         '''The rule statements used to identify the web requests that you want to manage.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7e3abb4095a53abe30bca846b48411ffb15b0267398c52a824a8ffba45db4f4c)
@@ -12839,12 +11877,12 @@ class CfnWebACL(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Key:value pairs associated with an AWS resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5c74fad37a0c379b1aff5e14c6c06c7ca6d7553e008800f34da868f68c92ddeb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -12880,9 +11918,9 @@ class CfnWebACL(
             *,
             creation_path: builtins.str,
             registration_page_path: builtins.str,
-            request_inspection: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RequestInspectionACFPProperty", typing.Dict[builtins.str, typing.Any]]],
-            enable_regex_in_path: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            response_inspection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            request_inspection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RequestInspectionACFPProperty", typing.Dict[builtins.str, typing.Any]]],
+            enable_regex_in_path: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            response_inspection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details for your use of the account creation fraud prevention managed rule group, ``AWSManagedRulesACFPRuleSet`` .
 
@@ -13004,30 +12042,30 @@ class CfnWebACL(
         @builtins.property
         def request_inspection(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestInspectionACFPProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestInspectionACFPProperty"]:
             '''The criteria for inspecting account creation requests, used by the ACFP rule group to validate and track account creation attempts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesacfpruleset.html#cfn-wafv2-webacl-awsmanagedrulesacfpruleset-requestinspection
             '''
             result = self._values.get("request_inspection")
             assert result is not None, "Required property 'request_inspection' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestInspectionACFPProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestInspectionACFPProperty"], result)
 
         @builtins.property
         def enable_regex_in_path(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Allow the use of regular expressions in the registration page path and the account creation path.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesacfpruleset.html#cfn-wafv2-webacl-awsmanagedrulesacfpruleset-enableregexinpath
             '''
             result = self._values.get("enable_regex_in_path")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def response_inspection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionProperty"]]:
             '''The criteria for inspecting responses to account creation requests, used by the ACFP rule group to track account creation success rates.
 
             .. epigraph::
@@ -13039,7 +12077,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesacfpruleset.html#cfn-wafv2-webacl-awsmanagedrulesacfpruleset-responseinspection
             '''
             result = self._values.get("response_inspection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13067,9 +12105,9 @@ class CfnWebACL(
             self,
             *,
             login_path: builtins.str,
-            enable_regex_in_path: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            request_inspection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RequestInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            response_inspection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enable_regex_in_path: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            request_inspection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RequestInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            response_inspection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Details for your use of the account takeover prevention managed rule group, ``AWSManagedRulesATPRuleSet`` .
 
@@ -13160,29 +12198,29 @@ class CfnWebACL(
         @builtins.property
         def enable_regex_in_path(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Allow the use of regular expressions in the login page path.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesatpruleset.html#cfn-wafv2-webacl-awsmanagedrulesatpruleset-enableregexinpath
             '''
             result = self._values.get("enable_regex_in_path")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def request_inspection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestInspectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestInspectionProperty"]]:
             '''The criteria for inspecting login requests, used by the ATP rule group to validate credentials usage.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesatpruleset.html#cfn-wafv2-webacl-awsmanagedrulesatpruleset-requestinspection
             '''
             result = self._values.get("request_inspection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestInspectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestInspectionProperty"]], result)
 
         @builtins.property
         def response_inspection(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionProperty"]]:
             '''The criteria for inspecting responses to login requests, used by the ATP rule group to track login failure rates.
 
             .. epigraph::
@@ -13194,7 +12232,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesatpruleset.html#cfn-wafv2-webacl-awsmanagedrulesatpruleset-responseinspection
             '''
             result = self._values.get("response_inspection")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13219,7 +12257,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            client_side_action_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            client_side_action_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ClientSideActionConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             sensitivity_to_block: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Configures the use of the anti-DDoS managed rule group, ``AWSManagedRulesAntiDDoSRuleSet`` . This configuration is used in ``ManagedRuleGroupConfig`` .
@@ -13270,14 +12308,14 @@ class CfnWebACL(
         @builtins.property
         def client_side_action_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.ClientSideActionConfigProperty"]:
             '''Configures the request handling that's applied by the managed rule group rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` during a distributed denial of service (DDoS) attack.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesantiddosruleset.html#cfn-wafv2-webacl-awsmanagedrulesantiddosruleset-clientsideactionconfig
             '''
             result = self._values.get("client_side_action_config")
             assert result is not None, "Required property 'client_side_action_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.ClientSideActionConfigProperty"], result)
 
         @builtins.property
         def sensitivity_to_block(self) -> typing.Optional[builtins.str]:
@@ -13322,7 +12360,7 @@ class CfnWebACL(
             self,
             *,
             inspection_level: builtins.str,
-            enable_machine_learning: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enable_machine_learning: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Details for your use of the Bot Control managed rule group, ``AWSManagedRulesBotControlRuleSet`` .
 
@@ -13374,7 +12412,7 @@ class CfnWebACL(
         @builtins.property
         def enable_machine_learning(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Applies only to the targeted inspection level.
 
             Determines whether to use machine learning (ML) to analyze your web traffic for bot-related activity. Machine learning is required for the Bot Control rules ``TGT_ML_CoordinatedActivityLow`` and ``TGT_ML_CoordinatedActivityMedium`` , which
@@ -13387,7 +12425,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-awsmanagedrulesbotcontrolruleset.html#cfn-wafv2-webacl-awsmanagedrulesbotcontrolruleset-enablemachinelearning
             '''
             result = self._values.get("enable_machine_learning")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13409,7 +12447,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that AWS WAF should allow the request and optionally defines additional custom handling for the request.
 
@@ -13445,7 +12483,7 @@ class CfnWebACL(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]]:
             '''Defines custom handling for the web request.
 
             For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
@@ -13453,7 +12491,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-allowaction.html#cfn-wafv2-webacl-allowaction-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13475,7 +12513,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A logical rule statement used to combine other rule statements with AND logic.
 
@@ -13500,7 +12538,7 @@ class CfnWebACL(
         @builtins.property
         def statements(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]]:
             '''The statements to combine with AND logic.
 
             You can use any statements that can be nested.
@@ -13509,7 +12547,7 @@ class CfnWebACL(
             '''
             result = self._values.get("statements")
             assert result is not None, "Required property 'statements' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13519,6 +12557,140 @@ class CfnWebACL(
 
         def __repr__(self) -> str:
             return "AndStatementProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ApplicationAttributeProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "values": "values"},
+    )
+    class ApplicationAttributeProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            values: typing.Sequence[builtins.str],
+        ) -> None:
+            '''Application details defined during the web ACL creation process.
+
+            Application attributes help AWS WAF give recommendations for protection packs.
+
+            :param name: Specifies the attribute name.
+            :param values: Specifies the attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-applicationattribute.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                application_attribute_property = wafv2.CfnWebACL.ApplicationAttributeProperty(
+                    name="name",
+                    values=["values"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__66f2adaad9f19c44dc2cd5fab5ec44ef266cea6d9b6def3e9dff0bf7e376ee21)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument values", value=values, expected_type=type_hints["values"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "values": values,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''Specifies the attribute name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-applicationattribute.html#cfn-wafv2-webacl-applicationattribute-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def values(self) -> typing.List[builtins.str]:
+            '''Specifies the attribute value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-applicationattribute.html#cfn-wafv2-webacl-applicationattribute-values
+            '''
+            result = self._values.get("values")
+            assert result is not None, "Required property 'values' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationAttributeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACL.ApplicationConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"attributes": "attributes"},
+    )
+    class ApplicationConfigProperty:
+        def __init__(
+            self,
+            *,
+            attributes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ApplicationAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        ) -> None:
+            '''A list of ``ApplicationAttribute`` s that contains information about the application.
+
+            :param attributes: Contains the attribute name and a list of values for that attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-applicationconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_wafv2 as wafv2
+                
+                application_config_property = wafv2.CfnWebACL.ApplicationConfigProperty(
+                    attributes=[wafv2.CfnWebACL.ApplicationAttributeProperty(
+                        name="name",
+                        values=["values"]
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0c9805d456e58fdf333f88cd7ea47bcd6006aee9ebb8f4f23bd7fa2a03587fbb)
+                check_type(argname="argument attributes", value=attributes, expected_type=type_hints["attributes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "attributes": attributes,
+            }
+
+        @builtins.property
+        def attributes(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationAttributeProperty"]]]:
+            '''Contains the attribute name and a list of values for that attribute.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-applicationconfig.html#cfn-wafv2-webacl-applicationconfig-attributes
+            '''
+            result = self._values.get("attributes")
+            assert result is not None, "Required property 'attributes' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationAttributeProperty"]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ApplicationConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -13534,8 +12706,8 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_list: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
 
@@ -13574,7 +12746,7 @@ class CfnWebACL(
         @builtins.property
         def asn_list(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''Contains one or more Autonomous System Numbers (ASNs).
 
             ASNs are unique identifiers assigned to large internet networks managed by organizations such as internet service providers, enterprises, universities, or government agencies.
@@ -13582,12 +12754,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-asnlist
             '''
             result = self._values.get("asn_list")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses to match against an ASN in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -13595,7 +12767,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-asnmatchstatement.html#cfn-wafv2-webacl-asnmatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13617,7 +12789,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            request_body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            request_body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Specifies custom configurations for the associations between the web ACL and protected resources.
 
@@ -13657,7 +12829,7 @@ class CfnWebACL(
         @builtins.property
         def request_body(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty"]]]]:
             '''Customizes the maximum size of the request body that your protected CloudFront, API Gateway, Amazon Cognito, App Runner, and Verified Access resources forward to AWS WAF for inspection.
 
             The default size is 16 KB (16,384 bytes). You can change the setting for any of the available resource types.
@@ -13672,7 +12844,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-associationconfig.html#cfn-wafv2-webacl-associationconfig-requestbody
             '''
             result = self._values.get("request_body")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.RequestBodyAssociatedResourceTypeConfigProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13694,7 +12866,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            custom_response: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_response: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomResponseProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that AWS WAF should block the request and optionally defines additional custom handling for the response to the web request.
 
@@ -13734,7 +12906,7 @@ class CfnWebACL(
         @builtins.property
         def custom_response(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseProperty"]]:
             '''Defines a custom response for the web request.
 
             For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
@@ -13742,7 +12914,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-blockaction.html#cfn-wafv2-webacl-blockaction-customresponse
             '''
             result = self._values.get("custom_response")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomResponseProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13843,9 +13015,9 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             positional_constraint: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             search_string: typing.Optional[builtins.str] = None,
             search_string_base64: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -13957,14 +13129,14 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-bytematchstatement.html#cfn-wafv2-webacl-bytematchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def positional_constraint(self) -> builtins.str:
@@ -14004,7 +13176,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -14013,7 +13185,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         @builtins.property
         def search_string(self) -> typing.Optional[builtins.str]:
@@ -14065,7 +13237,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that AWS WAF should run a ``CAPTCHA`` check against the request:.
 
@@ -14112,7 +13284,7 @@ class CfnWebACL(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]]:
             '''Defines custom handling for the web request, used when the ``CAPTCHA`` inspection determines that the request's token is valid and unexpired.
 
             For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
@@ -14120,7 +13292,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-captchaaction.html#cfn-wafv2-webacl-captchaaction-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14142,7 +13314,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            immunity_time_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            immunity_time_property: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.
 
@@ -14175,13 +13347,13 @@ class CfnWebACL(
         @builtins.property
         def immunity_time_property(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ImmunityTimePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ImmunityTimePropertyProperty"]]:
             '''Determines how long a ``CAPTCHA`` timestamp in the token remains valid after the client successfully solves a ``CAPTCHA`` puzzle.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-captchaconfig.html#cfn-wafv2-webacl-captchaconfig-immunitytimeproperty
             '''
             result = self._values.get("immunity_time_property")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ImmunityTimePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ImmunityTimePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14203,7 +13375,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that AWS WAF should run a ``Challenge`` check against the request to verify that the request is coming from a legitimate client session:  - If the request includes a valid, unexpired challenge token, AWS WAF applies any custom request handling and labels that you've configured and then allows the web request inspection to proceed to the next rule, similar to a ``CountAction`` .
 
@@ -14255,7 +13427,7 @@ class CfnWebACL(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]]:
             '''Defines custom handling for the web request, used when the challenge inspection determines that the request's token is valid and unexpired.
 
             For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the `AWS WAF developer guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
@@ -14263,7 +13435,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-challengeaction.html#cfn-wafv2-webacl-challengeaction-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14285,7 +13457,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            immunity_time_property: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            immunity_time_property: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ImmunityTimePropertyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies how AWS WAF should handle ``Challenge`` evaluations.
 
@@ -14318,13 +13490,13 @@ class CfnWebACL(
         @builtins.property
         def immunity_time_property(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ImmunityTimePropertyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ImmunityTimePropertyProperty"]]:
             '''Determines how long a challenge timestamp in the token remains valid after the client successfully responds to a challenge.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-challengeconfig.html#cfn-wafv2-webacl-challengeconfig-immunitytimeproperty
             '''
             result = self._values.get("immunity_time_property")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ImmunityTimePropertyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ImmunityTimePropertyProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14346,7 +13518,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            challenge: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ClientSideActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            challenge: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ClientSideActionProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''This is part of the configuration for the managed rules ``AWSManagedRulesAntiDDoSRuleSet`` in ``ManagedRuleGroupConfig`` .
 
@@ -14383,7 +13555,7 @@ class CfnWebACL(
         @builtins.property
         def challenge(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.ClientSideActionProperty"]:
             '''Configuration for the use of the ``AWSManagedRulesAntiDDoSRuleSet`` rules ``ChallengeAllDuringEvent`` and ``ChallengeDDoSRequests`` .
 
             .. epigraph::
@@ -14396,7 +13568,7 @@ class CfnWebACL(
             '''
             result = self._values.get("challenge")
             assert result is not None, "Required property 'challenge' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.ClientSideActionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.ClientSideActionProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14423,7 +13595,7 @@ class CfnWebACL(
             self,
             *,
             usage_of_action: builtins.str,
-            exempt_uri_regular_expressions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RegexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            exempt_uri_regular_expressions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RegexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             sensitivity: typing.Optional[builtins.str] = None,
         ) -> None:
             '''This is part of the ``AWSManagedRulesAntiDDoSRuleSet`` ``ClientSideActionConfig`` configuration in ``ManagedRuleGroupConfig`` .
@@ -14491,7 +13663,7 @@ class CfnWebACL(
         @builtins.property
         def exempt_uri_regular_expressions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexProperty"]]]]:
             '''The regular expression to match against the web request URI, used to identify requests that can't handle a silent browser challenge.
 
             When the ``ClientSideAction`` setting ``UsageOfAction`` is enabled, the managed rule group uses this setting to determine which requests to label with ``awswaf:managed:aws:anti-ddos:challengeable-request`` . If ``UsageOfAction`` is disabled, this setting has no effect and the managed rule group doesn't add the label to any requests.
@@ -14509,7 +13681,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-clientsideaction.html#cfn-wafv2-webacl-clientsideaction-exempturiregularexpressions
             '''
             result = self._values.get("exempt_uri_regular_expressions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexProperty"]]]], result)
 
         @builtins.property
         def sensitivity(self) -> typing.Optional[builtins.str]:
@@ -14649,7 +13821,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CookieMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CookieMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             oversize_handling: builtins.str,
         ) -> None:
@@ -14700,7 +13872,7 @@ class CfnWebACL(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.CookieMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.CookieMatchPatternProperty"]:
             '''The filter to use to identify the subset of cookies to inspect in a web request.
 
             You must specify exactly one setting: either ``All`` , ``IncludedCookies`` , or ``ExcludedCookies`` .
@@ -14711,7 +13883,7 @@ class CfnWebACL(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.CookieMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.CookieMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -14765,7 +13937,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            custom_request_handling: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            custom_request_handling: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomRequestHandlingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies that AWS WAF should count the request. Optionally defines additional custom handling for the request.
 
@@ -14801,7 +13973,7 @@ class CfnWebACL(
         @builtins.property
         def custom_request_handling(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]]:
             '''Defines custom handling for the web request.
 
             For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
@@ -14809,7 +13981,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-countaction.html#cfn-wafv2-webacl-countaction-customrequesthandling
             '''
             result = self._values.get("custom_request_handling")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomRequestHandlingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomRequestHandlingProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14901,7 +14073,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            insert_headers: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            insert_headers: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Custom request handling behavior that inserts custom headers into a web request.
 
@@ -14937,7 +14109,7 @@ class CfnWebACL(
         @builtins.property
         def insert_headers(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomHTTPHeaderProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomHTTPHeaderProperty"]]]:
             '''The HTTP headers to insert into the request. Duplicate header names are not allowed.
 
             For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
@@ -14946,7 +14118,7 @@ class CfnWebACL(
             '''
             result = self._values.get("insert_headers")
             assert result is not None, "Required property 'insert_headers' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomHTTPHeaderProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomHTTPHeaderProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15051,7 +14223,7 @@ class CfnWebACL(
             *,
             response_code: jsii.Number,
             custom_response_body_key: typing.Optional[builtins.str] = None,
-            response_headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            response_headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomHTTPHeaderProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A custom response to send to the client.
 
@@ -15122,7 +14294,7 @@ class CfnWebACL(
         @builtins.property
         def response_headers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomHTTPHeaderProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomHTTPHeaderProperty"]]]]:
             '''The HTTP headers to use in the response.
 
             You can specify any header name except for ``content-type`` . Duplicate header names are not allowed.
@@ -15132,7 +14304,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-customresponse.html#cfn-wafv2-webacl-customresponse-responseheaders
             '''
             result = self._values.get("response_headers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CustomHTTPHeaderProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomHTTPHeaderProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15160,9 +14332,9 @@ class CfnWebACL(
             self,
             *,
             action: builtins.str,
-            field: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToProtectProperty", typing.Dict[builtins.str, typing.Any]]],
-            exclude_rate_based_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            exclude_rule_match_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            field: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToProtectProperty", typing.Dict[builtins.str, typing.Any]]],
+            exclude_rate_based_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            exclude_rule_match_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''
             :param action: 
@@ -15220,34 +14392,34 @@ class CfnWebACL(
         @builtins.property
         def field(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToProtectProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToProtectProperty"]:
             '''Field in log to protect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-dataprotect.html#cfn-wafv2-webacl-dataprotect-field
             '''
             result = self._values.get("field")
             assert result is not None, "Required property 'field' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToProtectProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToProtectProperty"], result)
 
         @builtins.property
         def exclude_rate_based_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-dataprotect.html#cfn-wafv2-webacl-dataprotect-excluderatebaseddetails
             '''
             result = self._values.get("exclude_rate_based_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def exclude_rule_match_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-dataprotect.html#cfn-wafv2-webacl-dataprotect-excluderulematchdetails
             '''
             result = self._values.get("exclude_rule_match_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15269,7 +14441,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            data_protections: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.DataProtectProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            data_protections: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DataProtectProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies data protection to apply to the web request data for the web ACL.
 
@@ -15316,7 +14488,7 @@ class CfnWebACL(
         @builtins.property
         def data_protections(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectProperty"]]]:
             '''An array of data protection configurations for specific web request field types.
 
             This is defined for each web ACL. AWS WAF applies the specified protection to all web requests that the web ACL inspects.
@@ -15325,7 +14497,7 @@ class CfnWebACL(
             '''
             result = self._values.get("data_protections")
             assert result is not None, "Required property 'data_protections' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.DataProtectProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15347,8 +14519,8 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            allow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AllowActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            block: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.BlockActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AllowActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            block: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.BlockActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''In a ``WebACL`` , this is the action that you want AWS WAF to perform when a web request doesn't match any of the rules in the ``WebACL`` .
 
@@ -15402,24 +14574,24 @@ class CfnWebACL(
         @builtins.property
         def allow(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AllowActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AllowActionProperty"]]:
             '''Specifies that AWS WAF should allow requests by default.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-defaultaction.html#cfn-wafv2-webacl-defaultaction-allow
             '''
             result = self._values.get("allow")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AllowActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AllowActionProperty"]], result)
 
         @builtins.property
         def block(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BlockActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BlockActionProperty"]]:
             '''Specifies that AWS WAF should block requests by default.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-defaultaction.html#cfn-wafv2-webacl-defaultaction-block
             '''
             result = self._values.get("block")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BlockActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BlockActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15572,17 +14744,17 @@ class CfnWebACL(
             self,
             *,
             all_query_arguments: typing.Any = None,
-            body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            cookies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            headers: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            json_body: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.JsonBodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.BodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cookies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CookiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            headers: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.HeadersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            json_body: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JsonBodyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             method: typing.Any = None,
             query_string: typing.Any = None,
             single_header: typing.Any = None,
             single_query_argument: typing.Any = None,
-            uri_fragment: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.UriFragmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_fragment: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.UriFragmentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uri_path: typing.Any = None,
         ) -> None:
             '''Specifies a web request component to be used in a rule match statement or in a logging configuration.
@@ -15738,7 +14910,7 @@ class CfnWebACL(
         @builtins.property
         def body(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BodyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BodyProperty"]]:
             '''Inspect the request body as plain text.
 
             The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form.
@@ -15754,12 +14926,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-body
             '''
             result = self._values.get("body")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BodyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BodyProperty"]], result)
 
         @builtins.property
         def cookies(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CookiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CookiesProperty"]]:
             '''Inspect the request cookies.
 
             You must configure scope and pattern matching filters in the ``Cookies`` object, to define the set of cookies and the parts of the cookies that AWS WAF inspects.
@@ -15769,12 +14941,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-cookies
             '''
             result = self._values.get("cookies")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CookiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CookiesProperty"]], result)
 
         @builtins.property
         def headers(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.HeadersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeadersProperty"]]:
             '''Inspect the request headers.
 
             You must configure scope and pattern matching filters in the ``Headers`` object, to define the set of headers to and the parts of the headers that AWS WAF inspects.
@@ -15784,12 +14956,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-headers
             '''
             result = self._values.get("headers")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.HeadersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeadersProperty"]], result)
 
         @builtins.property
         def ja3_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JA3FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JA3FingerprintProperty"]]:
             '''Available for use with Amazon CloudFront distributions and Application Load Balancers.
 
             Match against the request's JA3 fingerprint. The JA3 fingerprint is a 32-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information.
@@ -15804,12 +14976,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-ja3fingerprint
             '''
             result = self._values.get("ja3_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JA3FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JA3FingerprintProperty"]], result)
 
         @builtins.property
         def ja4_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JA4FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JA4FingerprintProperty"]]:
             '''Available for use with Amazon CloudFront distributions and Application Load Balancers.
 
             Match against the request's JA4 fingerprint. The JA4 fingerprint is a 36-character hash derived from the TLS Client Hello of an incoming request. This fingerprint serves as a unique identifier for the client's TLS configuration. AWS WAF calculates and logs this fingerprint for each request that has enough TLS Client Hello information for the calculation. Almost all web requests include this information.
@@ -15824,12 +14996,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-ja4fingerprint
             '''
             result = self._values.get("ja4_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JA4FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JA4FingerprintProperty"]], result)
 
         @builtins.property
         def json_body(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JsonBodyProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JsonBodyProperty"]]:
             '''Inspect the request body as JSON.
 
             The request body immediately follows the request headers. This is the part of a request that contains any additional data that you want to send to your web server as the HTTP request body, such as data from a form.
@@ -15845,7 +15017,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-jsonbody
             '''
             result = self._values.get("json_body")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.JsonBodyProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.JsonBodyProperty"]], result)
 
         @builtins.property
         def method(self) -> typing.Any:
@@ -15900,7 +15072,7 @@ class CfnWebACL(
         @builtins.property
         def uri_fragment(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.UriFragmentProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.UriFragmentProperty"]]:
             '''Inspect fragments of the request URI.
 
             You must configure scope and pattern matching filters in the ``UriFragment`` object, to define the fragment of a URI that AWS WAF inspects.
@@ -15910,7 +15082,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-fieldtomatch.html#cfn-wafv2-webacl-fieldtomatch-urifragment
             '''
             result = self._values.get("uri_fragment")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.UriFragmentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.UriFragmentProperty"]], result)
 
         @builtins.property
         def uri_path(self) -> typing.Any:
@@ -16121,7 +15293,7 @@ class CfnWebACL(
             self,
             *,
             country_codes: typing.Optional[typing.Sequence[builtins.str]] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement that labels web requests by country and region and that matches against web requests based on country code.
 
@@ -16182,7 +15354,7 @@ class CfnWebACL(
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -16193,7 +15365,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-geomatchstatement.html#cfn-wafv2-webacl-geomatchstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16314,7 +15486,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.HeaderMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.HeaderMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             oversize_handling: builtins.str,
         ) -> None:
@@ -16367,7 +15539,7 @@ class CfnWebACL(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.HeaderMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeaderMatchPatternProperty"]:
             '''The filter to use to identify the subset of headers to inspect in a web request.
 
             You must specify exactly one setting: either ``All`` , ``IncludedHeaders`` , or ``ExcludedHeaders`` .
@@ -16378,7 +15550,7 @@ class CfnWebACL(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.HeaderMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.HeaderMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -16555,7 +15727,7 @@ class CfnWebACL(
             self,
             *,
             arn: builtins.str,
-            ip_set_forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.IPSetForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_set_forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.IPSetForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rule statement used to detect web requests coming from particular IP addresses or address ranges.
 
@@ -16609,7 +15781,7 @@ class CfnWebACL(
         @builtins.property
         def ip_set_forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.IPSetForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.IPSetForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -16620,7 +15792,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ipsetreferencestatement.html#cfn-wafv2-webacl-ipsetreferencestatement-ipsetforwardedipconfig
             '''
             result = self._values.get("ip_set_forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.IPSetForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.IPSetForwardedIPConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -16837,7 +16009,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            match_pattern: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.JsonMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
+            match_pattern: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.JsonMatchPatternProperty", typing.Dict[builtins.str, typing.Any]]],
             match_scope: builtins.str,
             invalid_fallback_behavior: typing.Optional[builtins.str] = None,
             oversize_handling: typing.Optional[builtins.str] = None,
@@ -16898,7 +16070,7 @@ class CfnWebACL(
         @builtins.property
         def match_pattern(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.JsonMatchPatternProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.JsonMatchPatternProperty"]:
             '''The patterns to look for in the JSON body.
 
             AWS WAF inspects the results of these pattern matches against the rule inspection criteria.
@@ -16907,7 +16079,7 @@ class CfnWebACL(
             '''
             result = self._values.get("match_pattern")
             assert result is not None, "Required property 'match_pattern' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.JsonMatchPatternProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.JsonMatchPatternProperty"], result)
 
         @builtins.property
         def match_scope(self) -> builtins.str:
@@ -17205,14 +16377,14 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            aws_managed_rules_acfp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesACFPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            aws_managed_rules_anti_d_do_s_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            aws_managed_rules_atp_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesATPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            aws_managed_rules_bot_control_rule_set: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AWSManagedRulesBotControlRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_managed_rules_acfp_rule_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AWSManagedRulesACFPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_managed_rules_anti_d_do_s_rule_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_managed_rules_atp_rule_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AWSManagedRulesATPRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aws_managed_rules_bot_control_rule_set: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AWSManagedRulesBotControlRuleSetProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             login_path: typing.Optional[builtins.str] = None,
-            password_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            password_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             payload_type: typing.Optional[builtins.str] = None,
-            username_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            username_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Additional information that's used by a managed rule group. Many managed rule groups don't require this.
 
@@ -17386,7 +16558,7 @@ class CfnWebACL(
         @builtins.property
         def aws_managed_rules_acfp_rule_set(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesACFPRuleSetProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesACFPRuleSetProperty"]]:
             '''Additional configuration for using the account creation fraud prevention (ACFP) managed rule group, ``AWSManagedRulesACFPRuleSet`` .
 
             Use this to provide account creation request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to account creation requests.
@@ -17396,12 +16568,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesacfpruleset
             '''
             result = self._values.get("aws_managed_rules_acfp_rule_set")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesACFPRuleSetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesACFPRuleSetProperty"]], result)
 
         @builtins.property
         def aws_managed_rules_anti_d_do_s_rule_set(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]]:
             '''Additional configuration for using the anti-DDoS managed rule group, ``AWSManagedRulesAntiDDoSRuleSet`` .
 
             Use this to configure anti-DDoS behavior for the rule group.
@@ -17411,12 +16583,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesantiddosruleset
             '''
             result = self._values.get("aws_managed_rules_anti_d_do_s_rule_set")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesAntiDDoSRuleSetProperty"]], result)
 
         @builtins.property
         def aws_managed_rules_atp_rule_set(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesATPRuleSetProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesATPRuleSetProperty"]]:
             '''Additional configuration for using the account takeover prevention (ATP) managed rule group, ``AWSManagedRulesATPRuleSet`` .
 
             Use this to provide login request information to the rule group. For web ACLs that protect CloudFront distributions, use this to also provide the information about how your distribution responds to login requests.
@@ -17428,12 +16600,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesatpruleset
             '''
             result = self._values.get("aws_managed_rules_atp_rule_set")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesATPRuleSetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesATPRuleSetProperty"]], result)
 
         @builtins.property
         def aws_managed_rules_bot_control_rule_set(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesBotControlRuleSetProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesBotControlRuleSetProperty"]]:
             '''Additional configuration for using the Bot Control managed rule group.
 
             Use this to specify the inspection level that you want to use. For information about using the Bot Control managed rule group, see `AWS WAF Bot Control rule group <https://docs.aws.amazon.com/waf/latest/developerguide/aws-managed-rule-groups-bot.html>`_ and `AWS WAF Bot Control <https://docs.aws.amazon.com/waf/latest/developerguide/waf-bot-control.html>`_ in the *AWS WAF Developer Guide* .
@@ -17441,7 +16613,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-awsmanagedrulesbotcontrolruleset
             '''
             result = self._values.get("aws_managed_rules_bot_control_rule_set")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AWSManagedRulesBotControlRuleSetProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AWSManagedRulesBotControlRuleSetProperty"]], result)
 
         @builtins.property
         def login_path(self) -> typing.Optional[builtins.str]:
@@ -17457,7 +16629,7 @@ class CfnWebACL(
         @builtins.property
         def password_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]:
             '''.. epigraph::
 
    Instead of this setting, provide your configuration under the request inspection configuration for ``AWSManagedRulesATPRuleSet`` or ``AWSManagedRulesACFPRuleSet`` .
@@ -17465,7 +16637,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-passwordfield
             '''
             result = self._values.get("password_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]], result)
 
         @builtins.property
         def payload_type(self) -> typing.Optional[builtins.str]:
@@ -17481,7 +16653,7 @@ class CfnWebACL(
         @builtins.property
         def username_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]:
             '''.. epigraph::
 
    Instead of this setting, provide your configuration under the request inspection configuration for ``AWSManagedRulesATPRuleSet`` or ``AWSManagedRulesACFPRuleSet`` .
@@ -17489,7 +16661,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupconfig.html#cfn-wafv2-webacl-managedrulegroupconfig-usernamefield
             '''
             result = self._values.get("username_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17521,10 +16693,10 @@ class CfnWebACL(
             *,
             name: builtins.str,
             vendor_name: builtins.str,
-            excluded_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ExcludedRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            managed_rule_group_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ManagedRuleGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            rule_action_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleActionOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            scope_down_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            excluded_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ExcludedRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            managed_rule_group_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ManagedRuleGroupConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rule_action_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleActionOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            scope_down_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             version: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A rule statement used to run the rules that are defined in a managed rule group.
@@ -17602,7 +16774,7 @@ class CfnWebACL(
         @builtins.property
         def excluded_rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ExcludedRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ExcludedRuleProperty"]]]]:
             '''Rules in the referenced rule group whose actions are set to ``Count`` .
 
             .. epigraph::
@@ -17612,12 +16784,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupstatement.html#cfn-wafv2-webacl-managedrulegroupstatement-excludedrules
             '''
             result = self._values.get("excluded_rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ExcludedRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ExcludedRuleProperty"]]]], result)
 
         @builtins.property
         def managed_rule_group_configs(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ManagedRuleGroupConfigProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ManagedRuleGroupConfigProperty"]]]]:
             '''Additional information that's used by a managed rule group. Many managed rule groups don't require this.
 
             The rule groups used for intelligent threat mitigation require additional configuration:
@@ -17630,12 +16802,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupstatement.html#cfn-wafv2-webacl-managedrulegroupstatement-managedrulegroupconfigs
             '''
             result = self._values.get("managed_rule_group_configs")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ManagedRuleGroupConfigProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ManagedRuleGroupConfigProperty"]]]], result)
 
         @builtins.property
         def rule_action_overrides(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionOverrideProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionOverrideProperty"]]]]:
             '''Action settings to use in the place of the rule actions that are configured inside the rule group.
 
             You specify one override for each rule whose action you want to change.
@@ -17648,12 +16820,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupstatement.html#cfn-wafv2-webacl-managedrulegroupstatement-ruleactionoverrides
             '''
             result = self._values.get("rule_action_overrides")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionOverrideProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionOverrideProperty"]]]], result)
 
         @builtins.property
         def scope_down_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]:
             '''An optional nested statement that narrows the scope of the web requests that are evaluated by the managed rule group.
 
             Requests are only evaluated by the rule group if they match the scope-down statement. You can use any nestable ``Statement`` in the scope-down statement, and you can nest statements at any level, the same as you can for a rule statement.
@@ -17661,7 +16833,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-managedrulegroupstatement.html#cfn-wafv2-webacl-managedrulegroupstatement-scopedownstatement
             '''
             result = self._values.get("scope_down_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]], result)
 
         @builtins.property
         def version(self) -> typing.Optional[builtins.str]:
@@ -17694,7 +16866,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            statement: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
+            statement: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''A logical rule statement used to negate the results of another rule statement.
 
@@ -17719,7 +16891,7 @@ class CfnWebACL(
         @builtins.property
         def statement(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]:
             '''The statement to negate.
 
             You can use any statement that can be nested.
@@ -17728,7 +16900,7 @@ class CfnWebACL(
             '''
             result = self._values.get("statement")
             assert result is not None, "Required property 'statement' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17804,7 +16976,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            statements: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A logical rule statement used to combine other rule statements with OR logic.
 
@@ -17829,7 +17001,7 @@ class CfnWebACL(
         @builtins.property
         def statements(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]]:
             '''The statements to combine with OR logic.
 
             You can use any statements that can be nested.
@@ -17838,7 +17010,7 @@ class CfnWebACL(
             '''
             result = self._values.get("statements")
             assert result is not None, "Required property 'statements' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -17960,17 +17132,17 @@ class CfnWebACL(
             self,
             *,
             asn: typing.Any = None,
-            cookie: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cookie: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitCookieProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             forwarded_ip: typing.Any = None,
-            header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             http_method: typing.Any = None,
             ip: typing.Any = None,
-            ja3_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitJA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ja4_fingerprint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitJA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_namespace: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitLabelNamespaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_argument: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitQueryArgumentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            query_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitQueryStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            uri_path: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateLimitUriPathProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja3_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitJA3FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ja4_fingerprint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitJA4FingerprintProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_namespace: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitLabelNamespaceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_argument: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitQueryArgumentProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitQueryStringProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            uri_path: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateLimitUriPathProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies a single custom aggregate key for a rate-base rule.
 
@@ -18108,7 +17280,7 @@ class CfnWebACL(
         @builtins.property
         def cookie(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitCookieProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitCookieProperty"]]:
             '''Use the value of a cookie in the request as an aggregate key.
 
             Each distinct value in the cookie contributes to the aggregation instance. If you use a single cookie as your custom key, then each value fully defines an aggregation instance.
@@ -18116,7 +17288,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-cookie
             '''
             result = self._values.get("cookie")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitCookieProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitCookieProperty"]], result)
 
         @builtins.property
         def forwarded_ip(self) -> typing.Any:
@@ -18136,7 +17308,7 @@ class CfnWebACL(
         @builtins.property
         def header(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitHeaderProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitHeaderProperty"]]:
             '''Use the value of a header in the request as an aggregate key.
 
             Each distinct value in the header contributes to the aggregation instance. If you use a single header as your custom key, then each value fully defines an aggregation instance.
@@ -18144,7 +17316,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-header
             '''
             result = self._values.get("header")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitHeaderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitHeaderProperty"]], result)
 
         @builtins.property
         def http_method(self) -> typing.Any:
@@ -18171,7 +17343,7 @@ class CfnWebACL(
         @builtins.property
         def ja3_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitJA3FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitJA3FingerprintProperty"]]:
             '''Use the request's JA3 fingerprint as an aggregate key.
 
             If you use a single JA3 fingerprint as your custom key, then each value fully defines an aggregation instance.
@@ -18179,12 +17351,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-ja3fingerprint
             '''
             result = self._values.get("ja3_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitJA3FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitJA3FingerprintProperty"]], result)
 
         @builtins.property
         def ja4_fingerprint(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitJA4FingerprintProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitJA4FingerprintProperty"]]:
             '''Use the request's JA4 fingerprint as an aggregate key.
 
             If you use a single JA4 fingerprint as your custom key, then each value fully defines an aggregation instance.
@@ -18192,12 +17364,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-ja4fingerprint
             '''
             result = self._values.get("ja4_fingerprint")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitJA4FingerprintProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitJA4FingerprintProperty"]], result)
 
         @builtins.property
         def label_namespace(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitLabelNamespaceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitLabelNamespaceProperty"]]:
             '''Use the specified label namespace as an aggregate key.
 
             Each distinct fully qualified label name that has the specified label namespace contributes to the aggregation instance. If you use just one label namespace as your custom key, then each label name fully defines an aggregation instance.
@@ -18209,12 +17381,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-labelnamespace
             '''
             result = self._values.get("label_namespace")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitLabelNamespaceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitLabelNamespaceProperty"]], result)
 
         @builtins.property
         def query_argument(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitQueryArgumentProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitQueryArgumentProperty"]]:
             '''Use the specified query argument as an aggregate key.
 
             Each distinct value for the named query argument contributes to the aggregation instance. If you use a single query argument as your custom key, then each value fully defines an aggregation instance.
@@ -18222,12 +17394,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-queryargument
             '''
             result = self._values.get("query_argument")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitQueryArgumentProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitQueryArgumentProperty"]], result)
 
         @builtins.property
         def query_string(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitQueryStringProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitQueryStringProperty"]]:
             '''Use the request's query string as an aggregate key.
 
             Each distinct string contributes to the aggregation instance. If you use just the query string as your custom key, then each string fully defines an aggregation instance.
@@ -18235,12 +17407,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-querystring
             '''
             result = self._values.get("query_string")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitQueryStringProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitQueryStringProperty"]], result)
 
         @builtins.property
         def uri_path(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitUriPathProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitUriPathProperty"]]:
             '''Use the request's URI path as an aggregate key.
 
             Each distinct URI path contributes to the aggregation instance. If you use just the URI path as your custom key, then each URI path fully defines an aggregation instance.
@@ -18248,7 +17420,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatementcustomkey.html#cfn-wafv2-webacl-ratebasedstatementcustomkey-uripath
             '''
             result = self._values.get("uri_path")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateLimitUriPathProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateLimitUriPathProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18279,10 +17451,10 @@ class CfnWebACL(
             *,
             aggregate_key_type: builtins.str,
             limit: jsii.Number,
-            custom_keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateBasedStatementCustomKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            custom_keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateBasedStatementCustomKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             evaluation_window_sec: typing.Optional[jsii.Number] = None,
-            forwarded_ip_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            scope_down_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            forwarded_ip_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ForwardedIPConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scope_down_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A rate-based rule counts incoming requests and rate limits requests when they are coming at too fast a rate.
 
@@ -18416,13 +17588,13 @@ class CfnWebACL(
         @builtins.property
         def custom_keys(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateBasedStatementCustomKeyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateBasedStatementCustomKeyProperty"]]]]:
             '''Specifies the aggregate keys to use in a rate-base rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatement.html#cfn-wafv2-webacl-ratebasedstatement-customkeys
             '''
             result = self._values.get("custom_keys")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateBasedStatementCustomKeyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateBasedStatementCustomKeyProperty"]]]], result)
 
         @builtins.property
         def evaluation_window_sec(self) -> typing.Optional[jsii.Number]:
@@ -18442,7 +17614,7 @@ class CfnWebACL(
         @builtins.property
         def forwarded_ip_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]]:
             '''The configuration for inspecting IP addresses in an HTTP header that you specify, instead of using the IP address that's reported by the web request origin.
 
             Commonly, this is the X-Forwarded-For (XFF) header, but you can specify any header name.
@@ -18455,12 +17627,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatement.html#cfn-wafv2-webacl-ratebasedstatement-forwardedipconfig
             '''
             result = self._values.get("forwarded_ip_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ForwardedIPConfigurationProperty"]], result)
 
         @builtins.property
         def scope_down_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]]:
             '''An optional nested statement that narrows the scope of the web requests that are evaluated and managed by the rate-based statement.
 
             When you use a scope-down statement, the rate-based rule only tracks and rate limits requests that match the scope-down statement. You can use any nestable ``Statement`` in the scope-down statement, and you can nest statements at any level, the same as you can for a rule statement.
@@ -18468,7 +17640,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ratebasedstatement.html#cfn-wafv2-webacl-ratebasedstatement-scopedownstatement
             '''
             result = self._values.get("scope_down_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18491,7 +17663,7 @@ class CfnWebACL(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a cookie as an aggregate key for a rate-based rule.
 
@@ -18539,7 +17711,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -18548,7 +17720,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18571,7 +17743,7 @@ class CfnWebACL(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a header as an aggregate key for a rate-based rule.
 
@@ -18619,7 +17791,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -18628,7 +17800,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18827,7 +17999,7 @@ class CfnWebACL(
             self,
             *,
             name: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies a query argument in the request as an aggregate key for a rate-based rule.
 
@@ -18875,7 +18047,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -18884,7 +18056,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18906,7 +18078,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies the request's query string as an aggregate key for a rate-based rule.
 
@@ -18940,7 +18112,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -18949,7 +18121,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -18971,7 +18143,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''Specifies the request's URI path as an aggregate key for a rate-based rule.
 
@@ -19005,7 +18177,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             Text transformations are used in rule match statements, to transform the ``FieldToMatch`` request component before inspecting it, and they're used in rate-based rule statements, to transform request components before using them as custom aggregation keys. If you specify one or more transformations to apply, AWS WAF performs all transformations on the specified content, starting from the lowest priority setting, and then uses the transformed component contents.
@@ -19014,7 +18186,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19040,9 +18212,9 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             regex_string: builtins.str,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
@@ -19138,14 +18310,14 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexmatchstatement.html#cfn-wafv2-webacl-regexmatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def regex_string(self) -> builtins.str:
@@ -19160,7 +18332,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -19169,7 +18341,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19196,8 +18368,8 @@ class CfnWebACL(
             self,
             *,
             arn: builtins.str,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement used to search web request components for matches with regular expressions.
 
@@ -19307,19 +18479,19 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-regexpatternsetreferencestatement.html#cfn-wafv2-webacl-regexpatternsetreferencestatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -19328,7 +18500,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19482,11 +18654,11 @@ class CfnWebACL(
             self,
             *,
             payload_type: builtins.str,
-            address_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            email_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            password_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            phone_number_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            username_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            address_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            email_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            password_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            phone_number_fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            username_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The criteria for inspecting account creation requests, used by the ACFP rule group to validate and track account creation attempts.
 
@@ -19566,7 +18738,7 @@ class CfnWebACL(
         @builtins.property
         def address_fields(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]]]:
             '''The names of the fields in the request payload that contain your customer's primary physical address.
 
             Order the address fields in the array exactly as they are ordered in the request payload.
@@ -19584,12 +18756,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-requestinspectionacfp.html#cfn-wafv2-webacl-requestinspectionacfp-addressfields
             '''
             result = self._values.get("address_fields")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]]], result)
 
         @builtins.property
         def email_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]:
             '''The name of the field in the request payload that contains your customer's email.
 
             How you specify this depends on the request inspection payload type.
@@ -19605,12 +18777,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-requestinspectionacfp.html#cfn-wafv2-webacl-requestinspectionacfp-emailfield
             '''
             result = self._values.get("email_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]], result)
 
         @builtins.property
         def password_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]:
             '''The name of the field in the request payload that contains your customer's password.
 
             How you specify this depends on the request inspection payload type.
@@ -19626,12 +18798,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-requestinspectionacfp.html#cfn-wafv2-webacl-requestinspectionacfp-passwordfield
             '''
             result = self._values.get("password_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]], result)
 
         @builtins.property
         def phone_number_fields(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]]]:
             '''The names of the fields in the request payload that contain your customer's primary phone number.
 
             Order the phone number fields in the array exactly as they are ordered in the request payload.
@@ -19649,12 +18821,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-requestinspectionacfp.html#cfn-wafv2-webacl-requestinspectionacfp-phonenumberfields
             '''
             result = self._values.get("phone_number_fields")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]]], result)
 
         @builtins.property
         def username_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]]:
             '''The name of the field in the request payload that contains your customer's username.
 
             How you specify this depends on the request inspection payload type.
@@ -19670,7 +18842,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-requestinspectionacfp.html#cfn-wafv2-webacl-requestinspectionacfp-usernamefield
             '''
             result = self._values.get("username_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19696,9 +18868,9 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            password_field: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]],
+            password_field: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]],
             payload_type: builtins.str,
-            username_field: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]],
+            username_field: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldIdentifierProperty", typing.Dict[builtins.str, typing.Any]]],
         ) -> None:
             '''The criteria for inspecting login requests, used by the ATP rule group to validate credentials usage.
 
@@ -19743,7 +18915,7 @@ class CfnWebACL(
         @builtins.property
         def password_field(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]:
             '''The name of the field in the request payload that contains your customer's password.
 
             How you specify this depends on the request inspection payload type.
@@ -19760,7 +18932,7 @@ class CfnWebACL(
             '''
             result = self._values.get("password_field")
             assert result is not None, "Required property 'password_field' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"], result)
 
         @builtins.property
         def payload_type(self) -> builtins.str:
@@ -19775,7 +18947,7 @@ class CfnWebACL(
         @builtins.property
         def username_field(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"]:
             '''The name of the field in the request payload that contains your customer's username.
 
             How you specify this depends on the request inspection payload type.
@@ -19792,7 +18964,7 @@ class CfnWebACL(
             '''
             result = self._values.get("username_field")
             assert result is not None, "Required property 'username_field' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldIdentifierProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldIdentifierProperty"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20117,10 +19289,10 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            body_contains: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionBodyContainsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            header: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            json: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionJsonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            status_code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ResponseInspectionStatusCodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            body_contains: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionBodyContainsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            header: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionHeaderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            json: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionJsonProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            status_code: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ResponseInspectionStatusCodeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The criteria for inspecting responses to login requests and account creation requests, used by the ATP and ACFP rule groups to track login and account creation success and failure rates.
 
@@ -20188,7 +19360,7 @@ class CfnWebACL(
         @builtins.property
         def body_contains(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionBodyContainsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionBodyContainsProperty"]]:
             '''Configures inspection of the response body for success and failure indicators.
 
             AWS WAF can inspect the first 65,536 bytes (64 KB) of the response body.
@@ -20196,23 +19368,23 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-responseinspection.html#cfn-wafv2-webacl-responseinspection-bodycontains
             '''
             result = self._values.get("body_contains")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionBodyContainsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionBodyContainsProperty"]], result)
 
         @builtins.property
         def header(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionHeaderProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionHeaderProperty"]]:
             '''Configures inspection of the response header for success and failure indicators.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-responseinspection.html#cfn-wafv2-webacl-responseinspection-header
             '''
             result = self._values.get("header")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionHeaderProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionHeaderProperty"]], result)
 
         @builtins.property
         def json(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionJsonProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionJsonProperty"]]:
             '''Configures inspection of the response JSON for success and failure indicators.
 
             AWS WAF can inspect the first 65,536 bytes (64 KB) of the response JSON.
@@ -20220,18 +19392,18 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-responseinspection.html#cfn-wafv2-webacl-responseinspection-json
             '''
             result = self._values.get("json")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionJsonProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionJsonProperty"]], result)
 
         @builtins.property
         def status_code(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionStatusCodeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionStatusCodeProperty"]]:
             '''Configures inspection of the response status code for success and failure indicators.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-responseinspection.html#cfn-wafv2-webacl-responseinspection-statuscode
             '''
             result = self._values.get("status_code")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ResponseInspectionStatusCodeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ResponseInspectionStatusCodeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20256,8 +19428,8 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            failure_codes: typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b],
-            success_codes: typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b],
+            failure_codes: typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"],
+            success_codes: typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"],
         ) -> None:
             '''Configures inspection of the response status code. This is part of the ``ResponseInspection`` configuration for ``AWSManagedRulesATPRuleSet`` and ``AWSManagedRulesACFPRuleSet`` .
 
@@ -20294,7 +19466,7 @@ class CfnWebACL(
         @builtins.property
         def failure_codes(
             self,
-        ) -> typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]:
+        ) -> typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]:
             '''Status codes in the response that indicate a failed login or account creation attempt.
 
             To be counted as a failure, the response status code must match one of these. Each code must be unique among the success and failure status codes.
@@ -20305,12 +19477,12 @@ class CfnWebACL(
             '''
             result = self._values.get("failure_codes")
             assert result is not None, "Required property 'failure_codes' is missing"
-            return typing.cast(typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def success_codes(
             self,
-        ) -> typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]:
+        ) -> typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]:
             '''Status codes in the response that indicate a successful login or account creation attempt.
 
             To be counted as a success, the response status code must match one of these. Each code must be unique among the success and failure status codes.
@@ -20321,7 +19493,7 @@ class CfnWebACL(
             '''
             result = self._values.get("success_codes")
             assert result is not None, "Required property 'success_codes' is missing"
-            return typing.cast(typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20343,7 +19515,7 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            action_to_use: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]],
+            action_to_use: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]],
             name: builtins.str,
         ) -> None:
             '''Action setting to use in the place of a rule action that is configured inside the rule group.
@@ -20426,14 +19598,14 @@ class CfnWebACL(
         @builtins.property
         def action_to_use(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionProperty"]:
             '''The override action to use, in place of the configured action of the rule in the rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleactionoverride.html#cfn-wafv2-webacl-ruleactionoverride-actiontouse
             '''
             result = self._values.get("action_to_use")
             assert result is not None, "Required property 'action_to_use' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionProperty"], result)
 
         @builtins.property
         def name(self) -> builtins.str:
@@ -20471,11 +19643,11 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            allow: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AllowActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            block: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.BlockActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            captcha: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CaptchaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            challenge: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ChallengeActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            count: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CountActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            allow: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AllowActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            block: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.BlockActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            captcha: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CaptchaActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            challenge: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ChallengeActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            count: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CountActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The action that AWS WAF should take on a web request when it matches a rule's statement.
 
@@ -20565,29 +19737,29 @@ class CfnWebACL(
         @builtins.property
         def allow(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AllowActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AllowActionProperty"]]:
             '''Instructs AWS WAF to allow the web request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-allow
             '''
             result = self._values.get("allow")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AllowActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AllowActionProperty"]], result)
 
         @builtins.property
         def block(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BlockActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BlockActionProperty"]]:
             '''Instructs AWS WAF to block the web request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-block
             '''
             result = self._values.get("block")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.BlockActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.BlockActionProperty"]], result)
 
         @builtins.property
         def captcha(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaActionProperty"]]:
             '''Specifies that AWS WAF should run a ``CAPTCHA`` check against the request:.
 
             - If the request includes a valid, unexpired ``CAPTCHA`` token, AWS WAF allows the web request inspection to proceed to the next rule, similar to a ``CountAction`` .
@@ -20606,29 +19778,29 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-captcha
             '''
             result = self._values.get("captcha")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaActionProperty"]], result)
 
         @builtins.property
         def challenge(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeActionProperty"]]:
             '''Instructs AWS WAF to run a ``Challenge`` check against the web request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-challenge
             '''
             result = self._values.get("challenge")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeActionProperty"]], result)
 
         @builtins.property
         def count(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CountActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CountActionProperty"]]:
             '''Instructs AWS WAF to count the web request and then continue evaluating the request using the remaining rules in the web ACL.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html#cfn-wafv2-webacl-ruleaction-count
             '''
             result = self._values.get("count")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CountActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CountActionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20655,8 +19827,8 @@ class CfnWebACL(
             self,
             *,
             arn: builtins.str,
-            excluded_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ExcludedRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            rule_action_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleActionOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            excluded_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ExcludedRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            rule_action_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleActionOverrideProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A rule statement used to run the rules that are defined in a ``RuleGroup`` .
 
@@ -20761,7 +19933,7 @@ class CfnWebACL(
         @builtins.property
         def excluded_rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ExcludedRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ExcludedRuleProperty"]]]]:
             '''Rules in the referenced rule group whose actions are set to ``Count`` .
 
             .. epigraph::
@@ -20771,12 +19943,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rulegroupreferencestatement.html#cfn-wafv2-webacl-rulegroupreferencestatement-excludedrules
             '''
             result = self._values.get("excluded_rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ExcludedRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ExcludedRuleProperty"]]]], result)
 
         @builtins.property
         def rule_action_overrides(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionOverrideProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionOverrideProperty"]]]]:
             '''Action settings to use in the place of the rule actions that are configured inside the rule group.
 
             You specify one override for each rule whose action you want to change.
@@ -20789,7 +19961,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rulegroupreferencestatement.html#cfn-wafv2-webacl-rulegroupreferencestatement-ruleactionoverrides
             '''
             result = self._values.get("rule_action_overrides")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionOverrideProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionOverrideProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20823,13 +19995,13 @@ class CfnWebACL(
             *,
             name: builtins.str,
             priority: jsii.Number,
-            statement: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
-            visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            override_action: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.OverrideActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            statement: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.StatementProperty", typing.Dict[builtins.str, typing.Any]]],
+            visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            captcha_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            challenge_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            override_action: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OverrideActionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_labels: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.LabelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A single rule, which you can use in a ``WebACL`` or ``RuleGroup`` to identify web requests that you want to manage in some way.
 
@@ -20907,19 +20079,19 @@ class CfnWebACL(
         @builtins.property
         def statement(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"]:
             '''The AWS WAF processing statement for the rule, for example ``ByteMatchStatement`` or ``SizeConstraintStatement`` .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-statement
             '''
             result = self._values.get("statement")
             assert result is not None, "Required property 'statement' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.StatementProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.StatementProperty"], result)
 
         @builtins.property
         def visibility_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"]:
             '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
 
             If you change the name of a ``Rule`` after you create it and you want the rule's metric name to reflect the change, update the metric name as well. AWS WAF doesn't automatically update the metric name.
@@ -20928,12 +20100,12 @@ class CfnWebACL(
             '''
             result = self._values.get("visibility_config")
             assert result is not None, "Required property 'visibility_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.VisibilityConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"], result)
 
         @builtins.property
         def action(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionProperty"]]:
             '''The action that AWS WAF should take on a web request when it matches the rule's statement.
 
             Settings at the web ACL level can override the rule action setting.
@@ -20948,12 +20120,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-action
             '''
             result = self._values.get("action")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleActionProperty"]], result)
 
         @builtins.property
         def captcha_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]]:
             '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations.
 
             If you don't specify this, AWS WAF uses the ``CAPTCHA`` configuration that's defined for the web ACL.
@@ -20961,12 +20133,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-captchaconfig
             '''
             result = self._values.get("captcha_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.CaptchaConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]], result)
 
         @builtins.property
         def challenge_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]]:
             '''Specifies how AWS WAF should handle ``Challenge`` evaluations.
 
             If you don't specify this, AWS WAF uses the challenge configuration that's defined for the web ACL.
@@ -20974,12 +20146,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-challengeconfig
             '''
             result = self._values.get("challenge_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ChallengeConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]], result)
 
         @builtins.property
         def override_action(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OverrideActionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OverrideActionProperty"]]:
             '''The override action to apply to the rules in a rule group, instead of the individual rule action settings.
 
             This is used only for rules whose statements reference a rule group. Rule statements that reference a rule group are ``RuleGroupReferenceStatement`` and ``ManagedRuleGroupStatement`` .
@@ -20994,12 +20166,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-overrideaction
             '''
             result = self._values.get("override_action")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OverrideActionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OverrideActionProperty"]], result)
 
         @builtins.property
         def rule_labels(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.LabelProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.LabelProperty"]]]]:
             '''Labels to apply to web requests that match the rule match statement.
 
             AWS WAF applies fully qualified labels to matching web requests. A fully qualified label is the concatenation of a label namespace and a rule label. The rule's rule group or web ACL defines the label namespace.
@@ -21021,7 +20193,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-rule.html#cfn-wafv2-webacl-rule-rulelabels
             '''
             result = self._values.get("rule_labels")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.LabelProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.LabelProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21167,9 +20339,9 @@ class CfnWebACL(
             self,
             *,
             comparison_operator: builtins.str,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
             size: jsii.Number,
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
@@ -21285,14 +20457,14 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sizeconstraintstatement.html#cfn-wafv2-webacl-sizeconstraintstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def size(self) -> jsii.Number:
@@ -21307,7 +20479,7 @@ class CfnWebACL(
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -21316,7 +20488,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -21342,8 +20514,8 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
             sensitivity_level: typing.Optional[builtins.str] = None,
         ) -> None:
             '''A rule statement that inspects for malicious SQL code.
@@ -21445,19 +20617,19 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-sqlimatchstatement.html#cfn-wafv2-webacl-sqlimatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -21466,7 +20638,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         @builtins.property
         def sensitivity_level(self) -> typing.Optional[builtins.str]:
@@ -21520,22 +20692,22 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            and_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            asn_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            byte_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            geo_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ip_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            label_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.LabelMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            managed_rule_group_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.ManagedRuleGroupStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            not_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.NotStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            or_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.OrStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rate_based_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RateBasedStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            regex_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RegexMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            regex_pattern_set_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RegexPatternSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            rule_group_reference_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.RuleGroupReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            size_constraint_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.SizeConstraintStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            sqli_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.SqliMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            xss_match_statement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.XssMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            and_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AndStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            asn_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AsnMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            byte_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ByteMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            geo_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.GeoMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ip_set_reference_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.IPSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            label_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.LabelMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            managed_rule_group_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ManagedRuleGroupStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            not_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.NotStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            or_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OrStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rate_based_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RateBasedStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regex_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RegexMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            regex_pattern_set_reference_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RegexPatternSetReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            rule_group_reference_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleGroupReferenceStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            size_constraint_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.SizeConstraintStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sqli_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.SqliMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            xss_match_statement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.XssMatchStatementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The processing guidance for a rule, used by AWS WAF to determine whether a web request matches the rule.
 
@@ -21618,7 +20790,7 @@ class CfnWebACL(
         @builtins.property
         def and_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AndStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AndStatementProperty"]]:
             '''A logical rule statement used to combine other rule statements with AND logic.
 
             You provide more than one ``Statement`` within the ``AndStatement`` .
@@ -21626,12 +20798,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-andstatement
             '''
             result = self._values.get("and_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AndStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AndStatementProperty"]], result)
 
         @builtins.property
         def asn_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AsnMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AsnMatchStatementProperty"]]:
             '''A rule statement that inspects web traffic based on the Autonomous System Number (ASN) associated with the request's IP address.
 
             For additional details, see `ASN match rule statement <https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-asn-match.html>`_ in the `AWS WAF Developer Guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
@@ -21639,12 +20811,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-asnmatchstatement
             '''
             result = self._values.get("asn_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.AsnMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AsnMatchStatementProperty"]], result)
 
         @builtins.property
         def byte_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ByteMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ByteMatchStatementProperty"]]:
             '''A rule statement that defines a string match search for AWS WAF to apply to web requests.
 
             The byte match statement provides the bytes to search for, the location in requests that you want AWS WAF to search, and other settings. The bytes to search for are typically a string that corresponds with ASCII characters. In the AWS WAF console and the developer guide, this is called a string match statement.
@@ -21652,12 +20824,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-bytematchstatement
             '''
             result = self._values.get("byte_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ByteMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ByteMatchStatementProperty"]], result)
 
         @builtins.property
         def geo_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.GeoMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.GeoMatchStatementProperty"]]:
             '''A rule statement that labels web requests by country and region and that matches against web requests based on country code.
 
             A geo match rule labels every request that it inspects regardless of whether it finds a match.
@@ -21676,12 +20848,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-geomatchstatement
             '''
             result = self._values.get("geo_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.GeoMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.GeoMatchStatementProperty"]], result)
 
         @builtins.property
         def ip_set_reference_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.IPSetReferenceStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.IPSetReferenceStatementProperty"]]:
             '''A rule statement used to detect web requests coming from particular IP addresses or address ranges.
 
             To use this, create an ``IPSet`` that specifies the addresses you want to detect, then use the ARN of that set in this statement.
@@ -21691,12 +20863,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-ipsetreferencestatement
             '''
             result = self._values.get("ip_set_reference_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.IPSetReferenceStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.IPSetReferenceStatementProperty"]], result)
 
         @builtins.property
         def label_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.LabelMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.LabelMatchStatementProperty"]]:
             '''A rule statement to match against labels that have been added to the web request by rules that have already run in the web ACL.
 
             The label match statement provides the label or namespace string to search for. The label string can represent a part or all of the fully qualified label name that had been added to the web request. Fully qualified labels have a prefix, optional namespaces, and label name. The prefix identifies the rule group or web ACL context of the rule that added the label. If you do not provide the fully qualified name in your label match string, AWS WAF performs the search for labels that were added in the same context as the label match statement.
@@ -21704,12 +20876,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-labelmatchstatement
             '''
             result = self._values.get("label_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.LabelMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.LabelMatchStatementProperty"]], result)
 
         @builtins.property
         def managed_rule_group_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ManagedRuleGroupStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ManagedRuleGroupStatementProperty"]]:
             '''A rule statement used to run the rules that are defined in a managed rule group.
 
             To use this, provide the vendor name and the name of the rule group in this statement. You can retrieve the required names through the API call ``ListAvailableManagedRuleGroups`` .
@@ -21722,12 +20894,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-managedrulegroupstatement
             '''
             result = self._values.get("managed_rule_group_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.ManagedRuleGroupStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ManagedRuleGroupStatementProperty"]], result)
 
         @builtins.property
         def not_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.NotStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.NotStatementProperty"]]:
             '''A logical rule statement used to negate the results of another rule statement.
 
             You provide one ``Statement`` within the ``NotStatement`` .
@@ -21735,12 +20907,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-notstatement
             '''
             result = self._values.get("not_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.NotStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.NotStatementProperty"]], result)
 
         @builtins.property
         def or_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OrStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OrStatementProperty"]]:
             '''A logical rule statement used to combine other rule statements with OR logic.
 
             You provide more than one ``Statement`` within the ``OrStatement`` .
@@ -21748,12 +20920,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-orstatement
             '''
             result = self._values.get("or_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.OrStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OrStatementProperty"]], result)
 
         @builtins.property
         def rate_based_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateBasedStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateBasedStatementProperty"]]:
             '''A rate-based rule counts incoming requests and rate limits requests when they are coming at too fast a rate.
 
             The rule categorizes requests according to your aggregation criteria, collects them into aggregation instances, and counts and rate limits the requests for each instance.
@@ -21800,23 +20972,23 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-ratebasedstatement
             '''
             result = self._values.get("rate_based_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RateBasedStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RateBasedStatementProperty"]], result)
 
         @builtins.property
         def regex_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexMatchStatementProperty"]]:
             '''A rule statement used to search web request components for a match against a single regular expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-regexmatchstatement
             '''
             result = self._values.get("regex_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexMatchStatementProperty"]], result)
 
         @builtins.property
         def regex_pattern_set_reference_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexPatternSetReferenceStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexPatternSetReferenceStatementProperty"]]:
             '''A rule statement used to search web request components for matches with regular expressions.
 
             To use this, create a ``RegexPatternSet`` that specifies the expressions that you want to detect, then use the ARN of that set in this statement. A web request matches the pattern set rule statement if the request component matches any of the patterns in the set.
@@ -21826,12 +20998,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-regexpatternsetreferencestatement
             '''
             result = self._values.get("regex_pattern_set_reference_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RegexPatternSetReferenceStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RegexPatternSetReferenceStatementProperty"]], result)
 
         @builtins.property
         def rule_group_reference_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleGroupReferenceStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleGroupReferenceStatementProperty"]]:
             '''A rule statement used to run the rules that are defined in a ``RuleGroup`` .
 
             To use this, create a rule group with your rules, then provide the ARN of the rule group in this statement.
@@ -21841,12 +21013,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-rulegroupreferencestatement
             '''
             result = self._values.get("rule_group_reference_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.RuleGroupReferenceStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleGroupReferenceStatementProperty"]], result)
 
         @builtins.property
         def size_constraint_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.SizeConstraintStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.SizeConstraintStatementProperty"]]:
             '''A rule statement that compares a number of bytes against the size of a request component, using a comparison operator, such as greater than (>) or less than (<).
 
             For example, you can use a size constraint statement to look for query strings that are longer than 100 bytes.
@@ -21858,12 +21030,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-sizeconstraintstatement
             '''
             result = self._values.get("size_constraint_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.SizeConstraintStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.SizeConstraintStatementProperty"]], result)
 
         @builtins.property
         def sqli_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.SqliMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.SqliMatchStatementProperty"]]:
             '''A rule statement that inspects for malicious SQL code.
 
             Attackers insert malicious SQL code into web requests to do things like modify your database or extract data from it.
@@ -21871,12 +21043,12 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-sqlimatchstatement
             '''
             result = self._values.get("sqli_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.SqliMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.SqliMatchStatementProperty"]], result)
 
         @builtins.property
         def xss_match_statement(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.XssMatchStatementProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.XssMatchStatementProperty"]]:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
             In XSS attacks, the attacker uses vulnerabilities in a benign website as a vehicle to inject malicious client-site scripts into other legitimate web browsers.
@@ -21884,7 +21056,7 @@ class CfnWebACL(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-statement.html#cfn-wafv2-webacl-statement-xssmatchstatement
             '''
             result = self._values.get("xss_match_statement")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnWebACL.XssMatchStatementProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.XssMatchStatementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22050,9 +21222,9 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            cloud_watch_metrics_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            cloud_watch_metrics_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
             metric_name: builtins.str,
-            sampled_requests_enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+            sampled_requests_enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         ) -> None:
             '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
 
@@ -22089,7 +21261,7 @@ class CfnWebACL(
         @builtins.property
         def cloud_watch_metrics_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether the associated resource sends metrics to Amazon CloudWatch.
 
             For the list of available metrics, see `AWS WAF Metrics <https://docs.aws.amazon.com/waf/latest/developerguide/monitoring-cloudwatch.html#waf-metrics>`_ in the *AWS WAF Developer Guide* .
@@ -22101,7 +21273,7 @@ class CfnWebACL(
             '''
             result = self._values.get("cloud_watch_metrics_enabled")
             assert result is not None, "Required property 'cloud_watch_metrics_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def metric_name(self) -> builtins.str:
@@ -22118,7 +21290,7 @@ class CfnWebACL(
         @builtins.property
         def sampled_requests_enabled(
             self,
-        ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''Indicates whether AWS WAF should store a sampling of the web requests that match the rules.
 
             You can view the sampled requests through the AWS WAF console.
@@ -22132,7 +21304,7 @@ class CfnWebACL(
             '''
             result = self._values.get("sampled_requests_enabled")
             assert result is not None, "Required property 'sampled_requests_enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22157,8 +21329,8 @@ class CfnWebACL(
         def __init__(
             self,
             *,
-            field_to_match: typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
-            text_transformations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            field_to_match: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.FieldToMatchProperty", typing.Dict[builtins.str, typing.Any]]],
+            text_transformations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.TextTransformationProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A rule statement that inspects for cross-site scripting (XSS) attacks.
 
@@ -22252,19 +21424,19 @@ class CfnWebACL(
         @builtins.property
         def field_to_match(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"]:
             '''The part of the web request that you want AWS WAF to inspect.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-xssmatchstatement.html#cfn-wafv2-webacl-xssmatchstatement-fieldtomatch
             '''
             result = self._values.get("field_to_match")
             assert result is not None, "Required property 'field_to_match' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnWebACL.FieldToMatchProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.FieldToMatchProperty"], result)
 
         @builtins.property
         def text_transformations(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]]:
             '''Text transformations eliminate some of the unusual formatting that attackers use in web requests in an effort to bypass detection.
 
             If you specify one or more transformations in a rule statement, AWS WAF performs all transformations on the content of the request component identified by ``FieldToMatch`` , starting from the lowest priority setting, before inspecting the content for a match.
@@ -22273,7 +21445,7 @@ class CfnWebACL(
             '''
             result = self._values.get("text_transformations")
             assert result is not None, "Required property 'text_transformations' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnWebACL.TextTransformationProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.TextTransformationProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -22287,7 +21459,7 @@ class CfnWebACL(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IWebACLAssociationRef)
+@jsii.implements(_IInspectable_c2943556, _IWebACLAssociationRef_16e76921)
 class CfnWebACLAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -22299,7 +21471,7 @@ class CfnWebACLAssociation(
 
     For information, including how to migrate your AWS WAF resources from the prior release, see the `AWS WAF developer guide <https://docs.aws.amazon.com/waf/latest/developerguide/waf-chapter.html>`_ .
 
-    Use a web ACL association to define an association between a web ACL and a regional application resource, to protect the resource. A regional application can be an Application Load Balancer (ALB), an Amazon API Gateway REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, an AWS Amplify application, or an AWS Verified Access instance.
+    Use a web ACL association to define an association between a web ACL and a regional application resource, to protect the resource. A regional application can be an Application Load Balancer (ALB), an  REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, an AWS Amplify application, or an AWS Verified Access instance.
 
     For Amazon CloudFront , don't use this resource. Instead, use your CloudFront distribution configuration. To associate a web ACL with a distribution, provide the Amazon Resource Name (ARN) of the ``WebACL`` to your CloudFront distribution configuration. To disassociate a web ACL, provide an empty ARN. For information, see `AWS::CloudFront::Distribution <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-distribution.html>`_ .
 
@@ -22337,13 +21509,14 @@ class CfnWebACLAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        resource_arn: builtins.str,
+        resource_arn: typing.Union[builtins.str, "_IGraphQLApiRef_d46d77ba", "_ILoadBalancerRef_13acd8f1", "_IWebACLRef_3dd0843c"],
         web_acl_arn: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::WAFv2::WebACLAssociation``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the web ACL. The ARN must be in one of the following formats: - For an Application Load Balancer: ``arn: *partition* :elasticloadbalancing: *region* : *account-id* :loadbalancer/app/ *load-balancer-name* / *load-balancer-id*`` - For an Amazon API Gateway REST API: ``arn: *partition* :apigateway: *region* ::/restapis/ *api-id* /stages/ *stage-name*`` - For an AWS AppSync GraphQL API: ``arn: *partition* :appsync: *region* : *account-id* :apis/ *GraphQLApiId*`` - For an Amazon Cognito user pool: ``arn: *partition* :cognito-idp: *region* : *account-id* :userpool/ *user-pool-id*`` - For an AWS App Runner service: ``arn: *partition* :apprunner: *region* : *account-id* :service/ *apprunner-service-name* / *apprunner-service-id*`` - For an AWS Verified Access instance: ``arn: *partition* :ec2: *region* : *account-id* :verified-access-instance/ *instance-id*`` - For an AWS Amplify instance: ``arn: *partition* :amplify: *region* : *account-id* :apps/ *app-id*``
@@ -22359,8 +21532,20 @@ class CfnWebACLAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnWebACLAssociation")
+    @builtins.classmethod
+    def is_cfn_web_acl_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnWebACLAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd4ad3eb51a1458fb27406364174500a3d536a620e31d2d4c8f323a8eed44f3e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnWebACLAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -22396,9 +21581,9 @@ class CfnWebACLAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="webAclAssociationRef")
-    def web_acl_association_ref(self) -> WebACLAssociationReference:
+    def web_acl_association_ref(self) -> "_WebACLAssociationReference_f2f05891":
         '''A reference to a WebACLAssociation resource.'''
-        return typing.cast(WebACLAssociationReference, jsii.get(self, "webAclAssociationRef"))
+        return typing.cast("_WebACLAssociationReference_f2f05891", jsii.get(self, "webAclAssociationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceArn")
@@ -22427,6 +21612,413 @@ class CfnWebACLAssociation(
         jsii.set(self, "webAclArn", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACLAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn", "web_acl_arn": "webAclArn"},
+)
+class CfnWebACLAssociationProps:
+    def __init__(
+        self,
+        *,
+        resource_arn: typing.Union[builtins.str, "_IGraphQLApiRef_d46d77ba", "_ILoadBalancerRef_13acd8f1", "_IWebACLRef_3dd0843c"],
+        web_acl_arn: builtins.str,
+    ) -> None:
+        '''Properties for defining a ``CfnWebACLAssociation``.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to associate with the web ACL. The ARN must be in one of the following formats: - For an Application Load Balancer: ``arn: *partition* :elasticloadbalancing: *region* : *account-id* :loadbalancer/app/ *load-balancer-name* / *load-balancer-id*`` - For an Amazon API Gateway REST API: ``arn: *partition* :apigateway: *region* ::/restapis/ *api-id* /stages/ *stage-name*`` - For an AWS AppSync GraphQL API: ``arn: *partition* :appsync: *region* : *account-id* :apis/ *GraphQLApiId*`` - For an Amazon Cognito user pool: ``arn: *partition* :cognito-idp: *region* : *account-id* :userpool/ *user-pool-id*`` - For an AWS App Runner service: ``arn: *partition* :apprunner: *region* : *account-id* :service/ *apprunner-service-name* / *apprunner-service-id*`` - For an AWS Verified Access instance: ``arn: *partition* :ec2: *region* : *account-id* :verified-access-instance/ *instance-id*`` - For an AWS Amplify instance: ``arn: *partition* :amplify: *region* : *account-id* :apps/ *app-id*``
+        :param web_acl_arn: The Amazon Resource Name (ARN) of the web ACL that you want to associate with the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html
+        :exampleMetadata: infused
+
+        Example::
+
+            # api: appsync.EventApi
+            # web_acl: wafv2.CfnWebACL
+            
+            
+            # Associate waf with Event API
+            wafv2.CfnWebACLAssociation(self, "WafAssociation",
+                resource_arn=api.api_arn,
+                web_acl_arn=web_acl.attr_arn
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93cbb499bbbd2600e53f0e1d138ab15569244c877052ef575c5114953859a4db)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument web_acl_arn", value=web_acl_arn, expected_type=type_hints["web_acl_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+            "web_acl_arn": web_acl_arn,
+        }
+
+    @builtins.property
+    def resource_arn(
+        self,
+    ) -> typing.Union[builtins.str, "_IGraphQLApiRef_d46d77ba", "_ILoadBalancerRef_13acd8f1", "_IWebACLRef_3dd0843c"]:
+        '''The Amazon Resource Name (ARN) of the resource to associate with the web ACL.
+
+        The ARN must be in one of the following formats:
+
+        - For an Application Load Balancer: ``arn: *partition* :elasticloadbalancing: *region* : *account-id* :loadbalancer/app/ *load-balancer-name* / *load-balancer-id*``
+        - For an Amazon API Gateway REST API: ``arn: *partition* :apigateway: *region* ::/restapis/ *api-id* /stages/ *stage-name*``
+        - For an AWS AppSync GraphQL API: ``arn: *partition* :appsync: *region* : *account-id* :apis/ *GraphQLApiId*``
+        - For an Amazon Cognito user pool: ``arn: *partition* :cognito-idp: *region* : *account-id* :userpool/ *user-pool-id*``
+        - For an AWS App Runner service: ``arn: *partition* :apprunner: *region* : *account-id* :service/ *apprunner-service-name* / *apprunner-service-id*``
+        - For an AWS Verified Access instance: ``arn: *partition* :ec2: *region* : *account-id* :verified-access-instance/ *instance-id*``
+        - For an AWS Amplify instance: ``arn: *partition* :amplify: *region* : *account-id* :apps/ *app-id*``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html#cfn-wafv2-webaclassociation-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IGraphQLApiRef_d46d77ba", "_ILoadBalancerRef_13acd8f1", "_IWebACLRef_3dd0843c"], result)
+
+    @builtins.property
+    def web_acl_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the web ACL that you want to associate with the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webaclassociation.html#cfn-wafv2-webaclassociation-webaclarn
+        '''
+        result = self._values.get("web_acl_arn")
+        assert result is not None, "Required property 'web_acl_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebACLAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_wafv2.CfnWebACLProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_action": "defaultAction",
+        "scope": "scope",
+        "visibility_config": "visibilityConfig",
+        "application_config": "applicationConfig",
+        "association_config": "associationConfig",
+        "captcha_config": "captchaConfig",
+        "challenge_config": "challengeConfig",
+        "custom_response_bodies": "customResponseBodies",
+        "data_protection_config": "dataProtectionConfig",
+        "description": "description",
+        "name": "name",
+        "on_source_d_do_s_protection_config": "onSourceDDoSProtectionConfig",
+        "rules": "rules",
+        "tags": "tags",
+        "token_domains": "tokenDomains",
+    },
+)
+class CfnWebACLProps:
+    def __init__(
+        self,
+        *,
+        default_action: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DefaultActionProperty", typing.Dict[builtins.str, typing.Any]]],
+        scope: builtins.str,
+        visibility_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.VisibilityConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        application_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ApplicationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        association_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.AssociationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        captcha_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CaptchaConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        challenge_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.ChallengeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        custom_response_bodies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.CustomResponseBodyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        data_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.DataProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        on_source_d_do_s_protection_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.OnSourceDDoSProtectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWebACL.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnWebACL``.
+
+        :param default_action: The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
+        :param scope: Specifies whether this is for an Amazon CloudFront distribution or for a regional application. For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` . .. epigraph:: For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` . For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
+        :param visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection.
+        :param application_config: Returns a list of ``ApplicationAttribute`` s.
+        :param association_config: Specifies custom configurations for the associations between the web ACL and protected resources. Use this to customize the maximum size of the request body that your protected resources forward to AWS WAF for inspection. You can customize this setting for CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources. The default setting is 16 KB (16,384 bytes). .. epigraph:: You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ . For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
+        :param captcha_config: Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``CaptchaConfig`` .
+        :param challenge_config: Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings. If you don't specify this, AWS WAF uses its default settings for ``ChallengeConfig`` .
+        :param custom_response_bodies: A map of custom response keys and content bodies. When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL. For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* . For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
+        :param data_protection_config: Specifies data protection to apply to the web request data for the web ACL. This is a web ACL level data protection option. The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
+        :param description: A description of the web ACL that helps with identification.
+        :param name: The name of the web ACL. You cannot change the name of a web ACL after you create it.
+        :param on_source_d_do_s_protection_config: Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
+        :param rules: The rule statements used to identify the web requests that you want to manage. Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
+        :param tags: Key:value pairs associated with an AWS resource. The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource. .. epigraph:: To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+        :param token_domains: Specifies the domains that AWS WAF should accept in a web request token. This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838f10b75f)
+            check_type(argname="argument default_action", value=default_action, expected_type=type_hints["default_action"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument visibility_config", value=visibility_config, expected_type=type_hints["visibility_config"])
+            check_type(argname="argument application_config", value=application_config, expected_type=type_hints["application_config"])
+            check_type(argname="argument association_config", value=association_config, expected_type=type_hints["association_config"])
+            check_type(argname="argument captcha_config", value=captcha_config, expected_type=type_hints["captcha_config"])
+            check_type(argname="argument challenge_config", value=challenge_config, expected_type=type_hints["challenge_config"])
+            check_type(argname="argument custom_response_bodies", value=custom_response_bodies, expected_type=type_hints["custom_response_bodies"])
+            check_type(argname="argument data_protection_config", value=data_protection_config, expected_type=type_hints["data_protection_config"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument on_source_d_do_s_protection_config", value=on_source_d_do_s_protection_config, expected_type=type_hints["on_source_d_do_s_protection_config"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument token_domains", value=token_domains, expected_type=type_hints["token_domains"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_action": default_action,
+            "scope": scope,
+            "visibility_config": visibility_config,
+        }
+        if application_config is not None:
+            self._values["application_config"] = application_config
+        if association_config is not None:
+            self._values["association_config"] = association_config
+        if captcha_config is not None:
+            self._values["captcha_config"] = captcha_config
+        if challenge_config is not None:
+            self._values["challenge_config"] = challenge_config
+        if custom_response_bodies is not None:
+            self._values["custom_response_bodies"] = custom_response_bodies
+        if data_protection_config is not None:
+            self._values["data_protection_config"] = data_protection_config
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if on_source_d_do_s_protection_config is not None:
+            self._values["on_source_d_do_s_protection_config"] = on_source_d_do_s_protection_config
+        if rules is not None:
+            self._values["rules"] = rules
+        if tags is not None:
+            self._values["tags"] = tags
+        if token_domains is not None:
+            self._values["token_domains"] = token_domains
+
+    @builtins.property
+    def default_action(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.DefaultActionProperty"]:
+        '''The action to perform if none of the ``Rules`` contained in the ``WebACL`` match.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-defaultaction
+        '''
+        result = self._values.get("default_action")
+        assert result is not None, "Required property 'default_action' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.DefaultActionProperty"], result)
+
+    @builtins.property
+    def scope(self) -> builtins.str:
+        '''Specifies whether this is for an Amazon CloudFront distribution or for a regional application.
+
+        For an AWS Amplify application, use ``CLOUDFRONT`` . A regional application can be an Application Load Balancer (ALB), an  REST API, an AWS AppSync GraphQL API, an Amazon Cognito user pool, an AWS App Runner service, or an AWS Verified Access instance. Valid Values are ``CLOUDFRONT`` and ``REGIONAL`` .
+        .. epigraph::
+
+           For ``CLOUDFRONT`` , you must create your WAFv2 resources in the US East (N. Virginia) Region, ``us-east-1`` .
+
+        For information about how to define the association of the web ACL with your resource, see ``WebACLAssociation`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-scope
+        '''
+        result = self._values.get("scope")
+        assert result is not None, "Required property 'scope' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def visibility_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"]:
+        '''Defines and enables Amazon CloudWatch metrics and web request sample collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-visibilityconfig
+        '''
+        result = self._values.get("visibility_config")
+        assert result is not None, "Required property 'visibility_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnWebACL.VisibilityConfigProperty"], result)
+
+    @builtins.property
+    def application_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationConfigProperty"]]:
+        '''Returns a list of ``ApplicationAttribute`` s.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-applicationconfig
+        '''
+        result = self._values.get("application_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ApplicationConfigProperty"]], result)
+
+    @builtins.property
+    def association_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AssociationConfigProperty"]]:
+        '''Specifies custom configurations for the associations between the web ACL and protected resources.
+
+        Use this to customize the maximum size of the request body that your protected resources forward to AWS WAF for inspection. You can customize this setting for CloudFront, API Gateway, Amazon Cognito, App Runner, or Verified Access resources. The default setting is 16 KB (16,384 bytes).
+        .. epigraph::
+
+           You are charged additional fees when your protected resources forward body sizes that are larger than the default. For more information, see `AWS WAF Pricing <https://docs.aws.amazon.com/waf/pricing/>`_ .
+
+        For Application Load Balancer and AWS AppSync , the limit is fixed at 8 KB (8,192 bytes).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-associationconfig
+        '''
+        result = self._values.get("association_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.AssociationConfigProperty"]], result)
+
+    @builtins.property
+    def captcha_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]]:
+        '''Specifies how AWS WAF should handle ``CAPTCHA`` evaluations for rules that don't have their own ``CaptchaConfig`` settings.
+
+        If you don't specify this, AWS WAF uses its default settings for ``CaptchaConfig`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-captchaconfig
+        '''
+        result = self._values.get("captcha_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.CaptchaConfigProperty"]], result)
+
+    @builtins.property
+    def challenge_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]]:
+        '''Specifies how AWS WAF should handle challenge evaluations for rules that don't have their own ``ChallengeConfig`` settings.
+
+        If you don't specify this, AWS WAF uses its default settings for ``ChallengeConfig`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-challengeconfig
+        '''
+        result = self._values.get("challenge_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.ChallengeConfigProperty"]], result)
+
+    @builtins.property
+    def custom_response_bodies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseBodyProperty"]]]]:
+        '''A map of custom response keys and content bodies.
+
+        When you create a rule with a block action, you can send a custom response to the web request. You define these for the web ACL, and then use them in the rules and default actions that you define in the web ACL.
+
+        For information about customizing web requests and responses, see `Customizing web requests and responses in AWS WAF <https://docs.aws.amazon.com/waf/latest/developerguide/waf-custom-request-response.html>`_ in the *AWS WAF Developer Guide* .
+
+        For information about the limits on count and size for custom request and response settings, see `AWS WAF quotas <https://docs.aws.amazon.com/waf/latest/developerguide/limits.html>`_ in the *AWS WAF Developer Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-customresponsebodies
+        '''
+        result = self._values.get("custom_response_bodies")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnWebACL.CustomResponseBodyProperty"]]]], result)
+
+    @builtins.property
+    def data_protection_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectionConfigProperty"]]:
+        '''Specifies data protection to apply to the web request data for the web ACL.
+
+        This is a web ACL level data protection option.
+
+        The data protection that you configure for the web ACL alters the data that's available for any other data collection activity, including your AWS WAF logging destinations, web ACL request sampling, and Amazon Security Lake data collection and management. Your other option for data protection is in the logging configuration, which only affects logging.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-dataprotectionconfig
+        '''
+        result = self._values.get("data_protection_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.DataProtectionConfigProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the web ACL that helps with identification.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the web ACL.
+
+        You cannot change the name of a web ACL after you create it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def on_source_d_do_s_protection_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]]:
+        '''Configures the level of DDoS protection that applies to web ACLs associated with Application Load Balancers.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-onsourceddosprotectionconfig
+        '''
+        result = self._values.get("on_source_d_do_s_protection_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnWebACL.OnSourceDDoSProtectionConfigProperty"]], result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]]:
+        '''The rule statements used to identify the web requests that you want to manage.
+
+        Each rule includes one top-level statement that AWS WAF uses to identify matching web requests, and parameters that govern how AWS WAF handles them.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-rules
+        '''
+        result = self._values.get("rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWebACL.RuleProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Key:value pairs associated with an AWS resource.
+
+        The key:value pair can be anything you define. Typically, the tag key represents a category (such as "environment") and the tag value represents a specific value within that category (such as "test," "development," or "production"). You can add up to 50 tags to each AWS resource.
+        .. epigraph::
+
+           To modify tags on existing resources, use the AWS WAF APIs or command line interface. With AWS CloudFormation , you can only add tags to AWS WAF resources during resource creation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def token_domains(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the domains that AWS WAF should accept in a web request token.
+
+        This enables the use of tokens across multiple protected websites. When AWS WAF provides a token, it uses the domain of the AWS resource that the web ACL is protecting. If you don't specify a list of token domains, AWS WAF accepts tokens only for the domain of the protected resource. With a token domain list, AWS WAF accepts the resource's host domain plus all domains in the token domain list, including their prefixed subdomains.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-wafv2-webacl.html#cfn-wafv2-webacl-tokendomains
+        '''
+        result = self._values.get("token_domains")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnWebACLProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnIPSet",
     "CfnIPSetProps",
@@ -22440,153 +22032,9 @@ __all__ = [
     "CfnWebACLAssociation",
     "CfnWebACLAssociationProps",
     "CfnWebACLProps",
-    "IIPSetRef",
-    "ILoggingConfigurationRef",
-    "IPSetReference",
-    "IRegexPatternSetRef",
-    "IRuleGroupRef",
-    "IWebACLAssociationRef",
-    "IWebACLRef",
-    "LoggingConfigurationReference",
-    "RegexPatternSetReference",
-    "RuleGroupReference",
-    "WebACLAssociationReference",
-    "WebACLReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__96b0ead7c11c27cbe1678aa0bf080746e410b94c991c94a4b26268579d9f4d17(
-    *,
-    addresses: typing.Sequence[builtins.str],
-    ip_address_version: builtins.str,
-    scope: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__713893ab58a2ac0a37391a960bcaeb40dad62a9addec656d6016e0911ff1d752(
-    *,
-    log_destination_configs: typing.Sequence[builtins.str],
-    resource_arn: builtins.str,
-    logging_filter: typing.Any = None,
-    redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4655926f3e763ad1701fea25b17a982c17326f38b7601267b5b7b6462571865e(
-    *,
-    regular_expression_list: typing.Sequence[builtins.str],
-    scope: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c8dfa44d9c30297c12ad00bd34bbd4b85ea5438f4127e7e97226c16565c6ef5b(
-    *,
-    capacity: jsii.Number,
-    scope: builtins.str,
-    visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.VisibilityConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    available_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__93cbb499bbbd2600e53f0e1d138ab15569244c877052ef575c5114953859a4db(
-    *,
-    resource_arn: builtins.str,
-    web_acl_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838f10b75f(
-    *,
-    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
-    scope: builtins.str,
-    visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.VisibilityConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    association_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AssociationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CaptchaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ChallengeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__760379f44d7b43382485462e0c355e629a98b73d4ff6c76b74f73da19e82b2c8(
-    *,
-    ip_set_arn: builtins.str,
-    ip_set_id: builtins.str,
-    ip_set_name: builtins.str,
-    scope: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__95a8611c5fbea96b4ec81174907e1162b2e5b64fcf1141449ea5ae710a04da94(
-    *,
-    resource_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d67ce9eb1156ad32d7d813c3bf1a6b5e6023852da31c716d08c0b9eefa78839e(
-    *,
-    regex_pattern_set_arn: builtins.str,
-    regex_pattern_set_id: builtins.str,
-    regex_pattern_set_name: builtins.str,
-    scope: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__be6d0be6dd88ebd4739761e478ce36119788b60fb46e3ecb210b7edcd347510e(
-    *,
-    rule_group_arn: builtins.str,
-    rule_group_id: builtins.str,
-    rule_group_name: builtins.str,
-    scope: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3f1b19b5ad7d386f312ee7c55e4a37384223daa67f8b7b696c47a1e5ae4e5ca6(
-    *,
-    resource_arn: builtins.str,
-    web_acl_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84d08e8ec9ff2d86c79e8d398187572ea3e490d5400ed775bdb02793354f3bb1(
-    *,
-    scope: builtins.str,
-    web_acl_arn: builtins.str,
-    web_acl_id: builtins.str,
-    web_acl_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__039afc69c65e0dd02b0d7963f7fa0f2983949d351922a3fbe8afc7cd0aa22eab(
     scope_: _constructs_77d1e7e8.Construct,
@@ -22598,6 +22046,18 @@ def _typecheckingstub__039afc69c65e0dd02b0d7963f7fa0f2983949d351922a3fbe8afc7cd0
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__201f713fec3926208232a5faee8c8e61640f612aa9c6020f96795d8c0e1eb50c(
+    resource: _IIPSetRef_7ceca2ca,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7564cba29b99e6e900ec89091c6d2949da9647ea05940e08b70feec6d66cc02f(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22650,14 +22110,32 @@ def _typecheckingstub__ae99337cdeb3e6b180e6ec4bbd7c9dfc2db1e07a5a4932f80d44ab784
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__96b0ead7c11c27cbe1678aa0bf080746e410b94c991c94a4b26268579d9f4d17(
+    *,
+    addresses: typing.Sequence[builtins.str],
+    ip_address_version: builtins.str,
+    scope: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8a8c4ba5ee1b98a4ed1dd5001182ec8712406026687793bcb17c7a78771fa41c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    log_destination_configs: typing.Sequence[builtins.str],
-    resource_arn: builtins.str,
+    log_destination_configs: typing.Sequence[typing.Union[builtins.str, _IDeliveryStreamRef_678f5e53, _ILogGroupRef_874d025a, _IBucketRef_3debe44e]],
+    resource_arn: typing.Union[builtins.str, _IWebACLRef_3dd0843c],
     logging_filter: typing.Any = None,
     redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03d46ac18dd0cd80eae02e5cb61b39a9b5df1758dfbecd26949a2192e5e8e3c6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22772,6 +22250,16 @@ def _typecheckingstub__fcdbe2344105f56809989a50b71b674a0abcb188986d4b216ba3fc5f4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__713893ab58a2ac0a37391a960bcaeb40dad62a9addec656d6016e0911ff1d752(
+    *,
+    log_destination_configs: typing.Sequence[typing.Union[builtins.str, _IDeliveryStreamRef_678f5e53, _ILogGroupRef_874d025a, _IBucketRef_3debe44e]],
+    resource_arn: typing.Union[builtins.str, _IWebACLRef_3dd0843c],
+    logging_filter: typing.Any = None,
+    redacted_fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLoggingConfiguration.FieldToMatchProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c9cac4ad6f53737b9539cafcf1c5335cc1730b94e91e16609b8484eeb02a972c(
     scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22781,6 +22269,18 @@ def _typecheckingstub__c9cac4ad6f53737b9539cafcf1c5335cc1730b94e91e16609b8484eeb
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7fe577888e5b3e8cd39fb3ecf6e411adfb5dc3ce1dcd51c7e7d18726416dda1f(
+    resource: _IRegexPatternSetRef_4af57c5a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60ad2477b0ebf8d65011f5aa85fad8b5943a379644acfb98c470ab1a83251a8e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -22827,6 +22327,17 @@ def _typecheckingstub__9a1e0f3d5ecf30ff25c1225094facbc468c6ce74c69952e7917c75a8a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4655926f3e763ad1701fea25b17a982c17326f38b7601267b5b7b6462571865e(
+    *,
+    regular_expression_list: typing.Sequence[builtins.str],
+    scope: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__39414085bb3516b24d65751cc1c079ecf5858068f282c2e495c8018706735edc(
     scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -22841,6 +22352,18 @@ def _typecheckingstub__39414085bb3516b24d65751cc1c079ecf5858068f282c2e495c801870
     name: typing.Optional[builtins.str] = None,
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__baeae4b260465d3d290925f1b2728f47b446311cacba91113fb14ac94e4220b3(
+    resource: _IRuleGroupRef_42ed609b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd47367da248021ec82bc4ae177cda81c8e0ca5ca287b1469be34bff90508b5b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23411,6 +22934,22 @@ def _typecheckingstub__e502ec1c8bc4096eb797b55f6c0a1f9c506e23db360770a855cc273d3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c8dfa44d9c30297c12ad00bd34bbd4b85ea5438f4127e7e97226c16565c6ef5b(
+    *,
+    capacity: jsii.Number,
+    scope: builtins.str,
+    visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.VisibilityConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    available_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    consumed_labels: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.LabelSummaryProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRuleGroup.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8fe504525(
     scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -23418,6 +22957,7 @@ def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8f
     default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
     scope: builtins.str,
     visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.VisibilityConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     association_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AssociationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CaptchaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ChallengeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -23429,6 +22969,18 @@ def _typecheckingstub__03030a65c492e95a1d1ae5ddafd6acbb9efdfa7e18b6367ac7e03eb8f
     rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__29507d6097c3a609b45bd6193fde456a7bf0b8092b71e159f6482bdc25de1a89(
+    resource: _IWebACLRef_3dd0843c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9fd7cc3650dd2dfb0bf0e2b6980960265d7623305b91414bcefeab8bae0193cf(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23459,6 +23011,12 @@ def _typecheckingstub__a713a6057870757511e9190984a673024b8e428fbfb62430ddca1be52
 
 def _typecheckingstub__c31cd418fc7ecfcb56c27ca59f7e1a72ad63669e0587305727953071e54beba5(
     value: typing.Union[_IResolvable_da3f097b, CfnWebACL.VisibilityConfigProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ead4c1be355009abdb5c2bef2a7b836cddf9001fdb29e766c4445e21aa5b7091(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnWebACL.ApplicationConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -23576,6 +23134,21 @@ def _typecheckingstub__69dee3824024f4ebf455961564f0743db7a203a492aae72706c2b03ec
 def _typecheckingstub__e3977b616ebe935b8882258fb7fe1261468bceabf99977afc1c05b1df5a70def(
     *,
     statements: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.StatementProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66f2adaad9f19c44dc2cd5fab5ec44ef266cea6d9b6def3e9dff0bf7e376ee21(
+    *,
+    name: builtins.str,
+    values: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c9805d456e58fdf333f88cd7ea47bcd6006aee9ebb8f4f23bd7fa2a03587fbb(
+    *,
+    attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ApplicationAttributeProperty, typing.Dict[builtins.str, typing.Any]]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24268,8 +23841,14 @@ def _typecheckingstub__ea3ed0968a72c37b5b8cc6d169658fe191a7ff1683a934d6fbd9df313
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    resource_arn: builtins.str,
+    resource_arn: typing.Union[builtins.str, _IGraphQLApiRef_d46d77ba, _ILoadBalancerRef_13acd8f1, _IWebACLRef_3dd0843c],
     web_acl_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd4ad3eb51a1458fb27406364174500a3d536a620e31d2d4c8f323a8eed44f3e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -24294,6 +23873,35 @@ def _typecheckingstub__fa7ebf01e75f538ec279c7a59f19a44aed0c8d77f89b96e8f2a1c7536
 
 def _typecheckingstub__8901144ebc2cb9bb94e2f5572d5259c7d90c20c9705517f4d16a8fdaa799459d(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93cbb499bbbd2600e53f0e1d138ab15569244c877052ef575c5114953859a4db(
+    *,
+    resource_arn: typing.Union[builtins.str, _IGraphQLApiRef_d46d77ba, _ILoadBalancerRef_13acd8f1, _IWebACLRef_3dd0843c],
+    web_acl_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e738df983d65d43590c0a02c03e6e0daa3a2097ae335371d22711838f10b75f(
+    *,
+    default_action: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DefaultActionProperty, typing.Dict[builtins.str, typing.Any]]],
+    scope: builtins.str,
+    visibility_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.VisibilityConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    application_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ApplicationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    association_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.AssociationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    captcha_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CaptchaConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    challenge_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.ChallengeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    custom_response_bodies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.CustomResponseBodyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    data_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.DataProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    on_source_d_do_s_protection_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.OnSourceDDoSProtectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWebACL.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    token_domains: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -576,7 +576,7 @@ class CiConfiguration(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         name: builtins.str,
         *,
         default: typing.Optional[typing.Union["Default", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -619,7 +619,7 @@ class CiConfiguration(
     @jsii.member(jsii_name="addDefaultCaches")
     def add_default_caches(
         self,
-        caches: typing.Sequence[typing.Union[Cache, typing.Dict[builtins.str, typing.Any]]],
+        caches: typing.Sequence[typing.Union["Cache", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''(experimental) Adds up to 4 default caches configuration to the CI configuration.
 
@@ -631,6 +631,22 @@ class CiConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__bc8dc83f6ed2c3927eac45893c863050843bdea6a919dceda0aeb811aab6b03a)
             check_type(argname="argument caches", value=caches, expected_type=type_hints["caches"])
         return typing.cast(None, jsii.invoke(self, "addDefaultCaches", [caches]))
+
+    @jsii.member(jsii_name="addDefaultHooks")
+    def add_default_hooks(
+        self,
+        *,
+        pre_get_sources_script: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
+
+        :param pre_get_sources_script: (experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
+
+        :stability: experimental
+        '''
+        hooks = DefaultHooks(pre_get_sources_script=pre_get_sources_script)
+
+        return typing.cast(None, jsii.invoke(self, "addDefaultHooks", [hooks]))
 
     @jsii.member(jsii_name="addGlobalVariables")
     def add_global_variables(
@@ -736,12 +752,12 @@ class CiConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="file")
-    def file(self) -> _YamlFile_909731b0:
+    def file(self) -> "_YamlFile_909731b0":
         '''(experimental) The workflow YAML file.
 
         :stability: experimental
         '''
-        return typing.cast(_YamlFile_909731b0, jsii.get(self, "file"))
+        return typing.cast("_YamlFile_909731b0", jsii.get(self, "file"))
 
     @builtins.property
     @jsii.member(jsii_name="jobs")
@@ -797,22 +813,22 @@ class CiConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="defaultArtifacts")
-    def default_artifacts(self) -> typing.Optional[Artifacts]:
+    def default_artifacts(self) -> typing.Optional["Artifacts"]:
         '''(experimental) Default list of files and directories that should be attached to the job if it succeeds.
 
         Artifacts are sent to Gitlab where they can be downloaded.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[Artifacts], jsii.get(self, "defaultArtifacts"))
+        return typing.cast(typing.Optional["Artifacts"], jsii.get(self, "defaultArtifacts"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultCache")
-    def default_cache(self) -> typing.Optional[typing.List[Cache]]:
+    def default_cache(self) -> typing.Optional[typing.List["Cache"]]:
         '''
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[typing.List[Cache]], jsii.get(self, "defaultCache"))
+        return typing.cast(typing.Optional[typing.List["Cache"]], jsii.get(self, "defaultCache"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultIdTokens")
@@ -1102,6 +1118,7 @@ class CoverageReport:
         "artifacts": "artifacts",
         "before_script": "beforeScript",
         "cache": "cache",
+        "hooks": "hooks",
         "id_tokens": "idTokens",
         "image": "image",
         "interruptible": "interruptible",
@@ -1116,9 +1133,10 @@ class Default:
         self,
         *,
         after_script: typing.Optional[typing.Sequence[builtins.str]] = None,
-        artifacts: typing.Optional[typing.Union[Artifacts, typing.Dict[builtins.str, typing.Any]]] = None,
+        artifacts: typing.Optional[typing.Union["Artifacts", typing.Dict[builtins.str, typing.Any]]] = None,
         before_script: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cache: typing.Optional[typing.Sequence[typing.Union[Cache, typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache: typing.Optional[typing.Sequence[typing.Union["Cache", typing.Dict[builtins.str, typing.Any]]]] = None,
+        hooks: typing.Optional[typing.Union["DefaultHooks", typing.Dict[builtins.str, typing.Any]]] = None,
         id_tokens: typing.Optional[typing.Mapping[builtins.str, "IDToken"]] = None,
         image: typing.Optional[typing.Union["Image", typing.Dict[builtins.str, typing.Any]]] = None,
         interruptible: typing.Optional[builtins.bool] = None,
@@ -1135,6 +1153,7 @@ class Default:
         :param artifacts: 
         :param before_script: 
         :param cache: 
+        :param hooks: (experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
         :param id_tokens: (experimental) Specifies the default ID tokens (JSON Web Tokens) that are used for CI/CD authentication to use globally for all jobs.
         :param image: 
         :param interruptible: 
@@ -1148,6 +1167,8 @@ class Default:
         '''
         if isinstance(artifacts, dict):
             artifacts = Artifacts(**artifacts)
+        if isinstance(hooks, dict):
+            hooks = DefaultHooks(**hooks)
         if isinstance(image, dict):
             image = Image(**image)
         if isinstance(retry, dict):
@@ -1158,6 +1179,7 @@ class Default:
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
             check_type(argname="argument before_script", value=before_script, expected_type=type_hints["before_script"])
             check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
+            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
             check_type(argname="argument id_tokens", value=id_tokens, expected_type=type_hints["id_tokens"])
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument interruptible", value=interruptible, expected_type=type_hints["interruptible"])
@@ -1174,6 +1196,8 @@ class Default:
             self._values["before_script"] = before_script
         if cache is not None:
             self._values["cache"] = cache
+        if hooks is not None:
+            self._values["hooks"] = hooks
         if id_tokens is not None:
             self._values["id_tokens"] = id_tokens
         if image is not None:
@@ -1198,12 +1222,12 @@ class Default:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def artifacts(self) -> typing.Optional[Artifacts]:
+    def artifacts(self) -> typing.Optional["Artifacts"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("artifacts")
-        return typing.cast(typing.Optional[Artifacts], result)
+        return typing.cast(typing.Optional["Artifacts"], result)
 
     @builtins.property
     def before_script(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1214,12 +1238,21 @@ class Default:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cache(self) -> typing.Optional[typing.List[Cache]]:
+    def cache(self) -> typing.Optional[typing.List["Cache"]]:
         '''
         :stability: experimental
         '''
         result = self._values.get("cache")
-        return typing.cast(typing.Optional[typing.List[Cache]], result)
+        return typing.cast(typing.Optional[typing.List["Cache"]], result)
+
+    @builtins.property
+    def hooks(self) -> typing.Optional["DefaultHooks"]:
+        '''(experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
+
+        :stability: experimental
+        '''
+        result = self._values.get("hooks")
+        return typing.cast(typing.Optional["DefaultHooks"], result)
 
     @builtins.property
     def id_tokens(self) -> typing.Optional[typing.Mapping[builtins.str, "IDToken"]]:
@@ -1338,6 +1371,50 @@ class DefaultElement(enum.Enum):
     '''
 
 
+@jsii.data_type(
+    jsii_type="projen.gitlab.DefaultHooks",
+    jsii_struct_bases=[],
+    name_mapping={"pre_get_sources_script": "preGetSourcesScript"},
+)
+class DefaultHooks:
+    def __init__(
+        self,
+        *,
+        pre_get_sources_script: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param pre_get_sources_script: (experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ead82c15a4a68e5b98f5a4870a986cf8bfd8558ec475eafed66ba30ae376385)
+            check_type(argname="argument pre_get_sources_script", value=pre_get_sources_script, expected_type=type_hints["pre_get_sources_script"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if pre_get_sources_script is not None:
+            self._values["pre_get_sources_script"] = pre_get_sources_script
+
+    @builtins.property
+    def pre_get_sources_script(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Specify a list of commands to execute on the runner before cloning the Git repository and any submodules https://docs.gitlab.com/ci/yaml/#hookspre_get_sources_script.
+
+        :stability: experimental
+        '''
+        result = self._values.get("pre_get_sources_script")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DefaultHooks(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.gitlab.DeploymentTier")
 class DeploymentTier(enum.Enum):
     '''(experimental) Explicitly specifies the tier of the deployment environment if non-standard environment name is used.
@@ -1440,9 +1517,9 @@ class Environment:
         self,
         *,
         name: builtins.str,
-        action: typing.Optional[Action] = None,
+        action: typing.Optional["Action"] = None,
         auto_stop_in: typing.Optional[builtins.str] = None,
-        deployment_tier: typing.Optional[DeploymentTier] = None,
+        deployment_tier: typing.Optional["DeploymentTier"] = None,
         kubernetes: typing.Optional[typing.Union["KubernetesConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         on_stop: typing.Optional[builtins.str] = None,
         url: typing.Optional[builtins.str] = None,
@@ -1497,7 +1574,7 @@ class Environment:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def action(self) -> typing.Optional[Action]:
+    def action(self) -> typing.Optional["Action"]:
         '''(experimental) Specifies what this job will do.
 
         'start' (default) indicates the job will start the deployment. 'prepare' indicates this will not affect the deployment. 'stop' indicates this will stop the deployment.
@@ -1505,7 +1582,7 @@ class Environment:
         :stability: experimental
         '''
         result = self._values.get("action")
-        return typing.cast(typing.Optional[Action], result)
+        return typing.cast(typing.Optional["Action"], result)
 
     @builtins.property
     def auto_stop_in(self) -> typing.Optional[builtins.str]:
@@ -1519,13 +1596,13 @@ class Environment:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def deployment_tier(self) -> typing.Optional[DeploymentTier]:
+    def deployment_tier(self) -> typing.Optional["DeploymentTier"]:
         '''(experimental) Explicitly specifies the tier of the deployment environment if non-standard environment name is used.
 
         :stability: experimental
         '''
         result = self._values.get("deployment_tier")
-        return typing.cast(typing.Optional[DeploymentTier], result)
+        return typing.cast(typing.Optional["DeploymentTier"], result)
 
     @builtins.property
     def kubernetes(self) -> typing.Optional["KubernetesConfig"]:
@@ -1674,9 +1751,9 @@ class GitlabConfiguration(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        default: typing.Optional[typing.Union[Default, typing.Dict[builtins.str, typing.Any]]] = None,
+        default: typing.Optional[typing.Union["Default", typing.Dict[builtins.str, typing.Any]]] = None,
         jobs: typing.Optional[typing.Mapping[builtins.str, typing.Union["Job", typing.Dict[builtins.str, typing.Any]]]] = None,
         pages: typing.Optional[typing.Union["Job", typing.Dict[builtins.str, typing.Any]]] = None,
         path: typing.Optional[builtins.str] = None,
@@ -1714,7 +1791,7 @@ class GitlabConfiguration(
     @jsii.member(jsii_name="createNestedTemplates")
     def create_nested_templates(
         self,
-        config: typing.Mapping[builtins.str, typing.Union[CiConfigurationOptions, typing.Dict[builtins.str, typing.Any]]],
+        config: typing.Mapping[builtins.str, typing.Union["CiConfigurationOptions", typing.Dict[builtins.str, typing.Any]]],
     ) -> None:
         '''(experimental) Creates and adds nested templates to the includes of the main CI.
 
@@ -2019,7 +2096,7 @@ class IncludeRule:
     def __init__(
         self,
         *,
-        allow_failure: typing.Optional[typing.Union[builtins.bool, typing.Union[AllowFailure, typing.Dict[builtins.str, typing.Any]]]] = None,
+        allow_failure: typing.Optional[typing.Union[builtins.bool, typing.Union["AllowFailure", typing.Dict[builtins.str, typing.Any]]]] = None,
         changes: typing.Optional[typing.Sequence[builtins.str]] = None,
         exists: typing.Optional[typing.Sequence[builtins.str]] = None,
         if_: typing.Optional[builtins.str] = None,
@@ -2073,12 +2150,12 @@ class IncludeRule:
     @builtins.property
     def allow_failure(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, AllowFailure]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "AllowFailure"]]:
         '''
         :stability: experimental
         '''
         result = self._values.get("allow_failure")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, AllowFailure]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "AllowFailure"]], result)
 
     @builtins.property
     def changes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2157,7 +2234,7 @@ class Inherit:
     def __init__(
         self,
         *,
-        default: typing.Optional[typing.Union[builtins.bool, typing.Sequence[DefaultElement]]] = None,
+        default: typing.Optional[typing.Union[builtins.bool, typing.Sequence["DefaultElement"]]] = None,
         variables: typing.Optional[typing.Union[builtins.bool, typing.Sequence[builtins.str]]] = None,
     ) -> None:
         '''(experimental) Controls inheritance of globally-defined defaults and variables.
@@ -2185,7 +2262,7 @@ class Inherit:
     @builtins.property
     def default(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, typing.List[DefaultElement]]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, typing.List["DefaultElement"]]]:
         '''(experimental) Whether to inherit all globally-defined defaults or not.
 
         Or subset of inherited defaults
@@ -2193,7 +2270,7 @@ class Inherit:
         :stability: experimental
         '''
         result = self._values.get("default")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, typing.List[DefaultElement]]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, typing.List["DefaultElement"]]], result)
 
     @builtins.property
     def variables(
@@ -2234,6 +2311,7 @@ class Inherit:
         "environment": "environment",
         "except_": "except",
         "extends": "extends",
+        "hooks": "hooks",
         "id_tokens": "idTokens",
         "image": "image",
         "inherit": "inherit",
@@ -2262,26 +2340,27 @@ class Job:
         self,
         *,
         after_script: typing.Optional[typing.Sequence[builtins.str]] = None,
-        allow_failure: typing.Optional[typing.Union[builtins.bool, typing.Union[AllowFailure, typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifacts: typing.Optional[typing.Union[Artifacts, typing.Dict[builtins.str, typing.Any]]] = None,
+        allow_failure: typing.Optional[typing.Union[builtins.bool, typing.Union["AllowFailure", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts: typing.Optional[typing.Union["Artifacts", typing.Dict[builtins.str, typing.Any]]] = None,
         before_script: typing.Optional[typing.Sequence[builtins.str]] = None,
-        cache: typing.Optional[typing.Sequence[typing.Union[Cache, typing.Dict[builtins.str, typing.Any]]]] = None,
+        cache: typing.Optional[typing.Sequence[typing.Union["Cache", typing.Dict[builtins.str, typing.Any]]]] = None,
         coverage: typing.Optional[builtins.str] = None,
         dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
-        environment: typing.Optional[typing.Union[builtins.str, typing.Union[Environment, typing.Dict[builtins.str, typing.Any]]]] = None,
-        except_: typing.Optional[typing.Union[typing.Sequence[builtins.str], typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]]] = None,
+        environment: typing.Optional[typing.Union[builtins.str, typing.Union["Environment", typing.Dict[builtins.str, typing.Any]]]] = None,
+        except_: typing.Optional[typing.Union[typing.Sequence[builtins.str], typing.Union["Filter", typing.Dict[builtins.str, typing.Any]]]] = None,
         extends: typing.Optional[typing.Sequence[builtins.str]] = None,
-        id_tokens: typing.Optional[typing.Mapping[builtins.str, IDToken]] = None,
-        image: typing.Optional[typing.Union[Image, typing.Dict[builtins.str, typing.Any]]] = None,
-        inherit: typing.Optional[typing.Union[Inherit, typing.Dict[builtins.str, typing.Any]]] = None,
+        hooks: typing.Optional[typing.Union["DefaultHooks", typing.Dict[builtins.str, typing.Any]]] = None,
+        id_tokens: typing.Optional[typing.Mapping[builtins.str, "IDToken"]] = None,
+        image: typing.Optional[typing.Union["Image", typing.Dict[builtins.str, typing.Any]]] = None,
+        inherit: typing.Optional[typing.Union["Inherit", typing.Dict[builtins.str, typing.Any]]] = None,
         interruptible: typing.Optional[builtins.bool] = None,
         needs: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["Need", typing.Dict[builtins.str, typing.Any]]]]] = None,
-        only: typing.Optional[typing.Union[typing.Sequence[builtins.str], typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]]] = None,
+        only: typing.Optional[typing.Union[typing.Sequence[builtins.str], typing.Union["Filter", typing.Dict[builtins.str, typing.Any]]]] = None,
         parallel: typing.Optional[typing.Union[jsii.Number, typing.Union["Parallel", typing.Dict[builtins.str, typing.Any]]]] = None,
         release: typing.Optional[typing.Union["Release", typing.Dict[builtins.str, typing.Any]]] = None,
         resource_group: typing.Optional[builtins.str] = None,
         retry: typing.Optional[typing.Union["Retry", typing.Dict[builtins.str, typing.Any]]] = None,
-        rules: typing.Optional[typing.Sequence[typing.Union[IncludeRule, typing.Dict[builtins.str, typing.Any]]]] = None,
+        rules: typing.Optional[typing.Sequence[typing.Union["IncludeRule", typing.Dict[builtins.str, typing.Any]]]] = None,
         script: typing.Optional[typing.Sequence[builtins.str]] = None,
         secrets: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Union["Secret", typing.Dict[builtins.str, typing.Any]]]]] = None,
         services: typing.Optional[typing.Sequence[typing.Union["Service", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2305,6 +2384,7 @@ class Job:
         :param environment: (experimental) Used to associate environment metadata with a deploy. Environment can have a name and URL attached to it, and will be displayed under /environments under the project.
         :param except_: (experimental) Job will run *except* for when these filtering options match.
         :param extends: (experimental) The name of one or more jobs to inherit configuration from.
+        :param hooks: 
         :param id_tokens: (experimental) Configurable ID tokens (JSON Web Tokens) that are used for CI/CD authentication.
         :param image: 
         :param inherit: (experimental) Controls inheritance of globally-defined defaults and variables. Boolean values control inheritance of all default: or variables: keywords. To inherit only a subset of default: or variables: keywords, specify what you wish to inherit. Anything not listed is not inherited.
@@ -2332,6 +2412,8 @@ class Job:
         '''
         if isinstance(artifacts, dict):
             artifacts = Artifacts(**artifacts)
+        if isinstance(hooks, dict):
+            hooks = DefaultHooks(**hooks)
         if isinstance(image, dict):
             image = Image(**image)
         if isinstance(inherit, dict):
@@ -2352,6 +2434,7 @@ class Job:
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument except_", value=except_, expected_type=type_hints["except_"])
             check_type(argname="argument extends", value=extends, expected_type=type_hints["extends"])
+            check_type(argname="argument hooks", value=hooks, expected_type=type_hints["hooks"])
             check_type(argname="argument id_tokens", value=id_tokens, expected_type=type_hints["id_tokens"])
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument inherit", value=inherit, expected_type=type_hints["inherit"])
@@ -2394,6 +2477,8 @@ class Job:
             self._values["except_"] = except_
         if extends is not None:
             self._values["extends"] = extends
+        if hooks is not None:
+            self._values["hooks"] = hooks
         if id_tokens is not None:
             self._values["id_tokens"] = id_tokens
         if image is not None:
@@ -2448,21 +2533,21 @@ class Job:
     @builtins.property
     def allow_failure(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, AllowFailure]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "AllowFailure"]]:
         '''(experimental) Whether to allow the pipeline to continue running on job failure (Default: false).
 
         :stability: experimental
         '''
         result = self._values.get("allow_failure")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, AllowFailure]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "AllowFailure"]], result)
 
     @builtins.property
-    def artifacts(self) -> typing.Optional[Artifacts]:
+    def artifacts(self) -> typing.Optional["Artifacts"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("artifacts")
-        return typing.cast(typing.Optional[Artifacts], result)
+        return typing.cast(typing.Optional["Artifacts"], result)
 
     @builtins.property
     def before_script(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2473,12 +2558,12 @@ class Job:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def cache(self) -> typing.Optional[typing.List[Cache]]:
+    def cache(self) -> typing.Optional[typing.List["Cache"]]:
         '''
         :stability: experimental
         '''
         result = self._values.get("cache")
-        return typing.cast(typing.Optional[typing.List[Cache]], result)
+        return typing.cast(typing.Optional[typing.List["Cache"]], result)
 
     @builtins.property
     def coverage(self) -> typing.Optional[builtins.str]:
@@ -2503,7 +2588,7 @@ class Job:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def environment(self) -> typing.Optional[typing.Union[builtins.str, Environment]]:
+    def environment(self) -> typing.Optional[typing.Union[builtins.str, "Environment"]]:
         '''(experimental) Used to associate environment metadata with a deploy.
 
         Environment can have a name and URL attached to it, and will be displayed under /environments under the project.
@@ -2511,18 +2596,18 @@ class Job:
         :stability: experimental
         '''
         result = self._values.get("environment")
-        return typing.cast(typing.Optional[typing.Union[builtins.str, Environment]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "Environment"]], result)
 
     @builtins.property
     def except_(
         self,
-    ) -> typing.Optional[typing.Union[typing.List[builtins.str], Filter]]:
+    ) -> typing.Optional[typing.Union[typing.List[builtins.str], "Filter"]]:
         '''(experimental) Job will run *except* for when these filtering options match.
 
         :stability: experimental
         '''
         result = self._values.get("except_")
-        return typing.cast(typing.Optional[typing.Union[typing.List[builtins.str], Filter]], result)
+        return typing.cast(typing.Optional[typing.Union[typing.List[builtins.str], "Filter"]], result)
 
     @builtins.property
     def extends(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2534,24 +2619,32 @@ class Job:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def id_tokens(self) -> typing.Optional[typing.Mapping[builtins.str, IDToken]]:
+    def hooks(self) -> typing.Optional["DefaultHooks"]:
+        '''
+        :stability: experimental
+        '''
+        result = self._values.get("hooks")
+        return typing.cast(typing.Optional["DefaultHooks"], result)
+
+    @builtins.property
+    def id_tokens(self) -> typing.Optional[typing.Mapping[builtins.str, "IDToken"]]:
         '''(experimental) Configurable ID tokens (JSON Web Tokens) that are used for CI/CD authentication.
 
         :stability: experimental
         '''
         result = self._values.get("id_tokens")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, IDToken]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "IDToken"]], result)
 
     @builtins.property
-    def image(self) -> typing.Optional[Image]:
+    def image(self) -> typing.Optional["Image"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("image")
-        return typing.cast(typing.Optional[Image], result)
+        return typing.cast(typing.Optional["Image"], result)
 
     @builtins.property
-    def inherit(self) -> typing.Optional[Inherit]:
+    def inherit(self) -> typing.Optional["Inherit"]:
         '''(experimental) Controls inheritance of globally-defined defaults and variables.
 
         Boolean values control inheritance of all default: or variables: keywords. To inherit only a subset of default: or variables: keywords, specify what you wish to inherit. Anything not listed is not inherited.
@@ -2559,7 +2652,7 @@ class Job:
         :stability: experimental
         '''
         result = self._values.get("inherit")
-        return typing.cast(typing.Optional[Inherit], result)
+        return typing.cast(typing.Optional["Inherit"], result)
 
     @builtins.property
     def interruptible(self) -> typing.Optional[builtins.bool]:
@@ -2579,13 +2672,15 @@ class Job:
         return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "Need"]]], result)
 
     @builtins.property
-    def only(self) -> typing.Optional[typing.Union[typing.List[builtins.str], Filter]]:
+    def only(
+        self,
+    ) -> typing.Optional[typing.Union[typing.List[builtins.str], "Filter"]]:
         '''(experimental) Job will run *only* when these filtering options match.
 
         :stability: experimental
         '''
         result = self._values.get("only")
-        return typing.cast(typing.Optional[typing.Union[typing.List[builtins.str], Filter]], result)
+        return typing.cast(typing.Optional[typing.Union[typing.List[builtins.str], "Filter"]], result)
 
     @builtins.property
     def parallel(self) -> typing.Optional[typing.Union[jsii.Number, "Parallel"]]:
@@ -2625,13 +2720,13 @@ class Job:
         return typing.cast(typing.Optional["Retry"], result)
 
     @builtins.property
-    def rules(self) -> typing.Optional[typing.List[IncludeRule]]:
+    def rules(self) -> typing.Optional[typing.List["IncludeRule"]]:
         '''(experimental) Rules allows for an array of individual rule objects to be evaluated in order, until one matches and dynamically provides attributes to the job.
 
         :stability: experimental
         '''
         result = self._values.get("rules")
-        return typing.cast(typing.Optional[typing.List[IncludeRule]], result)
+        return typing.cast(typing.Optional[typing.List["IncludeRule"]], result)
 
     @builtins.property
     def script(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3079,13 +3174,13 @@ class NestedConfiguration(
 
     def __init__(
         self,
-        project: _Project_57d89203,
-        parent: GitlabConfiguration,
+        project: "_Project_57d89203",
+        parent: "GitlabConfiguration",
         name: builtins.str,
         *,
-        default: typing.Optional[typing.Union[Default, typing.Dict[builtins.str, typing.Any]]] = None,
-        jobs: typing.Optional[typing.Mapping[builtins.str, typing.Union[Job, typing.Dict[builtins.str, typing.Any]]]] = None,
-        pages: typing.Optional[typing.Union[Job, typing.Dict[builtins.str, typing.Any]]] = None,
+        default: typing.Optional[typing.Union["Default", typing.Dict[builtins.str, typing.Any]]] = None,
+        jobs: typing.Optional[typing.Mapping[builtins.str, typing.Union["Job", typing.Dict[builtins.str, typing.Any]]]] = None,
+        pages: typing.Optional[typing.Union["Job", typing.Dict[builtins.str, typing.Any]]] = None,
         path: typing.Optional[builtins.str] = None,
         stages: typing.Optional[typing.Sequence[builtins.str]] = None,
         variables: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -3124,11 +3219,11 @@ class NestedConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="parent")
-    def parent(self) -> GitlabConfiguration:
+    def parent(self) -> "GitlabConfiguration":
         '''
         :stability: experimental
         '''
-        return typing.cast(GitlabConfiguration, jsii.get(self, "parent"))
+        return typing.cast("GitlabConfiguration", jsii.get(self, "parent"))
 
 
 @jsii.data_type(
@@ -3220,7 +3315,7 @@ class Release:
         *,
         description: builtins.str,
         tag_name: builtins.str,
-        assets: typing.Optional[typing.Union[Assets, typing.Dict[builtins.str, typing.Any]]] = None,
+        assets: typing.Optional[typing.Union["Assets", typing.Dict[builtins.str, typing.Any]]] = None,
         milestones: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         ref: typing.Optional[builtins.str] = None,
@@ -3287,12 +3382,12 @@ class Release:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def assets(self) -> typing.Optional[Assets]:
+    def assets(self) -> typing.Optional["Assets"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("assets")
-        return typing.cast(typing.Optional[Assets], result)
+        return typing.cast(typing.Optional["Assets"], result)
 
     @builtins.property
     def milestones(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3378,7 +3473,7 @@ class Reports:
         cobertura: typing.Optional[typing.Sequence[builtins.str]] = None,
         codequality: typing.Optional[typing.Sequence[builtins.str]] = None,
         container_scanning: typing.Optional[typing.Sequence[builtins.str]] = None,
-        coverage_report: typing.Optional[typing.Union[CoverageReport, typing.Dict[builtins.str, typing.Any]]] = None,
+        coverage_report: typing.Optional[typing.Union["CoverageReport", typing.Dict[builtins.str, typing.Any]]] = None,
         dast: typing.Optional[typing.Sequence[builtins.str]] = None,
         dependency_scanning: typing.Optional[typing.Sequence[builtins.str]] = None,
         dotenv: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3503,13 +3598,13 @@ class Reports:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def coverage_report(self) -> typing.Optional[CoverageReport]:
+    def coverage_report(self) -> typing.Optional["CoverageReport"]:
         '''(experimental) Code coverage report information.
 
         :stability: experimental
         '''
         result = self._values.get("coverage_report")
-        return typing.cast(typing.Optional[CoverageReport], result)
+        return typing.cast(typing.Optional["CoverageReport"], result)
 
     @builtins.property
     def dast(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3769,7 +3864,7 @@ class Service:
         alias: typing.Optional[builtins.str] = None,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
         entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
-        pull_policy: typing.Optional[typing.Sequence[PullPolicy]] = None,
+        pull_policy: typing.Optional[typing.Sequence["PullPolicy"]] = None,
         variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
         '''(experimental) Used to specify an additional Docker image to run scripts in.
@@ -3855,13 +3950,13 @@ class Service:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def pull_policy(self) -> typing.Optional[typing.List[PullPolicy]]:
+    def pull_policy(self) -> typing.Optional[typing.List["PullPolicy"]]:
         '''(experimental) The pull policy that the runner uses to fetch the Docker image.
 
         :stability: experimental
         '''
         result = self._values.get("pull_policy")
-        return typing.cast(typing.Optional[typing.List[PullPolicy]], result)
+        return typing.cast(typing.Optional[typing.List["PullPolicy"]], result)
 
     @builtins.property
     def variables(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -3886,14 +3981,22 @@ class Service:
 
 @jsii.enum(jsii_type="projen.gitlab.Strategy")
 class Strategy(enum.Enum):
-    '''(experimental) You can mirror the pipeline status from the triggered pipeline to the source bridge job by using strategy: depend.
+    '''(experimental) You can mirror the pipeline status from the triggered pipeline to the source bridge job by using strategy: depend or mirror.
 
     :see: https://docs.gitlab.com/ee/ci/yaml/#triggerstrategy
     :stability: experimental
     '''
 
     DEPEND = "DEPEND"
+    '''(experimental) Not recommended, use mirror instead.
+
+    The trigger job status shows failed, success, or running, depending on the downstream pipeline status.
+
+    :stability: experimental
     '''
+    MIRROR = "MIRROR"
+    '''(experimental) Mirrors the status of the downstream pipeline exactly.
+
     :stability: experimental
     '''
 
@@ -3904,6 +4007,7 @@ class Strategy(enum.Enum):
     name_mapping={
         "branch": "branch",
         "include": "include",
+        "inputs": "inputs",
         "project": "project",
         "strategy": "strategy",
     },
@@ -3914,8 +4018,9 @@ class Trigger:
         *,
         branch: typing.Optional[builtins.str] = None,
         include: typing.Optional[typing.Sequence[typing.Union["TriggerInclude", typing.Dict[builtins.str, typing.Any]]]] = None,
+        inputs: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         project: typing.Optional[builtins.str] = None,
-        strategy: typing.Optional[Strategy] = None,
+        strategy: typing.Optional["Strategy"] = None,
     ) -> None:
         '''(experimental) Trigger a multi-project or a child pipeline.
 
@@ -3923,6 +4028,7 @@ class Trigger:
 
         :param branch: (experimental) The branch name that a downstream pipeline will use.
         :param include: (experimental) A list of local files or artifacts from other jobs to define the pipeline.
+        :param inputs: (experimental) Input parameters for the downstream pipeline when using spec:inputs.
         :param project: (experimental) Path to the project, e.g. ``group/project``, or ``group/sub-group/project``.
         :param strategy: (experimental) You can mirror the pipeline status from the triggered pipeline to the source bridge job by using strategy: depend.
 
@@ -3933,6 +4039,7 @@ class Trigger:
             type_hints = typing.get_type_hints(_typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba57103b6c89f)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3940,6 +4047,8 @@ class Trigger:
             self._values["branch"] = branch
         if include is not None:
             self._values["include"] = include
+        if inputs is not None:
+            self._values["inputs"] = inputs
         if project is not None:
             self._values["project"] = project
         if strategy is not None:
@@ -3964,6 +4073,15 @@ class Trigger:
         return typing.cast(typing.Optional[typing.List["TriggerInclude"]], result)
 
     @builtins.property
+    def inputs(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''(experimental) Input parameters for the downstream pipeline when using spec:inputs.
+
+        :stability: experimental
+        '''
+        result = self._values.get("inputs")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
         '''(experimental) Path to the project, e.g. ``group/project``, or ``group/sub-group/project``.
 
@@ -3973,13 +4091,13 @@ class Trigger:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def strategy(self) -> typing.Optional[Strategy]:
+    def strategy(self) -> typing.Optional["Strategy"]:
         '''(experimental) You can mirror the pipeline status from the triggered pipeline to the source bridge job by using strategy: depend.
 
         :stability: experimental
         '''
         result = self._values.get("strategy")
-        return typing.cast(typing.Optional[Strategy], result)
+        return typing.cast(typing.Optional["Strategy"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4202,7 +4320,7 @@ class VaultConfig:
     def __init__(
         self,
         *,
-        engine: typing.Union[Engine, typing.Dict[builtins.str, typing.Any]],
+        engine: typing.Union["Engine", typing.Dict[builtins.str, typing.Any]],
         field: builtins.str,
         path: builtins.str,
     ) -> None:
@@ -4229,13 +4347,13 @@ class VaultConfig:
         }
 
     @builtins.property
-    def engine(self) -> Engine:
+    def engine(self) -> "Engine":
         '''
         :stability: experimental
         '''
         result = self._values.get("engine")
         assert result is not None, "Required property 'engine' is missing"
-        return typing.cast(Engine, result)
+        return typing.cast("Engine", result)
 
     @builtins.property
     def field(self) -> builtins.str:
@@ -4468,6 +4586,7 @@ __all__ = [
     "CoverageReport",
     "Default",
     "DefaultElement",
+    "DefaultHooks",
     "DeploymentTier",
     "Engine",
     "Environment",
@@ -4631,6 +4750,7 @@ def _typecheckingstub__c8e71d01eda90297db6af675f51033414546212b06d49c00c218dee20
     artifacts: typing.Optional[typing.Union[Artifacts, typing.Dict[builtins.str, typing.Any]]] = None,
     before_script: typing.Optional[typing.Sequence[builtins.str]] = None,
     cache: typing.Optional[typing.Sequence[typing.Union[Cache, typing.Dict[builtins.str, typing.Any]]]] = None,
+    hooks: typing.Optional[typing.Union[DefaultHooks, typing.Dict[builtins.str, typing.Any]]] = None,
     id_tokens: typing.Optional[typing.Mapping[builtins.str, IDToken]] = None,
     image: typing.Optional[typing.Union[Image, typing.Dict[builtins.str, typing.Any]]] = None,
     interruptible: typing.Optional[builtins.bool] = None,
@@ -4638,6 +4758,13 @@ def _typecheckingstub__c8e71d01eda90297db6af675f51033414546212b06d49c00c218dee20
     services: typing.Optional[typing.Sequence[typing.Union[Service, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[builtins.str]] = None,
     timeout: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ead82c15a4a68e5b98f5a4870a986cf8bfd8558ec475eafed66ba30ae376385(
+    *,
+    pre_get_sources_script: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4754,6 +4881,7 @@ def _typecheckingstub__485afb8ca4cf12bdaab3c3455c7b90f3ea9d549eb87ec6fd05eae046f
     environment: typing.Optional[typing.Union[builtins.str, typing.Union[Environment, typing.Dict[builtins.str, typing.Any]]]] = None,
     except_: typing.Optional[typing.Union[typing.Sequence[builtins.str], typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]]] = None,
     extends: typing.Optional[typing.Sequence[builtins.str]] = None,
+    hooks: typing.Optional[typing.Union[DefaultHooks, typing.Dict[builtins.str, typing.Any]]] = None,
     id_tokens: typing.Optional[typing.Mapping[builtins.str, IDToken]] = None,
     image: typing.Optional[typing.Union[Image, typing.Dict[builtins.str, typing.Any]]] = None,
     inherit: typing.Optional[typing.Union[Inherit, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4898,6 +5026,7 @@ def _typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba5710
     *,
     branch: typing.Optional[builtins.str] = None,
     include: typing.Optional[typing.Sequence[typing.Union[TriggerInclude, typing.Dict[builtins.str, typing.Any]]]] = None,
+    inputs: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     project: typing.Optional[builtins.str] = None,
     strategy: typing.Optional[Strategy] = None,
 ) -> None:
@@ -4952,3 +5081,6 @@ def _typecheckingstub__01a2cf4c2a982a749d12511d9e43468f3b4a9cca16d6c56d9a2cfd115
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IDToken]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

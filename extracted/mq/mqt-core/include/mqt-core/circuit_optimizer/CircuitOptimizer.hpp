@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -92,6 +92,19 @@ public:
    * @param maxBlockSize the maximum size of a block
    */
   static void collectBlocks(QuantumComputation& qc, std::size_t maxBlockSize);
+
+  /**
+   * @brief Collects all Clifford blocks in the circuit.
+   * @details The circuit is traversed and all operations that are part of a
+   * Clifford block are collected into a compound operation with a certain
+   * maximum block size. All non-Clifford operations remain untouched.
+   * Light optimizations are applied to the blocks, such as removing identity
+   * gates.
+   * @param qc the quantum circuit
+   * @param maxBlockSize the maximum size of a block
+   */
+  static void collectCliffordBlocks(QuantumComputation& qc,
+                                    std::size_t maxBlockSize);
 
   /**
    * @brief Elide permutations by propagating them through the circuit.

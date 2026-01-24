@@ -3,11 +3,13 @@
 # Copyright 2019-Present Datadog, Inc.
 from __future__ import annotations
 
-from typing import List, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING
 
 from datadog_api_client.model_utils import (
     ModelNormal,
     cached_property,
+    unset,
+    UnsetType,
 )
 
 
@@ -31,35 +33,46 @@ class ObservabilityPipelineReduceProcessor(ModelNormal):
         )
 
         return {
+            "display_name": (str,),
+            "enabled": (bool,),
             "group_by": ([str],),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "merge_strategies": ([ObservabilityPipelineReduceProcessorMergeStrategy],),
             "type": (ObservabilityPipelineReduceProcessorType,),
         }
 
     attribute_map = {
+        "display_name": "display_name",
+        "enabled": "enabled",
         "group_by": "group_by",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "merge_strategies": "merge_strategies",
         "type": "type",
     }
 
     def __init__(
         self_,
+        enabled: bool,
         group_by: List[str],
         id: str,
         include: str,
-        inputs: List[str],
         merge_strategies: List[ObservabilityPipelineReduceProcessorMergeStrategy],
         type: ObservabilityPipelineReduceProcessorType,
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``reduce`` processor aggregates and merges logs based on matching keys and merge strategies.
+
+        **Supported pipeline types:** logs
+
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
 
         :param group_by: A list of fields used to group log events for merging.
         :type group_by: [str]
@@ -70,20 +83,19 @@ class ObservabilityPipelineReduceProcessor(ModelNormal):
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
 
-        :param inputs: A list of component IDs whose output is used as the input for this processor.
-        :type inputs: [str]
-
         :param merge_strategies: List of merge strategies defining how values from grouped events should be combined.
         :type merge_strategies: [ObservabilityPipelineReduceProcessorMergeStrategy]
 
         :param type: The processor type. The value should always be ``reduce``.
         :type type: ObservabilityPipelineReduceProcessorType
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
+        self_.enabled = enabled
         self_.group_by = group_by
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.merge_strategies = merge_strategies
         self_.type = type

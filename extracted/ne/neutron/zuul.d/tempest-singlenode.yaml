@@ -72,6 +72,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^vagrant/.*$
       - ^neutron/agent/ovn/.*$
@@ -221,6 +222,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^vagrant/.*$
       - ^neutron/agent/.*$
@@ -275,6 +277,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^vagrant/.*$
       - ^neutron/plugins/ml2/drivers/macvtap/.*$
@@ -372,7 +375,14 @@
       - openstack/taskflow
       - openstack/tooz
       - openstack/pbr
-
+      # this is a workaround for a packaging bug in ubuntu
+      # remove when https://bugs.launchpad.net/nova/+bug/2109592
+      # is resolved and oslo config is not a dep of the novnc deb
+      # via the defunct python3-novnc package.
+      - novnc/novnc
+    vars:
+     devstack_localrc:
+        NOVNC_FROM_PACKAGE: false
 - job:
     name: neutron-ovn-tempest
     parent: tempest-integrated-networking
@@ -428,6 +438,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^vagrant/.*$
       - ^roles/.*functional.*$
@@ -474,6 +485,7 @@
         DEFAULT_IMAGE_NAME: cirros-0.6.3-x86_64-uec
         DEFAULT_IMAGE_FILE_NAME: cirros-0.6.3-x86_64-uec.tar.gz
         Q_AGENT: ovn
+        OVN_AGENT_EXTENSIONS: 'metadata'
         ML2_L3_PLUGIN: ovn-router,trunk
         # NOTE(ralonsoh): during the eventlet removal, the "logger" mech
         # driver has been removed from this list. Re-add it once the removal
@@ -519,7 +531,8 @@
         n-novnc-cell1: true
         n-sch: true
         n-super-cond: true
-        q-ovn-metadata-agent: true
+        q-ovn-metadata-agent: false
+        q-ovn-agent: true
         ovn-controller: true
         ovn-northd: true
         ovs-vswitchd: true
@@ -561,6 +574,7 @@
       - ^tools/.*$
       - ^tox.ini$
       - ^plugin.spec$
+      - ^pyproject.toml$
       - ^tools/ovn_migration/.*$
       - ^neutron/agent/dhcp/.*$
       - ^neutron/agent/l2/.*$
@@ -675,57 +689,14 @@
       - openstack/taskflow
       - openstack/tooz
       - openstack/pbr
-
-- job:
-    name: neutron-ovn-tempest-ovs-master-centos-9-stream
-    description: Job testing for devstack/tempest testing Neutron with ovn driver and OVN master branch and CentOS 9-Stream
-    parent: neutron-ovn-tempest-ovs-master
-    nodeset: devstack-single-node-centos-9-stream
+      # this is a workaround for a packaging bug in ubuntu
+      # remove when https://bugs.launchpad.net/nova/+bug/2109592
+      # is resolved and oslo config is not a dep of the novnc deb
+      # via the defunct python3-novnc package.
+      - novnc/novnc
     vars:
-      zuul_copy_output:
-        '{{ devstack_base_dir }}/data/ovs': 'logs'
-        '{{ devstack_base_dir }}/data/ovn': 'logs'
-        '{{ devstack_log_dir }}/ovsdb-server-nb.log': 'logs'
-        '{{ devstack_log_dir }}/ovsdb-server-sb.log': 'logs'
-
-- job:
-    name: neutron-ovs-tempest-fips
-    parent: neutron-ovs-tempest-base
-    nodeset: devstack-single-node-centos-9-stream
-    description: |
-      Scenario testing for a FIPS enabled Centos 9 system
-    pre-run: playbooks/enable-fips.yaml
-    vars:
-      nslookup_target: 'opendev.org'
-      configure_swap_size: 4096
-      devstack_services:
-        br-ex-tcpdump: true
-        br-int-flows: true
-      devstack_localrc:
-        TEMPEST_VENV_UPPER_CONSTRAINTS: '/opt/stack/requirements/upper-constraints.txt'
-      devstack_local_conf:
-        test-config:
-          "$TEMPEST_CONFIG":
-            validation:
-              ssh_key_type: 'ecdsa'
-
-- job:
-    name: neutron-ovn-tempest-ovs-release-fips
-    parent: neutron-ovn-tempest-ovs-release
-    nodeset: devstack-single-node-centos-9-stream
-    description: |
-      Scenario testing for a FIPS enabled Centos 9 system
-    pre-run: playbooks/enable-fips.yaml
-    vars:
-      nslookup_target: 'opendev.org'
-      configure_swap_size: 4096
-      devstack_localrc:
-        TEMPEST_VENV_UPPER_CONSTRAINTS: '/opt/stack/requirements/upper-constraints.txt'
-      devstack_local_conf:
-        test-config:
-          "$TEMPEST_CONFIG":
-            validation:
-              ssh_key_type: 'ecdsa'
+     devstack_localrc:
+        NOVNC_FROM_PACKAGE: false
 
 # TODO(slaweq): move this to be multinode job when it will be possible in Zuul
 - job:

@@ -3,7 +3,7 @@ Type annotations for appsync service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appsync/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -55,12 +56,6 @@ from .literals import (
     TypeDefinitionFormatType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -344,7 +339,7 @@ class AssociateApiRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -373,7 +368,7 @@ BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class CachingConfigOutputTypeDef(TypedDict):
     ttl: int
-    cachingKeys: NotRequired[List[str]]
+    cachingKeys: NotRequired[list[str]]
 
 
 class CachingConfigTypeDef(TypedDict):
@@ -438,7 +433,7 @@ class DomainNameConfigTypeDef(TypedDict):
     certificateArn: NotRequired[str]
     appsyncDomainName: NotRequired[str]
     hostedZoneId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     domainNameArn: NotRequired[str]
 
 
@@ -484,15 +479,15 @@ DataSourceIntrospectionModelFieldTypeTypeDef = TypedDict(
     {
         "kind": NotRequired[str],
         "name": NotRequired[str],
-        "type": NotRequired[Dict[str, Any]],
-        "values": NotRequired[List[str]],
+        "type": NotRequired[dict[str, Any]],
+        "values": NotRequired[list[str]],
     },
 )
 
 
 class DataSourceIntrospectionModelIndexTypeDef(TypedDict):
     name: NotRequired[str]
-    fields: NotRequired[List[str]]
+    fields: NotRequired[list[str]]
 
 
 class DeleteApiCacheRequestTypeDef(TypedDict):
@@ -776,7 +771,7 @@ ListTypesRequestTypeDef = TypedDict(
 
 
 class PipelineConfigOutputTypeDef(TypedDict):
-    functions: NotRequired[List[str]]
+    functions: NotRequired[list[str]]
 
 
 class PipelineConfigTypeDef(TypedDict):
@@ -904,7 +899,7 @@ class GetApiCacheResponseTypeDef(TypedDict):
 
 
 class GetGraphqlApiEnvironmentVariablesResponseTypeDef(TypedDict):
-    environmentVariables: Dict[str, str]
+    environmentVariables: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -920,18 +915,18 @@ class GetSchemaCreationStatusResponseTypeDef(TypedDict):
 
 
 class ListApiKeysResponseTypeDef(TypedDict):
-    apiKeys: List[ApiKeyTypeDef]
+    apiKeys: list[ApiKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutGraphqlApiEnvironmentVariablesResponseTypeDef(TypedDict):
-    environmentVariables: Dict[str, str]
+    environmentVariables: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1034,7 +1029,7 @@ class GetDomainNameResponseTypeDef(TypedDict):
 
 
 class ListDomainNamesResponseTypeDef(TypedDict):
-    domainNameConfigs: List[DomainNameConfigTypeDef]
+    domainNameConfigs: list[DomainNameConfigTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1061,7 +1056,7 @@ GetTypeResponseTypeDef = TypedDict(
 ListTypesByAssociationResponseTypeDef = TypedDict(
     "ListTypesByAssociationResponseTypeDef",
     {
-        "types": List[TypeTypeDef],
+        "types": list[TypeTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
@@ -1069,7 +1064,7 @@ ListTypesByAssociationResponseTypeDef = TypedDict(
 ListTypesResponseTypeDef = TypedDict(
     "ListTypesResponseTypeDef",
     {
-        "types": List[TypeTypeDef],
+        "types": list[TypeTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
@@ -1102,7 +1097,7 @@ class DynamodbDataSourceConfigTypeDef(TypedDict):
 class EvaluateMappingTemplateResponseTypeDef(TypedDict):
     evaluationResult: str
     error: ErrorDetailTypeDef
-    logs: List[str]
+    logs: list[str]
     stash: str
     outErrors: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1190,7 +1185,7 @@ ListTypesRequestPaginateTypeDef = TypedDict(
 
 
 class ListSourceApiAssociationsResponseTypeDef(TypedDict):
-    sourceApiAssociationSummaries: List[SourceApiAssociationSummaryTypeDef]
+    sourceApiAssociationSummaries: list[SourceApiAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1237,13 +1232,13 @@ class GraphqlApiTypeDef(TypedDict):
     userPoolConfig: NotRequired[UserPoolConfigTypeDef]
     openIDConnectConfig: NotRequired[OpenIDConnectConfigTypeDef]
     arn: NotRequired[str]
-    uris: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
-    additionalAuthenticationProviders: NotRequired[List[AdditionalAuthenticationProviderTypeDef]]
+    uris: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
+    additionalAuthenticationProviders: NotRequired[list[AdditionalAuthenticationProviderTypeDef]]
     xrayEnabled: NotRequired[bool]
     wafWebAclArn: NotRequired[str]
     lambdaAuthorizerConfig: NotRequired[LambdaAuthorizerConfigTypeDef]
-    dns: NotRequired[Dict[str, str]]
+    dns: NotRequired[dict[str, str]]
     visibility: NotRequired[GraphQLApiVisibilityType]
     apiType: NotRequired[GraphQLApiTypeType]
     mergedApiExecutionRoleArn: NotRequired[str]
@@ -1296,10 +1291,10 @@ class UpdateSourceApiAssociationResponseTypeDef(TypedDict):
 
 
 class EventConfigOutputTypeDef(TypedDict):
-    authProviders: List[AuthProviderTypeDef]
-    connectionAuthModes: List[AuthModeTypeDef]
-    defaultPublishAuthModes: List[AuthModeTypeDef]
-    defaultSubscribeAuthModes: List[AuthModeTypeDef]
+    authProviders: list[AuthProviderTypeDef]
+    connectionAuthModes: list[AuthModeTypeDef]
+    defaultPublishAuthModes: list[AuthModeTypeDef]
+    defaultSubscribeAuthModes: list[AuthModeTypeDef]
     logConfig: NotRequired[EventLogConfigTypeDef]
 
 
@@ -1318,14 +1313,14 @@ class HttpDataSourceConfigTypeDef(TypedDict):
 
 class EvaluateCodeErrorDetailTypeDef(TypedDict):
     message: NotRequired[str]
-    codeErrors: NotRequired[List[CodeErrorTypeDef]]
+    codeErrors: NotRequired[list[CodeErrorTypeDef]]
 
 
 class DataSourceIntrospectionModelTypeDef(TypedDict):
     name: NotRequired[str]
-    fields: NotRequired[List[DataSourceIntrospectionModelFieldTypeDef]]
+    fields: NotRequired[list[DataSourceIntrospectionModelFieldTypeDef]]
     primaryKey: NotRequired[DataSourceIntrospectionModelIndexTypeDef]
-    indexes: NotRequired[List[DataSourceIntrospectionModelIndexTypeDef]]
+    indexes: NotRequired[list[DataSourceIntrospectionModelIndexTypeDef]]
     sdl: NotRequired[str]
 
 
@@ -1440,7 +1435,7 @@ class GetGraphqlApiResponseTypeDef(TypedDict):
 
 
 class ListGraphqlApisResponseTypeDef(TypedDict):
-    graphqlApis: List[GraphqlApiTypeDef]
+    graphqlApis: list[GraphqlApiTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1454,8 +1449,8 @@ class ApiTypeDef(TypedDict):
     apiId: NotRequired[str]
     name: NotRequired[str]
     ownerContact: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
-    dns: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
+    dns: NotRequired[dict[str, str]]
     apiArn: NotRequired[str]
     created: NotRequired[datetime]
     xrayEnabled: NotRequired[bool]
@@ -1523,14 +1518,14 @@ UpdateDataSourceRequestTypeDef = TypedDict(
 class EvaluateCodeResponseTypeDef(TypedDict):
     evaluationResult: str
     error: EvaluateCodeErrorDetailTypeDef
-    logs: List[str]
+    logs: list[str]
     stash: str
     outErrors: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DataSourceIntrospectionResultTypeDef(TypedDict):
-    models: NotRequired[List[DataSourceIntrospectionModelTypeDef]]
+    models: NotRequired[list[DataSourceIntrospectionModelTypeDef]]
     nextToken: NotRequired[str]
 
 
@@ -1550,7 +1545,7 @@ class GetFunctionResponseTypeDef(TypedDict):
 
 
 class ListFunctionsResponseTypeDef(TypedDict):
-    functions: List[FunctionConfigurationTypeDef]
+    functions: list[FunctionConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1571,13 +1566,13 @@ class GetResolverResponseTypeDef(TypedDict):
 
 
 class ListResolversByFunctionResponseTypeDef(TypedDict):
-    resolvers: List[ResolverTypeDef]
+    resolvers: list[ResolverTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListResolversResponseTypeDef(TypedDict):
-    resolvers: List[ResolverTypeDef]
+    resolvers: list[ResolverTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1598,7 +1593,7 @@ class GetApiResponseTypeDef(TypedDict):
 
 
 class ListApisResponseTypeDef(TypedDict):
-    apis: List[ApiTypeDef]
+    apis: list[ApiTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1610,16 +1605,16 @@ class UpdateApiResponseTypeDef(TypedDict):
 
 class CreateApiRequestTypeDef(TypedDict):
     name: str
+    eventConfig: EventConfigUnionTypeDef
     ownerContact: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
-    eventConfig: NotRequired[EventConfigUnionTypeDef]
 
 
 class UpdateApiRequestTypeDef(TypedDict):
     apiId: str
     name: str
+    eventConfig: EventConfigUnionTypeDef
     ownerContact: NotRequired[str]
-    eventConfig: NotRequired[EventConfigUnionTypeDef]
 
 
 class CreateDataSourceResponseTypeDef(TypedDict):
@@ -1633,7 +1628,7 @@ class GetDataSourceResponseTypeDef(TypedDict):
 
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    dataSources: List[DataSourceTypeDef]
+    dataSources: list[DataSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1654,10 +1649,10 @@ class GetDataSourceIntrospectionResponseTypeDef(TypedDict):
 class ChannelNamespaceTypeDef(TypedDict):
     apiId: NotRequired[str]
     name: NotRequired[str]
-    subscribeAuthModes: NotRequired[List[AuthModeTypeDef]]
-    publishAuthModes: NotRequired[List[AuthModeTypeDef]]
+    subscribeAuthModes: NotRequired[list[AuthModeTypeDef]]
+    publishAuthModes: NotRequired[list[AuthModeTypeDef]]
     codeHandlers: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     channelNamespaceArn: NotRequired[str]
     created: NotRequired[datetime]
     lastModified: NotRequired[datetime]
@@ -1694,7 +1689,7 @@ class GetChannelNamespaceResponseTypeDef(TypedDict):
 
 
 class ListChannelNamespacesResponseTypeDef(TypedDict):
-    channelNamespaces: List[ChannelNamespaceTypeDef]
+    channelNamespaces: list[ChannelNamespaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

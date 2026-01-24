@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import System
@@ -11,11 +11,24 @@ System_Runtime_Loader__EventContainer_Callable = typing.TypeVar("System_Runtime_
 System_Runtime_Loader__EventContainer_ReturnType = typing.TypeVar("System_Runtime_Loader__EventContainer_ReturnType")
 
 
+class AssemblyDependencyResolver(System.Object):
+    """This class has no documentation."""
+
+    def __init__(self, component_assembly_path: str) -> None:
+        ...
+
+    def resolve_assembly_to_path(self, assembly_name: System.Reflection.AssemblyName) -> str:
+        ...
+
+    def resolve_unmanaged_dll_to_path(self, unmanaged_dll_name: str) -> str:
+        ...
+
+
 class AssemblyLoadContext(System.Object):
     """This class has no documentation."""
 
     class ContextualReflectionScope(System.IDisposable):
-        """Opaque disposable struct used to restore CurrentContextualReflectionContext"""
+        """This class has no documentation."""
 
         def dispose(self) -> None:
             ...
@@ -61,16 +74,13 @@ class AssemblyLoadContext(System.Object):
     ALL: typing.Iterable[System.Runtime.Loader.AssemblyLoadContext]
 
     CURRENT_CONTEXTUAL_REFLECTION_CONTEXT: System.Runtime.Loader.AssemblyLoadContext
-    """Nullable current AssemblyLoadContext used for context sensitive reflection APIs"""
 
     @overload
     def __init__(self) -> None:
-        """This method is protected."""
         ...
 
     @overload
     def __init__(self, is_collectible: bool) -> None:
-        """This method is protected."""
         ...
 
     @overload
@@ -79,22 +89,11 @@ class AssemblyLoadContext(System.Object):
 
     @overload
     def enter_contextual_reflection(self) -> System.Runtime.Loader.AssemblyLoadContext.ContextualReflectionScope:
-        """
-        Enter scope using this AssemblyLoadContext for ContextualReflection
-        
-        :returns: A disposable ContextualReflectionScope for use in a using block.
-        """
         ...
 
     @staticmethod
     @overload
     def enter_contextual_reflection(activating: System.Reflection.Assembly) -> System.Runtime.Loader.AssemblyLoadContext.ContextualReflectionScope:
-        """
-        Enter scope using this AssemblyLoadContext for ContextualReflection
-        
-        :param activating: Set CurrentContextualReflectionContext to the AssemblyLoadContext which loaded activating.
-        :returns: A disposable ContextualReflectionScope for use in a using block.
-        """
         ...
 
     @staticmethod
@@ -106,7 +105,6 @@ class AssemblyLoadContext(System.Object):
         ...
 
     def load(self, assembly_name: System.Reflection.AssemblyName) -> System.Reflection.Assembly:
-        """This method is protected."""
         ...
 
     def load_from_assembly_name(self, assembly_name: System.Reflection.AssemblyName) -> System.Reflection.Assembly:
@@ -127,11 +125,9 @@ class AssemblyLoadContext(System.Object):
         ...
 
     def load_unmanaged_dll(self, unmanaged_dll_name: str) -> System.IntPtr:
-        """This method is protected."""
         ...
 
     def load_unmanaged_dll_from_path(self, unmanaged_dll_path: str) -> System.IntPtr:
-        """This method is protected."""
         ...
 
     def set_profile_optimization_root(self, directory_path: str) -> None:
@@ -144,19 +140,6 @@ class AssemblyLoadContext(System.Object):
         ...
 
     def unload(self) -> None:
-        ...
-
-
-class AssemblyDependencyResolver(System.Object):
-    """This class has no documentation."""
-
-    def __init__(self, component_assembly_path: str) -> None:
-        ...
-
-    def resolve_assembly_to_path(self, assembly_name: System.Reflection.AssemblyName) -> str:
-        ...
-
-    def resolve_unmanaged_dll_to_path(self, unmanaged_dll_name: str) -> str:
         ...
 
 

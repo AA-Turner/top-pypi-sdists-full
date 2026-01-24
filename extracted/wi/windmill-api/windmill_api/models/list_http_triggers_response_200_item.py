@@ -9,6 +9,8 @@ from ..models.list_http_triggers_response_200_item_authentication_method import 
     ListHttpTriggersResponse200ItemAuthenticationMethod,
 )
 from ..models.list_http_triggers_response_200_item_http_method import ListHttpTriggersResponse200ItemHttpMethod
+from ..models.list_http_triggers_response_200_item_mode import ListHttpTriggersResponse200ItemMode
+from ..models.list_http_triggers_response_200_item_request_type import ListHttpTriggersResponse200ItemRequestType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -31,7 +33,7 @@ class ListHttpTriggersResponse200Item:
     Attributes:
         route_path (str):
         http_method (ListHttpTriggersResponse200ItemHttpMethod):
-        is_async (bool):
+        request_type (ListHttpTriggersResponse200ItemRequestType):
         authentication_method (ListHttpTriggersResponse200ItemAuthenticationMethod):
         is_static_website (bool):
         workspaced_route (bool):
@@ -45,6 +47,7 @@ class ListHttpTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListHttpTriggersResponse200ItemMode): job trigger mode
         static_asset_config (Union[Unset, ListHttpTriggersResponse200ItemStaticAssetConfig]):
         authentication_resource_path (Union[Unset, str]):
         summary (Union[Unset, str]):
@@ -52,12 +55,12 @@ class ListHttpTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListHttpTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, ListHttpTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListHttpTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     route_path: str
     http_method: ListHttpTriggersResponse200ItemHttpMethod
-    is_async: bool
+    request_type: ListHttpTriggersResponse200ItemRequestType
     authentication_method: ListHttpTriggersResponse200ItemAuthenticationMethod
     is_static_website: bool
     workspaced_route: bool
@@ -71,6 +74,7 @@ class ListHttpTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListHttpTriggersResponse200ItemMode
     static_asset_config: Union[Unset, "ListHttpTriggersResponse200ItemStaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, str] = UNSET
     summary: Union[Unset, str] = UNSET
@@ -84,7 +88,8 @@ class ListHttpTriggersResponse200Item:
         route_path = self.route_path
         http_method = self.http_method.value
 
-        is_async = self.is_async
+        request_type = self.request_type.value
+
         authentication_method = self.authentication_method.value
 
         is_static_website = self.is_static_website
@@ -101,6 +106,8 @@ class ListHttpTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         static_asset_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
             static_asset_config = self.static_asset_config.to_dict()
@@ -123,7 +130,7 @@ class ListHttpTriggersResponse200Item:
             {
                 "route_path": route_path,
                 "http_method": http_method,
-                "is_async": is_async,
+                "request_type": request_type,
                 "authentication_method": authentication_method,
                 "is_static_website": is_static_website,
                 "workspaced_route": workspaced_route,
@@ -137,6 +144,7 @@ class ListHttpTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if static_asset_config is not UNSET:
@@ -172,7 +180,7 @@ class ListHttpTriggersResponse200Item:
 
         http_method = ListHttpTriggersResponse200ItemHttpMethod(d.pop("http_method"))
 
-        is_async = d.pop("is_async")
+        request_type = ListHttpTriggersResponse200ItemRequestType(d.pop("request_type"))
 
         authentication_method = ListHttpTriggersResponse200ItemAuthenticationMethod(d.pop("authentication_method"))
 
@@ -199,6 +207,8 @@ class ListHttpTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListHttpTriggersResponse200ItemMode(d.pop("mode"))
 
         _static_asset_config = d.pop("static_asset_config", UNSET)
         static_asset_config: Union[Unset, ListHttpTriggersResponse200ItemStaticAssetConfig]
@@ -232,7 +242,7 @@ class ListHttpTriggersResponse200Item:
         list_http_triggers_response_200_item = cls(
             route_path=route_path,
             http_method=http_method,
-            is_async=is_async,
+            request_type=request_type,
             authentication_method=authentication_method,
             is_static_website=is_static_website,
             workspaced_route=workspaced_route,
@@ -246,6 +256,7 @@ class ListHttpTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
             summary=summary,

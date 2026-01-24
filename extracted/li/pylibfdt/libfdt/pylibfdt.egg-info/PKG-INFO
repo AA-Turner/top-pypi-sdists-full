@@ -1,0 +1,32 @@
+Metadata-Version: 2.2
+Name: pylibfdt
+Version: 1.7.2.post1
+Summary: Python binding for libfdt
+Author: Simon Glass <sjg@chromium.org>
+Description-Content-Type: text/plain
+Dynamic: author
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: summary
+
+This tree contains a copy of libfdt from the upstream dtc project for the
+purposes of pypi.org packaging. Other than changes to the packaging files,
+changes should be made upstream. The upstream sources are here:
+
+git://git.kernel.org/pub/scm/utils/dtc/dtc.git
+
+
+To install this you will need to install swig and Python development files.
+
+On Debian distributions:
+
+   sudo apt-get install swig python3-dev
+
+
+The module can be installed with pip:
+
+   pip install pylibfdt
+
+or via setup.py:
+
+   ./setup.py install [--user]

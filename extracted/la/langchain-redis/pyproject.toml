@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langchain-redis"
-version = "0.2.3"
+version = "0.2.5"
 description = "An integration package connecting Redis and LangChain for AI working memory"
 authors = ["Brian Sam-Bodden <bsb@redis.com>"]
 readme = "README.md"
@@ -11,9 +11,9 @@ license = "MIT"
 "Source Code" = "https://github.com/langchain-ai/langchain-redis/tree/main/libs/redis"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.14"
-langchain-core = "^0.3"
-redisvl = ">=0.6.0,<1.0.0"
+python = ">=3.10,<3.14"
+langchain-core = ">=1.0.7"
+redisvl = ">=0.12.0,<1.0.0"
 jinja2 = "^3.1.6"
 typing-extensions = "^4.13.2"
 anyio = "^4.9.0"
@@ -21,6 +21,11 @@ httpcore = "^1.0.9"
 certifi = "^2025.4.26"
 urllib3 = "^2.4.0"
 python-ulid = ">=3.0.0"
+langcache = {version = ">=0.11.0", optional = true}
+hf-xet = "<1.2.1"  # 1.2.1 is yanked and generating warnings
+
+[tool.poetry.extras]
+langcache = ["langcache"]
 
 [tool.poetry.group.test]
 optional = true
@@ -31,9 +36,11 @@ pytest-asyncio = "^0.23.2"
 pytest-socket = "^0.7.0"
 syrupy = "^4.6.1"
 sentence-transformers = "^3.0.1"
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-langchain-openai = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/partners/openai" }
+langchain-core = "^1.0"
+langchain-openai = "^1.0"
 openai = ">=1.68.2"
+langcache = {version = ">=0.11.0"}
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.codespell]
 optional = true
@@ -45,7 +52,7 @@ codespell = "^2.2.6"
 optional = true
 
 [tool.poetry.group.test_integration.dependencies]
-langchain-openai = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/partners/openai" }
+langchain-openai = "^1.0"
 testcontainers = "^4.7.1"
 
 [tool.poetry.group.lint]
@@ -56,14 +63,14 @@ ruff = "^0.5.0"
 
 [tool.poetry.group.typing.dependencies]
 mypy = "^1.12.0"
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
+langchain-core = "^1.0"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-langchain-openai = "^0.3.15"
+langchain-core = "^1.0"
+langchain-openai = "^1.0"
 
 [tool.ruff.lint]
 select = [
@@ -75,6 +82,7 @@ select = [
 
 [tool.mypy]
 disallow_untyped_defs = true
+exclude = '(^env/|^\.venv/|^venv/)'
 
 [tool.coverage.run]
 omit = ["tests/*"]
@@ -98,5 +106,12 @@ addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5
 # https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
 markers = [
   "compile: mark placeholder test used to compile integration tests without running them",
+  "requires_api_keys: mark tests that require external API keys or services",
 ]
 asyncio_mode = "auto"
+# Filter out testcontainers internal deprecation warnings
+# These come from testcontainers library's own code, not our usage
+# We're already using the recommended LogMessageWaitStrategy
+filterwarnings = [
+  "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers",
+]

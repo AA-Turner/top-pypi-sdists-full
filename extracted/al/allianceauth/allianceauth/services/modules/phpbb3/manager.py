@@ -2,7 +2,7 @@ import random
 import string
 import calendar
 import re
-from datetime import datetime
+import datetime as dt
 
 from passlib.apps import phpbb3_context
 from django.db import connections
@@ -128,7 +128,7 @@ class Phpbb3Manager:
 
     @staticmethod
     def __get_current_utc_date():
-        d = datetime.utcnow()
+        d = dt.datetime.now(dt.timezone.utc)
         unixtime = calendar.timegm(d.utctimetuple())
         return unixtime
 

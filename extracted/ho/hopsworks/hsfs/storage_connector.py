@@ -26,11 +26,14 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import humps
 import pandas as pd
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
 from hopsworks_common import client
 from hopsworks_common.core.constants import HAS_NUMPY, HAS_POLARS
 from hsfs import engine
 from hsfs.core import data_source as ds
 from hsfs.core import data_source_api, storage_connector_api
+from hsfs.core import data_source_data as dsd
 
 
 if HAS_NUMPY:
@@ -146,6 +149,11 @@ class StorageConnector(ABC):
         pass
 
     def prepare_spark(self, path: Optional[str] = None) -> Optional[str]:
+        """Prepare Spark to use this Storage Connector.
+
+        # Arguments
+            path: Path to prepare for reading from cloud storage. Defaults to `None`.
+        """
         return path
 
     def read(
@@ -241,10 +249,46 @@ class StorageConnector(ABC):
         else:
             return []
 
-    def get_databases(self):
+    def get_databases(self) -> list[str]:
+        """
+        Retrieve the list of available databases.
+
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            sc = fs.get_storage_connector("conn_name")
+
+            databases = sc.get_databases()
+            ```
+
+        Returns:
+            list[str]: A list of database names available in the storage connector.
+        """
         return self._data_source_api.get_databases(self._featurestore_id, self._name)
 
-    def get_tables(self, database: str):
+    def get_tables(self, database: str = None) -> list[ds.DataSource]:
+        """
+        Retrieve the list of tables from the specified database.
+
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            sc = fs.get_storage_connector("conn_name")
+
+            tables = sc.get_tables("database_name")
+            ```
+
+        Args:
+            database (str, optional): The name of the database to list tables from.
+                If not provided, the default database is used.
+
+        Returns:
+            list[DataSource]: A list of DataSource objects representing the tables.
+        """
         if not database:
             if self.type == StorageConnector.REDSHIFT:
                 database = self.database_name
@@ -259,13 +303,61 @@ class StorageConnector(ABC):
                     "Database name is required for this connector type. "
                     "Please provide a database name."
                 )
-        return self._data_source_api.get_tables(self._featurestore_id, self._name, database)
+        return self._data_source_api.get_tables(
+            self._featurestore_id, self._name, database
+        )
 
-    def get_data(self, data_source: ds.DataSource):
-        return self._data_source_api.get_data(self._featurestore_id, self._name, data_source)
+    def get_data(self, data_source: ds.DataSource) -> dsd.DataSourceData:
+        """
+        Retrieve the data from the data source.
 
-    def get_metadata(self, data_source: ds.DataSource):
-        return self._data_source_api.get_metadata(self._featurestore_id, self._name, data_source)
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            sc = fs.get_storage_connector("conn_name")
+
+            tables = sc.get_tables("database_name")
+
+            data = sc.get_data(tables[0])
+            ```
+
+        Args:
+            data_source (DataSource): The data source to retrieve data from.
+
+        Returns:
+            DataSourceData: An object containing the data retrieved from the data source.
+        """
+        return self._data_source_api.get_data(
+            self._featurestore_id, self._name, data_source
+        )
+
+    def get_metadata(self, data_source: ds.DataSource) -> dict:
+        """
+        Retrieve metadata information about the data source.
+
+        !!! example
+            ```python
+            # connect to the Feature Store
+            fs = ...
+
+            sc = fs.get_storage_connector("conn_name")
+
+            tables = sc.get_tables("database_name")
+
+            metadata = sc.get_metadata(tables[0])
+            ```
+
+        Args:
+            data_source (DataSource): The data source to retrieve metadata from.
+
+        Returns:
+            dict: A dictionary containing metadata about the data source.
+        """
+        return self._data_source_api.get_metadata(
+            self._featurestore_id, self._name, data_source
+        )
 
 
 class HopsFSConnector(StorageConnector):
@@ -385,6 +477,10 @@ class S3Connector(StorageConnector):
 
     @property
     def arguments(self) -> Optional[Dict[str, Any]]:
+        """Additional spark options for the S3 connector, passed as a dictionary.
+        These are set using the `Spark Options` field in the UI when creating the connector.
+        Example: `{"fs.s3a.endpoint": "s3.eu-west-1.amazonaws.com", "fs.s3a.path.style.access": "true"}`
+        """
         return self._arguments
 
     def spark_options(self) -> Dict[str, str]:
@@ -420,8 +516,24 @@ class S3Connector(StorageConnector):
             "session_token": self.session_token,
             "region": self.region,
         }
+        if not self.arguments:
+            return options
         if self.arguments.get("fs.s3a.endpoint"):
             options["endpoint"] = self.arguments.get("fs.s3a.endpoint")
+        if self.arguments.get("fs.s3a.connection.ssl.enabled"):
+            # use_ssl is used by s3 secrets in duckdb
+            # where as fs.s3a.connection.ssl.enabled is used by spark s3a connector
+            # hadoop : https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/connecting.html#Low-level_Network.2FHttp_Options
+            # duckdb : https://duckdb.org/docs/stable/core_extensions/httpfs/s3api
+            options["use_ssl"] = self.arguments.get("fs.s3a.connection.ssl.enabled")
+        if self.arguments.get("fs.s3a.path.style.access"):
+            # url_style is used by duckdb s3 connector
+            # where as fs.s3a.path.style.access is used by spark s3a connector
+            # hadoop: https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/connecting.html#Third_party_stores
+            # duckdb: https://duckdb.org/docs/stable/core_extensions/httpfs/s3api
+            options["url_style"] = (
+                "path" if self.arguments.get("fs.s3a.path.style.access") else "vhost"
+            )
         return options
 
     def read(
@@ -854,6 +966,8 @@ class SnowflakeConnector(StorageConnector):
         warehouse: Optional[str] = None,
         application: Optional[Any] = None,
         sf_options: Optional[Dict[str, Any]] = None,
+        private_key: Optional[str] = None,
+        passphrase: Optional[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(id, name, description, featurestore_id)
@@ -869,6 +983,8 @@ class SnowflakeConnector(StorageConnector):
         self._table = table
         self._role = role
         self._application = application
+        self._private_key = private_key
+        self._passphrase = passphrase
 
         self._options = (
             {opt["name"]: opt["value"] for opt in sf_options} if sf_options else {}
@@ -934,6 +1050,16 @@ class SnowflakeConnector(StorageConnector):
         """Additional options for the Snowflake storage connector"""
         return self._options
 
+    @property
+    def private_key(self) -> Optional[str]:
+        """Path to the private key file for key pair authentication."""
+        return self._private_key
+
+    @property
+    def passphrase(self) -> Optional[str]:
+        """Passphrase for the private key file."""
+        return self._passphrase
+
     def snowflake_connector_options(self) -> Optional[Dict[str, Any]]:
         """Alias for `connector_options`"""
         return self.connector_options()
@@ -977,9 +1103,14 @@ class SnowflakeConnector(StorageConnector):
         props["sfUser"] = self._user
         if self._password:
             props["sfPassword"] = self._password
-        else:
+        elif self._token:
             props["sfAuthenticator"] = "oauth"
             props["sfToken"] = self._token
+        elif self._private_key:
+            private_key_content = self._read_private_key()
+            if private_key_content:
+                props["pem_private_key"] = private_key_content
+
         if self._warehouse:
             props["sfWarehouse"] = self._warehouse
         if self._application:
@@ -990,6 +1121,29 @@ class SnowflakeConnector(StorageConnector):
             props["dbtable"] = self._table
 
         return props
+
+    def _read_private_key(self) -> Optional[str]:
+        """Reads the private key from the specified key path."""
+        p_key = serialization.load_pem_private_key(
+            self._private_key.encode(),
+            password=self._passphrase.encode() if self._passphrase else None,
+            backend=default_backend(),
+        )
+
+        private_key_bytes = p_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        private_key_content = private_key_bytes.decode("UTF-8")
+        # remove both regular and encrypted PEM headers, e.g.
+        # -----BEGIN PRIVATE KEY----- and -----BEGIN ENCRYPTED PRIVATE KEY-----
+        private_key_content = re.sub(
+            r"-*\s*(BEGIN|END)(?: ENCRYPTED)? PRIVATE KEY-*\r?\n",
+            "",
+            private_key_content,
+        ).replace("\n", "")
+        return private_key_content
 
     def read(
         self,
@@ -1021,6 +1175,13 @@ class SnowflakeConnector(StorageConnector):
         # Returns
             `DataFrame`.
         """
+
+        # validate engine supports connector type
+        if not engine.get_instance().is_connector_type_supported(self.type):
+            raise NotImplementedError(
+                "Snowflake connector not yet supported for engine: " + engine.get_type()
+            )
+
         options = (
             {**self.spark_options(), **options}
             if options is not None
@@ -1034,6 +1195,9 @@ class SnowflakeConnector(StorageConnector):
         return engine.get_instance().read(
             self, self.SNOWFLAKE_FORMAT, options, None, dataframe_type
         )
+
+    def prepare_spark(self, path=None):
+        return engine.get_instance().setup_storage_connector(self, path)
 
 
 class JdbcConnector(StorageConnector):
@@ -1153,13 +1317,9 @@ class KafkaConnector(StorageConnector):
         # KAFKA
         self._bootstrap_servers = bootstrap_servers
         self._security_protocol = security_protocol
-        self._ssl_truststore_location = engine.get_instance().add_file(
-            ssl_truststore_location
-        )
+        self._ssl_truststore_location = ssl_truststore_location
         self._ssl_truststore_password = ssl_truststore_password
-        self._ssl_keystore_location = engine.get_instance().add_file(
-            ssl_keystore_location
-        )
+        self._ssl_keystore_location = ssl_keystore_location
         self._ssl_keystore_password = ssl_keystore_password
         self._ssl_key_password = ssl_key_password
         self._ssl_endpoint_identification_algorithm = (
@@ -1203,7 +1363,36 @@ class KafkaConnector(StorageConnector):
         """Bootstrap servers string."""
         return self._options
 
-    def kafka_options(self) -> Dict[str, Any]:
+    def create_pem_files(self, kafka_options: Dict[str, Any]) -> None:
+        """
+        Create PEM (Privacy Enhanced Mail) files for Kafka SSL authentication.
+
+        This method writes the necessary PEM files for SSL authentication with Kafka,
+        using the provided keystore and truststore locations and passwords. The generated
+        file paths are stored as the following instance variables:
+
+            - self.ca_chain_path: Path to the generated CA chain PEM file.
+            - self.client_cert_path: Path to the generated client certificate PEM file.
+            - self.client_key_path: Path to the generated client key PEM file.
+
+        These files are used for configuring secure Kafka connections (e.g., with Spark or confluent_kafka).
+        The method is idempotent and will only create the files once per connector instance.
+        """
+        if not self._pem_files_created:
+            (
+                self.ca_chain_path,
+                self.client_cert_path,
+                self.client_key_path,
+            ) = client.get_instance()._write_pem(
+                kafka_options["ssl.keystore.location"],
+                kafka_options["ssl.keystore.password"],
+                kafka_options["ssl.truststore.location"],
+                kafka_options["ssl.truststore.password"],
+                f"kafka_sc_{client.get_instance()._project_id}_{self._id}",
+            )
+            self._pem_files_created = True
+
+    def kafka_options(self, distribute=True) -> Dict[str, Any]:
         """Return prepared options to be passed to kafka, based on the additional arguments.
         https://kafka.apache.org/documentation/
         """
@@ -1229,26 +1418,32 @@ class KafkaConnector(StorageConnector):
         # this option is not set and so the `not self._external_kafka` would return true
         # overwriting the user specified certificates
         if self._external_kafka is False:
-            self._ssl_truststore_location = (
-                client.get_instance()._get_jks_trust_store_path()
+            ssl_truststore_location = client.get_instance()._get_jks_trust_store_path()
+            ssl_truststore_password = client.get_instance()._cert_key
+            ssl_keystore_location = client.get_instance()._get_jks_key_store_path()
+            ssl_keystore_password = client.get_instance()._cert_key
+            ssl_key_password = client.get_instance()._cert_key
+        else:
+            ssl_truststore_location = engine.get_instance().add_file(
+                self._ssl_truststore_location, distribute=distribute
             )
-            self._ssl_truststore_password = client.get_instance()._cert_key
-            self._ssl_keystore_location = (
-                client.get_instance()._get_jks_key_store_path()
+            ssl_truststore_password = self._ssl_truststore_password
+            ssl_keystore_location = engine.get_instance().add_file(
+                self._ssl_keystore_location, distribute=distribute
             )
-            self._ssl_keystore_password = client.get_instance()._cert_key
-            self._ssl_key_password = client.get_instance()._cert_key
+            ssl_keystore_password = self._ssl_keystore_password
+            ssl_key_password = self._ssl_key_password
 
-        if self._ssl_truststore_location is not None:
-            config["ssl.truststore.location"] = self._ssl_truststore_location
-        if self._ssl_truststore_password is not None:
-            config["ssl.truststore.password"] = self._ssl_truststore_password
-        if self.ssl_keystore_location is not None:
-            config["ssl.keystore.location"] = self._ssl_keystore_location
-        if self._ssl_keystore_password is not None:
-            config["ssl.keystore.password"] = self._ssl_keystore_password
-        if self._ssl_key_password is not None:
-            config["ssl.key.password"] = self._ssl_key_password
+        if ssl_truststore_location is not None:
+            config["ssl.truststore.location"] = ssl_truststore_location
+        if ssl_truststore_password is not None:
+            config["ssl.truststore.password"] = ssl_truststore_password
+        if ssl_keystore_location is not None:
+            config["ssl.keystore.location"] = ssl_keystore_location
+        if ssl_keystore_password is not None:
+            config["ssl.keystore.password"] = ssl_keystore_password
+        if ssl_key_password is not None:
+            config["ssl.key.password"] = ssl_key_password
 
         if self._external_kafka:
             warnings.warn(
@@ -1264,6 +1459,8 @@ class KafkaConnector(StorageConnector):
         Right now only producer values with Importance >= medium are implemented.
         https://docs.confluent.io/platform/current/clients/librdkafka/html/md_CONFIGURATION.html
         """
+
+        pem_files_assigned = False
         config = {}
         kafka_options = self.kafka_options()
         for key, value in kafka_options.items():
@@ -1275,23 +1472,13 @@ class KafkaConnector(StorageConnector):
                     "ssl.keystore.location",
                     "ssl.keystore.password",
                 ]
-                and not self._pem_files_created
+                and not pem_files_assigned
             ):
-                (
-                    ca_chain_path,
-                    client_cert_path,
-                    client_key_path,
-                ) = client.get_instance()._write_pem(
-                    kafka_options["ssl.keystore.location"],
-                    kafka_options["ssl.keystore.password"],
-                    kafka_options["ssl.truststore.location"],
-                    kafka_options["ssl.truststore.password"],
-                    f"kafka_sc_{client.get_instance()._project_id}_{self._id}",
-                )
-                self._pem_files_created = True
-                config["ssl.ca.location"] = ca_chain_path
-                config["ssl.certificate.location"] = client_cert_path
-                config["ssl.key.location"] = client_key_path
+                self.create_pem_files(kafka_options)
+                config["ssl.ca.location"] = self.ca_chain_path
+                config["ssl.certificate.location"] = self.client_cert_path
+                config["ssl.key.location"] = self.client_key_path
+                pem_files_assigned = True
             elif key == "sasl.jaas.config":
                 groups = re.search(
                     "(.+?) .*username=[\"'](.+?)[\"'] .*password=[\"'](.+?)[\"']",
@@ -1364,46 +1551,42 @@ class KafkaConnector(StorageConnector):
         """
         from packaging import version
 
+        kafka_client_supports_pem = version.parse(
+            engine.get_instance().get_spark_version()
+        ) >= version.parse("3.2.0")
+
+        pem_files_assigned = False
         spark_config = {}
-
-        kafka_options = self.kafka_options()
-
+        # Only distribute the files if the Kafka client does not support being configured with PEM content
+        kafka_options = self.kafka_options(distribute=not kafka_client_supports_pem)
         for key, value in kafka_options.items():
-            if key in [
-                "ssl.truststore.location",
-                "ssl.truststore.password",
-                "ssl.keystore.location",
-                "ssl.keystore.password",
-                "ssl.key.password",
-            ] and version.parse(
-                engine.get_instance().get_spark_version()
-            ) >= version.parse("3.2.0"):
-                # We can only use this in the newer version of Spark which depend on Kafka > 2.7.0
-                # Kafka 2.7.0 adds support for providing the SSL credentials as PEM objects.
-                if not self._pem_files_created:
-                    (
-                        ca_chain_path,
-                        client_cert_path,
-                        client_key_path,
-                    ) = client.get_instance()._write_pem(
-                        kafka_options["ssl.keystore.location"],
-                        kafka_options["ssl.keystore.password"],
-                        kafka_options["ssl.truststore.location"],
-                        kafka_options["ssl.truststore.password"],
-                        f"kafka_sc_{client.get_instance()._project_id}_{self._id}",
-                    )
-                    self._pem_files_created = True
+            if (
+                key
+                in [
+                    "ssl.truststore.location",
+                    "ssl.truststore.password",
+                    "ssl.keystore.location",
+                    "ssl.keystore.password",
+                    "ssl.key.password",
+                ]
+                and kafka_client_supports_pem
+            ):
+                if not pem_files_assigned:
+                    # We can only use this in the newer version of Spark which depend on Kafka > 2.7.0
+                    # Kafka 2.7.0 adds support for providing the SSL credentials as PEM objects.
+                    self.create_pem_files(kafka_options)
                     spark_config["kafka.ssl.truststore.certificates"] = self._read_pem(
-                        ca_chain_path
+                        self.ca_chain_path
                     )
                     spark_config["kafka.ssl.keystore.certificate.chain"] = (
-                        self._read_pem(client_cert_path)
+                        self._read_pem(self.client_cert_path)
                     )
                     spark_config["kafka.ssl.keystore.key"] = self._read_pem(
-                        client_key_path
+                        self.client_key_path
                     )
                     spark_config["kafka.ssl.truststore.type"] = "PEM"
                     spark_config["kafka.ssl.keystore.type"] = "PEM"
+                    pem_files_assigned = True
             else:
                 spark_config[f"{KafkaConnector.SPARK_FORMAT}.{key}"] = value
 
@@ -1819,6 +2002,7 @@ class BigQueryConnector(StorageConnector):
             self, self.BIGQUERY_FORMAT, options, path, dataframe_type
         )
 
+
 class RdsConnector(StorageConnector):
     type = StorageConnector.RDS
     JDBC_FORMAT = "jdbc"
@@ -1878,9 +2062,9 @@ class RdsConnector(StorageConnector):
         arguments.
         """
         return {
-            "user":  self.user,
-            "password":  self.password,
-            "driver":  "org.postgresql.Driver"
+            "user": self.user,
+            "password": self.password,
+            "driver": "org.postgresql.Driver",
         }
 
     def connector_options(self) -> Dict[str, Any]:

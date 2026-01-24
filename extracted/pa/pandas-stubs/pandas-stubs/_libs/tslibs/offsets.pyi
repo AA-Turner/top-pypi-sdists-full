@@ -17,7 +17,10 @@ import numpy as np
 from pandas import Timestamp
 from typing_extensions import Self
 
-from pandas._typing import npt
+from pandas._typing import (
+    ShapeT,
+    np_ndarray_object,
+)
 
 from pandas.tseries.holiday import AbstractHolidayCalendar
 
@@ -37,9 +40,11 @@ class BaseOffset:
     @property
     def base(self) -> BaseOffset: ...
     @overload
-    def __add__(self, other: npt.NDArray[np.object_]) -> npt.NDArray[np.object_]: ...
+    def __add__(
+        self, other: np_ndarray_object[ShapeT]
+    ) -> np_ndarray_object[ShapeT]: ...
     @overload
-    def __add__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
+    def __add__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
     @overload
     def __add__(self, other: date) -> Timestamp: ...
     @overload
@@ -47,9 +52,11 @@ class BaseOffset:
     @overload
     def __add__(self, other: _TimedeltaT) -> _TimedeltaT: ...
     @overload
-    def __radd__(self, other: npt.NDArray[np.object_]) -> npt.NDArray[np.object_]: ...
+    def __radd__(
+        self, other: np_ndarray_object[ShapeT]
+    ) -> np_ndarray_object[ShapeT]: ...
     @overload
-    def __radd__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
+    def __radd__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
     @overload
     def __radd__(self, other: date) -> Timestamp: ...
     @overload
@@ -58,9 +65,11 @@ class BaseOffset:
     def __radd__(self, other: _TimedeltaT) -> _TimedeltaT: ...
     def __sub__(self, other: BaseOffset) -> Self: ...
     @overload
-    def __rsub__(self, other: npt.NDArray[np.object_]) -> npt.NDArray[np.object_]: ...
+    def __rsub__(
+        self, other: np_ndarray_object[ShapeT]
+    ) -> np_ndarray_object[ShapeT]: ...
     @overload
-    def __rsub__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
+    def __rsub__(self, other: _DatetimeT) -> _DatetimeT: ...  # type: ignore[overload-overlap] # pyright: ignore[reportOverlappingOverload]
     @overload
     def __rsub__(self, other: date) -> Timestamp: ...
     @overload
@@ -68,11 +77,15 @@ class BaseOffset:
     @overload
     def __rsub__(self, other: _TimedeltaT) -> _TimedeltaT: ...
     @overload
-    def __mul__(self, other: np.ndarray) -> np.ndarray: ...
+    def __mul__(
+        self, other: np_ndarray_object[ShapeT]
+    ) -> np_ndarray_object[ShapeT]: ...
     @overload
     def __mul__(self, other: int) -> Self: ...
     @overload
-    def __rmul__(self, other: np.ndarray) -> np.ndarray: ...
+    def __rmul__(
+        self, other: np_ndarray_object[ShapeT]
+    ) -> np_ndarray_object[ShapeT]: ...
     @overload
     def __rmul__(self, other: int) -> Self: ...
     def __neg__(self) -> Self: ...
@@ -112,7 +125,6 @@ class BusinessDay(BaseOffset):
     def __init__(
         self, n: int = ..., normalize: bool = ..., offset: timedelta = ...
     ) -> None: ...
-    def __reduce__(self): ...
 
 class BusinessHour(SingleConstructorOffset):
     def __init__(
@@ -194,7 +206,7 @@ class _CustomBusinessMonth(SingleConstructorOffset):
         n: int = ...,
         normalize: bool = ...,
         offset: timedelta = ...,
-        holidays: list | None = ...,
+        holidays: list[Any] | None = ...,
     ) -> None: ...
 
 class CustomBusinessDay(BusinessDay):
@@ -202,7 +214,7 @@ class CustomBusinessDay(BusinessDay):
         self,
         n: int = ...,
         normalize: bool = ...,
-        holidays: list = ...,
+        holidays: list[Any] = ...,
         calendar: AbstractHolidayCalendar | np.busdaycalendar = ...,
     ) -> None: ...
 
@@ -214,7 +226,7 @@ class CustomBusinessHour(BusinessHour):
         start: str | time | Collection[str | time] = ...,
         end: str | time | Collection[str | time] = ...,
         offset: timedelta = ...,
-        holidays: list | None = ...,
+        holidays: list[Any] | None = ...,
     ) -> None: ...
 
 class CustomBusinessMonthEnd(_CustomBusinessMonth): ...

@@ -137,15 +137,23 @@ set -euxo pipefail
     type=str,
     help="Semver of the new Release. Example: 1.0.0",
 )
+@click.option(
+    "--commit",
+    is_flag=False,
+    required=False,
+    type=str,
+    default=None,
+    help="Git commit hash to use for the release. Defaults to current HEAD if not specified.",
+)
 @coro
-async def release_create(semver: str) -> None:
+async def release_create(semver: str, commit: Optional[str]) -> None:
     click.echo(FeedbackManager.warning_deprecated_releases())
     config = CLIConfig.get_project_config()
     _ = await try_update_config_with_remote(config, only_if_needed=True)
 
     client = config.get_client()
     folder = getcwd()
-    await create_release(client, config, semver, folder)
+    await create_release(client, config, semver, folder, commit=commit)
 
 
 @release.command(name="promote", short_help="Promotes to live status a preview Release")

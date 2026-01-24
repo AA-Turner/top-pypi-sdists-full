@@ -32,6 +32,9 @@ class SharedContextCrossSplitPart:
         self.auto_extracted_glossary: Glossary | None = None
         self.raw_extracted_terms: list[tuple[str, str]] = []
         self.auto_enabled_ocr_workaround = False
+        # Statistics for valid characters/text across the whole file
+        self.valid_char_count_total: int = 0
+        self.total_valid_text_token_count: int = 0
 
     def initialize_glossaries(self, initial_glossaries: list[Glossary] | None):
         with self._lock:
@@ -45,6 +48,9 @@ class SharedContextCrossSplitPart:
             for g in self.user_glossaries:
                 for entity in g.normalized_lookup:
                     self.norm_terms.add(entity)
+            # reset statistics buffer when initializing
+            self.valid_char_count_total = 0
+            self.total_valid_text_token_count = 0
 
     def add_raw_extracted_term_pair(self, src: str, tgt: str):
         with self._lock:
@@ -67,7 +73,11 @@ class SharedContextCrossSplitPart:
         return current_name
 
     def contains_term(self, term: str) -> bool:
-        pass
+        with self._lock:
+            try:
+                return term in self.norm_terms
+            except Exception:
+                return False
 
     def finalize_auto_extracted_glossary(self):
         with self._lock:
@@ -112,12 +122,24 @@ class SharedContextCrossSplitPart:
                     all_glossaries.append(self.auto_extracted_glossary)
                 return all_glossaries
 
+    def add_valid_counts(self, char_count: int, token_count: int):
+        """Accumulate valid character and token counts in a threadsafe way."""
+        if char_count <= 0 and token_count <= 0:
+            return
+        with self._lock:
+            if char_count > 0:
+                self.valid_char_count_total += char_count
+            if token_count > 0:
+                self.total_valid_text_token_count += token_count
+
 
 class TranslationConfig:
     @staticmethod
     def create_max_pages_per_part_split_strategy(max_pages_per_part: int):
         return PageCountStrategy(max_pages_per_part)
 
+    # for backward compatibility,
+    # new parameters should be added at the end of the function.
     def __init__(
         self,
         translator: BaseTranslator,
@@ -174,8 +196,13 @@ class TranslationConfig:
         non_formula_line_iou_threshold: float = 0.9,
         figure_table_protection_threshold: float = 0.9,
         skip_formula_offset_calculation: bool = False,
+        term_extraction_translator: BaseTranslator | None = None,
+        metadata_extra_data: str | None = None,
+        term_pool_max_workers: int | None = None,
+        disable_same_text_fallback: bool = False,
     ):
         self.translator = translator
+        self.term_extraction_translator = term_extraction_translator or translator
         initial_user_glossaries = list(glossaries) if glossaries else []
 
         self.input_file = input_file
@@ -201,6 +228,13 @@ class TranslationConfig:
         self.pool_max_workers = (
             pool_max_workers if pool_max_workers is not None else qps
         )
+        # Set term_pool_max_workers for automatic term extraction.
+        # If not provided, default to pool_max_workers.
+        self.term_pool_max_workers = (
+            term_pool_max_workers
+            if term_pool_max_workers is not None
+            else self.pool_max_workers
+        )
         self.split_short_lines = split_short_lines
 
         self.short_line_split_factor = short_line_split_factor
@@ -224,6 +258,7 @@ class TranslationConfig:
 
         if self.ocr_workaround:
             self.skip_scanned_detection = True
+            self.disable_rich_text_translate = True
 
         # for backward compatibility
         if use_side_by_side_dual is False and use_alternating_pages_dual is False:
@@ -311,6 +346,16 @@ class TranslationConfig:
         self.non_formula_line_iou_threshold = non_formula_line_iou_threshold
         self.figure_table_protection_threshold = figure_table_protection_threshold
         self.skip_formula_offset_calculation = skip_formula_offset_calculation
+
+        self.metadata_extra_data = metadata_extra_data
+
+        self.term_extraction_token_usage: dict[str, int] = {
+            "total_tokens": 0,
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "cache_hit_prompt_tokens": 0,
+        }
+        self.disable_same_text_fallback = disable_same_text_fallback
 
         if self.ocr_workaround:
             self.remove_non_formula_lines = False
@@ -417,6 +462,29 @@ class TranslationConfig:
         if self.progress_monitor is not None:
             self.progress_monitor.cancel()
 
+    def get_term_extraction_translator(self) -> BaseTranslator:
+        """Return the translator to use for automatic term extraction."""
+        return self.term_extraction_translator
+
+    def record_term_extraction_usage(
+        self,
+        total_tokens: int,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cache_hit_prompt_tokens: int,
+    ) -> None:
+        """Accumulate token usage for automatic term extraction."""
+        if total_tokens > 0:
+            self.term_extraction_token_usage["total_tokens"] += total_tokens
+        if prompt_tokens > 0:
+            self.term_extraction_token_usage["prompt_tokens"] += prompt_tokens
+        if completion_tokens > 0:
+            self.term_extraction_token_usage["completion_tokens"] += completion_tokens
+        if cache_hit_prompt_tokens > 0:
+            self.term_extraction_token_usage["cache_hit_prompt_tokens"] += (
+                cache_hit_prompt_tokens
+            )
+
 
 class TranslateResult:
     original_pdf_path: str
@@ -427,6 +495,8 @@ class TranslateResult:
     no_watermark_dual_pdf_path: Path | None
     peak_memory_usage: int | None
     auto_extracted_glossary_path: Path | None
+    total_valid_character_count: int | None
+    total_valid_text_token_count: int | None
 
     def __init__(
         self,
@@ -443,6 +513,8 @@ class TranslateResult:
         self.no_watermark_dual_pdf_path = dual_pdf_path
 
         self.auto_extracted_glossary_path = auto_extracted_glossary_path
+        self.total_valid_character_count = None
+        self.total_valid_text_token_count = None
 
     def __str__(self):
         """Return a human-readable string representation of the translation result."""
@@ -487,6 +559,20 @@ class TranslateResult:
 
         if hasattr(self, "peak_memory_usage") and self.peak_memory_usage:
             result.append(f"\tPeak memory usage: {self.peak_memory_usage} MB")
+
+        if hasattr(self, "total_valid_character_count") and isinstance(
+            self.total_valid_character_count, int
+        ):
+            result.append(
+                f"\tTotal valid character count: {self.total_valid_character_count}"
+            )
+
+        if hasattr(self, "total_valid_text_token_count") and isinstance(
+            self.total_valid_text_token_count, int
+        ):
+            result.append(
+                f"\tTotal valid text token count (gpt-4o): {self.total_valid_text_token_count}"
+            )
 
         if result:
             result.insert(0, "Translation results:")

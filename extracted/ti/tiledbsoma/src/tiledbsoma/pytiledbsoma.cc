@@ -33,6 +33,7 @@ void load_soma_vfs(py::module&);
 void load_managed_query(py::module&);
 void load_soma_column(py::module&);
 void load_transformers(py::module&);
+void load_coordinate_selection(py::module&);
 
 PYBIND11_MODULE(pytiledbsoma, m) {
     py::register_exception<TileDBSOMAError>(m, "SOMAError");
@@ -48,8 +49,7 @@ PYBIND11_MODULE(pytiledbsoma, m) {
      * https://github.com/single-cell-data/TileDB-SOMA/pull/2963
      */
     py::register_exception_translator([](std::exception_ptr p) {
-        auto tiledb_soma_error = (py::object)py::module::import("tiledbsoma")
-                                     .attr("SOMAError");
+        auto tiledb_soma_error = (py::object)py::module::import("tiledbsoma").attr("SOMAError");
 
         try {
             if (p)
@@ -62,13 +62,16 @@ PYBIND11_MODULE(pytiledbsoma, m) {
     });
 
     py::enum_<OpenMode>(m, "OpenMode")
-        .value("read", OpenMode::read)
-        .value("write", OpenMode::write);
+        .value("soma_read", OpenMode::soma_read)
+        .value("soma_write", OpenMode::soma_write)
+        .value("soma_delete", OpenMode::soma_delete);
 
     py::enum_<ResultOrder>(m, "ResultOrder")
         .value("automatic", ResultOrder::automatic)
         .value("rowmajor", ResultOrder::rowmajor)
-        .value("colmajor", ResultOrder::colmajor);
+        .value("colmajor", ResultOrder::colmajor)
+        .value("unordered", ResultOrder::unordered)
+        .value("globalorder", ResultOrder::global);
 
     py::enum_<URIType>(m, "URIType")
         .value("automatic", URIType::automatic)
@@ -78,15 +81,12 @@ PYBIND11_MODULE(pytiledbsoma, m) {
     m.doc() = "SOMA acceleration library";
 
     m.def("version", []() { return tiledbsoma::version::as_string(); });
-    m.def("embedded_version_triple", []() {
-        return tiledbsoma::version::embedded_version_triple();
-    });
+    m.def("tiledb_version", []() { return tiledbsoma::version::embedded_version_triple(); });
+    m.def("expected_tiledb_version", []() { return tiledbsoma::version::expected_version(); });
 
     m.def(
         "config_logging",
-        [](const std::string& level, const std::string& logfile) {
-            LOG_CONFIG(level, logfile);
-        },
+        [](const std::string& level, const std::string& logfile) { LOG_CONFIG(level, logfile); },
         "level"_a,
         "logfile"_a = "");
 
@@ -121,17 +121,38 @@ PYBIND11_MODULE(pytiledbsoma, m) {
         },
         "Print TileDB internal statistics. Lifecycle: experimental.");
 
+    m.def(
+        "get_soma_type_metadata_value",
+        [](std::string_view uri,
+           std::shared_ptr<SOMAContext> context,
+           std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
+            return tiledbsoma::get_soma_type_metadata_value(uri, *context, timestamp);
+        },
+        "Returns the SOMA datatype metadata value from a TileDB object.");
+
+    m.def(
+        "get_soma_type_metadata_value_from_array",
+        [](std::string_view uri,
+           std::shared_ptr<SOMAContext> context,
+           std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
+            return tiledbsoma::get_soma_type_metadata_value_from_array(uri, *context, timestamp);
+        },
+        "Returns the SOMA datatype metadata value from a TileDB array.");
+
+    m.def(
+        "get_soma_type_metadata_value_from_group",
+        [](std::string_view uri,
+           std::shared_ptr<SOMAContext> context,
+           std::optional<std::pair<uint64_t, uint64_t>> timestamp) {
+            return tiledbsoma::get_soma_type_metadata_value_from_group(uri, *context, timestamp);
+        },
+        "Returns the SOMA datatype metadata value from a TileDB group.");
+
     py::class_<PlatformConfig>(m, "PlatformConfig")
         .def(py::init<>())
-        .def_readwrite(
-            "dataframe_dim_zstd_level",
-            &PlatformConfig::dataframe_dim_zstd_level)
-        .def_readwrite(
-            "sparse_nd_array_dim_zstd_level",
-            &PlatformConfig::sparse_nd_array_dim_zstd_level)
-        .def_readwrite(
-            "dense_nd_array_dim_zstd_level",
-            &PlatformConfig::sparse_nd_array_dim_zstd_level)
+        .def_readwrite("dataframe_dim_zstd_level", &PlatformConfig::dataframe_dim_zstd_level)
+        .def_readwrite("sparse_nd_array_dim_zstd_level", &PlatformConfig::sparse_nd_array_dim_zstd_level)
+        .def_readwrite("dense_nd_array_dim_zstd_level", &PlatformConfig::sparse_nd_array_dim_zstd_level)
         .def_readwrite("write_X_chunked", &PlatformConfig::write_X_chunked)
         .def_readwrite("goal_chunk_nnz", &PlatformConfig::goal_chunk_nnz)
         .def_readwrite("remote_cap_nbytes", &PlatformConfig::remote_cap_nbytes)
@@ -143,20 +164,16 @@ PYBIND11_MODULE(pytiledbsoma, m) {
         .def_readwrite("allows_duplicates", &PlatformConfig::allows_duplicates)
         .def_readwrite("tile_order", &PlatformConfig::tile_order)
         .def_readwrite("cell_order", &PlatformConfig::cell_order)
-        .def_readwrite(
-            "consolidate_and_vacuum", &PlatformConfig::consolidate_and_vacuum);
+        .def_readwrite("consolidate_and_vacuum", &PlatformConfig::consolidate_and_vacuum);
 
     py::class_<PlatformSchemaConfig>(m, "PlatformSchemaConfig")
         .def(py::init<>())
         .def_readwrite("capacity", &PlatformSchemaConfig::capacity)
-        .def_readwrite(
-            "offsets_filters", &PlatformSchemaConfig::offsets_filters)
-        .def_readwrite(
-            "validity_filters", &PlatformSchemaConfig::validity_filters)
+        .def_readwrite("offsets_filters", &PlatformSchemaConfig::offsets_filters)
+        .def_readwrite("validity_filters", &PlatformSchemaConfig::validity_filters)
         .def_readwrite("attrs", &PlatformSchemaConfig::attrs)
         .def_readwrite("dims", &PlatformSchemaConfig::dims)
-        .def_readwrite(
-            "allows_duplicates", &PlatformSchemaConfig::allows_duplicates)
+        .def_readwrite("allows_duplicates", &PlatformSchemaConfig::allows_duplicates)
         .def_readwrite("tile_order", &PlatformSchemaConfig::tile_order)
         .def_readwrite("cell_order", &PlatformSchemaConfig::cell_order);
 
@@ -177,6 +194,7 @@ PYBIND11_MODULE(pytiledbsoma, m) {
     load_soma_group(m);
     load_soma_collection(m);
     load_query_condition(m);
+    load_coordinate_selection(m);
     load_reindexer(m);
     load_soma_vfs(m);
     load_managed_query(m);

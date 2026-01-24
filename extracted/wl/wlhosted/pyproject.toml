@@ -2,6 +2,38 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>=78.0.2"]
 
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"},
+  {include-group = "types"}
+]
+lint = [
+  {include-group = "pre-commit"}
+]
+pre-commit = [
+  "pre-commit==4.5.1"
+]
+test = [
+  "pytest-cov==7.0.0",
+  "pytest-django==4.11.1",
+  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest-profiling==1.8.1",
+  "pytest-xdist==3.8.0",
+  "pytest==9.0.2",
+  "coverage==7.13.1",
+  "responses==0.25.8"
+]
+types = [
+  "celery-types==0.24.0",
+  "django-stubs-ext==5.2.8",
+  "django-stubs[compatible-mypy]==5.2.8",
+  "mypy==1.19.1",
+  "types-dateparser==1.2.2.20250809",
+  "types-python-dateutil==2.9.0.20251115",
+  "types-requests==2.32.4.20260107"
+]
+
 [project]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -13,19 +45,19 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Internationalization",
   "Topic :: Software Development :: Localization",
   "Topic :: Internet :: WWW/HTTP",
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content"
 ]
 dependencies = [
-  "Django>=5.2,<5.3",
+  "Django>=5.2,<6.1",
   "django-appconf>=1.0",
-  "django-countries==7.6.1",
-  "django-vies==6.2.0",
+  "django-countries==8.2.0",
+  "django-vies==6.2.2",
   "fakturace==0.7.2",
   "psycopg[binary]",
   "python-dateutil",
@@ -44,26 +76,12 @@ keywords = [
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "wlhosted"
-requires-python = ">=3.11"
-version = "2025.1"
+requires-python = ">=3.12"
+version = "2026.1"
 
 [[project.authors]]
 email = "michal@weblate.org"
 name = "Michal Čihař"
-
-[project.optional-dependencies]
-dev = [
-  "wlhosted[lint,test]"
-]
-lint = [
-  "pre-commit==4.2.0"
-]
-test = [
-  "httpretty",
-  "coverage",
-  "build==1.2.2.post1",
-  "twine==6.1.0"
-]
 
 [project.readme]
 content-type = "text/x-rst"
@@ -126,8 +144,48 @@ omit = [
   ".venv*/*"
 ]
 
+[tool.django-stubs]
+django_settings_module = "wlhosted.settings_test"
+strict_settings = false
+
+[tool.djlint]
+blank_line_after_tag = "load,extends,endblock"
+# - reconsider T032 and H014 once formatter is in use
+# T003 - Endblock should have name.
+# T002 - Double quotes should be used in tags. (makes using tags in attributes hard)
+# H013 - Img tag should have an alt attribute.
+# H006 - Img tag should have height and width attributes.
+# H021 - Inline styles should be avoided.
+# H031 - Consider adding meta keywords.
+ignore = "T003,H014,T032,T002,H013,H006,H021,H031"
+indent = 2
+max_attribute_length = 80
+max_blank_lines = 2
+preserve_blank_lines = true
+profile = "django"
+
 [tool.isort]
 profile = "black"
+
+[tool.mypy]
+check_untyped_defs = true
+plugins = [
+  "mypy_django_plugin.main"
+]
+
+[[tool.mypy.overrides]]
+disallow_untyped_defs = true
+ignore_missing_imports = true
+module = [
+  "vies.*",
+  "appconf.*"
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "wlhosted.settings_test"
+FAIL_INVALID_TEMPLATE_VARS = true
+addopts = "--reuse-db --cov=wlhosted --cov-report= --durations=20 --durations-min=2 --ignore=data --ignore=data-test --ignore=dev-docker --ignore=scripts"
+python_files = ["test_*.py", "tests.py"]
 
 [tool.ruff]
 target-version = "py311"
@@ -136,6 +194,17 @@ target-version = "py311"
 docstring-code-format = true
 
 [tool.ruff.lint]
+extend-safe-fixes = [
+  "ANN",
+  "D",
+  "EM101",
+  "FA102",
+  "FLY",
+  "SIM",
+  "TCH",
+  "UP"
+]
+future-annotations = true
 ignore = [
   "D10",  # TODO: we are missing many docstrings
   "D203",  # CONFIG: incompatible with D211
@@ -189,3 +258,9 @@ hosted = "hosted"
 
 [tool.setuptools.packages.find]
 namespaces = true
+
+[tool.typos.files]
+extend-exclude = [
+  "**.po",
+  "**.pot"
+]

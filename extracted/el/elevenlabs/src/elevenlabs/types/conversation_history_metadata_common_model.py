@@ -5,6 +5,8 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .agent_definition_source import AgentDefinitionSource
+from .async_conversation_metadata import AsyncConversationMetadata
 from .authorization_method import AuthorizationMethod
 from .conversation_charging_common_model import ConversationChargingCommonModel
 from .conversation_deletion_settings import ConversationDeletionSettings
@@ -16,6 +18,7 @@ from .conversation_history_metadata_common_model_phone_call import ConversationH
 from .conversation_history_rag_usage_common_model import ConversationHistoryRagUsageCommonModel
 from .conversation_initiation_source import ConversationInitiationSource
 from .features_usage_common_model import FeaturesUsageCommonModel
+from .whats_app_conversation_info import WhatsAppConversationInfo
 
 
 class ConversationHistoryMetadataCommonModel(UncheckedBaseModel):
@@ -31,6 +34,7 @@ class ConversationHistoryMetadataCommonModel(UncheckedBaseModel):
     batch_call: typing.Optional[ConversationHistoryBatchCallModel] = None
     termination_reason: typing.Optional[str] = None
     error: typing.Optional[ConversationHistoryErrorCommonModel] = None
+    warnings: typing.Optional[typing.List[str]] = None
     main_language: typing.Optional[str] = None
     rag_usage: typing.Optional[ConversationHistoryRagUsageCommonModel] = None
     text_only: typing.Optional[bool] = None
@@ -40,6 +44,10 @@ class ConversationHistoryMetadataCommonModel(UncheckedBaseModel):
     conversation_initiation_source: typing.Optional[ConversationInitiationSource] = None
     conversation_initiation_source_version: typing.Optional[str] = None
     timezone: typing.Optional[str] = None
+    async_metadata: typing.Optional[AsyncConversationMetadata] = None
+    whatsapp: typing.Optional[WhatsAppConversationInfo] = None
+    agent_created_from: typing.Optional[AgentDefinitionSource] = None
+    agent_last_updated_from: typing.Optional[AgentDefinitionSource] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

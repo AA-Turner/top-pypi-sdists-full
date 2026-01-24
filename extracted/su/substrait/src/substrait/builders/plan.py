@@ -5,35 +5,69 @@ All builders return UnboundPlan objects that can be materialized to a Plan using
 See `examples/builder_example.py` for usage.
 """
 
-from typing import Iterable, Union, Callable
+import re
+from typing import Callable, Iterable, Optional, Union
 
 import substrait.gen.proto.algebra_pb2 as stalg
+import substrait.gen.proto.extended_expression_pb2 as stee
 import substrait.gen.proto.plan_pb2 as stp
 import substrait.gen.proto.type_pb2 as stt
-import substrait.gen.proto.extended_expression_pb2 as stee
-from substrait.extension_registry import ExtensionRegistry
+from substrait import __substrait_version__
 from substrait.builders.extended_expression import (
     ExtendedExpressionOrUnbound,
     resolve_expression,
 )
+from substrait.extension_registry import ExtensionRegistry
+from substrait.gen.proto.extensions.extensions_pb2 import AdvancedExtension
 from substrait.type_inference import infer_plan_schema
-from substrait.utils import merge_extension_declarations, merge_extension_uris
+from substrait.utils import (
+    merge_extension_declarations,
+    merge_extension_uris,
+    merge_extension_urns,
+)
 
 UnboundPlan = Callable[[ExtensionRegistry], stp.Plan]
 
 PlanOrUnbound = Union[stp.Plan, UnboundPlan]
 
 
+def _create_default_version():
+    p = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+    m = p.match(__substrait_version__)
+    global default_version
+    default_version = stp.Version(
+        major_number=int(m.group(1)),
+        minor_number=int(m.group(2)),
+        patch_number=int(m.group(3)),
+    )
+
+
+_create_default_version()
+
+
 def _merge_extensions(*objs):
+    """Merge extension URIs, URNs, and declarations from multiple plan/expression objects.
+
+    During the URI -> URN migration period, we maintain both URI and URN references
+    for backwards compatibility.
+    """
     return {
         "extension_uris": merge_extension_uris(*[b.extension_uris for b in objs if b]),
+        "extension_urns": merge_extension_urns(*[b.extension_urns for b in objs if b]),
         "extensions": merge_extension_declarations(*[b.extensions for b in objs if b]),
     }
 
 
 def read_named_table(
-    names: Union[str, Iterable[str]], named_struct: stt.NamedStruct
+    names: Union[str, Iterable[str]],
+    named_struct: stt.NamedStruct,
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
+    if named_struct.struct.nullability is stt.Type.NULLABILITY_NULLABLE:
+        raise Exception("NamedStruct must not contain a nullable struct")
+    elif named_struct.struct.nullability is stt.Type.NULLABILITY_UNSPECIFIED:
+        named_struct.struct.nullability = stt.Type.NULLABILITY_REQUIRED
+
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         _names = [names] if isinstance(names, str) else names
 
@@ -42,21 +76,88 @@ def read_named_table(
                 common=stalg.RelCommon(direct=stalg.RelCommon.Direct()),
                 base_schema=named_struct,
                 named_table=stalg.ReadRel.NamedTable(names=_names),
+                advanced_extension=extension,
             )
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[
                 stp.PlanRel(root=stalg.RelRoot(input=rel, names=named_struct.names))
-            ]
+            ],
         )
 
     return resolve
 
 
 def project(
-    plan: PlanOrUnbound, expressions: Iterable[ExtendedExpressionOrUnbound]
+    plan: PlanOrUnbound,
+    expressions: Iterable[ExtendedExpressionOrUnbound],
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
+    """
+    Builds an UnboundPlan with ProjectRel as the root node. Expressions are appended to the parent relation fields to produce an output.
+    Semantically similar to a withColumn transformation.
+
+    :param plan: Parent plan
+    :type plan: PlanOrUnbound
+    :param expressions: Expressions to project
+    :type expressions: Iterable[ExtendedExpressionOrUnbound]
+    :param extension: Optional user-defined extension
+    :type extension: Optional[AdvancedExtension]
+    :return: UnboundPlan with ProjectRel as the root node
+    :rtype: UnboundPlan
+    """
+
+    def resolve(registry: ExtensionRegistry) -> stp.Plan:
+        _plan = plan if isinstance(plan, stp.Plan) else plan(registry)
+        ns = infer_plan_schema(_plan)
+        bound_expressions: Iterable[stee.ExtendedExpression] = [
+            resolve_expression(e, ns, registry) for e in expressions
+        ]
+
+        names = list(_plan.relations[-1].root.names) + [
+            e.output_names[0] for ee in bound_expressions for e in ee.referred_expr
+        ]
+
+        rel = stalg.Rel(
+            project=stalg.ProjectRel(
+                input=_plan.relations[-1].root.input,
+                expressions=[
+                    e.expression for ee in bound_expressions for e in ee.referred_expr
+                ],
+                advanced_extension=extension,
+            )
+        )
+
+        return stp.Plan(
+            version=default_version,
+            relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=names))],
+            **_merge_extensions(_plan, *bound_expressions),
+        )
+
+    return resolve
+
+
+def select(
+    plan: PlanOrUnbound,
+    expressions: Iterable[ExtendedExpressionOrUnbound],
+    extension: Optional[AdvancedExtension] = None,
+) -> UnboundPlan:
+    """
+    Builds an UnboundPlan with ProjectRel as the root node. Expressions make up the fields of an output relation.
+    Semantically similar to a select transformation.
+
+    :param plan: Parent plan
+    :type plan: PlanOrUnbound
+    :param expressions: Expressions to project
+    :type expressions: Iterable[ExtendedExpressionOrUnbound]
+    :param extension: Optional user-defined extension
+    :type extension: Optional[AdvancedExtension]
+    :return: UnboundPlan with ProjectRel as the root node
+    :rtype: UnboundPlan
+    """
+
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         _plan = plan if isinstance(plan, stp.Plan) else plan(registry)
         ns = infer_plan_schema(_plan)
@@ -81,10 +182,12 @@ def project(
                 expressions=[
                     e.expression for ee in bound_expressions for e in ee.referred_expr
                 ],
+                advanced_extension=extension,
             )
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=names))],
             **_merge_extensions(_plan, *bound_expressions),
         )
@@ -92,7 +195,11 @@ def project(
     return resolve
 
 
-def filter(plan: PlanOrUnbound, expression: ExtendedExpressionOrUnbound) -> UnboundPlan:
+def filter(
+    plan: PlanOrUnbound,
+    expression: ExtendedExpressionOrUnbound,
+    extension: Optional[AdvancedExtension] = None,
+) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_plan = plan if isinstance(plan, stp.Plan) else plan(registry)
         ns = infer_plan_schema(bound_plan)
@@ -104,12 +211,14 @@ def filter(plan: PlanOrUnbound, expression: ExtendedExpressionOrUnbound) -> Unbo
             filter=stalg.FilterRel(
                 input=bound_plan.relations[-1].root.input,
                 condition=bound_expression.referred_expr[0].expression,
+                advanced_extension=extension,
             )
         )
 
         names = ns.names
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=names))],
             **_merge_extensions(bound_plan, bound_expression),
         )
@@ -125,6 +234,7 @@ def sort(
             tuple[ExtendedExpressionOrUnbound, stalg.SortField.SortDirection.ValueType],
         ]
     ],
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_plan = plan if isinstance(plan, stp.Plan) else plan(registry)
@@ -150,10 +260,12 @@ def sort(
                     )
                     for e in bound_expressions
                 ],
-            )
+                advanced_extension=extension,
+            ),
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=ns.names))],
             **_merge_extensions(bound_plan, *[e[0] for e in bound_expressions]),
         )
@@ -171,6 +283,7 @@ def set(inputs: Iterable[PlanOrUnbound], op: stalg.SetRel.SetOp) -> UnboundPlan:
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[
                 stp.PlanRel(
                     root=stalg.RelRoot(
@@ -188,6 +301,7 @@ def fetch(
     plan: PlanOrUnbound,
     offset: ExtendedExpressionOrUnbound,
     count: ExtendedExpressionOrUnbound,
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_plan = plan if isinstance(plan, stp.Plan) else plan(registry)
@@ -203,10 +317,12 @@ def fetch(
                 if bound_offset
                 else None,
                 count_expr=bound_count.referred_expr[0].expression,
+                advanced_extension=extension,
             )
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[
                 stp.PlanRel(
                     root=stalg.RelRoot(
@@ -225,6 +341,7 @@ def join(
     right: PlanOrUnbound,
     expression: ExtendedExpressionOrUnbound,
     type: stalg.JoinRel.JoinType,
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_left = left if isinstance(left, stp.Plan) else left(registry)
@@ -249,10 +366,12 @@ def join(
                 right=bound_right.relations[-1].root.input,
                 expression=bound_expression.referred_expr[0].expression,
                 type=type,
+                advanced_extension=extension,
             )
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=ns.names))],
             **_merge_extensions(bound_left, bound_right, bound_expression),
         )
@@ -263,6 +382,7 @@ def join(
 def cross(
     left: PlanOrUnbound,
     right: PlanOrUnbound,
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_left = left if isinstance(left, stp.Plan) else left(registry)
@@ -282,10 +402,12 @@ def cross(
             cross=stalg.CrossRel(
                 left=bound_left.relations[-1].root.input,
                 right=bound_right.relations[-1].root.input,
+                advanced_extension=extension,
             )
         )
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=ns.names))],
             **_merge_extensions(bound_left, bound_right),
         )
@@ -298,6 +420,7 @@ def aggregate(
     input: PlanOrUnbound,
     grouping_expressions: Iterable[ExtendedExpressionOrUnbound],
     measures: Iterable[ExtendedExpressionOrUnbound],
+    extension: Optional[AdvancedExtension] = None,
 ) -> UnboundPlan:
     def resolve(registry: ExtensionRegistry) -> stp.Plan:
         bound_input = input if isinstance(input, stp.Plan) else input(registry)
@@ -327,6 +450,7 @@ def aggregate(
                     stalg.AggregateRel.Measure(measure=m.referred_expr[0].measure)
                     for m in bound_measures
                 ],
+                advanced_extension=extension,
             )
         )
 
@@ -335,10 +459,41 @@ def aggregate(
         ] + [e.referred_expr[0].output_names[0] for e in bound_measures]
 
         return stp.Plan(
+            version=default_version,
             relations=[stp.PlanRel(root=stalg.RelRoot(input=rel, names=names))],
             **_merge_extensions(
                 bound_input, *bound_grouping_expressions, *bound_measures
             ),
+        )
+
+    return resolve
+
+
+def write_named_table(
+    table_names: Union[str, Iterable[str]],
+    input: PlanOrUnbound,
+    create_mode: Union[stalg.WriteRel.CreateMode.ValueType, None] = None,
+) -> UnboundPlan:
+    def resolve(registry: ExtensionRegistry) -> stp.Plan:
+        bound_input = input if isinstance(input, stp.Plan) else input(registry)
+        ns = infer_plan_schema(bound_input)
+        _table_names = [table_names] if isinstance(table_names, str) else table_names
+        _create_mode = create_mode or stalg.WriteRel.CREATE_MODE_ERROR_IF_EXISTS
+
+        write_rel = stalg.Rel(
+            write=stalg.WriteRel(
+                input=bound_input.relations[-1].root.input,
+                table_schema=ns,
+                op=stalg.WriteRel.WRITE_OP_CTAS,
+                create_mode=_create_mode,
+                named_table=stalg.NamedObjectWrite(names=_table_names),
+            )
+        )
+        return stp.Plan(
+            relations=[
+                stp.PlanRel(root=stalg.RelRoot(input=write_rel, names=ns.names))
+            ],
+            **_merge_extensions(bound_input),
         )
 
     return resolve

@@ -2,7 +2,7 @@ use itertools::Itertools;
 use tombi_syntax::{SyntaxKind::*, T};
 use tombi_toml_version::TomlVersion;
 
-use crate::{support, AstNode, TombiValueCommentDirective};
+use crate::{AstNode, TombiValueCommentDirective, support};
 
 impl crate::InlineTable {
     #[inline]
@@ -81,19 +81,17 @@ impl crate::InlineTable {
 
     #[inline]
     pub fn should_be_multiline(&self, toml_version: TomlVersion) -> bool {
-        match toml_version {
-            TomlVersion::V1_0_0 => false,
-            TomlVersion::V1_1_0_Preview => {
-                self.has_trailing_comma_after_last_value()
-                    || self.has_multiline_values(toml_version)
-                    // || self.has_only_comments(toml_version)
-                    || self.has_inner_comments()
-            }
+        if toml_version == TomlVersion::V1_0_0 {
+            return false;
         }
+
+        self.has_last_key_value_trailing_comma()
+            || self.has_multiline_values(toml_version)
+            || self.has_inner_comments()
     }
 
     #[inline]
-    pub fn has_trailing_comma_after_last_value(&self) -> bool {
+    pub fn has_last_key_value_trailing_comma(&self) -> bool {
         self.syntax()
             .children_with_tokens()
             .collect_vec()
@@ -122,18 +120,6 @@ impl crate::InlineTable {
                 _ => false,
             })
         })
-    }
-
-    #[inline]
-    pub fn has_only_comments(&self, toml_version: TomlVersion) -> bool {
-        match toml_version {
-            TomlVersion::V1_0_0 => false,
-            TomlVersion::V1_1_0_Preview => support::node::has_only_comments(
-                self.syntax().children_with_tokens(),
-                T!('{'),
-                T!('}'),
-            ),
-        }
     }
 
     #[inline]

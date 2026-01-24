@@ -37,7 +37,6 @@ from pytensor.tensor.basic import (
     zeros,
     zeros_like,
 )
-from pytensor.tensor.blockwise import Blockwise
 from pytensor.tensor.elemwise import CAReduce, DimShuffle, Elemwise
 from pytensor.tensor.exceptions import NotScalarConstantError
 from pytensor.tensor.extra_ops import broadcast_arrays, concat_with_broadcast
@@ -49,6 +48,11 @@ from pytensor.tensor.math import (
     _dot,
     _matmul,
     add,
+    arccosh,
+    arcsinh,
+    arctanh,
+    cosh,
+    deg2rad,
     digamma,
     dot,
     erf,
@@ -70,13 +74,16 @@ from pytensor.tensor.math import (
     neg,
     polygamma,
     prod,
+    rad2deg,
     reciprocal,
     sigmoid,
     sign,
+    sinh,
     softplus,
     sqr,
     sqrt,
     sub,
+    tanh,
     tri_gamma,
     true_div,
     variadic_add,
@@ -96,9 +103,10 @@ from pytensor.tensor.rewriting.basic import (
     register_uncanonicalize,
     register_useless,
 )
+from pytensor.tensor.rewriting.blockwise import blockwise_of
 from pytensor.tensor.rewriting.elemwise import apply_local_dimshuffle_lift
 from pytensor.tensor.rewriting.linalg import is_matrix_transpose
-from pytensor.tensor.shape import Shape, Shape_i
+from pytensor.tensor.shape import Shape, Shape_i, specify_shape
 from pytensor.tensor.slinalg import BlockDiagonal
 from pytensor.tensor.subtensor import Subtensor
 from pytensor.tensor.type import (
@@ -139,11 +147,11 @@ def local_0_dot_x(fgraph, node):
     x, y = node.inputs
     if (
         get_underlying_scalar_constant_value(
-            x, only_process_constants=True, raise_not_constant=False
+            x, only_process_constants=False, raise_not_constant=False
         )
         == 0
         or get_underlying_scalar_constant_value(
-            y, only_process_constants=True, raise_not_constant=False
+            y, only_process_constants=False, raise_not_constant=False
         )
         == 0
     ):
@@ -151,7 +159,7 @@ def local_0_dot_x(fgraph, node):
 
 
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(BlockDiagonal)])
 def local_block_diag_dot_to_dot_block_diag(fgraph, node):
     r"""
     Perform the rewrite ``dot(block_diag(A, B), C) -> concat(dot(A, C), dot(B, C))``
@@ -160,9 +168,6 @@ def local_block_diag_dot_to_dot_block_diag(fgraph, node):
     of approximately O(n^3), it's always better to perform two dot products on the smaller matrices, rather than
     a single dot on the larger matrix.
     """
-    if not isinstance(node.op.core_op, BlockDiagonal):
-        return
-
     # Check that the BlockDiagonal is an input to a Dot node:
     for client in itertools.chain.from_iterable(
         get_clients_at_depth(fgraph, node, depth=i) for i in [1, 2]
@@ -178,13 +183,23 @@ def local_block_diag_dot_to_dot_block_diag(fgraph, node):
         try:
             client_idx = client.inputs.index(blockdiag_result)
         except ValueError:
-            # If the blockdiag result is not an input to the dot, there is at least one Op between them (usually a
-            # DimShuffle). In this case, we need to figure out which of the inputs of the dot eventually leads to the
-            # blockdiag result.
+            # If the blockdiag result is not an input to the dot, there is at least one Op between them.
+            # We allow left expand_dims (DimShuffle), which is introduced automatically by Blockwise to equalize number of batch dims,
+            # But does not change the semantics of the graph
             for ancestor in client.inputs:
-                if ancestor.owner and blockdiag_result in ancestor.owner.inputs:
+                if (
+                    ancestor.owner is not None
+                    and (
+                        isinstance(ancestor.owner.op, DimShuffle)
+                        and ancestor.owner.op.is_left_expand_dims
+                    )
+                    and blockdiag_result in ancestor.owner.inputs
+                ):
                     client_idx = client.inputs.index(ancestor)
                     break
+            else:  # no-break
+                # Not a simple left expand_dims between dot and block_diag
+                return None
 
         other_input = client.inputs[1 - client_idx]
 
@@ -419,65 +434,42 @@ def local_dot_to_mul(fgraph, node):
     ):
         return None
 
+    # Add specify_shape for unknown dimensions that must be 1
+    # To avoid runtime broadcast error by multiply
+    if a.type.shape[-1] != 1:
+        a = specify_shape(a, (..., None, 1))
+    if b.type.shape[-2] != 1:
+        b = specify_shape(b, (..., 1, None))
+
     new_out = mul(a, b)
     copy_stack_trace(node.out, new_out)
     return [new_out]
 
 
-def is_inverse_pair(node_op, prev_op, inv_pair):
-    """
-    Given two consecutive operations, check if they are the
-    provided pair of inverse functions.
+for pair in (
+    (deg2rad, rad2deg),
+    (cosh, arccosh),
+    (tanh, arctanh),
+    (sinh, arcsinh),
+    (_conj, _conj),
+    (neg, neg),
+    (reciprocal, reciprocal),
+):
+    # Create a simple PatternNodeRewriter for each pair of opposite ops
+    # instead of a general Op that is called to often for very few hits
+    for op, inv_op in (pair, reversed(pair)):
+        rewrite = PatternNodeRewriter(
+            (op, (inv_op, "x")),
+            "x",
+            allow_multiple_clients=True,
+            allow_cast=True,
+            name=f"useless_{op}_of_{inv_op}",
+        )
+        register_canonicalize(rewrite)
+        register_specialize(rewrite)
 
-    """
-    node_is_op0 = isinstance(node_op, inv_pair[0])
-    node_is_op1 = isinstance(node_op, inv_pair[1])
-    prev_is_op0 = isinstance(prev_op, inv_pair[0])
-    prev_is_op1 = isinstance(prev_op, inv_pair[1])
-
-    return (node_is_op0 and prev_is_op1) or (node_is_op1 and prev_is_op0)
-
-
-@register_canonicalize
-@register_specialize
-@node_rewriter([Elemwise])
-def local_func_inv(fgraph, node):
-    """
-    Check for two consecutive operations that are functional inverses
-    and remove them from the function graph.
-
-    """
-    inv_pairs = (
-        (ps.Deg2Rad, ps.Rad2Deg),
-        (ps.Cosh, ps.ArcCosh),
-        (ps.Tanh, ps.ArcTanh),
-        (ps.Sinh, ps.ArcSinh),
-        (ps.Conj, ps.Conj),
-        (ps.Neg, ps.Neg),
-        (ps.Reciprocal, ps.Reciprocal),
-    )
-    x = node.inputs[0]
-
-    if not isinstance(node.op, Elemwise):
-        return
-    if not (x.owner and isinstance(x.owner.op, Elemwise)):
-        return
-
-    prev_op = x.owner.op.scalar_op
-    node_op = node.op.scalar_op
-
-    for inv_pair in inv_pairs:
-        if is_inverse_pair(node_op, prev_op, inv_pair):
-            # We don't need to copy stack trace, because the rewrite
-            # is trivial and maintains the earlier stack trace
-            ottype = node.out.dtype
-            inp = x.owner.inputs[0]
-            # Functions may have casted integer input to float
-            if inp.dtype != ottype:
-                inp = cast(inp, ottype)
-            return [inp]
-
-    return
+        if op is inv_op:
+            break  # Same Op, no need to define two rewrites
 
 
 @register_canonicalize
@@ -553,7 +545,30 @@ def local_sqrt_sqr(fgraph, node):
 
 
 @register_specialize
-@node_rewriter([exp, expm1])
+@node_rewriter([log])
+def local_log_sqrt(fgraph, node):
+    x = node.inputs[0]
+
+    if (
+        not x.owner
+        or not isinstance(x.owner.op, Elemwise)
+        or not isinstance(x.owner.op.scalar_op, ps.Sqrt)
+    ):
+        return
+
+    # Case for log(sqrt(x)) -> 0.5 * log(x)
+    x = x.owner.inputs[0]
+    old_out = node.outputs[0]
+    new_out = mul(as_tensor_variable(0.5, dtype=x.dtype), log(x))
+    if new_out.dtype != old_out.dtype:
+        new_out = cast(new_out, old_out.dtype)
+
+    copy_stack_trace(node.out, new_out)
+    return [new_out]
+
+
+@register_specialize
+@node_rewriter([exp, expm1, log1pexp, log1mexp])
 def local_exp_log_nan_switch(fgraph, node):
     # Rewrites of the kind exp(log...(x)) that require a `nan` switch
     x = node.inputs[0]
@@ -604,6 +619,27 @@ def local_exp_log_nan_switch(fgraph, node):
         x = x.owner.inputs[0]
         old_out = node.outputs[0]
         new_out = switch(le(x, 0), neg(exp(x)), np.asarray(np.nan, old_out.dtype))
+        return [new_out]
+
+    # Case for log1pexp(log(x)) -> log1p(x)   (log1pexp aka softplus)
+    if isinstance(prev_op, ps.Log) and isinstance(node_op, ps_math.Softplus):
+        x = x.owner.inputs[0]
+        old_out = node.outputs[0]
+        new_out = switch(ge(x, 0), log1p(x), np.asarray(np.nan, old_out.dtype))
+        return [new_out]
+
+    # Case for log1mexp(log(x)) -> log1p(-x)
+    if isinstance(prev_op, ps.Log) and isinstance(node_op, ps_math.Log1mexp):
+        x = x.owner.inputs[0]
+        old_out = node.outputs[0]
+        new_out = switch(ge(x, 0), log1p(-x), np.asarray(np.nan, old_out.dtype))
+        return [new_out]
+
+    # Case for log1mexp(log1mexp(x)) -> x
+    if isinstance(prev_op, ps_math.Log1mexp) and isinstance(node_op, ps_math.Log1mexp):
+        x = x.owner.inputs[0]
+        old_out = node.outputs[0]
+        new_out = switch(le(x, 0), x, np.asarray(np.nan, old_out.dtype))
         return [new_out]
 
 
@@ -804,6 +840,7 @@ def local_expm1(fgraph, node):
 
 
 @register_specialize
+@register_stabilize
 @register_canonicalize
 @node_rewriter([mul])
 def local_mul_switch_sink(fgraph, node):
@@ -842,14 +879,17 @@ def local_mul_switch_sink(fgraph, node):
             switch_node = mul_inp.owner
             # Look for a zero as the first or second branch of the switch
             for branch in range(2):
-                zero_switch_input = switch_node.inputs[1 + branch]
-                if (
-                    not get_underlying_scalar_constant_value(
-                        zero_switch_input,
-                        only_process_constants=True,
-                        raise_not_constant=False,
-                    )
-                    == 0.0
+                zero_inp = underlying_zero = switch_node.inputs[1 + branch]
+
+                # Allow zero inside a DimShuffle or Alloc
+                if zero_inp.owner is not None and isinstance(
+                    zero_inp.owner.op, DimShuffle | Alloc
+                ):
+                    underlying_zero = zero_inp.owner.inputs[0]
+
+                if not (
+                    isinstance(underlying_zero, TensorConstant)
+                    and underlying_zero.unique_value == 0
                 ):
                     continue
 
@@ -868,9 +908,9 @@ def local_mul_switch_sink(fgraph, node):
                 copy_stack_trace(node.outputs, fmul)
 
                 if branch == 0:
-                    fct = switch(switch_cond, zero_switch_input, fmul)
+                    fct = switch(switch_cond, zero_inp, fmul)
                 else:
-                    fct = switch(switch_cond, fmul, zero_switch_input)
+                    fct = switch(switch_cond, fmul, zero_inp)
 
                 # Tell debug_mode than the output is correct, even if nan disappear
                 fct.tag.values_eq_approx = values_eq_approx_remove_nan
@@ -906,14 +946,17 @@ def local_div_switch_sink(fgraph, node):
         switch_node = num.owner
         # Look for a zero as the first or second branch of the switch
         for branch in range(2):
-            zero_switch_input = switch_node.inputs[1 + branch]
-            if (
-                not get_underlying_scalar_constant_value(
-                    zero_switch_input,
-                    only_process_constants=True,
-                    raise_not_constant=False,
-                )
-                == 0.0
+            zero_inp = underlying_zero = switch_node.inputs[1 + branch]
+
+            # Allow zero inside a DimShuffle or Alloc
+            if zero_inp.owner is not None and isinstance(
+                zero_inp.owner.op, DimShuffle | Alloc
+            ):
+                underlying_zero = zero_inp.owner.inputs[0]
+
+            if not (
+                isinstance(underlying_zero, TensorConstant)
+                and underlying_zero.unique_value == 0
             ):
                 continue
 
@@ -930,9 +973,9 @@ def local_div_switch_sink(fgraph, node):
             copy_stack_trace(node.outputs, fdiv)
 
             if branch == 0:
-                fct = switch(switch_cond, zero_switch_input, fdiv)
+                fct = switch(switch_cond, zero_inp, fdiv)
             else:
-                fct = switch(switch_cond, fdiv, zero_switch_input)
+                fct = switch(switch_cond, fdiv, zero_inp)
 
             # Tell debug_mode than the output is correct, even if nan disappear
             fct.tag.values_eq_approx = values_eq_approx_remove_nan
@@ -1301,9 +1344,9 @@ class AlgebraicCanonizer(NodeRewriter):
 
         return ct + num, denum
 
-    def transform(self, fgraph, node):
+    def transform(self, fgraph, node, enforce_tracks=True):
         op = node.op
-        if op not in [self.main, self.inverse, self.reciprocal]:
+        if enforce_tracks and (op not in {self.main, self.inverse, self.reciprocal}):
             return False
 
         assert len(node.outputs) == 1
@@ -2502,7 +2545,7 @@ def local_log1p(fgraph, node):
     # log(1-x) -> log1p(-x)
     (log_arg,) = node.inputs
     if log_arg.owner and log_arg.owner.op == add:
-        scalars, scalar_inputs, nonconsts = scalarconsts_rest(
+        scalars, _scalar_inputs, nonconsts = scalarconsts_rest(
             log_arg.owner.inputs, only_process_constants=True
         )
         # scalar_inputs are potentially dimshuffled and fill'd scalars
@@ -3125,13 +3168,6 @@ def isclose(x, ref, rtol=0, atol=0, num_ulps=10):
     return np.allclose(x, ref, rtol=rtol, atol=atol)
 
 
-def _skip_mul_1(r):
-    if r.owner and r.owner.op == mul:
-        not_is_1 = [i for i in r.owner.inputs if not _is_1(i)]
-        if len(not_is_1) == 1:
-            return not_is_1[0]
-
-
 def _is_1(expr):
     """
 
@@ -3153,7 +3189,6 @@ logsigm_to_softplus = PatternNodeRewriter(
     (neg, (softplus, (neg, "x"))),
     allow_multiple_clients=True,
     values_eq_approx=values_eq_approx_remove_inf,
-    skip_identities_fn=_skip_mul_1,
     tracks=[sigmoid],
     get_nodes=get_clients_at_depth1,
 )
@@ -3162,7 +3197,6 @@ log1msigm_to_softplus = PatternNodeRewriter(
     (neg, (softplus, "x")),
     allow_multiple_clients=True,
     values_eq_approx=values_eq_approx_remove_inf,
-    skip_identities_fn=_skip_mul_1,
     tracks=[sigmoid],
     get_nodes=get_clients_at_depth2,
 )
@@ -3192,7 +3226,7 @@ def is_1pexp(t, only_process_constants=True):
 
     """
     if t.owner and t.owner.op == add:
-        scalars, scalar_inputs, nonconsts = scalarconsts_rest(
+        scalars, _scalar_inputs, nonconsts = scalarconsts_rest(
             t.owner.inputs, only_process_constants=only_process_constants
         )
         # scalar_inputs are potentially dimshuffled and filled with scalars
@@ -3706,7 +3740,7 @@ def local_reciprocal_1_plus_exp(fgraph, node):
     # so we don't care to check client counts
     reciprocal_arg = node.inputs[0]
     if reciprocal_arg.owner and reciprocal_arg.owner.op == add:
-        scalars_, scalar_inputs, nonconsts = scalarconsts_rest(
+        scalars_, _scalar_inputs, nonconsts = scalarconsts_rest(
             reciprocal_arg.owner.inputs, only_process_constants=True
         )
         # scalar_inputs are potentially dimshuffled and fill'd scalars

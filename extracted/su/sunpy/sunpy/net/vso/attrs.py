@@ -148,6 +148,7 @@ _walker = _attr.AttrWalker()
 @_walker.add_creator(_attr.ValueAttr, _attr.AttrAnd)
 def _create(wlk, root, api):
     """ Implementation detail. """
+    # Keep these http
     api.set_ns_prefix('VSO', 'http://virtualsolar.org/VSO/VSOi')
     value = api.get_type('VSO:QueryRequestBlock')()
     wlk.apply(root, api, value)
@@ -212,7 +213,7 @@ _walker.add_converter(_attrs.Time)(
 
 
 _walker.add_converter(_attr.SimpleAttr)(
-    lambda x: _attr.ValueAttr({(x.__class__.__name__.lower(), ): x.value})
+    lambda x: _attr.ValueAttr({(x.__class__.__name__.lower(),): x.value})
 )
 
 

@@ -1,5 +1,6 @@
 # This file is a part of the `nequip` package. Please see LICENSE and README at the root for information on using it.
 import torch
+import os
 
 from .. import AtomicDataDict
 from .base_datasets import AtomicDataset
@@ -94,27 +95,79 @@ class NequIPLMDBDataset(AtomicDataset):
     ):
         super().__init__(transforms=transforms)
         self.file_path = file_path
-
-        self.env = lmdb.open(
-            self.file_path,
-            readonly=True,
-            lock=False,
-            # for better performance on large datasets
-            readahead=False,
-            subdir=False,
-        )
-        self._length = self.get_metadata(NUM_FRAMES_METADATA_KEY)
         self.exclude_keys = exclude_keys
 
-        # Fallback to stat()['entries'] if no metadata to be backwards compatible
-        if self._length is None:
-            with self.env.begin() as txn:
-                self._length = txn.stat()["entries"]
+        # lazy initialization: don't open LMDB environment until needed
+        # this prevents sharing file descriptors/memory maps across forked processes
+        self._env = None
+        self._owner_pid = None
+
+        # compute length with temporary environment that's immediately closed
+        # this must happen before DataLoader fork to provide __len__()
+        self._length = self._get_length()
 
     def __len__(self):
         return self._length
 
-    def get_data_list(
+    def __getstate__(self):
+        # clear environment and pid during pickling
+        # forces re-initialization in unpickled/forked processes
+        state = self.__dict__.copy()
+        state["_env"] = None
+        state["_owner_pid"] = None
+        return state
+
+    def __del__(self):
+        # close LMDB environment if owned by current process
+        if self._env is not None and self._owner_pid == os.getpid():
+            self._env.close()
+
+    def _get_env(self):
+        # lazily open LMDB environment, reopening if process changed (after fork)
+        current_pid = os.getpid()
+
+        if self._env is None or self._owner_pid != current_pid:
+            if self._env is not None:
+                self._env.close()
+
+            self._env = lmdb.open(
+                self.file_path,
+                readonly=True,  # dataset is read-only
+                lock=False,  # no write contention, faster for read-only
+                readahead=False,  # better performance for random access patterns
+                subdir=False,  # file_path is a file, not a directory
+                max_readers=2048,  # default 126 exhausted with multiple workers
+            )
+            self._owner_pid = current_pid
+
+        return self._env
+
+    def _get_length(self):
+        # open temporary environment to get dataset length, then close immediately
+        # must close before DataLoader fork to avoid sharing file descriptors
+        env = lmdb.open(
+            self.file_path,
+            readonly=True,
+            lock=False,
+            readahead=False,
+            subdir=False,
+            max_readers=2048,
+        )
+        try:
+            with env.begin() as txn:
+                # try to get length from metadata
+                raw = txn.get(b"__metadata__")
+                if raw is not None:
+                    metadata = pickle.loads(raw)
+                    length = metadata.get(NUM_FRAMES_METADATA_KEY)
+                    if length is not None:
+                        return length
+                # fallback to stat()['entries'] for backwards compatibility
+                return txn.stat()["entries"]
+        finally:
+            env.close()
+
+    def _get_data_list(
         self,
         indices: Union[List[int], torch.Tensor, slice],
     ) -> List[AtomicDataDict.Type]:
@@ -122,7 +175,7 @@ class NequIPLMDBDataset(AtomicDataset):
             indices = list(range(*indices.indices(self.num_frames)))
 
         data_list = []
-        with self.env.begin() as txn:
+        with self._get_env().begin() as txn:
             for idx in indices:
                 data = txn.get(f"{idx}".encode("ascii"))
                 if data is None:
@@ -213,7 +266,7 @@ class NequIPLMDBDataset(AtomicDataset):
         """
         Load dataset's "__metadata__" key.
         """
-        with self.env.begin() as txn:
+        with self._get_env().begin() as txn:
             raw = txn.get(b"__metadata__")
         if raw is None:
             return {}  # no metadata

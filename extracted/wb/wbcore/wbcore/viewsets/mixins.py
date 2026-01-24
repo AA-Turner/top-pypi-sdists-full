@@ -66,7 +66,9 @@ class WBCoreOrderingFilter(OrderingFilter):
 
         return queryset
 
-    def get_valid_fields(self, queryset, view, context={}):
+    def get_valid_fields(self, queryset, view, context: dict | None = None):
+        if context is None:
+            context = {}
         valid_fields = view.get_ordering_fields()
         if valid_fields is None:
             # Default to allowing filtering on serializer fields
@@ -90,9 +92,9 @@ class FilterMixin:
 
 class DocumentationMixin:
     def _get_documentation_url(self, detail):
-        INSTANCE_DOCUMENTATION = getattr(self, "INSTANCE_DOCUMENTATION", None)
-        LIST_DOCUMENTATION = getattr(self, "LIST_DOCUMENTATION", None)
-        doc = INSTANCE_DOCUMENTATION if detail else LIST_DOCUMENTATION
+        instance_documentation = getattr(self, "INSTANCE_DOCUMENTATION", None)
+        list_documentation = getattr(self, "LIST_DOCUMENTATION", None)
+        doc = instance_documentation if detail else list_documentation
 
         if doc and finders.find(doc):
             return static(doc)
@@ -263,7 +265,7 @@ class OrderableMixin:
         order = request.data.get("order")
         if order is None:
             return Response("No order received", status=HTTP_400_BAD_REQUEST)
-        instance.to(order)
+        instance.to(int(order))
         return Response("Reordering Successful", status=HTTP_200_OK)
 
 

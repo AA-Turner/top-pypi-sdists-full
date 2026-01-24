@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: os-service-types
-Version: 1.8.0
+Version: 1.8.2
 Summary: Python library for consuming OpenStack sevice-types-authority data
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -20,6 +20,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr!=2.1.0,>=2.0.0
+Requires-Dist: typing-extensions>=4.1.0
 
 ================
 os-service-types

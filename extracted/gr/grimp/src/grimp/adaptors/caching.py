@@ -1,17 +1,19 @@
 import hashlib
+
 import json
 import logging
-from typing import Dict, List, Optional, Set, Tuple, Type
+from typing import Optional
 
-from grimp.application.ports.filesystem import AbstractFileSystem
+from grimp.application.ports.filesystem import BasicFileSystem
 from grimp.application.ports.modulefinder import FoundPackage, ModuleFile
 from grimp.domain.valueobjects import DirectImport, Module
 
 from ..application.ports.caching import Cache as AbstractCache
 from ..application.ports.caching import CacheMiss
+from grimp import _rustgrimp as rust  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
-PrimitiveFormat = Dict[str, List[Tuple[str, Optional[int], str]]]
+PrimitiveFormat = dict[str, list[tuple[str, Optional[int], str]]]
 
 
 class CacheFileNamer:
@@ -22,7 +24,7 @@ class CacheFileNamer:
     @classmethod
     def make_data_file_name(
         cls,
-        found_packages: Set[FoundPackage],
+        found_packages: set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
     ) -> str:
@@ -40,7 +42,7 @@ class CacheFileNamer:
     @classmethod
     def make_data_file_unique_string(
         cls,
-        found_packages: Set[FoundPackage],
+        found_packages: set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool,
     ) -> str:
@@ -63,24 +65,24 @@ class CacheFileNamer:
 class Cache(AbstractCache):
     DEFAULT_CACHE_DIR = ".grimp_cache"
 
-    def __init__(self, *args, namer: Type[CacheFileNamer], **kwargs) -> None:
+    def __init__(self, *args, namer: type[CacheFileNamer], **kwargs) -> None:
         """
         Don't instantiate Cache directly; use Cache.setup().
         """
         super().__init__(*args, **kwargs)
-        self._mtime_map: Dict[str, float] = {}
-        self._data_map: Dict[Module, Set[DirectImport]] = {}
+        self._mtime_map: dict[str, float] = {}
+        self._data_map: dict[Module, set[DirectImport]] = {}
         self._namer = namer
 
     @classmethod
     def setup(
         cls,
-        file_system: AbstractFileSystem,
-        found_packages: Set[FoundPackage],
+        file_system: BasicFileSystem,
+        found_packages: set[FoundPackage],
         include_external_packages: bool,
         exclude_type_checking_imports: bool = False,
-        cache_dir: Optional[str] = None,
-        namer: Type[CacheFileNamer] = CacheFileNamer,
+        cache_dir: str | None = None,
+        namer: type[CacheFileNamer] = CacheFileNamer,
     ) -> "Cache":
         cache = cls(
             file_system=file_system,
@@ -96,10 +98,10 @@ class Cache(AbstractCache):
         return cache
 
     @classmethod
-    def cache_dir_or_default(cls, cache_dir: Optional[str]) -> str:
+    def cache_dir_or_default(cls, cache_dir: str | None) -> str:
         return cache_dir or cls.DEFAULT_CACHE_DIR
 
-    def read_imports(self, module_file: ModuleFile) -> Set[DirectImport]:
+    def read_imports(self, module_file: ModuleFile) -> set[DirectImport]:
         try:
             cached_mtime = self._mtime_map[module_file.module.name]
         except KeyError:
@@ -116,26 +118,10 @@ class Cache(AbstractCache):
 
     def write(
         self,
-        imports_by_module: Dict[Module, Set[DirectImport]],
+        imports_by_module: dict[Module, set[DirectImport]],
     ) -> None:
         self._write_marker_files_if_not_already_there()
         # Write data file.
-        primitives_map: PrimitiveFormat = {}
-        for found_package in self.found_packages:
-            primitives_map_for_found_package: PrimitiveFormat = {
-                module_file.module.name: [
-                    (
-                        direct_import.imported.name,
-                        direct_import.line_number,
-                        direct_import.line_contents,
-                    )
-                    for direct_import in imports_by_module[module_file.module]
-                ]
-                for module_file in found_package.module_files
-            }
-            primitives_map.update(primitives_map_for_found_package)
-
-        serialized = json.dumps(primitives_map)
         data_cache_filename = self.file_system.join(
             self.cache_dir,
             self._namer.make_data_file_name(
@@ -144,7 +130,12 @@ class Cache(AbstractCache):
                 exclude_type_checking_imports=self.exclude_type_checking_imports,
             ),
         )
-        self.file_system.write(data_cache_filename, serialized)
+        rust.write_cache_data_map_file(
+            filename=data_cache_filename,
+            imports_by_module=imports_by_module,
+            file_system=self.file_system,
+        )
+
         logger.info(f"Wrote data cache file {data_cache_filename}.")
 
         # Write meta files.
@@ -163,13 +154,13 @@ class Cache(AbstractCache):
     def _build_mtime_map(self) -> None:
         self._mtime_map = self._read_mtime_map_files()
 
-    def _read_mtime_map_files(self) -> Dict[str, float]:
-        all_mtimes: Dict[str, float] = {}
+    def _read_mtime_map_files(self) -> dict[str, float]:
+        all_mtimes: dict[str, float] = {}
         for found_package in self.found_packages:
             all_mtimes.update(self._read_mtime_map_file(found_package))
         return all_mtimes
 
-    def _read_mtime_map_file(self, found_package: FoundPackage) -> Dict[str, float]:
+    def _read_mtime_map_file(self, found_package: FoundPackage) -> dict[str, float]:
         meta_cache_filename = self.file_system.join(
             self.cache_dir, self._namer.make_meta_file_name(found_package)
         )
@@ -189,7 +180,7 @@ class Cache(AbstractCache):
     def _build_data_map(self) -> None:
         self._data_map = self._read_data_map_file()
 
-    def _read_data_map_file(self) -> Dict[Module, Set[DirectImport]]:
+    def _read_data_map_file(self) -> dict[Module, set[DirectImport]]:
         data_cache_filename = self.file_system.join(
             self.cache_dir,
             self._namer.make_data_file_name(
@@ -199,73 +190,21 @@ class Cache(AbstractCache):
             ),
         )
         try:
-            serialized = self.file_system.read(data_cache_filename)
+            imports_by_module = rust.read_cache_data_map_file(
+                data_cache_filename, self.file_system
+            )
         except FileNotFoundError:
             logger.info(f"No cache file: {data_cache_filename}.")
             return {}
-
-        # Deserialize to primitives.
-        try:
-            deserialized_json = json.loads(serialized)
-            logger.info(f"Used cache data file {data_cache_filename}.")
-        except json.JSONDecodeError:
+        except rust.CorruptCache:
             logger.warning(f"Could not use corrupt cache file {data_cache_filename}.")
             return {}
 
-        primitives_map: PrimitiveFormat = self._to_primitives_data_map(deserialized_json)
-
-        return {
-            Module(name=name): {
-                DirectImport(
-                    importer=Module(name),
-                    imported=Module(import_data[0]),
-                    line_number=int(import_data[1]),  # type: ignore
-                    line_contents=import_data[2],
-                )
-                for import_data in imports_data
-            }
-            for name, imports_data in primitives_map.items()
-        }
+        logger.info(f"Used cache data file {data_cache_filename}.")
+        return imports_by_module
 
     def _build_data_cache_filename(self, found_package: FoundPackage) -> str:
         return self.file_system.join(self.cache_dir, f"{found_package.name}.data.json")
-
-    def _to_primitives_data_map(self, deserialized_json: object) -> PrimitiveFormat:
-        """
-        Convert the deserialized json from a data file to a narrower schema.
-
-        Anything that doesn't fit the schema will be removed.
-        """
-        if not isinstance(deserialized_json, dict):
-            return {}
-
-        primitives_map: PrimitiveFormat = {}
-
-        for key, value in deserialized_json.items():
-            if not isinstance(key, str):
-                continue
-            if not isinstance(value, list):
-                continue
-            primitive_imports = []
-            for deserialized_import in value:
-                try:
-                    [imported, line_number, line_contents] = deserialized_import
-                except ValueError:
-                    continue
-                try:
-                    primitive_imports.append(
-                        (
-                            str(imported),
-                            int(line_number) if line_number else None,
-                            str(line_contents),
-                        )
-                    )
-                except TypeError:
-                    continue
-
-            primitives_map[key] = primitive_imports
-
-        return primitives_map
 
     def _write_marker_files_if_not_already_there(self) -> None:
         marker_files_info = (

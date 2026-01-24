@@ -23,13 +23,13 @@ from ._base import NamespacedClient
 from .utils import (
     SKIP_IN_PATH,
     Stability,
+    _availability_warning,
     _quote,
     _rewrite_parameters,
-    _stability_warning,
 )
 
 if t.TYPE_CHECKING:
-    from elasticsearch.esql import ESQLBase
+    from ...esql import ESQLBase
 
 
 class EsqlClient(NamespacedClient):
@@ -40,6 +40,7 @@ class EsqlClient(NamespacedClient):
             "columnar",
             "filter",
             "include_ccs_metadata",
+            "include_execution_metadata",
             "keep_alive",
             "keep_on_completion",
             "locale",
@@ -71,6 +72,7 @@ class EsqlClient(NamespacedClient):
         ] = None,
         human: t.Optional[bool] = None,
         include_ccs_metadata: t.Optional[bool] = None,
+        include_execution_metadata: t.Optional[bool] = None,
         keep_alive: t.Optional[t.Union[str, t.Literal[-1], t.Literal[0]]] = None,
         keep_on_completion: t.Optional[bool] = None,
         locale: t.Optional[str] = None,
@@ -88,8 +90,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Run an async ES|QL query.
-          Asynchronously run an ES|QL (Elasticsearch query language) query, monitor its progress, and retrieve results when they become available.</p>
+          <p>Run an async ES|QL query.</p>
+          <p>Asynchronously run an ES|QL (Elasticsearch query language) query, monitor its progress, and retrieve results when they become available.</p>
           <p>The API accepts the same parameters and request body as the synchronous query API, along with additional async related properties.</p>
 
 
@@ -120,7 +122,11 @@ class EsqlClient(NamespacedClient):
             be returned if the async query doesn't finish within the timeout. The query
             ID and running status are available in the `X-Elasticsearch-Async-Id` and
             `X-Elasticsearch-Async-Is-Running` HTTP headers of the response, respectively.
-        :param include_ccs_metadata: When set to `true` and performing a cross-cluster
+        :param include_ccs_metadata: When set to `true` and performing a cross-cluster/cross-project
+            query, the response will include an extra `_clusters` object with information
+            about the clusters that participated in the search along with info such as
+            shards count.
+        :param include_execution_metadata: When set to `true` and performing a cross-cluster/cross-project
             query, the response will include an extra `_clusters` object with information
             about the clusters that participated in the search along with info such as
             shards count.
@@ -180,6 +186,8 @@ class EsqlClient(NamespacedClient):
                 __body["filter"] = filter
             if include_ccs_metadata is not None:
                 __body["include_ccs_metadata"] = include_ccs_metadata
+            if include_execution_metadata is not None:
+                __body["include_execution_metadata"] = include_execution_metadata
             if keep_alive is not None:
                 __body["keep_alive"] = keep_alive
             if keep_on_completion is not None:
@@ -218,8 +226,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Delete an async ES|QL query.
-          If the query is still running, it is cancelled.
+          <p>Delete an async ES|QL query.</p>
+          <p>If the query is still running, it is cancelled.
           Otherwise, the stored results are deleted.</p>
           <p>If the Elasticsearch security features are enabled, only the following users can use this API to delete a query:</p>
           <ul>
@@ -284,8 +292,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get async ES|QL query results.
-          Get the current status and available results or stored results for an ES|QL asynchronous query.
+          <p>Get async ES|QL query results.</p>
+          <p>Get the current status and available results or stored results for an ES|QL asynchronous query.
           If the Elasticsearch security features are enabled, only the user who first submitted the ES|QL query can retrieve the results using this API.</p>
 
 
@@ -396,7 +404,7 @@ class EsqlClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def get_query(
         self,
         *,
@@ -409,8 +417,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get a specific running ES|QL query information.
-          Returns an object extended information about a running ES|QL query.</p>
+          <p>Get a specific running ES|QL query information.</p>
+          <p>Returns an object extended information about a running ES|QL query.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-get-query>`_
@@ -441,7 +449,7 @@ class EsqlClient(NamespacedClient):
         )
 
     @_rewrite_parameters()
-    @_stability_warning(Stability.EXPERIMENTAL)
+    @_availability_warning(Stability.EXPERIMENTAL)
     async def list_queries(
         self,
         *,
@@ -453,8 +461,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Get running ES|QL queries information.
-          Returns an object containing IDs and other information about the running ES|QL queries.</p>
+          <p>Get running ES|QL queries information.</p>
+          <p>Returns an object containing IDs and other information about the running ES|QL queries.</p>
 
 
         `<https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-esql-list-queries>`_
@@ -486,6 +494,7 @@ class EsqlClient(NamespacedClient):
             "columnar",
             "filter",
             "include_ccs_metadata",
+            "include_execution_metadata",
             "locale",
             "params",
             "profile",
@@ -514,8 +523,16 @@ class EsqlClient(NamespacedClient):
         ] = None,
         human: t.Optional[bool] = None,
         include_ccs_metadata: t.Optional[bool] = None,
+        include_execution_metadata: t.Optional[bool] = None,
         locale: t.Optional[str] = None,
-        params: t.Optional[t.Sequence[t.Union[None, bool, float, int, str]]] = None,
+        params: t.Optional[
+            t.Sequence[
+                t.Union[
+                    t.Sequence[t.Union[None, bool, float, int, str]],
+                    t.Union[None, bool, float, int, str],
+                ]
+            ]
+        ] = None,
         pretty: t.Optional[bool] = None,
         profile: t.Optional[bool] = None,
         tables: t.Optional[
@@ -526,8 +543,8 @@ class EsqlClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Run an ES|QL query.
-          Get search results for an ES|QL (Elasticsearch query language) query.</p>
+          <p>Run an ES|QL query.</p>
+          <p>Get search results for an ES|QL (Elasticsearch query language) query.</p>
 
 
         `<https://www.elastic.co/docs/explore-analyze/query-filter/languages/esql-rest>`_
@@ -554,7 +571,11 @@ class EsqlClient(NamespacedClient):
         :param format: A short version of the Accept header, e.g. json, yaml. `csv`,
             `tsv`, and `txt` formats will return results in a tabular format, excluding
             other metadata fields from the response.
-        :param include_ccs_metadata: When set to `true` and performing a cross-cluster
+        :param include_ccs_metadata: When set to `true` and performing a cross-cluster/cross-project
+            query, the response will include an extra `_clusters` object with information
+            about the clusters that participated in the search along with info such as
+            shards count.
+        :param include_execution_metadata: When set to `true` and performing a cross-cluster/cross-project
             query, the response will include an extra `_clusters` object with information
             about the clusters that participated in the search along with info such as
             shards count.
@@ -600,6 +621,8 @@ class EsqlClient(NamespacedClient):
                 __body["filter"] = filter
             if include_ccs_metadata is not None:
                 __body["include_ccs_metadata"] = include_ccs_metadata
+            if include_execution_metadata is not None:
+                __body["include_execution_metadata"] = include_execution_metadata
             if locale is not None:
                 __body["locale"] = locale
             if params is not None:

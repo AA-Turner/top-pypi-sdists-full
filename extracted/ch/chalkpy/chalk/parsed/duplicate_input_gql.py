@@ -271,6 +271,7 @@ class UpsertCronQueryGQL:
     upperBound: Optional[datetime]  # deprecated: can't use datetime
     tags: Optional[List[str]]
     requiredResolverTags: Optional[List[str]]
+    datasetName: Optional[str] = None
     storeOnline: Optional[bool] = True  # None = True
     storeOffline: Optional[bool] = True  # None = True
     incrementalSources: Optional[List[str]] = None
@@ -278,6 +279,9 @@ class UpsertCronQueryGQL:
     upperBoundStr: Optional[str] = None
     resourceGroup: Optional[str] = None
     plannerOptions: Optional[Dict[str, str]] = None
+    completionDeadline: Optional[str] = None
+    numShards: Optional[int] = None
+    numWorkers: Optional[int] = None
 
 
 @dataclasses_json.dataclass_json
@@ -303,12 +307,21 @@ class UpsertNamedQueryGQL:
 
 @dataclasses_json.dataclass_json
 @dataclass
+class ModelRelationGQL:
+    inputFeatures: List[str]
+    outputFeature: str
+
+
+@dataclasses_json.dataclass_json
+@dataclass
 class UpsertModelReferenceGQL:
     name: str
     filename: str
     version: Optional[int] = None
     alias: Optional[str] = None
     asOf: Optional[datetime] = None
+    relations: Optional[List[ModelRelationGQL]] = None
+    resolvers: Optional[List[str]] = None
     code: Optional[str] = None
     sourceLineStart: Optional[int] = None
     sourceLineEnd: Optional[int] = None

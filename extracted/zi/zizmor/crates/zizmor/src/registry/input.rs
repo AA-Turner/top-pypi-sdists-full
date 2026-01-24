@@ -2,46 +2,110 @@
 
 use std::{
     collections::{BTreeMap, btree_map},
+    path::PathBuf,
     str::FromStr as _,
 };
 
-use anyhow::Context;
 use camino::{Utf8Path, Utf8PathBuf};
-use owo_colors::OwoColorize as _;
 use serde::Serialize;
 use thiserror::Error;
 
 use crate::{
-    CollectionMode, CollectionOptions,
+    CollectionOptions,
     audit::AuditInput,
-    config::Config,
-    github_api::{Client, GitHubHost},
-    models::{action::Action, workflow::Workflow},
-    tips,
+    config::{Config, ConfigError},
+    github::{Client, ClientError},
+    models::{action::Action, dependabot::Dependabot, workflow::Workflow},
 };
 
-#[derive(Error, Debug)]
-pub(crate) enum InputError {
+/// Errors that can occur while collecting inputs.
+#[derive(Debug, Error)]
+pub(crate) enum CollectionError {
     /// The input's syntax is invalid.
     /// This typically indicates a user error.
     #[error("invalid YAML syntax: {0}")]
     Syntax(#[source] anyhow::Error),
-    /// The input couldn't be converted into the expected model.
-    /// This typically indicates a bug in `github-actions-models`.
-    #[error("couldn't turn input into a an appropriate model")]
-    Model(#[source] anyhow::Error),
+
     /// The input doesn't match the schema for the expected model.
     /// This typically indicates a user error.
     #[error("input does not match expected validation schema")]
     Schema(#[source] anyhow::Error),
+
+    /// The input couldn't be converted into the expected model.
+    /// This typically indicates a bug in `github-actions-models`.
+    #[error("couldn't turn input into a an appropriate model")]
+    Model(#[from] serde_yaml::Error),
+
+    /// The input couldn't be loaded into an internal yamlpath document.
+    /// This typically indicates a bug in `yamlpath`.
+    #[error("failed to load internal pathing document")]
+    Yamlpath(#[from] yamlpath::QueryError),
+
+    /// An error in a group or global configuration.
+    #[error(transparent)]
+    Config(#[from] ConfigError),
+
+    /// The input couldn't be parsed as one of our known input sources
+    /// (file, directory, or GitHub repo).
+    #[error("invalid input: {0}")]
+    InvalidInput(String),
+
+    /// The user provided the same input in the same group more than once.
+    #[error("can't register the same input more than once: {0}")]
+    DuplicateInput(InputKey),
+
+    /// The user wants us to fetch a remote repo, but we don't have a
+    /// functional GitHub client (maybe because we're offline, or
+    /// because no token was provided).
+    #[error("can't fetch remote repository: {0}")]
+    NoGitHubClient(RepoSlug),
+
+    /// An error occurred while processing ignore rules.
+    #[error("error while processing ignore rules")]
+    Ignore(#[from] ignore::Error),
+
+    /// A single input file failed to load as a specific kind.
+    #[error("failed to load {1} as {2}")]
+    Inner(#[source] Box<CollectionError>, String, InputKind),
+
+    /// The input doesn't have a `.yml` or `.yaml` extension.
+    #[error("invalid input: must have .yml or .yaml extension")]
+    InvalidExtension,
+
+    /// Workflow-specific collection was requested, but the remote
+    /// input doesn't contain any workflows. This typically means the remote
+    /// repository doesn't have a `.github` or `.github/workflows` directory.
+    #[error("input {1} doesn't contain any workflows")]
+    RemoteWithoutWorkflows(#[source] ClientError, String),
+
+    /// A GitHub API error occurred while fetching a remote input.
+    #[error("GitHub API error while fetching remote input")]
+    Client(#[from] ClientError),
+
     /// An I/O error occurred while loading the input.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    /// The input's name is missing.
-    #[error("invalid input: no filename component")]
-    MissingName,
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
+
+    /// The input path isn't valid UTF-8.
+    #[error("invalid path (not UTF-8): {1:?}")]
+    InvalidPath(#[source] camino::FromPathError, PathBuf),
+
+    /// No inputs were collected.
+    #[error("no inputs collected")]
+    NoInputs,
+}
+
+impl CollectionError {
+    /// Returns the "innermost" variant of this [`CollectionError`].
+    ///
+    /// In practice this is always `&self` *unless* this is an
+    /// `Inner` variant, in which case it recurses into the inner error.
+    pub(crate) fn inner(&self) -> &Self {
+        match self {
+            CollectionError::Inner(inner, _, _) => inner.inner(),
+            _ => self,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, Serialize, PartialOrd, Ord)]
@@ -50,6 +114,8 @@ pub(crate) enum InputKind {
     Workflow,
     /// An action definition.
     Action,
+    /// A Dependabot configuration file.
+    Dependabot,
 }
 
 impl std::fmt::Display for InputKind {
@@ -57,6 +123,7 @@ impl std::fmt::Display for InputKind {
         match self {
             InputKind::Workflow => write!(f, "workflow"),
             InputKind::Action => write!(f, "action"),
+            InputKind::Dependabot => write!(f, "dependabot config"),
         }
     }
 }
@@ -73,7 +140,7 @@ pub(crate) struct RepoSlug {
 }
 
 impl std::str::FromStr for RepoSlug {
-    type Err = anyhow::Error;
+    type Err = CollectionError;
 
     /// NOTE: This is almost exactly the same as
     /// [`github_actions_models::common::RepositoryUses`],
@@ -84,7 +151,7 @@ impl std::str::FromStr for RepoSlug {
             None => (s, None),
         };
 
-        let components = path.splitn(2, '/').collect::<Vec<_>>();
+        let components = path.split('/').collect::<Vec<_>>();
 
         match components.len() {
             2 => Ok(Self {
@@ -92,14 +159,8 @@ impl std::str::FromStr for RepoSlug {
                 repo: components[1].into(),
                 git_ref: git_ref.map(|s| s.into()),
             }),
-            x if x < 2 => Err(anyhow::anyhow!(tips(
-                "invalid repo slug (too short)",
-                &["pass owner/repo or owner/repo@ref"]
-            ))),
-            _ => Err(anyhow::anyhow!(tips(
-                "invalid repo slug (too many parts)",
-                &["pass owner/repo or owner/repo@ref"]
-            ))),
+            x if x < 2 => Err(CollectionError::InvalidInput(s.into())),
+            _ => Err(CollectionError::InvalidInput(s.into())),
         }
     }
 }
@@ -166,33 +227,20 @@ impl std::fmt::Display for InputKey {
 }
 
 impl InputKey {
-    pub(crate) fn local<P: AsRef<Utf8Path>>(
-        group: Group,
-        path: P,
-        prefix: Option<P>,
-    ) -> Result<Self, InputError> {
-        // All keys must have a filename component.
-        if path.as_ref().file_name().is_none() {
-            return Err(InputError::MissingName);
-        }
-
-        Ok(Self::Local(LocalKey {
+    pub(crate) fn local<P: AsRef<Utf8Path>>(group: Group, path: P, prefix: Option<P>) -> Self {
+        Self::Local(LocalKey {
             group,
             prefix: prefix.map(|p| p.as_ref().to_path_buf()),
             given_path: path.as_ref().to_path_buf(),
-        }))
+        })
     }
 
-    pub(crate) fn remote(slug: &RepoSlug, path: String) -> Result<Self, InputError> {
-        if Utf8Path::new(&path).file_name().is_none() {
-            return Err(InputError::MissingName);
-        }
-
-        Ok(Self::Remote(RemoteKey {
+    pub(crate) fn remote(slug: &RepoSlug, path: String) -> Self {
+        Self::Remote(RemoteKey {
             group: slug.into(),
             slug: slug.clone(),
             path: path.into(),
-        }))
+        })
     }
 
     /// Returns a path for this [`InputKey`] that's suitable for SARIF
@@ -237,8 +285,14 @@ impl InputKey {
         // NOTE: Safe unwraps, since the presence of a filename component
         // is a construction invariant of all `InputKey` variants.
         match self {
-            InputKey::Local(local) => local.given_path.file_name().unwrap(),
-            InputKey::Remote(remote) => remote.path.file_name().unwrap(),
+            InputKey::Local(local) => local
+                .given_path
+                .file_name()
+                .expect("expected input key to have a filename component"),
+            InputKey::Remote(remote) => remote
+                .path
+                .file_name()
+                .expect("expected input key to have a filename component"),
         }
     }
 
@@ -283,12 +337,9 @@ impl InputGroup {
         }
     }
 
-    pub(crate) fn register_input(&mut self, input: AuditInput) -> anyhow::Result<()> {
+    pub(crate) fn register_input(&mut self, input: AuditInput) -> Result<(), CollectionError> {
         if self.inputs.contains_key(input.key()) {
-            return Err(anyhow::anyhow!(
-                "can't register {key} more than once",
-                key = input.key()
-            ));
+            return Err(CollectionError::DuplicateInput(input.key().clone()));
         }
 
         self.inputs.insert(input.key().clone(), input);
@@ -302,59 +353,83 @@ impl InputGroup {
         contents: String,
         key: InputKey,
         strict: bool,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), CollectionError> {
         tracing::debug!("registering {kind} input as with key {key}");
 
-        let input: Result<AuditInput, InputError> = match kind {
+        let input: Result<AuditInput, CollectionError> = match kind {
             InputKind::Workflow => Workflow::from_string(contents, key.clone()).map(|wf| wf.into()),
             InputKind::Action => Action::from_string(contents, key.clone()).map(|a| a.into()),
+            InputKind::Dependabot => {
+                Dependabot::from_string(contents, key.clone()).map(|d| d.into())
+            }
         };
 
         match input {
             Ok(input) => self.register_input(input),
-            Err(InputError::Syntax(e)) if !strict => {
+            Err(CollectionError::Syntax(e)) if !strict => {
                 tracing::warn!("failed to parse input: {e}");
                 Ok(())
             }
-            Err(e @ InputError::Schema { .. }) if !strict => {
+            Err(e @ CollectionError::Schema { .. }) if !strict => {
                 tracing::warn!("failed to validate input as {kind}: {e}");
                 Ok(())
             }
-            Err(e) => {
-                Err(anyhow::anyhow!(e)).with_context(|| format!("failed to load {key} as {kind}"))
-            }
+            Err(e) => Err(CollectionError::Inner(e.into(), key.to_string(), kind)),
         }
     }
 
-    fn collect_from_file(path: &Utf8Path, options: &CollectionOptions) -> anyhow::Result<Self> {
-        let config = Config::discover(options, || Config::discover_local(path))
-            .with_context(|| format!("failed to discover configuration for {path}"))?;
+    async fn collect_from_file(
+        path: &Utf8Path,
+        options: &CollectionOptions,
+    ) -> Result<Self, CollectionError> {
+        let config = Config::discover(options, || Config::discover_local(path)).await?;
+
+        // Workflows can be named anything, including `dependabot.yml`
+        // (overlapping with Dependabot configs) and `action.yml` (overlapping
+        // with action definitions). Consequently, we make a best effort
+        // disambiguate them by looking at their parent path.
+        // See: https://github.com/zizmorcore/zizmor/issues/1341
+        let is_workflow_path = {
+            let resolved = path.canonicalize_utf8()?;
+
+            resolved
+                .parent()
+                .is_some_and(|parent| parent.ends_with(".github/workflows"))
+        };
 
         let mut group = Self::new(config);
 
         // When collecting individual files, we don't know which part
         // of the input path is the prefix.
         let (key, kind) = match (path.file_stem(), path.extension()) {
-            (Some("action"), Some("yml" | "yaml")) => (
-                InputKey::local(Group(path.as_str().into()), path, None)?,
+            (Some("dependabot"), Some("yml" | "yaml")) if !is_workflow_path => (
+                InputKey::local(Group(path.as_str().into()), path, None),
+                InputKind::Dependabot,
+            ),
+            (Some("action"), Some("yml" | "yaml")) if !is_workflow_path => (
+                InputKey::local(Group(path.as_str().into()), path, None),
                 InputKind::Action,
             ),
             (Some(_), Some("yml" | "yaml")) => (
-                InputKey::local(Group(path.as_str().into()), path, None)?,
+                InputKey::local(Group(path.as_str().into()), path, None),
                 InputKind::Workflow,
             ),
-            _ => return Err(anyhow::anyhow!("invalid input: {path}")),
+            _ => return Err(CollectionError::InvalidExtension),
         };
 
-        let contents = std::fs::read_to_string(path)?;
+        let contents = std::fs::read_to_string(path).map_err(|e| {
+            CollectionError::Inner(CollectionError::Io(e).into(), key.to_string(), kind)
+        })?;
         group.register(kind, contents, key, options.strict)?;
 
         Ok(group)
     }
 
-    fn collect_from_dir(path: &Utf8Path, options: &CollectionOptions) -> anyhow::Result<Self> {
-        let config = Config::discover(options, || Config::discover_local(path))
-            .with_context(|| format!("failed to discover configuration for directory {path}"))?;
+    async fn collect_from_dir(
+        path: &Utf8Path,
+        options: &CollectionOptions,
+    ) -> Result<Self, CollectionError> {
+        let config = Config::discover(options, || Config::discover_local(path)).await?;
 
         let mut group = Self::new(config);
 
@@ -373,7 +448,7 @@ impl InputGroup {
         // zizmor integrators.
         //
         // See: https://github.com/zizmorcore/zizmor/issues/596
-        if options.mode.respects_gitignore() {
+        if options.mode_set.respects_gitignore() {
             walker
                 .require_git(false)
                 .git_ignore(true)
@@ -383,93 +458,84 @@ impl InputGroup {
 
         for entry in walker.build() {
             let entry = entry?;
-            let entry = <&Utf8Path>::try_from(entry.path())?;
+            let entry = <&Utf8Path>::try_from(entry.path())
+                .map_err(|e| CollectionError::InvalidPath(e, entry.path().into()))?;
 
-            if options.mode.workflows()
+            if options.mode_set.workflows()
                 && entry.is_file()
                 && matches!(entry.extension(), Some("yml" | "yaml"))
                 && entry
                     .parent()
                     .is_some_and(|dir| dir.ends_with(".github/workflows"))
             {
-                let key = InputKey::local(Group(path.as_str().into()), entry, Some(path))?;
-                let contents = std::fs::read_to_string(entry)?;
+                let key = InputKey::local(Group(path.as_str().into()), entry, Some(path));
+                let contents = std::fs::read_to_string(entry).map_err(|e| {
+                    CollectionError::Inner(
+                        CollectionError::Io(e).into(),
+                        key.to_string(),
+                        InputKind::Workflow,
+                    )
+                })?;
                 group.register(InputKind::Workflow, contents, key, options.strict)?;
             }
 
-            if options.mode.actions()
+            if options.mode_set.actions()
                 && entry.is_file()
                 && matches!(entry.file_name(), Some("action.yml" | "action.yaml"))
             {
-                let key = InputKey::local(Group(path.as_str().into()), entry, Some(path))?;
-                let contents = std::fs::read_to_string(entry)?;
+                let key = InputKey::local(Group(path.as_str().into()), entry, Some(path));
+                let contents = std::fs::read_to_string(entry).map_err(|e| {
+                    CollectionError::Inner(
+                        CollectionError::Io(e).into(),
+                        key.to_string(),
+                        InputKind::Action,
+                    )
+                })?;
                 group.register(InputKind::Action, contents, key, options.strict)?;
+            }
+
+            if options.mode_set.dependabot()
+                && entry.is_file()
+                && matches!(
+                    entry.file_name(),
+                    Some("dependabot.yml" | "dependabot.yaml")
+                )
+            {
+                let key = InputKey::local(Group(path.as_str().into()), entry, Some(path));
+                let contents = std::fs::read_to_string(entry).map_err(|e| {
+                    CollectionError::Inner(
+                        CollectionError::Io(e).into(),
+                        key.to_string(),
+                        InputKind::Dependabot,
+                    )
+                })?;
+                group.register(InputKind::Dependabot, contents, key, options.strict)?;
             }
         }
 
         Ok(group)
     }
 
-    fn collect_from_repo_slug(
-        raw_slug: &str,
+    async fn collect_from_repo_slug(
+        slug: RepoSlug,
         options: &CollectionOptions,
         gh_client: Option<&Client>,
-    ) -> anyhow::Result<Self> {
-        let Ok(slug) = RepoSlug::from_str(raw_slug) else {
-            return Err(anyhow::anyhow!(tips(
-                format!("invalid input: {raw_slug}"),
-                &[format!(
-                    "pass a single {file}, {directory}, or entire repo by {slug} slug",
-                    file = "file".green(),
-                    directory = "directory".green(),
-                    slug = "owner/repo".green()
-                )]
-            )));
-        };
+    ) -> Result<Self, CollectionError> {
+        let client = gh_client.ok_or_else(|| CollectionError::NoGitHubClient(slug.clone()))?;
 
-        let client = gh_client.ok_or_else(|| {
-            anyhow::anyhow!(tips(
-                format!(
-                    "can't retrieve repository: {raw_slug}",
-                    raw_slug = raw_slug.green()
-                ),
-                &[format!(
-                    "try removing {offline} or passing {gh_token}",
-                    offline = "--offline".yellow(),
-                    gh_token = "--gh-token <TOKEN>".yellow(),
-                )]
-            ))
-        })?;
-
-        let config = Config::discover(options, || Config::discover_remote(client, &slug))
-            .with_context(|| format!("failed to discover configuration for {slug}"))?;
+        let config = Config::discover(options, || Config::discover_remote(client, &slug)).await?;
         let mut group = Self::new(config);
 
-        if matches!(options.mode, CollectionMode::WorkflowsOnly) {
+        if options.mode_set.workflows_only() {
             // Performance: if we're *only* collecting workflows, then we
             // can save ourselves a full repo download and only fetch the
             // repo's workflow files.
-            client.fetch_workflows(&slug, options, &mut group)?;
+            client.fetch_workflows(&slug, options, &mut group).await?;
         } else {
             let before = group.len();
-            let host = match client.host() {
-                GitHubHost::Enterprise(address) => address.as_str(),
-                GitHubHost::Standard(_) => "github.com",
-            };
-
             client
                 .fetch_audit_inputs(&slug, options, &mut group)
-                .with_context(|| {
-                    tips(
-                        format!(
-                            "couldn't collect inputs from https://{host}/{owner}/{repo}",
-                            host = host,
-                            owner = slug.owner,
-                            repo = slug.repo
-                        ),
-                        &["confirm the repository exists and that you have access to it"],
-                    )
-                })?;
+                .await?;
             let after = group.len();
             let len = after - before;
 
@@ -483,18 +549,20 @@ impl InputGroup {
         Ok(group)
     }
 
-    pub(crate) fn collect(
+    pub(crate) async fn collect(
         request: &str,
         options: &CollectionOptions,
         gh_client: Option<&Client>,
-    ) -> anyhow::Result<Self> {
+    ) -> Result<Self, CollectionError> {
         let path = Utf8Path::new(request);
+
         if path.is_file() {
-            Self::collect_from_file(path, options)
+            Self::collect_from_file(path, options).await
         } else if path.is_dir() {
-            Self::collect_from_dir(path, options)
+            Self::collect_from_dir(path, options).await
         } else {
-            Self::collect_from_repo_slug(request, options, gh_client)
+            let slug = RepoSlug::from_str(request)?;
+            Self::collect_from_repo_slug(slug, options, gh_client).await
         }
     }
 
@@ -524,17 +592,17 @@ impl InputRegistry {
         self.groups.values().map(|g| g.len()).sum()
     }
 
-    pub(crate) fn register_group(
+    pub(crate) async fn register_group(
         &mut self,
-        name: String,
+        name: &str,
         options: &CollectionOptions,
         gh_client: Option<&Client>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), CollectionError> {
         // If the group has already been registered, then the user probably
         // duplicated the input multiple times on the command line by accident.
         // We just ignore any duplicate registrations.
-        if let btree_map::Entry::Vacant(e) = self.groups.entry(Group(name.clone())) {
-            e.insert(InputGroup::collect(&name, options, gh_client)?);
+        if let btree_map::Entry::Vacant(e) = self.groups.entry(Group(name.into())) {
+            e.insert(InputGroup::collect(name, options, gh_client).await?);
         }
 
         Ok(())
@@ -571,12 +639,12 @@ mod tests {
 
     #[test]
     fn test_input_key_display() {
-        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None);
         assert_eq!(local.to_string(), "file:///foo/bar/baz.yml");
 
         // No ref
         let slug = RepoSlug::from_str("foo/bar").unwrap();
-        let remote = InputKey::remote(&slug, ".github/workflows/baz.yml".into()).unwrap();
+        let remote = InputKey::remote(&slug, ".github/workflows/baz.yml".into());
         assert_eq!(
             remote.to_string(),
             "https://github.com/foo/bar/blob/HEAD/.github/workflows/baz.yml"
@@ -584,7 +652,7 @@ mod tests {
 
         // With a git ref
         let slug = RepoSlug::from_str("foo/bar@v1").unwrap();
-        let remote = InputKey::remote(&slug, ".github/workflows/baz.yml".into()).unwrap();
+        let remote = InputKey::remote(&slug, ".github/workflows/baz.yml".into());
         assert_eq!(
             remote.to_string(),
             "https://github.com/foo/bar/blob/v1/.github/workflows/baz.yml"
@@ -593,22 +661,20 @@ mod tests {
 
     #[test]
     fn test_input_key_local_presentation_path() {
-        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None);
         assert_eq!(local.presentation_path(), "/foo/bar/baz.yml");
 
-        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo")).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo"));
         assert_eq!(local.presentation_path(), "/foo/bar/baz.yml");
 
-        let local =
-            InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo/bar/")).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo/bar/"));
         assert_eq!(local.presentation_path(), "/foo/bar/baz.yml");
 
         let local = InputKey::local(
             "fakegroup".into(),
             "/home/runner/work/repo/repo/.github/workflows/baz.yml",
             Some("/home/runner/work/repo/repo"),
-        )
-        .unwrap();
+        );
         assert_eq!(
             local.presentation_path(),
             "/home/runner/work/repo/repo/.github/workflows/baz.yml"
@@ -617,26 +683,23 @@ mod tests {
 
     #[test]
     fn test_input_key_local_sarif_path() {
-        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", None);
         assert_eq!(local.sarif_path(), "/foo/bar/baz.yml");
 
-        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo")).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo"));
         assert_eq!(local.sarif_path(), "bar/baz.yml");
 
-        let local =
-            InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo/bar/")).unwrap();
+        let local = InputKey::local("fakegroup".into(), "/foo/bar/baz.yml", Some("/foo/bar/"));
         assert_eq!(local.sarif_path(), "baz.yml");
 
         let local = InputKey::local(
             "fakegroup".into(),
             "/home/runner/work/repo/repo/.github/workflows/baz.yml",
             Some("/home/runner/work/repo/repo"),
-        )
-        .unwrap();
+        );
         assert_eq!(local.sarif_path(), ".github/workflows/baz.yml");
 
-        let local =
-            InputKey::local("fakegroup".into(), "./.github/workflows/baz.yml", Some(".")).unwrap();
+        let local = InputKey::local("fakegroup".into(), "./.github/workflows/baz.yml", Some("."));
         assert_eq!(local.sarif_path(), ".github/workflows/baz.yml");
     }
 }

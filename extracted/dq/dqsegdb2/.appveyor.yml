@@ -1,0 +1,47 @@
+image: Visual Studio 2022
+environment:
+  global:
+    MAMBAFORGE_PATH: C:\Mambaforge
+  matrix:
+    - PYTHON_VERSION: 3.7
+    - PYTHON_VERSION: 3.8
+    - PYTHON_VERSION: 3.9
+    - PYTHON_VERSION: 3.10
+    - PYTHON_VERSION: 3.11
+install:
+  # install fresh, up-to-date mambaforge
+  - curl -fsSL -o miniconda.exe https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Windows-x86_64.exe
+  - miniconda.exe /S /InstallationType=JustMe /D=%MAMBAFORGE_PATH%
+  - set "PATH=%MAMBAFORGE_PATH%;%MAMBAFORGE_PATH%\\Scripts;%PATH%"
+  - activate
+  # update conda config
+  - conda config --set always_yes yes
+  - conda config --set channel_priority strict
+  - conda config --add channels conda-forge
+  - conda info --all
+  # create new environment
+  - appveyor-retry mamba create --quiet --yes --name ci
+        "igwn-auth-utils>=0.4.0"
+        "igwn-segments>=2.0.0"
+        "pip"
+        "pytest>=2.9.2"
+        "pytest-cov>=2.5.1"
+        "python=%PYTHON_VERSION%"
+        "requests-mock>=1.5.0"
+        "setuptools>=42"
+        "setuptools-scm>=3.4.3"
+  - conda activate ci
+  - conda list
+build_script:
+  - python -m pip install .[test]
+test_script:
+  - python -m pytest
+        --color yes
+        --code-highlight yes
+        --cov dqsegdb2
+        --junitxml junit.xml
+        --pyargs dqsegdb2.tests
+        -ra
+        --verbose
+on_finish:
+  - ps: (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\junit.xml))

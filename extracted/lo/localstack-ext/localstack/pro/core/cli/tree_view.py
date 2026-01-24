@@ -5,11 +5,11 @@ from localstack.utils.objects import SubtypesInstanceManager
 ESC=27
 INDENTATION=2
 class TreeRenderer(SubtypesInstanceManager,ABC):
-	def render_tree(A,tree,tree_name):raise NotImplementedError
+	def render_tree(A,tree:dict[str,Any],tree_name:str):raise NotImplementedError
 class TreeRendererRich(TreeRenderer):
 	@staticmethod
-	def impl_name():return'rich'
-	def render_tree(C,tree,tree_name):
+	def impl_name()->str:return'rich'
+	def render_tree(C,tree:dict[str,Any],tree_name:str):
 		from rich import print;from rich.tree import Tree as A
 		def F(obj,parent):
 			C=parent;B=obj
@@ -27,7 +27,7 @@ class TreeRendererRich(TreeRenderer):
 		B=A(tree_name);F(tree,B);print(B)
 class Tree:
 	def __init__(A,name,obj):A.name=name;A.object=obj;A.expanded=True
-	def render(A,depth,width):return A.pad(f"{' '*INDENTATION*depth}{A.icon()} {A.name}",width)
+	def render(A,depth,width):B=' '*INDENTATION*depth;return A.pad(f"{B}{A.icon()} {A.name}",width)
 	@functools.cache
 	def children(self):
 		A=self
@@ -53,16 +53,16 @@ class Tree:
 class TreeRendererCurses(TreeRenderer):
 	LOG=None
 	@staticmethod
-	def impl_name():return'curses'
-	def render_tree(B,dict_obj,tree_name):
+	def impl_name()->str:return'curses'
+	def render_tree(B,dict_obj:dict,tree_name:str):
 		from curses import wrapper as C;A=os.dup(0),os.dup(1)
-		def D(_tree):
+		def D(_tree:Tree):
 			def A(win):return B.curses_main(win,_tree)
 			return A
 		try:A=B.open_tty();E=Tree(tree_name,dict_obj);C(D(E))
 		finally:os.close(0);os.close(1);os.dup(A[0]);os.dup(A[1])
 	@staticmethod
-	def curses_main(win,tree):
+	def curses_main(win,tree:Tree):
 		C=win;import curses as A;C.clear();C.refresh();A.nl();A.noecho();C.timeout(0);C.nodelay(False);tree.expand();B=3;F=None;A.use_default_colors()
 		while True:
 			C.clear();A.init_pair(1,A.COLOR_WHITE,A.COLOR_BLUE);E=0;G=max(0,B-A.LINES+3)
@@ -95,5 +95,5 @@ class TreeRendererCurses(TreeRenderer):
 		A.LOG.info(*D,**E)
 class TreeRendererJSON(TreeRenderer):
 	@staticmethod
-	def impl_name():return'json'
-	def render_tree(A,dict_obj,tree_name):print(json.dumps(dict_obj,indent=4))
+	def impl_name()->str:return'json'
+	def render_tree(A,dict_obj:dict,tree_name:str):print(json.dumps(dict_obj,indent=4))

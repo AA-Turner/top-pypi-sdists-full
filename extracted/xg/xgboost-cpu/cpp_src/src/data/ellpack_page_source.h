@@ -8,46 +8,79 @@
 #include <cstdint>  // for int32_t
 #include <limits>   // for numeric_limits
 #include <memory>   // for shared_ptr
+#include <tuple>    // for tuple
 #include <utility>  // for move
 #include <vector>   // for vector
 
-#include "../common/cuda_rt_utils.h"  // for SupportsPageableMem, SupportsAts
-#include "../common/hist_util.h"      // for HistogramCuts
-#include "ellpack_page.h"             // for EllpackPage
-#include "ellpack_page_raw_format.h"  // for EllpackPageRawFormat
-#include "sparse_page_source.h"       // for PageSourceIncMixIn
-#include "xgboost/base.h"             // for bst_idx_t
-#include "xgboost/context.h"          // for DeviceOrd
-#include "xgboost/data.h"             // for BatchParam
-#include "xgboost/span.h"             // for Span
+#include "../common/compressed_iterator.h"  // for CompressedByteT
+#include "../common/cuda_rt_utils.h"        // for SupportsPageableMem, SupportsAts
+#include "../common/device_compression.h"   // for SnappyDecomprMgr
+#include "../common/hist_util.h"            // for HistogramCuts
+#include "../common/ref_resource_view.h"    // for RefResourceView
+#include "../data/batch_utils.h"            // for AutoHostRatio
+#include "ellpack_page.h"                   // for EllpackPage
+#include "ellpack_page_raw_format.h"        // for EllpackPageRawFormat
+#include "sparse_page_source.h"             // for PageSourceIncMixIn
+#include "xgboost/base.h"                   // for bst_idx_t
+#include "xgboost/context.h"                // for DeviceOrd
+#include "xgboost/data.h"                   // for BatchParam
+#include "xgboost/span.h"                   // for Span
+
+namespace xgboost::curt {
+class StreamPool;
+}
+namespace xgboost::common::cuda_impl {
+class HostPinnedMemPool;
+}  // namespace xgboost::common::cuda_impl
 
 namespace xgboost::data {
 struct EllpackCacheInfo {
   BatchParam param;
-  bool prefer_device{false};  // Prefer to cache the page in the device memory instead of host.
-  std::int64_t max_num_device_pages{0};  // Maximum number of pages cached in device.
+  // The size ratio the host cache vs. the total cache
+  double cache_host_ratio{::xgboost::cuda_impl::AutoHostRatio()};
   float missing{std::numeric_limits<float>::quiet_NaN()};
+  // The ratio of the cache that can be compressed. Used for testing.
+  float hw_decomp_ratio{std::numeric_limits<float>::quiet_NaN()};
+  bool allow_decomp_fallback{false};
   std::vector<bst_idx_t> cache_mapping;
-  std::vector<bst_idx_t> buffer_bytes;
+  std::vector<bst_idx_t> buffer_bytes;  // N bytes of the concatenated pages.
   std::vector<bst_idx_t> buffer_rows;
 
   EllpackCacheInfo() = default;
-  EllpackCacheInfo(BatchParam param, bool prefer_device, std::int64_t max_num_device_pages,
-                   float missing)
+  EllpackCacheInfo(BatchParam param, double h_ratio, float missing)
+      : param{std::move(param)}, cache_host_ratio{h_ratio}, missing{missing} {}
+  EllpackCacheInfo(BatchParam param, ExtMemConfig const& config)
       : param{std::move(param)},
-        prefer_device{prefer_device},
-        max_num_device_pages{max_num_device_pages},
-        missing{missing} {}
+        cache_host_ratio{config.cache_host_ratio},
+        missing{config.missing},
+        hw_decomp_ratio{config.hw_decomp_ratio},
+        allow_decomp_fallback{config.allow_decomp_fallback} {}
+
+  // Only effective for host-based cache.
+  // The number of batches for the concatenated cache.
+  [[nodiscard]] std::size_t NumBatchesCc() const { return this->buffer_rows.size(); }
 };
 
 // We need to decouple the storage and the view of the storage so that we can implement
 // concurrent read. As a result, there are two classes, one for cache storage, another one
 // for stream.
 //
-// This is a memory-based cache. It can be a mixed of the device memory and the host memory.
+// This is a memory-based cache. It can be a mixed of the device memory and the host
+// memory.
 struct EllpackMemCache {
-  std::vector<std::unique_ptr<EllpackPageImpl>> pages;
-  std::vector<bool> on_device;
+  // The host portion of each page.
+  std::vector<std::unique_ptr<EllpackPageImpl>> h_pages;
+  // The device portion of each page.
+  using DPage = common::RefResourceView<common::CompressedByteT>;
+  std::vector<DPage> d_pages;
+  // Storage for decompression parameters and the compressed buffer.
+  using CPage = std::pair<dc::SnappyDecomprMgr, common::RefResourceView<std::uint8_t>>;
+  // Compressed host page.
+  std::vector<CPage> c_pages;
+
+  using PagePtr = std::tuple<EllpackPageImpl const*, DPage const*, CPage const*>;
+  using PageRef = std::tuple<std::unique_ptr<EllpackPageImpl>&, DPage&, CPage&>;
+
   std::vector<std::size_t> offsets;
   // Size of each batch before concatenation.
   std::vector<bst_idx_t> sizes_orig;
@@ -56,24 +89,39 @@ struct EllpackMemCache {
   // Cache info
   std::vector<std::size_t> const buffer_bytes;
   std::vector<bst_idx_t> const buffer_rows;
-  bool const prefer_device;
-  std::int64_t const max_num_device_pages;
+  double const cache_host_ratio;
+  float const hw_decomp_ratio;
+  bool const allow_decomp_fallback;
 
-  explicit EllpackMemCache(EllpackCacheInfo cinfo);
+  std::unique_ptr<curt::StreamPool> streams;  // For decompression
+  std::shared_ptr<common::cuda_impl::HostPinnedMemPool> pool;
+
+  explicit EllpackMemCache(EllpackCacheInfo cinfo, std::int32_t n_workers);
   ~EllpackMemCache();
 
-  // The number of bytes for the entire cache.
-  [[nodiscard]] std::size_t SizeBytes() const;
-
+  // The number of bytes of the entire cache.
+  [[nodiscard]] std::size_t SizeBytes() const noexcept(true);
+  // The number of bytes of the device cache.
+  [[nodiscard]] std::size_t DeviceSizeBytes() const noexcept(true);
+  // The number of bytes of each page.
+  [[nodiscard]] std::size_t SizeBytes(std::size_t i) const noexcept(true);
+  // The number of bytes of the gradient index (ellpack).
+  [[nodiscard]] std::size_t GidxSizeBytes(std::size_t i) const noexcept(true);
+  // The number of bytes of the gradient index (ellpack) of the entire cache.
+  [[nodiscard]] std::size_t GidxSizeBytes() const noexcept(true);
+  // The number of pages in the cache.
+  [[nodiscard]] std::size_t Size() const { return this->h_pages.size(); }
+  // Is the cache empty?
   [[nodiscard]] bool Empty() const { return this->SizeBytes() == 0; }
   // No page concatenation is performed. If there's page concatenation, then the number of
   // pages in the cache must be smaller than the input number of pages.
   [[nodiscard]] bool NoConcat() const { return this->NumBatchesOrig() == this->buffer_rows.size(); }
-
+  // The number of pages before concatenatioin.
   [[nodiscard]] bst_idx_t NumBatchesOrig() const { return cache_mapping.size(); }
-  [[nodiscard]] EllpackPageImpl const* At(std::int32_t k) const;
-
-  [[nodiscard]] std::int64_t NumDevicePages() const;
+  // Get the pointers to the k^th concatenated page.
+  [[nodiscard]] PagePtr At(std::int32_t k) const;
+  // Get a reference to the last concatenated page.
+  [[nodiscard]] PageRef Back();
 };
 
 // Pimpl to hide CUDA calls from the host compiler.
@@ -106,7 +154,7 @@ class EllpackHostCacheStream {
    * @param page[out] The returned page.
    * @param prefetch_copy[in] Does the stream need to copy the page?
    */
-  void Read(EllpackPage* page, bool prefetch_copy) const;
+  void Read(Context const* ctx, EllpackPage* page, bool prefetch_copy) const;
   /**
    * @brief Add a new page to the host cache.
    *
@@ -118,6 +166,11 @@ class EllpackHostCacheStream {
    */
   [[nodiscard]] bool Write(EllpackPage const& page);
 };
+
+namespace detail {
+// Not a member of `EllpackFormatPolicy`. Hide the impl without requiring template specialization.
+void EllpackFormatCheckNuma(StringView msg);
+}  // namespace detail
 
 template <typename S>
 class EllpackFormatPolicy {
@@ -146,13 +199,14 @@ class EllpackFormatPolicy {
       LOG(WARNING) << "`use_rmm` is set to false." << msg;
     }
     std::int32_t major{0}, minor{0};
-    curt::DrVersion(&major, &minor);
+    curt::GetDrVersionGlobal(&major, &minor);
     if ((major < 12 || (major == 12 && minor < 7)) && curt::SupportsAts()) {
       // Use ATS, but with an old kernel driver.
       LOG(WARNING) << "Using an old kernel driver with supported CTK<12.7."
                    << "The latest version of CTK supported by the current driver: " << major << "."
                    << minor << "." << msg;
     }
+    detail::EllpackFormatCheckNuma(msg);
   }
   // For testing with the HMM flag.
   explicit EllpackFormatPolicy(bool has_hmm) : has_hmm_{has_hmm} {}
@@ -230,7 +284,7 @@ class EllpackMmapStreamPolicy : public F<S> {
 void CalcCacheMapping(Context const* ctx, bool is_dense,
                       std::shared_ptr<common::HistogramCuts const> cuts,
                       std::int64_t min_cache_page_bytes, ExternalDataInfo const& ext_info,
-                      EllpackCacheInfo* cinfo);
+                      bool is_validation, EllpackCacheInfo* cinfo);
 
 /**
  * @brief Ellpack source with sparse pages as the underlying source.

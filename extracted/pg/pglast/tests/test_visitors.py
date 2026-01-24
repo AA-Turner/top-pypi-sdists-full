@@ -3,7 +3,7 @@
 # :Created:   mar 11 mag 2021, 08:36:23
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   GNU General Public License version 3 or later
-# :Copyright: © 2021, 2022, 2024 Lele Gaifax
+# :Copyright: © 2021, 2022, 2024, 2025 Lele Gaifax
 #
 
 import pytest
@@ -253,14 +253,30 @@ def test_delete_action():
     DeleteOddsInList()(raw)
     assert RawStream()(raw) == 'INSERT INTO foo VALUES (2, 42)'
 
-    raw = parse_sql('INSERT INTO foo VALUES ((1, 2, 3, 42, 43),'
-                    ' (2, 1, 4, 3, 5))')
+    raw = parse_sql(
+        'INSERT INTO foo VALUES ((1, 2, 3, 42, 43), (2, 1, 4, 3, 5))')
     DeleteOddsInList()(raw)
     assert RawStream()(raw) == 'INSERT INTO foo VALUES ((2, 42), (2, 4))'
 
     raw = parse_sql('select true from foo where a in (1, 2, 3)')
     DeleteOddsInList()(raw)
     assert RawStream()(raw) == 'SELECT TRUE FROM foo WHERE a IN (2)'
+
+    class DropTableColumns(visitors.Visitor):
+        def visit_ColumnDef(self, ancestors, node):
+            return visitors.Delete
+
+    raw = parse_sql('create table foo (a integer null, b integer not null)')
+    DropTableColumns()(raw)
+    assert RawStream()(raw) == 'CREATE TABLE foo ()'
+
+    class DropCreateTable(visitors.Visitor):
+        def visit_CreateStmt(self, ancestors, node):
+            return visitors.Delete
+
+    raw = parse_sql('create table foo (a integer null, b integer not null)')
+    DropCreateTable()(raw)
+    assert RawStream()(raw) == ''
 
 
 def test_alter_node():

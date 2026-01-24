@@ -365,7 +365,7 @@ class StructuredGetProjectList(object):
     def status(self):
         """Gets the status of this StructuredGetProjectList.  # noqa: E501
 
-        Status:   `in_process`-in progress  `will_begin`-will begin  `wait_settlement`-waiting for settlement  `done`-done  # noqa: E501
+        Status:  `in_process`-in progress  `will_begin`-will begin  `wait_settlement`-waiting for settlement  `done`-done  # noqa: E501
 
         :return: The status of this StructuredGetProjectList.  # noqa: E501
         :rtype: str
@@ -376,7 +376,7 @@ class StructuredGetProjectList(object):
     def status(self, status):
         """Sets the status of this StructuredGetProjectList.
 
-        Status:   `in_process`-in progress  `will_begin`-will begin  `wait_settlement`-waiting for settlement  `done`-done  # noqa: E501
+        Status:  `in_process`-in progress  `will_begin`-will begin  `wait_settlement`-waiting for settlement  `done`-done  # noqa: E501
 
         :param status: The status of this StructuredGetProjectList.  # noqa: E501
         :type: str

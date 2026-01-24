@@ -20,12 +20,13 @@
 #include "include/core/SkSamplingOptions.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/gl/GrGLBackendSurface.h"
 #include "include/private/base/SkTemplates.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrColor.h"
@@ -43,10 +44,10 @@
 #include "src/gpu/ganesh/SurfaceContext.h"
 #include "src/gpu/ganesh/SurfaceFillContext.h"
 #include "src/gpu/ganesh/effects/GrTextureEffect.h"
-#include "src/gpu/ganesh/gl/GrGLDefines_impl.h"
+#include "src/gpu/ganesh/gl/GrGLDefines.h"
 #include "tests/CtsEnforcement.h"
-#include "tests/TestUtils.h"
-#include "tools/gpu/ProxyUtils.h"
+#include "tests/ganesh/GaneshTestUtils.h"
+#include "tools/ganesh/ProxyUtils.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -57,9 +58,9 @@ using namespace skia_private;
 
 struct GrContextOptions;
 
-// skbug.com/5932
+// skbug.com/40037130
 static void test_basic_draw_as_src(skiatest::Reporter* reporter, GrDirectContext* dContext,
-                                   GrSurfaceProxyView rectView, GrColorType colorType,
+                                   const GrSurfaceProxyView& rectView, GrColorType colorType,
                                    SkAlphaType alphaType, uint32_t expectedPixelValues[]) {
     auto sfc = dContext->priv().makeSFC(
             {colorType, kPremul_SkAlphaType, nullptr, rectView.dimensions()}, /*label=*/{});
@@ -151,10 +152,7 @@ static void test_copy_to_surface(skiatest::Reporter* reporter,
     }
 }
 
-DEF_GANESH_TEST_FOR_GL_RENDERING_CONTEXTS(RectangleTexture,
-                                          reporter,
-                                          ctxInfo,
-                                          CtsEnforcement::kApiLevel_T) {
+DEF_GANESH_TEST_FOR_GL_CONTEXT(RectangleTexture, reporter, ctxInfo, CtsEnforcement::kApiLevel_T) {
     auto dContext = ctxInfo.directContext();
 
     GrProxyProvider* proxyProvider = dContext->priv().proxyProvider();
@@ -171,10 +169,9 @@ DEF_GANESH_TEST_FOR_GL_RENDERING_CONTEXTS(RectangleTexture,
     SkPixmap pm(ii, pixels, sizeof(uint32_t)*kWidth);
 
     for (auto origin : { kBottomLeft_GrSurfaceOrigin, kTopLeft_GrSurfaceOrigin }) {
-
-        auto format = GrBackendFormat::MakeGL(GR_GL_RGBA8, GR_GL_TEXTURE_RECTANGLE);
+        auto format = GrBackendFormats::MakeGL(GR_GL_RGBA8, GR_GL_TEXTURE_RECTANGLE);
         GrBackendTexture rectangleTex = dContext->createBackendTexture(
-                kWidth, kHeight, format, GrMipmapped::kNo, GrRenderable::kYes);
+                kWidth, kHeight, format, skgpu::Mipmapped::kNo, GrRenderable::kYes);
         if (!rectangleTex.isValid()) {
             continue;
         }
@@ -198,8 +195,8 @@ DEF_GANESH_TEST_FOR_GL_RENDERING_CONTEXTS(RectangleTexture,
             continue;
         }
 
-        SkASSERT(rectProxy->mipmapped() == GrMipmapped::kNo);
-        SkASSERT(rectProxy->peekTexture()->mipmapped() == GrMipmapped::kNo);
+        SkASSERT(rectProxy->mipmapped() == skgpu::Mipmapped::kNo);
+        SkASSERT(rectProxy->peekTexture()->mipmapped() == skgpu::Mipmapped::kNo);
 
         SkASSERT(rectProxy->textureType() == GrTextureType::kRectangle);
         SkASSERT(rectProxy->peekTexture()->textureType() == GrTextureType::kRectangle);

@@ -1,4 +1,3 @@
-import os
 from unittest import TestCase
 
 from typing_extensions import override
@@ -24,9 +23,7 @@ class TestList(TestCase):
 
     def test_uppercase(self) -> None:
         alist = ["a", "b", "c", "d"]
-        approvals.verify_all(
-            "uppercase", alist, lambda x: "{0} => {1}".format(x, x.upper())
-        )
+        approvals.verify_all("uppercase", alist, lambda x: f"{x} => {x.upper()}")
 
     def test_format_line_part1(self) -> None:
         # This is part one of a test which reproduces the issue #32

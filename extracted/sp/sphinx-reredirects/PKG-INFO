@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-reredirects
-Version: 1.0.0
+Version: 1.1.0
 Summary: The extension for Sphinx documentation projects that handle redirects for moved pages. It generates HTML pages with meta refresh redirects to the new page location to prevent 404 errors if you rename or move your documents.
 Maintainer-email: Libor Jelínek <liborjelinek@documatt.com>
 Requires-Python: >=3.11
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Utilities
 License-File: LICENSE
-Requires-Dist: sphinx>=7.4,<9.0
+Requires-Dist: sphinx>=7.4
 Project-URL: homepage, https://documatt.com/sphinx-reredirects/
 Project-URL: repository, https://github.com/documatt/sphinx-reredirects
 

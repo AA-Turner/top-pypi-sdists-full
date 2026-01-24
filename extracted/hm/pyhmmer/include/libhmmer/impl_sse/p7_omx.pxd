@@ -1,7 +1,5 @@
 from libc.stdio cimport FILE
 
-from libhmmer.impl_sse.p7_oprofile cimport P7_OPROFILE
-
 
 cdef extern from "emmintrin.h":
 
@@ -13,14 +11,6 @@ cdef extern from "emmintrin.h":
 
 
 cdef extern from "impl_sse/impl_sse.h" nogil:
-
-    ctypedef struct P7_OM_BLOCK:
-        int count
-        int listSize
-        P7_OPROFILE** list
-
-    P7_OM_BLOCK *p7_oprofile_CreateBlock(int size)
-    void p7_oprofile_DestroyBlock(P7_OM_BLOCK *block)
 
     ctypedef p7_omx_s P7_OMX
     ctypedef struct p7_omx_s:
@@ -44,8 +34,8 @@ cdef extern from "impl_sse/impl_sse.h" nogil:
         float     totscale
         bint       has_own_scales
 
-        bint     debugging;
-        FILE   *dfp;
+        bint     debugging
+        FILE   *dfp
 
 
     P7_OMX* p7_omx_Create(int allocM, int allocL, int allocXL)

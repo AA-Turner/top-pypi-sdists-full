@@ -1,10 +1,9 @@
 """Factory for generating Eve Onlie conformant JWTs for testing."""
 
 import datetime as dt
-from pytz import utc
-from jose import jwt
-from typing import Tuple
 
+from jose import jwt
+from pytz import utc
 
 _RSA_PRIVATE_KEY = """
 -----BEGIN PRIVATE KEY-----
@@ -104,7 +103,7 @@ def generate_token(
     issued_at: dt.datetime = None,
     issuer=None,
     audience=None,
-) -> Tuple[str, dict]:
+) -> tuple[str, dict]:
     """Generate a JWT for Eve Online."""
     if not issued_at:
         issued_at = dt.datetime.now(tz=utc)

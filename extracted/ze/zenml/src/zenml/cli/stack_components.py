@@ -28,11 +28,11 @@ from zenml.cli.feature import register_feature_store_subcommands
 from zenml.cli.model_registry import register_model_registry_subcommands
 from zenml.cli.served_model import register_model_deployer_subcommands
 from zenml.cli.utils import (
+    OutputFormat,
     _component_display_name,
     is_sorted_or_filtered,
     list_options,
     print_model_url,
-    print_page_info,
 )
 from zenml.client import Client
 from zenml.console import console
@@ -112,7 +112,7 @@ def generate_stack_component_describe_command(
                 component_type=component_type,
             )
         except KeyError as err:
-            cli_utils.error(str(err))
+            cli_utils.exception(err)
 
         with console.status(f"Describing component '{component_.name}'..."):
             active_component_id = None
@@ -152,32 +152,63 @@ def generate_stack_component_list_command(
         A function that can be used as a `click` command.
     """
 
-    @list_options(ComponentFilter)
+    @list_options(
+        ComponentFilter,
+        default_columns=["active", "id", "name", "flavor", "owner"],
+    )
     @click.pass_context
     def list_stack_components_command(
-        ctx: click.Context, /, **kwargs: Any
+        ctx: click.Context,
+        /,
+        columns: str,
+        output_format: OutputFormat,
+        **kwargs: Any,
     ) -> None:
         """Prints a table of stack components.
 
         Args:
             ctx: The click context object
+            columns: Columns to display in output.
+            output_format: Format for output (table/json/yaml/csv/tsv).
             kwargs: Keyword arguments to filter the components.
         """
         client = Client()
         with console.status(f"Listing {component_type.plural}..."):
             kwargs["type"] = component_type
             components = client.list_stack_components(**kwargs)
-            if not components:
-                cli_utils.declare("No components found for the given filters.")
-                return
 
-            cli_utils.print_components_table(
-                client=client,
-                component_type=component_type,
-                components=components.items,
-                show_active=not is_sorted_or_filtered(ctx),
+            show_active = not is_sorted_or_filtered(ctx)
+            if show_active and components.items:
+                active_stack = client.active_stack_model
+                active_component = None
+                if component_type in active_stack.components.keys():
+                    active_components = active_stack.components[component_type]
+                    active_component = (
+                        active_components[0] if active_components else None
+                    )
+
+                if active_component is not None:
+                    active_component_id = active_component.id
+                    if active_component_id not in {
+                        c.id for c in components.items
+                    }:
+                        components.items.insert(0, active_component)
+                    components.items.sort(
+                        key=lambda c: c.id != active_component_id
+                    )
+                else:
+                    active_component_id = None
+            else:
+                active_component_id = None
+
+            cli_utils.print_page(
+                components,
+                columns,
+                output_format,
+                empty_message="No components found for the given filters.",
+                row_generator=cli_utils.generate_component_row,
+                active_id=active_component_id,
             )
-            print_page_info(components)
 
     return list_stack_components_command
 
@@ -232,6 +263,23 @@ def generate_stack_component_register_command(
         required=False,
         type=str,
     )
+    @click.option(
+        "--secret",
+        "secrets",
+        help="Secrets to attach to the component.",
+        type=str,
+        required=False,
+        multiple=True,
+    )
+    @click.option(
+        "--env",
+        "environment_variables",
+        help="Environment variables to set when running on this component. "
+        "Must be of the format 'KEY=VALUE'.",
+        type=str,
+        required=False,
+        multiple=True,
+    )
     @click.argument("args", nargs=-1, type=click.UNPROCESSED)
     def register_stack_component_command(
         name: str,
@@ -240,6 +288,8 @@ def generate_stack_component_register_command(
         labels: Optional[List[str]] = None,
         connector: Optional[str] = None,
         resource_id: Optional[str] = None,
+        secrets: List[str] = [],
+        environment_variables: List[str] = [],
     ) -> None:
         """Registers a stack component.
 
@@ -250,6 +300,9 @@ def generate_stack_component_register_command(
             labels: Labels to be associated with the component.
             connector: Name of the service connector to connect the component to.
             resource_id: The resource ID to use with the connector.
+            secrets: Secrets to attach to the component.
+            environment_variables: Environment variables to set when running
+                on this component.
         """
         client = Client()
 
@@ -269,6 +322,11 @@ def generate_stack_component_register_command(
                     f"Could not find a connector '{connector}': {str(err)}"
                 )
 
+        environment = {}
+        for environment_variable in environment_variables:
+            key, value = environment_variable.split("=", 1)
+            environment[key] = value
+
         with console.status(f"Registering {display_name} '{name}'...\n"):
             # Create a new stack component model
             component = client.create_stack_component(
@@ -277,6 +335,8 @@ def generate_stack_component_register_command(
                 component_type=component_type,
                 configuration=parsed_args,
                 labels=parsed_labels,
+                secrets=secrets,
+                environment=environment,
             )
 
             cli_utils.declare(
@@ -323,11 +383,40 @@ def generate_stack_component_update_command(
         "-l key1=value1 -l key2=value2.",
         multiple=True,
     )
+    @click.option(
+        "--secret",
+        "secrets",
+        help="Secrets to attach to the component.",
+        type=str,
+        required=False,
+        multiple=True,
+    )
+    @click.option(
+        "--remove-secret",
+        "remove_secrets",
+        help="Secrets to remove from the component.",
+        type=str,
+        required=False,
+        multiple=True,
+    )
+    @click.option(
+        "--env",
+        "environment_variables",
+        help="Environment variables to set when running on this component. "
+        "Must be of the format 'KEY=VALUE'. To remove an environment variable "
+        "from the component, use an empty value, e.g. 'KEY='",
+        type=str,
+        required=False,
+        multiple=True,
+    )
     @click.argument("args", nargs=-1, type=click.UNPROCESSED)
     def update_stack_component_command(
         name_id_or_prefix: Optional[str],
         args: List[str],
         labels: Optional[List[str]] = None,
+        secrets: List[str] = [],
+        remove_secrets: List[str] = [],
+        environment_variables: List[str] = [],
     ) -> None:
         """Updates a stack component.
 
@@ -335,6 +424,10 @@ def generate_stack_component_update_command(
             name_id_or_prefix: The name or id of the stack component to update.
             args: Additional arguments to pass to the update command.
             labels: Labels to be associated with the component.
+            secrets: Secrets to attach to the component.
+            remove_secrets: Secrets to remove from the component.
+            environment_variables: Environment variables to set when running
+                on this component.
         """
         client = Client()
 
@@ -351,6 +444,13 @@ def generate_stack_component_update_command(
 
         parsed_labels = cli_utils.get_parsed_labels(labels)
 
+        environment = {}
+        for environment_variable in environment_variables:
+            key, value = environment_variable.split("=", 1)
+            # Fallback to None if the value is empty so the existing environment
+            # variable is removed
+            environment[key] = value or None
+
         with console.status(f"Updating {display_name}...\n"):
             try:
                 updated_component = client.update_stack_component(
@@ -358,9 +458,12 @@ def generate_stack_component_update_command(
                     component_type=component_type,
                     configuration=parsed_args,
                     labels=parsed_labels,
+                    add_secrets=secrets,
+                    remove_secrets=remove_secrets,
+                    environment=environment,
                 )
             except KeyError as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             cli_utils.declare(
                 f"Successfully updated {display_name} "
@@ -423,7 +526,7 @@ def generate_stack_component_remove_attribute_command(
                     labels={k: None for k in labels} if labels else None,
                 )
             except (KeyError, IllegalOperationError) as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             cli_utils.declare(
                 f"Successfully updated {display_name} `{name_id_or_prefix}`."
@@ -477,7 +580,7 @@ def generate_stack_component_rename_command(
                     name=new_name,
                 )
             except (KeyError, IllegalOperationError) as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             cli_utils.declare(
                 f"Successfully renamed {display_name} `{name_id_or_prefix}` to"
@@ -519,7 +622,7 @@ def generate_stack_component_delete_command(
                     component_type=component_type,
                 )
             except (KeyError, IllegalOperationError) as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
             cli_utils.declare(f"Deleted {display_name}: {name_id_or_prefix}")
 
     return delete_stack_component_command
@@ -565,7 +668,7 @@ def generate_stack_component_copy_command(
                     component_type=component_type,
                 )
             except KeyError as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             copied_component = client.create_stack_component(
                 name=target_component,
@@ -622,7 +725,7 @@ def generate_stack_component_logs_command(
                     component_type=component_type,
                 )
             except KeyError as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             from zenml.stack import StackComponent
 
@@ -1137,7 +1240,7 @@ def generate_stack_component_disconnect_command(
                     disconnect=True,
                 )
             except (KeyError, IllegalOperationError) as err:
-                cli_utils.error(str(err))
+                cli_utils.exception(err)
 
             cli_utils.declare(
                 f"Successfully disconnected the service-connector from {display_name} `{name_id_or_prefix}`."
@@ -1360,7 +1463,7 @@ def connect_stack_component_with_service_connector(
             component_type=component_type,
         )
     except KeyError as err:
-        cli_utils.error(str(err))
+        cli_utils.exception(err)
 
     requirements = component_model.flavor.connector_requirements
 
@@ -1516,7 +1619,7 @@ def connect_stack_component_with_service_connector(
                 connector_resource_id=resource_id,
             )
         except (KeyError, IllegalOperationError) as err:
-            cli_utils.error(str(err))
+            cli_utils.exception(err)
 
     if connector_resources is not None:
         cli_utils.declare(

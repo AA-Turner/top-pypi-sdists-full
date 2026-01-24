@@ -296,22 +296,12 @@ Keyword arguments:
     If set, the indicator will be displayed inside thumb, `True` by
     default.
 
-- wrapperProps (dict; optional):
-    Props passed down to the root element.
-
-    `wrapperProps` is a dict with keys:
-"""
-    _children_props = ['label', 'offLabel', 'onLabel', 'thumbIcon', 'description', 'error']
+- wrapperProps (dict with strings as keys and values of type boolean | number | string | dict | list; optional):
+    Props passed down to the root element."""
+    _children_props: typing.List[str] = ['label', 'offLabel', 'onLabel', 'thumbIcon', 'description', 'error']
     _base_nodes = ['label', 'offLabel', 'onLabel', 'thumbIcon', 'description', 'error', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Switch'
-    WrapperProps = TypedDict(
-        "WrapperProps",
-            {
-
-        }
-    )
-
     LoadingState = TypedDict(
         "LoadingState",
             {
@@ -330,7 +320,7 @@ Keyword arguments:
         color: typing.Optional[typing.Union[Literal["blue"], Literal["cyan"], Literal["gray"], Literal["green"], Literal["indigo"], Literal["lime"], Literal["orange"], Literal["pink"], Literal["red"], Literal["teal"], Literal["violet"], Literal["yellow"], Literal["dark"], Literal["grape"]]] = None,
         size: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         radius: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
-        wrapperProps: typing.Optional["WrapperProps"] = None,
+        wrapperProps: typing.Optional[typing.Dict[typing.Union[str, float, int], typing.Any]] = None,
         thumbIcon: typing.Optional[ComponentType] = None,
         labelPosition: typing.Optional[Literal["left", "right"]] = None,
         description: typing.Optional[ComponentType] = None,

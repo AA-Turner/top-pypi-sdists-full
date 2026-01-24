@@ -3,24 +3,26 @@ Type annotations for cleanrooms service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cleanrooms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from types_boto3_cleanrooms.type_defs import AggregateColumnOutputTypeDef
+    from types_boto3_cleanrooms.type_defs import AccessBudgetDetailsTypeDef
 
-    data: AggregateColumnOutputTypeDef = ...
+    data: AccessBudgetDetailsTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AccessBudgetTypeType,
     AdditionalAnalysesType,
     AggregateFunctionNameType,
     AnalysisFormatType,
@@ -29,9 +31,16 @@ from .literals import (
     AnalysisTemplateValidationStatusType,
     AnalysisTypeType,
     AnalyticsEngineType,
+    ApprovalStatusType,
+    AutoApprovedChangeTypeType,
+    AutoRefreshModeType,
+    ChangeRequestActionType,
     ChangeRequestStatusType,
+    ChangeSpecificationTypeType,
+    ChangeTypeType,
     CollaborationJobLogStatusType,
     CollaborationQueryLogStatusType,
+    CommercialRegionType,
     ConfiguredTableAnalysisRuleTypeType,
     ConfiguredTableAssociationAnalysisRuleTypeType,
     CustomMLMemberAbilityType,
@@ -47,6 +56,7 @@ from .literals import (
     MemberStatusType,
     ParameterTypeType,
     PrivacyBudgetTemplateAutoRefreshType,
+    PrivacyBudgetTypeType,
     ProtectedJobStatusType,
     ProtectedJobWorkerComputeTypeType,
     ProtectedQueryStatusType,
@@ -56,15 +66,11 @@ from .literals import (
     SchemaStatusType,
     SchemaTypeType,
     SelectedAnalysisMethodType,
+    SupportedS3RegionType,
+    SyntheticDataColumnTypeType,
     WorkerComputeTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -72,6 +78,11 @@ else:
 
 
 __all__ = (
+    "AccessBudgetDetailsTypeDef",
+    "AccessBudgetTypeDef",
+    "AccessBudgetsPrivacyTemplateParametersInputTypeDef",
+    "AccessBudgetsPrivacyTemplateParametersOutputTypeDef",
+    "AccessBudgetsPrivacyTemplateUpdateParametersTypeDef",
     "AggregateColumnOutputTypeDef",
     "AggregateColumnTypeDef",
     "AggregationConstraintTypeDef",
@@ -101,6 +112,7 @@ __all__ = (
     "AnalysisTemplateTypeDef",
     "AnalysisTemplateValidationStatusDetailTypeDef",
     "AnalysisTemplateValidationStatusReasonTypeDef",
+    "ApprovalStatusDetailsTypeDef",
     "AthenaTableReferenceTypeDef",
     "BatchGetCollaborationAnalysisTemplateErrorTypeDef",
     "BatchGetCollaborationAnalysisTemplateInputTypeDef",
@@ -113,6 +125,7 @@ __all__ = (
     "BatchGetSchemaOutputTypeDef",
     "BilledJobResourceUtilizationTypeDef",
     "BilledResourceUtilizationTypeDef",
+    "BudgetParameterTypeDef",
     "ChangeInputTypeDef",
     "ChangeSpecificationOutputTypeDef",
     "ChangeSpecificationTypeDef",
@@ -122,6 +135,9 @@ __all__ = (
     "CollaborationAnalysisTemplateTypeDef",
     "CollaborationChangeRequestSummaryTypeDef",
     "CollaborationChangeRequestTypeDef",
+    "CollaborationChangeSpecificationOutputTypeDef",
+    "CollaborationChangeSpecificationTypeDef",
+    "CollaborationChangeSpecificationUnionTypeDef",
     "CollaborationConfiguredAudienceModelAssociationSummaryTypeDef",
     "CollaborationConfiguredAudienceModelAssociationTypeDef",
     "CollaborationIdNamespaceAssociationSummaryTypeDef",
@@ -131,8 +147,12 @@ __all__ = (
     "CollaborationPrivacyBudgetTemplateTypeDef",
     "CollaborationSummaryTypeDef",
     "CollaborationTypeDef",
+    "ColumnClassificationDetailsOutputTypeDef",
+    "ColumnClassificationDetailsTypeDef",
     "ColumnTypeDef",
+    "ComputeConfigurationOutputTypeDef",
     "ComputeConfigurationTypeDef",
+    "ComputeConfigurationUnionTypeDef",
     "ConfigurationDetailsTypeDef",
     "ConfiguredAudienceModelAssociationSummaryTypeDef",
     "ConfiguredAudienceModelAssociationTypeDef",
@@ -336,6 +356,8 @@ __all__ = (
     "MLMemberAbilitiesTypeDef",
     "MLMemberAbilitiesUnionTypeDef",
     "MLPaymentConfigTypeDef",
+    "MLSyntheticDataParametersOutputTypeDef",
+    "MLSyntheticDataParametersTypeDef",
     "MemberChangeSpecificationOutputTypeDef",
     "MemberChangeSpecificationTypeDef",
     "MemberChangeSpecificationUnionTypeDef",
@@ -352,6 +374,7 @@ __all__ = (
     "MembershipProtectedQueryResultConfigurationTypeDef",
     "MembershipQueryComputePaymentConfigTypeDef",
     "MembershipSummaryTypeDef",
+    "MembershipSyntheticDataGenerationPaymentConfigTypeDef",
     "MembershipTypeDef",
     "ModelInferencePaymentConfigTypeDef",
     "ModelTrainingPaymentConfigTypeDef",
@@ -379,7 +402,9 @@ __all__ = (
     "ProtectedJobOutputConfigurationInputTypeDef",
     "ProtectedJobOutputConfigurationOutputTypeDef",
     "ProtectedJobOutputTypeDef",
+    "ProtectedJobParametersOutputTypeDef",
     "ProtectedJobParametersTypeDef",
+    "ProtectedJobParametersUnionTypeDef",
     "ProtectedJobReceiverConfigurationTypeDef",
     "ProtectedJobResultConfigurationInputTypeDef",
     "ProtectedJobResultConfigurationOutputTypeDef",
@@ -435,6 +460,11 @@ __all__ = (
     "StartProtectedJobOutputTypeDef",
     "StartProtectedQueryInputTypeDef",
     "StartProtectedQueryOutputTypeDef",
+    "SyntheticDataColumnPropertiesTypeDef",
+    "SyntheticDataGenerationPaymentConfigTypeDef",
+    "SyntheticDataParametersOutputTypeDef",
+    "SyntheticDataParametersTypeDef",
+    "SyntheticDataParametersUnionTypeDef",
     "TableReferenceOutputTypeDef",
     "TableReferenceTypeDef",
     "TableReferenceUnionTypeDef",
@@ -442,6 +472,8 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "UpdateAnalysisTemplateInputTypeDef",
     "UpdateAnalysisTemplateOutputTypeDef",
+    "UpdateCollaborationChangeRequestInputTypeDef",
+    "UpdateCollaborationChangeRequestOutputTypeDef",
     "UpdateCollaborationInputTypeDef",
     "UpdateCollaborationOutputTypeDef",
     "UpdateConfiguredAudienceModelAssociationInputTypeDef",
@@ -466,12 +498,34 @@ __all__ = (
     "UpdateProtectedJobOutputTypeDef",
     "UpdateProtectedQueryInputTypeDef",
     "UpdateProtectedQueryOutputTypeDef",
+    "WorkerComputeConfigurationOutputTypeDef",
+    "WorkerComputeConfigurationPropertiesOutputTypeDef",
+    "WorkerComputeConfigurationPropertiesTypeDef",
     "WorkerComputeConfigurationTypeDef",
 )
 
 
+class AccessBudgetDetailsTypeDef(TypedDict):
+    startTime: datetime
+    remainingBudget: int
+    budget: int
+    budgetType: AccessBudgetTypeType
+    endTime: NotRequired[datetime]
+    autoRefresh: NotRequired[AutoRefreshModeType]
+
+
+BudgetParameterTypeDef = TypedDict(
+    "BudgetParameterTypeDef",
+    {
+        "type": AccessBudgetTypeType,
+        "budget": int,
+        "autoRefresh": NotRequired[AutoRefreshModeType],
+    },
+)
+
+
 class AggregateColumnOutputTypeDef(TypedDict):
-    columnNames: List[str]
+    columnNames: list[str]
     function: AggregateFunctionNameType
 
 
@@ -499,9 +553,9 @@ AnalysisParameterTypeDef = TypedDict(
 
 
 class AnalysisRuleListOutputTypeDef(TypedDict):
-    joinColumns: List[str]
-    listColumns: List[str]
-    allowedJoinOperators: NotRequired[List[JoinOperatorType]]
+    joinColumns: list[str]
+    listColumns: list[str]
+    allowedJoinOperators: NotRequired[list[JoinOperatorType]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
 
 
@@ -513,7 +567,7 @@ class AnalysisRuleListTypeDef(TypedDict):
 
 
 class AnalysisSchemaOutputTypeDef(TypedDict):
-    referencedTables: NotRequired[List[str]]
+    referencedTables: NotRequired[list[str]]
 
 
 class AnalysisSchemaTypeDef(TypedDict):
@@ -542,6 +596,7 @@ AnalysisTemplateSummaryTypeDef = TypedDict(
         "collaborationArn": str,
         "collaborationId": str,
         "description": NotRequired[str],
+        "isSyntheticData": NotRequired[bool],
     },
 )
 ErrorMessageConfigurationTypeDef = TypedDict(
@@ -556,10 +611,15 @@ class AnalysisTemplateValidationStatusReasonTypeDef(TypedDict):
     message: str
 
 
+class ApprovalStatusDetailsTypeDef(TypedDict):
+    status: ApprovalStatusType
+
+
 class AthenaTableReferenceTypeDef(TypedDict):
     workGroup: str
     databaseName: str
     tableName: str
+    region: NotRequired[CommercialRegionType]
     outputLocation: NotRequired[str]
 
 
@@ -577,7 +637,7 @@ class BatchGetCollaborationAnalysisTemplateInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -619,9 +679,13 @@ class BilledResourceUtilizationTypeDef(TypedDict):
     units: float
 
 
+class CollaborationChangeSpecificationOutputTypeDef(TypedDict):
+    autoApprovedChangeTypes: NotRequired[list[AutoApprovedChangeTypeType]]
+
+
 class MemberChangeSpecificationOutputTypeDef(TypedDict):
     accountId: str
-    memberAbilities: List[MemberAbilityType]
+    memberAbilities: list[MemberAbilityType]
     displayName: NotRequired[str]
 
 
@@ -637,8 +701,15 @@ CollaborationAnalysisTemplateSummaryTypeDef = TypedDict(
         "collaborationId": str,
         "creatorAccountId": str,
         "description": NotRequired[str],
+        "isSyntheticData": NotRequired[bool],
     },
 )
+
+
+class CollaborationChangeSpecificationTypeDef(TypedDict):
+    autoApprovedChangeTypes: NotRequired[Sequence[AutoApprovedChangeTypeType]]
+
+
 CollaborationConfiguredAudienceModelAssociationSummaryTypeDef = TypedDict(
     "CollaborationConfiguredAudienceModelAssociationSummaryTypeDef",
     {
@@ -685,7 +756,7 @@ class IdMappingConfigTypeDef(TypedDict):
 
 class IdNamespaceAssociationInputReferencePropertiesTypeDef(TypedDict):
     idNamespaceType: IdNamespaceTypeType
-    idMappingWorkflowsSupported: List[Dict[str, Any]]
+    idMappingWorkflowsSupported: list[dict[str, Any]]
 
 
 CollaborationPrivacyBudgetTemplateSummaryTypeDef = TypedDict(
@@ -696,7 +767,7 @@ CollaborationPrivacyBudgetTemplateSummaryTypeDef = TypedDict(
         "collaborationId": str,
         "collaborationArn": str,
         "creatorAccountId": str,
-        "privacyBudgetType": Literal["DIFFERENTIAL_PRIVACY"],
+        "privacyBudgetType": PrivacyBudgetTypeType,
         "createTime": datetime,
         "updateTime": datetime,
     },
@@ -726,6 +797,12 @@ class DataEncryptionMetadataTypeDef(TypedDict):
     preserveNulls: bool
 
 
+class SyntheticDataColumnPropertiesTypeDef(TypedDict):
+    columnName: str
+    columnType: SyntheticDataColumnTypeType
+    isPredictiveValue: bool
+
+
 ColumnTypeDef = TypedDict(
     "ColumnTypeDef",
     {
@@ -733,17 +810,10 @@ ColumnTypeDef = TypedDict(
         "type": str,
     },
 )
-WorkerComputeConfigurationTypeDef = TypedDict(
-    "WorkerComputeConfigurationTypeDef",
-    {
-        "type": NotRequired[WorkerComputeTypeType],
-        "number": NotRequired[int],
-    },
-)
 
 
 class DirectAnalysisConfigurationDetailsTypeDef(TypedDict):
-    receiverAccountIds: NotRequired[List[str]]
+    receiverAccountIds: NotRequired[list[str]]
 
 
 ConfiguredAudienceModelAssociationSummaryTypeDef = TypedDict(
@@ -782,8 +852,8 @@ ConfiguredAudienceModelAssociationTypeDef = TypedDict(
 
 
 class ConfiguredTableAssociationAnalysisRuleAggregationOutputTypeDef(TypedDict):
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 class ConfiguredTableAssociationAnalysisRuleAggregationTypeDef(TypedDict):
@@ -792,8 +862,8 @@ class ConfiguredTableAssociationAnalysisRuleAggregationTypeDef(TypedDict):
 
 
 class ConfiguredTableAssociationAnalysisRuleCustomOutputTypeDef(TypedDict):
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 class ConfiguredTableAssociationAnalysisRuleCustomTypeDef(TypedDict):
@@ -802,8 +872,8 @@ class ConfiguredTableAssociationAnalysisRuleCustomTypeDef(TypedDict):
 
 
 class ConfiguredTableAssociationAnalysisRuleListOutputTypeDef(TypedDict):
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 class ConfiguredTableAssociationAnalysisRuleListTypeDef(TypedDict):
@@ -822,7 +892,7 @@ ConfiguredTableAssociationSummaryTypeDef = TypedDict(
         "updateTime": datetime,
         "id": str,
         "arn": str,
-        "analysisRuleTypes": NotRequired[List[ConfiguredTableAssociationAnalysisRuleTypeType]],
+        "analysisRuleTypes": NotRequired[list[ConfiguredTableAssociationAnalysisRuleTypeType]],
     },
 )
 ConfiguredTableAssociationTypeDef = TypedDict(
@@ -839,7 +909,7 @@ ConfiguredTableAssociationTypeDef = TypedDict(
         "createTime": datetime,
         "updateTime": datetime,
         "description": NotRequired[str],
-        "analysisRuleTypes": NotRequired[List[ConfiguredTableAssociationAnalysisRuleTypeType]],
+        "analysisRuleTypes": NotRequired[list[ConfiguredTableAssociationAnalysisRuleTypeType]],
     },
 )
 ConfiguredTableSummaryTypeDef = TypedDict(
@@ -850,20 +920,20 @@ ConfiguredTableSummaryTypeDef = TypedDict(
         "name": str,
         "createTime": datetime,
         "updateTime": datetime,
-        "analysisRuleTypes": List[ConfiguredTableAnalysisRuleTypeType],
+        "analysisRuleTypes": list[ConfiguredTableAnalysisRuleTypeType],
         "analysisMethod": AnalysisMethodType,
-        "selectedAnalysisMethods": NotRequired[List[SelectedAnalysisMethodType]],
+        "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
     },
 )
 
 
 class ConsolidatedPolicyListTypeDef(TypedDict):
-    joinColumns: List[str]
-    listColumns: List[str]
-    allowedJoinOperators: NotRequired[List[JoinOperatorType]]
+    joinColumns: list[str]
+    listColumns: list[str]
+    allowedJoinOperators: NotRequired[list[JoinOperatorType]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 class CreateConfiguredAudienceModelAssociationInputTypeDef(TypedDict):
@@ -1104,6 +1174,7 @@ class GetSchemaInputTypeDef(TypedDict):
 class GlueTableReferenceTypeDef(TypedDict):
     tableName: str
     databaseName: str
+    region: NotRequired[CommercialRegionType]
 
 
 IdMappingTableInputSourceTypeDef = TypedDict(
@@ -1164,9 +1235,10 @@ class ListCollaborationPrivacyBudgetTemplatesInputTypeDef(TypedDict):
 
 class ListCollaborationPrivacyBudgetsInputTypeDef(TypedDict):
     collaborationIdentifier: str
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
+    privacyBudgetType: PrivacyBudgetTypeType
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    accessBudgetResourceArn: NotRequired[str]
 
 
 class ListCollaborationsInputTypeDef(TypedDict):
@@ -1231,7 +1303,7 @@ PrivacyBudgetTemplateSummaryTypeDef = TypedDict(
         "membershipArn": str,
         "collaborationId": str,
         "collaborationArn": str,
-        "privacyBudgetType": Literal["DIFFERENTIAL_PRIVACY"],
+        "privacyBudgetType": PrivacyBudgetTypeType,
         "createTime": datetime,
         "updateTime": datetime,
     },
@@ -1240,9 +1312,10 @@ PrivacyBudgetTemplateSummaryTypeDef = TypedDict(
 
 class ListPrivacyBudgetsInputTypeDef(TypedDict):
     membershipIdentifier: str
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
+    privacyBudgetType: PrivacyBudgetTypeType
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+    accessBudgetResourceArn: NotRequired[str]
 
 
 class ListProtectedJobsInputTypeDef(TypedDict):
@@ -1276,9 +1349,10 @@ SchemaSummaryTypeDef = TypedDict(
         "updateTime": datetime,
         "collaborationId": str,
         "collaborationArn": str,
-        "analysisRuleTypes": List[AnalysisRuleTypeType],
+        "analysisRuleTypes": list[AnalysisRuleTypeType],
         "analysisMethod": NotRequired[AnalysisMethodType],
-        "selectedAnalysisMethods": NotRequired[List[SelectedAnalysisMethodType]],
+        "resourceArn": NotRequired[str],
+        "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
     },
 )
 
@@ -1288,7 +1362,7 @@ class ListTagsForResourceInputTypeDef(TypedDict):
 
 
 class MLMemberAbilitiesOutputTypeDef(TypedDict):
-    customMLMemberAbilities: List[CustomMLMemberAbilityType]
+    customMLMemberAbilities: list[CustomMLMemberAbilityType]
 
 
 class MLMemberAbilitiesTypeDef(TypedDict):
@@ -1300,6 +1374,10 @@ class ModelInferencePaymentConfigTypeDef(TypedDict):
 
 
 class ModelTrainingPaymentConfigTypeDef(TypedDict):
+    isResponsible: bool
+
+
+class SyntheticDataGenerationPaymentConfigTypeDef(TypedDict):
     isResponsible: bool
 
 
@@ -1318,6 +1396,10 @@ class MembershipModelInferencePaymentConfigTypeDef(TypedDict):
 
 
 class MembershipModelTrainingPaymentConfigTypeDef(TypedDict):
+    isResponsible: bool
+
+
+class MembershipSyntheticDataGenerationPaymentConfigTypeDef(TypedDict):
     isResponsible: bool
 
 
@@ -1357,7 +1439,7 @@ ProtectedJobWorkerComputeConfigurationTypeDef = TypedDict(
 
 
 class ProtectedJobDirectAnalysisConfigurationDetailsTypeDef(TypedDict):
-    receiverAccountIds: NotRequired[List[str]]
+    receiverAccountIds: NotRequired[list[str]]
 
 
 class ProtectedJobErrorTypeDef(TypedDict):
@@ -1386,8 +1468,14 @@ class ProtectedJobSingleMemberOutputTypeDef(TypedDict):
     accountId: str
 
 
+class ProtectedJobParametersOutputTypeDef(TypedDict):
+    analysisTemplateArn: str
+    parameters: NotRequired[dict[str, str]]
+
+
 class ProtectedJobParametersTypeDef(TypedDict):
-    analysisTemplateArn: NotRequired[str]
+    analysisTemplateArn: str
+    parameters: NotRequired[Mapping[str, str]]
 
 
 class ProtectedQueryMemberOutputConfigurationTypeDef(TypedDict):
@@ -1410,7 +1498,7 @@ class ProtectedQueryErrorTypeDef(TypedDict):
 class ProtectedQuerySQLParametersOutputTypeDef(TypedDict):
     queryString: NotRequired[str]
     analysisTemplateArn: NotRequired[str]
-    parameters: NotRequired[Dict[str, str]]
+    parameters: NotRequired[dict[str, str]]
 
 
 class ProtectedQuerySQLParametersTypeDef(TypedDict):
@@ -1420,7 +1508,7 @@ class ProtectedQuerySQLParametersTypeDef(TypedDict):
 
 
 class QueryConstraintRequireOverlapTypeDef(TypedDict):
-    columns: NotRequired[List[str]]
+    columns: NotRequired[list[str]]
 
 
 class SchemaStatusReasonTypeDef(TypedDict):
@@ -1447,6 +1535,12 @@ class UpdateAnalysisTemplateInputTypeDef(TypedDict):
     membershipIdentifier: str
     analysisTemplateIdentifier: str
     description: NotRequired[str]
+
+
+class UpdateCollaborationChangeRequestInputTypeDef(TypedDict):
+    collaborationIdentifier: str
+    changeRequestIdentifier: str
+    action: ChangeRequestActionType
 
 
 class UpdateCollaborationInputTypeDef(TypedDict):
@@ -1489,14 +1583,42 @@ class UpdateProtectedQueryInputTypeDef(TypedDict):
     targetStatus: Literal["CANCELLED"]
 
 
+class WorkerComputeConfigurationPropertiesOutputTypeDef(TypedDict):
+    spark: NotRequired[dict[str, str]]
+
+
+class WorkerComputeConfigurationPropertiesTypeDef(TypedDict):
+    spark: NotRequired[Mapping[str, str]]
+
+
+class AccessBudgetTypeDef(TypedDict):
+    resourceArn: str
+    details: list[AccessBudgetDetailsTypeDef]
+    aggregateRemainingBudget: int
+
+
+class AccessBudgetsPrivacyTemplateParametersInputTypeDef(TypedDict):
+    budgetParameters: Sequence[BudgetParameterTypeDef]
+    resourceArn: str
+
+
+class AccessBudgetsPrivacyTemplateParametersOutputTypeDef(TypedDict):
+    budgetParameters: list[BudgetParameterTypeDef]
+    resourceArn: str
+
+
+class AccessBudgetsPrivacyTemplateUpdateParametersTypeDef(TypedDict):
+    budgetParameters: Sequence[BudgetParameterTypeDef]
+
+
 class AnalysisRuleAggregationOutputTypeDef(TypedDict):
-    aggregateColumns: List[AggregateColumnOutputTypeDef]
-    joinColumns: List[str]
-    dimensionColumns: List[str]
-    scalarFunctions: List[ScalarFunctionsType]
-    outputConstraints: List[AggregationConstraintTypeDef]
+    aggregateColumns: list[AggregateColumnOutputTypeDef]
+    joinColumns: list[str]
+    dimensionColumns: list[str]
+    scalarFunctions: list[ScalarFunctionsType]
+    outputConstraints: list[AggregationConstraintTypeDef]
     joinRequired: NotRequired[Literal["QUERY_RUNNER"]]
-    allowedJoinOperators: NotRequired[List[JoinOperatorType]]
+    allowedJoinOperators: NotRequired[list[JoinOperatorType]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
 
 
@@ -1512,16 +1634,16 @@ class AnalysisRuleAggregationTypeDef(TypedDict):
 
 
 class ConsolidatedPolicyAggregationTypeDef(TypedDict):
-    aggregateColumns: List[AggregateColumnOutputTypeDef]
-    joinColumns: List[str]
-    dimensionColumns: List[str]
-    scalarFunctions: List[ScalarFunctionsType]
-    outputConstraints: List[AggregationConstraintTypeDef]
+    aggregateColumns: list[AggregateColumnOutputTypeDef]
+    joinColumns: list[str]
+    dimensionColumns: list[str]
+    scalarFunctions: list[ScalarFunctionsType]
+    outputConstraints: list[AggregationConstraintTypeDef]
     joinRequired: NotRequired[Literal["QUERY_RUNNER"]]
-    allowedJoinOperators: NotRequired[List[JoinOperatorType]]
+    allowedJoinOperators: NotRequired[list[JoinOperatorType]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 AnalysisSchemaUnionTypeDef = Union[AnalysisSchemaTypeDef, AnalysisSchemaOutputTypeDef]
@@ -1529,7 +1651,7 @@ AnalysisSchemaUnionTypeDef = Union[AnalysisSchemaTypeDef, AnalysisSchemaOutputTy
 
 class AnalysisTemplateArtifactMetadataTypeDef(TypedDict):
     entryPointHash: HashTypeDef
-    additionalArtifactHashes: NotRequired[List[HashTypeDef]]
+    additionalArtifactHashes: NotRequired[list[HashTypeDef]]
 
 
 class AnalysisTemplateArtifactTypeDef(TypedDict):
@@ -1541,19 +1663,19 @@ AnalysisTemplateValidationStatusDetailTypeDef = TypedDict(
     {
         "type": Literal["DIFFERENTIAL_PRIVACY"],
         "status": AnalysisTemplateValidationStatusType,
-        "reasons": NotRequired[List[AnalysisTemplateValidationStatusReasonTypeDef]],
+        "reasons": NotRequired[list[AnalysisTemplateValidationStatusReasonTypeDef]],
     },
 )
 
 
 class ListAnalysisTemplatesOutputTypeDef(TypedDict):
-    analysisTemplateSummaries: List[AnalysisTemplateSummaryTypeDef]
+    analysisTemplateSummaries: list[AnalysisTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1579,16 +1701,22 @@ class ProtectedQueryStatisticsTypeDef(TypedDict):
 
 class ChangeSpecificationOutputTypeDef(TypedDict):
     member: NotRequired[MemberChangeSpecificationOutputTypeDef]
+    collaboration: NotRequired[CollaborationChangeSpecificationOutputTypeDef]
 
 
 class ListCollaborationAnalysisTemplatesOutputTypeDef(TypedDict):
-    collaborationAnalysisTemplateSummaries: List[CollaborationAnalysisTemplateSummaryTypeDef]
+    collaborationAnalysisTemplateSummaries: list[CollaborationAnalysisTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
+CollaborationChangeSpecificationUnionTypeDef = Union[
+    CollaborationChangeSpecificationTypeDef, CollaborationChangeSpecificationOutputTypeDef
+]
+
+
 class ListCollaborationConfiguredAudienceModelAssociationsOutputTypeDef(TypedDict):
-    collaborationConfiguredAudienceModelAssociationSummaries: List[
+    collaborationConfiguredAudienceModelAssociationSummaries: list[
         CollaborationConfiguredAudienceModelAssociationSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1692,7 +1820,7 @@ IdNamespaceAssociationTypeDef = TypedDict(
 
 
 class ListCollaborationPrivacyBudgetTemplatesOutputTypeDef(TypedDict):
-    collaborationPrivacyBudgetTemplateSummaries: List[
+    collaborationPrivacyBudgetTemplateSummaries: list[
         CollaborationPrivacyBudgetTemplateSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1700,7 +1828,7 @@ class ListCollaborationPrivacyBudgetTemplatesOutputTypeDef(TypedDict):
 
 
 class ListCollaborationsOutputTypeDef(TypedDict):
-    collaborationList: List[CollaborationSummaryTypeDef]
+    collaborationList: list[CollaborationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1723,13 +1851,19 @@ CollaborationTypeDef = TypedDict(
         "dataEncryptionMetadata": NotRequired[DataEncryptionMetadataTypeDef],
         "jobLogStatus": NotRequired[CollaborationJobLogStatusType],
         "analyticsEngine": NotRequired[AnalyticsEngineType],
-        "autoApprovedChangeTypes": NotRequired[List[Literal["ADD_MEMBER"]]],
+        "autoApprovedChangeTypes": NotRequired[list[AutoApprovedChangeTypeType]],
+        "allowedResultRegions": NotRequired[list[SupportedS3RegionType]],
+        "isMetricsEnabled": NotRequired[bool],
     },
 )
 
 
-class ComputeConfigurationTypeDef(TypedDict):
-    worker: NotRequired[WorkerComputeConfigurationTypeDef]
+class ColumnClassificationDetailsOutputTypeDef(TypedDict):
+    columnMapping: list[SyntheticDataColumnPropertiesTypeDef]
+
+
+class ColumnClassificationDetailsTypeDef(TypedDict):
+    columnMapping: Sequence[SyntheticDataColumnPropertiesTypeDef]
 
 
 class ConfigurationDetailsTypeDef(TypedDict):
@@ -1737,7 +1871,7 @@ class ConfigurationDetailsTypeDef(TypedDict):
 
 
 class ListConfiguredAudienceModelAssociationsOutputTypeDef(TypedDict):
-    configuredAudienceModelAssociationSummaries: List[
+    configuredAudienceModelAssociationSummaries: list[
         ConfiguredAudienceModelAssociationSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1778,7 +1912,7 @@ ConfiguredTableAssociationAnalysisRulePolicyV1TypeDef = TypedDict(
 
 
 class ListConfiguredTableAssociationsOutputTypeDef(TypedDict):
-    configuredTableAssociationSummaries: List[ConfiguredTableAssociationSummaryTypeDef]
+    configuredTableAssociationSummaries: list[ConfiguredTableAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1799,7 +1933,7 @@ class UpdateConfiguredTableAssociationOutputTypeDef(TypedDict):
 
 
 class ListConfiguredTablesOutputTypeDef(TypedDict):
-    configuredTableSummaries: List[ConfiguredTableSummaryTypeDef]
+    configuredTableSummaries: list[ConfiguredTableSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1832,7 +1966,7 @@ IdMappingTableSummaryTypeDef = TypedDict(
 
 
 class DifferentialPrivacyConfigurationOutputTypeDef(TypedDict):
-    columns: List[DifferentialPrivacyColumnTypeDef]
+    columns: list[DifferentialPrivacyColumnTypeDef]
 
 
 class DifferentialPrivacyConfigurationTypeDef(TypedDict):
@@ -1840,11 +1974,11 @@ class DifferentialPrivacyConfigurationTypeDef(TypedDict):
 
 
 class DifferentialPrivacyParametersTypeDef(TypedDict):
-    sensitivityParameters: List[DifferentialPrivacySensitivityParametersTypeDef]
+    sensitivityParameters: list[DifferentialPrivacySensitivityParametersTypeDef]
 
 
 class DifferentialPrivacyPrivacyImpactTypeDef(TypedDict):
-    aggregations: List[DifferentialPrivacyPreviewAggregationTypeDef]
+    aggregations: list[DifferentialPrivacyPreviewAggregationTypeDef]
 
 
 class PreviewPrivacyImpactParametersInputTypeDef(TypedDict):
@@ -1852,28 +1986,16 @@ class PreviewPrivacyImpactParametersInputTypeDef(TypedDict):
 
 
 class DifferentialPrivacyPrivacyBudgetTypeDef(TypedDict):
-    aggregations: List[DifferentialPrivacyPrivacyBudgetAggregationTypeDef]
+    aggregations: list[DifferentialPrivacyPrivacyBudgetAggregationTypeDef]
     epsilon: int
 
 
-class PrivacyBudgetTemplateParametersInputTypeDef(TypedDict):
-    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateParametersInputTypeDef]
-
-
-class PrivacyBudgetTemplateParametersOutputTypeDef(TypedDict):
-    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateParametersOutputTypeDef]
-
-
-class PrivacyBudgetTemplateUpdateParametersTypeDef(TypedDict):
-    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateUpdateParametersTypeDef]
-
-
 class IdMappingTableInputReferencePropertiesTypeDef(TypedDict):
-    idMappingTableInputSource: List[IdMappingTableInputSourceTypeDef]
+    idMappingTableInputSource: list[IdMappingTableInputSourceTypeDef]
 
 
 class IdMappingTableSchemaTypePropertiesTypeDef(TypedDict):
-    idMappingTableInputSource: List[IdMappingTableInputSourceTypeDef]
+    idMappingTableInputSource: list[IdMappingTableInputSourceTypeDef]
 
 
 class ListAnalysisTemplatesInputPaginateTypeDef(TypedDict):
@@ -1909,7 +2031,8 @@ class ListCollaborationPrivacyBudgetTemplatesInputPaginateTypeDef(TypedDict):
 
 class ListCollaborationPrivacyBudgetsInputPaginateTypeDef(TypedDict):
     collaborationIdentifier: str
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
+    privacyBudgetType: PrivacyBudgetTypeType
+    accessBudgetResourceArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1959,7 +2082,8 @@ class ListPrivacyBudgetTemplatesInputPaginateTypeDef(TypedDict):
 
 class ListPrivacyBudgetsInputPaginateTypeDef(TypedDict):
     membershipIdentifier: str
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
+    privacyBudgetType: PrivacyBudgetTypeType
+    accessBudgetResourceArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1982,13 +2106,13 @@ class ListSchemasInputPaginateTypeDef(TypedDict):
 
 
 class ListPrivacyBudgetTemplatesOutputTypeDef(TypedDict):
-    privacyBudgetTemplateSummaries: List[PrivacyBudgetTemplateSummaryTypeDef]
+    privacyBudgetTemplateSummaries: list[PrivacyBudgetTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSchemasOutputTypeDef(TypedDict):
-    schemaSummaries: List[SchemaSummaryTypeDef]
+    schemaSummaries: list[SchemaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1999,6 +2123,7 @@ MLMemberAbilitiesUnionTypeDef = Union[MLMemberAbilitiesTypeDef, MLMemberAbilitie
 class MLPaymentConfigTypeDef(TypedDict):
     modelTraining: NotRequired[ModelTrainingPaymentConfigTypeDef]
     modelInference: NotRequired[ModelInferencePaymentConfigTypeDef]
+    syntheticDataGeneration: NotRequired[SyntheticDataGenerationPaymentConfigTypeDef]
 
 
 MemberChangeSpecificationUnionTypeDef = Union[
@@ -2009,6 +2134,7 @@ MemberChangeSpecificationUnionTypeDef = Union[
 class MembershipMLPaymentConfigTypeDef(TypedDict):
     modelTraining: NotRequired[MembershipModelTrainingPaymentConfigTypeDef]
     modelInference: NotRequired[MembershipModelInferencePaymentConfigTypeDef]
+    syntheticDataGeneration: NotRequired[MembershipSyntheticDataGenerationPaymentConfigTypeDef]
 
 
 class MembershipProtectedJobOutputConfigurationTypeDef(TypedDict):
@@ -2040,7 +2166,12 @@ class ProtectedJobOutputConfigurationOutputTypeDef(TypedDict):
 
 class ProtectedJobOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedJobS3OutputTypeDef]
-    memberList: NotRequired[List[ProtectedJobSingleMemberOutputTypeDef]]
+    memberList: NotRequired[list[ProtectedJobSingleMemberOutputTypeDef]]
+
+
+ProtectedJobParametersUnionTypeDef = Union[
+    ProtectedJobParametersTypeDef, ProtectedJobParametersOutputTypeDef
+]
 
 
 class ProtectedQueryDistributeOutputConfigurationLocationTypeDef(TypedDict):
@@ -2050,7 +2181,7 @@ class ProtectedQueryDistributeOutputConfigurationLocationTypeDef(TypedDict):
 
 class ProtectedQueryDistributeOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputTypeDef]
-    memberList: NotRequired[List[ProtectedQuerySingleMemberOutputTypeDef]]
+    memberList: NotRequired[list[ProtectedQuerySingleMemberOutputTypeDef]]
 
 
 ProtectedQuerySQLParametersUnionTypeDef = Union[
@@ -2065,17 +2196,50 @@ class QueryConstraintTypeDef(TypedDict):
 class SchemaStatusDetailTypeDef(TypedDict):
     status: SchemaStatusType
     analysisType: AnalysisTypeType
-    reasons: NotRequired[List[SchemaStatusReasonTypeDef]]
+    reasons: NotRequired[list[SchemaStatusReasonTypeDef]]
     analysisRuleType: NotRequired[AnalysisRuleTypeType]
-    configurations: NotRequired[List[Literal["DIFFERENTIAL_PRIVACY"]]]
+    configurations: NotRequired[list[Literal["DIFFERENTIAL_PRIVACY"]]]
 
 
 class SnowflakeTableSchemaOutputTypeDef(TypedDict):
-    v1: NotRequired[List[SnowflakeTableSchemaV1TypeDef]]
+    v1: NotRequired[list[SnowflakeTableSchemaV1TypeDef]]
 
 
 class SnowflakeTableSchemaTypeDef(TypedDict):
     v1: NotRequired[Sequence[SnowflakeTableSchemaV1TypeDef]]
+
+
+WorkerComputeConfigurationOutputTypeDef = TypedDict(
+    "WorkerComputeConfigurationOutputTypeDef",
+    {
+        "type": NotRequired[WorkerComputeTypeType],
+        "number": NotRequired[int],
+        "properties": NotRequired[WorkerComputeConfigurationPropertiesOutputTypeDef],
+    },
+)
+WorkerComputeConfigurationTypeDef = TypedDict(
+    "WorkerComputeConfigurationTypeDef",
+    {
+        "type": NotRequired[WorkerComputeTypeType],
+        "number": NotRequired[int],
+        "properties": NotRequired[WorkerComputeConfigurationPropertiesTypeDef],
+    },
+)
+
+
+class PrivacyBudgetTemplateParametersInputTypeDef(TypedDict):
+    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateParametersInputTypeDef]
+    accessBudget: NotRequired[AccessBudgetsPrivacyTemplateParametersInputTypeDef]
+
+
+class PrivacyBudgetTemplateParametersOutputTypeDef(TypedDict):
+    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateParametersOutputTypeDef]
+    accessBudget: NotRequired[AccessBudgetsPrivacyTemplateParametersOutputTypeDef]
+
+
+class PrivacyBudgetTemplateUpdateParametersTypeDef(TypedDict):
+    differentialPrivacy: NotRequired[DifferentialPrivacyTemplateUpdateParametersTypeDef]
+    accessBudget: NotRequired[AccessBudgetsPrivacyTemplateUpdateParametersTypeDef]
 
 
 class AnalysisSourceMetadataTypeDef(TypedDict):
@@ -2085,7 +2249,7 @@ class AnalysisSourceMetadataTypeDef(TypedDict):
 class AnalysisTemplateArtifactsOutputTypeDef(TypedDict):
     entryPoint: AnalysisTemplateArtifactTypeDef
     roleArn: str
-    additionalArtifacts: NotRequired[List[AnalysisTemplateArtifactTypeDef]]
+    additionalArtifacts: NotRequired[list[AnalysisTemplateArtifactTypeDef]]
 
 
 class AnalysisTemplateArtifactsTypeDef(TypedDict):
@@ -2097,15 +2261,15 @@ class AnalysisTemplateArtifactsTypeDef(TypedDict):
 ChangeTypeDef = TypedDict(
     "ChangeTypeDef",
     {
-        "specificationType": Literal["MEMBER"],
+        "specificationType": ChangeSpecificationTypeType,
         "specification": ChangeSpecificationOutputTypeDef,
-        "types": List[Literal["ADD_MEMBER"]],
+        "types": list[ChangeTypeType],
     },
 )
 
 
 class ListCollaborationIdNamespaceAssociationsOutputTypeDef(TypedDict):
-    collaborationIdNamespaceAssociationSummaries: List[
+    collaborationIdNamespaceAssociationSummaries: list[
         CollaborationIdNamespaceAssociationSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2113,7 +2277,7 @@ class ListCollaborationIdNamespaceAssociationsOutputTypeDef(TypedDict):
 
 
 class ListIdNamespaceAssociationsOutputTypeDef(TypedDict):
-    idNamespaceAssociationSummaries: List[IdNamespaceAssociationSummaryTypeDef]
+    idNamespaceAssociationSummaries: list[IdNamespaceAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2153,6 +2317,18 @@ class UpdateCollaborationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class MLSyntheticDataParametersOutputTypeDef(TypedDict):
+    epsilon: float
+    maxMembershipInferenceAttackScore: float
+    columnClassification: ColumnClassificationDetailsOutputTypeDef
+
+
+class MLSyntheticDataParametersTypeDef(TypedDict):
+    epsilon: float
+    maxMembershipInferenceAttackScore: float
+    columnClassification: ColumnClassificationDetailsTypeDef
+
+
 class ReceiverConfigurationTypeDef(TypedDict):
     analysisType: AnalysisTypeType
     configurationDetails: NotRequired[ConfigurationDetailsTypeDef]
@@ -2167,27 +2343,27 @@ class ConfiguredTableAssociationAnalysisRulePolicyTypeDef(TypedDict):
 
 
 class ListIdMappingTablesOutputTypeDef(TypedDict):
-    idMappingTableSummaries: List[IdMappingTableSummaryTypeDef]
+    idMappingTableSummaries: list[IdMappingTableSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class AnalysisRuleCustomOutputTypeDef(TypedDict):
-    allowedAnalyses: List[str]
-    allowedAnalysisProviders: NotRequired[List[str]]
+    allowedAnalyses: list[str]
+    allowedAnalysisProviders: NotRequired[list[str]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
-    disallowedOutputColumns: NotRequired[List[str]]
+    disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
 
 
 class ConsolidatedPolicyCustomTypeDef(TypedDict):
-    allowedAnalyses: List[str]
-    allowedAnalysisProviders: NotRequired[List[str]]
+    allowedAnalyses: list[str]
+    allowedAnalysisProviders: NotRequired[list[str]]
     additionalAnalyses: NotRequired[AdditionalAnalysesType]
-    disallowedOutputColumns: NotRequired[List[str]]
+    disallowedOutputColumns: NotRequired[list[str]]
     differentialPrivacy: NotRequired[DifferentialPrivacyConfigurationOutputTypeDef]
-    allowedResultReceivers: NotRequired[List[str]]
-    allowedAdditionalAnalyses: NotRequired[List[str]]
+    allowedResultReceivers: NotRequired[list[str]]
+    allowedAdditionalAnalyses: NotRequired[list[str]]
 
 
 class AnalysisRuleCustomTypeDef(TypedDict):
@@ -2209,54 +2385,7 @@ class PreviewPrivacyImpactInputTypeDef(TypedDict):
 
 class PrivacyBudgetTypeDef(TypedDict):
     differentialPrivacy: NotRequired[DifferentialPrivacyPrivacyBudgetTypeDef]
-
-
-class CreatePrivacyBudgetTemplateInputTypeDef(TypedDict):
-    membershipIdentifier: str
-    autoRefresh: PrivacyBudgetTemplateAutoRefreshType
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
-    parameters: PrivacyBudgetTemplateParametersInputTypeDef
-    tags: NotRequired[Mapping[str, str]]
-
-
-CollaborationPrivacyBudgetTemplateTypeDef = TypedDict(
-    "CollaborationPrivacyBudgetTemplateTypeDef",
-    {
-        "id": str,
-        "arn": str,
-        "collaborationId": str,
-        "collaborationArn": str,
-        "creatorAccountId": str,
-        "createTime": datetime,
-        "updateTime": datetime,
-        "privacyBudgetType": Literal["DIFFERENTIAL_PRIVACY"],
-        "autoRefresh": PrivacyBudgetTemplateAutoRefreshType,
-        "parameters": PrivacyBudgetTemplateParametersOutputTypeDef,
-    },
-)
-PrivacyBudgetTemplateTypeDef = TypedDict(
-    "PrivacyBudgetTemplateTypeDef",
-    {
-        "id": str,
-        "arn": str,
-        "membershipId": str,
-        "membershipArn": str,
-        "collaborationId": str,
-        "collaborationArn": str,
-        "createTime": datetime,
-        "updateTime": datetime,
-        "privacyBudgetType": Literal["DIFFERENTIAL_PRIVACY"],
-        "autoRefresh": PrivacyBudgetTemplateAutoRefreshType,
-        "parameters": PrivacyBudgetTemplateParametersOutputTypeDef,
-    },
-)
-
-
-class UpdatePrivacyBudgetTemplateInputTypeDef(TypedDict):
-    membershipIdentifier: str
-    privacyBudgetTemplateIdentifier: str
-    privacyBudgetType: Literal["DIFFERENTIAL_PRIVACY"]
-    parameters: NotRequired[PrivacyBudgetTemplateUpdateParametersTypeDef]
+    accessBudget: NotRequired[AccessBudgetTypeDef]
 
 
 IdMappingTableTypeDef = TypedDict(
@@ -2291,6 +2420,7 @@ class PaymentConfigurationTypeDef(TypedDict):
 
 class ChangeSpecificationTypeDef(TypedDict):
     member: NotRequired[MemberChangeSpecificationUnionTypeDef]
+    collaboration: NotRequired[CollaborationChangeSpecificationUnionTypeDef]
 
 
 class MembershipPaymentConfigurationTypeDef(TypedDict):
@@ -2327,7 +2457,7 @@ class ProtectedJobResultTypeDef(TypedDict):
 
 
 class ProtectedQueryDistributeOutputConfigurationOutputTypeDef(TypedDict):
-    locations: List[ProtectedQueryDistributeOutputConfigurationLocationTypeDef]
+    locations: list[ProtectedQueryDistributeOutputConfigurationLocationTypeDef]
 
 
 class ProtectedQueryDistributeOutputConfigurationTypeDef(TypedDict):
@@ -2336,14 +2466,14 @@ class ProtectedQueryDistributeOutputConfigurationTypeDef(TypedDict):
 
 class ProtectedQueryOutputTypeDef(TypedDict):
     s3: NotRequired[ProtectedQueryS3OutputTypeDef]
-    memberList: NotRequired[List[ProtectedQuerySingleMemberOutputTypeDef]]
+    memberList: NotRequired[list[ProtectedQuerySingleMemberOutputTypeDef]]
     distribute: NotRequired[ProtectedQueryDistributeOutputTypeDef]
 
 
 class AnalysisRuleIdMappingTableTypeDef(TypedDict):
-    joinColumns: List[str]
-    queryConstraints: List[QueryConstraintTypeDef]
-    dimensionColumns: NotRequired[List[str]]
+    joinColumns: list[str]
+    queryConstraints: list[QueryConstraintTypeDef]
+    dimensionColumns: NotRequired[list[str]]
 
 
 class SnowflakeTableReferenceOutputTypeDef(TypedDict):
@@ -2362,6 +2492,62 @@ class SnowflakeTableReferenceTypeDef(TypedDict):
     tableName: str
     schemaName: str
     tableSchema: SnowflakeTableSchemaTypeDef
+
+
+class ComputeConfigurationOutputTypeDef(TypedDict):
+    worker: NotRequired[WorkerComputeConfigurationOutputTypeDef]
+
+
+class ComputeConfigurationTypeDef(TypedDict):
+    worker: NotRequired[WorkerComputeConfigurationTypeDef]
+
+
+class CreatePrivacyBudgetTemplateInputTypeDef(TypedDict):
+    membershipIdentifier: str
+    privacyBudgetType: PrivacyBudgetTypeType
+    parameters: PrivacyBudgetTemplateParametersInputTypeDef
+    autoRefresh: NotRequired[PrivacyBudgetTemplateAutoRefreshType]
+    tags: NotRequired[Mapping[str, str]]
+
+
+CollaborationPrivacyBudgetTemplateTypeDef = TypedDict(
+    "CollaborationPrivacyBudgetTemplateTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "collaborationId": str,
+        "collaborationArn": str,
+        "creatorAccountId": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "privacyBudgetType": PrivacyBudgetTypeType,
+        "autoRefresh": PrivacyBudgetTemplateAutoRefreshType,
+        "parameters": PrivacyBudgetTemplateParametersOutputTypeDef,
+    },
+)
+PrivacyBudgetTemplateTypeDef = TypedDict(
+    "PrivacyBudgetTemplateTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "membershipId": str,
+        "membershipArn": str,
+        "collaborationId": str,
+        "collaborationArn": str,
+        "createTime": datetime,
+        "updateTime": datetime,
+        "privacyBudgetType": PrivacyBudgetTypeType,
+        "autoRefresh": PrivacyBudgetTemplateAutoRefreshType,
+        "parameters": PrivacyBudgetTemplateParametersOutputTypeDef,
+    },
+)
+
+
+class UpdatePrivacyBudgetTemplateInputTypeDef(TypedDict):
+    membershipIdentifier: str
+    privacyBudgetTemplateIdentifier: str
+    privacyBudgetType: PrivacyBudgetTypeType
+    parameters: NotRequired[PrivacyBudgetTemplateUpdateParametersTypeDef]
 
 
 class AnalysisSourceOutputTypeDef(TypedDict):
@@ -2383,7 +2569,8 @@ CollaborationChangeRequestSummaryTypeDef = TypedDict(
         "updateTime": datetime,
         "status": ChangeRequestStatusType,
         "isAutoApproved": bool,
-        "changes": List[ChangeTypeDef],
+        "changes": list[ChangeTypeDef],
+        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
     },
 )
 CollaborationChangeRequestTypeDef = TypedDict(
@@ -2395,9 +2582,20 @@ CollaborationChangeRequestTypeDef = TypedDict(
         "updateTime": datetime,
         "status": ChangeRequestStatusType,
         "isAutoApproved": bool,
-        "changes": List[ChangeTypeDef],
+        "changes": list[ChangeTypeDef],
+        "approvals": NotRequired[dict[str, ApprovalStatusDetailsTypeDef]],
     },
 )
+
+
+class SyntheticDataParametersOutputTypeDef(TypedDict):
+    mlSyntheticDataParameters: NotRequired[MLSyntheticDataParametersOutputTypeDef]
+
+
+class SyntheticDataParametersTypeDef(TypedDict):
+    mlSyntheticDataParameters: NotRequired[MLSyntheticDataParametersTypeDef]
+
+
 ProtectedQuerySummaryTypeDef = TypedDict(
     "ProtectedQuerySummaryTypeDef",
     {
@@ -2406,7 +2604,7 @@ ProtectedQuerySummaryTypeDef = TypedDict(
         "membershipArn": str,
         "createTime": datetime,
         "status": ProtectedQueryStatusType,
-        "receiverConfigurations": List[ReceiverConfigurationTypeDef],
+        "receiverConfigurations": list[ReceiverConfigurationTypeDef],
     },
 )
 ConfiguredTableAssociationAnalysisRuleTypeDef = TypedDict(
@@ -2465,7 +2663,7 @@ CollaborationPrivacyBudgetSummaryTypeDef = TypedDict(
         "collaborationId": str,
         "collaborationArn": str,
         "creatorAccountId": str,
-        "type": Literal["DIFFERENTIAL_PRIVACY"],
+        "type": PrivacyBudgetTypeType,
         "createTime": datetime,
         "updateTime": datetime,
         "budget": PrivacyBudgetTypeDef,
@@ -2481,32 +2679,12 @@ PrivacyBudgetSummaryTypeDef = TypedDict(
         "membershipArn": str,
         "collaborationId": str,
         "collaborationArn": str,
-        "type": Literal["DIFFERENTIAL_PRIVACY"],
+        "type": PrivacyBudgetTypeType,
         "createTime": datetime,
         "updateTime": datetime,
         "budget": PrivacyBudgetTypeDef,
     },
 )
-
-
-class GetCollaborationPrivacyBudgetTemplateOutputTypeDef(TypedDict):
-    collaborationPrivacyBudgetTemplate: CollaborationPrivacyBudgetTemplateTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
-    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetPrivacyBudgetTemplateOutputTypeDef(TypedDict):
-    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
-    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateIdMappingTableOutputTypeDef(TypedDict):
@@ -2527,9 +2705,9 @@ class UpdateIdMappingTableOutputTypeDef(TypedDict):
 SchemaTypeDef = TypedDict(
     "SchemaTypeDef",
     {
-        "columns": List[ColumnTypeDef],
-        "partitionKeys": List[ColumnTypeDef],
-        "analysisRuleTypes": List[AnalysisRuleTypeType],
+        "columns": list[ColumnTypeDef],
+        "partitionKeys": list[ColumnTypeDef],
+        "analysisRuleTypes": list[AnalysisRuleTypeType],
         "creatorAccountId": str,
         "name": str,
         "collaborationId": str,
@@ -2538,9 +2716,10 @@ SchemaTypeDef = TypedDict(
         "createTime": datetime,
         "updateTime": datetime,
         "type": SchemaTypeType,
-        "schemaStatusDetails": List[SchemaStatusDetailTypeDef],
+        "schemaStatusDetails": list[SchemaStatusDetailTypeDef],
         "analysisMethod": NotRequired[AnalysisMethodType],
-        "selectedAnalysisMethods": NotRequired[List[SelectedAnalysisMethodType]],
+        "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
+        "resourceArn": NotRequired[str],
         "schemaTypeProperties": NotRequired[SchemaTypePropertiesTypeDef],
     },
 )
@@ -2558,7 +2737,7 @@ class MemberSummaryTypeDef(TypedDict):
     accountId: str
     status: MemberStatusType
     displayName: str
-    abilities: List[MemberAbilityType]
+    abilities: list[MemberAbilityType]
     createTime: datetime
     updateTime: datetime
     paymentConfiguration: PaymentConfigurationTypeDef
@@ -2583,7 +2762,7 @@ MembershipSummaryTypeDef = TypedDict(
         "createTime": datetime,
         "updateTime": datetime,
         "status": MembershipStatusType,
-        "memberAbilities": List[MemberAbilityType],
+        "memberAbilities": list[MemberAbilityType],
         "paymentConfiguration": MembershipPaymentConfigurationTypeDef,
         "mlMemberAbilities": NotRequired[MLMemberAbilitiesOutputTypeDef],
     },
@@ -2598,6 +2777,7 @@ class CreateMembershipInputTypeDef(TypedDict):
     defaultResultConfiguration: NotRequired[MembershipProtectedQueryResultConfigurationTypeDef]
     defaultJobResultConfiguration: NotRequired[MembershipProtectedJobResultConfigurationTypeDef]
     paymentConfiguration: NotRequired[MembershipPaymentConfigurationTypeDef]
+    isMetricsEnabled: NotRequired[bool]
 
 
 MembershipTypeDef = TypedDict(
@@ -2613,7 +2793,7 @@ MembershipTypeDef = TypedDict(
         "createTime": datetime,
         "updateTime": datetime,
         "status": MembershipStatusType,
-        "memberAbilities": List[MemberAbilityType],
+        "memberAbilities": list[MemberAbilityType],
         "queryLogStatus": MembershipQueryLogStatusType,
         "paymentConfiguration": MembershipPaymentConfigurationTypeDef,
         "mlMemberAbilities": NotRequired[MLMemberAbilitiesOutputTypeDef],
@@ -2624,6 +2804,7 @@ MembershipTypeDef = TypedDict(
         "defaultJobResultConfiguration": NotRequired[
             MembershipProtectedJobResultConfigurationTypeDef
         ],
+        "isMetricsEnabled": NotRequired[bool],
     },
 )
 
@@ -2644,7 +2825,7 @@ ProtectedJobSummaryTypeDef = TypedDict(
         "membershipArn": str,
         "createTime": datetime,
         "status": ProtectedJobStatusType,
-        "receiverConfigurations": List[ProtectedJobReceiverConfigurationTypeDef],
+        "receiverConfigurations": list[ProtectedJobReceiverConfigurationTypeDef],
     },
 )
 StartProtectedJobInputTypeDef = TypedDict(
@@ -2652,7 +2833,7 @@ StartProtectedJobInputTypeDef = TypedDict(
     {
         "type": Literal["PYSPARK"],
         "membershipIdentifier": str,
-        "jobParameters": ProtectedJobParametersTypeDef,
+        "jobParameters": ProtectedJobParametersUnionTypeDef,
         "resultConfiguration": NotRequired[ProtectedJobResultConfigurationInputTypeDef],
         "computeConfiguration": NotRequired[ProtectedJobComputeConfigurationTypeDef],
     },
@@ -2665,7 +2846,7 @@ ProtectedJobTypeDef = TypedDict(
         "membershipArn": str,
         "createTime": datetime,
         "status": ProtectedJobStatusType,
-        "jobParameters": NotRequired[ProtectedJobParametersTypeDef],
+        "jobParameters": NotRequired[ProtectedJobParametersOutputTypeDef],
         "resultConfiguration": NotRequired[ProtectedJobResultConfigurationOutputTypeDef],
         "statistics": NotRequired[ProtectedJobStatisticsTypeDef],
         "result": NotRequired[ProtectedJobResultTypeDef],
@@ -2714,6 +2895,55 @@ class TableReferenceTypeDef(TypedDict):
     athena: NotRequired[AthenaTableReferenceTypeDef]
 
 
+ComputeConfigurationUnionTypeDef = Union[
+    ComputeConfigurationTypeDef, ComputeConfigurationOutputTypeDef
+]
+
+
+class GetCollaborationPrivacyBudgetTemplateOutputTypeDef(TypedDict):
+    collaborationPrivacyBudgetTemplate: CollaborationPrivacyBudgetTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
+    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPrivacyBudgetTemplateOutputTypeDef(TypedDict):
+    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdatePrivacyBudgetTemplateOutputTypeDef(TypedDict):
+    privacyBudgetTemplate: PrivacyBudgetTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+AnalysisSourceUnionTypeDef = Union[AnalysisSourceTypeDef, AnalysisSourceOutputTypeDef]
+
+
+class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
+    collaborationChangeRequestSummaries: list[CollaborationChangeRequestSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class CreateCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateCollaborationChangeRequestOutputTypeDef(TypedDict):
+    collaborationChangeRequest: CollaborationChangeRequestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 AnalysisTemplateTypeDef = TypedDict(
     "AnalysisTemplateTypeDef",
     {
@@ -2731,9 +2961,10 @@ AnalysisTemplateTypeDef = TypedDict(
         "source": AnalysisSourceOutputTypeDef,
         "description": NotRequired[str],
         "sourceMetadata": NotRequired[AnalysisSourceMetadataTypeDef],
-        "analysisParameters": NotRequired[List[AnalysisParameterTypeDef]],
-        "validations": NotRequired[List[AnalysisTemplateValidationStatusDetailTypeDef]],
+        "analysisParameters": NotRequired[list[AnalysisParameterTypeDef]],
+        "validations": NotRequired[list[AnalysisTemplateValidationStatusDetailTypeDef]],
         "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
+        "syntheticDataParameters": NotRequired[SyntheticDataParametersOutputTypeDef],
     },
 )
 CollaborationAnalysisTemplateTypeDef = TypedDict(
@@ -2752,32 +2983,19 @@ CollaborationAnalysisTemplateTypeDef = TypedDict(
         "description": NotRequired[str],
         "source": NotRequired[AnalysisSourceOutputTypeDef],
         "sourceMetadata": NotRequired[AnalysisSourceMetadataTypeDef],
-        "analysisParameters": NotRequired[List[AnalysisParameterTypeDef]],
-        "validations": NotRequired[List[AnalysisTemplateValidationStatusDetailTypeDef]],
+        "analysisParameters": NotRequired[list[AnalysisParameterTypeDef]],
+        "validations": NotRequired[list[AnalysisTemplateValidationStatusDetailTypeDef]],
         "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
+        "syntheticDataParameters": NotRequired[SyntheticDataParametersOutputTypeDef],
     },
 )
-AnalysisSourceUnionTypeDef = Union[AnalysisSourceTypeDef, AnalysisSourceOutputTypeDef]
-
-
-class ListCollaborationChangeRequestsOutputTypeDef(TypedDict):
-    collaborationChangeRequestSummaries: List[CollaborationChangeRequestSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
-class CreateCollaborationChangeRequestOutputTypeDef(TypedDict):
-    collaborationChangeRequest: CollaborationChangeRequestTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetCollaborationChangeRequestOutputTypeDef(TypedDict):
-    collaborationChangeRequest: CollaborationChangeRequestTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+SyntheticDataParametersUnionTypeDef = Union[
+    SyntheticDataParametersTypeDef, SyntheticDataParametersOutputTypeDef
+]
 
 
 class ListProtectedQueriesOutputTypeDef(TypedDict):
-    protectedQueries: List[ProtectedQuerySummaryTypeDef]
+    protectedQueries: list[ProtectedQuerySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2824,20 +3042,20 @@ class ConfiguredTableAnalysisRulePolicyTypeDef(TypedDict):
 
 
 class ListCollaborationPrivacyBudgetsOutputTypeDef(TypedDict):
-    collaborationPrivacyBudgetSummaries: List[CollaborationPrivacyBudgetSummaryTypeDef]
+    collaborationPrivacyBudgetSummaries: list[CollaborationPrivacyBudgetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPrivacyBudgetsOutputTypeDef(TypedDict):
-    privacyBudgetSummaries: List[PrivacyBudgetSummaryTypeDef]
+    privacyBudgetSummaries: list[PrivacyBudgetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchGetSchemaOutputTypeDef(TypedDict):
-    schemas: List[SchemaTypeDef]
-    errors: List[BatchGetSchemaErrorTypeDef]
+    schemas: list[SchemaTypeDef]
+    errors: list[BatchGetSchemaErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2859,22 +3077,24 @@ class CreateCollaborationInputTypeDef(TypedDict):
     tags: NotRequired[Mapping[str, str]]
     creatorPaymentConfiguration: NotRequired[PaymentConfigurationTypeDef]
     analyticsEngine: NotRequired[AnalyticsEngineType]
-    autoApprovedChangeRequestTypes: NotRequired[Sequence[Literal["ADD_MEMBER"]]]
+    autoApprovedChangeRequestTypes: NotRequired[Sequence[AutoApprovedChangeTypeType]]
+    allowedResultRegions: NotRequired[Sequence[SupportedS3RegionType]]
+    isMetricsEnabled: NotRequired[bool]
 
 
 class ListMembersOutputTypeDef(TypedDict):
-    memberSummaries: List[MemberSummaryTypeDef]
+    memberSummaries: list[MemberSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ChangeInputTypeDef(TypedDict):
-    specificationType: Literal["MEMBER"]
+    specificationType: ChangeSpecificationTypeType
     specification: ChangeSpecificationUnionTypeDef
 
 
 class ListMembershipsOutputTypeDef(TypedDict):
-    membershipSummaries: List[MembershipSummaryTypeDef]
+    membershipSummaries: list[MembershipSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2895,7 +3115,7 @@ class UpdateMembershipOutputTypeDef(TypedDict):
 
 
 class ListProtectedJobsOutputTypeDef(TypedDict):
-    protectedJobs: List[ProtectedJobSummaryTypeDef]
+    protectedJobs: list[ProtectedJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2936,11 +3156,11 @@ ConfiguredTableTypeDef = TypedDict(
         "tableReference": TableReferenceOutputTypeDef,
         "createTime": datetime,
         "updateTime": datetime,
-        "analysisRuleTypes": List[ConfiguredTableAnalysisRuleTypeType],
+        "analysisRuleTypes": list[ConfiguredTableAnalysisRuleTypeType],
         "analysisMethod": AnalysisMethodType,
-        "allowedColumns": List[str],
+        "allowedColumns": list[str],
         "description": NotRequired[str],
-        "selectedAnalysisMethods": NotRequired[List[SelectedAnalysisMethodType]],
+        "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
     },
 )
 TableReferenceUnionTypeDef = Union[TableReferenceTypeDef, TableReferenceOutputTypeDef]
@@ -2962,8 +3182,8 @@ class UpdateAnalysisTemplateOutputTypeDef(TypedDict):
 
 
 class BatchGetCollaborationAnalysisTemplateOutputTypeDef(TypedDict):
-    collaborationAnalysisTemplates: List[CollaborationAnalysisTemplateTypeDef]
-    errors: List[BatchGetCollaborationAnalysisTemplateErrorTypeDef]
+    collaborationAnalysisTemplates: list[CollaborationAnalysisTemplateTypeDef]
+    errors: list[BatchGetCollaborationAnalysisTemplateErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2984,6 +3204,7 @@ CreateAnalysisTemplateInputTypeDef = TypedDict(
         "analysisParameters": NotRequired[Sequence[AnalysisParameterTypeDef]],
         "schema": NotRequired[AnalysisSchemaUnionTypeDef],
         "errorMessageConfiguration": NotRequired[ErrorMessageConfigurationTypeDef],
+        "syntheticDataParameters": NotRequired[SyntheticDataParametersUnionTypeDef],
     },
 )
 ConfiguredTableAnalysisRuleTypeDef = TypedDict(
@@ -3021,7 +3242,7 @@ ProtectedQueryTypeDef = TypedDict(
         "result": NotRequired[ProtectedQueryResultTypeDef],
         "error": NotRequired[ProtectedQueryErrorTypeDef],
         "differentialPrivacy": NotRequired[DifferentialPrivacyParametersTypeDef],
-        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
+        "computeConfiguration": NotRequired[ComputeConfigurationOutputTypeDef],
     },
 )
 ProtectedQueryResultConfigurationUnionTypeDef = Union[
@@ -3128,14 +3349,14 @@ StartProtectedQueryInputTypeDef = TypedDict(
         "membershipIdentifier": str,
         "sqlParameters": ProtectedQuerySQLParametersUnionTypeDef,
         "resultConfiguration": NotRequired[ProtectedQueryResultConfigurationUnionTypeDef],
-        "computeConfiguration": NotRequired[ComputeConfigurationTypeDef],
+        "computeConfiguration": NotRequired[ComputeConfigurationUnionTypeDef],
     },
 )
 
 
 class BatchGetSchemaAnalysisRuleOutputTypeDef(TypedDict):
-    analysisRules: List[AnalysisRuleTypeDef]
-    errors: List[BatchGetSchemaAnalysisRuleErrorTypeDef]
+    analysisRules: list[AnalysisRuleTypeDef]
+    errors: list[BatchGetSchemaAnalysisRuleErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-htmx
-Version: 1.26.0
+Version: 1.27.0
 Summary: Extensions for using Django with htmx.
 Author-email: Adam Johnson <me@adamj.eu>
 License-Expression: MIT
@@ -19,7 +19,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,7 +26,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: asgiref>=3.6

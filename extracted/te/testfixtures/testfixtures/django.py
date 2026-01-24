@@ -3,7 +3,13 @@ from typing import Any, Sequence, Iterable
 from django.db.models import Model, Field
 
 from . import compare as base_compare
-from .comparison import _compare_mapping, register, CompareContext, unspecified, Registry
+from .comparison import (
+    _compare_mapping,
+    register,
+    CompareContext,
+    unspecified,
+    Comparers,
+)
 
 
 def instance_fields(instance: Model) -> Iterable[Field]:
@@ -34,7 +40,13 @@ def model_to_dict(
     return data
 
 
-def compare_model(x: Model, y: Model, context: CompareContext) -> str | None:
+def compare_model(
+        x: Model,
+        y: Model,
+        context: CompareContext,
+        ignore_fields: Sequence[str] = (),
+        non_editable_fields: bool = False,
+) -> str | None:
     """
     Returns an informative string describing the differences between the two
     supplied Django model instances. The way in which this comparison is
@@ -48,8 +60,6 @@ def compare_model(x: Model, y: Model, context: CompareContext) -> str | None:
       If `True`, then fields with ``editable=False`` will be included in the
       comparison. By default, these fields are ignored.
     """
-    ignore_fields = context.get_option('ignore_fields', set())
-    non_editable_fields= context.get_option('non_editable_fields', False)
     args: Any = []
     for obj in x, y:
         args.append(model_to_dict(obj, ignore_fields, non_editable_fields))
@@ -75,7 +85,7 @@ def compare(
         recursive: bool = True,
         strict: bool = False,
         ignore_eq: bool = True,
-        comparers: Registry | None = None,
+        comparers: Comparers | None = None,
         **options: Any
 ) -> str | None:
     """

@@ -1,8 +1,10 @@
+import base64
+import gzip
+import pickle
 import socket
 import threading
 import time
 import traceback
-import uuid
 from importlib.metadata import version
 from typing import TYPE_CHECKING, Optional
 
@@ -11,14 +13,12 @@ from websockets.sync.client import connect
 from websockets.sync.connection import Connection
 
 from dbos._context import SetWorkflowID
-from dbos._utils import GlobalParams
+from dbos._utils import GlobalParams, generate_uuid
 from dbos._workflow_commands import (
+    delete_workflow,
     garbage_collect,
     get_workflow,
     global_timeout,
-    list_queued_workflows,
-    list_workflow_steps,
-    list_workflows,
 )
 
 from . import protocol as p
@@ -93,6 +93,7 @@ class ConductorWebsocket(threading.Thread):
                     open_timeout=5,
                     close_timeout=5,
                     logger=self.dbos.logger,
+                    max_size=None,
                 ) as websocket:
                     self.websocket = websocket
                     if use_keepalive and self.keepalive_thread is None:
@@ -118,6 +119,8 @@ class ConductorWebsocket(threading.Thread):
                                 executor_id=GlobalParams.executor_id,
                                 application_version=GlobalParams.app_version,
                                 hostname=socket.gethostname(),
+                                language="python",
+                                dbos_version=GlobalParams.dbos_version,
                             )
                             websocket.send(info_response.to_json())
                             self.dbos.logger.info("Connected to DBOS conductor")
@@ -155,6 +158,26 @@ class ConductorWebsocket(threading.Thread):
                                 error_message=error_message,
                             )
                             websocket.send(cancel_response.to_json())
+                        elif msg_type == p.MessageType.DELETE:
+                            delete_message = p.DeleteRequest.from_json(message)
+                            success = True
+                            try:
+                                delete_workflow(
+                                    self.dbos,
+                                    delete_message.workflow_id,
+                                    delete_children=delete_message.delete_children,
+                                )
+                            except Exception as e:
+                                error_message = f"Exception encountered when deleting workflow {delete_message.workflow_id}: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+                                success = False
+                            delete_response = p.DeleteResponse(
+                                type=p.MessageType.DELETE,
+                                request_id=base_message.request_id,
+                                success=success,
+                                error_message=error_message,
+                            )
+                            websocket.send(delete_response.to_json())
                         elif msg_type == p.MessageType.RESUME:
                             resume_message = p.ResumeRequest.from_json(message)
                             success = True
@@ -192,7 +215,7 @@ class ConductorWebsocket(threading.Thread):
                             fork_message = p.ForkWorkflowRequest.from_json(message)
                             new_workflow_id = fork_message.body["new_workflow_id"]
                             if new_workflow_id is None:
-                                new_workflow_id = str(uuid.uuid4())
+                                new_workflow_id = generate_uuid()
                             workflow_id = fork_message.body["workflow_id"]
                             start_step = fork_message.body["start_step"]
                             app_version = fork_message.body["application_version"]
@@ -223,22 +246,26 @@ class ConductorWebsocket(threading.Thread):
                             body = list_workflows_message.body
                             infos = []
                             try:
-                                load_input = body.get("load_input", False)
-                                load_output = body.get("load_output", False)
-                                infos = list_workflows(
-                                    self.dbos._sys_db,
-                                    workflow_ids=body["workflow_uuids"],
-                                    user=body["authenticated_user"],
-                                    start_time=body["start_time"],
-                                    end_time=body["end_time"],
-                                    status=body["status"],
-                                    app_version=body["application_version"],
-                                    name=body["workflow_name"],
-                                    limit=body["limit"],
-                                    offset=body["offset"],
-                                    sort_desc=body["sort_desc"],
-                                    load_input=load_input,
-                                    load_output=load_output,
+                                infos = self.dbos._sys_db.list_workflows(
+                                    workflow_ids=body.get("workflow_uuids", None),
+                                    user=body.get("authenticated_user", None),
+                                    start_time=body.get("start_time", None),
+                                    end_time=body.get("end_time", None),
+                                    status=body.get("status", None),
+                                    app_version=body.get("application_version", None),
+                                    forked_from=body.get("forked_from", None),
+                                    name=body.get("workflow_name", None),
+                                    queue_name=body.get("queue_name", None),
+                                    limit=body.get("limit", None),
+                                    offset=body.get("offset", None),
+                                    sort_desc=body.get("sort_desc", False),
+                                    workflow_id_prefix=body.get(
+                                        "workflow_id_prefix", None
+                                    ),
+                                    load_input=body.get("load_input", False),
+                                    load_output=body.get("load_output", False),
+                                    executor_id=body.get("executor_id", None),
+                                    queues_only=body.get("queues_only", False),
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when listing workflows: {traceback.format_exc()}"
@@ -261,18 +288,26 @@ class ConductorWebsocket(threading.Thread):
                             q_body = list_queued_workflows_message.body
                             infos = []
                             try:
-                                q_load_input = q_body.get("load_input", False)
-                                infos = list_queued_workflows(
-                                    self.dbos._sys_db,
-                                    start_time=q_body["start_time"],
-                                    end_time=q_body["end_time"],
-                                    status=q_body["status"],
-                                    name=q_body["workflow_name"],
-                                    limit=q_body["limit"],
-                                    offset=q_body["offset"],
-                                    queue_name=q_body["queue_name"],
-                                    sort_desc=q_body["sort_desc"],
-                                    load_input=q_load_input,
+                                infos = self.dbos._sys_db.list_workflows(
+                                    workflow_ids=q_body.get("workflow_uuids", None),
+                                    user=q_body.get("authenticated_user", None),
+                                    start_time=q_body.get("start_time", None),
+                                    end_time=q_body.get("end_time", None),
+                                    status=q_body.get("status", None),
+                                    app_version=q_body.get("application_version", None),
+                                    forked_from=q_body.get("forked_from", None),
+                                    name=q_body.get("workflow_name", None),
+                                    queue_name=q_body.get("queue_name", None),
+                                    limit=q_body.get("limit", None),
+                                    offset=q_body.get("offset", None),
+                                    sort_desc=q_body.get("sort_desc", False),
+                                    workflow_id_prefix=q_body.get(
+                                        "workflow_id_prefix", None
+                                    ),
+                                    load_input=q_body.get("load_input", False),
+                                    load_output=q_body.get("load_output", False),
+                                    executor_id=q_body.get("executor_id", None),
+                                    queues_only=True,
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when listing queued workflows: {traceback.format_exc()}"
@@ -341,10 +376,8 @@ class ConductorWebsocket(threading.Thread):
                             list_steps_message = p.ListStepsRequest.from_json(message)
                             step_info = None
                             try:
-                                step_info = list_workflow_steps(
-                                    self.dbos._sys_db,
-                                    self.dbos._app_db,
-                                    list_steps_message.workflow_id,
+                                step_info = self.dbos._sys_db.list_workflow_steps(
+                                    list_steps_message.workflow_id
                                 )
                             except Exception as e:
                                 error_message = f"Exception encountered when getting workflow {list_steps_message.workflow_id}: {traceback.format_exc()}"
@@ -399,6 +432,88 @@ class ConductorWebsocket(threading.Thread):
                                 error_message=error_message,
                             )
                             websocket.send(retention_response.to_json())
+                        elif msg_type == p.MessageType.GET_METRICS:
+                            get_metrics_message = p.GetMetricsRequest.from_json(message)
+                            self.dbos.logger.debug(
+                                f"Received metrics request for time range {get_metrics_message.start_time} to {get_metrics_message.end_time}"
+                            )
+                            metrics_data = []
+                            if (
+                                get_metrics_message.metric_class
+                                == "workflow_step_count"
+                            ):
+                                try:
+                                    sys_metrics = self.dbos._sys_db.get_metrics(
+                                        get_metrics_message.start_time,
+                                        get_metrics_message.end_time,
+                                    )
+                                    metrics_data = [
+                                        p.MetricData(
+                                            metric_type=m["metric_type"],
+                                            metric_name=m["metric_name"],
+                                            value=m["value"],
+                                        )
+                                        for m in sys_metrics
+                                    ]
+                                except Exception as e:
+                                    error_message = f"Exception encountered when getting metrics: {traceback.format_exc()}"
+                                    self.dbos.logger.error(error_message)
+                            else:
+                                error_message = f"Unexpected metric class: {get_metrics_message.metric_class}"
+                                self.dbos.logger.warning(error_message)
+                            get_metrics_response = p.GetMetricsResponse(
+                                type=p.MessageType.GET_METRICS,
+                                request_id=base_message.request_id,
+                                metrics=metrics_data,
+                                error_message=error_message,
+                            )
+                            websocket.send(get_metrics_response.to_json())
+                        elif msg_type == p.MessageType.EXPORT_WORKFLOW:
+                            export_message = p.ExportWorkflowRequest.from_json(message)
+                            serialized_workflow = None
+                            try:
+                                exported = self.dbos._sys_db.export_workflow(
+                                    export_message.workflow_id,
+                                    export_children=export_message.export_children,
+                                )
+                                serialized_workflow = base64.b64encode(
+                                    gzip.compress(pickle.dumps(exported))
+                                ).decode("utf-8")
+                            except Exception:
+                                error_message = f"Exception encountered when exporting workflow {export_message.workflow_id}: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+
+                            export_response = p.ExportWorkflowResponse(
+                                type=p.MessageType.EXPORT_WORKFLOW,
+                                request_id=base_message.request_id,
+                                serialized_workflow=serialized_workflow,
+                                error_message=error_message,
+                            )
+                            websocket.send(export_response.to_json())
+                        elif msg_type == p.MessageType.IMPORT_WORKFLOW:
+                            import_message = p.ImportWorkflowRequest.from_json(message)
+                            success = True
+                            try:
+                                workflow = pickle.loads(
+                                    gzip.decompress(
+                                        base64.b64decode(
+                                            import_message.serialized_workflow
+                                        )
+                                    )
+                                )
+                                self.dbos._sys_db.import_workflow(workflow)
+                            except Exception:
+                                error_message = f"Exception encountered when importing workflow: {traceback.format_exc()}"
+                                self.dbos.logger.error(error_message)
+                                success = False
+
+                            import_response = p.ImportWorkflowResponse(
+                                type=p.MessageType.IMPORT_WORKFLOW,
+                                request_id=base_message.request_id,
+                                success=success,
+                                error_message=error_message,
+                            )
+                            websocket.send(import_response.to_json())
                         else:
                             self.dbos.logger.warning(
                                 f"Unexpected message type: {msg_type}"

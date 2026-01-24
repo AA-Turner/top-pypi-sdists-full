@@ -1,6 +1,9 @@
 from contextlib import suppress
 
 import django_filters
+from django.contrib.postgres.fields import RangeField
+from django_filters.constants import EMPTY_VALUES
+from django_filters.utils import get_model_field
 
 from wbcore.filters.mixins import WBCoreFilterMixin
 from wbcore.forms import DateRangeField, DateTimeRangeField
@@ -45,6 +48,13 @@ class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
         kwargs.setdefault("lookup_expr", "overlap")
         super().__init__(*args, **kwargs)
 
+    @property
+    def is_range(self) -> bool:
+        if hasattr(self, "model"):
+            field = get_model_field(self.model, self.field_name)
+            return issubclass(field.__class__, RangeField)
+        return False
+
     def _get_initial(self, *args):
         initial = super()._get_initial(*args)
         if initial is not None:
@@ -70,23 +80,38 @@ class DateRangeFilter(ShortcutAndPerformanceMixin, django_filters.Filter):
 
         return representation, lookup_expr
 
-    @classmethod
-    def base_date_range_filter_method(cls, queryset, field_name, value):
+    def filter(self, qs, value):
+        if value in EMPTY_VALUES:
+            return qs
         if value:
+            lower, upper = value.lower, value.upper
             filters = {}
-            if value.lower:
-                filters[f"{field_name}__gte"] = value.lower
-            if value.upper:
-                filters[f"{field_name}__lte"] = value.upper
-            return queryset.filter(**filters)
-        return queryset
+            is_field_range = self.is_range
+            if lower:
+                if is_field_range:
+                    filters[f"{self.field_name}__startswith__gte"] = lower
+                else:
+                    filters[f"{self.field_name}__gte"] = lower
+
+            if upper:
+                if is_field_range:
+                    filters[f"{self.field_name}__endswith__lte"] = upper
+                else:
+                    filters[f"{self.field_name}__lte"] = upper
+
+            if self.exclude:
+                qs = qs.exclude(**filters)
+            else:
+                qs = qs.filter(**filters)
+        return qs
 
 
 class FinancialPerformanceDateRangeFilter(DateRangeFilter):
     def __init__(self, *args, **kwargs):
-        super().__init__(performance_mode=True, shortcuts=financial_performance_shortcuts, *args, **kwargs)
+        super().__init__(*args, performance_mode=True, shortcuts=financial_performance_shortcuts, **kwargs)
 
 
 class DateTimeRangeFilter(DateRangeFilter):
     field_class = DateTimeRangeField
     initial_format = "%Y-%m-%dT%H:%M:%S%z"
+    filter_type = "datetimerange"

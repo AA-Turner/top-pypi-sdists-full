@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["pad_gs", "pad_gsg", "pad_gsg_open", "pad_gsg_short"]
+
 from functools import partial
 
 import gdsfactory as gf
@@ -34,7 +36,7 @@ def pad_gsg_short(
     gnd_top = c << via
 
     if short:
-        c << via
+        _ = c << via
     gnd_bot = c << via
 
     gnd_bot.ymax = via.ymin
@@ -60,3 +62,18 @@ def pad_gsg_short(
 
 
 pad_gsg_open = partial(pad_gsg_short, short=False)
+
+
+@gf.cell_with_module_name
+def pad_gsg(length: float = 100, cross_section: str = "gsg") -> gf.Component:
+    return gf.c.straight(cross_section=cross_section, length=length)
+
+
+@gf.cell_with_module_name
+def pad_gs(length: float = 100, cross_section: str = "gs") -> gf.Component:
+    return gf.c.straight(cross_section=cross_section, length=length)
+
+
+if __name__ == "__main__":
+    c = pad_gs()
+    c.show()

@@ -8,8 +8,10 @@ __all__ = ["UnitConfig"]
 
 
 class UnitConfig(BaseModel):
+    """Configuration for unit pricing"""
+
     unit_amount: str
     """Rate per unit of usage"""
 
-    scaling_factor: Optional[float] = None
-    """Multiplier to scale rated quantity by"""
+    prorated: Optional[bool] = None
+    """If true, subtotals from this price are prorated based on the service period"""

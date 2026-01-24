@@ -26,7 +26,7 @@ default_treebanks = {
     "cu":      "proiel",
     "cy":      "ccg",
     "da":      "ddt",
-    "de":      "gsd",
+    "de":      "combined",
     "el":      "gdt",
     "en":      "combined",
     "es":      "combined",
@@ -96,7 +96,7 @@ default_treebanks = {
     "swl":     "sslc",
     "ta":      "ttb",
     "te":      "mtg",
-    "th":      "orchid",
+    "th":      "tud",
     "tr":      "imst",
     "ug":      "udt",
     "uk":      "iu",
@@ -186,6 +186,7 @@ specific_default_pretrains = {
     "nds":     "fasttext157",
     "nl":      "conll17",
     "nn":      "conll17",
+    "or":      "fasttext157",
     "ota":     "conll17",
     "pl":      "conll17",
     "pt":      "conll17",
@@ -332,6 +333,8 @@ depparse_charlms = copy.deepcopy(pos_charlms)
 
 lemma_charlms = copy.deepcopy(pos_charlms)
 
+tokenizer_charlms = copy.deepcopy(pos_charlms)
+
 ner_charlms = {
     "en": {
         "conll03": "1billion",
@@ -358,6 +361,7 @@ ner_charlms = {
 # default ner for languages
 default_ners = {
     "af": "nchlt",
+    "ang": "ewt_charlm",
     "ar": "aqmar_charlm",
     "bg": "bsnlp19",
     "da": "ddt",
@@ -368,6 +372,7 @@ default_ners = {
     "fi": "turku",
     "fr": "wikinergold_charlm",
     "he": "iahlt_charlm",
+    "hi": "ilner_charlm",
     "hu": "combined",
     "hy": "armtdp",
     "it": "fbk",
@@ -382,9 +387,11 @@ default_ners = {
     "ru": "wikiner",
     "sd": "siner",
     "sv": "suc3shuffle",
+    "te": "ilner_charlm",
     "th": "lst20",
     "tr": "starlang",
     "uk": "languk",
+    "ur": "ilner_nocharlm",
     "vi": "vlsp",
     "zh-hans": "ontonotes",
 }
@@ -435,12 +442,14 @@ optional_coref = {
     "en": "udcoref_xlm-roberta-lora",
     "es": "udcoref_xlm-roberta-lora",
     "fr": "udcoref_xlm-roberta-lora",
+    "he": "iahlt_xlm-roberta-lora",
     "hi": "deeph_muril-large-cased-lora",
     # UD Coref has both nb and nn datasets for Norwegian
     "nb": "udcoref_xlm-roberta-lora",
     "nn": "udcoref_xlm-roberta-lora",
     "pl": "udcoref_xlm-roberta-lora",
     "ru": "udcoref_xlm-roberta-lora",
+    "ta": "kbc_muril-large-cased-lora",
 }
 
 """
@@ -730,6 +739,8 @@ TRANSFORMERS = {
     #  l3cube-pune/marathi-roberta 76.48 66.21 61.20 57.60 61.20
     "mr": "l3cube-pune/marathi-roberta",
 
+    "or": "google/muril-large-cased",
+
     # https://huggingface.co/allegro/herbert-base-cased
     # Scores by entity on the NKJP NER task:
     # no bert (dev/test): 88.64/88.75
@@ -763,12 +774,28 @@ TRANSFORMERS = {
     # d42kw01f/Tamil-RoBERTa         85.59        70.55
     # google/muril-base-cased        85.67        72.68
     # google/muril-large-cased       86.30        72.45
+    #
+    # should also consider xlm-roberta-large
+    # updated on UD 2.16 data:      dev pos      ner
+    # google/muril-large-cased       86.86      65.08
+    # xlm-roberta-large                         66.28
     "ta": "google/muril-large-cased",
 
+    "te": "google/muril-large-cased",
+
+    # https://huggingface.co/airesearch/wangchanberta-base-att-spm-uncased
+    # this is clearly better than no transformer on a couple datasets:
+    #
+    #                    TUD dev upos   TUD dev depparse LAS
+    # no transformer       91.26             73.57
+    # wangchanberta        92.21             76.65
+    "th": "airesearch/wangchanberta-base-att-spm-uncased",
 
     # https://huggingface.co/dbmdz/bert-base-turkish-128k-cased
     # helps the Turkish model quite a bit
     "tr": "dbmdz/bert-base-turkish-128k-cased",
+
+    "ur": "google/muril-large-cased",
 
     # from https://github.com/VinAIResearch/PhoBERT
     # "vi": "vinai/phobert-base",
@@ -785,6 +812,19 @@ TRANSFORMERS = {
     # or hfl/chinese-electra-180g-large-discriminator,
     #   which works better than the below roberta on constituency
     # "zh-hans": "hfl/chinese-roberta-wwm-ext",
+    # conparse dev scores (averaged over 5):
+    #   google bert:  0.9422
+    #   hfl bert:     0.9469
+    #   hfl roberta:  0.9459
+    #   hfl electra:  0.9515
+    #   hfl macbert:  0.9530
+    # There is also a ShannonAI model, but our current codebase is
+    # somehow not compatible
+    # further comparing HFL:
+    #                    POS dev  Depparse dev LAS     NER dev
+    #   HFL Electra      96.90     85.66                77.90
+    #   HFL Macbert      96.53     84.72                78.46
+    # "zh-hans": "hfl/chinese-macbert-large",
     "zh-hans": "hfl/chinese-electra-180g-large-discriminator",
 }
 
@@ -813,6 +853,7 @@ TRANSFORMER_NICKNAMES = {
     "xlm-roberta-large": "xlm-roberta-large",
     "google/electra-large-discriminator": "electra-large",
     "microsoft/deberta-v3-large": "deberta-v3-large",
+    "princeton-nlp/Sheared-LLaMA-1.3B": "sheared-llama-1b3",
 
     # es
     "bertin-project/bertin-roberta-base-spanish": "bertin-roberta",
@@ -837,7 +878,9 @@ TRANSFORMER_NICKNAMES = {
     "altsoph/bert-base-ancientgreek-uncased": "grc-altsoph",
 
     # he
-    "imvladikon/alephbertgimmel-base-512" : "alephbertgimmel",
+    "HeNLP/HeRo": "hero-roberta",
+    "imvladikon/alephbertgimmel-base-512": "alephbertgimmel",
+    "onlplab/alephbert-base": "alephbert",
 
     # hy
     "xlm-roberta-base": "xlm-roberta-base",
@@ -875,6 +918,9 @@ TRANSFORMER_NICKNAMES = {
     "l3cube-pune/tamil-bert":        "l3cube-tamil-bert",
     "d42kw01f/Tamil-RoBERTa":        "ta-d42kw01f-roberta",
 
+    # th
+    "airesearch/wangchanberta-base-att-spm-uncased":   "wangchanberta",
+
     # tr
     "dbmdz/bert-base-turkish-128k-cased": "bert",
 
@@ -884,13 +930,19 @@ TRANSFORMER_NICKNAMES = {
 
     # zh
     "google-bert/bert-base-chinese": "google-bert-chinese",
+    "hfl/chinese-bert-wwm": "hfl-bert-chinese",
+    "hfl/chinese-macbert-large": "hfl-macbert-chinese",
     "hfl/chinese-roberta-wwm-ext": "hfl-roberta-chinese",
     "hfl/chinese-electra-180g-large-discriminator": "electra-large",
+    "ShannonAI/ChineseBERT-base": "shannonai-chinese-bert",
 
     # multi-lingual Indic
     "ai4bharat/indic-bert": "indic-bert",
     "google/muril-base-cased": "muril-base-cased",
     "google/muril-large-cased": "muril-large-cased",
+
+    # multi-lingual
+    "FacebookAI/xlm-roberta-large": "xlm-roberta-large",
 }
 
 def known_nicknames():

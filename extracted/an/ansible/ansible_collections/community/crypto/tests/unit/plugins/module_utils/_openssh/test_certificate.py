@@ -7,13 +7,13 @@ from __future__ import annotations
 import pathlib
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._openssh.certificate import (
     OpensshCertificate,
     OpensshCertificateOption,
     OpensshCertificateTimeParameters,
     parse_option_list,
 )
-
 
 # Type: ssh-rsa-cert-v01@openssh.com user certificate
 # Public key: RSA-CERT SHA256:SvUwwUer4AwsdePYseJR3LcZS8lnKi6BqiL51Dop030

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: datasets
-Version: 4.1.1
+Version: 4.5.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -18,6 +18,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
@@ -29,11 +32,12 @@ Requires-Dist: pyarrow>=21.0.0
 Requires-Dist: dill<0.4.1,>=0.3.0
 Requires-Dist: pandas
 Requires-Dist: requests>=2.32.2
+Requires-Dist: httpx<1.0.0
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
-Requires-Dist: multiprocess<0.70.17
-Requires-Dist: fsspec[http]<=2025.9.0,>=2023.1.0
-Requires-Dist: huggingface-hub>=0.24.0
+Requires-Dist: multiprocess<0.70.19
+Requires-Dist: fsspec[http]<=2025.10.0,>=2023.1.0
+Requires-Dist: huggingface-hub<2.0,>=0.25.0
 Requires-Dist: packaging
 Requires-Dist: pyyaml>=5.1
 Provides-Extra: audio
@@ -52,11 +56,11 @@ Requires-Dist: jax>=0.3.14; extra == "jax"
 Requires-Dist: jaxlib>=0.3.14; extra == "jax"
 Provides-Extra: streaming
 Provides-Extra: dev
-Requires-Dist: numba>=0.56.4; extra == "dev"
+Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "dev"
 Requires-Dist: absl-py; extra == "dev"
 Requires-Dist: decorator; extra == "dev"
 Requires-Dist: joblib<1.3.0; extra == "dev"
-Requires-Dist: joblibspark; extra == "dev"
+Requires-Dist: joblibspark; python_version < "3.14" and extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-datadir; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
@@ -64,9 +68,10 @@ Requires-Dist: aiohttp; extra == "dev"
 Requires-Dist: elasticsearch<8.0.0,>=7.17.12; extra == "dev"
 Requires-Dist: faiss-cpu>=1.8.0.post1; extra == "dev"
 Requires-Dist: h5py; extra == "dev"
+Requires-Dist: pylance; extra == "dev"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "dev"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "dev"
-Requires-Dist: lz4; extra == "dev"
+Requires-Dist: lz4; python_version < "3.14" and extra == "dev"
 Requires-Dist: moto[server]; extra == "dev"
 Requires-Dist: pyspark>=3.4; extra == "dev"
 Requires-Dist: py7zr; extra == "dev"
@@ -74,7 +79,7 @@ Requires-Dist: rarfile>=4.0; extra == "dev"
 Requires-Dist: sqlalchemy; extra == "dev"
 Requires-Dist: protobuf<4.0.0; extra == "dev"
 Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "dev"
-Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32") and extra == "dev"
+Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32" and python_version < "3.14") and extra == "dev"
 Requires-Dist: tiktoken; extra == "dev"
 Requires-Dist: torch>=2.8.0; extra == "dev"
 Requires-Dist: torchdata; extra == "dev"
@@ -82,17 +87,18 @@ Requires-Dist: transformers>=4.42.0; extra == "dev"
 Requires-Dist: zstandard; extra == "dev"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "dev"
 Requires-Dist: Pillow>=9.4.0; extra == "dev"
-Requires-Dist: torchcodec>=0.7.0; extra == "dev"
+Requires-Dist: torchcodec>=0.7.0; python_version < "3.14" and extra == "dev"
+Requires-Dist: nibabel>=5.3.1; extra == "dev"
 Requires-Dist: ruff>=0.3.0; extra == "dev"
 Requires-Dist: transformers; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: tensorflow>=2.6.0; extra == "dev"
 Provides-Extra: tests
-Requires-Dist: numba>=0.56.4; extra == "tests"
+Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "tests"
 Requires-Dist: absl-py; extra == "tests"
 Requires-Dist: decorator; extra == "tests"
 Requires-Dist: joblib<1.3.0; extra == "tests"
-Requires-Dist: joblibspark; extra == "tests"
+Requires-Dist: joblibspark; python_version < "3.14" and extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-datadir; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
@@ -100,9 +106,10 @@ Requires-Dist: aiohttp; extra == "tests"
 Requires-Dist: elasticsearch<8.0.0,>=7.17.12; extra == "tests"
 Requires-Dist: faiss-cpu>=1.8.0.post1; extra == "tests"
 Requires-Dist: h5py; extra == "tests"
+Requires-Dist: pylance; extra == "tests"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "tests"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "tests"
-Requires-Dist: lz4; extra == "tests"
+Requires-Dist: lz4; python_version < "3.14" and extra == "tests"
 Requires-Dist: moto[server]; extra == "tests"
 Requires-Dist: pyspark>=3.4; extra == "tests"
 Requires-Dist: py7zr; extra == "tests"
@@ -110,7 +117,7 @@ Requires-Dist: rarfile>=4.0; extra == "tests"
 Requires-Dist: sqlalchemy; extra == "tests"
 Requires-Dist: protobuf<4.0.0; extra == "tests"
 Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "tests"
-Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32") and extra == "tests"
+Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32" and python_version < "3.14") and extra == "tests"
 Requires-Dist: tiktoken; extra == "tests"
 Requires-Dist: torch>=2.8.0; extra == "tests"
 Requires-Dist: torchdata; extra == "tests"
@@ -118,22 +125,24 @@ Requires-Dist: transformers>=4.42.0; extra == "tests"
 Requires-Dist: zstandard; extra == "tests"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "tests"
 Requires-Dist: Pillow>=9.4.0; extra == "tests"
-Requires-Dist: torchcodec>=0.7.0; extra == "tests"
+Requires-Dist: torchcodec>=0.7.0; python_version < "3.14" and extra == "tests"
+Requires-Dist: nibabel>=5.3.1; extra == "tests"
 Provides-Extra: tests-numpy2
-Requires-Dist: numba>=0.56.4; extra == "tests-numpy2"
+Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "tests-numpy2"
 Requires-Dist: absl-py; extra == "tests-numpy2"
 Requires-Dist: decorator; extra == "tests-numpy2"
 Requires-Dist: joblib<1.3.0; extra == "tests-numpy2"
-Requires-Dist: joblibspark; extra == "tests-numpy2"
+Requires-Dist: joblibspark; python_version < "3.14" and extra == "tests-numpy2"
 Requires-Dist: pytest; extra == "tests-numpy2"
 Requires-Dist: pytest-datadir; extra == "tests-numpy2"
 Requires-Dist: pytest-xdist; extra == "tests-numpy2"
 Requires-Dist: aiohttp; extra == "tests-numpy2"
 Requires-Dist: elasticsearch<8.0.0,>=7.17.12; extra == "tests-numpy2"
 Requires-Dist: h5py; extra == "tests-numpy2"
+Requires-Dist: pylance; extra == "tests-numpy2"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "tests-numpy2"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "tests-numpy2"
-Requires-Dist: lz4; extra == "tests-numpy2"
+Requires-Dist: lz4; python_version < "3.14" and extra == "tests-numpy2"
 Requires-Dist: moto[server]; extra == "tests-numpy2"
 Requires-Dist: pyspark>=3.4; extra == "tests-numpy2"
 Requires-Dist: py7zr; extra == "tests-numpy2"
@@ -147,7 +156,8 @@ Requires-Dist: transformers>=4.42.0; extra == "tests-numpy2"
 Requires-Dist: zstandard; extra == "tests-numpy2"
 Requires-Dist: polars[timezone]>=0.20.0; extra == "tests-numpy2"
 Requires-Dist: Pillow>=9.4.0; extra == "tests-numpy2"
-Requires-Dist: torchcodec>=0.7.0; extra == "tests-numpy2"
+Requires-Dist: torchcodec>=0.7.0; python_version < "3.14" and extra == "tests-numpy2"
+Requires-Dist: nibabel>=5.3.1; extra == "tests-numpy2"
 Provides-Extra: quality
 Requires-Dist: ruff>=0.3.0; extra == "quality"
 Provides-Extra: benchmarks
@@ -160,6 +170,9 @@ Requires-Dist: torch; extra == "docs"
 Requires-Dist: tensorflow>=2.6.0; extra == "docs"
 Provides-Extra: pdfs
 Requires-Dist: pdfplumber>=0.11.4; extra == "pdfs"
+Provides-Extra: nibabel
+Requires-Dist: nibabel>=5.3.2; extra == "nibabel"
+Requires-Dist: ipyniivue==2.4.2; extra == "nibabel"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -197,7 +210,7 @@ Dynamic: summary
 🤗 Datasets is a lightweight library providing **two** main features:
 
 - **one-line dataloaders for many public datasets**: one-liners to download and pre-process any of the ![number of datasets](https://img.shields.io/endpoint?url=https://huggingface.co/api/shields/datasets&color=brightgreen) major public datasets (image datasets, audio datasets, text datasets in 467 languages and dialects, etc.) provided on the [HuggingFace Datasets Hub](https://huggingface.co/datasets). With a simple command like `squad_dataset = load_dataset("rajpurkar/squad")`, get any of these datasets ready to use in a dataloader for training/evaluating a ML model (Numpy/Pandas/PyTorch/TensorFlow/JAX),
-- **efficient data pre-processing**: simple, fast and reproducible data pre-processing for the public datasets as well as your own local datasets in CSV, JSON, text, PNG, JPEG, WAV, MP3, Parquet, etc. With simple commands like `processed_dataset = dataset.map(process_example)`, efficiently prepare the dataset for inspection and ML model evaluation and training.
+- **efficient data pre-processing**: simple, fast and reproducible data pre-processing for the public datasets as well as your own local datasets in CSV, JSON, text, PNG, JPEG, WAV, MP3, Parquet, HDF5, etc. With simple commands like `processed_dataset = dataset.map(process_example)`, efficiently prepare the dataset for inspection and ML model evaluation and training.
 
 [🎓 **Documentation**](https://huggingface.co/docs/datasets/) [🔎 **Find a dataset in the Hub**](https://huggingface.co/datasets) [🌟 **Share a dataset on the Hub**](https://huggingface.co/docs/datasets/share)
 
@@ -312,7 +325,7 @@ If you're a dataset owner and wish to update any part of it (description, citati
 
 ## BibTeX
 
-If you want to cite our 🤗 Datasets library, you can use our [paper](https://arxiv.org/abs/2109.02846):
+If you want to cite our 🤗 Datasets library, you can use our [paper](https://huggingface.co/papers/2109.02846):
 
 ```bibtex
 @inproceedings{lhoest-etal-2021-datasets,

@@ -15,18 +15,14 @@ import sys
 import threading
 import types
 import warnings
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack, contextmanager
 from typing import (
     Any,
-    Callable,
     Dict,
     Generic,
-    Iterator,
     List,
-    Mapping,
-    MutableMapping,
     Optional,
-    Sequence,
     Set,
     Tuple,
     TypeVar,
@@ -42,6 +38,7 @@ from ._restrictions import (
     RestrictedWorkflowAccessError,
     RestrictionContext,
     SandboxRestrictions,
+    UnintentionalPassthroughError,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,17 +63,17 @@ class Importer:
         """Create importer."""
         self.restrictions = restrictions
         self.restriction_context = restriction_context
-        self.new_modules: Dict[str, types.ModuleType] = {
+        self.new_modules: dict[str, types.ModuleType] = {
             "sys": sys,
             "builtins": builtins,
             # Even though we don't want to, we have to have __main__ because
             # stdlib packages like inspect and others expect it to be present
             "__main__": types.ModuleType("__main__"),
         }
-        self.modules_checked_for_restrictions: Set[str] = set()
+        self.modules_checked_for_restrictions: set[str] = set()
         self.import_func = self._import if not LOG_TRACE else self._traced_import
         # Pre-collect restricted builtins
-        self.restricted_builtins: List[Tuple[str, _ThreadLocalCallable, Callable]] = []
+        self.restricted_builtins: list[tuple[str, _ThreadLocalCallable, Callable]] = []
         builtin_matcher = restrictions.invalid_module_members.child_matcher(
             "__builtins__"
         )
@@ -173,8 +170,8 @@ class Importer:
     def _traced_import(
         self,
         name: str,
-        globals: Optional[Mapping[str, object]] = None,
-        locals: Optional[Mapping[str, object]] = None,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
         fromlist: Sequence[str] = (),
         level: int = 0,
     ) -> types.ModuleType:
@@ -189,8 +186,8 @@ class Importer:
     def _import(
         self,
         name: str,
-        globals: Optional[Mapping[str, object]] = None,
-        locals: Optional[Mapping[str, object]] = None,
+        globals: Mapping[str, object] | None = None,
+        locals: Mapping[str, object] | None = None,
         fromlist: Sequence[str] = (),
         level: int = 0,
     ) -> types.ModuleType:
@@ -225,6 +222,17 @@ class Importer:
                     setattr(sys.modules[parent], child, sys.modules[full_name])
                 # All children of this module that are on the original sys
                 # modules but not here and are passthrough
+            else:
+                # Issue a warning if appropriate
+                if (
+                    self.restriction_context.in_activation
+                    and self._is_import_notification_policy_applied(
+                        temporalio.workflow.SandboxImportNotificationPolicy.WARN_ON_DYNAMIC_IMPORT
+                    )
+                ):
+                    warnings.warn(
+                        f"Module {full_name} was imported after initial workflow load."
+                    )
 
             # If the module is __temporal_main__ and not already in sys.modules,
             # we load it from whatever file __main__ was originally in
@@ -282,13 +290,36 @@ class Importer:
                 break
         return True
 
-    def _maybe_passthrough_module(self, name: str) -> Optional[types.ModuleType]:
+    def _is_import_notification_policy_applied(
+        self, policy: temporalio.workflow.SandboxImportNotificationPolicy
+    ) -> bool:
+        override_policy = (
+            temporalio.workflow.unsafe.current_import_notification_policy_override()
+        )
+        if override_policy:
+            return policy in override_policy
+
+        return policy in self.restrictions.import_notification_policy
+
+    def _maybe_passthrough_module(self, name: str) -> types.ModuleType | None:
         # If imports not passed through and all modules are not passed through
         # and name not in passthrough modules, check parents
         if (
             not temporalio.workflow.unsafe.is_imports_passed_through()
             and not self.module_configured_passthrough(name)
         ):
+            if self._is_import_notification_policy_applied(
+                temporalio.workflow.SandboxImportNotificationPolicy.RAISE_ON_UNINTENTIONAL_PASSTHROUGH
+            ):
+                raise UnintentionalPassthroughError(name)
+
+            if self._is_import_notification_policy_applied(
+                temporalio.workflow.SandboxImportNotificationPolicy.WARN_ON_UNINTENTIONAL_PASSTHROUGH
+            ):
+                warnings.warn(
+                    f"Module {name} was not intentionally passed through to the sandbox."
+                )
+
             return None
         # Do the pass through
         with self._unapplied():
@@ -301,10 +332,7 @@ class Importer:
             finally:
                 _trace_depth -= 1
 
-    def _maybe_restrict_module(
-        self, mod: types.ModuleType
-    ) -> Optional[types.ModuleType]:
-        """Implements :py:meth:`_Environment.maybe_restrict_module`."""
+    def _maybe_restrict_module(self, mod: types.ModuleType) -> types.ModuleType | None:
         matcher = self.restrictions.invalid_module_members.child_matcher(
             *mod.__name__.split(".")
         )
@@ -338,7 +366,7 @@ class Importer:
     _thread_local_current = threading.local()
 
     @staticmethod
-    def current_importer() -> Optional[Importer]:
+    def current_importer() -> Importer | None:
         """Get the current importer if any."""
         return Importer._thread_local_current.__dict__.get("importer")
 
@@ -354,7 +382,7 @@ class _ThreadLocalOverride(Generic[_T]):
         self.applied_counter_lock = threading.Lock()
 
     @property
-    def maybe_current(self) -> Optional[_T]:
+    def maybe_current(self) -> _T | None:
         return self.thread_local.__dict__.get("data")
 
     @property
@@ -412,7 +440,7 @@ class _ThreadLocalOverride(Generic[_T]):
 
 
 class _ThreadLocalSysModules(
-    _ThreadLocalOverride[Dict[str, types.ModuleType]],
+    _ThreadLocalOverride[dict[str, types.ModuleType]],
     MutableMapping[str, types.ModuleType],
 ):
     def __contains__(self, key: object) -> bool:
@@ -451,28 +479,28 @@ class _ThreadLocalSysModules(
 
     def __or__(
         self, other: Mapping[str, types.ModuleType]
-    ) -> Dict[str, types.ModuleType]:
+    ) -> dict[str, types.ModuleType]:
         if sys.version_info < (3, 9):
             raise NotImplementedError
-        return self.current.__or__(other)
+        return self.current.__or__(other)  # type: ignore[operator]
 
     def __ior__(
         self, other: Mapping[str, types.ModuleType]
-    ) -> Dict[str, types.ModuleType]:
+    ) -> dict[str, types.ModuleType]:
         if sys.version_info < (3, 9):
             raise NotImplementedError
         return self.current.__ior__(other)
 
     __ror__ = __or__
 
-    def copy(self) -> Dict[str, types.ModuleType]:
+    def copy(self) -> dict[str, types.ModuleType]:
         return self.current.copy()
 
     @classmethod
     def fromkeys(cls, *args, **kwargs) -> Any:
         return dict.fromkeys(*args, **kwargs)
 
-    def _lazily_passthrough_if_available(self, key: str) -> Optional[types.ModuleType]:
+    def _lazily_passthrough_if_available(self, key: str) -> types.ModuleType | None:
         # We only lazily pass through if it's in orig, lazy not disabled, and
         # module configured as pass through
         if (
@@ -499,7 +527,7 @@ class _ThreadLocalCallable(_ThreadLocalOverride[Callable[_P, _T]]):  # type: ign
 
 _thread_local_import = _ThreadLocalCallable(builtins.__import__)
 
-_thread_local_builtins: Dict[str, _ThreadLocalCallable] = {}
+_thread_local_builtins: dict[str, _ThreadLocalCallable] = {}
 
 
 def _get_thread_local_builtin(name: str) -> _ThreadLocalCallable:
@@ -511,7 +539,7 @@ def _get_thread_local_builtin(name: str) -> _ThreadLocalCallable:
 
 
 def _resolve_module_name(
-    name: str, globals: Optional[Mapping[str, object]], level: int
+    name: str, globals: Mapping[str, object] | None, level: int
 ) -> str:
     if level == 0:
         return name

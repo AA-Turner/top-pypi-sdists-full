@@ -1,5 +1,7 @@
 
-from typing import List, Any, Optional, Callable, Dict, Type
+from typing import List, Any, Optional, Callable, Dict, Type, TYPE_CHECKING
+if TYPE_CHECKING:
+    from collections.abc import Collection
 
 from .loaders import EnvLoader
 from .. import EnvMeta
@@ -11,7 +13,10 @@ from ..class_helper import (
     dataclass_field_to_skip_if, is_builtin, setup_dump_config_for_cls_if_needed, get_meta,
 )
 from ..constants import CATCH_ALL, TAG
-from ..dumpers import get_dumper, _asdict_inner
+# TODO
+#from ..dumpers import get_dumper, _asdict_inner
+from ..dumpers import _asdict_inner
+from ..loader_selection import get_dumper
 from ..enums import LetterCase
 from ..errors import show_deprecation_warning
 from ..models import Condition, get_skip_if_condition, finalize_skip_if
@@ -69,7 +74,7 @@ def asdict(o: T,
 
 def dump_func_for_dataclass(cls: Type['E'],
                             config: Optional[META] = None,
-                            nested_cls_to_dump_func: Dict[Type, Any] = None,
+                            nested_cls_to_dump_func: Optional[Dict[Type, Any]] = None,
                             ) -> Callable[['E', Any, Any, Any], JSONObject]:
 
     # TODO dynamically generate for multiple nested classes at once

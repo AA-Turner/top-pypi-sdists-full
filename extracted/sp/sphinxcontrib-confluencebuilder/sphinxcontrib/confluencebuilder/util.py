@@ -186,7 +186,8 @@ def detect_cloud(site):
     except ValueError:
         pass
     else:
-        if parsed.hostname and parsed.hostname.endswith('atlassian.net'):
+        cloud_domains = ('atlassian.com', 'atlassian.net')
+        if parsed.hostname and parsed.hostname.endswith(cloud_domains):
             is_cloud = True
 
     return is_cloud
@@ -210,7 +211,7 @@ def extract_length(value):
     if not value:
         return None, None
 
-    matched = re.match(r'^\s*(\d*\.?\d*)\s*(\S*)?\s*$', value)
+    matched = re.match(r'^\s*(\d*\.?\d*)\s*(\S*)?\s*$', str(value))
     if not matched:
         return None, None
 

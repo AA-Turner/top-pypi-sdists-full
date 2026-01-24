@@ -10,7 +10,6 @@ configuration.unstable_operations["get_spa_recommendations"] = True
 with ApiClient(configuration) as api_client:
     api_instance = SpaApi(api_client)
     response = api_instance.get_spa_recommendations(
-        shard="shard",
         service="service",
     )
 

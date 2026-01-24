@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 from secrets import token_bytes
-from typing import Any, Union
+from typing import Any, cast
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import (
@@ -22,7 +22,7 @@ class V4Local(SodiumKey):
     _VERSION = 4
     _TYPE = "local"
 
-    def __init__(self, key: Union[str, bytes]):
+    def __init__(self, key: str | bytes):
         super().__init__(key)
         if len(self._key) > 64:
             raise ValueError("key length must be up to 64 bytes.")
@@ -134,11 +134,11 @@ class V4Public(SodiumKey):
 
         m2 = pae([self.header, payload, footer, implicit_assertion])
         try:
-            return self._key.sign(m2)
+            return cast(bytes, self._key.sign(m2))
         except Exception as err:
             raise SignError("Failed to sign.") from err
 
-    def verify(self, payload: bytes, footer: bytes = b"", implicit_assertion: bytes = b""):
+    def verify(self, payload: bytes, footer: bytes = b"", implicit_assertion: bytes = b"") -> bytes:
         if len(payload) <= self._sig_size:
             raise ValueError("Invalid payload.")
 

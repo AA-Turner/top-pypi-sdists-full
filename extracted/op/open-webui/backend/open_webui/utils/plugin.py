@@ -7,12 +7,11 @@ import types
 import tempfile
 import logging
 
-from open_webui.env import SRC_LOG_LEVELS, PIP_OPTIONS, PIP_PACKAGE_INDEX_OPTIONS
+from open_webui.env import PIP_OPTIONS, PIP_PACKAGE_INDEX_OPTIONS, OFFLINE_MODE
 from open_webui.models.functions import Functions
 from open_webui.models.tools import Tools
 
 log = logging.getLogger(__name__)
-log.setLevel(SRC_LOG_LEVELS["MAIN"])
 
 
 def extract_frontmatter(content):
@@ -166,6 +165,48 @@ def load_function_module_by_id(function_id: str, content: str | None = None):
         os.unlink(temp_file.name)
 
 
+def get_tool_module_from_cache(request, tool_id, load_from_db=True):
+    if load_from_db:
+        # Always load from the database by default
+        tool = Tools.get_tool_by_id(tool_id)
+        if not tool:
+            raise Exception(f"Tool not found: {tool_id}")
+        content = tool.content
+
+        new_content = replace_imports(content)
+        if new_content != content:
+            content = new_content
+            # Update the tool content in the database
+            Tools.update_tool_by_id(tool_id, {"content": content})
+
+        if (
+            hasattr(request.app.state, "TOOL_CONTENTS")
+            and tool_id in request.app.state.TOOL_CONTENTS
+        ) and (
+            hasattr(request.app.state, "TOOLS") and tool_id in request.app.state.TOOLS
+        ):
+            if request.app.state.TOOL_CONTENTS[tool_id] == content:
+                return request.app.state.TOOLS[tool_id], None
+
+        tool_module, frontmatter = load_tool_module_by_id(tool_id, content)
+    else:
+        if hasattr(request.app.state, "TOOLS") and tool_id in request.app.state.TOOLS:
+            return request.app.state.TOOLS[tool_id], None
+
+        tool_module, frontmatter = load_tool_module_by_id(tool_id)
+
+    if not hasattr(request.app.state, "TOOLS"):
+        request.app.state.TOOLS = {}
+
+    if not hasattr(request.app.state, "TOOL_CONTENTS"):
+        request.app.state.TOOL_CONTENTS = {}
+
+    request.app.state.TOOLS[tool_id] = tool_module
+    request.app.state.TOOL_CONTENTS[tool_id] = content
+
+    return tool_module, frontmatter
+
+
 def get_function_module_from_cache(request, function_id, load_from_db=True):
     if load_from_db:
         # Always load from the database by default
@@ -223,6 +264,10 @@ def get_function_module_from_cache(request, function_id, load_from_db=True):
 
 
 def install_frontmatter_requirements(requirements: str):
+    if OFFLINE_MODE:
+        log.info("Offline mode enabled, skipping installation of requirements.")
+        return
+
     if requirements:
         try:
             req_list = [req.strip() for req in requirements.split(",")]

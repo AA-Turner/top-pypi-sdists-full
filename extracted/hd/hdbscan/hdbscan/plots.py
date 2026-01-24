@@ -26,11 +26,12 @@ def _bfs_from_cluster_tree(tree, bfs_root):
     result = []
     to_process = [bfs_root]
 
-    while to_process:
+    while len(to_process) > 0:
         result.extend(to_process)
-        to_process = tree['child'][np.isin(tree['parent'], to_process)].tolist()
+        to_process = tree['child'][np.isin(tree['parent'], to_process)]
 
     return result
+
 
 def _recurse_leaf_dfs(cluster_tree, current_node):
     children = cluster_tree[cluster_tree['parent'] == current_node]['child']
@@ -38,6 +39,7 @@ def _recurse_leaf_dfs(cluster_tree, current_node):
         return [current_node,]
     else:
         return sum([recurse_leaf_dfs(cluster_tree, child) for child in children], [])
+
 
 def _get_leaves(condensed_tree):
     cluster_tree = condensed_tree[condensed_tree['child_size'] > 1]
@@ -47,6 +49,7 @@ def _get_leaves(condensed_tree):
 
     root = cluster_tree['parent'].min()
     return _recurse_leaf_dfs(cluster_tree, root)
+
 
 class CondensedTree(object):
     """The condensed tree structure, which provides a simplified or smoothed version
@@ -65,11 +68,9 @@ class CondensedTree(object):
         Whether to allow the root cluster as the only selected cluster
 
     """
-    def __init__(self, condensed_tree_array, cluster_selection_method='eom',
-                 allow_single_cluster=False):
+    def __init__(self, condensed_tree_array, labels):
         self._raw_tree = condensed_tree_array
-        self.cluster_selection_method = cluster_selection_method
-        self.allow_single_cluster = allow_single_cluster
+        self._labels = labels
 
     def get_plot_data(self,
                       leaf_separation=1,
@@ -232,38 +233,17 @@ class CondensedTree(object):
         }
 
     def _select_clusters(self):
-        if self.cluster_selection_method == 'eom':
-            stability = compute_stability(self._raw_tree)
-            if self.allow_single_cluster:
-                node_list = sorted(stability.keys(), reverse=True)
-            else:
-                node_list = sorted(stability.keys(), reverse=True)[:-1]
-            cluster_tree = self._raw_tree[self._raw_tree['child_size'] > 1]
-            is_cluster = {cluster: True for cluster in node_list}
-
-            for node in node_list:
-                child_selection = (cluster_tree['parent'] == node)
-                subtree_stability = np.sum([stability[child] for
-                                            child in cluster_tree['child'][child_selection]])
-
-                if subtree_stability > stability[node]:
-                    is_cluster[node] = False
-                    stability[node] = subtree_stability
-                else:
-                    for sub_node in _bfs_from_cluster_tree(cluster_tree, node):
-                        if sub_node != node:
-                            is_cluster[sub_node] = False
-
-            return sorted([cluster
-                           for cluster in is_cluster
-                           if is_cluster[cluster]])
-
-        elif self.cluster_selection_method == 'leaf':
-            return _get_leaves(self._raw_tree)
-        else:
-            raise ValueError('Invalid Cluster Selection Method: %s\n'
-                             'Should be one of: "eom", "leaf"\n')
-
+        points_tree = self._raw_tree[self._raw_tree["child_size"] == 1]
+        
+        # Find lowest cluster segment id for each cluster label
+        segments = points_tree['parent']
+        labels = self._labels[points_tree['child']]
+        order = np.argsort(labels)
+        groups = np.split(segments[order], np.flatnonzero(np.diff(labels[order]) != 0) + 1)        
+        return [
+            groups[label].min() for label in range(int(labels[order[0]] == -1), len(groups))
+        ]
+        
     def plot(self, leaf_separation=1, cmap='viridis', select_clusters=False,
              label_clusters=False, selection_palette=None,
              axis=None, colorbar=True, log_size=False,
@@ -445,7 +425,7 @@ class CondensedTree(object):
         for side in ('right', 'top', 'bottom'):
             axis.spines[side].set_visible(False)
         axis.invert_yaxis()
-        axis.set_ylabel('$\lambda$ value')
+        axis.set_ylabel('$\\lambda$ value')
 
         return axis
 
@@ -512,6 +492,7 @@ def _get_dendrogram_ordering(parent, linkage, root):
 
     return _get_dendrogram_ordering(int(linkage[parent-root][0]), linkage, root) + \
             _get_dendrogram_ordering(int(linkage[parent-root][1]), linkage, root) + [parent]
+
 
 def _calculate_linewidths(ordering, linkage, root):
 
@@ -910,25 +891,31 @@ class ApproximationGraph:
     approximation_graphs : list[np.ndarray], shape (n_clusters),
 
     labels : np.ndarray, shape (n_samples, )
-        cluster and branches labelling.
+        Data point cluster membership labels.
 
     probabilities : np.ndarray, shape (n_samples, )
-        cluster and branches probabilities.
+        Data point cluster membership strengths.
 
-    cluster_labels : np.ndarray, shape (n_samples, )
-        HDBSCAN* labelling.
+    lens_values : np.ndarray, shape (n_samples, )
+        Data point lens values used to compute (sub-)clusters.
 
-    cluster_probabilities : np.ndarray, shape (n_samples, )
-        HDBSCAN* probabilities.
+    cluster_labels : np.ndarray, shape (n_samples, ), optional
+        The cluster labelling used to compute sub-clusters.
 
-    cluster_centralities : np.ndarray, shape (n_samples, )
-        Within cluster centrality values.
+    cluster_probabilities : np.ndarray, shape (n_samples, ), optional
+        The cluster probabilities used to compute sub-clusters.
 
-    branch_labels : np.ndarray, shape (n_samples, )
-        Within cluster branch labels for each point.
+    sub_cluster_labels : np.ndarray, shape (n_samples, ), optional
+        Labels indicating sub-clusters within clusters.
 
-    branch_probabilities : np.ndarray, shape (n_samples, )
-        Within cluster branch membership strengths for each point.
+    sub_cluster_probabilities : np.ndarray, shape (n_samples, ), optional
+        Sub-cluster probability.
+
+    lens_name : str, optional
+        The name of the lens used to compute the clusters.
+
+    sub_cluster_name : str, optional
+        The name to use for sub-clusters, e.g. "branch".
 
     Attributes
     ----------
@@ -941,55 +928,69 @@ class ApproximationGraph:
         approximation_graphs,
         labels,
         probabilities,
-        cluster_labels,
-        cluster_probabilities,
-        cluster_centralities,
-        branch_labels,
-        branch_probabilities,
+        lens_values,
+        cluster_labels=None,
+        cluster_probabilities=None,
+        sub_cluster_labels=None,
+        sub_cluster_probabilities=None,
+        *,
+        lens_name=None,
+        sub_cluster_name=None,
         raw_data=None,
     ):
-        self._edges = np.array(
-            [
-                (edge[0], edge[1], edge[2], edge[3], cluster)
-                for cluster, edges in enumerate(approximation_graphs)
-                for edge in edges
-            ],
-            dtype=[
-                ("parent", np.intp),
-                ("child", np.intp),
-                ("centrality", np.float64),
-                ("mutual_reachability", np.float64),
-                ("cluster", np.intp),
-            ],
-        )
-        self.point_mask = cluster_labels >= 0
+        self.lens_name = lens_name or "lens_value"
+        self.sub_cluster_name = sub_cluster_name or "sub_cluster"
+        self._pos = None
+        self.point_mask = np.ones(labels.shape[0], dtype=np.bool) if cluster_labels is None else cluster_labels >= 0
         self._raw_data = raw_data[self.point_mask, :] if raw_data is not None else None
-        self._points = np.array(
-            [
-                (
-                    i,
-                    labels[i],
-                    probabilities[i],
-                    cluster_labels[i],
-                    cluster_probabilities[i],
-                    cluster_centralities[i],
-                    branch_labels[i],
-                    branch_probabilities[i],
-                )
-                for i in np.where(self.point_mask)[0]
-            ],
-            dtype=[
+
+        num_edges = sum(len(edges) for edges in approximation_graphs)
+        self._edges = np.empty(num_edges, dtype=[
+            ("parent", np.intp),
+            ("child", np.intp),
+            (self.lens_name, np.float64),
+            ("mutual_reachability", np.float64),
+            ("component", np.intp),
+        ])
+        count = 0
+        for cluster, edges in enumerate(approximation_graphs):
+            new_count = count + len(edges)
+            self._edges["parent"][count:new_count] = edges[:, 0]
+            self._edges["child"][count:new_count] = edges[:, 1]
+            self._edges[self.lens_name][count:new_count] = edges[:, 2]
+            self._edges["mutual_reachability"][count:new_count] = edges[:, 3]
+            self._edges["component"][count:new_count] = cluster
+            count = new_count
+
+        label_name = f"{self.sub_cluster_name}_label"
+        probability_name = f"{self.sub_cluster_name}_probability"
+        dtypes = [
                 ("id", np.intp),
                 ("label", np.intp),
                 ("probability", np.float64),
-                ("cluster_label", np.intp),
-                ("cluster_probability", np.float64),
-                ("cluster_centrality", np.float64),
-                ("branch_label", np.intp),
-                ("branch_probability", np.float64),
-            ],
-        )
-        self._pos = None
+                (self.lens_name, np.float64)
+        ]
+        if cluster_labels is not None:
+            dtypes += [("cluster_label", np.intp)]
+        if cluster_probabilities is not None:
+            dtypes += [("cluster_probability", np.float64)]
+        if sub_cluster_labels is not None:
+            dtypes += [(label_name, np.intp)]
+        if sub_cluster_probabilities is not None:
+            dtypes += [(probability_name, np.float64)]
+        self._points = np.empty(self.point_mask.sum(), dtype=dtypes)
+        self._points["id"] = np.arange(self.point_mask.sum())
+        self._points["label"] = labels[self.point_mask]
+        self._points["probability"] = probabilities[self.point_mask]
+        self._points[self.lens_name] = lens_values[self.point_mask]
+        if cluster_labels is not None:
+            self._points["cluster_label"] = cluster_labels[self.point_mask]
+        if cluster_probabilities is not None:
+            self._points["cluster_probability"] = cluster_probabilities[self.point_mask]
+        if sub_cluster_labels is not None:
+            self._points[label_name] = sub_cluster_labels[self.point_mask]
+        if sub_cluster_probabilities is not None:
+            self._points[probability_name] = sub_cluster_probabilities[self.point_mask]
 
     def plot(
         self,
@@ -1000,7 +1001,6 @@ class ApproximationGraph:
         node_vmax=None,
         node_cmap="viridis",
         node_alpha=1,
-        # node_desat=None,
         node_size=1,
         node_marker="o",
         edge_color="k",
@@ -1025,11 +1025,11 @@ class ApproximationGraph:
             - id
             - label
             - probability
-            - cluster_label
-            - cluster_probability
-            - cluster_centrality
-            - branch_label
-            - branch_probability,
+            - [lens_name] (default = 'lens_value')
+            - cluster_label (if available)
+            - cluster_probability (if available)
+            - [sub_cluster_name]_label (if available, default = 'sub_cluster')
+            - [sub_cluster_name]_probability (if available, default = 'sub_cluster')
             - The input data's feature (if available) names if
             ``feature_names`` is specified or ``feature_x`` for the x-th feature
             if no ``feature_names`` are given, or anything matplotlib scatter
@@ -1129,7 +1129,7 @@ class ApproximationGraph:
                     g.add_edge(
                         row["parent"],
                         row["child"],
-                        weight=1 / row["mutual_reachability"],
+                        weight=1 / (1 + row["mutual_reachability"]),
                     )
                 self._pos = nx.nx_agraph.graphviz_layout(g, prog="sfdp")
             for k, v in self._pos.items():
@@ -1277,7 +1277,7 @@ class ApproximationGraph:
             - branch probability,
 
             Edge attributes:
-            - weight (1 / mutual_reachability),
+            - weight (1 / (1 + mutual_reachability)),
             - mutual_reachability,
             - centrality,
             - cluster label,
@@ -1293,13 +1293,16 @@ class ApproximationGraph:
         g = nx.Graph()
         # Add edges
         for row in self._edges:
+            attrs = dict(
+                weight=1 / (1 + row["mutual_reachability"]),
+                mutual_reachability=row["mutual_reachability"],
+                component=row["component"],
+            )
+            attrs[self.lens_name] = row[self.lens_name]
             g.add_edge(
                 row["parent"],
                 row["child"],
-                weight=1 / row["mutual_reachability"],
-                mutual_reachability=row["mutual_reachability"],
-                centrality=row["centrality"],
-                cluster=row["cluster"],
+                **attrs,
             )
 
         # Add FLASC features

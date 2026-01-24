@@ -56,10 +56,12 @@ setup(name='glom',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
-          'Programming Language :: Python :: 3.10',
-          'Programming Language :: Python :: 3.11',
-          'Programming Language :: Python :: 3.12',
-          'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: Implementation :: CPython',
           'Programming Language :: Python :: Implementation :: PyPy',
           'License :: OSI Approved :: BSD License',
       ]
@@ -72,13 +74,12 @@ A brief checklist for release:
 * git commit (if applicable)
 * Bump glom/_version.py off of -dev
 * git commit -a -m "bump version for vx.y.z release"
+* write CHANGELOG
+* bump docs/conf.py version
+* git commit
 * rm -rf dist/*
 * python setup.py sdist bdist_wheel
 * twine upload dist/*
-* bump docs/conf.py version
-* git commit
-* write CHANGELOG
-* git commit
 * git tag -a vx.y.z -m "brief summary"
 * bump glom/_version.py onto n+1 dev
 * git commit

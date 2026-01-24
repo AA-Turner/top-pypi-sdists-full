@@ -2,43 +2,63 @@ import atexit
 import logging
 import os
 import sys
+import warnings
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional, Union
-from typing_extensions import Unpack
+from typing import Any, Dict, Optional, Union
 from uuid import uuid4
 
 from dateutil.tz import tzutc
 from six import string_types
+from typing_extensions import Unpack
 
-from posthog.args import OptionalCaptureArgs, OptionalSetArgs, ID_TYPES, ExceptionArg
+from posthog.args import ID_TYPES, ExceptionArg, OptionalCaptureArgs, OptionalSetArgs
 from posthog.consumer import Consumer
+from posthog.contexts import (
+    _get_current_context,
+    get_capture_exception_code_variables_context,
+    get_code_variables_ignore_patterns_context,
+    get_code_variables_mask_patterns_context,
+    get_context_device_id,
+    get_context_distinct_id,
+    get_context_session_id,
+    new_context,
+)
 from posthog.exception_capture import ExceptionCapture
 from posthog.exception_utils import (
+    DEFAULT_CODE_VARIABLES_IGNORE_PATTERNS,
+    DEFAULT_CODE_VARIABLES_MASK_PATTERNS,
     exc_info_from_error,
+    exception_is_already_captured,
     exceptions_from_error_tuple,
     handle_in_app,
-    exception_is_already_captured,
     mark_exception_as_captured,
+    try_attach_code_variables_to_frames,
 )
-from posthog.feature_flags import InconclusiveMatchError, match_feature_flag_properties
+from posthog.feature_flags import (
+    InconclusiveMatchError,
+    RequiresServerEvaluation,
+    match_feature_flag_properties,
+)
+from posthog.flag_definition_cache import (
+    FlagDefinitionCacheData,
+    FlagDefinitionCacheProvider,
+)
 from posthog.poller import Poller
 from posthog.request import (
     DEFAULT_HOST,
     APIError,
+    QuotaLimitError,
+    RequestsConnectionError,
+    RequestsTimeout,
     batch_post,
     determine_server_host,
     flags,
     get,
     remote_config,
 )
-from posthog.contexts import (
-    _get_current_context,
-    get_context_distinct_id,
-    get_context_session_id,
-    new_context,
-)
 from posthog.types import (
     FeatureFlag,
+    FeatureFlagError,
     FeatureFlagResult,
     FlagMetadata,
     FlagsAndPayloads,
@@ -56,7 +76,6 @@ from posthog.utils import (
     SizeLimitedDict,
     clean,
     guess_timezone,
-    remove_trailing_slash,
     system_context,
 )
 from posthog.version import VERSION
@@ -175,6 +194,11 @@ class Client(object):
         before_send=None,
         flag_fallback_cache_url=None,
         enable_local_evaluation=True,
+        flag_definition_cache_provider: Optional[FlagDefinitionCacheProvider] = None,
+        capture_exception_code_variables=False,
+        code_variables_mask_patterns=None,
+        code_variables_ignore_patterns=None,
+        in_app_modules: list[str] | None = None,
     ):
         """
         Initialize a new PostHog client instance.
@@ -210,8 +234,8 @@ class Client(object):
         self.timeout = timeout
         self._feature_flags = None  # private variable to store flags
         self.feature_flags_by_key = None
-        self.group_type_mapping = None
-        self.cohorts = None
+        self.group_type_mapping: Optional[dict[str, str]] = None
+        self.cohorts: Optional[dict[str, Any]] = None
         self.poll_interval = poll_interval
         self.feature_flags_request_timeout_seconds = (
             feature_flags_request_timeout_seconds
@@ -220,6 +244,8 @@ class Client(object):
         self.distinct_ids_feature_flags_reported = SizeLimitedDict(MAX_DICT_SIZE, set)
         self.flag_cache = self._initialize_flag_cache(flag_fallback_cache_url)
         self.flag_definition_version = 0
+        self._flags_etag: Optional[str] = None
+        self._flag_definition_cache_provider = flag_definition_cache_provider
         self.disabled = disabled
         self.disable_geoip = disable_geoip
         self.historical_migration = historical_migration
@@ -229,6 +255,19 @@ class Client(object):
         self.exception_capture = None
         self.privacy_mode = privacy_mode
         self.enable_local_evaluation = enable_local_evaluation
+
+        self.capture_exception_code_variables = capture_exception_code_variables
+        self.code_variables_mask_patterns = (
+            code_variables_mask_patterns
+            if code_variables_mask_patterns is not None
+            else DEFAULT_CODE_VARIABLES_MASK_PATTERNS
+        )
+        self.code_variables_ignore_patterns = (
+            code_variables_ignore_patterns
+            if code_variables_ignore_patterns is not None
+            else DEFAULT_CODE_VARIABLES_IGNORE_PATTERNS
+        )
+        self.in_app_modules = in_app_modules
 
         if project_root is None:
             try:
@@ -271,8 +310,9 @@ class Client(object):
             # to call flush().
             if send:
                 atexit.register(self.join)
-            for n in range(thread):
-                self.consumers = []
+
+            self.consumers = []
+            for _ in range(thread):
                 consumer = Consumer(
                     self.queue,
                     self.api_key,
@@ -343,6 +383,7 @@ class Client(object):
         group_properties=None,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> dict[str, Union[bool, str]]:
         """
         Get feature flag variants for a user by calling decide.
@@ -355,6 +396,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Category:
             Feature flags
@@ -366,6 +408,7 @@ class Client(object):
             group_properties,
             disable_geoip,
             flag_keys_to_evaluate,
+            device_id=device_id,
         )
         return to_values(resp_data) or {}
 
@@ -377,6 +420,7 @@ class Client(object):
         group_properties=None,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> dict[str, str]:
         """
         Get feature flag payloads for a user by calling decide.
@@ -389,6 +433,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -405,6 +450,7 @@ class Client(object):
             group_properties,
             disable_geoip,
             flag_keys_to_evaluate,
+            device_id=device_id,
         )
         return to_payloads(resp_data) or {}
 
@@ -416,6 +462,7 @@ class Client(object):
         group_properties=None,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> FlagsAndPayloads:
         """
         Get feature flags and payloads for a user by calling decide.
@@ -428,6 +475,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -444,6 +492,7 @@ class Client(object):
             group_properties,
             disable_geoip,
             flag_keys_to_evaluate,
+            device_id=device_id,
         )
         return to_flags_and_payloads(resp)
 
@@ -455,6 +504,7 @@ class Client(object):
         group_properties=None,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> FlagsResponse:
         """
         Get feature flags decision.
@@ -467,6 +517,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -483,6 +534,9 @@ class Client(object):
         if distinct_id is None:
             distinct_id = get_context_distinct_id()
 
+        if device_id is None:
+            device_id = get_context_device_id()
+
         if disable_geoip is None:
             disable_geoip = self.disable_geoip
 
@@ -495,6 +549,7 @@ class Client(object):
             "person_properties": person_properties,
             "group_properties": group_properties,
             "geoip_disable": disable_geoip,
+            "device_id": device_id,
         }
 
         if flag_keys_to_evaluate:
@@ -597,7 +652,28 @@ class Client(object):
         if flag_options["should_send"]:
             try:
                 if flag_options["only_evaluate_locally"] is True:
-                    # Only use local evaluation
+                    # Local evaluation explicitly requested
+                    feature_variants = self.get_all_flags(
+                        distinct_id,
+                        groups=(groups or {}),
+                        person_properties=flag_options["person_properties"],
+                        group_properties=flag_options["group_properties"],
+                        disable_geoip=disable_geoip,
+                        only_evaluate_locally=True,
+                        flag_keys_to_evaluate=flag_options["flag_keys_filter"],
+                    )
+                elif flag_options["only_evaluate_locally"] is False:
+                    # Remote evaluation explicitly requested
+                    feature_variants = self.get_feature_variants(
+                        distinct_id,
+                        groups,
+                        person_properties=flag_options["person_properties"],
+                        group_properties=flag_options["group_properties"],
+                        disable_geoip=disable_geoip,
+                        flag_keys_to_evaluate=flag_options["flag_keys_filter"],
+                    )
+                elif self.feature_flags:
+                    # Local flags available, prefer local evaluation
                     feature_variants = self.get_all_flags(
                         distinct_id,
                         groups=(groups or {}),
@@ -608,7 +684,7 @@ class Client(object):
                         flag_keys_to_evaluate=flag_options["flag_keys_filter"],
                     )
                 else:
-                    # Default behavior - use remote evaluation
+                    # Fall back to remote evaluation
                     feature_variants = self.get_feature_variants(
                         distinct_id,
                         groups,
@@ -621,15 +697,6 @@ class Client(object):
                 self.log.exception(
                     f"[FEATURE FLAGS] Unable to get feature variants: {e}"
                 )
-
-        elif self.feature_flags and event != "$feature_flag_called":
-            # Local evaluation is enabled, flags are loaded, so try and get all flags we can without going to the server
-            feature_variants = self.get_all_flags(
-                distinct_id,
-                groups=(groups or {}),
-                disable_geoip=disable_geoip,
-                only_evaluate_locally=True,
-            )
 
         for feature, variant in (feature_variants or {}).items():
             extra_properties[f"$feature/{feature}"] = variant
@@ -701,21 +768,7 @@ class Client(object):
         Examples:
             ```python
             # Set with distinct id
-            posthog.capture(
-                'event_name',
-                distinct_id='user-distinct-id',
-                properties={
-                    '$set': {'name': 'Max Hedgehog'},
-                    '$set_once': {'initial_url': '/blog'}
-                }
-            )
-            ```
-            ```python
-            # Set using context
-            from posthog import new_context, identify_context
-            with new_context():
-                identify_context('user-distinct-id')
-                posthog.capture('event_name')
+            posthog.set(distinct_id='user123', properties={'name': 'Max Hedgehog'})
             ```
 
         Category:
@@ -963,19 +1016,43 @@ class Client(object):
                         "values": all_exceptions_with_trace,
                     },
                 },
+                in_app_include=self.in_app_modules,
                 project_root=self.project_root,
             )
             all_exceptions_with_trace_and_in_app = event["exception"]["values"]
 
             properties = {
-                "$exception_type": all_exceptions_with_trace_and_in_app[0].get("type"),
-                "$exception_message": all_exceptions_with_trace_and_in_app[0].get(
-                    "value"
-                ),
                 "$exception_list": all_exceptions_with_trace_and_in_app,
-                "$exception_personURL": f"{remove_trailing_slash(self.raw_host)}/project/{self.api_key}/person/{distinct_id}",
                 **properties,
             }
+
+            context_enabled = get_capture_exception_code_variables_context()
+            context_mask = get_code_variables_mask_patterns_context()
+            context_ignore = get_code_variables_ignore_patterns_context()
+
+            enabled = (
+                context_enabled
+                if context_enabled is not None
+                else self.capture_exception_code_variables
+            )
+            mask_patterns = (
+                context_mask
+                if context_mask is not None
+                else self.code_variables_mask_patterns
+            )
+            ignore_patterns = (
+                context_ignore
+                if context_ignore is not None
+                else self.code_variables_ignore_patterns
+            )
+
+            if enabled:
+                try_attach_code_variables_to_frames(
+                    all_exceptions_with_trace_and_in_app,
+                    exc_info,
+                    mask_patterns=mask_patterns,
+                    ignore_patterns=ignore_patterns,
+                )
 
             if self.log_captured_exceptions:
                 self.log.exception(exception, extra=kwargs)
@@ -1109,16 +1186,24 @@ class Client(object):
             posthog.join()
             ```
         """
-        for consumer in self.consumers:
-            consumer.pause()
-            try:
-                consumer.join()
-            except RuntimeError:
-                # consumer thread has not started
-                pass
+        if self.consumers:
+            for consumer in self.consumers:
+                consumer.pause()
+                try:
+                    consumer.join()
+                except RuntimeError:
+                    # consumer thread has not started
+                    pass
 
         if self.poller:
             self.poller.stop()
+
+        # Shutdown the cache provider (release locks, cleanup)
+        if self._flag_definition_cache_provider:
+            try:
+                self._flag_definition_cache_provider.shutdown()
+            except Exception as e:
+                self.log.error(f"[FEATURE FLAGS] Cache provider shutdown error: {e}")
 
     def shutdown(self):
         """
@@ -1135,7 +1220,71 @@ class Client(object):
         if self.exception_capture:
             self.exception_capture.close()
 
+    def _update_flag_state(
+        self, data: FlagDefinitionCacheData, old_flags_by_key: Optional[dict] = None
+    ) -> None:
+        """Update internal flag state from cache data and invalidate evaluation cache if changed."""
+        self.feature_flags = data["flags"]
+        self.group_type_mapping = data["group_type_mapping"]
+        self.cohorts = data["cohorts"]
+
+        # Invalidate evaluation cache if flag definitions changed
+        if (
+            self.flag_cache
+            and old_flags_by_key is not None
+            and old_flags_by_key != (self.feature_flags_by_key or {})
+        ):
+            old_version = self.flag_definition_version
+            self.flag_definition_version += 1
+            self.flag_cache.invalidate_version(old_version)
+
     def _load_feature_flags(self):
+        should_fetch = True
+        if self._flag_definition_cache_provider:
+            try:
+                should_fetch = (
+                    self._flag_definition_cache_provider.should_fetch_flag_definitions()
+                )
+            except Exception as e:
+                self.log.error(
+                    f"[FEATURE FLAGS] Cache provider should_fetch error: {e}"
+                )
+                # Fail-safe: fetch from API if cache provider errors
+                should_fetch = True
+
+        # If not fetching, try to get from cache
+        if not should_fetch and self._flag_definition_cache_provider:
+            try:
+                cached_data = (
+                    self._flag_definition_cache_provider.get_flag_definitions()
+                )
+                if cached_data:
+                    self.log.debug(
+                        "[FEATURE FLAGS] Using cached flag definitions from external cache"
+                    )
+                    self._update_flag_state(
+                        cached_data, old_flags_by_key=self.feature_flags_by_key or {}
+                    )
+                    self._last_feature_flag_poll = datetime.now(tz=tzutc())
+                    return
+                else:
+                    # Emergency fallback: if cache is empty and we have no flags, fetch anyway.
+                    # There's really no other way of recovering in this case.
+                    if not self.feature_flags:
+                        self.log.debug(
+                            "[FEATURE FLAGS] Cache empty and no flags loaded, falling back to API fetch"
+                        )
+                        should_fetch = True
+            except Exception as e:
+                self.log.error(f"[FEATURE FLAGS] Cache provider get error: {e}")
+                # Fail-safe: fetch from API if cache provider errors
+                should_fetch = True
+
+        if should_fetch:
+            self._fetch_feature_flags_from_api()
+
+    def _fetch_feature_flags_from_api(self):
+        """Fetch feature flags from the PostHog API."""
         try:
             # Store old flags to detect changes
             old_flags_by_key: dict[str, dict] = self.feature_flags_by_key or {}
@@ -1145,19 +1294,41 @@ class Client(object):
                 f"/api/feature_flag/local_evaluation/?token={self.api_key}&send_cohorts",
                 self.host,
                 timeout=10,
+                etag=self._flags_etag,
             )
 
-            self.feature_flags = response["flags"] or []
-            self.group_type_mapping = response["group_type_mapping"] or {}
-            self.cohorts = response["cohorts"] or {}
+            # Update stored ETag (clear if server stops sending one)
+            self._flags_etag = response.etag
 
-            # Check if flag definitions changed and update version
-            if self.flag_cache and old_flags_by_key != (
-                self.feature_flags_by_key or {}
-            ):
-                old_version = self.flag_definition_version
-                self.flag_definition_version += 1
-                self.flag_cache.invalidate_version(old_version)
+            # If 304 Not Modified, flags haven't changed - skip processing
+            if response.not_modified:
+                self.log.debug(
+                    "[FEATURE FLAGS] Flags not modified (304), using cached data"
+                )
+                self._last_feature_flag_poll = datetime.now(tz=tzutc())
+                return
+
+            if response.data is None:
+                self.log.error(
+                    "[FEATURE FLAGS] Unexpected empty response data in non-304 response"
+                )
+                return
+
+            self._update_flag_state(response.data, old_flags_by_key=old_flags_by_key)
+
+            # Store in external cache if provider is configured
+            if self._flag_definition_cache_provider:
+                try:
+                    self._flag_definition_cache_provider.on_flag_definitions_received(
+                        {
+                            "flags": self.feature_flags or [],
+                            "group_type_mapping": self.group_type_mapping or {},
+                            "cohorts": self.cohorts or {},
+                        }
+                    )
+                except Exception as e:
+                    self.log.error(f"[FEATURE FLAGS] Cache provider store error: {e}")
+                    # Flags are already in memory, so continue normally
 
         except APIError as e:
             if e.status == 401:
@@ -1257,7 +1428,8 @@ class Client(object):
         flag_filters = feature_flag.get("filters") or {}
         aggregation_group_type_index = flag_filters.get("aggregation_group_type_index")
         if aggregation_group_type_index is not None:
-            group_name = self.group_type_mapping.get(str(aggregation_group_type_index))
+            group_type_mapping = self.group_type_mapping or {}
+            group_name = group_type_mapping.get(str(aggregation_group_type_index))
 
             if not group_name:
                 self.log.warning(
@@ -1308,6 +1480,7 @@ class Client(object):
         only_evaluate_locally=False,
         send_feature_flag_events=True,
         disable_geoip=None,
+        device_id: Optional[str] = None,
     ):
         """
         Check if a feature flag is enabled for a user.
@@ -1321,6 +1494,7 @@ class Client(object):
             only_evaluate_locally: Whether to only evaluate locally.
             send_feature_flag_events: Whether to send feature flag events.
             disable_geoip: Whether to disable GeoIP for this request.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -1343,11 +1517,25 @@ class Client(object):
             only_evaluate_locally=only_evaluate_locally,
             send_feature_flag_events=send_feature_flag_events,
             disable_geoip=disable_geoip,
+            device_id=device_id,
         )
 
         if response is None:
             return None
         return bool(response)
+
+    def _get_stale_flag_fallback(
+        self, distinct_id: ID_TYPES, key: str
+    ) -> Optional[FeatureFlagResult]:
+        """Returns a stale cached flag value if available, otherwise None."""
+        if self.flag_cache:
+            stale_result = self.flag_cache.get_stale_cached_flag(distinct_id, key)
+            if stale_result:
+                self.log.info(
+                    f"[FEATURE FLAGS] Using stale cached value for flag {key}"
+                )
+                return stale_result
+        return None
 
     def _get_feature_flag_result(
         self,
@@ -1361,6 +1549,7 @@ class Client(object):
         only_evaluate_locally=False,
         send_feature_flag_events=True,
         disable_geoip=None,
+        device_id: Optional[str] = None,
     ) -> Optional[FeatureFlagResult]:
         if self.disabled:
             return None
@@ -1381,6 +1570,8 @@ class Client(object):
         flag_result = None
         flag_details = None
         request_id = None
+        evaluated_at = None
+        feature_flag_error: Optional[str] = None
 
         flag_value = self._locally_evaluate_flag(
             key, distinct_id, groups, person_properties, group_properties
@@ -1405,14 +1596,25 @@ class Client(object):
                 )
         elif not only_evaluate_locally:
             try:
-                flag_details, request_id = self._get_feature_flag_details_from_server(
-                    key,
-                    distinct_id,
-                    groups,
-                    person_properties,
-                    group_properties,
-                    disable_geoip,
+                flag_details, request_id, evaluated_at, errors_while_computing = (
+                    self._get_feature_flag_details_from_server(
+                        key,
+                        distinct_id,
+                        groups,
+                        person_properties,
+                        group_properties,
+                        disable_geoip,
+                        device_id=device_id,
+                    )
                 )
+                errors = []
+                if errors_while_computing:
+                    errors.append(FeatureFlagError.ERRORS_WHILE_COMPUTING)
+                if flag_details is None:
+                    errors.append(FeatureFlagError.FLAG_MISSING)
+                if errors:
+                    feature_flag_error = ",".join(errors)
+
                 flag_result = FeatureFlagResult.from_flag_details(
                     flag_details, override_match_value
                 )
@@ -1426,19 +1628,26 @@ class Client(object):
                 self.log.debug(
                     f"Successfully computed flag remotely: #{key} -> #{flag_result}"
                 )
+            except QuotaLimitError as e:
+                self.log.warning(f"[FEATURE FLAGS] Quota limit exceeded: {e}")
+                feature_flag_error = FeatureFlagError.QUOTA_LIMITED
+                flag_result = self._get_stale_flag_fallback(distinct_id, key)
+            except RequestsTimeout as e:
+                self.log.warning(f"[FEATURE FLAGS] Request timed out: {e}")
+                feature_flag_error = FeatureFlagError.TIMEOUT
+                flag_result = self._get_stale_flag_fallback(distinct_id, key)
+            except RequestsConnectionError as e:
+                self.log.warning(f"[FEATURE FLAGS] Connection error: {e}")
+                feature_flag_error = FeatureFlagError.CONNECTION_ERROR
+                flag_result = self._get_stale_flag_fallback(distinct_id, key)
+            except APIError as e:
+                self.log.warning(f"[FEATURE FLAGS] API error: {e}")
+                feature_flag_error = FeatureFlagError.api_error(e.status)
+                flag_result = self._get_stale_flag_fallback(distinct_id, key)
             except Exception as e:
                 self.log.exception(f"[FEATURE FLAGS] Unable to get flag remotely: {e}")
-
-                # Fallback to cached value if remote evaluation fails
-                if self.flag_cache:
-                    stale_result = self.flag_cache.get_stale_cached_flag(
-                        distinct_id, key
-                    )
-                    if stale_result:
-                        self.log.info(
-                            f"[FEATURE FLAGS] Using stale cached value for flag {key}"
-                        )
-                        flag_result = stale_result
+                feature_flag_error = FeatureFlagError.UNKNOWN_ERROR
+                flag_result = self._get_stale_flag_fallback(distinct_id, key)
 
         if send_feature_flag_events:
             self._capture_feature_flag_called(
@@ -1450,7 +1659,9 @@ class Client(object):
                 groups,
                 disable_geoip,
                 request_id,
+                evaluated_at,
                 flag_details,
+                feature_flag_error,
             )
 
         return flag_result
@@ -1466,6 +1677,7 @@ class Client(object):
         only_evaluate_locally=False,
         send_feature_flag_events=True,
         disable_geoip=None,
+        device_id: Optional[str] = None,
     ) -> Optional[FeatureFlagResult]:
         """
         Get a FeatureFlagResult object which contains the flag result and payload for a key by evaluating locally or remotely
@@ -1490,6 +1702,7 @@ class Client(object):
             only_evaluate_locally: Whether to only evaluate locally.
             send_feature_flag_events: Whether to send feature flag events.
             disable_geoip: Whether to disable GeoIP for this request.
+            device_id: The device ID for this request.
 
         Returns:
             Optional[FeatureFlagResult]: The feature flag result or None if disabled/not found.
@@ -1503,6 +1716,7 @@ class Client(object):
             only_evaluate_locally=only_evaluate_locally,
             send_feature_flag_events=send_feature_flag_events,
             disable_geoip=disable_geoip,
+            device_id=device_id,
         )
 
     def get_feature_flag(
@@ -1516,6 +1730,7 @@ class Client(object):
         only_evaluate_locally=False,
         send_feature_flag_events=True,
         disable_geoip=None,
+        device_id: Optional[str] = None,
     ) -> Optional[FlagValue]:
         """
         Get multivariate feature flag value for a user.
@@ -1529,6 +1744,7 @@ class Client(object):
             only_evaluate_locally: Whether to only evaluate locally.
             send_feature_flag_events: Whether to send feature flag events.
             disable_geoip: Whether to disable GeoIP for this request.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -1551,6 +1767,7 @@ class Client(object):
             only_evaluate_locally=only_evaluate_locally,
             send_feature_flag_events=send_feature_flag_events,
             disable_geoip=disable_geoip,
+            device_id=device_id,
         )
         return feature_flag_result.get_value() if feature_flag_result else None
 
@@ -1584,7 +1801,7 @@ class Client(object):
                     self.log.debug(
                         f"Successfully computed flag locally: {key} -> {response}"
                     )
-                except InconclusiveMatchError as e:
+                except (RequiresServerEvaluation, InconclusiveMatchError) as e:
                     self.log.debug(f"Failed to compute flag {key} locally: {e}")
                 except Exception as e:
                     self.log.exception(
@@ -1602,8 +1819,9 @@ class Client(object):
         person_properties=None,
         group_properties=None,
         only_evaluate_locally=False,
-        send_feature_flag_events=True,
+        send_feature_flag_events=False,
         disable_geoip=None,
+        device_id: Optional[str] = None,
     ):
         """
         Get the payload for a feature flag.
@@ -1616,8 +1834,9 @@ class Client(object):
             person_properties: A dictionary of person properties.
             group_properties: A dictionary of group properties.
             only_evaluate_locally: Whether to only evaluate locally.
-            send_feature_flag_events: Whether to send feature flag events.
+            send_feature_flag_events: Deprecated. Use get_feature_flag() instead if you need events.
             disable_geoip: Whether to disable GeoIP for this request.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -1632,6 +1851,14 @@ class Client(object):
         Category:
             Feature flags
         """
+        if send_feature_flag_events:
+            warnings.warn(
+                "send_feature_flag_events is deprecated in get_feature_flag_payload() and will be removed "
+                "in a future version. Use get_feature_flag() if you want to send $feature_flag_called events.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         feature_flag_result = self._get_feature_flag_result(
             key,
             distinct_id,
@@ -1642,6 +1869,7 @@ class Client(object):
             only_evaluate_locally=only_evaluate_locally,
             send_feature_flag_events=send_feature_flag_events,
             disable_geoip=disable_geoip,
+            device_id=device_id,
         )
         return feature_flag_result.payload if feature_flag_result else None
 
@@ -1653,9 +1881,11 @@ class Client(object):
         person_properties: dict[str, str],
         group_properties: dict[str, str],
         disable_geoip: Optional[bool],
-    ) -> tuple[Optional[FeatureFlag], Optional[str]]:
+        device_id: Optional[str] = None,
+    ) -> tuple[Optional[FeatureFlag], Optional[str], Optional[int], bool]:
         """
-        Calls /flags and returns the flag details and request id
+        Calls /flags and returns the flag details, request id, evaluated at timestamp,
+        and whether there were errors while computing flags.
         """
         resp_data = self.get_flags_decision(
             distinct_id,
@@ -1664,11 +1894,14 @@ class Client(object):
             group_properties,
             disable_geoip,
             flag_keys_to_evaluate=[key],
+            device_id=device_id,
         )
         request_id = resp_data.get("requestId")
+        evaluated_at = resp_data.get("evaluatedAt")
+        errors_while_computing = resp_data.get("errorsWhileComputingFlags", False)
         flags = resp_data.get("flags")
         flag_details = flags.get(key) if flags else None
-        return flag_details, request_id
+        return flag_details, request_id, evaluated_at, errors_while_computing
 
     def _capture_feature_flag_called(
         self,
@@ -1680,7 +1913,9 @@ class Client(object):
         groups: Dict[str, str],
         disable_geoip: Optional[bool],
         request_id: Optional[str],
+        evaluated_at: Optional[int],
         flag_details: Optional[FeatureFlag],
+        feature_flag_error: Optional[str] = None,
     ):
         feature_flag_reported_key = (
             f"{key}_{'::null::' if response is None else str(response)}"
@@ -1703,6 +1938,8 @@ class Client(object):
 
             if request_id:
                 properties["$feature_flag_request_id"] = request_id
+            if evaluated_at:
+                properties["$feature_flag_evaluated_at"] = evaluated_at
             if isinstance(flag_details, FeatureFlag):
                 if flag_details.reason and flag_details.reason.description:
                     properties["$feature_flag_reason"] = flag_details.reason.description
@@ -1713,6 +1950,8 @@ class Client(object):
                         )
                     if flag_details.metadata.id:
                         properties["$feature_flag_id"] = flag_details.metadata.id
+            if feature_flag_error:
+                properties["$feature_flag_error"] = feature_flag_error
 
             self.capture(
                 "$feature_flag_called",
@@ -1780,6 +2019,7 @@ class Client(object):
         only_evaluate_locally=False,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> Optional[dict[str, Union[bool, str]]]:
         """
         Get all feature flags for a user.
@@ -1793,6 +2033,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -1810,6 +2051,7 @@ class Client(object):
             only_evaluate_locally=only_evaluate_locally,
             disable_geoip=disable_geoip,
             flag_keys_to_evaluate=flag_keys_to_evaluate,
+            device_id=device_id,
         )
 
         return response["featureFlags"]
@@ -1824,6 +2066,7 @@ class Client(object):
         only_evaluate_locally=False,
         disable_geoip=None,
         flag_keys_to_evaluate: Optional[list[str]] = None,
+        device_id: Optional[str] = None,
     ) -> FlagsAndPayloads:
         """
         Get all feature flags and their payloads for a user.
@@ -1837,6 +2080,7 @@ class Client(object):
             disable_geoip: Whether to disable GeoIP for this request.
             flag_keys_to_evaluate: A list of specific flag keys to evaluate. If provided,
                 only these flags will be evaluated, improving performance.
+            device_id: The device ID for this request.
 
         Examples:
             ```python
@@ -1872,6 +2116,7 @@ class Client(object):
                     group_properties=group_properties,
                     disable_geoip=disable_geoip,
                     flag_keys_to_evaluate=flag_keys_to_evaluate,
+                    device_id=device_id,
                 )
                 return to_flags_and_payloads(decide_response)
             except Exception as e:
@@ -1978,9 +2223,9 @@ class Client(object):
             return None
 
         try:
-            from urllib.parse import urlparse, parse_qs
+            from urllib.parse import parse_qs, urlparse
         except ImportError:
-            from urlparse import urlparse, parse_qs
+            from urlparse import parse_qs, urlparse
 
         try:
             parsed = urlparse(cache_url)

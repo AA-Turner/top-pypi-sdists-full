@@ -40,6 +40,8 @@ class RemoteRepositoryDetails(google.protobuf.message.Message):
 
     DOCKER_REPOSITORY_FIELD_NUMBER: builtins.int
     HUGGING_FACE_REPOSITORY_FIELD_NUMBER: builtins.int
+    NPM_REPOSITORY_FIELD_NUMBER: builtins.int
+    PYPI_REPOSITORY_FIELD_NUMBER: builtins.int
     REPOSITORY_REMOTE_URL_FIELD_NUMBER: builtins.int
     @property
     def docker_repository(self) -> global___DockerRepository:
@@ -47,6 +49,12 @@ class RemoteRepositoryDetails(google.protobuf.message.Message):
     @property
     def hugging_face_repository(self) -> global___HuggingFaceRepository:
         """HuggingFace repository"""
+    @property
+    def npm_repository(self) -> global___NpmRepository:
+        """NPM repository"""
+    @property
+    def pypi_repository(self) -> global___PypiRepository:
+        """PyPI repository"""
     repository_remote_url: builtins.str
     """The remote repository URL"""
     def __init__(
@@ -54,11 +62,13 @@ class RemoteRepositoryDetails(google.protobuf.message.Message):
         *,
         docker_repository: global___DockerRepository | None = ...,
         hugging_face_repository: global___HuggingFaceRepository | None = ...,
+        npm_repository: global___NpmRepository | None = ...,
+        pypi_repository: global___PypiRepository | None = ...,
         repository_remote_url: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "repository_type", b"repository_type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "repository_remote_url", b"repository_remote_url", "repository_type", b"repository_type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["repository_type", b"repository_type"]) -> typing_extensions.Literal["docker_repository", "hugging_face_repository"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "npm_repository", b"npm_repository", "pypi_repository", b"pypi_repository", "repository_type", b"repository_type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "npm_repository", b"npm_repository", "pypi_repository", b"pypi_repository", "repository_remote_url", b"repository_remote_url", "repository_type", b"repository_type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["repository_type", b"repository_type"]) -> typing_extensions.Literal["docker_repository", "hugging_face_repository", "npm_repository", "pypi_repository"] | None: ...
 
 global___RemoteRepositoryDetails = RemoteRepositoryDetails
 
@@ -98,6 +108,24 @@ class HuggingFaceRepository(google.protobuf.message.Message):
 
 global___HuggingFaceRepository = HuggingFaceRepository
 
+class NpmRepository(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___NpmRepository = NpmRepository
+
+class PypiRepository(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___PypiRepository = PypiRepository
+
 class RepositoryType(google.protobuf.message.Message):
     """The repository type"""
 
@@ -107,6 +135,8 @@ class RepositoryType(google.protobuf.message.Message):
     DATASET_REPOSITORY_FIELD_NUMBER: builtins.int
     ARTIFACT_REPOSITORY_FIELD_NUMBER: builtins.int
     HUGGING_FACE_REPOSITORY_FIELD_NUMBER: builtins.int
+    NPM_REPOSITORY_FIELD_NUMBER: builtins.int
+    PYPI_REPOSITORY_FIELD_NUMBER: builtins.int
     @property
     def docker_repository(self) -> global___DockerRepository:
         """Docker repository"""
@@ -119,6 +149,12 @@ class RepositoryType(google.protobuf.message.Message):
     @property
     def hugging_face_repository(self) -> global___HuggingFaceRepository:
         """HuggingFace repository"""
+    @property
+    def npm_repository(self) -> global___NpmRepository:
+        """NPM repository"""
+    @property
+    def pypi_repository(self) -> global___PypiRepository:
+        """PyPI repository"""
     def __init__(
         self,
         *,
@@ -126,9 +162,11 @@ class RepositoryType(google.protobuf.message.Message):
         dataset_repository: global___DatasetRepository | None = ...,
         artifact_repository: global___ArtifactRepository | None = ...,
         hugging_face_repository: global___HuggingFaceRepository | None = ...,
+        npm_repository: global___NpmRepository | None = ...,
+        pypi_repository: global___PypiRepository | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["artifact_repository", b"artifact_repository", "dataset_repository", b"dataset_repository", "docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "type", b"type"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["artifact_repository", b"artifact_repository", "dataset_repository", b"dataset_repository", "docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "type", b"type"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["docker_repository", "dataset_repository", "artifact_repository", "hugging_face_repository"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["artifact_repository", b"artifact_repository", "dataset_repository", b"dataset_repository", "docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "npm_repository", b"npm_repository", "pypi_repository", b"pypi_repository", "type", b"type"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["artifact_repository", b"artifact_repository", "dataset_repository", b"dataset_repository", "docker_repository", b"docker_repository", "hugging_face_repository", b"hugging_face_repository", "npm_repository", b"npm_repository", "pypi_repository", b"pypi_repository", "type", b"type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["type", b"type"]) -> typing_extensions.Literal["docker_repository", "dataset_repository", "artifact_repository", "hugging_face_repository", "npm_repository", "pypi_repository"] | None: ...
 
 global___RepositoryType = RepositoryType

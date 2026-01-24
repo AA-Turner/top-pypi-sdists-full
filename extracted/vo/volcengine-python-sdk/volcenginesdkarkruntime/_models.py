@@ -1,4 +1,3 @@
-
 # Copyright (c) [2025] [OpenAI]
 # Copyright (c) [2025] [ByteDance Ltd. and/or its affiliates.]
 # SPDX-License-Identifier: Apache-2.0
@@ -655,6 +654,8 @@ def _extract_field_schema_pv2(
     model: type[BaseModel], field_name: str
 ) -> ModelField | None:
     schema = model.__pydantic_core_schema__
+    if schema["type"] == "definitions":
+        schema = schema["schema"]
     if schema["type"] != "model":
         return None
 

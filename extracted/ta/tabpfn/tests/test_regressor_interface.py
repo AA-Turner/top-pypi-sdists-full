@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import io
+import itertools
 import os
-import sys
 import typing
-from itertools import product
 from typing import Callable, Literal
 from unittest import mock
 
@@ -21,113 +20,72 @@ from torch import nn
 
 from tabpfn import TabPFNRegressor
 from tabpfn.base import RegressorModelSpecs, initialize_tabpfn_model
-from tabpfn.model_loading import ModelSource
+from tabpfn.constants import ModelVersion
+from tabpfn.model_loading import ModelSource, prepend_cache_path
 from tabpfn.preprocessing import PreprocessorConfig
+from tabpfn.settings import settings
 from tabpfn.utils import infer_devices
 
-from .utils import check_cpu_float16_support, get_pytest_devices
+from .utils import (
+    get_pytest_devices,
+    is_cpu_float16_supported,
+    mark_mps_configs_as_slow,
+    patch_layernorm_no_affine,
+)
 
 devices = get_pytest_devices()
 
-# --- Environment-Aware Check for CPU Float16 Support ---
-is_cpu_float16_supported = check_cpu_float16_support()
 
-# --- Define parameter combinations ---
-# These are the parameters we want to test in our grid search
-feature_shift_decoders = ["shuffle", "rotate"]
-fit_modes = [
-    "low_memory",
-    "fit_preprocessors",
-    "fit_with_cache",
-]
-inference_precision_methods = ["auto", "autocast", torch.float64, torch.float16]
-remove_outliers_stds = [None, 12]
-estimators = [1, 2]
-
-model_paths = ModelSource.get_regressor_v2().filenames
-primary_model = ModelSource.get_regressor_v2().default_filename
-other_models = [model_path for model_path in model_paths if model_path != primary_model]
-
-# --- Build parameter combinations ---
-# Full grid for the first (primary) model path
-_full_grid = product(
-    estimators,
-    devices,  # device
-    feature_shift_decoders,
-    fit_modes,
-    inference_precision_methods,
-    remove_outliers_stds,
-    [primary_model],  # only the first entry
-)
-
-# Minimal "smoke" grid for all remaining model paths (one combo per path)
-_smoke_grid = product(
-    [1],  # n_estimators
-    ["cpu"],  # device (fast & universally available)
-    ["shuffle"],  # feature_shift_decoder
-    ["fit_preprocessors"],  # fit_mode
-    ["auto"],  # inference_precision
-    [remove_outliers_stds[0]],  # remove_outliers_std
-    other_models,  # every non-first model path
-)
-
-all_combinations = list(_full_grid) + list(_smoke_grid)
+model_sources = [ModelSource.get_regressor_v2(), ModelSource.get_regressor_v2_5()]
+fit_modes = ["low_memory", "fit_preprocessors", "fit_with_cache"]
 
 
-# Wrap in fixture so it's only loaded in if a test using it is run
 @pytest.fixture(scope="module")
 def X_y() -> tuple[np.ndarray, np.ndarray]:
     X, y, _ = sklearn.datasets.make_regression(
-        n_samples=50, n_features=9, random_state=0, coef=True
+        n_samples=9, n_features=3, random_state=0, coef=True
     )
     return X, y
 
 
 @pytest.mark.parametrize(
-    (
-        "n_estimators",
-        "device",
-        "feature_shift_decoder",
-        "fit_mode",
-        "inference_precision",
-        "remove_outliers_std",
-        "model_path",
+    ("device", "n_estimators", "fit_mode", "inference_precision"),
+    mark_mps_configs_as_slow(
+        itertools.product(
+            devices,
+            [1, 2],  # n_estimators
+            fit_modes,
+            ["auto", "autocast", torch.float64, torch.float16],  # inference_precision
+        )
     ),
-    all_combinations,
 )
-def test_regressor(
+def test__fit_predict__passes_sklearn_check_and_outputs_correct_shape(
+    device: str,
     n_estimators: int,
-    device: Literal["cuda", "mps", "cpu"],
-    feature_shift_decoder: Literal["shuffle", "rotate"],
     fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"],
     inference_precision: torch.types._dtype | Literal["autocast", "auto"],
-    remove_outliers_std: int | None,
-    model_path: str,
     X_y: tuple[np.ndarray, np.ndarray],
 ) -> None:
-    if torch.device(device).type == "cpu" and inference_precision == "autocast":
-        pytest.skip("Only GPU supports inference_precision")
-
-    # Use the environment-aware check to skip only if necessary
+    if inference_precision == "autocast":
+        if torch.device(device).type == "cpu":
+            pytest.skip("CPU device does not support 'autocast' inference.")
+        if torch.device(device).type == "mps" and torch.__version__ < "2.5":
+            pytest.skip("MPS does not support mixed precision before PyTorch 2.5")
     if (
         torch.device(device).type == "cpu"
         and inference_precision == torch.float16
-        and not is_cpu_float16_supported
+        and not is_cpu_float16_supported()
     ):
         pytest.skip("CPU float16 matmul not supported in this PyTorch version.")
     if torch.device(device).type == "mps" and inference_precision == torch.float64:
         pytest.skip("MPS does not support float64, which is required for this check.")
 
     model = TabPFNRegressor(
-        model_path=model_path,
         n_estimators=n_estimators,
         device=device,
         fit_mode=fit_mode,
         inference_precision=inference_precision,
-        inference_config={
-            "OUTLIER_REMOVAL_STD": remove_outliers_std,
-            "FEATURE_SHIFT_METHOD": feature_shift_decoder,
-        },
+        random_state=42,
     )
 
     X, y = X_y
@@ -149,6 +107,122 @@ def test_regressor(
     assert isinstance(quantiles, list)
     assert len(quantiles) == 2
     assert quantiles[0].shape == (X.shape[0],), "Predictions shape is incorrect"
+
+
+@pytest.mark.parametrize("device", [d for d in devices if d == "mps"])
+def test__fit_predict__mps_smoke_test__outputs_correct_shape(
+    device: str, X_y: tuple[np.ndarray, np.ndarray]
+) -> None:
+    """Basic test of fit+predict on MPS.
+
+    The other MPS tests in this file are disabled in PRs because they are slow, so this
+    test provides some coverage.
+    """
+    model = TabPFNRegressor(n_estimators=2, device=device, random_state=42)
+    X, y = X_y
+    model.fit(X, y)
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+non_default_model_paths = list(
+    itertools.chain.from_iterable(
+        (
+            model_path
+            for model_path in model_source.filenames
+            if model_path != model_source.default_filename
+        )
+        for model_source in model_sources
+    )
+)
+
+
+@pytest.mark.parametrize(
+    ("device", "model_path"),
+    mark_mps_configs_as_slow(itertools.product(devices, non_default_model_paths)),
+)
+def test__fit_predict__alternative_model_paths__outputs_correct_shape(
+    device: str,
+    model_path: str | list[str],
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNRegressor(
+        model_path=prepend_cache_path(model_path),
+        n_estimators=1,
+        device=device,
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+@pytest.mark.parametrize(
+    ("device", "fit_mode"),
+    mark_mps_configs_as_slow(itertools.product(devices, fit_modes)),
+)
+def test__fit_predict__multiple_model_paths__outputs_correct_shape(
+    device: str,
+    fit_mode: Literal["low_memory", "fit_preprocessors", "fit_with_cache"],
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNRegressor(
+        model_path=prepend_cache_path(model_sources[0].filenames[:2]),
+        n_estimators=1,
+        device=device,
+        fit_mode=fit_mode,
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict(X).shape == (X.shape[0],)
+
+
+@pytest.mark.parametrize(
+    ("device", "feature_shift_decoder", "remove_outliers_std"),
+    mark_mps_configs_as_slow(
+        itertools.chain.from_iterable(
+            [
+                (device, "shuffle", None),
+                (device, "rotate", 12),
+                (device, "shuffle", 12),
+            ]
+            for device in devices
+        )
+    ),
+)
+def test__fit_predict__specify_inference_config__outputs_correct_shape(
+    device: str,
+    feature_shift_decoder: Literal["shuffle", "rotate"],
+    remove_outliers_std: int | None,
+    X_y: tuple[np.ndarray, np.ndarray],
+) -> None:
+    model = TabPFNRegressor(
+        n_estimators=1,
+        device=device,
+        inference_config={
+            "OUTLIER_REMOVAL_STD": remove_outliers_std,
+            "FEATURE_SHIFT_METHOD": feature_shift_decoder,
+        },
+        random_state=42,
+    )
+
+    X, y = X_y
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    assert model.predict(X).shape == (X.shape[0],)
 
 
 # The different fitting modes manage the random state differently.
@@ -178,6 +252,36 @@ def test_fit_modes_all_return_equal_results(X_y: tuple[np.ndarray, np.ndarray]) 
     tabpfn = TabPFNRegressor(fit_mode="low_memory", **kwargs)
     tabpfn.fit(X, y)
     np.testing.assert_array_almost_equal(preds, tabpfn.predict(X))
+
+
+def test_multiple_models_predict_different_results(
+    X_y: tuple[np.ndarray, np.ndarray],
+):
+    X, y = X_y
+
+    model_a = model_sources[0].filenames[0]
+    model_b = model_sources[0].filenames[1]
+    two_identical_models = [model_a, model_a]
+    two_different_models = [model_a, model_b]
+
+    def get_prediction(model_paths: list[str]) -> np.ndarray:
+        regressor = TabPFNRegressor(
+            n_estimators=2,
+            random_state=42,
+            model_path=prepend_cache_path(model_paths),
+        )
+        regressor.fit(X, y)
+        return regressor.predict(X)
+
+    single_model_pred = get_prediction(model_paths=[model_a])
+    two_identical_models_pred = get_prediction(model_paths=two_identical_models)
+    two_different_models_pred = get_prediction(model_paths=two_different_models)
+
+    assert not np.all(single_model_pred == single_model_pred[0:1]), (
+        "Predictions are identical for all samples, indicating trivial output"
+    )
+    assert np.all(single_model_pred == two_identical_models_pred)
+    assert not np.all(single_model_pred == two_different_models_pred)
 
 
 # TODO: Should probably run a larger suite with different configurations
@@ -225,21 +329,21 @@ def test_regressor_in_pipeline(X_y: tuple[np.ndarray, np.ndarray]) -> None:
 
     # Test different prediction modes through the pipeline
     predictions_median = pipeline.predict(X, output_type="median")
-    assert predictions_median.shape == (
-        X.shape[0],
-    ), "Median predictions shape is incorrect"
+    assert predictions_median.shape == (X.shape[0],), (
+        "Median predictions shape is incorrect"
+    )
 
     predictions_mode = pipeline.predict(X, output_type="mode")
-    assert predictions_mode.shape == (
-        X.shape[0],
-    ), "Mode predictions shape is incorrect"
+    assert predictions_mode.shape == (X.shape[0],), (
+        "Mode predictions shape is incorrect"
+    )
 
     quantiles = pipeline.predict(X, output_type="quantiles", quantiles=[0.1, 0.9])
     assert isinstance(quantiles, list)
     assert len(quantiles) == 2
-    assert quantiles[0].shape == (
-        X.shape[0],
-    ), "Quantile predictions shape is incorrect"
+    assert quantiles[0].shape == (X.shape[0],), (
+        "Quantile predictions shape is incorrect"
+    )
 
 
 def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) -> None:
@@ -252,7 +356,7 @@ def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) 
         "append_original": False,  # changed from default
         "categorical_name": "ordinal_very_common_categories_shuffled",
         "global_transformer_name": "svd",
-        "subsample_features": -1,
+        "max_features_per_estimator": 500,
     }
 
     object_config = PreprocessorConfig(
@@ -260,7 +364,7 @@ def test_dict_vs_object_preprocessor_config(X_y: tuple[np.ndarray, np.ndarray]) 
         append_original=False,  # changed from default
         categorical_name="ordinal_very_common_categories_shuffled",
         global_transformer_name="svd",
-        subsample_features=-1,
+        max_features_per_estimator=500,
     )
 
     # Create two models with same random state
@@ -333,12 +437,12 @@ class ModelWrapper(nn.Module):
 def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     if os.name == "nt":
         pytest.skip("onnx export is not tested on windows")
-    if sys.version_info >= (3, 13):
-        pytest.xfail("onnx is not yet supported on Python 3.13")
     X, y = X_y
     with torch.no_grad():
-        regressor = TabPFNRegressor(n_estimators=1, device="cpu", random_state=43)
-        # load the model so we can access it via classifier.model_
+        regressor = TabPFNRegressor(
+            n_estimators=1, device="cpu", random_state=43, memory_saving_mode=True
+        )
+        # load the model so we can access it via classifier.models_
         regressor.fit(X, y)
         # this is necessary if cuda is available
         regressor.predict(X)
@@ -354,8 +458,14 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
             "X": {0: "num_datapoints", 1: "batch_size", 2: "num_features"},
             "y": {0: "num_labels"},
         }
+        patch_layernorm_no_affine(regressor.models_[0])
+
+        # From 2.9 PyTorch changed the default export mode from TorchScript to
+        # Dynamo. We don't support Dynamo, so disable it. The `dynamo` flag is only
+        # available in newer PyTorch versions, hence we don't always include it.
+        export_kwargs = {"dynamo": False} if torch.__version__ >= "2.9" else {}
         torch.onnx.export(
-            ModelWrapper(regressor.model_).eval(),
+            ModelWrapper(regressor.models_[0]).eval(),
             (X, y, True, [[]]),
             io.BytesIO(),
             input_names=[
@@ -367,11 +477,14 @@ def test_onnx_exportable_cpu(X_y: tuple[np.ndarray, np.ndarray]) -> None:
             output_names=["output"],
             opset_version=17,  # using 17 since we use torch>=2.1
             dynamic_axes=dynamic_axes,
+            **export_kwargs,
         )
 
 
 @pytest.mark.parametrize("data_source", ["train", "test"])
-def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) -> None:
+def test_get_embeddings(
+    X_y: tuple[np.ndarray, np.ndarray], data_source: Literal["train", "test"]
+) -> None:
     """Test that get_embeddings returns valid embeddings for a fitted model."""
     X, y = X_y
     n_estimators = 3
@@ -379,22 +492,16 @@ def test_get_embeddings(X_y: tuple[np.ndarray, np.ndarray], data_source: str) ->
     model = TabPFNRegressor(n_estimators=n_estimators)
     model.fit(X, y)
 
-    # Cast to Literal type for mypy
-    valid_data_source = typing.cast(Literal["train", "test"], data_source)
-    embeddings = model.get_embeddings(X, valid_data_source)
+    embeddings = model.get_embeddings(X, data_source)
 
     # Need to access the model through the executor
-    model_instance = typing.cast(typing.Any, model.executor_).model
-    encoder_shape = next(
-        m.out_features
-        for m in model_instance.encoder.modules()
-        if isinstance(m, nn.Linear)
-    )
+    model_instance = next(iter(model.executor_.model_caches[0]._models.values()))
+    hidden_size = model_instance.ninp
 
     assert isinstance(embeddings, np.ndarray)
     assert embeddings.shape[0] == n_estimators
     assert embeddings.shape[1] == X.shape[0]
-    assert embeddings.shape[2] == encoder_shape
+    assert embeddings.shape[2] == hidden_size
 
 
 def test_overflow_bug_does_not_occur():
@@ -456,7 +563,7 @@ def test_cpu_large_dataset_warning_override():
     model.fit(X_large, y_large)
 
     # Mock the settings to allow large datasets to avoid RuntimeError
-    with mock.patch("tabpfn.base.settings.tabpfn.allow_cpu_large_dataset", new=True):
+    with mock.patch.object(settings.tabpfn, "allow_cpu_large_dataset", new=True):
         model = TabPFNRegressor(device="cpu", ignore_pretraining_limits=False)
         model.fit(X_large, y_large)
 
@@ -544,100 +651,187 @@ def test_constant_feature_handling(X_y: tuple[np.ndarray, np.ndarray]) -> None:
     )
 
 
-def test_constant_target(X_y: tuple[np.ndarray, np.ndarray]) -> None:
+@pytest.mark.parametrize("constant_value", [0.0, 1.0, -1.0, 1e-5, -1e-5, 1e5, -1e5])
+def test_constant_target(
+    X_y: tuple[np.ndarray, np.ndarray], constant_value: float
+) -> None:
     """Test that TabPFNRegressor predicts a constant
-    value when the target y is constant.
+    value when the target y is constant, for both small and large values.
     """
     X, _ = X_y
-    y_constant = np.full(X.shape[0], 5.0)  # Create a constant target array
+
+    y_constant = np.full(X.shape[0], constant_value)
 
     model = TabPFNRegressor(n_estimators=2, random_state=42)
     model.fit(X, y_constant)
 
     predictions = model.predict(X)
-    assert np.all(predictions == 5.0), "Predictions are not constant as expected"
+    assert np.all(predictions == constant_value), (
+        f"Predictions are not constant as expected for value {constant_value}"
+    )
 
     # Test different output types
     predictions_median = model.predict(X, output_type="median")
-    assert np.all(
-        predictions_median == 5.0
-    ), "Median predictions are not constant as expected"
+    assert np.all(predictions_median == constant_value), (
+        f"Median predictions are not constant as expected for value {constant_value}"
+    )
 
     predictions_mode = model.predict(X, output_type="mode")
-    assert np.all(
-        predictions_mode == 5.0
-    ), "Mode predictions are not constant as expected"
+    assert np.all(predictions_mode == constant_value), (
+        f"Mode predictions are not constant as expected for value {constant_value}"
+    )
 
     quantiles = model.predict(X, output_type="quantiles", quantiles=[0.1, 0.9])
     for quantile_prediction in quantiles:
-        assert np.all(
-            quantile_prediction == 5.0
-        ), "Quantile predictions are not constant as expected"
+        assert np.all(quantile_prediction == constant_value), (
+            f"Quantile predictions are not constant as expected for"
+            f" value {constant_value}"
+        )
 
     full_output = model.predict(X, output_type="full")
-    assert np.all(
-        full_output["mean"] == 5.0
-    ), "Mean predictions are not constant as expected for full output"
-    assert np.all(
-        full_output["median"] == 5.0
-    ), "Median predictions are not constant as expected for full output"
-    assert np.all(
-        full_output["mode"] == 5.0
-    ), "Mode predictions are not constant as expected for full output"
+    assert np.all(full_output["mean"] == constant_value), (
+        f"Mean predictions are not constant as expected for full output for"
+        f" value {constant_value}"
+    )
+    assert np.all(full_output["median"] == constant_value), (
+        f"Median predictions are not constant as expected for full output for"
+        f" value {constant_value}"
+    )
+    assert np.all(full_output["mode"] == constant_value), (
+        f"Mode predictions are not constant as expected for full output for"
+        f" value {constant_value}"
+    )
     for quantile_prediction in full_output["quantiles"]:
-        assert np.all(
-            quantile_prediction == 5.0
-        ), "Quantile predictions are not constant as expected for full output"
+        assert np.all(quantile_prediction == constant_value), (
+            f"Quantile predictions are not constant as expected for full output for"
+            f" value {constant_value}"
+        )
 
 
 def test_initialize_model_variables_regressor_sets_required_attributes() -> None:
     # 1) Standalone initializer
-    model, config, norm_criterion = initialize_tabpfn_model(
-        model_path="auto",
-        which="regressor",
-        fit_mode="low_memory",
+    model, architecture_configs, norm_criterion, inference_config = (
+        initialize_tabpfn_model(
+            model_path="auto",
+            which="regressor",
+            fit_mode="low_memory",
+        )
     )
     assert model is not None, "model should be initialized for regressor"
-    assert config is not None, "config should be initialized for regressor"
-    assert (
-        norm_criterion is not None
-    ), "norm_criterion should be initialized for regressor"
+    assert architecture_configs is not None, (
+        "config should be initialized for regressor"
+    )
+    assert norm_criterion is not None, (
+        "norm_criterion should be initialized for regressor"
+    )
+    assert inference_config is not None
 
     # 2) Test the sklearn-style wrapper on TabPFNRegressor
     regressor = TabPFNRegressor(device="cpu", random_state=42)
     regressor._initialize_model_variables()
 
-    assert hasattr(regressor, "model_"), "regressor should have model_ attribute"
-    assert regressor.model_ is not None, "model_ should be initialized for regressor"
+    assert hasattr(regressor, "models_")
+    assert regressor.models_ is not None
 
-    assert hasattr(regressor, "config_"), "regressor should have config_ attribute"
-    assert regressor.config_ is not None, "config_ should be initialized for regressor"
+    assert hasattr(regressor, "configs_")
+    assert regressor.configs_ is not None
 
-    assert hasattr(
-        regressor, "znorm_space_bardist_"
-    ), "regressor should have znorm_space_bardist_ attribute"
-    assert (
-        regressor.znorm_space_bardist_ is not None
-    ), "znorm_space_bardist_ should be initialized for regressor"
+    assert hasattr(regressor, "znorm_space_bardist_")
+    assert regressor.znorm_space_bardist_ is not None
 
     # 3) Reuse via RegressorModelSpecs
     spec = RegressorModelSpecs(
-        model=regressor.model_,
-        config=regressor.config_,
+        model=regressor.models_[0],
+        architecture_config=regressor.configs_[0],
         norm_criterion=regressor.znorm_space_bardist_,
+        inference_config=regressor.inference_config_,
     )
     reg2 = TabPFNRegressor(model_path=spec)
     reg2._initialize_model_variables()
 
-    assert hasattr(reg2, "model_"), "regressor2 should have model_ attribute"
-    assert reg2.model_ is not None, "model_ should be initialized for regressor2"
+    assert hasattr(reg2, "models_")
+    assert reg2.models_ is not None
 
-    assert hasattr(reg2, "config_"), "regressor2 should have config_ attribute"
-    assert reg2.config_ is not None, "config_ should be initialized for regressor2"
+    assert hasattr(reg2, "configs_")
+    assert reg2.configs_ is not None
 
-    assert hasattr(
-        reg2, "znorm_space_bardist_"
-    ), "regressor2 should have znorm_space_bardist_ attribute"
-    assert (
-        reg2.znorm_space_bardist_ is not None
-    ), "znorm_space_bardist_ should be initialized for regressor2"
+    assert hasattr(reg2, "znorm_space_bardist_")
+    assert reg2.znorm_space_bardist_ is not None
+
+
+@pytest.mark.parametrize("n_features", [1, 2])
+def test__TabPFNRegressor__few_features__works(n_features: int) -> None:
+    """Test that TabPFNRegressor works correctly with 1 or 2 features."""
+    n_samples = 50
+
+    X, y, _ = sklearn.datasets.make_regression(
+        n_samples=n_samples,
+        n_features=n_features,
+        random_state=42,
+        coef=True,
+    )
+
+    model = TabPFNRegressor(
+        n_estimators=2,
+        random_state=42,
+    )
+
+    returned_model = model.fit(X, y)
+    assert returned_model is model, "Returned model is not the same as the model"
+    check_is_fitted(returned_model)
+
+    predictions = model.predict(X)
+    assert predictions.shape == (X.shape[0],), (
+        f"Predictions shape is incorrect for {n_features} features"
+    )
+    assert not np.isnan(predictions).any(), "Predictions contain NaN values"
+    assert not np.isinf(predictions).any(), "Predictions contain infinite values"
+
+    predictions_median = model.predict(X, output_type="median")
+    assert predictions_median.shape == (X.shape[0],), (
+        f"Median predictions shape is incorrect for {n_features} features"
+    )
+
+    predictions_mode = model.predict(X, output_type="mode")
+    assert predictions_mode.shape == (X.shape[0],), (
+        f"Mode predictions shape is incorrect for {n_features} features"
+    )
+
+    quantiles = model.predict(X, output_type="quantiles", quantiles=[0.1, 0.5, 0.9])
+    assert isinstance(quantiles, list), "Quantiles should be returned as a list"
+    assert len(quantiles) == 3, "Should return 3 quantiles"
+    for i, q in enumerate(quantiles):
+        assert q.shape == (X.shape[0],), (
+            f"Quantile {i} shape is incorrect for {n_features} features"
+        )
+
+
+def test__create_default_for_version__v2__uses_correct_defaults() -> None:
+    estimator = TabPFNRegressor.create_default_for_version(ModelVersion.V2)
+
+    assert isinstance(estimator, TabPFNRegressor)
+    assert estimator.n_estimators == 8
+    assert estimator.softmax_temperature == 0.9
+    assert isinstance(estimator.model_path, str)
+    assert "regressor" in estimator.model_path
+    assert "-v2-" in estimator.model_path
+
+
+def test__create_default_for_version__v2_5__uses_correct_defaults() -> None:
+    estimator = TabPFNRegressor.create_default_for_version(ModelVersion.V2_5)
+
+    assert isinstance(estimator, TabPFNRegressor)
+    assert estimator.n_estimators == 8
+    assert estimator.softmax_temperature == 0.9
+    assert isinstance(estimator.model_path, str)
+    assert "regressor" in estimator.model_path
+    assert "-v2.5-" in estimator.model_path
+
+
+def test__create_default_for_version__passes_through_overrides() -> None:
+    estimator = TabPFNRegressor.create_default_for_version(
+        ModelVersion.V2_5, n_estimators=16
+    )
+
+    assert estimator.n_estimators == 16
+    assert estimator.softmax_temperature == 0.9

@@ -6,19 +6,30 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.list_autoscaling_events_response_200_item import ListAutoscalingEventsResponse200Item
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     worker_group: str,
+    *,
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["page"] = page
+
+    params["per_page"] = per_page
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
         "url": "/configs/list_autoscaling_events/{worker_group}".format(
             worker_group=worker_group,
         ),
+        "params": params,
     }
 
 
@@ -55,11 +66,15 @@ def sync_detailed(
     worker_group: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListAutoscalingEventsResponse200Item"]]:
     """List autoscaling events
 
     Args:
         worker_group (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +86,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         worker_group=worker_group,
+        page=page,
+        per_page=per_page,
     )
 
     response = client.get_httpx_client().request(
@@ -84,11 +101,15 @@ def sync(
     worker_group: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListAutoscalingEventsResponse200Item"]]:
     """List autoscaling events
 
     Args:
         worker_group (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,6 +122,8 @@ def sync(
     return sync_detailed(
         worker_group=worker_group,
         client=client,
+        page=page,
+        per_page=per_page,
     ).parsed
 
 
@@ -108,11 +131,15 @@ async def asyncio_detailed(
     worker_group: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Response[List["ListAutoscalingEventsResponse200Item"]]:
     """List autoscaling events
 
     Args:
         worker_group (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +151,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         worker_group=worker_group,
+        page=page,
+        per_page=per_page,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -135,11 +164,15 @@ async def asyncio(
     worker_group: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    page: Union[Unset, None, int] = UNSET,
+    per_page: Union[Unset, None, int] = UNSET,
 ) -> Optional[List["ListAutoscalingEventsResponse200Item"]]:
     """List autoscaling events
 
     Args:
         worker_group (str):
+        page (Union[Unset, None, int]):
+        per_page (Union[Unset, None, int]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,5 +186,7 @@ async def asyncio(
         await asyncio_detailed(
             worker_group=worker_group,
             client=client,
+            page=page,
+            per_page=per_page,
         )
     ).parsed

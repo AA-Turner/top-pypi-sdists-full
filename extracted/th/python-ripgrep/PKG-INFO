@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: python-ripgrep
+Version: 0.0.9
+Classifier: License :: OSI Approved :: MIT License
+License-File: LICENSE
+Summary: A Python wrapper for ripgrep
+Author-email: Josh Learn <josh@exponent.run>
+Requires-Python: >=3.10, <3.13

@@ -3,7 +3,7 @@ Type annotations for geo-places service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_geo_places/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import (
     AutocompleteFilterPlaceTypeType,
@@ -43,12 +44,6 @@ from .literals import (
     ZipClassificationCodeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -132,7 +127,7 @@ __all__ = (
 
 
 class AccessPointTypeDef(TypedDict):
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
 
 
 class CategoryTypeDef(TypedDict):
@@ -165,6 +160,7 @@ class RegionTypeDef(TypedDict):
 
 class SecondaryAddressComponentTypeDef(TypedDict):
     Number: str
+    Designator: NotRequired[str]
 
 
 StreetComponentsTypeDef = TypedDict(
@@ -201,7 +197,7 @@ class FilterCircleTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -306,13 +302,13 @@ class SuggestQueryResultTypeDef(TypedDict):
 
 class AccessRestrictionTypeDef(TypedDict):
     Restricted: NotRequired[bool]
-    Categories: NotRequired[List[CategoryTypeDef]]
+    Categories: NotRequired[list[CategoryTypeDef]]
 
 
 class ContactDetailsTypeDef(TypedDict):
     Label: NotRequired[str]
     Value: NotRequired[str]
-    Categories: NotRequired[List[CategoryTypeDef]]
+    Categories: NotRequired[list[CategoryTypeDef]]
 
 
 class AddressComponentMatchScoresTypeDef(TypedDict):
@@ -325,22 +321,22 @@ class AddressComponentMatchScoresTypeDef(TypedDict):
     PostalCode: NotRequired[float]
     Block: NotRequired[float]
     SubBlock: NotRequired[float]
-    Intersection: NotRequired[List[float]]
+    Intersection: NotRequired[list[float]]
     AddressNumber: NotRequired[float]
     Building: NotRequired[float]
-    SecondaryAddressComponents: NotRequired[List[SecondaryAddressComponentMatchScoreTypeDef]]
+    SecondaryAddressComponents: NotRequired[list[SecondaryAddressComponentMatchScoreTypeDef]]
 
 
 class AddressComponentPhonemesTypeDef(TypedDict):
-    Country: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    Region: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    SubRegion: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    Locality: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    District: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    SubDistrict: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    Block: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    SubBlock: NotRequired[List[PhonemeTranscriptionTypeDef]]
-    Street: NotRequired[List[PhonemeTranscriptionTypeDef]]
+    Country: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    Region: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    SubRegion: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    Locality: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    District: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    SubDistrict: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    Block: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    SubBlock: NotRequired[list[PhonemeTranscriptionTypeDef]]
+    Street: NotRequired[list[PhonemeTranscriptionTypeDef]]
 
 
 class AddressTypeDef(TypedDict):
@@ -354,31 +350,31 @@ class AddressTypeDef(TypedDict):
     PostalCode: NotRequired[str]
     Block: NotRequired[str]
     SubBlock: NotRequired[str]
-    Intersection: NotRequired[List[str]]
+    Intersection: NotRequired[list[str]]
     Street: NotRequired[str]
-    StreetComponents: NotRequired[List[StreetComponentsTypeDef]]
+    StreetComponents: NotRequired[list[StreetComponentsTypeDef]]
     AddressNumber: NotRequired[str]
     Building: NotRequired[str]
-    SecondaryAddressComponents: NotRequired[List[SecondaryAddressComponentTypeDef]]
+    SecondaryAddressComponents: NotRequired[list[SecondaryAddressComponentTypeDef]]
 
 
 class CountryHighlightsTypeDef(TypedDict):
-    Code: NotRequired[List[HighlightTypeDef]]
-    Name: NotRequired[List[HighlightTypeDef]]
+    Code: NotRequired[list[HighlightTypeDef]]
+    Name: NotRequired[list[HighlightTypeDef]]
 
 
 class RegionHighlightsTypeDef(TypedDict):
-    Code: NotRequired[List[HighlightTypeDef]]
-    Name: NotRequired[List[HighlightTypeDef]]
+    Code: NotRequired[list[HighlightTypeDef]]
+    Name: NotRequired[list[HighlightTypeDef]]
 
 
 class SubRegionHighlightsTypeDef(TypedDict):
-    Code: NotRequired[List[HighlightTypeDef]]
-    Name: NotRequired[List[HighlightTypeDef]]
+    Code: NotRequired[list[HighlightTypeDef]]
+    Name: NotRequired[list[HighlightTypeDef]]
 
 
 class SuggestAddressHighlightsTypeDef(TypedDict):
-    Label: NotRequired[List[HighlightTypeDef]]
+    Label: NotRequired[list[HighlightTypeDef]]
 
 
 class AutocompleteFilterTypeDef(TypedDict):
@@ -401,19 +397,19 @@ class SuggestFilterTypeDef(TypedDict):
 
 
 class GeocodeParsedQueryAddressComponentsTypeDef(TypedDict):
-    Country: NotRequired[List[ParsedQueryComponentTypeDef]]
-    Region: NotRequired[List[ParsedQueryComponentTypeDef]]
-    SubRegion: NotRequired[List[ParsedQueryComponentTypeDef]]
-    Locality: NotRequired[List[ParsedQueryComponentTypeDef]]
-    District: NotRequired[List[ParsedQueryComponentTypeDef]]
-    SubDistrict: NotRequired[List[ParsedQueryComponentTypeDef]]
-    PostalCode: NotRequired[List[ParsedQueryComponentTypeDef]]
-    Block: NotRequired[List[ParsedQueryComponentTypeDef]]
-    SubBlock: NotRequired[List[ParsedQueryComponentTypeDef]]
-    Street: NotRequired[List[ParsedQueryComponentTypeDef]]
-    AddressNumber: NotRequired[List[ParsedQueryComponentTypeDef]]
-    Building: NotRequired[List[ParsedQueryComponentTypeDef]]
-    SecondaryAddressComponents: NotRequired[List[ParsedQuerySecondaryAddressComponentTypeDef]]
+    Country: NotRequired[list[ParsedQueryComponentTypeDef]]
+    Region: NotRequired[list[ParsedQueryComponentTypeDef]]
+    SubRegion: NotRequired[list[ParsedQueryComponentTypeDef]]
+    Locality: NotRequired[list[ParsedQueryComponentTypeDef]]
+    District: NotRequired[list[ParsedQueryComponentTypeDef]]
+    SubDistrict: NotRequired[list[ParsedQueryComponentTypeDef]]
+    PostalCode: NotRequired[list[ParsedQueryComponentTypeDef]]
+    Block: NotRequired[list[ParsedQueryComponentTypeDef]]
+    SubBlock: NotRequired[list[ParsedQueryComponentTypeDef]]
+    Street: NotRequired[list[ParsedQueryComponentTypeDef]]
+    AddressNumber: NotRequired[list[ParsedQueryComponentTypeDef]]
+    Building: NotRequired[list[ParsedQueryComponentTypeDef]]
+    SecondaryAddressComponents: NotRequired[list[ParsedQuerySecondaryAddressComponentTypeDef]]
 
 
 class GeocodeRequestTypeDef(TypedDict):
@@ -430,10 +426,10 @@ class GeocodeRequestTypeDef(TypedDict):
 
 
 class OpeningHoursTypeDef(TypedDict):
-    Display: NotRequired[List[str]]
+    Display: NotRequired[list[str]]
     OpenNow: NotRequired[bool]
-    Components: NotRequired[List[OpeningHoursComponentsTypeDef]]
-    Categories: NotRequired[List[CategoryTypeDef]]
+    Components: NotRequired[list[OpeningHoursComponentsTypeDef]]
+    Categories: NotRequired[list[CategoryTypeDef]]
 
 
 class PostalCodeDetailsTypeDef(TypedDict):
@@ -454,6 +450,7 @@ class ReverseGeocodeRequestTypeDef(TypedDict):
     PoliticalView: NotRequired[str]
     IntendedUse: NotRequired[ReverseGeocodeIntendedUseType]
     Key: NotRequired[str]
+    Heading: NotRequired[float]
 
 
 class SearchNearbyRequestTypeDef(TypedDict):
@@ -470,10 +467,10 @@ class SearchNearbyRequestTypeDef(TypedDict):
 
 
 class ContactsTypeDef(TypedDict):
-    Phones: NotRequired[List[ContactDetailsTypeDef]]
-    Faxes: NotRequired[List[ContactDetailsTypeDef]]
-    Websites: NotRequired[List[ContactDetailsTypeDef]]
-    Emails: NotRequired[List[ContactDetailsTypeDef]]
+    Phones: NotRequired[list[ContactDetailsTypeDef]]
+    Faxes: NotRequired[list[ContactDetailsTypeDef]]
+    Websites: NotRequired[list[ContactDetailsTypeDef]]
+    Emails: NotRequired[list[ContactDetailsTypeDef]]
 
 
 class ComponentMatchScoresTypeDef(TypedDict):
@@ -482,7 +479,7 @@ class ComponentMatchScoresTypeDef(TypedDict):
 
 
 class PhonemeDetailsTypeDef(TypedDict):
-    Title: NotRequired[List[PhonemeTranscriptionTypeDef]]
+    Title: NotRequired[list[PhonemeTranscriptionTypeDef]]
     Address: NotRequired[AddressComponentPhonemesTypeDef]
 
 
@@ -490,11 +487,11 @@ class IntersectionTypeDef(TypedDict):
     PlaceId: str
     Title: str
     Address: NotRequired[AddressTypeDef]
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
     RouteDistance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
+    MapView: NotRequired[list[float]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
 
 
 class RelatedPlaceTypeDef(TypedDict):
@@ -502,29 +499,29 @@ class RelatedPlaceTypeDef(TypedDict):
     PlaceType: PlaceTypeType
     Title: str
     Address: NotRequired[AddressTypeDef]
-    Position: NotRequired[List[float]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
+    Position: NotRequired[list[float]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
 
 
 class AutocompleteAddressHighlightsTypeDef(TypedDict):
-    Label: NotRequired[List[HighlightTypeDef]]
+    Label: NotRequired[list[HighlightTypeDef]]
     Country: NotRequired[CountryHighlightsTypeDef]
     Region: NotRequired[RegionHighlightsTypeDef]
     SubRegion: NotRequired[SubRegionHighlightsTypeDef]
-    Locality: NotRequired[List[HighlightTypeDef]]
-    District: NotRequired[List[HighlightTypeDef]]
-    SubDistrict: NotRequired[List[HighlightTypeDef]]
-    Street: NotRequired[List[HighlightTypeDef]]
-    Block: NotRequired[List[HighlightTypeDef]]
-    SubBlock: NotRequired[List[HighlightTypeDef]]
-    Intersection: NotRequired[List[List[HighlightTypeDef]]]
-    PostalCode: NotRequired[List[HighlightTypeDef]]
-    AddressNumber: NotRequired[List[HighlightTypeDef]]
-    Building: NotRequired[List[HighlightTypeDef]]
+    Locality: NotRequired[list[HighlightTypeDef]]
+    District: NotRequired[list[HighlightTypeDef]]
+    SubDistrict: NotRequired[list[HighlightTypeDef]]
+    Street: NotRequired[list[HighlightTypeDef]]
+    Block: NotRequired[list[HighlightTypeDef]]
+    SubBlock: NotRequired[list[HighlightTypeDef]]
+    Intersection: NotRequired[list[list[HighlightTypeDef]]]
+    PostalCode: NotRequired[list[HighlightTypeDef]]
+    AddressNumber: NotRequired[list[HighlightTypeDef]]
+    Building: NotRequired[list[HighlightTypeDef]]
 
 
 class SuggestHighlightsTypeDef(TypedDict):
-    Title: NotRequired[List[HighlightTypeDef]]
+    Title: NotRequired[list[HighlightTypeDef]]
     Address: NotRequired[SuggestAddressHighlightsTypeDef]
 
 
@@ -569,7 +566,7 @@ class SuggestRequestTypeDef(TypedDict):
 
 
 class GeocodeParsedQueryTypeDef(TypedDict):
-    Title: NotRequired[List[ParsedQueryComponentTypeDef]]
+    Title: NotRequired[list[ParsedQueryComponentTypeDef]]
     Address: NotRequired[GeocodeParsedQueryAddressComponentsTypeDef]
 
 
@@ -584,16 +581,16 @@ class SearchNearbyResultItemTypeDef(TypedDict):
     Title: str
     Address: NotRequired[AddressTypeDef]
     AddressNumberCorrected: NotRequired[bool]
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    Categories: NotRequired[List[CategoryTypeDef]]
-    FoodTypes: NotRequired[List[FoodTypeTypeDef]]
-    BusinessChains: NotRequired[List[BusinessChainTypeDef]]
+    MapView: NotRequired[list[float]]
+    Categories: NotRequired[list[CategoryTypeDef]]
+    FoodTypes: NotRequired[list[FoodTypeTypeDef]]
+    BusinessChains: NotRequired[list[BusinessChainTypeDef]]
     Contacts: NotRequired[ContactsTypeDef]
-    OpeningHours: NotRequired[List[OpeningHoursTypeDef]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
-    AccessRestrictions: NotRequired[List[AccessRestrictionTypeDef]]
+    OpeningHours: NotRequired[list[OpeningHoursTypeDef]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
+    AccessRestrictions: NotRequired[list[AccessRestrictionTypeDef]]
     TimeZone: NotRequired[TimeZoneTypeDef]
     PoliticalView: NotRequired[str]
     Phonemes: NotRequired[PhonemeDetailsTypeDef]
@@ -605,16 +602,16 @@ class SearchTextResultItemTypeDef(TypedDict):
     Title: str
     Address: NotRequired[AddressTypeDef]
     AddressNumberCorrected: NotRequired[bool]
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    Categories: NotRequired[List[CategoryTypeDef]]
-    FoodTypes: NotRequired[List[FoodTypeTypeDef]]
-    BusinessChains: NotRequired[List[BusinessChainTypeDef]]
+    MapView: NotRequired[list[float]]
+    Categories: NotRequired[list[CategoryTypeDef]]
+    FoodTypes: NotRequired[list[FoodTypeTypeDef]]
+    BusinessChains: NotRequired[list[BusinessChainTypeDef]]
     Contacts: NotRequired[ContactsTypeDef]
-    OpeningHours: NotRequired[List[OpeningHoursTypeDef]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
-    AccessRestrictions: NotRequired[List[AccessRestrictionTypeDef]]
+    OpeningHours: NotRequired[list[OpeningHoursTypeDef]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
+    AccessRestrictions: NotRequired[list[AccessRestrictionTypeDef]]
     TimeZone: NotRequired[TimeZoneTypeDef]
     PoliticalView: NotRequired[str]
     Phonemes: NotRequired[PhonemeDetailsTypeDef]
@@ -624,14 +621,14 @@ class SuggestPlaceResultTypeDef(TypedDict):
     PlaceId: NotRequired[str]
     PlaceType: NotRequired[PlaceTypeType]
     Address: NotRequired[AddressTypeDef]
-    Position: NotRequired[List[float]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    Categories: NotRequired[List[CategoryTypeDef]]
-    FoodTypes: NotRequired[List[FoodTypeTypeDef]]
-    BusinessChains: NotRequired[List[BusinessChainTypeDef]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
-    AccessRestrictions: NotRequired[List[AccessRestrictionTypeDef]]
+    MapView: NotRequired[list[float]]
+    Categories: NotRequired[list[CategoryTypeDef]]
+    FoodTypes: NotRequired[list[FoodTypeTypeDef]]
+    BusinessChains: NotRequired[list[BusinessChainTypeDef]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
+    AccessRestrictions: NotRequired[list[AccessRestrictionTypeDef]]
     TimeZone: NotRequired[TimeZoneTypeDef]
     PoliticalView: NotRequired[str]
     Phonemes: NotRequired[PhonemeDetailsTypeDef]
@@ -643,16 +640,16 @@ class ReverseGeocodeResultItemTypeDef(TypedDict):
     Title: str
     Address: NotRequired[AddressTypeDef]
     AddressNumberCorrected: NotRequired[bool]
-    PostalCodeDetails: NotRequired[List[PostalCodeDetailsTypeDef]]
-    Position: NotRequired[List[float]]
+    PostalCodeDetails: NotRequired[list[PostalCodeDetailsTypeDef]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    Categories: NotRequired[List[CategoryTypeDef]]
-    FoodTypes: NotRequired[List[FoodTypeTypeDef]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
+    MapView: NotRequired[list[float]]
+    Categories: NotRequired[list[CategoryTypeDef]]
+    FoodTypes: NotRequired[list[FoodTypeTypeDef]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
     TimeZone: NotRequired[TimeZoneTypeDef]
     PoliticalView: NotRequired[str]
-    Intersections: NotRequired[List[IntersectionTypeDef]]
+    Intersections: NotRequired[list[IntersectionTypeDef]]
 
 
 class GetPlaceResponseTypeDef(TypedDict):
@@ -662,26 +659,26 @@ class GetPlaceResponseTypeDef(TypedDict):
     PricingBucket: str
     Address: AddressTypeDef
     AddressNumberCorrected: bool
-    PostalCodeDetails: List[PostalCodeDetailsTypeDef]
-    Position: List[float]
-    MapView: List[float]
-    Categories: List[CategoryTypeDef]
-    FoodTypes: List[FoodTypeTypeDef]
-    BusinessChains: List[BusinessChainTypeDef]
+    PostalCodeDetails: list[PostalCodeDetailsTypeDef]
+    Position: list[float]
+    MapView: list[float]
+    Categories: list[CategoryTypeDef]
+    FoodTypes: list[FoodTypeTypeDef]
+    BusinessChains: list[BusinessChainTypeDef]
     Contacts: ContactsTypeDef
-    OpeningHours: List[OpeningHoursTypeDef]
-    AccessPoints: List[AccessPointTypeDef]
-    AccessRestrictions: List[AccessRestrictionTypeDef]
+    OpeningHours: list[OpeningHoursTypeDef]
+    AccessPoints: list[AccessPointTypeDef]
+    AccessRestrictions: list[AccessRestrictionTypeDef]
     TimeZone: TimeZoneTypeDef
     PoliticalView: str
     Phonemes: PhonemeDetailsTypeDef
     MainAddress: RelatedPlaceTypeDef
-    SecondaryAddresses: List[RelatedPlaceTypeDef]
+    SecondaryAddresses: list[RelatedPlaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AutocompleteHighlightsTypeDef(TypedDict):
-    Title: NotRequired[List[HighlightTypeDef]]
+    Title: NotRequired[list[HighlightTypeDef]]
     Address: NotRequired[AutocompleteAddressHighlightsTypeDef]
 
 
@@ -691,32 +688,32 @@ class GeocodeResultItemTypeDef(TypedDict):
     Title: str
     Address: NotRequired[AddressTypeDef]
     AddressNumberCorrected: NotRequired[bool]
-    PostalCodeDetails: NotRequired[List[PostalCodeDetailsTypeDef]]
-    Position: NotRequired[List[float]]
+    PostalCodeDetails: NotRequired[list[PostalCodeDetailsTypeDef]]
+    Position: NotRequired[list[float]]
     Distance: NotRequired[int]
-    MapView: NotRequired[List[float]]
-    Categories: NotRequired[List[CategoryTypeDef]]
-    FoodTypes: NotRequired[List[FoodTypeTypeDef]]
-    AccessPoints: NotRequired[List[AccessPointTypeDef]]
+    MapView: NotRequired[list[float]]
+    Categories: NotRequired[list[CategoryTypeDef]]
+    FoodTypes: NotRequired[list[FoodTypeTypeDef]]
+    AccessPoints: NotRequired[list[AccessPointTypeDef]]
     TimeZone: NotRequired[TimeZoneTypeDef]
     PoliticalView: NotRequired[str]
     MatchScores: NotRequired[MatchScoreDetailsTypeDef]
     ParsedQuery: NotRequired[GeocodeParsedQueryTypeDef]
-    Intersections: NotRequired[List[IntersectionTypeDef]]
+    Intersections: NotRequired[list[IntersectionTypeDef]]
     MainAddress: NotRequired[RelatedPlaceTypeDef]
-    SecondaryAddresses: NotRequired[List[RelatedPlaceTypeDef]]
+    SecondaryAddresses: NotRequired[list[RelatedPlaceTypeDef]]
 
 
 class SearchNearbyResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[SearchNearbyResultItemTypeDef]
+    ResultItems: list[SearchNearbyResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SearchTextResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[SearchTextResultItemTypeDef]
+    ResultItems: list[SearchTextResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -731,7 +728,7 @@ class SuggestResultItemTypeDef(TypedDict):
 
 class ReverseGeocodeResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[ReverseGeocodeResultItemTypeDef]
+    ResultItems: list[ReverseGeocodeResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -748,18 +745,18 @@ class AutocompleteResultItemTypeDef(TypedDict):
 
 class GeocodeResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[GeocodeResultItemTypeDef]
+    ResultItems: list[GeocodeResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class SuggestResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[SuggestResultItemTypeDef]
-    QueryRefinements: List[QueryRefinementTypeDef]
+    ResultItems: list[SuggestResultItemTypeDef]
+    QueryRefinements: list[QueryRefinementTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AutocompleteResponseTypeDef(TypedDict):
     PricingBucket: str
-    ResultItems: List[AutocompleteResultItemTypeDef]
+    ResultItems: list[AutocompleteResultItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

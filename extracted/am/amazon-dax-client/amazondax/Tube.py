@@ -50,6 +50,7 @@ class Tube(object):
         self._pool_window = (self._auth_ttl_millis / 2)
         self._tube_window = (self._auth_ttl_millis * Tube.WINDOW_SCALAR)
         self._last_pool_auth = 0
+        self.ip_version = sock.family
         self.time = clock
 
         self._user_agent = user_agent or Tube.DEFAULT_USER_AGENT
@@ -380,13 +381,14 @@ class SocketTubePool(TubePool):
     DEFAULT_CONNECT_TIMEOUT = 1 # seconds
     DEFAULT_READ_TIMEOUT = 60   # seconds
 
-    def __init__(self, scheme, hostname, sockaddr, cred_provider, region,
+    def __init__(self, scheme, hostname, sockaddr, ip_version, cred_provider, region,
                  user_agent=None, user_agent_extra=None, connect_timeout=None,
                  read_timeout=None, skip_hostname_verification=None):
         super(SocketTubePool, self).__init__()
         self.scheme = scheme
         self.hostname = hostname
         self.sockaddr = sockaddr
+        self.ip_version = ip_version
         self.cred_provider = cred_provider
         self.region = region
         self.user_agent = user_agent

@@ -4,12 +4,12 @@ import copy
 import dataclasses
 import functools
 import inspect
+import itertools
 import os
 import re
 import weakref
 from collections.abc import Mapping, MutableMapping
-from datetime import timedelta, datetime
-from enum import Enum
+from datetime import datetime, timedelta
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -29,7 +29,6 @@ from typing import (
     cast,
 )
 
-import itertools
 import numpy as np
 import pyarrow as pa
 
@@ -39,12 +38,12 @@ from chalk._validation.validation import Validation
 from chalk.features._encoding.converter import FeatureConverter, JSONCodec, TDecoder, TEncoder
 from chalk.features._encoding.primitive import TPrimitive
 from chalk.features.feature_set import CURRENT_FEATURE_REGISTRY, FeatureRegistryProtocol
-from chalk.features.feature_wrapper import FeatureWrapper
-from chalk.features.filter import Filter, TimeDelta, ClauseJoinWithAndException
+from chalk.features.feature_wrapper import FeatureWrapper, NearestNeighborException
+from chalk.features.filter import ClauseJoinWithAndException, Filter, TimeDelta
 from chalk.features.tag import Tags
 from chalk.features.underscore import Underscore
 from chalk.serialization.parsed_annotation import ParsedAnnotation
-from chalk.utils.collections import ensure_tuple, get_unique_item, FrozenOrderedSet, OrderedSet
+from chalk.utils.collections import FrozenOrderedSet, OrderedSet, ensure_tuple, get_unique_item
 from chalk.utils.duration import CHALK_MAX_TIMEDELTA, Duration, parse_chalk_duration
 from chalk.utils.import_utils import get_type_checking_imports
 from chalk.utils.json import JSON, pyarrow_json_type
@@ -55,7 +54,7 @@ from chalk.utils.pydanticutil.pydantic_compat import (
     is_pydantic_basemodel_instance,
     parse_pydantic_model,
 )
-from chalk.utils.string import to_snake_case, oxford_comma_list
+from chalk.utils.string import oxford_comma_list, to_snake_case
 
 if TYPE_CHECKING:
     from google.protobuf.message import Message as ProtobufMessage
@@ -67,6 +66,13 @@ _TRich = TypeVar("_TRich")
 _TPrim = TypeVar("_TPrim", bound=TPrimitive)
 
 _logger = get_logger(__name__)
+
+from chalk.features.feature_cache_strategy import (
+    CacheDefaultsType,
+    CacheNullsType,
+    CacheStrategy,
+    get_cache_strategy_from_cache_settings,
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -175,7 +181,7 @@ class WindowConfigResolved:
     pick the primary key"""
 
     aggregation_kwargs: FrozenOrderedSet[Tuple[str, Any]]
-    """Only some aggregations allow kwargs, namely 'approx_top_k'."""
+    """Only some aggregations allow kwargs, namely 'approx_top_k', 'first_k', 'last_k'."""
 
     pyarrow_dtype: pa.DataType
 
@@ -187,16 +193,6 @@ class WindowConfigResolved:
     backfill_start_time: datetime | None
     continuous_resolver: str | None
     continuous_buffer_duration_seconds: int | None
-
-
-class CacheStrategy(Enum):
-    ALL = "all"
-    NO_NULLS = "no_nulls"
-    NO_DEFAULTS = "no_defaults"
-    NO_NULLS_OR_DEFAULTS = "no_nulls_or_defaults"
-    EVICT_NULLS = "evict_nulls"
-    EVICT_DEFAULTS = "evict_defaults"
-    EVICT_NULLS_AND_DEFAULTS = "evict_nulls_and_defaults"
 
 
 class Feature(Generic[_TPrim, _TRich]):
@@ -256,6 +252,7 @@ class Feature(Generic[_TPrim, _TRich]):
         "tags",
         "underlying",
         "underscore_expression",
+        "offline_underscore_expression",
         "version",
         "window_duration",
         "window_durations",
@@ -280,9 +277,10 @@ class Feature(Generic[_TPrim, _TRich]):
         primary: bool | None = None,
         default: _TRich | ellipsis = ...,
         underscore_expression: Underscore | None = None,
+        offline_underscore_expression: Underscore | None = None,
         max_staleness: Duration | None | ellipsis = ...,
         online_store_max_items: int | None = None,
-        cache_strategy: CacheStrategy = CacheStrategy.ALL,
+        cache_strategy: CacheStrategy = CacheStrategy.ALL_WITH_BOTH_UNSET,
         etl_offline_to_online: bool | None = None,
         encoder: TEncoder[_TPrim, _TRich] | None = None,
         decoder: TDecoder[_TPrim, _TRich] | None = None,
@@ -390,6 +388,7 @@ class Feature(Generic[_TPrim, _TRich]):
         self._primary = primary
         self._primary_feature: Optional[Feature] = None
         self.underscore_expression: Underscore | None = underscore_expression
+        self.offline_underscore_expression: Underscore | None = offline_underscore_expression
         self.is_distance_pseudofeature = is_distance_pseudofeature
 
         self._raw_max_staleness = max_staleness
@@ -507,7 +506,7 @@ class Feature(Generic[_TPrim, _TRich]):
 
     @property
     def converter(self) -> FeatureConverter:
-        from chalk.features import DataFrame, Vector
+        from chalk.features import DataFrame, Tensor, Vector
 
         self._converter_entered += 1
 
@@ -704,6 +703,57 @@ class Feature(Generic[_TPrim, _TRich]):
                     f"Vector types must be PyArrow FixedSizeLists of float16, float32, or float64 values. Feature '{self.root_fqn}' is of type {pyarrow_dtype}."
                 )
 
+        tensor_typ = self.typ.as_tensor()
+        if tensor_typ is not None:
+            if decoder is not None:
+                raise ValueError(
+                    (
+                        "When using a Tensor type, the decoder cannot be manually specified. Please remove the "
+                        f"`feature(decoder=...)` argument from the feature definition for feature '{self.root_fqn}'."
+                    )
+                )
+
+            def tensor_decoder(primitive: Tensor | List[Any]) -> Tensor:
+                if isinstance(primitive, Tensor):
+                    return primitive
+                data = np.array(primitive, dtype=np.dtype(tensor_typ.dtype.to_pandas_dtype()))
+                return Tensor(data)
+
+            decoder = cast(TDecoder[_TPrim, _TRich], tensor_decoder)
+            if encoder is not None:
+                raise ValueError(
+                    (
+                        "When using a Tensor type, the encoder cannot be manually specified. Please remove the "
+                        f"`feature(encoder=...)` argument from the feature definition for feature '{self.root_fqn}'"
+                    )
+                )
+
+            def tensor_encoder(rich: Vector) -> Any:
+                return rich.to_numpy().tolist()
+
+            encoder = cast(TEncoder[_TPrim, _TRich], tensor_encoder)
+            if pyarrow_dtype is None:
+                try:
+                    pyarrow_dtype = tensor_typ.to_pyarrow_dtype()
+                except AttributeError:
+                    # The dtype property will not be set if someone does x: Tensor without specifying the type in the generics
+                    raise ValueError(
+                        (
+                            f"The tensor annotation for feature '{self.root_fqn}' is missing the number of dimensions. "
+                            f"Please update the annotation from `{self.attribute_name}: Tensor` to "
+                            f"`{self.attribute_name}: Tensor[N, ...]`, where N is a dimension."
+                        )
+                    ) from None
+
+            if (
+                not pa.types.is_fixed_size_list(pyarrow_dtype)
+                and not pa.types.is_list(pyarrow_dtype)
+                and not pa.types.is_large_list(pyarrow_dtype)
+            ):
+                raise TypeError(
+                    f"Vector types must be serialized as a PyArrow List/FixedSizeList. Feature '{self.root_fqn}' is of type {pyarrow_dtype}."
+                )
+
         feature_typ = self.typ.as_feature()
         if feature_typ is not None:
             if self._converter_entered > 1:
@@ -876,7 +926,7 @@ class Feature(Generic[_TPrim, _TRich]):
 
     def __repr__(self):
         try:
-            root_fqn=self.root_fqn
+            root_fqn = self.root_fqn
         except:
             # self.root_fqn is a property, if it failed then just return the object repr
             return object.__repr__(self)
@@ -1180,6 +1230,7 @@ class Feature(Generic[_TPrim, _TRich]):
                 etl_offline_to_online=False,
                 default=None,
                 max_staleness=CHALK_MAX_TIMEDELTA,
+                cache_strategy=CacheStrategy.ALL,
                 encoder=self._encoder,  # pyright: ignore[reportArgumentType]
                 decoder=self._decoder,
                 pyarrow_dtype=self._pyarrow_dtype,
@@ -1310,6 +1361,19 @@ class Feature(Generic[_TPrim, _TRich]):
                 code="32",
                 raise_error=TypeError,
             )
+        except NearestNeighborException as ne:
+            assert self.features_cls is not None
+            self.lsp_error_builder.add_diagnostic(
+                message=(
+                    f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
+                    f"has a join function that has an incorrectly configured nearest neighbor join: {ne} "
+                ),
+                label="invalid nearest neighbor join",
+                range=self.lsp_error_builder.property_value_range(self.attribute_name)
+                or self.lsp_error_builder.property_range(self.attribute_name),
+                code="32",
+                raise_error=TypeError,
+            )
         except NameError as ne:
             object_str = ne.name
             assert self.features_cls is not None
@@ -1326,7 +1390,7 @@ class Feature(Generic[_TPrim, _TRich]):
                     ),
                     label="invalid join",
                     range=self.lsp_error_builder.property_value_range(self.attribute_name)
-                          or self.lsp_error_builder.property_range(self.attribute_name),
+                    or self.lsp_error_builder.property_range(self.attribute_name),
                     code="32",
                     raise_error=TypeError,
                 )
@@ -1339,7 +1403,7 @@ class Feature(Generic[_TPrim, _TRich]):
                     ),
                     label="invalid join",
                     range=self.lsp_error_builder.property_value_range(self.attribute_name)
-                          or self.lsp_error_builder.property_range(self.attribute_name),
+                    or self.lsp_error_builder.property_range(self.attribute_name),
                     code="32",
                     raise_error=TypeError,
                 )
@@ -1363,18 +1427,21 @@ class Feature(Generic[_TPrim, _TRich]):
             )
 
         if not self.is_has_many and not self.is_has_one:
-            assert self.features_cls is not None
-            self.lsp_error_builder.add_diagnostic(
-                message=(
-                    f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
-                    f"has a join filter ({join}) but its type annotation '{self.typ}' is not a feature class or DataFrame."
-                ),
-                label="invalid join",
-                range=self.lsp_error_builder.property_value_range(self.attribute_name)
-                or self.lsp_error_builder.property_range(self.attribute_name),
-                code="37",
-                raise_error=TypeError,
-            )
+            # Check if user tried to use DataFrame (even if validation failed)
+            # Use is_dataframe_annotation() to detect DataFrame types without triggering validation errors
+            if not self.typ.is_dataframe_annotation():
+                assert self.features_cls is not None
+                self.lsp_error_builder.add_diagnostic(
+                    message=(
+                        f"The attribute '{self.features_cls.__name__}.{self.attribute_name}' "
+                        f"has a join filter ({join}) but its type annotation '{self.typ}' is not a feature class or DataFrame that links to another feature class."
+                    ),
+                    label="invalid join",
+                    range=self.lsp_error_builder.property_value_range(self.attribute_name)
+                    or self.lsp_error_builder.property_range(self.attribute_name),
+                    code="37",
+                    raise_error=TypeError,
+                )
         if self._join_type == "has_one":
             if self.is_has_many:
                 assert self.features_cls is not None
@@ -1604,6 +1671,7 @@ class Feature(Generic[_TPrim, _TRich]):
                     no_display=True,
                     is_autogenerated=True,
                     max_staleness=None,
+                    cache_strategy=CacheStrategy.ALL,
                     version=self.version and self.version.maximum,
                     default_version=(self.version and self.version.default) or 1,
                     primary=False,
@@ -1671,8 +1739,8 @@ def feature(
     default_version: int = 1,
     primary: Optional[bool] = None,
     max_staleness: Optional[Union[ellipsis, Duration]] = ...,
-    cache_nulls: Union[bool, Literal["evict_nulls"]] = True,
-    cache_defaults: Union[bool, Literal["evict_defaults"]] = True,
+    cache_nulls: Optional[CacheNullsType] = None,
+    cache_defaults: Optional[CacheDefaultsType] = None,
     etl_offline_to_online: Optional[bool] = None,
     encoder: Optional[TEncoder[_TPrim, _TRich]] = None,
     decoder: Optional[TDecoder[_TPrim, _TRich]] = None,
@@ -1686,6 +1754,7 @@ def feature(
     default: Union[_TRich, ellipsis] = ...,
     underscore: Optional[Underscore] = None,  # Deprecated. Prefer `expression`.
     expression: Optional[Underscore] = None,
+    offline_expression: Optional[Underscore] = None,
     offline_ttl: Optional[Union[ellipsis, Duration]] = ...,
     deprecated: bool = False,
     store_online: bool = True,
@@ -1749,6 +1818,8 @@ def feature(
         ...     total: int = feature(expression=_.subtotal + _.tax, default=0)
 
         See more at https://docs.chalk.ai/docs/expression
+    offline_expression
+        Defines an alternate expression to compute the feature during offline queries.
     dtype
         The backing `pyarrow.DataType` for the feature. This parameter can
         be used to control the storage format of data. For example, if you
@@ -1868,7 +1939,24 @@ def feature(
     store_offline
         By default `True`. Setting to `False` will prevent this feature from being written to the offline store.
     versions
-        A map from integer feature version to feature definition. If this argument is used, then no other argument to `features` can be used.
+        A map from integer feature version to feature definition. If this argument is used, no other argument
+        to `features` can be used.
+        >>> from chalk.features import features, feature
+        >>> @features
+        ... class User:
+        ...     id: str
+        ...     score: int
+        ...     banned: bool = feature(versions={
+        ...         1: feature(
+        ...              deprecated=True,
+        ...              description="Prior thresholds we used",
+        ...              expression=_.score > 900,
+        ...         ),
+        ...         2: feature(
+        ...              description="New cutoff released by Monica's team",
+        ...              expression=_.score > 300 | (_.score < 100 & _.id == "admin"),
+        ...         ),
+        ...     })
     deprecated
         If `True`, this feature is considered deprecated, which impacts the dashboard, alerts,
         and warnings.
@@ -1979,45 +2067,7 @@ def feature(
             if not isinstance(value, Feature):  # pyright: ignore[reportUnnecessaryIsInstance]
                 raise ValueError(f"When `versions` is provided, the values must be features, but `{value}` was given.")
 
-    if cache_nulls == "evict_nulls":
-        if cache_defaults == "evict_defaults":
-            cache_strategy = CacheStrategy.EVICT_NULLS_AND_DEFAULTS
-        elif cache_defaults == False:
-            raise ValueError(
-                'Cannot evict nulls and not cache defaults. Did you mean to set `cache_nulls=False` or `cache_defaults="evict_defaults"`?'
-            )
-        elif cache_defaults == True:
-            cache_strategy = CacheStrategy.EVICT_NULLS
-        else:
-            raise ValueError(
-                f'Expected value of cache_defaults to be True, False, or "evict_defaults". Received {cache_defaults}'
-            )
-    elif cache_nulls is False:
-        if cache_defaults == "evict_defaults":
-            raise ValueError(
-                'Cannot evict defaults and not cache nulls. Did you mean to set `cache_defaults=False` or `cache_nulls="evict_nulls"`?'
-            )
-        elif cache_defaults == False:
-            cache_strategy = CacheStrategy.NO_NULLS_OR_DEFAULTS
-        elif cache_defaults == True:
-            cache_strategy = CacheStrategy.NO_NULLS
-        else:
-            raise ValueError(
-                f'Expected value of cache_defaults to be True, False, or "evict_defaults". Received {cache_defaults}'
-            )
-    elif cache_nulls is True:
-        if cache_defaults == "evict_defaults":
-            cache_strategy = CacheStrategy.EVICT_DEFAULTS
-        elif cache_defaults == False:
-            cache_strategy = CacheStrategy.NO_DEFAULTS
-        elif cache_defaults == True:
-            cache_strategy = CacheStrategy.ALL
-        else:
-            raise ValueError(
-                f'Expected value of cache_defaults to be True, False, or "evict_defaults". Received {cache_defaults}'
-            )
-    else:
-        raise ValueError(f'Expected value of cache_nulls to be True, False, or "evict_nulls". Received {cache_nulls}')
+    cache_strategy = get_cache_strategy_from_cache_settings(cache_nulls=cache_nulls, cache_defaults=cache_defaults)
 
     return cast(
         _TRich,
@@ -2064,6 +2114,7 @@ def feature(
             ),
             default=default,
             underscore_expression=expression if expression is not None else underscore,
+            offline_underscore_expression=offline_expression,
             offline_ttl=offline_ttl,
             is_deprecated=deprecated,
             store_online=store_online,
@@ -2129,7 +2180,7 @@ def has_one(f: Callable[[], Any]) -> Any:
 def has_many(
     f: Callable[[], Any],
     max_staleness: Union[Duration, None, ellipsis] = ...,
-    online_store_max_items: int | None = None
+    online_store_max_items: int | None = None,
 ) -> Any:
     """Specify a feature that represents a one-to-many relationship.
 
@@ -2148,6 +2199,7 @@ def has_many(
         The maximum number of items to cache for the joined feature. The
         items in the joined feature aggregate, storing the latest values
         of the joined feature for each primary key in the joined feature.
+
     Examples
     --------
     >>> from chalk.features import DataFrame, features, has_many
@@ -2163,7 +2215,9 @@ def has_many(
     ...         lambda: User.id == Card.user_id
     ...     )
     """
-    return Feature(join=f, max_staleness=max_staleness,online_store_max_items=online_store_max_items, join_type="has_many")
+    return Feature(
+        join=f, max_staleness=max_staleness, online_store_max_items=online_store_max_items, join_type="has_many"
+    )
 
 
 __all__ = (

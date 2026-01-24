@@ -104,10 +104,10 @@
  *  Fall back to legacy macros and known arch tags when unavailable.
  */
 #if !defined(SZ_IS_BIG_ENDIAN_)
-#if (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)) ||                                           \
-    (defined(__BYTE_ORDER) && (__BYTE_ORDER == __BIG_ENDIAN)) || defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN) ||    \
-    defined(BIG_ENDIAN) || defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) || defined(_MIBSEB) || \
-    defined(__MIBSEB) || defined(__MIBSEB__) || defined(__s390x__) || defined(__s390__)
+#if (defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)) ||                                         \
+    (defined(__BYTE_ORDER) && (__BYTE_ORDER == __BIG_ENDIAN)) || defined(__BIG_ENDIAN__) || defined(_BIG_ENDIAN) ||  \
+    defined(__ARMEB__) || defined(__THUMBEB__) || defined(__AARCH64EB__) || defined(_MIBSEB) || defined(__MIBSEB) || \
+    defined(__MIBSEB__) || defined(__s390x__) || defined(__s390__)
 #define SZ_IS_BIG_ENDIAN_ (1) //< It's a big-endian target architecture
 #else
 #define SZ_IS_BIG_ENDIAN_ (0) //< It's a little-endian target architecture
@@ -153,34 +153,73 @@
  *  - `SZ_DYNAMIC` is used for functions that are part of the public API, but are dispatched at runtime.
  *  - `SZ_EXTERNAL` is used for third-party libraries that are linked dynamically.
  */
+
+#if defined(__cplusplus)
+#define SZ_C_INLINE inline
+#else
+#define SZ_C_INLINE inline static
+#endif
+
 #if SZ_DYNAMIC_DISPATCH
 #if defined(_WIN32) || defined(__CYGWIN__)
 #define SZ_DYNAMIC __declspec(dllexport)
 #define SZ_EXTERNAL __declspec(dllimport)
-#define SZ_PUBLIC inline static
-#define SZ_INTERNAL inline static
+#define SZ_PUBLIC SZ_C_INLINE
+#define SZ_INTERNAL SZ_C_INLINE
 #else
 #define SZ_DYNAMIC extern __attribute__((visibility("default")))
 #define SZ_EXTERNAL extern
-#define SZ_PUBLIC __attribute__((unused)) inline static
-#define SZ_INTERNAL __attribute__((always_inline)) inline static
+#define SZ_PUBLIC __attribute__((unused)) SZ_C_INLINE
+#define SZ_INTERNAL __attribute__((always_inline)) SZ_C_INLINE
 #endif // _WIN32 || __CYGWIN__
 #else
-#define SZ_DYNAMIC inline static
+#define SZ_DYNAMIC SZ_C_INLINE
 #define SZ_EXTERNAL extern
-#define SZ_PUBLIC inline static
-#define SZ_INTERNAL inline static
+#define SZ_PUBLIC SZ_C_INLINE
+#define SZ_INTERNAL SZ_C_INLINE
 #endif // SZ_DYNAMIC_DISPATCH
 
 /**
- *  @brief  Alignment macro for 64-byte alignment.
+ *  @brief  Disables stack protection for performance-critical functions.
+ *
+ *  GCC's `-fstack-protector-strong` inserts stack canary checks for functions with local arrays
+ *  or buffers. For hash functions that use fixed-size state structures, this is unnecessary
+ *  overhead (~10 cycles per call). This macro opts out of stack protection for such functions.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#define SZ_NO_STACK_PROTECTOR __attribute__((no_stack_protector))
+#else
+#define SZ_NO_STACK_PROTECTOR
+#endif
+
+/**
+ *  @brief  Alignment macro for N-byte alignment.
  */
 #if defined(_MSC_VER)
-#define SZ_ALIGN64 __declspec(align(64))
+#define sz_align_(n) __declspec(align(n))
 #elif defined(__GNUC__) || defined(__clang__)
-#define SZ_ALIGN64 __attribute__((aligned(64)))
+#define sz_align_(n) __attribute__((aligned(n)))
 #else
-#define SZ_ALIGN64
+#define sz_align_(n)
+#endif
+
+/**
+ *  @brief  C99 static array parameter annotation for minimum array size.
+ *          In C, expands to `static n` enabling compiler bounds checking.
+ *          In C++, expands to nothing as this syntax is not supported.
+ *
+ *  @see    https://lwn.net/Articles/1046840/
+ *
+ *  Example usage:
+ *  @code{.c}
+ *      void hash_digest(uint8_t digest[sz_at_least_(32)]);
+ *      void lookup(uint8_t const lut[sz_at_least_(256)]);
+ *  @endcode
+ */
+#if defined(__cplusplus) || defined(_MSC_VER)
+#define sz_at_least_(n)
+#else
+#define sz_at_least_(n) static n
 #endif
 
 /**
@@ -217,11 +256,31 @@
 /*  Compile-time hardware features detection.
  *  All of those can be controlled by the user.
  */
+#if !defined(SZ_USE_WESTMERE)
+#if SZ_IS_64BIT_X86_ && defined(__SSE4_2__) && defined(__AES__)
+#define SZ_USE_WESTMERE (1)
+#elif SZ_IS_64BIT_X86_ && defined(_MSC_VER) && defined(__AVX__)
+#define SZ_USE_WESTMERE (1) // ! MSVC doesn't expose `__SSE4_2__`, `__AES__` macros
+#else
+#define SZ_USE_WESTMERE (0)
+#endif
+#endif
+
 #if !defined(SZ_USE_HASWELL)
 #if SZ_IS_64BIT_X86_ && defined(__AVX2__)
 #define SZ_USE_HASWELL (1)
 #else
 #define SZ_USE_HASWELL (0)
+#endif
+#endif
+
+#if !defined(SZ_USE_GOLDMONT)
+#if SZ_IS_64BIT_X86_ && defined(__SHA__)
+#define SZ_USE_GOLDMONT (1)
+#elif SZ_IS_64BIT_X86_ && defined(_MSC_VER) && defined(__AVX2__)
+#define SZ_USE_GOLDMONT (1) // ! MSVC doesn't expose `__SHA__` macros
+#else
+#define SZ_USE_GOLDMONT (0)
 #endif
 #endif
 
@@ -234,21 +293,27 @@
 #endif
 
 #if !defined(SZ_USE_ICE)
-#if SZ_IS_64BIT_X86_ && defined(__AVX512BW__)
+#if SZ_IS_64BIT_X86_ && defined(__AVX512BW__) && defined(__VAES__)
 #define SZ_USE_ICE (1)
+#elif SZ_IS_64BIT_X86_ && defined(_MSC_VER) && defined(__AVX512BW__)
+#define SZ_USE_ICE (1) // ! MSVC doesn't expose `__VAES__` macros
 #else
 #define SZ_USE_ICE (0)
 #endif
 #endif
 
+/*  NEON support is optional in Armv7/AArch32, but mandatory from 8.0 onwards. */
 #if !defined(SZ_USE_NEON)
 #if SZ_IS_64BIT_ARM_ && defined(__ARM_NEON)
 #define SZ_USE_NEON (1)
+#elif SZ_IS_64BIT_ARM_ && defined(_MSC_VER) && defined(_M_ARM64)
+#define SZ_USE_NEON (1) // ! MSVC doesn't expose `__ARM_NEON` macros
 #else
 #define SZ_USE_NEON (0)
 #endif
 #endif
 
+/*  SVE is optional since Armv8.2-A, but never became mandatory and MSVC has no way to probe for it. */
 #if !defined(SZ_USE_SVE)
 #if SZ_IS_64BIT_ARM_ && defined(__ARM_FEATURE_SVE)
 #define SZ_USE_SVE (1)
@@ -257,6 +322,7 @@
 #endif
 #endif
 
+/*  SVE2 is optional since Armv9.0-A, but never became mandatory and MSVC has no way to probe for it. */
 #if !defined(SZ_USE_SVE2)
 #if SZ_IS_64BIT_ARM_ && defined(__ARM_FEATURE_SVE2)
 #define SZ_USE_SVE2 (1)
@@ -265,20 +331,36 @@
 #endif
 #endif
 
+/*  AES is optional since Armv8.0-A, but never became mandatory and MSVC has no way to probe for it. */
 #if !defined(SZ_USE_NEON_AES)
-#if SZ_IS_64BIT_ARM_ && defined(__ARM_FEATURE_AES)
+#if SZ_IS_64BIT_ARM_ && (defined(__ARM_FEATURE_AES) || defined(__ARM_FEATURE_CRYPTO) || defined(__APPLE__))
 #define SZ_USE_NEON_AES (1)
 #else
 #define SZ_USE_NEON_AES (0)
 #endif
 #endif
 
+/*  SHA2 is optional since Armv8.0-A, but never became mandatory and MSVC has no way to probe for it. */
+#if !defined(SZ_USE_NEON_SHA)
+#if SZ_IS_64BIT_ARM_ && (defined(__ARM_FEATURE_SHA2) || defined(__ARM_FEATURE_CRYPTO) || defined(__APPLE__))
+#define SZ_USE_NEON_SHA (1)
+#else
+#define SZ_USE_NEON_SHA (0)
+#endif
+#endif
+
+/*  SVE2 AES is optional since Armv9.0-A, but never became mandatory and MSVC has no way to probe for it. */
 #if !defined(SZ_USE_SVE2_AES)
 #if SZ_IS_64BIT_ARM_ && defined(__ARM_FEATURE_SVE2_AES)
 #define SZ_USE_SVE2_AES (1)
 #else
 #define SZ_USE_SVE2_AES (0)
 #endif
+#endif
+
+/**  SVE isn't a silver bullet. Oftentimes its still slower and with this flag you can disable it. */
+#if !defined(SZ_ENFORCE_SVE_OVER_NEON)
+#define SZ_ENFORCE_SVE_OVER_NEON (0)
 #endif
 
 #if !defined(SZ_USE_CUDA)
@@ -315,9 +397,9 @@
 
 /*  Hardware-specific headers for different SIMD intrinsics and register wrappers.
  */
-#if SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
+#if SZ_USE_WESTMERE || SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
 #include <immintrin.h>
-#endif // SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
+#endif // SZ_USE_WESTMERE || SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
 #if SZ_USE_NEON
 #if !defined(_MSC_VER)
 #include <arm_acle.h>
@@ -444,6 +526,7 @@ typedef char const *sz_cptr_t;   // A type alias for `char const *`
 typedef sz_i8_t sz_error_cost_t; // Character mismatch cost for fuzzy matching functions
 
 struct sz_hash_state_t;            // Forward declaration of a hash state structure
+struct sz_sha256_state_t;          // Forward declaration of a SHA256 hash state structure
 struct sz_sequence_t;              // Forward declaration of an ordered collection of strings
 typedef sz_size_t sz_sorted_idx_t; // Index of a sorted string in a list of strings
 typedef sz_size_t sz_pgram_t;      // "Pointer-sized N-gram" of a string
@@ -502,8 +585,7 @@ typedef enum sz_status_t {
     sz_invalid_utf8_k = -12,
     /** For algorithms that take collections of unique elements, this status indicates presence of duplicates. */
     sz_contains_duplicates_k = -13,
-    /** For algorithms dealing with large inputs, this error reports the need to upcast the logic to larger types.
-     */
+    /** For algorithms dealing with large inputs, this error reports the need to upcast the logic to larger types. */
     sz_overflow_risk_k = -14,
     /** For algorithms with multi-stage pipelines indicates input/output size mismatch. */
     sz_unexpected_dimensions_k = -15,
@@ -526,12 +608,15 @@ typedef enum sz_capability_t {
     sz_cap_parallel_k = 1 << 2, ///< Multi-threading via Fork Union or other OpenMP-like engines
     sz_cap_any_k = 0x7FFFFFFF,  ///< Mask representing any capability with `INT_MAX`
 
-    sz_cap_haswell_k = 1 << 5, ///< x86 AVX2 capability with FMA and F16C extensions
-    sz_cap_skylake_k = 1 << 6, ///< x86 AVX512 baseline capability
-    sz_cap_ice_k = 1 << 7,     ///< x86 AVX512 capability with advanced integer algos and AES extensions
+    sz_cap_haswell_k = 1 << 5,  ///< x86 AVX2 capability with FMA and F16C extensions
+    sz_cap_skylake_k = 1 << 6,  ///< x86 AVX512 baseline capability
+    sz_cap_ice_k = 1 << 7,      ///< x86 AVX512 capability with advanced integer algos and AES extensions
+    sz_cap_westmere_k = 1 << 8, ///< x86 SSE4.2 + AES-NI capability
+    sz_cap_goldmont_k = 1 << 9, ///< x86 SHA-NI capability for accelerated SHA-256 hashing
 
     sz_cap_neon_k = 1 << 10,     ///< ARM NEON baseline capability
     sz_cap_neon_aes_k = 1 << 11, ///< ARM NEON baseline capability with AES extensions
+    sz_cap_neon_sha_k = 1 << 15, ///< ARM NEON baseline capability with SHA2 extensions
     sz_cap_sve_k = 1 << 12,      ///< ARM SVE baseline capability
     sz_cap_sve2_k = 1 << 13,     ///< ARM SVE2 capability
     sz_cap_sve2_aes_k = 1 << 14, ///< ARM SVE2 capability with AES extensions
@@ -550,7 +635,8 @@ typedef enum sz_capability_t {
 
     // Aggregates for different StringZillas builds
     sz_caps_cpus_k = sz_cap_serial_k | sz_cap_parallel_k | sz_cap_haswell_k | sz_cap_skylake_k | sz_cap_ice_k |
-                     sz_cap_neon_k | sz_cap_neon_aes_k | sz_cap_sve_k | sz_cap_sve2_k | sz_cap_sve2_aes_k,
+                     sz_cap_westmere_k | sz_cap_goldmont_k | sz_cap_neon_k | sz_cap_neon_aes_k | sz_cap_neon_sha_k |
+                     sz_cap_sve_k | sz_cap_sve2_k | sz_cap_sve2_aes_k,
     sz_caps_cuda_k = sz_cap_cuda_k | sz_cap_kepler_k | sz_cap_hopper_k,
 
 } sz_capability_t;
@@ -559,7 +645,7 @@ typedef enum sz_capability_t {
  *  @brief Maximum number of individual capability flags that can be represented.
  *  @sa sz_capabilities_to_strings_implementation_ - not intended for public use, but a valid example.
  */
-#define SZ_CAPABILITIES_COUNT 14
+#define SZ_CAPABILITIES_COUNT 16
 
 /**
  *  @brief Describes the length of a UTF-8 @b rune / character / codepoint in bytes, which can be 1 to 4.
@@ -729,8 +815,48 @@ typedef sz_u64_t (*sz_hash_state_digest_t)(struct sz_hash_state_t const *);
 /** @brief Signature of `sz_bytesum`. */
 typedef sz_u64_t (*sz_bytesum_t)(sz_cptr_t, sz_size_t);
 
+/** @brief Signature of `sz_utf8_count`. */
+typedef sz_size_t (*sz_utf8_count_t)(sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_utf8_find_nth`. */
+typedef sz_cptr_t (*sz_utf8_find_nth_t)(sz_cptr_t, sz_size_t, sz_size_t);
+
+/** @brief Signature of `sz_utf8_unpack_chunk`. */
+typedef sz_cptr_t (*sz_utf8_unpack_chunk_t)(sz_cptr_t, sz_size_t, sz_rune_t *, sz_size_t, sz_size_t *);
+
+/** @brief Signature of `sz_utf8_case_fold`. */
+typedef sz_size_t (*sz_utf8_case_fold_t)(sz_cptr_t, sz_size_t, sz_ptr_t);
+
+/** @brief Forward declaration for case-insensitive needle metadata. */
+struct sz_utf8_case_insensitive_needle_metadata_t;
+
+/** @brief Signature of `sz_utf8_case_insensitive_find`. */
+typedef sz_cptr_t (*sz_utf8_case_insensitive_find_t)(sz_cptr_t, sz_size_t, sz_cptr_t, sz_size_t,
+                                                     struct sz_utf8_case_insensitive_needle_metadata_t *, sz_size_t *);
+
+/** @brief Signature of `sz_utf8_case_insensitive_order`. */
+typedef sz_ordering_t (*sz_utf8_case_insensitive_order_t)(sz_cptr_t, sz_size_t, sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_utf8_case_agnostic`. */
+typedef sz_bool_t (*sz_utf8_case_agnostic_t)(sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_utf8_word_find_boundary`. */
+typedef sz_cptr_t (*sz_utf8_word_find_boundary_t)(sz_cptr_t, sz_size_t, sz_size_t *);
+
+/** @brief Signature of `sz_utf8_word_rfind_boundary`. */
+typedef sz_cptr_t (*sz_utf8_word_rfind_boundary_t)(sz_cptr_t, sz_size_t, sz_size_t *);
+
 /** @brief Signature of `sz_fill_random`. */
 typedef void (*sz_fill_random_t)(sz_ptr_t, sz_size_t, sz_u64_t);
+
+/** @brief Signature of `sz_sha256_state_init`. */
+typedef void (*sz_sha256_state_init_t)(struct sz_sha256_state_t *);
+
+/** @brief Signature of `sz_sha256_state_update`. */
+typedef void (*sz_sha256_state_update_t)(struct sz_sha256_state_t *, sz_cptr_t, sz_size_t);
+
+/** @brief Signature of `sz_sha256_state_digest`. */
+typedef void (*sz_sha256_state_digest_t)(struct sz_sha256_state_t const *, sz_u8_t *);
 
 /** @brief Signature of `sz_equal`. */
 typedef sz_bool_t (*sz_equal_t)(sz_cptr_t, sz_cptr_t, sz_size_t);
@@ -758,6 +884,9 @@ typedef sz_cptr_t (*sz_find_t)(sz_cptr_t, sz_size_t, sz_cptr_t, sz_size_t);
 
 /** @brief Signature of `sz_find_byteset`. */
 typedef sz_cptr_t (*sz_find_byteset_t)(sz_cptr_t, sz_size_t, sz_byteset_t const *);
+
+/** @brief Signature of `sz_utf8_find_newline`, `sz_utf8_find_whitespace`. */
+typedef sz_cptr_t (*sz_utf8_find_boundary_t)(sz_cptr_t, sz_size_t, sz_size_t *);
 
 /** @brief Signature of `sz_sequence_argsort`. */
 typedef sz_status_t (*sz_sequence_argsort_t)(struct sz_sequence_t const *, sz_memory_allocator_t *, sz_sorted_idx_t *);
@@ -789,6 +918,7 @@ typedef union sz_u16_vec_t {
  */
 typedef union sz_u32_vec_t {
     sz_u32_t u32;
+    sz_i32_t i32;
     sz_u16_t u16s[2];
     sz_i16_t i16s[2];
     sz_u8_t u8s[4];
@@ -801,6 +931,7 @@ typedef union sz_u32_vec_t {
  */
 typedef union sz_u64_vec_t {
     sz_u64_t u64;
+    sz_i64_t i64;
     sz_u32_t u32s[2];
     sz_i32_t i32s[2];
     sz_u16_t u16s[4];
@@ -815,7 +946,7 @@ typedef union sz_u64_vec_t {
  *          as well as 1x XMM register.
  */
 typedef union sz_u128_vec_t {
-#if SZ_USE_HASWELL
+#if SZ_USE_WESTMERE || SZ_USE_HASWELL
     __m128i xmm;
     __m128d xmm_pd;
     __m128 xmm_ps;
@@ -848,6 +979,8 @@ typedef union sz_u256_vec_t {
     __m256i ymm;
     __m256d ymm_pd;
     __m256 ymm_ps;
+#endif
+#if SZ_USE_WESTMERE || SZ_USE_HASWELL
     __m128i xmms[2];
 #endif
 #if SZ_USE_NEON
@@ -881,6 +1014,8 @@ typedef union sz_u512_vec_t {
 #endif
 #if SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
     __m256i ymms[2];
+#endif
+#if SZ_USE_WESTMERE || SZ_USE_HASWELL || SZ_USE_SKYLAKE || SZ_USE_ICE
     __m128i xmms[4];
 #endif
 #if SZ_USE_NEON
@@ -900,85 +1035,6 @@ typedef union sz_u512_vec_t {
     sz_u8_t u8s[64];
     sz_i8_t i8s[64];
 } sz_u512_vec_t;
-
-#pragma endregion
-
-#pragma region UTF8
-
-/** @brief Extracts just one UTF8 codepoint from a UTF8 string into a 32-bit unsigned integer. */
-SZ_PUBLIC void sz_rune_parse(sz_cptr_t utf8, sz_rune_t *code, sz_rune_length_t *code_length) {
-    sz_u8_t const *current = (sz_u8_t const *)utf8;
-    sz_u8_t leading_byte = *current++;
-    sz_rune_t ch;
-    sz_rune_length_t ch_length;
-
-    // TODO: This can be made entirely branchless using 32-bit SWAR.
-    if (leading_byte < 0x80U) {
-        // Single-byte rune (0xxxxxxx)
-        ch = leading_byte;
-        ch_length = sz_utf8_rune_1byte_k;
-    }
-    else if ((leading_byte & 0xE0U) == 0xC0U) {
-        // Two-byte rune (110xxxxx 10xxxxxx)
-        ch = (leading_byte & 0x1FU) << 6;
-        ch |= (*current++ & 0x3FU);
-        ch_length = sz_utf8_rune_2bytes_k;
-    }
-    else if ((leading_byte & 0xF0U) == 0xE0U) {
-        // Three-byte rune (1110xxxx 10xxxxxx 10xxxxxx)
-        ch = (leading_byte & 0x0FU) << 12;
-        ch |= (*current++ & 0x3FU) << 6;
-        ch |= (*current++ & 0x3FU);
-        ch_length = sz_utf8_rune_3bytes_k;
-    }
-    else if ((leading_byte & 0xF8U) == 0xF0U) {
-        // Four-byte rune (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
-        ch = (leading_byte & 0x07U) << 18;
-        ch |= (*current++ & 0x3FU) << 12;
-        ch |= (*current++ & 0x3FU) << 6;
-        ch |= (*current++ & 0x3FU);
-        // Check if the code point is within valid Unicode range (U+0000 to U+10FFFF)
-        if (ch > 0x10FFFFU) { ch = 0U, ch_length = sz_utf8_invalid_k; }
-        else { ch_length = sz_utf8_rune_4bytes_k; }
-    }
-    else {
-        // Invalid UTF8 rune.
-        ch = 0U;
-        ch_length = sz_utf8_invalid_k;
-    }
-    *code = ch;
-    *code_length = ch_length;
-}
-
-/**
- *  @brief Validates if a UTF8 string contains only valid UTF8 sequences.
- *  @param[in] utf8 The UTF8 string to validate.
- *  @param[in] utf8_length The length of the UTF8 string in bytes.
- *  @return sz_true_k if the string contains only valid UTF8, sz_false_k otherwise.
- */
-SZ_PUBLIC sz_bool_t sz_runes_valid(sz_cptr_t utf8, sz_size_t utf8_length) {
-    sz_cptr_t const end = utf8 + utf8_length;
-    sz_rune_length_t rune_length;
-    sz_rune_t rune;
-    for (; utf8 != end; utf8 += rune_length) {
-        sz_rune_parse(utf8, &rune, &rune_length);
-        if (rune_length == sz_utf8_invalid_k) return sz_false_k;
-    }
-    return sz_true_k;
-}
-
-/**
- *  @brief Exports a UTF8 string into a UTF32 buffer.
- *  @warning The result is undefined id the UTF8 string is corrupted.
- *  @return The length in the number of codepoints.
- */
-SZ_PUBLIC sz_size_t sz_runes_parse(sz_cptr_t utf8, sz_size_t utf8_length, sz_rune_t *utf32) {
-    sz_cptr_t const end = utf8 + utf8_length;
-    sz_size_t count = 0;
-    sz_rune_length_t rune_length;
-    for (; utf8 != end; utf8 += rune_length, utf32++, count++) sz_rune_parse(utf8, utf32, &rune_length);
-    return count;
-}
 
 #pragma endregion
 
@@ -1322,11 +1378,21 @@ SZ_INTERNAL sz_size_t sz_size_log2i_nonzero(sz_size_t x) {
 
 /**
  *  @brief Compute the smallest power of two greater than or equal to @p x.
- *  @pre Unlike the commonly used trick with `clz` intrinsics, is valid across the whole range of `x`, @b including
- * 0.
+ *  @note  Uses LZCNT/CLZ for efficient computation on modern CPUs.
+ *         Edge cases: bit_ceil(0) = 0, bit_ceil(1) = 1.
  *  @see https://stackoverflow.com/a/10143264
  */
 SZ_INTERNAL sz_size_t sz_size_bit_ceil(sz_size_t x) {
+#if defined(__LZCNT__) || defined(__BMI__)
+    // Edge cases: 0 and 1 return themselves, avoids undefined clz(0).
+    if (x <= 1) return x;
+#if SZ_IS_64BIT_
+    return (sz_size_t)1 << (64 - sz_u64_clz(x - 1));
+#else
+    return (sz_size_t)1 << (32 - sz_u32_clz((sz_u32_t)(x - 1)));
+#endif
+#else
+    // The following trick is valid for 0 input as well.
     x--;
     x |= x >> 1;
     x |= x >> 2;
@@ -1338,6 +1404,7 @@ SZ_INTERNAL sz_size_t sz_size_bit_ceil(sz_size_t x) {
 #endif
     x++;
     return x;
+#endif
 }
 
 /**
@@ -1426,6 +1493,172 @@ SZ_INTERNAL sz_u64_vec_t sz_u64_load(sz_cptr_t ptr) {
     return *result;
 #endif
 }
+
+#pragma region UTF8
+
+/**
+ *  @brief Validates if a UTF-8 string contains only valid UTF-8 sequences.
+ *  @param[in] text Pointer to the UTF-8 string to validate.
+ *  @param[in] length Length of the string in bytes.
+ *  @return sz_true_k if the string contains only valid UTF-8, sz_false_k otherwise.
+ */
+SZ_PUBLIC sz_bool_t sz_utf8_valid(sz_cptr_t text, sz_size_t length) {
+    sz_u8_t const *text_u8 = (sz_u8_t const *)text;
+    sz_u8_t const *end_u8 = text_u8 + length;
+
+    while (text_u8 < end_u8) {
+        sz_u8_t byte1 = *text_u8;
+
+        // 1-byte sequence (0x00-0x7F)
+        if (byte1 <= 0x7F) { text_u8 += 1; }
+
+        // 2-byte sequence (0xC2-0xDF)
+        else if (byte1 >= 0xC2 && byte1 <= 0xDF) {
+            if (text_u8 + 1 >= end_u8) return sz_false_k;
+            sz_u8_t byte2 = text_u8[1];
+            if ((byte2 & 0xC0) != 0x80) return sz_false_k; // Invalid continuation
+            text_u8 += 2;
+        }
+
+        // 3-byte sequence (0xE0-0xEF)
+        else if (byte1 >= 0xE0 && byte1 <= 0xEF) {
+            if (text_u8 + 2 >= end_u8) return sz_false_k;
+            sz_u8_t byte2 = text_u8[1];
+            sz_u8_t byte3 = text_u8[2];
+            if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80) return sz_false_k;
+
+            // Check for overlong encodings and surrogates
+            if (byte1 == 0xE0 && byte2 < 0xA0) return sz_false_k;  // Overlong
+            if (byte1 == 0xED && byte2 >= 0xA0) return sz_false_k; // Surrogate (U+D800-U+DFFF)
+
+            text_u8 += 3;
+        }
+
+        // 4-byte sequence (0xF0-0xF4)
+        else if (byte1 >= 0xF0 && byte1 <= 0xF4) {
+            if (text_u8 + 3 >= end_u8) return sz_false_k;
+            sz_u8_t byte2 = text_u8[1];
+            sz_u8_t byte3 = text_u8[2];
+            sz_u8_t byte4 = text_u8[3];
+            if ((byte2 & 0xC0) != 0x80 || (byte3 & 0xC0) != 0x80 || (byte4 & 0xC0) != 0x80) return sz_false_k;
+
+            // Check for overlong and out-of-range
+            if (byte1 == 0xF0 && byte2 < 0x90) return sz_false_k;  // Overlong
+            if (byte1 == 0xF4 && byte2 >= 0x90) return sz_false_k; // > U+10FFFF
+
+            text_u8 += 4;
+        }
+
+        // Invalid lead byte
+        else { return sz_false_k; }
+    }
+
+    return sz_true_k;
+}
+
+/**
+ *  @brief Extracts one UTF-8 codepoint from a UTF-8 string into a 32-bit unsigned integer.
+ *  @param[in] utf8 Pointer to the beginning of a valid UTF-8 encoded string.
+ *  @param[out] runes Output parameter to store the extracted UTF-32 codepoint.
+ *  @param[out] runes_lengths Output parameter to store the length of the UTF-8 codepoint in bytes (1-4).
+ *  @warning Assumes valid UTF-8 input. Use `sz_utf8_valid()` first if validation is needed.
+ *  @note This function does not perform any bounds checking on the input string.
+ */
+SZ_INTERNAL void sz_rune_parse(sz_cptr_t utf8, sz_rune_t *runes, sz_rune_length_t *runes_lengths) {
+    sz_u8_t const *u8s = (sz_u8_t const *)utf8;
+    sz_u8_t lead = *u8s++;
+
+    // Branchless UTF-8 length detection using arithmetic.
+    // The 3 comparisons are independent and can execute in parallel on superscalar CPUs.
+    // CLZ-based approach was also considered but has complications with ASCII handling.
+    sz_rune_length_t len = (sz_rune_length_t)(1 + (lead >= 0xC0U) + (lead >= 0xE0U) + (lead >= 0xF0U));
+
+    // Extract rune bits - switch compiles to efficient jump table.
+    // Assumes valid UTF-8 input; use sz_utf8_valid() first if validation needed.
+    sz_rune_t rune;
+    switch (len) {
+    // Single-byte rune (0xxxxxxx)
+    case 1: rune = lead; break;
+    // Two-byte rune (110xxxxx 10xxxxxx)
+    case 2: rune = (lead & 0x1FU) << 6 | (u8s[0] & 0x3FU); break;
+    // Three-byte rune (1110xxxx 10xxxxxx 10xxxxxx)
+    case 3: rune = (lead & 0x0FU) << 12 | (u8s[0] & 0x3FU) << 6 | (u8s[1] & 0x3FU); break;
+    // Four-byte rune (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+    default: rune = (lead & 0x07U) << 18 | (u8s[0] & 0x3FU) << 12 | (u8s[1] & 0x3FU) << 6 | (u8s[2] & 0x3FU); break;
+    }
+
+    *runes = rune;
+    *runes_lengths = len;
+}
+
+/**
+ *  @brief Extracts a UTF-8 codepoint from a string, scanning backwards from the given position.
+ *  @param[in] utf8_end Pointer to one past the last byte of the UTF-8 sequence to parse.
+ *  @param[out] rune Output parameter to store the extracted UTF-32 codepoint.
+ *  @param[out] rune_length Output parameter to store the length of the UTF-8 codepoint in bytes (1-4).
+ *  @warning Assumes valid UTF-8 input. Use `sz_utf8_valid()` first if validation is needed.
+ *  @note This function does not perform any bounds checking on the input string.
+ */
+SZ_INTERNAL void sz_rune_rparse(sz_cptr_t utf8_end, sz_rune_t *rune, sz_rune_length_t *rune_length) {
+    sz_u8_t const *u8s = (sz_u8_t const *)utf8_end;
+
+    // Scan backwards to find the lead byte (not a continuation byte 10xxxxxx)
+    int len = 1;
+    for (--u8s; (*u8s & 0xC0) == 0x80 && len < 4; --u8s, ++len) {}
+
+    // Now u8s points to the lead byte, len is the sequence length
+    sz_rune_parse((sz_cptr_t)u8s, rune, rune_length);
+    sz_assert_(*rune_length == (sz_rune_length_t)len && "Inconsistent rune length detected in sz_rune_rparse.");
+}
+
+/**
+ *  @brief Encode a UTF-32 codepoint to UTF-8, outputting 1-4 bytes.
+ *  @param[in] rune The UTF-32 codepoint to encode.
+ *  @param[out] utf8s Output buffer (must have space for at least 4 bytes).
+ *  @return Number of bytes written (1-4), or 0 if the codepoint is invalid.
+ */
+SZ_INTERNAL sz_rune_length_t sz_rune_export(sz_rune_t rune, sz_u8_t *utf8s) {
+    if (rune <= 0x7F) {
+        utf8s[0] = (sz_u8_t)rune;
+        return sz_utf8_rune_1byte_k;
+    }
+    else if (rune <= 0x7FF) {
+        utf8s[0] = (sz_u8_t)(0xC0 | (rune >> 6));
+        utf8s[1] = (sz_u8_t)(0x80 | (rune & 0x3F));
+        return sz_utf8_rune_2bytes_k;
+    }
+    else if (rune <= 0xFFFF) {
+        // Reject surrogate codepoints
+        if (rune >= 0xD800 && rune <= 0xDFFF) return sz_utf8_invalid_k;
+        utf8s[0] = (sz_u8_t)(0xE0 | (rune >> 12));
+        utf8s[1] = (sz_u8_t)(0x80 | ((rune >> 6) & 0x3F));
+        utf8s[2] = (sz_u8_t)(0x80 | (rune & 0x3F));
+        return sz_utf8_rune_3bytes_k;
+    }
+    else if (rune <= 0x10FFFF) {
+        utf8s[0] = (sz_u8_t)(0xF0 | (rune >> 18));
+        utf8s[1] = (sz_u8_t)(0x80 | ((rune >> 12) & 0x3F));
+        utf8s[2] = (sz_u8_t)(0x80 | ((rune >> 6) & 0x3F));
+        utf8s[3] = (sz_u8_t)(0x80 | (rune & 0x3F));
+        return sz_utf8_rune_4bytes_k;
+    }
+    return sz_utf8_invalid_k;
+}
+
+/**
+ *  @brief Exports a UTF8 string into a UTF32 buffer.
+ *  @warning The result is undefined id the UTF8 string is corrupted.
+ *  @return The length in the number of codepoints.
+ */
+SZ_PUBLIC sz_size_t sz_runes_parse(sz_cptr_t utf8, sz_size_t utf8_length, sz_rune_t *utf32) {
+    sz_cptr_t const end = utf8 + utf8_length;
+    sz_size_t count = 0;
+    sz_rune_length_t rune_length;
+    for (; utf8 != end; utf8 += rune_length, utf32++, count++) sz_rune_parse(utf8, utf32, &rune_length);
+    return count;
+}
+
+#pragma endregion
 
 /** @brief Helper function, using the supplied fixed-capacity buffer to allocate memory. */
 SZ_INTERNAL sz_ptr_t sz_memory_allocate_fixed_(sz_size_t length, void *handle) {

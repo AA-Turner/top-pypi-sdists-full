@@ -1,6 +1,7 @@
 # WARNING - Do not add import * in this module
 from pyspark import Row
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import expr
 from functools import lru_cache
 from datetime import datetime, date
 import os
@@ -9,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 is_serverless = bool(int(os.environ.get("DATABRICKS_SERVERLESS_MODE_ENABLED", "0")))
-logger.info(f'is_serverless is {is_serverless}')
+logger.debug(f'is_serverless is {is_serverless}')
 
 
 class ProjectConfig:
@@ -552,3 +553,9 @@ class ConfigBase:
                     if hasattr(source_config, field_name):
                         attr_value = getattr(source_config, field_name)
                         setattr(self, field_name, attr_value)
+
+    def evaluate_sql_expr(self, prophecy_spark: SparkSession, expr_string: str):
+        if prophecy_spark:
+            result = prophecy_spark.range(1).select(expr(expr_string)).first()[0]
+            return result
+        return None

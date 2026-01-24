@@ -52,7 +52,7 @@ def test_images_2():
     assert img.height == 48
 
 
-@pytest.mark.parametrize('url', (
+@pytest.mark.parametrize('url', [
     'nonexistent.png',
     'unknownprotocol://weasyprint.org/foo.png',
     'data:image/unknowntype,Not an image',
@@ -66,7 +66,7 @@ def test_images_2():
     'data:image/png,Not a PNG',
     'data:image/jpeg,Not a JPEG',
     'data:image/svg+xml,<svg>invalid xml',
-))
+])
 @assert_no_logs
 def test_images_3(url):
     # Invalid images
@@ -79,7 +79,7 @@ def test_images_3(url):
     assert text.text == 'invalid image', url
 
 
-@pytest.mark.parametrize('url', (
+@pytest.mark.parametrize('url', [
     # GIF with JPEG mimetype
     'data:image/jpeg;base64,'
     'R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=',
@@ -97,7 +97,7 @@ def test_images_3(url):
     'data:image/svg+xml;base64,'
     'R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=',
     'really-a-png.svg',
-))
+])
 @assert_no_logs
 def test_images_4(url):
     # Sniffing, no logs
@@ -321,14 +321,14 @@ def test_images_18():
         ">''')
 
 
-@pytest.mark.parametrize('html, children', (
+@pytest.mark.parametrize(('html', 'children'), [
     ('<embed>', []),
     ('<embed src="unknown">', []),
     ('<object></object>', []),
     ('<object data="unknown"></object>', []),
     ('<object>abc</object>', ['TextBox']),
     ('<object data="unknown">abc</object>', ['TextBox']),
-))
+])
 def test_images_19(html, children):
     body, img = get_img(html)
     img_children = [
@@ -346,7 +346,7 @@ def test_linear_gradient():
                positions=[0, 1], colors=[blue, lime]):
         page, = render_pages('<style>@page { background: ' + gradient_css)
         layer, = page.background.layers
-        result = layer.image.layout(400, 300)
+        result = layer.image.layout(400, 300, {})
         assert result[0] == 1
         assert result[1] == type_
         assert result[2] == (None if init is None else pytest.approx(init))
@@ -411,7 +411,7 @@ def test_radial_gradient():
                     center_x, center_y / scale_y, radius1)
         page, = render_pages('<style>@page { background: ' + gradient_css)
         layer, = page.background.layers
-        result = layer.image.layout(400, 300)
+        result = layer.image.layout(400, 300, {})
         assert result[0] == scale_y
         assert result[1] == type_
         assert result[2] == (None if init is None else pytest.approx(init))
@@ -516,7 +516,7 @@ def test_radial_gradient():
            init=(40, 210, 0, 360 * 2 ** 0.5), scale_y=(210 / 360))
 
 
-@pytest.mark.parametrize('props, div_width', (
+@pytest.mark.parametrize(('props', 'div_width'), [
     ({}, 4),
     ({'min-width': '10px'}, 10),
     ({'max-width': '1px'}, 1),
@@ -530,7 +530,7 @@ def test_radial_gradient():
     ({'min-width': '1px', 'min-height': '10px'}, 10),
     ({'max-width': '10px', 'max-height': '1px'}, 1),
     ({'max-width': '1px', 'max-height': '10px'}, 1),
-))
+])
 def test_image_min_max_width(props, div_width):
     default = {
         'min-width': 'auto', 'max-width': 'none', 'width': 'auto',
@@ -546,3 +546,51 @@ def test_image_min_max_width(props, div_width):
     line, = body.children
     div, = line.children
     assert div.width == div_width
+
+
+@pytest.mark.parametrize(('css', 'width'), [
+    ('width: 10px', 10),
+    ('width: 1px', 1),
+    ('height: 10px', 20),
+    ('height: 1px', 2),
+])
+def test_svg_no_size_width(css, width):
+    # Size is undefined when both width and heigh are not set.
+    # https://drafts.csswg.org/css2/#inline-replaced-width
+    page, = render_pages('''
+      <style> svg { %s } </style>
+      <div style="display: inline-block">
+        <svg viewBox="0 0 8 4"></svg>
+      </div>''' % css)
+    html, = page.children
+    body, = html.children
+    line, = body.children
+    div, = line.children
+    assert div.width == width
+
+
+@pytest.mark.parametrize(('css', 'width'), [
+    ('width: 10px', 10),
+    ('width: 1px', 1),
+    ('height: 10px', 20),
+    ('height: 1px', 2),
+])
+def test_svg_no_size_min_width(css, width):
+    # Size is undefined when both width and heigh are not set.
+    # https://drafts.csswg.org/css2/#inline-replaced-width
+    page, = render_pages('''
+      <style> svg { %s } </style>
+      <table>
+        <tr>
+          <td><svg viewBox="0 0 8 4"></svg></td>
+          <td style="width: 1000mm"></td>
+        </tr>
+      </table>''' % css)
+    html, = page.children
+    body, = html.children
+    wrapper, = body.children
+    table, = wrapper.children
+    row_group, = table.children
+    row, = row_group.children
+    td1, td2 = row.children
+    assert td1.width == width

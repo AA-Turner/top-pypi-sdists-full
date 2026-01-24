@@ -30,7 +30,7 @@ PY_MARIADB_AUTHORS = "Georg Richter"
 
 PY_MARIADB_MAJOR_VERSION = 1
 PY_MARIADB_MINOR_VERSION = 1
-PY_MARIADB_PATCH_VERSION = 13
+PY_MARIADB_PATCH_VERSION = 14
 PY_MARIADB_PRE_RELEASE_SEGMENT = None
 PY_MARIADB_PRE_RELEASE_NR = 0
 PY_MARIADB_POST_RELEASE_SEGMENT = None
@@ -94,6 +94,7 @@ setup(name='mariadb',
           'Programming Language :: Python :: 3.11',
           'Programming Language :: Python :: 3.12',
           'Programming Language :: Python :: 3.13',
+          'Programming Language :: Python :: 3.14',
           'Operating System :: Microsoft :: Windows',
           'Operating System :: MacOS',
           'Operating System :: POSIX',

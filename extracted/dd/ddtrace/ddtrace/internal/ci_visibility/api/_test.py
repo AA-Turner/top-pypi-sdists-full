@@ -260,7 +260,8 @@ class TestVisibilityTest(TestVisibilityChildItem[TestId], TestVisibilityItemBase
 
     def finish_itr_skipped(self) -> None:
         log.debug("Finishing Test Visibility test %s with ITR skipped", self)
-        self.count_itr_skipped()
+        if self._session_settings.itr_test_skipping_level == ITR_SKIPPING_LEVEL.TEST:
+            self.count_itr_skipped()
         self.mark_itr_skipped()
         self.finish_test(TestStatus.SKIP)
 
@@ -622,7 +623,7 @@ class TestVisibilityTest(TestVisibilityChildItem[TestId], TestVisibilityItemBase
     def _is_rum(self):
         if self._span is None:
             return False
-        return self._span.get_tag("is_rum_active") == "true"
+        return self._span.get_tag("test.is_rum_active") == "true"
 
     def _get_browser_driver(self):
         if self._span is None:

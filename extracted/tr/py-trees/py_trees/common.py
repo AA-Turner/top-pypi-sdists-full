@@ -195,7 +195,7 @@ class ComparisonExpression(object):
 
     Args:
         variable: name of the variable to compare
-        value: value to compare against
+        value: value or callable to compare against
         operator: a callable comparison operator
 
     .. tip::
@@ -206,27 +206,27 @@ class ComparisonExpression(object):
 
         check = ComparisonExpression(
             variable="foo",
-            value= 5,
+            value=5,
             operator=operator.eq
         )
-        success = check.operator(blackboard[check.variable], check.value)
+        success = check.operator(blackboard[check.variable], check.value_generator())
     """
 
     def __init__(
         self,
         variable: str,
-        value: ComparisonV,
+        value: typing.Union[ComparisonV, typing.Callable[[], ComparisonV]],
         operator: typing.Callable[[ComparisonV, ComparisonV], bool],
     ):
         """Initialise variables.
 
         Args:
             variable: the variable name to use
-            value: the value to use on the RHS of the expression
+            value: the value to use on the RHS of the expression (can also be a callable that returns the value)
             operator: a logical operator to enable comparisons
         """
         self.variable = variable
-        self.value = value
+        self.value_generator = value if callable(value) else lambda: value
         self.operator = operator
 
 

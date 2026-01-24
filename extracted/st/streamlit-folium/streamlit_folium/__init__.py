@@ -111,6 +111,15 @@ def _get_header(fig: folium.MacroElement) -> str:
     header = fig.get_root().header.render()
     header = re.sub(r'<script src=".*?"></script>', "", header)
     header = re.sub(r'<link rel="stylesheet" href=".*?"/>', "", header)
+    # Fix Leaflet default marker icon path issue
+    # Folium may generate incorrect imagePath missing "/images/" directory
+    # See: https://github.com/randyzwitch/streamlit-folium/issues/275
+    # See: https://github.com/Leaflet/Leaflet/issues/4968
+    header = re.sub(
+        r'(L\.Icon\.Default\.imagePath\s*=\s*["\'])([^"\']*?/dist)(["\'])',
+        r"\1\2/images/\3",
+        header,
+    )
     map_id = get_full_id(fig)
     return header.replace(map_id, "map_div")
 
@@ -216,6 +225,7 @@ def st_folium(
     debug: bool = False,
     render: bool = True,
     on_change: Callable | None = None,
+    wrap_longitude: bool = False,
 ):
     """Display a Folium object in Streamlit, returning data as user interacts
     with app.
@@ -268,6 +278,10 @@ def st_folium(
         Disabling this may improve performance as you can cache the rendering step.
         *Note* if this is disabled and the map is not rendered elsewhere the map
         will be missing attributes
+    wrap_longitude: bool
+        If True, normalize longitude values to be within -180 to 180 degrees.
+        This is useful when panning around the world causes longitude values to
+        exceed the standard bounds.
     Returns
     -------
     dict
@@ -412,6 +426,10 @@ def st_folium(
         css_links.extend([href for _, href in getattr(elem, "default_css", [])])
         js_links.extend([src for _, src in getattr(elem, "default_js", [])])
 
+    # deduplicate links
+    css_links = list(dict.fromkeys(css_links))
+    js_links = list(dict.fromkeys(js_links))
+
     hash_key = generate_js_hash(leaflet, key, return_on_hover)
 
     def _on_change():
@@ -439,6 +457,7 @@ def st_folium(
         css_links=css_links,
         js_links=js_links,
         on_change=_on_change,
+        wrap_longitude=wrap_longitude,
     )
 
 

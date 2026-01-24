@@ -3,7 +3,7 @@ Type annotations for pcs service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -39,7 +40,6 @@ from .type_defs import (
     DeleteClusterRequestTypeDef,
     DeleteComputeNodeGroupRequestTypeDef,
     DeleteQueueRequestTypeDef,
-    EmptyResponseMetadataTypeDef,
     GetClusterRequestTypeDef,
     GetClusterResponseTypeDef,
     GetComputeNodeGroupRequestTypeDef,
@@ -58,18 +58,14 @@ from .type_defs import (
     RegisterComputeNodeGroupInstanceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateClusterRequestTypeDef,
+    UpdateClusterResponseTypeDef,
     UpdateComputeNodeGroupRequestTypeDef,
     UpdateComputeNodeGroupResponseTypeDef,
     UpdateQueueRequestTypeDef,
     UpdateQueueResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -78,14 +74,14 @@ else:
 __all__ = ("ParallelComputingServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ParallelComputingServiceClient(AioBaseClient):
     """
@@ -152,7 +148,7 @@ class ParallelComputingServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#create_queue)
         """
 
-    async def delete_cluster(self, **kwargs: Unpack[DeleteClusterRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_cluster(self, **kwargs: Unpack[DeleteClusterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a cluster and all its linked resources.
 
@@ -162,7 +158,7 @@ class ParallelComputingServiceClient(AioBaseClient):
 
     async def delete_compute_node_group(
         self, **kwargs: Unpack[DeleteComputeNodeGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a compute node group.
 
@@ -170,7 +166,7 @@ class ParallelComputingServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#delete_compute_node_group)
         """
 
-    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a job queue.
 
@@ -240,7 +236,7 @@ class ParallelComputingServiceClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Returns a list of all tags on an Amazon Web Services PCS resource.
+        Returns a list of all tags on an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#list_tags_for_resource)
@@ -256,24 +252,30 @@ class ParallelComputingServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#register_compute_node_group_instance)
         """
 
-    async def tag_resource(
-        self, **kwargs: Unpack[TagResourceRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Adds or edits tags on an Amazon Web Services PCS resource.
+        Adds or edits tags on an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#tag_resource)
         """
 
-    async def untag_resource(
-        self, **kwargs: Unpack[UntagResourceRequestTypeDef]
-    ) -> EmptyResponseMetadataTypeDef:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
-        Deletes tags from an Amazon Web Services PCS resource.
+        Deletes tags from an PCS resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#untag_resource)
+        """
+
+    async def update_cluster(
+        self, **kwargs: Unpack[UpdateClusterRequestTypeDef]
+    ) -> UpdateClusterResponseTypeDef:
+        """
+        Updates a cluster configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pcs/client/update_cluster.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_pcs/client/#update_cluster)
         """
 
     async def update_compute_node_group(
@@ -337,7 +339,7 @@ class ParallelComputingServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

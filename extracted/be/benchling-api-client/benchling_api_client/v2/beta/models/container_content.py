@@ -3,15 +3,17 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 import attr
 
 from ..extensions import NotPresentError, UnknownType
-from ..models.aa_sequence import AaSequence
+from ..models.aa_sequence_with_entity_type import AaSequenceWithEntityType
 from ..models.batch import Batch
-from ..models.custom_entity import CustomEntity
-from ..models.dna_oligo import DnaOligo
-from ..models.dna_sequence import DnaSequence
+from ..models.custom_entity_with_entity_type import CustomEntityWithEntityType
+from ..models.dna_oligo_with_entity_type import DnaOligoWithEntityType
+from ..models.dna_sequence_with_entity_type import DnaSequenceWithEntityType
 from ..models.inaccessible_resource import InaccessibleResource
 from ..models.measurement import Measurement
-from ..models.mixture import Mixture
-from ..models.rna_oligo import RnaOligo
+from ..models.mixture_with_entity_type import MixtureWithEntityType
+from ..models.molecule_with_entity_type import MoleculeWithEntityType
+from ..models.rna_oligo_with_entity_type import RnaOligoWithEntityType
+from ..models.rna_sequence_with_entity_type import RnaSequenceWithEntityType
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="ContainerContent")
@@ -26,7 +28,17 @@ class ContainerContent:
     _entity: Union[
         Unset,
         None,
-        Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+        Union[
+            DnaSequenceWithEntityType,
+            RnaSequenceWithEntityType,
+            AaSequenceWithEntityType,
+            MixtureWithEntityType,
+            DnaOligoWithEntityType,
+            RnaOligoWithEntityType,
+            MoleculeWithEntityType,
+            CustomEntityWithEntityType,
+            UnknownType,
+        ],
         InaccessibleResource,
         UnknownType,
     ] = UNSET
@@ -68,19 +80,25 @@ class ContainerContent:
         elif isinstance(self._entity, object):
             if isinstance(self._entity, UnknownType):
                 entity = self._entity.value
-            elif isinstance(self._entity, DnaSequence):
+            elif isinstance(self._entity, DnaSequenceWithEntityType):
                 entity = self._entity.to_dict()
 
-            elif isinstance(self._entity, AaSequence):
+            elif isinstance(self._entity, RnaSequenceWithEntityType):
                 entity = self._entity.to_dict()
 
-            elif isinstance(self._entity, Mixture):
+            elif isinstance(self._entity, AaSequenceWithEntityType):
                 entity = self._entity.to_dict()
 
-            elif isinstance(self._entity, DnaOligo):
+            elif isinstance(self._entity, MixtureWithEntityType):
                 entity = self._entity.to_dict()
 
-            elif isinstance(self._entity, RnaOligo):
+            elif isinstance(self._entity, DnaOligoWithEntityType):
+                entity = self._entity.to_dict()
+
+            elif isinstance(self._entity, RnaOligoWithEntityType):
+                entity = self._entity.to_dict()
+
+            elif isinstance(self._entity, MoleculeWithEntityType):
                 entity = self._entity.to_dict()
 
             else:
@@ -162,7 +180,17 @@ class ContainerContent:
         def get_entity() -> Union[
             Unset,
             None,
-            Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+            Union[
+                DnaSequenceWithEntityType,
+                RnaSequenceWithEntityType,
+                AaSequenceWithEntityType,
+                MixtureWithEntityType,
+                DnaOligoWithEntityType,
+                RnaOligoWithEntityType,
+                MoleculeWithEntityType,
+                CustomEntityWithEntityType,
+                UnknownType,
+            ],
             InaccessibleResource,
             UnknownType,
         ]:
@@ -171,14 +199,34 @@ class ContainerContent:
             ) -> Union[
                 Unset,
                 None,
-                Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+                Union[
+                    DnaSequenceWithEntityType,
+                    RnaSequenceWithEntityType,
+                    AaSequenceWithEntityType,
+                    MixtureWithEntityType,
+                    DnaOligoWithEntityType,
+                    RnaOligoWithEntityType,
+                    MoleculeWithEntityType,
+                    CustomEntityWithEntityType,
+                    UnknownType,
+                ],
                 InaccessibleResource,
                 UnknownType,
             ]:
                 entity: Union[
                     Unset,
                     None,
-                    Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+                    Union[
+                        DnaSequenceWithEntityType,
+                        RnaSequenceWithEntityType,
+                        AaSequenceWithEntityType,
+                        MixtureWithEntityType,
+                        DnaOligoWithEntityType,
+                        RnaOligoWithEntityType,
+                        MoleculeWithEntityType,
+                        CustomEntityWithEntityType,
+                        UnknownType,
+                    ],
                     InaccessibleResource,
                     UnknownType,
                 ]
@@ -191,15 +239,78 @@ class ContainerContent:
                     def _parse_entity_or_inaccessible_resource(
                         data: Union[Dict[str, Any]]
                     ) -> Union[
-                        DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType
+                        DnaSequenceWithEntityType,
+                        RnaSequenceWithEntityType,
+                        AaSequenceWithEntityType,
+                        MixtureWithEntityType,
+                        DnaOligoWithEntityType,
+                        RnaOligoWithEntityType,
+                        MoleculeWithEntityType,
+                        CustomEntityWithEntityType,
+                        UnknownType,
                     ]:
                         entity_or_inaccessible_resource: Union[
-                            DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType
+                            DnaSequenceWithEntityType,
+                            RnaSequenceWithEntityType,
+                            AaSequenceWithEntityType,
+                            MixtureWithEntityType,
+                            DnaOligoWithEntityType,
+                            RnaOligoWithEntityType,
+                            MoleculeWithEntityType,
+                            CustomEntityWithEntityType,
+                            UnknownType,
                         ]
+                        discriminator_value: str = cast(str, data.get("entityType"))
+                        if discriminator_value is not None:
+                            entity: Union[
+                                DnaSequenceWithEntityType,
+                                RnaSequenceWithEntityType,
+                                AaSequenceWithEntityType,
+                                MixtureWithEntityType,
+                                DnaOligoWithEntityType,
+                                RnaOligoWithEntityType,
+                                MoleculeWithEntityType,
+                                CustomEntityWithEntityType,
+                                UnknownType,
+                            ]
+                            if discriminator_value == "aa_sequence":
+                                entity = AaSequenceWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "custom_entity":
+                                entity = CustomEntityWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "dna_oligo":
+                                entity = DnaOligoWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "dna_sequence":
+                                entity = DnaSequenceWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "mixture":
+                                entity = MixtureWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "molecule":
+                                entity = MoleculeWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "rna_oligo":
+                                entity = RnaOligoWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+                            if discriminator_value == "rna_sequence":
+                                entity = RnaSequenceWithEntityType.from_dict(data, strict=False)
+
+                                return entity
+
+                            return UnknownType(value=data)
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = DnaSequence.from_dict(data, strict=True)
+                            entity = DnaSequenceWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -207,7 +318,7 @@ class ContainerContent:
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = AaSequence.from_dict(data, strict=True)
+                            entity = RnaSequenceWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -215,7 +326,7 @@ class ContainerContent:
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = Mixture.from_dict(data, strict=True)
+                            entity = AaSequenceWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -223,7 +334,7 @@ class ContainerContent:
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = DnaOligo.from_dict(data, strict=True)
+                            entity = MixtureWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -231,7 +342,7 @@ class ContainerContent:
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = RnaOligo.from_dict(data, strict=True)
+                            entity = DnaOligoWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -239,7 +350,23 @@ class ContainerContent:
                         try:
                             if not isinstance(data, dict):
                                 raise TypeError()
-                            entity = CustomEntity.from_dict(data, strict=True)
+                            entity = RnaOligoWithEntityType.from_dict(data, strict=True)
+
+                            return entity
+                        except:  # noqa: E722
+                            pass
+                        try:
+                            if not isinstance(data, dict):
+                                raise TypeError()
+                            entity = MoleculeWithEntityType.from_dict(data, strict=True)
+
+                            return entity
+                        except:  # noqa: E722
+                            pass
+                        try:
+                            if not isinstance(data, dict):
+                                raise TypeError()
+                            entity = CustomEntityWithEntityType.from_dict(data, strict=True)
 
                             return entity
                         except:  # noqa: E722
@@ -274,7 +401,17 @@ class ContainerContent:
                 Union[
                     Unset,
                     None,
-                    Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+                    Union[
+                        DnaSequenceWithEntityType,
+                        RnaSequenceWithEntityType,
+                        AaSequenceWithEntityType,
+                        MixtureWithEntityType,
+                        DnaOligoWithEntityType,
+                        RnaOligoWithEntityType,
+                        MoleculeWithEntityType,
+                        CustomEntityWithEntityType,
+                        UnknownType,
+                    ],
                     InaccessibleResource,
                     UnknownType,
                 ],
@@ -342,7 +479,17 @@ class ContainerContent:
         self,
     ) -> Optional[
         Union[
-            Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+            Union[
+                DnaSequenceWithEntityType,
+                RnaSequenceWithEntityType,
+                AaSequenceWithEntityType,
+                MixtureWithEntityType,
+                DnaOligoWithEntityType,
+                RnaOligoWithEntityType,
+                MoleculeWithEntityType,
+                CustomEntityWithEntityType,
+                UnknownType,
+            ],
             InaccessibleResource,
             UnknownType,
         ]
@@ -356,7 +503,17 @@ class ContainerContent:
         self,
         value: Optional[
             Union[
-                Union[DnaSequence, AaSequence, Mixture, DnaOligo, RnaOligo, CustomEntity, UnknownType],
+                Union[
+                    DnaSequenceWithEntityType,
+                    RnaSequenceWithEntityType,
+                    AaSequenceWithEntityType,
+                    MixtureWithEntityType,
+                    DnaOligoWithEntityType,
+                    RnaOligoWithEntityType,
+                    MoleculeWithEntityType,
+                    CustomEntityWithEntityType,
+                    UnknownType,
+                ],
                 InaccessibleResource,
                 UnknownType,
             ]

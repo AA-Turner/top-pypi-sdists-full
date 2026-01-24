@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -12,28 +12,14 @@ import System
 import System.Collections.Generic
 
 
-class ISecurityDataFilter(metaclass=abc.ABCMeta):
-    """Security data filter interface. Defines pattern for the user defined data filter techniques."""
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Filter out a tick from this security, with this new data:
-        
-        :param vehicle: Security of this filter.
-        :param data: New data packet we're checking
-        """
-        ...
-
-
-class AdjustmentType(Enum):
+class AdjustmentType(IntEnum):
     """Enum defines types of possible price adjustments in continuous contract modeling."""
 
     FORWARD_ADJUSTED = 0
+    """ForwardAdjusted - new quotes are adjusted as new data comes"""
 
     BACK_ADJUSTED = 1
-
-    def __int__(self) -> int:
-        ...
+    """BackAdjusted - old quotes are retrospectively adjusted as new data comes"""
 
 
 class IContinuousContractModel(metaclass=abc.ABCMeta):
@@ -91,6 +77,19 @@ class IContinuousContractModel(metaclass=abc.ABCMeta):
         Returns the list of roll dates for the contract.
         
         :returns: The list of roll dates.
+        """
+        ...
+
+
+class ISecurityDataFilter(metaclass=abc.ABCMeta):
+    """Security data filter interface. Defines pattern for the user defined data filter techniques."""
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Filter out a tick from this security, with this new data:
+        
+        :param data: New data packet we're checking
+        :param vehicle: Security of this filter.
         """
         ...
 

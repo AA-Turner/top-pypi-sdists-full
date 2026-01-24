@@ -21,6 +21,17 @@ description:
     - Get facts for one storage account or all storage accounts within a resource group.
 
 options:
+    auth_mode:
+        description:
+            - The mode in which to run the command. C(login) mode will directly use your login credentials for the authentication.
+            - The legacy C(key) mode will attempt to query for an account key if no authentication parameters for the account are provided.
+            - Can also be set via the environment variable C(AZURE_STORAGE_AUTH_MODE).
+        default: key
+        type: str
+        choices:
+            - key
+            - login
+        version_added: "3.10.0"
     name:
         description:
             - Only show results for a specific account.
@@ -224,6 +235,22 @@ storageaccounts:
                             type: dict
                             returned: always
                             sample: {'enabled': true}
+                encryption_identity:
+                    description:
+                        - The identity to be used with service-side encryption at rest.
+                    type: dict
+                    returned: always
+                    sample: {"encryption_user_assigned_identity": \
+                        "/subscriptions/xxxx/resourcegroups/testRG/providers/Microsoft.ManagedIdentity/userAssignedIdentities/identity-11"}
+                key_vault_properties:
+                    description:
+                        - Dict of Microsoft Keyvault properties.
+                        - Create the Storage account with encryption enabled with Microsoft KeyVault for CMK.
+                    type: dict
+                    returned: always
+                    sample: {"key_name": "testkey",
+                             "key_vault_uri": "https://vxxxxxxx01.vault.azure.net/",
+                             "key_version": "0bd2556671c64fc998xxxxeb12"}
         is_hns_enabled:
             description:
                 - Account HierarchicalNamespace enabled if sets to true.
@@ -317,7 +344,7 @@ storageaccounts:
             sample: true
         network_acls:
             description:
-                - A set of firewall and virtual network rules
+                - A set of firewall, virtual network and resource instance rules.
             returned: always
             type: dict
             sample: {
@@ -339,7 +366,13 @@ storageaccounts:
                             "action": "Allow",
                             "value": "123.234.123.0/24"
                         }
-                    ]
+                        ],
+                    "resource_access_rules": [
+                        {
+                            "resource_id": "/subscriptions/.../BackupVaults/myBackupVault",
+                            "tenant_id": "myTenantId"
+                        }
+                        ]
                     }
         provisioning_state:
             description:
@@ -613,6 +646,7 @@ storageaccounts:
 
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common import AzureRMModuleBase
 from ansible.module_utils._text import to_native
+from ansible.module_utils.basic import env_fallback
 
 
 AZURE_OBJECT_CLASS = 'StorageAccount'
@@ -622,6 +656,12 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
     def __init__(self):
 
         self.module_arg_spec = dict(
+            auth_mode=dict(
+                type='str',
+                choices=['key', 'login'],
+                fallback=(env_fallback, ['AZURE_STORAGE_AUTH_MODE']),
+                default="key"
+            ),
             name=dict(type='str'),
             resource_group=dict(type='str', aliases=['resource_group_name']),
             tags=dict(type='list', elements='str'),
@@ -776,17 +816,28 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
             account_dict['network_acls'] = dict(
                 bypass=account_obj.network_rule_set.bypass,
                 default_action=account_obj.network_rule_set.default_action,
-                ip_rules=account_obj.network_rule_set.ip_rules
             )
-            if account_obj.network_rule_set.virtual_network_rules:
-                account_dict['network_acls']['virtual_network_rules'] = []
-                for rule in account_obj.network_rule_set.virtual_network_rules:
-                    account_dict['network_acls']['virtual_network_rules'].append(dict(id=rule.virtual_network_resource_id, action=rule.action))
 
+            account_dict['network_acls']['virtual_network_rules'] = []
+            if account_obj.network_rule_set.virtual_network_rules:
+                for rule in account_obj.network_rule_set.virtual_network_rules:
+                    account_dict['network_acls']['virtual_network_rules'].append(
+                        dict(id=rule.virtual_network_resource_id, action=rule.action)
+                    )
+
+            account_dict['network_acls']['ip_rules'] = []
             if account_obj.network_rule_set.ip_rules:
-                account_dict['network_acls']['ip_rules'] = []
                 for rule in account_obj.network_rule_set.ip_rules:
-                    account_dict['network_acls']['ip_rules'].append(dict(value=rule.ip_address_or_range, action=rule.action))
+                    account_dict['network_acls']['ip_rules'].append(
+                        dict(value=rule.ip_address_or_range, action=rule.action)
+                    )
+
+            account_dict['network_acls']['resource_access_rules'] = []
+            if getattr(account_obj.network_rule_set, 'resource_access_rules', None):
+                for rule in account_obj.network_rule_set.resource_access_rules:
+                    account_dict['network_acls']['resource_access_rules'].append(
+                        dict(resource_id=rule.resource_id, tenant_id=rule.tenant_id)
+                    )
 
         account_dict['primary_endpoints'] = None
         if account_obj.primary_endpoints:
@@ -801,10 +852,10 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
         account_dict['secondary_endpoints'] = None
         if account_obj.secondary_endpoints:
             account_dict['secondary_endpoints'] = dict(
-                blob=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.primary_endpoints.blob, 'blob'),
-                file=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.primary_endpoints.file, 'file'),
-                queue=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.primary_endpoints.queue, 'queue'),
-                table=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.primary_endpoints.table, 'table'),
+                blob=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.secondary_endpoints.blob, 'blob'),
+                file=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.secondary_endpoints.file, 'file'),
+                queue=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.secondary_endpoints.queue, 'queue'),
+                table=self.format_endpoint_dict(account_dict['name'], account_key[1], account_obj.secondary_endpoints.table, 'table'),
             )
             if account_key[1]:
                 account_dict['secondary_endpoints']['key'] = '{0}'.format(account_key[1])
@@ -814,11 +865,11 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
         blob_mgmt_props = self.get_blob_mgmt_props(account_dict['resource_group'], account_dict['name'])
         if blob_mgmt_props and blob_mgmt_props.cors and blob_mgmt_props.cors.cors_rules:
             account_dict['blob_cors'] = [dict(
-                allowed_origins=to_native(x.allowed_origins),
-                allowed_methods=to_native(x.allowed_methods),
+                allowed_origins=[to_native(o) for o in x.allowed_origins],
+                allowed_methods=[to_native(m) for m in x.allowed_methods],
                 max_age_in_seconds=x.max_age_in_seconds,
-                exposed_headers=to_native(x.exposed_headers),
-                allowed_headers=to_native(x.allowed_headers)
+                exposed_headers=[to_native(h) for h in x.exposed_headers],
+                allowed_headers=[to_native(h) for h in x.allowed_headers],
             ) for x in blob_mgmt_props.cors.cors_rules]
         blob_client_props = self.get_blob_client_props(account_dict['resource_group'], account_dict['name'], account_dict['kind'])
         if blob_client_props and blob_client_props['static_website']:
@@ -845,6 +896,17 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
                     account_dict['encryption']['services']['queue'] = dict(enabled=True)
                 if account_obj.encryption.services.blob:
                     account_dict['encryption']['services']['blob'] = dict(enabled=True)
+            if account_obj.encryption.encryption_identity:
+                account_dict['encryption']['encryption_identity'] = dict(
+                    encryption_user_assigned_identity=account_obj.encryption.encryption_identity.encryption_user_assigned_identity)
+            else:
+                account_dict['encryption']['encryption_identity'] = None
+            if account_obj.encryption.key_vault_properties:
+                account_dict['encryption']['key_vault_properties'] = dict(key_vault_uri=account_obj.encryption.key_vault_properties.key_vault_uri,
+                                                                          key_name=account_obj.encryption.key_vault_properties.key_name,
+                                                                          key_version=account_obj.encryption.key_vault_properties.key_version)
+            else:
+                account_dict['encryption']['key_vault_properties'] = None
 
         account_dict['identity'] = dict()
         if account_obj.identity:
@@ -877,7 +939,7 @@ class AzureRMStorageAccountInfo(AzureRMModuleBase):
         if kind == "FileStorage":
             return None
         try:
-            return self.get_blob_service_client(resource_group, name).get_service_properties()
+            return self.get_blob_service_client(resource_group, name, self.auth_mode).get_service_properties()
         except Exception:
             pass
         return None

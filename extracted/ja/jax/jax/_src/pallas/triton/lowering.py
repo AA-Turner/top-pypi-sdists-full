@@ -29,6 +29,7 @@ from jax import tree_util
 from jax._src import ad_checkpoint
 from jax._src import ad_util
 from jax._src import api_util
+from jax._src import config
 from jax._src import core as jax_core
 from jax._src import custom_derivatives
 from jax._src import debugging
@@ -46,7 +47,6 @@ from jax._src.lib.mlir.dialects import math as math_dialect
 from jax._src.lib.mlir.dialects import scf as scf_dialect
 from jax._src.lib.triton import dialect as tt_dialect
 from jax._src.pallas import core as pallas_core
-from jax._src.pallas import pallas_call
 from jax._src.pallas import primitives
 from jax._src.pallas import utils as pallas_utils
 from jax._src.state import indexing
@@ -83,7 +83,7 @@ class ModuleContext:
 
 @dataclasses.dataclass
 class BlockInfo:
-  full_shape_dtype: jax.ShapeDtypeStruct
+  full_shape_dtype: jax_core.ShapedArray
   start_indices: Sequence[Any]
   start_indices_alignment: Sequence[int]
   block_shape: tuple[int | pallas_core.Squeezed, ...]
@@ -159,7 +159,7 @@ def _get_index_alignment(block_mapping: BlockMapping) -> tuple[int, ...]:
 
 
 def _bcast_to(a: ir.Value, shape: tuple[int, ...]) -> ir.Value:
-  if not ir.RankedTensorType.isinstance(a.type):
+  if not isinstance(a.type, ir.RankedTensorType):
     if not shape:
       return a
     return tt_dialect.splat(ir.RankedTensorType.get(shape, a.type), a)
@@ -184,14 +184,14 @@ def _bcast(
     out_aval: jax_core.ShapedArray,
 ) -> ir.Value:
   if isinstance(
-      x, (np.ndarray, np.number, int, float, literals.LiteralArray)
+      x, (np.ndarray, np.number, int, float, literals.TypedNdArray)
   ):
     x_dtype = x_aval.dtype
     if x_aval.weak_type:
       x_dtype = y_aval.dtype
     x = _ir_constant(x, _dtype_to_ir_type(x_dtype))
   if isinstance(
-      y, (np.ndarray, np.number, int, float, literals.LiteralArray)
+      y, (np.ndarray, np.number, int, float, literals.TypedNdArray)
   ):
     y_dtype = y_aval.dtype
     if y_aval.weak_type:
@@ -358,7 +358,7 @@ def lower_jaxpr_to_triton_module(
         )
       block_infos = [
           BlockInfo(
-              block_mapping.array_shape_dtype,
+              block_mapping.array_aval,
               _eval_index_map(ctx, program_ids, block_mapping),
               _get_index_alignment(block_mapping),
               tuple(pallas_core.squeezed if isinstance(b, pallas_core.Squeezed)
@@ -420,7 +420,7 @@ def lower_jaxpr_to_triton_ir(
     except LoweringError:
       raise  # We only add the extra info to the innermost exception.
     except Exception as e:
-      if not pallas_call._verbose_errors_enabled():
+      if not config.jax_pallas_verbose_errors.value:
         raise
       inval_types = map(lambda t: getattr(t, "type", None), invals)
       raise LoweringError(
@@ -485,7 +485,7 @@ def _atomic_rmw(
     semantic: tt_dialect.MemSemantic = tt_dialect.MemSemantic.ACQUIRE_RELEASE,
     sync_scope: tt_dialect.MemSyncScope = tt_dialect.MemSyncScope.GPU,
 ) -> ir.Value:
-  if ir.RankedTensorType.isinstance(ptr.type):
+  if isinstance(ptr.type, ir.RankedTensorType):
     ptr_type = ir.RankedTensorType(ptr.type)
     element_type = tt_dialect.PointerType(ptr_type.element_type)
     result_type = ir.RankedTensorType.get(
@@ -509,6 +509,10 @@ def _atomic_lowering_rule(
   assert block_info is not None
   ptr, indexers, val, mask = args_tree.unflatten(args_flat)
   *_, value_aval, mask_aval = args_tree.unflatten(ctx.avals_in)
+  indexers = list(indexers)
+  if not indexers or not isinstance(indexers[-1], indexing.NDIndexer):
+    ref_shape = state.get_transforms_shape(indexers, ctx.avals_in[0].shape)
+    indexers.append(NDIndexer.make_trivial_indexer(ref_shape))
   if len(indexers) != 1:
     raise NotImplementedError("Only single indexer is supported.")
   idx = indexers[0]
@@ -541,7 +545,7 @@ def _atomic_lowering_rule(
 @register_lowering(primitives.atomic_cas_p)
 def _atomic_cas_lowering_rule(ctx: LoweringRuleContext, ptr, cmp, val):
   _, cmp_aval, val_aval = ctx.avals_in
-  if ir.RankedTensorType.isinstance(ptr.type):
+  if isinstance(ptr.type, ir.RankedTensorType):
     ptr_type = ir.RankedTensorType(ptr.type)
     element_type = tt_dialect.PointerType(ptr_type.element_type)
     result_type = ir.RankedTensorType.get(
@@ -1137,8 +1141,14 @@ triton_lowering_rules.update({
 })
 
 
+def _is_triton_pointer_type(t):
+  if hasattr(tt_dialect.PointerType, "isinstance"):
+    return tt_dialect.PointerType.isinstance(t)
+  return isinstance(t, tt_dialect.PointerType)
+
+
 def _minus(x: ir.Value) -> ir.Value:
-  if tt_dialect.PointerType.isinstance(_element_type(x.type)):
+  if _is_triton_pointer_type(x.type):
     raise NotImplementedError(f"unsupported type: {x.type}")
   return _sub(_zeros_like(x), x)
 
@@ -1147,10 +1157,10 @@ def _add(x: ir.Value, y: ir.Value):
   x_element_type = _element_type(x.type)
   y_element_type = _element_type(y.type)
 
-  if tt_dialect.PointerType.isinstance(x_element_type):
-    assert not tt_dialect.PointerType.isinstance(y_element_type)
+  if _is_triton_pointer_type(x_element_type):
+    assert not _is_triton_pointer_type(y_element_type)
     return tt_dialect.addptr(x.type, x, y)
-  if tt_dialect.PointerType.isinstance(y_element_type):
+  if _is_triton_pointer_type(y_element_type):
     return tt_dialect.addptr(y.type, y, x)
 
   assert x.type == y.type, (str(x.type), str(y.type))
@@ -1164,9 +1174,9 @@ def _add(x: ir.Value, y: ir.Value):
 def _sub(x: ir.Value, y: ir.Value) -> ir.Value:
   x_element_type = _element_type(x.type)
   y_element_type = _element_type(y.type)
-  if tt_dialect.PointerType.isinstance(x_element_type):
+  if _is_triton_pointer_type(x_element_type):
     return tt_dialect.addptr(x.type, x, _minus(y))
-  elif not tt_dialect.PointerType.isinstance(y_element_type):
+  elif not _is_triton_pointer_type(y_element_type):
     assert x.type == y.type, (str(x.type), str(y.type))
     if isinstance(x_element_type, ir.IntegerType):
       return arith_dialect.subi(x, y)
@@ -1337,6 +1347,7 @@ def debug_print_lowering_rule(
     static_args,
     np_printoptions,
     has_placeholders,
+    logging_record,
 ):
   del partitioned, np_printoptions
   if ordered:
@@ -1363,7 +1374,7 @@ def debug_print_lowering_rule(
 
 
 def _set_attr(v: ir.Value, name: str, attr: ir.Attribute) -> None:
-  if not ir.BlockArgument.isinstance(v):
+  if not isinstance(v, ir.BlockArgument):
     v.owner.attributes[name] = attr
     return
 
@@ -1438,6 +1449,7 @@ def _integer_pow_rule(ctx: LoweringRuleContext, x, *, y: int):
 _JAX_FN_MAPPING = {
     lax.clamp_p: lambda min, a, max: jnp.minimum(jnp.maximum(min, a), max),
     lax.logistic_p: lambda a, accuracy: 1 / (1 + jnp.exp(-a)),
+    lax.is_finite_p: lambda x: jnp.logical_and(~jnp.isnan(x), ~jnp.isinf(x)),
 }
 
 for prim, fn in _JAX_FN_MAPPING.items():
@@ -1516,7 +1528,7 @@ def _iota_lowering_rule(ctx: LoweringRuleContext, *, dtype, shape, dimension,
 
 
 def _element_type(t: ir.Type) -> ir.Type:
-  if ir.RankedTensorType.isinstance(t):
+  if isinstance(t, ir.RankedTensorType):
     return ir.RankedTensorType(t).element_type
   else:
     return t
@@ -1545,7 +1557,7 @@ def _full(t: ir.Type, v: object) -> ir.Type:
   else:
     raise NotImplementedError
 
-  if ir.RankedTensorType.isinstance(t):
+  if isinstance(t, ir.RankedTensorType):
     return tt_dialect.splat(t, result)
   else:
     return result
@@ -1568,7 +1580,7 @@ def _ones_like(x: ir.Value) -> ir.Value:
 
 
 def _splat(x: ir.value, shape: Sequence[int]) -> ir.Value:
-  if ir.RankedTensorType.isinstance(x.type):
+  if isinstance(x.type, ir.RankedTensorType):
     raise TypeError("cannot splat a tensor")
   if not shape:
     return x
@@ -1576,7 +1588,7 @@ def _splat(x: ir.value, shape: Sequence[int]) -> ir.Value:
 
 
 def _expand_dims(x: ir.Value, axis: int) -> ir.Value:
-  if not ir.RankedTensorType.isinstance(x.type):
+  if not isinstance(x.type, ir.RankedTensorType):
     shape = list(ir.RankedTensorType(x.type).shape)
     shape.insert(axis, 1)
     return _splat(x, shape)
@@ -1673,9 +1685,9 @@ def _cast(
 
 def _ir_cast(src: ir.Value, dst_type: ir.Type, *,
              signed: bool, dst_signed: bool = False) -> ir.Value:
-  if ir.RankedTensorType.isinstance(
-      src.type
-  ) and not ir.RankedTensorType.isinstance(dst_type):
+  if isinstance(src.type, ir.RankedTensorType) and not isinstance(
+      dst_type, ir.RankedTensorType
+  ):
     src_type = ir.RankedTensorType(src.type)
     dst_type = ir.RankedTensorType.get(
         src_type.shape,
@@ -1720,7 +1732,7 @@ def _ir_cast(src: ir.Value, dst_type: ir.Type, *,
   ):
     return _int_float_cast(src, dst_type, signed=signed)
 
-  if tt_dialect.PointerType.isinstance(src_element_type) and isinstance(
+  if _is_triton_pointer_type(src_element_type) and isinstance(
       dst_element_type, ir.IntegerType
   ):
     if dst_element_type.width == 64:
@@ -1729,13 +1741,13 @@ def _ir_cast(src: ir.Value, dst_type: ir.Type, *,
       x = _ir_cast(src, ir.IntegerType.get_signless(64), signed=signed)
       zero = _zeros_like(x)
       return _ir_cast(_not_equal(x, zero, signed=signed), dst_type, signed=signed)
-  if isinstance(
-      src_element_type, ir.IntegerType
-  ) and tt_dialect.PointerType.isinstance(dst_element_type):
+  if isinstance(src_element_type, ir.IntegerType) and _is_triton_pointer_type(
+      dst_element_type
+  ):
     return tt_dialect.int_to_ptr(dst_type, src)
-  if tt_dialect.PointerType.isinstance(
-      src_element_type
-  ) and tt_dialect.PointerType.isinstance(dst_element_type):
+  if _is_triton_pointer_type(src_element_type) and _is_triton_pointer_type(
+      dst_element_type
+  ):
     return tt_dialect.bitcast(dst_type, src)
 
   raise NotImplementedError(f"cannot cast {src} to {dst_type}")
@@ -1767,7 +1779,7 @@ def _broadcast_in_dim_lowering_rule(
 ):
   del sharding
   x = _ensure_ir_value(x, *ctx.avals_in)
-  if not ir.RankedTensorType.isinstance(x.type):
+  if not isinstance(x.type, ir.RankedTensorType):
     return _bcast_to(x, shape)
   expand_dims = [i for i in range(len(shape)) if i not in broadcast_dimensions]
   for dim in expand_dims:
@@ -1799,7 +1811,7 @@ def _reshape_lowering_rule(
 
 
 def _reshape(a: ir.Value, shape: Sequence[int]) -> ir.Value:
-  if not ir.RankedTensorType.isinstance(a.type):
+  if not isinstance(a.type, ir.RankedTensorType):
     assert all(dim_size == 1 for dim_size in shape)
     return _splat(a, shape)
 
@@ -1923,12 +1935,12 @@ def _compute_offsets_from_indices(
         dim_offsets = _ir_constant(dim_offsets, offset_eltype)
       dim_offsets = _ir_cast(dim_offsets, offset_eltype, signed=False)
 
-      if ir.RankedTensorType.isinstance(dim_offsets.type):
+      if isinstance(dim_offsets.type, ir.RankedTensorType):
         for _ in other_shape:
           rank = ir.RankedTensorType(dim_offsets.type).rank
           dim_offsets = _expand_dims(dim_offsets, rank)
 
-    if ir.RankedTensorType.isinstance(dim_offsets.type):
+    if isinstance(dim_offsets.type, ir.RankedTensorType):
       rank = ir.RankedTensorType(dim_offsets.type).rank
       for _ in range(len(indexer_shape) - rank):
         dim_offsets = _expand_dims(dim_offsets, 0)
@@ -1954,13 +1966,10 @@ def _compute_pointers_from_indices(
 @register_lowering(sp.get_p)
 def _get_lowering_rule(ctx: LoweringRuleContext, ptr, *idx, tree):
   indexers = tree_util.tree_unflatten(tree, idx)
-  if not tt_dialect.PointerType.isinstance(ptr.type):
+  if not _is_triton_pointer_type(ptr.type):
     assert len(indexers) == 0
     return ptr
-  if len(indexers) > 1:
-    raise NotImplementedError("No support for multiple indexers yet.")
-  indexer = indexers[0]
-  args_flat, args_tree = tree_util.tree_flatten((ptr, (indexer,), None, None))
+  args_flat, args_tree = tree_util.tree_flatten((ptr, indexers, None, None))
   return _masked_load_lowering_rule(
       ctx,
       *args_flat,
@@ -2000,21 +2009,21 @@ def _load(
           f"unsupported eviction policy: {eviction_policy}"
       ) from None
 
-  if tt_dialect.PointerType.isinstance(ptr.type):
+  if _is_triton_pointer_type(ptr.type):
     ptr_type = tt_dialect.PointerType(ptr.type)
-    if ir.RankedTensorType.isinstance(ptr_type.pointee_type):
+    if isinstance(ptr_type.pointee_type, ir.RankedTensorType):
       raise NotImplementedError("loading from a block pointer is not supported")
 
   ptr_type = _element_type(ptr.type)
-  if not tt_dialect.PointerType.isinstance(ptr_type):
+  if not _is_triton_pointer_type(ptr_type):
     raise ValueError(f"unsupported pointer type: {ptr_type}")
   ptr_type = tt_dialect.PointerType(ptr_type)
   if other is not None and mask is None:
     raise ValueError("other requires mask to be provided")
-  if not ir.RankedTensorType.isinstance(ptr.type):
-    if other is not None and ir.RankedTensorType.isinstance(other.type):
+  if not isinstance(ptr.type, ir.RankedTensorType):
+    if other is not None and isinstance(other.type, ir.RankedTensorType):
       raise ValueError("other cannot be a block if pointer is not a block")
-    if mask is not None and ir.RankedTensorType.isinstance(mask.type):
+    if mask is not None and isinstance(mask.type, ir.RankedTensorType):
       raise ValueError("mask cannot be a block if pointer is not a block")
 
   pointee_type = ptr_type.pointee_type
@@ -2099,8 +2108,13 @@ def _masked_load_lowering_rule(
   *_, mask_aval, other_aval = args_tree.unflatten(ctx.avals_in)
   if len(indexers) > 1:
     raise NotImplementedError("No support for multiple indexers yet.")
-  idx = indexers[0]
-  if not tt_dialect.PointerType.isinstance(ptr.type):
+  indexers = list(indexers)
+  if not indexers:
+    ref_shape = state.get_transforms_shape(indexers, ctx.avals_in[0].shape)
+    idx = NDIndexer.make_trivial_indexer(ref_shape)
+  else:
+    idx = indexers[0]
+  if not _is_triton_pointer_type(ptr.type):
     assert len(ctx.avals_in) == 1
     return ptr
 
@@ -2156,13 +2170,12 @@ def _masked_load_lowering_rule(
 @register_lowering(sp.swap_p)
 def _swap_lowering_rule(ctx: LoweringRuleContext, ptr, value, *idx, tree):
   indexers = tree_util.tree_unflatten(tree, idx)
-  if not tt_dialect.PointerType.isinstance(ptr.type):
+  if not _is_triton_pointer_type(ptr.type):
     assert len(indexers) == 0
     return ptr
   if len(indexers) > 1:
     raise NotImplementedError("No support for multiple indexers yet.")
-  indexer = indexers[0]
-  args_flat, args_tree = tree_util.tree_flatten((ptr, (indexer,), value, None))
+  args_flat, args_tree = tree_util.tree_flatten((ptr, indexers, value, None))
   return _masked_swap_lowering_rule(
       ctx, *args_flat, args_tree=args_tree, eviction_policy=None
   )
@@ -2192,19 +2205,19 @@ def _store(
           f"unsupported eviction policy: {eviction_policy}"
       ) from None
 
-  if tt_dialect.PointerType.isinstance(ptr.type):
+  if _is_triton_pointer_type(ptr.type):
     ptr_type = tt_dialect.PointerType(ptr.type)
-    if ir.RankedTensorType.isinstance(ptr_type.pointee_type):
+    if isinstance(ptr_type.pointee_type, ir.RankedTensorType):
       raise NotImplementedError("loading from a block pointer is not supported")
 
   ptr_type = _element_type(ptr.type)
-  if not tt_dialect.PointerType.isinstance(ptr_type):
+  if not _is_triton_pointer_type(ptr_type):
     raise ValueError(f"unsupported pointer type: {ptr_type}")
   ptr_type = tt_dialect.PointerType(ptr_type)
-  if not ir.RankedTensorType.isinstance(ptr.type):
-    if ir.RankedTensorType.isinstance(value.type):
+  if not isinstance(ptr.type, ir.RankedTensorType):
+    if isinstance(value.type, ir.RankedTensorType):
       raise ValueError("value cannot be a block if pointer is not a block")
-    if mask is not None and ir.RankedTensorType.isinstance(mask.type):
+    if mask is not None and isinstance(mask.type, ir.RankedTensorType):
       raise ValueError("mask cannot be a block if pointer is not a block")
 
   pointee_type = ptr_type.pointee_type
@@ -2232,7 +2245,11 @@ def _masked_swap_lowering_rule(
   *_, value_aval, mask_aval = args_tree.unflatten(ctx.avals_in)
   if len(indexers) > 1:
     raise NotImplementedError("No support for multiple indexers yet.")
-  idx = indexers[0]
+  if not indexers:
+    ref_shape = state.get_transforms_shape(indexers, ctx.avals_in[0].shape)
+    idx = NDIndexer.make_trivial_indexer(ref_shape)
+  else:
+    idx = indexers[0]
   ptr = _compute_pointers_from_indices(ptr, block_info, idx)
   other = None
   if value is not None:
@@ -2252,7 +2269,7 @@ def _addupdate_lowering_rule(ctx: LoweringRuleContext, ptr, value, *idx, tree):
   block_info, *_ = ctx.block_infos
   assert block_info is not None
   indexers = tree_util.tree_unflatten(tree, idx)
-  if not tt_dialect.PointerType.isinstance(ptr.type):
+  if not _is_triton_pointer_type(ptr.type):
     assert len(indexers) == 0
     return ptr
   if len(indexers) > 1:
@@ -2432,7 +2449,7 @@ def _reduction_lowering(body, ctx: LoweringRuleContext, a, axes):
   return list(reduce_op.result)
 
 
-def _reduce_lowering(body, ctx: LoweringRuleContext, a, *, axes):
+def _reduce_lowering(body, ctx: LoweringRuleContext, a, *, axes, **kwargs):
   assert isinstance(axes, tuple)
   if not axes:
     return a
@@ -2526,7 +2543,7 @@ def _pjit_lowering_rule(ctx: LoweringRuleContext, *args, jaxpr, **_):
 
 
 @register_lowering(pjit.reshard_p)
-def _reshard_lowering_rule(ctx, x, dst_sharding):
+def _reshard_lowering_rule(ctx, x, *, dst_sharding, concrete_mesh):
   return x
 
 
@@ -2820,7 +2837,7 @@ def _cond_lowering_rule(
 
   use_branch0 = _equal(index, _ir_constant(0, index.type), signed=False)
   # TODO(bjp): Switch to scf.index_switch once exposed in triton.cc
-  if_op = scf_dialect.IfOp(use_branch0, out_types, hasElse=True)
+  if_op = scf_dialect.IfOp(use_branch0, out_types, has_else=True)
   with ir.InsertionPoint.at_block_begin(if_op.then_block):
     outs0 = lower_jaxpr_to_triton_ir(
         ctx.context,
@@ -2852,7 +2869,7 @@ def _ensure_ir_value(x: object, aval: jax_core.ShapedArray) -> ir.Value:
   if isinstance(x, ir.Value):
     return x
   elif isinstance(
-      x, (np.number, np.ndarray, int, float, literals.LiteralArray)
+      x, (np.number, np.ndarray, int, float, literals.TypedNdArray)
   ):
     return _ir_constant(x, _dtype_to_ir_type(aval.dtype))
   raise NotImplementedError
@@ -2860,7 +2877,7 @@ def _ensure_ir_value(x: object, aval: jax_core.ShapedArray) -> ir.Value:
 
 def _ir_constant(v: object, t: ir.Type) -> ir.Value:
   if isinstance(
-      v, (np.number, np.ndarray, int, float, literals.LiteralArray)
+      v, (np.number, np.ndarray, int, float, literals.TypedNdArray)
   ):
     if isinstance(t, ir.IntegerType):
       v = int(v)
@@ -2900,7 +2917,7 @@ def _bitcast_convert_type_lowering_rule(
     raise NotImplementedError(
         f"cannot cast {operand} to {new_dtype} because of different widths"
     )
-  if ir.RankedTensorType.isinstance(operand.type):
+  if isinstance(operand.type, ir.RankedTensorType):
     shape = ir.RankedTensorType(operand.type).shape
     result_type = ir.RankedTensorType.get(shape, dst_elem_type)
   else:

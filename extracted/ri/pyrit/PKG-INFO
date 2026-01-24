@@ -1,0 +1,157 @@
+Metadata-Version: 2.4
+Name: pyrit
+Version: 0.10.0
+Summary: The Python Risk Identification Tool for LLMs (PyRIT) is a library used to assess the robustness of LLMs
+Author-email: Microsoft AI Red Team <airedteam@microsoft.com>
+License-Expression: MIT
+Keywords: llm,ai-safety,ai-security,ai-red-team,ai-red-teaming,ai-robustness,ai-robustness-testing,ai-risk-assessment
+Classifier: Development Status :: 3 - Alpha
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: NOTICE.txt
+Requires-Dist: aiofiles<25,>=24
+Requires-Dist: appdirs>=1.4.0
+Requires-Dist: art>=6.5.0
+Requires-Dist: azure-core>=1.34.0
+Requires-Dist: azure-identity>=1.19.0
+Requires-Dist: azure-ai-contentsafety>=1.0.0
+Requires-Dist: azure-storage-blob>=12.19.0
+Requires-Dist: base2048>=0.1.3
+Requires-Dist: colorama>=0.4.6
+Requires-Dist: confusables>=1.2.0
+Requires-Dist: confusable-homoglyphs>=3.3.1
+Requires-Dist: ecoji>=0.1.1
+Requires-Dist: datasets>=3.6.0
+Requires-Dist: httpx[http2]>=0.27.2
+Requires-Dist: jinja2>=3.1.6
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: openai>=2.2.0
+Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: pillow>=11.2.1
+Requires-Dist: pydantic>=2.11.5
+Requires-Dist: pyodbc>=5.1.0
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: pypdf>=5.1.0
+Requires-Dist: reportlab>=4.4.4
+Requires-Dist: segno>=1.6.6
+Requires-Dist: scipy>=1.15.3
+Requires-Dist: SQLAlchemy>=2.0.41
+Requires-Dist: termcolor>=2.4.0
+Requires-Dist: tenacity>=9.1.2
+Requires-Dist: tinytag>=2.1.1
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: transformers>=4.52.4
+Requires-Dist: treelib>=1.7.1
+Requires-Dist: websockets>=14.0
+Provides-Extra: dev
+Requires-Dist: black>=25.1.0; extra == "dev"
+Requires-Dist: feedgen>=1.0.0; extra == "dev"
+Requires-Dist: flake8>=7.2.0; extra == "dev"
+Requires-Dist: flake8-copyright>=0.2.4; extra == "dev"
+Requires-Dist: ipykernel>=6.29.5; extra == "dev"
+Requires-Dist: jupyter>=1.1.1; extra == "dev"
+Requires-Dist: jupyter-book==1.0.4; extra == "dev"
+Requires-Dist: jupytext>=1.17.1; extra == "dev"
+Requires-Dist: mypy>=1.16.0; extra == "dev"
+Requires-Dist: mock-alchemy>=0.2.6; extra == "dev"
+Requires-Dist: pre-commit>=4.2.0; extra == "dev"
+Requires-Dist: pytest>=8.3.5; extra == "dev"
+Requires-Dist: pytest-asyncio>=1.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=6.1.1; extra == "dev"
+Requires-Dist: pytest-timeout>=2.4.0; extra == "dev"
+Requires-Dist: pytest-xdist>=3.6.1; extra == "dev"
+Requires-Dist: respx>=0.22.0; extra == "dev"
+Requires-Dist: ruff>=0.14.4; extra == "dev"
+Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == "dev"
+Requires-Dist: types-PyYAML>=6.0.12.20250516; extra == "dev"
+Requires-Dist: types-requests>=2.31.0.20250515; extra == "dev"
+Provides-Extra: huggingface
+Requires-Dist: torch>=2.7.0; extra == "huggingface"
+Provides-Extra: gcg
+Requires-Dist: accelerate>=1.7.0; extra == "gcg"
+Requires-Dist: azure-ai-ml>=1.27.1; extra == "gcg"
+Requires-Dist: azureml-mlflow>=1.60.0; extra == "gcg"
+Requires-Dist: mlflow>=2.22.0; extra == "gcg"
+Requires-Dist: ml-collections>=1.1.0; extra == "gcg"
+Requires-Dist: sentencepiece>=0.2.0; extra == "gcg"
+Requires-Dist: torch>=2.7.0; extra == "gcg"
+Provides-Extra: playwright
+Requires-Dist: flask>=3.1.0; extra == "playwright"
+Requires-Dist: ollama>=0.5.1; extra == "playwright"
+Requires-Dist: playwright>=1.49.0; extra == "playwright"
+Provides-Extra: gradio
+Requires-Dist: gradio>=5.32.0; extra == "gradio"
+Requires-Dist: rpyc>=6.0.1; extra == "gradio"
+Requires-Dist: pywebview>=5.4; extra == "gradio"
+Provides-Extra: fairness-bias
+Requires-Dist: spacy>=3.8.7; extra == "fairness-bias"
+Provides-Extra: opencv
+Requires-Dist: opencv-python>=4.11.0.86; extra == "opencv"
+Provides-Extra: speech
+Requires-Dist: azure-cognitiveservices-speech>=1.46.0; extra == "speech"
+Provides-Extra: all
+Requires-Dist: accelerate>=1.7.0; extra == "all"
+Requires-Dist: azure-ai-ml>=1.27.1; extra == "all"
+Requires-Dist: azure-cognitiveservices-speech>=1.44.0; extra == "all"
+Requires-Dist: azureml-mlflow>=1.60.0; extra == "all"
+Requires-Dist: flask>=3.1.0; extra == "all"
+Requires-Dist: ipykernel>=6.29.5; extra == "all"
+Requires-Dist: jupyter>=1.1.1; extra == "all"
+Requires-Dist: gradio>=5.32.0; extra == "all"
+Requires-Dist: mlflow>=2.22.0; extra == "all"
+Requires-Dist: ml-collections>=1.1.0; extra == "all"
+Requires-Dist: ollama>=0.5.1; extra == "all"
+Requires-Dist: opencv-python>=4.11.0.86; extra == "all"
+Requires-Dist: playwright>=1.49.0; extra == "all"
+Requires-Dist: pywebview>=5.4; extra == "all"
+Requires-Dist: spacy>=3.8.7; extra == "all"
+Requires-Dist: rpyc>=6.0.1; extra == "all"
+Requires-Dist: torch>=2.7.0; extra == "all"
+Requires-Dist: types-PyYAML>=6.0.12.20250516; extra == "all"
+Requires-Dist: types-requests>=2.31.0.20250515; extra == "all"
+Dynamic: license-file
+
+<p align="center"><img src="https://raw.githubusercontent.com/Azure/PyRIT/releases/v0.10.0/doc/roakey.png" width="150"></p>
+
+# Python Risk Identification Tool for generative AI (PyRIT)
+
+The Python Risk Identification Tool for generative AI (PyRIT) is an open source
+framework built to empower security professionals and engineers to proactively
+identify risks in generative AI systems.
+
+- Check out our [website](https://azure.github.io/PyRIT/) for more information
+  about how to use, install, or contribute to PyRIT.
+- Visit our [Discord server](https://discord.gg/9fMpq3tc8u) to chat with the team and community.
+
+## Trademarks
+
+This project may contain trademarks or logos for projects, products, or services.
+Authorized use of Microsoft trademarks or logos is subject to and must follow
+[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
+Use of Microsoft trademarks or logos in modified versions of this project must
+not cause confusion or imply Microsoft sponsorship.
+Any use of third-party trademarks or logos are subject to those third-party's
+policies.
+
+## Citing PyRIT
+
+If you use PyRIT in your research, please cite our preprint paper as follows:
+
+```
+@misc{munoz2024pyritframeworksecurityrisk,
+      title={PyRIT: A Framework for Security Risk Identification and Red Teaming in Generative AI Systems},
+      author={Gary D. Lopez Munoz and Amanda J. Minnich and Roman Lutz and Richard Lundeen and Raja Sekhar Rao Dheekonda and Nina Chikanov and Bolor-Erdene Jagdagdorj and Martin Pouliot and Shiven Chawla and Whitney Maxwell and Blake Bullwinkel and Katherine Pratt and Joris de Gruyter and Charlotte Siska and Pete Bryan and Tori Westerhoff and Chang Kawaguchi and Christian Seifert and Ram Shankar Siva Kumar and Yonatan Zunger},
+      year={2024},
+      eprint={2410.02828},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2410.02828},
+}
+```
+
+Additionally, please cite the tool itself following the `CITATION.cff` file in the root of this repository.

@@ -1,5 +1,5 @@
 from typing import Final, Generic, Self, TypeAlias, overload
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, override
 
 import numpy as np
 import optype as op
@@ -91,21 +91,36 @@ class KDTree(cKDTree[_BoxSizeT_co, _BoxSizeDataT_co], Generic[_BoxSizeT_co, _Box
         boxsize: onp.ToFloat2D,
     ) -> None: ...
 
+    #
+    @override
+    def query(
+        self,
+        /,
+        x: onp.ToFloat1D,
+        k: onp.ToInt | onp.ToInt1D = 1,
+        eps: onp.ToFloat = 0.0,
+        p: onp.ToFloat = 2.0,
+        distance_upper_bound: float = float("inf"),  # noqa: PYI011
+        workers: int | None = 1,
+    ) -> tuple[float, np.intp] | tuple[onp.ArrayND[np.float64], onp.ArrayND[np.intp]]: ...
+
 @overload
-def minkowski_distance_p(x: onp.ToFloatND, y: onp.ToFloatND, p: int = 2) -> onp.ArrayND[np.float64]: ...
+def minkowski_distance_p(x: onp.ToFloatND, y: onp.ToFloatND, p: float = 2.0) -> onp.ArrayND[np.float64]: ...
 @overload
-def minkowski_distance_p(x: onp.ToComplexND, y: onp.ToComplexND, p: int = 2) -> onp.ArrayND[np.float64 | np.complex128]: ...
+def minkowski_distance_p(x: onp.ToComplexND, y: onp.ToComplexND, p: float = 2.0) -> onp.ArrayND[np.float64 | np.complex128]: ...
 
 #
 @overload
-def minkowski_distance(x: onp.ToFloatND, y: onp.ToFloatND, p: int = 2) -> onp.ArrayND[np.float64]: ...
+def minkowski_distance(x: onp.ToFloatND, y: onp.ToFloatND, p: float = 2.0) -> onp.ArrayND[np.float64]: ...
 @overload
-def minkowski_distance(x: onp.ToComplexND, y: onp.ToComplexND, p: int = 2) -> onp.ArrayND[np.float64 | np.complex128]: ...
+def minkowski_distance(x: onp.ToComplexND, y: onp.ToComplexND, p: float = 2.0) -> onp.ArrayND[np.float64 | np.complex128]: ...
 
 #
-@overload
-def distance_matrix(x: onp.ToFloatND, y: onp.ToFloatND, p: int = 2, threshold: int = 1_000_000) -> onp.Array2D[np.float64]: ...
 @overload
 def distance_matrix(
-    x: onp.ToComplexND, y: onp.ToComplexND, p: int = 2, threshold: int = 1_000_000
+    x: onp.ToFloatND, y: onp.ToFloatND, p: float = 2.0, threshold: int = 1_000_000
+) -> onp.Array2D[np.float64]: ...
+@overload
+def distance_matrix(
+    x: onp.ToComplexND, y: onp.ToComplexND, p: float = 2.0, threshold: int = 1_000_000
 ) -> onp.Array2D[np.float64 | np.complex128]: ...

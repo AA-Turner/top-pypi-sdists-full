@@ -5,12 +5,7 @@ from functools import lru_cache
 
 import orjson
 
-from langgraph_api.config import (
-    HTTP_CONFIG,
-    LANGGRAPH_AUTH,
-    LANGGRAPH_AUTH_TYPE,
-    MOUNT_PREFIX,
-)
+from langgraph_api import config
 from langgraph_api.graph import GRAPHS
 from langgraph_api.validation import openapi
 
@@ -39,17 +34,20 @@ def get_openapi_spec() -> bytes:
             graph_ids
         )
     # patch the auth schemes
-    if LANGGRAPH_AUTH_TYPE == "langsmith":
+    if config.LANGGRAPH_AUTH_TYPE == "langsmith":
         openapi["security"] = [
             {"x-api-key": []},
         ]
         openapi["components"]["securitySchemes"] = {
             "x-api-key": {"type": "apiKey", "in": "header", "name": "x-api-key"}
         }
-    if LANGGRAPH_AUTH:
+    if config.LANGGRAPH_AUTH:
         # Allow user to specify OpenAPI security configuration
-        if isinstance(LANGGRAPH_AUTH, dict) and "openapi" in LANGGRAPH_AUTH:
-            openapi_config = LANGGRAPH_AUTH["openapi"]
+        if (
+            isinstance(config.LANGGRAPH_AUTH, dict)
+            and "openapi" in config.LANGGRAPH_AUTH
+        ):
+            openapi_config = config.LANGGRAPH_AUTH["openapi"]
             if isinstance(openapi_config, dict):
                 # Add security schemes
                 if "securitySchemes" in openapi_config:
@@ -82,8 +80,13 @@ def get_openapi_spec() -> bytes:
             )
 
     # Remove webhook parameters if webhooks are disabled
-    if HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks"):
-        webhook_schemas = ["CronCreate", "RunCreateStateful", "RunCreateStateless"]
+    if config.WEBHOOKS_ENABLED:
+        webhook_schemas = [
+            "CronCreate",
+            "ThreadCronCreate",
+            "RunCreateStateful",
+            "RunCreateStateless",
+        ]
         for schema_name in webhook_schemas:
             if schema_name in openapi["components"]["schemas"]:
                 schema = openapi["components"]["schemas"][schema_name]
@@ -96,14 +99,21 @@ def get_openapi_spec() -> bytes:
     final = openapi
     if CUSTOM_OPENAPI_SPEC:
         final = merge_openapi_specs(openapi, CUSTOM_OPENAPI_SPEC)
-    if MOUNT_PREFIX:
-        final["servers"] = [{"url": MOUNT_PREFIX}]
+    if config.MOUNT_PREFIX:
+        final["servers"] = [{"url": config.MOUNT_PREFIX}]
 
-    MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
-
-    if not MCP_ENABLED:
+    if not config.MCP_ENABLED:
         # Remove the MCP paths from the OpenAPI spec
         final["paths"].pop("/mcp/", None)
+        # Remove the MCP tag definition
+        final["tags"] = [t for t in final.get("tags", []) if t.get("name") != "MCP"]
+
+    if not config.A2A_ENABLED:
+        # Remove the A2A paths from the OpenAPI spec
+        final["paths"].pop("/a2a/{assistant_id}", None)
+        final["paths"].pop("/.well-known/agent-card.json", None)
+        # Remove the A2A tag definition
+        final["tags"] = [t for t in final.get("tags", []) if t.get("name") != "A2A"]
 
     return orjson.dumps(final)
 

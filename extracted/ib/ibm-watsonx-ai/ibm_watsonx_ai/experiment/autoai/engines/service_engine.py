@@ -1,10 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 import json
 import logging
+from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
@@ -41,6 +42,7 @@ from ibm_watsonx_ai.utils.autoai.utils import (
     try_import_autoai_libs,
     try_import_autoai_ts_libs,
 )
+from ibm_watsonx_ai.utils.utils import get_from_json
 
 from .base_engine import BaseEngine
 
@@ -287,27 +289,20 @@ class ServiceEngine(BaseEngine):
                     ] = self._auto_pipelines_parameters.get("fairness_info")
             # end of section
 
-            # time ordered data, feature selector supported only on Cloud or CPD 4.8.1 and higher
-            if (
-                self._api_client.CLOUD_PLATFORM_SPACES
-                or self._api_client.CPD_version >= 4.8
-            ):
-                if self._auto_pipelines_parameters.get("time_ordered_data") is not None:
-                    self._pipeline_metadata[
-                        self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-                    ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                        "time_ordered_data"
-                    ] = self._auto_pipelines_parameters.get("time_ordered_data")
+            # time ordered data, feature selector supported only on Cloud or CPD 5.0 and higher
+            if self._auto_pipelines_parameters.get("time_ordered_data") is not None:
+                self._pipeline_metadata[
+                    self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
+                ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
+                    "time_ordered_data"
+                ] = self._auto_pipelines_parameters.get("time_ordered_data")
 
-                if (
-                    self._auto_pipelines_parameters.get("feature_selector_mode")
-                    is not None
-                ):
-                    self._pipeline_metadata[
-                        self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
-                    ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
-                        "feature_selector_mode"
-                    ] = self._auto_pipelines_parameters.get("feature_selector_mode")
+            if self._auto_pipelines_parameters.get("feature_selector_mode") is not None:
+                self._pipeline_metadata[
+                    self._api_client.pipelines.ConfigurationMetaNames.DOCUMENT
+                ]["pipelines"][0]["nodes"][0]["parameters"]["optimization"][
+                    "feature_selector_mode"
+                ] = self._auto_pipelines_parameters.get("feature_selector_mode")
 
         # end note
 
@@ -973,8 +968,8 @@ class ServiceEngine(BaseEngine):
                             if status.get("state") == RunStateTypes.FAILED:
                                 sleep(3)
 
-                                message = status.get("message", {}).get(
-                                    "text", "Training failed"
+                                message = get_from_json(
+                                    status, ["message", "text"], "Training failed"
                                 )
                                 progress_bar.set_description(desc=message)
 
@@ -1407,9 +1402,9 @@ class ServiceEngine(BaseEngine):
     @staticmethod
     def _get_features_importance(pipeline_details: Dict) -> "DataFrame":
         """Retrieve features importance data from particular pipeline details."""
-        data = pipeline_details["context"].get(
-            "features_importance", [{"features": {}}]
-        )[0]["features"]
+        data = get_from_json(
+            pipeline_details, ["context", "features_importance", 0, "features"], {}
+        )
         columns = [name for name in data.keys()]
         values = [[value for value in data.values()]]
 
@@ -1514,7 +1509,7 @@ class ServiceEngine(BaseEngine):
             )
 
     def get_pipeline(
-        self, pipeline_name: str, local_path: str = ".", persist: "bool" = False
+        self, pipeline_name: str, local_path: str | Path = ".", persist: "bool" = False
     ) -> Tuple["Pipeline", bool]:
         """Download specified pipeline.
 
@@ -1522,7 +1517,7 @@ class ServiceEngine(BaseEngine):
         :type pipeline_name: str
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param persist: indicates if selected pipeline should be stored locally
         :type persist: bool, optional
@@ -1530,6 +1525,8 @@ class ServiceEngine(BaseEngine):
         :return: Scikit-Learn pipeline and lale check result
         :rtype: tuple[Pipeline, bool]
         """
+        if isinstance(local_path, str):
+            local_path = Path(local_path)
 
         run_params = self._api_client.training.get_details(
             training_id=self._current_run_id, _internal=True
@@ -1564,7 +1561,10 @@ class ServiceEngine(BaseEngine):
         return pipelines.get(pipeline_name), check_lale
 
     def get_pipeline_notebook(
-        self, pipeline_name: str, local_path: str = ".", filename: str = None
+        self,
+        pipeline_name: str,
+        local_path: str | Path = ".",
+        filename: str | Path | None = None,
     ) -> str:
         """Download specified pipeline notebook.
 
@@ -1572,14 +1572,16 @@ class ServiceEngine(BaseEngine):
         :type pipeline_name: str
 
         :param local_path: working directory path
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param filename: filename under which the pipeline notebook will be saved
-        :type filename: str, optional
+        :type filename: str, Path, optional
 
         :return: path to saved pipeline notebook
         :rtype: str
         """
+        if isinstance(local_path, str):
+            local_path = Path(local_path)
 
         run_params = self._api_client.training.get_details(
             training_id=self._current_run_id, _internal=True
@@ -1603,12 +1605,12 @@ class ServiceEngine(BaseEngine):
         )
 
     def get_best_pipeline(
-        self, local_path: str = ".", persist: "bool" = False
+        self, local_path: str | Path = ".", persist: "bool" = False
     ) -> Tuple["Pipeline", bool]:
         """Download best pipeline.
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param persist: indicates if selected pipeline should be stored locally
         :type persist: bool, optional
@@ -1616,5 +1618,10 @@ class ServiceEngine(BaseEngine):
         :return: Scikit-Learn pipeline and lale check result
         :rtype: tuple[Pipeline, bool]
         """
+        if isinstance(local_path, str):
+            local_path = Path(local_path)
+
         best_pipeline_name = self.summary().index[0]
-        return self.get_pipeline(best_pipeline_name, persist=persist)
+        return self.get_pipeline(
+            best_pipeline_name, local_path=local_path, persist=persist
+        )

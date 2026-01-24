@@ -1,11 +1,11 @@
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+requires = ["scikit-build-core>=0.11", "pybind11>=3.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "iminuit"
 description = "Jupyter-friendly Python frontend for MINUIT2 in C++"
-version = "2.31.1"
+version = "2.32.0"
 maintainers = [{ name = "Hans Dembinski", email = "hans.dembinski@gmail.com" }]
 readme = "README.rst"
 requires-python = ">=3.9"
@@ -39,29 +39,26 @@ documentation = "https://scikit-hep.org/iminuit"
 [project.optional-dependencies]
 test = [
     "coverage",
-    # ipywidgets 8.0.5 and 8.0.6 are broken
-    # see https://github.com/jupyter-widgets/ipywidgets/issues/3731
     "ipywidgets",
-    # needed by ipywidgets >= 8.0.6
-    "ipykernel",
-    "PySide6",
+    "ipykernel; platform_python_implementation=='CPython'",
+    "PySide6; platform_python_implementation=='CPython'",
     "joblib",
     "jacobi",
-    "matplotlib",
-    "numpy",
+    "matplotlib; platform_python_implementation=='CPython'",
     "numba; platform_python_implementation=='CPython'",
     "numba-stats; platform_python_implementation=='CPython'",
     "pytest",
     "pytest-xdist",
     "pytest-xvfb",
-    "pytest-qt",
-    "scipy",
+    "pytest-qt; platform_python_implementation=='CPython'",
+    "scipy; platform_python_implementation=='CPython'",
     "tabulate",
     "boost_histogram",
-    "resample",
+    "resample; platform_python_implementation=='CPython'",
     "unicodeitplus",
     "pydantic",
     "annotated_types",
+    "nox",
 ]
 doc = [
     "sphinx-rtd-theme", # installs correct sphinx as well
@@ -79,7 +76,18 @@ doc = [
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
 sdist.exclude = ["extern/root"]
-sdist.include = ["extern/root/math/minuit2/inc", "extern/root/math/minuit2/src"]
+sdist.include = [
+    "extern/root/math/minuit2/inc",
+    "extern/root/math/minuit2/src",
+    "extern/root/math/mathcore/inc/Math/Util.h",
+    "extern/root/math/mathcore/inc/Math/Types.h",
+    "extern/root/math/mathcore/src/Util.cxx",
+    "extern/root/core/foundation/inc",
+]
+## Uncomment to debug C++
+# cmake.build-type = "DEBUG"
+## Uncomment to debug C++ build
+# build.verbose = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -115,7 +123,6 @@ pydocstyle.convention = "numpy"
 [tool.mypy]
 ignore_missing_imports = true
 allow_redefinition = true
-plugins = "numpy.typing.mypy_plugin"
 pretty = true
 files = ["src"]
 no_implicit_optional = false
@@ -125,19 +132,15 @@ build-frontend = "build[uv]"
 skip = ["cp39-musllinux_i686"]                    # no numpy wheel
 test-requires = "pytest"
 test-command = "python -m pytest {package}/tests"
-test-skip = ["*universal2:arm64"]
-# to match numpy, we use manylinux2014 for cp310+
-manylinux-x86_64-image = "manylinux2014"
-manylinux-i686-image = "manylinux2014"
-free-threaded-support = true
+enable = ["cpython-freethreading"]
 
 [tool.cibuildwheel.environment]
 # this makes sure that we build only on platforms that have a corresponding numpy wheel
+UV_ONLY_BINARY = ":all:"
 PIP_ONLY_BINARY = ":all:"
 
 [[tool.cibuildwheel.overrides]]
-# to match numpy, we use manylinux2010 for cp36 to cp39
-select = "cp3?-manylinux*"
-manylinux-x86_64-image = "manylinux2010"
-manylinux-i686-image = "manylinux2010"
-build-frontend = "build"
+# to match numpy, we use manylinux2014 for cp310 (and 3.9, since manylinux2010 is dead)
+select = "cp3{9,10}-manylinux*"
+manylinux-x86_64-image = "manylinux2014"
+manylinux-i686-image = "manylinux2014"

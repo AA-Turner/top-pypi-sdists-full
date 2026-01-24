@@ -1,4 +1,5 @@
 from functools import wraps
+from inspect import Parameter, signature
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, TypeVar, Union, overload
 
 from . import validator
@@ -11,7 +12,7 @@ from .utils import to_camel
 __all__ = ('validate_arguments',)
 
 if TYPE_CHECKING:
-    from .typing import AnyCallable
+    from .typing import AnyCallable  # noqa: PLC0415 - codex_reason("gpt5.2", "type-checking import avoids runtime dependency")
 
     AnyCallableT = TypeVar('AnyCallableT', bound=AnyCallable)
     ConfigType = Union[None, Type[Any], Dict[str, Any]]
@@ -59,8 +60,6 @@ V_DUPLICATE_KWARGS = 'v__duplicate_kwargs'
 
 class ValidatedFunction:
     def __init__(self, function: 'AnyCallableT', config: 'ConfigType'):  # noqa C901
-        from inspect import Parameter, signature
-
         parameters: Mapping[str, Parameter] = signature(function).parameters
 
         if parameters.keys() & {ALT_V_ARGS, ALT_V_KWARGS, V_POSITIONAL_ONLY_NAME, V_DUPLICATE_KWARGS}:

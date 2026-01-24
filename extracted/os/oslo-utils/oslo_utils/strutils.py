@@ -20,8 +20,9 @@ System-level utilities and helper functions.
 import collections.abc
 import math
 import re
+from typing import Any
 import unicodedata
-import urllib
+import urllib.parse
 
 from oslo_utils._i18n import _
 from oslo_utils import encodeutils
@@ -53,8 +54,10 @@ UNIT_PREFIX_EXPONENT = {
 UNIT_SYSTEM_INFO = {
     'IEC': (1024, re.compile(r'(^[-+]?\d*\.?\d+)([KMGTPEZYRQ]i?)?(b|bit|B)$')),
     'SI': (1000, re.compile(r'(^[-+]?\d*\.?\d+)([kMGTPEZYRQ])?(b|bit|B)$')),
-    'mixed': (None, re.compile(
-        r'(^[-+]?\d*\.?\d+)([kKMGTPEZYRQ]i?)?(b|bit|B)$')),
+    'mixed': (
+        None,
+        re.compile(r'(^[-+]?\d*\.?\d+)([kKMGTPEZYRQ]i?)?(b|bit|B)$'),
+    ),
 }
 
 TRUE_STRINGS = ('1', 't', 'true', 'on', 'y', 'yes')
@@ -66,43 +69,73 @@ SLUGIFY_HYPHENATE_RE = re.compile(r"[-\s]+")
 
 # NOTE(flaper87): The following globals are used by `mask_password` and
 #                 `mask_dict_password`. They must all be lowercase.
-_SANITIZE_KEYS = ['adminpass', 'admin_pass', 'password', 'admin_password',
-                  'auth_token', 'new_pass', 'auth_password', 'secret_uuid',
-                  'secret', 'sys_pswd', 'token', 'configdrive',
-                  'chappassword', 'encrypted_key', 'private_key',
-                  'fernetkey', 'sslkey', 'passphrase',
-                  'cephclusterfsid', 'octaviaheartbeatkey', 'rabbitcookie',
-                  'cephmanilaclientkey', 'pacemakerremoteauthkey',
-                  'designaterndckey', 'cephadminkey', 'heatauthencryptionkey',
-                  'cephclientkey', 'keystonecredential',
-                  'barbicansimplecryptokek', 'cephrgwkey', 'swifthashsuffix',
-                  'migrationsshkey', 'cephmdskey', 'cephmonkey', 'chapsecret']
+_SANITIZE_KEYS = [
+    'adminpass',
+    'admin_pass',
+    'password',
+    'admin_password',
+    'auth_token',
+    'new_pass',
+    'auth_password',
+    'secret_uuid',
+    'secret',
+    'sys_pswd',
+    'token',
+    'configdrive',
+    'chappassword',
+    'encrypted_key',
+    'private_key',
+    'fernetkey',
+    'sslkey',
+    'passphrase',
+    'cephclusterfsid',
+    'octaviaheartbeatkey',
+    'rabbitcookie',
+    'cephmanilaclientkey',
+    'pacemakerremoteauthkey',
+    'designaterndckey',
+    'cephadminkey',
+    'heatauthencryptionkey',
+    'cephclientkey',
+    'keystonecredential',
+    'barbicansimplecryptokek',
+    'cephrgwkey',
+    'swifthashsuffix',
+    'migrationsshkey',
+    'cephmdskey',
+    'cephmonkey',
+    'chapsecret',
+]
 
 # NOTE(ldbragst): Let's build a list of regex objects using the list of
 # _SANITIZE_KEYS we already have. This way, we only have to add the new key
 # to the list of _SANITIZE_KEYS and we can generate regular expressions
 # for XML and JSON automatically.
-_SANITIZE_PATTERNS_2 = {}
-_SANITIZE_PATTERNS_1 = {}
-_SANITIZE_PATTERNS_WILDCARD = {}
+_SANITIZE_PATTERNS_2: dict[str, Any] = {}
+_SANITIZE_PATTERNS_1: dict[str, Any] = {}
+_SANITIZE_PATTERNS_WILDCARD: dict[str, Any] = {}
 
 # NOTE(amrith): Some regular expressions have only one parameter, some
 # have two parameters. Use different lists of patterns here.
 _FORMAT_PATTERNS_1 = [r'(%(key)s[0-9]*\s*[=]\s*)[^\s^\'^\"]+']
-_FORMAT_PATTERNS_2 = [r'(%(key)s[0-9]*\s*[=]\s*[\"\'])[^\"\']*([\"\'])',
-                      r'(%(key)s[0-9]*\s*[=]\s*[\"])[^\"]*([\"])',
-                      r'(%(key)s[0-9]*\s*[=]\s*[\'])[^\']*([\'])',
-                      r'(%(key)s[0-9]*\s+[\"\'])[^\"\']*([\"\'])',
-                      r'([-]{2}%(key)s[0-9]*\s+)[^\'^\"^=^\s]+([\s]*)',
-                      r'(<%(key)s[0-9]*>)[^<]*(</%(key)s[0-9]*>)',
-                      r'([\"\']%(key)s[0-9]*[\"\']\s*:\s*[\"\'])[^\"\']*'
-                      r'([\"\'])',
-                      r'([\'"][^"\']*%(key)s[0-9]*[\'"]\s*:\s*u?[\'"])[^\"\']*'
-                      r'([\'"])',
-                      r'([\'"][^\'"]*%(key)s[0-9]*[\'"]\s*,\s*\'--?[A-z]+'
-                      r'\'\s*,\s*u?[\'"])[^\"\']*([\'"])',
-                      r'(%(key)s[0-9]*\s*--?[A-z]+\s*)\S+(\s*)']
-_FORMAT_PATTERNS_WILDCARD = [r'([\'\"][^\"\']*%(key)s[0-9]*[\'\"]\s*:\s*u?[\'\"].*[\'\"])[^\"\']*([\'\"])']  # noqa: E501
+_FORMAT_PATTERNS_2 = [
+    r'(%(key)s[0-9]*\s*[=]\s*[\"\'])[^\"\']*([\"\'])',
+    r'(%(key)s[0-9]*\s*[=]\s*[\"])[^\"]*([\"])',
+    r'(%(key)s[0-9]*\s*[=]\s*[\'])[^\']*([\'])',
+    r'(%(key)s[0-9]*\s+[\"\'])[^\"\']*([\"\'])',
+    r'([-]{2}%(key)s[0-9]*\s+)[^\'^\"^=^\s]+([\s]*)',
+    r'(<%(key)s[0-9]*>)[^<]*(</%(key)s[0-9]*>)',
+    r'([\"\']%(key)s[0-9]*[\"\']\s*:\s*[\"\'])[^\"\']*'
+    r'([\"\'])',
+    r'([\'"][^"\']*%(key)s[0-9]*[\'"]\s*:\s*u?[\'"])[^\"\']*'
+    r'([\'"])',
+    r'([\'"][^\'"]*%(key)s[0-9]*[\'"]\s*,\s*\'--?[A-z]+'
+    r'\'\s*,\s*u?[\'"])[^\"\']*([\'"])',
+    r'(%(key)s[0-9]*\s*--?[A-z]+\s*)\S+(\s*)',
+]
+_FORMAT_PATTERNS_WILDCARD = [
+    r'([\'\"][^\"\']*%(key)s[0-9]*[\'\"]\s*:\s*u?[\'\"].*[\'\"])[^\"\']*([\'\"])'
+]  # noqa: E501
 
 # NOTE(dhellmann): Keep a separate list of patterns by key so we only
 # need to apply the substitutions for keys we find using a quick "in"
@@ -125,7 +158,7 @@ for key in _SANITIZE_KEYS:
         _SANITIZE_PATTERNS_WILDCARD[key].append(reg_ex)
 
 
-def int_from_bool_as_string(subject):
+def int_from_bool_as_string(subject: Any) -> int:
     """Interpret a string as a boolean and return either 1 or 0.
 
     Any string value in:
@@ -139,7 +172,9 @@ def int_from_bool_as_string(subject):
     return int(bool_from_string(subject))
 
 
-def bool_from_string(subject, strict=False, default=False):
+def bool_from_string(
+    subject: Any, strict: bool = False, default: bool = False
+) -> bool:
     """Interpret a subject as a boolean.
 
     A subject can be a boolean, a string or an integer. Boolean type value
@@ -168,16 +203,18 @@ def bool_from_string(subject, strict=False, default=False):
         return False
     elif strict:
         acceptable = ', '.join(
-            "'%s'" % s for s in sorted(TRUE_STRINGS + FALSE_STRINGS))
-        msg = _("Unrecognized value '%(val)s', acceptable values are:"
-                " %(acceptable)s") % {'val': subject,
-                                      'acceptable': acceptable}
+            f"'{s}'" for s in sorted(TRUE_STRINGS + FALSE_STRINGS)
+        )
+        msg = _(
+            "Unrecognized value '%(val)s', acceptable values are:"
+            " %(acceptable)s"
+        ) % {'val': subject, 'acceptable': acceptable}
         raise ValueError(msg)
     else:
         return default
 
 
-def is_valid_boolstr(value):
+def is_valid_boolstr(value: Any) -> bool:
     """Check if the provided string is a valid bool string or not.
 
     :param value: value to verify
@@ -190,21 +227,65 @@ def is_valid_boolstr(value):
     return str(value).lower() in boolstrs
 
 
-def string_to_bytes(text, unit_system='IEC', return_int=False):
+def string_to_bytes(
+    text: str, unit_system: str = 'IEC', return_int: bool = False
+) -> int | float:
     """Converts a string into an float representation of bytes.
 
     The units supported for IEC / mixed::
 
-        Kb(it), Kib(it), Mb(it), Mib(it), Gb(it), Gib(it), Tb(it), Tib(it),
-        Pb(it), Pib(it), Eb(it), Eib(it), Zb(it), Zib(it), Yb(it), Yib(it),
+        (
+            Kb(it),
+            Kib(it),
+            Mb(it),
+            Mib(it),
+            Gb(it),
+            Gib(it),
+            Tb(it),
+            Tib(it),
+        )
+        (
+            Pb(it),
+            Pib(it),
+            Eb(it),
+            Eib(it),
+            Zb(it),
+            Zib(it),
+            Yb(it),
+            Yib(it),
+        )
         Rb(it), Rib(it), Qb(it), Qib(it)
 
-        KB, KiB, MB, MiB, GB, GiB, TB, TiB, PB, PiB, EB, EiB, ZB, ZiB,
+        (
+            KB,
+            KiB,
+            MB,
+            MiB,
+            GB,
+            GiB,
+            TB,
+            TiB,
+            PB,
+            PiB,
+            EB,
+            EiB,
+            ZB,
+            ZiB,
+        )
         YB, YiB, RB, RiB, QB, QiB
 
     The units supported for SI ::
 
-        kb(it), Mb(it), Gb(it), Tb(it), Pb(it), Eb(it), Zb(it), Yb(it),
+        (
+            kb(it),
+            Mb(it),
+            Gb(it),
+            Tb(it),
+            Pb(it),
+            Eb(it),
+            Zb(it),
+            Yb(it),
+        )
         Rb(it), Qb(it)
 
         kB, MB, GB, TB, PB, EB, ZB, YB, RB, QB
@@ -256,16 +337,26 @@ def string_to_bytes(text, unit_system='IEC', return_int=False):
         msg = _('Invalid string format: %s') % text
         raise ValueError(msg)
 
+    if base is None:
+        msg = _('Could not auto-detect base')
+        raise ValueError(msg)
+
     if not unit_prefix:
         res = magnitude
     else:
-        res = magnitude * pow(base, UNIT_PREFIX_EXPONENT[unit_prefix])
+        exponent = UNIT_PREFIX_EXPONENT.get(unit_prefix)
+        if exponent is None:
+            msg = _('Invalid unit prefix: %s') % unit_prefix
+            raise ValueError(msg)
+        res = magnitude * pow(base, exponent)
     if return_int:
         return int(math.ceil(res))
     return res
 
 
-def to_slug(value, incoming=None, errors="strict"):
+def to_slug(
+    value: Any, incoming: str | None = None, errors: str = "strict"
+) -> str:
     """Normalize string.
 
     Convert to lowercase, remove non-word characters, and convert spaces
@@ -284,8 +375,11 @@ def to_slug(value, incoming=None, errors="strict"):
     # NOTE(aababilov): no need to use safe_(encode|decode) here:
     # encodings are always "ascii", error handling is always "ignore"
     # and types are always known (first: unicode; second: str)
-    value = unicodedata.normalize("NFKD", value).encode(
-        "ascii", "ignore").decode("ascii")
+    value = (
+        unicodedata.normalize("NFKD", value)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+    )
     value = SLUGIFY_STRIP_RE.sub("", value).strip().lower()
     return SLUGIFY_HYPHENATE_RE.sub("-", value)
 
@@ -303,7 +397,7 @@ def to_slug(value, incoming=None, errors="strict"):
 # this file or, even better, pick an existing pattern or key to use in
 # your application to ensure that the value is masked by this
 # function.
-def mask_password(message, secret="***"):  # nosec
+def mask_password(message: str, secret: str = "***") -> str:  # noqa: S107
     """Replace password with *secret* in message.
 
     :param message: The string which includes security information.
@@ -375,7 +469,14 @@ def mask_password(message, secret="***"):  # nosec
     return message
 
 
-def mask_dict_password(dictionary, secret="***"):  # nosec
+# TODO(stephenfin): The types aren't great for this. We want to indicate that
+# the types of values in the returned dict are always identical to those of the
+# input collection except if the value was a non-dict collection. It would be
+# better if we returned the same type of Mapping here that we received on input.
+def mask_dict_password(
+    dictionary: collections.abc.Mapping[Any, Any],
+    secret: str = "***",  # noqa: S107
+) -> dict[str, Any]:
     """Replace password with *secret* in a dictionary recursively.
 
     :param dictionary: The dictionary which includes secret information.
@@ -413,9 +514,7 @@ def mask_dict_password(dictionary, secret="***"):  # nosec
     >>>                     'user': 'admin',
     >>>                     'home-dir': '/home/admin'},
     >>>                     '???')
-    {'password': '--password ???', 'user': 'admin',
-     'home-dir': '/home/admin'}
-
+    {'password': '--password ???', 'user': 'admin', 'home-dir': '/home/admin'}
 
     For example (a nested dictionary is masked):
 
@@ -428,15 +527,15 @@ def mask_dict_password(dictionary, secret="***"):  # nosec
     .. versionadded:: 3.4
 
     """
-
     if not isinstance(dictionary, collections.abc.Mapping):
-        raise TypeError("Expected a Mapping, got %s instead."
-                        % type(dictionary))
-    out = {}
+        raise TypeError(f"Expected a Mapping, got {type(dictionary)} instead.")
+
+    out: dict[str, Any] = {}
     for k, v in dictionary.items():
         if isinstance(v, collections.abc.Mapping):
             out[k] = mask_dict_password(v, secret=secret)
             continue
+
         # NOTE(jlvillal): Check to see if anything in the dictionary 'key'
         # contains any key specified in _SANITIZE_KEYS.
         k_matched = False
@@ -454,10 +553,11 @@ def mask_dict_password(dictionary, secret="***"):  # nosec
             else:
                 # Just leave it alone.
                 out[k] = v
+
     return out
 
 
-def is_int_like(val):
+def is_int_like(val: Any) -> bool:
     """Check if a value looks like an integer with base 10.
 
     :param val: Value to verify
@@ -472,7 +572,12 @@ def is_int_like(val):
         return False
 
 
-def check_string_length(value, name=None, min_length=0, max_length=None):
+def check_string_length(
+    value: str,
+    name: str | None = None,
+    min_length: int = 0,
+    max_length: int | None = None,
+) -> None:
     """Check the length of specified string.
 
     :param value: the value of the string
@@ -492,19 +597,24 @@ def check_string_length(value, name=None, min_length=0, max_length=None):
 
     length = len(value)
     if length < min_length:
-        msg = _("%(name)s has %(length)s characters, less than "
-                "%(min_length)s.") % {'name': name, 'length': length,
-                                      'min_length': min_length}
+        msg = _(
+            "%(name)s has %(length)s characters, less than %(min_length)s."
+        ) % {'name': name, 'length': length, 'min_length': min_length}
         raise ValueError(msg)
 
     if max_length and length > max_length:
-        msg = _("%(name)s has %(length)s characters, more than "
-                "%(max_length)s.") % {'name': name, 'length': length,
-                                      'max_length': max_length}
+        msg = _(
+            "%(name)s has %(length)s characters, more than %(max_length)s."
+        ) % {'name': name, 'length': length, 'max_length': max_length}
         raise ValueError(msg)
 
 
-def validate_integer(value, name, min_value=None, max_value=None):
+def validate_integer(
+    value: int,
+    name: str,
+    min_value: int | None = None,
+    max_value: int | None = None,
+) -> int:
     """Make sure that value is a valid integer, potentially within range.
 
     :param value: value of the integer
@@ -519,24 +629,32 @@ def validate_integer(value, name, min_value=None, max_value=None):
     try:
         value = int(str(value))
     except (ValueError, UnicodeEncodeError):
-        msg = _('%(value_name)s must be an integer'
-                ) % {'value_name': name}
+        msg = _('%(value_name)s must be an integer') % {'value_name': name}
         raise ValueError(msg)
 
     if min_value is not None and value < min_value:
-        msg = _('%(value_name)s must be >= %(min_value)d'
-                ) % {'value_name': name, 'min_value': min_value}
+        msg = _('%(value_name)s must be >= %(min_value)d') % {
+            'value_name': name,
+            'min_value': min_value,
+        }
         raise ValueError(msg)
 
     if max_value is not None and value > max_value:
-        msg = _('%(value_name)s must be <= %(max_value)d'
-                ) % {'value_name': name, 'max_value': max_value}
+        msg = _('%(value_name)s must be <= %(max_value)d') % {
+            'value_name': name,
+            'max_value': max_value,
+        }
         raise ValueError(msg)
 
     return value
 
 
-def split_path(path, minsegs=1, maxsegs=None, rest_with_last=False):
+def split_path(
+    path: str,
+    minsegs: int = 1,
+    maxsegs: int | None = None,
+    rest_with_last: bool = False,
+) -> list[str | None]:
     """Validate and split the given HTTP request path.
 
     **Examples**::
@@ -561,31 +679,42 @@ def split_path(path, minsegs=1, maxsegs=None, rest_with_last=False):
     if not maxsegs:
         maxsegs = minsegs
     if minsegs > maxsegs:
-        raise ValueError(_('minsegs > maxsegs: %(min)d > %(max)d)') %
-                         {'min': minsegs, 'max': maxsegs})
+        raise ValueError(
+            _('minsegs > maxsegs: %(min)d > %(max)d)')
+            % {'min': minsegs, 'max': maxsegs}
+        )
+
     if rest_with_last:
         segs = path.split('/', maxsegs)
         minsegs += 1
         maxsegs += 1
         count = len(segs)
-        if (segs[0] or count < minsegs or count > maxsegs or
-                '' in segs[1:minsegs]):
+        if (
+            segs[0]
+            or count < minsegs
+            or count > maxsegs
+            or '' in segs[1:minsegs]
+        ):
             raise ValueError(_('Invalid path: %s') % urllib.parse.quote(path))
     else:
         minsegs += 1
         maxsegs += 1
         segs = path.split('/', maxsegs)
         count = len(segs)
-        if (segs[0] or count < minsegs or count > maxsegs + 1 or
-                '' in segs[1:minsegs] or
-                (count == maxsegs + 1 and segs[maxsegs])):
+        if (
+            segs[0]
+            or count < minsegs
+            or count > maxsegs + 1
+            or '' in segs[1:minsegs]
+            or (count == maxsegs + 1 and segs[maxsegs])
+        ):
             raise ValueError(_('Invalid path: %s') % urllib.parse.quote(path))
+
     segs = segs[1:maxsegs]
-    segs.extend([None] * (maxsegs - 1 - len(segs)))
-    return segs
+    return segs + [None] * (maxsegs - 1 - len(segs))
 
 
-def split_by_commas(value):
+def split_by_commas(value: str) -> list[str]:
     """Split values by commas and quotes according to api-wg
 
     :param value: value to be split
@@ -595,13 +724,12 @@ def split_by_commas(value):
     # pyparsing is a slow import; defer loading until we need it
     import pyparsing as pp
 
-    word = (
-        pp.QuotedString(quoteChar='"', escChar='\\') |
-        pp.Word(pp.printables, excludeChars='",')
+    word = pp.QuotedString(quoteChar='"', escChar='\\') | pp.Word(
+        pp.printables, excludeChars='",'
     )
     grammar = pp.stringStart + pp.delimitedList(word) + pp.stringEnd
 
     try:
         return list(grammar.parseString(value))
     except pp.ParseException:
-        raise ValueError("Invalid value: %s" % value)
+        raise ValueError(f"Invalid value: {value}")

@@ -125,6 +125,11 @@ def add_license(ctx, **kwargs):
     type=bool,
     is_flag=True,
 )
+@click.option(
+    "--subscription-reconcile",
+    type=bool,
+    is_flag=True,
+)
 @click.pass_context
 def replace_license(ctx, **kwargs):
     """

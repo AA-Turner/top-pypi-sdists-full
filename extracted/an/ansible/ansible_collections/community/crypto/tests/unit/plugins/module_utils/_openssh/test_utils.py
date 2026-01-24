@@ -7,12 +7,12 @@ from __future__ import annotations
 import typing as t
 
 import pytest
+
 from ansible_collections.community.crypto.plugins.module_utils._openssh.utils import (
     OpensshParser,
     _OpensshWriter,
     parse_openssh_version,
 )
-
 
 SSH_VERSION_STRING = "OpenSSH_7.9p1, OpenSSL 1.1.0i-fips  14 Aug 2018"
 SSH_VERSION_NUMBER = "7.9"

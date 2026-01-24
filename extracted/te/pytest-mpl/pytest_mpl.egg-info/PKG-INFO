@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-mpl
-Version: 0.17.0
+Version: 0.18.0
 Summary: pytest plugin to help with testing figures output from Matplotlib
-Home-page: https://github.com/matplotlib/pytest-mpl
-Author: Thomas Robitaille
-Author-email: thomas.robitaille@gmail.com
-License: BSD
-Classifier: Development Status :: 4 - Beta
+Author-email: Thomas Robitaille <thomas.robitaille@gmail.com>
+License-Expression: BSD-2-Clause
+Project-URL: Homepage, https://github.com/matplotlib/pytest-mpl
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Testing
@@ -14,23 +13,22 @@ Classifier: Topic :: Scientific/Engineering :: Visualization
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Classifier: License :: OSI Approved :: BSD License
-Requires-Python: >=3.6
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: pytest
-Requires-Dist: matplotlib
-Requires-Dist: importlib_resources; python_version < "3.8"
-Requires-Dist: packaging
-Requires-Dist: Jinja2
-Requires-Dist: Pillow
+Requires-Dist: pytest>=5.4.0
+Requires-Dist: matplotlib>=3.3.3
+Requires-Dist: packaging>=22.0.0
+Requires-Dist: Jinja2>=2.10.2
+Requires-Dist: Pillow>=8.1.1
 Provides-Extra: test
-Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-cov>=6.0.0; extra == "test"
 Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: mpl_sphinx_theme>=3.6.0.dev0; extra == "docs"
-Requires-Dist: sphinx_design; extra == "docs"
-Requires-Dist: matplotlib==3.6; extra == "docs"
+Requires-Dist: sphinx>=7.0.0; extra == "docs"
+Requires-Dist: mpl_sphinx_theme>=3.9.0; extra == "docs"
+Requires-Dist: sphinx_design>=0.6.0; extra == "docs"
+Requires-Dist: matplotlib==3.9.*; extra == "docs"
+Dynamic: license-file
 
 ``pytest-mpl``
 ==============

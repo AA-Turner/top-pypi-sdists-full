@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -6,8 +6,8 @@ import sys
 from typing import Optional
 
 from marimo._cli.print import bold, green, muted
-from marimo._config.config import MarimoConfig
-from marimo._server.utils import print_, print_tabbed
+from marimo._config.config import MarimoConfig, MCPConfig
+from marimo._utils.print import print_, print_tabbed
 
 UTF8_SUPPORTED = False
 
@@ -137,6 +137,7 @@ def print_experimental_features(config: MarimoConfig) -> None:
         "rtc",
         "lsp",
         "chat_sidebar",
+        "inline_ai_tooltip",
         "multi_column",
         "scratchpad",
         "tracing",
@@ -146,6 +147,9 @@ def print_experimental_features(config: MarimoConfig) -> None:
         "reactive_tests",
         "toplevel_defs",
         "setup_cell",
+        "mcp_docs",
+        "sql_linter",
+        "sql_mode",
     }
     keys = keys - finished_experiments
 
@@ -157,17 +161,33 @@ def print_experimental_features(config: MarimoConfig) -> None:
     )
 
 
-def print_mcp(mcp_url: str, server_token: str | None) -> None:
+def print_mcp_server(mcp_url: str, server_token: str | None) -> None:
     """Print MCP server configuration when MCP is enabled."""
     print_()
     print_tabbed(
-        f"{_utf8('🔗')} {green('Experimental MCP Server Configuration', bold=True)}"
+        f"{_utf8('🔗')} {green('Experimental MCP server configuration', bold=True)}"
     )
     print_tabbed(
-        f"{_utf8('➜')}  {green('MCP Server URL')}: {_colorized_url(mcp_url)}"
+        f"{_utf8('➜')}  {green('MCP server URL')}: {_colorized_url(mcp_url)}"
+    )
+    # Add to Claude code
+    print_tabbed(
+        f"{_utf8('➜')}  {green('Add to Claude Code')}: claude mcp add --transport http marimo {mcp_url}"
     )
     if server_token is not None:
         print_tabbed(
-            f"{_utf8('➜')}  {green('Add Header')}: Marimo-Server-Token: {muted(server_token)}"
+            f"{_utf8('➜')}  {green('Add header')}: Marimo-Server-Token: {muted(server_token)}"
         )
     print_()
+
+
+def print_mcp_client(config: MCPConfig) -> None:
+    keys = set(config.get("mcpServers", {}).keys()) | set(
+        config.get("presets", [])
+    )
+    if len(keys) == 0:
+        return
+
+    print_tabbed(
+        f"{_utf8('🌐')} {green('MCP servers', bold=True)}: {', '.join(keys)}"
+    )

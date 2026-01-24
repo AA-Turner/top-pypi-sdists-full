@@ -1,9 +1,23 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 
 import System
 import System.Security.Principal
+
+
+class TokenImpersonationLevel(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    ANONYMOUS = 1
+
+    IDENTIFICATION = 2
+
+    IMPERSONATION = 3
+
+    DELEGATION = 4
 
 
 class IIdentity(metaclass=abc.ABCMeta):
@@ -25,21 +39,14 @@ class IIdentity(metaclass=abc.ABCMeta):
         ...
 
 
-class TokenImpersonationLevel(Enum):
+class PrincipalPolicy(IntEnum):
     """This class has no documentation."""
 
-    NONE = 0
+    UNAUTHENTICATED_PRINCIPAL = 0
 
-    ANONYMOUS = 1
+    NO_PRINCIPAL = 1
 
-    IDENTIFICATION = 2
-
-    IMPERSONATION = 3
-
-    DELEGATION = 4
-
-    def __int__(self) -> int:
-        ...
+    WINDOWS_PRINCIPAL = 2
 
 
 class IPrincipal(metaclass=abc.ABCMeta):
@@ -51,19 +58,6 @@ class IPrincipal(metaclass=abc.ABCMeta):
         ...
 
     def is_in_role(self, role: str) -> bool:
-        ...
-
-
-class PrincipalPolicy(Enum):
-    """This class has no documentation."""
-
-    UNAUTHENTICATED_PRINCIPAL = 0
-
-    NO_PRINCIPAL = 1
-
-    WINDOWS_PRINCIPAL = 2
-
-    def __int__(self) -> int:
         ...
 
 

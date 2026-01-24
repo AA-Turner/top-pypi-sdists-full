@@ -2,6 +2,7 @@ from typing import Text
 
 from ddtrace.appsec._constants import IAST
 from ddtrace.appsec._constants import IAST_SPAN_TAGS
+from ddtrace.appsec._iast._iast_request_context_base import is_iast_request_enabled
 from ddtrace.appsec._iast._logs import iast_error
 from ddtrace.appsec._iast._logs import iast_propagation_sink_point_debug_log
 from ddtrace.appsec._iast._metrics import _set_metric_iast_executed_sink
@@ -12,7 +13,7 @@ from ddtrace.appsec._iast._taint_tracking import VulnerabilityType
 from ddtrace.appsec._iast.constants import VULN_CODE_INJECTION
 from ddtrace.appsec._iast.taint_sinks._base import VulnerabilityBase
 from ddtrace.internal.logger import get_logger
-from ddtrace.settings.asm import config as asm_config
+from ddtrace.internal.settings.asm import config as asm_config
 
 
 log = get_logger(__name__)
@@ -62,27 +63,39 @@ def _iast_coi(wrapped, instance, args, kwargs):
         # See ddtrace/internal/iast/product.py for detailed explanation.
         import inspect
 
-        caller_frame = None
-        if len(args) > 1:
-            func_globals = args[1]
-        elif kwargs.get("globals"):
-            func_globals = kwargs.get("globals")
-        else:
-            frames = inspect.currentframe()
-            caller_frame = frames.f_back
-            func_globals = caller_frame.f_globals
-
+        func_globals = None
+        func_locals = None
         func_locals_copy_to_check = None
-        if len(args) > 2:
-            func_locals = args[2]
-        elif kwargs.get("locals"):
-            func_locals = kwargs.get("locals")
+
+        # Check if inspect.currentframe is available (not available in some Python implementations)
+        if not hasattr(inspect, "currentframe"):
+            # Use provided globals/locals or None defaults
+            func_globals = args[1] if len(args) > 1 else kwargs.get("globals")
+            func_locals = args[2] if len(args) > 2 else kwargs.get("locals")
         else:
-            if caller_frame is None:
+            caller_frame = None
+            if len(args) > 1:
+                func_globals = args[1]
+            elif kwargs.get("globals"):
+                func_globals = kwargs.get("globals")
+            else:
                 frames = inspect.currentframe()
-                caller_frame = frames.f_back
-            func_locals = caller_frame.f_locals
-            func_locals_copy_to_check = func_locals.copy() if func_locals else None
+                if frames is not None:
+                    caller_frame = frames.f_back
+                    func_globals = caller_frame.f_globals
+
+            if len(args) > 2:
+                func_locals = args[2]
+            elif kwargs.get("locals"):
+                func_locals = kwargs.get("locals")
+            else:
+                if caller_frame is None:
+                    frames = inspect.currentframe()
+                    if frames is not None:
+                        caller_frame = frames.f_back
+                if caller_frame is not None:
+                    func_locals = caller_frame.f_locals
+                    func_locals_copy_to_check = func_locals.copy() if func_locals else None
     except Exception as e:
         iast_propagation_sink_point_debug_log(f"Error in _iast_code_injection. {e}")
         return wrapped(*args, **kwargs)
@@ -109,7 +122,7 @@ def _iast_coi(wrapped, instance, args, kwargs):
 def _iast_report_code_injection(code_string: Text):
     reported = False
     try:
-        if asm_config.is_iast_request_enabled:
+        if is_iast_request_enabled():
             if code_string and isinstance(code_string, IAST.TEXT_TYPES) and CodeInjection.has_quota():
                 if CodeInjection.is_tainted_pyobject(code_string):
                     CodeInjection.report(evidence_value=code_string)
@@ -119,5 +132,5 @@ def _iast_report_code_injection(code_string: Text):
             # Report Telemetry Metrics
             _set_metric_iast_executed_sink(CodeInjection.vulnerability_type)
     except Exception as e:
-        iast_error(f"propagation::sink_point::Error in _iast_report_code_injection. {e}")
+        iast_error("propagation::sink_point::Error in _iast_report_code_injection", e)
     return reported

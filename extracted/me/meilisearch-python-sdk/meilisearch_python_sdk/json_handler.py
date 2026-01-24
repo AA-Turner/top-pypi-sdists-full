@@ -6,23 +6,22 @@ from typing import Any
 
 try:
     import orjson
-except ImportError:  # pragma: nocover
+except ImportError:  # pragma: no cover
     orjson = None  # type: ignore
-
-try:
-    import ujson
-except ImportError:  # pragma: nocover
-    ujson = None  # type: ignore
 
 
 class _JsonHandler(ABC):
     @staticmethod
     @abstractmethod
-    def dumps(obj: Any) -> str: ...
+    def dumps(obj: Any) -> str: ...  # noqa: ANN401
 
     @staticmethod
     @abstractmethod
-    def loads(json_string: str | bytes | bytearray) -> Any: ...
+    def dump_bytes(obj: Any) -> bytes: ...  # noqa: ANN401
+
+    @staticmethod
+    @abstractmethod
+    def loads(json_string: str | bytes | bytearray) -> Any: ...  # noqa: ANN401
 
 
 class BuiltinHandler(_JsonHandler):
@@ -38,11 +37,15 @@ class BuiltinHandler(_JsonHandler):
         BuiltinHandler.serializer = serializer
 
     @staticmethod
-    def dumps(obj: Any) -> str:
+    def dumps(obj: Any) -> str:  # noqa: ANN401
         return json.dumps(obj, cls=BuiltinHandler.serializer)
 
     @staticmethod
-    def loads(json_string: str | bytes | bytearray) -> Any:
+    def dump_bytes(obj: Any) -> bytes:  # noqa: ANN401
+        return json.dumps(obj, cls=BuiltinHandler.serializer).encode("utf-8")
+
+    @staticmethod
+    def loads(json_string: str | bytes | bytearray) -> Any:  # noqa: ANN401
         return json.loads(json_string)
 
 
@@ -52,23 +55,13 @@ class OrjsonHandler(_JsonHandler):
             raise ValueError("orjson must be installed to use the OrjsonHandler")
 
     @staticmethod
-    def dumps(obj: Any) -> str:
+    def dumps(obj: Any) -> str:  # noqa: ANN401
         return orjson.dumps(obj).decode("utf-8")
 
     @staticmethod
-    def loads(json_string: str | bytes | bytearray) -> Any:
+    def dump_bytes(obj: Any) -> bytes:  # noqa: ANN401
+        return orjson.dumps(obj)
+
+    @staticmethod
+    def loads(json_string: str | bytes | bytearray) -> Any:  # noqa: ANN401
         return orjson.loads(json_string)
-
-
-class UjsonHandler(_JsonHandler):
-    def __init__(self) -> None:
-        if ujson is None:  # pragma: no cover
-            raise ValueError("ujson must be installed to use the UjsonHandler")
-
-    @staticmethod
-    def dumps(obj: Any) -> str:
-        return ujson.dumps(obj)
-
-    @staticmethod
-    def loads(json_string: str | bytes | bytearray) -> Any:
-        return ujson.loads(json_string)

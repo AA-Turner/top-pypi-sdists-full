@@ -26,7 +26,7 @@ from urllib.parse import urlparse
 import aiofiles
 import aiohttp
 import jwt
-from aiohttp_retry import ExponentialRetry, RetryClient
+from aiohttp_retry import RetryClient
 from strong_typing.serialization import json_dump_string, json_to_object, object_to_json
 
 from . import __version__, ui
@@ -68,6 +68,7 @@ from .dap_types import (
     VersionedSchema,
 )
 from .networking import get_content_type
+from .retry_options import CustomExponentialRetry
 from .tracking import TrackingData, send_tracking_data
 
 logger = logging.getLogger("dap")
@@ -83,7 +84,6 @@ class DAPClientError(RuntimeError):
     pass
 
 
-REQUEST_RETRY_COUNT = 3
 DOWNLOAD_CONCURRENCY = 4
 
 EXPIRE_AT_VERY_CLOSE_SECONDS = 30
@@ -234,15 +234,15 @@ class DAPSession:
         self.tracking_data = tracking_data
         self._retry_client = RetryClient(
             client_session=self._session,
-            retry_options=ExponentialRetry(attempts=REQUEST_RETRY_COUNT),
-            raise_for_status=True,
+            retry_options=CustomExponentialRetry(),
+            raise_for_status=False,
         )
         resources_session = aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=30 * 60, connect=30),
         )
         self._resources_download_client = RetryClient(
             client_session=resources_session,
-            retry_options=ExponentialRetry(attempts=REQUEST_RETRY_COUNT),
+            retry_options=CustomExponentialRetry(),
             raise_for_status=True,
         )
         self._headers = {
@@ -332,7 +332,7 @@ class DAPSession:
         request_payload = object_to_json(request_data)
         logger.debug(f"POST request payload:\n{repr(request_payload)}")
 
-        async with self._session.post(
+        async with self._retry_client.post(
             f"{self._base_url}{path}",
             data=json_dump_string(request_payload),
             headers={"Content-Type": "application/json"} | self._headers,

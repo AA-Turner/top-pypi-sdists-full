@@ -1,5 +1,5 @@
-use crate::db::clickhouse::migration_manager::migration_trait::Migration;
 use crate::db::clickhouse::ClickHouseConnectionInfo;
+use crate::db::clickhouse::migration_manager::migration_trait::Migration;
 use crate::error::Error;
 use async_trait::async_trait;
 
@@ -61,8 +61,8 @@ impl Migration for Migration0015<'_> {
 
     fn rollback_instructions(&self) -> String {
         "/* Change the columns back to non-nullable types */\
-            ALTER TABLE ModelInference MODIFY COLUMN input_tokens UInt32;
-            ALTER TABLE ModelInference MODIFY COLUMN output_tokens UInt32;
+            ALTER TABLE ModelInference MODIFY COLUMN input_tokens UInt32 DEFAULT 0;
+            ALTER TABLE ModelInference MODIFY COLUMN output_tokens UInt32 DEFAULT 0;
             "
         .to_string()
     }

@@ -1,7 +1,8 @@
-import time
+import asyncio
 import logging
 
 import unittest
+import unittest.mock
 from slixmpp.test import SlixTest
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin
 
@@ -180,6 +181,141 @@ class TestAdHocCommands(SlixTest):
 
         self.assertEqual(results, ['blah'],
                 "Command handler was not executed: %s" % results)
+        self.assertFalse(self.xmpp.plugin["xep_0050"]._timeout_tasks)
+
+    def testOneStepCommandTimeout(self):
+        """Test the timeout when running a single step command."""
+        results = []
+
+        def handle_command(iq, session):
+            def handle_form(form, session):
+                results.append(form.get_values()['foo'])
+                session['payload'] = None
+
+            form = self.xmpp['xep_0004'].make_form('form')
+            form.addField(var='foo', ftype='text-single', label='Foo')
+
+            session['payload'] = form
+            session['next'] = handle_form
+            session['has_next'] = False
+
+            return session
+
+        handle_timeout = unittest.mock.AsyncMock()
+
+        self.xmpp['xep_0050'].add_command('tester@localhost', 'foo',
+                                          'Do Foo', handle_command,
+                                          timeout_handler=handle_timeout, timeout=0.01)
+
+        self.recv("""
+          <iq id="11" type="set" to="tester@localhost" from="foo@bar">
+            <command xmlns="http://jabber.org/protocol/commands"
+                     node="foo"
+                     action="execute" />
+          </iq>
+        """)
+
+        self.send("""
+          <iq id="11" type="result" to="foo@bar">
+            <command xmlns="http://jabber.org/protocol/commands"
+                     node="foo"
+                     status="executing"
+                     sessionid="_sessionid_">
+              <actions>
+                <complete />
+              </actions>
+              <x xmlns="jabber:x:data" type="form">
+                <field var="foo" label="Foo" type="text-single" />
+              </x>
+            </command>
+          </iq>
+        """)
+
+        self.run_coro(asyncio.sleep(0.05))
+
+        handle_timeout.assert_awaited_once()
+        self.send(
+            """
+            <iq xmlns="jabber:client" id="1" type="set" to="foo@bar" from="foo@bar">
+              <command xmlns="http://jabber.org/protocol/commands"
+                       node="foo"
+                       action="cancel"
+                       sessionid="_sessionid_">
+                <x xmlns="jabber:x:data"
+                   type="form">
+                   <field var="foo" type="text-single" label="Foo" />
+                </x>
+              </command>
+            </iq>
+            """
+        )
+        self.assertFalse(self.xmpp.plugin["xep_0050"]._timeout_tasks)
+
+
+    def testOneStepCommandTimeoutNoHandler(self):
+        """Test the timeout when running a single step command."""
+        results = []
+
+        def handle_command(iq, session):
+            def handle_form(form, session):
+                results.append(form.get_values()['foo'])
+                session['payload'] = None
+
+            form = self.xmpp['xep_0004'].make_form('form')
+            form.addField(var='foo', ftype='text-single', label='Foo')
+
+            session['payload'] = form
+            session['next'] = handle_form
+            session['has_next'] = False
+
+            return session
+
+        self.xmpp['xep_0050'].add_command('tester@localhost', 'foo',
+                                          'Do Foo', handle_command,
+                                          timeout=0.01)
+
+        self.recv("""
+          <iq id="11" type="set" to="tester@localhost" from="foo@bar">
+            <command xmlns="http://jabber.org/protocol/commands"
+                     node="foo"
+                     action="execute" />
+          </iq>
+        """)
+
+        self.send("""
+          <iq id="11" type="result" to="foo@bar">
+            <command xmlns="http://jabber.org/protocol/commands"
+                     node="foo"
+                     status="executing"
+                     sessionid="_sessionid_">
+              <actions>
+                <complete />
+              </actions>
+              <x xmlns="jabber:x:data" type="form">
+                <field var="foo" label="Foo" type="text-single" />
+              </x>
+            </command>
+          </iq>
+        """)
+
+        self.run_coro(asyncio.sleep(0.05))
+
+        self.send(
+            """
+            <iq xmlns="jabber:client" id="1" type="set" to="foo@bar" from="foo@bar">
+              <command xmlns="http://jabber.org/protocol/commands"
+                       node="foo"
+                       action="cancel"
+                       sessionid="_sessionid_">
+                <x xmlns="jabber:x:data"
+                   type="form">
+                   <field var="foo" type="text-single" label="Foo" />
+                </x>
+              </command>
+            </iq>
+            """
+        )
+        self.assertFalse(self.xmpp.plugin["xep_0050"]._timeout_tasks)
 
     def testTwoStepCommand(self):
         """Test using a two-stage command."""

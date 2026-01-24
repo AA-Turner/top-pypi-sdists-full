@@ -1,8 +1,8 @@
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, TypeVar, Union, overload
+
 from rq.decorators import job as _rq_job
-from typing import Any, Callable, Optional, overload, Protocol, TYPE_CHECKING, TypeVar, Union
 
 from .queues import get_queue, get_result_ttl
-
 
 if TYPE_CHECKING:
     from redis import Redis
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 @overload
 def job(func_or_queue: 'Callable[P, R]') -> '_JobFn[P, R]': ...
+
 
 @overload
 def job(
@@ -47,7 +48,7 @@ def job(
     """
     if callable(func_or_queue):
         func = func_or_queue
-        queue: Union['Queue', str] = 'default'
+        queue: Union[Queue, str] = 'default'
     else:
         func = None
         queue = func_or_queue

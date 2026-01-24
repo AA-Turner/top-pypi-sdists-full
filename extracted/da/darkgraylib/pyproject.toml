@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "darkgraylib"
-version = "2.4.0"  # Will be dynamic after full migration
+version = "2.4.1"  # Will be dynamic after full migration
 authors = [{name = "Antti Kaihola", email = "13725+akaihola@users.noreply.github.com"}]
 license = {text = "BSD-3-Clause"}
 description = "Common supporting code for Darker and Graylint"
@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "toml>=0.10.0",
@@ -26,6 +27,11 @@ dynamic = ["readme"]
 [tool.setuptools.package-data]
 darkgraylib = ["py.typed"]
 
+[[tool.uv.index]]
+name = "safety"
+url = "https://pkgs.safetycli.com/repository/ambitone-oy/project/darkgraylib/pypi/simple/"
+default = false
+
 [project.urls]
 Homepage = "https://github.com/akaihola/darkgraylib"
 "Source Code" = "https://github.com/akaihola/darkgraylib"
@@ -33,7 +39,7 @@ Homepage = "https://github.com/akaihola/darkgraylib"
 News = "https://github.com/akaihola/darkgraylib/discussions/categories/announcements"
 
 [project.optional-dependencies]
-color = ["Pygments>=2.4.0"]
+color = ["Pygments>=2.15.0"]
 
 [dependency-groups]
 dev = [
@@ -41,10 +47,10 @@ dev = [
     "cryptography>=3.3.2",  # through twine, fixes CVE-2020-36242
     "darkgray-dev-tools @ git+https://github.com/akaihola/darkgray-dev-tools",
     "defusedxml>=0.7.1",
-    "flake8",
-    "mypy",
-    "Pygments>=2.4.0",
-    "pydocstyle",
+    "flake8>=3.8.0",
+    "mypy>=1.15.0",
+    "Pygments>=2.15.0",
+    "pydocstyle>=2.0.0",
     "pylint>=3.3.0",
     "pytest>=6.2.0",
     "pytest-kwparametrize>=0.0.3",
@@ -52,6 +58,7 @@ dev = [
     "ruamel.yaml>=0.17.21",
     "ruff>=0.0.292",
     "twine>=2.0.0",
+    "types-Pygments>=2.15.0",
     "types-requests>=2.27.9",
     "types-toml>=0.10.4",
     "urllib3>=1.25.9",  # through requests-cache and twine, fixes CVE-2020-26137
@@ -70,7 +77,7 @@ pytest_patching = "darkgraylib.testtools.patching"
 
 [tool.black]
 skip-string-normalization = false
-target-version = ["py39", "py310", "py311", "py312", "py313"]
+target-version = ["py39", "py310", "py311", "py312", "py313", "py314"]
 
 [tool.isort]
 profile = "black"
@@ -82,7 +89,6 @@ src = [
     "setup.py",
 ]
 revision = "origin/main..."
-isort = true
 
 [tool.graylint]
 src = [
@@ -90,13 +96,6 @@ src = [
     "setup.py",
 ]
 revision = "origin/main..."
-lint = [
-    "flake8",
-    "mypy",
-    "pydocstyle",
-    "pylint",
-    "ruff check",
-]
 
 [tool.pylint."messages control"]
 disable = ["line-too-long"]  # checked by Ruff

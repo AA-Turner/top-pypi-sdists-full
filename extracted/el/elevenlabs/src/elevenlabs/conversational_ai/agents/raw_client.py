@@ -15,6 +15,7 @@ from ...types.adhoc_agent_config_override_for_test_request_model import AdhocAge
 from ...types.agent_platform_settings_request_model import AgentPlatformSettingsRequestModel
 from ...types.agent_simulated_chat_test_response_model import AgentSimulatedChatTestResponseModel
 from ...types.agent_sort_by import AgentSortBy
+from ...types.agent_workflow_request_model import AgentWorkflowRequestModel
 from ...types.conversation_simulation_specification import ConversationSimulationSpecification
 from ...types.conversational_config import ConversationalConfig
 from ...types.create_agent_response_model import CreateAgentResponseModel
@@ -39,7 +40,7 @@ class RawAgentsClient:
         *,
         conversation_config: ConversationalConfig,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -55,7 +56,8 @@ class RawAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
@@ -81,7 +83,9 @@ class RawAgentsClient:
                 "platform_settings": convert_and_respect_annotation_metadata(
                     object_=platform_settings, annotation=AgentPlatformSettingsRequestModel, direction="write"
                 ),
-                "workflow": workflow,
+                "workflow": convert_and_respect_annotation_metadata(
+                    object_=workflow, annotation=AgentWorkflowRequestModel, direction="write"
+                ),
                 "name": name,
                 "tags": tags,
             },
@@ -213,9 +217,10 @@ class RawAgentsClient:
         *,
         conversation_config: typing.Optional[ConversationalConfig] = OMIT,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        version_description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetAgentResponseModel]:
         """
@@ -232,13 +237,17 @@ class RawAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
 
         tags : typing.Optional[typing.Sequence[str]]
             Tags to help classify and filter the agent
+
+        version_description : typing.Optional[str]
+            Description for this version when publishing changes (only applicable for versioned agents)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -258,9 +267,12 @@ class RawAgentsClient:
                 "platform_settings": convert_and_respect_annotation_metadata(
                     object_=platform_settings, annotation=AgentPlatformSettingsRequestModel, direction="write"
                 ),
-                "workflow": workflow,
+                "workflow": convert_and_respect_annotation_metadata(
+                    object_=workflow, annotation=AgentWorkflowRequestModel, direction="write"
+                ),
                 "name": name,
                 "tags": tags,
+                "version_description": version_description,
             },
             headers={
                 "content-type": "application/json",
@@ -299,6 +311,8 @@ class RawAgentsClient:
         *,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        show_only_owned_agents: typing.Optional[bool] = None,
         sort_direction: typing.Optional[SortDirection] = None,
         sort_by: typing.Optional[AgentSortBy] = None,
         cursor: typing.Optional[str] = None,
@@ -314,6 +328,12 @@ class RawAgentsClient:
 
         search : typing.Optional[str]
             Search by agents name.
+
+        archived : typing.Optional[bool]
+            Filter agents by archived status
+
+        show_only_owned_agents : typing.Optional[bool]
+            If set to true, the endpoint will omit any agents that were shared with you by someone else and include only the ones you own
 
         sort_direction : typing.Optional[SortDirection]
             The direction to sort the results
@@ -338,6 +358,8 @@ class RawAgentsClient:
             params={
                 "page_size": page_size,
                 "search": search,
+                "archived": archived,
+                "show_only_owned_agents": show_only_owned_agents,
                 "sort_direction": sort_direction,
                 "sort_by": sort_by,
                 "cursor": cursor,
@@ -592,6 +614,7 @@ class RawAgentsClient:
         *,
         tests: typing.Sequence[SingleTestRunRequestModel],
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTestSuiteInvocationResponseModel]:
         """
@@ -607,6 +630,9 @@ class RawAgentsClient:
 
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
+
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -628,6 +654,7 @@ class RawAgentsClient:
                     annotation=AdhocAgentConfigOverrideForTestRequestModel,
                     direction="write",
                 ),
+                "branch_id": branch_id,
             },
             headers={
                 "content-type": "application/json",
@@ -671,7 +698,7 @@ class AsyncRawAgentsClient:
         *,
         conversation_config: ConversationalConfig,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -687,7 +714,8 @@ class AsyncRawAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
@@ -713,7 +741,9 @@ class AsyncRawAgentsClient:
                 "platform_settings": convert_and_respect_annotation_metadata(
                     object_=platform_settings, annotation=AgentPlatformSettingsRequestModel, direction="write"
                 ),
-                "workflow": workflow,
+                "workflow": convert_and_respect_annotation_metadata(
+                    object_=workflow, annotation=AgentWorkflowRequestModel, direction="write"
+                ),
                 "name": name,
                 "tags": tags,
             },
@@ -847,9 +877,10 @@ class AsyncRawAgentsClient:
         *,
         conversation_config: typing.Optional[ConversationalConfig] = OMIT,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        version_description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetAgentResponseModel]:
         """
@@ -866,13 +897,17 @@ class AsyncRawAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
 
         tags : typing.Optional[typing.Sequence[str]]
             Tags to help classify and filter the agent
+
+        version_description : typing.Optional[str]
+            Description for this version when publishing changes (only applicable for versioned agents)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -892,9 +927,12 @@ class AsyncRawAgentsClient:
                 "platform_settings": convert_and_respect_annotation_metadata(
                     object_=platform_settings, annotation=AgentPlatformSettingsRequestModel, direction="write"
                 ),
-                "workflow": workflow,
+                "workflow": convert_and_respect_annotation_metadata(
+                    object_=workflow, annotation=AgentWorkflowRequestModel, direction="write"
+                ),
                 "name": name,
                 "tags": tags,
+                "version_description": version_description,
             },
             headers={
                 "content-type": "application/json",
@@ -933,6 +971,8 @@ class AsyncRawAgentsClient:
         *,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        show_only_owned_agents: typing.Optional[bool] = None,
         sort_direction: typing.Optional[SortDirection] = None,
         sort_by: typing.Optional[AgentSortBy] = None,
         cursor: typing.Optional[str] = None,
@@ -948,6 +988,12 @@ class AsyncRawAgentsClient:
 
         search : typing.Optional[str]
             Search by agents name.
+
+        archived : typing.Optional[bool]
+            Filter agents by archived status
+
+        show_only_owned_agents : typing.Optional[bool]
+            If set to true, the endpoint will omit any agents that were shared with you by someone else and include only the ones you own
 
         sort_direction : typing.Optional[SortDirection]
             The direction to sort the results
@@ -972,6 +1018,8 @@ class AsyncRawAgentsClient:
             params={
                 "page_size": page_size,
                 "search": search,
+                "archived": archived,
+                "show_only_owned_agents": show_only_owned_agents,
                 "sort_direction": sort_direction,
                 "sort_by": sort_by,
                 "cursor": cursor,
@@ -1226,6 +1274,7 @@ class AsyncRawAgentsClient:
         *,
         tests: typing.Sequence[SingleTestRunRequestModel],
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTestSuiteInvocationResponseModel]:
         """
@@ -1241,6 +1290,9 @@ class AsyncRawAgentsClient:
 
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
+
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1262,6 +1314,7 @@ class AsyncRawAgentsClient:
                     annotation=AdhocAgentConfigOverrideForTestRequestModel,
                     direction="write",
                 ),
+                "branch_id": branch_id,
             },
             headers={
                 "content-type": "application/json",

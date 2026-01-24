@@ -3,6 +3,7 @@ format
 
 """
 from __future__ import print_function
+from warnings import warn
 
 import mido
 import numpy as np
@@ -12,12 +13,14 @@ import collections
 import copy
 import functools
 import six
+import pathlib
 from heapq import merge
 
 from .instrument import Instrument
 from .containers import (KeySignature, TimeSignature, Lyric, Note,
                          PitchBend, ControlChange, Text)
-from .utilities import (key_name_to_key_number, qpm_to_bpm)
+from .utilities import (key_name_to_key_number, qpm_to_bpm, note_number_to_hz)
+from .fluidsynth import get_fluidsynth_instance
 
 # The largest we'd ever expect a tick to be
 MAX_TICK = 1e7
@@ -30,12 +33,20 @@ class PrettyMIDI(object):
     ----------
     midi_file : str or file
         Path or file pointer to a MIDI file.
-        Default ``None`` which means create an empty class with the supplied
-        values for resolution and initial tempo.
+        Default ``None`` would check if ``mido_object`` is populated instead. If both are ``None``,
+        creates an empty class with the supplied values for resolution and initial tempo.
+        Additionally, a ValueError is raised if both ``midi_file`` and ``mido_object`` are not ``None``.
     resolution : int
         Resolution of the MIDI data, when no file is provided.
     initial_tempo : float
         Initial tempo for the MIDI data, when no file is provided.
+    charset : str
+        Charset of the MIDI.
+    mido_object : mido.MidiFile
+        Pre-loaded `mido.MidiFile` object.
+        Default ``None`` would check if ``midi_file`` is populated instead. If both are ``None``,
+        creates an empty class with the supplied values for resolution and initial tempo.
+        Additionally, a ValueError is raised if both ``mido_object`` and ``midi_file`` are not ``None``.
 
     Attributes
     ----------
@@ -51,19 +62,30 @@ class PrettyMIDI(object):
         List of :class:`pretty_midi.Text` objects.
     """
 
-    def __init__(self, midi_file=None, resolution=220, initial_tempo=120.):
-        """Initialize either by populating it with MIDI data from a file or
+    def __init__(self, midi_file=None, resolution=220, initial_tempo=120., charset='latin1', mido_object=None):
+        """Initialize either by populating it with MIDI data from a mido.MidiFile object, file or
         from scratch with no data.
 
         """
-        if midi_file is not None:
-            # Load in the MIDI data using the midi module
-            if isinstance(midi_file, six.string_types):
-                # If a string was given, pass it as the string filename
-                midi_data = mido.MidiFile(filename=midi_file)
-            else:
-                # Otherwise, try passing it in as a file pointer
-                midi_data = mido.MidiFile(file=midi_file)
+        if mido_object is not None or midi_file is not None:
+
+            if mido_object is not None and midi_file is not None:
+                raise ValueError("Either the midi_file or the mido_object argument must be provided, but not both.")
+
+            if mido_object is not None:
+                if isinstance(mido_object, mido.MidiFile):
+                    midi_data = mido_object
+                else:
+                    raise ValueError("Expected mido_object to be of type mido.MidiFile.")
+
+            if midi_file is not None:
+                # Load in the MIDI data using the midi module
+                if isinstance(midi_file, six.string_types) or isinstance(midi_file, pathlib.PurePath):
+                    # If a string or path was given, pass it as the filename
+                    midi_data = mido.MidiFile(filename=midi_file, charset=charset)
+                else:
+                    # Otherwise, try passing it in as a file pointer
+                    midi_data = mido.MidiFile(file=midi_file, charset=charset)
 
             # Convert tick values in midi_data to absolute, a useful thing.
             for track in midi_data.tracks:
@@ -75,9 +97,6 @@ class PrettyMIDI(object):
             # Store the resolution for later use
             self.resolution = midi_data.ticks_per_beat
 
-            # Populate the list of tempo changes (tick scales)
-            self._load_tempo_changes(midi_data)
-
             # Update the array which maps ticks to time
             max_tick = max([max([e.time for e in t])
                             for t in midi_data.tracks]) + 1
@@ -87,6 +106,9 @@ class PrettyMIDI(object):
                 raise ValueError(('MIDI file has a largest tick of {},'
                                   ' it is likely corrupt'.format(max_tick)))
 
+            # Populate the list of tempo changes (tick scales)
+            self._load_tempo_changes(midi_data)
+          
             # Create list that maps ticks to time in seconds
             self._update_tick_to_time(max_tick)
 
@@ -105,7 +127,8 @@ class PrettyMIDI(object):
 
             # Populate the list of instruments
             self._load_instruments(midi_data)
-
+            # MIDI Charset
+            self._charset = charset
         else:
             self.resolution = resolution
             # Compute the tick scale for the provided initial tempo
@@ -123,6 +146,8 @@ class PrettyMIDI(object):
             self.lyrics = []
             # Empty text events list
             self.text_events = []
+            # MIDI Charset
+            self._charset = charset
 
     def _load_tempo_changes(self, midi_data):
         """Populates ``self._tick_scales`` with tuples of
@@ -206,7 +231,7 @@ class PrettyMIDI(object):
                 elif event.type == 'text':
                     text_events.append(Text(
                         event.text, self.__tick_to_time[event.time]))
-                    
+
             if lyrics:
                 tracks_with_lyrics.append(lyrics)
             if text_events:
@@ -321,7 +346,7 @@ class PrettyMIDI(object):
             last_note_on = collections.defaultdict(list)
             # Keep track of which instrument is playing in each channel
             # initialize to program 0 for all channels
-            current_instrument = np.zeros(16, dtype=np.int32)
+            current_instrument = np.zeros(16, dtype=int)
             for event in track:
                 # Look for track name events
                 if event.type == 'track_name':
@@ -823,6 +848,13 @@ class PrettyMIDI(object):
             piano_roll[:, :roll.shape[1]] += roll
         return piano_roll
 
+    def get_intervals_and_pitches(self):
+        notes = [n for i in self.instruments for n in i.notes]
+        notes = sorted(notes, key=lambda n: n.start)
+        intervals = np.array([[n.start, n.end] for n in notes])
+        pitches = np.array([note_number_to_hz(n.pitch) for n in notes])
+        return intervals, pitches
+
     def get_pitch_class_histogram(self, use_duration=False,
                                   use_velocity=False, normalize=True):
         """Computes the histogram of pitch classes.
@@ -916,7 +948,7 @@ class PrettyMIDI(object):
             chroma_matrix[note, :] = np.sum(piano_roll[note::12], axis=0)
         return chroma_matrix
 
-    def synthesize(self, fs=44100, wave=np.sin):
+    def synthesize(self, fs=44100, wave=np.sin, normalize=True):
         """Synthesize the pattern using some waveshape.  Ignores drum track.
 
         Parameters
@@ -926,6 +958,10 @@ class PrettyMIDI(object):
         wave : function
             Function which returns a periodic waveform,
             e.g. ``np.sin``, ``scipy.signal.square``, etc.
+        normalize : bool
+            Default ``True``, which normalizes the output wave to the range [-1, 1].
+            Otherwise, divides the output by the maximum value of a 16-bit integer 
+            multiplied by the number of instruments, and lets the user handle accordingly.
 
         Returns
         -------
@@ -943,21 +979,45 @@ class PrettyMIDI(object):
         # Sum all waveforms in
         for waveform in waveforms:
             synthesized[:waveform.shape[0]] += waveform
-        # Normalize
-        synthesized /= np.abs(synthesized).max()
+
+        if normalize:
+            # Hard normalize to [-1, 1]
+            synthesized /= np.abs(synthesized).max()
+        else:
+            # Normalize by the maximum absolute value of a 16-bit integer
+            # to prevent clipping
+            synthesized /= (len(self.instruments) * 2 ** 15)
+
         return synthesized
 
-    def fluidsynth(self, fs=44100, sf2_path=None):
+    def fluidsynth(self, fs=None, synthesizer=None, sfid=0, sf2_path=None, 
+                   normalize=True):
         """Synthesize using fluidsynth.
 
         Parameters
         ----------
         fs : int
             Sampling rate to synthesize at.
+            Default ``None``, which takes the sampling rate from ``synthesizer``, or
+            uses ``pretty_midi.fluidsynth.DEFAULT_SAMPLE_RATE`` = 44100 if a synthesizer
+            needs to be created.
+        synthesizer : fluidsynth.Synth or str
+            fluidsynth.Synth instance to use or a string with the path to a .sf2 file.
+            Default ``None``, which creates a new instance using the TimGM6mb.sf2 file
+            included with ``pretty_midi``.
+        sfid : int
+            Soundfont ID to use if an instance of fluidsynth.Synth is provided.
+            Default ``0``, which uses the first soundfont.
         sf2_path : str
             Path to a .sf2 file.
             Default ``None``, which uses the TimGM6mb.sf2 file included with
             ``pretty_midi``.
+            .. deprecated:: 0.2.11
+                Use :param:`synthesizer` instead.
+        normalize : bool
+            Default ``True``, which normalizes the output wave to the range [-1, 1].
+            Otherwise, divides the output by the maximum value of a 16-bit integer 
+            multiplied by the number of instruments, and lets the user handle accordingly.
 
         Returns
         -------
@@ -965,21 +1025,46 @@ class PrettyMIDI(object):
             Waveform of the MIDI data, synthesized at ``fs``.
 
         """
+
+        if sf2_path is not None:
+            warn("The parameter 'sf2_path' is deprecated, please use 'synthesizer' instead.",
+                 DeprecationWarning, 2)
+            if synthesizer is not None:
+                raise ValueError("sf2_path and synthesizer cannot both be supplied.")
+            else:
+                synthesizer = sf2_path
+
         # If there are no instruments, or all instruments have no notes, return
         # an empty array
         if len(self.instruments) == 0 or all(len(i.notes) == 0
                                              for i in self.instruments):
             return np.array([])
+
+        # Create a fluidsynth instance if one wasn't provided
+        synthesizer, sfid, delete_synthesizer = get_fluidsynth_instance(synthesizer, sfid, fs)
+
         # Get synthesized waveform for each instrument
-        waveforms = [i.fluidsynth(fs=fs,
-                                  sf2_path=sf2_path) for i in self.instruments]
+        waveforms = [i.fluidsynth(synthesizer=synthesizer, sfid=sfid)
+                     for i in self.instruments]
+
+        # Close fluidsynth if it was a local instance created in the function
+        if delete_synthesizer:
+            synthesizer.delete()
+
         # Allocate output waveform, with #sample = max length of all waveforms
         synthesized = np.zeros(np.max([w.shape[0] for w in waveforms]))
         # Sum all waveforms in
         for waveform in waveforms:
             synthesized[:waveform.shape[0]] += waveform
-        # Normalize
-        synthesized /= np.abs(synthesized).max()
+
+        if normalize:
+            # Hard normalize to [-1, 1]
+            synthesized /= np.abs(synthesized).max()
+        else:
+            # Normalize by the maximum absolute value of a 16-bit integer
+            # to prevent clipping
+            synthesized /= (len(self.instruments) * 2 ** 15)
+        
         return synthesized
 
     def tick_to_time(self, tick):
@@ -1265,6 +1350,39 @@ class PrettyMIDI(object):
         # Update the tick-to-time mapping
         self._update_tick_to_time(self._tick_scales[-1][0] + 1)
 
+    def crop(self, start_time=0.0, end_time=None):
+        """Crops the MIDI object, keeping only the segment from ``start_time``
+        to ``end_time``.
+
+        Parameters
+        ----------
+        start_time : float
+            Segment start time, in seconds. Defaults to 0.0.
+        end_time : float
+            Segment end time, in seconds. Defaults to self.end_time().
+
+        """
+        midi_end_time = self.get_end_time()
+
+        # Enforce that start_time is non-negative and end_time is lower than
+        # the MIDI object's end time. 
+        if start_time < 0.0:
+            raise ValueError('start_time must be non-negative.')
+        if end_time is None:
+            end_time = midi_end_time
+        elif end_time > midi_end_time:
+            warnings.warn('end_time is greater than the MIDI object\'s '
+                          'end time; automatically adjusting to it.')
+            end_time = midi_end_time
+
+        # Enforce that end_time is strictly higher than start_time
+        if start_time >= end_time:
+            raise ValueError('end_time must be strictly higher than ' 
+                             'start_time.')
+                             
+        # Invoke self.adjust_times to perform the cropping.
+        self.adjust_times([start_time, end_time], [start_time, end_time])
+
     def remove_invalid_notes(self):
         """Removes any notes whose end time is before or at their start time.
 
@@ -1329,7 +1447,7 @@ class PrettyMIDI(object):
             return event1.time - event2.time
 
         # Initialize output MIDI object
-        mid = mido.MidiFile(ticks_per_beat=self.resolution)
+        mid = mido.MidiFile(ticks_per_beat=self.resolution, charset=self._charset)
         # Create track 0 with timing information
         timing_track = mido.MidiTrack()
         # Add a default time signature only if there is not one at time 0.
@@ -1447,8 +1565,8 @@ class PrettyMIDI(object):
                 event.time -= tick
                 tick += event.time
         # Write it out
-        if isinstance(filename, six.string_types):
-            # If a string was given, pass it as the string filename
+        if isinstance(filename, six.string_types) or isinstance(filename, pathlib.PurePath):
+            # If a string or path was given, pass it as the filename
             mid.save(filename=filename)
         else:
             # Otherwise, try passing it in as a file pointer

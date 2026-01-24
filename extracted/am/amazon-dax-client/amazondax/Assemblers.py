@@ -22,22 +22,37 @@ from .Constants import DaxResponseParam, CONSUMED_CAPACITY
 from .DaxError import DaxValidationError, DaxErrorCode
 
 # Do not re-order these fields; the indexes match the values hard-coded on the server
-ENDPOINT_FIELDS = ('node', 'hostname', 'address', 'port', 'role', 'az', 'leader_session_id')
+ENDPOINT_FIELDS = ('node', 'hostname', 'address', 'port', 'role', 'az', 'leader_session_id', 'ip_version')
 _ADDRESS_FIELD_IX = ENDPOINT_FIELDS.index('address')
 _IP_ADDRESS_FMT = '{:d}.{:d}.{:d}.{:d}'
 
 
 def endpoints_455855874_1(_, tube):
     endpoints = tube.read_array()
-    return [{ENDPOINT_FIELDS[k]: _fixup_endpoint(k, v) for k, v in ep.items()} for ep in endpoints]
+    return [_fixup_endpoint(ep) for ep in endpoints]
 
 
-def _fixup_endpoint(key, value):
-    if key == _ADDRESS_FIELD_IX:
-        # Return the address as a string, as that is what Python's connect method uses
-        return socket.inet_ntoa(bytes(value))
-    else:
-        return value
+def _fixup_endpoint(endpoint):
+    fixup_items = []
+    ip_version = None
+    for key, value in endpoint.items():
+        endpoint_field_key = ENDPOINT_FIELDS[key]
+        endpoint_field_value = value
+
+        if key == _ADDRESS_FIELD_IX:
+            try:
+                # Try decode IPv4
+                ip_version = socket.AF_INET
+                endpoint_field_value = socket.inet_ntop(socket.AF_INET, bytes(endpoint[_ADDRESS_FIELD_IX]))
+            except ValueError:
+                # IPv4 failed, Try decode IPv6
+                ip_version = socket.AF_INET6
+                endpoint_field_value = socket.inet_ntop(socket.AF_INET6, bytes(endpoint[_ADDRESS_FIELD_IX]))
+        fixup_items.append((endpoint_field_key, endpoint_field_value))
+
+    fixup_items.append(('ip_version', ip_version))
+
+    return dict(fixup_items)
 
 
 def defineKeySchema_N742646399_1(_, tube):

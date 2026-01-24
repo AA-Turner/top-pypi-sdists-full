@@ -5,8 +5,11 @@ from __future__ import annotations
 import enum
 import re
 import traceback
+from collections.abc import Callable
+from dataclasses import dataclass
+from textwrap import indent
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from schemathesis.core.output import truncate_json
 
@@ -17,24 +20,75 @@ if TYPE_CHECKING:
 
     from schemathesis.config import OutputConfig
     from schemathesis.core.compat import RefResolutionError
+    from schemathesis.core.jsonschema import BundleError
 
 
 SCHEMA_ERROR_SUGGESTION = "Ensure that the definition complies with the OpenAPI specification"
 SERIALIZERS_DOCUMENTATION_URL = "https://schemathesis.readthedocs.io/en/stable/guides/custom-serializers/"
+STATEFUL_TESTING_GUIDE_URL = "https://schemathesis.readthedocs.io/en/stable/guides/stateful-testing/"
 SERIALIZERS_SUGGESTION_MESSAGE = f"Check your schema or add custom serializers: {SERIALIZERS_DOCUMENTATION_URL}"
 SERIALIZATION_NOT_POSSIBLE_MESSAGE = f"No supported serializers for media types: {{}}\n{SERIALIZERS_SUGGESTION_MESSAGE}"
 SERIALIZATION_FOR_TYPE_IS_NOT_POSSIBLE_MESSAGE = (
     f"Cannot serialize to '{{}}' (unsupported media type)\n{SERIALIZERS_SUGGESTION_MESSAGE}"
 )
-RECURSIVE_REFERENCE_ERROR_MESSAGE = (
-    "Currently, Schemathesis can't generate data for this operation due to "
-    "recursive references in the operation definition. See more information in "
-    "this issue - https://github.com/schemathesis/schemathesis/issues/947"
-)
 
 
 class SchemathesisError(Exception):
     """Base exception class for all Schemathesis errors."""
+
+
+class DefinitionKind(str, enum.Enum):
+    SCHEMA = "Schema Object"
+    SECURITY_SCHEME = "Security Scheme Object"
+    RESPONSES = "Responses Object"
+    PARAMETER = "Parameter Object"
+
+
+@dataclass
+class SchemaLocation:
+    kind: DefinitionKind
+    # Hint about where the definition is located
+    hint: str | None
+    # Open API spec version
+    version: str
+
+    __slots__ = ("kind", "hint", "version")
+
+    @classmethod
+    def response_schema(cls, version: str) -> SchemaLocation:
+        return cls(kind=DefinitionKind.SCHEMA, hint="in response definition", version=version)
+
+    @classmethod
+    def maybe_from_error_path(cls, path: list[str | int], version: str) -> SchemaLocation | None:
+        if len(path) == 3 and path[:2] == ["components", "securitySchemes"]:
+            return cls(kind=DefinitionKind.SECURITY_SCHEME, hint=f"definition for `{path[2]}`", version=version)
+        if len(path) == 3 and path[:2] == ["components", "schemas"]:
+            return cls(kind=DefinitionKind.SCHEMA, hint=f"definition for `{path[2]}`", version=version)
+        if len(path) == 4 and path[0] == "paths" and path[-1] == "responses":
+            return cls(kind=DefinitionKind.RESPONSES, hint=None, version=version)
+        if len(path) == 5 and path[0] == "paths" and path[3] == "parameters":
+            return cls(kind=DefinitionKind.PARAMETER, hint=f"at index {path[4]}", version=version)
+
+        return None
+
+    @property
+    def message(self) -> str:
+        message = f"Invalid {self.kind.value}"
+        if self.hint is not None:
+            message += f" {self.hint}"
+        else:
+            message += " definition"
+        return message
+
+    @property
+    def specification_url(self) -> str:
+        anchor = {
+            DefinitionKind.SCHEMA: "schema-object",
+            DefinitionKind.SECURITY_SCHEME: "security-scheme-object",
+            DefinitionKind.RESPONSES: "responses-object",
+            DefinitionKind.PARAMETER: "parameter-object",
+        }[self.kind]
+        return f"https://spec.openapis.org/oas/v{self.version}#{anchor}"
 
 
 class InvalidSchema(SchemathesisError):
@@ -51,10 +105,25 @@ class InvalidSchema(SchemathesisError):
         self.method = method
 
     @classmethod
+    def from_bundle_error(cls, error: BundleError, location: str, name: str | None = None) -> InvalidSchema:
+        if location == "body":
+            message = f"Can not generate data for {location}! {error}"
+        else:
+            message = f"Can not generate data for {location} parameter `{name}`! {error}"
+        return InvalidSchema(message)
+
+    @classmethod
     def from_jsonschema_error(
-        cls, error: ValidationError | JsonSchemaError, path: str | None, method: str | None, config: OutputConfig
+        cls,
+        error: ValidationError | JsonSchemaError,
+        path: str | None,
+        method: str | None,
+        config: OutputConfig,
+        location: SchemaLocation | None = None,
     ) -> InvalidSchema:
-        if error.absolute_path:
+        if location is not None:
+            message = location.message
+        elif error.absolute_path:
             part = error.absolute_path[-1]
             if isinstance(part, int) and len(error.absolute_path) > 1:
                 parent = error.absolute_path[-2]
@@ -66,14 +135,18 @@ class InvalidSchema(SchemathesisError):
         error_path = " -> ".join(str(entry) for entry in error.path) or "[root]"
         message += f"\n\nLocation:\n    {error_path}"
         instance = truncate_json(error.instance, config=config)
-        message += f"\n\nProblematic definition:\n{instance}"
+        message += f"\n\nProblematic definition:\n{indent(instance, '    ')}"
         message += "\n\nError details:\n    "
         # This default message contains the instance which we already printed
         if "is not valid under any of the given schemas" in error.message:
             message += "The provided definition doesn't match any of the expected formats or types."
         else:
             message += error.message
-        message += f"\n\n{SCHEMA_ERROR_SUGGESTION}"
+        message += "\n\n"
+        if location is not None:
+            message += f"See: {location.specification_url}"
+        else:
+            message += SCHEMA_ERROR_SUGGESTION
         return cls(message, path=path, method=method)
 
     @classmethod
@@ -82,12 +155,16 @@ class InvalidSchema(SchemathesisError):
     ) -> InvalidSchema:
         notes = getattr(error, "__notes__", [])
         # Some exceptions don't have the actual reference in them, hence we add it manually via notes
-        pointer = f"'{notes[0]}'"
-        message = "Unresolvable JSON pointer in the schema"
+        reference = str(notes[0])
+        message = "Unresolvable reference in the schema"
         # Get the pointer value from "Unresolvable JSON pointer: 'components/UnknownParameter'"
-        message += f"\n\nError details:\n    JSON pointer: {pointer}"
-        message += "\n    This typically means that the schema is referencing a component that doesn't exist."
-        message += f"\n\n{SCHEMA_ERROR_SUGGESTION}"
+        message += f"\n\nError details:\n    Reference: {reference}"
+        if not reference.startswith(("http://", "https://", "#/")):
+            message += "\n    File reference could not be resolved. Check that the file exists."
+        elif reference.startswith(("#/components", "#/definitions")):
+            message += "\n    Component does not exist in the schema."
+        elif isinstance(error.__cause__, RemoteDocumentError):
+            message += f"\n    {error.__cause__}"
         return cls(message, path=path, method=method)
 
     def as_failing_test_function(self) -> Callable:
@@ -103,6 +180,13 @@ class InvalidSchema(SchemathesisError):
         return actual_test
 
 
+class RemoteDocumentError(SchemathesisError):
+    """Remote reference resolution failed.
+
+    This exception carries more context than the default one in `jsonschema`.
+    """
+
+
 class HookError(SchemathesisError):
     """Happens during hooks loading."""
 
@@ -115,6 +199,22 @@ class HookError(SchemathesisError):
 
     def __str__(self) -> str:
         return f"Failed to load Schemathesis extensions from `{self.module_path}`"
+
+
+class HookExecutionError(SchemathesisError):
+    """Raised when a user-defined hook raises an exception during execution."""
+
+    hook_name: str
+    original_error: Exception
+
+    __slots__ = ("hook_name", "original_error")
+
+    def __init__(self, hook_name: str, original_error: Exception) -> None:
+        self.hook_name = hook_name
+        self.original_error = original_error
+
+    def __str__(self) -> str:
+        return f"Error in `{self.hook_name}` hook: {type(self.original_error).__name__}: {self.original_error}"
 
 
 class InvalidRegexType(InvalidSchema):
@@ -150,13 +250,13 @@ class InvalidStateMachine(SchemathesisError):
         for source, target_groups in by_source.items():
             for (target, status), transitions in target_groups.items():
                 for transition in transitions:
-                    result += f"\n\n  {_format_transition(source, status, transition.name, target)}\n"
+                    result += f"\n\n  {format_transition(source, status, transition.name, target)}\n"
                     for error in transition.errors:
                         result += f"\n     - {error.message}"
         return result
 
 
-def _format_transition(source: str, status: str, transition: str, target: str) -> str:
+def format_transition(source: str, status: str, transition: str, target: str) -> str:
     return f"{source} -> [{status}] {transition} -> {target}"
 
 
@@ -243,6 +343,27 @@ class IncorrectUsage(SchemathesisError):
     """Indicates incorrect usage of Schemathesis' public API."""
 
 
+class AuthenticationError(SchemathesisError):
+    """Error during authentication provider execution.
+
+    This error wraps exceptions that occur when obtaining or setting
+    authentication data via custom auth providers.
+    """
+
+    def __init__(self, provider_name: str, method: str, message: str) -> None:
+        self.provider_name = provider_name
+        self.method = method
+        self.message = message
+        super().__init__(
+            f"Error in '{provider_name}.{method}()': {message}\n\n"
+            f"Common causes:\n"
+            f"  - Auth endpoint returned an error response\n"
+            f"  - Response format doesn't match expectations (text vs JSON)\n"
+            f"  - Network or connection issues\n"
+            f"  - Logic error in the authentication provider implementation"
+        )
+
+
 class NoLinksFound(IncorrectUsage):
     """Raised when no valid links are available for stateful testing."""
 
@@ -281,6 +402,30 @@ class UnboundPrefix(SerializationError):
 
     def __init__(self, prefix: str):
         super().__init__(UNBOUND_PREFIX_MESSAGE_TEMPLATE.format(prefix=prefix))
+
+
+class UnresolvableReference(SchemathesisError):
+    """A reference cannot be resolved."""
+
+    def __init__(self, reference: str) -> None:
+        self.reference = reference
+
+    def __str__(self) -> str:
+        return f"Reference `{self.reference}` cannot be resolved"
+
+
+class InfiniteRecursiveReference(SchemathesisError):
+    """A schema has required references forming an infinite cycle."""
+
+    def __init__(self, reference: str, cycle: list[str]) -> None:
+        self.reference = reference
+        self.cycle = cycle
+
+    def __str__(self) -> str:
+        if len(self.cycle) == 1:
+            return f"Schema `{self.reference}` has a required reference to itself"
+        cycle_str = " ->\n  ".join(self.cycle + [self.cycle[0]])
+        return f"Schema `{self.reference}` has required references forming a cycle:\n\n  {cycle_str}"
 
 
 class SerializationNotPossible(SerializationError):

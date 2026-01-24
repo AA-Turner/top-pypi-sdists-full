@@ -1,3 +1,6 @@
+from typing import Optional
+
+
 class AppSettings:
     def __init__(self, prefix):
         self.prefix = prefix
@@ -5,7 +8,7 @@ class AppSettings:
     def _setting(self, name, dflt):
         from allauth.utils import get_setting
 
-        return get_setting(self.prefix + name, dflt)
+        return get_setting(f"{self.prefix}{name}", dflt)
 
     @property
     def ADAPTER(self):
@@ -25,6 +28,10 @@ class AppSettings:
     @property
     def ACCESS_TOKEN_EXPIRES_IN(self) -> int:
         return self._setting("ACCESS_TOKEN_EXPIRES_IN", 3600)
+
+    @property
+    def ACCESS_TOKEN_FORMAT(self) -> str:
+        return self._setting("ACCESS_TOKEN_FORMAT", "opaque")
 
     @property
     def AUTHORIZATION_CODE_EXPIRES_IN(self) -> int:
@@ -53,6 +60,28 @@ class AppSettings:
         }
         ret.update(rls)
         return ret
+
+    @property
+    def RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT(self):
+        """
+        At https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+
+        > 2. RP-Initiated Logout':
+        > At the Logout Endpoint, the OP SHOULD ask the End-User whether to
+        > log out of the OP as well.
+
+        This setting controls whether the OP always asks.
+        """
+        return self._setting("RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT", True)
+
+    @property
+    def USERINFO_ENDPOINT(self) -> Optional[str]:
+        """
+        This setting can be used to point the ``userinfo_endpoint`` value as
+        returned in the ".well-known/openid-configuration" to a custom URL.
+        Setting this disables the built-in userinfo endpoint.
+        """
+        return self._setting("USERINFO_ENDPOINT", None)
 
 
 _app_settings = AppSettings("IDP_OIDC_")

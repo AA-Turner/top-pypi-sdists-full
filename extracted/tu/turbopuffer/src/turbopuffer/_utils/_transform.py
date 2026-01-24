@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import base64
 import pathlib
-from typing import Any, List, Union, Mapping, TypeVar, Iterable, cast
+from typing import Any, List, Mapping, TypeVar, cast
 from datetime import date, datetime
 from typing_extensions import Literal, get_args, override, get_type_hints as _get_type_hints
 
@@ -19,7 +19,7 @@ from ._utils import (
     is_sequence,
 )
 from .._files import is_base64_file_input
-from .._types import SequenceNotStr
+from .._types import Omit, NotGiven
 from ._compat import get_origin, is_typeddict
 from ._typing import (
     is_list_type,
@@ -38,12 +38,6 @@ _T = TypeVar("_T")
 
 # TODO: support for drilling globals() and locals()
 # TODO: ensure works correctly with forward references in all cases
-
-# HACK: annotations to sniff out that indicate data is of a vector type.
-# Unfortunately we don't get nice types like `Vector` directly.
-VectorRowAnnotation = Union[Iterable[float], str]
-VectorColumnAnnotation = Union[SequenceNotStr[VectorRowAnnotation], Iterable[float], str]
-VectorAnnotations = cast(List[type], [VectorRowAnnotation, VectorColumnAnnotation])
 
 PropertyFormat = Literal["iso8601", "base64", "custom"]
 
@@ -95,10 +89,33 @@ def maybe_transform(
     return transform(data, expected_type)
 
 
+# turbopuffer: Simple transform without expensive type introspection.
+def _turbopuffer_transform(obj: object) -> object:
+
+    if obj is None or isinstance(obj, (int, float, bool, str)):
+        return obj
+    if isinstance(obj, dict):
+        result: dict[str, object] = {}
+        for k, v in cast(dict[str, object], obj).items():
+            # Strip Omit and NotGiven values
+            if isinstance(v, (Omit, NotGiven)):
+                continue
+            if k == "vector":
+                result[k] = _encode_vector(v)
+            else:
+                result[k] = _turbopuffer_transform(v)
+        return result
+    if isinstance(obj, list):
+        return [_turbopuffer_transform(i) for i in cast(List[object], obj)]
+    if isinstance(obj, tuple):
+        return tuple(_turbopuffer_transform(i) for i in cast(tuple[object, ...], obj))
+    return obj
+
+
 # Wrapper over _transform_recursive providing fake types
 def transform(
     data: _T,
-    expected_type: object,
+    expected_type: object,  # noqa: ARG001 - kept for API compatibility
 ) -> _T:
     """Transform dictionaries based off of type information from the given type, for example:
 
@@ -115,8 +132,8 @@ def transform(
 
     It should be noted that the transformations that this function does are not represented in the type system.
     """
-    transformed = _transform_recursive(data, annotation=cast(type, expected_type))
-    return cast(_T, transformed)
+    # turbopuffer: Use simple vector encoding instead of generic type-based transform.
+    return cast(_T, _turbopuffer_transform(data))
 
 
 @lru_cache(maxsize=8096)
@@ -180,10 +197,6 @@ def _transform_recursive(
 
     if inner_type is None:
         inner_type = annotation
-
-    # Fast path for vector encoding.
-    if annotation in VectorAnnotations:
-        return _encode_vector(data)
 
     stripped_type = strip_annotated_type(inner_type)
     origin = get_origin(stripped_type) or stripped_type
@@ -293,7 +306,7 @@ def _transform_typeddict(
     annotations = get_type_hints(expected_type, include_extras=True)
     for key, value in data.items():
         if not is_given(value):
-            # we don't need to include `NotGiven` values here as they'll
+            # we don't need to include omitted values here as they'll
             # be stripped out before the request is sent anyway
             continue
 
@@ -321,7 +334,7 @@ async def async_maybe_transform(
 
 async def async_transform(
     data: _T,
-    expected_type: object,
+    expected_type: object,  # noqa: ARG001 - kept for API compatibility
 ) -> _T:
     """Transform dictionaries based off of type information from the given type, for example:
 
@@ -338,8 +351,8 @@ async def async_transform(
 
     It should be noted that the transformations that this function does are not represented in the type system.
     """
-    transformed = await _async_transform_recursive(data, annotation=cast(type, expected_type))
-    return cast(_T, transformed)
+    # turbopuffer: Use simple vector encoding instead of generic type-based transform.
+    return cast(_T, _turbopuffer_transform(data))
 
 
 async def _async_transform_recursive(
@@ -364,10 +377,6 @@ async def _async_transform_recursive(
 
     if inner_type is None:
         inner_type = annotation
-
-    # Fast path for vector encoding.
-    if annotation in VectorAnnotations:
-        return _encode_vector(data)
 
     stripped_type = strip_annotated_type(inner_type)
     origin = get_origin(stripped_type) or stripped_type
@@ -463,7 +472,7 @@ async def _async_transform_typeddict(
     annotations = get_type_hints(expected_type, include_extras=True)
     for key, value in data.items():
         if not is_given(value):
-            # we don't need to include `NotGiven` values here as they'll
+            # we don't need to include omitted values here as they'll
             # be stripped out before the request is sent anyway
             continue
 

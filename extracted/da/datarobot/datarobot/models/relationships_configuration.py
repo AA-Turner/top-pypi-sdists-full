@@ -178,90 +178,66 @@ class RelationshipsConfiguration(APIObject):
     """
 
     _path = "relationshipsConfigurations/"
-    data_source_trafaret = t.Dict(
-        {
-            t.Key("data_store_name"): String,
-            t.Key("data_store_id"): String,
-            t.Key("url", optional=True): t.Or(String, t.Null),
-            t.Key("dbtable", optional=True): t.Or(String, t.Null),
-            t.Key("schema", optional=True): t.Or(String(allow_blank=True), t.Null),
-            t.Key("catalog", optional=True): t.Or(String(allow_blank=True), t.Null),
-            t.Key("data_source_id", optional=True): t.Or(String, t.Null),
-        }
-    ).ignore_extra("*")
-    feature_list_info = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("features"): t.List(String),
-            t.Key("name"): String,
-            t.Key("description"): String,
-            t.Key("dataset_id"): String,
-            t.Key("user_created"): t.Bool,
-            t.Key("creation_date"): parse_time,
-            t.Key("created_by"): String,
-            t.Key("dataset_version_id", optional=True): String,
-        }
-    ).ignore_extra("*")
-    dataset_definitions_trafaret = t.Dict(
-        {
-            t.Key("identifier"): String(min_length=3, max_length=20),
-            t.Key("catalog_version_id"): String,
-            t.Key("catalog_id"): String,
-            t.Key("primary_temporal_key", optional=True): t.Or(String, t.Null),
-            t.Key("feature_list_id", optional=True): t.Or(String, t.Null),
-            t.Key("snapshot_policy", optional=True, default="latest"): t.Enum(
-                "latest", "specified", "dynamic"
-            ),
-            t.Key("feature_lists", optional=True): t.List(feature_list_info),
-            t.Key("data_source", optional=True): t.Or(data_source_trafaret, t.Null),
-            t.Key("data_sources", optional=True): t.Or(t.List(data_source_trafaret), t.Null),
-            t.Key("is_deleted", optional=True): t.Or(t.Bool, t.Null),
-        }
-    ).ignore_extra("*")
-    feature_derivation_window_trafaret = t.Dict(
-        {
-            t.Key("start"): Int(lt=0),
-            t.Key("end"): Int(lte=0),
-            t.Key("unit"): t.Enum(*AllowedTimeUnitsSAFER.ALL),
-        }
-    )
+    data_source_trafaret = t.Dict({
+        t.Key("data_store_name"): String,
+        t.Key("data_store_id"): String,
+        t.Key("url", optional=True): t.Or(String, t.Null),
+        t.Key("dbtable", optional=True): t.Or(String, t.Null),
+        t.Key("schema", optional=True): t.Or(String(allow_blank=True), t.Null),
+        t.Key("catalog", optional=True): t.Or(String(allow_blank=True), t.Null),
+        t.Key("data_source_id", optional=True): t.Or(String, t.Null),
+    }).ignore_extra("*")
+    feature_list_info = t.Dict({
+        t.Key("id"): String,
+        t.Key("features"): t.List(String),
+        t.Key("name"): String,
+        t.Key("description"): String,
+        t.Key("dataset_id"): String,
+        t.Key("user_created"): t.Bool,
+        t.Key("creation_date"): parse_time,
+        t.Key("created_by"): String,
+        t.Key("dataset_version_id", optional=True): String,
+    }).ignore_extra("*")
+    dataset_definitions_trafaret = t.Dict({
+        t.Key("identifier"): String(min_length=3, max_length=20),
+        t.Key("catalog_version_id"): String,
+        t.Key("catalog_id"): String,
+        t.Key("primary_temporal_key", optional=True): t.Or(String, t.Null),
+        t.Key("feature_list_id", optional=True): t.Or(String, t.Null),
+        t.Key("snapshot_policy", optional=True, default="latest"): t.Enum("latest", "specified", "dynamic"),
+        t.Key("feature_lists", optional=True): t.List(feature_list_info),
+        t.Key("data_source", optional=True): t.Or(data_source_trafaret, t.Null),
+        t.Key("data_sources", optional=True): t.Or(t.List(data_source_trafaret), t.Null),
+        t.Key("is_deleted", optional=True): t.Or(t.Bool, t.Null),
+    }).ignore_extra("*")
+    feature_derivation_window_trafaret = t.Dict({
+        t.Key("start"): Int(lt=0),
+        t.Key("end"): Int(lte=0),
+        t.Key("unit"): t.Enum(*AllowedTimeUnitsSAFER.ALL),
+    })
 
-    relationships_trafaret = t.Dict(
-        {
-            t.Key("dataset1_identifier", optional=True): t.Or(String, t.Null),
-            t.Key("dataset2_identifier"): String,
-            t.Key("dataset1_keys"): t.List(String, min_length=1, max_length=10),
-            t.Key("dataset2_keys"): t.List(String, min_length=1, max_length=10),
-            t.Key("feature_derivation_window_start", optional=True): Int(lt=0),
-            t.Key("feature_derivation_window_end", optional=True): Int(lte=0),
-            t.Key("feature_derivation_window_time_unit", optional=True): t.Enum(
-                *AllowedTimeUnitsSAFER.ALL
-            ),
-            t.Key("feature_derivation_windows", optional=True): t.List(
-                feature_derivation_window_trafaret
-            ),
-            t.Key("prediction_point_rounding", optional=True): Int(gt=0, lte=30),
-            t.Key("prediction_point_rounding_time_unit", optional=True): t.Enum(
-                *AllowedTimeUnitsSAFER.ALL
-            ),
-        }
-    ).ignore_extra("*")
+    relationships_trafaret = t.Dict({
+        t.Key("dataset1_identifier", optional=True): t.Or(String, t.Null),
+        t.Key("dataset2_identifier"): String,
+        t.Key("dataset1_keys"): t.List(String, min_length=1, max_length=10),
+        t.Key("dataset2_keys"): t.List(String, min_length=1, max_length=10),
+        t.Key("feature_derivation_window_start", optional=True): Int(lt=0),
+        t.Key("feature_derivation_window_end", optional=True): Int(lte=0),
+        t.Key("feature_derivation_window_time_unit", optional=True): t.Enum(*AllowedTimeUnitsSAFER.ALL),
+        t.Key("feature_derivation_windows", optional=True): t.List(feature_derivation_window_trafaret),
+        t.Key("prediction_point_rounding", optional=True): Int(gt=0, lte=30),
+        t.Key("prediction_point_rounding_time_unit", optional=True): t.Enum(*AllowedTimeUnitsSAFER.ALL),
+    }).ignore_extra("*")
 
-    feature_discovery_setting_trafaret = t.Dict(
-        {t.Key("name"): String, t.Key("value"): t.Bool}
-    ).ignore_extra("*")
+    feature_discovery_setting_trafaret = t.Dict({t.Key("name"): String, t.Key("value"): t.Bool}).ignore_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("dataset_definitions"): t.List(dataset_definitions_trafaret, min_length=1),
-            t.Key("relationships"): t.List(relationships_trafaret, min_length=1),
-            t.Key("feature_discovery_mode", optional=True): t.Enum(*FeatureDiscoveryMode.ALL),
-            t.Key("feature_discovery_settings", optional=True): t.List(
-                feature_discovery_setting_trafaret
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("dataset_definitions"): t.List(dataset_definitions_trafaret, min_length=1),
+        t.Key("relationships"): t.List(relationships_trafaret, min_length=1),
+        t.Key("feature_discovery_mode", optional=True): t.Enum(*FeatureDiscoveryMode.ALL),
+        t.Key("feature_discovery_settings", optional=True): t.List(feature_discovery_setting_trafaret),
+    }).ignore_extra("*")
 
     def __init__(
         self,

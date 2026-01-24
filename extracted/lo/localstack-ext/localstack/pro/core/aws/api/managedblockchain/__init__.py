@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -184,7 +184,7 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ResourceName: Optional[ArnString]
+    ResourceName: ArnString | None
 
 
 class ResourceNotReadyException(ServiceException):
@@ -213,38 +213,38 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[ArnString]
+    ResourceName: ArnString | None
 
 
-OutputTagMap = Dict[TagKey, TagValue]
+OutputTagMap = dict[TagKey, TagValue]
 Timestamp = datetime
 
 
 class Accessor(TypedDict, total=False):
     """The properties of the Accessor."""
 
-    Id: Optional[ResourceIdString]
-    Type: Optional[AccessorType]
-    BillingToken: Optional[AccessorBillingTokenString]
-    Status: Optional[AccessorStatus]
-    CreationDate: Optional[Timestamp]
-    Arn: Optional[ArnString]
-    Tags: Optional[OutputTagMap]
-    NetworkType: Optional[AccessorNetworkType]
+    Id: ResourceIdString | None
+    Type: AccessorType | None
+    BillingToken: AccessorBillingTokenString | None
+    Status: AccessorStatus | None
+    CreationDate: Timestamp | None
+    Arn: ArnString | None
+    Tags: OutputTagMap | None
+    NetworkType: AccessorNetworkType | None
 
 
 class AccessorSummary(TypedDict, total=False):
     """A summary of accessor properties."""
 
-    Id: Optional[ResourceIdString]
-    Type: Optional[AccessorType]
-    Status: Optional[AccessorStatus]
-    CreationDate: Optional[Timestamp]
-    Arn: Optional[ArnString]
-    NetworkType: Optional[AccessorNetworkType]
+    Id: ResourceIdString | None
+    Type: AccessorType | None
+    Status: AccessorStatus | None
+    CreationDate: Timestamp | None
+    Arn: ArnString | None
+    NetworkType: AccessorNetworkType | None
 
 
-AccessorSummaryList = List[AccessorSummary]
+AccessorSummaryList = list[AccessorSummary]
 
 
 class ApprovalThresholdPolicy(TypedDict, total=False):
@@ -257,37 +257,37 @@ class ApprovalThresholdPolicy(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    ThresholdPercentage: Optional[ThresholdPercentageInt]
-    ProposalDurationInHours: Optional[ProposalDurationInt]
-    ThresholdComparator: Optional[ThresholdComparator]
+    ThresholdPercentage: ThresholdPercentageInt | None
+    ProposalDurationInHours: ProposalDurationInt | None
+    ThresholdComparator: ThresholdComparator | None
 
 
-InputTagMap = Dict[TagKey, TagValue]
+InputTagMap = dict[TagKey, TagValue]
 
 
 class CreateAccessorInput(ServiceRequest):
     ClientRequestToken: ClientRequestTokenString
     AccessorType: AccessorType
-    Tags: Optional[InputTagMap]
-    NetworkType: Optional[AccessorNetworkType]
+    Tags: InputTagMap | None
+    NetworkType: AccessorNetworkType | None
 
 
 class CreateAccessorOutput(TypedDict, total=False):
-    AccessorId: Optional[ResourceIdString]
-    BillingToken: Optional[AccessorBillingTokenString]
-    NetworkType: Optional[AccessorNetworkType]
+    AccessorId: ResourceIdString | None
+    BillingToken: AccessorBillingTokenString | None
+    NetworkType: AccessorNetworkType | None
 
 
 class LogConfiguration(TypedDict, total=False):
     """A configuration for logging events."""
 
-    Enabled: Optional[Enabled]
+    Enabled: Enabled | None
 
 
 class LogConfigurations(TypedDict, total=False):
     """A collection of log configurations."""
 
-    Cloudwatch: Optional[LogConfiguration]
+    Cloudwatch: LogConfiguration | None
 
 
 class MemberFabricLogPublishingConfiguration(TypedDict, total=False):
@@ -295,7 +295,7 @@ class MemberFabricLogPublishingConfiguration(TypedDict, total=False):
     a Managed Blockchain network using the Hyperledger Fabric framework.
     """
 
-    CaLogs: Optional[LogConfigurations]
+    CaLogs: LogConfigurations | None
 
 
 class MemberLogPublishingConfiguration(TypedDict, total=False):
@@ -303,7 +303,7 @@ class MemberLogPublishingConfiguration(TypedDict, total=False):
     a Managed Blockchain network.
     """
 
-    Fabric: Optional[MemberFabricLogPublishingConfiguration]
+    Fabric: MemberFabricLogPublishingConfiguration | None
 
 
 class MemberFabricConfiguration(TypedDict, total=False):
@@ -321,7 +321,7 @@ class MemberFrameworkConfiguration(TypedDict, total=False):
     framework that the Managed Blockchain network uses.
     """
 
-    Fabric: Optional[MemberFabricConfiguration]
+    Fabric: MemberFabricConfiguration | None
 
 
 class MemberConfiguration(TypedDict, total=False):
@@ -331,11 +331,11 @@ class MemberConfiguration(TypedDict, total=False):
     """
 
     Name: NetworkMemberNameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     FrameworkConfiguration: MemberFrameworkConfiguration
-    LogPublishingConfiguration: Optional[MemberLogPublishingConfiguration]
-    Tags: Optional[InputTagMap]
-    KmsKeyArn: Optional[ArnString]
+    LogPublishingConfiguration: MemberLogPublishingConfiguration | None
+    Tags: InputTagMap | None
+    KmsKeyArn: ArnString | None
 
 
 class CreateMemberInput(ServiceRequest):
@@ -346,7 +346,7 @@ class CreateMemberInput(ServiceRequest):
 
 
 class CreateMemberOutput(TypedDict, total=False):
-    MemberId: Optional[ResourceIdString]
+    MemberId: ResourceIdString | None
 
 
 class VotingPolicy(TypedDict, total=False):
@@ -355,7 +355,7 @@ class VotingPolicy(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    ApprovalThresholdPolicy: Optional[ApprovalThresholdPolicy]
+    ApprovalThresholdPolicy: ApprovalThresholdPolicy | None
 
 
 class NetworkFabricConfiguration(TypedDict, total=False):
@@ -369,24 +369,24 @@ class NetworkFrameworkConfiguration(TypedDict, total=False):
     framework that the network uses.
     """
 
-    Fabric: Optional[NetworkFabricConfiguration]
+    Fabric: NetworkFabricConfiguration | None
 
 
 class CreateNetworkInput(ServiceRequest):
     ClientRequestToken: ClientRequestTokenString
     Name: NameString
-    Description: Optional[DescriptionString]
+    Description: DescriptionString | None
     Framework: Framework
     FrameworkVersion: FrameworkVersionString
-    FrameworkConfiguration: Optional[NetworkFrameworkConfiguration]
+    FrameworkConfiguration: NetworkFrameworkConfiguration | None
     VotingPolicy: VotingPolicy
     MemberConfiguration: MemberConfiguration
-    Tags: Optional[InputTagMap]
+    Tags: InputTagMap | None
 
 
 class CreateNetworkOutput(TypedDict, total=False):
-    NetworkId: Optional[ResourceIdString]
-    MemberId: Optional[ResourceIdString]
+    NetworkId: ResourceIdString | None
+    MemberId: ResourceIdString | None
 
 
 class NodeFabricLogPublishingConfiguration(TypedDict, total=False):
@@ -394,8 +394,8 @@ class NodeFabricLogPublishingConfiguration(TypedDict, total=False):
     owned by a member in a Managed Blockchain network.
     """
 
-    ChaincodeLogs: Optional[LogConfigurations]
-    PeerLogs: Optional[LogConfigurations]
+    ChaincodeLogs: LogConfigurations | None
+    PeerLogs: LogConfigurations | None
 
 
 class NodeLogPublishingConfiguration(TypedDict, total=False):
@@ -403,28 +403,28 @@ class NodeLogPublishingConfiguration(TypedDict, total=False):
     on a Hyperledger Fabric network on Managed Blockchain.
     """
 
-    Fabric: Optional[NodeFabricLogPublishingConfiguration]
+    Fabric: NodeFabricLogPublishingConfiguration | None
 
 
 class NodeConfiguration(TypedDict, total=False):
     """Configuration properties of a node."""
 
     InstanceType: InstanceTypeString
-    AvailabilityZone: Optional[AvailabilityZoneString]
-    LogPublishingConfiguration: Optional[NodeLogPublishingConfiguration]
-    StateDB: Optional[StateDBType]
+    AvailabilityZone: AvailabilityZoneString | None
+    LogPublishingConfiguration: NodeLogPublishingConfiguration | None
+    StateDB: StateDBType | None
 
 
 class CreateNodeInput(ServiceRequest):
     ClientRequestToken: ClientRequestTokenString
     NetworkId: ResourceIdString
-    MemberId: Optional[ResourceIdString]
+    MemberId: ResourceIdString | None
     NodeConfiguration: NodeConfiguration
-    Tags: Optional[InputTagMap]
+    Tags: InputTagMap | None
 
 
 class CreateNodeOutput(TypedDict, total=False):
-    NodeId: Optional[ResourceIdString]
+    NodeId: ResourceIdString | None
 
 
 class RemoveAction(TypedDict, total=False):
@@ -438,7 +438,7 @@ class RemoveAction(TypedDict, total=False):
     MemberId: ResourceIdString
 
 
-RemoveActionList = List[RemoveAction]
+RemoveActionList = list[RemoveAction]
 
 
 class InviteAction(TypedDict, total=False):
@@ -452,7 +452,7 @@ class InviteAction(TypedDict, total=False):
     Principal: PrincipalString
 
 
-InviteActionList = List[InviteAction]
+InviteActionList = list[InviteAction]
 
 
 class ProposalActions(TypedDict, total=False):
@@ -461,8 +461,8 @@ class ProposalActions(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    Invitations: Optional[InviteActionList]
-    Removals: Optional[RemoveActionList]
+    Invitations: InviteActionList | None
+    Removals: RemoveActionList | None
 
 
 class CreateProposalInput(ServiceRequest):
@@ -470,12 +470,12 @@ class CreateProposalInput(ServiceRequest):
     NetworkId: ResourceIdString
     MemberId: ResourceIdString
     Actions: ProposalActions
-    Description: Optional[DescriptionString]
-    Tags: Optional[InputTagMap]
+    Description: DescriptionString | None
+    Tags: InputTagMap | None
 
 
 class CreateProposalOutput(TypedDict, total=False):
-    ProposalId: Optional[ResourceIdString]
+    ProposalId: ResourceIdString | None
 
 
 class DeleteAccessorInput(ServiceRequest):
@@ -497,7 +497,7 @@ class DeleteMemberOutput(TypedDict, total=False):
 
 class DeleteNodeInput(ServiceRequest):
     NetworkId: ResourceIdString
-    MemberId: Optional[ResourceIdString]
+    MemberId: ResourceIdString | None
     NodeId: ResourceIdString
 
 
@@ -510,7 +510,7 @@ class GetAccessorInput(ServiceRequest):
 
 
 class GetAccessorOutput(TypedDict, total=False):
-    Accessor: Optional[Accessor]
+    Accessor: Accessor | None
 
 
 class GetMemberInput(ServiceRequest):
@@ -523,8 +523,8 @@ class MemberFabricAttributes(TypedDict, total=False):
     network using the Hyperledger Fabric framework.
     """
 
-    AdminUsername: Optional[UsernameString]
-    CaEndpoint: Optional[String]
+    AdminUsername: UsernameString | None
+    CaEndpoint: String | None
 
 
 class MemberFrameworkAttributes(TypedDict, total=False):
@@ -532,7 +532,7 @@ class MemberFrameworkAttributes(TypedDict, total=False):
     Managed Blockchain network uses.
     """
 
-    Fabric: Optional[MemberFabricAttributes]
+    Fabric: MemberFabricAttributes | None
 
 
 class Member(TypedDict, total=False):
@@ -541,21 +541,21 @@ class Member(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    NetworkId: Optional[ResourceIdString]
-    Id: Optional[ResourceIdString]
-    Name: Optional[NetworkMemberNameString]
-    Description: Optional[DescriptionString]
-    FrameworkAttributes: Optional[MemberFrameworkAttributes]
-    LogPublishingConfiguration: Optional[MemberLogPublishingConfiguration]
-    Status: Optional[MemberStatus]
-    CreationDate: Optional[Timestamp]
-    Tags: Optional[OutputTagMap]
-    Arn: Optional[ArnString]
-    KmsKeyArn: Optional[String]
+    NetworkId: ResourceIdString | None
+    Id: ResourceIdString | None
+    Name: NetworkMemberNameString | None
+    Description: DescriptionString | None
+    FrameworkAttributes: MemberFrameworkAttributes | None
+    LogPublishingConfiguration: MemberLogPublishingConfiguration | None
+    Status: MemberStatus | None
+    CreationDate: Timestamp | None
+    Tags: OutputTagMap | None
+    Arn: ArnString | None
+    KmsKeyArn: String | None
 
 
 class GetMemberOutput(TypedDict, total=False):
-    Member: Optional[Member]
+    Member: Member | None
 
 
 class GetNetworkInput(ServiceRequest):
@@ -565,14 +565,14 @@ class GetNetworkInput(ServiceRequest):
 class NetworkEthereumAttributes(TypedDict, total=False):
     """Attributes of Ethereum for a network."""
 
-    ChainId: Optional[String]
+    ChainId: String | None
 
 
 class NetworkFabricAttributes(TypedDict, total=False):
     """Attributes of Hyperledger Fabric for a network."""
 
-    OrderingServiceEndpoint: Optional[String]
-    Edition: Optional[Edition]
+    OrderingServiceEndpoint: String | None
+    Edition: Edition | None
 
 
 class NetworkFrameworkAttributes(TypedDict, total=False):
@@ -580,42 +580,42 @@ class NetworkFrameworkAttributes(TypedDict, total=False):
     network uses.
     """
 
-    Fabric: Optional[NetworkFabricAttributes]
-    Ethereum: Optional[NetworkEthereumAttributes]
+    Fabric: NetworkFabricAttributes | None
+    Ethereum: NetworkEthereumAttributes | None
 
 
 class Network(TypedDict, total=False):
     """Network configuration properties."""
 
-    Id: Optional[ResourceIdString]
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Framework: Optional[Framework]
-    FrameworkVersion: Optional[FrameworkVersionString]
-    FrameworkAttributes: Optional[NetworkFrameworkAttributes]
-    VpcEndpointServiceName: Optional[String]
-    VotingPolicy: Optional[VotingPolicy]
-    Status: Optional[NetworkStatus]
-    CreationDate: Optional[Timestamp]
-    Tags: Optional[OutputTagMap]
-    Arn: Optional[ArnString]
+    Id: ResourceIdString | None
+    Name: NameString | None
+    Description: DescriptionString | None
+    Framework: Framework | None
+    FrameworkVersion: FrameworkVersionString | None
+    FrameworkAttributes: NetworkFrameworkAttributes | None
+    VpcEndpointServiceName: String | None
+    VotingPolicy: VotingPolicy | None
+    Status: NetworkStatus | None
+    CreationDate: Timestamp | None
+    Tags: OutputTagMap | None
+    Arn: ArnString | None
 
 
 class GetNetworkOutput(TypedDict, total=False):
-    Network: Optional[Network]
+    Network: Network | None
 
 
 class GetNodeInput(ServiceRequest):
     NetworkId: ResourceIdString
-    MemberId: Optional[ResourceIdString]
+    MemberId: ResourceIdString | None
     NodeId: ResourceIdString
 
 
 class NodeEthereumAttributes(TypedDict, total=False):
     """Attributes of an Ethereum node."""
 
-    HttpEndpoint: Optional[String]
-    WebSocketEndpoint: Optional[String]
+    HttpEndpoint: String | None
+    WebSocketEndpoint: String | None
 
 
 class NodeFabricAttributes(TypedDict, total=False):
@@ -623,8 +623,8 @@ class NodeFabricAttributes(TypedDict, total=False):
     network on Managed Blockchain.
     """
 
-    PeerEndpoint: Optional[String]
-    PeerEventEndpoint: Optional[String]
+    PeerEndpoint: String | None
+    PeerEventEndpoint: String | None
 
 
 class NodeFrameworkAttributes(TypedDict, total=False):
@@ -632,30 +632,30 @@ class NodeFrameworkAttributes(TypedDict, total=False):
     blockchain framework that the network uses.
     """
 
-    Fabric: Optional[NodeFabricAttributes]
-    Ethereum: Optional[NodeEthereumAttributes]
+    Fabric: NodeFabricAttributes | None
+    Ethereum: NodeEthereumAttributes | None
 
 
 class Node(TypedDict, total=False):
     """Configuration properties of a node."""
 
-    NetworkId: Optional[ResourceIdString]
-    MemberId: Optional[ResourceIdString]
-    Id: Optional[ResourceIdString]
-    InstanceType: Optional[InstanceTypeString]
-    AvailabilityZone: Optional[AvailabilityZoneString]
-    FrameworkAttributes: Optional[NodeFrameworkAttributes]
-    LogPublishingConfiguration: Optional[NodeLogPublishingConfiguration]
-    StateDB: Optional[StateDBType]
-    Status: Optional[NodeStatus]
-    CreationDate: Optional[Timestamp]
-    Tags: Optional[OutputTagMap]
-    Arn: Optional[ArnString]
-    KmsKeyArn: Optional[String]
+    NetworkId: ResourceIdString | None
+    MemberId: ResourceIdString | None
+    Id: ResourceIdString | None
+    InstanceType: InstanceTypeString | None
+    AvailabilityZone: AvailabilityZoneString | None
+    FrameworkAttributes: NodeFrameworkAttributes | None
+    LogPublishingConfiguration: NodeLogPublishingConfiguration | None
+    StateDB: StateDBType | None
+    Status: NodeStatus | None
+    CreationDate: Timestamp | None
+    Tags: OutputTagMap | None
+    Arn: ArnString | None
+    KmsKeyArn: String | None
 
 
 class GetNodeOutput(TypedDict, total=False):
-    Node: Optional[Node]
+    Node: Node | None
 
 
 class GetProposalInput(ServiceRequest):
@@ -669,37 +669,37 @@ class Proposal(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    ProposalId: Optional[ResourceIdString]
-    NetworkId: Optional[ResourceIdString]
-    Description: Optional[DescriptionString]
-    Actions: Optional[ProposalActions]
-    ProposedByMemberId: Optional[ResourceIdString]
-    ProposedByMemberName: Optional[NetworkMemberNameString]
-    Status: Optional[ProposalStatus]
-    CreationDate: Optional[Timestamp]
-    ExpirationDate: Optional[Timestamp]
-    YesVoteCount: Optional[VoteCount]
-    NoVoteCount: Optional[VoteCount]
-    OutstandingVoteCount: Optional[VoteCount]
-    Tags: Optional[OutputTagMap]
-    Arn: Optional[ArnString]
+    ProposalId: ResourceIdString | None
+    NetworkId: ResourceIdString | None
+    Description: DescriptionString | None
+    Actions: ProposalActions | None
+    ProposedByMemberId: ResourceIdString | None
+    ProposedByMemberName: NetworkMemberNameString | None
+    Status: ProposalStatus | None
+    CreationDate: Timestamp | None
+    ExpirationDate: Timestamp | None
+    YesVoteCount: VoteCount | None
+    NoVoteCount: VoteCount | None
+    OutstandingVoteCount: VoteCount | None
+    Tags: OutputTagMap | None
+    Arn: ArnString | None
 
 
 class GetProposalOutput(TypedDict, total=False):
-    Proposal: Optional[Proposal]
+    Proposal: Proposal | None
 
 
 class NetworkSummary(TypedDict, total=False):
     """A summary of network configuration properties."""
 
-    Id: Optional[ResourceIdString]
-    Name: Optional[NameString]
-    Description: Optional[DescriptionString]
-    Framework: Optional[Framework]
-    FrameworkVersion: Optional[FrameworkVersionString]
-    Status: Optional[NetworkStatus]
-    CreationDate: Optional[Timestamp]
-    Arn: Optional[ArnString]
+    Id: ResourceIdString | None
+    Name: NameString | None
+    Description: DescriptionString | None
+    Framework: Framework | None
+    FrameworkVersion: FrameworkVersionString | None
+    Status: NetworkStatus | None
+    CreationDate: Timestamp | None
+    Arn: ArnString | None
 
 
 class Invitation(TypedDict, total=False):
@@ -709,45 +709,45 @@ class Invitation(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    InvitationId: Optional[ResourceIdString]
-    CreationDate: Optional[Timestamp]
-    ExpirationDate: Optional[Timestamp]
-    Status: Optional[InvitationStatus]
-    NetworkSummary: Optional[NetworkSummary]
-    Arn: Optional[ArnString]
+    InvitationId: ResourceIdString | None
+    CreationDate: Timestamp | None
+    ExpirationDate: Timestamp | None
+    Status: InvitationStatus | None
+    NetworkSummary: NetworkSummary | None
+    Arn: ArnString | None
 
 
-InvitationList = List[Invitation]
+InvitationList = list[Invitation]
 
 
 class ListAccessorsInput(ServiceRequest):
-    MaxResults: Optional[AccessorListMaxResults]
-    NextToken: Optional[PaginationToken]
-    NetworkType: Optional[AccessorNetworkType]
+    MaxResults: AccessorListMaxResults | None
+    NextToken: PaginationToken | None
+    NetworkType: AccessorNetworkType | None
 
 
 class ListAccessorsOutput(TypedDict, total=False):
-    Accessors: Optional[AccessorSummaryList]
-    NextToken: Optional[PaginationToken]
+    Accessors: AccessorSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListInvitationsInput(ServiceRequest):
-    MaxResults: Optional[ProposalListMaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ProposalListMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class ListInvitationsOutput(TypedDict, total=False):
-    Invitations: Optional[InvitationList]
-    NextToken: Optional[PaginationToken]
+    Invitations: InvitationList | None
+    NextToken: PaginationToken | None
 
 
 class ListMembersInput(ServiceRequest):
     NetworkId: ResourceIdString
-    Name: Optional[String]
-    Status: Optional[MemberStatus]
-    IsOwned: Optional[IsOwned]
-    MaxResults: Optional[MemberListMaxResults]
-    NextToken: Optional[PaginationToken]
+    Name: String | None
+    Status: MemberStatus | None
+    IsOwned: IsOwned | None
+    MaxResults: MemberListMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class MemberSummary(TypedDict, total=False):
@@ -756,71 +756,71 @@ class MemberSummary(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    Id: Optional[ResourceIdString]
-    Name: Optional[NetworkMemberNameString]
-    Description: Optional[DescriptionString]
-    Status: Optional[MemberStatus]
-    CreationDate: Optional[Timestamp]
-    IsOwned: Optional[IsOwned]
-    Arn: Optional[ArnString]
+    Id: ResourceIdString | None
+    Name: NetworkMemberNameString | None
+    Description: DescriptionString | None
+    Status: MemberStatus | None
+    CreationDate: Timestamp | None
+    IsOwned: IsOwned | None
+    Arn: ArnString | None
 
 
-MemberSummaryList = List[MemberSummary]
+MemberSummaryList = list[MemberSummary]
 
 
 class ListMembersOutput(TypedDict, total=False):
-    Members: Optional[MemberSummaryList]
-    NextToken: Optional[PaginationToken]
+    Members: MemberSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListNetworksInput(ServiceRequest):
-    Name: Optional[String]
-    Framework: Optional[Framework]
-    Status: Optional[NetworkStatus]
-    MaxResults: Optional[NetworkListMaxResults]
-    NextToken: Optional[PaginationToken]
+    Name: String | None
+    Framework: Framework | None
+    Status: NetworkStatus | None
+    MaxResults: NetworkListMaxResults | None
+    NextToken: PaginationToken | None
 
 
-NetworkSummaryList = List[NetworkSummary]
+NetworkSummaryList = list[NetworkSummary]
 
 
 class ListNetworksOutput(TypedDict, total=False):
-    Networks: Optional[NetworkSummaryList]
-    NextToken: Optional[PaginationToken]
+    Networks: NetworkSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListNodesInput(ServiceRequest):
     NetworkId: ResourceIdString
-    MemberId: Optional[ResourceIdString]
-    Status: Optional[NodeStatus]
-    MaxResults: Optional[NodeListMaxResults]
-    NextToken: Optional[PaginationToken]
+    MemberId: ResourceIdString | None
+    Status: NodeStatus | None
+    MaxResults: NodeListMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class NodeSummary(TypedDict, total=False):
     """A summary of configuration properties for a node."""
 
-    Id: Optional[ResourceIdString]
-    Status: Optional[NodeStatus]
-    CreationDate: Optional[Timestamp]
-    AvailabilityZone: Optional[AvailabilityZoneString]
-    InstanceType: Optional[InstanceTypeString]
-    Arn: Optional[ArnString]
+    Id: ResourceIdString | None
+    Status: NodeStatus | None
+    CreationDate: Timestamp | None
+    AvailabilityZone: AvailabilityZoneString | None
+    InstanceType: InstanceTypeString | None
+    Arn: ArnString | None
 
 
-NodeSummaryList = List[NodeSummary]
+NodeSummaryList = list[NodeSummary]
 
 
 class ListNodesOutput(TypedDict, total=False):
-    Nodes: Optional[NodeSummaryList]
-    NextToken: Optional[PaginationToken]
+    Nodes: NodeSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListProposalVotesInput(ServiceRequest):
     NetworkId: ResourceIdString
     ProposalId: ResourceIdString
-    MaxResults: Optional[ProposalListMaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ProposalListMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class VoteSummary(TypedDict, total=False):
@@ -829,23 +829,23 @@ class VoteSummary(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    Vote: Optional[VoteValue]
-    MemberName: Optional[NetworkMemberNameString]
-    MemberId: Optional[ResourceIdString]
+    Vote: VoteValue | None
+    MemberName: NetworkMemberNameString | None
+    MemberId: ResourceIdString | None
 
 
-ProposalVoteList = List[VoteSummary]
+ProposalVoteList = list[VoteSummary]
 
 
 class ListProposalVotesOutput(TypedDict, total=False):
-    ProposalVotes: Optional[ProposalVoteList]
-    NextToken: Optional[PaginationToken]
+    ProposalVotes: ProposalVoteList | None
+    NextToken: PaginationToken | None
 
 
 class ListProposalsInput(ServiceRequest):
     NetworkId: ResourceIdString
-    MaxResults: Optional[ProposalListMaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: ProposalListMaxResults | None
+    NextToken: PaginationToken | None
 
 
 class ProposalSummary(TypedDict, total=False):
@@ -854,22 +854,22 @@ class ProposalSummary(TypedDict, total=False):
     Applies only to Hyperledger Fabric.
     """
 
-    ProposalId: Optional[ResourceIdString]
-    Description: Optional[DescriptionString]
-    ProposedByMemberId: Optional[ResourceIdString]
-    ProposedByMemberName: Optional[NetworkMemberNameString]
-    Status: Optional[ProposalStatus]
-    CreationDate: Optional[Timestamp]
-    ExpirationDate: Optional[Timestamp]
-    Arn: Optional[ArnString]
+    ProposalId: ResourceIdString | None
+    Description: DescriptionString | None
+    ProposedByMemberId: ResourceIdString | None
+    ProposedByMemberName: NetworkMemberNameString | None
+    Status: ProposalStatus | None
+    CreationDate: Timestamp | None
+    ExpirationDate: Timestamp | None
+    Arn: ArnString | None
 
 
-ProposalSummaryList = List[ProposalSummary]
+ProposalSummaryList = list[ProposalSummary]
 
 
 class ListProposalsOutput(TypedDict, total=False):
-    Proposals: Optional[ProposalSummaryList]
-    NextToken: Optional[PaginationToken]
+    Proposals: ProposalSummaryList | None
+    NextToken: PaginationToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -877,7 +877,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[OutputTagMap]
+    Tags: OutputTagMap | None
 
 
 class RejectInvitationInput(ServiceRequest):
@@ -888,7 +888,7 @@ class RejectInvitationOutput(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -912,7 +912,7 @@ class UntagResourceResponse(TypedDict, total=False):
 class UpdateMemberInput(ServiceRequest):
     NetworkId: ResourceIdString
     MemberId: ResourceIdString
-    LogPublishingConfiguration: Optional[MemberLogPublishingConfiguration]
+    LogPublishingConfiguration: MemberLogPublishingConfiguration | None
 
 
 class UpdateMemberOutput(TypedDict, total=False):
@@ -921,9 +921,9 @@ class UpdateMemberOutput(TypedDict, total=False):
 
 class UpdateNodeInput(ServiceRequest):
     NetworkId: ResourceIdString
-    MemberId: Optional[ResourceIdString]
+    MemberId: ResourceIdString | None
     NodeId: ResourceIdString
-    LogPublishingConfiguration: Optional[NodeLogPublishingConfiguration]
+    LogPublishingConfiguration: NodeLogPublishingConfiguration | None
 
 
 class UpdateNodeOutput(TypedDict, total=False):
@@ -942,8 +942,8 @@ class VoteOnProposalOutput(TypedDict, total=False):
 
 
 class ManagedblockchainApi:
-    service = "managedblockchain"
-    version = "2018-09-24"
+    service: str = "managedblockchain"
+    version: str = "2018-09-24"
 
     @handler("CreateAccessor")
     def create_accessor(

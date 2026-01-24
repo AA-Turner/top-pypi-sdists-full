@@ -7,7 +7,7 @@ with open('README.md') as fh:
     long_description = fh.read()
 
 setup(name='pymongo-schema',
-      version='0.4.1',
+      version='0.4.2',
       description='A schema analyser for MongoDB written in Python',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -16,7 +16,7 @@ setup(name='pymongo-schema',
           'pymongo>=4.0.0',
           'pyyaml',
           'docopt',
-          'ete3',
+          'ete4',
           'pandas',
           'xlwt',
           'xlsxwriter',
@@ -24,9 +24,6 @@ setup(name='pymongo-schema',
           'jinja2',
           'future>=0.18.0',
           'scipy'
-      ],
-      dependency_links=[
-          'git@github.com:etetoolkit/ete.git'
       ],
       entry_points={
           'console_scripts': [

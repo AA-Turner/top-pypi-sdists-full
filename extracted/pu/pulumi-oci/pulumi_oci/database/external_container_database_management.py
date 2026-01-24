@@ -173,11 +173,21 @@ class ExternalContainerDatabaseManagement(pulumi.CustomResource):
                  license_model: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the External Container Database Management resource in Oracle Cloud Infrastructure Database service.
+        ## Example Usage
 
-        Enables Database Management Service for the external container database.
-        For more information about the Database Management Service, see
-        [Database Management Service](https://docs.cloud.oracle.com/iaas/Content/ExternalDatabase/Concepts/databasemanagementservice.htm).
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_external_container_database_management = oci.database.ExternalContainerDatabaseManagement("test_external_container_database_management",
+            external_container_database_id=test_external_container_database["id"],
+            external_database_connector_id=test_external_database_connector["id"],
+            license_mode=external_non_container_database_management_license_model)
+        ```
+
+        ## Import
+
+        Import is not supported for this resource.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -195,11 +205,21 @@ class ExternalContainerDatabaseManagement(pulumi.CustomResource):
                  args: ExternalContainerDatabaseManagementArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the External Container Database Management resource in Oracle Cloud Infrastructure Database service.
+        ## Example Usage
 
-        Enables Database Management Service for the external container database.
-        For more information about the Database Management Service, see
-        [Database Management Service](https://docs.cloud.oracle.com/iaas/Content/ExternalDatabase/Concepts/databasemanagementservice.htm).
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_external_container_database_management = oci.database.ExternalContainerDatabaseManagement("test_external_container_database_management",
+            external_container_database_id=test_external_container_database["id"],
+            external_database_connector_id=test_external_database_connector["id"],
+            license_mode=external_non_container_database_management_license_model)
+        ```
+
+        ## Import
+
+        Import is not supported for this resource.
 
         :param str resource_name: The name of the resource.
         :param ExternalContainerDatabaseManagementArgs args: The arguments to use to populate this resource's properties.

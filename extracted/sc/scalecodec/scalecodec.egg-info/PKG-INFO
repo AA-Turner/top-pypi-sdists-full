@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scalecodec
-Version: 1.2.11
+Version: 1.2.12
 Summary: Python SCALE Codec Library
 Home-page: https://github.com/polkascan/py-scale-codec
 Author: Stichting Polkascan (Polkascan Foundation)

@@ -3,7 +3,7 @@ Type annotations for transcribe service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_transcribe/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -45,12 +46,6 @@ from .literals import (
     VocabularyStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -91,23 +86,30 @@ __all__ = (
     "DeleteVocabularyFilterRequestTypeDef",
     "DeleteVocabularyRequestTypeDef",
     "DescribeLanguageModelRequestTypeDef",
+    "DescribeLanguageModelRequestWaitTypeDef",
     "DescribeLanguageModelResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
     "GetCallAnalyticsCategoryRequestTypeDef",
     "GetCallAnalyticsCategoryResponseTypeDef",
     "GetCallAnalyticsJobRequestTypeDef",
+    "GetCallAnalyticsJobRequestWaitTypeDef",
     "GetCallAnalyticsJobResponseTypeDef",
     "GetMedicalScribeJobRequestTypeDef",
+    "GetMedicalScribeJobRequestWaitTypeDef",
     "GetMedicalScribeJobResponseTypeDef",
     "GetMedicalTranscriptionJobRequestTypeDef",
+    "GetMedicalTranscriptionJobRequestWaitTypeDef",
     "GetMedicalTranscriptionJobResponseTypeDef",
     "GetMedicalVocabularyRequestTypeDef",
+    "GetMedicalVocabularyRequestWaitTypeDef",
     "GetMedicalVocabularyResponseTypeDef",
     "GetTranscriptionJobRequestTypeDef",
+    "GetTranscriptionJobRequestWaitTypeDef",
     "GetTranscriptionJobResponseTypeDef",
     "GetVocabularyFilterRequestTypeDef",
     "GetVocabularyFilterResponseTypeDef",
     "GetVocabularyRequestTypeDef",
+    "GetVocabularyRequestWaitTypeDef",
     "GetVocabularyResponseTypeDef",
     "InputDataConfigTypeDef",
     "InterruptionFilterTypeDef",
@@ -191,6 +193,7 @@ __all__ = (
     "UpdateVocabularyResponseTypeDef",
     "VocabularyFilterInfoTypeDef",
     "VocabularyInfoTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 class AbsoluteTimeRangeTypeDef(TypedDict):
@@ -207,7 +210,7 @@ class CallAnalyticsSkippedFeatureTypeDef(TypedDict):
 class ContentRedactionOutputTypeDef(TypedDict):
     RedactionType: Literal["PII"]
     RedactionOutput: RedactionOutputType
-    PiiEntityTypes: NotRequired[List[PiiEntityTypeType]]
+    PiiEntityTypes: NotRequired[list[PiiEntityTypeType]]
 
 class LanguageIdSettingsTypeDef(TypedDict):
     VocabularyName: NotRequired[str]
@@ -244,7 +247,7 @@ class ClinicalNoteGenerationSettingsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -282,6 +285,10 @@ class DeleteVocabularyRequestTypeDef(TypedDict):
 
 class DescribeLanguageModelRequestTypeDef(TypedDict):
     ModelName: str
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
 
 class GetCallAnalyticsCategoryRequestTypeDef(TypedDict):
     CategoryName: str
@@ -452,12 +459,12 @@ class SubtitlesTypeDef(TypedDict):
     OutputStartIndex: NotRequired[int]
 
 class SubtitlesOutputTypeDef(TypedDict):
-    Formats: NotRequired[List[SubtitleFormatType]]
-    SubtitleFileUris: NotRequired[List[str]]
+    Formats: NotRequired[list[SubtitleFormatType]]
+    SubtitleFileUris: NotRequired[list[str]]
     OutputStartIndex: NotRequired[int]
 
 class ToxicityDetectionSettingsOutputTypeDef(TypedDict):
-    ToxicityCategories: List[Literal["ALL"]]
+    ToxicityCategories: list[Literal["ALL"]]
 
 class ToxicityDetectionSettingsTypeDef(TypedDict):
     ToxicityCategories: Sequence[Literal["ALL"]]
@@ -485,7 +492,7 @@ class UpdateVocabularyRequestTypeDef(TypedDict):
     DataAccessRoleArn: NotRequired[str]
 
 class CallAnalyticsJobDetailsTypeDef(TypedDict):
-    Skipped: NotRequired[List[CallAnalyticsSkippedFeatureTypeDef]]
+    Skipped: NotRequired[list[CallAnalyticsSkippedFeatureTypeDef]]
 
 class CallAnalyticsJobSettingsOutputTypeDef(TypedDict):
     VocabularyName: NotRequired[str]
@@ -493,8 +500,8 @@ class CallAnalyticsJobSettingsOutputTypeDef(TypedDict):
     VocabularyFilterMethod: NotRequired[VocabularyFilterMethodType]
     LanguageModelName: NotRequired[str]
     ContentRedaction: NotRequired[ContentRedactionOutputTypeDef]
-    LanguageOptions: NotRequired[List[LanguageCodeType]]
-    LanguageIdSettings: NotRequired[Dict[LanguageCodeType, LanguageIdSettingsTypeDef]]
+    LanguageOptions: NotRequired[list[LanguageCodeType]]
+    LanguageIdSettings: NotRequired[dict[LanguageCodeType, LanguageIdSettingsTypeDef]]
     Summarization: NotRequired[SummarizationTypeDef]
 
 class CallAnalyticsJobSettingsTypeDef(TypedDict):
@@ -596,7 +603,7 @@ class GetVocabularyResponseTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     ResourceArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateMedicalVocabularyResponseTypeDef(TypedDict):
@@ -645,6 +652,34 @@ class LanguageModelTypeDef(TypedDict):
     FailureReason: NotRequired[str]
     InputDataConfig: NotRequired[InputDataConfigTypeDef]
 
+class DescribeLanguageModelRequestWaitTypeDef(TypedDict):
+    ModelName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetCallAnalyticsJobRequestWaitTypeDef(TypedDict):
+    CallAnalyticsJobName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetMedicalScribeJobRequestWaitTypeDef(TypedDict):
+    MedicalScribeJobName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetMedicalTranscriptionJobRequestWaitTypeDef(TypedDict):
+    MedicalTranscriptionJobName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetMedicalVocabularyRequestWaitTypeDef(TypedDict):
+    VocabularyName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetTranscriptionJobRequestWaitTypeDef(TypedDict):
+    TranscriptionJobName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetVocabularyRequestWaitTypeDef(TypedDict):
+    VocabularyName: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
 class InterruptionFilterTypeDef(TypedDict):
     Threshold: NotRequired[int]
     ParticipantRole: NotRequired[ParticipantRoleType]
@@ -659,7 +694,7 @@ class NonTalkTimeFilterTypeDef(TypedDict):
     Negate: NotRequired[bool]
 
 class SentimentFilterOutputTypeDef(TypedDict):
-    Sentiments: List[SentimentValueType]
+    Sentiments: list[SentimentValueType]
     AbsoluteTimeRange: NotRequired[AbsoluteTimeRangeTypeDef]
     RelativeTimeRange: NotRequired[RelativeTimeRangeTypeDef]
     ParticipantRole: NotRequired[ParticipantRoleType]
@@ -674,7 +709,7 @@ class SentimentFilterTypeDef(TypedDict):
 
 class TranscriptFilterOutputTypeDef(TypedDict):
     TranscriptFilterType: Literal["EXACT"]
-    Targets: List[str]
+    Targets: list[str]
     AbsoluteTimeRange: NotRequired[AbsoluteTimeRangeTypeDef]
     RelativeTimeRange: NotRequired[RelativeTimeRangeTypeDef]
     ParticipantRole: NotRequired[ParticipantRoleType]
@@ -690,30 +725,30 @@ class TranscriptFilterTypeDef(TypedDict):
 
 class ListMedicalScribeJobsResponseTypeDef(TypedDict):
     Status: MedicalScribeJobStatusType
-    MedicalScribeJobSummaries: List[MedicalScribeJobSummaryTypeDef]
+    MedicalScribeJobSummaries: list[MedicalScribeJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMedicalTranscriptionJobsResponseTypeDef(TypedDict):
     Status: TranscriptionJobStatusType
-    MedicalTranscriptionJobSummaries: List[MedicalTranscriptionJobSummaryTypeDef]
+    MedicalTranscriptionJobSummaries: list[MedicalTranscriptionJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMedicalVocabulariesResponseTypeDef(TypedDict):
     Status: VocabularyStateType
-    Vocabularies: List[VocabularyInfoTypeDef]
+    Vocabularies: list[VocabularyInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListVocabulariesResponseTypeDef(TypedDict):
     Status: VocabularyStateType
-    Vocabularies: List[VocabularyInfoTypeDef]
+    Vocabularies: list[VocabularyInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListVocabularyFiltersResponseTypeDef(TypedDict):
-    VocabularyFilters: List[VocabularyFilterInfoTypeDef]
+    VocabularyFilters: list[VocabularyFilterInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -738,7 +773,7 @@ MedicalTranscriptionJobTypeDef = TypedDict(
         "ContentIdentificationType": NotRequired[Literal["PHI"]],
         "Specialty": NotRequired[Literal["PRIMARYCARE"]],
         "Type": NotRequired[TypeType],
-        "Tags": NotRequired[List[TagTypeDef]],
+        "Tags": NotRequired[list[TagTypeDef]],
     },
 )
 StartMedicalTranscriptionJobRequestTypeDef = TypedDict(
@@ -775,8 +810,8 @@ class TranscriptionJobSummaryTypeDef(TypedDict):
     IdentifyLanguage: NotRequired[bool]
     IdentifyMultipleLanguages: NotRequired[bool]
     IdentifiedLanguageScore: NotRequired[float]
-    LanguageCodes: NotRequired[List[LanguageCodeItemTypeDef]]
-    ToxicityDetection: NotRequired[List[ToxicityDetectionSettingsOutputTypeDef]]
+    LanguageCodes: NotRequired[list[LanguageCodeItemTypeDef]]
+    ToxicityDetection: NotRequired[list[ToxicityDetectionSettingsOutputTypeDef]]
 
 class TranscriptionJobTypeDef(TypedDict):
     TranscriptionJobName: NotRequired[str]
@@ -796,13 +831,13 @@ class TranscriptionJobTypeDef(TypedDict):
     ContentRedaction: NotRequired[ContentRedactionOutputTypeDef]
     IdentifyLanguage: NotRequired[bool]
     IdentifyMultipleLanguages: NotRequired[bool]
-    LanguageOptions: NotRequired[List[LanguageCodeType]]
+    LanguageOptions: NotRequired[list[LanguageCodeType]]
     IdentifiedLanguageScore: NotRequired[float]
-    LanguageCodes: NotRequired[List[LanguageCodeItemTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    LanguageCodes: NotRequired[list[LanguageCodeItemTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     Subtitles: NotRequired[SubtitlesOutputTypeDef]
-    LanguageIdSettings: NotRequired[Dict[LanguageCodeType, LanguageIdSettingsTypeDef]]
-    ToxicityDetection: NotRequired[List[ToxicityDetectionSettingsOutputTypeDef]]
+    LanguageIdSettings: NotRequired[dict[LanguageCodeType, LanguageIdSettingsTypeDef]]
+    ToxicityDetection: NotRequired[list[ToxicityDetectionSettingsOutputTypeDef]]
 
 ToxicityDetectionSettingsUnionTypeDef = Union[
     ToxicityDetectionSettingsTypeDef, ToxicityDetectionSettingsOutputTypeDef
@@ -834,8 +869,8 @@ class CallAnalyticsJobTypeDef(TypedDict):
     DataAccessRoleArn: NotRequired[str]
     IdentifiedLanguageScore: NotRequired[float]
     Settings: NotRequired[CallAnalyticsJobSettingsOutputTypeDef]
-    ChannelDefinitions: NotRequired[List[ChannelDefinitionTypeDef]]
-    Tags: NotRequired[List[TagTypeDef]]
+    ChannelDefinitions: NotRequired[list[ChannelDefinitionTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 CallAnalyticsJobSettingsUnionTypeDef = Union[
     CallAnalyticsJobSettingsTypeDef, CallAnalyticsJobSettingsOutputTypeDef
@@ -853,16 +888,16 @@ class MedicalScribeJobTypeDef(TypedDict):
     FailureReason: NotRequired[str]
     Settings: NotRequired[MedicalScribeSettingsTypeDef]
     DataAccessRoleArn: NotRequired[str]
-    ChannelDefinitions: NotRequired[List[MedicalScribeChannelDefinitionTypeDef]]
+    ChannelDefinitions: NotRequired[list[MedicalScribeChannelDefinitionTypeDef]]
     MedicalScribeContextProvided: NotRequired[bool]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 class DescribeLanguageModelResponseTypeDef(TypedDict):
     LanguageModel: LanguageModelTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLanguageModelsResponseTypeDef(TypedDict):
-    Models: List[LanguageModelTypeDef]
+    Models: list[LanguageModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -898,7 +933,7 @@ class StartMedicalTranscriptionJobResponseTypeDef(TypedDict):
 
 class ListTranscriptionJobsResponseTypeDef(TypedDict):
     Status: TranscriptionJobStatusType
-    TranscriptionJobSummaries: List[TranscriptionJobSummaryTypeDef]
+    TranscriptionJobSummaries: list[TranscriptionJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -934,7 +969,7 @@ class StartTranscriptionJobRequestTypeDef(TypedDict):
 
 class ListCallAnalyticsJobsResponseTypeDef(TypedDict):
     Status: CallAnalyticsJobStatusType
-    CallAnalyticsJobSummaries: List[CallAnalyticsJobSummaryTypeDef]
+    CallAnalyticsJobSummaries: list[CallAnalyticsJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -966,10 +1001,10 @@ class StartMedicalScribeJobResponseTypeDef(TypedDict):
 
 class CategoryPropertiesTypeDef(TypedDict):
     CategoryName: NotRequired[str]
-    Rules: NotRequired[List[RuleOutputTypeDef]]
+    Rules: NotRequired[list[RuleOutputTypeDef]]
     CreateTime: NotRequired[datetime]
     LastUpdateTime: NotRequired[datetime]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     InputType: NotRequired[InputTypeType]
 
 class RuleTypeDef(TypedDict):
@@ -987,7 +1022,7 @@ class GetCallAnalyticsCategoryResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCallAnalyticsCategoriesResponseTypeDef(TypedDict):
-    Categories: List[CategoryPropertiesTypeDef]
+    Categories: list[CategoryPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

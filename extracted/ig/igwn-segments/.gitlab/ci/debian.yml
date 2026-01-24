@@ -6,7 +6,6 @@ include:
     inputs:
       needs: [sdist]
       debian_versions:
-        - bullseye
         - bookworm
         # test next debian release (can't install LAL)
         - testing

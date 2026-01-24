@@ -308,9 +308,9 @@ def test_high_level_wrapper(wcsobj, request):
     # uses the mixin class and __call__ calls values_to_high_level_objects
     wc1 = hlvl.pixel_to_world(*pixel_input)
     wc2 = wcsobj(*pixel_input)
+    results = wcsobj._remove_units_input(wc2, wcsobj.output_frame)
 
-    wc2 = wcsobj._remove_units_input(wc2, wcsobj.output_frame)
-    wc2 = values_to_high_level_objects(*wc2, low_level_wcs=wcsobj)
+    wc2 = values_to_high_level_objects(*results, low_level_wcs=wcsobj)
     if len(wc2) == 1:
         wc2 = wc2[0]
     assert type(wc1) is type(wc2)
@@ -326,19 +326,10 @@ def test_high_level_wrapper(wcsobj, request):
         wc1 = (wc1,)
 
     pix_out1 = hlvl.world_to_pixel(*wc1)
-    pix_out2 = wcsobj.invert(*wc1)
-
-    if not isinstance(pix_out2, list | tuple):
-        pix_out2 = (pix_out2,)
-
-    if wcsobj.forward_transform.uses_quantity:
-        pix_out2 = tuple(
-            p.to_value(unit)
-            for p, unit in zip(pix_out2, wcsobj.input_frame.unit, strict=False)
-        )
-
     np.testing.assert_allclose(pix_out1, pixel_input)
-    np.testing.assert_allclose(pix_out2, pixel_input)
+    with pytest.raises(TypeError) as e:
+        _ = wcsobj.invert(*wc1)
+    assert "High Level objects are not supported with the native" in str(e)
 
 
 def test_stokes_wrapper(gwcs_stokes_lookup):
@@ -408,6 +399,8 @@ def test_pixel_bounds(wcsobj):
 
     wcsobj.bounding_box = ((-0.5, 2039.5), (-0.5, 1019.5))
     assert_array_equal(wcsobj.pixel_bounds, wcsobj.bounding_box)
+    # Reset the bounding box or this will affect other tests
+    wcsobj.bounding_box = None
 
 
 @wcs_objs
@@ -599,8 +592,8 @@ def test_coordinate_frame_api():
     pixel = wcs.world_to_pixel(world)
     assert isinstance(pixel, float)
 
-    pixel2 = wcs.invert(world)
-    assert u.allclose(pixel2, 0 * u.pix)
+    with pytest.raises(TypeError):
+        _ = wcs.invert(world)
 
 
 def test_world_axis_object_components_units(gwcs_3d_identity_units):
@@ -639,3 +632,24 @@ def test_mismatched_high_level_types(gwcs_3d_identity_units):
         match="Invalid types were passed.*got.*Quantity.*expected.*SpectralCoord.*",
     ):
         wcs.invert(coord.SkyCoord(1 * u.deg, 2 * u.deg), 10 * u.nm)
+
+
+def test_no_input_frame(gwcs_simple_2d):
+    """Test running the API on the WCS with no input frame."""
+    assert (np.array([2]), np.array([-1])) == gwcs_simple_2d.world_to_pixel_values(
+        np.array([3]), np.array([1])
+    )
+    assert (np.array([4]), np.array([3])) == gwcs_simple_2d.pixel_to_world_values(
+        np.array([3]), np.array([1])
+    )
+
+
+def test_empty_output_frame(gwcs_empty_output_2d):
+    """Test running the API on the WCS with an empty output frame."""
+    assert (np.array([3]), np.array([1])) == gwcs_empty_output_2d.pixel_to_world_values(
+        np.array([2]), np.array([-1])
+    )
+    assert (
+        np.array([2]),
+        np.array([-1]),
+    ) == gwcs_empty_output_2d.world_to_pixel_values(np.array([3]), np.array([1]))

@@ -1,0 +1,173 @@
+[build-system]
+requires = [
+    "packaging",
+    "setuptools",
+    'tomli>=2.0.1; python_version<"3.11"',
+    "wheel",
+]
+build-backend = "setuptools.build_meta:__legacy__"
+
+[project]
+name = "setuptools-git-versioning"
+version = "3.0.1"
+authors = [{name = "dolfinus", email = "martinov.m.s.8@gmail.com"}]
+license = {text = "MIT"}
+description = "Use git repo data for building a version number according to PEP-440"
+keywords = ["setuptools", "git", "versioning", "pep-440"]
+classifiers = [
+    "Framework :: Setuptools Plugin",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.7"
+dependencies = [
+    "packaging",
+    "setuptools",
+    'tomli>=2.0.1; python_version<"3.11"',
+]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://setuptools-git-versioning.readthedocs.io"
+Documentation = "https://setuptools-git-versioning.readthedocs.io"
+Source = "https://github.com/dolfinus/setuptools-git-versioning"
+"CI/CD" = "https://github.com/dolfinus/setuptools-git-versioning/actions"
+Tracker = "https://github.com/dolfinus/setuptools-git-versioning/issues"
+
+[project.entry-points."distutils.setup_keywords"]
+setuptools_git_versioning = "setuptools_git_versioning:parse_config"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+setuptools_git_versioning = "setuptools_git_versioning:infer_version"
+
+[project.entry-points."console_scripts"]
+setuptools-git-versioning = "setuptools_git_versioning.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["setuptools_git_versioning*"]
+exclude = ["docs*", "tests*"]
+
+[tool.setuptools-git-versioning]
+enabled = true
+dev_template = "{tag}.post{ccount}"
+
+
+[dependency-groups]
+dev = [
+  "ruff~=0.14.11",
+  "prek~=0.2.28",
+]
+test = [
+  "build>=1.1.1",
+  "coverage>=7.2.7",
+  "pytest>=7.4.4",
+  "pytest-rerunfailures>=13.0",
+  "pytest-xdist>=3.5.0",
+  # Some tests need to write TOML, but tomli and tomllib are read-only, and toml package is unmaintained
+  "tomli-w>=1.0.0",
+  "wheel>=0.42.0",
+]
+docs = [
+  "furo~=2025.12.19",
+  "numpydoc~=1.10.0",
+  "sphinx~=8.2.3",
+  "sphinx-argparse~=0.5.2",
+  "sphinx-autodoc-typehints~=3.5.2",
+  "sphinx-copybutton~=0.5.2",
+  "sphinx-last-updated-by-git~=0.3.8",
+  "sphinx-tabs~=3.4.5",
+  "sphinxcontrib-towncrier~=0.5.0a0",
+  "towncrier~=25.8.0",
+  "sphinx-toolbox~=4.1.0",
+]
+
+[tool.uv]
+default-groups = []
+
+[tool.uv.dependency-groups]
+dev = {requires-python = ">=3.12"}
+docs = {requires-python = ">=3.12"}
+
+[tool.ruff]
+target-version = "py37"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["ARG", "ANN", "A002", "COM812", "D", "TD", "FIX002", "PLC0415"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/conf.py" = ["INP001"]
+"tests/*" = [
+    "S",
+    "EM101",
+    "PLR2004",
+    "TRY003",
+    "DTZ005",
+]
+
+[tool.mypy]
+follow_imports = "silent"
+ignore_missing_imports = true
+pretty = true
+show_error_codes = true
+strict_optional = true
+
+[tool.towncrier]
+name = "setuptools-git-versioning"
+package = "setuptools_git_versioning"
+filename = "docs/changelog/NEXT_RELEASE.rst"
+directory = "docs/changelog/next_release/"
+title_format = "{version} ({project_date})"
+issue_format = ":github:pull:`{issue}`"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "significant"
+name = "Significant Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "improvement"
+name = "Improvements"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "dependency"
+name = "Dependencies"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Doc only Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Misc"
+showcontent = true

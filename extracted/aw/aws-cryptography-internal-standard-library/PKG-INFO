@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: aws-cryptography-internal-standard-library
+Version: 1.11.1
+Summary: 
+Author: AWS Crypto Tools
+Author-email: aws-crypto-tools@amazon.com
+Requires-Python: >=3.11.0,<4.0.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Dist: DafnyRuntimePython (==4.9.0)
+Requires-Dist: pytz (>=2023.3.post1,<2026.0.0)

@@ -18,7 +18,7 @@ class StateTransition(BaseModel):
     provisioning: Runloop is allocating and booting the necessary infrastructure
     resources. initializing: Runloop defined boot scripts are running to enable the
     environment for interaction. running: The Devbox is ready for interaction.
-    suspending: The Devbox disk is being snaphsotted and as part of suspension.
+    suspending: The Devbox disk is being snapshotted as part of suspension.
     suspended: The Devbox disk is saved and no more active compute is being used for
     the Devbox. resuming: The Devbox disk is being loaded as part of booting a
     suspended Devbox. failure: The Devbox failed as part of booting or running user
@@ -27,13 +27,19 @@ class StateTransition(BaseModel):
     """
 
     transition_time_ms: Optional[object] = None
+    """The time the status change occurred"""
 
 
 class DevboxView(BaseModel):
+    """A Devbox represents a virtual development environment.
+
+    It is an isolated sandbox that can be given to agents and used to run arbitrary code such as AI generated code.
+    """
+
     id: str
     """The ID of the Devbox."""
 
-    capabilities: List[Literal["unknown", "computer_usage", "browser_usage", "language_server", "docker_in_docker"]]
+    capabilities: List[Literal["unknown", "computer_usage", "browser_usage", "docker_in_docker"]]
     """A list of capability groups this devbox has access to.
 
     This allows devboxes to be compatible with certain tools sets like computer
@@ -42,6 +48,12 @@ class DevboxView(BaseModel):
 
     create_time_ms: int
     """Creation time of the Devbox (Unix timestamp milliseconds)."""
+
+    end_time_ms: Optional[int] = None
+    """The time the Devbox finished execution (Unix timestamp milliseconds).
+
+    Present if the Devbox is in a terminal state.
+    """
 
     launch_parameters: LaunchParameters
     """The launch parameters used to create the Devbox."""
@@ -63,14 +75,14 @@ class DevboxView(BaseModel):
     a Blueprint.
     """
 
-    end_time_ms: Optional[int] = None
-    """The time the Devbox finished execution (Unix timestamp milliseconds).
-
-    Present if the Devbox is in a terminal state.
-    """
-
     failure_reason: Optional[Literal["out_of_memory", "out_of_disk", "execution_failed"]] = None
     """The failure reason if the Devbox failed, if the Devbox has a 'failure' status."""
+
+    initiator_id: Optional[str] = None
+    """The ID of the initiator that created the Devbox."""
+
+    initiator_type: Optional[Literal["unknown", "api", "scenario", "scoring_validation"]] = None
+    """The type of initiator that created the Devbox."""
 
     name: Optional[str] = None
     """The name of the Devbox."""

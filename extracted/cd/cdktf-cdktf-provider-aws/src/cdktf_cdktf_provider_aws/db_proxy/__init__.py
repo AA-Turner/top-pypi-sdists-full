@@ -1,7 +1,7 @@
 r'''
 # `aws_db_proxy`
 
-Refer to the Terraform Registry for docs: [`aws_db_proxy`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy).
+Refer to the Terraform Registry for docs: [`aws_db_proxy`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,19 +44,20 @@ class DbProxy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dbProxy.DbProxy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy aws_db_proxy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy aws_db_proxy}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        auth: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DbProxyAuth", typing.Dict[builtins.str, typing.Any]]]],
         engine_family: builtins.str,
         name: builtins.str,
         role_arn: builtins.str,
         vpc_subnet_ids: typing.Sequence[builtins.str],
+        auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["DbProxyAuth", typing.Dict[builtins.str, typing.Any]]]]] = None,
         debug_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        default_auth_scheme: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         idle_client_timeout: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
@@ -73,24 +74,25 @@ class DbProxy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy aws_db_proxy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy aws_db_proxy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#auth DbProxy#auth}
-        :param engine_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#engine_family DbProxy#engine_family}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#name DbProxy#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#role_arn DbProxy#role_arn}.
-        :param vpc_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.
-        :param debug_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#id DbProxy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_client_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#region DbProxy#region}
-        :param require_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#require_tls DbProxy#require_tls}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags DbProxy#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags_all DbProxy#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#timeouts DbProxy#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.
+        :param engine_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#engine_family DbProxy#engine_family}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#name DbProxy#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#role_arn DbProxy#role_arn}.
+        :param vpc_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#auth DbProxy#auth}
+        :param debug_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.
+        :param default_auth_scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#default_auth_scheme DbProxy#default_auth_scheme}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#id DbProxy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_client_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#region DbProxy#region}
+        :param require_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#require_tls DbProxy#require_tls}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags DbProxy#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags_all DbProxy#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#timeouts DbProxy#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -104,12 +106,13 @@ class DbProxy(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = DbProxyConfig(
-            auth=auth,
             engine_family=engine_family,
             name=name,
             role_arn=role_arn,
             vpc_subnet_ids=vpc_subnet_ids,
+            auth=auth,
             debug_logging=debug_logging,
+            default_auth_scheme=default_auth_scheme,
             id=id,
             idle_client_timeout=idle_client_timeout,
             region=region,
@@ -142,7 +145,7 @@ class DbProxy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DbProxy to import.
-        :param import_from_id: The id of the existing DbProxy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DbProxy that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DbProxy to import is found.
         '''
         if __debug__:
@@ -175,17 +178,25 @@ class DbProxy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#create DbProxy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#delete DbProxy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#update DbProxy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#create DbProxy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#delete DbProxy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#update DbProxy#update}.
         '''
         value = DbProxyTimeouts(create=create, delete=delete, update=update)
 
         return typing.cast(None, jsii.invoke(self, "putTimeouts", [value]))
 
+    @jsii.member(jsii_name="resetAuth")
+    def reset_auth(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAuth", []))
+
     @jsii.member(jsii_name="resetDebugLogging")
     def reset_debug_logging(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDebugLogging", []))
+
+    @jsii.member(jsii_name="resetDefaultAuthScheme")
+    def reset_default_auth_scheme(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDefaultAuthScheme", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -265,6 +276,11 @@ class DbProxy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "debugLoggingInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthSchemeInput")
+    def default_auth_scheme_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultAuthSchemeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="engineFamilyInput")
@@ -348,6 +364,18 @@ class DbProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__550e0f39ff2014de040456b8f7af60ac44358146acb4b69375257a0f211bf2f1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "debugLogging", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultAuthScheme")
+    def default_auth_scheme(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "defaultAuthScheme"))
+
+    @default_auth_scheme.setter
+    def default_auth_scheme(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee5b40ed0ddba575f817b0d64d5947c5cf1c4540cfd125035a104299de965066)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultAuthScheme", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="engineFamily")
@@ -509,12 +537,12 @@ class DbProxyAuth:
         username: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param auth_scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#auth_scheme DbProxy#auth_scheme}.
-        :param client_password_auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#client_password_auth_type DbProxy#client_password_auth_type}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#description DbProxy#description}.
-        :param iam_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#iam_auth DbProxy#iam_auth}.
-        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#secret_arn DbProxy#secret_arn}.
-        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#username DbProxy#username}.
+        :param auth_scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#auth_scheme DbProxy#auth_scheme}.
+        :param client_password_auth_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#client_password_auth_type DbProxy#client_password_auth_type}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#description DbProxy#description}.
+        :param iam_auth: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#iam_auth DbProxy#iam_auth}.
+        :param secret_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#secret_arn DbProxy#secret_arn}.
+        :param username: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#username DbProxy#username}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__34c7db96ba207de226f3446d2bad7b1cfe4fa71986070188c5d4c5460b558f18)
@@ -540,37 +568,37 @@ class DbProxyAuth:
 
     @builtins.property
     def auth_scheme(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#auth_scheme DbProxy#auth_scheme}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#auth_scheme DbProxy#auth_scheme}.'''
         result = self._values.get("auth_scheme")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_password_auth_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#client_password_auth_type DbProxy#client_password_auth_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#client_password_auth_type DbProxy#client_password_auth_type}.'''
         result = self._values.get("client_password_auth_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#description DbProxy#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#description DbProxy#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def iam_auth(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#iam_auth DbProxy#iam_auth}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#iam_auth DbProxy#iam_auth}.'''
         result = self._values.get("iam_auth")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secret_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#secret_arn DbProxy#secret_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#secret_arn DbProxy#secret_arn}.'''
         result = self._values.get("secret_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def username(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#username DbProxy#username}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#username DbProxy#username}.'''
         result = self._values.get("username")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -857,12 +885,13 @@ class DbProxyAuthOutputReference(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "auth": "auth",
         "engine_family": "engineFamily",
         "name": "name",
         "role_arn": "roleArn",
         "vpc_subnet_ids": "vpcSubnetIds",
+        "auth": "auth",
         "debug_logging": "debugLogging",
+        "default_auth_scheme": "defaultAuthScheme",
         "id": "id",
         "idle_client_timeout": "idleClientTimeout",
         "region": "region",
@@ -884,12 +913,13 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        auth: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]],
         engine_family: builtins.str,
         name: builtins.str,
         role_arn: builtins.str,
         vpc_subnet_ids: typing.Sequence[builtins.str],
+        auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]]] = None,
         debug_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        default_auth_scheme: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         idle_client_timeout: typing.Optional[jsii.Number] = None,
         region: typing.Optional[builtins.str] = None,
@@ -907,20 +937,21 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#auth DbProxy#auth}
-        :param engine_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#engine_family DbProxy#engine_family}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#name DbProxy#name}.
-        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#role_arn DbProxy#role_arn}.
-        :param vpc_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.
-        :param debug_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#id DbProxy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param idle_client_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#region DbProxy#region}
-        :param require_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#require_tls DbProxy#require_tls}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags DbProxy#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags_all DbProxy#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#timeouts DbProxy#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.
+        :param engine_family: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#engine_family DbProxy#engine_family}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#name DbProxy#name}.
+        :param role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#role_arn DbProxy#role_arn}.
+        :param vpc_subnet_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.
+        :param auth: auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#auth DbProxy#auth}
+        :param debug_logging: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.
+        :param default_auth_scheme: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#default_auth_scheme DbProxy#default_auth_scheme}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#id DbProxy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param idle_client_timeout: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#region DbProxy#region}
+        :param require_tls: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#require_tls DbProxy#require_tls}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags DbProxy#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags_all DbProxy#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#timeouts DbProxy#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -935,12 +966,13 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
             check_type(argname="argument engine_family", value=engine_family, expected_type=type_hints["engine_family"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
             check_type(argname="argument vpc_subnet_ids", value=vpc_subnet_ids, expected_type=type_hints["vpc_subnet_ids"])
+            check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
             check_type(argname="argument debug_logging", value=debug_logging, expected_type=type_hints["debug_logging"])
+            check_type(argname="argument default_auth_scheme", value=default_auth_scheme, expected_type=type_hints["default_auth_scheme"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument idle_client_timeout", value=idle_client_timeout, expected_type=type_hints["idle_client_timeout"])
             check_type(argname="argument region", value=region, expected_type=type_hints["region"])
@@ -950,7 +982,6 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
             check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "auth": auth,
             "engine_family": engine_family,
             "name": name,
             "role_arn": role_arn,
@@ -970,8 +1001,12 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if auth is not None:
+            self._values["auth"] = auth
         if debug_logging is not None:
             self._values["debug_logging"] = debug_logging
+        if default_auth_scheme is not None:
+            self._values["default_auth_scheme"] = default_auth_scheme
         if id is not None:
             self._values["id"] = id
         if idle_client_timeout is not None:
@@ -1054,56 +1089,61 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def auth(
-        self,
-    ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DbProxyAuth]]:
-        '''auth block.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#auth DbProxy#auth}
-        '''
-        result = self._values.get("auth")
-        assert result is not None, "Required property 'auth' is missing"
-        return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DbProxyAuth]], result)
-
-    @builtins.property
     def engine_family(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#engine_family DbProxy#engine_family}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#engine_family DbProxy#engine_family}.'''
         result = self._values.get("engine_family")
         assert result is not None, "Required property 'engine_family' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#name DbProxy#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#name DbProxy#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#role_arn DbProxy#role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#role_arn DbProxy#role_arn}.'''
         result = self._values.get("role_arn")
         assert result is not None, "Required property 'role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_subnet_ids(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_subnet_ids DbProxy#vpc_subnet_ids}.'''
         result = self._values.get("vpc_subnet_ids")
         assert result is not None, "Required property 'vpc_subnet_ids' is missing"
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
+    def auth(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DbProxyAuth]]]:
+        '''auth block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#auth DbProxy#auth}
+        '''
+        result = self._values.get("auth")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[DbProxyAuth]]], result)
+
+    @builtins.property
     def debug_logging(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#debug_logging DbProxy#debug_logging}.'''
         result = self._values.get("debug_logging")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def default_auth_scheme(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#default_auth_scheme DbProxy#default_auth_scheme}.'''
+        result = self._values.get("default_auth_scheme")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#id DbProxy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#id DbProxy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1113,7 +1153,7 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def idle_client_timeout(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#idle_client_timeout DbProxy#idle_client_timeout}.'''
         result = self._values.get("idle_client_timeout")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1121,7 +1161,7 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#region DbProxy#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#region DbProxy#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1130,19 +1170,19 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def require_tls(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#require_tls DbProxy#require_tls}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#require_tls DbProxy#require_tls}.'''
         result = self._values.get("require_tls")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags DbProxy#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags DbProxy#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#tags_all DbProxy#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#tags_all DbProxy#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1150,14 +1190,14 @@ class DbProxyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DbProxyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#timeouts DbProxy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#timeouts DbProxy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DbProxyTimeouts"], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#vpc_security_group_ids DbProxy#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1187,9 +1227,9 @@ class DbProxyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#create DbProxy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#delete DbProxy#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#update DbProxy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#create DbProxy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#delete DbProxy#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#update DbProxy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b6afd659f4f9853febfb1ccf982000f36df3a391d8ddc6a949c9e578802b6717)
@@ -1206,19 +1246,19 @@ class DbProxyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#create DbProxy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#create DbProxy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#delete DbProxy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#delete DbProxy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/db_proxy#update DbProxy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/db_proxy#update DbProxy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1351,12 +1391,13 @@ def _typecheckingstub__46de584f7e81c5e468c6adf129386a3984f0dccd77012f4f219019d1d
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    auth: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]],
     engine_family: builtins.str,
     name: builtins.str,
     role_arn: builtins.str,
     vpc_subnet_ids: typing.Sequence[builtins.str],
+    auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]]] = None,
     debug_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    default_auth_scheme: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     idle_client_timeout: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,
@@ -1393,6 +1434,12 @@ def _typecheckingstub__98410dd5dc58cf354eee741e494f1b53c822dfdefdfae491cc6c9a5a4
 
 def _typecheckingstub__550e0f39ff2014de040456b8f7af60ac44358146acb4b69375257a0f211bf2f1(
     value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ee5b40ed0ddba575f817b0d64d5947c5cf1c4540cfd125035a104299de965066(
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1573,12 +1620,13 @@ def _typecheckingstub__73df196a5355d27998be6f80b69b888f7097be346d055a3ef35ff1fc1
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    auth: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]],
     engine_family: builtins.str,
     name: builtins.str,
     role_arn: builtins.str,
     vpc_subnet_ids: typing.Sequence[builtins.str],
+    auth: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[DbProxyAuth, typing.Dict[builtins.str, typing.Any]]]]] = None,
     debug_logging: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    default_auth_scheme: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     idle_client_timeout: typing.Optional[jsii.Number] = None,
     region: typing.Optional[builtins.str] = None,

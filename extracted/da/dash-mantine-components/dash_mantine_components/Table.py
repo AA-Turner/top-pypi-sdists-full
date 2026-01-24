@@ -312,7 +312,7 @@ Keyword arguments:
 - withTableBorder (boolean; optional):
     Determines whether the table should have outer border, `False` by
     default."""
-    _children_props = ['data.head', 'data.foot']
+    _children_props: typing.List[str] = ['data.head', 'data.foot']
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Table'

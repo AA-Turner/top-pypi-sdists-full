@@ -1,32 +1,25 @@
+import os
 import xml.etree.ElementTree as ET
-from xml.dom import minidom
-import ast
-import os, time
-from copy import deepcopy
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import Pool
+import multiprocessing as mp
+mp.set_start_method('spawn', force=True)
 
+import time
 import numpy as np
 from scipy.optimize import minimize
-from math import ceil
-import matplotlib.pyplot as plt
+from scipy.stats import zscore
 
 from ase import Atoms
-from ase.optimize.fire import FIRE
-from ase.constraints import UnitCellFilter, FixSymmetry
-
 from pyxtal import pyxtal
-from pyxtal.util import ase2pymatgen
-from pymatgen.core import Structure
-
-from pyocse.utils import reset_lammps_cell
-from pyocse.forcefield import forcefield
+from pyxtal.util import prettify
+from pyocse.utils import reset_lammps_cell, compute_r2, xml_to_dict_list, array_to_string
 from pyocse.lmp import LAMMPSCalculator
-from pyocse.interfaces.parmed import ParmEdStructure
-from pyocse.charmm import CHARMMStructure
 
-from lammps import PyLammps  # , get_thermo_data
 
-#import multiprocessing as mp
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend
 
 def timeit(method):
     def timed(*args, **kw):
@@ -35,278 +28,101 @@ def timeit(method):
         end_time = time.time()
         t = end_time - start_time
         print(f"{method.__name__} took {t} seconds to execute.")
-        #if t > 2: import sys; sys.exit()
         return result
     return timed
 
-
-def string_to_array(s):
-    """Converts a formatted string back into a 1D or 2D NumPy array."""
-    # Split the string into lines
-    lines = s.strip().split('\n')
-
-    # Check if it's a 1D or 2D array based on the number of lines
-    if len(lines) == 1:
-        # Treat as 1D array if there's only one line
-        array = np.fromstring(lines[0][1:-1], sep=',')
-        #print(lines); print(lines[0][1:-1]); print(array); import sys; sys.exit()
-    else:
-        # Treat as 2D array if there are multiple lines
-        array = [np.fromstring(line, sep=' ') for line in lines if line]
-        array = np.array(array)
-
-    return array
-
-def array_to_string(arr):
-    """Converts a 2D NumPy array to a string format with three numbers per line."""
-    lines = []
-    for row in arr:
-        for i in range(0, len(row), 3):
-            line_segment = ' '.join(map(str, row[i:i+3]))
-            lines.append(line_segment)
-    return '\n' + '\n'.join(lines) + '\n'
-
-def xml_to_dict_list(filename):
-    # Parse the XML file
-    tree = ET.parse(filename)
-    root = tree.getroot()
-
-    data = []
-    for item in root.findall('structure'):
-        item_dict = {}
-        for child in item:
-            key = child.tag
-            text = child.text.strip()
-            # Check if the field should be converted back to an array
-            if key in ['lattice', 'position', 'forces', 'numbers', 'stress',
-                       'bond', 'angle', 'proper', 'vdW', 'charge', 'offset',
-                       'rmse_values', 'r2_values', 'numMols']:
-
-                if text != 'None':
-                    #print(text)
-                    value = string_to_array(text)
-                    #if key == 'position': print(value, value.shape)
-                    #if key == 'stress': print(value, value.shape)
-                else:
-                    value = None
-            elif key in ['options']:
-                value = ast.literal_eval(text) #print(value)
-            else:
-                # Attempt to convert numeric values back to float/int
-                try:
-                    value = float(text)
-                    if value.is_integer():
-                        value = int(value)
-                except ValueError:
-                    if text == 'None':
-                        value = None
-                    else:
-                        value = text
-
-            item_dict[key] = value
-        #print(item_dict.keys())
-        data.append(item_dict)
-    return data
-
-
-def prettify(elem):
-    """Return a pretty-printed XML string for the Element."""
-    rough_string = ET.tostring(elem, 'utf-8')
-    reparsed = minidom.parseString(rough_string)
-    return reparsed.toprettyxml(indent="  ")
-
-def compute_r2(y_true, y_pred):
+def prepare_atoms(ref_dic):
     """
-    Compute the R-squared coefficient for the actual and predicted values.
-
-    :param y_true: The actual values.
-    :param y_pred: The predicted values by the regression model.
-    :return: The R-squared value.
+    A short routine to prepare the ASE Atoms object from the reference dictionary
     """
-    if len(y_true) > 0:
-        # Calculate the mean of actual values
-        mean_y_true = sum(y_true) / len(y_true)
+    structure = Atoms(numbers=ref_dic['numbers'],
+                      positions=ref_dic['position'],
+                      cell=ref_dic['lattice'],
+                      pbc=[1, 1, 1])
+    structure = reset_lammps_cell(structure)
+    return structure #.cell.cellpar(), structure.get_positions()
 
-        # Total sum of squares (SST)
-        sst = sum((y_i - mean_y_true) ** 2 for y_i in y_true)
-
-        # Residual sum of squares (SSE)
-        sse = sum((y_true_i - y_pred_i) ** 2 for y_true_i, y_pred_i in zip(y_true, y_pred))
-
-        # R-squared
-        r2 = 1 - (sse / sst)
-    else:
-        r2 = 0
-
-    return r2
-
-def get_lmp_efs(lmp_struc, lmp_in, lmp_dat):
-    if not hasattr(lmp_struc, 'ewald_error_tolerance'):
-        lmp_struc.complete()
-    #print('get_lmp_efs', len(dir(lmp_struc)), hasattr(lmp_struc, 'ewald_error_tolerance'))
-    calc = LAMMPSCalculator(lmp_struc, lmp_in=lmp_in, lmp_dat=lmp_dat)
-    return calc.express_evaluation()
-
-def evaluate_ff_par(ref_dics, lmp_strucs, lmp_dats, lmp_in, e_offset, E_only,
-        natoms_per_unit, f_coef, s_coef, dir_name, obj):
-    """
-    parallel version
-    """
-    #print("parallel version", E_only)
-    pwd = os.getcwd()
-    total_mse = 0.0
-    eng_arr, force_arr, stress_arr = [[], []], [[], []], [[], []]
-    os.chdir(dir_name)
-
-    for ref_dic, lmp_struc, lmp_dat in zip(ref_dics, lmp_strucs, lmp_dats):
-        options = ref_dic['options']
-        numMol = ref_dic['numMols']
-        efs = evaluate_structure(ref_dic['structure'],
-                                 #numMol,
-                                 lmp_struc,
-                                 lmp_dat,
-                                 lmp_in,
-                                 natoms_per_unit)
-        result = obj_from_efs(efs, ref_dic, e_offset, E_only, f_coef, s_coef, obj)
-        if obj == 'MSE':
-            total_mse += result
-        else:
-            engs, forces, stresses = result
-            eng_arr[0].append(engs[0])
-            eng_arr[1].append(engs[1])
-            if len(forces) > 0:
-                force_arr[0].extend(forces[0])
-                force_arr[1].extend(forces[1])
-            if len(stresses) > 0:
-                stress_arr[0].extend(stresses[0])
-                stress_arr[1].extend(stresses[1])
-    #print(len(eng_arr[0]), len(force_arr[1]), len(stress_arr[0]), '++++++++++++++')
-
-    os.chdir(pwd)
-    if obj == 'MSE':
-        return total_mse
-    else:
-        return (eng_arr, force_arr, stress_arr)
-
-def evaluate_ff_error_par(ref_dics, lmp_strucs, lmp_dats, lmp_in, e_offset,
-        natoms_per_unit, f_coef, s_coef, dir_name, max_dE=1.25, max_E=1000.0):
+def evaluate_ff_dic_par(ref_dics, lmp_strucs, lmp_dats, lmp_in, e_offset, dir_name):
     """
     parallel version
     """
     pwd = os.getcwd()
     os.chdir(dir_name)
-
-    result = 0.0
-
-    ff_eng, ff_force, ff_stress = [], [], []
-    ref_eng, ref_force, ref_stress = [], [], []
-
+    ff_dics = []
     for ref_dic, lmp_struc, lmp_dat in zip(ref_dics, lmp_strucs, lmp_dats):
-        options = ref_dic['options']
         replicate = ref_dic['replicate']
-        eng, force, stress = evaluate_structure(ref_dic['structure'],
-                                                lmp_struc,
-                                                lmp_dat,
-                                                lmp_in,
-                                                natoms_per_unit)
-        # Ignore the structures with unphysical energy values
-        e_diff = eng/replicate + e_offset - ref_dic['energy']/replicate
-        if eng < max_E and abs(e_diff) < max_dE:
-            ff_eng.append(eng/replicate + e_offset)
-            ref_eng.append(ref_dic['energy']/replicate)
-
-            if options[1]:
-                ff_force.extend(force.tolist())
-                ref_force.extend(ref_dic['forces'].tolist())
-
-            if options[2]:
-                ff_stress.extend(stress.tolist())
-                ref_stress.extend(ref_dic['stress'].tolist())
-        else:
-            print('Neglect reference due to energy', eng, abs(e_diff), ref_dic['tag'])
+        structure = prepare_atoms(ref_dic)
+        lmp_struc.box = structure.cell.cellpar()
+        lmp_struc.coordinates = structure.get_positions()
+        if not hasattr(lmp_struc, 'ewald_error_tolerance'): lmp_struc.complete()
+        calc = LAMMPSCalculator(lmp_struc, lmp_in=lmp_in, lmp_dat=lmp_dat)
+        eng, force, stress = calc.express_evaluation()
+        eng = eng / replicate + e_offset
+        ff_dics.append({'energy': eng, 'forces': force, 'stress': stress})
     os.chdir(pwd)
-    return (ff_eng, ff_force, ff_stress, ref_eng, ref_force, ref_stress)
 
-def evaluate_structure(structure, lmp_struc, lmp_dat, lmp_in, natoms_per_unit):
-    replicate = len(structure)/natoms_per_unit
-    lmp_struc.box = structure.cell.cellpar()
-    lmp_struc.coordinates = structure.get_positions()
-    return get_lmp_efs(lmp_struc, lmp_in, lmp_dat)
+    return ff_dics
 
-def obj_from_efs(efs, ref_dic, e_offset, E_only, f_coef, s_coef, obj):
+def compute_refs_par(*args_list):
     """
-    Compute the objective from a single ff_dic.
-    If obj is MSE, return mse value
-    If obj is r2, return (eng, force, stress) array
-    """
-    mse = 0
-    (eng, force, stress) = efs
-    eng_arr, force_arr, stress_arr = [], [[], []], [[], []]
-
-    if ref_dic['options'][0]:
-        e1 = eng / ref_dic['replicate'] + e_offset
-        e2 = ref_dic['energy'] / ref_dic['replicate']
-        mse += (e1-e2) ** 2
-        eng_arr = [e1, e2]
-
-    if not E_only:
-        if ref_dic['options'][1]:
-            f1 = force.flatten()
-            f2 = ref_dic['forces'].flatten()
-            f_diff = f1 - f2
-            mse += f_coef * np.sum(f_diff ** 2)
-            force_arr[0] = f1
-            force_arr[1] = f2
-
-        if ref_dic['options'][2]:
-            s1 = stress.flatten()
-            s2 = ref_dic['stress'].flatten()
-            s_diff = s1 - s2
-            mse += s_coef * np.sum(s_diff ** 2)
-            stress_arr[0] = s1
-            stress_arr[1] = s2
-
-    if obj == 'MSE':
-        return mse
-    else:
-        return (eng_arr, force_arr, stress_arr)
-
-def evaluate_ref_par(structures, numMols, calculator, natoms_per_unit,
-                        options=[True, True, True]):
-    """
-    evaluate the reference structure with the ref_evaluator
+    Evaluate the reference structure with the ref_evaluator
+    args_list: (structure, numMol, calculator, natoms_per_unit,
+                options, tag, steps, fmax, logfile)
     """
     ref_dics = []
-    for numMol, struc in zip(numMols, structures):
-        ref_dics.append(evaluate_ref_single(struc,
-                                            numMol,
-                                            calculator,
-                                            natoms_per_unit,
-                                            options))
+    strucs, numMols, calculator, natoms_per_unit, options, tags, steps = args_list
+    for (structure, numMol, option, tag, step) in zip(strucs, numMols, options, tags, steps):
+        ref_dic = compute_ref_single(structure,
+                                   numMol,
+                                   calculator,
+                                   natoms_per_unit,
+                                   options=option,
+                                   tag=tag,
+                                   steps=step)
+        ref_dics.append(ref_dic)
     return ref_dics
 
-def evaluate_ref_single(structure, numMol, calculator, natoms_per_unit,
-                        options=[True, True, True], relax=False):
+def compute_ref_single(structure, numMol, calculator, natoms_per_unit,
+                        options=[True, True, True], tag='minimum',
+                        steps=0, fmax=0.1, logfile='ase.log'):
     """
-    evaluate the reference structure with the ref_evaluator
+    Evaluate the reference structure with the ref_evaluator
+
+    Args:
+        structure (ASE Atoms): ASE Atoms object
+        numMol (int): number of molecules
+        calculator (object): ASE calculator
+        natoms_per_unit (int): number of atoms per unit cell
+        options (list): [energy, force, stress]
+        steps (int): number of steps for relaxation
+        fmax (float): maximum force for relaxation
+        logfile (str): ASE logfile
     """
+    from ase.optimize.fire import FIRE
+    from ase.constraints import UnitCellFilter, FixSymmetry
+
     structure = reset_lammps_cell(structure)
-    ref_dic = {'structure': structure,
+    ref_dic = {"numbers": structure.numbers,
+               "lattice": structure.cell.array,
+               "position": structure.positions,
                'energy': None,
                'forces': None,
                'stress': None,
-               'replicate': len(structure)/natoms_per_unit,
+               'replicate': len(structure) / natoms_per_unit,
                'options': options,
-               'tag': 'CSP',
-               'numMols': numMol,
-              }
+               'tag': tag,
+               'numMols': numMol}
     structure.set_calculator(calculator)
-    if relax:
-        structure.set_constraint(FixSymmetry(structure))
-        ecf = UnitCellFilter(structure)
-        dyn = FIRE(ecf, a=0.1, logfile='-')
-        dyn.run(fmax=0.1, steps=150)
-        structure.set_constraint()
+    if steps > 0:
+        if tag == 'minimum':
+            structure.set_constraint(FixSymmetry(structure))
+            ecf = UnitCellFilter(structure)
+            dyn = FIRE(ecf, a=0.1, logfile=logfile)
+            dyn.run(fmax=fmax, steps=steps)
+            structure.set_constraint()
+        else:
+            dyn = FIRE(structure, a=0.1, logfile=logfile)
+            dyn.run(fmax=fmax, steps=steps)
 
     if options[0]: # Energy
         ref_dic['energy'] = structure.get_potential_energy()
@@ -315,220 +131,156 @@ def evaluate_ref_single(structure, numMol, calculator, natoms_per_unit,
     if options[2]:
         ref_dic['stress'] = structure.get_stress()
     structure.set_calculator() # reset calculator to None
+    cell_arr = np.diag(structure.cell.array)
+    eng = ref_dic['energy'] / ref_dic['replicate']
+    print(f"# {tag} {eng:.4f} {cell_arr}")
 
     return ref_dic
 
-def augment_ref_par(strucs, numMols, calculator, steps, N_vibs,
-                    n_atoms_per_unit, folder, logfile='-', fmax=0.1):
-    """
-    parallel version
-    """
-    #coefs_stress = [0.85, 0.92, 1.08, 1.18, 1.25]
-    #dxs = [0.01, 0.02, 0.03]
-
-    pwd = os.getcwd()
-    os.chdir(folder)
-    ref_dics = []
-
-    for numMol, ref_structure in zip(numMols, strucs):
-        #print(ref_structure)
-        ref_dics.extend(augment_ref_single(ref_structure,
-                                           numMol,
-                                           calculator,
-                                           steps,
-                                           N_vibs,
-                                           n_atoms_per_unit,
-                                           logfile,
-                                           fmax))
-
-    os.chdir(pwd)
-    return ref_dics
-
-def augment_ref_single(ref_structure, numMol, calculator, steps,
-                       N_vibs, n_atoms_per_unit, logfile='-',
-                       fmax=0.1, max_E=1000, min_dE=5.0):
-    """
-    parallel version
-    Add max_E and min_dE to prevent adding the high-E structures
-    """
-
-    #coefs_stress = [0.90, 0.95, 1.08, 1.15, 1.20]
-    #dxs = [0.025, 0.050, 0.075]
-    coefs_stress = [0.85, 0.92, 1.10, 1.25]
-    dxs = [0.01, 0.02, 0.03]
-
-
-    ref_dics = []
-    print('# Relaxation to get the ground state: 1')
-    ref_structure.set_calculator(calculator)
-    ref_structure.set_constraint(FixSymmetry(ref_structure))
-    ecf = UnitCellFilter(ref_structure)
-    dyn = FIRE(ecf, a=0.1, logfile=logfile)
-    dyn.run(fmax=fmax, steps=steps)
-    ref_structure.set_constraint()
-
-    # reset_lammps_cell and make supercell (QZ......)
-    cell = ref_structure.get_cell_lengths_and_angles()[:3]
-    # Disable supercell
-    #supercell = [1, 1, 1]
-    #for ax in range(3):
-    #    supercell[ax] = int(ceil(6.5/cell[ax])) # to save some time?
-    #    numMols = [n * supercell[ax] for n in numMols]
-    #ref_structure *= supercell
-    ref_structure = reset_lammps_cell(ref_structure)
-
-    ref_dic = evaluate_ref_single(ref_structure,
-                                  numMol,
-                                  calculator,
-                                  n_atoms_per_unit,
-                                  [True, True, True])
-    ref_dic['tag'] = 'minimum'
-    ref_eng = ref_dic['energy']/ref_dic['replicate']
-    if ref_eng < max_E:
-        ref_dics.append(ref_dic)
-
-        print('# Get elastic configurations: 3 * {:d}'.format(len(coefs_stress)))
-        cell0 = ref_structure.cell.array
-        for ax in range(3):
-            for coef in coefs_stress:
-                structure = ref_structure.copy()
-                cell = cell0.copy()
-                cell[ax, ax] *= coef
-                structure.set_cell(cell, scale_atoms=True)
-                # Add relaxation to improve the energy
-                structure.set_calculator(calculator)
-                dyn = FIRE(structure, a=0.1, logfile=logfile)
-                dyn.run(fmax=fmax, steps=20)
-                ref_dic = evaluate_ref_single(structure,
-                                              numMol,
-                                              calculator,
-                                              n_atoms_per_unit,
-                                              [True, False, True])
-
-                value = ref_dic['energy']/ref_dic['replicate']
-                if ref_eng - min_dE < value < ref_eng + min_dE:
-                    ref_dic['tag'] = 'elastic'
-                    ref_dics.append(ref_dic)
-
-        print('# Get purturbation: {:d} * {:d}'.format(N_vibs, len(dxs)))
-        pos0 = ref_structure.get_positions()
-        for dx in dxs:
-            for i in range(N_vibs):
-                structure = ref_structure.copy()
-                pos = pos0.copy()
-                pos += np.random.uniform(-dx, dx, size=pos0.shape)
-                structure.set_positions(pos)
-                ref_dic = evaluate_ref_single(structure,
-                                              numMol,
-                                              calculator,
-                                              n_atoms_per_unit,
-                                              [True, True, False])
-                value = ref_dic['energy']/ref_dic['replicate']
-                if ref_eng - min_dE < value < ref_eng + min_dE:
-                    ref_dic['tag'] = 'vibration'
-                    ref_dics.append(ref_dic)
-    print('# Finalized data augmentation')
-
-    return ref_dics
-
 def add_strucs_par(strs, smiles):
-    strucs = []
-    numMols = []
+    from pymatgen.core import Structure
+    xtals = []
     for _str in strs:
         try:
             pmg = Structure.from_str(_str, fmt='cif')
             c0 = pyxtal(molecular=True)
             c0.from_seed(pmg, molecules=smiles)
-            strucs.append(c0.to_ase(resort=False))
-            numMols.append(c0.numMols)
+            xtals.append(c0)
         except:
             print("Skip a structure due to reading error")
             print(_str)
-    return strucs, numMols
+    return xtals
 
+def opt_obj_fun(x, fun_args):
+    """
+    Objective function for optimization.
+    This function must be defined at the top level to be pickleable.
+    """
+    para, ref_dics, parameters0, obj, ids, terms, charges = fun_args
 
+    # Ensure ids and terms match
+    if len(ids) != len(terms):
+        print(f"WARNING: Mismatch detected - ids ({len(ids)}) vs. terms ({len(terms)})")
+        print(f"  ids: {ids}")
+        print(f"  terms: {terms}")
+        raise ValueError(f"Mismatch between ids and terms: ids({len(ids)}) vs terms({len(terms)})")
+
+    # Correctly extract values from x using ids
+    values = [x[ids[i - 1]:ids[i]] if i > 0 else x[:ids[0]] for i in range(len(ids))]
+
+    # Handle charge term separately
+    if charges is not None:
+        charges = np.array(charges, dtype=np.float64)
+        values.append(x[-1] * charges)  # Apply charge scaling
+
+    # Update parameters with extracted values
+    parameters = para.set_sub_parameters(values, terms, parameters0)
+    para.update_ff_parameters(parameters)
+
+    # Reset the LAMMPS input file ?
+    # lmp_in = para.ff.get_lammps_in()
+    #_, _, mse_values, r2_values = para.evaluate_ff_references(ref_dics, parameters)
+    ff_dics, ref = para.evaluate_ff_references(ref_dics, parameters, update=False)
+    (_, _, mse_values, r2_values) = para.get_statistics(ff_dics, ref_dics)
+    e_coef = para.e_coef
+    f_coef = para.f_coef
+    s_coef = para.s_coef
+
+    if obj == 'MSE':
+        objective = e_coef * mse_values[0] + f_coef * mse_values[1] + s_coef * mse_values[2]
+    elif obj == 'R2':
+        objective = - (e_coef * r2_values[0] + f_coef * r2_values[1] + s_coef * r2_values[2])
+    else:
+        raise ValueError("Invalid obj_type. Choose 'MSE' or 'R2'.")
+
+    print("Total Objective:", objective)
+
+    return objective
 
 """
 A class to handle the optimization of force field parameters
 for molecular simulation.
 """
-class ForceFieldParameters:
-
-
+class ForceFieldParametersBase:
     def __init__(self,
-                 smiles = ['CC(=O)OC1=CC=CC=C1C(=O)O'],
+                 smiles, # = ['CC(=O)OC1=CC=CC=C1C(=O)O'],
                  style = 'gaff',
                  chargemethod = 'am1bcc',
                  ff_evaluator = 'lammps',
-                 ref_evaluator = None, #'mace',
+                 e_coef = 1.0,
                  f_coef = 0.1,
                  s_coef = 1.0,
                  ncpu = 1,
                  verbose = True,
-                 device = 'cpu'):
+                 ):
         """
-        Initialize the parameters
-
         Args:
             smiles (list): list of smiles strings
             style (str): 'gaff' or 'openff'
             chargemethod (str): 'mmff94', 'am1bcc', 'am1-mulliken', 'gasteiger'
             ff_evaluator (str): 'lammps' or 'charmm'
-            ref_evaluator (str): None or 'mace' or 'trochani'
+            e_coef (float): coefficients for energy
             f_coef (float): coefficients for forces
             s_coef (float): coefficients for stress
         """
+        from pyocse.forcefield import forcefield
+
         self.smiles = smiles
         self.ff_style = style
         self.ff = forcefield(smiles, style, chargemethod)
-        # only works for 1:1 ratio cocrystal for now
+
+        # only works for 1:1 ratio cocrystal for now (QZ: to check if it is true)
         self.natoms_per_unit = sum([len(mol.atoms) for mol in self.ff.molecules])
         params_init, constraints, bounds = self.get_default_ff_parameters()
         self.params_init = params_init
         self.constraints = constraints
         self.bounds = bounds
 
-        self.parameters_current = []
-        self.reference_data = []
         self.ff_evaluator = ff_evaluator
-        self.ref_evaluator = ref_evaluator
-
-        if ref_evaluator == 'mace':
-            from mace.calculators import mace_mp
-            self.calculator = mace_mp(model = "small",
-                                      dispersion = True,
-                                      default_dtype = "float64",
-                                      device = device)
-        elif ref_evaluator == 'ani':
-            from torchani import models
-            self.calculator = models.ANI2x().ase()
-
-        if ff_evaluator == 'lammps':
-            # Using one lmp instance may cause long time delay at the end
-            #cmdargs = ["-screen", "none", "-log", "lmp.log", "-nocite"]
-            #self.lmp = PyLammps(name=None, cmdargs=cmdargs)
-            # set up the lammps template
-            self.ase_templates = {}
-            self.lmp_dat = {}
+        self.ase_templates = {}
+        self.lmp_dat = {}
+        self.e_coef = e_coef
         self.f_coef = f_coef
         self.s_coef = s_coef
         self.terms = ['bond', 'angle', 'proper', 'vdW', 'charge', 'offset']
         self.ncpu = ncpu
         self.verbose = verbose
 
+    def __str__(self):
+        s = "\n------Force Field Parameters------\n"
+        s += "Bond:        {:3d}\n".format(self.N_bond)
+        s += "Angle:       {:3d}\n".format(self.N_angle)
+        s += "Proper:      {:3d}\n".format(self.N_proper)
+        s += "Improper:    {:3d}\n".format(self.N_improper)
+        s += "vdW:         {:3d}\n".format(self.N_vdW)
+        s += "Charges:     {:3d}\n".format(self.N_charge)
+        s += "Total:       {:3d}\n".format(len(self.params_init))
+        s += "Constraints: {:3d}\n".format(len(self.constraints))
+        s += "FF_code:    {:s}\n".format(self.ff_evaluator)
+        if hasattr(self, 'ref_evaluator'):
+            s += "Ref_code:   {:s}\n".format(self.ref_evaluator)
+        s += "N_CPU:       {:3d}\n".format(self.ncpu)
+        s += "E_coef:      {:.3f}\n".format(self.e_coef)
+        s += "F_coef:      {:.3f}\n".format(self.f_coef)
+        s += "S_coef:      {:.3f}\n".format(self.s_coef)
+        return s
+
+    def __repr__(self):
+        return str(self)
+
     def get_default_ff_parameters(self, coefs=[0.5, 1.5], deltas=[-0.2, 0.2]):
         """
         Get the initial FF parameters/bounds/constraints
-        # Loop over molecule
-        # Loop over LJ, Bond, Angle, Torsion, Improper
-        # Loop over molecule
-        # Loop over charges
+        1. Loop over molecule
+        2. Loop over LJ, Bond, Angle, Torsion, Improper
+        3. Loop over molecule
+        4. Loop over charges
         """
 
         params = []
         bounds = []
         constraints = []
-        N_bond, N_angle, N_proper, N_improper, N_vdW, N_charges = 0, 0, 0, 0, 0, 0
+        N_bond, N_angle, N_proper, N_improper, N_vdW, N_charge = 0, 0, 0, 0, 0, 0
 
         # Bond (k, req)
         for molecule in self.ff.molecules:
@@ -565,9 +317,8 @@ class ForceFieldParameters:
                     N_proper += 1
 
         # Improper (phi_k) #  per=2, phase=180.000,  scee=1.200, scnb=2.000>
-        #for molecule in self.ff.molecules:
-        #for improper_type in ps.improper_periodic_types.keys():
-
+        # for molecule in self.ff.molecules:
+        # for improper_type in ps.improper_periodic_types.keys():
         # nonbond vdW parameters (rmin, epsilon)
         # sigma is related to rmin * 2**(-1/6) * 2
         for molecule in self.ff.molecules:
@@ -575,6 +326,14 @@ class ForceFieldParameters:
             for atom_type in ps.atom_types.keys():
                 rmin = ps.atom_types[atom_type].rmin
                 epsilon = ps.atom_types[atom_type].epsilon
+
+                # If epsilon is zero, set default values
+                if epsilon == 0:
+                    epsilon = 0.01
+                    sigma = 2.5
+                    # rmin is defined as: sigma / (2 * 2**(-1/6))
+                    rmin = sigma / (2 * 2**(-1/6))
+
                 params.append(rmin)
                 params.append(epsilon)
                 bounds.append((rmin + deltas[0], rmin + deltas[1]))
@@ -591,44 +350,19 @@ class ForceFieldParameters:
             id2 = len(params)
             sum_chg = sum(params[id1:id2])
             constraints.append((id1, id2, sum_chg))
-            N_charges += len(molecule.atoms)
+            N_charge += len(molecule.atoms)
 
-        # N_LJ, N_bond, N_angle, N_proper, N_improper, N_charges
+        # N_LJ, N_bond, N_angle, N_proper, N_improper, N_charge
         self.N_bond = N_bond
         self.N_angle = N_angle
         self.N_proper = N_proper
         self.N_improper = N_improper
         self.N_vdW = N_vdW
-        self.N_charges = N_charges
+        self.N_charge = N_charge
         # This is for the offset
         params.append(0)
 
-        #self._params_init = np.array(params)
-        #self._constraints = constraints
-        #self._bounds = bounds
         return params, constraints, bounds
-
-    def check_validity(self, parameters):
-        """
-        Check if the input FF parameters are within the bound
-        and satisfy the constaint
-        """
-        # last parameter is for the offset
-        for i, _parameter in enumerate(parameters[:-1]):
-            (lb, ub) = self.bounds[i]
-            if _parameter >= ub:
-                _parameter = ub
-            elif _parameter <= lb:
-                _parameter = lb
-
-        # Rescale the partial charges
-        for constraint in self.constraints:
-            (id1, id2, sum_chg) = constraint
-            diff = sum(parameters[id1:id2]) - sum_chg
-            if abs(diff) > 1e-2:
-                for id in range(id1, id2):
-                    parameters[id] += diff/(id2-id1)
-        return parameters
 
     def get_sub_parameters(self, parameters, terms):
         """
@@ -636,12 +370,12 @@ class ForceFieldParameters:
 
         Args:
             parameters (list): input complete parameters
-            termss (list): selected terms ['vdW', 'bond', .etc]
+            terms (list): selected terms ['vdW', 'bond', .etc]
 
         Returns:
-            sub_paras (list)
-            sub_bounds (list)
-            sub_constraints (list)
+            sub_paras (list): list of sub_parameters
+            sub_bounds (list): list of bounds for each sub_parameter
+            sub_constraints (list): list of constraints for each sub_parameter
         """
         assert(len(parameters) == len(self.params_init))
         sub_paras = []
@@ -664,13 +398,12 @@ class ForceFieldParameters:
                 id2 = id1 + self.N_vdW
             elif term == 'charge':
                 id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW
-                id2 = id1 + self.N_charges
+                id2 = id1 + self.N_charge
                 do_charge = True
             elif term == 'offset':
-                id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW + self.N_charges
+                id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW + self.N_charge
                 id2 = id1 + 1
 
-            #if term != 'offset':
             sub_paras.append(parameters[id1:id2])
 
             if term != 'charge':
@@ -702,6 +435,17 @@ class ForceFieldParameters:
         """
         if parameters0 is None: parameters0 = self.params_init
         parameters = parameters0.copy()
+
+        # Handle 1D array
+        if len(sub_parameters) != len(terms):
+            sub_values = []
+            count = 0
+            for term in terms:
+                N = getattr(self, 'N_'+term)
+                sub_values.append(sub_parameters[count:count+N])
+                count += N
+            sub_parameters = sub_values
+        assert(len(sub_parameters) == len(terms))
         for sub_para, term in zip(sub_parameters, terms):
             if term == 'bond':
                 id1 = 0
@@ -717,101 +461,43 @@ class ForceFieldParameters:
                 id2 = id1 + self.N_vdW
             elif term == 'charge':
                 id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW
-                id2 = id1 + self.N_charges
-                sub_constraints = self.constraints
+                id2 = id1 + self.N_charge
             elif term == 'offset':
-                id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW + self.N_charges
+                id1 = self.N_bond + self.N_angle + self.N_proper + self.N_vdW + self.N_charge
                 id2 = id1 + 1
+
             parameters[id1:id2] = sub_para
 
         return parameters
 
     #@timeit
-    def update_ff_parameters(self, parameters, check=True):
+    def update_ff_parameters(self, parameters):
         """
         Update FF parameters in self.ff.molecules
-        # Loop over molecule
-        # Loop over Bond, Angle, Torsion, Improper, vdW, charges
-
+        1. Loop over molecule
+        2. Loop over Bond, Angle, Torsion, Improper, vdW, charges
         """
         assert(len(parameters) == len(self.params_init))
-        #if check: parameters = self.check_validity(parameters)
-        #parameters = parameters.copy()
         self.ff.update_parameters(parameters)
+
+        # remember the offset value
+        self.params_init[-1] = parameters[-1]
+
         # reset the ase_lammps to empty
         self.ase_templates = {}
         self.lmp_dat = {}
 
-    def __str__(self):
-        s = "\n------Force Field Parameters------\n"
-        s += "Bond:        {:3d}\n".format(self.N_bond)
-        s += "Angle:       {:3d}\n".format(self.N_angle)
-        s += "Proper:      {:3d}\n".format(self.N_proper)
-        s += "Improper:    {:3d}\n".format(self.N_improper)
-        s += "vdW:         {:3d}\n".format(self.N_vdW)
-        s += "Charges:     {:3d}\n".format(self.N_charges)
-        s += "Total:       {:3d}\n".format(len(self.params_init))
-        s += "Constraints: {:3d}\n".format(len(self.constraints))
-        s += "FF_code:    {:s}\n".format(self.ff_evaluator)
-        if self.ref_evaluator is not None:
-            s += "Ref_code:   {:s}\n".format(self.ref_evaluator)
-        s += "N_CPU:       {:3d}\n".format(self.ncpu)
-        s += "F_coef:      {:.3f}\n".format(self.f_coef)
-        s += "S_coef:      {:.3f}\n".format(self.s_coef)
-        return s
-
-    def __repr__(self):
-        return str(self)
-
-
-    def augment_reference(self, ref_structure, numMols, fmax=0.1,
-                          steps=250, N_vibs=10, logfile='-'):
-        """
-        Generate more reference data based on input structure, including
-        1. Fully optimized structue
-        2. elastic strain
-        3. atomic perturbation (e.g. 0.2 A)
-
-        Args:
-            - ref_structure
-            - numMols
-            - fmax
-            - steps (int)
-            - N_vibs (int)
-
-        Returns:
-        A list of ref_dics that store the structure/energy/force/stress
-        """
-
-        #ref_structure = self.ff.reset_lammps_cell(ref_structure)
-        return augment_ref_single(ref_structure,
-                                  numMols,
-                                  self.calculator,
-                                  steps,
-                                  N_vibs,
-                                  self.natoms_per_unit,
-                                  logfile,
-                                  fmax)
-
-    #@timeit
-    def evaluate_ref_single(self, structure, numMols=[1],
-                            options=[True, True, True], relax=False):
-        """
-        evaluate the reference structure with the ref_evaluator
-        """
-        return evaluate_ref_single(structure,
-                                   numMols,
-                                   self.calculator,
-                                   self.natoms_per_unit,
-                                   options,
-                                   relax)
-
 
     def get_lmp_inputs_from_ref_dics(self, ref_dics):
+        """
+        Get lmp_strucs and lmp_dats from ref_dics
+        To explain later
+        """
         lmp_strucs, lmp_dats = [], []
         for ref_dic in ref_dics:
             numMols = ref_dic['numMols']
-            structure = ref_dic['structure']
+            structure = prepare_atoms(ref_dic)
+
             lmp_struc, lmp_dat = self.get_lmp_input_from_structure(structure, numMols)
             lmp_strucs.append(lmp_struc)
             lmp_dats.append(lmp_dat)
@@ -819,8 +505,16 @@ class ForceFieldParameters:
         return lmp_strucs, lmp_dats
 
     def get_lmp_input_from_structure(self, structure, numMols=[1], set_template=True):
+        """
+        Get lmp_struc and lmp_dat from ase structure
 
-        replicate = len(structure)/self.natoms_per_unit
+        Args:
+            structure (ASE Atoms): ASE Atoms object
+            numMols (list): list of number of molecules
+            set_template (bool): whether to set the template
+        """
+
+        replicate = len(structure) / self.natoms_per_unit
         if replicate in self.ase_templates.keys():
             lmp_struc = self.ase_templates[replicate]
             lmp_dat = self.lmp_dat[replicate]
@@ -835,6 +529,36 @@ class ForceFieldParameters:
                 self.ase_templates[replicate] = lmp_struc
         return lmp_struc, lmp_dat
 
+    def write_lmp_dat_from_ref_dics(self, ref_dics, DIR='structures'):
+        """
+        Write lmp.dat for all structures from the ref_dics
+
+        Args:
+            ref_dics: list of dictionaries
+            DIR: directory to write the lmp.dat files
+        """
+        os.makedirs(DIR, exist_ok=True)
+        for i, ref_dic in enumerate(ref_dics):
+            numMols = ref_dic['numMols']
+            #structure = Atoms(numbers = ref_dic['numbers'],
+            #                  positions = ref_dic['position'],
+            #                  cell = ref_dic['lattice'],
+            #                  pbc = [1, 1, 1])
+            structure = prepare_atoms(ref_dic)
+            lmp_struc = self.ff.get_ase_lammps(structure, numMols)
+            lmp_struc.box = structure.cell.cellpar()
+            #print(i, lmp_struc.box[:3], lmp_struc.fftgrid())
+            lmp_struc.coordinates = structure.positions
+            dat_head = lmp_struc._write_dat_head()
+            dat_box = lmp_struc._write_dat_box()
+            dat_atoms = lmp_struc._write_dat_atoms()
+            dat_connect, _, _, _ = lmp_struc._write_dat_connects()
+            with open(DIR+"/lmp_dat_"+str(i+1), "w") as f:
+                f.write(dat_head)
+                f.write(dat_box)
+                f.write(dat_atoms)
+                f.write(dat_connect)
+
     #@timeit
     def evaluate_ff_single(self, lmp_struc, numMols=[1], options=[True]*3,
                            lmp_dat=None,
@@ -843,32 +567,31 @@ class ForceFieldParameters:
                            positions=None,
                            parameters=None):
         """
-        evaluate the reference structure with the ff_evaluator
+        Evaluate the reference structure with the ff_evaluator
+        Add explanation later
 
         Args:
             lmp_struc: ase structure
             numMols: list of num of molecules
             options (list): [energy, forces, stress]
-            lmp_dat:
-            lmp_in:
-            box:
-            positions:
-            parameters:
+            lmp_dat: lammps data file
+            lmp_in: lammps input file
+            box: cell parameters
+            positions: atomic positions
+            parameters: list of forcefield parameters
         """
-        if parameters is not None:
-            self.update_ff_parameters(parameters)
+        if parameters is not None: self.update_ff_parameters(parameters)
 
         if type(lmp_struc) == Atoms:
             self.ase_templates = {}
             self.lmp_dat = {}
             lmp_struc, lmp_dat = self.get_lmp_input_from_structure(lmp_struc, numMols)
+
         if box is not None: lmp_struc.box = box
         if positions is not None: lmp_struc.coordinates = positions
 
-        #structure = lmp_struc.to_ase()
-        replicate = len(lmp_struc.atoms)/self.natoms_per_unit
-        ff_dic = {#'structure': lmp_struc.to_ase(),
-                  'energy': None,
+        replicate = len(lmp_struc.atoms) / self.natoms_per_unit
+        ff_dic = {'energy': None,
                   'forces': None,
                   'stress': None,
                   'replicate': replicate,
@@ -876,127 +599,18 @@ class ForceFieldParameters:
                   'numMols': numMols,
                   }
 
-        eng, force, stress = get_lmp_efs(lmp_struc, lmp_in, lmp_dat)
-        if options[0]: # Energy
-            ff_dic['energy'] = eng
-        if options[1]: # forces
-            ff_dic['forces'] = force
-        if options[2]:
-            ff_dic['stress'] = stress
-        #print(eng); import sys; sys.exit()
+        #eng, force, stress = get_lmp_efs(lmp_struc, lmp_in, lmp_dat)
+        if not hasattr(lmp_struc, 'ewald_error_tolerance'): lmp_struc.complete()
+        calc = LAMMPSCalculator(lmp_struc, lmp_in=lmp_in, lmp_dat=lmp_dat)
+        eng, force, stress = calc.express_evaluation()
+
+        if options[0]: ff_dic['energy'] = eng
+        if options[1]: ff_dic['forces'] = force
+        if options[2]: ff_dic['stress'] = stress
+
         return ff_dic
 
-    def same_lmp(self, struc1, struc2):
-        """
-        quick comparison for two lmp structures
-        """
-        for i in range(len(struc1.dihedrals)):
-            d1 = struc1.dihedrals[i]
-            d2 = struc2.dihedrals[i]
-            id1 = [d1.atom1.idx, d1.atom2.idx, d1.atom3.idx, d1.atom4.idx]
-            id2 = [d2.atom1.idx, d2.atom2.idx, d2.atom3.idx, d2.atom4.idx]
-            if id1 != id2:
-                print("Different structures were found")
-                struc1.to_ase('1.xyz', format='1.xyz')
-                struc2.to_ase('2.xyz', format='2.xyz')
-                return False
-        return True
-
-
     #@timeit
-    def get_objective(self, ref_dics, e_offset, E_only=False, lmp_in=None, obj='MSE'):
-        """
-        Compute the objective mismatch for the give ref_dics
-        Todo, Enable the parallel option
-
-        Args:
-            ref_dics:
-            e_offset:
-            E_only:
-            lmp_in:
-            obj:
-        """
-
-        total_obj = 0
-        eng_arr, force_arr, stress_arr = [[], []], [[], []], [[], []]
-
-        lmp_strucs, lmp_dats = self.get_lmp_inputs_from_ref_dics(ref_dics)
-
-        if self.ncpu == 1:
-            for i, ref_dic in enumerate(ref_dics):
-                options = ref_dic['options']
-                numMol = ref_dic['numMols']
-                ff_dic = self.evaluate_ff_single(lmp_strucs[i], numMol, options,
-                                                 lmp_dats[i], lmp_in,
-                                                 )
-                #total_obj += self.obj_from_ffdic(ff_dic, ref_dic, e_offset, E_only)
-                efs = (ff_dic['energy'], ff_dic['forces'], ff_dic['stress'])
-                res = obj_from_efs(efs,
-                                   ref_dic,
-                                   e_offset,
-                                   E_only,
-                                   self.f_coef,
-                                   self.s_coef,
-                                   obj,
-                                  )
-                if obj == 'MSE':
-                    total_obj += res
-                else:
-                    ([e1, e2], [f1, f2], [s1, s2]) = res
-                    eng_arr[0].append(e1)
-                    eng_arr[1].append(e2)
-                    force_arr[0].extend(f1)
-                    force_arr[1].extend(f2)
-                    stress_arr[0].extend(s1)
-                    stress_arr[1].extend(s1)
-        else:
-            #parallel process
-            N_cycle = int(np.ceil(len(ref_dics)/self.ncpu))
-            args_list = []
-            for i in range(self.ncpu):
-                folder = self.get_label(i)
-                id1 = i*N_cycle
-                id2 = min([id1+N_cycle, len(ref_dics)])
-                #print(i, id1, id2, len(ref_dics))
-                os.makedirs(folder, exist_ok=True)
-                args_list.append((ref_dics[id1:id2],
-                                  lmp_strucs[id1:id2],
-                                  lmp_dats[id1:id2],
-                                  lmp_in,
-                                  e_offset,
-                                  E_only,
-                                  self.natoms_per_unit,
-                                  self.f_coef,
-                                  self.s_coef,
-                                  folder,
-                                  obj,
-                                  ))
-
-            with ProcessPoolExecutor(max_workers=self.ncpu) as executor:
-                results = [executor.submit(evaluate_ff_par, *p) for p in args_list]
-                for result in results:
-                    if obj == 'MSE':
-                        total_obj += result.result()
-                        #print(result.result())
-                    else:
-                        #([e1, e2], [f1, f2], [s1, s2]) = result.result()
-                        (engs, forces, stresses) = result.result()
-                        eng_arr[0].extend(engs[0])
-                        eng_arr[1].extend(engs[1])
-                        force_arr[0].extend(forces[0])
-                        force_arr[1].extend(forces[1])
-                        stress_arr[0].extend(stresses[0])
-                        stress_arr[1].extend(stresses[1])
-            if obj == 'R2':
-                #print(eng_arr[0])
-                total_obj -= compute_r2(eng_arr[0], eng_arr[1])
-                total_obj -= self.f_coef * compute_r2(force_arr[0], force_arr[1])
-                total_obj -= self.s_coef * compute_r2(stress_arr[0], stress_arr[1])
-                #print('BBBBBBBBBBBb', self.f_coef, compute_r2(force_arr[0], force_arr[1]))
-
-        return total_obj
-
-
     def get_opt_dict(self, terms=['vdW'], values=None, parameters=None):
         """
         Get the opt_dict as an input for optimization
@@ -1015,248 +629,49 @@ class ForceFieldParameters:
                 raise ValueError("Cannot the unknown FF term", term)
         return opt_dict
 
-    #@timeit
-    def optimize_init(self, ref_dics, opt_dict, parameters0=None, obj='MSE'):
-
-        if parameters0 is None:
-            #parameters0 = self.params_init.copy()
-            offset, parameters0 = self.optimize_offset(ref_dics)
-            #print(parameters0); import sys; sys.exit()
-        else:
-            assert(len(parameters0) == len(self.params_init))
-        self.update_ff_parameters(parameters0)
-        #self.ff.set_lammps_in('lmp.in')
-
-        terms = list(opt_dict.keys())
-        # Move the charge term to the end
-        if 'charge' in terms:
-            terms.pop(terms.index('charge'))
-            terms.append('charge')
-            charges = opt_dict['charge']
-        else:
-            charges = None
-
-        # Set up the input for optimization, including x, bounds, args
-        x = []
-        ids = []
-
-        e_offset = parameters0[-1]
-        for term in terms:
-            if len(ids) > 0:
-                if term != 'charge':
-                    x.extend(opt_dict[term])
-                    ids.append(ids[-1] + len(opt_dict[term]))
-                else:
-                    x.extend([1.0]) #TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-            else:
-                if term != 'charge':
-                    x.extend(opt_dict[term])
-                    ids.append(len(opt_dict[term]))
-                else:
-                    x.extend([1.0]) #TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT
-
-        #print("Starting", x)
-        #x = [item for sublist in values for item in sublist]
-        _, sub_bounds, _ = self.get_sub_parameters(parameters0, terms)
-        bounds = [item for sublist in sub_bounds for item in sublist]
-
-        def obj_fun(x, ref_dics, parameters0, e_offset, ids, obj, charges=None):
-            """
-            Split the x into list
-            """
-            values = []
-            for i in range(len(ids)):
-                if i == 0:
-                    id1 = 0
-                else:
-                    id1 = ids[i-1]
-                values.append(x[id1:ids[i]])
-
-            # The last x value is the ratio of charge
-            #print(charges, x[-1])
-            if charges is not None:
-                values.append(x[-1] * charges)
-            #print(terms, values)
-            parameters = self.set_sub_parameters(values, terms, parameters0)
-            self.update_ff_parameters(parameters)
-            # Reset the lmp.in file
-            lmp_in = self.ff.get_lammps_in()
-            objective = self.get_objective(ref_dics, e_offset, lmp_in=lmp_in, obj=obj)
-            #print("Debugging", values[0][:5], objective)
-            return objective
-
-        # set call back function for debugging
-        def objective_function_wrapper(x, ref_dics, parameters0, e_offset, obj, ids, charges):
-            global last_function_value
-            last_function_value = obj_fun(x, ref_dics, parameters0, e_offset, obj, ids, charges)
-            return last_function_value
-
-        arg_lists = (ref_dics, parameters0, e_offset, ids, obj, charges)
-        # Actual optimization
-        print("Init obj", objective_function_wrapper(x, *arg_lists))#; import sys; sys.exit()
-
-        return x, bounds, objective_function_wrapper, arg_lists
-
-    def optimize_post(self, x, ids, charges):
-        # Rearrange the optimized parameters to the list of values
-        #ids = fun_args[-2]
-        values = []
-        for i in range(len(ids)):
-            if i == 0:
-                id1 = 0
-            else:
-                id1 = ids[i-1]
-            values.append(x[id1:ids[i]])
-
-        # The last x value is the ratio of charge
-        if charges is not None:
-            values.append(x[-1]*charges)
-
-        return values
-
-
-    def optimize_global(self, ref_dics, opt_dict, parameters0=None,
-                        steps=100, obj='MSE', t0=100, alpha=0.99):
+    def optimize_offset(self, ref_dics, ff_dics=None, parameters0=None, steps=50):
         """
-        FF parameters' optimization using the simulated annealing algorithm
-        Todo, test new interface, add temp scheduling
-
-        Args:
-            ref_dics (dict): reference data dictionary
-            opt_dict (dict): optimization terms and values
-            parameters0 (array): initial full parameters
-            steps (int): optimization steps
-            obj (str): 'MSE' or 'R2'
-            t0 (float): initial temp
-            alpha (float): cooling rate
-        Returns:
-            The optimized values
-        """
-        x, bounds, obj_fun, fun_args = self.optimize_init(ref_dics, opt_dict, parameters0, obj)
-        t = t0
-        current_x = x
-        current_fun = obj_fun(current_x, *fun_args)
-        best_x, best_fun = current_x, current_fun
-
-        for i in range(steps):
-            # Generate a candidate solution
-            candidate_x = current_x.copy()
-            for j in range(len(bounds)):
-                lb, ub = bounds[j][0], bounds[j][1]
-                candidate_x[j] += 0.02 * np.random.uniform(-1, 1) * (lb-ub)
-                if candidate_x[j] > ub:
-                    candidate_x[j] = ub
-                elif candidate_x[j] < lb:
-                    candidate_x[j] = lb
-            candidate_fun = obj_fun(candidate_x, *fun_args)
-
-            # Update best fun if necessary
-            if candidate_fun < best_fun:
-                best_x, best_fun = candidate_x.copy(), deepcopy(candidate_fun)
-
-            # Accept the solution with probability
-            if np.random.random() < np.exp((current_fun - candidate_fun)/t):
-                current_x, current_fun = candidate_x, candidate_fun
-
-            t *= alpha
-            if self.verbose and i % 10 == 0:
-                print("Step {:4d} {:5.2f} {:.4f} {:.4f}".format(i, t, candidate_fun, current_fun))#, current_x)
-        print("Best results after {:d} steps: {:.4f}".format(steps, best_fun))
-        #print("Best fun", obj_fun(best_x, *fun_args))#; import sys; sys.exit()
-
-        values = self.optimize_post(best_x, fun_args[-3], fun_args[-1])
-        #print(values)
-
-        return best_x, best_fun, values, steps
-
-
-    def optimize_local(self, ref_dics, opt_dict, parameters0=None, steps=100, obj='MSE'):
-        """
-        FF parameters' local optimization using the Nelder-Mead algorithm
-
-        Args:
-            ref_dics (dict): reference data dictionary
-            opt_dict (dict): optimization terms and values
-            parameters0 (array): initial full parameters
-            steps (int): optimization steps
-        Returns:
-            The optimized values
-        """
-        x, bounds, obj_fun, fun_args = self.optimize_init(ref_dics, opt_dict, parameters0, obj)
-
-        #def my_callback(xk):
-        #    print(f"Solution: {xk[:2]}, Objective: {last_function_value}")
-        class CallbackFunction:
-            def __init__(self):
-                self.iteration = 0  # Initialize iteration count
-
-            def callback(self, xk):
-                self.iteration += 1  # Increment iteration count
-                if self.iteration % 10 == 0:  # Check if it's a multiple of 10
-                    print("Step {:4d} {:.4f}".format(self.iteration, last_function_value))
-
-        callback = CallbackFunction() if self.verbose else None
-
-        res = minimize(#obj_fun,
-                       obj_fun, #objective_function_wrapper,
-                       x,
-                       method = 'Nelder-Mead',
-                       args = fun_args, #(ref_dics, parameters0, e_offset, ids, charges),
-                       options = {'maxiter': steps, 'disp': True},
-                       bounds = bounds,
-                       callback = callback.callback,
-                       )
-
-        # Rearrange the optimized parameters to the list of values
-        values = self.optimize_post(res.x, fun_args[-3], fun_args[-1])
-        print("Final Obj", res.fun)
-        return res.x, res.fun, values, res.nfev
-
-    def optimize_offset(self, ref_dics, parameters0=None, steps=50):
-        """
-        Approximate the offset energy between FF and Reference evaluators
+        Approximate the offset energy between FF and Reference
         mean(engs_ref-engs_ff)
 
         Args:
-            ref_dics (dict): reference data dictionary
+            ref_dics (list): list of reference data dictionaries
+            ff_dics (list): list of FF data dictionaries
             parameters0 (array): initial full parameters
             steps (int): optimization steps
 
         Returns:
-            The optimized e_offset value
+            The optimized parameters with updated offset
         """
+
         if parameters0 is None:
             parameters0 = self.params_init.copy()
+            #print("parameters for optimization:",parameters0)
         else:
             assert(len(parameters0) == len(self.params_init))
 
-        results = self.evaluate_multi_references(ref_dics, parameters0, max_E=1000, max_dE=1000)
-        (ff_values, ref_values, _, _) = results
+        if ff_dics is None:
+            ff_dics, ref_dics = self.evaluate_ff_references(ref_dics, parameters0)
+
+        (ff_values, ref_values, _, _) = self.get_statistics(ff_dics, ref_dics)
         (ff_eng, _, _) = ff_values
         (ref_eng, _, _) = ref_values
 
         x = parameters0[-1]
-        if abs(x) < 1e-5:
-            x = np.mean(ref_eng - ff_eng)
-            print("Initial guess of offset", x)
-            #print("ref_eng", ref_eng)
-            #print("ff_eng", ff_eng)
+        if abs(x) < 1e-5: x = np.mean(ref_eng - ff_eng)
+        # print("Initial guess of offset", x)
 
         def obj_fun(x, ff_eng, ref_eng):
             return -compute_r2(ff_eng + x, ref_eng)
 
-        res = minimize(
-                       obj_fun,
-                       [x],
+        res = minimize(obj_fun, [x],
                        method = 'Nelder-Mead',
                        args = (ff_eng, ref_eng),
-                       options = {'maxiter': steps},
-                      )
+                       options = {'maxiter': steps})
 
         parameters0[-1] += res.x[0]
         print("optimized offset", parameters0[-1])#; import sys; sys.exit()
-        return res.x[0], parameters0
-
+        return parameters0
 
     def load_parameters(self, filename):
         """
@@ -1274,10 +689,10 @@ class ForceFieldParameters:
             for key in ['rmse_values', 'r2_values', 'ff_style']:
                 if key in dics.keys():
                     errors[key] = dics[key]
+            print("Loaded the force field parameters from", filename)
             return np.array(parameters), errors
         else:
             raise ValueError("Unsupported file format")
-
 
     def export_parameters(self, filename='parameters.xml', parameters=None, err_dict=None):
         """
@@ -1287,9 +702,21 @@ class ForceFieldParameters:
             filename: xml file to store the parameters information
             parameters: a numpy array of parameters
         """
-        if parameters is None:
-            parameters = self.params_init.copy()
+        if parameters is None: parameters = self.params_init.copy()
         opt_dict = self.get_opt_dict(self.terms, parameters=parameters)
+        # Clean vdW epsilons: replace near-zero with minimum value
+        if "vdW" in opt_dict:
+            vdw = opt_dict["vdW"]
+            new_vdw = []
+            for i in range(0, len(vdw), 2):
+                sig = vdw[i]
+                eps = vdw[i + 1]
+                if eps < 1e-6 or np.isnan(eps):
+                    eps = 0.01
+                if sig < 1e-6 or np.isnan(sig):
+                    sig = 2.5
+                new_vdw.extend([sig,eps])
+            opt_dict["vdW"] = new_vdw
 
         # Export reference data to file
         root = ET.Element('library')
@@ -1319,8 +746,420 @@ class ForceFieldParameters:
         with open(filename, 'w') as f:
             f.write(pretty_xml)
 
+    def load_references(self, filename):
+        """
+        Load the reference information
 
-    def cut_references_by_error(self, ref_dics, parameters, dE=4.0, FMSE=4.0, SMSE=5e-4):
+        Args:
+            filename (str): path of reference file
+
+        Returns:
+            the list of reference dictionaries
+        """
+        ref_dics = []
+        if filename.endswith(('.xml', '.db')):
+            # Load reference data from file
+            if filename.endswith('.xml'):
+                dics = xml_to_dict_list(filename)
+                for dic in dics:
+                    dic0 = {
+                            'numbers': dic['numbers'],
+                            'lattice': dic['lattice'],
+                            'position': dic['position'],
+                            'energy': dic['energy'],
+                            'forces': dic['forces'],
+                            'stress': dic['stress'],
+                            'replicate': dic['replicate'],
+                            'options': dic['options'],
+                            'tag': dic['tag'],
+                            'numMols': [int(m) for m in dic['numMols']],
+                           }
+                    ref_dics.append(dic0)
+            else:
+                pass
+        else:
+            raise ValueError("Unsupported file format")
+        print(f"Loaded {len(ref_dics)} reference structures from {filename}")
+        return ref_dics
+
+    def get_gs_from_ref_dics(self, ref_dics):
+        """
+        Get the ground state structure from the reference dictionaries
+        """
+        gs = []
+        for ref_dic in ref_dics:
+            if ref_dic['tag'] == 'minimum':
+                data = ref_dic['lattice'].flatten()
+                data = np.append(data, ref_dic['energy']/ref_dic['replicate'])
+                gs.append(data)
+        gs = np.array(gs)
+        return gs
+
+    def get_reference_data_and_mask(self, ref_dics):
+        """
+        Get the reference data and mask for the objective function
+        """
+        eng_arr = []
+        force_arr = []
+        stress_arr = []
+        number_arr = []
+        mask_eng = []
+        mask_force = []
+        mask_stress = []
+
+        for ref_dic in ref_dics:
+            eng = ref_dic['energy']
+            if ref_dic['forces'] is None:
+                force = [0] * 3 * len(ref_dic['numbers'])
+            else:
+                force = ref_dic['forces'].flatten()
+            if ref_dic['stress'] is None:
+                stress = [0] * 6
+            else:
+                stress = ref_dic['stress'].flatten()
+            replicate = ref_dic['replicate']
+            eng_arr.append(eng)
+            number_arr.append(replicate)
+            force_arr.extend(force)
+            stress_arr.extend(stress)
+            N_force = len(force)
+
+            if ref_dic['options'][0]:
+                mask_eng.append(True)
+            else:
+                mask_eng.append(False)
+
+            if ref_dic['options'][1]:
+                mask_force.extend([True] * N_force)
+            else:
+                mask_force.extend([False] * N_force)
+
+            if ref_dic['options'][2]:
+                mask_stress.extend([True] * 6)
+            else:
+                mask_stress.extend([False] * 6)
+
+        eng_arr = np.array(eng_arr)
+        force_arr = np.array(force_arr)
+        stress_arr = np.array(stress_arr)
+        number_arr = np.array(number_arr)
+        mask_eng = np.array(mask_eng)
+        mask_force = np.array(mask_force)
+        mask_stress = np.array(mask_stress)
+        return eng_arr, force_arr, stress_arr, number_arr, mask_eng, mask_force, mask_stress
+
+    def get_label(self, i):
+        """
+        A short utility to get the label for the folder.
+        """
+        if i < 10:
+            folder = f"par/cpu00{i}"
+        elif i < 100:
+            folder = f"par/cpu0{i}"
+        else:
+            folder = f"par/cpu{i}"
+        return folder
+
+    def run_lammps_evaluation(self, lmp_strucs, numMols, options, lmp_dats, lmp_in, box, coordinates):
+        return self.evaluate_ff_single(lmp_strucs, numMols, options, lmp_dats, lmp_in, box, coordinates)
+
+    def evaluate_ff_references(self, ref_dics, parameters, update=True):
+        """
+        Calculate ff_dics for multiple reference structures using FF
+
+        Args:
+            ref_dics: list of references
+            parameters: ff parameters array
+            update: whether or not update the ref_dics
+        """
+        self.update_ff_parameters(parameters)
+        offset_opt = parameters[-1]
+
+        ff_dics = []
+        lmp_strucs, lmp_dats = self.get_lmp_inputs_from_ref_dics(ref_dics)
+        lmp_in = self.ff.get_lammps_in()
+
+        #parallel process
+        N_cycle = int(np.ceil(len(ref_dics) / self.ncpu))
+        args_list = []
+        for i in range(self.ncpu):
+            folder = self.get_label(i)
+            id1 = i * N_cycle
+            id2 = min([id1 + N_cycle, len(ref_dics)])
+            os.makedirs(folder, exist_ok=True)
+            args_list.append((ref_dics[id1:id2],
+                              lmp_strucs[id1:id2],
+                              lmp_dats[id1:id2],
+                              lmp_in,
+                              offset_opt,
+                              folder))
+        if self.ncpu == 1:
+            # Single process
+            for p in args_list:
+                res = evaluate_ff_dic_par(*p)
+                ff_dics.extend(res)
+        else:
+            with ProcessPoolExecutor(max_workers=self.ncpu,
+                                     mp_context=mp.get_context('spawn')) as executor:
+                results = [executor.submit(evaluate_ff_dic_par, *p) for p in args_list]
+
+            for result in results:
+                ff_dic = result.result()
+                ff_dics.extend(ff_dic)
+
+        if update:
+            masks = self.get_outliers(ff_dics, ref_dics)
+            ref_dics = [ref_dic for i, ref_dic in enumerate(ref_dics) if not masks[i]]
+            ff_dics = [ff_dic for i, ff_dic in enumerate(ff_dics) if not masks[i]]
+            #ref_dics = ref_dics[~masks]
+            #ff_dics = ff_dics[~masks]
+
+        return ff_dics, ref_dics
+
+    def get_statistics(self, ff_dics, ref_dics):
+        """
+        Get the statistics for FF evaluation
+
+        Args:
+            ff_dics: list of FF dictionaries
+            ref_dics: list of reference dictionaries
+        """
+        ff_eng, ff_force, ff_stress = [], [], []
+        ref_eng, ref_force, ref_stress = [], [], []
+        for ff_dic, ref_dic in zip(ff_dics, ref_dics):
+            ff_eng.append(ff_dic['energy'])
+            ref_eng.append(ref_dic['energy']/ref_dic['replicate'])
+            if ref_dic['options'][1]:
+                ff_force.extend(ff_dic['forces'].flatten())
+                ref_force.extend(ref_dic['forces'].flatten())
+            if ref_dic['options'][2]:
+                ff_stress.extend(ff_dic['stress'].flatten())
+                ref_stress.extend(ref_dic['stress'].flatten())
+        ff_eng = np.array(ff_eng)
+        ref_eng = np.array(ref_eng)
+        ff_force = np.array(ff_force)
+        ref_force = np.array(ref_force)
+        ff_stress = np.array(ff_stress)
+        ref_stress = np.array(ref_stress)
+
+        # Compute RMSE and R² scores
+        mse_values = [np.sqrt(np.mean((ff - ref) ** 2)) if len(ff) > 0 else 0 for ff, ref in zip((ff_eng, ff_force, ff_stress), (ref_eng, ref_force, ref_stress))]
+        r2_values = [compute_r2(ff, ref) if len(ff) > 0 else 0 for ff, ref in zip((ff_eng, ff_force, ff_stress), (ref_eng, ref_force, ref_stress))]
+        ff_values = (ff_eng, ff_force, ff_stress)
+        ref_values = (ref_eng, ref_force, ref_stress)
+        return (ff_values, ref_values, mse_values, r2_values)
+
+    def get_outliers(self, ff_dics, ref_dics, tol_zscore=1.0):
+        """
+        Filter out the outliers based on the Z-score method
+
+        Args:
+            ff_dics: list of FF dictionaries
+            ref_dics: list of reference dictionaries
+            tol_zscore: tolerance for Z-score
+        """
+        ff_eng = np.array([dic['energy'] for dic in ff_dics])
+        ref_eng = np.array([dic['energy']/dic['replicate'] for dic in ref_dics])
+        diffs = np.abs(ref_eng - ff_eng)
+        z_scores = np.abs(zscore(diffs))
+        masks = z_scores > tol_zscore
+        print(f"Find {len(ff_eng[masks])}/{len(ff_eng)} outliers using the zscore")
+        return masks
+
+    def _plot_ff_parameters(self, ax, params, term='bond-1', width=0.35):
+        """
+        Plot the individual parameters in bar plot style
+
+        Args:
+            ax: matplotlib axis
+            params (list): list of FF parameter arrays
+            term (str): e.g. 'bond-1', 'angles-1', 'vdW-1', 'charges'
+        """
+        term = term.split('-')
+        if len(term) == 1: # applied to charge/proper
+            term, seq = term[0], 0
+        else: # applied for bond/angle/proper/vdW
+            term, seq = term[0], int(term[1])
+
+        for i, param in enumerate(params):
+            label = 'FF' + str(i) + '-' + term
+            subpara, _ , _ = self.get_sub_parameters(param, [term])
+            if seq == 0:
+                data = subpara[0]
+            else:
+                data = subpara[0][seq-1::2]
+                label += '-' + str(seq)
+            ind = np.arange(len(data))
+            ax.bar(ind+i*width, data, width, label=label)
+
+        if seq < 2:
+            #ax.set_xlabel(term)
+            ax.set_ylabel(term)
+        ax.set_xticks([])
+        ax.legend()
+
+    def plot_ff_parameters(self, figname, params, figsize=(10, 16),
+                terms=['bond', 'angle', 'proper', 'vdW', 'charge']):
+        """
+        Plot the whole FF parameters
+
+        Args:
+            figname (str): path of figname
+            params: list of parameters array
+            figsize:
+            terms: list of FF terms
+        """
+        grid_size = (len(terms), 2)
+        fig = plt.figure(figsize=figsize)
+        for i, term in enumerate(terms):
+            if term in ['charge', 'proper']:
+                ax = plt.subplot2grid(grid_size, (i, 0), colspan=2, fig=fig)
+                self._plot_ff_parameters(ax, params, term=term)
+            else:
+                ax1 = plt.subplot2grid(grid_size, (i, 0), fig=fig)
+                ax2 = plt.subplot2grid(grid_size, (i, 1), fig=fig)
+                self._plot_ff_parameters(ax1, params, term=term+'-1')
+                self._plot_ff_parameters(ax2, params, term=term+'-2')
+        plt.title('.'.join(self.smiles))
+        plt.savefig(figname)
+        plt.close('all')
+
+    def plot_ff_results(self, figname, ref_dics, params, labels=None, ff_dics=None):
+        """
+        Plot the ff performance results
+
+        Args:
+            figname (str): figname
+            ref_dics (list): list of references
+            params (list): list of parameter arrays
+            labels: labels
+            ff_dics: list of FF dictionaries
+
+        Return:
+            performance figure and the error dictionaries
+        """
+        print("Number of reference structures", len(ref_dics))
+        err_dics = []
+        fig, axes = plt.subplots(len(params), 3, figsize=(16, 4*len(params)))
+
+        if len(params) == 1:
+            if labels is None: labels = 'Opt'
+            for i, ref_dic in enumerate(ref_dics):
+                if ff_dics is None:
+                    ff_dic, ref_dic = self.evaluate_ff_references(ref_dic,
+                                                                params[0],
+                                                                update=False)
+                else:
+                    ff_dic = ff_dics[i]
+                _, err_dic = self._plot_ff_results(axes, ref_dic, ff_dic, labels)
+                err_dics.append(err_dic)
+        else:
+            if labels is None: labels = ['FF' + str(i) for i in range(len(params))]
+            for i, param in enumerate(params):
+                if ff_dics is None:
+                    ff_dic, ref_dic = self.evaluate_ff_references(ref_dics,
+                                                                  param,
+                                                                  update=False)
+                _, err_dic = self._plot_ff_results(axes[i], ref_dic, ff_dic, labels[i])
+                err_dics.append(err_dic)
+        plt.savefig(figname)
+        plt.close('all')
+        return err_dics
+
+    def _plot_ff_results(self, axes, ref_dics, ff_dics, label, results=None, size=None, verbose=False):
+        """
+        Plot the results of FF prediction as compared to the references in
+        terms of Energy, Force and Stress values.
+        Args:
+            axes (list): list of matplotlib axes
+            ref_dics (list): list of reference dictionaries
+            ff_dics (list): list of FF dictionaries
+            label (str): label for the plot
+            max_E (float): maximum energy value
+            max_dE (float): maximum energy difference
+            results (dict): (ff_values, ref_values, tags)
+            size (int): size of the scatter points
+            verbose (bool): verbose mode to print the results
+        """
+        # Set up the ff engine
+        (ff_values, ref_values, rmse_values, r2_values) = self.get_statistics(ff_dics, ref_dics)
+        (ff_eng, ff_force, ff_stress) = ff_values
+        (ref_eng, ref_force, ref_stress) = ref_values
+        (mse_eng, mse_for, mse_str) = rmse_values
+        (r2_eng, r2_for, r2_str) = r2_values
+
+        if verbose:
+            print("r2 values", r2_values)
+            print("ref_eng_values", ref_eng)
+            print("ff_eng_values", ff_eng)
+
+        if len(ff_eng) > 1:
+            label1 = f'{label:8s} Energy ({len(ff_eng)})\n'
+            label1 += f'RMSE: {mse_eng:.4f} eV/mol\nR2:   {r2_eng:.4f}'
+            print(label1)
+
+            label2 = f'{label:8s} Forces ({len(ff_force)})\n'
+            label2 += f'RMSE: {mse_for:.4f} eV/A\nR2:   {r2_for.mean():.4f}'
+            print(label2)
+
+            label3 = f'{label:8s} Stress ({len(ff_stress)})\n'
+            label3 += f'RMSE: {mse_str:.4f} GPa\nR2:   {r2_str:.4f}'
+            print(label3)
+            print(f'\nMin_values: {ff_eng.min():.4f} {ref_eng.min():.4f}')
+        else:
+            label1 = label2 = label3 = None
+
+        axes[0].scatter(ref_eng, ff_eng, s=size, label=label1, alpha=0.5)
+        axes[1].scatter(ref_force, ff_force, s=size, label=label2, alpha=0.5)
+        axes[2].scatter(ref_stress, ff_stress, s=size, label=label3, alpha=0.5)
+
+        for ax in axes:
+            ax.set_xlabel('Reference')
+            ax.set_ylabel('FF')
+            ax.legend(loc=2)
+
+        err_dict = {'rmse_values': (mse_eng, mse_for, mse_str),
+                    'r2_values': (r2_eng, r2_for, r2_str),
+                    'min_values': (ff_eng.min(), ref_eng.min())}
+        return axes, err_dict
+
+    def remove_duplicate_structures(self, xml_file, overwrite=True):
+        """
+        Remove duplicate structures in the xml file by comparing the numbers,
+        lattice and position of the structures.
+
+        Args:
+            xml_file (str): xml file containing the structures
+            overwrite (bool): overwrite the original file
+        """
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        seen_structures = set()
+        unique_structures = []
+
+        for structure in root.findall("structure"):
+            numbers = structure.find("numbers").text.strip()
+            lattice = structure.find("lattice").text.strip().replace("\n", " ")
+            position = structure.find("position").text.strip().replace("\n", " ")
+
+            # Create a unique key for the structure
+            structure_key = (numbers, lattice, position)
+            if structure_key not in seen_structures:
+                seen_structures.add(structure_key)
+                unique_structures.append(structure)
+
+        # Clear original structures
+        root.clear()
+
+        # Add only unique structures back
+        for structure in unique_structures: root.append(structure)
+
+        # Overwrite the original file
+        if overwrite:
+            tree.write(xml_file)
+            print(f"Overwritten {xml_file} with {len(unique_structures)} structures.")
+
+    def cut_references_by_error(self, ref_dics, parameters, dE=3.0, FMSE=4.0, SMSE=5e-4):
         """
         Cut the list of references by error
 
@@ -1333,24 +1172,25 @@ class ForceFieldParameters:
         """
         _ref_dics = []
         self.update_ff_parameters(parameters)
-        for i, ref_dic in enumerate(ref_dics):
+        for ref_dic in ref_dics:
             self.ase_templates = {}
             self.lmp_dat = {}
-            ff_dic = self.evaluate_ff_single(ref_dic['structure'], ref_dic['numMols'])
-            e1 = ff_dic['energy']/ff_dic['replicate'] + parameters[-1]
-            e2 = ref_dic['energy']/ff_dic['replicate']
+            structure = prepare_atoms(ref_dic)
+            ff_dic = self.evaluate_ff_single(structure, ref_dic['numMols'])
+            e1 = ff_dic['energy'] / ff_dic['replicate'] + parameters[-1]
+            e2 = ref_dic['energy'] / ff_dic['replicate']
             if abs(e1-e2) < dE:
                 add = True
                 if ref_dic['options'][1]:
                     f1 = ff_dic['forces'].flatten()
                     f2 = ref_dic['forces'].flatten()
-                    rmse = np.sum((f1-f2)**2)/len(f2)
+                    rmse = np.sum((f1-f2)**2) / len(f2)
                     if rmse > FMSE:
                         add = False
                 if add and ref_dic['options'][2]:
                     s1 = ff_dic['stress']
                     s2 = ref_dic['stress']
-                    rmse = np.sum((s1-s2)**2)/len(s2)
+                    rmse = np.sum((s1-s2)**2) / len(s2)
                     if rmse > SMSE:
                         add = False
                 if add:
@@ -1359,9 +1199,185 @@ class ForceFieldParameters:
         print("Removed {:d} entries by error".format(len(ref_dics)-len(_ref_dics)))
         return _ref_dics
 
+    def get_lmp_template(self):
+        """
+        Get TEMPLATE by reading the order/length of parameters.xml.
+        Intended for LAMMPS
+
+        Returns:
+            template (dictionary): dictionary containing the LAMMPS template
+        """
+
+        template = {}
+        para_index = 0 # parameter index
+
+        # Bond
+        bond_index = 0
+        for molecule in self.ff.molecules:
+            for bond_type in molecule.bond_types:
+                template[f"bond_coeff {bond_index + 1}"] = [para_index, para_index + 1]
+                para_index += 2
+                bond_index += 1
+
+        # Angle
+        angle_index = 0
+        for molecule in self.ff.molecules:
+            for angle_type in molecule.angle_types:
+                template[f"angle_coeff {angle_index + 1}"] = [para_index, para_index + 1]
+                para_index += 2
+                angle_index += 1
+
+        # Proper (phi_k) # per=2, phase=180.000,  scee=1.200, scnb=2.000
+        dihedral_index = 0
+        for molecule in self.ff.molecules:
+            for dihedral_type in molecule.dihedral_types:
+                per = int(dihedral_type.per)
+                phase = int(dihedral_type.phase)
+                offset = 0 #dihedral_type.offset
+                template[f"dihedral_coeff {dihedral_index + 1}"] = [para_index, per, phase, offset]  # CHARMM default
+                para_index += 1
+                dihedral_index += 1
+
+        # nonbond vdW parameters (rmin, epsilon)
+        vdw_map = {}
+        vdw_index = 0
+        for molecule in self.ff.molecules:
+            ps = molecule.get_parameterset_with_resname_as_prefix()
+            for name, atom_type in ps.atom_types.items():
+                if name not in vdw_map:
+                    template[f"pair_coeff {vdw_index + 1} {vdw_index + 1}"] = [para_index, para_index + 1]
+                    template[f"mass {vdw_index+1}"] = atom_type.mass
+                    vdw_map[name] = (vdw_index+1, para_index, para_index + 1)
+                    para_index += 2
+                    vdw_index += 1
+        return template
+
+
+class ForceFieldParameters(ForceFieldParametersBase):
+    def __init__(self,
+                 smiles = ['CC(=O)OC1=CC=CC=C1C(=O)O'],
+                 style = 'gaff',
+                 chargemethod = 'am1bcc',
+                 ref_evaluator = None,
+                 ff_evaluator = 'lammps',
+                 e_coef = 1.0,
+                 f_coef = 0.1,
+                 s_coef = 1.0,
+                 ncpu = 1,
+                 verbose = True):
+
+        ForceFieldParametersBase.__init__(
+                self,
+                smiles,
+                style,
+                chargemethod,
+                ff_evaluator,
+                e_coef,
+                f_coef,
+                s_coef,
+                ncpu,
+                verbose,
+                )
+        if ref_evaluator is not None:
+            self.set_ref_evaluator(ref_evaluator)
+
+    def set_ref_evaluator(self, ref_evaluator='mace', device='cpu'):
+        """
+        Set the reference evaluator
+        """
+        self.ref_evaluator = ref_evaluator
+
+        if ref_evaluator == 'mace':
+            from mace.calculators import mace_mp
+            self.calculator = mace_mp(model = "small",
+                                      dispersion = True,
+                                      default_dtype = "float32",
+                                      device = device)
+        elif ref_evaluator == 'ani':
+            from torchani import models
+            self.calculator = models.ANI2x().ase()
+        else:
+            raise ValueError("Unknown ref_evaluator")
+
+    def check_validity(self, parameters):
+        """
+        Check if the input FF parameters are within the bound
+        and satisfy the constaint
+        """
+        # last parameter is for the offset
+        for i, _parameter in enumerate(parameters[:-1]):
+            (lb, ub) = self.bounds[i]
+            if _parameter >= ub:
+                _parameter = ub
+            elif _parameter <= lb:
+                _parameter = lb
+
+        # Rescale the partial charges
+        for constraint in self.constraints:
+            (id1, id2, sum_chg) = constraint
+            diff = sum(parameters[id1:id2]) - sum_chg
+            if abs(diff) > 1e-2:
+                for id in range(id1, id2):
+                    parameters[id] += diff/(id2-id1)
+        return parameters
+
+    def evaluate_single_reference(self, ref_dic, parameters):
+        """
+        Evaluate the FF performance for a single reference structure
+
+        Args:
+            ref_dic: reference data dictionary
+            parameters: FF parameters array
+        """
+        f_mse, f_r2, s_mse, s_r2 = 0, 0, 0, 0
+        self.update_ff_parameters(parameters)
+        offset_opt = parameters[-1]
+
+        structure = prepare_atoms(ref_dic)
+        options = ref_dic['options']
+
+        ff_dic = self.evaluate_ff_single(structure, ref_dic['numMols'], options, None)
+        e_diff = ff_dic['energy']/ff_dic['replicate'] + offset_opt - ref_dic['energy']/ff_dic['replicate']
+        print(ff_dic['energy'], ref_dic['energy'])
+        if options[1]:
+            f1 = ff_dic['forces'].flatten()
+            f2 = ref_dic['forces'].flatten()
+            f_mse = np.sum((f1-f2)**2)/len(f1)
+            f_r2 = compute_r2(f1, f2)
+        if options[2]:
+            s1 = ff_dic['stress'].flatten()
+            s2 = ref_dic['stress'].flatten()
+            f_mse = np.sum((s1-s2)**2)/len(s1)
+            f_r2 = compute_r2(s1, s2)
+        return e_diff, f_mse, f_r2, s_mse, s_r2
+
+    def same_lmp(self, struc1, struc2):
+        """
+        Quick comparison for two lmp structures
+
+        Args:
+            struc1: lmp structure
+            struc2: lmp structure
+        """
+        for i in range(len(struc1.dihedrals)):
+            d1 = struc1.dihedrals[i]
+            d2 = struc2.dihedrals[i]
+            id1 = [d1.atom1.idx, d1.atom2.idx, d1.atom3.idx, d1.atom4.idx]
+            id2 = [d2.atom1.idx, d2.atom2.idx, d2.atom3.idx, d2.atom4.idx]
+            if id1 != id2:
+                print("Different structures were found, check 1.xyz and 2.xyz")
+                struc1.to_ase('1.xyz', format='1.xyz')
+                struc2.to_ase('2.xyz', format='2.xyz')
+                return False
+        return True
+
     def cut_references(self, ref_dics, cutoff):
         """
-        Cut the list of references by energy
+        Cut the list of references by energy threshold
+
+        Args:
+            ref_dics: list of reference configuration in dict format
+            cutoff: energy cutoff
         """
         N0 = len(ref_dics)
         engs = []
@@ -1389,55 +1405,13 @@ class ForceFieldParameters:
         print("Reduce references {:d} => {:d}".format(N0, len(_ref_dics)))
         return _ref_dics
 
-
-    def load_references(self, filename, reset_cell=False):
-        """
-        Load the reference information
-
-        Args:
-            - filename (str): path of reference file
-            - reset_cell (bool): whether or not reset the cell
-
-        Returns:
-            the list of reference dictionaries
-        """
-        ref_dics = []
-        if filename.endswith(('.xml', '.db')):
-            # Load reference data from file
-            if filename.endswith('.xml'):
-                dics = xml_to_dict_list(filename)
-                for dic in dics:
-                    structure = Atoms(numbers = dic['numbers'],
-                                      positions = dic['position'],
-                                      cell = dic['lattice'],
-                                      pbc = [1, 1, 1])
-                    if reset_cell:
-                        structure = reset_lammps_cell(structure)
-                    dic0 = {
-                            'structure': structure,
-                            'energy': dic['energy'],
-                            'forces': dic['forces'],
-                            'stress': dic['stress'],
-                            'replicate': dic['replicate'],
-                            'options': dic['options'],
-                            'tag': dic['tag'],
-                            'numMols': [int(m) for m in dic['numMols']],
-                           }
-                    ref_dics.append(dic0)
-            else:
-                pass
-        else:
-            raise ValueError("Unsupported file format")
-
-        return ref_dics
-
     def export_references(self, ref_dics, filename='reference.xml'):
         """
-        export the reference configurations to xml or ase.db
+        Export the reference configurations to xml or ase.db
 
         Args:
-            - ref_dics: list of reference configuration in dict format
-            - filename: filename
+            ref_dics: list of reference configuration in dict format
+            filename: filename
         """
         if filename.endswith(('.xml', '.db')):
             # Export reference data to file
@@ -1478,473 +1452,9 @@ class ForceFieldParameters:
         else:
             raise ValueError("Unsupported file format")
 
-    def get_label(self, i):
-        if i < 10:
-            folder = f"cpu00{i}"
-        elif i < 100:
-            folder = f"cpu0{i}"
-        else:
-            folder = f"cpu0{i}"
-        return folder
-
-    def evaluate_single_reference(self, ref_dic, parameters):
-
-        f_mse, f_r2, s_mse, s_r2 = 0, 0, 0, 0
-        self.update_ff_parameters(parameters)
-        offset_opt = parameters[-1]
-        structure, options = ref_dic['structure'], ref_dic['options']
-
-        ff_dic = self.evaluate_ff_single(structure, ref_dic['numMols'], options, None)
-        e_diff = ff_dic['energy']/ff_dic['replicate'] + offset_opt - ref_dic['energy']/ff_dic['replicate']
-        print(ff_dic['energy'], ref_dic['energy'])
-        if options[1]:
-            f1 = ff_dic['forces'].flatten()
-            f2 = ref_dic['forces'].flatten()
-            f_mse = np.sum((f1-f2)**2)/len(f1)
-            f_r2 = compute_r2(f1, f2)
-        if options[2]:
-            s1 = ff_dic['stress'].flatten()
-            s2 = ref_dic['stress'].flatten()
-            f_mse = np.sum((s1-s2)**2)/len(s1)
-            f_r2 = compute_r2(s1, s2)
-        return e_diff, f_mse, f_r2, s_mse, s_r2
-
-
-    def evaluate_multi_references(self, ref_dics, parameters, max_E, max_dE):
-        """
-        Calculate scores for multiple reference structures
-
-        Args:
-            ref_dics: list of references
-            parameters: ff parameters array
-            max_E: maximally allowed energy for FF
-            max_dE: maximally allowed dE between FF and ref energy
-        """
-        self.update_ff_parameters(parameters)
-        offset_opt = parameters[-1]
-
-        ff_eng, ff_force, ff_stress = [], [], []
-        ref_eng, ref_force, ref_stress = [], [], []
-
-        lmp_strucs, lmp_dats = self.get_lmp_inputs_from_ref_dics(ref_dics)
-        lmp_in = self.ff.get_lammps_in()
-
-        if self.ncpu == 1:
-            for i, ref_dic in enumerate(ref_dics):
-                structure, options, numMols = ref_dic['structure'], ref_dic['options'], ref_dic['numMols']
-                #print(lmp_strucs[i].box)
-                structure = reset_lammps_cell(structure)
-                box = structure.cell.cellpar()
-                coordinates = structure.get_positions()
-
-                ff_dic = self.evaluate_ff_single(lmp_strucs[i],
-                                                 numMols,
-                                                 options,
-                                                 lmp_dats[i],
-                                                 None,
-                                                 box,
-                                                 coordinates)
-
-                e1 = ff_dic['energy']/ff_dic['replicate']
-                e2 = ref_dic['energy']/ff_dic['replicate']
-                de = abs(e1 + offset_opt - e2)
-                if e1 < max_E and de < max_dE:
-                    ff_eng.append(e1 + offset_opt)
-                    ref_eng.append(e2)
-                    if ref_dic['options'][1]:
-                        ff_force.extend(ff_dic['forces'].tolist())
-                        ref_force.extend(ref_dic['forces'].tolist())
-                    if ref_dic['options'][2]:
-                        ff_stress.extend(ff_dic['stress'].tolist())
-                        ref_stress.extend(ref_dic['stress'].tolist())
-        else:
-            #parallel process
-            N_cycle = int(np.ceil(len(ref_dics)/self.ncpu))
-            #for cycle in range(N_cycle):
-            args_list = []
-            for i in range(self.ncpu):
-                folder = self.get_label(i)
-                id1 = i * N_cycle
-                id2 = min([id1+N_cycle, len(ref_dics)])
-                #print(i, id1, id2, len(ref_dics))
-                os.makedirs(folder, exist_ok=True)
-                args_list.append((ref_dics[id1:id2],
-                                  lmp_strucs[id1:id2],
-                                  lmp_dats[id1:id2],
-                                  lmp_in,
-                                  offset_opt,
-                                  self.natoms_per_unit,
-                                  self.f_coef,
-                                  self.s_coef,
-                                  folder,
-                                  max_E,
-                                  max_dE))
-
-            with ProcessPoolExecutor(max_workers=self.ncpu) as executor:
-                results = [executor.submit(evaluate_ff_error_par, *p) for p in args_list]
-                for result in results:
-                    res = result.result()
-                    ff_eng.extend(res[0])
-                    if len(res[1]) > 0: ff_force.extend(res[1])
-                    if len(res[2]) > 0: ff_stress.extend(res[2])
-                    ref_eng.extend(res[3])
-                    if len(res[4]) > 0: ref_force.extend(res[4])
-                    if len(res[5]) > 0: ref_stress.extend(res[5])
-
-        ff_eng = np.array(ff_eng).flatten()
-        ff_force = np.array(ff_force).flatten()
-        ff_stress = np.array(ff_stress)
-
-        ref_eng = np.array(ref_eng).flatten()
-        ref_force = np.array(ref_force).flatten()
-        ref_stress = np.array(ref_stress)
-
-        mse_eng = np.sqrt(np.mean((ff_eng-ref_eng)**2))
-        mse_for = np.sqrt(np.mean((ff_force-ref_force)**2))
-        mse_str = np.sqrt(np.mean((ff_stress-ref_stress)**2))
-        #print(ff_eng, ref_eng)
-        r2_eng = compute_r2(ff_eng, ref_eng)
-        r2_for = compute_r2(ff_force, ref_force)
-        r2_str = compute_r2(ff_stress, ref_stress)
-
-        ff_values = (ff_eng, ff_force, ff_stress)
-        ref_values = (ref_eng, ref_force, ref_stress)
-        rmse_values = (mse_eng, mse_for, mse_str)
-        r2_values = (r2_eng, r2_for, r2_str)
-
-        return ff_values, ref_values, rmse_values, r2_values
-
-
-    def add_multi_references(self, strucs, numMols, augment=True, steps=120, N_vibs=3, logfile='-'):
-        """
-        Add multiple references to training
-
-        Args:
-            - strucs (list): list of ase strucs with the desired atomic orders
-            - numMos (list): list of
-            - augment (bool):
-            - steps (int):
-            - N_vibs (int):
-
-        Returns:
-            list of reference dics
-        """
-        ref_dics = []
-
-        if not augment:
-            if self.ncpu == 1:
-                for numMol, struc in zip(numMols, strucs):
-                    ref_structure = reset_lammps_cell(struc)
-                    ref_dic = evaluate_ref_single(ref_structure,
-                                                  numMol,
-                                                  self.calculator,
-                                                  self.natoms_per_unit,
-                                                  [True, True, True])
-                    ref_dic['tag'] = 'CSP'
-                    ref_dics.append(ref_dic)
-            else:
-                N_cycle = int(np.ceil(len(strucs)/self.ncpu))
-                args_list = []
-                for i in range(self.ncpu):
-                    folder = self.get_label(i)
-                    id1 = i*N_cycle
-                    id2 = min([id1+N_cycle, len(strucs)])
-                    os.makedirs(folder, exist_ok=True)
-                    print("# parallel process", N_cycle, id1, id2)
-                    args_list.append((strucs[id1:id2],
-                                      numMols[id1:id2],
-                                      self.calculator,
-                                      self.natoms_per_unit,
-                                      [True, True, True]))
-
-                with ProcessPoolExecutor(max_workers=self.ncpu) as executor:
-                    results = [executor.submit(evaluate_ref_par, *p) for p in args_list]
-                    for result in results:
-                        res = result.result()
-                        ref_dics.extend(res)
-
-        # augment structures is more expensive
-        else:
-            if self.ncpu == 1:
-                for struc in strucs:
-                    dics = self.augment_reference(struc,
-                                                  numMols,
-                                                  steps=steps,
-                                                  N_vibs=N_vibs,
-                                                  logfile=logfile)
-                    ref_dics.extend(dics)
-
-            else:
-                N_cycle = int(np.ceil(len(strucs)/self.ncpu))
-                args_list = []
-                for i in range(self.ncpu):
-                    folder = self.get_label(i)
-                    id1 = i*N_cycle
-                    id2 = min([id1+N_cycle, len(strucs)])
-                    os.makedirs(folder, exist_ok=True)
-                    print("# parallel process", N_cycle, id1, id2)
-                    args_list.append((strucs[id1:id2],
-                                      numMols[id1:id2],
-                                      self.calculator,
-                                      steps,
-                                      N_vibs,
-                                      self.natoms_per_unit,
-                                      folder,
-                                      logfile))
-
-                with ProcessPoolExecutor(max_workers=self.ncpu) as executor:
-                    results = [executor.submit(augment_ref_par, *p) for p in args_list]
-                    for result in results:
-                        res = result.result()
-                        ref_dics.extend(res)
-
-        return ref_dics
-
-
-    def add_multi_references_from_cif(self, cif, N_max=10, augment=True, steps=120, N_vibs=3):
-        """
-        Add multiple references to training
-
-        Args:
-            - cif (str): cif file containg mutliple structures
-            - N_max (int):
-            - augment (bool):
-            - steps (int):
-            - N_vibs (int):
-
-        Returns:
-            list of reference dics
-        """
-        from pyxtal.util import parse_cif
-        strs, engs = parse_cif(cif, eng=True)
-        N_max = min([N_max, len(strs)])
-        ids = np.argsort(engs)[:N_max]
-        strs = [strs[id] for id in ids if engs[id] < 1000] # sort by eng
-        smiles = [smi+'.smi' for smi in self.ff.smiles]
-        strucs = []
-        numMols = []
-
-        if self.ncpu == 1:
-            for i, id in enumerate(ids):
-                pmg = Structure.from_str(strs[id], fmt='cif')
-                c0 = pyxtal(molecular=True)
-                c0.from_seed(pmg, molecules=smiles)
-                strucs.append(c0.to_ase(resort=False))
-                numMols.append(c0.numMols)
-        else:
-            N_cycle = int(np.ceil(len(strs)/self.ncpu))
-            args_list = []
-            for i in range(self.ncpu):
-                id1 = i*N_cycle
-                id2 = min([id1+N_cycle, len(strs)])
-                print("# parallel process", N_cycle, id1, id2)
-                args_list.append((strs[id1:id2], smiles))
-
-            with ProcessPoolExecutor(max_workers=self.ncpu) as executor:
-                results = [executor.submit(add_strucs_par, *p) for p in args_list]
-                for result in results:
-                    res = result.result()
-                    if len(res) > 0:
-                        strucs.extend(res[0])
-                        numMols.extend(res[1])
-
-        return self.add_multi_references(strucs, numMols, augment, steps, N_vibs)
-
-
-    def _plot_ff_parameters(self, ax, params, term='bond-1', width=0.35):
-        """
-        plot the individual parameters in bar plot style
-
-        Args:
-            ax: matplotlib axis
-            params (list): list of FF parameter arrays
-            term (str): e.g. 'bond-1', 'angles-1', 'vdW-1', 'charges'
-        """
-        term = term.split('-')
-        if len(term) == 1: # applied to charge/proper
-            term, seq = term[0], 0
-        else: # applied for bond/angle/proper/vdW
-            term, seq = term[0], int(term[1])
-
-        for i, param in enumerate(params):
-            label = 'FF' + str(i) + '-' + term
-            subpara, _ , _ = self.get_sub_parameters(param, [term])
-            if seq == 0:
-                data = subpara[0]
-            else:
-                data = subpara[0][seq-1::2]
-                label += '-' + str(seq)
-            ind = np.arange(len(data))
-            ax.bar(ind+i*width, data, width, label=label)
-
-        if seq < 2:
-            #ax.set_xlabel(term)
-            ax.set_ylabel(term)
-        ax.set_xticks([])
-        ax.legend()
-
-    def plot_ff_parameters(self, figname, params, figsize=(10, 16),
-                terms=['bond', 'angle', 'proper', 'vdW', 'charge']):
-        """
-        plot the whole FF parameters
-
-        Args:
-            figname (str): path of figname
-            params: list of parameters array
-            figsize:
-            terms: list of FF terms
-        """
-
-        grid_size = (len(terms), 2)
-        fig = plt.figure(figsize=figsize)
-        for i, term in enumerate(terms):
-            if term in ['charge', 'proper']:
-                ax = plt.subplot2grid(grid_size, (i, 0), colspan=2, fig=fig)
-                self._plot_ff_parameters(ax, params, term=term)
-            else:
-                ax1 = plt.subplot2grid(grid_size, (i, 0), fig=fig)
-                ax2 = plt.subplot2grid(grid_size, (i, 1), fig=fig)
-                self._plot_ff_parameters(ax1, params, term=term+'-1')
-                self._plot_ff_parameters(ax2, params, term=term+'-2')
-        plt.title('.'.join(self.smiles))
-        plt.savefig(figname)
-
-    def plot_ff_results(self, figname, ref_dics, params, labels=None,
-            max_E=1000, max_dE=1000):
-        """
-        plot the ff performance results
-
-        Args:
-            figname (str): figname
-            ref_dics (list): list of references
-            params (list): list of parameter arrays
-            labels: labels
-
-        Return:
-            performance figure and the error dictionaries
-        """
-        print("Number of reference structures", len(ref_dics))
-        if len(params) == 1:
-            if labels is None: labels = 'Opt'
-            fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-            _, err_dic = self._plot_ff_results(axes, params[0], ref_dics, labels, max_E, max_dE)
-            plt.savefig(figname)
-            return [err_dic]
-        else:
-            if labels is None: labels = ['FF'+str(i) for i in range(len(params))]
-            fig, axes = plt.subplots(len(params), 3, figsize=(16, 4*len(params)))
-            err_dics = []
-            for i, param in enumerate(params):
-                _, err_dic = self._plot_ff_results(axes[i], param, ref_dics, labels[i], max_E, max_dE)
-                err_dics.append(err_dic)
-            plt.savefig(figname)
-            return err_dics
-
-
-    def _plot_ff_results(self, axes, parameters, ref_dics, label,
-            max_E=1000, max_dE=1000, size=None):
-        """
-        Plot the results of FF prediction as compared to the references in
-        terms of Energy, Force and Stress values.
-        Args:
-            axes (list): list of matplotlib axes
-            parameters (1D array): array of full FF parameters
-            ref_dics (dict): reference data
-            offset_opt (float): offset values for energy prediction
-            label (str):
-        """
-
-        # Set up the ff engine
-        self.update_ff_parameters(parameters)
-
-        results = self.evaluate_multi_references(ref_dics, parameters, max_E, max_dE)
-        (ff_values, ref_values, rmse_values, r2_values) = results
-        (ff_eng, ff_force, ff_stress) = ff_values
-        (ref_eng, ref_force, ref_stress) = ref_values
-        (mse_eng, mse_for, mse_str) = rmse_values
-        (r2_eng, r2_for, r2_str) = r2_values
-        print(r2_values)
-
-        label1 = '{:s}. Energy ({:d})\n'.format(label, len(ff_eng))
-        label1 += 'Unit: [eV/mole]\n'
-        label1 += 'RMSE: {:.4f}\n'.format(mse_eng)
-        label1 += 'R2:   {:.4f}'.format(r2_eng)
-
-        label2 = '{:s}. Forces ({:d})\n'.format(label, len(ff_force))
-        label2 += 'Unit: [eV/A]\n'
-        label2 += 'RMSE: {:.4f}\n'.format(mse_for)
-        label2 += 'R2:   {:.4f}'.format(r2_for)
-
-        label3 = '{:s}. Stress ({:d})\n'.format(label, len(ff_stress))
-        label3 += 'Unit: [GPa]\n'
-        label3 += 'RMSE: {:.4f}\n'.format(mse_str)
-        label3 += 'R2:   {:.4f}'.format(r2_str)
-
-        print('\n', label1)
-        print('\n', label2)
-        print('\n', label3)
-        print('\nMin_values: {:.4f} {:.4f}'.format(ff_eng.min(),
-            ref_eng.min()))
-        axes[0].scatter(ref_eng, ff_eng, s=size, label=label1)
-        axes[1].scatter(ref_force, ff_force, s=size, label=label2)
-        axes[2].scatter(ref_stress, ff_stress, s=size, label=label3)
-
-        for ax in axes:
-            ax.set_xlabel('Reference')
-            ax.set_ylabel('FF')
-            ax.legend(loc=2)
-
-        err_dict = {
-                    'rmse_values': (mse_eng, mse_for, mse_str),
-                    'r2_values': (r2_eng, r2_for, r2_str),
-                    'min_values': (ff_eng.min(), ref_eng.min()),
-                   }
-        return axes, err_dict
-
-
-    def generate_report(self, ref_dics, parameters):
-        """
-        run quick report about the performance of each reference structure
-
-        Args:
-            ref_dics:
-            parameters:
-
-        Returns:
-            Printed values in terms of Energy/Forces/Stress tensors.
-        """
-        self.update_ff_parameters(parameters)
-        for i, ref_dic in enumerate(ref_dics):
-            # Remove the templates
-            self.ase_templates = {}
-            self.lmp_dat = {}
-
-            ff_dic = self.evaluate_ff_single(ref_dic['structure'], ref_dic['numMols'])
-            e1 = ff_dic['energy']/ff_dic['replicate'] + parameters[-1]
-            e2 = ref_dic['energy']/ff_dic['replicate']
-            print('\nStructure {:3d}'.format(i))
-            print('Energy_ff_ref: {:8.3f} {:8.3f} {:8.3f}'.format(e1, e2, e1-e2))
-
-            if ref_dic['options'][1]:
-                f1 = ff_dic['forces'].flatten()
-                f2 = ref_dic['forces'].flatten()
-                rmse = np.sum((f1-f2)**2)/len(f2)
-                r2 = compute_r2(f1, f2)
-                print('Forces-R2-MSE: {:8.3f} {:8.3f}'.format(r2, rmse))
-
-            if ref_dic['options'][2]:
-                s1 = ff_dic['stress']
-                s2 = ref_dic['stress']
-                rmse = np.sum((s1-s2)**2)/len(s2)
-                r2 = compute_r2(s1, s2)
-                print('Stress_ff    : {:8.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}'.format(*s1))
-                print('Stress_ref   : {:8.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}'.format(*s2))
-                print('Stress-R2-MSE: {:8.5f} {:8.5f}'.format(r2, rmse))
-
-
     def get_ase_charmm(self, params):
         """
-        prepare the charmm input files with the updated params.
+        Prepare the charmm input files with the updated params.
 
         Args:
             params: FF parameters array
@@ -1952,6 +1462,8 @@ class ForceFieldParameters:
         Returns:
             ase_atoms object with the charmm ff information
         """
+        from pyocse.interfaces.parmed import ParmEdStructure
+        from pyocse.charmm import CHARMMStructure
 
         self.ff.update_parameters(params)
         n_mols = [1] * len(self.ff.smiles)
@@ -1981,11 +1493,14 @@ class ForceFieldParameters:
         Returns:
             ref_dics with the removed unwanted entries
         """
+        from pyxtal.util import ase2pymatgen
+
         mols = [smi+'.smi' for smi in self.smiles]
         _ref_dics = []
         for i, ref_dic in enumerate(ref_dics):
             c = pyxtal(molecular=True)
-            pmg = ase2pymatgen(ref_dic['structure'])
+            structure = prepare_atoms(ref_dic)
+            pmg = ase2pymatgen(structure)
             try:
                 c.from_seed(pmg, molecules=mols)
                 if c.check_short_distances_by_dict(criteria) == 0:
@@ -1995,31 +1510,296 @@ class ForceFieldParameters:
         print("Removed {:d} entries by geometry".format(len(ref_dics)-len(_ref_dics)))
         return _ref_dics
 
+    def generate_report(self, ref_dics, parameters):
+        """
+        Run quick report about the performance of each reference structure
+        Add explanations about the performance of the FF later
+
+        Args:
+            ref_dics:
+            parameters:
+
+        Returns:
+            Printed values in terms of Energy/Forces/Stress tensors.
+        """
+        self.update_ff_parameters(parameters)
+        for i, ref_dic in enumerate(ref_dics):
+            # Remove the templates
+            self.ase_templates = {}
+            self.lmp_dat = {}
+            structure = prepare_atoms(ref_dic)
+            ff_dic = self.evaluate_ff_single(structure, ref_dic['numMols'])
+            e1 = ff_dic['energy']/ff_dic['replicate'] + parameters[-1]
+            e2 = ref_dic['energy']/ff_dic['replicate']
+            print('\nStructure {:3d}'.format(i))
+            print('Energy_ff_ref: {:8.3f} {:8.3f} {:8.3f}'.format(e1, e2, e1-e2))
+
+            if ref_dic['options'][1]:
+                f1 = ff_dic['forces'].flatten()
+                f2 = ref_dic['forces'].flatten()
+                rmse = np.sum((f1-f2)**2) / len(f2)
+                r2 = compute_r2(f1, f2)
+                print('Forces-R2-MSE: {:8.3f} {:8.3f}'.format(r2, rmse))
+
+            if ref_dic['options'][2]:
+                s1 = ff_dic['stress']
+                s2 = ref_dic['stress']
+                rmse = np.sum((s1-s2)**2) / len(s2)
+                r2 = compute_r2(s1, s2)
+                print('Stress_ff    : {:8.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}'.format(*s1))
+                print('Stress_ref   : {:8.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}{:9.3f}'.format(*s2))
+                print('Stress-R2-MSE: {:8.5f} {:8.5f}'.format(r2, rmse))
+
+    def compute_references(self, strucs, numMols, options, tags, steps):
+        """
+        Evaluate the reference structures in parallel
+        """
+        N_cycle = int(np.ceil(len(strucs)/self.ncpu))
+        args_list = []
+        for i in range(self.ncpu):
+            folder = self.get_label(i)
+            id1 = i * N_cycle
+            id2 = min([id1 + N_cycle, len(strucs)])
+            os.makedirs(folder, exist_ok=True)
+            # print("# parallel process", N_cycle, id1, id2)
+            args_list.append((strucs[id1:id2],
+                              numMols[id1:id2],
+                              self.calculator,
+                              self.natoms_per_unit,
+                              options[id1:id2],
+                              tags[id1:id2],
+                              steps[id1:id2]))
+        ref_dics0 = []
+        if self.ncpu == 1:
+            # Single process
+            for p in args_list:
+                res = compute_refs_par(*p)
+                ref_dics0.extend(res)
+        else:
+            with ProcessPoolExecutor(max_workers=self.ncpu,
+                                 mp_context=mp.get_context('spawn')) as executor:
+                results = [executor.submit(compute_refs_par, *p) for p in args_list]
+                for result in results:
+                    res = result.result()
+                    ref_dics0.extend(res)
+        return ref_dics0
+
+    def add_references(self, xtals, ref_gs=[], N_max=None, steps=50, max_E=1000, min_dE=0.01, max_dE=1.5):
+        """
+        Add references from the given structure pool
+
+        Args:
+            xtals: list of pyxtal structures
+            ref_gs: list of ref_gs (10 numnbers of lattice parameters and energy)
+            N_max: maximum number of references to add
+            steps: number of steps for relaxation
+            max_E: maximum energy for the reference
+            min_dE: minimum energy difference for the reference
+            max_dE: maximum energy difference w.r.t the minimum energy
+
+        Returns:
+            list of reference dics
+        """
+        if N_max is None: N_max = len(xtals) * 20
+        numMols = [xtal.numMols for xtal in xtals]
+        strucs = [xtal.to_ase(resort=False) for xtal in xtals]
+        N = len(strucs)
+        print(f'# Process references (minimum): {N} / {self.ncpu}')
+        ref_dics0 = self.compute_references(strucs, numMols,
+                                            [[True, True, True]] * N,
+                                            ['minimum'] * N,
+                                            [steps] * N)
+        # ref_gs (cell 3*3 array, energy/replicate)
+        E_values = [ref[-1] for ref in ref_gs] + [ref['energy']/ref['replicate'] for ref in ref_dics0]
+        E_median = np.median(E_values)
+        ref_dics = []
+        for ref_dic in ref_dics0:
+            eng = ref_dic['energy'] / ref_dic['replicate']
+            if abs(eng - E_median) < max_dE:
+                ref_dics, ref_gs = self.process_ref_dic(ref_dic, ref_dics, ref_gs, max_E, min_dE)
+                if len(ref_dics) >= N_max:
+                    break
+        print(f'# Added references (minimum): {N}')
+        return ref_dics
+
+    def augment_references(self, refs, N_ela_relax=20):
+        """
+        Add augmented references to the reference pool
+
+        Args:
+            ref_dics: list of reference dics
+            N_ela_relax (int): number of steps for relaxation of elastic samples
+        Returns:
+            list of reference dics
+        """
+        print(f'# Augment references from {len(refs)} structures')
+        strucs, numMols, options, tags, steps = [], [], [], [], []
+        for ref_dic in refs:
+            ref_structure = prepare_atoms(ref_dic)
+            cell_arr = np.diag(ref_structure.cell.array)
+            eng = ref_dic['energy'] / ref_dic['replicate']
+            print(f"# {ref_dic['tag']} {eng:.4f} {cell_arr}")
+
+            # Generate elastic samples
+            elastics = self.generate_elastics(ref_structure)
+            strucs.extend(elastics)
+            numMols.extend([ref_dic['numMols']] * len(elastics))
+            options.extend([[True, False, True]] * len(elastics))
+            tags.extend(['elastic'] * len(elastics))
+            steps.extend([N_ela_relax] * len(elastics))
+
+            # Generate vibrational samples
+            vibs = self.generate_vibs(ref_structure)
+            strucs.extend(vibs)
+            numMols.extend([ref_dic['numMols']] * len(vibs))
+            options.extend([[True, True, False]] * len(vibs))
+            tags.extend(['vibrate'] * len(vibs))
+            steps.extend([0] * len(vibs))
+
+        print(f'# Augmented references: {len(strucs)}')
+        ref_dics = self.compute_references(strucs, numMols, options, tags, steps)
+        return ref_dics
+
+    def process_ref_dic(self, ref_dic, ref_dics, ref_gs, max_E, min_dE=0.05):
+        """
+        Check if the reference structure is in the list of ground states
+        Used by add_references.
+
+        Args:
+            ref_dic: reference dic
+            ref_dics: list of reference dics
+            ref_gs: list of ground states
+            max_E: maximum energy for the reference
+            min_dE: minimum energy difference for the reference (default 0.05)
+
+        Returns:
+            Updated ref_dics, ref_gs
+        """
+        # print("# Process reference", ref_gs)
+        data = np.append(ref_dic['lattice'].flatten(), ref_dic['energy']/ref_dic['replicate'])
+        e_ref = ref_dic['energy']
+
+        # Here we only count the low energy structures with large energy difference
+        if ref_dic['energy'] < max_E:
+            ff_dic = self.evaluate_ff_single(prepare_atoms(ref_dic), ref_dic['numMols'])
+            e_ff = ff_dic['energy'] / ff_dic['replicate'] + self.params_init[-1]
+            if abs(e_ref - e_ff) > min_dE:
+                add = False
+                # Further check if the structure has been added to the list
+                if len(ref_gs) == 0:
+                    ref_gs = np.array([data])
+                    add = True
+                elif not np.any(np.all(ref_gs == data, axis=1)):
+                    ref_gs = np.append(ref_gs, [data], axis=0)
+                    add = True
+                else:
+                    print("Duplicate structure found", data)
+
+                if add:
+                    #print("Add reference", ref_dic['tag'], ref_dic['energy'])
+                    ref_dics.append(ref_dic)
+                    ref_dic['tag'] = 'minimum'
+        return ref_dics, ref_gs
+
+    def generate_elastics(self, ref_structure, coefs_strain = [0.85, 0.92, 1.10, 1.25]):
+        """
+        Generate elastic configurations.
+        The main idea is to apply various strains to the reference structure
+
+        Args:
+            ref_structure: reference structure in ASE format
+            coefs_strain: list of strain coefficients
+        """
+        cell0 = ref_structure.cell.array
+        elastics = []
+        for ax in range(3):
+            for coef in coefs_strain:
+                structure = ref_structure.copy()
+                cell = cell0.copy()
+                cell[ax, ax] *= coef
+                structure.set_cell(cell, scale_atoms=True)
+                elastics.append(structure)
+        #print(f'# Get elastic configurations: {len(elastics)}/{len(coefs_strain)}')
+        return elastics
+
+    def generate_vibs(self, ref_structure, dxs = [0.01, 0.02, 0.03]):
+        """
+        Generate vibration configurations.
+        The main idea is to perturb the atomic positions with various dx values
+
+        Args:
+            ref_structure: reference structure in ASE format
+            dxs: list of perturbation
+        """
+        #print(f'# Get purturbation: {len(dxs)}')
+        pos0 = ref_structure.get_positions()
+        vibs = []
+        for dx in dxs:
+            structure = ref_structure.copy()
+            pos = pos0.copy()
+            pos += np.random.uniform(-dx, dx, size=pos0.shape)
+            structure.set_positions(pos)
+            vibs.append(structure)
+        return vibs
+
+    def add_references_from_cif(self, cif, ref_gs=[], N_max=10, augment=True, steps=120):
+        """
+        Add multiple references to training
+
+        Args:
+            cif (str): cif file
+            N_max (int): maximum number of references
+            augment (bool): augment the references or not
+            steps (int): number of steps for relaxation
+
+        Returns:
+            list of reference dics
+        """
+        from pyxtal.util import parse_cif
+        strs, engs = parse_cif(cif, eng=True)
+        N_max = min([N_max, len(strs)])
+        ids = np.argsort(engs)[:N_max]
+        strs = [strs[id] for id in ids if engs[id] < 1000] # sort by eng
+        smiles = [smi + '.smi' for smi in self.ff.smiles]
+        xtals = []
+
+        N_cycle = int(np.ceil(len(strs)/self.ncpu))
+        args_list = []
+        for i in range(self.ncpu):
+            id1 = i * N_cycle
+            id2 = min([id1 + N_cycle, len(strs)])
+            args_list.append((strs[id1:id2], smiles))
+
+        with ProcessPoolExecutor(max_workers=self.ncpu,
+                                 mp_context=mp.get_context('spawn')) as executor:
+            results = [executor.submit(add_strucs_par, *p) for p in args_list]
+            for result in results:
+                res = result.result()
+                if len(res) > 0: xtals.extend(res)
+
+        ref_dics = self.add_references(xtals, ref_gs, N_max, steps, 1000)
+        if augment:
+            aug_dics = self.augment_references(ref_dics, ref_gs)
+            ref_dics.extend(aug_dics)
+        return ref_dics
+
 if __name__ == "__main__":
     from pyxtal.db import database
 
     # db = database('../HT-OCSP/benchmarks/Si.db')
     db = database("../HT-OCSP/benchmarks/test.db")
     style = 'gaff' #'openff'
-    style = 'openff'
-    #xtal = db.get_pyxtal("ACSALA")
-    xtal = db.get_pyxtal("XATJOT") #"XAFQON")#
+    #style = 'openff'
+    xtal = db.get_pyxtal("ACSALA")
+    #xtal = db.get_pyxtal("XATJOT") #"XAFQON")#
     #xtal = db.get_pyxtal("KONTIQ09")
     smiles = [mol.smile for mol in xtal.molecules]
     assert smiles[0] is not None
     params = ForceFieldParameters(smiles, style=style, ncpu=2)
     #smiles[0] = '[Cl-]'
     print(params)
-    params0 = params.params_init.copy()
-    ase_with_ff = params.get_ase_charmm(params0)
-    ase_with_ff.write_charmmfiles(base='pyxtal')#, style=style)
-    ff_dic = params.evaluate_ff_single(xtal.to_ase(resort=False), xtal.numMols); print(ff_dic)
-    #ref_dic = params.evaluate_ref_single(xtal.to_ase(resort=False), xtal.numMols); print(ref_dic)
-    #if os.path.exists('reference.xml'):
-    #    ref_dics = params.load_references('reference.xml')
-    #else:
-    #    ref_dics = params.augment_reference(xtal.to_ase(resort=False), xtal.numMols, steps=20, N_vibs=3)
-    #    params.export_references(ref_dics, filename='reference.xml')
-    #params.generate_report(ref_dics, params0)
-    #print(params.get_objective(ref_dics, -100))
-    #print(params.evaluate_multi_references(ref_dics, params0, max_E=1000, max_dE=1000))
+    print(params.get_lmp_template())
+    #params0 = params.params_init.copy()
+    #ase_with_ff = params.get_ase_charmm(params0)
+    #ase_with_ff.write_charmmfiles(base='pyxtal')#, style=style)
+    #ff_dic = params.evaluate_ff_single(xtal.to_ase(resort=False), xtal.numMols); print(ff_dic)

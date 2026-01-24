@@ -8,7 +8,8 @@ from temporalio.contrib.openai_agents._model_parameters import ModelActivityPara
 
 logger = logging.getLogger(__name__)
 
-from typing import Any, AsyncIterator, Union, cast
+from collections.abc import AsyncIterator
+from typing import Any, Union, cast
 
 from agents import (
     Agent,
@@ -48,10 +49,10 @@ class _TemporalModelStub(Model):
 
     def __init__(
         self,
-        model_name: Optional[str],
+        model_name: str | None,
         *,
         model_params: ModelActivityParameters,
-        agent: Optional[Agent[Any]],
+        agent: Agent[Any] | None,
     ) -> None:
         self.model_name = model_name
         self.model_params = model_params
@@ -59,17 +60,17 @@ class _TemporalModelStub(Model):
 
     async def get_response(
         self,
-        system_instructions: Optional[str],
-        input: Union[str, list[TResponseInputItem]],
+        system_instructions: str | None,
+        input: str | list[TResponseInputItem],
         model_settings: ModelSettings,
         tools: list[Tool],
-        output_schema: Optional[AgentOutputSchemaBase],
+        output_schema: AgentOutputSchemaBase | None,
         handoffs: list[Handoff],
         tracing: ModelTracing,
         *,
-        previous_response_id: Optional[str],
-        conversation_id: Optional[str],
-        prompt: Optional[ResponsePromptParam],
+        previous_response_id: str | None,
+        conversation_id: str | None,
+        prompt: ResponsePromptParam | None,
     ) -> ModelResponse:
         def make_tool_info(tool: Tool) -> ToolInput:
             if isinstance(
@@ -154,39 +155,51 @@ class _TemporalModelStub(Model):
         else:
             summary = None
 
-        return await workflow.execute_activity_method(
-            ModelActivity.invoke_model_activity,
-            activity_input,
-            summary=summary,
-            task_queue=self.model_params.task_queue,
-            schedule_to_close_timeout=self.model_params.schedule_to_close_timeout,
-            schedule_to_start_timeout=self.model_params.schedule_to_start_timeout,
-            start_to_close_timeout=self.model_params.start_to_close_timeout,
-            heartbeat_timeout=self.model_params.heartbeat_timeout,
-            retry_policy=self.model_params.retry_policy,
-            cancellation_type=self.model_params.cancellation_type,
-            versioning_intent=self.model_params.versioning_intent,
-            priority=self.model_params.priority,
-        )
+        if self.model_params.use_local_activity:
+            return await workflow.execute_local_activity_method(
+                ModelActivity.invoke_model_activity,
+                activity_input,
+                summary=summary,
+                schedule_to_close_timeout=self.model_params.schedule_to_close_timeout,
+                schedule_to_start_timeout=self.model_params.schedule_to_start_timeout,
+                start_to_close_timeout=self.model_params.start_to_close_timeout,
+                retry_policy=self.model_params.retry_policy,
+                cancellation_type=self.model_params.cancellation_type,
+            )
+        else:
+            return await workflow.execute_activity_method(
+                ModelActivity.invoke_model_activity,
+                activity_input,
+                summary=summary,
+                task_queue=self.model_params.task_queue,
+                schedule_to_close_timeout=self.model_params.schedule_to_close_timeout,
+                schedule_to_start_timeout=self.model_params.schedule_to_start_timeout,
+                start_to_close_timeout=self.model_params.start_to_close_timeout,
+                heartbeat_timeout=self.model_params.heartbeat_timeout,
+                retry_policy=self.model_params.retry_policy,
+                cancellation_type=self.model_params.cancellation_type,
+                versioning_intent=self.model_params.versioning_intent,
+                priority=self.model_params.priority,
+            )
 
     def stream_response(
         self,
-        system_instructions: Optional[str],
-        input: Union[str, list[TResponseInputItem]],
+        system_instructions: str | None,
+        input: str | list[TResponseInputItem],
         model_settings: ModelSettings,
         tools: list[Tool],
-        output_schema: Optional[AgentOutputSchemaBase],
+        output_schema: AgentOutputSchemaBase | None,
         handoffs: list[Handoff],
         tracing: ModelTracing,
         *,
-        previous_response_id: Optional[str],
-        conversation_id: Optional[str],
+        previous_response_id: str | None,
+        conversation_id: str | None,
         prompt: ResponsePromptParam | None,
     ) -> AsyncIterator[TResponseStreamEvent]:
         raise NotImplementedError("Temporal model doesn't support streams yet")
 
 
-def _extract_summary(input: Union[str, list[TResponseInputItem]]) -> str:
+def _extract_summary(input: str | list[TResponseInputItem]) -> str:
     ### Activity summary shown in the UI
     try:
         max_size = 100

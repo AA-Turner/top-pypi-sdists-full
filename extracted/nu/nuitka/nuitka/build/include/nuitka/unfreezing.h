@@ -16,6 +16,8 @@
 
 #define NUITKA_TRANSLATED_FLAG 16
 
+#define NUITKA_PERFECT_SUPPORTED_FLAG 32
+
 struct Nuitka_MetaPathBasedLoaderEntry;
 
 typedef PyObject *(*module_init_func)(PyThreadState *tstate, PyObject *module,
@@ -29,6 +31,11 @@ typedef PyObject *(*module_init_func)(PyThreadState *tstate, PyObject *module,
 struct Nuitka_MetaPathBasedLoaderEntry {
     // Full module name, including package name.
     char const *name;
+
+#if _NUITKA_MODULE_MODE
+    // Runtime module name, updated to match what package we are loaded into.
+    char const *compilation_name;
+#endif
 
     // Entry function if compiled module, otherwise NULL.
     module_init_func python_init_func;

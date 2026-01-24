@@ -3,23 +3,17 @@ from abc import (
     ABC,
     abstractmethod,
 )
+from collections.abc import Callable, Iterator
 from gettext import gettext
 from itertools import zip_longest
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
-    Callable,
-    Dict,
-    Iterator,
-    List,
     Optional,
-    Set,
-    Tuple,
 )
 
 from syrupy.constants import (
     DISABLE_COLOR_ENV_VAR,
-    SNAPSHOT_DIRNAME,
     SYMBOL_CARRIAGE,
     SYMBOL_ELLIPSIS,
     SYMBOL_NEW_LINE,
@@ -76,7 +70,8 @@ class SnapshotSerializer(ABC):
 
 
 class SnapshotCollectionStorage(ABC):
-    _file_extension = ""
+    snapshot_dirname: str | Path = "__snapshots__"
+    file_extension = ""
 
     @classmethod
     def get_snapshot_name(
@@ -95,8 +90,8 @@ class SnapshotCollectionStorage(ABC):
         cls, *, test_location: "PyTestLocation", index: "SnapshotIndex"
     ) -> str:
         """Returns full filepath where snapshot data is stored."""
-        basename = cls._get_file_basename(test_location=test_location, index=index)
-        fileext = f".{cls._file_extension}" if cls._file_extension else ""
+        basename = cls.get_file_basename(test_location=test_location, index=index)
+        fileext = f".{cls.file_extension}" if cls.file_extension else ""
         return str(
             Path(cls.dirname(test_location=test_location)).joinpath(
                 f"{basename}{fileext}"
@@ -105,13 +100,13 @@ class SnapshotCollectionStorage(ABC):
 
     def is_snapshot_location(self, *, location: str) -> bool:
         """Checks if supplied location is valid for this snapshot extension"""
-        return location.endswith(self._file_extension)
+        return location.endswith(self.file_extension)
 
     def discover_snapshots(
         self,
         *,
         test_location: "PyTestLocation",
-        ignore_extensions: Optional[List[str]] = None,
+        ignore_extensions: list[str] | None = None,
     ) -> "SnapshotCollections":
         """
         Returns all snapshot collections in test site
@@ -122,7 +117,7 @@ class SnapshotCollectionStorage(ABC):
             ignore_extensions=ignore_extensions,
         ):
             if self.is_snapshot_location(location=filepath):
-                snapshot_collection = self._read_snapshot_collection(
+                snapshot_collection = self.read_snapshot_collection(
                     snapshot_location=filepath
                 )
                 if not snapshot_collection.has_snapshots:
@@ -143,11 +138,11 @@ class SnapshotCollectionStorage(ABC):
     ) -> "SerializedData":
         """
         This method is _final_, do not override. You can override
-        `_read_snapshot_data_from_location` in a subclass to change behaviour.
+        `read_snapshot_data_from_location` in a subclass to change behaviour.
         """
         snapshot_location = self.get_location(test_location=test_location, index=index)
         snapshot_name = self.get_snapshot_name(test_location=test_location, index=index)
-        snapshot_data = self._read_snapshot_data_from_location(
+        snapshot_data = self.read_snapshot_data_from_location(
             snapshot_location=snapshot_location,
             snapshot_name=snapshot_name,
             session_id=session_id,
@@ -161,11 +156,11 @@ class SnapshotCollectionStorage(ABC):
         cls,
         *,
         snapshot_location: str,
-        snapshots: List[Tuple["SerializedData", "PyTestLocation", "SnapshotIndex"]],
+        snapshots: list[tuple["SerializedData", "PyTestLocation", "SnapshotIndex"]],
     ) -> None:
         """
         This method is _final_, do not override. You can override
-        `_write_snapshot_collection` in a subclass to change behaviour.
+        `write_snapshot_collection` in a subclass to change behaviour.
         """
         if not snapshots:
             return
@@ -208,11 +203,11 @@ class SnapshotCollectionStorage(ABC):
         # Ensures the folder path for the snapshot file exists.
         Path(snapshot_location).parent.mkdir(parents=True, exist_ok=True)
 
-        cls._write_snapshot_collection(snapshot_collection=snapshot_collection)
+        cls.write_snapshot_collection(snapshot_collection=snapshot_collection)
 
     @abstractmethod
     def delete_snapshots(
-        self, *, snapshot_location: str, snapshot_names: Set[str]
+        self, *, snapshot_location: str, snapshot_names: set[str]
     ) -> None:
         """
         Remove snapshots from a snapshot file.
@@ -221,7 +216,7 @@ class SnapshotCollectionStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _read_snapshot_collection(
+    def read_snapshot_collection(
         self, *, snapshot_location: str
     ) -> "SnapshotCollection":
         """
@@ -230,7 +225,7 @@ class SnapshotCollectionStorage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _read_snapshot_data_from_location(
+    def read_snapshot_data_from_location(
         self, *, snapshot_location: str, snapshot_name: str, session_id: str
     ) -> Optional["SerializedData"]:
         """
@@ -240,7 +235,7 @@ class SnapshotCollectionStorage(ABC):
 
     @classmethod
     @abstractmethod
-    def _write_snapshot_collection(
+    def write_snapshot_collection(
         cls, *, snapshot_collection: "SnapshotCollection"
     ) -> None:
         """
@@ -251,10 +246,10 @@ class SnapshotCollectionStorage(ABC):
     @classmethod
     def dirname(cls, *, test_location: "PyTestLocation") -> str:
         test_dir = Path(test_location.filepath).parent
-        return str(test_dir.joinpath(SNAPSHOT_DIRNAME))
+        return str(test_dir.joinpath(cls.snapshot_dirname))
 
     @classmethod
-    def _get_file_basename(
+    def get_file_basename(
         cls, *, test_location: "PyTestLocation", index: "SnapshotIndex"
     ) -> str:
         """Returns file basename without extension. Used to create full filepath."""
@@ -283,7 +278,7 @@ class SnapshotReporter:
             yield reset(line)
 
     @property
-    def _ends(self) -> Dict[str, str]:
+    def _ends(self) -> dict[str, str]:
         return {"\n": self._marker_new_line, "\r": self._marker_carriage}
 
     @property
@@ -321,7 +316,7 @@ class SnapshotReporter:
             yield from map(context_style, self.__limit_context(line.c))
 
     def __diffed_lines(self, a: str, b: str) -> Iterator["DiffedLine"]:
-        staged_diffed_line: Optional[DiffedLine] = None
+        staged_diffed_line: DiffedLine | None = None
         for line in qdiff(a.splitlines(keepends=True), b.splitlines(keepends=True)):
             is_context_line = line[0] == " "
             is_snapshot_line = line[0] == "-"
@@ -388,7 +383,7 @@ class SnapshotReporter:
             if char is not None
         )
 
-    def __limit_context(self, lines: List[str]) -> Iterator[str]:
+    def __limit_context(self, lines: list[str]) -> Iterator[str]:
         yield from lines[: self._context_line_count]
         num_lines = len(lines)
         if num_lines:

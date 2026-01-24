@@ -1,7 +1,7 @@
 import random
 import string
 import calendar
-from datetime import datetime
+import datetime as dt
 import hashlib
 import logging
 import re
@@ -105,7 +105,7 @@ class SmfManager:
 
     @staticmethod
     def get_current_utc_date():
-        d = datetime.utcnow()
+        d = dt.datetime.now(dt.timezone.utc)
         unixtime = calendar.timegm(d.utctimetuple())
         return unixtime
 

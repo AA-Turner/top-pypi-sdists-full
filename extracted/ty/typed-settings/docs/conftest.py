@@ -7,15 +7,13 @@ and their output similarly to Python doctests.
 
 import subprocess
 import sys
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
     Optional,
-    Union,
 )
 
 import click
@@ -145,8 +143,8 @@ class ExampleItem(pytest.Item):
     def repr_failure(
         self,
         excinfo: "ExceptionInfo[BaseException]",
-        style: "Optional[TracebackStyle]" = None,
-    ) -> Union[TerminalRepr, str]:
+        style: "TracebackStyle | None" = None,
+    ) -> TerminalRepr | str:
         if excinfo.errisinstance(ValueError):
             # Output is mismatching. Create a nice diff as failure description.
             highlighter = self.config.get_terminal_writer()._highlight

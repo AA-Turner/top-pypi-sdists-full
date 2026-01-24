@@ -682,7 +682,7 @@ class Blueprint(AbstractModel):
         :type RequiredSystemDiskSize: int
         :param _BlueprintState: 镜像状态。
 可选值：
-NORMAL（正常）、SYNCING（同步中）、OFFLINE（下线）、ISOLATED（已隔离）、CREATEFAILED（创建失败）、SYNCING_FAILED（目的地域同步失败）、ISOLATING（隔离中）、ISOLATED（已隔离）、DELETING（删除中）、DESTROYING（销毁中）。
+NORMAL（正常）、SYNCING（同步中）、OFFLINE（下线）、CREATEFAILED（创建失败）、SYNCING_FAILED（目的地域同步失败）、ISOLATING（隔离中）、ISOLATED（已隔离）、DELETING（删除中）、DESTROYING（销毁中）。
         :type BlueprintState: str
         :param _CreatedTime: 创建时间。按照 ISO8601 标准表示，并且使用 UTC 时间。 
 格式为： YYYY-MM-DDThh:mm:ssZ。
@@ -848,7 +848,7 @@ NORMAL（正常）、SYNCING（同步中）、OFFLINE（下线）、ISOLATED（�
     def BlueprintState(self):
         r"""镜像状态。
 可选值：
-NORMAL（正常）、SYNCING（同步中）、OFFLINE（下线）、ISOLATED（已隔离）、CREATEFAILED（创建失败）、SYNCING_FAILED（目的地域同步失败）、ISOLATING（隔离中）、ISOLATED（已隔离）、DELETING（删除中）、DESTROYING（销毁中）。
+NORMAL（正常）、SYNCING（同步中）、OFFLINE（下线）、CREATEFAILED（创建失败）、SYNCING_FAILED（目的地域同步失败）、ISOLATING（隔离中）、ISOLATED（已隔离）、DELETING（删除中）、DESTROYING（销毁中）。
         :rtype: str
         """
         return self._BlueprintState
@@ -3174,12 +3174,18 @@ class CreateMcpServerRequest(AbstractModel):
         :type Description: str
         :param _Envs: MCP Server环境变量。最大长度：10
         :type Envs: list of McpServerEnv
+        :param _TransportType: 传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式。未传传输类型字段时，默认创建此类型的MCP Server</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :type TransportType: str
         """
         self._InstanceId = None
         self._Name = None
         self._Command = None
         self._Description = None
         self._Envs = None
+        self._TransportType = None
 
     @property
     def InstanceId(self):
@@ -3236,6 +3242,20 @@ class CreateMcpServerRequest(AbstractModel):
     def Envs(self, Envs):
         self._Envs = Envs
 
+    @property
+    def TransportType(self):
+        r"""传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式。未传传输类型字段时，默认创建此类型的MCP Server</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :rtype: str
+        """
+        return self._TransportType
+
+    @TransportType.setter
+    def TransportType(self, TransportType):
+        self._TransportType = TransportType
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -3248,6 +3268,7 @@ class CreateMcpServerRequest(AbstractModel):
                 obj = McpServerEnv()
                 obj._deserialize(item)
                 self._Envs.append(obj)
+        self._TransportType = params.get("TransportType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7070,6 +7091,13 @@ class DescribeGeneralResourceQuotasRequest(AbstractModel):
 - STARTER_BUNDLE_INSTANCE 入门型套餐实例
 - HK_EXCLUSIVE_BUNDLE_INSTANCE 中国香港专属型套餐实例
 - CAREFREE_BUNDLE_INSTANCE 无忧型套餐实例
+- EXCLUSIVE_BUNDLE_02_INSTANCE 境外专属Ⅱ型
+- NEWCOMER_BUNDLE_INSTANCE 新客专享型
+- GAME_PORTAL_BUNDLE_INSTANCE 游戏专区实例
+- ECONOMY_BUNDLE_INSTANCE 经济型套餐实例
+- BUDGET_BUNDLE_INSTANCE 特惠型套餐实例
+- RAZOR_SPEED_BUNDLE_INSTANCE 锐驰套餐实例
+- BANDWIDTH_BUNDLE_INSTANCE 带宽型套餐实例
 - USER_KEY_PAIR 密钥对
 - SNAPSHOT 快照
 - BLUEPRINT 自定义镜像
@@ -7090,6 +7118,13 @@ class DescribeGeneralResourceQuotasRequest(AbstractModel):
 - STARTER_BUNDLE_INSTANCE 入门型套餐实例
 - HK_EXCLUSIVE_BUNDLE_INSTANCE 中国香港专属型套餐实例
 - CAREFREE_BUNDLE_INSTANCE 无忧型套餐实例
+- EXCLUSIVE_BUNDLE_02_INSTANCE 境外专属Ⅱ型
+- NEWCOMER_BUNDLE_INSTANCE 新客专享型
+- GAME_PORTAL_BUNDLE_INSTANCE 游戏专区实例
+- ECONOMY_BUNDLE_INSTANCE 经济型套餐实例
+- BUDGET_BUNDLE_INSTANCE 特惠型套餐实例
+- RAZOR_SPEED_BUNDLE_INSTANCE 锐驰套餐实例
+- BANDWIDTH_BUNDLE_INSTANCE 带宽型套餐实例
 - USER_KEY_PAIR 密钥对
 - SNAPSHOT 快照
 - BLUEPRINT 自定义镜像
@@ -7647,6 +7682,10 @@ class DescribeInstancesRequest(AbstractModel):
 <li> tag:tag-key</li>按照【标签键值对】进行过滤。 tag-key使用具体的标签键进行替换。
 类型：String
 必选：否
+<li>bundle-id</li>按照【套餐 ID】进行过滤。
+类型：String
+必选：否
+
 每次请求的 Filters 的上限为 10，Filter.Values 的上限为 100。参数不支持同时指定 InstanceIds 和 Filters。
         :type Filters: list of Filter
         :param _Offset: 偏移量，默认为 0。关于`Offset`的更进一步介绍请参考 API [简介](https://cloud.tencent.com/document/product/1207/47578)中的相关小节。
@@ -7707,6 +7746,10 @@ class DescribeInstancesRequest(AbstractModel):
 <li> tag:tag-key</li>按照【标签键值对】进行过滤。 tag-key使用具体的标签键进行替换。
 类型：String
 必选：否
+<li>bundle-id</li>按照【套餐 ID】进行过滤。
+类型：String
+必选：否
+
 每次请求的 Filters 的上限为 10，Filter.Values 的上限为 100。参数不支持同时指定 InstanceIds 和 Filters。
         :rtype: list of Filter
         """
@@ -9286,9 +9329,13 @@ class DescribeSnapshotsRequest(AbstractModel):
 必选：否
 可通过 <a href="https://cloud.tencent.com/document/product/1207/47573">DescribeInstances</a> 接口返回值中的 InstanceId 获取。
 <li>tag-key</li>
-按照【标签键】进行过滤。 类型：String 必选：否
+按照【标签键】进行过滤。
+类型：String
+必选：否
 <li>tag-value</li>
-按照【标签值】进行过滤。 类型：String 必选：否
+按照【标签值】进行过滤。
+类型：String
+必选：否
 <li>tag:tag-key</li>
 按照【标签键值对】进行过滤。 tag-key使用具体的标签键进行替换。
 每次请求的 Filters 的上限为 10，Filter.Values 的上限为 5。参数不支持同时指定 SnapshotIds 和 Filters。
@@ -9336,9 +9383,13 @@ class DescribeSnapshotsRequest(AbstractModel):
 必选：否
 可通过 <a href="https://cloud.tencent.com/document/product/1207/47573">DescribeInstances</a> 接口返回值中的 InstanceId 获取。
 <li>tag-key</li>
-按照【标签键】进行过滤。 类型：String 必选：否
+按照【标签键】进行过滤。
+类型：String
+必选：否
 <li>tag-value</li>
-按照【标签值】进行过滤。 类型：String 必选：否
+按照【标签值】进行过滤。
+类型：String
+必选：否
 <li>tag:tag-key</li>
 按照【标签键值对】进行过滤。 tag-key使用具体的标签键进行替换。
 每次请求的 Filters 的上限为 10，Filter.Values 的上限为 5。参数不支持同时指定 SnapshotIds 和 Filters。
@@ -9580,6 +9631,57 @@ class DescribeZonesResponse(AbstractModel):
                 obj._deserialize(item)
                 self._ZoneInfoSet.append(obj)
         self._RequestId = params.get("RequestId")
+
+
+class DestinationRegionBlueprint(AbstractModel):
+    r"""目标地域镜像信息。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 目标地域。
+        :type Region: str
+        :param _BlueprintId: 目标地域镜像ID。
+        :type BlueprintId: str
+        """
+        self._Region = None
+        self._BlueprintId = None
+
+    @property
+    def Region(self):
+        r"""目标地域。
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def BlueprintId(self):
+        r"""目标地域镜像ID。
+        :rtype: str
+        """
+        return self._BlueprintId
+
+    @BlueprintId.setter
+    def BlueprintId(self, BlueprintId):
+        self._BlueprintId = BlueprintId
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._BlueprintId = params.get("BlueprintId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
 
 
 class DetachCcnRequest(AbstractModel):
@@ -15166,11 +15268,14 @@ class McpServer(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _McpServerId: MCP Server ID。
+        :param _McpServerId: MCP Server ID
         :type McpServerId: str
         :param _Name: MCP Server名称。最大长度：64
         :type Name: str
-        :param _McpServerType: MCP Server类型。枚举值：PUBLIC_PACKAGE，公共包安装；AGENT_GENERATED，AI生成。
+        :param _McpServerType: MCP Server类型。枚举值如下：
+
+<li>PUBLIC_PACKAGE：公共包安装</li>
+<li>AGENT_GENERATED：AI生成</li>
         :type McpServerType: str
         :param _IconUrl: MCP Server图标地址
         :type IconUrl: str
@@ -15178,18 +15283,18 @@ class McpServer(AbstractModel):
         :type Command: str
         :param _State: MCP Server状态。枚举值如下：
 
-PENDING：表示创建中
-LAUNCH_FAILED：表示创建失败
-RUNNING：表示运行中
-STOPPED：表示关闭
-STARTING：表示开启中
-STOPPING：表示关闭中
-RESTARTING：表示重启中
-REMOVING：表示删除中
-UNKNOWN：表示未知
-ENV_ERROR：表示环境错误
+<li>PENDING：表示创建中</li>
+<li>LAUNCH_FAILED：表示创建失败</li>
+<li>RUNNING：表示运行中</li>
+<li>STOPPED：表示关闭</li>
+<li>STARTING：表示开启中</li>
+<li>STOPPING：表示关闭中</li>
+<li>RESTARTING：表示重启中</li>
+<li>REMOVING：表示删除中</li>
+<li>UNKNOWN：表示未知</li>
+<li>ENV_ERROR：表示环境错误</li>
         :type State: str
-        :param _ServerUrl: MCP Server访问地址。
+        :param _ServerUrl: MCP Server访问地址。传输类型 TransportType 为 STREAMABLE_HTTP 时以 /mcp结尾，为 SSE 时以 /sse结尾。
         :type ServerUrl: str
         :param _Config: MCP Server配置
         :type Config: str
@@ -15203,6 +15308,11 @@ ENV_ERROR：表示环境错误
         :type UpdatedTime: str
         :param _EnvSet: MCP Server环境变量
         :type EnvSet: list of McpServerEnv
+        :param _TransportType: 传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :type TransportType: str
         """
         self._McpServerId = None
         self._Name = None
@@ -15216,10 +15326,11 @@ ENV_ERROR：表示环境错误
         self._CreatedTime = None
         self._UpdatedTime = None
         self._EnvSet = None
+        self._TransportType = None
 
     @property
     def McpServerId(self):
-        r"""MCP Server ID。
+        r"""MCP Server ID
         :rtype: str
         """
         return self._McpServerId
@@ -15241,7 +15352,10 @@ ENV_ERROR：表示环境错误
 
     @property
     def McpServerType(self):
-        r"""MCP Server类型。枚举值：PUBLIC_PACKAGE，公共包安装；AGENT_GENERATED，AI生成。
+        r"""MCP Server类型。枚举值如下：
+
+<li>PUBLIC_PACKAGE：公共包安装</li>
+<li>AGENT_GENERATED：AI生成</li>
         :rtype: str
         """
         return self._McpServerType
@@ -15276,16 +15390,16 @@ ENV_ERROR：表示环境错误
     def State(self):
         r"""MCP Server状态。枚举值如下：
 
-PENDING：表示创建中
-LAUNCH_FAILED：表示创建失败
-RUNNING：表示运行中
-STOPPED：表示关闭
-STARTING：表示开启中
-STOPPING：表示关闭中
-RESTARTING：表示重启中
-REMOVING：表示删除中
-UNKNOWN：表示未知
-ENV_ERROR：表示环境错误
+<li>PENDING：表示创建中</li>
+<li>LAUNCH_FAILED：表示创建失败</li>
+<li>RUNNING：表示运行中</li>
+<li>STOPPED：表示关闭</li>
+<li>STARTING：表示开启中</li>
+<li>STOPPING：表示关闭中</li>
+<li>RESTARTING：表示重启中</li>
+<li>REMOVING：表示删除中</li>
+<li>UNKNOWN：表示未知</li>
+<li>ENV_ERROR：表示环境错误</li>
         :rtype: str
         """
         return self._State
@@ -15296,7 +15410,7 @@ ENV_ERROR：表示环境错误
 
     @property
     def ServerUrl(self):
-        r"""MCP Server访问地址。
+        r"""MCP Server访问地址。传输类型 TransportType 为 STREAMABLE_HTTP 时以 /mcp结尾，为 SSE 时以 /sse结尾。
         :rtype: str
         """
         return self._ServerUrl
@@ -15362,6 +15476,20 @@ ENV_ERROR：表示环境错误
     def EnvSet(self, EnvSet):
         self._EnvSet = EnvSet
 
+    @property
+    def TransportType(self):
+        r"""传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :rtype: str
+        """
+        return self._TransportType
+
+    @TransportType.setter
+    def TransportType(self, TransportType):
+        self._TransportType = TransportType
+
 
     def _deserialize(self, params):
         self._McpServerId = params.get("McpServerId")
@@ -15381,6 +15509,7 @@ ENV_ERROR：表示环境错误
                 obj = McpServerEnv()
                 obj._deserialize(item)
                 self._EnvSet.append(obj)
+        self._TransportType = params.get("TransportType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16982,7 +17111,7 @@ class ModifyMcpServerRequest(AbstractModel):
         r"""
         :param _InstanceId: 实例ID。可以通过[DescribeInstances](https://cloud.tencent.com/document/api/1207/47573)接口返回值中的InstanceId获取。
         :type InstanceId: str
-        :param _McpServerId: MCP Server ID。可以通过DescribeMcpServers接口返回值中的McpServerId获取。
+        :param _McpServerId: MCP Server ID。可以通[DescribeMcpServers](https://cloud.tencent.com/document/product/1207/122837)接口返回值中的McpServerId获取。
         :type McpServerId: str
         :param _Name: MCP Server名称。最大长度：64
         :type Name: str
@@ -16992,6 +17121,11 @@ class ModifyMcpServerRequest(AbstractModel):
         :type Description: str
         :param _Envs: MCP Server环境变量。最大长度：10。用于完整替换MCP Server的环境变量。当该字段为空时，系统将清除当前所有环境变量。若无需修改环境变量，请勿传递该字段。
         :type Envs: list of McpServerEnv
+        :param _TransportType: 传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :type TransportType: str
         """
         self._InstanceId = None
         self._McpServerId = None
@@ -16999,6 +17133,7 @@ class ModifyMcpServerRequest(AbstractModel):
         self._Command = None
         self._Description = None
         self._Envs = None
+        self._TransportType = None
 
     @property
     def InstanceId(self):
@@ -17013,7 +17148,7 @@ class ModifyMcpServerRequest(AbstractModel):
 
     @property
     def McpServerId(self):
-        r"""MCP Server ID。可以通过DescribeMcpServers接口返回值中的McpServerId获取。
+        r"""MCP Server ID。可以通[DescribeMcpServers](https://cloud.tencent.com/document/product/1207/122837)接口返回值中的McpServerId获取。
         :rtype: str
         """
         return self._McpServerId
@@ -17066,6 +17201,20 @@ class ModifyMcpServerRequest(AbstractModel):
     def Envs(self, Envs):
         self._Envs = Envs
 
+    @property
+    def TransportType(self):
+        r"""传输类型。枚举值如下：
+
+<li>STREAMABLE_HTTP：HTTP协议的流式传输方式</li>
+<li>SSE：Server-Sent Events，服务器发送事件</li>
+        :rtype: str
+        """
+        return self._TransportType
+
+    @TransportType.setter
+    def TransportType(self, TransportType):
+        self._TransportType = TransportType
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -17079,6 +17228,7 @@ class ModifyMcpServerRequest(AbstractModel):
                 obj = McpServerEnv()
                 obj._deserialize(item)
                 self._Envs.append(obj)
+        self._TransportType = params.get("TransportType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20111,12 +20261,10 @@ class StopInstancesRequest(AbstractModel):
         r"""
         :param _InstanceIds: 实例 ID 列表。每次请求批量实例的上限为 100。可通过[DescribeInstances](https://cloud.tencent.com/document/api/1207/47573)接口返回值中的InstanceId获取。
         :type InstanceIds: list of str
-        :param _StopType: 关机类型。
-取值范围： 
-
-- SOFT：表示软关机
-- HARD：表示硬关机 
-- SOFT_FIRST：表示优先软关机，失败再执行硬关机  
+        :param _StopType: 关机类型。取值范围： 
+<li>SOFT：表示软关机</li>
+<li>HARD：表示硬关机 </li>
+<li>SOFT_FIRST：表示优先软关机，失败再执行硬关机 </li>
 
 默认取值：SOFT_FIRST
         :type StopType: str
@@ -20137,12 +20285,10 @@ class StopInstancesRequest(AbstractModel):
 
     @property
     def StopType(self):
-        r"""关机类型。
-取值范围： 
-
-- SOFT：表示软关机
-- HARD：表示硬关机 
-- SOFT_FIRST：表示优先软关机，失败再执行硬关机  
+        r"""关机类型。取值范围： 
+<li>SOFT：表示软关机</li>
+<li>HARD：表示硬关机 </li>
+<li>SOFT_FIRST：表示优先软关机，失败再执行硬关机 </li>
 
 默认取值：SOFT_FIRST
         :rtype: str
@@ -20438,10 +20584,24 @@ class SyncBlueprintResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _DestinationRegionBlueprintSet: 目标地域镜像信息。
+        :type DestinationRegionBlueprintSet: list of DestinationRegionBlueprint
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._DestinationRegionBlueprintSet = None
         self._RequestId = None
+
+    @property
+    def DestinationRegionBlueprintSet(self):
+        r"""目标地域镜像信息。
+        :rtype: list of DestinationRegionBlueprint
+        """
+        return self._DestinationRegionBlueprintSet
+
+    @DestinationRegionBlueprintSet.setter
+    def DestinationRegionBlueprintSet(self, DestinationRegionBlueprintSet):
+        self._DestinationRegionBlueprintSet = DestinationRegionBlueprintSet
 
     @property
     def RequestId(self):
@@ -20456,6 +20616,12 @@ class SyncBlueprintResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        if params.get("DestinationRegionBlueprintSet") is not None:
+            self._DestinationRegionBlueprintSet = []
+            for item in params.get("DestinationRegionBlueprintSet"):
+                obj = DestinationRegionBlueprint()
+                obj._deserialize(item)
+                self._DestinationRegionBlueprintSet.append(obj)
         self._RequestId = params.get("RequestId")
 
 

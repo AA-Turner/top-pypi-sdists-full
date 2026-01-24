@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional, Union
 
-from pydantic import BaseModel, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
 import snowflake.core.function._generated.models
 
@@ -80,31 +80,10 @@ class Function(BaseModel):
         "body",
     ]
 
-    @field_validator("returns")
-    def returns_validate_enum(cls, v):
-        if v is None:
-            return v
-        if v not in (
-            "FIXED",
-            "INT",
-            "REAL",
-            "NUMBER",
-            "TEXT",
-            "BOOLEAN",
-            "DATE",
-            "TIME",
-            "TIMESTAMP_TZ",
-            "TIMESTAMP_LTZ",
-            "TIMESTAMP_NTZ",
-        ):
-            raise ValueError(
-                "must validate the enum values ('FIXED','INT','REAL','NUMBER','TEXT','BOOLEAN','DATE','TIME','TIMESTAMP_TZ','TIMESTAMP_LTZ','TIMESTAMP_NTZ')"
-            )
-        return v
-
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     # JSON field name that stores the object type
     __discriminator_property_name: ClassVar[str] = "function_type"
@@ -152,7 +131,7 @@ class Function(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in arguments (list)
         _items = []

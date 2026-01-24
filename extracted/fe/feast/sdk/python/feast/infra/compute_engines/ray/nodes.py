@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import dill
 import pandas as pd
@@ -23,6 +23,7 @@ from feast.infra.compute_engines.ray.utils import (
     write_to_online_store,
 )
 from feast.infra.compute_engines.utils import create_offline_store_retrieval_job
+from feast.infra.ray_initializer import get_ray_wrapper
 from feast.infra.ray_shared_utils import (
     apply_field_mapping,
     broadcast_join,
@@ -72,10 +73,12 @@ class RayReadNode(DAGNode):
             else:
                 try:
                     arrow_table = retrieval_job.to_arrow()
-                    ray_dataset = ray.data.from_arrow(arrow_table)
+                    ray_wrapper = get_ray_wrapper()
+                    ray_dataset = ray_wrapper.from_arrow(arrow_table)
                 except Exception:
                     df = retrieval_job.to_df()
-                    ray_dataset = ray.data.from_pandas(df)
+                    ray_wrapper = get_ray_wrapper()
+                    ray_dataset = ray_wrapper.from_pandas(df)
 
             field_mapping = getattr(self.source, "field_mapping", None)
             if field_mapping:
@@ -130,7 +133,8 @@ class RayJoinNode(DAGNode):
 
         entity_df = context.entity_df
         if isinstance(entity_df, pd.DataFrame):
-            entity_dataset = ray.data.from_pandas(entity_df)
+            ray_wrapper = get_ray_wrapper()
+            entity_dataset = ray_wrapper.from_pandas(entity_df)
         else:
             entity_dataset = entity_df
 
@@ -169,7 +173,9 @@ class RayJoinNode(DAGNode):
                 return result
 
             joined_dataset = entity_dataset.map_batches(
-                join_with_aggregated_features, batch_format="pandas"
+                join_with_aggregated_features,
+                batch_format="pandas",
+                concurrency=self.config.max_workers or 12,
             )
         else:
             if feature_size <= self.config.broadcast_join_threshold_mb * 1024 * 1024:
@@ -270,8 +276,8 @@ class RayFilterNode(DAGNode):
                     else:
                         # Use current time for TTL calculation (real-time retrieval)
                         # Check if timestamp column is timezone-aware
-                        if pd.api.types.is_datetime64tz_dtype(
-                            filtered_batch[timestamp_col]
+                        if isinstance(
+                            filtered_batch[timestamp_col].dtype, pd.DatetimeTZDtype
                         ):
                             # Use timezone-aware current time
                             current_time = datetime.now(timezone.utc)
@@ -320,12 +326,16 @@ class RayAggregationNode(DAGNode):
         group_by_keys: List[str],
         timestamp_col: str,
         config: RayComputeEngineConfig,
+        enable_tiling: bool = False,
+        hop_size: Optional[timedelta] = None,
     ):
         super().__init__(name)
         self.aggregations = aggregations
         self.group_by_keys = group_by_keys
         self.timestamp_col = timestamp_col
         self.config = config
+        self.enable_tiling = enable_tiling
+        self.hop_size = hop_size
 
     def execute(self, context: ExecutionContext) -> DAGValue:
         """Execute the aggregation operation."""
@@ -333,6 +343,120 @@ class RayAggregationNode(DAGNode):
         input_value.assert_format(DAGFormat.RAY)
         dataset: Dataset = input_value.data
 
+        # Check if tiling should be used
+        has_time_windows = any(agg.time_window for agg in self.aggregations)
+        if self.enable_tiling and has_time_windows:
+            return self._execute_tiled_aggregation(dataset)
+        else:
+            return self._execute_standard_aggregation(dataset)
+
+    def _execute_tiled_aggregation(self, dataset: Dataset) -> DAGValue:
+        """
+        Execute tiled aggregation.
+
+        Flow:
+        1. Convert Ray Dataset → pandas
+        2. Generate cumulative tiles
+        3. Convert to windowed aggregations
+        4. Convert pandas → Ray Dataset
+        """
+        from feast.aggregation.tiling.orchestrator import apply_sawtooth_window_tiling
+        from feast.aggregation.tiling.tile_subtraction import (
+            convert_cumulative_to_windowed,
+            deduplicate_keep_latest,
+        )
+
+        ray_wrapper = get_ray_wrapper()
+
+        input_pdf = dataset.to_pandas()
+
+        for agg in self.aggregations:
+            if agg.time_window is None:
+                raise ValueError(
+                    f"Tiling is enabled but aggregation on column '{agg.column}' has no time_window set. "
+                    f"Either set time_window for all aggregations or disable tiling by setting enable_tiling=False."
+                )
+
+        # Group aggregations by time window
+        window_to_aggs: Dict[timedelta, List[Aggregation]] = {}
+        for agg in self.aggregations:
+            if agg.time_window:
+                if agg.time_window not in window_to_aggs:
+                    window_to_aggs[agg.time_window] = []
+                window_to_aggs[agg.time_window].append(agg)
+
+        # Process each time window in pandas
+        windowed_pdfs = []
+        for window_size, window_aggs in window_to_aggs.items():
+            # Step 1: Generate cumulative tiles
+            tiles_pdf = apply_sawtooth_window_tiling(
+                df=input_pdf,
+                aggregations=window_aggs,
+                group_by_keys=self.group_by_keys,
+                timestamp_col=self.timestamp_col,
+                window_size=window_size,
+                hop_size=self.hop_size or timedelta(minutes=5),
+            )
+
+            if tiles_pdf.empty:
+                continue
+
+            # Step 2: Convert to windowed aggregations
+            windowed_pdf = convert_cumulative_to_windowed(
+                tiles_df=tiles_pdf,
+                entity_keys=self.group_by_keys,
+                timestamp_col=self.timestamp_col,
+                window_size=window_size,
+                aggregations=window_aggs,
+            )
+
+            if not windowed_pdf.empty:
+                windowed_pdfs.append(windowed_pdf)
+
+        if not windowed_pdfs:
+            # No results, return empty Ray Dataset
+            aggregated_dataset = ray_wrapper.from_pandas(pd.DataFrame())
+        else:
+            # Step 3: Join all windows in pandas (outer merge on entity keys + timestamp)
+            if len(windowed_pdfs) == 1:
+                final_pdf = windowed_pdfs[0]
+            else:
+                final_pdf = windowed_pdfs[0]
+                join_keys = self.group_by_keys + [self.timestamp_col]
+                for pdf in windowed_pdfs[1:]:
+                    final_pdf = pd.merge(
+                        final_pdf,
+                        pdf,
+                        on=join_keys,
+                        how="outer",
+                        suffixes=("", "_dup"),
+                    )
+                    # Drop duplicate columns from merge
+                    final_pdf = final_pdf.loc[
+                        :, ~final_pdf.columns.str.endswith("_dup")
+                    ]
+
+            # Step 4: Deduplicate in pandas (keep latest timestamp per entity)
+            if self.timestamp_col in final_pdf.columns and not final_pdf.empty:
+                final_pdf = deduplicate_keep_latest(
+                    final_pdf, self.group_by_keys, self.timestamp_col
+                )
+
+            aggregated_dataset = ray_wrapper.from_pandas(final_pdf)
+
+        return DAGValue(
+            data=aggregated_dataset,
+            format=DAGFormat.RAY,
+            metadata={
+                "aggregated": True,
+                "aggregations": len(self.aggregations),
+                "group_by_keys": self.group_by_keys,
+                "tiled": True,
+            },
+        )
+
+    def _execute_standard_aggregation(self, dataset: Dataset) -> DAGValue:
+        """Execute standard aggregation without tiling."""
         # Convert aggregations to Ray's groupby format
         agg_dict = {}
         for agg in self.aggregations:
@@ -423,7 +547,8 @@ class RayAggregationNode(DAGNode):
                 result_df = result_df.reset_index()
 
             # Convert back to Ray Dataset
-            return ray.data.from_pandas(result_df)
+            ray_wrapper = get_ray_wrapper()
+            return ray_wrapper.from_pandas(result_df)
         else:
             return dataset
 
@@ -512,31 +637,59 @@ class RayTransformationNode(DAGNode):
         input_value.assert_format(DAGFormat.RAY)
         dataset: Dataset = input_value.data
 
-        transformation_serialized = None
-        if hasattr(self.transformation, "udf") and callable(self.transformation.udf):
-            transformation_serialized = dill.dumps(self.transformation.udf)
-        elif callable(self.transformation):
-            transformation_serialized = dill.dumps(self.transformation)
+        # Check transformation mode
+        from feast.transformation.mode import TransformationMode
 
-        @safe_batch_processor
-        def apply_transformation_with_serialized_udf(
-            batch: pd.DataFrame,
-        ) -> pd.DataFrame:
-            """Apply the transformation using pre-serialized UDF."""
-            if transformation_serialized:
-                transformation_func = dill.loads(transformation_serialized)
-                transformed_batch = transformation_func(batch)
+        transformation_mode = getattr(
+            self.transformation, "mode", TransformationMode.PYTHON
+        )
+        is_ray_native = transformation_mode in (TransformationMode.RAY, "ray")
+        if is_ray_native:
+            transformation_func = None
+            if hasattr(self.transformation, "udf") and callable(
+                self.transformation.udf
+            ):
+                transformation_func = self.transformation.udf
+            elif callable(self.transformation):
+                transformation_func = self.transformation
+
+            if transformation_func:
+                transformed_dataset = transformation_func(dataset)
             else:
                 logger.warning(
-                    "No serialized transformation available, returning original batch"
+                    "No transformation function available in RAY mode, returning original dataset"
                 )
-                transformed_batch = batch
+                transformed_dataset = dataset
+        else:
+            transformation_serialized = None
+            if hasattr(self.transformation, "udf") and callable(
+                self.transformation.udf
+            ):
+                transformation_serialized = dill.dumps(self.transformation.udf)
+            elif callable(self.transformation):
+                transformation_serialized = dill.dumps(self.transformation)
 
-            return transformed_batch
+            @safe_batch_processor
+            def apply_transformation_with_serialized_udf(
+                batch: pd.DataFrame,
+            ) -> pd.DataFrame:
+                """Apply the transformation using pre-serialized UDF."""
+                if transformation_serialized:
+                    transformation_func = dill.loads(transformation_serialized)
+                    transformed_batch = transformation_func(batch)
+                else:
+                    logger.warning(
+                        "No serialized transformation available, returning original batch"
+                    )
+                    transformed_batch = batch
 
-        transformed_dataset = dataset.map_batches(
-            apply_transformation_with_serialized_udf, batch_format="pandas"
-        )
+                return transformed_batch
+
+            transformed_dataset = dataset.map_batches(
+                apply_transformation_with_serialized_udf,
+                batch_format="pandas",
+                concurrency=self.config.max_workers or 12,
+            )
 
         return DAGValue(
             data=transformed_dataset,
@@ -593,7 +746,9 @@ class RayDerivedReadNode(DAGNode):
                     return transformation_func(batch)
 
                 transformed_dataset = parent_value.data.map_batches(
-                    apply_transformation
+                    apply_transformation,
+                    batch_format="pandas",
+                    concurrency=self.config.max_workers or 12,
                 )
                 return DAGValue(
                     data=transformed_dataset,
@@ -625,9 +780,11 @@ class RayWriteNode(DAGNode):
         name: str,
         feature_view: Union[BatchFeatureView, StreamFeatureView, FeatureView],
         inputs=None,
+        config: Optional[RayComputeEngineConfig] = None,
     ):
         super().__init__(name, inputs=inputs)
         self.feature_view = feature_view
+        self.config = config
 
     def execute(self, context: ExecutionContext) -> DAGValue:
         """Execute the write operation."""
@@ -671,7 +828,9 @@ class RayWriteNode(DAGNode):
             return batch
 
         written_dataset = dataset.map_batches(
-            write_batch_with_serialized_artifacts, batch_format="pandas"
+            write_batch_with_serialized_artifacts,
+            batch_format="pandas",
+            concurrency=self.config.max_workers if self.config else 12,
         )
         written_dataset = written_dataset.materialize()
 

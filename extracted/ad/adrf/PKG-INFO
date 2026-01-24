@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: adrf
-Version: 0.1.9
+Version: 0.1.12
 Summary: Async support for Django REST framework
-Home-page: https://github.com/em1208/adrf
 License: MIT
+License-File: LICENSE
 Keywords: async,django,rest,framework,drf
 Author: Enrico Massa
 Author-email: enrico.massa@gmail.com
@@ -15,9 +15,12 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: async-property (>=0.2.2)
 Requires-Dist: django (>=4.1)
 Requires-Dist: djangorestframework (>=3.14.0)
+Project-URL: Homepage, https://github.com/em1208/adrf
 Project-URL: Repository, https://github.com/em1208/adrf
 Description-Content-Type: text/markdown
 
@@ -101,6 +104,7 @@ from adrf.decorators import api_view
 async def async_view(request):
     return Response({"message": "This is an async function based view."})
 ```
+
 # Async ViewSets
 
 For viewsets, all handler methods must be async too.
@@ -129,15 +133,19 @@ class AsyncViewSet(ViewSet):
 
 ```
 
+# ModelViewSet Routing
+
+The `ModelViewSet` implementation included with adrf provides asynchronous CRUD actions (e.g., `aretrieve`, `acreate`, `aupdate`, and `alist`). However, these actions are not invoked by default when using the router implementation in `rest_framework`. To have these async methods mapped by default, use adrf's router instead:
+
 urls.py
 ```python
 from django.urls import path, include
-from rest_framework import routers
+from adrf import routers    # import the adrf router instead
 
 from . import views
 
 router = routers.DefaultRouter()
-router.register(r"async_viewset", views.AsyncViewSet, basename="async")
+router.register(r"async_viewset", views.AsyncModelViewSet, basename="async")
 
 urlpatterns = [
     path("", include(router.urls)),

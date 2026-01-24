@@ -11,12 +11,17 @@ import logging
 import sys
 import re
 from typing import Any, Optional
+import tempfile
+import shutil
+import os
+from dataclasses import fields
 
 import click
 from botocore.exceptions import ClientError
 
 from ... import api
 from ...config import config_file
+from ...dataclasses import SubmitterInfo
 from ....job_attachments.exceptions import (
     AssetSyncError,
     AssetSyncCancelledError,
@@ -29,8 +34,9 @@ from .._common import (
     _apply_cli_options_to_config,
     _handle_error,
     _ProgressBarCallbackManager,
+    _parse_multi_format_parameters,
 )
-from .._main import main
+from .._main import deadline as main
 from ._sigint_handler import SigIntHandler
 
 logger = logging.getLogger(__name__)
@@ -43,7 +49,10 @@ sigint_handler = SigIntHandler()
 @_handle_error
 def cli_bundle():
     """
-    Commands to work with Open Job Description job bundles.
+    Commands to work with Open Job Description [job bundles]. Use these commands to
+    submit jobs to run on a Deadline Cloud queue.
+
+    [job bundles]: https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle.html
     """
 
 
@@ -75,6 +84,45 @@ def validate_parameters(ctx, param, value):
     return parameters_split
 
 
+def _validate_submitter_info(ctx, param, values):
+    """
+    Validate provided --submitter-info value and convert to SubmitterInfo object.
+
+    Supports three input formats that can be mixed:
+    - Key=value pairs: --submitter-info submitter_name=MyApp --submitter-info host_application_name=Maya
+    - Inline JSON strings: --submitter-info '{"submitter_name": "MyApp", "additional_info": {"custom": "data"}}'
+    - File paths (JSON or YAML): --submitter-info file://path/to/submitter.json
+
+    All keys must be valid SubmitterInfo fields. Unknown keys will raise an error.
+    """
+    if not values:
+        return None
+
+    # Get valid field names from SubmitterInfo dataclass
+    valid_fields = {field.name for field in fields(SubmitterInfo)}
+
+    info_dict = _parse_multi_format_parameters(list(values))
+
+    # Validate all keys
+    for key in info_dict.keys():
+        if key not in valid_fields:
+            raise click.BadParameter(
+                f"Unknown field '{key}'. Valid fields are: {', '.join(sorted(valid_fields))}"
+            )
+
+    # Ensure submitter_name is provided as a required field
+    if "submitter_name" not in info_dict:
+        raise click.BadParameter(
+            "submitter_name is required when using --submitter-info. "
+            "Example: --submitter-info submitter_name=MyApp"
+        )
+
+    try:
+        return SubmitterInfo(**info_dict)
+    except TypeError as e:
+        raise click.BadParameter(f"Failed to create SubmitterInfo: {e}") from e
+
+
 def _interactive_confirmation_prompt(message: str, default_response: bool) -> bool:
     """
     Callback to decide if submission should continue or be canceled. Returns True to continue, False to cancel.
@@ -95,7 +143,11 @@ def _interactive_confirmation_prompt(message: str, default_response: bool) -> bo
     "--parameter",
     multiple=True,
     callback=validate_parameters,
-    help='The values for the job template\'s parameters. Can be provided as key-value pairs, inline JSON strings, or as paths to a JSON or YAML document. If provided more than once, the values are combined in the order that they appear. Examples: --parameter MyParam=5 -p file://parameter_file.json -p \'{"MyParam": "5"}\'',
+    help=(
+        "The values for the job template's parameters. Can be provided as key-value pairs, inline JSON strings, "
+        "or as paths to a JSON or YAML document. Later values for repeated parameter names take precedence. "
+        'Examples: --parameter MyParam=5 -p file://parameter_file.json -p \'{"OtherParam": "10"}\''
+    ),
 )
 @click.option("--profile", help="The AWS profile to use.")
 @click.option("--farm-id", help="The farm to use.")
@@ -158,6 +210,12 @@ def _interactive_confirmation_prompt(message: str, default_response: bool) -> bo
     help="Path that should not generate warnings when outside storage profile locations. "
     "Can be specified multiple times for different paths.",
 )
+@click.option(
+    "--save-debug-snapshot",
+    help="EXPERIMENTAL - Instead of submitting the job, generate a debug snapshot as a directory or a zip file if the extension is .zip."
+    " It includes the job attachments and parameters for creating the job."
+    " You can later run the bash script in the snapshot to submit the job using AWS CLI commands.",
+)
 @click.argument("job_bundle_dir")
 @_handle_error
 def bundle_submit(
@@ -173,10 +231,16 @@ def bundle_submit(
     target_task_run_status,
     require_paths_exist,
     submitter_name,
+    save_debug_snapshot,
     **args,
 ):
     """
-    Submits an Open Job Description job bundle.
+    Submits an Open Job Description [job bundle] to a
+    [Deadline Cloud queue]. You can provide options
+    to set parameter values, the job name, priority, and more.
+
+    [job bundle]: https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle.html
+    [Deadline Cloud queue]: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/queues.html
     """
     # Apply the CLI args to the config
     config = _apply_cli_options_to_config(required_options={"farm_id", "queue_id"}, **args)
@@ -188,6 +252,14 @@ def bundle_submit(
         return sigint_handler.continue_operation
 
     try:
+        snapshot_tmpdir = None
+        if save_debug_snapshot:
+            save_debug_snapshot = os.path.abspath(save_debug_snapshot)
+
+            # If the debug snapshot is to a zip file, first put it in a temporary directory
+            if save_debug_snapshot.endswith(".zip"):
+                snapshot_tmpdir = tempfile.TemporaryDirectory()
+
         job_id = api.create_job_from_job_bundle(
             job_bundle_dir=job_bundle_dir,
             job_parameters=parameter,
@@ -207,16 +279,27 @@ def bundle_submit(
             require_paths_exist=require_paths_exist,
             submitter_name=submitter_name or "CLI",
             known_asset_paths=known_asset_path,
+            debug_snapshot_dir=snapshot_tmpdir.name if snapshot_tmpdir else save_debug_snapshot,
         )
+
+        if snapshot_tmpdir:
+            # Put the snapshot in a zip file
+            os.makedirs(os.path.dirname(save_debug_snapshot), exist_ok=True)
+            shutil.make_archive(save_debug_snapshot, "zip", snapshot_tmpdir.name)
+
+        if save_debug_snapshot:
+            click.echo("Saved job debug snapshot:")
+            click.echo(f"    {save_debug_snapshot}")
 
         # Check Whether the CLI options are modifying any of the default settings that affect
         # the job id. If not, we'll save the job id submitted as the default job id.
-        # If the submission is canceled by the user job_id will be None, so ignore this case as well.
+        # If a job snapshot directory was provided, the job_id will be None.
         if (
             args.get("profile") is None
             and args.get("farm_id") is None
             and args.get("queue_id") is None
             and args.get("storage_profile_id") is None
+            and job_id
         ):
             config_file.set_setting("defaults.job_id", job_id)
 
@@ -250,9 +333,23 @@ def bundle_submit(
             exception_type=str(type(exc)),
         )
         raise
+    finally:
+        if snapshot_tmpdir:
+            snapshot_tmpdir.cleanup()
 
 
 @cli_bundle.command(name="gui-submit")
+@click.option(
+    "-p",
+    "--parameter",
+    multiple=True,
+    callback=validate_parameters,
+    help=(
+        "Initial values in the GUI for the job template's parameters. Can be provided as key-value pairs, inline JSON strings, "
+        "or as paths to a JSON or YAML document. Later values for repeated parameter names take precedence. "
+        'Examples: --parameter MyParam=5 -p file://parameter_file.json -p \'{"OtherParam": "10"}\''
+    ),
+)
 @click.argument("job_bundle_dir", required=False)
 @click.option(
     "--browse",
@@ -266,8 +363,7 @@ def bundle_submit(
 )
 @click.option(
     "--submitter-name",
-    type=click.STRING,
-    help="Name of the application submitting the bundle. If a name is specified, the GUI will automatically close after submitting the job.",
+    help="[DEPRECATED] Use --submitter-info submitter_name=<name> instead. Name of the application submitting the bundle. If a name is specified, the GUI will automatically close after submitting the job.",
 )
 @click.option(
     "--output",
@@ -287,29 +383,71 @@ def bundle_submit(
     help="Path that should not generate warnings when outside storage profile locations. "
     "Can be specified multiple times for different paths.",
 )
+@click.option(
+    "--submitter-info",
+    multiple=True,
+    callback=_validate_submitter_info,
+    help="Submitter and environment information. Supports key=value pairs, inline JSON strings, "
+    "and file paths (JSON or YAML). Later values for repeated fields take precedence. "
+    "Examples: --submitter-info submitter_name=MyApp --submitter-info host_application_name=Maya "
+    'OR --submitter-info \'{"submitter_name": "MyApp", "additional_info": {"render_engine": "Cycles"}}\' '
+    "OR --submitter-info file://path/to/submitter.json",
+)
 @_handle_error
 def bundle_gui_submit(
-    job_bundle_dir, browse, output, install_gui, submitter_name, known_asset_path, **args
+    parameter,
+    job_bundle_dir,
+    browse,
+    output,
+    install_gui,
+    known_asset_path,
+    submitter_name,
+    submitter_info,
+    **args,
 ):
     """
-    Opens a GUI to submit an Open Job Description job bundle.
+    Opens a GUI to submit an Open Job Description [job bundle] to a
+    [Deadline Cloud queue]. You can provide options
+    to set the initial parameter values shown in the GUI.
+
+    [job bundle]: https://docs.aws.amazon.com/deadline-cloud/latest/developerguide/build-job-bundle.html
+    [Deadline Cloud queue]: https://docs.aws.amazon.com/deadline-cloud/latest/userguide/queues.html
     """
+
+    if submitter_name:
+        click.echo(
+            click.style(
+                "DeprecationWarning: The option --submitter-name is deprecated. Use --submitter-info instead.",
+                fg="red",
+            ),
+            err=True,
+        )
+        if submitter_info:
+            # --submitter-name takes precedence if we already have submitter_info provided
+            submitter_info.submitter_name = submitter_name
+        else:
+            submitter_info = SubmitterInfo(submitter_name=submitter_name)
+
     from ...ui import gui_context_for_cli
+    from ...ui._utils import tr
 
     with gui_context_for_cli(automatically_install_dependencies=install_gui) as app:
         from ...ui.job_bundle_submitter import show_job_bundle_submitter
 
         if not job_bundle_dir and not browse:
             raise DeadlineOperationError(
-                "Specify a job bundle directory or run the bundle command with the --browse flag"
+                tr(
+                    "Specify a job bundle directory or run the bundle command with the --browse flag"
+                )
             )
         output = output.lower()
 
         submitter = show_job_bundle_submitter(
             input_job_bundle_dir=job_bundle_dir,
             browse=browse,
-            submitter_name=submitter_name,
+            submitter_info=submitter_info,
             known_asset_paths=known_asset_path,
+            job_parameters=parameter,
         )
 
         if not submitter:

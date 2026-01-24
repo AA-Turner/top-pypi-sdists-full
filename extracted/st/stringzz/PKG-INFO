@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: stringzz
+Version: 0.4.5
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Summary: A library and tool for strings and opcodes extraction from various file formats
+Keywords: strings,malware,yara,maturin,yara-generator
+Home-Page: https://github.com/ogre2007/stringzz
+Author: ogre2007 <oogre@vk.com>
+Author-email: ogre2007 <oogre@vk.com>
+License: GPL-3.0-only
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+test

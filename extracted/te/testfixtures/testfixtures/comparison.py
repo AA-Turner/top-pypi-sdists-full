@@ -1,17 +1,30 @@
 import re
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from collections.abc import Iterable as IterableABC
+from dataclasses import dataclass
 from datetime import datetime, time
 from decimal import Decimal
 from difflib import unified_diff
 from functools import partial as partial_type, reduce
+from inspect import signature
 from operator import __or__
 from pathlib import Path
 from pprint import pformat
 from types import GeneratorType
 from typing import (
-    Any, Sequence, TypeVar, List, Mapping, Pattern,
-    Callable, Iterable, cast
+    Any,
+    Sequence,
+    TypeVar,
+    List,
+    Mapping,
+    Pattern,
+    Callable,
+    Iterable,
+    cast,
+    overload,
+    Self,
+    Protocol,
+    TypeAlias,
 )
 from unittest.mock import call as unittest_mock_call
 
@@ -97,19 +110,55 @@ def _extract_attrs(obj: Any, ignore: Iterable[str] | None = None) -> dict[str, A
     return attrs
 
 
+def merge_ignored_attributes(
+    *ignored: Iterable[str] | Mapping[type, Iterable[str]] | str | None
+) -> Mapping[type, set[str]]:
+    """
+    Merge multiple specifications of attributes to ignore into a single mapping.
+
+    This is particularly useful when implementing custom comparers that need to
+    combine their own attribute ignores with those passed via the context.
+
+    Each argument can be:
+
+    - ``None``: ignored
+    - A :class:`~typing.Mapping` of type to iterable of attribute names:
+      attributes for specific types
+    - An iterable of attribute names: applies to all types
+    - A single attribute name string: applies to all types
+
+    Returns a mapping of types to sets of attribute names to ignore, where
+    :data:`~typing.Any` is used as the key for attributes that apply to all types.
+    """
+    final = defaultdict[type, set[str]](set)
+    for i in ignored:
+        if i is None:
+            pass
+        elif isinstance(i, Mapping):
+            for type_, values in i.items():
+                final[type_].update(values)
+        else:
+            final[Any].update(i)
+    return final
+
+
 def _attrs_to_ignore(
-        context: 'CompareContext', ignore_attributes: Iterable[str], obj: Any
-) -> Iterable[str]:
-    ignore = context.get_option('ignore_attributes', ())
-    if isinstance(ignore, dict):
-        ignore = ignore.get(type(obj), ())
-    ignore = set(ignore)
-    ignore.update(ignore_attributes)
-    return ignore
+        ignore_attributes: Iterable[str] | Mapping[type, Iterable[str]], obj: Any
+) -> set[str]:
+    ignored = set()
+    if isinstance(ignore_attributes, dict):
+        ignored |= set(ignore_attributes.get(type(obj), ()))
+        ignored |= set(ignore_attributes.get(Any, ()))
+    else:
+        ignored.update(ignore_attributes)
+    return ignored
 
 
 def compare_object(
-        x: object, y: object, context: 'CompareContext', ignore_attributes: Iterable[str] = ()
+        x: object,
+        y: object,
+        context: 'CompareContext',
+        ignore_attributes: Iterable[str] | Mapping[type, Iterable[str]] = ()
 ) -> str | None:
     """
     Compare the two supplied objects based on their type and attributes.
@@ -117,19 +166,17 @@ def compare_object(
     :param ignore_attributes:
 
        Either a sequence of strings containing attribute names to be ignored
-       when comparing or a mapping of type to sequence of strings containing
-       attribute names to be ignored when comparing that type.
+       when comparing, or a :class:`~typing.Mapping` of type to sequence of
+       strings containing attribute names to be ignored when comparing that type.
 
-       This may be specified as either a parameter to this function or in the
-       ``context``. If specified in both, they will both apply with precedence
-       given to whatever is specified is specified as a parameter.
-       If specified as a parameter to this function, it may only be a list of
-       strings.
+       When specified as a mapping, you can use :data:`~typing.Any` as a key to
+       specify attributes that should be ignored for all types.
+
     """
     if type(x) is not type(y) or isinstance(x, type):
         return compare_simple(x, y, context)
-    x_attrs = _extract_attrs(x, _attrs_to_ignore(context, ignore_attributes, x))
-    y_attrs = _extract_attrs(y, _attrs_to_ignore(context, ignore_attributes, y))
+    x_attrs = _extract_attrs(x, _attrs_to_ignore(ignore_attributes, x))
+    y_attrs = _extract_attrs(y, _attrs_to_ignore(ignore_attributes, y))
     if x_attrs is None or y_attrs is None or not (x_attrs and y_attrs):
         return compare_simple(x, y, context)
     if not context.simple_equals(x_attrs, y_attrs):
@@ -147,7 +194,7 @@ def compare_exception(
     """
     if x.args != y.args:
         return compare_simple(x, y, context)
-    return compare_object(x, y, context)
+    return context.call(compare_object, x, y)
 
 
 def compare_with_type(x: Any, y: Any, context: 'CompareContext') -> str:
@@ -355,7 +402,14 @@ def split_repr(text: str) -> str:
     return '\n'.join(parts)
 
 
-def compare_text(x: str, y: str, context: 'CompareContext') -> str | None:
+def compare_text(
+        x: str,
+        y: str,
+        context: 'CompareContext',
+        blanklines: bool = True,
+        trailing_whitespace: bool = True,
+        show_whitespace: bool = False,
+) -> str | None:
     """
     Returns an informative string describing the differences between the two
     supplied strings. The way in which this comparison is performed
@@ -373,10 +427,6 @@ def compare_text(x: str, y: str, context: 'CompareContext') -> str | None:
                             multi-line strings will be replaced with their
                             representations.
     """
-    blanklines = context.get_option('blanklines', True)
-    trailing_whitespace = context.get_option('trailing_whitespace', True)
-    show_whitespace = context.get_option('show_whitespace', False)
-
     if not trailing_whitespace:
         x = trailing_whitespace_re.sub('', x)
         y = trailing_whitespace_re.sub('', y)
@@ -471,9 +521,74 @@ def _short_repr(obj: Any) -> str:
 
 
 Comparer = Callable[[Any, Any, 'CompareContext'], str | None]
-Registry = dict[type, Comparer]
+Comparers: TypeAlias = dict[type, Comparer]
 
-_registry: Registry = {
+_UNSAFE_ITERABLES = str, bytes, dict
+
+
+@dataclass
+class Registry:
+    comparers: dict[type, Comparer]
+    all_option_names: set[str]
+    options_for: dict[Comparer, set[str]]
+
+    @staticmethod
+    def _shared_mro(x: Any, y: Any) -> Iterable[type]:
+        y_mro = set(type(y).__mro__)
+        for class_ in type(x).__mro__:
+            if class_ in y_mro:
+                yield class_
+
+    def lookup(self, x: Any, y: Any, strict: bool) -> Comparer:
+        if strict and type(x) is not type(y):
+            return compare_with_type
+
+        for class_ in self._shared_mro(x, y):
+            comparer = self.comparers.get(class_)
+            if comparer:
+                return comparer
+
+        # fallback for iterables
+        if ((isinstance(x, IterableABC) and isinstance(y, IterableABC)) and not
+            (isinstance(x, _UNSAFE_ITERABLES) or
+             isinstance(y, _UNSAFE_ITERABLES))):
+            return compare_generator
+
+        # special handling for Comparisons:
+        if isinstance(x, Comparison) or isinstance(y, Comparison):
+            return compare_simple
+
+        return compare_object
+
+    def __setitem__(self, key: type, value: Comparer) -> None:
+        options = set(tuple(signature(value).parameters)[3:])
+        self.options_for[value] = options
+        self.all_option_names |= options
+        self.comparers[key] = value
+
+    @classmethod
+    def initial(cls, comparers: Comparers) -> Self:
+        registry = cls(
+            comparers={},
+            all_option_names = {'ignore_attributes'},
+            options_for = {compare_object: {'ignore_attributes'}}
+        )
+        for name, value in comparers.items():
+            registry[name] = value
+        return registry
+
+    def overlay_with(self, comparers: Comparers) -> Self:
+        registry = type(self)(
+            comparers=self.comparers.copy(),
+            all_option_names = self.all_option_names.copy(),
+            options_for = self.options_for.copy()
+        )
+        for name, value in comparers.items():
+            registry[name] = value
+        return registry
+
+
+_registry = Registry.initial({
     dict: compare_dict,
     set: compare_set,
     list: compare_sequence,
@@ -491,7 +606,7 @@ _registry: Registry = {
     Path: compare_path,
     datetime: compare_with_fold,
     time: compare_with_fold,
-}
+})
 
 
 def compare_exception_group(
@@ -520,16 +635,6 @@ def register(type_: type, comparer: Comparer) -> None:
     this function is called until the end of the current process.
     """
     _registry[type_] = comparer
-
-
-def _shared_mro(x: Any, y: Any) -> Iterable[type]:
-    y_mro = set(type(y).__mro__)
-    for class_ in type(x).__mro__:
-        if class_ in y_mro:
-            yield class_
-
-
-_unsafe_iterables = str, bytes, dict
 
 
 class AlreadySeen:
@@ -562,14 +667,16 @@ class CompareContext:
             recursive: bool = True,
             strict: bool = False,
             ignore_eq: bool = False,
-            comparers: Registry | None = None,
+            comparers: Comparers | None = None,
             options: dict[str, Any] | None = None,
     ):
-        self.registries = []
-        if comparers:
-            self.registries.append(comparers)
-        self.registries.append(_registry)
-
+        self._registry = _registry.overlay_with(comparers) if comparers else _registry
+        if options:
+            invalid = set(options) - self._registry.all_option_names
+            if invalid:
+                raise TypeError(
+                    'The following options are not valid: ' + ', '.join(invalid)
+                )
         self.x_label = x_label
         self.y_label = y_label
         self.recursive: bool = recursive
@@ -598,14 +705,9 @@ class CompareContext:
             message = 'Exactly two objects needed, you supplied:'
             if possible:
                 message += ' {}'.format(possible)
-            if self.options:
-                message += ' {}'.format(self.options)
             raise TypeError(message)
 
         return possible
-
-    def get_option(self, name: str, default: Any = None) -> Any:
-        return self.options.get(name, default)
 
     def label(self, side: str, value: Any) -> str:
         r = str(value)
@@ -613,28 +715,6 @@ class CompareContext:
         if label:
             r += ' ('+label+')'
         return r
-
-    def _lookup(self, x: Any, y: Any) -> Comparer:
-        if self.strict and type(x) is not type(y):
-            return compare_with_type
-
-        for class_ in _shared_mro(x, y):
-            for registry in self.registries:
-                comparer = registry.get(class_)
-                if comparer:
-                    return comparer
-
-        # fallback for iterables
-        if ((isinstance(x, IterableABC) and isinstance(y, IterableABC)) and not
-            (isinstance(x, _unsafe_iterables) or
-             isinstance(y, _unsafe_iterables))):
-            return compare_generator
-
-        # special handling for Comparisons:
-        if isinstance(x, Comparison) or isinstance(y, Comparison):
-            return compare_simple
-
-        return compare_object
 
     def _separator(self) -> str:
         return '\n\nWhile comparing %s: ' % ''.join(self.breadcrumbs[1:])
@@ -655,6 +735,16 @@ class CompareContext:
     def simple_equals(self, x: Any, y: Any) -> bool:
         return not (self.strict or self.ignore_eq) and x == y
 
+    def call(self, comparer: Comparer, x: Any, y: Any) -> str | None:
+        kw = {}
+        option_names = self._registry.options_for.get(comparer)
+        if option_names:
+            for name in option_names:
+                value = self.options.get(name, not_there)
+                if value is not not_there:
+                    kw[name] = value
+        return comparer(x, y, self, **kw)
+
     def different(self, x: Any, y: Any, breadcrumb: str) -> bool | str | None:
 
         x = self._break_loops(x, breadcrumb)
@@ -674,9 +764,9 @@ class CompareContext:
                 except RecursionError:
                     pass
 
-            comparer: Comparer = self._lookup(x, y)
+            comparer: Comparer = self._registry.lookup(x, y, self.strict)
 
-            result = comparer(x, y, self)
+            result = self.call(comparer, x, y)
             specific_comparer = comparer is not compare_simple
 
             if result:
@@ -710,15 +800,15 @@ def compare(
         y: Any = unspecified,
         expected: Any = unspecified,
         actual: Any = unspecified,
-        prefix: str | None = None,
-        suffix: str | None = None,
+        prefix: str | Callable[[], str] | None = None,
+        suffix: str | Callable[[], str] | None = None,
         x_label: str | None = None,
         y_label: str | None = None,
         raises: bool = True,
         recursive: bool = True,
         strict: bool = False,
         ignore_eq: bool = False,
-        comparers: Registry | None = None,
+        comparers: Comparers | None = None,
         **options: Any
 ) -> str | None:
     """
@@ -1278,3 +1368,146 @@ class RangeComparison:
 
     def __repr__(self) -> str:
         return '<Range: [%s, %s]>' % (self.lower_bound, self.upper_bound)
+
+T = TypeVar('T')
+
+def like(t: type[T], **attributes: Any) -> T:
+    """
+    Create a type-safe partial comparison for use in strictly typed code.
+
+    This is a convenience function that creates a :class:`Comparison` with
+    ``partial=True`` but is typed to return the type being compared, making it
+    compatible with strict type checkers like mypy.
+
+    :param t: The type to compare against.
+    :param attributes: Keyword arguments specifying the attributes to check.
+    :return: A :class:`Comparison` object typed as the input type.
+    """
+    return Comparison(t, attribute_dict=attributes, partial=True)  # type: ignore[return-value]
+
+
+S = TypeVar("S", bound=Sequence[Any])
+S_ = TypeVar("S_", bound=Sequence[Any])
+
+
+@overload
+def sequence(
+    partial: bool = False,
+    ordered: bool = True,
+    recursive: bool = True,
+) -> Callable[[S], S]: ...
+
+
+@overload
+def sequence(
+    partial: bool = False,
+    ordered: bool = True,
+    recursive: bool = True,
+    *,
+    returns: type[S_],
+) -> Callable[[S], S_]: ...
+
+
+def sequence(
+    partial: bool = False,
+    ordered: bool = True,
+    recursive: bool = True,
+    *,
+    returns: type[S_] | None = None,
+) -> Callable[[S], S | S_]:
+    """
+    Create a type-safe sequence comparison with configurable partial matching
+    and ordering requirements.
+
+    This function returns a callable that wraps a sequence in a comparison object,
+    making it compatible with strict type checkers.
+
+    :param partial: If ``True``, only items in the expected sequence need to be present
+                    in the actual sequence. Defaults to ``False``.
+    :param ordered: If ``True``, items must appear in the same order. Defaults to ``True``.
+    :param recursive: If ``True``, provide detailed recursive comparison when differences
+                      are found. Defaults to ``True``.
+    :param returns: Optional type hint for the return type, used to satisfy type checkers
+                    when the comparison needs to appear as a different sequence type.
+    :return: A callable that takes a sequence and returns a comparison object typed
+             as a sequence.
+    """
+    def maker(items: S) -> S | S_:
+        return SequenceComparison(  # type: ignore[return-value]
+            *items, partial=partial, ordered=ordered, recursive=recursive
+        )
+
+    return maker
+
+
+@overload
+def contains(
+    items: S,
+) -> S: ...
+
+
+@overload
+def contains(
+    items: S,
+    *,
+    returns: type[S_],
+) -> S_: ...
+
+
+def contains(
+    items: S,
+    *,
+    returns: type[S_] | None = None,
+) -> S | S_:
+    """
+    Create a type-safe partial sequence comparison that ignores order.
+
+    Checks that the specified items are present in the actual sequence, regardless
+    of their order or what other items are present. This is useful when you only
+    care that certain elements exist in a collection.
+
+    :param items: The sequence of items that must be present.
+    :param returns: Optional type hint for the return type, used to satisfy type checkers
+                    when the comparison needs to appear as a different sequence type.
+    :return: A comparison object typed as a sequence.
+    """
+    return SequenceComparison(  # type: ignore[return-value]
+        *items, ordered=False, partial=True, recursive=True
+    )
+
+
+@overload
+def unordered(
+    items: S,
+) -> S: ...
+
+
+@overload
+def unordered(
+    items: S,
+    *,
+    returns: type[S_],
+) -> S_: ...
+
+
+def unordered(
+    items: S,
+    *,
+    returns: type[S_] | None = None,
+) -> S | S_:
+    """
+    Create a type-safe sequence comparison that ignores order but requires all
+    items to match.
+
+    Checks that the actual sequence contains exactly the same items as specified,
+    but in any order. This is useful when order doesn't matter but you want to
+    ensure no extra or missing items.
+
+    :param items: The sequence of items that must match exactly.
+    :param returns: Optional type hint for the return type, used to satisfy type checkers
+                    when the comparison needs to appear as a different sequence type.
+    :return: A comparison object typed as a sequence.
+    """
+    return SequenceComparison(  # type: ignore[return-value]
+        *items, ordered=False, partial=False, recursive=True
+    )

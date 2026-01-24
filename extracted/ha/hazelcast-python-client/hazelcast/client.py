@@ -49,6 +49,7 @@ from hazelcast.proxy import (
     Ringbuffer,
     Set,
     Topic,
+    _proxy_init,
 )
 from hazelcast.proxy.base import Proxy
 from hazelcast.proxy.map import Map
@@ -66,6 +67,8 @@ __all__ = ("HazelcastClient",)
 from hazelcast.vector import IndexConfig
 
 _logger = logging.getLogger(__name__)
+
+_SUPPORTED_DDS_NAMES = set(_proxy_init.keys())
 
 
 class HazelcastClient:
@@ -378,19 +381,53 @@ class HazelcastClient:
         """
         return self._proxy_manager.get_or_create(TOPIC_SERVICE, name)
 
-    def create_vector_collection_config(self, name: str, indexes: typing.List[IndexConfig]) -> None:
+    def create_vector_collection_config(
+        self,
+        name: str,
+        indexes: typing.List[IndexConfig],
+        backup_count: int = 1,
+        async_backup_count: int = 0,
+        split_brain_protection_name: typing.Optional[str] = None,
+        merge_policy: str = "PutIfAbsentMergePolicy",
+        merge_batch_size: int = 100,
+    ) -> None:
+        """Creates a vector collection with the given configuration.
+
+        Args:
+            name: Name of the distributed map.
+            indexes: One or more index configurations. The index names must be unique.
+            backup_count: Number of backups to keep for the vector collection.
+            split_brain_protection_name: Name of the split brain protection configuration. See https://docs.hazelcast.com/hazelcast/5.6/data-structures/vector-collections#split-brain-protection
+            merge_policy: The merge policy to use while recovering in a split brain situation. See https://docs.hazelcast.com/hazelcast/5.6/data-structures/vector-collections#merge-policy
+        """
         # check that indexes have different names
         if indexes:
             index_names = set(index.name for index in indexes)
             if len(index_names) != len(indexes):
                 raise AssertionError("index names must be unique")
 
-        request = dynamic_config_add_vector_collection_config_codec.encode_request(name, indexes)
+        request = dynamic_config_add_vector_collection_config_codec.encode_request(
+            name,
+            indexes,
+            backup_count,
+            async_backup_count,
+            split_brain_protection_name,
+            merge_policy,
+            merge_batch_size,
+        )
         invocation = Invocation(request, response_handler=lambda m: m)
         self._invocation_service.invoke(invocation)
         invocation.future.result()
 
     def get_vector_collection(self, name: str) -> VectorCollection:
+        """Returns the vector collection instance with the specified name.
+
+        Args:
+            name: Name of the vector collection.
+
+        Returns:
+            Vector collection instance with the specified name.
+        """
         return self._proxy_manager.get_or_create(VECTOR_SERVICE, name)
 
     def new_transaction(
@@ -451,14 +488,14 @@ class HazelcastClient:
         Returns silently if there is no such listener added before.
 
         Args:
-            registration_id: The id of registered listener.
+            registration_id: The id of the registered listener.
 
         Returns:
             ``True`` if registration is removed, ``False`` otherwise.
         """
         return self._listener_service.deregister_listener(registration_id)
 
-    def get_distributed_objects(self) -> Future[typing.List[Proxy]]:
+    def get_distributed_objects(self) -> typing.List[Proxy]:
         """Returns all distributed objects such as; queue, map, set, list,
         topic, lock, multimap.
 
@@ -478,8 +515,13 @@ class HazelcastClient:
         }
 
         response = client_get_distributed_objects_codec.decode_response(invocation.future.result())
+
         for dist_obj_info in response:
             local_distributed_object_infos.discard(dist_obj_info)
+
+            # skip unsupported proxies, e.g., hz:impl:cacheService
+            if dist_obj_info.service_name not in _SUPPORTED_DDS_NAMES:
+                continue
             self._proxy_manager.get_or_create(
                 dist_obj_info.service_name, dist_obj_info.name, create_on_remote=False
             )

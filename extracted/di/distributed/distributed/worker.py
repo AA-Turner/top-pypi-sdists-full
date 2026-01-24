@@ -75,9 +75,9 @@ from distributed.core import (
     context_meter_to_server_digest,
     error_message,
     pingpong,
+    send_recv,
 )
 from distributed.core import rpc as RPCType
-from distributed.core import send_recv
 from distributed.diagnostics import nvml, rmm
 from distributed.diagnostics.plugin import WorkerPlugin, _get_plugin_name
 from distributed.diskutils import WorkSpace
@@ -647,10 +647,15 @@ class Worker(BaseWorker, ServerNode):
         if scheduler_sni:
             self.connection_args["server_hostname"] = scheduler_sni
 
+        self.name = name
+
+        executor_pool_prefix = f"{self.name}-" if self.name else ""
         # Common executors always available
         self.executors = {
             "offload": utils._offload_executor,
-            "actor": ThreadPoolExecutor(1, thread_name_prefix="Dask-Actor-Threads"),
+            "actor": ThreadPoolExecutor(
+                1, thread_name_prefix=f"{executor_pool_prefix}Dask-Actor-Threads"
+            ),
         }
 
         # Find the default executor
@@ -660,13 +665,14 @@ class Worker(BaseWorker, ServerNode):
             self.executors.update(executor)
         elif executor is not None:
             self.executors["default"] = executor
+
         if "default" not in self.executors:
             self.executors["default"] = ThreadPoolExecutor(
-                nthreads, thread_name_prefix="Dask-Default-Threads"
+                nthreads,
+                thread_name_prefix=f"{executor_pool_prefix}Dask-Default-Threads",
             )
 
         self.batched_stream = BatchedSend(interval="2ms", loop=self.loop)
-        self.name = name
         self.scheduler_delay = 0
         self.stream_comms = {}
 
@@ -1364,7 +1370,7 @@ class Worker(BaseWorker, ServerNode):
             return {"status": "OK"}
 
     def get_monitor_info(self, recent: bool = False, start: int = 0) -> dict[str, Any]:
-        result = dict(
+        result: dict[str, Any] = dict(
             range_query=(
                 self.monitor.recent()
                 if recent
@@ -1620,8 +1626,10 @@ class Worker(BaseWorker, ServerNode):
         # Give some time for a UCX scheduler to complete closing endpoints
         # before closing self.batched_stream, otherwise the local endpoint
         # may be closed too early and errors be raised on the scheduler when
-        # trying to send closing message.
-        if self._protocol == "ucx":  # pragma: no cover
+        # trying to send closing message. Using startswith supports variations
+        # of the protocols, e.g., `ucx` and `ucxx` which are both valid in
+        # distributed-ucxx.
+        if self._protocol.startswith("ucx"):  # pragma: no cover
             await asyncio.sleep(0.2)
 
         self.batched_send({"op": "close-stream"})
@@ -2986,7 +2994,7 @@ def _run_task_simple(
             # Any other `BaseException` types would ultimately be ignored by asyncio if
             # raised here, after messing up the worker state machine along their way.
             raise
-        except BaseException as e:  # noqa: B036
+        except BaseException as e:
             # Users _shouldn't_ use `BaseException`s, but if they do, we can assume they
             # aren't a reason to shut down the whole system (since we allow the
             # system-shutting-down `SystemExit` and `KeyboardInterrupt` to pass through)
@@ -3030,7 +3038,7 @@ async def _run_task_async(
             # Any other `BaseException` types would ultimately be ignored by asyncio if
             # raised here, after messing up the worker state machine along their way.
             raise
-        except BaseException as e:  # noqa: B036
+        except BaseException as e:
             # NOTE: this includes `CancelledError`! Since it's a user task, that's _not_
             # a reason to shut down the worker.
             # Users _shouldn't_ use `BaseException`s, but if they do, we can assume they
@@ -3225,7 +3233,7 @@ else:
 # avoid importing cuDF unless explicitly enabled
 if dask.config.get("distributed.diagnostics.cudf"):
     try:
-        import cudf as _cudf  # noqa: F401
+        import cudf as _cudf
     except Exception:
         pass
     else:

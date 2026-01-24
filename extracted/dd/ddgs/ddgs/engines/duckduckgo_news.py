@@ -1,13 +1,12 @@
 """Duckduckgo news search engine implementation."""
 
-from __future__ import annotations
-
+import json
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, ClassVar
 
-from ..base import BaseSearchEngine
-from ..results import NewsResult
-from ..utils import _extract_vqd, json_loads
+from ddgs.base import BaseSearchEngine
+from ddgs.results import NewsResult
+from ddgs.utils import _extract_vqd
 
 
 class DuckduckgoNews(BaseSearchEngine[NewsResult]):
@@ -20,7 +19,7 @@ class DuckduckgoNews(BaseSearchEngine[NewsResult]):
     search_url = "https://duckduckgo.com/news.js"
     search_method = "GET"
 
-    elements_replace: Mapping[str, str] = {
+    elements_replace: ClassVar[Mapping[str, str]] = {
         "date": "date",
         "title": "title",
         "excerpt": "body",
@@ -35,7 +34,13 @@ class DuckduckgoNews(BaseSearchEngine[NewsResult]):
         return _extract_vqd(resp_content, query)
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         safesearch_base = {"on": "1", "moderate": "-1", "off": "-2"}
@@ -55,7 +60,7 @@ class DuckduckgoNews(BaseSearchEngine[NewsResult]):
 
     def extract_results(self, html_text: str) -> list[NewsResult]:
         """Extract search results from lxml tree."""
-        json_data = json_loads(html_text)
+        json_data = json.loads(html_text)
         items = json_data.get("results", [])
         results = []
         for item in items:

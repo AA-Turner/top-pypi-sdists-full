@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import ListBlueprintsPaginator, ListDataAutomationProjectsPaginator
 from .type_defs import (
+    CopyBlueprintStageRequestTypeDef,
     CreateBlueprintRequestTypeDef,
     CreateBlueprintResponseTypeDef,
     CreateBlueprintVersionRequestTypeDef,
@@ -36,10 +38,14 @@ from .type_defs import (
     DeleteBlueprintRequestTypeDef,
     DeleteDataAutomationProjectRequestTypeDef,
     DeleteDataAutomationProjectResponseTypeDef,
+    GetBlueprintOptimizationStatusRequestTypeDef,
+    GetBlueprintOptimizationStatusResponseTypeDef,
     GetBlueprintRequestTypeDef,
     GetBlueprintResponseTypeDef,
     GetDataAutomationProjectRequestTypeDef,
     GetDataAutomationProjectResponseTypeDef,
+    InvokeBlueprintOptimizationAsyncRequestTypeDef,
+    InvokeBlueprintOptimizationAsyncResponseTypeDef,
     ListBlueprintsRequestTypeDef,
     ListBlueprintsResponseTypeDef,
     ListDataAutomationProjectsRequestTypeDef,
@@ -54,12 +60,6 @@ from .type_defs import (
     UpdateDataAutomationProjectResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -70,14 +70,14 @@ __all__ = ("DataAutomationforBedrockClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DataAutomationforBedrockClient(BaseClient):
@@ -115,6 +115,16 @@ class DataAutomationforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#generate_presigned_url)
         """
 
+    def copy_blueprint_stage(
+        self, **kwargs: Unpack[CopyBlueprintStageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Copies a Blueprint from one stage to another.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/copy_blueprint_stage.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#copy_blueprint_stage)
+        """
+
     def create_blueprint(
         self, **kwargs: Unpack[CreateBlueprintRequestTypeDef]
     ) -> CreateBlueprintResponseTypeDef:
@@ -145,7 +155,7 @@ class DataAutomationforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#create_data_automation_project)
         """
 
-    def delete_blueprint(self, **kwargs: Unpack[DeleteBlueprintRequestTypeDef]) -> Dict[str, Any]:
+    def delete_blueprint(self, **kwargs: Unpack[DeleteBlueprintRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an existing Amazon Bedrock Data Automation Blueprint.
 
@@ -173,6 +183,16 @@ class DataAutomationforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#get_blueprint)
         """
 
+    def get_blueprint_optimization_status(
+        self, **kwargs: Unpack[GetBlueprintOptimizationStatusRequestTypeDef]
+    ) -> GetBlueprintOptimizationStatusResponseTypeDef:
+        """
+        API used to get blueprint optimization status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_blueprint_optimization_status.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#get_blueprint_optimization_status)
+        """
+
     def get_data_automation_project(
         self, **kwargs: Unpack[GetDataAutomationProjectRequestTypeDef]
     ) -> GetDataAutomationProjectResponseTypeDef:
@@ -181,6 +201,16 @@ class DataAutomationforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/get_data_automation_project.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#get_data_automation_project)
+        """
+
+    def invoke_blueprint_optimization_async(
+        self, **kwargs: Unpack[InvokeBlueprintOptimizationAsyncRequestTypeDef]
+    ) -> InvokeBlueprintOptimizationAsyncResponseTypeDef:
+        """
+        Invoke an async job to perform Blueprint Optimization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-data-automation/client/invoke_blueprint_optimization_async.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#invoke_blueprint_optimization_async)
         """
 
     def list_blueprints(
@@ -213,7 +243,7 @@ class DataAutomationforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tag an Amazon Bedrock Data Automation resource.
 
@@ -221,7 +251,7 @@ class DataAutomationforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Untag an Amazon Bedrock Data Automation resource.
 

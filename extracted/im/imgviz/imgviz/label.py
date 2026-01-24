@@ -1,26 +1,32 @@
+from __future__ import annotations
+
 import numbers
+from typing import Literal
 
 import numpy as np
+from numpy.typing import NDArray
 
 from . import color as color_module
 from . import draw as draw_module
 from . import utils
 
 
-def label_colormap(n_label=256, value=None):
+def label_colormap(
+    n_label: int = 256, value: float | int | None = None
+) -> NDArray[np.uint8]:
     """Label colormap.
 
     Parameters
     ----------
-    n_labels: int
-        Number of labels (default: 256).
-    value: float or int
+    n_label
+        Number of labels.
+    value
         Value scale or value of label color in HSV space.
 
     Returns
     -------
-    cmap: numpy.ndarray, (N, 3), numpy.uint8
-        Label id to colormap.
+    cmap
+        Label id to colormap with shape (N, 3).
 
     """
 
@@ -54,47 +60,44 @@ def label_colormap(n_label=256, value=None):
 
 
 def label2rgb(
-    label,
-    image=None,
-    alpha=0.5,
-    label_names=None,
-    font_size=30,
-    thresh_suppress=0,
-    colormap=None,
-    loc="rb",
-    font_path=None,
-):
+    label: NDArray,
+    image: NDArray[np.uint8] | None = None,
+    alpha: float | list[float] | dict[int, float] = 0.5,
+    label_names: list[str] | dict[int, str] | None = None,
+    font_size: int = 30,
+    thresh_suppress: float = 0,
+    colormap: NDArray[np.uint8] | None = None,
+    loc: Literal["centroid", "lt", "rt", "lb", "rb"] = "rb",
+    font_path: str | None = None,
+) -> NDArray[np.uint8]:
     """Convert label to rgb.
 
     Parameters
     ----------
-    label: numpy.ndarray, (H, W), int
-        Label image.
-    image: numpy.ndarray, (H, W, 3), numpy.uint8
-        RGB image.
-    alpha: float, or list or dict of float
-        Alpha of RGB (default: 0.5).
-        If given as a list or dict, it is treated as alpha for each class
-        according to the index or key.
-    label_names: list or dict of string
+    label
+        Label image with shape (H, W).
+    image
+        RGB image with shape (H, W, 3).
+    alpha
+        Alpha of RGB. If given as a list or dict, it is treated as alpha
+        for each class according to the index or key.
+    label_names
         Label id to label name.
-    font_size: int
-        Font size (default: 30).
-    thresh_suppress: float
+    font_size
+        Font size.
+    thresh_suppress
         Threshold of label ratio in the label image.
-    colormap: numpy.ndarray, (M, 3), numpy.uint8
-        Label id to color.
-        By default, :func:`~imgviz.label_colormap` is used.
-    loc: string
-        Location of legend (default: 'rb').
-        'centroid', 'lt' and 'rb' are supported.
-    font_path: str
+    colormap
+        Label id to color. By default, :func:`~imgviz.label_colormap` is used.
+    loc
+        Location of legend ('centroid', 'lt', 'rt', 'lb', 'rb').
+    font_path
         Font path.
 
     Returns
     -------
-    res: numpy.ndarray, (H, W, 3), numpy.uint8
-        Visualized image.
+    res
+        Visualized image with shape (H, W, 3).
 
     """
     if colormap is None:
@@ -114,21 +117,21 @@ def label2rgb(
     max_label_id = unique_labels[-1]
 
     if isinstance(alpha, numbers.Number):
-        alpha = np.array([alpha for _ in range(max_label_id + 1)])
+        alpha_arr = np.array([alpha for _ in range(max_label_id + 1)])
     elif isinstance(alpha, dict):
-        alpha = np.array(
+        alpha_arr = np.array(
             [alpha.get(label_id, 0.5) for label_id in range(max_label_id + 1)]
         )
     else:
-        alpha = np.asarray(alpha)
-        assert alpha.ndim == 1
-    assert ((0 <= alpha) & (alpha <= 1)).all()
-    alpha = alpha[label][:, :, None]
+        alpha_arr = np.asarray(alpha)
+        assert alpha_arr.ndim == 1
+    assert ((0 <= alpha_arr) & (alpha_arr <= 1)).all()
+    alpha_map = alpha_arr[label][:, :, None]
 
     if image is not None:
         if image.ndim == 2:
             image = color_module.gray2rgb(image)
-        res = (1 - alpha) * image.astype(float) + alpha * res.astype(float)
+        res = (1 - alpha_map) * image.astype(float) + alpha_map * res.astype(float)
         res = np.clip(res.round(), 0, 255).astype(np.uint8)
 
     if label_names is None:
@@ -163,7 +166,7 @@ def label2rgb(
             height, width = draw_module.text_size(
                 text, size=font_size, font_path=font_path
             )
-            color = color_module.get_fg_color(res.getpixel((x, y)))
+            color = color_module.get_fg_color(res.getpixel((int(x), int(y))))
             draw_module.text_(
                 res,
                 yx=(y - height // 2, x - width // 2),
@@ -172,7 +175,7 @@ def label2rgb(
                 size=font_size,
                 font_path=font_path,
             )
-    elif loc in ["rb", "lt"]:
+    elif loc in ["rb", "lt", "rt", "lb"]:
         text_sizes = np.array(
             [
                 draw_module.text_size(
@@ -182,49 +185,57 @@ def label2rgb(
             ]
         )
         text_height, text_width = text_sizes.max(axis=0)
-        legend_height = text_height * len(unique_labels) + 5
-        legend_width = text_width + 20 + (text_height - 10)
+        pad: int = max(2, font_size // 6)
+        legend_height = text_height * len(unique_labels) + pad
+        legend_width = text_width + text_height + 2 * pad
 
         height, width = label.shape[:2]
         if loc == "rb":
-            aabb2 = np.array([height - 5, width - 5], dtype=float)
+            aabb2 = np.array([height - pad, width - pad], dtype=float)
             aabb1 = aabb2 - (legend_height, legend_width)
         elif loc == "lt":
-            aabb1 = np.array([5, 5], dtype=float)
+            aabb1 = np.array([pad, pad], dtype=float)
             aabb2 = aabb1 + (legend_height, legend_width)
+        elif loc == "rt":
+            aabb1 = np.array([pad, width - pad - legend_width], dtype=float)
+            aabb2 = aabb1 + (legend_height, legend_width)
+        elif loc == "lb":
+            aabb2 = np.array([height - pad, pad + legend_width], dtype=float)
+            aabb1 = aabb2 - (legend_height, legend_width)
         else:
-            raise ValueError("unexpected loc: {}".format(loc))
+            raise ValueError(f"unexpected loc: {loc}")
 
         alpha = 0.5
         y1, x1 = aabb1.round().astype(int)
         y2, x2 = aabb2.round().astype(int)
         res[y1:y2, x1:x2] = alpha * res[y1:y2, x1:x2] + alpha * 255
 
+        box_size = text_height - 2 * pad
         res = utils.numpy_to_pillow(res)
         for i, label_id in enumerate(unique_labels):
-            box_aabb1 = aabb1 + (i * text_height + 5, 5)
-            box_aabb2 = box_aabb1 + (text_height - 10, text_height - 10)
+            box_aabb1 = aabb1 + (i * text_height + pad, pad)
+            box_aabb2 = box_aabb1 + (box_size, box_size)
             draw_module.rectangle_(
                 res, aabb1=box_aabb1, aabb2=box_aabb2, fill=colormap[label_id]
             )
             draw_module.text_(
                 res,
-                yx=aabb1 + (i * text_height, 10 + (text_height - 10)),
+                yx=aabb1 + (i * text_height, text_height),
                 text=label_names[label_id],
                 size=font_size,
                 font_path=font_path,
             )
     else:
-        raise ValueError("unsupported loc: {}".format(loc))
+        raise ValueError(f"unsupported loc: {loc}")
 
     return utils.pillow_to_numpy(res)
 
 
-def _center_of_mass(mask):
+def _center_of_mass(mask: NDArray[np.bool_]) -> tuple[float, float]:
     assert mask.ndim == 2 and mask.dtype == bool
-    mask = 1.0 * mask / mask.sum()
-    dx = np.sum(mask, 0)
-    dy = np.sum(mask, 1)
+    mask_float: NDArray[np.float32] = mask.astype(np.float32) / mask.sum()
+    dx = np.sum(mask_float, 0)
+    dy = np.sum(mask_float, 1)
     cx = np.sum(dx * np.arange(mask.shape[1]))
     cy = np.sum(dy * np.arange(mask.shape[0]))
     return cy, cx

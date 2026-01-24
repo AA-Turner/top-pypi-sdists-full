@@ -299,8 +299,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
                 subject="Parameter `scaleout_modeling_mode` in Advanced Options is deprecated",
                 deprecated_since_version="3.1",
                 will_remove_version="3.3",
-                message="DataRobot no longer supports scaleout models. "
-                "Please remove this parameter.",
+                message="DataRobot no longer supports scaleout models. Please remove this parameter.",
             )
 
         self.weights = weights
@@ -326,9 +325,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         self.autopilot_data_sampling_method = autopilot_data_sampling_method
         self.run_leakage_removed_feature_list = run_leakage_removed_feature_list
         self.autopilot_with_feature_discovery = autopilot_with_feature_discovery
-        self.feature_discovery_supervised_feature_reduction = (
-            feature_discovery_supervised_feature_reduction
-        )
+        self.feature_discovery_supervised_feature_reduction = feature_discovery_supervised_feature_reduction
         self.feature_engineering_prediction_point = feature_engineering_prediction_point
         self.exponentially_weighted_moving_alpha = exponentially_weighted_moving_alpha
         self.external_time_series_baseline_dataset_id = external_time_series_baseline_dataset_id
@@ -343,12 +340,8 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         self.include_bias_mitigation_feature_as_predictor_variable = (
             include_bias_mitigation_feature_as_predictor_variable
         )
-        self.default_monotonic_increasing_featurelist_id = (
-            default_monotonic_increasing_featurelist_id
-        )
-        self.default_monotonic_decreasing_featurelist_id = (
-            default_monotonic_decreasing_featurelist_id
-        )
+        self.default_monotonic_increasing_featurelist_id = default_monotonic_increasing_featurelist_id
+        self.default_monotonic_decreasing_featurelist_id = default_monotonic_decreasing_featurelist_id
         self.series_id = series_id
         self.forecast_distance = forecast_distance
         self.forecast_offsets = forecast_offsets
@@ -391,9 +384,7 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         self.chunk_definition_id = chunk_definition_id
         self.incremental_learning_early_stopping_rounds = incremental_learning_early_stopping_rounds
         attributes = {
-            k: v
-            for k, v in self.__dict__.items()
-            if not k.startswith("__") and not callable(getattr(self, k))
+            k: v for k, v in self.__dict__.items() if not k.startswith("__") and not callable(getattr(self, k))
         }
         super().__init__(**attributes)
 
@@ -444,12 +435,10 @@ class AdvancedOptions(dict):  # type: ignore[type-arg]
         """Update individual attributes of an instance of
         :class:`AdvancedOptions <datarobot.helpers.AdvancedOptions>`.
         """
-        not_updatable_attrs = set(
-            [
-                "default_monotonic_increasing_featurelist_id",
-                "default_monotonic_decreasing_featurelist_id",
-            ]
-        )
+        not_updatable_attrs = set([
+            "default_monotonic_increasing_featurelist_id",
+            "default_monotonic_decreasing_featurelist_id",
+        ])
         for key, val in kwargs.items():
             if hasattr(self, key) and key not in not_updatable_attrs:
                 setattr(self, key, val)
@@ -529,14 +518,12 @@ See `datarobot.helpers.AdvancedOptions` for all available advanced options."
         return payload
 
 
-_class_mapping_aggregation_settings_converter = t.Dict(
-    {
-        t.Key("max_unaggregated_class_values", optional=True): Int(),
-        t.Key("min_class_support", optional=True): Int(),
-        t.Key("aggregation_class_name", optional=True): String(),
-        t.Key("excluded_from_aggregation", optional=True): t.List(String()),
-    }
-)
+_class_mapping_aggregation_settings_converter = t.Dict({
+    t.Key("max_unaggregated_class_values", optional=True): Int(),
+    t.Key("min_class_support", optional=True): Int(),
+    t.Key("aggregation_class_name", optional=True): String(),
+    t.Key("excluded_from_aggregation", optional=True): t.List(String()),
+})
 
 
 class ClassMappingAggregationSettings:

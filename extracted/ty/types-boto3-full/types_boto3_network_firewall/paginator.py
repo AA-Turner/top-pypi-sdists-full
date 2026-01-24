@@ -3,7 +3,7 @@ Type annotations for network-firewall service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -18,6 +18,9 @@ Usage::
         ListFirewallsPaginator,
         ListFlowOperationResultsPaginator,
         ListFlowOperationsPaginator,
+        ListProxiesPaginator,
+        ListProxyConfigurationsPaginator,
+        ListProxyRuleGroupsPaginator,
         ListRuleGroupsPaginator,
         ListTLSInspectionConfigurationsPaginator,
         ListTagsForResourcePaginator,
@@ -33,6 +36,9 @@ Usage::
     list_firewalls_paginator: ListFirewallsPaginator = client.get_paginator("list_firewalls")
     list_flow_operation_results_paginator: ListFlowOperationResultsPaginator = client.get_paginator("list_flow_operation_results")
     list_flow_operations_paginator: ListFlowOperationsPaginator = client.get_paginator("list_flow_operations")
+    list_proxies_paginator: ListProxiesPaginator = client.get_paginator("list_proxies")
+    list_proxy_configurations_paginator: ListProxyConfigurationsPaginator = client.get_paginator("list_proxy_configurations")
+    list_proxy_rule_groups_paginator: ListProxyRuleGroupsPaginator = client.get_paginator("list_proxy_rule_groups")
     list_rule_groups_paginator: ListRuleGroupsPaginator = client.get_paginator("list_rule_groups")
     list_tls_inspection_configurations_paginator: ListTLSInspectionConfigurationsPaginator = client.get_paginator("list_tls_inspection_configurations")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
@@ -60,6 +66,12 @@ from .type_defs import (
     ListFlowOperationResultsResponseTypeDef,
     ListFlowOperationsRequestPaginateTypeDef,
     ListFlowOperationsResponseTypeDef,
+    ListProxiesRequestPaginateTypeDef,
+    ListProxiesResponseTypeDef,
+    ListProxyConfigurationsRequestPaginateTypeDef,
+    ListProxyConfigurationsResponseTypeDef,
+    ListProxyRuleGroupsRequestPaginateTypeDef,
+    ListProxyRuleGroupsResponseTypeDef,
     ListRuleGroupsRequestPaginateTypeDef,
     ListRuleGroupsResponseTypeDef,
     ListTagsForResourceRequestPaginateTypeDef,
@@ -83,6 +95,9 @@ __all__ = (
     "ListFirewallsPaginator",
     "ListFlowOperationResultsPaginator",
     "ListFlowOperationsPaginator",
+    "ListProxiesPaginator",
+    "ListProxyConfigurationsPaginator",
+    "ListProxyRuleGroupsPaginator",
     "ListRuleGroupsPaginator",
     "ListTLSInspectionConfigurationsPaginator",
     "ListTagsForResourcePaginator",
@@ -213,6 +228,69 @@ class ListFlowOperationsPaginator(_ListFlowOperationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListFlowOperations.html#NetworkFirewall.Paginator.ListFlowOperations.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listflowoperationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListProxiesPaginatorBase = Paginator[ListProxiesResponseTypeDef]
+else:
+    _ListProxiesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListProxiesPaginator(_ListProxiesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxies.html#NetworkFirewall.Paginator.ListProxies)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxiespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProxiesRequestPaginateTypeDef]
+    ) -> PageIterator[ListProxiesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxies.html#NetworkFirewall.Paginator.ListProxies.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxiespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListProxyConfigurationsPaginatorBase = Paginator[ListProxyConfigurationsResponseTypeDef]
+else:
+    _ListProxyConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListProxyConfigurationsPaginator(_ListProxyConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxyConfigurations.html#NetworkFirewall.Paginator.ListProxyConfigurations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxyconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProxyConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListProxyConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxyConfigurations.html#NetworkFirewall.Paginator.ListProxyConfigurations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxyconfigurationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListProxyRuleGroupsPaginatorBase = Paginator[ListProxyRuleGroupsResponseTypeDef]
+else:
+    _ListProxyRuleGroupsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListProxyRuleGroupsPaginator(_ListProxyRuleGroupsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxyRuleGroups.html#NetworkFirewall.Paginator.ListProxyRuleGroups)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxyrulegroupspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListProxyRuleGroupsRequestPaginateTypeDef]
+    ) -> PageIterator[ListProxyRuleGroupsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/paginator/ListProxyRuleGroups.html#NetworkFirewall.Paginator.ListProxyRuleGroups.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/paginators/#listproxyrulegroupspaginator)
         """
 
 

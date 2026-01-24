@@ -12,8 +12,7 @@ from multiprocessing import cpu_count
 
 from sql import Flavor
 
-from trytond import backend
-from trytond.config import config
+from trytond import backend, config
 from trytond.exceptions import UserError, UserWarning
 from trytond.pool import Pool
 from trytond.status import processing
@@ -68,7 +67,7 @@ def work(options):
         mp_context=None,
         initializer=initializer,
         initargs=(options.database_names,),
-        max_tasks_per_child=options.maxtasksperchild,
+        max_tasks_per_child=options.maxtasksperchild or None,
         )
     if sys.version_info < (3, 11):
         del executor_options["max_tasks_per_child"]

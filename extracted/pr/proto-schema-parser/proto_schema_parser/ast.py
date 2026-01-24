@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum as PyEnum
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 class FieldCardinality(str, PyEnum):
@@ -11,7 +11,7 @@ class FieldCardinality(str, PyEnum):
     REPEATED = "REPEATED"
 
 
-# file: BYTE_ORDER_MARK? syntaxDecl? fileElement* EOF;
+# file: BYTE_ORDER_MARK? (syntaxDecl | editionDecl)? fileElement* EOF;
 @dataclass
 class File:
     """
@@ -20,11 +20,14 @@ class File:
     Attributes:
         syntax: Union[str, None]
             The syntax level of the .proto file.
+        edition: Union[str, None]
+            The edition level of the .proto file.
         file_elements: List[FileElement]
             A list of file elements in the .proto file.
     """
 
     syntax: Union[str, None] = None
+    edition: Union[str, None] = None
     file_elements: List[FileElement] = field(default_factory=list)
 
 
@@ -40,6 +43,7 @@ class Comment:
     """
 
     text: str
+    inline: bool = False
 
 
 # packageDecl: PACKAGE packageName SEMICOLON;
@@ -98,11 +102,11 @@ class MessageLiteral:
     Represents a message literal.
 
     Attributes:
-        fields: List[MessageLiteralField]
-            The fields of the message literal.
+        elements: List[MessageLiteralElement]
+            The elements (fields and comments) of the message literal.
     """
 
-    fields: List[MessageLiteralField] = field(default_factory=list)
+    elements: List[MessageLiteralElement] = field(default_factory=list)
 
 
 # optionDecl: OPTION optionName EQUALS optionValue SEMICOLON;
@@ -485,6 +489,10 @@ MethodElement = Union[Option, Comment]
 # Define a type alias for scalar values
 ScalarValue = Union[str, int, float, bool, Identifier]
 """Represents a scalar value in a .proto file."""
+
+# messageLiteralField | commentDecl
+MessageLiteralElement = Union[MessageLiteralField, Comment]
+"""Represents an element in a message literal."""
 
 # Define a recursive type alias for message values
 MessageValue = Union[ScalarValue, MessageLiteral, List["MessageValue"]]

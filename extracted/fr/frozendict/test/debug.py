@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from typing import Callable, Union
 
 import frozendict
 
@@ -51,7 +52,7 @@ class Map(MutableMapping):
         return len(self._dict)
 
 
-def print_info(klass, iterations, func):
+def print_info(klass, iterations, func: Union[Callable, str]):
     try:
         name = func.__name__
     except AttributeError:
@@ -133,7 +134,7 @@ dict_1_keys_set = set(dict_1_keys)
 functions = []
 
 
-@trace(iterations = 300, mult = 1.5)
+@trace(iterations = 400, mult = 1.5)
 def func_1():
     pickle.loads(pickle.dumps(fd_1))
 
@@ -141,7 +142,7 @@ def func_1():
 functions.append(func_1)
 
 
-@trace(iterations = 200, mult = 1.5)
+@trace(iterations = 300, mult = 1.5)
 def func_2():
     pickle.loads(pickle.dumps(iter(fd_1.keys())))
 

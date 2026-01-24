@@ -62,6 +62,67 @@ class FieldBehavior:
     NOT_ALLOWED = "not_allowed"
 
 
+class ConfigFieldContext:
+    """
+    Defines which interfaces a ConfigField is available in.
+
+    ConfigFieldContext controls whether a field appears in the CLI, programmatic API, or both.
+    This allows the same CoreConfig class to serve different interfaces while keeping
+    interface-specific fields properly scoped.
+
+    Context Types:
+
+    ALL (Default):
+        Field is available in both CLI and programmatic API.
+        Most configuration fields fall into this category.
+
+        Example:
+        ```python
+        name = ConfigField(
+            field_type=str,
+            # available_in=ConfigFieldContext.ALL is the default
+        )
+        ```
+
+    CLI:
+        Field is only available in the CLI interface.
+        Use for CLI-specific options that don't make sense programmatically.
+
+        Example:
+        ```python
+        # config_file path only makes sense when running from CLI
+        config_file = ConfigField(
+            cli_meta=CLIOption(name="config_file", cli_option_str="--config-file"),
+            field_type=str,
+            available_in=ConfigFieldContext.CLI,
+        )
+        ```
+
+    PROGRAMMATIC:
+        Field is only available in the programmatic API.
+        Use for fields that accept programmatic-only types (like PackagedCode)
+        or don't map well to CLI options.
+
+        Example:
+        ```python
+        # code_package accepts PackagedCode namedtuple from package_code()
+        code_package = ConfigField(
+            field_type=PackagedCode,
+            available_in=ConfigFieldContext.PROGRAMMATIC,
+        )
+        ```
+
+    Integration:
+        - CLI generators check `available_in` to decide whether to generate CLI options
+        - TypedConfig generators check `available_in` to decide whether to include in __init__
+        - Schema exporters can filter fields based on target interface
+    """
+
+    ALL = "all"  # Available in both CLI and programmatic API (default)
+    CLI = "cli"  # Only available in CLI
+    PROGRAMMATIC = "programmatic"  # Only available in programmatic API
+
+
 class CLIOption:
     """Metadata container for automatic CLI option generation from configuration fields.
 
@@ -225,6 +286,9 @@ class ConfigField:
         Optional function to validate field values.
     is_experimental : bool, optional
         Whether this field is experimental (for documentation).
+    available_in : str, optional
+        ConfigFieldContext specifying which interfaces this field is available in.
+        One of ConfigFieldContext.ALL (default), ConfigFieldContext.CLI, or ConfigFieldContext.PROGRAMMATIC.
     """
 
     def __init__(
@@ -240,6 +304,7 @@ class ConfigField:
         validation_fn: Optional[Callable] = None,
         is_experimental=False,  # This property is for bookkeeping purposes and for export in schema.
         parsing_fn: Optional[Callable] = None,
+        available_in: str = ConfigFieldContext.ALL,
     ):
         if behavior == FieldBehavior.NOT_ALLOWED and ConfigMeta.is_instance(field_type):
             raise ValueError(
@@ -264,6 +329,7 @@ class ConfigField:
         self.validation_fn = validation_fn
         self.is_experimental = is_experimental
         self.parsing_fn = parsing_fn
+        self.available_in = available_in
         self._qual_name_stack = []
 
     # This function allows config fields to be made aware of the
@@ -279,6 +345,17 @@ class ConfigField:
 
     def fully_qualified_name(self):
         return ".".join(self._qual_name_stack + [self.name])
+
+    def is_available_in_cli(self) -> bool:
+        """Check if this field should be available in the CLI interface."""
+        return self.available_in in (ConfigFieldContext.ALL, ConfigFieldContext.CLI)
+
+    def is_available_in_programmatic(self) -> bool:
+        """Check if this field should be available in the programmatic API."""
+        return self.available_in in (
+            ConfigFieldContext.ALL,
+            ConfigFieldContext.PROGRAMMATIC,
+        )
 
     def __set_name__(self, owner, name):
         self.name = name
@@ -431,7 +508,10 @@ class ConfigMeta(type):
 
     @staticmethod
     def is_instance(value) -> bool:
-        return hasattr(value, "_fields")
+        # Check for _fields attribute AND that it's a dict (not a tuple like namedtuples have)
+        return hasattr(value, "_fields") and isinstance(
+            getattr(value, "_fields", None), dict
+        )
 
     def __new__(mcs, name, bases, namespace):
         # Collect field metadata
@@ -619,9 +699,20 @@ def config_meta_to_dict(config_instance) -> Optional[Dict[str, Any]]:
     if config_instance is None:
         return None
 
+    # Helper to check if something is a namedtuple
+    def _is_namedtuple(obj):
+        return (
+            isinstance(obj, tuple)
+            and hasattr(obj, "_fields")
+            and isinstance(getattr(obj, "_fields", None), tuple)
+        )
+
     # Check if this is a ConfigMeta-based class
     if not ConfigMeta.is_instance(config_instance):
         # If it's not a config object, return as-is
+        # Handle namedtuples by converting to dict
+        if _is_namedtuple(config_instance):
+            return config_instance._asdict()
         return config_instance
 
     result = {}
@@ -635,16 +726,23 @@ def config_meta_to_dict(config_instance) -> Optional[Dict[str, Any]]:
         if value is not None and ConfigMeta.is_instance(value):
             # It's a nested config object
             result[field_name] = config_meta_to_dict(value)
+        elif _is_namedtuple(value):
+            # Handle namedtuples by converting to dict
+            result[field_name] = value._asdict()
         elif isinstance(value, list) and value:
-            # Handle lists that might contain config objects
+            # Handle lists that might contain config objects or namedtuples
             result[field_name] = [
-                config_meta_to_dict(item) if ConfigMeta.is_instance(item) else item
+                config_meta_to_dict(item)
+                if ConfigMeta.is_instance(item)
+                else (item._asdict() if _is_namedtuple(item) else item)
                 for item in value
             ]
         elif isinstance(value, dict) and value:
-            # Handle dictionaries that might contain config objects
+            # Handle dictionaries that might contain config objects or namedtuples
             result[field_name] = {
-                k: config_meta_to_dict(v) if ConfigMeta.is_instance(v) else v
+                k: config_meta_to_dict(v)
+                if ConfigMeta.is_instance(v)
+                else (v._asdict() if _is_namedtuple(v) else v)
                 for k, v in value.items()
             }
         else:

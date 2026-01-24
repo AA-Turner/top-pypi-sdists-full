@@ -8,7 +8,8 @@ from sqlmesh.utils.errors import SQLMeshError
 import time_machine
 from sqlmesh.core.plan import PlanBuilder
 from sqlmesh.core.config.common import VirtualEnvironmentMode
-from tests.dbt.cli.conftest import EmptyProjectCreator
+from tests.dbt.conftest import EmptyProjectCreator
+import logging
 
 pytestmark = pytest.mark.slow
 
@@ -138,7 +139,7 @@ def test_run_option_mapping(jaffle_shop_duckdb: Path):
     assert plan.selected_models_to_backfill is None
     assert {s.name for s in plan.snapshots} == {k for k in operations.context.snapshots}
 
-    plan = operations.run(select=["main.stg_orders+"])
+    plan = operations.run(select=["stg_orders+"])
     assert plan.environment.name == "prod"
     assert console.no_prompts is True
     assert console.no_diff is True
@@ -155,7 +156,7 @@ def test_run_option_mapping(jaffle_shop_duckdb: Path):
         plan.selected_models_to_backfill | {standalone_audit_name}
     )
 
-    plan = operations.run(select=["main.stg_orders+"], exclude=["main.customers"])
+    plan = operations.run(select=["stg_orders+"], exclude=["customers"])
     assert plan.environment.name == "prod"
     assert console.no_prompts is True
     assert console.no_diff is True
@@ -171,7 +172,7 @@ def test_run_option_mapping(jaffle_shop_duckdb: Path):
         plan.selected_models_to_backfill | {standalone_audit_name}
     )
 
-    plan = operations.run(exclude=["main.customers"])
+    plan = operations.run(exclude=["customers"])
     assert plan.environment.name == "prod"
     assert console.no_prompts is True
     assert console.no_diff is True
@@ -238,7 +239,7 @@ def test_run_option_mapping_dev(jaffle_shop_duckdb: Path):
     assert plan.skip_backfill is True
     assert plan.selected_models_to_backfill == {'"jaffle_shop"."main"."new_model"'}
 
-    plan = operations.run(environment="dev", select=["main.stg_orders+"])
+    plan = operations.run(environment="dev", select=["stg_orders+"])
     assert plan.environment.name == "dev"
     assert console.no_prompts is True
     assert console.no_diff is True
@@ -273,7 +274,7 @@ def test_run_option_full_refresh(
     create_empty_project: EmptyProjectCreator, env_name: str, vde_mode: VirtualEnvironmentMode
 ):
     # create config file prior to load
-    project_path = create_empty_project(project_name="test")
+    project_path, models_path = create_empty_project(project_name="test")
 
     config_path = project_path / "sqlmesh.yaml"
     config = yaml.load(config_path)
@@ -282,8 +283,8 @@ def test_run_option_full_refresh(
     with config_path.open("w") as f:
         yaml.dump(config, f)
 
-    (project_path / "models" / "model_a.sql").write_text("select 1")
-    (project_path / "models" / "model_b.sql").write_text("select 2")
+    (models_path / "model_a.sql").write_text("select 1")
+    (models_path / "model_b.sql").write_text("select 2")
 
     operations = create(project_dir=project_path)
 
@@ -325,7 +326,7 @@ def test_run_option_full_refresh_with_selector(jaffle_shop_duckdb: Path):
     console = PlanCapturingConsole()
     operations.context.console = console
 
-    plan = operations.run(select=["main.stg_customers"], full_refresh=True)
+    plan = operations.run(select=["stg_customers"], full_refresh=True)
     assert len(plan.restatements) == 1
     assert list(plan.restatements)[0].name == '"jaffle_shop"."main"."stg_customers"'
 
@@ -333,3 +334,43 @@ def test_run_option_full_refresh_with_selector(jaffle_shop_duckdb: Path):
     assert not plan.empty_backfill
     assert not plan.skip_backfill
     assert plan.models_to_backfill == set(['"jaffle_shop"."main"."stg_customers"'])
+
+
+def test_create_sets_concurrent_tasks_based_on_threads(create_empty_project: EmptyProjectCreator):
+    project_dir, _ = create_empty_project(project_name="test")
+
+    # add a postgres target because duckdb overrides to concurrent_tasks=1 regardless of what gets specified
+    profiles_yml_file = project_dir / "profiles.yml"
+    profiles_yml = yaml.load(profiles_yml_file)
+    profiles_yml["test"]["outputs"]["postgres"] = {
+        "type": "postgres",
+        "host": "localhost",
+        "port": 5432,
+        "user": "postgres",
+        "password": "postgres",
+        "dbname": "test",
+        "schema": "test",
+    }
+    profiles_yml_file.write_text(yaml.dump(profiles_yml))
+
+    operations = create(project_dir=project_dir, target="postgres")
+
+    assert operations.context.concurrent_tasks == 1  # 1 is the default
+
+    operations = create(project_dir=project_dir, threads=16, target="postgres")
+
+    assert operations.context.concurrent_tasks == 16
+    assert all(
+        g.connection and g.connection.concurrent_tasks == 16
+        for g in operations.context.config.gateways.values()
+    )
+
+
+def test_create_configures_log_level(create_empty_project: EmptyProjectCreator):
+    project_dir, _ = create_empty_project()
+
+    create(project_dir=project_dir, log_level="info")
+    assert logging.getLogger("sqlmesh").getEffectiveLevel() == logging.INFO
+
+    create(project_dir=project_dir, log_level="error")
+    assert logging.getLogger("sqlmesh").getEffectiveLevel() == logging.ERROR

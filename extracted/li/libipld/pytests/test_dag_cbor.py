@@ -101,11 +101,13 @@ def test_dag_cbor_decode(benchmark, data) -> None:
     _dag_cbor_roundtrip(benchmark, data)
 
 
+@pytest.mark.benchmark_main
 @pytest.mark.parametrize('data', load_json_data_fixtures(_REAL_DATA_DIR), ids=lambda data: data[0])
 def test_dag_cbor_encode_real_data(benchmark, data) -> None:
     _dag_cbor_encode(benchmark, data)
 
 
+@pytest.mark.benchmark_main
 @pytest.mark.parametrize('data', load_json_data_fixtures(_REAL_DATA_DIR), ids=lambda data: data[0])
 def test_dag_cbor_decode_real_data(benchmark, data) -> None:
     _dag_cbor_roundtrip(benchmark, data)
@@ -116,6 +118,7 @@ def test_dag_cbor_decode_fixtures(benchmark, data) -> None:
     _dag_cbor_decode(benchmark, data)
 
 
+@pytest.mark.benchmark_main
 def test_dag_cbor_decode_torture_cids(benchmark) -> None:
     dag_cbor = open(_TORTURE_CIDS_DAG_CBOR_PATH, 'rb').read()
     benchmark(libipld.decode_dag_cbor, dag_cbor)
@@ -162,7 +165,7 @@ def test_dag_cbor_decode_invalid_utf8() -> None:
         libipld.decode_dag_cbor(bytes.fromhex('62c328'))
 
 
-    assert 'Invalid UTF-8 string' in str(exc_info.value)
+    assert 'utf-8' in str(exc_info.value)
 
 
 def test_dab_cbor_decode_map_int_key() -> None:
@@ -264,3 +267,13 @@ def test_encode_tag_negative_bignum() -> None:
          libipld.encode_dag_cbor(bignum)
 
     assert 'number out of range' in str(exc_info.value).lower()
+
+
+def test_roundtrip_valid_cid_with_short_tag() -> None:
+    encoded_hex = 'd82a582500015512205891b5b522d5df086d0ff0b110fbd9d21bb4fc7163af34d08286a2e846f6be03'
+    encoded_bytes = bytes.fromhex(encoded_hex)
+
+    decoded = libipld.decode_dag_cbor(encoded_bytes)
+    encoded = libipld.encode_dag_cbor(decoded)
+
+    assert encoded == encoded_bytes

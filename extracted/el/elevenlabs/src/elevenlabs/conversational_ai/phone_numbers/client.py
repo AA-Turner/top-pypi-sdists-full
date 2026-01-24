@@ -134,9 +134,7 @@ class PhoneNumbersClient:
         _response = self._raw_client.get(phone_number_id, request_options=request_options)
         return _response.data
 
-    def delete(
-        self, phone_number_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    def delete(self, phone_number_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> typing.Any:
         """
         Delete Phone Number by ID
 
@@ -150,7 +148,7 @@ class PhoneNumbersClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -172,6 +170,7 @@ class PhoneNumbersClient:
         phone_number_id: str,
         *,
         agent_id: typing.Optional[str] = OMIT,
+        label: typing.Optional[str] = OMIT,
         inbound_trunk_config: typing.Optional[InboundSipTrunkConfigRequestModel] = OMIT,
         outbound_trunk_config: typing.Optional[OutboundSipTrunkConfigRequestModel] = OMIT,
         livekit_stack: typing.Optional[LivekitStackType] = OMIT,
@@ -186,6 +185,8 @@ class PhoneNumbersClient:
             The id of an agent. This is returned on agent creation.
 
         agent_id : typing.Optional[str]
+
+        label : typing.Optional[str]
 
         inbound_trunk_config : typing.Optional[InboundSipTrunkConfigRequestModel]
 
@@ -215,6 +216,7 @@ class PhoneNumbersClient:
         _response = self._raw_client.update(
             phone_number_id,
             agent_id=agent_id,
+            label=label,
             inbound_trunk_config=inbound_trunk_config,
             outbound_trunk_config=outbound_trunk_config,
             livekit_stack=livekit_stack,
@@ -365,7 +367,7 @@ class AsyncPhoneNumbersClient:
 
     async def delete(
         self, phone_number_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Delete Phone Number by ID
 
@@ -379,7 +381,7 @@ class AsyncPhoneNumbersClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -409,6 +411,7 @@ class AsyncPhoneNumbersClient:
         phone_number_id: str,
         *,
         agent_id: typing.Optional[str] = OMIT,
+        label: typing.Optional[str] = OMIT,
         inbound_trunk_config: typing.Optional[InboundSipTrunkConfigRequestModel] = OMIT,
         outbound_trunk_config: typing.Optional[OutboundSipTrunkConfigRequestModel] = OMIT,
         livekit_stack: typing.Optional[LivekitStackType] = OMIT,
@@ -423,6 +426,8 @@ class AsyncPhoneNumbersClient:
             The id of an agent. This is returned on agent creation.
 
         agent_id : typing.Optional[str]
+
+        label : typing.Optional[str]
 
         inbound_trunk_config : typing.Optional[InboundSipTrunkConfigRequestModel]
 
@@ -460,6 +465,7 @@ class AsyncPhoneNumbersClient:
         _response = await self._raw_client.update(
             phone_number_id,
             agent_id=agent_id,
+            label=label,
             inbound_trunk_config=inbound_trunk_config,
             outbound_trunk_config=outbound_trunk_config,
             livekit_stack=livekit_stack,

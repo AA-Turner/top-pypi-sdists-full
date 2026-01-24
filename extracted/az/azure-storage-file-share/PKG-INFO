@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-storage-file-share
-Version: 12.22.0
+Version: 12.24.0
 Summary: Microsoft Azure Azure File Share Storage Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/storage/azure-storage-file-share
 Author: Microsoft Corporation
@@ -11,13 +11,14 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: azure-core>=1.30.0
@@ -26,6 +27,19 @@ Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: isodate>=0.6.1
 Provides-Extra: aio
 Requires-Dist: azure-core[aio]>=1.30.0; extra == "aio"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Azure Storage File Share client library for Python
 Azure File Share storage offers fully managed file shares in the cloud that are accessible via the industry standard [Server Message Block (SMB) protocol](https://learn.microsoft.com/windows/desktop/FileIO/microsoft-smb-protocol-and-cifs-protocol-overview). Azure file shares can be mounted concurrently by cloud or on-premises deployments of Windows, Linux, and macOS. Additionally, Azure file shares can be cached on Windows Servers with Azure File Sync for fast access near where the data is being used.
@@ -46,7 +60,7 @@ Azure file shares can be used to:
 ## Getting started
 
 ### Prerequisites
-* Python 3.8 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
+* Python 3.9 or later is required to use this package. For more details, please read our page on [Azure SDK for Python version support policy](https://github.com/Azure/azure-sdk-for-python/wiki/Azure-SDKs-Python-version-support-policy).
 * You must have an [Azure subscription](https://azure.microsoft.com/free/) and an
 [Azure storage account](https://learn.microsoft.com/azure/storage/common/storage-account-overview) to use this package.
 
@@ -423,10 +437,61 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 # Release History
 
+## 12.24.0 (2026-01-06)
+
+### Features Added
+- Stable release of features from 12.24.0b1
+
+### Other Changes
+- Changed the default `connection_data_block_size` for all clients from 4 KiB to 256 KiB. This should result in
+significantly better throughput on large file downloads for most environments.
+
+## 12.24.0b1 (2025-12-04)
+
+### Features Added
+- Added support for service version 2026-02-06.
+- Added new `get_user_delegation_key` API to `ShareServiceClient` to obtain a user delegation key
+for the purposes of signing SAS tokens.
+- Added support for the keyword `user_delegation_oid` to `generate_share_sas` and `generate_file_sas`, 
+which specifies the Entra ID of the user that is authorized to use the generated SAS URL.
+- Added support for the keyword `user_delegation_key` to `generate_share_sas` and `generate_file_sas` used with 
+`user_delegation_oid` to authenticate the request to generate a new SAS URL.
+- Added support for the keyword `encryption_in_transit`in `ShareSmbSettings` used by `set_service_properties` 
+for the SMB protocol to specify whether encryption in transit is required.
+- Added the ability to skip auto decompression on `ShareFileClient.download_file` via the `decompress` keyword.
+
+### Bugs Fixed
+- Fixed an issue where `FileProperties` and `DirectoryProperties` did not contain timezone information for
+`change_time`, `creation_time`, and `last_write_time` attributes.
+
+## 12.23.1 (2025-10-29)
+
+### Bugs Fixed
+- Fixed MyPy `attr-defined` errors for `ShareClient`, `ShareDirectoryClient`, and `ShareFileClient`.
+
+## 12.23.0 (2025-10-15)
+
+### Features Added
+- Stable release of features from 12.23.0b1
+
+### Bugs Fixed
+- Fixed an issue where `ShareClient`'s `list_directories_and_files` API specified with `name_starts_with`
+would not return all results when the share contains a large number of files and directories.
+- Removed `__enter__` and `__exit__` attributes for all asynchronous client objects for raising explicit `TypeError`, 
+and let the `AttributeError` raise directly.
+
 ## 12.22.0 (2025-07-16)
 
 ### Features Added
 - Stable release of features from 12.22.0b1
+
+## 12.23.0b1 (2025-06-12)
+
+This version and all future versions will require Python 3.9+. Python 3.8 is no longer supported.
+
+### Features Added
+- Added support for service version 2025-11-05.
+- Added support for better error handling for copy operations.
 
 ## 12.22.0b1 (2025-05-06)
 

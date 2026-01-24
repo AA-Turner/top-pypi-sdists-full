@@ -7,3 +7,5 @@
 - import_tasks: mysql_query_initial.yml
 
 - include_tasks: issue-28.yml
+
+- include_tasks: session_vars.yml

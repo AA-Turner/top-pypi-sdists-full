@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class AssignApplicationEntitlement(BaseModel):
@@ -29,21 +30,25 @@ class AssignApplicationEntitlement(BaseModel):
         json_schema_extra={"x-semantic": "application-instance-id"},
     )
     account_integration_specific_id: StrictStr = Field(
-        description="The unique identifier for the account in the third-party system"
+        description="The unique identifier for the account in the third-party system",
+        json_schema_extra={"x-semantic": "account-id"},
     )
     resource_integration_specific_id: StrictStr = Field(
         description="The unique identifier for the resource in the third-party system that the entitlement will be assigned to"
     )
     resource_type: StrictStr = Field(
-        description='The type of resource being assigned the entitlement (e.g. "user", "team", "project")'
+        description='The type of resource being assigned the entitlement (e.g. "user", "team", "project")',
+        json_schema_extra={"x-resource-type": True},
     )
     entitlement_type: StrictStr = Field(
-        description='The type of entitlement being assigned (e.g. "license", "permission", "quota")'
+        description='The type of entitlement being assigned (e.g. "license", "permission", "quota")',
+        json_schema_extra={"x-entitlement-type": True},
     )
     entitlement_integration_specific_id: StrictStr = Field(
         description="The unique identifier for the specific entitlement in the third-party system"
     )
     __properties: ClassVar[List[str]] = [
+        "application_instance_id",
         "account_integration_specific_id",
         "resource_integration_specific_id",
         "resource_type",
@@ -93,6 +98,7 @@ class AssignApplicationEntitlement(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate(
             {
+                "application_instance_id": obj.get("application_instance_id"),
                 "account_integration_specific_id": obj.get("account_integration_specific_id"),
                 "resource_integration_specific_id": obj.get("resource_integration_specific_id"),
                 "resource_type": obj.get("resource_type"),
@@ -103,3 +109,6 @@ class AssignApplicationEntitlement(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

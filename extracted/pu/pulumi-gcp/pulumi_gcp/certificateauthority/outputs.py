@@ -36,6 +36,7 @@ __all__ = [
     'AuthoritySubordinateConfig',
     'AuthoritySubordinateConfigPemIssuerChain',
     'AuthorityUserDefinedAccessUrls',
+    'CaPoolEncryptionSpec',
     'CaPoolIamBindingCondition',
     'CaPoolIamMemberCondition',
     'CaPoolIssuancePolicy',
@@ -1626,6 +1627,44 @@ class AuthorityUserDefinedAccessUrls(dict):
 
 
 @pulumi.output_type
+class CaPoolEncryptionSpec(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "cloudKmsKey":
+            suggest = "cloud_kms_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CaPoolEncryptionSpec. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CaPoolEncryptionSpec.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CaPoolEncryptionSpec.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 cloud_kms_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str cloud_kms_key: The resource name for an existing Cloud KMS key in the format
+               `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+        """
+        if cloud_kms_key is not None:
+            pulumi.set(__self__, "cloud_kms_key", cloud_kms_key)
+
+    @_builtins.property
+    @pulumi.getter(name="cloudKmsKey")
+    def cloud_kms_key(self) -> Optional[_builtins.str]:
+        """
+        The resource name for an existing Cloud KMS key in the format
+        `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+        """
+        return pulumi.get(self, "cloud_kms_key")
+
+
+@pulumi.output_type
 class CaPoolIamBindingCondition(dict):
     def __init__(__self__, *,
                  expression: _builtins.str,
@@ -1739,7 +1778,7 @@ class CaPoolIssuancePolicy(dict):
         :param 'CaPoolIssuancePolicyAllowedIssuanceModesArgs' allowed_issuance_modes: IssuanceModes specifies the allowed ways in which Certificates may be requested from this CaPool.
                Structure is documented below.
         :param Sequence['CaPoolIssuancePolicyAllowedKeyTypeArgs'] allowed_key_types: If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-               Otherwise, any key may be used.
+               Otherwise, any key may be used. You can specify only one key type of those listed here.
                Structure is documented below.
         :param _builtins.str backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the
                certificates will be issued with a not_before_time of the issuance time (i.e. the current
@@ -1784,7 +1823,7 @@ class CaPoolIssuancePolicy(dict):
     def allowed_key_types(self) -> Optional[Sequence['outputs.CaPoolIssuancePolicyAllowedKeyType']]:
         """
         If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-        Otherwise, any key may be used.
+        Otherwise, any key may be used. You can specify only one key type of those listed here.
         Structure is documented below.
         """
         return pulumi.get(self, "allowed_key_types")

@@ -1,12 +1,131 @@
 [build-system]
-requires = ["setuptools>=60"]
+requires = [
+    "setuptools==80.9.0",
+]
 build-backend = "setuptools.build_meta"
 
-[tool.isort]
-profile = "black"
-skip_glob = [
-    "docs/conf.py",
-    "venv*",
-    "local",
+[project]
+dynamic = ["version"]
+name = "mac_alias"
+description = "Generate/parse macOS Alias records from Python"
+readme = "README.rst"
+requires-python = ">= 3.10"
+license = "MIT"
+license-files = [
+    "LICENSE",
 ]
-multi_line_output = 3
+authors = [
+    {name="Alastair Houghton", email="alastair@alastairs-place.net"}
+]
+maintainers = [
+    {name="Russell Keith-Magee", email="russell@keith-magee.com"}
+]
+keywords = [
+    "mac_alias"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Desktop Environment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Documentation = "https://mac-alias.readthedocs.io/en/latest/"
+Homepage = "https://github.com/dmgbuild/mac_alias"
+Tracker = "https://github.com/dmgbuild/mac_alias/issues"
+Source = "https://github.com/dmgbuild/mac_alias"
+
+[project.scripts]
+mac_alias = "mac_alias.__main__:main"
+
+[dependency-groups]
+package = [
+    "build == 1.2.1",
+    "twine == 6.1.0",
+]
+
+pre-commit = [
+    "prek == 0.2.19",
+]
+
+test = [
+    "coverage == 7.10.7",
+    "pytest == 8.4.2",
+]
+
+tox = [
+    "tox-uv == 1.29.0"
+]
+
+dev = [
+    {include-group = "pre-commit"},
+    {include-group = "test"},
+    {include-group = "tox"},
+]
+
+# Docs are always built on Py3.12; see RTD and tox config files.
+docs = [
+    "furo == 2025.9.25",
+    "sphinx == 8.2.3",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "mac_alias.__version__"}
+
+[tool.coverage.run]
+branch = true
+relative_files = true
+source_pkgs = ["mac_alias"]
+
+[tool.coverage.paths]
+source = [
+    "src",
+    "**/site-packages",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
+precision = 1
+exclude_lines = [
+    "pragma: no cover",
+    "@(abc\\.)?abstractmethod",
+    "NotImplementedError\\(\\)",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff.lint]
+# In addition to the default rules, these additional rules will be used:
+extend-select = [
+    "E",      # pycodestyle
+    "W",      # pycodestyle
+    "F",      # pyflakes
+    # "UP",     # pyupgrade
+    # "B",      # flake8-bugbear
+    "YTT",    # flake8-2020
+    "ASYNC",  # flake8-async
+    "C4",     # flake8-comprehensions
+    "I",      # isort
+    # "RUF",    # ruff-specific rules
+    "PT",     # flake8-pytest-style
+    "FURB",   # refurb
+    "ISC",    # flake8-implicit-str-concat
+    "PGH",    # pygrep-hooks
+    "T20",    # flake8-print
+    "PIE",    # flake8-pie
+    # "SIM",    # flake8-simplify
+]
+
+[tool.ruff.lint.per-file-ignores]
+# F403: * import used; unable to detect undefined names
+# F405: undefined, or defined from star imports
+"src/mac_alias/__init__.py" = ["F403", "F405"]

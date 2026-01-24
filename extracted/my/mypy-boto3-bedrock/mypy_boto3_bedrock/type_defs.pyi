@@ -3,20 +3,21 @@ Type annotations for bedrock service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_bedrock.type_defs import AgreementAvailabilityTypeDef
+    from mypy_boto3_bedrock.type_defs import AccountEnforcedGuardrailInferenceInputConfigurationTypeDef
 
-    data: AgreementAvailabilityTypeDef = ...
+    data: AccountEnforcedGuardrailInferenceInputConfigurationTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -40,6 +41,7 @@ from .literals import (
     CommitmentDurationType,
     CustomizationTypeType,
     CustomModelDeploymentStatusType,
+    CustomModelDeploymentUpdateStatusType,
     EntitlementAvailabilityType,
     EvaluationJobStatusType,
     EvaluationJobTypeType,
@@ -62,6 +64,7 @@ from .literals import (
     GuardrailWordActionType,
     InferenceProfileTypeType,
     InferenceTypeType,
+    InputTagsType,
     JobStatusDetailsType,
     ModelCopyJobStatusType,
     ModelCustomizationJobStatusType,
@@ -74,6 +77,7 @@ from .literals import (
     PerformanceConfigLatencyType,
     PromptRouterTypeType,
     ProvisionedModelStatusType,
+    ReasoningEffortType,
     RegionAvailabilityType,
     RerankingMetadataSelectionModeType,
     RetrieveAndGenerateTypeType,
@@ -82,18 +86,14 @@ from .literals import (
     StatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AccountEnforcedGuardrailInferenceInputConfigurationTypeDef",
+    "AccountEnforcedGuardrailOutputConfigurationTypeDef",
     "AgreementAvailabilityTypeDef",
     "AutomatedEvaluationConfigOutputTypeDef",
     "AutomatedEvaluationConfigTypeDef",
@@ -157,9 +157,12 @@ __all__ = (
     "AutomatedReasoningPolicyDeleteVariableAnnotationTypeDef",
     "AutomatedReasoningPolicyDeleteVariableMutationTypeDef",
     "AutomatedReasoningPolicyDisjointRuleSetTypeDef",
+    "AutomatedReasoningPolicyGeneratedTestCaseTypeDef",
+    "AutomatedReasoningPolicyGeneratedTestCasesTypeDef",
     "AutomatedReasoningPolicyIngestContentAnnotationTypeDef",
     "AutomatedReasoningPolicyMutationTypeDef",
     "AutomatedReasoningPolicyScenarioTypeDef",
+    "AutomatedReasoningPolicyScenariosTypeDef",
     "AutomatedReasoningPolicySummaryTypeDef",
     "AutomatedReasoningPolicyTestCaseTypeDef",
     "AutomatedReasoningPolicyTestResultTypeDef",
@@ -230,6 +233,7 @@ __all__ = (
     "CustomMetricEvaluatorModelConfigOutputTypeDef",
     "CustomMetricEvaluatorModelConfigTypeDef",
     "CustomModelDeploymentSummaryTypeDef",
+    "CustomModelDeploymentUpdateDetailsTypeDef",
     "CustomModelSummaryTypeDef",
     "CustomModelUnitsTypeDef",
     "CustomizationConfigTypeDef",
@@ -239,6 +243,7 @@ __all__ = (
     "DeleteAutomatedReasoningPolicyTestCaseRequestTypeDef",
     "DeleteCustomModelDeploymentRequestTypeDef",
     "DeleteCustomModelRequestTypeDef",
+    "DeleteEnforcedGuardrailConfigurationRequestTypeDef",
     "DeleteFoundationModelAgreementRequestTypeDef",
     "DeleteGuardrailRequestTypeDef",
     "DeleteImportedModelRequestTypeDef",
@@ -337,6 +342,7 @@ __all__ = (
     "GetProvisionedModelThroughputRequestTypeDef",
     "GetProvisionedModelThroughputResponseTypeDef",
     "GetUseCaseForModelAccessResponseTypeDef",
+    "GraderConfigTypeDef",
     "GuardrailAutomatedReasoningPolicyConfigTypeDef",
     "GuardrailAutomatedReasoningPolicyTypeDef",
     "GuardrailConfigurationTypeDef",
@@ -394,6 +400,7 @@ __all__ = (
     "KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef",
     "KnowledgeBaseVectorSearchConfigurationOutputTypeDef",
     "KnowledgeBaseVectorSearchConfigurationTypeDef",
+    "LambdaGraderConfigTypeDef",
     "LegalTermTypeDef",
     "ListAutomatedReasoningPoliciesRequestPaginateTypeDef",
     "ListAutomatedReasoningPoliciesRequestTypeDef",
@@ -413,6 +420,9 @@ __all__ = (
     "ListCustomModelsRequestPaginateTypeDef",
     "ListCustomModelsRequestTypeDef",
     "ListCustomModelsResponseTypeDef",
+    "ListEnforcedGuardrailsConfigurationRequestPaginateTypeDef",
+    "ListEnforcedGuardrailsConfigurationRequestTypeDef",
+    "ListEnforcedGuardrailsConfigurationResponseTypeDef",
     "ListEvaluationJobsRequestPaginateTypeDef",
     "ListEvaluationJobsRequestTypeDef",
     "ListEvaluationJobsResponseTypeDef",
@@ -477,11 +487,15 @@ __all__ = (
     "PromptRouterTargetModelTypeDef",
     "PromptTemplateTypeDef",
     "ProvisionedModelSummaryTypeDef",
+    "PutEnforcedGuardrailConfigurationRequestTypeDef",
+    "PutEnforcedGuardrailConfigurationResponseTypeDef",
     "PutModelInvocationLoggingConfigurationRequestTypeDef",
     "PutUseCaseForModelAccessRequestTypeDef",
     "QueryTransformationConfigurationTypeDef",
     "RAGConfigOutputTypeDef",
     "RAGConfigTypeDef",
+    "RFTConfigTypeDef",
+    "RFTHyperParametersTypeDef",
     "RatingScaleItemTypeDef",
     "RatingScaleItemValueTypeDef",
     "RegisterMarketplaceModelEndpointRequestTypeDef",
@@ -533,6 +547,8 @@ __all__ = (
     "UpdateAutomatedReasoningPolicyResponseTypeDef",
     "UpdateAutomatedReasoningPolicyTestCaseRequestTypeDef",
     "UpdateAutomatedReasoningPolicyTestCaseResponseTypeDef",
+    "UpdateCustomModelDeploymentRequestTypeDef",
+    "UpdateCustomModelDeploymentResponseTypeDef",
     "UpdateGuardrailRequestTypeDef",
     "UpdateGuardrailResponseTypeDef",
     "UpdateMarketplaceModelEndpointRequestTypeDef",
@@ -555,6 +571,23 @@ __all__ = (
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
 )
+
+class AccountEnforcedGuardrailInferenceInputConfigurationTypeDef(TypedDict):
+    guardrailIdentifier: str
+    guardrailVersion: str
+    inputTags: InputTagsType
+
+class AccountEnforcedGuardrailOutputConfigurationTypeDef(TypedDict):
+    configId: NotRequired[str]
+    guardrailArn: NotRequired[str]
+    guardrailId: NotRequired[str]
+    inputTags: NotRequired[InputTagsType]
+    guardrailVersion: NotRequired[str]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    owner: NotRequired[Literal["ACCOUNT"]]
 
 class AgreementAvailabilityTypeDef(TypedDict):
     status: AgreementStatusType
@@ -629,11 +662,11 @@ class AutomatedReasoningPolicyIngestContentAnnotationTypeDef(TypedDict):
 
 class AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotationOutputTypeDef(TypedDict):
     feedback: str
-    ruleIds: NotRequired[List[str]]
+    ruleIds: NotRequired[list[str]]
 
 class AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationOutputTypeDef(TypedDict):
     scenarioExpression: str
-    ruleIds: NotRequired[List[str]]
+    ruleIds: NotRequired[list[str]]
     feedback: NotRequired[str]
 
 class AutomatedReasoningPolicyUpdateRuleAnnotationTypeDef(TypedDict):
@@ -664,8 +697,8 @@ class AutomatedReasoningPolicyDefinitionTypeValuePairTypeDef(TypedDict):
     valueName: str
 
 class AutomatedReasoningPolicyDisjointRuleSetTypeDef(TypedDict):
-    variables: List[str]
-    rules: List[str]
+    variables: list[str]
+    rules: list[str]
 
 AutomatedReasoningPolicyDeleteRuleMutationTypeDef = TypedDict(
     "AutomatedReasoningPolicyDeleteRuleMutationTypeDef",
@@ -683,11 +716,16 @@ class AutomatedReasoningPolicyDeleteTypeValueTypeDef(TypedDict):
 class AutomatedReasoningPolicyDeleteVariableMutationTypeDef(TypedDict):
     name: str
 
+class AutomatedReasoningPolicyGeneratedTestCaseTypeDef(TypedDict):
+    queryContent: str
+    guardContent: str
+    expectedAggregatedFindingsResult: AutomatedReasoningCheckResultType
+
 class AutomatedReasoningPolicyScenarioTypeDef(TypedDict):
     expression: str
     alternateExpression: str
-    ruleIds: List[str]
     expectedResult: AutomatedReasoningCheckResultType
+    ruleIds: list[str]
 
 class AutomatedReasoningPolicySummaryTypeDef(TypedDict):
     policyArn: str
@@ -736,7 +774,7 @@ class BatchDeleteEvaluationJobRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -811,6 +849,10 @@ class CustomModelDeploymentSummaryTypeDef(TypedDict):
     lastUpdatedAt: NotRequired[datetime]
     failureMessage: NotRequired[str]
 
+class CustomModelDeploymentUpdateDetailsTypeDef(TypedDict):
+    modelArn: str
+    updateStatus: CustomModelDeploymentUpdateStatusType
+
 class CustomModelSummaryTypeDef(TypedDict):
     modelArn: str
     modelName: str
@@ -834,12 +876,16 @@ TimestampTypeDef = Union[datetime, str]
 
 class DeleteAutomatedReasoningPolicyRequestTypeDef(TypedDict):
     policyArn: str
+    force: NotRequired[bool]
 
 class DeleteCustomModelDeploymentRequestTypeDef(TypedDict):
     customModelDeploymentIdentifier: str
 
 class DeleteCustomModelRequestTypeDef(TypedDict):
     modelIdentifier: str
+
+class DeleteEnforcedGuardrailConfigurationRequestTypeDef(TypedDict):
+    configId: str
 
 class DeleteFoundationModelAgreementRequestTypeDef(TypedDict):
     modelId: str
@@ -883,12 +929,12 @@ class EvaluationDatasetLocationTypeDef(TypedDict):
     s3Uri: NotRequired[str]
 
 class EvaluationModelConfigSummaryTypeDef(TypedDict):
-    bedrockModelIdentifiers: NotRequired[List[str]]
-    precomputedInferenceSourceIdentifiers: NotRequired[List[str]]
+    bedrockModelIdentifiers: NotRequired[list[str]]
+    precomputedInferenceSourceIdentifiers: NotRequired[list[str]]
 
 class EvaluationRagConfigSummaryTypeDef(TypedDict):
-    bedrockKnowledgeBaseIdentifiers: NotRequired[List[str]]
-    precomputedRagSourceIdentifiers: NotRequired[List[str]]
+    bedrockKnowledgeBaseIdentifiers: NotRequired[list[str]]
+    precomputedRagSourceIdentifiers: NotRequired[list[str]]
 
 class EvaluationPrecomputedInferenceSourceTypeDef(TypedDict):
     inferenceSourceIdentifier: str
@@ -917,7 +963,7 @@ class FieldForRerankingTypeDef(TypedDict):
 
 class FilterAttributeOutputTypeDef(TypedDict):
     key: str
-    value: Dict[str, Any]
+    value: dict[str, Any]
 
 class FilterAttributeTypeDef(TypedDict):
     key: str
@@ -981,7 +1027,7 @@ class GetGuardrailRequestTypeDef(TypedDict):
     guardrailVersion: NotRequired[str]
 
 class GuardrailAutomatedReasoningPolicyTypeDef(TypedDict):
-    policies: List[str]
+    policies: list[str]
     confidenceThreshold: NotRequired[float]
 
 class GuardrailCrossRegionDetailsTypeDef(TypedDict):
@@ -1007,8 +1053,8 @@ class GetModelCustomizationJobRequestTypeDef(TypedDict):
     jobIdentifier: str
 
 class VpcConfigOutputTypeDef(TypedDict):
-    subnetIds: List[str]
-    securityGroupIds: List[str]
+    subnetIds: list[str]
+    securityGroupIds: list[str]
 
 class GetModelImportJobRequestTypeDef(TypedDict):
     jobIdentifier: str
@@ -1021,6 +1067,9 @@ class GetPromptRouterRequestTypeDef(TypedDict):
 
 class GetProvisionedModelThroughputRequestTypeDef(TypedDict):
     provisionedModelId: str
+
+class LambdaGraderConfigTypeDef(TypedDict):
+    lambdaArn: str
 
 GuardrailContentFilterConfigTypeDef = TypedDict(
     "GuardrailContentFilterConfigTypeDef",
@@ -1042,8 +1091,8 @@ GuardrailContentFilterTypeDef = TypedDict(
         "type": GuardrailContentFilterTypeType,
         "inputStrength": GuardrailFilterStrengthType,
         "outputStrength": GuardrailFilterStrengthType,
-        "inputModalities": NotRequired[List[GuardrailModalityType]],
-        "outputModalities": NotRequired[List[GuardrailModalityType]],
+        "inputModalities": NotRequired[list[GuardrailModalityType]],
+        "outputModalities": NotRequired[list[GuardrailModalityType]],
         "inputAction": NotRequired[GuardrailContentFilterActionType],
         "outputAction": NotRequired[GuardrailContentFilterActionType],
         "inputEnabled": NotRequired[bool],
@@ -1160,7 +1209,7 @@ GuardrailTopicTypeDef = TypedDict(
     {
         "name": str,
         "definition": str,
-        "examples": NotRequired[List[str]],
+        "examples": NotRequired[list[str]],
         "type": NotRequired[Literal["DENY"]],
         "inputAction": NotRequired[GuardrailTopicActionType],
         "outputAction": NotRequired[GuardrailTopicActionType],
@@ -1218,7 +1267,7 @@ class TextInferenceConfigOutputTypeDef(TypedDict):
     temperature: NotRequired[float]
     topP: NotRequired[float]
     maxTokens: NotRequired[int]
-    stopSequences: NotRequired[List[str]]
+    stopSequences: NotRequired[list[str]]
 
 class TextInferenceConfigTypeDef(TypedDict):
     temperature: NotRequired[float]
@@ -1254,6 +1303,9 @@ class ListAutomatedReasoningPolicyTestResultsRequestTypeDef(TypedDict):
     buildWorkflowId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+class ListEnforcedGuardrailsConfigurationRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
 
 class ListFoundationModelAgreementOffersRequestTypeDef(TypedDict):
     modelId: str
@@ -1344,6 +1396,16 @@ QueryTransformationConfigurationTypeDef = TypedDict(
     },
 )
 
+class RFTHyperParametersTypeDef(TypedDict):
+    epochCount: NotRequired[int]
+    batchSize: NotRequired[int]
+    learningRate: NotRequired[float]
+    maxPromptLength: NotRequired[int]
+    trainingSamplePerPrompt: NotRequired[int]
+    inferenceMaxTokens: NotRequired[int]
+    reasoningEffort: NotRequired[ReasoningEffortType]
+    evalInterval: NotRequired[int]
+
 class RatingScaleItemValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
     floatValue: NotRequired[float]
@@ -1353,8 +1415,8 @@ class RegisterMarketplaceModelEndpointRequestTypeDef(TypedDict):
     modelSourceIdentifier: str
 
 class RequestMetadataBaseFiltersOutputTypeDef(TypedDict):
-    equals: NotRequired[Dict[str, str]]
-    notEquals: NotRequired[Dict[str, str]]
+    equals: NotRequired[dict[str, str]]
+    notEquals: NotRequired[dict[str, str]]
 
 class RequestMetadataBaseFiltersTypeDef(TypedDict):
     equals: NotRequired[Mapping[str, str]]
@@ -1399,6 +1461,10 @@ class UntagResourceRequestTypeDef(TypedDict):
     resourceARN: str
     tagKeys: Sequence[str]
 
+class UpdateCustomModelDeploymentRequestTypeDef(TypedDict):
+    modelArn: str
+    customModelDeploymentIdentifier: str
+
 class UpdateProvisionedModelThroughputRequestTypeDef(TypedDict):
     provisionedModelId: str
     desiredProvisionedModelName: NotRequired[str]
@@ -1409,30 +1475,34 @@ class ValidatorTypeDef(TypedDict):
 
 class VectorSearchBedrockRerankingModelConfigurationOutputTypeDef(TypedDict):
     modelArn: str
-    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
 
 class VectorSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
     modelArn: str
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
 
+class PutEnforcedGuardrailConfigurationRequestTypeDef(TypedDict):
+    guardrailInferenceConfig: AccountEnforcedGuardrailInferenceInputConfigurationTypeDef
+    configId: NotRequired[str]
+
 AutomatedReasoningCheckLogicWarningTypeDef = TypedDict(
     "AutomatedReasoningCheckLogicWarningTypeDef",
     {
         "type": NotRequired[AutomatedReasoningCheckLogicWarningTypeType],
-        "premises": NotRequired[List[AutomatedReasoningLogicStatementTypeDef]],
-        "claims": NotRequired[List[AutomatedReasoningLogicStatementTypeDef]],
+        "premises": NotRequired[list[AutomatedReasoningLogicStatementTypeDef]],
+        "claims": NotRequired[list[AutomatedReasoningLogicStatementTypeDef]],
     },
 )
 
 class AutomatedReasoningCheckScenarioTypeDef(TypedDict):
-    statements: NotRequired[List[AutomatedReasoningLogicStatementTypeDef]]
+    statements: NotRequired[list[AutomatedReasoningLogicStatementTypeDef]]
 
 class AutomatedReasoningCheckTranslationTypeDef(TypedDict):
-    claims: List[AutomatedReasoningLogicStatementTypeDef]
+    claims: list[AutomatedReasoningLogicStatementTypeDef]
     confidence: float
-    premises: NotRequired[List[AutomatedReasoningLogicStatementTypeDef]]
-    untranslatedPremises: NotRequired[List[AutomatedReasoningCheckInputTextReferenceTypeDef]]
-    untranslatedClaims: NotRequired[List[AutomatedReasoningCheckInputTextReferenceTypeDef]]
+    premises: NotRequired[list[AutomatedReasoningLogicStatementTypeDef]]
+    untranslatedPremises: NotRequired[list[AutomatedReasoningCheckInputTextReferenceTypeDef]]
+    untranslatedClaims: NotRequired[list[AutomatedReasoningCheckInputTextReferenceTypeDef]]
 
 class AutomatedReasoningPolicyAddRuleMutationTypeDef(TypedDict):
     rule: AutomatedReasoningPolicyDefinitionRuleTypeDef
@@ -1443,7 +1513,7 @@ class AutomatedReasoningPolicyUpdateRuleMutationTypeDef(TypedDict):
 class AutomatedReasoningPolicyAddTypeAnnotationOutputTypeDef(TypedDict):
     name: str
     description: str
-    values: List[AutomatedReasoningPolicyDefinitionTypeValueTypeDef]
+    values: list[AutomatedReasoningPolicyDefinitionTypeValueTypeDef]
 
 class AutomatedReasoningPolicyAddTypeAnnotationTypeDef(TypedDict):
     name: str
@@ -1452,7 +1522,7 @@ class AutomatedReasoningPolicyAddTypeAnnotationTypeDef(TypedDict):
 
 class AutomatedReasoningPolicyDefinitionTypeOutputTypeDef(TypedDict):
     name: str
-    values: List[AutomatedReasoningPolicyDefinitionTypeValueTypeDef]
+    values: list[AutomatedReasoningPolicyDefinitionTypeValueTypeDef]
     description: NotRequired[str]
 
 class AutomatedReasoningPolicyDefinitionTypeTypeDef(TypedDict):
@@ -1484,11 +1554,17 @@ class AutomatedReasoningPolicyDefinitionQualityReportTypeDef(TypedDict):
     typeCount: int
     variableCount: int
     ruleCount: int
-    unusedTypes: List[str]
-    unusedTypeValues: List[AutomatedReasoningPolicyDefinitionTypeValuePairTypeDef]
-    unusedVariables: List[str]
-    conflictingRules: List[str]
-    disjointRuleSets: List[AutomatedReasoningPolicyDisjointRuleSetTypeDef]
+    unusedTypes: list[str]
+    unusedTypeValues: list[AutomatedReasoningPolicyDefinitionTypeValuePairTypeDef]
+    unusedVariables: list[str]
+    conflictingRules: list[str]
+    disjointRuleSets: list[AutomatedReasoningPolicyDisjointRuleSetTypeDef]
+
+class AutomatedReasoningPolicyGeneratedTestCasesTypeDef(TypedDict):
+    generatedTestCases: list[AutomatedReasoningPolicyGeneratedTestCaseTypeDef]
+
+class AutomatedReasoningPolicyScenariosTypeDef(TypedDict):
+    policyScenarios: list[AutomatedReasoningPolicyScenarioTypeDef]
 
 class AutomatedReasoningPolicyTypeValueAnnotationTypeDef(TypedDict):
     addTypeValue: NotRequired[AutomatedReasoningPolicyAddTypeValueTypeDef]
@@ -1505,8 +1581,8 @@ AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotationUnionTypeDef = Union
 ]
 
 class BatchDeleteEvaluationJobResponseTypeDef(TypedDict):
-    errors: List[BatchDeleteEvaluationJobErrorTypeDef]
-    evaluationJobs: List[BatchDeleteEvaluationJobItemTypeDef]
+    errors: list[BatchDeleteEvaluationJobErrorTypeDef]
+    evaluationJobs: list[BatchDeleteEvaluationJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAutomatedReasoningPolicyResponseTypeDef(TypedDict):
@@ -1614,6 +1690,7 @@ class GetAutomatedReasoningPolicyResponseTypeDef(TypedDict):
     policyId: str
     description: str
     definitionHash: str
+    kmsKeyArn: str
     createdAt: datetime
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1621,17 +1698,6 @@ class GetAutomatedReasoningPolicyResponseTypeDef(TypedDict):
 class GetAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
     policyArn: str
     testCase: AutomatedReasoningPolicyTestCaseTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class GetCustomModelDeploymentResponseTypeDef(TypedDict):
-    customModelDeploymentArn: str
-    modelDeploymentName: str
-    modelArn: str
-    createdAt: datetime
-    status: CustomModelDeploymentStatusType
-    description: str
-    failureMessage: str
-    lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFoundationModelAvailabilityResponseTypeDef(TypedDict):
@@ -1663,21 +1729,32 @@ class GetUseCaseForModelAccessResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAutomatedReasoningPoliciesResponseTypeDef(TypedDict):
-    automatedReasoningPolicySummaries: List[AutomatedReasoningPolicySummaryTypeDef]
+    automatedReasoningPolicySummaries: list[AutomatedReasoningPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAutomatedReasoningPolicyBuildWorkflowsResponseTypeDef(TypedDict):
-    automatedReasoningPolicyBuildWorkflowSummaries: List[
+    automatedReasoningPolicyBuildWorkflowSummaries: list[
         AutomatedReasoningPolicyBuildWorkflowSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAutomatedReasoningPolicyTestCasesResponseTypeDef(TypedDict):
-    testCases: List[AutomatedReasoningPolicyTestCaseTypeDef]
+    testCases: list[AutomatedReasoningPolicyTestCaseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ListEnforcedGuardrailsConfigurationResponseTypeDef(TypedDict):
+    guardrailsConfig: list[AccountEnforcedGuardrailOutputConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class PutEnforcedGuardrailConfigurationResponseTypeDef(TypedDict):
+    configId: str
+    updatedAt: datetime
+    updatedBy: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class StartAutomatedReasoningPolicyBuildWorkflowResponseTypeDef(TypedDict):
     policyArn: str
@@ -1707,6 +1784,10 @@ class UpdateAutomatedReasoningPolicyTestCaseResponseTypeDef(TypedDict):
     testCaseId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateGuardrailResponseTypeDef(TypedDict):
     guardrailId: str
     guardrailArn: str
@@ -1715,7 +1796,7 @@ class UpdateGuardrailResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class EvaluatorModelConfigOutputTypeDef(TypedDict):
-    bedrockEvaluatorModels: NotRequired[List[BedrockEvaluatorModelTypeDef]]
+    bedrockEvaluatorModels: NotRequired[list[BedrockEvaluatorModelTypeDef]]
 
 class EvaluatorModelConfigTypeDef(TypedDict):
     bedrockEvaluatorModels: NotRequired[Sequence[BedrockEvaluatorModelTypeDef]]
@@ -1762,13 +1843,13 @@ class GetModelCopyJobResponseTypeDef(TypedDict):
     sourceAccountId: str
     sourceModelArn: str
     targetModelKmsKeyArn: str
-    targetModelTags: List[TagTypeDef]
+    targetModelTags: list[TagTypeDef]
     failureMessage: str
     sourceModelName: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ModelCopyJobSummaryTypeDef(TypedDict):
@@ -1780,7 +1861,7 @@ class ModelCopyJobSummaryTypeDef(TypedDict):
     sourceModelArn: str
     targetModelName: NotRequired[str]
     targetModelKmsKeyArn: NotRequired[str]
-    targetModelTags: NotRequired[List[TagTypeDef]]
+    targetModelTags: NotRequired[list[TagTypeDef]]
     failureMessage: NotRequired[str]
     sourceModelName: NotRequired[str]
 
@@ -1813,7 +1894,7 @@ GetPromptRouterResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "updatedAt": datetime,
         "promptRouterArn": str,
-        "models": List[PromptRouterTargetModelTypeDef],
+        "models": list[PromptRouterTargetModelTypeDef],
         "fallbackModel": PromptRouterTargetModelTypeDef,
         "status": Literal["AVAILABLE"],
         "type": PromptRouterTypeType,
@@ -1826,7 +1907,7 @@ PromptRouterSummaryTypeDef = TypedDict(
         "promptRouterName": str,
         "routingCriteria": RoutingCriteriaTypeDef,
         "promptRouterArn": str,
-        "models": List[PromptRouterTargetModelTypeDef],
+        "models": list[PromptRouterTargetModelTypeDef],
         "fallbackModel": PromptRouterTargetModelTypeDef,
         "status": Literal["AVAILABLE"],
         "type": PromptRouterTypeType,
@@ -1837,18 +1918,30 @@ PromptRouterSummaryTypeDef = TypedDict(
 )
 
 class CustomMetricEvaluatorModelConfigOutputTypeDef(TypedDict):
-    bedrockEvaluatorModels: List[CustomMetricBedrockEvaluatorModelTypeDef]
+    bedrockEvaluatorModels: list[CustomMetricBedrockEvaluatorModelTypeDef]
 
 class CustomMetricEvaluatorModelConfigTypeDef(TypedDict):
     bedrockEvaluatorModels: Sequence[CustomMetricBedrockEvaluatorModelTypeDef]
 
 class ListCustomModelDeploymentsResponseTypeDef(TypedDict):
-    modelDeploymentSummaries: List[CustomModelDeploymentSummaryTypeDef]
+    modelDeploymentSummaries: list[CustomModelDeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class GetCustomModelDeploymentResponseTypeDef(TypedDict):
+    customModelDeploymentArn: str
+    modelDeploymentName: str
+    modelArn: str
+    createdAt: datetime
+    status: CustomModelDeploymentStatusType
+    description: str
+    updateDetails: CustomModelDeploymentUpdateDetailsTypeDef
+    failureMessage: str
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListCustomModelsResponseTypeDef(TypedDict):
-    modelSummaries: List[CustomModelSummaryTypeDef]
+    modelSummaries: list[CustomModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1970,7 +2063,7 @@ class UpdateAutomatedReasoningPolicyTestCaseRequestTypeDef(TypedDict):
     clientRequestToken: NotRequired[str]
 
 class PricingTermTypeDef(TypedDict):
-    rateCard: List[DimensionalPriceRateTypeDef]
+    rateCard: list[DimensionalPriceRateTypeDef]
 
 class DistillationConfigTypeDef(TypedDict):
     teacherModelConfig: TeacherModelConfigTypeDef
@@ -2000,8 +2093,8 @@ class ExternalSourceOutputTypeDef(TypedDict):
     byteContent: NotRequired[ByteContentDocOutputTypeDef]
 
 class RerankingMetadataSelectiveModeConfigurationOutputTypeDef(TypedDict):
-    fieldsToInclude: NotRequired[List[FieldForRerankingTypeDef]]
-    fieldsToExclude: NotRequired[List[FieldForRerankingTypeDef]]
+    fieldsToInclude: NotRequired[list[FieldForRerankingTypeDef]]
+    fieldsToExclude: NotRequired[list[FieldForRerankingTypeDef]]
 
 class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
     fieldsToInclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
@@ -2021,8 +2114,8 @@ RetrievalFilterOutputTypeDef = TypedDict(
         "startsWith": NotRequired[FilterAttributeOutputTypeDef],
         "listContains": NotRequired[FilterAttributeOutputTypeDef],
         "stringContains": NotRequired[FilterAttributeOutputTypeDef],
-        "andAll": NotRequired[List[Dict[str, Any]]],
-        "orAll": NotRequired[List[Dict[str, Any]]],
+        "andAll": NotRequired[list[dict[str, Any]]],
+        "orAll": NotRequired[list[dict[str, Any]]],
     },
 )
 RetrievalFilterTypeDef = TypedDict(
@@ -2049,11 +2142,11 @@ class FoundationModelDetailsTypeDef(TypedDict):
     modelId: str
     modelName: NotRequired[str]
     providerName: NotRequired[str]
-    inputModalities: NotRequired[List[ModelModalityType]]
-    outputModalities: NotRequired[List[ModelModalityType]]
+    inputModalities: NotRequired[list[ModelModalityType]]
+    outputModalities: NotRequired[list[ModelModalityType]]
     responseStreamingSupported: NotRequired[bool]
-    customizationsSupported: NotRequired[List[ModelCustomizationType]]
-    inferenceTypesSupported: NotRequired[List[InferenceTypeType]]
+    customizationsSupported: NotRequired[list[ModelCustomizationType]]
+    inferenceTypesSupported: NotRequired[list[InferenceTypeType]]
     modelLifecycle: NotRequired[FoundationModelLifecycleTypeDef]
 
 class FoundationModelSummaryTypeDef(TypedDict):
@@ -2061,11 +2154,11 @@ class FoundationModelSummaryTypeDef(TypedDict):
     modelId: str
     modelName: NotRequired[str]
     providerName: NotRequired[str]
-    inputModalities: NotRequired[List[ModelModalityType]]
-    outputModalities: NotRequired[List[ModelModalityType]]
+    inputModalities: NotRequired[list[ModelModalityType]]
+    outputModalities: NotRequired[list[ModelModalityType]]
     responseStreamingSupported: NotRequired[bool]
-    customizationsSupported: NotRequired[List[ModelCustomizationType]]
-    inferenceTypesSupported: NotRequired[List[InferenceTypeType]]
+    customizationsSupported: NotRequired[list[ModelCustomizationType]]
+    inferenceTypesSupported: NotRequired[list[InferenceTypeType]]
     modelLifecycle: NotRequired[FoundationModelLifecycleTypeDef]
 
 GuardrailSummaryTypeDef = TypedDict(
@@ -2090,7 +2183,7 @@ GetInferenceProfileResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "updatedAt": datetime,
         "inferenceProfileArn": str,
-        "models": List[InferenceProfileModelTypeDef],
+        "models": list[InferenceProfileModelTypeDef],
         "inferenceProfileId": str,
         "status": Literal["ACTIVE"],
         "type": InferenceProfileTypeType,
@@ -2102,7 +2195,7 @@ InferenceProfileSummaryTypeDef = TypedDict(
     {
         "inferenceProfileName": str,
         "inferenceProfileArn": str,
-        "models": List[InferenceProfileModelTypeDef],
+        "models": list[InferenceProfileModelTypeDef],
         "inferenceProfileId": str,
         "status": Literal["ACTIVE"],
         "type": InferenceProfileTypeType,
@@ -2119,34 +2212,37 @@ class SageMakerEndpointOutputTypeDef(TypedDict):
     kmsEncryptionKey: NotRequired[str]
     vpc: NotRequired[VpcConfigOutputTypeDef]
 
+class GraderConfigTypeDef(TypedDict):
+    lambdaGrader: NotRequired[LambdaGraderConfigTypeDef]
+
 class GuardrailContentPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContentFilterConfigTypeDef]
     tierConfig: NotRequired[GuardrailContentFiltersTierConfigTypeDef]
 
 class GuardrailContentPolicyTypeDef(TypedDict):
-    filters: NotRequired[List[GuardrailContentFilterTypeDef]]
+    filters: NotRequired[list[GuardrailContentFilterTypeDef]]
     tier: NotRequired[GuardrailContentFiltersTierTypeDef]
 
 class GuardrailContextualGroundingPolicyConfigTypeDef(TypedDict):
     filtersConfig: Sequence[GuardrailContextualGroundingFilterConfigTypeDef]
 
 class GuardrailContextualGroundingPolicyTypeDef(TypedDict):
-    filters: List[GuardrailContextualGroundingFilterTypeDef]
+    filters: list[GuardrailContextualGroundingFilterTypeDef]
 
 class GuardrailSensitiveInformationPolicyConfigTypeDef(TypedDict):
     piiEntitiesConfig: NotRequired[Sequence[GuardrailPiiEntityConfigTypeDef]]
     regexesConfig: NotRequired[Sequence[GuardrailRegexConfigTypeDef]]
 
 class GuardrailSensitiveInformationPolicyTypeDef(TypedDict):
-    piiEntities: NotRequired[List[GuardrailPiiEntityTypeDef]]
-    regexes: NotRequired[List[GuardrailRegexTypeDef]]
+    piiEntities: NotRequired[list[GuardrailPiiEntityTypeDef]]
+    regexes: NotRequired[list[GuardrailRegexTypeDef]]
 
 class GuardrailTopicPolicyConfigTypeDef(TypedDict):
     topicsConfig: Sequence[GuardrailTopicConfigTypeDef]
     tierConfig: NotRequired[GuardrailTopicsTierConfigTypeDef]
 
 class GuardrailTopicPolicyTypeDef(TypedDict):
-    topics: List[GuardrailTopicTypeDef]
+    topics: list[GuardrailTopicTypeDef]
     tier: NotRequired[GuardrailTopicsTierTypeDef]
 
 class GuardrailWordPolicyConfigTypeDef(TypedDict):
@@ -2154,11 +2250,11 @@ class GuardrailWordPolicyConfigTypeDef(TypedDict):
     managedWordListsConfig: NotRequired[Sequence[GuardrailManagedWordsConfigTypeDef]]
 
 class GuardrailWordPolicyTypeDef(TypedDict):
-    words: NotRequired[List[GuardrailWordTypeDef]]
-    managedWordLists: NotRequired[List[GuardrailManagedWordsTypeDef]]
+    words: NotRequired[list[GuardrailWordTypeDef]]
+    managedWordLists: NotRequired[list[GuardrailManagedWordsTypeDef]]
 
 class ImplicitFilterConfigurationOutputTypeDef(TypedDict):
-    metadataAttributes: List[MetadataAttributeSchemaTypeDef]
+    metadataAttributes: list[MetadataAttributeSchemaTypeDef]
     modelArn: str
 
 class ImplicitFilterConfigurationTypeDef(TypedDict):
@@ -2166,7 +2262,7 @@ class ImplicitFilterConfigurationTypeDef(TypedDict):
     modelArn: str
 
 class ListImportedModelsResponseTypeDef(TypedDict):
-    modelSummaries: List[ImportedModelSummaryTypeDef]
+    modelSummaries: list[ImportedModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2213,6 +2309,9 @@ class ListCustomModelsRequestPaginateTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     isOwned: NotRequired[bool]
     modelStatus: NotRequired[ModelStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListEnforcedGuardrailsConfigurationRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEvaluationJobsRequestPaginateTypeDef(TypedDict):
@@ -2302,17 +2401,17 @@ class ListProvisionedModelThroughputsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMarketplaceModelEndpointsResponseTypeDef(TypedDict):
-    marketplaceModelEndpoints: List[MarketplaceModelEndpointSummaryTypeDef]
+    marketplaceModelEndpoints: list[MarketplaceModelEndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListModelImportJobsResponseTypeDef(TypedDict):
-    modelImportJobSummaries: List[ModelImportJobSummaryTypeDef]
+    modelImportJobSummaries: list[ModelImportJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListProvisionedModelThroughputsResponseTypeDef(TypedDict):
-    provisionedModelSummaries: List[ProvisionedModelSummaryTypeDef]
+    provisionedModelSummaries: list[ProvisionedModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2333,10 +2432,10 @@ class RatingScaleItemTypeDef(TypedDict):
     value: RatingScaleItemValueTypeDef
 
 class RequestMetadataFiltersOutputTypeDef(TypedDict):
-    equals: NotRequired[Dict[str, str]]
-    notEquals: NotRequired[Dict[str, str]]
-    andAll: NotRequired[List[RequestMetadataBaseFiltersOutputTypeDef]]
-    orAll: NotRequired[List[RequestMetadataBaseFiltersOutputTypeDef]]
+    equals: NotRequired[dict[str, str]]
+    notEquals: NotRequired[dict[str, str]]
+    andAll: NotRequired[list[RequestMetadataBaseFiltersOutputTypeDef]]
+    orAll: NotRequired[list[RequestMetadataBaseFiltersOutputTypeDef]]
 
 class RequestMetadataFiltersTypeDef(TypedDict):
     equals: NotRequired[Mapping[str, str]]
@@ -2359,19 +2458,19 @@ class StatusDetailsTypeDef(TypedDict):
     trainingDetails: NotRequired[TrainingDetailsTypeDef]
 
 class ValidationDataConfigOutputTypeDef(TypedDict):
-    validators: List[ValidatorTypeDef]
+    validators: list[ValidatorTypeDef]
 
 class ValidationDataConfigTypeDef(TypedDict):
     validators: Sequence[ValidatorTypeDef]
 
 class AutomatedReasoningCheckImpossibleFindingTypeDef(TypedDict):
     translation: NotRequired[AutomatedReasoningCheckTranslationTypeDef]
-    contradictingRules: NotRequired[List[AutomatedReasoningCheckRuleTypeDef]]
+    contradictingRules: NotRequired[list[AutomatedReasoningCheckRuleTypeDef]]
     logicWarning: NotRequired[AutomatedReasoningCheckLogicWarningTypeDef]
 
 class AutomatedReasoningCheckInvalidFindingTypeDef(TypedDict):
     translation: NotRequired[AutomatedReasoningCheckTranslationTypeDef]
-    contradictingRules: NotRequired[List[AutomatedReasoningCheckRuleTypeDef]]
+    contradictingRules: NotRequired[list[AutomatedReasoningCheckRuleTypeDef]]
     logicWarning: NotRequired[AutomatedReasoningCheckLogicWarningTypeDef]
 
 class AutomatedReasoningCheckSatisfiableFindingTypeDef(TypedDict):
@@ -2381,12 +2480,12 @@ class AutomatedReasoningCheckSatisfiableFindingTypeDef(TypedDict):
     logicWarning: NotRequired[AutomatedReasoningCheckLogicWarningTypeDef]
 
 class AutomatedReasoningCheckTranslationOptionTypeDef(TypedDict):
-    translations: NotRequired[List[AutomatedReasoningCheckTranslationTypeDef]]
+    translations: NotRequired[list[AutomatedReasoningCheckTranslationTypeDef]]
 
 class AutomatedReasoningCheckValidFindingTypeDef(TypedDict):
     translation: NotRequired[AutomatedReasoningCheckTranslationTypeDef]
     claimsTrueScenario: NotRequired[AutomatedReasoningCheckScenarioTypeDef]
-    supportingRules: NotRequired[List[AutomatedReasoningCheckRuleTypeDef]]
+    supportingRules: NotRequired[list[AutomatedReasoningCheckRuleTypeDef]]
     logicWarning: NotRequired[AutomatedReasoningCheckLogicWarningTypeDef]
 
 AutomatedReasoningPolicyAddTypeAnnotationUnionTypeDef = Union[
@@ -2409,9 +2508,9 @@ AutomatedReasoningPolicyDefinitionOutputTypeDef = TypedDict(
     "AutomatedReasoningPolicyDefinitionOutputTypeDef",
     {
         "version": NotRequired[str],
-        "types": NotRequired[List[AutomatedReasoningPolicyDefinitionTypeOutputTypeDef]],
-        "rules": NotRequired[List[AutomatedReasoningPolicyDefinitionRuleTypeDef]],
-        "variables": NotRequired[List[AutomatedReasoningPolicyDefinitionVariableTypeDef]],
+        "types": NotRequired[list[AutomatedReasoningPolicyDefinitionTypeOutputTypeDef]],
+        "rules": NotRequired[list[AutomatedReasoningPolicyDefinitionRuleTypeDef]],
+        "variables": NotRequired[list[AutomatedReasoningPolicyDefinitionVariableTypeDef]],
     },
 )
 AutomatedReasoningPolicyUpdateTypeMutationTypeDef = TypedDict(
@@ -2432,7 +2531,7 @@ class ExternalSourceTypeDef(TypedDict):
 
 class AutomatedReasoningPolicyUpdateTypeAnnotationOutputTypeDef(TypedDict):
     name: str
-    values: List[AutomatedReasoningPolicyTypeValueAnnotationTypeDef]
+    values: list[AutomatedReasoningPolicyTypeValueAnnotationTypeDef]
     newName: NotRequired[str]
     description: NotRequired[str]
 
@@ -2449,14 +2548,15 @@ class LoggingConfigTypeDef(TypedDict):
     imageDataDeliveryEnabled: NotRequired[bool]
     embeddingDataDeliveryEnabled: NotRequired[bool]
     videoDataDeliveryEnabled: NotRequired[bool]
+    audioDataDeliveryEnabled: NotRequired[bool]
 
 class ListModelCopyJobsResponseTypeDef(TypedDict):
-    modelCopyJobSummaries: List[ModelCopyJobSummaryTypeDef]
+    modelCopyJobSummaries: list[ModelCopyJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPromptRoutersResponseTypeDef(TypedDict):
-    promptRouterSummaries: List[PromptRouterSummaryTypeDef]
+    promptRouterSummaries: list[PromptRouterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2466,9 +2566,6 @@ class TermDetailsTypeDef(TypedDict):
     supportTerm: SupportTermTypeDef
     validityTerm: NotRequired[ValidityTermTypeDef]
 
-class CustomizationConfigTypeDef(TypedDict):
-    distillationConfig: NotRequired[DistillationConfigTypeDef]
-
 class EvaluationModelConfigTypeDef(TypedDict):
     bedrockModel: NotRequired[EvaluationBedrockModelTypeDef]
     precomputedInferenceSource: NotRequired[EvaluationPrecomputedInferenceSourceTypeDef]
@@ -2476,7 +2573,7 @@ class EvaluationModelConfigTypeDef(TypedDict):
 class EvaluationDatasetMetricConfigOutputTypeDef(TypedDict):
     taskType: EvaluationTaskTypeType
     dataset: EvaluationDatasetTypeDef
-    metricNames: List[str]
+    metricNames: list[str]
 
 class EvaluationDatasetMetricConfigTypeDef(TypedDict):
     taskType: EvaluationTaskTypeType
@@ -2489,11 +2586,11 @@ class EvaluationSummaryTypeDef(TypedDict):
     status: EvaluationJobStatusType
     creationTime: datetime
     jobType: EvaluationJobTypeType
-    evaluationTaskTypes: List[EvaluationTaskTypeType]
-    modelIdentifiers: NotRequired[List[str]]
-    ragIdentifiers: NotRequired[List[str]]
-    evaluatorModelIdentifiers: NotRequired[List[str]]
-    customMetricsEvaluatorModelIdentifiers: NotRequired[List[str]]
+    evaluationTaskTypes: list[EvaluationTaskTypeType]
+    modelIdentifiers: NotRequired[list[str]]
+    ragIdentifiers: NotRequired[list[str]]
+    evaluatorModelIdentifiers: NotRequired[list[str]]
+    customMetricsEvaluatorModelIdentifiers: NotRequired[list[str]]
     inferenceConfigSummary: NotRequired[EvaluationInferenceConfigSummaryTypeDef]
     applicationType: NotRequired[ApplicationTypeType]
 
@@ -2512,21 +2609,25 @@ class GetFoundationModelResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListFoundationModelsResponseTypeDef(TypedDict):
-    modelSummaries: List[FoundationModelSummaryTypeDef]
+    modelSummaries: list[FoundationModelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGuardrailsResponseTypeDef(TypedDict):
-    guardrails: List[GuardrailSummaryTypeDef]
+    guardrails: list[GuardrailSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListInferenceProfilesResponseTypeDef(TypedDict):
-    inferenceProfileSummaries: List[InferenceProfileSummaryTypeDef]
+    inferenceProfileSummaries: list[InferenceProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class EndpointConfigOutputTypeDef(TypedDict):
     sageMaker: NotRequired[SageMakerEndpointOutputTypeDef]
+
+class RFTConfigTypeDef(TypedDict):
+    graderConfig: NotRequired[GraderConfigTypeDef]
+    hyperParameters: NotRequired[RFTHyperParametersTypeDef]
 
 class CreateGuardrailRequestTypeDef(TypedDict):
     name: str
@@ -2575,8 +2676,8 @@ class GetGuardrailResponseTypeDef(TypedDict):
     crossRegionDetails: GuardrailCrossRegionDetailsTypeDef
     createdAt: datetime
     updatedAt: datetime
-    statusReasons: List[str]
-    failureRecommendations: List[str]
+    statusReasons: list[str]
+    failureRecommendations: list[str]
     blockedInputMessaging: str
     blockedOutputsMessaging: str
     kmsKeyArn: str
@@ -2586,13 +2687,13 @@ class ExternalSourcesGenerationConfigurationOutputTypeDef(TypedDict):
     promptTemplate: NotRequired[PromptTemplateTypeDef]
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     kbInferenceConfig: NotRequired[KbInferenceConfigOutputTypeDef]
-    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
 
 class GenerationConfigurationOutputTypeDef(TypedDict):
     promptTemplate: NotRequired[PromptTemplateTypeDef]
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     kbInferenceConfig: NotRequired[KbInferenceConfigOutputTypeDef]
-    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
 
 class ExternalSourcesGenerationConfigurationTypeDef(TypedDict):
     promptTemplate: NotRequired[PromptTemplateTypeDef]
@@ -2681,7 +2782,7 @@ class ModelInvocationJobSummaryTypeDef(TypedDict):
 class CustomMetricDefinitionOutputTypeDef(TypedDict):
     name: str
     instructions: str
-    ratingScale: NotRequired[List[RatingScaleItemTypeDef]]
+    ratingScale: NotRequired[list[RatingScaleItemTypeDef]]
 
 class CustomMetricDefinitionTypeDef(TypedDict):
     name: str
@@ -2741,8 +2842,8 @@ ValidationDataConfigUnionTypeDef = Union[
 ]
 
 class AutomatedReasoningCheckTranslationAmbiguousFindingTypeDef(TypedDict):
-    options: NotRequired[List[AutomatedReasoningCheckTranslationOptionTypeDef]]
-    differenceScenarios: NotRequired[List[AutomatedReasoningCheckScenarioTypeDef]]
+    options: NotRequired[list[AutomatedReasoningCheckTranslationOptionTypeDef]]
+    differenceScenarios: NotRequired[list[AutomatedReasoningCheckScenarioTypeDef]]
 
 class ExportAutomatedReasoningPolicyVersionResponseTypeDef(TypedDict):
     policyDefinition: AutomatedReasoningPolicyDefinitionOutputTypeDef
@@ -2808,9 +2909,9 @@ class OfferTypeDef(TypedDict):
     offerId: NotRequired[str]
 
 class HumanEvaluationConfigOutputTypeDef(TypedDict):
-    datasetMetricConfigs: List[EvaluationDatasetMetricConfigOutputTypeDef]
+    datasetMetricConfigs: list[EvaluationDatasetMetricConfigOutputTypeDef]
     humanWorkflowConfig: NotRequired[HumanWorkflowConfigTypeDef]
-    customMetrics: NotRequired[List[HumanEvaluationCustomMetricTypeDef]]
+    customMetrics: NotRequired[list[HumanEvaluationCustomMetricTypeDef]]
 
 class HumanEvaluationConfigTypeDef(TypedDict):
     datasetMetricConfigs: Sequence[EvaluationDatasetMetricConfigTypeDef]
@@ -2818,7 +2919,7 @@ class HumanEvaluationConfigTypeDef(TypedDict):
     customMetrics: NotRequired[Sequence[HumanEvaluationCustomMetricTypeDef]]
 
 class ListEvaluationJobsResponseTypeDef(TypedDict):
-    jobSummaries: List[EvaluationSummaryTypeDef]
+    jobSummaries: list[EvaluationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2843,9 +2944,13 @@ class MarketplaceModelEndpointTypeDef(TypedDict):
     statusMessage: NotRequired[str]
     endpointStatusMessage: NotRequired[str]
 
+class CustomizationConfigTypeDef(TypedDict):
+    distillationConfig: NotRequired[DistillationConfigTypeDef]
+    rftConfig: NotRequired[RFTConfigTypeDef]
+
 class ExternalSourcesRetrieveAndGenerateConfigurationOutputTypeDef(TypedDict):
     modelArn: str
-    sources: List[ExternalSourceOutputTypeDef]
+    sources: list[ExternalSourceOutputTypeDef]
     generationConfiguration: NotRequired[ExternalSourcesGenerationConfigurationOutputTypeDef]
 
 class ExternalSourcesRetrieveAndGenerateConfigurationTypeDef(TypedDict):
@@ -2854,7 +2959,7 @@ class ExternalSourcesRetrieveAndGenerateConfigurationTypeDef(TypedDict):
     generationConfiguration: NotRequired[ExternalSourcesGenerationConfigurationTypeDef]
 
 class ListModelInvocationJobsResponseTypeDef(TypedDict):
-    invocationJobSummaries: List[ModelInvocationJobSummaryTypeDef]
+    invocationJobSummaries: list[ModelInvocationJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2875,7 +2980,7 @@ class TrainingDataConfigTypeDef(TypedDict):
 EndpointConfigUnionTypeDef = Union[EndpointConfigTypeDef, EndpointConfigOutputTypeDef]
 
 class ListModelCustomizationJobsResponseTypeDef(TypedDict):
-    modelCustomizationJobSummaries: List[ModelCustomizationJobSummaryTypeDef]
+    modelCustomizationJobSummaries: list[ModelCustomizationJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2885,11 +2990,11 @@ class AutomatedReasoningCheckFindingTypeDef(TypedDict):
     satisfiable: NotRequired[AutomatedReasoningCheckSatisfiableFindingTypeDef]
     impossible: NotRequired[AutomatedReasoningCheckImpossibleFindingTypeDef]
     translationAmbiguous: NotRequired[AutomatedReasoningCheckTranslationAmbiguousFindingTypeDef]
-    tooComplex: NotRequired[Dict[str, Any]]
-    noTranslations: NotRequired[Dict[str, Any]]
+    tooComplex: NotRequired[dict[str, Any]]
+    noTranslations: NotRequired[dict[str, Any]]
 
 class AutomatedReasoningPolicyBuildStepContextTypeDef(TypedDict):
-    planning: NotRequired[Dict[str, Any]]
+    planning: NotRequired[dict[str, Any]]
     mutation: NotRequired[AutomatedReasoningPolicyMutationTypeDef]
 
 AutomatedReasoningPolicyDefinitionUnionTypeDef = Union[
@@ -2900,7 +3005,7 @@ class GetAutomatedReasoningPolicyAnnotationsResponseTypeDef(TypedDict):
     policyArn: str
     name: str
     buildWorkflowId: str
-    annotations: List[AutomatedReasoningPolicyAnnotationOutputTypeDef]
+    annotations: list[AutomatedReasoningPolicyAnnotationOutputTypeDef]
     annotationSetHash: str
     updatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2928,7 +3033,7 @@ class AutomatedReasoningPolicyAnnotationTypeDef(TypedDict):
 
 class ListFoundationModelAgreementOffersResponseTypeDef(TypedDict):
     modelId: str
-    offers: List[OfferTypeDef]
+    offers: list[OfferTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 VectorSearchRerankingConfigurationOutputTypeDef = TypedDict(
@@ -2967,7 +3072,7 @@ class UpdateMarketplaceModelEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AutomatedEvaluationCustomMetricConfigOutputTypeDef(TypedDict):
-    customMetrics: List[AutomatedEvaluationCustomMetricSourceOutputTypeDef]
+    customMetrics: list[AutomatedEvaluationCustomMetricSourceOutputTypeDef]
     evaluatorModelConfig: CustomMetricEvaluatorModelConfigOutputTypeDef
 
 class AutomatedEvaluationCustomMetricConfigTypeDef(TypedDict):
@@ -2982,12 +3087,12 @@ class GetCustomModelResponseTypeDef(TypedDict):
     baseModelArn: str
     customizationType: CustomizationTypeType
     modelKmsKeyArn: str
-    hyperParameters: Dict[str, str]
+    hyperParameters: dict[str, str]
     trainingDataConfig: TrainingDataConfigOutputTypeDef
     validationDataConfig: ValidationDataConfigOutputTypeDef
     outputDataConfig: OutputDataConfigTypeDef
     trainingMetrics: TrainingMetricsTypeDef
-    validationMetrics: List[ValidatorMetricTypeDef]
+    validationMetrics: list[ValidatorMetricTypeDef]
     creationTime: datetime
     customizationConfig: CustomizationConfigTypeDef
     modelStatus: ModelStatusType
@@ -3008,14 +3113,14 @@ class GetModelCustomizationJobResponseTypeDef(TypedDict):
     lastModifiedTime: datetime
     endTime: datetime
     baseModelArn: str
-    hyperParameters: Dict[str, str]
+    hyperParameters: dict[str, str]
     trainingDataConfig: TrainingDataConfigOutputTypeDef
     validationDataConfig: ValidationDataConfigOutputTypeDef
     outputDataConfig: OutputDataConfigTypeDef
     customizationType: CustomizationTypeType
     outputModelKmsKeyArn: str
     trainingMetrics: TrainingMetricsTypeDef
-    validationMetrics: List[ValidatorMetricTypeDef]
+    validationMetrics: list[ValidatorMetricTypeDef]
     vpcConfig: VpcConfigOutputTypeDef
     customizationConfig: CustomizationConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3040,13 +3145,13 @@ class AutomatedReasoningPolicyTestResultTypeDef(TypedDict):
     policyArn: str
     testRunStatus: AutomatedReasoningPolicyTestRunStatusType
     updatedAt: datetime
-    testFindings: NotRequired[List[AutomatedReasoningCheckFindingTypeDef]]
+    testFindings: NotRequired[list[AutomatedReasoningCheckFindingTypeDef]]
     testRunResult: NotRequired[AutomatedReasoningPolicyTestRunResultType]
     aggregatedTestFindingsResult: NotRequired[AutomatedReasoningCheckResultType]
 
 class AutomatedReasoningPolicyBuildStepTypeDef(TypedDict):
     context: AutomatedReasoningPolicyBuildStepContextTypeDef
-    messages: List[AutomatedReasoningPolicyBuildStepMessageTypeDef]
+    messages: list[AutomatedReasoningPolicyBuildStepMessageTypeDef]
     priorElement: NotRequired[AutomatedReasoningPolicyDefinitionElementTypeDef]
 
 class CreateAutomatedReasoningPolicyRequestTypeDef(TypedDict):
@@ -3054,6 +3159,7 @@ class CreateAutomatedReasoningPolicyRequestTypeDef(TypedDict):
     description: NotRequired[str]
     clientRequestToken: NotRequired[str]
     policyDefinition: NotRequired[AutomatedReasoningPolicyDefinitionUnionTypeDef]
+    kmsKeyId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class UpdateAutomatedReasoningPolicyRequestTypeDef(TypedDict):
@@ -3087,7 +3193,7 @@ KnowledgeBaseVectorSearchConfigurationTypeDef = TypedDict(
 )
 
 class AutomatedEvaluationConfigOutputTypeDef(TypedDict):
-    datasetMetricConfigs: List[EvaluationDatasetMetricConfigOutputTypeDef]
+    datasetMetricConfigs: list[EvaluationDatasetMetricConfigOutputTypeDef]
     evaluatorModelConfig: NotRequired[EvaluatorModelConfigOutputTypeDef]
     customMetricConfig: NotRequired[AutomatedEvaluationCustomMetricConfigOutputTypeDef]
 
@@ -3118,14 +3224,14 @@ class GetAutomatedReasoningPolicyTestResultResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAutomatedReasoningPolicyTestResultsResponseTypeDef(TypedDict):
-    testResults: List[AutomatedReasoningPolicyTestResultTypeDef]
+    testResults: list[AutomatedReasoningPolicyTestResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class AutomatedReasoningPolicyBuildLogEntryTypeDef(TypedDict):
     annotation: AutomatedReasoningPolicyAnnotationOutputTypeDef
     status: AutomatedReasoningPolicyAnnotationStatusType
-    buildSteps: List[AutomatedReasoningPolicyBuildStepTypeDef]
+    buildSteps: list[AutomatedReasoningPolicyBuildStepTypeDef]
 
 class AutomatedReasoningPolicyBuildWorkflowRepairContentTypeDef(TypedDict):
     annotations: Sequence[AutomatedReasoningPolicyAnnotationUnionTypeDef]
@@ -3151,7 +3257,7 @@ class EvaluationConfigTypeDef(TypedDict):
     human: NotRequired[HumanEvaluationConfigTypeDef]
 
 class AutomatedReasoningPolicyBuildLogTypeDef(TypedDict):
-    entries: List[AutomatedReasoningPolicyBuildLogEntryTypeDef]
+    entries: list[AutomatedReasoningPolicyBuildLogEntryTypeDef]
 
 class AutomatedReasoningPolicyWorkflowTypeContentTypeDef(TypedDict):
     documents: NotRequired[Sequence[AutomatedReasoningPolicyBuildWorkflowDocumentTypeDef]]
@@ -3185,6 +3291,8 @@ class AutomatedReasoningPolicyBuildResultAssetsTypeDef(TypedDict):
     policyDefinition: NotRequired[AutomatedReasoningPolicyDefinitionOutputTypeDef]
     qualityReport: NotRequired[AutomatedReasoningPolicyDefinitionQualityReportTypeDef]
     buildLog: NotRequired[AutomatedReasoningPolicyBuildLogTypeDef]
+    generatedTestCases: NotRequired[AutomatedReasoningPolicyGeneratedTestCasesTypeDef]
+    policyScenarios: NotRequired[AutomatedReasoningPolicyScenariosTypeDef]
 
 class AutomatedReasoningPolicyBuildWorkflowSourceTypeDef(TypedDict):
     policyDefinition: NotRequired[AutomatedReasoningPolicyDefinitionUnionTypeDef]
@@ -3244,8 +3352,8 @@ class RAGConfigTypeDef(TypedDict):
     precomputedRagSourceConfig: NotRequired[EvaluationPrecomputedRagSourceConfigTypeDef]
 
 class EvaluationInferenceConfigOutputTypeDef(TypedDict):
-    models: NotRequired[List[EvaluationModelConfigTypeDef]]
-    ragConfigs: NotRequired[List[RAGConfigOutputTypeDef]]
+    models: NotRequired[list[EvaluationModelConfigTypeDef]]
+    ragConfigs: NotRequired[list[RAGConfigOutputTypeDef]]
 
 class EvaluationInferenceConfigTypeDef(TypedDict):
     models: NotRequired[Sequence[EvaluationModelConfigTypeDef]]
@@ -3265,7 +3373,7 @@ class GetEvaluationJobResponseTypeDef(TypedDict):
     outputDataConfig: EvaluationOutputDataConfigTypeDef
     creationTime: datetime
     lastModifiedTime: datetime
-    failureMessages: List[str]
+    failureMessages: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 EvaluationInferenceConfigUnionTypeDef = Union[

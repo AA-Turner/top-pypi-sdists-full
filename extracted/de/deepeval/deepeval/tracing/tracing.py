@@ -1,4 +1,15 @@
-from typing import Any, Dict, List, Literal, Optional, Set, Union, Callable
+import weakref
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Union,
+)
 from time import perf_counter
 import threading
 import functools
@@ -19,6 +30,7 @@ from deepeval.constants import (
 )
 from deepeval.confident.api import Api, Endpoints, HttpMethods, is_confident
 from deepeval.metrics import BaseMetric
+from deepeval.test_case.llm_test_case import ToolCall
 from deepeval.tracing.api import (
     BaseApiSpan,
     SpanApiType,
@@ -26,7 +38,10 @@ from deepeval.tracing.api import (
     TraceSpanApiStatus,
 )
 from deepeval.telemetry import capture_send_trace
-from deepeval.tracing.patchers import patch_openai_client
+from deepeval.tracing.patchers import (
+    patch_anthropic_client,
+    patch_openai_client,
+)
 from deepeval.tracing.types import (
     AgentSpan,
     BaseSpan,
@@ -40,6 +55,7 @@ from deepeval.tracing.types import (
 )
 from deepeval.tracing.utils import (
     Environment,
+    prepare_tool_call_input_parameters,
     replace_self_with_class_name,
     make_json_serializable,
     perf_counter_to_datetime,
@@ -47,13 +63,17 @@ from deepeval.tracing.utils import (
     tracing_enabled,
     validate_environment,
     validate_sampling_rate,
-    dump_body_to_json_file,
-    get_deepeval_trace_mode,
 )
 from deepeval.utils import dataclass_to_dict
 from deepeval.tracing.context import current_span_context, current_trace_context
 from deepeval.tracing.types import TestCaseMetricPair
 from deepeval.tracing.api import PromptApi
+from deepeval.tracing.trace_test_manager import trace_testing_manager
+
+
+if TYPE_CHECKING:
+    from deepeval.dataset.golden import Golden
+    from anthropic import Anthropic
 
 EVAL_DUMMY_SPAN_NAME = "evals_iterator"
 
@@ -65,6 +85,10 @@ class TraceManager:
         self.active_spans: Dict[str, BaseSpan] = (
             {}
         )  # Map of span_uuid to BaseSpan
+        # Map each trace created during evaluation_loop to the Golden that was active
+        # when it was started. This lets us evaluate traces against the correct golden
+        # since we cannot rely on positional indexing as the order is not guaranteed.
+        self.trace_uuid_to_golden: Dict[str, Golden] = {}
 
         settings = get_settings()
         # Initialize queue and worker thread for trace posting
@@ -73,6 +97,9 @@ class TraceManager:
         self._min_interval = 0.2  # Minimum time between API calls (seconds)
         self._last_post_time = 0
         self._in_flight_tasks: Set[asyncio.Task[Any]] = set()
+        self.task_bindings: "weakref.WeakKeyDictionary[asyncio.Task, dict]" = (
+            weakref.WeakKeyDictionary()
+        )
         self._flush_enabled = bool(settings.CONFIDENT_TRACE_FLUSH)
         self._daemon = not self._flush_enabled
 
@@ -86,8 +113,9 @@ class TraceManager:
         )
         validate_environment(self.environment)
 
-        self.sampling_rate = settings.CONFIDENT_SAMPLE_RATE
+        self.sampling_rate = settings.CONFIDENT_TRACE_SAMPLE_RATE
         validate_sampling_rate(self.sampling_rate)
+        self.anthropic_client = None
         self.openai_client = None
         self.tracing_enabled = True
 
@@ -116,7 +144,7 @@ class TraceManager:
 
     def mask(self, data: Any):
         if self.custom_mask_fn is not None:
-            self.custom_mask_fn(data)
+            return self.custom_mask_fn(data)
         else:
             return data
 
@@ -126,6 +154,7 @@ class TraceManager:
         environment: Optional[str] = None,
         sampling_rate: Optional[float] = None,
         confident_api_key: Optional[str] = None,
+        anthropic_client: Optional["Anthropic"] = None,
         openai_client: Optional[OpenAI] = None,
         tracing_enabled: Optional[bool] = None,
     ) -> None:
@@ -142,6 +171,9 @@ class TraceManager:
         if openai_client is not None:
             self.openai_client = openai_client
             patch_openai_client(openai_client)
+        if anthropic_client is not None:
+            self.anthropic_client = anthropic_client
+            patch_anthropic_client(anthropic_client)
         if tracing_enabled is not None:
             self.tracing_enabled = tracing_enabled
 
@@ -166,6 +198,19 @@ class TraceManager:
         self.traces.append(new_trace)
         if self.evaluation_loop:
             self.traces_to_evaluate_order.append(trace_uuid)
+            # Associate the current Golden with this trace so we can
+            # later evaluate traces against the correct golden, even if more traces
+            # are created than goldens or the order interleaves.
+            try:
+                from deepeval.contextvars import get_current_golden
+
+                current_golden = get_current_golden()
+                if current_golden is not None:
+                    self.trace_uuid_to_golden[trace_uuid] = current_golden
+            except Exception:
+                # not much we can do, but if the golden is not there during evaluation
+                # we will write out a verbose debug log
+                pass
         return new_trace
 
     def end_trace(self, trace_uuid: str):
@@ -183,13 +228,14 @@ class TraceManager:
             if trace.status == TraceSpanStatus.IN_PROGRESS:
                 trace.status = TraceSpanStatus.SUCCESS
 
-            mode = get_deepeval_trace_mode()
-            if mode == "gen":
+            if trace_testing_manager.test_name:
+                # Trace testing mode is enabled
+                # Instead posting the trace to the queue, it will be stored in this global variable
                 body = self.create_trace_api(trace).model_dump(
                     by_alias=True, exclude_none=True
                 )
-                dump_body_to_json_file(body)
-            # Post the trace to the server before removing it
+                trace_testing_manager.test_dict = make_json_serializable(body)
+            #  Post the trace to the server before removing it
             elif not self.evaluating:
                 self.post_trace(trace)
             else:
@@ -208,7 +254,13 @@ class TraceManager:
                 else:
                     # print(f"Ending trace: {trace.root_spans}")
                     self.environment = Environment.TESTING
-                    trace.root_spans = [trace.root_spans[0].children[0]]
+                    if (
+                        trace.root_spans
+                        and len(trace.root_spans) > 0
+                        and trace.root_spans[0].children
+                        and len(trace.root_spans[0].children) > 0
+                    ):
+                        trace.root_spans = [trace.root_spans[0].children[0]]
                     for root_span in trace.root_spans:
                         root_span.parent_uuid = None
 
@@ -389,11 +441,11 @@ class TraceManager:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        # buffer for payloads that need to be sent after main exits
-        remaining_trace_request_bodies: List[Dict[str, Any]] = []
+        # buffer for traces that need to be sent after main exits
+        remaining_traces: List[TraceApi] = []
 
         async def _a_send_trace(trace_obj):
-            nonlocal remaining_trace_request_bodies
+            nonlocal remaining_traces
             try:
                 # Build API object & payload
                 if isinstance(trace_obj, TraceApi):
@@ -434,7 +486,7 @@ class TraceManager:
                     )
                 elif self._flush_enabled:
                     # Main thread gone → to be flushed
-                    remaining_trace_request_bodies.append(body)
+                    remaining_traces.append(trace_api)
 
             except Exception as e:
                 queue_size = self._trace_queue.qsize()
@@ -492,24 +544,35 @@ class TraceManager:
                 loop.run_until_complete(
                     asyncio.gather(*pending, return_exceptions=True)
                 )
-            self.flush_traces(remaining_trace_request_bodies)
+            self.flush_traces(remaining_traces)
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
 
-    def flush_traces(
-        self, remaining_trace_request_bodies: List[Dict[str, Any]]
-    ):
+    def flush_traces(self, remaining_traces: List[TraceApi]):
         if not tracing_enabled() or not self.tracing_enabled:
             return
 
         self._print_trace_status(
             TraceWorkerStatus.WARNING,
-            message=f"Flushing {len(remaining_trace_request_bodies)} remaining trace(s)",
+            message=f"Flushing {len(remaining_traces)} remaining trace(s)",
         )
-        for body in remaining_trace_request_bodies:
+        for trace_api in remaining_traces:
             with capture_send_trace():
                 try:
-                    api = Api(api_key=self.confident_api_key)
+                    try:
+                        body = trace_api.model_dump(
+                            by_alias=True,
+                            exclude_none=True,
+                        )
+                    except AttributeError:
+                        # Pydantic version below 2.0
+                        body = trace_api.dict(by_alias=True, exclude_none=True)
+
+                    body = make_json_serializable(body)
+                    if trace_api.confident_api_key:
+                        api = Api(api_key=trace_api.confident_api_key)
+                    else:
+                        api = Api(api_key=self.confident_api_key)
 
                     _, link = api.send_request(
                         method=HttpMethods.POST,
@@ -784,7 +847,12 @@ class Observer:
             self.trace_uuid = parent_span.trace_uuid
         else:
             current_trace = current_trace_context.get()
-            if current_trace:
+            # IMPORTANT: Verify trace is still active, not just in context
+            # (a previous failed async operation might leave a dead trace in context)
+            if (
+                current_trace
+                and current_trace.uuid in trace_manager.active_traces
+            ):
                 self.trace_uuid = current_trace.uuid
             else:
                 trace = trace_manager.start_new_trace(
@@ -795,6 +863,9 @@ class Observer:
 
         # Now create the span instance with the correct trace_uuid and parent_uuid
         span_instance = self.create_span_instance()
+
+        # stash call arguments so they are available during the span lifetime
+        setattr(span_instance, "_function_kwargs", self.function_kwargs)
 
         # Add the span to active spans and to its trace
         trace_manager.add_span(span_instance)
@@ -809,6 +880,25 @@ class Observer:
         ):
             self._progress = parent_span.progress
             self._pbar_callback_id = parent_span.pbar_callback_id
+
+        try:
+            import asyncio
+
+            task = asyncio.current_task()
+        except Exception:
+            task = None
+
+        if task is not None:
+            binding = trace_manager.task_bindings.get(task) or {}
+            # record the trace the task is working on
+            binding["trace_uuid"] = span_instance.trace_uuid
+            # only set root_span_uuid when this span is a root. Don't do this for child or we will override our record.
+            if (
+                span_instance.parent_uuid is None
+                and "root_span_uuid" not in binding
+            ):
+                binding["root_span_uuid"] = span_instance.uuid
+            trace_manager.task_bindings[task] = binding
 
         if self._progress is not None and self._pbar_callback_id is not None:
             span_instance.progress = self._progress
@@ -850,6 +940,22 @@ class Observer:
             and not current_span.prompt
         ):
             current_span.prompt = self.prompt
+
+        if not current_span.tools_called:
+            # check any tool span children
+            for child in current_span.children:
+                if isinstance(child, ToolSpan):
+                    current_span.tools_called = current_span.tools_called or []
+                    current_span.tools_called.append(
+                        ToolCall(
+                            name=child.name,
+                            description=child.description,
+                            input_parameters=prepare_tool_call_input_parameters(
+                                child.input
+                            ),
+                            output=child.output,
+                        )
+                    )
 
         trace_manager.remove_span(self.uuid)
         if current_span.parent_uuid:

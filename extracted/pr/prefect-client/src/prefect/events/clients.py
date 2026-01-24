@@ -73,6 +73,17 @@ if TYPE_CHECKING:
 
 logger: "logging.Logger" = get_logger(__name__)
 
+# Exceptions that indicate transient network issues and should trigger retries.
+# These are used consistently across all event client retry loops.
+# - ConnectionClosed: WebSocket connection was closed (e.g., server restart, load balancer timeout)
+# - TimeoutError: Connection or operation timed out
+# - OSError: Network-level errors (connection refused, DNS failures, network unreachable, etc.)
+RETRYABLE_EXCEPTIONS: Tuple[Type[Exception], ...] = (
+    ConnectionClosed,
+    TimeoutError,
+    OSError,
+)
+
 
 def http_to_ws(url: str) -> str:
     return url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
@@ -278,10 +289,30 @@ class PrefectEventsClient(EventsClient):
         self._checkpoint_every = checkpoint_every
 
     async def __aenter__(self) -> Self:
-        # Don't handle any errors in the initial connection, because these are most
-        # likely a permission or configuration issue that should propagate
         await super().__aenter__()
-        await self._reconnect()
+        # Ensure at least one connection attempt even if reconnection_attempts is negative
+        max_attempts = max(1, self._reconnection_attempts + 1)
+        for i in range(max_attempts):
+            try:
+                await self._reconnect()
+                break
+            except RETRYABLE_EXCEPTIONS as e:
+                logger.debug(
+                    "Initial connection attempt %s/%s failed: %s",
+                    i + 1,
+                    max_attempts,
+                    str(e),
+                )
+                if i == max_attempts - 1:
+                    self._log_connection_error(e)
+                    raise
+                if i > 2:
+                    await asyncio.sleep(1)
+            except Exception as e:
+                # Non-retryable exceptions (config/permission issues) should
+                # propagate immediately with a warning
+                self._log_connection_error(e)
+                raise
         return self
 
     async def __aexit__(
@@ -291,12 +322,30 @@ class PrefectEventsClient(EventsClient):
         exc_tb: Optional[TracebackType],
     ) -> None:
         self._websocket = None
-        await self._connect.__aexit__(exc_type, exc_val, exc_tb)
+        # Only call __aexit__ on the connection if it was successfully established.
+        # The websockets library sets the "connection" attribute on the connect
+        # object only after __aenter__() completes successfully. Without this guard,
+        # we would get an AttributeError when cleaning up a connection that failed
+        # during establishment.
+        if hasattr(self._connect, "connection"):
+            await self._connect.__aexit__(exc_type, exc_val, exc_tb)
         return await super().__aexit__(exc_type, exc_val, exc_tb)
 
     def _log_debug(self, message: str, *args: Any, **kwargs: Any) -> None:
         message = f"EventsClient(id={id(self)}): " + message
         logger.debug(message, *args, **kwargs)
+
+    def _log_connection_error(self, error: Exception) -> None:
+        logger.warning(
+            "Unable to connect to %r. "
+            "Please check your network settings to ensure websocket connections "
+            "to the API are allowed. Otherwise event data (including task run data) may be lost. "
+            "Reason: %s. "
+            "Set PREFECT_DEBUG_MODE=1 to see the full error.",
+            self._events_socket_url,
+            str(error),
+            exc_info=PREFECT_DEBUG_MODE.value(),
+        )
 
     async def _reconnect(self) -> None:
         logger.debug("Reconnecting websocket connection.")
@@ -315,15 +364,10 @@ class PrefectEventsClient(EventsClient):
             await pong
             logger.debug("Pong received. Websocket connected.")
         except Exception as e:
-            # The client is frequently run in a background thread
-            # so we log an additional warning to ensure
-            # surfacing the error to the user.
-            logger.warning(
-                "Unable to connect to %r. "
-                "Please check your network settings to ensure websocket connections "
-                "to the API are allowed. Otherwise event data (including task run data) may be lost. "
-                "Reason: %s. "
-                "Set PREFECT_DEBUG_MODE=1 to see the full error.",
+            # Log at debug level during reconnection attempts - the warning will
+            # only be logged if all reconnection attempts fail (in _emit)
+            logger.debug(
+                "Unable to connect to %r, will retry. Reason: %s",
                 self._events_socket_url,
                 str(e),
                 exc_info=PREFECT_DEBUG_MODE.value(),
@@ -391,10 +435,11 @@ class PrefectEventsClient(EventsClient):
                 await self._checkpoint()
 
                 return
-            except ConnectionClosed:
-                self._log_debug("Got ConnectionClosed error.")
+            except RETRYABLE_EXCEPTIONS as e:
+                self._log_debug("Got retryable error: %s", type(e).__name__)
                 if i == self._reconnection_attempts:
-                    # this was our final chance, raise the most recent error
+                    # this was our final chance, log warning and raise
+                    self._log_connection_error(e)
                     raise
 
                 if i > 2:
@@ -549,10 +594,26 @@ class PrefectEventSubscriber:
         return self.__class__.__name__
 
     async def __aenter__(self) -> Self:
-        # Don't handle any errors in the initial connection, because these are most
-        # likely a permission or configuration issue that should propagate
+        # Retry initial connection with same logic as __anext__
         try:
-            await self._reconnect()
+            for i in range(self._reconnection_attempts + 1):
+                try:
+                    await self._reconnect()
+                    break
+                except (ConnectionClosed, TimeoutError) as e:
+                    logger.debug(
+                        "Initial connection attempt %s/%s failed: %s",
+                        i + 1,
+                        self._reconnection_attempts + 1,
+                        str(e),
+                    )
+                    if i == self._reconnection_attempts:
+                        # Final attempt failed, propagate error
+                        raise
+                    if i > 2:
+                        # Match __anext__ backoff pattern: no delay for first 2 attempts,
+                        # then 1 second delay
+                        await asyncio.sleep(1)
         finally:
             EVENT_WEBSOCKET_CONNECTIONS.labels(self.client_name, "out", "initial").inc()
         return self
@@ -615,7 +676,13 @@ class PrefectEventSubscriber:
         exc_tb: Optional[TracebackType],
     ) -> None:
         self._websocket = None
-        await self._connect.__aexit__(exc_type, exc_val, exc_tb)
+        # Only call __aexit__ on the connection if it was successfully established.
+        # The websockets library sets the "connection" attribute on the connect
+        # object only after __aenter__() completes successfully. Without this guard,
+        # we would get an AttributeError when cleaning up a connection that failed
+        # during establishment.
+        if hasattr(self._connect, "connection"):
+            await self._connect.__aexit__(exc_type, exc_val, exc_tb)
 
     def __aiter__(self) -> Self:
         return self
@@ -653,9 +720,9 @@ class PrefectEventSubscriber:
             except ConnectionClosedOK:
                 logger.debug('Connection closed with "OK" status')
                 raise StopAsyncIteration
-            except ConnectionClosed:
+            except RETRYABLE_EXCEPTIONS:
                 logger.debug(
-                    "Connection closed with %s/%s attempts",
+                    "Retryable error with %s/%s attempts",
                     i + 1,
                     self._reconnection_attempts,
                 )

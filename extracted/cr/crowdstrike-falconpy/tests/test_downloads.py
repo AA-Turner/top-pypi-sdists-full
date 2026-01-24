@@ -16,12 +16,14 @@ from falconpy import Downloads
 auth = Authorization.TestAuthorization()
 config = auth.getConfigObject()
 falcon = Downloads(auth_object=config)
-AllowedResponses = [200, 201, 207, 404, 429]
+AllowedResponses = [200, 201, 207, 403, 404, 429]
 
 class TestDownloads:
     def test_all_code_paths(self):
         error_checks = True
         tests = {
+            "FetchFilesDownloadInfo": falcon.fetch_download_info(),
+            "FetchFilesDownloadInfoV2": falcon.fetch_download_info_v2(),
             "DownloadFile": falcon.download(file_name="the_file_named_jeff.txt", file_version="1"),
             "EnumerateFile": falcon.enumerate()
         }

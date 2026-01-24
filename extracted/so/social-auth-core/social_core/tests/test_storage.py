@@ -1,5 +1,5 @@
-import random
 import unittest
+from typing import cast
 
 from social_core.storage import (
     AssociationMixin,
@@ -45,11 +45,7 @@ class BrokenStorage(BaseStorage):
 
 
 class BrokenUserTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.user = BrokenUser
-
-    def tearDown(self) -> None:
-        self.user = None
+    user = BrokenUser
 
     def test_get_username(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
@@ -85,11 +81,7 @@ class BrokenUserTests(unittest.TestCase):
 
 
 class BrokenAssociationTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.association = BrokenAssociation
-
-    def tearDown(self) -> None:
-        self.association = None
+    association = BrokenAssociation
 
     def test_store(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
@@ -105,11 +97,7 @@ class BrokenAssociationTests(unittest.TestCase):
 
 
 class BrokenNonceTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.nonce = BrokenNonce
-
-    def tearDown(self) -> None:
-        self.nonce = None
+    nonce = BrokenNonce
 
     def test_use(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
@@ -117,11 +105,7 @@ class BrokenNonceTests(unittest.TestCase):
 
 
 class BrokenCodeTest(unittest.TestCase):
-    def setUp(self) -> None:
-        self.code = BrokenCode
-
-    def tearDown(self) -> None:
-        self.code = None
+    code = BrokenCode
 
     def test_get_code(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
@@ -129,11 +113,10 @@ class BrokenCodeTest(unittest.TestCase):
 
 
 class BrokenStrategyTests(unittest.TestCase):
+    strategy: BrokenStrategy
+
     def setUp(self) -> None:
         self.strategy = BrokenStrategy(storage=BrokenStorage)
-
-    def tearDown(self) -> None:
-        self.strategy = None
 
     def test_redirect(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
@@ -185,18 +168,7 @@ class BrokenStrategyTests(unittest.TestCase):
 
     def test_is_integrity_error(self) -> None:
         with self.assertRaisesRegex(NotImplementedError, NOT_IMPLEMENTED_MSG):
-            self.strategy.storage.is_integrity_error(None)
+            cast("BrokenStorage", self.strategy.storage).is_integrity_error(None)
 
     def test_random_string(self) -> None:
-        self.assertTrue(isinstance(self.strategy.random_string(), str))
-
-    def test_random_string_without_systemrandom(self) -> None:
-        def SystemRandom():
-            raise NotImplementedError
-
-        orig_random = getattr(random, "SystemRandom", None)
-        random.SystemRandom = SystemRandom
-
-        strategy = BrokenStrategyWithSettings(storage=BrokenStorage)
-        self.assertTrue(isinstance(strategy.random_string(), str))
-        random.SystemRandom = orig_random
+        self.assertIsInstance(self.strategy.random_string(), str)

@@ -59,6 +59,15 @@ class SimpleTestCase(BaseTestCase):
         self.assertEqual(t.x, 400)
         self.assertEqual(t.y, 300)
 
+    @unittest.skipIf('pil_engine' not in settings.THUMBNAIL_ENGINE, 'blur is only supported in PIL')
+    def test_crop_and_blur(self):
+        item = Item.objects.get(image='200x100.jpg')
+
+        t = self.BACKEND.get_thumbnail(item.image, '100x100', crop="center", blur='3')
+
+        self.assertEqual(t.x, 100)
+        self.assertEqual(t.y, 100)
+
     def test_kvstore(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
         self.KVSTORE.delete_thumbnails(im)
@@ -149,18 +158,18 @@ class SimpleTestCase(BaseTestCase):
 
     def test_storage_serialize(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
-        self.assertEqual(im.serialize_storage(), 'tests.thumbnail_tests.storage.TestStorage')
+        self.assertEqual(im.serialize_storage(), 'default')
         self.assertEqual(
             ImageFile('http://www.image.jpg').serialize_storage(),
             'sorl.thumbnail.images.UrlStorage',
         )
         self.assertEqual(
             ImageFile('http://www.image.jpg', default.storage).serialize_storage(),
-            'tests.thumbnail_tests.storage.TestStorage',
+            'default',
         )
         self.assertEqual(
             ImageFile('getit', default_storage).serialize_storage(),
-            'tests.thumbnail_tests.storage.TestStorage',
+            'default',
         )
 
     @unittest.skipIf(platform.system() == "Darwin", 'quality is saved a different way on os x')
@@ -191,7 +200,7 @@ class SimpleTestCase(BaseTestCase):
         default.kvstore.set(im)
         self.assertEqual(
             default.kvstore.get(im).serialize_storage(),
-            'tests.thumbnail_tests.storage.TestStorage',
+            'default',
         )
         im = ImageFile('https://dummyimage.com/300x300/')
         default.kvstore.set(im)

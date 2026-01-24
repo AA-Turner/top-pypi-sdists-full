@@ -3,7 +3,7 @@ Type annotations for organizations service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_organizations/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -60,6 +60,8 @@ __all__ = (
     "PolicyTypeStatusType",
     "PolicyTypeType",
     "ResourceServiceName",
+    "ResponsibilityTransferStatusType",
+    "ResponsibilityTransferTypeType",
     "ServiceName",
     "TargetTypeType",
 )
@@ -69,7 +71,11 @@ AccountJoinedMethodType = Literal["CREATED", "INVITED"]
 AccountStateType = Literal["ACTIVE", "CLOSED", "PENDING_ACTIVATION", "PENDING_CLOSURE", "SUSPENDED"]
 AccountStatusType = Literal["ACTIVE", "PENDING_CLOSURE", "SUSPENDED"]
 ActionTypeType = Literal[
-    "ADD_ORGANIZATIONS_SERVICE_LINKED_ROLE", "APPROVE_ALL_FEATURES", "ENABLE_ALL_FEATURES", "INVITE"
+    "ADD_ORGANIZATIONS_SERVICE_LINKED_ROLE",
+    "APPROVE_ALL_FEATURES",
+    "ENABLE_ALL_FEATURES",
+    "INVITE",
+    "TRANSFER_RESPONSIBILITY",
 ]
 ChildTypeType = Literal["ACCOUNT", "ORGANIZATIONAL_UNIT"]
 CreateAccountFailureReasonType = Literal[
@@ -93,21 +99,32 @@ CreateAccountStateType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 EffectivePolicyTypeType = Literal[
     "AISERVICES_OPT_OUT_POLICY",
     "BACKUP_POLICY",
+    "BEDROCK_POLICY",
     "CHATBOT_POLICY",
     "DECLARATIVE_POLICY_EC2",
+    "INSPECTOR_POLICY",
+    "NETWORK_SECURITY_DIRECTOR_POLICY",
+    "S3_POLICY",
     "SECURITYHUB_POLICY",
     "TAG_POLICY",
+    "UPGRADE_ROLLOUT_POLICY",
 ]
 HandshakePartyTypeType = Literal["ACCOUNT", "EMAIL", "ORGANIZATION"]
 HandshakeResourceTypeType = Literal[
     "ACCOUNT",
     "EMAIL",
+    "MANAGEMENT_ACCOUNT",
+    "MANAGEMENT_EMAIL",
+    "MANAGEMENT_NAME",
     "MASTER_EMAIL",
     "MASTER_NAME",
     "NOTES",
     "ORGANIZATION",
     "ORGANIZATION_FEATURE_SET",
     "PARENT_HANDSHAKE",
+    "RESPONSIBILITY_TRANSFER",
+    "TRANSFER_START_TIMESTAMP",
+    "TRANSFER_TYPE",
 ]
 HandshakeStateType = Literal["ACCEPTED", "CANCELED", "DECLINED", "EXPIRED", "OPEN", "REQUESTED"]
 IAMUserAccessToBillingType = Literal["ALLOW", "DENY"]
@@ -141,13 +158,22 @@ PolicyTypeStatusType = Literal["ENABLED", "PENDING_DISABLE", "PENDING_ENABLE"]
 PolicyTypeType = Literal[
     "AISERVICES_OPT_OUT_POLICY",
     "BACKUP_POLICY",
+    "BEDROCK_POLICY",
     "CHATBOT_POLICY",
     "DECLARATIVE_POLICY_EC2",
+    "INSPECTOR_POLICY",
+    "NETWORK_SECURITY_DIRECTOR_POLICY",
     "RESOURCE_CONTROL_POLICY",
+    "S3_POLICY",
     "SECURITYHUB_POLICY",
     "SERVICE_CONTROL_POLICY",
     "TAG_POLICY",
+    "UPGRADE_ROLLOUT_POLICY",
 ]
+ResponsibilityTransferStatusType = Literal[
+    "ACCEPTED", "CANCELED", "DECLINED", "EXPIRED", "REQUESTED", "WITHDRAWN"
+]
+ResponsibilityTransferTypeType = Literal["BILLING"]
 TargetTypeType = Literal["ACCOUNT", "ORGANIZATIONAL_UNIT", "ROOT"]
 OrganizationsServiceName = Literal["organizations"]
 ServiceName = Literal[
@@ -176,7 +202,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -246,6 +271,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -291,7 +317,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -344,7 +369,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -383,8 +407,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -419,6 +441,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -428,6 +451,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -438,6 +462,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -459,8 +486,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -475,15 +500,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -514,6 +540,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -554,6 +581,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

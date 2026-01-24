@@ -2,31 +2,27 @@ use std::path::PathBuf;
 
 use ahash::AHashMap;
 use itertools::{Either, Itertools};
-use tombi_config::{Config, ConfigLevel, LintOptions};
-use tombi_glob::{matches_file_patterns, MatchResult};
+use tombi_config::Config;
+use tombi_glob::{MatchResult, matches_file_patterns};
+use tombi_text::IntoLsp;
 
-use crate::{backend::Backend, config_manager::ConfigSchemaStore, document::DocumentSource};
+use crate::{backend::Backend, config_manager::ConfigSchemaStore};
 
-pub async fn publish_diagnostics(
-    backend: &Backend,
-    text_document_uri: tombi_uri::Uri,
-    version: Option<i32>,
-) {
-    let Some(DiagnosticsResult {
-        diagnostics,
-        version: old_version,
-    }) = get_diagnostics_result(backend, &text_document_uri).await
-    else {
+pub async fn publish_diagnostics(backend: &Backend, text_document_uri: tombi_uri::Uri) {
+    let Some(diagnostics_result) = get_diagnostics_result(backend, &text_document_uri).await else {
         return;
     };
 
+    tracing::trace!(?diagnostics_result);
+
+    let DiagnosticsResult {
+        diagnostics,
+        version,
+    } = diagnostics_result;
+
     backend
         .client
-        .publish_diagnostics(
-            text_document_uri.into(),
-            diagnostics,
-            version.or(old_version),
-        )
+        .publish_diagnostics(text_document_uri.into(), diagnostics, version)
         .await
 }
 
@@ -50,8 +46,9 @@ pub async fn get_diagnostics_result(
         .await;
 
     if !config
-        .lsp()
-        .and_then(|lsp| lsp.diagnostic())
+        .lsp
+        .as_ref()
+        .and_then(|lsp| lsp.diagnostic.as_ref())
         .and_then(|diagnostic| diagnostic.enabled)
         .unwrap_or_default()
         .value()
@@ -76,42 +73,41 @@ pub async fn get_diagnostics_result(
         }
     }
 
-    let root = backend.get_incomplete_ast(text_document_uri).await?;
-
-    let source_schema = schema_store
-        .resolve_source_schema_from_ast(&root, Some(Either::Left(text_document_uri)))
-        .await
-        .ok()
-        .flatten();
-
-    let tombi_document_comment_directive =
-        tombi_validator::comment_directive::get_tombi_document_comment_directive(&root).await;
-    let (toml_version, _) = backend
-        .source_toml_version(
-            tombi_document_comment_directive,
-            source_schema.as_ref(),
-            &config,
-        )
-        .await;
-
     let document_sources = backend.document_sources.read().await;
 
     match document_sources.get(text_document_uri) {
-        Some(document) => Some(DiagnosticsResult {
-            diagnostics: match tombi_linter::Linter::new(
-                toml_version,
-                config.lint.as_ref().unwrap_or(&LintOptions::default()),
-                Some(Either::Left(text_document_uri)),
-                &schema_store,
-            )
-            .lint(&document.text)
-            .await
-            {
-                Ok(_) => Vec::with_capacity(0),
-                Err(diagnostics) => diagnostics.into_iter().unique().map(Into::into).collect(),
-            },
-            version: document.version,
-        }),
+        Some(document_source) => {
+            // Get lint options with override support
+            let text_document_path = text_document_uri.to_file_path().ok();
+            let Some(lint_options) = tombi_glob::get_lint_options(
+                &config,
+                text_document_path.as_deref(),
+                config_path.as_deref(),
+            ) else {
+                tracing::debug!("Linting disabled for {:?} by override", text_document_path);
+                return None;
+            };
+
+            Some(DiagnosticsResult {
+                diagnostics: match tombi_linter::Linter::new(
+                    document_source.toml_version,
+                    &lint_options,
+                    Some(Either::Left(text_document_uri)),
+                    &schema_store,
+                )
+                .lint(document_source.text())
+                .await
+                {
+                    Ok(_) => Vec::with_capacity(0),
+                    Err(diagnostics) => diagnostics
+                        .into_iter()
+                        .unique()
+                        .map(|diagnostic| diagnostic.into_lsp(document_source.line_index()))
+                        .collect_vec(),
+                },
+                version: document_source.version,
+            })
+        }
         None => None,
     }
 }
@@ -120,8 +116,6 @@ pub async fn get_diagnostics_result(
 pub struct WorkspaceConfig {
     pub workspace_folder_path: PathBuf,
     pub config: Config,
-    pub config_path: Option<PathBuf>,
-    pub config_level: ConfigLevel,
 }
 
 pub async fn get_workspace_configs(
@@ -150,87 +144,17 @@ pub async fn get_workspace_configs(
     let mut configs = AHashMap::new();
 
     for workspace_folder_path in workspace_folder_paths {
-        if let Ok((config, config_path, config_level)) =
-            serde_tombi::config::load_with_path_and_level(Some(workspace_folder_path.clone()))
+        if let Ok((config, config_path)) =
+            serde_tombi::config::load_with_path(Some(workspace_folder_path.clone()))
         {
             configs
                 .entry(config_path.clone())
                 .or_insert(WorkspaceConfig {
                     workspace_folder_path,
                     config,
-                    config_path,
-                    config_level,
                 });
         };
     }
 
     Some(configs)
-}
-
-#[derive(Debug)]
-pub struct WorkspaceDiagnosticTarget {
-    pub text_document_uri: tombi_uri::Uri,
-    pub version: Option<i32>,
-}
-
-pub async fn get_workspace_diagnostic_targets(
-    backend: &Backend,
-    workspace_config: &WorkspaceConfig,
-) -> Option<Vec<WorkspaceDiagnosticTarget>> {
-    let mut total_diagnostic_targets = Vec::new();
-
-    let WorkspaceConfig {
-        workspace_folder_path,
-        config,
-        config_level,
-        config_path,
-    } = workspace_config;
-
-    let workspace_folder_path_str = workspace_folder_path.to_str()?;
-    if let tombi_glob::FileSearch::Files(files) = tombi_glob::FileSearch::new(
-        &[workspace_folder_path_str],
-        config,
-        config_path.as_deref(),
-        *config_level,
-    )
-    .await
-    {
-        tracing::debug!(
-            "Found {} files in {}: {:?}",
-            files.len(),
-            workspace_folder_path_str,
-            files
-        );
-
-        for file in files {
-            let Ok(text_document_path) = file else {
-                continue;
-            };
-            if let Ok(text_document_uri) = tombi_uri::Uri::from_file_path(&text_document_path) {
-                let Ok(content) = tokio::fs::read_to_string(&text_document_path).await else {
-                    continue;
-                };
-                let version = {
-                    backend
-                        .document_sources
-                        .write()
-                        .await
-                        .entry(text_document_uri.clone())
-                        .or_insert_with(|| DocumentSource::new(content, None))
-                        .version
-                };
-
-                total_diagnostic_targets.push(WorkspaceDiagnosticTarget {
-                    text_document_uri,
-                    version,
-                });
-            }
-        }
-    }
-
-    if total_diagnostic_targets.is_empty() {
-        None
-    } else {
-        Some(total_diagnostic_targets)
-    }
 }

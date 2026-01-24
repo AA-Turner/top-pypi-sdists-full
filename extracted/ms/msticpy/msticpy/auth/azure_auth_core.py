@@ -54,7 +54,7 @@ _HELP_URI = (
 class AzCredentials:
     """Class holding legacy(ADAL) and modern(MSAL) credentials."""
 
-    legacy: TokenCredential
+    legacy: CredentialWrapper
     modern: ChainedTokenCredential
 
     # Backward compatibility with namedtuple
@@ -177,7 +177,7 @@ def _build_msi_client(
 ) -> ManagedIdentityCredential:
     """Build a credential from Managed Identity."""
     msi_kwargs: dict[str, Any] = kwargs.copy()
-    client_id = client_id or os.environ.get(AzureCredEnvNames.AZURE_CLIENT_ID)
+    client_id = os.environ.get(AzureCredEnvNames.AZURE_CLIENT_ID, client_id)
 
     try:
         cred = ManagedIdentityCredential(client_id=client_id)

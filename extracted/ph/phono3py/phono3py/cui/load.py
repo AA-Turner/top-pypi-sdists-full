@@ -43,6 +43,7 @@ from typing import Literal
 import numpy as np
 import phonopy.cui.load_helper as load_helper
 from numpy.typing import NDArray
+from phonopy.file_IO import get_supported_file_extensions_for_compression
 from phonopy.harmonic.force_constants import show_drift_force_constants
 from phonopy.interface.calculator import get_calculator_physical_units
 from phonopy.physical_units import get_physical_units
@@ -315,6 +316,7 @@ def load(
     # Convert distance unit of unit cell to Angstrom
     physical_units = get_calculator_physical_units(_calculator)
     factor_to_A = physical_units["distance_to_A"]
+    assert cell is not None
     cell.cell = cell.cell * factor_to_A
 
     if factor is None:
@@ -501,11 +503,7 @@ def select_and_load_dataset(
 ) -> dict | None:
     """Select and load dataset for fc3."""
     # displacements and forces are in phono3py-yaml-like file
-    if (
-        ph3py_yaml is not None
-        and ph3py_yaml.dataset is not None
-        and forces_in_dataset(ph3py_yaml.dataset)
-    ):
+    if ph3py_yaml is not None and forces_in_dataset(ph3py_yaml.dataset):
         dataset = _get_dataset_for_fc3(
             ph3py,
             ph3py_yaml,
@@ -518,11 +516,10 @@ def select_and_load_dataset(
         return dataset
 
     # displacements and forces are in FORCES_FC3-like file
-    if forces_fc3_filename is not None or pathlib.Path("FORCES_FC3").exists():
-        if forces_fc3_filename is None:
-            force_filename = "FORCES_FC3"
-        else:
-            force_filename = forces_fc3_filename
+    force_filename = _get_filename_with_extension("FORCES_FC3")
+    if forces_fc3_filename is not None:
+        force_filename = forces_fc3_filename
+    if force_filename is not None:
         dataset = _get_dataset_for_fc3(
             ph3py,
             ph3py_yaml,
@@ -549,6 +546,13 @@ def select_and_load_dataset(
         )
         return dataset
 
+    return None
+
+
+def _get_filename_with_extension(filename: str | os.PathLike) -> os.PathLike | None:
+    for ext in get_supported_file_extensions_for_compression():
+        if pathlib.Path(f"{filename}{ext}").is_file():
+            return pathlib.Path(f"{filename}{ext}")
     return None
 
 
@@ -589,11 +593,10 @@ def select_and_load_phonon_dataset(
         )
         return phonon_dataset
 
-    if forces_fc2_filename is not None or pathlib.Path("FORCES_FC2").exists():
-        if forces_fc2_filename is None:
-            force_filename = "FORCES_FC2"
-        else:
-            force_filename = forces_fc2_filename
+    force_filename = _get_filename_with_extension("FORCES_FC2")
+    if forces_fc2_filename is not None:
+        force_filename = forces_fc2_filename
+    if force_filename is not None:
         phonon_dataset = _get_dataset_for_fc2(
             ph3py,
             ph3py_yaml,
@@ -604,7 +607,7 @@ def select_and_load_phonon_dataset(
         )
         return phonon_dataset
 
-    if ph3py_yaml is not None:
+    if ph3py_yaml is not None and ph3py_yaml.phonon_dataset is not None:
         # not forces_in_dataset(ph3py_yaml.dataset)
         # but want to read displacement dataset.
         phonon_dataset = _get_dataset_for_fc2(

@@ -8,6 +8,7 @@ from seeq.spy._errors import *
 from seeq.spy._redaction import safely, request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
+from seeq.spy.workbooks._context import WorkbookPushContext
 from seeq.spy.workbooks._item import Item, ItemMap
 from seeq.spy.workbooks._user import ItemWithOwnerAndAcl
 
@@ -103,6 +104,7 @@ class Folder(ItemWithOwnerAndAcl):
 
             content_dict = {content.name.lower(): content for content in folders.content}
             if self.name.lower() in content_dict and content_dict[self.name.lower()].type == 'Folder':
+                Status.log_if(status, f'Found existing folder by name: {self.name}')
                 return content_dict[self.name.lower()]
 
             if len(folders.content) < limit:
@@ -112,8 +114,10 @@ class Folder(ItemWithOwnerAndAcl):
 
         return None
 
-    def push(self, session: Session, parent_folder_id, datasource_maps, datasource_output, item_map: ItemMap, *,
-             owner=None, label=None, access_control=None, status=None):
+    def push(self, context: WorkbookPushContext, parent_folder_id, datasource_output,
+             item_map: ItemMap, *, owner=None, label=None):
+        session = context.session
+        status = context.status
         items_api = ItemsApi(session.client)
         folders_api = FoldersApi(session.client)
 
@@ -123,40 +127,51 @@ class Folder(ItemWithOwnerAndAcl):
             # we can't change their ACLs. But we need to map them appropriately. Unfortunately, we can only do this
             # if we are logged in as an admin.
             if not session.user.is_admin:
+                status.log(f'Skipping unmodifiable folder {self["Name"]} since not logged in as admin')
                 return None
 
-            owner_id = self.decide_owner(session, datasource_maps, item_map, owner=owner)
+            owner_id = self.decide_owner(context, item_map, owner=owner)
             home_folder = session.get_user_folder(owner_id)
             if home_folder is None:
                 raise SPyRuntimeError(f'Could not find user folder for {self["Owner"]}')
             item_map[self.id] = home_folder.id
+            status.log(f'Mapped unmodifiable folder {self["Name"]} to user\'s home folder '
+                       f'({home_folder.id})')
             return home_folder
 
-        folder_item = self.find_me(session, label, datasource_output)
+        folder_item = self.find_me(session, label, datasource_output, status=status)
 
         if folder_item is None and self.provenance == Item.CONSTRUCTOR:
             folder_item = self._find_by_name(session, parent_folder_id, status)
 
+        folder_output: Optional[FolderOutputV1] = None
         if not folder_item:
             folder_input = FolderInputV1()
             folder_input.name = self['Name']
             if 'Description' in self:
                 folder_input.description = self['Description']
-            folder_input.owner_id = self.decide_owner(session, datasource_maps, item_map, owner=owner)
+            folder_input.owner_id = self.decide_owner(context, item_map, owner=owner)
             folder_input.parent_folder_id = parent_folder_id if parent_folder_id != _common.PATH_ROOT else None
 
-            folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
-                                   action_description=f'create Folder {folder_input.name}',
-                                   status=status)  # type: FolderOutputV1
-            if folder_output is None:
-                return None
+            if not context.dry_run:
+                folder_output = safely(lambda: folders_api.create_folder(body=folder_input),
+                                       action_description=f'create Folder {folder_input.name}',
+                                       status=status)  # type: FolderOutputV1
+                if folder_output is not None:
+                    status.log(f'Created Folder "{folder_output.name}" under parent ID {parent_folder_id}')
+            else:
+                status.log(f'[Dry Run] Would create Folder "{folder_input.name}" under parent ID'
+                           f' {parent_folder_id}')
+
             props = [
                 ScalarPropertyV1(name='Datasource Class', value=datasource_output.datasource_class),
                 ScalarPropertyV1(name='Datasource ID', value=datasource_output.datasource_id),
                 ScalarPropertyV1(name='Data ID', value=self._construct_data_id(label))]
+
+            new_folder_id_str = f' {folder_output.id}' if folder_output is not None else ''
             safely(lambda: items_api.set_properties(id=folder_output.id, body=props),
-                   action_description=f'set common properties for new Folder {folder_output.id}',
-                   status=status)
+                   action_description=f'set common properties (e.g. Data ID) for new Folder{new_folder_id_str}',
+                   status=status, dry_run=context.dry_run)
         else:
             folder_output = safely(lambda: folders_api.get_folder(folder_id=folder_item.id),
                                    action_description=f'get Folder {folder_item.id}',
@@ -173,17 +188,19 @@ class Folder(ItemWithOwnerAndAcl):
             props.append(ScalarPropertyV1(name='Archived', value=False))
 
             safely(lambda: items_api.set_properties(id=folder_output.id, body=props),
-                   action_description=f'set common properties for existing Folder {folder_output.id}',
-                   status=status)
+                   action_description=f'set common properties (Name, Description, Archived) for existing Folder'
+                                      f' {folder_output.id}',
+                   status=status, dry_run=context.dry_run)
 
-            owner_id = self.decide_owner(session, datasource_maps, item_map, owner=owner,
+            owner_id = self.decide_owner(context, item_map, owner=owner,
                                          current_owner_id=folder_output.owner.id)
 
             self._push_owner_and_location(session, folder_output, owner_id, parent_folder_id, status)
 
-        item_map[self.id] = folder_output.id
+        if folder_output is not None:
+            item_map[self.id] = folder_output.id
 
-        if access_control:
-            self._push_acl(session, folder_output.id, datasource_maps, item_map, access_control)
+            if context.access_control:
+                self._push_acl(context, folder_output.id, item_map)
 
         return folder_output

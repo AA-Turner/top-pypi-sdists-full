@@ -1,6 +1,6 @@
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import product
 from math import sqrt
-from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Set, Tuple, Union
 
 from ase import Atoms
 import numpy as np
@@ -49,7 +49,7 @@ class ClusterGenerator:
         primitive cell."""
         return fv.to_cartesian(self.prim, transposed_cell=self.prim_cell_T)
 
-    def _as_euc(self, x: Union[np.ndarray, FourVector]) -> np.ndarray:
+    def _as_euc(self, x: np.ndarray | FourVector) -> np.ndarray:
         """Helper function to translate vector to NumPy array format"""
         if isinstance(x, FourVector):
             return self._fv_to_cart(x)
@@ -58,7 +58,7 @@ class ClusterGenerator:
 
     def many_to_four_vector(
         self, cartesian: np.ndarray, sublattices: Sequence[int]
-    ) -> List[FourVector]:
+    ) -> list[FourVector]:
         """Translate many positions into FourVector's"""
 
         if cartesian.ndim != 2:
@@ -85,7 +85,7 @@ class ClusterGenerator:
         # Iterating the array as a list is more efficient than iterating the numpy array.
         return [FourVector(*vals, subl) for vals, subl in zip(ints.tolist(), sublattices)]
 
-    def to_four_vector(self, cartesian: np.ndarray, sublattice: Optional[int] = None) -> FourVector:
+    def to_four_vector(self, cartesian: np.ndarray, sublattice: int | None = None) -> FourVector:
         """Translate a position in Cartesian coordinates to its FourVector"""
         if cartesian.ndim != 1:
             raise ValueError(f"Cartesian positions must be 1-dimensional, got {cartesian.ndim:d}")
@@ -122,8 +122,8 @@ class ClusterGenerator:
 
     def eucledian_distance(
         self,
-        x1: Union[np.ndarray, FourVector],
-        x2: Union[np.ndarray, FourVector],
+        x1: np.ndarray | FourVector,
+        x2: np.ndarray | FourVector,
     ) -> float:
         """
         Eucledian distance between to FourVectors in cartesian coordinates.
@@ -197,7 +197,7 @@ class ClusterGenerator:
 
     def prepare_within_cutoff(
         self, cutoff: float, lattice: int
-    ) -> Dict[FourVector, Set[FourVector]]:
+    ) -> dict[FourVector, set[FourVector]]:
         """Prepare all sites which are within the cutoff sphere. Note, this only prepares sites
         which are pair-wise within the cutoff, and does not consider the distance to the
         center-of-mass. This needs to be checked for the individual figure which is created from
@@ -247,7 +247,7 @@ class ClusterGenerator:
 
     def generate(
         self, size: int, cutoff: float, ref_lattice: int
-    ) -> Tuple[List[List[Figure]], List[ClusterFingerprint]]:
+    ) -> tuple[list[list[Figure]], list[ClusterFingerprint]]:
         """Generate all possible figures of a given size, are within a given cutoff radius
         (from the center of mass of the figure), and from a reference lattice.
 
@@ -258,11 +258,11 @@ class ClusterGenerator:
             always contains this site.
 
         Returns:
-            List[List[Figure]], List[ClusterFingerprint]: The collection of figures and
+            list[list[Figure]], list[ClusterFingerprint]: The collection of figures and
                 their corresponding fingerprints.
         """
-        clusters: List[List[Figure]] = []
-        all_fps: List[ClusterFingerprint] = []
+        clusters: list[list[Figure]] = []
+        all_fps: list[ClusterFingerprint] = []
 
         for new_figure in self.figure_iterator(size, cutoff, ref_lattice):
             # The entries in the figure must be ordered, due to equiv_sites
@@ -315,9 +315,9 @@ class ClusterGenerator:
         # Sort according to the figure with the largest internal distances, lexographically.
         # Largest internal distances first.
         order = np.lexsort(dists.T)[::-1]
-        return Figure((fvs[i] for i in order))
+        return Figure(fvs[i] for i in order)
 
-    def to_atom_index(self, cluster: Cluster, lut: Dict[FourVector, int]) -> List[List[int]]:
+    def to_atom_index(self, cluster: Cluster, lut: dict[FourVector, int]) -> list[list[int]]:
         """
         Convert the integer vector representation to an atomic index
 
@@ -329,7 +329,7 @@ class ClusterGenerator:
         """
         return [[lut[fv] for fv in fig.components] for fig in cluster.figures]
 
-    def equivalent_sites(self, figure: Figure) -> List[List[int]]:
+    def equivalent_sites(self, figure: Figure) -> list[list[int]]:
         """Find the equivalent sites of a figure."""
         dists = self._get_internal_distances(figure, sort=True)
         equiv_sites = []
@@ -340,7 +340,7 @@ class ClusterGenerator:
                     equiv_sites.append((i, j))
 
         # Merge pairs into groups
-        merged: List[Set[int]] = []
+        merged: list[set[int]] = []
         for equiv in equiv_sites:
             found_group = False
             for m in merged:
@@ -367,7 +367,7 @@ class SitesWithinCutoff:
         self.generator = generator
         self.cutoff = 0.0
         # Dictionary mapping a ref lattice to a list of four-vectors
-        self.pre_calc: Dict[int, List[FourVector]] = {}
+        self.pre_calc: dict[int, list[FourVector]] = {}
 
     def must_generate(self, cutoff: float, ref_lattice: int) -> bool:
         """
@@ -377,7 +377,7 @@ class SitesWithinCutoff:
             return True
         return ref_lattice not in self.pre_calc
 
-    def get(self, cutoff: float, ref_lattice: int) -> List[FourVector]:
+    def get(self, cutoff: float, ref_lattice: int) -> list[FourVector]:
         """
         Return sites within the cutoff
         """
@@ -389,7 +389,7 @@ class SitesWithinCutoff:
 
 
 def site_iterator(
-    within_cutoff: Dict[FourVector, Set[FourVector]], size: int, ref_lattice: int
+    within_cutoff: dict[FourVector, set[FourVector]], size: int, ref_lattice: int
 ) -> Iterator[Figure]:
     """
     Return an iterator of all combinations of sites within a cutoff

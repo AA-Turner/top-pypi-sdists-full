@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -41,6 +41,9 @@ PolicyTargetId = str
 ResourcePolicyArn = str
 ResourcePolicyContent = str
 ResourcePolicyId = str
+ResponsibilityTransferArn = str
+ResponsibilityTransferId = str
+ResponsibilityTransferName = str
 RoleName = str
 RootArn = str
 RootId = str
@@ -82,6 +85,7 @@ class ActionType(StrEnum):
     ENABLE_ALL_FEATURES = "ENABLE_ALL_FEATURES"
     APPROVE_ALL_FEATURES = "APPROVE_ALL_FEATURES"
     ADD_ORGANIZATIONS_SERVICE_LINKED_ROLE = "ADD_ORGANIZATIONS_SERVICE_LINKED_ROLE"
+    TRANSFER_RESPONSIBILITY = "TRANSFER_RESPONSIBILITY"
 
 
 class ChildType(StrEnum):
@@ -145,6 +149,24 @@ class ConstraintViolationExceptionReason(StrEnum):
     ALL_FEATURES_MIGRATION_ORGANIZATION_SIZE_LIMIT_EXCEEDED = (
         "ALL_FEATURES_MIGRATION_ORGANIZATION_SIZE_LIMIT_EXCEEDED"
     )
+    RESPONSIBILITY_TRANSFER_MAX_LEVEL_VIOLATION = "RESPONSIBILITY_TRANSFER_MAX_LEVEL_VIOLATION"
+    RESPONSIBILITY_TRANSFER_MAX_INBOUND_QUOTA_VIOLATION = (
+        "RESPONSIBILITY_TRANSFER_MAX_INBOUND_QUOTA_VIOLATION"
+    )
+    RESPONSIBILITY_TRANSFER_MAX_OUTBOUND_QUOTA_VIOLATION = (
+        "RESPONSIBILITY_TRANSFER_MAX_OUTBOUND_QUOTA_VIOLATION"
+    )
+    RESPONSIBILITY_TRANSFER_MAX_TRANSFERS_QUOTA_VIOLATION = (
+        "RESPONSIBILITY_TRANSFER_MAX_TRANSFERS_QUOTA_VIOLATION"
+    )
+    ACTIVE_RESPONSIBILITY_TRANSFER_PROCESS = "ACTIVE_RESPONSIBILITY_TRANSFER_PROCESS"
+    TRANSFER_RESPONSIBILITY_TARGET_DELETION_IN_PROGRESS = (
+        "TRANSFER_RESPONSIBILITY_TARGET_DELETION_IN_PROGRESS"
+    )
+    TRANSFER_RESPONSIBILITY_SOURCE_DELETION_IN_PROGRESS = (
+        "TRANSFER_RESPONSIBILITY_SOURCE_DELETION_IN_PROGRESS"
+    )
+    UNSUPPORTED_PRICING = "UNSUPPORTED_PRICING"
 
 
 class CreateAccountFailureReason(StrEnum):
@@ -180,6 +202,10 @@ class EffectivePolicyType(StrEnum):
     CHATBOT_POLICY = "CHATBOT_POLICY"
     DECLARATIVE_POLICY_EC2 = "DECLARATIVE_POLICY_EC2"
     SECURITYHUB_POLICY = "SECURITYHUB_POLICY"
+    INSPECTOR_POLICY = "INSPECTOR_POLICY"
+    UPGRADE_ROLLOUT_POLICY = "UPGRADE_ROLLOUT_POLICY"
+    BEDROCK_POLICY = "BEDROCK_POLICY"
+    S3_POLICY = "S3_POLICY"
 
 
 class HandshakeConstraintViolationExceptionReason(StrEnum):
@@ -197,6 +223,10 @@ class HandshakeConstraintViolationExceptionReason(StrEnum):
         "ORGANIZATION_MEMBERSHIP_CHANGE_RATE_LIMIT_EXCEEDED"
     )
     MANAGEMENT_ACCOUNT_EMAIL_NOT_VERIFIED = "MANAGEMENT_ACCOUNT_EMAIL_NOT_VERIFIED"
+    RESPONSIBILITY_TRANSFER_ALREADY_EXISTS = "RESPONSIBILITY_TRANSFER_ALREADY_EXISTS"
+    SOURCE_AND_TARGET_CANNOT_MATCH = "SOURCE_AND_TARGET_CANNOT_MATCH"
+    UNUSED_PREPAYMENT_BALANCE = "UNUSED_PREPAYMENT_BALANCE"
+    LEGACY_PERMISSIONS_STILL_IN_USE = "LEGACY_PERMISSIONS_STILL_IN_USE"
 
 
 class HandshakePartyType(StrEnum):
@@ -214,6 +244,12 @@ class HandshakeResourceType(StrEnum):
     MASTER_NAME = "MASTER_NAME"
     NOTES = "NOTES"
     PARENT_HANDSHAKE = "PARENT_HANDSHAKE"
+    RESPONSIBILITY_TRANSFER = "RESPONSIBILITY_TRANSFER"
+    TRANSFER_START_TIMESTAMP = "TRANSFER_START_TIMESTAMP"
+    TRANSFER_TYPE = "TRANSFER_TYPE"
+    MANAGEMENT_ACCOUNT = "MANAGEMENT_ACCOUNT"
+    MANAGEMENT_EMAIL = "MANAGEMENT_EMAIL"
+    MANAGEMENT_NAME = "MANAGEMENT_NAME"
 
 
 class HandshakeState(StrEnum):
@@ -261,6 +297,16 @@ class InvalidInputExceptionReason(StrEnum):
     UNSUPPORTED_POLICY_TYPE_IN_RESOURCE_POLICY = "UNSUPPORTED_POLICY_TYPE_IN_RESOURCE_POLICY"
     UNSUPPORTED_RESOURCE_IN_RESOURCE_POLICY = "UNSUPPORTED_RESOURCE_IN_RESOURCE_POLICY"
     NON_DETACHABLE_POLICY = "NON_DETACHABLE_POLICY"
+    CALLER_REQUIRED_FIELD_MISSING = "CALLER_REQUIRED_FIELD_MISSING"
+    UNSUPPORTED_ACTION_IN_RESPONSIBILITY_TRANSFER = "UNSUPPORTED_ACTION_IN_RESPONSIBILITY_TRANSFER"
+    START_DATE_NOT_BEGINNING_OF_MONTH = "START_DATE_NOT_BEGINNING_OF_MONTH"
+    START_DATE_NOT_BEGINNING_OF_DAY = "START_DATE_NOT_BEGINNING_OF_DAY"
+    START_DATE_TOO_EARLY = "START_DATE_TOO_EARLY"
+    START_DATE_TOO_LATE = "START_DATE_TOO_LATE"
+    INVALID_START_DATE = "INVALID_START_DATE"
+    END_DATE_NOT_END_OF_MONTH = "END_DATE_NOT_END_OF_MONTH"
+    END_DATE_TOO_EARLY = "END_DATE_TOO_EARLY"
+    INVALID_END_DATE = "INVALID_END_DATE"
 
 
 class OrganizationFeatureSet(StrEnum):
@@ -282,12 +328,29 @@ class PolicyType(StrEnum):
     CHATBOT_POLICY = "CHATBOT_POLICY"
     DECLARATIVE_POLICY_EC2 = "DECLARATIVE_POLICY_EC2"
     SECURITYHUB_POLICY = "SECURITYHUB_POLICY"
+    INSPECTOR_POLICY = "INSPECTOR_POLICY"
+    UPGRADE_ROLLOUT_POLICY = "UPGRADE_ROLLOUT_POLICY"
+    BEDROCK_POLICY = "BEDROCK_POLICY"
+    S3_POLICY = "S3_POLICY"
 
 
 class PolicyTypeStatus(StrEnum):
     ENABLED = "ENABLED"
     PENDING_ENABLE = "PENDING_ENABLE"
     PENDING_DISABLE = "PENDING_DISABLE"
+
+
+class ResponsibilityTransferStatus(StrEnum):
+    REQUESTED = "REQUESTED"
+    DECLINED = "DECLINED"
+    CANCELED = "CANCELED"
+    EXPIRED = "EXPIRED"
+    ACCEPTED = "ACCEPTED"
+    WITHDRAWN = "WITHDRAWN"
+
+
+class ResponsibilityTransferType(StrEnum):
+    BILLING = "BILLING"
 
 
 class TargetType(StrEnum):
@@ -331,7 +394,7 @@ class AccessDeniedForDependencyException(ServiceException):
     code: str = "AccessDeniedForDependencyException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[AccessDeniedForDependencyExceptionReason]
+    Reason: AccessDeniedForDependencyExceptionReason | None
 
 
 class AccountAlreadyClosedException(ServiceException):
@@ -457,6 +520,11 @@ class ConstraintViolationException(ServiceException):
        your account isn't fully active. You must complete the account setup
        before you create an organization.
 
+    -  ACTIVE_RESPONSIBILITY_TRANSFER_PROCESS: You cannot delete
+       organization due to an ongoing responsibility transfer process. For
+       example, a pending invitation or an in-progress transfer. To delete
+       the organization, you must resolve the current transfer process.
+
     -  ACCOUNT_NUMBER_LIMIT_EXCEEDED: You attempted to exceed the limit on
        the number of accounts in an organization. If you need more accounts,
        contact `Amazon Web Services
@@ -522,7 +590,7 @@ class ConstraintViolationException(ServiceException):
 
     -  EMAIL_VERIFICATION_CODE_EXPIRED: The email verification code is only
        valid for a limited period of time. You must resubmit the request and
-       generate a new verfication code.
+       generate a new verification code.
 
     -  HANDSHAKE_RATE_LIMIT_EXCEEDED: You attempted to exceed the number of
        handshakes that you can send in one day.
@@ -606,6 +674,19 @@ class ConstraintViolationException(ServiceException):
        SECURITYHUB_POLICY). To complete this operation, you must first
        disable the policy type.
 
+    -  RESPONSIBILITY_TRANSFER_MAX_INBOUND_QUOTA_VIOLATION: You have
+       exceeded your inbound transfers limit.
+
+    -  RESPONSIBILITY_TRANSFER_MAX_LEVEL_VIOLATION: You have exceeded the
+       maximum length of your transfer chain.
+
+    -  RESPONSIBILITY_TRANSFER_MAX_OUTBOUND_QUOTA_VIOLATION: You have
+       exceeded your outbound transfers limit.
+
+    -  RESPONSIBILITY_TRANSFER_MAX_TRANSFERS_QUOTA_VIOLATION: You have
+       exceeded the maximum number of inbound transfers allowed in a
+       transfer chain.
+
     -  SERVICE_ACCESS_NOT_ENABLED:
 
        -  You attempted to register a delegated administrator before you
@@ -619,15 +700,26 @@ class ConstraintViolationException(ServiceException):
        with tags that are not compliant with the tag policy requirements for
        this account.
 
+    -  TRANSFER_RESPONSIBILITY_SOURCE_DELETION_IN_PROGRESS: The source
+       organization cannot accept this transfer invitation because it is
+       marked for deletion.
+
+    -  TRANSFER_RESPONSIBILITY_TARGET_DELETION_IN_PROGRESS: The source
+       organization cannot accept this transfer invitation because target
+       organization is marked for deletion.
+
+    -  UNSUPPORTED_PRICING: Your organization has a pricing contract that is
+       unsupported.
+
     -  WAIT_PERIOD_ACTIVE: After you create an Amazon Web Services account,
-       you must wait until at least seven days after the account was
-       created. Invited accounts aren't subject to this waiting period.
+       you must wait until at least four days after the account was created.
+       Invited accounts aren't subject to this waiting period.
     """
 
     code: str = "ConstraintViolationException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[ConstraintViolationExceptionReason]
+    Reason: ConstraintViolationExceptionReason | None
 
 
 class CreateAccountStatusNotFoundException(ServiceException):
@@ -758,16 +850,20 @@ class HandshakeConstraintViolationException(ServiceException):
        enabling all features. You can resume inviting accounts after you
        finalize the process when all accounts have agreed to the change.
 
+    -  LEGACY_PERMISSIONS_STILL_IN_USE: Your organization must migrate to
+       use the new IAM fine-grained actions for billing, cost management,
+       and accounts.
+
     -  ORGANIZATION_ALREADY_HAS_ALL_FEATURES: The handshake request is
        invalid because the organization has already enabled all features.
-
-    -  ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
-       request is invalid because the organization has already started the
-       process to enable all features.
 
     -  ORGANIZATION_FROM_DIFFERENT_SELLER_OF_RECORD: The request failed
        because the account is from a different marketplace than the accounts
        in the organization.
+
+    -  ORGANIZATION_IS_ALREADY_PENDING_ALL_FEATURES_MIGRATION: The handshake
+       request is invalid because the organization has already started the
+       process to enable all features.
 
     -  ORGANIZATION_MEMBERSHIP_CHANGE_RATE_LIMIT_EXCEEDED: You attempted to
        change the membership of an account too quickly after its previous
@@ -776,12 +872,21 @@ class HandshakeConstraintViolationException(ServiceException):
     -  PAYMENT_INSTRUMENT_REQUIRED: You can't complete the operation with an
        account that doesn't have a payment instrument, such as a credit
        card, associated with it.
+
+    -  RESPONSIBILITY_TRANSFER_ALREADY_EXISTS: You cannot perform this
+       operation with the current transfer.
+
+    -  SOURCE_AND_TARGET_CANNOT_MATCH: An account can't accept a transfer
+       invitation if it is both the sender and recipient of the invitation.
+
+    -  UNUSED_PREPAYMENT_BALANCE: Your organization has an outstanding
+       pre-payment balance.
     """
 
     code: str = "HandshakeConstraintViolationException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[HandshakeConstraintViolationExceptionReason]
+    Reason: HandshakeConstraintViolationExceptionReason | None
 
 
 class HandshakeNotFoundException(ServiceException):
@@ -811,8 +916,17 @@ class InvalidInputException(ServiceException):
     Some of the reasons in the following list might not be applicable to
     this specific API or operation.
 
+    -  CALLER_REQUIRED_FIELD_MISSING: At least one of the required field is
+       missing: Caller Account Id, Management Account Id or Organization Id.
+
     -  DUPLICATE_TAG_KEY: Tag keys must be unique among the tags attached to
        the same entity.
+
+    -  END_DATE_NOT_END_OF_MONTH: You provided an invalid end date. The end
+       date must be the end of the last day of the month (23.59.59.999).
+
+    -  END_DATE_TOO_EARLY: You provided an invalid end date. It is too early
+       for the transfer to end.
 
     -  IMMUTABLE_POLICY: You specified a policy that is managed by Amazon
        Web Services and can't be modified.
@@ -821,6 +935,11 @@ class InvalidInputException(ServiceException):
 
     -  INVALID_EMAIL_ADDRESS_TARGET: You specified an invalid email address
        for the invited account owner.
+
+    -  INVALID_END_DATE: The selected withdrawal date doesn't meet the terms
+       of your partner agreement. Visit Amazon Web Services Partner Central
+       to view your partner agreements or contact your Amazon Web Services
+       Partner for help.
 
     -  INVALID_ENUM: You specified an invalid value.
 
@@ -850,6 +969,9 @@ class InvalidInputException(ServiceException):
 
     -  INVALID_ROLE_NAME: You provided a role name that isn't valid. A role
        name can't begin with the reserved prefix ``AWSServiceRoleFor``.
+
+    -  INVALID_START_DATE: The start date doesn't meet the minimum
+       requirements.
 
     -  INVALID_SYNTAX_ORGANIZATION_ARN: You specified an invalid Amazon
        Resource Name (ARN) for the organization.
@@ -882,17 +1004,42 @@ class InvalidInputException(ServiceException):
     -  NON_DETACHABLE_POLICY: You can't detach this Amazon Web Services
        Managed Policy.
 
+    -  START_DATE_NOT_BEGINNING_OF_DAY: You provided an invalid start date.
+       The start date must be the beginning of the day (00:00:00.000).
+
+    -  START_DATE_NOT_BEGINNING_OF_MONTH: You provided an invalid start
+       date. The start date must be the first day of the month.
+
+    -  START_DATE_TOO_EARLY: You provided an invalid start date. The start
+       date is too early.
+
+    -  START_DATE_TOO_LATE: You provided an invalid start date. The start
+       date is too late.
+
     -  TARGET_NOT_SUPPORTED: You can't perform the specified operation on
        that target entity.
 
     -  UNRECOGNIZED_SERVICE_PRINCIPAL: You specified a service principal
        that isn't recognized.
+
+    -  UNSUPPORTED_ACTION_IN_RESPONSIBILITY_TRANSFER: You provided a value
+       that is not supported by this operation.
     """
 
     code: str = "InvalidInputException"
     sender_fault: bool = False
     status_code: int = 400
-    Reason: Optional[InvalidInputExceptionReason]
+    Reason: InvalidInputExceptionReason | None
+
+
+class InvalidResponsibilityTransferTransitionException(ServiceException):
+    """The responsibility transfer can't transition to the requested state
+    because it's not in a valid state for this operation.
+    """
+
+    code: str = "InvalidResponsibilityTransferTransitionException"
+    sender_fault: bool = False
+    status_code: int = 400
 
 
 class MalformedPolicyDocumentException(ServiceException):
@@ -1040,6 +1187,22 @@ class ResourcePolicyNotFoundException(ServiceException):
     status_code: int = 400
 
 
+class ResponsibilityTransferAlreadyInStatusException(ServiceException):
+    """The responsibility transfer is already in the status that you specified."""
+
+    code: str = "ResponsibilityTransferAlreadyInStatusException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
+class ResponsibilityTransferNotFoundException(ServiceException):
+    """We can't find a transfer that you specified."""
+
+    code: str = "ResponsibilityTransferNotFoundException"
+    sender_fault: bool = False
+    status_code: int = 400
+
+
 class RootNotFoundException(ServiceException):
     """We can't find a root with the ``RootId`` that you specified."""
 
@@ -1090,7 +1253,7 @@ class TooManyRequestsException(ServiceException):
     code: str = "TooManyRequestsException"
     sender_fault: bool = False
     status_code: int = 400
-    Type: Optional[ExceptionType]
+    Type: ExceptionType | None
 
 
 class UnsupportedAPIEndpointException(ServiceException):
@@ -1105,54 +1268,52 @@ class AcceptHandshakeRequest(ServiceRequest):
     HandshakeId: HandshakeId
 
 
-HandshakeResources = List["HandshakeResource"]
+HandshakeResources = list["HandshakeResource"]
 
 
 class HandshakeResource(TypedDict, total=False):
-    """Contains additional data that is needed to process a handshake."""
+    """Contains additional details for a handshake."""
 
-    Value: Optional[HandshakeResourceValue]
-    Type: Optional[HandshakeResourceType]
-    Resources: Optional[HandshakeResources]
+    Value: HandshakeResourceValue | None
+    Type: HandshakeResourceType | None
+    Resources: HandshakeResources | None
 
 
 Timestamp = datetime
 
 
 class HandshakeParty(TypedDict, total=False):
-    """Identifies a participant in a handshake."""
+    """Contains details for a participant in a handshake."""
 
     Id: HandshakePartyId
     Type: HandshakePartyType
 
 
-HandshakeParties = List[HandshakeParty]
+HandshakeParties = list[HandshakeParty]
 
 
 class Handshake(TypedDict, total=False):
-    """Contains information that must be exchanged to securely establish a
-    relationship between two accounts (an *originator* and a *recipient*).
-    For example, when a management account (the originator) invites another
-    account (the recipient) to join its organization, the two accounts
-    exchange information as a series of handshake requests and responses.
+    """Contains details for a handshake. A handshake is the secure exchange of
+    information between two Amazon Web Services accounts: a sender and a
+    recipient.
 
     **Note:** Handshakes that are ``CANCELED``, ``ACCEPTED``, ``DECLINED``,
     or ``EXPIRED`` show up in lists for only 30 days after entering that
     state After that they are deleted.
     """
 
-    Id: Optional[HandshakeId]
-    Arn: Optional[HandshakeArn]
-    Parties: Optional[HandshakeParties]
-    State: Optional[HandshakeState]
-    RequestedTimestamp: Optional[Timestamp]
-    ExpirationTimestamp: Optional[Timestamp]
-    Action: Optional[ActionType]
-    Resources: Optional[HandshakeResources]
+    Id: HandshakeId | None
+    Arn: HandshakeArn | None
+    Parties: HandshakeParties | None
+    State: HandshakeState | None
+    RequestedTimestamp: Timestamp | None
+    ExpirationTimestamp: Timestamp | None
+    Action: ActionType | None
+    Resources: HandshakeResources | None
 
 
 class AcceptHandshakeResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
 
 
 class Account(TypedDict, total=False):
@@ -1160,17 +1321,17 @@ class Account(TypedDict, total=False):
     member of an organization.
     """
 
-    Id: Optional[AccountId]
-    Arn: Optional[AccountArn]
-    Email: Optional[Email]
-    Name: Optional[AccountName]
-    Status: Optional[AccountStatus]
-    State: Optional[AccountState]
-    JoinedMethod: Optional[AccountJoinedMethod]
-    JoinedTimestamp: Optional[Timestamp]
+    Id: AccountId | None
+    Arn: AccountArn | None
+    Email: Email | None
+    Name: AccountName | None
+    Status: AccountStatus | None
+    State: AccountState | None
+    JoinedMethod: AccountJoinedMethod | None
+    JoinedTimestamp: Timestamp | None
 
 
-Accounts = List[Account]
+Accounts = list[Account]
 
 
 class AttachPolicyRequest(ServiceRequest):
@@ -1183,17 +1344,17 @@ class CancelHandshakeRequest(ServiceRequest):
 
 
 class CancelHandshakeResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
 
 
 class Child(TypedDict, total=False):
     """Contains a list of child entities, either OUs or accounts."""
 
-    Id: Optional[ChildId]
-    Type: Optional[ChildType]
+    Id: ChildId | None
+    Type: ChildType | None
 
 
-Children = List[Child]
+Children = list[Child]
 
 
 class CloseAccountRequest(ServiceRequest):
@@ -1219,15 +1380,15 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class CreateAccountRequest(ServiceRequest):
     Email: Email
     AccountName: CreateAccountName
-    RoleName: Optional[RoleName]
-    IamUserAccessToBilling: Optional[IAMUserAccessToBilling]
-    Tags: Optional[Tags]
+    RoleName: RoleName | None
+    IamUserAccessToBilling: IAMUserAccessToBilling | None
+    Tags: Tags | None
 
 
 class CreateAccountStatus(TypedDict, total=False):
@@ -1236,38 +1397,38 @@ class CreateAccountStatus(TypedDict, total=False):
     Services GovCloud (US) account in an organization.
     """
 
-    Id: Optional[CreateAccountRequestId]
-    AccountName: Optional[CreateAccountName]
-    State: Optional[CreateAccountState]
-    RequestedTimestamp: Optional[Timestamp]
-    CompletedTimestamp: Optional[Timestamp]
-    AccountId: Optional[AccountId]
-    GovCloudAccountId: Optional[AccountId]
-    FailureReason: Optional[CreateAccountFailureReason]
+    Id: CreateAccountRequestId | None
+    AccountName: CreateAccountName | None
+    State: CreateAccountState | None
+    RequestedTimestamp: Timestamp | None
+    CompletedTimestamp: Timestamp | None
+    AccountId: AccountId | None
+    GovCloudAccountId: AccountId | None
+    FailureReason: CreateAccountFailureReason | None
 
 
 class CreateAccountResponse(TypedDict, total=False):
-    CreateAccountStatus: Optional[CreateAccountStatus]
+    CreateAccountStatus: CreateAccountStatus | None
 
 
-CreateAccountStates = List[CreateAccountState]
-CreateAccountStatuses = List[CreateAccountStatus]
+CreateAccountStates = list[CreateAccountState]
+CreateAccountStatuses = list[CreateAccountStatus]
 
 
 class CreateGovCloudAccountRequest(ServiceRequest):
     Email: Email
     AccountName: CreateAccountName
-    RoleName: Optional[RoleName]
-    IamUserAccessToBilling: Optional[IAMUserAccessToBilling]
-    Tags: Optional[Tags]
+    RoleName: RoleName | None
+    IamUserAccessToBilling: IAMUserAccessToBilling | None
+    Tags: Tags | None
 
 
 class CreateGovCloudAccountResponse(TypedDict, total=False):
-    CreateAccountStatus: Optional[CreateAccountStatus]
+    CreateAccountStatus: CreateAccountStatus | None
 
 
 class CreateOrganizationRequest(ServiceRequest):
-    FeatureSet: Optional[OrganizationFeatureSet]
+    FeatureSet: OrganizationFeatureSet | None
 
 
 class PolicyTypeSummary(TypedDict, total=False):
@@ -1275,11 +1436,11 @@ class PolicyTypeSummary(TypedDict, total=False):
     associated root.
     """
 
-    Type: Optional[PolicyType]
-    Status: Optional[PolicyTypeStatus]
+    Type: PolicyType | None
+    Status: PolicyTypeStatus | None
 
 
-PolicyTypes = List[PolicyTypeSummary]
+PolicyTypes = list[PolicyTypeSummary]
 
 
 class Organization(TypedDict, total=False):
@@ -1289,23 +1450,23 @@ class Organization(TypedDict, total=False):
     controlled with policies .
     """
 
-    Id: Optional[OrganizationId]
-    Arn: Optional[OrganizationArn]
-    FeatureSet: Optional[OrganizationFeatureSet]
-    MasterAccountArn: Optional[AccountArn]
-    MasterAccountId: Optional[AccountId]
-    MasterAccountEmail: Optional[Email]
-    AvailablePolicyTypes: Optional[PolicyTypes]
+    Id: OrganizationId | None
+    Arn: OrganizationArn | None
+    FeatureSet: OrganizationFeatureSet | None
+    MasterAccountArn: AccountArn | None
+    MasterAccountId: AccountId | None
+    MasterAccountEmail: Email | None
+    AvailablePolicyTypes: PolicyTypes | None
 
 
 class CreateOrganizationResponse(TypedDict, total=False):
-    Organization: Optional[Organization]
+    Organization: Organization | None
 
 
 class CreateOrganizationalUnitRequest(ServiceRequest):
     ParentId: ParentId
     Name: OrganizationalUnitName
-    Tags: Optional[Tags]
+    Tags: Tags | None
 
 
 class OrganizationalUnit(TypedDict, total=False):
@@ -1315,13 +1476,13 @@ class OrganizationalUnit(TypedDict, total=False):
     that OU and in any child OUs.
     """
 
-    Id: Optional[OrganizationalUnitId]
-    Arn: Optional[OrganizationalUnitArn]
-    Name: Optional[OrganizationalUnitName]
+    Id: OrganizationalUnitId | None
+    Arn: OrganizationalUnitArn | None
+    Name: OrganizationalUnitName | None
 
 
 class CreateOrganizationalUnitResponse(TypedDict, total=False):
-    OrganizationalUnit: Optional[OrganizationalUnit]
+    OrganizationalUnit: OrganizationalUnit | None
 
 
 class CreatePolicyRequest(ServiceRequest):
@@ -1329,7 +1490,7 @@ class CreatePolicyRequest(ServiceRequest):
     Description: PolicyDescription
     Name: PolicyName
     Type: PolicyType
-    Tags: Optional[Tags]
+    Tags: Tags | None
 
 
 class PolicySummary(TypedDict, total=False):
@@ -1337,12 +1498,12 @@ class PolicySummary(TypedDict, total=False):
     To see the content of a policy, see DescribePolicy.
     """
 
-    Id: Optional[PolicyId]
-    Arn: Optional[PolicyArn]
-    Name: Optional[PolicyName]
-    Description: Optional[PolicyDescription]
-    Type: Optional[PolicyType]
-    AwsManaged: Optional[AwsManagedPolicy]
+    Id: PolicyId | None
+    Arn: PolicyArn | None
+    Name: PolicyName | None
+    Description: PolicyDescription | None
+    Type: PolicyType | None
+    AwsManaged: AwsManagedPolicy | None
 
 
 class Policy(TypedDict, total=False):
@@ -1351,12 +1512,12 @@ class Policy(TypedDict, total=False):
     accounts in those hierarchies.
     """
 
-    PolicySummary: Optional[PolicySummary]
-    Content: Optional[PolicyContent]
+    PolicySummary: PolicySummary | None
+    Content: PolicyContent | None
 
 
 class CreatePolicyResponse(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
 
 
 class DeclineHandshakeRequest(ServiceRequest):
@@ -1364,23 +1525,24 @@ class DeclineHandshakeRequest(ServiceRequest):
 
 
 class DeclineHandshakeResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
 
 
 class DelegatedAdministrator(TypedDict, total=False):
     """Contains information about the delegated administrator."""
 
-    Id: Optional[AccountId]
-    Arn: Optional[AccountArn]
-    Email: Optional[Email]
-    Name: Optional[AccountName]
-    Status: Optional[AccountStatus]
-    JoinedMethod: Optional[AccountJoinedMethod]
-    JoinedTimestamp: Optional[Timestamp]
-    DelegationEnabledDate: Optional[Timestamp]
+    Id: AccountId | None
+    Arn: AccountArn | None
+    Email: Email | None
+    Name: AccountName | None
+    Status: AccountStatus | None
+    State: AccountState | None
+    JoinedMethod: AccountJoinedMethod | None
+    JoinedTimestamp: Timestamp | None
+    DelegationEnabledDate: Timestamp | None
 
 
-DelegatedAdministrators = List[DelegatedAdministrator]
+DelegatedAdministrators = list[DelegatedAdministrator]
 
 
 class DelegatedService(TypedDict, total=False):
@@ -1388,11 +1550,11 @@ class DelegatedService(TypedDict, total=False):
     account is a delegated administrator.
     """
 
-    ServicePrincipal: Optional[ServicePrincipal]
-    DelegationEnabledDate: Optional[Timestamp]
+    ServicePrincipal: ServicePrincipal | None
+    DelegationEnabledDate: Timestamp | None
 
 
-DelegatedServices = List[DelegatedService]
+DelegatedServices = list[DelegatedService]
 
 
 class DeleteOrganizationalUnitRequest(ServiceRequest):
@@ -1413,7 +1575,7 @@ class DescribeAccountRequest(ServiceRequest):
 
 
 class DescribeAccountResponse(TypedDict, total=False):
-    Account: Optional[Account]
+    Account: Account | None
 
 
 class DescribeCreateAccountStatusRequest(ServiceRequest):
@@ -1421,12 +1583,12 @@ class DescribeCreateAccountStatusRequest(ServiceRequest):
 
 
 class DescribeCreateAccountStatusResponse(TypedDict, total=False):
-    CreateAccountStatus: Optional[CreateAccountStatus]
+    CreateAccountStatus: CreateAccountStatus | None
 
 
 class DescribeEffectivePolicyRequest(ServiceRequest):
     PolicyType: EffectivePolicyType
-    TargetId: Optional[PolicyTargetId]
+    TargetId: PolicyTargetId | None
 
 
 class EffectivePolicy(TypedDict, total=False):
@@ -1435,14 +1597,14 @@ class EffectivePolicy(TypedDict, total=False):
     policy directly attached to the account.
     """
 
-    PolicyContent: Optional[PolicyContent]
-    LastUpdatedTimestamp: Optional[Timestamp]
-    TargetId: Optional[PolicyTargetId]
-    PolicyType: Optional[EffectivePolicyType]
+    PolicyContent: PolicyContent | None
+    LastUpdatedTimestamp: Timestamp | None
+    TargetId: PolicyTargetId | None
+    PolicyType: EffectivePolicyType | None
 
 
 class DescribeEffectivePolicyResponse(TypedDict, total=False):
-    EffectivePolicy: Optional[EffectivePolicy]
+    EffectivePolicy: EffectivePolicy | None
 
 
 class DescribeHandshakeRequest(ServiceRequest):
@@ -1450,11 +1612,11 @@ class DescribeHandshakeRequest(ServiceRequest):
 
 
 class DescribeHandshakeResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
 
 
 class DescribeOrganizationResponse(TypedDict, total=False):
-    Organization: Optional[Organization]
+    Organization: Organization | None
 
 
 class DescribeOrganizationalUnitRequest(ServiceRequest):
@@ -1462,7 +1624,7 @@ class DescribeOrganizationalUnitRequest(ServiceRequest):
 
 
 class DescribeOrganizationalUnitResponse(TypedDict, total=False):
-    OrganizationalUnit: Optional[OrganizationalUnit]
+    OrganizationalUnit: OrganizationalUnit | None
 
 
 class DescribePolicyRequest(ServiceRequest):
@@ -1470,7 +1632,7 @@ class DescribePolicyRequest(ServiceRequest):
 
 
 class DescribePolicyResponse(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
 
 
 class ResourcePolicySummary(TypedDict, total=False):
@@ -1478,19 +1640,55 @@ class ResourcePolicySummary(TypedDict, total=False):
     (ARN).
     """
 
-    Id: Optional[ResourcePolicyId]
-    Arn: Optional[ResourcePolicyArn]
+    Id: ResourcePolicyId | None
+    Arn: ResourcePolicyArn | None
 
 
 class ResourcePolicy(TypedDict, total=False):
     """A structure that contains details about a resource policy."""
 
-    ResourcePolicySummary: Optional[ResourcePolicySummary]
-    Content: Optional[ResourcePolicyContent]
+    ResourcePolicySummary: ResourcePolicySummary | None
+    Content: ResourcePolicyContent | None
 
 
 class DescribeResourcePolicyResponse(TypedDict, total=False):
-    ResourcePolicy: Optional[ResourcePolicy]
+    ResourcePolicy: ResourcePolicy | None
+
+
+class DescribeResponsibilityTransferRequest(ServiceRequest):
+    Id: ResponsibilityTransferId
+
+
+class TransferParticipant(TypedDict, total=False):
+    """Contains details for a participant in a transfer. A *transfer* is the
+    arrangement between two management accounts where one account designates
+    the other with specified responsibilities for their organization.
+    """
+
+    ManagementAccountId: AccountId | None
+    ManagementAccountEmail: Email | None
+
+
+class ResponsibilityTransfer(TypedDict, total=False):
+    """Contains details for a transfer. A *transfer* is the arrangement between
+    two management accounts where one account designates the other with
+    specified responsibilities for their organization.
+    """
+
+    Arn: ResponsibilityTransferArn | None
+    Name: ResponsibilityTransferName | None
+    Id: ResponsibilityTransferId | None
+    Type: ResponsibilityTransferType | None
+    Status: ResponsibilityTransferStatus | None
+    Source: TransferParticipant | None
+    Target: TransferParticipant | None
+    StartTimestamp: Timestamp | None
+    EndTimestamp: Timestamp | None
+    ActiveHandshakeId: HandshakeId | None
+
+
+class DescribeResponsibilityTransferResponse(TypedDict, total=False):
+    ResponsibilityTransfer: ResponsibilityTransfer | None
 
 
 class DetachPolicyRequest(ServiceRequest):
@@ -1514,17 +1712,17 @@ class Root(TypedDict, total=False):
     organization.
     """
 
-    Id: Optional[RootId]
-    Arn: Optional[RootArn]
-    Name: Optional[RootName]
-    PolicyTypes: Optional[PolicyTypes]
+    Id: RootId | None
+    Arn: RootArn | None
+    Name: RootName | None
+    PolicyTypes: PolicyTypes | None
 
 
 class DisablePolicyTypeResponse(TypedDict, total=False):
-    Root: Optional[Root]
+    Root: Root | None
 
 
-PolicyIds = List[PolicyId]
+PolicyIds = list[PolicyId]
 
 
 class EffectivePolicyValidationError(TypedDict, total=False):
@@ -1535,13 +1733,13 @@ class EffectivePolicyValidationError(TypedDict, total=False):
     error.
     """
 
-    ErrorCode: Optional[ErrorCode]
-    ErrorMessage: Optional[ErrorMessage]
-    PathToError: Optional[PathToError]
-    ContributingPolicies: Optional[PolicyIds]
+    ErrorCode: ErrorCode | None
+    ErrorMessage: ErrorMessage | None
+    PathToError: PathToError | None
+    ContributingPolicies: PolicyIds | None
 
 
-EffectivePolicyValidationErrors = List[EffectivePolicyValidationError]
+EffectivePolicyValidationErrors = list[EffectivePolicyValidationError]
 
 
 class EnableAWSServiceAccessRequest(ServiceRequest):
@@ -1553,7 +1751,7 @@ class EnableAllFeaturesRequest(ServiceRequest):
 
 
 class EnableAllFeaturesResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
 
 
 class EnablePolicyTypeRequest(ServiceRequest):
@@ -1562,7 +1760,7 @@ class EnablePolicyTypeRequest(ServiceRequest):
 
 
 class EnablePolicyTypeResponse(TypedDict, total=False):
-    Root: Optional[Root]
+    Root: Root | None
 
 
 class EnabledServicePrincipal(TypedDict, total=False):
@@ -1571,179 +1769,216 @@ class EnabledServicePrincipal(TypedDict, total=False):
     Organizations.
     """
 
-    ServicePrincipal: Optional[ServicePrincipal]
-    DateEnabled: Optional[Timestamp]
+    ServicePrincipal: ServicePrincipal | None
+    DateEnabled: Timestamp | None
 
 
-EnabledServicePrincipals = List[EnabledServicePrincipal]
+EnabledServicePrincipals = list[EnabledServicePrincipal]
 
 
 class HandshakeFilter(TypedDict, total=False):
-    """Specifies the criteria that are used to select the handshakes for the
-    operation.
-    """
+    """Contains the filter used to select the handshakes for an operation."""
 
-    ActionType: Optional[ActionType]
-    ParentHandshakeId: Optional[HandshakeId]
+    ActionType: ActionType | None
+    ParentHandshakeId: HandshakeId | None
 
 
-Handshakes = List[Handshake]
+Handshakes = list[Handshake]
 
 
 class InviteAccountToOrganizationRequest(ServiceRequest):
     Target: HandshakeParty
-    Notes: Optional[HandshakeNotes]
-    Tags: Optional[Tags]
+    Notes: HandshakeNotes | None
+    Tags: Tags | None
 
 
 class InviteAccountToOrganizationResponse(TypedDict, total=False):
-    Handshake: Optional[Handshake]
+    Handshake: Handshake | None
+
+
+class InviteOrganizationToTransferResponsibilityRequest(ServiceRequest):
+    Type: ResponsibilityTransferType
+    Target: HandshakeParty
+    Notes: HandshakeNotes | None
+    StartTimestamp: Timestamp
+    SourceName: ResponsibilityTransferName
+    Tags: Tags | None
+
+
+class InviteOrganizationToTransferResponsibilityResponse(TypedDict, total=False):
+    Handshake: Handshake | None
 
 
 class ListAWSServiceAccessForOrganizationRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListAWSServiceAccessForOrganizationResponse(TypedDict, total=False):
-    EnabledServicePrincipals: Optional[EnabledServicePrincipals]
-    NextToken: Optional[NextToken]
+    EnabledServicePrincipals: EnabledServicePrincipals | None
+    NextToken: NextToken | None
 
 
 class ListAccountsForParentRequest(ServiceRequest):
     ParentId: ParentId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListAccountsForParentResponse(TypedDict, total=False):
-    Accounts: Optional[Accounts]
-    NextToken: Optional[NextToken]
+    Accounts: Accounts | None
+    NextToken: NextToken | None
 
 
 class ListAccountsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListAccountsResponse(TypedDict, total=False):
-    Accounts: Optional[Accounts]
-    NextToken: Optional[NextToken]
+    Accounts: Accounts | None
+    NextToken: NextToken | None
 
 
 class ListAccountsWithInvalidEffectivePolicyRequest(ServiceRequest):
     PolicyType: EffectivePolicyType
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListAccountsWithInvalidEffectivePolicyResponse(TypedDict, total=False):
-    Accounts: Optional[Accounts]
-    PolicyType: Optional[EffectivePolicyType]
-    NextToken: Optional[NextToken]
+    Accounts: Accounts | None
+    PolicyType: EffectivePolicyType | None
+    NextToken: NextToken | None
 
 
 class ListChildrenRequest(ServiceRequest):
     ParentId: ParentId
     ChildType: ChildType
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListChildrenResponse(TypedDict, total=False):
-    Children: Optional[Children]
-    NextToken: Optional[NextToken]
+    Children: Children | None
+    NextToken: NextToken | None
 
 
 class ListCreateAccountStatusRequest(ServiceRequest):
-    States: Optional[CreateAccountStates]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    States: CreateAccountStates | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListCreateAccountStatusResponse(TypedDict, total=False):
-    CreateAccountStatuses: Optional[CreateAccountStatuses]
-    NextToken: Optional[NextToken]
+    CreateAccountStatuses: CreateAccountStatuses | None
+    NextToken: NextToken | None
 
 
 class ListDelegatedAdministratorsRequest(ServiceRequest):
-    ServicePrincipal: Optional[ServicePrincipal]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    ServicePrincipal: ServicePrincipal | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListDelegatedAdministratorsResponse(TypedDict, total=False):
-    DelegatedAdministrators: Optional[DelegatedAdministrators]
-    NextToken: Optional[NextToken]
+    DelegatedAdministrators: DelegatedAdministrators | None
+    NextToken: NextToken | None
 
 
 class ListDelegatedServicesForAccountRequest(ServiceRequest):
     AccountId: AccountId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListDelegatedServicesForAccountResponse(TypedDict, total=False):
-    DelegatedServices: Optional[DelegatedServices]
-    NextToken: Optional[NextToken]
+    DelegatedServices: DelegatedServices | None
+    NextToken: NextToken | None
 
 
 class ListEffectivePolicyValidationErrorsRequest(ServiceRequest):
     AccountId: AccountId
     PolicyType: EffectivePolicyType
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListEffectivePolicyValidationErrorsResponse(TypedDict, total=False):
-    AccountId: Optional[AccountId]
-    PolicyType: Optional[EffectivePolicyType]
-    Path: Optional[Path]
-    EvaluationTimestamp: Optional[Timestamp]
-    NextToken: Optional[NextToken]
-    EffectivePolicyValidationErrors: Optional[EffectivePolicyValidationErrors]
+    AccountId: AccountId | None
+    PolicyType: EffectivePolicyType | None
+    Path: Path | None
+    EvaluationTimestamp: Timestamp | None
+    NextToken: NextToken | None
+    EffectivePolicyValidationErrors: EffectivePolicyValidationErrors | None
 
 
 class ListHandshakesForAccountRequest(ServiceRequest):
-    Filter: Optional[HandshakeFilter]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    Filter: HandshakeFilter | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListHandshakesForAccountResponse(TypedDict, total=False):
-    Handshakes: Optional[Handshakes]
-    NextToken: Optional[NextToken]
+    Handshakes: Handshakes | None
+    NextToken: NextToken | None
 
 
 class ListHandshakesForOrganizationRequest(ServiceRequest):
-    Filter: Optional[HandshakeFilter]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    Filter: HandshakeFilter | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListHandshakesForOrganizationResponse(TypedDict, total=False):
-    Handshakes: Optional[Handshakes]
-    NextToken: Optional[NextToken]
+    Handshakes: Handshakes | None
+    NextToken: NextToken | None
+
+
+class ListInboundResponsibilityTransfersRequest(ServiceRequest):
+    Type: ResponsibilityTransferType
+    Id: ResponsibilityTransferId | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+
+
+ResponsibilityTransfers = list[ResponsibilityTransfer]
+
+
+class ListInboundResponsibilityTransfersResponse(TypedDict, total=False):
+    ResponsibilityTransfers: ResponsibilityTransfers | None
+    NextToken: NextToken | None
 
 
 class ListOrganizationalUnitsForParentRequest(ServiceRequest):
     ParentId: ParentId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-OrganizationalUnits = List[OrganizationalUnit]
+OrganizationalUnits = list[OrganizationalUnit]
 
 
 class ListOrganizationalUnitsForParentResponse(TypedDict, total=False):
-    OrganizationalUnits: Optional[OrganizationalUnits]
-    NextToken: Optional[NextToken]
+    OrganizationalUnits: OrganizationalUnits | None
+    NextToken: NextToken | None
+
+
+class ListOutboundResponsibilityTransfersRequest(ServiceRequest):
+    Type: ResponsibilityTransferType
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+
+
+class ListOutboundResponsibilityTransfersResponse(TypedDict, total=False):
+    ResponsibilityTransfers: ResponsibilityTransfers | None
+    NextToken: NextToken | None
 
 
 class ListParentsRequest(ServiceRequest):
     ChildId: ChildId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class Parent(TypedDict, total=False):
@@ -1751,71 +1986,71 @@ class Parent(TypedDict, total=False):
     that can contain OUs or accounts in an organization.
     """
 
-    Id: Optional[ParentId]
-    Type: Optional[ParentType]
+    Id: ParentId | None
+    Type: ParentType | None
 
 
-Parents = List[Parent]
+Parents = list[Parent]
 
 
 class ListParentsResponse(TypedDict, total=False):
-    Parents: Optional[Parents]
-    NextToken: Optional[NextToken]
+    Parents: Parents | None
+    NextToken: NextToken | None
 
 
 class ListPoliciesForTargetRequest(ServiceRequest):
     TargetId: PolicyTargetId
     Filter: PolicyType
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-Policies = List[PolicySummary]
+Policies = list[PolicySummary]
 
 
 class ListPoliciesForTargetResponse(TypedDict, total=False):
-    Policies: Optional[Policies]
-    NextToken: Optional[NextToken]
+    Policies: Policies | None
+    NextToken: NextToken | None
 
 
 class ListPoliciesRequest(ServiceRequest):
     Filter: PolicyType
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListPoliciesResponse(TypedDict, total=False):
-    Policies: Optional[Policies]
-    NextToken: Optional[NextToken]
+    Policies: Policies | None
+    NextToken: NextToken | None
 
 
 class ListRootsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-Roots = List[Root]
+Roots = list[Root]
 
 
 class ListRootsResponse(TypedDict, total=False):
-    Roots: Optional[Roots]
-    NextToken: Optional[NextToken]
+    Roots: Roots | None
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
     ResourceId: TaggableResourceId
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[Tags]
-    NextToken: Optional[NextToken]
+    Tags: Tags | None
+    NextToken: NextToken | None
 
 
 class ListTargetsForPolicyRequest(ServiceRequest):
     PolicyId: PolicyId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class PolicyTargetSummary(TypedDict, total=False):
@@ -1823,18 +2058,18 @@ class PolicyTargetSummary(TypedDict, total=False):
     attached to.
     """
 
-    TargetId: Optional[PolicyTargetId]
-    Arn: Optional[GenericArn]
-    Name: Optional[TargetName]
-    Type: Optional[TargetType]
+    TargetId: PolicyTargetId | None
+    Arn: GenericArn | None
+    Name: TargetName | None
+    Type: TargetType | None
 
 
-PolicyTargets = List[PolicyTargetSummary]
+PolicyTargets = list[PolicyTargetSummary]
 
 
 class ListTargetsForPolicyResponse(TypedDict, total=False):
-    Targets: Optional[PolicyTargets]
-    NextToken: Optional[NextToken]
+    Targets: PolicyTargets | None
+    NextToken: NextToken | None
 
 
 class MoveAccountRequest(ServiceRequest):
@@ -1845,11 +2080,11 @@ class MoveAccountRequest(ServiceRequest):
 
 class PutResourcePolicyRequest(ServiceRequest):
     Content: ResourcePolicyContent
-    Tags: Optional[Tags]
+    Tags: Tags | None
 
 
 class PutResourcePolicyResponse(TypedDict, total=False):
-    ResourcePolicy: Optional[ResourcePolicy]
+    ResourcePolicy: ResourcePolicy | None
 
 
 class RegisterDelegatedAdministratorRequest(ServiceRequest):
@@ -1861,12 +2096,21 @@ class RemoveAccountFromOrganizationRequest(ServiceRequest):
     AccountId: AccountId
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
     ResourceId: TaggableResourceId
     Tags: Tags
+
+
+class TerminateResponsibilityTransferRequest(ServiceRequest):
+    Id: ResponsibilityTransferId
+    EndTimestamp: Timestamp | None
+
+
+class TerminateResponsibilityTransferResponse(TypedDict, total=False):
+    ResponsibilityTransfer: ResponsibilityTransfer | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -1876,67 +2120,70 @@ class UntagResourceRequest(ServiceRequest):
 
 class UpdateOrganizationalUnitRequest(ServiceRequest):
     OrganizationalUnitId: OrganizationalUnitId
-    Name: Optional[OrganizationalUnitName]
+    Name: OrganizationalUnitName | None
 
 
 class UpdateOrganizationalUnitResponse(TypedDict, total=False):
-    OrganizationalUnit: Optional[OrganizationalUnit]
+    OrganizationalUnit: OrganizationalUnit | None
 
 
 class UpdatePolicyRequest(ServiceRequest):
     PolicyId: PolicyId
-    Name: Optional[PolicyName]
-    Description: Optional[PolicyDescription]
-    Content: Optional[PolicyContent]
+    Name: PolicyName | None
+    Description: PolicyDescription | None
+    Content: PolicyContent | None
 
 
 class UpdatePolicyResponse(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
+
+
+class UpdateResponsibilityTransferRequest(ServiceRequest):
+    Id: ResponsibilityTransferId
+    Name: ResponsibilityTransferName
+
+
+class UpdateResponsibilityTransferResponse(TypedDict, total=False):
+    ResponsibilityTransfer: ResponsibilityTransfer | None
 
 
 class OrganizationsApi:
-    service = "organizations"
-    version = "2016-11-28"
+    service: str = "organizations"
+    version: str = "2016-11-28"
 
     @handler("AcceptHandshake")
     def accept_handshake(
         self, context: RequestContext, handshake_id: HandshakeId, **kwargs
     ) -> AcceptHandshakeResponse:
-        """Sends a response to the originator of a handshake agreeing to the action
-        proposed by the handshake request.
+        """Accepts a handshake by sending an ``ACCEPTED`` response to the sender.
+        You can view accepted handshakes in API responses for 30 days before
+        they are deleted.
 
-        You can only call this operation by the following principals when they
-        also have the relevant IAM permissions:
+        **Only the management account can accept the following handshakes**:
 
-        -  **Invitation to join** or **Approve all features request**
-           handshakes: only a principal from the member account.
+        -  Enable all features final confirmation (``APPROVE_ALL_FEATURES``)
 
-           The user who calls the API for an invitation to join must have the
-           ``organizations:AcceptHandshake`` permission. If you enabled all
-           features in the organization, the user must also have the
-           ``iam:CreateServiceLinkedRole`` permission so that Organizations can
-           create the required service-linked role named
-           ``AWSServiceRoleForOrganizations``. For more information, see
-           `Organizations and service-linked
-           roles <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integration_services.html#orgs_integrate_services-using_slrs>`__
-           in the *Organizations User Guide*.
+        -  Billing transfer (``TRANSFER_RESPONSIBILITY``)
 
-        -  **Enable all features final confirmation** handshake: only a
-           principal from the management account.
+        For more information, see `Enabling all
+        features <https://docs.aws.amazon.com/organizations/latest/userguide/manage-begin-all-features-standard-migration.html#manage-approve-all-features-invite>`__
+        and `Responding to a billing transfer
+        invitation <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_transfer_billing-respond-invitation.html>`__
+        in the *Organizations User Guide*.
 
-           For more information about invitations, see `Inviting an Amazon Web
-           Services account to join your
-           organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_invites.html>`__
-           in the *Organizations User Guide*. For more information about
-           requests to enable all features in the organization, see `Enabling
-           all features in your
-           organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_org_support-all-features.html>`__
-           in the *Organizations User Guide*.
+        **Only a member account can accept the following handshakes**:
 
-        After you accept a handshake, it continues to appear in the results of
-        relevant APIs for only 30 days. After that, it's deleted.
+        -  Invitation to join (``INVITE``)
 
-        :param handshake_id: The unique identifier (ID) of the handshake that you want to accept.
+        -  Approve all features request (``ENABLE_ALL_FEATURES``)
+
+        For more information, see `Responding to
+        invitations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_accept-decline-invite.html>`__
+        and `Enabling all
+        features <https://docs.aws.amazon.com/organizations/latest/userguide/manage-begin-all-features-standard-migration.html#manage-approve-all-features-invite>`__
+        in the *Organizations User Guide*.
+
+        :param handshake_id: ID for the handshake that you want to accept.
         :returns: AcceptHandshakeResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -1949,6 +2196,8 @@ class OrganizationsApi:
         :raises ServiceException:
         :raises TooManyRequestsException:
         :raises AccessDeniedForDependencyException:
+        :raises ConstraintViolationException:
+        :raises MasterCannotLeaveOrganizationException:
         """
         raise NotImplementedError
 
@@ -1977,13 +2226,19 @@ class OrganizationsApi:
 
         -  `SECURITYHUB_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_security_hub.html>`__
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        -  `UPGRADE_ROLLOUT_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_upgrade_rollout.html>`__
 
-        :param policy_id: The unique identifier (ID) of the policy that you want to attach to the
-        target.
-        :param target_id: The unique identifier (ID) of the root, OU, or account that you want to
-        attach the policy to.
+        -  `INSPECTOR_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_inspector.html>`__
+
+        -  `BEDROCK_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_bedrock.html>`__
+
+        -  `S3_POLICY <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_S3.html>`__
+
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
+
+        :param policy_id: ID for the policy that you want to attach to the target.
+        :param target_id: ID for the root, OU, or account that you want to attach the policy to.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -2004,18 +2259,17 @@ class OrganizationsApi:
     def cancel_handshake(
         self, context: RequestContext, handshake_id: HandshakeId, **kwargs
     ) -> CancelHandshakeResponse:
-        """Cancels a handshake. Canceling a handshake sets the handshake state to
-        ``CANCELED``.
+        """Cancels a Handshake.
 
-        This operation can be called only from the account that originated the
-        handshake. The recipient of the handshake can't cancel it, but can use
-        DeclineHandshake instead. After a handshake is canceled, the recipient
-        can no longer respond to that handshake.
+        Only the account that sent a handshake can call this operation. The
+        recipient of the handshake can't cancel it, but can use DeclineHandshake
+        to decline. After a handshake is canceled, the recipient can no longer
+        respond to the handshake.
 
-        After you cancel a handshake, it continues to appear in the results of
-        relevant APIs for only 30 days. After that, it's deleted.
+        You can view canceled handshakes in API responses for 30 days before
+        they are deleted.
 
-        :param handshake_id: The unique identifier (ID) of the handshake that you want to cancel.
+        :param handshake_id: ID for the handshake that you want to cancel.
         :returns: CancelHandshakeResponse
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -2140,8 +2394,7 @@ class OrganizationsApi:
         clones the company name and address information for the new account from
         the organization's management account.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         For more information about creating accounts, see `Creating a member
         account in your
@@ -2425,11 +2678,9 @@ class OrganizationsApi:
         If the request includes tags, then the requester must have the
         ``organizations:TagResource`` permission.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
-        :param parent_id: The unique identifier (ID) of the parent root or OU that you want to
-        create the new OU in.
+        :param parent_id: ID for the parent root or OU that you want to create the new OU in.
         :param name: The friendly name to assign to the new OU.
         :param tags: A list of tags that you want to attach to the newly created OU.
         :returns: CreateOrganizationalUnitResponse
@@ -2459,8 +2710,8 @@ class OrganizationsApi:
         If the request includes tags, then the requester must have the
         ``organizations:TagResource`` permission.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param content: The policy text content to add to the new policy.
         :param description: An optional description to assign to the policy.
@@ -2486,18 +2737,16 @@ class OrganizationsApi:
     def decline_handshake(
         self, context: RequestContext, handshake_id: HandshakeId, **kwargs
     ) -> DeclineHandshakeResponse:
-        """Declines a handshake request. This sets the handshake state to
-        ``DECLINED`` and effectively deactivates the request.
+        """Declines a Handshake.
 
-        This operation can be called only from the account that received the
-        handshake. The originator of the handshake can use CancelHandshake
-        instead. The originator can't reactivate a declined request, but can
-        reinitiate the process with a new handshake request.
+        Only the account that receives a handshake can call this operation. The
+        sender of the handshake can use CancelHandshake to cancel if the
+        handshake hasn't yet been responded to.
 
-        After you decline a handshake, it continues to appear in the results of
-        relevant APIs for only 30 days. After that, it's deleted.
+        You can view canceled handshakes in API responses for 30 days before
+        they are deleted.
 
-        :param handshake_id: The unique identifier (ID) of the handshake that you want to decline.
+        :param handshake_id: ID for the handshake that you want to decline.
         :returns: DeclineHandshakeResponse
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -2519,6 +2768,7 @@ class OrganizationsApi:
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
+        :raises ConstraintViolationException:
         :raises InvalidInputException:
         :raises OrganizationNotEmptyException:
         :raises ServiceException:
@@ -2534,11 +2784,9 @@ class OrganizationsApi:
         first remove all accounts and child OUs from the OU that you want to
         delete.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
-        :param organizational_unit_id: The unique identifier (ID) of the organizational unit that you want to
-        delete.
+        :param organizational_unit_id: ID for the organizational unit that you want to delete.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -2556,10 +2804,10 @@ class OrganizationsApi:
         this operation, you must first detach the policy from all organizational
         units (OUs), roots, and accounts.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param policy_id: The unique identifier (ID) of the policy that you want to delete.
+        :param policy_id: ID for the policy that you want to delete.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -2576,8 +2824,7 @@ class OrganizationsApi:
     def delete_resource_policy(self, context: RequestContext, **kwargs) -> None:
         """Deletes the resource policy from your organization.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :raises AccessDeniedException:
         :raises ServiceException:
@@ -2613,8 +2860,7 @@ class OrganizationsApi:
         Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services_list.html>`__
         in the *Organizations User Guide.*
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :param account_id: The account ID number of the member account in the organization that you
         want to deregister as a delegated administrator.
@@ -2639,8 +2885,8 @@ class OrganizationsApi:
     ) -> DescribeAccountResponse:
         """Retrieves Organizations-related information about the specified account.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param account_id: The unique identifier (ID) of the Amazon Web Services account that you
         want information about.
@@ -2661,8 +2907,8 @@ class OrganizationsApi:
         """Retrieves the current status of an asynchronous request to create an
         account.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param create_account_request_id: Specifies the ``Id`` value that uniquely identifies the
         ``CreateAccount`` request.
@@ -2699,7 +2945,7 @@ class OrganizationsApi:
         inheritance <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_inheritance_mgmt.html>`__
         in the *Organizations User Guide*.
 
-        This operation can be called from any account in the organization.
+        You can call this operation from any account in a organization.
 
         :param policy_type: The type of policy that you want information about.
         :param target_id: When you're signed in as the management account, specify the ID of the
@@ -2721,18 +2967,16 @@ class OrganizationsApi:
     def describe_handshake(
         self, context: RequestContext, handshake_id: HandshakeId, **kwargs
     ) -> DescribeHandshakeResponse:
-        """Retrieves information about a previously requested handshake. The
-        handshake ID comes from the response to the original
-        InviteAccountToOrganization operation that generated the handshake.
+        """Returns details for a handshake. A handshake is the secure exchange of
+        information between two Amazon Web Services accounts: a sender and a
+        recipient.
 
-        You can access handshakes that are ``ACCEPTED``, ``DECLINED``, or
-        ``CANCELED`` for only 30 days after they change to that state. They're
-        then deleted and no longer accessible.
+        You can view ``ACCEPTED``, ``DECLINED``, or ``CANCELED`` handshakes in
+        API Responses for 30 days before they are deleted.
 
-        This operation can be called from any account in the organization.
+        You can call this operation from any account in a organization.
 
-        :param handshake_id: The unique identifier (ID) of the handshake that you want information
-        about.
+        :param handshake_id: ID for the handshake that you want information about.
         :returns: DescribeHandshakeResponse
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -2750,7 +2994,7 @@ class OrganizationsApi:
         """Retrieves information about the organization that the user's account
         belongs to.
 
-        This operation can be called from any account in the organization.
+        You can call this operation from any account in a organization.
 
         Even if a policy type is shown as available in the organization, you can
         disable it separately at the root level with DisablePolicyType. Use
@@ -2771,11 +3015,10 @@ class OrganizationsApi:
     ) -> DescribeOrganizationalUnitResponse:
         """Retrieves information about an organizational unit (OU).
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param organizational_unit_id: The unique identifier (ID) of the organizational unit that you want
-        details about.
+        :param organizational_unit_id: ID for the organizational unit that you want details about.
         :returns: DescribeOrganizationalUnitResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -2792,10 +3035,10 @@ class OrganizationsApi:
     ) -> DescribePolicyResponse:
         """Retrieves information about a policy.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param policy_id: The unique identifier (ID) of the policy that you want details about.
+        :param policy_id: ID for the policy that you want details about.
         :returns: DescribePolicyResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -2813,8 +3056,8 @@ class OrganizationsApi:
     ) -> DescribeResourcePolicyResponse:
         """Retrieves information about a resource policy.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :returns: DescribeResourcePolicyResponse
         :raises AccessDeniedException:
@@ -2824,6 +3067,26 @@ class OrganizationsApi:
         :raises AWSOrganizationsNotInUseException:
         :raises ResourcePolicyNotFoundException:
         :raises ConstraintViolationException:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeResponsibilityTransfer")
+    def describe_responsibility_transfer(
+        self, context: RequestContext, id: ResponsibilityTransferId, **kwargs
+    ) -> DescribeResponsibilityTransferResponse:
+        """Returns details for a transfer. A *transfer* is an arrangement between
+        two management accounts where one account designates the other with
+        specified responsibilities for their organization.
+
+        :param id: ID for the transfer.
+        :returns: DescribeResponsibilityTransferResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ResponsibilityTransferNotFoundException:
+        :raises InvalidInputException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
         """
         raise NotImplementedError
 
@@ -2851,12 +3114,11 @@ class OrganizationsApi:
         "`deny
         list <https://docs.aws.amazon.com/organizations/latest/userguide/SCP_strategies.html#orgs_policies_denylist>`__".
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param policy_id: The unique identifier (ID) of the policy you want to detach.
-        :param target_id: The unique identifier (ID) of the root, OU, or account that you want to
-        detach the policy from.
+        :param policy_id: ID for the policy you want to detach.
+        :param target_id: ID for the root, OU, or account that you want to detach the policy from.
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
         :raises ConcurrentModificationException:
@@ -2939,8 +3201,7 @@ class OrganizationsApi:
         services <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html>`__
         in the *Organizations User Guide*.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :param service_principal: The service principal name of the Amazon Web Services service for which
         you want to disable integration with your organization.
@@ -2974,14 +3235,13 @@ class OrganizationsApi:
         you first use ListRoots to see the status of policy types for a
         specified root, and then use this operation.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         To view the status of available policy types in the organization, use
         ListRoots.
 
-        :param root_id: The unique identifier (ID) of the root in which you want to disable a
-        policy type.
+        :param root_id: ID for the root in which you want to disable a policy type.
         :param policy_type: The policy type that you want to disable in this root.
         :returns: DisablePolicyTypeResponse
         :raises AccessDeniedException:
@@ -3024,8 +3284,7 @@ class OrganizationsApi:
         services <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html>`__
         in the *Organizations User Guide*.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :param service_principal: The service principal name of the Amazon Web Services service for which
         you want to enable integration with your organization.
@@ -3074,8 +3333,7 @@ class OrganizationsApi:
         accounts from leaving the organization. Ensure that your account
         administrators are aware of this.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :returns: EnableAllFeaturesResponse
         :raises AccessDeniedException:
@@ -3103,15 +3361,14 @@ class OrganizationsApi:
         to see the status of policy types for a specified root, and then use
         this operation.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         You can enable a policy type in a root only if that policy type is
         available in the organization. To view the status of available policy
         types in the organization, use ListRoots.
 
-        :param root_id: The unique identifier (ID) of the root in which you want to enable a
-        policy type.
+        :param root_id: ID for the root in which you want to enable a policy type.
         :param policy_type: The policy type that you want to enable.
         :returns: EnablePolicyTypeResponse
         :raises AccessDeniedException:
@@ -3153,8 +3410,7 @@ class OrganizationsApi:
         If the request includes tags, then the requester must have the
         ``organizations:TagResource`` permission.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :param target: The identifier (ID) of the Amazon Web Services account that you want to
         invite to join your organization.
@@ -3177,6 +3433,41 @@ class OrganizationsApi:
         """
         raise NotImplementedError
 
+    @handler("InviteOrganizationToTransferResponsibility", expand=False)
+    def invite_organization_to_transfer_responsibility(
+        self,
+        context: RequestContext,
+        request: InviteOrganizationToTransferResponsibilityRequest,
+        **kwargs,
+    ) -> InviteOrganizationToTransferResponsibilityResponse:
+        """Sends an invitation to another organization's management account to
+        designate your account with the specified responsibilities for their
+        organization. The invitation is implemented as a Handshake whose details
+        are in the response.
+
+        You can only call this operation from the management account.
+
+        :param type: The type of responsibility you want to designate to your organization.
+        :param target: A ``HandshakeParty`` object.
+        :param start_timestamp: Timestamp when the recipient will begin managing the specified
+        responsibilities.
+        :param source_name: Name you want to assign to the transfer.
+        :param notes: Additional information that you want to include in the invitation.
+        :param tags: A list of tags that you want to attach to the transfer.
+        :returns: InviteOrganizationToTransferResponsibilityResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ConcurrentModificationException:
+        :raises ConstraintViolationException:
+        :raises DuplicateHandshakeException:
+        :raises HandshakeConstraintViolationException:
+        :raises InvalidInputException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
+        """
+        raise NotImplementedError
+
     @handler("LeaveOrganization")
     def leave_organization(self, context: RequestContext, **kwargs) -> None:
         """Removes a member account from its parent organization. This version of
@@ -3184,8 +3475,7 @@ class OrganizationsApi:
         a member account as a user in the management account, use
         RemoveAccountFromOrganization instead.
 
-        This operation can be called only from a member account in the
-        organization.
+        You can only call from operation from a member account.
 
         -  The management account in an organization with all features enabled
            can set service control policies (SCPs) that can restrict what
@@ -3227,7 +3517,7 @@ class OrganizationsApi:
            support tags.
 
         -  A newly created account has a waiting period before it can be removed
-           from its organization. You must wait until at least seven days after
+           from its organization. You must wait until at least four days after
            the account was created. Invited accounts aren't subject to this
            waiting period.
 
@@ -3266,13 +3556,12 @@ class OrganizationsApi:
         services <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html>`__
         in the *Organizations User Guide*.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListAWSServiceAccessForOrganizationResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3296,19 +3585,19 @@ class OrganizationsApi:
         in a specified root or organizational unit (OU), use the
         ListAccountsForParent operation instead.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3334,21 +3623,21 @@ class OrganizationsApi:
         not in any child OUs. To get a list of all accounts in the organization,
         use the ListAccounts operation.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param parent_id: The unique identifier (ID) for the parent root or organization unit (OU)
         whose accounts you want to list.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsForParentResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3375,14 +3664,13 @@ class OrganizationsApi:
         being fully enforced on all the intended accounts within an
         organization.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param policy_type: The type of policy that you want information about.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListAccountsWithInvalidEffectivePolicyResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3410,22 +3698,22 @@ class OrganizationsApi:
         ListParents enables you to traverse the tree structure that makes up
         this root.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param parent_id: The unique identifier (ID) for the parent root or OU whose children you
         want to list.
         :param child_type: Filters the output to include only the specified child type.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListChildrenResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3448,20 +3736,20 @@ class OrganizationsApi:
         """Lists the account creation requests that match the specified status that
         is currently being tracked for the organization.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param states: A list of one or more states that you want included in the response.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListCreateAccountStatusResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3484,14 +3772,13 @@ class OrganizationsApi:
         """Lists the Amazon Web Services accounts that are designated as delegated
         administrators in this organization.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param service_principal: Specifies a service principal name.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListDelegatedAdministratorsResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3515,15 +3802,14 @@ class OrganizationsApi:
         """List the Amazon Web Services services for which the specified account is
         a delegated administrator.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param account_id: The account ID number of a delegated administrator account in the
         organization.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListDelegatedServicesForAccountResponse
         :raises AccessDeniedException:
         :raises AccountNotFoundException:
@@ -3551,15 +3837,14 @@ class OrganizationsApi:
         policy <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_effective.html>`__
         for a specified account and policy type.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param account_id: The ID of the account that you want details about.
         :param policy_type: The type of policy that you want information about.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListEffectivePolicyValidationErrorsResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3582,27 +3867,24 @@ class OrganizationsApi:
         max_results: MaxResults | None = None,
         **kwargs,
     ) -> ListHandshakesForAccountResponse:
-        """Lists the current handshakes that are associated with the account of the
-        requesting user.
+        """Lists the recent handshakes that you have received.
 
-        Handshakes that are ``ACCEPTED``, ``DECLINED``, ``CANCELED``, or
-        ``EXPIRED`` appear in the results of this API for only 30 days after
-        changing to that state. After that, they're deleted and no longer
-        accessible.
+        You can view ``CANCELED``, ``ACCEPTED``, ``DECLINED``, or ``EXPIRED``
+        handshakes in API responses for 30 days before they are deleted.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        You can call this operation from any account in a organization.
 
-        This operation can be called from any account in the organization.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        :param filter: Filters the handshakes that you want included in the response.
+        :param filter: A ``HandshakeFilter`` object.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListHandshakesForAccountResponse
         :raises AccessDeniedException:
         :raises ConcurrentModificationException:
@@ -3621,30 +3903,25 @@ class OrganizationsApi:
         max_results: MaxResults | None = None,
         **kwargs,
     ) -> ListHandshakesForOrganizationResponse:
-        """Lists the handshakes that are associated with the organization that the
-        requesting user is part of. The ``ListHandshakesForOrganization``
-        operation returns a list of handshake structures. Each structure
-        contains details and status about a handshake.
+        """Lists the recent handshakes that you have sent.
 
-        Handshakes that are ``ACCEPTED``, ``DECLINED``, ``CANCELED``, or
-        ``EXPIRED`` appear in the results of this API for only 30 days after
-        changing to that state. After that, they're deleted and no longer
-        accessible.
+        You can view ``CANCELED``, ``ACCEPTED``, ``DECLINED``, or ``EXPIRED``
+        handshakes in API responses for 30 days before they are deleted.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        :param filter: A filter of the handshakes that you want included in the response.
+        :param filter: A ``HandshakeFilter`` object.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListHandshakesForOrganizationResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3652,6 +3929,38 @@ class OrganizationsApi:
         :raises InvalidInputException:
         :raises ServiceException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("ListInboundResponsibilityTransfers", expand=False)
+    def list_inbound_responsibility_transfers(
+        self, context: RequestContext, request: ListInboundResponsibilityTransfersRequest, **kwargs
+    ) -> ListInboundResponsibilityTransfersResponse:
+        """Lists transfers that allow you to manage the specified responsibilities
+        for another organization. This operation returns both transfer
+        invitations and transfers.
+
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
+
+        :param type: The type of responsibility.
+        :param id: ID for the transfer.
+        :param next_token: The parameter for receiving additional results if you receive a
+        ``NextToken`` response in a previous request.
+        :param max_results: The maximum number of items to return in the response.
+        :returns: ListInboundResponsibilityTransfersResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ResponsibilityTransferNotFoundException:
+        :raises ConstraintViolationException:
+        :raises InvalidInputException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
         """
         raise NotImplementedError
 
@@ -3667,21 +3976,20 @@ class OrganizationsApi:
         """Lists the organizational units (OUs) in a parent organizational unit or
         root.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param parent_id: The unique identifier (ID) of the root or OU whose child OUs you want to
-        list.
+        :param parent_id: ID for the root or OU whose child OUs you want to list.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListOrganizationalUnitsForParentResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3689,6 +3997,36 @@ class OrganizationsApi:
         :raises ParentNotFoundException:
         :raises ServiceException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("ListOutboundResponsibilityTransfers", expand=False)
+    def list_outbound_responsibility_transfers(
+        self, context: RequestContext, request: ListOutboundResponsibilityTransfersRequest, **kwargs
+    ) -> ListOutboundResponsibilityTransfersResponse:
+        """Lists transfers that allow an account outside your organization to
+        manage the specified responsibilities for your organization. This
+        operation returns both transfer invitations and transfers.
+
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
+
+        :param type: The type of responsibility.
+        :param next_token: The parameter for receiving additional results if you receive a
+        ``NextToken`` response in a previous request.
+        :param max_results: The maximum number of items to return in the response.
+        :returns: ListOutboundResponsibilityTransfersResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ConstraintViolationException:
+        :raises InvalidInputException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
         """
         raise NotImplementedError
 
@@ -3706,23 +4044,22 @@ class OrganizationsApi:
         ListChildren enables you to traverse the tree structure that makes up
         this root.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         In the current release, a child can have only a single parent.
 
-        :param child_id: The unique identifier (ID) of the OU or account whose parent containers
-        you want to list.
+        :param child_id: ID for the OU or account whose parent containers you want to list.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListParentsResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3745,20 +4082,20 @@ class OrganizationsApi:
         """Retrieves the list of all policies in an organization of a specified
         type.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param filter: Specifies the type of policy that you want to include in the response.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListPoliciesResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3783,22 +4120,22 @@ class OrganizationsApi:
         root, organizational unit (OU), or account. You must specify the policy
         type that you want included in the returned list.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param target_id: The unique identifier (ID) of the root, organizational unit, or account
-        whose policies you want to list.
+        :param target_id: ID for the root, organizational unit, or account whose policies you want
+        to list.
         :param filter: The type of policy that you want to include in the returned list.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListPoliciesForTargetResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3820,14 +4157,15 @@ class OrganizationsApi:
     ) -> ListRootsResponse:
         """Lists the roots that are defined in the current organization.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         Policy types can be enabled and disabled in roots. This is distinct from
         whether they're available in the organization. When you enable all
@@ -3838,8 +4176,7 @@ class OrganizationsApi:
 
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListRootsResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3869,8 +4206,8 @@ class OrganizationsApi:
 
         -  Policy (any type)
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param resource_id: The ID of the resource with the tags to list.
         :param next_token: The parameter for receiving additional results if you receive a
@@ -3897,21 +4234,20 @@ class OrganizationsApi:
         """Lists all the roots, organizational units (OUs), and accounts that the
         specified policy is attached to.
 
-        Always check the ``NextToken`` response parameter for a ``null`` value
-        when calling a ``List*`` operation. These operations can occasionally
-        return an empty set of results even when there are more results
-        available. The ``NextToken`` response parameter value is ``null`` *only*
-        when there are no more results to display.
+        When calling List\\* operations, always check the ``NextToken`` response
+        parameter value, even if you receive an empty result set. These
+        operations can occasionally return an empty set of results even when
+        more results are available. Continue making requests until ``NextToken``
+        returns null. A null ``NextToken`` value indicates that you have
+        retrieved all available results.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param policy_id: The unique identifier (ID) of the policy whose attachments you want to
-        know.
+        :param policy_id: ID for the policy whose attachments you want to know.
         :param next_token: The parameter for receiving additional results if you receive a
         ``NextToken`` response in a previous request.
-        :param max_results: The total number of results that you want included on each page of the
-        response.
+        :param max_results: The maximum number of items to return in the response.
         :returns: ListTargetsForPolicyResponse
         :raises AccessDeniedException:
         :raises AWSOrganizationsNotInUseException:
@@ -3935,14 +4271,13 @@ class OrganizationsApi:
         """Moves an account from its current source parent root or organizational
         unit (OU) to the specified destination parent root or OU.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
-        :param account_id: The unique identifier (ID) of the account that you want to move.
-        :param source_parent_id: The unique identifier (ID) of the root or organizational unit that you
-        want to move the account from.
-        :param destination_parent_id: The unique identifier (ID) of the root or organizational unit that you
-        want to move the account to.
+        :param account_id: ID for the account that you want to move.
+        :param source_parent_id: ID for the root or organizational unit that you want to move the account
+        from.
+        :param destination_parent_id: ID for the root or organizational unit that you want to move the account
+        to.
         :raises AccessDeniedException:
         :raises InvalidInputException:
         :raises SourceParentNotFoundException:
@@ -3966,8 +4301,7 @@ class OrganizationsApi:
     ) -> PutResourcePolicyResponse:
         """Creates or updates a resource policy.
 
-        This operation can be called only from the organization's management
-        account..
+        You can only call this operation from the management account..
 
         :param content: If provided, the new content for the resource policy.
         :param tags: A list of tags that you want to attach to the newly created resource
@@ -4005,8 +4339,7 @@ class OrganizationsApi:
         Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services_list.html>`__
         in the *Organizations User Guide.*
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
         :param account_id: The account ID number of the member account in the organization to
         register as a delegated administrator.
@@ -4037,9 +4370,8 @@ class OrganizationsApi:
         account is no longer charged for any expenses accrued by the member
         account after it's removed from the organization.
 
-        This operation can be called only from the organization's management
-        account. Member accounts can remove themselves with LeaveOrganization
-        instead.
+        You can only call this operation from the management account. Member
+        accounts can remove themselves with LeaveOrganization instead.
 
         -  You can remove an account from your organization only if the account
            is configured with the information required to operate as a
@@ -4062,8 +4394,7 @@ class OrganizationsApi:
            Amazon Web Services accounts outside of an organization do not
            support tags.
 
-        :param account_id: The unique identifier (ID) of the member account that you want to remove
-        from the organization.
+        :param account_id: ID for the member account that you want to remove from the organization.
         :raises AccessDeniedException:
         :raises AccountNotFoundException:
         :raises AWSOrganizationsNotInUseException:
@@ -4093,8 +4424,8 @@ class OrganizationsApi:
 
         -  Policy (any type)
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param resource_id: The ID of the resource to add a tag to.
         :param tags: A list of tags to add to the specified resource.
@@ -4106,6 +4437,35 @@ class OrganizationsApi:
         :raises InvalidInputException:
         :raises ServiceException:
         :raises TooManyRequestsException:
+        """
+        raise NotImplementedError
+
+    @handler("TerminateResponsibilityTransfer")
+    def terminate_responsibility_transfer(
+        self,
+        context: RequestContext,
+        id: ResponsibilityTransferId,
+        end_timestamp: Timestamp | None = None,
+        **kwargs,
+    ) -> TerminateResponsibilityTransferResponse:
+        """Ends a transfer. A *transfer* is an arrangement between two management
+        accounts where one account designates the other with specified
+        responsibilities for their organization.
+
+        :param id: ID for the transfer.
+        :param end_timestamp: Timestamp when the responsibility transfer is to end.
+        :returns: TerminateResponsibilityTransferResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ConcurrentModificationException:
+        :raises ConstraintViolationException:
+        :raises InvalidInputException:
+        :raises ResponsibilityTransferNotFoundException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
+        :raises ResponsibilityTransferAlreadyInStatusException:
+        :raises InvalidResponsibilityTransferTransitionException:
         """
         raise NotImplementedError
 
@@ -4125,8 +4485,8 @@ class OrganizationsApi:
 
         -  Policy (any type)
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
         :param resource_id: The ID of the resource to remove a tag from.
         :param tag_keys: The list of keys for tags to remove from the specified resource.
@@ -4153,10 +4513,9 @@ class OrganizationsApi:
         change. The child OUs and accounts remain in place, and any attached
         policies of the OU remain attached.
 
-        This operation can be called only from the organization's management
-        account.
+        You can only call this operation from the management account.
 
-        :param organizational_unit_id: The unique identifier (ID) of the OU that you want to rename.
+        :param organizational_unit_id: ID for the OU that you want to rename.
         :param name: The new name that you want to assign to the OU.
         :returns: UpdateOrganizationalUnitResponse
         :raises AccessDeniedException:
@@ -4184,10 +4543,10 @@ class OrganizationsApi:
         you don't supply any parameter, that value remains unchanged. You can't
         change a policy's type.
 
-        This operation can be called only from the organization's management
-        account or by a member account that is a delegated administrator.
+        You can only call this operation from the management account or a member
+        account that is a delegated administrator.
 
-        :param policy_id: The unique identifier (ID) of the policy that you want to update.
+        :param policy_id: ID for the policy that you want to update.
         :param name: If provided, the new name for the policy.
         :param description: If provided, the new description for the policy.
         :param content: If provided, the new content for the policy.
@@ -4204,5 +4563,33 @@ class OrganizationsApi:
         :raises TooManyRequestsException:
         :raises UnsupportedAPIEndpointException:
         :raises PolicyChangesInProgressException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateResponsibilityTransfer")
+    def update_responsibility_transfer(
+        self,
+        context: RequestContext,
+        id: ResponsibilityTransferId,
+        name: ResponsibilityTransferName,
+        **kwargs,
+    ) -> UpdateResponsibilityTransferResponse:
+        """Updates a transfer. A *transfer* is the arrangement between two
+        management accounts where one account designates the other with
+        specified responsibilities for their organization.
+
+        You can update the name assigned to a transfer.
+
+        :param id: ID for the transfer.
+        :param name: New name you want to assign to the transfer.
+        :returns: UpdateResponsibilityTransferResponse
+        :raises AccessDeniedException:
+        :raises AWSOrganizationsNotInUseException:
+        :raises ResponsibilityTransferNotFoundException:
+        :raises ConstraintViolationException:
+        :raises InvalidInputException:
+        :raises ServiceException:
+        :raises TooManyRequestsException:
+        :raises UnsupportedAPIEndpointException:
         """
         raise NotImplementedError

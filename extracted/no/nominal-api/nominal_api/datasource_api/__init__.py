@@ -13,6 +13,10 @@ from .._impl import (
     datasource_api_ChannelWithTagFilters as ChannelWithTagFilters,
     datasource_api_DataScopeFilters as DataScopeFilters,
     datasource_api_DataSourcePrefixNode as DataSourcePrefixNode,
+    datasource_api_GetAvailableTagKeysRequest as GetAvailableTagKeysRequest,
+    datasource_api_GetAvailableTagKeysResponse as GetAvailableTagKeysResponse,
+    datasource_api_GetAvailableTagValuesRequest as GetAvailableTagValuesRequest,
+    datasource_api_GetAvailableTagValuesResponse as GetAvailableTagValuesResponse,
     datasource_api_GetAvailableTagsForChannelRequest as GetAvailableTagsForChannelRequest,
     datasource_api_GetAvailableTagsForChannelResponse as GetAvailableTagsForChannelResponse,
     datasource_api_GetDataScopeBoundsRequest as GetDataScopeBoundsRequest,
@@ -25,8 +29,9 @@ from .._impl import (
     datasource_api_SearchFilteredChannelsResponse as SearchFilteredChannelsResponse,
     datasource_api_SearchHierarchicalChannelsRequest as SearchHierarchicalChannelsRequest,
     datasource_api_SearchHierarchicalChannelsResponse as SearchHierarchicalChannelsResponse,
-    datasource_api_SeriesArchetypeRidOrLogicalSeriesRid as SeriesArchetypeRidOrLogicalSeriesRid,
-    datasource_api_SeriesArchetypeRidOrLogicalSeriesRidVisitor as SeriesArchetypeRidOrLogicalSeriesRidVisitor,
+    datasource_api_SeriesMetadataRidOrLogicalSeriesRid as SeriesMetadataRidOrLogicalSeriesRid,
+    datasource_api_SeriesMetadataRidOrLogicalSeriesRidVisitor as SeriesMetadataRidOrLogicalSeriesRidVisitor,
+    datasource_api_TagSearchFilters as TagSearchFilters,
 )
 
 __all__ = [
@@ -43,6 +48,10 @@ __all__ = [
     'ChannelWithTagFilters',
     'DataScopeFilters',
     'DataSourcePrefixNode',
+    'GetAvailableTagKeysRequest',
+    'GetAvailableTagKeysResponse',
+    'GetAvailableTagValuesRequest',
+    'GetAvailableTagValuesResponse',
     'GetAvailableTagsForChannelRequest',
     'GetAvailableTagsForChannelResponse',
     'GetDataScopeBoundsRequest',
@@ -55,7 +64,8 @@ __all__ = [
     'SearchFilteredChannelsResponse',
     'SearchHierarchicalChannelsRequest',
     'SearchHierarchicalChannelsResponse',
-    'SeriesArchetypeRidOrLogicalSeriesRid',
-    'SeriesArchetypeRidOrLogicalSeriesRidVisitor',
+    'SeriesMetadataRidOrLogicalSeriesRid',
+    'SeriesMetadataRidOrLogicalSeriesRidVisitor',
+    'TagSearchFilters',
 ]
 

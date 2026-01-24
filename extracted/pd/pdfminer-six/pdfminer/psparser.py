@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
+import contextlib
 import io
 import logging
 import re
+from collections.abc import Iterator
 from typing import (
     Any,
     BinaryIO,
-    Dict,
     Generic,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
     TypeVar,
     Union,
 )
@@ -53,7 +49,7 @@ class PSLiteral(PSObject):
 
     def __repr__(self) -> str:
         name = self.name
-        return "/%r" % name
+        return f"/{name!r}"
 
 
 class PSKeyword(PSObject):
@@ -72,7 +68,7 @@ class PSKeyword(PSObject):
 
     def __repr__(self) -> str:
         name = self.name
-        return "/%r" % name
+        return f"/{name!r}"
 
 
 _SymbolT = TypeVar("_SymbolT", PSLiteral, PSKeyword)
@@ -84,9 +80,9 @@ class PSSymbolTable(Generic[_SymbolT]):
     Interned objects can be checked its identity with "is" operator.
     """
 
-    def __init__(self, klass: Type[_SymbolT]) -> None:
-        self.dict: Dict[PSLiteral.NameType, _SymbolT] = {}
-        self.klass: Type[_SymbolT] = klass
+    def __init__(self, klass: type[_SymbolT]) -> None:
+        self.dict: dict[PSLiteral.NameType, _SymbolT] = {}
+        self.klass: type[_SymbolT] = klass
 
     def intern(self, name: PSLiteral.NameType) -> _SymbolT:
         if name in self.dict:
@@ -128,7 +124,7 @@ def literal_name(x: Any) -> str:
 def keyword_name(x: Any) -> Any:
     if not isinstance(x, PSKeyword):
         if settings.STRICT:
-            raise PSTypeError("Keyword required: %r" % x)
+            raise PSTypeError(f"Keyword required: {x!r}")
         else:
             name = x
     else:
@@ -173,24 +169,10 @@ class PSBaseParser:
         self.seek(0)
 
     def __repr__(self) -> str:
-        return "<%s: %r, bufpos=%d>" % (self.__class__.__name__, self.fp, self.bufpos)
+        return f"<{self.__class__.__name__}: {self.fp!r}, bufpos={self.bufpos}>"
 
     def flush(self) -> None:
         pass
-
-    def close(self) -> None:
-        self.flush()
-
-    def tell(self) -> int:
-        return self.bufpos + self.charpos
-
-    def poll(self, pos: Optional[int] = None, n: int = 80) -> None:
-        pos0 = self.fp.tell()
-        if not pos:
-            pos = self.bufpos + self.charpos
-        self.fp.seek(pos)
-        log.debug("poll(%d): %r", pos, self.fp.read(n))
-        self.fp.seek(pos0)
 
     def seek(self, pos: int) -> None:
         """Seeks the parser to the given position."""
@@ -204,20 +186,21 @@ class PSBaseParser:
         self._parse1 = self._parse_main
         self._curtoken = b""
         self._curtokenpos = 0
-        self._tokens: List[Tuple[int, PSBaseParserToken]] = []
+        self._tokens: list[tuple[int, PSBaseParserToken]] = []
         self.eof = False
 
-    def fillbuf(self) -> None:
+    def fillbuf(self) -> bool:
         if self.charpos < len(self.buf):
-            return
+            return False
         # fetch next chunk.
         self.bufpos = self.fp.tell()
         self.buf = self.fp.read(self.BUFSIZ)
         if not self.buf:
             raise PSEOF("Unexpected EOF")
         self.charpos = 0
+        return False
 
-    def nextline(self) -> Tuple[int, bytes]:
+    def nextline(self) -> tuple[int, bytes]:
         """Fetches a next line that ends either with \\r or \\n."""
         linebuf = b""
         linepos = self.bufpos + self.charpos
@@ -247,7 +230,7 @@ class PSBaseParser:
         return (linepos, linebuf)
 
     def revreadlines(self) -> Iterator[bytes]:
-        """Fetches a next line backword.
+        """Fetches a next line backward.
 
         This is used to locate the trailers at the end of a file.
         """
@@ -344,7 +327,7 @@ class PSBaseParser:
             self._parse1 = self._parse_literal_hex
             return j + 1
         try:
-            name: Union[str, bytes] = str(self._curtoken, "utf-8")
+            name: str | bytes = str(self._curtoken, "utf-8")
         except Exception:
             name = self._curtoken
         self._add_token(LIT(name))
@@ -373,10 +356,8 @@ class PSBaseParser:
             self._curtoken += c
             self._parse1 = self._parse_float
             return j + 1
-        try:
+        with contextlib.suppress(ValueError):
             self._add_token(int(self._curtoken))
-        except ValueError:
-            pass
         self._parse1 = self._parse_main
         return j
 
@@ -387,10 +368,8 @@ class PSBaseParser:
             return len(s)
         j = m.start(0)
         self._curtoken += s[i:j]
-        try:
+        with contextlib.suppress(ValueError):
             self._add_token(float(self._curtoken))
-        except ValueError:
-            pass
         self._parse1 = self._parse_main
         return j
 
@@ -403,7 +382,7 @@ class PSBaseParser:
             self._curtoken += s[i:]
             return len(s)
         if self._curtoken == b"true":
-            token: Union[bool, PSKeyword] = True
+            token: bool | PSKeyword = True
         elif self._curtoken == b"false":
             token = False
         else:
@@ -450,7 +429,7 @@ class PSBaseParser:
 
         elif self.oct:
             chrcode = int(self.oct, 8)
-            assert chrcode < 256, "Invalid octal %s (%d)" % (repr(self.oct), chrcode)
+            assert chrcode < 256, f"Invalid octal {self.oct!r} ({chrcode})"
             self._curtoken += bytes((chrcode,))
             self._parse1 = self._parse_string
             return i
@@ -500,14 +479,19 @@ class PSBaseParser:
         self._parse1 = self._parse_main
         return j
 
-    def nexttoken(self) -> Tuple[int, PSBaseParserToken]:
+    def nexttoken(self) -> tuple[int, PSBaseParserToken]:
         if self.eof:
             # It's not really unexpected, come on now...
             raise PSEOF("Unexpected EOF")
         while not self._tokens:
             try:
-                self.fillbuf()
-                self.charpos = self._parse1(self.buf, self.charpos)
+                changed_stream = self.fillbuf()
+                if changed_stream and self._curtoken:
+                    # Fixes #1157: if the stream is changed in the middle of a token,
+                    # try to parse it by tacking on whitespace.
+                    self._parse1(b"\n", 0)
+                else:
+                    self.charpos = self._parse1(self.buf, self.charpos)
             except PSEOF:
                 # If we hit EOF in the middle of a token, try to parse
                 # it by tacking on whitespace, and delay raising PSEOF
@@ -529,8 +513,10 @@ class PSBaseParser:
 #  * dict (via KEYWORD_DICT)
 #  * subclass-specific extensions (e.g. PDFStream, PDFObjRef) via ExtraT
 ExtraT = TypeVar("ExtraT")
-PSStackType = Union[str, float, bool, PSLiteral, bytes, List, Dict, ExtraT]
-PSStackEntry = Tuple[int, PSStackType[ExtraT]]
+PSStackType = Union[
+    str, float, bool, PSLiteral, bytes, list[Any], dict[Any, Any], ExtraT
+]
+PSStackEntry = tuple[int, PSStackType[ExtraT]]
 
 
 class PSStackParser(PSBaseParser, Generic[ExtraT]):
@@ -539,10 +525,10 @@ class PSStackParser(PSBaseParser, Generic[ExtraT]):
         self.reset()
 
     def reset(self) -> None:
-        self.context: List[Tuple[int, Optional[str], List[PSStackEntry[ExtraT]]]] = []
-        self.curtype: Optional[str] = None
-        self.curstack: List[PSStackEntry[ExtraT]] = []
-        self.results: List[PSStackEntry[ExtraT]] = []
+        self.context: list[tuple[int, str | None, list[PSStackEntry[ExtraT]]]] = []
+        self.curtype: str | None = None
+        self.curstack: list[PSStackEntry[ExtraT]] = []
+        self.results: list[PSStackEntry[ExtraT]] = []
 
     def seek(self, pos: int) -> None:
         PSBaseParser.seek(self, pos)
@@ -551,12 +537,12 @@ class PSStackParser(PSBaseParser, Generic[ExtraT]):
     def push(self, *objs: PSStackEntry[ExtraT]) -> None:
         self.curstack.extend(objs)
 
-    def pop(self, n: int) -> List[PSStackEntry[ExtraT]]:
+    def pop(self, n: int) -> list[PSStackEntry[ExtraT]]:
         objs = self.curstack[-n:]
         self.curstack[-n:] = []
         return objs
 
-    def popall(self) -> List[PSStackEntry[ExtraT]]:
+    def popall(self) -> list[PSStackEntry[ExtraT]]:
         objs = self.curstack
         self.curstack = []
         return objs
@@ -573,7 +559,7 @@ class PSStackParser(PSBaseParser, Generic[ExtraT]):
         (self.curtype, self.curstack) = (type, [])
         log.debug("start_type: pos=%r, type=%r", pos, type)
 
-    def end_type(self, type: str) -> Tuple[int, List[PSStackType[ExtraT]]]:
+    def end_type(self, type: str) -> tuple[int, list[PSStackType[ExtraT]]]:
         if self.curtype != type:
             raise PSTypeError(f"Type mismatch: {self.curtype!r} != {type!r}")
         objs = [obj for (_, obj) in self.curstack]
@@ -615,7 +601,7 @@ class PSStackParser(PSBaseParser, Generic[ExtraT]):
                 try:
                     (pos, objs) = self.end_type("d")
                     if len(objs) % 2 != 0:
-                        error_msg = "Invalid dictionary construct: %r" % objs
+                        error_msg = f"Invalid dictionary construct: {objs!r}"
                         raise PSSyntaxError(error_msg)
                     d = {
                         literal_name(k): v

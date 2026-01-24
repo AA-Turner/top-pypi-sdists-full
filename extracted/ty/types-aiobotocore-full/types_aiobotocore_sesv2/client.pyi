@@ -3,7 +3,7 @@ Type annotations for sesv2 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -100,6 +101,8 @@ from .type_defs import (
     GetDomainDeliverabilityCampaignResponseTypeDef,
     GetDomainStatisticsReportRequestTypeDef,
     GetDomainStatisticsReportResponseTypeDef,
+    GetEmailAddressInsightsRequestTypeDef,
+    GetEmailAddressInsightsResponseTypeDef,
     GetEmailIdentityPoliciesRequestTypeDef,
     GetEmailIdentityPoliciesResponseTypeDef,
     GetEmailIdentityRequestTypeDef,
@@ -201,12 +204,6 @@ from .type_defs import (
     UpdateReputationEntityPolicyRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -215,20 +212,20 @@ else:
 __all__ = ("SESV2Client",)
 
 class Exceptions(BaseClientExceptions):
-    AccountSuspendedException: Type[BotocoreClientError]
-    AlreadyExistsException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MailFromDomainNotVerifiedException: Type[BotocoreClientError]
-    MessageRejected: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    SendingPausedException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
+    AccountSuspendedException: type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MailFromDomainNotVerifiedException: type[BotocoreClientError]
+    MessageRejected: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    SendingPausedException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
 
 class SESV2Client(AioBaseClient):
     """
@@ -277,7 +274,7 @@ class SESV2Client(AioBaseClient):
 
     async def cancel_export_job(
         self, **kwargs: Unpack[CancelExportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancels an export job.
 
@@ -287,7 +284,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_configuration_set(
         self, **kwargs: Unpack[CreateConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a configuration set.
 
@@ -297,7 +294,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_configuration_set_event_destination(
         self, **kwargs: Unpack[CreateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create an event destination.
 
@@ -305,7 +302,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#create_configuration_set_event_destination)
         """
 
-    async def create_contact(self, **kwargs: Unpack[CreateContactRequestTypeDef]) -> Dict[str, Any]:
+    async def create_contact(self, **kwargs: Unpack[CreateContactRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a contact, which is an end-user who is receiving the email, and adds
         them to a contact list.
@@ -316,7 +313,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_contact_list(
         self, **kwargs: Unpack[CreateContactListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a contact list.
 
@@ -326,7 +323,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_custom_verification_email_template(
         self, **kwargs: Unpack[CreateCustomVerificationEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a new custom verification email template.
 
@@ -336,7 +333,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_dedicated_ip_pool(
         self, **kwargs: Unpack[CreateDedicatedIpPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create a new pool of dedicated IP addresses.
 
@@ -366,7 +363,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_email_identity_policy(
         self, **kwargs: Unpack[CreateEmailIdentityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates the specified sending authorization policy for the given identity (an
         email address or a domain).
@@ -377,7 +374,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_email_template(
         self, **kwargs: Unpack[CreateEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an email template.
 
@@ -427,7 +424,7 @@ class SESV2Client(AioBaseClient):
 
     async def create_tenant_resource_association(
         self, **kwargs: Unpack[CreateTenantResourceAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate a resource with a tenant.
 
@@ -437,7 +434,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an existing configuration set.
 
@@ -447,7 +444,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_configuration_set_event_destination(
         self, **kwargs: Unpack[DeleteConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an event destination.
 
@@ -455,7 +452,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#delete_configuration_set_event_destination)
         """
 
-    async def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_contact(self, **kwargs: Unpack[DeleteContactRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a contact from a contact list.
 
@@ -465,7 +462,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_contact_list(
         self, **kwargs: Unpack[DeleteContactListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a contact list and all of the contacts on that list.
 
@@ -475,7 +472,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_custom_verification_email_template(
         self, **kwargs: Unpack[DeleteCustomVerificationEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing custom verification email template.
 
@@ -485,7 +482,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_dedicated_ip_pool(
         self, **kwargs: Unpack[DeleteDedicatedIpPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a dedicated IP pool.
 
@@ -495,7 +492,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_email_identity(
         self, **kwargs: Unpack[DeleteEmailIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an email identity.
 
@@ -505,7 +502,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_email_identity_policy(
         self, **kwargs: Unpack[DeleteEmailIdentityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified sending authorization policy for the given identity (an
         email address or a domain).
@@ -516,7 +513,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_email_template(
         self, **kwargs: Unpack[DeleteEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an email template.
 
@@ -536,7 +533,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_suppressed_destination(
         self, **kwargs: Unpack[DeleteSuppressedDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an email address from the suppression list for your account.
 
@@ -544,7 +541,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#delete_suppressed_destination)
         """
 
-    async def delete_tenant(self, **kwargs: Unpack[DeleteTenantRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_tenant(self, **kwargs: Unpack[DeleteTenantRequestTypeDef]) -> dict[str, Any]:
         """
         Delete an existing tenant.
 
@@ -554,7 +551,7 @@ class SESV2Client(AioBaseClient):
 
     async def delete_tenant_resource_association(
         self, **kwargs: Unpack[DeleteTenantResourceAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an association between a tenant and a resource.
 
@@ -708,6 +705,18 @@ class SESV2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_domain_statistics_report.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#get_domain_statistics_report)
+        """
+
+    async def get_email_address_insights(
+        self, **kwargs: Unpack[GetEmailAddressInsightsRequestTypeDef]
+    ) -> GetEmailAddressInsightsResponseTypeDef:
+        """
+        Provides validation insights about a specific email address, including syntax
+        validation, DNS record checks, mailbox existence, and other deliverability
+        factors.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sesv2/client/get_email_address_insights.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#get_email_address_insights)
         """
 
     async def get_email_identity(
@@ -1024,7 +1033,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_account_dedicated_ip_warmup_attributes(
         self, **kwargs: Unpack[PutAccountDedicatedIpWarmupAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the automatic warm-up feature for dedicated IP addresses.
 
@@ -1034,7 +1043,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_account_details(
         self, **kwargs: Unpack[PutAccountDetailsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update your Amazon SES account details.
 
@@ -1044,7 +1053,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_account_sending_attributes(
         self, **kwargs: Unpack[PutAccountSendingAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the ability of your account to send email.
 
@@ -1054,7 +1063,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_account_suppression_attributes(
         self, **kwargs: Unpack[PutAccountSuppressionAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Change the settings for the account-level suppression list.
 
@@ -1064,7 +1073,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_account_vdm_attributes(
         self, **kwargs: Unpack[PutAccountVdmAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update your Amazon SES account VDM attributes.
 
@@ -1074,7 +1083,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_archiving_options(
         self, **kwargs: Unpack[PutConfigurationSetArchivingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate the configuration set with a MailManager archive.
 
@@ -1084,7 +1093,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_delivery_options(
         self, **kwargs: Unpack[PutConfigurationSetDeliveryOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associate a configuration set with a dedicated IP pool.
 
@@ -1094,7 +1103,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_reputation_options(
         self, **kwargs: Unpack[PutConfigurationSetReputationOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable collection of reputation metrics for emails that you send
         using a particular configuration set in a specific Amazon Web Services Region.
@@ -1105,7 +1114,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_sending_options(
         self, **kwargs: Unpack[PutConfigurationSetSendingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable email sending for messages that use a particular
         configuration set in a specific Amazon Web Services Region.
@@ -1116,7 +1125,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_suppression_options(
         self, **kwargs: Unpack[PutConfigurationSetSuppressionOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specify the account suppression list preferences for a configuration set.
 
@@ -1126,7 +1135,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_tracking_options(
         self, **kwargs: Unpack[PutConfigurationSetTrackingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specify a custom domain to use for open and click tracking elements in email
         that you send.
@@ -1137,7 +1146,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_configuration_set_vdm_options(
         self, **kwargs: Unpack[PutConfigurationSetVdmOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Specify VDM preferences for email that you send using the configuration set.
 
@@ -1147,7 +1156,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_dedicated_ip_in_pool(
         self, **kwargs: Unpack[PutDedicatedIpInPoolRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Move a dedicated IP address to an existing dedicated IP pool.
 
@@ -1157,7 +1166,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_dedicated_ip_pool_scaling_attributes(
         self, **kwargs: Unpack[PutDedicatedIpPoolScalingAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to convert a dedicated IP pool to a different scaling mode.
 
@@ -1167,7 +1176,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_dedicated_ip_warmup_attributes(
         self, **kwargs: Unpack[PutDedicatedIpWarmupAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         <p/>.
 
@@ -1177,7 +1186,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_deliverability_dashboard_option(
         self, **kwargs: Unpack[PutDeliverabilityDashboardOptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable or disable the Deliverability dashboard.
 
@@ -1187,7 +1196,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_email_identity_configuration_set_attributes(
         self, **kwargs: Unpack[PutEmailIdentityConfigurationSetAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to associate a configuration set with an email identity.
 
@@ -1197,7 +1206,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_email_identity_dkim_attributes(
         self, **kwargs: Unpack[PutEmailIdentityDkimAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable DKIM authentication for an email identity.
 
@@ -1218,7 +1227,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_email_identity_feedback_attributes(
         self, **kwargs: Unpack[PutEmailIdentityFeedbackAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable feedback forwarding for an identity.
 
@@ -1228,7 +1237,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_email_identity_mail_from_attributes(
         self, **kwargs: Unpack[PutEmailIdentityMailFromAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Used to enable or disable the custom Mail-From domain configuration for an
         email identity.
@@ -1239,7 +1248,7 @@ class SESV2Client(AioBaseClient):
 
     async def put_suppressed_destination(
         self, **kwargs: Unpack[PutSuppressedDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds an email address to the suppression list for your account.
 
@@ -1278,7 +1287,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#send_email)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Add one or more tags (keys and values) to a specified resource.
 
@@ -1297,7 +1306,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#test_render_email_template)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags (keys and values) from a specified resource.
 
@@ -1307,7 +1316,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the configuration of an event destination for a configuration set.
 
@@ -1315,7 +1324,7 @@ class SESV2Client(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sesv2/client/#update_configuration_set_event_destination)
         """
 
-    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> Dict[str, Any]:
+    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a contact's preferences for a list.
 
@@ -1325,7 +1334,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_contact_list(
         self, **kwargs: Unpack[UpdateContactListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates contact list metadata.
 
@@ -1335,7 +1344,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_custom_verification_email_template(
         self, **kwargs: Unpack[UpdateCustomVerificationEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing custom verification email template.
 
@@ -1345,7 +1354,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_email_identity_policy(
         self, **kwargs: Unpack[UpdateEmailIdentityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified sending authorization policy for the given identity (an
         email address or a domain).
@@ -1356,7 +1365,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_email_template(
         self, **kwargs: Unpack[UpdateEmailTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an email template.
 
@@ -1366,7 +1375,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_reputation_entity_customer_managed_status(
         self, **kwargs: Unpack[UpdateReputationEntityCustomerManagedStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the customer-managed sending status for a reputation entity.
 
@@ -1376,7 +1385,7 @@ class SESV2Client(AioBaseClient):
 
     async def update_reputation_entity_policy(
         self, **kwargs: Unpack[UpdateReputationEntityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the reputation management policy for a reputation entity.
 
@@ -1447,7 +1456,7 @@ class SESV2Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

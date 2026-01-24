@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.749661                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.920097                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -17,10 +17,13 @@ MICROMAMBA_MIRROR_URL: str
 def conda_platform():
     ...
 
+def markers_from_platform(platform):
+    ...
+
 def wheel_tags(wheel):
     ...
 
-def pip_tags(python_version, mamba_platform):
+def pip_tags(python_version, mamba_platform, freetheaded = False):
     ...
 
 def parse_filename_from_url(url):

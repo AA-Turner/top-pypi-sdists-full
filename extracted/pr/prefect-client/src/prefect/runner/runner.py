@@ -38,6 +38,7 @@ import asyncio
 import datetime
 import inspect
 import logging
+import multiprocessing.context
 import os
 import shlex
 import shutil
@@ -55,7 +56,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Coroutine,
     Dict,
     Iterable,
     List,
@@ -81,6 +81,7 @@ from prefect._internal.concurrency.api import (
     from_async,
     from_sync,
 )
+from prefect._observers import FlowRunCancellingObserver
 from prefect.client.orchestration import PrefectClient, get_client
 from prefect.client.schemas.objects import (
     ConcurrencyLimitConfig,
@@ -93,9 +94,9 @@ from prefect.events.clients import EventsClient, get_events_client
 from prefect.events.related import tags_as_related_resources
 from prefect.events.schemas.events import Event, RelatedResource, Resource
 from prefect.exceptions import Abort, ObjectNotFound
+from prefect.flow_engine import run_flow_in_subprocess
 from prefect.flows import Flow, FlowStateHook, load_flow_from_flow_run
 from prefect.logging.loggers import PrefectLogAdapter, flow_run_logger, get_logger
-from prefect.runner._observers import FlowRunCancellingObserver
 from prefect.runner.storage import RunnerStorage
 from prefect.schedules import Schedule
 from prefect.settings import (
@@ -111,6 +112,7 @@ from prefect.states import (
 )
 from prefect.types._datetime import now
 from prefect.types.entrypoint import EntrypointType
+from prefect.utilities._engine import get_hook_name
 from prefect.utilities.annotations import NotSet
 from prefect.utilities.asyncutils import (
     asyncnullcontext,
@@ -164,9 +166,10 @@ class Runner:
             query_seconds: The number of seconds to wait between querying for
                 scheduled flow runs; defaults to `PREFECT_RUNNER_POLL_FREQUENCY`
             prefetch_seconds: The number of seconds to prefetch flow runs for.
-            heartbeat_seconds: The number of seconds to wait between emitting
-                flow run heartbeats. The runner will not emit heartbeats if the value is None.
-                Defaults to `PREFECT_RUNNER_HEARTBEAT_FREQUENCY`.
+            heartbeat_seconds: The number of seconds between heartbeat events emitted
+                by flow runs managed by this runner. If not provided, the value of
+                `PREFECT_FLOWS_HEARTBEAT_FREQUENCY` will be used. Heartbeats are used
+                to detect crashed flow runs.
             limit: The maximum number of flow runs this runner should be running at. Provide `None` for no limit.
                 If not provided, the runner will use the value of `PREFECT_RUNNER_PROCESS_LIMIT`.
             pause_on_shutdown: A boolean for whether or not to automatically pause
@@ -199,6 +202,8 @@ class Runner:
                     asyncio.run(runner.start())
                 ```
         """
+        self._heartbeat_seconds = heartbeat_seconds
+
         settings = get_current_settings()
 
         if name and ("/" in name or "%" in name):
@@ -218,16 +223,11 @@ class Runner:
 
         self.query_seconds: float = query_seconds or settings.runner.poll_frequency
         self._prefetch_seconds: float = prefetch_seconds
-        self.heartbeat_seconds: float | None = (
-            heartbeat_seconds or settings.runner.heartbeat_frequency
-        )
-        if self.heartbeat_seconds is not None and self.heartbeat_seconds < 30:
-            raise ValueError("Heartbeat must be 30 seconds or greater.")
-        self._heartbeat_task: asyncio.Task[None] | None = None
         self._events_client: EventsClient = get_events_client(checkpoint_every=1)
 
         self._exit_stack = AsyncExitStack()
         self._limiter: anyio.CapacityLimiter | None = None
+        self._cancelling_observer: FlowRunCancellingObserver | None = None
         self._client: PrefectClient = get_client()
         self._submitting_flow_run_ids: set[UUID] = set()
         self._cancelling_flow_run_ids: set[UUID] = set()
@@ -253,11 +253,32 @@ class Runner:
         )
         self._flow_cache: LRUCache[UUID, "APIFlow"] = LRUCache(maxsize=100)
 
+        # Keep track of added flows so we can run them directly in a subprocess
+        self._deployment_flow_map: dict[UUID, "Flow[Any, Any]"] = dict()
+
     @property
     def _flow_run_process_map_lock(self) -> asyncio.Lock:
         if self.__flow_run_process_map_lock is None:
             self.__flow_run_process_map_lock = asyncio.Lock()
         return self.__flow_run_process_map_lock
+
+    async def _add_flow_run_process_map_entry(
+        self, flow_run_id: UUID, process_map_entry: ProcessMapEntry
+    ):
+        async with self._flow_run_process_map_lock:
+            self._flow_run_process_map[flow_run_id] = process_map_entry
+
+            if TYPE_CHECKING:
+                assert self._cancelling_observer is not None
+            self._cancelling_observer.add_in_flight_flow_run_id(flow_run_id)
+
+    async def _remove_flow_run_process_map_entry(self, flow_run_id: UUID):
+        async with self._flow_run_process_map_lock:
+            self._flow_run_process_map.pop(flow_run_id, None)
+
+            if TYPE_CHECKING:
+                assert self._cancelling_observer is not None
+            self._cancelling_observer.remove_in_flight_flow_run_id(flow_run_id)
 
     @sync_compatible
     async def add_deployment(
@@ -375,7 +396,13 @@ class Runner:
         add_deployment_coro = self.add_deployment(deployment)
         if TYPE_CHECKING:
             assert inspect.isawaitable(add_deployment_coro)
-        return await add_deployment_coro
+        deployment_id = await add_deployment_coro
+
+        # Only add the flow to the map if it is not loaded from storage
+        # Further work is needed to support directly running flows created using `flow.from_source`
+        if not getattr(flow, "_storage", None):
+            self._deployment_flow_map[deployment_id] = flow
+        return deployment_id
 
     @sync_compatible
     async def _add_storage(self, storage: RunnerStorage) -> RunnerStorage:
@@ -555,7 +582,7 @@ class Runner:
         env: dict[str, str | None] | None = None,
         task_status: anyio.abc.TaskStatus[int] = anyio.TASK_STATUS_IGNORED,
         stream_output: bool = True,
-    ) -> anyio.abc.Process | None:
+    ) -> anyio.abc.Process | multiprocessing.context.SpawnProcess | None:
         """
         Executes a single flow run with the given ID.
 
@@ -575,7 +602,26 @@ class Runner:
             self._submitting_flow_run_ids.add(flow_run_id)
             flow_run = await self._client.read_flow_run(flow_run_id)
 
-            process: anyio.abc.Process | Exception = await self._runs_task_group.start(
+            # If the flow run is already cancelling or cancelled, exit early
+            if flow_run.state and flow_run.state.is_cancelling():
+                await self._mark_flow_run_as_cancelled(
+                    flow_run,
+                    state_updates={
+                        "message": "Flow run was cancelled before execution started."
+                    },
+                )
+                self._release_limit_slot(flow_run_id)
+                self._submitting_flow_run_ids.discard(flow_run_id)
+                return
+
+            if flow_run.state and flow_run.state.is_cancelled():
+                self._release_limit_slot(flow_run_id)
+                self._submitting_flow_run_ids.discard(flow_run_id)
+                return
+
+            process: (
+                anyio.abc.Process | multiprocessing.context.SpawnProcess | Exception
+            ) = await self._runs_task_group.start(
                 partial(
                     self._submit_run_and_capture_errors,
                     flow_run=flow_run,
@@ -589,17 +635,21 @@ class Runner:
             if isinstance(process, Exception):
                 return
 
+            if process.pid is None:
+                raise RuntimeError("Process has no PID")
+
             task_status.started(process.pid)
 
-            if self.heartbeat_seconds is not None:
-                await self._emit_flow_run_heartbeat(flow_run)
-
-            async with self._flow_run_process_map_lock:
-                # Only add the process to the map if it is still running
-                if process.returncode is None:
-                    self._flow_run_process_map[flow_run.id] = ProcessMapEntry(
-                        pid=process.pid, flow_run=flow_run
-                    )
+            # Only add the process to the map if it is still running
+            # The process may be a multiprocessing.context.SpawnProcess, in which case it will have an `exitcode`` attribute
+            # but no `returncode` attribute
+            if (
+                getattr(process, "returncode", None)
+                or getattr(process, "exitcode", None)
+            ) is None:
+                await self._add_flow_run_process_map_entry(
+                    flow_run.id, ProcessMapEntry(pid=process.pid, flow_run=flow_run)
+                )
 
             while True:
                 # Wait until flow run execution is complete and the process has been removed from the map
@@ -625,6 +675,11 @@ class Runner:
 
         flow_run = FlowRun.model_validate(bundle["flow_run"])
 
+        # Add heartbeat_seconds to env if configured
+        if self._heartbeat_seconds is not None:
+            env = env or {}
+            env["PREFECT_FLOWS_HEARTBEAT_FREQUENCY"] = str(int(self._heartbeat_seconds))
+
         async with context:
             if not self._acquire_limit_slot(flow_run.id):
                 return
@@ -638,17 +693,14 @@ class Runner:
                 await self._propose_crashed_state(flow_run, msg)
                 raise RuntimeError(msg)
 
-            if self.heartbeat_seconds is not None:
-                await self._emit_flow_run_heartbeat(flow_run)
-
-            self._flow_run_process_map[flow_run.id] = ProcessMapEntry(
-                pid=process.pid, flow_run=flow_run
+            await self._add_flow_run_process_map_entry(
+                flow_run.id, ProcessMapEntry(pid=process.pid, flow_run=flow_run)
             )
             self._flow_run_bundle_map[flow_run.id] = bundle
 
             await anyio.to_thread.run_sync(process.join)
 
-            self._flow_run_process_map.pop(flow_run.id)
+            await self._remove_flow_run_process_map_entry(flow_run.id)
 
             flow_run_logger = self._get_flow_run_logger(flow_run)
             if process.exitcode is None:
@@ -716,14 +768,14 @@ class Runner:
         self,
         flow_run: "FlowRun",
         task_status: anyio.abc.TaskStatus[
-            anyio.abc.Process
+            anyio.abc.Process | multiprocessing.context.SpawnProcess
         ] = anyio.TASK_STATUS_IGNORED,
         entrypoint: str | None = None,
         command: str | None = None,
         cwd: Path | str | None = None,
         env: dict[str, str | None] | None = None,
         stream_output: bool = True,
-    ) -> anyio.abc.Process:
+    ) -> int | None:
         """
         Runs the given flow run in a subprocess.
 
@@ -735,6 +787,23 @@ class Runner:
             task_status: anyio task status used to send a message to the caller
                 than the flow run process has started.
         """
+        # If we have an instance of the flow for this deployment, run it directly in a subprocess
+        if flow_run.deployment_id is not None:
+            flow = self._deployment_flow_map.get(flow_run.deployment_id)
+            if flow:
+                subprocess_env: dict[str, str] = {}
+                if self._heartbeat_seconds is not None:
+                    subprocess_env["PREFECT_FLOWS_HEARTBEAT_FREQUENCY"] = str(
+                        int(self._heartbeat_seconds)
+                    )
+                process = run_flow_in_subprocess(
+                    flow, flow_run=flow_run, env=subprocess_env or None
+                )
+                task_status.started(process)
+                await anyio.to_thread.run_sync(process.join)
+                return process.exitcode
+
+        # Otherwise, we'll need to run a `python -m prefect.engine` command to load and run the flow
         if command is None:
             runner_command = [get_sys_executable(), "-m", "prefect.engine"]
         else:
@@ -762,6 +831,15 @@ class Runner:
                     "PREFECT__ENABLE_CANCELLATION_AND_CRASHED_HOOKS": "false",
                 },
                 **({"PREFECT__FLOW_ENTRYPOINT": entrypoint} if entrypoint else {}),
+                **(
+                    {
+                        "PREFECT_FLOWS_HEARTBEAT_FREQUENCY": str(
+                            int(self._heartbeat_seconds)
+                        )
+                    }
+                    if self._heartbeat_seconds is not None
+                    else {}
+                ),
             }
         )
         env.update(**os.environ)  # is this really necessary??
@@ -800,52 +878,7 @@ class Runner:
             **kwargs,
         )
 
-        if process.returncode is None:
-            raise RuntimeError("Process exited with None return code")
-
-        if process.returncode:
-            help_message = None
-            level = logging.ERROR
-            if process.returncode == -9:
-                level = logging.INFO
-                help_message = (
-                    "This indicates that the process exited due to a SIGKILL signal. "
-                    "Typically, this is either caused by manual cancellation or "
-                    "high memory usage causing the operating system to "
-                    "terminate the process."
-                )
-            if process.returncode == -15:
-                level = logging.INFO
-                help_message = (
-                    "This indicates that the process exited due to a SIGTERM signal. "
-                    "Typically, this is caused by manual cancellation."
-                )
-            elif process.returncode == 247:
-                help_message = (
-                    "This indicates that the process was terminated due to high "
-                    "memory usage."
-                )
-            elif (
-                sys.platform == "win32" and process.returncode == STATUS_CONTROL_C_EXIT
-            ):
-                level = logging.INFO
-                help_message = (
-                    "Process was terminated due to a Ctrl+C or Ctrl+Break signal. "
-                    "Typically, this is caused by manual cancellation."
-                )
-
-            flow_run_logger.log(
-                level,
-                f"Process for flow run {flow_run.name!r} exited with status code:"
-                f" {process.returncode}"
-                + (f"; {help_message}" if help_message else ""),
-            )
-        else:
-            flow_run_logger.info(
-                f"Process for flow run {flow_run.name!r} exited cleanly."
-            )
-
-        return process
+        return process.returncode
 
     async def _kill_process(
         self,
@@ -1027,51 +1060,6 @@ class Runner:
                 flow = None
         return flow, deployment
 
-    async def _emit_flow_run_heartbeats(self):
-        coros: list[Coroutine[Any, Any, Any]] = []
-        for entry in self._flow_run_process_map.values():
-            coros.append(self._emit_flow_run_heartbeat(entry["flow_run"]))
-        await asyncio.gather(*coros)
-
-    async def _emit_flow_run_heartbeat(self, flow_run: "FlowRun"):
-        from prefect import __version__
-
-        related: list[RelatedResource] = []
-        tags: list[str] = []
-
-        flow, deployment = await self._get_flow_and_deployment(flow_run)
-        if deployment:
-            related.append(deployment.as_related_resource())
-            tags.extend(deployment.tags)
-        if flow:
-            related.append(
-                RelatedResource(
-                    {
-                        "prefect.resource.id": f"prefect.flow.{flow.id}",
-                        "prefect.resource.role": "flow",
-                        "prefect.resource.name": flow.name,
-                    }
-                )
-            )
-        tags.extend(flow_run.tags)
-
-        related = [RelatedResource.model_validate(r) for r in related]
-        related += tags_as_related_resources(set(tags))
-
-        await self._events_client.emit(
-            Event(
-                event="prefect.flow-run.heartbeat",
-                resource=Resource(
-                    {
-                        "prefect.resource.id": f"prefect.flow-run.{flow_run.id}",
-                        "prefect.resource.name": flow_run.name,
-                        "prefect.version": __version__,
-                    }
-                ),
-                related=related,
-            )
-        )
-
     def _event_resource(self):
         from prefect import __version__
 
@@ -1123,7 +1111,7 @@ class Runner:
                 related=related,
             )
         )
-        self._logger.debug(f"Emitted flow run heartbeat event for {flow_run.id}")
+        self._logger.debug(f"Emitted cancelled-flow-run event for {flow_run.id}")
 
     async def _get_scheduled_flow_runs(
         self,
@@ -1263,13 +1251,10 @@ class Runner:
             )
 
             if readiness_result and not isinstance(readiness_result, Exception):
-                async with self._flow_run_process_map_lock:
-                    self._flow_run_process_map[flow_run.id] = ProcessMapEntry(
-                        pid=readiness_result.pid, flow_run=flow_run
-                    )
-            # Heartbeats are opt-in and only emitted if a heartbeat frequency is set
-            if self.heartbeat_seconds is not None:
-                await self._emit_flow_run_heartbeat(flow_run)
+                await self._add_flow_run_process_map_entry(
+                    flow_run.id,
+                    ProcessMapEntry(pid=readiness_result.pid, flow_run=flow_run),
+                )
 
             run_logger.info(f"Completed submission of flow run '{flow_run.id}'")
         else:
@@ -1281,7 +1266,9 @@ class Runner:
     async def _submit_run_and_capture_errors(
         self,
         flow_run: "FlowRun",
-        task_status: anyio.abc.TaskStatus[anyio.abc.Process | Exception],
+        task_status: anyio.abc.TaskStatus[
+            anyio.abc.Process | multiprocessing.context.SpawnProcess | Exception
+        ],
         entrypoint: str | None = None,
         command: str | None = None,
         cwd: Path | str | None = None,
@@ -1291,7 +1278,7 @@ class Runner:
         run_logger = self._get_flow_run_logger(flow_run)
 
         try:
-            process = await self._run_process(
+            exit_code = await self._run_process(
                 flow_run=flow_run,
                 task_status=task_status,
                 entrypoint=entrypoint,
@@ -1300,7 +1287,45 @@ class Runner:
                 env=env,
                 stream_output=stream_output,
             )
-            status_code = process.returncode
+            flow_run_logger = self._get_flow_run_logger(flow_run)
+            if exit_code:
+                help_message = None
+                level = logging.ERROR
+                if exit_code == -9:
+                    level = logging.INFO
+                    help_message = (
+                        "This indicates that the process exited due to a SIGKILL signal. "
+                        "Typically, this is either caused by manual cancellation or "
+                        "high memory usage causing the operating system to "
+                        "terminate the process."
+                    )
+                if exit_code == -15:
+                    level = logging.INFO
+                    help_message = (
+                        "This indicates that the process exited due to a SIGTERM signal. "
+                        "Typically, this is caused by manual cancellation."
+                    )
+                elif exit_code == 247:
+                    help_message = (
+                        "This indicates that the process was terminated due to high "
+                        "memory usage."
+                    )
+                elif sys.platform == "win32" and exit_code == STATUS_CONTROL_C_EXIT:
+                    level = logging.INFO
+                    help_message = (
+                        "Process was terminated due to a Ctrl+C or Ctrl+Break signal. "
+                        "Typically, this is caused by manual cancellation."
+                    )
+
+                flow_run_logger.log(
+                    level,
+                    f"Process for flow run {flow_run.name!r} exited with status code:"
+                    f" {exit_code}" + (f"; {help_message}" if help_message else ""),
+                )
+            else:
+                flow_run_logger.info(
+                    f"Process for flow run {flow_run.name!r} exited cleanly."
+                )
         except Exception as exc:
             if not task_status._future.done():  # type: ignore
                 # This flow run was being submitted and did not start successfully
@@ -1321,21 +1346,29 @@ class Runner:
         finally:
             self._release_limit_slot(flow_run.id)
 
-            async with self._flow_run_process_map_lock:
-                self._flow_run_process_map.pop(flow_run.id, None)
+            await self._remove_flow_run_process_map_entry(flow_run.id)
 
-        if status_code != 0 and not self._rescheduling:
+        if exit_code != 0 and not self._rescheduling:
             await self._propose_crashed_state(
                 flow_run,
-                f"Flow run process exited with non-zero status code {status_code}.",
+                f"Flow run process exited with non-zero status code {exit_code}.",
             )
 
-        api_flow_run = await self._client.read_flow_run(flow_run_id=flow_run.id)
-        terminal_state = api_flow_run.state
-        if terminal_state and terminal_state.is_crashed():
-            await self._run_on_crashed_hooks(flow_run=flow_run, state=terminal_state)
+        try:
+            api_flow_run = await self._client.read_flow_run(flow_run_id=flow_run.id)
+            terminal_state = api_flow_run.state
+            if terminal_state and terminal_state.is_crashed():
+                await self._run_on_crashed_hooks(
+                    flow_run=flow_run, state=terminal_state
+                )
+        except ObjectNotFound:
+            # Flow run was deleted - log it but don't crash the runner
+            run_logger = self._get_flow_run_logger(flow_run)
+            run_logger.debug(
+                f"Flow run '{flow_run.id}' was deleted before final state could be checked"
+            )
 
-        return status_code
+        return exit_code
 
     async def _propose_pending_state(self, flow_run: "FlowRun") -> bool:
         run_logger = self._get_flow_run_logger(flow_run)
@@ -1401,6 +1434,11 @@ class Runner:
         except Abort:
             # Flow run already marked as failed
             pass
+        except ObjectNotFound:
+            # Flow run was deleted - log it but don't crash the runner
+            run_logger.debug(
+                f"Flow run '{flow_run.id}' was deleted before state could be updated"
+            )
         except Exception:
             run_logger.exception(f"Failed to update state of flow run '{flow_run.id}'")
         else:
@@ -1425,7 +1463,14 @@ class Runner:
             )
             return
 
-        await self._client.set_flow_run_state(flow_run.id, state, force=True)
+        try:
+            await self._client.set_flow_run_state(flow_run.id, state, force=True)
+        except ObjectNotFound:
+            # Flow run was deleted - log it but don't crash the runner
+            run_logger = self._get_flow_run_logger(flow_run)
+            run_logger.debug(
+                f"Flow run '{flow_run.id}' was deleted before it could be marked as cancelled"
+            )
 
     async def _run_on_cancellation_hooks(
         self,
@@ -1442,6 +1487,10 @@ class Runner:
                     flow = extract_flow_from_bundle(
                         self._flow_run_bundle_map[flow_run.id]
                     )
+                elif flow_run.deployment_id and self._deployment_flow_map.get(
+                    flow_run.deployment_id
+                ):
+                    flow = self._deployment_flow_map[flow_run.deployment_id]
                 else:
                     run_logger.info("Loading flow to check for on_cancellation hooks")
                     flow = await load_flow_from_flow_run(
@@ -1471,6 +1520,10 @@ class Runner:
                     flow = extract_flow_from_bundle(
                         self._flow_run_bundle_map[flow_run.id]
                     )
+                elif flow_run.deployment_id and self._deployment_flow_map.get(
+                    flow_run.deployment_id
+                ):
+                    flow = self._deployment_flow_map[flow_run.deployment_id]
                 else:
                     run_logger.info("Loading flow to check for on_crashed hooks")
                     flow = await load_flow_from_flow_run(
@@ -1496,13 +1549,6 @@ class Runner:
         if not hasattr(self, "_loop") or not self._loop:
             self._loop = asyncio.get_event_loop()
 
-        await self._exit_stack.enter_async_context(
-            FlowRunCancellingObserver(
-                on_cancelling=lambda flow_run_id: self._runs_task_group.start_soon(
-                    self._cancel_run, flow_run_id
-                )
-            )
-        )
         await self._exit_stack.enter_async_context(self._client)
         await self._exit_stack.enter_async_context(self._events_client)
 
@@ -1510,17 +1556,17 @@ class Runner:
             self._runs_task_group: anyio.abc.TaskGroup = anyio.create_task_group()
         await self._exit_stack.enter_async_context(self._runs_task_group)
 
+        self._cancelling_observer = await self._exit_stack.enter_async_context(
+            FlowRunCancellingObserver(
+                on_cancelling=lambda flow_run_id: self._runs_task_group.start_soon(
+                    self._cancel_run, flow_run_id
+                ),
+                polling_interval=self.query_seconds,
+            )
+        )
+
         if not hasattr(self, "_loops_task_group") or not self._loops_task_group:
             self._loops_task_group: anyio.abc.TaskGroup = anyio.create_task_group()
-
-        if self.heartbeat_seconds is not None:
-            self._heartbeat_task = asyncio.create_task(
-                critical_service_loop(
-                    workload=self._emit_flow_run_heartbeats,
-                    interval=self.heartbeat_seconds,
-                    jitter_range=0.3,
-                )
-            )
 
         self.started = True
         return self
@@ -1540,13 +1586,6 @@ class Runner:
         shutil.rmtree(str(self._tmp_dir), ignore_errors=True)
         del self._runs_task_group, self._loops_task_group
 
-        if self._heartbeat_task:
-            self._heartbeat_task.cancel()
-            try:
-                await self._heartbeat_task
-            except asyncio.CancelledError:
-                pass
-
     def __repr__(self) -> str:
         return f"Runner(name={self.name!r})"
 
@@ -1564,9 +1603,10 @@ async def _run_hooks(
 ):
     logger = flow_run_logger(flow_run, flow)
     for hook in hooks:
+        hook_name = get_hook_name(hook)
         try:
             logger.info(
-                f"Running hook {hook.__name__!r} in response to entering state"
+                f"Running hook {hook_name!r} in response to entering state"
                 f" {state.name!r}"
             )
             if is_async_fn(hook):
@@ -1577,8 +1617,8 @@ async def _run_hooks(
                 )
         except Exception:
             logger.error(
-                f"An error was encountered while running hook {hook.__name__!r}",
+                f"An error was encountered while running hook {hook_name!r}",
                 exc_info=True,
             )
         else:
-            logger.info(f"Hook {hook.__name__!r} finished running successfully")
+            logger.info(f"Hook {hook_name!r} finished running successfully")

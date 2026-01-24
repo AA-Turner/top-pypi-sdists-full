@@ -3,15 +3,17 @@
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 import shutil
 import sys
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
 import pytest
-from click.testing import CliRunner as __CliRunner
+from click import testing as click_testing
 from platformdirs import user_cache_dir, user_data_dir
 
 from dda.cli.application import Application
@@ -26,11 +28,58 @@ from dda.utils.process import EnvVars
 if TYPE_CHECKING:
     import pathlib
     from collections.abc import Generator
+    from uuid import UUID
 
     from dda.config.model.tools import GitAuthorConfig
 
 
-class CliRunner(__CliRunner):
+class Result:
+    def __init__(self, result: click_testing.Result):
+        self.__result = result
+
+    def check(
+        self,
+        *,
+        exit_code: int,
+        stdout: str = "",
+        stdout_json: dict[str, Any] | None = None,
+        stderr: str | None = None,
+        stderr_json: dict[str, Any] | None = None,
+        output: str = "",
+    ) -> None:
+        self.check_exit_code(exit_code)
+
+        if stdout_json is not None:
+            assert json.loads(self.__result.stdout) == stdout_json
+        else:
+            assert self.__result.stdout == stdout
+
+        if stderr_json is not None:
+            assert json.loads(self.__result.stderr) == stderr_json
+        elif stderr is not None:
+            if stdout_json is None:
+                msg = "Assert on the combined `output` when not expecting JSON"
+                raise ValueError(msg)
+
+            assert self.__result.stderr == stderr
+        elif stdout_json is not None:
+            assert json.loads(self.__result.output) == stdout_json
+        else:
+            assert self.__result.output == (output or stdout)
+
+    def check_exit_code(self, exit_code: int) -> None:
+        assert self.__result.exit_code == exit_code, self.__result.output
+
+    @property
+    def stdout(self) -> str:
+        return self.__result.stdout
+
+    @property
+    def output(self) -> str:
+        return self.__result.output
+
+
+class CliRunner(click_testing.CliRunner):
     def __init__(self, command):
         super().__init__()
         self.__command = command
@@ -39,7 +88,7 @@ class CliRunner(__CliRunner):
         # Exceptions should always be handled
         kwargs.setdefault("catch_exceptions", False)
 
-        return self.invoke(self.__command, args, **kwargs)
+        return Result(self.invoke(self.__command, args, **kwargs))
 
 
 class ConfigFileHelper(ConfigFile):
@@ -163,6 +212,16 @@ def uv_on_path() -> Path:
 @pytest.fixture(scope="session")
 def bazel_on_path() -> Path:
     return Path(which("bazel"))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def machine_id() -> Generator[UUID, None, None]:
+    # The logic on macOS requires a subprocess call which interferes with tests expecting
+    # such calls being in a certain order with specific output
+    from uuid import UUID
+
+    with patch("dda.utils.platform.get_machine_id", return_value=UUID("12345678-1234-5678-1234-567812345678")) as mock:
+        yield mock.return_value
 
 
 def pytest_runtest_setup(item):

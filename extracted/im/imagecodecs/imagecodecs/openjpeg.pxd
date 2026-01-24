@@ -1,7 +1,6 @@
 # imagecodecs/openjpeg.pxd
-# cython: language_level = 3
 
-# Cython declarations for the `OpenJPEG 2.5.3` library.
+# Cython declarations for the `OpenJPEG 2.5.4` library.
 # https://github.com/uclouvain/openjpeg
 
 from libc.stdint cimport (
@@ -19,8 +18,8 @@ from libc.stdio cimport FILE
 
 cdef extern from 'openjpeg.h' nogil:
 
-    int OPJ_FALSE = 0
-    int OPJ_TRUE = 1
+    int OPJ_FALSE
+    int OPJ_TRUE
 
     ctypedef int OPJ_BOOL
     ctypedef char OPJ_CHAR
@@ -614,7 +613,7 @@ cdef extern from 'openjpeg.h' nogil:
     )
 
     OPJ_BOOL opj_decoder_set_strict_mode(
-        opj_codec_t *p_codec,
+        opj_codec_t* p_codec,
         OPJ_BOOL strict
     )
 
@@ -767,7 +766,6 @@ cdef extern from 'openjpeg.h' nogil:
     OPJ_BOOL opj_has_thread_support()
 
     int opj_get_num_cpus()
-
 
 cdef extern from 'color.h' nogil:
     # this header is not part of the public OpenJPEG interface

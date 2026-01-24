@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 
 
 class CacheControl(BaseModel):
@@ -45,9 +45,10 @@ class CacheControl(BaseModel):
             raise ValueError("must validate the enum values ('ephemeral')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -72,7 +73,7 @@ class CacheControl(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -87,9 +88,9 @@ class CacheControl(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return CacheControl.parse_obj(obj)
+            return CacheControl.model_validate(obj)
 
-        _obj = CacheControl.parse_obj(
+        _obj = CacheControl.model_validate(
             {
                 "type": obj.get("type"),
             }

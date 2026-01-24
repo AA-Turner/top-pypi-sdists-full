@@ -1,13 +1,16 @@
-from dataclasses import dataclass
-from typing import Any, List, Dict
-import re
 import json
+import re
+from dataclasses import dataclass
 from datetime import date, datetime
+from functools import wraps
+from typing import Any, List, Dict
+
 from pyspark.sql import DataFrame
+
 from spark_expectations import _log
 from spark_expectations.core.context import SparkExpectationsContext
-from spark_expectations.notifications import _notification_hook
 from spark_expectations.core.exceptions import SparkExpectationsMiscException
+from spark_expectations.notifications import _notification_hook
 
 
 @dataclass
@@ -49,6 +52,7 @@ class SparkExpectationsNotify:
         """
 
         def decorator(func: Any) -> Any:
+            @wraps(func)
             def wrapper(*args: List, **kwargs: Dict) -> DataFrame:
                 if self._context.get_notification_on_start is True:
                     _on_start()
@@ -193,6 +197,7 @@ class SparkExpectationsNotify:
             f"error_percentage: {self._context.get_error_percentage}\n"
             f"output_percentage: {self._context.get_output_percentage}\n"
             f"success_percentage: {self._context.get_success_percentage}\n"
+            f"kafka_write_status: {self._context.get_kafka_write_status}\n"
             f"status: source_agg_dq_status = {self._context.get_source_agg_dq_status}\n"
             f"            source_query_dq_status = {self._context.get_source_query_dq_status}\n"
             f"            row_dq_status = {self._context.get_row_dq_status}\n"
@@ -216,6 +221,10 @@ class SparkExpectationsNotify:
 
         """
 
+        _kafka_status_info = f"kafka_write_status: {self._context.get_kafka_write_status}\n"
+        if self._context.get_kafka_write_status == "Failed":
+            _kafka_status_info += f"kafka_write_error: {self._context.get_kafka_write_error_message}\n"
+
         _notification_message = (
             "Spark expectations job has been failed  \n\n"
             f"product_id: {self._context.product_id}\n"
@@ -225,6 +234,7 @@ class SparkExpectationsNotify:
             f"input_count: {self._context.get_input_count}\n"
             f"error_percentage: {self._context.get_error_percentage}\n"
             f"output_percentage: {self._context.get_output_percentage}\n"
+            f"{_kafka_status_info}"
             f"status: source_agg_dq_status = {self._context.get_source_agg_dq_status}\n"
             f"            source_query_dq_status = {self._context.get_source_query_dq_status}\n"
             f"            row_dq_status = {self._context.get_row_dq_status}\n"
@@ -240,13 +250,50 @@ class SparkExpectationsNotify:
             _config_args={"message": _notification_message, "content_type": "plain"},
         )
 
+    def _get_rules_for_notification(self, allowed_priorities_notification: List[str]) -> List[Dict[str, Any]]:
+        
+        priority_rules = [
+                    rule
+                    for rule in self._context.get_summarized_row_dq_res
+                    if rule['priority'] in allowed_priorities_notification
+                    and int(rule["failed_row_count"]) > 0
+                    ]
+        
+        return priority_rules
+    
+    def notify_on_failed_dq(self) -> None:
+
+        priority_map = {
+            "low": ["low","medium","high"],
+            "medium": ["medium", "high"],
+            "high": ["high"]
+        }
+        min_priority_slack = self._context.get_min_priority_slack
+        allowed_priorities_notification_slack = priority_map[min_priority_slack]
+
+        priority_rules_slack = self._get_rules_for_notification(allowed_priorities_notification_slack)
+        
+        for rule in priority_rules_slack:
+            rule_name = rule["rule"]
+            priority = rule["priority"]
+            _notification_message = self.construct_message_for_each_rules(
+                            rule_name = rule_name,
+                            failed_row_count = rule["failed_row_count"],
+                            error_drop_percentage = round((rule["failed_row_count"] / self._context.get_input_count) * 100, 2),
+                            action = rule["action_if_failed"],
+                            description= f"{rule_name} with priority {priority} has  failed the row dq check"
+                        )
+            _notification_hook.send_notification(
+                _context=self._context, _config_args={"message": _notification_message, "content_type": "plain"}
+            )        
+
     def construct_message_for_each_rules(
         self,
         rule_name: str,
         failed_row_count: int,
         error_drop_percentage: float,
-        set_error_drop_threshold: float,
         action: str,
+        description:str
     ) -> str:
         """
         This function supports constructing the notification message when rule threshold exceeds certain threshold
@@ -258,8 +305,7 @@ class SparkExpectationsNotify:
         """
 
         _notification_message = (
-            f"{rule_name} has been exceeded above the threshold "
-            f"value({set_error_drop_threshold}%) for `row_data` quality validation\n"
+            f"{description} \n"
             f"product_id: {self._context.product_id}\n"
             f"table_name: {self._context.get_table_name}\n"
             f"run_id: {self._context.get_run_id}\n"
@@ -330,8 +376,8 @@ class SparkExpectationsNotify:
                             rule_name=rule_name,
                             failed_row_count=failed_row_count,
                             error_drop_percentage=error_drop_percentage,
-                            set_error_drop_threshold=set_error_drop_threshold,
                             action=rule_action,
+                            description= f"{rule_name} has been exceeded above the threshold "
                         )
                 if notification_body != "":
                     self.notify_on_exceeds_of_error_threshold_each_rules(notification_body)

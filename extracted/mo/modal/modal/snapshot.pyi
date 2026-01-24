@@ -4,6 +4,8 @@ import modal.object
 import typing
 import typing_extensions
 
+SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
+
 class _SandboxSnapshot(modal._object._Object):
     """> Sandbox memory snapshots are in **early preview**.
 
@@ -11,10 +13,16 @@ class _SandboxSnapshot(modal._object._Object):
     `._experimental_snapshot()` on a Sandbox instance. This includes both the filesystem and memory state of
     the original Sandbox at the time the snapshot was taken.
     """
-    @staticmethod
-    async def from_id(sandbox_snapshot_id: str, client: typing.Optional[modal.client._Client] = None):
-        """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
-        ...
+    class __from_id_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(
+            self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None
+        ) -> SUPERSELF:
+            """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
+            ...
+
+        async def aio(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None): ...
+
+    from_id: typing.ClassVar[__from_id_spec[typing_extensions.Self]]
 
 class SandboxSnapshot(modal.object.Object):
     """> Sandbox memory snapshots are in **early preview**.
@@ -27,13 +35,13 @@ class SandboxSnapshot(modal.object.Object):
         """mdmd:hidden"""
         ...
 
-    class __from_id_spec(typing_extensions.Protocol):
-        def __call__(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None):
+    class __from_id_spec(typing_extensions.Protocol[SUPERSELF]):
+        def __call__(
+            self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None
+        ) -> SUPERSELF:
             """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
             ...
 
-        async def aio(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None):
-            """Construct a `SandboxSnapshot` object from a sandbox snapshot ID."""
-            ...
+        async def aio(self, /, sandbox_snapshot_id: str, client: typing.Optional[modal.client.Client] = None): ...
 
-    from_id: __from_id_spec
+    from_id: typing.ClassVar[__from_id_spec[typing_extensions.Self]]

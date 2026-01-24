@@ -13,6 +13,8 @@
 #    limitations under the License.
 
 import collections.abc
+import dataclasses
+import fractions
 import functools
 import itertools
 import json
@@ -29,17 +31,20 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from cython.operator cimport typeid
 from libcpp cimport bool
 from libcpp.memory cimport make_shared
+from libcpp.span cimport span
 from libcpp.typeindex cimport type_index
 from libcpp.unordered_map cimport unordered_map
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
 
+import dwave.optimization.mathematical
+
 from dwave.optimization.libcpp cimport dynamic_cast_ptr
-from dwave.optimization.libcpp.array cimport Array as cppArray
+from dwave.optimization.libcpp.array cimport Array as cppArray, broadcast_shapes as cppbroadcast_shapes
 from dwave.optimization.libcpp.graph cimport DecisionNode as cppDecisionNode
 from dwave.optimization.states cimport States
 from dwave.optimization.states import StateView
-from dwave.optimization.utilities import _file_object_arg, _lock
+from dwave.optimization.utilities import _file_object_arg, _lock, _NoValue, _TypeError_to_NotImplemented
 
 __all__ = []
 
@@ -443,6 +448,8 @@ cdef class _Graph:
 
         .. _NPY format: https://numpy.org/doc/stable/reference/generated/numpy.lib.format.html
         """
+        from dwave.optimization.symbols.reduce import Prod, Sum  # see note below
+
         version, model_info = self._into_file_header(
             file,
             version=version,
@@ -469,6 +476,16 @@ cdef class _Graph:
             # On the first pass we made a nodetypes.txt file that has the node names
             with zf.open("nodetypes.txt", "w", force_zip64=True) as f:
                 for node in itertools.islice(self.iter_symbols(), 0, stop):
+                    # There is a backwards compatibility break here in 0.6.8 where
+                    # we unified PartialReduce and Reduce. For compatibility going
+                    # backwards though, we want to use the PartialReduce alias
+                    if isinstance(node, Prod) and node.axes():
+                        f.write(b"PartialProd\n")
+                        continue
+                    if isinstance(node, Sum) and node.axes():
+                        f.write(b"PartialSum\n")
+                        continue
+
                     f.write(type(node).__name__.encode("UTF-8"))
                     f.write(b"\n")
 
@@ -574,8 +591,7 @@ cdef class _Graph:
             >>> model = Model()
             >>> i = model.integer()
             >>> c = model.constant(5)
-            >>> model.add_constraint(i <= c) # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.LessEqual at ...>
+            >>> _ = model.add_constraint(i <= c)
             >>> constraints = next(model.iter_constraints())
         """
         for ptr in self._graph.constraints():
@@ -591,8 +607,7 @@ cdef class _Graph:
             >>> model = Model()
             >>> i = model.integer()
             >>> c = model.constant(5)
-            >>> model.add_constraint(i <= c) # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.LessEqual at ...>
+            >>> _ = model.add_constraint(i <= c)
             >>> decisions = next(model.iter_decisions())
         """
         for ptr in self._graph.decisions():
@@ -688,10 +703,8 @@ cdef class _Graph:
             >>> model = Model()
             >>> i = model.integer()
             >>> c = model.constant([5, -14])
-            >>> model.add_constraint(i <= c[0]) # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.LessEqual at ...>
-            >>> model.add_constraint(c[1] <= i) # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.LessEqual at ...>
+            >>> _ = model.add_constraint(i <= c[0])
+            >>> _ = model.add_constraint(c[1] <= i)
             >>> model.num_constraints()
             2
         """
@@ -824,7 +837,7 @@ cdef class _Graph:
             >>> model = Model()
             >>> x = model.binary(5)
             >>> x.sum()  # create a symbol that will never be used # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.Sum at ...>
+            <dwave.optimization...Sum at ...>
             >>> model.minimize(x.prod())
             >>> model.num_symbols()
             3
@@ -1148,10 +1161,9 @@ cdef class Symbol:
 
             >>> from dwave.optimization.model import Model
             >>> model = Model()
-            >>> lsymbol, lsymbol_lists = model.disjoint_lists(
-            ...     primary_set_size=5,
-            ...     num_disjoint_lists=2)
-            >>> lsymbol_lists[0].equals(next(lsymbol.iter_successors()))
+            >>> x = model.binary()
+            >>> y = x + 5
+            >>> y.equals(next(x.iter_successors()))
             True
         """
         cdef vector[cppNode.SuccessorView].const_iterator it = self.node_ptr.successors().begin()
@@ -1237,17 +1249,17 @@ cdef class Symbol:
 
             >>> from dwave.optimization import Model
             >>> model = Model()
-            >>> lsymbol, lsymbol_lists = model.disjoint_lists(primary_set_size=5, num_disjoint_lists=2)
+            >>> lsymbol = model.disjoint_lists_symbol(primary_set_size=5, num_disjoint_lists=2)
             >>> with model.lock():
             ...     model.states.resize(2)
             ...     lsymbol.set_state(0, [[0, 4], [1, 2, 3]])
             ...     lsymbol.set_state(1, [[3, 4], [0, 1, 2]])
-            ...     print(f"state 0: {lsymbol_lists[0].state(0)} and {lsymbol_lists[1].state(0)}")
-            ...     print(f"state 1: {lsymbol_lists[0].state(1)} and {lsymbol_lists[1].state(1)}")
+            ...     print(f"state 0: {lsymbol[0].state(0)} and {lsymbol[1].state(0)}")
+            ...     print(f"state 1: {lsymbol[0].state(1)} and {lsymbol[1].state(1)}")
             ...     lsymbol.reset_state(0)
             ...     print("After reset:")
-            ...     print(f"state 0: {lsymbol_lists[0].state(0)} and {lsymbol_lists[1].state(0)}")
-            ...     print(f"state 1: {lsymbol_lists[0].state(1)} and {lsymbol_lists[1].state(1)}")
+            ...     print(f"state 0: {lsymbol[0].state(0)} and {lsymbol[1].state(0)}")
+            ...     print(f"state 1: {lsymbol[0].state(1)} and {lsymbol[1].state(1)}")
             state 0: [0. 4.] and [1. 2. 3.]
             state 1: [3. 4.] and [0. 1. 2.]
             After reset:
@@ -1323,19 +1335,6 @@ cdef class Symbol:
         """Topological index of the symbol.
 
         Return ``None`` if the model is not topologically sorted.
-
-        Examples:
-            This example prints the indices of a two-symbol model.
-
-            >>> from dwave.optimization import Model
-            >>> model = Model()
-            >>> i = model.integer(100, lower_bound=20)
-            >>> sum_i = i.sum()
-            >>> with model.lock():
-            ...     for symbol in model.iter_symbols():
-            ...         print(f"Symbol {type(symbol)} is node {symbol.topological_index()}")
-            Symbol <class 'dwave.optimization.symbols.IntegerVariable'> is node 0
-            Symbol <class 'dwave.optimization.symbols.Sum'> is node 1
         """
         index = self.node_ptr.topological_index()
         return index if index >= 0 else None
@@ -1377,6 +1376,64 @@ def _split_indices(indices):
             raise RuntimeError("unexpected index type")
 
     return tuple(basic_indices), tuple(advanced_indices)
+
+
+# dev note: most documentation is in the `ArraySymbol.info()` method.
+@dataclasses.dataclass(frozen=True)
+class ArraySizeInfo:
+    """Information about the size of an :class:`ArraySymbol`."""
+
+    multiplier: fractions.Fraction
+    symbol: Symbol
+    offset: fractions.Fraction
+    min: None | float = None
+    max: None | float = None
+
+    @classmethod
+    def _from_array(cls, ArraySymbol symbol):
+        if not symbol.array_ptr.dynamic():
+            return symbol.array_ptr.size()
+
+        sizeinfo = symbol.array_ptr.sizeinfo()
+
+        if sizeinfo.array_ptr:
+            symbol = symbol_from_ptr(symbol.model, <cppArrayNode*>sizeinfo.array_ptr)
+        else:
+            symbol = None
+
+        return cls(
+            multiplier=fractions.Fraction(
+                sizeinfo.multiplier.numerator(),
+                sizeinfo.multiplier.denominator(),
+            ),
+            symbol=symbol,
+            offset=fractions.Fraction(
+                sizeinfo.offset.numerator(),
+                sizeinfo.offset.denominator(),
+            ),
+            min=sizeinfo.min.value() if sizeinfo.min else None,
+            max=sizeinfo.max.value() if sizeinfo.max else None,
+        )
+
+
+# dev note: most documentation is in the `ArraySymbol.info()` method.
+@dataclasses.dataclass(frozen=True)
+class ArrayInfo:
+    """Information about an :class:`ArraySymbol`."""
+
+    min: float
+    max: float
+    integral: bool
+    size: int | ArraySizeInfo
+
+    @classmethod
+    def _from_array(cls, ArraySymbol symbol):
+        return cls(
+            min=symbol.array_ptr.min(),
+            max=symbol.array_ptr.max(),
+            integral=symbol.array_ptr.integral(),
+            size=ArraySizeInfo._from_array(symbol),
+        )
 
 
 def _as_array_symbol(model, symbol):
@@ -1422,42 +1479,37 @@ cdef class ArraySymbol(Symbol):
         obj.initialize_arraynode(symbol.model, ptr)
         return obj
 
+    # Opt ArraySymbol out of default interoperability with NumPy ufuncs. We then
+    # add explicit support with our various __<op>__() and __r<op>__ methods.
+    # This prevents NumPy from interpreting our ArraySymbols as object arrays.
+    __array_ufunc__ = None
+
+    # Likewise, we want to opt out of default interoperability with NumPy
+    # functions.
+    # See https://numpy.org/neps/nep-0018-array-function-protocol.html#nep18
+    def __array_function__(self, func, types, args, kwargs):
+        return NotImplemented
+
     def __abs__(self):
         from dwave.optimization.symbols import Absolute  # avoid circular import
         return Absolute(self)
 
+    @_TypeError_to_NotImplemented
     def __add__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
-
-        from dwave.optimization.symbols import Add  # avoid circular import
-        return Add(self, rhs)
+        return dwave.optimization.mathematical.add(self, rhs)
 
     def __bool__(self):
         # In the future we might want to return a Bool symbol, but __bool__ is so
         # fundamental that I am hesitant to do even that.
         raise ValueError("the truth value of an array symbol is ambiguous")
 
+    @_TypeError_to_NotImplemented
     def __eq__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.equal(self, rhs)
 
-        # We could consider returning a Constant(True) is the case that self is rhs
-
-        from dwave.optimization.symbols import Equal # avoid circular import
-        return Equal(self, rhs)
-
+    @_TypeError_to_NotImplemented
     def __ge__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
-
-        return rhs <= self
+        return dwave.optimization.mathematical.less_equal(rhs, self)
 
     def __getitem__(self, index):
         import dwave.optimization.symbols  # avoid circular import
@@ -1509,26 +1561,30 @@ cdef class ArraySymbol(Symbol):
         else:
             return self[(index,)]
 
+    @_TypeError_to_NotImplemented
     def __iadd__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
-
         # If the user is doing +=, we make the assumption that they will want to
-        # do it again, so we jump to NaryAdd
-        from dwave.optimization.symbols import NaryAdd # avoid circular import
+        # do it again, so we use NaryAdd
+        # Like NumPy, we only support this if the rhs can be broadcast to our
+        # shape.
+        from dwave.optimization.symbols import NaryAdd  # avoid circular import
+        rhs = dwave.optimization.mathematical.broadcast_to(
+            *dwave.optimization.mathematical.as_array_symbols(rhs, model=self.model),
+            self.shape(),
+        )
         return NaryAdd(self, rhs)
 
+    @_TypeError_to_NotImplemented
     def __imul__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
-
         # If the user is doing *=, we make the assumption that they will want to
-        # do it again, so we jump to NaryMultiply
-        from dwave.optimization.symbols import NaryMultiply # avoid circular import
+        # do it again, so we use NaryMultiply
+        # Like NumPy, we only support this if the rhs can be broadcast to our
+        # shape.
+        from dwave.optimization.symbols import NaryMultiply  # avoid circular import
+        rhs = dwave.optimization.mathematical.broadcast_to(
+            *dwave.optimization.mathematical.as_array_symbols(rhs, model=self.model),
+            self.shape(),
+        )
         return NaryMultiply(self, rhs)
 
     def __iter__(self):
@@ -1544,32 +1600,21 @@ cdef class ArraySymbol(Symbol):
 
         yield from (self[i] for i in range(self.shape()[0]))
 
+    @_TypeError_to_NotImplemented
     def __le__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.less_equal(self, rhs)
 
-        from dwave.optimization.symbols import LessEqual # avoid circular import
-        return LessEqual(self, rhs)
+    @_TypeError_to_NotImplemented
+    def __matmul__(self, rhs):
+        return dwave.optimization.mathematical.matmul(self, rhs)
 
+    @_TypeError_to_NotImplemented
     def __mod__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.mod(self, rhs)
 
-        from dwave.optimization.symbols import Modulus # avoid circular import
-        return Modulus(self, rhs)
-
+    @_TypeError_to_NotImplemented
     def __mul__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
-
-        from dwave.optimization.symbols import Multiply  # avoid circular import
-        return Multiply(self, rhs)
+        return dwave.optimization.multiply(self, rhs)
 
     def __neg__(self):
         from dwave.optimization.symbols import Negative  # avoid circular import
@@ -1595,81 +1640,91 @@ cdef class ArraySymbol(Symbol):
             return out
         raise ValueError("only integer exponents of 1 or greater are supported")
 
+    @_TypeError_to_NotImplemented
     def __radd__(self, lhs):
-        try:
-            lhs = _as_array_symbol(self.model, lhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.add(lhs, self)
 
-        return lhs + self
+    @_TypeError_to_NotImplemented
+    def __rmatmul__(self, lhs):
+        return dwave.optimization.mathematical.matmul(lhs, self)
 
+    @_TypeError_to_NotImplemented
     def __rmod__(self, lhs):
-        try:
-            lhs = _as_array_symbol(self.model, lhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.mod(lhs, self)
 
-        return lhs % self
-
+    @_TypeError_to_NotImplemented
     def __rmul__(self, lhs):
-        try:
-            lhs = _as_array_symbol(self.model, lhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.multiply(lhs, self)
 
-        return lhs * self
-
+    @_TypeError_to_NotImplemented
     def __rsub__(self, lhs):
-        try:
-            lhs = _as_array_symbol(self.model, lhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.subtract(lhs, self)
 
-        return lhs - self
-
+    @_TypeError_to_NotImplemented
     def __rtruediv__(self, lhs):
-        try:
-            lhs = _as_array_symbol(self.model, lhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.divide(lhs, self)
 
-        return lhs / self
-
+    @_TypeError_to_NotImplemented
     def __sub__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.subtract(self, rhs)
 
-        from dwave.optimization.symbols import Subtract  # avoid circular import
-        return Subtract(self, rhs)
-
+    @_TypeError_to_NotImplemented
     def __truediv__(self, rhs):
-        try:
-            rhs = _as_array_symbol(self.model, rhs)
-        except TypeError:
-            return NotImplemented
+        return dwave.optimization.mathematical.divide(self, rhs)
 
-        from dwave.optimization.symbols import Divide  # avoid circular import
-        return Divide(self, rhs)
-
-    def all(self):
+    def all(self, *, axis=None, initial=_NoValue):
         """Create an :class:`~dwave.optimization.symbols.All` symbol.
 
-        The new symbol returns True when all elements evaluate to True.
+        Test whether all of the elements in the array evaluate to ``True``.
+
+        Args:
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
+
+                .. versionadded:: 0.6.8
+
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
+
+                .. versionadded:: 0.6.8
+
+        See Also:
+            :class:`~dwave.optimization.symbols.All` equivalent class.
         """
         from dwave.optimization.symbols import All  # avoid circular import
-        return All(self)
+        return All(self, axis=axis, initial=_NoValue)
 
-    def any(self):
+    def any(self, *, axis=None, initial=False):
         """Create an :class:`~dwave.optimization.symbols.Any` symbol.
 
         The new symbol returns True when any elements evaluate to True.
 
+        Args:
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
+
+                .. versionadded:: 0.6.8
+
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
+
+                .. versionadded:: 0.6.8
+
+        See Also:
+            :class:`~dwave.optimization.symbols.Any` equivalent class.
+
         .. versionadded:: 0.4.1
         """
         from dwave.optimization.symbols import Any  # avoid circular import
-        return Any(self)
+        return Any(self, axis=axis, initial=_NoValue)
 
     def copy(self):
         """Return an array symbol that is a copy of the array.
@@ -1689,14 +1744,102 @@ cdef class ArraySymbol(Symbol):
         """
         return self.reshape(-1)
 
-    def max(self, *, initial=None):
+    def info(self):
+        """Information about the values and size of the array symbol.
+
+        Symbols sometimes need to know information about their predecessor(s)
+        in order to determine whether they define a valid operation. For example,
+        a :class:`~dwave.optimization.symbols.Divide` symbol does not permit its
+        denominator to be 0.
+
+        This method returns a :func:`~dataclasses.dataclass` with the following fields
+
+        * ``min``: A lower bound (inclusive) on the values of the array.
+        * ``max``: An upper bound (inclusive) on the values of the array.
+        * ``integral``: Whether or not the values in the array will always be integral.
+        * ``size``: The size of the array. If the array has a fixed size it will
+          be an ``int``. If the array has a dynamic size, this will instead
+          be another :func:`~dataclasses.dataclass` with the following fields
+
+          * ``multiplier``, ``symbol``, and ``offset``: The size of the array
+            will be `multiplier * (size of symbol) + offset`. If the size of
+            the array symbol is not a linear function of another symbol, the
+            ``symbol`` field will just the ``self``.
+          * ``min``: A lower bound (inclusive) on the size of the array. Will be
+            ``None`` is the bound is not known.
+          * ``max``: An upper bound (inclusive) on the size of the array. Will be
+            ``None`` is the bound is not known.
+
+        Examples:
+            A constant symbol will have ``min``, ``max``, ``integral``, and
+            ``size`` determined by the array.
+
+            >>> import numpy as np
+            >>> from dwave.optimization import Model
+            ...
+            >>> model = Model()
+            >>> c = model.constant(np.linspace(0, 4.5, num=10))
+            >>> c.info()
+            ArrayInfo(min=0.0, max=4.5, integral=False, size=10)
+
+            A set symbol is dynamic so its size cannot be expressed as an
+            integer. However, its size is not derived from another symbol
+            so its size is derived from itself.
+
+            >>> s = model.set(10)
+            >>> s.info()  # doctest: +ELLIPSIS
+            ArrayInfo(min=0.0, max=9.0, integral=True, size=...)
+            >>> sizeinfo = s.info().size  # doctest: +ELLIPSIS
+            >>> sizeinfo.multiplier
+            Fraction(1, 1)
+            >>> sizeinfo.symbol.id() == s.id()
+            True
+            >>> sizeinfo.offset
+            Fraction(0, 1)
+            >>> sizeinfo.min
+            0
+            >>> sizeinfo.max
+            10
+
+            When we index the constant array from the set we create another
+            dynamic array with its size derived from set
+
+            >>> b = c[s]
+            >>> b.info()  # doctest: +ELLIPSIS
+            ArrayInfo(min=0.0, max=4.5, integral=False, size=...)
+            >>> sizeinfo = b.info().size  # doctest: +ELLIPSIS
+            >>> sizeinfo.multiplier
+            Fraction(1, 1)
+            >>> sizeinfo.symbol.id() == s.id()  # size is defined by the set
+            True
+            >>> sizeinfo.offset
+            Fraction(0, 1)
+            >>> sizeinfo.min
+            0
+            >>> sizeinfo.max
+            10
+
+        .. versionadded:: 0.6.8
+        """
+        return ArrayInfo._from_array(self)
+
+    def max(self, *, axis=None, initial=_NoValue):
         """Create a :class:`~dwave.optimization.symbols.Max` symbol.
 
         The new symbol returns the maximum value in its elements.
 
         Args:
-            initial:
-                The starting value for the product operation.
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
+
+                .. versionadded:: 0.6.8
+
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
@@ -1708,14 +1851,14 @@ cdef class ArraySymbol(Symbol):
             >>> model = Model()
             >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
             >>> i_max = i.max()
-            >>> type(i_max)
-            <class 'dwave.optimization.symbols.Max'>
+            >>> type(i_max)  # doctest: +ELLIPSIS
+            <class 'dwave.optimization.symbols...Max'>
 
         See Also:
             :class:`~dwave.optimization.symbols.Max`
         """
         from dwave.optimization.symbols import Max  # avoid circular import
-        return Max(self, initial=initial)
+        return Max(self, axis=axis, initial=initial)
 
     def maybe_equals(self, other):
         # note: docstring inherited from Symbol.maybe_equal()
@@ -1737,14 +1880,23 @@ cdef class ArraySymbol(Symbol):
 
         return MAYBE
 
-    def min(self, *, initial=None):
+    def min(self, *, axis=None, initial=_NoValue):
         """Create a :class:`~dwave.optimization.symbols.Min` symbol.
 
         The new symbol returns the minimum value in its elements.
 
         Args:
-            initial:
-                The starting value for the product operation.
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
+
+                .. versionadded:: 0.6.8
+
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
@@ -1756,32 +1908,36 @@ cdef class ArraySymbol(Symbol):
             >>> model = Model()
             >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
             >>> i_min = i.min()
-            >>> type(i_min)
-            <class 'dwave.optimization.symbols.Min'>
+            >>> type(i_min)  # doctest: +ELLIPSIS
+            <class 'dwave.optimization.symbols...Min'>
 
         See Also:
             :class:`~dwave.optimization.symbols.Min`
         """
         from dwave.optimization.symbols import Min  # avoid circular import
-        return Min(self, initial=initial)
+        return Min(self, axis=axis, initial=initial)
 
     def ndim(self):
         """Return the number of dimensions for a symbol."""
         return self.array_ptr.ndim()
 
-    def prod(self, *, axis=None, initial=None):
+    def prod(self, *, axis=None, initial=_NoValue):
         """Create a :class:`~dwave.optimization.symbols.Prod` symbol.
 
         The new symbol returns the product of its elements.
 
         Args:
-            axis:
-                Axis along which the a product operation is performed.
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
 
                 .. versionadded:: 0.5.1
 
-            initial:
-                The starting value for the product operation.
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
@@ -1793,18 +1949,13 @@ cdef class ArraySymbol(Symbol):
             >>> model = Model()
             >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
             >>> i.prod()  # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.Prod at ...>
+            <dwave.optimization.symbols...Prod at ...>
 
         See Also:
-            :class:`~dwave.optimization.symbols.PartialProd`
-            :class:`~dwave.optimization.symbols.Prod`
+            :class:`~dwave.optimization.symbols.Prod` equivalent symbol.
         """
-        import dwave.optimization.symbols
-
-        if axis is not None:
-            return dwave.optimization.symbols.PartialProd(self, axis, initial=initial)
-
-        return dwave.optimization.symbols.Prod(self, initial=initial)
+        from dwave.optimization.symbols import Prod
+        return Prod(self, axis=axis, initial=initial)
 
     def reshape(self, *shape):
         """Create a :class:`~dwave.optimization.symbols.Reshape` symbol.
@@ -2138,19 +2289,23 @@ cdef class ArraySymbol(Symbol):
         strides = self.array_ptr.strides()
         return tuple(strides[i] for i in range(strides.size()))
 
-    def sum(self, *, axis=None, initial=None):
+    def sum(self, *, axis=None, initial=_NoValue):
         """Create a :class:`~dwave.optimization.symbols.Sum` symbol.
 
         The new symbol returns the sum of its elements.
 
         Args:
-            axis:
-                Axis along which the a plus operation is performed.
+            axis (int or tuple[int, ...], optional):
+                Axis or axes along which the operation is performed.
+                If ``None``, the reduction is performed over all dimensions.
+                If ``tuple[int, ...]``, the reduction is performed along the
+                specified axes.
 
                 .. versionadded:: 0.4.1
 
-            initial:
-                The starting value for the plus operation.
+            initial (float or None, optional):
+                The starting value for the reduction.
+                If `None` is given, the first element of the reduction is used.
 
                 .. versionadded:: 0.6.4
 
@@ -2162,15 +2317,15 @@ cdef class ArraySymbol(Symbol):
             >>> model = Model()
             >>> i = model.integer(100, lower_bound=-50, upper_bound=50)
             >>> i.sum()  # doctest: +ELLIPSIS
-            <dwave.optimization.symbols.Sum at ...>
+            <dwave.optimization.symbols...Sum at ...>
 
         See Also:
-            :class:`~dwave.optimization.symbols.PartialSum`
-            :class:`~dwave.optimization.symbols.Sum`
+            :class:`~dwave.optimization.symbols.Sum` equivalent symbol.
         """
-        import dwave.optimization.symbols
+        from dwave.optimization.symbols import Sum
+        return Sum(self, axis=axis, initial=initial)
 
-        if axis is not None:
-            return dwave.optimization.symbols.PartialSum(self, axis, initial=initial)
 
-        return dwave.optimization.symbols.Sum(self, initial=initial)
+def _broadcast_shapes(vector[Py_ssize_t] lhs, vector[Py_ssize_t] rhs):
+    """Broadcast the input shapes into a single shape or throw an error if they are incompatible."""
+    return tuple(cppbroadcast_shapes(span[Py_ssize_t](lhs), span[Py_ssize_t](rhs)))

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: replit-river
-Version: 0.17.10
+Version: 0.17.12
 Summary: Replit river toolkit for Python
 Author-email: Replit <eng@replit.com>
 License: MIT License
@@ -33,7 +33,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Internet
-Requires-Python: <4,>=3.11
+Requires-Python: <4,>=3.12
 Requires-Dist: aiochannel>=1.2.1
 Requires-Dist: grpcio-tools>=1.59.3
 Requires-Dist: grpcio>=1.59.3
@@ -43,7 +43,7 @@ Requires-Dist: opentelemetry-api>=1.28.2
 Requires-Dist: opentelemetry-sdk>=1.28.2
 Requires-Dist: protobuf>=5.28.3
 Requires-Dist: pydantic-core>=2.20.1
-Requires-Dist: pydantic==2.9.2
+Requires-Dist: pydantic<3,>=2.9.0
 Requires-Dist: websockets<14,>=13.0
 Description-Content-Type: text/markdown
 

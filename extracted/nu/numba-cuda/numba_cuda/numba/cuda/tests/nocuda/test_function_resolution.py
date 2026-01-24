@@ -3,7 +3,7 @@
 
 from numba.cuda.testing import unittest, skip_on_cudasim
 import operator
-from numba.core import types, typing
+from numba.cuda import types, typing
 from numba.cuda.cudadrv import nvvm
 
 

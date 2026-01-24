@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from meross_iot.controller.device import BaseDevice, HubDevice, GenericSubDevice
+from meross_iot.controller.mixins.alarm import AlarmMixin
 from meross_iot.controller.mixins.consumption import ConsumptionXMixin, ConsumptionMixin
 from meross_iot.controller.mixins.diffuser_light import DiffuserLightMixin
 from meross_iot.controller.mixins.diffuser_spray import DiffuserSprayMixin
@@ -17,7 +18,7 @@ from meross_iot.controller.mixins.spray import SprayMixin
 from meross_iot.controller.mixins.system import SystemAllMixin, SystemOnlineMixin
 from meross_iot.controller.mixins.thermostat import ThermostatModeMixin, ThermostatModeBMixin
 from meross_iot.controller.mixins.toggle import ToggleXMixin, ToggleMixin
-from meross_iot.controller.subdevice import Mts100v3Valve, Ms100Sensor
+from meross_iot.controller.subdevice import Mts100v3Valve, Ms100Sensor, Ms405Sensor
 from meross_iot.model.enums import Namespace
 from meross_iot.model.exception import UnknownDeviceType
 from meross_iot.model.http.device import HttpDeviceInfo
@@ -28,7 +29,8 @@ _LOGGER = logging.getLogger(__name__)
 _KNOWN_DEV_TYPES_CLASSES = {
     "mts100v3": Mts100v3Valve,
     "ms100": Ms100Sensor,
-    "ms100f": Ms100Sensor
+    "ms100f": Ms100Sensor,
+    "ms405": Ms405Sensor
 }
 
 _ABILITY_MATRIX = {
@@ -38,6 +40,7 @@ _ABILITY_MATRIX = {
     Namespace.CONTROL_CONSUMPTIONX.value: ConsumptionXMixin,
     Namespace.CONTROL_CONSUMPTION.value: ConsumptionMixin,
     Namespace.CONTROL_ELECTRICITY.value: ElectricityMixin,
+    Namespace.CONTROL_ALARM.value: AlarmMixin,
 
     # Encryption
     Namespace.SYSTEM_ENCRYPTION.value: EncryptionSuiteMixin,
@@ -88,7 +91,9 @@ _ABILITY_MATRIX = {
 _SUBDEVICE_MAPPING = {
     "mts100v3": Mts100v3Valve,
     "ms100": Ms100Sensor,
-    "ms100f": Ms100Sensor
+    "ms100f": Ms100Sensor,
+    "ms405": Ms405Sensor,
+    "ms400": Ms405Sensor
 }
 
 _dynamic_types = {}
@@ -188,7 +193,7 @@ def build_meross_device_from_abilities(http_device_info: HttpDeviceInfo,
         # We basically offer two possible base implementations:
         # - BaseMerossDevice: suitable for all non-hub devices
         # - HubMerossDevice: to be used when dealing with Hubs.
-        # Unfortunately, it's not clear how we should discriminate an hub from a non-hub.
+        # Unfortunately, it's not clear how we should discriminate a hub from a non-hub.
         # The current implementation decides which base class to use by looking at the presence
         # of 'Appliance.Hub.SubdeviceList': if exposed, we assume the device is a fully featured hub.
         discriminating_abilities = [Namespace.HUB_SUBDEVICELIST.value]

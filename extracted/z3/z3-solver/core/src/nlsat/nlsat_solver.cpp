@@ -306,6 +306,7 @@ namespace nlsat {
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
+            m_explain.set_add_all_coeffs(p.add_all_coeffs());
             m_am.updt_params(p.p);
         }
 
@@ -333,7 +334,7 @@ namespace nlsat {
 
         void checkpoint() {
             if (!m_rlimit.inc()) throw solver_exception(m_rlimit.get_cancel_msg()); 
-            if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
+            if (memory::get_allocation_size()/(1 << 20) > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
         // -----------------------

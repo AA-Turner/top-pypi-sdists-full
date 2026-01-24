@@ -3,7 +3,7 @@ Type annotations for ecr service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -65,10 +66,15 @@ from .type_defs import (
     DeleteRepositoryPolicyResponseTypeDef,
     DeleteRepositoryRequestTypeDef,
     DeleteRepositoryResponseTypeDef,
+    DeleteSigningConfigurationResponseTypeDef,
+    DeregisterPullTimeUpdateExclusionRequestTypeDef,
+    DeregisterPullTimeUpdateExclusionResponseTypeDef,
     DescribeImageReplicationStatusRequestTypeDef,
     DescribeImageReplicationStatusResponseTypeDef,
     DescribeImageScanFindingsRequestTypeDef,
     DescribeImageScanFindingsResponseTypeDef,
+    DescribeImageSigningStatusRequestTypeDef,
+    DescribeImageSigningStatusResponseTypeDef,
     DescribeImagesRequestTypeDef,
     DescribeImagesResponseTypeDef,
     DescribePullThroughCacheRulesRequestTypeDef,
@@ -92,10 +98,15 @@ from .type_defs import (
     GetRegistryScanningConfigurationResponseTypeDef,
     GetRepositoryPolicyRequestTypeDef,
     GetRepositoryPolicyResponseTypeDef,
+    GetSigningConfigurationResponseTypeDef,
     InitiateLayerUploadRequestTypeDef,
     InitiateLayerUploadResponseTypeDef,
+    ListImageReferrersRequestTypeDef,
+    ListImageReferrersResponseTypeDef,
     ListImagesRequestTypeDef,
     ListImagesResponseTypeDef,
+    ListPullTimeUpdateExclusionsRequestTypeDef,
+    ListPullTimeUpdateExclusionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     PutAccountSettingRequestTypeDef,
@@ -114,6 +125,10 @@ from .type_defs import (
     PutRegistryScanningConfigurationResponseTypeDef,
     PutReplicationConfigurationRequestTypeDef,
     PutReplicationConfigurationResponseTypeDef,
+    PutSigningConfigurationRequestTypeDef,
+    PutSigningConfigurationResponseTypeDef,
+    RegisterPullTimeUpdateExclusionRequestTypeDef,
+    RegisterPullTimeUpdateExclusionResponseTypeDef,
     SetRepositoryPolicyRequestTypeDef,
     SetRepositoryPolicyResponseTypeDef,
     StartImageScanRequestTypeDef,
@@ -122,6 +137,8 @@ from .type_defs import (
     StartLifecyclePolicyPreviewResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateImageStorageClassRequestTypeDef,
+    UpdateImageStorageClassResponseTypeDef,
     UpdatePullThroughCacheRuleRequestTypeDef,
     UpdatePullThroughCacheRuleResponseTypeDef,
     UpdateRepositoryCreationTemplateRequestTypeDef,
@@ -133,12 +150,6 @@ from .type_defs import (
 )
 from .waiter import ImageScanCompleteWaiter, LifecyclePolicyPreviewCompleteWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -147,47 +158,53 @@ else:
 __all__ = ("ECRClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    EmptyUploadException: Type[BotocoreClientError]
-    ImageAlreadyExistsException: Type[BotocoreClientError]
-    ImageDigestDoesNotMatchException: Type[BotocoreClientError]
-    ImageNotFoundException: Type[BotocoreClientError]
-    ImageTagAlreadyExistsException: Type[BotocoreClientError]
-    InvalidLayerException: Type[BotocoreClientError]
-    InvalidLayerPartException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidTagParameterException: Type[BotocoreClientError]
-    KmsException: Type[BotocoreClientError]
-    LayerAlreadyExistsException: Type[BotocoreClientError]
-    LayerInaccessibleException: Type[BotocoreClientError]
-    LayerPartTooSmallException: Type[BotocoreClientError]
-    LayersNotFoundException: Type[BotocoreClientError]
-    LifecyclePolicyNotFoundException: Type[BotocoreClientError]
-    LifecyclePolicyPreviewInProgressException: Type[BotocoreClientError]
-    LifecyclePolicyPreviewNotFoundException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    PullThroughCacheRuleAlreadyExistsException: Type[BotocoreClientError]
-    PullThroughCacheRuleNotFoundException: Type[BotocoreClientError]
-    ReferencedImagesNotFoundException: Type[BotocoreClientError]
-    RegistryPolicyNotFoundException: Type[BotocoreClientError]
-    RepositoryAlreadyExistsException: Type[BotocoreClientError]
-    RepositoryNotEmptyException: Type[BotocoreClientError]
-    RepositoryNotFoundException: Type[BotocoreClientError]
-    RepositoryPolicyNotFoundException: Type[BotocoreClientError]
-    ScanNotFoundException: Type[BotocoreClientError]
-    SecretNotFoundException: Type[BotocoreClientError]
-    ServerException: Type[BotocoreClientError]
-    TemplateAlreadyExistsException: Type[BotocoreClientError]
-    TemplateNotFoundException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnableToAccessSecretException: Type[BotocoreClientError]
-    UnableToDecryptSecretValueException: Type[BotocoreClientError]
-    UnableToGetUpstreamImageException: Type[BotocoreClientError]
-    UnableToGetUpstreamLayerException: Type[BotocoreClientError]
-    UnsupportedImageTypeException: Type[BotocoreClientError]
-    UnsupportedUpstreamRegistryException: Type[BotocoreClientError]
-    UploadNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    BlockedByOrganizationPolicyException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EmptyUploadException: type[BotocoreClientError]
+    ExclusionAlreadyExistsException: type[BotocoreClientError]
+    ExclusionNotFoundException: type[BotocoreClientError]
+    ImageAlreadyExistsException: type[BotocoreClientError]
+    ImageArchivedException: type[BotocoreClientError]
+    ImageDigestDoesNotMatchException: type[BotocoreClientError]
+    ImageNotFoundException: type[BotocoreClientError]
+    ImageStorageClassUpdateNotSupportedException: type[BotocoreClientError]
+    ImageTagAlreadyExistsException: type[BotocoreClientError]
+    InvalidLayerException: type[BotocoreClientError]
+    InvalidLayerPartException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidTagParameterException: type[BotocoreClientError]
+    KmsException: type[BotocoreClientError]
+    LayerAlreadyExistsException: type[BotocoreClientError]
+    LayerInaccessibleException: type[BotocoreClientError]
+    LayerPartTooSmallException: type[BotocoreClientError]
+    LayersNotFoundException: type[BotocoreClientError]
+    LifecyclePolicyNotFoundException: type[BotocoreClientError]
+    LifecyclePolicyPreviewInProgressException: type[BotocoreClientError]
+    LifecyclePolicyPreviewNotFoundException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    PullThroughCacheRuleAlreadyExistsException: type[BotocoreClientError]
+    PullThroughCacheRuleNotFoundException: type[BotocoreClientError]
+    ReferencedImagesNotFoundException: type[BotocoreClientError]
+    RegistryPolicyNotFoundException: type[BotocoreClientError]
+    RepositoryAlreadyExistsException: type[BotocoreClientError]
+    RepositoryNotEmptyException: type[BotocoreClientError]
+    RepositoryNotFoundException: type[BotocoreClientError]
+    RepositoryPolicyNotFoundException: type[BotocoreClientError]
+    ScanNotFoundException: type[BotocoreClientError]
+    SecretNotFoundException: type[BotocoreClientError]
+    ServerException: type[BotocoreClientError]
+    SigningConfigurationNotFoundException: type[BotocoreClientError]
+    TemplateAlreadyExistsException: type[BotocoreClientError]
+    TemplateNotFoundException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnableToAccessSecretException: type[BotocoreClientError]
+    UnableToDecryptSecretValueException: type[BotocoreClientError]
+    UnableToGetUpstreamImageException: type[BotocoreClientError]
+    UnableToGetUpstreamLayerException: type[BotocoreClientError]
+    UnsupportedImageTypeException: type[BotocoreClientError]
+    UnsupportedUpstreamRegistryException: type[BotocoreClientError]
+    UploadNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ECRClient(AioBaseClient):
     """
@@ -363,6 +380,24 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#delete_repository_policy)
         """
 
+    async def delete_signing_configuration(self) -> DeleteSigningConfigurationResponseTypeDef:
+        """
+        Deletes the registry's signing configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/delete_signing_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#delete_signing_configuration)
+        """
+
+    async def deregister_pull_time_update_exclusion(
+        self, **kwargs: Unpack[DeregisterPullTimeUpdateExclusionRequestTypeDef]
+    ) -> DeregisterPullTimeUpdateExclusionResponseTypeDef:
+        """
+        Removes a principal from the pull time update exclusion list for a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/deregister_pull_time_update_exclusion.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#deregister_pull_time_update_exclusion)
+        """
+
     async def describe_image_replication_status(
         self, **kwargs: Unpack[DescribeImageReplicationStatusRequestTypeDef]
     ) -> DescribeImageReplicationStatusResponseTypeDef:
@@ -381,6 +416,16 @@ class ECRClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/describe_image_scan_findings.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#describe_image_scan_findings)
+        """
+
+    async def describe_image_signing_status(
+        self, **kwargs: Unpack[DescribeImageSigningStatusRequestTypeDef]
+    ) -> DescribeImageSigningStatusResponseTypeDef:
+        """
+        Returns the signing status for a specified image.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/describe_image_signing_status.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#describe_image_signing_status)
         """
 
     async def describe_images(
@@ -510,6 +555,15 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#get_repository_policy)
         """
 
+    async def get_signing_configuration(self) -> GetSigningConfigurationResponseTypeDef:
+        """
+        Retrieves the registry's signing configuration, which defines rules for
+        automatically signing images using Amazon Web Services Signer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/get_signing_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#get_signing_configuration)
+        """
+
     async def initiate_layer_upload(
         self, **kwargs: Unpack[InitiateLayerUploadRequestTypeDef]
     ) -> InitiateLayerUploadResponseTypeDef:
@@ -520,6 +574,16 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#initiate_layer_upload)
         """
 
+    async def list_image_referrers(
+        self, **kwargs: Unpack[ListImageReferrersRequestTypeDef]
+    ) -> ListImageReferrersResponseTypeDef:
+        """
+        Lists the artifacts associated with a specified subject image.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/list_image_referrers.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#list_image_referrers)
+        """
+
     async def list_images(
         self, **kwargs: Unpack[ListImagesRequestTypeDef]
     ) -> ListImagesResponseTypeDef:
@@ -528,6 +592,17 @@ class ECRClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/list_images.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#list_images)
+        """
+
+    async def list_pull_time_update_exclusions(
+        self, **kwargs: Unpack[ListPullTimeUpdateExclusionsRequestTypeDef]
+    ) -> ListPullTimeUpdateExclusionsResponseTypeDef:
+        """
+        Lists the IAM principals that are excluded from having their image pull times
+        recorded.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/list_pull_time_update_exclusions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#list_pull_time_update_exclusions)
         """
 
     async def list_tags_for_resource(
@@ -619,6 +694,27 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#put_replication_configuration)
         """
 
+    async def put_signing_configuration(
+        self, **kwargs: Unpack[PutSigningConfigurationRequestTypeDef]
+    ) -> PutSigningConfigurationResponseTypeDef:
+        """
+        Creates or updates the registry's signing configuration, which defines rules
+        for automatically signing images with Amazon Web Services Signer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/put_signing_configuration.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#put_signing_configuration)
+        """
+
+    async def register_pull_time_update_exclusion(
+        self, **kwargs: Unpack[RegisterPullTimeUpdateExclusionRequestTypeDef]
+    ) -> RegisterPullTimeUpdateExclusionResponseTypeDef:
+        """
+        Adds an IAM principal to the pull time update exclusion list for a registry.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/register_pull_time_update_exclusion.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#register_pull_time_update_exclusion)
+        """
+
     async def set_repository_policy(
         self, **kwargs: Unpack[SetRepositoryPolicyRequestTypeDef]
     ) -> SetRepositoryPolicyResponseTypeDef:
@@ -650,7 +746,7 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#start_lifecycle_policy_preview)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds specified tags to a resource with the specified ARN.
 
@@ -658,12 +754,22 @@ class ECRClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/untag_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#untag_resource)
+        """
+
+    async def update_image_storage_class(
+        self, **kwargs: Unpack[UpdateImageStorageClassRequestTypeDef]
+    ) -> UpdateImageStorageClassResponseTypeDef:
+        """
+        Transitions an image between storage classes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecr/client/update_image_storage_class.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ecr/client/#update_image_storage_class)
         """
 
     async def update_pull_through_cache_rule(
@@ -814,7 +920,7 @@ class ECRClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

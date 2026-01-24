@@ -3,14 +3,14 @@ Type annotations for customer-profiles service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_customer_profiles/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_customer_profiles.literals import AttributeDimensionTypeType
+    from mypy_boto3_customer_profiles.literals import ActionTypeType
 
-    data: AttributeDimensionTypeType = "AFTER"
+    data: ActionTypeType = "ADDED_PROFILE_KEY"
     ```
 """
 
@@ -23,11 +23,13 @@ else:
 
 
 __all__ = (
+    "ActionTypeType",
     "AttributeDimensionTypeType",
     "AttributeMatchingModelType",
     "ComparisonOperatorType",
     "ConflictResolvingModelType",
     "ContactTypeType",
+    "ContentTypeType",
     "CustomerProfilesServiceName",
     "DataFormatType",
     "DataPullModeType",
@@ -36,6 +38,7 @@ __all__ = (
     "EventStreamDestinationStatusType",
     "EventStreamStateType",
     "EventTriggerLogicalOperatorType",
+    "FeatureTypeType",
     "FieldContentTypeType",
     "FilterDimensionTypeType",
     "GenderType",
@@ -46,9 +49,12 @@ __all__ = (
     "JobScheduleDayOfTheWeekType",
     "LayoutTypeType",
     "ListDomainLayoutsPaginatorName",
+    "ListDomainObjectTypesPaginatorName",
     "ListEventStreamsPaginatorName",
     "ListEventTriggersPaginatorName",
     "ListObjectTypeAttributesPaginatorName",
+    "ListRecommenderRecipesPaginatorName",
+    "ListRecommendersPaginatorName",
     "ListRuleBasedMatchesPaginatorName",
     "ListSegmentDefinitionsPaginatorName",
     "ListUploadJobsPaginatorName",
@@ -65,12 +71,16 @@ __all__ = (
     "QueryResultType",
     "RangeUnitType",
     "ReadinessStatusType",
+    "RecommenderRecipeNameType",
+    "RecommenderStatusType",
     "RegionName",
     "ResourceServiceName",
     "RuleBasedMatchingStatusType",
     "S3ConnectorOperatorType",
     "SalesforceConnectorOperatorType",
+    "ScopeType",
     "SegmentSnapshotStatusType",
+    "SegmentTypeType",
     "ServiceName",
     "ServiceNowConnectorOperatorType",
     "SourceConnectorTypeType",
@@ -80,6 +90,7 @@ __all__ = (
     "StatusType",
     "StringDimensionTypeType",
     "TaskTypeType",
+    "TrainingMetricNameType",
     "TriggerTypeType",
     "TypeType",
     "UnitType",
@@ -89,6 +100,17 @@ __all__ = (
 )
 
 
+ActionTypeType = Literal[
+    "ADDED_PROFILE_KEY",
+    "CREATED",
+    "DELETED_BY_CUSTOMER",
+    "DELETED_BY_MERGE",
+    "DELETED_PROFILE_KEY",
+    "EXPIRED",
+    "INGESTED",
+    "MERGED",
+    "UPDATED",
+]
 AttributeDimensionTypeType = Literal[
     "AFTER",
     "BEFORE",
@@ -134,6 +156,7 @@ ContactTypeType = Literal[
     "PersonalEmailAddress",
     "PhoneNumber",
 ]
+ContentTypeType = Literal["NUMBER", "STRING"]
 DataFormatType = Literal["CSV", "JSONL", "ORC"]
 DataPullModeType = Literal["Complete", "Incremental"]
 DateDimensionTypeType = Literal["AFTER", "BEFORE", "BETWEEN", "NOT_BETWEEN", "ON"]
@@ -141,6 +164,7 @@ EstimateStatusType = Literal["FAILED", "RUNNING", "SUCCEEDED"]
 EventStreamDestinationStatusType = Literal["HEALTHY", "UNHEALTHY"]
 EventStreamStateType = Literal["RUNNING", "STOPPED"]
 EventTriggerLogicalOperatorType = Literal["ALL", "ANY", "NONE"]
+FeatureTypeType = Literal["CATEGORICAL", "TEXTUAL"]
 FieldContentTypeType = Literal["EMAIL_ADDRESS", "NAME", "NUMBER", "PHONE_NUMBER", "STRING"]
 FilterDimensionTypeType = Literal[
     "AFTER",
@@ -171,9 +195,12 @@ JobScheduleDayOfTheWeekType = Literal[
 ]
 LayoutTypeType = Literal["PROFILE_EXPLORER"]
 ListDomainLayoutsPaginatorName = Literal["list_domain_layouts"]
+ListDomainObjectTypesPaginatorName = Literal["list_domain_object_types"]
 ListEventStreamsPaginatorName = Literal["list_event_streams"]
 ListEventTriggersPaginatorName = Literal["list_event_triggers"]
 ListObjectTypeAttributesPaginatorName = Literal["list_object_type_attributes"]
+ListRecommenderRecipesPaginatorName = Literal["list_recommender_recipes"]
+ListRecommendersPaginatorName = Literal["list_recommenders"]
 ListRuleBasedMatchesPaginatorName = Literal["list_rule_based_matches"]
 ListSegmentDefinitionsPaginatorName = Literal["list_segment_definitions"]
 ListUploadJobsPaginatorName = Literal["list_upload_jobs"]
@@ -221,6 +248,16 @@ ProfileTypeType = Literal["ACCOUNT_PROFILE", "PROFILE"]
 QueryResultType = Literal["ABSENT", "PRESENT"]
 RangeUnitType = Literal["DAYS"]
 ReadinessStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PREPARING"]
+RecommenderRecipeNameType = Literal[
+    "frequently-paired-items",
+    "popular-items",
+    "recommended-for-you",
+    "similar-items",
+    "trending-now",
+]
+RecommenderStatusType = Literal[
+    "ACTIVE", "DELETING", "FAILED", "INACTIVE", "IN_PROGRESS", "PENDING", "STARTING", "STOPPING"
+]
 RuleBasedMatchingStatusType = Literal["ACTIVE", "IN_PROGRESS", "PENDING"]
 S3ConnectorOperatorType = Literal[
     "ADDITION",
@@ -267,7 +304,9 @@ SalesforceConnectorOperatorType = Literal[
     "VALIDATE_NON_ZERO",
     "VALIDATE_NUMERIC",
 ]
+ScopeType = Literal["DOMAIN", "PROFILE"]
 SegmentSnapshotStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+SegmentTypeType = Literal["CLASSIC", "ENHANCED"]
 ServiceNowConnectorOperatorType = Literal[
     "ADDITION",
     "BETWEEN",
@@ -328,6 +367,9 @@ StatusType = Literal[
 ]
 StringDimensionTypeType = Literal["BEGINS_WITH", "CONTAINS", "ENDS_WITH", "EXCLUSIVE", "INCLUSIVE"]
 TaskTypeType = Literal["Arithmetic", "Filter", "Map", "Mask", "Merge", "Truncate", "Validate"]
+TrainingMetricNameType = Literal[
+    "coverage", "freshness", "hit", "popularity", "recall", "similarity"
+]
 TriggerTypeType = Literal["Event", "OnDemand", "Scheduled"]
 TypeType = Literal["ALL", "ANY", "NONE"]
 UnitType = Literal["DAYS"]
@@ -378,7 +420,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -448,6 +489,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -493,7 +535,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -546,7 +587,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -585,8 +625,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -621,6 +659,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -630,6 +669,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -640,6 +680,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -661,8 +704,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -677,15 +718,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -716,6 +758,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -756,6 +799,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -772,9 +816,12 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "get_similar_profiles",
     "list_domain_layouts",
+    "list_domain_object_types",
     "list_event_streams",
     "list_event_triggers",
     "list_object_type_attributes",
+    "list_recommender_recipes",
+    "list_recommenders",
     "list_rule_based_matches",
     "list_segment_definitions",
     "list_upload_jobs",

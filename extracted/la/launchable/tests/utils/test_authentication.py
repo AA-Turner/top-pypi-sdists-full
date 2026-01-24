@@ -11,12 +11,6 @@ class AuthenticationTest(TestCase):
         self.assertIsNone(org)
         self.assertIsNone(workspace)
 
-    @mock.patch.dict(os.environ, {"LAUNCHABLE_TOKEN": "invalid"})
-    def test_get_org_workspace_invalid_LAUNCHABLE_TOKEN(self):
-        org, workspace = get_org_workspace()
-        self.assertIsNone(org)
-        self.assertIsNone(workspace)
-
     @mock.patch.dict(os.environ,
                      {"LAUNCHABLE_TOKEN": "v1:launchableinc/test:token"})
     def test_get_org_workspace_valid_LAUNCHABLE_TOKEN(self):

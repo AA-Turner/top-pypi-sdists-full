@@ -20,7 +20,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplications]:
+    ) -> models.OAuthApplications:
         r"""Get a list of OAuth applications for an instance
 
         This request returns the list of OAuth applications for an instance.
@@ -28,9 +28,17 @@ class OauthApplicationsSDK(BaseSDK):
         The OAuth applications are ordered by descending creation date.
         Most recent OAuth applications will be returned first.
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
-        :param order_by: Allows to return OAuth applications in a particular order. At the moment, you can order the returned OAuth applications by their `created_at` and `name`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want OAuth applications to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. We only support one `order_by` parameter, and if multiple `order_by` parameters are provided, we will only keep the first one. For example, if you pass `order_by=name&order_by=created_at`, we will consider only the first `order_by` parameter, which is `name`. The `created_at` parameter will be ignored in this case.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
+        :param order_by: Allows to return OAuth applications in a particular order.
+            At the moment, you can order the returned OAuth applications by their `created_at` and `name`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want OAuth applications to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied. We only support one `order_by` parameter, and if multiple `order_by` parameters are provided, we will only keep the first one. For example,
+            if you pass `order_by=name&order_by=created_at`, we will consider only the first `order_by` parameter, which is `name`. The `created_at` parameter will be ignored in this case.
         :param name_query: Returns OAuth applications with names that match the given query, via case-insensitive partial match.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -67,6 +75,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -87,7 +96,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOAuthApplications",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -97,7 +106,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplications], http_res)
+            return unmarshal_json_response(models.OAuthApplications, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -121,7 +130,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplications]:
+    ) -> models.OAuthApplications:
         r"""Get a list of OAuth applications for an instance
 
         This request returns the list of OAuth applications for an instance.
@@ -129,9 +138,17 @@ class OauthApplicationsSDK(BaseSDK):
         The OAuth applications are ordered by descending creation date.
         Most recent OAuth applications will be returned first.
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
-        :param order_by: Allows to return OAuth applications in a particular order. At the moment, you can order the returned OAuth applications by their `created_at` and `name`. In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by. For example, if you want OAuth applications to be returned in descending order according to their `created_at` property, you can use `-created_at`. If you don't use `+` or `-`, then `+` is implied. We only support one `order_by` parameter, and if multiple `order_by` parameters are provided, we will only keep the first one. For example, if you pass `order_by=name&order_by=created_at`, we will consider only the first `order_by` parameter, which is `name`. The `created_at` parameter will be ignored in this case.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
+        :param order_by: Allows to return OAuth applications in a particular order.
+            At the moment, you can order the returned OAuth applications by their `created_at` and `name`.
+            In order to specify the direction, you can use the `+/-` symbols prepended in the property to order by.
+            For example, if you want OAuth applications to be returned in descending order according to their `created_at` property, you can use `-created_at`.
+            If you don't use `+` or `-`, then `+` is implied. We only support one `order_by` parameter, and if multiple `order_by` parameters are provided, we will only keep the first one. For example,
+            if you pass `order_by=name&order_by=created_at`, we will consider only the first `order_by` parameter, which is `name`. The `created_at` parameter will be ignored in this case.
         :param name_query: Returns OAuth applications with names that match the given query, via case-insensitive partial match.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
@@ -168,6 +185,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -188,7 +206,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListOAuthApplications",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -198,7 +216,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplications], http_res)
+            return unmarshal_json_response(models.OAuthApplications, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -224,11 +242,11 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplicationWithSecret]:
+    ) -> models.OAuthApplicationWithSecret:
         r"""Create an OAuth application
 
         Creates a new OAuth application with the given name and callback URL for an instance.
-        The callback URL must be a valid url.
+        The callback URL must be a valid URL.
         All URL schemes are allowed such as `http://`, `https://`, `myapp://`, etc...
 
         :param request: The request object to send.
@@ -273,6 +291,7 @@ class OauthApplicationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOAuthApplicationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -293,7 +312,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -303,9 +322,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OAuthApplicationWithSecret], http_res
-            )
+            return unmarshal_json_response(models.OAuthApplicationWithSecret, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -331,11 +348,11 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplicationWithSecret]:
+    ) -> models.OAuthApplicationWithSecret:
         r"""Create an OAuth application
 
         Creates a new OAuth application with the given name and callback URL for an instance.
-        The callback URL must be a valid url.
+        The callback URL must be a valid URL.
         All URL schemes are allowed such as `http://`, `https://`, `myapp://`, etc...
 
         :param request: The request object to send.
@@ -380,6 +397,7 @@ class OauthApplicationsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateOAuthApplicationRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -400,7 +418,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -410,9 +428,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OAuthApplicationWithSecret], http_res
-            )
+            return unmarshal_json_response(models.OAuthApplicationWithSecret, http_res)
         if utils.match_response(http_res, ["400", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -433,7 +449,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplication]:
+    ) -> models.OAuthApplication:
         r"""Retrieve an OAuth application by ID
 
         Fetches the OAuth application whose ID matches the provided `id` in the path.
@@ -471,6 +487,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -491,7 +508,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -501,7 +518,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplication], http_res)
+            return unmarshal_json_response(models.OAuthApplication, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -522,7 +539,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplication]:
+    ) -> models.OAuthApplication:
         r"""Retrieve an OAuth application by ID
 
         Fetches the OAuth application whose ID matches the provided `id` in the path.
@@ -560,6 +577,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -580,7 +598,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -590,7 +608,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplication], http_res)
+            return unmarshal_json_response(models.OAuthApplication, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -618,13 +636,14 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplication]:
+    ) -> models.OAuthApplication:
         r"""Update an OAuth application
 
         Updates an existing OAuth application
 
         :param oauth_application_id: The ID of the OAuth application to update
-        :param name: The new name of the OAuth application. Max length: 256
+        :param name: The new name of the OAuth application.
+            Max length: 256
         :param redirect_uris: An array of redirect URIs of the new OAuth application
         :param callback_url: The new callback URL of the OAuth application
         :param scopes: Define the allowed scopes for the new OAuth applications that dictate the user payload of the OAuth user info endpoint. Available scopes are `profile`, `email`, `public_metadata`, `private_metadata`. Provide the requested scopes as a string, separated by spaces.
@@ -679,6 +698,7 @@ class OauthApplicationsSDK(BaseSDK):
                 "json",
                 models.UpdateOAuthApplicationRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -699,7 +719,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -709,7 +729,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplication], http_res)
+            return unmarshal_json_response(models.OAuthApplication, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -739,13 +759,14 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplication]:
+    ) -> models.OAuthApplication:
         r"""Update an OAuth application
 
         Updates an existing OAuth application
 
         :param oauth_application_id: The ID of the OAuth application to update
-        :param name: The new name of the OAuth application. Max length: 256
+        :param name: The new name of the OAuth application.
+            Max length: 256
         :param redirect_uris: An array of redirect URIs of the new OAuth application
         :param callback_url: The new callback URL of the OAuth application
         :param scopes: Define the allowed scopes for the new OAuth applications that dictate the user payload of the OAuth user info endpoint. Available scopes are `profile`, `email`, `public_metadata`, `private_metadata`. Provide the requested scopes as a string, separated by spaces.
@@ -800,6 +821,7 @@ class OauthApplicationsSDK(BaseSDK):
                 "json",
                 models.UpdateOAuthApplicationRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -820,7 +842,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -830,7 +852,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.OAuthApplication], http_res)
+            return unmarshal_json_response(models.OAuthApplication, http_res)
         if utils.match_response(
             http_res, ["400", "403", "404", "422"], "application/json"
         ):
@@ -853,7 +875,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete an OAuth application
 
         Deletes the given OAuth application.
@@ -892,6 +914,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -912,7 +935,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -922,7 +945,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -943,7 +966,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete an OAuth application
 
         Deletes the given OAuth application.
@@ -982,6 +1005,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1002,7 +1026,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteOAuthApplication",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1012,7 +1036,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1033,7 +1057,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplicationWithSecret]:
+    ) -> models.OAuthApplicationWithSecret:
         r"""Rotate the client secret of the given OAuth application
 
         Rotates the OAuth application's client secret.
@@ -1072,6 +1096,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1092,7 +1117,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RotateOAuthApplicationSecret",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1102,9 +1127,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OAuthApplicationWithSecret], http_res
-            )
+            return unmarshal_json_response(models.OAuthApplicationWithSecret, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1125,7 +1148,7 @@ class OauthApplicationsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.OAuthApplicationWithSecret]:
+    ) -> models.OAuthApplicationWithSecret:
         r"""Rotate the client secret of the given OAuth application
 
         Rotates the OAuth application's client secret.
@@ -1164,6 +1187,7 @@ class OauthApplicationsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1184,7 +1208,7 @@ class OauthApplicationsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="RotateOAuthApplicationSecret",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1194,9 +1218,7 @@ class OauthApplicationsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.OAuthApplicationWithSecret], http_res
-            )
+            return unmarshal_json_response(models.OAuthApplicationWithSecret, http_res)
         if utils.match_response(http_res, ["403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

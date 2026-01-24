@@ -3,6 +3,9 @@
 from .basesdk import BaseSDK
 from orq_ai_sdk import models, utils
 from orq_ai_sdk._hooks import HookContext
+from orq_ai_sdk.models import (
+    deploymentcreatemetricop as models_deploymentcreatemetricop,
+)
 from orq_ai_sdk.types import OptionalNullable, UNSET
 from orq_ai_sdk.utils import get_security_from_env
 from orq_ai_sdk.utils.unmarshal_json_response import unmarshal_json_response
@@ -15,30 +18,43 @@ class Metrics(BaseSDK):
         *,
         id: str,
         metadata: Optional[Dict[str, Any]] = None,
-        usage: Optional[Union[models.Usage, models.UsageTypedDict]] = None,
+        usage: Optional[
+            Union[
+                models_deploymentcreatemetricop.DeploymentCreateMetricUsage,
+                models_deploymentcreatemetricop.DeploymentCreateMetricUsageTypedDict,
+            ]
+        ] = None,
         performance: Optional[
-            Union[models.Performance, models.PerformanceTypedDict]
+            Union[
+                models_deploymentcreatemetricop.Performance,
+                models_deploymentcreatemetricop.PerformanceTypedDict,
+            ]
         ] = None,
         messages: Optional[
             Union[
-                List[models.DeploymentCreateMetricMessages],
-                List[models.DeploymentCreateMetricMessagesTypedDict],
+                List[models_deploymentcreatemetricop.DeploymentCreateMetricMessages],
+                List[
+                    models_deploymentcreatemetricop.DeploymentCreateMetricMessagesTypedDict
+                ],
             ]
         ] = None,
         choices: Optional[
-            Union[List[models.Choices], List[models.ChoicesTypedDict]]
+            Union[
+                List[models_deploymentcreatemetricop.Choices],
+                List[models_deploymentcreatemetricop.ChoicesTypedDict],
+            ]
         ] = None,
         feedback: Optional[
             Union[
-                models.DeploymentCreateMetricFeedback,
-                models.DeploymentCreateMetricFeedbackTypedDict,
+                models_deploymentcreatemetricop.DeploymentCreateMetricFeedback,
+                models_deploymentcreatemetricop.DeploymentCreateMetricFeedbackTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeploymentCreateMetricResponseBody]:
+    ) -> models.DeploymentCreateMetricResponseBody:
         r"""Add metrics
 
         Add metrics to a deployment
@@ -72,7 +88,9 @@ class Metrics(BaseSDK):
             id=id,
             request_body=models.DeploymentCreateMetricRequestBody(
                 metadata=metadata,
-                usage=utils.get_pydantic_model(usage, Optional[models.Usage]),
+                usage=utils.get_pydantic_model(
+                    usage, Optional[models.DeploymentCreateMetricUsage]
+                ),
                 performance=utils.get_pydantic_model(
                     performance, Optional[models.Performance]
                 ),
@@ -108,6 +126,7 @@ class Metrics(BaseSDK):
                 "json",
                 models.DeploymentCreateMetricRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -124,7 +143,7 @@ class Metrics(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeploymentCreateMetric",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -136,7 +155,7 @@ class Metrics(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.DeploymentCreateMetricResponseBody], http_res
+                models.DeploymentCreateMetricResponseBody, http_res
             )
         if utils.match_response(http_res, ["400", "401", "4XX"], "*"):
             http_res_text = utils.stream_to_text(http_res)
@@ -152,30 +171,43 @@ class Metrics(BaseSDK):
         *,
         id: str,
         metadata: Optional[Dict[str, Any]] = None,
-        usage: Optional[Union[models.Usage, models.UsageTypedDict]] = None,
+        usage: Optional[
+            Union[
+                models_deploymentcreatemetricop.DeploymentCreateMetricUsage,
+                models_deploymentcreatemetricop.DeploymentCreateMetricUsageTypedDict,
+            ]
+        ] = None,
         performance: Optional[
-            Union[models.Performance, models.PerformanceTypedDict]
+            Union[
+                models_deploymentcreatemetricop.Performance,
+                models_deploymentcreatemetricop.PerformanceTypedDict,
+            ]
         ] = None,
         messages: Optional[
             Union[
-                List[models.DeploymentCreateMetricMessages],
-                List[models.DeploymentCreateMetricMessagesTypedDict],
+                List[models_deploymentcreatemetricop.DeploymentCreateMetricMessages],
+                List[
+                    models_deploymentcreatemetricop.DeploymentCreateMetricMessagesTypedDict
+                ],
             ]
         ] = None,
         choices: Optional[
-            Union[List[models.Choices], List[models.ChoicesTypedDict]]
+            Union[
+                List[models_deploymentcreatemetricop.Choices],
+                List[models_deploymentcreatemetricop.ChoicesTypedDict],
+            ]
         ] = None,
         feedback: Optional[
             Union[
-                models.DeploymentCreateMetricFeedback,
-                models.DeploymentCreateMetricFeedbackTypedDict,
+                models_deploymentcreatemetricop.DeploymentCreateMetricFeedback,
+                models_deploymentcreatemetricop.DeploymentCreateMetricFeedbackTypedDict,
             ]
         ] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeploymentCreateMetricResponseBody]:
+    ) -> models.DeploymentCreateMetricResponseBody:
         r"""Add metrics
 
         Add metrics to a deployment
@@ -209,7 +241,9 @@ class Metrics(BaseSDK):
             id=id,
             request_body=models.DeploymentCreateMetricRequestBody(
                 metadata=metadata,
-                usage=utils.get_pydantic_model(usage, Optional[models.Usage]),
+                usage=utils.get_pydantic_model(
+                    usage, Optional[models.DeploymentCreateMetricUsage]
+                ),
                 performance=utils.get_pydantic_model(
                     performance, Optional[models.Performance]
                 ),
@@ -245,6 +279,7 @@ class Metrics(BaseSDK):
                 "json",
                 models.DeploymentCreateMetricRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -261,7 +296,7 @@ class Metrics(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeploymentCreateMetric",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=get_security_from_env(
                     self.sdk_configuration.security, models.Security
                 ),
@@ -273,7 +308,7 @@ class Metrics(BaseSDK):
 
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
-                Optional[models.DeploymentCreateMetricResponseBody], http_res
+                models.DeploymentCreateMetricResponseBody, http_res
             )
         if utils.match_response(http_res, ["400", "401", "4XX"], "*"):
             http_res_text = await utils.stream_to_text_async(http_res)

@@ -146,9 +146,13 @@ SharedPtrVector<PeripheralBase> AdapterWindows::get_paired_peripherals() {
                 }
 
                 peripherals.push_back(this->peripherals_.at(address));
-            } catch (const winrt::hresult_error& e) {
-                SIMPLEBLE_LOG_ERROR(fmt::format("WinRT error processing paired device {} : {}", winrt::to_string(dev_info.Id()), winrt::to_string(e.message())));
-                throw Exception::WinRTException(e.code().value, winrt::to_string(e.message()));
+            } catch (const Exception::WinRTException& e){
+                SIMPLEBLE_LOG_ERROR(fmt::format("WinRT error processing paired device {} : {}", winrt::to_string(dev_info.Id()), e.what()));
+
+                // NOTE: For debugging purposes, we'll print the error message and continue.
+                fmt::print("WinRT error processing paired device {} : {}", winrt::to_string(dev_info.Id()), e.what());
+                //throw Exception::WinRTException(e.code().value, winrt::to_string(e.message()));
+                continue;
             }
         }
         return peripherals;
@@ -179,7 +183,11 @@ SharedPtrVector<PeripheralBase> AdapterWindows::get_connected_peripherals() {
                 peripherals.push_back(this->peripherals_.at(address));
             } catch (const winrt::hresult_error& e) {
                 SIMPLEBLE_LOG_ERROR(fmt::format("WinRT error processing connected device {} : {}", winrt::to_string(dev_info.Id()), winrt::to_string(e.message())));
-                throw Exception::WinRTException(e.code().value, winrt::to_string(e.message()));
+
+                // NOTE: For debugging purposes, we'll print the error message and continue.
+                fmt::print("WinRT error processing connected device {} : {}", winrt::to_string(dev_info.Id()), winrt::to_string(e.message()));
+                // throw Exception::WinRTException(e.code().value, winrt::to_string(e.message()));
+                continue;
             }
         }
         return peripherals;

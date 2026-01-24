@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linode-cli
-Version: 5.62.0
+Version: 5.65.0
 Summary: The official command-line interface for interacting with the Linode API.
 Author-email: "Akamai Technologies Inc." <developers@linode.com>
 License-Expression: BSD-3-Clause
@@ -14,6 +14,7 @@ Requires-Dist: packaging
 Requires-Dist: rich
 Requires-Dist: urllib3<3
 Requires-Dist: linode-metadata>=0.3.0
+Requires-Dist: pytimeparse
 Provides-Extra: obj
 Requires-Dist: boto3>=1.36.0; extra == "obj"
 Provides-Extra: dev

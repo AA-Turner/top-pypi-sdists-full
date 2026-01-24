@@ -1,57 +1,53 @@
-"""
-A smart dataframe class is a wrapper around the pandas/polars dataframe that allows you
-to query it using natural language. It uses the LLMs to generate Python code from
-natural language and then executes it on the dataframe.
-
-Example:
-    ```python
-    from pandasai.smart_dataframe import SmartDataframe
-    from pandasai.llm.openai import OpenAI
-
-    df = pd.read_csv("examples/data/Loan payments data.csv")
-    llm = OpenAI()
-
-    df = SmartDataframe(df, config={"llm": llm})
-    response = df.chat("What is the average loan amount?")
-    print(response)
-    # The average loan amount is $15,000.
-    ```
-"""
-
 import uuid
-from typing import Any, List, Optional, Union
+import warnings
+from typing import List, Optional, Union
+
+import pandas as pd
 
 from pandasai.agent import Agent
-from pandasai.skills import Skill
+from pandasai.dataframe.base import DataFrame
 
-from ..helpers.cache import Cache
-from ..helpers.df_info import DataFrameType
-from ..schemas.df_config import Config
+from ..config import Config
 
 
 class SmartDatalake:
     def __init__(
         self,
-        dfs: List[Union[DataFrameType, Any]],
+        dfs: List[pd.DataFrame],
         config: Optional[Union[Config, dict]] = None,
     ):
-        """
-        Args:
-            dfs (List[Union[DataFrameType, Any]]): List of dataframes to be used
-            config (Union[Config, dict], optional): Config to be used. Defaults to None.
-        """
+        warnings.warn(
+            "\n"
+            + "*" * 80
+            + "\n"
+            + "\033[1;33mDEPRECATION WARNING:\033[0m\n"
+            + "SmartDatalake will be deprecated soon. Use df.chat() instead.\n"
+            + "*" * 80
+            + "\n",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        dfs = self.load_dfs(dfs)
         self._agent = Agent(dfs, config=config)
 
-    def add_skills(self, *skills: Skill):
-        """
-        Add Skills to PandasAI
-        """
-        self._agent.add_skills(*skills)
+    def load_dfs(self, dfs: List[pd.DataFrame]):
+        load_dfs = []
+        for df in dfs:
+            if isinstance(df, pd.DataFrame):
+                load_dfs.append(
+                    DataFrame(df)
+                    if not isinstance(df, DataFrame) and isinstance(df, pd.DataFrame)
+                    else df
+                )
+            else:
+                raise ValueError(
+                    "Invalid input data. We cannot convert it to a dataframe."
+                )
+        return load_dfs
 
     def chat(self, query: str, output_type: Optional[str] = None):
         """
         Run a query on the dataframe.
-
         Args:
             query (str): Query to run on the dataframe
             output_type (Optional[str]): Add a hint for LLM which
@@ -60,14 +56,13 @@ class SmartDatalake:
                     * number - specifies that user expects to get a number
                         as a response object
                     * dataframe - specifies that user expects to get
-                        pandas/polars dataframe as a response object
+                        pandas dataframe as a response object
                     * plot - specifies that user expects LLM to build
                         a plot
                     * string - specifies that user expects to get text
                         as a response object
                 If none `output_type` is specified, the type can be any
                 of the above or "text".
-
         Raises:
             ValueError: If the query is empty
         """
@@ -107,10 +102,6 @@ class SmartDatalake:
         return self._agent.context.config
 
     @property
-    def cache(self):
-        return self._agent.context.cache
-
-    @property
     def verbose(self):
         return self._agent.context.config.verbose
 
@@ -127,37 +118,6 @@ class SmartDatalake:
     def save_logs(self, save_logs: bool):
         self._agent.context.config.save_logs = save_logs
         self._agent.logger.save_logs = save_logs
-
-    @property
-    def enforce_privacy(self):
-        return self._agent.context.config.enforce_privacy
-
-    @enforce_privacy.setter
-    def enforce_privacy(self, enforce_privacy: bool):
-        self._agent.context.config.enforce_privacy = enforce_privacy
-
-    @property
-    def enable_cache(self):
-        return self._agent.context.config.enable_cache
-
-    @enable_cache.setter
-    def enable_cache(self, enable_cache: bool):
-        self._agent.context.config.enable_cache = enable_cache
-        if enable_cache:
-            if self.cache is None:
-                self._cache = Cache()
-        else:
-            self._cache = None
-
-    @property
-    def use_error_correction_framework(self):
-        return self._agent.context.config.use_error_correction_framework
-
-    @use_error_correction_framework.setter
-    def use_error_correction_framework(self, use_error_correction_framework: bool):
-        self._agent.context.config.use_error_correction_framework = (
-            use_error_correction_framework
-        )
 
     @property
     def custom_prompts(self):
@@ -206,7 +166,3 @@ class SmartDatalake:
     @property
     def memory(self):
         return self._agent.context.memory
-
-    @property
-    def last_query_log_id(self):
-        return self._agent.last_query_log_id

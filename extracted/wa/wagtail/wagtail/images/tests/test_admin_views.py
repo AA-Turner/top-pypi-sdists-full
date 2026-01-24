@@ -360,7 +360,7 @@ class TestImageIndexView(WagtailTestUtils, TestCase):
         self.get()
 
         # Initial number of queries.
-        with self.assertNumQueries(12):
+        with self.assertNumQueries(13):
             self.get()
 
         # Add 5 images.
@@ -370,11 +370,11 @@ class TestImageIndexView(WagtailTestUtils, TestCase):
                 file=get_test_image_file(size=(1, 1)),
             )
 
-        with self.assertNumQueries(32):
+        with self.assertNumQueries(33):
             # The renditions needed don't exist yet. We have 20 = 5 * 4 additional queries.
             self.get()
 
-        with self.assertNumQueries(12):
+        with self.assertNumQueries(13):
             # No extra additional queries since renditions exist and are saved in
             # the prefetched objects cache.
             self.get()
@@ -597,7 +597,14 @@ class TestImageIndexView(WagtailTestUtils, TestCase):
         }
         for layout in ["list", "grid"]:
             for ordering, expected_order in cases.items():
-                with self.subTest(layout=layout, ordering=ordering):
+                response = self.client.get(
+                    reverse("wagtailimages:index"),
+                    {"ordering": ordering, "layout": layout},
+                )
+                with (
+                    self.subTest(layout=layout, ordering=ordering),
+                    self.assertNumQueries(22),
+                ):
                     response = self.client.get(
                         reverse("wagtailimages:index"),
                         {"ordering": ordering, "layout": layout},
@@ -608,6 +615,46 @@ class TestImageIndexView(WagtailTestUtils, TestCase):
                         context["page_obj"].object_list,
                         expected_order,
                     )
+
+    def test_filter_by_usage_count(self):
+        unused_image = Image.objects.create(
+            title="an abandoned toy",
+            file=get_test_image_file(size=(1, 1)),
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(protected_image=self.kitten_image)
+            VariousOnDeleteModel.objects.create(protected_image=self.kitten_image)
+            VariousOnDeleteModel.objects.create(protected_image=self.puppy_image)
+
+        response = self.client.get(
+            reverse("wagtailimages:index"),
+            {"usage_count_min": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [self.kitten_image, self.puppy_image],
+        )
+
+        response = self.client.get(
+            reverse("wagtailimages:index"),
+            {"usage_count_min": "1", "usage_count_max": "1"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [self.puppy_image],
+        )
+
+        response = self.client.get(
+            reverse("wagtailimages:index"),
+            {"usage_count_max": "0"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertCountEqual(
+            response.context["page_obj"].object_list,
+            [unused_image],
+        )
 
 
 class TestBulkActionsColumn(WagtailTestUtils, TestCase):
@@ -796,6 +843,32 @@ class TestImageIndexViewSearch(WagtailTestUtils, TransactionTestCase):
             "Expected a ul element with class 'listing horiz images' in grid layout when searching for images.",
         )
 
+    def test_order_by_usage_count_disabled_when_searching(self):
+        # Ordering by usage count not currently available when searching,
+        # due to https://github.com/wagtail/django-modelsearch/issues/51
+        VariousOnDeleteModel.objects.create(protected_image=self.kitten_image)
+        VariousOnDeleteModel.objects.create(protected_image=self.kitten_image)
+        VariousOnDeleteModel.objects.create(protected_image=self.puppy_image)
+
+        response = self.client.get(
+            reverse("wagtailimages:index"),
+            {"q": "cute", "ordering": "-usage_count", "layout": "list"},
+        )
+        self.assertEqual(response.status_code, 200)
+        context = response.context
+        # Will fall back to default ordering (by -created_at)
+        self.assertSequenceEqual(
+            context["page_obj"].object_list,
+            [self.puppy_image, self.kitten_image],
+        )
+
+        soup = self.get_soup(response.content)
+        ths = soup.select("main table th")
+        self.assertTrue(ths)
+        usage_count_th = ths[-1]
+        self.assertEqual(usage_count_th.text.strip(), "Usage")
+        self.assertIsNone(usage_count_th.select_one("a"))
+
 
 class TestImageListingResultsView(WagtailTestUtils, TransactionTestCase):
     fixtures = ["test_empty.json"]
@@ -856,6 +929,25 @@ class TestImageAddView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
             ],
             response.content,
         )
+
+        soup = self.get_soup(response.content)
+        form = soup.select_one("main form")
+        self.assertIsNotNone(form)
+        title_input = form.select_one('input[type="text"][name="title"]')
+        self.assertIsNotNone(title_input)
+        self.assertEqual(title_input.get("id"), "id_title")
+        file_input = form.select_one('input[type="file"][name="file"]')
+        self.assertIsNotNone(file_input)
+        expected_attributes = {
+            "data-controller": "w-sync",
+            "data-action": "input->w-sync#apply",
+            "data-w-sync-bubbles-param": "true",
+            "data-w-sync-name-value": "wagtail:images-upload",
+            "data-w-sync-normalize-value": "true",
+            "data-w-sync-target-value": "#id_title",
+        }
+        for attr, expected_value in expected_attributes.items():
+            self.assertEqual(file_input.get(attr), expected_value)
 
     def test_get_with_collections(self):
         root_collection = Collection.get_first_root_node()
@@ -1913,6 +2005,27 @@ class TestImageChooserView(WagtailTestUtils, TestCase):
         self.assertEqual(
             soup.select_one('input[type="file"]').get("accept"), "image/*, image/avif"
         )
+        form = soup.select_one("form[data-chooser-modal-creation-form]")
+        self.assertIsNotNone(form)
+        title_input = form.select_one(
+            'input[type="text"][name="image-chooser-upload-title"]'
+        )
+        self.assertIsNotNone(title_input)
+        self.assertEqual(title_input.get("id"), "id_image-chooser-upload-title")
+        file_input = form.select_one(
+            'input[type="file"][name="image-chooser-upload-file"]'
+        )
+        self.assertIsNotNone(file_input)
+        expected_attributes = {
+            "data-controller": "w-sync",
+            "data-action": "input->w-sync#apply",
+            "data-w-sync-bubbles-param": "true",
+            "data-w-sync-name-value": "wagtail:images-upload",
+            "data-w-sync-normalize-value": "true",
+            "data-w-sync-target-value": "#id_image-chooser-upload-title",
+        }
+        for attr, expected_value in expected_attributes.items():
+            self.assertEqual(file_input.get(attr), expected_value)
 
     def test_simple_with_collection_nesting(self):
         root_collection = Collection.get_first_root_node()
@@ -2108,6 +2221,38 @@ class TestImageChooserView(WagtailTestUtils, TestCase):
         self.assertEqual(len(response.context["results"]), 1)
         self.assertEqual(response.context["results"][0], image)
 
+    def test_list_mode(self):
+        image = Image.objects.create(
+            title="Test image",
+            file=get_test_image_file(),
+            uploaded_by_user=self.user,
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            VariousOnDeleteModel.objects.create(protected_image=image)
+
+        response = self.get({"layout": "list"})
+        with self.assertNumQueries(16):
+            response = self.get({"layout": "list"})
+
+        self.assertEqual(response.status_code, 200)
+        response_json = json.loads(response.content.decode())
+        self.assertEqual(response_json["step"], "choose")
+        self.assertTemplateUsed(response, "wagtailimages/chooser/chooser.html")
+
+        soup = self.get_soup(response_json["html"])
+        table = soup.select_one("table")
+        self.assertIsNotNone(table)
+        ths = table.select("th")
+        self.assertEqual(
+            [th.text.strip() for th in ths],
+            ["Preview", "Title", "Collection", "Created", "Usage"],
+        )
+        tds = table.select("td")
+        self.assertEqual(
+            [td.get_text(separator="\n", strip=True) for td in tds],
+            ["", f"Test image\n{image.filename}", "Root", "Just now", "Used 1 time"],
+        )
+
     @override_settings(
         CACHES={"default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"}}
     )
@@ -2131,6 +2276,10 @@ class TestImageChooserView(WagtailTestUtils, TestCase):
             # No extra additional queries since renditions exist and are saved in
             # the prefetched objects cache.
             self.get()
+
+        with self.assertNumQueries(11):
+            # One additional query to get the usage count when displaying in list mode.
+            self.get({"layout": "list"})
 
 
 class TestImageChooserViewSearch(WagtailTestUtils, TransactionTestCase):
@@ -3807,6 +3956,13 @@ class TestURLGeneratorView(AdminTemplateTestUtils, WagtailTestUtils, TestCase):
             ],
             response.content,
         )
+
+        soup = self.get_soup(response.content)
+        form = soup.select_one("main form")
+        closeness = form.select_one("input[name=closeness]")
+        self.assertIsNotNone(closeness)
+        self.assertEqual(closeness.get("min"), "0")
+        self.assertEqual(closeness.get("max"), "100")
 
     def test_get_bad_permissions(self):
         """

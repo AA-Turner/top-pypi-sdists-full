@@ -1,0 +1,21 @@
+version: "2"
+
+checks:
+  argument-count:
+    config:
+      threshold: 8
+
+plugins:
+  pep8:
+    enabled: true
+  radon:
+    enabled: true
+    config:
+      threshold: "C"
+
+ratings:
+  paths:
+    - "**.py"
+
+exclude_paths:
+  - "docs/*"

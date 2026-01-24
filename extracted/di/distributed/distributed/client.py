@@ -17,7 +17,14 @@ import uuid
 import warnings
 import weakref
 from collections import defaultdict
-from collections.abc import Collection, Coroutine, Iterable, Iterator, Sequence
+from collections.abc import (
+    Callable,
+    Collection,
+    Coroutine,
+    Iterable,
+    Iterator,
+    Sequence,
+)
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import DoneAndNotDoneFutures
 from contextlib import asynccontextmanager, contextmanager, suppress
@@ -29,11 +36,12 @@ from queue import Queue as pyQueue
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
+    Generic,
     Literal,
     NamedTuple,
     TypedDict,
+    TypeVar,
     cast,
 )
 
@@ -123,7 +131,7 @@ from distributed.utils_comm import (
 from distributed.worker import get_client, get_worker, secede
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +145,8 @@ _current_client: ContextVar[Client | None] = ContextVar("_current_client", defau
 DEFAULT_EXTENSIONS: dict[str, Any] = {}
 
 TOPIC_PREFIX_FORWARDED_LOG_RECORD = "forwarded-log-record"
+
+_T = TypeVar("_T")
 
 
 class FutureCancelledError(CancelledError):
@@ -241,7 +251,7 @@ def _del_global_client(c: Client) -> None:
             pass
 
 
-class Future(TaskRef):
+class Future(TaskRef, Generic[_T]):
     """A remotely running computation
 
     A Future is a local proxy to a result running on a remote worker.  A user
@@ -371,7 +381,7 @@ class Future(TaskRef):
         """
         return self._state.done()
 
-    def result(self, timeout=None):
+    def result(self, timeout=None) -> _T:
         """Wait until computation completes, gather result to local process.
 
         Parameters
@@ -1117,9 +1127,7 @@ class Client(SyncMethodMixin):
                 security = getattr(self.cluster, "security", None)
         elif address is not None and not isinstance(address, str):
             raise TypeError(
-                "Scheduler address must be a string or a Cluster instance, got {}".format(
-                    type(address)
-                )
+                f"Scheduler address must be a string or a Cluster instance, got {type(address)}"
             )
 
         # If connecting to an address and no explicit security is configured, attempt
@@ -1371,10 +1379,7 @@ class Client(SyncMethodMixin):
             return text
 
         elif self.scheduler is not None:
-            return "<{}: scheduler={!r}>".format(
-                self.__class__.__name__,
-                self.scheduler.address,
-            )
+            return f"<{self.__class__.__name__}: scheduler={self.scheduler.address!r}>"
         else:
             return f"<{self.__class__.__name__}: No scheduler connected>"
 
@@ -2033,7 +2038,7 @@ class Client(SyncMethodMixin):
 
     def submit(
         self,
-        func,
+        func: Callable[..., _T],
         *args,
         key=None,
         workers=None,
@@ -2046,7 +2051,7 @@ class Client(SyncMethodMixin):
         actors=False,
         pure=True,
         **kwargs,
-    ):
+    ) -> Future[_T]:
         """Submit a function application to the scheduler
 
         Parameters
@@ -2154,7 +2159,7 @@ class Client(SyncMethodMixin):
                     key,
                     func,
                     *(parse_input(a) for a in args),
-                    **{k: parse_input(v) for k, v in kwargs.items()},
+                    **{k: parse_input(v) for k, v in kwargs.items()},  # type: ignore
                 )
             },
             # We'd like to avoid hashing/tokenizing all of the above.
@@ -2181,7 +2186,7 @@ class Client(SyncMethodMixin):
 
     def map(
         self,
-        func: Callable,
+        func: Callable[..., _T],
         *iterables: Collection,
         key: str | list | None = None,
         workers: str | Iterable[str] | None = None,
@@ -2195,7 +2200,7 @@ class Client(SyncMethodMixin):
         pure: bool = True,
         batch_size=None,
         **kwargs,
-    ):
+    ) -> list[Future[_T]]:
         """Map a function on a sequence of arguments
 
         Arguments can be normal objects or Futures
@@ -2292,8 +2297,8 @@ class Client(SyncMethodMixin):
                 keys = [list(element) for element in partition_all(batch_size, key)]
             else:
                 keys = [key for _ in range(len(batches))]
-            return sum(
-                (
+            return list(
+                flatten(
                     self.map(
                         func,
                         *batch,
@@ -2310,8 +2315,7 @@ class Client(SyncMethodMixin):
                         **kwargs,
                     )
                     for key, batch in zip(keys, batches)
-                ),
-                [],
+                )
             )
 
         key = key or funcname(func)
@@ -2364,7 +2368,7 @@ class Client(SyncMethodMixin):
                 "Cannot gather Futures created by another client. "
                 f"These are the {len(mismatched_futures)} (out of {len(futures)}) "
                 f"mismatched Futures and their client IDs (this client is {self.id}): "
-                f"{ {f: f.client.id for f in mismatched_futures} }"  # noqa: E201, E202
+                f"{ {f: f.client.id for f in mismatched_futures} }"
             )
         keys = [future.key for future in future_set]
         bad_data = dict()
@@ -3090,6 +3094,7 @@ class Client(SyncMethodMixin):
             elif resp["status"] == "error":
                 # Exception raised by the remote function
                 _, exc, tb = clean_exception(**resp)
+                assert exc is not None
                 exc = exc.with_traceback(tb)
             else:
                 assert resp["status"] == "OK"
@@ -5888,8 +5893,8 @@ class as_completed:
             return len(self.futures) + len(self.queue.queue)
 
     def __repr__(self):
-        return "<as_completed: waiting={} done={}>".format(
-            len(self.futures), len(self.queue.queue)
+        return (
+            f"<as_completed: waiting={len(self.futures)} done={len(self.queue.queue)}>"
         )
 
     def __iter__(self):

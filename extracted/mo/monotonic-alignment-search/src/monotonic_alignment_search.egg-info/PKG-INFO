@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: monotonic-alignment-search
-Version: 0.2.0
+Version: 0.2.1
 Summary: Monotonically align text and speech
 Author-email: Jaehyeon Kim <jaywalnut310@gmail.com>
 Maintainer-email: Enno Hermann <enno.hermann@gmail.com>
@@ -9,11 +9,11 @@ Project-URL: Repository, https://github.com/eginhard/monotonic_alignment_search
 Project-URL: Issues, https://github.com/eginhard/monotonic_alignment_search/issues
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
@@ -23,7 +23,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.21.6

@@ -1,0 +1,77 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "mdformat-ruff"
+version = "0.1.3"  # DO NOT EDIT THIS LINE MANUALLY. LET bump2version UTILITY DO IT
+authors = ["Wu Zhenyu <wuzhenyu@ustc.edu>"]
+description = "Mdformat plugin to ruffen Python code blocks"
+repository = "https://github.com/Freed-Wu/mdformat-ruff"
+readme = "README.md"
+license = "MIT"
+classifiers = [
+  "Topic :: Documentation",
+  "Topic :: Text Processing :: Markup",
+  "Typing :: Typed",
+]
+keywords = ["mdformat", "markdown", "commonmark", "formatter"]
+
+packages = [{ include = "mdformat_ruff" }]
+include = ["mdformat_ruff/py.typed"]
+
+[tool.poetry.urls]
+Homepage = "https://mdformat-ruff.readthedocs.io"
+Download = "https://github.com/Freed-Wu/mdformat-ruff/releases"
+"Bug Report" = "https://github.com/Freed-Wu/mdformat-ruff/issues"
+Source = "https://github.com/Freed-Wu/mdformat-ruff"
+
+[tool.poetry.plugins."mdformat.codeformatter"]
+"python" = "mdformat_ruff:format_python"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+ruff = "*"
+
+[tool.poetry.group.dev.dependencies]
+# Tests
+pytest-cov = "*"
+mdformat = "*"
+
+[tool.mdformat]
+number = true
+
+[tool.doq]
+template_path = "templates"
+
+[tool.ruff]
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+  # pycodestyle
+  "E",
+  # pyflakes
+  "F",
+  # pyupgrade
+  "UP",
+  # flake8-bugbear
+  "B",
+  # flake8-simplify
+  "SIM",
+  # isort
+  "I",
+]
+ignore = ["D205", "D400"]
+preview = true
+
+[tool.ruff.format]
+docstring-code-format = true
+preview = true
+
+[tool.coverage.report]
+exclude_lines = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "\\s*import tomli as tomllib",
+]

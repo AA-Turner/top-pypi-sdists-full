@@ -112,7 +112,7 @@ TEST_CASE("Measurement collapse concrete logical qubit difference",
     // The first time an array is allocated, logical and concrete qubits
     // are the same.
     std::vector<intptr_t> Qs = sim->AllocateQubits(n);
-    sim->ReleaseAllQubits();
+    sim->ReleaseQubits(Qs);
 
     // Now in this the concrete qubits are shifted by n.
     Qs = sim->AllocateQubits(n);
@@ -276,6 +276,7 @@ TEST_CASE("Expval(HermitianObs) test", "[Measures]") {
     CHECK(sim->Expval(h2) == Approx(.0).margin(1e-5));
 }
 
+#ifdef SCIPY_OPENBLAS_ENABLED
 TEST_CASE("Expval(HermitianObs) shots test", "[Measures]") {
     std::unique_ptr<LGPUSimulator> sim = std::make_unique<LGPUSimulator>();
 
@@ -322,6 +323,7 @@ TEST_CASE("Var(HermitianObs) shots test", "[Measures]") {
     ObsIdType h1 = sim->Observable(ObsId::Hermitian, mat1, {Qs[0], Qs[1]});
     CHECK(sim->Var(h1) == Approx(0.0).margin(1e-5));
 }
+#endif // SCIPY_OPENBLAS_ENABLED
 
 TEST_CASE("Expval(TensorProd(NamedObs)) test", "[Measures]") {
     std::unique_ptr<LGPUSimulator> sim = std::make_unique<LGPUSimulator>();

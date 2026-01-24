@@ -30,19 +30,20 @@ __author__ = "The Glean Team"
 __email__ = "glean-team@mozilla.com"
 
 
-GLEAN_PARSER_VERSION = "17.2.0"
+GLEAN_PARSER_VERSION = "18.2.0"
 parser_version = VersionInfo.parse(GLEAN_PARSER_VERSION)
 parser_version_next_major = parser_version.bump_major()
 
 
-current_parser = VersionInfo.parse(glean_parser.__version__)
-if current_parser < parser_version or current_parser >= parser_version_next_major:
-    warnings.warn(
-        f"glean_sdk expected glean_parser ~= v{GLEAN_PARSER_VERSION}, "
-        f"found v{glean_parser.__version__}",
-        Warning,
-        stacklevel=1,
-    )
+if "dev" not in glean_parser.__version__:
+    current_parser = VersionInfo.parse(glean_parser.__version__)
+    if current_parser < parser_version or current_parser >= parser_version_next_major:
+        warnings.warn(
+            f"glean_sdk expected glean_parser ~= v{GLEAN_PARSER_VERSION}, "
+            f"found v{glean_parser.__version__}",
+            Warning,
+            stacklevel=1,
+        )
 
 
 __all__ = [

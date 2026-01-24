@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pox
-Version: 0.3.6
+Version: 0.3.7
 Summary: utilities for filesystem exploration and automated builds
 Home-page: https://github.com/uqfoundation/pox
 Download-URL: https://pypi.org/project/pox/#files
@@ -20,17 +20,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
 
 --------------------------------------------------------------
@@ -121,7 +121,7 @@ Requirements
 
 ``pox`` requires:
 
-    - ``python`` (or ``pypy``), **>=3.8**
+    - ``python`` (or ``pypy``), **>=3.9**
     - ``setuptools``, **>=42**
 
 

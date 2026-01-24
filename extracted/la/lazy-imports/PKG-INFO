@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lazy_imports
-Version: 1.0.1
+Version: 1.2.0
 Summary: Tool to support lazy imports
 Author: Pascal Bachor
 Author-email: lazy-imports.vista851@passmail.net
@@ -13,17 +13,17 @@ Keywords: import imports lazy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: checking
@@ -39,16 +39,16 @@ Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: packaging; extra == "testing"
 Provides-Extra: all
-Requires-Dist: pydocstyle; extra == "all"
-Requires-Dist: mdformat; extra == "all"
-Requires-Dist: mypy; extra == "all"
-Requires-Dist: black; extra == "all"
 Requires-Dist: isort; extra == "all"
-Requires-Dist: pylint; extra == "all"
-Requires-Dist: pylintfileheader; extra == "all"
+Requires-Dist: mypy; extra == "all"
 Requires-Dist: flake8; extra == "all"
-Requires-Dist: packaging; extra == "all"
+Requires-Dist: mdformat; extra == "all"
 Requires-Dist: pytest; extra == "all"
+Requires-Dist: pylint; extra == "all"
+Requires-Dist: pydocstyle; extra == "all"
+Requires-Dist: black; extra == "all"
+Requires-Dist: pylintfileheader; extra == "all"
+Requires-Dist: packaging; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -77,7 +77,7 @@ Additionally, this package provides a utility for *optional imports* with which 
 
 [`lazy-imports`](https://pypi.org/project/lazy-imports/) is available on [the Python Package Index (PyPI)](https://pypi.org/project/lazy-imports/).
 
-> [!WARNING]
+> [!IMPORTANT]
 > Python's import system is highly complex and side effects are ubiquitous.
 > Although employing lazy imports (in a sanely structured project) is quite safe, you should keep in mind that there are necessarily subtle differences between lazy and ordinary (eager) imports/modules.
 
@@ -85,6 +85,16 @@ Additionally, this package provides a utility for *optional imports* with which 
 > Using a dedicated package such as this one means that you don't have to go through all the details yourself.
 > Still, we recommend to become acquainted with the basic functionality of lazy modules (such as understanding the roles of `__getattr__`, `__dir__`, and `__all__`).
 > If you'd like to talk about it, feel free to open the [discussion](https://github.com/bachorp/lazy-imports/discussions) on Github.
+
+### Table of Contents
+
+- [`LazyModule`](#lazymodule)
+  - [Example 1](#example-1)
+  - [Example 2](#example-2)
+- [`try_import`](#try_import)
+- [`LazyImporter`](#lazyimporter)
+- [History](#history)
+- [Licensing](#licensing)
 
 ## [`LazyModule`](./lazy_imports/lazy_module.py)
 

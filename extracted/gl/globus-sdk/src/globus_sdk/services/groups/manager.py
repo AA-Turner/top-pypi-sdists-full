@@ -125,6 +125,22 @@ class GroupsManager:
         actions = BatchMembershipActions().approve_pending([identity_id])
         return self.client.batch_membership_action(group_id, actions)
 
+    def change_role(
+        self,
+        group_id: uuid.UUID | str,
+        identity_id: uuid.UUID | str,
+        role: _GROUP_ROLE_T,
+    ) -> response.GlobusHTTPResponse:
+        """
+        Change the role of the given identity in the given group.
+
+        :param group_id: The ID of the group
+        :param identity_id: The identity to assign the *role* to
+        :param role: The role that will be assigned to the *identity_id*
+        """
+        actions = BatchMembershipActions().change_roles(role, [identity_id])
+        return self.client.batch_membership_action(group_id, actions)
+
     def decline_invite(
         self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:

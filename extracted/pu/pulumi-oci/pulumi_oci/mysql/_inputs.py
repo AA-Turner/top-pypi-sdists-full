@@ -41,6 +41,8 @@ __all__ = [
     'MysqlBackupDbSystemSnapshotBackupPolicyPitrPolicyArgsDict',
     'MysqlBackupDbSystemSnapshotDataStorageArgs',
     'MysqlBackupDbSystemSnapshotDataStorageArgsDict',
+    'MysqlBackupDbSystemSnapshotDatabaseConsoleArgs',
+    'MysqlBackupDbSystemSnapshotDatabaseConsoleArgsDict',
     'MysqlBackupDbSystemSnapshotDeletionPolicyArgs',
     'MysqlBackupDbSystemSnapshotDeletionPolicyArgsDict',
     'MysqlBackupDbSystemSnapshotEncryptDataArgs',
@@ -91,6 +93,8 @@ __all__ = [
     'MysqlDbSystemCustomerContactArgsDict',
     'MysqlDbSystemDataStorageArgs',
     'MysqlDbSystemDataStorageArgsDict',
+    'MysqlDbSystemDatabaseConsoleArgs',
+    'MysqlDbSystemDatabaseConsoleArgsDict',
     'MysqlDbSystemDeletionPolicyArgs',
     'MysqlDbSystemDeletionPolicyArgsDict',
     'MysqlDbSystemEncryptDataArgs',
@@ -980,6 +984,10 @@ if not MYPY:
         """
         Data Storage information.
         """
+        database_consoles: NotRequired[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDatabaseConsoleArgsDict']]]]
+        """
+        Database console configuration details.
+        """
         database_management: NotRequired[pulumi.Input[_builtins.str]]
         """
         Whether to enable monitoring via the Database Management service.
@@ -1068,6 +1076,10 @@ if not MYPY:
         """
         Secure connection configuration details.
         """
+        security_attributes: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+        """
+        Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
         shape_name: NotRequired[pulumi.Input[_builtins.str]]
         """
         The shape of the DB System instance used for backup.
@@ -1090,6 +1102,7 @@ class MysqlBackupDbSystemSnapshotArgs:
                  crash_recovery: Optional[pulumi.Input[_builtins.str]] = None,
                  data_storage_size_in_gb: Optional[pulumi.Input[_builtins.int]] = None,
                  data_storages: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDataStorageArgs']]]] = None,
+                 database_consoles: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDatabaseConsoleArgs']]]] = None,
                  database_management: Optional[pulumi.Input[_builtins.str]] = None,
                  defined_tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  deletion_policies: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDeletionPolicyArgs']]]] = None,
@@ -1112,6 +1125,7 @@ class MysqlBackupDbSystemSnapshotArgs:
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  rests: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotRestArgs']]]] = None,
                  secure_connections: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotSecureConnectionArgs']]]] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shape_name: Optional[pulumi.Input[_builtins.str]] = None,
                  subnet_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
@@ -1123,6 +1137,7 @@ class MysqlBackupDbSystemSnapshotArgs:
         :param pulumi.Input[_builtins.str] crash_recovery: Whether to run the DB System with InnoDB Redo Logs and the Double Write Buffer enabled or disabled, and whether to enable or disable syncing of the Binary Logs.
         :param pulumi.Input[_builtins.int] data_storage_size_in_gb: DEPRECATED: User specified size of the data volume. May be less than current allocatedStorageSizeInGBs. Replaced by dataStorage.dataStorageSizeInGBs.
         :param pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDataStorageArgs']]] data_storages: Data Storage information.
+        :param pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDatabaseConsoleArgs']]] database_consoles: Database console configuration details.
         :param pulumi.Input[_builtins.str] database_management: Whether to enable monitoring via the Database Management service.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. Example: `{"foo-namespace.bar-key": "value"}`
         :param pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDeletionPolicyArgs']]] deletion_policies: The Deletion policy for the DB System.
@@ -1145,6 +1160,7 @@ class MysqlBackupDbSystemSnapshotArgs:
         :param pulumi.Input[_builtins.str] region: The region identifier of the region where the DB system exists. For more information, please see [Regions and Availability Domains](https://docs.oracle.com/en-us/iaas/Content/General/Concepts/regions.htm).
         :param pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotRestArgs']]] rests: REST configuration details.
         :param pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotSecureConnectionArgs']]] secure_connections: Secure connection configuration details.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shape_name: The shape of the DB System instance used for backup.
         :param pulumi.Input[_builtins.str] subnet_id: The OCID of the subnet the DB System is associated with.
         """
@@ -1164,6 +1180,8 @@ class MysqlBackupDbSystemSnapshotArgs:
             pulumi.set(__self__, "data_storage_size_in_gb", data_storage_size_in_gb)
         if data_storages is not None:
             pulumi.set(__self__, "data_storages", data_storages)
+        if database_consoles is not None:
+            pulumi.set(__self__, "database_consoles", database_consoles)
         if database_management is not None:
             pulumi.set(__self__, "database_management", database_management)
         if defined_tags is not None:
@@ -1208,6 +1226,8 @@ class MysqlBackupDbSystemSnapshotArgs:
             pulumi.set(__self__, "rests", rests)
         if secure_connections is not None:
             pulumi.set(__self__, "secure_connections", secure_connections)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
         if shape_name is not None:
             pulumi.set(__self__, "shape_name", shape_name)
         if subnet_id is not None:
@@ -1308,6 +1328,18 @@ class MysqlBackupDbSystemSnapshotArgs:
     @data_storages.setter
     def data_storages(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDataStorageArgs']]]]):
         pulumi.set(self, "data_storages", value)
+
+    @_builtins.property
+    @pulumi.getter(name="databaseConsoles")
+    def database_consoles(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDatabaseConsoleArgs']]]]:
+        """
+        Database console configuration details.
+        """
+        return pulumi.get(self, "database_consoles")
+
+    @database_consoles.setter
+    def database_consoles(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotDatabaseConsoleArgs']]]]):
+        pulumi.set(self, "database_consoles", value)
 
     @_builtins.property
     @pulumi.getter(name="databaseManagement")
@@ -1572,6 +1604,18 @@ class MysqlBackupDbSystemSnapshotArgs:
     @secure_connections.setter
     def secure_connections(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['MysqlBackupDbSystemSnapshotSecureConnectionArgs']]]]):
         pulumi.set(self, "secure_connections", value)
+
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="shapeName")
@@ -1967,6 +2011,58 @@ class MysqlBackupDbSystemSnapshotDataStorageArgs:
 
 
 if not MYPY:
+    class MysqlBackupDbSystemSnapshotDatabaseConsoleArgsDict(TypedDict):
+        port: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        The port for REST to listen on. Supported port numbers are 443 and from 1024 to 65535.
+        """
+        status: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The state of the endpoints, as far as it can seen from the DB System. There may be some inconsistency with the actual state of the MySQL service.
+        """
+elif False:
+    MysqlBackupDbSystemSnapshotDatabaseConsoleArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class MysqlBackupDbSystemSnapshotDatabaseConsoleArgs:
+    def __init__(__self__, *,
+                 port: Optional[pulumi.Input[_builtins.int]] = None,
+                 status: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] port: The port for REST to listen on. Supported port numbers are 443 and from 1024 to 65535.
+        :param pulumi.Input[_builtins.str] status: The state of the endpoints, as far as it can seen from the DB System. There may be some inconsistency with the actual state of the MySQL service.
+        """
+        if port is not None:
+            pulumi.set(__self__, "port", port)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter
+    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        The port for REST to listen on. Supported port numbers are 443 and from 1024 to 65535.
+        """
+        return pulumi.get(self, "port")
+
+    @port.setter
+    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "port", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The state of the endpoints, as far as it can seen from the DB System. There may be some inconsistency with the actual state of the MySQL service.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "status", value)
+
+
+if not MYPY:
     class MysqlBackupDbSystemSnapshotDeletionPolicyArgsDict(TypedDict):
         automatic_backup_retention: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -2284,6 +2380,26 @@ class MysqlBackupDbSystemSnapshotEndpointArgs:
 
 if not MYPY:
     class MysqlBackupDbSystemSnapshotMaintenanceArgsDict(TypedDict):
+        maintenance_schedule_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The maintenance schedule type of the DB system. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        """
+        target_version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The version that is expected to be targeted during the next scheduled maintenance run.
+        """
+        time_scheduled: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        """
+        version_preference: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The preferred version to target when performing an automatic MySQL upgrade.
+        """
+        version_track_preference: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The preferred version track to target when performing an automatic MySQL upgrade. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
+        """
         window_start_time: NotRequired[pulumi.Input[_builtins.str]]
         """
         The start time of the maintenance window.
@@ -2294,12 +2410,92 @@ elif False:
 @pulumi.input_type
 class MysqlBackupDbSystemSnapshotMaintenanceArgs:
     def __init__(__self__, *,
+                 maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 target_version: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_scheduled: Optional[pulumi.Input[_builtins.str]] = None,
+                 version_preference: Optional[pulumi.Input[_builtins.str]] = None,
+                 version_track_preference: Optional[pulumi.Input[_builtins.str]] = None,
                  window_start_time: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[_builtins.str] maintenance_schedule_type: The maintenance schedule type of the DB system. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        :param pulumi.Input[_builtins.str] target_version: The version that is expected to be targeted during the next scheduled maintenance run.
+        :param pulumi.Input[_builtins.str] time_scheduled: The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        :param pulumi.Input[_builtins.str] version_preference: The preferred version to target when performing an automatic MySQL upgrade.
+        :param pulumi.Input[_builtins.str] version_track_preference: The preferred version track to target when performing an automatic MySQL upgrade. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
         :param pulumi.Input[_builtins.str] window_start_time: The start time of the maintenance window.
         """
+        if maintenance_schedule_type is not None:
+            pulumi.set(__self__, "maintenance_schedule_type", maintenance_schedule_type)
+        if target_version is not None:
+            pulumi.set(__self__, "target_version", target_version)
+        if time_scheduled is not None:
+            pulumi.set(__self__, "time_scheduled", time_scheduled)
+        if version_preference is not None:
+            pulumi.set(__self__, "version_preference", version_preference)
+        if version_track_preference is not None:
+            pulumi.set(__self__, "version_track_preference", version_track_preference)
         if window_start_time is not None:
             pulumi.set(__self__, "window_start_time", window_start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceScheduleType")
+    def maintenance_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The maintenance schedule type of the DB system. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        """
+        return pulumi.get(self, "maintenance_schedule_type")
+
+    @maintenance_schedule_type.setter
+    def maintenance_schedule_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "maintenance_schedule_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetVersion")
+    def target_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The version that is expected to be targeted during the next scheduled maintenance run.
+        """
+        return pulumi.get(self, "target_version")
+
+    @target_version.setter
+    def target_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "target_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="timeScheduled")
+    def time_scheduled(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        """
+        return pulumi.get(self, "time_scheduled")
+
+    @time_scheduled.setter
+    def time_scheduled(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_scheduled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionPreference")
+    def version_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The preferred version to target when performing an automatic MySQL upgrade.
+        """
+        return pulumi.get(self, "version_preference")
+
+    @version_preference.setter
+    def version_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version_preference", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionTrackPreference")
+    def version_track_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The preferred version track to target when performing an automatic MySQL upgrade. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
+        """
+        return pulumi.get(self, "version_track_preference")
+
+    @version_track_preference.setter
+    def version_track_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version_track_preference", value)
 
     @_builtins.property
     @pulumi.getter(name="windowStartTime")
@@ -7036,6 +7232,57 @@ class MysqlDbSystemDataStorageArgs:
 
 
 if not MYPY:
+    class MysqlDbSystemDatabaseConsoleArgsDict(TypedDict):
+        status: pulumi.Input[_builtins.str]
+        """
+        (Updatable) Enable/disable the database console on the DB System.
+        """
+        port: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        (Updatable) The port on which the database console can be accessed. Supported port numbers are 443 and from 1024 to 65535.
+        """
+elif False:
+    MysqlDbSystemDatabaseConsoleArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class MysqlDbSystemDatabaseConsoleArgs:
+    def __init__(__self__, *,
+                 status: pulumi.Input[_builtins.str],
+                 port: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] status: (Updatable) Enable/disable the database console on the DB System.
+        :param pulumi.Input[_builtins.int] port: (Updatable) The port on which the database console can be accessed. Supported port numbers are 443 and from 1024 to 65535.
+        """
+        pulumi.set(__self__, "status", status)
+        if port is not None:
+            pulumi.set(__self__, "port", port)
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> pulumi.Input[_builtins.str]:
+        """
+        (Updatable) Enable/disable the database console on the DB System.
+        """
+        return pulumi.get(self, "status")
+
+    @status.setter
+    def status(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "status", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def port(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        (Updatable) The port on which the database console can be accessed. Supported port numbers are 443 and from 1024 to 65535.
+        """
+        return pulumi.get(self, "port")
+
+    @port.setter
+    def port(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "port", value)
+
+
+if not MYPY:
     class MysqlDbSystemDeletionPolicyArgsDict(TypedDict):
         automatic_backup_retention: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -7499,13 +7746,40 @@ if not MYPY:
 
         If you set the read replica maintenance window to "" or if not specified, the read replica is set same as the DB system maintenance window.
         """
+        maintenance_schedule_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Updatable) The maintenance schedule type of the DB system. Defaults to REGULAR. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        """
+        target_version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The version that is expected to be targeted during the next scheduled maintenance run.
+        """
+        time_scheduled: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        """
+        version_preference: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Updatable) The preferred version to target when performing an automatic MySQL upgrade. Defaults to OLDEST.
+
+        OLDEST: Choose the oldest available MySQL version based on the current version of the DB System. SECOND_NEWEST: Choose the MySQL version before the newest for auto-upgrade. NEWEST: Choose the latest and greatest MySQL version available for auto-upgrade.
+        """
+        version_track_preference: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Updatable) The preferred version track to target when performing an automatic MySQL upgrade. Defaults to FOLLOW. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
+        """
 elif False:
     MysqlDbSystemMaintenanceArgsDict: TypeAlias = Mapping[str, Any]
 
 @pulumi.input_type
 class MysqlDbSystemMaintenanceArgs:
     def __init__(__self__, *,
-                 window_start_time: pulumi.Input[_builtins.str]):
+                 window_start_time: pulumi.Input[_builtins.str],
+                 maintenance_schedule_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 target_version: Optional[pulumi.Input[_builtins.str]] = None,
+                 time_scheduled: Optional[pulumi.Input[_builtins.str]] = None,
+                 version_preference: Optional[pulumi.Input[_builtins.str]] = None,
+                 version_track_preference: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] window_start_time: (Updatable) The start of the 2 hour maintenance window.
                
@@ -7516,8 +7790,25 @@ class MysqlDbSystemMaintenanceArgs:
                "{time-of-day}" is the "Time" portion of an RFC3339-formatted timestamp. Any second or sub-second time data will be truncated to zero.
                
                If you set the read replica maintenance window to "" or if not specified, the read replica is set same as the DB system maintenance window.
+        :param pulumi.Input[_builtins.str] maintenance_schedule_type: (Updatable) The maintenance schedule type of the DB system. Defaults to REGULAR. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        :param pulumi.Input[_builtins.str] target_version: The version that is expected to be targeted during the next scheduled maintenance run.
+        :param pulumi.Input[_builtins.str] time_scheduled: The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        :param pulumi.Input[_builtins.str] version_preference: (Updatable) The preferred version to target when performing an automatic MySQL upgrade. Defaults to OLDEST.
+               
+               OLDEST: Choose the oldest available MySQL version based on the current version of the DB System. SECOND_NEWEST: Choose the MySQL version before the newest for auto-upgrade. NEWEST: Choose the latest and greatest MySQL version available for auto-upgrade.
+        :param pulumi.Input[_builtins.str] version_track_preference: (Updatable) The preferred version track to target when performing an automatic MySQL upgrade. Defaults to FOLLOW. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
         """
         pulumi.set(__self__, "window_start_time", window_start_time)
+        if maintenance_schedule_type is not None:
+            pulumi.set(__self__, "maintenance_schedule_type", maintenance_schedule_type)
+        if target_version is not None:
+            pulumi.set(__self__, "target_version", target_version)
+        if time_scheduled is not None:
+            pulumi.set(__self__, "time_scheduled", time_scheduled)
+        if version_preference is not None:
+            pulumi.set(__self__, "version_preference", version_preference)
+        if version_track_preference is not None:
+            pulumi.set(__self__, "version_track_preference", version_track_preference)
 
     @_builtins.property
     @pulumi.getter(name="windowStartTime")
@@ -7538,6 +7829,68 @@ class MysqlDbSystemMaintenanceArgs:
     @window_start_time.setter
     def window_start_time(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "window_start_time", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceScheduleType")
+    def maintenance_schedule_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) The maintenance schedule type of the DB system. Defaults to REGULAR. EARLY:   Maintenance schedule follows a cycle where upgrades are performed when versions become deprecated. REGULAR: Maintenance schedule follows the normal cycle where upgrades are performed when versions become unavailable.
+        """
+        return pulumi.get(self, "maintenance_schedule_type")
+
+    @maintenance_schedule_type.setter
+    def maintenance_schedule_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "maintenance_schedule_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetVersion")
+    def target_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The version that is expected to be targeted during the next scheduled maintenance run.
+        """
+        return pulumi.get(self, "target_version")
+
+    @target_version.setter
+    def target_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "target_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="timeScheduled")
+    def time_scheduled(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The time the scheduled maintenance is expected to start, as described by [RFC 3339](https://tools.ietf.org/rfc/rfc3339).
+        """
+        return pulumi.get(self, "time_scheduled")
+
+    @time_scheduled.setter
+    def time_scheduled(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "time_scheduled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionPreference")
+    def version_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) The preferred version to target when performing an automatic MySQL upgrade. Defaults to OLDEST.
+
+        OLDEST: Choose the oldest available MySQL version based on the current version of the DB System. SECOND_NEWEST: Choose the MySQL version before the newest for auto-upgrade. NEWEST: Choose the latest and greatest MySQL version available for auto-upgrade.
+        """
+        return pulumi.get(self, "version_preference")
+
+    @version_preference.setter
+    def version_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version_preference", value)
+
+    @_builtins.property
+    @pulumi.getter(name="versionTrackPreference")
+    def version_track_preference(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Updatable) The preferred version track to target when performing an automatic MySQL upgrade. Defaults to FOLLOW. LONG_TERM_SUPPORT: No MySQL database behavior changes. INNOVATION:        Provides access to the latest features and all bug fixes. FOLLOW:            Follows the track of the current MySQL version.
+        """
+        return pulumi.get(self, "version_track_preference")
+
+    @version_track_preference.setter
+    def version_track_preference(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "version_track_preference", value)
 
 
 if not MYPY:
@@ -7975,6 +8328,10 @@ if not MYPY:
         """
         (Updatable) Network Security Group OCIDs used for the VNIC attachment.
         """
+        security_attributes: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+        """
+        (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
         shape_name: NotRequired[pulumi.Input[_builtins.str]]
         """
         (Updatable) The shape to be used by the read replica. The shape determines the resources allocated:  CPU cores and memory for VM shapes, CPU cores, memory and storage for non-VM (bare metal) shapes.  To get a list of shapes, use the [ListShapes](https://docs.cloud.oracle.com/iaas/api/#/en/mysql/20190415/ShapeSummary/ListShapes) operation. 
@@ -7992,11 +8349,13 @@ class ReplicaReplicaOverridesArgs:
                  configuration_id: Optional[pulumi.Input[_builtins.str]] = None,
                  mysql_version: Optional[pulumi.Input[_builtins.str]] = None,
                  nsg_ids: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 security_attributes: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  shape_name: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] configuration_id: (Updatable) The OCID of the Configuration to be used by the read replica.
         :param pulumi.Input[_builtins.str] mysql_version: (Updatable) The MySQL version to be used by the read replica.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] nsg_ids: (Updatable) Network Security Group OCIDs used for the VNIC attachment.
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] security_attributes: (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
         :param pulumi.Input[_builtins.str] shape_name: (Updatable) The shape to be used by the read replica. The shape determines the resources allocated:  CPU cores and memory for VM shapes, CPU cores, memory and storage for non-VM (bare metal) shapes.  To get a list of shapes, use the [ListShapes](https://docs.cloud.oracle.com/iaas/api/#/en/mysql/20190415/ShapeSummary/ListShapes) operation. 
                
                
@@ -8009,6 +8368,8 @@ class ReplicaReplicaOverridesArgs:
             pulumi.set(__self__, "mysql_version", mysql_version)
         if nsg_ids is not None:
             pulumi.set(__self__, "nsg_ids", nsg_ids)
+        if security_attributes is not None:
+            pulumi.set(__self__, "security_attributes", security_attributes)
         if shape_name is not None:
             pulumi.set(__self__, "shape_name", shape_name)
 
@@ -8047,6 +8408,18 @@ class ReplicaReplicaOverridesArgs:
     @nsg_ids.setter
     def nsg_ids(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "nsg_ids", value)
+
+    @_builtins.property
+    @pulumi.getter(name="securityAttributes")
+    def security_attributes(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        (Updatable) Security Attributes for this resource. Each key is predefined and scoped to a namespace. For more information, see [ZPR Artifacts](https://docs.oracle.com/en-us/iaas/Content/zero-trust-packet-routing/zpr-artifacts.htm). Example: `{"Oracle-ZPR": {"MaxEgressCount": {"value": "42", "mode": "audit"}}}`
+        """
+        return pulumi.get(self, "security_attributes")
+
+    @security_attributes.setter
+    def security_attributes(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "security_attributes", value)
 
     @_builtins.property
     @pulumi.getter(name="shapeName")

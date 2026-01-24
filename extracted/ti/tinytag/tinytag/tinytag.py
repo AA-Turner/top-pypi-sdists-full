@@ -524,17 +524,26 @@ class _MP4(TinyTag):
                 b'\xa9des': {b'data': _MP4._data_parser('other.description')},
                 b'\xa9dir': {b'data': _MP4._data_parser('other.director')},
                 b'\xa9gen': {b'data': _MP4._data_parser('genre')},
+                b'\xa9grp': {b'data': _MP4._data_parser('other.grouping')},
                 b'\xa9lyr': {b'data': _MP4._data_parser('other.lyrics')},
-                b'\xa9mvn': {b'data': _MP4._data_parser('movement')},
+                b'\xa9mvc': {
+                    b'data': _MP4._data_parser('other.movement_total')
+                },
+                b'\xa9mvi': {b'data': _MP4._data_parser('other.movement')},
+                b'\xa9mvn': {
+                    b'data': _MP4._data_parser('other.movement_name')
+                },
                 b'\xa9nam': {b'data': _MP4._data_parser('title')},
                 b'\xa9pub': {b'data': _MP4._data_parser('other.publisher')},
                 b'\xa9too': {b'data': _MP4._data_parser('other.encoded_by')},
+                b'\xa9wrk': {b'data': _MP4._data_parser('other.work')},
                 b'\xa9wrt': {b'data': _MP4._data_parser('composer')},
                 b'aART': {b'data': _MP4._data_parser('albumartist')},
                 b'cprt': {b'data': _MP4._data_parser('other.copyright')},
                 b'desc': {b'data': _MP4._data_parser('other.description')},
                 b'disk': {b'data': _MP4._nums_parser('disc', 'disc_total')},
                 b'gnre': {b'data': _MP4._parse_id3v1_genre},
+                b'shwm': {b'data': _MP4._data_parser('other.show_movement')},
                 b'trkn': {b'data': _MP4._nums_parser('track', 'track_total')},
                 b'tmpo': {b'data': _MP4._data_parser('other.bpm')},
                 b'covr': {b'data': _MP4._parse_cover_image},
@@ -547,13 +556,18 @@ class _MP4(TinyTag):
                         path: _DataTreeDict,
                         stop_pos: int | None = None,
                         curr_path: list[bytes] | None = None) -> None:
-        header_len = 8
+        header_len = ext_size_len = 8
         atom_header = fh.read(header_len)
         while len(atom_header) == header_len:
-            atom_size = unpack('>I', atom_header[:4])[0] - header_len
+            atom_size = unpack('>I', atom_header[:4])[0]
             atom_type = atom_header[4:]
             if curr_path is None:  # keep track how we traversed in the tree
                 curr_path = [atom_type]
+            if atom_size == 1:  # 64-bit size
+                ext_size_header = fh.read(ext_size_len)
+                if len(ext_size_header) == ext_size_len:
+                    atom_size = unpack('>Q', ext_size_header)[0] - ext_size_len
+            atom_size -= header_len
             if atom_size <= 0:  # empty atom, jump to next one
                 atom_header = fh.read(header_len)
                 continue
@@ -563,8 +577,10 @@ class _MP4(TinyTag):
                       f'atom: {atom_type!r} len: {atom_size + header_len}')
             if atom_type in self._VERSIONED_ATOMS:  # jump atom version for now
                 fh.seek(4, SEEK_CUR)
+                atom_size -= 4
             if atom_type in self._FLAGGED_ATOMS:  # jump atom flags for now
                 fh.seek(4, SEEK_CUR)
+                atom_size -= 4
             sub_path = path.get(atom_type, None)
             # if the path leaf is a dict, traverse deeper into the tree:
             if isinstance(sub_path, dict):
@@ -589,7 +605,9 @@ class _MP4(TinyTag):
             # unknown data atom, try to parse it
             elif curr_path == self._ILST_PATH:
                 atom_end_pos = fh.tell() + atom_size
-                field_name = self._OTHER_PREFIX + atom_type.decode('latin-1')
+                field_name = (
+                    self._OTHER_PREFIX + atom_type.decode('latin-1').lower()
+                )
                 fh.seek(-header_len, SEEK_CUR)
                 self._traverse_atoms(
                     fh,
@@ -739,31 +757,35 @@ class _ID3(TinyTag):
     _ID3_MAPPING = {
         # Mapping from Frame ID to a field of the TinyTag
         # https://exiftool.org/TagNames/ID3.html
-        'COMM': 'comment', 'COM': 'comment',
-        'TRCK': 'track', 'TRK': 'track',
-        'TYER': 'year', 'TYE': 'year', 'TDRC': 'year',
-        'TALB': 'album', 'TAL': 'album',
-        'TPE1': 'artist', 'TP1': 'artist',
-        'TIT2': 'title', 'TT2': 'title',
-        'TCON': 'genre', 'TCO': 'genre',
-        'TPOS': 'disc', 'TPA': 'disc',
-        'TPE2': 'albumartist', 'TP2': 'albumartist',
-        'TCOM': 'composer', 'TCM': 'composer',
-        'WOAR': 'other.url', 'WAR': 'other.url',
-        'TSRC': 'other.isrc', 'TRC': 'other.isrc',
-        'TCOP': 'other.copyright', 'TCR': 'other.copyright',
-        'TBPM': 'other.bpm', 'TBP': 'other.bpm',
-        'TKEY': 'other.initial_key', 'TKE': 'other.initial_key',
-        'TLAN': 'other.language', 'TLA': 'other.language',
-        'TPUB': 'other.publisher', 'TPB': 'other.publisher',
-        'USLT': 'other.lyrics', 'ULT': 'other.lyrics',
-        'TPE3': 'other.conductor', 'TP3': 'other.conductor',
-        'TEXT': 'other.lyricist', 'TXT': 'other.lyricist',
-        'TSST': 'other.set_subtitle',
-        'TENC': 'other.encoded_by', 'TEN': 'other.encoded_by',
-        'TSSE': 'other.encoder_settings', 'TSS': 'other.encoder_settings',
-        'TMED': 'other.media', 'TMT': 'other.media',
-        'WCOP': 'other.license',
+        b'COMM': 'comment', b'COM': 'comment',
+        b'TRCK': 'track', b'TRK': 'track',
+        b'TYER': 'year', b'TYE': 'year', b'TDRC': 'year',
+        b'TALB': 'album', b'TAL': 'album',
+        b'TPE1': 'artist', b'TP1': 'artist',
+        b'TIT2': 'title', b'TT2': 'title',
+        b'TCON': 'genre', b'TCO': 'genre',
+        b'TPOS': 'disc', b'TPA': 'disc',
+        b'TPE2': 'albumartist', b'TP2': 'albumartist',
+        b'TCOM': 'composer', b'TCM': 'composer',
+        b'WOAR': 'other.url', b'WAR': 'other.url',
+        b'TSRC': 'other.isrc', b'TRC': 'other.isrc',
+        b'TCOP': 'other.copyright', b'TCR': 'other.copyright',
+        b'TBPM': 'other.bpm', b'TBP': 'other.bpm',
+        b'TKEY': 'other.initial_key', b'TKE': 'other.initial_key',
+        b'TLAN': 'other.language', b'TLA': 'other.language',
+        b'TPUB': 'other.publisher', b'TPB': 'other.publisher',
+        b'USLT': 'other.lyrics', b'ULT': 'other.lyrics',
+        b'TPE3': 'other.conductor', b'TP3': 'other.conductor',
+        b'TEXT': 'other.lyricist', b'TXT': 'other.lyricist',
+        b'TSST': 'other.set_subtitle',
+        b'TENC': 'other.encoded_by', b'TEN': 'other.encoded_by',
+        b'TSSE': 'other.encoder_settings', b'TSS': 'other.encoder_settings',
+        b'TMED': 'other.media', b'TMT': 'other.media',
+        b'WCOP': 'other.license',
+        b'MVNM': 'other.movement_name',
+        b'MVIN': 'other.movement',
+        b'GRP1': 'modern_grouping', b'GP1': 'modern_grouping',
+        b'TIT1': 'legacy_grouping', b'TT1': 'legacy_grouping',
     }
     _ID3_MAPPING_CUSTOM = {
         'artists': 'artist',
@@ -771,23 +793,40 @@ class _ID3(TinyTag):
         'license': 'other.license',
         'barcode': 'other.barcode',
         'catalognumber': 'other.catalog_number',
+        'showmovement': 'other.show_movement'
     }
-    _IMAGE_FRAME_IDS = {'APIC', 'PIC'}
-    _CUSTOM_FRAME_IDS = {'TXXX', 'TXX'}
+    _EMPTY_FRAME_IDS = {b'\x00\x00\x00\x00', b'\x00\x00\x00'}
+    _IMAGE_FRAME_IDS = {b'APIC', b'PIC'}
+    _CUSTOM_FRAME_IDS = {b'TXXX', b'TXX'}
+    _SYNCED_LYRICS_FRAME_IDS = {b'SYLT', b'SLT'}
     _IGNORED_FRAME_IDS = {
-        'AENC', 'CRA',
-        'ATXT',
-        'CHAP',
-        'COMR',
-        'CRM',
-        'CTOC',
-        'ENCR',
-        'GEOB', 'GEO',
-        'GRID',
-        'MCDI', 'MCI',
-        'PRIV',
-        'RGAD',
-        'STC', 'SYTC'
+        b'AENC', b'CRA',
+        b'APIC', b'PIC',
+        b'ASPI',
+        b'ATXT',
+        b'CHAP',
+        b'COMR',
+        b'CRM',
+        b'CTOC',
+        b'ENCR',
+        b'EQU2', b'EQU',
+        b'ETCO', b'ETC',
+        b'GEOB', b'GEO',
+        b'GRID',
+        b'LINK', b'LNK',
+        b'MCDI', b'MCI',
+        b'MLLT', b'MLL',
+        b'PCNT', b'CNT',
+        b'POPM', b'POP',
+        b'POSS',
+        b'PRIV',
+        b'RBUF', b'BUF',
+        b'RGAD',
+        b'RVA2', b'RVA',
+        b'RVRB', b'REV',
+        b'SEEK',
+        b'SIGN',
+        b'SYTC', b'STC',
     }
     _ID3V1_TAG_SIZE = 128
     _MAX_ESTIMATION_SEC = 30.0
@@ -837,9 +876,9 @@ class _ID3(TinyTag):
         'Psybient',
     )
     _ID3V2_2_IMAGE_FORMATS = {
-        'bmp': 'image/bmp',
-        'jpg': 'image/jpeg',
-        'png': 'image/png',
+        b'bmp': 'image/bmp',
+        b'jpg': 'image/jpeg',
+        b'png': 'image/png',
     }
     _IMAGE_TYPES = (
         'other.generic',
@@ -904,6 +943,8 @@ class _ID3(TinyTag):
         super().__init__()
         # save position after the ID3 tag for duration measurement speedup
         self._bytepos_after_id3v2 = -1
+        self._modern_grouping_values: list[str] = []
+        self._legacy_grouping_values: list[str] = []
 
     @staticmethod
     def _parse_xing_header(fh: BinaryIO) -> tuple[int, int]:
@@ -1048,10 +1089,11 @@ class _ID3(TinyTag):
             fh.seek(extd_size - 6, SEEK_CUR)  # jump over extended_header
         while parsed_size < size:
             frame_size = self._parse_frame(fh, size, id3version=major)
-            if frame_size == 0:
+            if frame_size == -1:
                 break
             parsed_size += frame_size
         fh.seek(end_pos)
+        self._set_grouping_work_fields()
 
     def _parse_id3v1(self, fh: BinaryIO) -> None:
         content = fh.read(3 + 30 + 30 + 30 + 4 + 30 + 1)
@@ -1093,7 +1135,7 @@ class _ID3(TinyTag):
             if genre_id < len(self._ID3V1_GENRES):
                 self._set_field('genre', self._ID3V1_GENRES[genre_id])
 
-    def __parse_custom_field(self, content: str) -> bool:
+    def _parse_custom_field(self, content: str) -> bool:
         custom_field_name, separator, value = content.partition('\x00')
         custom_field_name_lower = custom_field_name.lower()
         value = value.lstrip('\ufeff')
@@ -1104,6 +1146,18 @@ class _ID3(TinyTag):
             self._set_field(field_name, value)
             return True
         return False
+
+    def _set_grouping_work_fields(self) -> None:
+        # iTunes 12.5.4.42 added a new GRP1 frame for 'grouping', and
+        # repurposed the TIT1 frame for 'work'. Handle this mess here.
+        if self._modern_grouping_values:
+            for value in self._modern_grouping_values:
+                self._set_field('other.grouping', value)
+            for value in self._legacy_grouping_values:
+                self._set_field('other.work', value)
+            return
+        for value in self._legacy_grouping_values:
+            self._set_field('other.grouping', value)
 
     @classmethod
     def _create_tag_image(cls,
@@ -1124,6 +1178,75 @@ class _ID3(TinyTag):
             image.description = description
         return field_name, image
 
+    def _parse_image(self,
+                     frame_id: bytes,
+                     content: bytes) -> tuple[str, Image]:
+        # See section 4.14: http://id3.org/id3v2.4.0-frames
+        encoding = content[:1]
+        if frame_id == b'PIC':  # ID3 v2.2:
+            imgformat = content[1:4].lower()
+            mime_type = self._ID3V2_2_IMAGE_FORMATS.get(imgformat)
+            # skip encoding (1), imgformat (3), pictype(1)
+            desc_start_pos = 5
+        else:  # ID3 v2.3+
+            mime_start_pos = 1
+            mime_end_pos = self._find_string_end_pos(
+                content, start_pos=mime_start_pos)
+            mime_type = self._decode_string(
+                content[mime_start_pos:mime_end_pos]).lower()
+            # skip mtype, pictype(1)
+            desc_start_pos = mime_end_pos + 1
+        pic_type = content[desc_start_pos - 1]
+        desc_end_pos = self._find_string_end_pos(
+            content, encoding, desc_start_pos)
+        # skip stray null byte in broken file
+        if (desc_end_pos + 1 < len(content)
+                and content[desc_end_pos] == 0
+                and content[desc_end_pos + 1] != 0):
+            desc_end_pos += 1
+        desc = self._decode_string(
+            encoding + content[desc_start_pos:desc_end_pos])
+        return self._create_tag_image(
+            content[desc_end_pos:], pic_type, mime_type, desc)
+
+    @staticmethod
+    def _lrc_timestamp(seconds: float) -> str:
+        cs = int(seconds * 100)
+        minutes, cs = divmod(cs, 6000)
+        seconds, cs = divmod(cs, 100)
+        return f"{minutes:02d}:{seconds:02d}.{cs:02d}"
+
+    def _parse_synced_lyrics(self, content: bytes) -> str:
+        # Convert ID3 synced lyrics to LRC format
+        content_length = len(content)
+        encoding = content[:1]
+        # skip language (3)
+        timestamp_format = content[4:5]
+        # skip content type (1)
+        start_pos = 6
+        end_pos = self._find_string_end_pos(content, encoding, start_pos)
+        lyrics = ""
+        offset = end_pos
+        found_line = False
+        while offset < content_length:
+            end_pos = self._find_string_end_pos(content, encoding, offset)
+            value = self._decode_string(
+                encoding + content[offset:end_pos]).lstrip('\n')
+            offset = end_pos
+            time = unpack('>I', content[offset:offset + 4])[0]
+            offset += 4
+            if found_line:
+                lyrics += '\n'
+            found_line = True
+            if timestamp_format == b'\x02':
+                # time in milliseconds
+                timestamp = self._lrc_timestamp(time / 1000)
+            else:
+                lyrics += value
+                continue
+            lyrics += f'[{timestamp}]{value}'
+        return lyrics
+
     def _parse_frame(self,
                      fh: BinaryIO,
                      total_size: int,
@@ -1134,8 +1257,10 @@ class _ID3(TinyTag):
         is_synchsafe_int = id3version == 4
         header = fh.read(header_len)
         if len(header) != header_len:
-            return 0
-        frame_id = self._decode_string(header[:frame_size_bytes])
+            return -1
+        frame_id = header[:frame_size_bytes]
+        if frame_id in self._EMPTY_FRAME_IDS:
+            return -1
         frame_size: int
         if frame_size_bytes == 3:
             frame_size = unpack('>I', b'\x00' + header[3:6])[0]
@@ -1144,15 +1269,13 @@ class _ID3(TinyTag):
         else:
             frame_size = unpack('>I', header[4:8])[0]
         if _DEBUG:
-            print(f'Found id3 Frame {frame_id} at '
+            print(f'Found id3 Frame {frame_id!r} at '
                   f'{fh.tell()}-{fh.tell() + frame_size} of {self.filesize}')
         if frame_size > total_size:
             # invalid frame size, stop here
-            return 0
+            return -1
         should_set_field = True
-        if frame_id in self._ID3_MAPPING:
-            if not self._parse_tags:
-                return frame_size
+        if self._parse_tags and frame_id in self._ID3_MAPPING:
             fieldname = self._ID3_MAPPING[frame_id]
             language = fieldname in {'comment', 'other.lyrics'}
             value = self._decode_string(fh.read(frame_size), language)
@@ -1160,8 +1283,8 @@ class _ID3(TinyTag):
                 return frame_size
             if fieldname == "comment":
                 # check if comment is a key-value pair (used by iTunes)
-                should_set_field = not self.__parse_custom_field(value)
-            elif fieldname in {'track', 'disc'}:
+                should_set_field = not self._parse_custom_field(value)
+            elif fieldname in {'track', 'disc', 'other.movement'}:
                 if '/' in value:
                     value, total = value.split('/')[:2]
                     if total.isdecimal():
@@ -1182,61 +1305,51 @@ class _ID3(TinyTag):
                         genre_id = int(parens_text)
                 if 0 <= genre_id < len(self._ID3V1_GENRES):
                     value = self._ID3V1_GENRES[genre_id]
+            elif fieldname == 'modern_grouping':
+                self._modern_grouping_values.append(value)
+                should_set_field = False
+            elif fieldname == 'legacy_grouping':
+                self._legacy_grouping_values.append(value)
+                should_set_field = False
             if should_set_field:
                 self._set_field(fieldname, value)
-        elif frame_id in self._CUSTOM_FRAME_IDS:
+        elif self._parse_tags and frame_id in self._SYNCED_LYRICS_FRAME_IDS:
+            lyrics = self._parse_synced_lyrics(fh.read(frame_size))
+            self._set_field('other.lyrics', lyrics)
+        elif self._parse_tags and frame_id in self._CUSTOM_FRAME_IDS:
             # custom fields
-            if self._parse_tags:
-                value = self._decode_string(fh.read(frame_size))
-                if value:
-                    self.__parse_custom_field(value)
-        elif frame_id in self._IMAGE_FRAME_IDS:
-            if self._load_image:
-                # See section 4.14: http://id3.org/id3v2.4.0-frames
-                content = fh.read(frame_size)
-                encoding = content[:1]
-                if frame_id == 'PIC':  # ID3 v2.2:
-                    imgformat = self._decode_string(content[1:4]).lower()
-                    mime_type = self._ID3V2_2_IMAGE_FORMATS.get(imgformat)
-                    # skip encoding (1), imgformat (3), pictype(1)
-                    desc_start_pos = 5
-                else:  # ID3 v2.3+
-                    mime_end_pos = content.index(b'\x00', 1)
-                    mime_type = self._decode_string(
-                        content[1:mime_end_pos]).lower()
-                    # skip mtype, pictype(1)
-                    desc_start_pos = mime_end_pos + 2
-                pic_type = content[desc_start_pos - 1]
-                # latin1 and utf-8 are 1 byte
-                if encoding in {b'\x00', b'\x03'}:
-                    desc_end_pos = content.find(b'\x00', desc_start_pos) + 1
-                else:
-                    desc_end_pos = 0
-                    for i in range(desc_start_pos, len(content), 2):
-                        if content[i:i + 2] == b'\x00\x00':
-                            desc_end_pos = i + 2
-                            break
-                    # skip stray null byte in broken file
-                    if (desc_end_pos + 1 < len(content)
-                            and content[desc_end_pos] == 0
-                            and content[desc_end_pos + 1] != 0):
-                        desc_end_pos += 1
-                desc = self._decode_string(
-                    encoding + content[desc_start_pos:desc_end_pos])
-                field_name, image = self._create_tag_image(
-                    content[desc_end_pos:], pic_type, mime_type, desc)
-                # pylint: disable=protected-access
-                self.images._set_field(field_name, image)
-        elif frame_id not in self._IGNORED_FRAME_IDS:
+            value = self._decode_string(fh.read(frame_size))
+            if value:
+                self._parse_custom_field(value)
+        elif self._parse_tags and frame_id not in self._IGNORED_FRAME_IDS:
             # unknown, try to add to other dict
-            if self._parse_tags:
-                value = self._decode_string(fh.read(frame_size))
-                if value:
-                    self._set_field(
-                        self._OTHER_PREFIX + frame_id.lower(), value)
+            value = self._decode_string(fh.read(frame_size))
+            if value:
+                self._set_field(
+                    self._OTHER_PREFIX + frame_id.decode('latin-1').lower(),
+                    value)
+        elif self._load_image and frame_id in self._IMAGE_FRAME_IDS:
+            field_name, image = self._parse_image(
+                frame_id, fh.read(frame_size))
+            # pylint: disable=protected-access
+            self.images._set_field(field_name, image)
         else:  # skip frame
             fh.seek(frame_size, SEEK_CUR)
         return frame_size
+
+    @staticmethod
+    def _find_string_end_pos(content: bytes,
+                             encoding: bytes = b'\x00',
+                             start_pos: int = 0) -> int:
+        # latin1 and utf-8 are 1 byte
+        if encoding in {b'\x00', b'\x03'}:
+            return content.find(b'\x00', start_pos) + 1
+        end_pos = 0
+        for i in range(start_pos, len(content), 2):
+            if content[i:i + 2] == b'\x00\x00':
+                end_pos = i + 2
+                break
+        return end_pos
 
     def _decode_string(self, value: bytes, language: bool = False) -> str:
         default_encoding = 'ISO-8859-1'
@@ -1310,6 +1423,7 @@ class _Ogg(TinyTag):
         'copyright': 'other.copyright',
         'isrc': 'other.isrc',
         'lyrics': 'other.lyrics',
+        'unsyncedlyrics': 'other.lyrics',
         'publisher': 'other.publisher',
         'language': 'other.language',
         'director': 'other.director',
@@ -1326,6 +1440,13 @@ class _Ogg(TinyTag):
         'license': 'other.license',
         'barcode': 'other.barcode',
         'catalognumber': 'other.catalog_number',
+        'movementname': 'other.movement_name',
+        'movement': 'other.movement',
+        'movementtotal': 'other.movement_total',
+        'showmovement': 'other.show_movement',
+        'grouping': 'other.grouping',
+        'contentgroup': 'other.grouping',
+        'work': 'other.work'
     }
 
     def __init__(self) -> None:
@@ -1516,6 +1637,8 @@ class _Ogg(TinyTag):
                 else:
                     self._audio_size += last_audio_size
                     last_audio_size = audio_size
+            if eos:
+                break
             page_header = fh.read(header_len)
 
 
@@ -1568,7 +1691,7 @@ class _Wave(TinyTag):
             subchunk_size = unpack('I', chunk_header[4:])[0]
             # IFF chunks are padded to an even number of bytes
             subchunk_size += subchunk_size % 2
-            if subchunk_id == b'fmt ' and self._parse_duration:
+            if self._parse_duration and subchunk_id == b'fmt ':
                 chunk = fh.read(subchunk_size)
                 _format_tag, channels, samplerate = unpack('<HHI', chunk[:8])
                 bitdepth = unpack('<H', chunk[14:16])[0]
@@ -1579,14 +1702,14 @@ class _Wave(TinyTag):
                 self.bitrate = samplerate * channels * bitdepth / 1000
                 self.channels, self.samplerate, self.bitdepth = (
                     channels, samplerate, bitdepth)
-            elif subchunk_id == b'data' and self._parse_duration:
+            elif self._parse_duration and subchunk_id == b'data':
                 if (self.channels is not None and self.samplerate is not None
                         and self.bitdepth is not None):
                     self.duration = (
                         subchunk_size / self.channels / self.samplerate
                         / (self.bitdepth / 8))
                 fh.seek(subchunk_size, SEEK_CUR)
-            elif subchunk_id == b'LIST' and self._parse_tags:
+            elif self._parse_tags and subchunk_id == b'LIST':
                 chunk = fh.read(subchunk_size)
                 if chunk.startswith(b'INFO'):
                     walker = BytesIO(chunk)
@@ -1607,7 +1730,7 @@ class _Wave(TinyTag):
                             else:
                                 self._set_field(fieldname, value)
                         field = walker.read(4)
-            elif subchunk_id in {b'id3 ', b'ID3 '} and self._parse_tags:
+            elif self._parse_tags and subchunk_id in {b'id3 ', b'ID3 '}:
                 # pylint: disable=protected-access
                 id3 = _ID3()
                 id3._filehandler = fh
@@ -1651,7 +1774,7 @@ class _Flac(TinyTag):
             is_last_block = block_header[0] & 0x80
             size = unpack('>I', b'\x00' + block_header[1:])[0]
             # http://xiph.org/flac/format.html#metadata_block_streaminfo
-            if block_type == self._STREAMINFO and self._parse_duration:
+            if self._parse_duration and block_type == self._STREAMINFO:
                 head = fh.read(size)
                 if len(head) < 34:  # invalid streaminfo
                     break
@@ -1681,13 +1804,13 @@ class _Flac(TinyTag):
                 self.samplerate = sr
                 if duration > 0:
                     self.bitrate = self.filesize * 8 / duration / 1000
-            elif block_type == self._VORBIS_COMMENT and self._parse_tags:
+            elif self._parse_tags and block_type == self._VORBIS_COMMENT:
                 # pylint: disable=protected-access
                 walker = BytesIO(fh.read(size))
                 oggtag = _Ogg()
                 oggtag._parse_vorbis_comment(walker)
                 self._update(oggtag)
-            elif block_type == self._PICTURE and self._load_image:
+            elif self._load_image and block_type == self._PICTURE:
                 fieldname, value = self._parse_image(fh)
                 # pylint: disable=protected-access
                 self.images._set_field(fieldname, value)
@@ -1746,6 +1869,8 @@ class _Wma(TinyTag):
         'WM/Media': 'other.media',
         'WM/Barcode': 'other.barcode',
         'WM/CatalogNo': 'other.catalog_number',
+        'WM/ContentGroupDescription': 'other.grouping',
+        'WM/Work': 'other.work'
     }
     _UNPACK_FORMATS = {
         1: '<B',
@@ -1781,7 +1906,7 @@ class _Wma(TinyTag):
             if object_size == 0 or object_size > self.filesize:
                 break  # invalid object, stop parsing.
             object_id = object_header[:16]
-            if object_id == self._ASF_CONTENT_DESC and self._parse_tags:
+            if self._parse_tags and object_id == self._ASF_CONTENT_DESC:
                 walker = BytesIO(fh.read(object_size - header_len))
                 (title_length, author_length,
                  copyright_length, description_length,
@@ -1798,7 +1923,7 @@ class _Wma(TinyTag):
                         walker.read(length).decode('utf-16', 'replace'))
                     if not i_field_name.startswith('_') and value:
                         self._set_field(i_field_name, value)
-            elif object_id == self._ASF_EXT_CONTENT_DESC and self._parse_tags:
+            elif self._parse_tags and object_id == self._ASF_EXT_CONTENT_DESC:
                 # http://web.archive.org/web/20131203084402/http://msdn.microsoft.com/en-us/library/bb643323.aspx#_Toc509555195
                 walker = BytesIO(fh.read(object_size - header_len))
                 descriptor_count = unpack('<H', walker.read(2))[0]
@@ -1831,13 +1956,13 @@ class _Wma(TinyTag):
                             self._set_field(field_name, int(value))
                     elif value:
                         self._set_field(field_name, value)
-            elif object_id == self._ASF_FILE_PROP and self._parse_duration:
+            elif self._parse_duration and object_id == self._ASF_FILE_PROP:
                 data = fh.read(object_size - header_len)
                 play_duration = unpack('<Q', data[40:48])[0] / 10000000
                 preroll = unpack('<Q', data[56:64])[0] / 1000
                 # subtract the preroll to get the actual duration
                 self.duration = max(play_duration - preroll, 0.0)
-            elif object_id == self._ASF_STREAM_PROPS and self._parse_duration:
+            elif self._parse_duration and object_id == self._ASF_STREAM_PROPS:
                 data = fh.read(object_size - header_len)
                 stream_type = data[:16]
                 if stream_type == self._STREAM_TYPE_ASF_AUDIO_MEDIA:
@@ -1893,11 +2018,11 @@ class _Aiff(TinyTag):
             subchunk_size = unpack('>I', chunk_header[4:])[0]
             # IFF chunks are padded to an even number of bytes
             subchunk_size += subchunk_size % 2
-            if subchunk_id in self._AIFF_MAPPING and self._parse_tags:
+            if self._parse_tags and subchunk_id in self._AIFF_MAPPING:
                 value = self._unpad(
                     fh.read(subchunk_size).decode('utf-8', 'replace'))
                 self._set_field(self._AIFF_MAPPING[subchunk_id], value)
-            elif subchunk_id == b'COMM' and self._parse_duration:
+            elif self._parse_duration and subchunk_id == b'COMM':
                 chunk = fh.read(subchunk_size)
                 channels, num_frames, bitdepth = unpack('>hLh', chunk[:8])
                 self.channels, self.bitdepth = channels, bitdepth
@@ -1911,7 +2036,7 @@ class _Aiff(TinyTag):
                         sr, duration, bitrate)
                 except OverflowError:
                     pass
-            elif subchunk_id in {b'id3 ', b'ID3 '} and self._parse_tags:
+            elif self._parse_tags and subchunk_id in {b'id3 ', b'ID3 '}:
                 # pylint: disable=protected-access
                 id3 = _ID3()
                 id3._filehandler = fh

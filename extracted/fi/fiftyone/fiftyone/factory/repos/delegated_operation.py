@@ -8,7 +8,7 @@ FiftyOne delegated operation repository.
 
 import logging
 from datetime import datetime
-from typing import Any, List
+from typing import Any, List, Optional, Union
 
 import pymongo
 from bson import ObjectId
@@ -38,15 +38,24 @@ class DelegatedOperationRepo(object):
         """Queue an operation to be executed by a delegated operator."""
         raise NotImplementedError("subclass must implement queue_operation()")
 
+    def add_child_error(
+        self,
+        parent_id: Union[ObjectId, str],
+        child_id: Union[ObjectId, str],
+        error_message: str,
+    ) -> None:
+        """Add an error message for a child operation to its parent."""
+        raise NotImplementedError("subclass must implement add_child_error()")
+
     def update_run_state(
         self,
         _id: ObjectId,
-        run_state: ExecutionRunState,
-        result: ExecutionResult = None,
-        run_link: str = None,
-        log_path: str = None,
-        progress: ExecutionProgress = None,
-        required_state: ExecutionRunState = None,
+        run_state: Optional[ExecutionRunState],
+        result: Optional[ExecutionResult] = None,
+        run_link: Optional[str] = None,
+        log_path: Optional[str] = None,
+        progress: Optional[ExecutionProgress] = None,
+        required_state: Optional[ExecutionRunState] = None,
     ) -> DelegatedOperationDocument:
         """Update the run state of an operation."""
         raise NotImplementedError("subclass must implement update_run_state()")
@@ -140,6 +149,10 @@ class DelegatedOperationRepo(object):
         """Count all operations."""
         raise NotImplementedError("subclass must implement count()")
 
+    def ping(self, _id: ObjectId) -> DelegatedOperationDocument:
+        """Updates the updated_at field of an operation to keep it alive."""
+        raise NotImplementedError("subclass must implement ping()")
+
 
 class MongoDelegatedOperationRepo(DelegatedOperationRepo):
     COLLECTION_NAME = "delegated_ops"
@@ -182,18 +195,23 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
                 )
             )
 
-        if "dataset_id_1" not in index_names:
-            indices_to_create.append(
-                IndexModel(
-                    [("dataset_id", pymongo.ASCENDING)], name="dataset_id_1"
-                )
-            )
-
         if "parent_id_1" not in index_names:
             indices_to_create.append(
                 IndexModel(
                     [("parent_id", pymongo.ASCENDING)],
                     name="parent_id_1",
+                )
+            )
+
+        if "dataset_id_1_parent_id_1_scheduled_at_1" not in index_names:
+            indices_to_create.append(
+                IndexModel(
+                    [
+                        ("dataset_id", pymongo.ASCENDING),
+                        ("parent_id", pymongo.ASCENDING),
+                        ("scheduled_at", pymongo.DESCENDING),
+                    ],
+                    name="dataset_id_1_parent_id_1_scheduled_at_1",
                 )
             )
 
@@ -209,6 +227,7 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
 
         op.delegation_target = kwargs.get("delegation_target", None)
         op.metadata = kwargs.get("metadata") or {}
+        op.pipeline = kwargs.get("pipeline")
 
         context = None
         if isinstance(op.context, dict):
@@ -235,7 +254,7 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
         op.context = context
         doc = self._collection.insert_one(op.to_pymongo())
         op.id = doc.inserted_id
-        return DelegatedOperationDocument().from_pymongo(op.__dict__)
+        return op
 
     def set_pinned(
         self, _id: ObjectId, pinned: bool = True
@@ -277,15 +296,30 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
         )
         return DelegatedOperationDocument().from_pymongo(doc)
 
+    def add_child_error(
+        self,
+        parent_id: Union[ObjectId, str],
+        child_id: Union[ObjectId, str],
+        error_message: str,
+    ) -> None:
+        self._collection.update_one(
+            filter={"_id": ObjectId(parent_id)},
+            update={
+                "$set": {
+                    f"pipeline_run_info.child_errors.{str(child_id)}": error_message
+                }
+            },
+        )
+
     def update_run_state(
         self,
         _id: ObjectId,
-        run_state: ExecutionRunState,
-        result: ExecutionResult = None,
-        run_link: str = None,
-        log_path: str = None,
-        progress: ExecutionProgress = None,
-        required_state: ExecutionRunState = None,
+        run_state: Optional[ExecutionRunState],
+        result: Optional[ExecutionResult] = None,
+        run_link: Optional[str] = None,
+        log_path: Optional[str] = None,
+        progress: Optional[ExecutionProgress] = None,
+        required_state: Optional[ExecutionRunState] = None,
     ) -> DelegatedOperationDocument:
         update = None
 
@@ -514,6 +548,8 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
 
     def get(self, _id: ObjectId) -> DelegatedOperationDocument:
         doc = self._collection.find_one(filter={"_id": _id})
+        if doc is None:
+            raise ValueError(f"No operation found with ID {_id}")
         return DelegatedOperationDocument().from_pymongo(doc)
 
     def count(self, filters: dict = None, search: dict = None) -> int:
@@ -530,6 +566,14 @@ class MongoDelegatedOperationRepo(DelegatedOperationRepo):
             query.update(self._extract_search_query(search))
 
         return self._collection.count_documents(filter=query)
+
+    def ping(self, _id: ObjectId):
+        doc = self._collection.find_one_and_update(
+            filter={"_id": _id},
+            update={"$set": {"updated_at": datetime.utcnow()}},
+            return_document=pymongo.ReturnDocument.AFTER,
+        )
+        return DelegatedOperationDocument().from_pymongo(doc)
 
     def _extract_search_query(self, search):
         if search:

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Final, Optional, Set
+from typing import Final, cast
 
 import a_sync
 import cchecksum
@@ -9,13 +9,12 @@ from eth_typing import AnyAddress, ChecksumAddress, HexAddress
 from y import ENVIRONMENT_VARIABLES as ENVS
 from y.datatypes import AnyAddressType
 
-
 HexBytes: Final = hexbytes.HexBytes
 
 to_checksum_address: Final = cchecksum.to_checksum_address
 
 
-@lru_cache(maxsize=ENVS.CHECKSUM_CACHE_MAXSIZE)  # type: ignore [call-overload]
+@lru_cache(maxsize=int(ENVS.CHECKSUM_CACHE_MAXSIZE))  # type: ignore [has-type]
 def checksum(address: AnyAddress) -> ChecksumAddress:
     """Convert an address to its checksummed format.
 
@@ -104,11 +103,11 @@ async def to_address_async(address: AnyAddressType) -> ChecksumAddress:
     return checksummed
 
 
-_is_checksummed: Final[Set[ChecksumAddress]] = set()
-_is_not_checksummed: Final[Set[HexAddress]] = set()
+_is_checksummed: Final[set[ChecksumAddress]] = set()
+_is_not_checksummed: Final[set[HexAddress]] = set()
 
 
-def __get_checksum_from_cache(address: HexAddress) -> Optional[ChecksumAddress]:
+def __get_checksum_from_cache(address: HexAddress) -> ChecksumAddress | None:
     """Retrieve a checksummed address from the cache if available.
 
     This function checks if the given address is already known to be checksummed,
@@ -145,7 +144,7 @@ def __cache_if_is_checksummed(address: HexAddress, checksummed: ChecksumAddress)
         checksummed: The checksummed Ethereum address.
     """
     if address == checksummed:
-        _is_checksummed.add(address)
+        _is_checksummed.add(cast(ChecksumAddress, address))
     else:
         _is_not_checksummed.add(address)
 
@@ -181,7 +180,7 @@ def __normalize_input_to_string(address: AnyAddressType) -> HexAddress:
         return (
             address.hex()  # type: ignore [union-attr, return-value]
             if address_type.__name__ == "HexBytes"
-            else HexBytes(address).hex()
+            else HexBytes(address).hex()  # type: ignore [arg-type]
         )
     elif address_type is int:
         return _int_to_address(address)  # type: ignore [arg-type]

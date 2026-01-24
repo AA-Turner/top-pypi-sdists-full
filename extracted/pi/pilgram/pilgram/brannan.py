@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def brannan(im):
+def brannan(im: Image.Image) -> Image.Image:
     """Applies Brannan filter.
 
     Arguments:
@@ -26,11 +27,11 @@ def brannan(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
-    cs = util.fill(cb.size, [161, 44, 199, .31])
+    cb = util.or_convert(im, "RGB")
+    cs = util.fill(cb.size, (161, 44, 199, 0.31))
     cr = css.blending.lighten(cb, cs)
 
-    cr = css.sepia(cr, .5)
+    cr = css.sepia(cr, 0.5)
     cr = css.contrast(cr, 1.4)
 
     return cr

@@ -1,8 +1,9 @@
 from http import HTTPStatus
 from typing import List, Optional
 
-from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model
+from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import AbstractBaseUser
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import PermissionDenied
 from django.core.signing import BadSignature, Signer
@@ -27,8 +28,8 @@ from oauthlib.oauth2.rfc6749 import errors
 from oauthlib.oauth2.rfc6749.errors import InvalidScopeError, OAuth2Error
 
 from allauth.account import app_settings as account_settings
+from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal.decorators import login_not_required
-from allauth.account.internal.userkit import str_to_user_id
 from allauth.core.internal import jwkkit
 from allauth.core.internal.httpkit import add_query_params, del_query_params
 from allauth.idp.oidc import app_settings
@@ -37,7 +38,9 @@ from allauth.idp.oidc.forms import (
     AuthorizationForm,
     ConfirmCodeForm,
     DeviceAuthorizationForm,
+    RPInitiatedLogoutForm,
 )
+from allauth.idp.oidc.internal import flows
 from allauth.idp.oidc.internal.oauthlib import device_codes
 from allauth.idp.oidc.internal.oauthlib.server import get_device_server, get_server
 from allauth.idp.oidc.internal.oauthlib.utils import (
@@ -50,9 +53,27 @@ from allauth.idp.oidc.models import Client
 from allauth.utils import build_absolute_uri
 
 
+def _enforce_csrf(request) -> Optional[HttpResponseForbidden]:
+    """
+    Scenario: view is CSRF exempt, but, if this is not a client initial POST
+    request, we do want a properly CSRF protected view.
+    """
+    reason = CsrfViewMiddleware(
+        get_response=lambda req: HttpResponseForbidden()
+    ).process_view(request, lambda *args, **kwargs: HttpResponse(), (), {})
+    if reason:
+        return HttpResponseForbidden(f"CSRF Failed: {reason}")
+    return None
+
+
 @method_decorator(login_not_required, name="dispatch")
 class ConfigurationView(View):
     def get(self, request):
+        userinfo_endpoint = app_settings.USERINFO_ENDPOINT
+        if not userinfo_endpoint:
+            userinfo_endpoint = build_absolute_uri(
+                request, reverse("idp:oidc:userinfo")
+            )
         data = {
             "authorization_endpoint": build_absolute_uri(
                 request, reverse("idp:oidc:authorization")
@@ -64,8 +85,9 @@ class ConfigurationView(View):
                 request, reverse("idp:oidc:revoke")
             ),
             "token_endpoint": build_absolute_uri(request, reverse("idp:oidc:token")),
-            "userinfo_endpoint": build_absolute_uri(
-                request, reverse("idp:oidc:userinfo")
+            "userinfo_endpoint": userinfo_endpoint,
+            "end_session_endpoint": build_absolute_uri(
+                request, reverse("idp:oidc:logout")
             ),
             "jwks_uri": build_absolute_uri(request, reverse("idp:oidc:jwks")),
             "issuer": get_adapter().get_issuer(),
@@ -92,7 +114,7 @@ configuration = ConfigurationView.as_view()
 @method_decorator(login_not_required, name="dispatch")
 class AuthorizationView(FormView):
     form_class = AuthorizationForm
-    template_name = "idp/oidc/authorization_form." + account_settings.TEMPLATE_EXTENSION
+    template_name = f"idp/oidc/authorization_form.{account_settings.TEMPLATE_EXTENSION}"
 
     def get(self, request, *args, **kwargs):
         response = self._login_required(request)
@@ -112,7 +134,7 @@ class AuthorizationView(FormView):
 
         # Errors that should be shown to the user on the provider website
         except errors.FatalClientError as e:
-            return respond_html_error(request, e)
+            return respond_html_error(request, error=e)
         except errors.OAuth2Error as e:
             return HttpResponseRedirect(e.in_uri(e.redirect_uri))
         if self._request_info["request"].client.skip_consent:
@@ -123,19 +145,15 @@ class AuthorizationView(FormView):
         signed_request_info = request.POST.get("request")
         if not signed_request_info:
             return HttpResponseRedirect(
-                reverse("idp:oidc:authorization") + "?" + request.POST.urlencode()
+                f"{reverse('idp:oidc:authorization')}?{request.POST.urlencode()}"
             )
         response = self._login_required(request)
         if response:
             return response
 
-        # This view is CSRF exempt, but, if this is not a client initial POST
-        # request, we do want a properly CSRF protected view.
-        reason = CsrfViewMiddleware(get_response=lambda req: None).process_view(
-            request, None, (), {}
-        )
-        if reason:
-            return HttpResponseForbidden(f"CSRF Failed: {reason}")
+        csrf_resp = _enforce_csrf(request)
+        if csrf_resp:
+            return csrf_resp
 
         try:
             signer = Signer()
@@ -229,7 +247,7 @@ class AuthorizationView(FormView):
             return convert_response(*oresponse)
 
         except errors.FatalClientError as e:
-            return respond_html_error(self.request, e)
+            return respond_html_error(self.request, error=e)
 
     def get_context_data(self, **kwargs):
         ret = super().get_context_data(**kwargs)
@@ -294,8 +312,7 @@ class DeviceAuthorizationView(View):
         }
         return render(
             request,
-            "idp/oidc/device_authorization_code_form."
-            + account_settings.TEMPLATE_EXTENSION,
+            f"idp/oidc/device_authorization_code_form.{account_settings.TEMPLATE_EXTENSION}",
             context,
         )
 
@@ -311,14 +328,10 @@ class DeviceAuthorizationView(View):
                     request.user, device_code, confirm=confirm
                 )
                 if confirm:
-                    template_name = "idp/oidc/device_authorization_confirmed."
+                    template_name = f"idp/oidc/device_authorization_confirmed.{account_settings.TEMPLATE_EXTENSION}"
                 else:
-                    template_name = "idp/oidc/device_authorization_denied."
-                return render(
-                    request,
-                    template_name + account_settings.TEMPLATE_EXTENSION,
-                    context,
-                )
+                    template_name = f"idp/oidc/device_authorization_denied.{account_settings.TEMPLATE_EXTENSION}"
+                return render(request, template_name, context)
         else:
             form = DeviceAuthorizationForm()
         context["autorization_url"] = (
@@ -329,8 +342,7 @@ class DeviceAuthorizationView(View):
 
         return render(
             request,
-            "idp/oidc/device_authorization_confirm_form."
-            + account_settings.TEMPLATE_EXTENSION,
+            f"idp/oidc/device_authorization_confirm_form.{account_settings.TEMPLATE_EXTENSION}",
             context,
         )
 
@@ -347,40 +359,57 @@ class TokenView(View):
             return self._post_device_token(request)
         return self._create_token_response(request)
 
-    def _create_token_response(self, request, data: Optional[dict] = None):
+    def _create_token_response(
+        self,
+        request,
+        *,
+        user: Optional[AbstractBaseUser] = None,
+        data: Optional[dict] = None,
+    ):
         orequest = extract_params(request)
         oresponse = get_server(
-            pre_token=[lambda orequest: self._pre_token(orequest, data)]
+            pre_token=[lambda orequest: self._pre_token(orequest, user, data)]
         ).create_token_response(*orequest)
         return convert_response(*oresponse)
 
-    def _pre_token(self, orequest, data: Optional[dict]):
+    def _pre_token(
+        self, orequest, user: Optional[AbstractBaseUser], data: Optional[dict]
+    ):
         if orequest.grant_type == Client.GrantType.DEVICE_CODE:
+            assert user is not None  # nosec
             assert data is not None  # nosec
             if scope := data.get("scope"):
                 orequest.scope = scope
-            orequest.user = get_user_model().objects.get(
-                pk=str_to_user_id(data["user"])
-            )
+            orequest.user = user
 
     def _post_device_token(self, request):
         try:
-            data = device_codes.poll_device_code(request)
+            user, data = device_codes.poll_device_code(request)
         except OAuth2Error as e:
             return HttpResponse(
                 e.json, content_type="application/json", status=e.status_code
             )
         else:
-            return self._create_token_response(request, data)
+            return self._create_token_response(request, user=user, data=data)
 
 
 token = TokenView.as_view()
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 @method_decorator(login_not_required, name="dispatch")
 class UserInfoView(View):
+    """
+    The UserInfo Endpoint MUST support the use of the HTTP GET and HTTP POST methods
+    """
 
-    def get(self, request):
+    def get(self, request: HttpRequest) -> HttpResponse:
+        return self._respond(request)
+
+    def post(self, request: HttpRequest) -> HttpResponse:
+        return self._respond(request)
+
+    def _respond(self, request: HttpRequest) -> HttpResponse:
         orequest = extract_params(request)
         try:
             oresponse = get_server().create_userinfo_response(*orequest)
@@ -417,3 +446,90 @@ class RevokeView(View):
 
 
 revoke = RevokeView.as_view()
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(login_not_required, name="dispatch")
+class LogoutView(FormView):
+    """
+    https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+    """
+
+    form_class = RPInitiatedLogoutForm
+    template_name = f"idp/oidc/logout.{account_settings.TEMPLATE_EXTENSION}"
+
+    def get(self, request):
+        form = self.form_class(request.GET)
+        if not form.is_valid():
+            return self.form_invalid(form)
+        if not self._must_ask(form):
+            return self._handle(form, True)
+        return self.render_to_response(self.get_context_data(form=form))
+
+    def form_invalid(self, form):
+        return respond_html_error(self.request, form=form)
+
+    def form_valid(self, form) -> HttpResponse:
+        ask = self._must_ask(form)
+        action = form.cleaned_data["action"]
+        if ask:
+            # If we're supposed to ask, we need to ensure this POST request does
+            # NOT come from the RP, but from the actual user visitting the logout
+            # page.
+            csrf_token = self.request.POST.get("csrfmiddlewaretoken", "")
+            if not csrf_token or not action:
+                return self.render_to_response(self.get_context_data(form=form))
+            csrf_resp = _enforce_csrf(self.request)
+            if csrf_resp:
+                return csrf_resp
+            op_logout = action != "stay"
+        else:
+            op_logout = True
+        return self._handle(form, op_logout)
+
+    def _handle(
+        self, form: RPInitiatedLogoutForm, op_logout: bool
+    ) -> HttpResponseRedirect:
+        cleaned_data = form.cleaned_data
+        flows.rp_initiated_logout(
+            self.request,
+            from_op=op_logout,
+            client=cleaned_data["client"],
+            post_logout_redirect_uri=cleaned_data["post_logout_redirect_uri"],
+        )
+        redirect_uri = cleaned_data["post_logout_redirect_uri"]
+        if redirect_uri:
+            state = cleaned_data["state"]
+            if state:
+                redirect_uri = add_query_params(redirect_uri, {"state": state})
+        else:
+            redirect_uri = get_account_adapter().get_logout_redirect_url(self.request)
+        return HttpResponseRedirect(redirect_uri)
+
+    def _must_ask(self, form: RPInitiatedLogoutForm) -> bool:
+        """
+        At the Logout Endpoint, the OP SHOULD ask the End-User whether to
+        log out of the OP as well. Furthermore, the OP MUST ask the End-User
+        this question if an id_token_hint was not provided or if the supplied ID
+        Token does not belong to the current OP session with the RP and/or
+        currently logged in End-User. If the End-User says "yes", then the OP
+        MUST log out the End-User.
+        """
+        if self.request.user.is_anonymous:
+            return False
+        if app_settings.RP_INITIATED_LOGOUT_ASKS_FOR_OP_LOGOUT:
+            return True
+        id_token_hint = form.cleaned_data["id_token_hint"]
+        sub = None
+        if id_token_hint:
+            sub = id_token_hint.get("sub")
+        client = form.cleaned_data.get("client")
+        if not id_token_hint or not client or not sub:
+            return True
+        user_hint = get_adapter().get_user_by_sub(client, sub)
+        if not user_hint or (user_hint.pk != self.request.user.pk):
+            return True
+        return False
+
+
+logout = LogoutView.as_view()

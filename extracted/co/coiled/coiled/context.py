@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 import functools
+import inspect
 import random
 import string
 from contextlib import contextmanager, nullcontext
@@ -103,7 +103,7 @@ def get_trace_context(func: Union[SyncFuncType, AsyncFuncType]):
 
 
 def track_context(func: F) -> F:
-    if asyncio.iscoroutinefunction(func):
+    if inspect.iscoroutinefunction(func):
 
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:

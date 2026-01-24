@@ -19,8 +19,8 @@ from llama_cloud import (
     PipelineCreate,
     PipelineCreateEmbeddingConfig,
     PipelineCreateTransformConfig,
+    PipelineFileCreateCustomMetadataValue,
     PipelineType,
-    ProjectCreate,
     ManagedIngestionStatus,
     CloudDocumentCreate,
     CloudDocument,
@@ -333,7 +333,7 @@ class LlamaCloudIndex(BaseManagedIndex):
         if file_ids:
             self._wait_for_resources(
                 file_ids,
-                lambda fid: self._client.pipelines.get_pipeline_file_status(
+                lambda fid: self._client.pipeline_files.get_pipeline_file_status(
                     pipeline_id=self.pipeline.id, file_id=fid
                 ),
                 resource_name="file",
@@ -420,7 +420,7 @@ class LlamaCloudIndex(BaseManagedIndex):
         if file_ids:
             await self._await_for_resources(
                 file_ids,
-                lambda fid: self._aclient.pipelines.get_pipeline_file_status(
+                lambda fid: self._aclient.pipeline_files.get_pipeline_file_status(
                     pipeline_id=self.pipeline.id, file_id=fid
                 ),
                 resource_name="file",
@@ -506,14 +506,19 @@ class LlamaCloudIndex(BaseManagedIndex):
         client = get_client(api_key, base_url, app_url, timeout)
 
         if project_id is None:
-            # create project if it doesn't exist
-            project = client.projects.upsert_project(
+            # get project by name
+            projects = client.projects.list_projects(
                 organization_id=organization_id,
-                request=ProjectCreate(name=project_name),
+                project_name=project_name,
             )
+            if not projects:
+                raise ValueError(
+                    f"Project '{project_name}' not found. Please create it first in the LlamaCloud UI."
+                )
+            project = projects[0]
             project_id = project.id
             if verbose:
-                print(f"Created project {project_id} with name {project_name}")
+                print(f"Found project {project_id} with name {project_name}")
 
         # create pipeline
         pipeline_create = PipelineCreate(
@@ -562,15 +567,20 @@ class LlamaCloudIndex(BaseManagedIndex):
         app_url = app_url or os.environ.get("LLAMA_CLOUD_APP_URL", DEFAULT_APP_URL)
         aclient = get_aclient(api_key, base_url, app_url, timeout)
 
-        # create project if it doesn't exist
-        project = await aclient.projects.upsert_project(
-            organization_id=organization_id, request=ProjectCreate(name=project_name)
+        # get project by name
+        projects = await aclient.projects.list_projects(
+            organization_id=organization_id, project_name=project_name
         )
+        if not projects:
+            raise ValueError(
+                f"Project '{project_name}' not found. Please create it first in the LlamaCloud UI."
+            )
+        project = projects[0]
         if project.id is None:
-            raise ValueError(f"Failed to create/get project {project_name}")
+            raise ValueError(f"Failed to get project {project_name}")
 
         if verbose:
-            print(f"Created project {project.id} with name {project.name}")
+            print(f"Found project {project.id} with name {project.name}")
 
         # create pipeline
         pipeline_create = PipelineCreate(
@@ -652,6 +662,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                 for doc in documents
             ],
         )
+
+        # Trigger a sync
+        client.pipelines.sync_pipeline(pipeline_id=index.pipeline.id)
 
         doc_ids = [doc.id for doc in upserted_documents]
         index.wait_for_completion(
@@ -737,6 +750,10 @@ class LlamaCloudIndex(BaseManagedIndex):
                     )
                 ],
             )
+
+            # Trigger a sync
+            self._client.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             upserted_document = upserted_documents[0]
             self.wait_for_completion(
                 doc_ids=[upserted_document.id], verbose=verbose, raise_on_error=True
@@ -759,6 +776,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                     )
                 ],
             )
+            # Trigger a sync
+            await self._aclient.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             upserted_document = upserted_documents[0]
             await self.await_for_completion(
                 doc_ids=[upserted_document.id], verbose=verbose, raise_on_error=True
@@ -781,6 +801,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                     )
                 ],
             )
+            # Trigger a sync
+            self._client.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             upserted_document = upserted_documents[0]
             self.wait_for_completion(
                 doc_ids=[upserted_document.id], verbose=verbose, raise_on_error=True
@@ -803,6 +826,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                     )
                 ],
             )
+            # Trigger a sync
+            await self._aclient.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             upserted_document = upserted_documents[0]
             await self.await_for_completion(
                 doc_ids=[upserted_document.id], verbose=verbose, raise_on_error=True
@@ -826,6 +852,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                     for doc in documents
                 ],
             )
+            # Trigger a sync
+            self._client.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             doc_ids = [doc.id for doc in upserted_documents]
             self.wait_for_completion(doc_ids=doc_ids, verbose=True, raise_on_error=True)
             return [True] * len(doc_ids)
@@ -848,6 +877,9 @@ class LlamaCloudIndex(BaseManagedIndex):
                     for doc in documents
                 ],
             )
+            # Trigger a sync
+            await self._aclient.pipelines.sync_pipeline(pipeline_id=self.pipeline.id)
+
             doc_ids = [doc.id for doc in upserted_documents]
             await self.await_for_completion(
                 doc_ids=doc_ids, verbose=True, raise_on_error=True
@@ -905,6 +937,9 @@ class LlamaCloudIndex(BaseManagedIndex):
     def upload_file(
         self,
         file_path: str,
+        custom_metadata: Optional[
+            dict[str, Optional[PipelineFileCreateCustomMetadataValue]]
+        ] = None,
         verbose: bool = False,
         wait_for_ingestion: bool = True,
         raise_on_error: bool = False,
@@ -918,8 +953,10 @@ class LlamaCloudIndex(BaseManagedIndex):
                 print(f"Uploaded file {file.id} with name {file.name}")
 
         # Add file to pipeline
-        pipeline_file_create = PipelineFileCreate(file_id=file.id)
-        self._client.pipelines.add_files_to_pipeline_api(
+        pipeline_file_create = PipelineFileCreate(
+            file_id=file.id, custom_metadata=custom_metadata
+        )
+        self._client.pipeline_files.add_files_to_pipeline_api(
             pipeline_id=self.pipeline.id, request=[pipeline_file_create]
         )
 
@@ -932,6 +969,9 @@ class LlamaCloudIndex(BaseManagedIndex):
     async def aupload_file(
         self,
         file_path: str,
+        custom_metadata: Optional[
+            dict[str, Optional[PipelineFileCreateCustomMetadataValue]]
+        ] = None,
         verbose: bool = False,
         wait_for_ingestion: bool = True,
         raise_on_error: bool = False,
@@ -945,8 +985,10 @@ class LlamaCloudIndex(BaseManagedIndex):
                 print(f"Uploaded file {file.id} with name {file.name}")
 
         # Add file to pipeline
-        pipeline_file_create = PipelineFileCreate(file_id=file.id)
-        await self._aclient.pipelines.add_files_to_pipeline_api(
+        pipeline_file_create = PipelineFileCreate(
+            file_id=file.id, custom_metadata=custom_metadata
+        )
+        await self._aclient.pipeline_files.add_files_to_pipeline_api(
             pipeline_id=self.pipeline.id, request=[pipeline_file_create]
         )
 
@@ -961,6 +1003,9 @@ class LlamaCloudIndex(BaseManagedIndex):
         self,
         file_name: str,
         url: str,
+        custom_metadata: Optional[
+            dict[str, Optional[PipelineFileCreateCustomMetadataValue]]
+        ] = None,
         proxy_url: Optional[str] = None,
         request_headers: Optional[Dict[str, str]] = None,
         verify_ssl: bool = True,
@@ -983,8 +1028,10 @@ class LlamaCloudIndex(BaseManagedIndex):
             print(f"Uploaded file {file.id} with ID {file.id}")
 
         # Add file to pipeline
-        pipeline_file_create = PipelineFileCreate(file_id=file.id)
-        self._client.pipelines.add_files_to_pipeline_api(
+        pipeline_file_create = PipelineFileCreate(
+            file_id=file.id, custom_metadata=custom_metadata
+        )
+        self._client.pipeline_files.add_files_to_pipeline_api(
             pipeline_id=self.pipeline.id, request=[pipeline_file_create]
         )
 
@@ -998,6 +1045,9 @@ class LlamaCloudIndex(BaseManagedIndex):
         self,
         file_name: str,
         url: str,
+        custom_metadata: Optional[
+            dict[str, Optional[PipelineFileCreateCustomMetadataValue]]
+        ] = None,
         proxy_url: Optional[str] = None,
         request_headers: Optional[Dict[str, str]] = None,
         verify_ssl: bool = True,
@@ -1020,8 +1070,10 @@ class LlamaCloudIndex(BaseManagedIndex):
             print(f"Uploaded file {file.id} with ID {file.id}")
 
         # Add file to pipeline
-        pipeline_file_create = PipelineFileCreate(file_id=file.id)
-        await self._aclient.pipelines.add_files_to_pipeline_api(
+        pipeline_file_create = PipelineFileCreate(
+            file_id=file.id, custom_metadata=custom_metadata
+        )
+        await self._aclient.pipeline_files.add_files_to_pipeline_api(
             pipeline_id=self.pipeline.id, request=[pipeline_file_create]
         )
 

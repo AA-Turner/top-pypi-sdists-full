@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: AOT_biomaps
+Version: 2.9.390
+Summary: Acousto-Optic Tomography
+Home-page: https://github.com/LucasDuclos/AcoustoOpticTomography
+Author: Lucas Duclos
+Author-email: lucas.duclos@universite-paris-saclay.fr
+Requires-Dist: ipykernel==6.30.1
+Requires-Dist: k-wave-python==0.3.5
+Requires-Dist: setuptools==75.1.0
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: numba==0.61.2
+Requires-Dist: tqdm==4.67.1
+Requires-Dist: nvidia-ml-py3==7.352.0
+Requires-Dist: numpy==1.26.4
+Requires-Dist: torch==2.7.0
+Requires-Dist: scipy==1.13.1
+Requires-Dist: cupy-cuda12x==13.6.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

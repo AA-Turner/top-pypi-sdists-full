@@ -9,7 +9,6 @@ import typing as t
 
 import libtmux
 import pytest
-from libtmux.common import has_lt_version
 from libtmux.server import Server
 from libtmux.session import Session
 
@@ -17,6 +16,8 @@ from tests.constants import FIXTURE_PATH
 from tests.fixtures import utils as test_utils
 from tmuxp import cli
 from tmuxp._internal.config_reader import ConfigReader
+from tmuxp._internal.private_path import PrivatePath
+from tmuxp.cli._colors import ColorMode, Colors
 from tmuxp.cli.load import (
     _load_append_windows_to_current_session,
     _load_attached,
@@ -96,10 +97,6 @@ def test_load_workspace_named_session(
     assert session.name == "tmuxp-new"
 
 
-@pytest.mark.skipif(
-    has_lt_version("2.1"),
-    reason="exact session name matches only tmux >= 2.1",
-)
 def test_load_workspace_name_match_regression_252(
     tmp_path: pathlib.Path,
     server: Server,
@@ -186,10 +183,11 @@ windows:
 
 
 if t.TYPE_CHECKING:
-    from pytest_mock import MockerFixture
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
-    ExpectedOutput: TypeAlias = t.Optional[t.Union[str, list[str]]]
+    from pytest_mock import MockerFixture
+
+    ExpectedOutput: TypeAlias = str | list[str] | None
 
 
 class CLILoadFixture(t.NamedTuple):
@@ -309,7 +307,7 @@ def test_load(
     assert server.socket_name is not None
 
     monkeypatch.chdir(tmp_path)
-    for session_name, config_path in zip(session_names, config_paths):
+    for session_name, config_path in zip(session_names, config_paths, strict=False):
         tmuxp_config = pathlib.Path(
             config_path.format(tmp_path=tmp_path, TMUXP_CONFIGDIR=tmuxp_configdir),
         )
@@ -653,8 +651,8 @@ def test_load_attached(
     # Load a session and attach from outside tmux
     monkeypatch.delenv("TMUX", raising=False)
 
-    attach_session_mock = mocker.patch("libtmux.session.Session.attach_session")
-    attach_session_mock.return_value.stderr = None
+    attach_mock = mocker.patch("libtmux.session.Session.attach")
+    attach_mock.return_value.stderr = None
 
     yaml_config = test_utils.read_workspace_file("workspace/builder/two_pane.yaml")
     session_config = ConfigReader._load(fmt="yaml", content=yaml_config)
@@ -663,7 +661,7 @@ def test_load_attached(
 
     _load_attached(builder, False)
 
-    assert attach_session_mock.call_count == 1
+    assert attach_mock.call_count == 1
 
 
 def test_load_attached_detached(
@@ -675,8 +673,8 @@ def test_load_attached_detached(
     # Load a session but don't attach
     monkeypatch.delenv("TMUX", raising=False)
 
-    attach_session_mock = mocker.patch("libtmux.session.Session.attach_session")
-    attach_session_mock.return_value.stderr = None
+    attach_mock = mocker.patch("libtmux.session.Session.attach")
+    attach_mock.return_value.stderr = None
 
     yaml_config = test_utils.read_workspace_file("workspace/builder/two_pane.yaml")
     session_config = ConfigReader._load(fmt="yaml", content=yaml_config)
@@ -685,7 +683,7 @@ def test_load_attached_detached(
 
     _load_attached(builder, True)
 
-    assert attach_session_mock.call_count == 0
+    assert attach_mock.call_count == 0
 
 
 def test_load_attached_within_tmux(
@@ -755,3 +753,23 @@ def test_load_append_windows_to_current_session(
 
     assert len(server.sessions) == 1
     assert len(server.windows) == 6
+
+
+# Privacy masking in load command
+
+
+def test_load_masks_home_in_loading_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Load command should mask home directory in [Loading] message."""
+    monkeypatch.setattr(pathlib.Path, "home", lambda: pathlib.Path("/home/testuser"))
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    colors = Colors(ColorMode.ALWAYS)
+
+    workspace_file = pathlib.Path("/home/testuser/work/project/.tmuxp.yaml")
+    output = (
+        colors.info("[Loading]")
+        + " "
+        + colors.highlight(str(PrivatePath(workspace_file)))
+    )
+
+    assert "~/work/project/.tmuxp.yaml" in output
+    assert "/home/testuser" not in output

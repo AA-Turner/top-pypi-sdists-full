@@ -67,7 +67,7 @@ class XEP_0070(BasePlugin):
             if message is not None:
                 stanza['body'] = message.format(id=id, url=url, method=method)
             stanza.send()
-            fut = asyncio.Future()
+            fut = asyncio.Future(loop=self.xmpp.loop)
             fut.set_result(stanza)
             return fut
         else:

@@ -5,7 +5,7 @@ import warnings
 
 from nominal.procedures.v1 import procedures_pb2 as nominal_dot_procedures_dot_v1_dot_procedures__pb2
 
-GRPC_GENERATED_VERSION = '1.75.0'
+GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + f' but the generated code in nominal/procedures/v1/procedures_pb2_grpc.py depends on'
+        + ' but the generated code in nominal/procedures/v1/procedures_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -45,6 +45,11 @@ class ProceduresServiceStub(object):
                 '/nominal.procedures.v1.ProceduresService/GetProcedure',
                 request_serializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureRequest.SerializeToString,
                 response_deserializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureResponse.FromString,
+                _registered_method=True)
+        self.BatchGetProcedureMetadata = channel.unary_unary(
+                '/nominal.procedures.v1.ProceduresService/BatchGetProcedureMetadata',
+                request_serializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataRequest.SerializeToString,
+                response_deserializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataResponse.FromString,
                 _registered_method=True)
         self.UpdateProcedureMetadata = channel.unary_unary(
                 '/nominal.procedures.v1.ProceduresService/UpdateProcedureMetadata',
@@ -107,6 +112,15 @@ class ProceduresServiceServicer(object):
 
     def GetProcedure(self, request, context):
         """Get a procedure by its RID
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def BatchGetProcedureMetadata(self, request, context):
+        """Get metadata for multiple procedure by RIDs.
+        Unauthorized RIDs will be omitted from the response.
+        Order is not guaranteed to match the request.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -188,6 +202,11 @@ def add_ProceduresServiceServicer_to_server(servicer, server):
                     servicer.GetProcedure,
                     request_deserializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureRequest.FromString,
                     response_serializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureResponse.SerializeToString,
+            ),
+            'BatchGetProcedureMetadata': grpc.unary_unary_rpc_method_handler(
+                    servicer.BatchGetProcedureMetadata,
+                    request_deserializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataRequest.FromString,
+                    response_serializer=nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataResponse.SerializeToString,
             ),
             'UpdateProcedureMetadata': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateProcedureMetadata,
@@ -291,6 +310,33 @@ class ProceduresService(object):
             '/nominal.procedures.v1.ProceduresService/GetProcedure',
             nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureRequest.SerializeToString,
             nominal_dot_procedures_dot_v1_dot_procedures__pb2.GetProcedureResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def BatchGetProcedureMetadata(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/nominal.procedures.v1.ProceduresService/BatchGetProcedureMetadata',
+            nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataRequest.SerializeToString,
+            nominal_dot_procedures_dot_v1_dot_procedures__pb2.BatchGetProcedureMetadataResponse.FromString,
             options,
             channel_credentials,
             insecure,

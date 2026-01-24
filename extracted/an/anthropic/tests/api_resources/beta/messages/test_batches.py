@@ -39,7 +39,7 @@ class TestBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],
@@ -61,8 +61,38 @@ class TestBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
-                        "container": "container",
+                        "model": "claude-sonnet-4-5-20250929",
+                        "container": {
+                            "id": "id",
+                            "skills": [
+                                {
+                                    "skill_id": "x",
+                                    "type": "anthropic",
+                                    "version": "x",
+                                }
+                            ],
+                        },
+                        "context_management": {
+                            "edits": [
+                                {
+                                    "type": "clear_tool_uses_20250919",
+                                    "clear_at_least": {
+                                        "type": "input_tokens",
+                                        "value": 0,
+                                    },
+                                    "clear_tool_inputs": True,
+                                    "exclude_tools": ["string"],
+                                    "keep": {
+                                        "type": "tool_uses",
+                                        "value": 0,
+                                    },
+                                    "trigger": {
+                                        "type": "input_tokens",
+                                        "value": 1,
+                                    },
+                                }
+                            ]
+                        },
                         "mcp_servers": [
                             {
                                 "name": "name",
@@ -76,6 +106,11 @@ class TestBatches:
                             }
                         ],
                         "metadata": {"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
+                        "output_config": {"effort": "low"},
+                        "output_format": {
+                            "schema": {"foo": "bar"},
+                            "type": "json_schema",
+                        },
                         "service_tier": "auto",
                         "stop_sequences": ["string"],
                         "stream": False,
@@ -113,23 +148,21 @@ class TestBatches:
                                 "input_schema": {
                                     "type": "object",
                                     "properties": {
-                                        "location": {
-                                            "description": "The city and state, e.g. San Francisco, CA",
-                                            "type": "string",
-                                        },
-                                        "unit": {
-                                            "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                            "type": "string",
-                                        },
+                                        "location": "bar",
+                                        "unit": "bar",
                                     },
                                     "required": ["location"],
                                 },
                                 "name": "name",
+                                "allowed_callers": ["direct"],
                                 "cache_control": {
                                     "type": "ephemeral",
                                     "ttl": "5m",
                                 },
+                                "defer_loading": True,
                                 "description": "Get the current weather in a given location",
+                                "input_examples": [{"foo": "bar"}],
+                                "strict": True,
                                 "type": "custom",
                             }
                         ],
@@ -157,7 +190,7 @@ class TestBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],
@@ -183,7 +216,7 @@ class TestBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],
@@ -429,7 +462,7 @@ class TestAsyncBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],
@@ -451,8 +484,38 @@ class TestAsyncBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
-                        "container": "container",
+                        "model": "claude-sonnet-4-5-20250929",
+                        "container": {
+                            "id": "id",
+                            "skills": [
+                                {
+                                    "skill_id": "x",
+                                    "type": "anthropic",
+                                    "version": "x",
+                                }
+                            ],
+                        },
+                        "context_management": {
+                            "edits": [
+                                {
+                                    "type": "clear_tool_uses_20250919",
+                                    "clear_at_least": {
+                                        "type": "input_tokens",
+                                        "value": 0,
+                                    },
+                                    "clear_tool_inputs": True,
+                                    "exclude_tools": ["string"],
+                                    "keep": {
+                                        "type": "tool_uses",
+                                        "value": 0,
+                                    },
+                                    "trigger": {
+                                        "type": "input_tokens",
+                                        "value": 1,
+                                    },
+                                }
+                            ]
+                        },
                         "mcp_servers": [
                             {
                                 "name": "name",
@@ -466,6 +529,11 @@ class TestAsyncBatches:
                             }
                         ],
                         "metadata": {"user_id": "13803d75-b4b5-4c3e-b2a2-6f21399b021b"},
+                        "output_config": {"effort": "low"},
+                        "output_format": {
+                            "schema": {"foo": "bar"},
+                            "type": "json_schema",
+                        },
                         "service_tier": "auto",
                         "stop_sequences": ["string"],
                         "stream": False,
@@ -503,23 +571,21 @@ class TestAsyncBatches:
                                 "input_schema": {
                                     "type": "object",
                                     "properties": {
-                                        "location": {
-                                            "description": "The city and state, e.g. San Francisco, CA",
-                                            "type": "string",
-                                        },
-                                        "unit": {
-                                            "description": "Unit for the output - one of (celsius, fahrenheit)",
-                                            "type": "string",
-                                        },
+                                        "location": "bar",
+                                        "unit": "bar",
                                     },
                                     "required": ["location"],
                                 },
                                 "name": "name",
+                                "allowed_callers": ["direct"],
                                 "cache_control": {
                                     "type": "ephemeral",
                                     "ttl": "5m",
                                 },
+                                "defer_loading": True,
                                 "description": "Get the current weather in a given location",
+                                "input_examples": [{"foo": "bar"}],
+                                "strict": True,
                                 "type": "custom",
                             }
                         ],
@@ -547,7 +613,7 @@ class TestAsyncBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],
@@ -573,7 +639,7 @@ class TestAsyncBatches:
                                 "role": "user",
                             }
                         ],
-                        "model": "claude-sonnet-4-20250514",
+                        "model": "claude-sonnet-4-5-20250929",
                     },
                 }
             ],

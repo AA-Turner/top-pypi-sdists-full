@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from daft.daft import CsvParseOptions, JsonParseOptions, PySchema
 from daft.daft import PyField as _PyField
@@ -12,7 +12,7 @@ from daft.daft import read_parquet_schema as _read_parquet_schema
 from daft.datatype import DataType, TimeUnit, _ensure_registered_super_ext_type
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
 
     import pyarrow as pa
 
@@ -145,8 +145,6 @@ class Schema:
     def column_names(self) -> list[str]:
         """Returns a list of the names of the columns in the schema.
 
-        Args:
-            None
         Returns:
             list[str]: List of column names in the schema.
         """
@@ -155,8 +153,6 @@ class Schema:
     def estimate_row_size_bytes(self) -> float:
         """Estimates the size of a row in bytes based on the schema.
 
-        Args:
-            None
         Returns:
             float: Estimated size of a row in bytes.
         """
@@ -172,8 +168,6 @@ class Schema:
     def to_name_set(self) -> set[str]:
         """Returns a set of column names in the schema.
 
-        Args:
-            None
         Returns:
             set[str]: Set of column names in the schema.
         """

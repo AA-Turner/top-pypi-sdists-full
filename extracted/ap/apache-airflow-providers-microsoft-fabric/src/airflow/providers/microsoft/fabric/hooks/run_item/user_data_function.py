@@ -69,7 +69,7 @@ class MSFabricRunUserDataFunctionHook(BaseFabricRunItemHook):
         self.config = config
 
         self.log.info(
-            "Initializing MS Fabric Job Scheduler Hook - conn_id: %s, poll interval: %s, timeout: %s, api_host: %s, api_scope: %s",
+            "Initializing MS Fabric User Data Function Hook - conn_id: %s, poll interval: %s, timeout: %s, api_host: %s, api_scope: %s",
             config.fabric_conn_id, 
             config.poll_interval_seconds, 
             config.timeout_seconds,
@@ -87,7 +87,7 @@ class MSFabricRunUserDataFunctionHook(BaseFabricRunItemHook):
                 config.fabric_conn_id, config.poll_interval_seconds, config.timeout_seconds, config.api_host, config.api_scope)
 
         except Exception as e:
-            self.log.error("Failed to initialize MS Fabric Job Scheduler Hook: %s", str(e))
+            self.log.error("Failed to initialize MS Fabric User Data Function Hook: %s", str(e))
             raise
 
     async def run_item(self, connection: MSFabricRestConnection, item: ItemDefinition) -> RunItemTracker:
@@ -150,6 +150,25 @@ class MSFabricRunUserDataFunctionHook(BaseFabricRunItemHook):
 
     async def cancel_run(self, connection: MSFabricRestConnection, tracker: RunItemTracker ) -> bool:
         raise MSFabricRunItemException("User Data Function does not support cancellation.")
+
+    async def generate_deep_link(self, tracker: RunItemTracker, base_url: str = "https://app.fabric.microsoft.com") -> str:
+        """
+        Generate deep links for UserDataFunction items.
+        Uses the same URL patterns as MSFabricItemLink.
+        
+        :param tracker: RunItemTracker with run details
+        :param base_url: Base URL for the Fabric portal
+        :return: Deep link URL to the user data function
+        """
+        item_type = tracker.item.item_type
+        workspace_id = tracker.item.workspace_id
+        item_id = tracker.item.item_id
+
+        if not workspace_id or not item_id or item_type != "UserDataFunction":
+            return ""
+
+        # Use the same URL pattern as MSFabricItemLink
+        return f"{base_url}/groups/{workspace_id}/userdatafunctions/{item_id}"
         
     def _parse_status(self, sourceStatus: Optional[str]) -> MSFabricRunItemStatus:
 

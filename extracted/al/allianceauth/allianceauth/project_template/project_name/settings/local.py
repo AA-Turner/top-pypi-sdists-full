@@ -57,10 +57,10 @@ DATABASES['default'] = {
 # CCP's developer portal
 # Logging in to auth requires the publicData scope (can be overridden through the
 # LOGIN_TOKEN_SCOPES setting). Other apps may require more (see their docs).
+ESI_SSO_CALLBACK_URL = f"{SITE_URL}/sso/callback"  # Do NOT change this line!
 ESI_SSO_CLIENT_ID = ''
 ESI_SSO_CLIENT_SECRET = ''
-ESI_SSO_CALLBACK_URL = f"{SITE_URL}/sso/callback"
-ESI_USER_CONTACT_EMAIL = ''    # A server maintainer that CCP can contact in case of issues.
+ESI_USER_CONTACT_EMAIL = ''  # A server maintainer that CCP can contact in case of issues.
 
 # By default, emails are validated before new users can log in.
 # It's recommended to use a free service like SparkPost or Elastic Email to send email.

@@ -28,27 +28,28 @@ setup(
     description="A Dagster integration for dbt",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-dbt",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_dbt_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.14",  # dbt-core incompatible with Python 3.14
     install_requires=[
-        "dagster==1.11.11",
+        "dagster==1.12.12",
         # Follow the version support constraints for dbt Core: https://docs.getdbt.com/docs/dbt-versions/core
         f"dbt-core>=1.7,<{DBT_CORE_VERSION_UPPER_BOUND}",
+        "gitpython",
         "Jinja2",
         "networkx",
         "orjson",
         "requests",
         "rich",
-        "sqlglot[rs]",
+        "sqlglot[rs]<28.1.0",  # FW-731
         "typer>=0.9.0",
         "packaging",
     ],

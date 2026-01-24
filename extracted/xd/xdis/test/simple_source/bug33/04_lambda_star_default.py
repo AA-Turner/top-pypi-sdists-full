@@ -1,7 +1,7 @@
 # From 3.x test_audiop.py
 
 # Bug is handling default value after * argument in a lambda.
-# That's a mouthful of description; I am not sure if the really
+# That's a mouthful of desciption; I am not sure if the really
 # hacky fix to the code is even correct.
 
 #

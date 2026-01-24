@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conventional_pre_commit
-Version: 4.2.0
+Version: 4.3.0
 Summary: A pre-commit hook that checks commit messages for Conventional Commits formatting.
 Author-email: Compiler LLC <dev@compiler.la>
 License:                                  Apache License

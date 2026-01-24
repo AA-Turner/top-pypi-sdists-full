@@ -1,6 +1,6 @@
 # pylint:disable=missing-class-docstring,too-many-boolean-expressions
 from __future__ import annotations
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import string
 import logging
 
@@ -19,6 +19,10 @@ from angr.analyses.reaching_definitions import ObservationPointType
 from angr.utils.graph import GraphUtils
 
 from .irsb_reg_collector import IRSBRegisterCollector
+
+if TYPE_CHECKING:
+    from angr.knowledge_plugins.functions import Function
+
 
 _l = logging.getLogger(__name__)
 
@@ -83,7 +87,10 @@ class StringObfuscationFinder(Analysis):
     An analysis that automatically finds string obfuscation routines.
     """
 
-    def __init__(self):
+    def __init__(self, functions: list[Function] | None = None):
+        self._functions_to_analyze = functions
+        self._function_addrs_to_analyze = None if functions is None else {f.addr for f in functions}
+
         self.type1_candidates = []
         self.type2_candidates = []
         self.type3_candidates = []
@@ -143,7 +150,10 @@ class StringObfuscationFinder(Analysis):
 
         type1_candidates: list[tuple[int, StringDeobFuncDescriptor]] = []
 
-        for func in self.project.kb.functions.values():
+        functions_to_analyze = (
+            self.project.kb.functions.values() if self._functions_to_analyze is None else self._functions_to_analyze
+        )
+        for func in functions_to_analyze:
             if func.is_simprocedure or func.is_plt or func.is_alignment:
                 continue
 
@@ -174,7 +184,7 @@ class StringObfuscationFinder(Analysis):
 
             # decompile this function and see if it "looks like" a deobfuscation function
             with self._resilience():
-                dec = self.project.analyses.Decompiler(func, cfg=cfg, fail_fast=self._fail_fast)  # type:ignore
+                dec = self.project.analyses.Decompiler(func, cfg=cfg, fail_fast=self._fail_fast)  # type: ignore
             if (
                 dec.codegen is None
                 or not dec.codegen.text
@@ -441,7 +451,10 @@ class StringObfuscationFinder(Analysis):
 
         type2_candidates: list[tuple[int, StringDeobFuncDescriptor, list[tuple[int, int, bytes]]]] = []
 
-        for func in self.project.kb.functions.values():
+        functions_to_analyze = (
+            self.project.kb.functions.values() if self._functions_to_analyze is None else self._functions_to_analyze
+        )
+        for func in functions_to_analyze:
             if func.is_simprocedure or func.is_plt or func.is_alignment:
                 continue
 
@@ -473,7 +486,7 @@ class StringObfuscationFinder(Analysis):
                     func,
                     cfg=cfg,
                     expr_collapse_depth=64,
-                    fail_fast=self._fail_fast,  # type:ignore
+                    fail_fast=self._fail_fast,  # type: ignore
                 )
             if (
                 dec.codegen is None
@@ -620,6 +633,10 @@ class StringObfuscationFinder(Analysis):
         sorted_funcs = GraphUtils.quasi_topological_sort_nodes(callgraph_digraph)
         tree_has_unsupported_funcs = {}
         function_candidates = []
+
+        if self._function_addrs_to_analyze is not None:
+            sorted_funcs = [a for a in sorted_funcs if a in self._function_addrs_to_analyze]
+
         for func_addr in sorted_funcs:
             if functions.get_by_addr(func_addr).is_simprocedure:
                 # is this a stub SimProcedure?
@@ -669,7 +686,7 @@ class StringObfuscationFinder(Analysis):
             # take a look at the content
             with self._resilience():
                 # catch all exceptions
-                dec = self.project.analyses.Decompiler(func, cfg=cfg, fail_fast=self._fail_fast)  # type:ignore
+                dec = self.project.analyses.Decompiler(func, cfg=cfg, fail_fast=self._fail_fast)  # type: ignore
             if dec.codegen is None or not dec.codegen.text:
                 continue
 
@@ -686,7 +703,7 @@ class StringObfuscationFinder(Analysis):
 
                 # simulate an execution to see if it really works
                 data, guessed_size = self._type3_prepare_and_execute(
-                    func.addr, call_sites[i].addr, call_sites[i].function_address, cfg  # type:ignore
+                    func.addr, call_sites[i].addr, call_sites[i].function_address, cfg  # type: ignore
                 )
                 if data is None:
                     continue
@@ -733,6 +750,10 @@ class StringObfuscationFinder(Analysis):
             raise AngrAnalysisError(f"Cannot find the CFG node for function {func_addr:#x}")
         call_sites = cfg.get_predecessors(cfg_node)
         callinsn2content = {}
+
+        if self._function_addrs_to_analyze is not None:
+            call_sites = [cs for cs in call_sites if cs.function_address in self._function_addrs_to_analyze]
+
         for idx, call_site in enumerate(call_sites):
             _l.debug("Analyzing type 3 candidate call site %#x (%d/%d)...", call_site.addr, idx + 1, len(call_sites))
             assert call_site.function_address is not None and isinstance(call_site.function_address, int)

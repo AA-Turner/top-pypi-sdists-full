@@ -1,36 +1,45 @@
 use std::borrow::Cow;
-use std::sync::OnceLock;
 
 use futures::{StreamExt, TryStreamExt};
 use lazy_static::lazy_static;
 use secrecy::{ExposeSecret, SecretString};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
+use tensorzero_types_providers::xai::{XAIResponse as XAIResponseGeneric, XAIUsage};
 use tokio::time::Instant;
 use url::Url;
 
 use crate::cache::ModelProviderRequest;
 use crate::endpoints::inference::InferenceCredentials;
-use crate::error::{DisplayOrDebugGateway, Error, ErrorDetails};
+use crate::error::{DelayedError, DisplayOrDebugGateway, Error, ErrorDetails};
 use crate::http::TensorzeroHttpClient;
-use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
-use crate::inference::types::{
-    batch::StartBatchProviderInferenceResponse, ContentBlockOutput, Latency, ModelInferenceRequest,
-    ModelInferenceRequestJsonMode, PeekableProviderInferenceResponseStream,
-    ProviderInferenceResponse, ProviderInferenceResponseArgs,
-};
 use crate::inference::InferenceProvider;
-use crate::model::{build_creds_caching_default, Credential, CredentialLocation, ModelProvider};
+use crate::inference::types::batch::{BatchRequestRow, PollBatchInferenceResponse};
+use crate::inference::types::chat_completion_inference_params::{
+    ChatCompletionInferenceParamsV2, warn_inference_parameter_not_supported,
+};
+use crate::inference::types::usage::raw_usage_entries_from_value;
+use crate::inference::types::{
+    ApiType, ContentBlockOutput, Latency, ModelInferenceRequest, ModelInferenceRequestJsonMode,
+    PeekableProviderInferenceResponseStream, ProviderInferenceResponse,
+    ProviderInferenceResponseArgs, ProviderInferenceResponseChunk,
+    ProviderInferenceResponseStreamInner, Thought, Usage,
+    batch::StartBatchProviderInferenceResponse,
+};
+use crate::model::{Credential, ModelProvider};
 use crate::providers::helpers::{
     inject_extra_request_data_and_send, inject_extra_request_data_and_send_eventsource,
 };
+use crate::providers::openai::OpenAIMessagesConfig;
+use uuid::Uuid;
 
 use super::openai::{
-    get_chat_url, handle_openai_error, prepare_openai_messages, prepare_openai_tools,
-    stream_openai, OpenAIRequestMessage, OpenAIResponse, OpenAIResponseChoice, OpenAITool,
-    OpenAIToolChoice, StreamOptions, SystemOrDeveloper,
+    OpenAIRequestMessage, OpenAIResponseChoice, StreamOptions, SystemOrDeveloper, get_chat_url,
+    handle_openai_error, prepare_openai_messages, stream_openai,
 };
 use crate::inference::TensorZeroEventError;
+use crate::providers::chat_completions::prepare_chat_completion_tools;
+use crate::providers::chat_completions::{ChatCompletionTool, ChatCompletionToolChoice};
 
 lazy_static! {
     static ref XAI_DEFAULT_BASE_URL: Url = {
@@ -39,40 +48,44 @@ lazy_static! {
     };
 }
 
-fn default_api_key_location() -> CredentialLocation {
-    CredentialLocation::Env("XAI_API_KEY".to_string())
-}
-
 const PROVIDER_NAME: &str = "xAI";
 pub const PROVIDER_TYPE: &str = "xai";
 
+type XAIResponse = XAIResponseGeneric<OpenAIResponseChoice>;
+
+impl From<XAIUsage> for Usage {
+    fn from(usage: XAIUsage) -> Self {
+        // Add `reasoning_tokens` to `completion_tokens` for total output tokens
+        let output_tokens = match (usage.completion_tokens, usage.completion_tokens_details) {
+            (Some(completion), Some(details)) => {
+                Some(completion + details.reasoning_tokens.unwrap_or(0))
+            }
+            (Some(completion), None) => Some(completion),
+            (None, Some(details)) => details.reasoning_tokens,
+            (None, None) => None,
+        };
+        Usage {
+            input_tokens: usage.prompt_tokens,
+            output_tokens,
+        }
+    }
+}
+
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct XAIProvider {
     model_name: String,
     #[serde(skip)]
     credentials: XAICredentials,
 }
 
-static DEFAULT_CREDENTIALS: OnceLock<XAICredentials> = OnceLock::new();
-
 impl XAIProvider {
-    pub fn new(
-        model_name: String,
-        api_key_location: Option<CredentialLocation>,
-    ) -> Result<Self, Error> {
-        let credentials = build_creds_caching_default(
-            api_key_location,
-            default_api_key_location(),
-            PROVIDER_TYPE,
-            &DEFAULT_CREDENTIALS,
-        )?;
-
-        Ok(XAIProvider {
+    pub fn new(model_name: String, credentials: XAICredentials) -> Self {
+        XAIProvider {
             model_name,
             credentials,
-        })
+        }
     }
 
     pub fn model_name(&self) -> &str {
@@ -85,6 +98,10 @@ pub enum XAICredentials {
     Static(SecretString),
     Dynamic(String),
     None,
+    WithFallback {
+        default: Box<XAICredentials>,
+        fallback: Box<XAICredentials>,
+    },
 }
 
 impl TryFrom<Credential> for XAICredentials {
@@ -96,6 +113,10 @@ impl TryFrom<Credential> for XAICredentials {
             Credential::Dynamic(key_name) => Ok(XAICredentials::Dynamic(key_name)),
             Credential::None => Ok(XAICredentials::None),
             Credential::Missing => Ok(XAICredentials::None),
+            Credential::WithFallback { default, fallback } => Ok(XAICredentials::WithFallback {
+                default: Box::new((*default).try_into()?),
+                fallback: Box::new((*fallback).try_into()?),
+            }),
             _ => Err(Error::new(ErrorDetails::Config {
                 message: "Invalid api_key_location for xAI provider".to_string(),
             })),
@@ -107,21 +128,32 @@ impl XAICredentials {
     pub fn get_api_key<'a>(
         &'a self,
         dynamic_api_keys: &'a InferenceCredentials,
-    ) -> Result<&'a SecretString, Error> {
+    ) -> Result<&'a SecretString, DelayedError> {
         match self {
             XAICredentials::Static(api_key) => Ok(api_key),
             XAICredentials::Dynamic(key_name) => dynamic_api_keys.get(key_name).ok_or_else(|| {
-                ErrorDetails::ApiKeyMissing {
+                DelayedError::new(ErrorDetails::ApiKeyMissing {
                     provider_name: PROVIDER_NAME.to_string(),
                     message: format!("Dynamic api key `{key_name}` is missing"),
-                }
-                .into()
+                })
             }),
-            XAICredentials::None => Err(ErrorDetails::ApiKeyMissing {
+            XAICredentials::WithFallback { default, fallback } => {
+                // Try default first, fall back to fallback if it fails
+                match default.get_api_key(dynamic_api_keys) {
+                    Ok(key) => Ok(key),
+                    Err(e) => {
+                        e.log_at_level(
+                            "Using fallback credential, as default credential is unavailable: ",
+                            tracing::Level::WARN,
+                        );
+                        fallback.get_api_key(dynamic_api_keys)
+                    }
+                }
+            }
+            XAICredentials::None => Err(DelayedError::new(ErrorDetails::ApiKeyMissing {
                 provider_name: PROVIDER_NAME.to_string(),
                 message: "No credentials are set".to_string(),
-            }
-            .into()),
+            })),
         }
     }
 }
@@ -133,12 +165,14 @@ impl InferenceProvider for XAIProvider {
             request,
             provider_name: _,
             model_name,
+            otlp_config: _,
+            model_inference_id,
         }: ModelProviderRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<ProviderInferenceResponse, Error> {
-        let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request)?)
+        let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request).await?)
             .map_err(|e| {
                 Error::new(ErrorDetails::Serialization {
                     message: format!(
@@ -148,7 +182,10 @@ impl InferenceProvider for XAIProvider {
                 })
             })?;
         let request_url = get_chat_url(&XAI_DEFAULT_BASE_URL)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
         let request_builder = http_client
             .post(request_url)
@@ -199,6 +236,7 @@ impl InferenceProvider for XAIProvider {
                 latency,
                 raw_request,
                 generic_request: request,
+                model_inference_id,
             }
             .try_into()?)
         } else {
@@ -220,6 +258,7 @@ impl InferenceProvider for XAIProvider {
                 status,
                 &response,
                 PROVIDER_TYPE,
+                None,
             ))
         }
     }
@@ -230,12 +269,14 @@ impl InferenceProvider for XAIProvider {
             request,
             provider_name: _,
             model_name,
+            otlp_config: _,
+            model_inference_id,
         }: ModelProviderRequest<'a>,
         http_client: &'a TensorzeroHttpClient,
         dynamic_api_keys: &'a InferenceCredentials,
         model_provider: &'a ModelProvider,
     ) -> Result<(PeekableProviderInferenceResponseStream, String), Error> {
-        let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request)?)
+        let request_body = serde_json::to_value(XAIRequest::new(&self.model_name, request).await?)
             .map_err(|e| {
                 Error::new(ErrorDetails::Serialization {
                     message: format!(
@@ -246,7 +287,10 @@ impl InferenceProvider for XAIProvider {
             })?;
 
         let request_url = get_chat_url(&XAI_DEFAULT_BASE_URL)?;
-        let api_key = self.credentials.get_api_key(dynamic_api_keys)?;
+        let api_key = self
+            .credentials
+            .get_api_key(dynamic_api_keys)
+            .map_err(|e| e.log())?;
         let start_time = Instant::now();
         let request_builder = http_client
             .post(request_url)
@@ -263,12 +307,16 @@ impl InferenceProvider for XAIProvider {
         )
         .await?;
 
-        let stream = stream_openai(
+        let inner_stream = stream_openai(
             PROVIDER_TYPE.to_string(),
+            model_inference_id,
             event_source.map_err(TensorZeroEventError::EventSource),
             start_time,
-        )
-        .peekable();
+            None,
+            &raw_request,
+        );
+        // Wrap with xAI-specific stream to add reasoning tokens to usage
+        let stream = stream_xai(inner_stream).peekable();
         Ok((stream, raw_request))
     }
 
@@ -304,6 +352,7 @@ impl InferenceProvider for XAIProvider {
 /// logit_bias, seed, service_tier, stop, user or response_format.
 /// or the deprecated function_call and functions arguments.
 #[derive(Debug, Serialize)]
+#[cfg_attr(test, derive(Default))]
 struct XAIRequest<'a> {
     messages: Vec<OpenAIRequestMessage<'a>>,
     model: &'a str,
@@ -326,15 +375,51 @@ struct XAIRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     stream_options: Option<StreamOptions>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<OpenAITool<'a>>>,
+    tools: Option<Vec<ChatCompletionTool<'a>>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<OpenAIToolChoice<'a>>,
+    tool_choice: Option<ChatCompletionToolChoice<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parallel_tool_calls: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stop: Option<Cow<'a, [String]>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
+}
+
+fn apply_inference_params(
+    request: &mut XAIRequest,
+    inference_params: &ChatCompletionInferenceParamsV2,
+) {
+    let ChatCompletionInferenceParamsV2 {
+        reasoning_effort,
+        service_tier,
+        thinking_budget_tokens,
+        verbosity,
+    } = inference_params;
+
+    if reasoning_effort.is_some() {
+        request.reasoning_effort.clone_from(reasoning_effort);
+    }
+
+    if service_tier.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "service_tier", None);
+    }
+
+    if thinking_budget_tokens.is_some() {
+        warn_inference_parameter_not_supported(
+            PROVIDER_NAME,
+            "thinking_budget_tokens",
+            Some("Tip: You might want to use `reasoning_effort` for this provider."),
+        );
+    }
+
+    if verbosity.is_some() {
+        warn_inference_parameter_not_supported(PROVIDER_NAME, "verbosity", None);
+    }
 }
 
 impl<'a> XAIRequest<'a> {
-    pub fn new(
+    pub async fn new(
         model: &'a str,
         request: &'a ModelInferenceRequest<'_>,
     ) -> Result<XAIRequest<'a>, Error> {
@@ -360,14 +445,23 @@ impl<'a> XAIRequest<'a> {
         let response_format = XAIResponseFormat::new(request.json_mode, request.output_schema);
 
         let messages = prepare_openai_messages(
-            request.system.as_deref().map(SystemOrDeveloper::System),
+            request
+                .system
+                .as_deref()
+                .map(|m| SystemOrDeveloper::System(Cow::Borrowed(m))),
             &request.messages,
-            Some(&request.json_mode),
-            PROVIDER_TYPE,
-        )?;
+            OpenAIMessagesConfig {
+                json_mode: Some(&request.json_mode),
+                provider_type: PROVIDER_TYPE,
+                fetch_and_encode_input_files_before_inference: request
+                    .fetch_and_encode_input_files_before_inference,
+            },
+        )
+        .await?;
 
-        let (tools, tool_choice, _) = prepare_openai_tools(request);
-        Ok(XAIRequest {
+        let (tools, tool_choice, parallel_tool_calls) =
+            prepare_chat_completion_tools(request, false)?;
+        let mut xai_request = XAIRequest {
             messages,
             model,
             temperature,
@@ -380,9 +474,15 @@ impl<'a> XAIRequest<'a> {
             stream,
             stream_options,
             tools,
+            parallel_tool_calls,
             tool_choice,
             stop: request.borrow_stop_sequences(),
-        })
+            reasoning_effort: None,
+        };
+
+        apply_inference_params(&mut xai_request, &request.inference_params_v2);
+
+        Ok(xai_request)
     }
 }
 
@@ -419,11 +519,12 @@ impl XAIResponseFormat {
 }
 
 struct XAIResponseWithMetadata<'a> {
-    response: OpenAIResponse,
+    response: XAIResponse,
     raw_response: String,
     latency: Latency,
     raw_request: String,
     generic_request: &'a ModelInferenceRequest<'a>,
+    model_inference_id: Uuid,
 }
 
 impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
@@ -435,6 +536,7 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             raw_request,
             generic_request,
             raw_response,
+            model_inference_id,
         } = value;
 
         if response.choices.len() != 1 {
@@ -450,7 +552,6 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             .into());
         }
 
-        let usage = response.usage.into();
         let OpenAIResponseChoice {
             message,
             finish_reason,
@@ -465,6 +566,15 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 raw_response: Some(raw_response.clone()),
             }))?;
         let mut content: Vec<ContentBlockOutput> = Vec::new();
+        if let Some(reasoning) = message.reasoning_content {
+            content.push(ContentBlockOutput::Thought(Thought {
+                text: Some(reasoning),
+                signature: None,
+                summary: None,
+                provider_type: Some(PROVIDER_TYPE.to_string()),
+                extra_data: None,
+            }));
+        }
         if let Some(text) = message.content {
             content.push(text.into());
         }
@@ -474,6 +584,15 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
             }
         }
 
+        let raw_usage = xai_usage_from_raw_response(&raw_response).map(|usage| {
+            raw_usage_entries_from_value(
+                model_inference_id,
+                PROVIDER_TYPE,
+                ApiType::ChatCompletions,
+                usage,
+            )
+        });
+        let usage = response.usage.into();
         let system = generic_request.system.clone();
         let input_messages = generic_request.messages.clone();
         Ok(ProviderInferenceResponse::new(
@@ -484,18 +603,63 @@ impl<'a> TryFrom<XAIResponseWithMetadata<'a>> for ProviderInferenceResponse {
                 raw_request,
                 raw_response: raw_response.clone(),
                 usage,
-                latency,
+                raw_usage,
+                relay_raw_response: None,
+                provider_latency: latency,
                 finish_reason: Some(finish_reason.into()),
+                id: model_inference_id,
             },
         ))
     }
+}
+
+fn xai_usage_from_raw_response(raw_response: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(raw_response)
+        .ok()
+        .and_then(|value| value.get("usage").filter(|v| !v.is_null()).cloned())
+}
+
+/// Extracts reasoning_tokens from a raw JSON response's completion_tokens_details
+fn extract_reasoning_tokens_from_raw(raw_response: &str) -> Option<u32> {
+    serde_json::from_str::<Value>(raw_response)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("usage")
+                .and_then(|u| u.get("completion_tokens_details"))
+                .and_then(|d| d.get("reasoning_tokens"))
+                .and_then(|r| r.as_u64())
+                .map(|r| r as u32)
+        })
+}
+
+/// Wraps the OpenAI stream to add reasoning tokens to usage for xAI.
+/// xAI reports reasoning_tokens separately in completion_tokens_details,
+/// so we need to add them to output_tokens for accurate token counting.
+fn stream_xai(
+    inner_stream: ProviderInferenceResponseStreamInner,
+) -> ProviderInferenceResponseStreamInner {
+    Box::pin(
+        inner_stream.map(|result: Result<ProviderInferenceResponseChunk, Error>| {
+            result.map(|mut chunk| {
+                // If this chunk has usage, check for reasoning tokens in raw_response
+                if let Some(ref mut usage) = chunk.usage
+                    && let Some(reasoning_tokens) =
+                        extract_reasoning_tokens_from_raw(&chunk.raw_response)
+                {
+                    // Add reasoning tokens to output_tokens
+                    usage.output_tokens = Some(usage.output_tokens.unwrap_or(0) + reasoning_tokens);
+                }
+                chunk
+            })
+        }),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
     use std::time::Duration;
-
     use uuid::Uuid;
 
     use super::*;
@@ -503,14 +667,17 @@ mod tests {
     use crate::inference::types::{
         FinishReason, FunctionType, ModelInferenceRequestJsonMode, RequestMessage, Role,
     };
+    use crate::providers::chat_completions::{
+        ChatCompletionSpecificToolChoice, ChatCompletionSpecificToolFunction,
+        ChatCompletionToolChoice, ChatCompletionToolType,
+    };
     use crate::providers::openai::{
-        OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage, OpenAIToolType,
-        OpenAIUsage, SpecificToolChoice, SpecificToolFunction,
+        OpenAIFinishReason, OpenAIResponseChoice, OpenAIResponseMessage,
     };
     use crate::providers::test_helpers::{WEATHER_TOOL, WEATHER_TOOL_CONFIG};
 
-    #[test]
-    fn test_xai_request_new() {
+    #[tokio::test]
+    async fn test_xai_request_new() {
         let request_with_tools = ModelInferenceRequest {
             inference_id: Uuid::now_v7(),
             messages: vec![RequestMessage {
@@ -534,6 +701,7 @@ mod tests {
         };
 
         let xai_request = XAIRequest::new("grok-beta", &request_with_tools)
+            .await
             .expect("failed to create xAI Request during test");
 
         assert_eq!(xai_request.messages.len(), 1);
@@ -545,16 +713,19 @@ mod tests {
         let tools = xai_request.tools.as_ref().unwrap();
         assert_eq!(tools.len(), 1);
 
-        assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
-        assert_eq!(tools[0].function.parameters, WEATHER_TOOL.parameters());
+        let tool = &tools[0];
+        assert_eq!(tool.function.name, WEATHER_TOOL.name());
+        assert_eq!(tool.function.parameters, WEATHER_TOOL.parameters());
         assert_eq!(
             xai_request.tool_choice,
-            Some(OpenAIToolChoice::Specific(SpecificToolChoice {
-                r#type: OpenAIToolType::Function,
-                function: SpecificToolFunction {
-                    name: WEATHER_TOOL.name(),
+            Some(ChatCompletionToolChoice::Specific(
+                ChatCompletionSpecificToolChoice {
+                    r#type: ChatCompletionToolType::Function,
+                    function: ChatCompletionSpecificToolFunction {
+                        name: WEATHER_TOOL.name(),
+                    }
                 }
-            }))
+            ))
         );
 
         let request_with_tools = ModelInferenceRequest {
@@ -580,6 +751,7 @@ mod tests {
         };
 
         let xai_request = XAIRequest::new("grok-beta", &request_with_tools)
+            .await
             .expect("failed to create xAI Request");
 
         assert_eq!(xai_request.messages.len(), 2);
@@ -595,16 +767,19 @@ mod tests {
         let tools = xai_request.tools.as_ref().unwrap();
         assert_eq!(tools.len(), 1);
 
-        assert_eq!(tools[0].function.name, WEATHER_TOOL.name());
-        assert_eq!(tools[0].function.parameters, WEATHER_TOOL.parameters());
+        let tool = &tools[0];
+        assert_eq!(tool.function.name, WEATHER_TOOL.name());
+        assert_eq!(tool.function.parameters, WEATHER_TOOL.parameters());
         assert_eq!(
             xai_request.tool_choice,
-            Some(OpenAIToolChoice::Specific(SpecificToolChoice {
-                r#type: OpenAIToolType::Function,
-                function: SpecificToolFunction {
-                    name: WEATHER_TOOL.name(),
+            Some(ChatCompletionToolChoice::Specific(
+                ChatCompletionSpecificToolChoice {
+                    r#type: ChatCompletionToolType::Function,
+                    function: ChatCompletionSpecificToolFunction {
+                        name: WEATHER_TOOL.name(),
+                    }
                 }
-            }))
+            ))
         );
     }
 
@@ -639,9 +814,9 @@ mod tests {
             ErrorDetails::Config { message } if message.contains("Invalid api_key_location")
         ));
     }
-    #[test]
-    fn test_xai_response_with_metadata_try_into() {
-        let valid_response = OpenAIResponse {
+    #[tokio::test]
+    async fn test_xai_response_with_metadata_try_into() {
+        let valid_response = XAIResponse {
             choices: vec![OpenAIResponseChoice {
                 index: 0,
                 message: OpenAIResponseMessage {
@@ -651,10 +826,10 @@ mod tests {
                 },
                 finish_reason: OpenAIFinishReason::Stop,
             }],
-            usage: OpenAIUsage {
-                prompt_tokens: 10,
-                completion_tokens: 20,
-                total_tokens: 30,
+            usage: XAIUsage {
+                prompt_tokens: Some(10),
+                completion_tokens: Some(20),
+                completion_tokens_details: None,
             },
         };
         let generic_request = ModelInferenceRequest {
@@ -685,10 +860,13 @@ mod tests {
                 response_time: Duration::from_secs(0),
             },
             raw_request: serde_json::to_string(
-                &XAIRequest::new("grok-beta", &generic_request).unwrap(),
+                &XAIRequest::new("grok-beta", &generic_request)
+                    .await
+                    .unwrap(),
             )
             .unwrap(),
             generic_request: &generic_request,
+            model_inference_id: Uuid::now_v7(),
         };
         let inference_response: ProviderInferenceResponse =
             xai_response_with_metadata.try_into().unwrap();
@@ -700,13 +878,40 @@ mod tests {
         );
         assert_eq!(inference_response.finish_reason, Some(FinishReason::Stop));
         assert_eq!(inference_response.raw_response, "test_response");
-        assert_eq!(inference_response.usage.input_tokens, 10);
-        assert_eq!(inference_response.usage.output_tokens, 20);
+        assert_eq!(inference_response.usage.input_tokens, Some(10));
+        assert_eq!(inference_response.usage.output_tokens, Some(20));
         assert_eq!(
-            inference_response.latency,
+            inference_response.provider_latency,
             Latency::NonStreaming {
                 response_time: Duration::from_secs(0)
             }
         );
+    }
+
+    #[test]
+    fn test_xai_apply_inference_params_called() {
+        let logs_contain = crate::utils::testing::capture_logs();
+        let inference_params = ChatCompletionInferenceParamsV2 {
+            reasoning_effort: Some("high".to_string()),
+            service_tier: None,
+            thinking_budget_tokens: Some(1024),
+            verbosity: Some("low".to_string()),
+        };
+        let mut request = XAIRequest::default();
+
+        apply_inference_params(&mut request, &inference_params);
+
+        // Test that reasoning_effort is applied correctly
+        assert_eq!(request.reasoning_effort, Some("high".to_string()));
+
+        // Test that thinking_budget_tokens warns with tip about reasoning_effort
+        assert!(logs_contain(
+            "xAI does not support the inference parameter `thinking_budget_tokens`, so it will be ignored. Tip: You might want to use `reasoning_effort` for this provider."
+        ));
+
+        // Test that verbosity warns
+        assert!(logs_contain(
+            "xAI does not support the inference parameter `verbosity`, so it will be ignored."
+        ));
     }
 }

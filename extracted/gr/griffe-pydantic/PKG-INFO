@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: griffe-pydantic
-Version: 1.1.7
+Version: 1.2.0
 Summary: Griffe extension for Pydantic.
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
 License-Expression: ISC
@@ -10,7 +10,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +27,7 @@ Project-URL: Issues, https://github.com/mkdocstrings/griffe-pydantic/issues
 Project-URL: Discussions, https://github.com/mkdocstrings/griffe-pydantic/discussions
 Project-URL: Gitter, https://gitter.im/mkdocstrings/griffe-pydantic
 Project-URL: Funding, https://github.com/sponsors/pawamoy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: griffe>=1.14
 Description-Content-Type: text/markdown
 
@@ -87,3 +86,8 @@ plugins:
 
 
 See [MkDocs usage in Griffe's documentation](https://mkdocstrings.github.io/griffe/extensions/#in-mkdocs).
+
+## Sponsors
+
+<!-- sponsors-start -->
+<!-- sponsors-end -->

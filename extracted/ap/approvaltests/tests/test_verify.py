@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import json
 import random
 import unittest
@@ -126,7 +124,7 @@ class VerifyTests(unittest.TestCase):
             self.assertTrue("Approval Mismatch", e.value)
 
     def test_verify_as_json(self) -> None:
-        class Bag(object):
+        class Bag:
             def __init__(self) -> None:
                 self.stuff = 1
                 self.json: Optional[Dict[str, int]] = None

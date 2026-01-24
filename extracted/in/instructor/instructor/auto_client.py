@@ -17,6 +17,7 @@ logger = logging.getLogger("instructor.auto_client")
 supported_providers = [
     "openai",
     "azure_openai",
+    "databricks",
     "anthropic",
     "google",
     "generative-ai",
@@ -157,13 +158,69 @@ def from_provider(
     if provider == "openai":
         try:
             import openai
-            from instructor import from_openai
+            import httpx
+            from instructor import from_openai  # type: ignore[attr-defined]
+            from openai import DEFAULT_MAX_RETRIES, NotGiven, Timeout, not_given
+            from collections.abc import Mapping
+            from typing import cast
 
-            client = (
-                openai.AsyncOpenAI(api_key=api_key)
-                if async_client
-                else openai.OpenAI(api_key=api_key)
+            # Extract base_url and other OpenAI client parameters from kwargs
+            base_url = kwargs.pop("base_url", None)
+            organization = cast(str | None, kwargs.pop("organization", None))
+
+            timeout_raw = kwargs.pop("timeout", not_given)
+            timeout: float | Timeout | None | NotGiven
+            timeout = (
+                not_given
+                if timeout_raw is not_given
+                else cast(float | Timeout | None, timeout_raw)
             )
+
+            max_retries_raw = kwargs.pop("max_retries", None)
+            max_retries = (
+                DEFAULT_MAX_RETRIES
+                if max_retries_raw is None
+                else int(cast(int, max_retries_raw))
+            )
+
+            default_headers = cast(
+                Mapping[str, str] | None, kwargs.pop("default_headers", None)
+            )
+            default_query = cast(
+                Mapping[str, object] | None, kwargs.pop("default_query", None)
+            )
+            http_client_raw = kwargs.pop("http_client", None)
+            strict_response_validation = bool(
+                kwargs.pop("_strict_response_validation", False)
+            )
+
+            if async_client:
+                http_client = cast(httpx.AsyncClient | None, http_client_raw)
+                client = openai.AsyncOpenAI(
+                    api_key=api_key,
+                    base_url=base_url,
+                    organization=organization,
+                    timeout=timeout,
+                    max_retries=max_retries,
+                    default_headers=default_headers,
+                    default_query=default_query,
+                    http_client=http_client,
+                    _strict_response_validation=strict_response_validation,
+                )
+            else:
+                http_client = cast(httpx.Client | None, http_client_raw)
+                client = openai.OpenAI(
+                    api_key=api_key,
+                    base_url=base_url,
+                    organization=organization,
+                    timeout=timeout,
+                    max_retries=max_retries,
+                    default_headers=default_headers,
+                    default_query=default_query,
+                    http_client=http_client,
+                    _strict_response_validation=strict_response_validation,
+                )
+
             result = from_openai(
                 client,
                 model=model_name,
@@ -196,7 +253,7 @@ def from_provider(
         try:
             import os
             from openai import AzureOpenAI, AsyncAzureOpenAI
-            from instructor import from_openai
+            from instructor import from_openai  # type: ignore[attr-defined]
 
             # Get required Azure OpenAI configuration from environment
             api_key = api_key or os.environ.get("AZURE_OPENAI_API_KEY")
@@ -262,10 +319,99 @@ def from_provider(
             )
             raise
 
+    elif provider == "databricks":
+        try:
+            import os
+            import openai
+            from instructor import from_openai  # type: ignore[attr-defined]
+
+            api_key = (
+                api_key
+                or os.environ.get("DATABRICKS_TOKEN")
+                or os.environ.get("DATABRICKS_API_KEY")
+            )
+            if not api_key:
+                from .core.exceptions import ConfigurationError
+
+                raise ConfigurationError(
+                    "DATABRICKS_TOKEN is not set. "
+                    "Set it with `export DATABRICKS_TOKEN=<your-token>` or `export DATABRICKS_API_KEY=<your-token>` "
+                    "or pass it as kwarg `api_key=<your-token>`."
+                )
+
+            base_url = kwargs.pop("base_url", None)
+            if base_url is None:
+                base_url = (
+                    os.environ.get("DATABRICKS_BASE_URL")
+                    or os.environ.get("DATABRICKS_HOST")
+                    or os.environ.get("DATABRICKS_WORKSPACE_URL")
+                )
+
+            if not base_url:
+                from .core.exceptions import ConfigurationError
+
+                raise ConfigurationError(
+                    "DATABRICKS_HOST is not set. "
+                    "Set it with `export DATABRICKS_HOST=<your-workspace-url>` or `export DATABRICKS_WORKSPACE_URL=<your-workspace-url>` "
+                    "or pass `base_url=<your-workspace-url>`."
+                )
+
+            base_url = str(base_url).rstrip("/")
+            if not base_url.endswith("/serving-endpoints"):
+                base_url = f"{base_url}/serving-endpoints"
+
+            openai_client_kwargs = {}
+            for key in (
+                "organization",
+                "timeout",
+                "max_retries",
+                "default_headers",
+                "http_client",
+                "app_info",
+            ):
+                if key in kwargs:
+                    openai_client_kwargs[key] = kwargs.pop(key)
+
+            client = (
+                openai.AsyncOpenAI(
+                    api_key=api_key, base_url=base_url, **openai_client_kwargs
+                )
+                if async_client
+                else openai.OpenAI(
+                    api_key=api_key, base_url=base_url, **openai_client_kwargs
+                )
+            )
+            result = from_openai(
+                client,
+                model=model_name,
+                mode=mode if mode else instructor.Mode.TOOLS,
+                **kwargs,
+            )
+            logger.info(
+                "Client initialized",
+                extra={**provider_info, "status": "success"},
+            )
+            return result
+        except ImportError:
+            from .core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "The openai package is required to use the Databricks provider. "
+                "Install it with `pip install openai`."
+            ) from None
+        except Exception as e:
+            logger.error(
+                "Error initializing %s client: %s",
+                provider,
+                e,
+                exc_info=True,
+                extra={**provider_info, "status": "error"},
+            )
+            raise
     elif provider == "anthropic":
         try:
             import anthropic
-            from instructor import from_anthropic
+            from instructor import from_anthropic  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
             client = (
                 anthropic.AsyncAnthropic(api_key=api_key)
@@ -303,9 +449,19 @@ def from_provider(
             raise
 
     elif provider == "google":
+        # Import google-genai package - catch ImportError only for actual imports
         try:
             import google.genai as genai
-            from instructor import from_genai
+            from instructor import from_genai  # type: ignore[attr-defined]
+        except ImportError as e:
+            from .core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "The google-genai package is required to use the Google provider. "
+                "Install it with `pip install google-genai`."
+            ) from e
+
+        try:
             import os
 
             # Remove vertexai from kwargs if present to avoid passing it twice
@@ -332,21 +488,25 @@ def from_provider(
                 **client_kwargs,
             )  # type: ignore
             if async_client:
-                result = from_genai(client, use_async=True, model=model_name, **kwargs)  # type: ignore
+                result = from_genai(
+                    client,
+                    use_async=True,
+                    model=model_name,
+                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
+                    **kwargs,
+                )  # type: ignore
             else:
-                result = from_genai(client, model=model_name, **kwargs)  # type: ignore
+                result = from_genai(
+                    client,
+                    model=model_name,
+                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
+                    **kwargs,
+                )  # type: ignore
             logger.info(
                 "Client initialized",
                 extra={**provider_info, "status": "success"},
             )
             return result
-        except ImportError:
-            from .core.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "The google-genai package is required to use the Google provider. "
-                "Install it with `pip install google-genai`."
-            ) from None
         except Exception as e:
             logger.error(
                 "Error initializing %s client: %s",
@@ -360,7 +520,7 @@ def from_provider(
     elif provider == "mistral":
         try:
             from mistralai import Mistral
-            from instructor import from_mistral
+            from instructor import from_mistral  # type: ignore[attr-defined]
             import os
 
             api_key = api_key or os.environ.get("MISTRAL_API_KEY")
@@ -404,14 +564,14 @@ def from_provider(
     elif provider == "cohere":
         try:
             import cohere
-            from instructor import from_cohere
+            from instructor import from_cohere  # type: ignore[attr-defined]
 
             client = (
-                cohere.AsyncClient(api_key=api_key)
+                cohere.AsyncClientV2(api_key=api_key)
                 if async_client
-                else cohere.Client(api_key=api_key)
+                else cohere.ClientV2(api_key=api_key)
             )
-            result = from_cohere(client, **kwargs)
+            result = from_cohere(client, model=model_name, **kwargs)
             logger.info(
                 "Client initialized",
                 extra={**provider_info, "status": "success"},
@@ -437,7 +597,7 @@ def from_provider(
     elif provider == "perplexity":
         try:
             import openai
-            from instructor import from_perplexity
+            from instructor import from_perplexity  # type: ignore[attr-defined]
             import os
 
             api_key = api_key or os.environ.get("PERPLEXITY_API_KEY")
@@ -482,7 +642,7 @@ def from_provider(
     elif provider == "groq":
         try:
             import groq
-            from instructor import from_groq
+            from instructor import from_groq  # type: ignore[attr-defined]
 
             client = (
                 groq.AsyncGroq(api_key=api_key)
@@ -515,7 +675,7 @@ def from_provider(
     elif provider == "writer":
         try:
             from writerai import AsyncWriter, Writer
-            from instructor import from_writer
+            from instructor import from_writer  # type: ignore[attr-defined]
 
             client = (
                 AsyncWriter(api_key=api_key)
@@ -549,7 +709,7 @@ def from_provider(
         try:
             import os
             import boto3
-            from instructor import from_bedrock
+            from instructor import from_bedrock  # type: ignore[attr-defined]
 
             # Get AWS configuration from environment or kwargs
             if "region" in kwargs:
@@ -624,7 +784,7 @@ def from_provider(
     elif provider == "cerebras":
         try:
             from cerebras.cloud.sdk import AsyncCerebras, Cerebras
-            from instructor import from_cerebras
+            from instructor import from_cerebras  # type: ignore[attr-defined]
 
             client = (
                 AsyncCerebras(api_key=api_key)
@@ -657,7 +817,7 @@ def from_provider(
     elif provider == "fireworks":
         try:
             from fireworks.client import AsyncFireworks, Fireworks
-            from instructor import from_fireworks
+            from instructor import from_fireworks  # type: ignore[attr-defined]
 
             client = (
                 AsyncFireworks(api_key=api_key)
@@ -694,9 +854,19 @@ def from_provider(
             DeprecationWarning,
             stacklevel=2,
         )
+        # Import google-genai package - catch ImportError only for actual imports
         try:
             import google.genai as genai  # type: ignore
-            from instructor import from_genai
+            from instructor import from_genai  # type: ignore[attr-defined]
+        except ImportError as e:
+            from .core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "The google-genai package is required to use the VertexAI provider. "
+                "Install it with `pip install google-genai`."
+            ) from e
+
+        try:
             import os
 
             # Get project and location from kwargs or environment
@@ -720,21 +890,21 @@ def from_provider(
             )  # type: ignore
             kwargs["model"] = model_name  # Pass model as part of kwargs
             if async_client:
-                result = from_genai(client, use_async=True, **kwargs)  # type: ignore
+                result = from_genai(
+                    client,
+                    use_async=True,
+                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
+                    **kwargs,
+                )  # type: ignore
             else:
-                result = from_genai(client, **kwargs)  # type: ignore
+                result = from_genai(
+                    client, mode=mode if mode else instructor.Mode.GENAI_TOOLS, **kwargs
+                )  # type: ignore
             logger.info(
                 "Client initialized",
                 extra={**provider_info, "status": "success"},
             )
             return result
-        except ImportError:
-            from .core.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "The google-genai package is required to use the VertexAI provider. "
-                "Install it with `pip install google-genai`."
-            ) from None
         except Exception as e:
             logger.error(
                 "Error initializing %s client: %s",
@@ -752,9 +922,19 @@ def from_provider(
             DeprecationWarning,
             stacklevel=2,
         )
+        # Import google-genai package - catch ImportError only for actual imports
         try:
             from google import genai
-            from instructor import from_genai
+            from instructor import from_genai  # type: ignore[attr-defined]
+        except ImportError as e:
+            from .core.exceptions import ConfigurationError
+
+            raise ConfigurationError(
+                "The google-genai package is required to use the Google GenAI provider. "
+                "Install it with `pip install google-genai`."
+            ) from e
+
+        try:
             import os
 
             # Get API key from kwargs or environment
@@ -762,21 +942,25 @@ def from_provider(
 
             client = genai.Client(vertexai=False, api_key=api_key)
             if async_client:
-                result = from_genai(client, use_async=True, model=model_name, **kwargs)  # type: ignore
+                result = from_genai(
+                    client,
+                    use_async=True,
+                    model=model_name,
+                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
+                    **kwargs,
+                )  # type: ignore
             else:
-                result = from_genai(client, model=model_name, **kwargs)  # type: ignore
+                result = from_genai(
+                    client,
+                    model=model_name,
+                    mode=mode if mode else instructor.Mode.GENAI_TOOLS,
+                    **kwargs,
+                )  # type: ignore
             logger.info(
                 "Client initialized",
                 extra={**provider_info, "status": "success"},
             )
             return result
-        except ImportError:
-            from .core.exceptions import ConfigurationError
-
-            raise ConfigurationError(
-                "The google-genai package is required to use the Google GenAI provider. "
-                "Install it with `pip install google-genai`."
-            ) from None
         except Exception as e:
             logger.error(
                 "Error initializing %s client: %s",
@@ -790,7 +974,7 @@ def from_provider(
     elif provider == "ollama":
         try:
             import openai
-            from instructor import from_openai
+            from instructor import from_openai  # type: ignore[attr-defined]
 
             # Get base_url from kwargs or use default
             base_url = kwargs.pop("base_url", "http://localhost:11434/v1")
@@ -809,7 +993,10 @@ def from_provider(
                 "llama4",
                 "mistral-nemo",
                 "firefunction-v2",
+                "command-a",
+                "command-r",
                 "command-r-plus",
+                "command-r7b",
                 "qwen2.5",
                 "qwen2.5-coder",
                 "qwen3",
@@ -857,7 +1044,7 @@ def from_provider(
     elif provider == "deepseek":
         try:
             import openai
-            from instructor import from_openai
+            from instructor import from_openai  # type: ignore[attr-defined]
             import os
 
             # Get API key from kwargs or environment
@@ -912,7 +1099,7 @@ def from_provider(
         try:
             from xai_sdk.sync.client import Client as SyncClient
             from xai_sdk.aio.client import Client as AsyncClient
-            from instructor import from_xai
+            from instructor import from_xai  # type: ignore[attr-defined]
 
             client = (
                 AsyncClient(api_key=api_key)
@@ -921,7 +1108,7 @@ def from_provider(
             )
             result = from_xai(
                 client,
-                mode=mode if mode else instructor.Mode.JSON,
+                mode=mode if mode else instructor.Mode.XAI_JSON,
                 model=model_name,
                 **kwargs,
             )
@@ -950,7 +1137,7 @@ def from_provider(
     elif provider == "openrouter":
         try:
             import openai
-            from instructor import from_openai
+            from instructor import from_openai  # type: ignore[attr-defined]
             import os
 
             # Get API key from kwargs or environment

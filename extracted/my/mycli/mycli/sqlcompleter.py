@@ -7,152 +7,45 @@ from typing import Any, Collection, Generator, Iterable, Literal
 
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.completion.base import Document
+from pygments.lexers._mysql_builtins import MYSQL_DATATYPES, MYSQL_FUNCTIONS, MYSQL_KEYWORDS
+import rapidfuzz
 
 from mycli.packages.completion_engine import suggest_type
 from mycli.packages.filepaths import complete_path, parse_path, suggest_path
 from mycli.packages.parseutils import last_word
 from mycli.packages.special import llm
 from mycli.packages.special.favoritequeries import FavoriteQueries
+from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
 
 _logger = logging.getLogger(__name__)
 
 
 class SQLCompleter(Completer):
-    keywords = [
-        "SELECT",
-        "FROM",
-        "WHERE",
-        "UPDATE",
-        "DELETE FROM",
-        "GROUP BY",
-        "JOIN",
-        "INSERT INTO",
-        "LIKE",
-        "LIMIT",
-        "ACCESS",
-        "ADD",
-        "ALL",
-        "ALTER TABLE",
-        "AND",
-        "ANY",
-        "AS",
-        "ASC",
-        "AUTO_INCREMENT",
-        "BEFORE",
-        "BEGIN",
-        "BETWEEN",
-        "BIGINT",
-        "BINARY",
-        "BY",
-        "CASE",
-        "CHANGE MASTER TO",
-        "CHAR",
-        "CHARACTER SET",
-        "CHECK",
-        "COLLATE",
-        "COLUMN",
-        "COMMENT",
-        "COMMIT",
-        "CONSTRAINT",
-        "CREATE",
-        "CURRENT",
-        "CURRENT_TIMESTAMP",
-        "DATABASE",
-        "DATE",
-        "DECIMAL",
-        "DEFAULT",
-        "DESC",
-        "DESCRIBE",
-        "DROP",
-        "ELSE",
-        "END",
-        "ENGINE",
-        "ESCAPE",
-        "EXISTS",
-        "FILE",
-        "FLOAT",
-        "FOR",
-        "FOREIGN KEY",
-        "FORMAT",
-        "FULL",
-        "FUNCTION",
-        "GRANT",
-        "HAVING",
-        "HOST",
-        "IDENTIFIED",
-        "IN",
-        "INCREMENT",
-        "INDEX",
-        "INT",
-        "INTEGER",
-        "INTERVAL",
-        "INTO",
-        "IS",
-        "KEY",
-        "LEFT",
-        "LEVEL",
-        "LOCK",
-        "LOGS",
-        "LONG",
-        "MASTER",
-        "MEDIUMINT",
-        "MODE",
-        "MODIFY",
-        "NOT",
-        "NULL",
-        "NUMBER",
-        "OFFSET",
-        "ON",
-        "OPTION",
-        "OR",
-        "ORDER BY",
-        "OUTER",
-        "OWNER",
-        "PASSWORD",
-        "PORT",
-        "PRIMARY",
-        "PRIVILEGES",
-        "PROCESSLIST",
-        "PURGE",
-        "REFERENCES",
-        "REGEXP",
-        "RENAME",
-        "REPAIR",
-        "RESET",
-        "REVOKE",
-        "RIGHT",
-        "ROLLBACK",
-        "ROW",
-        "ROWS",
-        "ROW_FORMAT",
-        "SAVEPOINT",
-        "SESSION",
-        "SET",
-        "SHARE",
-        "SHOW",
-        "SLAVE",
-        "SMALLINT",
-        "START",
-        "STOP",
-        "TABLE",
-        "THEN",
-        "TINYINT",
-        "TO",
-        "TRANSACTION",
-        "TRIGGER",
-        "TRUNCATE",
-        "UNION",
-        "UNIQUE",
-        "UNSIGNED",
-        "USE",
-        "USER",
-        "USING",
-        "VALUES",
-        "VARCHAR",
-        "VIEW",
-        "WHEN",
-        "WITH",
+    favorite_keywords = [
+        'SELECT',
+        'FROM',
+        'WHERE',
+        'UPDATE',
+        'DELETE FROM',
+        'GROUP BY',
+        'ORDER BY',
+        'JOIN',
+        'INSERT INTO',
+        'LIKE',
+        'LIMIT',
     ]
+    keywords_raw = [
+        x.upper()
+        for x in favorite_keywords
+        + list(MYSQL_DATATYPES)
+        + list(MYSQL_KEYWORDS)
+        + ['ALTER TABLE', 'CHANGE MASTER TO', 'CHARACTER SET', 'FOREIGN KEY']
+    ]
+    keywords_d = dict.fromkeys(keywords_raw)
+    for x in SPECIAL_COMMANDS:
+        if x.upper() in keywords_d:
+            del keywords_d[x.upper()]
+    keywords = list(keywords_d)
 
     tidb_keywords = [
         "SELECT",
@@ -838,27 +731,7 @@ class SQLCompleter(Completer):
         "ZEROFILL",
     ]
 
-    functions = [
-        "AVG",
-        "CONCAT",
-        "COUNT",
-        "DISTINCT",
-        "FIRST",
-        "FORMAT",
-        "FROM_UNIXTIME",
-        "LAST",
-        "LCASE",
-        "LEN",
-        "MAX",
-        "MID",
-        "MIN",
-        "NOW",
-        "ROUND",
-        "SUM",
-        "TOP",
-        "UCASE",
-        "UNIX_TIMESTAMP",
-    ]
+    functions = [x.upper() for x in MYSQL_FUNCTIONS]
 
     # https://docs.pingcap.com/tidb/dev/tidb-functions
     tidb_functions = [
@@ -910,7 +783,7 @@ class SQLCompleter(Completer):
         self.reserved_words = set()
         for x in self.keywords:
             self.reserved_words.update(x.split())
-        self.name_pattern = re.compile(r"^[_a-z][_a-z0-9\$]*$")
+        self.name_pattern = re.compile(r"^[_a-zA-Z][_a-zA-Z0-9\$]*$")
 
         self.special_commands: list[str] = []
         self.table_formats = supported_formats
@@ -1016,6 +889,17 @@ class SQLCompleter(Completer):
             metadata[self.dbname][relname].append(column)
             self.all_completions.add(column)
 
+    def extend_enum_values(self, enum_data: Iterable[tuple[str, str, list[str]]]) -> None:
+        metadata = self.dbmetadata["enum_values"]
+        if self.dbname not in metadata:
+            metadata[self.dbname] = {}
+
+        for relname, column, values in enum_data:
+            relname_escaped = self.escape_name(relname)
+            column_escaped = self.escape_name(column)
+            table_meta = metadata[self.dbname].setdefault(relname_escaped, {})
+            table_meta[column_escaped] = values
+
     def extend_functions(self, func_data: list[str] | Generator[tuple[str, str]], builtin: bool = False) -> None:
         # if 'builtin' is set this is extending the list of builtin functions
         if builtin:
@@ -1048,12 +932,12 @@ class SQLCompleter(Completer):
         self.users: list[str] = []
         self.show_items: list[Completion] = []
         self.dbname = ""
-        self.dbmetadata: dict[str, Any] = {"tables": {}, "views": {}, "functions": {}}
+        self.dbmetadata: dict[str, Any] = {"tables": {}, "views": {}, "functions": {}, "enum_values": {}}
         self.all_completions = set(self.keywords + self.functions)
 
     @staticmethod
     def find_matches(
-        text: str,
+        orig_text: str,
         collection: Collection,
         start_only: bool = False,
         fuzzy: bool = True,
@@ -1072,24 +956,72 @@ class SQLCompleter(Completer):
         yields prompt_toolkit Completion instances for any matches found
         in the collection of available completions.
         """
-        last = last_word(text, include="most_punctuations")
+        last = last_word(orig_text, include="most_punctuations")
         text = last.lower()
+        # unicode support not possible without adding the regex dependency
+        case_change_pat = re.compile("(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
         completions = []
 
         if fuzzy:
-            regex = ".*?".join(map(re.escape, text))
+            regex = ".{0,3}?".join(map(re.escape, text))
             pat = re.compile(f'({regex})')
+            under_words_text = [x for x in text.split('_') if x]
+            case_words_text = re.split(case_change_pat, last)
+
             for item in collection:
                 r = pat.search(item.lower())
                 if r:
-                    completions.append((len(r.group()), r.start(), item))
+                    completions.append(item)
+                    continue
+
+                under_words_item = [x for x in item.lower().split('_') if x]
+                occurrences = 0
+                for elt_word in under_words_text:
+                    for elt_item in under_words_item:
+                        if elt_item.startswith(elt_word):
+                            occurrences += 1
+                            break
+                if occurrences >= len(under_words_text):
+                    completions.append(item)
+                    continue
+
+                case_words_item = re.split(case_change_pat, item)
+                occurrences = 0
+                for elt_word in case_words_text:
+                    for elt_item in case_words_item:
+                        if elt_item.startswith(elt_word):
+                            occurrences += 1
+                            break
+                if occurrences >= len(case_words_text):
+                    completions.append(item)
+                    continue
+
+            if len(text) >= 4:
+                rapidfuzz_matches = rapidfuzz.process.extract(
+                    text,
+                    collection,
+                    scorer=rapidfuzz.fuzz.WRatio,
+                    # todo: maybe make our own processor which only does case-folding
+                    # because underscores are valuable info
+                    processor=rapidfuzz.utils.default_process,
+                    limit=20,
+                    score_cutoff=75,
+                )
+                for elt in rapidfuzz_matches:
+                    item, _score, _type = elt
+                    if len(item) < len(text) / 1.5:
+                        continue
+                    if item in completions:
+                        continue
+                    completions.append(item)
+
         else:
             match_end_limit = len(text) if start_only else None
             for item in collection:
                 match_point = item.lower().find(text, 0, match_end_limit)
                 if match_point >= 0:
-                    completions.append((len(text), match_point, item))
+                    completions.append(item)
 
         if casing == "auto":
             casing = "lower" if last and last[-1].islower() else "upper"
@@ -1099,7 +1031,14 @@ class SQLCompleter(Completer):
                 return kw.upper()
             return kw.lower()
 
-        return (Completion(z if casing is None else apply_case(z), -len(text)) for x, y, z in completions)
+        def exact_leading_key(item: str, text: str):
+            if text and item.lower().startswith(text):
+                return -1000 + len(item)
+            return 0
+
+        completions = sorted(completions, key=lambda item: exact_leading_key(item, text))
+
+        return (Completion(x if casing is None else apply_case(x), -len(text)) for x in completions)
 
     def get_completions(
         self,
@@ -1190,7 +1129,8 @@ class SQLCompleter(Completer):
 
             elif suggestion["type"] == "special":
                 special_m = self.find_matches(word_before_cursor, self.special_commands, start_only=True, fuzzy=False)
-                completions.extend(special_m)
+                # specials are special, and go early in the candidates, first if possible
+                completions = list(special_m) + completions
 
             elif suggestion["type"] == "favoritequery":
                 if hasattr(FavoriteQueries, 'instance') and hasattr(FavoriteQueries.instance, 'list'):
@@ -1217,6 +1157,15 @@ class SQLCompleter(Completer):
                     fuzzy=True,
                 )
                 completions.extend(subcommands_m)
+            elif suggestion["type"] == "enum_value":
+                enum_values = self.populate_enum_values(
+                    suggestion["tables"],
+                    suggestion["column"],
+                    suggestion.get("parent"),
+                )
+                if enum_values:
+                    quoted_values = [self._quote_sql_string(value) for value in enum_values]
+                    return list(self.find_matches(word_before_cursor, quoted_values))
 
         return completions
 
@@ -1271,6 +1220,55 @@ class SQLCompleter(Completer):
                 pass
 
         return columns
+
+    def populate_enum_values(
+        self,
+        scoped_tbls: list[tuple[str | None, str, str | None]],
+        column: str,
+        parent: str | None = None,
+    ) -> list[str]:
+        values: list[str] = []
+        meta = self.dbmetadata["enum_values"]
+        column_key = self._escape_identifier(column)
+        parent_key = self._strip_backticks(parent) if parent else None
+
+        for schema, relname, alias in scoped_tbls:
+            if parent_key and not self._matches_parent(parent_key, schema, relname, alias):
+                continue
+
+            schema = schema or self.dbname
+            table_meta = meta.get(schema, {})
+            escaped_relname = self.escape_name(relname)
+
+            for rel_key in {relname, escaped_relname}:
+                columns = table_meta.get(rel_key)
+                if columns and column_key in columns:
+                    values.extend(columns[column_key])
+
+        return list(dict.fromkeys(values))
+
+    def _escape_identifier(self, name: str) -> str:
+        return self.escape_name(self._strip_backticks(name))
+
+    @staticmethod
+    def _strip_backticks(name: str | None) -> str:
+        if name and name[0] == "`" and name[-1] == "`":
+            return name[1:-1]
+        return name or ""
+
+    @staticmethod
+    def _matches_parent(parent: str, schema: str | None, relname: str, alias: str | None) -> bool:
+        if alias and parent == alias:
+            return True
+        if parent == relname:
+            return True
+        if schema and parent == f"{schema}.{relname}":
+            return True
+        return False
+
+    @staticmethod
+    def _quote_sql_string(value: str) -> str:
+        return "'" + value.replace("'", "''") + "'"
 
     def populate_schema_objects(self, schema: str | None, obj_type: str) -> list[str]:
         """Returns list of tables or functions for a (optional) schema"""

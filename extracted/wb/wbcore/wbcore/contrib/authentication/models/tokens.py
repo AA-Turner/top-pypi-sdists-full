@@ -137,4 +137,4 @@ class Token(DRFToken):
     class Meta:
         verbose_name = _("Token")
         verbose_name_plural = _("Tokens")
-        unique_together = [("user", "protected_view_name")]
+        constraints = (models.UniqueConstraint(name="unique_token", fields=("user", "protected_view_name")),)

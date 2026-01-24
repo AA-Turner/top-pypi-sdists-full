@@ -1,22 +1,16 @@
 import logging
-import warnings
-from itertools import zip_longest
+from collections.abc import Iterable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Dict,
-    Final,
-    Iterable,
-    List,
     Optional,
-    Sequence,
-    Type,
     Union,
+    cast,
 )
 
 import anyio
 import nats
+from fast_depends import Provider, dependency_provider
 from nats.aio.client import (
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_DRAIN_TIMEOUT,
@@ -27,478 +21,336 @@ from nats.aio.client import (
     DEFAULT_PENDING_SIZE,
     DEFAULT_PING_INTERVAL,
     DEFAULT_RECONNECT_TIME_WAIT,
+    Client,
 )
+from nats.aio.msg import Msg
 from nats.errors import Error
 from nats.js.errors import BadRequestError
-from typing_extensions import Annotated, Doc, deprecated, override
+from typing_extensions import deprecated, overload, override
 
 from faststream.__about__ import SERVICE_NAME
-from faststream.broker.message import gen_cor_id
-from faststream.nats.broker.logging import NatsLoggingBroker
-from faststream.nats.broker.registrator import NatsRegistrator
-from faststream.nats.helpers import KVBucketDeclarer, OSBucketDeclarer
-from faststream.nats.publisher.producer import NatsFastProducer, NatsJSFastProducer
+from faststream._internal.broker import BrokerUsecase
+from faststream._internal.constants import EMPTY
+from faststream._internal.context.repository import ContextRepo
+from faststream._internal.di import FastDependsConfig
+from faststream.message import gen_cor_id
+from faststream.nats.configs import NatsBrokerConfig
+from faststream.nats.publisher.producer import (
+    NatsFastProducerImpl,
+    NatsJSFastProducer,
+)
+from faststream.nats.response import NatsPublishCommand
 from faststream.nats.security import parse_security
-from faststream.nats.subscriber.asyncapi import AsyncAPISubscriber
-from faststream.types import EMPTY
+from faststream.nats.subscriber.usecases.basic import LogicSubscriber
+from faststream.response.publish_type import PublishType
+from faststream.specification.schema import BrokerSpec
+
+from .logging import make_nats_logger_state
+from .registrator import NatsRegistrator
 
 if TYPE_CHECKING:
-    import ssl
     from types import TracebackType
 
-    from fast_depends.dependencies import Depends
+    from fast_depends.dependencies import Dependant
+    from fast_depends.library.serializer import SerializerProto
     from nats.aio.client import (
         Callback,
-        Client,
         Credentials,
         ErrorCallback,
         JWTCallback,
         SignatureCallback,
     )
-    from nats.aio.msg import Msg
     from nats.js.api import Placement, RePublish, StorageType
-    from nats.js.client import JetStreamContext
     from nats.js.kv import KeyValue
     from nats.js.object_store import ObjectStore
-    from typing_extensions import TypedDict, Unpack
+    from typing_extensions import TypedDict
 
-    from faststream.asyncapi import schema as asyncapi
-    from faststream.broker.publisher.proto import ProducerProto
-    from faststream.broker.types import (
-        BrokerMiddleware,
-        CustomCallable,
-    )
+    from faststream._internal.basic_types import LoggerProto, SendableMessage
+    from faststream._internal.types import BrokerMiddleware, CustomCallable
+    from faststream.nats.configs.broker import JsInitOptions
+    from faststream.nats.helpers import KVBucketDeclarer, OSBucketDeclarer
     from faststream.nats.message import NatsMessage
-    from faststream.nats.publisher.asyncapi import AsyncAPIPublisher
+    from faststream.nats.schemas import PubAck, Schedule
     from faststream.security import BaseSecurity
-    from faststream.types import (
-        AnyDict,
-        DecodedMessage,
-        Decorator,
-        LoggerProto,
-        SendableMessage,
-    )
+    from faststream.specification.schema.extra import Tag, TagDict
 
     class NatsInitKwargs(TypedDict, total=False):
-        """NatsBroker.connect() method type hints."""
+        """NatsBroker.connect() method type hints.
 
-        error_cb: Annotated[
-            Optional["ErrorCallback"],
-            Doc("Callback to report errors."),
-        ]
-        disconnected_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report disconnection from NATS."),
-        ]
-        closed_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report when client stops reconnection to NATS."),
-        ]
-        discovered_server_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report when a new server joins the cluster."),
-        ]
-        reconnected_cb: Annotated[
-            Optional["Callback"], Doc("Callback to report success reconnection.")
-        ]
-        name: Annotated[
-            Optional[str],
-            Doc("Label the connection with name (shown in NATS monitoring)."),
-        ]
-        pedantic: Annotated[
-            bool,
-            Doc(
-                "Turn on NATS server pedantic mode that performs extra checks on the protocol. "
-                "https://docs.nats.io/using-nats/developer/connecting/misc#turn-on-pedantic-mode"
-            ),
-        ]
-        verbose: Annotated[
-            bool,
-            Doc("Verbose mode produce more feedback about code execution."),
-        ]
-        allow_reconnect: Annotated[
-            bool,
-            Doc("Whether recover connection automatically or not."),
-        ]
-        connect_timeout: Annotated[
-            int,
-            Doc("Timeout in seconds to establish connection with NATS server."),
-        ]
-        reconnect_time_wait: Annotated[
-            int,
-            Doc("Time in seconds to wait for reestablish connection to NATS server"),
-        ]
-        max_reconnect_attempts: Annotated[
-            int,
-            Doc("Maximum attempts number to reconnect to NATS server."),
-        ]
-        ping_interval: Annotated[
-            int,
-            Doc("Interval in seconds to ping."),
-        ]
-        max_outstanding_pings: Annotated[
-            int,
-            Doc("Maximum number of failed pings"),
-        ]
-        dont_randomize: Annotated[
-            bool,
-            Doc(
-                "Boolean indicating should client randomly shuffle servers list for reconnection randomness."
-            ),
-        ]
-        flusher_queue_size: Annotated[
-            int, Doc("Max count of commands awaiting to be flushed to the socket")
-        ]
-        no_echo: Annotated[
-            bool,
-            Doc("Boolean indicating should commands be echoed."),
-        ]
-        tls: Annotated[
-            Optional["ssl.SSLContext"],
-            Doc("Some SSL context to make NATS connections secure."),
-        ]
-        tls_hostname: Annotated[
-            Optional[str],
-            Doc("Hostname for TLS."),
-        ]
-        user: Annotated[
-            Optional[str],
-            Doc("Username for NATS auth."),
-        ]
-        password: Annotated[
-            Optional[str],
-            Doc("Username password for NATS auth."),
-        ]
-        token: Annotated[
-            Optional[str],
-            Doc("Auth token for NATS auth."),
-        ]
-        drain_timeout: Annotated[
-            int,
-            Doc("Timeout in seconds to drain subscriptions."),
-        ]
-        signature_cb: Annotated[
-            Optional["SignatureCallback"],
-            Doc(
-                "A callback used to sign a nonce from the server while "
-                "authenticating with nkeys. The user should sign the nonce and "
-                "return the base64 encoded signature."
-            ),
-        ]
-        user_jwt_cb: Annotated[
-            Optional["JWTCallback"],
-            Doc(
-                "A callback used to fetch and return the account "
-                "signed JWT for this user."
-            ),
-        ]
-        user_credentials: Annotated[
-            Optional["Credentials"],
-            Doc("A user credentials file or tuple of files."),
-        ]
-        nkeys_seed: Annotated[
-            Optional[str],
-            Doc("Path-like object containing nkeys seed that will be used."),
-        ]
-        nkeys_seed_str: Annotated[
-            Optional[str],
-            Doc("Nkeys seed to be used."),
-        ]
-        inbox_prefix: Annotated[
-            Union[str, bytes],
-            Doc(
-                "Prefix for generating unique inboxes, subjects with that prefix and NUID.ß"
-            ),
-        ]
-        pending_size: Annotated[
-            int,
-            Doc("Max size of the pending buffer for publishing commands."),
-        ]
-        flush_timeout: Annotated[
-            Optional[float],
-            Doc("Max duration to wait for a forced flush to occur."),
-        ]
+        Args:
+            error_cb:
+                Callback to report errors.
+            disconnected_cb: \
+                Callback to report disconnection from NATS.
+            closed_cb:
+                Callback to report when client stops reconnection to NATS.
+            discovered_server_cb:
+                A callback to report when a new server joins the cluster.
+            reconnected_cb:
+                Callback to report success reconnection.
+            name:
+                Label the connection with name (shown in NATS monitoring
+            pedantic:
+                Turn on NATS server pedantic mode that performs extra checks on the protocol.
+                https://docs.nats.io/using-nats/developer/connecting/misc#turn-on-pedantic-mode
+            verbose:
+                Verbose mode produce more feedback about code execution.
+            allow_reconnect:
+                Whether recover connection automatically or not.
+            connect_timeout:
+                Timeout in seconds to establish connection with NATS server.
+            reconnect_time_wait:
+                Time in seconds to wait for reestablish connection to NATS server
+            max_reconnect_attempts:
+                Maximum attempts number to reconnect to NATS server.
+            ping_interval:
+                Interval in seconds to ping.
+            max_outstanding_pings:
+                Maximum number of failed pings
+            dont_randomize:
+                Boolean indicating should client randomly shuffle servers list for reconnection randomness.
+            flusher_queue_size:
+                Max count of commands awaiting to be flushed to the socket
+            no_echo:
+                Boolean indicating should commands be echoed.
+            tls_hostname:
+                Hostname for TLS.
+            token:
+                Auth token for NATS auth.
+            drain_timeout:
+                Timeout in seconds to drain subscriptions.
+            signature_cb:
+                A callback used to sign a nonce from the server while authenticating with nkeys.
+                The user should sign the nonce and return the base64 encoded signature.
+            user_jwt_cb:
+                A callback used to fetch and return the account signed JWT for this user.
+            user_credentials:
+                A user credentials file or tuple of files.
+            nkeys_seed:
+                Path-like object containing nkeys seed that will be used.
+            nkeys_seed_str:
+                Nkeys seed to be used.
+            inbox_prefix:
+                Prefix for generating unique inboxes, subjects with that prefix and NUID.ß
+            pending_size:
+                Max size of the pending buffer for publishing commands.
+            flush_timeout:
+                Max duration to wait for a forced flush to occur
+        """
+
+        error_cb: "ErrorCallback" | None
+        disconnected_cb: "Callback" | None
+        closed_cb: Callback | None
+        discovered_server_cb: "Callback" | None
+        reconnected_cb: "Callback" | None
+        name: str | None
+        pedantic: bool
+        verbose: bool
+        allow_reconnect: bool
+        connect_timeout: int
+        reconnect_time_wait: int
+        max_reconnect_attempts: int
+        ping_interval: int
+        max_outstanding_pings: int
+        dont_randomize: bool
+        flusher_queue_size: int
+        no_echo: bool
+        tls_hostname: str | None
+        token: str | None
+        drain_timeout: int
+        signature_cb: "SignatureCallback" | None
+        user_jwt_cb: "JWTCallback" | None
+        user_credentials: "Credentials" | None
+        nkeys_seed: str | None
+        nkeys_seed_str: str | None
+        inbox_prefix: str | bytes
+        pending_size: int
+        flush_timeout: float | None
 
 
 class NatsBroker(
     NatsRegistrator,
-    NatsLoggingBroker,
+    BrokerUsecase[Msg, Client],
 ):
     """A class to represent a NATS broker."""
 
-    url: List[str]
-    stream: Optional["JetStreamContext"]
-
-    _producer: Optional["NatsFastProducer"]
-    _js_producer: Optional["NatsJSFastProducer"]
-    _kv_declarer: Optional["KVBucketDeclarer"]
-    _os_declarer: Optional["OSBucketDeclarer"]
+    url: list[str]
 
     def __init__(
         self,
-        servers: Annotated[
-            Union[str, Iterable[str]],
-            Doc("NATS cluster addresses to connect."),
-        ] = ("nats://localhost:4222",),
+        servers: str | Iterable[str] = ("nats://localhost:4222",),
         *,
-        error_cb: Annotated[
-            Optional["ErrorCallback"],
-            Doc("Callback to report errors."),
-        ] = None,
-        disconnected_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report disconnection from NATS."),
-        ] = None,
-        closed_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report when client stops reconnection to NATS."),
-        ] = None,
-        discovered_server_cb: Annotated[
-            Optional["Callback"],
-            Doc("Callback to report when a new server joins the cluster."),
-        ] = None,
-        reconnected_cb: Annotated[
-            Optional["Callback"], Doc("Callback to report success reconnection.")
-        ] = None,
-        name: Annotated[
-            Optional[str],
-            Doc("Label the connection with name (shown in NATS monitoring)."),
-        ] = SERVICE_NAME,
-        pedantic: Annotated[
-            bool,
-            Doc(
-                "Turn on NATS server pedantic mode that performs extra checks on the protocol. "
-                "https://docs.nats.io/using-nats/developer/connecting/misc#turn-on-pedantic-mode"
-            ),
-        ] = False,
-        verbose: Annotated[
-            bool,
-            Doc("Verbose mode produce more feedback about code execution."),
-        ] = False,
-        allow_reconnect: Annotated[
-            bool,
-            Doc("Whether recover connection automatically or not."),
-        ] = True,
-        connect_timeout: Annotated[
-            int,
-            Doc("Timeout in seconds to establish connection with NATS server."),
-        ] = DEFAULT_CONNECT_TIMEOUT,
-        reconnect_time_wait: Annotated[
-            int,
-            Doc("Time in seconds to wait for reestablish connection to NATS server"),
-        ] = DEFAULT_RECONNECT_TIME_WAIT,
-        max_reconnect_attempts: Annotated[
-            int,
-            Doc("Maximum attempts number to reconnect to NATS server."),
-        ] = DEFAULT_MAX_RECONNECT_ATTEMPTS,
-        ping_interval: Annotated[
-            int,
-            Doc("Interval in seconds to ping."),
-        ] = DEFAULT_PING_INTERVAL,
-        max_outstanding_pings: Annotated[
-            int,
-            Doc("Maximum number of failed pings"),
-        ] = DEFAULT_MAX_OUTSTANDING_PINGS,
-        dont_randomize: Annotated[
-            bool,
-            Doc(
-                "Boolean indicating should client randomly shuffle servers list for reconnection randomness."
-            ),
-        ] = False,
-        flusher_queue_size: Annotated[
-            int, Doc("Max count of commands awaiting to be flushed to the socket")
-        ] = DEFAULT_MAX_FLUSHER_QUEUE_SIZE,
-        no_echo: Annotated[
-            bool,
-            Doc("Boolean indicating should commands be echoed."),
-        ] = False,
-        tls: Annotated[
-            Optional["ssl.SSLContext"],
-            Doc("Some SSL context to make NATS connections secure."),
-        ] = None,
-        tls_hostname: Annotated[
-            Optional[str],
-            Doc("Hostname for TLS."),
-        ] = None,
-        user: Annotated[
-            Optional[str],
-            Doc("Username for NATS auth."),
-        ] = None,
-        password: Annotated[
-            Optional[str],
-            Doc("Username password for NATS auth."),
-        ] = None,
-        token: Annotated[
-            Optional[str],
-            Doc("Auth token for NATS auth."),
-        ] = None,
-        drain_timeout: Annotated[
-            int,
-            Doc("Timeout in seconds to drain subscriptions."),
-        ] = DEFAULT_DRAIN_TIMEOUT,
-        signature_cb: Annotated[
-            Optional["SignatureCallback"],
-            Doc(
-                "A callback used to sign a nonce from the server while "
-                "authenticating with nkeys. The user should sign the nonce and "
-                "return the base64 encoded signature."
-            ),
-        ] = None,
-        user_jwt_cb: Annotated[
-            Optional["JWTCallback"],
-            Doc(
-                "A callback used to fetch and return the account "
-                "signed JWT for this user."
-            ),
-        ] = None,
-        user_credentials: Annotated[
-            Optional["Credentials"],
-            Doc("A user credentials file or tuple of files."),
-        ] = None,
-        nkeys_seed: Annotated[
-            Optional[str],
-            Doc("Path-like object containing nkeys seed that will be used."),
-        ] = None,
-        nkeys_seed_str: Annotated[
-            Optional[str],
-            Doc("Raw nkeys seed to be used."),
-        ] = None,
-        inbox_prefix: Annotated[
-            Union[str, bytes],
-            Doc(
-                "Prefix for generating unique inboxes, subjects with that prefix and NUID.ß"
-            ),
-        ] = DEFAULT_INBOX_PREFIX,
-        pending_size: Annotated[
-            int,
-            Doc("Max size of the pending buffer for publishing commands."),
-        ] = DEFAULT_PENDING_SIZE,
-        flush_timeout: Annotated[
-            Optional[float],
-            Doc("Max duration to wait for a forced flush to occur."),
-        ] = None,
-        # broker args
-        graceful_timeout: Annotated[
-            Optional[float],
-            Doc(
-                "Graceful shutdown timeout. Broker waits for all running subscribers completion before shut down."
-            ),
-        ] = None,
-        decoder: Annotated[
-            Optional["CustomCallable"],
-            Doc("Custom decoder object."),
-        ] = None,
-        parser: Annotated[
-            Optional["CustomCallable"],
-            Doc("Custom parser object."),
-        ] = None,
-        dependencies: Annotated[
-            Iterable["Depends"],
-            Doc("Dependencies to apply to all broker subscribers."),
-        ] = (),
-        middlewares: Annotated[
-            Sequence["BrokerMiddleware[Msg]"],
-            Doc("Middlewares to apply to all broker publishers/subscribers."),
-        ] = (),
-        # AsyncAPI args
-        security: Annotated[
-            Optional["BaseSecurity"],
-            Doc(
-                "Security options to connect broker and generate AsyncAPI server security information."
-            ),
-        ] = None,
-        asyncapi_url: Annotated[
-            Union[str, Iterable[str], None],
-            Doc("AsyncAPI hardcoded server addresses. Use `servers` if not specified."),
-        ] = None,
-        protocol: Annotated[
-            Optional[str],
-            Doc("AsyncAPI server protocol."),
-        ] = "nats",
-        protocol_version: Annotated[
-            Optional[str],
-            Doc("AsyncAPI server protocol version."),
-        ] = "custom",
-        description: Annotated[
-            Optional[str],
-            Doc("AsyncAPI server description."),
-        ] = None,
-        tags: Annotated[
-            Optional[Iterable[Union["asyncapi.Tag", "asyncapi.TagDict"]]],
-            Doc("AsyncAPI server tags."),
-        ] = None,
-        # logging args
-        logger: Annotated[
-            Optional["LoggerProto"],
-            Doc("User specified logger to pass into Context and log service messages."),
-        ] = EMPTY,
-        log_level: Annotated[
-            int,
-            Doc("Service messages log level."),
-        ] = logging.INFO,
-        log_fmt: Annotated[
-            Optional[str],
-            deprecated(
-                "Argument `log_fmt` is deprecated since 0.5.42 and will be removed in 0.6.0. "
-                "Pass a pre-configured `logger` instead."
-            ),
-            Doc("Default logger log format."),
-        ] = EMPTY,
-        # FastDepends args
-        apply_types: Annotated[
-            bool,
-            Doc("Whether to use FastDepends or not."),
-        ] = True,
-        validate: Annotated[
-            bool,
-            Doc("Whether to cast types using Pydantic validation."),
-        ] = True,
-        _get_dependant: Annotated[
-            Optional[Callable[..., Any]],
-            Doc("Custom library dependant generator callback."),
-        ] = None,
-        _call_decorators: Annotated[
-            Iterable["Decorator"],
-            Doc("Any custom decorator to apply to wrapped functions."),
-        ] = (),
+        error_cb: Optional["ErrorCallback"] = None,
+        disconnected_cb: Optional["Callback"] = None,
+        closed_cb: Optional["Callback"] = None,
+        discovered_server_cb: Optional["Callback"] = None,
+        reconnected_cb: Optional["Callback"] = None,
+        name: str | None = SERVICE_NAME,
+        pedantic: bool = False,
+        verbose: bool = False,
+        allow_reconnect: bool = True,
+        connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
+        reconnect_time_wait: int = DEFAULT_RECONNECT_TIME_WAIT,
+        max_reconnect_attempts: int = DEFAULT_MAX_RECONNECT_ATTEMPTS,
+        ping_interval: int = DEFAULT_PING_INTERVAL,
+        max_outstanding_pings: int = DEFAULT_MAX_OUTSTANDING_PINGS,
+        dont_randomize: bool = False,
+        flusher_queue_size: int = DEFAULT_MAX_FLUSHER_QUEUE_SIZE,
+        no_echo: bool = False,
+        tls_hostname: str | None = None,
+        token: str | None = None,
+        drain_timeout: int = DEFAULT_DRAIN_TIMEOUT,
+        signature_cb: Optional["SignatureCallback"] = None,
+        user_jwt_cb: Optional["JWTCallback"] = None,
+        user_credentials: Optional["Credentials"] = None,
+        nkeys_seed: str | None = None,
+        nkeys_seed_str: str | None = None,
+        inbox_prefix: str | bytes = DEFAULT_INBOX_PREFIX,
+        pending_size: int = DEFAULT_PENDING_SIZE,
+        flush_timeout: float | None = None,
+        js_options: Union["JsInitOptions", dict[str, Any], None] = None,
+        graceful_timeout: float | None = None,
+        decoder: Optional["CustomCallable"] = None,
+        parser: Optional["CustomCallable"] = None,
+        dependencies: Iterable["Dependant"] = (),
+        middlewares: Sequence["BrokerMiddleware[Any, Any]"] = (),
+        routers: Iterable[NatsRegistrator] = (),
+        security: Optional["BaseSecurity"] = None,
+        specification_url: str | Iterable[str] | None = None,
+        protocol: str | None = "nats",
+        protocol_version: str | None = "custom",
+        description: str | None = None,
+        tags: Iterable[Union["Tag", "TagDict"]] = (),
+        logger: Optional["LoggerProto"] = EMPTY,
+        log_level: int = logging.INFO,
+        apply_types: bool = True,
+        serializer: Optional["SerializerProto"] = EMPTY,
+        provider: Optional["Provider"] = None,
+        context: Optional["ContextRepo"] = None,
     ) -> None:
-        """Initialize the NatsBroker object."""
-        if tls:  # pragma: no cover
-            warnings.warn(
-                (
-                    "\nNATS `tls` option was deprecated and will be removed in 0.6.0"
-                    "\nPlease, use `security` with `BaseSecurity` or `SASLPlaintext` instead"
-                ),
-                DeprecationWarning,
-                stacklevel=2,
-            )
+        """Initialize the NatsBroker object.
 
-        if user or password:
-            warnings.warn(
-                (
-                    "\nNATS `user` and `password` options were deprecated and will be removed in 0.6.0"
-                    "\nPlease, use `security` with `SASLPlaintext` instead"
-                ),
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        secure_kwargs = {
-            "tls": tls,
-            "user": user,
-            "password": password,
-            **parse_security(security),
-        }
+        Args:
+            servers:
+                NATS cluster addresses to connect.
+            error_cb:
+                Callback to report errors.
+            disconnected_cb:
+                Callback to report disconnection from NATS.
+            closed_cb:
+                Callback to report when client stops reconnection to NATS.
+            discovered_server_cb:
+                A callback to report when a new server joins the cluster.
+            reconnected_cb:
+                Callback to report success reconnection.
+            name:
+                Label the connection with name (shown in NATS monitoring).
+            pedantic:
+                Turn on NATS server pedantic mode that performs extra checks on the protocol.
+                https://docs.nats.io/using-nats/developer/connecting/misc#turn-on-pedantic-mode
+            verbose:
+                Verbose mode produce more feedback about code execution.
+            allow_reconnect:
+                Whether recover connection automatically or not.
+            connect_timeout:
+                Timeout in seconds to establish connection with NATS server.
+            reconnect_time_wait:
+                Time in seconds to wait for reestablish connection to NATS server
+            max_reconnect_attempts:
+                Maximum attempts number to reconnect to NATS server.
+            ping_interval:
+                Interval in seconds to ping.
+            max_outstanding_pings:
+                Maximum number of failed pings
+            dont_randomize:
+                Boolean indicating should client randomly shuffle servers list for reconnection randomness.
+            flusher_queue_size:
+                Max count of commands awaiting to be flushed to the socket
+            no_echo:
+                Boolean indicating should commands be echoed.
+            tls_hostname:
+                Hostname for TLS.
+            token:
+                Auth token for NATS auth.
+            drain_timeout:
+                Timeout in seconds to drain subscriptions.
+            signature_cb:
+                A callback used to sign a nonce from the server while authenticating with nkeys.
+                The user should sign the nonce and return the base64 encoded signature.
+            user_jwt_cb:
+                A callback used to fetch and return the account signed JWT for this user.
+            user_credentials:
+                A user credentials file or tuple of files.
+            nkeys_seed:
+                Path-like object containing nkeys seed that will be used.
+            nkeys_seed_str:
+                Nkeys seed to be used.
+            inbox_prefix:
+                Prefix for generating unique inboxes, subjects with that prefix and NUID.ß
+            pending_size:
+                Max size of the pending buffer for publishing commands.
+            flush_timeout:
+                Max duration to wait for a forced flush to occur
+            js_options:
+                JetStream initialization options.
+            graceful_timeout:
+                Graceful shutdown timeout. Broker waits for all running subscribers completion before shut down.
+            decoder:
+                Custom decoder object
+            parser:
+                Custom parser object.
+            dependencies:
+                Dependencies to apply to all broker subscribers.
+            middlewares:
+                "Middlewares to apply to all broker publishers/subscribers.
+            routers:
+                "Routers to apply to broker.
+            security:
+                Security options to connect broker and generate AsyncAPI server security information.
+            specification_url:
+                AsyncAPI hardcoded server addresses. Use `servers` if not specified.
+            protocol:
+                AsyncAPI server protocol.
+            protocol_version:
+                AsyncAPI server protocol version.
+            description:
+                AsyncAPI server description.
+            tags:
+                AsyncAPI server tags.
+            logger:
+                User specified logger to pass into Context and log service messages.
+            log_level:
+                Service messages log level.
+            apply_types:
+                Whether to use FastDepends or not.
+            serializer:
+                FastDepends-compatible serializer to validate incoming messages.
+            provider:
+                Provider for FastDepends.
+            context:
+                Context for FastDepends.
+        """
+        secure_kwargs = parse_security(security)
 
         servers = [servers] if isinstance(servers, str) else list(servers)
 
-        if asyncapi_url is not None:
-            if isinstance(asyncapi_url, str):
-                asyncapi_url = [asyncapi_url]
+        if specification_url is not None:
+            if isinstance(specification_url, str):
+                specification_url = [specification_url]
             else:
-                asyncapi_url = list(asyncapi_url)
+                specification_url = list(specification_url)
         else:
-            asyncapi_url = servers
+            specification_url = servers
+
+        js_producer = NatsJSFastProducer(
+            parser=parser,
+            decoder=decoder,
+        )
+
+        producer = NatsFastProducerImpl(
+            parser=parser,
+            decoder=decoder,
+        )
 
         super().__init__(
             # NATS options
@@ -535,405 +387,291 @@ class NatsBroker(
             signature_cb=signature_cb,
             user_jwt_cb=user_jwt_cb,
             # Basic args
-            # broker base
-            graceful_timeout=graceful_timeout,
-            dependencies=dependencies,
-            decoder=decoder,
-            parser=parser,
-            middlewares=middlewares,
-            # AsyncAPI
-            description=description,
-            asyncapi_url=asyncapi_url,
-            protocol=protocol,
-            protocol_version=protocol_version,
-            security=security,
-            tags=tags,
-            # logging
-            logger=logger,
-            log_level=log_level,
-            log_fmt=log_fmt,
-            # FastDepends args
-            apply_types=apply_types,
-            validate=validate,
-            _get_dependant=_get_dependant,
-            _call_decorators=_call_decorators,
+            routers=routers,
+            config=NatsBrokerConfig(
+                producer=producer,
+                js_producer=js_producer,
+                js_options=js_options or {},
+                # both args
+                broker_middlewares=middlewares,
+                broker_parser=parser,
+                broker_decoder=decoder,
+                logger=make_nats_logger_state(
+                    logger=logger,
+                    log_level=log_level,
+                ),
+                fd_config=FastDependsConfig(
+                    use_fastdepends=apply_types,
+                    serializer=serializer,
+                    provider=provider or dependency_provider,
+                    context=context or ContextRepo(),
+                ),
+                # subscriber args
+                broker_dependencies=dependencies,
+                graceful_timeout=graceful_timeout,
+                extra_context={
+                    "broker": self,
+                },
+            ),
+            specification=BrokerSpec(
+                description=description,
+                url=specification_url,
+                protocol=protocol,
+                protocol_version=protocol_version,
+                security=security,
+                tags=tags,
+            ),
         )
 
-        self.__is_connected = False
-        self._producer = None
-
-        # JS options
-        self.stream = None
-        self._js_producer = None
-        self._kv_declarer = None
-        self._os_declarer = None
-
-    @override
-    async def connect(  # type: ignore[override]
-        self,
-        servers: Annotated[
-            Union[str, Iterable[str]],
-            Doc("NATS cluster addresses to connect."),
-        ] = EMPTY,
-        **kwargs: "Unpack[NatsInitKwargs]",
-    ) -> "Client":
-        """Connect broker object to NATS cluster.
-
-        To startup subscribers too you should use `broker.start()` after/instead this method.
-        """
-        if servers is not EMPTY or kwargs:
-            warnings.warn(
-                "`NatsBroker().connect(...) options were "
-                "deprecated in **FastStream 0.5.40**. "
-                "Please, use `NatsBroker(...)` instead. "
-                "All these options will be removed in **FastStream 0.6.0**.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        if servers is not EMPTY:
-            connect_kwargs: AnyDict = {
-                **kwargs,
-                "servers": servers,
-            }
-        else:
-            connect_kwargs = {**kwargs}
-
-        return await super().connect(**connect_kwargs)
-
-    async def _connect(self, **kwargs: Any) -> "Client":
-        self.__is_connected = True
-        connection = await nats.connect(**kwargs)
-
-        self._producer = NatsFastProducer(
-            connection=connection,
-            decoder=self._decoder,
-            parser=self._parser,
-        )
-
-        stream = self.stream = connection.jetstream()
-
-        self._js_producer = NatsJSFastProducer(
-            connection=stream,
-            decoder=self._decoder,
-            parser=self._parser,
-        )
-
-        self._kv_declarer = KVBucketDeclarer(stream)
-        self._os_declarer = OSBucketDeclarer(stream)
-
+    async def _connect(self) -> "Client":
+        connection = await nats.connect(**self._connection_kwargs)
+        self.config.connect(connection)
         return connection
 
-    async def _close(
+    async def stop(
         self,
-        exc_type: Optional[Type[BaseException]] = None,
-        exc_val: Optional[BaseException] = None,
+        exc_type: type[BaseException] | None = None,
+        exc_val: BaseException | None = None,
         exc_tb: Optional["TracebackType"] = None,
     ) -> None:
-        self._producer = None
-        self._js_producer = None
-        self.stream = None
+        await super().stop(exc_type, exc_val, exc_tb)
 
         if self._connection is not None:
             await self._connection.drain()
+            self._connection = None
 
-        await super()._close(exc_type, exc_val, exc_tb)
-        self.__is_connected = False
+        self.config.disconnect()
+
+    @deprecated(
+        "Deprecated in **FastStream 0.5.44**. "
+        "Please, use `stop` method instead. "
+        "Method `close` will be removed in **FastStream 0.7.0**.",
+        category=DeprecationWarning,
+        stacklevel=1,
+    )
+    async def close(
+        self,
+        exc_type: type[BaseException] | None = None,
+        exc_val: BaseException | None = None,
+        exc_tb: Optional["TracebackType"] = None,
+    ) -> None:
+        await self.stop(exc_type, exc_val, exc_tb)
 
     async def start(self) -> None:
         """Connect broker to NATS cluster and startup all subscribers."""
-        await super().start()
+        await self.connect()
 
-        assert self._connection  # nosec B101
-        assert self.stream, "Broker should be started already"  # nosec B101
-        assert self._producer, "Broker should be started already"  # nosec B101
+        stream_context = self.config.connection_state.stream
 
-        for stream in filter(
-            lambda x: x.declare,
+        for stream, subjects in filter(
+            lambda x: x[0].declare,
             self._stream_builder.objects.values(),
         ):
             try:
-                await self.stream.add_stream(
+                await stream_context.add_stream(
                     config=stream.config,
-                    subjects=filter_overlapped_subjects(stream.subjects),
+                    subjects=list(subjects),
                 )
 
             except BadRequestError as e:  # noqa: PERF203
-                log_context = AsyncAPISubscriber.build_log_context(
+                self._setup_logger()
+
+                log_context = LogicSubscriber.build_log_context(
                     message=None,
                     subject="",
                     queue="",
                     stream=stream.name,
                 )
 
+                logger_state = self.config.logger
+
                 if (
                     e.description
                     == "stream name already in use with a different configuration"
                 ):
-                    old_config = (await self.stream.stream_info(stream.name)).config
+                    old_config = (await stream_context.stream_info(stream.name)).config
 
-                    self._log(str(e), logging.WARNING, log_context)
+                    logger_state.log(str(e), logging.WARNING, log_context)
 
-                    await self.stream.update_stream(
-                        config=stream.config,
-                        subjects=filter_overlapped_subjects(
-                            set(old_config.subjects or ()).union(stream.subjects)
-                        ),
-                    )
+                    for subject in old_config.subjects or ():
+                        subjects.append(subject)
+
+                    stream.config.subjects = list(subjects)
+                    await stream_context.update_stream(config=stream.config)
 
                 else:  # pragma: no cover
-                    self._log(str(e), logging.ERROR, log_context, exc_info=e)
+                    logger_state.log(
+                        str(e),
+                        logging.ERROR,
+                        log_context,
+                        exc_info=e,
+                    )
 
             finally:
                 # prevent from double declaration
                 stream.declare = False
 
-        # TODO: filter by already running handlers after TestClient refactor
-        for handler in self._subscribers.values():
-            self._log(
-                f"`{handler.call_name}` waiting for messages",
-                extra=handler.get_log_context(None),
-            )
-            await handler.start()
+        await super().start()
+
+    @overload
+    async def publish(
+        self,
+        message: "SendableMessage",
+        subject: str,
+        headers: dict[str, str] | None = None,
+        reply_to: str = "",
+        correlation_id: str | None = None,
+        stream: None = None,
+        timeout: float | None = None,
+        schedule: Optional["Schedule"] = None,
+    ) -> None: ...
+
+    @overload
+    async def publish(
+        self,
+        message: "SendableMessage",
+        subject: str,
+        headers: dict[str, str] | None = None,
+        reply_to: str = "",
+        correlation_id: str | None = None,
+        stream: str | None = None,
+        timeout: float | None = None,
+        schedule: Optional["Schedule"] = None,
+    ) -> "PubAck": ...
 
     @override
-    async def publish(  # type: ignore[override]
+    async def publish(
         self,
-        message: Annotated[
-            "SendableMessage",
-            Doc(
-                "Message body to send. "
-                "Can be any encodable object (native python types or `pydantic.BaseModel`)."
-            ),
-        ],
-        subject: Annotated[
-            str,
-            Doc("NATS subject to send message."),
-        ],
-        headers: Annotated[
-            Optional[Dict[str, str]],
-            Doc(
-                "Message headers to store metainformation. "
-                "**content-type** and **correlation_id** will be set automatically by framework anyway."
-            ),
-        ] = None,
-        reply_to: Annotated[
-            str,
-            Doc("NATS subject name to send response."),
-        ] = "",
-        correlation_id: Annotated[
-            Optional[str],
-            Doc(
-                "Manual message **correlation_id** setter. "
-                "**correlation_id** is a useful option to trace messages."
-            ),
-        ] = None,
-        stream: Annotated[
-            Optional[str],
-            Doc(
-                "This option validates that the target subject is in presented stream. "
-                "Can be omitted without any effect."
-            ),
-        ] = None,
-        timeout: Annotated[
-            Optional[float],
-            Doc("Timeout to send message to NATS."),
-        ] = None,
-        *,
-        rpc: Annotated[
-            bool,
-            Doc("Whether to wait for reply in blocking mode."),
-            deprecated(
-                "Deprecated in **FastStream 0.5.17**. "
-                "Please, use `request` method instead. "
-                "Argument will be removed in **FastStream 0.6.0**."
-            ),
-        ] = False,
-        rpc_timeout: Annotated[
-            Optional[float],
-            Doc("RPC reply waiting time."),
-            deprecated(
-                "Deprecated in **FastStream 0.5.17**. "
-                "Please, use `request` method with `timeout` instead. "
-                "Argument will be removed in **FastStream 0.6.0**."
-            ),
-        ] = 30.0,
-        raise_timeout: Annotated[
-            bool,
-            Doc(
-                "Whetever to raise `TimeoutError` or return `None` at **rpc_timeout**. "
-                "RPC request returns `None` at timeout by default."
-            ),
-            deprecated(
-                "Deprecated in **FastStream 0.5.17**. "
-                "`request` always raises TimeoutError instead. "
-                "Argument will be removed in **FastStream 0.6.0**."
-            ),
-        ] = False,
-    ) -> Optional["DecodedMessage"]:
+        message: "SendableMessage",
+        subject: str,
+        headers: dict[str, str] | None = None,
+        reply_to: str = "",
+        correlation_id: str | None = None,
+        stream: str | None = None,
+        timeout: float | None = None,
+        schedule: Optional["Schedule"] = None,
+    ) -> Optional["PubAck"]:
         """Publish message directly.
 
         This method allows you to publish message in not AsyncAPI-documented way. You can use it in another frameworks
         applications or to publish messages from time to time.
 
         Please, use `@broker.publisher(...)` or `broker.publisher(...).publish(...)` instead in a regular way.
+
+        Args:
+            message:
+                Message body to send.
+                Can be any encodable object (native python types or `pydantic.BaseModel`).
+            subject:
+                NATS subject to send message.
+            headers:
+                Message headers to store metainformation.
+                **content-type** and **correlation_id** will be set automatically by framework anyway.
+            reply_to:
+                NATS subject name to send response.
+            correlation_id:
+                Manual message **correlation_id** setter.
+                **correlation_id** is a useful option to trace messages.
+            stream:
+                This option validates that the target subject is in presented stream.
+                Can be omitted without any effect if you doesn't want PubAck frame.
+            timeout:
+                Timeout to send message to NATS.
+            schedule:
+                Schedule to publish message at a specific time.
+
+        Returns:
+            `None` if you publishes a regular message.
+            `faststream.nats.PubAck` if you publishes a message to stream.
         """
-        publish_kwargs = {
-            "subject": subject,
-            "headers": headers,
-            "reply_to": reply_to,
-            "rpc": rpc,
-            "rpc_timeout": rpc_timeout,
-            "raise_timeout": raise_timeout,
-        }
-
-        producer: Optional[ProducerProto]
-        if stream is None:
-            producer = self._producer
-        else:
-            producer = self._js_producer
-            publish_kwargs.update(
-                {
-                    "stream": stream,
-                    "timeout": timeout,
-                }
-            )
-
-        return await super().publish(
-            message,
-            producer=producer,
+        cmd = NatsPublishCommand(
+            message=message,
             correlation_id=correlation_id or gen_cor_id(),
-            **publish_kwargs,
+            subject=subject,
+            headers=headers,
+            reply_to=reply_to,
+            stream=stream,
+            timeout=timeout or 0.5,
+            _publish_type=PublishType.PUBLISH,
+            schedule=schedule,
         )
+
+        result: PubAck | None
+        if stream:
+            result = await super()._basic_publish(cmd, producer=self.config.js_producer)
+        else:
+            result = await super()._basic_publish(cmd, producer=self.config.producer)
+        return result
 
     @override
     async def request(  # type: ignore[override]
         self,
-        message: Annotated[
-            "SendableMessage",
-            Doc(
-                "Message body to send. "
-                "Can be any encodable object (native python types or `pydantic.BaseModel`)."
-            ),
-        ],
-        subject: Annotated[
-            str,
-            Doc("NATS subject to send message."),
-        ],
-        headers: Annotated[
-            Optional[Dict[str, str]],
-            Doc(
-                "Message headers to store metainformation. "
-                "**content-type** and **correlation_id** will be set automatically by framework anyway."
-            ),
-        ] = None,
-        correlation_id: Annotated[
-            Optional[str],
-            Doc(
-                "Manual message **correlation_id** setter. "
-                "**correlation_id** is a useful option to trace messages."
-            ),
-        ] = None,
-        stream: Annotated[
-            Optional[str],
-            Doc(
-                "This option validates that the target subject is in presented stream. "
-                "Can be omitted without any effect."
-            ),
-        ] = None,
-        timeout: Annotated[
-            float,
-            Doc("Timeout to send message to NATS."),
-        ] = 0.5,
+        message: "SendableMessage",
+        subject: str,
+        headers: dict[str, str] | None = None,
+        correlation_id: str | None = None,
+        stream: str | None = None,
+        timeout: float = 0.5,
     ) -> "NatsMessage":
-        publish_kwargs = {
-            "subject": subject,
-            "headers": headers,
-            "timeout": timeout,
-        }
+        """Make a synchronous request to outer subscriber.
 
-        producer: Optional[ProducerProto]
-        if stream is None:
-            producer = self._producer
+        If out subscriber listens subject by stream, you should setup the same **stream** explicitly.
+        Another way you will reseave confirmation frame as a response.
 
-        else:
-            producer = self._js_producer
-            publish_kwargs.update({"stream": stream})
+        Args:
+            message:
+                Message body to send.
+                Can be any encodable object (native python types or `pydantic.BaseModel`).
+            subject:
+                NATS subject to send message.
+            headers:
+                Message headers to store metainformation.
+                **content-type** and **correlation_id** will be set automatically by framework anyway.
+            correlation_id:
+                Manual message **correlation_id** setter.
+                **correlation_id** is a useful option to trace messages.
+            stream:
+                JetStream name. This option is required if your target subscriber listens for events using JetStream.
+            timeout:
+                Timeout to send message to NATS.
 
-        msg: NatsMessage = await super().request(
-            message,
-            producer=producer,
+        Returns:
+            `faststream.nats.message.NatsMessage` object as an outer subscriber response.
+        """
+        cmd = NatsPublishCommand(
+            message=message,
             correlation_id=correlation_id or gen_cor_id(),
-            **publish_kwargs,
+            subject=subject,
+            headers=headers,
+            timeout=timeout,
+            stream=stream,
+            _publish_type=PublishType.REQUEST,
         )
+
+        producer = self.config.js_producer if stream is not None else self.config.producer
+
+        msg: NatsMessage = await super()._basic_request(cmd, producer=producer)
         return msg
-
-    @override
-    def setup_subscriber(  # type: ignore[override]
-        self,
-        subscriber: "AsyncAPISubscriber",
-    ) -> None:
-        connection: Union[
-            Client,
-            JetStreamContext,
-            KVBucketDeclarer,
-            OSBucketDeclarer,
-            None,
-        ] = None
-
-        if getattr(subscriber, "kv_watch", None):
-            connection = self._kv_declarer
-
-        elif getattr(subscriber, "obj_watch", None):
-            connection = self._os_declarer
-
-        elif getattr(subscriber, "stream", None):
-            connection = self.stream
-
-        else:
-            connection = self._connection
-
-        return super().setup_subscriber(
-            subscriber,
-            connection=connection,
-        )
-
-    @override
-    def setup_publisher(  # type: ignore[override]
-        self,
-        publisher: "AsyncAPIPublisher",
-    ) -> None:
-        producer: Optional[ProducerProto] = None
-
-        if publisher.stream is not None:
-            if self._js_producer is not None:
-                producer = self._js_producer
-
-        elif self._producer is not None:
-            producer = self._producer
-
-        super().setup_publisher(publisher, producer=producer)
 
     async def key_value(
         self,
         bucket: str,
         *,
-        description: Optional[str] = None,
-        max_value_size: Optional[int] = None,
+        description: str | None = None,
+        max_value_size: int | None = None,
         history: int = 1,
-        ttl: Optional[float] = None,  # in seconds
-        max_bytes: Optional[int] = None,
+        ttl: float | None = None,  # in seconds
+        max_bytes: int | None = None,
         storage: Optional["StorageType"] = None,
         replicas: int = 1,
         placement: Optional["Placement"] = None,
         republish: Optional["RePublish"] = None,
-        direct: Optional[bool] = None,
+        direct: bool | None = None,
         # custom
         declare: bool = True,
     ) -> "KeyValue":
-        assert self._kv_declarer, "Broker should be connected already."  # nosec B101
-
-        return await self._kv_declarer.create_key_value(
+        kv_declarer = cast("KVBucketDeclarer", self.config.kv_declarer)
+        return await kv_declarer.create_key_value(
             bucket=bucket,
             description=description,
             max_value_size=max_value_size,
@@ -952,18 +690,16 @@ class NatsBroker(
         self,
         bucket: str,
         *,
-        description: Optional[str] = None,
-        ttl: Optional[float] = None,
-        max_bytes: Optional[int] = None,
+        description: str | None = None,
+        ttl: float | None = None,
+        max_bytes: int | None = None,
         storage: Optional["StorageType"] = None,
         replicas: int = 1,
         placement: Optional["Placement"] = None,
-        # custom
         declare: bool = True,
     ) -> "ObjectStore":
-        assert self._os_declarer, "Broker should be connected already."  # nosec B101
-
-        return await self._os_declarer.create_object_store(
+        os_declarer = cast("OSBucketDeclarer", self.config.os_declarer)
+        return await os_declarer.create_object_store(
             bucket=bucket,
             description=description,
             ttl=ttl,
@@ -978,17 +714,19 @@ class NatsBroker(
         self,
         error_cb: Optional["ErrorCallback"] = None,
     ) -> "ErrorCallback":
-        c = AsyncAPISubscriber.build_log_context(None, "")
+        c = LogicSubscriber.build_log_context(None, "")
 
         async def wrapper(err: Exception) -> None:
             if error_cb is not None:
                 await error_cb(err)
 
-            if isinstance(err, Error) and self.__is_connected:
-                self._log(
-                    f"Connection broken with {err!r}", logging.WARNING, c, exc_info=err
+            if isinstance(err, Error) and self.config.connection_state:
+                self.config.logger.log(
+                    f"Connection broken with {err!r}",
+                    logging.WARNING,
+                    c,
+                    exc_info=err,
                 )
-                self.__is_connected = False
 
         return wrapper
 
@@ -996,15 +734,14 @@ class NatsBroker(
         self,
         cb: Optional["Callback"] = None,
     ) -> "Callback":
-        c = AsyncAPISubscriber.build_log_context(None, "")
+        c = LogicSubscriber.build_log_context(None, "")
 
         async def wrapper() -> None:
             if cb is not None:
                 await cb()
 
-            if not self.__is_connected:
-                self._log("Connection established", logging.INFO, c)
-                self.__is_connected = True
+            if not self.config.connection_state:
+                self.config.logger.log("Connection established", logging.INFO, c)
 
         return wrapper
 
@@ -1017,12 +754,10 @@ class NatsBroker(
 
         [1] https://nats-io.github.io/nats.py/modules.html#nats.aio.client.Client.new_inbox
         """
-        assert self._connection  # nosec B101
-
-        return self._connection.new_inbox()
+        return self.connection.new_inbox()
 
     @override
-    async def ping(self, timeout: Optional[float]) -> bool:
+    async def ping(self, timeout: float | None) -> bool:
         sleep_time = (timeout or 10) / 10
 
         with anyio.move_on_after(timeout) as cancel_scope:
@@ -1040,43 +775,6 @@ class NatsBroker(
 
         return False
 
-
-def is_covered(subject: str, pattern: str) -> bool:
-    subject_parts: Final = subject.split(".")
-    pattern_parts: Final = pattern.split(".")
-    total_parts = len(pattern_parts)
-
-    for i, (subject_part, pattern_part) in enumerate(
-        zip_longest(
-            subject_parts,
-            pattern_parts,
-            fillvalue=None,
-        )
-    ):
-        if pattern_part == "*":
-            if subject_part == ">":
-                return False
-            continue
-        if pattern_part == ">" and i == total_parts - 1:
-            return True
-        if subject_part != pattern_part:
-            return False
-
-    return len(subject_parts) == total_parts
-
-
-def filter_overlapped_subjects(subjects: Iterable[str]) -> List[str]:
-    filtered_subjects: List[str] = []
-    for subject in subjects:
-        need_to_add = True
-        for filtered_subject_position in range(len(filtered_subjects)):
-            if is_covered(subject, filtered_subjects[filtered_subject_position]):
-                need_to_add = False
-                break
-            if is_covered(filtered_subjects[filtered_subject_position], subject):
-                need_to_add = False
-                filtered_subjects[filtered_subject_position] = subject
-                continue
-        if need_to_add:
-            filtered_subjects.append(subject)
-    return filtered_subjects
+    @property
+    def connection(self) -> "Client":
+        return self.config.broker_config.connection_state.connection

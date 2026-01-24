@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictInt, StrictStr, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.reference_portfolio_constituent_request import ReferencePortfolioConstituentRequest
 
 class UpsertReferencePortfolioConstituentsRequest(BaseModel):
@@ -29,8 +31,8 @@ class UpsertReferencePortfolioConstituentsRequest(BaseModel):
     effective_from:  StrictStr = Field(...,alias="effectiveFrom", description="The first date from which the weights will apply") 
     weight_type:  StrictStr = Field(...,alias="weightType", description="The available values are: Static, Floating, Periodical") 
     period_type:  Optional[StrictStr] = Field(None,alias="periodType", description="The available values are: Daily, Weekly, Monthly, Quarterly, Annually") 
-    period_count: Optional[StrictInt] = Field(None, alias="periodCount")
-    constituents: conlist(ReferencePortfolioConstituentRequest) = Field(..., description="Set of constituents (instrument/weight pairings)")
+    period_count: Optional[StrictInt] = Field(default=None, alias="periodCount")
+    constituents: List[ReferencePortfolioConstituentRequest] = Field(description="Set of constituents (instrument/weight pairings)")
     __properties = ["effectiveFrom", "weightType", "periodType", "periodCount", "constituents"]
 
     @validator('weight_type')
@@ -81,14 +83,21 @@ class UpsertReferencePortfolioConstituentsRequest(BaseModel):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
         if "weight_type" != "type":
             return value
 
-        if value not in ('Static', 'Floating', 'Periodical'):
+        if value not in ['Static', 'Floating', 'Periodical']:
             raise ValueError("must be one of enum values ('Static', 'Floating', 'Periodical')")
         return value
 
@@ -140,7 +149,14 @@ class UpsertReferencePortfolioConstituentsRequest(BaseModel):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
@@ -150,7 +166,7 @@ class UpsertReferencePortfolioConstituentsRequest(BaseModel):
         if value is None:
             return value
 
-        if value not in ('Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually'):
+        if value not in ['Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually']:
             raise ValueError("must be one of enum values ('Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annually')")
         return value
 
@@ -222,3 +238,5 @@ class UpsertReferencePortfolioConstituentsRequest(BaseModel):
             "constituents": [ReferencePortfolioConstituentRequest.from_dict(_item) for _item in obj.get("constituents")] if obj.get("constituents") is not None else None
         })
         return _obj
+
+UpsertReferencePortfolioConstituentsRequest.update_forward_refs()

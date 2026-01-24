@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress as pyip
+import re
 from pathlib import Path
 
 import pytest
@@ -16,20 +17,19 @@ def test_parse_error() -> None:
 
     assert!(Url::parse("ry_http://[:::1]") == Err(ParseError::InvalidIpv6Address))
     """
-
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="relative URL without a base"):
         ry.URL.parse("ry_http://[:::1]")
 
 
 def test_url_from_url() -> None:
-    """Test that we can create a URL from a URL"""
+    """Test that URL can be created from a URL"""
     url = ry.URL("http://example.com")
     url_from_url = ry.URL(url)
     assert url == url_from_url
 
 
 def test_url_parse() -> None:
-    """Test that we can create a URL from a URL"""
+    """Test that URL can be created from a URL"""
     url = ry.URL("http://example.com")
     url_from_url = ry.URL(url)
     assert url == url_from_url
@@ -77,6 +77,25 @@ def test_parse_url_readme() -> None:
     assert u == u_from_str
 
 
+@pytest.mark.parametrize(
+    ("url_str", "expected_type", "expected_host_str"),
+    [
+        ("https://127.0.0.1/", ry.Ipv4Addr.parse("127.0.0.1"), "127.0.0.1"),
+        ("https://[::1]/", ry.Ipv6Addr.parse("::1"), "[::1]"),
+        ("https://example.com/", "example.com", "example.com"),
+        ("mailto:rms@example.net", None, None),
+    ],
+)
+def test_host_type(
+    url_str: str,
+    expected_type: str | ry.Ipv4Addr | ry.Ipv6Addr | None,
+    expected_host_str: str | None,
+) -> None:
+    u = ry.URL(url_str)
+    assert u.host == expected_type
+    assert u.host_str == expected_host_str
+
+
 def test_inheritance() -> None:
     with pytest.raises(TypeError):
 
@@ -85,13 +104,15 @@ def test_inheritance() -> None:
 
 
 def test_str_subclass() -> None:
-    class S(str): ...
+
+    class S(str):
+        __slots__ = ()
 
     assert str(ry.URL(S("http://example.com"))) == "http://example.com/"
 
 
 def test_absolute_url_without_host() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=re.escape("empty host (url=http://:8080/")):
         ry.URL("http://:8080/")
 
 
@@ -111,7 +132,7 @@ def test_repr() -> None:
 
 
 @pytest.mark.parametrize(
-    "url_str, expected",
+    ("url_str", "expected"),
     [
         ("https://127.0.0.1/", None),
         ("https://[::1]/", None),
@@ -184,69 +205,105 @@ def test_url_relative(base_url_expected: tuple[str, str, str]) -> None:
 
 
 class TestUrlReplace:
-    def test_replace_scheme(self) -> None:
+    def test_with_scheme(self) -> None:
         u = ry.URL("http://example.com")
         replaced = u.replace(scheme="https")
         assert str(replaced) == "https://example.com/"
-        assert str(u.replace_scheme("https")) == "https://example.com/"
+        assert str(u.with_scheme("https")) == "https://example.com/"
 
-    def test_replace_host(self) -> None:
+    def test_with_host(self) -> None:
         u = ry.URL("http://example.com")
         replaced = u.replace(host="example.org")
         assert str(replaced) == "http://example.org/"
-        assert str(u.replace_host("example.org")) == "http://example.org/"
+        assert str(u.with_host("example.org")) == "http://example.org/"
         assert u.host_str == "example.com"
         assert u.host == "example.com"
 
-    def test_replace_port(self) -> None:
+    def test_with_port(self) -> None:
         u = ry.URL("http://example.com")
-        replaced = u.replace(port=8080)
+        replaced = u.with_port(8080)
         assert str(replaced) == "http://example.com:8080/"
-        assert str(u.replace_port(8080)) == "http://example.com:8080/"
+        assert str(u.with_port(8080)) == "http://example.com:8080/"
 
-    def test_replace_path(self) -> None:
+    def test_with_path(self) -> None:
         u = ry.URL("http://example.com/foo")
         replaced = u.replace(path="/bar/baz")
         assert str(replaced) == "http://example.com/bar/baz"
-        assert str(u.replace_path("bar/baz")) == "http://example.com/bar/baz"
+        assert str(u.with_path("bar/baz")) == "http://example.com/bar/baz"
 
-    def test_replace_query(self) -> None:
+    def test_with_query(self) -> None:
         u = ry.URL("http://example.com/foo?a=1&b=2")
         replaced = u.replace(query="c=3&d=4")
         assert str(replaced) == "http://example.com/foo?c=3&d=4"
-        assert str(u.replace_query("c=3&d=4")) == "http://example.com/foo?c=3&d=4"
+        assert str(u.with_query("c=3&d=4")) == "http://example.com/foo?c=3&d=4"
 
-    def test_replace_fragment(self) -> None:
+    def test_with_fragment(self) -> None:
         u = ry.URL("http://example.com/foo#a_section")
         replaced = u.replace(fragment="another_section")
         assert str(replaced) == "http://example.com/foo#another_section"
         assert (
-            str(u.replace_fragment("another_section"))
+            str(u.with_fragment("another_section"))
             == "http://example.com/foo#another_section"
         )
 
-    def test_replace_ip_host(self) -> None:
+    def test_with_ip_host(self) -> None:
         u = ry.URL("http://example.com")
         replaced = u.replace(ip_host=pyip.ip_interface("2001:db8:85a3::8a2e:370:7334"))
         assert str(replaced) == "http://[2001:db8:85a3::8a2e:370:7334]/"
         assert (
-            str(u.replace_ip_host(pyip.ip_interface("2001:db8:85a3::8a2e:370:7334")))
+            str(u.with_ip_host(pyip.ip_interface("2001:db8:85a3::8a2e:370:7334")))
             == "http://[2001:db8:85a3::8a2e:370:7334]/"
         )
 
-    def test_replace_username(self) -> None:
+    @pytest.mark.parametrize(
+        ("ip_addr", "expected_url"),
+        [
+            (
+                pyip.ip_interface("2001:db8:85a3::8a2e:370:7334"),
+                "http://[2001:db8:85a3::8a2e:370:7334]/",
+            ),
+            (
+                ry.Ipv6Addr.parse("2001:db8:85a3::8a2e:370:7334"),
+                "http://[2001:db8:85a3::8a2e:370:7334]/",
+            ),
+            (
+                ry.IpAddr.parse("2001:db8:85a3::8a2e:370:7334"),
+                "http://[2001:db8:85a3::8a2e:370:7334]/",
+            ),
+            (
+                ry.Ipv4Addr.parse("192.168.1.1"),
+                "http://192.168.1.1/",
+            ),
+        ],
+    )
+    def test_with_ip_host_ry_types(
+        self,
+        ip_addr: pyip.IPv4Interface
+        | pyip.IPv6Interface
+        | ry.Ipv4Addr
+        | ry.Ipv6Addr
+        | ry.IpAddr,
+        expected_url: str,
+    ) -> None:
+        u = ry.URL("http://example.com")
+        replaced = u.with_ip_host(ip_addr)
+        assert str(replaced) == expected_url
+        replaced = u.replace(ip_host=ip_addr)
+        assert str(replaced) == expected_url
+
+    def test_with_username(self) -> None:
         u = ry.URL("http://example.com")
         replaced = u.replace(username="user")
         expected = "http://user@example.com/"
         assert str(replaced) == expected
-        assert str(u.replace_username("user")) == expected
+        assert str(u.with_username("user")) == expected
 
-    def test_replace_password(self) -> None:
+    def test_with_password(self) -> None:
         u = ry.URL("http://example.com")
         replaced = u.replace(password="pass")  # noqa: S106
         expected = "http://:pass@example.com/"
         assert str(replaced) == expected
-        assert str(u.replace_password("pass")) == expected
+        assert str(u.with_password("pass")) == expected
 
 
 def test_socket_addrs() -> None:
@@ -271,7 +328,7 @@ def test_from_directory_path() -> None:
     file_url = ry.URL.from_directory_path(pwd)
     assert str(file_url).startswith("file://")
 
-    url_fspath = file_url.__fspath__().replace("\\", "/")
+    url_fspath = file_url.__fspath__().replace("\\", "/")  # noqa: PLC2801
     assert url_fspath == (str(pwd) + "/").replace("\\", "/")
     assert isinstance(url_fspath, str)
 
@@ -281,7 +338,7 @@ def test_from_filepath() -> None:
     file_url = ry.URL.from_filepath(this_file)
     assert str(file_url).startswith("file://")
 
-    url_fspath = file_url.__fspath__().replace("\\", "/")
+    url_fspath = file_url.__fspath__().replace("\\", "/")  # noqa: PLC2801
     assert url_fspath == str(this_file).replace("\\", "/")
     assert isinstance(url_fspath, str)
 

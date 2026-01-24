@@ -1,18 +1,23 @@
 from abc import ABC, abstractmethod
-import base64
-import json
-import threading
-from typing import Callable, Optional, Awaitable, Union, Any, Literal, Dict, Tuple
 import asyncio
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
+import json
+import logging
+import threading
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, Tuple, Union
+import urllib.parse
 
-from websockets.sync.client import connect, Connection
 import websockets
 from websockets.exceptions import ConnectionClosedOK
+from websockets.sync.client import Connection, connect
 
 from ..base_client import BaseElevenLabs
 from ..version import __version__
+
+
+logger = logging.getLogger(__name__)
 
 
 class ClientToOrchestratorEvent(str, Enum):
@@ -28,6 +33,12 @@ class ClientToOrchestratorEvent(str, Enum):
     # User text message.
     USER_MESSAGE = "user_message"
     USER_ACTIVITY = "user_activity"
+
+
+class AgentChatResponsePartType(str, Enum):
+    START = "start"
+    DELTA = "delta"
+    STOP = "stop"
 
 
 class UserMessageClientToOrchestratorEvent:
@@ -302,6 +313,27 @@ class ConversationInitiationData:
         self.user_id = user_id
 
 
+class OnPremInitiationData:
+    """Configuration options for the Conversation in on-prem mode."""
+
+    def __init__(
+        self,
+        on_prem_conversation_url: str,
+        post_call_transcription_webhook_url: Optional[str] = None,
+        post_call_audio_webhook_url: Optional[str] = None,
+        agent_config_dict: Optional[dict] = None,
+        override_agent_config_list: Optional[List[dict]] = None,
+        tools_config_list: Optional[List[dict]] = None,
+        prompt_knowledge_base: Optional[List[str]] = None,
+    ):
+        self.on_prem_conversation_url = on_prem_conversation_url
+        self.post_call_transcription_webhook_url = post_call_transcription_webhook_url
+        self.post_call_audio_webhook_url = post_call_audio_webhook_url
+        self.agent_config_dict = agent_config_dict
+        self.override_agent_config_list = override_agent_config_list
+        self.tools_config_list = tools_config_list
+        self.prompt_knowledge_base = prompt_knowledge_base
+
 class BaseConversation:
     """Base class for conversation implementations with shared parameters and logic."""
 
@@ -314,6 +346,7 @@ class BaseConversation:
         requires_auth: bool,
         config: Optional[ConversationInitiationData] = None,
         client_tools: Optional[ClientTools] = None,
+        on_prem_config: Optional[OnPremInitiationData] = None,
     ):
         self.client = client
         self.agent_id = agent_id
@@ -321,6 +354,7 @@ class BaseConversation:
         self.requires_auth = requires_auth
         self.config = config or ConversationInitiationData()
         self.client_tools = client_tools or ClientTools()
+        self.on_prem_config = on_prem_config
 
         self.client_tools.start()
 
@@ -328,9 +362,15 @@ class BaseConversation:
         self._last_interrupt_id = 0
 
     def _get_wss_url(self):
+        if self.on_prem_config:
+            return self.on_prem_config.on_prem_conversation_url
+            
         base_http_url = self.client._client_wrapper.get_base_url()
-        base_ws_url = base_http_url.replace("https://", "wss://").replace("http://", "ws://")
-        return f"{base_ws_url}/v1/convai/conversation?agent_id={self.agent_id}&source=python_sdk&version={__version__}"
+        base_ws_url = urllib.parse.urlparse(base_http_url)._replace(scheme="wss" if base_http_url.startswith("https") else "ws").geturl()
+        # Ensure base URL ends with '/' for proper joining
+        if not base_ws_url.endswith('/'):
+            base_ws_url += '/'
+        return f"{base_ws_url}v1/convai/conversation?agent_id={self.agent_id}&source=python_sdk&version={__version__}"
 
     def _get_signed_url(self):
         response = self.client.conversational_ai.conversations.get_signed_url(agent_id=self.agent_id)
@@ -339,6 +379,19 @@ class BaseConversation:
         separator = "&" if "?" in signed_url else "?"
         return f"{signed_url}{separator}source=python_sdk&version={__version__}"
 
+    def _create_on_prem_initiation_message(self):
+        return json.dumps(
+            {
+                "type": "enclave_setup_config",
+                "agent_config_dict": self.on_prem_config.agent_config_dict,
+                "override_agent_config_list": self.on_prem_config.override_agent_config_list,
+                "tools_config_list": self.on_prem_config.tools_config_list,
+                "post_call_transcription_webhook_url": self.on_prem_config.post_call_transcription_webhook_url,
+                "post_call_audio_webhook_url": self.on_prem_config.post_call_audio_webhook_url,
+                "prompt_knowledge_base": self.on_prem_config.prompt_knowledge_base,
+            }
+        )
+    
     def _create_initiation_message(self):
         return json.dumps(
             {
@@ -377,6 +430,17 @@ class BaseConversation:
             if message_handler.callback_agent_response:
                 event = message["agent_response_event"]
                 message_handler.handle_agent_response(event["agent_response"].strip())
+
+        elif message["type"] == "agent_chat_response_part":
+            if message_handler.callback_agent_chat_response_part:
+                event = message.get("text_response_part", {})
+                text = event.get("text", "")
+                part_type_str = event.get("type", "delta")
+                try:
+                    part_type = AgentChatResponsePartType(part_type_str)
+                except ValueError:
+                    part_type = AgentChatResponsePartType.DELTA
+                message_handler.handle_agent_chat_response_part(text, part_type)
 
         elif message["type"] == "agent_response_correction":
             if message_handler.callback_agent_response_correction:
@@ -429,6 +493,17 @@ class BaseConversation:
                 event = message["agent_response_event"]
                 await message_handler.handle_agent_response(event["agent_response"].strip())
 
+        elif message["type"] == "agent_chat_response_part":
+            if message_handler.callback_agent_chat_response_part:
+                event = message.get("text_response_part", {})
+                text = event.get("text", "")
+                part_type_str = event.get("type", "delta")
+                try:
+                    part_type = AgentChatResponsePartType(part_type_str)
+                except ValueError:
+                    part_type = AgentChatResponsePartType.DELTA
+                await message_handler.handle_agent_chat_response_part(text, part_type)
+
         elif message["type"] == "agent_response_correction":
             if message_handler.callback_agent_response_correction:
                 event = message["agent_response_correction_event"]
@@ -466,6 +541,7 @@ class Conversation(BaseConversation):
     audio_interface: AudioInterface
     callback_agent_response: Optional[Callable[[str], None]]
     callback_agent_response_correction: Optional[Callable[[str, str], None]]
+    callback_agent_chat_response_part: Optional[Callable[[str, AgentChatResponsePartType], None]]
     callback_user_transcript: Optional[Callable[[str], None]]
     callback_latency_measurement: Optional[Callable[[int], None]]
     callback_end_session: Optional[Callable]
@@ -486,9 +562,11 @@ class Conversation(BaseConversation):
         client_tools: Optional[ClientTools] = None,
         callback_agent_response: Optional[Callable[[str], None]] = None,
         callback_agent_response_correction: Optional[Callable[[str, str], None]] = None,
+        callback_agent_chat_response_part: Optional[Callable[[str, AgentChatResponsePartType], None]] = None,
         callback_user_transcript: Optional[Callable[[str], None]] = None,
         callback_latency_measurement: Optional[Callable[[int], None]] = None,
         callback_end_session: Optional[Callable] = None,
+        on_prem_config: Optional[OnPremInitiationData] = None,
     ):
         """Conversational AI session.
 
@@ -505,6 +583,8 @@ class Conversation(BaseConversation):
             callback_agent_response_correction: Callback for agent response corrections.
                 First argument is the original response (previously given to
                 callback_agent_response), second argument is the corrected response.
+            callback_agent_chat_response_part: Callback for streaming text response chunks.
+                First argument is the text chunk, second argument is the type (START, DELTA, STOP).
             callback_user_transcript: Callback for user transcripts.
             callback_latency_measurement: Callback for latency measurements (in milliseconds).
         """
@@ -516,11 +596,13 @@ class Conversation(BaseConversation):
             requires_auth=requires_auth,
             config=config,
             client_tools=client_tools,
+            on_prem_config=on_prem_config,
         )
 
         self.audio_interface = audio_interface
         self.callback_agent_response = callback_agent_response
         self.callback_agent_response_correction = callback_agent_response_correction
+        self.callback_agent_chat_response_part = callback_agent_chat_response_part
         self.callback_user_transcript = callback_user_transcript
         self.callback_latency_measurement = callback_latency_measurement
         self.callback_end_session = callback_end_session
@@ -576,7 +658,7 @@ class Conversation(BaseConversation):
         try:
             self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error sending user message: {e}")
+            logger.error(f"Error sending user message: {e}")
             raise
 
     def register_user_activity(self):
@@ -594,7 +676,7 @@ class Conversation(BaseConversation):
         try:
             self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error registering user activity: {e}")
+            logger.error(f"Error registering user activity: {e}")
             raise
 
     def send_contextual_update(self, text: str):
@@ -616,12 +698,14 @@ class Conversation(BaseConversation):
         try:
             self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error sending contextual update: {e}")
+            logger.error(f"Error sending contextual update: {e}")
             raise
 
     def _run(self, ws_url: str):
         with connect(ws_url, max_size=16 * 1024 * 1024) as ws:
             self._ws = ws
+            if self.on_prem_config:
+                ws.send(self._create_on_prem_initiation_message())
             ws.send(self._create_initiation_message())
             self._ws = ws
 
@@ -637,7 +721,7 @@ class Conversation(BaseConversation):
                 except ConnectionClosedOK:
                     self.end_session()
                 except Exception as e:
-                    print(f"Error sending user audio chunk: {e}")
+                    logger.error(f"Error sending user audio chunk: {e}")
                     self.end_session()
 
             self.audio_interface.start(input_callback)
@@ -652,7 +736,7 @@ class Conversation(BaseConversation):
                 except TimeoutError:
                     pass
                 except Exception as e:
-                    print(f"Error receiving message: {e}")
+                    logger.error(f"Error receiving message: {e}")
                     self.end_session()
 
             self._ws = None
@@ -664,6 +748,7 @@ class Conversation(BaseConversation):
                 self.ws = ws
                 self.callback_agent_response = conversation.callback_agent_response
                 self.callback_agent_response_correction = conversation.callback_agent_response_correction
+                self.callback_agent_chat_response_part = conversation.callback_agent_chat_response_part
                 self.callback_user_transcript = conversation.callback_user_transcript
                 self.callback_latency_measurement = conversation.callback_latency_measurement
 
@@ -675,6 +760,9 @@ class Conversation(BaseConversation):
 
             def handle_agent_response_correction(self, original, corrected):
                 self.conversation.callback_agent_response_correction(original, corrected)
+
+            def handle_agent_chat_response_part(self, text, part_type):
+                self.conversation.callback_agent_chat_response_part(text, part_type)
 
             def handle_user_transcript(self, transcript):
                 self.conversation.callback_user_transcript(transcript)
@@ -710,6 +798,7 @@ class AsyncConversation(BaseConversation):
     audio_interface: AsyncAudioInterface
     callback_agent_response: Optional[Callable[[str], Awaitable[None]]]
     callback_agent_response_correction: Optional[Callable[[str, str], Awaitable[None]]]
+    callback_agent_chat_response_part: Optional[Callable[[str, AgentChatResponsePartType], Awaitable[None]]]
     callback_user_transcript: Optional[Callable[[str], Awaitable[None]]]
     callback_latency_measurement: Optional[Callable[[int], Awaitable[None]]]
     callback_end_session: Optional[Callable[[], Awaitable[None]]]
@@ -730,9 +819,11 @@ class AsyncConversation(BaseConversation):
         client_tools: Optional[ClientTools] = None,
         callback_agent_response: Optional[Callable[[str], Awaitable[None]]] = None,
         callback_agent_response_correction: Optional[Callable[[str, str], Awaitable[None]]] = None,
+        callback_agent_chat_response_part: Optional[Callable[[str, AgentChatResponsePartType], Awaitable[None]]] = None,
         callback_user_transcript: Optional[Callable[[str], Awaitable[None]]] = None,
         callback_latency_measurement: Optional[Callable[[int], Awaitable[None]]] = None,
         callback_end_session: Optional[Callable[[], Awaitable[None]]] = None,
+        on_prem_config: Optional[OnPremInitiationData] = None,
     ):
         """Async Conversational AI session.
 
@@ -749,6 +840,8 @@ class AsyncConversation(BaseConversation):
             callback_agent_response_correction: Async callback for agent response corrections.
                 First argument is the original response (previously given to
                 callback_agent_response), second argument is the corrected response.
+            callback_agent_chat_response_part: Async callback for streaming text response chunks.
+                First argument is the text chunk, second argument is the type (START, DELTA, STOP).
             callback_user_transcript: Async callback for user transcripts.
             callback_latency_measurement: Async callback for latency measurements (in milliseconds).
             callback_end_session: Async callback for when session ends.
@@ -761,11 +854,13 @@ class AsyncConversation(BaseConversation):
             requires_auth=requires_auth,
             config=config,
             client_tools=client_tools,
+            on_prem_config=on_prem_config,
         )
 
         self.audio_interface = audio_interface
         self.callback_agent_response = callback_agent_response
         self.callback_agent_response_correction = callback_agent_response_correction
+        self.callback_agent_chat_response_part = callback_agent_chat_response_part
         self.callback_user_transcript = callback_user_transcript
         self.callback_latency_measurement = callback_latency_measurement
         self.callback_end_session = callback_end_session
@@ -820,7 +915,7 @@ class AsyncConversation(BaseConversation):
         try:
             await self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error sending user message: {e}")
+            logger.error(f"Error sending user message: {e}")
             raise
 
     async def register_user_activity(self):
@@ -838,7 +933,7 @@ class AsyncConversation(BaseConversation):
         try:
             await self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error registering user activity: {e}")
+            logger.error(f"Error registering user activity: {e}")
             raise
 
     async def send_contextual_update(self, text: str):
@@ -860,12 +955,14 @@ class AsyncConversation(BaseConversation):
         try:
             await self._ws.send(json.dumps(event.to_dict()))
         except Exception as e:
-            print(f"Error sending contextual update: {e}")
+            logger.error(f"Error sending contextual update: {e}")
             raise
 
     async def _run(self, ws_url: str):
         async with websockets.connect(ws_url, max_size=16 * 1024 * 1024) as ws:
             self._ws = ws
+            if self.on_prem_config:
+                await ws.send(self._create_on_prem_initiation_message())
             await ws.send(self._create_initiation_message())
 
             async def input_callback(audio):
@@ -880,7 +977,7 @@ class AsyncConversation(BaseConversation):
                 except ConnectionClosedOK:
                     await self.end_session()
                 except Exception as e:
-                    print(f"Error sending user audio chunk: {e}")
+                    logger.error(f"Error sending user audio chunk: {e}")
                     await self.end_session()
 
             await self.audio_interface.start(input_callback)
@@ -899,7 +996,7 @@ class AsyncConversation(BaseConversation):
                         await self.end_session()
                         break
                     except Exception as e:
-                        print(f"Error receiving message: {e}")
+                        logger.error(f"Error receiving message: {e}")
                         await self.end_session()
                         break
             finally:
@@ -912,6 +1009,7 @@ class AsyncConversation(BaseConversation):
                 self.ws = ws
                 self.callback_agent_response = conversation.callback_agent_response
                 self.callback_agent_response_correction = conversation.callback_agent_response_correction
+                self.callback_agent_chat_response_part = conversation.callback_agent_chat_response_part
                 self.callback_user_transcript = conversation.callback_user_transcript
                 self.callback_latency_measurement = conversation.callback_latency_measurement
 
@@ -923,6 +1021,9 @@ class AsyncConversation(BaseConversation):
 
             async def handle_agent_response_correction(self, original, corrected):
                 await self.conversation.callback_agent_response_correction(original, corrected)
+
+            async def handle_agent_chat_response_part(self, text, part_type):
+                await self.conversation.callback_agent_chat_response_part(text, part_type)
 
             async def handle_user_transcript(self, transcript):
                 await self.conversation.callback_user_transcript(transcript)

@@ -3,7 +3,7 @@ Type annotations for cost-optimization-hub service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cost_optimization_hub/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -24,6 +25,7 @@ from .literals import (
     AllocationStrategyType,
     Ec2AutoScalingGroupTypeType,
     EnrollmentStatusType,
+    GranularityTypeType,
     ImplementationEffortType,
     MemberAccountDiscountVisibilityType,
     OrderType,
@@ -34,12 +36,6 @@ from .literals import (
     TermType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -68,6 +64,7 @@ __all__ = (
     "Ec2ReservedInstancesTypeDef",
     "EcsServiceConfigurationTypeDef",
     "EcsServiceTypeDef",
+    "EfficiencyMetricsByGroupTypeDef",
     "ElastiCacheReservedInstancesConfigurationTypeDef",
     "ElastiCacheReservedInstancesTypeDef",
     "EstimatedDiscountsTypeDef",
@@ -78,6 +75,9 @@ __all__ = (
     "InstanceConfigurationTypeDef",
     "LambdaFunctionConfigurationTypeDef",
     "LambdaFunctionTypeDef",
+    "ListEfficiencyMetricsRequestPaginateTypeDef",
+    "ListEfficiencyMetricsRequestTypeDef",
+    "ListEfficiencyMetricsResponseTypeDef",
     "ListEnrollmentStatusesRequestPaginateTypeDef",
     "ListEnrollmentStatusesRequestTypeDef",
     "ListEnrollmentStatusesResponseTypeDef",
@@ -89,7 +89,10 @@ __all__ = (
     "ListRecommendationsResponseTypeDef",
     "MemoryDbReservedInstancesConfigurationTypeDef",
     "MemoryDbReservedInstancesTypeDef",
+    "MetricsByTimeTypeDef",
     "MixedInstanceConfigurationTypeDef",
+    "NatGatewayConfigurationTypeDef",
+    "NatGatewayTypeDef",
     "OpenSearchReservedInstancesConfigurationTypeDef",
     "OpenSearchReservedInstancesTypeDef",
     "OrderByTypeDef",
@@ -118,6 +121,7 @@ __all__ = (
     "StorageConfigurationTypeDef",
     "SummaryMetricsResultTypeDef",
     "TagTypeDef",
+    "TimePeriodTypeDef",
     "UpdateEnrollmentStatusRequestTypeDef",
     "UpdateEnrollmentStatusResponseTypeDef",
     "UpdatePreferencesRequestTypeDef",
@@ -210,6 +214,12 @@ class Ec2ReservedInstancesConfigurationTypeDef(TypedDict):
     tenancy: NotRequired[str]
     sizeFlexEligible: NotRequired[bool]
 
+class MetricsByTimeTypeDef(TypedDict):
+    score: NotRequired[float]
+    savings: NotRequired[float]
+    spend: NotRequired[float]
+    timestamp: NotRequired[str]
+
 class ElastiCacheReservedInstancesConfigurationTypeDef(TypedDict):
     accountScope: NotRequired[str]
     service: NotRequired[str]
@@ -241,17 +251,25 @@ class PreferredCommitmentTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class GetRecommendationRequestTypeDef(TypedDict):
     recommendationId: str
 
+class OrderByTypeDef(TypedDict):
+    dimension: NotRequired[str]
+    order: NotRequired[OrderType]
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class TimePeriodTypeDef(TypedDict):
+    start: str
+    end: str
 
 class ListEnrollmentStatusesRequestTypeDef(TypedDict):
     includeOrganizationInfo: NotRequired[bool]
@@ -267,10 +285,6 @@ class RecommendationSummaryTypeDef(TypedDict):
 class SummaryMetricsResultTypeDef(TypedDict):
     savingsPercentage: NotRequired[str]
 
-class OrderByTypeDef(TypedDict):
-    dimension: NotRequired[str]
-    order: NotRequired[OrderType]
-
 class MemoryDbReservedInstancesConfigurationTypeDef(TypedDict):
     accountScope: NotRequired[str]
     service: NotRequired[str]
@@ -285,6 +299,11 @@ class MemoryDbReservedInstancesConfigurationTypeDef(TypedDict):
     instanceFamily: NotRequired[str]
     sizeFlexEligible: NotRequired[bool]
     currentGeneration: NotRequired[str]
+
+class NatGatewayConfigurationTypeDef(TypedDict):
+    activeConnectionCount: NotRequired[int]
+    packetsInFromSource: NotRequired[int]
+    packetsInFromDestination: NotRequired[int]
 
 class OpenSearchReservedInstancesConfigurationTypeDef(TypedDict):
     accountScope: NotRequired[str]
@@ -390,11 +409,16 @@ Ec2AutoScalingGroupConfigurationTypeDef = TypedDict(
     "Ec2AutoScalingGroupConfigurationTypeDef",
     {
         "instance": NotRequired[InstanceConfigurationTypeDef],
-        "mixedInstances": NotRequired[List[MixedInstanceConfigurationTypeDef]],
+        "mixedInstances": NotRequired[list[MixedInstanceConfigurationTypeDef]],
         "type": NotRequired[Ec2AutoScalingGroupTypeType],
         "allocationStrategy": NotRequired[AllocationStrategyType],
     },
 )
+
+class EfficiencyMetricsByGroupTypeDef(TypedDict):
+    metricsByTime: NotRequired[list[MetricsByTimeTypeDef]]
+    group: NotRequired[str]
+    message: NotRequired[str]
 
 class ResourcePricingTypeDef(TypedDict):
     estimatedCostBeforeDiscounts: NotRequired[float]
@@ -436,7 +460,7 @@ class RecommendationTypeDef(TypedDict):
     lastRefreshTimestamp: NotRequired[datetime]
     recommendationLookbackPeriodInDays: NotRequired[int]
     source: NotRequired[SourceType]
-    tags: NotRequired[List[TagTypeDef]]
+    tags: NotRequired[list[TagTypeDef]]
 
 class UpdatePreferencesRequestTypeDef(TypedDict):
     savingsEstimationMode: NotRequired[SavingsEstimationModeType]
@@ -450,7 +474,7 @@ class GetPreferencesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnrollmentStatusesResponseTypeDef(TypedDict):
-    items: List[AccountEnrollmentStatusTypeDef]
+    items: list[AccountEnrollmentStatusTypeDef]
     includeMemberAccounts: bool
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -470,9 +494,24 @@ class ListEnrollmentStatusesRequestPaginateTypeDef(TypedDict):
     accountId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListEfficiencyMetricsRequestPaginateTypeDef(TypedDict):
+    granularity: GranularityTypeType
+    timePeriod: TimePeriodTypeDef
+    groupBy: NotRequired[str]
+    orderBy: NotRequired[OrderByTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListEfficiencyMetricsRequestTypeDef(TypedDict):
+    granularity: GranularityTypeType
+    timePeriod: TimePeriodTypeDef
+    groupBy: NotRequired[str]
+    maxResults: NotRequired[int]
+    orderBy: NotRequired[OrderByTypeDef]
+    nextToken: NotRequired[str]
+
 class ListRecommendationSummariesResponseTypeDef(TypedDict):
     estimatedTotalDedupedSavings: float
-    items: List[RecommendationSummaryTypeDef]
+    items: list[RecommendationSummaryTypeDef]
     groupBy: str
     currencyCode: str
     metrics: SummaryMetricsResultTypeDef
@@ -485,8 +524,13 @@ class ReservedInstancesCostCalculationTypeDef(TypedDict):
 class SavingsPlansCostCalculationTypeDef(TypedDict):
     pricing: NotRequired[SavingsPlansPricingTypeDef]
 
+class ListEfficiencyMetricsResponseTypeDef(TypedDict):
+    efficiencyMetricsByGroup: list[EfficiencyMetricsByGroupTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ResourceCostCalculationTypeDef(TypedDict):
-    usages: NotRequired[List[UsageTypeDef]]
+    usages: NotRequired[list[UsageTypeDef]]
     pricing: NotRequired[ResourcePricingTypeDef]
 
 ListRecommendationSummariesRequestPaginateTypeDef = TypedDict(
@@ -529,7 +573,7 @@ ListRecommendationsRequestTypeDef = TypedDict(
 )
 
 class ListRecommendationsResponseTypeDef(TypedDict):
-    items: List[RecommendationTypeDef]
+    items: list[RecommendationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -597,6 +641,10 @@ class LambdaFunctionTypeDef(TypedDict):
     configuration: NotRequired[LambdaFunctionConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
 
+class NatGatewayTypeDef(TypedDict):
+    configuration: NotRequired[NatGatewayConfigurationTypeDef]
+    costCalculation: NotRequired[ResourceCostCalculationTypeDef]
+
 class RdsDbInstanceStorageTypeDef(TypedDict):
     configuration: NotRequired[RdsDbInstanceStorageConfigurationTypeDef]
     costCalculation: NotRequired[ResourceCostCalculationTypeDef]
@@ -624,6 +672,7 @@ class ResourceDetailsTypeDef(TypedDict):
     auroraDbClusterStorage: NotRequired[AuroraDbClusterStorageTypeDef]
     dynamoDbReservedCapacity: NotRequired[DynamoDbReservedCapacityTypeDef]
     memoryDbReservedInstances: NotRequired[MemoryDbReservedInstancesTypeDef]
+    natGateway: NotRequired[NatGatewayTypeDef]
 
 class GetRecommendationResponseTypeDef(TypedDict):
     recommendationId: str
@@ -648,5 +697,5 @@ class GetRecommendationResponseTypeDef(TypedDict):
     rollbackPossible: bool
     currentResourceDetails: ResourceDetailsTypeDef
     recommendedResourceDetails: ResourceDetailsTypeDef
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

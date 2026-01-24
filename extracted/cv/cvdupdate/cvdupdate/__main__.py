@@ -10,7 +10,7 @@ for the purposes of hosting your own database mirror.
 """
 
 _copyright = """
-Copyright (C) 2021-2022 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
+Copyright (C) 2021-2025 Cisco Systems, Inc. and/or its affiliates. All rights reserved.
 """
 
 """
@@ -35,20 +35,35 @@ import sys
 from pathlib import Path
 
 import click
-import coloredlogs
-import importlib.metadata
+import colorlog
+try:
+    from importlib.metadata import PackageNotFoundError, version as _get_version
+except ImportError:  # pragma: no cover - backport for older Pythons
+    from importlib_metadata import PackageNotFoundError, version as _get_version
 from http.server import HTTPServer
 from RangeHTTPServer import RangeRequestHandler
 
 from cvdupdate import auto_updater
 from cvdupdate.cvdupdate import CVDUpdate
 
-logging.basicConfig()
+handler = colorlog.StreamHandler()
+handler.setFormatter(
+    colorlog.ColoredFormatter(
+        "%(log_color)s%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
+)
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 module_logger = logging.getLogger("cvdupdate")
-coloredlogs.install(level="DEBUG", fmt="%(asctime)s %(name)s %(levelname)s %(message)s")
 module_logger.setLevel(logging.DEBUG)
 
 from colorama import Fore, Back, Style
+
+
+def _package_version() -> str:
+    try:
+        return _get_version('cvdupdate')
+    except PackageNotFoundError:
+        return '0.0'
 
 #
 # CLI Interface
@@ -58,7 +73,7 @@ from colorama import Fore, Back, Style
     + __doc__ + "\n"
     + Fore.GREEN
     + _description + "\n"
-    + f"\nVersion {importlib.metadata.version('cvdupdate')}\n"
+    + f"\nVersion {_package_version()}\n"
     + Style.RESET_ALL
     + _copyright,
 )

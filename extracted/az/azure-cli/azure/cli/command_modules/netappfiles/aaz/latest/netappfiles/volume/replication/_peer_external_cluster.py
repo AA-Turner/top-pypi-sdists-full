@@ -16,12 +16,15 @@ from azure.cli.core.aaz import *
 )
 class PeerExternalCluster(AAZCommand):
     """Starts peering the external cluster for this migration volume
+
+    :example: Volumes_PeerExternalCluster
+        az netappfiles volume replication peer-external-cluster --resource-group myRG --account-name account1 --pool-name pool1 --volume-name volume1 --peer-ip-addresses "[0.0.0.1,0.0.0.2,0.0.0.3,0.0.0.4,0.0.0.5,0.0.0.6]"
     """
 
     _aaz_info = {
-        "version": "2025-01-01",
+        "version": "2025-09-01",
         "resources": [
-            ["mgmt-plane", "/subscriptions/{}/resourcegroups/{}/providers/microsoft.netapp/netappaccounts/{}/capacitypools/{}/volumes/{}/peerexternalcluster", "2025-01-01"],
+            ["mgmt-plane", "/subscriptions/{}/resourcegroups/{}/providers/microsoft.netapp/netappaccounts/{}/capacitypools/{}/volumes/{}/peerexternalcluster", "2025-09-01"],
         ]
     }
 
@@ -85,6 +88,9 @@ class PeerExternalCluster(AAZCommand):
             arg_group="Body",
             help="A list of IC-LIF IPs that can be used to connect to the On-prem cluster",
             required=True,
+            fmt=AAZListArgFormat(
+                min_length=1,
+            ),
         )
 
         peer_ip_addresses = cls._args_schema.peer_ip_addresses
@@ -180,7 +186,7 @@ class PeerExternalCluster(AAZCommand):
         def query_parameters(self):
             parameters = {
                 **self.serialize_query_param(
-                    "api-version", "2025-01-01",
+                    "api-version", "2025-09-01",
                     required=True,
                 ),
             }

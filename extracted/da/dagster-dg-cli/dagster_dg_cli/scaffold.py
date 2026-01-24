@@ -2,7 +2,7 @@ import json
 import textwrap
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TypeAlias
 
 import click
 import dagster_shared.check as check
@@ -11,7 +11,6 @@ from dagster_dg_core.utils import snakecase
 from dagster_shared.scaffold import scaffold_subtree
 from dagster_shared.serdes.objects.package_entry import EnvRegistryKey
 from dagster_shared.seven import match_module_pattern
-from typing_extensions import TypeAlias
 
 ScaffoldFormatOptions: TypeAlias = Literal["yaml", "python"]
 
@@ -21,7 +20,7 @@ def scaffold_component(
 ) -> None:
     module_parts = module_name.split(".")
     module_path = dg_context.root_path
-    for i in range(len(module_parts) - 1):
+    for i in range(len(dg_context.root_module_name.split(".")), len(module_parts) - 1):
         module = ".".join(module_parts[: i + 1])
         module_path = dg_context.get_path_for_local_module(module, require_exists=False)
         if not module_path.exists():

@@ -1,13 +1,14 @@
 import unittest
+from unittest.mock import MagicMock
 from typing import List, Optional
 
 import torch
 
-from src.compel import EmbeddingsProvider, ReturnedEmbeddingsType
-from src.compel.conditioning_scheduler import StaticConditioningScheduler, ConditioningScheduler
-from prompting_test_utils import DummyTokenizer, DummyTransformer, KNOWN_WORDS, KNOWN_WORDS_TOKEN_IDS, NullTransformer
+from compel import ReturnedEmbeddingsType, CompelForSD, CompelForSDXL, CompelForFlux
+from compel.conditioning_scheduler import StaticConditioningScheduler, ConditioningScheduler
+from prompting_test_utils import DummyTokenizer, DummyTransformer, KNOWN_WORDS, KNOWN_WORDS_TOKEN_IDS
 
-from src.compel.compel import Compel
+from compel.compel import Compel
 
 
 def make_dummy_compel():
@@ -145,7 +146,7 @@ class CompelTestCase(unittest.TestCase):
 
     def test_too_long_prompt_notruncate(self):
         tokenizer = DummyTokenizer(model_max_length=10)
-        text_encoder = DummyTransformer()
+        text_encoder = DummyTransformer(text_model_max_length=10)
         compel = Compel(tokenizer=tokenizer, text_encoder=text_encoder, truncate_long_prompts=False)
 
         positive_prompt = " ".join(KNOWN_WORDS[:3] * 4)
@@ -167,7 +168,7 @@ class CompelTestCase(unittest.TestCase):
 
     def test_pad_conditioning_tensors_to_same_length(self):
         tokenizer = DummyTokenizer(model_max_length=5)
-        text_encoder = DummyTransformer(embedding_length=7)
+        text_encoder = DummyTransformer(text_model_max_length=5, embedding_length=7)
         compel = Compel(tokenizer=tokenizer, text_encoder=text_encoder, truncate_long_prompts=False)
 
         embeds_a = torch.randn([1, tokenizer.model_max_length*2, text_encoder.embedding_length])
@@ -203,11 +204,6 @@ class CompelTestCase(unittest.TestCase):
 
         embeds_a = torch.randn([1, tokenizer.model_max_length, text_encoder.embedding_length])
         embeds_b = torch.randn([tokenizer.model_max_length, text_encoder.embedding_length+1])
-        with self.assertRaises(ValueError):
-            _ = compel.pad_conditioning_tensors_to_same_length([embeds_a, embeds_b])
-
-        embeds_a = torch.randn([text_encoder.embedding_length])
-        embeds_b = torch.randn([text_encoder.embedding_length])
         with self.assertRaises(ValueError):
             _ = compel.pad_conditioning_tensors_to_same_length([embeds_a, embeds_b])
 
@@ -271,7 +267,7 @@ class CompelTestCase(unittest.TestCase):
     def test_long_and_short_call(self):
         max_length = 5
         tokenizer = DummyTokenizer(model_max_length=max_length)
-        text_encoder = DummyTransformer()
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
         compel = Compel(tokenizer=tokenizer, text_encoder=text_encoder, truncate_long_prompts=False)
 
         prompts = ["a b c", "a b c a b c a b"]
@@ -282,7 +278,7 @@ class CompelTestCase(unittest.TestCase):
     def test_concat_for_and(self):
         max_length = 5
         tokenizer = DummyTokenizer(model_max_length=max_length)
-        text_encoder = DummyTransformer()
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
         compel = Compel(tokenizer=tokenizer, text_encoder=text_encoder, truncate_long_prompts=False)
 
         embeds_separate = compel(['a b c', 'b a'])
@@ -308,11 +304,288 @@ class CompelTestCase(unittest.TestCase):
 
         max_length = 5
         tokenizer = DummyTokenizer(model_max_length=max_length)
-        text_encoder = DummyTransformer()
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
         compel = Compel(tokenizer=tokenizer, text_encoder=text_encoder, truncate_long_prompts=False)
         text = "a b gone</w> a b .</w> gone</w> home</w> a .</w>"
         # should not raise any exceptions
         _ = compel(text)
+
+    def test_sdxl_wrapper(self):
+        from compel.convenience_wrappers import CompelForSDXL
+        max_length = 5
+        pipeline = MagicMock()
+        pipeline.tokenizer = DummyTokenizer(model_max_length=max_length)
+        pipeline.tokenizer_2 = DummyTokenizer(model_max_length=max_length)
+        pipeline.text_encoder = DummyTransformer(text_model_max_length=max_length, embedding_length=1280)
+        pipeline.text_encoder_2 = DummyTransformer(text_model_max_length=max_length, embedding_length=768)
+        compel = CompelForSDXL(pipeline)
+
+        prompt_short = "a b c"
+        prompt_long = "a b c a b c a b"
+        conditioning = compel(prompt_short, style_prompt=prompt_long)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNone(conditioning.negative_embeds)
+        self.assertIsNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (1, 768))
+
+        conditioning = compel(prompt_long, style_prompt=prompt_short)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNone(conditioning.negative_embeds)
+        self.assertIsNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (1, 768))
+
+        conditioning = compel(prompt_long, style_prompt=prompt_short, negative_prompt=prompt_short, negative_style_prompt=prompt_long)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNotNone(conditioning.negative_embeds)
+        self.assertIsNotNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (1, 768))
+        self.assertEqual((1, 15, 2048), conditioning.negative_embeds.shape, )
+        self.assertEqual((1, 768), conditioning.negative_pooled_embeds.shape, )
+
+        conditioning = compel(prompt_short, style_prompt=prompt_short, negative_prompt=prompt_long, negative_style_prompt=prompt_long)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNotNone(conditioning.negative_embeds)
+        self.assertIsNotNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (1, 768))
+        self.assertEqual(conditioning.negative_embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.negative_pooled_embeds.shape, (1, 768))
+
+        conditioning = compel(prompt_short, style_prompt=prompt_short, negative_prompt=prompt_short, negative_style_prompt=prompt_long)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNotNone(conditioning.negative_embeds)
+        self.assertIsNotNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (1, 768))
+        self.assertEqual(conditioning.negative_embeds.shape, (1, 15, 2048))
+        self.assertEqual(conditioning.negative_pooled_embeds.shape, (1, 768))
+
+        conditioning = compel([prompt_short, prompt_long],
+                              style_prompt=[prompt_short, prompt_long],
+                              negative_prompt=prompt_short, negative_style_prompt=prompt_long)
+        self.assertIsNotNone(conditioning.embeds)
+        self.assertIsNotNone(conditioning.pooled_embeds)
+        self.assertIsNotNone(conditioning.negative_embeds)
+        self.assertIsNotNone(conditioning.negative_pooled_embeds)
+        self.assertEqual(conditioning.embeds.shape[0], conditioning.pooled_embeds.shape[0])
+        self.assertEqual(conditioning.embeds.shape, (2, 15, 2048))
+        self.assertEqual(conditioning.pooled_embeds.shape, (2, 768))
+        self.assertEqual(conditioning.negative_embeds.shape, (2, 15, 2048))
+        self.assertEqual(conditioning.negative_pooled_embeds.shape, (2, 768))
+
+    def test_tokenization_sd(self):
+        max_length = 5
+        tokenizer = DummyTokenizer(model_max_length=max_length)
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
+        pipeline = MagicMock()
+        pipeline.tokenizer = tokenizer
+        pipeline.text_encoder = text_encoder
+        compel = CompelForSD(pipeline)
+
+        prompt = "a b c"
+        conditioning = compel(prompt)
+        self.assertEqual(1, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' not in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(conditioning.tokenization_info['main_positive'][0].shape, (1, 5))
+
+        negative_prompt = "a"
+        conditioning = compel(prompt, negative_prompt=negative_prompt)
+        self.assertEqual(2, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(conditioning.tokenization_info['main_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['main_negative'][0].shape, (1, 5)) # automatically padded to full length + same length as positive
+
+        prompt = "a b c a b c a"
+        conditioning = compel(prompt, negative_prompt=negative_prompt)
+        self.assertEqual(2, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual((1, 15), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+
+    def test_tokenization_sdxl(self):
+        max_length = 5
+        tokenizer = DummyTokenizer(model_max_length=max_length)
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
+        pipeline = MagicMock()
+        pipeline.tokenizer = tokenizer
+        pipeline.tokenizer_2 = tokenizer
+        pipeline.text_encoder = text_encoder
+        pipeline.text_encoder_2 = text_encoder
+        compel = CompelForSDXL(pipeline)
+
+        prompt = "a b c"
+        conditioning = compel(prompt)
+        self.assertEqual(2, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' not in conditioning.tokenization_info)
+        self.assertTrue('style_negative' not in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(conditioning.tokenization_info['main_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['style_positive'][0].shape, (1, 5))
+
+        negative_prompt = "a"
+        conditioning = compel(prompt, negative_prompt=negative_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual(conditioning.tokenization_info['main_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['main_negative'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['style_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['style_negative'][0].shape, (1, 5))
+
+        style_prompt = "c"
+        conditioning = compel(prompt, negative_prompt=negative_prompt, style_prompt=style_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual(conditioning.tokenization_info['main_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['main_negative'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['style_positive'][0].shape, (1, 5))
+        self.assertEqual(conditioning.tokenization_info['style_negative'][0].shape, (1, 5))
+
+        prompt = "a b c a b c a"
+        #negative_style_prompt = "c b a c"
+        style_prompt = "c"
+        conditioning = compel(prompt, negative_prompt=negative_prompt, style_prompt=style_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual((1, 15), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_negative'][0].shape)
+
+        prompt = "a b c a b c a"
+        negative_style_prompt = "c b a c"
+        style_prompt = "c"
+        conditioning = compel(prompt, negative_prompt=negative_prompt, style_prompt=style_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual((1, 15), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_negative'][0].shape)
+
+    def test_tokenization_flux(self):
+        max_length = 5
+        tokenizer = DummyTokenizer(model_max_length=max_length)
+        text_encoder = DummyTransformer(text_model_max_length=max_length)
+        pipeline = MagicMock()
+        pipeline.tokenizer = tokenizer
+        pipeline.tokenizer_2 = tokenizer
+        pipeline.text_encoder = text_encoder
+        pipeline.text_encoder_2 = text_encoder
+        compel = CompelForFlux(pipeline)
+
+        prompt = "a b c"
+        conditioning = compel(prompt)
+        self.assertEqual(2, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' not in conditioning.tokenization_info)
+        self.assertTrue('style_negative' not in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+
+        negative_prompt = "a"
+        conditioning = compel(prompt, negative_prompt=negative_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_negative'][0].shape)
+
+        style_prompt = "c"
+        conditioning = compel(prompt, negative_prompt=negative_prompt, style_prompt=style_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_negative'][0].shape)
+
+        prompt = "a b c a b c a"
+        negative_style_prompt = "c b a c"
+        style_prompt = "c"
+        conditioning = compel(prompt, negative_prompt=negative_prompt, style_prompt=style_prompt, negative_style_prompt=negative_style_prompt)
+        self.assertEqual(4, len(conditioning.tokenization_info))
+        self.assertTrue('main_positive' in conditioning.tokenization_info)
+        self.assertTrue('style_positive' in conditioning.tokenization_info)
+        self.assertTrue('main_negative' in conditioning.tokenization_info)
+        self.assertTrue('style_negative' in conditioning.tokenization_info)
+        self.assertEqual(1, len(conditioning.tokenization_info['main_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_positive']))
+        self.assertEqual(1, len(conditioning.tokenization_info['main_negative']))
+        self.assertEqual(1, len(conditioning.tokenization_info['style_negative']))
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['main_negative'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_positive'][0].shape)
+        self.assertEqual((1, 5), conditioning.tokenization_info['style_negative'][0].shape)
 
 
 if __name__ == '__main__':

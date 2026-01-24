@@ -13,15 +13,16 @@ problem data (for instance, it does not make any rank assumption, contrary to
 solvers such as :ref:`CVXOPT <CVXOPT rank assumptions>` or :ref:`qpSWIFT
 <qpSWIFT rank assumptions>`). If you are using OSQP in a scientific work,
 consider citing the corresponding paper [Stellato2020]_.
+
+**Warm-start:** this solver interface supports warm starting 🔥
 """
 
 import warnings
 from typing import Optional, Union
 
 import numpy as np
-import osqp
 import scipy.sparse as spa
-from osqp import OSQP
+from osqp import OSQP, SolverStatus
 from scipy.sparse import csc_matrix
 
 from ..conversions import ensure_sparse_matrices
@@ -42,7 +43,7 @@ def osqp_solve_problem(
     problem :
         Quadratic program to solve.
     initvals :
-        Warm-start guess vector.
+        Warm-start guess vector for the primal solution.
     verbose :
         Set to `True` to print out extra information.
 
@@ -122,7 +123,7 @@ def osqp_solve_problem(
     if lb is not None or ub is not None:
         lb = lb if lb is not None else np.full(q.shape, -np.inf)
         ub = ub if ub is not None else np.full(q.shape, +np.inf)
-        E = spa.eye(q.shape[0])
+        E = spa.eye(q.shape[0], format="csc")
         A_osqp = E if A_osqp is None else spa.vstack([A_osqp, E], format="csc")
         l_osqp = lb if l_osqp is None else np.hstack([l_osqp, lb])
         u_osqp = ub if u_osqp is None else np.hstack([u_osqp, ub])
@@ -134,7 +135,6 @@ def osqp_solve_problem(
         solver.warm_start(x=initvals)
 
     res = solver.solve()
-    success_status = osqp.constant("OSQP_SOLVED")
 
     solution = Solution(problem)
     solution.extras = {
@@ -143,7 +143,7 @@ def osqp_solve_problem(
         "prim_inf_cert": res.prim_inf_cert,
     }
 
-    solution.found = res.info.status_val == success_status
+    solution.found = res.info.status_val == SolverStatus.OSQP_SOLVED
     if not solution.found:
         warnings.warn(f"OSQP exited with status '{res.info.status}'")
     solution.x = res.x
@@ -208,7 +208,7 @@ def osqp_solve_qp(
     ub :
         Upper bound constraint vector.
     initvals :
-        Warm-start guess vector.
+        Warm-start guess vector for the primal solution.
     verbose :
         Set to `True` to print out extra information.
 

@@ -533,6 +533,7 @@ def plot_rolling_stats(
     subtitle: bool = True,
     savefig: bool | None = None,
     cutoff: pd.Timestamp | None = None,
+    reference_line: float = 0.0,
 ):
     colors, _, _ = _get_colors(grayscale)
 
@@ -578,7 +579,7 @@ def plot_rolling_stats(
             hlcolor = "black"
         ax.axhline(hline, ls="--", lw=hlw, color=hlcolor, label=hllabel, zorder=2)
 
-    ax.axhline(0, ls="--", lw=1, color="#000000", zorder=2)
+    ax.axhline(reference_line, ls="--", lw=1, color="#000000", zorder=2)
 
     if ylabel:
         ax.set_ylabel(ylabel, fontweight="bold", fontsize=12, color="black")
@@ -1092,7 +1093,7 @@ def format_cur_axis(x, _):
     if x >= 1e3:
         res = "$%1.0fK" % (x * 1e-3)
         return res.replace(".0K", "K")
-    res = "$%1.0f" % x
+    res = f"${x:1.0f}"
     return res.replace(".0", "")
 
 
@@ -1110,5 +1111,5 @@ def format_pct_axis(x, _):
     if x >= 1e3:
         res = "%1.1fK%%" % (x * 1e-3)
         return res.replace(".0K%", "K%")
-    res = "%1.0f%%" % x
+    res = f"{x:1.0f}%"
     return res.replace(".0%", "%")

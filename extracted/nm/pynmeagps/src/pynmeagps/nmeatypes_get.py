@@ -531,7 +531,7 @@ NMEA_PAYLOADS_GET = {
             "None",
             {  # repeating group * 1..4
                 "svid": IN,
-                "elv": DE,  # elevation
+                "elv": IN,  # elevation
                 "az": IN,  # azimuth
                 "cno": IN,  # signal strength
             },
@@ -558,10 +558,7 @@ NMEA_PAYLOADS_GET = {
     },
     "HDM": {
         "headingM": DE,
-        "deviation": DE,
-        "deviationEW": LND,
-        "variation": DE,
-        "variationEW": LND,
+        "headingMag": CH,  # 'M'
     },
     "HDT": {
         "headingT": DE,

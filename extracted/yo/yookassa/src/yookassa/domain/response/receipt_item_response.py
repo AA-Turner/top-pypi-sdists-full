@@ -23,7 +23,7 @@ class ReceiptItemResponse(ResponseObject):
     """Суммарная стоимость покупаемого товара в копейках/центах."""  # noqa: E501
 
     __vat_code = None
-    """Ставка НДС, число 1-10 (тег в 54 ФЗ — 1199)."""  # noqa: E501
+    """Ставка НДС, число 1-12 (тег в 54 ФЗ — 1199)."""  # noqa: E501
 
     __payment_subject = None
     """Признак предмета расчета (тег в 54 ФЗ — 1212)."""  # noqa: E501
@@ -57,6 +57,9 @@ class ReceiptItemResponse(ResponseObject):
 
     __product_code = None
     """Код товара — уникальный номер, который присваивается экземпляру товара при [маркировке](http://docs.cntd.ru/document/902192509) (тег в 54 ФЗ — 1162). <br/>Формат: число в шестнадцатеричном представлении с пробелами. Максимальная длина — 32 байта. Пример: ~`00 00 00 01 00 21 FA 41 00 23 05 41 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 AB 00`. <br/>Обязательный параметр, если товар нужно [маркировать](http://docs.cntd.ru/document/557297080). """  # noqa: E501
+
+    __planned_status = None
+    """Планируемый статус товара. Тег в 54 ФЗ — 2003. Указывается только для товаров, которые подлежат обязательной маркировке (в `items.mark_code_info` передается параметр `gs_1m`, `short` или `fur`).  Перечень возможных значений:  * [для Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#planned-status) * [для сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#planned-status) """  # noqa: E501
 
     __mark_mode = None
     """Режим обработки кода маркировки (тег в 54 ФЗ — 2102).  Обязательный параметр, если одновременно выполняются эти условия:  * вы используете Чеки от ЮKassa или онлайн-кассу Атол Онлайн или BusinessRu, обновленную до ФФД 1.2; * товар нужно [маркировать](http://docs.cntd.ru/document/902192509).  Должен принимать значение равное «0». """  # noqa: E501
@@ -372,6 +375,24 @@ class ReceiptItemResponse(ResponseObject):
         :type value: str
         """
         self.__product_code = str(value)
+
+    @property
+    def planned_status(self):
+        """Возвращает planned_status модели ReceiptItemResponse.
+
+        :return: planned_status модели ReceiptItemResponse.
+        :rtype: int
+        """
+        return self.__planned_status
+
+    @planned_status.setter
+    def planned_status(self, value):
+        """Устанавливает planned_status модели ReceiptItemResponse.
+
+        :param value: planned_status модели ReceiptItemResponse.
+        :type value: int
+        """
+        self.__planned_status = int(value)
 
     @property
     def mark_mode(self):

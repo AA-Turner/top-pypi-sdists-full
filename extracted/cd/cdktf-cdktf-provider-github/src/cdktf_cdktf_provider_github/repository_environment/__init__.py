@@ -1,7 +1,7 @@
 r'''
 # `github_repository_environment`
 
-Refer to the Terraform Registry for docs: [`github_repository_environment`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment).
+Refer to the Terraform Registry for docs: [`github_repository_environment`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryEnvironment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryEnvironment.RepositoryEnvironment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment github_repository_environment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment github_repository_environment}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class RepositoryEnvironment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment github_repository_environment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment github_repository_environment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param environment: The name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
-        :param repository: The repository of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
-        :param can_admins_bypass: Can Admins bypass deployment protections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
-        :param deployment_branch_policy: deployment_branch_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#id RepositoryEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prevent_self_review: Prevent users from approving workflows runs that they triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
-        :param reviewers: reviewers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
-        :param wait_timer: Amount of time to delay a job after the job is initially triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
+        :param environment: The name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
+        :param repository: The repository of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
+        :param can_admins_bypass: Can Admins bypass deployment protections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
+        :param deployment_branch_policy: deployment_branch_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#id RepositoryEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prevent_self_review: Prevent users from approving workflows runs that they triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
+        :param reviewers: reviewers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
+        :param wait_timer: Amount of time to delay a job after the job is initially triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class RepositoryEnvironment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryEnvironment to import.
-        :param import_from_id: The id of the existing RepositoryEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryEnvironment that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryEnvironment to import is found.
         '''
         if __debug__:
@@ -143,8 +143,8 @@ class RepositoryEnvironment(
         protected_branches: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param custom_branch_policies: Whether only branches that match the specified name patterns can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
-        :param protected_branches: Whether only branches with branch protection rules can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
+        :param custom_branch_policies: Whether only branches that match the specified name patterns can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
+        :param protected_branches: Whether only branches with branch protection rules can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
         '''
         value = RepositoryEnvironmentDeploymentBranchPolicy(
             custom_branch_policies=custom_branch_policies,
@@ -395,14 +395,14 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param environment: The name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
-        :param repository: The repository of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
-        :param can_admins_bypass: Can Admins bypass deployment protections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
-        :param deployment_branch_policy: deployment_branch_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#id RepositoryEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param prevent_self_review: Prevent users from approving workflows runs that they triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
-        :param reviewers: reviewers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
-        :param wait_timer: Amount of time to delay a job after the job is initially triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
+        :param environment: The name of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
+        :param repository: The repository of the environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
+        :param can_admins_bypass: Can Admins bypass deployment protections. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
+        :param deployment_branch_policy: deployment_branch_policy block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#id RepositoryEnvironment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param prevent_self_review: Prevent users from approving workflows runs that they triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
+        :param reviewers: reviewers block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
+        :param wait_timer: Amount of time to delay a job after the job is initially triggered. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -524,7 +524,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def environment(self) -> builtins.str:
         '''The name of the environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#environment RepositoryEnvironment#environment}
         '''
         result = self._values.get("environment")
         assert result is not None, "Required property 'environment' is missing"
@@ -534,7 +534,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The repository of the environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#repository RepositoryEnvironment#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -546,7 +546,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Can Admins bypass deployment protections.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#can_admins_bypass RepositoryEnvironment#can_admins_bypass}
         '''
         result = self._values.get("can_admins_bypass")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -557,14 +557,14 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["RepositoryEnvironmentDeploymentBranchPolicy"]:
         '''deployment_branch_policy block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#deployment_branch_policy RepositoryEnvironment#deployment_branch_policy}
         '''
         result = self._values.get("deployment_branch_policy")
         return typing.cast(typing.Optional["RepositoryEnvironmentDeploymentBranchPolicy"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#id RepositoryEnvironment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#id RepositoryEnvironment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -578,7 +578,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Prevent users from approving workflows runs that they triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#prevent_self_review RepositoryEnvironment#prevent_self_review}
         '''
         result = self._values.get("prevent_self_review")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -589,7 +589,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryEnvironmentReviewers"]]]:
         '''reviewers block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#reviewers RepositoryEnvironment#reviewers}
         '''
         result = self._values.get("reviewers")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["RepositoryEnvironmentReviewers"]]], result)
@@ -598,7 +598,7 @@ class RepositoryEnvironmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def wait_timer(self) -> typing.Optional[jsii.Number]:
         '''Amount of time to delay a job after the job is initially triggered.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#wait_timer RepositoryEnvironment#wait_timer}
         '''
         result = self._values.get("wait_timer")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -631,8 +631,8 @@ class RepositoryEnvironmentDeploymentBranchPolicy:
         protected_branches: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
     ) -> None:
         '''
-        :param custom_branch_policies: Whether only branches that match the specified name patterns can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
-        :param protected_branches: Whether only branches with branch protection rules can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
+        :param custom_branch_policies: Whether only branches that match the specified name patterns can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
+        :param protected_branches: Whether only branches with branch protection rules can deploy to this environment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc6643e3f1d290825d17c549b8f503830d76419aaa5c3f4d1dc1bbf2a099a369)
@@ -649,7 +649,7 @@ class RepositoryEnvironmentDeploymentBranchPolicy:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether only branches that match the specified name patterns can deploy to this environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#custom_branch_policies RepositoryEnvironment#custom_branch_policies}
         '''
         result = self._values.get("custom_branch_policies")
         assert result is not None, "Required property 'custom_branch_policies' is missing"
@@ -661,7 +661,7 @@ class RepositoryEnvironmentDeploymentBranchPolicy:
     ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether only branches with branch protection rules can deploy to this environment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#protected_branches RepositoryEnvironment#protected_branches}
         '''
         result = self._values.get("protected_branches")
         assert result is not None, "Required property 'protected_branches' is missing"
@@ -778,8 +778,8 @@ class RepositoryEnvironmentReviewers:
         users: typing.Optional[typing.Sequence[jsii.Number]] = None,
     ) -> None:
         '''
-        :param teams: Up to 6 IDs for teams who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#teams RepositoryEnvironment#teams}
-        :param users: Up to 6 IDs for users who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#users RepositoryEnvironment#users}
+        :param teams: Up to 6 IDs for teams who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#teams RepositoryEnvironment#teams}
+        :param users: Up to 6 IDs for users who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#users RepositoryEnvironment#users}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__930a9437428ecdc1f28eaa64e4bfec055aa8c8c86de5ca5a91103d7c082a87f2)
@@ -797,7 +797,7 @@ class RepositoryEnvironmentReviewers:
 
         Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#teams RepositoryEnvironment#teams}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#teams RepositoryEnvironment#teams}
         '''
         result = self._values.get("teams")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -808,7 +808,7 @@ class RepositoryEnvironmentReviewers:
 
         Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_environment#users RepositoryEnvironment#users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_environment#users RepositoryEnvironment#users}
         '''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)

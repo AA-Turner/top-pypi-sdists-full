@@ -7,6 +7,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from .booking_type import BookingType
     from .place import Place
+    from .place_feature_enablement import PlaceFeatureEnablement
 
 from .place import Place
 
@@ -16,7 +17,7 @@ class Room(Place, Parsable):
     odata_type: Optional[str] = "#microsoft.graph.room"
     # Specifies the name of the audio device in the room.
     audio_device_name: Optional[str] = None
-    # Type of room. Possible values are standard, and reserved.
+    # Type of room. Possible values are: unknown, standard, reserved.
     booking_type: Optional[BookingType] = None
     # Specifies the building name or building number that the room is in.
     building: Optional[str] = None
@@ -30,14 +31,12 @@ class Room(Place, Parsable):
     floor_label: Optional[str] = None
     # Specifies the floor number that the room is on.
     floor_number: Optional[int] = None
-    # Specifies whether the room is wheelchair accessible.
-    is_wheel_chair_accessible: Optional[bool] = None
-    # Specifies a descriptive label for the room, for example, a number or name.
-    label: Optional[str] = None
     # Specifies a nickname for the room, for example, 'conf room'.
     nickname: Optional[str] = None
-    # Specifies other features of the room, for example, details like the type of view or furniture type.
-    tags: Optional[list[str]] = None
+    # An alternative immutable unique identifier of the room. Read-only.
+    place_id: Optional[str] = None
+    # The teamsEnabledState property
+    teams_enabled_state: Optional[PlaceFeatureEnablement] = None
     # Specifies the name of the video device in the room.
     video_device_name: Optional[str] = None
     
@@ -59,9 +58,11 @@ class Room(Place, Parsable):
         """
         from .booking_type import BookingType
         from .place import Place
+        from .place_feature_enablement import PlaceFeatureEnablement
 
         from .booking_type import BookingType
         from .place import Place
+        from .place_feature_enablement import PlaceFeatureEnablement
 
         fields: dict[str, Callable[[Any], None]] = {
             "audioDeviceName": lambda n : setattr(self, 'audio_device_name', n.get_str_value()),
@@ -72,10 +73,9 @@ class Room(Place, Parsable):
             "emailAddress": lambda n : setattr(self, 'email_address', n.get_str_value()),
             "floorLabel": lambda n : setattr(self, 'floor_label', n.get_str_value()),
             "floorNumber": lambda n : setattr(self, 'floor_number', n.get_int_value()),
-            "isWheelChairAccessible": lambda n : setattr(self, 'is_wheel_chair_accessible', n.get_bool_value()),
-            "label": lambda n : setattr(self, 'label', n.get_str_value()),
             "nickname": lambda n : setattr(self, 'nickname', n.get_str_value()),
-            "tags": lambda n : setattr(self, 'tags', n.get_collection_of_primitive_values(str)),
+            "placeId": lambda n : setattr(self, 'place_id', n.get_str_value()),
+            "teamsEnabledState": lambda n : setattr(self, 'teams_enabled_state', n.get_enum_value(PlaceFeatureEnablement)),
             "videoDeviceName": lambda n : setattr(self, 'video_device_name', n.get_str_value()),
         }
         super_fields = super().get_field_deserializers()
@@ -99,10 +99,9 @@ class Room(Place, Parsable):
         writer.write_str_value("emailAddress", self.email_address)
         writer.write_str_value("floorLabel", self.floor_label)
         writer.write_int_value("floorNumber", self.floor_number)
-        writer.write_bool_value("isWheelChairAccessible", self.is_wheel_chair_accessible)
-        writer.write_str_value("label", self.label)
         writer.write_str_value("nickname", self.nickname)
-        writer.write_collection_of_primitive_values("tags", self.tags)
+        writer.write_str_value("placeId", self.place_id)
+        writer.write_enum_value("teamsEnabledState", self.teams_enabled_state)
         writer.write_str_value("videoDeviceName", self.video_device_name)
     
 

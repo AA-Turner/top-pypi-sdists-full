@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ydb-dbapi"
-version = "0.1.14"  # AUTOVERSION
+version = "0.1.18"  # AUTOVERSION
 description = "YDB Python DBAPI which complies with PEP 249"
 authors = ["Yandex LLC <ydb@yandex-team.ru>"]
 readme = "README.md"
@@ -8,7 +8,7 @@ repository = "https://github.com/ydb-platform/ydb-python-dbapi/"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-ydb = "^3.21.6"
+ydb = "^3.24.0"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.5.0"

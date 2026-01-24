@@ -1,0 +1,64 @@
+[package]
+name = "yaml-rs"
+version = "0.0.11"
+edition = "2024"
+license = "Unlicense"
+repository = "https://github.com/lava-sh/yaml-rs"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_yaml_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27.2", features = [
+    "generate-import-lib",
+    "extension-module",
+] }
+atoi = "2.0.0"
+itoa = "1.0.17"
+ordered-float = "5.1.0"
+memchr = { version = "2", default-features = false }
+encoding_rs = "0.8.35"
+simdutf8 = { version = "0.1.5", features = ["aarch64_neon_prefetch"] }
+
+# https://github.com/bourumir-wyngs/saphyr/tree/dev/saphyr-parser
+[dependencies.saphyr]
+git = "https://github.com/bourumir-wyngs/saphyr"
+rev = "467ef9aa750faa6cffed06c4e4cc35c59c2a78bd"
+
+[dependencies.saphyr-parser]
+package = "saphyr-parser-bw"
+git = "https://github.com/bourumir-wyngs/saphyr"
+rev = "467ef9aa750faa6cffed06c4e4cc35c59c2a78bd"
+
+[dependencies.mimalloc]
+optional = true
+version = "0.1.48"
+features = [
+    # mimalloc v3
+    # See: https://github.com/microsoft/mimalloc/tree/dev3?tab=readme-ov-file#branches
+    "v3",
+    "override",
+    "local_dynamic_tls",
+]
+
+[features]
+default = []
+mimalloc = ["dep:mimalloc"]
+
+[profile.release]
+lto = "fat"
+strip = "symbols"
+codegen-units = 1
+
+[lints]
+rust.warnings = { level = "deny" }
+clippy.perf = { level = "deny", priority = -1 }
+clippy.style = { level = "warn", priority = -1 }
+clippy.pedantic = { level = "warn", priority = -1 }
+
+clippy.too_many_lines = "allow"
+clippy.manual_let_else = "allow"
+clippy.cast_possible_truncation = "allow"

@@ -3,7 +3,7 @@ Type annotations for guardduty service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -36,6 +37,7 @@ from .paginator import (
     ListFindingsPaginator,
     ListInvitationsPaginator,
     ListIPSetsPaginator,
+    ListMalwareScansPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
     ListThreatEntitySetsPaginator,
@@ -109,6 +111,8 @@ from .type_defs import (
     GetIPSetResponseTypeDef,
     GetMalwareProtectionPlanRequestTypeDef,
     GetMalwareProtectionPlanResponseTypeDef,
+    GetMalwareScanRequestTypeDef,
+    GetMalwareScanResponseTypeDef,
     GetMalwareScanSettingsRequestTypeDef,
     GetMalwareScanSettingsResponseTypeDef,
     GetMasterAccountRequestTypeDef,
@@ -144,6 +148,8 @@ from .type_defs import (
     ListIPSetsResponseTypeDef,
     ListMalwareProtectionPlansRequestTypeDef,
     ListMalwareProtectionPlansResponseTypeDef,
+    ListMalwareScansRequestTypeDef,
+    ListMalwareScansResponseTypeDef,
     ListMembersRequestTypeDef,
     ListMembersResponseTypeDef,
     ListOrganizationAdminAccountsRequestTypeDef,
@@ -158,6 +164,7 @@ from .type_defs import (
     ListThreatIntelSetsResponseTypeDef,
     ListTrustedEntitySetsRequestTypeDef,
     ListTrustedEntitySetsResponseTypeDef,
+    SendObjectMalwareScanRequestTypeDef,
     StartMalwareScanRequestTypeDef,
     StartMalwareScanResponseTypeDef,
     StartMonitoringMembersRequestTypeDef,
@@ -183,12 +190,6 @@ from .type_defs import (
     UpdateTrustedEntitySetRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -197,12 +198,12 @@ else:
 __all__ = ("GuardDutyClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 class GuardDutyClient(AioBaseClient):
     """
@@ -241,7 +242,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def accept_administrator_invitation(
         self, **kwargs: Unpack[AcceptAdministratorInvitationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Accepts the invitation to be a member account and get monitored by a GuardDuty
         administrator account that sent the invitation.
@@ -252,7 +253,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def accept_invitation(
         self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Accepts the invitation to be monitored by a GuardDuty administrator account.
 
@@ -262,7 +263,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def archive_findings(
         self, **kwargs: Unpack[ArchiveFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Archives GuardDuty findings that are specified by the list of finding IDs.
 
@@ -334,7 +335,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def create_sample_findings(
         self, **kwargs: Unpack[CreateSampleFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generates sample findings of types specified by the list of finding types.
 
@@ -385,7 +386,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def delete_detector(
         self, **kwargs: Unpack[DeleteDetectorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon GuardDuty detector that is specified by the detector ID.
 
@@ -393,7 +394,7 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#delete_detector)
         """
 
-    async def delete_filter(self, **kwargs: Unpack[DeleteFilterRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_filter(self, **kwargs: Unpack[DeleteFilterRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the filter specified by the filter name.
 
@@ -401,7 +402,7 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#delete_filter)
         """
 
-    async def delete_ip_set(self, **kwargs: Unpack[DeleteIPSetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_ip_set(self, **kwargs: Unpack[DeleteIPSetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the IPSet specified by the <code>ipSetId</code>.
 
@@ -444,7 +445,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def delete_publishing_destination(
         self, **kwargs: Unpack[DeletePublishingDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the publishing definition with the specified <code>destinationId</code>.
 
@@ -454,7 +455,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def delete_threat_entity_set(
         self, **kwargs: Unpack[DeleteThreatEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the threat entity set that is associated with the specified
         <code>threatEntitySetId</code>.
@@ -465,7 +466,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def delete_threat_intel_set(
         self, **kwargs: Unpack[DeleteThreatIntelSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the ThreatIntelSet specified by the ThreatIntelSet ID.
 
@@ -475,7 +476,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def delete_trusted_entity_set(
         self, **kwargs: Unpack[DeleteTrustedEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the trusted entity set that is associated with the specified
         <code>trustedEntitySetId</code>.
@@ -518,7 +519,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def disable_organization_admin_account(
         self, **kwargs: Unpack[DisableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the existing GuardDuty delegated administrator of the organization.
 
@@ -528,7 +529,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def disassociate_from_administrator_account(
         self, **kwargs: Unpack[DisassociateFromAdministratorAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the current GuardDuty member account from its administrator
         account.
@@ -539,7 +540,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def disassociate_from_master_account(
         self, **kwargs: Unpack[DisassociateFromMasterAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates the current GuardDuty member account from its administrator
         account.
@@ -561,7 +562,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def enable_organization_admin_account(
         self, **kwargs: Unpack[EnableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Designates an Amazon Web Services account within the organization as your
         GuardDuty delegated administrator.
@@ -657,6 +658,16 @@ class GuardDutyClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_malware_protection_plan.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#get_malware_protection_plan)
+        """
+
+    async def get_malware_scan(
+        self, **kwargs: Unpack[GetMalwareScanRequestTypeDef]
+    ) -> GetMalwareScanResponseTypeDef:
+        """
+        Retrieves the detailed information for a specific malware scan.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_malware_scan.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#get_malware_scan)
         """
 
     async def get_malware_scan_settings(
@@ -847,6 +858,16 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#list_malware_protection_plans)
         """
 
+    async def list_malware_scans(
+        self, **kwargs: Unpack[ListMalwareScansRequestTypeDef]
+    ) -> ListMalwareScansResponseTypeDef:
+        """
+        Returns a list of malware scans.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/list_malware_scans.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#list_malware_scans)
+        """
+
     async def list_members(
         self, **kwargs: Unpack[ListMembersRequestTypeDef]
     ) -> ListMembersResponseTypeDef:
@@ -921,6 +942,16 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#list_trusted_entity_sets)
         """
 
+    async def send_object_malware_scan(
+        self, **kwargs: Unpack[SendObjectMalwareScanRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Initiates a malware scan for a specific S3 object.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/send_object_malware_scan.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#send_object_malware_scan)
+        """
+
     async def start_malware_scan(
         self, **kwargs: Unpack[StartMalwareScanRequestTypeDef]
     ) -> StartMalwareScanResponseTypeDef:
@@ -951,7 +982,7 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#stop_monitoring_members)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds tags to a resource.
 
@@ -961,7 +992,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def unarchive_findings(
         self, **kwargs: Unpack[UnarchiveFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Unarchives GuardDuty findings specified by the <code>findingIds</code>.
 
@@ -969,7 +1000,7 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#unarchive_findings)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -979,7 +1010,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_detector(
         self, **kwargs: Unpack[UpdateDetectorRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the GuardDuty detector specified by the detector ID.
 
@@ -999,7 +1030,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_findings_feedback(
         self, **kwargs: Unpack[UpdateFindingsFeedbackRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Marks the specified GuardDuty findings as useful or not useful.
 
@@ -1007,7 +1038,7 @@ class GuardDutyClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#update_findings_feedback)
         """
 
-    async def update_ip_set(self, **kwargs: Unpack[UpdateIPSetRequestTypeDef]) -> Dict[str, Any]:
+    async def update_ip_set(self, **kwargs: Unpack[UpdateIPSetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the IPSet specified by the IPSet ID.
 
@@ -1027,7 +1058,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_malware_scan_settings(
         self, **kwargs: Unpack[UpdateMalwareScanSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the malware scan settings.
 
@@ -1047,7 +1078,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_organization_configuration(
         self, **kwargs: Unpack[UpdateOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Configures the delegated administrator account with the provided values.
 
@@ -1057,7 +1088,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_publishing_destination(
         self, **kwargs: Unpack[UpdatePublishingDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates information about the publishing destination specified by the
         <code>destinationId</code>.
@@ -1068,7 +1099,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_threat_entity_set(
         self, **kwargs: Unpack[UpdateThreatEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the threat entity set associated with the specified
         <code>threatEntitySetId</code>.
@@ -1079,7 +1110,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_threat_intel_set(
         self, **kwargs: Unpack[UpdateThreatIntelSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the ThreatIntelSet specified by the ThreatIntelSet ID.
 
@@ -1089,7 +1120,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def update_trusted_entity_set(
         self, **kwargs: Unpack[UpdateTrustedEntitySetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the trusted entity set associated with the specified
         <code>trustedEntitySetId</code>.
@@ -1177,6 +1208,17 @@ class GuardDutyClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_malware_scans"]
+    ) -> ListMalwareScansPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_members"]
     ) -> ListMembersPaginator:
         """
@@ -1238,7 +1280,7 @@ class GuardDutyClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

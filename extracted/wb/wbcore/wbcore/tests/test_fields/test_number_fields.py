@@ -163,4 +163,4 @@ class TestYearField:
         field = YearField(label=label, precision=2)
         representation = field.get_representation(None, key)[1]
         assert representation["precision"] == 0
-        assert representation["disable_formatting"] == True
+        assert representation["disable_formatting"]

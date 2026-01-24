@@ -36,9 +36,10 @@ class FeatureRestorationStatus(APIObject):
 
     """
 
-    _converter = t.Dict(
-        {t.Key("warnings"): t.List(t.String), t.Key("features_to_restore"): t.List(t.String)}
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("warnings"): t.List(t.String),
+        t.Key("features_to_restore"): t.List(t.String),
+    }).ignore_extra("*")
 
     def __init__(self, warnings: List[str], features_to_restore: List[str]) -> None:
         self.warnings = warnings
@@ -69,14 +70,12 @@ class DiscardedFeaturesInfo(APIObject):
     _get_url = "projects/{}/discardedFeatures/"
     _post_url = "projects/{}/modelingFeatures/fromDiscardedFeatures/"
 
-    _converter = t.Dict(
-        {
-            t.Key("count"): t.Int(gte=0),
-            t.Key("total_restore_limit"): t.Int(gte=0),
-            t.Key("remaining_restore_limit"): t.Int(gte=0),
-            t.Key("features"): t.List(t.String),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("count"): t.Int(gte=0),
+        t.Key("total_restore_limit"): t.Int(gte=0),
+        t.Key("remaining_restore_limit"): t.Int(gte=0),
+        t.Key("features"): t.List(t.String),
+    }).ignore_extra("*")
 
     def __init__(
         self,

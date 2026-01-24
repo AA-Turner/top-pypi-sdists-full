@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+import uuid
+from typing import TYPE_CHECKING, Any
 
 from daft.expressions.expressions import Expression, ExpressionsProjection
 from daft.recordbatch.micropartition import MicroPartition
+from daft.runners.ray_compat import validate_and_normalize_ray_options
 
 if TYPE_CHECKING:
     from ray.actor import ActorHandle as RayActorHandle
@@ -77,18 +79,28 @@ async def start_udf_actors(
     num_gpus_per_actor: float,
     num_cpus_per_actor: float,
     memory_per_actor: float,
+    ray_options: dict[str, Any] | None,
     timeout: int,
+    actor_name: str | None = None,
 ) -> list[UDFActorHandle]:
     expr_projection = ExpressionsProjection([Expression._from_pyexpr(expr) for expr in projection])
 
+    udf_options = validate_and_normalize_ray_options(
+        {
+            "scheduling_strategy": "SPREAD",
+            "num_gpus": num_gpus_per_actor,
+            "num_cpus": num_cpus_per_actor,
+            "memory": memory_per_actor,
+            **(ray_options or {}),
+        }
+    )
+
     actors: list[RayActorHandle] = [
         UDFActor.options(  # type: ignore
-            scheduling_strategy="SPREAD",
-            num_gpus=num_gpus_per_actor,
-            num_cpus=num_cpus_per_actor,
-            memory=memory_per_actor,
+            name=None if actor_name is None else f"{actor_name}:{str(uuid.uuid4())[:8]}-{rank}",
+            **udf_options,
         ).remote(expr_projection)
-        for _ in range(num_actors)
+        for rank in range(num_actors)
     ]
 
     # Wait for actors to be ready
@@ -100,7 +112,8 @@ async def start_udf_actors(
 
     if not ready_refs:
         raise RuntimeError(
-            f"UDF actors failed to start within {timeout} seconds, please increase the actor_udf_ready_timeout config via daft.set_execution_config(actor_udf_ready_timeout=timeout)"
+            f"UDF actors failed to start within {timeout} seconds, please increase the actor_udf_ready_timeout config "
+            f"via daft.set_execution_config(actor_udf_ready_timeout=timeout)"
         )
 
     # Return the ready actors

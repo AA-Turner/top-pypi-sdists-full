@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Custom data points for AioHomematic.
 
 This subpackage provides higher-level, device-specific data points that combine
-multiple backend parameters into single, meaningful entities (for example: a
+multiple backend parameters into single, meaningful data points (for example: a
 thermostat, a blind with tilt, a fixed-color light, a lock, a siren, a switch,
 or an irrigation valve). It also contains discovery helpers and a schema-based
 validation for model-specific configurations.
@@ -14,7 +14,7 @@ What this package does
   matching custom definition exists and the device is not ignored for customs,
   creates the appropriate custom data point(s) and attaches them to the device.
 - Definitions: The definition module holds the catalog of supported models and
-  the rules that describe which parameters form each custom entity. It exposes
+  the rules that describe which parameters form each custom data point. It exposes
   helpers to query availability, enumerate required parameters, and validate the
   definition schema.
 - Specializations: Rich custom data point classes for climate, light, cover,
@@ -25,20 +25,15 @@ What this package does
 How it relates to the generic layer
 Custom data points build on top of generic data points. While the generic layer
 maps one backend parameter to one data point, this package groups multiple
-parameters across channels (where needed) into a single higher-level entity. The
+parameters across channels (where needed) into a single higher-level data point. The
 result is a simpler interface for automations and UIs, while still allowing the
 underlying generic data points to be created when desired.
 
 Public API entry points commonly used by integrators
 - create_custom_data_points(device): Run discovery and attach custom data points.
 - data_point_definition_exists(model): Check if a custom definition is available.
-- get_custom_configs(model, category=None): Retrieve the CustomConfig entries
-  used to create custom data points for a model (optionally filtered by
-  category).
 - get_required_parameters(): Return all parameters that must be fetched to allow
   custom data points to function properly.
-- validate_custom_data_point_definition(): Validate the internal definition
-  schema; useful in tests and development.
 """
 
 from __future__ import annotations
@@ -46,14 +41,11 @@ from __future__ import annotations
 import logging
 from typing import Final
 
+from aiohomematic.const import ServiceScope
 from aiohomematic.decorators import inspector
-from aiohomematic.model import device as hmd
+from aiohomematic.interfaces.model import DeviceProtocol
 from aiohomematic.model.custom.climate import (
-    PROFILE_DICT,
     PROFILE_PREFIX,
-    SIMPLE_PROFILE_DICT,
-    SIMPLE_WEEKDAY_LIST,
-    WEEKDAY_DICT,
     BaseCustomDpClimate,
     ClimateActivity,
     ClimateMode,
@@ -61,8 +53,6 @@ from aiohomematic.model.custom.climate import (
     CustomDpIpThermostat,
     CustomDpRfThermostat,
     CustomDpSimpleRfThermostat,
-    ScheduleProfile,
-    ScheduleWeekday,
 )
 from aiohomematic.model.custom.cover import (
     CustomDpBlind,
@@ -73,12 +63,12 @@ from aiohomematic.model.custom.cover import (
 )
 from aiohomematic.model.custom.data_point import CustomDataPoint
 from aiohomematic.model.custom.definition import (
+    create_custom_data_points as _create_custom_data_points_for_channel,
     data_point_definition_exists,
-    get_custom_configs,
     get_required_parameters,
-    validate_custom_data_point_definition,
 )
 from aiohomematic.model.custom.light import (
+    FIXED_COLOR_TO_HS_CONVERTER,
     CustomDpColorDimmer,
     CustomDpColorDimmerEffect,
     CustomDpColorTempDimmer,
@@ -86,8 +76,11 @@ from aiohomematic.model.custom.light import (
     CustomDpIpDrgDaliLight,
     CustomDpIpFixedColorLight,
     CustomDpIpRGBWLight,
+    CustomDpSoundPlayerLed,
     LightOffArgs,
     LightOnArgs,
+    SoundPlayerLedOnArgs,
+    hs_color_to_fixed_converter,
 )
 from aiohomematic.model.custom.lock import (
     BaseCustomDpLock,
@@ -96,65 +89,109 @@ from aiohomematic.model.custom.lock import (
     CustomDpRfLock,
     LockState,
 )
-from aiohomematic.model.custom.siren import BaseCustomDpSiren, CustomDpIpSiren, CustomDpIpSirenSmoke, SirenOnArgs
+
+# New type-safe profile and registry modules
+from aiohomematic.model.custom.profile import (
+    DEFAULT_DATA_POINTS,
+    PROFILE_CONFIGS,
+    ChannelGroupConfig,
+    ProfileConfig,
+    ProfileRegistry,
+    RebasedChannelGroupConfig,
+    get_profile_config,
+    rebase_channel_group,
+)
+from aiohomematic.model.custom.registry import DeviceConfig, DeviceProfileRegistry, ExtendedDeviceConfig
+from aiohomematic.model.custom.siren import (
+    BaseCustomDpSiren,
+    CustomDpIpSiren,
+    CustomDpIpSirenSmoke,
+    CustomDpSoundPlayer,
+    PlaySoundArgs,
+    SirenOnArgs,
+)
 from aiohomematic.model.custom.switch import CustomDpSwitch
+from aiohomematic.model.custom.text_display import CustomDpTextDisplay, TextDisplayArgs
 from aiohomematic.model.custom.valve import CustomDpIpIrrigationValve
 
 __all__ = [
+    # Climate
     "BaseCustomDpClimate",
-    "BaseCustomDpLock",
-    "BaseCustomDpSiren",
     "ClimateActivity",
     "ClimateMode",
     "ClimateProfile",
-    "CustomDataPoint",
+    "CustomDpIpThermostat",
+    "CustomDpRfThermostat",
+    "CustomDpSimpleRfThermostat",
+    "PROFILE_PREFIX",
+    # Cover
     "CustomDpBlind",
-    "CustomDpButtonLock",
+    "CustomDpCover",
+    "CustomDpGarage",
+    "CustomDpIpBlind",
+    "CustomDpWindowDrive",
+    # Data point
+    "CustomDataPoint",
+    # Definition
+    "create_custom_data_points",
+    "data_point_definition_exists",
+    "get_required_parameters",
+    # Light
     "CustomDpColorDimmer",
     "CustomDpColorDimmerEffect",
     "CustomDpColorTempDimmer",
-    "CustomDpCover",
     "CustomDpDimmer",
-    "CustomDpGarage",
-    "CustomDpIpBlind",
     "CustomDpIpDrgDaliLight",
     "CustomDpIpFixedColorLight",
-    "CustomDpIpIrrigationValve",
-    "CustomDpIpLock",
     "CustomDpIpRGBWLight",
-    "CustomDpIpSiren",
-    "CustomDpIpSirenSmoke",
-    "CustomDpIpThermostat",
-    "CustomDpRfLock",
-    "CustomDpRfThermostat",
-    "CustomDpSimpleRfThermostat",
-    "CustomDpSwitch",
-    "CustomDpWindowDrive",
+    "FIXED_COLOR_TO_HS_CONVERTER",
     "LightOffArgs",
     "LightOnArgs",
+    "hs_color_to_fixed_converter",
+    # Lock
+    "BaseCustomDpLock",
+    "CustomDpButtonLock",
+    "CustomDpIpLock",
+    "CustomDpRfLock",
     "LockState",
-    "PROFILE_DICT",
-    "PROFILE_PREFIX",
-    "SIMPLE_PROFILE_DICT",
-    "SIMPLE_WEEKDAY_LIST",
-    "ScheduleProfile",
-    "ScheduleWeekday",
+    # Profile
+    "ChannelGroupConfig",
+    "DEFAULT_DATA_POINTS",
+    "PROFILE_CONFIGS",
+    "ProfileConfig",
+    "ProfileRegistry",
+    "RebasedChannelGroupConfig",
+    "get_profile_config",
+    "rebase_channel_group",
+    # Registry
+    "DeviceConfig",
+    "DeviceProfileRegistry",
+    "ExtendedDeviceConfig",
+    # Siren
+    "BaseCustomDpSiren",
+    "CustomDpIpSiren",
+    "CustomDpIpSirenSmoke",
     "SirenOnArgs",
-    "WEEKDAY_DICT",
-    "create_custom_data_points",
-    "data_point_definition_exists",
-    "get_custom_configs",
-    "get_required_parameters",
-    "validate_custom_data_point_definition",
+    # Sound player
+    "CustomDpSoundPlayer",
+    "CustomDpSoundPlayerLed",
+    "PlaySoundArgs",
+    "SoundPlayerLedOnArgs",
+    # Switch
+    "CustomDpSwitch",
+    # Text display
+    "CustomDpTextDisplay",
+    "TextDisplayArgs",
+    # Valve
+    "CustomDpIpIrrigationValve",
 ]
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-@inspector
-def create_custom_data_points(device: hmd.Device) -> None:
-    """Decides which data point category should be used, and creates the required data points."""
-
+@inspector(scope=ServiceScope.INTERNAL)
+def create_custom_data_points(*, device: DeviceProtocol) -> None:
+    """Decide which data point category should be used, and create the required data points."""
     if device.ignore_for_custom_data_point:
         _LOGGER.debug(
             "CREATE_CUSTOM_DATA_POINTS: Ignoring for custom data point: %s, %s, %s due to ignored",
@@ -163,7 +200,8 @@ def create_custom_data_points(device: hmd.Device) -> None:
             device.model,
         )
         return
-    if data_point_definition_exists(device.model):
+
+    if data_point_definition_exists(model=device.model):
         _LOGGER.debug(
             "CREATE_CUSTOM_DATA_POINTS: Handling custom data point integration: %s, %s, %s",
             device.interface_id,
@@ -171,7 +209,6 @@ def create_custom_data_points(device: hmd.Device) -> None:
             device.model,
         )
 
-        # Call the custom creation function.
-        for custom_config in get_custom_configs(model=device.model):
-            for channel in device.channels.values():
-                custom_config.make_ce_func(channel, custom_config)
+        # Create custom data points for each channel
+        for channel in device.channels.values():
+            _create_custom_data_points_for_channel(channel=channel)

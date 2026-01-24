@@ -10,13 +10,12 @@ import numpy.typing as npt
 
 def poly_3d_calc(
     veclist: collections.abc.Sequence[collections.abc.Sequence[float]],
-    pt,
+    pt: collections.abc.Sequence[float],
     /,
 ) -> list[float]:
     """Calculate barycentric weights for a point on a polygon.
 
     :param veclist: Sequence of 3D positions.
-    :type veclist: collections.abc.Sequence[collections.abc.Sequence[float]]
-    :param pt: 2D or 3D position.   :type pt: Sequence[float]   :return: list of per-vector weights.
-    :rtype: list[float]
+    :param pt: 2D or 3D position.
+    :return: list of per-vector weights.
     """

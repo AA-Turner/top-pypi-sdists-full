@@ -1041,9 +1041,37 @@ class DomainsApprovalWorkflow(pulumi.CustomResource):
                  tags: Optional[pulumi.Input[Sequence[pulumi.Input[Union['DomainsApprovalWorkflowTagArgs', 'DomainsApprovalWorkflowTagArgsDict']]]]] = None,
                  __props__=None):
         """
-        This resource provides the Approval Workflow resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create ApprovalWorkflow
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_approval_workflow = oci.identity.DomainsApprovalWorkflow("test_approval_workflow",
+            idcs_endpoint=test_domain["url"],
+            max_duration={
+                "unit": approval_workflow_max_duration_unit,
+                "value": approval_workflow_max_duration_value,
+            },
+            name=approval_workflow_name,
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:ApprovalWorkflow"],
+            approval_workflow_steps=[{
+                "type": approval_workflow_approval_workflow_steps_type,
+                "value": approval_workflow_approval_workflow_steps_value,
+                "ocid": approval_workflow_approval_workflow_steps_ocid,
+            }],
+            attribute_sets=["all"],
+            attributes="",
+            authorization=approval_workflow_authorization,
+            description=approval_workflow_description,
+            id=approval_workflow_id,
+            ocid=approval_workflow_ocid,
+            resource_type_schema_version=approval_workflow_resource_type_schema_version,
+            tags=[{
+                "key": approval_workflow_tags_key,
+                "value": approval_workflow_tags_value,
+            }])
+        ```
 
         ## Import
 
@@ -1146,9 +1174,37 @@ class DomainsApprovalWorkflow(pulumi.CustomResource):
                  args: DomainsApprovalWorkflowArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Approval Workflow resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create ApprovalWorkflow
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_approval_workflow = oci.identity.DomainsApprovalWorkflow("test_approval_workflow",
+            idcs_endpoint=test_domain["url"],
+            max_duration={
+                "unit": approval_workflow_max_duration_unit,
+                "value": approval_workflow_max_duration_value,
+            },
+            name=approval_workflow_name,
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:ApprovalWorkflow"],
+            approval_workflow_steps=[{
+                "type": approval_workflow_approval_workflow_steps_type,
+                "value": approval_workflow_approval_workflow_steps_value,
+                "ocid": approval_workflow_approval_workflow_steps_ocid,
+            }],
+            attribute_sets=["all"],
+            attributes="",
+            authorization=approval_workflow_authorization,
+            description=approval_workflow_description,
+            id=approval_workflow_id,
+            ocid=approval_workflow_ocid,
+            resource_type_schema_version=approval_workflow_resource_type_schema_version,
+            tags=[{
+                "key": approval_workflow_tags_key,
+                "value": approval_workflow_tags_value,
+            }])
+        ```
 
         ## Import
 

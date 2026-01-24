@@ -1,5 +1,5 @@
 # From Python 3.4 asynchat.py
-# Tests presence or absence of
+# Tests presence or absense of
 # SETUP_LOOP testexpr return_stmts POP_BLOCK COME_FROM_LOOP
 # Note: that there is no JUMP_BACK because of the return_stmts.
 

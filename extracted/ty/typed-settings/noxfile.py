@@ -44,8 +44,8 @@ MYPY_PATHS = [
 LINT_PATHS = [p for paths in MYPY_PATHS for p in paths]
 
 # Dependencies for which to test against multiple versions
-PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
-COVERAGE_PYTHON_VERSIONS = ["3.9", "3.13"]
+PYTHON_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+COVERAGE_PYTHON_VERSIONS = ["3.10", "3.11", "3.14"]  # See "_compat" module
 
 DEPS_MATRIX = {
     "attrs",
@@ -240,13 +240,8 @@ def test(session: nox.Session, deps_min_version: bool) -> None:
 
     version_tuple = tuple(map(int, session.python.split(".")))  # type: ignore
     if version_tuple >= (3, 12):
-        # Still experimental but has much better performance:
+        # Still experimental in 3.12 but has much better performance:
         env = {"COVERAGE_CORE": "sysmon"}
-
-    if version_tuple < (3, 10):
-        # Skip doctests on older Python versions
-        # The output of arparse's "--help" has changed in 3.10
-        test_args = ("tests", "-k", "not test_readme")
 
     if session.python in COVERAGE_PYTHON_VERSIONS:
         # Only measure coverage for the minimum and maximum supported Python versions

@@ -2,7 +2,7 @@ import json
 from typing import AnyStr, Collection, Callable, Protocol, dataclass_transform
 
 from .abstractions import AbstractJSONWizard, W
-from .bases_meta import BaseJSONWizardMeta
+from .bases_meta import BaseJSONWizardMeta, V1HookFn
 from .enums import LetterCase
 from .v1.enums import KeyCase
 from .type_def import Decoder, Encoder, JSONObject, ListOfJSONObject
@@ -46,41 +46,29 @@ class SerializerHookMixin(Protocol):
     def _pre_dict(self):
         # noinspection PyDunderSlots, PyUnresolvedReferences
         """
-                Optional hook that runs before the dataclass instance is processed and
-                before it is converted to a dictionary object via :meth:`to_dict`.
+        Optional hook that runs before the dataclass instance is processed and
+        before it is converted to a dictionary object via :meth:`to_dict`.
 
-                To override this, subclasses need to extend from :class:`DumpMixIn`
-                and implement this method. A simple example is shown below:
+        To override this, subclasses need to extend from :class:`DumpMixIn`
+        and implement this method. A simple example is shown below:
 
-                >>> from dataclasses import dataclass
-                >>> from dataclass_wizard import JSONWizard
-                >>>
-                >>>
-                >>> @dataclass
-                >>> class MyClass(JSONWizard):
-                >>>     my_str: str
-                >>>
-                >>>     def _pre_dict(self):
-                >>>         self.my_str = self.my_str.swapcase()
-                >>>
-                >>> assert MyClass('test').to_dict() == {'myStr': 'TEST'}
-                """
+        >>> from dataclasses import dataclass
+        >>> from dataclass_wizard import JSONWizard
+        >>>
+        >>>
+        >>> @dataclass
+        >>> class MyClass(JSONWizard):
+        >>>     my_str: str
+        >>>
+        >>>     def _pre_dict(self):
+        >>>         self.my_str = self.my_str.swapcase()
+        >>>
+        >>> assert MyClass('test').to_dict() == {'myStr': 'TEST'}
+        """
         ...
 
 
-class JSONPyWizard(JSONSerializable, SerializerHookMixin):
-    """Helper for JSONWizard that ensures dumping to JSON keeps keys as-is."""
-
-    def __init_subclass__(cls,
-                          str: bool = True,
-                          debug: bool | str | int = False,
-                          key_case: KeyCase | str | None = None,
-                          _key_transform: LetterCase | str | None = None):
-        """Bind child class to DumpMeta with no key transformation."""
-
-
-@dataclass_transform()
-class JSONSerializable(AbstractJSONWizard, SerializerHookMixin):
+class JSONWizardImpl(AbstractJSONWizard, SerializerHookMixin):
     """
     Mixin class to allow a `dataclass` sub-class to be easily converted
     to and from JSON.
@@ -102,6 +90,14 @@ class JSONSerializable(AbstractJSONWizard, SerializerHookMixin):
             # Set the `__init_subclass__` method here, so we can ensure it
             # doesn't run for the `JSONSerializable.Meta` class.
             ...
+
+    @classmethod
+    def register_type(cls, tp: type, *,
+                      load: V1HookFn | None = None,
+                      dump: V1HookFn | None = None,
+                      mode: str | None = None) -> None:
+        ...
+
     @classmethod
     def from_json(cls: type[W], string: AnyStr, *,
                   decoder: Decoder = json.loads,
@@ -156,7 +152,7 @@ class JSONSerializable(AbstractJSONWizard, SerializerHookMixin):
 
     def to_json(self: W, *,
                 encoder: Encoder = json.dumps,
-                **encoder_kwargs) -> AnyStr:
+                **encoder_kwargs) -> str:
         """
         Converts the dataclass instance to a JSON `string` representation.
         """
@@ -166,19 +162,23 @@ class JSONSerializable(AbstractJSONWizard, SerializerHookMixin):
     def list_to_json(cls: type[W],
                      instances: list[W],
                      encoder: Encoder = json.dumps,
-                     **encoder_kwargs) -> AnyStr:
+                     **encoder_kwargs) -> str:
         """
         Converts a ``list`` of dataclass instances to a JSON `string`
         representation.
         """
         ...
 
-    # noinspection PyShadowingBuiltins
     def __init_subclass__(cls,
-                          str: bool = True,
+                          str: bool = False,
                           debug: bool | str | int = False,
-                          key_case: KeyCase | str | None = None,
-                          _key_transform: LetterCase | str | None = None):
+                          case: KeyCase | str | None = None,
+                          dump_case: KeyCase | str | None = None,
+                          load_case: KeyCase | str | None = None,
+                          _key_transform: LetterCase | str | None = None,
+                          _v1_default: bool = True,
+                          _apply_dataclass: bool = True,
+                          **dc_kwargs):
         """
         Checks for optional settings and flags that may be passed in by the
         sub-class, and calls the Meta initializer when :class:`Meta` is sub-classed.
@@ -193,9 +193,22 @@ class JSONSerializable(AbstractJSONWizard, SerializerHookMixin):
         ...
 
 
+@dataclass_transform()
+class DataclassWizard(JSONWizardImpl):
+    ...
+
+
+class JSONPyWizard(JSONWizardImpl):
+    """Helper for JSONWizard that ensures dumping to JSON keeps keys as-is."""
+
+
+class JSONSerializable(JSONWizardImpl): ...
+
+
 def _str_fn() -> Callable[[W], str]:
     """
     Converts the dataclass instance to a *prettified* JSON string
     representation, when the `str()` method is invoked.
     """
     ...
+

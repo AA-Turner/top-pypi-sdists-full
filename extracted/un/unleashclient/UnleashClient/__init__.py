@@ -1,21 +1,32 @@
 # pylint: disable=invalid-name
 import random
 import string
+import threading
 import uuid
 import warnings
 from dataclasses import asdict
 from datetime import datetime, timezone
+from enum import IntEnum
 from typing import Any, Callable, Dict, Optional
 
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.job import Job
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.schedulers.base import STATE_RUNNING, BaseScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from yggdrasil_engine.engine import UnleashEngine
 
 from UnleashClient.api import register_client
+from UnleashClient.connectors import (
+    BaseConnector,
+    BootstrapConnector,
+    OfflineConnector,
+    PollingConnector,
+    StreamingConnector,
+)
 from UnleashClient.constants import (
+    APPLICATION_HEADERS,
     DISABLED_VARIATION,
     ETAG,
     METRIC_LAST_SENT_TIME,
@@ -24,20 +35,25 @@ from UnleashClient.constants import (
     SDK_NAME,
     SDK_VERSION,
 )
+from UnleashClient.environment_resolver import extract_environment_from_headers
 from UnleashClient.events import (
     BaseEvent,
     UnleashEvent,
     UnleashEventType,
     UnleashReadyEvent,
 )
-from UnleashClient.loader import load_features
+from UnleashClient.impact_metrics import ImpactMetrics
 from UnleashClient.periodic_tasks import (
     aggregate_and_send_metrics,
-    fetch_and_load_features,
 )
 
 from .cache import BaseCache, FileCache
 from .utils import LOGGER, InstanceAllowType, InstanceCounter
+
+try:
+    from typing import Literal, TypedDict
+except ImportError:
+    from typing_extensions import Literal, TypedDict  # type: ignore
 
 INSTANCES = InstanceCounter()
 _BASE_CONTEXT_FIELDS = [
@@ -49,6 +65,16 @@ _BASE_CONTEXT_FIELDS = [
     "remoteAddress",
     "properties",
 ]
+
+
+class _RunState(IntEnum):
+    UNINITIALIZED = 0
+    INITIALIZED = 1
+    SHUTDOWN = 2
+
+
+class ExperimentalMode(TypedDict, total=False):
+    type: Literal["streaming", "polling"]
 
 
 def build_ready_callback(
@@ -90,7 +116,7 @@ class UnleashClient:
     :param url: URL of the unleash server, required.
     :param app_name: Name of the application using the unleash client, required.
     :param environment: Name of the environment using the unleash client, optional & defaults to "default".
-    :param instance_id: Unique identifier for unleash client instance, optional & defaults to "unleash-client-python"
+    :param instance_id: Unique identifier for unleash client instance, optional & defaults to "unleash-python-sdk"
     :param refresh_interval: Provisioning refresh interval in seconds, optional & defaults to 15 seconds
     :params request_timeout: Timeout for requests to unleash server in seconds, optional & defaults to 30 seconds
     :params request_retries: Number of retries for requests to unleash server, optional & defaults to 3
@@ -109,6 +135,7 @@ class UnleashClient:
     :param scheduler_executor: Name of APSCheduler executor to use if using a custom scheduler.
     :param multiple_instance_mode: Determines how multiple instances being instantiated is handled by the SDK, when set to InstanceAllowType.BLOCK, the client constructor will fail when more than one instance is detected, when set to InstanceAllowType.WARN, multiple instances will be allowed but log a warning, when set to InstanceAllowType.SILENTLY_ALLOW, no warning or failure will be raised when instantiating multiple instances of the client. Defaults to InstanceAllowType.WARN
     :param event_callback: Function to call if impression events are enabled.  WARNING: Depending on your event library, this may have performance implications!
+    :param experimental_mode: Optional dict to configure mode. Use {"type": "streaming"} to enable streaming or {"type": "polling"} (default).
     """
 
     def __init__(
@@ -116,7 +143,7 @@ class UnleashClient:
         url: str,
         app_name: str,
         environment: str = "default",
-        instance_id: str = "unleash-client-python",
+        instance_id: str = "unleash-python-sdk",
         refresh_interval: int = 15,
         refresh_jitter: Optional[int] = None,
         metrics_interval: int = 60,
@@ -136,6 +163,7 @@ class UnleashClient:
         scheduler_executor: Optional[str] = None,
         multiple_instance_mode: InstanceAllowType = InstanceAllowType.WARN,
         event_callback: Optional[Callable[[BaseEvent], None]] = None,
+        experimental_mode: Optional[ExperimentalMode] = None,
     ) -> None:
         custom_headers = custom_headers or {}
         custom_options = custom_options or {}
@@ -169,6 +197,9 @@ class UnleashClient:
         self.unleash_verbose_log_level = verbose_log_level
         self.unleash_event_callback = event_callback
         self._ready_callback = build_ready_callback(event_callback)
+        self.connector_mode: ExperimentalMode = experimental_mode or {"type": "polling"}
+        self._lifecycle_lock = threading.RLock()
+        self._closed = threading.Event()
 
         self._do_instance_check(multiple_instance_mode)
 
@@ -176,6 +207,15 @@ class UnleashClient:
         self.fl_job: Job = None
         self.metric_job: Job = None
         self.engine = UnleashEngine()
+
+        impact_metrics_environment = self.unleash_environment
+        extracted_env = extract_environment_from_headers(self.unleash_custom_headers)
+        if extracted_env:
+            impact_metrics_environment = extracted_env
+
+        self.impact_metrics = ImpactMetrics(
+            self.engine, self.unleash_app_name, impact_metrics_environment
+        )
 
         self.cache = cache or FileCache(
             self.unleash_app_name, directory=cache_directory
@@ -185,7 +225,31 @@ class UnleashClient:
 
         self.metrics_headers: dict = {}
 
-        # Scheduler bootstrapping
+        self._init_scheduler(scheduler, scheduler_executor)
+
+        if custom_strategies:
+            self.engine.register_custom_strategies(custom_strategies)
+
+        self.strategy_mapping = {**custom_strategies}
+
+        # Client status
+        self._run_state = _RunState.UNINITIALIZED
+
+        # Bootstrapping
+        if self.unleash_bootstrapped:
+            BootstrapConnector(
+                engine=self.engine,
+                cache=self.cache,
+            ).start()
+
+        self.connector: BaseConnector = None
+
+    def _init_scheduler(
+        self, scheduler: Optional[BaseScheduler], scheduler_executor: Optional[str]
+    ) -> None:
+        """
+        Scheduler bootstrapping
+        """
         # - Figure out the Unleash executor name.
         if scheduler and scheduler_executor:
             self.unleash_executor_name = scheduler_executor
@@ -208,25 +272,6 @@ class UnleashClient:
             executors = {self.unleash_executor_name: ThreadPoolExecutor()}
             self.unleash_scheduler = BackgroundScheduler(executors=executors)
 
-        if custom_strategies:
-            self.engine.register_custom_strategies(custom_strategies)
-
-        self.strategy_mapping = {**custom_strategies}
-
-        # Client status
-        self.is_initialized = False
-
-        # Bootstrapping
-        if self.unleash_bootstrapped:
-            load_features(
-                cache=self.cache,
-                engine=self.engine,
-            )
-
-    @property
-    def unleash_refresh_interval_str_millis(self) -> str:
-        return str(self.unleash_refresh_interval * 1000)
-
     @property
     def unleash_metrics_interval_str_millis(self) -> str:
         return str(self.unleash_metrics_interval * 1000)
@@ -234,6 +279,10 @@ class UnleashClient:
     @property
     def connection_id(self):
         return self._connection_id
+
+    @property
+    def is_initialized(self):
+        return self._run_state == _RunState.INITIALIZED
 
     def initialize_client(self, fetch_toggles: bool = True) -> None:
         """
@@ -262,31 +311,21 @@ class UnleashClient:
                 pass
         """
         # Only perform initialization steps if client is not initialized.
-        if not self.is_initialized:
-            # pylint: disable=no-else-raise
+        with self._lifecycle_lock:
+            if self._closed.is_set() or self._run_state > _RunState.UNINITIALIZED:
+                warnings.warn(
+                    "Attempted to initialize an Unleash Client instance that has already been initialized."
+                )
+                return
             try:
+                start_scheduler = False
                 base_headers = {
                     **self.unleash_custom_headers,
+                    **APPLICATION_HEADERS,
                     "unleash-connection-id": self.connection_id,
                     "unleash-appname": self.unleash_app_name,
+                    "unleash-instanceid": self.unleash_instance_id,
                     "unleash-sdk": f"{SDK_NAME}:{SDK_VERSION}",
-                }
-
-                self.metrics_headers = {
-                    **base_headers,
-                    "unleash-interval": self.unleash_metrics_interval_str_millis,
-                }
-
-                # Setup
-                metrics_args = {
-                    "url": self.unleash_url,
-                    "app_name": self.unleash_app_name,
-                    "connection_id": self.connection_id,
-                    "instance_id": self.unleash_instance_id,
-                    "headers": self.metrics_headers,
-                    "custom_options": self.unleash_custom_options,
-                    "request_timeout": self.unleash_request_timeout,
-                    "engine": self.engine,
                 }
 
                 # Register app
@@ -302,49 +341,71 @@ class UnleashClient:
                         self.strategy_mapping,
                         self.unleash_request_timeout,
                     )
+                mode = self.connector_mode.get("type", "polling")
 
-                if fetch_toggles:
-                    fetch_headers = {
+                if mode == "streaming" and fetch_toggles:
+                    self.connector = StreamingConnector(
+                        engine=self.engine,
+                        cache=self.cache,
+                        url=self.unleash_url,
+                        headers=base_headers,
+                        request_timeout=self.unleash_request_timeout,
+                        ready_callback=self._ready_callback,
+                        custom_options=self.unleash_custom_options,
+                    )
+                elif fetch_toggles:
+                    start_scheduler = True
+                    self.connector = PollingConnector(
+                        engine=self.engine,
+                        cache=self.cache,
+                        scheduler=self.unleash_scheduler,
+                        url=self.unleash_url,
+                        app_name=self.unleash_app_name,
+                        instance_id=self.unleash_instance_id,
+                        headers=base_headers,
+                        custom_options=self.unleash_custom_options,
+                        request_timeout=self.unleash_request_timeout,
+                        request_retries=self.unleash_request_retries,
+                        project=self.unleash_project_name,
+                        scheduler_executor=self.unleash_executor_name,
+                        refresh_interval=self.unleash_refresh_interval,
+                        event_callback=self.unleash_event_callback,
+                        ready_callback=self._ready_callback,
+                    )
+                else:
+                    start_scheduler = True
+                    self.connector = OfflineConnector(
+                        engine=self.engine,
+                        cache=self.cache,
+                        scheduler=self.unleash_scheduler,
+                        scheduler_executor=self.unleash_executor_name,
+                        refresh_interval=self.unleash_refresh_interval,
+                        refresh_jitter=self.unleash_refresh_jitter,
+                        ready_callback=self._ready_callback,
+                    )
+
+                self.connector.start()
+
+                if not self.unleash_disable_metrics:
+                    if getattr(self.unleash_scheduler, "state", None) != STATE_RUNNING:
+                        start_scheduler = True
+
+                    self.metrics_headers = {
                         **base_headers,
-                        "unleash-interval": self.unleash_refresh_interval_str_millis,
+                        "unleash-interval": self.unleash_metrics_interval_str_millis,
                     }
 
-                    job_args = {
+                    metrics_args = {
                         "url": self.unleash_url,
                         "app_name": self.unleash_app_name,
+                        "connection_id": self.connection_id,
                         "instance_id": self.unleash_instance_id,
-                        "headers": fetch_headers,
+                        "headers": self.metrics_headers,
                         "custom_options": self.unleash_custom_options,
-                        "cache": self.cache,
-                        "engine": self.engine,
                         "request_timeout": self.unleash_request_timeout,
-                        "request_retries": self.unleash_request_retries,
-                        "project": self.unleash_project_name,
-                        "event_callback": self.unleash_event_callback,
-                        "ready_callback": self._ready_callback,
-                    }
-                    job_func: Callable = fetch_and_load_features
-                else:
-                    job_args = {
-                        "cache": self.cache,
                         "engine": self.engine,
-                        "ready_callback": self._ready_callback,
                     }
-                    job_func = load_features
 
-                job_func(**job_args)  # type: ignore
-                # Start periodic jobs
-                self.unleash_scheduler.start()
-                self.fl_job = self.unleash_scheduler.add_job(
-                    job_func,
-                    trigger=IntervalTrigger(
-                        seconds=int(self.unleash_refresh_interval),
-                        jitter=self.unleash_refresh_jitter,
-                    ),
-                    executor=self.unleash_executor_name,
-                    kwargs=job_args,
-                )
-                if not self.unleash_disable_metrics:
                     self.metric_job = self.unleash_scheduler.add_job(
                         aggregate_and_send_metrics,
                         trigger=IntervalTrigger(
@@ -354,19 +415,17 @@ class UnleashClient:
                         executor=self.unleash_executor_name,
                         kwargs=metrics_args,
                     )
+
+                if start_scheduler:
+                    self.unleash_scheduler.start()
+                self._run_state = _RunState.INITIALIZED
+
             except Exception as excep:
                 # Log exceptions during initialization.  is_initialized will remain false.
                 LOGGER.warning(
                     "Exception during UnleashClient initialization: %s", excep
                 )
                 raise excep
-            else:
-                # Set is_initialized to true if no exception is encountered.
-                self.is_initialized = True
-        else:
-            warnings.warn(
-                "Attempted to initialize an Unleash Client instance that has already been initialized."
-            )
 
     def feature_definitions(self) -> dict:
         """
@@ -396,24 +455,42 @@ class UnleashClient:
 
         You shouldn't need this too much!
         """
-        self.fl_job.remove()
-        if self.metric_job:
-            self.metric_job.remove()
+        with self._lifecycle_lock:
+            if self._closed.is_set():
+                return
+            self._closed.set()
+            self._run_state = _RunState.SHUTDOWN
+            if self.connector:
+                self.connector.stop()
 
-            # Flush metrics before shutting down.
-            aggregate_and_send_metrics(
-                url=self.unleash_url,
-                app_name=self.unleash_app_name,
-                connection_id=self.connection_id,
-                instance_id=self.unleash_instance_id,
-                headers=self.metrics_headers,
-                custom_options=self.unleash_custom_options,
-                request_timeout=self.unleash_request_timeout,
-                engine=self.engine,
-            )
+            if self.metric_job:
+                # Flush metrics before shutting down.
+                aggregate_and_send_metrics(
+                    url=self.unleash_url,
+                    app_name=self.unleash_app_name,
+                    connection_id=self.connection_id,
+                    instance_id=self.unleash_instance_id,
+                    headers=self.metrics_headers,
+                    custom_options=self.unleash_custom_options,
+                    request_timeout=self.unleash_request_timeout,
+                    engine=self.engine,
+                )
+                try:
+                    self.metric_job.remove()
+                except JobLookupError as exc:
+                    LOGGER.info("Exception during connector teardown: %s", exc)
 
-        self.unleash_scheduler.shutdown()
-        self.cache.destroy()
+            try:
+                if hasattr(self, "unleash_scheduler") and self.unleash_scheduler:
+                    self.unleash_scheduler.remove_all_jobs()
+                    self.unleash_scheduler.shutdown(wait=True)
+            except Exception as exc:
+                LOGGER.warning("Exception during scheduler teardown: %s", exc)
+
+            try:
+                self.cache.destroy()
+            except Exception as exc:
+                LOGGER.warning("Exception during cache teardown: %s", exc)
 
     @staticmethod
     def _get_fallback_value(
@@ -513,9 +590,9 @@ class UnleashClient:
                     event_type=UnleashEventType.VARIANT,
                     event_id=uuid.uuid4(),
                     context=context,
-                    enabled=variant["enabled"],
+                    enabled=bool(variant["enabled"]),
                     feature_name=feature_name,
-                    variant=variant["name"],
+                    variant=str(variant["name"]),
                 )
 
                 self.unleash_event_callback(event)

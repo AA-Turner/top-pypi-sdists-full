@@ -1264,3 +1264,6 @@ def _typecheckingstub__22c2314c8fe204c6e04eb4c6925420499bdbf026813ac55761939df87
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IDomainWindowsNodeProps, IRuntimeNodes, IWindowsEKSClusterParameters, IWindowsEKSClusterProps, IWindowsEKSNodesProps]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

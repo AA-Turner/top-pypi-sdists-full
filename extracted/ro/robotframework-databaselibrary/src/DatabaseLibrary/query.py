@@ -20,6 +20,7 @@ from typing import List, Optional, Tuple
 
 import sqlparse
 from robot.api import logger
+from robot.libraries.BuiltIn import BuiltIn
 from robot.utils.dotdict import DotDict
 
 from .connection_manager import Connection
@@ -46,6 +47,7 @@ class Query:
         alias: Optional[str] = None,
         parameters: Optional[Tuple] = None,
         *,
+        replace_robot_variables=False,
         selectStatement: Optional[str] = None,
         sansTran: Optional[bool] = None,
         returnAsDict: Optional[bool] = None,
@@ -64,6 +66,8 @@ class Query:
 
         Use ``parameters`` for query variable substitution (variable substitution syntax may be different
         depending on the database client).
+
+        Set ``replace_robot_variables`` to resolve RF variables like _${MY_VAR}_ before executing the SQL.
 
         === Some parameters were renamed in version 2.0 ===
         The old parameters ``selectStatement``, ``sansTran`` and ``returnAsDict`` are *deprecated*,
@@ -88,6 +92,7 @@ class Query:
                 select_statement,
                 parameters=parameters,
                 omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
+                replace_robot_variables=replace_robot_variables,
             )
             all_rows = cur.fetchall()
             if all_rows is None:
@@ -109,6 +114,7 @@ class Query:
         alias: Optional[str] = None,
         parameters: Optional[Tuple] = None,
         *,
+        replace_robot_variables=False,
         selectStatement: Optional[str] = None,
         sansTran: Optional[bool] = None,
     ):
@@ -122,6 +128,8 @@ class Query:
 
         Use ``parameters`` for query variable substitution (variable substitution syntax may be different
         depending on the database client).
+
+        Set ``replace_robot_variables`` to resolve RF variables like _${MY_VAR}_ before executing the SQL.
 
         === Some parameters were renamed in version 2.0 ===
         The old parameters ``selectStatement`` and ``sansTran`` are *deprecated*,
@@ -145,6 +153,7 @@ class Query:
                 select_statement,
                 parameters=parameters,
                 omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
+                replace_robot_variables=replace_robot_variables,
             )
             data = cur.fetchall()
             if data is None:
@@ -169,6 +178,7 @@ class Query:
         alias: Optional[str] = None,
         parameters: Optional[Tuple] = None,
         *,
+        replace_robot_variables=False,
         selectStatement: Optional[str] = None,
         sansTran: Optional[bool] = None,
     ):
@@ -182,6 +192,8 @@ class Query:
 
         Use ``parameters`` for query variable substitution (variable substitution syntax may be different
         depending on the database client).
+
+        Set ``replace_robot_variables`` to resolve RF variables like _${MY_VAR}_ before executing the SQL.
 
         === Some parameters were renamed in version 2.0 ===
         The old parameters ``selectStatement`` and ``sansTran`` are *deprecated*,
@@ -205,6 +217,7 @@ class Query:
                 select_statement,
                 parameters=parameters,
                 omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
+                replace_robot_variables=replace_robot_variables,
             )
             self._commit_if_needed(db_connection, no_transaction)
             description = list(cur.description)
@@ -264,8 +277,9 @@ class Query:
         no_transaction: bool = False,
         alias: Optional[str] = None,
         split: bool = True,
-        external_parser=False,
         *,
+        external_parser=False,
+        replace_robot_variables=False,
         sqlScriptFileName: Optional[str] = None,
         sansTran: Optional[bool] = None,
     ):
@@ -283,6 +297,8 @@ class Query:
         See `Commit behavior` for details.
 
         Use ``alias`` to specify what connection should be used if `Handling multiple database connections`.
+
+        Set ``replace_robot_variables`` to resolve RF variables like _${MY_VAR}_ before executing the SQL.
 
         === Some parameters were renamed in version 2.0 ===
         The old parameters ``sqlScriptFileName`` and ``sansTran`` are *deprecated*,
@@ -307,14 +323,13 @@ class Query:
                         cur,
                         sql_file.read(),
                         omit_trailing_semicolon=db_connection.omit_trailing_semicolon,
+                        replace_robot_variables=replace_robot_variables,
                     )
             else:
                 statements_to_execute = self.split_sql_script(script_path, external_parser=external_parser)
                 for statement in statements_to_execute:
-                    proc_end_pattern = re.compile("end(?!( if;| loop;| case;| while;| repeat;)).*;()?")
-                    line_ends_with_proc_end = re.compile(r"(\s|;)" + proc_end_pattern.pattern + "$")
-                    omit_semicolon = not line_ends_with_proc_end.search(statement.lower())
-                    self._execute_sql(cur, statement, omit_semicolon)
+                    omit_semicolon = self._omit_semicolon_needed(statement)
+                    self._execute_sql(cur, statement, omit_semicolon, replace_robot_variables=replace_robot_variables)
             self._commit_if_needed(db_connection, no_transaction)
         except Exception as e:
             self._rollback_and_raise(db_connection, no_transaction, e)
@@ -332,69 +347,83 @@ class Query:
         Set ``external_parser`` to _True_ to use the external library [https://pypi.org/project/sqlparse/|sqlparse].
         """
         with open(script_path, encoding="UTF-8") as sql_file:
-            logger.info("Splitting script file into statements...")
-            statements_to_execute = []
-            if external_parser:
-                statements_to_execute = sqlparse.split(sql_file.read())
-            else:
-                current_statement = ""
-                inside_statements_group = False
-                proc_start_pattern = re.compile("create( or replace)? (procedure|function){1}( )?")
-                proc_end_pattern = re.compile("end(?!( if;| loop;| case;| while;| repeat;)).*;()?")
-                for line in sql_file:
-                    line = line.strip()
-                    if line.startswith("#") or line.startswith("--") or line == "/":
+            return self.split_sql_string(sql_file.read(), external_parser=external_parser)
+
+    def split_sql_string(self, sql_string: str, external_parser=False):
+        """
+        Splits the content of the ``sql_string`` into individual SQL commands
+        and returns them as a list of strings.
+        SQL commands are expected to be delimited by a semicolon (';').
+
+        Set ``external_parser`` to _True_ to use the external library [https://pypi.org/project/sqlparse/|sqlparse].
+        """
+        logger.info(f"Splitting SQL into statements. Using external parser: {external_parser}")
+        statements_to_execute = []
+        if external_parser:
+            split_statements = sqlparse.split(sql_string)
+            for statement in split_statements:
+                statement_without_comments = sqlparse.format(statement, strip_comments=True)
+                if statement_without_comments:
+                    statements_to_execute.append(statement_without_comments)
+        else:
+            current_statement = ""
+            inside_statements_group = False
+            proc_start_pattern = re.compile("create( or replace)? (procedure|function){1}( )?")
+            proc_end_pattern = re.compile("end(?!( if;| loop;| case;| while;| repeat;)).*;()?")
+            for line in sql_string.splitlines():
+                line = line.strip()
+                if line.startswith("#") or line.startswith("--") or line == "/":
+                    continue
+
+                # check if the line matches the creating procedure regexp pattern
+                if proc_start_pattern.match(line.lower()):
+                    inside_statements_group = True
+                elif line.lower().startswith("begin"):
+                    inside_statements_group = True
+
+                # semicolons inside the line? use them to separate statements
+                # ... but not if they are inside a begin/end block (aka. statements group)
+                sqlFragments = line.split(";")
+                # no semicolons
+                if len(sqlFragments) == 1:
+                    current_statement += line + " "
+                    continue
+                quotes = 0
+                # "select * from person;" -> ["select..", ""]
+                for sqlFragment in sqlFragments:
+                    if len(sqlFragment.strip()) == 0:
                         continue
 
-                    # check if the line matches the creating procedure regexp pattern
-                    if proc_start_pattern.match(line.lower()):
+                    if inside_statements_group:
+                        # if statements inside a begin/end block have semicolns,
+                        # they must persist - even with oracle
+                        sqlFragment += "; "
+
+                    if proc_end_pattern.match(sqlFragment.lower()):
+                        inside_statements_group = False
+                    elif proc_start_pattern.match(sqlFragment.lower()):
                         inside_statements_group = True
-                    elif line.lower().startswith("begin"):
+                    elif sqlFragment.lower().startswith("begin"):
                         inside_statements_group = True
 
-                    # semicolons inside the line? use them to separate statements
-                    # ... but not if they are inside a begin/end block (aka. statements group)
-                    sqlFragments = line.split(";")
-                    # no semicolons
-                    if len(sqlFragments) == 1:
-                        current_statement += line + " "
-                        continue
-                    quotes = 0
-                    # "select * from person;" -> ["select..", ""]
-                    for sqlFragment in sqlFragments:
-                        if len(sqlFragment.strip()) == 0:
-                            continue
+                    # check if the semicolon is a part of the value (quoted string)
+                    quotes += sqlFragment.count("'")
+                    quotes -= sqlFragment.count("\\'")
+                    inside_quoted_string = quotes % 2 != 0
+                    if inside_quoted_string:
+                        sqlFragment += ";"  # restore the semicolon
 
-                        if inside_statements_group:
-                            # if statements inside a begin/end block have semicolns,
-                            # they must persist - even with oracle
-                            sqlFragment += "; "
+                    current_statement += sqlFragment
+                    if not inside_statements_group and not inside_quoted_string:
+                        statements_to_execute.append(current_statement.strip())
+                        current_statement = ""
+                        quotes = 0
 
-                        if proc_end_pattern.match(sqlFragment.lower()):
-                            inside_statements_group = False
-                        elif proc_start_pattern.match(sqlFragment.lower()):
-                            inside_statements_group = True
-                        elif sqlFragment.lower().startswith("begin"):
-                            inside_statements_group = True
+            current_statement = current_statement.strip()
+            if len(current_statement) != 0:
+                statements_to_execute.append(current_statement)
 
-                        # check if the semicolon is a part of the value (quoted string)
-                        quotes += sqlFragment.count("'")
-                        quotes -= sqlFragment.count("\\'")
-                        inside_quoted_string = quotes % 2 != 0
-                        if inside_quoted_string:
-                            sqlFragment += ";"  # restore the semicolon
-
-                        current_statement += sqlFragment
-                        if not inside_statements_group and not inside_quoted_string:
-                            statements_to_execute.append(current_statement.strip())
-                            current_statement = ""
-                            quotes = 0
-
-                current_statement = current_statement.strip()
-                if len(current_statement) != 0:
-                    statements_to_execute.append(current_statement)
-
-            return statements_to_execute
+        return statements_to_execute
 
     @renamed_args(
         mapping={
@@ -411,12 +440,21 @@ class Query:
         parameters: Optional[Tuple] = None,
         omit_trailing_semicolon: Optional[bool] = None,
         *,
+        replace_robot_variables=False,
+        split: bool = False,
+        external_parser: bool = False,
         sqlString: Optional[str] = None,
         sansTran: Optional[bool] = None,
         omitTrailingSemicolon: Optional[bool] = None,
     ):
         """
-        Executes the ``sql_string`` as a single SQL command.
+        Executes the ``sql_string`` - as a single SQL command (default) or as separate statements.
+
+        Set ``split`` to _True_ to enable dividing the string into SQL commands similar to the `Execute SQL Script`
+        keyword. The commands are expected to be delimited by a semicolon (';') in this case -
+        they will be split and executed separately.
+
+        Set ``external_parser`` to _True_ to use the external library [https://pypi.org/project/sqlparse/|sqlparse] for splitting the script.
 
         Set ``no_transaction`` to _True_ to run command without explicit transaction commit
         or rollback in case of error.
@@ -427,7 +465,9 @@ class Query:
         Use ``parameters`` for query variable substitution (variable substitution syntax may be different
         depending on the database client).
 
-        Set the ``omit_trailing_semicolon`` to explicitly control the `Omitting trailing semicolon behavior` for the command.
+        Set ``omit_trailing_semicolon`` to explicitly control the `Omitting trailing semicolon behavior` for the command.
+
+        Set ``replace_robot_variables`` to resolve RF variables like _${MY_VAR}_ before executing the SQL.
 
         === Some parameters were renamed in version 2.0 ===
         The old parameters ``sqlString``, ``sansTran`` and ``omitTrailingSemicolon`` are *deprecated*,
@@ -449,7 +489,20 @@ class Query:
             cur = db_connection.client.cursor()
             if omit_trailing_semicolon is None:
                 omit_trailing_semicolon = db_connection.omit_trailing_semicolon
-            self._execute_sql(cur, sql_string, omit_trailing_semicolon=omit_trailing_semicolon, parameters=parameters)
+            if not split:
+                self._execute_sql(
+                    cur,
+                    sql_string,
+                    omit_trailing_semicolon=omit_trailing_semicolon,
+                    parameters=parameters,
+                    replace_robot_variables=replace_robot_variables,
+                )
+            else:
+                statements_to_execute = self.split_sql_string(sql_string, external_parser=external_parser)
+                for statement in statements_to_execute:
+                    omit_semicolon = self._omit_semicolon_needed(statement)
+                    self._execute_sql(cur, statement, omit_semicolon, replace_robot_variables=replace_robot_variables)
+
             self._commit_if_needed(db_connection, no_transaction)
         except Exception as e:
             self._rollback_and_raise(db_connection, no_transaction, e)
@@ -778,15 +831,28 @@ class Query:
                 raise ValueError(f"Wrong log head value provided: {log_head}. The value can't be negative!")
             self.LOG_QUERY_RESULTS_HEAD = log_head
 
+    def _omit_semicolon_needed(self, statement: str) -> bool:
+        """
+        Checks if the `statement` ends with a procedure ending keyword - so that semicolon should be omitted -
+        and returns the result.
+        The function is used when running multiple SQL statements from a script or an SQL string.
+        """
+        proc_end_pattern = re.compile("end(?!( if;| loop;| case;| while;| repeat;)).*;()?")
+        line_ends_with_proc_end = re.compile(r"(\s|;)" + proc_end_pattern.pattern + "$")
+        omit_semicolon = not line_ends_with_proc_end.search(statement.lower())
+        return omit_semicolon
+
     def _execute_sql(
         self,
         cur,
         sql_statement: str,
         omit_trailing_semicolon: Optional[bool] = False,
         parameters: Optional[Tuple] = None,
+        replace_robot_variables=False,
     ):
         """
         Runs the `sql_statement` using `cur` as Cursor object.
+
         Use `omit_trailing_semicolon` parameter (bool) for explicit instruction,
         if the trailing semicolon (;) should be removed - otherwise the statement
         won't be executed by some databases (e.g. Oracle).
@@ -794,6 +860,8 @@ class Query:
         """
         if omit_trailing_semicolon:
             sql_statement = sql_statement.rstrip(";")
+        if replace_robot_variables:
+            sql_statement = BuiltIn().replace_variables(sql_statement)
         if parameters is None:
             logger.info(f'Executing sql:<br><code style="font-weight: bold;">{sql_statement}</code>', html=True)
             return cur.execute(sql_statement)
@@ -839,13 +907,13 @@ class Query:
         table_border = "2px solid rgb(140 140 140)"
         row_index_background_color = "#d6ecd4"
         row_index_text_color = "black"
-        msg = '<div style="max-width: 100%; overflow-x: auto;">'
+        msg = '<div style="max-width: 100%; overflow-x: auto; max-height: 500px; overflow-y: auto;">'
         msg += f'<table style="width: auto; border-collapse: collapse; border: {table_border}">'
         msg += f'<caption style="text-align: left; font-weight: bold; padding: 5px;">Query returned {len(result_rows)} rows</caption>'
         msg += "<tr>"
-        msg += f'<th scope="col" style="color:{row_index_text_color}; background-color: {row_index_background_color}; {cell_border_and_align}">Row</th>'
+        msg += f'<th scope="col" style="position: sticky; top: 0; color:{row_index_text_color}; background-color: {row_index_background_color}; {cell_border_and_align}">Row</th>'
         for col in col_names:
-            msg += f'<th scope="col" style="background-color: #505050; color: #fff;{cell_border_and_align}">{col}</th>'
+            msg += f'<th scope="col" style="position: sticky; top: 0; background-color: #505050; color: #fff;{cell_border_and_align}">{col}</th>'
         msg += "</tr>"
         table_truncated = False
         for i, row in enumerate(result_rows):

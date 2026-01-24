@@ -7,16 +7,26 @@ add_executable(
     ../tool/client.cc
     ../tool/transport_common.cc
 
+    asn1parse.cc
     crl.cc
     dgst.cc
+    dhparam.cc
+    ecparam.cc
+    ec.cc
+    enc.cc
+    genpkey.cc
+    genrsa.cc
+    pass_util.cc
     pkcs8.cc
     pkey.cc
+    pkeyutl.cc
     rehash.cc
     req.cc
     ordered_args.cc
     rsa.cc
     s_client.cc
     tool.cc
+    tool_util.cc
     verify.cc
     version.cc
     x509.cc
@@ -79,18 +89,36 @@ if(BUILD_TESTING)
         ../tool/args.cc
         ../tool/file.cc
         ../tool/fd.cc
-        ../crypto/test/test_util.cc
         ../tool/client.cc
         ../tool/transport_common.cc
 
+        asn1parse.cc
+        asn1parse_test.cc
         crl.cc
         crl_test.cc
         dgst.cc
         dgst_test.cc
+        dhparam.cc
+        dhparam_test.cc
+        ec.cc
+        ec_test.cc
+        ecparam.cc
+        ecparam_test.cc
+        enc.cc
+        enc_test.cc
+        genrsa.cc
+        genrsa_test.cc
+        genpkey.cc
+        genpkey_test.cc
+        ordered_args.cc
+        pass_util.cc
+        pass_util_test.cc
         pkcs8.cc
         pkcs8_test.cc
         pkey.cc
         pkey_test.cc
+        pkeyutl.cc
+        pkeyutl_test.cc
         rehash.cc
         rehash_test.cc
         req.cc
@@ -98,7 +126,9 @@ if(BUILD_TESTING)
         rsa.cc
         rsa_test.cc
         s_client.cc
-        ordered_args.cc
+        s_client_test.cc
+        test_util.cc
+        tool_util.cc
         verify.cc
         verify_test.cc
         x509.cc

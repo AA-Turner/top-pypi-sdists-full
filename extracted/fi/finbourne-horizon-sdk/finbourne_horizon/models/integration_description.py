@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class IntegrationDescription(BaseModel):
     """
@@ -28,8 +30,8 @@ class IntegrationDescription(BaseModel):
     type:  StrictStr = Field(...,alias="type", description="Unique identifier of the integration e.g. \"copp-clark\".") 
     name:  StrictStr = Field(...,alias="name", description="Readable name of the integration e.g. \"Copp Clark\".") 
     description:  StrictStr = Field(...,alias="description", description="Describes the purpose of the integration.") 
-    supported_trigger_types: conlist(StrictStr) = Field(..., alias="supportedTriggerTypes", description="Trigger types (Time, File) the integration supports.")
-    licensed: StrictBool = Field(..., description="True if your domain is licensed to use this integration, otherwise false.")
+    supported_trigger_types: List[StrictStr] = Field(description="Trigger types (Time, File) the integration supports.", alias="supportedTriggerTypes")
+    licensed: StrictBool = Field(description="True if your domain is licensed to use this integration, otherwise false.")
     __properties = ["type", "name", "description", "supportedTriggerTypes", "licensed"]
 
     class Config:
@@ -83,3 +85,5 @@ class IntegrationDescription(BaseModel):
             "licensed": obj.get("licensed")
         })
         return _obj
+
+IntegrationDescription.update_forward_refs()

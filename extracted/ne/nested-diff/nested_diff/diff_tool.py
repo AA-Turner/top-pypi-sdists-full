@@ -1,4 +1,4 @@
-# Copyright 2019-2024 Michael Samoglyadov
+# Copyright 2019-2026 Michael Samoglyadov
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,27 @@ import nested_diff
 import nested_diff.cli
 import nested_diff.handlers
 
+HELP_EPILOG = """\
+examples:
+  diff two documents:
+    %(prog)s a.json b.yaml
+
+  dIff several documents pairwise:
+    %(prog)s a.json b.json c.json d.json
+
+  show changed elements but omit added and removed:
+    %(prog)s -A=0 -R=0 a.json b.json
+
+  render existing nested diff as HTML page:
+    %(prog)s --show --ofmt=html nd.json
+
+  show changed paths, but not values:
+    %(prog)s --values=none a.json b.json
+"""
+
 
 class App(nested_diff.cli.App):
-    """Diff tool for nested data structures."""
+    """Diff tool for nested structures."""
 
     supported_ofmts = ('auto', 'html', 'json', 'term', 'toml', 'text', 'yaml')
 
@@ -58,6 +76,7 @@ class App(nested_diff.cli.App):
             diff_opts['R'] = int(diff_opts['R'])
 
         differ = nested_diff.Differ(**diff_opts)
+        differ.set_handler(nested_diff.cli.ListOfDocumentsHandler())
         differ.set_handler(nested_diff.cli.YamlNodeHandler())
 
         if self.args.text_ctx >= 0:
@@ -182,8 +201,8 @@ class App(nested_diff.cli.App):
             '-R',
             choices=('0', '1', 'trim'),
             default=1,
-            help='Show removed items; enabled (1) by default. '
-            'Value will be replaced by null when "trim" used',
+            help='show removed items; enabled (1) by default; '
+            'value will be replaced by null when "trim" used',
         )
         parser.add_argument(
             '-U',
@@ -231,7 +250,7 @@ class App(nested_diff.cli.App):
         return super().get_dumper(fmt, **kwargs)
 
     def run(self):
-        """Diff app object entry point."""
+        """Diff app entry point."""
         exit_code = 0
 
         self.args.out.write(self.dumper.header)
@@ -278,7 +297,7 @@ class FormatterDumper(nested_diff.cli.Dumper):
             kwargs: Passed to base formatter as is.
 
         """
-        import nested_diff.formatters
+        import nested_diff.formatters  # noqa: PLC0415
 
         if fmt == 'term':
             base_class = nested_diff.formatters.TermFormatter
@@ -289,6 +308,7 @@ class FormatterDumper(nested_diff.cli.Dumper):
 
         fmt_class = self.get_formatter_class(base_class, values=values)
         self.encoder = fmt_class(**self.get_opts(kwargs))
+        self.encoder.set_handler(nested_diff.cli.ListOfDocumentsHandler())
         self.encoder.set_handler(nested_diff.cli.YamlNodeHandler())
 
         if header is None:

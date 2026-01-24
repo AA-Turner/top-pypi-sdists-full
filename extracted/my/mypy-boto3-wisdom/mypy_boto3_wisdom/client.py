@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -113,12 +114,6 @@ from .type_defs import (
     UpdateQuickResponseResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -129,15 +124,15 @@ __all__ = ("ConnectWisdomServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    PreconditionFailedException: Type[BotocoreClientError]
-    RequestTimeoutException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    PreconditionFailedException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ConnectWisdomServiceClient(BaseClient):
@@ -236,7 +231,7 @@ class ConnectWisdomServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wisdom/client/#create_session)
         """
 
-    def delete_assistant(self, **kwargs: Unpack[DeleteAssistantRequestTypeDef]) -> Dict[str, Any]:
+    def delete_assistant(self, **kwargs: Unpack[DeleteAssistantRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an assistant.
 
@@ -246,7 +241,7 @@ class ConnectWisdomServiceClient(BaseClient):
 
     def delete_assistant_association(
         self, **kwargs: Unpack[DeleteAssistantAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an assistant association.
 
@@ -254,7 +249,7 @@ class ConnectWisdomServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wisdom/client/#delete_assistant_association)
         """
 
-    def delete_content(self, **kwargs: Unpack[DeleteContentRequestTypeDef]) -> Dict[str, Any]:
+    def delete_content(self, **kwargs: Unpack[DeleteContentRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the content.
 
@@ -262,7 +257,7 @@ class ConnectWisdomServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wisdom/client/#delete_content)
         """
 
-    def delete_import_job(self, **kwargs: Unpack[DeleteImportJobRequestTypeDef]) -> Dict[str, Any]:
+    def delete_import_job(self, **kwargs: Unpack[DeleteImportJobRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the quick response import job.
 
@@ -272,7 +267,7 @@ class ConnectWisdomServiceClient(BaseClient):
 
     def delete_knowledge_base(
         self, **kwargs: Unpack[DeleteKnowledgeBaseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the knowledge base.
 
@@ -282,7 +277,7 @@ class ConnectWisdomServiceClient(BaseClient):
 
     def delete_quick_response(
         self, **kwargs: Unpack[DeleteQuickResponseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a quick response.
 
@@ -469,7 +464,7 @@ class ConnectWisdomServiceClient(BaseClient):
 
     def remove_knowledge_base_template_uri(
         self, **kwargs: Unpack[RemoveKnowledgeBaseTemplateUriRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a URI template from a knowledge base.
 
@@ -528,7 +523,7 @@ class ConnectWisdomServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wisdom/client/#start_import_job)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -536,7 +531,7 @@ class ConnectWisdomServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wisdom/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 

@@ -50,10 +50,9 @@ dependencies    = [
     "defusedxml>=0.5.0",
     "urllib3>=1.26.18",
     "typing-extensions>=4.0.1",
-    "dataclasses>=0.8;python_version=='3.6'",
     "requests-toolbelt>=1.0.0",
-    "gql>=3.5.0",
-    "graphql-core>=3.2.3",
+    "gql>=4.0.0",
+    "graphql-core>=3.2.6",
     "pydantic>=2.5.3",
     "pydantic-extra-types>=2.3.0",
 ]
@@ -116,8 +115,21 @@ docstring-code-line-length = "dynamic"
 "**/{tests,docs,tools}/*" = ["E402"]
 
 
-[tool.uv]
-dev-dependencies = [
+[tool.pytest.ini_options]
+addopts  = "--cov-report term-missing --cov=tenable"
+testpaths = ['tests']
+filterwarnings = [
+    "ignore::DeprecationWarning:tenable.*",
+    "ignore:::tenable",
+]
+
+[dependency-groups]
+docs = [
+    "autodoc-pydantic>=2.2.0",
+    "furo==2024.5.6",
+    "sphinx-argparse>=0.5.2",
+]
+dev = [
     "bpython>=0.24",
     "mock>=5.1.0",
     "pytest-cov>=4.1.0",
@@ -132,17 +144,6 @@ dev-dependencies = [
     "urllib3==1.26.20",
     "rich>=13.8.1",
     "ptpython>=3.0.29",
-]
-
-
-[tool.pytest.ini_options]
-addopts  = "--cov-report term-missing --cov=tenable"
-testpaths = ['tests']
-filterwarnings = ["ignore::DeprecationWarning"]
-
-[dependency-groups]
-docs = [
-    "autodoc-pydantic>=2.2.0",
-    "furo==2024.5.6",
-    "sphinx-argparse>=0.5.2",
+    "typer>=0.20.0",
+    "mypy>=1.18.2",
 ]

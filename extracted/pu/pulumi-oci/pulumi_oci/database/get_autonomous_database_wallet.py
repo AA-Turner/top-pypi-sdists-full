@@ -108,7 +108,9 @@ def get_autonomous_database_wallet(autonomous_database_id: Optional[_builtins.st
 
     This data source provides details about a specific Autonomous Database Wallet resource in Oracle Cloud Infrastructure Database service.
 
-    Creates and downloads a wallet for the specified Autonomous Database.
+    Creates and downloads a wallet for the specified Autonomous AI Database.
+
+    ## Example Usage
 
 
     :param _builtins.str autonomous_database_id: The database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).
@@ -146,7 +148,9 @@ def get_autonomous_database_wallet_output(autonomous_database_id: Optional[pulum
 
     This data source provides details about a specific Autonomous Database Wallet resource in Oracle Cloud Infrastructure Database service.
 
-    Creates and downloads a wallet for the specified Autonomous Database.
+    Creates and downloads a wallet for the specified Autonomous AI Database.
+
+    ## Example Usage
 
 
     :param _builtins.str autonomous_database_id: The database [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm).

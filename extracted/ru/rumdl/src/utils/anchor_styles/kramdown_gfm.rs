@@ -13,70 +13,26 @@
 //! 6. Convert spaces to hyphens, consolidate multiple hyphens
 //! 7. Remove leading and trailing hyphens
 
-use lazy_static::lazy_static;
 use regex::Regex;
+use std::sync::LazyLock;
 use unicode_normalization::UnicodeNormalization;
 
-// Input size limit for security (1MB)
-const MAX_INPUT_SIZE: usize = 1024 * 1024;
+use super::common::{
+    CONTROL_CHARS, MAX_INPUT_SIZE_LARGE, UnicodeLetterMode, WHITESPACE_NORMALIZE, is_emoji_or_symbol,
+    is_safe_unicode_letter,
+};
 
-lazy_static! {
-    // Improved markdown removal patterns with better nested handling
-    // Match emphasis patterns - asterisks and underscores
-    // Process multiple times to handle nested patterns
-    static ref ASTERISK_PATTERN: Regex = Regex::new(r"\*+([^*]*?)\*+").unwrap();
-    // Match emphasis underscores only at word boundaries, not in snake_case
-    static ref UNDERSCORE_PATTERN: Regex = Regex::new(r"\b_+([^_\s][^_]*?)_+\b").unwrap();
-    static ref CODE_PATTERN: Regex = Regex::new(r"`+([^`]*?)`+").unwrap();
-    // Match images and links separately to handle nested brackets properly
-    static ref IMAGE_PATTERN: Regex = Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap();
-    static ref LINK_PATTERN: Regex = Regex::new(r"\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\([^)]*\)|\[[^\]]*\])").unwrap();
-
-    // Control character and dangerous Unicode filtering
-    static ref CONTROL_CHARS: Regex = Regex::new(r"[\x00-\x1F\x7F-\x9F\u200B-\u200D\uFEFF]").unwrap();
-
-    // Whitespace normalization (tabs, Unicode spaces)
-    static ref WHITESPACE_NORMALIZE: Regex = Regex::new(r"[\t\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]").unwrap();
-}
-
-/// Checks if a character is a safe Unicode letter (ASCII + common Latin extended)
-fn is_safe_unicode_letter(c: char) -> bool {
-    // ASCII letters
-    if c.is_ascii_alphabetic() {
-        return true;
-    }
-
-    // Kramdown GFM preserves most Unicode letters
-    // Allow all alphabetic characters that are not control or format characters
-    if c.is_alphabetic() {
-        let code = c as u32;
-        // Exclude dangerous ranges
-        if (0xE000..=0xF8FF).contains(&code) ||    // Private Use Area
-           (0xFE00..=0xFE0F).contains(&code) ||    // Variation Selectors
-           (0x200B..=0x200D).contains(&code) ||    // Zero-width characters
-           (0x202A..=0x202E).contains(&code)
-        // Bidirectional overrides
-        {
-            return false;
-        }
-        return true;
-    }
-
-    false
-}
-
-/// Check if character is an emoji or symbol (simplified version)
-fn is_emoji_or_symbol(c: char) -> bool {
-    let code = c as u32;
-
-    // Basic emoji ranges
-    (0x1F600..=0x1F64F).contains(&code) ||  // Emoticons
-    (0x1F300..=0x1F5FF).contains(&code) ||  // Miscellaneous Symbols and Pictographs
-    (0x1F680..=0x1F6FF).contains(&code) ||  // Transport and Map Symbols
-    (0x1F900..=0x1F9FF).contains(&code) ||  // Supplemental Symbols and Pictographs
-    (0x2600..=0x26FF).contains(&code) ||    // Miscellaneous Symbols
-    (0x2700..=0x27BF).contains(&code) // Dingbats
-}
+// Improved markdown removal patterns with better nested handling
+// Match emphasis patterns - asterisks and underscores
+// Process multiple times to handle nested patterns
+static ASTERISK_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*+([^*]*?)\*+").unwrap());
+// Match emphasis underscores only at word boundaries, not in snake_case
+static UNDERSCORE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b_+([^_\s][^_]*?)_+\b").unwrap());
+static CODE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`+([^`]*?)`+").unwrap());
+// Match images and links separately to handle nested brackets properly
+static IMAGE_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!\[([^\]]*)\]\([^)]*\)").unwrap());
+static LINK_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\([^)]*\)|\[[^\]]*\])").unwrap());
 
 /// Generate kramdown GFM style anchor fragment from heading text
 ///
@@ -100,7 +56,7 @@ fn is_emoji_or_symbol(c: char) -> bool {
 /// ```
 pub fn heading_to_fragment(heading: &str) -> String {
     // Step 1: Input validation and size limits
-    if heading.is_empty() || heading.len() > MAX_INPUT_SIZE {
+    if heading.is_empty() || heading.len() > MAX_INPUT_SIZE_LARGE {
         return if heading.is_empty() {
             String::new()
         } else {
@@ -159,7 +115,12 @@ pub fn heading_to_fragment(heading: &str) -> String {
     let mut seen_non_emoji = false;
 
     for c in text.chars() {
-        if is_safe_unicode_letter(c) || c.is_ascii_digit() || c == ' ' || c == '_' || c == '-' {
+        if is_safe_unicode_letter(c, UnicodeLetterMode::Permissive)
+            || c.is_ascii_digit()
+            || c == ' '
+            || c == '_'
+            || c == '-'
+        {
             filtered.push(c);
             seen_non_emoji = true;
         } else if is_emoji_or_symbol(c) {
@@ -185,11 +146,11 @@ pub fn heading_to_fragment(heading: &str) -> String {
 
     // Only trim to first letter if the string starts with non-letter, non-digit characters
     if let Some(c) = first_char {
-        if !c.is_ascii_digit() && !is_safe_unicode_letter(c) {
+        if !c.is_ascii_digit() && !is_safe_unicode_letter(c, UnicodeLetterMode::Permissive) {
             // Find first letter or digit
             let mut found_alnum = false;
             for (i, ch) in filtered.char_indices() {
-                if is_safe_unicode_letter(ch) || ch.is_ascii_digit() {
+                if is_safe_unicode_letter(ch, UnicodeLetterMode::Permissive) || ch.is_ascii_digit() {
                     start_pos = i;
                     found_alnum = true;
                     break;
@@ -332,7 +293,7 @@ pub fn heading_to_fragment(heading: &str) -> String {
         }
 
         // Normal character processing
-        if is_safe_unicode_letter(c) {
+        if is_safe_unicode_letter(c, UnicodeLetterMode::Permissive) {
             // Convert to lowercase
             for lowercase_c in c.to_lowercase() {
                 result.push(lowercase_c);
@@ -362,9 +323,7 @@ pub fn heading_to_fragment(heading: &str) -> String {
     // Pattern: n ≡ 1 (mod 3) AND n ≥ 4 → single hyphen (4,7,10,13...)
     // All other sequences of 2+ hyphens → removed
     // BUT: Smart typography markers are preserved and replaced AFTER consolidation
-    lazy_static! {
-        static ref HYPHEN_PATTERN: Regex = Regex::new(r"-{2,}").unwrap();
-    }
+    static HYPHEN_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-{2,}").unwrap());
 
     let result = HYPHEN_PATTERN
         .replace_all(&result, |caps: &regex::Captures| {
@@ -531,7 +490,7 @@ mod tests {
     #[test]
     fn test_security_features() {
         // Test input size limits
-        let large_input = "a".repeat(MAX_INPUT_SIZE + 1);
+        let large_input = "a".repeat(MAX_INPUT_SIZE_LARGE + 1);
         assert_eq!(heading_to_fragment(&large_input), "section");
 
         // Test control character filtering

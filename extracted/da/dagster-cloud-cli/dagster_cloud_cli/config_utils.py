@@ -87,7 +87,7 @@ def get_organization(ctx: Optional[Context] = None) -> Optional[str]:
 
 def get_location_load_timeout() -> int:
     """Gets the configured location load timeout to target.
-    Highest precedence is an location-load-timeout argument, then `DAGTER_CLOUD_LOCATION_LOAD_TIMEOUT`
+    Highest precedence is an location-load-timeout argument, then `DAGSTER_CLOUD_LOCATION_LOAD_TIMEOUT`
     env var, then `~/.dagster_cloud_cli/config` value.
     """
     config_timeout = read_config().agent_timeout
@@ -103,7 +103,7 @@ def get_location_load_timeout() -> int:
 
 def get_agent_heartbeat_timeout(default_timeout: Optional[int]) -> Optional[int]:
     """Gets the configured agent timeout to target.
-    Highest precedence is an agent-timeout argument, then `DAGTER_CLOUD_AGENT_HEARTBEAT_TIMEOUT`
+    Highest precedence is an agent-timeout argument, then `DAGSTER_CLOUD_AGENT_HEARTBEAT_TIMEOUT`
     env var.
     """
     env_val = os.getenv(AGENT_HEARTBEAT_TIMEOUT_ENV_VAR_NAME)
@@ -500,6 +500,7 @@ def get_location_document(name: Optional[str], kwargs: dict[str, Any]) -> dict[s
                 if kwargs.get("pex_tag")
                 else None
             ),
+            "defs_state_info": kwargs.get("defs_state_info"),
         }
     )
     return deep_merge_dicts(location_doc_from_file, location_doc_from_kwargs)

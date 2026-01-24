@@ -727,7 +727,8 @@ class TestEveSwaggerProvider(TestCase):
         my_provider = EveSwaggerProvider()
         my_client = my_provider.client
         operation = my_client.Universe.get_universe_factions()
-        self.assertEqual(
-            operation.future.request.headers['User-Agent'],
-            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) Django-ESI/{esi_version} (+{esi_url})'
-        )
+        expected_variants = {
+            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) DjangoEsi/{esi_version} (+{esi_url})',  # Django-ESI 8.0.0
+            f'AllianceAuth/{aa_version} (dummy@example.net; +{aa_url}) Django-ESI/{esi_version} (+{esi_url})'  # Django-ESI 7.x, Py38 Py39
+        }
+        self.assertIn(operation.future.request.headers['User-Agent'], expected_variants)

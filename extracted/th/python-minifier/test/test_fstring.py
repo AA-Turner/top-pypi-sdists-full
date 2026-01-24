@@ -47,8 +47,8 @@ f"This is the playlist: {", ".join([
 '''
     assert unparse(ast.parse(statement)) == 'f"This is the playlist: {", ".join(["Take me back to Eden","Alkaline","Ascensionism"])}"'
 
-    # statement = '''print(f"This is the playlist: {"\N{BLACK HEART SUIT}".join(songs)}")'''
-    # assert unparse(ast.parse(statement)) == statement
+    statement = '''print(f"This is the playlist: {"\N{BLACK HEART SUIT}".join(songs)}")'''
+    assert unparse(ast.parse(statement)) == statement
 
     statement = '''f"Magic wand: {bag["wand"]}"'''
     assert unparse(ast.parse(statement)) == statement
@@ -78,9 +78,9 @@ f'''A complex trick: {
     statement = '''f"{"":*^{1:{1}}}"'''
     assert unparse(ast.parse(statement)) == statement
 
-    # statement = '''f"{"":*^{1:{1:{1}}}}"'''
-    # assert unparse(ast.parse(statement)) == statement
-    # SyntaxError: f-string: expressions nested too deeply
+    # Verify that Python raises SyntaxError for f-strings nested too deeply
+    with pytest.raises(SyntaxError, match="expressions nested too deeply"):
+        ast.parse('''f"{"":*^{1:{1:{1}}}}"''')
 
     statement = '''f"___{
      x

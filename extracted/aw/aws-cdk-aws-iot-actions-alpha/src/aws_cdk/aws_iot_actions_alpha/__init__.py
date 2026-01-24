@@ -361,6 +361,26 @@ topic_rule.add_action(
     ))
 ```
 
+You can enable batching to reduce costs and improve efficiency:
+
+```python
+from aws_cdk import Size
+
+# topic_rule: iot.TopicRule
+
+
+topic_rule.add_action(
+    actions.HttpsAction("https://example.com/endpoint",
+        batch_config=actions.HttpActionBatchConfig(
+            max_batch_open_duration=Duration.millis(100),
+            max_batch_size=5,
+            max_batch_size_bytes=Size.kibibytes(1)
+        )
+    ))
+```
+
+For more information about the batching configuration, see the [AWS IoT Core documentation](https://docs.aws.amazon.com/iot/latest/developerguide/http_batching.html).
+
 ## Write Data to Open Search Service
 
 The code snippet below creates an AWS IoT Rule that writes data
@@ -414,6 +434,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 
 from ._jsii import *
 
+import aws_cdk as _aws_cdk_ceddda9d
 import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
 import aws_cdk.aws_dynamodb as _aws_cdk_aws_dynamodb_ceddda9d
 import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
@@ -455,9 +476,9 @@ class CloudWatchLogsAction(
 
     def __init__(
         self,
-        log_group: _aws_cdk_aws_logs_ceddda9d.ILogGroup,
+        log_group: "_aws_cdk_aws_logs_ceddda9d.ILogGroup",
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param log_group: The CloudWatch log group to which the action sends data.
@@ -507,7 +528,7 @@ class CloudWatchPutMetricAction(
         metric_unit: builtins.str,
         metric_value: builtins.str,
         metric_timestamp: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param metric_name: (experimental) The CloudWatch metric name. Supports substitution templates.
@@ -571,11 +592,11 @@ class CloudWatchSetAlarmStateAction(
 
     def __init__(
         self,
-        alarm: _aws_cdk_aws_cloudwatch_ceddda9d.IAlarm,
+        alarm: "_aws_cdk_aws_cloudwatch_ceddda9d.IAlarm",
         *,
-        alarm_state_to_set: _aws_cdk_aws_cloudwatch_ceddda9d.AlarmState,
+        alarm_state_to_set: "_aws_cdk_aws_cloudwatch_ceddda9d.AlarmState",
         reason: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param alarm: -
@@ -604,7 +625,7 @@ class CommonActionProps:
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) Common properties shared by Actions it access to AWS service.
 
@@ -634,7 +655,7 @@ class CommonActionProps:
             self._values["role"] = role
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -642,7 +663,7 @@ class CommonActionProps:
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -683,9 +704,9 @@ class DynamoDBv2PutItemAction(
 
     def __init__(
         self,
-        table: _aws_cdk_aws_dynamodb_ceddda9d.ITable,
+        table: "_aws_cdk_aws_dynamodb_ceddda9d.ITable",
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param table: the DynamoDB table in which to put the items.
@@ -710,7 +731,7 @@ class DynamoDBv2PutItemActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for the dynamodb table.
 
@@ -740,7 +761,7 @@ class DynamoDBv2PutItemActionProps(CommonActionProps):
             self._values["role"] = role
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -748,7 +769,7 @@ class DynamoDBv2PutItemActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -795,11 +816,11 @@ class FirehosePutRecordAction(
 
     def __init__(
         self,
-        stream: _aws_cdk_aws_kinesisfirehose_ceddda9d.IDeliveryStream,
+        stream: "_aws_cdk_aws_kinesisfirehose_ceddda9d.IDeliveryStream",
         *,
         batch_mode: typing.Optional[builtins.bool] = None,
         record_separator: typing.Optional["FirehoseRecordSeparator"] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param stream: The Amazon Data Firehose stream to which to put records.
@@ -832,7 +853,7 @@ class FirehosePutRecordActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         batch_mode: typing.Optional[builtins.bool] = None,
         record_separator: typing.Optional["FirehoseRecordSeparator"] = None,
     ) -> None:
@@ -879,7 +900,7 @@ class FirehosePutRecordActionProps(CommonActionProps):
             self._values["record_separator"] = record_separator
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -887,7 +908,7 @@ class FirehosePutRecordActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def batch_mode(self) -> typing.Optional[builtins.bool]:
@@ -975,6 +996,113 @@ class FirehoseRecordSeparator(enum.Enum):
 
     :stability: experimental
     '''
+
+
+@jsii.data_type(
+    jsii_type="@aws-cdk/aws-iot-actions-alpha.HttpActionBatchConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "max_batch_open_duration": "maxBatchOpenDuration",
+        "max_batch_size": "maxBatchSize",
+        "max_batch_size_bytes": "maxBatchSizeBytes",
+    },
+)
+class HttpActionBatchConfig:
+    def __init__(
+        self,
+        *,
+        max_batch_open_duration: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        max_batch_size: typing.Optional[jsii.Number] = None,
+        max_batch_size_bytes: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+    ) -> None:
+        '''(experimental) Configuration for batching HTTP action messages.
+
+        :param max_batch_open_duration: (experimental) The maximum amount of time an outgoing message waits for other messages to create the batch. Must be between 5 ms and 200 ms. Default: Duration.millis(20)
+        :param max_batch_size: (experimental) The maximum number of messages that are batched together in a single IoT rule action execution. Must be between 2 and 10. Default: 10
+        :param max_batch_size_bytes: (experimental) Maximum size of a message batch. Must be between 100 bytes and 128 KiB. Default: Size.kibibytes(5)
+
+        :see: https://docs.aws.amazon.com/iot/latest/developerguide/http_batching.html
+        :stability: experimental
+        :exampleMetadata: infused
+
+        Example::
+
+            from aws_cdk import Size
+            
+            # topic_rule: iot.TopicRule
+            
+            
+            topic_rule.add_action(
+                actions.HttpsAction("https://example.com/endpoint",
+                    batch_config=actions.HttpActionBatchConfig(
+                        max_batch_open_duration=Duration.millis(100),
+                        max_batch_size=5,
+                        max_batch_size_bytes=Size.kibibytes(1)
+                    )
+                ))
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__935f6e4166e63cead06a0053a3d69d0f91c885bb7757a9c25815a12ea9e851e9)
+            check_type(argname="argument max_batch_open_duration", value=max_batch_open_duration, expected_type=type_hints["max_batch_open_duration"])
+            check_type(argname="argument max_batch_size", value=max_batch_size, expected_type=type_hints["max_batch_size"])
+            check_type(argname="argument max_batch_size_bytes", value=max_batch_size_bytes, expected_type=type_hints["max_batch_size_bytes"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if max_batch_open_duration is not None:
+            self._values["max_batch_open_duration"] = max_batch_open_duration
+        if max_batch_size is not None:
+            self._values["max_batch_size"] = max_batch_size
+        if max_batch_size_bytes is not None:
+            self._values["max_batch_size_bytes"] = max_batch_size_bytes
+
+    @builtins.property
+    def max_batch_open_duration(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
+        '''(experimental) The maximum amount of time an outgoing message waits for other messages to create the batch.
+
+        Must be between 5 ms and 200 ms.
+
+        :default: Duration.millis(20)
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_batch_open_duration")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
+
+    @builtins.property
+    def max_batch_size(self) -> typing.Optional[jsii.Number]:
+        '''(experimental) The maximum number of messages that are batched together in a single IoT rule action execution.
+
+        Must be between 2 and 10.
+
+        :default: 10
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_batch_size")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_batch_size_bytes(self) -> typing.Optional["_aws_cdk_ceddda9d.Size"]:
+        '''(experimental) Maximum size of a message batch.
+
+        Must be between 100 bytes and 128 KiB.
+
+        :default: Size.kibibytes(5)
+
+        :stability: experimental
+        '''
+        result = self._values.get("max_batch_size_bytes")
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Size"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "HttpActionBatchConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -1148,14 +1276,16 @@ class HttpsAction(
         self,
         url: builtins.str,
         *,
-        auth: typing.Optional[typing.Union[HttpActionSigV4Auth, typing.Dict[builtins.str, typing.Any]]] = None,
+        auth: typing.Optional[typing.Union["HttpActionSigV4Auth", typing.Dict[builtins.str, typing.Any]]] = None,
+        batch_config: typing.Optional[typing.Union["HttpActionBatchConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         confirmation_url: typing.Optional[builtins.str] = None,
-        headers: typing.Optional[typing.Sequence[typing.Union[HttpActionHeader, typing.Dict[builtins.str, typing.Any]]]] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        headers: typing.Optional[typing.Sequence[typing.Union["HttpActionHeader", typing.Dict[builtins.str, typing.Any]]]] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param url: The url to which to send post request.
         :param auth: (experimental) Use Sigv4 authorization.
+        :param batch_config: (experimental) Configuration for batching HTTP action messages. When provided, batching is automatically enabled. Default: - Batching is disabled
         :param confirmation_url: (experimental) If specified, AWS IoT uses the confirmation URL to create a matching topic rule destination.
         :param headers: (experimental) The headers to include in the HTTPS request to the endpoint.
         :param role: (experimental) The IAM role that allows access to AWS service. Default: a new role will be created
@@ -1166,7 +1296,11 @@ class HttpsAction(
             type_hints = typing.get_type_hints(_typecheckingstub__c87b0804f95979b48d6a924424abe8ebf192fbcfebc6aecf6436690d1019d6ad)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
         props = HttpsActionProps(
-            auth=auth, confirmation_url=confirmation_url, headers=headers, role=role
+            auth=auth,
+            batch_config=batch_config,
+            confirmation_url=confirmation_url,
+            headers=headers,
+            role=role,
         )
 
         jsii.create(self.__class__, self, [url, props])
@@ -1178,6 +1312,7 @@ class HttpsAction(
     name_mapping={
         "role": "role",
         "auth": "auth",
+        "batch_config": "batchConfig",
         "confirmation_url": "confirmationUrl",
         "headers": "headers",
     },
@@ -1186,15 +1321,17 @@ class HttpsActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        auth: typing.Optional[typing.Union[HttpActionSigV4Auth, typing.Dict[builtins.str, typing.Any]]] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        auth: typing.Optional[typing.Union["HttpActionSigV4Auth", typing.Dict[builtins.str, typing.Any]]] = None,
+        batch_config: typing.Optional[typing.Union["HttpActionBatchConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         confirmation_url: typing.Optional[builtins.str] = None,
-        headers: typing.Optional[typing.Sequence[typing.Union[HttpActionHeader, typing.Dict[builtins.str, typing.Any]]]] = None,
+        headers: typing.Optional[typing.Sequence[typing.Union["HttpActionHeader", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''(experimental) Configuration properties of an HTTPS action.
 
         :param role: (experimental) The IAM role that allows access to AWS service. Default: a new role will be created
         :param auth: (experimental) Use Sigv4 authorization.
+        :param batch_config: (experimental) Configuration for batching HTTP action messages. When provided, batching is automatically enabled. Default: - Batching is disabled
         :param confirmation_url: (experimental) If specified, AWS IoT uses the confirmation URL to create a matching topic rule destination.
         :param headers: (experimental) The headers to include in the HTTPS request to the endpoint.
 
@@ -1218,10 +1355,13 @@ class HttpsActionProps(CommonActionProps):
         '''
         if isinstance(auth, dict):
             auth = HttpActionSigV4Auth(**auth)
+        if isinstance(batch_config, dict):
+            batch_config = HttpActionBatchConfig(**batch_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed57e014b0887a84984c84f8ad94782b2b5efe0e853a018ecb7cde520af055ac)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
+            check_type(argname="argument batch_config", value=batch_config, expected_type=type_hints["batch_config"])
             check_type(argname="argument confirmation_url", value=confirmation_url, expected_type=type_hints["confirmation_url"])
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1229,13 +1369,15 @@ class HttpsActionProps(CommonActionProps):
             self._values["role"] = role
         if auth is not None:
             self._values["auth"] = auth
+        if batch_config is not None:
+            self._values["batch_config"] = batch_config
         if confirmation_url is not None:
             self._values["confirmation_url"] = confirmation_url
         if headers is not None:
             self._values["headers"] = headers
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -1243,16 +1385,30 @@ class HttpsActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
-    def auth(self) -> typing.Optional[HttpActionSigV4Auth]:
+    def auth(self) -> typing.Optional["HttpActionSigV4Auth"]:
         '''(experimental) Use Sigv4 authorization.
 
         :stability: experimental
         '''
         result = self._values.get("auth")
-        return typing.cast(typing.Optional[HttpActionSigV4Auth], result)
+        return typing.cast(typing.Optional["HttpActionSigV4Auth"], result)
+
+    @builtins.property
+    def batch_config(self) -> typing.Optional["HttpActionBatchConfig"]:
+        '''(experimental) Configuration for batching HTTP action messages.
+
+        When provided, batching is automatically enabled.
+
+        :default: - Batching is disabled
+
+        :see: https://docs.aws.amazon.com/iot/latest/developerguide/http_batching.html
+        :stability: experimental
+        '''
+        result = self._values.get("batch_config")
+        return typing.cast(typing.Optional["HttpActionBatchConfig"], result)
 
     @builtins.property
     def confirmation_url(self) -> typing.Optional[builtins.str]:
@@ -1264,13 +1420,13 @@ class HttpsActionProps(CommonActionProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def headers(self) -> typing.Optional[typing.List[HttpActionHeader]]:
+    def headers(self) -> typing.Optional[typing.List["HttpActionHeader"]]:
         '''(experimental) The headers to include in the HTTPS request to the endpoint.
 
         :stability: experimental
         '''
         result = self._values.get("headers")
-        return typing.cast(typing.Optional[typing.List[HttpActionHeader]], result)
+        return typing.cast(typing.Optional[typing.List["HttpActionHeader"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1319,11 +1475,11 @@ class IotEventsPutMessageAction(
 
     def __init__(
         self,
-        input: _aws_cdk_aws_iotevents_alpha_39cbd76e.IInput,
+        input: "_aws_cdk_aws_iotevents_alpha_39cbd76e.IInput",
         *,
         batch_mode: typing.Optional[builtins.bool] = None,
         message_id: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param input: The IoT Events input to put messages.
@@ -1356,7 +1512,7 @@ class IotEventsPutMessageActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         batch_mode: typing.Optional[builtins.bool] = None,
         message_id: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1405,7 +1561,7 @@ class IotEventsPutMessageActionProps(CommonActionProps):
             self._values["message_id"] = message_id
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -1413,7 +1569,7 @@ class IotEventsPutMessageActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def batch_mode(self) -> typing.Optional[builtins.bool]:
@@ -1485,7 +1641,7 @@ class IotRepublishMqttAction(
         topic: builtins.str,
         *,
         quality_of_service: typing.Optional["MqttQualityOfService"] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param topic: The MQTT topic to which to republish the message.
@@ -1513,7 +1669,7 @@ class IotRepublishMqttActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         quality_of_service: typing.Optional["MqttQualityOfService"] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action to republish MQTT messages.
@@ -1546,7 +1702,7 @@ class IotRepublishMqttActionProps(CommonActionProps):
             self._values["quality_of_service"] = quality_of_service
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -1554,7 +1710,7 @@ class IotRepublishMqttActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def quality_of_service(self) -> typing.Optional["MqttQualityOfService"]:
@@ -1609,10 +1765,10 @@ class KinesisPutRecordAction(
 
     def __init__(
         self,
-        stream: _aws_cdk_aws_kinesis_ceddda9d.IStream,
+        stream: "_aws_cdk_aws_kinesis_ceddda9d.IStream",
         *,
         partition_key: builtins.str,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param stream: The Kinesis Data stream to which to put records.
@@ -1638,7 +1794,7 @@ class KinesisPutRecordActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         partition_key: builtins.str,
     ) -> None:
         '''(experimental) Configuration properties of an action for the Kinesis Data stream.
@@ -1676,7 +1832,7 @@ class KinesisPutRecordActionProps(CommonActionProps):
             self._values["role"] = role
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -1684,7 +1840,7 @@ class KinesisPutRecordActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def partition_key(self) -> builtins.str:
@@ -1738,7 +1894,7 @@ class LambdaFunctionAction(
         )
     '''
 
-    def __init__(self, func: _aws_cdk_aws_lambda_ceddda9d.IFunction) -> None:
+    def __init__(self, func: "_aws_cdk_aws_lambda_ceddda9d.IFunction") -> None:
         '''
         :param func: The lambda function to be invoked by this action.
 
@@ -1817,12 +1973,12 @@ class OpenSearchAction(
 
     def __init__(
         self,
-        domain: _aws_cdk_aws_opensearchservice_ceddda9d.Domain,
+        domain: "_aws_cdk_aws_opensearchservice_ceddda9d.Domain",
         *,
         id: builtins.str,
         index: builtins.str,
         type: builtins.str,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param domain: -
@@ -1850,7 +2006,7 @@ class OpenSearchActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         id: builtins.str,
         index: builtins.str,
         type: builtins.str,
@@ -1896,7 +2052,7 @@ class OpenSearchActionProps(CommonActionProps):
             self._values["role"] = role
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -1904,7 +2060,7 @@ class OpenSearchActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def id(self) -> builtins.str:
@@ -1974,11 +2130,11 @@ class S3PutObjectAction(
 
     def __init__(
         self,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         *,
-        access_control: typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketAccessControl] = None,
+        access_control: typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketAccessControl"] = None,
         key: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param bucket: The Amazon S3 bucket to which to write data.
@@ -2007,8 +2163,8 @@ class S3PutObjectActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        access_control: typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketAccessControl] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        access_control: typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketAccessControl"] = None,
         key: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for s3.
@@ -2047,7 +2203,7 @@ class S3PutObjectActionProps(CommonActionProps):
             self._values["key"] = key
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2055,12 +2211,12 @@ class S3PutObjectActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def access_control(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketAccessControl]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketAccessControl"]:
         '''(experimental) The Amazon S3 canned ACL that controls access to the object identified by the object key.
 
         :default: None
@@ -2069,7 +2225,7 @@ class S3PutObjectActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("access_control")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketAccessControl], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.BucketAccessControl"], result)
 
     @builtins.property
     def key(self) -> typing.Optional[builtins.str]:
@@ -2163,10 +2319,10 @@ class SnsTopicAction(
 
     def __init__(
         self,
-        topic: _aws_cdk_aws_sns_ceddda9d.ITopic,
+        topic: "_aws_cdk_aws_sns_ceddda9d.ITopic",
         *,
-        message_format: typing.Optional[SnsActionMessageFormat] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        message_format: typing.Optional["SnsActionMessageFormat"] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param topic: The Amazon SNS topic to publish data on. Must not be a FIFO topic.
@@ -2192,8 +2348,8 @@ class SnsTopicActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        message_format: typing.Optional[SnsActionMessageFormat] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        message_format: typing.Optional["SnsActionMessageFormat"] = None,
     ) -> None:
         '''(experimental) Configuration options for the SNS topic action.
 
@@ -2230,7 +2386,7 @@ class SnsTopicActionProps(CommonActionProps):
             self._values["message_format"] = message_format
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2238,10 +2394,10 @@ class SnsTopicActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
-    def message_format(self) -> typing.Optional[SnsActionMessageFormat]:
+    def message_format(self) -> typing.Optional["SnsActionMessageFormat"]:
         '''(experimental) The message format of the message to publish.
 
         SNS uses this setting to determine if the payload should be parsed and relevant platform-specific bits of the payload should be extracted.
@@ -2252,7 +2408,7 @@ class SnsTopicActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("message_format")
-        return typing.cast(typing.Optional[SnsActionMessageFormat], result)
+        return typing.cast(typing.Optional["SnsActionMessageFormat"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2295,10 +2451,10 @@ class SqsQueueAction(
 
     def __init__(
         self,
-        queue: _aws_cdk_aws_sqs_ceddda9d.IQueue,
+        queue: "_aws_cdk_aws_sqs_ceddda9d.IQueue",
         *,
         use_base64: typing.Optional[builtins.bool] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param queue: The Amazon SQS queue to which to write data.
@@ -2324,7 +2480,7 @@ class SqsQueueActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         use_base64: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for SQS.
@@ -2362,7 +2518,7 @@ class SqsQueueActionProps(CommonActionProps):
             self._values["use_base64"] = use_base64
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2370,7 +2526,7 @@ class SqsQueueActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def use_base64(self) -> typing.Optional[builtins.bool]:
@@ -2421,10 +2577,10 @@ class StepFunctionsStateMachineAction(
 
     def __init__(
         self,
-        state_machine: _aws_cdk_aws_stepfunctions_ceddda9d.IStateMachine,
+        state_machine: "_aws_cdk_aws_stepfunctions_ceddda9d.IStateMachine",
         *,
         execution_name_prefix: typing.Optional[builtins.str] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''
         :param state_machine: The Step Functions Start Machine which should be executed.
@@ -2452,7 +2608,7 @@ class StepFunctionsStateMachineActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         execution_name_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for the Step Functions State Machine.
@@ -2488,7 +2644,7 @@ class StepFunctionsStateMachineActionProps(CommonActionProps):
             self._values["execution_name_prefix"] = execution_name_prefix
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2496,7 +2652,7 @@ class StepFunctionsStateMachineActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def execution_name_prefix(self) -> typing.Optional[builtins.str]:
@@ -2533,7 +2689,7 @@ class CloudWatchLogsActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for CloudWatch Logs.
 
@@ -2563,7 +2719,7 @@ class CloudWatchLogsActionProps(CommonActionProps):
             self._values["role"] = role
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2571,7 +2727,7 @@ class CloudWatchLogsActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2601,7 +2757,7 @@ class CloudWatchPutMetricActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         metric_name: builtins.str,
         metric_namespace: builtins.str,
         metric_unit: builtins.str,
@@ -2655,7 +2811,7 @@ class CloudWatchPutMetricActionProps(CommonActionProps):
             self._values["metric_timestamp"] = metric_timestamp
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2663,7 +2819,7 @@ class CloudWatchPutMetricActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def metric_name(self) -> builtins.str:
@@ -2756,8 +2912,8 @@ class CloudWatchSetAlarmStateActionProps(CommonActionProps):
     def __init__(
         self,
         *,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        alarm_state_to_set: _aws_cdk_aws_cloudwatch_ceddda9d.AlarmState,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        alarm_state_to_set: "_aws_cdk_aws_cloudwatch_ceddda9d.AlarmState",
         reason: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Configuration properties of an action for CloudWatch alarm.
@@ -2810,7 +2966,7 @@ class CloudWatchSetAlarmStateActionProps(CommonActionProps):
             self._values["reason"] = reason
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The IAM role that allows access to AWS service.
 
         :default: a new role will be created
@@ -2818,17 +2974,17 @@ class CloudWatchSetAlarmStateActionProps(CommonActionProps):
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
-    def alarm_state_to_set(self) -> _aws_cdk_aws_cloudwatch_ceddda9d.AlarmState:
+    def alarm_state_to_set(self) -> "_aws_cdk_aws_cloudwatch_ceddda9d.AlarmState":
         '''(experimental) The value of the alarm state to set.
 
         :stability: experimental
         '''
         result = self._values.get("alarm_state_to_set")
         assert result is not None, "Required property 'alarm_state_to_set' is missing"
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.AlarmState, result)
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.AlarmState", result)
 
     @builtins.property
     def reason(self) -> typing.Optional[builtins.str]:
@@ -2866,6 +3022,7 @@ __all__ = [
     "FirehosePutRecordAction",
     "FirehosePutRecordActionProps",
     "FirehoseRecordSeparator",
+    "HttpActionBatchConfig",
     "HttpActionHeader",
     "HttpActionSigV4Auth",
     "HttpsAction",
@@ -2952,6 +3109,15 @@ def _typecheckingstub__a372426adf9237fb413c0109f8f86481ab2cefcb2d867a7cd22fd0ac4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__935f6e4166e63cead06a0053a3d69d0f91c885bb7757a9c25815a12ea9e851e9(
+    *,
+    max_batch_open_duration: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+    max_batch_size: typing.Optional[jsii.Number] = None,
+    max_batch_size_bytes: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ca282425917f2fd79daa77c3313ac246d547984b2140f896e262c1ec5dbb9879(
     *,
     key: builtins.str,
@@ -2972,6 +3138,7 @@ def _typecheckingstub__c87b0804f95979b48d6a924424abe8ebf192fbcfebc6aecf6436690d1
     url: builtins.str,
     *,
     auth: typing.Optional[typing.Union[HttpActionSigV4Auth, typing.Dict[builtins.str, typing.Any]]] = None,
+    batch_config: typing.Optional[typing.Union[HttpActionBatchConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     confirmation_url: typing.Optional[builtins.str] = None,
     headers: typing.Optional[typing.Sequence[typing.Union[HttpActionHeader, typing.Dict[builtins.str, typing.Any]]]] = None,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
@@ -2983,6 +3150,7 @@ def _typecheckingstub__ed57e014b0887a84984c84f8ad94782b2b5efe0e853a018ecb7cde520
     *,
     role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
     auth: typing.Optional[typing.Union[HttpActionSigV4Auth, typing.Dict[builtins.str, typing.Any]]] = None,
+    batch_config: typing.Optional[typing.Union[HttpActionBatchConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     confirmation_url: typing.Optional[builtins.str] = None,
     headers: typing.Optional[typing.Sequence[typing.Union[HttpActionHeader, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

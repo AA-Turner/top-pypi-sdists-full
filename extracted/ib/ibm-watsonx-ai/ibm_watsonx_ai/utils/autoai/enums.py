@@ -1,9 +1,11 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from enum import Enum
+
+from ibm_watsonx_ai.utils.utils import StrEnum
 
 __all__ = [
     "ClassificationAlgorithms",
@@ -259,6 +261,8 @@ class RAGMetrics:
     ANSWER_CORRECTNESS = "answer_correctness"
     CONTEXT_CORRECTNESS = "context_correctness"
     FAITHFULNESS = "faithfulness"
+    FAITHFULNESS_JUDGE = "faithfulness_judge"
+    ANSWER_CORRECTNESS_JUDGE = "answer_correctness_judge"
 
 
 class Metrics:
@@ -441,3 +445,19 @@ class ImputationStrategy(Enum):
     PREVIOUS = "previous"
     NEXT = "next"
     NO_IMPUTATION = "no_imputation"
+
+
+class KnowledgeBaseFieldRole(StrEnum):
+    """
+    Field name to role mapping in AutoAI RAG knowledge base.
+    """
+
+    PRIMARY_KEY = "pk"
+    DOCUMENT_ID = "document_id"
+    DOCUMENT_NAME = "document_name"
+    CHUNK_ID = "chunk_id"
+    TEXT = "text"
+    CHUNK_START_POSITION = "chunk_start_position"
+    CHUNK_SEQUENCE_NUMBER = "chunk_sequence_number"
+    DENSE_VECTOR_EMBEDDINGS = "dense_vector_embeddings"
+    SPARSE_VECTOR_EMBEDDINGS = "sparse_vector_embeddings"

@@ -3,13 +3,13 @@ Simulation for critical value production for Engle-Granger
 """
 
 import argparse
+from collections.abc import Sequence
 import datetime as dt
 from functools import partial
 from itertools import product
 import os
 from random import shuffle
 import sys
-from typing import Sequence
 
 import colorama
 from joblib import Parallel, cpu_count, delayed
@@ -73,19 +73,19 @@ def block(
                 sub -= mu
             if trend in ("ct", "ctt"):
                 # Orthogonalize to trend
-                tau = np.arange(float(sub_size + 1))
-                tau -= tau.mean()
-                tau.shape = (sub_size + 1, 1)
+                _tau = np.arange(float(sub_size + 1))
+                _tau -= _tau.mean()
+                tau = _tau.reshape((sub_size + 1, 1))
                 coefs = (tau * sub).sum(1) / (tau**2).sum()
                 coefs.shape = (this_block, 1, cross_section_size)
                 sub -= coefs * tau
             if trend == "ctt":
-                tau = np.arange(float(sub_size + 1))
-                tau -= tau.mean()
-                tau2 = np.arange(float(sub_size + 1)) ** 2
-                tau2 -= tau2.mean()
-                tau2 -= (tau * tau2).sum() / (tau**2).sum() * tau
-                tau2.shape = (sub_size + 1, 1)
+                _tau = np.arange(float(sub_size + 1))
+                _tau -= _tau.mean()
+                _tau2 = np.arange(float(sub_size + 1)) ** 2
+                _tau2 -= _tau2.mean()
+                _tau2 -= (_tau * _tau2).sum() / (_tau**2).sum() * tau
+                tau2 = _tau2.reshape((sub_size + 1, 1))
                 coefs = (tau2 * sub).sum(1) / (tau2**2).sum()
                 coefs.shape = (this_block, 1, cross_section_size)
                 sub -= coefs * tau2
@@ -126,7 +126,7 @@ def block(
         if last_report - remaining > 1000:
             last_report = remaining
             print(f"Index: {idx}, Trend: {trend}, Remaining: {remaining}")
-            print(f"Est. time remaining: {str(dt.timedelta(seconds=remaining_time))}")
+            print(f"Est. time remaining: {dt.timedelta(seconds=remaining_time)!s}")
 
     out = np.percentile(tstats, PERCENTILES, 1)
     np.savez(

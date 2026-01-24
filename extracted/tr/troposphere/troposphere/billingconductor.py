@@ -17,7 +17,8 @@ class AccountGrouping(AWSProperty):
 
     props: PropsDictType = {
         "AutoAssociate": (boolean, False),
-        "LinkedAccountIds": ([str], True),
+        "LinkedAccountIds": ([str], False),
+        "ResponsibilityTransferArn": (str, False),
     }
 
 
@@ -43,7 +44,7 @@ class BillingGroup(AWSObject):
         "ComputationPreference": (ComputationPreference, True),
         "Description": (str, False),
         "Name": (str, True),
-        "PrimaryAccountId": (str, True),
+        "PrimaryAccountId": (str, False),
         "Tags": (Tags, False),
     }
 
@@ -105,6 +106,16 @@ class CustomLineItemChargeDetails(AWSProperty):
     }
 
 
+class PresentationDetails(AWSProperty):
+    """
+    `PresentationDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-billingconductor-customlineitem-presentationdetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "Service": (str, True),
+    }
+
+
 class CustomLineItem(AWSObject):
     """
     `CustomLineItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-billingconductor-customlineitem.html>`__
@@ -116,9 +127,11 @@ class CustomLineItem(AWSObject):
         "AccountId": (str, False),
         "BillingGroupArn": (str, True),
         "BillingPeriodRange": (BillingPeriodRange, False),
+        "ComputationRule": (str, False),
         "CustomLineItemChargeDetails": (CustomLineItemChargeDetails, False),
         "Description": (str, False),
         "Name": (str, True),
+        "PresentationDetails": (PresentationDetails, False),
         "Tags": (Tags, False),
     }
 

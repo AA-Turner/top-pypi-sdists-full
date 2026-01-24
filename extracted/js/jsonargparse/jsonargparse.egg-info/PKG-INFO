@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.41.0
-Summary: Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables.
+Version: 4.45.0
+Summary: Minimal effort CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
 License-Expression: MIT
 Project-URL: Documentation-stable, https://jsonargparse.readthedocs.io/en/stable/
@@ -76,7 +76,7 @@ Requires-Dist: jsonargparse[argcomplete]; extra == "test"
 Requires-Dist: types-PyYAML>=6.0.11; extra == "test"
 Requires-Dist: types-requests>=2.28.9; extra == "test"
 Requires-Dist: responses>=0.12.0; extra == "test"
-Requires-Dist: pydantic>=2.3.0; python_version < "3.14" and extra == "test"
+Requires-Dist: pydantic>=2.3.0; extra == "test"
 Requires-Dist: attrs>=22.2.0; extra == "test"
 Provides-Extra: test-no-urls
 Requires-Dist: pytest>=6.2.5; extra == "test-no-urls"
@@ -139,8 +139,8 @@ CLI with minimal boilerplate:
 
     from jsonargparse import auto_cli
 
-    def main_function(...):  # your main parameters and logic here
-        ...
+    def main_function(...):  # your main parameters with type hints here
+        ...  # your main code here
 
     if __name__ == "__main__":
         auto_cli(main_function)  # parses arguments and runs main_function
@@ -300,4 +300,4 @@ To install the latest development version, use the following command:
 
 .. code-block:: bash
 
-    pip install "jsonargparse[signatures] @ git+https://github.com/omni-us/jsonargparse.git@main"
+    pip install "jsonargparse[signatures] @ https://github.com/omni-us/jsonargparse/zipball/main"

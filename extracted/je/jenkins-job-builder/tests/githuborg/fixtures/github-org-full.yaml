@@ -56,6 +56,7 @@ github-org:
             - tags: {}
             - change-request:
                 ignore-target-only-changes: true
+                ignore-untrusted-changes: true
             - change-request: {}
             - regular-branches: true
             - skip-initial-build: true

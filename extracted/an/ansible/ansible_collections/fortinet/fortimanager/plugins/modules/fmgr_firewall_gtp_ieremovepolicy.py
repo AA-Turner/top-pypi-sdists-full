@@ -16,7 +16,6 @@ short_description: IE remove policy.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -136,13 +138,13 @@ EXAMPLES = '''
         state: present
         firewall_gtp_ieremovepolicy:
           id: 1
-          remove-ies:
+          remove_ies:
             - apn-restriction
             - rat-type
             - rai
             - uli
             - imei
-          sgsn-addr: "your_value"
+          sgsn_addr: "your_value"
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -160,7 +162,7 @@ EXAMPLES = '''
           params:
             adom: "FortiCarrier" # This is FOC-only object, need a FortiCarrier adom
             gtp: "ansible-test" # name
-            ie-remove-policy: "your_value"
+            ie_remove_policy: "your_value"
 '''
 
 RETURN = '''
@@ -218,6 +220,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'gtp': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_gtp_ieremovepolicy': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

@@ -16,12 +16,13 @@ class PandasFilterSetMixin:
                 queryset = self.filters[name].filter(queryset, value)
             except FieldError:
                 pass
-            assert isinstance(queryset, models.QuerySet), (
-                "Expected '%s.%s' to return a QuerySet, but got a %s instead."
-                % (
-                    type(self).__name__,
-                    name,
-                    type(queryset).__name__,
+            if not isinstance(queryset, models.QuerySet):
+                raise AssertionError(
+                    "Expected '%s.%s' to return a QuerySet, but got a %s instead."
+                    % (
+                        type(self).__name__,
+                        name,
+                        type(queryset).__name__,
+                    )
                 )
-            )
         return queryset

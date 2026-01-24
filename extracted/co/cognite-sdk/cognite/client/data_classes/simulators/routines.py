@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from typing_extensions import Self
 
@@ -30,33 +30,37 @@ class SimulatorRoutineCore(WriteableCogniteResource["SimulatorRoutineWrite"], AB
     Args:
         external_id (str): External id of the simulator routine
         model_external_id (str): External id of the associated simulator model
-        simulator_integration_external_id (str): External id of the associated simulator integration
+        simulator_integration_external_id (str | None): External id of the associated simulator integration
         name (str): The name of the simulator routine
         description (str | None): The description of the simulator routine
+        kind (Literal['long'] | None): The kind of simulator routine. Routines with kind 'long' may have more inputs/outputs, steps, and longer runtime.
     """
 
     def __init__(
         self,
         external_id: str,
         model_external_id: str,
-        simulator_integration_external_id: str,
+        simulator_integration_external_id: str | None,
         name: str,
         description: str | None = None,
+        kind: Literal["long"] | None = None,
     ) -> None:
         self.external_id = external_id
         self.model_external_id = model_external_id
         self.simulator_integration_external_id = simulator_integration_external_id
         self.name = name
         self.description = description
+        self.kind = kind
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             external_id=resource["externalId"],
             model_external_id=resource["modelExternalId"],
-            simulator_integration_external_id=resource["simulatorIntegrationExternalId"],
+            simulator_integration_external_id=resource.get("simulatorIntegrationExternalId"),
             name=resource["name"],
             description=resource.get("description"),
+            kind=resource.get("kind"),
         )
 
 
@@ -76,6 +80,7 @@ class SimulatorRoutineWrite(SimulatorRoutineCore):
         simulator_integration_external_id (str): External id of the associated simulator integration
         name (str): The name of the simulator routine
         description (str | None): The description of the simulator routine
+        kind (Literal['long'] | None): The kind of simulator routine. Routines with kind 'long' may have more inputs/outputs, steps, and longer runtime.
     """
 
     def as_write(self) -> SimulatorRoutineWrite:
@@ -97,13 +102,14 @@ class SimulatorRoutine(SimulatorRoutineCore):
         id (int): A unique id of a simulator routine
         external_id (str): External id of the simulator routine
         model_external_id (str): External id of the associated simulator model
-        simulator_integration_external_id (str): External id of the associated simulator integration
+        simulator_integration_external_id (str | None): External id of the associated simulator integration
         name (str): The name of the simulator routine
         data_set_id (int): The id of the dataset associated with the simulator routine
         simulator_external_id (str): External id of the associated simulator
         created_time (int): The time when the simulator routine was created
         last_updated_time (int): The time when the simulator routine was last updated
         description (str | None): The description of the simulator routine
+        kind (Literal['long'] | None): The kind of simulator routine. Routines with kind 'long' may have more inputs/outputs, steps, and longer runtime.
     """
 
     def __init__(
@@ -111,13 +117,14 @@ class SimulatorRoutine(SimulatorRoutineCore):
         id: int,
         external_id: str,
         model_external_id: str,
-        simulator_integration_external_id: str,
+        simulator_integration_external_id: str | None,
         name: str,
         data_set_id: int,
         simulator_external_id: str,
         created_time: int,
         last_updated_time: int,
         description: str | None = None,
+        kind: Literal["long"] | None = None,
     ) -> None:
         super().__init__(
             external_id=external_id,
@@ -125,6 +132,7 @@ class SimulatorRoutine(SimulatorRoutineCore):
             simulator_integration_external_id=simulator_integration_external_id,
             name=name,
             description=description,
+            kind=kind,
         )
 
         self.id = id
@@ -139,10 +147,11 @@ class SimulatorRoutine(SimulatorRoutineCore):
             external_id=resource["externalId"],
             simulator_external_id=resource["simulatorExternalId"],
             model_external_id=resource["modelExternalId"],
-            simulator_integration_external_id=resource["simulatorIntegrationExternalId"],
+            simulator_integration_external_id=resource.get("simulatorIntegrationExternalId"),
             name=resource["name"],
             data_set_id=resource["dataSetId"],
             description=resource.get("description"),
+            kind=resource.get("kind"),
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             id=resource["id"],
@@ -156,6 +165,7 @@ class SimulatorRoutine(SimulatorRoutineCore):
             simulator_integration_external_id=self.simulator_integration_external_id,
             name=self.name,
             description=self.description,
+            kind=self.kind,
         )
 
 

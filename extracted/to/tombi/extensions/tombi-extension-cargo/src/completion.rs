@@ -7,11 +7,14 @@ use tombi_extension::CommentContext;
 use tombi_extension::CompletionContent;
 use tombi_extension::CompletionHint;
 use tombi_extension::CompletionKind;
+use tombi_extension::CompletionTextEdit;
+use tombi_extension::TextEdit;
 use tombi_future::Boxable;
-use tombi_schema_store::matches_accessors;
 use tombi_schema_store::Accessor;
 use tombi_schema_store::HttpClient;
+use tombi_schema_store::matches_accessors;
 use tombi_version_sort::version_sort;
+use tower_lsp::lsp_types::InsertTextFormat;
 
 use crate::find_path_crate_cargo_toml;
 use crate::find_workspace_cargo_toml;
@@ -117,33 +120,32 @@ async fn completion_workspace(
         }
     } else if matches_accessors!(accessors, ["workspace", "dependencies", _, "features"])
         | matches_accessors!(accessors, ["workspace", "dependencies", _, "features", _])
+        && let Some(Accessor::Key(crate_name)) = accessors.get(2)
     {
-        if let Some(Accessor::Key(crate_name)) = accessors.get(2) {
-            if let Some((_, tombi_document_tree::Value::Incomplete { .. })) =
-                dig_accessors(document_tree, accessors)
-            {
-                return Ok(None);
-            }
-
-            return complete_crate_feature(
-                crate_name.as_str(),
-                document_tree,
-                cargo_toml_path,
-                &accessors[..4],
-                position,
-                toml_version,
-                accessors.get(4).and_then(|_| {
-                    dig_accessors(document_tree, accessors).and_then(|(_, feature)| {
-                        if let tombi_document_tree::Value::String(feature_string) = feature {
-                            Some(feature_string)
-                        } else {
-                            None
-                        }
-                    })
-                }),
-            )
-            .await;
+        if let Some((_, tombi_document_tree::Value::Incomplete { .. })) =
+            dig_accessors(document_tree, accessors)
+        {
+            return Ok(None);
         }
+
+        return complete_crate_feature(
+            crate_name.as_str(),
+            document_tree,
+            cargo_toml_path,
+            &accessors[..4],
+            position,
+            toml_version,
+            accessors.get(4).and_then(|_| {
+                dig_accessors(document_tree, accessors).and_then(|(_, feature)| {
+                    if let tombi_document_tree::Value::String(feature_string) = feature {
+                        Some(feature_string)
+                    } else {
+                        None
+                    }
+                })
+            }),
+        )
+        .await;
     }
     Ok(None)
 }
@@ -159,6 +161,9 @@ async fn completion_member(
     if matches_accessors!(accessors, ["dependencies", _, "version"])
         || matches_accessors!(accessors, ["dev-dependencies", _, "version"])
         || matches_accessors!(accessors, ["build-dependencies", _, "version"])
+        || matches_accessors!(accessors, ["target", _, "dependencies", _, "version"])
+        || matches_accessors!(accessors, ["target", _, "dev-dependencies", _, "version"])
+        || matches_accessors!(accessors, ["target", _, "build-dependencies", _, "version"])
     {
         if let Some(Accessor::Key(c_name)) = accessors.get(accessors.len() - 2) {
             return complete_crate_version(
@@ -173,6 +178,9 @@ async fn completion_member(
     } else if matches_accessors!(accessors, ["dependencies", _])
         || matches_accessors!(accessors, ["dev-dependencies", _])
         || matches_accessors!(accessors, ["build-dependencies", _])
+        || matches_accessors!(accessors, ["target", _, "dependencies", _])
+        || matches_accessors!(accessors, ["target", _, "dev-dependencies", _])
+        || matches_accessors!(accessors, ["target", _, "build-dependencies", _])
     {
         if let Some(Accessor::Key(c_name)) = accessors.last() {
             return complete_crate_version(
@@ -189,9 +197,27 @@ async fn completion_member(
         || matches_accessors!(accessors, ["build-dependencies", _, "features", _])
         || matches_accessors!(accessors, ["dependencies", _, "features"])
         || matches_accessors!(accessors, ["dev-dependencies", _, "features"])
-        || matches_accessors!(accessors, ["build-dependencies", _, "features"]))
+        || matches_accessors!(accessors, ["build-dependencies", _, "features"])
+        || matches_accessors!(accessors, ["target", _, "dependencies", _, "features", _])
+        || matches_accessors!(
+            accessors,
+            ["target", _, "dev-dependencies", _, "features", _]
+        )
+        || matches_accessors!(
+            accessors,
+            ["target", _, "build-dependencies", _, "features", _]
+        )
+        || matches_accessors!(accessors, ["target", _, "dependencies", _, "features"])
+        || matches_accessors!(accessors, ["target", _, "dev-dependencies", _, "features"])
+        || matches_accessors!(
+            accessors,
+            ["target", _, "build-dependencies", _, "features"]
+        ))
     {
-        if let Some(Accessor::Key(crate_name)) = accessors.get(1) {
+        let is_target_dependency = accessors.first().map(|a| a.as_key()) == Some(Some("target"));
+        let offset = if is_target_dependency { 2 } else { 0 };
+
+        if let Some(Accessor::Key(crate_name)) = accessors.get(1 + offset) {
             if let Some((_, tombi_document_tree::Value::Incomplete { .. })) =
                 dig_accessors(document_tree, accessors)
             {
@@ -202,10 +228,10 @@ async fn completion_member(
                 crate_name.as_str(),
                 document_tree,
                 cargo_toml_path,
-                &accessors[..3],
+                &accessors[..3 + offset],
                 position,
                 toml_version,
-                accessors.get(3).and_then(|_| {
+                accessors.get(3 + offset).and_then(|_| {
                     dig_accessors(document_tree, accessors).and_then(|(_, feature)| {
                         if let tombi_document_tree::Value::String(feature_string) = feature {
                             Some(feature_string)
@@ -242,7 +268,7 @@ async fn complete_crate_version(
             .enumerate()
             .map(|(i, ver)| CompletionContent {
                 label: format!("\"{ver}\""),
-                kind: CompletionKind::String,
+                kind: CompletionKind::Enum,
                 emoji_icon: Some('🦀'),
                 priority: tombi_extension::CompletionContentPriority::Custom(format!(
                     "10__cargo_{i:>03}__",
@@ -254,17 +280,13 @@ async fn complete_crate_version(
                 deprecated: None,
                 edit: match version_value {
                     Some(value) => Some(tombi_extension::CompletionEdit {
-                        text_edit: tower_lsp::lsp_types::CompletionTextEdit::Edit(
-                            tower_lsp::lsp_types::TextEdit {
-                                range: tombi_text::Range::at(position).into(),
-                                new_text: format!("\"{ver}\""),
-                            },
-                        ),
-                        insert_text_format: Some(
-                            tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT,
-                        ),
-                        additional_text_edits: Some(vec![tower_lsp::lsp_types::TextEdit {
-                            range: value.range().into(),
+                        text_edit: CompletionTextEdit::Edit(tombi_extension::TextEdit {
+                            range: tombi_text::Range::at(position),
+                            new_text: format!("\"{ver}\""),
+                        }),
+                        insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                        additional_text_edits: Some(vec![TextEdit {
+                            range: value.range(),
                             new_text: "".to_string(),
                         }]),
                     }),
@@ -325,7 +347,7 @@ fn complete_crate_feature<'a: 'b, 'b>(
                 .collect_vec(),
         ) {
             if boolean.value() {
-                let Some((workspace_cargo_toml_path, workspace_document_tree)) =
+                let Some((workspace_cargo_toml_path, _, workspace_document_tree)) =
                     find_workspace_cargo_toml(
                         cargo_toml_path,
                         get_workspace_path(document_tree),
@@ -382,7 +404,7 @@ fn complete_crate_feature<'a: 'b, 'b>(
             .enumerate()
             .map(|(i, (feature, feature_dependencies))| CompletionContent {
                 label: format!("\"{feature}\""),
-                kind: CompletionKind::String,
+                kind: CompletionKind::Enum,
                 emoji_icon: Some('🦀'),
                 priority: tombi_extension::CompletionContentPriority::Custom(format!(
                     "10__cargo_feature_{:>03}__",
@@ -407,15 +429,13 @@ fn complete_crate_feature<'a: 'b, 'b>(
                 schema_uri: None,
                 deprecated: None,
                 edit: editing_feature_string.map(|value| tombi_extension::CompletionEdit {
-                    text_edit: tower_lsp::lsp_types::CompletionTextEdit::Edit(
-                        tower_lsp::lsp_types::TextEdit {
-                            range: tombi_text::Range::at(position).into(),
-                            new_text: format!("\"{feature}\""),
-                        },
-                    ),
-                    insert_text_format: Some(tower_lsp::lsp_types::InsertTextFormat::PLAIN_TEXT),
-                    additional_text_edits: Some(vec![tower_lsp::lsp_types::TextEdit {
-                        range: value.range().into(),
+                    text_edit: CompletionTextEdit::Edit(TextEdit {
+                        range: tombi_text::Range::at(position),
+                        new_text: format!("\"{feature}\""),
+                    }),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    additional_text_edits: Some(vec![TextEdit {
+                        range: value.range(),
                         new_text: "".to_string(),
                     }]),
                 }),
@@ -483,7 +503,7 @@ async fn fetch_local_crate_features(
     toml_version: TomlVersion,
 ) -> Option<AHashMap<String, Vec<String>>> {
     // Get the directory of the current Cargo.toml file
-    let (_, subcrate_document_tree) = find_path_crate_cargo_toml(
+    let (_, _, subcrate_document_tree) = find_path_crate_cargo_toml(
         cargo_toml_path,
         std::path::Path::new(sub_crate_path),
         toml_version,
@@ -493,28 +513,31 @@ async fn fetch_local_crate_features(
     if let Some((_, tombi_document_tree::Value::Table(features_table))) =
         tombi_document_tree::dig_keys(&subcrate_document_tree, &["features"])
     {
-        let mut features = AHashMap::new();
+        let features = features_table
+            .key_values()
+            .iter()
+            .map(|(feature_name, feature_deps)| {
+                let deps = match feature_deps {
+                    tombi_document_tree::Value::Array(arr) => arr
+                        .values()
+                        .iter()
+                        .filter_map(|value| {
+                            if let tombi_document_tree::Value::String(string) = value {
+                                Some(string.value().to_string())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                (feature_name.value.clone(), deps)
+            })
+            .collect::<AHashMap<_, _>>();
 
-        for (feature_name, feature_deps) in features_table.key_values() {
-            let feature_name = feature_name.value.clone();
-            let deps = match feature_deps {
-                tombi_document_tree::Value::Array(arr) => arr
-                    .values()
-                    .iter()
-                    .filter_map(|v| {
-                        if let tombi_document_tree::Value::String(s) = v {
-                            Some(s.value().to_string())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect(),
-                _ => Vec::new(),
-            };
-            features.insert(feature_name, deps);
+        if !features.is_empty() {
+            return Some(features);
         }
-
-        return Some(features);
     }
 
     None

@@ -14,8 +14,8 @@ import llvmlite.binding as ll
 
 from numba.core import utils
 from numba.tests.support import (TestCase, tag, import_dynamic, temp_directory,
-                                 has_blas, needs_setuptools, skip_if_py313_on_windows,
-                                 skip_if_linux_aarch64)
+                                 has_blas, needs_setuptools, skip_if_py313plus_on_windows,
+                                 skip_if_linux_aarch64, skip_if_freethreading)
 
 import unittest
 
@@ -37,6 +37,7 @@ def unset_macosx_deployment_target():
 
 
 @needs_setuptools
+@skip_if_freethreading
 class TestCompilerChecks(TestCase):
 
     # NOTE: THIS TEST MUST ALWAYS RUN ON WINDOWS, DO NOT SKIP
@@ -55,6 +56,7 @@ class TestCompilerChecks(TestCase):
                 self.assertTrue(external_compiler_works())
 
 
+@skip_if_freethreading
 class BasePYCCTest(TestCase):
 
     def setUp(self):
@@ -88,7 +90,7 @@ class BasePYCCTest(TestCase):
 
 
 @needs_setuptools
-@skip_if_py313_on_windows
+@skip_if_py313plus_on_windows
 @skip_if_linux_aarch64
 class TestCC(BasePYCCTest):
 
@@ -304,8 +306,9 @@ class TestCC(BasePYCCTest):
 
 
 @needs_setuptools
-@skip_if_py313_on_windows
+@skip_if_py313plus_on_windows
 @skip_if_linux_aarch64
+@skip_if_freethreading
 class TestDistutilsSupport(TestCase):
 
     def setUp(self):

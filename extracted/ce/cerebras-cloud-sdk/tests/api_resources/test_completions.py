@@ -21,6 +21,7 @@ class TestCompletions:
     def test_method_create(self, client: Cerebras) -> None:
         completion = client.completions.create(
             model="model",
+            prompt="string",
         )
         assert_matches_type(Completion, completion, path=["response"])
 
@@ -28,17 +29,18 @@ class TestCompletions:
     def test_method_create_with_all_params(self, client: Cerebras) -> None:
         completion = client.completions.create(
             model="model",
+            prompt="string",
             best_of=0,
             echo=True,
             frequency_penalty=-2,
             grammar_root="grammar_root",
-            logit_bias={},
-            logprobs=True,
+            logit_bias={"foo": 0},
+            logprobs=0,
             max_tokens=0,
             min_tokens=0,
             n=0,
             presence_penalty=-2,
-            prompt="string",
+            reasoning_format="none",
             return_raw_tokens=True,
             seed=0,
             stop="string",
@@ -58,6 +60,7 @@ class TestCompletions:
     def test_raw_response_create(self, client: Cerebras) -> None:
         response = client.completions.with_raw_response.create(
             model="model",
+            prompt="string",
         )
 
         assert response.is_closed is True
@@ -69,6 +72,7 @@ class TestCompletions:
     def test_streaming_response_create(self, client: Cerebras) -> None:
         with client.completions.with_streaming_response.create(
             model="model",
+            prompt="string",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -88,6 +92,7 @@ class TestAsyncCompletions:
     async def test_method_create(self, async_client: AsyncCerebras) -> None:
         completion = await async_client.completions.create(
             model="model",
+            prompt="string",
         )
         assert_matches_type(Completion, completion, path=["response"])
 
@@ -95,17 +100,18 @@ class TestAsyncCompletions:
     async def test_method_create_with_all_params(self, async_client: AsyncCerebras) -> None:
         completion = await async_client.completions.create(
             model="model",
+            prompt="string",
             best_of=0,
             echo=True,
             frequency_penalty=-2,
             grammar_root="grammar_root",
-            logit_bias={},
-            logprobs=True,
+            logit_bias={"foo": 0},
+            logprobs=0,
             max_tokens=0,
             min_tokens=0,
             n=0,
             presence_penalty=-2,
-            prompt="string",
+            reasoning_format="none",
             return_raw_tokens=True,
             seed=0,
             stop="string",
@@ -125,6 +131,7 @@ class TestAsyncCompletions:
     async def test_raw_response_create(self, async_client: AsyncCerebras) -> None:
         response = await async_client.completions.with_raw_response.create(
             model="model",
+            prompt="string",
         )
 
         assert response.is_closed is True
@@ -136,6 +143,7 @@ class TestAsyncCompletions:
     async def test_streaming_response_create(self, async_client: AsyncCerebras) -> None:
         async with async_client.completions.with_streaming_response.create(
             model="model",
+            prompt="string",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"

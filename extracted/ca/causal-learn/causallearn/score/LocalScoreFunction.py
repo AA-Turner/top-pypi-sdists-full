@@ -148,7 +148,7 @@ def local_score_BDeu(Data: ndarray, i: int, PAi: List[int], parameters=None) -> 
 
     BDeu_score = 0
     # first term
-    vm = Data.shape[0] - 1
+    vm = Data.shape[1] - 1
     BDeu_score += len(PAi) * np.log(structure_prior / vm) + (vm - len(PAi)) * np.log(
         1 - (structure_prior / vm)
     )
@@ -682,7 +682,7 @@ def local_score_marginal_general(
     Data: ndarray, Xi: int, PAi: List[int], parameters=None
 ) -> float:
     """
-    Calculate the local score by negative marginal likelihood
+    Calculate the local score by negative marginal log-likelihood
     based on a regression model in RKHS
 
     Parameters
@@ -784,7 +784,7 @@ def local_score_marginal_multi(
     Data: ndarray, Xi: int, PAi: List[int], parameters: Dict[str, Any]
 ) -> float:
     """
-    Calculate the local score by negative marginal likelihood
+    Calculate the local score by negative marginal log-likelihood
     based on a regression model in RKHS
     for variables with multi-variate dimensions
 

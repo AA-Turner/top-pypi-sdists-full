@@ -28,8 +28,8 @@ class NotAllowedCharInNameRule(Rule):
     r"""
     Not allowed character found.
 
-    Reports not allowed characters found in Test Case or Keyword names. By default it's a dot (``.``). You can
-    configure what patterns are reported by calling::
+    Reports not allowed characters found in Test Case or Keyword names. By default, it's a dot (``.``). You can
+    configure what patterns are reported by calling:
 
         robocop check --configure not-allowed-char-in-name.pattern=regex_pattern
 
@@ -55,6 +55,8 @@ class NotAllowedCharInNameRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0301",)
+    fix_suggestion = "Remove the not allowed character from the name."
 
 
 class WrongCaseInKeywordNameRule(Rule):
@@ -62,11 +64,11 @@ class WrongCaseInKeywordNameRule(Rule):
     Keyword name does not follow case convention.
 
     Keyword names need to follow a specific case convention.
-    The convention can be set using ``convention`` parameter and accepts
+    The convention can be set using the `` convention `` parameter and accepts
     one of the 2 values: ``each_word_capitalized`` or ``first_word_capitalized``.
 
     By default, it's configured to ``each_word_capitalized``, which requires each keyword to follow such
-    convention::
+    convention:
 
         *** Keywords ***
         Fill Out The Form
@@ -75,7 +77,7 @@ class WrongCaseInKeywordNameRule(Rule):
             Click 'Next' Button
             [Teardown]  Log Form Data
 
-    You can also set it to ``first_word_capitalized`` which requires first word to have first letter capital::
+    You can also set it to ``first_word_capitalized`` which requires capitalising the first word of the keyword:
 
         *** Keywords ***
         Fill out the form
@@ -88,10 +90,12 @@ class WrongCaseInKeywordNameRule(Rule):
     that are accepted in the keyword name, even though they violate the case convention.
 
     ``pattern`` parameter accepts a regex pattern. For example, configuring it to ``robocop\.readthedocs\.io``
-    would make such keyword legal::
+    would make the following keyword legal:
 
         Go To robocop.readthedocs.io Page
 
+    See the sibling rule [wrong-case-in-keyword-call](#name18-wrong-case-in-keyword-call) that checks keyword call
+    naming convention.
     """
 
     name = "wrong-case-in-keyword-name"
@@ -117,6 +121,8 @@ class WrongCaseInKeywordNameRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0302",)
+    fix_suggestion = "Rename the keyword to use Title Case (e.g., 'My Keyword Name')."
 
 
 class KeywordNameIsReservedWordRule(Rule):
@@ -147,6 +153,8 @@ class KeywordNameIsReservedWordRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("0303",)
+    fix_suggestion = "Rename the keyword to avoid using a reserved word."
 
 
 class UnderscoreInKeywordNameRule(Rule):
@@ -155,11 +163,11 @@ class UnderscoreInKeywordNameRule(Rule):
 
     You can replace underscores with spaces.
 
-    Incorrect code example::
+    Incorrect code example:
 
         keyword_with_underscores
 
-    Correct code::
+    Correct code:
 
         Keyword Without Underscores
 
@@ -173,13 +181,15 @@ class UnderscoreInKeywordNameRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0305",)
+    fix_suggestion = "Replace underscores with spaces (e.g., 'My Keyword' instead of 'My_Keyword')."
 
 
 class SettingNameNotInTitleCaseRule(Rule):
     """
     Setting name not in title or upper case.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Settings ***
         resource    file.resource
@@ -189,7 +199,7 @@ class SettingNameNotInTitleCaseRule(Rule):
             [documentation]  Some documentation
             Step
 
-    Correct code::
+    Correct code:
 
         *** Settings ***
         Resource    file.resource
@@ -210,6 +220,7 @@ class SettingNameNotInTitleCaseRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0306",)
 
 
 class SectionNameInvalidRule(Rule):
@@ -218,12 +229,12 @@ class SectionNameInvalidRule(Rule):
 
     Section name should use Title Case or CAP CASE case convention.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** settings ***
         *** KEYwords ***
 
-    Correct code::
+    Correct code:
 
         *** SETTINGS ***
         *** Keywords ***
@@ -238,18 +249,19 @@ class SectionNameInvalidRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0307",)
 
 
 class NotCapitalizedTestCaseTitleRule(Rule):
     """
     Test case title does not start with capital letter.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Test Cases ***
         validate user details
 
-    Correct code example::
+    Correct code example:
 
         *** Test Cases ***
         Validate user details
@@ -264,18 +276,19 @@ class NotCapitalizedTestCaseTitleRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0308",)
 
 
 class SectionVariableNotUppercaseRule(Rule):
     """
     Section variable name is not uppercase.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Variables ***
         ${section_variable}    value
 
-    Correct code::
+    Correct code:
 
         *** Variables ***
         ${SECTION_VARIABLE}    value
@@ -291,13 +304,14 @@ class SectionVariableNotUppercaseRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0309",)
 
 
 class ElseNotUpperCaseRule(Rule):
     """
     ELSE and ELSE IF is not uppercase.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Describe Temperature
@@ -309,7 +323,7 @@ class ElseNotUpperCaseRule(Rule):
             Else
                 RETURN  Cold
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Describe Temperature
@@ -331,13 +345,14 @@ class ElseNotUpperCaseRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("0311",)
 
 
 class KeywordNameIsEmptyRule(Rule):
     """
     Keyword name is empty.
 
-    Remember to always add a keyword name and avoid such code::
+    Remember to always add a keyword name and avoid such code:
 
         *** Keywords ***
         # no keyword name here!!!
@@ -353,13 +368,14 @@ class KeywordNameIsEmptyRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("0312",)
 
 
 class TestCaseNameIsEmptyRule(Rule):
     """
     Test case name is empty.
 
-    Remember to always add a test case name and avoid such code::
+    Remember to always add a test case name and avoid such code:
 
         *** Test Cases ***
         # no test case name here!!!
@@ -375,6 +391,7 @@ class TestCaseNameIsEmptyRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("0313",)
 
 
 class EmptyLibraryAliasRule(Rule):
@@ -383,12 +400,12 @@ class EmptyLibraryAliasRule(Rule):
 
     Use non-empty name when using library import with alias.
 
-    Incorrect code example::
+    Incorrect code example:
 
          *** Settings ***
          Library  CustomLibrary  AS
 
-    Correct code::
+    Correct code:
 
         *** Settings ***
         Library  CustomLibrary  AS  AnotherName
@@ -403,13 +420,14 @@ class EmptyLibraryAliasRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0314",)
 
 
 class DuplicatedLibraryAliasRule(Rule):
     """
     Library alias is the same as original name.
 
-    Examples of rule violation::
+    Examples of rule violation:
 
          *** Settings ***
          Library  CustomLibrary  AS  CustomLibrary   # same as library name
@@ -425,6 +443,7 @@ class DuplicatedLibraryAliasRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.DISTINCT, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0315",)
 
 
 class BddWithoutKeywordCallRule(Rule):
@@ -434,7 +453,7 @@ class BddWithoutKeywordCallRule(Rule):
     When using BDD reserved keywords (such as `GIVEN`, `WHEN`, `AND`, `BUT` or `THEN`) use them together with
     name of the keyword to run.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Test Cases ***
         Test case
@@ -442,7 +461,7 @@ class BddWithoutKeywordCallRule(Rule):
             When User Log In
             Then User Should See Welcome Page
 
-    Correct code::
+    Correct code:
 
         *** Test Cases ***
         Test case
@@ -462,6 +481,7 @@ class BddWithoutKeywordCallRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0318",)
 
 
 class NotAllowedCharInFilenameRule(Rule):
@@ -469,7 +489,7 @@ class NotAllowedCharInFilenameRule(Rule):
     Not allowed character found in filename.
 
     Reports not allowed pattern found in Suite names. By default, it's a dot (`.`).
-    You can configure what characters are reported by running::
+    You can configure what characters are reported by running:
 
          robocop check --configure not-allowed-char-in-filename.pattern=regex_pattern .
 
@@ -495,6 +515,7 @@ class NotAllowedCharInFilenameRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
+    deprecated_names = ("0320",)
 
 
 class InvalidSectionRule(Rule):
@@ -504,7 +525,7 @@ class InvalidSectionRule(Rule):
     Robot Framework 6.1 detects unrecognized sections based on the language defined for the specific files.
     Consider using ``--language`` parameter if the file is defined with different language.
 
-    It is also possible to configure language in the file::
+    It is also possible to configure language in the file:
 
         language: pl
 
@@ -523,6 +544,7 @@ class InvalidSectionRule(Rule):
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.BUG
     )
+    deprecated_names = ("0325",)
 
 
 class MixedTaskTestSettingsRule(Rule):
@@ -543,6 +565,71 @@ class MixedTaskTestSettingsRule(Rule):
     added_in_version = "3.3.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
         clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+    )
+    deprecated_names = ("0326",)
+
+
+class WrongCaseInKeywordCallRule(Rule):
+    r"""
+    Keyword call name does not follow case convention.
+
+    Keyword names need to follow a specific case convention.
+    The convention can be set using the `` convention `` parameter and accepts
+    one of the 2 values: ``each_word_capitalized`` or ``first_word_capitalized``.
+
+    By default, it's configured to ``each_word_capitalized``, which requires each keyword to follow such
+    convention:
+
+        *** Keywords ***
+        Fill out the form
+            Provide Shipping Address
+            Provide Payment Method
+            Click 'Next' Button
+            [Teardown]  Log Form Data
+
+    You can also set it to ``first_word_capitalized`` which requires capitalising the first word of the keyword:
+
+        *** Keywords ***
+        Fill out the form
+            Provide shipping address
+            Provide payment method
+            Click 'Next' button
+            [Teardown]  Log form data
+
+    The rule also accepts another parameter ``pattern`` which can be used to configure words
+    that are accepted in the keyword name, even though they violate the case convention.
+
+    ``pattern`` parameter accepts a regex pattern. For example, configuring it to ``robocop\.readthedocs\.io``
+    would make the following keyword legal:
+
+        Go To robocop.readthedocs.io Page
+
+    See the sibling rule [wrong-case-in-keyword-name](#name02-wrong-case-in-keyword-name) that checks keyword definition
+    naming convention.
+    """
+
+    name = "wrong-case-in-keyword-call"
+    rule_id = "NAME18"
+    message = "Keyword name '{keyword_name}' does not follow case convention"
+    severity = RuleSeverity.WARNING
+    parameters = [
+        RuleParam(
+            name="convention",
+            default="each_word_capitalized",
+            converter=str,
+            desc="possible values: 'each_word_capitalized' (default) or 'first_word_capitalized'",
+        ),
+        RuleParam(
+            name="pattern",
+            default=re.compile(r""),
+            converter=utils.pattern_type,
+            show_type="regex",
+            desc="pattern for accepted words in keyword",
+        ),
+    ]
+    added_in_version = "7.0.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.IDENTIFIABLE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
     )
 
 
@@ -630,6 +717,7 @@ class KeywordNamingChecker(VisitorChecker):
     """Checker for keyword naming violations."""
 
     wrong_case_in_keyword_name: WrongCaseInKeywordNameRule
+    wrong_case_in_keyword_call: WrongCaseInKeywordCallRule
     keyword_name_is_reserved_word: KeywordNameIsReservedWordRule
     underscore_in_keyword_name: UnderscoreInKeywordNameRule
     else_not_upper_case: ElseNotUpperCaseRule
@@ -680,7 +768,7 @@ class KeywordNamingChecker(VisitorChecker):
         if not node.name:
             self.report(self.keyword_name_is_empty, node=node)
         else:
-            self.check_keyword_naming(node.name, node)
+            self.check_keyword_naming(node.name, node, is_keyword_definition=True)
         self.generic_visit(node)
 
     def visit_KeywordCall(self, node) -> None:  # noqa: N802
@@ -696,16 +784,28 @@ class KeywordNamingChecker(VisitorChecker):
         self.generic_visit(node)
         self.inside_if_block = False
 
-    def check_keyword_naming(self, keyword_name, node) -> None:
+    def check_keyword_naming(self, keyword_name, node, is_keyword_definition: bool = False) -> None:
         if not keyword_name or keyword_name.lstrip().startswith("#"):
             return
         if keyword_name == r"/":  # old for loop, / are interpreted as keywords
             return
         if self.check_if_keyword_is_reserved(keyword_name, node):
             return
+        if is_keyword_definition:
+            case_naming_rule = self.wrong_case_in_keyword_name
+        else:
+            case_naming_rule = self.wrong_case_in_keyword_call
         normalized = utils.remove_robot_vars(keyword_name)
-        normalized = self.wrong_case_in_keyword_name.pattern.sub("", normalized)
-        normalized = normalized.split(".")[-1]  # remove any imports ie ExternalLib.SubLib.Log -> Log
+        normalized = case_naming_rule.pattern.sub("", normalized)
+        if not is_keyword_definition and "." in normalized:
+            # remove potential library import
+            # Library.Keyword -> Keyword, Library.SubLibrary.Keyword -> Keyword
+            # Library Space.Keyword -> Library Space.Keyword
+            parts = normalized.split(".")
+            for i, part in enumerate(parts):
+                if " " in part:
+                    normalized = ".".join(parts[i:])
+                    break
         normalized = normalized.replace("'", "")  # replace ' apostrophes
         if "_" in normalized:
             self.report(
@@ -716,11 +816,11 @@ class KeywordNamingChecker(VisitorChecker):
                 end_col=node.col_offset + len(keyword_name.rstrip()) + 1,
             )
         words = self.letter_pattern.sub(" ", normalized).split(" ")
-        if self.wrong_case_in_keyword_name.convention == "first_word_capitalized":
+        if case_naming_rule.convention == "first_word_capitalized":
             words = words[:1]
         if any(word[0].islower() for word in words if word):
             self.report(
-                self.wrong_case_in_keyword_name,
+                case_naming_rule,
                 keyword_name=keyword_name,
                 node=node,
                 col=node.col_offset + 1,
@@ -760,7 +860,7 @@ class KeywordNamingChecker(VisitorChecker):
             error_msg=error_msg,
             node=node,
             col=node.col_offset + 1,
-            end_col=node.end_col_offset + 1,
+            end_col=node.col_offset + 1 + len(keyword_name),
         )
         return True
 
@@ -795,7 +895,7 @@ class SettingsNamingChecker(VisitorChecker):
                 invalid_section=name,
                 node=node,
                 col=node.header.col_offset + 1,
-                end_col=node.header.end_col_offset + 1,
+                end_col=node.header.end_col_offset,
             )
 
     def visit_SectionHeader(self, node) -> None:  # noqa: N802

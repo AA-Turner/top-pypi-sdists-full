@@ -1,9 +1,11 @@
 [project]
 name = "reproject"
 authors = [
-    {name = "Thomas Robitaille", email = "thomas.robitaille@gmail.com"},
+    {name = "Thomas Robitaille"},
     {name = "Christoph Deil"},
     {name = "Adam Ginsburg"},
+    {name = "Stuart Mumford"},
+    {name = "Sam Van Kooten"}
 ]
 license = {text = "BSD 3-Clause"}
 description = "Reproject astronomical images"
@@ -14,9 +16,10 @@ dependencies = [
     "astropy>=5.0",
     "astropy-healpix>=1.0",
     "scipy>=1.9",
-    "dask[array]>=2021.8",
-    "zarr>=2.11.0",
-    "fsspec>=2021.8",
+    "dask[array]>=2024.4.1",
+    "dask-image>=2025.11.0",
+    "zarr>=2.17.0",
+    "fsspec>=2021.9",
     "pillow>=10.0",
     "pyavm>=0.9.6",
 ]
@@ -143,7 +146,7 @@ max-line-length = "100"
 write_to = "reproject/version.py"
 
 [tool.cibuildwheel]
-skip = "cp36-* pp* *-musllinux*"
+skip = "cp36-* pp* *-musllinux* cp31?t-*"
 test-skip = "*-manylinux_aarch64"
 
 [tool.isort]

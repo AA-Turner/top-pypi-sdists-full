@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -42,12 +43,6 @@ from .literals import (
     ValidityPeriodTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -159,7 +154,7 @@ class CreateCertificateAuthorityAuditReportRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -291,7 +286,7 @@ class PermissionTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     Principal: NotRequired[str]
     SourceAccount: NotRequired[str]
-    Actions: NotRequired[List[ActionTypeType]]
+    Actions: NotRequired[list[ActionTypeType]]
     Policy: NotRequired[str]
 
 
@@ -340,7 +335,7 @@ class ASN1SubjectOutputTypeDef(TypedDict):
     Initials: NotRequired[str]
     Pseudonym: NotRequired[str]
     GenerationQualifier: NotRequired[str]
-    CustomAttributes: NotRequired[List[CustomAttributeTypeDef]]
+    CustomAttributes: NotRequired[list[CustomAttributeTypeDef]]
 
 
 class ASN1SubjectTypeDef(TypedDict):
@@ -418,7 +413,7 @@ class IssueCertificateResponseTypeDef(TypedDict):
 
 
 class ListTagsResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -479,7 +474,7 @@ class ListTagsRequestPaginateTypeDef(TypedDict):
 
 
 class ListPermissionsResponseTypeDef(TypedDict):
-    Permissions: List[PermissionTypeDef]
+    Permissions: list[PermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -537,7 +532,7 @@ class UpdateCertificateAuthorityRequestTypeDef(TypedDict):
 
 class CsrExtensionsOutputTypeDef(TypedDict):
     KeyUsage: NotRequired[KeyUsageTypeDef]
-    SubjectInformationAccess: NotRequired[List[AccessDescriptionOutputTypeDef]]
+    SubjectInformationAccess: NotRequired[list[AccessDescriptionOutputTypeDef]]
 
 
 class AccessDescriptionTypeDef(TypedDict):
@@ -610,7 +605,7 @@ class DescribeCertificateAuthorityResponseTypeDef(TypedDict):
 
 
 class ListCertificateAuthoritiesResponseTypeDef(TypedDict):
-    CertificateAuthorities: List[CertificateAuthorityTypeDef]
+    CertificateAuthorities: list[CertificateAuthorityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

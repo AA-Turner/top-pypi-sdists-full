@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional, Union
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.j_schema_type import JSchemaType
 
 class JSchema(BaseModel):
@@ -31,65 +33,63 @@ class JSchema(BaseModel):
     reference:  Optional[StrictStr] = Field(None,alias="reference") 
     ref: Optional[JSchema] = None
     recursive_reference:  Optional[StrictStr] = Field(None,alias="recursiveReference") 
-    recursive_anchor: Optional[StrictBool] = Field(None, alias="recursiveAnchor")
+    recursive_anchor: Optional[StrictBool] = Field(default=None, alias="recursiveAnchor")
     id:  Optional[StrictStr] = Field(None,alias="id") 
     anchor:  Optional[StrictStr] = Field(None,alias="anchor") 
     type: Optional[JSchemaType] = None
     default: Optional[Any] = None
-    properties: Dict[str, JSchema] = Field(...)
-    items: conlist(JSchema) = Field(...)
-    items_position_validation: StrictBool = Field(..., alias="itemsPositionValidation")
-    required: conlist(StrictStr) = Field(...)
-    all_of: conlist(JSchema) = Field(..., alias="allOf")
-    any_of: conlist(JSchema) = Field(..., alias="anyOf")
-    one_of: conlist(JSchema) = Field(..., alias="oneOf")
-    var_if: Optional[JSchema] = Field(None, alias="if")
+    properties: Dict[str, JSchema]
+    items: List[JSchema]
+    items_position_validation: StrictBool = Field(alias="itemsPositionValidation")
+    required: List[StrictStr]
+    all_of: List[JSchema] = Field(alias="allOf")
+    any_of: List[JSchema] = Field(alias="anyOf")
+    one_of: List[JSchema] = Field(alias="oneOf")
+    var_if: Optional[JSchema] = Field(default=None, alias="if")
     then: Optional[JSchema] = None
-    var_else: Optional[JSchema] = Field(None, alias="else")
-    var_not: Optional[JSchema] = Field(None, alias="not")
+    var_else: Optional[JSchema] = Field(default=None, alias="else")
+    var_not: Optional[JSchema] = Field(default=None, alias="not")
     contains: Optional[JSchema] = None
-    property_names: Optional[JSchema] = Field(None, alias="propertyNames")
-    enum: conlist(Any) = Field(...)
+    property_names: Optional[JSchema] = Field(default=None, alias="propertyNames")
+    enum: List[Any]
     const: Optional[Any] = None
-    unique_items: StrictBool = Field(..., alias="uniqueItems")
-    minimum_length: Optional[StrictInt] = Field(None, alias="minimumLength")
-    maximum_length: Optional[StrictInt] = Field(None, alias="maximumLength")
-    minimum: Optional[Union[StrictFloat, StrictInt]] = None
-    maximum: Optional[Union[StrictFloat, StrictInt]] = None
-    exclusive_minimum: StrictBool = Field(..., alias="exclusiveMinimum")
-    exclusive_maximum: StrictBool = Field(..., alias="exclusiveMaximum")
-    minimum_items: Optional[StrictInt] = Field(None, alias="minimumItems")
-    maximum_items: Optional[StrictInt] = Field(None, alias="maximumItems")
-    minimum_properties: Optional[StrictInt] = Field(None, alias="minimumProperties")
-    maximum_properties: Optional[StrictInt] = Field(None, alias="maximumProperties")
-    minimum_contains: Optional[StrictInt] = Field(None, alias="minimumContains")
-    maximum_contains: Optional[StrictInt] = Field(None, alias="maximumContains")
+    unique_items: StrictBool = Field(alias="uniqueItems")
+    minimum_length: Optional[StrictInt] = Field(default=None, alias="minimumLength")
+    maximum_length: Optional[StrictInt] = Field(default=None, alias="maximumLength")
+    exclusive_minimum: StrictBool = Field(alias="exclusiveMinimum")
+    exclusive_maximum: StrictBool = Field(alias="exclusiveMaximum")
+    minimum_items: Optional[StrictInt] = Field(default=None, alias="minimumItems")
+    maximum_items: Optional[StrictInt] = Field(default=None, alias="maximumItems")
+    minimum_properties: Optional[StrictInt] = Field(default=None, alias="minimumProperties")
+    maximum_properties: Optional[StrictInt] = Field(default=None, alias="maximumProperties")
+    minimum_contains: Optional[StrictInt] = Field(default=None, alias="minimumContains")
+    maximum_contains: Optional[StrictInt] = Field(default=None, alias="maximumContains")
     content_encoding:  Optional[StrictStr] = Field(None,alias="contentEncoding") 
     content_media_type:  Optional[StrictStr] = Field(None,alias="contentMediaType") 
-    write_only: Optional[StrictBool] = Field(None, alias="writeOnly")
-    read_only: Optional[StrictBool] = Field(None, alias="readOnly")
-    extension_data: Dict[str, Any] = Field(..., alias="extensionData")
+    write_only: Optional[StrictBool] = Field(default=None, alias="writeOnly")
+    read_only: Optional[StrictBool] = Field(default=None, alias="readOnly")
+    extension_data: Dict[str, Any] = Field(alias="extensionData")
     title:  Optional[StrictStr] = Field(None,alias="title") 
     description:  Optional[StrictStr] = Field(None,alias="description") 
-    multiple_of: Optional[Union[StrictFloat, StrictInt]] = Field(None, alias="multipleOf")
+    multiple_of: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, alias="multipleOf")
     pattern:  Optional[StrictStr] = Field(None,alias="pattern") 
-    dependencies: Dict[str, Any] = Field(...)
-    dependent_required: Dict[str, conlist(StrictStr)] = Field(..., alias="dependentRequired")
-    dependent_schemas: Dict[str, JSchema] = Field(..., alias="dependentSchemas")
-    pattern_properties: Dict[str, JSchema] = Field(..., alias="patternProperties")
-    additional_properties: Optional[JSchema] = Field(None, alias="additionalProperties")
-    allow_additional_properties: StrictBool = Field(..., alias="allowAdditionalProperties")
-    allow_additional_properties_specified: StrictBool = Field(..., alias="allowAdditionalPropertiesSpecified")
-    unevaluated_properties: Optional[JSchema] = Field(None, alias="unevaluatedProperties")
-    allow_unevaluated_properties: Optional[StrictBool] = Field(None, alias="allowUnevaluatedProperties")
-    additional_items: Optional[JSchema] = Field(None, alias="additionalItems")
-    allow_additional_items: StrictBool = Field(..., alias="allowAdditionalItems")
-    allow_additional_items_specified: StrictBool = Field(..., alias="allowAdditionalItemsSpecified")
-    unevaluated_items: Optional[JSchema] = Field(None, alias="unevaluatedItems")
-    allow_unevaluated_items: Optional[StrictBool] = Field(None, alias="allowUnevaluatedItems")
+    dependencies: Dict[str, Any]
+    dependent_required: Dict[str, List[StrictStr]] = Field(alias="dependentRequired")
+    dependent_schemas: Dict[str, JSchema] = Field(alias="dependentSchemas")
+    pattern_properties: Dict[str, JSchema] = Field(alias="patternProperties")
+    additional_properties: Optional[JSchema] = Field(default=None, alias="additionalProperties")
+    allow_additional_properties: StrictBool = Field(alias="allowAdditionalProperties")
+    allow_additional_properties_specified: StrictBool = Field(alias="allowAdditionalPropertiesSpecified")
+    unevaluated_properties: Optional[JSchema] = Field(default=None, alias="unevaluatedProperties")
+    allow_unevaluated_properties: Optional[StrictBool] = Field(default=None, alias="allowUnevaluatedProperties")
+    additional_items: Optional[JSchema] = Field(default=None, alias="additionalItems")
+    allow_additional_items: StrictBool = Field(alias="allowAdditionalItems")
+    allow_additional_items_specified: StrictBool = Field(alias="allowAdditionalItemsSpecified")
+    unevaluated_items: Optional[JSchema] = Field(default=None, alias="unevaluatedItems")
+    allow_unevaluated_items: Optional[StrictBool] = Field(default=None, alias="allowUnevaluatedItems")
     format:  Optional[StrictStr] = Field(None,alias="format") 
-    validators: conlist(Dict[str, Any]) = Field(...)
-    __properties = ["schemaVersion", "valid", "reference", "ref", "recursiveReference", "recursiveAnchor", "id", "anchor", "type", "default", "properties", "items", "itemsPositionValidation", "required", "allOf", "anyOf", "oneOf", "if", "then", "else", "not", "contains", "propertyNames", "enum", "const", "uniqueItems", "minimumLength", "maximumLength", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minimumItems", "maximumItems", "minimumProperties", "maximumProperties", "minimumContains", "maximumContains", "contentEncoding", "contentMediaType", "writeOnly", "readOnly", "extensionData", "title", "description", "multipleOf", "pattern", "dependencies", "dependentRequired", "dependentSchemas", "patternProperties", "additionalProperties", "allowAdditionalProperties", "allowAdditionalPropertiesSpecified", "unevaluatedProperties", "allowUnevaluatedProperties", "additionalItems", "allowAdditionalItems", "allowAdditionalItemsSpecified", "unevaluatedItems", "allowUnevaluatedItems", "format", "validators"]
+    validators: List[Dict[str, Any]]
+    __properties = ["schemaVersion", "valid", "reference", "ref", "recursiveReference", "recursiveAnchor", "id", "anchor", "type", "default", "properties", "items", "itemsPositionValidation", "required", "allOf", "anyOf", "oneOf", "if", "then", "else", "not", "contains", "propertyNames", "enum", "const", "uniqueItems", "minimumLength", "maximumLength", "exclusiveMinimum", "exclusiveMaximum", "minimumItems", "maximumItems", "minimumProperties", "maximumProperties", "minimumContains", "maximumContains", "contentEncoding", "contentMediaType", "writeOnly", "readOnly", "extensionData", "title", "description", "multipleOf", "pattern", "dependencies", "dependentRequired", "dependentSchemas", "patternProperties", "additionalProperties", "allowAdditionalProperties", "allowAdditionalPropertiesSpecified", "unevaluatedProperties", "allowUnevaluatedProperties", "additionalItems", "allowAdditionalItems", "allowAdditionalItemsSpecified", "unevaluatedItems", "allowUnevaluatedItems", "format", "validators"]
 
     class Config:
         """Pydantic configuration"""
@@ -282,16 +282,6 @@ class JSchema(BaseModel):
         if self.maximum_length is None and "maximum_length" in self.__fields_set__:
             _dict['maximumLength'] = None
 
-        # set to None if minimum (nullable) is None
-        # and __fields_set__ contains the field
-        if self.minimum is None and "minimum" in self.__fields_set__:
-            _dict['minimum'] = None
-
-        # set to None if maximum (nullable) is None
-        # and __fields_set__ contains the field
-        if self.maximum is None and "maximum" in self.__fields_set__:
-            _dict['maximum'] = None
-
         # set to None if minimum_items (nullable) is None
         # and __fields_set__ contains the field
         if self.minimum_items is None and "minimum_items" in self.__fields_set__:
@@ -422,8 +412,6 @@ class JSchema(BaseModel):
             "unique_items": obj.get("uniqueItems"),
             "minimum_length": obj.get("minimumLength"),
             "maximum_length": obj.get("maximumLength"),
-            "minimum": obj.get("minimum"),
-            "maximum": obj.get("maximum"),
             "exclusive_minimum": obj.get("exclusiveMinimum"),
             "exclusive_maximum": obj.get("exclusiveMaximum"),
             "minimum_items": obj.get("minimumItems"),
@@ -469,3 +457,5 @@ class JSchema(BaseModel):
             "validators": obj.get("validators")
         })
         return _obj
+
+JSchema.update_forward_refs()

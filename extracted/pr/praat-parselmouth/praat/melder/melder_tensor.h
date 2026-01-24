@@ -160,12 +160,12 @@ public:
 	}
 	matrixview<T> asmatrixview (integer nrow, integer ncol) {
 		Melder_assert (nrow * ncol <= our size);
-		return matrixview (our cells, nrow, ncol, ncol * our stride, our stride);
+		return matrixview (our firstCell, nrow, ncol, ncol * our stride, our stride);
 	}
 	T *begin () const { return & our operator[] (1); }
 	T *end () const { return & our operator[] (our size + 1); }
-	T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] [1]; }
-	T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] [0]; }
+	T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] (1); }
+	T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] (0); }
 };
 
 template <typename T>
@@ -244,12 +244,12 @@ public:
 	}
 	constmatrixview<T> asmatrixview (integer nrow, integer ncol) {
 		Melder_assert (nrow * ncol <= our size);
-		return constmatrixview (our cells, nrow, ncol, ncol * our stride, our stride);
+		return constmatrixview (our firstCell, nrow, ncol, ncol * our stride, our stride);
 	}
 	const T *begin () const { return & our operator[] (1); }
 	const T *end () const { return & our operator[] (our size + 1); }
-	const T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] [1]; }
-	const T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] [0]; }
+	const T *asArgumentToFunctionThatExpectsZeroBasedArray () const { return & our operator[] (1); }
+	const T *asArgumentToFunctionThatExpectsOneBasedArray () const { return & our operator[] (0); }
 };
 
 /*
@@ -1039,7 +1039,7 @@ public:
 			our cells
 			+ (dim2 - 1) * our stride2
 			+ (dim3 - 1) * our stride3,
-			our nidm1,
+			our ndim1,
 			our stride1
 		);
 	}

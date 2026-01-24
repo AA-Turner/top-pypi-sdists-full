@@ -1,4 +1,4 @@
-'''Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
+"""Chemical Engineering Design Library (ChEDL). Utilities for process modeling.
 Copyright (C) 2018 Caleb Bell <Caleb.Andrew.Bell@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -18,7 +18,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 from math import log, log10
 
@@ -28,7 +28,9 @@ from fluids.constants import inch
 from fluids.flow_meter import (
     AS_CAST_VENTURI_TUBE,
     CONCENTRIC_ORIFICE,
+    CONICAL_ORIFICE,
     CONE_METER,
+    ECCENTRIC_ORIFICE,
     HOLLINGSHEAD_CONE,
     HOLLINGSHEAD_ORIFICE,
     HOLLINGSHEAD_VENTURI_SHARP,
@@ -51,7 +53,9 @@ from fluids.flow_meter import (
     ORIFICE_FLANGE_TAPS,
     ORIFICE_PIPE_TAPS,
     ORIFICE_VENA_CONTRACTA_TAPS,
+    QUARTER_CIRCLE_ORIFICE,
     ROUGH_WELDED_CONVERGENT_VENTURI_TUBE,
+    SEGMENTAL_ORIFICE,
     TAPS_OPPOSITE,
     TAPS_SIDE,
     VENTURI_NOZZLE,
@@ -87,6 +91,8 @@ from fluids.flow_meter import (
     orifice_expansibility_1989,
     velocity_of_approach_factor,
 )
+import fluids.flow_meter as flow_meter_module
+
 from fluids.numerics import assert_close, assert_close1d, assert_close2d, isclose, logspace, secant
 
 
@@ -105,13 +111,13 @@ def test_orifice_expansibility_1989():
     assert_close(epsilon, 0.9970510687411718)
 
 def test_C_Reader_Harris_Gallagher():
-    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps='corner' )
+    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps="corner" )
     assert_close(C, 0.6000085121444034)
 
-    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps='D' )
+    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps="D" )
     assert_close(C, 0.5988219225153976)
 
-    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps='flange' )
+    C = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps="flange" )
     assert_close(C, 0.5990042535666878)
 #
 #def test_Reader_Harris_Gallagher_discharge():
@@ -119,26 +125,26 @@ def test_C_Reader_Harris_Gallagher():
 #    assert_close(m, 7.702338035732167)
 
     with pytest.raises(Exception):
-        C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5,  m=0.12, taps='NOTALOCATION')
+        C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5,  m=0.12, taps="NOTALOCATION")
 
     # Test continuity at the low-diameter function
-    kwargs = dict(Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps='corner')
+    kwargs = dict(Do=0.0222, rho=1.1645909036, mu=0.0000185861753095, m=0.124431876, taps="corner")
     C1 = C_Reader_Harris_Gallagher(D=0.07112, **kwargs)
     C2 = C_Reader_Harris_Gallagher(D=0.07112-1e-13, **kwargs)
     assert_close(C1, C2)
 
 def test_C_Miller_1996():
-    C_flange_ISO = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, taps='flange')
-    C_corner_ISO = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, taps='corner')
+    C_flange_ISO = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, taps="flange")
+    C_corner_ISO = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, taps="corner")
     C_D_D2_ISO = C_Reader_Harris_Gallagher(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, taps=ORIFICE_D_AND_D_2_TAPS)
 
     C_flange = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ORIFICE, taps=ORIFICE_FLANGE_TAPS)
-    C_flange_2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype='orifice', taps=ORIFICE_FLANGE_TAPS)
+    C_flange_2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype="orifice", taps=ORIFICE_FLANGE_TAPS)
     assert C_flange == C_flange_2
     assert_close(C_flange, 0.599065557156788, rtol=1e-12)
     assert_close(C_flange, C_flange_ISO, rtol=2e-4)
 
-    C_flange_small_ISO = C_Reader_Harris_Gallagher(D=0.04, Do=0.02, rho=1.165, mu=1.85E-5, m=0.2, taps='flange')
+    C_flange_small_ISO = C_Reader_Harris_Gallagher(D=0.04, Do=0.02, rho=1.165, mu=1.85E-5, m=0.2, taps="flange")
     C_flange_small = C_Miller_1996(D=0.04, Do=0.02, rho=1.165, mu=1.85E-5, m=0.2, subtype=MILLER_ORIFICE, taps=ORIFICE_FLANGE_TAPS)
     assert_close(C_flange_small, 0.6035249226284967, rtol=1e-12)
     assert_close(C_flange_small_ISO, C_flange_small, rtol=1e-2)
@@ -157,7 +163,7 @@ def test_C_Miller_1996():
 
 
     C_flange_small = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_SEGMENTAL_ORIFICE, taps=ORIFICE_FLANGE_TAPS)
-    C_flange_small2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype='segmental orifice', taps=ORIFICE_FLANGE_TAPS)
+    C_flange_small2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype="segmental orifice", taps=ORIFICE_FLANGE_TAPS)
     assert C_flange_small == C_flange_small
 
     C_flange_large = C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_SEGMENTAL_ORIFICE, taps=ORIFICE_FLANGE_TAPS)
@@ -169,14 +175,14 @@ def test_C_Miller_1996():
     assert_close(C_vc_small, 0.6341386019820933, rtol=1e-12)
     assert_close(C_vc_large, 0.6301688962913937, rtol=1e-12)
 
-    C_flange_opp_small = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps='flange', tap_position=TAPS_OPPOSITE)
-    C_flange_opp_small2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype='eccentric orifice', taps='flange', tap_position=TAPS_OPPOSITE)
+    C_flange_opp_small = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps="flange", tap_position=TAPS_OPPOSITE)
+    C_flange_opp_small2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype="eccentric orifice", taps="flange", tap_position=TAPS_OPPOSITE)
     assert_close(C_flange_opp_small, 0.6096299230744815, rtol=1e-12)
-    C_flange_opp_large = C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_ECCENTRIC_ORIFICE, taps='flange', tap_position=TAPS_OPPOSITE)
+    C_flange_opp_large = C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_ECCENTRIC_ORIFICE, taps="flange", tap_position=TAPS_OPPOSITE)
     assert_close(C_flange_opp_large, 0.6196903510975135, rtol=1e-12)
 
-    C_flange_side_small = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps='flange', tap_position=TAPS_SIDE)
-    C_flange_side_large = C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_ECCENTRIC_ORIFICE, taps='flange', tap_position=TAPS_SIDE)
+    C_flange_side_small = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps="flange", tap_position=TAPS_SIDE)
+    C_flange_side_large = C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_ECCENTRIC_ORIFICE, taps="flange", tap_position=TAPS_SIDE)
     assert_close(C_flange_side_small, 0.6086231594104639, rtol=1e-12)
     assert_close(C_flange_side_large, 0.6227796822413327, rtol=1e-12)
 
@@ -193,36 +199,36 @@ def test_C_Miller_1996():
 
     # Error testing
     with pytest.raises(ValueError):
-        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ORIFICE, taps='NOTATAP')
+        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ORIFICE, taps="NOTATAP")
 
     with pytest.raises(ValueError):
-        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps='NOTATAP')
+        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps="NOTATAP")
 
     with pytest.raises(ValueError):
-        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps=ORIFICE_FLANGE_TAPS, tap_position='NOTAPOSITION')
+        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_ECCENTRIC_ORIFICE, taps=ORIFICE_FLANGE_TAPS, tap_position="NOTAPOSITION")
 
     with pytest.raises(ValueError):
-        C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_SEGMENTAL_ORIFICE, taps='BADTAP')
+        C_Miller_1996(D=0.2, Do=0.08, rho=1.165, mu=1.85E-5, m=2, subtype=MILLER_SEGMENTAL_ORIFICE, taps="BADTAP")
 
     with pytest.raises(ValueError):
-        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype='BADTYPE')
+        C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype="BADTYPE")
 
     # Conical
     C_high = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_CONICAL_ORIFICE)
     assert C_high == 0.73
     C_low = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.0001, subtype=MILLER_CONICAL_ORIFICE)
     assert C_low == 0.734
-    C_low2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.0001, subtype='conical orifice')
+    C_low2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.0001, subtype="conical orifice")
     assert C_low2 == C_low
     # Quarter circle
     C_circ = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype=MILLER_QUARTER_CIRCLE_ORIFICE)
     assert_close(C_circ, 0.7750496225919683)
-    C_circ2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype='quarter circle orifice')
+    C_circ2 = C_Miller_1996(D=0.07391, Do=0.0222, rho=1.165, mu=1.85E-5, m=0.12, subtype="quarter circle orifice")
     assert C_circ == C_circ2
 
 def test_differential_pressure_meter_discharge():
     # Orifice
-    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=ISO_5167_ORIFICE, taps='D')
+    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=ISO_5167_ORIFICE, taps="D")
     assert_close(m, 7.702338035732167)
 
     # Nozzle meters
@@ -233,7 +239,7 @@ def test_differential_pressure_meter_discharge():
     assert_close(m, 11.370262314304702)
 
     m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
-    assert_close(m, 11.471786198133566)
+    assert_close(m, 11.476005362790847)
 
     # Venturi tubes
     m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=AS_CAST_VENTURI_TUBE)
@@ -254,12 +260,12 @@ def test_differential_pressure_meter_discharge():
     assert_close(m, 16.064473363867993)
 
     with pytest.raises(ValueError):
-        differential_pressure_meter_solver(D=.07366, m=7.702338, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+        differential_pressure_meter_solver(D=.07366, m=7.702338, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
 
 
 def test_differential_pressure_meter_diameter():
     # ISO 5167 orifice
-    D2 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P1=200000.0,  P2=183000.0, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps='D')
+    D2 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P1=200000.0,  P2=183000.0, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps="D")
     assert_close(D2, 0.05)
 
     # Nozzle meters
@@ -269,7 +275,7 @@ def test_differential_pressure_meter_diameter():
     D2 = differential_pressure_meter_solver(D=0.07366, m=11.370262314304702, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=ISA_1932_NOZZLE)
     assert_close(D2, 0.05)
 
-    D2 = differential_pressure_meter_solver(D=0.07366, m=11.471786198133566, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
+    D2 = differential_pressure_meter_solver(D=0.07366, m=11.476005362790847, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
     assert_close(D2, 0.05)
 
     # Venturi tubes
@@ -292,7 +298,7 @@ def test_differential_pressure_meter_diameter():
 
 
 def test_differential_pressure_meter_P2():
-    P2 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P1=200000.0,  D2=0.05, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps='D')
+    P2 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P1=200000.0,  D2=0.05, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps="D")
     assert_close(P2, 183000.0)
 
     # Nozzle meters
@@ -302,7 +308,7 @@ def test_differential_pressure_meter_P2():
     P2 = differential_pressure_meter_solver(D=0.07366, m=11.370262314304702, P1=200000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=ISA_1932_NOZZLE)
     assert_close(P2, 183000.0)
 
-    P2 = differential_pressure_meter_solver(D=0.07366, m=11.471786198133566, P1=200000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
+    P2 = differential_pressure_meter_solver(D=0.07366, m=11.476005362790847, P1=200000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
     assert_close(P2, 183000.0)
 
     # Venturi tubes
@@ -324,7 +330,7 @@ def test_differential_pressure_meter_P2():
     assert_close(P2, 183000.0)
 
 def test_differential_pressure_meter_P1():
-    P1 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P2=183000.0,  D2=0.05, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps='D')
+    P1 = differential_pressure_meter_solver(D=0.07366, m=7.702338035732167, P2=183000.0,  D2=0.05, rho=999.1, mu=0.0011, k=1.33,  meter_type=ISO_5167_ORIFICE, taps="D")
     assert_close(P1, 200000)
 
     # Nozzle meters
@@ -334,7 +340,7 @@ def test_differential_pressure_meter_P1():
     P1 = differential_pressure_meter_solver(D=0.07366, m=11.370262314304702, P2=183000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=ISA_1932_NOZZLE)
     assert_close(P1, 200000)
 
-    P1 = differential_pressure_meter_solver(D=0.07366, m=11.471786198133566, P2=183000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
+    P1 = differential_pressure_meter_solver(D=0.07366, m=11.476005362790847, P2=183000.0, D2=0.05, rho=999.1, mu=0.0011, k=1.33, meter_type=VENTURI_NOZZLE)
     assert_close(P1, 200000)
 
     # Venturi tubes
@@ -360,17 +366,17 @@ def test_differential_pressure_meter_P1():
 
 def test_differential_pressure_meter_solver_limits():
     # ISO 5167 orifice - How low can P out go?
-    P_out = differential_pressure_meter_solver(D=0.07366, m=7.702338, P1=200000.0, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+    P_out = differential_pressure_meter_solver(D=0.07366, m=7.702338, P1=200000.0, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
     assert_close(P_out, 37914.15989971644)
 
     # same point
-    D2_recalc = differential_pressure_meter_solver(D=0.07366, m=7.702338, P1=200000.0, P2=37914.15989971644, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+    D2_recalc = differential_pressure_meter_solver(D=0.07366, m=7.702338, P1=200000.0, P2=37914.15989971644, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
     assert_close(D2_recalc, 0.0345)
 
-    P1_recalc = differential_pressure_meter_solver(D=0.07366, m=7.702338, P2=37914.15989971644, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+    P1_recalc = differential_pressure_meter_solver(D=0.07366, m=7.702338, P2=37914.15989971644, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
     assert_close(P1_recalc, 200000.0)
 
-    m_recalc = differential_pressure_meter_solver(D=0.07366, P1=200000, P2=37914.15989971644, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+    m_recalc = differential_pressure_meter_solver(D=0.07366, P1=200000, P2=37914.15989971644, D2=0.0345, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
     assert_close(m_recalc, 7.702338)
 
 def test_differential_pressure_meter_solver_misc():
@@ -392,41 +398,67 @@ def test_differential_pressure_meter_solver_misc():
                                        k=1.33, meter_type=MILLER_ECCENTRIC_ORIFICE, taps=ORIFICE_FLANGE_TAPS, tap_position=TAPS_SIDE)
     assert_close(D2, 0.05)
 
-    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0,  P2=183000.0, rho=1.2, mu=0.00011, k=1.33, meter_type='ISO 5167 orifice', taps='D')
+    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0,  P2=183000.0, rho=1.2, mu=0.00011, k=1.33, meter_type="ISO 5167 orifice", taps="D")
     assert_close(m, 0.2695835697819371)
 
     m_expect = 7.9299168920313425
-    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type='ISO 5167 orifice', taps='D', epsilon_specified=1)
+    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, k=1.33, meter_type="ISO 5167 orifice", taps="D", epsilon_specified=1)
     assert_close(m, m_expect)
-    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, meter_type='ISO 5167 orifice', taps='D', epsilon_specified=1)
+    m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, rho=999.1, mu=0.0011, meter_type="ISO 5167 orifice", taps="D", epsilon_specified=1)
     assert_close(m, m_expect)
 
 def test_unspecified_meter_C_specified():
-    for t in ('unspecified meter', 'ISO 5167 orifice'):
+    for t in ("unspecified meter", "ISO 5167 orifice"):
         m = differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0,
          P2=183000.0, rho=999.1, mu=0.0011, k=1.33,
-        meter_type=t, taps='D', C_specified=0.6)
+        meter_type=t, taps="D", C_specified=0.6)
         assert_close(m, 7.512945567976503)
 
         D2 = differential_pressure_meter_solver(D=0.07366, m=7.512945567976503, D2=None, P1=200000.0,
          P2=183000.0, rho=999.1, mu=0.0011, k=1.33,
-        meter_type=t, taps='D', C_specified=0.6)
+        meter_type=t, taps="D", C_specified=0.6)
         assert_close(D2, 0.05)
 
         P1 = differential_pressure_meter_solver(D=0.07366, D2=0.05, m=7.512945567976503,
          P2=183000.0, rho=999.1, mu=0.0011, k=1.33,
-        meter_type=t, taps='D', C_specified=0.6)
+        meter_type=t, taps="D", C_specified=0.6)
         assert_close(P1, 200000.0)
 
         P2 = differential_pressure_meter_solver(D=0.07366, D2=0.05, m=7.512945567976503,
          P1=200000.0, rho=999.1, mu=0.0011, k=1.33,
-        meter_type=t, taps='D', C_specified=0.6)
+        meter_type=t, taps="D", C_specified=0.6)
         assert_close(P2, 183000.0)
 
     with pytest.raises(ValueError):
         differential_pressure_meter_solver(D=0.07366, D2=0.05, P1=200000.0,
          P2=183000.0, rho=999.1, mu=0.0011, k=1.33,
-        meter_type='unspecified meter', taps='D', C_specified=None)
+        meter_type="unspecified meter", taps="D", C_specified=None)
+
+def test_differential_pressure_meter_solver_brenth_fallback(monkeypatch):
+    base_kwargs = dict(D=0.07366, rho=999.1, mu=0.0011, k=1.33,
+                       meter_type=ISO_5167_ORIFICE, taps="D")
+    m_val = 7.702338035732168
+    D2_val = 0.05
+    P1_val = 200000.0
+    P2_val = 183000.0
+
+    expected_D2 = differential_pressure_meter_solver(D2=None, P1=P1_val, P2=P2_val, m=m_val, **base_kwargs)
+    expected_P2 = differential_pressure_meter_solver(D2=D2_val, P1=P1_val, P2=None, m=m_val, **base_kwargs)
+    expected_P1 = differential_pressure_meter_solver(D2=D2_val, P1=None, P2=P2_val, m=m_val, **base_kwargs)
+
+    def failing_secant(*args, **kwargs):
+        raise RuntimeError("secant disabled")
+
+    monkeypatch.setattr(flow_meter_module, "secant", failing_secant)
+
+    D2_result = differential_pressure_meter_solver(D2=None, P1=P1_val, P2=P2_val, m=m_val, **base_kwargs)
+    assert_close(D2_result, expected_D2)
+
+    P2_result = differential_pressure_meter_solver(D2=D2_val, P1=P1_val, P2=None, m=m_val, **base_kwargs)
+    assert_close(P2_result, expected_P2)
+
+    P1_result = differential_pressure_meter_solver(D2=D2_val, P1=None, P2=P2_val, m=m_val, **base_kwargs)
+    assert_close(P1_result, expected_P1)
 
 
 
@@ -490,7 +522,7 @@ def test_C_ISA_1932_nozzle():
 
 def test_C_venturi_nozzle():
     C = C_venturi_nozzle(D=0.07391, Do=0.0422)
-    assert_close(C, 0.9698996454169576)
+    assert_close(C, 0.97006025505)
 
 
 def test_diameter_ratio_cone_meter():
@@ -623,8 +655,13 @@ def test_differential_pressure_meter_dP():
         differential_pressure_meter_dP(D=0.07366, D2=0.05, P1=200000.0,  P2=183000.0, meter_type=VENTURI_NOZZLE)
 
     with pytest.raises(ValueError):
-        differential_pressure_meter_dP(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, meter_type='NOTAMETER')
+        differential_pressure_meter_dP(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, meter_type="NOTAMETER")
 
+
+@pytest.mark.parametrize("meter_type", [ISO_5167_ORIFICE, LONG_RADIUS_NOZZLE, ISA_1932_NOZZLE])
+def test_differential_pressure_meter_dP_requires_C(meter_type):
+    with pytest.raises(ValueError, match="Parameter C is required"):
+        differential_pressure_meter_dP(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0, meter_type=meter_type)
 
 
 def test_differential_pressure_meter_beta():
@@ -638,7 +675,7 @@ def test_differential_pressure_meter_beta():
     assert_close(beta, 0.6995709873957624)
 
     with pytest.raises(ValueError):
-        differential_pressure_meter_beta(D=0.07366, D2=0.05, meter_type='NOTAMETER')
+        differential_pressure_meter_beta(D=0.07366, D2=0.05, meter_type="NOTAMETER")
 
     assert_close(differential_pressure_meter_beta(D=0.2575, D2=0.184, meter_type=HOLLINGSHEAD_CONE),
         differential_pressure_meter_beta(D=0.2575, D2=0.184, meter_type=CONE_METER))
@@ -835,7 +872,7 @@ def test_differential_pressure_meter_C_epsilon():
 
     C, eps = differential_pressure_meter_C_epsilon(D=0.07366, D2=0.05, P1=200000.0,
     P2=183000.0, rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168,
-    meter_type=MILLER_ORIFICE, taps='corner')
+    meter_type=MILLER_ORIFICE, taps="corner")
     assert_close(C, 0.6068011224659587)
     assert_close(eps, 0.9711026966676307)
 
@@ -848,10 +885,10 @@ def test_differential_pressure_meter_C_epsilon():
 
     # Test one case of the default translation
     C, eps = differential_pressure_meter_C_epsilon(D=0.07366, D2=0.05, P1=200000.0,
-    P2=183000.0, rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168,taps='corner',
+    P2=183000.0, rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168,taps="corner",
     meter_type=CONCENTRIC_ORIFICE)
     C_iso, eps_iso = differential_pressure_meter_C_epsilon(D=0.07366, D2=0.05, P1=200000.0,
-    P2=183000.0, rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168,taps='corner',
+    P2=183000.0, rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168,taps="corner",
     meter_type=CONCENTRIC_ORIFICE)
 
     assert C == C_iso
@@ -860,7 +897,7 @@ def test_differential_pressure_meter_C_epsilon():
     with pytest.raises(ValueError):
         differential_pressure_meter_C_epsilon(D=0.07366, D2=0.05, P1=200000.0,
                                               P2=183000.0, rho=999.1, mu=0.0011,
-                                              k=1.33, m=7.702338035732168, meter_type='NOTAREAMETER')
+                                              k=1.33, m=7.702338035732168, meter_type="NOTAREAMETER")
 
 
     C, eps = differential_pressure_meter_C_epsilon(D=0.07366, D2=0.05, P1=200000.0,
@@ -888,20 +925,41 @@ def test_differential_pressure_meter_C_epsilon():
         meter_type=HOLLINGSHEAD_WEDGE)
     assert_close(C, 0.7002380207294499)
 
-def test_issue_49():
-    kwargs = {'D': 0.36,  'rho': 39.6, 'mu': 1.32e-05, 'k': 1.3,'D2': 0.28,'P1': 5000000.0,
-                 'P2': 4995000.0, 'meter_type': 'long radius nozzle'}
+@pytest.mark.parametrize(
+    ("alias", "canonical", "extra_kwargs"),
+    [
+        (ECCENTRIC_ORIFICE, ISO_15377_ECCENTRIC_ORIFICE, {}),
+        (CONICAL_ORIFICE, ISO_15377_CONICAL_ORIFICE, {}),
+        (QUARTER_CIRCLE_ORIFICE, ISO_15377_QUARTER_CIRCLE_ORIFICE, {}),
+        (SEGMENTAL_ORIFICE, MILLER_SEGMENTAL_ORIFICE, {"taps": ORIFICE_FLANGE_TAPS}),
+    ],
+)
+def test_differential_pressure_meter_C_epsilon_aliases(alias, canonical, extra_kwargs):
+    base_kwargs = dict(D=0.07366, D2=0.05, P1=200000.0, P2=183000.0,
+                       rho=999.1, mu=0.0011, k=1.33, m=7.702338035732168)
+    alias_kwargs = dict(base_kwargs)
+    alias_kwargs.update(extra_kwargs)
+    canonical_kwargs = dict(base_kwargs)
+    canonical_kwargs.update(extra_kwargs)
+    C_alias, eps_alias = differential_pressure_meter_C_epsilon(meter_type=alias, **alias_kwargs)
+    C_canon, eps_canon = differential_pressure_meter_C_epsilon(meter_type=canonical, **canonical_kwargs)
+    assert_close(C_alias, C_canon)
+    assert_close(eps_alias, eps_canon)
 
-    massflow = differential_pressure_meter_solver(kwargs['D'], kwargs['rho'],
-                                                                    kwargs['mu'], kwargs['k'],
-                                                                    kwargs['D2'], kwargs['P1'],
-                                                                kwargs['P2'], meter_type=kwargs['meter_type'])
+def test_issue_49():
+    kwargs = {"D": 0.36,  "rho": 39.6, "mu": 1.32e-05, "k": 1.3,"D2": 0.28,"P1": 5000000.0,
+                 "P2": 4995000.0, "meter_type": "long radius nozzle"}
+
+    massflow = differential_pressure_meter_solver(kwargs["D"], kwargs["rho"],
+                                                                    kwargs["mu"], kwargs["k"],
+                                                                    kwargs["D2"], kwargs["P1"],
+                                                                kwargs["P2"], meter_type=kwargs["meter_type"])
     assert_close(massflow, 48.36465032864742)
 
 @pytest.mark.fuzz
 @pytest.mark.slow
 def test_fuzz_K_to_discharge_coefficient():
-    '''
+    """
     # Testing the different formulas
     from sympy import *
     C, beta, K = symbols('C, beta, K')
@@ -921,7 +979,7 @@ def test_fuzz_K_to_discharge_coefficient():
 
     expr = Eq(K, (sqrt(1 - beta**4*(1 - C*C))/(C*beta**2) - 1)**2)
     print(latex(solve(expr, C)[3]))
-    '''
+    """
     Ds = logspace(log10(1-1E-9), log10(1E-9), 8)
     for D_ratio in Ds:
         Ks = logspace(log10(1E-9), log10(50000), 8)

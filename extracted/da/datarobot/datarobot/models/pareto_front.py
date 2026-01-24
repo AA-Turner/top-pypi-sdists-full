@@ -99,26 +99,22 @@ class ParetoFront(APIObject):
         less accuracy but will use simpler expressions.
     """
 
-    _Solution = t.Dict(
-        {
-            t.Key("eureqa_solution_id"): String,
-            t.Key("complexity"): Int,
-            t.Key("error"): t.Or(t.Float(), t.Null),
-            t.Key("expression"): String,
-            t.Key("expression_annotated"): String,
-            t.Key("best_model"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _Solution = t.Dict({
+        t.Key("eureqa_solution_id"): String,
+        t.Key("complexity"): Int,
+        t.Key("error"): t.Or(t.Float(), t.Null),
+        t.Key("expression"): String,
+        t.Key("expression_annotated"): String,
+        t.Key("best_model"): t.Bool,
+    }).ignore_extra("*")
 
-    ParetoFrontWrapper = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("error_metric"): String,
-            t.Key("hyperparameters"): t.Dict().allow_extra("*"),
-            t.Key("target_type"): String,
-            t.Key("solutions"): t.List(_Solution),
-        }
-    ).ignore_extra("*")
+    ParetoFrontWrapper = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("error_metric"): String,
+        t.Key("hyperparameters"): t.Dict().allow_extra("*"),
+        t.Key("target_type"): String,
+        t.Key("solutions"): t.List(_Solution),
+    }).ignore_extra("*")
 
     _converter = ParetoFrontWrapper
 

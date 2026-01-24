@@ -3,7 +3,7 @@ Type annotations for migrationhub-config service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_migrationhub_config/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -37,12 +38,6 @@ from .type_defs import (
     GetHomeRegionResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -51,13 +46,13 @@ else:
 __all__ = ("MigrationHubConfigClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DryRunOperation: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DryRunOperation: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 class MigrationHubConfigClient(AioBaseClient):
     """
@@ -106,7 +101,7 @@ class MigrationHubConfigClient(AioBaseClient):
 
     async def delete_home_region_control(
         self, **kwargs: Unpack[DeleteHomeRegionControlRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation deletes the home region configuration for the calling account.
 
@@ -141,7 +136,7 @@ class MigrationHubConfigClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

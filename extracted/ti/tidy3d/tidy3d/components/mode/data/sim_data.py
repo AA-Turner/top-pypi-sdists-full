@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 import pydantic.v1 as pd
 
 from tidy3d.components.base import cached_property
-from tidy3d.components.data.monitor_data import ModeSolverData, PermittivityData
+from tidy3d.components.data.monitor_data import MediumData, PermittivityData
 from tidy3d.components.data.sim_data import AbstractYeeGridSimulationData
 from tidy3d.components.mode.simulation import ModeSimulation
-from tidy3d.components.types import Ax, PlotScale
+from tidy3d.components.mode_spec import ModeSortSpec
+from tidy3d.components.types import TYPE_TAG_STR, Ax, PlotScale
+from tidy3d.components.types.monitor_data import ModeSolverDataType
 
-ModeSimulationMonitorDataType = PermittivityData
+ModeSimulationMonitorDataType = Union[PermittivityData, MediumData]
+
+if TYPE_CHECKING:
+    from matplotlib.colors import Colormap
 
 
 class ModeSimulationData(AbstractYeeGridSimulationData):
@@ -22,10 +27,11 @@ class ModeSimulationData(AbstractYeeGridSimulationData):
         ..., title="Mode simulation", description="Mode simulation associated with this data."
     )
 
-    modes_raw: ModeSolverData = pd.Field(
+    modes_raw: ModeSolverDataType = pd.Field(
         ...,
         title="Raw Modes",
-        description=":class:`.ModeSolverData` containing the field and effective index on unexpanded grid.",
+        description=":class:`.ModeSolverDataType` containing the field and effective index on unexpanded grid.",
+        discriminator=TYPE_TAG_STR,
     )
 
     data: tuple[ModeSimulationMonitorDataType, ...] = pd.Field(
@@ -36,7 +42,7 @@ class ModeSimulationData(AbstractYeeGridSimulationData):
     )
 
     @cached_property
-    def modes(self) -> ModeSolverData:
+    def modes(self) -> ModeSolverDataType:
         """:class:`.ModeSolverData` containing the field and effective index data."""
         return self.modes_raw.symmetry_expanded_copy
 
@@ -50,7 +56,8 @@ class ModeSimulationData(AbstractYeeGridSimulationData):
         vmin: Optional[float] = None,
         vmax: Optional[float] = None,
         ax: Ax = None,
-        **sel_kwargs,
+        cmap: Optional[Union[str, Colormap]] = None,
+        **sel_kwargs: Any,
     ) -> Ax:
         """Plot the field for a :class:`.ModeSolverData` with :class:`.Simulation` plot overlaid.
 
@@ -77,6 +84,8 @@ class ModeSimulationData(AbstractYeeGridSimulationData):
             inferred from the data and other keyword arguments.
         ax : matplotlib.axes._subplots.Axes = None
             matplotlib axes to plot on, if not specified, one is created.
+        cmap : Optional[Union[str, Colormap]] = None
+            Colormap for visualizing the field values. ``None`` uses the default which infers it from the data.
         sel_kwargs : keyword arguments used to perform ``.sel()`` selection in the monitor data.
             These kwargs can select over the spatial dimensions (``x``, ``y``, ``z``),
             frequency or time dimensions (``f``, ``t``) or `mode_index`, if applicable.
@@ -99,5 +108,15 @@ class ModeSimulationData(AbstractYeeGridSimulationData):
             vmin=vmin,
             vmax=vmax,
             ax=ax,
+            cmap=cmap,
             **sel_kwargs,
+        )
+
+    def sort_modes(self, sort_spec: ModeSortSpec) -> ModeSimulationData:
+        """Sort modes per frequency according to ``sort_spec``."""
+
+        modes_sorted = self.modes_raw.sort_modes(sort_spec=sort_spec)
+        data_sorted = self.updated_copy(modes_raw=modes_sorted)
+        return data_sorted.updated_copy(
+            path="simulation", mode_spec=modes_sorted.monitor.mode_spec, deep=False, validate=False
         )

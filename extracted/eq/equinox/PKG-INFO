@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: equinox
-Version: 0.13.1
+Version: 0.13.2
 Summary: Elegant easy-to-use neural networks in JAX.
 Project-URL: repository, https://github.com/patrick-kidger/equinox
 Author-email: Patrick Kidger <contact@kidger.site>
@@ -227,7 +227,7 @@ Provides-Extra: dev
 Requires-Dist: pre-commit; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: griffe==1.7.3; extra == 'docs'
-Requires-Dist: hippogriffe==0.2.1; extra == 'docs'
+Requires-Dist: hippogriffe==0.2.2; extra == 'docs'
 Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
 Requires-Dist: mkdocs-ipynb==0.1.1; extra == 'docs'
 Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'

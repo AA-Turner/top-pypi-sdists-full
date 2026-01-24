@@ -679,6 +679,35 @@ endmodule
     NO_COMPILATION_ERRORS;
 }
 
+TEST_CASE("Intra-assignment timing control with assignment pattern") {
+    auto tree = SyntaxTree::fromText(R"(
+module m;
+    typedef struct packed {
+        logic one;
+        logic two;
+        logic three;
+        logic four;
+    } protocol_t;
+
+    parameter TP = 1;
+    logic clk_i;
+    logic reset_ni;
+    protocol_t proto_i, proto_o;
+
+    always_ff @(posedge clk_i or negedge reset_ni) begin
+        if (!reset_ni)
+            proto_o <= #TP '{ default: '0, one: 1'b1 };
+        else
+            proto_o <= #TP proto_i;
+    end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("Intra-assignment timing control errors") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
@@ -2018,4 +2047,156 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::ConcurrentAssertNotInProc);
+}
+
+TEST_CASE("Non-blocking intra-assignment delays are allowed in always_comb") {
+    auto tree = SyntaxTree::fromText(R"(
+module M;
+    logic a,b;
+    always_comb
+        a <= #1ns b;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Statement context error handling regress -- GH #1480") {
+    auto tree = SyntaxTree::fromText(R"(
+module mm;
+    struct {
+        bit [4:0] reg1, reg2, regd;
+    } Add;
+    union tagged {
+        bit [9:0] JmpU;
+        struct packed {
+            bit [0:1] cc;
+            bit [1667:1539] addr;
+        } JmpC;
+    } Jmp;
+    void Baz;
+} Instr;
+
+function automatic int f1;
+    if (e matches (tagged Jmp (tagged JmpC '{cc:.c,addr:.a}))
+        &&& (rf[c] % 0))
+        return int'(c + a);
+    else
+ CH_STX: :[[INE-1]]:72: unction automatic int f2;
+    Instr e = tagged Jmp tagged JmpC '{2, 137};
+    int rf[3] = '{0, 0, 1};
+    int i = 1;
+    struct { int a; real b; } asdf = '{1, 3.14};
+    case (e) matches
+        tagged Jmp tagged JmpC '{.a, .b} &&& rf[2] == 1: return int'(a + b & unsigned'(i));
+endfunction
+
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    // Just check that the build fails but doesn't crash.
+    CHECK(!compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("Tagged pattern error handling regress -- GH #1483") {
+    auto tree = SyntaxTree::fromText(R"(
+typedef union tagged {
+    struct {
+        bit [4:0] reg1, reg2, regd;
+    } Add;
+    union tagged {
+        bit [9:0] JmpU;
+        struct packed {
+            bit [0:1] cc;
+            bit [753:191] addr;
+        } JmpC;
+    } Jmp;
+    void Baz;
+} Instr;
+function automatic int f1;
+    Instr e = tagged Jmp tagged JmpC '{2, 137};
+    int rf[3] = '{0, 0, 1};
+    if (e matches (tagged Jmp (tagged JmpC '{cc:.c,addr:.a}))
+        &&& (rf[c matches (tagged Jmp (tant'(c + a);
+    else
+        return 1;
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    // Just check that the build fails but doesn't crash.
+    CHECK(!compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("More pattern error handling regress") {
+    auto tree = SyntaxTree::fromText(R"(
+always case(matches A j:case)matches
+a
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    // Just check that the build fails but doesn't crash.
+    CHECK(!compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("More pattern error handling regress 2") {
+    auto tree = SyntaxTree::fromText(R"(
+always@for case matches(
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    // Just check that the build fails but doesn't crash.
+    CHECK(!compilation.getAllDiagnostics().empty());
+}
+
+TEST_CASE("Tagged pattern eval regress -- GH #1482") {
+    auto tree = SyntaxTree::fromText(R"(
+typedef union tagged {
+    struct {
+        bit [4:0] reg1, reg2, regd;
+    } Add;
+    union tagged {
+        bit [9:0] JmpU;
+        struct packed {
+            bit [0:1] cc;
+            bit [0:1] addr;
+        } JmpC;
+    } Jmp;
+    void Baz;
+} Instr;
+
+function automatic int f2;
+    parameter Instr e = tagged Jmp tagged JmpC '{2, 2'(137)};
+    int rf[3] = '{0, 0, 1};
+    return e matches (tagged Jmp (tagged JmpC '{cc:.c,addr:.a})) &&& rf[c] != 0 ? int'(c + a) : 1;
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Recursive function default arg crash regress -- GH #1485") {
+    auto tree = SyntaxTree::fromText(R"(
+function foo(int a, b = foo(1,));
+endfunction
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::RecursiveDefinition);
 }

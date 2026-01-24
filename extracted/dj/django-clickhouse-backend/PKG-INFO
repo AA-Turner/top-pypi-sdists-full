@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-clickhouse-backend
-Version: 1.4
+Version: 1.6
 Summary: Django clickHouse database backend
 Author-email: Lin Zhiwen <zhiwenlin1116@gmail.com>
 License: MIT
@@ -16,6 +16,7 @@ Classifier: Framework :: Django :: 5
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
@@ -28,11 +29,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <4,>=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: django>=3.2
-Requires-Dist: clickhouse-driver==0.2.9
+Requires-Dist: clickhouse-driver==0.2.9; python_version < "3.9"
+Requires-Dist: clickhouse-driver==0.2.10; python_version >= "3.9"
 Dynamic: license-file
 
 Django ClickHouse Database Backend
@@ -44,7 +47,7 @@ Django ClickHouse Database Backend
 [![GitHub licence](https://img.shields.io/github/license/jayvynl/django-clickhouse-backend)](https://github.com/jayvynl/django-clickhouse-backend/blob/main/LICENSE)
 [![GitHub Action: Test](https://github.com/jayvynl/django-clickhouse-backend/actions/workflows/test-main.yml/badge.svg)](https://github.com/jayvynl/django-clickhouse-backend/actions/workflows/test-main.yml)
 [![Coverage Status](https://coveralls.io/repos/github/jayvynl/django-clickhouse-backend/badge.svg?branch=main)](https://coveralls.io/github/jayvynl/django-clickhouse-backend?branch=main)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style](https://camo.githubusercontent.com/051a04ae958f4a1a5d6444df4cdc520305eef93d5028e6d4c7cd16efa3136cd4/68747470733a2f2f696d672e736869656c64732e696f2f656e64706f696e743f75726c3d68747470733a2f2f7261772e67697468756275736572636f6e74656e742e636f6d2f61737472616c2d73682f727566662f6d61696e2f6173736574732f62616467652f76322e6a736f6e)](https://github.com/astral-sh/ruff-pre-commit)
 
 Django clickhouse backend is a [django database backend](https://docs.djangoproject.com/en/5.1/ref/databases/) for
 [clickhouse](https://clickhouse.com/docs/en/home/) database. This project allows using django ORM to interact with
@@ -228,7 +231,7 @@ class Event(models.ClickhouseModel):
     ip_nullable = models.GenericIPAddressField(null=True)
     port = models.UInt16Field(default=0)
     protocol = models.StringField(default="", low_cardinality=True)
-    content = models.JSONField(default=dict)
+    content = models.StringField(default="")
     timestamp = models.DateTime64Field(default=timezone.now)
     created_at = models.DateTime64Field(auto_now_add=True)
     action = models.EnumField(choices=Action.choices, default=Action.PASS)
@@ -406,6 +409,8 @@ from django.test import TestCase
 
 
 class TestEvent(TestCase):
+    databases = {"default", "clickhouse"}
+
     def test_spam(self):
         assert Event.objects.count() == 0
 ```
@@ -561,6 +566,34 @@ Extra settings explanation:
 
   Do not hardcode database name when you define replicated table or distributed table.
   Because test database name is different from deployed database name.
+
+#### Clickhouse cluster behind a load balancer
+
+If your clickhouse cluster is running behind a load balancer, you can optionally set `distributed_migrations` to `True` under database OPTIONS. 
+Then a distributed migration table will be created on all nodes of the cluster, and all migration operations will be performed on this 
+distributed migrations table instead of a local migrations table. Otherwise, sequentially running migrations will have no effect on other nodes.
+
+Configuration example:
+
+```python
+DATABASES = {
+    "default": {
+        "HOST": "clickhouse-load-balancer",
+        "PORT": 9000,
+        "ENGINE": "clickhouse_backend.backend",
+        "OPTIONS": {
+            "migration_cluster": "cluster",
+            "distributed_migrations": True,
+            "settings": {
+                "mutations_sync": 2,
+                "insert_distributed_sync": 1,
+                "insert_quorum": 2,
+                "alter_sync": 2,
+            },
+        },
+    }
+}
+```
 
 ### Model
 

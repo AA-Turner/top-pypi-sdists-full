@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 
 
 def get_best_values(
-    records: Mapping[str, BaseRecord], prefix: str = "", suffix: str = ""
+    records: Mapping[str, BaseRecord[Any]], prefix: str = "", suffix: str = ""
 ) -> dict[str, Any]:
-    """Get the best value of each record.
+    r"""Get the best value of each record.
 
     This function ignores the empty and non-comparable records.
 
@@ -36,25 +36,23 @@ def get_best_values(
     Returns:
         The dict with the best value of each record.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import (
+        ...     MinScalarRecord,
+        ...     MaxScalarRecord,
+        ...     get_best_values,
+        ... )
+        >>> record1 = MinScalarRecord.from_elements("loss", elements=[(None, 1.9), (None, 1.2)])
+        >>> record2 = MaxScalarRecord.from_elements("accuracy", elements=[(None, 42), (None, 35)])
+        >>> get_best_values({"loss": record1, "accuracy": record2})
+        {'loss': 1.2, 'accuracy': 42}
+        >>> get_best_values({"loss": record1, "accuracy": record2}, prefix="best/")
+        {'best/loss': 1.2, 'best/accuracy': 42}
+        >>> get_best_values({"loss": record1, "accuracy": record2}, suffix="/best")
+        {'loss/best': 1.2, 'accuracy/best': 42}
 
-    ```pycon
-
-    >>> from minrecord import (
-    ...     MinScalarRecord,
-    ...     MaxScalarRecord,
-    ...     get_best_values,
-    ... )
-    >>> record1 = MinScalarRecord.from_elements("loss", elements=[(None, 1.9), (None, 1.2)])
-    >>> record2 = MaxScalarRecord.from_elements("accuracy", elements=[(None, 42), (None, 35)])
-    >>> get_best_values({"loss": record1, "accuracy": record2})
-    {'loss': 1.2, 'accuracy': 42}
-    >>> get_best_values({"loss": record1, "accuracy": record2}, prefix="best/")
-    {'best/loss': 1.2, 'best/accuracy': 42}
-    >>> get_best_values({"loss": record1, "accuracy": record2}, suffix="/best")
-    {'loss/best': 1.2, 'accuracy/best': 42}
-
-    ```
+        ```
     """
     values = {}
     for key, record in records.items():
@@ -65,9 +63,9 @@ def get_best_values(
 
 
 def get_last_values(
-    records: Mapping[str, BaseRecord], prefix: str = "", suffix: str = ""
+    records: Mapping[str, BaseRecord[Any]], prefix: str = "", suffix: str = ""
 ) -> dict[str, Any]:
-    """Get the last value of each record.
+    r"""Get the last value of each record.
 
     This function ignores the empty records.
 
@@ -87,25 +85,23 @@ def get_last_values(
     Returns:
         The dict with the best value of each record.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import (
+        ...     MinScalarRecord,
+        ...     MaxScalarRecord,
+        ...     get_last_values,
+        ... )
+        >>> record1 = MinScalarRecord.from_elements("loss", elements=[(None, 1.9), (None, 1.2)])
+        >>> record2 = MaxScalarRecord.from_elements("accuracy", elements=[(None, 42), (None, 35)])
+        >>> get_last_values({"loss": record1, "accuracy": record2})
+        {'loss': 1.2, 'accuracy': 35}
+        >>> get_last_values({"loss": record1, "accuracy": record2}, prefix="last/")
+        {'last/loss': 1.2, 'last/accuracy': 35}
+        >>> get_last_values({"loss": record1, "accuracy": record2}, suffix="/last")
+        {'loss/last': 1.2, 'accuracy/last': 35}
 
-    ```pycon
-
-    >>> from minrecord import (
-    ...     MinScalarRecord,
-    ...     MaxScalarRecord,
-    ...     get_best_values,
-    ... )
-    >>> record1 = MinScalarRecord.from_elements("loss", elements=[(None, 1.9), (None, 1.2)])
-    >>> record2 = MaxScalarRecord.from_elements("accuracy", elements=[(None, 42), (None, 35)])
-    >>> get_best_values({"loss": record1, "accuracy": record2})
-    {'loss': 1.2, 'accuracy': 42}
-    >>> get_best_values({"loss": record1, "accuracy": record2}, prefix="best/")
-    {'best/loss': 1.2, 'best/accuracy': 42}
-    >>> get_best_values({"loss": record1, "accuracy": record2}, suffix="/best")
-    {'loss/best': 1.2, 'accuracy/best': 42}
-
-    ```
+        ```
     """
     values = {}
     for key, record in records.items():

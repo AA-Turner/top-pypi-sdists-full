@@ -1,18 +1,28 @@
 import os
 import json
-from .logger import Logger
+from .logger import Logger, LoggingOptions
 from .models.config.qaseconfig import QaseConfig, Mode
+from .utils import QaseUtils
 
 
 class ConfigManager:
 
     def __init__(self, config_file='./qase.config.json'):
-        self.logger = Logger()
         self.__config_file = config_file
         self.config = QaseConfig()
 
+        # Initialize temporary logger for error handling during config loading
+        self.logger = Logger(debug=False)
+        
         self.__load_file_config()
         self.__load_env_config()
+        
+        # Re-initialize logger with proper logging options after config is loaded
+        logging_options = LoggingOptions(
+            console=self.config.logging.console if self.config.logging.console is not None else True,
+            file=self.config.logging.file if self.config.logging.file is not None else self.config.debug
+        )
+        self.logger = Logger(debug=self.config.debug, logging_options=logging_options)
 
     def validate_config(self):
         errors: list[str] = []
@@ -61,6 +71,11 @@ class ConfigManager:
                     if config.get("excludeParams"):
                         self.config.set_exclude_params(
                             config.get("excludeParams")
+                        )
+
+                    if config.get("statusMapping"):
+                        self.config.set_status_mapping(
+                            config.get("statusMapping")
                         )
 
                     if config.get("executionPlan"):
@@ -154,6 +169,11 @@ class ConfigManager:
                                 # Parse comma-separated string
                                 self.config.testops.set_status_filter([s.strip() for s in status_filter.split(',')])
 
+                        if testops.get("showPublicReportLink") is not None:
+                            self.config.testops.set_show_public_report_link(
+                                testops.get("showPublicReportLink")
+                            )
+
                     if config.get("report"):
                         report = config.get("report")
 
@@ -196,6 +216,9 @@ class ConfigManager:
                                         xfail_status.get("xpass")
                                     )
 
+                    if config.get("logging"):
+                        self.config.set_logging(config.get("logging"))
+
         except Exception as e:
             self.logger.log("Failed to load config from file", "error")
 
@@ -224,6 +247,19 @@ class ConfigManager:
                     self.config.set_exclude_params(
                         [param.strip() for param in value.split(',')])
 
+                if key == 'QASE_STATUS_MAPPING':
+                    # Parse status mapping from environment variable
+                    # Format: "source1=target1,source2=target2"
+                    if value:
+                        mapping_dict = {}
+                        pairs = value.split(',')
+                        for pair in pairs:
+                            pair = pair.strip()
+                            if pair and '=' in pair:
+                                source_status, target_status = pair.split('=', 1)
+                                mapping_dict[source_status.strip()] = target_status.strip()
+                        self.config.set_status_mapping(mapping_dict)
+
                 if key == 'QASE_EXECUTION_PLAN_PATH':
                     self.config.execution_plan.set_path(value)
 
@@ -240,10 +276,10 @@ class ConfigManager:
                     self.config.testops.set_defect(value)
 
                 if key == 'QASE_TESTOPS_PLAN_ID':
-                    self.config.testops.plan.set_id(value)
+                    self.config.testops.plan.set_id(int(value.strip()))
 
                 if key == 'QASE_TESTOPS_RUN_ID':
-                    self.config.testops.run.set_id(value)
+                    self.config.testops.run.set_id(int(value.strip()))
 
                 if key == 'QASE_TESTOPS_RUN_TITLE':
                     self.config.testops.run.set_title(value)
@@ -271,7 +307,7 @@ class ConfigManager:
                     self.config.testops.run.external_link.set_link(value)
 
                 if key == 'QASE_TESTOPS_BATCH_SIZE':
-                    self.config.testops.batch.set_size(value)
+                    self.config.testops.batch.set_size(int(value.strip()))
 
                 if key == 'QASE_TESTOPS_CONFIGURATIONS_VALUES':
                     # Parse configurations from environment variable
@@ -289,6 +325,9 @@ class ConfigManager:
                 if key == 'QASE_TESTOPS_STATUS_FILTER':
                     # Parse comma-separated string
                     self.config.testops.set_status_filter([s.strip() for s in value.split(',')])
+
+                if key == 'QASE_TESTOPS_SHOW_PUBLIC_REPORT_LINK':
+                    self.config.testops.set_show_public_report_link(value)
 
                 if key == 'QASE_REPORT_DRIVER':
                     self.config.report.set_driver(value)
@@ -308,5 +347,11 @@ class ConfigManager:
                 if key == 'QASE_PYTEST_XFAIL_STATUS_XPASS':
                     self.config.framework.pytest.xfail_status.set_xpass(value)
 
+                if key == 'QASE_LOGGING_CONSOLE':
+                    self.config.logging.set_console(QaseUtils.parse_bool(value))
+
+                if key == 'QASE_LOGGING_FILE':
+                    self.config.logging.set_file(QaseUtils.parse_bool(value))
+
         except Exception as e:
-            self.logger.log("Failed to load config from env vars {e}", "error")
+            self.logger.log(f"Failed to load config from env vars {e}", "error")

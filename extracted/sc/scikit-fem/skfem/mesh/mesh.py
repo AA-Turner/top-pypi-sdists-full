@@ -279,14 +279,19 @@ class Mesh:
         # default boundary names along the dimensions
         minnames = ['left', 'bottom', 'front']
         maxnames = ['right', 'top', 'back']
+        atol = np.min(self.params()) / 1e2
         for d in range(self.doflocs.shape[0]):
             dmin = np.min(self.doflocs[d])
-            ix = self.facets_satisfying(lambda x: x[d] == dmin)
+            ix = self.facets_satisfying(lambda x: np.isclose(x[d],
+                                                             dmin,
+                                                             atol=atol))
             if len(ix) >= 1:
                 boundaries[minnames[d]] = ix
         for d in range(self.doflocs.shape[0]):
             dmax = np.max(self.doflocs[d])
-            ix = self.facets_satisfying(lambda x: x[d] == dmax)
+            ix = self.facets_satisfying(lambda x: np.isclose(x[d],
+                                                             dmax,
+                                                             atol=atol))
             if len(ix) >= 1:
                 boundaries[maxnames[d]] = ix
 
@@ -1361,3 +1366,37 @@ class Mesh:
             else:
                 raise ValueError("Subdomain '{}' not found.".format(elements))
         raise NotImplementedError
+
+    @classmethod
+    def load_npz(cls, filename: str):
+
+        data = np.load(filename)
+
+        return cls(
+            data['doflocs'],
+            data['t'],
+            _boundaries={
+                key[2:]: data[key]
+                for key in data.files
+                if key[:2] == 'b_'
+            },
+            _subdomains={
+                key[2:]: data[key]
+                for key in data.files
+                if key[:2] == 's_'
+            },
+        )
+
+    def save_npz(self, filename: str):
+
+        boundaries = {} if self.boundaries is None else self.boundaries
+        subdomains = {} if self.subdomains is None else self.subdomains
+        boundaries = {'b_' + key: value for key, value in boundaries.items()}
+        subdomains = {'s_' + key: value for key, value in subdomains.items()}
+        np.savez(
+            filename,
+            doflocs=self.doflocs,
+            t=self.t,
+            **boundaries,
+            **subdomains,
+        )

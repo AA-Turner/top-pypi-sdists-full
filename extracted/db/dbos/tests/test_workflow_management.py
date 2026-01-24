@@ -1,14 +1,11 @@
 import threading
 import time
 import uuid
-from typing import Callable
 
 import pytest
 import sqlalchemy as sa
 
-# Public API
-from dbos import DBOS, Queue, SetWorkflowID
-from dbos._dbos import DBOSConfiguredInstance
+from dbos import DBOS, Queue, SetWorkflowID, WorkflowHandle
 from dbos._error import DBOSAwaitedWorkflowCancelledError
 from dbos._schemas.application_database import ApplicationSchema
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
@@ -58,7 +55,7 @@ def test_cancel_resume(dbos: DBOS) -> None:
 
     # Resume the workflow. Verify it completes successfully.
     handle = DBOS.resume_workflow(wfid)
-    assert handle.get_status().app_version == GlobalParams.app_version
+    assert handle.get_status().app_version == DBOS.application_version
     assert handle.get_status().queue_name == INTERNAL_QUEUE_NAME
     assert handle.get_result() == input
     assert steps_completed == 2
@@ -69,6 +66,84 @@ def test_cancel_resume(dbos: DBOS) -> None:
     assert steps_completed == 2
 
     assert queue_entries_are_cleaned_up(dbos)
+
+
+def test_delete_workflow(dbos: DBOS) -> None:
+    @DBOS.transaction()
+    def txn(x: int) -> int:
+        DBOS.sql_session.execute(sa.text("SELECT 1")).fetchall()
+        return x
+
+    @DBOS.workflow()
+    def child_workflow(x: int) -> int:
+        txn(x)
+        return x * 2
+
+    @DBOS.workflow()
+    def parent_workflow(x: int) -> int:
+        child_handle = DBOS.start_workflow(child_workflow, x)
+        return child_handle.get_result()
+
+    # Run the parent workflow which starts a child workflow
+    parent_wfid = str(uuid.uuid4())
+    with SetWorkflowID(parent_wfid):
+        result = parent_workflow(5)
+    assert result == 10
+
+    # Get the child workflow ID
+    children = dbos._sys_db.get_workflow_children(parent_wfid)
+    assert len(children) == 1
+    child_wfid = children[0]
+
+    # Verify both workflows exist
+    assert DBOS.get_workflow_status(parent_wfid) is not None
+    assert DBOS.get_workflow_status(child_wfid) is not None
+
+    # Verify transaction outputs exist for the child workflow
+    assert dbos._app_db
+    with dbos._app_db.engine.begin() as c:
+        rows = c.execute(
+            sa.select(ApplicationSchema.transaction_outputs.c.workflow_uuid).where(
+                ApplicationSchema.transaction_outputs.c.workflow_uuid == child_wfid
+            )
+        ).all()
+        assert len(rows) == 1
+
+    # Delete without delete_children - only parent should be deleted
+    DBOS.delete_workflow(parent_wfid, delete_children=False)
+    assert DBOS.get_workflow_status(parent_wfid) is None
+    assert DBOS.get_workflow_status(child_wfid) is not None
+
+    # Run again to test delete_children=True
+    parent_wfid2 = str(uuid.uuid4())
+    with SetWorkflowID(parent_wfid2):
+        result = parent_workflow(7)
+    assert result == 14
+
+    children2 = dbos._sys_db.get_workflow_children(parent_wfid2)
+    assert len(children2) == 1
+    child_wfid2 = children2[0]
+
+    # Verify both workflows exist
+    assert DBOS.get_workflow_status(parent_wfid2) is not None
+    assert DBOS.get_workflow_status(child_wfid2) is not None
+
+    # Delete with delete_children=True - both should be deleted
+    DBOS.delete_workflow(parent_wfid2, delete_children=True)
+    assert DBOS.get_workflow_status(parent_wfid2) is None
+    assert DBOS.get_workflow_status(child_wfid2) is None
+
+    # Verify transaction outputs are deleted for child
+    with dbos._app_db.engine.begin() as c:
+        rows = c.execute(
+            sa.select(ApplicationSchema.transaction_outputs.c.workflow_uuid).where(
+                ApplicationSchema.transaction_outputs.c.workflow_uuid == child_wfid2
+            )
+        ).all()
+        assert len(rows) == 0
+
+    # Verify deleting a non-existent workflow doesn't error
+    DBOS.delete_workflow(parent_wfid2, delete_children=False)
 
 
 def test_cancel_resume_txn(dbos: DBOS) -> None:
@@ -170,62 +245,6 @@ def test_cancel_resume_queue(dbos: DBOS) -> None:
     assert queue_entries_are_cleaned_up(dbos)
 
 
-def test_restart(dbos: DBOS) -> None:
-    input = 2
-    multiplier = 5
-
-    @DBOS.dbos_class()
-    class TestClass(DBOSConfiguredInstance):
-
-        def __init__(self, multiplier: int) -> None:
-            self.multiply: Callable[[int], int] = lambda x: x * multiplier
-            super().__init__("test_class")
-
-        @DBOS.workflow()
-        def workflow(self, x: int) -> int:
-            return self.multiply(x)
-
-        @DBOS.step()
-        def step(self, x: int) -> int:
-            return self.multiply(x)
-
-    inst = TestClass(multiplier)
-
-    # Start the workflow, let it finish, restart it.
-    # Verify it returns the same result with a different workflow ID.
-    handle = DBOS.start_workflow(inst.workflow, input)
-    assert handle.get_result() == input * multiplier
-    forked_handle = DBOS.restart_workflow(handle.workflow_id)
-    assert forked_handle.workflow_id != handle.workflow_id
-    assert forked_handle.get_result() == input * multiplier
-
-    # Enqueue the workflow, let it finish, restart it.
-    # Verify it returns the same result with a different workflow ID and queue.
-    queue = Queue("test_queue")
-    handle = queue.enqueue(inst.workflow, input)
-    assert handle.get_result() == input * multiplier
-    forked_handle = DBOS.restart_workflow(handle.workflow_id)
-    assert forked_handle.workflow_id != handle.workflow_id
-    assert forked_handle.get_status().queue_name == INTERNAL_QUEUE_NAME
-    assert forked_handle.get_result() == input * multiplier
-
-    # Enqueue the step, let it finish, restart it.
-    # Verify it returns the same result with a different workflow ID and queue.
-    handle = queue.enqueue(inst.step, input)
-    assert handle.get_result() == input * multiplier
-    forked_handle = DBOS.restart_workflow(handle.workflow_id)
-    assert forked_handle.workflow_id != handle.workflow_id
-    assert forked_handle.get_status().queue_name != handle.get_status().queue_name
-    assert forked_handle.get_result() == input * multiplier
-
-    # Verify restarting a nonexistent workflow throws an exception
-    with pytest.raises(Exception):
-        DBOS.restart_workflow("fake_id")
-
-    # Verify nothing is left on any queue
-    assert queue_entries_are_cleaned_up(dbos)
-
-
 def test_fork_steps(
     dbos: DBOS,
 ) -> None:
@@ -287,7 +306,9 @@ def test_fork_steps(
     with SetWorkflowID(fork_id):
         forked_handle = DBOS.fork_workflow(wfid, 3)
     assert forked_handle.workflow_id == fork_id
-    assert forked_handle.get_status().app_version == GlobalParams.app_version
+    app_version = forked_handle.get_status().app_version
+    assert app_version is None or app_version == DBOS.application_version
+    assert forked_handle.get_status().forked_from == wfid
     assert forked_handle.get_result() == output
 
     assert stepOneCount == 1
@@ -297,7 +318,9 @@ def test_fork_steps(
     assert stepFiveCount == 2
 
     forked_handle = DBOS.fork_workflow(wfid, 5)
+    fork_id_2 = forked_handle.workflow_id
     assert forked_handle.workflow_id != wfid
+    assert forked_handle.get_status().forked_from == wfid
     assert forked_handle.get_result() == output
 
     assert stepOneCount == 1
@@ -307,7 +330,9 @@ def test_fork_steps(
     assert stepFiveCount == 3
 
     forked_handle = DBOS.fork_workflow(wfid, 1)
+    fork_id_3 = forked_handle.workflow_id
     assert forked_handle.workflow_id != wfid
+    assert forked_handle.get_status().forked_from == wfid
     assert forked_handle.get_result() == output
 
     assert stepOneCount == 2
@@ -315,6 +340,10 @@ def test_fork_steps(
     assert stepThreeCount == 3
     assert stepFourCount == 3
     assert stepFiveCount == 4
+
+    forks = DBOS.list_workflows(forked_from=wfid)
+    assert len(forks) == 3
+    assert [f.workflow_id for f in forks] == [fork_id, fork_id_2, fork_id_3]
 
 
 def test_restart_fromsteps_transactionsonly(
@@ -378,6 +407,7 @@ def test_restart_fromsteps_transactionsonly(
 
     forked_handle = DBOS.fork_workflow(wfid, 2)
     assert forked_handle.workflow_id != wfid
+    fork_id_one = forked_handle.workflow_id
     forked_handle.get_result()
 
     assert trOneCount == 1
@@ -388,6 +418,7 @@ def test_restart_fromsteps_transactionsonly(
 
     forked_handle = DBOS.fork_workflow(wfid, 4)
     assert forked_handle.workflow_id != wfid
+    fork_id_two = forked_handle.workflow_id
     forked_handle.get_result()
 
     assert trOneCount == 1
@@ -398,6 +429,7 @@ def test_restart_fromsteps_transactionsonly(
 
     forked_handle = DBOS.fork_workflow(wfid, 1)
     assert forked_handle.workflow_id != wfid
+    fork_id_three = forked_handle.workflow_id
     forked_handle.get_result()
 
     assert trOneCount == 2
@@ -669,6 +701,7 @@ def test_garbage_collection(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -
     assert len(workflows) == 2
     assert workflows[0].workflow_id == handle.workflow_id
     # Verify txn outputs are preserved only for the remaining workflows
+    assert dbos._app_db
     with dbos._app_db.engine.begin() as c:
         rows = c.execute(
             sa.select(
@@ -750,3 +783,99 @@ def test_global_timeout(dbos: DBOS) -> None:
             handle.get_result()
     event.set()
     assert final_handle.get_result() is not None
+
+
+def test_fork_events(dbos: DBOS) -> None:
+    key = "key"
+    event = threading.Event()
+
+    @DBOS.step()
+    def step(val: int) -> None:
+        DBOS.set_event(key, val)
+
+    @DBOS.workflow()
+    def workflow() -> str:
+        event.wait()
+        DBOS.set_event(key, 0)
+        DBOS.set_event(key, 1)
+        step(2)
+        assert DBOS.workflow_id
+        return DBOS.workflow_id
+
+    # Verify the workflow runs and the event's final value is correct
+    event.set()
+    handle = DBOS.start_workflow(workflow)
+    assert handle.get_result() == handle.workflow_id
+    assert DBOS.get_event(handle.workflow_id, key) == 2
+
+    # Block the workflow so forked workflows cannot advance
+    event.clear()
+
+    # Fork the workflow from each step, verify the event is set to the appropriate value
+    fork_one = DBOS.fork_workflow(handle.workflow_id, 1)
+    assert DBOS.get_event(fork_one.workflow_id, key, timeout_seconds=0.0) is None
+    fork_two = DBOS.fork_workflow(handle.workflow_id, 2)
+    assert DBOS.get_event(fork_two.workflow_id, key) == 0
+    fork_three = DBOS.fork_workflow(handle.workflow_id, 3)
+    assert DBOS.get_event(fork_three.workflow_id, key) == 1
+    fork_four = DBOS.fork_workflow(handle.workflow_id, 4)
+    assert DBOS.get_event(fork_four.workflow_id, key) == 2
+    # Fork from a fork
+    fork_five = DBOS.fork_workflow(fork_four.workflow_id, 4)
+    assert DBOS.get_event(fork_four.workflow_id, key) == 2
+
+    # Unblock the forked workflows, verify they successfully complete
+    event.set()
+    for handle in [fork_one, fork_two, fork_three, fork_four, fork_five]:
+        assert handle.get_result()
+        assert DBOS.get_event(handle.workflow_id, key) == 2
+
+
+def test_fork_streams(dbos: DBOS) -> None:
+    key = "key"
+    event = threading.Event()
+
+    def read_stream(id: str, x: int) -> list[int]:
+        gen = DBOS.read_stream(id, key)
+        return [next(gen) for _ in range(x)]
+
+    @DBOS.step()
+    def step(val: int) -> None:
+        DBOS.write_stream(key, val)
+
+    @DBOS.workflow()
+    def workflow() -> str:
+        event.wait()
+        DBOS.write_stream(key, 0)
+        DBOS.write_stream(key, 1)
+        step(2)
+        DBOS.close_stream(key)
+        assert DBOS.workflow_id
+        return DBOS.workflow_id
+
+    # Verify the workflow runs and streams the appropriate values
+    event.set()
+    handle = DBOS.start_workflow(workflow)
+    assert handle.get_result() == handle.workflow_id
+    assert list(DBOS.read_stream(handle.workflow_id, key)) == [0, 1, 2]
+
+    # Block the workflow so forked workflows cannot advance
+    event.clear()
+
+    # Fork the workflow from each step, verify the stream contains the appropriate values
+    fork_one = DBOS.fork_workflow(handle.workflow_id, 1)
+    assert read_stream(fork_one.workflow_id, 0) == []
+    fork_two = DBOS.fork_workflow(handle.workflow_id, 2)
+    assert read_stream(fork_two.workflow_id, 1) == [0]
+    fork_three = DBOS.fork_workflow(handle.workflow_id, 3)
+    assert read_stream(fork_three.workflow_id, 2) == [0, 1]
+    fork_four = DBOS.fork_workflow(handle.workflow_id, 4)
+    assert read_stream(fork_four.workflow_id, 3) == [0, 1, 2]
+    fork_five = DBOS.fork_workflow(handle.workflow_id, 5)
+    assert list(DBOS.read_stream(fork_five.workflow_id, key)) == [0, 1, 2]
+
+    # Unblock the forked workflows, verify they successfully complete
+    event.set()
+    for handle in [fork_one, fork_two, fork_three, fork_four, fork_five]:
+        assert handle.get_result()
+        assert list(DBOS.read_stream(handle.workflow_id, key)) == [0, 1, 2]

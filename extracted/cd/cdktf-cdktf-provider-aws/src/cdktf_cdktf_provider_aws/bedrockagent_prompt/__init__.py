@@ -1,7 +1,7 @@
 r'''
 # `aws_bedrockagent_prompt`
 
-Refer to the Terraform Registry for docs: [`aws_bedrockagent_prompt`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt).
+Refer to the Terraform Registry for docs: [`aws_bedrockagent_prompt`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BedrockagentPrompt(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.bedrockagentPrompt.BedrockagentPrompt",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt aws_bedrockagent_prompt}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt aws_bedrockagent_prompt}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class BedrockagentPrompt(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt aws_bedrockagent_prompt} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt aws_bedrockagent_prompt} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
-        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.
-        :param default_variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.
-        :param variant: variant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.
+        :param default_variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.
+        :param variant: variant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class BedrockagentPrompt(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BedrockagentPrompt to import.
-        :param import_from_id: The id of the existing BedrockagentPrompt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BedrockagentPrompt that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BedrockagentPrompt to import is found.
         '''
         if __debug__:
@@ -374,13 +374,13 @@ class BedrockagentPromptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
-        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.
-        :param default_variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.
-        :param variant: variant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.
+        :param default_variant: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.
+        :param variant: variant block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -496,26 +496,26 @@ class BedrockagentPromptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#customer_encryption_key_arn BedrockagentPrompt#customer_encryption_key_arn}.'''
         result = self._values.get("customer_encryption_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def default_variant(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#default_variant BedrockagentPrompt#default_variant}.'''
         result = self._values.get("default_variant")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -523,14 +523,14 @@ class BedrockagentPromptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#region BedrockagentPrompt#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tags BedrockagentPrompt#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -540,7 +540,7 @@ class BedrockagentPromptConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariant"]]]:
         '''variant block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#variant BedrockagentPrompt#variant}
         '''
         result = self._values.get("variant")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariant"]]], result)
@@ -585,14 +585,14 @@ class BedrockagentPromptVariant:
         template_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
-        :param template_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#template_type BedrockagentPrompt#template_type}.
-        :param additional_model_request_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#additional_model_request_fields BedrockagentPrompt#additional_model_request_fields}.
-        :param gen_ai_resource: gen_ai_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#gen_ai_resource BedrockagentPrompt#gen_ai_resource}
-        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#inference_configuration BedrockagentPrompt#inference_configuration}
-        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#metadata BedrockagentPrompt#metadata}
-        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#model_id BedrockagentPrompt#model_id}.
-        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#template_configuration BedrockagentPrompt#template_configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param template_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#template_type BedrockagentPrompt#template_type}.
+        :param additional_model_request_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#additional_model_request_fields BedrockagentPrompt#additional_model_request_fields}.
+        :param gen_ai_resource: gen_ai_resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#gen_ai_resource BedrockagentPrompt#gen_ai_resource}
+        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#inference_configuration BedrockagentPrompt#inference_configuration}
+        :param metadata: metadata block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#metadata BedrockagentPrompt#metadata}
+        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#model_id BedrockagentPrompt#model_id}.
+        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#template_configuration BedrockagentPrompt#template_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4ad98a70424ab275d5e684a1414bd5638bf007508b55be168b3a4d8a5dfd129c)
@@ -623,21 +623,21 @@ class BedrockagentPromptVariant:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def template_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#template_type BedrockagentPrompt#template_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#template_type BedrockagentPrompt#template_type}.'''
         result = self._values.get("template_type")
         assert result is not None, "Required property 'template_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_model_request_fields(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#additional_model_request_fields BedrockagentPrompt#additional_model_request_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#additional_model_request_fields BedrockagentPrompt#additional_model_request_fields}.'''
         result = self._values.get("additional_model_request_fields")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -647,7 +647,7 @@ class BedrockagentPromptVariant:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantGenAiResource"]]]:
         '''gen_ai_resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#gen_ai_resource BedrockagentPrompt#gen_ai_resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#gen_ai_resource BedrockagentPrompt#gen_ai_resource}
         '''
         result = self._values.get("gen_ai_resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantGenAiResource"]]], result)
@@ -658,7 +658,7 @@ class BedrockagentPromptVariant:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantInferenceConfiguration"]]]:
         '''inference_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#inference_configuration BedrockagentPrompt#inference_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#inference_configuration BedrockagentPrompt#inference_configuration}
         '''
         result = self._values.get("inference_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantInferenceConfiguration"]]], result)
@@ -669,14 +669,14 @@ class BedrockagentPromptVariant:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantMetadata"]]]:
         '''metadata block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#metadata BedrockagentPrompt#metadata}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#metadata BedrockagentPrompt#metadata}
         '''
         result = self._values.get("metadata")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantMetadata"]]], result)
 
     @builtins.property
     def model_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#model_id BedrockagentPrompt#model_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#model_id BedrockagentPrompt#model_id}.'''
         result = self._values.get("model_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -686,7 +686,7 @@ class BedrockagentPromptVariant:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfiguration"]]]:
         '''template_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#template_configuration BedrockagentPrompt#template_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#template_configuration BedrockagentPrompt#template_configuration}
         '''
         result = self._values.get("template_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfiguration"]]], result)
@@ -715,7 +715,7 @@ class BedrockagentPromptVariantGenAiResource:
         agent: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantGenAiResourceAgent", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param agent: agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#agent BedrockagentPrompt#agent}
+        :param agent: agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#agent BedrockagentPrompt#agent}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__09a8c23ed677f0d22b56914f08e91974825ac19e02684f8d4802344a5e79ff1f)
@@ -730,7 +730,7 @@ class BedrockagentPromptVariantGenAiResource:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantGenAiResourceAgent"]]]:
         '''agent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#agent BedrockagentPrompt#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#agent BedrockagentPrompt#agent}
         '''
         result = self._values.get("agent")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantGenAiResourceAgent"]]], result)
@@ -755,7 +755,7 @@ class BedrockagentPromptVariantGenAiResource:
 class BedrockagentPromptVariantGenAiResourceAgent:
     def __init__(self, *, agent_identifier: builtins.str) -> None:
         '''
-        :param agent_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#agent_identifier BedrockagentPrompt#agent_identifier}.
+        :param agent_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#agent_identifier BedrockagentPrompt#agent_identifier}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__48d63f3c994f49299005fafbbda05c3cb21786960250edf96f3e3a73b649c5a9)
@@ -766,7 +766,7 @@ class BedrockagentPromptVariantGenAiResourceAgent:
 
     @builtins.property
     def agent_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#agent_identifier BedrockagentPrompt#agent_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#agent_identifier BedrockagentPrompt#agent_identifier}.'''
         result = self._values.get("agent_identifier")
         assert result is not None, "Required property 'agent_identifier' is missing"
         return typing.cast(builtins.str, result)
@@ -1115,7 +1115,7 @@ class BedrockagentPromptVariantInferenceConfiguration:
         text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantInferenceConfigurationText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19b5f39e3d2974ff9e58a549fce8ac7584adaca13145e25e28634ad3284535e5)
@@ -1130,7 +1130,7 @@ class BedrockagentPromptVariantInferenceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantInferenceConfigurationText"]]]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantInferenceConfigurationText"]]], result)
@@ -1333,10 +1333,10 @@ class BedrockagentPromptVariantInferenceConfigurationText:
         top_p: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#max_tokens BedrockagentPrompt#max_tokens}.
-        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#stop_sequences BedrockagentPrompt#stop_sequences}.
-        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#temperature BedrockagentPrompt#temperature}.
-        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#top_p BedrockagentPrompt#top_p}.
+        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#max_tokens BedrockagentPrompt#max_tokens}.
+        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#stop_sequences BedrockagentPrompt#stop_sequences}.
+        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#temperature BedrockagentPrompt#temperature}.
+        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#top_p BedrockagentPrompt#top_p}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ef9d4ef42161a2745a2a05d7aa7ca3fb742112606b7b5f1ff77a5b8af8e98e6)
@@ -1356,25 +1356,25 @@ class BedrockagentPromptVariantInferenceConfigurationText:
 
     @builtins.property
     def max_tokens(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#max_tokens BedrockagentPrompt#max_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#max_tokens BedrockagentPrompt#max_tokens}.'''
         result = self._values.get("max_tokens")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def stop_sequences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#stop_sequences BedrockagentPrompt#stop_sequences}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#stop_sequences BedrockagentPrompt#stop_sequences}.'''
         result = self._values.get("stop_sequences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def temperature(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#temperature BedrockagentPrompt#temperature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#temperature BedrockagentPrompt#temperature}.'''
         result = self._values.get("temperature")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def top_p(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#top_p BedrockagentPrompt#top_p}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#top_p BedrockagentPrompt#top_p}.'''
         result = self._values.get("top_p")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1709,8 +1709,8 @@ class BedrockagentPromptVariantList(
 class BedrockagentPromptVariantMetadata:
     def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
         '''
-        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#key BedrockagentPrompt#key}.
-        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#value BedrockagentPrompt#value}.
+        :param key: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#key BedrockagentPrompt#key}.
+        :param value: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#value BedrockagentPrompt#value}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d34764fd1e65eb50c241750ecb1f58008694e427a3ffc77730a897cc2850417)
@@ -1723,14 +1723,14 @@ class BedrockagentPromptVariantMetadata:
 
     @builtins.property
     def key(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#key BedrockagentPrompt#key}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#key BedrockagentPrompt#key}.'''
         result = self._values.get("key")
         assert result is not None, "Required property 'key' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def value(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#value BedrockagentPrompt#value}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#value BedrockagentPrompt#value}.'''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
         return typing.cast(builtins.str, result)
@@ -2171,8 +2171,8 @@ class BedrockagentPromptVariantTemplateConfiguration:
         text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param chat: chat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#chat BedrockagentPrompt#chat}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
+        :param chat: chat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#chat BedrockagentPrompt#chat}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d25216f596a10d7af3a469ee20cc6728b25e3392e442e9fbb853bf9f4f683fb5)
@@ -2190,7 +2190,7 @@ class BedrockagentPromptVariantTemplateConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChat"]]]:
         '''chat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#chat BedrockagentPrompt#chat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#chat BedrockagentPrompt#chat}
         '''
         result = self._values.get("chat")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChat"]]], result)
@@ -2201,7 +2201,7 @@ class BedrockagentPromptVariantTemplateConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationText"]]]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationText"]]], result)
@@ -2238,10 +2238,10 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
         tool_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#message BedrockagentPrompt#message}
-        :param system_attribute: system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#system BedrockagentPrompt#system}
-        :param tool_configuration: tool_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_configuration BedrockagentPrompt#tool_configuration}
+        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#message BedrockagentPrompt#message}
+        :param system_attribute: system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#system BedrockagentPrompt#system}
+        :param tool_configuration: tool_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_configuration BedrockagentPrompt#tool_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__74f9c3ee2548cb4a0be20837b82f45ee2c5b3805a58577f0e2d34c67defc37f7)
@@ -2265,7 +2265,7 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatInputVariable"]]]:
         '''input_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
         '''
         result = self._values.get("input_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatInputVariable"]]], result)
@@ -2276,7 +2276,7 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#message BedrockagentPrompt#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#message BedrockagentPrompt#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessage"]]], result)
@@ -2287,7 +2287,7 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatSystem"]]]:
         '''system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#system BedrockagentPrompt#system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#system BedrockagentPrompt#system}
         '''
         result = self._values.get("system_attribute")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatSystem"]]], result)
@@ -2298,7 +2298,7 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration"]]]:
         '''tool_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_configuration BedrockagentPrompt#tool_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_configuration BedrockagentPrompt#tool_configuration}
         '''
         result = self._values.get("tool_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration"]]], result)
@@ -2323,7 +2323,7 @@ class BedrockagentPromptVariantTemplateConfigurationChat:
 class BedrockagentPromptVariantTemplateConfigurationChatInputVariable:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__283c319aeeedc1dbc477af948c66b9652bde09484b484c6078ac8915f5e39a88)
@@ -2334,7 +2334,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatInputVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -2611,8 +2611,8 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessage:
         content: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatMessageContent", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#role BedrockagentPrompt#role}.
-        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#content BedrockagentPrompt#content}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#role BedrockagentPrompt#role}.
+        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#content BedrockagentPrompt#content}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38e782bde952cdaf114ec26e07bf821071275a68909c118a8cae4572d6403963)
@@ -2626,7 +2626,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessage:
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#role BedrockagentPrompt#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#role BedrockagentPrompt#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -2637,7 +2637,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessageContent"]]]:
         '''content block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#content BedrockagentPrompt#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#content BedrockagentPrompt#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessageContent"]]], result)
@@ -2667,8 +2667,8 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessageContent:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__423a98636b8b7956db22c29cefdc52d8447c88e39846b7bb5d8e3af9b3a662d1)
@@ -2686,14 +2686,14 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessageContent:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessageContentCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatMessageContentCachePoint"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2717,7 +2717,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessageContent:
 class BedrockagentPromptVariantTemplateConfigurationChatMessageContentCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__713bcbf03f3770d03ff1d2ea1bf8f62800101f15e5b0db31d81f14d1829268b9)
@@ -2728,7 +2728,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatMessageContentCachePoint
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3452,8 +3452,8 @@ class BedrockagentPromptVariantTemplateConfigurationChatSystem:
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2998028f32766775d6d53c0bff9b61330ebe7863d9a265028359bbf1baa8b14e)
@@ -3471,14 +3471,14 @@ class BedrockagentPromptVariantTemplateConfigurationChatSystem:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatSystemCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatSystemCachePoint"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -3502,7 +3502,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatSystem:
 class BedrockagentPromptVariantTemplateConfigurationChatSystemCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8afcd12fe5183c705958aaf6daa05e27f035c1fe7ae961d774978f23023c0fb0)
@@ -3513,7 +3513,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatSystemCachePoint:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -3886,8 +3886,8 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration:
         tool_choice: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoice", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
-        :param tool_choice: tool_choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_choice BedrockagentPrompt#tool_choice}
+        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
+        :param tool_choice: tool_choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_choice BedrockagentPrompt#tool_choice}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8c9592704dbfc5b45a46114711aa0f41df7e572fc42315d4a4b96106bc392b2e)
@@ -3905,7 +3905,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool"]]]:
         '''tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
         '''
         result = self._values.get("tool")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool"]]], result)
@@ -3916,7 +3916,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoice"]]]:
         '''tool_choice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_choice BedrockagentPrompt#tool_choice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_choice BedrockagentPrompt#tool_choice}
         '''
         result = self._values.get("tool_choice")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoice"]]], result)
@@ -4145,8 +4145,8 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool:
         tool_spec: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpec", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
-        :param tool_spec: tool_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_spec BedrockagentPrompt#tool_spec}
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        :param tool_spec: tool_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_spec BedrockagentPrompt#tool_spec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__132827f04a9cbfc4792cd1e62a5a7fc05796d98c2231eca938a8e71b29c7c37b)
@@ -4164,7 +4164,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCachePoint"]]], result)
@@ -4175,7 +4175,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpec"]]]:
         '''tool_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool_spec BedrockagentPrompt#tool_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool_spec BedrockagentPrompt#tool_spec}
         '''
         result = self._values.get("tool_spec")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpec"]]], result)
@@ -4200,7 +4200,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationTool:
 class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6bee307ca85b7eeaa56ce0a5a29847ebb35d45042727a6d71dbaf67b5d6e2438)
@@ -4211,7 +4211,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCac
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -4396,9 +4396,9 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
         tool: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceTool", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param any: any block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#any BedrockagentPrompt#any}
-        :param auto: auto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#auto BedrockagentPrompt#auto}
-        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
+        :param any: any block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#any BedrockagentPrompt#any}
+        :param auto: auto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#auto BedrockagentPrompt#auto}
+        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bdee216e0439011e63b156b3315e4ee7d8a00069c94b6dcf2c7d363bd7413860)
@@ -4419,7 +4419,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceAny"]]]:
         '''any block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#any BedrockagentPrompt#any}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#any BedrockagentPrompt#any}
         '''
         result = self._values.get("any")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceAny"]]], result)
@@ -4430,7 +4430,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceAuto"]]]:
         '''auto block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#auto BedrockagentPrompt#auto}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#auto BedrockagentPrompt#auto}
         '''
         result = self._values.get("auto")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceAuto"]]], result)
@@ -4441,7 +4441,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceTool"]]]:
         '''tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#tool BedrockagentPrompt#tool}
         '''
         result = self._values.get("tool")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceTool"]]], result)
@@ -5012,7 +5012,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
 class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolChoiceTool:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4b75b33d48f609f80a859920a63fcb1f15731a80f07e16e07ad455a677fc9e9b)
@@ -5023,7 +5023,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolCho
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -5411,9 +5411,9 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToo
         input_schema: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
-        :param input_schema: input_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_schema BedrockagentPrompt#input_schema}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.
+        :param input_schema: input_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_schema BedrockagentPrompt#input_schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__10b6739ffdd73767949fd606a355af3d71021a60a26a7e74214aa9491932c31a)
@@ -5430,14 +5430,14 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToo
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#description BedrockagentPrompt#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -5447,7 +5447,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToo
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema"]]]:
         '''input_schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_schema BedrockagentPrompt#input_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_schema BedrockagentPrompt#input_schema}
         '''
         result = self._values.get("input_schema")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema"]]], result)
@@ -5472,7 +5472,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToo
 class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema:
     def __init__(self, *, json: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#json BedrockagentPrompt#json}.
+        :param json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#json BedrockagentPrompt#json}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dc77b5ef9229a21262ddcc4e8dbb3345743371c0cddd6da417b356db21b6b5b5)
@@ -5483,7 +5483,7 @@ class BedrockagentPromptVariantTemplateConfigurationChatToolConfigurationToolToo
 
     @builtins.property
     def json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#json BedrockagentPrompt#json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#json BedrockagentPrompt#json}.'''
         result = self._values.get("json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6076,9 +6076,9 @@ class BedrockagentPromptVariantTemplateConfigurationText:
         input_variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentPromptVariantTemplateConfigurationTextInputVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
-        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77148f6ecc2cc4f63a8a90764d3a41f3d6f8685528f16c8c3b2757fc7272705c)
@@ -6095,7 +6095,7 @@ class BedrockagentPromptVariantTemplateConfigurationText:
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#text BedrockagentPrompt#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
@@ -6106,7 +6106,7 @@ class BedrockagentPromptVariantTemplateConfigurationText:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationTextCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#cache_point BedrockagentPrompt#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationTextCachePoint"]]], result)
@@ -6117,7 +6117,7 @@ class BedrockagentPromptVariantTemplateConfigurationText:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationTextInputVariable"]]]:
         '''input_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#input_variable BedrockagentPrompt#input_variable}
         '''
         result = self._values.get("input_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentPromptVariantTemplateConfigurationTextInputVariable"]]], result)
@@ -6142,7 +6142,7 @@ class BedrockagentPromptVariantTemplateConfigurationText:
 class BedrockagentPromptVariantTemplateConfigurationTextCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__197b1bab9644bda89aeae91c70bf12afdde0f4a73dcea3ab5ef1d70c4c7f1cec)
@@ -6153,7 +6153,7 @@ class BedrockagentPromptVariantTemplateConfigurationTextCachePoint:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#type BedrockagentPrompt#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -6332,7 +6332,7 @@ class BedrockagentPromptVariantTemplateConfigurationTextCachePointOutputReferenc
 class BedrockagentPromptVariantTemplateConfigurationTextInputVariable:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1f7ad64535534ed02948b39a4579c2d9fb6cee88b90de908ccbc66103bfb92ae)
@@ -6343,7 +6343,7 @@ class BedrockagentPromptVariantTemplateConfigurationTextInputVariable:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/bedrockagent_prompt#name BedrockagentPrompt#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)

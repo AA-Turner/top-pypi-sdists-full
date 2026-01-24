@@ -3,7 +3,7 @@ Type annotations for elb service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -133,7 +128,7 @@ class AddAvailabilityZonesInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -165,7 +160,7 @@ class AttachLoadBalancerToSubnetsInputTypeDef(TypedDict):
 
 class BackendServerDescriptionTypeDef(TypedDict):
     InstancePort: NotRequired[int]
-    PolicyNames: NotRequired[List[str]]
+    PolicyNames: NotRequired[list[str]]
 
 
 class HealthCheckTypeDef(TypedDict):
@@ -343,17 +338,17 @@ class SetLoadBalancerPoliciesOfListenerInputTypeDef(TypedDict):
 
 
 class AddAvailabilityZonesOutputTypeDef(TypedDict):
-    AvailabilityZones: List[str]
+    AvailabilityZones: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ApplySecurityGroupsToLoadBalancerOutputTypeDef(TypedDict):
-    SecurityGroups: List[str]
+    SecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class AttachLoadBalancerToSubnetsOutputTypeDef(TypedDict):
-    Subnets: List[str]
+    Subnets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -363,12 +358,12 @@ class CreateAccessPointOutputTypeDef(TypedDict):
 
 
 class DetachLoadBalancerFromSubnetsOutputTypeDef(TypedDict):
-    Subnets: List[str]
+    Subnets: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RemoveAvailabilityZonesOutputTypeDef(TypedDict):
-    AvailabilityZones: List[str]
+    AvailabilityZones: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -379,7 +374,7 @@ class AddTagsInputTypeDef(TypedDict):
 
 class TagDescriptionTypeDef(TypedDict):
     LoadBalancerName: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class ConfigureHealthCheckInputTypeDef(TypedDict):
@@ -409,7 +404,7 @@ class CreateLoadBalancerListenerInputTypeDef(TypedDict):
 
 class ListenerDescriptionTypeDef(TypedDict):
     Listener: NotRequired[ListenerTypeDef]
-    PolicyNames: NotRequired[List[str]]
+    PolicyNames: NotRequired[list[str]]
 
 
 class CreateLoadBalancerPolicyInputTypeDef(TypedDict):
@@ -424,7 +419,7 @@ class LoadBalancerAttributesOutputTypeDef(TypedDict):
     AccessLog: NotRequired[AccessLogTypeDef]
     ConnectionDraining: NotRequired[ConnectionDrainingTypeDef]
     ConnectionSettings: NotRequired[ConnectionSettingsTypeDef]
-    AdditionalAttributes: NotRequired[List[AdditionalAttributeTypeDef]]
+    AdditionalAttributes: NotRequired[list[AdditionalAttributeTypeDef]]
 
 
 class LoadBalancerAttributesTypeDef(TypedDict):
@@ -441,7 +436,7 @@ class DeregisterEndPointsInputTypeDef(TypedDict):
 
 
 class DeregisterEndPointsOutputTypeDef(TypedDict):
-    Instances: List[InstanceTypeDef]
+    Instances: list[InstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -456,7 +451,7 @@ class RegisterEndPointsInputTypeDef(TypedDict):
 
 
 class RegisterEndPointsOutputTypeDef(TypedDict):
-    Instances: List[InstanceTypeDef]
+    Instances: list[InstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -470,7 +465,7 @@ class DescribeAccountLimitsInputPaginateTypeDef(TypedDict):
 
 
 class DescribeAccountLimitsOutputTypeDef(TypedDict):
-    Limits: List[LimitTypeDef]
+    Limits: list[LimitTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -494,26 +489,26 @@ class DescribeEndPointStateInputWaitTypeDef(TypedDict):
 
 
 class DescribeEndPointStateOutputTypeDef(TypedDict):
-    InstanceStates: List[InstanceStateTypeDef]
+    InstanceStates: list[InstanceStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PoliciesTypeDef(TypedDict):
-    AppCookieStickinessPolicies: NotRequired[List[AppCookieStickinessPolicyTypeDef]]
-    LBCookieStickinessPolicies: NotRequired[List[LBCookieStickinessPolicyTypeDef]]
-    OtherPolicies: NotRequired[List[str]]
+    AppCookieStickinessPolicies: NotRequired[list[AppCookieStickinessPolicyTypeDef]]
+    LBCookieStickinessPolicies: NotRequired[list[LBCookieStickinessPolicyTypeDef]]
+    OtherPolicies: NotRequired[list[str]]
 
 
 class PolicyDescriptionTypeDef(TypedDict):
     PolicyName: NotRequired[str]
     PolicyTypeName: NotRequired[str]
-    PolicyAttributeDescriptions: NotRequired[List[PolicyAttributeDescriptionTypeDef]]
+    PolicyAttributeDescriptions: NotRequired[list[PolicyAttributeDescriptionTypeDef]]
 
 
 class PolicyTypeDescriptionTypeDef(TypedDict):
     PolicyTypeName: NotRequired[str]
     Description: NotRequired[str]
-    PolicyAttributeTypeDescriptions: NotRequired[List[PolicyAttributeTypeDescriptionTypeDef]]
+    PolicyAttributeTypeDescriptions: NotRequired[list[PolicyAttributeTypeDescriptionTypeDef]]
 
 
 class RemoveTagsInputTypeDef(TypedDict):
@@ -522,7 +517,7 @@ class RemoveTagsInputTypeDef(TypedDict):
 
 
 class DescribeTagsOutputTypeDef(TypedDict):
-    TagDescriptions: List[TagDescriptionTypeDef]
+    TagDescriptions: list[TagDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -547,27 +542,27 @@ class LoadBalancerDescriptionTypeDef(TypedDict):
     DNSName: NotRequired[str]
     CanonicalHostedZoneName: NotRequired[str]
     CanonicalHostedZoneNameID: NotRequired[str]
-    ListenerDescriptions: NotRequired[List[ListenerDescriptionTypeDef]]
+    ListenerDescriptions: NotRequired[list[ListenerDescriptionTypeDef]]
     Policies: NotRequired[PoliciesTypeDef]
-    BackendServerDescriptions: NotRequired[List[BackendServerDescriptionTypeDef]]
-    AvailabilityZones: NotRequired[List[str]]
-    Subnets: NotRequired[List[str]]
+    BackendServerDescriptions: NotRequired[list[BackendServerDescriptionTypeDef]]
+    AvailabilityZones: NotRequired[list[str]]
+    Subnets: NotRequired[list[str]]
     VPCId: NotRequired[str]
-    Instances: NotRequired[List[InstanceTypeDef]]
+    Instances: NotRequired[list[InstanceTypeDef]]
     HealthCheck: NotRequired[HealthCheckTypeDef]
     SourceSecurityGroup: NotRequired[SourceSecurityGroupTypeDef]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
     CreatedTime: NotRequired[datetime]
     Scheme: NotRequired[str]
 
 
 class DescribeLoadBalancerPoliciesOutputTypeDef(TypedDict):
-    PolicyDescriptions: List[PolicyDescriptionTypeDef]
+    PolicyDescriptions: list[PolicyDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeLoadBalancerPolicyTypesOutputTypeDef(TypedDict):
-    PolicyTypeDescriptions: List[PolicyTypeDescriptionTypeDef]
+    PolicyTypeDescriptions: list[PolicyTypeDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -577,6 +572,6 @@ class ModifyLoadBalancerAttributesInputTypeDef(TypedDict):
 
 
 class DescribeAccessPointsOutputTypeDef(TypedDict):
-    LoadBalancerDescriptions: List[LoadBalancerDescriptionTypeDef]
+    LoadBalancerDescriptions: list[LoadBalancerDescriptionTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef

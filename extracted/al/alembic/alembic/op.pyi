@@ -256,7 +256,7 @@ def batch_alter_table(
     table_name: str,
     schema: Optional[str] = None,
     recreate: Literal["auto", "always", "never"] = "auto",
-    partial_reordering: Optional[Tuple[Any, ...]] = None,
+    partial_reordering: list[tuple[str, ...]] | None = None,
     copy_from: Optional[Table] = None,
     table_args: Tuple[Any, ...] = (),
     table_kwargs: Mapping[str, Any] = immutabledict({}),
@@ -1214,14 +1214,27 @@ def get_context() -> MigrationContext:
 
     """
 
-def implementation_for(op_cls: Any) -> Callable[[_C], _C]:
+def implementation_for(
+    op_cls: Any, replace: bool = False
+) -> Callable[[_C], _C]:
     """Register an implementation for a given :class:`.MigrateOperation`.
+
+    :param replace: when True, allows replacement of an already
+     registered implementation for the given operation class. This
+     enables customization of built-in operations such as
+     :class:`.CreateTableOp` by providing an alternate implementation
+     that can augment, modify, or conditionally invoke the default
+     behavior.
+
+     .. versionadded:: 1.17.2
 
     This is part of the operation extensibility API.
 
     .. seealso::
 
-        :ref:`operation_plugins` - example of use
+        :ref:`operation_plugins`
+
+        :ref:`operations_extending_builtin`
 
     """
 

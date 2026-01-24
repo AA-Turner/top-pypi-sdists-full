@@ -38,7 +38,7 @@ options:
     type: str
   disk:
     description:
-      - This option was previously described as "hard disk size in GB for instance" however several formats describing a lxc
+      - This option was previously described as "hard disk size in GiB for instance" however several formats describing a lxc
         mount are permitted.
       - Older versions of Proxmox will accept a numeric value for size using the O(storage) parameter to automatically choose
         which storage to allocate from, however new versions enforce the C(<STORAGE>:<SIZE>) syntax.
@@ -108,6 +108,11 @@ options:
     description:
       - Specifies a list of features to be enabled. For valid options, see U(https://pve.proxmox.com/wiki/Linux_Container#pct_options).
       - Some features require the use of a privileged container.
+    type: list
+    elements: str
+  delete:
+    description:
+      - A list of settings you want to delete.
     type: list
     elements: str
   startup:
@@ -420,7 +425,7 @@ EXAMPLES = r"""
     netif:
       net0: "name=eth0,gw=192.168.0.1,ip=192.168.0.2/24,ip6=fe80::1227/64,gw6=fe80::1,bridge=vmbr0,firewall=1,tag=934,mtu=1500"
 
-- name: Create new container with minimal options defining a mount with 8GB
+- name: Create new container with minimal options defining a mount with 8GiB
   community.proxmox.proxmox:
     vmid: 100
     node: uk-mc02
@@ -433,7 +438,7 @@ EXAMPLES = r"""
     mounts:
       mp0: "local:8,mp=/mnt/test/"
 
-- name: Create new container with minimal options defining a mount with 8GB using mount_volumes
+- name: Create new container with minimal options defining a mount with 8GiB using mount_volumes
   community.proxmox.proxmox:
     vmid: 100
     node: uk-mc02
@@ -707,6 +712,7 @@ def get_proxmox_args():
         ),
         onboot=dict(type="bool"),
         features=dict(type="list", elements="str"),
+        delete=dict(type="list", elements="str"),
         startup=dict(type="list", elements="str"),
         storage=dict(default="local"),
         cpuunits=dict(type="int"),
@@ -876,6 +882,7 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
                     disk=self.params.get("disk"),
                     disk_volume=self.params.get("disk_volume"),
                     features=self.params.get("features"),
+                    delete=self.params.get("delete"),
                     hookscript=self.params.get("hookscript"),
                     hostname=self.params.get("hostname"),
                     ip_address=self.params.get("ip_address"),
@@ -1055,6 +1062,8 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
             kwargs["features"] = ",".join(kwargs.pop("features"))
         if "startup" in kwargs:
             kwargs["startup"] = ",".join(kwargs.pop("startup"))
+        if "delete" in kwargs:
+            kwargs["delete"] = ",".join(kwargs.pop("delete"))
 
         disk_updates = self.process_disk_keys(
             vmid,
@@ -1559,9 +1568,10 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
                         volume=volume,
                     ),
                 )
-            vol_string = "{storage}:{volume},size={size}".format(
-                storage=storage, volume=volume, size=size
-            )
+            vol_parts = [
+                "{storage}:{volume}".format(storage=storage, volume=volume),
+                "size={size}".format(size=size),
+            ]
         # 2. If volume not defined (but storage is), check if it exists
         elif storage is not None:
             proxmox_node = self.proxmox_api.nodes(
@@ -1570,9 +1580,10 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
             try:
                 vol = proxmox_node.lxc(vmid).get("config").get(key)
                 volume = self.parse_disk_string(vol).get("volume")
-                vol_string = "{storage}:{volume},size={size}".format(
-                    storage=storage, volume=volume, size=size
-                )
+                vol_parts = [
+                    "{storage}:{volume}".format(storage=storage, volume=volume),
+                    "size={size}".format(size=size),
+                ]
 
             # If not, we have proxmox create one using the special syntax
             except Exception:
@@ -1582,7 +1593,7 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
                     )
                 elif size.endswith("G"):
                     size = size.rstrip("G")
-                    vol_string = "{storage}:{size}".format(storage=storage, size=size)
+                    vol_parts = ["{storage}:{size}".format(storage=storage, size=size)]
                 else:
                     raise ValueError(
                         "Size must be provided in GiB for storage-backed volume creation. Convert it to GiB or allocate a new storage manually."
@@ -1590,28 +1601,24 @@ class ProxmoxLxcAnsible(ProxmoxAnsible):
         # 3. If we have a host_path, we don't have storage, a volume, or a size
         # Then we don't have to do anything, just build and return the vol_string
         elif host_path is not None:
-            vol_string = ""
+            vol_parts = []
         else:
             raise ValueError(
                 "Could not build a valid volume string. One of volume, storage, or host_path must be provided."
             )
 
         if host_path is not None:
-            vol_string += "," + host_path
+            vol_parts += [host_path]
 
         if mountpoint is not None:
-            vol_string += ",mp={}".format(mountpoint)
+            vol_parts += ["mp={}".format(mountpoint)]
 
         if options is not None:
-            vol_string += "," + ",".join(
-                ["{0}={1}".format(k, v) for k, v in options.items()]
-            )
+            vol_parts += ["{0}={1}".format(k, v) for k, v in options.items()]
 
         if kwargs:
-            vol_string += "," + ",".join(
-                ["{0}={1}".format(k, v) for k, v in kwargs.items()]
-            )
-        return {key: vol_string}
+            vol_parts += ["{0}={1}".format(k, v) for k, v in kwargs.items()]
+        return {key: ",".join(vol_parts)}
 
     def get_lxc_resource(self, vmid, hostname):
         if not vmid and not hostname:

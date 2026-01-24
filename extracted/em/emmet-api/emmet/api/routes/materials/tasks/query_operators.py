@@ -2,8 +2,8 @@ from collections import defaultdict
 from datetime import datetime
 
 from fastapi import Query
-from maggma.api.query_operator import QueryOperator
-from maggma.api.utils import STORE_PARAMS
+from emmet.api.query_operator import QueryOperator
+from emmet.api.utils import STORE_PARAMS
 from monty.json import jsanitize
 
 from emmet.api.routes.materials.tasks.utils import (
@@ -96,15 +96,16 @@ class TrajectoryQuery(QueryOperator):
 
     def post_process(self, docs, query):
         """
-        Post processing to generatore trajectory data
+        Post processing to generate trajectory data
         """
 
         d = [
             {
                 "task_id": doc["task_id"],
-                "trajectories": jsanitize(
-                    calcs_reversed_to_trajectory(doc["calcs_reversed"])
-                ),
+                "trajectories": [
+                    traj.model_dump(mode="json")
+                    for traj in calcs_reversed_to_trajectory(doc["calcs_reversed"])
+                ],
             }
             for doc in docs
         ]

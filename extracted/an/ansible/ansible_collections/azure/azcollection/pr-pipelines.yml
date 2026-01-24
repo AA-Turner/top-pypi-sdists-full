@@ -80,9 +80,12 @@ parameters:
       - "azure_rm_monitoractiongroups"
       - "azure_rm_monitoractivitylogalerts"
       - "azure_rm_monitordatacollectionrules"
+      - "azure_rm_monitordatacollectionendpoint"
+      - "azure_rm_monitordatacollectionruleassociation"
       - "azure_rm_monitordiagnosticsetting"
       - "azure_rm_monitorlogprofile"
       - "azure_rm_monitormetricalerts"
+      - "azure_rm_monitorscheduledqueryrules"
       - "azure_rm_multiplemanageddisks"
       - "azure_rm_mysqlserver"
       - "azure_rm_mysqlflexibleserver"
@@ -120,6 +123,8 @@ parameters:
       - "azure_rm_storageblob"
       - "azure_rm_storageshare"
       - "azure_rm_subnet"
+      - "azure_rm_azure_rm_serviceendpointpolicy"
+      - "azure_rm_azure_rm_serviceendpointpolicydefinition"
       - "azure_rm_subscription"
       - "azure_rm_trafficmanagerprofile"
       - "azure_rm_virtualmachine"
@@ -177,7 +182,7 @@ pr:
   - dev
 
 pool:
-  name: pool-ubuntu-2004
+  name: pool-ubuntu-2404
 
 jobs:
   - job: InitializationTest
@@ -203,7 +208,7 @@ jobs:
           group_no="all"
           case "${{ parameters.MODULE_NAME }}" in
             sanity)
-              gropu_no=sanity
+              group_no=sanity
               ;;
             inventory_azure)
               group_no=1
@@ -220,7 +225,7 @@ jobs:
 
   - job: RunTests
     dependsOn: InitializationTest
-    timeoutInMinutes: 180
+    timeoutInMinutes: 360
     variables:
       TEST_RESOURCE_GROUP: $[ dependencies.InitializationTest.outputs['setvar.resource_group'] ]
       TEST_RESOURCE_GROUP_SECONDARY: $[ dependencies.InitializationTest.outputs['setvar.resource_group_secondary'] ]

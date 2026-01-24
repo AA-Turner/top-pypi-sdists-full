@@ -42,10 +42,13 @@ class Snowflake(object):
             return session
         except (NameError, ImportError, ModuleNotFoundError):
             raise SnowflakeException(
-                "Could not import module 'snowflake'.\n\nInstall Snowflake "
-                "Python package (https://pypi.org/project/snowflake/) first.\n"
-                "You can install the module by using the @pypi decorator - "
-                "Eg: @pypi(packages={'snowflake': '0.11.0'})\n"
+                "Could not import module 'snowflake'.\n\n"
+                "Install required Snowflake packages using the @pypi decorator:\n"
+                "@pypi(packages={\n"
+                "    'snowflake': '1.8.0',\n"
+                "    'snowflake-connector-python': '3.18.0',\n"
+                "    'snowflake-snowpark-python': '1.40.0'\n"
+                "})\n"
             )
 
 
@@ -68,6 +71,7 @@ class SnowparkDecorator(StepDecorator):
         "cpu": None,
         "gpu": None,
         "memory": None,
+        "integration": None,  # Outerbounds OAuth integration name
     }
 
     package_url = None
@@ -77,12 +81,11 @@ class SnowparkDecorator(StepDecorator):
     def __init__(self, attributes=None, statically_defined=False):
         super(SnowparkDecorator, self).__init__(attributes, statically_defined)
 
+        # Set defaults from config (user can override via decorator or integration)
         if not self.attributes["account"]:
             self.attributes["account"] = SNOWPARK_ACCOUNT
         if not self.attributes["user"]:
             self.attributes["user"] = SNOWPARK_USER
-        if not self.attributes["password"]:
-            self.attributes["password"] = SNOWPARK_PASSWORD
         if not self.attributes["role"]:
             self.attributes["role"] = SNOWPARK_ROLE
         if not self.attributes["database"]:
@@ -91,6 +94,9 @@ class SnowparkDecorator(StepDecorator):
             self.attributes["warehouse"] = SNOWPARK_WAREHOUSE
         if not self.attributes["schema"]:
             self.attributes["schema"] = SNOWPARK_SCHEMA
+        # Only use password from config if not using integration (OAuth)
+        if not self.attributes["integration"] and not self.attributes["password"]:
+            self.attributes["password"] = SNOWPARK_PASSWORD
 
         # If no docker image is explicitly specified, impute a default image.
         if not self.attributes["image"]:
@@ -143,9 +149,12 @@ class SnowparkDecorator(StepDecorator):
         except (NameError, ImportError, ModuleNotFoundError):
             raise SnowflakeException(
                 "Could not import module 'snowflake'.\n\nInstall Snowflake "
-                "Python package (https://pypi.org/project/snowflake/) first.\n"
-                "You can install the module by executing - "
-                "%s -m pip install snowflake\n"
+                "Python packages first:\n"
+                "  snowflake==1.8.0\n"
+                "  snowflake-connector-python==3.18.0\n"
+                "  snowflake-snowpark-python==1.40.0\n\n"
+                "You can install them by executing:\n"
+                "%s -m pip install snowflake==1.8.0 snowflake-connector-python==3.18.0 snowflake-snowpark-python==1.40.0\n"
                 "or equivalent through your favorite Python package manager."
                 % sys.executable
             )

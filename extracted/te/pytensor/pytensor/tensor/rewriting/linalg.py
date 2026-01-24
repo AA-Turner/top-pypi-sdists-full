@@ -6,14 +6,13 @@ import numpy as np
 
 from pytensor import Variable
 from pytensor import tensor as pt
-from pytensor.compile import optdb
 from pytensor.graph import Apply, FunctionGraph
 from pytensor.graph.rewriting.basic import (
     copy_stack_trace,
-    in2out,
     node_rewriter,
 )
-from pytensor.scalar.basic import Abs, Log, Mul, Sign
+from pytensor.graph.rewriting.unify import OpPattern
+from pytensor.scalar.basic import Abs, Exp, Log, Mul, Sign, Sqr
 from pytensor.tensor.basic import (
     AllocDiag,
     ExtractDiag,
@@ -22,6 +21,7 @@ from pytensor.tensor.basic import (
     concatenate,
     diag,
     diagonal,
+    ones,
 )
 from pytensor.tensor.blockwise import Blockwise
 from pytensor.tensor.elemwise import DimShuffle, Elemwise
@@ -43,24 +43,54 @@ from pytensor.tensor.rewriting.basic import (
     register_specialize,
     register_stabilize,
 )
+from pytensor.tensor.rewriting.blockwise import blockwise_of
 from pytensor.tensor.slinalg import (
+    LU,
+    QR,
     BlockDiagonal,
     Cholesky,
     CholeskySolve,
+    LUFactor,
     Solve,
     SolveBase,
     SolveTriangular,
-    _bilinear_solve_discrete_lyapunov,
     block_diag,
     cholesky,
     solve,
-    solve_discrete_lyapunov,
     solve_triangular,
 )
 
 
 logger = logging.getLogger(__name__)
-ALL_INVERSE_OPS = (MatrixInverse, MatrixPinv)
+MATRIX_INVERSE_OPS = (MatrixInverse, MatrixPinv)
+
+
+def matrix_diagonal_product(x):
+    return pt.prod(diagonal(x, axis1=-2, axis2=-1), axis=-1)
+
+
+@register_canonicalize
+@node_rewriter([BlockDiagonal])
+def fuse_blockdiagonal(fgraph, node):
+    """Fuse nested BlockDiagonal ops into a single BlockDiagonal."""
+
+    new_inputs = []
+    changed = False
+
+    for inp in node.inputs:
+        if inp.owner and isinstance(inp.owner.op, BlockDiagonal):
+            new_inputs.extend(inp.owner.inputs)
+            changed = True
+        else:
+            new_inputs.append(inp)
+
+    if changed:
+        fused_op = BlockDiagonal(len(new_inputs))
+        new_output = fused_op(*new_inputs)
+        copy_stack_trace(node.outputs[0], new_output)
+        return [new_output]
+
+    return None
 
 
 def is_matrix_transpose(x: TensorVariable) -> bool:
@@ -129,69 +159,48 @@ def inv_as_solve(fgraph, node):
 
 @register_stabilize
 @register_canonicalize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(OpPattern(Solve, assume_a="gen"))])
 def generic_solve_to_solve_triangular(fgraph, node):
     """
     If any solve() is applied to the output of a cholesky op, then
     replace it with a triangular solve.
 
     """
-    if isinstance(node.op.core_op, Solve):
-        if node.op.core_op.assume_a == "gen":
-            A, b = node.inputs  # result is solution Ax=b
-            if (
-                A.owner
-                and isinstance(A.owner.op, Blockwise)
-                and isinstance(A.owner.op.core_op, Cholesky)
-            ):
-                if A.owner.op.core_op.lower:
-                    return [
-                        solve_triangular(
-                            A, b, lower=True, b_ndim=node.op.core_op.b_ndim
-                        )
-                    ]
-                else:
-                    return [
-                        solve_triangular(
-                            A, b, lower=False, b_ndim=node.op.core_op.b_ndim
-                        )
-                    ]
-            if is_matrix_transpose(A):
-                (A_T,) = A.owner.inputs
-                if (
-                    A_T.owner
-                    and isinstance(A_T.owner.op, Blockwise)
-                    and isinstance(A_T.owner.op, Cholesky)
-                ):
-                    if A_T.owner.op.lower:
-                        return [
-                            solve_triangular(
-                                A, b, lower=False, b_ndim=node.op.core_op.b_ndim
-                            )
-                        ]
-                    else:
-                        return [
-                            solve_triangular(
-                                A, b, lower=True, b_ndim=node.op.core_op.b_ndim
-                            )
-                        ]
+    A, b = node.inputs  # result is the solution to Ax=b
+    if (
+        A.owner
+        and isinstance(A.owner.op, Blockwise)
+        and isinstance(A.owner.op.core_op, Cholesky)
+    ):
+        if A.owner.op.core_op.lower:
+            return [solve_triangular(A, b, lower=True, b_ndim=node.op.core_op.b_ndim)]
+        else:
+            return [solve_triangular(A, b, lower=False, b_ndim=node.op.core_op.b_ndim)]
+    if is_matrix_transpose(A):
+        (A_T,) = A.owner.inputs
+        if (
+            A_T.owner
+            and isinstance(A_T.owner.op, Blockwise)
+            and isinstance(A_T.owner.op, Cholesky)
+        ):
+            if A_T.owner.op.lower:
+                return [
+                    solve_triangular(A, b, lower=False, b_ndim=node.op.core_op.b_ndim)
+                ]
+            else:
+                return [
+                    solve_triangular(A, b, lower=True, b_ndim=node.op.core_op.b_ndim)
+                ]
 
 
 @register_specialize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(OpPattern(SolveBase, b_ndim=1))])
 def batched_vector_b_solve_to_matrix_b_solve(fgraph, node):
     """Replace a batched Solve(a, b, b_ndim=1) by Solve(a, b.T, b_ndim=2).T
 
     `a` must have no batched dimensions, while `b` can have arbitrary batched dimensions.
     """
     core_op = node.op.core_op
-
-    if not isinstance(core_op, SolveBase):
-        return None
-
-    if node.op.core_op.b_ndim != 1:
-        return None
-
     [a, b] = node.inputs
 
     # Check `b` is actually batched
@@ -242,26 +251,24 @@ def no_transpose_symmetric(fgraph, node):
 
 
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(OpPattern(Solve, b_ndim=2))])
 def psd_solve_with_chol(fgraph, node):
     """
     This utilizes a boolean `psd` tag on matrices.
     """
-    if isinstance(node.op.core_op, Solve) and node.op.core_op.b_ndim == 2:
-        A, b = node.inputs  # result is solution Ax=b
-        if getattr(A.tag, "psd", None) is True:
-            L = cholesky(A)
-            # N.B. this can be further reduced to a yet-unwritten cho_solve Op
-            #     __if__ no other Op makes use of the L matrix during the
-            #     stabilization
-            Li_b = solve_triangular(L, b, lower=True, b_ndim=2)
-            x = solve_triangular((L.mT), Li_b, lower=False, b_ndim=2)
-            return [x]
+    A, b = node.inputs  # result is the solution to Ax=b
+    if getattr(A.tag, "psd", None) is True:
+        L = cholesky(A)
+        # N.B. this can be further reduced to cho_solve Op
+        #     if no other Op makes use of the L matrix
+        Li_b = solve_triangular(L, b, lower=True, b_ndim=2)
+        x = solve_triangular((L.mT), Li_b, lower=False, b_ndim=2)
+        return [x]
 
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(Cholesky)])
 def cholesky_ldotlt(fgraph, node):
     """
     rewrite cholesky(dot(L, L.T), lower=True) = L, where L is lower triangular,
@@ -271,9 +278,6 @@ def cholesky_ldotlt(fgraph, node):
 
     This utilizes a boolean `lower_triangular` or `upper_triangular` tag on matrices.
     """
-    if not isinstance(node.op.core_op, Cholesky):
-        return
-
     A = node.inputs[0]
     if not (
         A.owner is not None and (isinstance(A.owner.op, Dot) or (A.owner.op == _matmul))
@@ -305,44 +309,42 @@ def cholesky_ldotlt(fgraph, node):
 
 @register_stabilize
 @register_specialize
-@node_rewriter([det])
-def local_det_chol(fgraph, node):
-    """
-    If we have det(X) and there is already an L=cholesky(X)
-    floating around, then we can use prod(diag(L)) to get the determinant.
-
-    """
-    (x,) = node.inputs
-    for cl, xpos in fgraph.clients[x]:
-        if isinstance(cl.op, Blockwise) and isinstance(cl.op.core_op, Cholesky):
-            L = cl.outputs[0]
-            return [prod(diagonal(L, axis1=-2, axis2=-1) ** 2, axis=-1)]
-
-
-@register_canonicalize
-@register_stabilize
-@register_specialize
 @node_rewriter([log])
-def local_log_prod_sqr(fgraph, node):
-    """
-    This utilizes a boolean `positive` tag on matrices.
-    """
-    (x,) = node.inputs
-    if x.owner and isinstance(x.owner.op, Prod):
-        # we cannot always make this substitution because
-        # the prod might include negative terms
-        p = x.owner.inputs[0]
+def local_log_prod_to_sum_log(fgraph, node):
+    """Rewrite log(prod(x)) as sum(log(x)), when x is known to be positive."""
+    [p] = node.inputs
+    p_node = p.owner
 
-        # p is the matrix we're reducing with prod
-        if getattr(p.tag, "positive", None) is True:
-            return [log(p).sum(axis=x.owner.op.axis)]
+    if p_node is None:
+        return None
+
+    p_op = p_node.op
+
+    if isinstance(p_op, Prod):
+        x = p_node.inputs[0]
+
+        # TODO: The product of diagonals of a Cholesky(A) are also strictly positive
+        if (
+            x.owner is not None
+            and isinstance(x.owner.op, Elemwise)
+            and isinstance(x.owner.op.scalar_op, Abs | Sqr | Exp)
+        ) or getattr(x.tag, "positive", False):
+            return [log(x).sum(axis=p_node.op.axis)]
 
         # TODO: have a reduction like prod and sum that simply
         # returns the sign of the prod multiplication.
 
+    # Special case for log(abs(prod(x))) -> sum(log(abs(x))) that shows up in slogdet
+    elif isinstance(p_op, Elemwise) and isinstance(p_op.scalar_op, Abs):
+        [p] = p_node.inputs
+        p_node = p.owner
+        if p_node is not None and isinstance(p_node.op, Prod):
+            [x] = p.owner.inputs
+            return [log(abs(x)).sum(axis=p_node.op.axis)]
+
 
 @register_specialize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(MatrixInverse | Cholesky | MatrixPinv)])
 def local_lift_through_linalg(
     fgraph: FunctionGraph, node: Apply
 ) -> list[Variable] | None:
@@ -370,15 +372,14 @@ def local_lift_through_linalg(
     """
 
     # TODO: Simplify this if we end up Blockwising KroneckerProduct
-    if not isinstance(node.op.core_op, MatrixInverse | Cholesky | MatrixPinv):
-        return None
-
     y = node.inputs[0]
     outer_op = node.op
 
     if y.owner and (
-        isinstance(y.owner.op, Blockwise)
-        and isinstance(y.owner.op.core_op, BlockDiagonal)
+        (
+            isinstance(y.owner.op, Blockwise)
+            and isinstance(y.owner.op.core_op, BlockDiagonal)
+        )
         or isinstance(y.owner.op, KroneckerProduct)
     ):
         input_matrices = y.owner.inputs
@@ -467,6 +468,127 @@ def _find_diag_from_eye_mul(potential_mul_input):
     return eye_input, non_eye_inputs
 
 
+@register_stabilize("shape_unsafe")
+@register_specialize("shape_unsafe")
+@node_rewriter([det])
+def det_of_matrix_factorized_elsewhere(fgraph, node):
+    """
+    If we have det(X) or abs(det(X)) and there is already a nice decomposition(X) floating around,
+    use it to compute it more cheaply
+
+    """
+    [det] = node.outputs
+    [x] = node.inputs
+
+    sign_not_needed = all(
+        isinstance(client.op, Elemwise) and isinstance(client.op.scalar_op, (Abs, Sqr))
+        for client, _ in fgraph.clients[det]
+    )
+
+    new_det = None
+    for client, _ in fgraph.clients[x]:
+        core_op = client.op.core_op if isinstance(client.op, Blockwise) else client.op
+        match core_op:
+            case Cholesky():
+                L = client.outputs[0]
+                new_det = matrix_diagonal_product(L) ** 2
+            case LU():
+                U = client.outputs[-1]
+                new_det = matrix_diagonal_product(U)
+            case LUFactor():
+                LU_packed = client.outputs[0]
+                new_det = matrix_diagonal_product(LU_packed)
+            case _:
+                if not sign_not_needed:
+                    continue
+                match core_op:
+                    case SVD():
+                        lmbda = (
+                            client.outputs[1]
+                            if core_op.compute_uv
+                            else client.outputs[0]
+                        )
+                        new_det = prod(lmbda, axis=-1)
+                    case QR():
+                        R = client.outputs[-1]
+                        # if mode == "economic", R may not be square and this rewrite could hide a shape error
+                        # That's why it's tagged as `shape_unsafe`
+                        new_det = matrix_diagonal_product(R)
+
+        if new_det is not None:
+            # found a match
+            break
+    else:  # no-break (i.e., no-match)
+        return None
+
+    [det] = node.outputs
+    copy_stack_trace(det, new_det)
+    return [new_det]
+
+
+@register_stabilize("shape_unsafe")
+@register_specialize("shape_unsafe")
+@node_rewriter(tracks=[det])
+def det_of_factorized_matrix(fgraph, node):
+    """Introduce special forms for det(decomposition(X)).
+
+    Some cases are only known up to a sign change such as det(QR(X)),
+    and are only introduced if the determinant sign is discarded downstream (e.g., abs, sqr)
+    """
+    [det] = node.outputs
+    [x] = node.inputs
+
+    sign_not_needed = all(
+        isinstance(client.op, Elemwise) and isinstance(client.op.scalar_op, (Abs, Sqr))
+        for client, _ in fgraph.clients[det]
+    )
+
+    x_node = x.owner
+    if x_node is None:
+        return None
+
+    x_op = x_node.op
+    core_op = x_op.core_op if isinstance(x_op, Blockwise) else x_op
+
+    new_det = None
+    match core_op:
+        case Cholesky():
+            new_det = matrix_diagonal_product(x)
+        case LU():
+            if x is x_node.outputs[-2]:
+                # x is L
+                new_det = ones(x.shape[:-2], dtype=det.dtype)
+            elif x is x_node.outputs[-1]:
+                # x is U
+                new_det = matrix_diagonal_product(x)
+        case SVD():
+            if not core_op.compute_uv or x is x_node.outputs[1]:
+                # x is lambda
+                new_det = prod(x, axis=-1)
+            elif sign_not_needed:
+                # x is either U or Vt and sign is discarded downstream
+                new_det = ones(x.shape[:-2], dtype=det.dtype)
+        case QR():
+            # if mode == "economic", Q/R may not be square and this rewrite could hide a shape error
+            # That's why it's tagged as `shape_unsafe`
+            if x is x_node.outputs[-1]:
+                # x is R
+                new_det = matrix_diagonal_product(x)
+            elif (
+                sign_not_needed
+                and core_op.mode in ("economic", "full")
+                and x is x_node.outputs[0]
+            ):
+                # x is Q and sign is discarded downstream
+                new_det = ones(x.shape[:-2], dtype=det.dtype)
+
+    if new_det is None:
+        return None
+
+    copy_stack_trace(det, new_det)
+    return [new_det]
+
+
 @register_canonicalize("shape_unsafe")
 @register_stabilize("shape_unsafe")
 @node_rewriter([det])
@@ -534,15 +656,12 @@ def rewrite_det_diag_to_prod_diag(fgraph, node):
 @register_canonicalize
 @register_stabilize
 @register_specialize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(SVD)])
 def svd_uv_merge(fgraph, node):
     """If we have more than one `SVD` `Op`s and at least one has keyword argument
     `compute_uv=True`, then we can change `compute_uv = False` to `True` everywhere
     and allow `pytensor` to re-use the decomposition outputs instead of recomputing.
     """
-    if not isinstance(node.op.core_op, SVD):
-        return
-
     (x,) = node.inputs
 
     if node.op.core_op.compute_uv:
@@ -585,7 +704,7 @@ def svd_uv_merge(fgraph, node):
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(MATRIX_INVERSE_OPS)])
 def rewrite_inv_inv(fgraph, node):
     """
     This rewrite takes advantage of the fact that if there are two consecutive inverse operations (inv(inv(input))), we get back our original input without having to compute inverse once.
@@ -607,9 +726,6 @@ def rewrite_inv_inv(fgraph, node):
     # Check if its a valid inverse operation (either inv/pinv)
     # In case the outer operation is an inverse, it directly goes to the next step of finding inner operation
     # If the outer operation is not a valid inverse, we do not apply this rewrite
-    if not isinstance(node.op.core_op, ALL_INVERSE_OPS):
-        return None
-
     potential_inner_inv = node.inputs[0].owner
     if potential_inner_inv is None or potential_inner_inv.op is None:
         return None
@@ -618,7 +734,7 @@ def rewrite_inv_inv(fgraph, node):
     if not (
         potential_inner_inv
         and isinstance(potential_inner_inv.op, Blockwise)
-        and isinstance(potential_inner_inv.op.core_op, ALL_INVERSE_OPS)
+        and isinstance(potential_inner_inv.op.core_op, MATRIX_INVERSE_OPS)
     ):
         return None
     return [potential_inner_inv.inputs[0]]
@@ -626,7 +742,7 @@ def rewrite_inv_inv(fgraph, node):
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(MATRIX_INVERSE_OPS)])
 def rewrite_inv_eye_to_eye(fgraph, node):
     """
      This rewrite takes advantage of the fact that the inverse of an identity matrix is the matrix itself
@@ -642,10 +758,6 @@ def rewrite_inv_eye_to_eye(fgraph, node):
     list of Variable, optional
         List of optimized variables, or None if no optimization was performed
     """
-    core_op = node.op.core_op
-    if not (isinstance(core_op, ALL_INVERSE_OPS)):
-        return None
-
     # Check whether input to inverse is Eye and the 1's are on main diagonal
     potential_eye = node.inputs[0]
     if not (
@@ -659,7 +771,7 @@ def rewrite_inv_eye_to_eye(fgraph, node):
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(MATRIX_INVERSE_OPS)])
 def rewrite_inv_diag_to_diag_reciprocal(fgraph, node):
     """
      This rewrite takes advantage of the fact that for a diagonal matrix, the inverse is a diagonal matrix with the new diagonal entries as reciprocals of the original diagonal elements.
@@ -677,10 +789,6 @@ def rewrite_inv_diag_to_diag_reciprocal(fgraph, node):
     list of Variable, optional
         List of optimized variables, or None if no optimization was performed
     """
-    core_op = node.op.core_op
-    if not (isinstance(core_op, ALL_INVERSE_OPS)):
-        return None
-
     inputs = node.inputs[0]
     # Check for use of pt.diag first
     if (
@@ -857,7 +965,7 @@ def rewrite_det_kronecker(fgraph, node):
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(Cholesky)])
 def rewrite_remove_useless_cholesky(fgraph, node):
     """
      This rewrite takes advantage of the fact that the cholesky decomposition of an identity matrix is the matrix itself
@@ -877,8 +985,6 @@ def rewrite_remove_useless_cholesky(fgraph, node):
         List of optimized variables, or None if no optimization was performed
     """
     # Find whether cholesky op is being applied
-    if not isinstance(node.op.core_op, Cholesky):
-        return None
 
     # Check whether input to Cholesky is Eye and the 1's are on main diagonal
     potential_eye = node.inputs[0]
@@ -894,12 +1000,8 @@ def rewrite_remove_useless_cholesky(fgraph, node):
 
 @register_canonicalize
 @register_stabilize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(Cholesky)])
 def rewrite_cholesky_diag_to_sqrt_diag(fgraph, node):
-    # Find whether cholesky op is being applied
-    if not isinstance(node.op.core_op, Cholesky):
-        return None
-
     [input] = node.inputs
 
     # Check if input is a (1, 1) matrix
@@ -937,25 +1039,6 @@ def rewrite_cholesky_diag_to_sqrt_diag(fgraph, node):
             non_eye_input = pt.shape_padaxis(non_eye_input, -2)
 
     return [eye_input * (non_eye_input**0.5)]
-
-
-@node_rewriter([_bilinear_solve_discrete_lyapunov])
-def jax_bilinaer_lyapunov_to_direct(fgraph: FunctionGraph, node: Apply):
-    """
-    Replace BilinearSolveDiscreteLyapunov with a direct computation that is supported by JAX
-    """
-    A, B = (cast(TensorVariable, x) for x in node.inputs)
-    result = solve_discrete_lyapunov(A, B, method="direct")
-
-    return [result]
-
-
-optdb.register(
-    "jax_bilinaer_lyapunov_to_direct",
-    in2out(jax_bilinaer_lyapunov_to_direct),
-    "jax",
-    position=0.9,  # Run before canonicalization
-)
 
 
 @register_specialize
@@ -1022,7 +1105,7 @@ def slogdet_specialization(fgraph, node):
 
 @register_stabilize
 @register_canonicalize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(SolveBase)])
 def scalar_solve_to_division(fgraph, node):
     """
     Replace solve(a, b) with b / a if a is a (1, 1) matrix

@@ -25,7 +25,6 @@ from numpy.typing import ArrayLike, NDArray
 from typing_extensions import Any, Buffer, overload, SupportsBytes, TypedDict, Unpack
 
 from .. import tool
-from . import utils
 from . import v4_constants as v4c
 from .cutils import bytes_dtype_size
 from .types import StrPath
@@ -39,9 +38,7 @@ from .utils import (
     get_text_v4,
     handle_incomplete_block,
     is_file_like,
-    MappedText,
     MdfException,
-    TxMap,
     UINT8_uf,
     UINT64_u,
     UINT64_uf,
@@ -111,7 +108,6 @@ __all__ = [
 
 
 class AttachmentBlockKwargs(BlockKwargs, total=False):
-    tx_map: TxMap
     data: bytes
     comment: str
     mime: str
@@ -203,7 +199,7 @@ class AttachmentBlock:
                 handle_incomplete_block(address)
                 raise KeyError
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (
                     self.id,
                     self.reserved0,
@@ -259,13 +255,11 @@ class AttachmentBlock:
                 logger.exception(message)
                 raise MdfException(message)
 
-            tx_map = kwargs.get("tx_map", {})
-
             self.file_name = get_text_v4(
-                self.file_name_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                self.file_name_addr, stream, mapped=mapped, file_limit=file_limit
             )
-            self.mime = get_text_v4(self.mime_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
-            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+            self.mime = get_text_v4(self.mime_addr, stream, mapped=mapped, file_limit=file_limit)
+            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, file_limit=file_limit)
 
         except KeyError:
             self.address = 0
@@ -412,7 +406,6 @@ class AttachmentBlock:
 
 class ChannelKwargs(BlockKwargs, total=False):
     at_map: dict[int, int]
-    tx_map: TxMap
     parsed_strings: tuple[str, dict[str, str], str] | None
     use_display_names: bool
     cc_map: dict[bytes | int, "ChannelConversion"]
@@ -586,7 +579,7 @@ class Channel:
                 handle_incomplete_block(address)
                 raise KeyError
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.reserved0, self.block_len, self.links_nr) = COMMON_uf(stream, address)
 
                 if address + self.block_len > file_limit:
@@ -738,13 +731,11 @@ class Channel:
                         self.upper_ext_limit,
                     ) = params
 
-                tx_map = kwargs["tx_map"]
-
                 parsed_strings = kwargs["parsed_strings"]
                 if parsed_strings is None:
-                    self.name = get_text_v4(self.name_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+                    self.name = get_text_v4(self.name_addr, stream, mapped=mapped, file_limit=file_limit)
                     self.comment = get_text_v4(
-                        self.comment_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                        self.comment_addr, stream, mapped=mapped, file_limit=file_limit
                     )
 
                     if kwargs["use_display_names"]:
@@ -754,7 +745,12 @@ class Channel:
                 else:
                     self.name, self.display_names, self.comment = parsed_strings
 
-                self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+                cache = kwargs.get("units_map", {})
+                if self.unit_addr in cache:
+                    self.unit = cache[self.unit_addr]
+                else:
+                    self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, file_limit=file_limit)
+                    cache[self.unit_addr] = self.unit
 
                 address = self.conversion_addr
                 if address:
@@ -783,7 +779,7 @@ class Channel:
                                     stream=stream,
                                     address=address,
                                     mapped=mapped,
-                                    tx_map=tx_map,
+                                   
                                     file_limit=file_limit,
                                 )
                                 cc_map[raw_bytes] = cc_map[address] = conv
@@ -819,7 +815,7 @@ class Channel:
                                     stream=stream,
                                     address=address,
                                     mapped=mapped,
-                                    tx_map=tx_map,
+                                   
                                     file_limit=file_limit,
                                 )
                                 si_map[raw_bytes] = si_map[address] = source
@@ -992,12 +988,11 @@ class Channel:
                         self.upper_ext_limit,
                     ) = params
 
-                tx_map = kwargs["tx_map"]
                 parsed_strings = kwargs["parsed_strings"]
 
                 if parsed_strings is None:
-                    self.name = get_text_v4(self.name_addr, stream, tx_map=tx_map, file_limit=file_limit)
-                    self.comment = get_text_v4(self.comment_addr, stream, tx_map=tx_map, file_limit=file_limit)
+                    self.name = get_text_v4(self.name_addr, stream, file_limit=file_limit)
+                    self.comment = get_text_v4(self.comment_addr, stream, file_limit=file_limit)
 
                     if kwargs["use_display_names"]:
                         self.display_names = extract_display_names(self.comment)
@@ -1006,7 +1001,7 @@ class Channel:
                 else:
                     self.name, self.display_names, self.comment = parsed_strings
 
-                self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+                self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, file_limit=file_limit)
 
                 si_map = kwargs["si_map"]
                 cc_map = kwargs["cc_map"]
@@ -1037,7 +1032,7 @@ class Channel:
                                     raw_bytes=raw_bytes,
                                     stream=stream,
                                     address=address,
-                                    tx_map=tx_map,
+                                   
                                     mapped=mapped,
                                     file_limit=file_limit,
                                 )
@@ -1071,7 +1066,7 @@ class Channel:
                                     raw_bytes=raw_bytes,
                                     stream=stream,
                                     address=address,
-                                    tx_map=tx_map,
+                                   
                                     mapped=mapped,
                                     file_limit=file_limit,
                                 )
@@ -1579,7 +1574,7 @@ class ChannelArrayBlock(_ChannelArrayBlockBase):
 
             mapped = kwargs.get("mapped", False) or not is_file_like(stream)
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.reserved0, self.block_len, self.links_nr) = COMMON_uf(stream, address)
 
                 if self.id != b"##CA":
@@ -1969,7 +1964,6 @@ class ChannelGroupKwargs(BlockKwargs, total=False):
     samples_byte_nr: int
     invalidation_bytes_nr: int
     cg_master_addr: int
-    tx_map: TxMap
     si_map: dict[Union[bytes, int, "Source"], "SourceInformation"]
     file_limit: int | float
 
@@ -2056,7 +2050,7 @@ class ChannelGroup:
                 handle_incomplete_block(address)
                 raise KeyError
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.reserved0, self.block_len, self.links_nr) = COMMON_uf(stream, address)
 
                 if address + self.block_len > file_limit:
@@ -2153,10 +2147,8 @@ class ChannelGroup:
                 logger.exception(message)
                 raise MdfException(message)
 
-            tx_map = kwargs.get("tx_map", {})
-
-            self.acq_name = get_text_v4(self.acq_name_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
-            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+            self.acq_name = get_text_v4(self.acq_name_addr, stream, mapped=mapped, file_limit=file_limit)
+            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, file_limit=file_limit)
 
             si_map = kwargs["si_map"]
 
@@ -2165,7 +2157,7 @@ class ChannelGroup:
                 if address + v4c.SI_BLOCK_SIZE > file_limit:
                     source = None
                 else:
-                    if utils.stream_is_mmap(stream, mapped):
+                    if mapped:
                         raw_bytes = stream[address : address + v4c.SI_BLOCK_SIZE]
                     else:
                         stream.seek(address)
@@ -2179,7 +2171,7 @@ class ChannelGroup:
                             stream=stream,
                             address=address,
                             mapped=mapped,
-                            tx_map=tx_map,
+                           
                             file_limit=file_limit,
                         )
                         si_map[raw_bytes] = source
@@ -2445,7 +2437,6 @@ class ChannelConversionKwargs(BlockKwargs, total=False):
     b: float
     default_addr: Union[bytes, "ChannelConversion"]
     default: float
-    tx_map: TxMap
     P1: float
     P2: float
     P3: float
@@ -2890,17 +2881,15 @@ class ChannelConversion(_ChannelConversionBase):
 
             self.referenced_blocks: dict[str, bytes | ChannelConversion] = {}
 
-            tx_map = kwargs["tx_map"]
-
-            self.name = get_text_v4(self.name_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
-            self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
-            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit)
+            self.name = get_text_v4(self.name_addr, stream, mapped=mapped, file_limit=file_limit)
+            self.unit = get_text_v4(self.unit_addr, stream, mapped=mapped, file_limit=file_limit)
+            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, file_limit=file_limit)
 
             conv_type = conv
 
             if conv_type == v4c.CONVERSION_TYPE_ALG:
                 self.formula = get_text_v4(
-                    self.formula_addr, stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                    self.formula_addr, stream, mapped=mapped, file_limit=file_limit
                 ).replace("x", "X")
             else:
                 self.formula = ""
@@ -2917,39 +2906,34 @@ class ChannelConversion(_ChannelConversionBase):
                     for i in range(tabs):
                         address = typing.cast(int, self[f"text_{i}"])
                         if address:
-                            if address in tx_map:
-                                refs[f"text_{i}"] = tx_map[address].raw
+                            if address + 4 > file_limit:
+                                handle_incomplete_block(address)
+                                refs[f"text_{i}"] = b""
+                                continue
+
+                            stream.seek(address)
+                            _id = stream.read(4)
+
+                            if _id == b"##TX":
+                                refs[f"text_{i}"] = get_text_v4(
+                                    address=address,
+                                    stream=stream,
+                                    mapped=mapped,
+                                    decode=False,
+                                    file_limit=file_limit,
+                                )
+                            elif _id == b"##CC":
+                                cc_block = ChannelConversion(
+                                    address=address,
+                                    stream=stream,
+                                    mapped=mapped,
+                                    file_limit=file_limit,
+                                )
+                                refs[f"text_{i}"] = cc_block
                             else:
-                                if address + 4 > file_limit:
-                                    handle_incomplete_block(address)
-                                    refs[f"text_{i}"] = b""
-                                    continue
-
-                                stream.seek(address)
-                                _id = stream.read(4)
-
-                                if _id == b"##TX":
-                                    refs[f"text_{i}"] = get_text_v4(
-                                        address=address,
-                                        stream=stream,
-                                        mapped=mapped,
-                                        decode=False,
-                                        tx_map=tx_map,
-                                        file_limit=file_limit,
-                                    )
-                                elif _id == b"##CC":
-                                    cc_block = ChannelConversion(
-                                        address=address,
-                                        stream=stream,
-                                        mapped=mapped,
-                                        tx_map=tx_map,
-                                        file_limit=file_limit,
-                                    )
-                                    refs[f"text_{i}"] = cc_block
-                                else:
-                                    message = f'Expected "##TX" or "##CC" block @{hex(address)} but found "{_id!r}"'
-                                    logger.exception(message)
-                                    raise MdfException(message)
+                                message = f'Expected "##TX" or "##CC" block @{hex(address)} but found "{_id!r}"'
+                                logger.exception(message)
+                                raise MdfException(message)
 
                         else:
                             refs[f"text_{i}"] = b""
@@ -2959,38 +2943,35 @@ class ChannelConversion(_ChannelConversionBase):
                     ):
                         address = self.default_addr
                         if address:
-                            if address in tx_map:
-                                refs["default_addr"] = tx_map[address].raw
+                            if address + 4 > file_limit:
+                                handle_incomplete_block(address)
+                                refs["default_addr"] = b""
                             else:
-                                if address + 4 > file_limit:
-                                    handle_incomplete_block(address)
-                                    refs["default_addr"] = b""
-                                else:
-                                    stream.seek(address)
-                                    _id = stream.read(4)
+                                stream.seek(address)
+                                _id = stream.read(4)
 
-                                    if _id == b"##TX":
-                                        refs["default_addr"] = get_text_v4(
-                                            address=address,
-                                            stream=stream,
-                                            mapped=mapped,
-                                            decode=False,
-                                            tx_map=tx_map,
-                                            file_limit=file_limit,
-                                        )
-                                    elif _id == b"##CC":
-                                        cc_block = ChannelConversion(
-                                            address=address,
-                                            stream=stream,
-                                            mapped=mapped,
-                                            tx_map=tx_map,
-                                            file_limit=file_limit,
-                                        )
-                                        refs["default_addr"] = cc_block
-                                    else:
-                                        message = f'Expected "##TX" or "##CC" block @{hex(address)} but found "{_id!r}"'
-                                        logger.exception(message)
-                                        raise MdfException(message)
+                                if _id == b"##TX":
+                                    refs["default_addr"] = get_text_v4(
+                                        address=address,
+                                        stream=stream,
+                                        mapped=mapped,
+                                        decode=False,
+                                        
+                                        file_limit=file_limit,
+                                    )
+                                elif _id == b"##CC":
+                                    cc_block = ChannelConversion(
+                                        address=address,
+                                        stream=stream,
+                                        mapped=mapped,
+                                        
+                                        file_limit=file_limit,
+                                    )
+                                    refs["default_addr"] = cc_block
+                                else:
+                                    message = f'Expected "##TX" or "##CC" block @{hex(address)} but found "{_id!r}"'
+                                    logger.exception(message)
+                                    raise MdfException(message)
                         else:
                             refs["default_addr"] = b""
 
@@ -3001,38 +2982,23 @@ class ChannelConversion(_ChannelConversionBase):
                         for key in (f"input_{i}_addr", f"output_{i}_addr"):
                             address = typing.cast(int, self[key])
 
-                            if address:
-                                if address in tx_map:
-                                    refs[key] = tx_map[address].raw
-                                else:
-                                    refs[key] = get_text_v4(
-                                        address=address,
-                                        stream=stream,
-                                        mapped=mapped,
-                                        decode=False,
-                                        tx_map=tx_map,
-                                        file_limit=file_limit,
-                                    )
-                            else:
-                                refs[key] = b""
-                    address = self.default_addr
-                    if address:
-                        if address in tx_map:
-                            refs["default_addr"] = tx_map[address].raw
-                        else:
-                            tx_map[address] = MappedText(
-                                get_text_v4(
-                                    address=address,
-                                    stream=stream,
-                                    mapped=mapped,
-                                    decode=False,
-                                    tx_map=tx_map,
-                                    file_limit=file_limit,
-                                ),
-                                "",
+                            refs[key] = get_text_v4(
+                                address=address,
+                                stream=stream,
+                                mapped=mapped,
+                                decode=False,
+                                
+                                file_limit=file_limit,
                             )
-                    else:
-                        refs["default_addr"] = b""
+
+                    address = self.default_addr
+                    refs["default_addr"] = get_text_v4(
+                            address=address,
+                            stream=stream,
+                            mapped=mapped,
+                            decode=False,
+                            file_limit=file_limit,
+                        )
 
         else:
             self.name = kwargs.get("name", "")
@@ -4714,7 +4680,7 @@ class DataBlock:
                 handle_incomplete_block(address)
                 raise KeyError
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.reserved0, self.block_len, self.links_nr) = COMMON_uf(stream, address)
 
                 if address + self.block_len > file_limit:
@@ -5073,7 +5039,7 @@ class DataGroup:
                 handle_incomplete_block(address)
                 raise KeyError
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (
                     self.id,
                     self.reserved0,
@@ -5108,7 +5074,7 @@ class DataGroup:
                 logger.exception(message)
                 raise MdfException(message)
 
-            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, tx_map={}, file_limit=file_limit)
+            self.comment = get_text_v4(self.comment_addr, stream, mapped=mapped, file_limit=file_limit)
 
         except KeyError:
             self.address = 0
@@ -5250,7 +5216,7 @@ class DataList(_DataListBase):
             mapped = kwargs.get("mapped", False) or not is_file_like(stream)
             file_limit = kwargs.get("file_limit", float("inf"))
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 if self.address + COMMON_SIZE > file_limit:
                     logger.warning(f"incomplete block at 0x{self.address:x} exceeds the file size")
                     self.next_dl_addr = 0
@@ -5421,7 +5387,6 @@ class _EventBlockBase:
 
 
 class EventBlockKwargs(BlockKwargs, total=False):
-    tx_map: TxMap
     next_ev_addr: int
     parent_ev_addr: int
     range_start_ev_addr: int
@@ -5553,10 +5518,8 @@ class EventBlock(_EventBlockBase):
                 logger.exception(message)
                 raise MdfException(message)
 
-            tx_map = kwargs.get("tx_map", {})
-
-            self.name = get_text_v4(self.name_addr, stream, tx_map=tx_map, file_limit=file_limit)
-            self.comment = get_text_v4(self.comment_addr, stream, tx_map=tx_map, file_limit=file_limit)
+            self.name = get_text_v4(self.name_addr, stream, file_limit=file_limit)
+            self.comment = get_text_v4(self.comment_addr, stream, file_limit=file_limit)
 
         except KeyError:
             self.address = 0
@@ -5789,7 +5752,6 @@ class FileIdentificationBlock:
 
 
 class FileHistoryKwargs(BlockKwargs, total=False):
-    tx_map: TxMap
     reserved0: int
     block_len: int
     links_nr: int
@@ -5880,9 +5842,7 @@ class FileHistory:
                 logger.exception(message)
                 raise MdfException(message)
 
-            tx_map = kwargs.get("tx_map", {})
-
-            self.comment = get_text_v4(address=self.comment_addr, stream=stream, tx_map=tx_map, file_limit=file_limit)
+            self.comment = get_text_v4(address=self.comment_addr, stream=stream, file_limit=file_limit)
 
         except KeyError:
             self.id = b"##FH"
@@ -6043,7 +6003,7 @@ class GuardBlock:
             stream = kwargs["stream"]
             mapped = kwargs.get("mapped", False) or not is_file_like(stream)
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (
                     self.id,
                     self.reserved0,
@@ -6229,7 +6189,7 @@ class HeaderBlock:
                 logger.exception(message)
                 raise MdfException(message)
 
-            self.comment = get_text_v4(address=self.comment_addr, stream=stream, tx_map={}, file_limit=file_limit)
+            self.comment = get_text_v4(address=self.comment_addr, stream=stream,file_limit=file_limit)
 
         except KeyError:
             self.address = 0x40
@@ -6678,7 +6638,7 @@ class ListData(_ListDataBase):
             mapped = kwargs.get("mapped", False) or not is_file_like(stream)
             file_limit = kwargs.get("file_limit", float("inf"))
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 if self.address + COMMON_SIZE > file_limit:
                     logger.warning(f"incomplete block at 0x{self.address:x} exceeds the file size")
                     self.next_ld_addr = 0
@@ -6884,7 +6844,6 @@ class ListData(_ListDataBase):
 
 class SourceInformationKwargs(BlockKwargs, total=False):
     raw_bytes: bytes
-    tx_map: TxMap
     source_type: int
     bus_type: int
     file_limit: int | float
@@ -6976,16 +6935,14 @@ class SourceInformation:
                 logger.exception(message)
                 raise MdfException(message)
 
-            tx_map = kwargs["tx_map"]
-
             self.name = get_text_v4(
-                address=self.name_addr, stream=stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                address=self.name_addr, stream=stream, mapped=mapped, file_limit=file_limit
             )
             self.path = get_text_v4(
-                address=self.path_addr, stream=stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                address=self.path_addr, stream=stream, mapped=mapped, file_limit=file_limit
             )
             self.comment = get_text_v4(
-                address=self.comment_addr, stream=stream, mapped=mapped, tx_map=tx_map, file_limit=file_limit
+                address=self.comment_addr, stream=stream, mapped=mapped, file_limit=file_limit
             )
 
         else:
@@ -7223,7 +7180,7 @@ class TextBlock:
             mapped = kwargs.get("mapped", False) or not is_file_like(stream)
             self.address = address = kwargs["address"]
 
-            if utils.stream_is_mmap(stream, mapped):
+            if mapped:
                 (self.id, self.reserved0, self.block_len, self.links_nr) = COMMON_uf(stream, address)
 
                 size = self.block_len - COMMON_SIZE

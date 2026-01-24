@@ -1,23 +1,26 @@
 Metadata-Version: 2.4
 Name: pyseto
-Version: 1.8.5
+Version: 1.9.1
 Summary: A Python implementation of PASETO/PASERK.
-License: MIT
-License-File: LICENSE
 Author: Ajitomi Daisuke
-Author-email: dajiaji@gmail.com
-Requires-Python: >=3.9.2,<4.0
+Author-email: Ajitomi Daisuke <dajiaji@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: argon2-cffi (>=23.1.0)
-Requires-Dist: cryptography (>=42.0.1,<47)
-Requires-Dist: iso8601 (>=1.0.2,<3.0.0)
-Requires-Dist: pycryptodomex (>=3.18.0)
+Classifier: Typing :: Typed
+Requires-Dist: argon2-cffi>=23.1.0
+Requires-Dist: cryptography>=42.0.1,<47
+Requires-Dist: iso8601>=1.0.2,<3.0.0
+Requires-Dist: pycryptodomex>=3.18.0
+Requires-Python: >=3.10, <4.0
 Project-URL: Repository, https://github.com/dajiaji/pyseto
 Description-Content-Type: text/markdown
 
@@ -28,6 +31,7 @@ Description-Content-Type: text/markdown
 [![Documentation Status](https://readthedocs.org/projects/pyseto/badge/?version=latest)](https://pyseto.readthedocs.io/en/latest/?badge=latest)
 ![Github CI](https://github.com/dajiaji/pyseto/actions/workflows/ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/dajiaji/pyseto/branch/main/graph/badge.svg?token=QN8GXEYEP3)](https://codecov.io/gh/dajiaji/pyseto)
+[![Known Vulnerabilities](https://snyk.io/test/github/dajiaji/pyseto/badge.svg?targetFile=requirements.txt)](https://snyk.io/test/github/dajiaji/pyseto?targetFile=requirements.txt)
 
 
 PySETO is a [PASETO (Platform-Agnostic SEcurity TOkens)](https://paseto.io/)/[PASERK (Platform-Agnostic Serialized Keys)](https://github.com/paseto-standard/paserk) implementation written in Python
@@ -94,6 +98,7 @@ See following contents or [Documentation](https://pyseto.readthedocs.io/en/stabl
     - [Asymmetric Encryption](#asymmetric-encryption)
 - [API Reference](#api-reference)
 - [Tests](#tests)
+- [Security](#security)
 - [Contributing](#contributing)
 
 ## Installation
@@ -474,7 +479,16 @@ You can run tests from the project root after cloning with:
 $ tox
 ```
 
+## Security
+
+If you discover a security issue, please report it via a GitHub issue and avoid disclosing exploit details publicly until we respond.
+
+This project has not been formally audited; use it according to your risk assessment.
+
+The Snyk badge reports results based on `requirements.txt` exported from `uv.lock` and reflects dependency scanning only.
+
+See [SECURITY.md](SECURITY.md) for our security policy and reporting guidance.
+
 ## Contributing
 
 We welcome all kind of contributions, filing issues, suggesting new features or sending PRs.
-

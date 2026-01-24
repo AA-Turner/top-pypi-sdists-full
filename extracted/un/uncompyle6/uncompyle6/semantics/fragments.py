@@ -1,4 +1,4 @@
-#  Copyright (c) 2015-2019, 2021-2024 by Rocky Bernstein
+#  Copyright (c) 2015-2019, 2021-2025 by Rocky Bernstein
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -73,25 +73,25 @@ from spark_parser.ast import GenericASTTraversalPruningException
 from xdis import iscode
 from xdis.version_info import IS_PYPY, PYTHON_VERSION_TRIPLE
 
-import uncompyle6.parser as python_parser
+from uncompyle6.parser import ParserError as ParserError, parse
 from uncompyle6.parsers.treenode import SyntaxTree
 from uncompyle6.scanner import Code, Token, get_scanner
-from uncompyle6.semantics import pysource
 from uncompyle6.semantics.check_ast import checker
 from uncompyle6.semantics.consts import (
     INDENT_PER_LEVEL,
-    MAP,
     NONE,
     PASS,
     PRECEDENCE,
     TABLE_DIRECT,
     escape,
 )
+from uncompyle6.semantics.helper import find_code_node
 from uncompyle6.semantics.pysource import (
     DEFAULT_DEBUG_OPTS,
     TREE_DEFAULT_DEBUG,
-    ParserError,
+    SourceWalker,
     StringIO,
+    find_globals_and_nonlocals,
 )
 from uncompyle6.show import maybe_show_asm, maybe_show_tree
 
@@ -147,7 +147,7 @@ TABLE_DIRECT_FRAGMENT = {
 }
 
 
-class FragmentsWalker(pysource.SourceWalker, object):
+class FragmentsWalker(SourceWalker, object):
     MAP_DIRECT_FRAGMENT = ()
 
     stacked_params = ("f", "indent", "is_lambda", "_globals")
@@ -163,7 +163,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
         linestarts={},
         tolerate_errors=True,
     ):
-        pysource.SourceWalker.__init__(
+        SourceWalker.__init__(
             self,
             version=version,
             out=StringIO(),
@@ -189,8 +189,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
         self.is_pypy = is_pypy
 
         # FIXME: is there a better way?
-        global MAP_DIRECT_FRAGMENT
-        MAP_DIRECT_FRAGMENT = (dict(TABLE_DIRECT, **TABLE_DIRECT_FRAGMENT),)
+        self.MAP_DIRECT_FRAGMENT = (dict(TABLE_DIRECT, **TABLE_DIRECT_FRAGMENT),)
         return
 
     f = property(
@@ -238,7 +237,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
 
     def preorder(self, node=None):
         start = len(self.f.getvalue())
-        super(pysource.SourceWalker, self).preorder(node)
+        super(SourceWalker, self).preorder(node)
         self.set_pos_info(node, start, len(self.f.getvalue()))
 
         return
@@ -597,17 +596,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
     def n_mkfunc(self, node):
         start = len(self.f.getvalue())
 
-        if self.version >= (3, 3) or node[-2] == "kwargs":
-            # LOAD_CONST code object ..
-            # LOAD_CONST        'x0'  if >= 3.3
-            # MAKE_FUNCTION ..
-            code_node = node[-3]
-        elif node[-2] == "expr":
-            code_node = node[-2][0]
-        else:
-            # LOAD_CONST code object ..
-            # MAKE_FUNCTION ..
-            code_node = node[-2]
+        code_node = find_code_node(node, -2)
         func_name = code_node.attr.co_name
         self.write(func_name)
         self.set_pos_info(code_node, start, len(self.f.getvalue()))
@@ -655,6 +644,17 @@ class FragmentsWalker(pysource.SourceWalker, object):
 
         code = Code(cn.attr, self.scanner, self.currentclass)
         ast = self.build_ast(code._tokens, code._customize, code)
+
+        self.MAP_DIRECT = (self.TABLE_DIRECT,)
+        self.MAP_R = (self.TABLE_R, -1)
+
+        self.MAP = {
+            "stmt": self.MAP_R,
+            "call": self.MAP_R,
+            "delete": self.MAP_R,
+            "store": self.MAP_R,
+        }
+
         self.customize(code._customize)
 
         # Remove single reductions as in ("stmts", "sstmt"):
@@ -1177,11 +1177,11 @@ class FragmentsWalker(pysource.SourceWalker, object):
                 p_insts = self.p.insts
                 self.p.insts = self.scanner.insts
                 self.p.offset2inst_index = self.scanner.offset2inst_index
-                ast = python_parser.parse(self.p, tokens, customize, code)
+                ast = parse(self.p, tokens, customize, code)
                 self.customize(customize)
                 self.p.insts = p_insts
 
-            except (python_parser.ParserError, AssertionError) as e:
+            except (ParserError, AssertionError) as e:
                 raise ParserError(e, tokens)
             transform_tree = self.treeTransform.transform(ast, code)
             maybe_show_tree(self, ast)
@@ -1219,9 +1219,9 @@ class FragmentsWalker(pysource.SourceWalker, object):
             self.p.insts = self.scanner.insts
             self.p.offset2inst_index = self.scanner.offset2inst_index
             self.p.opc = self.scanner.opc
-            ast = python_parser.parse(self.p, tokens, customize, code)
+            ast = parse(self.p, tokens, customize, code)
             self.p.insts = p_insts
-        except (python_parser.ParserError, AssertionError) as e:
+        except (ParserError, AssertionError) as e:
             raise ParserError(e, tokens, {})
 
         checker(ast, False, self.ast_errors)
@@ -2003,8 +2003,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
             self.set_pos_info(last_node, startnode_start, self.last_finish)
         return
 
-    @classmethod
-    def _get_mapping(cls, node):
+    def _get_mapping(self, node):
         if (
             hasattr(node, "data")
             and len(node) > 0
@@ -2012,7 +2011,7 @@ class FragmentsWalker(pysource.SourceWalker, object):
             and not hasattr(node[-1], "parent")
         ):
             node[-1].parent = node
-        return MAP.get(node, MAP_DIRECT_FRAGMENT)
+        return self.MAP.get(node, self.MAP_DIRECT_FRAGMENT)
 
     pass
 
@@ -2117,7 +2116,7 @@ def code_deparse(
         debug_parser["errorstack"] = True
 
     # Build Syntax Tree from tokenized and massaged disassembly.
-    # deparsed = pysource.FragmentsWalker(out, scanner, showast=showast)
+    # deparsed = FragmentsWalker(out, scanner, showast=showast)
     show_tree = debug_opts.get("tree", False)
     linestarts = dict(scanner.opc.findlinestarts(co))
     deparsed = walker(
@@ -2143,7 +2142,7 @@ def code_deparse(
     # convert leading '__doc__ = "..." into doc string
     assert deparsed.ast == "stmts"
 
-    (deparsed.mod_globs, _) = pysource.find_globals_and_nonlocals(
+    (deparsed.mod_globs, _) = find_globals_and_nonlocals(
         deparsed.ast, set(), set(), co, version
     )
 

@@ -15,15 +15,11 @@ def location_3d_to_region_2d(
     """Return the region relative 2d location of a 3d position.
 
         :param region: region of the 3D viewport, typically bpy.context.region.
-        :type region: bpy.types.Region
         :param rv3d: 3D region data, typically bpy.context.space_data.region_3d.
-        :type rv3d: bpy.types.RegionView3D
         :param coord: 3d world-space location.
-        :type coord: collections.abc.Sequence[float] | mathutils.Vector
         :param default: Return this value if coord
     is behind the origin of a perspective view.
         :return: 2d location
-        :rtype: mathutils.Vector | typing.Any
     """
 
 def region_2d_to_location_3d(
@@ -36,17 +32,12 @@ def region_2d_to_location_3d(
     depth_location.
 
         :param region: region of the 3D viewport, typically bpy.context.region.
-        :type region: bpy.types.Region
         :param rv3d: 3D region data, typically bpy.context.space_data.region_3d.
-        :type rv3d: bpy.types.RegionView3D
         :param coord: 2d coordinates relative to the region;
     (event.mouse_region_x, event.mouse_region_y) for example.
-        :type coord: collections.abc.Sequence[float] | mathutils.Vector
         :param depth_location: the returned vectors depth is aligned with this since
     there is no defined depth with a 2d region input.
-        :type depth_location: collections.abc.Sequence[float] | mathutils.Vector
         :return: normalized 3d vector.
-        :rtype: mathutils.Vector
     """
 
 def region_2d_to_origin_3d(
@@ -59,17 +50,12 @@ def region_2d_to_origin_3d(
     """Return the 3d view origin from the region relative 2d coords.
 
         :param region: region of the 3D viewport, typically bpy.context.region.
-        :type region: bpy.types.Region
         :param rv3d: 3D region data, typically bpy.context.space_data.region_3d.
-        :type rv3d: bpy.types.RegionView3D
         :param coord: 2D coordinates relative to the region;
     (event.mouse_region_x, event.mouse_region_y) for example.
-        :type coord: collections.abc.Sequence[float]
         :param clamp: Clamp the maximum far-clip value used.
     (negative value will move the offset away from the view_location)
-        :type clamp: None | float | None
         :return: The origin of the viewpoint in 3d space.
-        :rtype: mathutils.Vector
     """
 
 def region_2d_to_vector_3d(
@@ -81,12 +67,8 @@ def region_2d_to_vector_3d(
     coordinate.
 
         :param region: region of the 3D viewport, typically bpy.context.region.
-        :type region: bpy.types.Region
         :param rv3d: 3D region data, typically bpy.context.space_data.region_3d.
-        :type rv3d: bpy.types.RegionView3D
         :param coord: 2d coordinates relative to the region:
     (event.mouse_region_x, event.mouse_region_y) for example.
-        :type coord: collections.abc.Sequence[float] | mathutils.Vector
         :return: normalized 3d vector.
-        :rtype: mathutils.Vector
     """

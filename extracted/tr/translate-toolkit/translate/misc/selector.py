@@ -32,7 +32,7 @@ from wsgiref.util import shift_path_info
 # resolver not essential for basic features
 # FIXME: this library is overkill, simplify
 with contextlib.suppress(ImportError):
-    from resolver import resolve
+    from resolver import resolve  # ty:ignore[unresolved-import]
 
 
 class MappingFileError(Exception):
@@ -53,9 +53,7 @@ def method_not_allowed(environ, start_response):
         ],
     )
     return [
-        "405 Method Not Allowed\n\n"
-        "The method specified in the Request-Line is not allowed "
-        "for the resource identified by the Request-URI."
+        "405 Method Not Allowed\n\nThe method specified in the Request-Line is not allowed for the resource identified by the Request-URI."
     ]
 
 
@@ -89,7 +87,7 @@ class Selector:
         wrap=None,
         mapfile=None,
         consume_path=True,
-    ):
+    ) -> None:
         """Initialize selector."""
         self.mappings = []
         self.prefix = prefix
@@ -104,7 +102,7 @@ class Selector:
             self.slurp(mappings)
         self.consume_path = consume_path
 
-    def slurp(self, mappings, prefix=None, parser=None, wrap=None):
+    def slurp(self, mappings, prefix=None, parser=None, wrap=None) -> None:
         """
         Slurp in a whole list (or iterable) of mappings.
 
@@ -128,7 +126,7 @@ class Selector:
         if prefix is not None:
             self.prefix = oldprefix
 
-    def add(self, path, method_dict=None, prefix=None, **http_methods):
+    def add(self, path, method_dict=None, prefix=None, **http_methods) -> None:
         """
         Add a mapping.
 
@@ -164,7 +162,8 @@ class Selector:
         environ["selector.vars"] = dict(named)
         for k in named:
             if k.isdigit():
-                unnamed.append((k, named.pop(k)))  # noqa: PERF401
+                # TODO: should not modify loop variable
+                unnamed.append((k, named.pop(k)))  # noqa: PERF401, B909
         unnamed.sort()
         unnamed = [v for k, v in unnamed]
         cur_unnamed, cur_named = environ.get("wsgiorg.routing_args", ([], {}))
@@ -201,7 +200,7 @@ class Selector:
                 return self.status405, {}, methods, ""
         return self.status404, {}, [], ""
 
-    def slurp_file(self, the_file, prefix=None, parser=None, wrap=None):
+    def slurp_file(self, the_file, prefix=None, parser=None, wrap=None) -> None:
         """
         Read mappings from a simple text file.
 
@@ -339,13 +338,13 @@ class SimpleParser:
     }
     default_pattern = "chunk"
 
-    def __init__(self, patterns=None):
+    def __init__(self, patterns=None) -> None:
         """Initialize with character class mappings."""
         self.patterns = dict(self._patterns)
         if patterns is not None:
             self.patterns.update(patterns)
 
-    def lookup(self, name):
+    def lookup(self, name) -> str:
         """Return the replacement for the name found."""
         if ":" in name:
             name, pattern = name.split(":")
@@ -358,7 +357,7 @@ class SimpleParser:
         return f"(?P<{name}>{pattern})"
 
     @staticmethod
-    def lastly(regex):
+    def lastly(regex) -> str:
         """
         Process the result of __call__ right before it returns.
 
@@ -367,7 +366,7 @@ class SimpleParser:
         return f"^{regex}$"
 
     @staticmethod
-    def openended(regex):
+    def openended(regex) -> str:
         """
         Process the result of ``__call__`` right before it returns.
 
@@ -409,7 +408,7 @@ class SimpleParser:
         if self.ostart in text:
             parts = self.outermost_optionals_split(text)
             parts = map(self.parse, parts)
-            parts[1::2] = [f"({p})?" for p in parts[1::2]]
+            parts[1::2] = [f"({p})?" for p in parts[1::2]]  # ty:ignore[invalid-assignment, not-subscriptable]
         else:
             parts = [part.split(self.end) for part in text.split(self.start)]
             parts = [y for x in parts for y in x]
@@ -429,7 +428,7 @@ class SimpleParser:
 class EnvironDispatcher:
     """Dispatch based on list of rules."""
 
-    def __init__(self, rules):
+    def __init__(self, rules) -> None:
         """Instantiate with a list of (predicate, wsgiapp) rules."""
         self.rules = rules
 
@@ -448,7 +447,7 @@ class EnvironDispatcher:
 class MiddlewareComposer:
     """Compose middleware based on list of rules."""
 
-    def __init__(self, app, rules):
+    def __init__(self, app, rules) -> None:
         """Instantiate with an app and a list of rules."""
         self.app = app
         self.rules = rules

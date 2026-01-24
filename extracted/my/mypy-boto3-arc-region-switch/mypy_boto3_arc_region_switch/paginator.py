@@ -18,6 +18,7 @@ Usage::
         ListPlanExecutionsPaginator,
         ListPlansInRegionPaginator,
         ListPlansPaginator,
+        ListRoute53HealthChecksInRegionPaginator,
         ListRoute53HealthChecksPaginator,
     )
 
@@ -30,6 +31,7 @@ Usage::
     list_plan_executions_paginator: ListPlanExecutionsPaginator = client.get_paginator("list_plan_executions")
     list_plans_in_region_paginator: ListPlansInRegionPaginator = client.get_paginator("list_plans_in_region")
     list_plans_paginator: ListPlansPaginator = client.get_paginator("list_plans")
+    list_route53_health_checks_in_region_paginator: ListRoute53HealthChecksInRegionPaginator = client.get_paginator("list_route53_health_checks_in_region")
     list_route53_health_checks_paginator: ListRoute53HealthChecksPaginator = client.get_paginator("list_route53_health_checks")
     ```
 """
@@ -54,6 +56,8 @@ from .type_defs import (
     ListPlansInRegionResponseTypeDef,
     ListPlansRequestPaginateTypeDef,
     ListPlansResponseTypeDef,
+    ListRoute53HealthChecksInRegionRequestPaginateTypeDef,
+    ListRoute53HealthChecksInRegionResponseTypeDef,
     ListRoute53HealthChecksRequestPaginateTypeDef,
     ListRoute53HealthChecksResponseTypeDef,
 )
@@ -71,6 +75,7 @@ __all__ = (
     "ListPlanExecutionsPaginator",
     "ListPlansInRegionPaginator",
     "ListPlansPaginator",
+    "ListRoute53HealthChecksInRegionPaginator",
     "ListRoute53HealthChecksPaginator",
 )
 
@@ -198,6 +203,29 @@ class ListPlansPaginator(_ListPlansPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListPlans.html#ARCRegionswitch.Paginator.ListPlans.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_arc_region_switch/paginators/#listplanspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListRoute53HealthChecksInRegionPaginatorBase = Paginator[
+        ListRoute53HealthChecksInRegionResponseTypeDef
+    ]
+else:
+    _ListRoute53HealthChecksInRegionPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListRoute53HealthChecksInRegionPaginator(_ListRoute53HealthChecksInRegionPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListRoute53HealthChecksInRegion.html#ARCRegionswitch.Paginator.ListRoute53HealthChecksInRegion)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_arc_region_switch/paginators/#listroute53healthchecksinregionpaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRoute53HealthChecksInRegionRequestPaginateTypeDef]
+    ) -> PageIterator[ListRoute53HealthChecksInRegionResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/paginator/ListRoute53HealthChecksInRegion.html#ARCRegionswitch.Paginator.ListRoute53HealthChecksInRegion.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_arc_region_switch/paginators/#listroute53healthchecksinregionpaginator)
         """
 
 

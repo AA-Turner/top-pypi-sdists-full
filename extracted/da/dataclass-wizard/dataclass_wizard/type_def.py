@@ -1,5 +1,6 @@
 __all__ = [
     'Buffer',
+    'Unpack',
     'PyForwardRef',
     'PyProtocol',
     'PyDeque',
@@ -62,7 +63,8 @@ if PY310_OR_ABOVE:
     # https://docs.python.org/3/library/types.html#types.NoneType
     from types import NoneType
 else:
-    NoneType = type(None)
+    # "Cannot assign to a type"
+    NoneType = type(None)  # type: ignore[misc]
 
 # Type check for numeric types - needed because `bool` is technically
 # a Number.
@@ -132,7 +134,8 @@ StrCollection = Union[str, Collection[str]]
 if PY313_OR_ABOVE:  # pragma: no cover
     from collections.abc import Buffer
 
-    from typing import (Required as PyRequired,
+    from typing import (Unpack,
+                        Required as PyRequired,
                         NotRequired as PyNotRequired,
                         ReadOnly as PyReadOnly,
                         LiteralString as PyLiteralString,
@@ -143,13 +146,15 @@ elif PY311_OR_ABOVE:  # pragma: no cover
     else:
         from typing_extensions import Buffer
 
-    from typing import (Required as PyRequired,
+    from typing import (Unpack,
+                        Required as PyRequired,
                         NotRequired as PyNotRequired,
                         LiteralString as PyLiteralString,
                         dataclass_transform)
     from typing_extensions import ReadOnly as PyReadOnly
 else:
-    from typing_extensions import (Buffer,
+    from typing_extensions import (Unpack,
+                                   Buffer,
                                    Required as PyRequired,
                                    NotRequired as PyNotRequired,
                                    ReadOnly as PyReadOnly,
@@ -164,7 +169,8 @@ FREF = TypeVar('FREF', str, PyForwardRef)
 class ExplicitNullType:
     __slots__ = ()  # Saves memory by preventing the creation of instance dictionaries
 
-    _instance = None  # Class-level instance variable for singleton control
+    # Class-level instance variable for singleton control
+    _instance: "ExplicitNullType | None" = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -194,7 +200,7 @@ class Encoder(PyProtocol):
     def __call__(self, obj: Union[JSONObject, JSONList],
                  /,
                  *args,
-                 **kwargs) -> AnyStr:
+                 **kwargs) -> str:
         ...
 
 

@@ -52,7 +52,7 @@ class NotifySeven(NotifyBase):
     secure_protocol = "seven"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_seven"
+    setup_url = "https://appriseit.com/services/seven/"
 
     # Seven uses the http protocol with JSON requests
     notify_url = "https://gateway.seven.io/api/sms"
@@ -265,7 +265,9 @@ class NotifySeven(NotifyBase):
                             r.status_code,
                         )
                     )
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
+
                     # Mark our failure
                     has_error = True
                     continue

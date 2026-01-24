@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 from datetime import datetime
 
 import httpx
 
-from ...._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from ...._utils import maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
@@ -17,11 +17,13 @@ from ...._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ...._base_client import make_request_options
+from ....pagination import SyncDefaultPaginationForMessagingTollfree, AsyncDefaultPaginationForMessagingTollfree
+from ...._base_client import AsyncPaginator, make_request_options
 from ....types.messaging_tollfree.verification import (
     Volume,
     UseCaseCategories,
     TfVerificationStatus,
+    TollFreeVerificationEntityType,
     request_list_params,
     request_create_params,
     request_update_params,
@@ -29,11 +31,11 @@ from ....types.messaging_tollfree.verification import (
 from ....types.messaging_tollfree.verification.volume import Volume
 from ....types.messaging_tollfree.verification.url_param import URLParam
 from ....types.messaging_tollfree.verification.use_case_categories import UseCaseCategories
-from ....types.messaging_tollfree.verification.request_list_response import RequestListResponse
 from ....types.messaging_tollfree.verification.tf_phone_number_param import TfPhoneNumberParam
 from ....types.messaging_tollfree.verification.tf_verification_status import TfVerificationStatus
 from ....types.messaging_tollfree.verification.verification_request_egress import VerificationRequestEgress
 from ....types.messaging_tollfree.verification.verification_request_status import VerificationRequestStatus
+from ....types.messaging_tollfree.verification.toll_free_verification_entity_type import TollFreeVerificationEntityType
 
 __all__ = ["RequestsResource", "AsyncRequestsResource"]
 
@@ -80,7 +82,19 @@ class RequestsResource(SyncAPIResource):
         production_message_content: str,
         use_case: UseCaseCategories,
         use_case_summary: str,
+        age_gated_content: bool | Omit = omit,
         business_addr2: str | Omit = omit,
+        business_registration_country: Optional[str] | Omit = omit,
+        business_registration_number: Optional[str] | Omit = omit,
+        business_registration_type: Optional[str] | Omit = omit,
+        campaign_verify_authorization_token: Optional[str] | Omit = omit,
+        doing_business_as: Optional[str] | Omit = omit,
+        entity_type: Optional[TollFreeVerificationEntityType] | Omit = omit,
+        help_message_response: Optional[str] | Omit = omit,
+        opt_in_confirmation_response: Optional[str] | Omit = omit,
+        opt_in_keywords: Optional[str] | Omit = omit,
+        privacy_policy_url: Optional[str] | Omit = omit,
+        terms_and_condition_url: Optional[str] | Omit = omit,
         webhook_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -135,7 +149,39 @@ class RequestsResource(SyncAPIResource):
 
           use_case_summary: Human-readable summary of the desired use-case
 
+          age_gated_content: Indicates if messaging content requires age gating (e.g., 18+). Defaults to
+              false if not provided.
+
           business_addr2: Line 2 of the business address
+
+          business_registration_country: ISO 3166-1 alpha-2 country code of the issuing business authority. Must be
+              exactly 2 letters. Automatically converted to uppercase. Required from
+              January 2026.
+
+          business_registration_number: Official business registration number (e.g., Employer Identification Number
+              (EIN) in the U.S.). Required from January 2026.
+
+          business_registration_type: Type of business registration being provided. Required from January 2026.
+
+          campaign_verify_authorization_token: Campaign Verify Authorization Token required for Political use case submissions
+              starting February 17, 2026. This token is validated by Zipwhip and must be
+              provided for all Political use case verifications after the deadline.
+
+          doing_business_as: Doing Business As (DBA) name if different from legal name
+
+          entity_type: Business entity classification
+
+          help_message_response: The message returned when users text 'HELP'
+
+          opt_in_confirmation_response: Message sent to users confirming their opt-in to receive messages
+
+          opt_in_keywords: Keywords used to collect and process consumer opt-ins
+
+          privacy_policy_url: URL pointing to the business's privacy policy. Plain string, no URL format
+              validation.
+
+          terms_and_condition_url: URL pointing to the business's terms and conditions. Plain string, no URL format
+              validation.
 
           webhook_url: URL that should receive webhooks relating to this verification request
 
@@ -170,7 +216,19 @@ class RequestsResource(SyncAPIResource):
                     "production_message_content": production_message_content,
                     "use_case": use_case,
                     "use_case_summary": use_case_summary,
+                    "age_gated_content": age_gated_content,
                     "business_addr2": business_addr2,
+                    "business_registration_country": business_registration_country,
+                    "business_registration_number": business_registration_number,
+                    "business_registration_type": business_registration_type,
+                    "campaign_verify_authorization_token": campaign_verify_authorization_token,
+                    "doing_business_as": doing_business_as,
+                    "entity_type": entity_type,
+                    "help_message_response": help_message_response,
+                    "opt_in_confirmation_response": opt_in_confirmation_response,
+                    "opt_in_keywords": opt_in_keywords,
+                    "privacy_policy_url": privacy_policy_url,
+                    "terms_and_condition_url": terms_and_condition_url,
                     "webhook_url": webhook_url,
                 },
                 request_create_params.RequestCreateParams,
@@ -237,7 +295,19 @@ class RequestsResource(SyncAPIResource):
         production_message_content: str,
         use_case: UseCaseCategories,
         use_case_summary: str,
+        age_gated_content: bool | Omit = omit,
         business_addr2: str | Omit = omit,
+        business_registration_country: Optional[str] | Omit = omit,
+        business_registration_number: Optional[str] | Omit = omit,
+        business_registration_type: Optional[str] | Omit = omit,
+        campaign_verify_authorization_token: Optional[str] | Omit = omit,
+        doing_business_as: Optional[str] | Omit = omit,
+        entity_type: Optional[TollFreeVerificationEntityType] | Omit = omit,
+        help_message_response: Optional[str] | Omit = omit,
+        opt_in_confirmation_response: Optional[str] | Omit = omit,
+        opt_in_keywords: Optional[str] | Omit = omit,
+        privacy_policy_url: Optional[str] | Omit = omit,
+        terms_and_condition_url: Optional[str] | Omit = omit,
         webhook_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -294,7 +364,39 @@ class RequestsResource(SyncAPIResource):
 
           use_case_summary: Human-readable summary of the desired use-case
 
+          age_gated_content: Indicates if messaging content requires age gating (e.g., 18+). Defaults to
+              false if not provided.
+
           business_addr2: Line 2 of the business address
+
+          business_registration_country: ISO 3166-1 alpha-2 country code of the issuing business authority. Must be
+              exactly 2 letters. Automatically converted to uppercase. Required from
+              January 2026.
+
+          business_registration_number: Official business registration number (e.g., Employer Identification Number
+              (EIN) in the U.S.). Required from January 2026.
+
+          business_registration_type: Type of business registration being provided. Required from January 2026.
+
+          campaign_verify_authorization_token: Campaign Verify Authorization Token required for Political use case submissions
+              starting February 17, 2026. This token is validated by Zipwhip and must be
+              provided for all Political use case verifications after the deadline.
+
+          doing_business_as: Doing Business As (DBA) name if different from legal name
+
+          entity_type: Business entity classification
+
+          help_message_response: The message returned when users text 'HELP'
+
+          opt_in_confirmation_response: Message sent to users confirming their opt-in to receive messages
+
+          opt_in_keywords: Keywords used to collect and process consumer opt-ins
+
+          privacy_policy_url: URL pointing to the business's privacy policy. Plain string, no URL format
+              validation.
+
+          terms_and_condition_url: URL pointing to the business's terms and conditions. Plain string, no URL format
+              validation.
 
           webhook_url: URL that should receive webhooks relating to this verification request
 
@@ -331,7 +433,19 @@ class RequestsResource(SyncAPIResource):
                     "production_message_content": production_message_content,
                     "use_case": use_case,
                     "use_case_summary": use_case_summary,
+                    "age_gated_content": age_gated_content,
                     "business_addr2": business_addr2,
+                    "business_registration_country": business_registration_country,
+                    "business_registration_number": business_registration_number,
+                    "business_registration_type": business_registration_type,
+                    "campaign_verify_authorization_token": campaign_verify_authorization_token,
+                    "doing_business_as": doing_business_as,
+                    "entity_type": entity_type,
+                    "help_message_response": help_message_response,
+                    "opt_in_confirmation_response": opt_in_confirmation_response,
+                    "opt_in_keywords": opt_in_keywords,
+                    "privacy_policy_url": privacy_policy_url,
+                    "terms_and_condition_url": terms_and_condition_url,
                     "webhook_url": webhook_url,
                 },
                 request_update_params.RequestUpdateParams,
@@ -357,7 +471,7 @@ class RequestsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RequestListResponse:
+    ) -> SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus]:
         """
         Get a list of previously-submitted tollfree verification requests
 
@@ -376,8 +490,9 @@ class RequestsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/messaging_tollfree/verification/requests",
+            page=SyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -395,7 +510,7 @@ class RequestsResource(SyncAPIResource):
                     request_list_params.RequestListParams,
                 ),
             ),
-            cast_to=RequestListResponse,
+            model=VerificationRequestStatus,
         )
 
     def delete(
@@ -408,7 +523,7 @@ class RequestsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """
         Delete a verification request
 
@@ -429,12 +544,13 @@ class RequestsResource(SyncAPIResource):
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
             f"/messaging_tollfree/verification/requests/{id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
 
@@ -480,7 +596,19 @@ class AsyncRequestsResource(AsyncAPIResource):
         production_message_content: str,
         use_case: UseCaseCategories,
         use_case_summary: str,
+        age_gated_content: bool | Omit = omit,
         business_addr2: str | Omit = omit,
+        business_registration_country: Optional[str] | Omit = omit,
+        business_registration_number: Optional[str] | Omit = omit,
+        business_registration_type: Optional[str] | Omit = omit,
+        campaign_verify_authorization_token: Optional[str] | Omit = omit,
+        doing_business_as: Optional[str] | Omit = omit,
+        entity_type: Optional[TollFreeVerificationEntityType] | Omit = omit,
+        help_message_response: Optional[str] | Omit = omit,
+        opt_in_confirmation_response: Optional[str] | Omit = omit,
+        opt_in_keywords: Optional[str] | Omit = omit,
+        privacy_policy_url: Optional[str] | Omit = omit,
+        terms_and_condition_url: Optional[str] | Omit = omit,
         webhook_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -535,7 +663,39 @@ class AsyncRequestsResource(AsyncAPIResource):
 
           use_case_summary: Human-readable summary of the desired use-case
 
+          age_gated_content: Indicates if messaging content requires age gating (e.g., 18+). Defaults to
+              false if not provided.
+
           business_addr2: Line 2 of the business address
+
+          business_registration_country: ISO 3166-1 alpha-2 country code of the issuing business authority. Must be
+              exactly 2 letters. Automatically converted to uppercase. Required from
+              January 2026.
+
+          business_registration_number: Official business registration number (e.g., Employer Identification Number
+              (EIN) in the U.S.). Required from January 2026.
+
+          business_registration_type: Type of business registration being provided. Required from January 2026.
+
+          campaign_verify_authorization_token: Campaign Verify Authorization Token required for Political use case submissions
+              starting February 17, 2026. This token is validated by Zipwhip and must be
+              provided for all Political use case verifications after the deadline.
+
+          doing_business_as: Doing Business As (DBA) name if different from legal name
+
+          entity_type: Business entity classification
+
+          help_message_response: The message returned when users text 'HELP'
+
+          opt_in_confirmation_response: Message sent to users confirming their opt-in to receive messages
+
+          opt_in_keywords: Keywords used to collect and process consumer opt-ins
+
+          privacy_policy_url: URL pointing to the business's privacy policy. Plain string, no URL format
+              validation.
+
+          terms_and_condition_url: URL pointing to the business's terms and conditions. Plain string, no URL format
+              validation.
 
           webhook_url: URL that should receive webhooks relating to this verification request
 
@@ -570,7 +730,19 @@ class AsyncRequestsResource(AsyncAPIResource):
                     "production_message_content": production_message_content,
                     "use_case": use_case,
                     "use_case_summary": use_case_summary,
+                    "age_gated_content": age_gated_content,
                     "business_addr2": business_addr2,
+                    "business_registration_country": business_registration_country,
+                    "business_registration_number": business_registration_number,
+                    "business_registration_type": business_registration_type,
+                    "campaign_verify_authorization_token": campaign_verify_authorization_token,
+                    "doing_business_as": doing_business_as,
+                    "entity_type": entity_type,
+                    "help_message_response": help_message_response,
+                    "opt_in_confirmation_response": opt_in_confirmation_response,
+                    "opt_in_keywords": opt_in_keywords,
+                    "privacy_policy_url": privacy_policy_url,
+                    "terms_and_condition_url": terms_and_condition_url,
                     "webhook_url": webhook_url,
                 },
                 request_create_params.RequestCreateParams,
@@ -637,7 +809,19 @@ class AsyncRequestsResource(AsyncAPIResource):
         production_message_content: str,
         use_case: UseCaseCategories,
         use_case_summary: str,
+        age_gated_content: bool | Omit = omit,
         business_addr2: str | Omit = omit,
+        business_registration_country: Optional[str] | Omit = omit,
+        business_registration_number: Optional[str] | Omit = omit,
+        business_registration_type: Optional[str] | Omit = omit,
+        campaign_verify_authorization_token: Optional[str] | Omit = omit,
+        doing_business_as: Optional[str] | Omit = omit,
+        entity_type: Optional[TollFreeVerificationEntityType] | Omit = omit,
+        help_message_response: Optional[str] | Omit = omit,
+        opt_in_confirmation_response: Optional[str] | Omit = omit,
+        opt_in_keywords: Optional[str] | Omit = omit,
+        privacy_policy_url: Optional[str] | Omit = omit,
+        terms_and_condition_url: Optional[str] | Omit = omit,
         webhook_url: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -694,7 +878,39 @@ class AsyncRequestsResource(AsyncAPIResource):
 
           use_case_summary: Human-readable summary of the desired use-case
 
+          age_gated_content: Indicates if messaging content requires age gating (e.g., 18+). Defaults to
+              false if not provided.
+
           business_addr2: Line 2 of the business address
+
+          business_registration_country: ISO 3166-1 alpha-2 country code of the issuing business authority. Must be
+              exactly 2 letters. Automatically converted to uppercase. Required from
+              January 2026.
+
+          business_registration_number: Official business registration number (e.g., Employer Identification Number
+              (EIN) in the U.S.). Required from January 2026.
+
+          business_registration_type: Type of business registration being provided. Required from January 2026.
+
+          campaign_verify_authorization_token: Campaign Verify Authorization Token required for Political use case submissions
+              starting February 17, 2026. This token is validated by Zipwhip and must be
+              provided for all Political use case verifications after the deadline.
+
+          doing_business_as: Doing Business As (DBA) name if different from legal name
+
+          entity_type: Business entity classification
+
+          help_message_response: The message returned when users text 'HELP'
+
+          opt_in_confirmation_response: Message sent to users confirming their opt-in to receive messages
+
+          opt_in_keywords: Keywords used to collect and process consumer opt-ins
+
+          privacy_policy_url: URL pointing to the business's privacy policy. Plain string, no URL format
+              validation.
+
+          terms_and_condition_url: URL pointing to the business's terms and conditions. Plain string, no URL format
+              validation.
 
           webhook_url: URL that should receive webhooks relating to this verification request
 
@@ -731,7 +947,19 @@ class AsyncRequestsResource(AsyncAPIResource):
                     "production_message_content": production_message_content,
                     "use_case": use_case,
                     "use_case_summary": use_case_summary,
+                    "age_gated_content": age_gated_content,
                     "business_addr2": business_addr2,
+                    "business_registration_country": business_registration_country,
+                    "business_registration_number": business_registration_number,
+                    "business_registration_type": business_registration_type,
+                    "campaign_verify_authorization_token": campaign_verify_authorization_token,
+                    "doing_business_as": doing_business_as,
+                    "entity_type": entity_type,
+                    "help_message_response": help_message_response,
+                    "opt_in_confirmation_response": opt_in_confirmation_response,
+                    "opt_in_keywords": opt_in_keywords,
+                    "privacy_policy_url": privacy_policy_url,
+                    "terms_and_condition_url": terms_and_condition_url,
                     "webhook_url": webhook_url,
                 },
                 request_update_params.RequestUpdateParams,
@@ -742,7 +970,7 @@ class AsyncRequestsResource(AsyncAPIResource):
             cast_to=VerificationRequestEgress,
         )
 
-    async def list(
+    def list(
         self,
         *,
         page: int,
@@ -757,7 +985,9 @@ class AsyncRequestsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RequestListResponse:
+    ) -> AsyncPaginator[
+        VerificationRequestStatus, AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus]
+    ]:
         """
         Get a list of previously-submitted tollfree verification requests
 
@@ -776,14 +1006,15 @@ class AsyncRequestsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/messaging_tollfree/verification/requests",
+            page=AsyncDefaultPaginationForMessagingTollfree[VerificationRequestStatus],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "page": page,
                         "page_size": page_size,
@@ -795,7 +1026,7 @@ class AsyncRequestsResource(AsyncAPIResource):
                     request_list_params.RequestListParams,
                 ),
             ),
-            cast_to=RequestListResponse,
+            model=VerificationRequestStatus,
         )
 
     async def delete(
@@ -808,7 +1039,7 @@ class AsyncRequestsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """
         Delete a verification request
 
@@ -829,12 +1060,13 @@ class AsyncRequestsResource(AsyncAPIResource):
         """
         if not id:
             raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
             f"/messaging_tollfree/verification/requests/{id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
 

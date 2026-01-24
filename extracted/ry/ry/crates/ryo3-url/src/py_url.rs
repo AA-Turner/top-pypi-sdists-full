@@ -2,15 +2,16 @@ use crate::UrlLike;
 use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
-use ryo3_macro_rules::py_value_error;
+use ryo3_macro_rules::{py_type_err, py_value_error};
 use std::ffi::OsString;
 use std::hash::{Hash, Hasher};
 use std::net::IpAddr;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize), serde(transparent))]
-#[pyclass(name = "URL", frozen)]
+#[pyclass(name = "URL", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PyUrl(pub(crate) url::Url);
 
@@ -18,23 +19,6 @@ impl PyUrl {
     #[must_use]
     pub fn new(url: url::Url) -> Self {
         Self(url)
-    }
-
-    fn parse_with_params(url: &str, params: &Bound<'_, PyDict>) -> PyResult<Self> {
-        let params = params
-            .into_iter()
-            .map(|(k, v)| {
-                let k_str: String = k.extract()?;
-                let v_str: String = v.extract()?;
-                Ok((k_str, v_str))
-            })
-            .collect::<PyResult<Vec<(String, String)>>>()?;
-
-        url::Url::parse_with_params(url, params)
-            .map(PyUrl)
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (url={url})"))
-            })
     }
 }
 
@@ -54,7 +38,7 @@ impl PyUrl {
     #[pyo3(signature = (url, *, params = None))]
     fn py_new(url: UrlLike, params: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
         if let Some(params) = params {
-            Self::parse_with_params(url.0.as_str(), params)
+            url.py_with_params(params).map(Self::from)
         } else {
             Ok(Self::from(url.0))
         }
@@ -65,40 +49,38 @@ impl PyUrl {
     }
 
     #[staticmethod]
-    fn from_str(url: &str) -> PyResult<Self> {
-        url::Url::parse(url).map(PyUrl).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (url={url})"))
-        })
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
     }
 
     #[staticmethod]
-    #[pyo3(signature = (url, *, params = None))]
-    fn parse(url: &str, params: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-        if let Some(params) = params {
-            Self::parse_with_params(url, params)
-        } else {
-            url::Url::parse(url).map(PyUrl).map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e} (url={url})"))
-            })
-        }
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
     }
 
     #[staticmethod]
-    #[pyo3(name = "parse_with_params")]
-    fn py_parse_with_params(url: &str, params: &Bound<'_, PyDict>) -> PyResult<Self> {
-        Self::parse_with_params(url, params)
+    #[pyo3(name = "parse_with_params", signature = (url, params))]
+    fn py_parse_with_params(url: UrlLike, params: &Bound<'_, PyDict>) -> PyResult<Self> {
+        url.py_with_params(params).map(Self::from)
     }
 
     fn __str__(&self) -> &str {
         self.0.as_str()
     }
 
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> &str {
+        self.0.as_str()
+    }
+
     fn __repr__(&self) -> String {
-        format!("URL(\'{}\')", self.0.as_str())
+        format!("{self}")
     }
 
     fn __hash__(&self) -> u64 {
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        let mut hasher = std::hash::DefaultHasher::new();
         self.0.hash(&mut hasher);
         hasher.finish()
     }
@@ -161,34 +143,25 @@ impl PyUrl {
         })
     }
 
-    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<bool> {
-        if let Ok(other) = other.cast::<Self>() {
-            let other = other.borrow();
-            match op {
-                CompareOp::Eq => Ok(self.0 == other.0),
-                CompareOp::Ne => Ok(self.0 != other.0),
-                CompareOp::Lt => Ok(self.0 < other.0),
-                CompareOp::Le => Ok(self.0 <= other.0),
-                CompareOp::Gt => Ok(self.0 > other.0),
-                CompareOp::Ge => Ok(self.0 >= other.0),
-            }
+    fn equiv(&self, other: &Bound<'_, PyAny>) -> bool {
+        if let Ok(other) = other.cast_exact::<Self>() {
+            let other = other.get();
+            self.0 == other.0
         } else if let Ok(other) = other.extract::<&str>() {
-            match op {
-                CompareOp::Eq => Ok(self.0.as_str() == other),
-                CompareOp::Ne => Ok(self.0.as_str() != other),
-                CompareOp::Lt => Ok(self.0.as_str() < other),
-                CompareOp::Le => Ok(self.0.as_str() <= other),
-                CompareOp::Gt => Ok(self.0.as_str() > other),
-                CompareOp::Ge => Ok(self.0.as_str() >= other),
-            }
+            self.0.as_str() == other
         } else {
-            match op {
-                CompareOp::Eq => Ok(false),
-                CompareOp::Ne => Ok(true),
-                _ => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                    "unsupported operand type(s) for comparison",
-                )),
-            }
+            false
+        }
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => self.0 == other.0,
+            CompareOp::Ne => self.0 != other.0,
+            CompareOp::Lt => self.0 < other.0,
+            CompareOp::Le => self.0 <= other.0,
+            CompareOp::Gt => self.0 > other.0,
+            CompareOp::Ge => self.0 >= other.0,
         }
     }
 
@@ -202,10 +175,30 @@ impl PyUrl {
         self.0.domain()
     }
 
-    // TODO: figure out if we are going to return a host obj
+    #[cfg(not(feature = "ryo3-std"))]
     #[getter]
     fn host(&self) -> Option<&str> {
         self.0.host_str()
+    }
+
+    #[cfg(feature = "ryo3-std")]
+    #[getter]
+    fn host<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3::IntoPyObjectExt;
+        if let Some(host) = self.0.host() {
+            match host {
+                url::Host::Domain(d) => d.into_bound_py_any(py),
+                url::Host::Ipv4(ipv4) => {
+                    ryo3_std::net::PyIpv4Addr::from(ipv4).into_bound_py_any(py)
+                }
+                url::Host::Ipv6(ipv6) => {
+                    ryo3_std::net::PyIpv6Addr::from(ipv6).into_bound_py_any(py)
+                }
+            }
+        } else {
+            let n = py.None();
+            n.into_bound_py_any(py)
+        }
     }
 
     #[getter]
@@ -239,6 +232,11 @@ impl PyUrl {
     }
 
     #[getter]
+    fn query_string(&self) -> &str {
+        self.0.query().unwrap_or("")
+    }
+
+    #[getter]
     fn query_pairs<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
         let query_pairs = self
             .0
@@ -251,6 +249,11 @@ impl PyUrl {
     #[getter]
     fn fragment(&self) -> Option<&str> {
         self.0.fragment()
+    }
+
+    #[getter]
+    fn user(&self) -> &str {
+        self.0.username()
     }
 
     #[getter]
@@ -352,7 +355,7 @@ impl PyUrl {
         &self,
         fragment: Option<&str>,
         host: Option<&str>,
-        ip_host: Option<IpAddr>,
+        ip_host: Option<&Bound<'_, PyAny>>,
         password: Option<&str>,
         path: Option<&str>,
         port: Option<u16>,
@@ -369,6 +372,7 @@ impl PyUrl {
                 .map_err(|e| py_value_error!("{e} (host={host:?})"))?;
         }
         if let Some(ip_host) = ip_host {
+            let ip_host = extract_ip_host(ip_host)?;
             url.set_ip_host(ip_host)
                 .map_err(|()| py_value_error!("Err setting ip_host (ip_host={ip_host})"))?;
         }
@@ -398,43 +402,44 @@ impl PyUrl {
     }
 
     #[pyo3(signature = (fragment = None))]
-    fn replace_fragment(&self, fragment: Option<&str>) -> Self {
+    fn with_fragment(&self, fragment: Option<&str>) -> Self {
         let mut url = self.0.clone();
         url.set_fragment(fragment);
         Self(url)
     }
 
     #[pyo3(signature = (host = None))]
-    fn replace_host(&self, host: Option<&str>) -> PyResult<Self> {
+    fn with_host(&self, host: Option<&str>) -> PyResult<Self> {
         let mut url = self.0.clone();
         url.set_host(host)
             .map_err(|e| py_value_error!("{e} (host={host:?})"))?;
         Ok(Self(url))
     }
 
-    fn replace_ip_host(&self, ip_host: IpAddr) -> PyResult<Self> {
+    fn with_ip_host(&self, address: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let address = extract_ip_host(address)?;
         let mut url = self.0.clone();
-        url.set_ip_host(ip_host)
-            .map_err(|()| py_value_error!("Err setting ip_host (ip_host={ip_host})"))?;
+        url.set_ip_host(address)
+            .map_err(|()| py_value_error!("Err setting ip_host (address={address})"))?;
         Ok(Self(url))
     }
 
     #[pyo3(signature = (password = None))]
-    fn replace_password(&self, password: Option<&str>) -> PyResult<Self> {
+    fn with_password(&self, password: Option<&str>) -> PyResult<Self> {
         let mut url = self.0.clone();
         url.set_password(password)
             .map_err(|()| py_value_error!("Err setting password (password={password:?})"))?;
         Ok(Self(url))
     }
 
-    fn replace_path(&self, path: &str) -> Self {
+    fn with_path(&self, path: &str) -> Self {
         let mut url = self.0.clone();
         url.set_path(path);
         Self::from(url)
     }
 
     #[pyo3(signature = (port = None))]
-    fn replace_port(&self, port: Option<u16>) -> PyResult<Self> {
+    fn with_port(&self, port: Option<u16>) -> PyResult<Self> {
         let mut url = self.0.clone();
         url.set_port(port)
             .map_err(|()| py_value_error!("Err setting port (port={port:?})"))?;
@@ -442,20 +447,20 @@ impl PyUrl {
     }
 
     #[pyo3(signature = (query = None))]
-    fn replace_query(&self, query: Option<&str>) -> Self {
+    fn with_query(&self, query: Option<&str>) -> Self {
         let mut url = self.0.clone();
         url.set_query(query);
         Self::from(url)
     }
 
-    fn replace_scheme(&self, scheme: &str) -> PyResult<Self> {
+    fn with_scheme(&self, scheme: &str) -> PyResult<Self> {
         let mut url = self.0.clone();
         url.set_scheme(scheme)
             .map_err(|()| py_value_error!("Err setting scheme (scheme={scheme})"))?;
         Ok(Self::from(url))
     }
 
-    fn replace_username(&self, username: &str) -> PyResult<Self> {
+    fn with_username(&self, username: &str) -> PyResult<Self> {
         let mut url = self.0.clone();
         url.set_username(username)
             .map_err(|()| py_value_error!("Err setting username (username={username:?})"))?;
@@ -483,6 +488,164 @@ impl PyUrl {
         let socks = sockets.into_iter().map(|sock| sock.to_string()).collect();
         Ok(socks)
     }
+
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use pyo3::IntoPyObjectExt;
+        use ryo3_macro_rules::{py_value_err, py_value_error};
+        if let Ok(url) = value.cast_exact::<Self>() {
+            url.into_bound_py_any(value.py())
+        } else if let Ok(s) = value.extract::<&str>() {
+            if s.is_empty() {
+                // match pydantic's AnyUrl err msg
+                return py_value_err!("URL validation error: input is empty");
+            }
+            let url = url::Url::parse(s)
+                .map_err(|e| py_value_error!("URL validation error: {e} (url={s})"))?;
+            let py_url = Self::from(url);
+            py_url.into_bound_py_any(value.py())
+        } else if let Ok(b) = value.extract::<&[u8]>() {
+            if b.is_empty() {
+                // match pydantic's AnyUrl err msg
+                return py_value_err!("URL validation error: input is empty");
+            }
+            // to str
+            let str = std::str::from_utf8(b).map_err(|e| {
+                py_value_error!("URL validation error: invalid UTF-8 sequence: {e} (url={b:?})")
+            })?;
+            let url = url::Url::parse(str)
+                .map_err(|e| py_value_error!("URL validation error: {e} (url={b:?})"))?;
+            let py_url = Self::from(url);
+            py_url.into_bound_py_any(value.py())
+        } else {
+            // TODO: figure out how to match pydantic's ability to do value-type-errors?
+            ryo3_macro_rules::py_value_err!("Expected str or bytes or URL object",)
+        }
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
+    }
+
+    // ========================================================================
+    // DEPRECATED METHODS
+    // ========================================================================
+    #[pyo3(
+        signature = (fragment = None),
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_fragment(&self, fragment: Option<&str>) -> Self {
+        self.with_fragment(fragment)
+    }
+
+    #[pyo3(
+        signature = (host = None),
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_host(&self, host: Option<&str>) -> PyResult<Self> {
+        self.with_host(host)
+    }
+
+    #[pyo3(
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_ip_host(&self, address: &Bound<'_, PyAny>) -> PyResult<Self> {
+        self.with_ip_host(address)
+    }
+
+    #[pyo3(
+        signature = (password = None),
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_password(&self, password: Option<&str>) -> PyResult<Self> {
+        self.with_password(password)
+    }
+
+    #[pyo3(
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_path(&self, path: &str) -> Self {
+        self.with_path(path)
+    }
+
+    #[pyo3(
+        signature = (port = None),
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_port(&self, port: Option<u16>) -> PyResult<Self> {
+        self.with_port(port)
+    }
+
+    #[pyo3(
+        signature = (query = None),
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_query(&self, query: Option<&str>) -> Self {
+        self.with_query(query)
+    }
+
+    #[pyo3(
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_scheme(&self, scheme: &str) -> PyResult<Self> {
+        self.with_scheme(scheme)
+    }
+
+    #[pyo3(
+        warn(
+            message = "`replace_*` methods are deprecated, use `with_*` methods instead",
+            category = pyo3::exceptions::PyDeprecationWarning
+        )
+    )]
+    fn replace_username(&self, username: &str) -> PyResult<Self> {
+        self.with_username(username)
+    }
+}
+
+impl FromStr for PyUrl {
+    type Err = url::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        url::Url::parse(s).map(PyUrl)
+    }
 }
 
 impl AsRef<url::Url> for PyUrl {
@@ -494,5 +657,64 @@ impl AsRef<url::Url> for PyUrl {
 impl From<url::Url> for PyUrl {
     fn from(url: url::Url) -> Self {
         Self(url)
+    }
+}
+
+impl std::fmt::Display for PyUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "URL(\'{}\')", self.0.as_str())
+    }
+}
+
+#[cfg(feature = "pydantic")]
+impl ryo3_pydantic::GetPydanticCoreSchemaCls for PyUrl {
+    fn get_pydantic_core_schema<'py>(
+        cls: &Bound<'py, pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::interns;
+
+        let py = source.py();
+        let core_schema = ryo3_pydantic::core_schema(py)?;
+        let url_schema = core_schema.call_method(pyo3::intern!(py, "url_schema"), (), None)?;
+        let validation_fn = cls.getattr(interns::_pydantic_validate(py))?;
+        let args = PyTuple::new(py, vec![&validation_fn, &url_schema])?;
+        let string_serialization_schema =
+            core_schema.call_method(interns::to_string_ser_schema(py), (), None)?;
+        let serialization_kwargs = pyo3::types::PyDict::new(py);
+        serialization_kwargs.set_item(interns::serialization(py), &string_serialization_schema)?;
+        core_schema.call_method(
+            interns::no_info_wrap_validator_function(py),
+            args,
+            Some(&serialization_kwargs),
+        )
+    }
+}
+
+#[cfg(feature = "ryo3-std")]
+fn extract_ip_host(address: &Bound<'_, PyAny>) -> PyResult<IpAddr> {
+    use ryo3_std::net::{PyIpAddr, PyIpv4Addr, PyIpv6Addr};
+    if let Ok(pyipv4) = address.cast_exact::<PyIpv4Addr>() {
+        Ok(pyipv4.get().0.into())
+    } else if let Ok(pyipv6) = address.cast_exact::<PyIpv6Addr>() {
+        Ok(pyipv6.get().0.into())
+    } else if let Ok(pyipaddr) = address.cast_exact::<PyIpAddr>() {
+        Ok(pyipaddr.get().0)
+    } else if let Ok(ip) = address.extract::<std::net::IpAddr>() {
+        Ok(ip)
+    } else {
+        py_type_err!(
+            "Expected Ipv4Addr, Ipv6Addr, IpAddr, ipaddress.IPv4Address, ipaddress.IPv6Address",
+        )
+    }
+}
+
+#[cfg(not(feature = "ryo3-std"))]
+fn extract_ip_host(address: &Bound<'_, PyAny>) -> PyResult<IpAddr> {
+    if let Ok(ip) = address.extract::<std::net::IpAddr>() {
+        Ok(ip)
+    } else {
+        py_type_err!("Expected ipaddress.IPv4Address or ipaddress.IPv6Address",)
     }
 }

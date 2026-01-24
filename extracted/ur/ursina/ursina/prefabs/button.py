@@ -1,6 +1,7 @@
 from ursina import Entity, Text, camera, color, mouse, BoxCollider, Sequence, Func, Vec2, Vec3, scene, Default, Audio
 from ursina import color as color_module
 from ursina.models.procedural.quad import Quad
+from ursina.shaders.unlit_shader import unlit_shader
 
 from ursina.scripts.property_generator import generate_properties_for_class
 
@@ -9,35 +10,30 @@ class Button(Entity):
 
     default_color = color.black90
     default_highlight_color = None
-    default_model = None # will default to rounded Quad
+    default_model = Quad
+    default_radius = .1
+    default_texture = ''
 
     def __init__(self,
-        text='', parent=camera.ui, model=Default, radius=.1, origin=(0,0), color=Default, collider='box',
+        text='', parent=camera.ui, model=Default, radius=Default, origin=(0,0), texture=Default, color=Default, collider='box',
             text_color=Default, text_origin=(0,0), text_size=1, highlight_text_size=None, highlight_text_color=None,
             highlight_scale=1, pressed_scale=1,
-            disabled=False, **kwargs):
+            disabled=False, shader=unlit_shader, **kwargs):
         super().__init__(parent=parent)
 
         for key in ('scale', 'scale_x', 'scale_y', 'scale_z', 'world_scale', 'world_scale_x', 'world_scale_y', 'world_scale_z'):
             if key in kwargs:   # set the scale before model for correct corners
                 setattr(self, key, kwargs[key])
 
-        if model == Default:
-            if not Button.default_model:
-                if self.scale[0] != 0 and self.scale[1] != 0:
-                    self.model = Quad(aspect=self.scale[0] / self.scale[1], radius=radius)
-            else:
-                self.model = Button.default_model
-        else:
-            self.model = model
+        self.radius = Button.default_radius if radius is Default else radius
+        self.model = Button.default_model if model is Default else model
 
         self.origin = origin
 
-        if color == Default:
-            color = Button.default_color
-        self.color = color
+        self.texture = Button.default_texture if texture is Default else texture
+        self.color = color = Button.default_color if color is Default else color
 
-        self.highlight_color = self.color.tint(.2) if __class__.default_highlight_color is None else __class__.default_highlight_color
+        self.highlight_color = self.color.tint(.2) if Button.default_highlight_color is None else Button.default_highlight_color
         self.pressed_color = self.color.tint(-.2)
         self.highlight_scale = highlight_scale    # multiplier
         self.pressed_scale = pressed_scale     # multiplier
@@ -169,7 +165,7 @@ class Button(Entity):
                     if isinstance(self.pressed_sound, Audio):
                         self.pressed_sound.play()
                     elif isinstance(self.pressed_sound, str):
-                        Audio(self.pressed_sound, auto_destroy=True)
+                        Audio(self.pressed_sound, auto_destroy=True, ignore_paused=self.ignore_paused)
 
         if key == 'left mouse up':
             if self.hovered:
@@ -195,7 +191,7 @@ class Button(Entity):
                 if isinstance(self.highlight_sound, Audio):
                     self.highlight_sound.play()
                 elif isinstance(self.highlight_sound, str):
-                    Audio(self.highlight_sound, auto_destroy=True)
+                    Audio(self.highlight_sound, auto_destroy=True, ignore_paused=self.ignore_paused)
 
         if hasattr(self, 'tooltip') and self.tooltip:
             self.tooltip.enabled = True
@@ -208,9 +204,9 @@ class Button(Entity):
                 if not mouse.left and self.highlight_scale != 1:
                     self.model.setScale(Vec3(1,1,1))
 
-        if self.text:
-            self.text_size_setter(self.text_size, temp=True)
-            self.text_color_setter(self.text_color, temp=True)
+            if self.text:
+                self.text_size_setter(self.text_size, temp=True)
+                self.text_color_setter(self.text_color, temp=True)
 
         if hasattr(self, 'tooltip') and self.tooltip:
             self.tooltip.enabled = False
@@ -228,7 +224,7 @@ class Button(Entity):
         self.scale += Vec2(*padding)
         self.position += self.text_origin * self.scale.xy * .5
 
-        self.model = Quad(aspect=self.scale_x/self.scale_y, radius=radius)
+        self.model = self.model.__class__
         self.parent = self.original_parent
         self.text_entity.world_parent = self
 
@@ -239,8 +235,11 @@ if __name__ == '__main__':
     app = Ursina()
 
     # # test settging default colors
-    # Button.default_color = color.magenta
     # Button.default_highlight_color = color.blue
+    Button.default_color = color.white
+    Button.default_model = NineSlice
+    Button.default_texture = 'nineslice_rainbow'
+    Button.default_radius = .5
 
     b = Button(model='quad', scale=.05, x=-.5, color=color.lime, text='text_size\ntest', text_size=.5, text_color=color.black)
     b.on_click = Sequence(Wait(.5), Func(print, 'aaaaaa'), )

@@ -6,40 +6,32 @@ __all__ = [
     "BaseComparator",
     "MaxScalarComparator",
     "MinScalarComparator",
-    "ComparatorEqualityComparator",
 ]
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
-from coola.equality.comparators import BaseEqualityComparator
-from coola.equality.handlers import EqualHandler, SameObjectHandler, SameTypeHandler
-from coola.equality.testers import EqualityTester
-
-if TYPE_CHECKING:
-    from coola.equality import EqualityConfig
+from coola.equality.tester import EqualEqualityTester, get_default_registry
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class BaseComparator(Generic[T], ABC):
+class BaseComparator(ABC, Generic[T]):
     r"""Define the base comparator class to implement a comparator.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import MinScalarComparator
+        >>> comparator = MinScalarComparator()
+        >>> comparator.is_better(old_value=0.4, new_value=0.6)
+        False
+        >>> comparator.get_initial_best_value()
+        inf
 
-    ```pycon
-
-    >>> from minrecord import MinScalarComparator
-    >>> comparator = MinScalarComparator()
-    >>> comparator.is_better(old_value=0.4, new_value=0.6)
-    False
-    >>> comparator.get_initial_best_value()
-    inf
-
-    ```
+        ```
     """
 
     @abstractmethod
@@ -52,18 +44,16 @@ class BaseComparator(Generic[T], ABC):
         Returns:
             ``True`` if the comparators are equal, ``False`` otherwise.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import MinScalarComparator, MaxScalarComparator
+            >>> comparator = MinScalarComparator()
+            >>> comparator.equal(MinScalarComparator())
+            True
+            >>> comparator.equal(MaxScalarComparator())
+            False
 
-        ```pycon
-
-        >>> from minrecord import MinScalarComparator, MaxScalarComparator
-        >>> comparator = MinScalarComparator()
-        >>> comparator.equal(MinScalarComparator())
-        True
-        >>> comparator.equal(MaxScalarComparator())
-        False
-
-        ```
+            ```
         """
 
     @abstractmethod
@@ -73,16 +63,14 @@ class BaseComparator(Generic[T], ABC):
         Returns:
             The initial best value.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import MinScalarComparator
+            >>> comparator = MinScalarComparator()
+            >>> comparator.get_initial_best_value()
+            inf
 
-        ```pycon
-
-        >>> from minrecord import MinScalarComparator
-        >>> comparator = MinScalarComparator()
-        >>> comparator.get_initial_best_value()
-        inf
-
-        ```
+            ```
         """
 
     @abstractmethod
@@ -97,16 +85,14 @@ class BaseComparator(Generic[T], ABC):
             ``True`` if the new value is better than the old value,
                 otherwise ``False``.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> from minrecord import MinScalarComparator
+            >>> comparator = MinScalarComparator()
+            >>> comparator.is_better(old_value=0.4, new_value=0.6)
+            False
 
-        ```pycon
-
-        >>> from minrecord import MinScalarComparator
-        >>> comparator = MinScalarComparator()
-        >>> comparator.is_better(old_value=0.4, new_value=0.6)
-        False
-
-        ```
+            ```
         """
 
 
@@ -116,18 +102,16 @@ class MaxScalarComparator(BaseComparator[float]):
     This comparator can be used to find the maximum value between two
     scalar values.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import MaxScalarComparator
+        >>> comparator = MaxScalarComparator()
+        >>> comparator.is_better(old_value=0.4, new_value=0.6)
+        True
+        >>> comparator.get_initial_best_value()
+        -inf
 
-    ```pycon
-
-    >>> from minrecord import MaxScalarComparator
-    >>> comparator = MaxScalarComparator()
-    >>> comparator.is_better(old_value=0.4, new_value=0.6)
-    True
-    >>> comparator.get_initial_best_value()
-    -inf
-
-    ```
+        ```
     """
 
     def equal(self, other: Any) -> bool:
@@ -146,18 +130,16 @@ class MinScalarComparator(BaseComparator[float]):
     This comparator can be used to find the minimum value between two
     scalar values.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> from minrecord import MinScalarComparator
+        >>> comparator = MinScalarComparator()
+        >>> comparator.is_better(old_value=0.4, new_value=0.6)
+        False
+        >>> comparator.get_initial_best_value()
+        inf
 
-    ```pycon
-
-    >>> from minrecord import MinScalarComparator
-    >>> comparator = MinScalarComparator()
-    >>> comparator.is_better(old_value=0.4, new_value=0.6)
-    False
-    >>> comparator.get_initial_best_value()
-    inf
-
-    ```
+        ```
     """
 
     def equal(self, other: Any) -> bool:
@@ -170,22 +152,4 @@ class MinScalarComparator(BaseComparator[float]):
         return new_value <= old_value
 
 
-class ComparatorEqualityComparator(BaseEqualityComparator[BaseComparator]):
-    r"""Implement an equality comparator for ``BaseBatch`` objects."""
-
-    def __init__(self) -> None:
-        self._handler = SameObjectHandler()
-        self._handler.chain(SameTypeHandler()).chain(EqualHandler())
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
-
-    def clone(self) -> ComparatorEqualityComparator:
-        return self.__class__()
-
-    def equal(self, actual: BaseComparator, expected: Any, config: EqualityConfig) -> bool:
-        return self._handler.handle(actual, expected, config=config)
-
-
-if not EqualityTester.has_comparator(BaseComparator):  # pragma: no cover
-    EqualityTester.add_comparator(BaseComparator, ComparatorEqualityComparator())
+get_default_registry().register(BaseComparator, EqualEqualityTester(), exist_ok=True)

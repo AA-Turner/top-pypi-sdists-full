@@ -123,7 +123,8 @@ def test_execute_function(fake_root, function):
             "Accept": "application/json",
             "User-Agent": "python_api/" + VERSION,
             "Content-Type": "application/json",
-        }
+        },
+        body=[],
     )
     fetch_response = mock_http_response(model.to_json())
     execute_response = mock_http_response(json.dumps({"result": 1}))

@@ -8,6 +8,7 @@ For details please refer to paper: https://nlp.stanford.edu/pubs/qi2018universal
 
 import argparse
 import logging
+import io
 import os
 import time
 import zipfile
@@ -129,6 +130,9 @@ def parse_args(args=None):
     if args.wandb_name:
         args.wandb = True
 
+    if not args.share_hid and args.tag_emb_dim == 0:
+        raise ValueError("Cannot have tag_emb_dim==0 with share_hid==False, as the tags will be embedded for the next layer")
+
     args = vars(args)
     return args
 
@@ -140,9 +144,9 @@ def main(args=None):
     logger.info("Running tagger in {} mode".format(args['mode']))
 
     if args['mode'] == 'train':
-        train(args)
+        return train(args)
     else:
-        evaluate(args)
+        return evaluate(args)
 
 def model_file_name(args):
     return utils.standard_model_file_name(args, "tagger")
@@ -279,14 +283,11 @@ def train(args):
 
     eval_type = get_eval_type(dev_data)
 
-    # pred and gold path
-    system_pred_file = args['output_file']
-
     # skip training if the language does not have training or dev data
     # sum(...) to check if all of the training files are empty
     if sum(len(td) for td in train_data) == 0 or len(dev_data) == 0:
         logger.info("Skip training because no data available...")
-        return
+        return None, None
 
     if args['wandb']:
         import wandb
@@ -306,6 +307,8 @@ def train(args):
     current_lr = args['lr']
     global_start_time = time.time()
     format_str = 'Finished STEP {}/{}, loss = {:.6f} ({:.3f} sec/batch), lr: {:.6f}'
+
+    logger.debug("Training model on device %s", next(trainer.model.parameters()).device)
 
     if args['adapt_eval_interval']:
         args['eval_interval'] = utils.get_adaptive_eval_interval(dev_data.num_examples, 2000, args['eval_interval'])
@@ -345,7 +348,9 @@ def train(args):
                     indices.extend(batch[-1])
                 dev_preds = utils.unsort(dev_preds, indices)
                 dev_data.doc.set([UPOS, XPOS, FEATS], [y for x in dev_preds for y in x])
-                CoNLL.write_doc2conll(dev_data.doc, system_pred_file)
+
+                system_pred_file = "{:C}\n\n".format(dev_data.doc)
+                system_pred_file = io.StringIO(system_pred_file)
 
                 _, _, dev_score = scorer.score(system_pred_file, args['eval_file'], eval_type=eval_type)
 
@@ -405,6 +410,7 @@ def train(args):
         logger.info("Dev set never evaluated.  Saving final model.")
         trainer.save(model_file)
 
+    return trainer, _
 
 def evaluate(args):
     # file paths
@@ -418,7 +424,8 @@ def evaluate(args):
     # load model
     logger.info("Loading model from: {}".format(model_file))
     trainer = Trainer(pretrain=pretrain, model_file=model_file, device=args['device'], args=load_args)
-    evaluate_trainer(args, trainer, pretrain)
+    result_doc = evaluate_trainer(args, trainer, pretrain)
+    return trainer, result_doc
 
 def evaluate_trainer(args, trainer, pretrain):
     system_pred_file = args['output_file']
@@ -450,12 +457,18 @@ def evaluate_trainer(args, trainer, pretrain):
 
     # write to file and score
     dev_data.doc.set([UPOS, XPOS, FEATS], [y for x in preds for y in x])
-    CoNLL.write_doc2conll(dev_data.doc, system_pred_file)
+    if system_pred_file:
+        CoNLL.write_doc2conll(dev_data.doc, system_pred_file)
 
     if args['gold_labels']:
+        system_pred_file = "{:C}\n\n".format(dev_data.doc)
+        system_pred_file = io.StringIO(system_pred_file)
+
         _, _, score = scorer.score(system_pred_file, args['eval_file'], eval_type=eval_type)
 
         logger.info("POS Tagger score: %s %.2f", args['shorthand'], score*100)
+
+    return dev_data.doc
 
 if __name__ == '__main__':
     main()

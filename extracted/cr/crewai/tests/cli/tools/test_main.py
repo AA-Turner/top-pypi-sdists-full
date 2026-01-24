@@ -2,17 +2,16 @@ import os
 import tempfile
 import unittest
 import unittest.mock
-from datetime import datetime, timedelta
 from contextlib import contextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pytest import raises
-
 from crewai.cli.shared.token_manager import TokenManager
 from crewai.cli.tools.main import ToolCommand
+from pytest import raises
 
 
 @contextmanager
@@ -32,7 +31,7 @@ def tool_command():
     with tempfile.TemporaryDirectory() as temp_dir:
         # Mock the secure storage path to use the temp directory
         with patch.object(
-            TokenManager, "get_secure_storage_path", return_value=Path(temp_dir)
+            TokenManager, "_get_secure_storage_path", return_value=Path(temp_dir)
         ):
             TokenManager().save_tokens(
                 "test-token", (datetime.now() + timedelta(seconds=36000)).timestamp()

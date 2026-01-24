@@ -1,6 +1,8 @@
 from ..base import AdyenServiceBase
 from .account_holders_api import AccountHoldersApi
+from .authorized_card_users_api import AuthorizedCardUsersApi
 from .balance_accounts_api import BalanceAccountsApi
+from .balances_api import BalancesApi
 from .bank_account_validation_api import BankAccountValidationApi
 from .card_orders_api import CardOrdersApi
 from .grant_accounts_api import GrantAccountsApi
@@ -12,6 +14,8 @@ from .payment_instrument_groups_api import PaymentInstrumentGroupsApi
 from .payment_instruments_api import PaymentInstrumentsApi
 from .platform_api import PlatformApi
 from .transaction_rules_api import TransactionRulesApi
+from .transfer_limits_balance_account_level_api import TransferLimitsBalanceAccountLevelApi
+from .transfer_limits_balance_platform_level_api import TransferLimitsBalancePlatformLevelApi
 from .transfer_routes_api import TransferRoutesApi
 
 
@@ -25,7 +29,9 @@ class AdyenBalancePlatformApi(AdyenServiceBase):
     def __init__(self, client=None):
         super(AdyenBalancePlatformApi, self).__init__(client=client)
         self.account_holders_api = AccountHoldersApi(client=client)
+        self.authorized_card_users_api = AuthorizedCardUsersApi(client=client)
         self.balance_accounts_api = BalanceAccountsApi(client=client)
+        self.balances_api = BalancesApi(client=client)
         self.bank_account_validation_api = BankAccountValidationApi(client=client)
         self.card_orders_api = CardOrdersApi(client=client)
         self.grant_accounts_api = GrantAccountsApi(client=client)
@@ -37,4 +43,6 @@ class AdyenBalancePlatformApi(AdyenServiceBase):
         self.payment_instruments_api = PaymentInstrumentsApi(client=client)
         self.platform_api = PlatformApi(client=client)
         self.transaction_rules_api = TransactionRulesApi(client=client)
+        self.transfer_limits_balance_account_level_api = TransferLimitsBalanceAccountLevelApi(client=client)
+        self.transfer_limits_balance_platform_level_api = TransferLimitsBalancePlatformLevelApi(client=client)
         self.transfer_routes_api = TransferRoutesApi(client=client)

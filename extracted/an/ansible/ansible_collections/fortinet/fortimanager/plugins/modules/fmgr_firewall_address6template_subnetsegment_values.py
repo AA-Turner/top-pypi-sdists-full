@@ -16,7 +16,6 @@ short_description: Subnet segment values.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -124,8 +126,8 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_firewall_address6template_subnetsegment_values:
         bypass_validation: false
         adom: ansible
-        address6-template: "ansible-name" # name
-        subnet-segment: "1" # id
+        address6_template: "ansible-name" # name
+        subnet_segment: "1" # id
         state: present
         firewall_address6template_subnetsegment_values:
           name: "ansible-name-val"
@@ -146,8 +148,8 @@ EXAMPLES = '''
           selector: "firewall_address6template_subnetsegment_values"
           params:
             adom: "ansible"
-            address6-template: "ansible-name" # name
-            subnet-segment: "1" #  id
+            address6_template: "ansible-name" # name
+            subnet_segment: "1" #  id
             values: "your_value"
 '''
 
@@ -209,6 +211,7 @@ def main():
         'address6_template': {'type': 'str'},
         'subnet-segment': {'type': 'str', 'api_name': 'subnet_segment'},
         'subnet_segment': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_address6template_subnetsegment_values': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

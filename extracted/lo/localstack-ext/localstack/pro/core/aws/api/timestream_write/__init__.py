@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -135,12 +135,12 @@ class RejectedRecord(TypedDict, total=False):
     time-series data into the system.
     """
 
-    RecordIndex: Optional[RecordIndex]
-    Reason: Optional[ErrorMessage]
-    ExistingVersion: Optional[RecordVersion]
+    RecordIndex: RecordIndex | None
+    Reason: ErrorMessage | None
+    ExistingVersion: RecordVersion | None
 
 
-RejectedRecords = List[RejectedRecord]
+RejectedRecords = list[RejectedRecord]
 
 
 class RejectedRecordsException(ServiceException):
@@ -174,7 +174,7 @@ class RejectedRecordsException(ServiceException):
     code: str = "RejectedRecordsException"
     sender_fault: bool = False
     status_code: int = 400
-    RejectedRecords: Optional[RejectedRecords]
+    RejectedRecords: RejectedRecords | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -219,12 +219,12 @@ Long = int
 class BatchLoadProgressReport(TypedDict, total=False):
     """Details about the progress of a batch load task."""
 
-    RecordsProcessed: Optional[Long]
-    RecordsIngested: Optional[Long]
-    ParseFailures: Optional[Long]
-    RecordIngestionFailures: Optional[Long]
-    FileFailures: Optional[Long]
-    BytesMetered: Optional[Long]
+    RecordsProcessed: Long | None
+    RecordsIngested: Long | None
+    ParseFailures: Long | None
+    RecordIngestionFailures: Long | None
+    FileFailures: Long | None
+    BytesMetered: Long | None
 
 
 Date = datetime
@@ -233,74 +233,74 @@ Date = datetime
 class BatchLoadTask(TypedDict, total=False):
     """Details about a batch load task."""
 
-    TaskId: Optional[BatchLoadTaskId]
-    TaskStatus: Optional[BatchLoadStatus]
-    DatabaseName: Optional[ResourceName]
-    TableName: Optional[ResourceName]
-    CreationTime: Optional[Date]
-    LastUpdatedTime: Optional[Date]
-    ResumableUntil: Optional[Date]
+    TaskId: BatchLoadTaskId | None
+    TaskStatus: BatchLoadStatus | None
+    DatabaseName: ResourceName | None
+    TableName: ResourceName | None
+    CreationTime: Date | None
+    LastUpdatedTime: Date | None
+    ResumableUntil: Date | None
 
 
 class DataModelS3Configuration(TypedDict, total=False):
-    BucketName: Optional[S3BucketName]
-    ObjectKey: Optional[S3ObjectKey]
+    BucketName: S3BucketName | None
+    ObjectKey: S3ObjectKey | None
 
 
 class MultiMeasureAttributeMapping(TypedDict, total=False):
     SourceColumn: SchemaName
-    TargetMultiMeasureAttributeName: Optional[SchemaName]
-    MeasureValueType: Optional[ScalarMeasureValueType]
+    TargetMultiMeasureAttributeName: SchemaName | None
+    MeasureValueType: ScalarMeasureValueType | None
 
 
-MultiMeasureAttributeMappingList = List[MultiMeasureAttributeMapping]
+MultiMeasureAttributeMappingList = list[MultiMeasureAttributeMapping]
 
 
 class MixedMeasureMapping(TypedDict, total=False):
-    MeasureName: Optional[SchemaName]
-    SourceColumn: Optional[SchemaName]
-    TargetMeasureName: Optional[SchemaName]
+    MeasureName: SchemaName | None
+    SourceColumn: SchemaName | None
+    TargetMeasureName: SchemaName | None
     MeasureValueType: MeasureValueType
-    MultiMeasureAttributeMappings: Optional[MultiMeasureAttributeMappingList]
+    MultiMeasureAttributeMappings: MultiMeasureAttributeMappingList | None
 
 
-MixedMeasureMappingList = List[MixedMeasureMapping]
+MixedMeasureMappingList = list[MixedMeasureMapping]
 
 
 class MultiMeasureMappings(TypedDict, total=False):
-    TargetMultiMeasureName: Optional[SchemaName]
+    TargetMultiMeasureName: SchemaName | None
     MultiMeasureAttributeMappings: MultiMeasureAttributeMappingList
 
 
 class DimensionMapping(TypedDict, total=False):
-    SourceColumn: Optional[SchemaName]
-    DestinationColumn: Optional[SchemaName]
+    SourceColumn: SchemaName | None
+    DestinationColumn: SchemaName | None
 
 
-DimensionMappings = List[DimensionMapping]
+DimensionMappings = list[DimensionMapping]
 
 
 class DataModel(TypedDict, total=False):
     """Data model for a batch load task."""
 
-    TimeColumn: Optional[StringValue256]
-    TimeUnit: Optional[TimeUnit]
+    TimeColumn: StringValue256 | None
+    TimeUnit: TimeUnit | None
     DimensionMappings: DimensionMappings
-    MultiMeasureMappings: Optional[MultiMeasureMappings]
-    MixedMeasureMappings: Optional[MixedMeasureMappingList]
-    MeasureNameColumn: Optional[StringValue256]
+    MultiMeasureMappings: MultiMeasureMappings | None
+    MixedMeasureMappings: MixedMeasureMappingList | None
+    MeasureNameColumn: StringValue256 | None
 
 
 class DataModelConfiguration(TypedDict, total=False):
-    DataModel: Optional[DataModel]
-    DataModelS3Configuration: Optional[DataModelS3Configuration]
+    DataModel: DataModel | None
+    DataModelS3Configuration: DataModelS3Configuration | None
 
 
 class ReportS3Configuration(TypedDict, total=False):
     BucketName: S3BucketName
-    ObjectKeyPrefix: Optional[S3ObjectKeyPrefix]
-    EncryptionOption: Optional[S3EncryptionOption]
-    KmsKeyId: Optional[StringValue2048]
+    ObjectKeyPrefix: S3ObjectKeyPrefix | None
+    EncryptionOption: S3EncryptionOption | None
+    KmsKeyId: StringValue2048 | None
 
 
 class ReportConfiguration(TypedDict, total=False):
@@ -308,7 +308,7 @@ class ReportConfiguration(TypedDict, total=False):
     where error reports are stored.
     """
 
-    ReportS3Configuration: Optional[ReportS3Configuration]
+    ReportS3Configuration: ReportS3Configuration | None
 
 
 class CsvConfiguration(TypedDict, total=False):
@@ -316,55 +316,55 @@ class CsvConfiguration(TypedDict, total=False):
     the record separator is a newline character.
     """
 
-    ColumnSeparator: Optional[StringValue1]
-    EscapeChar: Optional[StringValue1]
-    QuoteChar: Optional[StringValue1]
-    NullValue: Optional[StringValue256]
-    TrimWhiteSpace: Optional[Boolean]
+    ColumnSeparator: StringValue1 | None
+    EscapeChar: StringValue1 | None
+    QuoteChar: StringValue1 | None
+    NullValue: StringValue256 | None
+    TrimWhiteSpace: Boolean | None
 
 
 class DataSourceS3Configuration(TypedDict, total=False):
     BucketName: S3BucketName
-    ObjectKeyPrefix: Optional[S3ObjectKey]
+    ObjectKeyPrefix: S3ObjectKey | None
 
 
 class DataSourceConfiguration(TypedDict, total=False):
     """Defines configuration details about the data source."""
 
     DataSourceS3Configuration: DataSourceS3Configuration
-    CsvConfiguration: Optional[CsvConfiguration]
+    CsvConfiguration: CsvConfiguration | None
     DataFormat: BatchLoadDataFormat
 
 
 class BatchLoadTaskDescription(TypedDict, total=False):
     """Details about a batch load task."""
 
-    TaskId: Optional[BatchLoadTaskId]
-    ErrorMessage: Optional[StringValue2048]
-    DataSourceConfiguration: Optional[DataSourceConfiguration]
-    ProgressReport: Optional[BatchLoadProgressReport]
-    ReportConfiguration: Optional[ReportConfiguration]
-    DataModelConfiguration: Optional[DataModelConfiguration]
-    TargetDatabaseName: Optional[ResourceName]
-    TargetTableName: Optional[ResourceName]
-    TaskStatus: Optional[BatchLoadStatus]
-    RecordVersion: Optional[RecordVersion]
-    CreationTime: Optional[Date]
-    LastUpdatedTime: Optional[Date]
-    ResumableUntil: Optional[Date]
+    TaskId: BatchLoadTaskId | None
+    ErrorMessage: StringValue2048 | None
+    DataSourceConfiguration: DataSourceConfiguration | None
+    ProgressReport: BatchLoadProgressReport | None
+    ReportConfiguration: ReportConfiguration | None
+    DataModelConfiguration: DataModelConfiguration | None
+    TargetDatabaseName: ResourceName | None
+    TargetTableName: ResourceName | None
+    TaskStatus: BatchLoadStatus | None
+    RecordVersion: RecordVersion | None
+    CreationTime: Date | None
+    LastUpdatedTime: Date | None
+    ResumableUntil: Date | None
 
 
-BatchLoadTaskList = List[BatchLoadTask]
+BatchLoadTaskList = list[BatchLoadTask]
 
 
 class CreateBatchLoadTaskRequest(ServiceRequest):
-    ClientToken: Optional[ClientRequestToken]
-    DataModelConfiguration: Optional[DataModelConfiguration]
+    ClientToken: ClientRequestToken | None
+    DataModelConfiguration: DataModelConfiguration | None
     DataSourceConfiguration: DataSourceConfiguration
     ReportConfiguration: ReportConfiguration
     TargetDatabaseName: ResourceCreateAPIName
     TargetTableName: ResourceCreateAPIName
-    RecordVersion: Optional[RecordVersion]
+    RecordVersion: RecordVersion | None
 
 
 class CreateBatchLoadTaskResponse(TypedDict, total=False):
@@ -382,13 +382,13 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateDatabaseRequest(ServiceRequest):
     DatabaseName: ResourceCreateAPIName
-    KmsKeyId: Optional[StringValue2048]
-    Tags: Optional[TagList]
+    KmsKeyId: StringValue2048 | None
+    Tags: TagList | None
 
 
 class Database(TypedDict, total=False):
@@ -397,16 +397,16 @@ class Database(TypedDict, total=False):
     database are encrypted with the same KMS key.
     """
 
-    Arn: Optional[String]
-    DatabaseName: Optional[ResourceName]
-    TableCount: Optional[Long]
-    KmsKeyId: Optional[StringValue2048]
-    CreationTime: Optional[Date]
-    LastUpdatedTime: Optional[Date]
+    Arn: String | None
+    DatabaseName: ResourceName | None
+    TableCount: Long | None
+    KmsKeyId: StringValue2048 | None
+    CreationTime: Date | None
+    LastUpdatedTime: Date | None
 
 
 class CreateDatabaseResponse(TypedDict, total=False):
-    Database: Optional[Database]
+    Database: Database | None
 
 
 class PartitionKey(TypedDict, total=False):
@@ -417,26 +417,26 @@ class PartitionKey(TypedDict, total=False):
     """
 
     Type: PartitionKeyType
-    Name: Optional[SchemaName]
-    EnforcementInRecord: Optional[PartitionKeyEnforcementLevel]
+    Name: SchemaName | None
+    EnforcementInRecord: PartitionKeyEnforcementLevel | None
 
 
-PartitionKeyList = List[PartitionKey]
+PartitionKeyList = list[PartitionKey]
 
 
 class Schema(TypedDict, total=False):
     """A Schema specifies the expected data model of the table."""
 
-    CompositePartitionKey: Optional[PartitionKeyList]
+    CompositePartitionKey: PartitionKeyList | None
 
 
 class S3Configuration(TypedDict, total=False):
     """The configuration that specifies an S3 location."""
 
-    BucketName: Optional[S3BucketName]
-    ObjectKeyPrefix: Optional[S3ObjectKeyPrefix]
-    EncryptionOption: Optional[S3EncryptionOption]
-    KmsKeyId: Optional[StringValue2048]
+    BucketName: S3BucketName | None
+    ObjectKeyPrefix: S3ObjectKeyPrefix | None
+    EncryptionOption: S3EncryptionOption | None
+    KmsKeyId: StringValue2048 | None
 
 
 class MagneticStoreRejectedDataLocation(TypedDict, total=False):
@@ -444,14 +444,14 @@ class MagneticStoreRejectedDataLocation(TypedDict, total=False):
     asynchronously, during magnetic store writes.
     """
 
-    S3Configuration: Optional[S3Configuration]
+    S3Configuration: S3Configuration | None
 
 
 class MagneticStoreWriteProperties(TypedDict, total=False):
     """The set of properties on a table for configuring magnetic store writes."""
 
     EnableMagneticStoreWrites: Boolean
-    MagneticStoreRejectedDataLocation: Optional[MagneticStoreRejectedDataLocation]
+    MagneticStoreRejectedDataLocation: MagneticStoreRejectedDataLocation | None
 
 
 MagneticStoreRetentionPeriodInDays = int
@@ -470,10 +470,10 @@ class RetentionProperties(TypedDict, total=False):
 class CreateTableRequest(ServiceRequest):
     DatabaseName: ResourceCreateAPIName
     TableName: ResourceCreateAPIName
-    RetentionProperties: Optional[RetentionProperties]
-    Tags: Optional[TagList]
-    MagneticStoreWriteProperties: Optional[MagneticStoreWriteProperties]
-    Schema: Optional[Schema]
+    RetentionProperties: RetentionProperties | None
+    Tags: TagList | None
+    MagneticStoreWriteProperties: MagneticStoreWriteProperties | None
+    Schema: Schema | None
 
 
 class Table(TypedDict, total=False):
@@ -482,22 +482,22 @@ class Table(TypedDict, total=False):
     store and the magnetic store for a table.
     """
 
-    Arn: Optional[String]
-    TableName: Optional[ResourceName]
-    DatabaseName: Optional[ResourceName]
-    TableStatus: Optional[TableStatus]
-    RetentionProperties: Optional[RetentionProperties]
-    CreationTime: Optional[Date]
-    LastUpdatedTime: Optional[Date]
-    MagneticStoreWriteProperties: Optional[MagneticStoreWriteProperties]
-    Schema: Optional[Schema]
+    Arn: String | None
+    TableName: ResourceName | None
+    DatabaseName: ResourceName | None
+    TableStatus: TableStatus | None
+    RetentionProperties: RetentionProperties | None
+    CreationTime: Date | None
+    LastUpdatedTime: Date | None
+    MagneticStoreWriteProperties: MagneticStoreWriteProperties | None
+    Schema: Schema | None
 
 
 class CreateTableResponse(TypedDict, total=False):
-    Table: Optional[Table]
+    Table: Table | None
 
 
-DatabaseList = List[Database]
+DatabaseList = list[Database]
 
 
 class DeleteDatabaseRequest(ServiceRequest):
@@ -522,7 +522,7 @@ class DescribeDatabaseRequest(ServiceRequest):
 
 
 class DescribeDatabaseResponse(TypedDict, total=False):
-    Database: Optional[Database]
+    Database: Database | None
 
 
 class DescribeEndpointsRequest(ServiceRequest):
@@ -538,7 +538,7 @@ class Endpoint(TypedDict, total=False):
     CachePeriodInMinutes: Long
 
 
-Endpoints = List[Endpoint]
+Endpoints = list[Endpoint]
 
 
 class DescribeEndpointsResponse(TypedDict, total=False):
@@ -551,7 +551,7 @@ class DescribeTableRequest(ServiceRequest):
 
 
 class DescribeTableResponse(TypedDict, total=False):
-    Table: Optional[Table]
+    Table: Table | None
 
 
 class Dimension(TypedDict, total=False):
@@ -562,45 +562,45 @@ class Dimension(TypedDict, total=False):
 
     Name: SchemaName
     Value: SchemaValue
-    DimensionValueType: Optional[DimensionValueType]
+    DimensionValueType: DimensionValueType | None
 
 
-Dimensions = List[Dimension]
+Dimensions = list[Dimension]
 
 
 class ListBatchLoadTasksRequest(ServiceRequest):
-    NextToken: Optional[String]
-    MaxResults: Optional[PageLimit]
-    TaskStatus: Optional[BatchLoadStatus]
+    NextToken: String | None
+    MaxResults: PageLimit | None
+    TaskStatus: BatchLoadStatus | None
 
 
 class ListBatchLoadTasksResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    BatchLoadTasks: Optional[BatchLoadTaskList]
+    NextToken: String | None
+    BatchLoadTasks: BatchLoadTaskList | None
 
 
 class ListDatabasesRequest(ServiceRequest):
-    NextToken: Optional[String]
-    MaxResults: Optional[PaginationLimit]
+    NextToken: String | None
+    MaxResults: PaginationLimit | None
 
 
 class ListDatabasesResponse(TypedDict, total=False):
-    Databases: Optional[DatabaseList]
-    NextToken: Optional[String]
+    Databases: DatabaseList | None
+    NextToken: String | None
 
 
 class ListTablesRequest(ServiceRequest):
-    DatabaseName: Optional[ResourceName]
-    NextToken: Optional[String]
-    MaxResults: Optional[PaginationLimit]
+    DatabaseName: ResourceName | None
+    NextToken: String | None
+    MaxResults: PaginationLimit | None
 
 
-TableList = List[Table]
+TableList = list[Table]
 
 
 class ListTablesResponse(TypedDict, total=False):
-    Tables: Optional[TableList]
-    NextToken: Optional[String]
+    Tables: TableList | None
+    NextToken: String | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -608,7 +608,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class MeasureValue(TypedDict, total=False):
@@ -626,7 +626,7 @@ class MeasureValue(TypedDict, total=False):
     Type: MeasureValueType
 
 
-MeasureValues = List[MeasureValue]
+MeasureValues = list[MeasureValue]
 
 
 class Record(TypedDict, total=False):
@@ -650,25 +650,25 @@ class Record(TypedDict, total=False):
     field.
     """
 
-    Dimensions: Optional[Dimensions]
-    MeasureName: Optional[SchemaName]
-    MeasureValue: Optional[StringValue2048]
-    MeasureValueType: Optional[MeasureValueType]
-    Time: Optional[StringValue256]
-    TimeUnit: Optional[TimeUnit]
-    Version: Optional[RecordVersion]
-    MeasureValues: Optional[MeasureValues]
+    Dimensions: Dimensions | None
+    MeasureName: SchemaName | None
+    MeasureValue: StringValue2048 | None
+    MeasureValueType: MeasureValueType | None
+    Time: StringValue256 | None
+    TimeUnit: TimeUnit | None
+    Version: RecordVersion | None
+    MeasureValues: MeasureValues | None
 
 
-Records = List[Record]
+Records = list[Record]
 
 
 class RecordsIngested(TypedDict, total=False):
     """Information on the records ingested by this request."""
 
-    Total: Optional[Integer]
-    MemoryStore: Optional[Integer]
-    MagneticStore: Optional[Integer]
+    Total: Integer | None
+    MemoryStore: Integer | None
+    MagneticStore: Integer | None
 
 
 class ResumeBatchLoadTaskRequest(ServiceRequest):
@@ -679,7 +679,7 @@ class ResumeBatchLoadTaskResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -706,35 +706,35 @@ class UpdateDatabaseRequest(ServiceRequest):
 
 
 class UpdateDatabaseResponse(TypedDict, total=False):
-    Database: Optional[Database]
+    Database: Database | None
 
 
 class UpdateTableRequest(ServiceRequest):
     DatabaseName: ResourceName
     TableName: ResourceName
-    RetentionProperties: Optional[RetentionProperties]
-    MagneticStoreWriteProperties: Optional[MagneticStoreWriteProperties]
-    Schema: Optional[Schema]
+    RetentionProperties: RetentionProperties | None
+    MagneticStoreWriteProperties: MagneticStoreWriteProperties | None
+    Schema: Schema | None
 
 
 class UpdateTableResponse(TypedDict, total=False):
-    Table: Optional[Table]
+    Table: Table | None
 
 
 class WriteRecordsRequest(ServiceRequest):
     DatabaseName: ResourceName
     TableName: ResourceName
-    CommonAttributes: Optional[Record]
+    CommonAttributes: Record | None
     Records: Records
 
 
 class WriteRecordsResponse(TypedDict, total=False):
-    RecordsIngested: Optional[RecordsIngested]
+    RecordsIngested: RecordsIngested | None
 
 
 class TimestreamWriteApi:
-    service = "timestream-write"
-    version = "2018-11-01"
+    service: str = "timestream-write"
+    version: str = "2018-11-01"
 
     @handler("CreateBatchLoadTask")
     def create_batch_load_task(

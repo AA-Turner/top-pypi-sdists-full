@@ -6,15 +6,17 @@ from enum import IntEnum, IntFlag
 from .charfbuzz cimport *
 from libc.stdlib cimport free, malloc, calloc
 from libc.string cimport const_char
+from libc.math cimport isnan, NAN
 from cpython.pycapsule cimport PyCapsule_GetPointer, PyCapsule_IsValid
-from cpython.unicode cimport (
-    PyUnicode_1BYTE_DATA, PyUnicode_2BYTE_DATA, PyUnicode_4BYTE_DATA,
-    PyUnicode_1BYTE_KIND, PyUnicode_2BYTE_KIND, PyUnicode_4BYTE_KIND,
-    PyUnicode_KIND, PyUnicode_GET_LENGTH, PyUnicode_FromKindAndData
-)
+from cpython.unicode cimport PyUnicode_GetLength, PyUnicode_AsUCS4Copy
+from cpython.mem cimport PyMem_Free
 from typing import Callable, Dict, List, Sequence, Tuple, Union, NamedTuple
 from pathlib import Path
 from functools import wraps
+
+# Declare Limited API types and functions (Python 3.3+)
+cdef extern from "Python.h":
+    ctypedef uint32_t Py_UCS4
 
 
 DEF STATIC_ARRAY_SIZE = 128
@@ -93,7 +95,7 @@ cdef class GlyphPosition:
         self._hb_glyph_position = position
 
     @property
-    def position(self):
+    def position(self) -> Tuple[int, int, int, int]:
         return (
             self._hb_glyph_position.x_offset,
             self._hb_glyph_position.y_offset,
@@ -102,19 +104,19 @@ cdef class GlyphPosition:
         )
 
     @property
-    def x_advance(self):
+    def x_advance(self) -> int:
         return self._hb_glyph_position.x_advance
 
     @property
-    def y_advance(self):
+    def y_advance(self) -> int:
         return self._hb_glyph_position.y_advance
 
     @property
-    def x_offset(self):
+    def x_offset(self) -> int:
         return self._hb_glyph_position.x_offset
 
     @property
-    def y_offset(self):
+    def y_offset(self) -> int:
         return self._hb_glyph_position.y_offset
 
 
@@ -141,6 +143,21 @@ class BufferContentType(IntEnum):
     UNICODE = HB_BUFFER_CONTENT_TYPE_UNICODE
     GLYPHS = HB_BUFFER_CONTENT_TYPE_GLYPHS
 
+class BufferSerializeFormat(IntEnum):
+    TEXT = HB_BUFFER_SERIALIZE_FORMAT_TEXT
+    JSON = HB_BUFFER_SERIALIZE_FORMAT_JSON
+    INVALID = HB_BUFFER_SERIALIZE_FORMAT_INVALID
+
+class BufferSerializeFlags(IntFlag):
+    DEFAULT = HB_BUFFER_SERIALIZE_FLAG_DEFAULT
+    NO_CLUSTERS = HB_BUFFER_SERIALIZE_FLAG_NO_CLUSTERS
+    NO_POSITIONS = HB_BUFFER_SERIALIZE_FLAG_NO_POSITIONS
+    NO_GLYPH_NAMES = HB_BUFFER_SERIALIZE_FLAG_NO_GLYPH_NAMES
+    GLYPH_EXTENTS = HB_BUFFER_SERIALIZE_FLAG_GLYPH_EXTENTS
+    GLYPH_FLAGS = HB_BUFFER_SERIALIZE_FLAG_GLYPH_FLAGS
+    NO_ADVANCES = HB_BUFFER_SERIALIZE_FLAG_NO_ADVANCES
+    DEFINED = HB_BUFFER_SERIALIZE_FLAG_DEFINED
+
 cdef class Buffer:
     cdef hb_buffer_t* _hb_buffer
     cdef object _message_callback
@@ -158,7 +175,7 @@ cdef class Buffer:
 
     # DEPRECATED: use the normal constructor
     @classmethod
-    def create(cls):
+    def create(cls) -> Buffer:
         cdef Buffer inst = cls()
         return inst
 
@@ -317,7 +334,7 @@ cdef class Buffer:
             self._hb_buffer, hb_ot_tag_to_script(hb_tag_from_string(cstr, -1)))
 
     def add_codepoints(self, codepoints: List[int],
-                       item_offset: int = 0, item_length: int = -1) -> None:
+                       item_offset: int = 0, item_length: int = -1):
         cdef unsigned int size = len(codepoints)
         cdef hb_codepoint_t* hb_codepoints
         if not size:
@@ -333,53 +350,70 @@ cdef class Buffer:
             raise MemoryError()
 
     def add_utf8(self, text: bytes,
-                 item_offset: int = 0, item_length: int = -1) -> None:
+                 item_offset: int = 0, item_length: int = -1):
         hb_buffer_add_utf8(
             self._hb_buffer, text, len(text), item_offset, item_length)
         if not hb_buffer_allocation_successful(self._hb_buffer):
             raise MemoryError()
 
     def add_str(self, text: str,
-                item_offset: int = 0, item_length: int = -1) -> None:
+                item_offset: int = 0, item_length: int = -1):
+        cdef Py_UCS4* ucs4_buffer
+        cdef Py_ssize_t text_length
 
-        cdef Py_ssize_t length = PyUnicode_GET_LENGTH(text)
-        cdef int kind = PyUnicode_KIND(text)
-
-        if kind == PyUnicode_1BYTE_KIND:
-            hb_buffer_add_latin1(
-                self._hb_buffer,
-                <uint8_t*>PyUnicode_1BYTE_DATA(text),
-                length,
-                item_offset,
-                item_length,
-            )
-        elif kind == PyUnicode_2BYTE_KIND:
-            hb_buffer_add_utf16(
-                self._hb_buffer,
-                <uint16_t*>PyUnicode_2BYTE_DATA(text),
-                length,
-                item_offset,
-                item_length,
-            )
-        elif kind == PyUnicode_4BYTE_KIND:
+        ucs4_buffer = PyUnicode_AsUCS4Copy(text)
+        if ucs4_buffer == NULL:
+            raise MemoryError()
+        try:
+            text_length = PyUnicode_GetLength(text)
+            if text_length == -1:
+                raise ValueError("Invalid Unicode string")
             hb_buffer_add_utf32(
                 self._hb_buffer,
-                <uint32_t*>PyUnicode_4BYTE_DATA(text),
-                length,
+                <uint32_t*>ucs4_buffer,
+                text_length,
                 item_offset,
-                item_length,
+                item_length
             )
-        else:
-            raise AssertionError(kind)
-        if not hb_buffer_allocation_successful(self._hb_buffer):
-            raise MemoryError()
+            if not hb_buffer_allocation_successful(self._hb_buffer):
+                raise MemoryError()
+        finally:
+            PyMem_Free(ucs4_buffer)
 
-    def guess_segment_properties(self) -> None:
+    def guess_segment_properties(self):
         hb_buffer_guess_segment_properties(self._hb_buffer)
 
-    def set_message_func(self, callback) -> None:
+    def set_message_func(self, callback: Callable[str]):
         self._message_callback = callback
         hb_buffer_set_message_func(self._hb_buffer, msgcallback, <void*>callback, NULL)
+
+    def serialize(self,
+                  font: Font,
+                  format: BufferSerializeFormat = BufferSerializeFormat.TEXT,
+                  flags: BufferSerializeFlags = BufferSerializeFlags.DEFAULT) -> str:
+        cdef unsigned int num_glyphs = hb_buffer_get_length(self._hb_buffer)
+        cdef unsigned int start = 0
+        cdef char cstr[STATIC_ARRAY_SIZE]
+        cdef unsigned int consumed
+        cdef bytes packed = b""
+
+        while start < num_glyphs:
+            start += hb_buffer_serialize(
+                self._hb_buffer,
+                start,
+                num_glyphs,
+                cstr,
+                STATIC_ARRAY_SIZE,
+                &consumed,
+                font._hb_font,
+                format,
+                flags
+            )
+            if consumed == 0:
+                break
+            packed += cstr[:consumed]
+
+        return packed.decode()
 
 
 cdef class Blob:
@@ -401,7 +435,7 @@ cdef class Blob:
         return wrapper
 
     @classmethod
-    def from_file_path(cls, filename: Union[str, Path]):
+    def from_file_path(cls, filename: Union[str, Path]) -> Blob:
         cdef bytes packed = os.fsencode(filename)
         cdef hb_blob_t* blob = hb_blob_create_from_file_or_fail(<char*>packed)
         if blob == NULL:
@@ -580,7 +614,7 @@ cdef class Face:
 
     # DEPRECATED: use the normal constructor
     @classmethod
-    def create(cls, bytes blob, int index=0):
+    def create(cls, blob: bytes, index: int = 0) -> Face:
         cdef Face inst = cls(blob, index)
         return inst
 
@@ -591,7 +625,7 @@ cdef class Face:
                               str,  # tag
                               object  # user_data
                           ], bytes],
-                          user_data: object):
+                          user_data: object) -> Face:
         cdef Face inst = cls(None)
         inst._hb_face = hb_face_create_for_tables(
             _reference_table_func, <void*>user_data, NULL)
@@ -662,18 +696,18 @@ cdef class Face:
         return tags
 
     @property
-    def unicodes (self):
+    def unicodes (self) -> Set[int]:
         s = Set()
         hb_face_collect_unicodes(self._hb_face, s._hb_set)
         return s
 
     @property
-    def variation_selectors(self):
+    def variation_selectors(self) -> Set[int]:
         s = Set()
         hb_face_collect_variation_selectors(self._hb_face, s._hb_set)
         return s
 
-    def variation_unicodes(self, variation_selector):
+    def variation_unicodes(self, variation_selector: int) -> Set[int]:
         s = Set()
         hb_face_collect_variation_unicodes(self._hb_face, variation_selector, s._hb_set)
         return s
@@ -684,7 +718,7 @@ cdef class Face:
         return hb_ot_var_has_data(self._hb_face)
 
     @property
-    def axis_infos(self) -> list[OTVarAxisInfo]:
+    def axis_infos(self) -> List[OTVarAxisInfo]:
         cdef unsigned int axis_count = STATIC_ARRAY_SIZE
         cdef hb_ot_var_axis_info_t axis_array[STATIC_ARRAY_SIZE]
         cdef list infos = []
@@ -714,7 +748,7 @@ cdef class Face:
         return infos
 
     @property
-    def named_instances(self) -> list[OTVarNamedInstance]:
+    def named_instances(self) -> List[OTVarNamedInstance]:
         instances = []
         cdef hb_face_t* face = self._hb_face
         cdef unsigned int instance_count = hb_ot_var_get_named_instance_count(face)
@@ -785,7 +819,7 @@ cdef class Face:
         )
 
     @property
-    def color_palettes(self) -> list[OTColorPalette]:
+    def color_palettes(self) -> List[OTColorPalette]:
         cdef list palettes = []
         cdef unsigned int palette_count = hb_ot_color_palette_get_count(self._hb_face)
         for i in range(palette_count):
@@ -952,7 +986,7 @@ cdef class Face:
     def get_name(self, name_id: OTNameIdPredefined | int, language: str | None = None) -> str | None:
         cdef bytes packed
         cdef hb_language_t lang
-        cdef uint32_t *text
+        cdef char *text
         cdef unsigned int length
 
         if language is None:
@@ -961,12 +995,18 @@ cdef class Face:
             packed = language.encode()
             lang = hb_language_from_string(<char*>packed, -1)
 
-        length = hb_ot_name_get_utf32(self._hb_face, name_id, lang, NULL, NULL)
+        length = hb_ot_name_get_utf8(self._hb_face, name_id, lang, NULL, NULL)
         if length:
             length += 1  # for the null terminator
-            text = <uint32_t*>malloc(length * sizeof(uint32_t))
-            hb_ot_name_get_utf32(self._hb_face, name_id, lang, &length, text)
-            return PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, text, length)
+            text = <char*>malloc(length * sizeof(char))
+            if text == NULL:
+                raise MemoryError()
+            try:
+                hb_ot_name_get_utf8(self._hb_face, name_id, lang, &length, text)
+                result = text[:length].decode("utf-8")
+                return result
+            finally:
+                free(text)
         return None
 
 
@@ -1148,12 +1188,12 @@ cdef class Font:
 
     # DEPRECATED: use the normal constructor
     @classmethod
-    def create(cls, face: Face):
+    def create(cls, face: Face) -> Font:
         cdef Font inst = cls(face)
         return inst
 
     @property
-    def face(self):
+    def face(self) -> Face:
         return self._face
 
     @property
@@ -1205,7 +1245,7 @@ cdef class Font:
         hb_font_set_synthetic_slant(self._hb_font, value)
 
     @property
-    def synthetic_bold(self) -> tuple[float, float, bool]:
+    def synthetic_bold(self) -> Tuple[float, float, bool]:
         cdef float x_embolden
         cdef float y_embolden
         cdef hb_bool_t in_place
@@ -1236,7 +1276,7 @@ cdef class Font:
     def var_named_instance(self, value: int):
         hb_font_set_var_named_instance(self._hb_font, value)
 
-    def set_variations(self, variations: Dict[str, float]) -> None:
+    def set_variations(self, variations: Dict[str, float]):
         cdef unsigned int size
         cdef hb_variation_t* hb_variations
         cdef bytes packed
@@ -1256,12 +1296,12 @@ cdef class Font:
         finally:
             free(hb_variations)
 
-    def set_variation(self, name: str, value: float) -> None:
+    def set_variation(self, name: str, value: float):
         packed = name.encode()
         cdef hb_tag_t tag = hb_tag_from_string(packed, -1)
         hb_font_set_variation(self._hb_font, tag, value)
 
-    def get_glyph_name(self, gid: int):
+    def get_glyph_name(self, gid: int) -> str | None:
         cdef char name[64]
         cdef bytes packed
         success = hb_font_get_glyph_name(self._hb_font, gid, name, 64)
@@ -1271,14 +1311,14 @@ cdef class Font:
         else:
             return None
 
-    def get_glyph_from_name(self, name: str):
+    def get_glyph_from_name(self, name: str) -> int | None:
         cdef hb_codepoint_t gid
         cdef bytes packed
         packed = name.encode()
         success = hb_font_get_glyph_from_name(self._hb_font, <char*>packed, len(packed), &gid)
         return gid if success else None
 
-    def get_glyph_extents(self, gid: int):
+    def get_glyph_extents(self, gid: int) -> GlyphExtents:
         cdef hb_glyph_extents_t extents
         success = hb_font_get_glyph_extents(self._hb_font, gid, &extents)
         if success:
@@ -1291,23 +1331,23 @@ cdef class Font:
         else:
             return None
 
-    def get_glyph_h_advance(self, gid: int):
+    def get_glyph_h_advance(self, gid: int) -> int:
         return hb_font_get_glyph_h_advance(self._hb_font, gid)
 
-    def get_glyph_v_advance(self, gid: int):
+    def get_glyph_v_advance(self, gid: int) -> int:
         return hb_font_get_glyph_v_advance(self._hb_font, gid)
 
-    def get_glyph_h_origin(self, gid: int):
+    def get_glyph_h_origin(self, gid: int) -> Tuple[int, int] | None:
         cdef hb_position_t x, y
         success = hb_font_get_glyph_h_origin(self._hb_font, gid, &x, &y)
         return (x, y) if success else None
 
-    def get_glyph_v_origin(self, gid: int):
+    def get_glyph_v_origin(self, gid: int) -> Tuple[int, int] | None:
         cdef hb_position_t x, y
         success = hb_font_get_glyph_v_origin(self._hb_font, gid, &x, &y)
         return (x, y) if success else None
 
-    def get_font_extents(self, direction: str):
+    def get_font_extents(self, direction: str) -> FontExtents:
         cdef hb_font_extents_t extents
         cdef hb_direction_t hb_direction
         cdef bytes packed
@@ -1322,24 +1362,24 @@ cdef class Font:
             extents.line_gap
         )
 
-    def get_variation_glyph(self, unicode: int, variation_selector: int):
+    def get_variation_glyph(self, unicode: int, variation_selector: int) -> int | None:
         cdef hb_codepoint_t gid
         success = hb_font_get_variation_glyph(self._hb_font, unicode, variation_selector, &gid)
         return gid if success else None
 
-    def get_nominal_glyph(self, unicode: int):
+    def get_nominal_glyph(self, unicode: int) -> int:
         cdef hb_codepoint_t gid
         success = hb_font_get_nominal_glyph(self._hb_font, unicode, &gid)
         return gid if success else None
 
-    def get_var_coords_normalized(self):
+    def get_var_coords_normalized(self) -> List[float]:
         cdef unsigned int length
         cdef const int *coords
         coords = hb_font_get_var_coords_normalized(self._hb_font, &length)
         # Convert from 2.14 fixed to float: divide by 1 << 14
         return [coords[i] / 0x4000 for i in range(length)]
 
-    def set_var_coords_normalized(self, coords):
+    def set_var_coords_normalized(self, coords: List[float]):
         cdef unsigned int length
         cdef int *coords_2dot14
         length = len(coords)
@@ -1360,7 +1400,7 @@ cdef class Font:
         coords = hb_font_get_var_coords_design(self._hb_font, &length)
         return [coords[i] for i in range(length)]
 
-    def set_var_coords_design(self, coords):
+    def set_var_coords_design(self, coords: List[float]):
         cdef unsigned int length
         cdef cython.float *c_coords
         length = len(coords)
@@ -1374,14 +1414,14 @@ cdef class Font:
         finally:
             free(c_coords)
 
-    def glyph_to_string(self, gid: int):
+    def glyph_to_string(self, gid: int) -> str:
         cdef char name[64]
         cdef bytes packed
         hb_font_glyph_to_string(self._hb_font, gid, name, 64)
         packed = name
         return packed.decode()
 
-    def glyph_from_string(self, string: str):
+    def glyph_from_string(self, string: str) -> int:
         cdef hb_codepoint_t gid
         cdef bytes packed
         packed = string.encode()
@@ -1398,7 +1438,7 @@ cdef class Font:
                     paint_funcs: PaintFuncs,
                     paint_state: object = None,
                     palette_index: int = 0,
-                    foreground: Color | None = None) -> None:
+                    foreground: Color | None = None):
         cdef void *paint_state_p = <void *>paint_state
         cdef hb_color_t c_foreground = 0x000000FF
         if foreground is not None:
@@ -1454,7 +1494,7 @@ cdef class Font:
         cdef hb_direction_t hb_direction = hb_direction_from_string(cstr, -1)
         return hb_ot_math_get_min_connector_overlap(self._hb_font, hb_direction)
 
-    def get_math_glyph_kerning(self, glyph: int, kern: OTMathKern, int correction_height) -> int:
+    def get_math_glyph_kerning(self, glyph: int, kern: OTMathKern, correction_height: int) -> int:
         if kern >= len(OTMathKern):
             raise ValueError("invalid kern")
         return hb_ot_math_get_glyph_kerning(self._hb_font, glyph, kern, correction_height)
@@ -1763,7 +1803,7 @@ cdef class FontFuncs:
 
     # DEPRECATED: use the normal constructor
     @classmethod
-    def create(cls):
+    def create(cls) -> FontFuncs:
         cdef FontFuncs inst = cls()
         return inst
 
@@ -1773,7 +1813,7 @@ cdef class FontFuncs:
                                      int,  # gid
                                      object,  # user_data
                                  ], int],  # h_advance
-                                 user_data: object = None) -> None:
+                                 user_data: object = None):
         hb_font_funcs_set_glyph_h_advance_func(
             self._hb_ffuncs, _glyph_h_advance_func, <void*>user_data, NULL)
         self._glyph_h_advance_func = func
@@ -1784,7 +1824,7 @@ cdef class FontFuncs:
                                      int,  # gid
                                      object,  # user_data
                                  ], int],  # v_advance
-                                 user_data: object = None) -> None:
+                                 user_data: object = None):
         hb_font_funcs_set_glyph_v_advance_func(
             self._hb_ffuncs, _glyph_v_advance_func, <void*>user_data, NULL)
         self._glyph_v_advance_func = func
@@ -1795,7 +1835,7 @@ cdef class FontFuncs:
                                     int,  # gid
                                     object,  # user_data
                                 ], (int, int, int)],  # success, v_origin_x, v_origin_y
-                                user_data: object = None) -> None:
+                                user_data: object = None):
         hb_font_funcs_set_glyph_v_origin_func(
             self._hb_ffuncs, _glyph_v_origin_func, <void*>user_data, NULL)
         self._glyph_v_origin_func = func
@@ -1806,7 +1846,7 @@ cdef class FontFuncs:
                                 int,  # gid
                                 object,  # user_data
                             ], str],  # name
-                            user_data: object = None) -> None:
+                            user_data: object = None):
         hb_font_funcs_set_glyph_name_func(
             self._hb_ffuncs, _glyph_name_func, <void*>user_data, NULL)
         self._glyph_name_func = func
@@ -1817,7 +1857,7 @@ cdef class FontFuncs:
                                    int,  # unicode
                                    object,  # user_data
                                ], int],  # gid
-                               user_data: object = None) -> None:
+                               user_data: object = None):
         hb_font_funcs_set_nominal_glyph_func(
             self._hb_ffuncs, _nominal_glyph_func, <void*>user_data, NULL)
         self._nominal_glyph_func = func
@@ -1829,7 +1869,7 @@ cdef class FontFuncs:
                                    int,  # variation_selector
                                    object,  # user_data
                                ], int],  # gid
-                               user_data: object = None) -> None:
+                               user_data: object = None):
         hb_font_funcs_set_variation_glyph_func(
             self._hb_ffuncs, _variation_glyph_func, <void*>user_data, NULL)
         self._variation_glyph_func = func
@@ -1839,7 +1879,7 @@ cdef class FontFuncs:
                                     Font,
                                     object,  # user_data
                                 ], FontExtents],  # extents
-                                user_data: object = None) -> None:
+                                user_data: object = None):
         hb_font_funcs_set_font_h_extents_func(
             self._hb_ffuncs, _font_h_extents_func, <void*>user_data, NULL)
         self._font_h_extents_func = func
@@ -1849,14 +1889,14 @@ cdef class FontFuncs:
                                     Font,
                                     object,  # user_data
                                 ], FontExtents],  # extents
-                                user_data: object = None) -> None:
+                                user_data: object = None):
         hb_font_funcs_set_font_v_extents_func(
             self._hb_ffuncs, _font_v_extents_func, <void*>user_data, NULL)
         self._font_v_extents_func = func
 
 def shape(font: Font, buffer: Buffer,
-        features: Dict[str,Union[int,bool,Sequence[Tuple[int,int,Union[int,bool]]]]] = None,
-        shapers: List[str] = None) -> None:
+        features: Dict[str,Union[int,bool,Sequence[Tuple[int,int,Union[int,bool]]]]] | None = None,
+        shapers: List[str] | None = None):
     cdef unsigned int size
     cdef hb_feature_t* hb_features
     cdef bytes packed
@@ -2092,7 +2132,7 @@ def ot_math_get_glyph_assembly(font: Font,
     return font.get_math_glyph_assembly(glyph, direction)
 
 
-def ot_font_set_funcs(Font font):
+def ot_font_set_funcs(font: Font):
     hb_ot_font_set_funcs(font._hb_font)
 
 
@@ -2125,6 +2165,7 @@ class PaintCompositeMode(IntEnum):
     HSL_SATURATION = HB_PAINT_COMPOSITE_MODE_HSL_SATURATION
     HSL_COLOR = HB_PAINT_COMPOSITE_MODE_HSL_COLOR
     HSL_LUMINOSITY = HB_PAINT_COMPOSITE_MODE_HSL_LUMINOSITY
+
 
 class ColorStop(NamedTuple):
     offset: float
@@ -2382,7 +2423,7 @@ cdef class PaintFuncs:
                                     float,  # dx
                                     float,  # dy
                                     object,  # paint_data
-                                ], None]) -> None:
+                                ], None]):
         self._push_transform_func = func
         hb_paint_funcs_set_push_transform_func(
             self._hb_paintfuncs, _paint_push_transform_func, <void*>self, NULL)
@@ -2390,7 +2431,7 @@ cdef class PaintFuncs:
     def set_pop_transform_func(self,
                                func: Callable[[
                                    object,  # paint_data
-                               ], None]) -> None:
+                               ], None]):
         self._pop_transform_func = func
         hb_paint_funcs_set_pop_transform_func(
             self._hb_paintfuncs, _paint_pop_transform_func, <void*>self, NULL)
@@ -2399,7 +2440,7 @@ cdef class PaintFuncs:
                              func: Callable[[
                                  int,  # gid
                                  object,  # paint_data
-                             ], bool]) -> None:
+                             ], bool]):
         self._color_glyph_func = func
         hb_paint_funcs_set_color_glyph_func(
             self._hb_paintfuncs, _paint_color_glyph_func, <void*>self, NULL)
@@ -2408,7 +2449,7 @@ cdef class PaintFuncs:
                                  func: Callable[[
                                      int,  # gid
                                      object,  # paint_data
-                                 ], None]) -> None:
+                                 ], None]):
         self._push_clip_glyph_func = func
         hb_paint_funcs_set_push_clip_glyph_func(
             self._hb_paintfuncs, _paint_push_clip_glyph_func, <void*>self, NULL)
@@ -2420,7 +2461,7 @@ cdef class PaintFuncs:
                                          float,  # xmax
                                          float,  # ymax
                                          object,  # paint_data
-                                     ], None]) -> None:
+                                     ], None]):
         self._push_clip_rectangle_func = func
         hb_paint_funcs_set_push_clip_rectangle_func(
             self._hb_paintfuncs, _paint_push_clip_rectangle_func, <void*>self, NULL)
@@ -2428,7 +2469,7 @@ cdef class PaintFuncs:
     def set_pop_clip_func(self,
                           func: Callable[[
                               object,  # paint_data
-                          ], None]) -> None:
+                          ], None]):
         self._pop_clip_func = func
         hb_paint_funcs_set_pop_clip_func(
             self._hb_paintfuncs, _paint_pop_clip_func, <void*>self, NULL)
@@ -2438,7 +2479,7 @@ cdef class PaintFuncs:
                            Color,  # color
                            bool,  # is_foreground
                            object,  # paint_data
-                       ], None]) -> None:
+                       ], None]):
         self._color_func = func
         hb_paint_funcs_set_color_func(
             self._hb_paintfuncs, _paint_color_func, <void*>self, NULL)
@@ -2452,7 +2493,7 @@ cdef class PaintFuncs:
                            float,  # slant
                            GlyphExtents,  # extents
                            object,  # paint_data
-                       ], bool]) -> None:
+                       ], bool]):
         self._image_func = func
         hb_paint_funcs_set_image_func(
             self._hb_paintfuncs, _paint_image_func, <void*>self, NULL)
@@ -2467,7 +2508,7 @@ cdef class PaintFuncs:
                                     float,  # x2
                                     float,  # y2
                                     object,  # paint_data
-                                 ], None]) -> None:
+                                 ], None]):
         self._linear_gradient_func = func
         hb_paint_funcs_set_linear_gradient_func(
             self._hb_paintfuncs, _paint_linear_gradient_func, <void*>self, NULL)
@@ -2482,7 +2523,7 @@ cdef class PaintFuncs:
                                     float,  # y1
                                     float,  # r1
                                     object,  # paint_data
-                                 ], None]) -> None:
+                                 ], None]):
         self._radial_gradient_func = func
         hb_paint_funcs_set_radial_gradient_func(
             self._hb_paintfuncs, _paint_radial_gradient_func, <void*>self, NULL)
@@ -2495,7 +2536,7 @@ cdef class PaintFuncs:
                                     float,  # start_angle
                                     float,  # end_angle
                                     object,  # paint_data
-                                ], None]) -> None:
+                                ], None]):
         self._sweep_gradient_func = func
         hb_paint_funcs_set_sweep_gradient_func(
             self._hb_paintfuncs, _paint_sweep_gradient_func, <void*>self, NULL)
@@ -2503,7 +2544,7 @@ cdef class PaintFuncs:
     def set_push_group_func(self,
                             func: Callable[[
                                 object,  # paint_data
-                            ], None]) -> None:
+                            ], None]):
         self._push_group_func = func
         hb_paint_funcs_set_push_group_func(
             self._hb_paintfuncs, _paint_push_group_func, <void*>self, NULL)
@@ -2512,7 +2553,7 @@ cdef class PaintFuncs:
                            func: Callable[[
                                PaintCompositeMode,  # mode
                                object,  # paint_data
-                           ], None]) -> None:
+                           ], None]):
         self._pop_group_func = func
         hb_paint_funcs_set_pop_group_func(
             self._hb_paintfuncs, _paint_pop_group_func, <void*>self, NULL)
@@ -2521,7 +2562,7 @@ cdef class PaintFuncs:
                                       func: Callable[[
                                           int,  # color_index
                                           object,  # paint_data
-                                      ], Color]) -> None:
+                                      ], Color]):
         self._custom_palette_color_func = func
         hb_paint_funcs_set_custom_palette_color_func(
             self._hb_paintfuncs, _paint_custom_palette_color_func, <void*>self, NULL)
@@ -2605,7 +2646,7 @@ cdef class DrawFuncs:
                              float,
                              object,  # draw_data
                          ], None],
-                         user_data: object = None) -> None:
+                         user_data: object = None):
         cdef hb_draw_move_to_func_t func_p
         cdef void *user_data_p
         if PyCapsule_IsValid(func, NULL):
@@ -2629,7 +2670,7 @@ cdef class DrawFuncs:
                              float,
                              object,  # draw_data
                          ], None],
-                         user_data: object = None) -> None:
+                         user_data: object = None):
         cdef hb_draw_line_to_func_t func_p
         cdef void *user_data_p
         if PyCapsule_IsValid(func, NULL):
@@ -2657,7 +2698,7 @@ cdef class DrawFuncs:
                              float,
                              object,  # draw_data
                           ], None],
-                          user_data: object = None) -> None:
+                          user_data: object = None):
         cdef hb_draw_cubic_to_func_t func_p
         cdef void *user_data_p
         if PyCapsule_IsValid(func, NULL):
@@ -2683,7 +2724,7 @@ cdef class DrawFuncs:
                                  float,
                                  object,  # draw_data
                               ], None],
-                              user_data: object = None) -> None:
+                              user_data: object = None):
         cdef hb_draw_quadratic_to_func_t func_p
         cdef void *user_data_p
         if PyCapsule_IsValid(func, NULL):
@@ -2705,7 +2746,7 @@ cdef class DrawFuncs:
                             func: Callable[[
                                 object
                             ], None],
-                            user_data: object = None) -> None:
+                            user_data: object = None):
         cdef hb_draw_close_path_func_t func_p
         cdef void *user_data_p
         if PyCapsule_IsValid(func, NULL):
@@ -2943,6 +2984,9 @@ cdef class SubsetInput:
     def keep_everything(self):
         hb_subset_input_keep_everything(self._hb_input)
 
+    def pin_all_axes_to_default(self, face: Face) -> bool:
+        return hb_subset_input_pin_all_axes_to_default(self._hb_input, face._hb_face)
+
     def pin_axis_to_default(self, face: Face, tag: str) -> bool:
         hb_tag = hb_tag_from_string(tag.encode("ascii"), -1)
         return hb_subset_input_pin_axis_to_default(
@@ -2955,12 +2999,37 @@ cdef class SubsetInput:
             self._hb_input, face._hb_face, hb_tag, value
         )
 
+    def set_axis_range(self,
+                       face: Face,
+                       tag: str,
+                       min_value: float | None = None,
+                       max_value: float | None = None,
+                       def_value: float | None = None) -> bool:
+        cdef hb_tag_t hb_tag = hb_tag_from_string(tag.encode("ascii"), -1)
+        min_value = NAN if min_value is None else min_value
+        max_value = NAN if max_value is None else max_value
+        def_value = NAN if def_value is None else def_value
+        return hb_subset_input_set_axis_range(
+            self._hb_input, face._hb_face, hb_tag, min_value, max_value, def_value
+        )
+
+    def get_axis_range(self, tag: str) -> Tuple[float | None, float | None | float | None] | None:
+        cdef hb_tag_t hb_tag = hb_tag_from_string(tag.encode("ascii"), -1)
+        cdef float axis_min_value, axis_max_value, axis_def_value
+        if hb_subset_input_get_axis_range(self._hb_input, hb_tag,
+            &axis_min_value, &axis_max_value, &axis_def_value):
+            min_value = None if isnan(axis_min_value) else axis_min_value
+            max_value = None if isnan(axis_max_value) else axis_max_value
+            def_value = None if isnan(axis_def_value) else axis_def_value
+            return min_value, max_value, def_value
+        return None
+
     @property
-    def unicode_set(self) -> Set:
+    def unicode_set(self) -> Set[int]:
         return Set.from_ptr(hb_set_reference (hb_subset_input_unicode_set(self._hb_input)))
 
     @property
-    def glyph_set(self) -> Set:
+    def glyph_set(self) -> Set[int]:
         return Set.from_ptr(hb_set_reference (hb_subset_input_glyph_set(self._hb_input)))
 
     def sets(self, set_type : SubsetInputSets) -> Set:
@@ -2975,11 +3044,11 @@ cdef class SubsetInput:
         return self.sets(SubsetInputSets.DROP_TABLE_TAG)
 
     @property
-    def name_id_set(self) -> Set:
+    def name_id_set(self) -> Set[int]:
         return self.sets(SubsetInputSets.NAME_ID)
 
     @property
-    def name_lang_id_set(self) -> Set:
+    def name_lang_id_set(self) -> Set[int]:
         return self.sets(SubsetInputSets.NAME_LANG_ID)
 
     @property
@@ -2996,7 +3065,7 @@ cdef class SubsetInput:
         return SubsetFlags(subset_flags)
 
     @flags.setter
-    def flags(self, flags: SubsetFlags) -> None:
+    def flags(self, flags: SubsetFlags):
         hb_subset_input_set_flags(self._hb_input, int(flags))
 
 

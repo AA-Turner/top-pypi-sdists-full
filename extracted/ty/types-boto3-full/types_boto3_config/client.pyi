@@ -3,7 +3,7 @@ Type annotations for config service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -232,12 +233,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -246,63 +241,63 @@ else:
 __all__ = ("ConfigServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ConformancePackTemplateValidationException: Type[BotocoreClientError]
-    IdempotentParameterMismatch: Type[BotocoreClientError]
-    InsufficientDeliveryPolicyException: Type[BotocoreClientError]
-    InsufficientPermissionsException: Type[BotocoreClientError]
-    InvalidConfigurationRecorderNameException: Type[BotocoreClientError]
-    InvalidDeliveryChannelNameException: Type[BotocoreClientError]
-    InvalidExpressionException: Type[BotocoreClientError]
-    InvalidLimitException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidRecordingGroupException: Type[BotocoreClientError]
-    InvalidResultTokenException: Type[BotocoreClientError]
-    InvalidRoleException: Type[BotocoreClientError]
-    InvalidS3KeyPrefixException: Type[BotocoreClientError]
-    InvalidS3KmsKeyArnException: Type[BotocoreClientError]
-    InvalidSNSTopicARNException: Type[BotocoreClientError]
-    InvalidTimeRangeException: Type[BotocoreClientError]
-    LastDeliveryChannelDeleteFailedException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MaxActiveResourcesExceededException: Type[BotocoreClientError]
-    MaxNumberOfConfigRulesExceededException: Type[BotocoreClientError]
-    MaxNumberOfConfigurationRecordersExceededException: Type[BotocoreClientError]
-    MaxNumberOfConformancePacksExceededException: Type[BotocoreClientError]
-    MaxNumberOfDeliveryChannelsExceededException: Type[BotocoreClientError]
-    MaxNumberOfOrganizationConfigRulesExceededException: Type[BotocoreClientError]
-    MaxNumberOfOrganizationConformancePacksExceededException: Type[BotocoreClientError]
-    MaxNumberOfRetentionConfigurationsExceededException: Type[BotocoreClientError]
-    NoAvailableConfigurationRecorderException: Type[BotocoreClientError]
-    NoAvailableDeliveryChannelException: Type[BotocoreClientError]
-    NoAvailableOrganizationException: Type[BotocoreClientError]
-    NoRunningConfigurationRecorderException: Type[BotocoreClientError]
-    NoSuchBucketException: Type[BotocoreClientError]
-    NoSuchConfigRuleException: Type[BotocoreClientError]
-    NoSuchConfigRuleInConformancePackException: Type[BotocoreClientError]
-    NoSuchConfigurationAggregatorException: Type[BotocoreClientError]
-    NoSuchConfigurationRecorderException: Type[BotocoreClientError]
-    NoSuchConformancePackException: Type[BotocoreClientError]
-    NoSuchDeliveryChannelException: Type[BotocoreClientError]
-    NoSuchOrganizationConfigRuleException: Type[BotocoreClientError]
-    NoSuchOrganizationConformancePackException: Type[BotocoreClientError]
-    NoSuchRemediationConfigurationException: Type[BotocoreClientError]
-    NoSuchRemediationExceptionException: Type[BotocoreClientError]
-    NoSuchRetentionConfigurationException: Type[BotocoreClientError]
-    OrganizationAccessDeniedException: Type[BotocoreClientError]
-    OrganizationAllFeaturesNotEnabledException: Type[BotocoreClientError]
-    OrganizationConformancePackTemplateValidationException: Type[BotocoreClientError]
-    OversizedConfigurationItemException: Type[BotocoreClientError]
-    RemediationInProgressException: Type[BotocoreClientError]
-    ResourceConcurrentModificationException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotDiscoveredException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnmodifiableEntityException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ConformancePackTemplateValidationException: type[BotocoreClientError]
+    IdempotentParameterMismatch: type[BotocoreClientError]
+    InsufficientDeliveryPolicyException: type[BotocoreClientError]
+    InsufficientPermissionsException: type[BotocoreClientError]
+    InvalidConfigurationRecorderNameException: type[BotocoreClientError]
+    InvalidDeliveryChannelNameException: type[BotocoreClientError]
+    InvalidExpressionException: type[BotocoreClientError]
+    InvalidLimitException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidRecordingGroupException: type[BotocoreClientError]
+    InvalidResultTokenException: type[BotocoreClientError]
+    InvalidRoleException: type[BotocoreClientError]
+    InvalidS3KeyPrefixException: type[BotocoreClientError]
+    InvalidS3KmsKeyArnException: type[BotocoreClientError]
+    InvalidSNSTopicARNException: type[BotocoreClientError]
+    InvalidTimeRangeException: type[BotocoreClientError]
+    LastDeliveryChannelDeleteFailedException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MaxActiveResourcesExceededException: type[BotocoreClientError]
+    MaxNumberOfConfigRulesExceededException: type[BotocoreClientError]
+    MaxNumberOfConfigurationRecordersExceededException: type[BotocoreClientError]
+    MaxNumberOfConformancePacksExceededException: type[BotocoreClientError]
+    MaxNumberOfDeliveryChannelsExceededException: type[BotocoreClientError]
+    MaxNumberOfOrganizationConfigRulesExceededException: type[BotocoreClientError]
+    MaxNumberOfOrganizationConformancePacksExceededException: type[BotocoreClientError]
+    MaxNumberOfRetentionConfigurationsExceededException: type[BotocoreClientError]
+    NoAvailableConfigurationRecorderException: type[BotocoreClientError]
+    NoAvailableDeliveryChannelException: type[BotocoreClientError]
+    NoAvailableOrganizationException: type[BotocoreClientError]
+    NoRunningConfigurationRecorderException: type[BotocoreClientError]
+    NoSuchBucketException: type[BotocoreClientError]
+    NoSuchConfigRuleException: type[BotocoreClientError]
+    NoSuchConfigRuleInConformancePackException: type[BotocoreClientError]
+    NoSuchConfigurationAggregatorException: type[BotocoreClientError]
+    NoSuchConfigurationRecorderException: type[BotocoreClientError]
+    NoSuchConformancePackException: type[BotocoreClientError]
+    NoSuchDeliveryChannelException: type[BotocoreClientError]
+    NoSuchOrganizationConfigRuleException: type[BotocoreClientError]
+    NoSuchOrganizationConformancePackException: type[BotocoreClientError]
+    NoSuchRemediationConfigurationException: type[BotocoreClientError]
+    NoSuchRemediationExceptionException: type[BotocoreClientError]
+    NoSuchRetentionConfigurationException: type[BotocoreClientError]
+    OrganizationAccessDeniedException: type[BotocoreClientError]
+    OrganizationAllFeaturesNotEnabledException: type[BotocoreClientError]
+    OrganizationConformancePackTemplateValidationException: type[BotocoreClientError]
+    OversizedConfigurationItemException: type[BotocoreClientError]
+    RemediationInProgressException: type[BotocoreClientError]
+    ResourceConcurrentModificationException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotDiscoveredException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnmodifiableEntityException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ConfigServiceClient(BaseClient):
     """
@@ -440,7 +435,7 @@ class ConfigServiceClient(BaseClient):
 
     def delete_evaluation_results(
         self, **kwargs: Unpack[DeleteEvaluationResultsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the evaluation results for the specified Config rule.
 
@@ -483,7 +478,7 @@ class ConfigServiceClient(BaseClient):
 
     def delete_remediation_configuration(
         self, **kwargs: Unpack[DeleteRemediationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the remediation configuration.
 
@@ -533,7 +528,7 @@ class ConfigServiceClient(BaseClient):
 
     def delete_stored_query(
         self, **kwargs: Unpack[DeleteStoredQueryRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the stored query for a single Amazon Web Services account and a single
         Amazon Web Services Region.
@@ -1179,7 +1174,7 @@ class ConfigServiceClient(BaseClient):
 
     def put_external_evaluation(
         self, **kwargs: Unpack[PutExternalEvaluationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add or updates the evaluations for process checks.
 
@@ -1301,7 +1296,7 @@ class ConfigServiceClient(BaseClient):
 
     def start_config_rules_evaluation(
         self, **kwargs: Unpack[StartConfigRulesEvaluationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Runs an on-demand evaluation for the specified Config rules against the last
         known configuration state of the resources.

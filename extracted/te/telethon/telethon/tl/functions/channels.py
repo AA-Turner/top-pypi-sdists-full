@@ -179,71 +179,6 @@ class CreateChannelRequest(TLRequest):
         return cls(title=_title, about=_about, broadcast=_broadcast, megagroup=_megagroup, for_import=_for_import, forum=_forum, geo_point=_geo_point, address=_address, ttl_period=_ttl_period)
 
 
-class CreateForumTopicRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xf40c0224
-    SUBCLASS_OF_ID = 0x8af52aac
-
-    def __init__(self, channel: 'TypeInputChannel', title: str, icon_color: Optional[int]=None, icon_emoji_id: Optional[int]=None, random_id: int=None, send_as: Optional['TypeInputPeer']=None):
-        """
-        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
-        """
-        self.channel = channel
-        self.title = title
-        self.icon_color = icon_color
-        self.icon_emoji_id = icon_emoji_id
-        self.random_id = random_id if random_id is not None else int.from_bytes(os.urandom(8), 'big', signed=True)
-        self.send_as = send_as
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-        if self.send_as:
-            self.send_as = utils.get_input_peer(await client.get_input_entity(self.send_as))
-
-    def to_dict(self):
-        return {
-            '_': 'CreateForumTopicRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'title': self.title,
-            'icon_color': self.icon_color,
-            'icon_emoji_id': self.icon_emoji_id,
-            'random_id': self.random_id,
-            'send_as': self.send_as.to_dict() if isinstance(self.send_as, TLObject) else self.send_as
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'$\x02\x0c\xf4',
-            struct.pack('<I', (0 if self.icon_color is None or self.icon_color is False else 1) | (0 if self.icon_emoji_id is None or self.icon_emoji_id is False else 8) | (0 if self.send_as is None or self.send_as is False else 4)),
-            self.channel._bytes(),
-            self.serialize_bytes(self.title),
-            b'' if self.icon_color is None or self.icon_color is False else (struct.pack('<i', self.icon_color)),
-            b'' if self.icon_emoji_id is None or self.icon_emoji_id is False else (struct.pack('<q', self.icon_emoji_id)),
-            struct.pack('<q', self.random_id),
-            b'' if self.send_as is None or self.send_as is False else (self.send_as._bytes()),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        flags = reader.read_int()
-
-        _channel = reader.tgread_object()
-        _title = reader.tgread_string()
-        if flags & 1:
-            _icon_color = reader.read_int()
-        else:
-            _icon_color = None
-        if flags & 8:
-            _icon_emoji_id = reader.read_long()
-        else:
-            _icon_emoji_id = None
-        _random_id = reader.read_long()
-        if flags & 4:
-            _send_as = reader.tgread_object()
-        else:
-            _send_as = None
-        return cls(channel=_channel, title=_title, icon_color=_icon_color, icon_emoji_id=_icon_emoji_id, random_id=_random_id, send_as=_send_as)
-
-
 class DeactivateAllUsernamesRequest(TLRequest):
     CONSTRUCTOR_ID = 0xa245dd3
     SUBCLASS_OF_ID = 0xf5b399ac
@@ -423,41 +358,6 @@ class DeleteParticipantHistoryRequest(TLRequest):
         return cls(channel=_channel, participant=_participant)
 
 
-class DeleteTopicHistoryRequest(TLRequest):
-    CONSTRUCTOR_ID = 0x34435f2d
-    SUBCLASS_OF_ID = 0x2c49c116
-
-    def __init__(self, channel: 'TypeInputChannel', top_msg_id: int):
-        """
-        :returns messages.AffectedHistory: Instance of AffectedHistory.
-        """
-        self.channel = channel
-        self.top_msg_id = top_msg_id
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'DeleteTopicHistoryRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'top_msg_id': self.top_msg_id
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'-_C4',
-            self.channel._bytes(),
-            struct.pack('<i', self.top_msg_id),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        _channel = reader.tgread_object()
-        _top_msg_id = reader.read_int()
-        return cls(channel=_channel, top_msg_id=_top_msg_id)
-
-
 class EditAdminRequest(TLRequest):
     CONSTRUCTOR_ID = 0xd33c8902
     SUBCLASS_OF_ID = 0x8af52aac
@@ -580,72 +480,6 @@ class EditCreatorRequest(TLRequest):
         _user_id = reader.tgread_object()
         _password = reader.tgread_object()
         return cls(channel=_channel, user_id=_user_id, password=_password)
-
-
-class EditForumTopicRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xf4dfa185
-    SUBCLASS_OF_ID = 0x8af52aac
-
-    def __init__(self, channel: 'TypeInputChannel', topic_id: int, title: Optional[str]=None, icon_emoji_id: Optional[int]=None, closed: Optional[bool]=None, hidden: Optional[bool]=None):
-        """
-        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
-        """
-        self.channel = channel
-        self.topic_id = topic_id
-        self.title = title
-        self.icon_emoji_id = icon_emoji_id
-        self.closed = closed
-        self.hidden = hidden
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'EditForumTopicRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'topic_id': self.topic_id,
-            'title': self.title,
-            'icon_emoji_id': self.icon_emoji_id,
-            'closed': self.closed,
-            'hidden': self.hidden
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'\x85\xa1\xdf\xf4',
-            struct.pack('<I', (0 if self.title is None or self.title is False else 1) | (0 if self.icon_emoji_id is None or self.icon_emoji_id is False else 2) | (0 if self.closed is None else 4) | (0 if self.hidden is None else 8)),
-            self.channel._bytes(),
-            struct.pack('<i', self.topic_id),
-            b'' if self.title is None or self.title is False else (self.serialize_bytes(self.title)),
-            b'' if self.icon_emoji_id is None or self.icon_emoji_id is False else (struct.pack('<q', self.icon_emoji_id)),
-            b'' if self.closed is None else (b'\xb5ur\x99' if self.closed else b'7\x97y\xbc'),
-            b'' if self.hidden is None else (b'\xb5ur\x99' if self.hidden else b'7\x97y\xbc'),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        flags = reader.read_int()
-
-        _channel = reader.tgread_object()
-        _topic_id = reader.read_int()
-        if flags & 1:
-            _title = reader.tgread_string()
-        else:
-            _title = None
-        if flags & 2:
-            _icon_emoji_id = reader.read_long()
-        else:
-            _icon_emoji_id = None
-        if flags & 4:
-            _closed = reader.tgread_bool()
-        else:
-            _closed = None
-        if flags & 8:
-            _hidden = reader.tgread_bool()
-        else:
-            _hidden = None
-        return cls(channel=_channel, topic_id=_topic_id, title=_title, icon_emoji_id=_icon_emoji_id, closed=_closed, hidden=_hidden)
 
 
 class EditLocationRequest(TLRequest):
@@ -989,103 +823,6 @@ class GetChannelsRequest(TLRequest):
             _id.append(_x)
 
         return cls(id=_id)
-
-
-class GetForumTopicsRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xde560d1
-    SUBCLASS_OF_ID = 0x8e1d3e1e
-
-    def __init__(self, channel: 'TypeInputChannel', offset_date: Optional[datetime], offset_id: int, offset_topic: int, limit: int, q: Optional[str]=None):
-        """
-        :returns messages.ForumTopics: Instance of ForumTopics.
-        """
-        self.channel = channel
-        self.offset_date = offset_date
-        self.offset_id = offset_id
-        self.offset_topic = offset_topic
-        self.limit = limit
-        self.q = q
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'GetForumTopicsRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'offset_date': self.offset_date,
-            'offset_id': self.offset_id,
-            'offset_topic': self.offset_topic,
-            'limit': self.limit,
-            'q': self.q
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'\xd1`\xe5\r',
-            struct.pack('<I', (0 if self.q is None or self.q is False else 1)),
-            self.channel._bytes(),
-            b'' if self.q is None or self.q is False else (self.serialize_bytes(self.q)),
-            self.serialize_datetime(self.offset_date),
-            struct.pack('<i', self.offset_id),
-            struct.pack('<i', self.offset_topic),
-            struct.pack('<i', self.limit),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        flags = reader.read_int()
-
-        _channel = reader.tgread_object()
-        if flags & 1:
-            _q = reader.tgread_string()
-        else:
-            _q = None
-        _offset_date = reader.tgread_date()
-        _offset_id = reader.read_int()
-        _offset_topic = reader.read_int()
-        _limit = reader.read_int()
-        return cls(channel=_channel, offset_date=_offset_date, offset_id=_offset_id, offset_topic=_offset_topic, limit=_limit, q=_q)
-
-
-class GetForumTopicsByIDRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xb0831eb9
-    SUBCLASS_OF_ID = 0x8e1d3e1e
-
-    def __init__(self, channel: 'TypeInputChannel', topics: List[int]):
-        """
-        :returns messages.ForumTopics: Instance of ForumTopics.
-        """
-        self.channel = channel
-        self.topics = topics
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'GetForumTopicsByIDRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'topics': [] if self.topics is None else self.topics[:]
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'\xb9\x1e\x83\xb0',
-            self.channel._bytes(),
-            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.topics)),b''.join(struct.pack('<i', x) for x in self.topics),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        _channel = reader.tgread_object()
-        reader.read_int()
-        _topics = []
-        for _ in range(reader.read_int()):
-            _x = reader.read_int()
-            _topics.append(_x)
-
-        return cls(channel=_channel, topics=_topics)
 
 
 class GetFullChannelRequest(TLRequest):
@@ -1565,52 +1302,6 @@ class ReadMessageContentsRequest(TLRequest):
             _id.append(_x)
 
         return cls(channel=_channel, id=_id)
-
-
-class ReorderPinnedForumTopicsRequest(TLRequest):
-    CONSTRUCTOR_ID = 0x2950a18f
-    SUBCLASS_OF_ID = 0x8af52aac
-
-    def __init__(self, channel: 'TypeInputChannel', order: List[int], force: Optional[bool]=None):
-        """
-        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
-        """
-        self.channel = channel
-        self.order = order
-        self.force = force
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'ReorderPinnedForumTopicsRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'order': [] if self.order is None else self.order[:],
-            'force': self.force
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'\x8f\xa1P)',
-            struct.pack('<I', (0 if self.force is None or self.force is False else 1)),
-            self.channel._bytes(),
-            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.order)),b''.join(struct.pack('<i', x) for x in self.order),
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        flags = reader.read_int()
-
-        _force = bool(flags & 1)
-        _channel = reader.tgread_object()
-        reader.read_int()
-        _order = []
-        for _ in range(reader.read_int()):
-            _x = reader.read_int()
-            _order.append(_x)
-
-        return cls(channel=_channel, order=_order, force=_force)
 
 
 class ReorderUsernamesRequest(TLRequest):
@@ -2534,45 +2225,6 @@ class UpdatePaidMessagesPriceRequest(TLRequest):
         _channel = reader.tgread_object()
         _send_paid_messages_stars = reader.read_long()
         return cls(channel=_channel, send_paid_messages_stars=_send_paid_messages_stars, broadcast_messages_allowed=_broadcast_messages_allowed)
-
-
-class UpdatePinnedForumTopicRequest(TLRequest):
-    CONSTRUCTOR_ID = 0x6c2d9026
-    SUBCLASS_OF_ID = 0x8af52aac
-
-    def __init__(self, channel: 'TypeInputChannel', topic_id: int, pinned: bool):
-        """
-        :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
-        """
-        self.channel = channel
-        self.topic_id = topic_id
-        self.pinned = pinned
-
-    async def resolve(self, client, utils):
-        self.channel = utils.get_input_channel(await client.get_input_entity(self.channel))
-
-    def to_dict(self):
-        return {
-            '_': 'UpdatePinnedForumTopicRequest',
-            'channel': self.channel.to_dict() if isinstance(self.channel, TLObject) else self.channel,
-            'topic_id': self.topic_id,
-            'pinned': self.pinned
-        }
-
-    def _bytes(self):
-        return b''.join((
-            b'&\x90-l',
-            self.channel._bytes(),
-            struct.pack('<i', self.topic_id),
-            b'\xb5ur\x99' if self.pinned else b'7\x97y\xbc',
-        ))
-
-    @classmethod
-    def from_reader(cls, reader):
-        _channel = reader.tgread_object()
-        _topic_id = reader.read_int()
-        _pinned = reader.tgread_bool()
-        return cls(channel=_channel, topic_id=_topic_id, pinned=_pinned)
 
 
 class UpdateUsernameRequest(TLRequest):

@@ -1,7 +1,7 @@
-import warnings
-from typing import Any, Optional, Type
+from typing import Any, Optional
 
 import pytest
+from typing_extensions import dataclass_transform
 
 import nexusrpc
 from nexusrpc.handler import (
@@ -11,9 +11,14 @@ from nexusrpc.handler import (
 )
 
 
-class _InterfaceImplementationTestCase:
-    Interface: Type
-    Impl: Type
+@dataclass_transform()
+class _BaseTestCase:
+    pass
+
+
+class _InterfaceImplementationTestCase(_BaseTestCase):
+    Interface: type
+    Impl: type
     error_message: Optional[str]
 
 
@@ -26,7 +31,7 @@ class ValidImpl(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: None) -> None: ...
+        async def op(self, _ctx: StartOperationContext, _input: None) -> None: ...
 
     error_message = None
 
@@ -38,7 +43,7 @@ class ValidImplWithEmptyInterfaceAndExtraOperation(_InterfaceImplementationTestC
 
     class Impl:
         @sync_operation
-        async def extra_op(self, ctx: StartOperationContext, input: None) -> None: ...
+        async def extra_op(self, _ctx: StartOperationContext, _input: None) -> None: ...
 
         def unrelated_method(self) -> None: ...
 
@@ -50,17 +55,9 @@ class ValidImplWithoutTypeAnnotations(_InterfaceImplementationTestCase):
     class Interface:
         op: nexusrpc.Operation[int, str]
 
-    with warnings.catch_warnings(record=True) as _warnings:
-        warnings.simplefilter("always")
-
-        class Impl:
-            @sync_operation
-            async def op(self, ctx, input): ...
-
-    captured_warnings = _warnings
-    expected_warning = (
-        "to have exactly 2 type-annotated parameters (ctx and input), but it has 0"
-    )
+    class Impl:
+        @sync_operation
+        async def op(self, ctx, input): ...  # type: ignore[reportMissingParameterType]
 
     error_message = None
 
@@ -81,17 +78,9 @@ class MissingInputAnnotation(_InterfaceImplementationTestCase):
     class Interface:
         op: nexusrpc.Operation[None, None]
 
-    with warnings.catch_warnings(record=True) as _warnings:
-        warnings.simplefilter("always")
-
-        class Impl:
-            @sync_operation
-            async def op(self, ctx: StartOperationContext, input) -> None: ...
-
-    captured_warnings = _warnings
-    expected_warning = (
-        "to have exactly 2 type-annotated parameters (ctx and input), but it has 1"
-    )
+    class Impl:
+        @sync_operation
+        async def op(self, ctx: StartOperationContext, input) -> None: ...  # type: ignore[reportMissingParameterType]
 
     error_message = None
 
@@ -101,17 +90,9 @@ class MissingContextAnnotation(_InterfaceImplementationTestCase):
     class Interface:
         op: nexusrpc.Operation[None, None]
 
-    with warnings.catch_warnings(record=True) as _warnings:
-        warnings.simplefilter("always")
-
-        class Impl:
-            @sync_operation
-            async def op(self, ctx, input: None) -> None: ...
-
-    captured_warnings = _warnings
-    expected_warning = (
-        "to have exactly 2 type-annotated parameters (ctx and input), but it has 1"
-    )
+    class Impl:
+        @sync_operation
+        async def op(self, ctx, input: None) -> None: ...  # type: ignore[reportMissingParameterType]
 
     error_message = None
 
@@ -123,7 +104,7 @@ class WrongOutputType(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: None) -> str: ...
+        async def op(self, _ctx: StartOperationContext, _input: None) -> str: ...
 
     error_message = "is not compatible with the output type"
 
@@ -135,7 +116,7 @@ class WrongOutputTypeWithNone(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: str) -> str: ...
+        async def op(self, _ctx: StartOperationContext, _input: str) -> str: ...
 
     error_message = "is not compatible with the output type"
 
@@ -147,7 +128,7 @@ class ValidImplWithNone(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: str) -> None: ...
+        async def op(self, _ctx: StartOperationContext, _input: str) -> None: ...
 
     error_message = None
 
@@ -159,7 +140,7 @@ class MoreSpecificImplAllowed(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: str) -> str: ...
+        async def op(self, _ctx: StartOperationContext, _input: str) -> str: ...
 
     error_message = None
 
@@ -183,7 +164,7 @@ class OutputCovarianceImplOutputCanBeSameType(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: X) -> X: ...
+        async def op(self, _ctx: StartOperationContext, _input: X) -> X: ...
 
     error_message = None
 
@@ -195,7 +176,7 @@ class OutputCovarianceImplOutputCanBeSubclass(_InterfaceImplementationTestCase):
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: X) -> Subclass: ...
+        async def op(self, _ctx: StartOperationContext, _input: X) -> Subclass: ...
 
     error_message = None
 
@@ -209,7 +190,7 @@ class OutputCovarianceImplOutputCannnotBeStrictSuperclass(
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: X) -> SuperClass: ...
+        async def op(self, _ctx: StartOperationContext, _input: X) -> SuperClass: ...
 
     error_message = "is not compatible with the output type"
 
@@ -221,7 +202,7 @@ class InputContravarianceImplInputCanBeSameType(_InterfaceImplementationTestCase
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: X) -> X: ...
+        async def op(self, _ctx: StartOperationContext, _input: X) -> X: ...
 
     error_message = None
 
@@ -233,7 +214,7 @@ class InputContravarianceImplInputCanBeSuperclass(_InterfaceImplementationTestCa
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: SuperClass) -> X: ...
+        async def op(self, _ctx: StartOperationContext, _input: SuperClass) -> X: ...
 
     error_message = None
 
@@ -245,7 +226,7 @@ class InputContravarianceImplInputCannotBeSubclass(_InterfaceImplementationTestC
 
     class Impl:
         @sync_operation
-        async def op(self, ctx: StartOperationContext, input: Subclass) -> X: ...
+        async def op(self, _ctx: StartOperationContext, _input: Subclass) -> X: ...
 
     error_message = "is not compatible with the input type"
 
@@ -271,7 +252,7 @@ class InputContravarianceImplInputCannotBeSubclass(_InterfaceImplementationTestC
     ],
 )
 def test_service_decorator_enforces_interface_implementation(
-    test_case: Type[_InterfaceImplementationTestCase],
+    test_case: type[_InterfaceImplementationTestCase],
 ):
     if test_case.error_message:
         with pytest.raises(Exception) as ei:
@@ -279,11 +260,6 @@ def test_service_decorator_enforces_interface_implementation(
         err = ei.value
         assert test_case.error_message in str(err)
     else:
-        if expected_warning := getattr(test_case, "expected_warning", None):
-            [warning] = getattr(test_case, "captured_warnings", [])
-            assert expected_warning in str(warning.message)
-            assert issubclass(warning.category, UserWarning)
-
         service_handler(service=test_case.Interface)(test_case.Impl)
 
 
@@ -296,11 +272,11 @@ def test_service_does_not_implement_operation_name():
     class Service:
         @sync_operation
         async def operation_b(
-            self, ctx: StartOperationContext, input: None
+            self, _ctx: StartOperationContext, _input: None
         ) -> None: ...
 
     with pytest.raises(
         TypeError,
         match="does not match an operation method name in the service definition",
     ):
-        service_handler(service=Contract)(Service)
+        _ = service_handler(service=Contract)(Service)

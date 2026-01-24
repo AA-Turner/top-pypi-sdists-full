@@ -3,15 +3,12 @@
 //! Includes rule categories, dynamic dispatch helpers, and inline comment handling for rule enable/disable.
 
 use dyn_clone::DynClone;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use thiserror::Error;
 
 // Import document structure
 use crate::lint_context::LintContext;
-
-// Import markdown AST for shared parsing
-pub use markdown::mdast::Node as MarkdownAst;
 
 // Macro to implement box_clone for Rule implementors
 #[macro_export]
@@ -39,7 +36,7 @@ pub enum LintError {
 
 pub type LintResult = Result<Vec<LintWarning>, LintError>;
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct LintWarning {
     pub message: String,
     pub line: usize,       // 1-indexed start line
@@ -48,19 +45,38 @@ pub struct LintWarning {
     pub end_column: usize, // 1-indexed end column
     pub severity: Severity,
     pub fix: Option<Fix>,
-    pub rule_name: Option<&'static str>,
+    pub rule_name: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Fix {
     pub range: Range<usize>,
     pub replacement: String,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum Severity {
     Error,
     Warning,
+    Info,
+}
+
+impl<'de> serde::Deserialize<'de> for Severity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.to_lowercase().as_str() {
+            "error" => Ok(Severity::Error),
+            "warning" => Ok(Severity::Warning),
+            "info" => Ok(Severity::Info),
+            _ => Err(serde::de::Error::custom(format!(
+                "Invalid severity: '{s}'. Valid values: error, warning, info"
+            ))),
+        }
+    }
 }
 
 /// Type of rule for selective processing
@@ -91,18 +107,25 @@ pub enum FixCapability {
     Unfixable,
 }
 
+/// Declares what cross-file data a rule needs
+///
+/// Most rules only need single-file context and should use `None` (the default).
+/// Rules that need to validate references across files (like MD051) should use `Workspace`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CrossFileScope {
+    /// Single-file only - no cross-file analysis needed (default for 99% of rules)
+    #[default]
+    None,
+    /// Needs workspace-wide index for cross-file validation
+    Workspace,
+}
+
 /// Remove marker /// TRAIT_MARKER_V1
 pub trait Rule: DynClone + Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
     fn check(&self, ctx: &LintContext) -> LintResult;
     fn fix(&self, ctx: &LintContext) -> Result<String, LintError>;
-
-    /// AST-based check method for rules that can benefit from shared AST parsing
-    /// By default, calls the regular check method if not overridden
-    fn check_with_ast(&self, ctx: &LintContext, _ast: &MarkdownAst) -> LintResult {
-        self.check(ctx)
-    }
 
     /// Check if this rule should quickly skip processing based on content
     fn should_skip(&self, _ctx: &LintContext) -> bool {
@@ -114,21 +137,12 @@ pub trait Rule: DynClone + Send + Sync {
         RuleCategory::Other // Default implementation returns Other
     }
 
-    /// Check if this rule can benefit from AST parsing
-    fn uses_ast(&self) -> bool {
-        false
-    }
-
     fn as_any(&self) -> &dyn std::any::Any;
 
     // DocumentStructure has been merged into LintContext - this method is no longer used
     // fn as_maybe_document_structure(&self) -> Option<&dyn MaybeDocumentStructure> {
     //     None
     // }
-
-    fn as_maybe_ast(&self) -> Option<&dyn MaybeAst> {
-        None
-    }
 
     /// Returns the rule name and default config table if the rule has config.
     /// If a rule implements this, it MUST be defined on the `impl Rule for ...` block,
@@ -146,6 +160,51 @@ pub trait Rule: DynClone + Send + Sync {
     /// Declares the fix capability of this rule
     fn fix_capability(&self) -> FixCapability {
         FixCapability::FullyFixable // Safe default for backward compatibility
+    }
+
+    /// Declares cross-file analysis requirements for this rule
+    ///
+    /// Returns `CrossFileScope::None` by default, meaning the rule only needs
+    /// single-file context. Rules that need workspace-wide data should override
+    /// this to return `CrossFileScope::Workspace`.
+    fn cross_file_scope(&self) -> CrossFileScope {
+        CrossFileScope::None
+    }
+
+    /// Contribute data to the workspace index during linting
+    ///
+    /// Called during the single-file linting phase for rules that return
+    /// `CrossFileScope::Workspace`. Rules should extract headings, links,
+    /// and other data needed for cross-file validation.
+    ///
+    /// This is called as a side effect of linting, so LintContext is already
+    /// created - no duplicate parsing required.
+    fn contribute_to_index(&self, _ctx: &LintContext, _file_index: &mut crate::workspace_index::FileIndex) {
+        // Default: no contribution
+    }
+
+    /// Perform cross-file validation after all files have been linted
+    ///
+    /// Called once per file after the entire workspace has been indexed.
+    /// Rules receive the file_index (from contribute_to_index) and the full
+    /// workspace_index for cross-file lookups.
+    ///
+    /// Note: This receives the FileIndex instead of LintContext to avoid re-parsing
+    /// each file. The FileIndex was already populated during contribute_to_index.
+    ///
+    /// Rules can use workspace_index methods for cross-file validation:
+    /// - `get_file(path)` - to look up headings in target files (for MD051)
+    /// - `files()` - to iterate all indexed files
+    ///
+    /// Returns additional warnings for cross-file issues. These are appended
+    /// to the single-file warnings.
+    fn cross_file_check(
+        &self,
+        _file_path: &std::path::Path,
+        _file_index: &crate::workspace_index::FileIndex,
+        _workspace_index: &crate::workspace_index::WorkspaceIndex,
+    ) -> LintResult {
+        Ok(Vec::new()) // Default: no cross-file warnings
     }
 
     /// Factory: create a rule from config (if present), or use defaults.
@@ -345,36 +404,6 @@ impl MaybeDocumentStructure for dyn Rule {
     }
 }
 */
-
-// Helper trait for dynamic dispatch to check_with_ast
-pub trait MaybeAst {
-    fn check_with_ast_opt(&self, ctx: &LintContext, ast: &MarkdownAst) -> Option<LintResult>;
-}
-
-impl<T> MaybeAst for T
-where
-    T: Rule + AstExtensions + 'static,
-{
-    fn check_with_ast_opt(&self, ctx: &LintContext, ast: &MarkdownAst) -> Option<LintResult> {
-        if self.has_relevant_ast_elements(ctx, ast) {
-            Some(self.check_with_ast(ctx, ast))
-        } else {
-            None
-        }
-    }
-}
-
-impl MaybeAst for dyn Rule {
-    fn check_with_ast_opt(&self, _ctx: &LintContext, _ast: &MarkdownAst) -> Option<LintResult> {
-        None
-    }
-}
-
-/// Extension trait for rules that use AST
-pub trait AstExtensions {
-    /// Check if the AST contains relevant elements for this rule
-    fn has_relevant_ast_elements(&self, ctx: &LintContext, ast: &MarkdownAst) -> bool;
-}
 
 #[cfg(test)]
 mod tests {
@@ -738,11 +767,11 @@ Content here"#;
             end_column: 10,
             severity: Severity::Warning,
             fix: None,
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
         };
 
         let serialized = serde_json::to_string(&warning).unwrap();
-        assert!(serialized.contains("\"severity\":\"Warning\""));
+        assert!(serialized.contains("\"severity\":\"warning\""));
 
         let error = LintWarning {
             severity: Severity::Error,
@@ -750,7 +779,7 @@ Content here"#;
         };
 
         let serialized = serde_json::to_string(&error).unwrap();
-        assert!(serialized.contains("\"severity\":\"Error\""));
+        assert!(serialized.contains("\"severity\":\"error\""));
     }
 
     #[test]
@@ -768,7 +797,7 @@ Content here"#;
             end_column: 10,
             severity: Severity::Warning,
             fix: Some(fix),
-            rule_name: Some("MD001"),
+            rule_name: Some("MD001".to_string()),
         };
 
         let serialized = serde_json::to_string(&warning).unwrap();

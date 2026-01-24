@@ -1,0 +1,73 @@
+Metadata-Version: 2.3
+Name: galileo-core
+Version: 3.84.0
+Summary: Shared schemas and configuration for Galileo's Python packages.
+License: Apache-2.0
+Keywords: llm,quality,language_models,galileo
+Author: Galileo Technologies Inc.
+Author-email: team@rungalileo.io
+Requires-Python: >=3.10.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: Pydantic
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Framework :: IPython
+Classifier: Framework :: Jupyter
+Classifier: Framework :: Jupyter :: JupyterLab
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: ML
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Provides-Extra: testing
+Requires-Dist: httpx (>=0.27.0,<0.29.0)
+Requires-Dist: pydantic (>=2.6.0,<3.0.0)
+Requires-Dist: pydantic-partial (>=0.10.1,<0.11.0)
+Requires-Dist: pydantic-settings (>=2.2.1,<3.0.0)
+Requires-Dist: pyjwt (>=2.8.0,<3.0.0)
+Requires-Dist: pytest (>=8.2.1,<9.0.0) ; extra == "testing"
+Requires-Dist: respx (>=0.22.0,<0.23.0) ; extra == "testing"
+Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
+Requires-Dist: uvloop (>=0.21.0,<0.22.0) ; sys_platform != "win32"
+Project-URL: Homepage, https://www.galileo.ai/
+Description-Content-Type: text/markdown
+
+# galileo-core
+
+Shared schemas and configuration for Galileo's Python packages.
+
+## Running Tests
+
+This project uses [Poetry](https://python-poetry.org/) for dependency management and [pytest](https://pytest.org/) as the test runner.
+
+To install the test dependencies and run the test suite, use:
+
+```bash
+poetry install --with test
+poetry run pytest
+```
+
+Or you could run:
+
+```bash
+inv test
+```
+
+- The first command installs all dependencies, including those needed for testing.
+- The second command runs the entire test suite in parallel (as configured in `pyproject.toml`).
+
+If you are developing locally and using this package as a dependency in other projects (e.g., the Galileo API), make sure to use the local path override in your `pyproject.toml`:
+
+```toml
+galileo-core = { path = "../galileo-core", develop = true }
+```
+

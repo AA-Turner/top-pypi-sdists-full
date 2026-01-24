@@ -155,6 +155,19 @@ class AccessKeyAlarm(AbstractModel):
         :type Evidence: str
         :param _RuleKey: 告警规则标识
         :type RuleKey: str
+        :param _CloudType: 云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :type CloudType: int
+        :param _AIStatus: 告警AI分析状态
+-1 分析失败
+0 未分析
+1 分析中
+2 分析成功，真实告警
+3 分析成功，可疑告警
+        :type AIStatus: int
+        :param _FirstAlarmTimestamp: 首次告警时间戳（秒级）
+        :type FirstAlarmTimestamp: int
+        :param _LastAlarmTimestamp: 最后告警时间戳（秒级）
+        :type LastAlarmTimestamp: int
         """
         self._Name = None
         self._Level = None
@@ -178,6 +191,10 @@ class AccessKeyAlarm(AbstractModel):
         self._IsSupportEditWhiteAccount = None
         self._Evidence = None
         self._RuleKey = None
+        self._CloudType = None
+        self._AIStatus = None
+        self._FirstAlarmTimestamp = None
+        self._LastAlarmTimestamp = None
 
     @property
     def Name(self):
@@ -426,6 +443,55 @@ class AccessKeyAlarm(AbstractModel):
     def RuleKey(self, RuleKey):
         self._RuleKey = RuleKey
 
+    @property
+    def CloudType(self):
+        r"""云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :rtype: int
+        """
+        return self._CloudType
+
+    @CloudType.setter
+    def CloudType(self, CloudType):
+        self._CloudType = CloudType
+
+    @property
+    def AIStatus(self):
+        r"""告警AI分析状态
+-1 分析失败
+0 未分析
+1 分析中
+2 分析成功，真实告警
+3 分析成功，可疑告警
+        :rtype: int
+        """
+        return self._AIStatus
+
+    @AIStatus.setter
+    def AIStatus(self, AIStatus):
+        self._AIStatus = AIStatus
+
+    @property
+    def FirstAlarmTimestamp(self):
+        r"""首次告警时间戳（秒级）
+        :rtype: int
+        """
+        return self._FirstAlarmTimestamp
+
+    @FirstAlarmTimestamp.setter
+    def FirstAlarmTimestamp(self, FirstAlarmTimestamp):
+        self._FirstAlarmTimestamp = FirstAlarmTimestamp
+
+    @property
+    def LastAlarmTimestamp(self):
+        r"""最后告警时间戳（秒级）
+        :rtype: int
+        """
+        return self._LastAlarmTimestamp
+
+    @LastAlarmTimestamp.setter
+    def LastAlarmTimestamp(self, LastAlarmTimestamp):
+        self._LastAlarmTimestamp = LastAlarmTimestamp
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -450,6 +516,10 @@ class AccessKeyAlarm(AbstractModel):
         self._IsSupportEditWhiteAccount = params.get("IsSupportEditWhiteAccount")
         self._Evidence = params.get("Evidence")
         self._RuleKey = params.get("RuleKey")
+        self._CloudType = params.get("CloudType")
+        self._AIStatus = params.get("AIStatus")
+        self._FirstAlarmTimestamp = params.get("FirstAlarmTimestamp")
+        self._LastAlarmTimestamp = params.get("LastAlarmTimestamp")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -473,10 +543,19 @@ class AccessKeyAlarmCount(AbstractModel):
         :type AccessKey: str
         :param _AlarmCount: 告警数量
         :type AlarmCount: int
+        :param _AccessKeyStatus: 访问密钥状态 0 禁用 1 已启用 2 已删除
+        :type AccessKeyStatus: int
+        :param _AccessKeyCreateTime: AK创建时间
+        :type AccessKeyCreateTime: str
+        :param _LastAccessTime: AK最后使用时间，从未使用过则返回“-”
+        :type LastAccessTime: str
         """
         self._ID = None
         self._AccessKey = None
         self._AlarmCount = None
+        self._AccessKeyStatus = None
+        self._AccessKeyCreateTime = None
+        self._LastAccessTime = None
 
     @property
     def ID(self):
@@ -511,11 +590,47 @@ class AccessKeyAlarmCount(AbstractModel):
     def AlarmCount(self, AlarmCount):
         self._AlarmCount = AlarmCount
 
+    @property
+    def AccessKeyStatus(self):
+        r"""访问密钥状态 0 禁用 1 已启用 2 已删除
+        :rtype: int
+        """
+        return self._AccessKeyStatus
+
+    @AccessKeyStatus.setter
+    def AccessKeyStatus(self, AccessKeyStatus):
+        self._AccessKeyStatus = AccessKeyStatus
+
+    @property
+    def AccessKeyCreateTime(self):
+        r"""AK创建时间
+        :rtype: str
+        """
+        return self._AccessKeyCreateTime
+
+    @AccessKeyCreateTime.setter
+    def AccessKeyCreateTime(self, AccessKeyCreateTime):
+        self._AccessKeyCreateTime = AccessKeyCreateTime
+
+    @property
+    def LastAccessTime(self):
+        r"""AK最后使用时间，从未使用过则返回“-”
+        :rtype: str
+        """
+        return self._LastAccessTime
+
+    @LastAccessTime.setter
+    def LastAccessTime(self, LastAccessTime):
+        self._LastAccessTime = LastAccessTime
+
 
     def _deserialize(self, params):
         self._ID = params.get("ID")
         self._AccessKey = params.get("AccessKey")
         self._AlarmCount = params.get("AlarmCount")
+        self._AccessKeyStatus = params.get("AccessKeyStatus")
+        self._AccessKeyCreateTime = params.get("AccessKeyCreateTime")
+        self._LastAccessTime = params.get("LastAccessTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -643,6 +758,8 @@ class AccessKeyAsset(AbstractModel):
         :param _CheckStatus: 0 表示已检测
 1 表示检测中
         :type CheckStatus: int
+        :param _CloudType: 云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :type CloudType: int
         """
         self._ID = None
         self._Name = None
@@ -661,6 +778,7 @@ class AccessKeyAsset(AbstractModel):
         self._LastAccessTime = None
         self._Status = None
         self._CheckStatus = None
+        self._CloudType = None
 
     @property
     def ID(self):
@@ -858,6 +976,17 @@ class AccessKeyAsset(AbstractModel):
     def CheckStatus(self, CheckStatus):
         self._CheckStatus = CheckStatus
 
+    @property
+    def CloudType(self):
+        r"""云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :rtype: int
+        """
+        return self._CloudType
+
+    @CloudType.setter
+    def CloudType(self, CloudType):
+        self._CloudType = CloudType
+
 
     def _deserialize(self, params):
         self._ID = params.get("ID")
@@ -887,6 +1016,7 @@ class AccessKeyAsset(AbstractModel):
         self._LastAccessTime = params.get("LastAccessTime")
         self._Status = params.get("Status")
         self._CheckStatus = params.get("CheckStatus")
+        self._CloudType = params.get("CloudType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -953,6 +1083,10 @@ class AccessKeyRisk(AbstractModel):
         :type AppID: int
         :param _QueryParam: 对应风险的查询参数
         :type QueryParam: str
+        :param _CloudType: 云类型 0-腾讯云 4-阿里云
+        :type CloudType: int
+        :param _RelatedAK: 相关的AK列表，包含AK名和AK备注
+        :type RelatedAK: list of AKInfo
         """
         self._Name = None
         self._Level = None
@@ -975,6 +1109,8 @@ class AccessKeyRisk(AbstractModel):
         self._CheckStatus = None
         self._AppID = None
         self._QueryParam = None
+        self._CloudType = None
+        self._RelatedAK = None
 
     @property
     def Name(self):
@@ -1214,6 +1350,28 @@ class AccessKeyRisk(AbstractModel):
     def QueryParam(self, QueryParam):
         self._QueryParam = QueryParam
 
+    @property
+    def CloudType(self):
+        r"""云类型 0-腾讯云 4-阿里云
+        :rtype: int
+        """
+        return self._CloudType
+
+    @CloudType.setter
+    def CloudType(self, CloudType):
+        self._CloudType = CloudType
+
+    @property
+    def RelatedAK(self):
+        r"""相关的AK列表，包含AK名和AK备注
+        :rtype: list of AKInfo
+        """
+        return self._RelatedAK
+
+    @RelatedAK.setter
+    def RelatedAK(self, RelatedAK):
+        self._RelatedAK = RelatedAK
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -1237,6 +1395,13 @@ class AccessKeyRisk(AbstractModel):
         self._CheckStatus = params.get("CheckStatus")
         self._AppID = params.get("AppID")
         self._QueryParam = params.get("QueryParam")
+        self._CloudType = params.get("CloudType")
+        if params.get("RelatedAK") is not None:
+            self._RelatedAK = []
+            for item in params.get("RelatedAK"):
+                obj = AKInfo()
+                obj._deserialize(item)
+                self._RelatedAK.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1298,6 +1463,8 @@ class AccessKeyUser(AbstractModel):
         :type LoginFlag: int
         :param _CheckStatus: 0 表示已检测 1 表示检测中
         :type CheckStatus: int
+        :param _CloudType: 云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :type CloudType: int
         """
         self._ID = None
         self._Name = None
@@ -1318,6 +1485,7 @@ class AccessKeyUser(AbstractModel):
         self._ActionFlag = None
         self._LoginFlag = None
         self._CheckStatus = None
+        self._CloudType = None
 
     @property
     def ID(self):
@@ -1534,6 +1702,17 @@ class AccessKeyUser(AbstractModel):
     def CheckStatus(self, CheckStatus):
         self._CheckStatus = CheckStatus
 
+    @property
+    def CloudType(self):
+        r"""云厂商类型 0:腾讯云 1:亚马逊云 2:微软云 3:谷歌云 4:阿里云 5:华为云
+        :rtype: int
+        """
+        return self._CloudType
+
+    @CloudType.setter
+    def CloudType(self, CloudType):
+        self._CloudType = CloudType
+
 
     def _deserialize(self, params):
         self._ID = params.get("ID")
@@ -1565,6 +1744,7 @@ class AccessKeyUser(AbstractModel):
         self._ActionFlag = params.get("ActionFlag")
         self._LoginFlag = params.get("LoginFlag")
         self._CheckStatus = params.get("CheckStatus")
+        self._CloudType = params.get("CloudType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5154,7 +5334,7 @@ class AssetProcessItem(AbstractModel):
 
 
 class AssetRiskItem(AbstractModel):
-    r"""资产视角风险项
+    r"""资产视角风险信息
 
     """
 
@@ -5188,6 +5368,12 @@ class AssetRiskItem(AbstractModel):
         :type Severity: str
         :param _RiskRuleId: 风险规则ID
         :type RiskRuleId: str
+        :param _Classify: 处置分类
+        :type Classify: str
+        :param _StandardTerms: 等保合规
+        :type StandardTerms: list of StandardTerm
+        :param _AssetType: 资产类型
+        :type AssetType: str
         """
         self._AppId = None
         self._Provider = None
@@ -5203,6 +5389,9 @@ class AssetRiskItem(AbstractModel):
         self._CheckType = None
         self._Severity = None
         self._RiskRuleId = None
+        self._Classify = None
+        self._StandardTerms = None
+        self._AssetType = None
 
     @property
     def AppId(self):
@@ -5358,6 +5547,39 @@ class AssetRiskItem(AbstractModel):
     def RiskRuleId(self, RiskRuleId):
         self._RiskRuleId = RiskRuleId
 
+    @property
+    def Classify(self):
+        r"""处置分类
+        :rtype: str
+        """
+        return self._Classify
+
+    @Classify.setter
+    def Classify(self, Classify):
+        self._Classify = Classify
+
+    @property
+    def StandardTerms(self):
+        r"""等保合规
+        :rtype: list of StandardTerm
+        """
+        return self._StandardTerms
+
+    @StandardTerms.setter
+    def StandardTerms(self, StandardTerms):
+        self._StandardTerms = StandardTerms
+
+    @property
+    def AssetType(self):
+        r"""资产类型
+        :rtype: str
+        """
+        return self._AssetType
+
+    @AssetType.setter
+    def AssetType(self, AssetType):
+        self._AssetType = AssetType
+
 
     def _deserialize(self, params):
         self._AppId = params.get("AppId")
@@ -5374,6 +5596,14 @@ class AssetRiskItem(AbstractModel):
         self._CheckType = params.get("CheckType")
         self._Severity = params.get("Severity")
         self._RiskRuleId = params.get("RiskRuleId")
+        self._Classify = params.get("Classify")
+        if params.get("StandardTerms") is not None:
+            self._StandardTerms = []
+            for item in params.get("StandardTerms"):
+                obj = StandardTerm()
+                obj._deserialize(item)
+                self._StandardTerms.append(obj)
+        self._AssetType = params.get("AssetType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9797,6 +10027,10 @@ class CheckViewRiskItem(AbstractModel):
         :type AssetType: str
         :param _EventType: 事件类型
         :type EventType: str
+        :param _Classify: 处置分类
+        :type Classify: str
+        :param _StandardTerms: cspm规范条款
+        :type StandardTerms: list of StandardTerm
         """
         self._RiskRuleId = None
         self._RiskTitle = None
@@ -9811,6 +10045,8 @@ class CheckViewRiskItem(AbstractModel):
         self._RiskCount = None
         self._AssetType = None
         self._EventType = None
+        self._Classify = None
+        self._StandardTerms = None
 
     @property
     def RiskRuleId(self):
@@ -9955,6 +10191,28 @@ class CheckViewRiskItem(AbstractModel):
     def EventType(self, EventType):
         self._EventType = EventType
 
+    @property
+    def Classify(self):
+        r"""处置分类
+        :rtype: str
+        """
+        return self._Classify
+
+    @Classify.setter
+    def Classify(self, Classify):
+        self._Classify = Classify
+
+    @property
+    def StandardTerms(self):
+        r"""cspm规范条款
+        :rtype: list of StandardTerm
+        """
+        return self._StandardTerms
+
+    @StandardTerms.setter
+    def StandardTerms(self, StandardTerms):
+        self._StandardTerms = StandardTerms
+
 
     def _deserialize(self, params):
         self._RiskRuleId = params.get("RiskRuleId")
@@ -9970,6 +10228,13 @@ class CheckViewRiskItem(AbstractModel):
         self._RiskCount = params.get("RiskCount")
         self._AssetType = params.get("AssetType")
         self._EventType = params.get("EventType")
+        self._Classify = params.get("Classify")
+        if params.get("StandardTerms") is not None:
+            self._StandardTerms = []
+            for item in params.get("StandardTerms"):
+                obj = StandardTerm()
+                obj._deserialize(item)
+                self._StandardTerms.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13860,11 +14125,17 @@ class DescribeAssetRiskListResponse(AbstractModel):
         :type TotalCount: int
         :param _AssetRiskList: 资产视角下风险列表
         :type AssetRiskList: list of AssetRiskItem
+        :param _StandardNameList: 等保规范名称集合
+        :type StandardNameList: list of StandardItem
+        :param _AssetTypeList: 资产类型集合
+        :type AssetTypeList: list of AttributeOptionSet
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._TotalCount = None
         self._AssetRiskList = None
+        self._StandardNameList = None
+        self._AssetTypeList = None
         self._RequestId = None
 
     @property
@@ -13890,6 +14161,28 @@ class DescribeAssetRiskListResponse(AbstractModel):
         self._AssetRiskList = AssetRiskList
 
     @property
+    def StandardNameList(self):
+        r"""等保规范名称集合
+        :rtype: list of StandardItem
+        """
+        return self._StandardNameList
+
+    @StandardNameList.setter
+    def StandardNameList(self, StandardNameList):
+        self._StandardNameList = StandardNameList
+
+    @property
+    def AssetTypeList(self):
+        r"""资产类型集合
+        :rtype: list of AttributeOptionSet
+        """
+        return self._AssetTypeList
+
+    @AssetTypeList.setter
+    def AssetTypeList(self, AssetTypeList):
+        self._AssetTypeList = AssetTypeList
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -13909,6 +14202,18 @@ class DescribeAssetRiskListResponse(AbstractModel):
                 obj = AssetRiskItem()
                 obj._deserialize(item)
                 self._AssetRiskList.append(obj)
+        if params.get("StandardNameList") is not None:
+            self._StandardNameList = []
+            for item in params.get("StandardNameList"):
+                obj = StandardItem()
+                obj._deserialize(item)
+                self._StandardNameList.append(obj)
+        if params.get("AssetTypeList") is not None:
+            self._AssetTypeList = []
+            for item in params.get("AssetTypeList"):
+                obj = AttributeOptionSet()
+                obj._deserialize(item)
+                self._AssetTypeList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -15190,11 +15495,17 @@ class DescribeCheckViewRisksResponse(AbstractModel):
         :type TotalCount: int
         :param _CheckViewRiskList: 检查视角下风险列表
         :type CheckViewRiskList: list of CheckViewRiskItem
+        :param _StandardNameList: 检查视角下cspm规范标签列表
+        :type StandardNameList: list of StandardItem
+        :param _AssetTypeList: 资产类型集合
+        :type AssetTypeList: list of AttributeOptionSet
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
         self._TotalCount = None
         self._CheckViewRiskList = None
+        self._StandardNameList = None
+        self._AssetTypeList = None
         self._RequestId = None
 
     @property
@@ -15220,6 +15531,28 @@ class DescribeCheckViewRisksResponse(AbstractModel):
         self._CheckViewRiskList = CheckViewRiskList
 
     @property
+    def StandardNameList(self):
+        r"""检查视角下cspm规范标签列表
+        :rtype: list of StandardItem
+        """
+        return self._StandardNameList
+
+    @StandardNameList.setter
+    def StandardNameList(self, StandardNameList):
+        self._StandardNameList = StandardNameList
+
+    @property
+    def AssetTypeList(self):
+        r"""资产类型集合
+        :rtype: list of AttributeOptionSet
+        """
+        return self._AssetTypeList
+
+    @AssetTypeList.setter
+    def AssetTypeList(self, AssetTypeList):
+        self._AssetTypeList = AssetTypeList
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -15239,6 +15572,18 @@ class DescribeCheckViewRisksResponse(AbstractModel):
                 obj = CheckViewRiskItem()
                 obj._deserialize(item)
                 self._CheckViewRiskList.append(obj)
+        if params.get("StandardNameList") is not None:
+            self._StandardNameList = []
+            for item in params.get("StandardNameList"):
+                obj = StandardItem()
+                obj._deserialize(item)
+                self._StandardNameList.append(obj)
+        if params.get("AssetTypeList") is not None:
+            self._AssetTypeList = []
+            for item in params.get("AssetTypeList"):
+                obj = AttributeOptionSet()
+                obj._deserialize(item)
+                self._AssetTypeList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -24979,6 +25324,14 @@ class ExposesItem(AbstractModel):
         :type PortDetectCount: int
         :param _PortDetectResult: 端口开放结果
         :type PortDetectResult: str
+        :param _Tag: 标签
+        :type Tag: str
+        :param _Comment: 备注
+        :type Comment: str
+        :param _ToGovernedRiskCount: 待治理风险数量
+        :type ToGovernedRiskCount: int
+        :param _ToGovernedRiskContent: 待治理风险内容
+        :type ToGovernedRiskContent: str
         """
         self._Provider = None
         self._CloudAccountName = None
@@ -25012,6 +25365,10 @@ class ExposesItem(AbstractModel):
         self._ExposureID = None
         self._PortDetectCount = None
         self._PortDetectResult = None
+        self._Tag = None
+        self._Comment = None
+        self._ToGovernedRiskCount = None
+        self._ToGovernedRiskContent = None
 
     @property
     def Provider(self):
@@ -25365,6 +25722,50 @@ class ExposesItem(AbstractModel):
     def PortDetectResult(self, PortDetectResult):
         self._PortDetectResult = PortDetectResult
 
+    @property
+    def Tag(self):
+        r"""标签
+        :rtype: str
+        """
+        return self._Tag
+
+    @Tag.setter
+    def Tag(self, Tag):
+        self._Tag = Tag
+
+    @property
+    def Comment(self):
+        r"""备注
+        :rtype: str
+        """
+        return self._Comment
+
+    @Comment.setter
+    def Comment(self, Comment):
+        self._Comment = Comment
+
+    @property
+    def ToGovernedRiskCount(self):
+        r"""待治理风险数量
+        :rtype: int
+        """
+        return self._ToGovernedRiskCount
+
+    @ToGovernedRiskCount.setter
+    def ToGovernedRiskCount(self, ToGovernedRiskCount):
+        self._ToGovernedRiskCount = ToGovernedRiskCount
+
+    @property
+    def ToGovernedRiskContent(self):
+        r"""待治理风险内容
+        :rtype: str
+        """
+        return self._ToGovernedRiskContent
+
+    @ToGovernedRiskContent.setter
+    def ToGovernedRiskContent(self, ToGovernedRiskContent):
+        self._ToGovernedRiskContent = ToGovernedRiskContent
+
 
     def _deserialize(self, params):
         self._Provider = params.get("Provider")
@@ -25399,6 +25800,10 @@ class ExposesItem(AbstractModel):
         self._ExposureID = params.get("ExposureID")
         self._PortDetectCount = params.get("PortDetectCount")
         self._PortDetectResult = params.get("PortDetectResult")
+        self._Tag = params.get("Tag")
+        self._Comment = params.get("Comment")
+        self._ToGovernedRiskCount = params.get("ToGovernedRiskCount")
+        self._ToGovernedRiskContent = params.get("ToGovernedRiskContent")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -25728,6 +26133,8 @@ class GateWayAsset(AbstractModel):
         :type Status: str
         :param _EngineRegion: TSE的网关真实地域
         :type EngineRegion: str
+        :param _WeakPasswordRisk: 弱口令风险
+        :type WeakPasswordRisk: int
         """
         self._AppId = None
         self._Uin = None
@@ -25758,6 +26165,7 @@ class GateWayAsset(AbstractModel):
         self._IsNewAsset = None
         self._Status = None
         self._EngineRegion = None
+        self._WeakPasswordRisk = None
 
     @property
     def AppId(self):
@@ -26078,6 +26486,17 @@ class GateWayAsset(AbstractModel):
     def EngineRegion(self, EngineRegion):
         self._EngineRegion = EngineRegion
 
+    @property
+    def WeakPasswordRisk(self):
+        r"""弱口令风险
+        :rtype: int
+        """
+        return self._WeakPasswordRisk
+
+    @WeakPasswordRisk.setter
+    def WeakPasswordRisk(self, WeakPasswordRisk):
+        self._WeakPasswordRisk = WeakPasswordRisk
+
 
     def _deserialize(self, params):
         self._AppId = params.get("AppId")
@@ -26114,6 +26533,7 @@ class GateWayAsset(AbstractModel):
         self._IsNewAsset = params.get("IsNewAsset")
         self._Status = params.get("Status")
         self._EngineRegion = params.get("EngineRegion")
+        self._WeakPasswordRisk = params.get("WeakPasswordRisk")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -32397,6 +32817,7 @@ class SourceIPAsset(AbstractModel):
         :param _Region: IP地域
         :type Region: str
         :param _EventType: 调用方式
+-1:未统计
 0:控制台调用
 1:API
         :type EventType: int
@@ -32426,6 +32847,11 @@ class SourceIPAsset(AbstractModel):
         :type ShowStatus: bool
         :param _ISP: 运营商字段
         :type ISP: str
+        :param _VpcInfo: 账号外vpc信息
+        :type VpcInfo: list of SourceIPVpcInfo
+        :param _CloudType: 云类型
+0为腾讯云
+        :type CloudType: int
         """
         self._ID = None
         self._SourceIP = None
@@ -32444,6 +32870,8 @@ class SourceIPAsset(AbstractModel):
         self._Nickname = None
         self._ShowStatus = None
         self._ISP = None
+        self._VpcInfo = None
+        self._CloudType = None
 
     @property
     def ID(self):
@@ -32503,6 +32931,7 @@ class SourceIPAsset(AbstractModel):
     @property
     def EventType(self):
         r"""调用方式
+-1:未统计
 0:控制台调用
 1:API
         :rtype: int
@@ -32638,6 +33067,29 @@ class SourceIPAsset(AbstractModel):
     def ISP(self, ISP):
         self._ISP = ISP
 
+    @property
+    def VpcInfo(self):
+        r"""账号外vpc信息
+        :rtype: list of SourceIPVpcInfo
+        """
+        return self._VpcInfo
+
+    @VpcInfo.setter
+    def VpcInfo(self, VpcInfo):
+        self._VpcInfo = VpcInfo
+
+    @property
+    def CloudType(self):
+        r"""云类型
+0为腾讯云
+        :rtype: int
+        """
+        return self._CloudType
+
+    @CloudType.setter
+    def CloudType(self, CloudType):
+        self._CloudType = CloudType
+
 
     def _deserialize(self, params):
         self._ID = params.get("ID")
@@ -32667,6 +33119,13 @@ class SourceIPAsset(AbstractModel):
         self._Nickname = params.get("Nickname")
         self._ShowStatus = params.get("ShowStatus")
         self._ISP = params.get("ISP")
+        if params.get("VpcInfo") is not None:
+            self._VpcInfo = []
+            for item in params.get("VpcInfo"):
+                obj = SourceIPVpcInfo()
+                obj._deserialize(item)
+                self._VpcInfo.append(obj)
+        self._CloudType = params.get("CloudType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -32748,6 +33207,108 @@ class SourceIPVpcInfo(AbstractModel):
         self._AppID = params.get("AppID")
         self._VpcID = params.get("VpcID")
         self._VpcName = params.get("VpcName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StandardItem(AbstractModel):
+    r"""CSPM规范
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ID: 规范ID
+        :type ID: int
+        :param _Name: 规范名称
+        :type Name: str
+        """
+        self._ID = None
+        self._Name = None
+
+    @property
+    def ID(self):
+        r"""规范ID
+        :rtype: int
+        """
+        return self._ID
+
+    @ID.setter
+    def ID(self, ID):
+        self._ID = ID
+
+    @property
+    def Name(self):
+        r"""规范名称
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+
+    def _deserialize(self, params):
+        self._ID = params.get("ID")
+        self._Name = params.get("Name")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class StandardTerm(AbstractModel):
+    r"""CSPM条款
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Tag: 标签
+        :type Tag: str
+        :param _Terms: 条款
+        :type Terms: list of str
+        """
+        self._Tag = None
+        self._Terms = None
+
+    @property
+    def Tag(self):
+        r"""标签
+        :rtype: str
+        """
+        return self._Tag
+
+    @Tag.setter
+    def Tag(self, Tag):
+        self._Tag = Tag
+
+    @property
+    def Terms(self):
+        r"""条款
+        :rtype: list of str
+        """
+        return self._Terms
+
+    @Terms.setter
+    def Terms(self, Terms):
+        self._Terms = Terms
+
+
+    def _deserialize(self, params):
+        self._Tag = params.get("Tag")
+        self._Terms = params.get("Terms")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

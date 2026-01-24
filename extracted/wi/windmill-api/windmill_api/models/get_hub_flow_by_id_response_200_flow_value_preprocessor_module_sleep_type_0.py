@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -6,47 +6,52 @@ from attrs import field as _attrs_field
 from ..models.get_hub_flow_by_id_response_200_flow_value_preprocessor_module_sleep_type_0_type import (
     GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0Type,
 )
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0")
 
 
 @_attrs_define
 class GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0:
-    """
-    Attributes:
-        value (Any):
-        type (GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0Type):
+    """Static value passed directly to the step. Use for hardcoded values or resource references like
+    '$res:path/to/resource'
+
+        Attributes:
+            type (GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0Type):
+            value (Union[Unset, Any]): The static value. For resources, use format '$res:path/to/resource'
     """
 
-    value: Any
     type: GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0Type
+    value: Union[Unset, Any] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        value = self.value
         type = self.type.value
+
+        value = self.value
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "value": value,
                 "type": type,
             }
         )
+        if value is not UNSET:
+            field_dict["value"] = value
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
         d = src_dict.copy()
-        value = d.pop("value")
-
         type = GetHubFlowByIdResponse200FlowValuePreprocessorModuleSleepType0Type(d.pop("type"))
 
+        value = d.pop("value", UNSET)
+
         get_hub_flow_by_id_response_200_flow_value_preprocessor_module_sleep_type_0 = cls(
-            value=value,
             type=type,
+            value=value,
         )
 
         get_hub_flow_by_id_response_200_flow_value_preprocessor_module_sleep_type_0.additional_properties = d

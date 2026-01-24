@@ -12,11 +12,10 @@ Usage:
 import json
 import sys
 import re
-from collections import defaultdict
-from typing import Dict, Any
+from typing import Any
 
 
-def get_submodule(bench: dict) -> str:
+def get_submodule(bench: dict[str, Any]) -> str:
     # Extract Python submodule from fullname, e.g., "benchmarks/test_abi_benchmarks.py::test_abi_to_signature"
     fullname = bench.get("fullname", "")
     # Try to extract the submodule from the test file path
@@ -37,19 +36,19 @@ def get_group_name(test_name: str) -> str:
     return test_name
 
 
-def parse_pytest_benchmark_json(data: dict) -> Dict[str, Dict[str, Dict[str, Any]]]:
+def parse_pytest_benchmark_json(data: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
     """
     Parses pytest-benchmark's benchmark.json and extracts per-function timings,
     grouped by submodule and group name.
     Returns a dict: {submodule: {group: {function_name: {...}}}}
     """
-    results = defaultdict(lambda: defaultdict(dict))
+    results: dict[str, dict[str, dict[str, Any]]] = {}
     for bench in data.get("benchmarks", []):
         name = bench["name"]
         submodule = get_submodule(bench)
         group = get_group_name(name)
         stats = bench["stats"]
-        results[submodule][group][name] = {
+        results.setdefault(submodule, {}).setdefault(group, {})[name] = {
             "mean": stats.get("mean"),
             "stddev": stats.get("stddev", None),
             "iqr": stats.get("iqr", None),
@@ -66,7 +65,7 @@ def main() -> None:
         sys.exit(1)
     infile = sys.argv[1]
     outfile = sys.argv[2] if len(sys.argv) > 2 else "benchmark_results.json"
-    with open(infile, "r") as f:
+    with open(infile) as f:
         data = json.load(f)
     results = parse_pytest_benchmark_json(data)
     with open(outfile, "w") as f:

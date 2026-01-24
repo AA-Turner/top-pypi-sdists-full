@@ -17,13 +17,14 @@ import traceback
 import typing as t
 
 from ansible.module_utils.basic import missing_required_lib
+
 from ansible_collections.community.crypto.plugins.module_utils._version import (
     LooseVersion,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (  # pragma: no cover
         AnsibleActionModule,
     )
@@ -31,25 +32,26 @@ if t.TYPE_CHECKING:
         FilterModuleMock,
     )
 
-    GeneralAnsibleModule = t.Union[
+    GeneralAnsibleModule = t.Union[  # noqa: UP007
         AnsibleModule, AnsibleActionModule, FilterModuleMock
     ]  # pragma: no cover
 
 
-_CRYPTOGRAPHY_IMP_ERR: str | None = None
-_CRYPTOGRAPHY_FILE: str | None = None
+_CRYPTOGRAPHY_IMP_ERR: str | None = None  # pylint: disable=invalid-name
+_CRYPTOGRAPHY_FILE: str | None = None  # pylint: disable=invalid-name
 try:
     import cryptography
     from cryptography import x509  # noqa: F401, pylint: disable=unused-import
 
-    CRYPTOGRAPHY_VERSION = LooseVersion(cryptography.__version__)
-    _CRYPTOGRAPHY_FILE = cryptography.__file__
 except ImportError:
-    _CRYPTOGRAPHY_IMP_ERR = traceback.format_exc()
+    _CRYPTOGRAPHY_IMP_ERR = traceback.format_exc()  # pylint: disable=invalid-name
     CRYPTOGRAPHY_FOUND = False
-    CRYPTOGRAPHY_VERSION = LooseVersion("0.0")
+    CRYPTOGRAPHY_VERSION = LooseVersion("0.0")  # pylint: disable=invalid-name
 else:
     CRYPTOGRAPHY_FOUND = True
+    # pylint: disable-next=invalid-name
+    CRYPTOGRAPHY_VERSION = LooseVersion(cryptography.__version__)
+    _CRYPTOGRAPHY_FILE = cryptography.__file__  # pylint: disable=invalid-name
 
 
 # Corresponds to the community.crypto.cryptography_dep.minimum doc fragment
@@ -66,7 +68,7 @@ def assert_required_cryptography_version(
             msg=missing_required_lib(f"cryptography >= {minimum_cryptography_version}"),
             exception=_CRYPTOGRAPHY_IMP_ERR,
         )
-    if CRYPTOGRAPHY_VERSION < LooseVersion(minimum_cryptography_version):
+    if LooseVersion(minimum_cryptography_version) > CRYPTOGRAPHY_VERSION:
         module.fail_json(
             msg=(
                 f"Cannot detect the required Python library cryptography (>= {minimum_cryptography_version})."

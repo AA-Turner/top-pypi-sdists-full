@@ -7,6 +7,7 @@ from locust.rpc import Message, zmqrpc
 import argparse
 import ast
 import atexit
+import difflib
 import json
 import os
 import platform
@@ -37,13 +38,6 @@ version = locust.__version__
 
 DEFAULT_CONFIG_FILES = ("~/.locust.conf", "locust.conf", "pyproject.toml")
 
-try:
-    from locust_cloud.args import add_locust_cloud_argparse
-except ModuleNotFoundError as e:
-    add_locust_cloud_argparse = lambda _: None
-    if e.msg != "No module named 'locust_cloud'":
-        raise
-
 
 # Clean up downloaded locustfile on exit
 def exit_handler(filename) -> None:
@@ -60,6 +54,15 @@ class LocustArgumentParser(configargparse.ArgumentParser):
     optionally exclude arguments from the UI.
     """
 
+    def error(self, message):
+        if "unrecognized arguments:" in message:
+            bad_arg = message.split("unrecognized arguments:")[1].strip().split()[0]
+            options = [opt for action in self._actions for opt in action.option_strings]
+            suggestion = difflib.get_close_matches(bad_arg, options, n=1)
+            if suggestion:
+                message += f"\nDid you mean '{suggestion[0]}'?"
+        self.exit(2, f"{self.prog}: error: {message}\n")
+
     def add_argument(self, *args, **kwargs) -> configargparse.Action:
         """
         This method supports the same args as ArgumentParser.add_argument(..)
@@ -69,6 +72,7 @@ class LocustArgumentParser(configargparse.ArgumentParser):
             include_in_web_ui: If True (default), the argument will show in the UI.
             is_secret: If True (default is False) and include_in_web_ui is True, the argument will show in the UI with a password masked text input.
             is_required: If True (default is False) and include_in_web_ui is True, the argument will show in the UI as a required form field.
+            is_multiple: If True (default is False) and include_in_web_ui is True, the argument will show in the UI as a multiple select form field.
 
         Returns:
             argparse.Action: the new argparse action
@@ -76,10 +80,12 @@ class LocustArgumentParser(configargparse.ArgumentParser):
         include_in_web_ui = kwargs.pop("include_in_web_ui", True)
         is_secret = kwargs.pop("is_secret", False)
         is_required = kwargs.pop("is_required", False)
+        is_multiple = kwargs.pop("is_multiple", False)
         action = super().add_argument(*args, **kwargs)
         action.include_in_web_ui = include_in_web_ui
         action.is_secret = is_secret
         action.is_required = is_required
+        action.is_multiple = is_multiple
         return action
 
     @property
@@ -100,6 +106,14 @@ class LocustArgumentParser(configargparse.ArgumentParser):
             a.dest: a
             for a in self._actions
             if a.dest in self.args_included_in_web_ui and hasattr(a, "is_required") and a.is_required
+        }
+
+    @property
+    def multiple_args_included_in_web_ui(self) -> dict[str, configargparse.Action]:
+        return {
+            a.dest: a
+            for a in self._actions
+            if a.dest in self.args_included_in_web_ui and hasattr(a, "is_multiple") and a.is_multiple
         }
 
 
@@ -123,8 +137,19 @@ class LocustTomlConfigParser(configargparse.TomlConfigParser):
                     else:
                         result[key] = str(value)
                 break
+        else:
+            if not stream.name.endswith("toml"):
+                raise configargparse.ConfigFileParserException("Not a toml file. Fall back to DefaultConfigFileParser.")
 
         return result
+
+
+class LocustConfigParser(configargparse.ConfigFileParser):
+    def parse(self, stream):
+        if stream.name.endswith(".toml"):
+            return LocustTomlConfigParser(["tool.locust"]).parse(stream)
+
+        return configargparse.DefaultConfigFileParser().parse(stream)
 
 
 def parse_locustfile_paths(paths: list[str]) -> list[str]:
@@ -194,12 +219,7 @@ def download_locustfile_from_url(url: str) -> str:
 def get_empty_argument_parser(add_help=True, default_config_files=DEFAULT_CONFIG_FILES) -> LocustArgumentParser:
     parser = LocustArgumentParser(
         default_config_files=default_config_files,
-        config_file_parser_class=configargparse.CompositeConfigParser(
-            [
-                LocustTomlConfigParser(["tool.locust"]),
-                configargparse.DefaultConfigFileParser,
-            ]
-        ),
+        config_file_parser_class=LocustConfigParser,
         add_env_var_help=False,
         add_config_file_help=False,
         add_help=add_help,
@@ -226,7 +246,7 @@ See documentation for more details, including how to set options using a file or
         "--locustfile",
         metavar="<filename>",
         default="locustfile.py",
-        help="The Python file or module that contains your test, e.g. 'my_test.py'. Accepts multiple comma-separated .py files, a package name/directory or a url to a remote locustfile. Defaults to 'locustfile'.",
+        help="The Python file or module that contains your test, e.g. 'my_test.py'. Accepts multiple comma-separated .py files, a package name/directory or a url to a remote locustfile. Defaults to 'locustfile.py'.",
         env_var="LOCUST_LOCUSTFILE",
     )
 
@@ -329,13 +349,13 @@ def parse_locustfile_option(args=None) -> tuple[argparse.Namespace, list[str]]:
         env_var="LOCUST_MASTER_NODE_PORT",
     )
 
-    options, unknown = parser.parse_known_args(args=args)
+    options, _ = parser.parse_known_args(args=args)
 
     if options.help or options.version:
-        # if --help or --version is specified we'll call parse_options which will print the help/version message
-        parse_options(args=args)
+        # if --help or --version is specified we'll call parse_args which will print the help/version message
+        get_parser().parse_args(args=args)
 
-    return (options, unknown)
+    return options
 
 
 def get_locustfiles_locally(options):
@@ -412,6 +432,16 @@ def positive_integer(string) -> int:
     return value
 
 
+def gt_zero(t):
+    def checker(value):
+        v = t(value)
+        if v <= 0:
+            raise argparse.ArgumentTypeError("must be > 0")
+        return v
+
+    return checker
+
+
 def json_user_config(string):
     try:
         if string.endswith(".json"):
@@ -463,7 +493,7 @@ def setup_parser_arguments(parser):
     parser.add_argument(
         "-r",
         "--spawn-rate",
-        type=float,
+        type=gt_zero(float),
         metavar="<float>",
         help="Rate to spawn users at (users per second). Primarily used together with --headless or --autostart",
         env_var="LOCUST_SPAWN_RATE",
@@ -852,6 +882,12 @@ Typically ONLY these options (and --locustfile) need to be specified on workers,
         type=str,
         help="Set a profile to group the testruns together",
     )
+    other_group.add_argument(
+        "--otel",
+        action="store_true",
+        help="Instrument the Locust test run with OpenTelemetry.",
+        env_var="LOCUST_ENABLE_OPENTELEMETRY",
+    )
 
     user_classes_group = parser.add_argument_group("User classes")
     user_classes_group.add_argument(
@@ -868,13 +904,13 @@ def get_parser(default_config_files=DEFAULT_CONFIG_FILES) -> LocustArgumentParse
     parser = get_empty_argument_parser(add_help=True, default_config_files=default_config_files)
     # add all the other supported arguments
     setup_parser_arguments(parser)
-    add_locust_cloud_argparse(parser)
     # fire event to provide a hook for locustscripts and plugins to add command line arguments
     locust.events.init_command_line_parser.fire(parser=parser)
     return parser
 
 
 def parse_options(args=None) -> configargparse.Namespace:
+    print("Warning: This function is deprecated and may be removed in a future version")
     parser = get_parser()
     parsed_opts = parser.parse_args(args=args)
     if parsed_opts.stats_history_enabled and (parsed_opts.csv_prefix is None):
@@ -896,6 +932,7 @@ class UIExtraArgOptions(NamedTuple):
     is_secret: bool
     is_required: bool
     help_text: str
+    is_multiple: bool
     choices: list[str] | None = None
 
 
@@ -912,6 +949,7 @@ def ui_extra_args_dict(args=None) -> dict[str, dict[str, Any]]:
             is_secret=k in parser.secret_args_included_in_web_ui,
             is_required=k in parser.required_args_included_in_web_ui,
             help_text=parser.args_included_in_web_ui[k].help,
+            is_multiple=k in parser.multiple_args_included_in_web_ui,
             choices=parser.args_included_in_web_ui[k].choices,
         )._asdict()
         for k, v in all_args.items()

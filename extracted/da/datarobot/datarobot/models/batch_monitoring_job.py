@@ -91,67 +91,55 @@ class BatchMonitoringJob(AbstractBatchJob):
         the id of the job
     """
 
-    _job_spec = t.Dict(
-        {
-            t.Key("num_concurrent"): Int(),
-            t.Key("deployment_id"): String(),
-            t.Key("intake_settings", optional=True): t.Dict().allow_extra("*"),
-            t.Key("output_settings", optional=True): t.Dict().allow_extra("*"),
-            t.Key("monitoring_aggregation", optional=True): t.Dict().allow_extra("*"),
-            t.Key("monitoring_columns", optional=True): t.Dict().allow_extra("*"),
-            t.Key("monitoring_output_settings", optional=True): t.Dict().allow_extra("*"),
-        }
-    ).allow_extra("*")
-    _links = t.Dict(
-        {t.Key("download", optional=True): String(allow_blank=True), t.Key("self"): String()}
-    ).allow_extra("*")
-    _converter_extra = t.Dict(
-        {
-            t.Key("percentage_completed"): t.Float(),
-            t.Key("elapsed_time_sec"): Int(),
-            t.Key("links"): _links,
-            t.Key("job_spec"): _job_spec,
-            t.Key("status_details"): String(),
-        }
-    ).allow_extra("*")
-    _converter_common = t.Dict(
-        {
-            t.Key("id", optional=True): String,
-            t.Key("status", optional=True): t.Enum(
-                QUEUE_STATUS.ABORTED,
-                QUEUE_STATUS.COMPLETED,
-                QUEUE_STATUS.RUNNING,
-                QUEUE_STATUS.INITIALIZING,
-                "FAILED",
-            ),
-            t.Key("project_id", optional=True): String,
-            t.Key("is_blocked", optional=True): t.Bool,
-        }
+    _job_spec = t.Dict({
+        t.Key("num_concurrent"): Int(),
+        t.Key("deployment_id"): String(),
+        t.Key("intake_settings", optional=True): t.Dict().allow_extra("*"),
+        t.Key("output_settings", optional=True): t.Dict().allow_extra("*"),
+        t.Key("monitoring_aggregation", optional=True): t.Dict().allow_extra("*"),
+        t.Key("monitoring_columns", optional=True): t.Dict().allow_extra("*"),
+        t.Key("monitoring_output_settings", optional=True): t.Dict().allow_extra("*"),
+    }).allow_extra("*")
+    _links = t.Dict({t.Key("download", optional=True): String(allow_blank=True), t.Key("self"): String()}).allow_extra(
+        "*"
     )
-    _monitoring_columns = t.Dict(
-        {
-            t.Key("predictions_columns", optional=True): t.List(
-                t.Dict({t.Key("class_name"): t.String(), t.Key("column_name"): t.String()})
-            )
-            | t.String(),
-            t.Key("association_id_column", optional=True): t.String(),
-            t.Key("actuals_value_column", optional=True): t.String(),
-            t.Key("acted_upon_column", optional=True): t.String(),
-            t.Key("actuals_timestamp_column", optional=True): t.String(),
-        }
-    )
-    _monitoring_output_settings = t.Dict(
-        {
-            t.Key("unique_row_identifier_columns", optional=True): t.List(t.String),
-            t.Key("monitored_status_column", optional=True): t.String(),
-        }
-    )
-    _monitoring_aggregation = t.Dict(
-        {
-            t.Key("retention_policy", optional=True): t.Enum("samples", "percentage"),
-            t.Key("retention_value", optional=True, default=0): t.Int(),
-        }
-    )
+    _converter_extra = t.Dict({
+        t.Key("percentage_completed"): t.Float(),
+        t.Key("elapsed_time_sec"): Int(),
+        t.Key("links"): _links,
+        t.Key("job_spec"): _job_spec,
+        t.Key("status_details"): String(),
+    }).allow_extra("*")
+    _converter_common = t.Dict({
+        t.Key("id", optional=True): String,
+        t.Key("status", optional=True): t.Enum(
+            QUEUE_STATUS.ABORTED,
+            QUEUE_STATUS.COMPLETED,
+            QUEUE_STATUS.RUNNING,
+            QUEUE_STATUS.INITIALIZING,
+            "FAILED",
+        ),
+        t.Key("project_id", optional=True): String,
+        t.Key("is_blocked", optional=True): t.Bool,
+    })
+    _monitoring_columns = t.Dict({
+        t.Key("predictions_columns", optional=True): t.List(
+            t.Dict({t.Key("class_name"): t.String(), t.Key("column_name"): t.String()})
+        )
+        | t.String(),
+        t.Key("association_id_column", optional=True): t.String(),
+        t.Key("actuals_value_column", optional=True): t.String(),
+        t.Key("acted_upon_column", optional=True): t.String(),
+        t.Key("actuals_timestamp_column", optional=True): t.String(),
+    })
+    _monitoring_output_settings = t.Dict({
+        t.Key("unique_row_identifier_columns", optional=True): t.List(t.String),
+        t.Key("monitored_status_column", optional=True): t.String(),
+    })
+    _monitoring_aggregation = t.Dict({
+        t.Key("retention_policy", optional=True): t.Enum("samples", "percentage"),
+        t.Key("retention_value", optional=True, default=0): t.Int(),
+    })
 
     @classmethod
     def _job_type(cls) -> str:
@@ -188,9 +176,7 @@ class BatchMonitoringJob(AbstractBatchJob):
 
         return batch_job
 
-    def download(
-        self, fileobj: typing.IO[Any], timeout: int = 120, read_timeout: int = 660
-    ) -> None:
+    def download(self, fileobj: typing.IO[Any], timeout: int = 120, read_timeout: int = 660) -> None:
         """Downloads the results of a monitoring job as a CSV.
 
         Attributes
@@ -496,7 +482,8 @@ class BatchMonitoringJob(AbstractBatchJob):
             if output_settings["type"] == "localFile":
                 if output_settings.get("path") is not None:
                     output_file = open(  # pylint: disable=consider-using-with
-                        output_settings.pop("path"), "wb"  # type: ignore[arg-type]
+                        output_settings.pop("path"),  # type: ignore[arg-type]
+                        "wb",
                     )
             job_data["output_settings"] = output_settings
 
@@ -519,9 +506,7 @@ class BatchMonitoringJob(AbstractBatchJob):
             # We must download the result to `output_file`
             # And clean up any thread we spawned during uploading
             try:
-                job.download(
-                    output_file, timeout=download_timeout, read_timeout=download_read_timeout
-                )
+                job.download(output_file, timeout=download_timeout, read_timeout=download_read_timeout)
             finally:
                 output_file.close()
                 if upload_thread is not None:
@@ -550,41 +535,35 @@ class BatchMonitoringJob(AbstractBatchJob):
 class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-docstring
     _path = "batchMonitoringJobDefinitions/"
 
-    _user = t.Dict(
-        {
-            t.Key("username"): String(),
-            t.Key("full_name", optional=True): String(),
-            t.Key("user_id"): String(),
-        }
-    ).allow_extra("*")
+    _user = t.Dict({
+        t.Key("username"): String(),
+        t.Key("full_name", optional=True): String(),
+        t.Key("user_id"): String(),
+    }).allow_extra("*")
 
-    _schedule = t.Dict(
-        {
-            t.Key("day_of_week"): t.List(t.Or(String, Int)),
-            t.Key("month"): t.List(t.Or(String, Int)),
-            t.Key("hour"): t.List(t.Or(String, Int)),
-            t.Key("minute"): t.List(t.Or(String, Int)),
-            t.Key("day_of_month"): t.List(t.Or(String, Int)),
-        }
-    ).allow_extra("*")
+    _schedule = t.Dict({
+        t.Key("day_of_week"): t.List(t.Or(String, Int)),
+        t.Key("month"): t.List(t.Or(String, Int)),
+        t.Key("hour"): t.List(t.Or(String, Int)),
+        t.Key("minute"): t.List(t.Or(String, Int)),
+        t.Key("day_of_month"): t.List(t.Or(String, Int)),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("name"): String,
-            t.Key("enabled"): t.Bool(),
-            t.Key("schedule", optional=True): _schedule,
-            t.Key("batch_monitoring_job"): BatchMonitoringJob._job_spec,
-            t.Key("created"): String(),
-            t.Key("updated"): String(),
-            t.Key("created_by"): _user,
-            t.Key("updated_by"): _user,
-            t.Key("last_failed_run_time", optional=True): String(),
-            t.Key("last_successful_run_time", optional=True): String(),
-            t.Key("last_successful_run_time", optional=True): String(),
-            t.Key("last_scheduled_run_time", optional=True): String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("name"): String,
+        t.Key("enabled"): t.Bool(),
+        t.Key("schedule", optional=True): _schedule,
+        t.Key("batch_monitoring_job"): BatchMonitoringJob._job_spec,
+        t.Key("created"): String(),
+        t.Key("updated"): String(),
+        t.Key("created_by"): _user,
+        t.Key("updated_by"): _user,
+        t.Key("last_failed_run_time", optional=True): String(),
+        t.Key("last_successful_run_time", optional=True): String(),
+        t.Key("last_successful_run_time", optional=True): String(),
+        t.Key("last_scheduled_run_time", optional=True): String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -673,9 +652,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
             ]
         """
 
-        return list(
-            cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client)
-        )
+        return list(cls.from_server_data(item) for item in pagination.unpaginate(cls._path, {}, cls._client))
 
     @classmethod
     def create(
@@ -906,9 +883,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
             job_spec = cast(Dict[str, Any], to_api(batch_monitoring_job))
             payload.update(**job_spec)
 
-        return self.from_server_data(
-            self._client.patch(f"{self._path}{self.id}", data=payload).json()
-        )
+        return self.from_server_data(self._client.patch(f"{self._path}{self.id}", data=payload).json())
 
     def run_on_schedule(self, schedule: Schedule) -> BatchMonitoringJobDefinition:
         """
@@ -958,9 +933,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
             "schedule": to_api(schedule),
         }
 
-        return self.from_server_data(
-            self._client.patch(f"{self._path}{self.id}", data=payload).json()
-        )
+        return self.from_server_data(self._client.patch(f"{self._path}{self.id}", data=payload).json())
 
     def run_once(self) -> BatchMonitoringJob:
         """
@@ -986,9 +959,7 @@ class BatchMonitoringJobDefinition(APIObject):  # pylint: disable=missing-class-
 
         payload = {"jobDefinitionId": definition.id}
 
-        response = self._client.post(
-            f"{BatchMonitoringJob._jobs_path()}fromJobDefinition/", data=payload
-        ).json()
+        response = self._client.post(f"{BatchMonitoringJob._jobs_path()}fromJobDefinition/", data=payload).json()
 
         job_id = response["id"]
         return BatchMonitoringJob.get(None, job_id)

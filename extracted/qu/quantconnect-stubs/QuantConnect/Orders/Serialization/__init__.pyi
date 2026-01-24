@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Orders
@@ -213,9 +213,10 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
     @property
     def populate_properties(self) -> bool:
         """
-        True will populate TResult object returned by Convert(SerializedOrderEvent) with json properties
+        True will populate TResult object returned by convert(SerializedOrderEvent) with json properties
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -232,7 +233,8 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
         """
         Convert the input value to a value to be serialzied
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param value: The input value to be converted before serialziation
         :returns: A new instance of TResult that is to be serialzied.
@@ -244,7 +246,8 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
         """
         Converts the input value to be deserialized
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param value: The deserialized value that needs to be converted to OrderEvent
         :returns: The converted value.

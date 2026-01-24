@@ -1,8 +1,8 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_testInputs : packoffset(c0);
-    float4 _10_colorGreen : packoffset(c1);
-    float4 _10_colorRed : packoffset(c2);
+    float4 _11_testInputs : packoffset(c0);
+    float4 _11_colorGreen : packoffset(c1);
+    float4 _11_colorRed : packoffset(c2);
 };
 
 
@@ -13,91 +13,91 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 main(float2 _24)
+float4 main(float2 _25)
 {
     int4 expected = int4(1, 0, 0, 2);
-    bool _58 = false;
-    if (abs(int(_10_testInputs.x)) == 1)
+    bool _59 = false;
+    if (abs(int(_11_testInputs.x)) == 1)
     {
-        int2 _44 = abs(int2(int(_10_testInputs.xy.x), int(_10_testInputs.xy.y)));
-        _58 = all(bool2(_44.x == int4(1, 0, 0, 2).xy.x, _44.y == int4(1, 0, 0, 2).xy.y));
+        int2 _45 = abs(int2(int(_11_testInputs.xy.x), int(_11_testInputs.xy.y)));
+        _59 = all(bool2(_45.x == int4(1, 0, 0, 2).xy.x, _45.y == int4(1, 0, 0, 2).xy.y));
     }
     else
     {
-        _58 = false;
+        _59 = false;
     }
-    bool _78 = false;
-    if (_58)
+    bool _79 = false;
+    if (_59)
     {
-        int3 _61 = abs(int3(int(_10_testInputs.xyz.x), int(_10_testInputs.xyz.y), int(_10_testInputs.xyz.z)));
-        _78 = all(bool3(_61.x == int4(1, 0, 0, 2).xyz.x, _61.y == int4(1, 0, 0, 2).xyz.y, _61.z == int4(1, 0, 0, 2).xyz.z));
+        int3 _62 = abs(int3(int(_11_testInputs.xyz.x), int(_11_testInputs.xyz.y), int(_11_testInputs.xyz.z)));
+        _79 = all(bool3(_62.x == int4(1, 0, 0, 2).xyz.x, _62.y == int4(1, 0, 0, 2).xyz.y, _62.z == int4(1, 0, 0, 2).xyz.z));
     }
     else
     {
-        _78 = false;
+        _79 = false;
     }
-    bool _96 = false;
-    if (_78)
+    bool _97 = false;
+    if (_79)
     {
-        int4 _81 = abs(int4(int(_10_testInputs.x), int(_10_testInputs.y), int(_10_testInputs.z), int(_10_testInputs.w)));
-        _96 = all(bool4(_81.x == int4(1, 0, 0, 2).x, _81.y == int4(1, 0, 0, 2).y, _81.z == int4(1, 0, 0, 2).z, _81.w == int4(1, 0, 0, 2).w));
+        int4 _82 = abs(int4(int(_11_testInputs.x), int(_11_testInputs.y), int(_11_testInputs.z), int(_11_testInputs.w)));
+        _97 = all(bool4(_82.x == int4(1, 0, 0, 2).x, _82.y == int4(1, 0, 0, 2).y, _82.z == int4(1, 0, 0, 2).z, _82.w == int4(1, 0, 0, 2).w));
     }
     else
     {
-        _96 = false;
+        _97 = false;
     }
-    bool _100 = false;
-    if (_96)
+    bool _101 = false;
+    if (_97)
     {
-        _100 = true;
+        _101 = true;
     }
     else
     {
-        _100 = false;
+        _101 = false;
     }
-    bool _107 = false;
-    if (_100)
+    bool _108 = false;
+    if (_101)
     {
-        _107 = all(bool2(int2(1, 0).x == int4(1, 0, 0, 2).xy.x, int2(1, 0).y == int4(1, 0, 0, 2).xy.y));
+        _108 = all(bool2(int2(1, 0).x == int4(1, 0, 0, 2).xy.x, int2(1, 0).y == int4(1, 0, 0, 2).xy.y));
     }
     else
     {
-        _107 = false;
+        _108 = false;
     }
-    bool _114 = false;
-    if (_107)
+    bool _115 = false;
+    if (_108)
     {
-        _114 = all(bool3(int3(1, 0, 0).x == int4(1, 0, 0, 2).xyz.x, int3(1, 0, 0).y == int4(1, 0, 0, 2).xyz.y, int3(1, 0, 0).z == int4(1, 0, 0, 2).xyz.z));
+        _115 = all(bool3(int3(1, 0, 0).x == int4(1, 0, 0, 2).xyz.x, int3(1, 0, 0).y == int4(1, 0, 0, 2).xyz.y, int3(1, 0, 0).z == int4(1, 0, 0, 2).xyz.z));
     }
     else
     {
-        _114 = false;
+        _115 = false;
     }
-    bool _117 = false;
-    if (_114)
+    bool _118 = false;
+    if (_115)
     {
-        _117 = true;
+        _118 = true;
     }
     else
     {
-        _117 = false;
+        _118 = false;
     }
-    float4 _118 = 0.0f.xxxx;
-    if (_117)
+    float4 _119 = 0.0f.xxxx;
+    if (_118)
     {
-        _118 = _10_colorGreen;
+        _119 = _11_colorGreen;
     }
     else
     {
-        _118 = _10_colorRed;
+        _119 = _11_colorRed;
     }
-    return _118;
+    return _119;
 }
 
 void frag_main()
 {
-    float2 _20 = 0.0f.xx;
-    sk_FragColor = main(_20);
+    float2 _21 = 0.0f.xx;
+    sk_FragColor = main(_21);
 }
 
 SPIRV_Cross_Output main()

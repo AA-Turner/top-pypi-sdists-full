@@ -644,3 +644,32 @@ class LambdaExpressionSegment(BaseSegment):
         Ref("LambdaArrowSegment"),
         Ref("ExpressionSegment"),
     )
+
+
+class CreateViewStatementSegment(BaseSegment):
+    """A `CREATE VIEW` statement.
+
+    https://trino.io/docs/current/sql/create-view.html
+    """
+
+    type = "create_view_statement"
+
+    match_grammar = Sequence(
+        "CREATE",
+        Ref("OrReplaceGrammar", optional=True),
+        "VIEW",
+        Ref("TableReferenceSegment"),
+        Ref("BracketedColumnReferenceListGrammar", optional=True),
+        Sequence(
+            "COMMENT",
+            Ref("QuotedLiteralSegment"),
+            optional=True,
+        ),
+        Sequence(
+            "SECURITY",
+            OneOf("DEFINER", "INVOKER"),
+            optional=True,
+        ),
+        "AS",
+        Ref("SelectableGrammar"),
+    )

@@ -2,25 +2,46 @@ from __future__ import annotations
 
 import sys
 from typing import TYPE_CHECKING
-from typing import Any
-from typing import Generator
+
+from upath.core import UPath
+from upath.types import JoinablePathLike
 
 if TYPE_CHECKING:
+    from typing import Literal
+
     if sys.version_info >= (3, 11):
-        from typing import Self
+        from typing import Unpack
     else:
-        from typing_extensions import Self
+        from typing_extensions import Unpack
 
-from upath import UPath
+    from upath._chain import FSSpecChainParser
+    from upath.types.storage_options import SFTPStorageOptions
 
-_unset: Any = object()
+__all__ = ["SFTPPath"]
 
 
 class SFTPPath(UPath):
     __slots__ = ()
 
-    def iterdir(self) -> Generator[Self, None, None]:
-        if not self.is_dir():
-            raise NotADirectoryError(str(self))
-        else:
-            return super().iterdir()
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *args: JoinablePathLike,
+            protocol: Literal["sftp"] | None = ...,
+            chain_parser: FSSpecChainParser = ...,
+            **storage_options: Unpack[SFTPStorageOptions],
+        ) -> None: ...
+
+    @property
+    def path(self) -> str:
+        path = super().path
+        if len(path) > 1:
+            return path.removesuffix("/")
+        return path
+
+    def __str__(self) -> str:
+        path_str = super().__str__()
+        if path_str.startswith(("ssh:///", "sftp:///")):
+            return path_str.removesuffix("/")
+        return path_str

@@ -1,11 +1,27 @@
 from datetime import datetime
 from test.unit.base import ClientBaseCase
+from test.unit.objects.linode_interface_test import (
+    LinodeInterfaceTest,
+    build_interface_options_public,
+    build_interface_options_vlan,
+    build_interface_options_vpc,
+)
 
-from linode_api4 import InstanceDiskEncryptionType, NetworkInterface
+from linode_api4 import (
+    InstanceDiskEncryptionType,
+    InterfaceGeneration,
+    NetworkInterface,
+)
 from linode_api4.objects import (
     Config,
     ConfigInterface,
     ConfigInterfaceIPv4,
+    ConfigInterfaceIPv6,
+    ConfigInterfaceIPv6Options,
+    ConfigInterfaceIPv6Range,
+    ConfigInterfaceIPv6RangeOptions,
+    ConfigInterfaceIPv6SLAAC,
+    ConfigInterfaceIPv6SLAACOptions,
     Disk,
     Image,
     Instance,
@@ -466,6 +482,165 @@ class LinodeTest(ClientBaseCase):
         assert pg.label == "test"
         assert pg.placement_group_type == "anti_affinity:local"
 
+    def test_get_interfaces(self):
+        # Local import to avoid circular dependency
+        from linode_interface_test import (  # pylint: disable=import-outside-toplevel
+            LinodeInterfaceTest,
+        )
+
+        instance = Instance(self.client, 124)
+
+        assert instance.interface_generation == InterfaceGeneration.LINODE
+
+        interfaces = instance.linode_interfaces
+
+        LinodeInterfaceTest.assert_linode_124_interface_123(
+            next(iface for iface in interfaces if iface.id == 123)
+        )
+
+        LinodeInterfaceTest.assert_linode_124_interface_456(
+            next(iface for iface in interfaces if iface.id == 456)
+        )
+
+        LinodeInterfaceTest.assert_linode_124_interface_789(
+            next(iface for iface in interfaces if iface.id == 789)
+        )
+
+    def test_get_interfaces_settings(self):
+        instance = Instance(self.client, 124)
+        iface_settings = instance.interfaces_settings
+
+        assert iface_settings.network_helper
+
+        assert iface_settings.default_route.ipv4_interface_id == 123
+        assert iface_settings.default_route.ipv4_eligible_interface_ids == [
+            123,
+            456,
+            789,
+        ]
+
+        assert iface_settings.default_route.ipv6_interface_id == 456
+        assert iface_settings.default_route.ipv6_eligible_interface_ids == [
+            123,
+            456,
+        ]
+
+    def test_update_interfaces_settings(self):
+        instance = Instance(self.client, 124)
+        iface_settings = instance.interfaces_settings
+
+        iface_settings.network_helper = False
+        iface_settings.default_route.ipv4_interface_id = 456
+        iface_settings.default_route.ipv6_interface_id = 123
+
+        with self.mock_put("/linode/instances/124/interfaces/settings") as m:
+            iface_settings.save()
+
+            assert m.call_data == {
+                "network_helper": False,
+                "default_route": {
+                    "ipv4_interface_id": 456,
+                    "ipv6_interface_id": 123,
+                },
+            }
+
+    def test_upgrade_interfaces(self):
+        # Local import to avoid circular dependency
+        from linode_interface_test import (  # pylint: disable=import-outside-toplevel
+            LinodeInterfaceTest,
+        )
+
+        instance = Instance(self.client, 124)
+
+        with self.mock_post("/linode/instances/124/upgrade-interfaces") as m:
+            result = instance.upgrade_interfaces(123)
+
+            assert m.called
+            assert m.call_data == {"config_id": 123, "dry_run": False}
+
+        assert result.config_id == 123
+        assert result.dry_run
+
+        LinodeInterfaceTest.assert_linode_124_interface_123(
+            result.interfaces[0]
+        )
+        LinodeInterfaceTest.assert_linode_124_interface_456(
+            result.interfaces[1]
+        )
+        LinodeInterfaceTest.assert_linode_124_interface_789(
+            result.interfaces[2]
+        )
+
+    def test_upgrade_interfaces_dry(self):
+        instance = Instance(self.client, 124)
+
+        with self.mock_post("/linode/instances/124/upgrade-interfaces") as m:
+            result = instance.upgrade_interfaces(123, dry_run=True)
+
+            assert m.called
+            assert m.call_data == {
+                "config_id": 123,
+                "dry_run": True,
+            }
+
+        assert result.config_id == 123
+        assert result.dry_run
+
+        # We don't use the assertion helpers here because dry runs return
+        # a MappedObject.
+        assert result.interfaces[0].id == 123
+        assert result.interfaces[0].public is not None
+
+        assert result.interfaces[1].id == 456
+        assert result.interfaces[1].vpc is not None
+
+        assert result.interfaces[2].id == 789
+        assert result.interfaces[2].vlan is not None
+
+    def test_create_interface_public(self):
+        instance = Instance(self.client, 124)
+
+        iface = build_interface_options_public()
+
+        with self.mock_post("/linode/instances/124/interfaces/123") as m:
+            result = instance.interface_create(**vars(iface))
+
+            assert m.call_data == {
+                "firewall_id": iface.firewall_id,
+                "default_route": iface.default_route._serialize(),
+                "public": iface.public._serialize(),
+            }
+
+        LinodeInterfaceTest.assert_linode_124_interface_123(result)
+
+    def test_create_interface_vpc(self):
+        instance = Instance(self.client, 124)
+
+        iface = build_interface_options_vpc()
+
+        with self.mock_post("/linode/instances/124/interfaces/456") as m:
+            result = instance.interface_create(**vars(iface))
+
+            assert m.call_data == {
+                "firewall_id": iface.firewall_id,
+                "default_route": iface.default_route._serialize(),
+                "vpc": iface.vpc._serialize(),
+            }
+
+        LinodeInterfaceTest.assert_linode_124_interface_456(result)
+
+    def test_create_interface_vlan(self):
+        instance = Instance(self.client, 124)
+
+        iface = build_interface_options_vlan()
+
+        with self.mock_post("/linode/instances/124/interfaces/789") as m:
+            result = instance.interface_create(**vars(iface))
+
+            assert m.call_data == {"vlan": iface.vlan._serialize()}
+
+        LinodeInterfaceTest.assert_linode_124_interface_789(result)
+
 
 class DiskTest(ClientBaseCase):
     """
@@ -506,15 +681,62 @@ class ConfigTest(ClientBaseCase):
             new_interfaces = [
                 {"purpose": "public", "primary": True},
                 ConfigInterface("vlan", label="cool-vlan"),
+                ConfigInterface(
+                    "vpc",
+                    vpc_id=18881,
+                    subnet_id=123,
+                    ipv4=ConfigInterfaceIPv4(vpc="10.0.0.4", nat_1_1="any"),
+                    ipv6=ConfigInterfaceIPv6(
+                        slaac=[
+                            ConfigInterfaceIPv6SLAAC(
+                                range="1234::5678/64", address="1234::5678"
+                            )
+                        ],
+                        ranges=[
+                            ConfigInterfaceIPv6Range(range="1234::5678/64")
+                        ],
+                        is_public=True,
+                    ),
+                ),
             ]
-            expected_body = [new_interfaces[0], new_interfaces[1]._serialize()]
 
             config.interfaces = new_interfaces
 
             config.save()
 
-            self.assertEqual(m.call_url, "/linode/instances/123/configs/456789")
-            self.assertEqual(m.call_data.get("interfaces"), expected_body)
+            assert m.call_url == "/linode/instances/123/configs/456789"
+            assert m.call_data.get("interfaces") == [
+                {
+                    "purpose": "public",
+                    "primary": True,
+                },
+                {
+                    "purpose": "vlan",
+                    "label": "cool-vlan",
+                },
+                {
+                    "purpose": "vpc",
+                    "subnet_id": 123,
+                    "ipv4": {
+                        "vpc": "10.0.0.4",
+                        "nat_1_1": "any",
+                    },
+                    "ipv6": {
+                        "slaac": [
+                            {
+                                "range": "1234::5678/64",
+                                # NOTE: Address is read-only so it shouldn't be specified here
+                            }
+                        ],
+                        "ranges": [
+                            {
+                                "range": "1234::5678/64",
+                            }
+                        ],
+                        "is_public": True,
+                    },
+                },
+            ]
 
     def test_get_config(self):
         json = self.client.get("/linode/instances/123/configs/456789")
@@ -543,6 +765,24 @@ class ConfigTest(ClientBaseCase):
 
         self.assertEqual(ipv4.vpc, "10.0.0.1")
         self.assertEqual(ipv4.nat_1_1, "any")
+
+    def test_interface_ipv6(self):
+        json = {
+            "slaac": [{"range": "1234::5678/64", "address": "1234::5678"}],
+            "ranges": [{"range": "1234::5678/64"}],
+            "is_public": True,
+        }
+
+        ipv6 = ConfigInterfaceIPv6.from_json(json)
+
+        assert len(ipv6.slaac) == 1
+        assert ipv6.slaac[0].range == "1234::5678/64"
+        assert ipv6.slaac[0].address == "1234::5678"
+
+        assert len(ipv6.ranges) == 1
+        assert ipv6.ranges[0].range == "1234::5678/64"
+
+        assert ipv6.is_public
 
     def test_config_devices_unwrap(self):
         """
@@ -747,6 +987,11 @@ class TestNetworkInterface(ClientBaseCase):
                 subnet=VPCSubnet(self.client, 789, 123456),
                 primary=True,
                 ipv4=ConfigInterfaceIPv4(vpc="10.0.0.4", nat_1_1="any"),
+                ipv6=ConfigInterfaceIPv6Options(
+                    slaac=[ConfigInterfaceIPv6SLAACOptions(range="auto")],
+                    ranges=[ConfigInterfaceIPv6RangeOptions(range="auto")],
+                    is_public=True,
+                ),
                 ip_ranges=["10.0.0.0/24"],
             )
 
@@ -760,6 +1005,11 @@ class TestNetworkInterface(ClientBaseCase):
                 "primary": True,
                 "subnet_id": 789,
                 "ipv4": {"vpc": "10.0.0.4", "nat_1_1": "any"},
+                "ipv6": {
+                    "slaac": [{"range": "auto"}],
+                    "ranges": [{"range": "auto"}],
+                    "is_public": True,
+                },
                 "ip_ranges": ["10.0.0.0/24"],
             }
 
@@ -768,8 +1018,19 @@ class TestNetworkInterface(ClientBaseCase):
             assert interface.primary
             assert interface.vpc.id == 123456
             assert interface.subnet.id == 789
+
             assert interface.ipv4.vpc == "10.0.0.2"
             assert interface.ipv4.nat_1_1 == "any"
+
+            assert len(interface.ipv6.slaac) == 1
+            assert interface.ipv6.slaac[0].range == "1234::5678/64"
+            assert interface.ipv6.slaac[0].address == "1234::5678"
+
+            assert len(interface.ipv6.ranges) == 1
+            assert interface.ipv6.ranges[0].range == "1234::5678/64"
+
+            assert interface.ipv6.is_public
+
             assert interface.ip_ranges == ["10.0.0.0/24"]
 
     def test_update(self):
@@ -777,6 +1038,7 @@ class TestNetworkInterface(ClientBaseCase):
         interface._api_get()
 
         interface.ipv4.vpc = "10.0.0.3"
+        interface.ipv6.is_public = False
         interface.primary = False
         interface.ip_ranges = ["10.0.0.2/32"]
 
@@ -794,6 +1056,11 @@ class TestNetworkInterface(ClientBaseCase):
             assert m.call_data == {
                 "primary": False,
                 "ipv4": {"vpc": "10.0.0.3", "nat_1_1": "any"},
+                "ipv6": {
+                    "slaac": [{"range": "1234::5678/64"}],
+                    "ranges": [{"range": "1234::5678/64"}],
+                    "is_public": False,
+                },
                 "ip_ranges": ["10.0.0.2/32"],
             }
 
@@ -814,8 +1081,17 @@ class TestNetworkInterface(ClientBaseCase):
         self.assertEqual(interface.purpose, "vpc")
         self.assertEqual(interface.vpc.id, 123456)
         self.assertEqual(interface.subnet.id, 789)
+
         self.assertEqual(interface.ipv4.vpc, "10.0.0.2")
         self.assertEqual(interface.ipv4.nat_1_1, "any")
+
+        self.assertEqual(len(interface.ipv6.slaac), 1)
+        self.assertEqual(interface.ipv6.slaac[0].range, "1234::5678/64")
+        self.assertEqual(interface.ipv6.slaac[0].address, "1234::5678")
+        self.assertEqual(len(interface.ipv6.ranges), 1)
+        self.assertEqual(interface.ipv6.ranges[0].range, "1234::5678/64")
+        self.assertEqual(interface.ipv6.is_public, True)
+
         self.assertEqual(interface.ip_ranges, ["10.0.0.0/24"])
         self.assertEqual(interface.active, True)
 

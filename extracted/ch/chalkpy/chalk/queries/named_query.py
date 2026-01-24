@@ -4,6 +4,7 @@ import inspect
 import traceback
 from typing import TYPE_CHECKING, Mapping, Sequence
 
+from chalk._lsp.error_builder import LSPErrorBuilder
 from chalk.features import unwrap_feature
 from chalk.utils.object_inspect import get_source_object_starting
 from chalk.utils.source_parsing import should_skip_source_code_parsing
@@ -157,9 +158,12 @@ class NamedQuery:
                 self._input = [str(f) for f in self._input_raw]
             elif self._output_raw is not None:
                 self._input = [str(unwrap_feature(o).primary_feature) for o in self._output_raw]
-        except Exception:
+        except Exception as e:
             self._input = None
-            self.errors.append(traceback.format_exc())
+            if not LSPErrorBuilder.promote_exception(e):
+                self.errors.append(
+                    f"Error creating NamedQuery '{self.name} ({self.version})': {traceback.format_exc()}"
+                )
 
         return self._input
 
@@ -170,9 +174,12 @@ class NamedQuery:
         try:
             if self._output_raw is not None:
                 self._output = [str(o) for o in self._output_raw]
-        except Exception:
+        except Exception as e:
             self._output = None
-            self.errors.append(f"Error creating NamedQuery '{self.name} ({self.version})': {traceback.format_exc()}")
+            if not LSPErrorBuilder.promote_exception(e):
+                self.errors.append(
+                    f"Error creating NamedQuery '{self.name} ({self.version})': {traceback.format_exc()}"
+                )
 
         return self._output
 
@@ -183,9 +190,12 @@ class NamedQuery:
         try:
             if self._additional_logged_features_raw is not None:
                 self._additional_logged_features = [str(alf) for alf in self._additional_logged_features_raw]
-        except Exception:
+        except Exception as e:
             self._additional_logged_features = None
-            self.errors.append(f"Error creating NamedQuery '{self.name} ({self.version})': {traceback.format_exc()}")
+            if not LSPErrorBuilder.promote_exception(e):
+                self.errors.append(
+                    f"Error creating NamedQuery '{self.name} ({self.version})': {traceback.format_exc()}"
+                )
 
         return self._additional_logged_features
 

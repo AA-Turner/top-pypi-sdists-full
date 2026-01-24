@@ -35,18 +35,16 @@ def argsort_along_batch(array: np.ndarray, kind: SortKind | None = None) -> np.n
     Returns:
         The indices that sort the array along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import argsort_along_batch
+        >>> array = np.array([[2, 6], [0, 3], [4, 9], [8, 1], [5, 7]])
+        >>> out = argsort_along_batch(array)
+        >>> out
+        array([[1, 3], [0, 1], [2, 0], [4, 4], [3, 2]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import argsort_along_batch
-    >>> array = np.array([[2, 6], [0, 3], [4, 9], [8, 1], [5, 7]])
-    >>> out = argsort_along_batch(array)
-    >>> out
-    array([[1, 3], [0, 1], [2, 0], [4, 4], [3, 2]])
-
-    ```
+        ```
     """
     return argsort(array, axis=BATCH_AXIS, kind=kind)
 
@@ -71,19 +69,17 @@ def argsort_along_seq(array: np.ndarray, kind: SortKind | None = None) -> np.nda
     Returns:
         The indices that sort the array along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import argsort_along_seq
+        >>> array = np.array([[7, 3, 0, 8, 5], [1, 9, 6, 4, 2]])
+        >>> out = argsort_along_seq(array)
+        >>> out
+        array([[2, 1, 4, 0, 3],
+               [0, 4, 3, 2, 1]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import argsort_along_seq
-    >>> array = np.array([[7, 3, 0, 8, 5], [1, 9, 6, 4, 2]])
-    >>> out = argsort_along_seq(array)
-    >>> out
-    array([[2, 1, 4, 0, 3],
-           [0, 4, 3, 2, 1]])
-
-    ```
+        ```
     """
     return argsort(array, axis=SEQ_AXIS, kind=kind)
 
@@ -108,18 +104,16 @@ def sort_along_batch(array: np.ndarray, kind: SortKind | None = None) -> np.ndar
     Returns:
         The sorted array along the batch axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import sort_along_batch
+        >>> array = np.array([[2, 6], [0, 3], [4, 9], [8, 1], [5, 7]])
+        >>> out = sort_along_batch(array)
+        >>> out
+        array([[0, 1], [2, 3], [4, 6], [5, 7], [8, 9]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import sort_along_batch
-    >>> array = np.array([[2, 6], [0, 3], [4, 9], [8, 1], [5, 7]])
-    >>> out = sort_along_batch(array)
-    >>> out
-    array([[0, 1], [2, 3], [4, 6], [5, 7], [8, 9]])
-
-    ```
+        ```
     """
     return sort(array, axis=BATCH_AXIS, kind=kind)
 
@@ -144,17 +138,15 @@ def sort_along_seq(array: np.ndarray, kind: SortKind | None = None) -> np.ndarra
     Returns:
         The sorted array along the sequence axis.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import numpy as np
+        >>> from batcharray.array import sort_along_seq
+        >>> array = np.array([[7, 3, 0, 8, 5], [1, 9, 6, 4, 2]])
+        >>> out = sort_along_seq(array)
+        >>> out
+        array([[0, 3, 5, 7, 8], [1, 2, 4, 6, 9]])
 
-    ```pycon
-
-    >>> import numpy as np
-    >>> from batcharray.array import sort_along_seq
-    >>> array = np.array([[7, 3, 0, 8, 5], [1, 9, 6, 4, 2]])
-    >>> out = sort_along_seq(array)
-    >>> out
-    array([[0, 3, 5, 7, 8], [1, 2, 4, 6, 9]])
-
-    ```
+        ```
     """
     return sort(array, axis=SEQ_AXIS, kind=kind)

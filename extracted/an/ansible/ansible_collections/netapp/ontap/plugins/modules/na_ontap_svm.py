@@ -316,6 +316,49 @@ options:
       - Only supported with REST, requires ONTAP 9.13.1 or later.
     type: int
     version_added: 23.1.0
+  storage_limit_threshold_alert:
+    description:
+      - Specifies at what percentage of storage capacity an alert message is sent.
+      - The default value is 90.
+      - Only supported with REST, requires ONTAP 9.13.1 or later.
+    type: int
+    version_added: 23.2.0
+  auto_enable_analytics:
+    description:
+      - Specifies whether file system analytics is automatically enabled on volumes that are created in the SVM.
+      - Only supported with REST, requires ONTAP 9.12.1 or later.
+    type: bool
+    version_added: 23.2.0
+  auto_enable_activity_tracking:
+    description:
+      - Specifies whether volume activity tracking is automatically enabled on volumes that are created in the SVM.
+      - Only supported with REST, requires ONTAP 9.12.1 or later.
+    type: bool
+    version_added: 23.2.0
+  lambda_config:
+    description:
+      - Configuration parameters for AWS Lambda proxy functionality.
+      - These option and suboptions are only supported with REST.
+    type: dict
+    version_added: 23.3.0
+    suboptions:
+      function_name:
+        description:
+          - The name of the AWS Lambda function to invoke.
+        type: str
+        required: true
+      aws_region:
+        description:
+          - The name of the AWS region.
+        type: str
+        required: true
+      aws_profile:
+        description:
+          - The name of the AWS profile to use for authentication.
+        type: str
+
+notes:
+  - Supports AWS Lambda proxy functionality when using REST. See the README file for examples.
 '''
 
 EXAMPLES = """
@@ -416,7 +459,12 @@ class NetAppOntapSVM():
                 ocsp_enabled=dict(type='bool'),
             )),
             storage_limit=dict(type='int', required=False),
+            storage_limit_threshold_alert=dict(type='int', required=False),
+            auto_enable_analytics=dict(type='bool', required=False),
+            auto_enable_activity_tracking=dict(type='bool', required=False),
         ))
+
+        self.argument_spec.update(netapp_utils.na_ontap_lambda_argument_spec())
 
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
@@ -424,7 +472,10 @@ class NetAppOntapSVM():
             mutually_exclusive=[('allowed_protocols', 'services'),
                                 ('services', 'root_volume'),
                                 ('services', 'root_volume_aggregate'),
-                                ('services', 'root_volume_security_style')]
+                                ('services', 'root_volume_security_style')],
+            required_if=[
+                ['use_lambda', True, ('lambda_config',)]
+            ],
         )
         self.na_helper = NetAppModule()
         self.parameters = self.na_helper.set_parameters(self.module.params)
@@ -440,6 +491,8 @@ class NetAppOntapSVM():
         self.allowable_protocols_zapi = netapp_utils.get_feature(self.module, 'svm_allowable_protocols_zapi')
         self.use_rest = self.validate_options()
         if not self.use_rest:
+            if self.parameters.get('use_lambda'):
+                self.module.fail_json(msg="Error: AWS Lambda proxy for ONTAP APIs is only supported with REST.")
             if not netapp_utils.has_netapp_lib():
                 self.module.fail_json(msg=netapp_utils.netapp_lib_is_required())
             self.server = netapp_utils.setup_na_ontap_zapi(module=self.module)
@@ -511,9 +564,18 @@ class NetAppOntapSVM():
                 # so that we can compare UUIDs while using a more friendly name in the user interface
                 self.parameters['web']['certificate'] = {'name': self.parameters['web']['certificate']}
                 self.set_certificate_uuid()
+        if use_rest and self.parameters.get('auto_enable_analytics') is not None and \
+                not self.rest_api.meets_rest_minimum_version(use_rest, 9, 12, 1):
+            self.module.fail_json(msg=self.rest_api.options_require_ontap_version('auto_enable_analytics', '9.12.1', use_rest=use_rest))
+        if use_rest and self.parameters.get('auto_enable_activity_tracking') is not None and \
+                not self.rest_api.meets_rest_minimum_version(use_rest, 9, 12, 1):
+            self.module.fail_json(msg=self.rest_api.options_require_ontap_version('auto_enable_activity_tracking', '9.12.1', use_rest=use_rest))
         if use_rest and self.parameters.get('storage_limit') is not None and \
                 not self.rest_api.meets_rest_minimum_version(use_rest, 9, 13, 1):
             self.module.fail_json(msg=self.rest_api.options_require_ontap_version('storage_limit', '9.13.1', use_rest=use_rest))
+        if use_rest and self.parameters.get('storage_limit_threshold_alert') is not None and \
+                not self.rest_api.meets_rest_minimum_version(use_rest, 9, 13, 1):
+            self.module.fail_json(msg=self.rest_api.options_require_ontap_version('storage_limit_threshold_alert', '9.13.1', use_rest=use_rest))
 
         self.validate_int_or_string(self.parameters.get('max_volumes'), 'unlimited')
         return use_rest
@@ -564,6 +626,10 @@ class NetAppOntapSVM():
 
         if 'storage' in vserver_details:
             vserver_details['storage_limit'] = int(self.na_helper.safe_get(vserver_details, ['storage', 'limit']))
+            vserver_details['storage_limit_threshold_alert'] = int(self.na_helper.safe_get(vserver_details, ['storage', 'limit_threshold_alert']))
+
+        vserver_details['auto_enable_analytics'] = self.na_helper.safe_get(vserver_details, ['auto_enable_analytics'])
+        vserver_details['auto_enable_activity_tracking'] = self.na_helper.safe_get(vserver_details, ['auto_enable_activity_tracking'])
 
         return vserver_details
 
@@ -627,8 +693,10 @@ class NetAppOntapSVM():
                 fields += ',ndmp'
             if self.rest_api.meets_rest_minimum_version(self.use_rest, 9, 7, 0):
                 fields += ',s3'
+            if self.rest_api.meets_rest_minimum_version(self.use_rest, 9, 12, 1):
+                fields += ',auto_enable_analytics,auto_enable_activity_tracking'
             if self.rest_api.meets_rest_minimum_version(self.use_rest, 9, 13, 1):
-                fields += ',storage.limit'
+                fields += ',storage'
 
             record, error = rest_vserver.get_vserver(self.rest_api, vserver_name, fields)
             if error:
@@ -715,8 +783,14 @@ class NetAppOntapSVM():
                     allowed_protocols[protocol] = allowed
             if acopy:
                 body[protocol] = acopy
+        if 'auto_enable_analytics' in keys_to_modify:
+            body['auto_enable_analytics'] = self.parameters['auto_enable_analytics']
+        if 'auto_enable_activity_tracking' in keys_to_modify:
+            body['auto_enable_activity_tracking'] = self.parameters['auto_enable_activity_tracking']
         if 'storage_limit' in keys_to_modify:
             body['storage.limit'] = self.parameters['storage_limit']
+        if 'storage_limit_threshold_alert' in keys_to_modify:
+            body['storage.limit_threshold_alert'] = self.parameters['storage_limit_threshold_alert']
         return body, allowed_protocols
 
     def get_allowed_protocols_and_max_volumes(self):

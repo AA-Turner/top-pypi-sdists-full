@@ -9,67 +9,43 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
+from .group_0074 import SimpleRepositoryType, SimpleRepositoryTypeForResponse
 
-class ImportType(TypedDict):
-    """Import
 
-    A repository import from an external source.
-    """
+class CodeScanningVariantAnalysisRepoTaskType(TypedDict):
+    """CodeScanningVariantAnalysisRepoTask"""
 
-    vcs: Union[str, None]
-    use_lfs: NotRequired[bool]
-    vcs_url: str
-    svc_root: NotRequired[str]
-    tfvc_project: NotRequired[str]
-    status: Literal[
-        "auth",
-        "error",
-        "none",
-        "detecting",
-        "choose",
-        "auth_failed",
-        "importing",
-        "mapping",
-        "waiting_to_push",
-        "pushing",
-        "complete",
-        "setup",
-        "unknown",
-        "detection_found_multiple",
-        "detection_found_nothing",
-        "detection_needs_auth",
+    repository: SimpleRepositoryType
+    analysis_status: Literal[
+        "pending", "in_progress", "succeeded", "failed", "canceled", "timed_out"
     ]
-    status_text: NotRequired[Union[str, None]]
-    failed_step: NotRequired[Union[str, None]]
-    error_message: NotRequired[Union[str, None]]
-    import_percent: NotRequired[Union[int, None]]
-    commit_count: NotRequired[Union[int, None]]
-    push_percent: NotRequired[Union[int, None]]
-    has_large_files: NotRequired[bool]
-    large_files_size: NotRequired[int]
-    large_files_count: NotRequired[int]
-    project_choices: NotRequired[list[ImportPropProjectChoicesItemsType]]
-    message: NotRequired[str]
-    authors_count: NotRequired[Union[int, None]]
-    url: str
-    html_url: str
-    authors_url: str
-    repository_url: str
-    svn_root: NotRequired[str]
+    artifact_size_in_bytes: NotRequired[int]
+    result_count: NotRequired[int]
+    failure_message: NotRequired[str]
+    database_commit_sha: NotRequired[str]
+    source_location_prefix: NotRequired[str]
+    artifact_url: NotRequired[str]
 
 
-class ImportPropProjectChoicesItemsType(TypedDict):
-    """ImportPropProjectChoicesItems"""
+class CodeScanningVariantAnalysisRepoTaskTypeForResponse(TypedDict):
+    """CodeScanningVariantAnalysisRepoTask"""
 
-    vcs: NotRequired[str]
-    tfvc_project: NotRequired[str]
-    human_name: NotRequired[str]
+    repository: SimpleRepositoryTypeForResponse
+    analysis_status: Literal[
+        "pending", "in_progress", "succeeded", "failed", "canceled", "timed_out"
+    ]
+    artifact_size_in_bytes: NotRequired[int]
+    result_count: NotRequired[int]
+    failure_message: NotRequired[str]
+    database_commit_sha: NotRequired[str]
+    source_location_prefix: NotRequired[str]
+    artifact_url: NotRequired[str]
 
 
 __all__ = (
-    "ImportPropProjectChoicesItemsType",
-    "ImportType",
+    "CodeScanningVariantAnalysisRepoTaskType",
+    "CodeScanningVariantAnalysisRepoTaskTypeForResponse",
 )

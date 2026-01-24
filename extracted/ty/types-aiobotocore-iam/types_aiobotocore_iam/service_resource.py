@@ -3,7 +3,7 @@ Type annotations for iam service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -44,6 +44,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from datetime import datetime
 from typing import NoReturn
 
@@ -132,12 +133,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -242,7 +237,7 @@ class ServiceResourceGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Group]]:
+    ) -> AsyncIterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -312,7 +307,7 @@ class ServiceResourceInstanceProfilesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[InstanceProfile]]:
+    ) -> AsyncIterator[list[InstanceProfile]]:
         """
         A generator which yields pages of InstanceProfiles.
 
@@ -389,7 +384,7 @@ class ServiceResourcePoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Policy]]:
+    ) -> AsyncIterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -459,7 +454,7 @@ class ServiceResourceRolesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Role]]:
+    ) -> AsyncIterator[list[Role]]:
         """
         A generator which yields pages of Roles.
 
@@ -529,7 +524,7 @@ class ServiceResourceSamlProvidersCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[SamlProvider]]:
+    ) -> AsyncIterator[list[SamlProvider]]:
         """
         A generator which yields pages of SamlProviders.
 
@@ -599,7 +594,7 @@ class ServiceResourceServerCertificatesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[ServerCertificate]]:
+    ) -> AsyncIterator[list[ServerCertificate]]:
         """
         A generator which yields pages of ServerCertificates.
 
@@ -669,7 +664,7 @@ class ServiceResourceUsersCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[User]]:
+    ) -> AsyncIterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -743,7 +738,7 @@ class ServiceResourceVirtualMfaDevicesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[VirtualMfaDevice]]:
+    ) -> AsyncIterator[list[VirtualMfaDevice]]:
         """
         A generator which yields pages of VirtualMfaDevices.
 
@@ -813,7 +808,7 @@ class CurrentUserAccessKeysCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[AccessKey]]:
+    ) -> AsyncIterator[list[AccessKey]]:
         """
         A generator which yields pages of AccessKeys.
 
@@ -883,7 +878,7 @@ class CurrentUserMfaDevicesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MfaDevice]]:
+    ) -> AsyncIterator[list[MfaDevice]]:
         """
         A generator which yields pages of MfaDevices.
 
@@ -953,7 +948,7 @@ class CurrentUserSigningCertificatesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[SigningCertificate]]:
+    ) -> AsyncIterator[list[SigningCertificate]]:
         """
         A generator which yields pages of SigningCertificates.
 
@@ -1023,7 +1018,7 @@ class GroupAttachedPoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Policy]]:
+    ) -> AsyncIterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -1093,7 +1088,7 @@ class GroupPoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[GroupPolicy]]:
+    ) -> AsyncIterator[list[GroupPolicy]]:
         """
         A generator which yields pages of GroupPolicys.
 
@@ -1163,7 +1158,7 @@ class GroupUsersCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[User]]:
+    ) -> AsyncIterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -1239,7 +1234,7 @@ class PolicyAttachedGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Group]]:
+    ) -> AsyncIterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -1315,7 +1310,7 @@ class PolicyAttachedRolesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Role]]:
+    ) -> AsyncIterator[list[Role]]:
         """
         A generator which yields pages of Roles.
 
@@ -1391,7 +1386,7 @@ class PolicyAttachedUsersCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[User]]:
+    ) -> AsyncIterator[list[User]]:
         """
         A generator which yields pages of Users.
 
@@ -1461,7 +1456,7 @@ class PolicyVersionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[PolicyVersion]]:
+    ) -> AsyncIterator[list[PolicyVersion]]:
         """
         A generator which yields pages of PolicyVersions.
 
@@ -1531,7 +1526,7 @@ class RoleAttachedPoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Policy]]:
+    ) -> AsyncIterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -1601,7 +1596,7 @@ class RoleInstanceProfilesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[InstanceProfile]]:
+    ) -> AsyncIterator[list[InstanceProfile]]:
         """
         A generator which yields pages of InstanceProfiles.
 
@@ -1671,7 +1666,7 @@ class RolePoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[RolePolicy]]:
+    ) -> AsyncIterator[list[RolePolicy]]:
         """
         A generator which yields pages of RolePolicys.
 
@@ -1741,7 +1736,7 @@ class UserAccessKeysCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[AccessKey]]:
+    ) -> AsyncIterator[list[AccessKey]]:
         """
         A generator which yields pages of AccessKeys.
 
@@ -1811,7 +1806,7 @@ class UserAttachedPoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Policy]]:
+    ) -> AsyncIterator[list[Policy]]:
         """
         A generator which yields pages of Policys.
 
@@ -1881,7 +1876,7 @@ class UserGroupsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Group]]:
+    ) -> AsyncIterator[list[Group]]:
         """
         A generator which yields pages of Groups.
 
@@ -1951,7 +1946,7 @@ class UserMfaDevicesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MfaDevice]]:
+    ) -> AsyncIterator[list[MfaDevice]]:
         """
         A generator which yields pages of MfaDevices.
 
@@ -2021,7 +2016,7 @@ class UserPoliciesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[UserPolicy]]:
+    ) -> AsyncIterator[list[UserPolicy]]:
         """
         A generator which yields pages of UserPolicys.
 
@@ -2091,7 +2086,7 @@ class UserSigningCertificatesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[SigningCertificate]]:
+    ) -> AsyncIterator[list[SigningCertificate]]:
         """
         A generator which yields pages of SigningCertificates.
 
@@ -2303,7 +2298,7 @@ class AccountSummary(AIOBoto3ServiceResource):
     [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_iam/service_resource/#accountsummary)
     """
 
-    summary_map: Awaitable[Dict[SummaryKeyTypeType, int]]
+    summary_map: Awaitable[dict[SummaryKeyTypeType, int]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -2386,7 +2381,7 @@ class CurrentUser(AIOBoto3ServiceResource):
     create_date: Awaitable[datetime]
     password_last_used: Awaitable[datetime]
     permissions_boundary: Awaitable[AttachedPermissionsBoundaryTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -2603,14 +2598,14 @@ class InstanceProfile(AIOBoto3ServiceResource):
     """
 
     name: str
-    roles: List[Role]
+    roles: list[Role]
     path: Awaitable[str]
     instance_profile_name: Awaitable[str]
     instance_profile_id: Awaitable[str]
     arn: Awaitable[str]
     create_date: Awaitable[datetime]
-    roles_attribute: Awaitable[List[RoleTypeDef]]
-    tags: Awaitable[List[TagTypeDef]]
+    roles_attribute: Awaitable[list[RoleTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -2820,7 +2815,7 @@ class Policy(AIOBoto3ServiceResource):
     description: Awaitable[str]
     create_date: Awaitable[datetime]
     update_date: Awaitable[datetime]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -2998,7 +2993,7 @@ class Role(AIOBoto3ServiceResource):
     description: Awaitable[str]
     max_session_duration: Awaitable[int]
     permissions_boundary: Awaitable[AttachedPermissionsBoundaryTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     role_last_used: Awaitable[RoleLastUsedTypeDef]
     meta: IAMResourceMeta  # type: ignore[override]
 
@@ -3142,9 +3137,9 @@ class SamlProvider(AIOBoto3ServiceResource):
     saml_metadata_document: Awaitable[str]
     create_date: Awaitable[datetime]
     valid_until: Awaitable[datetime]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     assertion_encryption_mode: Awaitable[AssertionEncryptionModeTypeType]
-    private_key_list: Awaitable[List[SAMLPrivateKeyTypeDef]]
+    private_key_list: Awaitable[list[SAMLPrivateKeyTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -3200,7 +3195,7 @@ class ServerCertificate(AIOBoto3ServiceResource):
     server_certificate_metadata: Awaitable[ServerCertificateMetadataTypeDef]
     certificate_body: Awaitable[str]
     certificate_chain: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -3330,7 +3325,7 @@ class User(AIOBoto3ServiceResource):
     create_date: Awaitable[datetime]
     password_last_used: Awaitable[datetime]
     permissions_boundary: Awaitable[AttachedPermissionsBoundaryTypeDef]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -3572,7 +3567,7 @@ class VirtualMfaDevice(AIOBoto3ServiceResource):
     qr_code_png: Awaitable[bytes]
     user_attribute: Awaitable[UserTypeDef]
     enable_date: Awaitable[datetime]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     meta: IAMResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

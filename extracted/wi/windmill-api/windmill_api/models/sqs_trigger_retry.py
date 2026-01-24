@@ -16,11 +16,12 @@ T = TypeVar("T", bound="SqsTriggerRetry")
 
 @_attrs_define
 class SqsTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, SqsTriggerRetryConstant]):
-        exponential (Union[Unset, SqsTriggerRetryExponential]):
-        retry_if (Union[Unset, SqsTriggerRetryRetryIf]):
+        constant (Union[Unset, SqsTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, SqsTriggerRetryExponential]): Retry with exponential backoff (delay doubles each time)
+        retry_if (Union[Unset, SqsTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "SqsTriggerRetryConstant"] = UNSET

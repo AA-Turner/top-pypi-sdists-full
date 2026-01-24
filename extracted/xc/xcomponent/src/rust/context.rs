@@ -88,7 +88,7 @@ impl PyObj {
 
 impl Clone for PyObj {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| PyObj {
+        Python::attach(|py| PyObj {
             obj: self.obj.clone_ref(py),
         })
     }
@@ -151,7 +151,12 @@ impl Literal {
                 .unbind()
                 .into_bound_py_any(py)
                 .unwrap(),
-            Literal::Uuid(v) => v.clone().into_pyobject(py).unwrap().into_any(),
+            Literal::Uuid(v) => {
+                let uuidmod = PyModule::import(py, "uuid").unwrap();
+                let uuid_class = uuidmod.getattr("UUID").unwrap();
+                let args = (PyString::new(py, v.as_str()),);
+                uuid_class.call1(args).unwrap()
+            }
             Literal::Int(v) => v.clone().into_pyobject(py).unwrap().into_any(),
             Literal::Str(v) => v.clone().into_pyobject(py).unwrap().into_any(),
             Literal::XNode(v) => v.clone().into_pyobject(py).unwrap().into_any(),
@@ -193,19 +198,13 @@ impl Truthy for Literal {
             Literal::Uuid(_) => true,
             Literal::XNode(_) => true,
             Literal::Callable(_) => true,
-            Literal::Object(o) => {
-                Python::with_gil(|py| {
-                    match o
-                        .obj()
-                        .into_pyobject(py)
-                        .unwrap()
-                        .call_method("__bool__", (), None)
-                    {
-                        Ok(b) => b.extract::<bool>().unwrap(),
-                        Err(_) => false, // or panic/log
-                    }
-                })
-            }
+            Literal::Object(o) => Python::attach(|py| {
+                let builtins = PyModule::import(py, "builtins").unwrap();
+                let boolcls = builtins.getattr("bool").unwrap();
+                let v = o.obj().into_pyobject(py).unwrap();
+                let ret: bool = boolcls.call1((v,)).unwrap().extract().unwrap();
+                ret
+            }),
             Literal::List(items) => !items.is_empty(),
             Literal::Dict(d) => !d.is_empty(),
         }
@@ -226,7 +225,14 @@ impl ToHtml for Literal {
             Literal::Int(i) => Ok(format!("{}", i)),
             Literal::Str(s) => Ok(format!("{}", s)),
             Literal::Callable(s) => Ok(format!("{}()", s)),
-            Literal::Uuid(uuid) => Ok(format!("{}", uuid)),
+            Literal::Uuid(uuid) => Ok(format!(
+                "{}-{}-{}-{}-{}",
+                &uuid[0..8],
+                &uuid[8..12],
+                &uuid[12..16],
+                &uuid[16..20],
+                &uuid[20..32]
+            )),
             Literal::List(l) => {
                 let mut out = String::new();
                 for item in l {
@@ -250,7 +256,7 @@ impl ToHtml for Literal {
             }
             Literal::Object(o) => Ok(format!(
                 "{}",
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     match o
                         .obj()
                         .into_pyobject(py)
@@ -271,19 +277,37 @@ impl ToHtml for Literal {
 #[derive(Debug)]
 pub struct RenderContext {
     stack: Vec<HashMap<LiteralKey, Literal>>,
+    ns_stack: Vec<HashMap<LiteralKey, Literal>>,
 }
 
 #[pymethods]
 impl RenderContext {
     #[new]
     pub fn new() -> Self {
-        Self { stack: vec![] }
+        Self {
+            stack: vec![],
+            ns_stack: vec![],
+        }
     }
 
-    pub fn push<'py>(&mut self, py: Python<'py>, params: Bound<'py, PyDict>) -> PyResult<()> {
+    pub fn shadow(&self) -> RenderContext {
+        let mut shadow_context = Self {
+            stack: self.ns_stack.clone(),
+            ns_stack: self.ns_stack.clone(),
+        };
+        let gblk = LiteralKey::Str("globals".to_string());
+        if let Some(glb) = self.get(&gblk) {
+            shadow_context.insert(gblk, glb.clone());
+        }
+        shadow_context
+    }
+
+    pub fn push_ns<'py>(&mut self, py: Python<'py>, params: Bound<'py, PyDict>) -> PyResult<()> {
         let anyparams: Bound<'py, PyAny> = params.extract()?;
         if let Literal::Dict(d) = Literal::downcast(py, anyparams)? {
-            self.stack.push(d);
+            self.ns_stack.push(d);
+            self.push(py, params)?;
+            debug!("ns stack updated {:?}", self);
             Ok(())
         } else {
             // we comme from a Pydict, so this is dead code, right?
@@ -291,8 +315,27 @@ impl RenderContext {
         }
     }
 
+    pub fn push<'py>(&mut self, py: Python<'py>, params: Bound<'py, PyDict>) -> PyResult<()> {
+        let anyparams: Bound<'py, PyAny> = params.extract()?;
+        if let Literal::Dict(d) = Literal::downcast(py, anyparams)? {
+            self.stack.push(d);
+            debug!("stack updated {:?}", self.stack);
+            Ok(())
+        } else {
+            // we comme from a Pydict, so this is dead code, right?
+            Err(PyTypeError::new_err(format!("Invalid rendering type")))
+        }
+    }
+
+    pub fn pop_ns(&mut self) {
+        self.ns_stack.pop();
+        self.stack.pop();
+        debug!("ns stack popped {:?}", self);
+    }
+
     pub fn pop(&mut self) {
         self.stack.pop();
+        debug!("stack popped {:?}", self.stack);
     }
 }
 

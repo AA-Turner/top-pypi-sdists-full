@@ -18,6 +18,7 @@ from typing import Any, Optional
 from requests.status_codes import codes
 
 from rucio.client.baseclient import BaseClient, choice
+from rucio.common.constants import HTTPMethod
 from rucio.common.utils import build_url
 
 
@@ -54,7 +55,7 @@ class ConfigClient(BaseClient):
 
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='GET')
+        r = self._send_request(url, method=HTTPMethod.GET)
         if r.status_code == codes.ok:
             return r.json()
         else:
@@ -90,7 +91,7 @@ class ConfigClient(BaseClient):
         Note:
         ------
         The format of the /config endpoint was recently changed. We migrated from performing a PUT on
-        "/config/<section>/<option>/<value>" to sending the parameters using a json-encoded body.
+        "/config/{section}/{option}/{value}" to sending the parameters using a json-encoded body.
         This was done to fix multiple un-wanted side effects related to how the middleware treats
         values encoded in a path.
         For a smooth transition, we allow both cases for now, but we should migrate to only passing
@@ -104,11 +105,11 @@ class ConfigClient(BaseClient):
                     option: value
                 }
             })
-            r = self._send_request(url, type_='POST', data=data)
+            r = self._send_request(url, method=HTTPMethod.POST, data=data)
         else:
             path = '/'.join([self.CONFIG_BASEURL, section, option, value])
             url = build_url(choice(self.list_hosts), path=path)
-            r = self._send_request(url, type_='PUT')
+            r = self._send_request(url, method=HTTPMethod.PUT)
 
         if r.status_code == codes.created:
             return True
@@ -140,7 +141,30 @@ class ConfigClient(BaseClient):
         path = '/'.join([self.CONFIG_BASEURL, section, option])
         url = build_url(choice(self.list_hosts), path=path)
 
-        r = self._send_request(url, type_='DEL')
+        r = self._send_request(url, method=HTTPMethod.DELETE)
+
+        if r.status_code == codes.ok:
+            return True
+        else:
+            exc_cls, exc_msg = self._get_exception(headers=r.headers, status_code=r.status_code, data=r.content)
+            raise exc_cls(exc_msg)
+
+    def delete_config_section(self, section: str):
+        """
+        Delete a whole section from the config
+
+        Parameters
+        ----------
+        section :
+            The name of the section.
+
+        Returns
+        -------
+            True if option was removed successfully.
+        """
+        path = '/'.join([self.CONFIG_BASEURL, section])
+        url = build_url(choice(self.list_hosts), path=path)
+        r = self._send_request(url, method=HTTPMethod.DELETE)
 
         if r.status_code == codes.ok:
             return True

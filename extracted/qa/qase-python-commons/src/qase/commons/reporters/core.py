@@ -11,6 +11,7 @@ from ..models.config.qaseconfig import Mode
 from typing import Union, List
 
 from ..util import get_host_info
+from ..status_mapping.status_mapping import StatusMapping
 
 """
     CoreReporter is a facade for all reporters and it is used to initialize and manage them.
@@ -23,10 +24,16 @@ class QaseCoreReporter:
                  reporter_name: Union[str, None] = None):
         config.validate_config()
         self.config = config.config
-        self.logger = Logger(self.config.debug)
+        # Use the logger from ConfigManager instead of creating a new one
+        self.logger = config.logger
         self._execution_plan = None
         self.profilers = []
         self.overhead = 0
+
+        # Initialize status mapping
+        self.status_mapping = StatusMapping.from_dict(self.config.status_mapping)
+        if not self.status_mapping.is_empty():
+            self.logger.log_debug(f"Status mapping initialized: {self.status_mapping}")
 
         # self._selective_execution_setup()
         self.fallback = self._fallback_setup()
@@ -36,13 +43,22 @@ class QaseCoreReporter:
         host_data = get_host_info(framework, reporter_name)
         self.logger.log_debug(f"Host data: {host_data}")
 
+        # Store framework and reporter_name for passing to reporters
+        self.framework = framework
+        self.reporter_name = reporter_name
+        self.host_data = host_data
+
         # Reading reporter mode from config file
         mode = self.config.mode
 
         if mode == Mode.testops:
             try:
                 self._load_testops_plan()
-                self.reporter = QaseTestOps(config=self.config, logger=self.logger)
+                # Create API client with host_data for headers
+                from ..client.api_v2_client import ApiV2Client
+                api_client = ApiV2Client(self.config, self.logger, host_data=host_data, 
+                                       framework=framework, reporter_name=reporter_name)
+                self.reporter = QaseTestOps(config=self.config, logger=self.logger, client=api_client)
             except Exception as e:
                 self.logger.log('Failed to initialize TestOps reporter. Using fallback.', 'info')
                 self.logger.log(e, 'error')
@@ -87,6 +103,9 @@ class QaseCoreReporter:
                 ts = time.time()
                 self.logger.log_debug(f"Adding result {result}")
 
+                # Apply status mapping before adding result
+                self._apply_status_mapping(result)
+
                 self.reporter.add_result(result)
 
                 self.logger.log_debug(f"Result {result.get_title()} added")
@@ -125,8 +144,9 @@ class QaseCoreReporter:
                 from ..profilers import SleepProfiler
                 self.profilers.append(SleepProfiler(runtime=runtime))
             if profiler == "db":
-                from ..profilers import DbProfiler
-                self.profilers.append(DbProfiler(runtime=runtime))
+                from ..profilers import DatabaseProfilerSingleton
+                DatabaseProfilerSingleton.init(runtime=runtime)
+                self.profilers.append(DatabaseProfilerSingleton.get_instance())
 
     def enable_profilers(self) -> None:
         if self.reporter:
@@ -208,3 +228,26 @@ class QaseCoreReporter:
         if self.config.fallback == Mode.report:
             return QaseReport(config=self.config, logger=self.logger)
         return None
+
+    def _apply_status_mapping(self, result: Result) -> None:
+        """
+        Apply status mapping to a test result.
+        
+        This method applies the configured status mapping to the result's execution status.
+        The mapping is applied before the result is sent to the reporter.
+        
+        Args:
+            result: Test result to apply status mapping to
+        """
+        if self.status_mapping.is_empty():
+            return
+        
+        original_status = result.get_status()
+        if not original_status:
+            return
+        
+        mapped_status = self.status_mapping.apply_mapping(original_status)
+        
+        if mapped_status != original_status:
+            result.execution.set_status(mapped_status)
+            self.logger.log_debug(f"Status mapped for '{result.get_title()}': {original_status} -> {mapped_status}")

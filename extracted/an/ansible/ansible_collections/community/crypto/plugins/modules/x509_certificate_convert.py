@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: x509_certificate_convert
 short_description: Convert X.509 certificates
@@ -110,6 +109,7 @@ import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_bytes, to_text
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
@@ -132,7 +132,6 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
     load_file_if_exists,
     write_file,
 )
-
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
@@ -243,9 +242,9 @@ class X509CertificateConvertModule(OpenSSLObject):
             return True
         if self.input != self.dest_content:
             return True
-        if self.format == "pem" and self.dest_content_pem_type != self.wanted_pem_type:
-            return True
-        return False
+        return bool(
+            self.format == "pem" and self.dest_content_pem_type != self.wanted_pem_type
+        )
 
     def get_dest_certificate(self) -> bytes:
         if self.format == "der":

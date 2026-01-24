@@ -63,7 +63,7 @@ class SlowResource(aiocoap.resource.Resource):
         #
         # This is done to aid the test_freeoncancel test, and should revert to
         # the default behavior once that has better control over the environment.
-        return aiocoap.Message(mtype=aiocoap.CON)
+        return aiocoap.Message(transport_tuning=aiocoap.Reliable)
 
 
 class BigResource(aiocoap.resource.Resource):
@@ -335,7 +335,7 @@ class TestServer(TestServerBase):
         request.opt.uri_path = ["empty"]
         response = await self.client.request(request).response
         self.assertEqual(
-            response.code, aiocoap.CONTENT, "Simple request did not succede"
+            response.code, aiocoap.CONTENT, "Simple request did not succeed"
         )
         self.assertEqual(response.payload, b"", "Simple request gave unexpected result")
 
@@ -357,7 +357,7 @@ class TestServer(TestServerBase):
         request.opt.uri_path = ["empty"]
         request.opt.accept = ContentFormat.JSON
         response = await self.client.request(request).response
-        self.assertEqual(response.code, aiocoap.CONTENT, "JSON request did not succede")
+        self.assertEqual(response.code, aiocoap.CONTENT, "JSON request did not succeed")
         self.assertEqual(response.payload, b"{}", "JSON request gave unexpected result")
 
     @no_warnings
@@ -389,7 +389,7 @@ class TestServer(TestServerBase):
 
         response = await self.client.request(request).response
 
-        self.assertEqual(response.code, aiocoap.CONTENT, "Fast request did not succede")
+        self.assertEqual(response.code, aiocoap.CONTENT, "Fast request did not succeed")
         self.assertEqual(self._count_empty_acks(), 0, "Fast resource had an empty ack")
 
     @no_warnings
@@ -399,7 +399,7 @@ class TestServer(TestServerBase):
 
         response = await self.client.request(request).response
 
-        self.assertEqual(response.code, aiocoap.CONTENT, "Slow request did not succede")
+        self.assertEqual(response.code, aiocoap.CONTENT, "Slow request did not succeed")
         if response.requested_scheme in (None, "coap"):
             self.assertEqual(
                 self._count_empty_acks(),
@@ -413,7 +413,7 @@ class TestServer(TestServerBase):
         request.opt.uri_path = ["big"]
         response = await self.client.request(request).response
         self.assertEqual(
-            response.code, aiocoap.CONTENT, "Big resource request did not succede"
+            response.code, aiocoap.CONTENT, "Big resource request did not succeed"
         )
         self.assertEqual(
             len(response.payload), 10240, "Big resource is not as big as expected"
@@ -443,7 +443,7 @@ class TestServer(TestServerBase):
         request.opt.uri_path = ["slowbig"]
         response = await self.client.request(request).response
         self.assertEqual(
-            response.code, aiocoap.CONTENT, "SlowBig resource request did not succede"
+            response.code, aiocoap.CONTENT, "SlowBig resource request did not succeed"
         )
         self.assertEqual(
             len(response.payload), 1600, "SlowBig resource is not as big as expected"
@@ -461,7 +461,7 @@ class TestServer(TestServerBase):
         request.opt.uri_path = ["manualbig"]
         response = await self.client.request(request).response
         self.assertEqual(
-            response.code, aiocoap.CONTENT, "ManualBig resource request did not succede"
+            response.code, aiocoap.CONTENT, "ManualBig resource request did not succeed"
         )
         self.assertEqual(
             len(response.payload), 1600, "ManualBig resource is not as big as expected"
@@ -558,7 +558,7 @@ class TestServer(TestServerBase):
         self.assertEqual(response.code, aiocoap.CONTENT, "Root resource was not found")
 
     _empty_ack_logmsg = re.compile(
-        "^Incoming message <aiocoap.Message at 0x[0-9a-f]+: ACK EMPTY ([^)]+)"
+        "^Incoming message <aiocoap.Message: EMPTY from .*, ACK"
     )
 
     def _count_empty_acks(self):

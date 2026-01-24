@@ -6,19 +6,19 @@ use std::{
 use serde::Serialize;
 
 use crate::{
-    config::{path::ResolvedTomlPath, ErrorContext, PathWithContents, SchemaData},
+    config::{ErrorContext, PathWithContents, SchemaData, path::ResolvedTomlPathData},
     error::{Error, ErrorDetails},
     inference::types::Role,
-    jsonschema_util::StaticJSONSchema,
+    jsonschema_util::JSONSchema,
     variant::chat_completion::{
         TemplateWithSchema, UninitializedChatCompletionConfig, UninitializedInputWrappers,
     },
 };
 
 /// Holds of all of the templates and schemas used by a chat-completion variant.
+#[cfg_attr(feature = "ts-bindings", derive(ts_rs::TS))]
 #[derive(Debug, Default, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[cfg_attr(test, ts(export))]
+#[cfg_attr(feature = "ts-bindings", ts(export))]
 pub struct ChatTemplates {
     #[serde(flatten)]
     templates: HashMap<String, Arc<TemplateWithSchema>>,
@@ -62,6 +62,13 @@ impl ChatTemplates {
     pub fn get_all_template_paths(&self) -> Vec<&PathWithContents> {
         self.templates.values().map(|t| &t.template).collect()
     }
+
+    /// Returns an iterator over all templates (name, template_with_schema pairs)
+    pub(super) fn iter_templates(
+        &self,
+    ) -> impl Iterator<Item = (&String, &Arc<TemplateWithSchema>)> {
+        self.templates.iter()
+    }
 }
 
 impl ChatTemplates {
@@ -74,8 +81,8 @@ impl ChatTemplates {
     // is set.
     fn validate_wrapper(
         template_and_schema: Option<TemplateWithSchema>,
-        schema: Option<&StaticJSONSchema>,
-        wrapper: Option<ResolvedTomlPath>,
+        schema: Option<&JSONSchema>,
+        wrapper: Option<ResolvedTomlPathData>,
         error_prefix: &str,
         name: &str,
     ) -> Result<Option<TemplateWithSchema>, Error> {
@@ -128,7 +135,9 @@ impl ChatTemplates {
             .map(|x| {
                 Ok::<_, Error>(TemplateWithSchema {
                     template: PathWithContents::from_path(x.clone())?,
-                    schema: schemas.get_implicit_system_schema().cloned(),
+                    schema: schemas
+                        .get_implicit_system_schema()
+                        .map(|s| s.schema.clone()),
                     legacy_definition: true,
                 })
             })
@@ -140,7 +149,7 @@ impl ChatTemplates {
             .map(|x| {
                 Ok::<_, Error>(TemplateWithSchema {
                     template: PathWithContents::from_path(x.clone())?,
-                    schema: schemas.get_implicit_user_schema().cloned(),
+                    schema: schemas.get_implicit_user_schema().map(|s| s.schema.clone()),
                     legacy_definition: true,
                 })
             })
@@ -152,7 +161,9 @@ impl ChatTemplates {
             .map(|x| {
                 Ok::<_, Error>(TemplateWithSchema {
                     template: PathWithContents::from_path(x.clone())?,
-                    schema: schemas.get_implicit_assistant_schema().cloned(),
+                    schema: schemas
+                        .get_implicit_assistant_schema()
+                        .map(|s| s.schema.clone()),
                     legacy_definition: true,
                 })
             })
@@ -166,7 +177,7 @@ impl ChatTemplates {
 
         let system = Self::validate_wrapper(
             system,
-            schemas.get_implicit_system_schema(),
+            schemas.get_implicit_system_schema().map(|s| &s.schema),
             system_wrapper,
             &function_and_variant_name,
             "system",
@@ -174,7 +185,7 @@ impl ChatTemplates {
 
         let user = Self::validate_wrapper(
             user,
-            schemas.get_implicit_user_schema(),
+            schemas.get_implicit_user_schema().map(|s| &s.schema),
             user_wrapper,
             &function_and_variant_name,
             "user",
@@ -182,7 +193,7 @@ impl ChatTemplates {
 
         let assistant = Self::validate_wrapper(
             assistant,
-            schemas.get_implicit_assistant_schema(),
+            schemas.get_implicit_assistant_schema().map(|s| &s.schema),
             assistant_wrapper,
             &function_and_variant_name,
             "assistant",
@@ -202,7 +213,9 @@ impl ChatTemplates {
         for (template_name, template_config) in &chat_config.templates.inner {
             let template = TemplateWithSchema {
                 template: PathWithContents::from_path(template_config.path.clone())?,
-                schema: schemas.get_named_schema(template_name).cloned(),
+                schema: schemas
+                    .get_named_schema(template_name)
+                    .map(|s| s.schema.clone()),
                 legacy_definition: false,
             };
             if templates

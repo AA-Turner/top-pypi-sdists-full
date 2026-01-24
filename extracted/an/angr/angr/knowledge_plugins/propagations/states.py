@@ -18,12 +18,11 @@ from angr.storage.memory_mixins import LabeledMemory
 from angr.engines.light.engine import SimEngineLight
 from angr.code_location import CodeLocation
 
-
 if TYPE_CHECKING:
     from archinfo import Arch
 
 
-class CallExprFinder(ailment.AILBlockWalker):
+class CallExprFinder(ailment.AILBlockRewriter):
     """
     Walks an AIL expression to find if it contains a call expression anywhere.
     """

@@ -19,6 +19,7 @@ from seeq.spy._errors import *
 from seeq.spy._redaction import request_safely
 from seeq.spy._session import Session
 from seeq.spy._status import Status
+from seeq.spy.workbooks._context import WorkbookPushContext
 from seeq.spy.workbooks._data import StoredSignal, StoredCondition, StoredOrCalculatedItem, CalculatedItem
 from seeq.spy.workbooks._data import ThresholdMetric
 from seeq.spy.workbooks._item import Item, Reference, replace_items
@@ -110,8 +111,9 @@ class Workstep(Item):
         kwargs['definition'] = definition_dict
         return derived_class(**kwargs)
 
-    def push_to_specific_worksheet(self, session: Session, pushed_workbook_id, pushed_worksheet_output, item_map,
-                                   include_inventory, *, no_workstep_message=None):
+    def push_to_specific_worksheet(self, context: WorkbookPushContext, pushed_workbook_id, pushed_worksheet_output,
+                                   item_map, include_inventory, *, no_workstep_message=None):
+        session = context.session
         workbooks_api = WorkbooksApi(session.client)
 
         item_map = item_map if item_map is not None else dict()
@@ -121,10 +123,22 @@ class Workstep(Item):
         workstep_to_push = self._apply_map(item_map)
 
         workstep_input = WorkstepInputV1(data=_common.safe_json_dumps(workstep_to_push.data))
-        workstep_output = workbooks_api.create_workstep(workbook_id=pushed_workbook_id,
-                                                        worksheet_id=pushed_worksheet_output.id,
-                                                        no_workstep_message=no_workstep_message,
-                                                        body=workstep_input)  # type: WorkstepOutputV1
+        if not context.dry_run:
+            workstep_output = workbooks_api.create_workstep(workbook_id=pushed_workbook_id,
+                                                            worksheet_id=pushed_worksheet_output.id,
+                                                            no_workstep_message=no_workstep_message,
+                                                            body=workstep_input)  # type: WorkstepOutputV1
+            context.status.log(
+                f'Pushed Workstep {self.id} to Worksheet {pushed_worksheet_output.id} as Workstep'
+                f' {workstep_output.id}')
+        else:
+            if pushed_worksheet_output is not None:
+                context.status.log(f'[Dry Run] Would push Workstep {self.id} to Worksheet'
+                                   f' {pushed_worksheet_output.id}')
+            else:
+                context.status.log(f'[Dry Run] Would push Workstep {self.id} to new Worksheet')
+            return None
+
         item_map[self.id] = workstep_output.id
 
         return workstep_output.id
@@ -250,53 +264,18 @@ class Workstep(Item):
         worksheet_store['timezone'] = timezone
 
 
-class AnalysisWorkstep(Workstep):
+class WorkstepForAnalysisOrRoom(Workstep):
     def __init__(self, worksheet=None, definition=None):
         super().__init__(worksheet, definition)
 
-        # initialize displayed items
-        if self.display_items.empty:
-            display_items_stores = self._store_map_from_type('all', self._get_workstep_version())
-            stores = self.get_workstep_stores()
-            for store in display_items_stores:
-                current_store = _common.get(stores, store, default=dict(), assign_default=True)
-                current_store['items'] = []
-
-        # initialize the display and investigate ranges
-        if self.display_range is None and self.investigate_range is None:
+        # initialize the display range
+        if self.display_range is None:
             self.set_display_range(
                 {'Start': datetime.datetime.now() - pd.Timedelta(days=1), 'End': datetime.datetime.now()},
                 check_investigate=False)
             self.set_investigate_range(
                 {'Start': datetime.datetime.now() - pd.Timedelta(days=7), 'End': datetime.datetime.now()},
                 check_display=False)
-        # initialize the view
-        if self.view is None:
-            self._set_view_key()
-        self._trend_toolbar = TrendToolbar(self)
-        self._condition_table_toolbar = ConditionTableToolbar(self)
-
-    @property
-    def trend_toolbar(self):
-        """
-        Trend toolbar for configuring the worksheet's trend toolbar settings.
-        """
-        return self._trend_toolbar
-
-    @property
-    def condition_table_toolbar(self):
-        """
-        Condition table toolbar for configuring the worksheet's condition table settings.
-        """
-        return self._condition_table_toolbar
-
-    @property
-    def display_items(self):
-        return self._get_display_items()
-
-    @display_items.setter
-    def display_items(self, value):
-        self._set_display_items(value)
 
     @property
     def display_range(self):
@@ -313,66 +292,6 @@ class AnalysisWorkstep(Workstep):
     @investigate_range.setter
     def investigate_range(self, value):
         self.set_investigate_range(value)
-
-    @property
-    def view(self):
-        return self._get_view_key()
-
-    @view.setter
-    def view(self, value):
-        self._set_view_key(value)
-
-    @property
-    @deprecated(reason='Use self.table_date_display instead')
-    def scorecard_date_display(self):
-        return self.table_date_display
-
-    @scorecard_date_display.setter
-    @deprecated(reason='Use self.table_date_display instead')
-    def scorecard_date_display(self, value):
-        self.table_date_display = value
-
-    @property
-    @deprecated(reason='Use self.table_date_format instead')
-    def scorecard_date_format(self):
-        return self.table_date_format
-
-    @scorecard_date_format.setter
-    @deprecated(reason='Use self.table_date_format instead')
-    def scorecard_date_format(self, value):
-        self.table_date_format = value
-
-    @property
-    def table_date_display(self):
-        return self._get_table_date_display()
-
-    @table_date_display.setter
-    def table_date_display(self, value):
-        self._set_table_date_display(value)
-
-    @property
-    def table_date_format(self):
-        return self._get_table_date_format()
-
-    @table_date_format.setter
-    def table_date_format(self, value):
-        self._set_table_date_format(value)
-
-    @property
-    def table_mode(self):
-        return self._get_table_mode()
-
-    @table_mode.setter
-    def table_mode(self, value):
-        self._set_table_mode(value)
-
-    @property
-    def scatter_plot_series(self):
-        return self._get_scatter_plot_series()
-
-    @scatter_plot_series.setter
-    def scatter_plot_series(self, value):
-        self._set_scatter_plot_series(value)
 
     def set_as_current(self):
         self.worksheet['Current Workstep ID'] = self.id
@@ -531,6 +450,110 @@ class AnalysisWorkstep(Workstep):
         end_unix_ms = int(end_ts.timestamp() * 1000)
         duration_store = self._get_store('sqDurationStore')
         duration_store['investigateRange'] = {'start': start_unix_ms, 'end': end_unix_ms}
+
+
+class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
+    def __init__(self, worksheet=None, definition=None):
+        super().__init__(worksheet, definition)
+
+        # initialize displayed items
+        if self.display_items.empty:
+            display_items_stores = self._store_map_from_type('all', self._get_workstep_version())
+            stores = self.get_workstep_stores()
+            for store in display_items_stores:
+                current_store = _common.get(stores, store, default=dict(), assign_default=True)
+                current_store['items'] = []
+
+        # initialize the view
+        if self.view is None:
+            self._set_view_key()
+        self._trend_toolbar = TrendToolbar(self)
+        self._condition_table_toolbar = ConditionTableToolbar(self)
+
+    @property
+    def trend_toolbar(self):
+        """
+        Trend toolbar for configuring the worksheet's trend toolbar settings.
+        """
+        return self._trend_toolbar
+
+    @property
+    def condition_table_toolbar(self):
+        """
+        Condition table toolbar for configuring the worksheet's condition table settings.
+        """
+        return self._condition_table_toolbar
+
+    @property
+    def display_items(self):
+        return self._get_display_items()
+
+    @display_items.setter
+    def display_items(self, value):
+        self._set_display_items(value)
+
+    @property
+    def view(self):
+        return self._get_view_key()
+
+    @view.setter
+    def view(self, value):
+        self._set_view_key(value)
+
+    @property
+    @deprecated(reason='Use self.table_date_display instead')
+    def scorecard_date_display(self):
+        return self.table_date_display
+
+    @scorecard_date_display.setter
+    @deprecated(reason='Use self.table_date_display instead')
+    def scorecard_date_display(self, value):
+        self.table_date_display = value
+
+    @property
+    @deprecated(reason='Use self.table_date_format instead')
+    def scorecard_date_format(self):
+        return self.table_date_format
+
+    @scorecard_date_format.setter
+    @deprecated(reason='Use self.table_date_format instead')
+    def scorecard_date_format(self, value):
+        self.table_date_format = value
+
+    @property
+    def table_date_display(self):
+        return self._get_table_date_display()
+
+    @table_date_display.setter
+    def table_date_display(self, value):
+        self._set_table_date_display(value)
+
+    @property
+    def table_date_format(self):
+        return self._get_table_date_format()
+
+    @table_date_format.setter
+    def table_date_format(self, value):
+        self._set_table_date_format(value)
+
+    @property
+    def table_mode(self):
+        return self._get_table_mode()
+
+    @table_mode.setter
+    def table_mode(self, value):
+        self._set_table_mode(value)
+
+    @property
+    def scatter_plot_series(self):
+        return self._get_scatter_plot_series()
+
+    @scatter_plot_series.setter
+    def scatter_plot_series(self, value):
+        self._set_scatter_plot_series(value)
+
+    def set_as_current(self):
+        self.worksheet['Current Workstep ID'] = self.id
 
     def _get_table_date_display(self):
         """
@@ -1330,3 +1353,7 @@ class AnalysisWorkstep(Workstep):
             'simple': []
         }
     }
+
+
+class RoomWorkstep(WorkstepForAnalysisOrRoom):
+    pass

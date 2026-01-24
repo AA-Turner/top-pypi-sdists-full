@@ -3,7 +3,7 @@ Type annotations for identitystore service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_identitystore/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,14 +17,12 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
+from .literals import UserStatusType
+
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -79,7 +77,9 @@ __all__ = (
     "NameTypeDef",
     "PaginatorConfigTypeDef",
     "PhoneNumberTypeDef",
+    "PhotoTypeDef",
     "ResponseMetadataTypeDef",
+    "RoleTypeDef",
     "UniqueAttributeTypeDef",
     "UpdateGroupRequestTypeDef",
     "UpdateUserRequestTypeDef",
@@ -118,7 +118,7 @@ class MemberIdTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -152,6 +152,23 @@ PhoneNumberTypeDef = TypedDict(
         "Primary": NotRequired[bool],
     },
 )
+PhotoTypeDef = TypedDict(
+    "PhotoTypeDef",
+    {
+        "Value": str,
+        "Type": NotRequired[str],
+        "Display": NotRequired[str],
+        "Primary": NotRequired[bool],
+    },
+)
+RoleTypeDef = TypedDict(
+    "RoleTypeDef",
+    {
+        "Value": NotRequired[str],
+        "Type": NotRequired[str],
+        "Primary": NotRequired[bool],
+    },
+)
 
 class DeleteGroupMembershipRequestTypeDef(TypedDict):
     IdentityStoreId: str
@@ -176,6 +193,7 @@ class DescribeGroupRequestTypeDef(TypedDict):
 class DescribeUserRequestTypeDef(TypedDict):
     IdentityStoreId: str
     UserId: str
+    Extensions: NotRequired[Sequence[str]]
 
 class FilterTypeDef(TypedDict):
     AttributePath: str
@@ -196,8 +214,12 @@ class GroupTypeDef(TypedDict):
     GroupId: str
     IdentityStoreId: str
     DisplayName: NotRequired[str]
-    ExternalIds: NotRequired[List[ExternalIdTypeDef]]
+    ExternalIds: NotRequired[list[ExternalIdTypeDef]]
     Description: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    UpdatedBy: NotRequired[str]
 
 class AlternateIdentifierTypeDef(TypedDict):
     ExternalId: NotRequired[ExternalIdTypeDef]
@@ -233,6 +255,10 @@ class GroupMembershipTypeDef(TypedDict):
     MembershipId: NotRequired[str]
     GroupId: NotRequired[str]
     MemberId: NotRequired[MemberIdTypeDef]
+    CreatedAt: NotRequired[datetime]
+    UpdatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    UpdatedBy: NotRequired[str]
 
 class IsMemberInGroupsRequestTypeDef(TypedDict):
     IdentityStoreId: str
@@ -256,8 +282,8 @@ class CreateGroupResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateUserResponseTypeDef(TypedDict):
-    UserId: str
     IdentityStoreId: str
+    UserId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGroupMembershipResponseTypeDef(TypedDict):
@@ -265,13 +291,21 @@ class DescribeGroupMembershipResponseTypeDef(TypedDict):
     MembershipId: str
     GroupId: str
     MemberId: MemberIdTypeDef
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    CreatedBy: str
+    UpdatedBy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeGroupResponseTypeDef(TypedDict):
     GroupId: str
     DisplayName: str
-    ExternalIds: List[ExternalIdTypeDef]
+    ExternalIds: list[ExternalIdTypeDef]
     Description: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    CreatedBy: str
+    UpdatedBy: str
     IdentityStoreId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -286,8 +320,8 @@ class GetGroupMembershipIdResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetUserIdResponseTypeDef(TypedDict):
-    UserId: str
     IdentityStoreId: str
+    UserId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateUserRequestTypeDef(TypedDict):
@@ -305,43 +339,68 @@ class CreateUserRequestTypeDef(TypedDict):
     PreferredLanguage: NotRequired[str]
     Locale: NotRequired[str]
     Timezone: NotRequired[str]
+    Photos: NotRequired[Sequence[PhotoTypeDef]]
+    Website: NotRequired[str]
+    Birthdate: NotRequired[str]
+    Roles: NotRequired[Sequence[RoleTypeDef]]
+    Extensions: NotRequired[Mapping[str, Mapping[str, Any]]]
 
 class DescribeUserResponseTypeDef(TypedDict):
-    UserName: str
+    IdentityStoreId: str
     UserId: str
-    ExternalIds: List[ExternalIdTypeDef]
+    UserName: str
+    ExternalIds: list[ExternalIdTypeDef]
     Name: NameTypeDef
     DisplayName: str
     NickName: str
     ProfileUrl: str
-    Emails: List[EmailTypeDef]
-    Addresses: List[AddressTypeDef]
-    PhoneNumbers: List[PhoneNumberTypeDef]
+    Emails: list[EmailTypeDef]
+    Addresses: list[AddressTypeDef]
+    PhoneNumbers: list[PhoneNumberTypeDef]
     UserType: str
     Title: str
     PreferredLanguage: str
     Locale: str
     Timezone: str
-    IdentityStoreId: str
+    UserStatus: UserStatusType
+    Photos: list[PhotoTypeDef]
+    Website: str
+    Birthdate: str
+    Roles: list[RoleTypeDef]
+    CreatedAt: datetime
+    CreatedBy: str
+    UpdatedAt: datetime
+    UpdatedBy: str
+    Extensions: dict[str, dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UserTypeDef(TypedDict):
-    UserId: str
     IdentityStoreId: str
+    UserId: str
     UserName: NotRequired[str]
-    ExternalIds: NotRequired[List[ExternalIdTypeDef]]
+    ExternalIds: NotRequired[list[ExternalIdTypeDef]]
     Name: NotRequired[NameTypeDef]
     DisplayName: NotRequired[str]
     NickName: NotRequired[str]
     ProfileUrl: NotRequired[str]
-    Emails: NotRequired[List[EmailTypeDef]]
-    Addresses: NotRequired[List[AddressTypeDef]]
-    PhoneNumbers: NotRequired[List[PhoneNumberTypeDef]]
+    Emails: NotRequired[list[EmailTypeDef]]
+    Addresses: NotRequired[list[AddressTypeDef]]
+    PhoneNumbers: NotRequired[list[PhoneNumberTypeDef]]
     UserType: NotRequired[str]
     Title: NotRequired[str]
     PreferredLanguage: NotRequired[str]
     Locale: NotRequired[str]
     Timezone: NotRequired[str]
+    UserStatus: NotRequired[UserStatusType]
+    Photos: NotRequired[list[PhotoTypeDef]]
+    Website: NotRequired[str]
+    Birthdate: NotRequired[str]
+    Roles: NotRequired[list[RoleTypeDef]]
+    CreatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+    UpdatedBy: NotRequired[str]
+    Extensions: NotRequired[dict[str, dict[str, Any]]]
 
 class ListGroupsRequestTypeDef(TypedDict):
     IdentityStoreId: str
@@ -351,6 +410,7 @@ class ListGroupsRequestTypeDef(TypedDict):
 
 class ListUsersRequestTypeDef(TypedDict):
     IdentityStoreId: str
+    Extensions: NotRequired[Sequence[str]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -372,11 +432,12 @@ class ListGroupsRequestPaginateTypeDef(TypedDict):
 
 class ListUsersRequestPaginateTypeDef(TypedDict):
     IdentityStoreId: str
+    Extensions: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupTypeDef]
+    Groups: list[GroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -389,20 +450,20 @@ class GetUserIdRequestTypeDef(TypedDict):
     AlternateIdentifier: AlternateIdentifierTypeDef
 
 class IsMemberInGroupsResponseTypeDef(TypedDict):
-    Results: List[GroupMembershipExistenceResultTypeDef]
+    Results: list[GroupMembershipExistenceResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGroupMembershipsForMemberResponseTypeDef(TypedDict):
-    GroupMemberships: List[GroupMembershipTypeDef]
+    GroupMemberships: list[GroupMembershipTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListGroupMembershipsResponseTypeDef(TypedDict):
-    GroupMemberships: List[GroupMembershipTypeDef]
+    GroupMemberships: list[GroupMembershipTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

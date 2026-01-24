@@ -1,5 +1,3 @@
-import pytest
-
 from crewai.cli.constants import ENV_VARS, MODELS, PROVIDERS
 
 
@@ -12,8 +10,7 @@ def test_huggingface_env_vars():
     """Test that Huggingface environment variables are properly configured."""
     assert "huggingface" in ENV_VARS
     assert any(
-        detail.get("key_name") == "HF_TOKEN"
-        for detail in ENV_VARS["huggingface"]
+        detail.get("key_name") == "HF_TOKEN" for detail in ENV_VARS["huggingface"]
     )
 
 

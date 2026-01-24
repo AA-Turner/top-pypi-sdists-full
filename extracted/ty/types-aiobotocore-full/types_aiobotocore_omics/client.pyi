@@ -3,7 +3,7 @@ Type annotations for omics service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -249,12 +250,6 @@ from .waiter import (
     WorkflowVersionActiveWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -263,17 +258,17 @@ else:
 __all__ = ("OmicsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    NotSupportedOperationException: Type[BotocoreClientError]
-    RangeNotSatisfiableException: Type[BotocoreClientError]
-    RequestTimeoutException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    NotSupportedOperationException: type[BotocoreClientError]
+    RangeNotSatisfiableException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class OmicsClient(AioBaseClient):
     """
@@ -312,9 +307,10 @@ class OmicsClient(AioBaseClient):
 
     async def abort_multipart_read_set_upload(
         self, **kwargs: Unpack[AbortMultipartReadSetUploadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Stops a multipart upload.
+        Stops a multipart read set upload into a sequence store and returns a response
+        with no body if the operation is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/abort_multipart_read_set_upload.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#abort_multipart_read_set_upload)
@@ -342,9 +338,10 @@ class OmicsClient(AioBaseClient):
 
     async def cancel_annotation_import_job(
         self, **kwargs: Unpack[CancelAnnotationImportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Cancels an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_annotation_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#cancel_annotation_import_job)
@@ -363,9 +360,10 @@ class OmicsClient(AioBaseClient):
 
     async def cancel_variant_import_job(
         self, **kwargs: Unpack[CancelVariantImportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Cancels a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_variant_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#cancel_variant_import_job)
@@ -375,7 +373,9 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CompleteMultipartReadSetUploadRequestTypeDef]
     ) -> CompleteMultipartReadSetUploadResponseTypeDef:
         """
-        Concludes a multipart upload once you have uploaded all the components.
+        Completes a multipart read set upload into a sequence store after you have
+        initiated the upload process with <code>CreateMultipartReadSetUpload</code> and
+        uploaded all read set parts using <code>UploadReadSetPart</code>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/complete_multipart_read_set_upload.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#complete_multipart_read_set_upload)
@@ -385,7 +385,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateAnnotationStoreRequestTypeDef]
     ) -> CreateAnnotationStoreResponseTypeDef:
         """
-        Creates an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_annotation_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#create_annotation_store)
@@ -405,7 +406,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateMultipartReadSetUploadRequestTypeDef]
     ) -> CreateMultipartReadSetUploadResponseTypeDef:
         """
-        Begins a multipart read set upload.
+        Initiates a multipart read set upload for uploading partitioned source files
+        into a sequence store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_multipart_read_set_upload.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#create_multipart_read_set_upload)
@@ -415,7 +417,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateReferenceStoreRequestTypeDef]
     ) -> CreateReferenceStoreResponseTypeDef:
         """
-        Creates a reference store.
+        Creates a reference store and returns metadata in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_reference_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#create_reference_store)
@@ -447,7 +449,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateSequenceStoreRequestTypeDef]
     ) -> CreateSequenceStoreResponseTypeDef:
         """
-        Creates a sequence store.
+        Creates a sequence store and returns its metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_sequence_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#create_sequence_store)
@@ -467,7 +469,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[CreateVariantStoreRequestTypeDef]
     ) -> CreateVariantStoreResponseTypeDef:
         """
-        Creates a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_variant_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#create_variant_store)
@@ -498,7 +501,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteAnnotationStoreRequestTypeDef]
     ) -> DeleteAnnotationStoreResponseTypeDef:
         """
-        Deletes an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_annotation_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#delete_annotation_store)
@@ -516,9 +520,10 @@ class OmicsClient(AioBaseClient):
 
     async def delete_reference(
         self, **kwargs: Unpack[DeleteReferenceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a genome reference.
+        Deletes a reference genome and returns a response with no body if the operation
+        is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_reference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#delete_reference)
@@ -526,9 +531,10 @@ class OmicsClient(AioBaseClient):
 
     async def delete_reference_store(
         self, **kwargs: Unpack[DeleteReferenceStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a genome reference store.
+        Deletes a reference store and returns a response with no body if the operation
+        is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_reference_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#delete_reference_store)
@@ -569,7 +575,7 @@ class OmicsClient(AioBaseClient):
 
     async def delete_s3_access_policy(
         self, **kwargs: Unpack[DeleteS3AccessPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access policy for the specified store.
 
@@ -579,9 +585,10 @@ class OmicsClient(AioBaseClient):
 
     async def delete_sequence_store(
         self, **kwargs: Unpack[DeleteSequenceStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        Deletes a sequence store.
+        Deletes a sequence store and returns a response with no body if the operation
+        is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_sequence_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#delete_sequence_store)
@@ -601,7 +608,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteVariantStoreRequestTypeDef]
     ) -> DeleteVariantStoreResponseTypeDef:
         """
-        Deletes a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_variant_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#delete_variant_store)
@@ -631,7 +639,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetAnnotationImportRequestTypeDef]
     ) -> GetAnnotationImportResponseTypeDef:
         """
-        Gets information about an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_annotation_import_job)
@@ -641,7 +650,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetAnnotationStoreRequestTypeDef]
     ) -> GetAnnotationStoreResponseTypeDef:
         """
-        Gets information about an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_annotation_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_annotation_store)
@@ -661,7 +671,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReadSetRequestTypeDef]
     ) -> GetReadSetResponseTypeDef:
         """
-        Gets a file from a read set.
+        Retrieves detailed information from parts of a read set and returns the read
+        set in the same format that it was uploaded.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_read_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_read_set)
@@ -671,7 +682,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReadSetActivationJobRequestTypeDef]
     ) -> GetReadSetActivationJobResponseTypeDef:
         """
-        Gets information about a read set activation job.
+        Returns detailed information about the status of a read set activation job in
+        JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_read_set_activation_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_read_set_activation_job)
@@ -681,7 +693,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReadSetExportJobRequestTypeDef]
     ) -> GetReadSetExportJobResponseTypeDef:
         """
-        Gets information about a read set export job.
+        Retrieves status information about a read set export job and returns the data
+        in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_read_set_export_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_read_set_export_job)
@@ -691,7 +704,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReadSetImportJobRequestTypeDef]
     ) -> GetReadSetImportJobResponseTypeDef:
         """
-        Gets information about a read set import job.
+        Gets detailed and status information about a read set import job and returns
+        the data in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_read_set_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_read_set_import_job)
@@ -701,7 +715,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReadSetMetadataRequestTypeDef]
     ) -> GetReadSetMetadataResponseTypeDef:
         """
-        Gets details about a read set.
+        Retrieves the metadata for a read set from a sequence store in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_read_set_metadata.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_read_set_metadata)
@@ -711,7 +725,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReferenceRequestTypeDef]
     ) -> GetReferenceResponseTypeDef:
         """
-        Gets a reference file.
+        Downloads parts of data from a reference genome and returns the reference file
+        in the same format that it was uploaded.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_reference.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_reference)
@@ -721,7 +736,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReferenceImportJobRequestTypeDef]
     ) -> GetReferenceImportJobResponseTypeDef:
         """
-        Gets information about a reference import job.
+        Monitors the status of a reference import job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_reference_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_reference_import_job)
@@ -731,7 +746,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetReferenceMetadataRequestTypeDef]
     ) -> GetReferenceMetadataResponseTypeDef:
         """
-        Gets information about a genome reference's metadata.
+        Retrieves metadata for a reference genome.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_reference_metadata.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_reference_metadata)
@@ -799,7 +814,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetSequenceStoreRequestTypeDef]
     ) -> GetSequenceStoreResponseTypeDef:
         """
-        Gets information about a sequence store.
+        Retrieves metadata for a sequence store using its ID and returns it in JSON
+        format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_sequence_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_sequence_store)
@@ -817,7 +833,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetVariantImportRequestTypeDef]
     ) -> GetVariantImportResponseTypeDef:
         """
-        Gets information about a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_variant_import_job)
@@ -827,7 +844,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[GetVariantStoreRequestTypeDef]
     ) -> GetVariantStoreResponseTypeDef:
         """
-        Gets information about a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_variant_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#get_variant_store)
@@ -857,7 +875,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListAnnotationImportJobsRequestTypeDef]
     ) -> ListAnnotationImportJobsResponseTypeDef:
         """
-        Retrieves a list of annotation import jobs.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_import_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_annotation_import_jobs)
@@ -877,7 +896,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListAnnotationStoresRequestTypeDef]
     ) -> ListAnnotationStoresResponseTypeDef:
         """
-        Retrieves a list of annotation stores.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_annotation_stores.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_annotation_stores)
@@ -887,7 +907,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListMultipartReadSetUploadsRequestTypeDef]
     ) -> ListMultipartReadSetUploadsResponseTypeDef:
         """
-        Lists multipart read set uploads and for in progress uploads.
+        Lists in-progress multipart read set uploads for a sequence store and returns
+        it in a JSON formatted output.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_multipart_read_set_uploads.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_multipart_read_set_uploads)
@@ -897,7 +918,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReadSetActivationJobsRequestTypeDef]
     ) -> ListReadSetActivationJobsResponseTypeDef:
         """
-        Retrieves a list of read set activation jobs.
+        Retrieves a list of read set activation jobs and returns the metadata in a JSON
+        formatted output.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_read_set_activation_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_read_set_activation_jobs)
@@ -907,7 +929,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReadSetExportJobsRequestTypeDef]
     ) -> ListReadSetExportJobsResponseTypeDef:
         """
-        Retrieves a list of read set export jobs.
+        Retrieves a list of read set export jobs in a JSON formatted response.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_read_set_export_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_read_set_export_jobs)
@@ -917,7 +939,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReadSetImportJobsRequestTypeDef]
     ) -> ListReadSetImportJobsResponseTypeDef:
         """
-        Retrieves a list of read set import jobs.
+        Retrieves a list of read set import jobs and returns the data in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_read_set_import_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_read_set_import_jobs)
@@ -927,8 +949,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReadSetUploadPartsRequestTypeDef]
     ) -> ListReadSetUploadPartsResponseTypeDef:
         """
-        This operation will list all parts in a requested multipart upload for a
-        sequence store.
+        Lists all parts in a multipart read set upload for a sequence store and returns
+        the metadata in a JSON formatted output.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_read_set_upload_parts.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_read_set_upload_parts)
@@ -938,7 +960,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReadSetsRequestTypeDef]
     ) -> ListReadSetsResponseTypeDef:
         """
-        Retrieves a list of read sets.
+        Retrieves a list of read sets from a sequence store ID and returns the metadata
+        in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_read_sets.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_read_sets)
@@ -948,7 +971,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReferenceImportJobsRequestTypeDef]
     ) -> ListReferenceImportJobsResponseTypeDef:
         """
-        Retrieves a list of reference import jobs.
+        Retrieves the metadata of one or more reference import jobs for a reference
+        store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_reference_import_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_reference_import_jobs)
@@ -958,7 +982,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReferenceStoresRequestTypeDef]
     ) -> ListReferenceStoresResponseTypeDef:
         """
-        Retrieves a list of reference stores.
+        Retrieves a list of reference stores linked to your account and returns their
+        metadata in JSON format.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_reference_stores.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_reference_stores)
@@ -968,7 +993,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListReferencesRequestTypeDef]
     ) -> ListReferencesResponseTypeDef:
         """
-        Retrieves a list of references.
+        Retrieves the metadata of one or more reference genomes in a reference store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_references.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_references)
@@ -1016,7 +1041,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListSequenceStoresRequestTypeDef]
     ) -> ListSequenceStoresResponseTypeDef:
         """
-        Retrieves a list of sequence stores.
+        Retrieves a list of sequence stores and returns each sequence store's metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_sequence_stores.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_sequence_stores)
@@ -1046,7 +1071,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListVariantImportJobsRequestTypeDef]
     ) -> ListVariantImportJobsResponseTypeDef:
         """
-        Retrieves a list of variant import jobs.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_import_jobs.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_variant_import_jobs)
@@ -1056,7 +1082,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[ListVariantStoresRequestTypeDef]
     ) -> ListVariantStoresResponseTypeDef:
         """
-        Retrieves a list of variant stores.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_variant_stores.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#list_variant_stores)
@@ -1096,7 +1123,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartAnnotationImportRequestTypeDef]
     ) -> StartAnnotationImportResponseTypeDef:
         """
-        Starts an annotation import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_annotation_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_annotation_import_job)
@@ -1106,7 +1134,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartReadSetActivationJobRequestTypeDef]
     ) -> StartReadSetActivationJobResponseTypeDef:
         """
-        Activates an archived read set.
+        Activates an archived read set and returns its metadata in a JSON formatted
+        output.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_read_set_activation_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_read_set_activation_job)
@@ -1116,7 +1145,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartReadSetExportJobRequestTypeDef]
     ) -> StartReadSetExportJobResponseTypeDef:
         """
-        Exports a read set to Amazon S3.
+        Starts a read set export job.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_read_set_export_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_read_set_export_job)
@@ -1126,7 +1155,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartReadSetImportJobRequestTypeDef]
     ) -> StartReadSetImportJobResponseTypeDef:
         """
-        Starts a read set import job.
+        Imports a read set from the sequence store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_read_set_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_read_set_import_job)
@@ -1136,7 +1165,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartReferenceImportJobRequestTypeDef]
     ) -> StartReferenceImportJobResponseTypeDef:
         """
-        Starts a reference import job.
+        Imports a reference genome from Amazon S3 into a specified reference store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_reference_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_reference_import_job)
@@ -1155,13 +1184,14 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[StartVariantImportRequestTypeDef]
     ) -> StartVariantImportResponseTypeDef:
         """
-        Starts a variant import job.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_variant_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#start_variant_import_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
 
@@ -1169,7 +1199,7 @@ class OmicsClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource.
 
@@ -1181,7 +1211,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAnnotationStoreRequestTypeDef]
     ) -> UpdateAnnotationStoreResponseTypeDef:
         """
-        Updates an annotation store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_annotation_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#update_annotation_store)
@@ -1233,7 +1264,8 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateVariantStoreRequestTypeDef]
     ) -> UpdateVariantStoreResponseTypeDef:
         """
-        Updates a variant store.
+        <important> <p>Amazon Web Services HealthOmics variant stores and annotation
+        stores will no longer be open to new customers starting November 7, 2025.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_variant_store.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#update_variant_store)
@@ -1263,7 +1295,7 @@ class OmicsClient(AioBaseClient):
         self, **kwargs: Unpack[UploadReadSetPartRequestTypeDef]
     ) -> UploadReadSetPartResponseTypeDef:
         """
-        This operation uploads a specific part of a read set.
+        Uploads a specific part of a read set into a sequence store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/upload_read_set_part.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/client/#upload_read_set_part)
@@ -1717,7 +1749,7 @@ class OmicsClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

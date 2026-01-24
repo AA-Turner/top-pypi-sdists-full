@@ -16,7 +16,7 @@ import logging
 from typing import Optional, Union
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from acryl.executor.secret.datahub_secrets_client import DataHubSecretsClient
 from acryl.executor.secret.secret_store import SecretStore
@@ -28,11 +28,13 @@ class DataHubSecretStoreConfig(BaseModel):
     graph_client: Optional[DataHubGraph] = None
     graph_client_config: Optional[DatahubClientConfig] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    @validator("graph_client")
-    def check_graph_connection(cls, v):
+    @field_validator("graph_client", mode="after")
+    @classmethod
+    def check_graph_connection(
+        cls, v: Optional[DataHubGraph]
+    ) -> Optional[DataHubGraph]:
         if v is not None:
             v.test_connection()
         return v
@@ -79,5 +81,5 @@ class DataHubSecretStore(SecretStore):
 
     @classmethod
     def create(cls, config):
-        config = DataHubSecretStoreConfig.parse_obj(config)
+        config = DataHubSecretStoreConfig.model_validate(config)
         return cls(config)

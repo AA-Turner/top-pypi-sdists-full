@@ -1,7 +1,7 @@
 r'''
 # `github_repository_pull_request`
 
-Refer to the Terraform Registry for docs: [`github_repository_pull_request`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request).
+Refer to the Terraform Registry for docs: [`github_repository_pull_request`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class RepositoryPullRequest(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.repositoryPullRequest.RepositoryPullRequest",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request github_repository_pull_request}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request github_repository_pull_request}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class RepositoryPullRequest(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request github_repository_pull_request} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request github_repository_pull_request} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param base_ref: Name of the branch serving as the base of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
-        :param base_repository: Name of the base repository to retrieve the Pull Requests from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
-        :param head_ref: Name of the branch serving as the head of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
-        :param title: The title of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
-        :param body: Body of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintainer_can_modify: Controls whether the base repository maintainers can modify the Pull Request. Default: 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
-        :param owner: Owner of the repository. If not provided, the provider's default owner is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
+        :param base_ref: Name of the branch serving as the base of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
+        :param base_repository: Name of the base repository to retrieve the Pull Requests from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
+        :param head_ref: Name of the branch serving as the head of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
+        :param title: The title of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
+        :param body: Body of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintainer_can_modify: Controls whether the base repository maintainers can modify the Pull Request. Default: 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
+        :param owner: Owner of the repository. If not provided, the provider's default owner is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class RepositoryPullRequest(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the RepositoryPullRequest to import.
-        :param import_from_id: The id of the existing RepositoryPullRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing RepositoryPullRequest that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the RepositoryPullRequest to import is found.
         '''
         if __debug__:
@@ -402,14 +402,14 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param base_ref: Name of the branch serving as the base of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
-        :param base_repository: Name of the base repository to retrieve the Pull Requests from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
-        :param head_ref: Name of the branch serving as the head of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
-        :param title: The title of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
-        :param body: Body of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param maintainer_can_modify: Controls whether the base repository maintainers can modify the Pull Request. Default: 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
-        :param owner: Owner of the repository. If not provided, the provider's default owner is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
+        :param base_ref: Name of the branch serving as the base of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
+        :param base_repository: Name of the base repository to retrieve the Pull Requests from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
+        :param head_ref: Name of the branch serving as the head of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
+        :param title: The title of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
+        :param body: Body of the Pull Request. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param maintainer_can_modify: Controls whether the base repository maintainers can modify the Pull Request. Default: 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
+        :param owner: Owner of the repository. If not provided, the provider's default owner is used. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -527,7 +527,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def base_ref(self) -> builtins.str:
         '''Name of the branch serving as the base of the Pull Request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_ref RepositoryPullRequest#base_ref}
         '''
         result = self._values.get("base_ref")
         assert result is not None, "Required property 'base_ref' is missing"
@@ -537,7 +537,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def base_repository(self) -> builtins.str:
         '''Name of the base repository to retrieve the Pull Requests from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#base_repository RepositoryPullRequest#base_repository}
         '''
         result = self._values.get("base_repository")
         assert result is not None, "Required property 'base_repository' is missing"
@@ -547,7 +547,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def head_ref(self) -> builtins.str:
         '''Name of the branch serving as the head of the Pull Request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#head_ref RepositoryPullRequest#head_ref}
         '''
         result = self._values.get("head_ref")
         assert result is not None, "Required property 'head_ref' is missing"
@@ -557,7 +557,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def title(self) -> builtins.str:
         '''The title of the Pull Request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#title RepositoryPullRequest#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -567,14 +567,14 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def body(self) -> typing.Optional[builtins.str]:
         '''Body of the Pull Request.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#body RepositoryPullRequest#body}
         '''
         result = self._values.get("body")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#id RepositoryPullRequest#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -588,7 +588,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Controls whether the base repository maintainers can modify the Pull Request. Default: 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#maintainer_can_modify RepositoryPullRequest#maintainer_can_modify}
         '''
         result = self._values.get("maintainer_can_modify")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -597,7 +597,7 @@ class RepositoryPullRequestConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def owner(self) -> typing.Optional[builtins.str]:
         '''Owner of the repository. If not provided, the provider's default owner is used.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/repository_pull_request#owner RepositoryPullRequest#owner}
         '''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)

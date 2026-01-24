@@ -49,7 +49,7 @@ if WHEEL_CMD in sys.argv:
             # and a few workflows as show for example in this PR:
             # https://github.com/semgrep/semgrep-proprietary/pull/2606/files
             # coupling: semgrep.libsonnet default_python_version
-            python = "cp310.cp311.py310.py311"
+            python = "cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314"
 
             # We don't require a specific Python ABI
             abi = "none"
@@ -109,30 +109,36 @@ install_requires = [
     #    and know that a later version breaks Semgrep.
     # 3. ~=x.0 if you don't know the earliest version that works with Semgrep
     #
-    # Try to go from option 3 to 1 over time as you learn more about the codebase.
+    # Try to go from option 3 to 1 over time as you learn more about the
+    # codebase.
+    #
+    # coupling: after changing the dependencies here, update 'Pipfile.lock'
+    # for pipenv as instructed in 'Pipfile'.
     #
     # coupling: if you add a dep here, it would be appreciated if you could add
     # it to the top level flake.nix file as well, in
     # pysemgrep.propagatedBuildInputs
+    #
     "attrs>=21.3",
     "boltons~=21.0",
     "click-option-group~=0.5",
     "click~=8.1.8",
     "colorama~=0.4.0",
-    "defusedxml~=0.7.1",
     "exceptiongroup~=1.2.0",
     "glom~=22.1",
-    "mcp==1.12.2",
-    "jsonschema~=4.20.0",
+    "jsonschema~=4.25.1",
+    "mcp==1.23.3",
     "opentelemetry-api~=1.37.0",
     "opentelemetry-sdk~=1.37.0",
     "opentelemetry-exporter-otlp-proto-http~=1.37.0",
     "opentelemetry-instrumentation-requests~=0.58b0",
+    "opentelemetry-instrumentation-threading~=0.58b0",
     "packaging>=21.0",
     "peewee~=3.14",
     "requests~=2.22",
     "rich~=13.5.2",
-    "ruamel.yaml>=0.18.5",
+    "ruamel.yaml>=0.18.15",
+    "ruamel.yaml.clib==0.2.14",
     "tomli~=2.0.1",
     "typing-extensions~=4.2",
     "urllib3~=2.0",
@@ -143,7 +149,7 @@ install_requires = [
 
 setuptools.setup(
     name="semgrep",
-    version="1.137.1",
+    version="1.149.0",
     author="Semgrep Inc.",
     author_email="support@semgrep.com",
     description="Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.",
@@ -168,9 +174,13 @@ setuptools.setup(
         "Environment :: Console",
         "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)",
         "Operating System :: MacOS",
+        "Operating System :: Microsoft :: Windows",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Security",
         "Topic :: Software Development :: Quality Assurance",
     ],

@@ -154,6 +154,34 @@ class SpeechClient(metaclass=SpeechClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "speech.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -413,12 +441,8 @@ class SpeechClient(metaclass=SpeechClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = SpeechClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -426,7 +450,7 @@ class SpeechClient(metaclass=SpeechClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -458,20 +482,14 @@ class SpeechClient(metaclass=SpeechClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = SpeechClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -1128,58 +1146,62 @@ class SpeechClient(metaclass=SpeechClientMeta):
                    are streamed back to the client.
 
                    Here's an example of a series of
-                   StreamingRecognizeResponses that might be returned
+                   \`StreamingRecognizeResponse`s that might be returned
                    while processing audio:
 
                    1. results { alternatives { transcript: "tube" }
                       stability: 0.01 }
+
                    2. results { alternatives { transcript: "to be a" }
                       stability: 0.01 }
+
                    3. results { alternatives { transcript: "to be" }
                       stability: 0.9 } results { alternatives {
                       transcript: " or not to be" } stability: 0.01 }
+
                    4.
 
                       results { alternatives { transcript: "to be or not to be"
-                         confidence: 0.92 }
-
-                      alternatives { transcript: "to bee or not to bee" }
-                         is_final: true }
+                         confidence: 0.92 } alternatives { transcript:
+                         "to bee or not to bee" } is_final: true }
 
                    5. results { alternatives { transcript: " that's" }
                       stability: 0.01 }
+
                    6. results { alternatives { transcript: " that is" }
                       stability: 0.9 } results { alternatives {
                       transcript: " the question" } stability: 0.01 }
+
                    7.
 
                       results { alternatives { transcript: " that is the question"
-                         confidence: 0.98 }
-
-                      alternatives { transcript: " that was the question" }
-                         is_final: true }
+                         confidence: 0.98 } alternatives { transcript: "
+                         that was the question" } is_final: true }
 
                    Notes:
 
-                   -  Only two of the above responses #4 and #7 contain
-                      final results; they are indicated by
-                      is_final: true. Concatenating these together
-                      generates the full transcript: "to be or not to be
-                      that is the question".
-                   -  The others contain interim results. #3 and #6
-                      contain two interim \`results`: the first portion
-                      has a high stability and is less likely to change;
-                      the second portion has a low stability and is very
-                      likely to change. A UI designer might choose to
-                      show only high stability results.
-                   -  The specific stability and confidence values shown
-                      above are only for illustrative purposes. Actual
-                      values may vary.
+                   - Only two of the above responses #4 and #7 contain
+                     final results; they are indicated by is_final:
+                     true. Concatenating these together generates the
+                     full transcript: "to be or not to be that is the
+                     question".
+
+                   - The others contain interim results. #3 and #6
+                     contain two interim \`results\`: the first portion
+                     has a high stability and is less likely to change;
+                     the second portion has a low stability and is very
+                     likely to change. A UI designer might choose to
+                     show only high stability results.
+
+                   - The specific stability and confidence values shown
+                     above are only for illustrative purposes. Actual
+                     values may vary.
+
                    -
 
-                      In each response, only one of these fields will be set:
-                         error, speech_event_type, or one or more
-                         (repeated) results.
+                     In each response, only one of these fields will be set:
+                        error, speech_event_type, or one or more
+                        (repeated) results.
 
         """
 

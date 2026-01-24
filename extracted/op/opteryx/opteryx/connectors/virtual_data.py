@@ -12,31 +12,44 @@ $planets, $astronauts, and $satellites.
 """
 
 import datetime
+import importlib
 import typing
+from typing import Tuple
 
-import pyarrow
 from orso.schema import RelationSchema
 
-from opteryx import virtual_datasets
 from opteryx.connectors.base.base_connector import BaseConnector
 from opteryx.connectors.base.base_connector import DatasetReader
-from opteryx.connectors.capabilities import Partitionable
+from opteryx.connectors.capabilities import Diachronic
 from opteryx.connectors.capabilities import Statistics
 from opteryx.exceptions import DatasetNotFoundError
 from opteryx.utils import arrow
 
 WELL_KNOWN_DATASETS = {
-    "$astronauts": (virtual_datasets.astronauts, True),
-    "$planets": (virtual_datasets.planets, True),
-    "$missions": (virtual_datasets.missions, True),
-    "$satellites": (virtual_datasets.satellites, True),
-    "$variables": (virtual_datasets.variables, True),
-    "$derived": (virtual_datasets.derived, False),
-    "$no_table": (virtual_datasets.no_table, False),
-    "$statistics": (virtual_datasets.statistics, True),
-    "$stop_words": (virtual_datasets.stop_words, True),
-    "$user": (virtual_datasets.user, True),
+    "$astronauts": ("opteryx.virtual_datasets.astronaut_data", True),
+    "$planets": ("opteryx.virtual_datasets.planet_data", True),
+    "$missions": ("opteryx.virtual_datasets.missions", True),
+    "$satellites": ("opteryx.virtual_datasets.satellite_data", True),
+    "$variables": ("opteryx.virtual_datasets.variables_data", True),
+    "$derived": ("opteryx.virtual_datasets.derived_data", False),
+    "$no_table": ("opteryx.virtual_datasets.no_table_data", False),
+    "$statistics": ("opteryx.virtual_datasets.statistics", True),
+    "$stop_words": ("opteryx.virtual_datasets.stop_words", True),
+    "$user": ("opteryx.virtual_datasets.user", True),
 }
+
+
+def _load_provider(name: str) -> Tuple[object, bool]:
+    """Lazily import and return the virtual dataset provider module and suggestable flag.
+
+    Returns (module, suggestable)
+    """
+    entry = WELL_KNOWN_DATASETS.get(name)
+    if entry is None:
+        return None, False
+    module_path, suggestable = entry
+    module = importlib.import_module(module_path)
+    return module, suggestable
 
 
 def suggest(dataset):
@@ -53,13 +66,13 @@ def suggest(dataset):
         )
 
 
-class SampleDataConnector(BaseConnector, Partitionable, Statistics):
+class SampleDataConnector(BaseConnector, Diachronic, Statistics):
     __mode__ = "Internal"
     __type__ = "SAMPLE"
 
     def __init__(self, *args, **kwargs):
         BaseConnector.__init__(self, **kwargs)
-        Partitionable.__init__(self, **kwargs)
+        Diachronic.__init__(self, **kwargs)
         Statistics.__init__(self, **kwargs)
         self.dataset = self.dataset.lower()
         self.variables = None
@@ -80,8 +93,10 @@ class SampleDataConnector(BaseConnector, Partitionable, Statistics):
     def get_dataset_schema(self) -> RelationSchema:
         if self.dataset not in WELL_KNOWN_DATASETS:
             suggestion = suggest(self.dataset)
-            raise DatasetNotFoundError(suggestion=suggestion, dataset=self.dataset)
-        data_provider, _ = WELL_KNOWN_DATASETS.get(self.dataset)
+            raise DatasetNotFoundError(
+                suggestion=suggestion, dataset=self.dataset, connector=self.__type__
+            )
+        data_provider, _ = _load_provider(self.dataset)
         self.relation_statistics = data_provider.statistics()
         return data_provider.schema()
 
@@ -107,7 +122,7 @@ class SampleDatasetReader(DatasetReader):
         self.date = date
         self.variables = variables
 
-    def __next__(self) -> pyarrow.Table:
+    def __next__(self) -> "pyarrow.Table":
         """
         Read the next chunk or morsel from the dataset.
 
@@ -115,14 +130,18 @@ class SampleDatasetReader(DatasetReader):
             A pyarrow Table representing a chunk or morsel of the dataset.
             raises StopIteration if the dataset is exhausted.
         """
+        import pyarrow
+
         if self.exhausted:
             raise StopIteration("Dataset has been read.")
 
         self.exhausted = True
 
-        data_provider, _ = WELL_KNOWN_DATASETS.get(self.dataset_name)
+        data_provider, _ = _load_provider(self.dataset_name)
         if data_provider is None:
             suggestion = suggest(self.dataset_name.lower())
-            raise DatasetNotFoundError(suggestion=suggestion, dataset=self.dataset_name)
+            raise DatasetNotFoundError(
+                suggestion=suggestion, dataset=self.dataset_name, connector="SAMPLE"
+            )
         table = data_provider.read(self.date, self.variables)
         return arrow.post_read_projector(table, self.columns)

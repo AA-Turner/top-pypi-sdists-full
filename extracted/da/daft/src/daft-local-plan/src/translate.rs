@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
 use common_error::{DaftError, DaftResult};
-use common_file_formats::WriteMode;
 use common_scan_info::ScanState;
 use daft_core::join::JoinStrategy;
 use daft_dsl::{
-    expr::bound_expr::{BoundAggExpr, BoundExpr, BoundWindowExpr},
+    expr::{
+        agg::extract_agg_expr,
+        bound_expr::{BoundAggExpr, BoundExpr, BoundVLLMExpr, BoundWindowExpr},
+    },
     join::normalize_join_keys,
     resolved_col, window_to_agg_exprs,
 };
 use daft_logical_plan::{JoinType, LogicalPlan, LogicalPlanRef, SourceInfo, stats::StatsState};
-use daft_physical_plan::extract_agg_expr;
 
-use super::plan::{LocalPhysicalPlan, LocalPhysicalPlanRef, SamplingMethod};
+use super::plan::{LocalNodeContext, LocalPhysicalPlan, LocalPhysicalPlanRef, SamplingMethod};
 
 pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
     match plan.as_ref() {
@@ -21,6 +22,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 SourceInfo::InMemory(info) => Ok(LocalPhysicalPlan::in_memory_scan(
                     info.clone(),
                     source.stats_state.clone(),
+                    LocalNodeContext::default(),
                 )),
                 SourceInfo::Physical(info) => {
                     // We should be able to pass the ScanOperator into the physical plan directly but we need to figure out the serialization story
@@ -31,19 +33,32 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                         ScanState::Tasks(scan_tasks) => scan_tasks.clone(),
                     };
                     if scan_tasks.is_empty() {
-                        Ok(LocalPhysicalPlan::empty_scan(source.output_schema.clone()))
+                        Ok(LocalPhysicalPlan::empty_scan(
+                            source.output_schema.clone(),
+                            LocalNodeContext::default(),
+                        ))
                     } else {
                         Ok(LocalPhysicalPlan::physical_scan(
                             scan_tasks,
                             info.pushdowns.clone(),
                             source.output_schema.clone(),
                             source.stats_state.clone(),
+                            LocalNodeContext::default(),
                         ))
                     }
                 }
+                SourceInfo::GlobScan(info) => Ok(LocalPhysicalPlan::glob_scan(
+                    info.glob_paths.clone(),
+                    info.pushdowns.clone(),
+                    source.output_schema.clone(),
+                    source.stats_state.clone(),
+                    info.io_config.clone().map(|c| *c),
+                    LocalNodeContext::default(),
+                )),
                 SourceInfo::PlaceHolder(ph) => Ok(LocalPhysicalPlan::placeholder_scan(
                     ph.source_schema.clone(),
                     StatsState::NotMaterialized,
+                    LocalNodeContext::default(),
                 )),
             }
         }
@@ -57,6 +72,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 input,
                 predicate,
                 filter.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::IntoBatches(into_batches) => {
@@ -66,6 +82,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 into_batches.batch_size,
                 false,
                 into_batches.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Limit(limit) => {
@@ -75,6 +92,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 limit.limit,
                 limit.offset,
                 limit.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Project(project) => {
@@ -87,31 +105,44 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 projection,
                 project.projected_schema.clone(),
                 project.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::UDFProject(udf_project) => {
             let input = translate(&udf_project.input)?;
 
-            let project = BoundExpr::try_new(udf_project.project.clone(), input.schema())?;
             let passthrough_columns =
                 BoundExpr::bind_all(&udf_project.passthrough_columns, input.schema())?;
+            let expr = BoundExpr::try_new(udf_project.expr.clone(), input.schema())?;
 
             Ok(LocalPhysicalPlan::udf_project(
                 input,
-                project,
+                expr,
+                udf_project.udf_properties.clone(),
                 passthrough_columns,
                 udf_project.projected_schema.clone(),
                 udf_project.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Sample(sample) => {
             let input = translate(&sample.input)?;
+            let sampling_method = if let Some(fraction) = sample.fraction {
+                SamplingMethod::Fraction(fraction)
+            } else if let Some(size) = sample.size {
+                SamplingMethod::Size(size)
+            } else {
+                return Err(DaftError::ValueError(
+                    "Either fraction or size must be specified for sample".to_string(),
+                ));
+            };
             Ok(LocalPhysicalPlan::sample(
                 input,
-                SamplingMethod::Fraction(sample.fraction),
+                sampling_method,
                 sample.with_replacement,
                 sample.seed,
                 sample.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Aggregate(aggregate) => {
@@ -134,6 +165,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     aggregations,
                     aggregate.output_schema.clone(),
                     aggregate.stats_state.clone(),
+                    LocalNodeContext::default(),
                 ))
             } else {
                 Ok(LocalPhysicalPlan::hash_aggregate(
@@ -142,6 +174,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     groupby,
                     aggregate.output_schema.clone(),
                     aggregate.stats_state.clone(),
+                    LocalNodeContext::default(),
                 ))
             }
         }
@@ -170,6 +203,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                         window.stats_state.clone(),
                         aggregations,
                         window.aliases.clone(),
+                        LocalNodeContext::default(),
                     ))
                 }
                 (true, true, false) => Ok(LocalPhysicalPlan::window_partition_and_order_by(
@@ -182,6 +216,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     window.stats_state.clone(),
                     window_functions,
                     window.aliases.clone(),
+                    LocalNodeContext::default(),
                 )),
                 (true, true, true) => {
                     let aggregations = window_to_agg_exprs(window_functions)?;
@@ -197,6 +232,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                         window.stats_state.clone(),
                         aggregations,
                         window.aliases.clone(),
+                        LocalNodeContext::default(),
                     ))
                 }
                 (false, true, false) => Ok(LocalPhysicalPlan::window_order_by_only(
@@ -208,6 +244,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     window.stats_state.clone(),
                     window_functions,
                     window.aliases.clone(),
+                    LocalNodeContext::default(),
                 )),
                 (false, true, true) => Err(DaftError::not_implemented(
                     "Window with order by and frame not yet implemented",
@@ -231,6 +268,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 unpivot.value_name.clone(),
                 unpivot.output_schema.clone(),
                 unpivot.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Pivot(pivot) => {
@@ -251,6 +289,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 true,
                 pivot.output_schema.clone(),
                 pivot.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Sort(sort) => {
@@ -264,6 +303,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 sort.descending.clone(),
                 sort.nulls_first.clone(),
                 sort.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::TopN(top_n) => {
@@ -279,16 +319,24 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 top_n.limit,
                 top_n.offset,
                 top_n.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Join(join) => {
-            if join
-                .join_strategy
-                .is_some_and(|x| !matches!(x, JoinStrategy::Hash))
-            {
-                log::warn!(
-                    "Only hash join strategy is supported on the native runner, falling back to hash join. Broadcast and sort merge joins are not implemented on the native runner as it is single node only."
-                );
+            if let Some(strategy) = join.join_strategy {
+                match strategy {
+                    JoinStrategy::Broadcast => {
+                        log::warn!(
+                            "Broadcast join is not supported on the native runner, falling back to hash join. Please use the ray runner, daft.set_runner_ray(), if you require broadcast joins."
+                        );
+                    }
+                    JoinStrategy::SortMerge => {
+                        log::warn!(
+                            "Sort merge join is not supported on the native runner, falling back to hash join."
+                        );
+                    }
+                    _ => {}
+                }
             }
             let left = translate(&join.left)?;
             let right = translate(&join.right)?;
@@ -308,6 +356,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     right,
                     join.output_schema.clone(),
                     join.stats_state.clone(),
+                    LocalNodeContext::default(),
                 ))
             } else {
                 let left_on = BoundExpr::bind_all(&left_on, left.schema())?;
@@ -318,10 +367,12 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     right,
                     left_on,
                     right_on,
+                    None,
                     Some(null_equals_nulls),
                     join.join_type,
                     join.output_schema.clone(),
                     join.stats_state.clone(),
+                    LocalNodeContext::default(),
                 ))
             }
         }
@@ -340,6 +391,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 columns,
                 schema,
                 distinct.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Concat(concat) => {
@@ -349,6 +401,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 input,
                 other,
                 concat.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Repartition(repartition) => {
@@ -365,6 +418,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                 monotonically_increasing_id.starting_offset,
                 monotonically_increasing_id.schema.clone(),
                 monotonically_increasing_id.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Sink(sink) => {
@@ -376,24 +430,21 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     let bound_info = info.clone().bind(&data_schema)?;
                     let physical_write = LocalPhysicalPlan::physical_write(
                         input,
-                        data_schema,
+                        data_schema.clone(),
                         sink.schema.clone(),
                         bound_info.clone(),
                         sink.stats_state.clone(),
+                        LocalNodeContext::default(),
                     );
-                    if matches!(
-                        info.write_mode,
-                        WriteMode::Overwrite | WriteMode::OverwritePartitions
-                    ) {
-                        Ok(LocalPhysicalPlan::commit_write(
-                            physical_write,
-                            sink.schema.clone(),
-                            bound_info,
-                            sink.stats_state.clone(),
-                        ))
-                    } else {
-                        Ok(physical_write)
-                    }
+
+                    Ok(LocalPhysicalPlan::commit_write(
+                        physical_write,
+                        data_schema,
+                        sink.schema.clone(),
+                        bound_info,
+                        sink.stats_state.clone(),
+                        LocalNodeContext::default(),
+                    ))
                 }
                 #[cfg(feature = "python")]
                 SinkInfo::CatalogInfo(info) => match &info.catalog {
@@ -405,6 +456,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                             data_schema,
                             sink.schema.clone(),
                             sink.stats_state.clone(),
+                            LocalNodeContext::default(),
                         ))
                     }
                     daft_logical_plan::CatalogType::Lance(info) => {
@@ -414,6 +466,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                             data_schema,
                             sink.schema.clone(),
                             sink.stats_state.clone(),
+                            LocalNodeContext::default(),
                         ))
                     }
                 },
@@ -423,6 +476,7 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
                     data_sink_info.clone(),
                     sink.schema.clone(),
                     sink.stats_state.clone(),
+                    LocalNodeContext::default(),
                 )),
             }
         }
@@ -434,8 +488,23 @@ pub fn translate(plan: &LogicalPlanRef) -> DaftResult<LocalPhysicalPlanRef> {
             Ok(LocalPhysicalPlan::explode(
                 input,
                 to_explode,
+                explode.index_column.clone(),
                 explode.exploded_schema.clone(),
                 explode.stats_state.clone(),
+                LocalNodeContext::default(),
+            ))
+        }
+        LogicalPlan::VLLMProject(vllm_project) => {
+            let input = translate(&vllm_project.input)?;
+            let expr = BoundVLLMExpr::try_new(vllm_project.expr.clone(), input.schema())?;
+            Ok(LocalPhysicalPlan::vllm_project(
+                input,
+                expr,
+                None,
+                vllm_project.output_column_name.clone(),
+                vllm_project.output_schema.clone(),
+                vllm_project.stats_state.clone(),
+                LocalNodeContext::default(),
             ))
         }
         LogicalPlan::Intersect(_)

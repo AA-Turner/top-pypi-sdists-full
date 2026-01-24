@@ -3,7 +3,7 @@ Type annotations for taxsettings service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_taxsettings/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -60,12 +61,6 @@ from .type_defs import (
     PutTaxRegistrationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -74,14 +69,14 @@ else:
 __all__ = ("TaxSettingsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AttachmentUploadException: Type[BotocoreClientError]
-    CaseCreationLimitExceededException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AttachmentUploadException: type[BotocoreClientError]
+    CaseCreationLimitExceededException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class TaxSettingsClient(BaseClient):
     """
@@ -150,7 +145,7 @@ class TaxSettingsClient(BaseClient):
 
     def delete_supplemental_tax_registration(
         self, **kwargs: Unpack[DeleteSupplementalTaxRegistrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a supplemental tax registration for a single account.
 
@@ -160,7 +155,7 @@ class TaxSettingsClient(BaseClient):
 
     def delete_tax_registration(
         self, **kwargs: Unpack[DeleteTaxRegistrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes tax registration for a single account.
 
@@ -259,7 +254,7 @@ class TaxSettingsClient(BaseClient):
 
     def put_tax_inheritance(
         self, **kwargs: Unpack[PutTaxInheritanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The updated tax inheritance status.
 

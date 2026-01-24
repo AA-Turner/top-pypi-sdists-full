@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: maturin
-Version: 1.9.4
+Version: 1.11.5
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: GraalPy
 Requires-Dist: tomli>=1.1.0 ; python_full_version < '3.11'
-Requires-Dist: ziglang>=0.10.0,<0.13.0 ; extra == 'zig'
 Requires-Dist: patchelf ; extra == 'patchelf'
-Provides-Extra: zig
+Requires-Dist: ziglang>=0.10.0,<0.13.0 ; extra == 'zig'
 Provides-Extra: patchelf
+Provides-Extra: zig
 License-File: license-mit
 License-File: license-apache
 Summary: Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages
@@ -19,10 +19,10 @@ Author-email: konstin <konstin@mailbox.org>
 License-Expression: MIT OR Apache-2.0
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Project-URL: Source Code, https://github.com/PyO3/maturin
-Project-URL: Issues, https://github.com/PyO3/maturin/issues
-Project-URL: Documentation, https://maturin.rs
 Project-URL: Changelog, https://maturin.rs/changelog.html
+Project-URL: Documentation, https://maturin.rs
+Project-URL: Issues, https://github.com/PyO3/maturin/issues
+Project-URL: Source Code, https://github.com/PyO3/maturin
 
 # Maturin
 
@@ -53,10 +53,9 @@ uv tool install maturin
 >
 > `pip install maturin` should also work if you don't want to use pipx.
 
-There are four main commands:
+There are three main commands:
 
 - `maturin new` creates a new cargo project with maturin configured.
-- `maturin publish` builds the crate into python packages and publishes them to pypi.
 - `maturin build` builds the wheels and stores them in a folder (`target/wheels` by default), but doesn't upload them. It's recommended to publish packages with [uv](https://github.com/astral-sh/uv) using `uv publish`.
 - `maturin develop` builds the crate and installs it as a python module directly in the current virtualenv. Note that while `maturin develop` is faster, it doesn't support all the feature that running `pip install` after `maturin build` supports.
 

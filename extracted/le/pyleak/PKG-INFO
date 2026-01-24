@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyleak
-Version: 0.1.14
+Version: 0.1.17
 Summary: Detect leaked asyncio tasks, threads, and event loop blocking in Python. Inspired by Go's goleak
 Project-URL: Homepage, https://github.com/deepankarm/pyleak
 Project-URL: Repository, https://github.com/deepankarm/pyleak

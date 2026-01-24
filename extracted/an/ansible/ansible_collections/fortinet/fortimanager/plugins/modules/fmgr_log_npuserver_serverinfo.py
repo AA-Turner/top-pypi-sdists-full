@@ -16,7 +16,6 @@ short_description: configure server info.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.2.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -130,6 +132,9 @@ options:
                 choices:
                     - 'udp'
                     - 'tcp'
+            vdom_:
+                type: str
+                description: Vdom.
 '''
 
 EXAMPLES = '''
@@ -145,8 +150,8 @@ EXAMPLES = '''
     - name: Configure server info.
       fortinet.fortimanager.fmgr_log_npuserver_serverinfo:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -161,6 +166,7 @@ EXAMPLES = '''
           # template_tx_timeout: <integer>
           # vdom: <string>
           # log_transport: <value in [udp, tcp]>
+          # vdom_: <string>
 '''
 
 RETURN = '''
@@ -217,19 +223,25 @@ def main():
     module_primary_key = 'id'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'log_npuserver_serverinfo': {
             'type': 'dict',
-            'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']],
+            'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']],
             'options': {
-                'dest-port': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'int'},
-                'id': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'required': True, 'type': 'int'},
-                'ip-family': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'choices': ['v4', 'v6'], 'type': 'str'},
-                'ipv4-server': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'str'},
-                'ipv6-server': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'str'},
-                'source-port': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'int'},
-                'template-tx-timeout': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'int'},
-                'vdom': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '']], 'type': 'str'},
-                'log-transport': {'v_range': [['7.4.2', '']], 'choices': ['udp', 'tcp'], 'type': 'str'}
+                'dest-port': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'type': 'int'},
+                'id': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'required': True, 'type': 'int'},
+                'ip-family': {
+                    'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']],
+                    'choices': ['v4', 'v6'],
+                    'type': 'str'
+                },
+                'ipv4-server': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'type': 'str'},
+                'ipv6-server': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'type': 'str'},
+                'source-port': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'type': 'int'},
+                'template-tx-timeout': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.4.7'], ['7.6.0', '']], 'type': 'int'},
+                'vdom': {'v_range': [['6.4.7', '6.4.15'], ['7.0.1', '7.0.14'], ['7.2.0', '7.2.10'], ['7.4.0', '7.4.7'], ['7.6.0', '']], 'type': 'str'},
+                'log-transport': {'v_range': [['7.4.2', '7.4.7'], ['7.6.0', '']], 'choices': ['udp', 'tcp'], 'type': 'str'},
+                'vdom_': {'v_range': [['7.2.11', '7.2.11'], ['7.6.4', '']], 'type': 'str'}
             }
         }
     }

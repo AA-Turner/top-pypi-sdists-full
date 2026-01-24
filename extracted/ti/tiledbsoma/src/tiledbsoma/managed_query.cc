@@ -30,13 +30,16 @@ using namespace tiledbsoma;
 void load_managed_query(py::module& m) {
     py::class_<ManagedQuery>(m, "ManagedQuery")
         .def(
-            py::init([](SOMAArray array,
-                        std::shared_ptr<SOMAContext> ctx,
-                        std::string_view name) {
-                return ManagedQuery(array, ctx->tiledb_ctx(), name);
+            py::init([](SOMAArray array, std::shared_ptr<SOMAContext> ctx, std::string_view name) {
+                return array.create_managed_query(ctx, name);
             }),
             py::arg("array"),
             py::arg("ctx"),
+            py::arg("name") = "unnamed")
+
+        .def(
+            py::init([](SOMAArray array, std::string_view name) { return array.create_managed_query(name); }),
+            py::arg("array"),
             py::arg("name") = "unnamed")
 
         .def("is_empty_query", &ManagedQuery::is_empty_query)
@@ -45,22 +48,17 @@ void load_managed_query(py::module& m) {
         .def("set_layout", &ManagedQuery::set_layout)
         .def(
             "set_condition",
-            [](ManagedQuery& mq,
-               py::object py_query_condition,
-               py::object py_schema) {
+            [](ManagedQuery& mq, py::object py_query_condition, py::object py_schema) {
                 auto column_names = mq.column_names();
                 // Handle query condition based on
                 // TileDB-Py::PyQuery::set_attr_cond()
                 QueryCondition* qc = nullptr;
                 if (!py_query_condition.is(py::none())) {
-                    py::object init_pyqc = py_query_condition.attr(
-                        "init_query_condition");
+                    py::object init_pyqc = py_query_condition.attr("init_query_condition");
                     try {
                         // Column names will be updated with columns present
                         // in the query condition
-                        auto new_column_names =
-                            init_pyqc(py_schema, column_names)
-                                .cast<std::vector<std::string>>();
+                        auto new_column_names = init_pyqc(py_schema, column_names).cast<std::vector<std::string>>();
                         // Update the column_names list if it was not empty,
                         // otherwise continue selecting all columns with an
                         // empty column_names list
@@ -70,10 +68,7 @@ void load_managed_query(py::module& m) {
                     } catch (const std::exception& e) {
                         TPY_ERROR_LOC(e.what());
                     }
-                    qc = py_query_condition.attr("c_obj")
-                             .cast<PyQueryCondition>()
-                             .ptr()
-                             .get();
+                    qc = py_query_condition.attr("c_obj").cast<PyQueryCondition>().ptr().get();
                 }
                 mq.select_columns(column_names, false, true);
 
@@ -87,12 +82,7 @@ void load_managed_query(py::module& m) {
             },
             "py_query_condition"_a,
             "py_schema"_a)
-        .def(
-            "select_columns",
-            &ManagedQuery::select_columns,
-            "names"_a,
-            "if_not_empty"_a = false,
-            "replace"_a = false)
+        .def("select_columns", &ManagedQuery::select_columns, "names"_a, "if_not_empty"_a = false, "replace"_a = false)
 
         .def(
             "next",
@@ -116,18 +106,39 @@ void load_managed_query(py::module& m) {
             })
 
         .def(
-            "set_array_data",
+            "submit_batch",
             [](ManagedQuery& mq, py::handle py_batch) {
                 ArrowSchema arrow_schema;
                 ArrowArray arrow_array;
                 uintptr_t arrow_schema_ptr = (uintptr_t)(&arrow_schema);
                 uintptr_t arrow_array_ptr = (uintptr_t)(&arrow_array);
-                py_batch.attr("_export_to_c")(
-                    arrow_array_ptr, arrow_schema_ptr);
+                py_batch.attr("_export_to_c")(arrow_array_ptr, arrow_schema_ptr);
 
                 py::gil_scoped_release release;
                 try {
                     mq.set_array_data(&arrow_schema, &arrow_array);
+                    mq.submit_write();
+                } catch (const std::exception& e) {
+                    TPY_ERROR_LOC(e.what());
+                }
+                py::gil_scoped_acquire acquire;
+
+                arrow_schema.release(&arrow_schema);
+                arrow_array.release(&arrow_array);
+            })
+        .def(
+            "submit_and_finalize_batch",
+            [](ManagedQuery& mq, py::handle py_batch) {
+                ArrowSchema arrow_schema;
+                ArrowArray arrow_array;
+                uintptr_t arrow_schema_ptr = (uintptr_t)(&arrow_schema);
+                uintptr_t arrow_array_ptr = (uintptr_t)(&arrow_array);
+                py_batch.attr("_export_to_c")(arrow_array_ptr, arrow_schema_ptr);
+
+                py::gil_scoped_release release;
+                try {
+                    mq.set_array_data(&arrow_schema, &arrow_array);
+                    mq.submit_and_finalize();
                 } catch (const std::exception& e) {
                     TPY_ERROR_LOC(e.what());
                 }
@@ -144,26 +155,45 @@ void load_managed_query(py::module& m) {
                 py::gil_scoped_release release;
                 try {
                     mq.setup_write_column(
-                        name,
-                        data.size(),
-                        (const void*)data_info.ptr,
-                        static_cast<uint64_t*>(nullptr),
-                        std::nullopt);
+                        name, data.size(), (const void*)data_info.ptr, static_cast<uint64_t*>(nullptr), std::nullopt);
                 } catch (const std::exception& e) {
                     TPY_ERROR_LOC(e.what());
                 }
                 py::gil_scoped_acquire acquire;
             })
+        .def("reset_columns", &ManagedQuery::reset_columns)
+
         .def(
             "submit_write",
-            [](ManagedQuery& mq, bool sort_coords) {
+            [](ManagedQuery& mq) {
                 try {
-                    mq.submit_write(sort_coords);
+                    mq.submit_write();
                 } catch (const std::exception& e) {
-                    TPY_ERROR_LOC(e.what());
+                    throw TileDBSOMAError(e.what());
                 }
             },
-            "sort_coords"_a = false,
+            py::call_guard<py::gil_scoped_release>())
+
+        .def(
+            "submit_and_finalize",
+            [](ManagedQuery& mq) {
+                try {
+                    mq.submit_and_finalize();
+                } catch (const std::exception& e) {
+                    throw TileDBSOMAError(e.what());
+                }
+            },
+            py::call_guard<py::gil_scoped_release>())
+
+        .def(
+            "finalize",
+            [](ManagedQuery& mq) {
+                try {
+                    mq.finalize();
+                } catch (const std::exception& e) {
+                    throw TileDBSOMAError(e.what());
+                }
+            },
             py::call_guard<py::gil_scoped_release>())
 
         .def("reset", &ManagedQuery::reset)
@@ -195,9 +225,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_string_or_bytes",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::string>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::string>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -207,9 +235,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_double",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<double_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<double_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -219,9 +245,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_float",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<float_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<float_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -231,9 +255,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_int64",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<int64_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<int64_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -243,9 +265,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_int32",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<int32_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<int32_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -255,9 +275,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_int16",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<int16_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<int16_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -267,9 +285,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_int8",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<int8_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<int8_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -279,9 +295,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_uint64",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<uint64_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<uint64_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -291,9 +305,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_uint32",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<uint32_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<uint32_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -303,9 +315,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_uint16",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<uint16_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<uint16_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -315,9 +325,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_points_uint8",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<uint8_t>& points) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<uint8_t>& points) {
                 try {
                     mq.select_points(dim, points);
                 } catch (const std::exception& e) {
@@ -352,9 +360,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_double",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<double, double>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<double, double>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -364,9 +370,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_float",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<float, float>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<float, float>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -376,9 +380,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_int64",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<int64_t, int64_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<int64_t, int64_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -388,9 +390,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_int32",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<int32_t, int32_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<int32_t, int32_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -400,9 +400,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_int16",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<int16_t, int16_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<int16_t, int16_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -412,9 +410,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_int8",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<int8_t, int8_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<int8_t, int8_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -424,9 +420,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_uint64",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<uint64_t, uint64_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<uint64_t, uint64_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -436,9 +430,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_uint32",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<uint32_t, uint32_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<uint32_t, uint32_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -448,9 +440,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_uint16",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<uint16_t, uint16_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<uint16_t, uint16_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -460,9 +450,7 @@ void load_managed_query(py::module& m) {
 
         .def(
             "set_dim_ranges_uint8",
-            [](ManagedQuery& mq,
-               const std::string& dim,
-               const std::vector<std::pair<uint8_t, uint8_t>>& ranges) {
+            [](ManagedQuery& mq, const std::string& dim, const std::vector<std::pair<uint8_t, uint8_t>>& ranges) {
                 try {
                     mq.select_ranges(dim, ranges);
                 } catch (const std::exception& e) {
@@ -483,8 +471,7 @@ void load_managed_query(py::module& m) {
                 // Create a list of array chunks
                 py::list array_chunks;
                 if (py::hasattr(py_arrow_array, "chunks")) {
-                    array_chunks = py_arrow_array.attr("chunks")
-                                       .cast<py::list>();
+                    array_chunks = py_arrow_array.attr("chunks").cast<py::list>();
                 } else {
                     array_chunks.append(py_arrow_array);
                 }
@@ -500,64 +487,42 @@ void load_managed_query(py::module& m) {
                     // If ever a NumPy array gets in here, there will be an
                     // exception like "AttributeError: 'numpy.ndarray' object
                     // has no attribute '_export_to_c'".
-                    array_handle.attr("_export_to_c")(
-                        arrow_array_ptr, arrow_schema_ptr);
+                    array_handle.attr("_export_to_c")(arrow_array_ptr, arrow_schema_ptr);
 
                     auto coords = array_handle.attr("tolist")();
 
                     try {
                         if (!strcmp(arrow_schema.format, "l")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<int64_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<int64_t>>());
                         } else if (!strcmp(arrow_schema.format, "i")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<int32_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<int32_t>>());
                         } else if (!strcmp(arrow_schema.format, "s")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<int16_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<int16_t>>());
                         } else if (!strcmp(arrow_schema.format, "c")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<int8_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<int8_t>>());
                         } else if (!strcmp(arrow_schema.format, "L")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<uint64_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<uint64_t>>());
                         } else if (!strcmp(arrow_schema.format, "I")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<uint32_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<uint32_t>>());
                         } else if (!strcmp(arrow_schema.format, "S")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<uint16_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<uint16_t>>());
                         } else if (!strcmp(arrow_schema.format, "C")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<uint8_t>>());
+                            mq.select_points(dim, coords.cast<std::vector<uint8_t>>());
                         } else if (!strcmp(arrow_schema.format, "f")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<float>>());
+                            mq.select_points(dim, coords.cast<std::vector<float>>());
                         } else if (!strcmp(arrow_schema.format, "g")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<double>>());
+                            mq.select_points(dim, coords.cast<std::vector<double>>());
+                        } else if (!strcmp(arrow_schema.format, "u") || !strcmp(arrow_schema.format, "z")) {
+                            mq.select_points(dim, coords.cast<std::vector<std::string>>());
                         } else if (
-                            !strcmp(arrow_schema.format, "u") ||
-                            !strcmp(arrow_schema.format, "z")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<std::string>>());
-                        } else if (
-                            !strcmp(arrow_schema.format, "tss:") ||
-                            !strcmp(arrow_schema.format, "tsm:") ||
-                            !strcmp(arrow_schema.format, "tsu:") ||
-                            !strcmp(arrow_schema.format, "tsn:")) {
+                            !strcmp(arrow_schema.format, "tss:") || !strcmp(arrow_schema.format, "tsm:") ||
+                            !strcmp(arrow_schema.format, "tsu:") || !strcmp(arrow_schema.format, "tsn:")) {
                             // convert the Arrow Array to int64
                             auto pa = py::module::import("pyarrow");
-                            coords = array_handle
-                                         .attr("cast")(pa.attr("int64")())
-                                         .attr("tolist")();
-                            mq.select_points(
-                                dim, coords.cast<std::vector<int64_t>>());
-                        } else if (
-                            !strcmp(arrow_schema.format, "U") ||
-                            !strcmp(arrow_schema.format, "Z")) {
-                            mq.select_points(
-                                dim, coords.cast<std::vector<std::string>>());
+                            coords = array_handle.attr("cast")(pa.attr("int64")()).attr("tolist")();
+                            mq.select_points(dim, coords.cast<std::vector<int64_t>>());
+                        } else if (!strcmp(arrow_schema.format, "U") || !strcmp(arrow_schema.format, "Z")) {
+                            mq.select_points(dim, coords.cast<std::vector<std::string>>());
                         } else {
                             TPY_ERROR_LOC(
                                 "[pytiledbsoma] set_dim_points: type={} not "

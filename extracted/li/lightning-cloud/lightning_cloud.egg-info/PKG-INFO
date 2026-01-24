@@ -1,12 +1,12 @@
 Metadata-Version: 2.1
 Name: lightning-cloud
-Version: 0.5.70
+Version: 0.6.0
 Summary: Lightning Cloud
 Home-page: https://lightning.ai
 Author: Grid.ai
 Author-email: grid-eng@grid.ai
 License: Apache Software License
-Description: Lightning AI Command Line Interface
+Description: Lightning AI Cloud API
 Platform: UNKNOWN
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.7

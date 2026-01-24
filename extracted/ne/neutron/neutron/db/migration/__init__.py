@@ -42,6 +42,7 @@ RELEASE_2023_2 = '2023.2'
 RELEASE_2024_1 = '2024.1'
 RELEASE_2024_2 = '2024.2'
 RELEASE_2025_1 = '2025.1'
+RELEASE_2025_2 = '2025.2'
 
 NEUTRON_MILESTONES = [
     # earlier milestones were not tagged
@@ -64,6 +65,7 @@ NEUTRON_MILESTONES = [
     RELEASE_2023_2,
     RELEASE_2024_1,
     RELEASE_2024_2,
+    RELEASE_2025_1,
     # Do not add the milestone until the end of the release
 ]
 
@@ -114,6 +116,21 @@ def schema_has_column(table_name, column_name):
     # check whether column_name exists in table columns
     return column_name in [column['name'] for column in
                            insp.get_columns(table_name)]
+
+
+@raise_if_offline
+def create_table_if_not_exists(table_name, *args, **kwargs):
+    table = None
+    if not schema_has_table(table_name):
+        table = op.create_table(table_name, *args, **kwargs)
+    return table
+
+
+@raise_if_offline
+def add_column_if_not_exists(table_name, column, **kwargs):
+    """Add column only if it not exists in the schema."""
+    if not schema_has_column(table_name, column.name):
+        op.add_column(table_name, column, **kwargs)
 
 
 @raise_if_offline

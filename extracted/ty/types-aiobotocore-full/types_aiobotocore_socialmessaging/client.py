@@ -3,7 +3,7 @@ Type annotations for socialmessaging service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -74,12 +75,6 @@ from .type_defs import (
     UpdateWhatsAppMessageTemplateInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -90,16 +85,16 @@ __all__ = ("EndUserMessagingSocialClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedByMetaException: Type[BotocoreClientError]
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DependencyException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidParametersException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottledRequestException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedByMetaException: type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DependencyException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidParametersException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottledRequestException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class EndUserMessagingSocialClient(AioBaseClient):
@@ -191,7 +186,7 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
     async def delete_whatsapp_message_template(
         self, **kwargs: Unpack[DeleteWhatsAppMessageTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a WhatsApp message template.
 
@@ -201,7 +196,7 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
     async def disassociate_whatsapp_business_account(
         self, **kwargs: Unpack[DisassociateWhatsAppBusinessAccountInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociate a WhatsApp Business Account (WABA) from your Amazon Web Services
         account.
@@ -224,8 +219,8 @@ class EndUserMessagingSocialClient(AioBaseClient):
         self, **kwargs: Unpack[GetLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef]
     ) -> GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef:
         """
-        Use your WhatsApp phone number id to get the WABA account id and phone number
-        details.
+        Retrieve the WABA account id and phone number details of a WhatsApp business
+        account phone number.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_linked_whatsapp_business_account_phone_number.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_socialmessaging/client/#get_linked_whatsapp_business_account_phone_number)
@@ -303,7 +298,7 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
     async def put_whatsapp_business_account_event_destinations(
         self, **kwargs: Unpack[PutWhatsAppBusinessAccountEventDestinationsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add an event destination to log event data from WhatsApp for a WhatsApp
         Business Account (WABA).
@@ -344,7 +339,7 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
     async def update_whatsapp_message_template(
         self, **kwargs: Unpack[UpdateWhatsAppMessageTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing WhatsApp message template.
 
@@ -393,7 +388,7 @@ class EndUserMessagingSocialClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

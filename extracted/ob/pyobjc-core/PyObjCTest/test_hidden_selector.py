@@ -2,6 +2,11 @@ import objc
 from PyObjCTools.TestSupport import TestCase
 
 
+class NotBool:
+    def __bool__(self):
+        raise RuntimeError("not bool")
+
+
 class hidden_method:
     def __pyobjc_class_setup__(self, name, class_dict, instance_methods, class_methods):
         @objc.selector
@@ -16,8 +21,17 @@ class hidden_method:
         clsmethod = objc.selector(clsmethod, isClassMethod=True)
         clsmethod.isHidden = True
 
+        def clsmethod2(self):
+            return -99
+
+        clsmethod2 = objc.selector(
+            clsmethod2, selector=b"anotherclsmethod", isClassMethod=True
+        )
+        clsmethod2.isHidden = True
+
         instance_methods.add(method)
         class_methods.add(clsmethod)
+        class_methods.add(clsmethod2)
 
 
 class OCTestHidden(objc.lookUpClass("NSObject")):
@@ -64,7 +78,29 @@ class OCTestSubHidden(OCTestHidden):
         return False
 
 
+class OCTestHidden2(objc.lookUpClass("NSObject")):
+    method = hidden_method()
+
+
+class OCTestHidden3(objc.lookUpClass("NSObject")):
+    clsmethod = hidden_method()
+
+
 class TestHiddenSelector(TestCase):
+    def testHiddenShadows(self):
+        o = OCTestHidden2.alloc().init()
+        self.assertIsInstance(o.method, hidden_method)
+
+        self.assertEqual(o.pyobjc_instanceMethods.method(), 42)
+        self.assertIn("method", o.pyobjc_instanceMethods.__dict__)
+
+    def testHiddenShadowsClass(self):
+        o = OCTestHidden3
+        self.assertIsInstance(o.clsmethod, hidden_method)
+
+        self.assertEqual(o.pyobjc_classMethods.clsmethod(), 99)
+        self.assertIn("clsmethod", o.pyobjc_classMethods.__dict__)
+
     def testHiddenInClassDef(self):
         o = OCTestHidden.alloc().init()
         with self.assertRaisesRegex(
@@ -98,6 +134,8 @@ class TestHiddenSelector(TestCase):
         v = m()
         self.assertIs(v, True)
 
+        self.assertIn("boolMethod", o.pyobjc_instanceMethods.__dict__)
+
     def testHiddenCanBeIntrospected(self):
         # XXX: This test fails, and will also fail in versions
         #      before 9.1. It would be better if the test didn't
@@ -127,11 +165,34 @@ class TestHiddenSelector(TestCase):
         with self.assertRaisesRegex(AttributeError, "clsmethod"):
             OCTestHidden.clsmethod()
 
+        with self.assertRaisesRegex(AttributeError, "clsmethod2"):
+            OCTestHidden.clsmethod2()
+
+        with self.assertRaisesRegex(AttributeError, "anotherclsmethod"):
+            OCTestHidden.anotherclsmethod()
+
         v = OCTestHidden.performSelector_(b"clsmethod")
         self.assertEqual(v, 99)
 
+        v = OCTestHidden.performSelector_(b"anotherclsmethod")
+        self.assertEqual(v, -99)
+
         v = OCTestHidden.pyobjc_classMethods.clsmethod()
         self.assertEqual(v, 99)
+
+        v = OCTestHidden.pyobjc_classMethods.anotherclsmethod()
+        self.assertEqual(v, -99)
+
+    def test_hidden_flag_invalid(self):
+        @objc.selector
+        def addedmethod(self):
+            return "NEW"
+
+        with self.assertRaisesRegex(RuntimeError, "not bool"):
+            addedmethod.isHidden = NotBool()
+
+        with self.assertRaisesRegex(RuntimeError, "not bool"):
+            OCTestHidden.pyobjc_hiddenSelectors(NotBool())
 
     def testHiddenAddMethods(self):
         @objc.selector
@@ -266,3 +327,11 @@ class TestHiddenSelector(TestCase):
 
         method.isHidden = "foo"
         self.assertIs(method.isHidden, True)
+
+    def test_invalid_argument(self):
+        class NoCompare:
+            def __bool__(self):
+                raise RuntimeError("no compare")
+
+        with self.assertRaises(RuntimeError):
+            OCTestHidden.pyobjc_hiddenSelectors(NoCompare())

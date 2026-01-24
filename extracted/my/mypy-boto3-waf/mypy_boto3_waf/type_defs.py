@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -37,12 +38,6 @@ from .literals import (
     WafRuleTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -325,7 +320,7 @@ class CreateByteMatchSetRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -357,7 +352,7 @@ class CreateRegexPatternSetRequestTypeDef(TypedDict):
 
 class RegexPatternSetTypeDef(TypedDict):
     RegexPatternSetId: str
-    RegexPatternStrings: List[str]
+    RegexPatternStrings: list[str]
     Name: NotRequired[str]
 
 
@@ -729,7 +724,7 @@ ActivatedRuleOutputTypeDef = TypedDict(
         "Action": NotRequired[WafActionTypeDef],
         "OverrideAction": NotRequired[WafOverrideActionTypeDef],
         "Type": NotRequired[WafRuleTypeType],
-        "ExcludedRules": NotRequired[List[ExcludedRuleTypeDef]],
+        "ExcludedRules": NotRequired[list[ExcludedRuleTypeDef]],
     },
 )
 ActivatedRuleTypeDef = TypedDict(
@@ -761,8 +756,8 @@ class ByteMatchTupleTypeDef(TypedDict):
 
 class LoggingConfigurationOutputTypeDef(TypedDict):
     ResourceArn: str
-    LogDestinationConfigs: List[str]
-    RedactedFields: NotRequired[List[FieldToMatchTypeDef]]
+    LogDestinationConfigs: list[str]
+    RedactedFields: NotRequired[list[FieldToMatchTypeDef]]
 
 
 class LoggingConfigurationTypeDef(TypedDict):
@@ -875,14 +870,14 @@ class GetPermissionPolicyResponseTypeDef(TypedDict):
 
 
 class GetRateBasedRuleManagedKeysResponseTypeDef(TypedDict):
-    ManagedKeys: List[str]
+    ManagedKeys: list[str]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListByteMatchSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    ByteMatchSets: List[ByteMatchSetSummaryTypeDef]
+    ByteMatchSets: list[ByteMatchSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -979,7 +974,7 @@ class CreateWebACLRequestTypeDef(TypedDict):
 
 class TagInfoForResourceTypeDef(TypedDict):
     ResourceARN: NotRequired[str]
-    TagList: NotRequired[List[TagTypeDef]]
+    TagList: NotRequired[list[TagTypeDef]]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1011,7 +1006,7 @@ class GetRuleGroupResponseTypeDef(TypedDict):
 
 class GeoMatchSetTypeDef(TypedDict):
     GeoMatchSetId: str
-    GeoMatchConstraints: List[GeoMatchConstraintTypeDef]
+    GeoMatchConstraints: list[GeoMatchConstraintTypeDef]
     Name: NotRequired[str]
 
 
@@ -1022,7 +1017,7 @@ class GeoMatchSetUpdateTypeDef(TypedDict):
 
 class ListGeoMatchSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    GeoMatchSets: List[GeoMatchSetSummaryTypeDef]
+    GeoMatchSets: list[GeoMatchSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1098,12 +1093,12 @@ class HTTPRequestTypeDef(TypedDict):
     URI: NotRequired[str]
     Method: NotRequired[str]
     HTTPVersion: NotRequired[str]
-    Headers: NotRequired[List[HTTPHeaderTypeDef]]
+    Headers: NotRequired[list[HTTPHeaderTypeDef]]
 
 
 class IPSetTypeDef(TypedDict):
     IPSetId: str
-    IPSetDescriptors: List[IPSetDescriptorTypeDef]
+    IPSetDescriptors: list[IPSetDescriptorTypeDef]
     Name: NotRequired[str]
 
 
@@ -1114,73 +1109,73 @@ class IPSetUpdateTypeDef(TypedDict):
 
 class ListIPSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    IPSets: List[IPSetSummaryTypeDef]
+    IPSets: list[IPSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListRateBasedRulesResponseTypeDef(TypedDict):
     NextMarker: str
-    Rules: List[RuleSummaryTypeDef]
+    Rules: list[RuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListRulesResponseTypeDef(TypedDict):
     NextMarker: str
-    Rules: List[RuleSummaryTypeDef]
+    Rules: list[RuleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListRegexMatchSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    RegexMatchSets: List[RegexMatchSetSummaryTypeDef]
+    RegexMatchSets: list[RegexMatchSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListRegexPatternSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    RegexPatternSets: List[RegexPatternSetSummaryTypeDef]
+    RegexPatternSets: list[RegexPatternSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListRuleGroupsResponseTypeDef(TypedDict):
     NextMarker: str
-    RuleGroups: List[RuleGroupSummaryTypeDef]
+    RuleGroups: list[RuleGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListSizeConstraintSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    SizeConstraintSets: List[SizeConstraintSetSummaryTypeDef]
+    SizeConstraintSets: list[SizeConstraintSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListSqlInjectionMatchSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    SqlInjectionMatchSets: List[SqlInjectionMatchSetSummaryTypeDef]
+    SqlInjectionMatchSets: list[SqlInjectionMatchSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListSubscribedRuleGroupsResponseTypeDef(TypedDict):
     NextMarker: str
-    RuleGroups: List[SubscribedRuleGroupSummaryTypeDef]
+    RuleGroups: list[SubscribedRuleGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListWebACLsResponseTypeDef(TypedDict):
     NextMarker: str
-    WebACLs: List[WebACLSummaryTypeDef]
+    WebACLs: list[WebACLSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListXssMatchSetsResponseTypeDef(TypedDict):
     NextMarker: str
-    XssMatchSets: List[XssMatchSetSummaryTypeDef]
+    XssMatchSets: list[XssMatchSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class RateBasedRuleTypeDef(TypedDict):
     RuleId: str
-    MatchPredicates: List[PredicateTypeDef]
+    MatchPredicates: list[PredicateTypeDef]
     RateKey: Literal["IP"]
     RateLimit: int
     Name: NotRequired[str]
@@ -1189,7 +1184,7 @@ class RateBasedRuleTypeDef(TypedDict):
 
 class RuleTypeDef(TypedDict):
     RuleId: str
-    Predicates: List[PredicateTypeDef]
+    Predicates: list[PredicateTypeDef]
     Name: NotRequired[str]
     MetricName: NotRequired[str]
 
@@ -1212,14 +1207,14 @@ class TimeWindowTypeDef(TypedDict):
 
 class ListActivatedRulesInRuleGroupResponseTypeDef(TypedDict):
     NextMarker: str
-    ActivatedRules: List[ActivatedRuleOutputTypeDef]
+    ActivatedRules: list[ActivatedRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class WebACLTypeDef(TypedDict):
     WebACLId: str
     DefaultAction: WafActionTypeDef
-    Rules: List[ActivatedRuleOutputTypeDef]
+    Rules: list[ActivatedRuleOutputTypeDef]
     Name: NotRequired[str]
     MetricName: NotRequired[str]
     WebACLArn: NotRequired[str]
@@ -1230,7 +1225,7 @@ ActivatedRuleUnionTypeDef = Union[ActivatedRuleTypeDef, ActivatedRuleOutputTypeD
 
 class ByteMatchSetTypeDef(TypedDict):
     ByteMatchSetId: str
-    ByteMatchTuples: List[ByteMatchTupleOutputTypeDef]
+    ByteMatchTuples: list[ByteMatchTupleOutputTypeDef]
     Name: NotRequired[str]
 
 
@@ -1243,7 +1238,7 @@ class GetLoggingConfigurationResponseTypeDef(TypedDict):
 
 
 class ListLoggingConfigurationsResponseTypeDef(TypedDict):
-    LoggingConfigurations: List[LoggingConfigurationOutputTypeDef]
+    LoggingConfigurations: list[LoggingConfigurationOutputTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1261,7 +1256,7 @@ LoggingConfigurationUnionTypeDef = Union[
 class RegexMatchSetTypeDef(TypedDict):
     RegexMatchSetId: NotRequired[str]
     Name: NotRequired[str]
-    RegexMatchTuples: NotRequired[List[RegexMatchTupleTypeDef]]
+    RegexMatchTuples: NotRequired[list[RegexMatchTupleTypeDef]]
 
 
 class RegexMatchSetUpdateTypeDef(TypedDict):
@@ -1271,7 +1266,7 @@ class RegexMatchSetUpdateTypeDef(TypedDict):
 
 class SizeConstraintSetTypeDef(TypedDict):
     SizeConstraintSetId: str
-    SizeConstraints: List[SizeConstraintTypeDef]
+    SizeConstraints: list[SizeConstraintTypeDef]
     Name: NotRequired[str]
 
 
@@ -1282,7 +1277,7 @@ class SizeConstraintSetUpdateTypeDef(TypedDict):
 
 class SqlInjectionMatchSetTypeDef(TypedDict):
     SqlInjectionMatchSetId: str
-    SqlInjectionMatchTuples: List[SqlInjectionMatchTupleTypeDef]
+    SqlInjectionMatchTuples: list[SqlInjectionMatchTupleTypeDef]
     Name: NotRequired[str]
 
 
@@ -1293,7 +1288,7 @@ class SqlInjectionMatchSetUpdateTypeDef(TypedDict):
 
 class XssMatchSetTypeDef(TypedDict):
     XssMatchSetId: str
-    XssMatchTuples: List[XssMatchTupleTypeDef]
+    XssMatchTuples: list[XssMatchTupleTypeDef]
     Name: NotRequired[str]
 
 
@@ -1498,7 +1493,7 @@ class UpdateXssMatchSetRequestTypeDef(TypedDict):
 
 
 class GetSampledRequestsResponseTypeDef(TypedDict):
-    SampledRequests: List[SampledHTTPRequestTypeDef]
+    SampledRequests: list[SampledHTTPRequestTypeDef]
     PopulationSize: int
     TimeWindow: TimeWindowOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef

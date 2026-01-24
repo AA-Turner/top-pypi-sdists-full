@@ -84,6 +84,9 @@ class MjGroup(BodyComponent):
         else:
             assert unit == 'px'
             width_px = parsedWidth
+        # Output integer when the value is a whole number (e.g., "600px" not "600.0px")
+        if width_px == int(width_px):
+            width_px = int(width_px)
         return f'{width_px}px'
 
     def getColumnClass(self):
@@ -126,7 +129,7 @@ class MjGroup(BodyComponent):
         container_attrs = self.html_attrs(class_=classesName, style='div')
         table_bgcolor = self.get_attr('background-color')
         table_attrs = self.html_attrs(
-            bgcolor     = table_bgcolor if (table_bgcolor != 'none') else None,
+            bgcolor     = table_bgcolor if (table_bgcolor and table_bgcolor != 'none') else None,
             border      = '0',
             cellpadding = '0',
             cellspacing = '0',
@@ -167,4 +170,4 @@ class MjGroup(BodyComponent):
               </tr>
               </table>
             <![endif]-->
-        </div>''' # noqa: line-too-long
+        </div>''' # noqa: E501

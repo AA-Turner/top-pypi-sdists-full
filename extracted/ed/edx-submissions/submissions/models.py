@@ -12,6 +12,7 @@ need to then generate a matching migration for it using:
 import functools
 import logging
 import os
+import uuid
 from datetime import timedelta
 from uuid import uuid4
 
@@ -403,7 +404,7 @@ class Score(models.Model):
         """
         Retrieve the submission UUID associated with this score.
         If the score isn't associated with a submission (for example, if this is
-        a "reset" score or a a non-courseware item like "class participation"),
+        a "reset" score or a non-courseware item like "class participation"),
         then this will return None.
 
         Returns:
@@ -603,14 +604,17 @@ class ExternalGraderDetail(models.Model):
     """
 
     class Status(models.TextChoices):
+        """External grader statuses"""
         PENDING = 'pending', 'Pending'
         PULLED = 'pulled', 'Pulled'
         RETIRED = 'retired', 'Retired'
         FAILED = 'failed', 'Failed'
+        RETRY = 'retry', 'Retry'
 
     VALID_TRANSITIONS = {
-        'pending': ['pulled', 'failed'],
-        'pulled': ['retired', 'failed'],
+        'pending': ['pulled'],
+        'pulled': ['retired', 'failed', 'retry'],
+        'retry': ['retired', 'pulled'],
         'failed': ['pending'],
         'retired': []
     }
@@ -621,6 +625,7 @@ class ExternalGraderDetail(models.Model):
     )
 
     queue_name = models.CharField(max_length=128)
+    queue_key = models.CharField(max_length=128, null=True)
     grader_file_name = models.CharField(max_length=128, default='')
     points_possible = models.PositiveIntegerField(default=1)
 
@@ -654,20 +659,6 @@ class ExternalGraderDetail(models.Model):
         ]
         ordering = ['-created_at']
 
-    @property
-    def is_processable(self):
-        """
-        Indicates if this submission can be processed based on its current state
-        and time since last update.
-        """
-        if self.status not in ['pending', 'failed']:
-            return False
-
-        processing_window = now() - timedelta(
-            minutes=getattr(settings, 'SUBMISSION_PROCESSING_DELAY', 60)
-        )
-        return self.status_time <= processing_window
-
     def can_transition_to(self, new_status, current_status=None):
         """Check if the transition to new_status is valid."""
         from_status = current_status if current_status is not None else self.status
@@ -679,17 +670,20 @@ class ExternalGraderDetail(models.Model):
         Update status and timestamp atomically
         """
         if not self.can_transition_to(new_status):
-            raise ValueError(
-                f"Invalid transition from {self.status} to {new_status} for "
-                f"ExternalGraderDetail(id={self.id}, "
-                f"submission_uuid={self.submission.uuid})")
+            raise ValueError(f"Invalid status transition from {self.status} to {new_status}")
 
         self.status = new_status
         self.status_time = now()
 
-        if new_status == 'failed':
+        if new_status in ('retry', 'failed'):
             self.num_failures += 1
             self.save(update_fields=['status', 'status_time', 'num_failures'])
+
+        elif new_status == 'pulled':
+            pullkey = str(uuid.uuid4())
+            self.pullkey = pullkey
+            self.save(update_fields=['status', 'pullkey', 'status_time'])
+
         else:
             self.save(update_fields=['status', 'status_time'])
 

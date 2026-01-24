@@ -15,6 +15,7 @@ readme = "README.md"
 [dependencies]
 pyo3 = { workspace = true, features = [] }
 regex.workspace = true
+ryo3-core.workspace = true
 
 [features]
 ry = []

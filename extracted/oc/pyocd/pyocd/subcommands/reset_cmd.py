@@ -86,6 +86,7 @@ class ResetSubcommand(SubcommandBase):
                             connect_mode=self._args.connect_mode,
                             resume_on_disconnect=not self._args.halt,
                             reset_type=self._args.reset_type,
+                            command=self._args.cmd,
                             options=convert_session_options(self._args.options),
                             option_defaults=self._modified_option_defaults(),
                             )
@@ -103,7 +104,7 @@ class ResetSubcommand(SubcommandBase):
             # Handle hw reset more efficiently using the probe directly, so we don't need can skip
             # discovery. However, if halting was requested we need full init even if performing a
             # hardware reset.
-            is_hw_reset = (the_reset_type == Target.ResetType.HW) and not self._args.halt
+            is_hw_reset = (the_reset_type == Target.ResetType.HARDWARE) and not self._args.halt
 
             # Only init the board if performing a sw reset.
             session.open(init_board=(not is_hw_reset))

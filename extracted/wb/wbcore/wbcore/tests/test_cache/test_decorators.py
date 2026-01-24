@@ -19,9 +19,9 @@ def test_cache_table(timeout, key_prefix, periodic_caching_view_kwargs, periodic
     class CacheTable:
         pass
 
-    assert getattr(CacheTable, "CACHE_ENABLED") is True
-    assert getattr(CacheTable, "CACHE_TIMEOUT") == timeout
-    assert getattr(CacheTable, "CACHE_KEY_PREFIX") == key_prefix
+    assert CacheTable.CACHE_ENABLED is True
+    assert CacheTable.CACHE_TIMEOUT == timeout
+    assert CacheTable.CACHE_KEY_PREFIX == key_prefix
     cache_entry = periodic_cache_registry.classes[0]
     assert cache_entry.view_class == CacheTable
     assert cache_entry.view_kwargs == periodic_caching_view_kwargs

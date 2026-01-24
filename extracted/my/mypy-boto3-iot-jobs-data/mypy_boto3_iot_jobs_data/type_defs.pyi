@@ -17,18 +17,13 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
 from .literals import JobExecutionStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping
-else:
-    from typing import Dict, List, Mapping
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -65,7 +60,7 @@ class JobExecutionTypeDef(TypedDict):
     jobId: NotRequired[str]
     thingName: NotRequired[str]
     status: NotRequired[JobExecutionStatusType]
-    statusDetails: NotRequired[Dict[str, str]]
+    statusDetails: NotRequired[dict[str, str]]
     queuedAt: NotRequired[int]
     startedAt: NotRequired[int]
     lastUpdatedAt: NotRequired[int]
@@ -77,7 +72,7 @@ class JobExecutionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -94,7 +89,7 @@ class JobExecutionSummaryTypeDef(TypedDict):
 
 class JobExecutionStateTypeDef(TypedDict):
     status: NotRequired[JobExecutionStatusType]
-    statusDetails: NotRequired[Dict[str, str]]
+    statusDetails: NotRequired[dict[str, str]]
     versionNumber: NotRequired[int]
 
 class StartNextPendingJobExecutionRequestTypeDef(TypedDict):
@@ -135,8 +130,8 @@ class StartNextPendingJobExecutionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetPendingJobExecutionsResponseTypeDef(TypedDict):
-    inProgressJobs: List[JobExecutionSummaryTypeDef]
-    queuedJobs: List[JobExecutionSummaryTypeDef]
+    inProgressJobs: list[JobExecutionSummaryTypeDef]
+    queuedJobs: list[JobExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateJobExecutionResponseTypeDef(TypedDict):

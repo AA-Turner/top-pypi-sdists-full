@@ -15,7 +15,7 @@ from bench.utils.bench import update_common_site_config
 from bench.exceptions import CommandFailedError
 
 
-def setup_letsencrypt(site, custom_domain, bench_path, interactive):
+def setup_letsencrypt(site, custom_domain, bench_path, interactive, custom_server):
 
 	site_path = os.path.join(bench_path, "sites", site, "site_config.json")
 	if not os.path.exists(os.path.dirname(site_path)):
@@ -44,16 +44,16 @@ def setup_letsencrypt(site, custom_domain, bench_path, interactive):
 		print("You cannot setup SSL without DNS Multitenancy")
 		return
 
-	create_config(site, custom_domain)
+	create_config(site, custom_domain, custom_server)
 	run_certbot_and_setup_ssl(site, custom_domain, bench_path, interactive)
 	setup_crontab()
 
 
-def create_config(site, custom_domain):
+def create_config(site, custom_domain, custom_server):
 	config = (
 		bench.config.env()
 		.get_template("letsencrypt.cfg")
-		.render(domain=custom_domain or site)
+		.render(domain=custom_domain or site, server=custom_server)
 	)
 	config_path = f"/etc/letsencrypt/configs/{custom_domain or site}.cfg"
 	create_dir_if_missing(config_path)
@@ -142,7 +142,7 @@ def renew_certs():
 	service("nginx", "start")
 
 
-def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain):
+def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain, custom_server):
 	def _get_domains(domain):
 		domain_list = [domain]
 
@@ -168,11 +168,15 @@ def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain):
 	if email:
 		email_param = f"--email {email}"
 
+	server_param = ""
+	if custom_server:
+		server_param = f"--server {custom_server}"
+
 	try:
 		exec_cmd(
-			f"{get_certbot_path()} certonly --manual --preferred-challenges=dns {email_param} \
-			--server https://acme-v02.api.letsencrypt.org/directory \
-			--agree-tos -d {' -d '.join(domain_list)}"
+			f"{get_certbot_path()} certonly --manual --preferred-challenges=dns {email_param} "
+			f"{sp + ' ' if (sp := server_param) else ''}"
+			f"--agree-tos -d {' -d '.join(domain_list)}"
 		)
 
 	except CommandFailedError:
@@ -192,5 +196,5 @@ def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain):
 	setup_crontab()
 
 	make_nginx_conf(bench_path)
-	print("Restrting Nginx service")
+	print("Restarting Nginx service")
 	service("nginx", "restart")

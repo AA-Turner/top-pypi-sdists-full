@@ -21,6 +21,7 @@ from tqdm.auto import tqdm
 
 if t.TYPE_CHECKING:
     from ragas.metrics.base import Metric
+    from ragas.tokenizers import BaseTokenizer
 
 DEBUG_ENV_VAR = "RAGAS_DEBUG"
 
@@ -95,6 +96,25 @@ def get_metric_language(metric: "Metric") -> str:
         if isinstance(value, BasePrompt)
     ]
     return languags[0] if len(languags) > 0 else ""
+
+
+class DeprecationHelper:
+    """Helper class to handle deprecation warnings for exported classes."""
+
+    def __init__(self, new_target: t.Type, deprecation_message: str):
+        self.new_target = new_target
+        self.deprecation_message = deprecation_message
+
+    def _warn(self):
+        warnings.warn(self.deprecation_message, DeprecationWarning, stacklevel=3)
+
+    def __call__(self, *args, **kwargs):
+        self._warn()
+        return self.new_target(*args, **kwargs)
+
+    def __getattr__(self, attr):
+        self._warn()
+        return getattr(self.new_target, attr)
 
 
 def deprecated(
@@ -228,10 +248,31 @@ def camel_to_snake(name):
     return pattern.sub("_", name).lower()
 
 
-def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
-    """Returns the number of tokens in a text string."""
+def num_tokens_from_string(
+    string: str,
+    encoding_name: str = "cl100k_base",
+    tokenizer: t.Optional["BaseTokenizer"] = None,
+) -> int:
+    """Returns the number of tokens in a text string.
+
+    Parameters
+    ----------
+    string : str
+        The text to count tokens for.
+    encoding_name : str
+        Tiktoken encoding name (ignored if tokenizer is provided).
+    tokenizer : BaseTokenizer, optional
+        A tokenizer instance. If provided, encoding_name is ignored.
+
+    Returns
+    -------
+    int
+        Number of tokens in the string.
+    """
+    if tokenizer is not None:
+        return tokenizer.count_tokens(string)
     encoding = tiktoken.get_encoding(encoding_name)
-    num_tokens = len(encoding.encode(string))
+    num_tokens = len(encoding.encode(string, disallowed_special=()))
     return num_tokens
 
 
@@ -600,13 +641,13 @@ def find_git_root(start_path: t.Union[str, Path, None] = None) -> Path:
     raise ValueError(f"No git repository found in or above {start_path}")
 
 
-def create_nano_id(size=12):
+def create_nano_id(size: int = 12) -> str:
     """Generate a short unique identifier."""
     # Define characters to use (alphanumeric)
     alphabet = string.ascii_letters + string.digits
 
     # Generate UUID and convert to int
-    uuid_int = uuid.uuid4().int
+    uuid_int = t.cast(int, uuid.uuid4().int)
 
     # Convert to base62
     result = ""
@@ -626,16 +667,16 @@ def async_to_sync(async_func):
     @functools.wraps(async_func)
     def sync_wrapper(*args, **kwargs):
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
+            # Check if we're already in an event loop
+            asyncio.get_running_loop()
+            # If we get here, we're in a running loop
+            import concurrent.futures
 
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, async_func(*args, **kwargs))
-                    return future.result()
-            else:
-                return loop.run_until_complete(async_func(*args, **kwargs))
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, async_func(*args, **kwargs))
+                return future.result()
         except RuntimeError:
+            # No event loop running, safe to use asyncio.run
             return asyncio.run(async_func(*args, **kwargs))
 
     return sync_wrapper

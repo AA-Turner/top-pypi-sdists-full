@@ -1,31 +1,31 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: flake8-pytest-style
-Version: 2.1.0
+Version: 2.2.0
 Summary: A flake8 plugin checking common style issues or inconsistencies with pytest-based tests.
-Home-page: https://pypi.org/project/flake8-pytest-style
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: flake8,pytest
 Author: Mikhail Burshteyn
 Author-email: mdburshteyn@gmail.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Plugins
 Classifier: Framework :: Flake8
 Classifier: Framework :: Pytest
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Testing :: Unit
 Requires-Dist: flake8-plugin-utils (>=1.3.2,<2.0.0)
+Project-URL: Homepage, https://pypi.org/project/flake8-pytest-style
 Project-URL: Repository, https://github.com/m-burst/flake8-pytest-style
 Description-Content-Type: text/markdown
 
@@ -120,6 +120,11 @@ MIT
 **Unreleased**
 
 ...
+
+**2.2.0 - 2025-10-20**
+
+* require at least Python 3.10
+* support Python 3.14
 
 **2.1.0 - 2025-01-10**
 
@@ -273,35 +278,35 @@ MIT
 
 * initial
 
-[PT001]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT001.md
-[PT002]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT002.md
-[PT003]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT003.md
-[PT004]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT004.md
-[PT005]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT005.md
-[PT006]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT006.md
-[PT007]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT007.md
-[PT008]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT008.md
-[PT009]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT009.md
-[PT010]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT010.md
-[PT011]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT011.md
-[PT012]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT012.md
-[PT013]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT013.md
-[PT014]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT014.md
-[PT015]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT015.md
-[PT016]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT016.md
-[PT017]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT017.md
-[PT018]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT018.md
-[PT019]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT019.md
-[PT020]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT020.md
-[PT021]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT021.md
-[PT022]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT022.md
-[PT023]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT023.md
-[PT024]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT024.md
-[PT025]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT025.md
-[PT026]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT026.md
-[PT027]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT027.md
-[PT028]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT028.md
-[PT029]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT029.md
-[PT030]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT030.md
-[PT031]: https://github.com/m-burst/flake8-pytest-style/blob/v2.1.0/docs/rules/PT031.md
+[PT001]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT001.md
+[PT002]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT002.md
+[PT003]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT003.md
+[PT004]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT004.md
+[PT005]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT005.md
+[PT006]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT006.md
+[PT007]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT007.md
+[PT008]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT008.md
+[PT009]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT009.md
+[PT010]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT010.md
+[PT011]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT011.md
+[PT012]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT012.md
+[PT013]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT013.md
+[PT014]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT014.md
+[PT015]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT015.md
+[PT016]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT016.md
+[PT017]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT017.md
+[PT018]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT018.md
+[PT019]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT019.md
+[PT020]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT020.md
+[PT021]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT021.md
+[PT022]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT022.md
+[PT023]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT023.md
+[PT024]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT024.md
+[PT025]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT025.md
+[PT026]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT026.md
+[PT027]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT027.md
+[PT028]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT028.md
+[PT029]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT029.md
+[PT030]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT030.md
+[PT031]: https://github.com/m-burst/flake8-pytest-style/blob/v2.2.0/docs/rules/PT031.md
 

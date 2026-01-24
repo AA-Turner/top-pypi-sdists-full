@@ -18,14 +18,16 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class LusidPropertyDefinitionOverridesResponse(BaseModel):
     """
     An item that has been updated as a result of setting LusidPropertyDefinitionOverrides.  # noqa: E501
     """
-    action:  StrictStr = Field(...,alias="action", description="The action performed on this property. \"upsert\" for setting values for new and existing              properties. \"delete\" for existing properties that were removed") 
+    action:  StrictStr = Field(...,alias="action", description="The action performed on this property. \"upsert\" for setting values for new and existing             properties. \"delete\" for existing properties that were removed") 
     write_error:  Optional[StrictStr] = Field(None,alias="writeError", description="") 
     write_error_detail:  Optional[StrictStr] = Field(None,alias="writeErrorDetail", description="") 
     display_name_override:  Optional[StrictStr] = Field(None,alias="displayNameOverride", description="") 
@@ -103,3 +105,5 @@ class LusidPropertyDefinitionOverridesResponse(BaseModel):
             "description_override": obj.get("descriptionOverride")
         })
         return _obj
+
+LusidPropertyDefinitionOverridesResponse.update_forward_refs()

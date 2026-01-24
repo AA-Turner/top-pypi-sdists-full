@@ -77,192 +77,13 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notificationscontacts.CfnEmailContactProps",
-    jsii_struct_bases=[],
-    name_mapping={"email_address": "emailAddress", "name": "name", "tags": "tags"},
+from ..interfaces.aws_notificationscontacts import (
+    EmailContactReference as _EmailContactReference_cffe92f7,
+    IEmailContactRef as _IEmailContactRef_3b55344c,
 )
-class CfnEmailContactProps:
-    def __init__(
-        self,
-        *,
-        email_address: builtins.str,
-        name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEmailContact``.
-
-        :param email_address: The email address of the contact. The activation and notification emails are sent here.
-        :param name: The name of the contact.
-        :param tags: A list of tags to apply to the email contact.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notificationscontacts as notificationscontacts
-            
-            cfn_email_contact_props = notificationscontacts.CfnEmailContactProps(
-                email_address="emailAddress",
-                name="name",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8)
-            check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "email_address": email_address,
-            "name": name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def email_address(self) -> builtins.str:
-        '''The email address of the contact.
-
-        The activation and notification emails are sent here.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-emailaddress
-        '''
-        result = self._values.get("email_address")
-        assert result is not None, "Required property 'email_address' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the contact.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags to apply to the email contact.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEmailContactProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_notificationscontacts.EmailContactReference",
-    jsii_struct_bases=[],
-    name_mapping={"email_contact_arn": "emailContactArn"},
-)
-class EmailContactReference:
-    def __init__(self, *, email_contact_arn: builtins.str) -> None:
-        '''A reference to a EmailContact resource.
-
-        :param email_contact_arn: The Arn of the EmailContact resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_notificationscontacts as notificationscontacts
-            
-            email_contact_reference = notificationscontacts.EmailContactReference(
-                email_contact_arn="emailContactArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__99122e343742fde6c890c8bac855cf53d6f11d0d72d0eefeedaf098a022f3daf)
-            check_type(argname="argument email_contact_arn", value=email_contact_arn, expected_type=type_hints["email_contact_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "email_contact_arn": email_contact_arn,
-        }
-
-    @builtins.property
-    def email_contact_arn(self) -> builtins.str:
-        '''The Arn of the EmailContact resource.'''
-        result = self._values.get("email_contact_arn")
-        assert result is not None, "Required property 'email_contact_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EmailContactReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_notificationscontacts.IEmailContactRef")
-class IEmailContactRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EmailContact.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="emailContactRef")
-    def email_contact_ref(self) -> EmailContactReference:
-        '''(experimental) A reference to a EmailContact resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEmailContactRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EmailContact.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_notificationscontacts.IEmailContactRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="emailContactRef")
-    def email_contact_ref(self) -> EmailContactReference:
-        '''(experimental) A reference to a EmailContact resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EmailContactReference, jsii.get(self, "emailContactRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEmailContactRef).__jsii_proxy_class__ = lambda : _IEmailContactRefProxy
-
-
-@jsii.implements(_IInspectable_c2943556, IEmailContactRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IEmailContactRef_3b55344c, _ITaggableV2_4e6798f8)
 class CfnEmailContact(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -276,6 +97,7 @@ class CfnEmailContact(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_notificationscontacts as notificationscontacts
@@ -294,14 +116,15 @@ class CfnEmailContact(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         email_address: builtins.str,
         name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::NotificationsContacts::EmailContact``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param email_address: The email address of the contact. The activation and notification emails are sent here.
@@ -316,8 +139,34 @@ class CfnEmailContact(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEmailContact")
+    @builtins.classmethod
+    def arn_for_email_contact(
+        cls,
+        resource: "_IEmailContactRef_3b55344c",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__800f55852aefaadf354726e75bd68267dcb3a33397489653d1e7d090255791c7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEmailContact", [resource]))
+
+    @jsii.member(jsii_name="isCfnEmailContact")
+    @builtins.classmethod
+    def is_cfn_email_contact(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEmailContact.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f81c1bfb46046e85fb78f9ed59a3c3c0570ab349105bd53052339fe2d7e079ec)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEmailContact", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -357,11 +206,11 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="attrEmailContact")
-    def attr_email_contact(self) -> _IResolvable_da3f097b:
+    def attr_email_contact(self) -> "_IResolvable_da3f097b":
         '''
         :cloudformationAttribute: EmailContact
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrEmailContact"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrEmailContact"))
 
     @builtins.property
     @jsii.member(jsii_name="attrEmailContactAddress")
@@ -421,9 +270,9 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -432,9 +281,9 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="emailContactRef")
-    def email_contact_ref(self) -> EmailContactReference:
+    def email_contact_ref(self) -> "_EmailContactReference_cffe92f7":
         '''A reference to a EmailContact resource.'''
-        return typing.cast(EmailContactReference, jsii.get(self, "emailContactRef"))
+        return typing.cast("_EmailContactReference_cffe92f7", jsii.get(self, "emailContactRef"))
 
     @builtins.property
     @jsii.member(jsii_name="emailAddress")
@@ -464,12 +313,12 @@ class CfnEmailContact(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags to apply to the email contact.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6155552227ec0ef011be7e784ffc90ecfddac06545f4d44a087256c3ef2ee22b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -618,30 +467,107 @@ class CfnEmailContact(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_notificationscontacts.CfnEmailContactProps",
+    jsii_struct_bases=[],
+    name_mapping={"email_address": "emailAddress", "name": "name", "tags": "tags"},
+)
+class CfnEmailContactProps:
+    def __init__(
+        self,
+        *,
+        email_address: builtins.str,
+        name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEmailContact``.
+
+        :param email_address: The email address of the contact. The activation and notification emails are sent here.
+        :param name: The name of the contact.
+        :param tags: A list of tags to apply to the email contact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_notificationscontacts as notificationscontacts
+            
+            cfn_email_contact_props = notificationscontacts.CfnEmailContactProps(
+                email_address="emailAddress",
+                name="name",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8)
+            check_type(argname="argument email_address", value=email_address, expected_type=type_hints["email_address"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "email_address": email_address,
+            "name": name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def email_address(self) -> builtins.str:
+        '''The email address of the contact.
+
+        The activation and notification emails are sent here.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-emailaddress
+        '''
+        result = self._values.get("email_address")
+        assert result is not None, "Required property 'email_address' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the contact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags to apply to the email contact.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-notificationscontacts-emailcontact.html#cfn-notificationscontacts-emailcontact-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEmailContactProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnEmailContact",
     "CfnEmailContactProps",
-    "EmailContactReference",
-    "IEmailContactRef",
 ]
 
 publication.publish()
-
-def _typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8(
-    *,
-    email_address: builtins.str,
-    name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__99122e343742fde6c890c8bac855cf53d6f11d0d72d0eefeedaf098a022f3daf(
-    *,
-    email_contact_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__1de25815cbc5e561d0f90c0eee8ffe57e0f8551698ba5a811da29f445a3d211b(
     scope: _constructs_77d1e7e8.Construct,
@@ -650,6 +576,18 @@ def _typecheckingstub__1de25815cbc5e561d0f90c0eee8ffe57e0f8551698ba5a811da29f445
     email_address: builtins.str,
     name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__800f55852aefaadf354726e75bd68267dcb3a33397489653d1e7d090255791c7(
+    resource: _IEmailContactRef_3b55344c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f81c1bfb46046e85fb78f9ed59a3c3c0570ab349105bd53052339fe2d7e079ec(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -692,6 +630,15 @@ def _typecheckingstub__48f41a7ff86bdb3f6536168c36c8ddd6876c1a2bfcd36169b53af9ce3
     name: builtins.str,
     status: builtins.str,
     update_time: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7543e8bd10495fcc6c9e64b34fe84fba884f90162406e82ddba641f72f545e8(
+    *,
+    email_address: builtins.str,
+    name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -20,6 +20,7 @@ from ...types.http_validation_error import HttpValidationError
 from ...types.project_extended_response import ProjectExtendedResponse
 from .types.projects_create_request_apply_text_normalization import ProjectsCreateRequestApplyTextNormalization
 from .types.projects_create_request_fiction import ProjectsCreateRequestFiction
+from .types.projects_create_request_quality_preset import ProjectsCreateRequestQualityPreset
 from .types.projects_create_request_source_type import ProjectsCreateRequestSourceType
 from .types.projects_create_request_target_audience import ProjectsCreateRequestTargetAudience
 
@@ -86,7 +87,7 @@ class RawProjectsClient:
         from_url: typing.Optional[str] = OMIT,
         from_document: typing.Optional[core.File] = OMIT,
         from_content_json: typing.Optional[str] = OMIT,
-        quality_preset: typing.Optional[str] = OMIT,
+        quality_preset: typing.Optional[ProjectsCreateRequestQualityPreset] = OMIT,
         title: typing.Optional[str] = OMIT,
         author: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
@@ -106,6 +107,7 @@ class RawProjectsClient:
         auto_convert: typing.Optional[bool] = OMIT,
         auto_assign_voices: typing.Optional[bool] = OMIT,
         source_type: typing.Optional[ProjectsCreateRequestSourceType] = OMIT,
+        voice_settings: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[AddProjectResponseModel]:
         """
@@ -139,12 +141,12 @@ class RawProjectsClient:
                 [{"name": "Chapter A", "blocks": [{"sub_type": "p", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "A", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "B", "type": "tts_node"}]}, {"sub_type": "h1", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "C", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "D", "type": "tts_node"}]}]}, {"name": "Chapter B", "blocks": [{"sub_type": "p", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "E", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "F", "type": "tts_node"}]}, {"sub_type": "h2", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "G", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "H", "type": "tts_node"}]}]}]
 
 
-        quality_preset : typing.Optional[str]
+        quality_preset : typing.Optional[ProjectsCreateRequestQualityPreset]
             Output quality of the generated audio. Must be one of:
-            standard - standard output format, 128kbps with 44.1kHz sample rate.
-            high - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side. Using this setting increases the credit cost by 20%.
-            ultra - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side. Using this setting increases the credit cost by 50%.
-            ultra lossless - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format. Using this setting increases the credit cost by 100%.
+            'standard' - standard output format, 128kbps with 44.1kHz sample rate.
+            'high' - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side.
+            'ultra' - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side.
+            'ultra_lossless' - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format.
 
         title : typing.Optional[str]
             An optional name of the author of the Studio project, this will be added as metadata to the mp3 file on Studio project or chapter download.
@@ -183,7 +185,7 @@ class RawProjectsClient:
             When the Studio project is downloaded, should the returned audio have postprocessing in order to make it compliant with audiobook normalized volume requirements
 
         pronunciation_dictionary_locators : typing.Optional[typing.List[str]]
-            A list of pronunciation dictionary locators (pronunciation_dictionary_id, version_id) encoded as a list of JSON strings for pronunciation dictionaries to be applied to the text. A list of json encoded strings is required as adding projects may occur through formData as opposed to jsonBody. To specify multiple dictionaries use multiple --form lines in your curl, such as --form 'pronunciation_dictionary_locators="{\"pronunciation_dictionary_id\":\"Vmd4Zor6fplcA7WrINey\",\"version_id\":\"hRPaxjlTdR7wFMhV4w0b\"}"' --form 'pronunciation_dictionary_locators="{\"pronunciation_dictionary_id\":\"JzWtcGQMJ6bnlWwyMo7e\",\"version_id\":\"lbmwxiLu4q6txYxgdZqn\"}"'. Note that multiple dictionaries are not currently supported by our UI which will only show the first.
+            A list of pronunciation dictionary locators (pronunciation_dictionary_id, version_id) encoded as a list of JSON strings for pronunciation dictionaries to be applied to the text. A list of json encoded strings is required as adding projects may occur through formData as opposed to jsonBody. To specify multiple dictionaries use multiple --form lines in your curl, such as --form 'pronunciation_dictionary_locators="{\\"pronunciation_dictionary_id\\":\\"Vmd4Zor6fplcA7WrINey\\",\\"version_id\\":\\"hRPaxjlTdR7wFMhV4w0b\\"}"' --form 'pronunciation_dictionary_locators="{\\"pronunciation_dictionary_id\\":\\"JzWtcGQMJ6bnlWwyMo7e\\",\\"version_id\\":\\"lbmwxiLu4q6txYxgdZqn\\"}"'.
 
         callback_url : typing.Optional[str]
 
@@ -262,6 +264,13 @@ class RawProjectsClient:
         source_type : typing.Optional[ProjectsCreateRequestSourceType]
             The type of Studio project to create.
 
+        voice_settings : typing.Optional[typing.List[str]]
+                Optional voice settings overrides for the project, encoded as a list of JSON strings.
+
+                Example:
+                ["{\\"voice_id\\": \\"21m00Tcm4TlvDq8ikWAM\\", \\"stability\\": 0.7, \\"similarity_boost\\": 0.8, \\"style\\": 0.5, \\"speed\\": 1.0, \\"use_speaker_boost\\": true}"]
+
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -300,6 +309,7 @@ class RawProjectsClient:
                 "auto_convert": auto_convert,
                 "auto_assign_voices": auto_assign_voices,
                 "source_type": source_type,
+                "voice_settings": voice_settings,
             },
             files={
                 **({"from_document": from_document} if from_document is not None else {}),
@@ -650,7 +660,7 @@ class AsyncRawProjectsClient:
         from_url: typing.Optional[str] = OMIT,
         from_document: typing.Optional[core.File] = OMIT,
         from_content_json: typing.Optional[str] = OMIT,
-        quality_preset: typing.Optional[str] = OMIT,
+        quality_preset: typing.Optional[ProjectsCreateRequestQualityPreset] = OMIT,
         title: typing.Optional[str] = OMIT,
         author: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
@@ -670,6 +680,7 @@ class AsyncRawProjectsClient:
         auto_convert: typing.Optional[bool] = OMIT,
         auto_assign_voices: typing.Optional[bool] = OMIT,
         source_type: typing.Optional[ProjectsCreateRequestSourceType] = OMIT,
+        voice_settings: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[AddProjectResponseModel]:
         """
@@ -703,12 +714,12 @@ class AsyncRawProjectsClient:
                 [{"name": "Chapter A", "blocks": [{"sub_type": "p", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "A", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "B", "type": "tts_node"}]}, {"sub_type": "h1", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "C", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "D", "type": "tts_node"}]}]}, {"name": "Chapter B", "blocks": [{"sub_type": "p", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "E", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "F", "type": "tts_node"}]}, {"sub_type": "h2", "nodes": [{"voice_id": "6lCwbsX1yVjD49QmpkT0", "text": "G", "type": "tts_node"}, {"voice_id": "6lCwbsX1yVjD49QmpkT1", "text": "H", "type": "tts_node"}]}]}]
 
 
-        quality_preset : typing.Optional[str]
+        quality_preset : typing.Optional[ProjectsCreateRequestQualityPreset]
             Output quality of the generated audio. Must be one of:
-            standard - standard output format, 128kbps with 44.1kHz sample rate.
-            high - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side. Using this setting increases the credit cost by 20%.
-            ultra - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side. Using this setting increases the credit cost by 50%.
-            ultra lossless - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format. Using this setting increases the credit cost by 100%.
+            'standard' - standard output format, 128kbps with 44.1kHz sample rate.
+            'high' - high quality output format, 192kbps with 44.1kHz sample rate and major improvements on our side.
+            'ultra' - ultra quality output format, 192kbps with 44.1kHz sample rate and highest improvements on our side.
+            'ultra_lossless' - ultra quality output format, 705.6kbps with 44.1kHz sample rate and highest improvements on our side in a fully lossless format.
 
         title : typing.Optional[str]
             An optional name of the author of the Studio project, this will be added as metadata to the mp3 file on Studio project or chapter download.
@@ -747,7 +758,7 @@ class AsyncRawProjectsClient:
             When the Studio project is downloaded, should the returned audio have postprocessing in order to make it compliant with audiobook normalized volume requirements
 
         pronunciation_dictionary_locators : typing.Optional[typing.List[str]]
-            A list of pronunciation dictionary locators (pronunciation_dictionary_id, version_id) encoded as a list of JSON strings for pronunciation dictionaries to be applied to the text. A list of json encoded strings is required as adding projects may occur through formData as opposed to jsonBody. To specify multiple dictionaries use multiple --form lines in your curl, such as --form 'pronunciation_dictionary_locators="{\"pronunciation_dictionary_id\":\"Vmd4Zor6fplcA7WrINey\",\"version_id\":\"hRPaxjlTdR7wFMhV4w0b\"}"' --form 'pronunciation_dictionary_locators="{\"pronunciation_dictionary_id\":\"JzWtcGQMJ6bnlWwyMo7e\",\"version_id\":\"lbmwxiLu4q6txYxgdZqn\"}"'. Note that multiple dictionaries are not currently supported by our UI which will only show the first.
+            A list of pronunciation dictionary locators (pronunciation_dictionary_id, version_id) encoded as a list of JSON strings for pronunciation dictionaries to be applied to the text. A list of json encoded strings is required as adding projects may occur through formData as opposed to jsonBody. To specify multiple dictionaries use multiple --form lines in your curl, such as --form 'pronunciation_dictionary_locators="{\\"pronunciation_dictionary_id\\":\\"Vmd4Zor6fplcA7WrINey\\",\\"version_id\\":\\"hRPaxjlTdR7wFMhV4w0b\\"}"' --form 'pronunciation_dictionary_locators="{\\"pronunciation_dictionary_id\\":\\"JzWtcGQMJ6bnlWwyMo7e\\",\\"version_id\\":\\"lbmwxiLu4q6txYxgdZqn\\"}"'.
 
         callback_url : typing.Optional[str]
 
@@ -826,6 +837,13 @@ class AsyncRawProjectsClient:
         source_type : typing.Optional[ProjectsCreateRequestSourceType]
             The type of Studio project to create.
 
+        voice_settings : typing.Optional[typing.List[str]]
+                Optional voice settings overrides for the project, encoded as a list of JSON strings.
+
+                Example:
+                ["{\\"voice_id\\": \\"21m00Tcm4TlvDq8ikWAM\\", \\"stability\\": 0.7, \\"similarity_boost\\": 0.8, \\"style\\": 0.5, \\"speed\\": 1.0, \\"use_speaker_boost\\": true}"]
+
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -864,6 +882,7 @@ class AsyncRawProjectsClient:
                 "auto_convert": auto_convert,
                 "auto_assign_voices": auto_assign_voices,
                 "source_type": source_type,
+                "voice_settings": voice_settings,
             },
             files={
                 **({"from_document": from_document} if from_document is not None else {}),

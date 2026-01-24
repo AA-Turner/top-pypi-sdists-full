@@ -51,8 +51,8 @@ import click
 import deprecation_alias
 from domdf_python_tools.stringlist import StringList
 from domdf_python_tools.words import SANS_SERIF_ITALIC_LETTERS
-from mistletoe import block_token, span_token  # type: ignore[import]
-from mistletoe.base_renderer import BaseRenderer  # type: ignore[import]
+from mistletoe import block_token, span_token
+from mistletoe.base_renderer import BaseRenderer
 from typing_extensions import TypeGuard
 
 # this package
@@ -74,13 +74,14 @@ __all__ = (
 		"TerminalRenderer",
 		"hidden_cursor",
 		"long_echo",
+		"echo",
 		)
 
 _deprecator = deprecation_alias.deprecated(
 		deprecated_in="1.0.0",
 		removed_in="2.0.0",
-		current_version="1.9.0",
-		details="Import from consolekit.tracebacks instead."
+		current_version="1.12.0",
+		details="Import from consolekit.tracebacks instead.",
 		)
 
 handle_tracebacks = _deprecator(tracebacks.handle_tracebacks)
@@ -164,7 +165,7 @@ def overtype(
 
 	.. TODO:: This does not currently work in the PyCharm console, at least on Windows
 
-	:param objects: A list of strings or string-like objects to write to the terminal.
+	:param \*objects: A list of strings or string-like objects to write to the terminal.
 	:param sep: String to separate the objects with.
 	:param end: String to end with.
 	:param file: An object with a ``write(string)`` method.
@@ -474,7 +475,7 @@ class TerminalRenderer(BaseRenderer):
 def long_echo(
 		text: Union[str, StringList, Iterable[str]],
 		use_pager: Optional[bool] = None,
-		colour: ColourTrilean = None
+		colour: ColourTrilean = None,
 		) -> None:
 	"""
 	Echo ``text`` to the terminal, optionally via a pager.
@@ -511,3 +512,38 @@ def long_echo(
 		return click.echo_via_pager(str(text), color=colour)
 	else:
 		return click.echo(str(text), color=colour)
+
+
+def echo(
+		message: Union[str, Sequence[str]],
+		*lines: str,
+		file: Optional[IO] = None,
+		err: bool = False,
+		color: Optional[bool] = None,
+		) -> None:
+	r"""
+	Print the given line(s), separated by newlines, to stdout or a file.
+
+	:param message: The message to print.
+	:param \*lines: Additional lines to print.
+	:param file: The file to write to. Defaults to ``stdout``.
+	:param err: Write to ``stderr`` instead of ``stdout``.
+	:param color: Force showing or hiding colors and other styles.
+		By default Click will remove color if the output does not look like an interactive terminal.
+
+	.. versionadded:: 1.12.0
+	"""
+
+	lines_to_print: List[str]
+
+	if isinstance(message, str):
+		lines_to_print = [message, *lines]
+	else:
+		lines_to_print = [*message, *lines]
+
+	click.echo(
+			'\n'.join(lines_to_print),
+			file=file,
+			err=err,
+			color=color,
+			)

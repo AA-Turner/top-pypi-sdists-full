@@ -1,14 +1,24 @@
-import typing
+import re
 
 try:
     import argon2.exceptions
     from argon2 import PasswordHasher
-except ImportError as e:
+except ImportError as e:  # pragma: no cover
     from ..exceptions import HasherNotAvailable
 
     raise HasherNotAvailable("argon2") from e
 
-from .base import HasherProtocol, ensure_str
+from .base import HasherProtocol, ensure_str, validate_str_or_bytes
+
+# Pattern for identifying and validating an Argon2 encoded hash, covering all currently
+# supported type variants (i.e., `id`, `i`, `d`). Pattern uses deterministic matching,
+# explicit anchors, and a non-greedy terminal quantifier to ensure linear run time
+# relative to input hash length and resilience against catastrophic backtracking attacks.
+ARGON2_ENCODED_HASH_REGEX: re.Pattern = re.compile(
+    r"^\$(?P<variant>argon2(id|i|d))\$(?:v=(?P<version>\d+)\$)?"
+    r"m=(?P<memory_cost>\d+),t=(?P<time_cost>\d+),p=(?P<parallelism>\d+)"
+    r"(?:\$(?P<salt>[^$]+)(?:\$(?P<digest>.+?))?)?$"
+)
 
 
 class Argon2Hasher(HasherProtocol):
@@ -41,22 +51,25 @@ class Argon2Hasher(HasherProtocol):
         )
 
     @classmethod
-    def identify(cls, hash: typing.Union[str, bytes]) -> bool:
-        return ensure_str(hash).startswith("$argon2id$")
+    def identify(cls, hash: str | bytes) -> bool:
+        validate_str_or_bytes(hash, "hash")
+        try:
+            hash_str = ensure_str(hash)
+        except UnicodeDecodeError:
+            return False
+        match = ARGON2_ENCODED_HASH_REGEX.fullmatch(hash_str)
+        if match is None:
+            return False
+        variant: str = match.group("variant")
+        return variant in {"argon2id", "argon2i", "argon2d"}
 
-    def hash(
-        self,
-        password: typing.Union[str, bytes],
-        *,
-        salt: typing.Union[bytes, None] = None,
-    ) -> str:
+    def hash(self, password: str | bytes, *, salt: bytes | None = None) -> str:
+        validate_str_or_bytes(password, "password")
         return self._hasher.hash(password, salt=salt)
 
-    def verify(
-        self,
-        password: typing.Union[str, bytes],
-        hash: typing.Union[str, bytes],
-    ) -> bool:
+    def verify(self, password: str | bytes, hash: str | bytes) -> bool:
+        validate_str_or_bytes(password, "password")
+        validate_str_or_bytes(hash, "hash")
         try:
             return self._hasher.verify(hash, password)
         except (
@@ -65,5 +78,6 @@ class Argon2Hasher(HasherProtocol):
         ):
             return False
 
-    def check_needs_rehash(self, hash: typing.Union[str, bytes]) -> bool:
+    def check_needs_rehash(self, hash: str | bytes) -> bool:
+        validate_str_or_bytes(hash, "hash")
         return self._hasher.check_needs_rehash(ensure_str(hash))

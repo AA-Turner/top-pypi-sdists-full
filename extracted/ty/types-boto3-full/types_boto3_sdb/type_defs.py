@@ -3,7 +3,7 @@ Type annotations for sdb service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sdb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -87,7 +82,7 @@ class DomainMetadataRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -129,7 +124,7 @@ class DeletableItemTypeDef(TypedDict):
 
 class ItemTypeDef(TypedDict):
     Name: str
-    Attributes: List[AttributeTypeDef]
+    Attributes: list[AttributeTypeDef]
     AlternateNameEncoding: NotRequired[str]
 
 
@@ -156,12 +151,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class GetAttributesResultTypeDef(TypedDict):
-    Attributes: List[AttributeTypeDef]
+    Attributes: list[AttributeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDomainsResultTypeDef(TypedDict):
-    DomainNames: List[str]
+    DomainNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -194,7 +189,7 @@ class BatchDeleteAttributesRequestTypeDef(TypedDict):
 
 
 class SelectResultTypeDef(TypedDict):
-    Items: List[ItemTypeDef]
+    Items: list[ItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

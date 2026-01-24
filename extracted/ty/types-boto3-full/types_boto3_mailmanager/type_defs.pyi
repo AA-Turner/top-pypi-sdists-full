@@ -3,7 +3,7 @@ Type annotations for mailmanager service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mailmanager/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -57,12 +58,6 @@ from .literals import (
     SnsNotificationPayloadTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -362,7 +357,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -415,7 +410,7 @@ class DeregisterMemberFromAddressListRequestTypeDef(TypedDict):
 class EnvelopeTypeDef(TypedDict):
     Helo: NotRequired[str]
     From: NotRequired[str]
-    To: NotRequired[List[str]]
+    To: NotRequired[list[str]]
 
 class S3ExportDestinationConfigurationTypeDef(TypedDict):
     S3Location: NotRequired[str]
@@ -498,7 +493,7 @@ class GetRelayRequestTypeDef(TypedDict):
 
 class RelayAuthenticationOutputTypeDef(TypedDict):
     SecretArn: NotRequired[str]
-    NoAuthentication: NotRequired[Dict[str, Any]]
+    NoAuthentication: NotRequired[dict[str, Any]]
 
 class GetRuleSetRequestTypeDef(TypedDict):
     RuleSetId: str
@@ -512,7 +507,7 @@ class IngressAnalysisTypeDef(TypedDict):
 
 class IngressIsInAddressListOutputTypeDef(TypedDict):
     Attribute: Literal["RECIPIENT"]
-    AddressLists: List[str]
+    AddressLists: list[str]
 
 class IngressIpToEvaluateTypeDef(TypedDict):
     Attribute: NotRequired[Literal["SENDER_IP"]]
@@ -637,7 +632,7 @@ class RelayAuthenticationTypeDef(TypedDict):
     NoAuthentication: NotRequired[Mapping[str, Any]]
 
 class ReplaceRecipientActionOutputTypeDef(TypedDict):
-    ReplaceWith: NotRequired[List[str]]
+    ReplaceWith: NotRequired[list[str]]
 
 class ReplaceRecipientActionTypeDef(TypedDict):
     ReplaceWith: NotRequired[Sequence[str]]
@@ -662,11 +657,11 @@ class SnsActionTypeDef(TypedDict):
 
 class RuleIsInAddressListOutputTypeDef(TypedDict):
     Attribute: RuleAddressListEmailAttributeType
-    AddressLists: List[str]
+    AddressLists: list[str]
 
 class RuleDmarcExpressionOutputTypeDef(TypedDict):
     Operator: RuleDmarcOperatorType
-    Values: List[RuleDmarcPolicyType]
+    Values: list[RuleDmarcPolicyType]
 
 class RuleDmarcExpressionTypeDef(TypedDict):
     Operator: RuleDmarcOperatorType
@@ -727,7 +722,7 @@ class UpdateArchiveRequestTypeDef(TypedDict):
 class ArchiveStringExpressionOutputTypeDef(TypedDict):
     Evaluate: ArchiveStringToEvaluateTypeDef
     Operator: Literal["CONTAINS"]
-    Values: List[str]
+    Values: list[str]
 
 class ArchiveStringExpressionTypeDef(TypedDict):
     Evaluate: ArchiveStringToEvaluateTypeDef
@@ -835,27 +830,27 @@ class GetMemberOfAddressListResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAddonInstancesResponseTypeDef(TypedDict):
-    AddonInstances: List[AddonInstanceTypeDef]
+    AddonInstances: list[AddonInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAddonSubscriptionsResponseTypeDef(TypedDict):
-    AddonSubscriptions: List[AddonSubscriptionTypeDef]
+    AddonSubscriptions: list[AddonSubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAddressListsResponseTypeDef(TypedDict):
-    AddressLists: List[AddressListTypeDef]
+    AddressLists: list[AddressListTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListArchivesResponseTypeDef(TypedDict):
-    Archives: List[ArchiveTypeDef]
+    Archives: list[ArchiveTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartArchiveExportResponseTypeDef(TypedDict):
@@ -919,7 +914,7 @@ class RowTypeDef(TypedDict):
     Subject: NotRequired[str]
     MessageId: NotRequired[str]
     HasAttachments: NotRequired[bool]
-    ReceivedHeaders: NotRequired[List[str]]
+    ReceivedHeaders: NotRequired[list[str]]
     InReplyTo: NotRequired[str]
     XMailer: NotRequired[str]
     XOriginalMailer: NotRequired[str]
@@ -973,7 +968,7 @@ class IngressBooleanToEvaluateOutputTypeDef(TypedDict):
 class IngressIpv4ExpressionOutputTypeDef(TypedDict):
     Evaluate: IngressIpToEvaluateTypeDef
     Operator: IngressIpOperatorType
-    Values: List[str]
+    Values: list[str]
 
 class IngressIpv4ExpressionTypeDef(TypedDict):
     Evaluate: IngressIpToEvaluateTypeDef
@@ -983,7 +978,7 @@ class IngressIpv4ExpressionTypeDef(TypedDict):
 class IngressIpv6ExpressionOutputTypeDef(TypedDict):
     Evaluate: IngressIpv6ToEvaluateTypeDef
     Operator: IngressIpOperatorType
-    Values: List[str]
+    Values: list[str]
 
 class IngressIpv6ExpressionTypeDef(TypedDict):
     Evaluate: IngressIpv6ToEvaluateTypeDef
@@ -999,7 +994,7 @@ class IngressPointAuthConfigurationTypeDef(TypedDict):
     SecretArn: NotRequired[str]
 
 class ListIngressPointsResponseTypeDef(TypedDict):
-    IngressPoints: List[IngressPointTypeDef]
+    IngressPoints: list[IngressPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1050,22 +1045,22 @@ class ListTrafficPoliciesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMembersOfAddressListResponseTypeDef(TypedDict):
-    Addresses: List[SavedAddressTypeDef]
+    Addresses: list[SavedAddressTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRelaysResponseTypeDef(TypedDict):
-    Relays: List[RelayTypeDef]
+    Relays: list[RelayTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRuleSetsResponseTypeDef(TypedDict):
-    RuleSets: List[RuleSetTypeDef]
+    RuleSets: list[RuleSetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTrafficPoliciesResponseTypeDef(TypedDict):
-    TrafficPolicies: List[TrafficPolicyTypeDef]
+    TrafficPolicies: list[TrafficPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1081,7 +1076,7 @@ ReplaceRecipientActionUnionTypeDef = Union[
 ]
 
 class RuleActionOutputTypeDef(TypedDict):
-    Drop: NotRequired[Dict[str, Any]]
+    Drop: NotRequired[dict[str, Any]]
     Relay: NotRequired[RelayActionTypeDef]
     Archive: NotRequired[ArchiveActionTypeDef]
     WriteToS3: NotRequired[S3ActionTypeDef]
@@ -1104,7 +1099,7 @@ RuleDmarcExpressionUnionTypeDef = Union[
 class RuleIpExpressionOutputTypeDef(TypedDict):
     Evaluate: RuleIpToEvaluateTypeDef
     Operator: RuleIpOperatorType
-    Values: List[str]
+    Values: list[str]
 
 class RuleIpExpressionTypeDef(TypedDict):
     Evaluate: RuleIpToEvaluateTypeDef
@@ -1123,7 +1118,7 @@ class RuleNumberExpressionTypeDef(TypedDict):
 class RuleStringExpressionOutputTypeDef(TypedDict):
     Evaluate: RuleStringToEvaluateTypeDef
     Operator: RuleStringOperatorType
-    Values: List[str]
+    Values: list[str]
 
 class RuleStringExpressionTypeDef(TypedDict):
     Evaluate: RuleStringToEvaluateTypeDef
@@ -1133,7 +1128,7 @@ class RuleStringExpressionTypeDef(TypedDict):
 class RuleVerdictExpressionOutputTypeDef(TypedDict):
     Evaluate: RuleVerdictToEvaluateTypeDef
     Operator: RuleVerdictOperatorType
-    Values: List[RuleVerdictType]
+    Values: list[RuleVerdictType]
 
 class RuleVerdictExpressionTypeDef(TypedDict):
     Evaluate: RuleVerdictToEvaluateTypeDef
@@ -1149,28 +1144,28 @@ class ArchiveFilterConditionTypeDef(TypedDict):
     BooleanExpression: NotRequired[ArchiveBooleanExpressionTypeDef]
 
 class ListAddressListImportJobsResponseTypeDef(TypedDict):
-    ImportJobs: List[ImportJobTypeDef]
+    ImportJobs: list[ImportJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class GetArchiveSearchResultsResponseTypeDef(TypedDict):
-    Rows: List[RowTypeDef]
+    Rows: list[RowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListArchiveExportsResponseTypeDef(TypedDict):
-    Exports: List[ExportSummaryTypeDef]
+    Exports: list[ExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListArchiveSearchesResponseTypeDef(TypedDict):
-    Searches: List[SearchSummaryTypeDef]
+    Searches: list[SearchSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class IngressStringExpressionOutputTypeDef(TypedDict):
     Evaluate: IngressStringToEvaluateTypeDef
     Operator: IngressStringOperatorType
-    Values: List[str]
+    Values: list[str]
 
 class IngressStringExpressionTypeDef(TypedDict):
     Evaluate: IngressStringToEvaluateTypeDef
@@ -1270,8 +1265,8 @@ RuleVerdictExpressionUnionTypeDef = Union[
 ]
 
 class ArchiveFiltersOutputTypeDef(TypedDict):
-    Include: NotRequired[List[ArchiveFilterConditionOutputTypeDef]]
-    Unless: NotRequired[List[ArchiveFilterConditionOutputTypeDef]]
+    Include: NotRequired[list[ArchiveFilterConditionOutputTypeDef]]
+    Unless: NotRequired[list[ArchiveFilterConditionOutputTypeDef]]
 
 class ArchiveFiltersTypeDef(TypedDict):
     Include: NotRequired[Sequence[ArchiveFilterConditionTypeDef]]
@@ -1327,7 +1322,7 @@ class GetArchiveSearchResponseTypeDef(TypedDict):
 ArchiveFiltersUnionTypeDef = Union[ArchiveFiltersTypeDef, ArchiveFiltersOutputTypeDef]
 
 class PolicyStatementOutputTypeDef(TypedDict):
-    Conditions: List[PolicyConditionOutputTypeDef]
+    Conditions: list[PolicyConditionOutputTypeDef]
     Action: AcceptActionType
 
 class IngressBooleanExpressionTypeDef(TypedDict):
@@ -1335,10 +1330,10 @@ class IngressBooleanExpressionTypeDef(TypedDict):
     Operator: IngressBooleanOperatorType
 
 class RuleOutputTypeDef(TypedDict):
-    Actions: List[RuleActionOutputTypeDef]
+    Actions: list[RuleActionOutputTypeDef]
     Name: NotRequired[str]
-    Conditions: NotRequired[List[RuleConditionOutputTypeDef]]
-    Unless: NotRequired[List[RuleConditionOutputTypeDef]]
+    Conditions: NotRequired[list[RuleConditionOutputTypeDef]]
+    Unless: NotRequired[list[RuleConditionOutputTypeDef]]
 
 class RuleBooleanExpressionTypeDef(TypedDict):
     Evaluate: RuleBooleanToEvaluateUnionTypeDef
@@ -1364,7 +1359,7 @@ class GetTrafficPolicyResponseTypeDef(TypedDict):
     TrafficPolicyName: str
     TrafficPolicyId: str
     TrafficPolicyArn: str
-    PolicyStatements: List[PolicyStatementOutputTypeDef]
+    PolicyStatements: list[PolicyStatementOutputTypeDef]
     MaxMessageSizeBytes: int
     DefaultAction: AcceptActionType
     CreatedTimestamp: datetime
@@ -1381,7 +1376,7 @@ class GetRuleSetResponseTypeDef(TypedDict):
     RuleSetName: str
     CreatedDate: datetime
     LastModificationDate: datetime
-    Rules: List[RuleOutputTypeDef]
+    Rules: list[RuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 RuleBooleanExpressionUnionTypeDef = Union[

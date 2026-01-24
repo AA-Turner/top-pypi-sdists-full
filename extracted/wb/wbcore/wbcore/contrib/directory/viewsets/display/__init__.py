@@ -19,7 +19,7 @@ from .entries import (
 )
 from .relationships import (
     ClientManagerModelDisplay,
-    CMR_Color,
+    ClientManagerRelationshipColor,
     EmployerEmployeeRelationshipDisplayConfig,
     EmployeeEmployerDisplayConfig,
     EmployerEmployeeDisplayConfig,

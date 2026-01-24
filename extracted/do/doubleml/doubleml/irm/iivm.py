@@ -1,0 +1,746 @@
+import warnings
+from typing import Optional
+
+import numpy as np
+from scipy.stats import norm
+from sklearn.utils import check_X_y
+from sklearn.utils.multiclass import type_of_target
+
+from doubleml.data.base_data import DoubleMLData
+from doubleml.double_ml import DoubleML
+from doubleml.double_ml_score_mixins import LinearScoreMixin
+from doubleml.utils._checks import (
+    _check_binary_predictions,
+    _check_finite_predictions,
+    _check_is_propensity,
+    _check_score,
+)
+from doubleml.utils._estimation import _dml_cv_predict, _dml_tune, _get_cond_smpls, _solve_quadratic_inequality
+from doubleml.utils._propensity_score import _normalize_ipw
+from doubleml.utils._tune_optuna import _dml_tune_optuna
+from doubleml.utils.propensity_score_processing import PSProcessorConfig, init_ps_processor
+
+
+class DoubleMLIIVM(LinearScoreMixin, DoubleML):
+    """Double machine learning for interactive IV regression models
+
+    Parameters
+    ----------
+    obj_dml_data : :class:`DoubleMLData` object
+        The :class:`DoubleMLData` object providing the data and specifying the variables for the causal model.
+
+    ml_g : estimator implementing ``fit()`` and ``predict()``
+        A machine learner implementing ``fit()`` and ``predict()`` methods (e.g.
+        :py:class:`sklearn.ensemble.RandomForestRegressor`) for the nuisance function :math:`g_0(Z,X) = E[Y|X,Z]`.
+        For a binary outcome variable :math:`Y` (with values 0 and 1), a classifier implementing ``fit()`` and
+        ``predict_proba()`` can also be specified. If :py:func:`sklearn.base.is_classifier` returns ``True``,
+        ``predict_proba()`` is used otherwise ``predict()``.
+
+    ml_m : classifier implementing ``fit()`` and ``predict_proba()``
+        A machine learner implementing ``fit()`` and ``predict_proba()`` methods (e.g.
+        :py:class:`sklearn.ensemble.RandomForestClassifier`) for the nuisance function :math:`m_0(X) = E[Z|X]`.
+
+    ml_r : classifier implementing ``fit()`` and ``predict_proba()``
+        A machine learner implementing ``fit()`` and ``predict_proba()`` methods (e.g.
+        :py:class:`sklearn.ensemble.RandomForestClassifier`) for the nuisance function :math:`r_0(Z,X) = E[D|X,Z]`.
+
+    n_folds : int
+        Number of folds.
+        Default is ``5``.
+
+    n_rep : int
+        Number of repetitions for the sample splitting.
+        Default is ``1``.
+
+    score : str or callable
+        A str (``'LATE'`` is the only choice) specifying the score function
+        or a callable object / function with signature
+        ``psi_a, psi_b = score(y, z, d, g_hat0, g_hat1, m_hat, r_hat0, r_hat1, smpls)``.
+        Default is ``'LATE'``.
+
+    subgroups: dict or None
+        Dictionary with options to adapt to cases with and without the subgroups of always-takers and never-takes. The
+        logical item ``always_takers`` speficies whether there are always takers in the sample. The logical item
+        ``never_takers`` speficies whether there are never takers in the sample.
+        Default is ``{'always_takers': True, 'never_takers': True}``.
+
+    normalize_ipw : bool
+        Indicates whether the inverse probability weights are normalized.
+        Default is ``False``.
+
+    trimming_rule : str, optional, deprecated
+        (DEPRECATED) A str (``'truncate'`` is the only choice) specifying the trimming approach.
+        Use `ps_processor_config` instead. Will be removed in a future version.
+
+    trimming_threshold : float, optional, deprecated
+        (DEPRECATED) The threshold used for trimming.
+        Use `ps_processor_config` instead. Will be removed in a future version.
+
+    ps_processor_config : PSProcessorConfig, optional
+        Configuration for propensity score processing (clipping, calibration, etc.).
+
+    draw_sample_splitting : bool
+        Indicates whether the sample splitting should be drawn during initialization of the object.
+        Default is ``True``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import doubleml as dml
+    >>> from doubleml.irm.datasets import make_iivm_data
+    >>> from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+    >>> np.random.seed(3141)
+    >>> ml_g = RandomForestRegressor(n_estimators=100, max_features=20, max_depth=5, min_samples_leaf=2)
+    >>> ml_m = RandomForestClassifier(n_estimators=100, max_features=20, max_depth=5, min_samples_leaf=2)
+    >>> ml_r = RandomForestClassifier(n_estimators=100, max_features=20, max_depth=5, min_samples_leaf=2)
+    >>> data = make_iivm_data(theta=0.5, n_obs=1000, dim_x=20, alpha_x=1.0, return_type='DataFrame')
+    >>> obj_dml_data = dml.DoubleMLData(data, 'y', 'd', z_cols='z')
+    >>> dml_iivm_obj = dml.DoubleMLIIVM(obj_dml_data, ml_g, ml_m, ml_r)
+    >>> dml_iivm_obj.fit().summary  # doctest: +SKIP
+           coef   std err         t     P>|t|     2.5 %    97.5 %
+    d  0.362398  0.191578  1.891649  0.058538 -0.013088  0.737884
+
+    Notes
+    -----
+    **Interactive IV regression (IIVM)** models take the form
+
+    .. math::
+
+        Y = \\ell_0(D, X) + \\zeta, & &\\mathbb{E}(\\zeta | Z, X) = 0,
+
+        Z = m_0(X) + V, & &\\mathbb{E}(V | X) = 0,
+
+    where the treatment variable is binary, :math:`D \\in \\lbrace 0,1 \\rbrace`
+    and the instrument is binary, :math:`Z \\in \\lbrace 0,1 \\rbrace`.
+    Consider the functions :math:`g_0`, :math:`r_0` and :math:`m_0`, where :math:`g_0` maps the support of :math:`(Z,X)` to
+    :math:`\\mathbb{R}` and :math:`r_0` and :math:`m_0` respectively map the support of :math:`(Z,X)` and :math:`X` to
+    :math:`(\\varepsilon, 1-\\varepsilon)` for some :math:`\\varepsilon \\in (0, 1/2)`, such that
+
+    .. math::
+
+        Y = g_0(Z, X) + \\nu, & &\\mathbb{E}(\\nu| Z, X) = 0,
+
+        D = r_0(Z, X) + U, & &\\mathbb{E}(U | Z, X) = 0,
+
+        Z = m_0(X) + V, & &\\mathbb{E}(V | X) = 0.
+
+    The target parameter of interest in this model is the local average treatment effect (LATE),
+
+    .. math::
+
+        \\theta_0 = \\frac{\\mathbb{E}[g_0(1, X)] - \\mathbb{E}[g_0(0,X)]}{\\mathbb{E}[r_0(1, X)] - \\mathbb{E}[r_0(0,X)]}.
+    """
+
+    def __init__(
+        self,
+        obj_dml_data,
+        ml_g,
+        ml_m,
+        ml_r,
+        n_folds=5,
+        n_rep=1,
+        score="LATE",
+        subgroups=None,
+        normalize_ipw=False,
+        trimming_rule="truncate",  # TODO [v0.12.0]: Remove support for 'trimming_rule' and 'trimming_threshold' (deprecated).
+        trimming_threshold=1e-2,  # TODO [v0.12.0]: Remove support for 'trimming_rule' and 'trimming_threshold' (deprecated).
+        ps_processor_config: Optional[PSProcessorConfig] = None,
+        draw_sample_splitting=True,
+    ):
+        super().__init__(obj_dml_data, n_folds, n_rep, score, draw_sample_splitting)
+
+        self._check_data(self._dml_data)
+        self._is_cluster_data = self._dml_data.is_cluster_data
+        valid_scores = ["LATE"]
+        _check_score(self.score, valid_scores, allow_callable=True)
+
+        # set stratication for resampling
+        self._strata = self._dml_data.d.reshape(-1, 1) + 2 * self._dml_data.z.reshape(-1, 1)
+        if draw_sample_splitting:
+            self.draw_sample_splitting()
+
+        ml_g_is_classifier = self._check_learner(ml_g, "ml_g", regressor=True, classifier=True)
+        _ = self._check_learner(ml_m, "ml_m", regressor=False, classifier=True)
+        _ = self._check_learner(ml_r, "ml_r", regressor=False, classifier=True)
+        self._learner = {"ml_g": ml_g, "ml_m": ml_m, "ml_r": ml_r}
+        self._normalize_ipw = normalize_ipw
+        if ml_g_is_classifier:
+            if obj_dml_data.binary_outcome:
+                self._predict_method = {"ml_g": "predict_proba", "ml_m": "predict_proba", "ml_r": "predict_proba"}
+            else:
+                raise ValueError(
+                    f"The ml_g learner {str(ml_g)} was identified as classifier "
+                    "but the outcome variable is not binary with values 0 and 1."
+                )
+        else:
+            self._predict_method = {"ml_g": "predict", "ml_m": "predict_proba", "ml_r": "predict_proba"}
+        self._initialize_ml_nuisance_params()
+
+        if not isinstance(self.normalize_ipw, bool):
+            raise TypeError(
+                "Normalization indicator has to be boolean. " + f"Object of type {str(type(self.normalize_ipw))} passed."
+            )
+
+        # TODO [v0.12.0]: Remove support for 'trimming_rule' and 'trimming_threshold' (deprecated).
+        self._ps_processor_config, self._ps_processor = init_ps_processor(
+            ps_processor_config, trimming_rule, trimming_threshold
+        )
+        self._trimming_rule = trimming_rule
+        self._trimming_threshold = self._ps_processor.clipping_threshold
+
+        if subgroups is None:
+            # this is the default for subgroups; via None to prevent a mutable default argument
+            subgroups = {"always_takers": True, "never_takers": True}
+        else:
+            if not isinstance(subgroups, dict):
+                raise TypeError("Invalid subgroups " + str(subgroups) + ". " + "subgroups must be of type dictionary.")
+            if (not all(k in subgroups for k in ["always_takers", "never_takers"])) | (
+                not all(k in ["always_takers", "never_takers"] for k in subgroups)
+            ):
+                raise ValueError(
+                    "Invalid subgroups "
+                    + str(subgroups)
+                    + ". "
+                    + "subgroups must be a dictionary with keys always_takers and never_takers."
+                )
+            if not isinstance(subgroups["always_takers"], bool):
+                raise TypeError(f"subgroups['always_takers'] must be True or False. Got {str(subgroups['always_takers'])}.")
+            if not isinstance(subgroups["never_takers"], bool):
+                raise TypeError(f"subgroups['never_takers'] must be True or False. Got {str(subgroups['never_takers'])}.")
+        self.subgroups = subgroups
+        self._external_predictions_implemented = True
+
+    def _format_additional_info_str(self):
+        if self.framework is None:
+            return ""
+        else:
+            confset = self.robust_confset()
+            formatted_confset = ", ".join([f"[{lower:.4f}, {upper:.4f}]" for lower, upper in confset])
+            return f"Robust Confidence Set: {formatted_confset}"
+
+    @property
+    def normalize_ipw(self):
+        """
+        Indicates whether the inverse probability weights are normalized.
+        """
+        return self._normalize_ipw
+
+    @property
+    def ps_processor_config(self):
+        """
+        Configuration for propensity score processing (clipping, calibration, etc.).
+        """
+        return self._ps_processor_config
+
+    @property
+    def ps_processor(self):
+        """
+        Propensity score processor.
+        """
+        return self._ps_processor
+
+    # TODO [v0.12.0]: Remove support for 'trimming_rule' and 'trimming_threshold' (deprecated).
+    @property
+    def trimming_rule(self):
+        """
+        Specifies the used trimming rule.
+        """
+        warnings.warn(
+            "'trimming_rule' is deprecated and will be removed in a future version. ", DeprecationWarning, stacklevel=2
+        )
+        return self._trimming_rule
+
+    # TODO [v0.12.0]: Remove support for 'trimming_rule' and 'trimming_threshold' (deprecated).
+    @property
+    def trimming_threshold(self):
+        """
+        Specifies the used trimming threshold.
+        """
+        warnings.warn(
+            "'trimming_threshold' is deprecated and will be removed in a future version. "
+            "Use 'ps_processor_config.clipping_threshold' or 'ps_processor.clipping_threshold' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ps_processor.clipping_threshold
+
+    def _initialize_ml_nuisance_params(self):
+        valid_learner = ["ml_g0", "ml_g1", "ml_m", "ml_r0", "ml_r1"]
+        self._params = {learner: {key: [None] * self.n_rep for key in self._dml_data.d_cols} for learner in valid_learner}
+
+    def _check_data(self, obj_dml_data):
+        if not isinstance(obj_dml_data, DoubleMLData):
+            raise TypeError(
+                f"The data must be of DoubleMLData type. {str(obj_dml_data)} of type {str(type(obj_dml_data))} was passed."
+            )
+        one_treat = obj_dml_data.n_treat == 1
+        binary_treat = type_of_target(obj_dml_data.d) == "binary"
+        zero_one_treat = np.all((np.power(obj_dml_data.d, 2) - obj_dml_data.d) == 0)
+        if not (one_treat & binary_treat & zero_one_treat):
+            raise ValueError(
+                "Incompatible data. "
+                "To fit an IIVM model with DML "
+                "exactly one binary variable with values 0 and 1 "
+                "needs to be specified as treatment variable."
+            )
+        one_instr = obj_dml_data.n_instr == 1
+        err_msg = (
+            "Incompatible data. "
+            "To fit an IIVM model with DML "
+            "exactly one binary variable with values 0 and 1 "
+            "needs to be specified as instrumental variable."
+        )
+        if one_instr:
+            binary_instr = type_of_target(obj_dml_data.z) == "binary"
+            zero_one_instr = np.all((np.power(obj_dml_data.z, 2) - obj_dml_data.z) == 0)
+            if not (one_instr & binary_instr & zero_one_instr):
+                raise ValueError(err_msg)
+        else:
+            raise ValueError(err_msg)
+        return
+
+    def _nuisance_est(self, smpls, n_jobs_cv, external_predictions, return_models=False):
+        x, y = check_X_y(self._dml_data.x, self._dml_data.y, ensure_all_finite=False)
+        x, z = check_X_y(x, np.ravel(self._dml_data.z), ensure_all_finite=False)
+        x, d = check_X_y(x, self._dml_data.d, ensure_all_finite=False)
+
+        # get train indices for z == 0 and z == 1
+        smpls_z0, smpls_z1 = _get_cond_smpls(smpls, z)
+
+        # nuisance g
+        if external_predictions["ml_g0"] is not None:
+            g_hat0 = {"preds": external_predictions["ml_g0"], "targets": None, "models": None}
+        else:
+            g_hat0 = _dml_cv_predict(
+                self._learner["ml_g"],
+                x,
+                y,
+                smpls=smpls_z0,
+                n_jobs=n_jobs_cv,
+                est_params=self._get_params("ml_g0"),
+                method=self._predict_method["ml_g"],
+                return_models=return_models,
+            )
+            _check_finite_predictions(g_hat0["preds"], self._learner["ml_g"], "ml_g", smpls)
+            # adjust target values to consider only compatible subsamples
+            g_hat0["targets"] = g_hat0["targets"].astype(float)
+            g_hat0["targets"][z == 1] = np.nan
+
+        if self._dml_data.binary_outcome:
+            _check_binary_predictions(g_hat0["preds"], self._learner["ml_g"], "ml_g", self._dml_data.y_col)
+            _check_is_propensity(g_hat0["preds"], self._learner["ml_g"], "ml_g", smpls, eps=1e-12)
+
+        if external_predictions["ml_g1"] is not None:
+            g_hat1 = {"preds": external_predictions["ml_g1"], "targets": None, "models": None}
+        else:
+            g_hat1 = _dml_cv_predict(
+                self._learner["ml_g"],
+                x,
+                y,
+                smpls=smpls_z1,
+                n_jobs=n_jobs_cv,
+                est_params=self._get_params("ml_g1"),
+                method=self._predict_method["ml_g"],
+                return_models=return_models,
+            )
+            _check_finite_predictions(g_hat1["preds"], self._learner["ml_g"], "ml_g", smpls)
+            # adjust target values to consider only compatible subsamples
+            g_hat1["targets"] = g_hat1["targets"].astype(float)
+            g_hat1["targets"][z == 0] = np.nan
+
+        if self._dml_data.binary_outcome:
+            _check_binary_predictions(g_hat1["preds"], self._learner["ml_g"], "ml_g", self._dml_data.y_col)
+            _check_is_propensity(g_hat1["preds"], self._learner["ml_g"], "ml_g", smpls, eps=1e-12)
+
+        # nuisance m
+        if external_predictions["ml_m"] is not None:
+            m_hat = {"preds": external_predictions["ml_m"], "targets": None, "models": None}
+        else:
+            m_hat = _dml_cv_predict(
+                self._learner["ml_m"],
+                x,
+                z,
+                smpls=smpls,
+                n_jobs=n_jobs_cv,
+                est_params=self._get_params("ml_m"),
+                method=self._predict_method["ml_m"],
+                return_models=return_models,
+            )
+            _check_finite_predictions(m_hat["preds"], self._learner["ml_m"], "ml_m", smpls)
+
+        m_hat["preds"] = self._ps_processor.adjust_ps(m_hat["preds"], z, cv=smpls)
+
+        # nuisance r
+        r0 = external_predictions["ml_r0"] is not None
+        if self.subgroups["always_takers"]:
+            if r0:
+                r_hat0 = {"preds": external_predictions["ml_r0"], "targets": None, "models": None}
+            else:
+                r_hat0 = _dml_cv_predict(
+                    self._learner["ml_r"],
+                    x,
+                    d,
+                    smpls=smpls_z0,
+                    n_jobs=n_jobs_cv,
+                    est_params=self._get_params("ml_r0"),
+                    method=self._predict_method["ml_r"],
+                    return_models=return_models,
+                )
+        else:
+            r_hat0 = {"preds": np.zeros_like(d), "targets": np.zeros_like(d), "models": None}
+        if not r0:
+            _check_finite_predictions(r_hat0["preds"], self._learner["ml_r"], "ml_r", smpls)
+            # adjust target values to consider only compatible subsamples
+            r_hat0["targets"] = r_hat0["targets"].astype(float)
+            r_hat0["targets"][z == 1] = np.nan
+
+        r1 = external_predictions["ml_r1"] is not None
+        if self.subgroups["never_takers"]:
+            if r1:
+                r_hat1 = {"preds": external_predictions["ml_r1"], "targets": None, "models": None}
+            else:
+                r_hat1 = _dml_cv_predict(
+                    self._learner["ml_r"],
+                    x,
+                    d,
+                    smpls=smpls_z1,
+                    n_jobs=n_jobs_cv,
+                    est_params=self._get_params("ml_r1"),
+                    method=self._predict_method["ml_r"],
+                    return_models=return_models,
+                )
+        else:
+            r_hat1 = {"preds": np.ones_like(d), "targets": np.ones_like(d), "models": None}
+        if not r1:
+            _check_finite_predictions(r_hat1["preds"], self._learner["ml_r"], "ml_r", smpls)
+            # adjust target values to consider only compatible subsamples
+            r_hat1["targets"] = r_hat1["targets"].astype(float)
+            r_hat1["targets"][z == 0] = np.nan
+
+        psi_a, psi_b = self._score_elements(
+            y, z, d, g_hat0["preds"], g_hat1["preds"], m_hat["preds"], r_hat0["preds"], r_hat1["preds"], smpls
+        )
+        psi_elements = {"psi_a": psi_a, "psi_b": psi_b}
+        preds = {
+            "predictions": {
+                "ml_g0": g_hat0["preds"],
+                "ml_g1": g_hat1["preds"],
+                "ml_m": m_hat["preds"],
+                "ml_r0": r_hat0["preds"],
+                "ml_r1": r_hat1["preds"],
+            },
+            "targets": {
+                "ml_g0": g_hat0["targets"],
+                "ml_g1": g_hat1["targets"],
+                "ml_m": m_hat["targets"],
+                "ml_r0": r_hat0["targets"],
+                "ml_r1": r_hat1["targets"],
+            },
+            "models": {
+                "ml_g0": g_hat0["models"],
+                "ml_g1": g_hat1["models"],
+                "ml_m": m_hat["models"],
+                "ml_r0": r_hat0["models"],
+                "ml_r1": r_hat1["models"],
+            },
+        }
+
+        return psi_elements, preds
+
+    def _score_elements(self, y, z, d, g_hat0, g_hat1, m_hat, r_hat0, r_hat1, smpls):
+        # compute residuals
+        u_hat0 = y - g_hat0
+        u_hat1 = y - g_hat1
+        w_hat0 = d - r_hat0
+        w_hat1 = d - r_hat1
+
+        if self.normalize_ipw:
+            m_hat_adj = _normalize_ipw(m_hat, d)
+        else:
+            m_hat_adj = m_hat
+
+        if isinstance(self.score, str):
+            assert self.score == "LATE"
+            psi_b = (
+                g_hat1
+                - g_hat0
+                + np.divide(np.multiply(z, u_hat1), m_hat_adj)
+                - np.divide(np.multiply(1.0 - z, u_hat0), 1.0 - m_hat_adj)
+            )
+            psi_a = -1 * (
+                r_hat1
+                - r_hat0
+                + np.divide(np.multiply(z, w_hat1), m_hat_adj)
+                - np.divide(np.multiply(1.0 - z, w_hat0), 1.0 - m_hat_adj)
+            )
+        else:
+            assert callable(self.score)
+            psi_a, psi_b = self.score(
+                y=y, z=z, d=d, g_hat0=g_hat0, g_hat1=g_hat1, m_hat=m_hat_adj, r_hat0=r_hat0, r_hat1=r_hat1, smpls=smpls
+            )
+
+        return psi_a, psi_b
+
+    def _nuisance_tuning(
+        self, smpls, param_grids, scoring_methods, n_folds_tune, n_jobs_cv, search_mode, n_iter_randomized_search
+    ):
+        x, y = check_X_y(self._dml_data.x, self._dml_data.y, ensure_all_finite=False)
+        x, z = check_X_y(x, np.ravel(self._dml_data.z), ensure_all_finite=False)
+        x, d = check_X_y(x, self._dml_data.d, ensure_all_finite=False)
+
+        # get train indices for z == 0 and z == 1
+        smpls_z0, smpls_z1 = _get_cond_smpls(smpls, z)
+
+        if scoring_methods is None:
+            scoring_methods = {"ml_g": None, "ml_m": None, "ml_r": None}
+
+        train_inds = [train_index for (train_index, _) in smpls]
+        train_inds_z0 = [train_index for (train_index, _) in smpls_z0]
+        train_inds_z1 = [train_index for (train_index, _) in smpls_z1]
+
+        g0_tune_res = _dml_tune(
+            y,
+            x,
+            train_inds_z0,
+            self._learner["ml_g"],
+            param_grids["ml_g"],
+            scoring_methods["ml_g"],
+            n_folds_tune,
+            n_jobs_cv,
+            search_mode,
+            n_iter_randomized_search,
+        )
+        g1_tune_res = _dml_tune(
+            y,
+            x,
+            train_inds_z1,
+            self._learner["ml_g"],
+            param_grids["ml_g"],
+            scoring_methods["ml_g"],
+            n_folds_tune,
+            n_jobs_cv,
+            search_mode,
+            n_iter_randomized_search,
+        )
+        m_tune_res = _dml_tune(
+            z,
+            x,
+            train_inds,
+            self._learner["ml_m"],
+            param_grids["ml_m"],
+            scoring_methods["ml_m"],
+            n_folds_tune,
+            n_jobs_cv,
+            search_mode,
+            n_iter_randomized_search,
+        )
+
+        if self.subgroups["always_takers"]:
+            r0_tune_res = _dml_tune(
+                d,
+                x,
+                train_inds_z0,
+                self._learner["ml_r"],
+                param_grids["ml_r"],
+                scoring_methods["ml_r"],
+                n_folds_tune,
+                n_jobs_cv,
+                search_mode,
+                n_iter_randomized_search,
+            )
+            r0_best_params = [xx.best_params_ for xx in r0_tune_res]
+        else:
+            r0_tune_res = None
+            r0_best_params = [None] * len(smpls)
+        if self.subgroups["never_takers"]:
+            r1_tune_res = _dml_tune(
+                d,
+                x,
+                train_inds_z1,
+                self._learner["ml_r"],
+                param_grids["ml_r"],
+                scoring_methods["ml_r"],
+                n_folds_tune,
+                n_jobs_cv,
+                search_mode,
+                n_iter_randomized_search,
+            )
+            r1_best_params = [xx.best_params_ for xx in r1_tune_res]
+        else:
+            r1_tune_res = None
+            r1_best_params = [None] * len(smpls)
+
+        g0_best_params = [xx.best_params_ for xx in g0_tune_res]
+        g1_best_params = [xx.best_params_ for xx in g1_tune_res]
+        m_best_params = [xx.best_params_ for xx in m_tune_res]
+
+        params = {
+            "ml_g0": g0_best_params,
+            "ml_g1": g1_best_params,
+            "ml_m": m_best_params,
+            "ml_r0": r0_best_params,
+            "ml_r1": r1_best_params,
+        }
+
+        tune_res = {
+            "g0_tune": g0_tune_res,
+            "g1_tune": g1_tune_res,
+            "m_tune": m_tune_res,
+            "r0_tune": r0_tune_res,
+            "r1_tune": r1_tune_res,
+        }
+
+        res = {"params": params, "tune_res": tune_res}
+
+        return res
+
+    def _nuisance_tuning_optuna(
+        self,
+        optuna_params,
+        scoring_methods,
+        cv,
+        optuna_settings,
+    ):
+        """
+        Optuna-based hyperparameter tuning for IIVM nuisance models.
+
+        Performs tuning once on the whole dataset using cross-validation,
+        returning the same optimal parameters for all folds.
+        """
+
+        x, y = check_X_y(self._dml_data.x, self._dml_data.y, ensure_all_finite=False)
+        x, z = check_X_y(x, np.ravel(self._dml_data.z), ensure_all_finite=False)
+        x, d = check_X_y(x, self._dml_data.d, ensure_all_finite=False)
+
+        if scoring_methods is None:
+            scoring_methods = {"ml_g0": None, "ml_g1": None, "ml_m": None, "ml_r0": None, "ml_r1": None}
+
+        # Separate data by instrument status for conditional mean tuning
+        mask_z0 = z == 0
+        mask_z1 = z == 1
+
+        x_z0 = x[mask_z0, :]
+        y_z0 = y[mask_z0]
+        g0_tune_res = _dml_tune_optuna(
+            y_z0,
+            x_z0,
+            self._learner["ml_g"],
+            optuna_params["ml_g0"],
+            scoring_methods["ml_g0"],
+            cv,
+            optuna_settings,
+            learner_name="ml_g",
+            params_name="ml_g0",
+        )
+
+        x_z1 = x[mask_z1, :]
+        y_z1 = y[mask_z1]
+        g1_tune_res = _dml_tune_optuna(
+            y_z1,
+            x_z1,
+            self._learner["ml_g"],
+            optuna_params["ml_g1"],
+            scoring_methods["ml_g1"],
+            cv,
+            optuna_settings,
+            learner_name="ml_g",
+            params_name="ml_g1",
+        )
+
+        # Tune propensity score on full dataset
+        m_tune_res = _dml_tune_optuna(
+            z,
+            x,
+            self._learner["ml_m"],
+            optuna_params["ml_m"],
+            scoring_methods["ml_m"],
+            cv,
+            optuna_settings,
+            learner_name="ml_m",
+            params_name="ml_m",
+        )
+
+        r0_tune_res = None
+        r1_tune_res = None
+        if self.subgroups["always_takers"]:
+            d_z0 = d[mask_z0]
+            r0_tune_res = _dml_tune_optuna(
+                d_z0,
+                x_z0,
+                self._learner["ml_r"],
+                optuna_params["ml_r0"],
+                scoring_methods["ml_r0"],
+                cv,
+                optuna_settings,
+                learner_name="ml_r",
+                params_name="ml_r0",
+            )
+
+        if self.subgroups["never_takers"]:
+            d_z1 = d[mask_z1]
+            r1_tune_res = _dml_tune_optuna(
+                d_z1,
+                x_z1,
+                self._learner["ml_r"],
+                optuna_params["ml_r1"],
+                scoring_methods["ml_r1"],
+                cv,
+                optuna_settings,
+                learner_name="ml_r",
+                params_name="ml_r1",
+            )
+
+        results = {
+            "ml_g0": g0_tune_res,
+            "ml_g1": g1_tune_res,
+            "ml_m": m_tune_res,
+            "ml_r0": r0_tune_res,
+            "ml_r1": r1_tune_res,
+        }
+
+        return results
+
+    def _sensitivity_element_est(self, preds):
+        pass
+
+    def robust_confset(self, level=0.95):
+        """
+        Confidence sets for non-parametric instrumental variable models that are uniformly valid under weak instruments.
+        These are obtained by inverting a score-like test statistic based on estimated influence function.
+
+        Parameters
+        ----------
+        level : float
+            The confidence level.
+            Default is ``0.95``.
+
+        Returns
+        -------
+        list_confset : List
+            A list that contains tuples. Each tuple contains the lower and upper
+            bounds of an interval. The union of this intervals forms the confidence set.
+        """
+
+        if self.framework is None:
+            raise ValueError("Apply fit() before robust_confset().")
+        if not isinstance(level, float):
+            raise TypeError(f"The confidence level must be of float type. {str(level)} of type {str(type(level))} was passed.")
+        if (level <= 0) | (level >= 1):
+            raise ValueError(f"The confidence level must be in (0,1). {str(level)} was passed.")
+
+        # compute critical values
+        alpha = 1 - level
+        critical_value = norm.ppf(1.0 - alpha / 2)
+
+        # We need to find the thetas that solve the equation
+        # n * np.mean(score(theta))/np.mean(score(theta)**2) <= critical_value**2.
+        # This is equivalent to solving the equation
+        # a theta^2 + b theta + c <= 0
+        # for some a, b, c, which we calculate next, and then solve the equation.
+        n = self.psi_elements["psi_a"].shape[0]
+        a = n * np.mean(self.psi_elements["psi_a"]) ** 2 - critical_value**2 * np.mean(np.square(self.psi_elements["psi_a"]))
+        b = 2 * n * np.mean(self.psi_elements["psi_a"]) * np.mean(
+            self.psi_elements["psi_b"]
+        ) - 2 * critical_value**2 * np.mean(np.multiply(self.psi_elements["psi_a"], self.psi_elements["psi_b"]))
+        c = n * np.mean(self.psi_elements["psi_b"]) ** 2 - critical_value**2 * np.mean(np.square(self.psi_elements["psi_b"]))
+        return _solve_quadratic_inequality(a, b, c)

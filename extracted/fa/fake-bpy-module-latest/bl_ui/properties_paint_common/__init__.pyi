@@ -7,9 +7,9 @@ import bpy.types
 
 class BrushAssetShelf:
     bl_activate_operator: typing.Any
-    bl_default_preview_size: typing.Any
     bl_options: typing.Any
     brush_type_prop: typing.Any
+    filter_brush: typing.Any
     mode_prop: typing.Any
 
     @classmethod
@@ -87,6 +87,28 @@ class UnifiedPaintPanel:
         """
 
     @staticmethod
+    def prop_custom_pressure(
+        layout,
+        context,
+        parent_row,
+        brush,
+        *,
+        pressure_name,
+        curve_visibility_name,
+        custom_curve_name,
+    ) -> None:
+        """
+
+        :param layout:
+        :param context:
+        :param parent_row:
+        :param brush:
+        :param pressure_name:
+        :param curve_visibility_name:
+        :param custom_curve_name:
+        """
+
+    @staticmethod
     def prop_unified(
         layout,
         context,
@@ -95,8 +117,6 @@ class UnifiedPaintPanel:
         unified_paint_settings_override=None,
         unified_name=None,
         pressure_name=None,
-        curve_visibility_name=None,
-        icon="NONE",
         text=None,
         slider=False,
         header=False,
@@ -112,8 +132,6 @@ class UnifiedPaintPanel:
                 :param unified_paint_settings_override:
                 :param unified_name:
                 :param pressure_name:
-                :param curve_visibility_name:
-                :param icon:
                 :param text:
                 :param slider:
                 :param header:
@@ -152,14 +170,12 @@ class VIEW3D_MT_tools_projectpaint_clone(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -180,14 +196,12 @@ class VIEW3D_PT_brush_asset_shelf_filter(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -344,9 +358,6 @@ class TextureMaskPanel(BrushPanel):
         """
 
 def brush_basic__draw_color_selector(context, layout, brush, gp_settings) -> None: ...
-def brush_basic_gpencil_vertex_settings(
-    layout, context, brush, *, compact=False
-) -> None: ...
 def brush_basic_grease_pencil_paint_settings(
     layout, context, brush, props, *, compact=False
 ) -> None: ...

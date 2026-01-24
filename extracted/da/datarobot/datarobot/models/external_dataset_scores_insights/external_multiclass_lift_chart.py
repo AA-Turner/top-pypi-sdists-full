@@ -59,7 +59,8 @@ class ExternalMulticlassLiftChart(APIObject):
     _path = "projects/{project_id}/models/{model_id}/datasetMulticlassLiftCharts/"
 
     _converter = (
-        t.Dict({t.Key("dataset_id"): String(), t.Key("target_class"): String()})
+        t
+        .Dict({t.Key("dataset_id"): String(), t.Key("target_class"): String()})
         .merge(LiftChartBinsTrafaret)
         .ignore_extra("*")
     )

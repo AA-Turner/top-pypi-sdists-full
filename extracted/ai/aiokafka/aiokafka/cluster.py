@@ -4,7 +4,6 @@ import logging
 import threading
 import time
 from concurrent.futures import Future
-from typing import Optional
 
 from aiokafka import errors as Errors
 from aiokafka.conn import collect_hosts
@@ -18,7 +17,7 @@ class ClusterMetadata:
     A class to manage kafka cluster metadata.
 
     This class does not perform any IO. It simply updates internal state
-    given API responses (MetadataResponse, GroupCoordinatorResponse).
+    given API responses (MetadataResponse, FindCoordinatorResponse).
 
     Keyword Arguments:
         retry_backoff_ms (int): Milliseconds to backoff when retrying on
@@ -104,7 +103,7 @@ class ClusterMetadata:
             or self._coordinator_brokers.get(broker_id)
         )
 
-    def partitions_for_topic(self, topic: str) -> Optional[set[int]]:
+    def partitions_for_topic(self, topic: str) -> set[int] | None:
         """Return set of all partitions for topic (whether available or not)
 
         Arguments:
@@ -332,8 +331,8 @@ class ClusterMetadata:
         """Update with metadata for a group coordinator
 
         Arguments:
-            group (str): name of group from GroupCoordinatorRequest
-            response (GroupCoordinatorResponse): broker response
+            group (str): name of group from FindCoordinatorRequest
+            response (FindCoordinatorResponse): broker response
 
         Returns:
             string: coordinator node_id if metadata is updated, None on error
@@ -341,7 +340,7 @@ class ClusterMetadata:
         log.debug("Updating coordinator for %s: %s", group, response)
         error_type = Errors.for_code(response.error_code)
         if error_type is not Errors.NoError:
-            log.error("GroupCoordinatorResponse error: %s", error_type)
+            log.error("FindCoordinatorResponse error: %s", error_type)
             self._groups[group] = -1
             return None
 
@@ -391,8 +390,7 @@ class ClusterMetadata:
         self._coordinator_by_key[purpose] = node_id
 
     def __str__(self):
-        return "ClusterMetadata(brokers: %d, topics: %d, groups: %d)" % (
-            len(self._brokers),
-            len(self._partitions),
-            len(self._groups),
+        return (
+            f"ClusterMetadata(brokers: {len(self._brokers)}, topics: "
+            f"{len(self._partitions)}, groups: {len(self._groups)})"
         )

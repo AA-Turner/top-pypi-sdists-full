@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2022, 2024.
+# (C) Copyright IBM 2022, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -9,7 +9,7 @@
 # Any modifications or derivative works of this code must retain this
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
-""" Test Neural Network Regressor """
+"""Test Neural Network Regressor"""
 from __future__ import annotations
 
 import itertools
@@ -25,7 +25,7 @@ from ddt import ddt, unpack, idata
 from scipy.optimize import minimize
 
 from qiskit.circuit import Parameter, QuantumCircuit
-from qiskit.circuit.library import ZZFeatureMap, RealAmplitudes
+from qiskit.circuit.library import zz_feature_map, real_amplitudes
 
 from qiskit_machine_learning.optimizers import COBYLA, L_BFGS_B, SPSA
 from qiskit_machine_learning.utils import algorithm_globals
@@ -90,7 +90,10 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
 
         # construct QNN
         regression_estimator_qnn = EstimatorQNN(
-            circuit=qc, input_params=feature_map.parameters, weight_params=ansatz.parameters
+            circuit=qc,
+            input_params=feature_map.parameters,
+            weight_params=ansatz.parameters,
+            default_precision=0.001,
         )
 
         initial_point = np.zeros(ansatz.num_parameters)
@@ -167,9 +170,10 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
         features = np.array([[0, 0], [0.1, 0.1], [0.4, 0.4], [1, 1]])
         labels = np.array([0, 0.1, 0.4, 1])
         num_inputs = 2
+        default_precision = 0.001
 
-        feature_map = ZZFeatureMap(num_inputs)
-        ansatz = RealAmplitudes(num_inputs)
+        feature_map = zz_feature_map(num_inputs)
+        ansatz = real_amplitudes(num_inputs)
         qc = QuantumCircuit(num_inputs)
         qc.compose(feature_map, inplace=True)
         qc.compose(ansatz, inplace=True)
@@ -178,6 +182,7 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
             circuit=qc,
             input_params=feature_map.parameters,
             weight_params=ansatz.parameters,
+            default_precision=default_precision,
         )
         regressor = NeuralNetworkRegressor(qnn, optimizer=COBYLA())
         regressor.fit(features, labels)
@@ -189,12 +194,14 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
         # save/load, change the quantum instance and check if predicted values are the same
         with tempfile.TemporaryDirectory() as dir_name:
             file_name = os.path.join(dir_name, "regressor.model")
-            regressor.save(file_name)
+            regressor.to_dill(file_name)
 
-            regressor_load = NeuralNetworkRegressor.load(file_name)
+            regressor_load = NeuralNetworkRegressor.from_dill(file_name)
             loaded_model_predicts = regressor_load.predict(test_features)
 
-            np.testing.assert_array_almost_equal(original_predicts, loaded_model_predicts)
+            np.testing.assert_array_almost_equal(
+                original_predicts, loaded_model_predicts, decimal=-np.log10(default_precision)
+            )
 
             # test loading warning
             class FakeModel(SerializableModelMixin):
@@ -203,7 +210,7 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
                 pass
 
             with self.assertRaises(TypeError):
-                FakeModel.load(file_name)
+                FakeModel.from_dill(file_name)
 
     def test_untrained(self):
         """Test untrained regressor."""
@@ -222,8 +229,8 @@ class TestNeuralNetworkRegressor(QiskitMachineLearningTestCase):
     def test_callback_setter(self):
         """Test the callback setter."""
         num_inputs = 2
-        feature_map = ZZFeatureMap(num_inputs)
-        ansatz = RealAmplitudes(num_inputs)
+        feature_map = zz_feature_map(num_inputs)
+        ansatz = real_amplitudes(num_inputs)
         qc = QuantumCircuit(num_inputs)
         qc.compose(feature_map, inplace=True)
         qc.compose(ansatz, inplace=True)

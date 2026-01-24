@@ -104,21 +104,6 @@ if TYPE_CHECKING:
     from pymongo.typings import _Address, _CollationIn
     from pymongo.write_concern import WriteConcern
 
-try:
-    from fcntl import F_GETFD, F_SETFD, FD_CLOEXEC, fcntl
-
-    def _set_non_inheritable_non_atomic(fd: int) -> None:
-        """Set the close-on-exec flag on the given file descriptor."""
-        flags = fcntl(fd, F_GETFD)
-        fcntl(fd, F_SETFD, flags | FD_CLOEXEC)
-
-except ImportError:
-    # Windows, various platforms we don't claim to support
-    # (Jython, IronPython, ..), systems that don't provide
-    # everything we need from fcntl, etc.
-    def _set_non_inheritable_non_atomic(fd: int) -> None:  # noqa: ARG001
-        """Dummy function for platforms that don't provide fcntl."""
-
 
 _IS_SYNC = True
 
@@ -626,7 +611,7 @@ class Connection:
         # signals and throws KeyboardInterrupt into the current frame on the
         # main thread.
         #
-        # But in Gevent and Eventlet, the polling mechanism (epoll, kqueue,
+        # But in Gevent, the polling mechanism (epoll, kqueue,
         # ..) is called in Python code, which experiences the signal as a
         # KeyboardInterrupt from the start, rather than as an initial
         # socket.error, so we catch that, close the socket, and reraise it.
@@ -704,8 +689,6 @@ class PoolState:
     CLOSED = 3
 
 
-# Do *not* explicitly inherit from object or Jython won't call __del__
-# https://bugs.jython.org/issue1057
 class Pool:
     def __init__(
         self,

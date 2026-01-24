@@ -1,25 +1,24 @@
 Metadata-Version: 2.4
 Name: odc-stac
-Version: 0.4.0
+Version: 0.5.2
 Summary: Tooling for converting STAC metadata to ODC data model
 Author: Open Data Cube
 Maintainer: Open Data Cube
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: affine
 Requires-Dist: odc-geo>=0.4.7
-Requires-Dist: odc-loader>=0.5.1
+Requires-Dist: odc-loader>=0.6.4
 Requires-Dist: rasterio>=1.0.0,!=1.3.0,!=1.3.1
 Requires-Dist: dask[array]
 Requires-Dist: numpy>=1.20.0
@@ -36,7 +35,6 @@ Requires-Dist: sphinx-autodoc-typehints ; extra == "docs"
 Requires-Dist: matplotlib-inline ; extra == "docs"
 Requires-Dist: pandas ; extra == "docs"
 Requires-Dist: distributed ; extra == "docs"
-Requires-Dist: datacube>=1.8.8 ; extra == "docs"
 Requires-Dist: ipython ; extra == "docs"
 Requires-Dist: ipykernel ; extra == "docs"
 Requires-Dist: pytest ; extra == "test"
@@ -51,7 +49,6 @@ Requires-Dist: pytest-timeout ; extra == "test-all"
 Requires-Dist: pystac_client ; extra == "test-all"
 Requires-Dist: distributed ; extra == "test-all"
 Requires-Dist: geopandas ; extra == "test-all"
-Requires-Dist: datacube ; extra == "test-all"
 Requires-Dist: stackstac ; extra == "test-all"
 Project-URL: Bug Reporting, https://github.com/opendatacube/odc-stac/issues
 Project-URL: Documentation, https://odc-stac.readthedocs.io/en/latest/

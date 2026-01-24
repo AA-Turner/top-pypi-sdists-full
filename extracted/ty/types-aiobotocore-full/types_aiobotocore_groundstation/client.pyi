@@ -3,7 +3,7 @@ Type annotations for groundstation service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -43,6 +44,8 @@ from .type_defs import (
     ContactIdResponseTypeDef,
     CreateConfigRequestTypeDef,
     CreateDataflowEndpointGroupRequestTypeDef,
+    CreateDataflowEndpointGroupV2RequestTypeDef,
+    CreateDataflowEndpointGroupV2ResponseTypeDef,
     CreateEphemerisRequestTypeDef,
     CreateMissionProfileRequestTypeDef,
     DataflowEndpointGroupIdResponseTypeDef,
@@ -57,6 +60,8 @@ from .type_defs import (
     EphemerisIdResponseTypeDef,
     GetAgentConfigurationRequestTypeDef,
     GetAgentConfigurationResponseTypeDef,
+    GetAgentTaskResponseUrlRequestTypeDef,
+    GetAgentTaskResponseUrlResponseTypeDef,
     GetConfigRequestTypeDef,
     GetConfigResponseTypeDef,
     GetDataflowEndpointGroupRequestTypeDef,
@@ -97,12 +102,6 @@ from .type_defs import (
 )
 from .waiter import ContactScheduledWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -111,11 +110,13 @@ else:
 __all__ = ("GroundStationClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    DependencyException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DependencyException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
 
 class GroundStationClient(AioBaseClient):
     """
@@ -184,11 +185,22 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#create_dataflow_endpoint_group)
         """
 
+    async def create_dataflow_endpoint_group_v2(
+        self, **kwargs: Unpack[CreateDataflowEndpointGroupV2RequestTypeDef]
+    ) -> CreateDataflowEndpointGroupV2ResponseTypeDef:
+        """
+        Creates a <code>DataflowEndpointGroupV2</code> containing the specified list of
+        <code>DataflowEndpoint</code> objects.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/create_dataflow_endpoint_group_v2.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#create_dataflow_endpoint_group_v2)
+        """
+
     async def create_ephemeris(
         self, **kwargs: Unpack[CreateEphemerisRequestTypeDef]
     ) -> EphemerisIdResponseTypeDef:
         """
-        Creates an Ephemeris with the specified <code>EphemerisData</code>.
+        Create an ephemeris with your specified <a>EphemerisData</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/create_ephemeris.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#create_ephemeris)
@@ -228,7 +240,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteEphemerisRequestTypeDef]
     ) -> EphemerisIdResponseTypeDef:
         """
-        Deletes an ephemeris.
+        Delete an ephemeris.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/delete_ephemeris.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#delete_ephemeris)
@@ -258,7 +270,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeEphemerisRequestTypeDef]
     ) -> DescribeEphemerisResponseTypeDef:
         """
-        Describes an existing ephemeris.
+        Retrieve information about an existing ephemeris.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/describe_ephemeris.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#describe_ephemeris)
@@ -268,10 +280,20 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[GetAgentConfigurationRequestTypeDef]
     ) -> GetAgentConfigurationResponseTypeDef:
         """
-        For use by AWS Ground Station Agent and shouldn't be called directly.
+        <note> <p> For use by AWS Ground Station Agent and shouldn't be called directly.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_agent_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_agent_configuration)
+        """
+
+    async def get_agent_task_response_url(
+        self, **kwargs: Unpack[GetAgentTaskResponseUrlRequestTypeDef]
+    ) -> GetAgentTaskResponseUrlResponseTypeDef:
+        """
+        <note> <p> For use by AWS Ground Station Agent and shouldn't be called directly.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/get_agent_task_response_url.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#get_agent_task_response_url)
         """
 
     async def get_config(
@@ -358,7 +380,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[ListEphemeridesRequestTypeDef]
     ) -> ListEphemeridesResponseTypeDef:
         """
-        List existing ephemerides.
+        List your existing ephemerides.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/list_ephemerides.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#list_ephemerides)
@@ -408,7 +430,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[RegisterAgentRequestTypeDef]
     ) -> RegisterAgentResponseTypeDef:
         """
-        For use by AWS Ground Station Agent and shouldn't be called directly.
+        <note> <p> For use by AWS Ground Station Agent and shouldn't be called directly.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/register_agent.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#register_agent)
@@ -424,7 +446,7 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#reserve_contact)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns a tag to a resource.
 
@@ -432,7 +454,7 @@ class GroundStationClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deassigns a resource tag.
 
@@ -444,7 +466,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateAgentStatusRequestTypeDef]
     ) -> UpdateAgentStatusResponseTypeDef:
         """
-        For use by AWS Ground Station Agent and shouldn't be called directly.
+        <note> <p> For use by AWS Ground Station Agent and shouldn't be called directly.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/update_agent_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#update_agent_status)
@@ -464,7 +486,7 @@ class GroundStationClient(AioBaseClient):
         self, **kwargs: Unpack[UpdateEphemerisRequestTypeDef]
     ) -> EphemerisIdResponseTypeDef:
         """
-        Updates an existing ephemeris.
+        Update an existing ephemeris.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/groundstation/client/update_ephemeris.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_groundstation/client/#update_ephemeris)
@@ -575,7 +597,7 @@ class GroundStationClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

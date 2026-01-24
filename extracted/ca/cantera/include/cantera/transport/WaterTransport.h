@@ -26,7 +26,7 @@ public:
         return "Water";
     }
 
-    //! Returns the viscosity of water at the current conditions (kg/m/s)
+    //! Returns the viscosity of water at the current conditions [Pa·s]
     /*!
      * This function calculates the value of the viscosity of pure water at the
      * current T and P.
@@ -43,8 +43,7 @@ public:
         return 0.0;
     }
 
-    //! Returns the thermal conductivity of water at the current conditions
-    //! (W/m/K)
+    //! Returns the thermal conductivity [W/m/K] of water at the current conditions
     /*!
      * This function calculates the value of the thermal conductivity of water
      * at the current T and P.
@@ -57,7 +56,7 @@ public:
      */
     double thermalConductivity() override;
 
-    void init(ThermoPhase* thermo, int mode=0, int log_level=-7) override;
+    void init(ThermoPhase* thermo, int mode=0) override;
 };
 }
 #endif

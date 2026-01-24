@@ -3,7 +3,7 @@ Type annotations for ssm-incidents service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_incidents/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -87,12 +88,6 @@ from .type_defs import (
 )
 from .waiter import WaitForReplicationSetActiveWaiter, WaitForReplicationSetDeletedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -101,14 +96,14 @@ else:
 __all__ = ("SSMIncidentsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SSMIncidentsClient(BaseClient):
     """
@@ -190,7 +185,7 @@ class SSMIncidentsClient(BaseClient):
 
     def delete_incident_record(
         self, **kwargs: Unpack[DeleteIncidentRecordInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an incident record from Incident Manager.
 
@@ -200,7 +195,7 @@ class SSMIncidentsClient(BaseClient):
 
     def delete_replication_set(
         self, **kwargs: Unpack[DeleteReplicationSetInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes all Regions in your replication set.
 
@@ -210,7 +205,7 @@ class SSMIncidentsClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the resource policy that Resource Access Manager uses to share your
         Incident Manager resource.
@@ -221,7 +216,7 @@ class SSMIncidentsClient(BaseClient):
 
     def delete_response_plan(
         self, **kwargs: Unpack[DeleteResponsePlanInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified response plan.
 
@@ -231,7 +226,7 @@ class SSMIncidentsClient(BaseClient):
 
     def delete_timeline_event(
         self, **kwargs: Unpack[DeleteTimelineEventInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a timeline event from an incident.
 
@@ -381,7 +376,7 @@ class SSMIncidentsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_incidents/client/#start_incident)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a response plan.
 
@@ -389,7 +384,7 @@ class SSMIncidentsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm_incidents/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 
@@ -399,7 +394,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_deletion_protection(
         self, **kwargs: Unpack[UpdateDeletionProtectionInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update deletion protection to either allow or deny deletion of the final Region
         in a replication set.
@@ -410,7 +405,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_incident_record(
         self, **kwargs: Unpack[UpdateIncidentRecordInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update the details of an incident record.
 
@@ -420,7 +415,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_related_items(
         self, **kwargs: Unpack[UpdateRelatedItemsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add or remove related items from the related items tab of an incident record.
 
@@ -430,7 +425,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_replication_set(
         self, **kwargs: Unpack[UpdateReplicationSetInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add or delete Regions from your replication set.
 
@@ -440,7 +435,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_response_plan(
         self, **kwargs: Unpack[UpdateResponsePlanInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified response plan.
 
@@ -450,7 +445,7 @@ class SSMIncidentsClient(BaseClient):
 
     def update_timeline_event(
         self, **kwargs: Unpack[UpdateTimelineEventInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a timeline event.
 

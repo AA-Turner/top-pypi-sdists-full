@@ -19,7 +19,7 @@ import logging
 import sys
 from collections.abc import Iterable, Iterator
 from contextvars import ContextVar
-from typing import TYPE_CHECKING, NamedTuple, NoReturn, Optional, Union, cast
+from typing import TYPE_CHECKING, NamedTuple, NoReturn, cast
 
 from kopf._cogs.clients import events
 from kopf._cogs.configs import configuration
@@ -69,7 +69,7 @@ def enqueue(
     # Events can be posted from another thread than the event-loop's thread
     # (e.g. from sync-handlers, or from explicitly started per-object threads),
     # or from the same thread (async-handlers and the framework itself).
-    running_loop: Optional[asyncio.AbstractEventLoop]
+    running_loop: asyncio.AbstractEventLoop | None
     try:
         running_loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -82,13 +82,19 @@ def enqueue(
         queue.put_nowait(event)
     else:
         # No event-loop or another event-loop - assume another thread.
-        # Use the cross-thread thread-safe methods. Block until enqueued there.
-        future = asyncio.run_coroutine_threadsafe(queue.put(event), loop=loop)
-        future.result()  # block, wait, re-raise.
+        # Use the cross-thread thread-safe methods. Do not block or wait.
+        # Beware of #1212: `run_coroutine_threadsafe(queue.put(…), loop=loop)` is flawed.
+        queue.put_nowait(event)
+        loop.call_soon_threadsafe(_no_op_event_loop_awakener)
+
+
+# The same as `lambda: None`, but with no closure data attached & better for JIT in PyPy.
+def _no_op_event_loop_awakener() -> None:
+    pass
 
 
 def event(
-        objs: Union[bodies.Body, Iterable[bodies.Body]],
+        objs: bodies.Body | Iterable[bodies.Body],
         *,
         type: str,
         reason: str,
@@ -102,7 +108,7 @@ def event(
 
 
 def info(
-        objs: Union[bodies.Body, Iterable[bodies.Body]],
+        objs: bodies.Body | Iterable[bodies.Body],
         *,
         reason: str,
         message: str = '',
@@ -115,7 +121,7 @@ def info(
 
 
 def warn(
-        objs: Union[bodies.Body, Iterable[bodies.Body]],
+        objs: bodies.Body | Iterable[bodies.Body],
         *,
         reason: str,
         message: str = '',
@@ -128,11 +134,11 @@ def warn(
 
 
 def exception(
-        objs: Union[bodies.Body, Iterable[bodies.Body]],
+        objs: bodies.Body | Iterable[bodies.Body],
         *,
         reason: str = '',
         message: str = '',
-        exc: Optional[BaseException] = None,
+        exc: BaseException | None = None,
 ) -> None:
     if exc is None:
         _, exc, _ = sys.exc_info()
@@ -186,7 +192,7 @@ class K8sPoster(logging.Handler):
     """
     if sys.version_info[:2] < (3, 13):
         # Disable this optimisation for Python >= 3.13.
-        # The `handle` no longer support having `None` as lock.
+        # The `handle` no longer supports having `None` as lock.
         def createLock(self) -> None:
             # Save some time on unneeded locks. Events are posted in the background.
             # We only put events to the queue, which is already lock-protected.
@@ -196,7 +202,7 @@ class K8sPoster(logging.Handler):
         # Only those which have a k8s object referred (see: `ObjectLogger`).
         # Otherwise, we have nothing to post, and nothing to do.
         # TODO: remove all bool() -- they were needed for Python 3.12 & MyPy 1.8.0 wrong inference.
-        settings: Optional[configuration.OperatorSettings]
+        settings: configuration.OperatorSettings | None
         settings = getattr(record, 'settings', None)
         level_ok = settings is not None and bool(record.levelno >= settings.posting.level)
         enabled = settings is not None and bool(settings.posting.enabled)

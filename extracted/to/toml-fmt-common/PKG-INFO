@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: toml-fmt-common
-Version: 1.0.1
+Version: 1.1.0
 Summary: Common logic to the TOML formatter.
 Project-URL: Changelog, https://github.com/tox-dev/toml-fmt-common/releases
 Project-URL: Documentation, https://github.com/tox-dev/toml-fmt-common#toml-fmt-common
@@ -16,16 +16,16 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System
-Requires-Python: >=3.9
-Requires-Dist: tomli>=2.0.2; python_version < '3.11'
+Requires-Python: >=3.10
+Requires-Dist: tomli>=2.2.1; python_version < '3.11'
 Description-Content-Type: text/markdown
 
 # toml-fmt-common

@@ -2,46 +2,41 @@ from __future__ import annotations
 
 import functools
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Callable, Collection, Mapping
 from copy import copy
 from itertools import takewhile
 from pathlib import Path
 
 from .ast import AST
-from .collections import OrderedSet as oset
 from .contexts import ParseContext
 from .exceptions import FailedRef, GrammarError
 from .infos import ParserConfig, RuleInfo
-from .leftrec import Nullable, find_left_recursion
+from .leftrec import Nullable, find_left_recursion  # type: ignore
 from .objectmodel import Node
 from .util import chunks, compress_seq, indent, re, trim
 
 PEP8_LLEN = 72
-
-
 PRAGMA_RE = r'^\s*#include.*$'
+
+type ffset = set[tuple[str, ...]]
 
 
 class _ref(str):
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self}>'
 
 
-def ref(name):
+def ref(name: str) -> tuple[str]:
     return (_ref(name),)
 
 
-def kdot(x, y, k):
+def kdot(x: ffset, y: ffset, k: int) -> ffset:
     if not y:
-        return oset(a[:k] for a in x)
+        return {a[:k] for a in x}
     elif not x:
-        return oset(b[:k] for b in y)
+        return {b[:k] for b in y}
     else:
-        return oset((a + b)[:k] for a in x for b in y)
-
-
-def pythonize_name(name):
-    return ''.join('_' + c.lower() if c.isupper() else c for c in name)
+        return {(a + b)[:k] for a in x for b in y}
 
 
 class ModelContext(ParseContext):
@@ -49,7 +44,7 @@ class ModelContext(ParseContext):
         self,
         rules,
         /,
-        start=None,
+        start: str | None = None,
         config: ParserConfig | None = None,
         **settings,
     ):
@@ -61,27 +56,28 @@ class ModelContext(ParseContext):
         self.rules = {rule.name: rule for rule in rules}
 
     @property
-    def pos(self):
+    def pos(self) -> int:
         return self._tokenizer.pos
 
-    def _find_rule(self, name):
-        return functools.partial(self.rules[name].parse, self)
+    def _find_rule(self, name: str) -> Callable:
+        return functools.partial(self.rules[name]._parse, self)
 
 
 class Model(Node):
     @staticmethod
-    def classes():
+    def classes() -> list[type]:
         return [
             c
-            for c in globals().values()
+            # Copy globals() before iterating to be thread-safe.
+            for c in globals().copy().values()
             if isinstance(c, type) and issubclass(c, Model)
         ]
 
-    def __init__(self, ast=None, ctx=None):
+    def __init__(self, ast: AST | Node | str | None = None, ctx: ParseContext | None = None):
         super().__init__(ast=ast, ctx=ctx)
-        self._lookahead = None
-        self._firstset = None
-        self._follow_set = oset()
+        self._lookahead: ffset = set()
+        self._firstset: ffset = set()
+        self._follow_set: ffset = set()
         self.value = None
         self._nullability = self._nullable()
         if isinstance(self._nullability, int):  # Allow simple boolean values
@@ -90,13 +86,13 @@ class Model(Node):
             else:
                 self._nullability = Nullable.no()
 
-    def parse(self, ctx):
+    def _parse(self, ctx: ModelContext):
         ctx.last_node = None
 
     def defines(self):
         return []
 
-    def _add_defined_attributes(self, ctx, ast=None):
+    def _add_defined_attributes(self, ctx: ModelContext, ast: AST | None = None):
         if ast is None:
             return
         if not hasattr(ast, '_define'):
@@ -109,35 +105,35 @@ class Model(Node):
         ctx._define(keys, list_keys)
         ast._define(keys, list_keys)
 
-    def lookahead(self, k=1):
-        if self._lookahead is None:
+    def lookahead(self, k: int = 1) -> ffset:
+        if not self._lookahead:
             self._lookahead = kdot(self.firstset(k), self.followset(k), k)
         return self._lookahead
 
-    def lookahead_str(self):
+    def lookahead_str(self) -> str:
         return ' '.join(sorted(repr(f[0]) for f in self.lookahead() if f))
 
-    def firstset(self, k=1):
-        if self._firstset is None:
-            self._firstset = self._first(k, defaultdict(oset))
+    def firstset(self, k: int = 1) -> ffset:
+        if not self._firstset:
+            self._firstset = self._first(k, defaultdict(set))
         return self._firstset
 
-    def followset(self, k=1):
+    def followset(self, k: int = 1) -> ffset:
         return self._follow_set
 
-    def missing_rules(self, rules):
-        return oset()
+    def missing_rules(self, rules: set[str]) -> set[str]:
+        return set()
 
     def _used_rule_names(self):
-        return oset()
+        return set()
 
-    def _first(self, k, f):
-        return oset()
+    def _first(self, k: int, f: Mapping[str, ffset]) -> ffset:
+        return set()
 
     def _follow(self, k, fl, a):
         return a
 
-    def is_nullable(self, ctx=None):
+    def is_nullable(self, ctx: Mapping[str, Rule] | None = None):
         return self._nullability.nullable
 
     def _nullable(self):
@@ -174,7 +170,7 @@ class Model(Node):
 
 
 class Void(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._void()
 
     def _to_str(self, lean=False):
@@ -185,7 +181,7 @@ class Void(Model):
 
 
 class Any(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._any()
 
     def _to_str(self, lean=False):
@@ -193,7 +189,7 @@ class Any(Model):
 
 
 class Fail(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._fail()
 
     def _to_str(self, lean=False):
@@ -201,11 +197,11 @@ class Fail(Model):
 
 
 class Comment(Model):
-    def __init__(self, ast=None, **kwargs):
-        self.comment = None
+    def __init__(self, ast: AST | None = None, **kwargs):
+        self.comment: str = ''
         super().__init__(ast=AST(comment=ast))
 
-    def _to_str(self, lean=False):
+    def _to_str(self, lean: bool = False):
         return f'(* {self.comment} *)'
 
 
@@ -215,7 +211,7 @@ class EOLComment(Comment):
 
 
 class EOF(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         ctx._check_eof()
 
     def _to_str(self, lean=False):
@@ -223,7 +219,7 @@ class EOF(Model):
 
 
 class Decorator(Model):
-    def __init__(self, ast=None, exp=None, **kwargs):
+    def __init__(self, ast: AST | Model | None = None, exp: Model | None = None, **kwargs):
         if exp is not None:
             self.exp = ast = exp
         elif not isinstance(ast, AST):
@@ -233,19 +229,19 @@ class Decorator(Model):
         super().__init__(ast=ast)
         assert isinstance(self.exp, Model)
 
-    def parse(self, ctx):
-        return self.exp.parse(ctx)
+    def _parse(self, ctx):
+        return self.exp._parse(ctx)
 
     def defines(self):
         return self.exp.defines()
 
-    def missing_rules(self, rules):
+    def missing_rules(self, rules: set[str]) -> set[str]:
         return self.exp.missing_rules(rules)
 
     def _used_rule_names(self):
         return self.exp._used_rule_names()
 
-    def _first(self, k, f):
+    def _first(self, k: int, f: Mapping[str, ffset]):
         return self.exp._first(k, f)
 
     def _follow(self, k, fl, a):
@@ -269,9 +265,9 @@ _Decorator = Decorator
 
 
 class Group(Decorator):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         with ctx._group():
-            self.exp.parse(ctx)
+            self.exp._parse(ctx)
             return ctx.last_node
 
     def _to_str(self, lean=False):
@@ -288,7 +284,7 @@ class Token(Model):
         ast = self.ast
         self.token = ast
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._token(self.token)
 
     def _first(self, k, f):
@@ -303,7 +299,7 @@ class Constant(Model):
         super().__post_init__()
         self.literal = self.ast
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._constant(self.literal)
 
     def _first(self, k, f):
@@ -319,11 +315,12 @@ class Constant(Model):
 class Alert(Constant):
     def __post_init__(self):
         super().__post_init__()
-        self.literal = self.ast.message.literal
-        self.level = len(self.ast.level)
+        if isinstance(self.ast, AST):
+            self.literal = self.ast.message.literal
+            self.level = len(self.ast.level)
 
-    def parse(self, ctx):
-        return super().parse(ctx)
+    def _parse(self, ctx):
+        return super()._parse(ctx)
 
     def _to_str(self, lean=False):
         return f'{"^" * self.level}{super()._to_str()}'
@@ -340,15 +337,15 @@ class Pattern(Model):
 
     @property
     def pattern(self):
-        return ''.join(self.patterns)
+        return ''.join(list(self.patterns))
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._pattern(self.pattern)
 
     def _first(self, k, f):
         x = self
         if bool(self.regex.match('')):
-            return oset([(), (x,)])
+            return {(), (x,)}
         else:
             return {(x,)}
 
@@ -371,9 +368,9 @@ class Pattern(Model):
 
 
 class Lookahead(Decorator):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         with ctx._if():
-            return super().parse(ctx)
+            return super()._parse(ctx)
 
     def _to_str(self, lean=False):
         return '&' + self.exp._to_str(lean=lean)
@@ -383,9 +380,9 @@ class Lookahead(Decorator):
 
 
 class NegativeLookahead(Decorator):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         with ctx._ifnot():
-            return super().parse(ctx)
+            return super()._parse(ctx)
 
     def _to_str(self, lean=False):
         return '!' + str(self.exp._to_str(lean=lean))
@@ -395,13 +392,13 @@ class NegativeLookahead(Decorator):
 
 
 class SkipTo(Decorator):
-    def parse(self, ctx):
-        super_parse = super().parse
+    def _parse(self, ctx):
+        super_parse = super()._parse
         return ctx._skip_to(lambda: super_parse(ctx))
 
     def _first(self, k, f):
         # use None to represent ANY
-        return oset({(None,)}) | super()._first(k, f)
+        return {(None,)} | super()._first(k, f)
 
     def _to_str(self, lean=False):
         return '->' + self.exp._to_str(lean=lean)
@@ -413,18 +410,18 @@ class Sequence(Model):
         self.sequence = ()
         super().__init__(ast=ast)
 
-    def parse(self, ctx):
-        ctx.last_node = [s.parse(ctx) for s in self.sequence]
+    def _parse(self, ctx):
+        ctx.last_node = [s._parse(ctx) for s in self.sequence]
         return ctx.last_node
 
     def defines(self):
         return [d for s in self.sequence for d in s.defines()]
 
-    def missing_rules(self, rules):
-        return oset().union(*[s.missing_rules(rules) for s in self.sequence])
+    def missing_rules(self, rules: set[str]) -> set[str]:
+        return set().union(*[s.missing_rules(rules) for s in self.sequence])
 
     def _used_rule_names(self):
-        return oset().union(*[s._used_rule_names() for s in self.sequence])
+        return set().union(*[s._used_rule_names() for s in self.sequence])
 
     def _first(self, k, f):
         result = {()}
@@ -469,16 +466,16 @@ class Sequence(Model):
 
 
 class Choice(Model):
-    def __init__(self, ast=None, **kwargs):
-        self.options = []
+    def __init__(self, ast: AST | list[Model] | None = None, **kwargs):
+        self.options: list[Model] = []
         super().__init__(ast=AST(options=ast))
         assert isinstance(self.options, list), repr(self.options)
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         with ctx._choice():
             for o in self.options:
                 with ctx._option():
-                    ctx.last_node = o.parse(ctx)
+                    ctx.last_node = o._parse(ctx)
                     return ctx.last_node
 
             lookahead = self.lookahead_str()
@@ -490,14 +487,14 @@ class Choice(Model):
     def defines(self):
         return [d for o in self.options for d in o.defines()]
 
-    def missing_rules(self, rules):
-        return oset().union(*[o.missing_rules(rules) for o in self.options])
+    def missing_rules(self, rules: set[str]) -> set[str]:
+        return set().union(*[o.missing_rules(rules) for o in self.options])
 
     def _used_rule_names(self):
-        return oset().union(*[o._used_rule_names() for o in self.options])
+        return set().union(*[o._used_rule_names() for o in self.options])
 
     def _first(self, k, f):
-        result = oset()
+        result = set()
         for o in self.options:
             result |= o._first(k, f)
         self._firstset = result
@@ -532,22 +529,22 @@ class Choice(Model):
 
 
 class Option(Decorator):
-    def parse(self, ctx):
-        result = super().parse(ctx)
+    def _parse(self, ctx):
+        result = super()._parse(ctx)
         self._add_defined_attributes(ctx, result)
         return result
 
 
 class Closure(Decorator):
-    def parse(self, ctx):
-        return ctx._closure(lambda: self.exp.parse(ctx))
+    def _parse(self, ctx):
+        return ctx._closure(lambda: self.exp._parse(ctx))
 
     def _first(self, k, f):
         efirst = self.exp._first(k, f)
         result = {()}
         for _i in range(k):
             result = kdot(result, efirst, k)
-        return oset({()}) | result
+        return {()} | result
 
     def _to_str(self, lean=False):
         sexp = str(self.exp._to_str(lean=lean))
@@ -561,8 +558,8 @@ class Closure(Decorator):
 
 
 class PositiveClosure(Closure):
-    def parse(self, ctx):
-        return ctx._positive_closure(lambda: self.exp.parse(ctx))
+    def _parse(self, ctx):
+        return ctx._positive_closure(lambda: self.exp._parse(ctx))
 
     def _first(self, k, f):
         efirst = self.exp._first(k, f)
@@ -581,16 +578,16 @@ class PositiveClosure(Closure):
 class Join(Decorator):
     JOINOP = '%'
 
-    def __init__(self, ast=None, **kwargs):
+    def __init__(self, ast: AST, **kwargs):
         super().__init__(ast.exp)
-        self.sep = ast.sep
+        self.sep = ast['sep']
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         def sep():
-            return self.sep.parse(ctx)
+            return self.sep._parse(ctx)
 
         def exp():
-            return self.exp.parse(ctx)
+            return self.exp._parse(ctx)
 
         return self._do_parse(ctx, exp, sep)
 
@@ -653,7 +650,7 @@ class PositiveGather(Gather):
 
 
 class EmptyClosure(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return ctx._empty_closure()
 
     def _first(self, k, f):
@@ -667,14 +664,14 @@ class EmptyClosure(Model):
 
 
 class Optional(Decorator):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         ctx.last_node = None
         self._add_defined_attributes(ctx, ctx.ast)
         with ctx._optional():
-            return self.exp.parse(ctx)
+            return self.exp._parse(ctx)
 
     def _first(self, k, f):
-        return oset({()}) | self.exp._first(k, f)
+        return set({()}) | self.exp._first(k, f)
 
     def _to_str(self, lean=False):
         exp = str(self.exp._to_str(lean=lean))
@@ -696,7 +693,7 @@ class Optional(Decorator):
 
 
 class Cut(Model):
-    def parse(self, ctx):
+    def _parse(self, ctx):
         ctx._cut()
 
     def _first(self, k, f):
@@ -710,12 +707,14 @@ class Cut(Model):
 
 
 class Named(Decorator):
-    def __init__(self, ast=None, **kwargs):
-        super().__init__(ast.exp)
-        self.name = ast.name
+    def __init__(self, ast: AST | None = None, **kwargs):
+        if ast is None:
+            raise GrammarError('ast in Named cannot be None')
+        super().__init__(ast['exp'])
+        self.name = ast['name']
 
-    def parse(self, ctx):
-        value = self.exp.parse(ctx)
+    def _parse(self, ctx):
+        value = self.exp._parse(ctx)
         ctx.ast[self.name] = value
         return value
 
@@ -729,8 +728,8 @@ class Named(Decorator):
 
 
 class NamedList(Named):
-    def parse(self, ctx):
-        value = self.exp.parse(ctx)
+    def _parse(self, ctx):
+        value = self.exp._parse(ctx)
         ctx.ast._setlist(self.name, value)
         return value
 
@@ -744,7 +743,7 @@ class NamedList(Named):
 
 
 class Override(Named):
-    def __init__(self, ast=None, **kwargs):
+    def __init__(self, ast: AST | None = None, **kwargs):
         super().__init__(ast=AST(name='@', exp=ast))
 
     def defines(self):
@@ -752,7 +751,7 @@ class Override(Named):
 
 
 class OverrideList(NamedList):
-    def __init__(self, ast=None, **kwargs):
+    def __init__(self, ast: AST | None = None, **kwargs):
         super().__init__(ast=AST(name='@', exp=ast))
 
     def defines(self):
@@ -771,11 +770,11 @@ class Special(Model):
 
 
 class RuleRef(Model):
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
-        self.name = self.ast
+        self.name: str = self.ast or 'unnamed'  # type: ignore
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         try:
             rule = ctx._find_rule(self.name)
         except KeyError:
@@ -783,21 +782,21 @@ class RuleRef(Model):
         else:
             return rule()
 
-    def missing_rules(self, rules):
+    def missing_rules(self, rules: set[str]) -> set[str]:
         if self.name not in rules:
-            return oset({self.name})
-        return oset()
+            return set({self.name})
+        return set()
 
-    def _used_rule_names(self):
+    def _used_rule_names(self) -> set[str]:
         return {self.name}
 
-    def _first(self, k, f):
-        self._firstset = oset(f[self.name]) | {ref(self.name)}
+    def _first(self, k, f) -> ffset:
+        self._firstset = set(f[self.name]) | {ref(self.name)}
         return self._firstset
 
     def _follow(self, k, fl, a):
         fl[self.name] |= a
-        return oset(a) | {self.name}
+        return set(a) | {self.name}
 
     def firstset(self, k=1):
         if self._firstset is None:
@@ -807,8 +806,11 @@ class RuleRef(Model):
     def _to_str(self, lean=False):
         return self.name
 
-    def is_nullable(self, ctx=None):
-        return ctx[self.name].is_nullable(ctx)
+    def is_nullable(self, ctx: Mapping[str, Rule] | None = None) -> bool:
+        if ctx is None:
+            return False
+        else:
+            return ctx[self.name].is_nullable(ctx)
 
 
 class RuleInclude(Decorator):
@@ -822,7 +824,7 @@ class RuleInclude(Decorator):
 
 
 class Rule(Decorator):
-    def __init__(self, ast, name, exp, params, kwparams, decorators=None):
+    def __init__(self, ast, name, exp, params, kwparams, decorators: list[str] | None = None):
         assert kwparams is None or isinstance(kwparams, Mapping), kwparams
         super().__init__(exp=exp, ast=ast)
         self.name = name
@@ -831,17 +833,17 @@ class Rule(Decorator):
         self.decorators = decorators or []
 
         self.is_name = 'name' in self.decorators
-        self.base = None
+        self.base: Rule | None = None
         self.is_leftrec = False  # Starts a left recursive cycle
         self.is_memoizable = 'nomemo' not in self.decorators
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return self._parse_rhs(ctx, self.exp)
 
     def _parse_rhs(self, ctx, exp):
         ruleinfo = RuleInfo(
             self.name,
-            exp.parse,
+            exp._parse,
             self.is_leftrec,
             self.is_memoizable,
             self.is_name,
@@ -920,7 +922,14 @@ class Rule(Decorator):
 
 class BasedRule(Rule):
     def __init__(
-        self, ast, name, exp, base, params, kwparams, decorators=None,
+        self,
+        ast: AST | None,
+        name: str,
+        exp: Model,
+        base: Rule,
+        params: list[Any],
+        kwparams: dict[str, Any],
+        decorators: list[str] | None = None,
     ):
         super().__init__(
             ast,
@@ -930,12 +939,12 @@ class BasedRule(Rule):
             kwparams or base.kwparams,
             decorators=decorators,
         )
-        self.base = base
+        self.base: Rule = base
         ast = AST(sequence=[self.base.exp, self.exp])
         ast.set_parseinfo(self.base.parseinfo)
         self.rhs = Sequence(ast=ast)
 
-    def parse(self, ctx):
+    def _parse(self, ctx):
         return self._parse_rhs(ctx, self.rhs)
 
     def defines(self):
@@ -957,7 +966,7 @@ class Grammar(Model):
         directives = directives or {}
         self.directives = directives
 
-        config = ParserConfig.new(config=config, owner=self, **directives)
+        config = ParserConfig.new(config=config, **directives)
         config = config.replace(**settings)
         self.config = config
 
@@ -969,10 +978,14 @@ class Grammar(Model):
         if name is None:
             name = self.directives.get('grammar')
         if name is None:
+            name = self.config.name
+        if name is None and config.filename is not None:
             name = Path(config.filename).stem
+        if name is None:
+            name = 'My'
         self.name = name
 
-        missing = self.missing_rules(oset(r.name for r in self.rules))
+        missing: set[str] = self.missing_rules({r.name for r in self.rules})
         if missing:
             msg = '\n'.join(['', *sorted(missing)])
             raise GrammarError('Unknown rules, no parser generated:' + msg)
@@ -982,31 +995,31 @@ class Grammar(Model):
             find_left_recursion(self)
 
     @property
-    def keywords(self):
+    def keywords(self) -> Collection[str]:
         return self.config.keywords
 
     @property
-    def semantics(self):
+    def semantics(self) -> type[object] | None:
         return self.config.semantics
 
     @semantics.setter
-    def semantics(self, value):
+    def semantics(self, value: type[object]):
         self.config.semantics = value
 
-    def missing_rules(self, rules):
-        return oset().union(
+    def missing_rules(self, rules: set[str]) -> set[str]:
+        return set().union(
             *[rule.missing_rules(rules) for rule in self.rules],
         )
 
-    def _used_rule_names(self):
+    def _used_rule_names(self) -> set[str]:
         if not self.rules:
-            return {}
+            return set()
 
         used = {'start', self.rules[0].name}
-        prev = {}
+        prev: set[str] = set()
         while used != prev:
             prev = used
-            used |= oset().union(
+            used |= set().union(
                 *[
                     rule._used_rule_names()
                     for rule in self.rules
@@ -1015,7 +1028,7 @@ class Grammar(Model):
             )
         return used
 
-    def used_rules(self):
+    def used_rules(self) -> list[Rule]:
         used = self._used_rule_names()
         return [rule for rule in self.rules if rule.name in used]
 
@@ -1023,12 +1036,12 @@ class Grammar(Model):
     def first_sets(self):
         return self._firstset
 
-    def _calc_lookahead_sets(self, k=1):
-        self._calc_first_sets()
-        self._calc_follow_sets()
+    def _calc_lookahead_sets(self, k: int = 1):
+        self._calc_first_sets(k=k)
+        self._calc_follow_sets(k=k)
 
-    def _calc_first_sets(self, k=1):
-        f = defaultdict(oset)
+    def _calc_first_sets(self, k: int = 1):
+        f: dict[str, ffset] = defaultdict(set)
         f1 = None
         while f1 != f:
             f1 = copy(f)
@@ -1039,18 +1052,25 @@ class Grammar(Model):
         for rule in self.rules:
             rule._firstset = f[rule.name]
 
-    def _calc_follow_sets(self, k=1):
-        fl = defaultdict(oset)
+    def _calc_follow_sets(self, k: int = 1):
+        fl: dict[str, ffset] = defaultdict(set)
         fl1 = None
         while fl1 != fl:
             fl1 = copy(fl)
             for rule in self.rules:
-                rule._follow(k, fl, oset())
+                rule._follow(k, fl, set())
 
         for rule in self.rules:
             rule._follow_set = fl[rule.name]
 
-    def parse(self, text: str, /, config: ParserConfig | None = None, ctx=None, **settings):  # type: ignore[override]
+    def parse(
+            self,
+            text: str,
+            /, *,
+            ctx: ParseContext | None = None,
+            config: ParserConfig | None = None,
+            **settings):
+        # type: ignore[override]
         config = self.config.replace_config(config)
         config = config.replace(**settings)
 
@@ -1063,12 +1083,12 @@ class Grammar(Model):
             ctx = ModelContext(self.rules, config=config)
         return ctx.parse(text, config=config)
 
-    def nodecount(self):
+    def nodecount(self) -> int:
         return 1 + sum(r.nodecount() for r in self.rules)
 
-    def _to_str(self, lean=False):
+    def _to_str(self, lean: bool = False) -> str:
         regex_directives = {'comments', 'eol_comments', 'whitespace'}
-        ustr_directives = {'comments', 'grammar'}
+        str_directives = {'comments', 'grammar'}
         string_directives = {'namechars'}
 
         directives = ''
@@ -1080,7 +1100,7 @@ class Grammar(Model):
                     repr(value)
                     if directive in string_directives
                     else str(value)
-                    if directive in ustr_directives
+                    if directive in str_directives
                     else value
                 ),
             )

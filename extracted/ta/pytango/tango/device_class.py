@@ -23,11 +23,9 @@ from tango._tango import (
 from tango.pyutil import Util
 
 from tango.utils import is_pure_str, is_non_str_seq, seqStr_2_obj, obj_2_str, is_array
-from tango.utils import document_method as __document_method
 
 from tango.globals import get_class, get_class_by_class, get_constructed_class_by_class
 from tango.attr_data import AttrData
-from tango.pipe_data import PipeData
 
 
 class PropUtil:
@@ -242,11 +240,15 @@ class PropUtil:
                 - prop_name : (str) property name
                 - properties : (dict<str,obj>) properties
             Return     : (obj) the value for the given property name"""
+        tg_type = self.get_property_type(prop_name, properties)
+
         try:
-            tg_type = self.get_property_type(prop_name, properties)
             val = properties[prop_name][2]
         except Exception:
             val = []
+
+        if is_pure_str(val):
+            val = self.stringArray2values(val, tg_type)
 
         if is_array(tg_type) or (
             isinstance(val, collections.abc.Sequence) and not len(val)
@@ -349,8 +351,14 @@ def __DeviceClass__create_user_default_attr_prop(self, attr_name, extra_info):
     return p
 
 
-def __DeviceClass__attribute_factory(self, attr_list):
-    """for internal usage only"""
+def __DeviceClass__attribute_factory(self, attr_list_wrapper):
+    """
+    for internal usage only!!!
+
+    Note: attempts to do anything with attr_list_wrapper here are
+    not 100% save and may result either in crash or memory leak !!!
+    """
+
     for attr_name, attr_info in self.attr_list.items():
         if isinstance(attr_info, AttrData):
             attr_data = attr_info
@@ -358,11 +366,11 @@ def __DeviceClass__attribute_factory(self, attr_list):
             attr_data = AttrData(attr_name, self.get_name(), attr_info)
         if attr_data.forward:
             self._create_fwd_attribute(
-                attr_list, attr_data.attr_name, attr_data.att_prop
+                attr_list_wrapper, attr_data.attr_name, attr_data.att_prop
             )
         else:
             self._create_attribute(
-                attr_list,
+                attr_list_wrapper,
                 attr_data.attr_name,
                 attr_data.attr_type,
                 attr_data.attr_format,
@@ -373,30 +381,18 @@ def __DeviceClass__attribute_factory(self, attr_list):
                 attr_data.polling_period,
                 attr_data.memorized,
                 attr_data.hw_memorized,
+                attr_data.alarm_event_implemented,
+                attr_data.alarm_event_detect,
+                attr_data.archive_event_implemented,
+                attr_data.archive_event_detect,
+                attr_data.change_event_implemented,
+                attr_data.change_event_detect,
+                attr_data.data_ready_event_implemented,
                 attr_data.read_method_name,
                 attr_data.write_method_name,
                 attr_data.is_allowed_name,
                 attr_data.att_prop,
             )
-
-
-def __DeviceClass__pipe_factory(self, pipe_list):
-    """for internal usage only"""
-    for pipe_name, pipe_info in self.pipe_list.items():
-        if isinstance(pipe_info, PipeData):
-            pipe_data = pipe_info
-        else:
-            pipe_data = PipeData(pipe_name, self.get_name(), pipe_info)
-        self._create_pipe(
-            pipe_list,
-            pipe_data.pipe_name,
-            pipe_data.pipe_write,
-            pipe_data.display_level,
-            pipe_data.read_method_name,
-            pipe_data.write_method_name,
-            pipe_data.is_allowed_name,
-            pipe_data.pipe_prop,
-        )
 
 
 def __DeviceClass__command_factory(self):
@@ -699,8 +695,8 @@ def __DeviceClass__create_device(self, device_name, alias=None, cb=None):
         - cb : (callable) a callback that is called AFTER the device is registered
                in the database and BEFORE the init_device for the newly created
                device is called. Typically you may want to put device and/or attribute
-               properties in the database here. The callback must receive a parameter:
-               device name (str). Default value is None meaning no callback
+               properties in the database here. The callback must receive a parameter
+               device_name (str). Default value is None meaning no callback
 
     Return     : None"""
     util = Util.instance()
@@ -778,12 +774,11 @@ def __DeviceClass__device_name_factory(self, dev_name_list):
     pass
 
 
-def __init_DeviceClass():
+def device_class_init():
     DeviceClass.class_property_list = {}
     DeviceClass.device_property_list = {}
     DeviceClass.cmd_list = {}
     DeviceClass.attr_list = {}
-    DeviceClass.pipe_list = {}
     DeviceClass.__init_orig__ = DeviceClass.__init__
     DeviceClass.__init__ = __DeviceClass__init__
     DeviceClass.__str__ = __DeviceClass__str__
@@ -792,7 +787,6 @@ def __init_DeviceClass():
         __DeviceClass__create_user_default_attr_prop
     )
     DeviceClass._attribute_factory = __DeviceClass__attribute_factory
-    DeviceClass._pipe_factory = __DeviceClass__pipe_factory
     DeviceClass._command_factory = __DeviceClass__command_factory
     DeviceClass._new_device = __DeviceClass__new_device
 
@@ -802,284 +796,3 @@ def __init_DeviceClass():
     DeviceClass.dyn_attr = __DeviceClass__dyn_attr
     DeviceClass.device_destroyer = __DeviceClass__device_destroyer
     DeviceClass.device_name_factory = __DeviceClass__device_name_factory
-
-
-def __doc_DeviceClass():
-    DeviceClass.__doc__ = """
-    Base class for all TANGO device-class class.
-    A TANGO device-class class is a class where is stored all
-    data/method common to all devices of a TANGO device class
-    """
-
-    def document_method(method_name, desc, append=True):
-        return __document_method(DeviceClass, method_name, desc, append)
-
-    document_method(
-        "export_device",
-        """
-    export_device(self, dev, corba_dev_name = 'Unused') -> None
-
-            For internal usage only
-
-        Parameters :
-            - dev : (DeviceImpl) device object
-            - corba_dev_name : (str) CORBA device name. Default value is 'Unused'
-
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "register_signal",
-        """
-    register_signal(self, signo) -> None
-    register_signal(self, signo, own_handler=false) -> None
-
-            Register a signal.
-            Register this class as class to be informed when signal signo
-            is sent to to the device server process.
-            The second version of the method is available only under Linux.
-
-        Throws tango.DevFailed:
-            - if the signal number is out of range
-            - if the operating system failed to register a signal for the process.
-
-        Parameters :
-            - signo : (int) signal identifier
-            - own_handler : (bool) true if you want the device signal handler
-                            to be executed in its own handler instead of being
-                            executed by the signal thread. If this parameter
-                            is set to true, care should be taken on how the
-                            handler is written. A default false value is provided
-
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "unregister_signal",
-        """
-    unregister_signal(self, signo) -> None
-
-            Unregister a signal.
-            Unregister this class as class to be informed when signal signo
-            is sent to to the device server process
-
-        Parameters :
-            - signo : (int) signal identifier
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "signal_handler",
-        """
-    signal_handler(self, signo) -> None
-
-            Signal handler.
-
-            The method executed when the signal arrived in the device server process.
-            This method is defined as virtual and then, can be redefined following
-            device class needs.
-
-        Parameters :
-            - signo : (int) signal identifier
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "get_name",
-        """
-    get_name(self) -> str
-
-            Get the TANGO device class name.
-
-        Parameters : None
-        Return     : (str) the TANGO device class name.
-    """,
-    )
-
-    document_method(
-        "get_type",
-        """
-    get_type(self) -> str
-
-            Gets the TANGO device type name.
-
-        Parameters : None
-        Return     : (str) the TANGO device type name
-    """,
-    )
-
-    document_method(
-        "get_doc_url",
-        """
-    get_doc_url(self) -> str
-
-            Get the TANGO device class documentation URL.
-
-        Parameters : None
-        Return     : (str) the TANGO device type name
-    """,
-    )
-
-    document_method(
-        "set_type",
-        """
-    set_type(self, dev_type) -> None
-
-            Set the TANGO device type name.
-
-        Parameters :
-            - dev_type : (str) the new TANGO device type name
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "get_cvs_tag",
-        """
-    get_cvs_tag(self) -> str
-
-            Gets the cvs tag
-
-        Parameters : None
-        Return     : (str) cvs tag
-    """,
-    )
-
-    document_method(
-        "get_cvs_location",
-        """
-    get_cvs_location(self) -> None
-
-            Gets the cvs localtion
-
-        Parameters : None
-        Return     : (str) cvs location
-    """,
-    )
-
-    document_method(
-        "get_device_list",
-        """
-    get_device_list(self) -> sequence<tango.DeviceImpl>
-
-            Gets the list of tango.DeviceImpl objects for this class
-
-        Parameters : None
-        Return     : (sequence<tango.DeviceImpl>) list of tango.DeviceImpl objects for this class
-    """,
-    )
-
-    document_method(
-        "get_command_list",
-        """
-    get_command_list(self) -> sequence<tango.Command>
-
-            Gets the list of tango.Command objects for this class
-
-        Parameters : None
-        Return     : (sequence<tango.Command>) list of tango.Command objects for this class
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_method(
-        "get_cmd_by_name",
-        """
-    get_cmd_by_name(self, (str)cmd_name) -> tango.Command
-
-            Get a reference to a command object.
-
-        Parameters :
-            - cmd_name : (str) command name
-        Return     : (tango.Command) tango.Command object
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_method(
-        "add_wiz_dev_prop",
-        """
-    add_wiz_dev_prop(self, name, desc) -> None
-    add_wiz_dev_prop(self, name, desc, def) -> None
-
-            For internal usage only
-
-        :param str name: device property name
-        :param str desc: device property description
-        :param str def: device property default value
-
-        :return: None
-    """,
-    )
-
-    document_method(
-        "add_wiz_class_prop",
-        """
-    add_wiz_class_prop(self, name, desc) -> None
-    add_wiz_class_prop(self, name, desc, def) -> None
-
-            For internal usage only
-
-        :param str name: class property name
-        :param str desc: class property description
-        :param str def: class property default value
-
-        :return: None
-    """,
-    )
-
-    document_method(
-        "get_class_attr",
-        """
-    get_class_attr(self) -> None
-
-        Returns the instance of the :class:`tango.MultiClassAttribute` for the class
-
-        :param: None
-
-        :returns: the instance of the :class:`tango.MultiClassAttribute` for the class
-        :rtype: :class:`tango.MultiClassAttribute`
-    """,
-    )
-
-    document_method(
-        "get_pipe_list",
-        """
-    get_pipe_list(self, dev_name) -> None
-
-        Returns the list of pipes for the specified device
-
-        :param atr dev_name: name of the device
-
-        :returns: list of :class:`tango.server.pipe` objects for device
-        :rtype: :class:`tango.server.pipe`
-    """,
-    )
-
-    document_method(
-        "get_pipe_by_name",
-        """
-    get_pipe_by_name(self, pipe_name, dev_name) -> None
-
-        Returns the :class:`Pipe` instance with name <pipe_name> for the specified device
-
-        :param str pipe_name: name of the pipe
-
-        :param str dev_name: name of the device
-
-        :returns: :class:`tango.server.pipe` object
-        :rtype: :class:`tango.server.pipe`
-    """,
-    )
-
-
-def device_class_init(doc=True):
-    __init_DeviceClass()
-    if doc:
-        __doc_DeviceClass()

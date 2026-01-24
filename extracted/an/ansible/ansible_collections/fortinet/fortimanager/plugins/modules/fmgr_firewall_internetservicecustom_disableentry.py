@@ -16,7 +16,6 @@ short_description: Disable entries in the Internet Service database.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -138,7 +140,7 @@ EXAMPLES = '''
       fortinet.fortimanager.fmgr_firewall_internetservicecustom_disableentry:
         bypass_validation: false
         adom: ansible
-        internet-service-custom: "ansible-test" # name
+        internet_service_custom: "ansible-test" # name
         state: present
         firewall_internetservicecustom_disableentry:
           id: 1
@@ -159,8 +161,8 @@ EXAMPLES = '''
           selector: "firewall_internetservicecustom_disableentry"
           params:
             adom: "ansible"
-            internet-service-custom: "ansible-test" # name
-            disable-entry: "your_value"
+            internet_service_custom: "ansible-test" # name
+            disable_entry: "your_value"
 '''
 
 RETURN = '''
@@ -219,23 +221,24 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'internet-service-custom': {'type': 'str', 'api_name': 'internet_service_custom'},
         'internet_service_custom': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_internetservicecustom_disableentry': {
             'type': 'dict',
-            'v_range': [['6.0.0', '7.2.1']],
+            'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
             'options': {
-                'id': {'v_range': [['6.0.0', '7.2.1']], 'required': True, 'type': 'int'},
+                'id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'required': True, 'type': 'int'},
                 'ip-range': {
-                    'v_range': [['6.0.0', '7.2.1']],
+                    'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']],
                     'type': 'list',
                     'options': {
-                        'end-ip': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'},
-                        'id': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'},
-                        'start-ip': {'v_range': [['6.0.0', '7.2.1']], 'type': 'str'}
+                        'end-ip': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'},
+                        'id': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'},
+                        'start-ip': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
-                'port': {'v_range': [['6.0.0', '7.2.1']], 'type': 'raw'},
-                'protocol': {'v_range': [['6.0.0', '7.2.1']], 'type': 'int'}
+                'port': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'raw'},
+                'protocol': {'v_range': [['6.0.0', '7.2.1'], ['7.4.8', '7.4.8']], 'type': 'int'}
             }
         }
     }

@@ -30,29 +30,23 @@ using namespace tiledb;
 
 void SOMAGeometryDataFrame::create(
     std::string_view uri,
-    const std::unique_ptr<ArrowSchema>& schema,
+    const managed_unique_ptr<ArrowSchema>& schema,
     const ArrowTable& index_columns,
     const SOMACoordinateSpace& coordinate_space,
     std::shared_ptr<SOMAContext> ctx,
     PlatformConfig platform_config,
     std::optional<TimestampRange> timestamp) {
-    auto [tiledb_schema, soma_schema_extension] =
-        ArrowAdapter::tiledb_schema_from_arrow_schema(
-            ctx->tiledb_ctx(),
-            schema,
-            index_columns,
-            std::make_optional(coordinate_space),
-            "SOMAGeometryDataFrame",
-            true,
-            platform_config);
+    auto [tiledb_schema, soma_schema_extension] = ArrowAdapter::tiledb_schema_from_arrow_schema(
+        ctx->tiledb_ctx(),
+        schema,
+        index_columns,
+        std::make_optional(coordinate_space),
+        "SOMAGeometryDataFrame",
+        true,
+        platform_config);
 
     auto array = SOMAArray::_create(
-        ctx,
-        uri,
-        tiledb_schema,
-        "SOMAGeometryDataFrame",
-        soma_schema_extension.dump(),
-        timestamp);
+        ctx, uri, tiledb_schema, "SOMAGeometryDataFrame", soma_schema_extension.dump(), timestamp);
 
     // Add additional geometry dataframe metadata.
     array.put_metadata(
@@ -69,33 +63,19 @@ void SOMAGeometryDataFrame::create(
 }
 
 std::unique_ptr<SOMAGeometryDataFrame> SOMAGeometryDataFrame::open(
-    std::string_view uri,
-    OpenMode mode,
-    std::shared_ptr<SOMAContext> ctx,
-    std::optional<TimestampRange> timestamp) {
+    std::string_view uri, OpenMode mode, std::shared_ptr<SOMAContext> ctx, std::optional<TimestampRange> timestamp) {
     return std::make_unique<SOMAGeometryDataFrame>(mode, uri, ctx, timestamp);
-}
-
-bool SOMAGeometryDataFrame::exists(
-    std::string_view uri, std::shared_ptr<SOMAContext> ctx) {
-    try {
-        auto obj = SOMAObject::open(uri, OpenMode::read, ctx);
-        return "SOMAGeometryDataFrame" == obj->type();
-    } catch (TileDBSOMAError& e) {
-        return false;
-    }
 }
 
 //===================================================================
 //= public non-static
 //===================================================================
 
-std::unique_ptr<ArrowSchema> SOMAGeometryDataFrame::schema() const {
+managed_unique_ptr<ArrowSchema> SOMAGeometryDataFrame::schema() const {
     return this->arrow_schema();
 }
 
-const std::vector<std::string> SOMAGeometryDataFrame::index_column_names()
-    const {
+const std::vector<std::string> SOMAGeometryDataFrame::index_column_names() const {
     return this->dimension_names();
 }
 
@@ -111,14 +91,14 @@ void SOMAGeometryDataFrame::initialize() {
     auto coordinate_space_meta = get_metadata(SOMA_COORDINATE_SPACE_KEY);
 
     if (!coordinate_space_meta.has_value()) {
-        throw TileDBSOMAError(fmt::format(
-            "[SOMAGeometryDataFrame][initialize] Missing required '{}' "
-            "metadata key.",
-            SOMA_COORDINATE_SPACE_KEY));
+        throw TileDBSOMAError(
+            fmt::format(
+                "[SOMAGeometryDataFrame][initialize] Missing required '{}' "
+                "metadata key.",
+                SOMA_COORDINATE_SPACE_KEY));
     }
 
-    coord_space_ = std::apply(
-        SOMACoordinateSpace::from_metadata, coordinate_space_meta.value());
+    coord_space_ = std::apply(SOMACoordinateSpace::from_metadata, coordinate_space_meta.value());
 }
 
 }  // namespace tiledbsoma

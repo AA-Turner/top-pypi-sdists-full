@@ -18,11 +18,13 @@ T = TypeVar("T", bound="FlowPreviewValueFailureModuleRetry")
 
 @_attrs_define
 class FlowPreviewValueFailureModuleRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, FlowPreviewValueFailureModuleRetryConstant]):
-        exponential (Union[Unset, FlowPreviewValueFailureModuleRetryExponential]):
-        retry_if (Union[Unset, FlowPreviewValueFailureModuleRetryRetryIf]):
+        constant (Union[Unset, FlowPreviewValueFailureModuleRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, FlowPreviewValueFailureModuleRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, FlowPreviewValueFailureModuleRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "FlowPreviewValueFailureModuleRetryConstant"] = UNSET

@@ -16,6 +16,7 @@ from .. import _utilities
 from . import outputs
 
 __all__ = [
+    'DirectoryConfigCertificateBasedAuthProperties',
     'DirectoryConfigServiceAccountCredentials',
     'FleetComputeCapacity',
     'FleetDomainJoinInfo',
@@ -33,6 +34,54 @@ __all__ = [
     'GetImageImagePermissionResult',
     'GetImageStateChangeReasonResult',
 ]
+
+@pulumi.output_type
+class DirectoryConfigCertificateBasedAuthProperties(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "certificateAuthorityArn":
+            suggest = "certificate_authority_arn"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in DirectoryConfigCertificateBasedAuthProperties. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        DirectoryConfigCertificateBasedAuthProperties.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        DirectoryConfigCertificateBasedAuthProperties.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 certificate_authority_arn: Optional[_builtins.str] = None,
+                 status: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str certificate_authority_arn: The ARN of the AWS Certificate Manager Private CA resource.
+        :param _builtins.str status: The status of the certificate-based authentication properties. Valid values - ["DISABLED", "ENABLED", "ENABLED_NO_DIRECTORY_LOGIN_FALLBACK"].
+        """
+        if certificate_authority_arn is not None:
+            pulumi.set(__self__, "certificate_authority_arn", certificate_authority_arn)
+        if status is not None:
+            pulumi.set(__self__, "status", status)
+
+    @_builtins.property
+    @pulumi.getter(name="certificateAuthorityArn")
+    def certificate_authority_arn(self) -> Optional[_builtins.str]:
+        """
+        The ARN of the AWS Certificate Manager Private CA resource.
+        """
+        return pulumi.get(self, "certificate_authority_arn")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> Optional[_builtins.str]:
+        """
+        The status of the certificate-based authentication properties. Valid values - ["DISABLED", "ENABLED", "ENABLED_NO_DIRECTORY_LOGIN_FALLBACK"].
+        """
+        return pulumi.get(self, "status")
+
 
 @pulumi.output_type
 class DirectoryConfigServiceAccountCredentials(dict):
@@ -675,7 +724,7 @@ class GetImageApplicationResult(dict):
                  working_directory: _builtins.str):
         """
         :param _builtins.str app_block_arn: The app block ARN of the application.
-        :param _builtins.str arn: Arn of the image being searched for. Cannot be used with name_regex or name.
+        :param _builtins.str arn: ARN of the image being searched for. Cannot be used with `name_regex` or `name`.
         :param _builtins.str created_time: Time at which this image was created.
         :param _builtins.str description: Description of image.
         :param _builtins.str display_name: Image name to display.
@@ -687,7 +736,7 @@ class GetImageApplicationResult(dict):
         :param _builtins.str launch_path: Path to the application's excecutable in the instance.
         :param Mapping[str, _builtins.str] metadata: String to string map that contains additional attributes used to describe the application.
                * `Name` - Name of the application.
-        :param _builtins.str name: Name of the image being searched for. Cannot be used with name_regex or arn.
+        :param _builtins.str name: Name of the image being searched for. Cannot be used with `name_regex` or `arn`.
         :param Sequence[_builtins.str] platforms: Array of strings describing the platforms on which the application can run.
                Values will be from: WINDOWS | WINDOWS_SERVER_2016 | WINDOWS_SERVER_2019 | WINDOWS_SERVER_2022 | AMAZON_LINUX2
         :param _builtins.str working_directory: Working directory for the application.
@@ -720,7 +769,7 @@ class GetImageApplicationResult(dict):
     @pulumi.getter
     def arn(self) -> _builtins.str:
         """
-        Arn of the image being searched for. Cannot be used with name_regex or name.
+        ARN of the image being searched for. Cannot be used with `name_regex` or `name`.
         """
         return pulumi.get(self, "arn")
 
@@ -809,7 +858,7 @@ class GetImageApplicationResult(dict):
     @pulumi.getter
     def name(self) -> _builtins.str:
         """
-        Name of the image being searched for. Cannot be used with name_regex or arn.
+        Name of the image being searched for. Cannot be used with `name_regex` or `arn`.
         """
         return pulumi.get(self, "name")
 

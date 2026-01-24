@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: pytorch_sphinx_theme2
+Version: 0.3.0
+Summary: PyTorch Sphinx Theme
+Home-page: https://github.com/pytorch/pytorch_sphinx_theme
+Author: PyTorch Team
+Author-email: svekars@meta.com
+License: MIT
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: pydata-sphinx-theme==0.15.4
+Requires-Dist: sphinx<=7.2.6,>=5.3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

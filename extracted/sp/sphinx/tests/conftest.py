@@ -12,17 +12,15 @@ import pytest
 
 import sphinx
 import sphinx.locale
-import sphinx.pycode
 from sphinx.testing.util import _clean_up_global_state
 
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from tests.utils import TEST_ROOTS_DIR
 
-_TESTS_ROOT = Path(__file__).resolve().parent
-if 'CI' in os.environ and (_TESTS_ROOT / 'roots-read-only').is_dir():
-    _ROOTS_DIR = _TESTS_ROOT / 'roots-read-only'
-else:
-    _ROOTS_DIR = _TESTS_ROOT / 'roots'
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
+    from typing import Any
+
+    from sphinx.testing.util import SphinxTestApp
 
 
 def _init_console(
@@ -43,14 +41,14 @@ sphinx.locale.init_console = _init_console
 pytest_plugins = ['sphinx.testing.fixtures']
 
 # Exclude 'roots' dirs for pytest test collector
-collect_ignore = ['roots']
+collect_ignore = ['roots', 'roots-read-only']
 
 os.environ['SPHINX_AUTODOC_RELOAD_MODULES'] = '1'
 
 
 @pytest.fixture(scope='session')
 def rootdir() -> Path:
-    return _ROOTS_DIR
+    return TEST_ROOTS_DIR
 
 
 def pytest_report_header(config: pytest.Config) -> str:
@@ -59,7 +57,7 @@ def pytest_report_header(config: pytest.Config) -> str:
     ]
     if sys.version_info[:2] >= (3, 13):
         lines.append(f'GIL enabled?: {sys._is_gil_enabled()}')
-    lines.append(f'test roots directory: {_ROOTS_DIR}')
+    lines.append(f'test roots directory: {TEST_ROOTS_DIR}')
     if hasattr(config, '_tmp_path_factory'):
         lines.append(f'base tmp_path: {config._tmp_path_factory.getbasetemp()}')
     return '\n'.join(lines)
@@ -83,7 +81,7 @@ def _http_teapot(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/418
     response = SimpleNamespace(status_code=418)
 
-    def _request(*args, **kwargs):
+    def _request(*args: Any, **kwargs: Any) -> SimpleNamespace:
         return response
 
     with monkeypatch.context() as m:
@@ -92,10 +90,13 @@ def _http_teapot(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture
-def make_app_with_empty_project(make_app, tmp_path):
+def make_app_with_empty_project(
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+) -> Callable[..., SphinxTestApp]:
     (tmp_path / 'conf.py').touch()
 
-    def _make_app(*args, **kw):
+    def _make_app(*args: Any, **kw: Any) -> SphinxTestApp:
         kw.setdefault('srcdir', Path(tmp_path))
         return make_app(*args, **kw)
 

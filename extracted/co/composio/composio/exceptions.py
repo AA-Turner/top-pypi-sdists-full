@@ -176,6 +176,18 @@ class TriggerError(ToolkitError):
     pass
 
 
+class WebhookSignatureVerificationError(TriggerError):
+    """Raised when webhook signature verification fails."""
+
+    pass
+
+
+class WebhookPayloadError(TriggerError):
+    """Raised when webhook payload is invalid."""
+
+    pass
+
+
 class ActionError(ToolkitError):
     pass
 
@@ -247,6 +259,12 @@ class InvalidConnectedAccount(ValidationError, ConnectedAccountError):
     pass
 
 
+class ComposioMultipleConnectedAccountsError(ConnectedAccountError):
+    """Raised when multiple connected accounts are found for a user and auth config."""
+
+    pass
+
+
 class ErrorProcessingToolExecutionRequest(PluginError):
     pass
 
@@ -273,6 +291,27 @@ class InvalidModifier(ComposioError):
 
 class ExecuteToolFnNotSetError(ComposioError):
     pass
+
+
+class ToolVersionRequiredError(ComposioError):
+    """Raised when toolkit version is not specified for manual tool execution."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            message=(
+                "Toolkit version not specified. For manual execution of the tool "
+                "please pass a specific toolkit version.\n\n"
+                "Possible fixes:\n"
+                "1. Pass the toolkit version as a parameter to the execute function "
+                '("latest" is not supported in manual execution)\n'
+                "2. Set the toolkit versions in the Composio config "
+                "(toolkit_versions={'<toolkit-slug>': '<toolkit-version>'})\n"
+                "3. Set the toolkit version in the environment variable "
+                "(COMPOSIO_TOOLKIT_VERSION_<TOOLKIT_SLUG>)\n"
+                "4. Set dangerously_skip_version_check to True "
+                "(this might cause unexpected behavior when new versions of the tools are released)"
+            ),
+        )
 
 
 class UsageError(ComposioError):

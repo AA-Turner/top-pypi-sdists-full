@@ -9,35 +9,35 @@ Data types for library-internal use. In an attempt to clarify type hints, some t
 have been defined and explained in this file.
 """
 
-from typing import TypeAlias, TypedDict, TypeVar
+from typing import TypedDict, TypeVar
 
 import numpy as np
 
-from power_grid_model._core.dataset_definitions import ComponentTypeVar
+from power_grid_model._core.dataset_definitions import ComponentType, ComponentTypeVar
 
-SingleArray: TypeAlias = np.ndarray
+type SingleArray = np.ndarray
 
-AttributeType: TypeAlias = str
+type AttributeType = str
 
-SingleColumn: TypeAlias = np.ndarray
-
-DenseBatchArray: TypeAlias = np.ndarray
+type SingleColumn = np.ndarray
+type DenseBatchArray = np.ndarray
 
 SingleColumnarData = dict[AttributeType, SingleColumn]
 
 _SingleComponentData = TypeVar("_SingleComponentData", SingleArray, SingleColumnarData)  # deduction helper
 SingleComponentData = SingleArray | SingleColumnarData
 
-
+SingleRowBasedDataset = dict[ComponentTypeVar, SingleArray]
+SingleColumnarDataset = dict[ComponentTypeVar, SingleColumnarData]
 SingleDataset = dict[ComponentTypeVar, _SingleComponentData]
 
 BatchList = list[SingleDataset]
 
-BatchColumn: TypeAlias = np.ndarray
+type BatchColumn = np.ndarray
 
 DenseBatchColumnarData = dict[AttributeType, BatchColumn]
 
-IndexPointer: TypeAlias = np.ndarray
+type IndexPointer = np.ndarray
 
 
 class SparseBatchColumnarData(TypedDict):
@@ -86,7 +86,7 @@ class SparseBatchArray(TypedDict):
 
 SparseBatchData = SparseBatchArray | SparseBatchColumnarData
 
-SparseDataComponentType: TypeAlias = str
+type SparseDataComponentType = str
 
 BatchColumnarData = DenseBatchColumnarData | SparseBatchColumnarData
 
@@ -112,6 +112,16 @@ Dataset = dict[ComponentTypeVar, _ComponentData]
 
 
 DenseBatchData = DenseBatchArray | DenseBatchColumnarData
+
+# overloads that only match on latest PGM type
+SingleRowBasedOutputDataset = dict[ComponentType, SingleArray]
+SingleColumnarOutputDataset = dict[ComponentType, SingleColumnarData]
+SingleOutputDataset = dict[ComponentType, SingleComponentData]
+DenseBatchRowBasedOutputDataset = dict[ComponentType, DenseBatchArray]
+DenseBatchColumnarOutputDataset = dict[ComponentType, DenseBatchColumnarData]
+DenseBatchOutputDataset = dict[ComponentType, DenseBatchData]
+OutputDataset = dict[ComponentType, ComponentData]
+
 
 NominalValue = int
 

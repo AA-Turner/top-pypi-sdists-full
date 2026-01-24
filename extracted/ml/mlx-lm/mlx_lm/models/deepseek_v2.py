@@ -6,8 +6,11 @@ from typing import Any, Dict, Optional
 
 import mlx.core as mx
 import mlx.nn as nn
+from mlx.nn.layers.distributed import shard_inplace, shard_linear, sum_gradients
 
+from .activations import swiglu
 from .base import BaseModelArgs, create_attention_mask, scaled_dot_product_attention
+from .pipeline import PipelineMixin
 from .switch_layers import SwitchGLU
 
 
@@ -258,7 +261,7 @@ class DeepseekV2MLP(nn.Module):
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
 
     def __call__(self, x):
-        down_proj = self.down_proj(nn.silu(self.gate_proj(x)) * self.up_proj(x))
+        down_proj = self.down_proj(swiglu(self.gate_proj(x), self.up_proj(x)))
         return down_proj
 
 
@@ -314,12 +317,20 @@ class DeepseekV2MoE(nn.Module):
                 config=config, intermediate_size=intermediate_size
             )
 
+        self.sharding_group = None
+
     def __call__(self, x):
+        if self.sharding_group is not None:
+            x = sum_gradients(self.sharding_group)(x)
+
         inds, scores = self.gate(x)
         y = self.switch_mlp(x, inds)
         y = (y * scores[..., None]).sum(axis=-2)
         if self.config.n_shared_experts is not None:
             y = y + self.shared_experts(x)
+
+        if self.sharding_group is not None:
+            y = mx.distributed.all_sum(y, group=self.sharding_group)
 
         return y
 
@@ -355,7 +366,7 @@ class DeepseekV2DecoderLayer(nn.Module):
         return out
 
 
-class DeepseekV2Model(nn.Module):
+class DeepseekV2Model(PipelineMixin, nn.Module):
     def __init__(self, config: ModelArgs):
         super().__init__()
         self.vocab_size = config.vocab_size
@@ -364,31 +375,7 @@ class DeepseekV2Model(nn.Module):
             DeepseekV2DecoderLayer(config, idx)
             for idx in range(config.num_hidden_layers)
         ]
-        self.start_idx = 0
-        self.end_idx = len(self.layers)
-        self.num_layers = self.end_idx
-
         self.norm = nn.RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-
-        self.pipeline_rank = 0
-        self.pipeline_size = 1
-
-    def pipeline(self, group):
-        # Split layers in reverse so rank=0 gets the last layers and
-        # rank=pipeline_size-1 gets the first
-        self.pipeline_rank = group.rank()
-        self.pipeline_size = group.size()
-        layers_per_rank = len(self.layers) // self.pipeline_size
-        extra = len(self.layers) - layers_per_rank * self.pipeline_size
-        if self.pipeline_rank < extra:
-            layers_per_rank += 1
-
-        self.start_idx = (self.pipeline_size - self.pipeline_rank - 1) * layers_per_rank
-        self.end_idx = self.start_idx + layers_per_rank
-        self.num_layers = layers_per_rank
-        self.layers = self.layers[: self.end_idx]
-        self.layers[: self.start_idx] = [None] * self.start_idx
-        self.num_layers = len(self.layers) - self.start_idx
 
     def __call__(
         self,
@@ -401,22 +388,25 @@ class DeepseekV2Model(nn.Module):
         pipeline_size = self.pipeline_size
 
         if cache is None:
-            cache = [None] * self.num_layers
+            cache = [None] * len(self.pipeline_layers)
         mask = create_attention_mask(h, cache[0])
 
         # Receive from the previous process in the pipeline
         if pipeline_rank < pipeline_size - 1:
             h = mx.distributed.recv_like(h, (pipeline_rank + 1))
 
-        for i in range(self.num_layers):
-            h = self.layers[self.start_idx + i](h, mask, cache[i])
+        for l, c in zip(self.pipeline_layers, cache):
+            h = l(h, mask, cache=c)
 
         # Send to the next process in the pipeline
         if pipeline_rank != 0:
             h = mx.distributed.send(h, (pipeline_rank - 1) % pipeline_size)
+            if cache[-1] is not None:
+                cache[-1].keys = mx.depends(cache[-1].keys, h)
 
         # Broadcast h while keeping it in the graph
-        h = mx.distributed.all_gather(h)[: h.shape[0]]
+        if pipeline_size > 1:
+            h = mx.distributed.all_gather(h)[: h.shape[0]]
 
         return self.norm(h)
 
@@ -450,6 +440,62 @@ class Model(nn.Module):
                         weights[f"{prefix}.mlp.switch_mlp.{m}.{k}"] = mx.stack(to_join)
         return weights
 
+    def shard(self, group: Optional[mx.distributed.Group] = None):
+        group = group or mx.distributed.init()
+        N = group.size()
+        for layer in self.model.layers:
+            # Shard the self attention
+            if layer.self_attn.q_lora_rank is None:
+                layer.self_attn.q_proj = shard_linear(
+                    layer.self_attn.q_proj, "all-to-sharded", group=group
+                )
+            else:
+                layer.self_attn.q_b_proj = shard_linear(
+                    layer.self_attn.q_b_proj, "all-to-sharded", group=group
+                )
+            layer.self_attn.kv_b_proj = shard_linear(
+                layer.self_attn.kv_b_proj, "all-to-sharded", group=group
+            )
+            layer.self_attn.o_proj = shard_linear(
+                layer.self_attn.o_proj, "sharded-to-all", group=group
+            )
+            layer.self_attn.num_heads //= N
+
+            # Shard the MLP
+            if isinstance(layer.mlp, DeepseekV2MLP):
+                layer.mlp.gate_proj = shard_linear(
+                    layer.mlp.gate_proj, "all-to-sharded", group=group
+                )
+                layer.mlp.down_proj = shard_linear(
+                    layer.mlp.down_proj, "sharded-to-all", group=group
+                )
+                layer.mlp.up_proj = shard_linear(
+                    layer.mlp.up_proj, "all-to-sharded", group=group
+                )
+
+            # Shard the MoE. Shard in place since the MoE should be responsible
+            # for aggregating the results.
+            else:
+                layer.mlp.sharding_group = group
+                shard_inplace(
+                    layer.mlp.shared_experts.gate_proj, "all-to-sharded", group=group
+                )
+                shard_inplace(
+                    layer.mlp.shared_experts.down_proj, "sharded-to-all", group=group
+                )
+                shard_inplace(
+                    layer.mlp.shared_experts.up_proj, "all-to-sharded", group=group
+                )
+                shard_inplace(
+                    layer.mlp.switch_mlp.gate_proj, "all-to-sharded", group=group
+                )
+                shard_inplace(
+                    layer.mlp.switch_mlp.down_proj, "sharded-to-all", group=group
+                )
+                shard_inplace(
+                    layer.mlp.switch_mlp.up_proj, "all-to-sharded", group=group
+                )
+
     @property
     def layers(self):
-        return self.model.layers[self.model.start_idx : self.model.end_idx]
+        return self.model.pipeline_layers

@@ -22,10 +22,6 @@ else:
     from collections.abc import Generator
 
 
-if sys.version_info < (3, 7):
-    asyncio.create_task = asyncio.ensure_future
-
-
 @contextlib.contextmanager
 def loop_exception_handler() -> Generator["asyncio.base_events._Context", None, None]:
     """
@@ -69,8 +65,6 @@ async def test_connect_sync(
 
     if family == socket.AF_UNIX:
         assert isinstance(addr, str)
-        if sys.version_info < (3, 7):
-            pytest.skip()
         addr = str(tmp_path / addr)
 
     with socket.socket(family, socket.SOCK_DGRAM) as sock:
@@ -150,8 +144,6 @@ async def test_bind_sync(
 
     if family == socket.AF_UNIX:
         assert isinstance(addr, str)
-        if sys.version_info < (3, 7):
-            pytest.skip()
         addr = str(tmp_path / addr)
 
     with socket.socket(family, socket.SOCK_DGRAM) as sock:
@@ -227,8 +219,6 @@ async def test_from_socket_streamtype(
 ) -> None:
     if family == socket.AF_UNIX:
         assert isinstance(addr, str)
-        if sys.version_info < (3, 7):
-            pytest.skip()
         addr = str(tmp_path / addr)
 
     with socket.socket(family, socket.SOCK_DGRAM) as sock:
@@ -356,8 +346,6 @@ async def test_echo_bind(
     tmp_path: pathlib.Path,
 ) -> None:
     if family == socket.AF_UNIX:
-        if sys.version_info < (3, 7):
-            pytest.skip()
         server = await asyncio_dgram.bind(tmp_path / "socket1")
         client = await asyncio_dgram.bind(tmp_path / "socket2")
     else:
@@ -405,6 +393,11 @@ async def test_unconnected_sender(addr: _Address) -> None:
     connected.close()
 
 
+@pytest.mark.skipif(
+    (3, 13) <= sys.version_info < (3, 13, 6)
+    or (3, 14) <= sys.version_info < (3, 14, 1),
+    reason="https://github.com/python/cpython/issues/135444",
+)
 @pytest.mark.asyncio
 async def test_protocol_pause_resume(
     monkeypatch: pytest.MonkeyPatch,
@@ -453,21 +446,23 @@ async def test_protocol_pause_resume(
         """
         pass
 
-    mock_socket = unittest.mock.create_autospec(socket.socket)
-    mock_socket.family = socket.AF_INET
-    mock_socket.type = socket.SOCK_DGRAM
-
-    with monkeypatch.context() as ctx:
+    with (
+        monkeypatch.context() as ctx,
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock,
+    ):
+        sock.setblocking(False)
         ctx.setattr(asyncio_dgram.aio, "Protocol", TestableProtocol)
+
+        mock_socket = unittest.mock.create_autospec(socket.socket)
+        mock_socket.family = socket.AF_INET
+        mock_socket.type = socket.SOCK_DGRAM
+        mock_socket.fileno.return_value = sock.fileno()
 
         client = await asyncio_dgram.from_socket(mock_socket)
         assert isinstance(client, asyncio_dgram.aio.DatagramClient)
         assert TestableProtocol.instance is not None
 
         mock_socket.send.side_effect = BlockingIOError
-        mock_socket.fileno.return_value = os.open(
-            tmp_path / "socket", os.O_RDONLY | os.O_CREAT
-        )
 
         with monkeypatch.context() as ctx2:
             ctx2.setattr(client._drained, "wait", passthrough)
@@ -478,9 +473,6 @@ async def test_protocol_pause_resume(
         assert not TestableProtocol.instance._drained.is_set()
 
         mock_socket.send.side_effect = None
-        fd = os.open(tmp_path / "socket", os.O_WRONLY)
-        os.write(fd, b"\n")
-        os.close(fd)
 
         with monkeypatch.context() as ctx2:
             ctx2.setattr(client._drained, "wait", passthrough)
@@ -490,8 +482,6 @@ async def test_protocol_pause_resume(
         assert TestableProtocol.instance.pause_writing_called == 1
         assert TestableProtocol.instance.resume_writing_called == 1
         assert TestableProtocol.instance._drained.is_set()
-
-        os.close(mock_socket.fileno.return_value)
 
 
 @pytest.mark.asyncio
@@ -520,8 +510,7 @@ async def test_transport_closed() -> None:
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(recv_hung, timeout=0.01)
 
-    if sys.version_info >= (3, 7):
-        assert recv_hung.cancelled()
+    assert recv_hung.cancelled()
 
     # No recv after transport closed
     with pytest.raises(asyncio_dgram.TransportClosed):

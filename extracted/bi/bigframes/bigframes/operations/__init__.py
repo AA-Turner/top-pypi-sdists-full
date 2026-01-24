@@ -14,7 +14,15 @@
 
 from __future__ import annotations
 
-from bigframes.operations.ai_ops import AIGenerateBool
+from bigframes.operations.ai_ops import (
+    AIClassify,
+    AIGenerate,
+    AIGenerateBool,
+    AIGenerateDouble,
+    AIGenerateInt,
+    AIIf,
+    AIScore,
+)
 from bigframes.operations.array_ops import (
     ArrayIndexOp,
     ArrayReduceOp,
@@ -32,6 +40,7 @@ from bigframes.operations.base_ops import (
 )
 from bigframes.operations.blob_ops import (
     obj_fetch_metadata_op,
+    obj_make_ref_json_op,
     obj_make_ref_op,
     ObjGetAccessUrl,
 )
@@ -113,11 +122,14 @@ from bigframes.operations.geo_ops import (
     GeoStBufferOp,
     GeoStDistanceOp,
     GeoStLengthOp,
+    GeoStRegionStatsOp,
+    GeoStSimplifyOp,
 )
 from bigframes.operations.json_ops import (
     JSONExtract,
     JSONExtractArray,
     JSONExtractStringArray,
+    JSONKeys,
     JSONQuery,
     JSONQueryArray,
     JSONSet,
@@ -354,6 +366,7 @@ __all__ = [
     "ArrayToStringOp",
     # Blob ops
     "ObjGetAccessUrl",
+    "obj_make_ref_json_op",
     "obj_make_ref_op",
     "obj_fetch_metadata_op",
     # Struct ops
@@ -371,6 +384,7 @@ __all__ = [
     "JSONExtract",
     "JSONExtractArray",
     "JSONExtractStringArray",
+    "JSONKeys",
     "JSONQuery",
     "JSONQueryArray",
     "JSONSet",
@@ -406,13 +420,21 @@ __all__ = [
     "geo_st_geogpoint_op",
     "geo_st_intersection_op",
     "geo_st_isclosed_op",
-    "GeoStBufferOp",
-    "GeoStLengthOp",
     "geo_x_op",
     "geo_y_op",
+    "GeoStBufferOp",
     "GeoStDistanceOp",
+    "GeoStLengthOp",
+    "GeoStRegionStatsOp",
+    "GeoStSimplifyOp",
     # AI ops
+    "AIClassify",
+    "AIGenerate",
     "AIGenerateBool",
+    "AIGenerateDouble",
+    "AIGenerateInt",
+    "AIIf",
+    "AIScore",
     # Numpy ops mapping
     "NUMPY_TO_BINOP",
     "NUMPY_TO_OP",

@@ -8,19 +8,14 @@ from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import mlx.core as mx
 import mlx.nn as nn
+from mlx.utils import tree_reduce
 from mlx_lm.generate import maybe_quantize_kv_cache
 from transformers import PreTrainedTokenizer
 
 from .models import cache
 from .prompt_utils import apply_chat_template
 from .sample_utils import top_p_sampling
-from .utils import (
-    StoppingCriteria,
-    apply_repetition_penalty,
-    load,
-    prepare_inputs,
-    tree_reduce,
-)
+from .utils import StoppingCriteria, apply_repetition_penalty, load, prepare_inputs
 
 DEFAULT_MODEL_PATH = "mlx-community/nanoLLaVA-1.5-8bit"
 DEFAULT_IMAGE = None
@@ -136,6 +131,12 @@ def parse_arguments():
         "--force-download",
         action="store_true",
         help="Force download the model from Hugging Face.",
+    )
+    parser.add_argument(
+        "--revision",
+        type=str,
+        default="main",
+        help="The specific model version to use (branch, tag, commit).",
     )
 
     return parser.parse_args()
@@ -409,6 +410,7 @@ def stream_generate(
             image_token_index=image_token_index,
             resize_shape=resize_shape,
             add_special_tokens=add_special_tokens,
+            **kwargs,
         )
         input_ids = inputs.get("input_ids", None)
         pixel_values = inputs.get("pixel_values", None)
@@ -583,7 +585,9 @@ def main():
     if isinstance(args.image, str):
         args.image = [args.image]
 
-    model, processor = load(args.model, args.adapter_path, trust_remote_code=True)
+    model, processor = load(
+        args.model, args.adapter_path, revision=args.revision, trust_remote_code=True
+    )
     config = model.config
 
     prompt = args.prompt

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: gensim
-Version: 4.3.3
+Version: 4.4.0
 Summary: Python framework for fast Vector Space Modelling
 Home-page: https://radimrehurek.com/gensim/
 Download-URL: https://pypi.org/project/gensim/
@@ -14,16 +14,16 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Text Processing :: Linguistic
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Provides-Extra: distributed
 Provides-Extra: test-win
 Provides-Extra: test

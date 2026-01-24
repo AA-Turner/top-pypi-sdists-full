@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testfixtures
-Version: 9.1.0
+Version: 10.0.0
 Summary: A collection of helpers and mock objects for unit tests and doc tests.
 Home-page: https://github.com/Simplistix/testfixtures
 Author: Chris Withers

@@ -3,7 +3,7 @@ Type annotations for scheduler service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_scheduler/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -31,12 +32,6 @@ from .literals import (
     ScheduleStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -98,9 +93,9 @@ __all__ = (
 
 
 class AwsVpcConfigurationOutputTypeDef(TypedDict):
-    Subnets: List[str]
+    Subnets: list[str]
     AssignPublicIp: NotRequired[AssignPublicIpType]
-    SecurityGroups: NotRequired[List[str]]
+    SecurityGroups: NotRequired[list[str]]
 
 
 class AwsVpcConfigurationTypeDef(TypedDict):
@@ -123,7 +118,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -279,7 +274,7 @@ class GetScheduleGroupOutputTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -301,13 +296,13 @@ class ListSchedulesInputPaginateTypeDef(TypedDict):
 
 
 class ListScheduleGroupsOutputTypeDef(TypedDict):
-    ScheduleGroups: List[ScheduleGroupSummaryTypeDef]
+    ScheduleGroups: list[ScheduleGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class SageMakerPipelineParametersOutputTypeDef(TypedDict):
-    PipelineParameterList: NotRequired[List[SageMakerPipelineParameterTypeDef]]
+    PipelineParameterList: NotRequired[list[SageMakerPipelineParameterTypeDef]]
 
 
 class SageMakerPipelineParametersTypeDef(TypedDict):
@@ -326,18 +321,18 @@ class ScheduleSummaryTypeDef(TypedDict):
 
 class EcsParametersOutputTypeDef(TypedDict):
     TaskDefinitionArn: str
-    CapacityProviderStrategy: NotRequired[List[CapacityProviderStrategyItemTypeDef]]
+    CapacityProviderStrategy: NotRequired[list[CapacityProviderStrategyItemTypeDef]]
     EnableECSManagedTags: NotRequired[bool]
     EnableExecuteCommand: NotRequired[bool]
     Group: NotRequired[str]
     LaunchType: NotRequired[LaunchTypeType]
     NetworkConfiguration: NotRequired[NetworkConfigurationOutputTypeDef]
-    PlacementConstraints: NotRequired[List[PlacementConstraintTypeDef]]
-    PlacementStrategy: NotRequired[List[PlacementStrategyTypeDef]]
+    PlacementConstraints: NotRequired[list[PlacementConstraintTypeDef]]
+    PlacementStrategy: NotRequired[list[PlacementStrategyTypeDef]]
     PlatformVersion: NotRequired[str]
     PropagateTags: NotRequired[Literal["TASK_DEFINITION"]]
     ReferenceId: NotRequired[str]
-    Tags: NotRequired[List[Dict[str, str]]]
+    Tags: NotRequired[list[dict[str, str]]]
     TaskCount: NotRequired[int]
 
 
@@ -359,7 +354,7 @@ class EcsParametersTypeDef(TypedDict):
 
 
 class ListSchedulesOutputTypeDef(TypedDict):
-    Schedules: List[ScheduleSummaryTypeDef]
+    Schedules: list[ScheduleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

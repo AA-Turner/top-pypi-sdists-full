@@ -27,3 +27,10 @@ class InvalidRequestError(APIError):
 class OperationFailedError(APIError):
     def __init__(self, http_code, json_obj, headers=None):
         APIError.__init__(self, http_code, json_obj, headers)
+
+
+class UbbBatchIngestionInvalidRequestError(APIError):
+    def __init__(self, http_code, json_obj, headers=None):
+        APIError.__init__(self, http_code, json_obj, headers)
+        self.batch_id = json_obj.get("batch_id")
+        self.failed_events = json_obj.get("failed_events")

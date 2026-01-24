@@ -84,6 +84,11 @@ class SentenceTransformersModelBlobOptions(BaseModelBlobOptions):
     batch_size: Required[int]
 
 
+class ProphetModelBlobOptions(BaseModelBlobOptions):
+    date_column: NotRequired[Optional[str]]
+    target_column: NotRequired[Optional[str]]
+
+
 ModelBlobOptions = Union[
     BaseModelBlobOptions,
     CatBoostModelBlobOptions,
@@ -94,6 +99,7 @@ ModelBlobOptions = Union[
     TorchScriptModelBlobOptions,
     TensorflowModelBlobOptions,
     SentenceTransformersModelBlobOptions,
+    ProphetModelBlobOptions,
 ]
 
 
@@ -125,6 +131,7 @@ class ModelMetadataDict(TypedDict):
     task: Required[str]
     explainability: NotRequired[Optional[ExplainabilityMetadataDict]]
     function_properties: NotRequired[dict[str, dict[str, Any]]]
+    method_options: NotRequired[dict[str, dict[str, Any]]]
 
 
 class ModelExplainAlgorithm(Enum):

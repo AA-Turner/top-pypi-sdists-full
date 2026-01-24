@@ -2,23 +2,49 @@ from dataclasses import dataclass
 from enum import Enum
 import importlib.resources
 from io import StringIO
-from json import dumps as json_dumps
+import json
 import pathlib
 import shlex
 import subprocess
 import sys
 import tempfile
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import click
+from rich.console import Console
+from rich.table import Table
 import yaml
 
 from anyscale._private.models.image_uri import ImageURI
 from anyscale._private.sdk import _LAZY_SDK_SINGLETONS
+from anyscale.authenticate import get_auth_api_client
 from anyscale.cli_logger import BlockLogger
+from anyscale.client.openapi_client.exceptions import (
+    ApiException,
+    ApiTypeError,
+    ApiValueError,
+)
 from anyscale.commands import command_examples
-from anyscale.commands.util import AnyscaleCommand, convert_kv_strings_to_dict
+from anyscale.commands.list_util import (
+    display_list,
+    MAX_PAGE_SIZE,
+    NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
+    validate_page_size,
+)
+from anyscale.commands.util import (
+    AnyscaleCommand,
+    build_kv_table,
+    convert_kv_strings_to_dict,
+    parse_repeatable_tags_to_dict,
+    parse_tags_kv_to_str_map,
+)
+from anyscale.util import (
+    AnyscaleJSONEncoder,
+    get_endpoint,
+    validate_non_negative_arg,
+    validate_workspace_state_filter,
+)
 import anyscale.workspace
 from anyscale.workspace._private.workspace_sdk import ANYSCALE_WORKSPACES_SSH_OPTIONS
 from anyscale.workspace.commands import _WORKSPACE_SDK_SINGLETON_KEY
@@ -26,6 +52,8 @@ from anyscale.workspace.models import (
     UpdateWorkspaceConfig,
     Workspace,
     WorkspaceConfig,
+    WorkspaceSortField,
+    WorkspaceSortOrder,
     WorkspaceState,
 )
 
@@ -37,6 +65,113 @@ HTTPS_PORT = "443"
 SSH_TEST_TIMEOUT_SECONDS = 8
 WSS_PATH = "/sshws"
 PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
+
+
+def validate_max_items(ctx, param, value):
+    """Click callback to validate max_items argument."""
+    if value is None:
+        return None
+    return validate_non_negative_arg(ctx, param, value)
+
+
+def _parse_sort_option(
+    sort: Optional[str],
+) -> Tuple[Optional[str], WorkspaceSortOrder]:
+    """Parse sort string (e.g. "-created_at") into field and order."""
+    if not sort:
+        return None, WorkspaceSortOrder.ASC
+
+    # Build case-insensitive map of allowed fields
+    allowed = {
+        f.value.lower(): f.value for f in WorkspaceSortField.__members__.values()
+    }
+
+    # Detect leading '-' for descending
+    if sort.startswith("-"):
+        raw = sort[1:]
+        order = WorkspaceSortOrder.DESC
+    else:
+        raw = sort
+        order = WorkspaceSortOrder.ASC
+
+    key = raw.lower()
+    if key not in allowed:
+        allowed_names = ", ".join(sorted(allowed.values()))
+        raise click.BadParameter(
+            f"Invalid sort field '{raw}'. Allowed: {allowed_names}"
+        )
+
+    return allowed[key], order
+
+
+def _create_workspace_list_table(show_header: bool) -> Table:
+    table = Table(show_header=show_header, expand=True)
+    # Allow wrapping for all columns to prevent text cutoff
+    table.add_column("NAME", no_wrap=False, overflow="fold", ratio=3, min_width=15)
+    table.add_column("ID", no_wrap=False, overflow="fold", ratio=2, min_width=20)
+    table.add_column("STATE", no_wrap=False, overflow="fold", ratio=2, min_width=12)
+    table.add_column("PROJECT", no_wrap=False, overflow="fold", ratio=2, min_width=15)
+    table.add_column("CLOUD", no_wrap=False, overflow="fold", ratio=2, min_width=12)
+    table.add_column(
+        "CREATED BY", no_wrap=False, overflow="fold", ratio=3, min_width=24
+    )
+    table.add_column(
+        "CREATED AT", no_wrap=False, overflow="fold", ratio=2, min_width=20
+    )
+    return table
+
+
+def _create_workspace_list_table_verbose(show_header: bool) -> Table:
+    table = Table(show_header=show_header, expand=True, box=None)
+    table.add_column("NAME", overflow="fold", no_wrap=False)
+    table.add_column("ID", overflow="fold", no_wrap=False)
+    table.add_column("STATE", overflow="fold", no_wrap=False)
+    table.add_column("PROJECT", overflow="fold", no_wrap=False)
+    table.add_column("CLOUD", overflow="fold", no_wrap=False)
+    table.add_column("CLUSTER", overflow="fold", no_wrap=False)
+    table.add_column("CREATED BY", overflow="fold", no_wrap=False)
+    table.add_column("CREATED AT", overflow="fold", no_wrap=False)
+    table.add_column("LAST STARTED AT", overflow="fold", no_wrap=False)
+    return table
+
+
+def _format_workspace_output(workspace: Workspace) -> Dict[str, str]:
+    created_at = (
+        workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
+    )
+
+    return {
+        "name": workspace.name,
+        "id": workspace.id,
+        "state": str(workspace.state),
+        "project": workspace.project_id or "",
+        "cloud": workspace.cloud_id or "",
+        "created_by": workspace.creator_email or workspace.creator_id or "",
+        "created_at": created_at,
+    }
+
+
+def _format_workspace_output_verbose(workspace: Workspace) -> Dict[str, str]:
+    created_at = (
+        workspace.created_at.strftime("%Y-%m-%d %H:%M") if workspace.created_at else ""
+    )
+    last_started = (
+        workspace.last_started_at.strftime("%Y-%m-%d %H:%M")
+        if workspace.last_started_at
+        else ""
+    )
+
+    return {
+        "name": workspace.name,
+        "id": workspace.id,
+        "state": str(workspace.state),
+        "project": workspace.project_id or "",
+        "cloud": workspace.cloud_id or "",
+        "cluster": workspace.cluster_id or "",
+        "created_by": workspace.creator_email or workspace.creator_id or "",
+        "created_at": created_at,
+        "last_started_at": last_started,
+    }
 
 
 def _validate_workspace_name_and_id(
@@ -208,12 +343,6 @@ def _get_cluster_access_token(cluster, workspace_private_sdk) -> str:
             "Cluster configuration is incomplete, cannot retrieve access token."
         )
 
-    from anyscale.client.openapi_client.exceptions import (
-        ApiException,
-        ApiTypeError,
-        ApiValueError,
-    )
-
     try:
         # We need to use the internal API here as there's no public API available
         # This might be updated in future SDK versions
@@ -354,11 +483,8 @@ def _test_https_connectivity(
         )
 
         # Check if we got the expected output
-        if result.returncode == 0 and "connectivity_test" in result.stdout:
-            return True
-
         # Connection failed - no need to show error code to user
-        return False
+        return result.returncode == 0 and "connectivity_test" in result.stdout
 
     except subprocess.TimeoutExpired:
         # Silent failure - the main code will show a user-friendly message
@@ -491,6 +617,12 @@ def workspace_cli() -> None:
     type=str,
     help="Environment variables to set for the workspace. The format is 'key=value'. This argument can be specified multiple times. When the same key is also specified in the config file, the value from the command-line flag will overwrite the value from the config file.",
 )
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
 def create(  # noqa: PLR0913, PLR0912, C901
     config_file: Optional[str],
     name: Optional[str],
@@ -503,6 +635,7 @@ def create(  # noqa: PLR0913, PLR0912, C901
     project: Optional[str],
     requirements: Optional[str],
     env: Optional[Tuple[str]],
+    tags: Optional[Tuple[str]],
 ) -> None:
     """Creates a new workspace.
 
@@ -575,6 +708,11 @@ def create(  # noqa: PLR0913, PLR0912, C901
         env_dict = convert_kv_strings_to_dict(env)
         if env_dict:
             config = config.options(env_vars=env_dict)
+
+    if tags:
+        tag_map = parse_tags_kv_to_str_map(tags)
+        if tag_map:
+            config = config.options(tags=tag_map)
 
     anyscale.workspace.create(config,)
 
@@ -753,9 +891,166 @@ id should be used, specifying both will result in an error.
         state = WorkspaceState.validate(state)
     except ValueError as e:
         raise click.ClickException(str(e))
-    anyscale.workspace.wait(
-        name=name, id=id, cloud=cloud, project=project, timeout_s=timeout_s, state=state
+
+    try:
+        anyscale.workspace.wait(
+            name=name,
+            id=id,
+            cloud=cloud,
+            project=project,
+            timeout_s=timeout_s,
+            state=state,
+        )
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(str(e)) from None
+
+
+@workspace_cli.group("tags", help="Manage tags for workspaces.")
+def workspace_tags_cli() -> None:
+    pass
+
+
+@workspace_tags_cli.command(
+    name="add",
+    help="Add or update tags on a workspace.",
+    cls=AnyscaleCommand,
+    example=command_examples.WORKSPACE_TAGS_ADD_EXAMPLE,  # type: ignore[attr-defined]
+)
+@click.option(
+    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+)
+@click.option("--name", "-n", required=False, help="Name of the workspace.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="Cloud name (used when resolving by name).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Project name (used when resolving by name).",
+)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+def add_tags(
+    workspace_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    tags: Tuple[str],
+) -> None:
+    if not workspace_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = parse_tags_kv_to_str_map(tags)
+    if not tag_map:
+        raise click.ClickException("Provide at least one --tag key=value.")
+    anyscale.workspace.add_tags(  # type: ignore
+        id=workspace_id, name=name, cloud=cloud, project=project, tags=tag_map
     )
+    stderr = Console(stderr=True)
+    ident = workspace_id or name or "<unknown>"
+    stderr.print(f"Tags updated for workspace '{ident}'.")
+
+
+@workspace_tags_cli.command(
+    name="remove",
+    help="Remove tags by key from a workspace.",
+    cls=AnyscaleCommand,
+    example=command_examples.WORKSPACE_TAGS_REMOVE_EXAMPLE,  # type: ignore[attr-defined]
+)
+@click.option(
+    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+)
+@click.option("--name", "-n", required=False, help="Name of the workspace.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="Cloud name (used when resolving by name).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Project name (used when resolving by name).",
+)
+@click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
+def remove_tags(
+    workspace_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    keys: Tuple[str],
+) -> None:
+    if not workspace_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    key_list = [k for k in keys if k and k.strip()]
+    if not key_list:
+        raise click.ClickException("Provide at least one --key to remove.")
+    anyscale.workspace.remove_tags(  # type: ignore
+        id=workspace_id, name=name, cloud=cloud, project=project, keys=key_list
+    )
+    stderr = Console(stderr=True)
+    ident = workspace_id or name or "<unknown>"
+    stderr.print(f"Removed tag keys {key_list} from workspace '{ident}'.")
+
+
+@workspace_tags_cli.command(
+    name="list",
+    help="List tags for a workspace.",
+    cls=AnyscaleCommand,
+    example=command_examples.WORKSPACE_TAGS_LIST_EXAMPLE,  # type: ignore[attr-defined]
+)
+@click.option(
+    "--id", "workspace_id", required=False, help="Unique ID of the workspace."
+)
+@click.option("--name", "-n", required=False, help="Name of the workspace.")
+@click.option(
+    "--cloud",
+    required=False,
+    default=None,
+    type=str,
+    help="Cloud name (used when resolving by name).",
+)
+@click.option(
+    "--project",
+    required=False,
+    default=None,
+    type=str,
+    help="Project name (used when resolving by name).",
+)
+@click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
+def list_tags(
+    workspace_id: Optional[str],
+    name: Optional[str],
+    cloud: Optional[str],
+    project: Optional[str],
+    json_output: bool,
+) -> None:
+    if not workspace_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = anyscale.workspace.list_tags(  # type: ignore
+        id=workspace_id, name=name, cloud=cloud, project=project
+    )
+    if json_output:
+        Console().print_json(json=json.dumps(tag_map, indent=2))
+    else:
+        stderr = Console(stderr=True)
+        if not tag_map:
+            stderr.print("No tags found.")
+            return
+        pairs = tag_map.items()
+        stderr.print(build_kv_table(pairs, title="Tags"))
 
 
 @workspace_cli.command(
@@ -1018,7 +1313,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=False,
     is_flag=True,
-    help="Delete files in the local directory that are not in the workspace.",
+    help="Delete files in the local directory that are not in the workspace. Excluded files are preserved.",
 )
 @click.pass_context
 def pull(  # noqa: PLR0913
@@ -1037,6 +1332,9 @@ def pull(  # noqa: PLR0913
 id should be used, specifying both will result in an error.
 
     This command depends on rsync, please make sure it is installed on your system.
+
+    The --delete flag removes files in the local directory that don't exist in the workspace.
+    Excluded files (like .git unless --pull-git-state is used) are preserved and not deleted.
 
     You may pass extra args for the rsync command, for example to exclude files:
     anyscale workspace_v2 pull -n workspace-name -- --exclude='log.txt'
@@ -1098,7 +1396,7 @@ id should be used, specifying both will result in an error.
     required=False,
     default=False,
     is_flag=True,
-    help="Delete files in the workspace that are not in the local directory.",
+    help="Delete files in the workspace that are not in the local directory. Excluded files are preserved.",
 )
 @click.pass_context
 def push(  # noqa: PLR0913
@@ -1117,6 +1415,9 @@ def push(  # noqa: PLR0913
 id should be used, specifying both will result in an error.
 
     This command depends on rsync, please make sure it is installed on your system.
+
+    The --delete flag removes files in the workspace that don't exist locally.
+    Excluded files (like .git unless --push-git-state is used) are preserved and not deleted.
 
     You may pass extra args for the rsync command, for example to exclude files:
     anyscale workspace_v2 push -n workspace-name -- --exclude='log.txt'
@@ -1308,9 +1609,13 @@ def update(  # noqa: PLR0913, PLR0912
 @click.option(
     "-j",
     "--json",
+    "json_output",
     is_flag=True,
     default=False,
     help="Output the workspace in a structured JSON format.",
+)
+@click.option(
+    "--yaml", "yaml_output", is_flag=True, default=False, help="Output as YAML.",
 )
 @click.option(
     "-v", "--verbose", is_flag=True, default=False, help="Include verbose details.",
@@ -1320,7 +1625,8 @@ def get(
     name: Optional[str],
     cloud: Optional[str],
     project: Optional[str],
-    json: bool,
+    json_output: bool,
+    yaml_output: bool,
     verbose: bool,
 ) -> None:
     """Retrieve workspace details by name or ID.
@@ -1328,17 +1634,254 @@ def get(
     Use --name to specify by name or --id for the workspace ID; using both will result in an error.
     """
     _validate_workspace_name_and_id(name=name, id=id)
-    workspace: Workspace = anyscale.workspace.get(
-        name=name, id=id, cloud=cloud, project=project
-    )
-    workspace_dict = workspace.to_dict()
 
-    if not verbose:
-        workspace_dict.pop("config", None)
+    try:
+        # For JSON/YAML, include full config; for table output, skip expensive config fetch
+        include_config = json_output or yaml_output
 
-    if json:
-        print(json_dumps(workspace_dict, indent=4, sort_keys=False))
+        workspace: Workspace = anyscale.workspace.get(
+            name=name,
+            id=id,
+            cloud=cloud,
+            project=project,
+            include_config=include_config,
+        )
+
+        if json_output:
+            print(json.dumps(workspace.to_dict(), indent=2, cls=AnyscaleJSONEncoder))
+        elif yaml_output:
+            stream = StringIO()
+            yaml.safe_dump(workspace.to_dict(), stream, sort_keys=False)
+            print(stream.getvalue(), end="")
+        else:
+            # Use Console() with force_terminal=False for testability
+            console = Console(force_terminal=False)
+
+            if verbose:
+                table = _create_workspace_list_table_verbose(show_header=True)
+                formatted = _format_workspace_output_verbose(workspace)
+                table.add_row(
+                    formatted["name"],
+                    formatted["id"],
+                    formatted["state"],
+                    formatted["project"],
+                    formatted["cloud"],
+                    formatted["cluster"],
+                    formatted["created_by"],
+                    formatted["created_at"],
+                    formatted["last_started_at"],
+                )
+            else:
+                table = _create_workspace_list_table(show_header=True)
+                formatted = _format_workspace_output(workspace)
+                table.add_row(
+                    formatted["name"],
+                    formatted["id"],
+                    formatted["state"],
+                    formatted["project"],
+                    formatted["cloud"],
+                    formatted["created_by"],
+                    formatted["created_at"],
+                )
+
+            console.print(table)
+
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(f"Failed to get workspace: {e}") from None
+
+
+@workspace_cli.command(
+    name="list",
+    help="List workspaces.",
+    cls=AnyscaleCommand,
+    example=command_examples.WORKSPACE_LIST_EXAMPLE,
+)
+@click.option("--workspace-id", "--id", help="ID of the workspace to display.")
+@click.option("--name", "-n", help="Substring to match against the workspace name.")
+@click.option("--project", help="Filter workspaces by project name.")
+@click.option("--cloud", help="Filter workspaces by cloud name.")
+@click.option(
+    "--created-by-me",
+    is_flag=True,
+    default=False,
+    help="List workspaces created by me only.",
+)
+@click.option(
+    "--state",
+    "-s",
+    "state_filter",
+    multiple=True,
+    callback=validate_workspace_state_filter,
+    help=(
+        "Filter by workspace state (repeatable). "
+        f"Allowed: {', '.join(s.value for s in WorkspaceState)}"
+    ),
+)
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived workspaces in the results.",
+)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help=(
+        "Filter by tags. Can be repeated for multiple tags. "
+        "Tags with the same key are ORed, different keys are ANDed. "
+        "Example: --tag team:mlops --tag team:infra --tag env:prod filters to (team: mlops OR infra) AND env:prod."
+    ),
+)
+@click.option(
+    "--max-items",
+    type=int,
+    callback=validate_max_items,
+    help="Max total items (only with --no-interactive).",
+)
+@click.option(
+    "--page-size",
+    type=int,
+    default=10,
+    show_default=True,
+    callback=validate_page_size,
+    help=f"Items per page (max {MAX_PAGE_SIZE}).",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    default=True,
+    show_default=True,
+    help="Use interactive paging.",
+)
+@click.option(
+    "--sort",
+    help=(
+        "Sort by FIELD (prefix with '-' for desc). "
+        f"Allowed: {', '.join(f.value for f in WorkspaceSortField.__members__.values())}"
+    ),
+)
+@click.option(
+    "-j",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Emit structured JSON to stdout.",
+)
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Show all fields including IDs and metadata.",
+)
+def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
+    workspace_id: Optional[str],
+    name: Optional[str],
+    project: Optional[str],
+    cloud: Optional[str],
+    created_by_me: bool,
+    state_filter: List[str],
+    include_archived: bool,
+    tags: Tuple[str],
+    max_items: Optional[int],
+    page_size: int,
+    interactive: bool,
+    sort: Optional[str],
+    json_output: bool,
+    verbose: bool,
+) -> None:
+    """List workspaces with optional filters."""
+    if max_items is not None and interactive:
+        raise click.UsageError("--max-items only allowed with --no-interactive")
+
+    # Parse sort option
+    sort_field, sort_order = _parse_sort_option(sort)
+
+    stderr = Console(stderr=True)
+    effective_max = max_items
+    if not interactive and effective_max is None:
+        stderr.print(
+            f"Defaulting to {NON_INTERACTIVE_DEFAULT_MAX_ITEMS} items in batch mode; "
+            "use --max-items to override."
+        )
+        effective_max = NON_INTERACTIVE_DEFAULT_MAX_ITEMS
+
+    console = Console()
+    creator_id = None
+    if created_by_me:
+        auth_block = get_auth_api_client()
+        creator_id = auth_block.api_client.get_user_info_api_v2_userinfo_get().result.id
+
+    # Parse tags filter
+    tags_filter = parse_repeatable_tags_to_dict(tags) if tags else None
+
+    # Convert state filter strings to WorkspaceState enums
+    workspace_states = None
+    if state_filter:
+        workspace_states = [WorkspaceState.validate(s) for s in state_filter]
+
+    stderr.print("[bold]Listing workspaces with:[/]")
+    stderr.print(f"• name              = {name or '<any>'}")
+    stderr.print(f"• project           = {project or '<any>'}")
+    stderr.print(f"• cloud             = {cloud or '<any>'}")
+    stderr.print(f"• created_by_me     = {created_by_me}")
+    stderr.print(f"• states            = {', '.join(state_filter) or '<all>'}")
+    stderr.print(f"• tags              = {tags_filter or '<none>'}")
+    stderr.print(f"• include_archived  = {include_archived}")
+    stderr.print(f"• sort              = {sort or '<none>'}")
+    stderr.print(f"• mode                = {'interactive' if interactive else 'batch'}")
+    stderr.print(f"• per-page limit      = {page_size}")
+    stderr.print(f"• max-items total     = {effective_max or 'all'}")
+    stderr.print(f"\nView your Workspaces in the UI at {get_endpoint('/workspaces')}\n")
+
+    if json_output:
+
+        def formatter(workspace):
+            return workspace.to_dict()
+
+        table_creator = _create_workspace_list_table
+    elif verbose:
+        formatter = _format_workspace_output_verbose
+        table_creator = _create_workspace_list_table_verbose
     else:
-        stream = StringIO()
-        yaml.safe_dump(workspace_dict, stream, sort_keys=False)
-        print(stream.getvalue(), end="")
+        formatter = _format_workspace_output
+        table_creator = _create_workspace_list_table
+
+    try:
+        iterator = anyscale.workspace.list(
+            workspace_id=workspace_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            creator_id=creator_id,
+            state_filter=workspace_states,
+            tags_filter=tags_filter,
+            include_config=False,  # CLI only needs metadata, not expensive config
+            sort_field=sort_field,
+            sort_order=sort_order,
+            max_items=None if interactive else effective_max,
+            page_size=page_size,
+        )
+        total = display_list(
+            iterator=iter(iterator),
+            item_formatter=formatter,
+            table_creator=table_creator,
+            json_output=json_output,
+            page_size=page_size,
+            interactive=interactive,
+            max_items=effective_max,
+            console=console,
+        )
+
+        if not json_output:
+            if total > 0:
+                stderr.print(f"\nFetched {total} workspaces.")
+            else:
+                stderr.print("\nNo workspaces found.")
+    except ValueError as e:
+        raise click.ClickException(str(e)) from None
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(f"Failed to list workspaces: {e}") from None

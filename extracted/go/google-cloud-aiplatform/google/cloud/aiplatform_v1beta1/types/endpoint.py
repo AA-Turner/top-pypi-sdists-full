@@ -19,9 +19,7 @@ from typing import MutableMapping, MutableSequence
 
 import proto  # type: ignore
 
-from google.cloud.aiplatform_v1beta1.types import (
-    encryption_spec as gca_encryption_spec,
-)
+from google.cloud.aiplatform_v1beta1.types import encryption_spec as gca_encryption_spec
 from google.cloud.aiplatform_v1beta1.types import explanation
 from google.cloud.aiplatform_v1beta1.types import io
 from google.cloud.aiplatform_v1beta1.types import machine_resources
@@ -179,6 +177,9 @@ class Endpoint(proto.Message):
             native RAG integration can be configured.
             Currently, only Model Garden models are
             supported.
+        private_model_server_enabled (bool):
+            If true, the model server will be isolated
+            from the external internet.
     """
 
     name: str = proto.Field(
@@ -279,6 +280,10 @@ class Endpoint(proto.Message):
         number=29,
         message="GenAiAdvancedFeaturesConfig",
     )
+    private_model_server_enabled: bool = proto.Field(
+        proto.BOOL,
+        number=30,
+    )
 
 
 class DeployedModel(proto.Message):
@@ -309,6 +314,11 @@ class DeployedModel(proto.Message):
             The resource name of the shared DeploymentResourcePool to
             deploy on. Format:
             ``projects/{project}/locations/{location}/deploymentResourcePools/{deployment_resource_pool}``
+
+            This field is a member of `oneof`_ ``prediction_resources``.
+        full_fine_tuned_resources (google.cloud.aiplatform_v1beta1.types.FullFineTunedResources):
+            Optional. Resources for a full fine tuned
+            model.
 
             This field is a member of `oneof`_ ``prediction_resources``.
         id (str):
@@ -469,6 +479,12 @@ class DeployedModel(proto.Message):
         proto.STRING,
         number=17,
         oneof="prediction_resources",
+    )
+    full_fine_tuned_resources: machine_resources.FullFineTunedResources = proto.Field(
+        proto.MESSAGE,
+        number=36,
+        oneof="prediction_resources",
+        message=machine_resources.FullFineTunedResources,
     )
     id: str = proto.Field(
         proto.STRING,

@@ -1,21 +1,21 @@
 """The base project holder class."""
 
+import datetime
 import json
 import logging
 import os
 import platform
 import re
+import time
 
-import datetime
 import feedparser
 import requests
-from appdirs import user_cache_dir
 from cachecontrol import CacheControlAdapter
 from cachecontrol.caches.file_cache import FileCache
 from packaging.version import InvalidVersion
 
-from lastversion.version import Version
 from lastversion.__about__ import __version__
+from lastversion.config import get_config
 
 # This class basically corresponds to something (often a website) which holds
 # projects (usually a bunch). Often this is a github-like website, so we subclass session
@@ -24,12 +24,223 @@ from lastversion.__about__ import __version__
 # it is instantiated with a particular project in mind/set, but also has some methods for
 # stuff like searching one
 from lastversion.utils import asset_does_not_belong_to_machine, ensure_directory_exists
+from lastversion.version import Version
 
 log = logging.getLogger(__name__)
 
 
+def _safe_open_write(filename, fmode):
+    """Open a file for secure write, mirroring CacheControl's behavior without
+    relying on its private API.
+    """
+    flags = os.O_WRONLY
+    flags |= os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    try:
+        os.remove(filename)
+    except (IOError, OSError):
+        pass
+    fd = os.open(filename, flags, fmode)
+    try:
+        return os.fdopen(fd, "wb")
+    except Exception:
+        os.close(fd)
+        raise
+
+
+class LockAcquireTimeout(Exception):
+    """Raised when an internal lock cannot be acquired within timeout."""
+
+
+def _is_process_alive(pid):
+    """Check if a process with given PID is still running.
+
+    Args:
+        pid: Process ID to check.
+
+    Returns:
+        bool: True if process is alive, False otherwise.
+    """
+    if pid <= 0:
+        return False
+    try:
+        # On Unix, signal 0 doesn't kill but checks if process exists
+        os.kill(pid, 0)
+        return True
+    except OSError as err:
+        # ESRCH = No such process, EPERM = Permission denied (process exists)
+        import errno
+
+        if err.errno == errno.ESRCH:
+            return False
+        if err.errno == errno.EPERM:
+            # Process exists but we don't have permission to signal it
+            return True
+        return False
+    except Exception:
+        return False
+
+
+class InternalTimedDirLock:
+    """File-based lock with PID tracking for stale lock detection.
+
+    This lock creates a `.lock` file containing the holder's PID.
+    Uses atomic file creation (O_CREAT | O_EXCL) to prevent race conditions.
+
+    If an existing lock is found, the lock checks whether the holding process
+    is still alive. If the process is dead (crashed, killed), the stale lock
+    is automatically cleaned up and acquisition proceeds.
+
+    This avoids the need for age-based stale lock detection while providing
+    robust recovery from process failures.
+
+    Note: Also handles cleanup of old directory-based locks from pre-v3.6.7.
+    """
+
+    def __init__(self, path, threaded=True, timeout=None):
+        # `path` is the target data file path to be protected
+        self.path = path
+        self._lock_file = f"{path}.lock"
+        self._timeout = 5 if timeout is None else timeout
+
+    def _read_lock_pid(self):
+        """Read the PID from an existing lock file.
+
+        Returns:
+            int or None: The PID if readable, None otherwise.
+        """
+        try:
+            with open(self._lock_file, "r", encoding="utf-8") as f:
+                return int(f.read().strip())
+        except (IOError, OSError, ValueError):
+            return None
+
+    def _write_lock_file(self):
+        """Atomically create lock file with current PID.
+
+        Returns:
+            bool: True if lock was acquired, False if already exists.
+        """
+        try:
+            # O_CREAT | O_EXCL ensures atomic creation - fails if file exists
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            fd = os.open(self._lock_file, flags, 0o644)
+            try:
+                os.write(fd, str(os.getpid()).encode("utf-8"))
+            finally:
+                os.close(fd)
+            return True
+        except FileExistsError:
+            return False
+        except OSError:
+            return False
+
+    def _cleanup_stale_lock(self):
+        """Remove a stale lock from a dead process.
+
+        Handles both:
+        - New-style lock files (v3.6.7+)
+        - Old-style lock directories (pre-v3.6.7)
+
+        Returns:
+            bool: True if stale lock was cleaned up, False otherwise.
+        """
+        import shutil
+
+        # Check if it's an old-style directory lock (pre-v3.6.7)
+        if os.path.isdir(self._lock_file):
+            log.debug("Found old-style directory lock: %s", self._lock_file)
+            # Try to read PID from old-style location
+            old_pid_file = os.path.join(self._lock_file, "pid")
+            pid = None
+            try:
+                with open(old_pid_file, "r", encoding="utf-8") as f:
+                    pid = int(f.read().strip())
+            except (IOError, OSError, ValueError):
+                pass
+
+            if pid is None or not _is_process_alive(pid):
+                try:
+                    shutil.rmtree(self._lock_file)
+                    log.debug("Cleaned up old-style directory lock: %s", self._lock_file)
+                    return True
+                except OSError as e:
+                    log.debug("Failed to remove old lock dir %s: %s", self._lock_file, e)
+                    return False
+            return False
+
+        # New-style file lock
+        pid = self._read_lock_pid()
+        if pid is None:
+            # Unreadable or empty lock file - safe to remove
+            log.debug("Lock file unreadable or empty: %s", self._lock_file)
+            try:
+                os.remove(self._lock_file)
+                log.debug("Cleaned up invalid lock file: %s", self._lock_file)
+                return True
+            except OSError as e:
+                log.debug("Failed to remove lock file %s: %s", self._lock_file, e)
+                return False
+
+        if not _is_process_alive(pid):
+            # Process is dead, safe to clean up
+            log.debug("Removing stale lock from dead process %d: %s", pid, self._lock_file)
+            try:
+                os.remove(self._lock_file)
+                return True
+            except OSError as e:
+                log.debug("Failed to remove stale lock %s: %s", self._lock_file, e)
+                return False
+        return False
+
+    def __enter__(self):
+        deadline = time.time() + self._timeout
+        while True:
+            if self._write_lock_file():
+                break
+            # Lock exists - check if holder is still alive
+            if self._cleanup_stale_lock():
+                # Stale lock cleaned up, try again immediately
+                continue
+            if time.time() >= deadline:
+                raise LockAcquireTimeout(f"Failed to acquire lock for {self.path}")
+            time.sleep(0.1)
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            os.remove(self._lock_file)
+        except (IOError, OSError):
+            pass
+        return False
+
+
+class SafeFileCache(FileCache):
+    """FileCache that avoids hanging on lock acquisition by timing out and
+    skipping cache writes on lock errors.
+    """
+
+    def _write(self, path, data: bytes):
+        # Ensure directory exists
+        try:
+            os.makedirs(os.path.dirname(path), self.dirmode)
+        except (IOError, OSError):
+            pass
+
+        try:
+            with self.lock_class(path) as lock:
+                with _safe_open_write(lock.path, self.filemode) as fh:
+                    fh.write(data)
+        except LockAcquireTimeout as exc:
+            # Do not fail requests on cache lock issues; just skip caching
+            log.debug("Cache write skipped due to lock error: %s", exc)
+
+
 def matches_filter(filter_s, positive, version_s):
-    """Check if version string matches a filter string.
+    """Check if a version string matches a filter string.
 
     Args:
         filter_s (str): Filter string.
@@ -92,6 +303,44 @@ class BaseProjectHolder(requests.Session):
 
     CACHE_DISABLED = False
 
+    # Conventional changelog file candidates to try at a tag
+    CHANGELOG_CANDIDATES = [
+        "CHANGELOG.md",
+        "CHANGELOG",
+        "CHANGES.md",
+        "CHANGES",
+        "NEWS.md",
+        "NEWS",
+        "docs/CHANGELOG.md",
+        "docs/CHANGES.md",
+        "docs/NEWS.md",
+    ]
+
+    def repo_changelog(self, tag):
+        """Default: no changelog retrieval; subclasses may override."""
+        return None
+
+    def repo_changelog_path(self, tag):
+        """Default: no changelog path; subclasses may override to return (text, path)."""
+        return None, None
+
+    def collect_release_notes(self, tag, release):
+        """Collect release notes text and provenance.
+
+        Returns:
+            (text, source): text string or None; source is 'release_body' or a filename path
+        """
+        try:
+            text = release.get("body") or release.get("description")
+            if text:
+                return text, "release_body"
+            text, path = self.repo_changelog_path(tag)
+            if text:
+                return text, path
+        except Exception:
+            return None, None
+        return None, None
+
     @property
     def name(self):
         """Get project name, useful in URLs for assets, etc."""
@@ -104,22 +353,31 @@ class BaseProjectHolder(requests.Session):
         self.mount("https://", requests.adapters.HTTPAdapter(max_retries=5))
         app_name = __name__.split(".", maxsplit=1)[0]
 
+        # Load configuration
+        config = get_config()
+
         self.cache_dir = None
         self.cache = None
         if not self.CACHE_DISABLED:
-            self.cache_dir = user_cache_dir(app_name)
+            # Use configured cache path or default
+            self.cache_dir = config.file_cache_path
             log.info("Using cache directory: %s.", self.cache_dir)
-            self.cache = FileCache(self.cache_dir)
+            # Use a lock with a finite timeout to avoid rare hangs on cache writes
+            lock_cls = InternalTimedDirLock
+            self.cache = SafeFileCache(self.cache_dir, lock_class=lock_cls)
             cache_adapter = CacheControlAdapter(cache=self.cache)
             # noinspection HttpUrlsUsage
             self.mount("http://", cache_adapter)
             self.mount("https://", cache_adapter)
         else:
             log.info("Cache is disabled for this holder.")
+            # Still need cache_dir for names_cache_filename even if HTTP cache is disabled
+            self.cache_dir = config.file_cache_path
 
         self.names_cache_filename = f"{self.cache_dir}/repos.json"
 
-        self.headers.update({"User-Agent": f"{app_name}/{__version__}"})
+        self.user_agent = f"{app_name}/{__version__}"
+        self.headers.update({"User-Agent": self.user_agent})
         log.info("Created instance of %s", type(self).__name__)
         self.branches = None
         self.only = None
@@ -163,6 +421,99 @@ class BaseProjectHolder(requests.Session):
                 json.dump(cache_data, writer)
         except (IOError, ValueError) as e:
             log.warning("Error writing to cache file: %s", e)
+
+    @classmethod
+    def clear_cache(cls, repo=None):
+        """Clear the HTTP cache and release data cache.
+
+        Args:
+            repo: Optional repo identifier. If provided, clears cache only for
+                  URLs containing this repo. If None, clears all cache.
+
+        Returns:
+            int: Number of cache entries cleared
+        """
+        from lastversion.cache import get_release_cache
+
+        config = get_config()
+        cache_dir = config.file_cache_path
+
+        if not os.path.exists(cache_dir):
+            log.info("Cache directory does not exist: %s", cache_dir)
+            return 0
+
+        cleared = 0
+
+        # Clear release data cache
+        release_cache = get_release_cache()
+        if repo:
+            # Clear release cache for specific repo
+            release_cache.delete(repo)
+        else:
+            cleared += release_cache.clear()
+
+        if repo:
+            # Clear cache entries for specific repo
+            # CacheControl uses URL-based filenames, so we need to find and remove
+            # files that match the repo pattern
+            from urllib.parse import quote
+
+            # Common URL patterns for the repo
+            repo_patterns = [
+                f"/{repo}/",
+                f"/{repo}.",
+                f"/{quote(repo, safe='')}/",
+            ]
+
+            for root, dirs, files in os.walk(cache_dir):
+                for filename in files:
+                    filepath = os.path.join(root, filename)
+                    # Read the cached URL from the file or use filename heuristics
+                    try:
+                        # CacheControl stores URL hash as filename
+                        # We can't easily reverse the hash, so we delete based on
+                        # modification time (recent files for this repo)
+                        # A more thorough approach: delete all and let it re-cache
+                        if any(pattern in str(filepath) for pattern in repo_patterns):
+                            os.remove(filepath)
+                            cleared += 1
+                    except (IOError, OSError):
+                        pass
+
+            # Also clear from names cache
+            names_cache_file = os.path.join(cache_dir, "repos.json")
+            if os.path.exists(names_cache_file):
+                try:
+                    with open(names_cache_file, "r", encoding="utf-8") as f:
+                        names_cache = json.load(f)
+                    # Remove entries matching the repo
+                    repo_lower = repo.lower()
+                    keys_to_remove = [
+                        k
+                        for k in names_cache
+                        if repo_lower in k.lower() or (names_cache[k].get("repo", "").lower() == repo_lower)
+                    ]
+                    for key in keys_to_remove:
+                        del names_cache[key]
+                        cleared += 1
+                    with open(names_cache_file, "w", encoding="utf-8") as f:
+                        json.dump(names_cache, f)
+                except (IOError, ValueError, json.JSONDecodeError):
+                    pass
+
+            log.info("Cleared %d cache entries for repo: %s", cleared, repo)
+        else:
+            # Clear all cache
+            import shutil
+
+            try:
+                shutil.rmtree(cache_dir)
+                log.info("Cleared all cache from: %s", cache_dir)
+                cleared += 1  # Indicate success
+            except (IOError, OSError) as e:
+                log.warning("Error clearing cache: %s", e)
+
+        return cleared
 
     def is_instance(self):
         """Check if project holder is valid instance."""
@@ -223,9 +574,7 @@ class BaseProjectHolder(requests.Session):
             url_parts = repo.split("/")
             hostname = url_parts[2]
             offset = 3 + cls.REPO_URL_PROJECT_OFFSET
-            repo = "/".join(
-                url_parts[offset : offset + cls.REPO_URL_PROJECT_COMPONENTS]
-            )
+            repo = "/".join(url_parts[offset : offset + cls.REPO_URL_PROJECT_COMPONENTS])
         return hostname, repo
 
     @classmethod
@@ -253,13 +602,10 @@ class BaseProjectHolder(requests.Session):
             if len(repo_components) == 1 and hasattr(cls, "find_repo_by_name_only"):
                 return repo_arg
             if len(repo_components) < cls.REPO_URL_PROJECT_COMPONENTS:
-                raise ValueError(
-                    f"Repo arg {repo_arg} does not have enough components for {cls.__name__}"
-                )
+                raise ValueError(f"Repo arg {repo_arg} does not have enough components for {cls.__name__}")
             return "/".join(
                 repo_components[
-                    cls.REPO_URL_PROJECT_OFFSET : cls.REPO_URL_PROJECT_OFFSET
-                    + cls.REPO_URL_PROJECT_COMPONENTS
+                    cls.REPO_URL_PROJECT_OFFSET : cls.REPO_URL_PROJECT_OFFSET + cls.REPO_URL_PROJECT_COMPONENTS
                 ]
             )
         return None
@@ -277,27 +623,27 @@ class BaseProjectHolder(requests.Session):
 
     @classmethod
     def is_matching_hostname(cls, hostname):
-        """Check if given hostname matches to the project hosting's domains."""
+        """Check if given hostname matches to the project hosting's domains.
+
+        Args:
+            hostname: May include port (netloc format) for non-standard ports.
+        """
         if not hostname:
             return None
         # Hosting does not have domains defined
         if not cls.DEFAULT_HOSTNAME and not cls.SUBDOMAIN_INDICATOR:
             return False
-        if cls.DEFAULT_HOSTNAME == hostname:
+        # Extract hostname without port for comparison
+        hostname_only = hostname.rsplit(":", 1)[0] if ":" in hostname else hostname
+        if cls.DEFAULT_HOSTNAME == hostname_only:
             return True
-        if cls.SUBDOMAIN_INDICATOR and hostname.startswith(
-            cls.SUBDOMAIN_INDICATOR + "."
-        ):
+        if cls.SUBDOMAIN_INDICATOR and hostname_only.startswith(cls.SUBDOMAIN_INDICATOR + "."):
             return True
         return False
 
     def matches_major_filter(self, version, major):
         """Check if version matches major filter."""
-        if (
-            self.branches
-            and major in self.branches
-            and re.search(rf"{self.branches[major]}", str(version))
-        ):
+        if self.branches and major in self.branches and re.search(rf"{self.branches[major]}", str(version)):
             log.info("%s matches major %s", version, self.branches[major])
             return True
         if str(version).startswith(f"{major}."):
@@ -336,9 +682,7 @@ class BaseProjectHolder(requests.Session):
         res = None
 
         if not matches_filter(self.only, True, version_s):
-            log.info(
-                '"%s" does not match the "only" constraint "%s"', version_s, self.only
-            )
+            log.info('"%s" does not match the "only" constraint "%s"', version_s, self.only)
             return None
 
         if not matches_filter(self.exclude, False, version_s):
@@ -391,9 +735,7 @@ class BaseProjectHolder(requests.Session):
                         else:
                             log.info("Parsed as unwanted pre-release version: %s.", v)
                     except InvalidVersion:
-                        log.info(
-                            "Still not a valid version after applying underscores fix"
-                        )
+                        log.info("Still not a valid version after applying underscores fix")
         # apply --major filter
         if res and major and not self.matches_major_filter(res, major):
             log.info("%s is not under the desired major %s", version_s, major)
@@ -446,9 +788,7 @@ class BaseProjectHolder(requests.Session):
             for asset in assets:
                 if assets_filter and not re.search(assets_filter, asset["name"]):
                     continue
-                if not assets_filter and asset_does_not_belong_to_machine(
-                    asset["name"]
-                ):
+                if not assets_filter and asset_does_not_belong_to_machine(asset["name"]):
                     log.info(
                         "Asset %s does not belong to this machine, skipping",
                         asset["name"],
@@ -460,6 +800,47 @@ class BaseProjectHolder(requests.Session):
             if not assets_filter or re.search(assets_filter, download_url):
                 urls.append(download_url)
         return urls
+
+    def get_assets_with_digests(self, release, short_urls, assets_filter=None):
+        """Get assets with digest information for a given release.
+
+        Returns a list of dicts with url, name, size, and digest (if available).
+        This provides more detailed asset info for JSON output.
+        """
+        result = []
+        assets = release.get("assets", [])
+        arch_matched_assets = []
+        if not assets_filter and platform.machine() in ["x86_64", "AMD64"]:
+            for asset in assets:
+                if "x86_64" in asset["name"]:
+                    arch_matched_assets.append(asset)
+            if arch_matched_assets:
+                assets = arch_matched_assets
+
+        if assets:
+            for asset in assets:
+                if assets_filter and not re.search(assets_filter, asset["name"]):
+                    continue
+                if not assets_filter and asset_does_not_belong_to_machine(asset["name"]):
+                    log.info(
+                        "Asset %s does not belong to this machine, skipping",
+                        asset["name"],
+                    )
+                    continue
+                asset_info = {
+                    "url": asset.get("browser_download_url"),
+                    "name": asset.get("name"),
+                    "size": asset.get("size"),
+                }
+                # Include digest if available (GitHub provides this since June 2025)
+                if asset.get("digest"):
+                    asset_info["digest"] = asset["digest"]
+                result.append(asset_info)
+        else:
+            download_url = self.release_download_url(release, short_urls)
+            if not assets_filter or re.search(assets_filter, download_url):
+                result.append({"url": download_url, "name": None, "size": None})
+        return result
 
     def get_canonical_link(self):
         """Get the canonical link for a project."""

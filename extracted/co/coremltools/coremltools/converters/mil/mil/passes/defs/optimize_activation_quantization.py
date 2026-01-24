@@ -159,9 +159,9 @@ class insert_suffix_quantize_dequantize_pair(AbstractGraphPass):
         - (`quantize` ->) dequantize` -> `conv` -> `relu` -> `quantize` -> `dequantize`
         """
 
-        # Reject if 1st operation is not `conv`/`add`/`pool`.
-        SUPPORTED_OP_TYPES = ["conv", "add", "avg_pool", "max_pool"]
-        if any([_check_child_op_type(dequantize_op, val) for val in SUPPORTED_OP_TYPES]):
+        # Reject if 1st operation is not `conv`/`add`/`pool`/`linear`.
+        SUPPORTED_OP_TYPES = ["conv", "add", "avg_pool", "max_pool", "linear"]
+        if any(_check_child_op_type(dequantize_op, val) for val in SUPPORTED_OP_TYPES):
             pass
         else:
             return False
@@ -233,8 +233,6 @@ class insert_suffix_quantize_dequantize_pair(AbstractGraphPass):
         """
         if _child_op is None:
             return False
-
-        scale_dtype = np.float16 if last_op.outputs[0].dtype == types.fp16 else np.float32
 
         new_last_op = getattr(mb, last_op.op_type)
         kargs = {}

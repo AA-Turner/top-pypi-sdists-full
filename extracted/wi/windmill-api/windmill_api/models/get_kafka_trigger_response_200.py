@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.get_kafka_trigger_response_200_mode import GetKafkaTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -23,7 +24,6 @@ class GetKafkaTriggerResponse200:
         kafka_resource_path (str):
         group_id (str):
         topics (List[str]):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -32,19 +32,19 @@ class GetKafkaTriggerResponse200:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (GetKafkaTriggerResponse200Mode): job trigger mode
         server_id (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GetKafkaTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, GetKafkaTriggerResponse200Retry]):
+        retry (Union[Unset, GetKafkaTriggerResponse200Retry]): Retry configuration for failed module executions
     """
 
     kafka_resource_path: str
     group_id: str
     topics: List[str]
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -53,6 +53,7 @@ class GetKafkaTriggerResponse200:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: GetKafkaTriggerResponse200Mode
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -66,7 +67,6 @@ class GetKafkaTriggerResponse200:
         group_id = self.group_id
         topics = self.topics
 
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -77,6 +77,8 @@ class GetKafkaTriggerResponse200:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
         if not isinstance(self.last_server_ping, Unset):
@@ -99,7 +101,6 @@ class GetKafkaTriggerResponse200:
                 "kafka_resource_path": kafka_resource_path,
                 "group_id": group_id,
                 "topics": topics,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -108,6 +109,7 @@ class GetKafkaTriggerResponse200:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -140,8 +142,6 @@ class GetKafkaTriggerResponse200:
 
         topics = cast(List[str], d.pop("topics"))
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -157,6 +157,8 @@ class GetKafkaTriggerResponse200:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = GetKafkaTriggerResponse200Mode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -189,7 +191,6 @@ class GetKafkaTriggerResponse200:
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -198,6 +199,7 @@ class GetKafkaTriggerResponse200:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             last_server_ping=last_server_ping,
             error=error,

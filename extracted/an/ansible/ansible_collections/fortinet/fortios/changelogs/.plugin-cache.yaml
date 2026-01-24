@@ -1,12 +1,10 @@
-objects:
-  role: {}
+objects: {}
 plugins:
   become: {}
   cache: {}
   callback: {}
   cliconf: {}
   connection: {}
-  filter: {}
   httpapi:
     fortios:
       description: HttpApi Plugin for Fortinet FortiOS Appliance or VM
@@ -23,6 +21,5 @@ plugins:
   netconf: {}
   shell: {}
   strategy: {}
-  test: {}
   vars: {}
-version: 2.4.0
+version: 2.4.2

@@ -1,6 +1,6 @@
 [project]
 name = "garminconnect"
-version = "0.2.30"
+version = "0.2.38"
 description = "Python 3 API wrapper for Garmin Connect"
 authors = [
     { name = "Ron Klinkien", email = "ron@cyberjunky.nl" },
@@ -44,6 +44,9 @@ dev = [
     "pandas",
     "matplotlib",
 ]
+workout = [
+    "pydantic>=2.0.0",
+]
 linting = [
     "black[jupyter]",
     "ruff",
@@ -82,6 +85,10 @@ warn_unused_ignores = true
 profile = "black"
 line_length = 88
 known_first_party = "garminconnect"
+skip_glob = [
+    "tests/*",
+    "test_data/*",
+]
 
 [tool.pdm]
 distribution = true
@@ -92,9 +99,6 @@ excludes = [
     "test_data/**",
     ".github/**",
 ]
-
-[tool.pdm.python]
-path = ".venv/bin/python"
 
 [tool.pdm.scripts]
 install = "pdm install --group :all"
@@ -195,6 +199,8 @@ exclude = [
     ".pytest_cache",
     "build",
     "dist",
+    "tests",
+    "test_data",
 ]
 
 [tool.ruff.lint]
@@ -209,11 +215,48 @@ select = [
     "ARG",
     "SIM",
     "S",
+    "D",
+    "PTH",
+    "PL",
+    "RUF",
+    "TRY",
+    "PERF",
+    "LOG",
+    "G",
+    "T20",
+    "PIE",
+    "RET",
+    "TCH",
+    "ERA",
 ]
 ignore = [
     "E501",
     "B008",
     "C901",
+    "D100",
+    "D104",
+    "D105",
+    "D107",
+    "D203",
+    "D213",
+    "PLR0913",
+    "PLR2004",
+    "PLR0912",
+    "PLR0915",
+    "PLC0415",
+    "TRY003",
+    "TRY004",
+    "TRY301",
+    "G004",
+    "D205",
+    "D401",
+    "D102",
+    "D106",
+    "D417",
+    "TRY401",
+    "TRY203",
+    "TRY300",
+    "ERA001",
 ]
 unfixable = []
 
@@ -221,6 +264,30 @@ unfixable = []
 "tests/*" = [
     "ARG",
     "S101",
+]
+"garminconnect/fit.py" = [
+    "D",
+    "RUF012",
+    "PLW2901",
+]
+"garminconnect/workout.py" = [
+    "D401",
+]
+"demo.py" = [
+    "T20",
+    "S101",
+    "ERA",
+    "RUF001",
+    "PTH",
+    "PERF401",
+    "PERF203",
+    "PLR0911",
+    "D103",
+]
+"example.py" = [
+    "S110",
+    "PLR0911",
+    "T20",
 ]
 
 [tool.coverage.run]

@@ -1,15 +1,12 @@
-import warnings
-
-import sklearn
 from sklearn import ensemble
 from sklearn.base import BaseEstimator
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import OrdinalEncoder, StandardScaler
-from sklearn.utils.fixes import parse_version
+from sklearn.preprocessing import OrdinalEncoder
 
 from ._datetime_encoder import DatetimeEncoder
 from ._sklearn_compat import get_tags
+from ._squashing_scaler import SquashingScaler
 from ._string_encoder import StringEncoder
 from ._table_vectorizer import TableVectorizer
 from ._to_categorical import ToCategorical
@@ -24,62 +21,6 @@ _TREE_ENSEMBLE_CLASSES = (
     ensemble.RandomForestClassifier,
     ensemble.RandomForestRegressor,
 )
-
-
-def tabular_learner(estimator, *, n_jobs=None):
-    """Get a simple machine-learning pipeline for tabular data.
-
-    .. deprecated:: 0.6.0
-        The functionality provided by this function is now implemented in
-        :func:`~skrub.tabular_pipeline`.
-
-    ``'regressor'``, ``'regression'``, ``'classifier'``, ``'classification'``, this
-    function creates a scikit-learn pipeline that extracts numeric features, imputes
-    missing values and scales the data if necessary, then applies the estimator.
-
-    .. note::
-       The heuristics used by the ``tabular_pipeline``
-       to define an appropriate preprocessing based on the ``estimator`` may change
-       in future releases.
-
-    .. versionchanged:: 0.6.0
-        The high cardinality encoder has been changed from
-        :class:`~skrub.MinHashEncoder` to :class:`~skrub.StringEncoder`.
-
-    Parameters
-    ----------
-    estimator : {"regressor", "regression", "classifier", "classification"} or sklearn.base.BaseEstimator
-        The estimator to use as the final step in the pipeline. Based on the type of
-        estimator, the previous preprocessing steps and their respective parameters are
-        chosen. The possible values are:
-
-        - ``'regressor'`` or ``'regression'``: a
-          :obj:`~sklearn.ensemble.HistGradientBoostingRegressor` is used as the final
-          step;
-        - ``'classifier'`` or ``'classification'``: a
-          :obj:`~sklearn.ensemble.HistGradientBoostingClassifier` is used as the final
-          step;
-        - a scikit-learn estimator: the provided estimator is used as the final step.
-
-    n_jobs : int, default=None
-        Number of jobs to run in parallel in the :obj:`TableVectorizer` step. ``None``
-        means 1 unless in a joblib ``parallel_backend`` context. ``-1`` means using all
-        processors.
-
-    Returns
-    -------
-    Pipeline
-        A scikit-learn :obj:`~sklearn.pipeline.Pipeline` chaining some preprocessing and
-        the provided ``estimator``.
-    """  # noqa: E501
-    warnings.warn(
-        (
-            "tabular_learner will be deprecated in the next release. "
-            "Equivalent functionality is available in skrub.tabular_pipeline."
-        ),
-        category=FutureWarning,
-    )
-    return tabular_pipeline(estimator, n_jobs=n_jobs)
 
 
 def tabular_pipeline(estimator, *, n_jobs=None):
@@ -98,6 +39,11 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     .. versionchanged:: 0.6.0
         The high cardinality encoder has been changed from
         :class:`~skrub.MinHashEncoder` to :class:`~skrub.StringEncoder`.
+
+    .. versionchanged:: 0.7.0
+        The :class:`~skrub.SquashingScaler` with `max_absolute_value=5` is now used instead of
+        :class:`~sklearn.preprocessing.StandardScaler` for centering and scaling
+        numerical features when using linear models.
 
     Parameters
     ----------
@@ -136,7 +82,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     - An optional :obj:`~sklearn.impute.SimpleImputer` imputes missing values by their
       mean and adds binary columns that indicate which values were missing. This step is
       only added if the ``estimator`` cannot handle missing values itself.
-    - An optional :obj:`~sklearn.preprocessing.StandardScaler` centers and rescales the
+    - An optional :obj:`~skrub.SquashingScaler` centers and rescales the
       data. This step is not added (because it is unnecessary) when the ``estimator`` is
       a tree ensemble such as random forest or gradient boosting.
     - The last step is the provided ``estimator``.
@@ -155,7 +101,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
       1.4. Therefore, before this version, a :class:`~sklearn.impute.SimpleImputer` is
       used to impute missing values.
 
-    Read more in the :ref:`User Guide <userguide_tablevectorizer>`.
+    Read more in the :ref:`User Guide <user_guide_tabular_pipeline>`.
 
     Examples
     --------
@@ -197,7 +143,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     >>> y = [0, 1, 0, 1]
     >>> X
        last_visit   medication insulin_prescriptions  fasting_glucose
-    0  2020-01-02         None                   N/A               35
+    0  2020-01-02          ...                   N/A               35
     1  2021-04-01    metformin                    13              140
     2  2024-12-05  paracetamol                     0               44
     3  2023-08-10   gliclazide                    17              137
@@ -215,7 +161,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     Pipeline(steps=[('tablevectorizer',
                     TableVectorizer(datetime=DatetimeEncoder(periodic_encoding='spline'))),
                     ('simpleimputer', SimpleImputer(add_indicator=True)),
-                    ('standardscaler', StandardScaler()),
+                    ('squashingscaler', SquashingScaler(max_absolute_value=5)),
                     ('logisticregression', LogisticRegression())])
 
     By applying only the first pipeline step we can see the transformed data that is
@@ -235,7 +181,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     Pipeline(steps=[('tablevectorizer',
                     TableVectorizer(datetime=DatetimeEncoder(periodic_encoding='spline'))),
                     ('simpleimputer', SimpleImputer(add_indicator=True)),
-                    ('standardscaler', StandardScaler()),
+                    ('squashingscaler', SquashingScaler(max_absolute_value=5)),
                     ('logisticregression', LogisticRegression())])
 
     For a :obj:`~sklearn.linear_model.LogisticRegression`, we get:
@@ -247,7 +193,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     - A :obj:`~sklearn.impute.SimpleImputer`, as the
       :obj:`~sklearn.linear_model.LogisticRegression` cannot handle missing values.
 
-    - A :obj:`~sklearn.preprocessing.StandardScaler` for centering and standard scaling
+    - A :obj:`~skrub.SquashingScaler` for centering and scaling
       numerical features.
 
     On the other hand, For the :obj:`~sklearn.ensemble.HistGradientBoostingClassifier`
@@ -277,10 +223,7 @@ def tabular_pipeline(estimator, *, n_jobs=None):
       unnecessary for tree ensembles.
     """  # noqa: E501
     vectorizer = TableVectorizer(n_jobs=n_jobs)
-    if parse_version(sklearn.__version__) < parse_version("1.4"):
-        cat_feat_kwargs = {}
-    else:
-        cat_feat_kwargs = {"categorical_features": "from_dtype"}
+    cat_feat_kwargs = {"categorical_features": "from_dtype"}
 
     if isinstance(estimator, str):
         if estimator in ("classifier", "classification"):
@@ -331,6 +274,6 @@ def tabular_pipeline(estimator, *, n_jobs=None):
     if not get_tags(estimator).input_tags.allow_nan:
         steps.append(SimpleImputer(add_indicator=True))
     if not isinstance(estimator, _TREE_ENSEMBLE_CLASSES):
-        steps.append(StandardScaler())
+        steps.append(SquashingScaler(max_absolute_value=5))
     steps.append(estimator)
     return make_pipeline(*steps)

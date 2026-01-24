@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ase
-Version: 3.26.0
+Version: 3.27.0
 Summary: Atomic Simulation Environment
 Maintainer-email: ASE Community <ase-users@listserv.fysik.dtu.dk>
 License-Expression: LGPL-2.1-or-later
@@ -8,41 +8,51 @@ Project-URL: Homepage, https://ase-lib.org/
 Project-URL: Repository, https://gitlab.com/ase/ase.git
 Project-URL: Issues, https://gitlab.com/ase/ase/issues/
 Classifier: Development Status :: 6 - Mature
-Classifier: Intended Audience :: Science/Research
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy>=1.19.5
-Requires-Dist: scipy>=1.6.0
-Requires-Dist: matplotlib>=3.3.4
+Requires-Dist: numpy>=1.21.6
+Requires-Dist: scipy>=1.8.1
+Requires-Dist: matplotlib>=3.5.2
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_book_theme; extra == "docs"
+Requires-Dist: sphinx-gallery; extra == "docs"
 Requires-Dist: pillow; extra == "docs"
 Provides-Extra: test
-Requires-Dist: pytest>=7.0.0; extra == "test"
-Requires-Dist: pytest-xdist>=2.1.0; extra == "test"
+Requires-Dist: pytest>=7.4.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.2.0; extra == "test"
 Provides-Extra: spglib
 Requires-Dist: spglib>=1.9; extra == "spglib"
 Provides-Extra: lint
 Requires-Dist: mypy; extra == "lint"
 Requires-Dist: ruff; extra == "lint"
-Requires-Dist: coverage; extra == "lint"
 Requires-Dist: types-docutils; extra == "lint"
 Requires-Dist: types-PyMySQL; extra == "lint"
-Requires-Dist: flake8; extra == "lint"
 Dynamic: license-file
 
 Atomic Simulation Environment
 =============================
+
+.. image:: https://gitlab.com/ase/ase/-/raw/master/doc/static/ase256.png
+    :target: https://ase-lib.org/
+    :align: center
+
+|
+
+.. image:: https://badge.fury.io/py/ase.svg
+    :target: https://pypi.org/project/ase/
+
+.. image:: https://gitlab.com/ase/ase/badges/master/coverage.svg?job=coverage-combine
+    :target: https://ase-lib.org/coverage-html/
+
 
 ASE is a set of tools and Python modules for setting up, manipulating,
 running, visualizing and analyzing atomistic simulations.
@@ -53,7 +63,7 @@ Webpage: https://ase-lib.org/
 Requirements
 ------------
 
-* Python_ 3.9 or later
+* Python_ 3.10 or later
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)
 * Matplotlib_ (2D Plotting)
@@ -134,10 +144,10 @@ This example requires NWChem to be installed.
     $ ase gui h2.traj
 
 
-.. _Python: http://www.python.org/
-.. _NumPy: http://docs.scipy.org/doc/numpy/reference/
-.. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _Matplotlib: http://matplotlib.org/
+.. _Python: https://www.python.org/
+.. _NumPy: https://numpy.org/doc/stable/
+.. _SciPy: https://docs.scipy.org/doc/scipy/
+.. _Matplotlib: https://matplotlib.org/
 .. _flask: https://pypi.org/project/Flask/
 .. _spglib: https://github.com/spglib/spglib
 .. _ase-users: https://listserv.fysik.dtu.dk/mailman/listinfo/ase-users

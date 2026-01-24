@@ -7,7 +7,7 @@ from click import echo
 from click._compat import get_text_stderr
 from localstack import config
 from localstack.cli.exceptions import CLIError
-from localstack.pro.core.bootstrap.licensingv2 import LicensingError
+from localstack.pro.core.bootstrap.licensingv2 import LicensingError, get_product_entitlements
 
 
 class LicensingCLIError(CLIError):
@@ -18,7 +18,7 @@ class LicensingCLIError(CLIError):
             click.style("👋 This feature is part of our paid offering!", fg="yellow") + self.message
         )
 
-    def show(self, file: t.Optional[t.IO[t.Any]] = None) -> None:
+    def show(self, file: t.IO[t.Any] | None = None) -> None:
         if file is None:
             file = get_text_stderr()
 
@@ -84,7 +84,7 @@ webapp at https://app.localstack.cloud.
         licensed_environment.activate_license()
 
         product_name = f"{self.namespace}/{self.name}"
-        return licensed_environment.has_product_license(product_name)
+        return product_name in get_product_entitlements(licensed_environment)
 
 
 def _assert_host_reachable() -> None:

@@ -24,6 +24,7 @@ class PadConvMatcher(PatternMatcher):
     def parameter_check(self) -> bool:
         """Validates if the padding parameter for a convolutional node is a constant."""
         pad_node = self.pad_0
+
         return isinstance(pad_node.inputs[1], gs.Constant)
 
     def rewrite(self, opset=11):
@@ -37,13 +38,12 @@ class PadConvMatcher(PatternMatcher):
 
         pad_inputs = len(pad_node.inputs)
         if pad_inputs < 3 or (
-            pad_inputs >= 3
-            and (isinstance(pad_node.inputs[2], gs.Constant) and pad_node.inputs[2].values == 0)
+            (pad_inputs >= 3 and (isinstance(pad_node.inputs[2], gs.Constant) and pad_node.inputs[2].values == 0))
             or (pad_inputs >= 3 and (isinstance(pad_node.inputs[2], gs.Variable) and pad_node.inputs[2].name == ""))
         ):
             if (
                 isinstance(pad_node.inputs[1], gs.Constant)
-                and pad_node.attrs["mode"] == "constant"
+                and pad_node.attrs.get("mode", "constant") == "constant"
                 and conv_node.inputs[1].shape
             ):
                 conv_weight_dim = len(conv_node.inputs[1].shape)
@@ -68,9 +68,10 @@ class PadConvMatcher(PatternMatcher):
                         pad_node.inputs.clear()
                         pad_node.outputs.clear()
 
-                    conv_pads = attrs["pads"]
                     pads = pad_value[2:conv_weight_dim] + pad_value[conv_weight_dim + 2 :]
-                    pads = [pad + conv_pad for pad, conv_pad in zip(pads, conv_pads)]
+                    if hasattr(attrs, "pads"):
+                        conv_pads = attrs["pads"]
+                        pads = [pad + conv_pad for pad, conv_pad in zip(pads, conv_pads)]
 
                     attrs["pads"] = pads
                     match_case[conv_node.name] = {

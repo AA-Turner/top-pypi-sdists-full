@@ -114,39 +114,35 @@ class PredictionDataset(APIObject):
 
     _path_template = "projects/{}/predictionDatasets/{}/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("project_id"): String(),
-            t.Key("created"): String(),
-            t.Key("name"): String(),
-            t.Key("num_rows"): Int(),
-            t.Key("num_columns"): Int(),
-            t.Key("forecast_point", optional=True): parse_time,
-            t.Key("predictions_start_date", optional=True): parse_time,
-            t.Key("predictions_end_date", optional=True): parse_time,
-            t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
-            # do not forget to update `test_data_quality_warnings`
-            # in datarobot-python-api-tests repo
-            t.Key("data_quality_warnings", optional=True): t.Dict(
-                {
-                    t.Key("has_kia_missing_values_in_forecast_window"): t.Bool(),
-                    t.Key("insufficient_rows_for_evaluating_models"): t.Bool(),
-                    t.Key("single_class_actual_value_column"): t.Bool(),
-                }
-            ).allow_extra("*"),
-            t.Key("forecast_point_range", optional=True): t.List(parse_time),
-            t.Key("data_start_date", optional=True): parse_time,
-            t.Key("data_end_date", optional=True): parse_time,
-            t.Key("max_forecast_date", optional=True): parse_time,
-            t.Key("actual_value_column", optional=True): String(),
-            t.Key("detected_actual_value_columns", optional=True): t.List(
-                t.Dict({t.Key("missing_count"): Int(), t.Key("name"): String()}).ignore_extra("*")
-            ),
-            t.Key("contains_target_values", optional=True): t.Bool(),
-            t.Key("secondary_datasets_config_id", optional=True): String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("project_id"): String(),
+        t.Key("created"): String(),
+        t.Key("name"): String(),
+        t.Key("num_rows"): Int(),
+        t.Key("num_columns"): Int(),
+        t.Key("forecast_point", optional=True): parse_time,
+        t.Key("predictions_start_date", optional=True): parse_time,
+        t.Key("predictions_end_date", optional=True): parse_time,
+        t.Key("relax_known_in_advance_features_check", optional=True): t.Bool(),
+        # do not forget to update `test_data_quality_warnings`
+        # in datarobot-python-api-tests repo
+        t.Key("data_quality_warnings", optional=True): t.Dict({
+            t.Key("has_kia_missing_values_in_forecast_window"): t.Bool(),
+            t.Key("insufficient_rows_for_evaluating_models"): t.Bool(),
+            t.Key("single_class_actual_value_column"): t.Bool(),
+        }).allow_extra("*"),
+        t.Key("forecast_point_range", optional=True): t.List(parse_time),
+        t.Key("data_start_date", optional=True): parse_time,
+        t.Key("data_end_date", optional=True): parse_time,
+        t.Key("max_forecast_date", optional=True): parse_time,
+        t.Key("actual_value_column", optional=True): String(),
+        t.Key("detected_actual_value_columns", optional=True): t.List(
+            t.Dict({t.Key("missing_count"): Int(), t.Key("name"): String()}).ignore_extra("*")
+        ),
+        t.Key("contains_target_values", optional=True): t.Bool(),
+        t.Key("secondary_datasets_config_id", optional=True): String(),
+    }).allow_extra("*")
 
     def __init__(
         self,

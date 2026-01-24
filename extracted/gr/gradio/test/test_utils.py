@@ -714,7 +714,7 @@ class TestSafeDeepCopy:
         assert copied == original
         assert copied is not original
         assert copied[2] is not original[2]
-        assert copied[2][2] is not original[2][2]
+        assert copied[2][2] is not original[2][2]  # type: ignore
 
     def test_safe_deepcopy_custom_object(self):
         class CustomClass:
@@ -748,7 +748,7 @@ def test_error_payload():
     assert result == {"error": None}
 
     result = error_payload(Exception("test error"), True)
-    assert result == {"error": "test error"}
+    assert result == {"error": "test error", "visible": True}
 
     gr_error = Error("custom error", duration=1.5, visible=True, title="Error Title")
     result = error_payload(gr_error, False)

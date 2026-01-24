@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: essentials
-Version: 1.1.6
+Version: 1.1.9
 Summary: General purpose classes and functions
 Project-URL: homepage, https://github.com/Neoteroi/essentials
 Author-email: Roberto Prevato <roberto.prevato@gmail.com>
 License: MIT License
         
-        Copyright (c) 2019 Roberto Prevato
+        Copyright (c) 2019-present Roberto Prevato, roberto.prevato@gmail.com
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -31,11 +31,11 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/markdown
 
 ![Build](https://github.com/Neoteroi/essentials/workflows/Build/badge.svg)

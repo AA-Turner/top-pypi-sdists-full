@@ -154,10 +154,10 @@ class VCSArtifactDownloadManager(DownloadManager[VCSArtifact]):
         local_distribution = downloaded_vcs.local_distributions[0]
         filename = os.path.basename(local_distribution.path)
         digest_vcs_archive(
+            project_name=project_name,
             archive_path=local_distribution.path,
             vcs=artifact.vcs,
             digest=digest,
-            subdirectory=artifact.subdirectory,
         )
         shutil.move(local_distribution.path, os.path.join(dest_dir, filename))
         return filename

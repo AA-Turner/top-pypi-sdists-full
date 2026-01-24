@@ -5,7 +5,11 @@ from rest_framework.response import Response
 
 async def get_data(serializer):
     """Use adata if the serializer supports it, data otherwise."""
-    return await serializer.adata if hasattr(serializer, "adata") else serializer.data
+    return (
+        await serializer.adata
+        if hasattr(serializer, "adata")
+        else await sync_to_async(lambda: serializer.data)()
+    )
 
 
 class CreateModelMixin(mixins.CreateModelMixin):
@@ -31,7 +35,7 @@ class ListModelMixin(mixins.ListModelMixin):
     """
 
     async def alist(self, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = await self.afilter_queryset(self.get_queryset())
 
         page = await self.apaginate_queryset(queryset)
         if page is not None:

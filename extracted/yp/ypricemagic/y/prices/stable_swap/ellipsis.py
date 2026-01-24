@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from typing import List, Optional
 
 import a_sync
 from a_sync import cgather
@@ -50,7 +49,7 @@ async def is_eps_rewards_pool(token_address: AnyAddressType) -> bool:
 @a_sync.a_sync(default="sync")
 async def get_price(
     token_address: AddressOrContract,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ) -> UsdPrice:
     """
@@ -78,7 +77,7 @@ async def get_price(
     """
     minter = await raw_call(token_address, "minter()", output="address", block=block, sync=False)
     minter = await Contract.coroutine(minter)
-    balances: List[WeiBalance]
+    balances: list[WeiBalance]
     i, balances = 0, []
     while True:
         try:

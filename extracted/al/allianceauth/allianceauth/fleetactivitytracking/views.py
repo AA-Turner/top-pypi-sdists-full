@@ -320,8 +320,8 @@ def click_fatlink_view(request, token, fat_hash=None):
         messages.warning(
             request,
             _(
-                f"Cannot register the fleet participation for {character.character_name}. The character needs to be online."
-            ),
+                "Cannot register the fleet participation for {character_name}. The character needs to be online."
+            ).format(character_name=character.character_name)
         )
 
     return redirect('fatlink:view')

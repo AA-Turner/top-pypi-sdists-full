@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiosmtplib
-Version: 4.0.2
+Version: 5.0.0
 Summary: asyncio SMTP client
 Project-URL: Documentation, https://aiosmtplib.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/cole/aiosmtplib/blob/main/CHANGELOG.rst
@@ -20,7 +20,7 @@ Classifier: Topic :: Communications :: Email
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: docs
 Requires-Dist: furo>=2023.9.10; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints>=1.24.0; extra == 'docs'
@@ -72,7 +72,7 @@ Requirements
 ..
   start requirements
 
-Python 3.9+ is required.
+Python 3.10+ is required.
 
 ..
   end requirements

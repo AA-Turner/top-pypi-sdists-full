@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-router
-Version: 0.1.11
+Version: 0.1.12
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -12,7 +12,7 @@ Requires-Dist: colorama<0.5,>=0.4.6
 Requires-Dist: colorlog<7,>=6.8.0
 Requires-Dist: litellm>=1.61.3
 Requires-Dist: numpy>=1.25.2
-Requires-Dist: openai<2.0.0,>=1.10.0
+Requires-Dist: openai<3.0.0,>=1.10.0
 Requires-Dist: pydantic<3,>=2.10.2
 Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: regex>=2023.12.25
@@ -32,7 +32,7 @@ Requires-Dist: mistralai<0.1.0,>=0.0.12; extra == 'all'
 Requires-Dist: mypy<2,>=1.7.1; extra == 'all'
 Requires-Dist: ollama>=0.1.7; extra == 'all'
 Requires-Dist: pillow<11.0.0,>=10.2.0; (python_version < '3.13') and extra == 'all'
-Requires-Dist: pinecone<6.0.0,>=5.0.0; extra == 'all'
+Requires-Dist: pinecone[asyncio]<8.0.0,>=7.0.0; extra == 'all'
 Requires-Dist: psycopg[binary]<4,>=3.1.0; extra == 'all'
 Requires-Dist: pytest-asyncio<0.25,>=0.24.0; extra == 'all'
 Requires-Dist: pytest-cov<5,>=4.1.0; extra == 'all'
@@ -40,6 +40,7 @@ Requires-Dist: pytest-mock<4,>=3.12.0; extra == 'all'
 Requires-Dist: pytest-timeout; extra == 'all'
 Requires-Dist: pytest-xdist<4,>=3.5.0; extra == 'all'
 Requires-Dist: pytest~=8.2; extra == 'all'
+Requires-Dist: python-dotenv<2,>=1.0.0; extra == 'all'
 Requires-Dist: qdrant-client<2,>=1.11.1; extra == 'all'
 Requires-Dist: requests-mock<2,>=1.12.1; extra == 'all'
 Requires-Dist: ruff<0.12,>=0.11.2; extra == 'all'
@@ -65,6 +66,7 @@ Requires-Dist: pytest-mock<4,>=3.12.0; extra == 'dev'
 Requires-Dist: pytest-timeout; extra == 'dev'
 Requires-Dist: pytest-xdist<4,>=3.5.0; extra == 'dev'
 Requires-Dist: pytest~=8.2; extra == 'dev'
+Requires-Dist: python-dotenv<2,>=1.0.0; extra == 'dev'
 Requires-Dist: requests-mock<2,>=1.12.1; extra == 'dev'
 Requires-Dist: ruff<0.12,>=0.11.2; extra == 'dev'
 Requires-Dist: types-pyyaml<7,>=6.0.12.12; extra == 'dev'
@@ -86,7 +88,7 @@ Requires-Dist: mistralai<0.1.0,>=0.0.12; extra == 'mistralai'
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.1.7; extra == 'ollama'
 Provides-Extra: pinecone
-Requires-Dist: pinecone<6.0.0,>=5.0.0; extra == 'pinecone'
+Requires-Dist: pinecone[asyncio]<8.0.0,>=7.0.0; extra == 'pinecone'
 Provides-Extra: postgres
 Requires-Dist: psycopg[binary]<4,>=3.1.0; extra == 'postgres'
 Provides-Extra: qdrant

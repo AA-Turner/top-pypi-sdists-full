@@ -33,9 +33,9 @@ impl<'a> FixedSizeListGrowable<'a> {
                     capacity * element_fixed_len,
                 );
                 let growable_validity =
-                    if use_validity || arrays.iter().any(|arr| arr.validity().is_some()) {
+                    if use_validity || arrays.iter().any(|arr| arr.nulls().is_some()) {
                         Some(ArrowBitmapGrowable::new(
-                            arrays.iter().map(|a| a.validity()).collect(),
+                            arrays.iter().map(|a| a.nulls()).collect(),
                             capacity,
                         ))
                     } else {
@@ -80,7 +80,7 @@ impl Growable for FixedSizeListGrowable<'_> {
         let grown_validity = std::mem::take(&mut self.growable_validity);
 
         let built_child = self.child_growable.build()?;
-        let built_validity = grown_validity.map(|v| v.build());
+        let built_validity = grown_validity.and_then(|v| v.build());
         Ok(FixedSizeListArray::new(
             Field::new(self.name.clone(), self.dtype.clone()),
             built_child,

@@ -369,13 +369,7 @@ class Snowflake(Connector):
             the_type = "String"
             if t.startswith("NUMBER"):
                 the_type = "Int32"
-            if (
-                t.startswith("FLOAT")
-                or t.startswith("DOUBLE")
-                or t.startswith("REAL")
-                or t.startswith("NUMERIC")
-                or t.startswith("DECIMAL")
-            ):
+            if t.startswith(("FLOAT", "DOUBLE", "REAL", "NUMERIC", "DECIMAL")):
                 the_type = "Float32"
             if t == "DATE":
                 the_type = "Date"

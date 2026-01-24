@@ -22,15 +22,21 @@ from slugify import slugify
 
 from wbcore.contrib.agenda.models import CalendarItem
 from wbcore.contrib.authentication.models import User
+from wbcore.contrib.currency.models import Currency
 from wbcore.contrib.directory.models.contacts import (
     AddressContact,
     BankingContact,
     ContactLocationChoices,
     EmailContact,
+    SocialMediaContact,
     TelephoneContact,
     WebsiteContact,
 )
-from wbcore.contrib.directory.models.relationships import ClientManagerRelationship, EmployerEmployeeRelationship
+from wbcore.contrib.directory.models.relationships import (
+    ClientManagerRelationship,
+    EmployerEmployeeRelationship,
+    Relationship,
+)
 from wbcore.contrib.directory.signals import deactivate_profile
 from wbcore.contrib.directory.typings import Person as PersonDTO
 from wbcore.models import WBModel
@@ -39,6 +45,8 @@ from wbcore.utils.models import (
     ActiveObjectManager,
     ComplexToStringMixin,
     DeleteToDisableMixin,
+    MergeError,
+    MergeMixin,
 )
 
 
@@ -245,10 +253,6 @@ class EntryDefaultQueryset(models.QuerySet):
                     EmailContact.objects.filter(primary=True, entry__id=OuterRef("pk")).values("address")[:1],
                     output_field=CharField(),
                 ),
-                secondary_email=Subquery(
-                    EmailContact.objects.filter(primary=False, entry__id=OuterRef("pk")).values("address")[:1],
-                    output_field=CharField(),
-                ),
                 primary_telephone=Subquery(
                     TelephoneContact.objects.filter(primary=True, entry__id=OuterRef("pk")).values("number")[:1],
                     output_field=CharField(),
@@ -261,6 +265,14 @@ class EntryDefaultQueryset(models.QuerySet):
                         )
                     )
                     .values("primary_address")[:1],
+                    output_field=CharField(),
+                ),
+                primary_website=Subquery(
+                    WebsiteContact.objects.filter(primary=True, entry__id=OuterRef("pk")).values("url")[:1],
+                    output_field=CharField(),
+                ),
+                primary_social=Subquery(
+                    SocialMediaContact.objects.filter(primary=True, entry__id=OuterRef("pk")).values("url")[:1],
                     output_field=CharField(),
                 ),
                 last_event=Subquery(
@@ -300,7 +312,7 @@ class EntryManager(ActiveObjectManager):
         return self.get_queryset().annotate_all()
 
 
-class Entry(ComplexToStringMixin, DeleteToDisableMixin, WBModel):
+class Entry(MergeMixin, ComplexToStringMixin, DeleteToDisableMixin, WBModel):
     AUTOMATICALLY_CLEAN_SOFT_DELETED_OBJECTS = True
 
     class EntryType(models.TextChoices):
@@ -408,6 +420,14 @@ class Entry(ComplexToStringMixin, DeleteToDisableMixin, WBModel):
         if additional_field_key in self.additional_fields:
             del self.additional_fields[additional_field_key]
 
+    def get_banking_contact(self, currency: Currency) -> BankingContact | None:
+        bank_accounts = self.banking.all()
+        if bank_accounts.filter(currency=currency).exists():
+            bank_accounts = bank_accounts.filter(currency=currency)
+        if bank_accounts.filter(primary=True).exists():
+            bank_accounts = bank_accounts.filter(primary=True)
+        return bank_accounts.first()
+
     @classmethod
     def get_endpoint_basename(cls):
         return "wbcore:directory:entry"
@@ -419,6 +439,46 @@ class Entry(ComplexToStringMixin, DeleteToDisableMixin, WBModel):
     @classmethod
     def get_representation_value_key(cls):
         return "id"
+
+    def get_merge_senders_kwargs(self, merged_object):
+        if type(self) is not type(merged_object):
+            raise MergeError(
+                f"Cannot merge {merged_object} (type {type(merged_object)}) into {self} (type {type(self)}): mismatch type"
+            )
+        if isinstance(self, Person):
+            yield (Person, merged_object, self)
+        elif isinstance(self, Company):
+            yield (Company, merged_object, self)
+        yield (Entry, getattr(merged_object, "entry_ptr", merged_object), getattr(self, "entry_ptr", self))
+
+    def _merge(self, merged_entry, **kwargs):
+        models = [
+            (BankingContact, "iban"),
+            (EmailContact, "address"),
+            (SocialMediaContact, "url"),
+            (TelephoneContact, "number"),
+            (WebsiteContact, "url"),
+        ]
+        AddressContact.objects.filter(entry=merged_entry).update(entry=self)
+        Relationship.objects.filter(to_entry=merged_entry).update(to_entry=self)
+        Relationship.objects.filter(from_entry=merged_entry).update(from_entry=self)
+
+        for model_class, field_name in models:
+            for contact in model_class.objects.filter(entry=merged_entry):
+                if model_class.objects.filter(**{field_name: getattr(contact, field_name), "entry": self}).exists():
+                    contact.delete()
+                else:
+                    contact.entry = self
+                    contact.primary = False
+                    contact.save()
+        for rel in ClientManagerRelationship.objects.filter(client=merged_entry):
+            if ClientManagerRelationship.objects.filter(
+                client=merged_entry, relationship_manager=rel.relationship_manager
+            ).exists():
+                rel.delete()
+            else:
+                rel.client = self
+                rel.save()
 
 
 class PersonDefaultQueryset(EntryDefaultQueryset):
@@ -580,6 +640,26 @@ class Person(Entry):
             email=contact.address if (contact := self.primary_email_contact()) else None,
             id=self.id,
         )
+
+    def _merge(self, merged_person, **kwargs):
+        super()._merge(merged_person.entry_ptr, **kwargs)
+        for contact in BankingContact.objects.filter(access=merged_person):
+            contact.access.remove(merged_person)
+            if self not in contact.access.all():
+                contact.access.add(self)
+        for rel in ClientManagerRelationship.objects.filter(relationship_manager=merged_person):
+            if ClientManagerRelationship.objects.filter(relationship_manager=self, client=rel.client).exists():
+                rel.delete()
+            else:
+                rel.relationship_manager = self
+                rel.save()
+
+        for rel in EmployerEmployeeRelationship.objects.filter(employee=merged_person):
+            if EmployerEmployeeRelationship.objects.filter(employee=merged_person, employer=rel.employer).exists():
+                rel.delete()
+            else:
+                rel.employer = self
+                rel.save()
 
     def str_full(self):
         """
@@ -758,6 +838,20 @@ class Company(Entry):
 
     def __str__(self):
         return f"{self.name}"
+
+    def _merge(self, merged_person, **kwargs):
+        super()._merge(merged_person.entry_ptr, **kwargs)
+        for p in Person.objects.filter(employers=merged_person):
+            p.employers.remove(merged_person)
+            if self not in p.employers.all():
+                p.employers.add(self)
+
+        for rel in EmployerEmployeeRelationship.objects.filter(employer=merged_person):
+            if EmployerEmployeeRelationship.objects.filter(employer=self, employee=rel.employee).exists():
+                rel.delete()
+            else:
+                rel.employer = self
+                rel.save()
 
     def save(self, *args, **kwargs):
         self.entry_type = "Company"

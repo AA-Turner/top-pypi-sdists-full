@@ -1,11 +1,10 @@
 import importlib.util
 
+import numpy as np
 import pytest
 
 import autoray as ar
 from autoray import shape
-import numpy as np
-
 
 # find backends to tests
 BACKENDS = [pytest.param("numpy")]
@@ -24,6 +23,7 @@ for lib in [
 
         if lib == "jax":
             import os
+
             import jax
 
             jax.config.update("jax_enable_x64", True)
@@ -292,6 +292,7 @@ def modified_gram_schmidt_np_mimic(X, explicit_namespace=False):
 
 def test_numpy_mimic_dunder_methods():
     from abc import ABC
+
     from autoray import numpy as np
 
     class Base(ABC):
@@ -795,8 +796,9 @@ def test_backend_like(backend):
 
 
 def test_nested_multihreaded_backend_like():
-    from autoray.autoray import choose_backend
     from concurrent.futures import ThreadPoolExecutor
+
+    from autoray.autoray import choose_backend
 
     def foo(backend1, backend2):
         bs = []
@@ -1085,3 +1087,27 @@ def test_indices(backend):
     xn = ar.to_numpy(x)
     xe = ar.do("indices", (3, 4), like="numpy")
     assert_array_equal(xn, xe)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_is_array(backend):
+    x = gen_rand((2, 3), backend)
+    assert ar.is_array(x)
+    x = gen_rand((), backend)
+    assert ar.is_array(x)
+    y = 5
+    assert not ar.is_array(y)
+    y = [5]
+    assert not ar.is_array(y)
+
+
+@pytest.mark.parametrize("backend", BACKENDS)
+def test_is_scalar(backend):
+    x = gen_rand((2, 3), backend)
+    assert not ar.is_scalar(x)
+    x = gen_rand((), backend)
+    assert ar.is_scalar(x)
+    y = 5
+    assert ar.is_scalar(y)
+    y = [5]
+    assert not ar.is_scalar(y)

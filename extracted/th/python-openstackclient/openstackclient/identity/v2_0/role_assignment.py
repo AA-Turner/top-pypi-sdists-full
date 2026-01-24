@@ -13,10 +13,10 @@
 
 """Identity v2 Assignment action implementations"""
 
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _  # noqa
 
 
@@ -68,7 +68,7 @@ class ListRoleAssignment(command.Lister):
                 parsed_args.user,
             )
         elif parsed_args.authuser:
-            if auth_ref:
+            if auth_ref and auth_ref.user_id:
                 user = utils.find_resource(
                     identity_client.users, auth_ref.user_id
                 )
@@ -80,7 +80,7 @@ class ListRoleAssignment(command.Lister):
                 parsed_args.project,
             )
         elif parsed_args.authproject:
-            if auth_ref:
+            if auth_ref and auth_ref.project_id:
                 project = utils.find_resource(
                     identity_client.projects, auth_ref.project_id
                 )

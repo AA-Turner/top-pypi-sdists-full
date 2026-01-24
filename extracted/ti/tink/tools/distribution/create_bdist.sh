@@ -14,9 +14,14 @@
 # limitations under the License.
 ################################################################################
 
-# This script creates binary wheels for Tink Python for Linux and macOS.
+# Generated with openssl rand -hex 10
+echo "================================================================================"
+echo "Tink Script ID: 87b6b958a7ce24607cca (to quickly find the script from logs)"
+echo "================================================================================"
 
 set -eEuox pipefail
+
+# This script creates binary wheels for Tink Python for Linux and macOS.
 
 readonly GCS_URL="https://storage.googleapis.com"
 
@@ -26,12 +31,12 @@ readonly PLATFORM="$(uname | tr '[:upper:]' '[:lower:]')"
 
 export TINK_PYTHON_ROOT_PATH="${PWD}"
 
-readonly MANYLINUX_X86_64_IMAGE_NAME="quay.io/pypa/manylinux2014_x86_64"
-readonly MANYLINUX_X86_64_IMAGE_SHA256="sha256:a88c482d5403f0fe91836f48a37828ef1520c3a548715dd0d7f20c0c1d4d34e0"
+readonly MANYLINUX_X86_64_IMAGE_NAME="quay.io/pypa/manylinux_2_28_x86_64"
+readonly MANYLINUX_X86_64_IMAGE_SHA256="sha256:a7333f64cc4dd1b103e1c9e1f3415267391bdf773c892720dd28b887cefc0c26"
 readonly MANYLINUX_X86_64_IMAGE="${MANYLINUX_X86_64_IMAGE_NAME}@${MANYLINUX_X86_64_IMAGE_SHA256}"
 
-readonly MANYLINUX_AARCH64_IMAGE_NAME="quay.io/pypa/manylinux2014_aarch64"
-readonly MANYLINUX_AARCH64_IMAGE_SHA256="sha256:a4f98ac4c63be3566e8af2b0dcec65d99937c886e9fd6931a3ded224a451ec63"
+readonly MANYLINUX_AARCH64_IMAGE_NAME="quay.io/pypa/manylinux_2_28_aarch64"
+readonly MANYLINUX_AARCH64_IMAGE_SHA256="sha256:f701d22269f1b22e194aa561e2815214d5f5288049075a1ebd7aba0993f7c270"
 readonly MANYLINUX_AARCH64_IMAGE="${MANYLINUX_AARCH64_IMAGE_NAME}@${MANYLINUX_AARCH64_IMAGE_SHA256}"
 
 readonly ARCH="$(uname -m)"
@@ -169,8 +174,6 @@ create_bdist_for_macos() {
     export TINK_PYTHON_BAZEL_REMOTE_CACHE_GCS_BUCKET_URL="${GCS_URL}/${BAZEL_CACHE_NAME}"
     export TINK_PYTHON_BAZEL_REMOTE_CACHE_SERVICE_KEY_PATH="/tmp/cache_key"
   fi
-  # Remove the line build:macos --copt=-isystem/usr/local/include from .bazelrc.
-  sed -i .bak 'sXbuild:macos --copt=-isystem/usr/local/includeXXg' .bazelrc
   cat .bazelrc
   rm -rf release && mkdir -p release
   for python_version in "${PYTHON_VERSIONS[@]}"; do

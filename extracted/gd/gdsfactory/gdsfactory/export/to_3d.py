@@ -39,9 +39,10 @@ def to_3d(
     try:
         from trimesh.creation import extrude_polygon
         from trimesh.scene import Scene
-    except ImportError as e:
+        from trimesh.visual import ColorVisuals
+    except ImportError:
         print("you need to `pip install trimesh`")
-        raise e
+        raise
 
     layer_views = layer_views or get_layer_views()
     layer_stack = layer_stack or get_layer_stack()
@@ -64,11 +65,11 @@ def to_3d(
 
         if isinstance(layer, LogicalLayer):
             assert isinstance(layer.layer, tuple | LayerEnum)
-            layer_tuple = cast(tuple[int, int], tuple(layer.layer))
+            layer_tuple = cast("tuple[int, int]", tuple(layer.layer))
         elif isinstance(layer, DerivedLayer):
             assert level.derived_layer is not None
             assert isinstance(level.derived_layer.layer, tuple | LayerEnum)
-            layer_tuple = cast(tuple[int, int], tuple(level.derived_layer.layer))
+            layer_tuple = cast("tuple[int, int]", tuple(level.derived_layer.layer))
         else:
             raise ValueError(f"Layer {layer!r} is not a DerivedLayer or LogicalLayer")
 
@@ -94,7 +95,8 @@ def to_3d(
                 p = shapely.geometry.Polygon(polygon)
                 mesh = extrude_polygon(p, height=height)
                 mesh.apply_translation((0, 0, zmin))
-                mesh.visual.face_colors = (*color_rgb, 0.5)
+                if isinstance(mesh.visual, ColorVisuals):
+                    mesh.visual.face_colors = (*color_rgb, 0.5)
                 scene.add_geometry(mesh)
     if not has_polygons:
         raise ValueError(

@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Any, Literal, get_args
+from typing import IO, Any, Literal, get_args
 
 import ijson  # type: ignore
 from ijson import IncompleteJSONError
@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from pydantic_core import from_json
 from typing_extensions import override
 
-from inspect_ai._util.constants import DESERIALIZING_CONTEXT, LOG_SCHEMA_VERSION
+from inspect_ai._util.constants import LOG_SCHEMA_VERSION, get_deserializing_context
 from inspect_ai._util.error import EvalError
 from inspect_ai._util.file import FileSystem, absolute_file_path, file, filesystem
 from inspect_ai._util.trace import trace_action
@@ -36,6 +36,11 @@ class JSONRecorder(FileRecorder):
         return location.endswith(".json")
 
     @override
+    @classmethod
+    def handles_bytes(cls, first_bytes: bytes) -> bool:
+        return first_bytes[:1] == b"{"
+
+    @override
     def default_log_buffer(self, sample_count: int) -> int:
         # we write the entire file in one shot and the files can
         # get fairly large (> 100MB) so we are a bit more sparing
@@ -50,7 +55,10 @@ class JSONRecorder(FileRecorder):
         data: EvalLog
 
     def __init__(
-        self, log_dir: str, suffix: str = ".json", fs_options: dict[str, Any] = {}
+        self,
+        log_dir: str,
+        suffix: str = ".json",
+        fs_options: dict[str, Any] | None = None,
     ):
         # call super
         super().__init__(log_dir, suffix, fs_options)
@@ -92,18 +100,20 @@ class JSONRecorder(FileRecorder):
     @override
     async def log_finish(
         self,
-        spec: EvalSpec,
+        eval: EvalSpec,
         status: Literal["started", "success", "cancelled", "error"],
         stats: EvalStats,
         results: EvalResults | None,
         reductions: list[EvalSampleReductions] | None,
         error: EvalError | None = None,
         header_only: bool = False,
+        invalidated: bool = False,
     ) -> EvalLog:
-        log = self.data[self._log_file_key(spec)]
+        log = self.data[self._log_file_key(eval)]
         log.data.status = status
         log.data.stats = stats
         log.data.results = results
+        log.data.invalidated = invalidated
         if error:
             log.data.error = error
         if reductions:
@@ -112,7 +122,7 @@ class JSONRecorder(FileRecorder):
         log.data.location = log.file
 
         # stop tracking this data
-        del self.data[self._log_file_key(spec)]
+        del self.data[self._log_file_key(eval)]
 
         # return the log
         return log.data
@@ -160,28 +170,19 @@ class JSONRecorder(FileRecorder):
                 raw_data = from_json(f.read())
             etag = None
 
-        log = EvalLog.model_validate(raw_data, context=DESERIALIZING_CONTEXT)
+        log = _parse_json_log(raw_data, header_only)
         log.location = location
         if etag:
             log.etag = etag
 
-        # fail for unknown version
-        _validate_version(log.version)
-
-        # set the version to the schema version we'll be returning
-        log.version = LOG_SCHEMA_VERSION
-
-        # prune if header_only
-        if header_only:
-            # exclude samples
-            log.samples = None
-
-            # prune sample reductions
-            if log.results is not None:
-                log.results.sample_reductions = None
-                log.reductions = None
-
         return log
+
+    @override
+    @classmethod
+    async def read_log_bytes(
+        cls, log_bytes: IO[bytes], header_only: bool = False
+    ) -> EvalLog:
+        return _parse_json_log(from_json(log_bytes.read()), header_only)
 
     @override
     @classmethod
@@ -227,6 +228,29 @@ def _validate_version(ver: int) -> None:
         raise ValueError(f"Unable to read version {ver} of log format.")
 
 
+def _parse_json_log(raw_data: Any, header_only: bool) -> EvalLog:
+    """Parse raw JSON data into an EvalLog, validating version and pruning if header_only."""
+    log = EvalLog.model_validate(raw_data, context=get_deserializing_context())
+
+    # fail for unknown version
+    _validate_version(log.version)
+
+    # set the version to the schema version we'll be returning
+    log.version = LOG_SCHEMA_VERSION
+
+    # prune if header_only
+    if header_only:
+        # exclude samples
+        log.samples = None
+
+        # prune sample reductions
+        if log.results is not None:
+            log.results.sample_reductions = None
+            log.reductions = None
+
+    return log
+
+
 async def _s3_read_with_etag(location: str, fs: FileSystem) -> tuple[str, str]:
     """
     Read S3 file content and get ETag in a single operation.
@@ -242,8 +266,6 @@ async def _s3_read_with_etag(location: str, fs: FileSystem) -> tuple[str, str]:
     async with session.client(
         "s3",
         endpoint_url=fs.fs.client_kwargs.get("endpoint_url"),
-        aws_access_key_id=fs.fs.key,
-        aws_secret_access_key=fs.fs.secret,
         region_name=fs.fs.client_kwargs.get("region_name"),
     ) as s3_client:
         response = await s3_client.get_object(Bucket=bucket, Key=key)
@@ -283,6 +305,7 @@ def _read_header_streaming(log_file: str) -> EvalLog:
         f.seek(0)
 
         # Parse the log file, stopping before parsing samples
+        invalidated = False
         status: Literal["started", "success", "cancelled", "error"] | None = None
         eval: EvalSpec | None = None
         plan: EvalPlan | None = None
@@ -295,6 +318,8 @@ def _read_header_streaming(log_file: str) -> EvalLog:
                     Literal["started", "success", "cancelled", "error"]
                 )
                 status = v
+            elif k == "invalidated":
+                invalidated = v
             if k == "eval":
                 eval = EvalSpec(**v)
             elif k == "plan":
@@ -321,6 +346,7 @@ def _read_header_streaming(log_file: str) -> EvalLog:
         results=results if has_results else None,
         stats=stats,
         status=status,
+        invalidated=invalidated,
         version=version,
         error=error if has_error else None,
         location=log_file,

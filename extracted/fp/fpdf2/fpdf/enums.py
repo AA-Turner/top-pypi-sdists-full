@@ -4,6 +4,8 @@ from enum import Enum, Flag, IntEnum, IntFlag
 from sys import intern
 from typing import Optional, Tuple, Union
 
+from fpdf.drawing_primitives import convert_to_device_color
+
 from .syntax import Name, wrap_in_local_context
 
 
@@ -433,9 +435,6 @@ class TableBorderStyle:
 
     def _get_change_line_color_command(self, pdf=None):
         """Return list with string for the draw command to change color (empty if no change)"""
-        # pylint: disable=import-outside-toplevel,cyclic-import
-        from .drawing import convert_to_device_color
-
         if pdf is None:
             color = self.color
         else:
@@ -528,9 +527,6 @@ class TableCellStyle:
     @staticmethod
     def get_change_fill_color_command(color):
         """Return list with string for command to change device color (empty list if no color)"""
-        # pylint: disable=import-outside-toplevel,cyclic-import
-        from .drawing import convert_to_device_color
-
         return (
             []
             if color is None
@@ -1217,6 +1213,46 @@ class BlendMode(CoerciveEnum):
     """
 
 
+class CompositingOperation(CoerciveEnum):
+    "An enumeration of Porter-Duff compositing operations."
+
+    CLEAR = Name("Clear")
+    """ Draw nothing """
+
+    SOURCE = Name("Source")
+    """ Draw the source only """
+
+    DESTINATION = Name("Destination")
+    """ Draw the destination only """
+
+    SOURCE_OVER = Name("SourceOver")
+    """The source is drawn over the destination (backdrop)."""
+
+    DESTINATION_OVER = Name("DestinationOver")
+    """The destination (backdrop) is drawn over the source."""
+
+    SOURCE_IN = Name("SourceIn")
+    """Only the part of the source that overlaps with the destination is drawn. The rest is discarded."""
+
+    DESTINATION_IN = Name("DestinationIn")
+    """Only the part of the destination that overlaps with the source is drawn. The rest is discarded."""
+
+    SOURCE_OUT = Name("SourceOut")
+    """Only the part of the source that does not overlap the destination is drawn."""
+
+    DESTINATION_OUT = Name("DestinationOut")
+    """Only the part of the destination that does not overlap the source is drawn."""
+
+    SOURCE_ATOP = Name("SourceAtop")
+    """The part of the source that overlaps the destination is drawn over the destination. The rest of the source is discarded."""
+
+    DESTINATION_ATOP = Name("DestinationAtop")
+    """The part of the destination that overlaps the source is drawn over the source. The rest of the destination is discarded."""
+
+    XOR = Name("XOR")
+    """Only the parts of the source and destination that do not overlap are drawn."""
+
+
 class AnnotationFlag(CoerciveIntEnum):
     INVISIBLE = 1
     """
@@ -1439,6 +1475,7 @@ class PDFStyleKeys(Enum):
     STROKE_JOIN_STYLE = Name("LJ")
     STROKE_MITER_LIMIT = Name("ML")
     STROKE_DASH_PATTERN = Name("D")  # array of array, number, e.g. [[1 1] 0]
+    SOFT_MASK = Name("SMask")
 
 
 class Corner(CoerciveEnum):
@@ -1616,8 +1653,126 @@ class PDFResourceType(Enum):
     EXT_G_STATE = intern("ExtGState")
     COLOR_SPACE = intern("ColorSpace")
     PATTERN = intern("Pattern")
-    SHADDING = intern("Shading")
+    SHADING = intern("Shading")
     X_OBJECT = intern("XObject")
     FONT = intern("Font")
     PROC_SET = intern("ProcSet")
     PROPERTIES = intern("Properties")
+
+
+class GradientUnits(CoerciveEnum):
+    "Specifies the coordinate system for gradients."
+
+    OBJECT_BOUNDING_BOX = "objectBoundingBox"
+    " Coordinates are expressed as fractions of the painted object's bounding box (0..1 in each axis)."
+
+    USER_SPACE_ON_USE = "userSpaceOnUse"
+    " Coordinates are in the current page space."
+
+
+class GradientSpreadMethod(CoerciveEnum):
+    "Specifies how to fill the area outside the gradient's start and end points."
+
+    PAD = "pad"
+    " The color at the start or end of the gradient is extended to fill the area before or after the gradient."
+
+    REFLECT = "reflect"
+    " The gradient pattern is repeated in reverse order (mirrored) to fill the area before or after the gradient."
+
+    REPEAT = "repeat"
+    " The gradient pattern is repeated in the same order to fill the area before or after the gradient."
+
+
+class DocumentCompliance(Enum):
+    """
+    Type of compliance enforcement that can be applied to a document.
+    Limited to PDF/A at the moment, but extendable to other standards like:
+        - PDF/E (Engineering PDFs)
+        - PDF/UA (PDF Universal Accessibility)
+        - PDF/X (Graphics Exchange PDFs)
+    """
+
+    PDFA_1B = ("PDFA", 1, "B")
+    PDFA_2B = ("PDFA", 2, "B")
+    PDFA_2U = ("PDFA", 2, "U")
+    PDFA_3B = ("PDFA", 3, "B")
+    PDFA_3U = ("PDFA", 3, "U")
+    PDFA_4 = ("PDFA", 4, None)
+    PDFA_4E = ("PDFA", 4, "E")
+    PDFA_4F = ("PDFA", 4, "F")
+
+    @property
+    def profile(self):
+        return self.value[0]
+
+    @property
+    def part(self):
+        return self.value[1]
+
+    @property
+    def conformance(self):
+        return self.value[2]
+
+    @property
+    def label(self):
+        profile = "PDF/A" if self.profile == "PDFA" else self.profile
+        return f"{profile}-{self.part}{self.conformance if self.conformance else ''}"
+
+    def __str__(self):
+        return (
+            f"{self.profile}_{self.part}{self.conformance if self.conformance else ''}"
+        )
+
+    @classmethod
+    def coerce(cls, value):
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, str):
+            key = value.upper()
+            for m in cls:
+                if m.name.upper() == key:  # PDFA_2U
+                    return m
+                if m.label.upper() == key:  # PDF/A-2U
+                    return m
+        raise ValueError(f"Cannot coerce {value!r} to {cls.__name__}")
+
+
+class AssociatedFileRelationship(CoerciveEnum):
+    """Represents the association between an embedded file and the content on the PDF"""
+
+    SOURCE = intern("Source")
+    "The file is the original source material of the content"
+
+    DATA = intern("Data")
+    """
+    The file has the information used to produce the associated object.
+    e.g.: the data used to produce a table or a graph
+    """
+
+    ALTERNATIVE = intern("Alternative")
+    "The file has an alternative representation of the content"
+
+    SUPPLEMENT = intern("Supplement")
+    """
+    The file has a supplemental representation of the original source
+    or data that may be more easily consumable
+    """
+
+    ENCRYPTED_PAYLOAD = intern("EncryptedPayload")
+    """
+    The file is an encrypted payload document that should be displayed
+    to the user if the PDF processor has the cryptographic filter
+    needed to decrypt the document
+    """
+
+    FORM_DATA = intern("FormData")
+    "The file has the data associated with the interactive form in this document"
+
+    SCHEMA = intern("Schema")
+    "The file is a schema definition for the associated object"
+
+    UNSPECIFIED = intern("Unspecified")
+    """
+    Shall be used when the relationship is not known
+    or cannot be described using one of the other values
+    """

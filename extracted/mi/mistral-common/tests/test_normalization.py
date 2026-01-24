@@ -1,5 +1,4 @@
 import json
-from typing import Dict, List, Union
 
 import pytest
 
@@ -22,12 +21,14 @@ from mistral_common.protocol.instruct.normalize import (
     InstructRequestNormalizer,
     InstructRequestNormalizerV7,
     InstructRequestNormalizerV13,
+    get_normalizer,
 )
 from mistral_common.protocol.instruct.request import ChatCompletionRequest, InstructRequest
 from mistral_common.protocol.instruct.tool_calls import Function, FunctionCall, Tool, ToolCall
+from mistral_common.tokens.tokenizers.base import TokenizerVersion
 
 
-def mock_chat_completion(messages: List[ChatMessage]) -> ChatCompletionRequest:
+def mock_chat_completion(messages: list[ChatMessage]) -> ChatCompletionRequest:
     return ChatCompletionRequest(
         model="test",
         messages=messages,
@@ -126,12 +127,12 @@ class TestChatCompletionRequestNormalization:
 
     def check_merge(
         self,
-        roles: List[str],
-        expected_roles: List[str],
-        expected_content: List[Union[List[ContentChunk], str]],
+        roles: list[str],
+        expected_roles: list[str],
+        expected_content: list[list[ContentChunk] | str],
         normalizer: InstructRequestNormalizer,
     ) -> None:
-        letter_to_cls: Dict[str, ChatMessage] = {
+        letter_to_cls: dict[str, ChatMessage] = {
             "s": SystemMessage(content="s"),
             "u": UserMessage(content="u"),
             "a": AssistantMessage(content="a"),
@@ -153,12 +154,12 @@ class TestChatCompletionRequestNormalization:
 
     def check_merge_chunks(
         self,
-        roles: List[str],
-        expected_roles: List[str],
-        expected_content: List[Union[List[ContentChunk], str]],
+        roles: list[str],
+        expected_roles: list[str],
+        expected_content: list[list[ContentChunk] | str],
         normalizer: InstructRequestNormalizer,
     ) -> None:
-        letter_to_cls: Dict[str, ChatMessage] = {
+        letter_to_cls: dict[str, ChatMessage] = {
             "s": SystemMessage(content="s"),
             "u": UserMessage(content="u"),
             "a": AssistantMessage(content="a"),
@@ -219,6 +220,26 @@ class TestChatCompletionRequestNormalization:
                 "u",
             ],
             normalizer,
+        )
+
+    def test_tool_chunk_aggregation(self, normalizer: InstructRequestNormalizer) -> None:
+        messages = [
+            ToolMessage(content="C", tool_call_id="1"),
+            ToolMessage(content=[TextChunk(text='{"a": 2}')], tool_call_id="2"),
+            ToolMessage(content=[TextChunk(text="B"), TextChunk(text="A")], tool_call_id="3"),
+        ]
+
+        expected = [
+            ToolMessage(content="C", tool_call_id="1"),
+            ToolMessage(content=json.dumps({"a": 2}), tool_call_id="2"),
+            ToolMessage(content="B\n\nA", tool_call_id="3"),
+        ]
+
+        assert (
+            normalizer._aggregate_tool_messages(
+                messages, [tool_message.tool_call_id for tool_message in messages if tool_message.tool_call_id]
+            )
+            == expected
         )
 
     def test_normalize_chunks(self, normalizer: InstructRequestNormalizer) -> None:
@@ -514,7 +535,7 @@ class TestChatCompletionRequestNormalizationV13:
     def normalizer_v13(self) -> InstructRequestNormalizerV13:
         return InstructRequestNormalizerV13(UserMessage, AssistantMessage, ToolMessage, SystemMessage, InstructRequest)
 
-    def _mock_chat_completion(self, messages: List[ChatMessage]) -> ChatCompletionRequest:
+    def _mock_chat_completion(self, messages: list[ChatMessage]) -> ChatCompletionRequest:
         return ChatCompletionRequest(
             model="test",
             messages=messages,
@@ -740,3 +761,19 @@ class TestChatCompletionRequestNormalizationV13:
             chat_completion_request
         )
         assert parsed_request.messages == [expected_system_message, UserMessage(content="B")]
+
+
+@pytest.mark.parametrize(
+    "version,expected_class",
+    [
+        (TokenizerVersion.v1, InstructRequestNormalizer),
+        (TokenizerVersion.v2, InstructRequestNormalizer),
+        (TokenizerVersion.v3, InstructRequestNormalizer),
+        (TokenizerVersion.v7, InstructRequestNormalizerV7),
+        (TokenizerVersion.v11, InstructRequestNormalizerV7),
+        (TokenizerVersion.v13, InstructRequestNormalizerV13),
+    ],
+)
+def test_get_normalizer_version_mapping(version: TokenizerVersion, expected_class: type) -> None:
+    normalizer = get_normalizer(version)
+    assert isinstance(normalizer, expected_class)

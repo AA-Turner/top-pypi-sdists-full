@@ -17,8 +17,20 @@ from descope.exceptions import (
     AuthException,
     RateLimitException,
 )
+from descope.http_client import DescopeResponse
 from descope.management.common import (
     AssociatedTenant,
+    DescoperAttributes,
+    DescoperCreate,
+    DescoperProjectRole,
+    DescoperRBAC,
+    DescoperRole,
+    DescoperTagRole,
+    FlowRunOptions,
+    MgmtKeyProjectRole,
+    MgmtKeyReBac,
+    MgmtKeyStatus,
+    MgmtKeyTagRole,
     SAMLIDPAttributeMappingInfo,
     SAMLIDPGroupsMappingInfo,
     SAMLIDPRoleGroupMappingInfo,

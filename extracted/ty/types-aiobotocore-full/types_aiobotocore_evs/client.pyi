@@ -3,7 +3,7 @@ Type annotations for evs service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -34,6 +35,8 @@ from .paginator import (
     ListEnvironmentVlansPaginator,
 )
 from .type_defs import (
+    AssociateEipToVlanRequestTypeDef,
+    AssociateEipToVlanResponseTypeDef,
     CreateEnvironmentHostRequestTypeDef,
     CreateEnvironmentHostResponseTypeDef,
     CreateEnvironmentRequestTypeDef,
@@ -42,8 +45,11 @@ from .type_defs import (
     DeleteEnvironmentHostResponseTypeDef,
     DeleteEnvironmentRequestTypeDef,
     DeleteEnvironmentResponseTypeDef,
+    DisassociateEipFromVlanRequestTypeDef,
+    DisassociateEipFromVlanResponseTypeDef,
     GetEnvironmentRequestTypeDef,
     GetEnvironmentResponseTypeDef,
+    GetVersionsResponseTypeDef,
     ListEnvironmentHostsRequestTypeDef,
     ListEnvironmentHostsResponseTypeDef,
     ListEnvironmentsRequestTypeDef,
@@ -56,12 +62,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -70,13 +70,14 @@ else:
 __all__ = ("EVSClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    TagPolicyException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    TagPolicyException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class EVSClient(AioBaseClient):
     """
@@ -113,6 +114,16 @@ class EVSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#generate_presigned_url)
         """
 
+    async def associate_eip_to_vlan(
+        self, **kwargs: Unpack[AssociateEipToVlanRequestTypeDef]
+    ) -> AssociateEipToVlanResponseTypeDef:
+        """
+        Associates an Elastic IP address with a public HCX VLAN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/associate_eip_to_vlan.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#associate_eip_to_vlan)
+        """
+
     async def create_environment(
         self, **kwargs: Unpack[CreateEnvironmentRequestTypeDef]
     ) -> CreateEnvironmentResponseTypeDef:
@@ -128,7 +139,7 @@ class EVSClient(AioBaseClient):
         self, **kwargs: Unpack[CreateEnvironmentHostRequestTypeDef]
     ) -> CreateEnvironmentHostResponseTypeDef:
         """
-        Creates an ESXi host and adds it to an Amazon EVS environment.
+        Creates an ESX host and adds it to an Amazon EVS environment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/create_environment_host.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#create_environment_host)
@@ -154,6 +165,16 @@ class EVSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#delete_environment_host)
         """
 
+    async def disassociate_eip_from_vlan(
+        self, **kwargs: Unpack[DisassociateEipFromVlanRequestTypeDef]
+    ) -> DisassociateEipFromVlanResponseTypeDef:
+        """
+        Disassociates an Elastic IP address from a public HCX VLAN.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/disassociate_eip_from_vlan.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#disassociate_eip_from_vlan)
+        """
+
     async def get_environment(
         self, **kwargs: Unpack[GetEnvironmentRequestTypeDef]
     ) -> GetEnvironmentResponseTypeDef:
@@ -162,6 +183,15 @@ class EVSClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_environment.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#get_environment)
+        """
+
+    async def get_versions(self) -> GetVersionsResponseTypeDef:
+        """
+        Returns information about VCF versions, ESX versions and EC2 instance types
+        provided by Amazon EVS.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/evs/client/get_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#get_versions)
         """
 
     async def list_environment_hosts(
@@ -205,7 +235,7 @@ class EVSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Associates the specified tags to an Amazon EVS resource with the specified
         <code>resourceArn</code>.
@@ -214,7 +244,7 @@ class EVSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_evs/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes specified tags from an Amazon EVS resource.
 
@@ -263,7 +293,7 @@ class EVSClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -25,17 +25,13 @@ from datarobot.models.sharing import SharingRole
 from datarobot.utils import from_api, parse_time, to_api
 from datarobot.utils.pagination import unpaginate
 
-field_converter = t.Dict(
-    {t.Key("id"): String(), t.Key("name"): String(), t.Key("value"): String()}
-).ignore_extra("*")
-_data_store_params_converter = t.Dict(
-    {
-        t.Key("driver_id", optional=True): t.Or(String(), t.Null()),
-        t.Key("connector_id", optional=True): t.Or(String(), t.Null()),
-        t.Key("jdbc_url", optional=True): t.Or(String(), t.Null()),
-        t.Key("fields", optional=True): t.Or(t.List(field_converter), t.Null()),
-    }
-).ignore_extra("*")
+field_converter = t.Dict({t.Key("id"): String(), t.Key("name"): String(), t.Key("value"): String()}).ignore_extra("*")
+_data_store_params_converter = t.Dict({
+    t.Key("driver_id", optional=True): t.Or(String(), t.Null()),
+    t.Key("connector_id", optional=True): t.Or(String(), t.Null()),
+    t.Key("jdbc_url", optional=True): t.Or(String(), t.Null()),
+    t.Key("fields", optional=True): t.Or(t.List(field_converter), t.Null()),
+}).ignore_extra("*")
 
 
 class TestResponse(TypedDict):
@@ -83,14 +79,12 @@ class DataStoreParameters:
         fields: Optional[List[Dict[str, str]]] = None,
         connector_id: Optional[str] = None,
     ):
-        _data_store_params_converter.check(
-            {
-                "driver_id": driver_id,
-                "jdbc_url": jdbc_url,
-                "fields": fields,
-                "connector_id": connector_id,
-            }
-        )
+        _data_store_params_converter.check({
+            "driver_id": driver_id,
+            "jdbc_url": jdbc_url,
+            "fields": fields,
+            "connector_id": connector_id,
+        })
         self.driver_id = driver_id
         self.connector_id = connector_id
         self.jdbc_url = jdbc_url
@@ -132,18 +126,16 @@ class DataStore(APIObject):
     """
 
     _path = "externalDataStores/"
-    _converter = t.Dict(
-        {
-            t.Key("id", optional=True) >> "data_store_id": String(),
-            t.Key("type") >> "data_store_type": String(),
-            t.Key("canonical_name"): String(),
-            t.Key("creator"): String(),
-            t.Key("params"): _data_store_params_converter,
-            t.Key("updated"): parse_time,
-            t.Key("role"): String(),
-            t.Key("driver_class_type", optional=True): t.Or(String(), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id", optional=True) >> "data_store_id": String(),
+        t.Key("type") >> "data_store_type": String(),
+        t.Key("canonical_name"): String(),
+        t.Key("creator"): String(),
+        t.Key("params"): _data_store_params_converter,
+        t.Key("updated"): parse_time,
+        t.Key("role"): String(),
+        t.Key("driver_class_type", optional=True): t.Or(String(), t.Null()),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -221,9 +213,7 @@ class DataStore(APIObject):
         return [cls.from_server_data(item) for item in r_data["data"]]
 
     @classmethod
-    def get(
-        cls, data_store_id: str, substitute_url_parameters: Optional[bool] = False
-    ) -> DataStore:
+    def get(cls, data_store_id: str, substitute_url_parameters: Optional[bool] = False) -> DataStore:
         """
         Gets the data store.
 

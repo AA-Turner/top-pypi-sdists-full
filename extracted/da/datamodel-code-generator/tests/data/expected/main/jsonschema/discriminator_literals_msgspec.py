@@ -4,24 +4,24 @@
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar, Literal, Optional, Union
+from typing import Annotated
 
-from msgspec import Meta, Struct
+from msgspec import Meta, Struct, UnsetType
 
 
 class Type1(Struct, tag_field='type_', tag='a'):
-    type_: ClassVar[Annotated[Literal['a'], Meta(title='Type ')]] = 'a'
+    pass
 
 
 class Type2(Struct, tag_field='type_', tag='b'):
-    type_: ClassVar[Annotated[Literal['b'], Meta(title='Type ')]] = 'b'
+    pass
 
 
 class UnrelatedType(Struct):
-    info: Optional[Annotated[str, Meta(title='A way to check for side effects')]] = (
+    info: Annotated[str, Meta(title='A way to check for side effects')] | UnsetType = (
         'Unrelated type, not involved in the discriminated union'
     )
 
 
 class Response(Struct):
-    inner: Annotated[Union[Type1, Type2], Meta(title='Inner')]
+    inner: Annotated[Type1 | Type2, Meta(title='Inner')]

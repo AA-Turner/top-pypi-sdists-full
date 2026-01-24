@@ -1,6 +1,8 @@
 import asyncio
 import datetime
+import logging
 import socket
+import time
 from collections.abc import MutableMapping
 from typing import Any
 from unittest import mock
@@ -10,11 +12,12 @@ from multidict import CIMultiDict, CIMultiDictProxy, MultiDict
 from yarl import URL
 
 from aiohttp import HttpVersion
+from aiohttp.base_protocol import BaseProtocol
 from aiohttp.http_parser import RawRequestMessage
 from aiohttp.streams import StreamReader
 from aiohttp.test_utils import make_mocked_request
 from aiohttp.web import BaseRequest, HTTPRequestEntityTooLarge
-from aiohttp.web_request import ETag
+from aiohttp.web_request import _FORWARDED_PAIR_RE, ETag
 
 
 @pytest.fixture
@@ -243,6 +246,13 @@ def test_range_to_slice_tail_stop() -> None:
     assert req.content[req.http_range] == payload[-500:]
 
 
+def test_range_non_ascii() -> None:
+    # ५ = DEVANAGARI DIGIT FIVE
+    req = make_mocked_request("GET", "/", headers=CIMultiDict([("RANGE", "bytes=4-५")]))
+    with pytest.raises(ValueError, match="range not in acceptable format"):
+        req.http_range
+
+
 def test_non_keepalive_on_http10() -> None:
     req = make_mocked_request("GET", "/", version=HttpVersion(1, 0))
     assert not req.keep_alive
@@ -370,6 +380,22 @@ def test_request_cookies_edge_cases() -> None:
     headers = CIMultiDict(COOKIE='test="quoted value"; normal=unquoted')
     req = make_mocked_request("GET", "/", headers=headers)
     assert req.cookies == {"test": "quoted value", "normal": "unquoted"}
+
+
+def test_request_cookies_many_invalid(caplog: pytest.LogCaptureFixture) -> None:
+    """Test many invalid cookies doesn't cause too many logs."""
+    bad = "bad" + chr(1) + "name"
+    cookie = "; ".join(f"{bad}{i}=1" for i in range(3000))
+    req = make_mocked_request("GET", "/", headers=CIMultiDict(COOKIE=cookie))
+
+    with caplog.at_level(logging.DEBUG):
+        cookies = req.cookies
+
+    assert len(caplog.record_tuples) == 1
+    _, level, msg = caplog.record_tuples[0]
+    assert level is logging.DEBUG
+    assert "Cannot load cookie" in msg
+    assert cookies == {}
 
 
 def test_request_cookies_no_500_error() -> None:
@@ -528,6 +554,18 @@ def test_single_forwarded_header() -> None:
     assert req.forwarded[0]["for"] == "identifier"
     assert req.forwarded[0]["host"] == "identifier"
     assert req.forwarded[0]["proto"] == "identifier"
+
+
+def test_forwarded_re_performance() -> None:
+    value = "{" + "f" * 54773 + "z\x00a=v"
+    start = time.perf_counter()
+    match = _FORWARDED_PAIR_RE.match(value)
+    end = time.perf_counter()
+
+    # If this is taking more than 10ms, there's probably a performance/ReDoS issue.
+    assert (end - start) < 0.01
+    # This example shouldn't produce a match either.
+    assert match is None
 
 
 @pytest.mark.parametrize(
@@ -808,7 +846,28 @@ async def test_multipart_formdata(protocol) -> None:
     assert dict(result) == {"a": "b", "c": "d"}
 
 
-async def test_multipart_formdata_file(protocol) -> None:
+async def test_multipart_formdata_field_missing_name(protocol: BaseProtocol) -> None:
+    # Ensure ValueError is raised when Content-Disposition has no name
+    payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
+    payload.feed_data(
+        b"-----------------------------326931944431359\r\n"
+        b"Content-Disposition: form-data\r\n"  # Missing name!
+        b"\r\n"
+        b"value\r\n"
+        b"-----------------------------326931944431359--\r\n"
+    )
+    content_type = (
+        "multipart/form-data; boundary=---------------------------326931944431359"
+    )
+    payload.feed_eof()
+    req = make_mocked_request(
+        "POST", "/", headers={"CONTENT-TYPE": content_type}, payload=payload
+    )
+    with pytest.raises(ValueError, match="Multipart field missing name"):
+        await req.post()
+
+
+async def test_multipart_formdata_file(protocol: BaseProtocol) -> None:
     # Make sure file uploads work, even without a content type
     payload = StreamReader(protocol, 2**16, loop=asyncio.get_event_loop())
     payload.feed_data(

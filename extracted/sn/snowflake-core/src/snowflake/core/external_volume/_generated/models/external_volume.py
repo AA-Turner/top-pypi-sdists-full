@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.external_volume._generated.models.storage_location import StorageLocation, StorageLocationModel
@@ -41,11 +41,11 @@ class ExternalVolume(BaseModel):
     comment : str, optional
         String (literal) that specifies a comment for the external volume.
     created_on : datetime, optional
-        Date and time when the external volume was created.
+        Date and time when the external volume was created — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the external volume
+        Role that owns the external volume — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the external volume
+        The type of role that owns the external volume — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -86,9 +86,10 @@ class ExternalVolume(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -119,7 +120,7 @@ class ExternalVolume(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in storage_locations (list)
         _items = []
@@ -142,9 +143,9 @@ class ExternalVolume(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ExternalVolume.parse_obj(obj)
+            return ExternalVolume.model_validate(obj)
 
-        _obj = ExternalVolume.parse_obj(
+        _obj = ExternalVolume.model_validate(
             {
                 "name": obj.get("name"),
                 "storage_locations": [StorageLocation.from_dict(_item) for _item in obj.get("storage_locations")]

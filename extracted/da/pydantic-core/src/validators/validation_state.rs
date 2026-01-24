@@ -1,8 +1,11 @@
+use std::ops::{Deref, DerefMut};
+
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
 use jiter::{PartialMode, StringCacheMode};
 
+use crate::build_tools::ExtraBehavior;
 use crate::recursion_guard::{ContainsRecursionState, RecursionState};
 use crate::tools::new_py_string;
 
@@ -25,6 +28,13 @@ pub struct ValidationState<'a, 'py> {
     pub fields_set_count: Option<usize>,
     // True if `allow_partial=true` and we're validating the last element of a sequence or mapping.
     pub allow_partial: PartialMode,
+    // Whether at least one field had a validation error. This is used in the context of structured types
+    // (models, dataclasses, etc), where we need to know if a validation error occurred before calling
+    // a default factory that takes the validated data.
+    //
+    // TODO: this should probably be moved directly into the structured types which need it, but that
+    // requires some refactoring to make them have knowledge of default (factories).
+    pub has_field_error: bool,
     // deliberately make Extra readonly
     extra: Extra<'a, 'py>,
 }
@@ -36,6 +46,7 @@ impl<'a, 'py> ValidationState<'a, 'py> {
             exactness: None,
             fields_set_count: None,
             allow_partial,
+            has_field_error: false,
             extra,
         }
     }
@@ -52,6 +63,26 @@ impl<'a, 'py> ValidationState<'a, 'py> {
         ValidationStateWithReboundExtra { state: self, old_extra }
     }
 
+    /// Temporarily rebinds a field of the state by calling `projector` to get a mutable reference to the field,
+    /// and setting that field to `value`.
+    ///
+    /// When `ScopedSetState` drops, the field is restored to its original value.
+    pub fn scoped_set<'state, P, T>(
+        &'state mut self,
+        projector: P,
+        new_value: T,
+    ) -> ScopedSetState<'state, 'a, 'py, P, T>
+    where
+        P: for<'p> Fn(&'p mut ValidationState<'a, 'py>) -> &'p mut T,
+    {
+        let value = std::mem::replace((projector)(self), new_value);
+        ScopedSetState {
+            state: self,
+            projector,
+            value,
+        }
+    }
+
     pub fn extra(&self) -> &'_ Extra<'a, 'py> {
         &self.extra
     }
@@ -62,6 +93,10 @@ impl<'a, 'py> ValidationState<'a, 'py> {
 
     pub fn strict_or(&self, default: bool) -> bool {
         self.extra.strict.unwrap_or(default)
+    }
+
+    pub fn extra_behavior_or(&self, default: ExtraBehavior) -> ExtraBehavior {
+        self.extra.extra_behavior.unwrap_or(default)
     }
 
     pub fn validate_by_alias_or(&self, default: Option<bool>) -> bool {
@@ -164,5 +199,46 @@ impl<I: Iterator> Iterator for EnumerateLastPartial<I> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+pub struct ScopedSetState<'scope, 'a, 'py, P, T>
+where
+    P: for<'p> Fn(&'p mut ValidationState<'a, 'py>) -> &'p mut T,
+{
+    /// The state which has been set for the scope.
+    state: &'scope mut ValidationState<'a, 'py>,
+    /// A function that projects from the state to the field that has been set.
+    projector: P,
+    /// The previous value of the field that has been set.
+    value: T,
+}
+
+impl<'a, 'py, P, T> Drop for ScopedSetState<'_, 'a, 'py, P, T>
+where
+    P: for<'drop> Fn(&'drop mut ValidationState<'a, 'py>) -> &'drop mut T,
+{
+    fn drop(&mut self) {
+        std::mem::swap((self.projector)(self.state), &mut self.value);
+    }
+}
+
+impl<'a, 'py, P, T> Deref for ScopedSetState<'_, 'a, 'py, P, T>
+where
+    P: for<'p> Fn(&'p mut ValidationState<'a, 'py>) -> &'p mut T,
+{
+    type Target = ValidationState<'a, 'py>;
+
+    fn deref(&self) -> &Self::Target {
+        self.state
+    }
+}
+
+impl<'a, 'py, P, T> DerefMut for ScopedSetState<'_, 'a, 'py, P, T>
+where
+    P: for<'p> Fn(&'p mut ValidationState<'a, 'py>) -> &'p mut T,
+{
+    fn deref_mut(&mut self) -> &mut ValidationState<'a, 'py> {
+        self.state
     }
 }

@@ -1,7 +1,7 @@
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Optional, Union, cast
 
 from typing_extensions import Self
 
@@ -568,7 +568,6 @@ class ActiveExecution:
                 dagster_event.step_key is not None,
                 "Resource init failure was reported during execution without a step key.",
             )
-            self.mark_failed(step_key)
             if self._instance_concurrency_context:
                 self._instance_concurrency_context.free_step(step_key)
         elif dagster_event.is_step_success:

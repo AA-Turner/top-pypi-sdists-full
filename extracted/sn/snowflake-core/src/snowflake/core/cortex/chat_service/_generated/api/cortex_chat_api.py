@@ -318,7 +318,7 @@ class CortexChatApi:
         # process the body parameter
         _body_params = None
 
-        if _params["chat_request"]:
+        if _params["chat_request"] is not None:
             _body_params = _params["chat_request"]
 
         # set the HTTP header `Accept`

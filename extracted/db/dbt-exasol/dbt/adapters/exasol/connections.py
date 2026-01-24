@@ -3,8 +3,10 @@
 """
 DBT adapter connection implementation for Exasol.
 """
+
 import decimal
 import os
+import ssl
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, List, Optional
@@ -13,11 +15,22 @@ import agate
 import dbt_common.exceptions
 import pyexasol
 from dateutil import parser
-#from dbt.adapters.base import Credentials  # type: ignore
+
+# from dbt.adapters.base import Credentials  # type: ignore
 from dbt.adapters.sql import SQLConnectionManager  # type: ignore
 from dbt.adapters.contracts.connection import AdapterResponse, Credentials
 from dbt.adapters.events.logging import AdapterLogger
-from hologram.helpers import StrEnum
+
+# Python 3.11+ has StrEnum built-in, use shim for 3.9/3.10
+try:
+    from enum import StrEnum
+except ImportError:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
+
+
 from pyexasol import ExaConnection
 
 ROW_SEPARATOR_DEFAULT = "LF" if os.linesep == "\n" else "CRLF"
@@ -85,6 +98,7 @@ class ExasolCredentials(Credentials):
     query_timeout: int = pyexasol.constant.DEFAULT_QUERY_TIMEOUT
     compression: bool = False
     encryption: bool = True
+    validate_server_certificate: bool = True
     ## Because of potential interference with dbt,
     # the following statements are not (yet) implemented
     # fetch_dict: bool
@@ -120,6 +134,7 @@ class ExasolCredentials(Credentials):
             "query_timeout",
             "compression",
             "encryption",
+            "validate_server_certificate",
             "protocol_version",
             "row_separator",
             "timestamp_format",
@@ -164,13 +179,15 @@ class ExasolConnectionManager(SQLConnectionManager):
                 if len(rows) > 0 and isinstance(rows[0][idx], str):
                     if col[1] in ["DECIMAL", "BIGINT"]:
                         for rownum, row in enumerate(rows):
-                            if row[idx] is None: continue
+                            if row[idx] is None:
+                                continue
                             tmp = list(row)
                             tmp[idx] = decimal.Decimal(row[idx])
                             rows[rownum] = tmp
                     elif col[1].startswith("TIMESTAMP"):
                         for rownum, row in enumerate(rows):
-                            if row[idx] is None: continue
+                            if row[idx] is None:
+                                continue
                             tmp = list(row)
                             tmp[idx] = parser.parse(row[idx])
                             rows[rownum] = tmp
@@ -197,12 +214,23 @@ class ExasolConnectionManager(SQLConnectionManager):
                 protocol_version = pyexasol.PROTOCOL_V2
             else:
                 protocol_version = pyexasol.PROTOCOL_V3
-        except:
+        except (ValueError, KeyError, AttributeError) as exc:
             raise dbt_common.exceptions.DbtRuntimeError(
                 f"{credentials.protocol_version} is not a valid protocol version."
-            )
+            ) from exc
 
         def _connect():
+            # Build SSL options based on validate_server_certificate setting
+            # Only applies when encryption is enabled
+            websocket_sslopt = None
+            if credentials.encryption:
+                if credentials.validate_server_certificate:
+                    # Explicitly set CERT_REQUIRED to suppress PyExasol warnings
+                    websocket_sslopt = {"cert_reqs": ssl.CERT_REQUIRED}
+                else:
+                    # Allow connections without certificate validation
+                    websocket_sslopt = {"cert_reqs": ssl.CERT_NONE}
+
             conn = connect(
                 dsn=credentials.dsn,
                 user=credentials.user,
@@ -215,6 +243,7 @@ class ExasolConnectionManager(SQLConnectionManager):
                 query_timeout=credentials.query_timeout,
                 compression=credentials.compression,
                 encryption=credentials.encryption,
+                websocket_sslopt=websocket_sslopt,
                 protocol_version=protocol_version,
             )
             # exasol adapter specific attributes that are unknown to pyexasol

@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 
 import pytest
 
 import great_expectations as gx
 import great_expectations.expectations as gxe
 from great_expectations.core.expectation_suite import ExpectationSuite
-from great_expectations.data_context import AbstractDataContext
 from great_expectations.datasource.fluent.interfaces import Batch, Datasource
-from great_expectations.expectations.expectation import Expectation
 from great_expectations.metrics import BatchRowCount, ColumnValuesNonNull, Metric
 from great_expectations.metrics.batch.row_count import BatchRowCountResult
 from great_expectations.metrics.column.values_non_null import ColumnValuesNonNullResult
 from great_expectations.metrics.metric_results import MetricErrorResult
+
+if TYPE_CHECKING:
+    from great_expectations.data_context import AbstractDataContext
+    from great_expectations.expectations.expectation import Expectation
 
 DATASOURCE_NAME = "my_pandas"
 ASSET_NAME = "my_csv"
@@ -46,7 +48,7 @@ def test_batch_validate_expectation(pandas_setup: Tuple[AbstractDataContext, Bat
     # Validate
     result = batch.validate(expectation)
     # Asserts on result
-    assert result.success is True
+    assert result.success
 
 
 @pytest.mark.filesystem
@@ -66,7 +68,7 @@ def test_batch_validate_expectation_suite(
     # Validate
     result = batch.validate(suite)
     # Asserts on result
-    assert result.success is True
+    assert result.success
 
 
 @pytest.mark.filesystem
@@ -88,7 +90,7 @@ def test_batch_validate_expectation_with_expectation_params(
         },
     )
     # Asserts on result
-    assert result.success is True
+    assert result.success
 
 
 @pytest.mark.filesystem
@@ -115,7 +117,7 @@ def test_batch_validate_expectation_suite_with_expectation_params(
         },
     )
     # Asserts on result
-    assert result.success is True
+    assert result.success
 
 
 @pytest.mark.filesystem
@@ -131,11 +133,11 @@ def test_batch_validate_with_updated_expectation(
     # Validate
     result = batch.validate(expectation)
     # Asserts on result
-    assert result.success is False
+    assert not result.success
     # Update expectation and validate
     expectation.mostly = 0.95
     result = batch.validate(expectation)
-    assert result.success is True
+    assert result.success
 
 
 @pytest.mark.filesystem
@@ -150,7 +152,7 @@ def test_batch_validate_expectation_suite_with_updated_expectation(
     # Validate
     result = batch.validate(suite)
     # Asserts on result
-    assert result.success is False
+    assert not result.success
     # Update suite and validate
     assert len(suite.expectations) == 1
 
@@ -163,7 +165,7 @@ def test_batch_validate_expectation_suite_with_updated_expectation(
     assert suite.expectations[0].mostly == 0.95
 
     result = batch.validate(suite)
-    assert result.success is True
+    assert result.success
 
 
 class TestBatchValidateExpectation:
@@ -180,7 +182,7 @@ class TestBatchValidateExpectation:
         _, batch = pandas_setup
         result = batch.validate(expectation, result_format="BOOLEAN_ONLY")
 
-        assert result.success is True
+        assert result.success
         assert len(result.result) == 0
 
     @pytest.mark.filesystem
@@ -192,7 +194,7 @@ class TestBatchValidateExpectation:
         _, batch = pandas_setup
         summary_result = batch.validate(expectation, result_format="SUMMARY")
 
-        assert summary_result.success is True
+        assert summary_result.success
         assert len(summary_result.result) > 0
 
     @pytest.mark.filesystem
@@ -204,7 +206,7 @@ class TestBatchValidateExpectation:
         _, batch = pandas_setup
         result = batch.validate(expectation, result_format="COMPLETE")
 
-        assert result.success is True
+        assert result.success
         assert "unexpected_index_list" in result.result
 
 
@@ -225,7 +227,7 @@ class TestBatchValidateExpectationSuite:
         _, batch = pandas_setup
         result = batch.validate(suite, result_format="BOOLEAN_ONLY")
 
-        assert result.success is True
+        assert result.success
         assert len(result.results[0].result) == 0
 
     @pytest.mark.filesystem
@@ -237,7 +239,7 @@ class TestBatchValidateExpectationSuite:
         _, batch = pandas_setup
         summary_result = batch.validate(suite, result_format="SUMMARY")
 
-        assert summary_result.success is True
+        assert summary_result.success
         assert len(summary_result.results[0].result) > 0
 
     @pytest.mark.filesystem
@@ -249,7 +251,7 @@ class TestBatchValidateExpectationSuite:
         _, batch = pandas_setup
         result = batch.validate(suite, result_format="COMPLETE")
 
-        assert result.success is True
+        assert result.success
         assert "unexpected_index_list" in result.results[0].result
 
 

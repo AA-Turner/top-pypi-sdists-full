@@ -1,4 +1,5 @@
-from typing import Any, AsyncGenerator, Dict
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from ...asset import Asset
 from ...call_builder.base import BaseOrderbookCallBuilder
@@ -12,7 +13,7 @@ class OrderbookCallBuilder(BaseCallBuilder, BaseOrderbookCallBuilder):
     """Creates a new :class:`OrderbookCallBuilder` pointed to server defined by horizon_url.
     Do not create this object directly, use :func:`stellar_sdk.ServerAsync.orderbook`.
 
-    See `Orderbook <https://developers.stellar.org/api/aggregations/order-books/>`__ for more information.
+    See `Orderbook <https://developers.stellar.org/docs/data/apis/horizon/api-reference/retrieve-an-order-book>`__ for more information.
 
     :param horizon_url: Horizon server URL.
     :param client: The client instance used to send request.
@@ -33,7 +34,7 @@ class OrderbookCallBuilder(BaseCallBuilder, BaseOrderbookCallBuilder):
 
     def stream(
         self,
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Creates an EventSource that listens for events from the `Orderbook` endpoint.
 
         See `Streaming <https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/streaming>`__ for more information.

@@ -1,5 +1,0 @@
----
-features:
-  - Enabled horizon to make use of cinder's feature to
-    backup up snapshots of block storage volumes.
-

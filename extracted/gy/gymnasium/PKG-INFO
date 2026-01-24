@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gymnasium
-Version: 1.2.1
+Version: 1.2.3
 Summary: A standard API for reinforcement learning and a diverse set of reference environments (formerly Gym).
 Author-email: Farama Foundation <contact@farama.org>
 License: MIT License
@@ -28,7 +28,7 @@ Requires-Dist: farama-notifications>=0.0.1
 Provides-Extra: atari
 Requires-Dist: ale_py>=0.9; extra == "atari"
 Provides-Extra: box2d
-Requires-Dist: box2d-py==2.3.5; extra == "box2d"
+Requires-Dist: box2d==2.3.10; extra == "box2d"
 Requires-Dist: pygame>=2.1.3; extra == "box2d"
 Requires-Dist: swig==4.*; extra == "box2d"
 Provides-Extra: classic-control
@@ -64,7 +64,7 @@ Requires-Dist: opencv-python>=3.0; extra == "other"
 Requires-Dist: seaborn>=0.13; extra == "other"
 Provides-Extra: all
 Requires-Dist: ale_py>=0.9; extra == "all"
-Requires-Dist: box2d-py==2.3.5; extra == "all"
+Requires-Dist: box2d==2.3.10; extra == "all"
 Requires-Dist: pygame>=2.1.3; extra == "all"
 Requires-Dist: swig==4.*; extra == "all"
 Requires-Dist: pygame>=2.1.3; extra == "all"
@@ -158,6 +158,11 @@ Please note that this is an incomplete list, and just includes libraries that th
 
 Gymnasium keeps strict versioning for reproducibility reasons. All environments end in a suffix like "-v0".  When changes are made to environments that might impact learning results, the number is increased by one to prevent potential confusion. These were inherited from Gym.
 
+## Contributing
+
+We welcome contributions from the community!
+Please see our [CONTRIBUTING.md](https://github.com/Farama-Foundation/Gymnasium/blob/main/CONTRIBUTING.md) for details on how to get started.
+
 ## Support Gymnasium's Development
 
 If you are financially able to do so and would like to support the development of Gymnasium, please join others in the community in [donating to us](https://github.com/sponsors/Farama-Foundation).
@@ -174,3 +179,16 @@ You can cite Gymnasium using our related paper (https://arxiv.org/abs/2407.17032
   year={2024}
 }
 ```
+
+## Repository Sponsors
+
+<h3 style="margin-bottom:10;margin-top:0"><a href="https://ref.wisprflow.ai/UnmiceG">Wispr Flow</a></h3>
+
+<a href="https://ref.wisprflow.ai/UnmiceG">
+  <img src="assets/wispr-flow.svg" alt="Wispr Flow" width="100">
+</a>
+
+<h3 style="margin-bottom:10;margin-top:0">Dictation that understands code</h3>
+<h4 style="margin-top:0;">Ship 4x faster with developer-first dictation that works in every app.</h4>
+
+<p style="margin-top:50;">If you'd like to sponsor Gymnasium or other Farama repositories and have your logo here, <a href="mailto:contact@farama.org">contact us</a>.</p>

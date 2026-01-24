@@ -15,6 +15,7 @@ from chalk.features.resolver import Cron, OfflineResolver, OnlineResolver, SinkR
 from chalk.ml.model_reference import ModelReference
 from chalk.parsed.duplicate_input_gql import (
     FeatureClassGQL,
+    ModelRelationGQL,
     RecomputeFeaturesGQL,
     UpsertCDCSourceGQL,
     UpsertCronQueryGQL,
@@ -417,6 +418,7 @@ def convert_type_to_gql(
             ),
             lowerBound=None,
             upperBound=None,
+            datasetName=t.dataset_name,
             lowerBoundStr=datetime.isoformat(t.lower_bound) if t.lower_bound is not None else None,
             upperBoundStr=datetime.isoformat(t.upper_bound) if t.upper_bound is not None else None,
             tags=list(t.tags) if t.tags is not None else None,
@@ -426,6 +428,9 @@ def convert_type_to_gql(
             incrementalSources=None if t.incremental_resolvers is None else list(t.incremental_resolvers),
             resourceGroup=t.resource_group,
             plannerOptions=t.planner_options,
+            completionDeadline=None if t.completion_deadline is None else timedelta_to_duration(t.completion_deadline),
+            numShards=t.num_shards,
+            numWorkers=t.num_workers,
         )
 
     if isinstance(t, NamedQuery):
@@ -477,6 +482,11 @@ def convert_type_to_gql(
             version=t.version,
             asOf=t.as_of_date,
             alias=t.alias,
+            relations=[
+                ModelRelationGQL(inputFeatures=input_features, outputFeature=output_feature)
+                for input_features, output_feature in t.relations
+            ],
+            resolvers=t.resolvers,
             filename=t.filename if path_prefix is None else t.filename.replace(path_prefix, ""),
             code=t.code,
             sourceLineStart=t.source_line_start,
@@ -532,20 +542,23 @@ def convert_type_to_gql(
             )
 
         elif t.join is not None:
-            # If a has_one/has_many has an incorrect type annotation
-            builder = t.features_cls.__chalk_error_builder__
-            builder.add_diagnostic(
-                range=builder.annotation_range(t.attribute_name),
-                message=(
-                    f"The attribute '{t.features_cls.__name__}.{t.attribute_name}' "
-                    f"has a join filter ({t.join}) but its type annotation is not a feature class or "
-                    f"DataFrame ({t.typ})."
-                ),
-                label="Incorrect join type annotation",
-                raise_error=TypeError,
-                code="34",
-                code_href="https://docs.chalk.ai/docs/has-many",
-            )
+            # Check if user tried to use DataFrame (even if validation failed)
+            # Use is_dataframe_annotation() to detect DataFrame types without triggering validation errors
+            if not t.typ.is_dataframe_annotation():
+                # If a has_one/has_many has an incorrect type annotation
+                builder = t.features_cls.__chalk_error_builder__
+                builder.add_diagnostic(
+                    range=builder.annotation_range(t.attribute_name),
+                    message=(
+                        f"The attribute '{t.features_cls.__name__}.{t.attribute_name}' "
+                        f"has a join filter ({t.join}) but its type annotation is not a feature class or "
+                        f"DataFrame ({t.typ})."
+                    ),
+                    label="Incorrect join type annotation",
+                    raise_error=TypeError,
+                    code="34",
+                    code_href="https://docs.chalk.ai/docs/has-many",
+                )
 
         elif t.is_feature_time:
             feature_time_kind_gql = UpsertFeatureTimeKindGQL()

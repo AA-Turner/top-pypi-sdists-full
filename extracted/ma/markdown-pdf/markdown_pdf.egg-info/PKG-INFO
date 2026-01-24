@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: markdown_pdf
-Version: 1.9
+Version: 1.10
 Summary: Markdown to pdf renderer
 Author-email: Vitaly Bogomolov <mail@vitaly-bogomolov.ru>
 License: GNU Affero General Public License v3
@@ -156,7 +156,7 @@ The `Section` class can set the following attributes.
 
 - toc: whether to include the headers `<h1>` - `<h6>` of this section in the TOC. Default is True.
 - root: the name of the root directory from which the image file paths starts in markdown. Default ".".
-- paper_size: name of paper size, [as described here](https://pymupdf.readthedocs.io/en/latest/functions.html#paper_size). Default "A4".
+- paper_size: either the name of a paper size, [as described here](https://pymupdf.readthedocs.io/en/latest/functions.html#paper_size), or a list/tuple containing the width and height in mm. Default "A4".
 - borders: size of borders. Default (36, 36, -36, -36).
 
 The following document properties are available for assignment (dictionary `MarkdownPdf.meta`) with the default values indicated.

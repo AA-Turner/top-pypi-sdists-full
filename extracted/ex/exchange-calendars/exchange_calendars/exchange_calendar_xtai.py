@@ -14,9 +14,9 @@
 
 
 import datetime
+from collections.abc import Callable
 from functools import partial
 from itertools import chain
-from typing import Callable
 from zoneinfo import ZoneInfo
 import pandas as pd
 from pandas.tseries.holiday import (
@@ -189,13 +189,12 @@ def bridge_fri(
     return dt if (dt.weekday() == FRIDAY and checker(dt)) else None
 
 
-NewYearsDay = new_years_day(observance=nearest_weekday_from_2014)
-NewYearsDayExtraMon = new_years_day(observance=bridge_mon)
-NewYearsDayExtraFri = new_years_day(observance=bridge_fri)
-
 bridge_mon_2014_thr_2023 = partial(bridge_mon, checker=check_between_2013_2024)
 bridge_fri_2014_thr_2023 = partial(bridge_fri, checker=check_between_2013_2024)
 
+NewYearsDay = new_years_day(observance=nearest_weekday_from_2014)
+NewYearsDayExtraMon = new_years_day(observance=bridge_mon)
+NewYearsDayExtraFri = new_years_day(observance=bridge_fri_2014_thr_2023)
 
 PeaceMemorialDay = Holiday(
     "Peace Memorial Day", month=2, day=28, observance=nearest_weekday_from_2014
@@ -237,7 +236,11 @@ WomenAndChildrensDayExtraFri = Holiday(
 )
 
 
-LabourDay = european_labour_day(observance=nearest_weekday_2014_thr_2023)
+LabourDay = european_labour_day(observance=nearest_weekday_from_2014)
+
+TeachersDay = Holiday(
+    "Teachers' Day", month=9, day=28, start_date="2025", observance=nearest_workday
+)
 
 NationalDay = Holiday(
     "National Day of the Republic of China",
@@ -258,6 +261,20 @@ NationalDayExtraFri = Holiday(
     observance=bridge_fri_2014_thr_2023,
 )
 
+TaiwanRestorationDay = Holiday(
+    "Taiwan Restoration Day",
+    month=10,
+    day=25,
+    start_date="2025",
+    observance=nearest_workday,
+)
+
+ConstitutionDay = Holiday(
+    "Constitution Day",
+    month=12,
+    day=25,
+    start_date="2025",
+)
 
 chinese_new_year = chinese_new_year_offset(chinese_lunar_new_year_dates)
 
@@ -342,12 +359,14 @@ chinese_new_year_extras = pd.to_datetime(
         "2024-02-07",
         "2025-01-23",
         "2025-01-24",
+        "2026-02-20",
     ]
 )
 
 # Some abnormal observances of regularly observed holidays.
 extra_holidays = pd.to_datetime(
     [
+        "2026-02-12",  # No trading
         "2021-04-02",  # Women And Childrens Day
         "2020-04-02",  # Tomb Sweeping Day
         "2016-04-05",  # Tomb Sweeping Day
@@ -439,9 +458,12 @@ class XTAIExchangeCalendar(ExchangeCalendar):
                 WomenAndChildrensDayExtraMon,
                 WomenAndChildrensDayExtraFri,
                 LabourDay,
+                TeachersDay,
                 NationalDay,
                 NationalDayExtraMon,
                 NationalDayExtraFri,
+                TaiwanRestorationDay,
+                ConstitutionDay,
             ]
         )
 

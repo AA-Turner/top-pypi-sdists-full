@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import tomlkit
+import tomlkit.items
+from packaging.utils import canonicalize_name
 
 from commitizen.providers.base_provider import TomlProvider
-
-if TYPE_CHECKING:
-    import tomlkit.items
 
 
 class UvProvider(TomlProvider):
     """
-    uv.lock and pyproject.tom version management
+    uv.lock and pyproject.toml version management
     """
 
     filename = "pyproject.toml"
@@ -30,12 +28,13 @@ class UvProvider(TomlProvider):
     def set_lock_version(self, version: str) -> None:
         pyproject_toml_content = tomlkit.parse(self.file.read_text())
         project_name = pyproject_toml_content["project"]["name"]  # type: ignore[index]
+        normalized_project_name = canonicalize_name(str(project_name))
 
         document = tomlkit.parse(self.lock_file.read_text())
 
         packages: tomlkit.items.AoT = document["package"]  # type: ignore[assignment]
         for i, package in enumerate(packages):
-            if package["name"] == project_name:
+            if package["name"] == normalized_project_name:
                 document["package"][i]["version"] = version  # type: ignore[index]
                 break
         self.lock_file.write_text(tomlkit.dumps(document))

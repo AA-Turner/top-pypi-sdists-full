@@ -3,7 +3,7 @@ Type annotations for budgets service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_budgets/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -42,12 +43,6 @@ from .literals import (
     TimeUnitType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -64,6 +59,7 @@ __all__ = (
     "BudgetNotificationsForAccountTypeDef",
     "BudgetOutputTypeDef",
     "BudgetPaginatorTypeDef",
+    "BudgetPerformanceHistoryPaginatorTypeDef",
     "BudgetPerformanceHistoryTypeDef",
     "BudgetTypeDef",
     "BudgetUnionTypeDef",
@@ -101,6 +97,7 @@ __all__ = (
     "DescribeBudgetNotificationsForAccountResponseTypeDef",
     "DescribeBudgetPerformanceHistoryRequestPaginateTypeDef",
     "DescribeBudgetPerformanceHistoryRequestTypeDef",
+    "DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef",
     "DescribeBudgetPerformanceHistoryResponseTypeDef",
     "DescribeBudgetRequestTypeDef",
     "DescribeBudgetResponseTypeDef",
@@ -213,8 +210,8 @@ class TimePeriodOutputTypeDef(TypedDict):
 
 class CostCategoryValuesOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
-    MatchOptions: NotRequired[List[MatchOptionType]]
+    Values: NotRequired[list[str]]
+    MatchOptions: NotRequired[list[MatchOptionType]]
 
 
 class CostCategoryValuesTypeDef(TypedDict):
@@ -231,27 +228,27 @@ class ResourceTagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class IamActionDefinitionOutputTypeDef(TypedDict):
     PolicyArn: str
-    Roles: NotRequired[List[str]]
-    Groups: NotRequired[List[str]]
-    Users: NotRequired[List[str]]
+    Roles: NotRequired[list[str]]
+    Groups: NotRequired[list[str]]
+    Users: NotRequired[list[str]]
 
 
 class ScpActionDefinitionOutputTypeDef(TypedDict):
     PolicyId: str
-    TargetIds: List[str]
+    TargetIds: list[str]
 
 
 class SsmActionDefinitionOutputTypeDef(TypedDict):
     ActionSubType: ActionSubTypeType
     Region: str
-    InstanceIds: List[str]
+    InstanceIds: list[str]
 
 
 class IamActionDefinitionTypeDef(TypedDict):
@@ -343,8 +340,8 @@ class ExecuteBudgetActionRequestTypeDef(TypedDict):
 
 class ExpressionDimensionValuesOutputTypeDef(TypedDict):
     Key: DimensionType
-    Values: List[str]
-    MatchOptions: NotRequired[List[MatchOptionType]]
+    Values: list[str]
+    MatchOptions: NotRequired[list[MatchOptionType]]
 
 
 class ExpressionDimensionValuesTypeDef(TypedDict):
@@ -355,8 +352,8 @@ class ExpressionDimensionValuesTypeDef(TypedDict):
 
 class TagValuesOutputTypeDef(TypedDict):
     Key: NotRequired[str]
-    Values: NotRequired[List[str]]
-    MatchOptions: NotRequired[List[MatchOptionType]]
+    Values: NotRequired[list[str]]
+    MatchOptions: NotRequired[list[MatchOptionType]]
 
 
 class TagValuesTypeDef(TypedDict):
@@ -398,7 +395,7 @@ class TimePeriodTypeDef(TypedDict):
 
 
 class BudgetNotificationsForAccountTypeDef(TypedDict):
-    Notifications: NotRequired[List[NotificationTypeDef]]
+    Notifications: NotRequired[list[NotificationTypeDef]]
     BudgetName: NotRequired[str]
 
 
@@ -481,13 +478,13 @@ class CreateBudgetActionResponseTypeDef(TypedDict):
 
 
 class DescribeNotificationsForBudgetResponseTypeDef(TypedDict):
-    Notifications: List[NotificationTypeDef]
+    Notifications: list[NotificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeSubscribersForNotificationResponseTypeDef(TypedDict):
-    Subscribers: List[SubscriberTypeDef]
+    Subscribers: list[SubscriberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -501,7 +498,7 @@ class ExecuteBudgetActionResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    ResourceTags: List[ResourceTagTypeDef]
+    ResourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -553,18 +550,18 @@ class DescribeSubscribersForNotificationRequestPaginateTypeDef(TypedDict):
 
 
 class ExpressionOutputTypeDef(TypedDict):
-    Or: NotRequired[List[Dict[str, Any]]]
-    And: NotRequired[List[Dict[str, Any]]]
-    Not: NotRequired[Dict[str, Any]]
+    Or: NotRequired[list[dict[str, Any]]]
+    And: NotRequired[list[dict[str, Any]]]
+    Not: NotRequired[dict[str, Any]]
     Dimensions: NotRequired[ExpressionDimensionValuesOutputTypeDef]
     Tags: NotRequired[TagValuesOutputTypeDef]
     CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
 
 
 class ExpressionPaginatorTypeDef(TypedDict):
-    Or: NotRequired[List[Dict[str, Any]]]
-    And: NotRequired[List[Dict[str, Any]]]
-    Not: NotRequired[Dict[str, Any]]
+    Or: NotRequired[list[dict[str, Any]]]
+    And: NotRequired[list[dict[str, Any]]]
+    Not: NotRequired[dict[str, Any]]
     Dimensions: NotRequired[ExpressionDimensionValuesOutputTypeDef]
     Tags: NotRequired[TagValuesOutputTypeDef]
     CostCategories: NotRequired[CostCategoryValuesOutputTypeDef]
@@ -583,19 +580,9 @@ TimePeriodUnionTypeDef = Union[TimePeriodTypeDef, TimePeriodOutputTypeDef]
 
 
 class DescribeBudgetNotificationsForAccountResponseTypeDef(TypedDict):
-    BudgetNotificationsForAccount: List[BudgetNotificationsForAccountTypeDef]
+    BudgetNotificationsForAccount: list[BudgetNotificationsForAccountTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class BudgetPerformanceHistoryTypeDef(TypedDict):
-    BudgetName: NotRequired[str]
-    BudgetType: NotRequired[BudgetTypeType]
-    CostFilters: NotRequired[Dict[str, List[str]]]
-    CostTypes: NotRequired[CostTypesTypeDef]
-    TimeUnit: NotRequired[TimeUnitType]
-    BillingViewArn: NotRequired[str]
-    BudgetedAndActualAmountsList: NotRequired[List[BudgetedAndActualAmountsTypeDef]]
 
 
 class ActionTypeDef(TypedDict):
@@ -608,7 +595,7 @@ class ActionTypeDef(TypedDict):
     ExecutionRoleArn: str
     ApprovalModel: ApprovalModelType
     Status: ActionStatusType
-    Subscribers: List[SubscriberTypeDef]
+    Subscribers: list[SubscriberTypeDef]
 
 
 DefinitionUnionTypeDef = Union[DefinitionTypeDef, DefinitionOutputTypeDef]
@@ -619,17 +606,29 @@ class BudgetOutputTypeDef(TypedDict):
     TimeUnit: TimeUnitType
     BudgetType: BudgetTypeType
     BudgetLimit: NotRequired[SpendTypeDef]
-    PlannedBudgetLimits: NotRequired[Dict[str, SpendTypeDef]]
-    CostFilters: NotRequired[Dict[str, List[str]]]
+    PlannedBudgetLimits: NotRequired[dict[str, SpendTypeDef]]
+    CostFilters: NotRequired[dict[str, list[str]]]
     CostTypes: NotRequired[CostTypesTypeDef]
     TimePeriod: NotRequired[TimePeriodOutputTypeDef]
     CalculatedSpend: NotRequired[CalculatedSpendTypeDef]
     LastUpdatedTime: NotRequired[datetime]
     AutoAdjustData: NotRequired[AutoAdjustDataOutputTypeDef]
     FilterExpression: NotRequired[ExpressionOutputTypeDef]
-    Metrics: NotRequired[List[MetricType]]
+    Metrics: NotRequired[list[MetricType]]
     BillingViewArn: NotRequired[str]
     HealthStatus: NotRequired[HealthStatusOutputTypeDef]
+
+
+class BudgetPerformanceHistoryTypeDef(TypedDict):
+    BudgetName: NotRequired[str]
+    BudgetType: NotRequired[BudgetTypeType]
+    CostFilters: NotRequired[dict[str, list[str]]]
+    CostTypes: NotRequired[CostTypesTypeDef]
+    TimeUnit: NotRequired[TimeUnitType]
+    BillingViewArn: NotRequired[str]
+    BudgetedAndActualAmountsList: NotRequired[list[BudgetedAndActualAmountsTypeDef]]
+    FilterExpression: NotRequired[ExpressionOutputTypeDef]
+    Metrics: NotRequired[list[MetricType]]
 
 
 class BudgetPaginatorTypeDef(TypedDict):
@@ -637,17 +636,29 @@ class BudgetPaginatorTypeDef(TypedDict):
     TimeUnit: TimeUnitType
     BudgetType: BudgetTypeType
     BudgetLimit: NotRequired[SpendTypeDef]
-    PlannedBudgetLimits: NotRequired[Dict[str, SpendTypeDef]]
-    CostFilters: NotRequired[Dict[str, List[str]]]
+    PlannedBudgetLimits: NotRequired[dict[str, SpendTypeDef]]
+    CostFilters: NotRequired[dict[str, list[str]]]
     CostTypes: NotRequired[CostTypesTypeDef]
     TimePeriod: NotRequired[TimePeriodOutputTypeDef]
     CalculatedSpend: NotRequired[CalculatedSpendTypeDef]
     LastUpdatedTime: NotRequired[datetime]
     AutoAdjustData: NotRequired[AutoAdjustDataOutputTypeDef]
     FilterExpression: NotRequired[ExpressionPaginatorTypeDef]
-    Metrics: NotRequired[List[MetricType]]
+    Metrics: NotRequired[list[MetricType]]
     BillingViewArn: NotRequired[str]
     HealthStatus: NotRequired[HealthStatusOutputTypeDef]
+
+
+class BudgetPerformanceHistoryPaginatorTypeDef(TypedDict):
+    BudgetName: NotRequired[str]
+    BudgetType: NotRequired[BudgetTypeType]
+    CostFilters: NotRequired[dict[str, list[str]]]
+    CostTypes: NotRequired[CostTypesTypeDef]
+    TimeUnit: NotRequired[TimeUnitType]
+    BillingViewArn: NotRequired[str]
+    BudgetedAndActualAmountsList: NotRequired[list[BudgetedAndActualAmountsTypeDef]]
+    FilterExpression: NotRequired[ExpressionPaginatorTypeDef]
+    Metrics: NotRequired[list[MetricType]]
 
 
 class BudgetTypeDef(TypedDict):
@@ -700,12 +711,6 @@ class DescribeBudgetPerformanceHistoryRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DescribeBudgetPerformanceHistoryResponseTypeDef(TypedDict):
-    BudgetPerformanceHistory: BudgetPerformanceHistoryTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class ActionHistoryDetailsTypeDef(TypedDict):
     Message: str
     Action: ActionTypeDef
@@ -726,13 +731,13 @@ class DescribeBudgetActionResponseTypeDef(TypedDict):
 
 
 class DescribeBudgetActionsForAccountResponseTypeDef(TypedDict):
-    Actions: List[ActionTypeDef]
+    Actions: list[ActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeBudgetActionsForBudgetResponseTypeDef(TypedDict):
-    Actions: List[ActionTypeDef]
+    Actions: list[ActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -776,13 +781,25 @@ class DescribeBudgetResponseTypeDef(TypedDict):
 
 
 class DescribeBudgetsResponseTypeDef(TypedDict):
-    Budgets: List[BudgetOutputTypeDef]
+    Budgets: list[BudgetOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeBudgetPerformanceHistoryResponseTypeDef(TypedDict):
+    BudgetPerformanceHistory: BudgetPerformanceHistoryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeBudgetsResponsePaginatorTypeDef(TypedDict):
-    Budgets: List[BudgetPaginatorTypeDef]
+    Budgets: list[BudgetPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class DescribeBudgetPerformanceHistoryResponsePaginatorTypeDef(TypedDict):
+    BudgetPerformanceHistory: BudgetPerformanceHistoryPaginatorTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -810,6 +827,6 @@ class UpdateBudgetRequestTypeDef(TypedDict):
 
 
 class DescribeBudgetActionHistoriesResponseTypeDef(TypedDict):
-    ActionHistories: List[ActionHistoryTypeDef]
+    ActionHistories: list[ActionHistoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

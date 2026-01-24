@@ -1,6 +1,18 @@
 # Copyright (c) 2023 - 2025, AG2ai, Inc., AG2ai open-source projects maintainers and core contributors
 #
 # SPDX-License-Identifier: Apache-2.0
+"""Local fallback types for Google Gemini SDK.
+
+These types are used when google-genai SDK is not installed. They are designed
+for forward compatibility - local types may include fields from newer SDK versions.
+
+Compatibility testing (test/oai/test_gemini_types.py) verifies that:
+- All fields in the installed SDK exist in local types (subset compatibility)
+- Descriptions are ignored since they may vary across SDK versions
+
+When updating these types, prefer adding new fields rather than removing existing
+ones to maintain forward compatibility with newer SDK versions.
+"""
 
 import enum
 import warnings
@@ -105,6 +117,7 @@ class FunctionCallingConfigMode(CaseInSensitiveEnum):
     AUTO = "AUTO"
     ANY = "ANY"
     NONE = "NONE"
+    VALIDATED = "VALIDATED"
 
 
 class LatLng(CommonBaseModel):
@@ -133,6 +146,10 @@ class FunctionCallingConfig(CommonBaseModel):
     allowed_function_names: list[str] | None = Field(
         default=None,
         description="""Optional. Function names to call. Only set when the Mode is ANY. Function names should match [FunctionDeclaration.name]. With mode set to ANY, model will predict a function call from the set of function names provided.""",
+    )
+    stream_function_call_arguments: bool | None = Field(
+        default=None,
+        description="""Optional. When set to true, arguments of a single function call will be streamed out in multiple parts/contents/responses. Partial parameter results will be returned in the [FunctionCall.partial_args] field. This field is not supported in Gemini API.""",
     )
 
 

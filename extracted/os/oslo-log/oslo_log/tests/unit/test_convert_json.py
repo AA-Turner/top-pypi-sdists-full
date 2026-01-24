@@ -46,7 +46,7 @@ class ConvertJsonTestCase(test_base.BaseTestCase):
 
     def _reformat(self, text):
         fh = io.StringIO(text)
-        return list(convert_json.reformat_json(fh, lambda x: [x]))
+        return list(convert_json.reformat_json(fh, lambda x: iter([x])))
 
     def test_reformat_json_single(self):
         text = jsonutils.dumps(TRIVIAL_RECORD)
@@ -60,7 +60,8 @@ class ConvertJsonTestCase(test_base.BaseTestCase):
         text = jsonutils.dumps(TRIVIAL_RECORD)
         self.assertEqual(
             [TRIVIAL_RECORD, TRIVIAL_RECORD],
-            self._reformat("\n".join([text, text])))
+            self._reformat("\n".join([text, text])),
+        )
 
     def _lines(self, record, pre='pre', loc='loc', **args):
         return list(convert_json.console_format(pre, loc, record, **args))

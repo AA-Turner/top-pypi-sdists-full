@@ -9,6 +9,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "grammar_functor.h"
 #include "grammar_impl.h"
@@ -214,11 +215,26 @@ Result<QwenXmlParameterFormat, ISTError> StructuralTagParser::ParseQwenXmlParame
 
 Result<AnyTextFormat, ISTError> StructuralTagParser::ParseAnyTextFormat(const picojson::object& obj
 ) {
-  // obj should not have any fields other than "type"
-  if (obj.size() > 1 || (obj.size() == 1 && obj.begin()->first != "type")) {
-    return ResultErr<ISTError>("Any text format should not have any fields other than type");
+  auto excluded_strs_it = obj.find("excludes");
+  if (excluded_strs_it == obj.end()) {
+    if ((obj.find("type") == obj.end())) {
+      return ResultErr<ISTError>("Any text format should not have any fields other than type");
+    }
+    return ResultOk<AnyTextFormat>(std::vector<std::string>{});
   }
-  return ResultOk<AnyTextFormat>();
+  if (!excluded_strs_it->second.is<picojson::array>()) {
+    return ResultErr<ISTError>("AnyText format's excluded_strs field must be an array");
+  }
+  const auto& excluded_strs_array = excluded_strs_it->second.get<picojson::array>();
+  std::vector<std::string> excluded_strs;
+  excluded_strs.reserve(excluded_strs_array.size());
+  for (const auto& excluded_str : excluded_strs_array) {
+    if (!excluded_str.is<std::string>()) {
+      return ResultErr<ISTError>("AnyText format's excluded_strs array must contain strings");
+    }
+    excluded_strs.push_back(excluded_str.get<std::string>());
+  }
+  return ResultOk<AnyTextFormat>(std::move(excluded_strs));
 }
 
 Result<GrammarFormat, ISTError> StructuralTagParser::ParseGrammarFormat(const picojson::object& obj
@@ -315,15 +331,36 @@ Result<TagFormat, ISTError> StructuralTagParser::ParseTagFormat(const picojson::
   if (content.IsErr()) {
     return ResultErr<ISTError>(std::move(content).UnwrapErr());
   }
-  // end is required.
+  // end is required - can be string or array of strings
   auto end_it = obj.find("end");
-  if (end_it == obj.end() || !end_it->second.is<std::string>()) {
-    return ResultErr<ISTError>("Tag format's end field must be a string");
+  if (end_it == obj.end()) {
+    return ResultErr<ISTError>("Tag format must have an end field");
   }
+
+  std::vector<std::string> end_strings;
+  if (end_it->second.is<std::string>()) {
+    // Single string case
+    end_strings.push_back(end_it->second.get<std::string>());
+  } else if (end_it->second.is<picojson::array>()) {
+    // Array case
+    const auto& end_array = end_it->second.get<picojson::array>();
+    if (end_array.empty()) {
+      return ResultErr<ISTError>("Tag format's end array cannot be empty");
+    }
+    for (const auto& item : end_array) {
+      if (!item.is<std::string>()) {
+        return ResultErr<ISTError>("Tag format's end array must contain only strings");
+      }
+      end_strings.push_back(item.get<std::string>());
+    }
+  } else {
+    return ResultErr<ISTError>("Tag format's end field must be a string or array of strings");
+  }
+
   return ResultOk<TagFormat>(
       begin_it->second.get<std::string>(),
       std::make_shared<Format>(std::move(content).Unwrap()),
-      end_it->second.get<std::string>()
+      std::move(end_strings)
   );
 }
 
@@ -336,6 +373,7 @@ Result<TriggeredTagsFormat, ISTError> StructuralTagParser::ParseTriggeredTagsFor
     return ResultErr<ISTError>("Triggered tags format must have a triggers field with an array");
   }
   const auto& triggers_array = triggers_it->second.get<picojson::array>();
+  std::vector<std::string> excluded_strs;
   std::vector<std::string> triggers;
   triggers.reserve(triggers_array.size());
   for (const auto& trigger : triggers_array) {
@@ -365,6 +403,24 @@ Result<TriggeredTagsFormat, ISTError> StructuralTagParser::ParseTriggeredTagsFor
   if (tags.size() == 0) {
     return ResultErr<ISTError>("Triggered tags format's tags must be non-empty");
   }
+  // excludes is optional.
+  auto excludes_it = obj.find("excludes");
+  if (excludes_it != obj.end()) {
+    if (!excludes_it->second.is<picojson::array>()) {
+      return ResultErr<ISTError>("Triggered tags format should have a excludes field with an array"
+      );
+    }
+    const auto& excludes_array = excludes_it->second.get<picojson::array>();
+    excluded_strs.reserve(excludes_array.size());
+    for (const auto& excluded_str : excludes_array) {
+      if (!excluded_str.is<std::string>() || excluded_str.get<std::string>().empty()) {
+        return ResultErr<ISTError>("Triggered tags format's excluded_strs must be non-empty strings"
+        );
+      }
+      excluded_strs.push_back(excluded_str.get<std::string>());
+    }
+  }
+
   // at_least_one is optional.
   bool at_least_one = false;
   auto at_least_one_it = obj.find("at_least_one");
@@ -384,7 +440,7 @@ Result<TriggeredTagsFormat, ISTError> StructuralTagParser::ParseTriggeredTagsFor
     stop_after_first = stop_after_first_it->second.get<bool>();
   }
   return ResultOk<TriggeredTagsFormat>(
-      std::move(triggers), std::move(tags), at_least_one, stop_after_first
+      std::move(triggers), std::move(tags), std::move(excluded_strs), at_least_one, stop_after_first
   );
 }
 
@@ -409,13 +465,10 @@ Result<TagsWithSeparatorFormat, ISTError> StructuralTagParser::ParseTagsWithSepa
   if (tags.size() == 0) {
     return ResultErr<ISTError>("Tags with separator format's tags must be non-empty");
   }
-  // separator is required.
+  // separator is required (can be empty string).
   auto separator_it = obj.find("separator");
-  if (separator_it == obj.end() || !separator_it->second.is<std::string>() ||
-      separator_it->second.get<std::string>().empty()) {
-    return ResultErr<ISTError>(
-        "Tags with separator format's separator field must be a non-empty string"
-    );
+  if (separator_it == obj.end() || !separator_it->second.is<std::string>()) {
+    return ResultErr<ISTError>("Tags with separator format's separator field must be a string");
   }
   // at_least_one is optional.
   bool at_least_one = false;
@@ -483,8 +536,9 @@ class StructuralTagAnalyzer {
   std::optional<ISTError> VisitSub(TriggeredTagsFormat* format);
   std::optional<ISTError> VisitSub(TagsWithSeparatorFormat* format);
 
-  std::optional<std::string> DetectEndString();
+  std::vector<std::string> DetectEndStrings();
   bool IsUnlimited(const Format& format);
+  bool IsExcluded(const Format& format);
 
   int visit_format_recursion_depth_ = 0;
   std::vector<FormatPtrVariant> stack_;
@@ -494,16 +548,16 @@ std::optional<ISTError> StructuralTagAnalyzer::Analyze(StructuralTag* structural
   return StructuralTagAnalyzer().Visit(&structural_tag->format);
 }
 
-std::optional<std::string> StructuralTagAnalyzer::DetectEndString() {
+std::vector<std::string> StructuralTagAnalyzer::DetectEndStrings() {
   for (int i = static_cast<int>(stack_.size()) - 1; i >= 0; --i) {
     auto& format = stack_[i];
 
     if (std::holds_alternative<TagFormat*>(format)) {
       auto* tag = std::get<TagFormat*>(format);
-      return tag->end;
+      return tag->end;  // Already a vector
     }
   }
-  return std::nullopt;
+  return {};  // Empty vector
 }
 
 bool StructuralTagAnalyzer::IsUnlimited(const Format& format) {
@@ -520,6 +574,24 @@ bool StructuralTagAnalyzer::IsUnlimited(const Format& format) {
           return arg.is_unlimited_;
         } else if constexpr (std::is_same_v<T, OrFormat>) {
           return arg.is_unlimited_;
+        } else {
+          return false;
+        }
+      },
+      format
+  );
+}
+
+bool StructuralTagAnalyzer::IsExcluded(const Format& format) {
+  return std::visit(
+      [&](auto&& arg) -> bool {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, AnyTextFormat>) {
+          const auto& any_text_format = std::get<AnyTextFormat>(format);
+          return !any_text_format.excludes.empty();
+        } else if constexpr (std::is_same_v<T, TriggeredTagsFormat>) {
+          const auto& triggered_tags_format = std::get<TriggeredTagsFormat>(format);
+          return !triggered_tags_format.excludes.empty();
         } else {
           return false;
         }
@@ -563,7 +635,7 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(QwenXmlParameterFormat* 
 }
 
 std::optional<ISTError> StructuralTagAnalyzer::VisitSub(AnyTextFormat* format) {
-  format->detected_end_str_ = DetectEndString();
+  format->detected_end_strs_ = DetectEndStrings();
   return std::nullopt;
 }
 
@@ -583,10 +655,12 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(SequenceFormat* format) 
       return err;
     }
     if (IsUnlimited(element)) {
-      return ISTError(
-          "Only the last element in a sequence can be unlimited, but the " + std::to_string(i) +
-          "th element of sequence format is unlimited"
-      );
+      if (!IsExcluded(element)) {
+        return ISTError(
+            "Only the last element in a sequence can be unlimited, but the " + std::to_string(i) +
+            "th element of sequence format is unlimited"
+        );
+      }
     }
   }
 
@@ -595,7 +669,7 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(SequenceFormat* format) 
   if (err.has_value()) {
     return err;
   }
-  format->is_unlimited_ = IsUnlimited(element);
+  format->is_unlimited_ = IsUnlimited(element) && !IsExcluded(element);
   return std::nullopt;
 }
 
@@ -607,7 +681,7 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(OrFormat* format) {
     if (err.has_value()) {
       return err;
     }
-    auto is_unlimited = IsUnlimited(element);
+    auto is_unlimited = IsUnlimited(element) && !IsExcluded(element);
     is_any_unlimited |= is_unlimited;
     is_all_unlimited &= is_unlimited;
   }
@@ -630,10 +704,22 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(TagFormat* format) {
   }
   auto is_content_unlimited = IsUnlimited(*(format->content));
   if (is_content_unlimited) {
-    if (format->end.empty()) {
-      return ISTError("When the content is unlimited, the end of the tag format cannot be empty");
+    // Check that at least one end string is non-empty
+    bool has_non_empty = false;
+    for (const auto& end_str : format->end) {
+      if (!end_str.empty()) {
+        has_non_empty = true;
+        break;
+      }
     }
-    // Clear the end string because it is moved to the detected_end_str_ field.
+    if (!has_non_empty) {
+      if (IsExcluded(*format->content)) {
+        return std::nullopt;
+      } else {
+        return ISTError("When the content is unlimited, at least one end string must be non-empty");
+      }
+    }
+    // Clear the end strings because they are moved to the detected_end_strs_ field.
     format->end.clear();
   }
   return std::nullopt;
@@ -646,7 +732,7 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(TriggeredTagsFormat* for
       return err;
     }
   }
-  format->detected_end_str_ = DetectEndString();
+  format->detected_end_strs_ = DetectEndStrings();
   return std::nullopt;
 }
 
@@ -657,7 +743,7 @@ std::optional<ISTError> StructuralTagAnalyzer::VisitSub(TagsWithSeparatorFormat*
       return err;
     }
   }
-  format->detected_end_str_ = DetectEndString();
+  format->detected_end_strs_ = DetectEndStrings();
   return std::nullopt;
 }
 
@@ -756,11 +842,24 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const RegexFormat&
 }
 
 Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const AnyTextFormat& format) {
-  if (format.detected_end_str_.has_value()) {
-    XGRAMMAR_DCHECK(!format.detected_end_str_.value().empty())
-        << "The detected end string cannot be empty";
+  if (!format.detected_end_strs_.empty()) {
+    // Filter out empty strings
+    std::vector<std::string> non_empty_ends;
+    for (const auto& s : format.detected_end_strs_) {
+      if (!s.empty()) {
+        non_empty_ends.push_back(s);
+      }
+    }
+    XGRAMMAR_DCHECK(!non_empty_ends.empty())
+        << "At least one detected end string must be non-empty";
+    // TagDispatch supports multiple stop strings
     auto tag_dispatch_expr = grammar_builder_.AddTagDispatch(
-        Grammar::Impl::TagDispatch{{}, false, {format.detected_end_str_.value()}, false}
+        Grammar::Impl::TagDispatch{{}, false, non_empty_ends, false, format.excludes}
+    );
+    return ResultOk(grammar_builder_.AddRuleWithHint("any_text", tag_dispatch_expr));
+  } else if (format.excludes.size() > 0) {
+    auto tag_dispatch_expr = grammar_builder_.AddTagDispatch(
+        Grammar::Impl::TagDispatch{{}, true, {}, false, format.excludes}
     );
     return ResultOk(grammar_builder_.AddRuleWithHint("any_text", tag_dispatch_expr));
   } else {
@@ -810,15 +909,37 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TagFormat& f
   auto sub_rule_id = std::move(result).Unwrap();
   auto begin_expr = grammar_builder_.AddByteString(format.begin);
   auto rule_ref_expr = grammar_builder_.AddRuleRef(sub_rule_id);
-  int32_t sequence_expr_id;
-  if (!format.end.empty()) {
-    auto end_expr = grammar_builder_.AddByteString(format.end);
-    sequence_expr_id = grammar_builder_.AddSequence({begin_expr, rule_ref_expr, end_expr});
+
+  if (format.end.size() > 1) {
+    // Multiple end tokens: create end choices rule: Choice(Seq(end1), Seq(end2), ...)
+    std::vector<int> end_sequence_ids;
+    for (const auto& end_str : format.end) {
+      // Use AddEmptyStr() for empty strings, AddByteString() for non-empty
+      auto end_expr = end_str.empty() ? grammar_builder_.AddEmptyStr()
+                                      : grammar_builder_.AddByteString(end_str);
+      end_sequence_ids.push_back(grammar_builder_.AddSequence({end_expr}));
+    }
+    auto end_choices_expr = grammar_builder_.AddChoices(end_sequence_ids);
+    auto end_choices_rule_id = grammar_builder_.AddRuleWithHint("tag_end", end_choices_expr);
+    auto end_rule_ref_expr = grammar_builder_.AddRuleRef(end_choices_rule_id);
+
+    auto sequence_expr_id =
+        grammar_builder_.AddSequence({begin_expr, rule_ref_expr, end_rule_ref_expr});
+    auto choices_expr = grammar_builder_.AddChoices({sequence_expr_id});
+    return ResultOk(grammar_builder_.AddRuleWithHint("tag", choices_expr));
+  } else if (format.end.size() == 1) {
+    // Single end token: use directly (use AddEmptyStr() for empty strings)
+    auto end_expr = format.end[0].empty() ? grammar_builder_.AddEmptyStr()
+                                          : grammar_builder_.AddByteString(format.end[0]);
+    auto sequence_expr_id = grammar_builder_.AddSequence({begin_expr, rule_ref_expr, end_expr});
+    auto choices_expr = grammar_builder_.AddChoices({sequence_expr_id});
+    return ResultOk(grammar_builder_.AddRuleWithHint("tag", choices_expr));
   } else {
-    sequence_expr_id = grammar_builder_.AddSequence({begin_expr, rule_ref_expr});
+    // End was cleared (unlimited content case) - no end string needed
+    auto sequence_expr_id = grammar_builder_.AddSequence({begin_expr, rule_ref_expr});
+    auto choices_expr = grammar_builder_.AddChoices({sequence_expr_id});
+    return ResultOk(grammar_builder_.AddRuleWithHint("tag", choices_expr));
   }
-  auto choices_expr = grammar_builder_.AddChoices({sequence_expr_id});
-  return ResultOk(grammar_builder_.AddRuleWithHint("tag", choices_expr));
 }
 
 Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTagsFormat& format) {
@@ -864,21 +985,63 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTag
     for (int it_tag = 0; it_tag < static_cast<int>(format.tags.size()); ++it_tag) {
       const auto& tag = format.tags[it_tag];
       auto begin_expr_id = grammar_builder_.AddByteString(tag.begin);
-      auto end_expr_id = grammar_builder_.AddByteString(tag.end);
       auto rule_ref_expr_id = grammar_builder_.AddRuleRef(tag_content_rule_ids[it_tag]);
-      choice_elements.push_back(
-          grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
-      );
+      if (tag.end.empty()) {
+        // Unlimited content case - skip adding end string
+        choice_elements.push_back(grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id}));
+      } else if (tag.end.size() == 1) {
+        // Single end token: use directly
+        auto end_expr_id = tag.end[0].empty() ? grammar_builder_.AddEmptyStr()
+                                              : grammar_builder_.AddByteString(tag.end[0]);
+        choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
+        );
+      } else {
+        // Multiple end tokens: create end choices rule: Choice(Seq(end1), Seq(end2), ...)
+        std::vector<int> end_sequence_ids;
+        for (const auto& end_str : tag.end) {
+          auto end_expr_id = end_str.empty() ? grammar_builder_.AddEmptyStr()
+                                             : grammar_builder_.AddByteString(end_str);
+          end_sequence_ids.push_back(grammar_builder_.AddSequence({end_expr_id}));
+        }
+        auto end_choices_expr = grammar_builder_.AddChoices(end_sequence_ids);
+        auto end_choices_rule_id = grammar_builder_.AddRuleWithHint("tag_end", end_choices_expr);
+        auto end_rule_ref_expr = grammar_builder_.AddRuleRef(end_choices_rule_id);
+        choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_rule_ref_expr})
+        );
+      }
     }
     auto choice_expr_id = grammar_builder_.AddChoices(choice_elements);
 
-    // Handle the detected end string.
-    if (format.detected_end_str_.has_value()) {
+    // Handle the detected end strings.
+    if (!format.detected_end_strs_.empty()) {
       auto sub_rule_id = grammar_builder_.AddRuleWithHint("triggered_tags_sub", choice_expr_id);
       auto ref_sub_rule_expr_id = grammar_builder_.AddRuleRef(sub_rule_id);
-      auto end_str_expr_id = grammar_builder_.AddByteString(format.detected_end_str_.value());
-      auto sequence_expr_id = grammar_builder_.AddSequence({ref_sub_rule_expr_id, end_str_expr_id});
-      choice_expr_id = grammar_builder_.AddChoices({sequence_expr_id});
+      if (format.detected_end_strs_.size() == 1) {
+        // Single detected end string: use directly
+        auto end_str_expr_id = format.detected_end_strs_[0].empty()
+                                   ? grammar_builder_.AddEmptyStr()
+                                   : grammar_builder_.AddByteString(format.detected_end_strs_[0]);
+        auto sequence_expr_id =
+            grammar_builder_.AddSequence({ref_sub_rule_expr_id, end_str_expr_id});
+        choice_expr_id = grammar_builder_.AddChoices({sequence_expr_id});
+      } else {
+        // Multiple detected end strings: create end choices rule
+        std::vector<int> end_sequence_ids;
+        for (const auto& end_str : format.detected_end_strs_) {
+          auto end_str_expr_id = end_str.empty() ? grammar_builder_.AddEmptyStr()
+                                                 : grammar_builder_.AddByteString(end_str);
+          end_sequence_ids.push_back(grammar_builder_.AddSequence({end_str_expr_id}));
+        }
+        auto end_choices_expr = grammar_builder_.AddChoices(end_sequence_ids);
+        auto end_choices_rule_id =
+            grammar_builder_.AddRuleWithHint("end_choices", end_choices_expr);
+        auto end_rule_ref_expr = grammar_builder_.AddRuleRef(end_choices_rule_id);
+        auto sequence_expr_id =
+            grammar_builder_.AddSequence({ref_sub_rule_expr_id, end_rule_ref_expr});
+        choice_expr_id = grammar_builder_.AddChoices({sequence_expr_id});
+      }
     }
 
     return ResultOk(grammar_builder_.AddRuleWithHint("triggered_tags", choice_expr_id));
@@ -899,11 +1062,32 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTag
     for (const auto& tag_id : trigger_to_tag_ids[it_trigger]) {
       const auto& tag = format.tags[tag_id];
       int begin_expr_id = grammar_builder_.AddByteString(tag.begin.substr(trigger.size()));
-      int end_expr_id = grammar_builder_.AddByteString(tag.end);
       int rule_ref_expr_id = grammar_builder_.AddRuleRef(tag_content_rule_ids[tag_id]);
-      choice_elements.push_back(
-          grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
-      );
+      if (tag.end.empty()) {
+        // Unlimited content case - skip adding end string
+        choice_elements.push_back(grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id}));
+      } else if (tag.end.size() == 1) {
+        // Single end token: use directly
+        int end_expr_id = tag.end[0].empty() ? grammar_builder_.AddEmptyStr()
+                                             : grammar_builder_.AddByteString(tag.end[0]);
+        choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
+        );
+      } else {
+        // Multiple end tokens: create end choices rule: Choice(Seq(end1), Seq(end2), ...)
+        std::vector<int> end_sequence_ids;
+        for (const auto& end_str : tag.end) {
+          int end_expr_id = end_str.empty() ? grammar_builder_.AddEmptyStr()
+                                            : grammar_builder_.AddByteString(end_str);
+          end_sequence_ids.push_back(grammar_builder_.AddSequence({end_expr_id}));
+        }
+        auto end_choices_expr = grammar_builder_.AddChoices(end_sequence_ids);
+        auto end_choices_rule_id = grammar_builder_.AddRuleWithHint("tag_end", end_choices_expr);
+        auto end_rule_ref_expr = grammar_builder_.AddRuleRef(end_choices_rule_id);
+        choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_rule_ref_expr})
+        );
+      }
     }
     auto choice_expr_id = grammar_builder_.AddChoices(choice_elements);
     auto sub_rule_id = grammar_builder_.AddRuleWithHint("triggered_tags_group", choice_expr_id);
@@ -913,13 +1097,20 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTag
   // Step 3.2 Add TagDispatch.
   int32_t rule_expr_id;
   bool loop_after_dispatch = !format.stop_after_first;
-  if (format.detected_end_str_.has_value()) {
+  if (!format.detected_end_strs_.empty()) {
+    // Filter out empty strings
+    std::vector<std::string> non_empty_ends;
+    for (const auto& s : format.detected_end_strs_) {
+      if (!s.empty()) {
+        non_empty_ends.push_back(s);
+      }
+    }
     rule_expr_id = grammar_builder_.AddTagDispatch(Grammar::Impl::TagDispatch{
-        tag_rule_pairs, false, {format.detected_end_str_.value()}, loop_after_dispatch
+        tag_rule_pairs, false, non_empty_ends, loop_after_dispatch, format.excludes
     });
   } else {
     rule_expr_id = grammar_builder_.AddTagDispatch(
-        Grammar::Impl::TagDispatch{tag_rule_pairs, true, {}, loop_after_dispatch}
+        Grammar::Impl::TagDispatch{tag_rule_pairs, true, {}, loop_after_dispatch, format.excludes}
     );
   }
 
@@ -930,11 +1121,34 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TriggeredTag
     for (int it_tag = 0; it_tag < static_cast<int>(format.tags.size()); ++it_tag) {
       const auto& tag = format.tags[it_tag];
       auto begin_expr_id = grammar_builder_.AddByteString(tag.begin);
-      auto end_expr_id = grammar_builder_.AddByteString(tag.end);
       auto rule_ref_expr_id = grammar_builder_.AddRuleRef(tag_content_rule_ids[it_tag]);
-      first_choice_elements.push_back(
-          grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
-      );
+      if (tag.end.empty()) {
+        // Unlimited content case - skip adding end string
+        first_choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id})
+        );
+      } else if (tag.end.size() == 1) {
+        // Single end token: use directly
+        auto end_expr_id = tag.end[0].empty() ? grammar_builder_.AddEmptyStr()
+                                              : grammar_builder_.AddByteString(tag.end[0]);
+        first_choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_expr_id})
+        );
+      } else {
+        // Multiple end tokens: create end choices rule: Choice(Seq(end1), Seq(end2), ...)
+        std::vector<int> end_sequence_ids;
+        for (const auto& end_str : tag.end) {
+          auto end_expr_id = end_str.empty() ? grammar_builder_.AddEmptyStr()
+                                             : grammar_builder_.AddByteString(end_str);
+          end_sequence_ids.push_back(grammar_builder_.AddSequence({end_expr_id}));
+        }
+        auto end_choices_expr = grammar_builder_.AddChoices(end_sequence_ids);
+        auto end_choices_rule_id = grammar_builder_.AddRuleWithHint("tag_end", end_choices_expr);
+        auto end_rule_ref_expr = grammar_builder_.AddRuleRef(end_choices_rule_id);
+        first_choice_elements.push_back(
+            grammar_builder_.AddSequence({begin_expr_id, rule_ref_expr_id, end_rule_ref_expr})
+        );
+      }
     }
     auto first_choice_expr_id = grammar_builder_.AddChoices(first_choice_elements);
     auto first_rule_id =
@@ -988,39 +1202,56 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TagsWithSepa
 
   auto all_tags_rule_ref_id = grammar_builder_.AddRuleRef(all_tags_rule_id);
 
-  // Handle end str
-  int32_t end_str_expr_id = -1;
-  if (format.detected_end_str_.has_value()) {
-    end_str_expr_id = grammar_builder_.AddByteString(format.detected_end_str_.value());
+  // Handle end strs - build a choices expr for multiple end strings
+  std::vector<int32_t> end_str_expr_ids;
+  for (const auto& end_str : format.detected_end_strs_) {
+    if (!end_str.empty()) {
+      end_str_expr_ids.push_back(grammar_builder_.AddByteString(end_str));
+    }
+  }
+  bool has_end_strs = !end_str_expr_ids.empty();
+
+  // Check if separator matches any end string
+  bool separator_matches_end = false;
+  for (const auto& end_str : format.detected_end_strs_) {
+    if (end_str == format.separator) {
+      separator_matches_end = true;
+      break;
+    }
   }
 
   // Step 2. Special case (stop_after_first is true):
-  if (format.stop_after_first ||
-      (end_str_expr_id != -1 && format.detected_end_str_.value() == format.separator)) {
+  if (format.stop_after_first || (has_end_strs && separator_matches_end)) {
     int32_t rule_body_expr_id;
     if (format.at_least_one) {
-      if (end_str_expr_id == -1) {
+      if (!has_end_strs) {
         // root ::= tags_rule
         rule_body_expr_id =
             grammar_builder_.AddChoices({grammar_builder_.AddSequence({all_tags_rule_ref_id})});
       } else {
-        // root ::= tags_rule end_str
-        rule_body_expr_id = grammar_builder_.AddChoices(
-            {grammar_builder_.AddSequence({all_tags_rule_ref_id, end_str_expr_id})}
-        );
+        // root ::= tags_rule end_str1 | tags_rule end_str2 | ...
+        std::vector<int> choices;
+        for (auto end_str_expr_id : end_str_expr_ids) {
+          choices.push_back(grammar_builder_.AddSequence({all_tags_rule_ref_id, end_str_expr_id}));
+        }
+        rule_body_expr_id = grammar_builder_.AddChoices(choices);
       }
     } else {
-      if (end_str_expr_id == -1) {
+      if (!has_end_strs) {
         // root ::= tags_rule | ""
         rule_body_expr_id = grammar_builder_.AddChoices(
             {grammar_builder_.AddSequence({all_tags_rule_ref_id}), grammar_builder_.AddEmptyStr()}
         );
       } else {
-        // root ::= tags_rule end_str | end_str
-        rule_body_expr_id = grammar_builder_.AddChoices(
-            {grammar_builder_.AddSequence({all_tags_rule_ref_id, end_str_expr_id}),
-             grammar_builder_.AddSequence({end_str_expr_id})}
-        );
+        // root ::= tags_rule end_str1 | tags_rule end_str2 | ... | end_str1 | end_str2 | ...
+        std::vector<int> choices;
+        for (auto end_str_expr_id : end_str_expr_ids) {
+          choices.push_back(grammar_builder_.AddSequence({all_tags_rule_ref_id, end_str_expr_id}));
+        }
+        for (auto end_str_expr_id : end_str_expr_ids) {
+          choices.push_back(grammar_builder_.AddSequence({end_str_expr_id}));
+        }
+        rule_body_expr_id = grammar_builder_.AddChoices(choices);
       }
     }
 
@@ -1031,16 +1262,31 @@ Result<int, ISTError> StructuralTagGrammarConverter::VisitSub(const TagsWithSepa
   // Step 3. Normal handling (stop_after_first is false):
   // Step 3.1 Construct sub rule
   auto sub_rule_id = grammar_builder_.AddEmptyRuleWithHint("tags_with_separator_sub");
-  auto end_str_sequence_id = end_str_expr_id == -1
-                                 ? grammar_builder_.AddEmptyStr()
-                                 : grammar_builder_.AddSequence({end_str_expr_id});
+
+  // Build end_str_sequence_id: empty if no end strs, otherwise choices of end strs
+  int32_t end_str_sequence_id;
+  if (!has_end_strs) {
+    end_str_sequence_id = grammar_builder_.AddEmptyStr();
+  } else if (end_str_expr_ids.size() == 1) {
+    end_str_sequence_id = grammar_builder_.AddSequence({end_str_expr_ids[0]});
+  } else {
+    std::vector<int> end_str_choices;
+    for (auto end_str_expr_id : end_str_expr_ids) {
+      end_str_choices.push_back(grammar_builder_.AddSequence({end_str_expr_id}));
+    }
+    end_str_sequence_id = grammar_builder_.AddChoices(end_str_choices);
+  }
+
+  // Build the sequence for the recursive case, handling empty separator
+  std::vector<int> sub_sequence_elements;
+  if (!format.separator.empty()) {
+    sub_sequence_elements.push_back(grammar_builder_.AddByteString(format.separator));
+  }
+  sub_sequence_elements.push_back(all_tags_rule_ref_id);
+  sub_sequence_elements.push_back(grammar_builder_.AddRuleRef(sub_rule_id));
+
   auto sub_rule_body_id = grammar_builder_.AddChoices(
-      {grammar_builder_.AddSequence(
-           {grammar_builder_.AddByteString(format.separator),
-            all_tags_rule_ref_id,
-            grammar_builder_.AddRuleRef(sub_rule_id)}
-       ),
-       end_str_sequence_id}
+      {grammar_builder_.AddSequence(sub_sequence_elements), end_str_sequence_id}
   );
   grammar_builder_.UpdateRuleBody(sub_rule_id, sub_rule_body_id);
 
@@ -1073,7 +1319,8 @@ Result<Grammar, StructuralTagError> StructuralTagToGrammar(const std::string& st
   if (result.IsErr()) {
     return ResultErr(std::move(result).UnwrapErr());
   }
-  return ResultOk(GrammarNormalizer::Apply(std::move(result).Unwrap()));
+  auto unwrapped_result = std::move(result).Unwrap();
+  return ResultOk(GrammarNormalizer::Apply(std::move(unwrapped_result)));
 }
 
 }  // namespace xgrammar

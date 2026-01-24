@@ -29,15 +29,16 @@ Typical use case::
 # -----------------------------------------------------------------------------
 
 from math import pi
-from typing import List
 
-from ..units.units import eplus, joule, kelvin, m, mole, s
+from ..units.units import e_SI, electronvolt, eplus, joule, kelvin, m, mole, s
 
 __all__ = (
     "Avogadro",
     "c_light",
     "c_light_sq",
+    "e_SI",
     "e_sq",
+    "electronvolt",
     "eminus",
     "eplus",
     "h_Planck",
@@ -82,7 +83,10 @@ e_sq = eplus * eplus
 Avogadro = 6.02214076e23 / mole
 
 # Planck constant (exact value, taken from PDG 2022)
-h_Planck = 6.62607015e-34 * joule * s
+# h_Planck = 6.62607015e-34 * joule * s
+# Simplify the units to avoid floating errors, using joule = electronvolt / e_SI,
+# noticing also that electronvolt * s = 1000.0 to rearrange
+h_Planck = 6.62607015e-34 * electronvolt * s / e_SI
 
 hbar_Planck = h_Planck / two_pi
 hbar = hbar_Planck
@@ -95,5 +99,5 @@ hbarc_sq = hbarc * hbarc
 k_Boltzmann = 1.380649e-23 * joule / kelvin
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return list(__all__)

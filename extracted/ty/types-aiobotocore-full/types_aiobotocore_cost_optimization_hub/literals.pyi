@@ -3,7 +3,7 @@ Type annotations for cost-optimization-hub service literal definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cost_optimization_hub/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,7 +27,9 @@ __all__ = (
     "CostOptimizationHubServiceName",
     "Ec2AutoScalingGroupTypeType",
     "EnrollmentStatusType",
+    "GranularityTypeType",
     "ImplementationEffortType",
+    "ListEfficiencyMetricsPaginatorName",
     "ListEnrollmentStatusesPaginatorName",
     "ListRecommendationSummariesPaginatorName",
     "ListRecommendationsPaginatorName",
@@ -58,7 +60,9 @@ ActionTypeType = Literal[
 AllocationStrategyType = Literal["LowestPrice", "Prioritized"]
 Ec2AutoScalingGroupTypeType = Literal["MixedInstanceTypes", "SingleInstanceType"]
 EnrollmentStatusType = Literal["Active", "Inactive"]
+GranularityTypeType = Literal["Daily", "Monthly"]
 ImplementationEffortType = Literal["High", "Low", "Medium", "VeryHigh", "VeryLow"]
+ListEfficiencyMetricsPaginatorName = Literal["list_efficiency_metrics"]
 ListEnrollmentStatusesPaginatorName = Literal["list_enrollment_statuses"]
 ListRecommendationSummariesPaginatorName = Literal["list_recommendation_summaries"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
@@ -78,6 +82,7 @@ ResourceTypeType = Literal[
     "ElastiCacheReservedInstances",
     "LambdaFunction",
     "MemoryDbReservedInstances",
+    "NatGateway",
     "OpenSearchReservedInstances",
     "RdsDbInstance",
     "RdsDbInstanceStorage",
@@ -116,7 +121,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -186,6 +190,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -231,7 +236,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -284,7 +288,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -323,8 +326,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -359,6 +360,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -368,18 +370,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -401,8 +405,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -417,15 +419,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -456,8 +459,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -497,6 +500,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -508,18 +512,12 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_enrollment_statuses", "list_recommendation_summaries", "list_recommendations"
+    "list_efficiency_metrics",
+    "list_enrollment_statuses",
+    "list_recommendation_summaries",
+    "list_recommendations",
 ]
 RegionName = Literal["us-east-1"]

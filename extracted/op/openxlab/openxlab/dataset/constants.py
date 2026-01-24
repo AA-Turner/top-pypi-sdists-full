@@ -2,7 +2,7 @@ README_FILE_NAME = "README.md"
 FILE_THRESHOLD = 30 * 1024 * 1024
 # FILE_THRESHOLD = 100
 # connection timeout and waiting response timeout
-TIMEOUT = (5, None)
+TIMEOUT = (30, None)
 UPLOAD_TIMEOUT = (60, None)
 # max retries when encounter connectionerror
 MAX_RETRIES = 5

@@ -131,18 +131,18 @@ def read_castep(filename):
         print(
             "CASTEP-interface: Magnetic structure, "
             "number of operations without spin: %d"
-            % len(symmetry.get_symmetry_operations()["rotations"])
+            % len(symmetry.symmetry_operations["rotations"])
         )
         print(
             "CASTEP-interface: Spacegroup without spin: %s"
             % symmetry.get_international_table()
         )
 
-        cell.set_magnetic_moments(magmoms)
+        cell.magnetic_moments = magmoms
         symmetry = Symmetry(cell, symprec=1e-5)
         print(
             "CASTEP-interface: Magnetic structure, number of operations with spin: %d"
-            % len(symmetry.get_symmetry_operations()["rotations"])
+            % len(symmetry.symmetry_operations["rotations"])
         )
         print("")
 
@@ -160,7 +160,7 @@ def write_supercells_with_displacements(
 ):
     """Write supercells with displacements to files."""
     write_castep("%s.cell" % pre_filename, supercell)
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = "{pre_filename}-{0:0{width}}.cell".format(
             i, pre_filename=pre_filename, width=width
         )
@@ -196,7 +196,7 @@ class CastepIn:
 
     def __init__(self, lines):
         """Init method."""
-        self._tags = {
+        self._tags: dict[str, list | None] = {
             "lattice_vectors": None,
             "atomic_species": None,
             "coordinates": None,

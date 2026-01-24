@@ -51,10 +51,9 @@ from typing import (
 
 import fontMath
 import fontTools.misc.fixedTools
-from fontTools import designspaceLib, varLib
+from fontTools import designspaceLib, ufoLib, varLib
 from fontTools.ttLib.tables._n_a_m_e import NameRecord as ftNameRecord
 from fontTools.ttLib.tables._n_a_m_e import _makeWindowsName
-from ufoLib2.objects.info import NameRecord as ufoNameRecord
 
 from ufo2ft.util import (
     _getNewGlyphFactory,
@@ -67,6 +66,9 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, KeysView
 
     from ufoLib2.objects import Font, Glyph, Info
+
+# Type alias for name records - can be dict (defcon) or NameRecord object (ufoLib2)
+NameRecordDict = Dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +111,9 @@ WDTH_VALUE_TO_OS2_WIDTH_CLASS = {
 # fontMath at the time of this writing handles the following attributes:
 # https://github.com/robotools/fontMath/blob/0.5.0/Lib/fontMath/mathInfo.py#L360-L422
 #
-# From the attributes that are left, we skip instance-specific ones on purpose:
+# From the attributes that are left, we skip non-interpolating ones on purpose as
+# they are instance-specific, unless the instance location is the same as the the
+# default source:
 # - guidelines
 # - postscriptFontName
 # - styleMapFamilyName
@@ -202,38 +206,45 @@ def process_rules_swaps(rules, location, glyphNames):
 
 
 def _override_name_record(
-    openTypeNameRecords: list[ufoNameRecord],
-    new_value: ufoNameRecord,
-) -> None:
-    """Override an existing name record in the list of OpenType name records."""
+    openTypeNameRecords: list,
+    new_value: NameRecordDict,
+) -> bool:
+    """Override an existing name record in the list of OpenType name records.
+
+    Records can be dicts (defcon) or NameRecord objects (ufoLib2). Both support
+    dict-style read access via []. For writing, dicts use [] while NameRecord
+    uses setattr since it's read-only for the Mapping interface.
+    """
     for record in openTypeNameRecords:
         if (
-            record.platformID == new_value.platformID
-            and record.encodingID == new_value.encodingID
-            and record.languageID == new_value.languageID
-            and record.nameID == new_value.nameID
+            record["platformID"] == new_value["platformID"]
+            and record["encodingID"] == new_value["encodingID"]
+            and record["languageID"] == new_value["languageID"]
+            and record["nameID"] == new_value["nameID"]
         ):
             # Override existing name record
-            record.string = new_value.string
+            if isinstance(record, dict):
+                record["string"] = new_value["string"]
+            else:
+                record.string = new_value["string"]
             return True
     return False
 
 
-def _make_ufo_name_record(
+def _make_name_record_dict(
     name_id: int,
     value: str,
     language_tag: str = "en",
-) -> None:
-    """Add a name to the list of OpenType name records, or override an existing one."""
+) -> NameRecordDict:
+    """Create a name record dict from name ID, value, and language tag."""
     temp_name_record: ftNameRecord = _makeWindowsName(value, name_id, language_tag)
-    new_name_record: ufoNameRecord = ufoNameRecord(
-        platformID=temp_name_record.platformID,
-        encodingID=temp_name_record.platEncID,
-        languageID=temp_name_record.langID,
-        nameID=temp_name_record.nameID,
-        string=value.strip(),
-    )
-    return new_name_record
+    return {
+        "platformID": temp_name_record.platformID,
+        "encodingID": temp_name_record.platEncID,
+        "languageID": temp_name_record.langID,
+        "nameID": temp_name_record.nameID,
+        "string": value.strip(),
+    }
 
 
 def merge_public_font_info(
@@ -241,7 +252,7 @@ def merge_public_font_info(
     override_public_font_info: Dict[str, Any],
     instance_location: Location,
 ) -> None:
-    """Merge the public.fontInfo dict into the ufoLib2.Font's info object (fontinfo.plist)."""
+    """Merge the public.fontInfo dict into the font's info object (fontinfo.plist)."""
     for key, value in override_public_font_info.items():
         try:
             if key == "openTypeNameRecords":
@@ -258,17 +269,17 @@ def merge_public_font_info(
 
                 # merge the existing openTypeNameRecords with the new ones
                 for dict_name_record in value:
-                    ufo_name_record = ufoNameRecord(
-                        platformID=dict_name_record["platformID"],
-                        encodingID=dict_name_record["encodingID"],
-                        languageID=dict_name_record["languageID"],
-                        nameID=dict_name_record["nameID"],
-                        string=dict_name_record["string"].strip(),
-                    )
+                    name_record = {
+                        "platformID": dict_name_record["platformID"],
+                        "encodingID": dict_name_record["encodingID"],
+                        "languageID": dict_name_record["languageID"],
+                        "nameID": dict_name_record["nameID"],
+                        "string": dict_name_record["string"].strip(),
+                    }
                     if not _override_name_record(
-                        font.info.openTypeNameRecords, ufo_name_record
+                        font.info.openTypeNameRecords, name_record
                     ):
-                        font.info.openTypeNameRecords.append(ufo_name_record)
+                        font.info.openTypeNameRecords.append(name_record)
             else:
                 setattr(font.info, key, copy.deepcopy(value))
         except AttributeError:
@@ -706,19 +717,28 @@ class Instantiator:
         """
         assert self.info_mutator is not None
         assert self.copy_info is not None
+
         info_instance = self.info_mutator.instance_at(location_normalized)
         if self.round_geometry:
             info_instance = info_instance.round()
-        info_instance.extractInfo(font.info)
 
-        # level 4: Copy non-interpolating metadata from the default font.
-        for attribute in UFO_INFO_ATTRIBUTES_TO_COPY_TO_INSTANCES:
-            if hasattr(self.copy_info, attribute):
-                setattr(
-                    font.info,
-                    attribute,
-                    copy.deepcopy(getattr(self.copy_info, attribute)),
-                )
+        # If there is only one master (static font), the instance can only be at the
+        # default location after the latter has been normalized. It's OK for it to
+        # inherit ALL the fontinfo from the default source.
+        if self.info_mutator.is_static_font():
+            assert all(v == 0.0 for v in location_normalized.values())
+            for attribute in ufoLib.fontInfoAttributesVersion3:
+                if (value := getattr(self.copy_info, attribute, None)) is not None:
+                    setattr(font.info, attribute, copy.deepcopy(value))
+        else:
+            # Multiple masters: copy interpolating fontinfo metadata from MathInfo
+            info_instance.extractInfo(font.info)
+
+            # level 4: Copy the generic, non-interpolating metadata from the default
+            # font, except attributes that are instance-specific (see comments above).
+            for attribute in UFO_INFO_ATTRIBUTES_TO_COPY_TO_INSTANCES:
+                if (value := getattr(self.copy_info, attribute, None)) is not None:
+                    setattr(font.info, attribute, copy.deepcopy(value))
 
         # level 3: copy the designspace root <lib> public.fontInfo key
         if self.designspace_root_lib_font_info:
@@ -789,7 +809,7 @@ class Instantiator:
             if language_tag in instance.localisedFamilyName:
                 # assume is Preferred Family Name (ID=16)
                 mulitlingual_opentype_font_records.append(
-                    _make_ufo_name_record(
+                    _make_name_record_dict(
                         OT_TYPOGRAPHIC_FAMILY_NAME_ID,
                         instance.localisedFamilyName[language_tag],
                         language_tag,
@@ -798,7 +818,7 @@ class Instantiator:
             if language_tag in instance.localisedStyleName:
                 # assume is Preferred Subfamily Name (ID=17)
                 mulitlingual_opentype_font_records.append(
-                    _make_ufo_name_record(
+                    _make_name_record_dict(
                         OT_TYPOGRAPHIC_SUBFAMILY_NAME_ID,
                         instance.localisedStyleName[language_tag],
                         language_tag,
@@ -807,7 +827,7 @@ class Instantiator:
             if language_tag in instance.localisedStyleMapFamilyName:
                 # Style Map Family Name (ID=1)
                 mulitlingual_opentype_font_records.append(
-                    _make_ufo_name_record(
+                    _make_name_record_dict(
                         OT_STYLE_MAP_FAMILY_NAME_ID,
                         instance.localisedStyleMapFamilyName[language_tag],
                         language_tag,
@@ -830,7 +850,7 @@ class Instantiator:
                     # add style name to ID=1
                     full_family_name += " " + font.info.styleName
                 mulitlingual_opentype_font_records.append(
-                    _make_ufo_name_record(
+                    _make_name_record_dict(
                         OT_STYLE_MAP_FAMILY_NAME_ID,
                         full_family_name,
                         language_tag,
@@ -839,7 +859,7 @@ class Instantiator:
             if language_tag in instance.localisedStyleMapStyleName:
                 # Style Map Subfamily Name (ID=2)
                 mulitlingual_opentype_font_records.append(
-                    _make_ufo_name_record(
+                    _make_name_record_dict(
                         OT_STYLE_MAP_STYLE_NAME_ID,
                         instance.localisedStyleMapStyleName[language_tag],
                         language_tag,
@@ -1210,6 +1230,9 @@ class Variator:
             return copy.deepcopy(self.location_to_master[normalized_location_key])
 
         return self.model.interpolateFromMasters(normalized_location, self.masters)
+
+    def is_static_font(self):
+        return len(self.masters) == 1
 
 
 @dataclass(frozen=True, repr=False)

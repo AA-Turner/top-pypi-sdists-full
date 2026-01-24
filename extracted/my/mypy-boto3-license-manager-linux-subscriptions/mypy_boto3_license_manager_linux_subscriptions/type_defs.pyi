@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -27,12 +28,6 @@ from .literals import (
     SubscriptionProviderStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -85,13 +80,13 @@ class GetRegisteredSubscriptionProviderRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 class LinuxSubscriptionsDiscoverySettingsOutputTypeDef(TypedDict):
     OrganizationIntegration: OrganizationIntegrationType
-    SourceRegions: List[str]
+    SourceRegions: list[str]
 
 class InstanceTypeDef(TypedDict):
     AccountID: NotRequired[str]
@@ -101,7 +96,7 @@ class InstanceTypeDef(TypedDict):
     InstanceType: NotRequired[str]
     LastUpdatedTime: NotRequired[str]
     OsVersion: NotRequired[str]
-    ProductCode: NotRequired[List[str]]
+    ProductCode: NotRequired[list[str]]
     Region: NotRequired[str]
     RegisteredWithSubscriptionProvider: NotRequired[str]
     Status: NotRequired[str]
@@ -177,7 +172,7 @@ class GetRegisteredSubscriptionProviderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterSubscriptionProviderResponseTypeDef(TypedDict):
@@ -187,23 +182,23 @@ class RegisterSubscriptionProviderResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetServiceSettingsResponseTypeDef(TypedDict):
-    HomeRegions: List[str]
+    HomeRegions: list[str]
     LinuxSubscriptionsDiscovery: LinuxSubscriptionsDiscoveryType
     LinuxSubscriptionsDiscoverySettings: LinuxSubscriptionsDiscoverySettingsOutputTypeDef
     Status: StatusType
-    StatusMessage: Dict[str, str]
+    StatusMessage: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateServiceSettingsResponseTypeDef(TypedDict):
-    HomeRegions: List[str]
+    HomeRegions: list[str]
     LinuxSubscriptionsDiscovery: LinuxSubscriptionsDiscoveryType
     LinuxSubscriptionsDiscoverySettings: LinuxSubscriptionsDiscoverySettingsOutputTypeDef
     Status: StatusType
-    StatusMessage: Dict[str, str]
+    StatusMessage: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLinuxSubscriptionInstancesResponseTypeDef(TypedDict):
-    Instances: List[InstanceTypeDef]
+    Instances: list[InstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -224,12 +219,12 @@ class ListRegisteredSubscriptionProvidersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListLinuxSubscriptionsResponseTypeDef(TypedDict):
-    Subscriptions: List[SubscriptionTypeDef]
+    Subscriptions: list[SubscriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRegisteredSubscriptionProvidersResponseTypeDef(TypedDict):
-    RegisteredSubscriptionProviders: List[RegisteredSubscriptionProviderTypeDef]
+    RegisteredSubscriptionProviders: list[RegisteredSubscriptionProviderTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

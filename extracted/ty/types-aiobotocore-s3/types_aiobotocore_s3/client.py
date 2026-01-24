@@ -3,7 +3,7 @@ Type annotations for s3 service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable, Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -77,6 +78,8 @@ from .type_defs import (
     DeletePublicAccessBlockRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     FileobjTypeDef,
+    GetBucketAbacOutputTypeDef,
+    GetBucketAbacRequestTypeDef,
     GetBucketAccelerateConfigurationOutputTypeDef,
     GetBucketAccelerateConfigurationRequestTypeDef,
     GetBucketAclOutputTypeDef,
@@ -169,6 +172,7 @@ from .type_defs import (
     ListPartsRequestTypeDef,
     NotificationConfigurationDeprecatedResponseTypeDef,
     NotificationConfigurationResponseTypeDef,
+    PutBucketAbacRequestTypeDef,
     PutBucketAccelerateConfigurationRequestTypeDef,
     PutBucketAclRequestTypeDef,
     PutBucketAnalyticsConfigurationRequestTypeDef,
@@ -227,13 +231,6 @@ try:
     from boto3.s3.transfer import TransferConfig
 except ImportError:
     from builtins import object as TransferConfig  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from builtins import type as Type
-    from collections.abc import Callable, Mapping
-else:
-    from typing import Callable, Dict, List, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -244,20 +241,20 @@ __all__ = ("S3Client",)
 
 
 class Exceptions(BaseClientExceptions):
-    BucketAlreadyExists: Type[BotocoreClientError]
-    BucketAlreadyOwnedByYou: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    EncryptionTypeMismatch: Type[BotocoreClientError]
-    IdempotencyParameterMismatch: Type[BotocoreClientError]
-    InvalidObjectState: Type[BotocoreClientError]
-    InvalidRequest: Type[BotocoreClientError]
-    InvalidWriteOffset: Type[BotocoreClientError]
-    NoSuchBucket: Type[BotocoreClientError]
-    NoSuchKey: Type[BotocoreClientError]
-    NoSuchUpload: Type[BotocoreClientError]
-    ObjectAlreadyInActiveTierError: Type[BotocoreClientError]
-    ObjectNotInActiveTierError: Type[BotocoreClientError]
-    TooManyParts: Type[BotocoreClientError]
+    BucketAlreadyExists: type[BotocoreClientError]
+    BucketAlreadyOwnedByYou: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EncryptionTypeMismatch: type[BotocoreClientError]
+    IdempotencyParameterMismatch: type[BotocoreClientError]
+    InvalidObjectState: type[BotocoreClientError]
+    InvalidRequest: type[BotocoreClientError]
+    InvalidWriteOffset: type[BotocoreClientError]
+    NoSuchBucket: type[BotocoreClientError]
+    NoSuchKey: type[BotocoreClientError]
+    NoSuchUpload: type[BotocoreClientError]
+    ObjectAlreadyInActiveTierError: type[BotocoreClientError]
+    ObjectNotInActiveTierError: type[BotocoreClientError]
+    TooManyParts: type[BotocoreClientError]
 
 
 class S3Client(AioBaseClient):
@@ -319,8 +316,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[CopyObjectRequestTypeDef]
     ) -> CopyObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        Creates a copy of an object that is already stored in Amazon S3.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/copy_object.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#copy_object)
@@ -330,8 +326,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[CreateBucketRequestTypeDef]
     ) -> CreateBucketOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        This action creates an Amazon S3 bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/create_bucket.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#create_bucket)
@@ -363,8 +358,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[CreateMultipartUploadRequestTypeDef]
     ) -> CreateMultipartUploadOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/create_multipart_upload.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#create_multipart_upload)
@@ -576,6 +571,17 @@ class S3Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#delete_public_access_block)
         """
 
+    async def get_bucket_abac(
+        self, **kwargs: Unpack[GetBucketAbacRequestTypeDef]
+    ) -> GetBucketAbacOutputTypeDef:
+        """
+        Returns the attribute-based access control (ABAC) property of the general
+        purpose bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_abac.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_bucket_abac)
+        """
+
     async def get_bucket_accelerate_configuration(
         self, **kwargs: Unpack[GetBucketAccelerateConfigurationRequestTypeDef]
     ) -> GetBucketAccelerateConfigurationOutputTypeDef:
@@ -590,8 +596,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[GetBucketAclRequestTypeDef]
     ) -> GetBucketAclOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation is not supported for directory buckets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_acl.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_bucket_acl)
@@ -672,7 +677,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[GetBucketLocationRequestTypeDef]
     ) -> GetBucketLocationOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        Using the <code>GetBucketLocation</code> operation is no longer a best practice.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_location.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_bucket_location)
@@ -682,8 +687,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[GetBucketLoggingRequestTypeDef]
     ) -> GetBucketLoggingOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation is not supported for directory buckets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/get_bucket_logging.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#get_bucket_logging)
@@ -977,8 +981,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[ListBucketsRequestTypeDef]
     ) -> ListBucketsOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation is not supported for directory buckets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_buckets.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_buckets)
@@ -999,8 +1002,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[ListMultipartUploadsRequestTypeDef]
     ) -> ListMultipartUploadsOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation lists in-progress multipart uploads in a bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_multipart_uploads.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_multipart_uploads)
@@ -1010,8 +1012,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[ListObjectVersionsRequestTypeDef]
     ) -> ListObjectVersionsOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation is not supported for directory buckets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_object_versions.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_object_versions)
@@ -1021,8 +1022,7 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[ListObjectsRequestTypeDef]
     ) -> ListObjectsOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        This operation is not supported for directory buckets.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_objects.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_objects)
@@ -1040,11 +1040,21 @@ class S3Client(AioBaseClient):
 
     async def list_parts(self, **kwargs: Unpack[ListPartsRequestTypeDef]) -> ListPartsOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will stop returning
-        <code>DisplayName</code>.
+        Lists the parts that have been uploaded for a specific multipart upload.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/list_parts.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#list_parts)
+        """
+
+    async def put_bucket_abac(
+        self, **kwargs: Unpack[PutBucketAbacRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Sets the attribute-based access control (ABAC) property of the general purpose
+        bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_bucket_abac.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_bucket_abac)
         """
 
     async def put_bucket_accelerate_configuration(
@@ -1061,8 +1071,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[PutBucketAclRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_bucket_acl.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_bucket_acl)
@@ -1144,8 +1154,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[PutBucketLoggingRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_bucket_logging.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_bucket_logging)
@@ -1253,8 +1263,8 @@ class S3Client(AioBaseClient):
 
     async def put_object(self, **kwargs: Unpack[PutObjectRequestTypeDef]) -> PutObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_object.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_object)
@@ -1264,7 +1274,8 @@ class S3Client(AioBaseClient):
         self, **kwargs: Unpack[PutObjectAclRequestTypeDef]
     ) -> PutObjectAclOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/client/put_object_acl.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_object_acl)
@@ -1320,7 +1331,7 @@ class S3Client(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/client/#put_public_access_block)
         """
 
-    async def rename_object(self, **kwargs: Unpack[RenameObjectRequestTypeDef]) -> Dict[str, Any]:
+    async def rename_object(self, **kwargs: Unpack[RenameObjectRequestTypeDef]) -> dict[str, Any]:
         """
         Renames an existing object in a directory bucket that uses the S3 Express One
         Zone storage class.
@@ -1406,7 +1417,7 @@ class S3Client(AioBaseClient):
         CopySource: CopySourceTypeDef,
         Bucket: str,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         SourceClient: AioBaseClient | None = ...,
         Config: TransferConfig | None = ...,
@@ -1423,7 +1434,7 @@ class S3Client(AioBaseClient):
         Bucket: str,
         Key: str,
         Filename: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1439,7 +1450,7 @@ class S3Client(AioBaseClient):
         Bucket: str,
         Key: str,
         Fileobj: FileobjTypeDef,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1454,10 +1465,10 @@ class S3Client(AioBaseClient):
         self,
         Bucket: str,
         Key: str,
-        Fields: Dict[str, Any] | None = ...,
-        Conditions: List[Any] | Dict[str, Any] | None = ...,
+        Fields: dict[str, Any] | None = ...,
+        Conditions: list[Any] | dict[str, Any] | None = ...,
         ExpiresIn: int = 3600,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate a presigned URL for POST requests.
 
@@ -1470,7 +1481,7 @@ class S3Client(AioBaseClient):
         Filename: str,
         Bucket: str,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1486,7 +1497,7 @@ class S3Client(AioBaseClient):
         Fileobj: FileobjTypeDef,
         Bucket: str,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1626,7 +1637,7 @@ class S3Client(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

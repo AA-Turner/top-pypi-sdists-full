@@ -288,7 +288,7 @@ SZ_PUBLIC sz_status_t sz_sequence_intersect_serial(                             
     // Allocate memory for the hash table and initialize it with 0xFF.
     // The higher is the `hash_table_slots` multiple - the more memory we will use,
     // but the less likely the collisions will be.
-    sz_size_t const hash_table_slots = sz_size_bit_ceil(small_sequence->count) * (1 << SZ_SEQUENCE_INTERSECT_BUDGET);
+    sz_size_t const hash_table_slots = sz_size_bit_ceil(small_sequence->count) * (1u << SZ_SEQUENCE_INTERSECT_BUDGET);
     sz_size_t const bytes_per_entry = sizeof(sz_size_t) + sizeof(sz_u64_t);
     sz_size_t *const table_positions = (sz_size_t *)alloc->allocate(hash_table_slots * bytes_per_entry, alloc);
     if (!table_positions) return sz_bad_alloc_k;
@@ -356,13 +356,13 @@ SZ_PUBLIC sz_status_t sz_sequence_intersect_serial(                             
 #pragma region Ice Lake Implementation
 #if SZ_USE_ICE
 #if defined(__clang__)
-#pragma clang attribute push(                                                                                  \
-    __attribute__((target("avx,avx512f,avx512vl,avx512bw,avx512dq,avx512vbmi,avx512vnni,bmi,bmi2,aes,vaes"))), \
+#pragma clang attribute push(                                                                                      \
+    __attribute__((target("avx,avx512f,avx512vl,avx512bw,avx512dq,avx512vbmi,avx512vnni,bmi,bmi2,aes,vaes,sha"))), \
     apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
 #pragma GCC target("avx", "avx512f", "avx512vl", "avx512bw", "avx512dq", "avx512vbmi", "avx512vnni", "bmi", "bmi2", \
-                   "aes", "vaes")
+                   "aes", "vaes", "sha")
 #endif
 
 SZ_INTERNAL int sz_u64x4_contains_collisions_haswell_(__m256i v) {
@@ -414,7 +414,7 @@ SZ_PUBLIC sz_status_t sz_sequence_intersect_ice(                                
     // Allocate memory for the hash table and initialize it with 0xFF.
     // The higher is the `hash_table_slots` multiple - the more memory we will use,
     // but the less likely the collisions will be.
-    sz_size_t const hash_table_slots = sz_size_bit_ceil(small_sequence->count) * (1 << SZ_SEQUENCE_INTERSECT_BUDGET);
+    sz_size_t const hash_table_slots = sz_size_bit_ceil(small_sequence->count) * (1u << SZ_SEQUENCE_INTERSECT_BUDGET);
     sz_size_t const bytes_per_entry = sizeof(sz_size_t) + sizeof(sz_u64_t);
     sz_size_t *table_positions = (sz_size_t *)alloc->allocate(hash_table_slots * bytes_per_entry, alloc);
     if (!table_positions) return sz_bad_alloc_k;
@@ -736,10 +736,10 @@ SZ_PUBLIC sz_status_t sz_sequence_intersect_ice(                                
 #pragma region SVE Implementation
 #if SZ_USE_SVE
 #if defined(__clang__)
-#pragma clang attribute push(__attribute__((target("arch=armv8.2-a+sve"))), apply_to = function)
+#pragma clang attribute push(__attribute__((target("+sve"))), apply_to = function)
 #elif defined(__GNUC__)
 #pragma GCC push_options
-#pragma GCC target("arch=armv8.2-a+sve")
+#pragma GCC target("+sve")
 #endif
 
 SZ_PUBLIC sz_status_t sz_sequence_intersect_sve(sz_sequence_t const *first_sequence,
@@ -771,7 +771,7 @@ SZ_PUBLIC sz_status_t sz_sequence_intersect_sve(sz_sequence_t const *first_seque
 SZ_DYNAMIC sz_status_t sz_sequence_intersect(sz_sequence_t const *first_sequence, sz_sequence_t const *second_sequence,
                                              sz_memory_allocator_t *alloc, sz_u64_t seed, sz_size_t *intersection_size,
                                              sz_sorted_idx_t *first_positions, sz_sorted_idx_t *second_positions) {
-#if SZ_USE_SKYLAKE
+#if SZ_USE_ICE
     return sz_sequence_intersect_ice(    //
         first_sequence, second_sequence, //
         alloc, seed, intersection_size,  //

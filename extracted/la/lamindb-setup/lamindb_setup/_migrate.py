@@ -1,0 +1,327 @@
+from __future__ import annotations
+
+import os
+
+import httpx
+from django.db import connection
+from django.db.migrations.loader import MigrationLoader
+from lamin_utils import logger
+from packaging import version
+
+from ._check_setup import _check_instance_setup, disable_auto_connect
+from .core._settings import settings
+from .core.django import setup_django
+
+
+# for the django-based synching code, see laminhub_rest
+def check_whether_migrations_in_sync(db_version_str: str):
+    from importlib import metadata
+
+    try:
+        installed_version_str = metadata.version("lamindb")
+    except metadata.PackageNotFoundError:
+        return None
+    if db_version_str is None:
+        logger.warning("no lamindb version stored to compare with installed version")
+        return None
+    installed_version = version.parse(installed_version_str)
+    db_version = version.parse(db_version_str)
+    if installed_version.major < db_version.major:
+        logger.warning(
+            f"the database ({db_version_str}) is far ahead of your installed lamindb package ({installed_version_str})"
+        )
+        logger.important(
+            f"please update lamindb: pip install lamindb>={db_version.major}"
+        )
+    elif (
+        installed_version.major == db_version.major
+        and installed_version.minor < db_version.minor
+    ):
+        db_version_lower = f"{db_version.major}.{db_version.minor}"
+        logger.important(
+            f"the database ({db_version_str}) is ahead of your installed lamindb"
+            f" package ({installed_version_str})"
+        )
+        logger.important(
+            f"consider updating lamindb: pip install lamindb>={db_version_lower}"
+        )
+    elif installed_version.major > db_version.major:
+        logger.warning(
+            f"the database ({db_version_str}) is far behind your installed lamindb package"
+            f" ({installed_version_str})"
+        )
+        logger.important(
+            "if you are an admin, migrate your database: lamin migrate deploy"
+        )
+    elif (
+        installed_version.major == db_version.major
+        and installed_version.minor > db_version.minor
+    ):
+        pass
+        # if the database is behind by a minor version, we don't want to spam the user
+        # logger.important(
+        #     f"the database ({db_version_str}) is behind your installed lamindb package"
+        #     f" ({installed_version_str})"
+        # )
+        # logger.important("consider migrating your database: lamin migrate deploy")
+
+
+class migrate:
+    """Manage database migrations.
+
+    Unless you maintain your own schema modules with your own Django models, you won't need this.
+
+    Examples:
+
+        Create a migration::
+
+            import lamindb as ln
+
+            ln.setup.migrate.create()
+
+        Deploy a migration::
+
+            ln.setup.migrate.deploy()
+
+        Check migration consistency::
+
+            ln.setup.migrate.check()
+
+    See Also:
+        Migrate an instance via the CLI, see `here <https://docs.lamin.ai/cli#migrate>`__.
+
+    """
+
+    @classmethod
+    @disable_auto_connect
+    def create(cls) -> None:
+        """Create a migration."""
+        setup_django(settings.instance, create_migrations=True)
+
+    @classmethod
+    def deploy(cls, package_name: str | None = None, number: int | None = None) -> None:
+        assert settings._instance_exists, (
+            "Not connected to an instance, please connect to migrate."
+        )
+
+        # NOTE: this is a temporary solution to avoid breaking tests
+        LAMIN_MIGRATE_ON_LAMBDA = (
+            os.getenv("LAMIN_MIGRATE_ON_LAMBDA", "false") == "true"
+        )
+        isettings = settings.instance
+
+        if isettings.is_on_hub and LAMIN_MIGRATE_ON_LAMBDA:
+            response = httpx.post(
+                f"{isettings.api_url}/instances/{isettings._id}/migrate",
+                headers={"Authorization": f"Bearer {settings.user.access_token}"},
+                timeout=None,  # this can take time
+            )
+            if response.status_code != 200:
+                raise Exception(f"Failed to migrate instance: {response.text}")
+        else:
+            cls._deploy(package_name=package_name, number=number)
+
+    @classmethod
+    def _deploy(
+        cls, package_name: str | None = None, number: int | None = None
+    ) -> None:
+        """Deploy a migration."""
+        from lamindb_setup._connect_instance import connect
+        from lamindb_setup._schema_metadata import update_schema_in_hub
+        from lamindb_setup.core._hub_client import call_with_fallback_auth
+        from lamindb_setup.core._hub_crud import (
+            update_instance,
+        )
+
+        isettings = settings.instance
+        is_managed_by_hub = isettings.is_managed_by_hub
+        is_on_hub = is_managed_by_hub or isettings.is_on_hub
+
+        if is_managed_by_hub and "root" not in isettings.db:
+            # ensure we connect with the root user
+            connect(use_root_db_user=True)
+            assert "root" in (instance_db := settings.instance.db), instance_db
+        if is_on_hub:
+            # we need lamindb to be installed, otherwise we can't populate the version
+            # information in the hub
+            # this also connects
+            import lamindb
+        # this is needed to avoid connecting on importing apps inside setup_django process
+        setup_django_disable_autoconnect = disable_auto_connect(setup_django)
+        # this sets up django and deploys the migrations
+        if package_name is not None and number is not None:
+            setup_django_disable_autoconnect(
+                isettings,
+                deploy_migrations=True,
+                appname_number=(package_name, number),
+            )
+        else:
+            setup_django_disable_autoconnect(isettings, deploy_migrations=True)
+        # this populates the hub
+        if is_on_hub:
+            logger.important(f"updating lamindb version in hub: {lamindb.__version__}")
+            if isettings.dialect != "sqlite":
+                update_schema_in_hub()
+            call_with_fallback_auth(
+                update_instance,
+                instance_id=isettings._id.hex,
+                instance_fields={"lamindb_version": lamindb.__version__},
+            )
+
+    @classmethod
+    @disable_auto_connect
+    def check(cls) -> bool:
+        """Check whether Registry definitions are in sync with migrations."""
+        import io
+
+        from django.core.management import call_command
+
+        setup_django(settings.instance)
+
+        # Capture stdout/stderr to show what migrations are needed if check fails
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        try:
+            call_command(
+                "makemigrations", check_changes=True, stdout=stdout, stderr=stderr
+            )
+        except SystemExit:
+            logger.error(
+                "migrations are not in sync with ORMs, please create a migration: lamin"
+                " migrate create"
+            )
+            # Print captured output from the check
+            if stdout.getvalue():
+                logger.error(f"makemigrations --check stdout:\n{stdout.getvalue()}")
+            if stderr.getvalue():
+                logger.error(f"makemigrations --check stderr:\n{stderr.getvalue()}")
+
+            # Run makemigrations --dry-run to show what would be created
+            stdout2 = io.StringIO()
+            stderr2 = io.StringIO()
+            try:
+                call_command(
+                    "makemigrations", dry_run=True, stdout=stdout2, stderr=stderr2
+                )
+            except SystemExit:
+                pass
+            if stdout2.getvalue():
+                logger.error(f"makemigrations --dry-run stdout:\n{stdout2.getvalue()}")
+            if stderr2.getvalue():
+                logger.error(f"makemigrations --dry-run stderr:\n{stderr2.getvalue()}")
+
+            return False
+        return True
+
+    @classmethod
+    @disable_auto_connect
+    def squash(
+        cls, package_name, migration_nr, start_migration_nr: str | None = None
+    ) -> None:
+        """Squash migrations."""
+        from django.core.management import call_command
+
+        setup_django(settings.instance)
+        if start_migration_nr is not None:
+            call_command(
+                "squashmigrations", package_name, start_migration_nr, migration_nr
+            )
+        else:
+            call_command("squashmigrations", package_name, migration_nr)
+
+    @classmethod
+    @disable_auto_connect
+    def show(cls) -> None:
+        """Show migrations."""
+        from django.core.management import call_command
+
+        setup_django(settings.instance)
+        call_command("showmigrations")
+
+    @classmethod
+    def defined_migrations(cls, latest: bool = False):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        def parse_migration_output(output):
+            """Parse the output of the showmigrations command to get migration names."""
+            lines = output.splitlines()
+
+            # Initialize an empty dict to store migration names of each module
+            migration_names = {}
+
+            # Process each line
+            for line in lines:
+                if " " not in line:
+                    # CLI displays the module name in bold
+                    name = line.strip().replace("\x1b[1m", "")
+                    migration_names[name] = []
+                    continue
+                # Strip whitespace and split the line into status and migration name
+                migration_name = line.strip().split("] ")[-1].split(" ")[0]
+                # The second part is the migration name
+                migration_names[name].append(migration_name)
+
+            return migration_names
+
+        out = StringIO()
+        call_command("showmigrations", stdout=out)
+        out.seek(0)
+        output = out.getvalue()
+        if latest:
+            return {k: v[-1] for k, v in parse_migration_output(output).items()}
+        else:
+            return parse_migration_output(output)
+
+    @classmethod
+    def deployed_migrations(cls, latest: bool = False):
+        """Get the list of deployed migrations from Migration table in DB."""
+        if latest:
+            latest_migrations = {}
+            with connection.cursor() as cursor:
+                # query to get the latest migration for each app that is not squashed
+                cursor.execute(
+                    """
+                    SELECT app, name
+                    FROM django_migrations
+                    WHERE id IN (
+                        SELECT MAX(id)
+                        FROM django_migrations
+                        WHERE name NOT LIKE '%%_squashed_%%'
+                        GROUP BY app
+                    )
+                """
+                )
+                # fetch all the results
+                for app, name in cursor.fetchall():
+                    latest_migrations[app] = name
+
+            return latest_migrations
+        else:
+            # Load all migrations using Django's migration loader
+            loader = MigrationLoader(connection)
+            squashed_replacements = set()
+            for _key, migration in loader.disk_migrations.items():
+                if hasattr(migration, "replaces"):
+                    squashed_replacements.update(migration.replaces)
+
+            deployed_migrations: dict = {}
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT app, name, deployed
+                    FROM django_migrations
+                    ORDER BY app, deployed DESC
+                """
+                )
+                for app, name, _deployed in cursor.fetchall():
+                    # skip migrations that are part of a squashed migration
+                    if (app, name) in squashed_replacements:
+                        continue
+
+                    if app not in deployed_migrations:
+                        deployed_migrations[app] = []
+                    deployed_migrations[app].append(name)
+            return deployed_migrations

@@ -3,7 +3,7 @@ Type annotations for ses service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ses/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -40,12 +41,6 @@ from .literals import (
     VerificationStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -329,7 +324,7 @@ class ReceiptRuleSetMetadataTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -369,7 +364,7 @@ class GetIdentityDkimAttributesRequestTypeDef(TypedDict):
 class IdentityDkimAttributesTypeDef(TypedDict):
     DkimEnabled: bool
     DkimVerificationStatus: VerificationStatusType
-    DkimTokens: NotRequired[List[str]]
+    DkimTokens: NotRequired[list[str]]
 
 class GetIdentityMailFromDomainAttributesRequestTypeDef(TypedDict):
     Identities: Sequence[str]
@@ -588,7 +583,7 @@ class SendTemplatedEmailRequestTypeDef(TypedDict):
     TemplateArn: NotRequired[str]
 
 class CloudWatchDestinationOutputTypeDef(TypedDict):
-    DimensionConfigurations: List[CloudWatchDimensionConfigurationTypeDef]
+    DimensionConfigurations: list[CloudWatchDimensionConfigurationTypeDef]
 
 class CloudWatchDestinationTypeDef(TypedDict):
     DimensionConfigurations: Sequence[CloudWatchDimensionConfigurationTypeDef]
@@ -631,7 +626,7 @@ class GetCustomVerificationEmailTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIdentityPoliciesResponseTypeDef(TypedDict):
-    Policies: Dict[str, str]
+    Policies: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSendQuotaResponseTypeDef(TypedDict):
@@ -645,31 +640,31 @@ class GetTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationSetsResponseTypeDef(TypedDict):
-    ConfigurationSets: List[ConfigurationSetTypeDef]
+    ConfigurationSets: list[ConfigurationSetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListCustomVerificationEmailTemplatesResponseTypeDef(TypedDict):
-    CustomVerificationEmailTemplates: List[CustomVerificationEmailTemplateTypeDef]
+    CustomVerificationEmailTemplates: list[CustomVerificationEmailTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListIdentitiesResponseTypeDef(TypedDict):
-    Identities: List[str]
+    Identities: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListIdentityPoliciesResponseTypeDef(TypedDict):
-    PolicyNames: List[str]
+    PolicyNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListReceiptRuleSetsResponseTypeDef(TypedDict):
-    RuleSets: List[ReceiptRuleSetMetadataTypeDef]
+    RuleSets: list[ReceiptRuleSetMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListVerifiedEmailAddressesResponseTypeDef(TypedDict):
-    VerifiedEmailAddresses: List[str]
+    VerifiedEmailAddresses: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendBounceResponseTypeDef(TypedDict):
@@ -677,7 +672,7 @@ class SendBounceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendBulkTemplatedEmailResponseTypeDef(TypedDict):
-    Status: List[BulkEmailDestinationStatusTypeDef]
+    Status: list[BulkEmailDestinationStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendCustomVerificationEmailResponseTypeDef(TypedDict):
@@ -701,7 +696,7 @@ class TestRenderTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VerifyDomainDkimResponseTypeDef(TypedDict):
-    DkimTokens: List[str]
+    DkimTokens: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VerifyDomainIdentityResponseTypeDef(TypedDict):
@@ -709,15 +704,15 @@ class VerifyDomainIdentityResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIdentityDkimAttributesResponseTypeDef(TypedDict):
-    DkimAttributes: Dict[str, IdentityDkimAttributesTypeDef]
+    DkimAttributes: dict[str, IdentityDkimAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIdentityMailFromDomainAttributesResponseTypeDef(TypedDict):
-    MailFromDomainAttributes: Dict[str, IdentityMailFromDomainAttributesTypeDef]
+    MailFromDomainAttributes: dict[str, IdentityMailFromDomainAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIdentityNotificationAttributesResponseTypeDef(TypedDict):
-    NotificationAttributes: Dict[str, IdentityNotificationAttributesTypeDef]
+    NotificationAttributes: dict[str, IdentityNotificationAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIdentityVerificationAttributesRequestWaitTypeDef(TypedDict):
@@ -725,11 +720,11 @@ class GetIdentityVerificationAttributesRequestWaitTypeDef(TypedDict):
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class GetIdentityVerificationAttributesResponseTypeDef(TypedDict):
-    VerificationAttributes: Dict[str, IdentityVerificationAttributesTypeDef]
+    VerificationAttributes: dict[str, IdentityVerificationAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSendStatisticsResponseTypeDef(TypedDict):
-    SendDataPoints: List[SendDataPointTypeDef]
+    SendDataPoints: list[SendDataPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListConfigurationSetsRequestPaginateTypeDef(TypedDict):
@@ -749,7 +744,7 @@ class ListTemplatesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTemplatesResponseTypeDef(TypedDict):
-    TemplatesMetadata: List[TemplateMetadataTypeDef]
+    TemplatesMetadata: list[TemplateMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -810,7 +805,7 @@ class SendBulkTemplatedEmailRequestTypeDef(TypedDict):
 
 class EventDestinationOutputTypeDef(TypedDict):
     Name: str
-    MatchingEventTypes: List[EventTypeType]
+    MatchingEventTypes: list[EventTypeType]
     Enabled: NotRequired[bool]
     KinesisFirehoseDestination: NotRequired[KinesisFirehoseDestinationTypeDef]
     CloudWatchDestination: NotRequired[CloudWatchDestinationOutputTypeDef]
@@ -834,8 +829,8 @@ class ReceiptRuleOutputTypeDef(TypedDict):
     Name: str
     Enabled: NotRequired[bool]
     TlsPolicy: NotRequired[TlsPolicyType]
-    Recipients: NotRequired[List[str]]
-    Actions: NotRequired[List[ReceiptActionTypeDef]]
+    Recipients: NotRequired[list[str]]
+    Actions: NotRequired[list[ReceiptActionTypeDef]]
     ScanEnabled: NotRequired[bool]
 
 class ReceiptRuleTypeDef(TypedDict):
@@ -850,7 +845,7 @@ class CreateReceiptFilterRequestTypeDef(TypedDict):
     Filter: ReceiptFilterTypeDef
 
 class ListReceiptFiltersResponseTypeDef(TypedDict):
-    Filters: List[ReceiptFilterTypeDef]
+    Filters: list[ReceiptFilterTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SendEmailRequestTypeDef(TypedDict):
@@ -866,7 +861,7 @@ class SendEmailRequestTypeDef(TypedDict):
 
 class DescribeConfigurationSetResponseTypeDef(TypedDict):
     ConfigurationSet: ConfigurationSetTypeDef
-    EventDestinations: List[EventDestinationOutputTypeDef]
+    EventDestinations: list[EventDestinationOutputTypeDef]
     TrackingOptions: TrackingOptionsTypeDef
     DeliveryOptions: DeliveryOptionsTypeDef
     ReputationOptions: ReputationOptionsTypeDef
@@ -884,7 +879,7 @@ class SendBounceRequestTypeDef(TypedDict):
 
 class DescribeActiveReceiptRuleSetResponseTypeDef(TypedDict):
     Metadata: ReceiptRuleSetMetadataTypeDef
-    Rules: List[ReceiptRuleOutputTypeDef]
+    Rules: list[ReceiptRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeReceiptRuleResponseTypeDef(TypedDict):
@@ -893,7 +888,7 @@ class DescribeReceiptRuleResponseTypeDef(TypedDict):
 
 class DescribeReceiptRuleSetResponseTypeDef(TypedDict):
     Metadata: ReceiptRuleSetMetadataTypeDef
-    Rules: List[ReceiptRuleOutputTypeDef]
+    Rules: list[ReceiptRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 ReceiptRuleUnionTypeDef = Union[ReceiptRuleTypeDef, ReceiptRuleOutputTypeDef]

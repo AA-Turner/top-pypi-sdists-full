@@ -2,20 +2,11 @@ import threading
 import warnings
 from asyncio import Lock, TimerHandle, get_running_loop
 from collections import defaultdict
+from collections.abc import Callable, Iterable
 from functools import lru_cache
 from logging import getLogger
 from os import getenv
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Final, Literal, overload
 from urllib.parse import urlparse
 
 import dank_mids
@@ -26,11 +17,7 @@ from aiolimiter import AsyncLimiter
 from async_lru import alru_cache
 from brownie import ZERO_ADDRESS, chain, web3
 from brownie._config import CONFIG, REQUEST_HEADERS
-from brownie.exceptions import (
-    BrownieEnvironmentWarning,
-    CompilerError,
-    ContractNotFound,
-)
+from brownie.exceptions import BrownieEnvironmentWarning, CompilerError, ContractNotFound
 from brownie.network.contract import (
     ContractEvents,
     _add_deployment,
@@ -53,7 +40,7 @@ from web3.exceptions import ContractLogicError
 
 from y import ENVIRONMENT_VARIABLES as ENVS
 from y import convert
-from y._db.brownie import DISCARD_SOURCE_KEYS, sqlite_lock, _get_deployment
+from y._db.brownie import DISCARD_SOURCE_KEYS, _get_deployment, sqlite_lock
 from y._decorators import stuck_coro_debugger
 from y.datatypes import Address, AnyAddressType, Block
 from y.exceptions import (
@@ -70,18 +57,22 @@ from y.utils.cache import memory
 from y.utils.events import Events
 from y.utils.gather import gather_methods
 
-logger = getLogger(__name__)
-logger_debug = logger.debug
+if TYPE_CHECKING:
+    from _typeshed import SupportsBool
 
-NETWORK_NAME = Network.name()
-_CHAINID = chain.id
 
-_brownie_deployments_db_lock = threading.Lock()
-_contract_locks = defaultdict(Lock)
-_decode_abi = Decoder(type=List[Dict[str, Any]]).decode
+logger: Final = getLogger(__name__)
+logger_debug: Final = logger.debug
+
+NETWORK_NAME: Final = Network.name()
+_CHAINID: Final = chain.id
+
+_brownie_deployments_db_lock: Final = threading.Lock()
+_contract_locks: Final = defaultdict(Lock)
+_decode_abi: Final = Decoder(type=list[dict[str, Any]]).decode
 
 # These tokens have trouble when resolving the implementation via the chain.
-FORCE_IMPLEMENTATION = {
+FORCE_IMPLEMENTATION: Final = {
     Network.Mainnet: {
         "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48": "0xa2327a938Febf5FEC13baCFb16Ae10EcBc4cbDCF",  # USDC as of 2022-08-10
         "0x3d1E5Cf16077F349e999d6b21A4f646e83Cd90c5": "0xf51fC5ae556F5B8c6dCf50f70167B81ceb02a2b2",  # dETH as of 2024-02-15
@@ -176,16 +167,20 @@ def contract_creation_block(address: AnyAddressType, when_no_history_return_0: b
             else:
                 lo = mid
         except ValueError as e:
-            if "missing trie node" in str(e) and not warned:
+            err = str(e)
+            if "missing trie node" in err and not warned:
                 logger.warning(
                     "missing trie node, `contract_creation_block` may output a higher block than actual. Please try again using an archive node."
                 )
-            elif "Server error: account aurora does not exist while viewing" in str(e):
+            elif "Server error: account aurora does not exist while viewing" in err:
                 if not warned:
-                    logger.warning(str(e))
-            elif "No state available for block" in str(e):
+                    logger.warning(err)
+            elif (
+                "No state available for block" in err
+                or "Unknown state. First available state is" in err
+            ):
                 if not warned:
-                    logger.warning(str(e))
+                    logger.warning(err)
             else:
                 raise
             warned = True
@@ -214,7 +209,7 @@ def _get_code(address: str, block: int) -> HexBytes:
     return web3.eth.get_code(address, block)
 
 
-creation_block_semaphore = ThreadsafeSemaphore(32)
+creation_block_semaphore = ThreadsafeSemaphore(48)
 
 
 @a_sync(cache_type="memory")
@@ -268,17 +263,21 @@ async def contract_creation_block_async(
                 logger_debug("%s not yet deployed by block %s, checking higher", address, mid)
                 lo = mid
         except ValueError as e:
-            if "missing trie node" in str(e):
+            err = str(e)
+            if "missing trie node" in err:
                 if not warned:
                     logger.warning(
                         "missing trie node, `contract_creation_block` may output a higher block than actual. Please try again using an archive node."
                     )
-            elif "Server error: account aurora does not exist while viewing" in str(e):
+            elif "Server error: account aurora does not exist while viewing" in err:
                 if not warned:
-                    logger.warning(str(e))
-            elif "No state available for block" in str(e):
+                    logger.warning(err)
+            elif (
+                "No state available for block" in err
+                or "Unknown state. First available state is" in err
+            ):
                 if not warned:
-                    logger.warning(str(e))
+                    logger.warning(err)
             else:
                 raise
             warned = True
@@ -367,15 +366,15 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
     Provides a convenient way to query contract events with minimal code.
     """
 
-    _ttl_cache_popper: Union[Literal["disabled"], int, TimerHandle]
+    _ttl_cache_popper: Literal["disabled"] | int | TimerHandle
 
     @eth_retry.auto_retry
     def __init__(
         self,
         address: AnyAddressType,
-        owner: Optional[AccountsType] = None,
+        owner: AccountsType | None = None,
         require_success: bool = True,
-        cache_ttl: Optional[int] = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
+        cache_ttl: int | None = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
     ) -> None:
         """
         Initialize a :class:`~Contract` instance.
@@ -457,10 +456,10 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
         cls,
         name: str,
         address: str,
-        abi: List,
-        owner: Optional[AccountsType] = None,
+        abi: list,
+        owner: AccountsType | None = None,
         persist: bool = True,
-        cache_ttl: Optional[int] = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
+        cache_ttl: int | None = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
     ) -> Self:
         """
         Create a :class:`~Contract` instance from an ABI.
@@ -495,10 +494,10 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
     async def coroutine(
         cls,
         address: AnyAddressType,
-        owner: Optional[AccountsType] = None,
+        owner: AccountsType | None = None,
         persist: bool = True,
         require_success: bool = True,
-        cache_ttl: Optional[int] = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
+        cache_ttl: int | None = ENVS.CONTRACT_CACHE_TTL,  # units: seconds
     ) -> Self:
         """
         Create a :class:`~Contract` instance asynchronously.
@@ -619,7 +618,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
 
     @eth_retry.auto_retry
     def __init_from_abi__(
-        self, build: Dict, owner: Optional[AccountsType] = None, persist: bool = True
+        self, build: dict, owner: AccountsType | None = None, persist: bool = True
     ) -> None:
         """
         Initialize a :class:`~Contract` instance from an ABI.
@@ -637,7 +636,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
             >>> contract.name()
             'Dai Stablecoin'
         """
-        _ContractBase.__init__(self, None, build, {})  # type: ignore
+        _ContractBase.__init__(self, None, build, {})
         _DeployedContractBase.__init__(self, build["address"], owner, None)  # type: ignore [type-var]
         if persist:
             _add_deployment(self)
@@ -649,7 +648,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
             )
         return self
 
-    def has_method(self, method: str, return_response: bool = False) -> Union[bool, Any]:
+    def has_method(self, method: str, return_response: bool = False) -> bool | Any:
         """
         Check if the contract has a specific method.
 
@@ -664,7 +663,9 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
         """
         return has_method(self.address, method, return_response=return_response, sync=False)
 
-    async def has_methods(self, methods: List[str], _func: Union[any, all] = all) -> bool:
+    async def has_methods(
+        self, methods: list[str], _func: Callable[[Iterable["SupportsBool"]], bool] = all
+    ) -> bool:
         """
         Check if the contract has all the specified methods.
 
@@ -679,7 +680,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
         """
         return await has_methods(self.address, methods, _func, sync=False)
 
-    async def build_name(self, return_None_on_failure: bool = False) -> Optional[str]:
+    async def build_name(self, return_None_on_failure: bool = False) -> str | None:
         """
         Get the build name of the contract.
 
@@ -695,7 +696,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
             self.address, return_None_on_failure=return_None_on_failure, sync=False
         )
 
-    async def get_code(self, block: Optional[Block] = None) -> HexBytes:
+    async def get_code(self, block: Block | None = None) -> HexBytes:
         """
         Get the bytecode of the contract at a specific block.
 
@@ -709,7 +710,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
         """
         return await get_code(self.address, block=block)
 
-    def _schedule_cache_pop(self, cache_ttl: Optional[int]) -> None:
+    def _schedule_cache_pop(self, cache_ttl: int | None) -> None:
         if cache_ttl is None:
             self._ttl_cache_popper = "disabled"
             return
@@ -727,7 +728,7 @@ class Contract(dank_mids.Contract, metaclass=ChecksumAddressSingletonMeta):
             self.address,
         )
 
-    def __post_init__(self, cache_ttl: Optional[int] = None) -> None:
+    def __post_init__(self, cache_ttl: int | None = None) -> None:
         super().__post_init__()
 
         # Init an event container for each topic
@@ -760,10 +761,20 @@ def is_contract(address: AnyAddressType) -> bool:
     return web3.eth.get_code(address) not in ("0x", b"")
 
 
-@a_sync(default="sync", cache_type="memory")
+@overload
 async def has_method(
-    address: Address, method: str, return_response: bool = False
-) -> Union[bool, Any]:
+    address: Address, method: str, return_response: Literal[True]
+) -> bool | Any: ...
+
+
+@overload
+async def has_method(
+    address: Address, method: str, return_response: Literal[False] = False
+) -> bool: ...
+
+
+@a_sync(default="sync", cache_type="memory")
+async def has_method(address: Address, method: str, return_response: bool = False) -> bool | Any:
     """
     Checks to see if a contract has a `method` view method with no inputs.
     `return_response=True` will return `response` in bytes if `response` else `False`
@@ -781,12 +792,13 @@ async def has_method(
     try:
         response = await Call(address, [method])
         return False if response is None else response if return_response else True
+    except ContractLogicError:
+        return False
     except Exception as e:
-        if not return_response and (
-            isinstance(e, ContractLogicError)
-            or call_reverted(e)
-            or any(err in str(e) for err in ("invalid jump destination", "EVM error: InvalidJump"))
-        ):
+        if call_reverted(e):
+            return False
+        stre = str(e)
+        if any(err in stre for err in ("invalid jump destination", "EVM error: InvalidJump")):
             return False
         raise
 
@@ -796,7 +808,7 @@ async def has_method(
 async def has_methods(
     address: AnyAddressType,
     methods: Iterable[str],
-    _func: Callable = all,  # Union[any, all]
+    _func: Callable[[Iterable["SupportsBool"]], bool] = all,
 ) -> bool:
     """
     Checks to see if a contract has each view method (with no inputs) in `methods`.
@@ -832,7 +844,7 @@ async def has_methods(
 async def probe(
     address: AnyAddressType,
     methods: Iterable[str],
-    block: Optional[Block] = None,
+    block: Block | None = None,
     return_method: bool = False,
 ) -> Any:
     address = await convert.to_address_async(address)
@@ -882,7 +894,7 @@ async def build_name(address: AnyAddressType, return_None_on_failure: bool = Fal
         return None
 
 
-async def proxy_implementation(address: AnyAddressType, block: Optional[Block]) -> Address:
+async def proxy_implementation(address: AnyAddressType, block: Block | None) -> Address:
     """
     Get the implementation address for a proxy contract.
 
@@ -955,7 +967,7 @@ def _extract_abi_data(address: Address):
         ):
             raise InvalidAPIKeyError from e
         if contract_not_verified(e):
-            raise ContractNotVerified(f"{address} on {Network.printable()}") from e
+            raise ContractNotVerified(f"{address} on {Network.printable()}") from e.__cause__
         elif "Unknown contract address:" in str(e):
             if is_contract(address):
                 raise ContractNotVerified(str(e)) from e
@@ -975,7 +987,7 @@ def _extract_abi_data(address: Address):
     return name, abi, implementation
 
 
-def _resolve_proxy(address) -> Tuple[str, List]:
+def _resolve_proxy(address) -> tuple[str, list]:
     """
     Resolve the implementation address for a proxy contract.
 
@@ -1014,9 +1026,9 @@ def _resolve_proxy(address) -> Tuple[str, List]:
     # Just leave this code where it is for a helpful debugger as needed.
     if address == "":
         raise Exception(
-            f"""implementation: {implementation}
-            implementation_eip1967: {len(implementation_eip1967)} {implementation_eip1967}
-            implementation_eip1822: {len(implementation_eip1822)} {implementation_eip1822}"""
+            f"""implementation: {implementation!r}
+            implementation_eip1967: {len(implementation_eip1967)} {implementation_eip1967!r}
+            implementation_eip1822: {len(implementation_eip1822)} {implementation_eip1822!r}"""
         )
 
     if len(implementation_eip1967) > 0 and int(implementation_eip1967.hex(), 16):
@@ -1083,7 +1095,7 @@ async def _extract_abi_data_async(address: Address):
         ):
             raise InvalidAPIKeyError from e
         if contract_not_verified(e):
-            raise ContractNotVerified(f"{address} on {Network.printable()}") from e
+            raise ContractNotVerified(f"{address} on {Network.printable()}") from e.__cause__
         elif "Unknown contract address:" in str(e):
             if await get_code(address) not in ("0x", b""):
                 raise ContractNotVerified(str(e)) from e
@@ -1105,7 +1117,7 @@ async def _extract_abi_data_async(address: Address):
 
 
 @eth_retry.auto_retry
-async def _fetch_from_explorer_async(address: str, action: str, silent: bool) -> Dict:
+async def _fetch_from_explorer_async(address: str, action: str, silent: bool) -> dict:
     url = "https://api.etherscan.io/v2/api"
 
     if address in _unverified_addresses:
@@ -1134,7 +1146,7 @@ async def _fetch_from_explorer_async(address: str, action: str, silent: bool) ->
 
 
 @lru_cache(maxsize=None)
-def _get_explorer_api_key(url, silent) -> Tuple[str, str]:
+def _get_explorer_api_key(url, silent) -> tuple[str, str]:
     if api_key := getenv("ETHERSCAN_TOKEN"):
         return api_key
     if not silent:
@@ -1175,7 +1187,7 @@ async def _fetch_explorer_data(url, silent, params):
 _get_storage_at = dank_mids.eth.get_storage_at
 
 
-async def _resolve_proxy_async(address) -> Tuple[str, List]:
+async def _resolve_proxy_async(address) -> tuple[str, list]:
     """
     Resolve the implementation address for a proxy contract.
 
@@ -1216,9 +1228,9 @@ async def _resolve_proxy_async(address) -> Tuple[str, List]:
     # Just leave this code where it is for a helpful debugger as needed.
     if address == "":
         raise Exception(
-            f"""implementation: {implementation}
-            implementation_eip1967: {len(implementation_eip1967)} {implementation_eip1967}
-            implementation_eip1822: {len(implementation_eip1822)} {implementation_eip1822}"""
+            f"""implementation: {implementation!r}
+            implementation_eip1967: {len(implementation_eip1967)} {implementation_eip1967!r}
+            implementation_eip1822: {len(implementation_eip1822)} {implementation_eip1822!r}"""
         )
 
     if len(implementation_eip1967) > 0 and int(implementation_eip1967.hex(), 16):

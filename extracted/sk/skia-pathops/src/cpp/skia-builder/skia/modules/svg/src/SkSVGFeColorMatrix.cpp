@@ -5,14 +5,20 @@
  * found in the LICENSE file.
  */
 
-#include "include/core/SkColorFilter.h"
-#include "include/effects/SkImageFilters.h"
-#include "include/private/SkColorData.h"
-#include "modules/svg/include/SkSVGAttributeParser.h"
 #include "modules/svg/include/SkSVGFeColorMatrix.h"
+
+#include "include/core/SkColorFilter.h"
+#include "include/core/SkScalar.h"
+#include "include/effects/SkImageFilters.h"
+#include "include/private/base/SkAssert.h"
+#include "modules/svg/include/SkSVGAttributeParser.h"
 #include "modules/svg/include/SkSVGFilterContext.h"
-#include "modules/svg/include/SkSVGRenderContext.h"
-#include "modules/svg/include/SkSVGValue.h"
+#include "src/core/SkColorData.h"
+
+#include <tuple>
+
+class SkImageFilter;
+class SkSVGRenderContext;
 
 bool SkSVGFeColorMatrix::parseAndSetAttribute(const char* name, const char* value) {
     return INHERITED::parseAndSetAttribute(name, value) ||
@@ -33,7 +39,7 @@ SkColorMatrix SkSVGFeColorMatrix::makeMatrixForType() const {
                 return SkColorMatrix();
             }
             SkColorMatrix m;
-            m.setRowMajor(this->fValues.begin());
+            m.setRowMajor(fValues.data());
             return m;
         }
         case SkSVGFeColorMatrixType::kSaturate:
@@ -95,23 +101,6 @@ sk_sp<SkImageFilter> SkSVGFeColorMatrix::onMakeImageFilter(const SkSVGRenderCont
             SkColorFilters::Matrix(makeMatrixForType()),
             fctx.resolveInput(ctx, this->getIn(), this->resolveColorspace(ctx, fctx)),
             this->resolveFilterSubregion(ctx, fctx));
-}
-
-template <> bool SkSVGAttributeParser::parse(SkSVGFeColorMatrixValues* values) {
-    SkSVGNumberType value;
-    if (!this->parse(&value)) {
-        return false;
-    }
-
-    values->push_back(value);
-    while (true) {
-        if (!this->parse(&value) || values->size() >= 20) {
-            break;
-        }
-        values->push_back(value);
-    }
-
-    return this->parseEOSToken();
 }
 
 template <> bool SkSVGAttributeParser::parse(SkSVGFeColorMatrixType* type) {

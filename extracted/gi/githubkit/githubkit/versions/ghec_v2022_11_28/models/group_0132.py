@@ -9,19 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0133 import RepositoryRuleRequiredDeploymentsPropParameters
 
 
-class RepositoryRuleFileExtensionRestrictionPropParameters(GitHubModel):
-    """RepositoryRuleFileExtensionRestrictionPropParameters"""
+class RepositoryRuleRequiredDeployments(GitHubModel):
+    """required_deployments
 
-    restricted_file_extensions: list[str] = Field(
-        description="The file extensions that are restricted from being pushed to the commit graph."
+    Choose which environments must be successfully deployed to before refs can be
+    pushed into a ref that matches this rule.
+    """
+
+    type: Literal["required_deployments"] = Field()
+    parameters: Missing[RepositoryRuleRequiredDeploymentsPropParameters] = Field(
+        default=UNSET
     )
 
 
-model_rebuild(RepositoryRuleFileExtensionRestrictionPropParameters)
+model_rebuild(RepositoryRuleRequiredDeployments)
 
-__all__ = ("RepositoryRuleFileExtensionRestrictionPropParameters",)
+__all__ = ("RepositoryRuleRequiredDeployments",)

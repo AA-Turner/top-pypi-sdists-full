@@ -436,9 +436,13 @@ def dependency_as_pip_install_line(
                     extras = f"[{','.join(dep['extras'])}]"
                 location = dep["file"] if "file" in dep else dep["path"]
                 if location.startswith(("http:", "https:")):
-                    line.append(f"{dep_name}{extras} @ {location}")
+                    req_str = f"{dep_name}{extras} @ {location}"
                 else:
-                    line.append(f"{location}{extras}")
+                    req_str = f"{location}{extras}"
+                # Add markers for file/path dependencies
+                if include_markers and dep.get("markers"):
+                    req_str = f'{req_str}; {dep["markers"]}'
+                line.append(req_str)
                 break
         else:
             # Normal/Named Requirements
@@ -482,12 +486,17 @@ def dependency_as_pip_install_line(
                 git_req = f"-e {include_vcs}{dep[vcs]}{ref}"
             if "subdirectory" in dep:
                 git_req += f"&subdirectory={dep['subdirectory']}"
+            # Note: Legacy -e format doesn't support inline markers
+            # Markers are handled separately in the resolution process
         else:
             if "#egg=" in vcs_url:
                 vcs_url = vcs_url.split("#egg=")[0]
             git_req = f"{dep_name}{extras} @ {include_vcs}{vcs_url}{ref}"
             if "subdirectory" in dep:
                 git_req += f"#subdirectory={dep['subdirectory']}"
+            # Add markers for VCS dependencies (PEP 508 format supports this)
+            if include_markers and dep.get("markers"):
+                git_req = f'{git_req}; {dep["markers"]}'
 
         line.append(git_req)
 
@@ -562,9 +571,7 @@ def parse_setup_file(content):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
-                        if isinstance(node.value, ast.Str):  # for Python versions < 3.8
-                            variables[target.id] = node.value.s
-                        elif isinstance(node.value, ast.Constant) and isinstance(
+                        if isinstance(node.value, ast.Constant) and isinstance(
                             node.value.value, str
                         ):
                             variables[target.id] = node.value.value
@@ -585,8 +592,6 @@ def parse_setup_file(content):
                             ):
                                 return variables[keyword.value.id]
                             # Otherwise, check if it's directly provided
-                            elif isinstance(keyword.value, ast.Str):
-                                return keyword.value.s
                             elif isinstance(keyword.value, ast.Constant) and isinstance(
                                 keyword.value.value, str
                             ):
@@ -601,18 +606,28 @@ def parse_setup_file(content):
                                 ):
                                     if isinstance(
                                         keyword.value.slice, ast.Index
-                                    ) and isinstance(keyword.value.slice.value, ast.Str):
-                                        return keyword.value.slice.value.s
-                                return keyword.value.s
+                                    ) and isinstance(
+                                        keyword.value.slice.value, ast.Constant
+                                    ):
+                                        if isinstance(
+                                            keyword.value.slice.value.value, str
+                                        ):
+                                            return keyword.value.slice.value.value
+                                # Handle ast.Constant for the subscript value
+                                if isinstance(keyword.value, ast.Constant) and isinstance(
+                                    keyword.value.value, str
+                                ):
+                                    return keyword.value.value
                             elif sys.version_info >= (3, 9) and isinstance(
                                 keyword.value, ast.Subscript
                             ):
                                 if (
                                     isinstance(keyword.value.value, ast.Name)
-                                    and isinstance(keyword.value.slice, ast.Str)
+                                    and isinstance(keyword.value.slice, ast.Constant)
                                     and keyword.value.value.id == "about"
                                 ):
-                                    return keyword.value.slice.s
+                                    if isinstance(keyword.value.slice.value, str):
+                                        return keyword.value.slice.value
     except ValueError:
         pass  # We will not exec unsafe code to determine the name pre-resolver
 
@@ -666,14 +681,22 @@ def find_package_name_from_zipfile(zip_filepath):
 
 def find_package_name_from_directory(directory):
     parsed_url = urlparse(directory)
-    directory_path = Path(parsed_url.path) if parsed_url.scheme else Path(directory)
+    # On Windows, urlparse interprets 'C:\path' as scheme='c', path='\path'
+    # We need to detect this case and use the original directory string
+    if parsed_url.scheme and len(parsed_url.scheme) == 1 and os.name == "nt":
+        # Single-letter scheme on Windows is likely a drive letter (C:, D:, etc.)
+        directory_path = Path(directory)
+    elif parsed_url.scheme:
+        directory_path = Path(parsed_url.path)
+    else:
+        directory_path = Path(directory)
 
     # Handle egg fragment for direct dependencies
     if "#egg=" in str(directory_path):
         expected_name = str(directory_path).split("#egg=")[1]
         return expected_name
 
-    # Windows path normalization
+    # Windows path normalization for file:// URLs
     directory_str = str(directory_path)
     if os.name == "nt":
         if directory_str.startswith("\\") and (
@@ -683,9 +706,14 @@ def find_package_name_from_directory(directory):
         if directory_str.startswith("\\\\"):
             directory_path = Path(directory_str[1:])
 
+    # Metadata files that can be found in .egg-info or .dist-info directories
+    # Note: setup.py, setup.cfg, and pyproject.toml are only checked in the root
+    # directory (via RELEVANT_PROJECT_FILES). We only recurse into .egg-info and
+    # .dist-info directories for METADATA/PKG-INFO files.
+    metadata_files = ("METADATA", "PKG-INFO")
+
     try:
-        # Sort contents - files first, then directories to search parent
-        # directories before leaf directories.
+        # Sort contents - files first, then directories
         directory_contents = sorted(
             directory_path.iterdir(), key=lambda x: (x.is_dir(), x.name)
         )
@@ -698,9 +726,21 @@ def find_package_name_from_directory(directory):
                         if possible_name:
                             return possible_name
             elif path.is_dir():
-                possible_name = find_package_name_from_directory(str(path))
-                if possible_name:
-                    return possible_name
+                # Only recurse into .egg-info or .dist-info directories for metadata
+                # Do NOT recurse into other directories (e.g., tests/, src/) to avoid
+                # picking up setup() calls from test files or other non-project files
+                if path.name.endswith((".egg-info", ".dist-info")):
+                    for metadata_path in path.iterdir():
+                        if (
+                            metadata_path.is_file()
+                            and metadata_path.name in metadata_files
+                        ):
+                            with metadata_path.open("rb") as file:
+                                possible_name = find_package_name_from_filename(
+                                    metadata_path.name, file
+                                )
+                                if possible_name:
+                                    return possible_name
     except (FileNotFoundError, PermissionError):
         # Handle cases where the directory doesn't exist or isn't accessible
         pass
@@ -1002,7 +1042,10 @@ def expansive_install_req_from_line(
     :return: A tuple of the InstallRequirement and the name of the package (if determined).
     """
     name = None
-    pip_line = pip_line.strip("'").lstrip(" ")
+    # Only strip outer quotes if the entire line is quoted, not internal quotes
+    pip_line = pip_line.lstrip(" ")
+    if pip_line.startswith("'") and pip_line.endswith("'") and pip_line.count("'") == 2:
+        pip_line = pip_line[1:-1]
 
     # Handle paths with escaped spaces
     if os.path.exists(os.path.expanduser(pip_line.replace("\\ ", " "))):
@@ -1021,16 +1064,23 @@ def expansive_install_req_from_line(
         pip_line = expand_env_variables(pip_line)
 
     vcs_part = pip_line
+    vcs_markers = None
     for vcs in VCS_LIST:
         if vcs_part.startswith(f"{vcs}+"):
+            # Extract markers from VCS line if present (e.g., "git+https://...@ref; sys_platform == 'win32'")
+            if "; " in vcs_part:
+                vcs_url, markers_str = vcs_part.split("; ", 1)
+                from pipenv.patched.pip._vendor.packaging.markers import Marker
+
+                vcs_markers = Marker(markers_str.strip())
+                vcs_part = vcs_url
             link = get_link_from_line(vcs_part)
             install_req = InstallRequirement(
                 None,
                 comes_from,
                 link=link,
-                use_pep517=use_pep517,
+                markers=vcs_markers,
                 isolated=isolated,
-                global_options=global_options,
                 hash_options=hash_options,
                 constraint=constraint,
                 user_supplied=user_supplied,
@@ -1056,9 +1106,7 @@ def expansive_install_req_from_line(
         comes_from,
         link=parts.link,
         markers=parts.markers,
-        use_pep517=use_pep517,
         isolated=isolated,
-        global_options=global_options,
         hash_options=hash_options,
         config_settings=config_settings,
         constraint=constraint,
@@ -1295,7 +1343,7 @@ def get_constraints_from_deps(deps):
             version = dep_version.get("version", None)
             if version and not is_star(version):
                 if COMPARE_OP.match(version) is None:
-                    version = f"=={dep_version}"
+                    version = f"=={version}"
                 c = f"{canonicalize_name(dep_name)}{version}"
             else:
                 c = canonicalize_name(dep_name)

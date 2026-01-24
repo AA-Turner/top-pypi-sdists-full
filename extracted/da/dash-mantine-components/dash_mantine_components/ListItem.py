@@ -239,7 +239,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['icon']
+    _children_props: typing.List[str] = ['icon']
     _base_nodes = ['icon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'ListItem'

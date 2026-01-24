@@ -30,7 +30,7 @@ from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.metadata import empty_values
 from orbax.checkpoint._src.metadata import pytree_metadata_options as pytree_metadata_options_lib
 from orbax.checkpoint._src.metadata import value as value_metadata
-from orbax.checkpoint._src.serialization import serialization
+from orbax.checkpoint._src.serialization import limits
 import tensorstore as ts
 
 PyTreeMetadataOptions = pytree_metadata_options_lib.PyTreeMetadataOptions
@@ -49,30 +49,18 @@ def is_supported_type(
   ) or empty_values.is_supported_empty_value(value, pytree_metadata_options)
 
 
-def get_param_typestr(
-    value: Any,
-    registry: TypeHandlerRegistry,
-    pytree_metadata_options: PyTreeMetadataOptions,
-) -> str:
-  """Retrieves the typestr for a given value."""
-  if empty_values.is_supported_empty_value(value, pytree_metadata_options):
-    typestr = empty_values.get_empty_value_typestr(
-        value, pytree_metadata_options
-    )
-  else:
-    try:
-      handler = registry.get(type(value))
-      typestr = handler.typestr()
-    except ValueError:
-      # Not an error because users' training states often have a bunch of
-      # random unserializable objects in them (empty states, optimizer
-      # objects, etc.). An error occurring due to a missing TypeHandler
-      # will be surfaced elsewhere.
-      typestr = empty_values.RESTORE_TYPE_NONE
-  return typestr
+def check_input_arguments(*args):
+  l = None
+  for arg in args:
+    if l == 0:
+      raise ValueError('Cannot pass TypeHandler input of length 0.')
+    if l is None:
+      l = len(arg)
+    elif len(arg) != l:
+      raise ValueError('Found input args with mismatched lengths.')
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(kw_only=True)
 class ParamInfo:
   """Information describing a parameter in a PyTree.
 
@@ -82,13 +70,12 @@ class ParamInfo:
 
   name:
     Name of the parameter.
-  path:
-    A path providing a location where file(s) should be saved. The path is
-    assumed to be a directory.
   parent_dir:
     A path providing location where all files under the same checkpoint should
     be saved under. All `ParamInfo` provided to a given TypeHandler should have
     the same `parent_dir`. The parent_dir is assumed to be a directory.
+  path:
+    Do not provide directly. Automatically set to `parent_dir / name`.
   skip_deserialize:
     If specified, skips deserialization of the given parameter using the
     TypeHandler. This may be for multiple different reasons, including that the
@@ -104,6 +91,8 @@ class ParamInfo:
   is_ocdbt_checkpoint:
     Indicates whether the checkpoint path uses OCDBT format
     or not. Only used for restoration.
+  use_compression:
+    When True, turn on zstd compression. Default is True.
   use_zarr3:
     If True, use Zarr ver3 otherwise ver2.
   ocdbt_target_data_file_size:
@@ -122,15 +111,18 @@ class ParamInfo:
     from tree metadata and should be the same across all parameters.
   write_shape:
     Shape of the array shard. Used in the subchunking context.
+  is_prioritized_key_fn: See `IsPrioritizedKeyFn` definition.
   """
 
-  name: Optional[str] = None
+  name: str
+  parent_dir: epath.Path
   path: Optional[epath.Path] = None
-  parent_dir: Optional[epath.Path] = None
+  keypath: Optional[Tuple[Any, ...]] = None
   skip_deserialize: Optional[bool] = None
-  byte_limiter: Optional[serialization.ByteLimiter] = None
-  device_host_byte_limiter: Optional[serialization.ByteLimiter] = None
+  byte_limiter: Optional[limits.ByteLimiter] = None
+  device_host_byte_limiter: Optional[limits.ByteLimiter] = None
   is_ocdbt_checkpoint: Optional[bool] = None
+  use_compression: bool | None = True
   use_zarr3: Optional[bool] = False
   ocdbt_target_data_file_size: Optional[int] = None
   ts_context: Optional[ts.Context] = None
@@ -138,6 +130,11 @@ class ParamInfo:
   enable_pinned_host_transfer: bool = False
   raise_array_data_missing_error: bool = True
   write_shape: arrays_types.Shape | None = None
+  is_prioritized_key_fn: Optional[IsPrioritizedKeyFn] = None
+
+  def __post_init__(self):
+    if self.path is None:
+      self.path = self.parent_dir / self.name
 
 
 @dataclasses.dataclass
@@ -373,3 +370,29 @@ class TypeHandlerRegistry(Protocol):
       A boolean indicating if ty is registered.
     """
     ...
+
+
+class IsPrioritizedKeyFn(Protocol):
+  """Protocol for checking if a key is prioritized.
+
+  The function accepts a PyTree keypath (obtained
+  using jax.tree.map_with_path) and returns True if the D2H transfer should be
+  scheduled during the blocking part of the save (defaults to True in all places
+  unless False is returned by this function).
+
+  The D2H transfer is scheduled before returning
+  to the caller, so the values will never be corrupted by a concurrent update
+  or donation. Keys that are not prioritized will not
+  be scheduled for transfer until all prioritized keys have been fully
+  written to the checkpoint. This means that these values may be altered
+  if the values are updated concurrently.
+
+  Callers should take care to call
+  `wait_until_finished` before updating array values (e.g.
+  `apply_gradients`) if some keys are not prioritized. Note that any
+  "prioritized" keys are assumed to be lightweight, and
+  `save_device_host_concurrent_gb` will be ignored for them.
+  """
+
+  def __call__(self, keypath: Tuple[Any, ...]) -> bool:
+    """Returns true if the key is prioritized."""

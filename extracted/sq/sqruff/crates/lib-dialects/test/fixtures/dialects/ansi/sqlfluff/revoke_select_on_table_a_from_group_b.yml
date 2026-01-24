@@ -1,0 +1,13 @@
+file:
+- statement:
+  - access_statement:
+    - keyword: revoke
+    - keyword: select
+    - keyword: on
+    - keyword: table
+    - object_reference:
+      - naked_identifier: a
+    - keyword: from
+    - keyword: group
+    - object_reference:
+      - naked_identifier: b

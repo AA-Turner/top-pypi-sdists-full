@@ -4,7 +4,7 @@ use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    mem::{self, offset_of, ManuallyDrop},
+    mem::{self, ManuallyDrop, offset_of},
     ops::Deref,
     ptr,
     sync::atomic::{
@@ -53,12 +53,14 @@ impl<T> Arc<T> {
     /// It is recommended to use OffsetArc for this
     #[inline]
     pub(crate) unsafe fn from_raw(ptr: *const T) -> Self {
-        // To find the corresponding pointer to the `ArcInner` we need
-        // to subtract the offset of the `data` field from the pointer.
-        let ptr = (ptr as *const u8).sub(offset_of!(ArcInner<T>, data));
-        Arc {
-            p: ptr::NonNull::new_unchecked(ptr as *mut ArcInner<T>),
-            phantom: PhantomData,
+        unsafe {
+            // To find the corresponding pointer to the `ArcInner` we need
+            // to subtract the offset of the `data` field from the pointer.
+            let ptr = (ptr as *const u8).sub(offset_of!(ArcInner<T>, data));
+            Arc {
+                p: ptr::NonNull::new_unchecked(ptr as *mut ArcInner<T>),
+                phantom: PhantomData,
+            }
         }
     }
 }
@@ -77,7 +79,9 @@ impl<T: ?Sized> Arc<T> {
     // Non-inlined part of `drop`. Just invokes the destructor.
     #[inline(never)]
     unsafe fn drop_slow(&mut self) {
-        let _ = Box::from_raw(self.ptr());
+        unsafe {
+            let _ = Box::from_raw(self.ptr());
+        }
     }
 
     /// Test pointer equality between the two Arcs, i.e. they must be the _same_
@@ -347,7 +351,7 @@ impl<H, T> ThinArc<H, T> {
         // Round up size to alignment.
         let align = mem::align_of::<ArcInner<HeaderSlice<H, [T; 0]>>>();
         let size = usable_size.wrapping_add(align - 1) & !(align - 1);
-        assert!(size >= usable_size, "size overflows");
+        debug_assert!(size >= usable_size, "size overflows");
         let layout = Layout::from_size_align(size, align).expect("invalid layout");
 
         let ptr: *mut ArcInner<HeaderSlice<H, [T; 0]>>;
@@ -389,7 +393,7 @@ impl<H, T> ThinArc<H, T> {
                     );
                     current = current.offset(1);
                 }
-                assert!(
+                debug_assert!(
                     items.next().is_none(),
                     "ExactSizeIterator under-reported length"
                 );
@@ -397,7 +401,7 @@ impl<H, T> ThinArc<H, T> {
                 // We should have consumed the buffer exactly.
                 debug_assert_eq!(current as *mut u8, buffer.add(usable_size));
             }
-            assert!(
+            debug_assert!(
                 items.next().is_none(),
                 "ExactSizeIterator under-reported length"
             );

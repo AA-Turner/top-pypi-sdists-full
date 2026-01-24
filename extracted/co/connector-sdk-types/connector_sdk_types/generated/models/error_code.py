@@ -37,6 +37,7 @@ class ErrorCode(str, Enum):
     UNSUPPORTED_OPERATION = 'unsupported_operation'
     UNKNOWN_VALUE = 'unknown_value'
     INVALID_VALUE = 'invalid_value'
+    BAD_GATEWAY = 'bad_gateway'
     UNAUTHENTICATED = 'unauthenticated'
     REQUEST_TIMEOUT = 'request_timeout'
     CONNECTION_TIMEOUT = 'connection_timeout'

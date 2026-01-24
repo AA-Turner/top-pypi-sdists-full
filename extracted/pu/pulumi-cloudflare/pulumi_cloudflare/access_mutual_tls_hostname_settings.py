@@ -187,6 +187,23 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_access_mtls_hostname_settings = cloudflare.ZeroTrustAccessMtlsHostnameSettings("example_zero_trust_access_mtls_hostname_settings",
+            settings=[{
+                "china_network": False,
+                "client_certificate_forwarding": True,
+                "hostname": "admin.example.com",
+            }],
+            zone_id="zone_id")
+        ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
@@ -200,6 +217,23 @@ class AccessMutualTlsHostnameSettings(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_access_mtls_hostname_settings = cloudflare.ZeroTrustAccessMtlsHostnameSettings("example_zero_trust_access_mtls_hostname_settings",
+            settings=[{
+                "china_network": False,
+                "client_certificate_forwarding": True,
+                "hostname": "admin.example.com",
+            }],
+            zone_id="zone_id")
+        ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
 
         :param str resource_name: The name of the resource.
         :param AccessMutualTlsHostnameSettingsArgs args: The arguments to use to populate this resource's properties.

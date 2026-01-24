@@ -15,6 +15,7 @@
 
 namespace slang::ast {
 
+/// Represents a statement block, either sequential or parallel.
 class SLANG_EXPORT StatementBlockSymbol final : public Symbol, public Scope {
 public:
     StatementBlockKind blockKind;
@@ -64,6 +65,7 @@ private:
     mutable const Statement* stmt = nullptr;
 };
 
+/// Represents a procedural block, such as an always block.
 class SLANG_EXPORT ProceduralBlockSymbol final : public Symbol {
 public:
     ProceduralBlockKind procedureKind;
@@ -116,12 +118,14 @@ class SLANG_EXPORT GenerateBlockSymbol final : public Symbol, public Scope {
 public:
     uint32_t constructIndex = 0;
     bool isUninstantiated = false;
+    bool isUnnamed = false;
     const SVInt* arrayIndex = nullptr;
 
     GenerateBlockSymbol(Compilation& compilation, std::string_view name, SourceLocation loc,
                         uint32_t constructIndex, bool isUninstantiated) :
         Symbol(SymbolKind::GenerateBlock, name, loc), Scope(compilation, this),
-        constructIndex(constructIndex), isUninstantiated(isUninstantiated) {}
+        constructIndex(constructIndex), isUninstantiated(isUninstantiated),
+        isUnnamed(name.empty()) {}
 
     std::string getExternalName() const;
 
@@ -148,11 +152,12 @@ public:
     std::span<const GenerateBlockSymbol* const> entries;
     uint32_t constructIndex;
     bool valid = false;
+    bool isUnnamed = false;
 
     GenerateBlockArraySymbol(Compilation& compilation, std::string_view name, SourceLocation loc,
                              uint32_t constructIndex) :
         Symbol(SymbolKind::GenerateBlockArray, name, loc), Scope(compilation, this),
-        constructIndex(constructIndex) {}
+        constructIndex(constructIndex), isUnnamed(name.empty()) {}
 
     std::string getExternalName() const;
 

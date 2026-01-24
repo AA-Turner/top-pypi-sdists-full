@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 5.21.1
+Version: 5.22.2
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -16,7 +16,7 @@ Requires-Dist: croniter==1.3.15
 Requires-Dist: GitPython~=3.1.32
 Requires-Dist: humanfriendly~=8.2
 Requires-Dist: pydantic~=2.8.0
-Requires-Dist: pyperclip==1.8.2
+Requires-Dist: pyperclip==1.9.0
 Requires-Dist: pyyaml<6.1,>=6.0
 Requires-Dist: requests<3,>=2.28.1
 Requires-Dist: shandy-sqlfmt==0.11.1
@@ -60,6 +60,24 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.22.2
+***********
+
+- `Fixed` tokens in existing datasource files not being updated when using `tb push -f`
+
+5.22.1
+***********
+
+- `Fixed` RuntimeWarning for unawaited coroutines when `tb pull` encounters server errors
+
+5.22.0
+***********
+
+- `Added` `tb init --git --override-commit` now works on workspaces without an existing release, allowing you to initialize git deployments from scratch
+- `Added` `tb release create --commit` option to specify a specific git commit instead of using HEAD
+- `Improved` `tb fmt` now supports `{% end if %}` and `{% end for %}` tag variations in addition to the standard Tornado-style `{% end %}` tags
+- `Improved` Error message when trying to format a file using `tb fmt` or when we are running `tb init --git` to include the resource name and source (local/remote)
 
 5.21.1
 ***********

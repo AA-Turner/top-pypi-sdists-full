@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: vital
-Version: 2.1.400
+Version: 2.1.569
 Summary: 
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
@@ -20,8 +20,9 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Dist: httpx (>=0.21.2)
 Requires-Dist: pydantic (>=1.9.2)
-Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
+Requires-Dist: pydantic-core (>=2.18.2)
 Requires-Dist: typing_extensions (>=4.0.0)
+Project-URL: Repository, https://github.com/tryVital/vital-python
 Description-Content-Type: text/markdown
 
 # Vital Python Library

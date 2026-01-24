@@ -53,6 +53,8 @@ bigQueryCustomEndpoint: Optional[str]
 
 biglakeCustomEndpoint: Optional[str]
 
+biglakeIcebergCustomEndpoint: Optional[str]
+
 bigqueryAnalyticsHubCustomEndpoint: Optional[str]
 
 bigqueryConnectionCustomEndpoint: Optional[str]
@@ -60,6 +62,8 @@ bigqueryConnectionCustomEndpoint: Optional[str]
 bigqueryDataTransferCustomEndpoint: Optional[str]
 
 bigqueryDatapolicyCustomEndpoint: Optional[str]
+
+bigqueryDatapolicyv2CustomEndpoint: Optional[str]
 
 bigqueryReservationCustomEndpoint: Optional[str]
 
@@ -74,6 +78,8 @@ binaryAuthorizationCustomEndpoint: Optional[str]
 blockchainNodeEngineCustomEndpoint: Optional[str]
 
 certificateManagerCustomEndpoint: Optional[str]
+
+cesCustomEndpoint: Optional[str]
 
 chronicleCustomEndpoint: Optional[str]
 
@@ -98,6 +104,8 @@ cloudRunCustomEndpoint: Optional[str]
 cloudRunV2CustomEndpoint: Optional[str]
 
 cloudSchedulerCustomEndpoint: Optional[str]
+
+cloudSecurityComplianceCustomEndpoint: Optional[str]
 
 cloudTasksCustomEndpoint: Optional[str]
 
@@ -275,6 +283,8 @@ netappCustomEndpoint: Optional[str]
 
 networkConnectivityCustomEndpoint: Optional[str]
 
+networkConnectivityv1CustomEndpoint: Optional[str]
+
 networkManagementCustomEndpoint: Optional[str]
 
 networkSecurityCustomEndpoint: Optional[str]
@@ -282,6 +292,8 @@ networkSecurityCustomEndpoint: Optional[str]
 networkServicesCustomEndpoint: Optional[str]
 
 notebooksCustomEndpoint: Optional[str]
+
+observabilityCustomEndpoint: Optional[str]
 
 oracleDatabaseCustomEndpoint: Optional[str]
 

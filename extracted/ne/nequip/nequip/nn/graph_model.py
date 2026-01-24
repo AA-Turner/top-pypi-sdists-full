@@ -23,14 +23,12 @@ def _model_metadata_from_config(model_config: Dict[str, str]) -> Dict[str, str]:
     model_metadata_dict[R_MAX_KEY] = str(model_config[R_MAX_KEY])
 
     if model_config.get(PER_EDGE_TYPE_CUTOFF_KEY, None) is not None:
-        from .embedding.utils import per_edge_type_cutoff_to_metadata_str
+        from .embedding.utils import cutoff_partialdict_to_str
 
-        model_metadata_dict[PER_EDGE_TYPE_CUTOFF_KEY] = (
-            per_edge_type_cutoff_to_metadata_str(
-                model_config[TYPE_NAMES_KEY],
-                model_config[PER_EDGE_TYPE_CUTOFF_KEY],
-                model_config[R_MAX_KEY],
-            )
+        model_metadata_dict[PER_EDGE_TYPE_CUTOFF_KEY] = cutoff_partialdict_to_str(
+            model_config[PER_EDGE_TYPE_CUTOFF_KEY],
+            model_config[TYPE_NAMES_KEY],
+            model_config[R_MAX_KEY],
         )
     return model_metadata_dict
 
@@ -100,10 +98,40 @@ class GraphModel(GraphModuleMixin, torch.nn.Module):
     @property
     @torch.jit.unused
     def metadata(self) -> Dict[str, str]:
-        # Note that this is a property so that the metadata can depend on the _current_ state
-        # of the model, and not just what happened at initialization.
-        # TODO: make other metadata keys dynamic rather than pre-set in _metadata?
+        """Get model metadata, including dynamic contributions from modules.
+
+        Collects metadata from all modules that override ``_get_metadata_contributions()``.
+        Dynamic contributions can override static config values.
+        Expected to be queried for inference workflows (but not for ``nequip-package``).
+        """
         out = self._metadata.copy()
+
+        # collect dynamic metadata from module tree
+        contributed_keys = {}  # track which module provided each key
+
+        for name, module in self.model.named_modules():
+            if isinstance(module, GraphModuleMixin):
+                contributions = module._get_metadata_contributions()
+                if not contributions:
+                    continue
+
+                # detect conflicts between multiple modules
+                for key in contributions:
+                    if key in contributed_keys:
+                        raise ValueError(
+                            f"Metadata conflict: modules '{contributed_keys[key]}' "
+                            f"and '{name}' both contribute key '{key}'"
+                        )
+                    contributed_keys[key] = name
+
+                # update metadata (overrides static values if keys overlap)
+                out.update(contributions)
+
+        # update r_max if dynamic per-edge-type cutoffs were contributed
+        if PER_EDGE_TYPE_CUTOFF_KEY in contributed_keys:
+            cutoff_values = [float(x) for x in out[PER_EDGE_TYPE_CUTOFF_KEY].split()]
+            out[R_MAX_KEY] = str(max(cutoff_values))
+
         return out
 
     def forward(self, data: AtomicDataDict.Type) -> AtomicDataDict.Type:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: Adyen
-Version: 13.4.0
+Version: 14.0.0
 Summary: Adyen Python Api
 Home-page: https://github.com/Adyen/adyen-python-api-library
 Author: Adyen
@@ -21,6 +21,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: summary

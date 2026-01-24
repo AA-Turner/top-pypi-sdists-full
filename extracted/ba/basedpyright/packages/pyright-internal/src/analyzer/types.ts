@@ -11,7 +11,12 @@ import { partition } from '../common/collectionUtils';
 import { assert } from '../common/debug';
 import { Uri } from '../common/uri/uri';
 import { ArgumentNode, ExpressionNode, NameNode, ParamCategory, TypeAnnotationNode } from '../parser/parseNodes';
-import { ClassDeclaration, FunctionDeclaration, SpecialBuiltInClassDeclaration } from './declaration';
+import {
+    ClassDeclaration,
+    FunctionDeclaration,
+    SpecialBuiltInClassDeclaration,
+    VariableDeclaration,
+} from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
 export const enum TypeCategory {
@@ -559,6 +564,7 @@ export interface DataClassEntry {
 
 export interface TypedDictEntry {
     valueType: Type;
+    declaration: VariableDeclaration | undefined;
     isRequired: boolean;
     isReadOnly: boolean;
     isProvided: boolean;
@@ -677,6 +683,7 @@ export interface DataClassBehaviors {
     generateOrder?: boolean;
     generateSlots?: boolean;
     generateHash?: boolean;
+    skipReplace?: boolean;
     matchArgs?: boolean;
     keywordOnly?: boolean;
     frozen?: boolean;
@@ -1200,6 +1207,10 @@ export namespace ClassType {
         return !!classType.shared.dataClassBehaviors?.generateHash;
     }
 
+    export function isDataClassSkipReplace(classType: ClassType) {
+        return !!classType.shared.dataClassBehaviors?.skipReplace;
+    }
+
     export function isTypeCheckOnly(classType: ClassType) {
         return !!(classType.shared.flags & ClassTypeFlags.TypeCheckOnly);
     }
@@ -1432,7 +1443,8 @@ export namespace ClassType {
     export function isDerivedFrom(
         subclassType: ClassType,
         parentClassType: ClassType,
-        inheritanceChain?: InheritanceChain
+        inheritanceChain?: InheritanceChain,
+        allowAnyBase: boolean = true
     ): boolean {
         // Is it the exact same class?
         if (isSameGenericClass(subclassType, parentClassType)) {
@@ -1486,13 +1498,13 @@ export namespace ClassType {
 
         for (const baseClass of subclassType.shared.baseClasses) {
             if (isInstantiableClass(baseClass)) {
-                if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
+                if (isDerivedFrom(baseClass, parentClassType, inheritanceChain, allowAnyBase)) {
                     if (inheritanceChain) {
                         inheritanceChain.push(subclassType);
                     }
                     return true;
                 }
-            } else if (isAnyOrUnknown(baseClass)) {
+            } else if (allowAnyBase && isAnyOrUnknown(baseClass)) {
                 if (inheritanceChain) {
                     inheritanceChain.push(UnknownType.create());
                 }

@@ -27,47 +27,40 @@ from .api_object import APIObject
 
 int_float_string = t.Type(int) | t.Type(float) | String(allow_blank=True)
 
-prediction_values_trafaret = t.Dict(
-    {t.Key("label", optional=True): int_float_string, t.Key("value"): t.Float}
-).ignore_extra("*")
+prediction_values_trafaret = t.Dict({
+    t.Key("label", optional=True): int_float_string,
+    t.Key("value"): t.Float,
+}).ignore_extra("*")
 
 per_ngram_text_explanations_trafaret = t.Or(
     t.List(
-        t.Dict(
-            {
-                t.Key("ngrams"): t.List(
-                    t.Dict({t.Key("ending_index"): Int, t.Key("starting_index"): Int})
-                ),
-                t.Key("is_unknown"): t.Bool,
-                t.Key("qualitative_strength"): String,
-                t.Key("strength"): t.Float,
-            }
-        )
+        t.Dict({
+            t.Key("ngrams"): t.List(t.Dict({t.Key("ending_index"): Int, t.Key("starting_index"): Int})),
+            t.Key("is_unknown"): t.Bool,
+            t.Key("qualitative_strength"): String,
+            t.Key("strength"): t.Float,
+        })
     ),
     t.Null,
 )
 
-prediction_explanations_entry_trafaret = t.Dict(
-    {
-        t.Key("label", optional=True): int_float_string,
-        t.Key("feature"): String,
-        t.Key("feature_value"): int_float_string,
-        t.Key("strength"): t.Float,
-        t.Key("qualitative_strength"): String,
-        t.Key("per_ngram_text_explanations", optional=True): per_ngram_text_explanations_trafaret,
-    }
-).ignore_extra("*")
+prediction_explanations_entry_trafaret = t.Dict({
+    t.Key("label", optional=True): int_float_string,
+    t.Key("feature"): String,
+    t.Key("feature_value"): int_float_string,
+    t.Key("strength"): t.Float,
+    t.Key("qualitative_strength"): String,
+    t.Key("per_ngram_text_explanations", optional=True): per_ngram_text_explanations_trafaret,
+}).ignore_extra("*")
 
-prediction_explanations_trafaret = t.Dict(
-    {
-        t.Key("row_id"): Int,
-        t.Key("prediction"): int_float_string,
-        t.Key("adjusted_prediction", optional=True): int_float_string,
-        t.Key("prediction_values"): t.List(prediction_values_trafaret),
-        t.Key("adjusted_prediction_values", optional=True): t.List(prediction_values_trafaret),
-        t.Key("prediction_explanations"): t.List(prediction_explanations_entry_trafaret),
-    }
-).ignore_extra("*")
+prediction_explanations_trafaret = t.Dict({
+    t.Key("row_id"): Int,
+    t.Key("prediction"): int_float_string,
+    t.Key("adjusted_prediction", optional=True): int_float_string,
+    t.Key("prediction_values"): t.List(prediction_values_trafaret),
+    t.Key("adjusted_prediction_values", optional=True): t.List(prediction_values_trafaret),
+    t.Key("prediction_explanations"): t.List(prediction_explanations_entry_trafaret),
+}).ignore_extra("*")
 
 KEEP_ATTRS = ["data.prediction_explanations.per_ngram_text_explanations"]
 
@@ -142,13 +135,11 @@ class PredictionExplanationsInitialization(APIObject):
     """
 
     _path_template = "projects/{}/models/{}/predictionExplanationsInitialization/"
-    _converter = t.Dict(
-        {
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("prediction_explanations_sample"): t.List(prediction_explanations_trafaret),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("prediction_explanations_sample"): t.List(prediction_explanations_trafaret),
+    }).allow_extra("*")
 
     def __init__(self, project_id, model_id, prediction_explanations_sample=None):
         self.project_id = project_id
@@ -158,9 +149,7 @@ class PredictionExplanationsInitialization(APIObject):
         self._path = self._path_template.format(self.project_id, self.model_id)
 
     def __repr__(self):
-        return "{}(project_id={}, model_id={})".format(
-            type(self).__name__, self.project_id, self.model_id
-        )
+        return "{}(project_id={}, model_id={})".format(type(self).__name__, self.project_id, self.model_id)
 
     @classmethod
     def get(cls, project_id, model_id):
@@ -265,23 +254,21 @@ class PredictionExplanations(APIObject):
     _path_template = "projects/{}/predictionExplanationsRecords/"
     _expls_path_template = "projects/{}/predictionExplanations/"
     _training_path_template = "projects/{}/predictionExplanationsOnTrainingData/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("project_id"): String,
-            t.Key("model_id"): String,
-            t.Key("dataset_id"): String,
-            t.Key("max_explanations"): Int,
-            t.Key("threshold_low", optional=True): t.Float,
-            t.Key("threshold_high", optional=True): t.Float,
-            t.Key("class_names", optional=True): t.List(t.String),
-            t.Key("num_top_classes", optional=True): t.Int(),
-            t.Key("num_columns"): Int,
-            t.Key("finish_time"): t.Float,
-            t.Key("prediction_explanations_location"): String,
-            t.Key("source", optional=True): String,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("project_id"): String,
+        t.Key("model_id"): String,
+        t.Key("dataset_id"): String,
+        t.Key("max_explanations"): Int,
+        t.Key("threshold_low", optional=True): t.Float,
+        t.Key("threshold_high", optional=True): t.Float,
+        t.Key("class_names", optional=True): t.List(t.String),
+        t.Key("num_top_classes", optional=True): t.Int(),
+        t.Key("num_columns"): Int,
+        t.Key("finish_time"): t.Float,
+        t.Key("prediction_explanations_location"): String,
+        t.Key("source", optional=True): String,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -643,13 +630,10 @@ class PredictionExplanations(APIObject):
         dataframe: pandas.DataFrame
         """
         columns = ["row_id", "prediction"]
-        rows = self.get_rows(
-            batch_size=1, exclude_adjusted_predictions=exclude_adjusted_predictions
-        )
+        rows = self.get_rows(batch_size=1, exclude_adjusted_predictions=exclude_adjusted_predictions)
         first_row = next(rows)
         has_text_explanations = (
-            first_row.prediction_explanations
-            and "per_ngram_text_explanations" in first_row.prediction_explanations[0]
+            first_row.prediction_explanations and "per_ngram_text_explanations" in first_row.prediction_explanations[0]
         )
         adjusted_predictions_in_data = first_row.adjusted_prediction is not None
         if adjusted_predictions_in_data:
@@ -665,36 +649,30 @@ class PredictionExplanations(APIObject):
             for class_num in range(self.get_number_of_explained_classes()):
                 prefix = f"explained_class_{class_num}"
                 for i in range(self.max_explanations):
-                    columns.extend(
-                        [
-                            f"{prefix}_explanation_{i}_feature",
-                            f"{prefix}_explanation_{i}_feature_value",
-                            f"{prefix}_explanation_{i}_label",
-                            f"{prefix}_explanation_{i}_qualitative_strength",
-                            f"{prefix}_explanation_{i}_strength",
-                        ]
-                    )
+                    columns.extend([
+                        f"{prefix}_explanation_{i}_feature",
+                        f"{prefix}_explanation_{i}_feature_value",
+                        f"{prefix}_explanation_{i}_label",
+                        f"{prefix}_explanation_{i}_qualitative_strength",
+                        f"{prefix}_explanation_{i}_strength",
+                    ])
                     if has_text_explanations:
                         columns.append(f"{prefix}_explanation_{i}_per_ngram_text_explanations")
 
         else:
             for i in range(self.max_explanations):
-                columns.extend(
-                    [
-                        f"explanation_{i}_feature",
-                        f"explanation_{i}_feature_value",
-                        f"explanation_{i}_label",
-                        f"explanation_{i}_qualitative_strength",
-                        f"explanation_{i}_strength",
-                    ]
-                )
+                columns.extend([
+                    f"explanation_{i}_feature",
+                    f"explanation_{i}_feature_value",
+                    f"explanation_{i}_label",
+                    f"explanation_{i}_qualitative_strength",
+                    f"explanation_{i}_strength",
+                ])
                 if has_text_explanations:
                     columns.append(f"explanation_{i}_per_ngram_text_explanations")
         pred_expl_list = []
 
-        for i, row in enumerate(
-            self.get_rows(exclude_adjusted_predictions=exclude_adjusted_predictions)
-        ):
+        for i, row in enumerate(self.get_rows(exclude_adjusted_predictions=exclude_adjusted_predictions)):
             data = [row.row_id, row.prediction]
             if adjusted_predictions_in_data:
                 data.append(row.adjusted_prediction)
@@ -715,39 +693,27 @@ class PredictionExplanations(APIObject):
                             data += [None] * (self.max_explanations - explanations_per_label) * 5
                         current_label = pred_expl["label"]
                         explanations_per_label = 1
-                    data.extend(
-                        [
-                            pred_expl["feature"],
-                            pred_expl["feature_value"],
-                            pred_expl["label"],
-                            pred_expl["qualitative_strength"],
-                            pred_expl["strength"],
-                        ]
-                    )
+                    data.extend([
+                        pred_expl["feature"],
+                        pred_expl["feature_value"],
+                        pred_expl["label"],
+                        pred_expl["qualitative_strength"],
+                        pred_expl["strength"],
+                    ])
                     if has_text_explanations:
-                        data.append(
-                            json.dumps(
-                                pred_expl.get("per_ngram_text_explanations"), ensure_ascii=False
-                            )
-                        )
+                        data.append(json.dumps(pred_expl.get("per_ngram_text_explanations"), ensure_ascii=False))
                 pred_expl_list.append(data + [None] * (len(columns) - len(data)))
             else:
                 for pred_expl in row.prediction_explanations:
-                    data.extend(
-                        [
-                            pred_expl["feature"],
-                            pred_expl["feature_value"],
-                            pred_expl["label"],
-                            pred_expl["qualitative_strength"],
-                            pred_expl["strength"],
-                        ]
-                    )
+                    data.extend([
+                        pred_expl["feature"],
+                        pred_expl["feature_value"],
+                        pred_expl["label"],
+                        pred_expl["qualitative_strength"],
+                        pred_expl["strength"],
+                    ])
                     if has_text_explanations:
-                        data.append(
-                            json.dumps(
-                                pred_expl.get("per_ngram_text_explanations"), ensure_ascii=False
-                            )
-                        )
+                        data.append(json.dumps(pred_expl.get("per_ngram_text_explanations"), ensure_ascii=False))
                 pred_expl_list.append(data + [None] * (len(columns) - len(data)))
 
         return pd.DataFrame(data=pred_expl_list, columns=columns)
@@ -767,12 +733,10 @@ class PredictionExplanations(APIObject):
             differ from the predictions on some projects, e.g. those with an exposure column
             specified.
         """
-        df = self.get_all_as_dataframe(exclude_adjusted_predictions=exclude_adjusted_predictions)
+        df = self.get_all_as_dataframe(exclude_adjusted_predictions=exclude_adjusted_predictions)  # noqa: PD901
         df.to_csv(path_or_buf=filename, header=True, index=False, encoding=encoding)
 
-    def get_prediction_explanations_page(
-        self, limit=None, offset=None, exclude_adjusted_predictions=True
-    ):
+    def get_prediction_explanations_page(self, limit=None, offset=None, exclude_adjusted_predictions=True):
         """
         Get prediction explanations.
 
@@ -872,9 +836,7 @@ class PredictionExplanationsRow:
         self.adjusted_prediction_values = adjusted_prediction_values
 
     def __repr__(self):
-        return "{}(row_id={}, prediction={})".format(
-            type(self).__name__, self.row_id, self.prediction
-        )
+        return "{}(row_id={}, prediction={})".format(type(self).__name__, self.row_id, self.prediction)
 
 
 class PredictionExplanationsPage(APIObject):
@@ -901,17 +863,15 @@ class PredictionExplanationsPage(APIObject):
     """
 
     _path_template = "projects/{}/predictionExplanations/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("count"): Int,
-            t.Key("previous", optional=True): String(),
-            t.Key("next", optional=True): String(),
-            t.Key("data"): t.List(prediction_explanations_trafaret),
-            t.Key("prediction_explanations_record_location"): t.URL,
-            t.Key("adjustment_method", default="N/A"): String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("count"): Int,
+        t.Key("previous", optional=True): String(),
+        t.Key("next", optional=True): String(),
+        t.Key("data"): t.List(prediction_explanations_trafaret),
+        t.Key("prediction_explanations_record_location"): t.URL,
+        t.Key("adjustment_method", default="N/A"): String(),
+    }).allow_extra("*")
 
     def __init__(
         self,

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import asyncio
 import errno
 import datetime
@@ -20,7 +19,7 @@ from dateutil.tz import tzutc
 
 import botocore
 import s3fs.core
-from s3fs.core import S3FileSystem
+from s3fs.core import MAX_UPLOAD_PARTS, S3FileSystem, calculate_chunksize
 from s3fs.utils import ignoring, SSEParams
 from botocore.exceptions import NoCredentialsError
 from fsspec.asyn import sync
@@ -128,9 +127,7 @@ def s3(s3_base):
                     "Effect": "Deny",
                     "Principal": "*",
                     "Action": "s3:PutObject",
-                    "Resource": "arn:aws:s3:::{bucket_name}/*".format(
-                        bucket_name=secure_bucket_name
-                    ),
+                    "Resource": f"arn:aws:s3:::{secure_bucket_name}/*",
                     "Condition": {
                         "StringNotEquals": {
                             "s3:x-amz-server-side-encryption": "aws:kms"
@@ -1672,7 +1669,7 @@ def test_fsspec_versions_multiple(s3):
             fo.write(contents)
         version_lookup[fo.version_id] = contents
     urls = [
-        "s3://{}?versionId={}".format(versioned_file, version)
+        f"s3://{versioned_file}?versionId={version}"
         for version in version_lookup.keys()
     ]
     fs, token, paths = fsspec.core.get_fs_token_paths(
@@ -1702,7 +1699,7 @@ def test_versioned_file_fullpath(s3):
     with s3.open(versioned_file, "wb") as fo:
         fo.write(b"2")
 
-    file_with_version = "{}?versionId={}".format(versioned_file, version_id)
+    file_with_version = f"{versioned_file}?versionId={version_id}"
 
     with s3.open(file_with_version, "rb") as fo:
         assert fo.version_id == version_id
@@ -2365,7 +2362,7 @@ def test_get_file_info_with_selector(s3):
             pass
 
         infos = fs.find(base_dir, maxdepth=None, withdirs=True, detail=True)
-        assert len(infos) == 5  # includes base_dir directory
+        assert len(infos) == 4  # includes base_dir directory
 
         for info in infos.values():
             if info["name"].endswith(file_a):
@@ -2986,3 +2983,88 @@ def test_put_exclusive_small(s3, tmpdir):
     with pytest.raises(FileExistsError):
         s3.put(fn, f"{test_bucket_name}/afile", mode="create")
     assert not s3.list_multipart_uploads(test_bucket_name)
+
+
+def test_bucket_info(s3):
+    info = s3.info(test_bucket_name)
+    assert "VersionId" in info
+    assert info["type"] == "directory"
+    assert info["name"] == test_bucket_name
+
+
+MB = 2**20
+GB = 2**30
+TB = 2**40
+
+
+@pytest.mark.parametrize(
+    ["filesize", "chunksize", "expected"],
+    [
+        # small file, use default chunksize
+        (1000, None, 50 * MB),
+        # exact boundary, use default chunksize
+        (50 * MB * MAX_UPLOAD_PARTS, None, 50 * MB),
+        # file requiring increased chunksize
+        (50 * MB * (MAX_UPLOAD_PARTS + 1), None, 52_434_043),
+        # very large files, expect increased chunksize
+        (1 * TB, None, 109_951_163),
+        (5 * TB, None, 549_755_814),
+        # respect explicit chunksize
+        (5 * GB, 10 * MB, 10 * MB),
+    ],
+)
+def test_calculate_chunksize(filesize, chunksize, expected):
+    assert calculate_chunksize(filesize, chunksize) == expected
+
+
+def test_find_ls_fail(s3):
+    # beacuse of https://github.com/fsspec/s3fs/pull/989
+    client = get_boto3_client()
+    files = {
+        f"{test_bucket_name}/find/a/a": b"data",
+        f"{test_bucket_name}/find/a/b": b"data",
+        f"{test_bucket_name}/find/a": b"",  # duplicate of dir, without "/"
+        f"{test_bucket_name}/find/b": b"",  # empty file without "/" and no children
+        f"{test_bucket_name}/find/c/c": b"data",  # directory with no placeholder
+        f"{test_bucket_name}/find/d/d": b"data",  # dir will acquire placeholder with "/"
+    }
+    client.put_object(Bucket=test_bucket_name, Key="find/d/", Body=b"")
+    client.put_object(
+        Bucket=test_bucket_name, Key="find/e/", Body=b""
+    )  # placeholder only
+    s3.pipe(files)
+
+    out0 = s3.ls(f"{test_bucket_name}/find", detail=True)
+    s3.find(test_bucket_name, detail=False)
+    out = s3.ls(f"{test_bucket_name}/find", detail=True)
+    assert out == out0
+
+    s3.invalidate_cache()
+    s3.find(f"{test_bucket_name}/find", detail=False)
+    out = s3.ls(f"{test_bucket_name}/find", detail=True)
+    assert out == out0
+
+
+def test_find_missing_ls(s3):
+    # https://github.com/fsspec/s3fs/issues/988#issuecomment-3436727753
+    BUCKET = test_bucket_name
+    BASE_PREFIX = "disappearing-folders/"
+    BASE = f"s3://{BUCKET}/{BASE_PREFIX}"
+
+    s3_with_cache = S3FileSystem(
+        anon=False,
+        use_listings_cache=True,
+        client_kwargs={"endpoint_url": endpoint_uri},
+    )
+    s3_no_cache = S3FileSystem(
+        anon=False,
+        use_listings_cache=False,
+        client_kwargs={"endpoint_url": endpoint_uri},
+    )
+
+    s3_with_cache.pipe({f"{BASE}folder/foo/1.txt": b"", f"{BASE}bar.txt": b""})
+    s3_with_cache.find(BASE)
+    listed_cached = s3_with_cache.ls(BASE, detail=False)
+    listed_no_cache = s3_no_cache.ls(BASE, detail=False)
+
+    assert set(listed_cached) == set(listed_no_cache)

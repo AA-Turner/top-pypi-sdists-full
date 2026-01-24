@@ -30,7 +30,10 @@ def test_eth_key_param():
 @mock.patch.dict(environ, {"ZYTE_API_ETH_KEY": KEY})
 def test_eth_key_env_var():
     if HAS_X402:
-        AsyncZyteAPI()
+        client = AsyncZyteAPI()
+        assert client.auth.key == KEY
+        assert client.auth.type == "eth"
+        assert client.api_url == "https://api-x402.zyte.com/v1/"
     else:
         with pytest.raises(ImportError, match="No module named 'eth_account'"):
             AsyncZyteAPI()
@@ -47,7 +50,7 @@ def test_eth_key_short():
 
 @contextlib.contextmanager
 def reset_x402_cache():
-    from zyte_api import _x402
+    from zyte_api import _x402  # noqa: PLC0415
 
     try:
         yield _x402.CACHE
@@ -377,7 +380,7 @@ async def test_cache(scenario, mockserver):
 @mock.patch("zyte_api._x402.MINIMIZE_REQUESTS", False)
 async def test_no_cache(mockserver):
     client = AsyncZyteAPI(eth_key=KEY, api_url=mockserver.urljoin("/"))
-    input = {"url": "https://a.example", "httpResponseBody": True}
+    input_ = {"url": "https://a.example", "httpResponseBody": True}
     output = {
         "url": "https://a.example",
         "httpResponseBody": BODY,
@@ -388,24 +391,24 @@ async def test_no_cache(mockserver):
         assert client.agg_stats.n_402_req == 0
 
         # Initial request
-        actual_result = await client.get(input)
+        actual_result = await client.get(input_)
         assert actual_result == output
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 1
 
         # Identical request
-        actual_result = await client.get(input)
+        actual_result = await client.get(input_)
         assert actual_result == output
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 2
 
         # Request refresh
-        input = {
+        input_ = {
             "url": "https://a.example",
             "httpResponseBody": True,
             "echoData": "402-payment-retry-2",
         }
-        actual_result = await client.get(input)
+        actual_result = await client.get(input_)
         assert actual_result == output
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 3
@@ -417,13 +420,13 @@ async def test_4xx(mockserver):
     """An unexpected status code lower than 500 raises RequestError
     immediately."""
     client = AsyncZyteAPI(eth_key=KEY, api_url=mockserver.urljoin("/"))
-    input = {"url": "https://e404.example", "httpResponseBody": True}
+    input_ = {"url": "https://e404.example", "httpResponseBody": True}
 
     with reset_x402_cache() as cache:
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
         with pytest.raises(RequestError):
-            await client.get(input)
+            await client.get(input_)
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 1
 
@@ -433,13 +436,13 @@ async def test_4xx(mockserver):
 async def test_5xx(mockserver):
     """An unexpected status code ≥ 500 gets retried once."""
     client = AsyncZyteAPI(eth_key=KEY, api_url=mockserver.urljoin("/"))
-    input = {"url": "https://e500.example", "httpResponseBody": True}
+    input_ = {"url": "https://e500.example", "httpResponseBody": True}
 
     with reset_x402_cache() as cache:
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
         with pytest.raises(RequestError):
-            await client.get(input)
+            await client.get(input_)
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 2
 
@@ -448,7 +451,7 @@ async def test_5xx(mockserver):
 @pytest.mark.asyncio
 async def test_payment_retry(mockserver):
     client = AsyncZyteAPI(eth_key=KEY, api_url=mockserver.urljoin("/"))
-    input = {
+    input_ = {
         "url": "https://a.example",
         "httpResponseBody": True,
         "echoData": "402-payment-retry",
@@ -457,7 +460,7 @@ async def test_payment_retry(mockserver):
     with reset_x402_cache() as cache:
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
-        data = await client.get(input)
+        data = await client.get(input_)
         assert len(cache) == 1
 
     assert data == {"httpResponseBody": BODY, "url": "https://a.example"}
@@ -475,7 +478,7 @@ async def test_payment_retry(mockserver):
 @pytest.mark.asyncio
 async def test_payment_retry_exceeded(mockserver):
     client = AsyncZyteAPI(eth_key=KEY, api_url=mockserver.urljoin("/"))
-    input = {
+    input_ = {
         "url": "https://a.example",
         "httpResponseBody": True,
         "echoData": "402-payment-retry-exceeded",
@@ -485,7 +488,7 @@ async def test_payment_retry_exceeded(mockserver):
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
         with pytest.raises(RequestError):
-            await client.get(input)
+            await client.get(input_)
         assert len(cache) == 1
 
     assert client.agg_stats.n_success == 0
@@ -503,7 +506,7 @@ async def test_no_payment_retry(mockserver):
     """An HTTP 402 response received out of the context of the x402 protocol,
     as a response to a regular request using basic auth."""
     client = AsyncZyteAPI(api_key="a", api_url=mockserver.urljoin("/"))
-    input = {
+    input_ = {
         "url": "https://a.example",
         "httpResponseBody": True,
         "echoData": "402-no-payment-retry",
@@ -512,7 +515,7 @@ async def test_no_payment_retry(mockserver):
     with reset_x402_cache() as cache:
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
-        data = await client.get(input)
+        data = await client.get(input_)
         assert len(cache) == 0
 
     assert data == {"httpResponseBody": BODY, "url": "https://a.example"}
@@ -529,7 +532,7 @@ async def test_no_payment_retry(mockserver):
 @pytest.mark.asyncio
 async def test_no_payment_retry_exceeded(mockserver):
     client = AsyncZyteAPI(api_key="a", api_url=mockserver.urljoin("/"))
-    input = {
+    input_ = {
         "url": "https://a.example",
         "httpResponseBody": True,
         "echoData": "402-no-payment-retry-exceeded",
@@ -539,7 +542,7 @@ async def test_no_payment_retry_exceeded(mockserver):
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
         with pytest.raises(RequestError):
-            await client.get(input)
+            await client.get(input_)
         assert len(cache) == 0
 
     assert client.agg_stats.n_success == 0
@@ -555,7 +558,7 @@ async def test_no_payment_retry_exceeded(mockserver):
 @pytest.mark.asyncio
 async def test_long_error(mockserver):
     client = AsyncZyteAPI(api_key="a", api_url=mockserver.urljoin("/"))
-    input = {
+    input_ = {
         "url": "https://a.example",
         "httpResponseBody": True,
         "echoData": "402-long-error",
@@ -565,7 +568,7 @@ async def test_long_error(mockserver):
         assert len(cache) == 0
         assert client.agg_stats.n_402_req == 0
         with pytest.raises(RequestError):
-            await client.get(input)
+            await client.get(input_)
         assert len(cache) == 0
 
     assert client.agg_stats.n_success == 0

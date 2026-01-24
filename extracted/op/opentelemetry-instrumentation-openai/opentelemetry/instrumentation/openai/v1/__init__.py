@@ -1,6 +1,6 @@
 from typing import Collection
 
-from opentelemetry._events import get_event_logger
+from opentelemetry._logs import get_logger
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor
 from opentelemetry.instrumentation.openai.shared.chat_wrappers import (
     achat_wrapper,
@@ -32,6 +32,9 @@ from opentelemetry.instrumentation.openai.v1.responses_wrappers import (
     async_responses_get_or_create_wrapper,
     responses_cancel_wrapper,
     responses_get_or_create_wrapper,
+)
+from opentelemetry.instrumentation.openai.v1.realtime_wrappers import (
+    realtime_connect_wrapper,
 )
 
 from opentelemetry.instrumentation.openai.version import __version__
@@ -75,9 +78,9 @@ class OpenAIV1Instrumentor(BaseInstrumentor):
         meter = get_meter(__name__, __version__, meter_provider)
 
         if not Config.use_legacy_attributes:
-            event_logger_provider = kwargs.get("event_logger_provider")
-            Config.event_logger = get_event_logger(
-                __name__, __version__, event_logger_provider=event_logger_provider
+            logger_provider = kwargs.get("logger_provider")
+            Config.event_logger = get_logger(
+                __name__, __version__, logger_provider=logger_provider
             )
 
         if is_metrics_enabled():
@@ -329,6 +332,17 @@ class OpenAIV1Instrumentor(BaseInstrumentor):
             "AsyncResponses.cancel",
             async_responses_cancel_wrapper(tracer),
         )
+        # Realtime API (beta, WebSocket-based)
+        self._try_wrap(
+            "openai.resources.beta.realtime.realtime",
+            "Realtime.connect",
+            realtime_connect_wrapper(tracer),
+        )
+        self._try_wrap(
+            "openai.resources.beta.realtime.realtime",
+            "AsyncRealtime.connect",
+            realtime_connect_wrapper(tracer),
+        )
 
     def _uninstrument(self, **kwargs):
         unwrap("openai.resources.chat.completions", "Completions.create")
@@ -354,5 +368,7 @@ class OpenAIV1Instrumentor(BaseInstrumentor):
             unwrap("openai.resources.responses", "AsyncResponses.create")
             unwrap("openai.resources.responses", "AsyncResponses.retrieve")
             unwrap("openai.resources.responses", "AsyncResponses.cancel")
+            unwrap("openai.resources.beta.realtime.realtime", "Realtime.connect")
+            unwrap("openai.resources.beta.realtime.realtime", "AsyncRealtime.connect")
         except ImportError:
             pass

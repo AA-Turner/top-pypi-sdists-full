@@ -40,36 +40,27 @@ class ImagePreviewCollection(dict[str, bpy.types.ImagePreview]):
         """Generate a new preview from given file path.
 
         :param name: The name (unique id) identifying the preview.
-        :type name: str | None
         :param filepath: The file path to generate the preview from.
-        :type filepath: bytes | str | None
-        :param filetype: The type of file, needed to generate the preview in [IMAGE, MOVIE, BLEND, FONT].
-        :type filetype: str | None
+        :param filetype: The type of file, needed to generate the preview in [IMAGE, MOVIE, BLEND, FONT, OBJECT_IO].
         :param force_reload: If True, force running thumbnail manager even if preview already exists in cache.
-        :type force_reload: bool | None
         :return: The Preview matching given name, or a new empty one.
-        :rtype: bpy.types.ImagePreview
         """
 
     def new(self, name: str | None) -> bpy.types.ImagePreview:
         """Generate a new empty preview.
 
         :param name: The name (unique id) identifying the preview.
-        :type name: str | None
         :return: The Preview matching given name, or a new empty one.
-        :rtype: bpy.types.ImagePreview
         """
 
 def new() -> ImagePreviewCollection:
     """
 
     :return: a new preview collection.
-    :rtype: ImagePreviewCollection
     """
 
 def remove(pcoll: ImagePreviewCollection | None) -> None:
     """Remove the specified previews collection.
 
     :param pcoll: Preview collection to close.
-    :type pcoll: ImagePreviewCollection | None
     """

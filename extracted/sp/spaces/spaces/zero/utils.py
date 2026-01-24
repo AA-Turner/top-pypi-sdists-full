@@ -1,7 +1,5 @@
 """
 """
-from __future__ import annotations
-
 import base64
 import ctypes
 import json
@@ -39,12 +37,15 @@ def apply_cleanups(pid: int):
 @cache
 def self_cgroup_device_path() -> str:
     cgroup_content = Path(Config.zerogpu_proc_self_cgroup_path).read_text()
-    for line in cgroup_content.strip().split('\n'):
+    cgroup_proc_lines = cgroup_content.strip().splitlines()
+    # cgroup v1
+    for line in cgroup_proc_lines:
         contents = line.split(':devices:')
         if len(contents) != 2:
             continue # pragma: no cover
         return contents[1]
-    raise Exception # pragma: no cover
+    # cgroup v2
+    return [line.split('::') for line in cgroup_proc_lines][0][1] # pragma: no cover
 
 
 def malloc_trim():

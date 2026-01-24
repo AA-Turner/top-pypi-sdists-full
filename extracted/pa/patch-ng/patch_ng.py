@@ -28,56 +28,23 @@
     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 """
-from __future__ import print_function
-
 __author__ = "Conan.io <info@conan.io>"
-__version__ = "1.18.1"
+__version__ = "1.19.0"
 __license__ = "MIT"
 __url__ = "https://github.com/conan-io/python-patch"
 
-import copy
-import logging
-import re
-import tempfile
 import codecs
-
-# cStringIO doesn't support unicode in 2.5
-try:
-  from StringIO import StringIO
-except ImportError:
-  from io import BytesIO as StringIO # python 3
-try:
-  import urllib2 as urllib_request
-except ImportError:
-  import urllib.request as urllib_request
-
-from os.path import exists, isfile, abspath
+import copy
+import io
+import logging
 import os
 import posixpath
+import re
 import shutil
-import sys
 import stat
-
-
-PY3K = sys.version_info >= (3, 0)
-
-# PEP 3114
-if not PY3K:
-  compat_next = lambda gen: gen.next()
-else:
-  compat_next = lambda gen: gen.__next__()
-
-def tostr(b):
-  """ Python 3 bytes encoder. Used to print filename in
-      diffstat output. Assumes that filenames are in utf-8.
-  """
-  if not PY3K:
-    return b
-
-  # [ ] figure out how to print non-utf-8 filenames without
-  #     information loss
-  return b.decode('utf-8')
-
+import tempfile
+import urllib.request
+from os.path import exists, isfile, abspath
 
 #------------------------------------------------
 # Logging is controlled by logger named after the
@@ -90,22 +57,10 @@ info = logger.info
 warning = logger.warning
 error = logger.error
 
-class NullHandler(logging.Handler):
-  """ Copied from Python 2.7 to avoid getting
-      `No handlers could be found for logger "patch"`
-      http://bugs.python.org/issue16539
-  """
-  def handle(self, record):
-    pass
-  def emit(self, record):
-    pass
-  def createLock(self):
-    self.lock = None
-
 streamhandler = logging.StreamHandler()
 
 # initialize logger itself
-logger.addHandler(NullHandler())
+logger.addHandler(logging.NullHandler())
 
 debugmode = False
 
@@ -194,11 +149,10 @@ def fromfile(filename):
   """
   patchset = PatchSet()
   debug("reading %s" % filename)
-  fp = open(filename, "rb")
-  res = patchset.parse(fp)
-  fp.close()
-  if res == True:
-    return patchset
+  with open(filename, "rb") as fp:
+    res = patchset.parse(fp)
+    if res == True:
+      return patchset
   return False
 
 
@@ -206,7 +160,7 @@ def fromstring(s):
   """ Parse text string and return PatchSet()
       object (or False if parsing fails)
   """
-  ps = PatchSet( StringIO(s) )
+  ps = PatchSet( io.BytesIO(s) )
   if ps.errors == 0:
     return ps
   return False
@@ -217,7 +171,7 @@ def fromurl(url):
       if an error occured. Note that this also
       can throw urlopen() exceptions.
   """
-  ps = PatchSet( urllib_request.urlopen(url) )
+  ps = PatchSet( urllib.request.urlopen(url) )
   if ps.errors == 0:
     return ps
   return False
@@ -261,15 +215,6 @@ def decode_text(text):
   return text.decode("utf-8", "ignore")  # Ignore not compatible characters
 
 
-def to_file_bytes(content):
-  if PY3K:
-    if not isinstance(content, bytes):
-      content = bytes(content, "utf-8")
-  elif isinstance(content, unicode):
-    content = content.encode("utf-8")
-  return content
-
-
 def load(path, binary=False):
   """ Loads a file content """
   with open(path, 'rb') as handle:
@@ -290,7 +235,9 @@ def save(path, content, only_if_modified=False):
   except Exception:
     pass
 
-  new_content = to_file_bytes(content)
+  new_content = content
+  if not isinstance(content, bytes):
+      new_content = bytes(content, "utf-8")
 
   if only_if_modified and os.path.exists(path):
     old_content = load(path, binary=True)
@@ -326,10 +273,11 @@ class Patch(object):
     self.header = []
 
     self.type = None
+    self.filemode = None
+    self.mode = None
 
   def __iter__(self):
-    for h in self.hunks:
-      yield h
+    return iter(self.hunks)
 
 
 class PatchSet(object):
@@ -344,6 +292,7 @@ class PatchSet(object):
     self.name = None
     # patch set type - one of constants
     self.type = None
+    self.filemode = None
 
     # list of Patch objects
     self.items = []
@@ -359,8 +308,7 @@ class PatchSet(object):
     return len(self.items)
 
   def __iter__(self):
-    for i in self.items:
-      yield i
+    return iter(self.items)
 
   def parse(self, stream):
     """ parse unified diff
@@ -394,7 +342,7 @@ class PatchSet(object):
           return False
 
         try:
-          self._lineno, self._line = compat_next(super(wrapumerate, self))
+          self._lineno, self._line = super(wrapumerate, self).__next__()
         except StopIteration:
           self._exhausted = True
           self._line = False
@@ -431,6 +379,7 @@ class PatchSet(object):
     header = []
     srcname = None
     tgtname = None
+    rename = False
 
     # start of main cycle
     # each parsing block already has line available in fe.line
@@ -441,9 +390,12 @@ class PatchSet(object):
       # --           line fetched at the start of this cycle
       if hunkparsed:
         hunkparsed = False
+        rename = False
         if re_hunk_start.match(fe.line):
             hunkhead = True
         elif fe.line.startswith(b"--- "):
+            filenames = True
+        elif fe.line.startswith(b"rename from "):
             filenames = True
         else:
             headscan = True
@@ -451,9 +403,13 @@ class PatchSet(object):
 
       # read out header
       if headscan:
-        while not fe.is_empty and not fe.line.startswith(b"--- "):
-            header.append(fe.line)
-            fe.next()
+        while not fe.is_empty and not fe.line.startswith(b"--- ") and not fe.line.startswith(b"rename from "):
+              header.append(fe.line)
+              fe.next()
+        if not fe.is_empty and fe.line.startswith(b"rename from "):
+          rename = True
+          hunkskip = True
+          hunkbody = False
         if fe.is_empty:
             if p is None:
               debug("no patch data found")  # error is shown later
@@ -548,7 +504,7 @@ class PatchSet(object):
           # switch to hunkhead state
           hunkskip = False
           hunkhead = True
-        elif line.startswith(b"--- "):
+        elif line.startswith(b"--- ") or line.startswith(b"rename from "):
           # switch to filenames state
           hunkskip = False
           filenames = True
@@ -591,6 +547,50 @@ class PatchSet(object):
             # switch back to headscan state
             filenames = False
             headscan = True
+        elif rename:
+          if line.startswith(b"rename from "):
+            re_rename_from = br"^rename from (.+)"
+            match = re.match(re_rename_from, line)
+            if match:
+              srcname = match.group(1).strip()
+            else:
+              warning("skipping invalid rename from at line %d" % (lineno+1))
+              self.errors += 1
+              # XXX p.header += line
+              # switch back to headscan state
+              filenames = False
+              headscan = True
+            if not fe.is_empty:
+              fe.next()
+              line = fe.line
+              lineno = fe.lineno
+              re_rename_to = br"^rename to (.+)"
+              match = re.match(re_rename_to, line)
+              if match:
+                tgtname = match.group(1).strip()
+              else:
+                warning("skipping invalid rename from at line %d" % (lineno + 1))
+                self.errors += 1
+                # XXX p.header += line
+                # switch back to headscan state
+                filenames = False
+                headscan = True
+            if p:  # for the first run p is None
+              self.items.append(p)
+            p = Patch()
+            p.source = srcname
+            srcname = None
+            p.target = tgtname
+            tgtname = None
+            p.header = header
+            header = []
+            # switch to hunkhead state
+            filenames = False
+            hunkhead = False
+            nexthunkno = 0
+            p.hunkends = lineends.copy()
+            hunkparsed = True
+            continue
         elif not line.startswith(b"+++ "):
           if srcname != None:
             warning("skipping invalid patch with no target for %s" % srcname)
@@ -715,6 +715,9 @@ class PatchSet(object):
     # ---- detect patch and patchset types ----
     for idx, p in enumerate(self.items):
       self.items[idx].type = self._detect_type(p)
+      if self.items[idx].type == GIT:
+        self.items[idx].filemode = self._detect_file_mode(p)
+        self.items[idx].mode = self._detect_patch_mode(p)
 
     types = set([p.type for p in self.items])
     if len(types) > 1:
@@ -761,9 +764,34 @@ class PatchSet(object):
         if p.header[idx].startswith(b"diff --git"):
           break
       if p.header[idx].startswith(b'diff --git a/'):
-        if (idx+1 < len(p.header)
-            and re.match(b'(?:index \\w{7}..\\w{7} \\d{6}|new file mode \\d*)', p.header[idx+1])):
-          if DVCS:
+        git_indicators = []
+        for i in range(idx + 1, len(p.header)):
+          git_indicators.append(p.header[i])
+        for line in git_indicators:
+          if re.match(
+                  b'(?:index \\w{4,40}\\.\\.\\w{4,40}(?: \\d{6})?|new file mode \\d+|deleted file mode \\d+|old mode \\d+|new mode \\d+)',
+                  line):
+            if DVCS:
+              return GIT
+
+        # Additional check: look for mode change patterns
+        # "old mode XXXXX" followed by "new mode XXXXX"
+        has_old_mode = False
+        has_new_mode = False
+
+        for line in git_indicators:
+          if re.match(b'old mode \\d+', line):
+            has_old_mode = True
+          elif re.match(b'new mode \\d+', line):
+            has_new_mode = True
+
+        # If we have both old and new mode, it's definitely Git
+        if has_old_mode and has_new_mode and DVCS:
+          return GIT
+
+        # Check for similarity index (Git renames/copies)
+        for line in git_indicators:
+          if re.match(b'similarity index \\d+%', line):
             return GIT
 
     # HG check
@@ -788,6 +816,54 @@ class PatchSet(object):
 
     return PLAIN
 
+  def _detect_file_mode(self, p):
+    """ Detect the file mode listed in the patch header
+
+       INFO: Only working with Git-style patches
+    """
+    if len(p.header) > 1:
+      for idx in reversed(range(len(p.header))):
+        if p.header[idx].startswith(b"diff --git"):
+          break
+      if p.header[idx].startswith(b'diff --git a/'):
+        if idx + 1 < len(p.header):
+          # new file (e.g)
+          # diff --git a/quote.txt b/quote.txt
+          # new file mode 100755
+          match = re.match(b'new file mode (\\d+)', p.header[idx + 1])
+          if match:
+            return int(match.group(1), 8)
+          # changed mode (e.g)
+          # diff --git a/quote.txt b/quote.txt
+          # old mode 100755
+          # new mode 100644
+          if idx + 2 < len(p.header):
+            match = re.match(b'new mode (\\d+)', p.header[idx + 2])
+            if match:
+              return int(match.group(1), 8)
+    return None
+
+  def _apply_filemode(self, filepath, filemode):
+    if filemode is not None and stat.S_ISREG(filemode):
+      try:
+        only_file_permissions = filemode & 0o777
+        os.chmod(filepath, only_file_permissions)
+      except Exception as error:
+        warning(f"Could not set filemode {oct(filemode)} for {filepath}: {str(error)}")
+
+  def _detect_patch_mode(self, p):
+    """Detect patch mode - add, delete, rename, etc.
+    """
+    if len(p.header) > 1:
+      for idx in reversed(range(len(p.header))):
+        if p.header[idx].startswith(b"diff --git"):
+          break
+      change_pattern = re.compile(rb"^diff --git a/([^ ]+) b/(.+)")
+      match = change_pattern.match(p.header[idx])
+      if match:
+        if match.group(1) != match.group(2) and not p.hunks and p.source != b'/dev/null' and p.target != b'/dev/null':
+          return 'rename'
+    return None
 
   def _normalize_filenames(self):
     """ sanitize filenames, normalizing paths, i.e.:
@@ -805,6 +881,7 @@ class PatchSet(object):
     for i,p in enumerate(self.items):
       if debugmode:
         debug("    patch type = %s" % p.type)
+        debug("    filemode = %s" % p.filemode)
         debug("    source = %s" % p.source)
         debug("    target = %s" % p.target)
       if p.type in (HG, GIT):
@@ -822,6 +899,9 @@ class PatchSet(object):
 
       p.source = xnormpath(p.source)
       p.target = xnormpath(p.target)
+
+      p.source = p.source.strip(b'"')
+      p.target = p.target.strip(b'"')
 
       sep = b'/'  # sep value can be hardcoded, but it looks nice this way
 
@@ -902,7 +982,7 @@ class PatchSet(object):
         #print(iratio, dratio, iwidth, dwidth, histwidth)
         hist = "+"*int(iwidth) + "-"*int(dwidth)
       # -- /calculating +- histogram --
-      output += (format % (tostr(names[i]), str(insert[i] + delete[i]), hist))
+      output += (format % (names[i].decode('utf-8'), str(insert[i] + delete[i]), hist))
 
     output += (" %d files changed, %d insertions(+), %d deletions(-), %+d bytes"
                % (len(names), sum(insert), sum(delete), delta))
@@ -981,9 +1061,17 @@ class PatchSet(object):
         hunks = [s.decode("utf-8") for s in item.hunks[0].text]
         new_file = "".join(hunk[1:] for hunk in hunks)
         save(target, new_file)
+        self._apply_filemode(target, item.filemode)
       elif "dev/null" in target:
         source = self.strip_path(source, root, strip)
         safe_unlink(source)
+      elif item.mode == 'rename':
+        source = self.strip_path(source, root, strip)
+        target = self.strip_path(target, root, strip)
+        if exists(source):
+          os.makedirs(os.path.dirname(target), exist_ok=True)
+          shutil.move(source, target)
+          self._apply_filemode(target, item.filemode)
       else:
         items.append(item)
     self.items = items
@@ -1112,6 +1200,7 @@ class PatchSet(object):
         else:
           shutil.move(filenamen, backupname)
           if self.write_hunks(backupname if filenameo == filenamen else filenameo, filenamen, p.hunks):
+            self._apply_filemode(filenamen, p.filemode)
             info("successfully patched %d/%d:\t %s" % (i+1, total, filenamen))
             safe_unlink(backupname)
             if new == b'/dev/null':
@@ -1270,15 +1359,11 @@ class PatchSet(object):
 
 
   def write_hunks(self, srcname, tgtname, hunks):
-    src = open(srcname, "rb")
-    tgt = open(tgtname, "wb")
+    with open(srcname, "rb") as src, open(tgtname, "wb") as tgt:
+        debug("processing target file %s" % tgtname)
+    
+        tgt.writelines(self.patch_stream(src, hunks))
 
-    debug("processing target file %s" % tgtname)
-
-    tgt.writelines(self.patch_stream(src, hunks))
-
-    tgt.close()
-    src.close()
     # [ ] TODO: add test for permission copy
     shutil.copymode(srcname, tgtname)
     return True

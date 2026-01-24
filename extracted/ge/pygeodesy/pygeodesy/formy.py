@@ -23,11 +23,12 @@ from pygeodesy.fsums import fsumf_,  Fmt, unstr
 # from pygeodesy.internals import typename  # from .named
 from pygeodesy.interns import _delta_, _distant_, _inside_, _SPACE_, _too_
 from pygeodesy.lazily import _ALL_LAZY, _ALL_MODS as _MODS
-from pygeodesy.named import _name__, _name2__, _NamedTuple, _xnamed,  typename
+from pygeodesy.named import _name__, _name2__, _NamedTuple, _xnamed, \
+                             typename
 from pygeodesy.namedTuples import Bearing2Tuple, Distance4Tuple, LatLon2Tuple, \
                                   Intersection3Tuple, PhiLam2Tuple
 # from pygeodesy.streprs import Fmt, unstr  # from .fsums
-# from pygeodesy.triaxials import _hartzell3  # _MODS
+# from pygeodesy.triaxials.triaxial5 import _hartzell3  # _MODS
 from pygeodesy.units import _isDegrees, _isHeight, _isRadius, Bearing, Degrees_, \
                              Distance, Distance_, Height, Lamd, Lat, Lon, Meter_, \
                              Phid, Radians, Radians_, Radius, Radius_, Scalar, _100km
@@ -42,7 +43,7 @@ from contextlib import contextmanager
 from math import atan, cos, degrees, fabs, radians, sin, sqrt  # pow
 
 __all__ = _ALL_LAZY.formy
-__version__ = '25.05.12'
+__version__ = '26.01.06'
 
 _RADIANS2 =  radians(_1_0)**2  # degree to radians-squared
 _ratio_   = 'ratio'
@@ -926,7 +927,8 @@ def hartzell(pov, los=False, earth=_WGS84, **name_LatLon_and_kwds):
     n, kwds = _name2__(name_LatLon_and_kwds, name__=hartzell)
     try:
         D = _spherical_datum(earth, name__=hartzell)
-        r, h, i = _MODS.triaxials._hartzell3(pov, los, D.ellipsoid._triaxial)
+        m = _MODS._triaxials_triaxial5
+        r, h, i = m._hartzell3(pov, los, D.ellipsoid._triaxial)
 
         C = _MODS.cartesianBase.CartesianBase
         if kwds:
@@ -1663,7 +1665,7 @@ def vincentys_(phi2, phi1, lam21):
 
 # **) MIT License
 #
-# Copyright (C) 2016-2025 -- mrJean1 at Gmail -- All Rights Reserved.
+# Copyright (C) 2016-2026 -- mrJean1 at Gmail -- All Rights Reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),

@@ -5,7 +5,13 @@ from starlette.responses import Response
 from starlette.routing import BaseRoute
 
 from langgraph_api.auth.custom import handle_event as _handle_event
+from langgraph_api.encryption.middleware import (
+    decrypt_response,
+    decrypt_responses,
+    encrypt_request,
+)
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
+from langgraph_api.schema import STORE_ENCRYPTION_FIELDS
 from langgraph_api.store import get_store
 from langgraph_api.utils import get_auth_ctx
 from langgraph_api.validation import (
@@ -48,6 +54,7 @@ async def handle_event(
 async def put_item(request: ApiRequest):
     """Store or update an item."""
     payload = await request.json(StorePutRequest)
+    payload = await encrypt_request(payload, "store", STORE_ENCRYPTION_FIELDS)
     namespace = tuple(payload["namespace"]) if payload.get("namespace") else ()
     if err := _validate_namespace(namespace):
         return err
@@ -78,7 +85,11 @@ async def get_item(request: ApiRequest):
     }
     await handle_event("get", handler_payload)
     result = await (await get_store()).aget(namespace, key)
-    return ApiResponse(result.dict() if result is not None else None)
+    if result is None:
+        return ApiResponse(None)
+    return ApiResponse(
+        await decrypt_response(result.dict(), "store", STORE_ENCRYPTION_FIELDS)
+    )
 
 
 @retry_db
@@ -125,7 +136,13 @@ async def search_items(request: ApiRequest):
         offset=handler_payload["offset"],
         query=handler_payload["query"],
     )
-    return ApiResponse({"items": [item.dict() for item in items]})
+    return ApiResponse(
+        {
+            "items": await decrypt_responses(
+                [item.dict() for item in items], "store", STORE_ENCRYPTION_FIELDS
+            )
+        }
+    )
 
 
 @retry_db

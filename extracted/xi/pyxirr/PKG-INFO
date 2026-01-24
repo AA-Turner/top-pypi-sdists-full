@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pyxirr
-Version: 0.10.7
+Version: 0.10.8
 Classifier: Development Status :: 4 - Beta
 Classifier: Topic :: Office/Business :: Financial
 Classifier: Programming Language :: Rust
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: The Unlicense (Unlicense)
 License-File: LICENSE
 Summary: Rust-powered collection of financial functions for Python.
@@ -19,7 +20,7 @@ Keywords: python,fast,financial,xirr,cashflow,day count convention,PME
 Home-Page: https://github.com/Anexen/pyxirr
 Author: Anexen
 License: Unlicense
-Requires-Python: >=3.7, <3.14
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 [![rust-lang.org](https://img.shields.io/badge/Made%20with-Rust-red)](https://www.rust-lang.org/)

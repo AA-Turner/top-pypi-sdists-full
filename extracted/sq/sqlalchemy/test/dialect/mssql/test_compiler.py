@@ -528,7 +528,7 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         crit = q.c.myid == table1.c.myid
 
         if style.plain:
-            # the "plain" style of fetch doesnt use TOP right now, so
+            # the "plain" style of fetch doesn't use TOP right now, so
             # there's an order_by implicit in the row_number part of it
             self.assert_compile(
                 select("*").where(crit),
@@ -1530,6 +1530,14 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(
             schema.DropIndex(Index("idx_foo", t1.c.x)),
             "DROP INDEX idx_foo ON bar.foo",
+        )
+
+    def test_drop_index_if_exists(self):
+        m = MetaData()
+        t1 = Table("foo", m, Column("x", Integer), schema="bar")
+        self.assert_compile(
+            schema.DropIndex(Index("idx_foo", t1.c.x), if_exists=True),
+            "DROP INDEX IF EXISTS idx_foo ON bar.foo",
         )
 
     def test_index_extra_include_1(self):

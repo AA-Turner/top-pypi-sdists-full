@@ -124,7 +124,7 @@ apprise_url_tests = (
         "ifttt://WebHookID@EventID",
         {
             "instance": NotifyIFTTT,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -134,7 +134,7 @@ apprise_url_tests = (
         {
             "instance": NotifyIFTTT,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -188,6 +188,17 @@ def test_plugin_ifttt_edge_cases(mock_post, mock_get):
         obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
         is True
     )
+
+    # Validate outbound payload does not leak NotifyType Enum
+    assert mock_post.call_count >= 1
+    call = mock_post.call_args_list[-1]
+    payload = call[1].get("json") or call[1].get("data") or ""
+    payload_text = payload if isinstance(payload, str) else str(payload)
+
+    assert "NotifyType." not in payload_text
+    # If JSON dict is used:
+    if isinstance(payload, dict):
+        assert NotifyType.INFO.value in payload_text
 
     # Test the addition of tokens
     obj = NotifyIFTTT(

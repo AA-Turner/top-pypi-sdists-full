@@ -123,12 +123,14 @@ options:
 
   column_case_sensitive:
     description:
-      - The default is C(false).
+      - The default is C(true).
       - When C(true), the module will not uppercase the field in the privileges.
       - When C(false), the field names will be upper-cased. This was the default before this
         feature was introduced but since MySQL/MariaDB is case sensitive you should set this
         to C(true) in most cases.
+      - The default changed from C(false) to C(true) in v4.0.0
     type: bool
+    default: true
     version_added: '3.8.0'
 
 notes:
@@ -317,7 +319,6 @@ from ansible_collections.community.mysql.plugins.module_utils.user import (
     privileges_unpack,
 )
 from ansible.module_utils._text import to_native
-from ansible.module_utils.six import iteritems
 
 
 def normalize_users(module, users, is_mariadb=False):
@@ -788,7 +789,7 @@ class Role():
             self.update_members(users, set_default_role_all=set_default_role_all)
 
         if privs:
-            for db_table, priv in iteritems(privs):
+            for db_table, priv in privs.items():
                 privileges_grant(self.cursor, self.name, self.host,
                                  db_table, priv, tls_requires=None,
                                  maria_role=self.is_mariadb)
@@ -973,7 +974,7 @@ def main():
         check_implicit_admin=dict(type='bool', default=False),
         set_default_role_all=dict(type='bool', default=True),
         members_must_exist=dict(type='bool', default=True),
-        column_case_sensitive=dict(type='bool', default=None),  # TODO 4.0.0 add default=True
+        column_case_sensitive=dict(type='bool', default=True),
     )
     module = AnsibleModule(
         argument_spec=argument_spec,
@@ -1020,13 +1021,6 @@ def main():
 
     if mysql_driver is None:
         module.fail_json(msg=mysql_driver_fail_msg)
-
-    # TODO Release 4.0.0 : Remove this test and variable assignation
-    if column_case_sensitive is None:
-        column_case_sensitive = False
-        module.warn("Option column_case_sensitive is not provided. "
-                    "The default is now false, so the column's name will be uppercased. "
-                    "The default will be changed to true in community.mysql 4.0.0.")
 
     cursor = None
     try:

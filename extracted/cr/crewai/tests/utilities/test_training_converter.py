@@ -1,10 +1,9 @@
-from unittest.mock import MagicMock, patch
-
-from pydantic import BaseModel, Field
 from typing import List
+from unittest.mock import MagicMock, patch
 
 from crewai.utilities.converter import ConverterError
 from crewai.utilities.training_converter import TrainingConverter
+from pydantic import BaseModel, Field
 
 
 class TestModel(BaseModel):
@@ -14,7 +13,6 @@ class TestModel(BaseModel):
 
 
 class TestTrainingConverter:
-
     def setup_method(self):
         self.llm_mock = MagicMock()
         self.test_text = "Sample text for evaluation"
@@ -23,26 +21,28 @@ class TestTrainingConverter:
             llm=self.llm_mock,
             text=self.test_text,
             model=TestModel,
-            instructions=self.test_instructions
+            instructions=self.test_instructions,
         )
 
     @patch("crewai.utilities.converter.Converter.to_pydantic")
     def test_fallback_to_field_by_field(self, parent_to_pydantic_mock):
-        parent_to_pydantic_mock.side_effect = ConverterError("Failed to convert directly")
+        parent_to_pydantic_mock.side_effect = ConverterError(
+            "Failed to convert directly"
+        )
 
         llm_responses = {
             "string_field": "test string value",
             "list_field": "- item1\n- item2\n- item3",
-            "number_field": "8.5"
+            "number_field": "8.5",
         }
 
         def llm_side_effect(messages):
             prompt = messages[1]["content"]
             if "string_field" in prompt:
                 return llm_responses["string_field"]
-            elif "list_field" in prompt:
+            if "list_field" in prompt:
                 return llm_responses["list_field"]
-            elif "number_field" in prompt:
+            if "number_field" in prompt:
                 return llm_responses["number_field"]
             return "unknown field"
 

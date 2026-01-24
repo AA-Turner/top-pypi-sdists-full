@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import warnings
 from collections import ChainMap
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from copy import deepcopy
 from dataclasses import field
 from datetime import datetime
@@ -13,10 +13,10 @@ from functools import cached_property
 from hashlib import sha512
 from os import urandom
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 import yaml
-from jinja2 import UndefinedError
+from jinja2 import StrictUndefined, UndefinedError
 from jinja2.sandbox import SandboxedEnvironment
 from prompt_toolkit.lexers import PygmentsLexer
 from pydantic import ConfigDict, Field, field_validator
@@ -25,6 +25,7 @@ from pydantic_core.core_schema import ValidationInfo
 from pygments.lexers.data import JsonLexer, YamlLexer
 from questionary.prompts.common import Choice
 
+from copier._jinja_ext import UnsetError
 from copier.settings import Settings
 
 from ._tools import cast_to_bool, cast_to_str, force_str_end
@@ -178,6 +179,10 @@ class Question:
             Text that appears if there's nothing written in the input field,
             but disappears as soon as the user writes anything. Can be templated.
 
+        qmark:
+            Custom emoji or mark to display before the question. If not specified,
+            defaults to 🎤 for regular questions and 🕵️ for secret questions.
+
         secret:
             Indicates if the question should be removed from the answers file.
             If the question type is str, it will hide user input on the screen
@@ -211,6 +216,7 @@ class Question:
     help: str = ""
     multiline: str | bool = False
     placeholder: str = ""
+    qmark: str | None = None
     secret: bool = False
     type: str = Field(default="", validate_default=True)
     validator: str = ""
@@ -271,11 +277,17 @@ class Question:
                 try:
                     result = self.answers.user_defaults[self.var_name]
                 except KeyError:
-                    if self.default is MISSING:
+                    try:
+                        result = self.render_value(
+                            self.settings.defaults.get(self.var_name, self.default),
+                            extra_answers={
+                                "UNSET": StrictUndefined("UNSET", exc=UnsetError)
+                            },
+                        )
+                    except UnsetError:
                         return MISSING
-                    result = self.render_value(
-                        self.settings.defaults.get(self.var_name, self.default)
-                    )
+                    if result is MISSING:
+                        return MISSING
         result = self.parse_answer(result)
         # Computed values (i.e., `when: false`) are intentionally not validated
         # at the moment.
@@ -392,7 +404,7 @@ class Question:
             "message": self.get_message(),
             "mouse_support": True,
             "name": self.var_name,
-            "qmark": "🕵️" if self.secret else "🎤",
+            "qmark": self.qmark or ("🕵️" if self.secret else "🎤"),
             "when": lambda _: self.get_when(),
         }
         default = self.get_default_rendered()
@@ -482,6 +494,8 @@ class Question:
             )
         try:
             return template.render({**self.context, **(extra_answers or {})})
+        except UnsetError:
+            raise
         except UndefinedError as error:
             raise UserMessageError(str(error)) from error
 

@@ -1,20 +1,13 @@
 from collections.abc import Generator
-from typing import Any, ClassVar, final
+from typing import Any, ClassVar, Literal, final
 
-from typing_extensions import Buffer, Literal, Never
+from typing_extensions import Buffer, Never
 
 from aiokafka.record._protocols import (
     LegacyRecordBatchBuilderProtocol,
     LegacyRecordBatchProtocol,
     LegacyRecordMetadataProtocol,
     LegacyRecordProtocol,
-)
-from aiokafka.record._types import (
-    CodecGzipT,
-    CodecLz4T,
-    CodecMaskT,
-    CodecSnappyT,
-    LegacyCompressionTypeT,
 )
 
 @final
@@ -47,10 +40,10 @@ class LegacyRecord(LegacyRecordProtocol):
 class LegacyRecordBatch(LegacyRecordBatchProtocol):
     RECORD_OVERHEAD_V0: ClassVar[int]
     RECORD_OVERHEAD_V1: ClassVar[int]
-    CODEC_MASK: ClassVar[CodecMaskT]
-    CODEC_GZIP: ClassVar[CodecGzipT]
-    CODEC_SNAPPY: ClassVar[CodecSnappyT]
-    CODEC_LZ4: ClassVar[CodecLz4T]
+    CODEC_MASK: ClassVar[int]
+    CODEC_GZIP: ClassVar[int]
+    CODEC_SNAPPY: ClassVar[int]
+    CODEC_LZ4: ClassVar[int]
 
     is_control_batch: bool
     is_transactional: bool
@@ -63,14 +56,12 @@ class LegacyRecordBatch(LegacyRecordBatchProtocol):
 
 @final
 class LegacyRecordBatchBuilder(LegacyRecordBatchBuilderProtocol):
-    CODEC_MASK: ClassVar[CodecMaskT]
-    CODEC_GZIP: ClassVar[CodecGzipT]
-    CODEC_SNAPPY: ClassVar[CodecSnappyT]
-    CODEC_LZ4: ClassVar[CodecLz4T]
+    CODEC_MASK: ClassVar[int]
+    CODEC_GZIP: ClassVar[int]
+    CODEC_SNAPPY: ClassVar[int]
+    CODEC_LZ4: ClassVar[int]
 
-    def __init__(
-        self, magic: int, compression_type: LegacyCompressionTypeT, batch_size: int
-    ) -> None: ...
+    def __init__(self, magic: int, compression_type: int, batch_size: int) -> None: ...
     def append(
         self,
         offset: int,

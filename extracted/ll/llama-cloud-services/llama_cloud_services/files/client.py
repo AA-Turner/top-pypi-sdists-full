@@ -1,15 +1,17 @@
 from io import BytesIO
 from typing import BinaryIO
 import os
+from pathlib import Path
 from llama_cloud.client import AsyncLlamaCloud
-from llama_cloud.types import File, FileCreate
+from llama_cloud.types import File
 from typing import Optional
+from llama_cloud_services.utils import SourceText, FileInput
 
 
 class FileClient:
     """
     Higher-level client for interacting with the LlamaCloud Files API.
-    Uses presigned URLs for uploads by default.
+    Optionally uses presigned URLs for uploads.
 
     Args:
         client: The LlamaCloud client to use.
@@ -23,7 +25,7 @@ class FileClient:
         client: AsyncLlamaCloud,
         project_id: Optional[str] = None,
         organization_id: Optional[str] = None,
-        use_presigned_url: bool = True,
+        use_presigned_url: bool = False,
     ):
         self.client = client
         self.project_id = project_id
@@ -71,11 +73,9 @@ class FileClient:
             presigned_url = await self.client.files.generate_presigned_url(
                 project_id=self.project_id,
                 organization_id=self.organization_id,
-                request=FileCreate(
-                    name=name,
-                    external_file_id=external_file_id,
-                    file_size=file_size,
-                ),
+                name=name,
+                external_file_id=external_file_id,
+                file_size=file_size,
             )
             httpx_client = self.client._client_wrapper.httpx_client
             upload_response = await httpx_client.put(
@@ -89,9 +89,93 @@ class FileClient:
                 organization_id=self.organization_id,
             )
         else:
+            # Set buffer.name if not already set, so the upload uses external_file_id
+            # for file type detection
+            if not getattr(buffer, "name", None):
+                setattr(buffer, "name", external_file_id)
             return await self.client.files.upload_file(
                 upload_file=buffer,
                 external_file_id=external_file_id,
                 project_id=self.project_id,
                 organization_id=self.organization_id,
+            )
+
+    async def upload_content(
+        self, file_input: FileInput, external_file_id: Optional[str] = None
+    ) -> File:
+        """
+        Upload content from various input types or fetch an already-uploaded file.
+
+        Args:
+            file_input: The content to upload. Can be:
+                - File: Already uploaded file (returned as-is)
+                - str/Path: Path to a file on disk
+                - SourceText: Text content, file, or file_id with explicit filename
+                - BufferedIOBase: File-like binary object
+            external_file_id: Optional external identifier for the file
+
+        Returns:
+            File: The uploaded (or fetched) file object
+
+        Raises:
+            ValueError: If the input type is not supported or required info is missing
+        """
+        # If already a File object, return it
+        if isinstance(file_input, File):
+            return file_input
+
+        # Handle SourceText
+        if isinstance(file_input, SourceText):
+            # If file_id is provided, fetch the file object
+            if file_input.file_id is not None:
+                return await self.get_file(file_input.file_id)
+            elif file_input.text_content is not None:
+                # Handle direct text content
+                text_bytes = file_input.text_content.encode("utf-8")
+                return await self.upload_bytes(
+                    text_bytes, external_file_id or file_input.filename or "file"
+                )
+            elif isinstance(file_input.file, (str, Path)):
+                # Handle file paths using the existing upload_file method
+                return await self.upload_file(
+                    str(file_input.file), external_file_id or file_input.filename
+                )
+            elif isinstance(file_input.file, bytes):
+                # Handle bytes
+                return await self.upload_bytes(
+                    file_input.file, external_file_id or file_input.filename or "file"
+                )
+            elif hasattr(file_input.file, "read"):
+                # Handle any file-like object (TextIOWrapper, BytesIO, BufferedReader, BufferedIOBase, etc.)
+                content = file_input.file.read()  # type: ignore
+                if isinstance(content, str):
+                    content = content.encode("utf-8")
+                return await self.upload_bytes(
+                    content, external_file_id or file_input.filename or "file"
+                )
+            else:
+                raise ValueError(f"Unsupported file type: {type(file_input.file)}")
+
+        # Handle string/Path directly
+        elif isinstance(file_input, (str, Path)):
+            return await self.upload_file(str(file_input), external_file_id)
+
+        # Handle raw file-like objects
+        elif hasattr(file_input, "read"):
+            if hasattr(file_input, "name"):
+                filename = os.path.basename(str(file_input.name))
+            else:
+                filename = external_file_id or "file"
+
+            # Read content to determine size
+            content = file_input.read()
+            if isinstance(content, str):
+                content = content.encode("utf-8")
+
+            return await self.upload_bytes(content, external_file_id or filename)
+
+        else:
+            raise ValueError(
+                f"Unsupported file input type: {type(file_input)}. "
+                f"Supported types: str, Path, SourceText, BufferedIOBase, or File."
             )

@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Annotated, Literal, Union
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -18,60 +18,143 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0065 import CodeScanningAlertRuleSummary
-from .group_0066 import CodeScanningAnalysisTool
-from .group_0067 import CodeScanningAlertInstance
-from .group_0068 import SimpleRepository
+from .group_0067 import BypassResponse
 
 
-class CodeScanningOrganizationAlertItems(GitHubModel):
-    """CodeScanningOrganizationAlertItems"""
+class SecretScanningBypassRequest(GitHubModel):
+    """Secret scanning bypass request
 
-    number: int = Field(description="The security alert number.")
-    created_at: datetime = Field(
-        description="The time that the alert was created in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`."
+    A bypass request made by a user asking to be exempted from push protection in
+    this repository.
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The unique identifier of the bypass request."
     )
-    updated_at: Missing[datetime] = Field(
+    number: Missing[int] = Field(
         default=UNSET,
-        description="The time that the alert was last updated in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="The number uniquely identifying the bypass request within its repository.",
     )
-    url: str = Field(description="The REST API URL of the alert resource.")
-    html_url: str = Field(description="The GitHub URL of the alert resource.")
-    instances_url: str = Field(
-        description="The REST API URL for fetching the list of instances for an alert."
+    repository: Missing[SecretScanningBypassRequestPropRepository] = Field(
+        default=UNSET, description="The repository the bypass request is for."
     )
-    state: Union[None, Literal["open", "dismissed", "fixed"]] = Field(
-        description="State of a code scanning alert."
-    )
-    fixed_at: Missing[Union[datetime, None]] = Field(
+    organization: Missing[SecretScanningBypassRequestPropOrganization] = Field(
         default=UNSET,
-        description="The time that the alert was no longer detected and was considered fixed in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`.",
+        description="The organization associated with the repository the bypass request is for.",
     )
-    dismissed_by: Union[None, SimpleUser] = Field()
-    dismissed_at: Union[datetime, None] = Field(
-        description="The time that the alert was dismissed in ISO 8601 format: `YYYY-MM-DDTHH:MM:SSZ`."
+    requester: Missing[SecretScanningBypassRequestPropRequester] = Field(
+        default=UNSET, description="The user who requested the bypass."
     )
-    dismissed_reason: Union[
-        None, Literal["false positive", "won't fix", "used in tests"]
-    ] = Field(
-        description="**Required when the state is dismissed.** The reason for dismissing or closing the alert."
+    request_type: Missing[str] = Field(
+        default=UNSET, description="The type of request."
     )
-    dismissed_comment: Missing[Union[Annotated[str, Field(max_length=280)], None]] = (
-        Field(
-            default=UNSET,
-            description="The dismissal comment associated with the dismissal of the alert.",
-        )
+    data: Missing[Union[list[SecretScanningBypassRequestPropDataItems], None]] = Field(
+        default=UNSET,
+        description="Data describing the push rules that are being requested to be bypassed.",
     )
-    rule: CodeScanningAlertRuleSummary = Field()
-    tool: CodeScanningAnalysisTool = Field()
-    most_recent_instance: CodeScanningAlertInstance = Field()
-    repository: SimpleRepository = Field(
-        title="Simple Repository", description="A GitHub repository."
+    resource_identifier: Missing[str] = Field(
+        default=UNSET,
+        description="The unique identifier for the request type of the bypass request. For example, a commit SHA.",
     )
-    dismissal_approved_by: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
+    status: Missing[
+        Literal[
+            "pending", "denied", "approved", "cancelled", "completed", "expired", "open"
+        ]
+    ] = Field(default=UNSET, description="The status of the bypass request.")
+    requester_comment: Missing[Union[str, None]] = Field(
+        default=UNSET,
+        description="The comment the requester provided when creating the bypass request.",
+    )
+    expires_at: Missing[_dt.datetime] = Field(
+        default=UNSET, description="The date and time the bypass request will expire."
+    )
+    created_at: Missing[_dt.datetime] = Field(
+        default=UNSET, description="The date and time the bypass request was created."
+    )
+    responses: Missing[Union[list[BypassResponse], None]] = Field(
+        default=UNSET, description="The responses to the bypass request."
+    )
+    url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(
+        default=UNSET, description="The URL to view the bypass request in a browser."
+    )
 
 
-model_rebuild(CodeScanningOrganizationAlertItems)
+class SecretScanningBypassRequestPropRepository(GitHubModel):
+    """SecretScanningBypassRequestPropRepository
 
-__all__ = ("CodeScanningOrganizationAlertItems",)
+    The repository the bypass request is for.
+    """
+
+    id: Missing[int] = Field(
+        default=UNSET, description="The ID of the repository the bypass request is for."
+    )
+    name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the repository the bypass request is for.",
+    )
+    full_name: Missing[str] = Field(
+        default=UNSET,
+        description="The full name of the repository the bypass request is for.",
+    )
+
+
+class SecretScanningBypassRequestPropOrganization(GitHubModel):
+    """SecretScanningBypassRequestPropOrganization
+
+    The organization associated with the repository the bypass request is for.
+    """
+
+    id: Missing[int] = Field(default=UNSET, description="The ID of the organization.")
+    name: Missing[str] = Field(
+        default=UNSET, description="The name of the organization."
+    )
+
+
+class SecretScanningBypassRequestPropRequester(GitHubModel):
+    """SecretScanningBypassRequestPropRequester
+
+    The user who requested the bypass.
+    """
+
+    actor_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the GitHub user who requested the bypass."
+    )
+    actor_name: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the GitHub user who requested the bypass.",
+    )
+
+
+class SecretScanningBypassRequestPropDataItems(GitHubModel):
+    """SecretScanningBypassRequestPropDataItems"""
+
+    secret_type: Missing[str] = Field(
+        default=UNSET, description="The type of secret that secret scanning detected."
+    )
+    bypass_reason: Missing[Literal["used_in_tests", "false_positive", "fix_later"]] = (
+        Field(default=UNSET, description="The reason the bypass was requested.")
+    )
+    path: Missing[str] = Field(
+        default=UNSET,
+        description="The path in the repo where the secret was located during the request.",
+    )
+    branch: Missing[str] = Field(
+        default=UNSET,
+        description="The branch in the repo where the secret was located during the request.",
+    )
+
+
+model_rebuild(SecretScanningBypassRequest)
+model_rebuild(SecretScanningBypassRequestPropRepository)
+model_rebuild(SecretScanningBypassRequestPropOrganization)
+model_rebuild(SecretScanningBypassRequestPropRequester)
+model_rebuild(SecretScanningBypassRequestPropDataItems)
+
+__all__ = (
+    "SecretScanningBypassRequest",
+    "SecretScanningBypassRequestPropDataItems",
+    "SecretScanningBypassRequestPropOrganization",
+    "SecretScanningBypassRequestPropRepository",
+    "SecretScanningBypassRequestPropRequester",
+)

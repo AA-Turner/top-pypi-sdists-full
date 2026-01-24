@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-serverless-clamscan",
-    "version": "2.13.27",
+    "version": "2.13.47",
     "description": "Serverless architecture to virus scan objects in Amazon S3.",
     "license": "Apache-2.0",
     "url": "https://github.com/awslabs/cdk-serverless-clamscan",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_serverless_clamscan._jsii": [
-            "cdk-serverless-clamscan@2.13.27.jsii.tgz"
+            "cdk-serverless-clamscan@2.13.47.jsii.tgz"
         ],
         "cdk_serverless_clamscan": [
             "py.typed"
@@ -36,9 +36,9 @@ kwargs = json.loads(
     "install_requires": [
         "aws-cdk-lib>=2.109.0, <3.0.0",
         "constructs>=10.0.5, <11.0.0",
-        "jsii>=1.114.1, <2.0.0",
+        "jsii>=1.125.0, <2.0.0",
         "publication>=0.0.3",
-        "typeguard>=2.13.3,<4.3.0"
+        "typeguard==2.13.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

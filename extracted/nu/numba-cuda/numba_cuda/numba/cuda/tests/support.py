@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 import cmath
+import concurrent.futures
 import contextlib
 import enum
 import gc
@@ -17,21 +18,33 @@ import tempfile
 import time
 import types as pytypes
 from functools import cached_property
+import multiprocessing as mp
+import traceback
 
 import numpy as np
 
-from numba import types
-from numba.core import errors, config
-from numba.core.typing import cffi_utils
+from numba.cuda import types
+from numba.cuda.core import errors
+from numba.cuda.core import config
+from numba.cuda.typing import cffi_utils
 from numba.cuda.memory_management.nrt import rtsys
-from numba.core.extending import (
+from numba.cuda.extending import (
     typeof_impl,
     register_model,
-    unbox,
     NativeValue,
 )
-from numba.core.datamodel.models import OpaqueModel
-from numba.np import numpy_support
+from numba.cuda.core.pythonapi import unbox
+from numba.cuda.datamodel.models import OpaqueModel
+from numba.cuda.np import numpy_support
+
+from numba.cuda import HAS_NUMBA
+from numba.cuda.utils import PYVERSION
+
+if HAS_NUMBA:
+    from numba.core.extending import (
+        typeof_impl as upstream_typeof_impl,
+    )
+    from numba.core import types as upstream_types
 
 
 class EnableNRTStatsMixin(object):
@@ -44,6 +57,16 @@ class EnableNRTStatsMixin(object):
         rtsys.memsys_disable_stats()
 
 
+skip_if_py314 = unittest.skipIf(PYVERSION == (3, 14), "Test unstable on 3.14")
+
+
+def expected_failure_py314(fn):
+    if PYVERSION == (3, 14):
+        return unittest.expectedFailure(fn)
+    else:
+        return fn
+
+
 skip_unless_cffi = unittest.skipUnless(cffi_utils.SUPPORTED, "requires cffi")
 
 _lnx_reason = "linux only test"
@@ -54,6 +77,19 @@ windows_only = unittest.skipIf(not sys.platform.startswith("win"), _win_reason)
 
 IS_NUMPY_2 = numpy_support.numpy_version >= (2, 0)
 skip_if_numpy_2 = unittest.skipIf(IS_NUMPY_2, "Not supported on numpy 2.0+")
+
+# Typeguard
+has_typeguard = bool(os.environ.get("NUMBA_USE_TYPEGUARD", 0))
+
+skip_unless_typeguard = unittest.skipUnless(
+    has_typeguard,
+    "Typeguard is not enabled",
+)
+
+skip_if_typeguard = unittest.skipIf(
+    has_typeguard,
+    "Broken if Typeguard is enabled",
+)
 
 _trashcan_dir = "numba-cuda-tests"
 
@@ -183,18 +219,6 @@ def run_in_subprocess(code, flags=None, env=None, timeout=30):
     return out, err
 
 
-@contextlib.contextmanager
-def captured_output(stream_name):
-    """Return a context manager used by captured_stdout/stdin/stderr
-    that temporarily replaces the sys stream *stream_name* with a StringIO."""
-    orig_stdout = getattr(sys, stream_name)
-    setattr(sys, stream_name, io.StringIO())
-    try:
-        yield getattr(sys, stream_name)
-    finally:
-        setattr(sys, stream_name, orig_stdout)
-
-
 def captured_stdout():
     """Capture the output of sys.stdout:
 
@@ -202,7 +226,7 @@ def captured_stdout():
         print("hello")
     self.assertEqual(stdout.getvalue(), "hello\n")
     """
-    return captured_output("stdout")
+    return contextlib.redirect_stdout(io.StringIO())
 
 
 def captured_stderr():
@@ -212,7 +236,7 @@ def captured_stderr():
         print("hello", file=sys.stderr)
     self.assertEqual(stderr.getvalue(), "hello\n")
     """
-    return captured_output("stderr")
+    return contextlib.redirect_stderr(io.StringIO())
 
 
 class TestCase(unittest.TestCase):
@@ -745,22 +769,143 @@ class TestCase(unittest.TestCase):
         def typeof_dummy(val, c):
             return dummy_type
 
+        # Dual registration for cross-target tests
+        if HAS_NUMBA:
+            UpstreamDummyType = type(
+                "DummyTypeFor{}".format(test_id), (upstream_types.Opaque,), {}
+            )
+            upstream_dummy_type = UpstreamDummyType("my_dummy")
+
+            @upstream_typeof_impl.register(Dummy)
+            def typeof_dummy_core(val, c):
+                return upstream_dummy_type
+
         @unbox(DummyType)
         def unbox_dummy(typ, obj, c):
             return NativeValue(c.context.get_dummy_value())
 
         return Dummy, DummyType
 
-    def skip_if_no_external_compiler(self):
-        """
-        Call this to ensure the test is skipped if no suitable external compiler
-        is found. This is a method on the TestCase opposed to a stand-alone
-        decorator so as to make it "lazy" via runtime evaluation opposed to
-        running at test-discovery time.
-        """
-        # This is a local import to avoid deprecation warnings being generated
-        # through the use of the numba.pycc module.
-        from numba.pycc.platform import external_compiler_works
 
-        if not external_compiler_works():
-            self.skipTest("No suitable external compiler was found.")
+class MemoryLeak(object):
+    __enable_leak_check = True
+
+    def memory_leak_setup(self):
+        # Clean up any NRT-backed objects hanging in a dead reference cycle
+        gc.collect()
+        self.__init_stats = rtsys.get_allocation_stats()
+
+    def memory_leak_teardown(self):
+        if self.__enable_leak_check:
+            self.assert_no_memory_leak()
+
+    def assert_no_memory_leak(self):
+        old = self.__init_stats
+        new = rtsys.get_allocation_stats()
+        total_alloc = new.alloc - old.alloc
+        total_free = new.free - old.free
+        total_mi_alloc = new.mi_alloc - old.mi_alloc
+        total_mi_free = new.mi_free - old.mi_free
+        self.assertEqual(total_alloc, total_free)
+        self.assertEqual(total_mi_alloc, total_mi_free)
+
+    def disable_leak_check(self):
+        # For per-test use when MemoryLeakMixin is injected into a TestCase
+        self.__enable_leak_check = False
+
+
+class MemoryLeakMixin(EnableNRTStatsMixin, MemoryLeak):
+    def setUp(self):
+        super(MemoryLeakMixin, self).setUp()
+        self.memory_leak_setup()
+
+    def tearDown(self):
+        gc.collect()
+        self.memory_leak_teardown()
+        super(MemoryLeakMixin, self).tearDown()
+
+
+class CheckWarningsMixin(object):
+    @contextlib.contextmanager
+    def check_warnings(self, messages, category=RuntimeWarning):
+        with warnings.catch_warnings(record=True) as catch:
+            warnings.simplefilter("always")
+            yield
+        found = 0
+        for w in catch:
+            for m in messages:
+                if m in str(w.message):
+                    self.assertEqual(w.category, category)
+                    found += 1
+        self.assertEqual(found, len(messages))
+
+
+@contextlib.contextmanager
+def override_env_config(name, value):
+    """
+    Return a context manager that temporarily sets an Numba config environment
+    *name* to *value*.
+    """
+    old = os.environ.get(name)
+    os.environ[name] = value
+    config.reload_config()
+
+    try:
+        yield
+    finally:
+        if old is None:
+            # If it wasn't set originally, delete the environ var
+            del os.environ[name]
+        else:
+            # Otherwise, restore to the old value
+            os.environ[name] = old
+        # Always reload config
+        config.reload_config()
+
+
+def run_in_new_process_in_cache_dir(func, cache_dir, verbose=True):
+    """Spawn a new process to run `func` with a temporary cache directory.
+
+    The childprocess's stdout and stderr will be captured and redirected to
+    the current process's stdout and stderr.
+
+    Similar to ``run_in_new_process_caching()`` but the ``cache_dir`` is a
+    directory path instead of a name prefix for the directory path.
+
+    Returns
+    -------
+    ret : dict
+        exitcode: 0 for success. 1 for exception-raised.
+        stdout: str
+        stderr: str
+    """
+    with override_env_config("NUMBA_CACHE_DIR", cache_dir):
+        with concurrent.futures.ProcessPoolExecutor(
+            mp_context=mp.get_context("spawn")
+        ) as exe:
+            future = exe.submit(_remote_runner, func)
+
+        stdout, stderr, exitcode = future.result()
+        if verbose:
+            if stdout:
+                print()
+                print("STDOUT".center(80, "-"))
+                print(stdout)
+            if stderr:
+                print(file=sys.stderr)
+                print("STDERR".center(80, "-"), file=sys.stderr)
+                print(stderr, file=sys.stderr)
+    return {"exitcode": exitcode, "stdout": stdout, "stderr": stderr}
+
+
+def _remote_runner(fn, qout):
+    """Used by `run_in_new_process_caching()`"""
+    with captured_stderr() as stderr, captured_stdout() as stdout:
+        try:
+            fn()
+        except Exception:
+            traceback.print_exc(file=sys.stderr)
+            exitcode = 1
+        else:
+            exitcode = 0
+        return stdout.getvalue().strip(), stderr.getvalue().strip(), exitcode

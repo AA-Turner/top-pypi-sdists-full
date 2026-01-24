@@ -544,7 +544,7 @@ def from_pandas(uri, dataframe, **kwargs):
 
         * Any `pandas.read_csv <https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html>`_ supported keyword argument
         * **ctx** - A TileDB context
-        * **sparse** - (default True) Create sparse schema
+        * **sparse** - (default False) Create sparse schema
         * **chunksize** - (default None) Maximum number of rows to read at a time. Note that this is also a `pandas.read_csv` argument
                           which `tiledb.read_csv` checks for in order to correctly read a file batchwise.
         * **index_dims** (``List[str]``) -- List of column name(s) to use as dimension(s) in TileDB array schema. This is the recommended way to create dimensions.
@@ -967,6 +967,9 @@ def from_csv(uri: str, csv_file: Union[str, List[str]], **kwargs):
                 break
             df = pandas.concat(df_list)
             if "index_col" not in tiledb_args and df.index.name is None:
+                # Reset index so row_start_idx can be applied correctly
+                # (concat preserves original indices from the CSV files)
+                df.reset_index(drop=True, inplace=True)
                 df.index.name = "__tiledb_rows"
 
             tiledb_args["row_start_idx"] = rows_written
@@ -986,6 +989,9 @@ def from_csv(uri: str, csv_file: Union[str, List[str]], **kwargs):
         df = next(df_iter, None)
         while df is not None:
             if "index_col" not in tiledb_args and df.index.name is None:
+                # Reset index for each chunk so row_start_idx can be applied correctly
+                # (pandas.read_csv with chunksize preserves original row indices)
+                df.reset_index(drop=True, inplace=True)
                 df.index.name = "__tiledb_rows"
 
             # tell from_pandas what row to start the next write

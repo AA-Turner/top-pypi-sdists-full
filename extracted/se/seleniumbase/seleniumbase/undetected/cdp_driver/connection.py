@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 import types
-from asyncio import iscoroutine, iscoroutinefunction
+import warnings
 from typing import (
     Optional,
     Generator,
@@ -33,6 +33,7 @@ GLOBAL_DELAY = 0.005
 MAX_SIZE: int = 2**28
 PING_TIMEOUT: int = 1800  # 30 minutes
 TargetType = Union[cdp.target.TargetInfo, cdp.target.TargetID]
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 logger = logging.getLogger("uc.connection")
 
 
@@ -184,13 +185,13 @@ class Connection(metaclass=CantTouchThis):
         self,
         websocket_url=None,
         target=None,
-        _owner=None,
+        browser=None,
         **kwargs,
     ):
         super().__init__()
         self._target = target
         self.__count__ = itertools.count(0)
-        self._owner = _owner
+        self.browser = browser
         self.websocket_url: str = websocket_url
         self.websocket = None
         self.mapper = {}
@@ -370,44 +371,14 @@ class Connection(metaclass=CantTouchThis):
 
     async def set_geolocation(self, geolocation: Optional[tuple] = None):
         """Sets the User Agent via set_geolocation_override."""
-        await self.send(cdp.browser.grant_permissions(
-            permissions=["geolocation"],
+        await self.send(cdp.browser.set_permission(
+            permission={"name": "geolocation"}, setting="granted"
         ))
         await self.send(cdp.emulation.set_geolocation_override(
             latitude=geolocation[0],
             longitude=geolocation[1],
             accuracy=100,
         ))
-
-    async def set_auth(self, username, password, tab):
-        async def auth_challenge_handler(event: cdp.fetch.AuthRequired):
-            await tab.send(
-                cdp.fetch.continue_with_auth(
-                    request_id=event.request_id,
-                    auth_challenge_response=cdp.fetch.AuthChallengeResponse(
-                        response="ProvideCredentials",
-                        username=username,
-                        password=password,
-                    ),
-                )
-            )
-
-        async def req_paused(event: cdp.fetch.RequestPaused):
-            await tab.send(
-                cdp.fetch.continue_request(request_id=event.request_id)
-            )
-
-        tab.add_handler(
-            cdp.fetch.RequestPaused,
-            lambda event: asyncio.create_task(req_paused(event)),
-        )
-
-        tab.add_handler(
-            cdp.fetch.AuthRequired,
-            lambda event: asyncio.create_task(auth_challenge_handler(event)),
-        )
-
-        await tab.send(cdp.fetch.enable(handle_auth_requests=True))
 
     def __getattr__(self, item):
         """:meta private:"""
@@ -456,8 +427,8 @@ class Connection(metaclass=CantTouchThis):
         await self.aopen()
         if not self.websocket or self.websocket.state is State.CLOSED:
             return
-        if self._owner:
-            browser = self._owner
+        if self.browser:
+            browser = self.browser
             if browser.config:
                 if browser.config.expert:
                     await self._prepare_expert()
@@ -475,11 +446,17 @@ class Connection(metaclass=CantTouchThis):
             if not _is_update:
                 await self._register_handlers()
             await self.websocket.send(tx.message)
-            try:
-                return await tx
-            except ProtocolException as e:
-                e.message += f"\ncommand:{tx.method}\nparams:{tx.params}"
-                raise e
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="coroutine .* was never awaited",
+                    category=RuntimeWarning,
+                )
+                try:
+                    return await tx
+                except ProtocolException as e:
+                    e.message += f"\ncommand:{tx.method}\nparams:{tx.params}"
+                    raise e
         except Exception:
             await self.aclose()
 
@@ -520,8 +497,6 @@ class Connection(metaclass=CantTouchThis):
                     except BaseException:
                         logger.debug("NOT GOOD", exc_info=True)
                         continue
-                finally:
-                    continue
         for ed in enabled_domains:
             # Items still present at this point are unused and need removal.
             self.enabled_domains.remove(ed)
@@ -618,10 +593,12 @@ class Listener:
                     "Connection listener exception "
                     "while reading websocket:\n%s", e
                 )
+                self.idle.set()
                 break
             if not self.running:
                 # If we have been cancelled or otherwise stopped running,
                 # then break this loop.
+                self.idle.set()
                 break
             self.idle.clear()  # Not "idle" anymore.
             message = json.loads(msg)
@@ -642,11 +619,11 @@ class Listener:
                 # Probably an event
                 try:
                     event = cdp.util.parse_json_event(message)
-                    event_tx = EventTransaction(event)
-                    if not self.connection.mapper:
-                        self.connection.__count__ = itertools.count(0)
-                    event_tx.id = next(self.connection.__count__)
-                    self.connection.mapper[event_tx.id] = event_tx
+                    # event_tx = EventTransaction(event)
+                    # if not self.connection.mapper:
+                    #     self.connection.__count__ = itertools.count(0)
+                    # event_tx.id = next(self.connection.__count__)
+                    # self.connection.mapper[event_tx.id] = event_tx
                 except Exception as e:
                     logger.info(
                         "%s: %s during parsing of json from event : %s"
@@ -667,13 +644,15 @@ class Listener:
                     for callback in callbacks:
                         try:
                             if (
-                                iscoroutinefunction(callback)
-                                or iscoroutine(callback)
+                                inspect.iscoroutinefunction(callback)
+                                or inspect.iscoroutine(callback)
                             ):
                                 try:
-                                    await callback(event, self.connection)
+                                    asyncio.create_task(
+                                        callback(event, self.connection)
+                                    )
                                 except TypeError:
-                                    await callback(event)
+                                    asyncio.create_task(callback(event))
                             else:
                                 try:
                                     callback(event, self.connection)

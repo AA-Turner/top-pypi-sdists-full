@@ -155,9 +155,42 @@ class AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagement(pulumi.CustomRes
                  feature_details: Optional[pulumi.Input[Union['AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagementFeatureDetailsArgs', 'AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagementFeatureDetailsArgsDict']]] = None,
                  __props__=None):
         """
-        This resource provides the Autonomous Database Autonomous Database Dbm Features Management resource in Oracle Cloud Infrastructure Database Management service.
+        ## Example Usage
 
-        Enables a Database Management feature for the specified Autonomous Database.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_autonomous_database_autonomous_database_dbm_features_management = oci.databasemanagement.AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagement("test_autonomous_database_autonomous_database_dbm_features_management",
+            autonomous_database_id=test_autonomous_database["id"],
+            enable_autonomous_database_dbm_feature=enable_autonomous_database_dbm_feature,
+            feature_details={
+                "feature": autonomous_database_autonomous_database_dbm_features_management_feature_details_feature,
+                "enable_autonomous_database_dbm_feature": enable_autonomous_database_dbm_feature,
+                "database_connection_details": {
+                    "connection_credentials": {
+                        "credential_name": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_credential_name,
+                        "credential_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_credential_type,
+                        "password_secret_id": test_secret["id"],
+                        "role": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_role,
+                        "ssl_secret_id": test_secret["id"],
+                        "user_name": test_user["name"],
+                    },
+                    "connection_string": {
+                        "connection_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_connection_type,
+                        "port": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_port,
+                        "protocol": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_protocol,
+                        "service": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_service,
+                    },
+                },
+                "connector_details": {
+                    "connector_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_connector_details_connector_type,
+                    "database_connector_id": test_database_connector["id"],
+                    "management_agent_id": test_management_agent["id"],
+                    "private_end_point_id": test_private_end_point["id"],
+                },
+            })
+        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -176,9 +209,42 @@ class AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagement(pulumi.CustomRes
                  args: AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagementArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Autonomous Database Autonomous Database Dbm Features Management resource in Oracle Cloud Infrastructure Database Management service.
+        ## Example Usage
 
-        Enables a Database Management feature for the specified Autonomous Database.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_autonomous_database_autonomous_database_dbm_features_management = oci.databasemanagement.AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagement("test_autonomous_database_autonomous_database_dbm_features_management",
+            autonomous_database_id=test_autonomous_database["id"],
+            enable_autonomous_database_dbm_feature=enable_autonomous_database_dbm_feature,
+            feature_details={
+                "feature": autonomous_database_autonomous_database_dbm_features_management_feature_details_feature,
+                "enable_autonomous_database_dbm_feature": enable_autonomous_database_dbm_feature,
+                "database_connection_details": {
+                    "connection_credentials": {
+                        "credential_name": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_credential_name,
+                        "credential_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_credential_type,
+                        "password_secret_id": test_secret["id"],
+                        "role": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_credentials_role,
+                        "ssl_secret_id": test_secret["id"],
+                        "user_name": test_user["name"],
+                    },
+                    "connection_string": {
+                        "connection_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_connection_type,
+                        "port": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_port,
+                        "protocol": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_protocol,
+                        "service": autonomous_database_autonomous_database_dbm_features_management_feature_details_database_connection_details_connection_string_service,
+                    },
+                },
+                "connector_details": {
+                    "connector_type": autonomous_database_autonomous_database_dbm_features_management_feature_details_connector_details_connector_type,
+                    "database_connector_id": test_database_connector["id"],
+                    "management_agent_id": test_management_agent["id"],
+                    "private_end_point_id": test_private_end_point["id"],
+                },
+            })
+        ```
 
         :param str resource_name: The name of the resource.
         :param AutonomousDatabaseAutonomousDatabaseDbmFeaturesManagementArgs args: The arguments to use to populate this resource's properties.

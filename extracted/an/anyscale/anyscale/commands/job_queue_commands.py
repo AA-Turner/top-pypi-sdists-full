@@ -5,7 +5,7 @@ from enum import Enum
 from functools import partial
 from json import dumps as json_dumps
 import sys
-from typing import Dict, get_type_hints, List, Optional
+from typing import Dict, get_type_hints, List, Optional, Tuple
 
 import click
 from rich.console import Console
@@ -24,7 +24,12 @@ from anyscale.commands.list_util import (
     NON_INTERACTIVE_DEFAULT_MAX_ITEMS,
     validate_page_size,
 )
-from anyscale.commands.util import AnyscaleCommand
+from anyscale.commands.util import (
+    AnyscaleCommand,
+    build_kv_table,
+    parse_repeatable_tags_to_dict,
+    parse_tags_kv_to_str_map,
+)
 import anyscale.job_queue
 from anyscale.job_queue.models import JobQueueStatus, JobQueueStatusKeys
 from anyscale.util import get_endpoint, get_user_info, validate_non_negative_arg
@@ -88,11 +93,26 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
 @click.option("--name", type=str, help="Filter by name.")
 @click.option("--cloud", type=str, help="Filter by cloud.")
 @click.option("--project", type=str, help="Filter by project.")
-@click.option("--include-all-users/--only-mine", default=False)
+@click.option(
+    "--include-all-users/--only-mine",
+    default=False,
+    help="Include job queues not created by current user.",
+)
 @click.option(
     "--cluster-status",
     type=click.Choice(SessionState.allowable_values, case_sensitive=False),
     help="Filter by cluster status.",
+)
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help=(
+        "This option can be repeated to filter by multiple tags. "
+        "Tags with the same key are ORed, whereas tags with different keys are ANDed. "
+        "Example: --tag team:mlops --tag team:infra --tag env:prod. "
+        "Filters with team: (mlops OR infra) AND env:prod."
+    ),
 )
 @click.option(
     "--view",
@@ -121,9 +141,14 @@ VIEW_COLUMNS: Dict[ViewOption, List[JobQueueStatusKeys]] = {
     "sort_dirs",
     multiple=True,
     default=["-created_at"],
+    help="Sort by FIELD (prefix with '-' for desc). Repeatable.",
     callback=lambda _ctx, _param, values: _parse_sort_fields("sort", list(values)),
 )
-@click.option("--no-interactive/--interactive", default=False)
+@click.option(
+    "--no-interactive/--interactive",
+    default=False,
+    help="Use non-interactive batch mode instead of interactive paging.",
+)
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
@@ -133,6 +158,7 @@ def list_job_queues(  # noqa: PLR0913
     cloud: Optional[str],
     project: Optional[str],
     cluster_status: Optional[str],
+    tags: List[str],
     include_all_users: bool,
     view: ViewOption,
     page_size: int,
@@ -149,20 +175,21 @@ def list_job_queues(  # noqa: PLR0913
     console = Console()
     stderr = Console(stderr=True)
 
-    _print_list_diagnostics(
-        stderr=stderr,
-        job_queue_id=job_queue_id,
-        name=name,
-        include_all_users=include_all_users,
-        cloud=cloud,
-        project=project,
-        cluster_status=cluster_status,
-        view=view,
-        sort_dirs=sort_dirs,
-        no_interactive=no_interactive,
-        page_size=page_size,
-        effective_max=effective_max,
-    )
+    if not json_output:
+        _print_list_diagnostics(
+            stderr=stderr,
+            job_queue_id=job_queue_id,
+            name=name,
+            include_all_users=include_all_users,
+            cloud=cloud,
+            project=project,
+            cluster_status=cluster_status,
+            view=view,
+            sort_dirs=sort_dirs,
+            no_interactive=no_interactive,
+            page_size=page_size,
+            effective_max=effective_max,
+        )
 
     try:
         user = get_user_info()
@@ -172,6 +199,7 @@ def list_job_queues(  # noqa: PLR0913
             creator_id=None if include_all_users else (user.id if user else None),
             cloud=cloud,
             project=project,
+            tags_filter=parse_repeatable_tags_to_dict(tags) if tags else None,
             page_size=page_size,
             max_items=None if not no_interactive else effective_max,
             sorting_directives=sort_dirs,
@@ -207,9 +235,9 @@ def list_job_queues(  # noqa: PLR0913
     cls=AnyscaleCommand,
     example=command_examples.JOB_QUEUE_UPDATE,
 )
-@click.option("--id", "job_queue_id", required=True)
-@click.option("--max-concurrency", type=int)
-@click.option("--idle-timeout-s", type=int)
+@click.option("--id", "job_queue_id", required=True, help="ID of the job queue.")
+@click.option("--max-concurrency", type=int, help="Max number of concurrent jobs.")
+@click.option("--idle-timeout-s", type=int, help="Idle timeout in seconds.")
 @click.option(
     "--json", "json_output", is_flag=True, default=False, help="JSON output.",
 )
@@ -223,7 +251,8 @@ def update_job_queue(
     if max_concurrency is None and idle_timeout_s is None:
         raise click.ClickException("Specify --max-concurrency or --idle-timeout-s")
     stderr = Console(stderr=True)
-    stderr.print(f"Updating job queue '{job_queue_id}'...")
+    if not json_output:
+        stderr.print(f"Updating job queue '{job_queue_id}'...")
     try:
         jq = anyscale.job_queue.update(
             job_queue_id=job_queue_id,
@@ -240,13 +269,95 @@ def update_job_queue(
         sys.exit(1)
 
 
+@job_queue_cli.group("tags", help="Manage tags for job queues.")
+def job_queue_tags_cli() -> None:
+    pass
+
+
+@job_queue_tags_cli.command(
+    name="add",
+    help="Add or update tags on a job queue.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_TAGS_ADD_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--name", "-n", type=str, help="Name of a job queue.")
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+def add_tags(
+    job_queue_id: Optional[str], name: Optional[str], tags: Tuple[str],
+) -> None:
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = parse_tags_kv_to_str_map(tags)
+    if not tag_map:
+        raise click.ClickException("Provide at least one --tag key=value.")
+    anyscale.job_queue.add_tags(job_queue_id=job_queue_id, name=name, tags=tag_map)
+    stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
+    stderr.print(f"Tags updated for job queue '{ident}'.")
+
+
+@job_queue_tags_cli.command(
+    name="remove",
+    help="Remove tags by key from a job queue.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_TAGS_REMOVE_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--name", "-n", type=str, help="Name of a job queue.")
+@click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
+def remove_tags(
+    job_queue_id: Optional[str], name: Optional[str], keys: Tuple[str],
+) -> None:
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    key_list = [k for k in keys if k and k.strip()]
+    if not key_list:
+        raise click.ClickException("Provide at least one --key to remove.")
+    anyscale.job_queue.remove_tags(job_queue_id=job_queue_id, name=name, keys=key_list)
+    stderr = Console(stderr=True)
+    ident = job_queue_id or name or "<unknown>"
+    stderr.print(f"Removed tag keys {key_list} from job queue '{ident}'.")
+
+
+@job_queue_tags_cli.command(
+    name="list",
+    help="List tags for a job queue.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_QUEUE_TAGS_LIST_EXAMPLE,
+)
+@click.option("--id", "job_queue_id", help="ID of a job queue.")
+@click.option("--name", "-n", type=str, help="Name of a job queue.")
+@click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
+def list_tags(
+    job_queue_id: Optional[str], name: Optional[str], json_output: bool,
+) -> None:
+    if not job_queue_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = anyscale.job_queue.list_tags(job_queue_id=job_queue_id, name=name)
+    if json_output:
+        Console().print_json(json=json_dumps(tag_map, indent=2))
+    else:
+        stderr = Console(stderr=True)
+        if not tag_map:
+            stderr.print("No tags found.")
+            return
+        pairs = tag_map.items()
+        stderr.print(build_kv_table(pairs, title="Tags"))
+
+
 @job_queue_cli.command(
     name="status",
     help="Show job queue details.",
     cls=AnyscaleCommand,
-    example=command_examples.JOB_QUEUE_INFO,
+    example=command_examples.JOB_QUEUE_STATUS,
 )
-@click.option("--id", "job_queue_id", required=True)
+@click.option("--id", "job_queue_id", required=True, help="ID of the job queue.")
 @click.option(
     "--view",
     type=click.Choice([opt.value for opt in ViewOption], case_sensitive=False),
@@ -260,13 +371,16 @@ def update_job_queue(
 def status(job_queue_id: str, view: ViewOption, json_output: bool,) -> None:
     """Fetch and display a single job queue's details."""
     stderr = Console(stderr=True)
-    stderr.print(f"Fetching job queue '{job_queue_id}'...")
+    if not json_output:
+        stderr.print(f"Fetching job queue '{job_queue_id}'...")
     try:
         jq = anyscale.job_queue.status(job_queue_id=job_queue_id)
         if json_output:
             Console().print_json(json_dumps(_format_data(jq), indent=2))
         else:
-            _display_single(jq, stderr, view)
+            # Use ALL view for single item display if not specified
+            display_view = ViewOption.ALL if view == ViewOption.DEFAULT else view
+            _display_single(jq, stderr, display_view)
     except Exception as e:  # noqa: BLE001
         stderr.print(f"Failed: {e}", style="red")
         sys.exit(1)

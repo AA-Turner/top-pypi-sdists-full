@@ -21,18 +21,29 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SAMLConnections]:
+    ) -> models.SAMLConnections:
         r"""Get a list of SAML Connections for an instance
 
         Returns the list of SAML Connections for an instance.
         Results can be paginated using the optional `limit` and `offset` query parameters.
         The SAML Connections are ordered by descending creation date and the most recent will be returned first.
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param query: Returns SAML connections that have a name that matches the given query, via case-insensitive partial match.
-        :param order_by: Sorts organizations memberships by phone_number, email_address, created_at, first_name, last_name or username. By prepending one of those values with + or -, we can choose to sort in ascending (ASC) or descending (DESC) order.
-        :param organization_id: Returns SAML connections that have an associated organization ID to the given organizations. For each organization id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set. Accepts up to 100 organization ids.
+        :param order_by: Sorts organizations memberships by phone_number, email_address, created_at, first_name, last_name or username.
+            By prepending one of those values with + or -,
+            we can choose to sort in ascending (ASC) or descending (DESC) order.
+        :param organization_id: Returns SAML connections that have an associated organization ID to the
+            given organizations.
+            For each organization ID, the `+` and `-` can be
+            prepended to the ID, which denote whether the
+            respective organization should be included or
+            excluded from the result set.
+            Accepts up to 100 organization IDs.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -69,6 +80,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -89,7 +101,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListSAMLConnections",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -99,7 +111,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SAMLConnections], http_res)
+            return unmarshal_json_response(models.SAMLConnections, http_res)
         if utils.match_response(http_res, ["402", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -124,18 +136,29 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SAMLConnections]:
+    ) -> models.SAMLConnections:
         r"""Get a list of SAML Connections for an instance
 
         Returns the list of SAML Connections for an instance.
         Results can be paginated using the optional `limit` and `offset` query parameters.
         The SAML Connections are ordered by descending creation date and the most recent will be returned first.
 
-        :param limit: Applies a limit to the number of results returned. Can be used for paginating the results together with `offset`.
-        :param offset: Skip the first `offset` results when paginating. Needs to be an integer greater or equal to zero. To be used in conjunction with `limit`.
+        :param limit: Applies a limit to the number of results returned.
+            Can be used for paginating the results together with `offset`.
+        :param offset: Skip the first `offset` results when paginating.
+            Needs to be an integer greater or equal to zero.
+            To be used in conjunction with `limit`.
         :param query: Returns SAML connections that have a name that matches the given query, via case-insensitive partial match.
-        :param order_by: Sorts organizations memberships by phone_number, email_address, created_at, first_name, last_name or username. By prepending one of those values with + or -, we can choose to sort in ascending (ASC) or descending (DESC) order.
-        :param organization_id: Returns SAML connections that have an associated organization ID to the given organizations. For each organization id, the `+` and `-` can be prepended to the id, which denote whether the respective organization should be included or excluded from the result set. Accepts up to 100 organization ids.
+        :param order_by: Sorts organizations memberships by phone_number, email_address, created_at, first_name, last_name or username.
+            By prepending one of those values with + or -,
+            we can choose to sort in ascending (ASC) or descending (DESC) order.
+        :param organization_id: Returns SAML connections that have an associated organization ID to the
+            given organizations.
+            For each organization ID, the `+` and `-` can be
+            prepended to the ID, which denote whether the
+            respective organization should be included or
+            excluded from the result set.
+            Accepts up to 100 organization IDs.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -172,6 +195,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -192,7 +216,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="ListSAMLConnections",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -202,7 +226,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.SAMLConnections], http_res)
+            return unmarshal_json_response(models.SAMLConnections, http_res)
         if utils.match_response(http_res, ["402", "403", "422"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -228,7 +252,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Create a SAML Connection
 
         Create a new SAML Connection.
@@ -275,6 +299,7 @@ class SamlConnectionsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateSAMLConnectionRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -295,7 +320,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -305,9 +330,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(
             http_res, ["402", "403", "404", "422"], "application/json"
         ):
@@ -335,7 +358,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Create a SAML Connection
 
         Create a new SAML Connection.
@@ -382,6 +405,7 @@ class SamlConnectionsSDK(BaseSDK):
                 "json",
                 Optional[models.CreateSAMLConnectionRequestBody],
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -402,7 +426,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="CreateSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -412,9 +436,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(
             http_res, ["402", "403", "404", "422"], "application/json"
         ):
@@ -437,7 +459,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Retrieve a SAML Connection by ID
 
         Fetches the SAML Connection whose ID matches the provided `saml_connection_id` in the path.
@@ -475,6 +497,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -495,7 +518,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -505,9 +528,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(http_res, ["402", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -528,7 +549,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Retrieve a SAML Connection by ID
 
         Fetches the SAML Connection whose ID matches the provided `saml_connection_id` in the path.
@@ -566,6 +587,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -586,7 +608,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="GetSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -596,9 +618,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(http_res, ["402", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -632,11 +652,12 @@ class SamlConnectionsSDK(BaseSDK):
         allow_subdomains: OptionalNullable[bool] = UNSET,
         allow_idp_initiated: OptionalNullable[bool] = UNSET,
         disable_additional_identifications: OptionalNullable[bool] = UNSET,
+        force_authn: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Update a SAML Connection
 
         Updates the SAML Connection whose ID matches the provided `id` in the path.
@@ -645,18 +666,19 @@ class SamlConnectionsSDK(BaseSDK):
         :param name: The name of the new SAML Connection
         :param domain: The domain to use for the new SAML Connection
         :param domains: A list of the domains on use for the SAML connection
-        :param idp_entity_id: The entity id as provided by the IdP
-        :param idp_sso_url: The SSO url as provided by the IdP
+        :param idp_entity_id: The Entity ID as provided by the IdP
+        :param idp_sso_url: The SSO URL as provided by the IdP
         :param idp_certificate: The x509 certificated as provided by the IdP
         :param idp_metadata_url: The URL which serves the IdP metadata. If present, it takes priority over the corresponding individual properties and replaces them
         :param idp_metadata: The XML content of the IdP metadata file. If present, it takes priority over the corresponding individual properties
         :param organization_id: The ID of the organization to which users of this SAML Connection will be added
-        :param attribute_mapping: Define the atrtibute name mapping between Identity Provider and Clerk's user properties
+        :param attribute_mapping: Define the attribute name mapping between Identity Provider and Clerk's user properties
         :param active: Activate or de-activate the SAML Connection
         :param sync_user_attributes: Controls whether to update the user's attributes in each sign-in
         :param allow_subdomains: Allow users with an email address subdomain to use this connection in order to authenticate
         :param allow_idp_initiated: Enable or deactivate IdP-initiated flows
         :param disable_additional_identifications: Enable or deactivate additional identifications
+        :param force_authn: Enable or deactivate ForceAuthn
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -692,6 +714,7 @@ class SamlConnectionsSDK(BaseSDK):
                 allow_subdomains=allow_subdomains,
                 allow_idp_initiated=allow_idp_initiated,
                 disable_additional_identifications=disable_additional_identifications,
+                force_authn=force_authn,
             ),
         )
 
@@ -715,6 +738,7 @@ class SamlConnectionsSDK(BaseSDK):
                 "json",
                 models.UpdateSAMLConnectionRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -735,7 +759,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -745,9 +769,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(
             http_res, ["402", "403", "404", "422"], "application/json"
         ):
@@ -783,11 +805,12 @@ class SamlConnectionsSDK(BaseSDK):
         allow_subdomains: OptionalNullable[bool] = UNSET,
         allow_idp_initiated: OptionalNullable[bool] = UNSET,
         disable_additional_identifications: OptionalNullable[bool] = UNSET,
+        force_authn: Optional[bool] = None,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.SchemasSAMLConnection]:
+    ) -> models.SchemasSAMLConnection:
         r"""Update a SAML Connection
 
         Updates the SAML Connection whose ID matches the provided `id` in the path.
@@ -796,18 +819,19 @@ class SamlConnectionsSDK(BaseSDK):
         :param name: The name of the new SAML Connection
         :param domain: The domain to use for the new SAML Connection
         :param domains: A list of the domains on use for the SAML connection
-        :param idp_entity_id: The entity id as provided by the IdP
-        :param idp_sso_url: The SSO url as provided by the IdP
+        :param idp_entity_id: The Entity ID as provided by the IdP
+        :param idp_sso_url: The SSO URL as provided by the IdP
         :param idp_certificate: The x509 certificated as provided by the IdP
         :param idp_metadata_url: The URL which serves the IdP metadata. If present, it takes priority over the corresponding individual properties and replaces them
         :param idp_metadata: The XML content of the IdP metadata file. If present, it takes priority over the corresponding individual properties
         :param organization_id: The ID of the organization to which users of this SAML Connection will be added
-        :param attribute_mapping: Define the atrtibute name mapping between Identity Provider and Clerk's user properties
+        :param attribute_mapping: Define the attribute name mapping between Identity Provider and Clerk's user properties
         :param active: Activate or de-activate the SAML Connection
         :param sync_user_attributes: Controls whether to update the user's attributes in each sign-in
         :param allow_subdomains: Allow users with an email address subdomain to use this connection in order to authenticate
         :param allow_idp_initiated: Enable or deactivate IdP-initiated flows
         :param disable_additional_identifications: Enable or deactivate additional identifications
+        :param force_authn: Enable or deactivate ForceAuthn
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -843,6 +867,7 @@ class SamlConnectionsSDK(BaseSDK):
                 allow_subdomains=allow_subdomains,
                 allow_idp_initiated=allow_idp_initiated,
                 disable_additional_identifications=disable_additional_identifications,
+                force_authn=force_authn,
             ),
         )
 
@@ -866,6 +891,7 @@ class SamlConnectionsSDK(BaseSDK):
                 "json",
                 models.UpdateSAMLConnectionRequestBody,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -886,7 +912,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="UpdateSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -896,9 +922,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(
-                Optional[models.SchemasSAMLConnection], http_res
-            )
+            return unmarshal_json_response(models.SchemasSAMLConnection, http_res)
         if utils.match_response(
             http_res, ["402", "403", "404", "422"], "application/json"
         ):
@@ -921,7 +945,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete a SAML Connection
 
         Deletes the SAML Connection whose ID matches the provided `id` in the path.
@@ -959,6 +983,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -979,7 +1004,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -989,7 +1014,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["402", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)
@@ -1010,7 +1035,7 @@ class SamlConnectionsSDK(BaseSDK):
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
         http_headers: Optional[Mapping[str, str]] = None,
-    ) -> Optional[models.DeletedObject]:
+    ) -> models.DeletedObject:
         r"""Delete a SAML Connection
 
         Deletes the SAML Connection whose ID matches the provided `id` in the path.
@@ -1048,6 +1073,7 @@ class SamlConnectionsSDK(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1068,7 +1094,7 @@ class SamlConnectionsSDK(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="DeleteSAMLConnection",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1078,7 +1104,7 @@ class SamlConnectionsSDK(BaseSDK):
 
         response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
-            return unmarshal_json_response(Optional[models.DeletedObject], http_res)
+            return unmarshal_json_response(models.DeletedObject, http_res)
         if utils.match_response(http_res, ["402", "403", "404"], "application/json"):
             response_data = unmarshal_json_response(models.ClerkErrorsData, http_res)
             raise models.ClerkErrors(response_data, http_res)

@@ -59,6 +59,24 @@ options:
     - Define whether to eradicate the snapshot on delete or leave in trash.
     type: bool
     default: false
+  latest_replica:
+    description:
+    - Used when destroying a snapshot.
+    - If false, and the snapshot is the
+      latest replicated snapshot, then destroy will fail.
+    - If true or the snapshot is not the latest replicated snapshot,
+      then destroy will be successful.
+    type: bool
+    default: false
+    version_added: "1.21.0"
+  context:
+    description:
+    - Name of fleet member on which to perform the operation.
+    - This requires the array receiving the request is a member of a fleet
+      and the context name to be a member of the same fleet.
+    type: str
+    default: ""
+    version_added: "1.22.0"
 extends_documentation_fragment:
 - purestorage.flashblade.purestorage.fb
 """
@@ -120,115 +138,158 @@ RETURN = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
-    get_blade,
     get_system,
     purefb_argument_spec,
 )
 
 from datetime import datetime
 
-HAS_PURITY_FB = True
-try:
-    from purity_fb import FileSystemSnapshot, SnapshotSuffix, FileSystem, Reference
-except ImportError:
-    HAS_PURITY_FB = False
-
 HAS_PYPURECLIENT = True
 try:
-    from pypureclient.flashblade import FileSystemSnapshotPost
+    from pypureclient.flashblade import (
+        FileSystemSnapshotPost,
+        FileSystemSnapshot,
+        FileSystemPost,
+        Reference,
+    )
 except ImportError:
     HAS_PYPURECLIENT = False
 
 SNAP_NOW_API = "2.10"
+CONTEXT_API_VERSION = "2.17"
 
 
 def get_fs(module, blade):
     """Return Filesystem or None"""
-    filesystem = []
-    filesystem.append(module.params["name"])
-    try:
-        res = blade.file_systems.list_file_systems(names=filesystem)
-        return res.items[0]
-    except Exception:
-        return None
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_systems(
+            names=[module.params["name"]], context_names=[module.params["context"]]
+        )
+    else:
+        res = blade.get_file_systems(names=[module.params["name"]])
+    if res.status_code == 200:
+        return list(res.items)[0]
+    return None
 
 
 def get_latest_fssnapshot(module, blade):
     """Get the name of the latest snpshot or None"""
-    try:
-        filt = "source='" + module.params["name"] + "'"
-        all_snaps = blade.file_system_snapshots.list_file_system_snapshots(filter=filt)
-        if not all_snaps.items[0].destroyed:
-            return all_snaps.items[0].name
-        else:
-            module.fail_json(
-                msg="Latest snapshot {0} is destroyed."
-                " Eradicate or recover this first.".format(all_snaps.items[0].name)
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_system_snapshots(
+            names_or_owner_names=[module.params["name"]],
+            context_names=[module.params["context"]],
+        )
+    else:
+        res = blade.get_file_system_snapshots(
+            names_or_owner_names=[module.params["name"]]
+        )
+    if res.status_code != 200:
+        module.fail_json(
+            msg="Failed to get filesystem snapshots. Error: {0}".format(
+                res.errors[0].message
             )
-    except Exception:
-        return None
+        )
+    all_snaps = list(res.items)
+    last_snap = sorted(all_snaps, key=lambda x: x["created"])[-1]
+    if not last_snap.destroyed:
+        return last_snap.name
+    module.fail_json(
+        msg="Latest snapshot {0} is destroyed."
+        " Eradicate or recover this first.".format(all_snaps[0].name)
+    )
+    return None
 
 
 def get_fssnapshot(module, blade):
     """Return Snapshot or None"""
-    try:
-        filt = (
-            "source='"
-            + module.params["name"]
-            + "' and suffix='"
-            + module.params["suffix"]
-            + "'"
+    api_version = list(blade.get_versions().items)
+    if CONTEXT_API_VERSION in api_version:
+        res = blade.get_file_system_snapshots(
+            names_or_owner_names=[
+                module.params["name"] + "." + module.params["suffix"]
+            ],
+            context_names=[module.params["context"]],
         )
-        res = blade.file_system_snapshots.list_file_system_snapshots(filter=filt)
-        return res.items[0]
-    except Exception:
-        return None
+    else:
+        res = blade.get_file_system_snapshots(
+            names_or_owner_names=[
+                module.params["name"] + "." + module.params["suffix"]
+            ],
+        )
+    if res.status_code == 200:
+        return list(res.items)[0]
+    return None
 
 
 def create_snapshot(module, blade):
     """Create Snapshot"""
+    api_version = list(blade.get_versions().items)
     changed = False
-    source = []
     # Special case as we have changed 'target' to be a string not a list of one string
     # so this provides backwards compatability
-    source.append(module.params["name"])
-    if module.params["now"]:
-        target = (
-            module.params["target"].replace("[", "").replace("'", "").replace("]", "")
+    # target = module.params["target"].replace("[", "").replace("'", "").replace("]", "")
+    blade_exists = False
+    if CONTEXT_API_VERSION in api_version:
+        connected_blades = list(
+            blade.get_array_connections(context_names=[module.params["context"]]).items
         )
-        blade2 = get_system(module)
-        blade_exists = False
-        connected_blades = blade.array_connections.list_array_connections().items
-        for blade in range(0, len(connected_blades)):
-            if (
-                target == connected_blades[blade].remote.name
-                and connected_blades[blade].status == "connected"
-            ):
-                blade_exists = True
-                break
-        if not blade_exists:
-            module.fail_json(msg="Selected target is not a correctly connected system")
-        changed = True
-        if not module.check_mode:
-            res = blade2.post_file_system_snapshots(
-                source_names=source,
-                send=True,
-                targets=[target],
-                file_system_snapshot=FileSystemSnapshotPost(
-                    suffix=module.params["suffix"]
-                ),
-            )
-            if res.status_code != 200:
-                module.fail_json(
-                    msg="Failed to create remote snapshot. Error: {0}".format(
-                        res.errors[0].message
-                    )
-                )
     else:
-        changed = True
-        if not module.check_mode:
-            blade.file_system_snapshots.create_file_system_snapshots(
-                sources=source, suffix=SnapshotSuffix(module.params["suffix"])
+        connected_blades = list(blade.get_array_connections().items)
+    for rem_blade in range(len(connected_blades)):
+        if (
+            module.params["target"]
+            and module.params["target"] == connected_blades[rem_blade].remote.name
+            and connected_blades[rem_blade].status == "connected"
+        ):
+            blade_exists = True
+            break
+    if not module.params["target"] and blade_exists:
+        module.fail_json(msg="Selected target is not a correctly connected system")
+    changed = True
+    if not module.check_mode:
+        if module.params["target"]:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.post_file_system_snapshots(
+                    source_names=[module.params["name"]],
+                    send=module.params["now"],
+                    targets=[module.params["target"]],
+                    file_system_snapshot=FileSystemSnapshotPost(
+                        suffix=module.params["suffix"]
+                    ),
+                    context_names=[module.params["context"]],
+                )
+            else:
+                res = blade.post_file_system_snapshots(
+                    source_names=[module.params["name"]],
+                    send=module.params["now"],
+                    targets=[module.params["target"]],
+                    file_system_snapshot=FileSystemSnapshotPost(
+                        suffix=module.params["suffix"]
+                    ),
+                )
+        else:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.post_file_system_snapshots(
+                    source_names=[module.params["name"]],
+                    file_system_snapshot=FileSystemSnapshotPost(
+                        suffix=module.params["suffix"]
+                    ),
+                    context_names=[module.params["context"]],
+                )
+            else:
+                res = blade.post_file_system_snapshots(
+                    source_names=[module.params["name"]],
+                    file_system_snapshot=FileSystemSnapshotPost(
+                        suffix=module.params["suffix"]
+                    ),
+                )
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Failed to create remote snapshot. Error: {0}".format(
+                    res.errors[0].message
+                )
             )
     module.exit_json(changed=changed)
 
@@ -236,20 +297,31 @@ def create_snapshot(module, blade):
 def restore_snapshot(module, blade):
     """Restore a filesystem back from the latest snapshot"""
     changed = True
+    api_version = list(blade.get_versions().items)
     snapname = get_latest_fssnapshot(module, blade)
     if snapname is not None:
         if not module.check_mode:
-            fs_attr = FileSystem(
-                name=module.params["name"], source=Reference(name=snapname)
-            )
-            try:
-                blade.file_systems.create_file_systems(
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.post_file_systems(
+                    names=[module.params["name"]],
                     overwrite=True,
                     discard_non_snapshotted_data=True,
-                    file_system=fs_attr,
+                    file_system=FileSystemPost(source=Reference(name=snapname)),
+                    context_names=[module.params["context"]],
                 )
-            except Exception:
-                changed = False
+            else:
+                res = blade.post_file_systems(
+                    names=[module.params["name"]],
+                    overwrite=True,
+                    discard_non_snapshotted_data=True,
+                    file_system=FileSystemPost(source=Reference(name=snapname)),
+                )
+            if res.status_code != 200:
+                module.fail_json(
+                    msg="Failed to restore snapshot {0} to filesystem {1}. Error: {2}".format(
+                        snapname, module.params["name"], res.errors[0].message
+                    )
+                )
     else:
         module.fail_json(
             msg="Filesystem {0} has no snapshots to restore from.".format(
@@ -262,15 +334,26 @@ def restore_snapshot(module, blade):
 def recover_snapshot(module, blade):
     """Recover deleted Snapshot"""
     changed = True
+    api_version = list(blade.get_versions().items)
     if not module.check_mode:
         snapname = module.params["name"] + "." + module.params["suffix"]
-        new_attr = FileSystemSnapshot(destroyed=False)
-        try:
-            blade.file_system_snapshots.update_file_system_snapshots(
-                name=snapname, attributes=new_attr
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.patch_file_system_snapshots(
+                names=[snapname],
+                file_system_snapshot=FileSystemSnapshot(destroyed=False),
+                context_names=[module.params["context"]],
             )
-        except Exception:
-            changed = False
+        else:
+            res = blade.patch_file_system_snapshots(
+                names=[snapname],
+                file_system_snapshot=FileSystemSnapshot(destroyed=False),
+            )
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Failed to recover snapshot {0} for filesystem {1}. Error: {2}".format(
+                    snapname, module.params["name"], res.errors[0].message
+                )
+            )
     module.exit_json(changed=changed)
 
 
@@ -282,36 +365,63 @@ def update_snapshot(module, blade):
 
 def delete_snapshot(module, blade):
     """Delete Snapshot"""
+    changed = True
+    api_version = list(blade.get_versions().items)
     if not module.check_mode:
         snapname = module.params["name"] + "." + module.params["suffix"]
-        new_attr = FileSystemSnapshot(destroyed=True)
-        try:
-            blade.file_system_snapshots.update_file_system_snapshots(
-                name=snapname, attributes=new_attr
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.patch_file_system_snapshots(
+                names=[snapname],
+                latest_replica=module.params["latest_replica"],
+                file_system_snapshot=FileSystemSnapshot(destroyed=True),
+                context_names=[module.params["context"]],
             )
-            changed = True
-            if module.params["eradicate"]:
-                try:
-                    blade.file_system_snapshots.delete_file_system_snapshots(
-                        name=snapname
+        else:
+            res = blade.patch_file_system_snapshots(
+                names=[snapname],
+                latest_replica=module.params["latest_replica"],
+                file_system_snapshot=FileSystemSnapshot(destroyed=True),
+            )
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Failed to delete snapshot {0}. Error: {1}".format(
+                    snapname, res.errors[0].message
+                )
+            )
+        if module.params["eradicate"]:
+            if CONTEXT_API_VERSION in api_version:
+                res = blade.delete_file_system_snapshots(
+                    names=[snapname], context_names=[module.params["context"]]
+                )
+            else:
+                res = blade.delete_file_system_snapshots(names=[snapname])
+            if res.status_code != 200:
+                module.fail_json(
+                    msg="Failed to eradicate snapshot {0}. Error: {1}".format(
+                        snapname, res.errors[0].message
                     )
-                    changed = True
-                except Exception:
-                    changed = False
-        except Exception:
-            changed = False
+                )
     module.exit_json(changed=changed)
 
 
 def eradicate_snapshot(module, blade):
     """Eradicate Snapshot"""
+    changed = True
+    api_version = list(blade.get_versions().items)
     if not module.check_mode:
         snapname = module.params["name"] + "." + module.params["suffix"]
-        try:
-            blade.file_system_snapshots.delete_file_system_snapshots(name=snapname)
-            changed = True
-        except Exception:
-            changed = False
+        if CONTEXT_API_VERSION in api_version:
+            res = blade.delete_file_system_snapshots(
+                names=[snapname], context_names=[module.params["context"]]
+            )
+        else:
+            res = blade.delete_file_system_snapshots(names=[snapname])
+        if res.status_code != 200:
+            module.fail_json(
+                msg="Failed to eradicate snapshot {0}. Error: {1}".format(
+                    snapname, res.errors[0].message
+                )
+            )
     module.exit_json(changed=changed)
 
 
@@ -325,6 +435,8 @@ def main():
             target=dict(type="str", aliases=["targets"]),
             eradicate=dict(default="false", type="bool"),
             state=dict(default="present", choices=["present", "absent", "restore"]),
+            latest_replica=dict(default="false", type="bool"),
+            context=dict(type="str", default=""),
         )
     )
 
@@ -333,8 +445,6 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITY_FB:
-        module.fail_json(msg="purity_fb sdk is required for this module")
     if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
@@ -345,20 +455,17 @@ def main():
         module.params["suffix"] = suffix.replace(".", "")
 
     state = module.params["state"]
-    blade = get_blade(module)
-    versions = blade.api_version.list_versions().versions
+    blade = get_system(module)
+    api_version = list(blade.get_versions().items)
 
-    if SNAP_NOW_API not in versions and module.params["now"]:
+    if SNAP_NOW_API not in api_version and module.params["now"]:
         module.fail_json(
             msg="Minimum FlashBlade REST version for immeadiate remote snapshots: {0}".format(
                 SNAP_NOW_API
             )
         )
-    if SNAP_NOW_API in versions and not HAS_PYPURECLIENT:
-        module.fail_json(msg="py-pure-client sdk is required for this module")
     filesystem = get_fs(module, blade)
     snap = get_fssnapshot(module, blade)
-
     if state == "present" and filesystem and not filesystem.destroyed and not snap:
         create_snapshot(module, blade)
     elif (

@@ -12,7 +12,6 @@ A command line interface for Opteryx
 
 import argparse
 import os
-import readline
 import sys
 import threading
 import time
@@ -25,10 +24,6 @@ if True:
     from opteryx.utils.sql import clean_statement
     from opteryx.utils.sql import remove_comments
 
-
-if readline:
-    pass
-
 # Define ANSI color codes
 ANSI_RED = "\u001b[31m"
 ANSI_RESET = "\u001b[0m"
@@ -36,7 +31,7 @@ ANSI_RESET = "\u001b[0m"
 
 def print_dots(stop_event):
     """
-    Prints five dots repeatedly until the stop_event is set.
+    Prints dots with pauses to indicate processing activity until the stop_event is set.
     """
     while not stop_event.is_set():  # pragma: no cover
         print(".", end="", flush=True)
@@ -82,7 +77,7 @@ def main():
     )
     parser.add_argument("--max_col_width", type=int, default=64, help="Maximum column width")
 
-    # Mutually exclusive group for `--color` and `--no-color`
+    # Mutually exclusive group for `--stats` and `--no-stats`
     stats_group = parser.add_mutually_exclusive_group()
     stats_group.add_argument(
         "--stats", dest="stats", action="store_true", default=True, help="Report statistics."
@@ -209,6 +204,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import readline  # pragma: no cover
+
     try:
         main()
     except Exception as e:

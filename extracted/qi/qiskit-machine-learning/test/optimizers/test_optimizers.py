@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2018, 2024.
+# (C) Copyright IBM 2018, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -15,14 +15,14 @@
 import unittest
 from test import QiskitAlgorithmsTestCase
 
-from typing import Optional, List, Tuple
 from ddt import ddt, data, unpack
 import numpy as np
 from scipy.optimize import rosen, rosen_der
 
-from qiskit.circuit.library import RealAmplitudes
+from qiskit.circuit.library import real_amplitudes
 from qiskit.exceptions import MissingOptionalLibraryError
-from qiskit.primitives import Sampler
+
+from qiskit_machine_learning.primitives import QMLSampler as Sampler
 
 from qiskit_machine_learning.optimizers import (
     ADAM,
@@ -39,6 +39,7 @@ from qiskit_machine_learning.optimizers import (
     Optimizer,
     P_BFGS,
     POWELL,
+    SBPLX,
     SLSQP,
     SPSA,
     QNSPSA,
@@ -61,7 +62,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
         optimizer: Optimizer,
         max_nfev: int,
         grad: bool = False,
-        bounds: Optional[List[Tuple[float, float]]] = None,
+        bounds: list[tuple[float, float]] | None = None,
     ):
         """Test the optimizer.
 
@@ -71,7 +72,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
             grad: Whether to pass the gradient function as input.
             bounds: Optimizer bounds.
         """
-        x_0 = np.asarray([1.3, 0.7, 0.8, 1.9, 1.2])
+        x_0 = np.asarray([1.13, 0.7, 0.8, 1.9, 1.2])
         jac = rosen_der if grad else None
 
         res = optimizer.minimize(rosen, x_0, jac, bounds)
@@ -97,7 +98,10 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
         self.run_optimizer(optimizer, grad=True, max_nfev=100000)
 
     def test_cobyla(self):
-        """cobyla test"""
+        """cobyla test
+
+        Note: very slow (27.69s)
+        """
         optimizer = COBYLA(maxiter=100000, tol=1e-06)
         self.run_optimizer(optimizer, max_nfev=100000)
 
@@ -221,6 +225,7 @@ class TestOptimizers(QiskitAlgorithmsTestCase):
         (CRS, False),
         (DIRECT_L, False),
         (DIRECT_L_RAND, False),
+        (SBPLX, True),
     )
     @unpack
     def test_nlopt(self, optimizer_cls, use_bound):
@@ -385,7 +390,7 @@ class TestOptimizerSerialization(QiskitAlgorithmsTestCase):
 
     def test_qnspsa(self):
         """Test QN-SPSA optimizer is serializable."""
-        ansatz = RealAmplitudes(1)
+        ansatz = real_amplitudes(1)
         fidelity = QNSPSA.get_fidelity(ansatz, sampler=Sampler())
         options = {
             "fidelity": fidelity,

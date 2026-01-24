@@ -20,18 +20,14 @@ from setuptools import setup
 
 
 DEPENDENCIES = (
-    "cachetools>=2.0.0,<6.0",
     "pyasn1-modules>=0.2.1",
     # rsa==4.5 is the last version to support 2.7
     # https://github.com/sybrenstuvel/python-rsa/issues/152#issuecomment-643470233
     "rsa>=3.1.4,<5",
 )
 
-# TODO(https://github.com/googleapis/google-auth-library-python/issues/1737): Unit test fails with
-#  `No module named 'cryptography.hazmat.backends.openssl.x509' for Python 3.7``.
 cryptography_base_require = [
     "cryptography >= 38.0.3",
-    "cryptography < 39.0.0; python_version < '3.8'",
 ]
 
 requests_extra_require = ["requests >= 2.20.0, < 3.0.0"]
@@ -56,7 +52,6 @@ testing_extra_require = [
     "grpcio",
     "flask",
     "freezegun",
-    "mock",
     # TODO(https://github.com/googleapis/google-auth-library-python/issues/1736): Remove `oauth2client` from testing requirements once an extra is added for `oauth2client` dependency.
     "oauth2client",
     *pyjwt_extra_require,
@@ -81,6 +76,7 @@ testing_extra_require = [
 ]
 
 extras = {
+    "cryptography": cryptography_base_require,
     "aiohttp": aiohttp_extra_require,
     "enterprise_cert": enterprise_cert_extra_require,
     "pyopenssl": pyopenssl_extra_require,
@@ -117,18 +113,18 @@ setup(
     package_data={"google.auth": ["py.typed"], "google.oauth2": ["py.typed"]},
     install_requires=DEPENDENCIES,
     extras_require=extras,
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     license="Apache 2.0",
     keywords="google auth oauth client",
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",

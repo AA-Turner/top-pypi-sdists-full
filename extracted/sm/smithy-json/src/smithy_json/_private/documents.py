@@ -9,32 +9,28 @@ from decimal import Decimal
 from smithy_core.documents import Document, DocumentValue
 from smithy_core.prelude import DOCUMENT
 from smithy_core.schemas import Schema
-from smithy_core.shapes import ShapeType
+from smithy_core.shapes import ShapeID, ShapeType
 from smithy_core.traits import JSONNameTrait, TimestampFormatTrait
-from smithy_core.types import TimestampFormat
 from smithy_core.utils import expect_type
+
+from ..settings import JSONSettings
 
 
 class JSONDocument(Document):
-    _schema: Schema
-    _json_names: dict[str, str]
+    _discriminator: ShapeID | None = None
 
     def __init__(
         self,
         value: DocumentValue | dict[str, "Document"] | list["Document"],
+        settings: JSONSettings | None = None,
         *,
         schema: Schema = DOCUMENT,
-        use_json_name: bool = True,
-        use_timestamp_format: bool = True,
-        default_timestamp_format: TimestampFormat = TimestampFormat.DATE_TIME,
     ) -> None:
         super().__init__(value, schema=schema)
-        self._use_json_name = use_json_name
-        self._use_timestamp_format = use_timestamp_format
-        self._default_timestamp_format = default_timestamp_format
-        self._json_names = {}
+        self._settings = settings or JSONSettings(document_class=type(self))
+        self._json_names: dict[str, str] = {}
 
-        if use_json_name and schema.shape_type in (
+        if self._settings.use_json_name and schema.shape_type in (
             ShapeType.STRUCTURE,
             ShapeType.UNION,
         ):
@@ -51,8 +47,8 @@ class JSONDocument(Document):
         return float(expect_type(Decimal, self._value))
 
     def as_timestamp(self) -> datetime:
-        format = self._default_timestamp_format
-        if self._use_timestamp_format:
+        format = self._settings.default_timestamp_format
+        if self._settings.use_timestamp_format:
             if format_trait := self._schema.get_trait(TimestampFormatTrait):
                 format = format_trait.format
 
@@ -106,13 +102,7 @@ class JSONDocument(Document):
         value: DocumentValue | dict[str, "Document"] | list["Document"],
         schema: Schema,
     ) -> "Document":
-        return JSONDocument(
-            value,
-            schema=schema,
-            use_json_name=self._use_json_name,
-            use_timestamp_format=self._use_timestamp_format,
-            default_timestamp_format=self._default_timestamp_format,
-        )
+        return JSONDocument(value, schema=schema, settings=self._settings)
 
     def _wrap_map(self, value: Mapping[str, DocumentValue]) -> dict[str, "Document"]:
         if self._schema.shape_type not in (ShapeType.STRUCTURE, ShapeType.UNION):

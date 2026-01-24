@@ -17,10 +17,10 @@ from pydantic import BaseModel
 
 from githubkit.compat import model_dump, type_validate_python
 from githubkit.typing import Missing, UnsetType
-from githubkit.utils import UNSET, exclude_unset
+from githubkit.utils import UNSET, exclude_unset, parse_query_params
 
 if TYPE_CHECKING:
-    from typing import Literal
+    from typing import Literal, Union
 
     from githubkit import GitHubCore
     from githubkit.response import Response
@@ -32,18 +32,35 @@ if TYPE_CHECKING:
         ProjectsV2Field,
         ProjectsV2ItemSimple,
         ProjectsV2ItemWithContent,
+        ProjectsV2View,
     )
     from ..types import (
+        OrgsOrgProjectsV2ProjectNumberDraftsPostBodyType,
+        OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+        OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+        OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+        OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3Type,
         OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType,
         OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-        OrgsOrgProjectsV2ProjectNumberItemsPostBodyType,
-        ProjectsV2FieldType,
-        ProjectsV2ItemSimpleType,
-        ProjectsV2ItemWithContentType,
-        ProjectsV2Type,
+        OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+        OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        OrgsOrgProjectsV2ProjectNumberViewsPostBodyType,
+        ProjectsV2FieldIterationConfigurationType,
+        ProjectsV2FieldSingleSelectOptionType,
+        ProjectsV2FieldTypeForResponse,
+        ProjectsV2ItemSimpleTypeForResponse,
+        ProjectsV2ItemWithContentTypeForResponse,
+        ProjectsV2TypeForResponse,
+        ProjectsV2ViewTypeForResponse,
+        UsersUserIdProjectsV2ProjectNumberViewsPostBodyType,
+        UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+        UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+        UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
         UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType,
         UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-        UsersUsernameProjectsV2ProjectNumberItemsPostBodyType,
+        UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+        UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        UserUserIdProjectsV2ProjectNumberDraftsPostBodyType,
     )
 
 
@@ -72,7 +89,7 @@ class ProjectsClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2], list[ProjectsV2Type]]:
+    ) -> Response[list[ProjectsV2], list[ProjectsV2TypeForResponse]]:
         """projects/list-for-org
 
         GET /orgs/{org}/projectsV2
@@ -98,7 +115,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2],
@@ -118,7 +135,7 @@ class ProjectsClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2], list[ProjectsV2Type]]:
+    ) -> Response[list[ProjectsV2], list[ProjectsV2TypeForResponse]]:
         """projects/list-for-org
 
         GET /orgs/{org}/projectsV2
@@ -144,7 +161,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2],
@@ -161,7 +178,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2, ProjectsV2Type]:
+    ) -> Response[ProjectsV2, ProjectsV2TypeForResponse]:
         """projects/get-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}
@@ -196,7 +213,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2, ProjectsV2Type]:
+    ) -> Response[ProjectsV2, ProjectsV2TypeForResponse]:
         """projects/get-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}
@@ -224,6 +241,160 @@ class ProjectsClient:
             },
         )
 
+    @overload
+    def create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: OrgsOrgProjectsV2ProjectNumberDraftsPostBodyType,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    def create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        title: str,
+        body: Missing[str] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    def create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgProjectsV2ProjectNumberDraftsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
+        """projects/create-draft-item-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/drafts
+
+        Create draft issue item for the specified organization owned project.
+
+        See also: https://docs.github.com/rest/projects/drafts#create-draft-item-for-organization-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberDraftsPostBody,
+            ProjectsV2ItemSimple,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/drafts"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgProjectsV2ProjectNumberDraftsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2ItemSimple,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+            },
+        )
+
+    @overload
+    async def async_create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: OrgsOrgProjectsV2ProjectNumberDraftsPostBodyType,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    async def async_create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        title: str,
+        body: Missing[str] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    async def async_create_draft_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgProjectsV2ProjectNumberDraftsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
+        """projects/create-draft-item-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/drafts
+
+        Create draft issue item for the specified organization owned project.
+
+        See also: https://docs.github.com/rest/projects/drafts#create-draft-item-for-organization-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberDraftsPostBody,
+            ProjectsV2ItemSimple,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/drafts"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgProjectsV2ProjectNumberDraftsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2ItemSimple,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+            },
+        )
+
     def list_fields_for_org(
         self,
         project_number: int,
@@ -234,7 +405,7 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldType]]:
+    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldTypeForResponse]]:
         """projects/list-fields-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/fields
@@ -259,7 +430,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2Field],
@@ -279,7 +450,7 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldType]]:
+    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldTypeForResponse]]:
         """projects/list-fields-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/fields
@@ -304,13 +475,297 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2Field],
             error_models={
                 "403": BasicError,
                 "401": BasicError,
+            },
+        )
+
+    @overload
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Union[
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3Type,
+        ],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        issue_field_id: int,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["text", "number", "date"],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["single_select"],
+        single_select_options: list[ProjectsV2FieldSingleSelectOptionType],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["iteration"],
+        iteration_configuration: ProjectsV2FieldIterationConfigurationType,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    def add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[
+            Union[
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3Type,
+            ]
+        ] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
+        """projects/add-field-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/fields
+
+        Add a field to an organization-owned project.
+
+        See also: https://docs.github.com/rest/projects/fields#add-a-field-to-an-organization-owned-project
+        """
+
+        from typing import Union
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3,
+            ProjectsV2Field,
+            ValidationError,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/fields"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                Union[
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3,
+                ],
+                json,
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2Field,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "422": ValidationError,
+            },
+        )
+
+    @overload
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Union[
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3Type,
+        ],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        issue_field_id: int,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["text", "number", "date"],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["single_select"],
+        single_select_options: list[ProjectsV2FieldSingleSelectOptionType],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["iteration"],
+        iteration_configuration: ProjectsV2FieldIterationConfigurationType,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    async def async_add_field_for_org(
+        self,
+        project_number: int,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[
+            Union[
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+                OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3Type,
+            ]
+        ] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
+        """projects/add-field-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/fields
+
+        Add a field to an organization-owned project.
+
+        See also: https://docs.github.com/rest/projects/fields#add-a-field-to-an-organization-owned-project
+        """
+
+        from typing import Union
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2,
+            OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3,
+            ProjectsV2Field,
+            ValidationError,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/fields"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                Union[
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof0,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof1,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof2,
+                    OrgsOrgProjectsV2ProjectNumberFieldsPostBodyOneof3,
+                ],
+                json,
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2Field,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "422": ValidationError,
             },
         )
 
@@ -322,7 +777,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2Field, ProjectsV2FieldType]:
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
         """projects/get-field-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/fields/{field_id}
@@ -358,7 +813,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2Field, ProjectsV2FieldType]:
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
         """projects/get-field-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/fields/{field_id}
@@ -392,13 +847,15 @@ class ProjectsClient:
         org: str,
         *,
         q: Missing[str] = UNSET,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         before: Missing[str] = UNSET,
         after: Missing[str] = UNSET,
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentType]]:
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
         """projects/list-items-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/items
@@ -425,7 +882,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2ItemWithContent],
@@ -441,13 +898,15 @@ class ProjectsClient:
         org: str,
         *,
         q: Missing[str] = UNSET,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         before: Missing[str] = UNSET,
         after: Missing[str] = UNSET,
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentType]]:
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
         """projects/list-items-for-org
 
         GET /orgs/{org}/projectsV2/{project_number}/items
@@ -474,7 +933,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2ItemWithContent],
@@ -492,8 +951,11 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: OrgsOrgProjectsV2ProjectNumberItemsPostBodyType,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        data: Union[
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        ],
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     @overload
     def add_item_for_org(
@@ -506,7 +968,26 @@ class ProjectsClient:
         stream: bool = False,
         type: Literal["Issue", "PullRequest"],
         id: int,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        owner: Missing[str] = UNSET,
+        repo: Missing[str] = UNSET,
+        number: Missing[int] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    def add_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        type: Literal["Issue", "PullRequest"],
+        id: Missing[int] = UNSET,
+        owner: str,
+        repo: str,
+        number: int,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     def add_item_for_org(
         self,
@@ -515,9 +996,14 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: Missing[OrgsOrgProjectsV2ProjectNumberItemsPostBodyType] = UNSET,
+        data: Missing[
+            Union[
+                OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+                OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+            ]
+        ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]:
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
         """projects/add-item-for-org
 
         POST /orgs/{org}/projectsV2/{project_number}/items
@@ -527,9 +1013,12 @@ class ProjectsClient:
         See also: https://docs.github.com/rest/projects/items#add-item-to-organization-owned-project
         """
 
+        from typing import Union
+
         from ..models import (
             BasicError,
-            OrgsOrgProjectsV2ProjectNumberItemsPostBody,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1,
             ProjectsV2ItemSimple,
         )
 
@@ -544,7 +1033,11 @@ class ProjectsClient:
         json = kwargs if data is UNSET else data
         if self._github.config.rest_api_validate_body:
             json = type_validate_python(
-                OrgsOrgProjectsV2ProjectNumberItemsPostBody, json
+                Union[
+                    OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0,
+                    OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1,
+                ],
+                json,
             )
         json = model_dump(json) if isinstance(json, BaseModel) else json
 
@@ -569,8 +1062,11 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: OrgsOrgProjectsV2ProjectNumberItemsPostBodyType,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        data: Union[
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        ],
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     @overload
     async def async_add_item_for_org(
@@ -583,7 +1079,26 @@ class ProjectsClient:
         stream: bool = False,
         type: Literal["Issue", "PullRequest"],
         id: int,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        owner: Missing[str] = UNSET,
+        repo: Missing[str] = UNSET,
+        number: Missing[int] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    async def async_add_item_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        type: Literal["Issue", "PullRequest"],
+        id: Missing[int] = UNSET,
+        owner: str,
+        repo: str,
+        number: int,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     async def async_add_item_for_org(
         self,
@@ -592,9 +1107,14 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: Missing[OrgsOrgProjectsV2ProjectNumberItemsPostBodyType] = UNSET,
+        data: Missing[
+            Union[
+                OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+                OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+            ]
+        ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]:
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
         """projects/add-item-for-org
 
         POST /orgs/{org}/projectsV2/{project_number}/items
@@ -604,9 +1124,12 @@ class ProjectsClient:
         See also: https://docs.github.com/rest/projects/items#add-item-to-organization-owned-project
         """
 
+        from typing import Union
+
         from ..models import (
             BasicError,
-            OrgsOrgProjectsV2ProjectNumberItemsPostBody,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0,
+            OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1,
             ProjectsV2ItemSimple,
         )
 
@@ -621,7 +1144,11 @@ class ProjectsClient:
         json = kwargs if data is UNSET else data
         if self._github.config.rest_api_validate_body:
             json = type_validate_python(
-                OrgsOrgProjectsV2ProjectNumberItemsPostBody, json
+                Union[
+                    OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof0,
+                    OrgsOrgProjectsV2ProjectNumberItemsPostBodyOneof1,
+                ],
+                json,
             )
         json = model_dump(json) if isinstance(json, BaseModel) else json
 
@@ -644,10 +1171,10 @@ class ProjectsClient:
         org: str,
         item_id: int,
         *,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/get-org-item
 
         GET /orgs/{org}/projectsV2/{project_number}/items/{item_id}
@@ -670,7 +1197,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ProjectsV2ItemWithContent,
@@ -686,10 +1213,10 @@ class ProjectsClient:
         org: str,
         item_id: int,
         *,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/get-org-item
 
         GET /orgs/{org}/projectsV2/{project_number}/items/{item_id}
@@ -712,7 +1239,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ProjectsV2ItemWithContent,
@@ -802,7 +1329,9 @@ class ProjectsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     @overload
     def update_item_for_org(
@@ -817,7 +1346,9 @@ class ProjectsClient:
         fields: list[
             OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType
         ],
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     def update_item_for_org(
         self,
@@ -829,7 +1360,7 @@ class ProjectsClient:
         stream: bool = False,
         data: Missing[OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/update-item-for-org
 
         PATCH /orgs/{org}/projectsV2/{project_number}/items/{item_id}
@@ -886,7 +1417,9 @@ class ProjectsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     @overload
     async def async_update_item_for_org(
@@ -901,7 +1434,9 @@ class ProjectsClient:
         fields: list[
             OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType
         ],
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     async def async_update_item_for_org(
         self,
@@ -913,7 +1448,7 @@ class ProjectsClient:
         stream: bool = False,
         data: Missing[OrgsOrgProjectsV2ProjectNumberItemsItemIdPatchBodyType] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/update-item-for-org
 
         PATCH /orgs/{org}/projectsV2/{project_number}/items/{item_id}
@@ -960,6 +1495,594 @@ class ProjectsClient:
             },
         )
 
+    @overload
+    def create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: OrgsOrgProjectsV2ProjectNumberViewsPostBodyType,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    @overload
+    def create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        layout: Literal["table", "board", "roadmap"],
+        filter_: Missing[str] = UNSET,
+        visible_fields: Missing[list[int]] = UNSET,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    def create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgProjectsV2ProjectNumberViewsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]:
+        """projects/create-view-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/views
+
+        Create a new view in an organization-owned project. Views allow you to customize how items in a project are displayed and filtered.
+
+        See also: https://docs.github.com/rest/projects/views#create-a-view-for-an-organization-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberViewsPostBody,
+            ProjectsV2View,
+            ValidationError,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/views"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgProjectsV2ProjectNumberViewsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2View,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+                "422": ValidationError,
+                "503": BasicError,
+            },
+        )
+
+    @overload
+    async def async_create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: OrgsOrgProjectsV2ProjectNumberViewsPostBodyType,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    @overload
+    async def async_create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        layout: Literal["table", "board", "roadmap"],
+        filter_: Missing[str] = UNSET,
+        visible_fields: Missing[list[int]] = UNSET,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    async def async_create_view_for_org(
+        self,
+        org: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[OrgsOrgProjectsV2ProjectNumberViewsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]:
+        """projects/create-view-for-org
+
+        POST /orgs/{org}/projectsV2/{project_number}/views
+
+        Create a new view in an organization-owned project. Views allow you to customize how items in a project are displayed and filtered.
+
+        See also: https://docs.github.com/rest/projects/views#create-a-view-for-an-organization-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            OrgsOrgProjectsV2ProjectNumberViewsPostBody,
+            ProjectsV2View,
+            ValidationError,
+        )
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/views"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                OrgsOrgProjectsV2ProjectNumberViewsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2View,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+                "422": ValidationError,
+                "503": BasicError,
+            },
+        )
+
+    def list_view_items_for_org(
+        self,
+        project_number: int,
+        org: str,
+        view_number: int,
+        *,
+        fields: Missing[Union[str, list[str]]] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        per_page: Missing[int] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
+        """projects/list-view-items-for-org
+
+        GET /orgs/{org}/projectsV2/{project_number}/views/{view_number}/items
+
+        List items in an organization project with the saved view's filter applied.
+
+        See also: https://docs.github.com/rest/projects/items#list-items-for-an-organization-project-view
+        """
+
+        from ..models import BasicError, ProjectsV2ItemWithContent
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/views/{view_number}/items"
+
+        params = {
+            "fields": fields,
+            "before": before,
+            "after": after,
+            "per_page": per_page,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=list[ProjectsV2ItemWithContent],
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_list_view_items_for_org(
+        self,
+        project_number: int,
+        org: str,
+        view_number: int,
+        *,
+        fields: Missing[Union[str, list[str]]] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        per_page: Missing[int] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
+        """projects/list-view-items-for-org
+
+        GET /orgs/{org}/projectsV2/{project_number}/views/{view_number}/items
+
+        List items in an organization project with the saved view's filter applied.
+
+        See also: https://docs.github.com/rest/projects/items#list-items-for-an-organization-project-view
+        """
+
+        from ..models import BasicError, ProjectsV2ItemWithContent
+
+        url = f"/orgs/{org}/projectsV2/{project_number}/views/{view_number}/items"
+
+        params = {
+            "fields": fields,
+            "before": before,
+            "after": after,
+            "per_page": per_page,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=list[ProjectsV2ItemWithContent],
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    @overload
+    def create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UserUserIdProjectsV2ProjectNumberDraftsPostBodyType,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    def create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        title: str,
+        body: Missing[str] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    def create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UserUserIdProjectsV2ProjectNumberDraftsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
+        """projects/create-draft-item-for-authenticated-user
+
+        POST /user/{user_id}/projectsV2/{project_number}/drafts
+
+        Create draft issue item for the specified user owned project.
+
+        See also: https://docs.github.com/rest/projects/drafts#create-draft-item-for-user-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            ProjectsV2ItemSimple,
+            UserUserIdProjectsV2ProjectNumberDraftsPostBody,
+        )
+
+        url = f"/user/{user_id}/projectsV2/{project_number}/drafts"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                UserUserIdProjectsV2ProjectNumberDraftsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2ItemSimple,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+            },
+        )
+
+    @overload
+    async def async_create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UserUserIdProjectsV2ProjectNumberDraftsPostBodyType,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    async def async_create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        title: str,
+        body: Missing[str] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    async def async_create_draft_item_for_authenticated_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UserUserIdProjectsV2ProjectNumberDraftsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
+        """projects/create-draft-item-for-authenticated-user
+
+        POST /user/{user_id}/projectsV2/{project_number}/drafts
+
+        Create draft issue item for the specified user owned project.
+
+        See also: https://docs.github.com/rest/projects/drafts#create-draft-item-for-user-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            ProjectsV2ItemSimple,
+            UserUserIdProjectsV2ProjectNumberDraftsPostBody,
+        )
+
+        url = f"/user/{user_id}/projectsV2/{project_number}/drafts"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                UserUserIdProjectsV2ProjectNumberDraftsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2ItemSimple,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+            },
+        )
+
+    @overload
+    def create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UsersUserIdProjectsV2ProjectNumberViewsPostBodyType,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    @overload
+    def create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        layout: Literal["table", "board", "roadmap"],
+        filter_: Missing[str] = UNSET,
+        visible_fields: Missing[list[int]] = UNSET,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    def create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UsersUserIdProjectsV2ProjectNumberViewsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]:
+        """projects/create-view-for-user
+
+        POST /users/{user_id}/projectsV2/{project_number}/views
+
+        Create a new view in a user-owned project. Views allow you to customize how items in a project are displayed and filtered.
+
+        See also: https://docs.github.com/rest/projects/views#create-a-view-for-a-user-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            ProjectsV2View,
+            UsersUserIdProjectsV2ProjectNumberViewsPostBody,
+            ValidationError,
+        )
+
+        url = f"/users/{user_id}/projectsV2/{project_number}/views"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                UsersUserIdProjectsV2ProjectNumberViewsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2View,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+                "422": ValidationError,
+                "503": BasicError,
+            },
+        )
+
+    @overload
+    async def async_create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: UsersUserIdProjectsV2ProjectNumberViewsPostBodyType,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    @overload
+    async def async_create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        layout: Literal["table", "board", "roadmap"],
+        filter_: Missing[str] = UNSET,
+        visible_fields: Missing[list[int]] = UNSET,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]: ...
+
+    async def async_create_view_for_user(
+        self,
+        user_id: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[UsersUserIdProjectsV2ProjectNumberViewsPostBodyType] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2View, ProjectsV2ViewTypeForResponse]:
+        """projects/create-view-for-user
+
+        POST /users/{user_id}/projectsV2/{project_number}/views
+
+        Create a new view in a user-owned project. Views allow you to customize how items in a project are displayed and filtered.
+
+        See also: https://docs.github.com/rest/projects/views#create-a-view-for-a-user-owned-project
+        """
+
+        from ..models import (
+            BasicError,
+            ProjectsV2View,
+            UsersUserIdProjectsV2ProjectNumberViewsPostBody,
+            ValidationError,
+        )
+
+        url = f"/users/{user_id}/projectsV2/{project_number}/views"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                UsersUserIdProjectsV2ProjectNumberViewsPostBody, json
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2View,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+                "422": ValidationError,
+                "503": BasicError,
+            },
+        )
+
     def list_for_user(
         self,
         username: str,
@@ -970,7 +2093,7 @@ class ProjectsClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2], list[ProjectsV2Type]]:
+    ) -> Response[list[ProjectsV2], list[ProjectsV2TypeForResponse]]:
         """projects/list-for-user
 
         GET /users/{username}/projectsV2
@@ -996,7 +2119,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2],
@@ -1016,7 +2139,7 @@ class ProjectsClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2], list[ProjectsV2Type]]:
+    ) -> Response[list[ProjectsV2], list[ProjectsV2TypeForResponse]]:
         """projects/list-for-user
 
         GET /users/{username}/projectsV2
@@ -1042,7 +2165,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2],
@@ -1059,7 +2182,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2, ProjectsV2Type]:
+    ) -> Response[ProjectsV2, ProjectsV2TypeForResponse]:
         """projects/get-for-user
 
         GET /users/{username}/projectsV2/{project_number}
@@ -1094,7 +2217,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2, ProjectsV2Type]:
+    ) -> Response[ProjectsV2, ProjectsV2TypeForResponse]:
         """projects/get-for-user
 
         GET /users/{username}/projectsV2/{project_number}
@@ -1132,7 +2255,7 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldType]]:
+    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldTypeForResponse]]:
         """projects/list-fields-for-user
 
         GET /users/{username}/projectsV2/{project_number}/fields
@@ -1157,7 +2280,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2Field],
@@ -1177,7 +2300,7 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldType]]:
+    ) -> Response[list[ProjectsV2Field], list[ProjectsV2FieldTypeForResponse]]:
         """projects/list-fields-for-user
 
         GET /users/{username}/projectsV2/{project_number}/fields
@@ -1202,13 +2325,265 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2Field],
             error_models={
                 "403": BasicError,
                 "401": BasicError,
+            },
+        )
+
+    @overload
+    def add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Union[
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+        ],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["text", "number", "date"],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["single_select"],
+        single_select_options: list[ProjectsV2FieldSingleSelectOptionType],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    def add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["iteration"],
+        iteration_configuration: ProjectsV2FieldIterationConfigurationType,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    def add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[
+            Union[
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+            ]
+        ] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
+        """projects/add-field-for-user
+
+        POST /users/{username}/projectsV2/{project_number}/fields
+
+        Add a field to a specified user owned project.
+
+        See also: https://docs.github.com/rest/projects/fields#add-field-to-user-owned-project
+        """
+
+        from typing import Union
+
+        from ..models import (
+            BasicError,
+            ProjectsV2Field,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2,
+            ValidationError,
+        )
+
+        url = f"/users/{username}/projectsV2/{project_number}/fields"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                Union[
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0,
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1,
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2,
+                ],
+                json,
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return self._github.request(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2Field,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "422": ValidationError,
+            },
+        )
+
+    @overload
+    async def async_add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Union[
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+        ],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["text", "number", "date"],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["single_select"],
+        single_select_options: list[ProjectsV2FieldSingleSelectOptionType],
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    @overload
+    async def async_add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        name: str,
+        data_type: Literal["iteration"],
+        iteration_configuration: ProjectsV2FieldIterationConfigurationType,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]: ...
+
+    async def async_add_field_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        data: Missing[
+            Union[
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0Type,
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1Type,
+                UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2Type,
+            ]
+        ] = UNSET,
+        **kwargs,
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
+        """projects/add-field-for-user
+
+        POST /users/{username}/projectsV2/{project_number}/fields
+
+        Add a field to a specified user owned project.
+
+        See also: https://docs.github.com/rest/projects/fields#add-field-to-user-owned-project
+        """
+
+        from typing import Union
+
+        from ..models import (
+            BasicError,
+            ProjectsV2Field,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1,
+            UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2,
+            ValidationError,
+        )
+
+        url = f"/users/{username}/projectsV2/{project_number}/fields"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Api-Version": self._REST_API_VERSION,
+            **(headers or {}),
+        }
+
+        json = kwargs if data is UNSET else data
+        if self._github.config.rest_api_validate_body:
+            json = type_validate_python(
+                Union[
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof0,
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof1,
+                    UsersUsernameProjectsV2ProjectNumberFieldsPostBodyOneof2,
+                ],
+                json,
+            )
+        json = model_dump(json) if isinstance(json, BaseModel) else json
+
+        return await self._github.arequest(
+            "POST",
+            url,
+            json=exclude_unset(json),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=ProjectsV2Field,
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "422": ValidationError,
             },
         )
 
@@ -1220,7 +2595,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2Field, ProjectsV2FieldType]:
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
         """projects/get-field-for-user
 
         GET /users/{username}/projectsV2/{project_number}/fields/{field_id}
@@ -1256,7 +2631,7 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2Field, ProjectsV2FieldType]:
+    ) -> Response[ProjectsV2Field, ProjectsV2FieldTypeForResponse]:
         """projects/get-field-for-user
 
         GET /users/{username}/projectsV2/{project_number}/fields/{field_id}
@@ -1293,10 +2668,12 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         per_page: Missing[int] = UNSET,
         q: Missing[str] = UNSET,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentType]]:
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
         """projects/list-items-for-user
 
         GET /users/{username}/projectsV2/{project_number}/items
@@ -1323,7 +2700,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2ItemWithContent],
@@ -1342,10 +2719,12 @@ class ProjectsClient:
         after: Missing[str] = UNSET,
         per_page: Missing[int] = UNSET,
         q: Missing[str] = UNSET,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentType]]:
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
         """projects/list-items-for-user
 
         GET /users/{username}/projectsV2/{project_number}/items
@@ -1372,7 +2751,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[ProjectsV2ItemWithContent],
@@ -1390,8 +2769,11 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: UsersUsernameProjectsV2ProjectNumberItemsPostBodyType,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        data: Union[
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        ],
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     @overload
     def add_item_for_user(
@@ -1404,7 +2786,26 @@ class ProjectsClient:
         stream: bool = False,
         type: Literal["Issue", "PullRequest"],
         id: int,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        owner: Missing[str] = UNSET,
+        repo: Missing[str] = UNSET,
+        number: Missing[int] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    def add_item_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        type: Literal["Issue", "PullRequest"],
+        id: Missing[int] = UNSET,
+        owner: str,
+        repo: str,
+        number: int,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     def add_item_for_user(
         self,
@@ -1413,9 +2814,14 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: Missing[UsersUsernameProjectsV2ProjectNumberItemsPostBodyType] = UNSET,
+        data: Missing[
+            Union[
+                UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+                UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+            ]
+        ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]:
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
         """projects/add-item-for-user
 
         POST /users/{username}/projectsV2/{project_number}/items
@@ -1425,10 +2831,13 @@ class ProjectsClient:
         See also: https://docs.github.com/rest/projects/items#add-item-to-user-owned-project
         """
 
+        from typing import Union
+
         from ..models import (
             BasicError,
             ProjectsV2ItemSimple,
-            UsersUsernameProjectsV2ProjectNumberItemsPostBody,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1,
         )
 
         url = f"/users/{username}/projectsV2/{project_number}/items"
@@ -1442,7 +2851,11 @@ class ProjectsClient:
         json = kwargs if data is UNSET else data
         if self._github.config.rest_api_validate_body:
             json = type_validate_python(
-                UsersUsernameProjectsV2ProjectNumberItemsPostBody, json
+                Union[
+                    UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0,
+                    UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1,
+                ],
+                json,
             )
         json = model_dump(json) if isinstance(json, BaseModel) else json
 
@@ -1467,8 +2880,11 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: UsersUsernameProjectsV2ProjectNumberItemsPostBodyType,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        data: Union[
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+        ],
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     @overload
     async def async_add_item_for_user(
@@ -1481,7 +2897,26 @@ class ProjectsClient:
         stream: bool = False,
         type: Literal["Issue", "PullRequest"],
         id: int,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]: ...
+        owner: Missing[str] = UNSET,
+        repo: Missing[str] = UNSET,
+        number: Missing[int] = UNSET,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
+
+    @overload
+    async def async_add_item_for_user(
+        self,
+        username: str,
+        project_number: int,
+        *,
+        data: UnsetType = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+        type: Literal["Issue", "PullRequest"],
+        id: Missing[int] = UNSET,
+        owner: str,
+        repo: str,
+        number: int,
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]: ...
 
     async def async_add_item_for_user(
         self,
@@ -1490,9 +2925,14 @@ class ProjectsClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-        data: Missing[UsersUsernameProjectsV2ProjectNumberItemsPostBodyType] = UNSET,
+        data: Missing[
+            Union[
+                UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0Type,
+                UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1Type,
+            ]
+        ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleType]:
+    ) -> Response[ProjectsV2ItemSimple, ProjectsV2ItemSimpleTypeForResponse]:
         """projects/add-item-for-user
 
         POST /users/{username}/projectsV2/{project_number}/items
@@ -1502,10 +2942,13 @@ class ProjectsClient:
         See also: https://docs.github.com/rest/projects/items#add-item-to-user-owned-project
         """
 
+        from typing import Union
+
         from ..models import (
             BasicError,
             ProjectsV2ItemSimple,
-            UsersUsernameProjectsV2ProjectNumberItemsPostBody,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0,
+            UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1,
         )
 
         url = f"/users/{username}/projectsV2/{project_number}/items"
@@ -1519,7 +2962,11 @@ class ProjectsClient:
         json = kwargs if data is UNSET else data
         if self._github.config.rest_api_validate_body:
             json = type_validate_python(
-                UsersUsernameProjectsV2ProjectNumberItemsPostBody, json
+                Union[
+                    UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof0,
+                    UsersUsernameProjectsV2ProjectNumberItemsPostBodyOneof1,
+                ],
+                json,
             )
         json = model_dump(json) if isinstance(json, BaseModel) else json
 
@@ -1542,10 +2989,10 @@ class ProjectsClient:
         username: str,
         item_id: int,
         *,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/get-user-item
 
         GET /users/{username}/projectsV2/{project_number}/items/{item_id}
@@ -1568,7 +3015,7 @@ class ProjectsClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ProjectsV2ItemWithContent,
@@ -1584,10 +3031,10 @@ class ProjectsClient:
         username: str,
         item_id: int,
         *,
-        fields: Missing[list[str]] = UNSET,
+        fields: Missing[Union[str, list[str]]] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/get-user-item
 
         GET /users/{username}/projectsV2/{project_number}/items/{item_id}
@@ -1610,7 +3057,7 @@ class ProjectsClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=ProjectsV2ItemWithContent,
@@ -1700,7 +3147,9 @@ class ProjectsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     @overload
     def update_item_for_user(
@@ -1715,7 +3164,9 @@ class ProjectsClient:
         fields: list[
             UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType
         ],
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     def update_item_for_user(
         self,
@@ -1729,7 +3180,7 @@ class ProjectsClient:
             UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/update-item-for-user
 
         PATCH /users/{username}/projectsV2/{project_number}/items/{item_id}
@@ -1786,7 +3237,9 @@ class ProjectsClient:
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
         data: UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyType,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     @overload
     async def async_update_item_for_user(
@@ -1801,7 +3254,9 @@ class ProjectsClient:
         fields: list[
             UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyPropFieldsItemsType
         ],
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]: ...
+    ) -> Response[
+        ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse
+    ]: ...
 
     async def async_update_item_for_user(
         self,
@@ -1815,7 +3270,7 @@ class ProjectsClient:
             UsersUsernameProjectsV2ProjectNumberItemsItemIdPatchBodyType
         ] = UNSET,
         **kwargs,
-    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentType]:
+    ) -> Response[ProjectsV2ItemWithContent, ProjectsV2ItemWithContentTypeForResponse]:
         """projects/update-item-for-user
 
         PATCH /users/{username}/projectsV2/{project_number}/items/{item_id}
@@ -1859,5 +3314,107 @@ class ProjectsClient:
                 "403": BasicError,
                 "404": BasicError,
                 "422": ValidationError,
+            },
+        )
+
+    def list_view_items_for_user(
+        self,
+        project_number: int,
+        username: str,
+        view_number: int,
+        *,
+        fields: Missing[Union[str, list[str]]] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        per_page: Missing[int] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
+        """projects/list-view-items-for-user
+
+        GET /users/{username}/projectsV2/{project_number}/views/{view_number}/items
+
+        List items in a user project with the saved view's filter applied.
+
+        See also: https://docs.github.com/rest/projects/items#list-items-for-a-user-project-view
+        """
+
+        from ..models import BasicError, ProjectsV2ItemWithContent
+
+        url = f"/users/{username}/projectsV2/{project_number}/views/{view_number}/items"
+
+        params = {
+            "fields": fields,
+            "before": before,
+            "after": after,
+            "per_page": per_page,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=list[ProjectsV2ItemWithContent],
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_list_view_items_for_user(
+        self,
+        project_number: int,
+        username: str,
+        view_number: int,
+        *,
+        fields: Missing[Union[str, list[str]]] = UNSET,
+        before: Missing[str] = UNSET,
+        after: Missing[str] = UNSET,
+        per_page: Missing[int] = UNSET,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        list[ProjectsV2ItemWithContent], list[ProjectsV2ItemWithContentTypeForResponse]
+    ]:
+        """projects/list-view-items-for-user
+
+        GET /users/{username}/projectsV2/{project_number}/views/{view_number}/items
+
+        List items in a user project with the saved view's filter applied.
+
+        See also: https://docs.github.com/rest/projects/items#list-items-for-a-user-project-view
+        """
+
+        from ..models import BasicError, ProjectsV2ItemWithContent
+
+        url = f"/users/{username}/projectsV2/{project_number}/views/{view_number}/items"
+
+        params = {
+            "fields": fields,
+            "before": before,
+            "after": after,
+            "per_page": per_page,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=list[ProjectsV2ItemWithContent],
+            error_models={
+                "403": BasicError,
+                "401": BasicError,
+                "404": BasicError,
             },
         )

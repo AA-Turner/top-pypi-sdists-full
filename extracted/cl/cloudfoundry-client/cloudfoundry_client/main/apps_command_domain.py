@@ -1,5 +1,5 @@
 from argparse import _SubParsersAction, Namespace
-from typing import Callable
+from collections.abc import Callable
 
 from cloudfoundry_client.client import CloudFoundryClient
 from cloudfoundry_client.main.command_domain import CommandDomain, Command
@@ -7,7 +7,7 @@ from cloudfoundry_client.main.command_domain import CommandDomain, Command
 
 class AppCommandDomain(CommandDomain):
     def __init__(self):
-        super(AppCommandDomain, self).__init__(
+        super().__init__(
             display_name="Applications",
             entity_name="app",
             filter_list_parameters=["organization_guid", "space_guid"],

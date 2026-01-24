@@ -50,46 +50,40 @@ def absolute_error(y_true, y_pred, axis=None):
     score = np.mean(score, axis=axis)
     return score
 
-def r2_score(y_true, y_pred, axis=None, axis_ref=None, axis_bias=None, multioutput='raw_values', force_finite=True):
+def axis_fix(axis, ndim):
     """
-    R^2 score for multidimensional predictions.
-    collapses all axes except the specified axis.
-
-    Computes 1 - RSS / TSS, where RSS is the residual sum of squares and TSS is the total sum of squares.
-
+    Convert axis into a tuple of positive integers.
+    
     Parameters
     ----------
-    y_true : np.ndarray
-    y_pred : np.ndarray
-    axis: int or iterable of int, default=None
-        Axis to collapse.
-        If None, collapses all axes.
-        
-    multioutput : Reference to `sklearn.metrics.r2_score`
-        https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
-
-        Note:
-        - default is 'raw_values', which is different from sklearn.
-        - when multioutput is uniform_average or variance_weighted, return value is a single float even if axis is specified.
-          The axis specifies the feature dimensions to average over.
+    axis : int or iterable of int
+        Axis or axes to normalize.
+    
+    ndim : int
+        The maximum number of dimensions axis can have.
+        Used as reference for converting negative indices.
     
     Returns
     -------
-    z : np.ndarray
-        if axis is specified, returns an array of shape (y_true.shape[axis],)
+    axis : tuple of int
+        Normalized axis as a tuple of non-negative integers.
     """
+    if not isinstance(axis, Iterable): # axis is a single int
+        axis = (axis,)
+    
+    axis = tuple(ax if ax>=0 else ndim+ax for ax in axis)
+    return axis
 
-    # Residual Sum of Squares (RSS) and Total Sum of Squares (TSS)
-    RS = (y_true - y_pred)**2 # Residual Square (RS)
-    RSS = np.sum(RS, axis=axis, keepdims=True)
+def TSS_score(y_true, axis=None, axis_ref=None, axis_bias=None):
+    # Axis fixing
+    axis = tuple(range(y_true.ndim)) if axis is None else axis # Default to collapsing all dimensions
+    axis_ref = axis if axis_ref is None else axis_ref
+    axis_bias = axis_ref if axis_bias is None else axis_bias
+    axis, axis_ref, axis_bias = axis_fix(axis, y_true.ndim), axis_fix(axis_ref, y_true.ndim), axis_fix(axis_bias, y_true.ndim)
 
-    if axis_ref is None:
-        axis_ref = axis
-    if axis_bias is None:
-        axis_bias = axis_ref
-
+    # axis trimming operations for computing TSS
     axis_ref_set = {axis_ref} if not isinstance(axis_ref, Iterable) else set(axis_ref)
-    axis_set = {axis} if not isinstance(axis, Iterable) else set(axis)
+    axis_set = set(axis)
     axis_bias_set = {axis_bias} if axis_bias is not None and not isinstance(axis_bias, Iterable) else set(axis_bias) if axis_bias is not None else set()
 
     assert axis_bias_set.issubset(axis_ref_set), f'axis_bias ({axis_bias}) must be a subset of axis_ref ({axis_ref}) because axis_ measure variability' # If axis_bias is not a subset of axis_ref, expand axis_ref to include axis_bias
@@ -108,15 +102,65 @@ def r2_score(y_true, y_pred, axis=None, axis_ref=None, axis_bias=None, multioutp
     # axis_ref used to aggregate additional dimensions (average) additional to axis
     TSS = np.mean(TS, axis=axis_mean, keepdims=True)
     TSS = np.sum(TSS, axis=axis_sum, keepdims=True)
-    
-    score = 1 - RSS / TSS
-    score = np.squeeze(score, axis=axis) # Collapse the axis_ref dimension
 
+    return TSS
+
+def r2_score(y_true, y_pred, axis=None, axis_ref=None, axis_bias=None, force_finite=True, TSS=None):
+    """
+    R^2 score for multidimensional predictions.
+    collapses all axes except the specified axis.
+
+    Computes 1 - RSS / TSS, where RSS is the residual sum of squares and TSS is the total sum of squares.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+    y_pred : np.ndarray
+    axis: int or iterable of int, default=None
+        Axis to collapse.
+        If None, collapses all axes to yield a single number.
+        
+    axis_ref: reference axis to measure variability across, which normalizes r2 score.
+
+    axis_bias: axis used to measure y_true.mean(axis_bias), when measuring reference variability (TSS) to normalize.
+    
+    Returns
+    -------
+    z : np.ndarray
+        if axis is specified, returns an array of shape with remaining axes.
+        if axis=None, a single number is returned.
+    """
+
+    # Axis fixing
+    axis = tuple(range(y_true.ndim)) if axis is None else axis # Default to collapsing all dimensions
+    axis_ref = axis if axis_ref is None else axis_ref
+    axis_bias = axis_ref if axis_bias is None else axis_bias
+    axis, axis_ref, axis_bias = axis_fix(axis, y_true.ndim), axis_fix(axis_ref, y_true.ndim), axis_fix(axis_bias, y_true.ndim)
+
+    # Residual Sum of Squares (RSS) 
+    RS = (y_true - y_pred)**2 # Residual Square (RS)
+    RSS = np.sum(RS, axis=axis, keepdims=True)
+
+    # Total Sum of Squares (TSS)
+    if TSS is None:
+        TSS = TSS_score(y_true=y_true, axis=axis, axis_ref=axis_ref, axis_bias=axis_bias)
+    else: # TSS is given
+        try:
+            TSS = np.broadcast_to(TSS, RSS.shape)
+        except ValueError as e:
+            raise ValueError(f'The shape of given TSS ({TSS.shape}) must be broadcastable to shape of RSS ({RSS.shape})') from e
+
+    # R2
+    score = 1 - RSS / TSS
+    score = np.squeeze(score, axis=axis) # Collapse the axis dimension
+
+    # if nan (TSS=0, y_true no variance) or -inf (RSS/TSS=inf, very bad prediction)
     if force_finite:
         score[np.isnan(score)] = 1
         score[np.isinf(score)] = 0 # -Inf means no fit, so set to 0
 
-    if axis is None:
+    # if len(axis) == y_true.ndim:
+    if score.ndim==0: # score.ndim==0 is better than len(axis) == y_true.ndim?
         score = score.item()
 
     return score

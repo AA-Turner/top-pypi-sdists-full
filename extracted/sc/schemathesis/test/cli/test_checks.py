@@ -35,7 +35,7 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url):
             }
         }
     )
-    result = cli.run(
+    cli.run_and_assert(
         str(schema_path),
         f"--url={openapi3_base_url}",
         "--checks",
@@ -43,8 +43,8 @@ def test_negative_data_rejection(ctx, cli, openapi3_base_url):
         "--mode",
         "negative",
         "--max-examples=5",
+        exit_code=ExitCode.TESTS_FAILED,
     )
-    assert result.exit_code == ExitCode.TESTS_FAILED
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
@@ -124,12 +124,150 @@ def test_negative_data_rejection_displays_all_cases(app_runner, cli, snapshot_cl
     )
 
 
-def test_optional_auth_should_not_trigger_ignored_auth_check(app_runner, cli, snapshot_cli):
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_negative_data_rejection_path_parameter_type_mutation(ctx, app_runner, cli, snapshot_cli):
+    # String value for an integer path parameter serializes to the same URL as the integer.
+    # E.g., string "7" becomes /api/run/7 - indistinguishable from integer 7.
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/api/run/{id}": {
+                "post": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                        }
+                    ],
+                    "responses": {"200": {"description": "Success"}},
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/api/run/<path:id>", methods=["POST"])
+    def run_endpoint(id):
+        # Server accepts numeric-looking paths (including negative numbers like -1, -42)
+        try:
+            int(id)
+            return "", 200
+        except ValueError:
+            return "", 400
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=negative_data_rejection",
+            "--mode=negative",
+            "--phases=fuzzing",
+            "--max-examples=200",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_data_rejection_array_of_strings_boolean_collision(ctx, app_runner, cli, snapshot_cli):
+    # See GH-2913
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/api/example/v1/page": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "names",
+                            "schema": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                            "example": ["TEST"],
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"data": {"type": "array"}},
+                                    }
+                                }
+                            },
+                        },
+                        "400": {
+                            "description": "Bad Request",
+                        },
+                    },
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/api/example/v1/page", methods=["GET"])
+    def get_page():
+        names_value = request.args.get("names")
+        if names_value is None:
+            # Parameter not provided at all
+            names = []
+        elif names_value == "":
+            # Empty value (?names=)
+            names = []
+        else:
+            # Comma-separated values for array (style: form, explode: false)
+            names = names_value.split(",")
+
+        return jsonify({"data": names}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=negative_data_rejection",
+            "--mode=negative",
+            "--phases=fuzzing",
+            "--max-examples=50",
+            "--continue-on-failure",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.parametrize(
+    ["version", "kwargs"],
+    [
+        pytest.param(
+            "2.0",
+            {"securityDefinitions": {"basic_auth": {"type": "basic"}}},
+            id="openapi2",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"components": {"securitySchemes": {"basic_auth": {"type": "http", "scheme": "basic"}}}},
+            id="openapi3",
+        ),
+    ],
+)
+def test_optional_auth_should_not_trigger_ignored_auth_check(ctx, app_runner, cli, snapshot_cli, version, kwargs):
     # See GH-3052
-    raw_schema = {
-        "openapi": "3.0.3",
-        "info": {"title": "example", "version": "1.0.0"},
-        "paths": {
+    raw_schema = ctx.openapi.build_schema(
+        {
             "/": {
                 "get": {
                     "security": [
@@ -138,12 +276,11 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(app_runner, cli, sn
                     ],
                     "responses": {"200": {"description": "200 OK"}},
                 }
-            },
+            }
         },
-        "components": {
-            "securitySchemes": {"basic_auth": {"type": "http", "scheme": "basic"}},
-        },
-    }
+        version=version,
+        **kwargs,
+    )
     app = Flask(__name__)
 
     @app.route("/openapi.json")
@@ -160,6 +297,52 @@ def test_optional_auth_should_not_trigger_ignored_auth_check(app_runner, cli, sn
         cli.run(f"http://127.0.0.1:{port}/openapi.json", "-c ignored_auth", "--phases=fuzzing", "--max-examples=3")
         == snapshot_cli
     )
+
+
+@pytest.mark.parametrize(
+    ["version", "kwargs"],
+    [
+        pytest.param(
+            "2.0",
+            {"securityDefinitions": {"basic_auth": {"type": "basic"}}},
+            id="openapi2",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"components": {"securitySchemes": {"basic_auth": {"type": "http", "scheme": "basic"}}}},
+            id="openapi3",
+        ),
+    ],
+)
+def test_optional_auth_should_not_trigger_missing_required_header(ctx, app_runner, cli, snapshot_cli, version, kwargs):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/": {
+                "get": {
+                    "security": [
+                        {},
+                        {"basic_auth": []},
+                    ],
+                    "responses": {"200": {"description": "200 OK"}},
+                }
+            },
+        },
+        version=version,
+        **kwargs,
+    )
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/", methods=["GET"])
+    def data_endpoint():
+        return jsonify({"status": "Ok"})
+
+    port = app_runner.run_flask_app(app)
+
+    assert cli.run(f"http://127.0.0.1:{port}/openapi.json", "-c missing_required_header") == snapshot_cli
 
 
 def test_format_parameter_csv_response(app_runner, cli, snapshot_cli):
@@ -516,6 +699,271 @@ def test_use_after_free_does_not_trigger_on_error(app_runner, cli, snapshot_cli,
             "-c use_after_free",
             "--max-examples=50",
             "--phases=stateful",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_data_rejection_array_min_items_zero_no_false_positive(app_runner, cli, snapshot_cli):
+    # See GH-3056
+    raw_schema = {
+        "openapi": "3.1.1",
+        "info": {"title": "Test API", "version": "0.1.0"},
+        "paths": {
+            "/no-param": {
+                "get": {
+                    "operationId": "noParam",
+                    "responses": {
+                        "200": {
+                            "description": "Simple example",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "foo": {
+                                                "type": "string",
+                                                "example": "bar",
+                                            }
+                                        },
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/with-param": {
+                "get": {
+                    "operationId": "withParam",
+                    "parameters": [
+                        {
+                            "name": "ids",
+                            "in": "query",
+                            "required": True,
+                            "schema": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                # Explicitly allows empty array
+                                "minItems": 0,
+                            },
+                            "style": "form",
+                            # Comma-separated format
+                            "explode": False,
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "Simple example",
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"foo": {"type": "string", "example": "bar"}},
+                                    }
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+        },
+    }
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/no-param", methods=["GET"])
+    def no_param():
+        return jsonify({"foo": "bar"}), 200
+
+    @app.route("/with-param", methods=["GET"])
+    def with_param():
+        # Check if 'ids' parameter is present in the URL
+        if "ids" not in request.args:
+            # Required parameter is missing - this is truly invalid
+            return jsonify({"error": "Missing required parameter: ids"}), 400
+        return jsonify({"foo": "bar"}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=negative_data_rejection",
+            "--mode=negative",
+            "--phases=fuzzing",
+            "--suppress-health-check=all",
+            "--max-examples=20",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_data_rejection_form_data_empty_string_false_positive(ctx, app_runner, cli, snapshot_cli):
+    # Empty string in form data should not be treated as None/null for required string fields
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/suggest": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/x-www-form-urlencoded": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": ["text"],
+                                    "properties": {
+                                        "text": {
+                                            "type": "string",
+                                            "description": "input text",
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                        "required": True,
+                    },
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "400": {"description": "Bad Request"},
+                    },
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/suggest", methods=["POST"])
+    def suggest():
+        text = request.form.get("text")
+        # Empty string is valid for a required string field
+        if text is None:
+            return jsonify({"error": "Missing required field"}), 400
+        return jsonify({"results": []}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=negative_data_rejection",
+            "--mode=negative",
+            "--max-examples=20",
+        )
+        == snapshot_cli
+    )
+
+
+def test_negative_data_rejection_fuzzing_phase_metadata(ctx, app_runner, cli):
+    # Use a simple schema with single property to avoid multiple mutation conflicts
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/users": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"name": {"type": "string"}},
+                                    "required": ["name"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"400": {"description": "Bad Request"}},
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/users", methods=["POST"])
+    def create_user():
+        return jsonify({"result": "ok"}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    result = cli.run_and_assert(
+        f"http://127.0.0.1:{port}/openapi.json",
+        "--checks=negative_data_rejection",
+        "--mode=negative",
+        "--phases=fuzzing",
+        "--max-examples=25",
+        "--continue-on-failure",
+        exit_code=ExitCode.TESTS_FAILED,
+    )
+    assert "API accepted schema-violating request" in result.stdout
+    assert "Invalid component: in body" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "body_schema",
+    [
+        pytest.param(
+            {"type": "object", "properties": {"my_param": {"type": "number"}}},
+            id="optional_properties",
+        ),
+        pytest.param(
+            {"type": "object"},
+            id="no_properties",
+        ),
+    ],
+)
+def test_positive_data_acceptance_required_form_body_no_false_positive(ctx, app_runner, cli, snapshot_cli, body_schema):
+    # When requestBody.required=true but inner schema allows empty object,
+    # coverage generates {} which serializes to no body content for form-urlencoded.
+    # This should NOT trigger a false positive "API rejected schema-compliant request".
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/my-method": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/x-www-form-urlencoded": {"schema": body_schema}},
+                    },
+                    "responses": {
+                        "200": {"description": "OK"},
+                        "400": {"description": "Bad Request"},
+                    },
+                }
+            }
+        }
+    )
+
+    app = Flask(__name__)
+
+    @app.route("/openapi.json")
+    def schema():
+        return jsonify(raw_schema)
+
+    @app.route("/my-method", methods=["POST"])
+    def my_method():
+        if not request.data and not request.form:
+            return jsonify({"error": "Request body is required"}), 400
+        return jsonify({"result": "ok"}), 200
+
+    port = app_runner.run_flask_app(app)
+
+    assert (
+        cli.run(
+            f"http://127.0.0.1:{port}/openapi.json",
+            "--checks=positive_data_acceptance",
+            "--phases=coverage",
         )
         == snapshot_cli
     )

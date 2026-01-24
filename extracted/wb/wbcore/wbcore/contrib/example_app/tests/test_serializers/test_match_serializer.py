@@ -27,15 +27,20 @@ from wbcore.contrib.example_app.serializers import (
 class TestMatchModelSerializer(APITestCase):
     def test_match_serializer(self):
         match_data: dict = model_to_dict(
-            MatchFactory.build(away=TeamFactory(), home=TeamFactory(), sport=SportFactory(), stadium=StadiumFactory())
+            MatchFactory.build(
+                away=TeamFactory.create(),
+                home=TeamFactory.create(),
+                sport=SportFactory.create(),
+                stadium=StadiumFactory.create(),
+            )
         )
         match_serializer = MatchModelSerializer(data=match_data)
         self.assertTrue(match_serializer.is_valid())
 
     def test_match_same_teams(self):
-        team = TeamFactory()
+        team = TeamFactory.create()
         match_data: dict = model_to_dict(
-            MatchFactory.build(away=team, home=team, sport=SportFactory(), stadium=StadiumFactory())
+            MatchFactory.build(away=team, home=team, sport=SportFactory.create(), stadium=StadiumFactory.create())
         )
         with self.assertRaisesMessage(ValidationError, MatchErrorMessages.same_teams.value):
             league_serializer = MatchModelSerializer(data=match_data)
@@ -99,7 +104,7 @@ class TestEventModelSerializer(APITestCase):
             self.assertFalse(event_serializer.is_valid(raise_exception=True))
 
     def test_event_duplication(self):
-        event = EventFactory()
+        event = EventFactory.create()
         event_data = model_to_dict(event)
 
         with pytest.raises(ValidationError):

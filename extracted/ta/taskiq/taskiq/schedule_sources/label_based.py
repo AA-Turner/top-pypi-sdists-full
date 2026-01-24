@@ -1,6 +1,5 @@
 import uuid
 from logging import getLogger
-from typing import Dict, List
 
 from taskiq.abc.broker import AsyncBroker
 from taskiq.abc.schedule_source import ScheduleSource
@@ -14,7 +13,7 @@ class LabelScheduleSource(ScheduleSource):
 
     def __init__(self, broker: AsyncBroker) -> None:
         self.broker = broker
-        self.schedules: Dict[str, ScheduledTask] = {}
+        self.schedules: dict[str, ScheduledTask] = {}
 
     async def startup(self) -> None:
         """
@@ -43,11 +42,14 @@ class LabelScheduleSource(ScheduleSource):
                 )
                 continue
             for schedule in task.labels.get("schedule", []):
-                if "cron" not in schedule and "time" not in schedule:
+                if not {"cron", "interval", "time"} & schedule.keys():
                     continue
                 labels = schedule.get("labels", {})
-                labels.update(task.labels)
-                schedule_id = uuid.uuid4().hex
+
+                task_labels = {k: v for k, v in task.labels.items() if k != "schedule"}
+
+                labels.update(task_labels)
+                schedule_id = schedule.get("schedule_id", uuid.uuid4().hex)
 
                 self.schedules[schedule_id] = ScheduledTask(
                     task_name=task_name,
@@ -58,11 +60,12 @@ class LabelScheduleSource(ScheduleSource):
                     cron=schedule.get("cron"),
                     time=schedule.get("time"),
                     cron_offset=schedule.get("cron_offset"),
+                    interval=schedule.get("interval"),
                 )
 
         return await super().startup()
 
-    async def get_schedules(self) -> List["ScheduledTask"]:
+    async def get_schedules(self) -> list["ScheduledTask"]:
         """
         Collect schedules for all tasks.
 

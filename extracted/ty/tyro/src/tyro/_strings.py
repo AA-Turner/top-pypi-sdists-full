@@ -8,9 +8,10 @@ from typing import Iterable, List, Literal, Sequence, Tuple, Type
 
 from typing_extensions import get_args, get_origin
 
+from tyro._typing_compat import is_typing_union
+
 from . import _resolver
 
-dummy_field_name = "__tyro_dummy_field__"
 DELIMETER: Literal["-", "_"] = "-"
 
 
@@ -31,12 +32,19 @@ def get_delimeter() -> Literal["-", "_"]:
 
 
 def swap_delimeters(p: str) -> str:
-    """Replace hyphens with underscores (or vice versa) except when at the start."""
+    """Replace hyphens with underscores (or vice versa) except when at the start or end."""
     if get_delimeter() == "-":
-        stripped = p.lstrip("_")
-        p = p[: len(p) - len(stripped)] + stripped.replace("_", "-")
+        left_stripped = p.lstrip("_")
+        right_stripped = left_stripped.rstrip("_")
+        prefix = p[: len(p) - len(left_stripped)]
+        suffix = left_stripped[len(right_stripped) :]
+        p = prefix + right_stripped.replace("_", "-") + suffix
     else:
-        p = p.replace("-", "_")
+        left_stripped = p.lstrip("-")
+        right_stripped = left_stripped.rstrip("-")
+        prefix = p[: len(p) - len(left_stripped)]
+        suffix = left_stripped[len(right_stripped) :]
+        p = prefix + right_stripped.replace("-", "_") + suffix
     return p
 
 
@@ -48,11 +56,7 @@ def make_field_name(parts: Sequence[str]) -> str:
     ('parents', '1', 'middle._child_node') => 'parents.1.middle._child-node'
     """
     out = ".".join(parts)
-    return ".".join(
-        swap_delimeters(part)
-        for part in out.split(".")
-        if len(part) > 0 and part != dummy_field_name
-    )
+    return ".".join(swap_delimeters(part) for part in out.split(".") if len(part) > 0)
 
 
 def make_subparser_dest(name: str) -> str:
@@ -108,8 +112,17 @@ def _subparser_name_from_type(cls: Type) -> Tuple[str, bool]:
     # Subparser name from class name.
     def get_name(cls: Type) -> str:
         orig = get_origin(cls)
-        if orig is not None and hasattr(orig, "__name__"):
-            parts = [orig.__name__]  # type: ignore
+
+        # Handle _SpecialForm version of Union, which doesn't have __name__,
+        # normalize UnionType to Union, etc.
+        orig_name: str | None
+        if is_typing_union(orig):
+            orig_name = "Union"
+        else:
+            orig_name = getattr(orig, "__name__", None)
+
+        if orig_name is not None:
+            parts = [orig_name]  # type: ignore
             parts.extend(map(get_name, get_args(cls)))
             parts = [hyphen_separated_from_camel_case(part) for part in parts]
             return get_delimeter().join(parts)
@@ -137,7 +150,7 @@ def _subparser_name_from_type(cls: Type) -> Tuple[str, bool]:
 
 def subparser_name_from_type(prefix: str, cls: Type) -> str:
     suffix, use_prefix = (
-        _subparser_name_from_type(cls) if cls is not type(None) else ("None", True)
+        _subparser_name_from_type(cls) if cls is not type(None) else ("none", True)
     )
     if len(prefix) == 0 or not use_prefix:
         return suffix
@@ -160,7 +173,7 @@ def strip_ansi_sequences(x: str):
 
 
 def multi_metavar_from_single(single: str) -> str:
-    if len(strip_ansi_sequences(single)) >= 32:
+    if len(single) >= 32:
         # Shorten long metavars
         return f"[{single} [...]]"
     else:

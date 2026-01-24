@@ -107,7 +107,7 @@ class NotifyFCM(NotifyBase):
     secure_protocol = "fcm"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_fcm"
+    setup_url = "https://appriseit.com/services/fcm/"
 
     # Project Notification
     # https://firebase.google.com/docs/cloud-messaging/send-message
@@ -510,7 +510,8 @@ class NotifyFCM(NotifyBase):
                         )
                     )
 
-                    self.logger.debug("Response Details:\r\n%s", r.content)
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     has_error = True
 

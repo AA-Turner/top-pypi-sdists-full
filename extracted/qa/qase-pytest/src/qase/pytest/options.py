@@ -186,6 +186,23 @@ class QasePytestOptions:
         QasePytestOptions.add_option(
             parser,
             group,
+            "--qase-testops-show-public-report-link",
+            dest="qase_testops_show_public_report_link",
+            type="bool",
+            help="Enable automatic generation of public report link after test run completion"
+        )
+
+        QasePytestOptions.add_option(
+            parser,
+            group,
+            "--qase-status-mapping",
+            dest="qase_status_mapping",
+            help="Map test result statuses. Format: 'invalid=failed,skipped=passed'"
+        )
+
+        QasePytestOptions.add_option(
+            parser,
+            group,
             "--qase-report-driver",
             dest="qase_report_driver",
             help="Define report driver: `local`. More options coming soon."
@@ -246,6 +263,24 @@ class QasePytestOptions:
             "--qase-pytest-xfail-status-xpass",
             dest="qase_pytest_xpass_status",
             help="Define xpass status for passed tests. Default: `passed`"
+        )
+
+        QasePytestOptions.add_option(
+            parser,
+            group,
+            "--qase-logging-console",
+            dest="qase_logging_console",
+            type="bool",
+            help="Enable/disable console logging output"
+        )
+
+        QasePytestOptions.add_option(
+            parser,
+            group,
+            "--qase-logging-file",
+            dest="qase_logging_file",
+            type="bool",
+            help="Enable/disable file logging output"
         )
 
     @staticmethod

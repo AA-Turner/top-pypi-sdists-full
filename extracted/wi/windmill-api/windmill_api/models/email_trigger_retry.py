@@ -16,11 +16,13 @@ T = TypeVar("T", bound="EmailTriggerRetry")
 
 @_attrs_define
 class EmailTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, EmailTriggerRetryConstant]):
-        exponential (Union[Unset, EmailTriggerRetryExponential]):
-        retry_if (Union[Unset, EmailTriggerRetryRetryIf]):
+        constant (Union[Unset, EmailTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, EmailTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, EmailTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "EmailTriggerRetryConstant"] = UNSET

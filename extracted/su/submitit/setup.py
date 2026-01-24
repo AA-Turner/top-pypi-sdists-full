@@ -29,7 +29,7 @@ extras_require = \
          'flit>=3.5.1']}
 
 setup(name='submitit',
-      version='1.5.3',
+      version='1.5.4',
       description='"Python 3.8+ toolbox for submitting jobs to Slurm',
       author='Facebook AI Research',
       author_email=None,

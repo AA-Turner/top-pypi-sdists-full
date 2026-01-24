@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import os
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from commitizen import defaults
 from commitizen.cz.base import BaseCommitizen
 from commitizen.cz.utils import multiple_line_breaker, required_validator
-from commitizen.question import CzQuestion
+
+if TYPE_CHECKING:
+    from commitizen.question import CzQuestion
 
 __all__ = ["ConventionalCommitsCz"]
 
@@ -154,16 +158,17 @@ class ConventionalCommitsCz(BaseCommitizen):
         footer = answers["footer"]
         is_breaking_change = answers["is_breaking_change"]
 
-        if scope:
-            scope = f"({scope})"
-        if body:
-            body = f"\n\n{body}"
+        formatted_scope = f"({scope})" if scope else ""
+        title = f"{prefix}{formatted_scope}"
         if is_breaking_change:
+            if self.config.settings.get("breaking_change_exclamation_in_title", False):
+                title = f"{title}!"
             footer = f"BREAKING CHANGE: {footer}"
-        if footer:
-            footer = f"\n\n{footer}"
 
-        return f"{prefix}{scope}: {subject}{body}{footer}"
+        formatted_body = f"\n\n{body}" if body else ""
+        formatted_footter = f"\n\n{footer}" if footer else ""
+
+        return f"{title}: {subject}{formatted_body}{formatted_footter}"
 
     def example(self) -> str:
         return (

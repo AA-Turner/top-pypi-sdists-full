@@ -1,0 +1,135 @@
+import os
+
+import sys
+from pathlib import Path
+from unittest.mock import patch
+import pytest
+
+from importlinter import cli
+from importlinter.application import output
+import io
+
+this_directory = Path(__file__).parent
+assets_directory = this_directory / ".." / "assets"
+
+testpackage_directory = assets_directory / "testpackage"
+multipleroots_directory = assets_directory / "multipleroots"
+unmatched_ignore_imports_directory = testpackage_directory / "unmatched_ignore_imports_alerting"
+namespace_packages_directory = assets_directory / "namespacepackages"
+cyclicpackage_directory = assets_directory / "cycles"
+
+# Add namespace packages to Python path
+sys.path.extend(
+    [str(namespace_packages_directory / location) for location in ("locationone", "locationtwo")],
+)
+
+
+@pytest.mark.parametrize(
+    "working_directory, config_filename, expected_result",
+    (
+        (testpackage_directory, None, cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".brokencontract.ini", cli.EXIT_STATUS_ERROR),
+        (testpackage_directory, ".malformedcontract.ini", cli.EXIT_STATUS_ERROR),
+        (testpackage_directory, ".customkeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".externalbrokencontract.ini", cli.EXIT_STATUS_ERROR),
+        (
+            multipleroots_directory,
+            ".multiplerootskeptcontract.ini",
+            cli.EXIT_STATUS_SUCCESS,
+        ),
+        (
+            multipleroots_directory,
+            ".multiplerootsbrokencontract.ini",
+            cli.EXIT_STATUS_ERROR,
+        ),
+        (testpackage_directory, ".setup.toml", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".customkeptcontract.toml", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".externalkeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".externalkeptcontract.toml", cli.EXIT_STATUS_SUCCESS),
+        # Unmatched ignore imports alerting.
+        # The return value depends on what this is set to.
+        (
+            testpackage_directory,
+            str(unmatched_ignore_imports_directory / "unspecified.ini"),
+            cli.EXIT_STATUS_ERROR,
+        ),
+        (
+            testpackage_directory,
+            str(unmatched_ignore_imports_directory / "error.ini"),
+            cli.EXIT_STATUS_ERROR,
+        ),
+        (
+            testpackage_directory,
+            str(unmatched_ignore_imports_directory / "warn.ini"),
+            cli.EXIT_STATUS_SUCCESS,
+        ),
+        (
+            testpackage_directory,
+            str(unmatched_ignore_imports_directory / "none.ini"),
+            cli.EXIT_STATUS_SUCCESS,
+        ),
+        # Namespace packages
+        (namespace_packages_directory, "keptcontract_portion.ini", cli.EXIT_STATUS_SUCCESS),
+        (namespace_packages_directory, "keptcontract_namespace.ini", cli.EXIT_STATUS_SUCCESS),
+        (namespace_packages_directory, "brokencontract_portion.ini", cli.EXIT_STATUS_ERROR),
+        (namespace_packages_directory, "brokencontract_namespace.ini", cli.EXIT_STATUS_ERROR),
+        # Type checking imports
+        (testpackage_directory, ".typecheckkeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (testpackage_directory, ".typecheckbrokencontract.ini", cli.EXIT_STATUS_ERROR),
+        # Acyclic siblings
+        (cyclicpackage_directory, ".keptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (cyclicpackage_directory, ".brokencontract.ini", cli.EXIT_STATUS_ERROR),
+    ),
+)
+def test_lint_imports(working_directory, config_filename, expected_result):
+    os.chdir(working_directory)
+
+    if config_filename:
+        result = cli.lint_imports(config_filename=config_filename)
+    else:
+        result = cli.lint_imports()
+
+    assert expected_result == result
+
+
+@pytest.mark.parametrize("is_debug_mode", (True, False))
+def test_lint_imports_debug_mode(is_debug_mode):
+    os.chdir(testpackage_directory)
+
+    kwargs = dict(config_filename=".nonexistentcontract.ini", is_debug_mode=is_debug_mode)
+    if is_debug_mode:
+        with pytest.raises(FileNotFoundError):
+            cli.lint_imports(**kwargs)
+    else:
+        assert cli.EXIT_STATUS_ERROR == cli.lint_imports(**kwargs)
+
+
+def test_show_timings_smoke_test():
+    os.chdir(testpackage_directory)
+    assert cli.EXIT_STATUS_SUCCESS == cli.lint_imports(show_timings=True)
+
+
+@pytest.mark.parametrize("verbose", (True, False))
+def test_logging_configuration_respects_verbose_flag(verbose, capsys):
+    os.chdir(testpackage_directory)
+
+    cli.lint_imports(verbose=verbose)
+
+    captured = capsys.readouterr()
+
+    # N.B. "Wrote data cache file" is logged by Grimp.
+    assert ("Wrote data cache file" in captured.out) == verbose
+
+
+def test_windows_terminal_encoding_smoke_test():
+    default_windows_terminal_encoding = "cp1252"
+    console = output.Console(
+        file=io.TextIOWrapper(
+            io.BytesIO(),
+            encoding=default_windows_terminal_encoding,
+        )
+    )
+    os.chdir(testpackage_directory)
+
+    with patch.object(output, "console", console):
+        cli.lint_imports()

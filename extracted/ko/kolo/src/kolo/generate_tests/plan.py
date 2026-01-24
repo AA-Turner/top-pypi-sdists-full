@@ -4,7 +4,7 @@ from importlib import import_module
 from io import StringIO
 from operator import attrgetter
 from textwrap import indent
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Protocol, Tuple, Type
+from typing import Callable, Dict, List, Tuple, Type
 
 from . import factories, queries
 from .steps import (

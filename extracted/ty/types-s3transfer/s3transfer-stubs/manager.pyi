@@ -5,7 +5,9 @@ Copyright 2025 Vlad Emelianov
 """
 
 import logging
-from typing import IO, Any, Mapping, Sequence, TypeVar
+from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from typing import IO, Any, TypeVar
 
 from botocore.client import BaseClient
 from s3transfer.bandwidth import BandwidthLimiter as BandwidthLimiter
@@ -40,6 +42,8 @@ _R = TypeVar("_R")
 logger: logging.Logger
 
 class TransferConfig:
+    UNSET_DEFAULT: object = ...
+
     multipart_threshold: int
     multipart_chunksize: int
     max_request_concurrency: int
@@ -67,6 +71,7 @@ class TransferConfig:
         max_in_memory_download_chunks: int = ...,
         max_bandwidth: int | None = ...,
     ) -> None: ...
+    def get_deep_attr(self, item: str) -> Any: ...
 
 class TransferManager:
     ALLOWED_DOWNLOAD_ARGS: list[str]
@@ -79,7 +84,7 @@ class TransferManager:
         client: BaseClient,
         config: TransferConfig | None = ...,
         osutil: OSUtils | None = ...,
-        executor_cls: type[BaseExecutor] | None = ...,
+        executor_cls: type[ThreadPoolExecutor | BaseExecutor] | None = ...,
     ) -> None: ...
     @property
     def client(self) -> BaseClient: ...

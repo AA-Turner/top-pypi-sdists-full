@@ -3,6 +3,8 @@ import os
 import urllib.request
 from ipaddress import IPv6Address, ip_address
 
+from langgraph_api import config
+
 
 def get_healthcheck_host() -> str:
     server_host = os.environ.get("LANGGRAPH_SERVER_HOST", "0.0.0.0")
@@ -35,13 +37,14 @@ def healthcheck():
     ):
         prefix = mount_prefix
     # Override that
-    if os.environ.get("MOUNT_PREFIX"):
-        prefix = os.environ["MOUNT_PREFIX"]
+    if config.MOUNT_PREFIX:
+        prefix = config.MOUNT_PREFIX
 
     with urllib.request.urlopen(
         f"http://{host}:{os.environ['PORT']}{prefix}/ok"
     ) as response:
-        assert response.status == 200
+        if response.status != 200:
+            raise Exception(f"Healthcheck failed: {response.status}")
 
 
 if __name__ == "__main__":

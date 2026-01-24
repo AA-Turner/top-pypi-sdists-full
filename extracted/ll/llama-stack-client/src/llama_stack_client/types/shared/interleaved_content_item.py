@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Union, Optional
@@ -16,35 +22,35 @@ __all__ = [
 
 
 class ImageContentItemImageURL(BaseModel):
+    """A URL reference to external content."""
+
     uri: str
-    """The URL string pointing to the resource"""
 
 
 class ImageContentItemImage(BaseModel):
+    """A URL or a base64 encoded string"""
+
     data: Optional[str] = None
-    """base64 encoded image data as string"""
 
     url: Optional[ImageContentItemImageURL] = None
-    """A URL of the image or data URL in the format of data:image/{type};base64,{data}.
-
-    Note that URL could have length limits.
-    """
+    """A URL reference to external content."""
 
 
 class ImageContentItem(BaseModel):
-    image: ImageContentItemImage
-    """Image as a base64 encoded string or an URL"""
+    """A image content item"""
 
-    type: Literal["image"]
-    """Discriminator type of the content item. Always "image" """
+    image: ImageContentItemImage
+    """A URL or a base64 encoded string"""
+
+    type: Optional[Literal["image"]] = None
 
 
 class TextContentItem(BaseModel):
-    text: str
-    """Text content"""
+    """A text content item"""
 
-    type: Literal["text"]
-    """Discriminator type of the content item. Always "text" """
+    text: str
+
+    type: Optional[Literal["text"]] = None
 
 
 InterleavedContentItem: TypeAlias = Annotated[

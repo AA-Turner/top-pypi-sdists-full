@@ -14,6 +14,7 @@ from sherpa_onnx.lib._sherpa_onnx import (
     OfflineCtcFstDecoderConfig,
     OfflineDolphinModelConfig,
     OfflineFireRedAsrModelConfig,
+    OfflineFunASRNanoModelConfig,
     OfflineLMConfig,
     OfflineModelConfig,
     OfflineMoonshineModelConfig,
@@ -81,4 +82,4 @@ from .keyword_spotter import KeywordSpotter
 from .offline_recognizer import OfflineRecognizer
 from .online_recognizer import OnlineRecognizer
 from .utils import text2token
-__version__ = '1.12.14'
+__version__ = '1.12.23'

@@ -14,8 +14,7 @@ import time
 import traceback
 from random import randint
 
-from ansible.module_utils._text import to_text
-from ansible.module_utils.six import raise_from
+from ansible.module_utils.common.text.converters import to_text
 
 PYVMOMI_IMP_ERR = None
 try:
@@ -85,10 +84,7 @@ class RunningTaskMonitor():
             except AttributeError:
                 error_msg = self.task.info.error
             finally:
-                raise_from(
-                    TaskError(error_msg, host_thumbprint=host_thumbprint, parent_error=self.task.info.error),
-                    self.task.info.error
-                )
+                raise TaskError(error_msg, host_thumbprint=host_thumbprint, parent_error=self.task.info.error) from self.task.info.error
 
         if self.task.info.state in [vim.TaskInfo.State.running, vim.TaskInfo.State.queued]:
             return False

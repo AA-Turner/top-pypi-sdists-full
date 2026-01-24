@@ -9,6 +9,7 @@ from .solutionbase cimport *
 from .kinetics cimport *
 from .func1 cimport *
 from .thermo cimport *
+from .jacobians cimport *
 
 
 cdef extern from "cantera/oneD/DomainFactory.h" namespace "Cantera":
@@ -22,7 +23,21 @@ cdef extern from "cantera/oneD/Domain1D.h":
         size_t nComponents()
         size_t nPoints()
         string componentName(size_t) except +translate_exception
-        size_t componentIndex(string) except +translate_exception
+        size_t componentIndex(string&) except +translate_exception
+        cbool hasComponent(string&) except +translate_exception
+        string info(vector[string]&, int, int) except +translate_exception
+        void updateState(size_t) except +translate_exception
+        vector[double] grid() except +translate_exception
+        void setupGrid(vector[double]&) except +translate_exception
+        double value(string&) except +translate_exception
+        void setValue(string&, double) except +translate_exception
+        vector[double] values(string&) except +translate_exception
+        void getValues(string&, vector[double]&) except +translate_exception
+        void setValues(string&, vector[double]&) except +translate_exception
+        vector[double] residuals(string&) except +translate_exception
+        void getResiduals(string&, vector[double]&) except +translate_exception
+        void setProfile(string&, vector[double]&, vector[double]&) except +translate_exception
+        void setFlatProfile(string&, double) except +translate_exception
         void setBounds(size_t, double, double)
         double upperBound(size_t)
         double lowerBound(size_t)
@@ -36,8 +51,6 @@ cdef extern from "cantera/oneD/Domain1D.h":
         double steady_atol(size_t)
         double transient_rtol(size_t)
         double transient_atol(size_t)
-        double z(size_t)
-        void setupGrid(size_t, double*) except +translate_exception
         void setID(string)
         string& id()
         string domainType "type"()
@@ -79,7 +92,7 @@ cdef extern from "cantera/oneD/Flow1D.h":
         void setSolvingStage(size_t) except +translate_exception
         void solveElectricField() except +translate_exception
         void fixElectricField() except +translate_exception
-        cbool doElectricField(size_t) except +translate_exception
+        cbool doElectricField() except +translate_exception
         void setBoundaryEmissivities(double, double)
         double leftEmissivity()
         double rightEmissivity()
@@ -103,6 +116,9 @@ cdef extern from "cantera/oneD/Flow1D.h":
 
 
 cdef extern from "cantera/oneD/Sim1D.h":
+    cdef shared_ptr[CxxSim1D] CxxNewSim1D "newSim1D" (
+        vector[shared_ptr[CxxDomain1D]]&) except +translate_exception
+
     cdef cppclass CxxSim1D "Cantera::Sim1D":
         CxxSim1D(vector[shared_ptr[CxxDomain1D]]&) except +translate_exception
         void setValue(size_t, size_t, size_t, double) except +translate_exception
@@ -114,6 +130,8 @@ cdef extern from "cantera/oneD/Sim1D.h":
         void restoreSteadySolution() except +translate_exception
         void setMaxTimeStepCount(int)
         int maxTimeStepCount()
+        void setLinearSolver(shared_ptr[CxxSystemJacobian]) except +translate_exception
+        shared_ptr[CxxSystemJacobian] linearSolver()
         void getInitialSoln() except +translate_exception
         void solve(int, cbool) except +translate_exception
         void refine(int) except +translate_exception
@@ -154,6 +172,8 @@ cdef extern from "cantera/oneD/Sim1D.h":
         void setLeftControlPoint(double) except +translate_exception
         void setRightControlPoint(double) except +translate_exception
 
+        void setJacobianPerturbation(double, double, double)
+
 
 cdef extern from "cantera/thermo/IdealGasPhase.h":
     cdef cppclass CxxIdealGasPhase "Cantera::IdealGasPhase"
@@ -176,6 +196,7 @@ cdef class FlowBase(Domain1D):
     cdef CxxFlow1D* flow
 
 cdef class Sim1D:
+    cdef shared_ptr[CxxSim1D] _sim
     cdef CxxSim1D* sim
     cdef readonly object domains
     cdef object _initialized

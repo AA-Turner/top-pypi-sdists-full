@@ -2,7 +2,6 @@
 # this repository contains the full copyright notices and license terms.
 import datetime
 import unittest
-from unittest.mock import patch
 
 from trytond import backend
 from trytond.model.exceptions import AccessError
@@ -192,6 +191,54 @@ class HistoryTestCase(TestCase):
             History.read([history_id], ['value'])
 
     @with_transaction()
+    def test_restore_history_after_delete(self):
+        "Test restoring a record after deleting it"
+        pool = Pool()
+        History = pool.get('test.history')
+        transaction = Transaction()
+
+        history = History(value=1)
+        history.save()
+        history_id = history.id
+        first = history.create_date
+
+        transaction.commit()
+
+        History.delete([History(history_id)])
+        with self.assertRaises(AccessError):
+            History.read([history_id], ['value'])
+
+        transaction.commit()
+
+        History.restore_history([history_id], first)
+        history = History(history_id)
+        self.assertEqual(history.value, 1)
+
+    @with_transaction()
+    def test_restore_history_dict(self):
+        "Test restoring a record with a field.Dict"
+        pool = Pool()
+        History = pool.get('test.history')
+        transaction = Transaction()
+
+        history = History(dico={'a': 1})
+        history.save()
+        history_id = history.id
+        first = history.create_date
+
+        transaction.commit()
+
+        history = History(history_id)
+        history.dico = {'b': 2}
+        history.save()
+
+        transaction.commit()
+
+        History.restore_history([history_id], first)
+        history = History(history_id)
+        self.assertEqual(history.dico, {'a': 1})
+
+    @with_transaction()
     def test_restore_history_before(self):
         'Test restore history before'
         pool = Pool()
@@ -251,13 +298,6 @@ class HistoryTestCase(TestCase):
         History.restore_history([history_id], first)
         history = History(history_id)
         self.assertEqual(history.value, 2)
-
-    @with_transaction()
-    def test_search_historical_records_no_window_functions(self):
-        database = Transaction().database
-        with patch.object(database, 'has_window_functions') as has_wf:
-            has_wf.return_value = False
-            self._test_search_historical_records()
 
     @with_transaction()
     def test_search_historical_records(self):

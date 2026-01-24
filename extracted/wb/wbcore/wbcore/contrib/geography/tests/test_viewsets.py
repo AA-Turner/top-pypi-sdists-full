@@ -97,4 +97,4 @@ class TestViewsets:
         continent.refresh_from_db()
         # Assert
         assert response.status_code == status.HTTP_200_OK
-        assert getattr(continent, "name") == new_field_data
+        assert continent.name == new_field_data

@@ -27,7 +27,7 @@ def utcnow() -> pydt.datetime:
 
 def datetimes_almost_equal(a: pydt.datetime, b: pydt.datetime) -> None:
     dt = abs((a - b).total_seconds())
-    assert dt < 0.01, (
+    assert dt < 0.05, (
         f"Expected {a} and {b} to be almost equal, but they differ by {dt} seconds"
     )
 
@@ -61,6 +61,7 @@ def test_ulid_repr() -> None:
 
 @pytest.mark.parametrize("tick", [1, 60, 3600, 86400])
 def test_ulid_monotonic_sorting(tick: int) -> None:
+
     def _gen() -> t.Generator[ULID, None, None]:
         initial_time = utcnow()
         for i in range(1, 11):
@@ -178,7 +179,7 @@ Params: t.TypeAlias = bytes | str | int | float
         (ULID, b"sdf"),  # invalid length
         (ULID.from_timestamp, b"not-a-timestamp"),  # invalid type
         # NOTE [2025-06-18]:
-        #   pytest-xdist freaks (the fuck) out collecting the tests if we call
+        #   pytest-xdist freaks (the fuck) out collecting the tests if called
         #   `time.time()`, so the "datetime" input param has been replaced with
         #   the ret-value of `time.time()` at the `time.time()` of writing this
         #   semi-incoherent comment

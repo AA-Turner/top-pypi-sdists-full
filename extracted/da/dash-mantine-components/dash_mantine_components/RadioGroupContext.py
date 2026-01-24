@@ -24,7 +24,7 @@ class RadioGroupContext(Component):
 
 Keyword arguments:
 """
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'RadioGroupContext'

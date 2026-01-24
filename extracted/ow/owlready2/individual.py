@@ -310,7 +310,7 @@ class Thing(metaclass = ThingClass):
             if Prop.inverse_property: inverse_python_name = Prop.inverse_property.python_name
             else:                     inverse_python_name = "INVERSE_%s" % Prop.python_name
             old_value = self.__dict__.get(attr, None)
-            if not old_value is None:
+            if (not old_value is None) and (not isinstance_python(old_value.__dict__, _mappingproxy)):
               old_value.__dict__.pop(inverse_python_name, None) # Remove => force reloading; XXX optimizable
               if Prop.inverse_property:
                 self.namespace.world._del_obj_triple_spo(old_value.storid, Prop.inverse_property.storid, self.storid) # Also remove inverse
@@ -413,6 +413,7 @@ class Thing(metaclass = ThingClass):
       
 type.__setattr__(Thing, "entity_class", Thing)
 
+_mappingproxy = Thing.__dict__.__class__
 
 class Nothing(Thing): pass
 

@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
@@ -7,12 +7,12 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from typing import TYPE_CHECKING
-
-import httpx
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from requests import Response
+    import httpx
+    import requests
+
 
 __all__ = [
     "WMLClientError",
@@ -71,7 +71,7 @@ class WMLClientError(Exception):
         )
         self.error_msg = re.sub(
             pattern,
-            lambda m: f"[{m.group(2).capitalize()} URL]",
+            lambda m: f"[{str(m.group(2)).capitalize()} URL]",
             str(error_msg),
             re.IGNORECASE,
         )
@@ -88,9 +88,13 @@ class WMLClientError(Exception):
             )
 
     def __str__(self) -> str:
+        reason_suffix = "Reasons" if isinstance(self.reason, list) else "Reason"
         return str(self.error_msg) + (
-            "\nReason: " + str(self.reason) if self.reason is not None else ""
+            f"\n{reason_suffix}: " + str(self.reason) if self.reason is not None else ""
         )
+
+    def __repr__(self) -> str:
+        return str(self)
 
 
 class MissingValue(WMLClientError, ValueError):
@@ -125,9 +129,11 @@ class ApiRequestFailure(WMLClientError):
     def __init__(
         self,
         error_msg: str,
-        response: Response,
+        response: requests.Response | httpx.Response,
         reason: str | None = None,
     ):
+        from httpx import Response
+
         self.response = response
         if str(response.status_code) == "404" and "DOCTYPE" in str(response.content):
             raise MissingWMLComponent()
@@ -147,7 +153,7 @@ class ApiRequestFailure(WMLClientError):
         else:
             encoding = (
                 getattr(response, "apparent_encoding", None)
-                if not isinstance(response, httpx.Response)
+                if not isinstance(response, Response)
                 else getattr(response, "encoding", None)
             )
             response_text = (
@@ -169,14 +175,14 @@ class ApiRequestFailure(WMLClientError):
 
 
 class UnexpectedType(WMLClientError, ValueError):
-    def __init__(self, el_name: str, expected_type: type, actual_type: type):
+    def __init__(self, el_name: str, expected_type: type | str, actual_type: type):
         WMLClientError.__init__(
             self,
             "Unexpected type of '{}', expected: {}, actual: '{}'.".format(
                 el_name,
                 (
-                    "'{}'".format(expected_type)
-                    if type(expected_type) is type
+                    f"'{expected_type}'"
+                    if isinstance(expected_type, type)
                     else expected_type
                 ),
                 actual_type,
@@ -233,7 +239,7 @@ class CannotAutogenerateBedrockUrl(WMLClientError, ValueError):
             self,
             "Attempt of generating `bedrock_url` automatically failed. "
             "If iamintegration=True, please provide `bedrock_url` in credentials. "
-            "If iamintegration=False, please validate your credentials.",
+            "If iamintegration=False or you are trying to connect to watsonx.ai on IBM Cloud  - please validate your credentials.",
             reason=[e1, e2],
         )
 
@@ -300,7 +306,9 @@ class EmptyDataSource(WMLClientError, ValueError):
         WMLClientError.__init__(
             self,
             "Cannot fetch data via Flight Service. "
-            "Verify if data were saved under data connection and try again.",
+            "Verify if data were saved under data connection. "
+            "Ensure the dataset is not empty and is of tabular type if binary mode is disabled. "
+            "For non-tabular data set `binary` to `True`.",
         )
 
 
@@ -372,10 +380,29 @@ class UnsupportedOperation(WMLClientError):
 
 
 class MissingExtension(WMLClientError, ImportError):
-    def __init__(self, extension_name: str, reason: str | None = None):
+    def __init__(
+        self,
+        extension_name: str,
+        reason: str | None = None,
+        extra_info: Literal["rag"] | None = None,
+    ):
+        error_msg = f"Could not import `{extension_name}`."
+
+        match extra_info:
+            case "rag":
+                error_msg += (
+                    "\nHint: Please install `ibm-watsonx-ai` with the 'rag' extra:\n"
+                    "    pip install -U 'ibm-watsonx-ai[rag]'"
+                )
+            case _:
+                error_msg += (
+                    f"\nHint: Please install the `{extension_name}` extension:\n"
+                    f"    pip install -U '{extension_name}'"
+                )
+
         WMLClientError.__init__(
             self,
-            f"Could not import {extension_name}: Please install `{extension_name}` extension.",
+            error_msg=error_msg,
             reason=reason,
         )
 
@@ -386,10 +413,15 @@ class MissingMetadata(MissingValue):
 
 
 class InvalidCredentialsError(WMLClientError):
-    def __init__(self, reason: str | Response, logg_messages: bool = True):
+    def __init__(
+        self,
+        reason: str | requests.Response | httpx.Response,
+        logg_messages: bool = True,
+    ):
+        reason_str = getattr(reason, "text", reason)
         WMLClientError.__init__(
             self,
-            f"Attempt of authenticating connection to service failed, please validate your credentials. Error: {reason}",
+            f"Attempt of authenticating connection to service failed, please validate your credentials. Error: {reason_str}",
             logg_messages=logg_messages,
         )
 
@@ -398,7 +430,7 @@ class AuthenticationError(ApiRequestFailure):
     def __init__(
         self,
         token_auth_type: str,
-        response: Response,
+        response: requests.Response | httpx.Response,
         reason: str | None = None,
     ):
         ApiRequestFailure.__init__(
@@ -410,7 +442,7 @@ class AuthenticationError(ApiRequestFailure):
 
 
 class ReadingDataTimeoutError(WMLClientError, TimeoutError):
-    def __init__(self, timeout: str, time_unit="seconds"):
+    def __init__(self, timeout: str, time_unit: str = "seconds"):
         WMLClientError.__init__(
             self,
             f"Reading documents with Flight Service did not finish in {timeout} {time_unit}.",
@@ -418,7 +450,7 @@ class ReadingDataTimeoutError(WMLClientError, TimeoutError):
 
 
 class LoadingDocumentError(WMLClientError):
-    def __init__(self, document_id, exception):
+    def __init__(self, document_id: str, exception: Exception):
         WMLClientError.__init__(
             self,
             f"Loading document with id={document_id} failed with error: {exception}",
@@ -439,7 +471,7 @@ class ExceededLimitOfAPICalls(WMLClientError):
 
 
 class ResourceIdByNameNotFound(WMLClientError, ValueError):
-    def __init__(self, name, resource_name):
+    def __init__(self, name: str, resource_name: str):
         WMLClientError.__init__(
             self,
             f"Lookup for {resource_name} with name=`{name}` failed as the resource was not found.",
@@ -451,7 +483,7 @@ class ResourceByNameNotFound(ResourceIdByNameNotFound):
 
 
 class MultipleResourceIdByNameFound(WMLClientError, ValueError):
-    def __init__(self, name, resource_name):
+    def __init__(self, name: str, resource_name: str):
         WMLClientError.__init__(
             self,
             f"Lookup for {resource_name} with name=`{name}` failed as more than one was found.",

@@ -1,0 +1,244 @@
+"""Connection management service for Claude hook handler.
+
+This service implements the SINGLE-PATH EVENT EMISSION ARCHITECTURE
+to eliminate duplicate events and improve performance.
+
+ARCHITECTURE: Hook → ConnectionManager → Direct Socket.IO → Dashboard
+                                      ↓ (fallback only)
+                                    HTTP POST → Monitor → Dashboard
+
+CRITICAL: This service must maintain the single emission path principle.
+See docs/developer/EVENT_EMISSION_ARCHITECTURE.md for full documentation.
+
+This service manages:
+- SocketIO connection pool initialization
+- Direct event emission with HTTP fallback
+- Connection cleanup
+"""
+
+import os
+import sys
+from datetime import datetime, timezone
+
+# Try to import _log from hook_handler, fall back to no-op
+try:
+    from claude_mpm.hooks.claude_hooks.hook_handler import _log
+except ImportError:
+
+    def _log(msg: str) -> None:
+        pass  # Silent fallback
+
+
+# Debug mode - disabled by default to prevent logging overhead in production
+DEBUG = os.environ.get("CLAUDE_MPM_HOOK_DEBUG", "false").lower() == "true"
+
+# Import extracted modules with fallback for direct execution
+try:
+    # Try relative imports first (when imported as module)
+    # Use the modern SocketIOConnectionPool instead of the deprecated local one
+    from claude_mpm.core.socketio_pool import get_connection_pool
+except ImportError:
+    # Fall back to absolute imports (when run directly)
+    from pathlib import Path
+
+    # Add parent directory to path
+    sys.path.insert(0, str(Path(__file__).parent))
+
+    # Try to import get_connection_pool from deprecated location
+    try:
+        from connection_pool import SocketIOConnectionPool
+
+        def get_connection_pool():
+            return SocketIOConnectionPool()
+
+    except ImportError:
+        get_connection_pool = None
+
+# Import EventNormalizer for consistent event formatting
+try:
+    from claude_mpm.services.socketio.event_normalizer import EventNormalizer
+except ImportError:
+    # Create a simple fallback EventNormalizer if import fails
+    class EventNormalizer:
+        def normalize(self, event_data, source="hook"):
+            """Simple fallback normalizer that returns event as-is."""
+            return type(
+                "NormalizedEvent",
+                (),
+                {
+                    "to_dict": lambda: {
+                        "event": "mpm_event",
+                        "type": event_data.get("type", "unknown"),
+                        "subtype": event_data.get("subtype", "generic"),
+                        "timestamp": event_data.get(
+                            "timestamp", datetime.now(timezone.utc).isoformat()
+                        ),
+                        "data": event_data.get("data", event_data),
+                    }
+                },
+            )
+
+
+# EventBus removed - using direct Socket.IO calls with HTTP fallback
+# This eliminates duplicate events and improves performance
+
+
+class ConnectionManagerService:
+    """Manages connections for the Claude hook handler."""
+
+    def __init__(self):
+        """Initialize connection management service."""
+        # Event normalizer for consistent event schema
+        self.event_normalizer = EventNormalizer()
+
+        # Initialize SocketIO connection pool for inter-process communication
+        # This sends events directly to the Socket.IO server in the daemon process
+        self.connection_pool = None
+        self._initialize_socketio_pool()
+
+        # EventBus removed - using direct Socket.IO with HTTP fallback only
+
+    def _initialize_socketio_pool(self):
+        """Initialize the SocketIO connection pool."""
+        try:
+            self.connection_pool = get_connection_pool()
+            if DEBUG:
+                _log("✅ Modern SocketIO connection pool initialized")
+        except Exception as e:
+            if DEBUG:
+                _log(f"⚠️ Failed to initialize SocketIO connection pool: {e}")
+            self.connection_pool = None
+
+    def emit_event(self, namespace: str, event: str, data: dict):
+        """Emit event through direct Socket.IO connection with HTTP fallback.
+
+        🚨 CRITICAL: This method implements the SINGLE-PATH EMISSION ARCHITECTURE.
+        DO NOT add additional emission paths (EventBus, etc.) as this creates duplicates.
+        See docs/developer/EVENT_EMISSION_ARCHITECTURE.md for details.
+
+        High-performance single-path approach:
+        - Primary: Direct Socket.IO connection for ultra-low latency
+        - Fallback: HTTP POST for reliability when direct connection fails
+        - Eliminates duplicate events from multiple emission paths
+        """
+        # Extract tool_call_id from data if present for correlation
+        tool_call_id = data.get("tool_call_id")
+
+        # Create event data for normalization
+        # Extract session_id (try both camelCase and snake_case)
+        session_id = data.get("session_id") or data.get("sessionId")
+
+        # Extract working directory for project identification
+        # Try multiple field names for maximum compatibility
+        cwd = (
+            data.get("cwd")
+            or data.get("working_directory")
+            or data.get("workingDirectory")
+        )
+
+        # For hook_execution events, extract the actual hook type from data
+        # Otherwise use "hook" as the type
+        if event == "hook_execution":
+            hook_type = data.get("hook_type", "unknown")
+
+            # BUGFIX: Validate hook_type is meaningful (not generic/invalid values)
+            # Problem: Dashboard shows "hook hook" instead of "PreToolUse", "UserPromptSubmit", etc.
+            # Root cause: hook_type defaults to "hook" or "unknown", providing no useful information
+            # Solution: Fallback to hook_name, then to descriptive "hook_execution_untyped"
+            if hook_type in ("hook", "unknown", "", None):
+                # Try fallback to hook_name field (set by _emit_hook_execution_event)
+                hook_type = data.get("hook_name", "unknown_hook")
+
+                # Final fallback if still generic - use descriptive name
+                if hook_type in ("hook", "unknown", "", None):
+                    hook_type = "hook_execution_untyped"
+
+                # Debug log when we detect invalid hook_type for troubleshooting
+                if DEBUG:
+                    _log(f"⚠️ Invalid hook_type detected, using fallback: {hook_type}")
+
+            event_type = hook_type
+        else:
+            event_type = "hook"
+
+        raw_event = {
+            "type": event_type,  # Use actual hook type for hook_execution, "hook" otherwise
+            "subtype": event,  # e.g., "user_prompt", "pre_tool", "subagent_stop", "execution"
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "data": data,
+            "source": "mpm_hook",  # Identify the source as mpm_hook
+            "session_id": session_id,  # Include session if available (supports both naming conventions)
+            "cwd": cwd,  # Add working directory at top level for easy frontend access
+            "correlation_id": tool_call_id,  # Set from tool_call_id for event correlation
+        }
+
+        # Normalize the event using EventNormalizer for consistent schema
+        normalized_event = self.event_normalizer.normalize(raw_event, source="hook")
+        claude_event_data = normalized_event.to_dict()
+
+        # Log important events for debugging
+        if DEBUG and event in ["subagent_stop", "pre_tool"]:
+            if event == "subagent_stop":
+                agent_type = data.get("agent_type", "unknown")
+                _log(f"Hook handler: Publishing SubagentStop for agent '{agent_type}'")
+            elif event == "pre_tool" and data.get("tool_name") == "Task":
+                delegation = data.get("delegation_details", {})
+                agent_type = delegation.get("agent_type", "unknown")
+                _log(
+                    f"Hook handler: Publishing Task delegation to agent '{agent_type}'"
+                )
+
+        # Emit through direct Socket.IO connection pool (primary path)
+        # This provides ultra-low latency direct async communication
+        if self.connection_pool:
+            try:
+                # Emit to Socket.IO server directly
+                self.connection_pool.emit("mpm_event", claude_event_data)
+                if DEBUG:
+                    _log(f"✅ Emitted via connection pool: {event}")
+                return  # Success - no need for fallback
+            except Exception as e:
+                if DEBUG:
+                    _log(f"⚠️ Failed to emit via connection pool: {e}")
+
+        # HTTP fallback for cross-process communication (when direct calls fail)
+        # This replaces EventBus for reliability without the complexity
+        self._try_http_fallback(claude_event_data)
+
+    def _try_http_fallback(self, claude_event_data: dict):
+        """HTTP fallback when direct Socket.IO connection fails."""
+        try:
+            import requests
+
+            # Send to monitor server HTTP API
+            response = requests.post(
+                "http://localhost:8765/api/events",
+                json=claude_event_data,
+                timeout=2.0,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if response.status_code in [200, 204]:
+                if DEBUG:
+                    _log("✅ HTTP fallback successful")
+            elif DEBUG:
+                _log(f"⚠️ HTTP fallback failed: {response.status_code}")
+
+        except Exception as e:
+            if DEBUG:
+                _log(f"⚠️ HTTP fallback error: {e}")
+
+        # Warn if no emission method is available
+        if not self.connection_pool and DEBUG:
+            _log(
+                f"⚠️ No event emission method available for: {claude_event_data.get('event', 'unknown')}"
+            )
+
+    def cleanup(self):
+        """Cleanup connections on service destruction."""
+        # Clean up connection pool if it exists
+        if self.connection_pool:
+            try:
+                self.connection_pool.cleanup()
+            except Exception:  # nosec B110
+                pass  # Ignore cleanup errors during destruction

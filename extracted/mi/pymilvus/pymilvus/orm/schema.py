@@ -13,11 +13,12 @@
 import copy
 from typing import Any, Dict, List, Optional, Union
 
+import orjson
 import pandas as pd
-import ujson
 from pandas.api.types import is_list_like, is_scalar
 
-from pymilvus.client.types import FunctionType
+from pymilvus.client.types import FunctionType, HighlightType
+from pymilvus.client.utils import convert_struct_fields_to_user_format
 from pymilvus.exceptions import (
     AutoIDException,
     CannotInferSchemaException,
@@ -34,6 +35,7 @@ from pymilvus.exceptions import (
     SchemaNotReadyException,
 )
 from pymilvus.grpc_gen import schema_pb2 as schema_types
+from pymilvus.settings import Config
 
 from .constants import COMMON_TYPE_PARAMS
 from .types import (
@@ -89,13 +91,20 @@ def validate_clustering_key(clustering_key_field_name: Any, clustering_key_field
 
 class CollectionSchema:
     def __init__(
-        self, fields: List, description: str = "", functions: Optional[List] = None, **kwargs
+        self,
+        fields: List,
+        description: str = "",
+        struct_fields: Optional[List] = None,
+        functions: Optional[List] = None,
+        **kwargs,
     ):
         self._kwargs = copy.deepcopy(kwargs)
         self._fields = []
+        self._struct_fields = []
         self._description = description
         # if "enable_dynamic_field" is not in kwargs, we keep None here
         self._enable_dynamic_field = self._kwargs.get("enable_dynamic_field", None)
+        self._enable_namespace = self._kwargs.get("enable_namespace", None)
         self._primary_field = None
         self._partition_key_field = None
         self._clustering_key_field = None
@@ -115,6 +124,12 @@ class CollectionSchema:
             if not isinstance(field, FieldSchema):
                 raise FieldTypeException(message=ExceptionsMessage.FieldType)
         self._fields = [copy.deepcopy(field) for field in fields]
+
+        if struct_fields is not None:
+            for struct in struct_fields:
+                if not isinstance(struct, StructFieldSchema):
+                    raise FieldTypeException(message=ExceptionsMessage.FieldType)
+            self._struct_fields = [copy.deepcopy(struct) for struct in struct_fields]
 
         self._mark_output_fields()
         self._check_kwargs()
@@ -245,6 +260,21 @@ class CollectionSchema:
     @classmethod
     def construct_from_dict(cls, raw: Dict):
         fields = [FieldSchema.construct_from_dict(field_raw) for field_raw in raw["fields"]]
+
+        struct_fields = None
+        if raw.get("struct_fields"):
+            struct_fields = []
+            for struct_field_raw in raw["struct_fields"]:
+                struct_fields.append(StructFieldSchema.construct_from_dict(struct_field_raw))
+
+        elif raw.get("struct_array_fields"):
+            converted_struct_fields = convert_struct_fields_to_user_format(
+                raw["struct_array_fields"]
+            )
+            struct_fields = []
+            for struct_field_dict in converted_struct_fields:
+                struct_fields.append(StructFieldSchema.construct_from_dict(struct_field_dict))
+
         if "functions" in raw:
             functions = [
                 Function.construct_from_dict(function_raw) for function_raw in raw["functions"]
@@ -252,8 +282,14 @@ class CollectionSchema:
         else:
             functions = []
         enable_dynamic_field = raw.get("enable_dynamic_field", False)
+        enable_namespace = raw.get("enable_namespace", False)
         return CollectionSchema(
-            fields, raw.get("description", ""), functions, enable_dynamic_field=enable_dynamic_field
+            fields,
+            struct_fields=struct_fields,
+            description=raw.get("description", ""),
+            functions=functions,
+            enable_dynamic_field=enable_dynamic_field,
+            enable_namespace=enable_namespace,
         )
 
     @property
@@ -280,6 +316,10 @@ class CollectionSchema:
             [<pymilvus.schema.FieldSchema object at 0x7fd3716ffc50>]
         """
         return self._fields
+
+    @property
+    def struct_fields(self):
+        return self._struct_fields
 
     @property
     def functions(self):
@@ -341,15 +381,26 @@ class CollectionSchema:
     def enable_dynamic_field(self, value: bool):
         self._enable_dynamic_field = bool(value)
 
+    @property
+    def enable_namespace(self):
+        return bool(self._enable_namespace)
+
+    @enable_namespace.setter
+    def enable_namespace(self, value: bool):
+        self._enable_namespace = bool(value)
+
     def to_dict(self):
         res = {
             "auto_id": self.auto_id,
             "description": self._description,
             "fields": [s.to_dict() for s in self._fields],
             "enable_dynamic_field": self.enable_dynamic_field,
+            "enable_namespace": self.enable_namespace,
         }
         if self._functions is not None and len(self._functions) > 0:
             res["functions"] = [s.to_dict() for s in self._functions]
+        if self._struct_fields is not None and len(self._struct_fields) > 0:
+            res["struct_fields"] = [s.to_dict() for s in self._struct_fields]
         return res
 
     def verify(self):
@@ -357,9 +408,32 @@ class CollectionSchema:
         self._check()
 
     def add_field(self, field_name: str, datatype: DataType, **kwargs):
+        if (
+            datatype == DataType.ARRAY
+            and "element_type" in kwargs
+            and kwargs["element_type"] == DataType.STRUCT
+        ):
+            if "struct_schema" not in kwargs:
+                raise ParamError(message="Param struct_schema is required when datatype is STRUCT")
+            struct_schema = copy.deepcopy(kwargs.pop("struct_schema"))
+            struct_schema.name = field_name
+            if "max_capacity" not in kwargs:
+                raise ParamError(message="Param max_capacity is required when datatype is STRUCT")
+            struct_schema.max_capacity = kwargs["max_capacity"]
+
+            if "mmap_enabled" in kwargs:
+                struct_schema._type_params["mmap_enabled"] = kwargs["mmap_enabled"]
+
+            self._struct_fields.append(struct_schema)
+            return self
+
         field = FieldSchema(field_name, datatype, **kwargs)
         self._fields.append(field)
         self._mark_output_fields()
+        return self
+
+    def add_struct_field(self, struct_field_schema: "StructFieldSchema"):
+        self._struct_fields.append(struct_field_schema)
         return self
 
     def add_function(self, function: "Function"):
@@ -415,7 +489,7 @@ class FieldSchema:
 
         for key in ["analyzer_params", "multi_analyzer_params"]:
             if key in self._kwargs and isinstance(self._kwargs[key], dict):
-                self._kwargs[key] = ujson.dumps(self._kwargs[key])
+                self._kwargs[key] = orjson.dumps(self._kwargs[key]).decode(Config.EncodeProtocol)
 
         self._parse_type_params()
         self.is_function_output = False
@@ -439,6 +513,7 @@ class FieldSchema:
             DataType.ARRAY,
             DataType.SPARSE_FLOAT_VECTOR,
             DataType.INT8_VECTOR,
+            DataType._ARRAY_OF_VECTOR,
         ):
             return
         if not self._kwargs:
@@ -497,7 +572,9 @@ class FieldSchema:
             _dict["is_dynamic"] = self.is_dynamic
         if self.nullable:
             _dict["nullable"] = self.nullable
-        if self.dtype == DataType.ARRAY and self.element_type:
+        if (
+            self.dtype == DataType.ARRAY or self._dtype == DataType._ARRAY_OF_VECTOR
+        ) and self.element_type:
             _dict["element_type"] = self.element_type
         if self.is_clustering_key:
             _dict["is_clustering_key"] = True
@@ -553,6 +630,177 @@ class FieldSchema:
     @property
     def dtype(self) -> DataType:
         return self._dtype
+
+
+def isVectorDataType(datatype: DataType) -> bool:
+    return datatype in (
+        DataType.FLOAT_VECTOR,
+        DataType.FLOAT16_VECTOR,
+        DataType.BFLOAT16_VECTOR,
+        DataType.INT8_VECTOR,
+        DataType.BINARY_VECTOR,
+        DataType.SPARSE_FLOAT_VECTOR,
+    )
+
+
+class StructFieldSchema:
+    def __init__(self):
+        self.name = ""
+        self._kwargs = {}
+        self._fields = []
+        self._description = ""
+        self._type_params = {}
+        # max_capacity will be set when added to CollectionSchema
+        self.max_capacity = None
+
+    def _check_kwargs(self):
+        """Check struct-level kwargs."""
+
+    def _check_fields(self):
+        """Check struct fields restrictions."""
+        if not self._fields:
+            raise ParamError(message="Struct field must have at least one field")
+
+        for field in self._fields:
+            if field.is_primary:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot be primary key"
+                )
+
+            if field.is_partition_key:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot be partition key"
+                )
+
+            if field.is_clustering_key:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot be clustering key"
+                )
+
+            if field.is_dynamic:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot be dynamic field"
+                )
+
+            if field.nullable:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot be nullable"
+                )
+
+            if field.auto_id:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot have auto_id"
+                )
+
+            if hasattr(field, "default_value") and field.default_value is not None:
+                raise ParamError(
+                    message=f"Field '{field.name}' in struct '{self.name}' cannot have default value"
+                )
+
+        # Check field name uniqueness
+        field_names = [f.name for f in self._fields]
+        if len(field_names) != len(set(field_names)):
+            duplicate_names = [name for name in field_names if field_names.count(name) > 1]
+            raise ParamError(
+                message=f"Duplicate field names in struct '{self.name}': {set(duplicate_names)}"
+            )
+
+    def add_field(self, field_name: str, datatype: DataType, **kwargs):
+        if datatype in {DataType.ARRAY, DataType._ARRAY_OF_VECTOR, DataType.STRUCT}:
+            raise ParamError(
+                message="Struct field schema does not support Array, ArrayOfVector or Struct"
+            )
+
+        field = FieldSchema(field_name, datatype, **kwargs)
+        self._fields.append(field)
+        return self
+
+    @property
+    def fields(self):
+        return self._fields
+
+    @property
+    def description(self):
+        return self._description
+
+    @property
+    def params(self):
+        return self._type_params
+
+    @property
+    def dtype(self) -> DataType:
+        return DataType.STRUCT
+
+    def to_dict(self):
+        """Convert StructFieldSchema to dictionary representation."""
+        struct_dict = {
+            "name": self.name,
+            "description": self._description,
+            "fields": [field.to_dict() for field in self._fields],
+        }
+        # Include max_capacity if it's set
+        if self.max_capacity is not None:
+            struct_dict["max_capacity"] = self.max_capacity
+        # Include type_params if not empty
+        if self._type_params:
+            struct_dict["params"] = copy.deepcopy(self._type_params)
+        return struct_dict
+
+    @classmethod
+    def construct_from_dict(cls, raw: Dict):
+        """Construct StructFieldSchema from dictionary.
+
+        The input can be either:
+        1. User-friendly format (from convert_struct_fields_to_user_format)
+        2. Direct struct field format with sub-fields
+        """
+        # Create empty instance
+        instance = cls()
+
+        # Set name and description
+        instance.name = raw.get("name", "")
+        instance._description = raw.get("description", "")
+
+        # Extract max_capacity if present
+        if "max_capacity" in raw:
+            instance.max_capacity = raw["max_capacity"]
+        elif (
+            "params" in raw and isinstance(raw["params"], dict) and "max_capacity" in raw["params"]
+        ):
+            instance.max_capacity = raw["params"]["max_capacity"]
+
+        # Extract type_params from params dict
+        if "params" in raw and isinstance(raw["params"], dict):
+            for key, value in raw["params"].items():
+                if key != "max_capacity":  # max_capacity is already handled above
+                    instance._type_params[key] = value
+
+        # Build fields list
+        fields = []
+        if "struct_fields" in raw:
+            # User format from convert_struct_fields_to_user_format
+            for field_dict in raw["struct_fields"]:
+                field_kwargs = {}
+                if field_dict.get("params"):
+                    field_kwargs.update(field_dict["params"])
+                field = FieldSchema(
+                    name=field_dict["name"],
+                    dtype=field_dict["type"],
+                    description=field_dict.get("description", ""),
+                    **field_kwargs,
+                )
+                fields.append(field)
+        elif "fields" in raw:
+            # Direct format with FieldSchema dicts
+            for field_raw in raw["fields"]:
+                if isinstance(field_raw, dict):
+                    fields.append(FieldSchema.construct_from_dict(field_raw))
+                elif isinstance(field_raw, FieldSchema):
+                    fields.append(field_raw)
+
+        instance._fields = [copy.deepcopy(field) for field in fields]
+
+        return instance
 
 
 class Function:
@@ -708,6 +956,86 @@ class Function:
         if not isinstance(value, Function):
             return False
         return self.to_dict() == value.to_dict()
+
+
+class FunctionScore:
+    def __init__(
+        self,
+        functions: Union[Function, List[Function]],
+        params: Optional[Dict] = None,
+    ):
+        if isinstance(functions, Function):
+            self._functions = [functions]
+        else:
+            self._functions = functions
+
+        self._params = params
+
+    @property
+    def params(self):
+        return self._params
+
+    @property
+    def functions(self):
+        return self._functions
+
+
+class LexicalHighlighter:
+    def __init__(
+        self,
+        *,
+        highlight_query: Optional[List] = None,
+        highlight_search_text: Optional[bool] = None,
+        pre_tags: Optional[List[str]] = None,
+        post_tags: Optional[List[str]] = None,
+        fragment_offset: Optional[int] = None,
+        fragment_size: Optional[int] = None,
+        num_of_fragments: Optional[int] = None,
+    ):
+        self.pre_tag = pre_tags
+        self.post_tag = post_tags
+        self.fragment_offset = fragment_offset
+        self.fragment_size = fragment_size
+        self.num_of_fragments = num_of_fragments
+        self.highlight_query = highlight_query
+        self.highlight_search_text = highlight_search_text
+
+    def with_query(self, field: str, text: str, query_type: str):
+        if self.highlight_query is None:
+            self.highlight_query = []
+        self.highlight_query.append({"type": query_type, "field": field, "text": text})
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        params = {}
+        if self.pre_tag is not None:
+            params["pre_tags"] = self.pre_tag
+
+        if self.post_tag is not None:
+            params["post_tags"] = self.post_tag
+
+        if self.fragment_offset is not None:
+            params["fragment_offset"] = self.fragment_offset
+
+        if self.fragment_size is not None:
+            params["fragment_size"] = self.fragment_size
+
+        if self.num_of_fragments is not None:
+            params["num_of_fragments"] = self.num_of_fragments
+
+        if self.highlight_query is not None:
+            params["highlight_query"] = self.highlight_query
+
+        if self.highlight_search_text is not None:
+            params["highlight_search_text"] = self.highlight_search_text
+        return params
+
+    @property
+    def type(self) -> HighlightType:
+        return HighlightType.LEXICAL
+
+
+Highlighter = LexicalHighlighter  # Use Union[...] to add more highlighter types in the future
 
 
 def is_valid_insert_data(data: Union[pd.DataFrame, list, dict]) -> bool:

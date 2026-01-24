@@ -6,12 +6,15 @@
  */
 
 use std::fmt::Display;
+use std::path::Path;
 use std::str::FromStr;
 
 use clap::Parser;
 use pyrefly_config::args::ConfigOverrideArgs;
 use pyrefly_python::module_path::ModulePath;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
+use pyrefly_util::args::clap_env;
 use starlark_map::small_map::SmallMap;
 
 use crate::commands::check::FullCheckArgs;
@@ -81,11 +84,7 @@ pub struct DumpConfigArgs {
 impl DumpConfigArgs {
     pub fn run(self) -> anyhow::Result<CommandExitStatus> {
         // Pass on just the subset of args we use, the rest are irrelevant
-        dump_config(
-            self.args.files,
-            self.args.args.config_override,
-            self.max_files,
-        )
+        dump_config(self.args.files, self.args.config_override, self.max_files)
     }
 }
 
@@ -95,15 +94,18 @@ fn dump_config(
     max_files: MaxFiles,
 ) -> anyhow::Result<CommandExitStatus> {
     config_override.validate()?;
-    let (files_to_check, config_finder) = files.resolve(&config_override)?;
+    let (files_to_check, config_finder) = files.resolve(config_override)?;
 
     let mut configs_to_files: SmallMap<ArcId<ConfigFile>, Vec<ModulePath>> = SmallMap::new();
     let handles = Handles::new(config_finder.checkpoint(files_to_check.files())?);
-    let mut handles = handles.all(&config_finder);
+    let (mut handles, _, sourcedb_errors) = handles.all(&config_finder);
+    for error in sourcedb_errors {
+        error.print();
+    }
     handles.sort_by(|a, b| a.path().cmp(b.path()));
     for handle in handles {
         let path = handle.path();
-        let config = config_finder.python_file(handle.module(), path);
+        let config = config_finder.python_file(handle.module_kind(), path);
         configs_to_files
             .entry(config)
             .or_default()
@@ -113,6 +115,7 @@ fn dump_config(
         error.print();
     }
     for (config, files) in configs_to_files.into_iter() {
+        let config_env = clap_env("CONFIG");
         match &config.source {
             ConfigSource::Synthetic => {
                 println!("Default configuration");
@@ -124,7 +127,14 @@ fn dump_config(
                 );
             }
             ConfigSource::File(path) => {
-                println!("Configuration at `{}`", path.display());
+                let config_from = if std::env::var(&config_env)
+                    .is_ok_and(|f| &Path::new(&f).absolutize() == path)
+                {
+                    format!(" (from env {})", config_env)
+                } else {
+                    "".to_owned()
+                };
+                println!("Configuration at `{}`{}", path.display(), config_from);
             }
         }
         println!("  Using interpreter: {}", config.interpreters);
@@ -137,9 +147,15 @@ fn dump_config(
                 break;
             }
         }
-        for path_part in config.structured_import_lookup_path() {
+        println!("  Resolving imports from:");
+        let origin = if files.len() == 1 {
+            files.first().map(|p| p.as_path())
+        } else {
+            None
+        };
+        for path_part in config.structured_import_lookup_path(origin) {
             if !path_part.is_empty() {
-                println!("  {path_part}");
+                println!("    {path_part}");
             }
         }
     }

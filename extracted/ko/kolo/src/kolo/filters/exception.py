@@ -28,7 +28,9 @@ def serialize_exception_frame(frame, expanded_locals) -> "ExceptionFrameInfo":
     return {
         "path": frame_path(frame),
         "co_name": frame.f_code.co_name,
-        "locals": frame.f_locals,
+        "locals": dict(
+            frame.f_locals
+        ),  # Convert to dict (Python 3.13+ FrameLocalsProxy compatibility)
         "expanded_locals": expanded_locals,
     }
 

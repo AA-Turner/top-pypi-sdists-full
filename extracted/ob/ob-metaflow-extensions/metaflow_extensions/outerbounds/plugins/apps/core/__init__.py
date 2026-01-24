@@ -1,6 +1,12 @@
-from . import app_cli
 from . import config
-from .deployer import AppDeployer, apps
+from . import dependencies
+from . import capsule
+from . import utils
+from . import app_config
+from . import code_package
+from . import exceptions
+from .deployer import AppDeployer, bake_image, package_code, DeployedApp
+from .config import BakedImage, PackagedCode
 from .config.typed_configs import (
     ReplicaConfigDict,
     ResourceConfigDict,

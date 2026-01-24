@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2024, Yue Du
+ * Copyright (c) 2014-2025, Yue Du
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
@@ -1638,7 +1638,7 @@ static struct PyModuleDef moduledef = {
 
 #define INITERROR return NULL
 
-PyObject *PyInit__xxhash(void)
+PyMODINIT_FUNC PyInit__xxhash(void)
 {
     PyObject *module;
 
@@ -1683,6 +1683,10 @@ PyObject *PyInit__xxhash(void)
 
     /* version */
     PyModule_AddStringConstant(module, "XXHASH_VERSION", VALUE_TO_STRING(XXHASH_VERSION));
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED);
+#endif
 
     return module;
 }

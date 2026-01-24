@@ -12,6 +12,7 @@ from typing import (
     Union,
 )
 
+import numpy as np
 import torch
 import torch.utils._pytree as pytree
 from torch import Tensor
@@ -103,10 +104,10 @@ class Index(Tensor):
     conversion in case its representation is sorted.
     Caches are filled based on demand (*e.g.*, when calling
     :meth:`Index.get_indptr`), or when explicitly requested via
-    :meth:`Index.fill_cache_`, and are maintaned and adjusted over its
+    :meth:`Index.fill_cache_`, and are maintained and adjusted over its
     lifespan.
 
-    This representation ensures for optimal computation in GNN message passing
+    This representation ensures optimal computation in GNN message passing
     schemes, while preserving the ease-of-use of regular COO-based :pyg:`PyG`
     workflows.
 
@@ -120,7 +121,7 @@ class Index(Tensor):
         assert index.is_sorted
 
         # Flipping order:
-        edge_index.flip(0)
+        index.flip(0)
         >>> Index([[2, 1, 1, 0], dim_size=3)
         assert not index.is_sorted
 
@@ -181,7 +182,7 @@ class Index(Tensor):
         assert_one_dimensional(data)
         assert_contiguous(data)
 
-        out = Tensor._make_wrapper_subclass(  # type: ignore
+        out = Tensor._make_wrapper_subclass(
             cls,
             size=data.size(),
             strides=data.stride(),
@@ -360,10 +361,10 @@ class Index(Tensor):
         return index
 
     # Prevent auto-wrapping outputs back into the proper subclass type:
-    __torch_function__ = torch._C._disabled_torch_function_impl
+    __torch_function__ = torch._C._disabled_torch_function_impl  # type: ignore
 
     @classmethod
-    def __torch_dispatch__(
+    def __torch_dispatch__(  # type: ignore
         cls: Type,
         func: Callable[..., Any],
         types: Iterable[Type[Any]],
@@ -409,6 +410,14 @@ class Index(Tensor):
 
         return torch._tensor_str._add_suffixes(prefix + tensor_str, suffixes,
                                                indent, force_newline=False)
+
+    def tolist(self) -> List[Any]:
+        """"""  # noqa: D419
+        return self._data.tolist()
+
+    def numpy(self, *, force: bool = False) -> np.ndarray:
+        """"""  # noqa: D419
+        return self._data.numpy(force=force)
 
     # Helpers #################################################################
 
@@ -632,7 +641,7 @@ def _slice(
     step: int = 1,
 ) -> Index:
 
-    if ((start is None or start <= 0)
+    if ((start is None or start <= 0 or start <= -input.size(dim))
             and (end is None or end > input.size(dim)) and step == 1):
         return input._shallow_copy()  # No-op.
 

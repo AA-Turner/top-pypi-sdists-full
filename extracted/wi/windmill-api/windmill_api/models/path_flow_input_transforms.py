@@ -17,7 +17,10 @@ T = TypeVar("T", bound="PathFlowInputTransforms")
 
 @_attrs_define
 class PathFlowInputTransforms:
-    """ """
+    """Map of parameter names to their values (static or JavaScript expressions). These become the subflow's input
+    arguments
+
+    """
 
     additional_properties: Dict[
         str, Union["PathFlowInputTransformsAdditionalPropertyType0", "PathFlowInputTransformsAdditionalPropertyType1"]

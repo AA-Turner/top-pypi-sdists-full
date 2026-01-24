@@ -2,15 +2,14 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""
-Command line interface implementation for pyclean.
-"""
+"""Command line interface implementation for pyclean."""
 
 import argparse
 import logging
-import sys
+import shutil
 
-from . import __version__, compat, modern
+from . import __version__
+from . import main as main_module
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ def parse_arguments():
     Parse and handle CLI arguments.
     """
     debris_default_topics = ['cache', 'coverage', 'package', 'pytest', 'ruff']
-    debris_optional_topics = ['jupyter', 'mypy', 'tox']
+    debris_optional_topics = ['complexipy', 'jupyter', 'mypy', 'pyright', 'tox']
     debris_choices = ['all', *debris_default_topics, *debris_optional_topics]
     ignore_default_items = [
         '.git',
@@ -35,29 +34,16 @@ def parse_arguments():
     parser = argparse.ArgumentParser(
         description=(
             'Remove bytecode files, cache directories, build and test artifacts '
-            'and other debris in your Python project or anywhere else.'
+            'and other debris in your Python project or elsewhere.'
         ),
-        epilog='Made with ♥­ by Painless Software, copyleft by Peter Bittner.',
+        epilog='Made with ♥ by Painless Software, 🄯 Peter Bittner.',
     )
-
-    if sys.version_info < (3, 8):  # pragma: no-cover-gt-py37
-        parser.register('action', 'extend', compat.ExtendAction)
 
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument(
         'directory',
         nargs='+',
         help='directory tree to traverse for bytecode and debris',
-    )
-    parser.add_argument(
-        '-i',
-        '--ignore',
-        metavar='DIRECTORY',
-        action='extend',
-        nargs='+',
-        default=ignore_default_items,
-        help='directory that should be ignored (may be specified multiple times;'
-        ' default: %s)' % ' '.join(ignore_default_items),
     )
     parser.add_argument(
         '-d',
@@ -85,6 +71,30 @@ def parse_arguments():
         ' multiple times); this will be interactive unless --yes is used.',
     )
     parser.add_argument(
+        '-f',
+        '--folders',
+        action='store_true',
+        help='remove empty directories',
+    )
+    parser.add_argument(
+        '-g',
+        '--git-clean',
+        action='store_true',
+        default=False,
+        help='run git clean to remove untracked files; this will be interactive'
+        ' unless --yes is used.',
+    )
+    parser.add_argument(
+        '-i',
+        '--ignore',
+        metavar='DIRECTORY',
+        action='extend',
+        nargs='+',
+        default=ignore_default_items,
+        help='directory that should be ignored (may be specified multiple times;'
+        ' default: %s)' % ' '.join(ignore_default_items),
+    )
+    parser.add_argument(
         '-n',
         '--dry-run',
         action='store_true',
@@ -110,8 +120,11 @@ def parse_arguments():
     args = parser.parse_args()
     init_logging(args)
 
-    if args.yes and not args.erase:
-        parser.error('Specifying --yes only makes sense with --erase.')
+    if args.git_clean and not shutil.which('git'):
+        parser.error('Git is not available. Install Git to use --git-clean.')
+
+    if args.yes and not args.erase and not args.git_clean:
+        parser.error('Specifying --yes only makes sense with --erase or --git-clean.')
 
     if 'debris' in args:
         if 'all' in args.debris:
@@ -145,6 +158,9 @@ def main():
     args = parse_arguments()
 
     try:
-        modern.pyclean(args)
+        main_module.pyclean(args)
     except Exception as err:
         raise SystemExit(err)
+    except KeyboardInterrupt:
+        msg = 'Aborted by user.'
+        raise SystemExit(msg)

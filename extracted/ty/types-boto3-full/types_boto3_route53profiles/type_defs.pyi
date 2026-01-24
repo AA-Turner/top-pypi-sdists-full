@@ -3,7 +3,7 @@ Type annotations for route53profiles service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53profiles/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import ProfileStatusType, ShareStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -93,7 +88,7 @@ class ProfileAssociationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -215,12 +210,12 @@ class GetProfileAssociationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProfileAssociationsResponseTypeDef(TypedDict):
-    ProfileAssociations: List[ProfileAssociationTypeDef]
+    ProfileAssociations: list[ProfileAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssociateResourceToProfileResponseTypeDef(TypedDict):
@@ -236,7 +231,7 @@ class GetProfileResourceAssociationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListProfileResourceAssociationsResponseTypeDef(TypedDict):
-    ProfileResourceAssociations: List[ProfileResourceAssociationTypeDef]
+    ProfileResourceAssociations: list[ProfileResourceAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -270,6 +265,6 @@ class ListProfilesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProfilesResponseTypeDef(TypedDict):
-    ProfileSummaries: List[ProfileSummaryTypeDef]
+    ProfileSummaries: list[ProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

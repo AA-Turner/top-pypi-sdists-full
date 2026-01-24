@@ -645,7 +645,8 @@ class BroadcastServer(object):
 
 
 def start_ns_loop(host=None, port=None, enableBroadcast=True, bchost=None, bcport=None,
-                  unixsocket=None, nathost=None, natport=None, storage=None):
+                  unixsocket=None, nathost=None, natport=None, storage=None, 
+                  loopCondition=lambda: True):
     """utility function that starts a new Name server and enters its requestloop."""
     daemon = NameServerDaemon(host, port, unixsocket, nathost=nathost, natport=natport, storage=storage)
     nsUri = daemon.uriFor(daemon.nameserver)
@@ -681,7 +682,7 @@ def start_ns_loop(host=None, port=None, enableBroadcast=True, bchost=None, bcpor
         print("URI = %s" % nsUri)
     sys.stdout.flush()
     try:
-        daemon.requestLoop()
+        daemon.requestLoop(loopCondition=loopCondition)
     finally:
         daemon.close()
         if bcserver is not None:

@@ -9,29 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0003 import SimpleUserType
-from .group_0505 import EnterpriseWebhooksType
-from .group_0506 import SimpleInstallationType
-from .group_0507 import OrganizationSimpleWebhooksType
-from .group_0508 import RepositoryWebhooksType
-from .group_0520 import DiscussionType
-from .group_0620 import WebhookDiscussionTransferredPropChangesType
+from typing_extensions import TypedDict
 
 
-class WebhookDiscussionTransferredType(TypedDict):
-    """discussion transferred event"""
+class WebhookCheckRunRequestedActionFormEncodedType(TypedDict):
+    """Check Run Requested Action Event
 
-    action: Literal["transferred"]
-    changes: WebhookDiscussionTransferredPropChangesType
-    discussion: DiscussionType
-    enterprise: NotRequired[EnterpriseWebhooksType]
-    installation: NotRequired[SimpleInstallationType]
-    organization: NotRequired[OrganizationSimpleWebhooksType]
-    repository: RepositoryWebhooksType
-    sender: SimpleUserType
+    The check_run.requested_action webhook encoded with URL encoding
+    """
+
+    payload: str
 
 
-__all__ = ("WebhookDiscussionTransferredType",)
+class WebhookCheckRunRequestedActionFormEncodedTypeForResponse(TypedDict):
+    """Check Run Requested Action Event
+
+    The check_run.requested_action webhook encoded with URL encoding
+    """
+
+    payload: str
+
+
+__all__ = (
+    "WebhookCheckRunRequestedActionFormEncodedType",
+    "WebhookCheckRunRequestedActionFormEncodedTypeForResponse",
+)

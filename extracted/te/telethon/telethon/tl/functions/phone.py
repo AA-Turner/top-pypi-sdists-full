@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeDataJSON, TypeInputFile, TypeInputGroupCall, TypeInputPeer, TypeInputPhoneCall, TypeInputUser, TypePhoneCallDiscardReason, TypePhoneCallProtocol
+    from ...tl.types import TypeDataJSON, TypeInputFile, TypeInputGroupCall, TypeInputPeer, TypeInputPhoneCall, TypeInputUser, TypePhoneCallDiscardReason, TypePhoneCallProtocol, TypeTextWithEntities
 
 
 
@@ -1286,6 +1286,80 @@ class SendConferenceCallBroadcastRequest(TLRequest):
         return cls(call=_call, block=_block)
 
 
+class SendGroupCallEncryptedMessageRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xe5afa56d
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, call: 'TypeInputGroupCall', encrypted_message: bytes):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.call = call
+        self.encrypted_message = encrypted_message
+
+    async def resolve(self, client, utils):
+        self.call = utils.get_input_group_call(self.call)
+
+    def to_dict(self):
+        return {
+            '_': 'SendGroupCallEncryptedMessageRequest',
+            'call': self.call.to_dict() if isinstance(self.call, TLObject) else self.call,
+            'encrypted_message': self.encrypted_message
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'm\xa5\xaf\xe5',
+            self.call._bytes(),
+            self.serialize_bytes(self.encrypted_message),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _call = reader.tgread_object()
+        _encrypted_message = reader.tgread_bytes()
+        return cls(call=_call, encrypted_message=_encrypted_message)
+
+
+class SendGroupCallMessageRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x87893014
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, call: 'TypeInputGroupCall', message: 'TypeTextWithEntities', random_id: int=None):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.call = call
+        self.message = message
+        self.random_id = random_id if random_id is not None else int.from_bytes(os.urandom(8), 'big', signed=True)
+
+    async def resolve(self, client, utils):
+        self.call = utils.get_input_group_call(self.call)
+
+    def to_dict(self):
+        return {
+            '_': 'SendGroupCallMessageRequest',
+            'call': self.call.to_dict() if isinstance(self.call, TLObject) else self.call,
+            'message': self.message.to_dict() if isinstance(self.message, TLObject) else self.message,
+            'random_id': self.random_id
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x140\x89\x87',
+            self.call._bytes(),
+            struct.pack('<q', self.random_id),
+            self.message._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _call = reader.tgread_object()
+        _random_id = reader.read_long()
+        _message = reader.tgread_object()
+        return cls(call=_call, message=_message, random_id=_random_id)
+
+
 class SendSignalingDataRequest(TLRequest):
     CONSTRUCTOR_ID = 0xff7a9383
     SUBCLASS_OF_ID = 0xf5b399ac
@@ -1447,16 +1521,17 @@ class ToggleGroupCallRecordRequest(TLRequest):
 
 
 class ToggleGroupCallSettingsRequest(TLRequest):
-    CONSTRUCTOR_ID = 0x74bbb43d
+    CONSTRUCTOR_ID = 0xe9723804
     SUBCLASS_OF_ID = 0x8af52aac
 
-    def __init__(self, call: 'TypeInputGroupCall', reset_invite_hash: Optional[bool]=None, join_muted: Optional[bool]=None):
+    def __init__(self, call: 'TypeInputGroupCall', reset_invite_hash: Optional[bool]=None, join_muted: Optional[bool]=None, messages_enabled: Optional[bool]=None):
         """
         :returns Updates: Instance of either UpdatesTooLong, UpdateShortMessage, UpdateShortChatMessage, UpdateShort, UpdatesCombined, Updates, UpdateShortSentMessage.
         """
         self.call = call
         self.reset_invite_hash = reset_invite_hash
         self.join_muted = join_muted
+        self.messages_enabled = messages_enabled
 
     async def resolve(self, client, utils):
         self.call = utils.get_input_group_call(self.call)
@@ -1466,15 +1541,17 @@ class ToggleGroupCallSettingsRequest(TLRequest):
             '_': 'ToggleGroupCallSettingsRequest',
             'call': self.call.to_dict() if isinstance(self.call, TLObject) else self.call,
             'reset_invite_hash': self.reset_invite_hash,
-            'join_muted': self.join_muted
+            'join_muted': self.join_muted,
+            'messages_enabled': self.messages_enabled
         }
 
     def _bytes(self):
         return b''.join((
-            b'=\xb4\xbbt',
-            struct.pack('<I', (0 if self.reset_invite_hash is None or self.reset_invite_hash is False else 2) | (0 if self.join_muted is None else 1)),
+            b'\x048r\xe9',
+            struct.pack('<I', (0 if self.reset_invite_hash is None or self.reset_invite_hash is False else 2) | (0 if self.join_muted is None else 1) | (0 if self.messages_enabled is None else 4)),
             self.call._bytes(),
             b'' if self.join_muted is None else (b'\xb5ur\x99' if self.join_muted else b'7\x97y\xbc'),
+            b'' if self.messages_enabled is None else (b'\xb5ur\x99' if self.messages_enabled else b'7\x97y\xbc'),
         ))
 
     @classmethod
@@ -1487,7 +1564,11 @@ class ToggleGroupCallSettingsRequest(TLRequest):
             _join_muted = reader.tgread_bool()
         else:
             _join_muted = None
-        return cls(call=_call, reset_invite_hash=_reset_invite_hash, join_muted=_join_muted)
+        if flags & 4:
+            _messages_enabled = reader.tgread_bool()
+        else:
+            _messages_enabled = None
+        return cls(call=_call, reset_invite_hash=_reset_invite_hash, join_muted=_join_muted, messages_enabled=_messages_enabled)
 
 
 class ToggleGroupCallStartSubscriptionRequest(TLRequest):

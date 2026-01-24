@@ -3,14 +3,18 @@ import base64
 from pathlib import Path
 import httplib2
 import re
+import shutil
 import six
 import string
 import zlib
+import logging
 
 from mkdocs.config import config_options, base
 from mkdocs.plugins import BasePlugin
 import mkdocs.structure.files
 from subprocess import call
+
+log = logging.getLogger(f"mkdocs.plugins.{__name__}")
 
 if six.PY2:
     from string import maketrans
@@ -35,7 +39,7 @@ class BuildPlantumlPluginConfig(base.Config):
     disable_ssl_certificate_validation = mkdocs.config.config_options.Type(
         bool, default=False
     )
-    bin_path = mkdocs.config.config_options.Type(str, default="/usr/local/bin/plantuml")
+    bin_path = mkdocs.config.config_options.Type(str, default=shutil.which('plantuml') or 'plantuml')
     output_format = mkdocs.config.config_options.Type(str, default="png")
     allow_multiple_roots = mkdocs.config.config_options.Type(bool, default=False)
     diagram_root = mkdocs.config.config_options.Type(str, default="docs/diagrams")
@@ -111,7 +115,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
         diagram_root = DiagramRoot()
         diagram_root.root_dir = str(Path.cwd() / subdir)
         diagram_root.src_dir = str(Path.cwd() / subdir / self.config["input_folder"])
-        print(
+        log.info(
             "root dir: {}, src dir: {}".format(
                 diagram_root.root_dir, diagram_root.src_dir
             )
@@ -171,7 +175,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
         diagram.inc_time = 0
 
     def _readFile(self, diagram, dark_mode):
-        print(f"Processing diagram {diagram.file}")
+        log.info(f"Processing diagram {diagram.file}")
         temp_file = self._readFileRecursively(
             diagram.src_file, "", diagram, diagram.directory, dark_mode
         )
@@ -235,7 +239,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
                             diagram, temp_file, dark_mode, inc_file_abs, sub_name
                         )
                     except Exception as e2:
-                        print("Could not find included file" + str(e1) + str(e2))
+                        log.error("Could not find included file" + str(e1) + str(e2))
                         raise e2
             else:
                 raise Exception(
@@ -265,17 +269,17 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
                         diagram, temp_file, dark_mode, inc_file_abs
                     )
                 else:
-                    print(f"Could not find include in primary location: {inc_file_abs}")
+                    log.error(f"Could not find include in primary location: {inc_file_abs}")
                     inc_file_abs_alt = (Path(diagram.root_dir) / inc_file).resolve()
                     if inc_file_abs_alt.exists():
                         temp_file = self._read_incl_line_file(
                             diagram, temp_file, dark_mode, inc_file_abs
                         )
                     else:
-                        print(f"Could not find include in secondary location: {inc_file_abs}")
+                        log.error(f"Could not find include in secondary location: {inc_file_abs}")
                         raise Exception(f"Include could not be resolved: {line}")
             except FileNotFoundError as fnfe:
-                print(f"Could not find include {fnfe}")
+                log.error(f"Could not find include {fnfe}")
         else:
             raise Exception(f"Unknown include type: {line}")
         return temp_file
@@ -358,7 +362,7 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
                 diagram.inc_time > diagram.img_time
             ):
                 diagramFile = Path(diagram.directory) / diagram.file
-                print(f"Converting {diagramFile}")
+                log.info(f"Converting {diagramFile} in {diagram.out_dir}")
                 if self.config["render"] == "local":
                     command = self.config["bin_path"].rsplit()
                     call(
@@ -402,9 +406,9 @@ class BuildPlantumlPlugin(BasePlugin[BuildPlantumlPluginConfig]):
         try:
             response, content = http.request(url)
             if response.status != 200:
-                print(f"Wrong response status for {diagram.file}: {response.status}")
+                log.error(f"Wrong response status for {diagram.file}: {response.status}")
         except Exception as error:
-            print(f"Server error while processing {diagram.file}: {error}")
+            log.error(f"Server error while processing {diagram.file}: {error}")
             raise error
         else:
             outDir = Path(diagram.out_dir)

@@ -11,7 +11,7 @@ from wbcore.serializers import ListSerializer, RepresentationSerializer, Seriali
 from wbcore.utils.urls import get_parse_endpoint, get_urlencode_endpoint
 
 from .bases import ButtonConfig, ButtonTypeMixin, ButtonUrlMixin
-from .enums import ButtonType, HyperlinkTarget
+from .enums import ButtonType
 
 
 @dataclass
@@ -23,7 +23,8 @@ class DropDownButton(ButtonTypeMixin, ButtonConfig):
         if hasattr(super(), "__post_init__"):
             super().__post_init__()
         self.buttons = tuple(self.buttons)
-        assert isinstance(self.buttons, tuple)
+        if not isinstance(self.buttons, tuple):
+            raise TypeError(f"{type(self.buttons)} is not a tuple")
 
     def serialize(self, request, **kwargs):
         res = super().serialize(request, **kwargs)
@@ -70,12 +71,6 @@ class WidgetButton(ButtonTypeMixin, ButtonUrlMixin, ButtonConfig):
 @dataclass
 class HyperlinkButton(ButtonTypeMixin, ButtonUrlMixin, ButtonConfig):
     button_type = ButtonType.HYPERLINK
-    target: HyperlinkTarget = HyperlinkTarget.BLANK
-
-    def serialize(self, request, **kwargs):
-        res = super().serialize(request, **kwargs)
-        res["target"] = self.target.value
-        return res
 
     def __hash__(self):
         if self.key:

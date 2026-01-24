@@ -1,0 +1,38 @@
+
+#
+name: test
+
+on:
+  push:
+    branches: 
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  simple:
+    if: github.repository == 'ogre2007/stringzz'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+
+    name: Test `cargo check/test/build` on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          persist-credentials: false
+
+      - run: rustup toolchain install stable --profile minimal --no-self-update
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          cargo test --profile dev

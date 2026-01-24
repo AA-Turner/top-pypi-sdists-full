@@ -14,7 +14,7 @@ from typing import (
     NamedTuple,
 )
 
-from .. import context_storage, logging_messages
+from .. import context_storage, logging_messages, tracing_runtime_config
 from ..api_objects import opik_client, span, trace
 from ..types import DistributedTraceHeadersDict, ErrorInfoDict, SpanType
 from . import (
@@ -24,7 +24,6 @@ from . import (
     inspect_helpers,
     opik_args,
     span_creation_handler,
-    tracing_runtime_config,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -69,6 +68,7 @@ class BaseTrackDecorator(abc.ABC):
         generations_aggregator: Optional[Callable[[List[Any]], Any]] = None,
         flush: bool = False,
         project_name: Optional[str] = None,
+        create_duplicate_root_span: bool = True,
     ) -> Union[Callable, Callable[[Callable], Callable]]:
         """
         Decorator to track the execution of a function.
@@ -86,6 +86,7 @@ class BaseTrackDecorator(abc.ABC):
             generations_aggregator: Function to aggregate generation results.
             flush: Whether to flush the client after logging.
             project_name: The name of the project to log data.
+            create_duplicate_root_span: Whether to create a root span duplicating the root trace data.
 
         Returns:
             Callable: The decorated function(if used without parentheses)
@@ -114,6 +115,7 @@ class BaseTrackDecorator(abc.ABC):
             generations_aggregator=generations_aggregator,
             flush=flush,
             project_name=project_name,
+            create_duplicate_root_span=create_duplicate_root_span,
         )
 
         if callable(name):
@@ -160,6 +162,10 @@ class BaseTrackDecorator(abc.ABC):
         So these spans can't be parents for other spans. This is usually the case LLM API calls
         with `stream=True`.
         """
+        # Idempotency: skip re-decoration if already tracked
+        if hasattr(func, "opik_tracked") and func.opik_tracked:  # type: ignore
+            return func
+
         if inspect.isgeneratorfunction(func):
             return self._tracked_sync_generator(func=func, track_options=track_options)
 
@@ -187,8 +193,8 @@ class BaseTrackDecorator(abc.ABC):
         args: Tuple,
         kwargs: Dict[str, Any],
     ) -> TrackingStartOptions:
-        opik_distributed_trace_headers: Optional[DistributedTraceHeadersDict] = (
-            kwargs.pop("opik_distributed_trace_headers", None)
+        opik_distributed_trace_headers = (
+            arguments_helpers.extract_distributed_trace_headers(kwargs)
         )
 
         opik_args_ = None
@@ -311,7 +317,7 @@ class BaseTrackDecorator(abc.ABC):
         def wrapper(*args, **kwargs) -> Any:  # type: ignore
             if not tracing_runtime_config.is_tracing_active():
                 return func(*args, **kwargs)
-            self._before_call(
+            should_process_span_data = self._before_call(
                 func=func,
                 track_options=track_options,
                 args=args,
@@ -333,25 +339,25 @@ class BaseTrackDecorator(abc.ABC):
                 )
                 error_info = error_info_collector.collect(exception)
                 func_exception = exception
-            finally:
-                stream_or_stream_manager = self._streams_handler(
-                    result,
-                    track_options.capture_output,
-                    track_options.generations_aggregator,
-                )
-                if stream_or_stream_manager is not None:
-                    return stream_or_stream_manager
 
-                self._after_call(
-                    output=result,
-                    error_info=error_info,
-                    capture_output=track_options.capture_output,
-                    flush=track_options.flush,
-                )
-                if func_exception is not None:
-                    raise func_exception
-                else:
-                    return result
+            stream_or_stream_manager = self._streams_handler(
+                result,
+                track_options.capture_output,
+                track_options.generations_aggregator,
+            )
+            if stream_or_stream_manager is not None:
+                return stream_or_stream_manager
+
+            self._after_call(
+                output=result,
+                error_info=error_info,
+                capture_output=track_options.capture_output,
+                flush=track_options.flush,
+                should_process_span_data=should_process_span_data,
+            )
+            if func_exception is not None:
+                raise func_exception
+            return result
 
         wrapper.opik_tracked = True  # type: ignore
 
@@ -366,7 +372,7 @@ class BaseTrackDecorator(abc.ABC):
         async def wrapper(*args, **kwargs) -> Any:  # type: ignore
             if not tracing_runtime_config.is_tracing_active():
                 return await func(*args, **kwargs)
-            self._before_call(
+            should_process_span_data = self._before_call(
                 func=func,
                 track_options=track_options,
                 args=args,
@@ -387,25 +393,25 @@ class BaseTrackDecorator(abc.ABC):
                 )
                 error_info = error_info_collector.collect(exception)
                 func_exception = exception
-            finally:
-                stream_or_stream_manager = self._streams_handler(
-                    result,
-                    track_options.capture_output,
-                    track_options.generations_aggregator,
-                )
-                if stream_or_stream_manager is not None:
-                    return stream_or_stream_manager
 
-                self._after_call(
-                    output=result,
-                    error_info=error_info,
-                    capture_output=track_options.capture_output,
-                    flush=track_options.flush,
-                )
-                if func_exception is not None:
-                    raise func_exception
-                else:
-                    return result
+            stream_or_stream_manager = self._streams_handler(
+                result,
+                track_options.capture_output,
+                track_options.generations_aggregator,
+            )
+            if stream_or_stream_manager is not None:
+                return stream_or_stream_manager
+
+            self._after_call(
+                output=result,
+                error_info=error_info,
+                capture_output=track_options.capture_output,
+                flush=track_options.flush,
+                should_process_span_data=should_process_span_data,
+            )
+            if func_exception is not None:
+                raise func_exception
+            return result
 
         wrapper.opik_tracked = True  # type: ignore
         return wrapper
@@ -416,14 +422,14 @@ class BaseTrackDecorator(abc.ABC):
         track_options: arguments_helpers.TrackOptions,
         args: Tuple,
         kwargs: Dict[str, Any],
-    ) -> None:
+    ) -> bool:
         try:
-            self.__before_call_unsafe(
+            return self.__before_call_unsafe(
                 func=func,
                 track_options=track_options,
                 args=args,
                 kwargs=kwargs,
-            )
+            ).should_process_span_data
         except Exception as exception:
             LOGGER.error(
                 logging_messages.UNEXPECTED_EXCEPTION_ON_SPAN_CREATION_FOR_TRACKED_FUNCTION,
@@ -432,6 +438,7 @@ class BaseTrackDecorator(abc.ABC):
                 str(exception),
                 exc_info=True,
             )
+        return False
 
     def __before_call_unsafe(
         self,
@@ -439,7 +446,7 @@ class BaseTrackDecorator(abc.ABC):
         track_options: arguments_helpers.TrackOptions,
         args: Tuple,
         kwargs: Dict[str, Any],
-    ) -> None:
+    ) -> span_creation_handler.SpanCreationResult:
         track_start_options = self._prepare_tracking_start_options(
             func=func,
             track_options=track_options,
@@ -447,36 +454,13 @@ class BaseTrackDecorator(abc.ABC):
             kwargs=kwargs,
         )
 
-        created_trace_data, created_span_data = (
-            span_creation_handler.create_span_respecting_context(
-                start_span_arguments=track_start_options.start_span_parameters,
-                distributed_trace_headers=track_start_options.opik_distributed_trace_headers,
-            )
+        return add_start_candidates(
+            start_span_parameters=track_start_options.start_span_parameters,
+            opik_distributed_trace_headers=track_start_options.opik_distributed_trace_headers,
+            opik_args_data=track_start_options.opik_args,
+            tracing_active=tracing_runtime_config.is_tracing_active(),
+            create_duplicate_root_span=track_options.create_duplicate_root_span,
         )
-        client = opik_client.get_client_cached()
-
-        if (
-            client.config.log_start_trace_span
-            and tracing_runtime_config.is_tracing_active()
-        ):
-            client.span(**created_span_data.as_start_parameters)
-
-        if created_trace_data is not None:
-            context_storage.set_trace_data(created_trace_data)
-            TRACES_CREATED_BY_DECORATOR.add(created_trace_data.id)
-
-            # Handle thread_id and trace updates after span/trace creation
-            opik_args.apply_opik_args_to_trace(
-                opik_args=track_start_options.opik_args, trace_data=created_trace_data
-            )
-
-            if (
-                client.config.log_start_trace_span
-                and tracing_runtime_config.is_tracing_active()
-            ):
-                client.trace(**created_trace_data.as_start_parameters)
-
-        context_storage.add_span_data(created_span_data)
 
     def _after_call(
         self,
@@ -486,6 +470,7 @@ class BaseTrackDecorator(abc.ABC):
         generators_span_to_end: Optional[span.SpanData] = None,
         generators_trace_to_end: Optional[trace.TraceData] = None,
         flush: bool = False,
+        should_process_span_data: bool = True,
     ) -> None:
         try:
             self.__after_call_unsafe(
@@ -495,6 +480,7 @@ class BaseTrackDecorator(abc.ABC):
                 generators_span_to_end=generators_span_to_end,
                 generators_trace_to_end=generators_trace_to_end,
                 flush=flush,
+                should_process_span_data=should_process_span_data,
             )
         except Exception as exception:
             LOGGER.error(
@@ -509,12 +495,19 @@ class BaseTrackDecorator(abc.ABC):
         output: Optional[Any],
         error_info: Optional[ErrorInfoDict],
         capture_output: bool,
-        generators_span_to_end: Optional[span.SpanData] = None,
-        generators_trace_to_end: Optional[trace.TraceData] = None,
-        flush: bool = False,
+        generators_span_to_end: Optional[span.SpanData],
+        generators_trace_to_end: Optional[trace.TraceData],
+        flush: bool,
+        should_process_span_data: bool,
     ) -> None:
+        span_data_to_end: Optional[span.SpanData] = None
         if generators_span_to_end is None:
-            span_data_to_end, trace_data_to_end = pop_end_candidates()
+            if should_process_span_data:
+                # the span data must be present in the context stack, otherwise something is wrong
+                span_data_to_end, trace_data_to_end = pop_end_candidates()
+            else:
+                # the span data is not in the context, only the root trace data there
+                trace_data_to_end = pop_end_candidate_trace_data()
         else:
             span_data_to_end, trace_data_to_end = (
                 generators_span_to_end,
@@ -522,20 +515,27 @@ class BaseTrackDecorator(abc.ABC):
             )
 
         if output is not None:
-            try:
-                end_arguments = self._end_span_inputs_preprocessor(
-                    output=output,
-                    capture_output=capture_output,
-                    current_span_data=span_data_to_end,
-                )
-            except Exception as e:
-                LOGGER.error(
-                    logging_messages.UNEXPECTED_EXCEPTION_ON_SPAN_FINALIZATION_FOR_TRACKED_FUNCTION,
-                    output,
-                    str(e),
-                    exc_info=True,
-                )
+            if should_process_span_data and span_data_to_end is not None:
+                # create end arguments from current span data only if appropriate
+                try:
+                    end_arguments = self._end_span_inputs_preprocessor(
+                        output=output,
+                        capture_output=capture_output,
+                        current_span_data=span_data_to_end,
+                    )
+                except Exception as e:
+                    LOGGER.error(
+                        logging_messages.UNEXPECTED_EXCEPTION_ON_SPAN_FINALIZATION_FOR_TRACKED_FUNCTION,
+                        output,
+                        str(e),
+                        exc_info=True,
+                    )
 
+                    end_arguments = arguments_helpers.EndSpanParameters(
+                        output={"output": output}
+                    )
+            else:
+                # just use output as end arguments
                 end_arguments = arguments_helpers.EndSpanParameters(
                     output={"output": output}
                 )
@@ -544,11 +544,12 @@ class BaseTrackDecorator(abc.ABC):
 
         client = opik_client.get_client_cached()
 
-        span_data_to_end.init_end_time().update(
-            **end_arguments.to_kwargs(),
-        )
-
-        client.span(**span_data_to_end.as_parameters)
+        if should_process_span_data and span_data_to_end is not None:
+            # save span data only if appropriate
+            span_data_to_end.init_end_time().update(
+                **end_arguments.to_kwargs(),
+            )
+            client.span(**span_data_to_end.as_parameters)
 
         if trace_data_to_end is not None:
             trace_data_to_end.init_end_time().update(
@@ -621,8 +622,26 @@ def pop_end_candidates() -> Tuple[span.SpanData, Optional[trace.TraceData]]:
         span_data_to_end is not None
     ), "When pop_end_candidates is called, top span data must not be None. Otherwise something is wrong."
 
-    trace_data_to_end = None
+    trace_data_to_end = pop_end_candidate_trace_data()
+    return span_data_to_end, trace_data_to_end
 
+
+def pop_end_candidate_trace_data() -> Optional[trace.TraceData]:
+    """
+    Pops the most recently created trace data from the stack if it meets specific criteria.
+
+    This function checks whether the context storage's span data stack is empty, and if so, it attempts
+    to pop and return the most recently created trace data associated with the context. The trace data
+    is only removed if its ID is part of a predefined set of trace IDs created using a decorator. If the
+    criteria are not met, None is returned.
+
+    Note: Decorator can't attach any child objects to the popped ones because
+    they are no longer in the context stack.
+
+    Returns:
+        The trace data popped from the stack if the criteria are met;
+        otherwise, None.
+    """
     possible_trace_data_to_end = context_storage.get_trace_data()
     if (
         context_storage.span_data_stack_empty()
@@ -631,5 +650,118 @@ def pop_end_candidates() -> Tuple[span.SpanData, Optional[trace.TraceData]]:
     ):
         trace_data_to_end = context_storage.pop_trace_data()
         TRACES_CREATED_BY_DECORATOR.discard(possible_trace_data_to_end.id)
+        return trace_data_to_end
 
-    return span_data_to_end, trace_data_to_end
+    return None
+
+
+def add_start_candidates(
+    start_span_parameters: arguments_helpers.StartSpanParameters,
+    opik_distributed_trace_headers: Optional[DistributedTraceHeadersDict],
+    opik_args_data: Optional[opik_args.OpikArgs],
+    tracing_active: bool,
+    create_duplicate_root_span: bool,
+) -> span_creation_handler.SpanCreationResult:
+    """
+    Handles the creation and registration of a new start span and trace while respecting the
+    tracing context based on given parameters. It also applies relevant arguments
+    to the trace if it was created and handles client logging if the tracing is active.
+
+    Args:
+        start_span_parameters: The parameters used to start the span, including the
+            span name and other configurations.
+        opik_distributed_trace_headers: Optional headers for distributed tracing, which
+            are passed to the span creation process.
+        opik_args_data : Optional additional arguments that can be applied to the trace
+            data after the span is created.
+        tracing_active: A boolean indicating whether a tracing is active.
+        create_duplicate_root_span: A boolean indicating whether to create a root span along with the root trace
+            and duplicating its data.
+
+    Returns:
+        The result of the span creation, including the span and trace data.
+    """
+    span_creation_result = span_creation_handler.create_span_respecting_context(
+        start_span_arguments=start_span_parameters,
+        distributed_trace_headers=opik_distributed_trace_headers,
+        should_create_duplicate_root_span=create_duplicate_root_span,
+    )
+    if span_creation_result.should_process_span_data:
+        context_storage.add_span_data(span_creation_result.span_data)
+
+        if tracing_active:
+            client = opik_client.get_client_cached()
+
+            if client.config.log_start_trace_span:
+                client.span(**span_creation_result.span_data.as_start_parameters)
+    else:
+        _show_root_span_not_created_warning_if_needed(
+            start_span_parameters=start_span_parameters,
+            tracing_active=tracing_active,
+            should_process_span_data=span_creation_result.should_process_span_data,
+        )
+
+    if span_creation_result.trace_data is not None:
+        add_start_trace_candidate(
+            trace_data=span_creation_result.trace_data,
+            opik_args_data=opik_args_data,
+            tracing_active=tracing_active,
+        )
+
+    return span_creation_result
+
+
+def add_start_trace_candidate(
+    trace_data: trace.TraceData,
+    opik_args_data: Optional[opik_args.OpikArgs],
+    tracing_active: bool,
+) -> None:
+    """
+    Adds a start trace candidate to the current context storage and updates
+    it with the given Opik arguments if applicable.
+
+    This function initializes the trace data in the current context and
+    tracks its creation. It also applies provided Opik argument modifications
+    to the trace and logs the start trace span in the client if tracing is
+    active and logging is enabled.
+
+    Args:
+        trace_data: The trace data object to be added and initialized in the
+            current context storage. It contains details about the trace.
+        opik_args_data: Optional OpikArgs object containing additional data
+            to be applied to the trace. This may include configurations
+            that modify or enrich the trace data.
+        tracing_active: A boolean indicating whether a tracing is active.
+    """
+    context_storage.set_trace_data(trace_data)
+    TRACES_CREATED_BY_DECORATOR.add(trace_data.id)
+
+    # Handle thread_id and trace updates after span/trace creation
+    opik_args.apply_opik_args_to_trace(opik_args=opik_args_data, trace_data=trace_data)
+
+    if not tracing_active:
+        return
+
+    client = opik_client.get_client_cached()
+    if client.config.log_start_trace_span:
+        client.trace(**trace_data.as_start_parameters)
+
+
+def _show_root_span_not_created_warning_if_needed(
+    start_span_parameters: arguments_helpers.StartSpanParameters,
+    tracing_active: bool,
+    should_process_span_data: bool,
+) -> None:
+    if not tracing_active:
+        return
+
+    user_provided_span_type_will_be_lost = (
+        not should_process_span_data and start_span_parameters.type in ["llm", "tool"]
+    )
+    if user_provided_span_type_will_be_lost:
+        LOGGER.warning(
+            "The root span '%s' of type '%s' will not be created because "
+            "its creation was explicitly disabled along with the root trace.",
+            start_span_parameters.name,
+            start_span_parameters.type,
+        )

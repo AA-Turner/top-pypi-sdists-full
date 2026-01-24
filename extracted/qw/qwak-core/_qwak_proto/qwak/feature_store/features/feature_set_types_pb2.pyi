@@ -290,6 +290,7 @@ class StreamingAggregationFeatureSet(google.protobuf.message.Message):
     AGGREGATION_SPEC_FIELD_NUMBER: builtins.int
     BACKFILL_SPEC_FIELD_NUMBER: builtins.int
     QWAK_INTERNAL_PROTOCOL_VERSION_FIELD_NUMBER: builtins.int
+    BACKFILL_MAX_TIMESTAMP_FIELD_NUMBER: builtins.int
     @property
     def data_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[qwak.feature_store.sources.streaming_pb2.StreamingSource]:
         """Data sources used by the FeatureSet"""
@@ -315,6 +316,9 @@ class StreamingAggregationFeatureSet(google.protobuf.message.Message):
         """Backfill spec"""
     qwak_internal_protocol_version: builtins.int
     """Qwak featureset version"""
+    @property
+    def backfill_max_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp:
+        """Event-time cutoff point between backfill jobs and compaction/row-level jobs"""
     def __init__(
         self,
         *,
@@ -327,9 +331,10 @@ class StreamingAggregationFeatureSet(google.protobuf.message.Message):
         aggregation_spec: global___AggregationSpec | None = ...,
         backfill_spec: global___BackfillSpec | None = ...,
         qwak_internal_protocol_version: builtins.int = ...,
+        backfill_max_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["aggregation_spec", b"aggregation_spec", "backfill_spec", b"backfill_spec", "execution_spec", b"execution_spec", "transformation", b"transformation"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["aggregation_spec", b"aggregation_spec", "backfill_spec", b"backfill_spec", "compaction_scheduling_policy", b"compaction_scheduling_policy", "data_sources", b"data_sources", "execution_spec", b"execution_spec", "online_trigger_interval", b"online_trigger_interval", "qwak_internal_protocol_version", b"qwak_internal_protocol_version", "timestamp_column_name", b"timestamp_column_name", "transformation", b"transformation"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["aggregation_spec", b"aggregation_spec", "backfill_max_timestamp", b"backfill_max_timestamp", "backfill_spec", b"backfill_spec", "execution_spec", b"execution_spec", "transformation", b"transformation"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["aggregation_spec", b"aggregation_spec", "backfill_max_timestamp", b"backfill_max_timestamp", "backfill_spec", b"backfill_spec", "compaction_scheduling_policy", b"compaction_scheduling_policy", "data_sources", b"data_sources", "execution_spec", b"execution_spec", "online_trigger_interval", b"online_trigger_interval", "qwak_internal_protocol_version", b"qwak_internal_protocol_version", "timestamp_column_name", b"timestamp_column_name", "transformation", b"transformation"]) -> None: ...
 
 global___StreamingAggregationFeatureSet = StreamingAggregationFeatureSet
 

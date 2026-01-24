@@ -1,0 +1,118 @@
+[project]
+name = "pyrig"
+version = "7.0.6"
+description = "A Python toolkit to rig up your project that standardizes and automates project setup, configuration and development."
+authors = [
+    {name = "Winipedia"},
+]
+maintainers = [
+    {name = "Winipedia"},
+]
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "typer>=0.20.0",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Software Distribution",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Typing :: Typed",
+]
+keywords = [
+    "project-setup",
+    "automation",
+    "scaffolding",
+    "cli",
+    "testing",
+    "ci-cd",
+    "devops",
+    "packaging",
+]
+
+[project.urls]
+Homepage = "https://github.com/Winipedia/pyrig"
+Documentation = "https://Winipedia.github.io/pyrig"
+Source = "https://github.com/Winipedia/pyrig"
+Issues = "https://github.com/Winipedia/pyrig/issues"
+Changelog = "https://github.com/Winipedia/pyrig/releases"
+
+[project.scripts]
+pyrig = "pyrig.dev.cli.cli:main"
+
+[dependency-groups]
+dev = [
+    "pyrig-dev>=0.1.1",
+]
+
+[build-system]
+requires = [
+    "uv_build",
+]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "pyrig"
+module-root = ""
+
+[tool.ruff]
+exclude = [
+    ".*",
+]
+
+[tool.ruff.lint]
+select = [
+    "ALL",
+]
+ignore = [
+    "D203",
+    "D213",
+    "COM812",
+    "ANN401",
+]
+fixable = [
+    "ALL",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = [
+    "S101",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=pyrig --cov-report=term-missing --cov-fail-under=90"
+testpaths = [
+    "tests",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    ".*",
+]
+
+[tool.bandit.assert_used]
+skips = [
+    "*/tests/*.py",
+]
+
+[tool.rumdl]
+respect_gitignore = true

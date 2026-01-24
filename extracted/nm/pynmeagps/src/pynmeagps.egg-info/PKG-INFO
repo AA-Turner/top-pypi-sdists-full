@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynmeagps
-Version: 1.0.53
+Version: 1.0.57
 Summary: NMEA protocol parser and generator
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
@@ -19,7 +19,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -28,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Utilities
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: GIS
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -72,7 +71,7 @@ Companion libraries are available which handle UBX &copy; and RTCM3 &copy; messa
 ![Contributors](https://img.shields.io/github/contributors/semuconsulting/pynmeagps.svg)
 ![Open Issues](https://img.shields.io/github/issues-raw/semuconsulting/pynmeagps)
 
-The library implements a comprehensive set of outbound (GET) and inbound (SET/POLL) GNSS NMEA messages relating to GNSS/GPS and Maritime devices, but is readily [extensible](#extensibility). Refer to [`NMEA_MSGIDS`](https://github.com/semuconsulting/pynmeagps/blob/master/src/pynmeagps/nmeatypes_core.py#L224) and [`NMEA_MSGIDS_PROP`](https://github.com/semuconsulting/pynmeagps/blob/master/src/pynmeagps/nmeatypes_core.py#L367) for the complete dictionary of standard and proprietary messages currently supported. While the [NMEA 0183 protocol itself is proprietary](https://www.nmea.org/nmea-0183.html), the definitions here have been collated from public domain sources.
+The library implements a comprehensive set of outbound (GET) and inbound (SET/POLL) GNSS NMEA messages relating to GNSS/GPS and Maritime devices, but is readily [extensible](#extensibility). Refer to [`NMEA_MSGIDS`](https://github.com/semuconsulting/pynmeagps/blob/master/src/pynmeagps/nmeatypes_core.py#L224) and [`NMEA_MSGIDS_PROP`](https://github.com/semuconsulting/pynmeagps/blob/master/src/pynmeagps/nmeatypes_core.py#L367) for the complete dictionary of standard and proprietary messages currently supported. The library also supports [user-defined NMEA message definitions](#userdef) (e.g. for product development). While the [NMEA 0183 protocol itself is proprietary](https://www.nmea.org/nmea-0183.html), the definitions here have been collated from public domain sources.
 
 Sphinx API Documentation in HTML format is available at [https://www.semuconsulting.com/pynmeagps/](https://www.semuconsulting.com/pynmeagps/).
 
@@ -89,7 +88,7 @@ Contributions welcome - please refer to [CONTRIBUTING.MD](https://github.com/sem
 [![PyPI version](https://img.shields.io/pypi/v/pynmeagps.svg?style=flat)](https://pypi.org/project/pynmeagps/)
 [![PyPI downloads](https://github.com/semuconsulting/pygpsclient/blob/master/images/clickpy_top10.svg?raw=true)](https://clickpy.clickhouse.com/dashboard/pynmeagps)
 
-`pynmeagps` is compatible with Python 3.9 - 3.14. In the following, `python3` & `pip` refer to the Python 3 executables. You may need to substitute `python` for `python3`, depending on your particular environment (*on Windows it's generally `python`*).
+`pynmeagps` is compatible with Python>=3.10. In the following, `python3` & `pip` refer to the Python 3 executables. You may need to substitute `python` for `python3`, depending on your particular environment (*on Windows it's generally `python`*).
 
 The recommended way to install the latest version of `pynmeagps` is with [pip](http://pypi.python.org/pypi/pip/):
 
@@ -123,7 +122,7 @@ class pynmeagps.nmeareader.NMEAReader(stream, **kwargs)
 
 You can create an `NMEAReader` object by calling the constructor with an active stream object. 
 The stream object can be any data stream which supports a `read(n) -> bytes` method (e.g. File or Serial, with 
-or without a buffer wrapper). `pynmeagps` implements an internal `SocketStream` class to allow sockets to be read in the same way as other streams (see example below).
+or without a buffer wrapper). `pynmeagps` implements an internal `SocketWrapper` class to allow sockets to be read in the same way as other streams (see example below).
 
 Individual input NMEA messages can then be read using the `NMEAReader.read()` function, which returns both the raw data (as bytes) and the parsed data (as an `NMEAMessage` object, via the `parse()` method). The function is thread-safe in so far as the incoming data stream object is thread-safe. `NMEAReader` also implements an iterator.
 
@@ -134,6 +133,7 @@ The constructor accepts the following optional keyword arguments:
 * `validate`: validation flags `VALCKSUM` (0x01) = validate checksum (default), `VALMSGID` (0x02) = validate msgId (i.e. raise error if unknown NMEA message is received)
 * `quitonerror`: `ERR_IGNORE` (0) = ignore errors,  `ERR_LOG` (1) = log continue, `ERR_RAISE` (2) = (re)raise (1)
 * `userdefined`: An optional user-defined payload definition dictionary, supplementing the existing `NMEA_PAYLOADS_GET` and `NMEA_PAYLOADS_GET_PROP` dictionaries (None).
+* `encoding`: optional encoding for socket stream input, 0 = none, 1 = chunk, 2 = gzip, 4 = compress, 8 = deflate (can be OR'd) (0)
 
 Examples:
 
@@ -169,6 +169,29 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as stream:
   nmr = NMEAReader(stream)
   for raw_data, parsed_data in nmr:
     print(parsed_data)
+```
+
+* <a name="userdef">User-defined NMEA message definition dictionary:</a>
+
+```python
+from pynmeagps import NMEAReader, DE, CH
+
+NMEA_PROD_DEVEL = {
+    "XX1": {
+        "roll": DE,
+        "pitch": DE,
+        "yaw": DE,
+        "status": CH,
+    }
+}
+
+with open('testfile.log', 'rb') as stream:
+    nmr = NMEAReader(stream, userdefined=NMEA_PROD_DEVEL)
+    for raw_data, parsed_data in nmr:
+        print(parsed_data)
+```
+```
+<NMEA(PXX1, roll=0.3455, pitch=1.5456, yaw=18.1844, status="SYNC")>
 ```
 
 ---
@@ -306,7 +329,7 @@ NMEAMessage('GN','GLL', 0, payload=['4307.4074073', 'S', '00259.2592593', 'E', '
 
 **NB:** Once instantiated, an `NMEAMessage` object is immutable.
 
-See [pynmeagps._usage.py](https://https://github.com/semuconsulting/pynmeagps/blob/master/examples/pynmeagps_usage.py) for further examples.
+See [pynmeagps._usage.py](https://github.com/semuconsulting/pynmeagps/blob/master/examples/pynmeagps_usage.py) for further examples.
 
 ---
 ## <a name="serializing">Serializing</a>
@@ -340,6 +363,7 @@ b'$EIGNQ,RMC*24\r\n'
  - `planar` - finds planar distance in m between two sets of (lat, lon) coordinates
  - `bearing` - finds bearing in degrees between two sets of (lat, lon) coordinates
  - `area` - finds spherical area bounded by two sets of (lat, lon) coordinates
+ - `leapsecond` - find GPS UTC leapsecond offset for a given effective date
 
 See [Sphinx documentation](https://www.semuconsulting.com/pynmeagps/pynmeagps.html#module-pynmeagaps.nmeahelpers) for details.
 

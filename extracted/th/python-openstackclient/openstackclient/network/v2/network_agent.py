@@ -17,21 +17,21 @@ import logging
 
 from cliff import columns as cliff_columns
 from osc_lib.cli import format_columns
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 
 LOG = logging.getLogger(__name__)
 
 
-class AliveColumn(cliff_columns.FormattableColumn):
+class AliveColumn(cliff_columns.FormattableColumn[bool]):
     def human_readable(self):
         return ":-)" if self._value else "XXX"
 
 
-class AdminStateColumn(cliff_columns.FormattableColumn):
+class AdminStateColumn(cliff_columns.FormattableColumn[bool]):
     def human_readable(self):
         return 'UP' if self._value else 'DOWN'
 
@@ -205,12 +205,12 @@ class ListNetworkAgent(command.Lister):
         agent_type_group.add_argument(
             '--network',
             metavar='<network>',
-            help=_('List agents hosting a network (name or ID)'),
+            help=_('List agents hosting the specified network (name or ID)'),
         )
         agent_type_group.add_argument(
             '--router',
             metavar='<router>',
-            help=_('List agents hosting this router (name or ID)'),
+            help=_('List agents hosting the specified router (name or ID)'),
         )
         parser.add_argument(
             '--long',

@@ -12,6 +12,7 @@ from mcp.types import (
     ResourceLink,
     TextContent,
     TextResourceContents,
+    ToolExecution,
 )
 from pydantic import AnyUrl, BaseModel, Field, TypeAdapter
 from typing_extensions import TypedDict
@@ -40,20 +41,20 @@ class TestToolFromFunction:
                 "enabled": True,
                 "parameters": {
                     "properties": {
-                        "a": {"title": "A", "type": "integer"},
-                        "b": {"title": "B", "type": "integer"},
+                        "a": {"type": "integer"},
+                        "b": {"type": "integer"},
                     },
                     "required": ["a", "b"],
                     "type": "object",
                 },
                 "output_schema": {
-                    "properties": {"result": {"title": "Result", "type": "integer"}},
+                    "properties": {"result": {"type": "integer"}},
                     "required": ["result"],
-                    "title": "_WrappedResult",
                     "type": "object",
                     "x-fastmcp-wrap-result": True,
                 },
                 "fn": HasName("add"),
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -90,18 +91,18 @@ class TestToolFromFunction:
                 "tags": set(),
                 "enabled": True,
                 "parameters": {
-                    "properties": {"url": {"title": "Url", "type": "string"}},
+                    "properties": {"url": {"type": "string"}},
                     "required": ["url"],
                     "type": "object",
                 },
                 "output_schema": {
-                    "properties": {"result": {"title": "Result", "type": "string"}},
+                    "properties": {"result": {"type": "string"}},
                     "required": ["result"],
-                    "title": "_WrappedResult",
                     "type": "object",
                     "x-fastmcp-wrap-result": True,
                 },
                 "fn": HasName("fetch_data"),
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -123,19 +124,19 @@ class TestToolFromFunction:
                 "enabled": True,
                 "parameters": {
                     "properties": {
-                        "x": {"title": "X", "type": "integer"},
-                        "y": {"title": "Y", "type": "integer"},
+                        "x": {"type": "integer"},
+                        "y": {"type": "integer"},
                     },
                     "required": ["x", "y"],
                     "type": "object",
                 },
                 "output_schema": {
-                    "properties": {"result": {"title": "Result", "type": "integer"}},
+                    "properties": {"result": {"type": "integer"}},
                     "required": ["result"],
-                    "title": "_WrappedResult",
                     "type": "object",
                     "x-fastmcp-wrap-result": True,
                 },
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -157,19 +158,19 @@ class TestToolFromFunction:
                 "enabled": True,
                 "parameters": {
                     "properties": {
-                        "x": {"title": "X", "type": "integer"},
-                        "y": {"title": "Y", "type": "integer"},
+                        "x": {"type": "integer"},
+                        "y": {"type": "integer"},
                     },
                     "required": ["x", "y"],
                     "type": "object",
                 },
                 "output_schema": {
-                    "properties": {"result": {"title": "Result", "type": "integer"}},
+                    "properties": {"result": {"type": "integer"}},
                     "required": ["result"],
-                    "title": "_WrappedResult",
                     "type": "object",
                     "x-fastmcp-wrap-result": True,
                 },
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -196,23 +197,23 @@ class TestToolFromFunction:
                     "$defs": {
                         "UserInput": {
                             "properties": {
-                                "name": {"title": "Name", "type": "string"},
-                                "age": {"title": "Age", "type": "integer"},
+                                "name": {"type": "string"},
+                                "age": {"type": "integer"},
                             },
                             "required": ["name", "age"],
-                            "title": "UserInput",
                             "type": "object",
                         }
                     },
                     "properties": {
-                        "user": {"$ref": "#/$defs/UserInput", "title": "User"},
-                        "flag": {"title": "Flag", "type": "boolean"},
+                        "user": {"$ref": "#/$defs/UserInput"},
+                        "flag": {"type": "boolean"},
                     },
                     "required": ["user", "flag"],
                     "type": "object",
                 },
                 "output_schema": {"additionalProperties": True, "type": "object"},
                 "fn": HasName("create_user"),
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -274,6 +275,7 @@ class TestToolFromFunction:
                     "required": ["x"],
                     "type": "object",
                 },
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -300,12 +302,13 @@ class TestToolFromFunction:
                 "enabled": True,
                 "parameters": {
                     "properties": {
-                        "_a": {"title": "A", "type": "integer"},
-                        "_b": {"title": "B", "type": "integer"},
+                        "_a": {"type": "integer"},
+                        "_b": {"type": "integer"},
                     },
                     "required": ["_a", "_b"],
                     "type": "object",
                 },
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -348,19 +351,19 @@ class TestToolFromFunction:
                 "enabled": True,
                 "parameters": {
                     "properties": {
-                        "x": {"title": "X", "type": "integer"},
-                        "y": {"title": "Y", "type": "integer"},
+                        "x": {"type": "integer"},
+                        "y": {"type": "integer"},
                     },
                     "required": ["x", "y"],
                     "type": "object",
                 },
                 "output_schema": {
-                    "properties": {"result": {"title": "Result", "type": "integer"}},
+                    "properties": {"result": {"type": "integer"}},
                     "required": ["result"],
-                    "title": "_WrappedResult",
                     "type": "object",
                     "x-fastmcp-wrap-result": True,
                 },
+                "task_config": {"mode": "forbidden"},
             }
         )
 
@@ -467,9 +470,8 @@ class TestToolFromFunctionOutputSchema:
             # Non-object types get wrapped
             expected_schema = {
                 "type": "object",
-                "properties": {"result": {**base_schema, "title": "Result"}},
+                "properties": {"result": base_schema},
                 "required": ["result"],
-                "title": "_WrappedResult",
                 "x-fastmcp-wrap-result": True,
             }
             assert tool.output_schema == expected_schema
@@ -495,9 +497,8 @@ class TestToolFromFunctionOutputSchema:
         base_schema = TypeAdapter(annotation).json_schema()
         expected_schema = {
             "type": "object",
-            "properties": {"result": {**base_schema, "title": "Result"}},
+            "properties": {"result": base_schema},
             "required": ["result"],
-            "title": "_WrappedResult",
             "x-fastmcp-wrap-result": True,
         }
         assert tool.output_schema == expected_schema
@@ -545,7 +546,9 @@ class TestToolFromFunctionOutputSchema:
             return Person(name="John", age=30)
 
         tool = Tool.from_function(func)
-        expected_schema = compress_schema(TypeAdapter(Person).json_schema())
+        expected_schema = compress_schema(
+            TypeAdapter(Person).json_schema(), prune_titles=True
+        )
         assert tool.output_schema == expected_schema
 
     async def test_base_model_return_annotation(self):
@@ -561,11 +564,10 @@ class TestToolFromFunctionOutputSchema:
         assert tool.output_schema == snapshot(
             {
                 "properties": {
-                    "name": {"title": "Name", "type": "string"},
-                    "age": {"title": "Age", "type": "integer"},
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
                 },
                 "required": ["name", "age"],
-                "title": "Person",
                 "type": "object",
             }
         )
@@ -582,11 +584,10 @@ class TestToolFromFunctionOutputSchema:
         assert tool.output_schema == snapshot(
             {
                 "properties": {
-                    "name": {"title": "Name", "type": "string"},
-                    "age": {"title": "Age", "type": "integer"},
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
                 },
                 "required": ["name", "age"],
-                "title": "Person",
                 "type": "object",
             }
         )
@@ -766,9 +767,8 @@ class TestToolFromFunctionOutputSchema:
         tool = Tool.from_function(func)
         assert tool.output_schema == snapshot(
             {
-                "properties": {"result": {"title": "Result", "type": "integer"}},
+                "properties": {"result": {"type": "integer"}},
                 "required": ["result"],
-                "title": "_WrappedResult",
                 "type": "object",
                 "x-fastmcp-wrap-result": True,
             }
@@ -839,9 +839,8 @@ class TestToolFromFunctionOutputSchema:
         tool = Tool.from_function(func)
         assert tool.output_schema == snapshot(
             {
-                "properties": {"result": {"title": "Result", "type": "string"}},
+                "properties": {"result": {"type": "string"}},
                 "required": ["result"],
-                "title": "_WrappedResult",
                 "type": "object",
                 "x-fastmcp-wrap-result": True,
             }
@@ -937,7 +936,7 @@ class TestToolFromFunctionOutputSchema:
 
         for schema in non_object_schemas:
             with pytest.raises(
-                ValueError, match='Output schemas must have "type" set to "object"'
+                ValueError, match="Output schemas must represent object types"
             ):
                 Tool.from_function(func, output_schema=schema)
 
@@ -1096,6 +1095,9 @@ class TestConvertResultToContent:
     def test_convert_helpers(self, result, expected):
         converted = _convert_to_content(result)
         assert converted == expected
+
+        converted = _convert_to_content([result, result])
+        assert converted == expected * 2
 
     def test_convert_mixed_content(self):
         result = [
@@ -1269,6 +1271,94 @@ class TestAutomaticStructuredContent:
             "verified": True,
         }
 
+    async def test_self_referencing_dataclass_not_wrapped(self):
+        """Test that self-referencing dataclasses are not wrapped in result field."""
+
+        @dataclass
+        class ReturnThing:
+            value: int
+            stuff: list["ReturnThing"]
+
+        def return_things() -> ReturnThing:
+            return ReturnThing(value=123, stuff=[ReturnThing(value=456, stuff=[])])
+
+        tool = Tool.from_function(return_things)
+
+        result = await tool.run({})
+
+        # Should have structured content without wrapping
+        assert result.structured_content is not None
+        # Should NOT be wrapped in "result" field
+        assert "result" not in result.structured_content
+        # Should have the actual data directly
+        assert result.structured_content == {
+            "value": 123,
+            "stuff": [{"value": 456, "stuff": []}],
+        }
+
+    async def test_self_referencing_pydantic_model_has_type_object_at_root(self):
+        """Test that self-referencing Pydantic models have type: object at root.
+
+        MCP spec requires outputSchema to have "type": "object" at the root level.
+        Pydantic generates schemas with $ref at root for self-referential models,
+        which violates this requirement. FastMCP should resolve the $ref.
+
+        Regression test for issue #2455.
+        """
+
+        class Issue(BaseModel):
+            id: str
+            title: str
+            dependencies: list["Issue"] = []
+            dependents: list["Issue"] = []
+
+        def get_issue(issue_id: str) -> Issue:
+            return Issue(id=issue_id, title="Test")
+
+        tool = Tool.from_function(get_issue)
+
+        # The output schema should have "type": "object" at root, not $ref
+        assert tool.output_schema is not None
+        assert tool.output_schema.get("type") == "object"
+        assert "properties" in tool.output_schema
+        # Should still have $defs for nested references
+        assert "$defs" in tool.output_schema
+        # Should NOT have $ref at root level
+        assert "$ref" not in tool.output_schema
+
+    async def test_self_referencing_model_outputschema_mcp_compliant(self):
+        """Test that self-referencing model schemas are MCP spec compliant.
+
+        The MCP spec requires:
+        - type: "object" at root level
+        - properties field
+        - required field (optional)
+
+        This ensures clients can properly validate the schema.
+
+        Regression test for issue #2455.
+        """
+
+        class Node(BaseModel):
+            id: str
+            children: list["Node"] = []
+
+        def get_node() -> Node:
+            return Node(id="1")
+
+        tool = Tool.from_function(get_node)
+
+        # Schema should be MCP-compliant
+        assert tool.output_schema is not None
+        assert tool.output_schema.get("type") == "object", (
+            "MCP spec requires 'type': 'object' at root"
+        )
+        assert "properties" in tool.output_schema
+        assert "id" in tool.output_schema["properties"]
+        assert "children" in tool.output_schema["properties"]
+        # Required should include 'id'
+        assert "id" in tool.output_schema.get("required", [])
+
     async def test_int_return_no_structured_content_without_schema(self):
         """Test that int returns don't create structured content without output schema."""
 
@@ -1405,11 +1495,75 @@ class TestAutomaticStructuredContent:
         async with Client(mcp) as client:
             result = await client.call_tool("get_profile", {"user_id": "456"})
 
-            # Client should deserialize back to a dataclass (type name preserved with new compression)
-            assert result.data.__class__.__name__ == "UserProfile"
+            # Client should deserialize back to a dataclass (but type name is lost with title pruning)
+            assert result.data.__class__.__name__ == "Root"
             assert result.data.name == "Bob"
             assert result.data.age == 25
             assert result.data.verified is True
+
+
+class TestToolResultCasting:
+    @pytest.fixture
+    async def client(self):
+        from fastmcp import FastMCP
+        from fastmcp.client import Client
+
+        mcp = FastMCP()
+
+        @mcp.tool
+        def test_tool(
+            unstructured: str | None = None,
+            structured: dict[str, Any] | None = None,
+            meta: dict[str, Any] | None = None,
+        ):
+            return ToolResult(
+                content=unstructured,
+                structured_content=structured,
+                meta=meta,
+            )
+
+        async with Client(mcp) as client:
+            yield client
+
+    async def test_only_unstructured_content(self, client):
+        result = await client.call_tool("test_tool", {"unstructured": "test data"})
+
+        assert result.content[0].type == "text"
+        assert result.content[0].text == "test data"
+        assert result.structured_content is None
+        assert result.meta is None
+
+    async def test_neither_unstructured_or_structured_content(self, client):
+        from fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError):
+            await client.call_tool("test_tool", {})
+
+    async def test_structured_and_unstructured_content(self, client):
+        result = await client.call_tool(
+            "test_tool",
+            {"unstructured": "test data", "structured": {"data_type": "test"}},
+        )
+
+        assert result.content[0].type == "text"
+        assert result.content[0].text == "test data"
+        assert result.structured_content == {"data_type": "test"}
+        assert result.meta is None
+
+    async def test_structured_unstructured_and_meta_content(self, client):
+        result = await client.call_tool(
+            "test_tool",
+            {
+                "unstructured": "test data",
+                "structured": {"data_type": "test"},
+                "meta": {"some": "metadata"},
+            },
+        )
+
+        assert result.content[0].type == "text"
+        assert result.content[0].text == "test data"
+        assert result.structured_content == {"data_type": "test"}
+        assert result.meta == {"some": "metadata"}
 
 
 class TestUnionReturnTypes:
@@ -1467,21 +1621,18 @@ class TestSerializationAlias:
         # not the first validation alias 'id'
         assert tool.output_schema is not None
 
-        # Check the wrapped result schema
+        # Object schemas have properties directly at root (MCP spec compliance)
+        # Root-level $refs are resolved to ensure type: object at root
         assert "properties" in tool.output_schema
-        assert "result" in tool.output_schema["properties"]
-        assert "$defs" in tool.output_schema
-
-        # Find the Component definition
-        component_def = list(tool.output_schema["$defs"].values())[0]
+        assert tool.output_schema.get("type") == "object"
 
         # Should have 'componentId' not 'id' in properties
-        assert "componentId" in component_def["properties"]
-        assert "id" not in component_def["properties"]
+        assert "componentId" in tool.output_schema["properties"]
+        assert "id" not in tool.output_schema["properties"]
 
         # Should require 'componentId' not 'id'
-        assert "componentId" in component_def["required"]
-        assert "id" not in component_def.get("required", [])
+        assert "componentId" in tool.output_schema.get("required", [])
+        assert "id" not in tool.output_schema.get("required", [])
 
     async def test_tool_execution_with_serialization_alias(self):
         """Test that tool execution works correctly with serialization aliases."""
@@ -1516,8 +1667,13 @@ class TestSerializationAlias:
 
             # The result should contain the serialized form with 'componentId'
             assert result.structured_content is not None
-            assert result.structured_content["result"]["componentId"] == "test123"
-            assert "id" not in result.structured_content["result"]
+            # Object types may be wrapped in "result" or not, depending on schema structure
+            if "result" in result.structured_content:
+                component_data = result.structured_content["result"]
+            else:
+                component_data = result.structured_content
+            assert component_data["componentId"] == "test123"
+            assert "id" not in component_data
 
 
 class TestToolTitle:
@@ -1612,3 +1768,183 @@ class TestToolTitle:
         # Should fall back to annotations.title
         mcp_tool = tool.to_mcp_tool()
         assert mcp_tool.title == "Annotation Title"
+
+
+class TestToolNameValidation:
+    """Tests for tool name validation per MCP specification (SEP-986)."""
+
+    @pytest.fixture
+    def caplog_for_mcp_validation(self, caplog):
+        """Capture logs from the MCP SDK's tool name validation logger."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        logger = logging.getLogger("mcp.shared.tool_name_validation")
+        original_level = logger.level
+        logger.setLevel(logging.WARNING)
+        logger.addHandler(caplog.handler)
+        try:
+            yield caplog
+        finally:
+            logger.removeHandler(caplog.handler)
+            logger.setLevel(original_level)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "valid_tool",
+            "valid-tool",
+            "valid.tool",
+            "ValidTool",
+            "tool123",
+            "a",
+            "a" * 128,
+        ],
+    )
+    def test_valid_tool_names_no_warnings(self, name, caplog_for_mcp_validation):
+        """Valid tool names should not produce warnings."""
+
+        def fn() -> str:
+            return "test"
+
+        tool = Tool.from_function(fn, name=name)
+        assert tool.name == name
+        assert "Tool name validation warning" not in caplog_for_mcp_validation.text
+
+    def test_tool_name_with_spaces_warns(self, caplog_for_mcp_validation):
+        """Tool names with spaces should produce a warning."""
+
+        def fn() -> str:
+            return "test"
+
+        tool = Tool.from_function(fn, name="my tool")
+        assert tool.name == "my tool"
+        assert "Tool name validation warning" in caplog_for_mcp_validation.text
+        assert "contains spaces" in caplog_for_mcp_validation.text
+
+    def test_tool_name_with_invalid_chars_warns(self, caplog_for_mcp_validation):
+        """Tool names with invalid characters should produce a warning."""
+
+        def fn() -> str:
+            return "test"
+
+        tool = Tool.from_function(fn, name="tool@name!")
+        assert tool.name == "tool@name!"
+        assert "Tool name validation warning" in caplog_for_mcp_validation.text
+        assert "invalid characters" in caplog_for_mcp_validation.text
+
+    def test_tool_name_too_long_warns(self, caplog_for_mcp_validation):
+        """Tool names exceeding 128 characters should produce a warning."""
+
+        def fn() -> str:
+            return "test"
+
+        long_name = "a" * 129
+        tool = Tool.from_function(fn, name=long_name)
+        assert tool.name == long_name
+        assert "Tool name validation warning" in caplog_for_mcp_validation.text
+        assert "exceeds maximum length" in caplog_for_mcp_validation.text
+
+    def test_tool_name_with_leading_dash_warns(self, caplog_for_mcp_validation):
+        """Tool names starting with dash should produce a warning."""
+
+        def fn() -> str:
+            return "test"
+
+        tool = Tool.from_function(fn, name="-tool")
+        assert tool.name == "-tool"
+        assert "Tool name validation warning" in caplog_for_mcp_validation.text
+        assert "starts or ends with a dash" in caplog_for_mcp_validation.text
+
+    def test_tool_still_created_despite_warnings(self, caplog_for_mcp_validation):
+        """Tools with invalid names should still be created (SHOULD not MUST)."""
+
+        def add(a: int, b: int) -> int:
+            return a + b
+
+        tool = Tool.from_function(add, name="invalid tool name!")
+        assert tool.name == "invalid tool name!"
+        assert tool.parameters is not None
+        assert "a" in tool.parameters["properties"]
+        assert "b" in tool.parameters["properties"]
+
+
+class TestToolExecutionField:
+    """Tests for the execution field on the base Tool class."""
+
+    def test_tool_with_execution_field(self):
+        """Test that Tool can store and return execution metadata."""
+        tool = Tool(
+            name="my_tool",
+            description="A tool with execution",
+            parameters={"type": "object", "properties": {}},
+            execution=ToolExecution(taskSupport="optional"),
+        )
+
+        mcp_tool = tool.to_mcp_tool()
+        assert mcp_tool.execution is not None
+        assert mcp_tool.execution.taskSupport == "optional"
+
+    def test_tool_without_execution_field(self):
+        """Test that Tool without execution returns None."""
+        tool = Tool(
+            name="my_tool",
+            description="A tool without execution",
+            parameters={"type": "object", "properties": {}},
+        )
+
+        mcp_tool = tool.to_mcp_tool()
+        assert mcp_tool.execution is None
+
+    def test_execution_override_takes_precedence(self):
+        """Test that explicit override takes precedence over field value."""
+        tool = Tool(
+            name="my_tool",
+            description="A tool",
+            parameters={"type": "object", "properties": {}},
+            execution=ToolExecution(taskSupport="optional"),
+        )
+
+        override_execution = ToolExecution(taskSupport="required")
+        mcp_tool = tool.to_mcp_tool(execution=override_execution)
+        assert mcp_tool.execution is not None
+        assert mcp_tool.execution.taskSupport == "required"
+
+    async def test_function_tool_task_config_still_works(self):
+        """FunctionTool should still derive execution from task_config."""
+
+        async def my_fn() -> str:
+            return "hello"
+
+        tool = Tool.from_function(my_fn, task=True)
+        mcp_tool = tool.to_mcp_tool()
+
+        # FunctionTool sets execution from task_config
+        assert mcp_tool.execution is not None
+        assert mcp_tool.execution.taskSupport == "optional"
+
+    def test_tool_execution_required_mode(self):
+        """Test that Tool can store required execution mode."""
+        tool = Tool(
+            name="my_tool",
+            description="A tool with required execution",
+            parameters={"type": "object", "properties": {}},
+            execution=ToolExecution(taskSupport="required"),
+        )
+
+        mcp_tool = tool.to_mcp_tool()
+        assert mcp_tool.execution is not None
+        assert mcp_tool.execution.taskSupport == "required"
+
+    def test_tool_execution_forbidden_mode(self):
+        """Test that Tool can store forbidden execution mode."""
+        tool = Tool(
+            name="my_tool",
+            description="A tool with forbidden execution",
+            parameters={"type": "object", "properties": {}},
+            execution=ToolExecution(taskSupport="forbidden"),
+        )
+
+        mcp_tool = tool.to_mcp_tool()
+        assert mcp_tool.execution is not None
+        assert mcp_tool.execution.taskSupport == "forbidden"

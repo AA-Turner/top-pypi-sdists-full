@@ -1,12 +1,8 @@
 # Copyright (c) Alibaba, Inc. and its affiliates.
 from swift.llm import ModelType
 from ..constant import MegatronModelType
-from ..gpt_model import GPTModel
-from ..model_provider import model_provider
 from ..register import MegatronModelMeta, register_megatron_model
-from .config import convert_gpt_hf_config
-from .hf2mcore import convert_hf2mcore
-from .mcore2hf import convert_mcore2hf
+from . import glm4, minimax_m2, qwen3_next
 
 register_megatron_model(
     MegatronModelMeta(
@@ -43,10 +39,12 @@ register_megatron_model(
             ModelType.qwen2_moe,
             ModelType.qwen3_moe,
             ModelType.qwen3_moe_thinking,
+            ModelType.qwen3_coder,
             ModelType.internlm3,
             ModelType.mimo,
             ModelType.mimo_rl,
             ModelType.moonlight,
+            ModelType.kimi_k2,
             ModelType.deepseek_moe,
             ModelType.deepseek_v2,
             ModelType.deepseek_v2_5,
@@ -54,11 +52,9 @@ register_megatron_model(
             ModelType.dots1,
             ModelType.ernie,
             ModelType.glm4_5,
+            ModelType.glm4_7,
             ModelType.deepseek_v3_1,
+            ModelType.ernie_thinking,
+            ModelType.gpt_oss,
         ],
-        model_provider=model_provider,
-        model_cls=GPTModel,
-        convert_hf_config=convert_gpt_hf_config,
-        convert_mcore2hf=convert_mcore2hf,
-        convert_hf2mcore=convert_hf2mcore,
     ))

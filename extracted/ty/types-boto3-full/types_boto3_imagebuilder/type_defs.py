@@ -3,7 +3,7 @@ Type annotations for imagebuilder service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_imagebuilder/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -54,12 +55,6 @@ from .literals import (
     WorkflowTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -73,6 +68,7 @@ __all__ = (
     "AmiDistributionConfigurationTypeDef",
     "AmiDistributionConfigurationUnionTypeDef",
     "AmiTypeDef",
+    "AutoDisablePolicyTypeDef",
     "CancelImageCreationRequestTypeDef",
     "CancelImageCreationResponseTypeDef",
     "CancelLifecycleExecutionRequestTypeDef",
@@ -133,6 +129,8 @@ __all__ = (
     "DeleteLifecyclePolicyResponseTypeDef",
     "DeleteWorkflowRequestTypeDef",
     "DeleteWorkflowResponseTypeDef",
+    "DistributeImageRequestTypeDef",
+    "DistributeImageResponseTypeDef",
     "DistributionConfigurationSummaryTypeDef",
     "DistributionConfigurationTypeDef",
     "DistributionOutputTypeDef",
@@ -180,6 +178,7 @@ __all__ = (
     "GetWorkflowStepExecutionRequestTypeDef",
     "GetWorkflowStepExecutionResponseTypeDef",
     "ImageAggregationTypeDef",
+    "ImageLoggingConfigurationTypeDef",
     "ImagePackageTypeDef",
     "ImagePipelineAggregationTypeDef",
     "ImagePipelineTypeDef",
@@ -211,6 +210,7 @@ __all__ = (
     "InstanceConfigurationTypeDef",
     "InstanceConfigurationUnionTypeDef",
     "InstanceMetadataOptionsTypeDef",
+    "LatestVersionReferencesTypeDef",
     "LaunchPermissionConfigurationOutputTypeDef",
     "LaunchPermissionConfigurationTypeDef",
     "LaunchPermissionConfigurationUnionTypeDef",
@@ -310,6 +310,7 @@ __all__ = (
     "OutputResourcesTypeDef",
     "PackageVulnerabilityDetailsTypeDef",
     "PaginatorConfigTypeDef",
+    "PipelineLoggingConfigurationTypeDef",
     "PlacementTypeDef",
     "ProductCodeListItemTypeDef",
     "PutComponentPolicyRequestTypeDef",
@@ -326,6 +327,8 @@ __all__ = (
     "ResourceStateUpdateExclusionRulesTypeDef",
     "ResourceStateUpdateIncludeResourcesTypeDef",
     "ResponseMetadataTypeDef",
+    "RetryImageRequestTypeDef",
+    "RetryImageResponseTypeDef",
     "S3ExportConfigurationTypeDef",
     "S3LogsTypeDef",
     "ScheduleTypeDef",
@@ -384,15 +387,19 @@ class SystemsManagerAgentTypeDef(TypedDict):
 
 
 class LaunchPermissionConfigurationOutputTypeDef(TypedDict):
-    userIds: NotRequired[List[str]]
-    userGroups: NotRequired[List[str]]
-    organizationArns: NotRequired[List[str]]
-    organizationalUnitArns: NotRequired[List[str]]
+    userIds: NotRequired[list[str]]
+    userGroups: NotRequired[list[str]]
+    organizationArns: NotRequired[list[str]]
+    organizationalUnitArns: NotRequired[list[str]]
 
 
 class ImageStateTypeDef(TypedDict):
     status: NotRequired[ImageStatusType]
     reason: NotRequired[str]
+
+
+class AutoDisablePolicyTypeDef(TypedDict):
+    failureCount: int
 
 
 class CancelImageCreationRequestTypeDef(TypedDict):
@@ -403,7 +410,7 @@ class CancelImageCreationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -415,7 +422,7 @@ class CancelLifecycleExecutionRequestTypeDef(TypedDict):
 
 class ComponentParameterOutputTypeDef(TypedDict):
     name: str
-    value: List[str]
+    value: list[str]
 
 
 ComponentParameterDetailTypeDef = TypedDict(
@@ -423,7 +430,7 @@ ComponentParameterDetailTypeDef = TypedDict(
     {
         "name": str,
         "type": str,
-        "defaultValue": NotRequired[List[str]],
+        "defaultValue": NotRequired[list[str]],
         "description": NotRequired[str],
     },
 )
@@ -457,12 +464,13 @@ class ContainerRecipeSummaryTypeDef(TypedDict):
     owner: NotRequired[str]
     parentImage: NotRequired[str]
     dateCreated: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    instanceImage: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
 
 
 class ContainerTypeDef(TypedDict):
     region: NotRequired[str]
-    imageUris: NotRequired[List[str]]
+    imageUris: NotRequired[list[str]]
 
 
 class CreateComponentRequestTypeDef(TypedDict):
@@ -477,6 +485,14 @@ class CreateComponentRequestTypeDef(TypedDict):
     uri: NotRequired[str]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    dryRun: NotRequired[bool]
+
+
+class LatestVersionReferencesTypeDef(TypedDict):
+    latestVersionArn: NotRequired[str]
+    latestMajorVersionArn: NotRequired[str]
+    latestMinorVersionArn: NotRequired[str]
+    latestPatchVersionArn: NotRequired[str]
 
 
 class ImageTestsConfigurationTypeDef(TypedDict):
@@ -484,10 +500,13 @@ class ImageTestsConfigurationTypeDef(TypedDict):
     timeoutMinutes: NotRequired[int]
 
 
-class ScheduleTypeDef(TypedDict):
-    scheduleExpression: NotRequired[str]
-    timezone: NotRequired[str]
-    pipelineExecutionStartCondition: NotRequired[PipelineExecutionStartConditionType]
+class PipelineLoggingConfigurationTypeDef(TypedDict):
+    imageLogGroupName: NotRequired[str]
+    pipelineLogGroupName: NotRequired[str]
+
+
+class ImageLoggingConfigurationTypeDef(TypedDict):
+    logGroupName: NotRequired[str]
 
 
 class InstanceMetadataOptionsTypeDef(TypedDict):
@@ -515,6 +534,7 @@ CreateWorkflowRequestTypeDef = TypedDict(
         "uri": NotRequired[str],
         "kmsKeyId": NotRequired[str],
         "tags": NotRequired[Mapping[str, str]],
+        "dryRun": NotRequired[bool],
     },
 )
 
@@ -573,8 +593,8 @@ class DistributionConfigurationSummaryTypeDef(TypedDict):
     description: NotRequired[str]
     dateCreated: NotRequired[str]
     dateUpdated: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
-    regions: NotRequired[List[str]]
+    tags: NotRequired[dict[str, str]]
+    regions: NotRequired[list[str]]
 
 
 class LaunchTemplateConfigurationTypeDef(TypedDict):
@@ -609,7 +629,7 @@ class EbsInstanceBlockDeviceSpecificationTypeDef(TypedDict):
 
 class EcrConfigurationOutputTypeDef(TypedDict):
     repositoryName: NotRequired[str]
-    containerTags: NotRequired[List[str]]
+    containerTags: NotRequired[list[str]]
 
 
 class EcrConfigurationTypeDef(TypedDict):
@@ -714,7 +734,7 @@ class ImageRecipeSummaryTypeDef(TypedDict):
     owner: NotRequired[str]
     parentImage: NotRequired[str]
     dateCreated: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ImageScanFindingsFilterTypeDef(TypedDict):
@@ -759,30 +779,6 @@ ImportComponentRequestTypeDef = TypedDict(
         "tags": NotRequired[Mapping[str, str]],
     },
 )
-
-
-class ImportDiskImageRequestTypeDef(TypedDict):
-    name: str
-    semanticVersion: str
-    platform: str
-    osVersion: str
-    infrastructureConfigurationArn: str
-    uri: str
-    clientToken: str
-    description: NotRequired[str]
-    executionRole: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-
-class ImportVmImageRequestTypeDef(TypedDict):
-    name: str
-    semanticVersion: str
-    platform: PlatformType
-    vmImportTaskId: str
-    clientToken: str
-    description: NotRequired[str]
-    osVersion: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
 
 
 class LaunchPermissionConfigurationTypeDef(TypedDict):
@@ -848,7 +844,7 @@ class LifecyclePolicySummaryTypeDef(TypedDict):
     dateCreated: NotRequired[datetime]
     dateUpdated: NotRequired[datetime]
     dateLastRun: NotRequired[datetime]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -928,6 +924,7 @@ WorkflowExecutionMetadataTypeDef = TypedDict(
         "startTime": NotRequired[str],
         "endTime": NotRequired[str],
         "parallelGroup": NotRequired[str],
+        "retried": NotRequired[bool],
     },
 )
 
@@ -1019,6 +1016,11 @@ class ResourceStateUpdateIncludeResourcesTypeDef(TypedDict):
     containers: NotRequired[bool]
 
 
+class RetryImageRequestTypeDef(TypedDict):
+    imageBuildVersionArn: str
+    clientToken: str
+
+
 class SendWorkflowStepActionRequestTypeDef(TypedDict):
     stepExecutionId: str
     imageBuildVersionArn: str
@@ -1030,6 +1032,7 @@ class SendWorkflowStepActionRequestTypeDef(TypedDict):
 class StartImagePipelineExecutionRequestTypeDef(TypedDict):
     imagePipelineArn: str
     clientToken: str
+    tags: NotRequired[Mapping[str, str]]
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -1047,7 +1050,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class WorkflowParameterOutputTypeDef(TypedDict):
     name: str
-    value: List[str]
+    value: list[str]
 
 
 WorkflowParameterDetailTypeDef = TypedDict(
@@ -1055,7 +1058,7 @@ WorkflowParameterDetailTypeDef = TypedDict(
     {
         "name": str,
         "type": str,
-        "defaultValue": NotRequired[List[str]],
+        "defaultValue": NotRequired[list[str]],
         "description": NotRequired[str],
     },
 )
@@ -1099,8 +1102,8 @@ class AdditionalInstanceConfigurationTypeDef(TypedDict):
 class AmiDistributionConfigurationOutputTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
-    targetAccountIds: NotRequired[List[str]]
-    amiTags: NotRequired[Dict[str, str]]
+    targetAccountIds: NotRequired[list[str]]
+    amiTags: NotRequired[dict[str, str]]
     kmsKeyId: NotRequired[str]
     launchPermission: NotRequired[LaunchPermissionConfigurationOutputTypeDef]
 
@@ -1114,6 +1117,13 @@ class AmiTypeDef(TypedDict):
     accountId: NotRequired[str]
 
 
+class ScheduleTypeDef(TypedDict):
+    scheduleExpression: NotRequired[str]
+    timezone: NotRequired[str]
+    pipelineExecutionStartCondition: NotRequired[PipelineExecutionStartConditionType]
+    autoDisablePolicy: NotRequired[AutoDisablePolicyTypeDef]
+
+
 class CancelImageCreationResponseTypeDef(TypedDict):
     requestId: str
     clientToken: str
@@ -1123,20 +1133,6 @@ class CancelImageCreationResponseTypeDef(TypedDict):
 
 class CancelLifecycleExecutionResponseTypeDef(TypedDict):
     lifecycleExecutionId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateComponentResponseTypeDef(TypedDict):
-    requestId: str
-    clientToken: str
-    componentBuildVersionArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateContainerRecipeResponseTypeDef(TypedDict):
-    requestId: str
-    clientToken: str
-    containerRecipeArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1154,20 +1150,6 @@ class CreateImagePipelineResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class CreateImageRecipeResponseTypeDef(TypedDict):
-    requestId: str
-    clientToken: str
-    imageRecipeArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateImageResponseTypeDef(TypedDict):
-    requestId: str
-    clientToken: str
-    imageBuildVersionArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateInfrastructureConfigurationResponseTypeDef(TypedDict):
     requestId: str
     clientToken: str
@@ -1178,12 +1160,6 @@ class CreateInfrastructureConfigurationResponseTypeDef(TypedDict):
 class CreateLifecyclePolicyResponseTypeDef(TypedDict):
     clientToken: str
     lifecyclePolicyArn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateWorkflowResponseTypeDef(TypedDict):
-    clientToken: str
-    workflowBuildVersionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1236,6 +1212,12 @@ class DeleteLifecyclePolicyResponseTypeDef(TypedDict):
 
 class DeleteWorkflowResponseTypeDef(TypedDict):
     workflowBuildVersionArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DistributeImageResponseTypeDef(TypedDict):
+    clientToken: str
+    imageBuildVersionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1334,7 +1316,7 @@ class ImportVmImageResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1359,6 +1341,12 @@ class PutImagePolicyResponseTypeDef(TypedDict):
 class PutImageRecipePolicyResponseTypeDef(TypedDict):
     requestId: str
     imageRecipeArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class RetryImageResponseTypeDef(TypedDict):
+    clientToken: str
+    imageBuildVersionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1410,7 +1398,7 @@ class UpdateLifecyclePolicyResponseTypeDef(TypedDict):
 
 class ComponentConfigurationOutputTypeDef(TypedDict):
     componentArn: str
-    parameters: NotRequired[List[ComponentParameterOutputTypeDef]]
+    parameters: NotRequired[list[ComponentParameterOutputTypeDef]]
 
 
 ComponentParameterUnionTypeDef = Union[ComponentParameterTypeDef, ComponentParameterOutputTypeDef]
@@ -1421,14 +1409,14 @@ ComponentSummaryTypeDef = TypedDict(
         "name": NotRequired[str],
         "version": NotRequired[str],
         "platform": NotRequired[PlatformType],
-        "supportedOsVersions": NotRequired[List[str]],
+        "supportedOsVersions": NotRequired[list[str]],
         "state": NotRequired[ComponentStateTypeDef],
         "type": NotRequired[ComponentTypeType],
         "owner": NotRequired[str],
         "description": NotRequired[str],
         "changeDescription": NotRequired[str],
         "dateCreated": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "publisher": NotRequired[str],
         "obfuscate": NotRequired[bool],
     },
@@ -1443,18 +1431,18 @@ ComponentTypeDef = TypedDict(
         "changeDescription": NotRequired[str],
         "type": NotRequired[ComponentTypeType],
         "platform": NotRequired[PlatformType],
-        "supportedOsVersions": NotRequired[List[str]],
+        "supportedOsVersions": NotRequired[list[str]],
         "state": NotRequired[ComponentStateTypeDef],
-        "parameters": NotRequired[List[ComponentParameterDetailTypeDef]],
+        "parameters": NotRequired[list[ComponentParameterDetailTypeDef]],
         "owner": NotRequired[str],
         "data": NotRequired[str],
         "kmsKeyId": NotRequired[str],
         "encrypted": NotRequired[bool],
         "dateCreated": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "publisher": NotRequired[str],
         "obfuscate": NotRequired[bool],
-        "productCodes": NotRequired[List[ProductCodeListItemTypeDef]],
+        "productCodes": NotRequired[list[ProductCodeListItemTypeDef]],
     },
 )
 ComponentVersionTypeDef = TypedDict(
@@ -1465,12 +1453,12 @@ ComponentVersionTypeDef = TypedDict(
         "version": NotRequired[str],
         "description": NotRequired[str],
         "platform": NotRequired[PlatformType],
-        "supportedOsVersions": NotRequired[List[str]],
+        "supportedOsVersions": NotRequired[list[str]],
         "type": NotRequired[ComponentTypeType],
         "owner": NotRequired[str],
         "dateCreated": NotRequired[str],
         "status": NotRequired[ComponentStatusType],
-        "productCodes": NotRequired[List[ProductCodeListItemTypeDef]],
+        "productCodes": NotRequired[list[ProductCodeListItemTypeDef]],
     },
 )
 
@@ -1478,7 +1466,7 @@ ComponentVersionTypeDef = TypedDict(
 class ContainerDistributionConfigurationOutputTypeDef(TypedDict):
     targetRepository: TargetContainerRepositoryTypeDef
     description: NotRequired[str]
-    containerTags: NotRequired[List[str]]
+    containerTags: NotRequired[list[str]]
 
 
 class ContainerDistributionConfigurationTypeDef(TypedDict):
@@ -1489,9 +1477,83 @@ class ContainerDistributionConfigurationTypeDef(TypedDict):
 
 class ListContainerRecipesResponseTypeDef(TypedDict):
     requestId: str
-    containerRecipeSummaryList: List[ContainerRecipeSummaryTypeDef]
+    containerRecipeSummaryList: list[ContainerRecipeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class CreateComponentResponseTypeDef(TypedDict):
+    requestId: str
+    clientToken: str
+    componentBuildVersionArn: str
+    latestVersionReferences: LatestVersionReferencesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateContainerRecipeResponseTypeDef(TypedDict):
+    requestId: str
+    clientToken: str
+    containerRecipeArn: str
+    latestVersionReferences: LatestVersionReferencesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateImageRecipeResponseTypeDef(TypedDict):
+    requestId: str
+    clientToken: str
+    imageRecipeArn: str
+    latestVersionReferences: LatestVersionReferencesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateImageResponseTypeDef(TypedDict):
+    requestId: str
+    clientToken: str
+    imageBuildVersionArn: str
+    latestVersionReferences: LatestVersionReferencesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateWorkflowResponseTypeDef(TypedDict):
+    clientToken: str
+    workflowBuildVersionArn: str
+    latestVersionReferences: LatestVersionReferencesTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DistributeImageRequestTypeDef(TypedDict):
+    sourceImage: str
+    distributionConfigurationArn: str
+    executionRole: str
+    clientToken: str
+    tags: NotRequired[Mapping[str, str]]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
+
+
+class ImportDiskImageRequestTypeDef(TypedDict):
+    name: str
+    semanticVersion: str
+    platform: str
+    osVersion: str
+    infrastructureConfigurationArn: str
+    uri: str
+    clientToken: str
+    description: NotRequired[str]
+    executionRole: NotRequired[str]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class ImportVmImageRequestTypeDef(TypedDict):
+    name: str
+    semanticVersion: str
+    platform: PlatformType
+    vmImportTaskId: str
+    clientToken: str
+    description: NotRequired[str]
+    osVersion: NotRequired[str]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class InfrastructureConfigurationSummaryTypeDef(TypedDict):
@@ -1500,9 +1562,9 @@ class InfrastructureConfigurationSummaryTypeDef(TypedDict):
     description: NotRequired[str]
     dateCreated: NotRequired[str]
     dateUpdated: NotRequired[str]
-    resourceTags: NotRequired[Dict[str, str]]
-    tags: NotRequired[Dict[str, str]]
-    instanceTypes: NotRequired[List[str]]
+    resourceTags: NotRequired[dict[str, str]]
+    tags: NotRequired[dict[str, str]]
+    instanceTypes: NotRequired[list[str]]
     instanceProfileName: NotRequired[str]
     placement: NotRequired[PlacementTypeDef]
 
@@ -1513,12 +1575,12 @@ class CvssScoreDetailsTypeDef(TypedDict):
     version: NotRequired[str]
     score: NotRequired[float]
     scoringVector: NotRequired[str]
-    adjustments: NotRequired[List[CvssScoreAdjustmentTypeDef]]
+    adjustments: NotRequired[list[CvssScoreAdjustmentTypeDef]]
 
 
 class ListDistributionConfigurationsResponseTypeDef(TypedDict):
     requestId: str
-    distributionConfigurationSummaryList: List[DistributionConfigurationSummaryTypeDef]
+    distributionConfigurationSummaryList: list[DistributionConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1636,14 +1698,14 @@ class ListWorkflowsRequestTypeDef(TypedDict):
 
 class ListImagePackagesResponseTypeDef(TypedDict):
     requestId: str
-    imagePackageList: List[ImagePackageTypeDef]
+    imagePackageList: list[ImagePackageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListImageRecipesResponseTypeDef(TypedDict):
     requestId: str
-    imageRecipeSummaryList: List[ImageRecipeSummaryTypeDef]
+    imageRecipeSummaryList: list[ImageRecipeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1656,7 +1718,7 @@ class ListImageScanFindingsRequestTypeDef(TypedDict):
 
 class ListImagesResponseTypeDef(TypedDict):
     requestId: str
-    imageVersionList: List[ImageVersionTypeDef]
+    imageVersionList: list[ImageVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1691,10 +1753,10 @@ LifecyclePolicyDetailActionTypeDef = TypedDict(
 
 class LifecyclePolicyDetailExclusionRulesAmisOutputTypeDef(TypedDict):
     isPublic: NotRequired[bool]
-    regions: NotRequired[List[str]]
-    sharedAccounts: NotRequired[List[str]]
+    regions: NotRequired[list[str]]
+    sharedAccounts: NotRequired[list[str]]
     lastLaunched: NotRequired[LifecyclePolicyDetailExclusionRulesAmisLastLaunchedTypeDef]
-    tagMap: NotRequired[Dict[str, str]]
+    tagMap: NotRequired[dict[str, str]]
 
 
 class LifecyclePolicyDetailExclusionRulesAmisTypeDef(TypedDict):
@@ -1706,8 +1768,8 @@ class LifecyclePolicyDetailExclusionRulesAmisTypeDef(TypedDict):
 
 
 class LifecyclePolicyResourceSelectionOutputTypeDef(TypedDict):
-    recipes: NotRequired[List[LifecyclePolicyResourceSelectionRecipeTypeDef]]
-    tagMap: NotRequired[Dict[str, str]]
+    recipes: NotRequired[list[LifecyclePolicyResourceSelectionRecipeTypeDef]]
+    tagMap: NotRequired[dict[str, str]]
 
 
 class LifecyclePolicyResourceSelectionTypeDef(TypedDict):
@@ -1716,7 +1778,7 @@ class LifecyclePolicyResourceSelectionTypeDef(TypedDict):
 
 
 class ListLifecyclePoliciesResponseTypeDef(TypedDict):
-    lifecyclePolicySummaryList: List[LifecyclePolicySummaryTypeDef]
+    lifecyclePolicySummaryList: list[LifecyclePolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1842,14 +1904,14 @@ class ListWorkflowsRequestPaginateTypeDef(TypedDict):
 
 
 class ListWaitingWorkflowStepsResponseTypeDef(TypedDict):
-    steps: List[WorkflowStepExecutionTypeDef]
+    steps: list[WorkflowStepExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowExecutionsResponseTypeDef(TypedDict):
     requestId: str
-    workflowExecutions: List[WorkflowExecutionMetadataTypeDef]
+    workflowExecutions: list[WorkflowExecutionMetadataTypeDef]
     imageBuildVersionArn: str
     message: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1858,7 +1920,7 @@ class ListWorkflowExecutionsResponseTypeDef(TypedDict):
 
 class ListWorkflowStepExecutionsResponseTypeDef(TypedDict):
     requestId: str
-    steps: List[WorkflowStepMetadataTypeDef]
+    steps: list[WorkflowStepMetadataTypeDef]
     workflowBuildVersionArn: str
     workflowExecutionId: str
     imageBuildVersionArn: str
@@ -1868,7 +1930,7 @@ class ListWorkflowStepExecutionsResponseTypeDef(TypedDict):
 
 
 class ListWorkflowsResponseTypeDef(TypedDict):
-    workflowVersionList: List[WorkflowVersionTypeDef]
+    workflowVersionList: list[WorkflowVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1879,15 +1941,15 @@ class LoggingTypeDef(TypedDict):
 
 class PackageVulnerabilityDetailsTypeDef(TypedDict):
     vulnerabilityId: str
-    vulnerablePackages: NotRequired[List[VulnerablePackageTypeDef]]
+    vulnerablePackages: NotRequired[list[VulnerablePackageTypeDef]]
     source: NotRequired[str]
-    cvss: NotRequired[List[CvssScoreTypeDef]]
-    relatedVulnerabilities: NotRequired[List[str]]
+    cvss: NotRequired[list[CvssScoreTypeDef]]
+    relatedVulnerabilities: NotRequired[list[str]]
     sourceUrl: NotRequired[str]
     vendorSeverity: NotRequired[str]
     vendorCreatedAt: NotRequired[datetime]
     vendorUpdatedAt: NotRequired[datetime]
-    referenceUrls: NotRequired[List[str]]
+    referenceUrls: NotRequired[list[str]]
 
 
 class RemediationTypeDef(TypedDict):
@@ -1896,7 +1958,7 @@ class RemediationTypeDef(TypedDict):
 
 class WorkflowConfigurationOutputTypeDef(TypedDict):
     workflowArn: str
-    parameters: NotRequired[List[WorkflowParameterOutputTypeDef]]
+    parameters: NotRequired[list[WorkflowParameterOutputTypeDef]]
     parallelGroup: NotRequired[str]
     onFailure: NotRequired[OnWorkflowFailureType]
 
@@ -1914,7 +1976,7 @@ WorkflowSummaryTypeDef = TypedDict(
         "owner": NotRequired[str],
         "state": NotRequired[WorkflowStateTypeDef],
         "dateCreated": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
     },
 )
 WorkflowTypeDef = TypedDict(
@@ -1931,8 +1993,8 @@ WorkflowTypeDef = TypedDict(
         "data": NotRequired[str],
         "kmsKeyId": NotRequired[str],
         "dateCreated": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
-        "parameters": NotRequired[List[WorkflowParameterDetailTypeDef]],
+        "tags": NotRequired[dict[str, str]],
+        "parameters": NotRequired[list[WorkflowParameterDetailTypeDef]],
     },
 )
 
@@ -1945,8 +2007,8 @@ class ImageScanFindingAggregationTypeDef(TypedDict):
 
 
 class OutputResourcesTypeDef(TypedDict):
-    amis: NotRequired[List[AmiTypeDef]]
-    containers: NotRequired[List[ContainerTypeDef]]
+    amis: NotRequired[list[AmiTypeDef]]
+    containers: NotRequired[list[ContainerTypeDef]]
 
 
 class ComponentConfigurationTypeDef(TypedDict):
@@ -1956,7 +2018,7 @@ class ComponentConfigurationTypeDef(TypedDict):
 
 class ListComponentBuildVersionsResponseTypeDef(TypedDict):
     requestId: str
-    componentSummaryList: List[ComponentSummaryTypeDef]
+    componentSummaryList: list[ComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1964,12 +2026,13 @@ class ListComponentBuildVersionsResponseTypeDef(TypedDict):
 class GetComponentResponseTypeDef(TypedDict):
     requestId: str
     component: ComponentTypeDef
+    latestVersionReferences: LatestVersionReferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListComponentsResponseTypeDef(TypedDict):
     requestId: str
-    componentVersionList: List[ComponentVersionTypeDef]
+    componentVersionList: list[ComponentVersionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1981,7 +2044,7 @@ ContainerDistributionConfigurationUnionTypeDef = Union[
 
 class ListInfrastructureConfigurationsResponseTypeDef(TypedDict):
     requestId: str
-    infrastructureConfigurationSummaryList: List[InfrastructureConfigurationSummaryTypeDef]
+    infrastructureConfigurationSummaryList: list[InfrastructureConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2000,20 +2063,21 @@ ImageRecipeTypeDef = TypedDict(
         "platform": NotRequired[PlatformType],
         "owner": NotRequired[str],
         "version": NotRequired[str],
-        "components": NotRequired[List[ComponentConfigurationOutputTypeDef]],
+        "components": NotRequired[list[ComponentConfigurationOutputTypeDef]],
         "parentImage": NotRequired[str],
-        "blockDeviceMappings": NotRequired[List[InstanceBlockDeviceMappingTypeDef]],
+        "blockDeviceMappings": NotRequired[list[InstanceBlockDeviceMappingTypeDef]],
         "dateCreated": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "workingDirectory": NotRequired[str],
         "additionalInstanceConfiguration": NotRequired[AdditionalInstanceConfigurationTypeDef],
+        "amiTags": NotRequired[dict[str, str]],
     },
 )
 
 
 class InstanceConfigurationOutputTypeDef(TypedDict):
     image: NotRequired[str]
-    blockDeviceMappings: NotRequired[List[InstanceBlockDeviceMappingTypeDef]]
+    blockDeviceMappings: NotRequired[list[InstanceBlockDeviceMappingTypeDef]]
 
 
 class InstanceConfigurationTypeDef(TypedDict):
@@ -2030,11 +2094,11 @@ class DistributionOutputTypeDef(TypedDict):
     region: str
     amiDistributionConfiguration: NotRequired[AmiDistributionConfigurationOutputTypeDef]
     containerDistributionConfiguration: NotRequired[ContainerDistributionConfigurationOutputTypeDef]
-    licenseConfigurationArns: NotRequired[List[str]]
-    launchTemplateConfigurations: NotRequired[List[LaunchTemplateConfigurationTypeDef]]
+    licenseConfigurationArns: NotRequired[list[str]]
+    launchTemplateConfigurations: NotRequired[list[LaunchTemplateConfigurationTypeDef]]
     s3ExportConfiguration: NotRequired[S3ExportConfigurationTypeDef]
-    fastLaunchConfigurations: NotRequired[List[FastLaunchConfigurationTypeDef]]
-    ssmParameterConfigurations: NotRequired[List[SsmParameterConfigurationTypeDef]]
+    fastLaunchConfigurations: NotRequired[list[FastLaunchConfigurationTypeDef]]
+    ssmParameterConfigurations: NotRequired[list[SsmParameterConfigurationTypeDef]]
 
 
 class AmiDistributionConfigurationTypeDef(TypedDict):
@@ -2052,8 +2116,8 @@ class LifecycleExecutionResourceTypeDef(TypedDict):
     state: NotRequired[LifecycleExecutionResourceStateTypeDef]
     action: NotRequired[LifecycleExecutionResourceActionTypeDef]
     region: NotRequired[str]
-    snapshots: NotRequired[List[LifecycleExecutionSnapshotResourceTypeDef]]
-    imageUris: NotRequired[List[str]]
+    snapshots: NotRequired[list[LifecycleExecutionSnapshotResourceTypeDef]]
+    imageUris: NotRequired[list[str]]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
 
@@ -2064,13 +2128,13 @@ class GetLifecycleExecutionResponseTypeDef(TypedDict):
 
 
 class ListLifecycleExecutionsResponseTypeDef(TypedDict):
-    lifecycleExecutions: List[LifecycleExecutionTypeDef]
+    lifecycleExecutions: list[LifecycleExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class LifecyclePolicyDetailExclusionRulesOutputTypeDef(TypedDict):
-    tagMap: NotRequired[Dict[str, str]]
+    tagMap: NotRequired[dict[str, str]]
     amis: NotRequired[LifecyclePolicyDetailExclusionRulesAmisOutputTypeDef]
 
 
@@ -2105,9 +2169,9 @@ class InfrastructureConfigurationTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    instanceTypes: NotRequired[List[str]]
+    instanceTypes: NotRequired[list[str]]
     instanceProfileName: NotRequired[str]
-    securityGroupIds: NotRequired[List[str]]
+    securityGroupIds: NotRequired[list[str]]
     subnetId: NotRequired[str]
     logging: NotRequired[LoggingTypeDef]
     keyPair: NotRequired[str]
@@ -2115,9 +2179,9 @@ class InfrastructureConfigurationTypeDef(TypedDict):
     snsTopicArn: NotRequired[str]
     dateCreated: NotRequired[str]
     dateUpdated: NotRequired[str]
-    resourceTags: NotRequired[Dict[str, str]]
+    resourceTags: NotRequired[dict[str, str]]
     instanceMetadataOptions: NotRequired[InstanceMetadataOptionsTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     placement: NotRequired[PlacementTypeDef]
 
 
@@ -2154,11 +2218,14 @@ class ImagePipelineTypeDef(TypedDict):
     dateCreated: NotRequired[str]
     dateUpdated: NotRequired[str]
     dateLastRun: NotRequired[str]
+    lastRunStatus: NotRequired[ImageStatusType]
     dateNextRun: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationOutputTypeDef]
     executionRole: NotRequired[str]
-    workflows: NotRequired[List[WorkflowConfigurationOutputTypeDef]]
+    workflows: NotRequired[list[WorkflowConfigurationOutputTypeDef]]
+    loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
+    consecutiveFailures: NotRequired[int]
 
 
 class WorkflowConfigurationTypeDef(TypedDict):
@@ -2169,20 +2236,21 @@ class WorkflowConfigurationTypeDef(TypedDict):
 
 
 class ListWorkflowBuildVersionsResponseTypeDef(TypedDict):
-    workflowSummaryList: List[WorkflowSummaryTypeDef]
+    workflowSummaryList: list[WorkflowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class GetWorkflowResponseTypeDef(TypedDict):
     workflow: WorkflowTypeDef
+    latestVersionReferences: LatestVersionReferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListImageScanFindingAggregationsResponseTypeDef(TypedDict):
     requestId: str
     aggregationType: str
-    responses: List[ImageScanFindingAggregationTypeDef]
+    responses: list[ImageScanFindingAggregationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2200,11 +2268,12 @@ ImageSummaryTypeDef = TypedDict(
         "owner": NotRequired[str],
         "dateCreated": NotRequired[str],
         "outputResources": NotRequired[OutputResourcesTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "buildType": NotRequired[BuildTypeType],
         "imageSource": NotRequired[ImageSourceType],
         "deprecationTime": NotRequired[datetime],
         "lifecycleExecutionId": NotRequired[str],
+        "loggingConfiguration": NotRequired[ImageLoggingConfigurationTypeDef],
     },
 )
 ComponentConfigurationUnionTypeDef = Union[
@@ -2234,6 +2303,7 @@ ImageScanFindingTypeDef = TypedDict(
 class GetImageRecipeResponseTypeDef(TypedDict):
     requestId: str
     imageRecipe: ImageRecipeTypeDef
+    latestVersionReferences: LatestVersionReferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2245,14 +2315,14 @@ class ContainerRecipeTypeDef(TypedDict):
     platform: NotRequired[PlatformType]
     owner: NotRequired[str]
     version: NotRequired[str]
-    components: NotRequired[List[ComponentConfigurationOutputTypeDef]]
+    components: NotRequired[list[ComponentConfigurationOutputTypeDef]]
     instanceConfiguration: NotRequired[InstanceConfigurationOutputTypeDef]
     dockerfileTemplateData: NotRequired[str]
     kmsKeyId: NotRequired[str]
     encrypted: NotRequired[bool]
     parentImage: NotRequired[str]
     dateCreated: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     workingDirectory: NotRequired[str]
     targetRepository: NotRequired[TargetContainerRepositoryTypeDef]
 
@@ -2267,10 +2337,10 @@ class DistributionConfigurationTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    distributions: NotRequired[List[DistributionOutputTypeDef]]
+    distributions: NotRequired[list[DistributionOutputTypeDef]]
     dateCreated: NotRequired[str]
     dateUpdated: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 AmiDistributionConfigurationUnionTypeDef = Union[
@@ -2281,7 +2351,7 @@ AmiDistributionConfigurationUnionTypeDef = Union[
 class ListLifecycleExecutionResourcesResponseTypeDef(TypedDict):
     lifecycleExecutionId: str
     lifecycleExecutionState: LifecycleExecutionStateTypeDef
-    resources: List[LifecycleExecutionResourceTypeDef]
+    resources: list[LifecycleExecutionResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2319,7 +2389,7 @@ class GetImagePipelineResponseTypeDef(TypedDict):
 
 class ListImagePipelinesResponseTypeDef(TypedDict):
     requestId: str
-    imagePipelineList: List[ImagePipelineTypeDef]
+    imagePipelineList: list[ImagePipelineTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2331,14 +2401,14 @@ WorkflowConfigurationUnionTypeDef = Union[
 
 class ListImageBuildVersionsResponseTypeDef(TypedDict):
     requestId: str
-    imageSummaryList: List[ImageSummaryTypeDef]
+    imageSummaryList: list[ImageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListImagePipelineImagesResponseTypeDef(TypedDict):
     requestId: str
-    imageSummaryList: List[ImageSummaryTypeDef]
+    imageSummaryList: list[ImageSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2346,19 +2416,20 @@ class ListImagePipelineImagesResponseTypeDef(TypedDict):
 class CreateImageRecipeRequestTypeDef(TypedDict):
     name: str
     semanticVersion: str
-    components: Sequence[ComponentConfigurationUnionTypeDef]
     parentImage: str
     clientToken: str
     description: NotRequired[str]
+    components: NotRequired[Sequence[ComponentConfigurationUnionTypeDef]]
     blockDeviceMappings: NotRequired[Sequence[InstanceBlockDeviceMappingTypeDef]]
     tags: NotRequired[Mapping[str, str]]
     workingDirectory: NotRequired[str]
     additionalInstanceConfiguration: NotRequired[AdditionalInstanceConfigurationTypeDef]
+    amiTags: NotRequired[Mapping[str, str]]
 
 
 class ListImageScanFindingsResponseTypeDef(TypedDict):
     requestId: str
-    findings: List[ImageScanFindingTypeDef]
+    findings: list[ImageScanFindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2366,6 +2437,7 @@ class ListImageScanFindingsResponseTypeDef(TypedDict):
 class GetContainerRecipeResponseTypeDef(TypedDict):
     requestId: str
     containerRecipe: ContainerRecipeTypeDef
+    latestVersionReferences: LatestVersionReferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2373,11 +2445,11 @@ class CreateContainerRecipeRequestTypeDef(TypedDict):
     containerType: Literal["DOCKER"]
     name: str
     semanticVersion: str
-    components: Sequence[ComponentConfigurationUnionTypeDef]
     parentImage: str
     targetRepository: TargetContainerRepositoryTypeDef
     clientToken: str
     description: NotRequired[str]
+    components: NotRequired[Sequence[ComponentConfigurationUnionTypeDef]]
     instanceConfiguration: NotRequired[InstanceConfigurationUnionTypeDef]
     dockerfileTemplateData: NotRequired[str]
     dockerfileTemplateUri: NotRequired[str]
@@ -2414,7 +2486,7 @@ ImageTypeDef = TypedDict(
         "imageTestsConfiguration": NotRequired[ImageTestsConfigurationTypeDef],
         "dateCreated": NotRequired[str],
         "outputResources": NotRequired[OutputResourcesTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "buildType": NotRequired[BuildTypeType],
         "imageSource": NotRequired[ImageSourceType],
         "scanState": NotRequired[ImageScanStateTypeDef],
@@ -2422,7 +2494,8 @@ ImageTypeDef = TypedDict(
         "deprecationTime": NotRequired[datetime],
         "lifecycleExecutionId": NotRequired[str],
         "executionRole": NotRequired[str],
-        "workflows": NotRequired[List[WorkflowConfigurationOutputTypeDef]],
+        "workflows": NotRequired[list[WorkflowConfigurationOutputTypeDef]],
+        "loggingConfiguration": NotRequired[ImageLoggingConfigurationTypeDef],
     },
 )
 
@@ -2445,12 +2518,12 @@ class LifecyclePolicyTypeDef(TypedDict):
     status: NotRequired[LifecyclePolicyStatusType]
     executionRole: NotRequired[str]
     resourceType: NotRequired[LifecyclePolicyResourceTypeType]
-    policyDetails: NotRequired[List[LifecyclePolicyDetailOutputTypeDef]]
+    policyDetails: NotRequired[list[LifecyclePolicyDetailOutputTypeDef]]
     resourceSelection: NotRequired[LifecyclePolicyResourceSelectionOutputTypeDef]
     dateCreated: NotRequired[datetime]
     dateUpdated: NotRequired[datetime]
     dateLastRun: NotRequired[datetime]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 LifecyclePolicyDetailExclusionRulesUnionTypeDef = Union[
@@ -2484,6 +2557,7 @@ class CreateImagePipelineRequestTypeDef(TypedDict):
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationUnionTypeDef]
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     executionRole: NotRequired[str]
+    loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
 
 
 class CreateImageRequestTypeDef(TypedDict):
@@ -2498,6 +2572,7 @@ class CreateImageRequestTypeDef(TypedDict):
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationUnionTypeDef]
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
     executionRole: NotRequired[str]
+    loggingConfiguration: NotRequired[ImageLoggingConfigurationTypeDef]
 
 
 class UpdateImagePipelineRequestTypeDef(TypedDict):
@@ -2514,12 +2589,14 @@ class UpdateImagePipelineRequestTypeDef(TypedDict):
     status: NotRequired[PipelineStatusType]
     imageScanningConfiguration: NotRequired[ImageScanningConfigurationUnionTypeDef]
     workflows: NotRequired[Sequence[WorkflowConfigurationUnionTypeDef]]
+    loggingConfiguration: NotRequired[PipelineLoggingConfigurationTypeDef]
     executionRole: NotRequired[str]
 
 
 class GetImageResponseTypeDef(TypedDict):
     requestId: str
     image: ImageTypeDef
+    latestVersionReferences: LatestVersionReferencesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -38,6 +38,7 @@ class DecoratedSchedule(object):
         'project_id': 'str',
         'config': 'ProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
+        'tags': 'dict(str, str)',
         'schedule': 'ScheduleConfig',
         'id': 'str',
         'created_at': 'datetime',
@@ -57,6 +58,7 @@ class DecoratedSchedule(object):
         'project_id': 'project_id',
         'config': 'config',
         'job_queue_config': 'job_queue_config',
+        'tags': 'tags',
         'schedule': 'schedule',
         'id': 'id',
         'created_at': 'created_at',
@@ -70,7 +72,7 @@ class DecoratedSchedule(object):
         'last_executions': 'last_executions'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, schedule=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, project=None, creator=None, last_executions=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, schedule=None, id=None, created_at=None, updated_at=None, creator_id=None, next_trigger_at=None, controller_user_id=None, cloud_id=None, project=None, creator=None, last_executions=None, local_vars_configuration=None):  # noqa: E501
         """DecoratedSchedule - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -81,6 +83,7 @@ class DecoratedSchedule(object):
         self._project_id = None
         self._config = None
         self._job_queue_config = None
+        self._tags = None
         self._schedule = None
         self._id = None
         self._created_at = None
@@ -101,6 +104,8 @@ class DecoratedSchedule(object):
         self.config = config
         if job_queue_config is not None:
             self.job_queue_config = job_queue_config
+        if tags is not None:
+            self.tags = tags
         self.schedule = schedule
         self.id = id
         self.created_at = created_at
@@ -235,6 +240,29 @@ class DecoratedSchedule(object):
         """
 
         self._job_queue_config = job_queue_config
+
+    @property
+    def tags(self):
+        """Gets the tags of this DecoratedSchedule.  # noqa: E501
+
+        Tags to associate with the job  # noqa: E501
+
+        :return: The tags of this DecoratedSchedule.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._tags
+
+    @tags.setter
+    def tags(self, tags):
+        """Sets the tags of this DecoratedSchedule.
+
+        Tags to associate with the job  # noqa: E501
+
+        :param tags: The tags of this DecoratedSchedule.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._tags = tags
 
     @property
     def schedule(self):

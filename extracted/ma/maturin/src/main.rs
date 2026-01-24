@@ -3,29 +3,30 @@
 //!
 //! Run with --help for usage information
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use cargo_options::heading;
 #[cfg(feature = "zig")]
 use cargo_zigbuild::Zig;
 #[cfg(feature = "cli-completion")]
 use clap::CommandFactory;
 use clap::{Parser, Subcommand};
-#[cfg(feature = "scaffolding")]
-use maturin::{ci::GenerateCI, init_project, new_project, GenerateProjectOptions};
+use ignore::overrides::Override;
 use maturin::{
-    develop, find_path_deps, write_dist_info, BridgeModel, BuildOptions, CargoOptions,
-    DevelopOptions, PathWriter, PythonInterpreter, Target, TargetTriple,
+    BridgeModel, BuildOptions, CargoOptions, DevelopOptions, PathWriter, PythonInterpreter, Target,
+    TargetTriple, VirtualWriter, develop, find_path_deps, write_dist_info,
 };
 #[cfg(feature = "schemars")]
-use maturin::{generate_json_schema, GenerateJsonSchemaOptions};
+use maturin::{GenerateJsonSchemaOptions, generate_json_schema};
+#[cfg(feature = "scaffolding")]
+use maturin::{GenerateProjectOptions, ci::GenerateCI, init_project, new_project};
 #[cfg(feature = "upload")]
-use maturin::{upload_ui, PublishOpt};
+use maturin::{PublishOpt, upload_ui};
 use std::env;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tracing::{debug, instrument};
 use tracing_subscriber::filter::Directive;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{EnvFilter, Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -54,7 +55,6 @@ struct Opt {
 }
 
 #[derive(Debug, Parser)]
-#[allow(clippy::large_enum_variant)]
 /// Build and publish crates with pyo3, cffi and uniffi bindings as well
 /// as rust binaries as python packages
 enum Command {
@@ -62,7 +62,7 @@ enum Command {
     /// Build the crate into python packages
     Build {
         /// Build artifacts in release mode, with optimizations
-        #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS)]
+        #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS, conflicts_with = "profile")]
         release: bool,
         /// Strip the library for minimum file size
         #[arg(long)]
@@ -78,7 +78,7 @@ enum Command {
     /// Build and publish the crate as python packages to pypi
     Publish {
         /// Do not pass --release to cargo
-        #[arg(long)]
+        #[arg(long, conflicts_with = "profile")]
         debug: bool,
         /// Do not strip the library for minimum file size
         #[arg(long = "no-strip")]
@@ -273,33 +273,41 @@ fn pep517(subcommand: Pep517Command) -> Result<()> {
             strip,
         } => {
             assert_eq!(build_options.interpreter.len(), 1);
-            let context = build_options
+            let mut context = build_options
                 .into_build_context()
-                .release(true)
                 .strip(strip)
                 .editable(false)
                 .build()?;
 
-            let mut writer = PathWriter::from_path(metadata_directory);
-            write_dist_info(
+            // TBD: does `--profile release` do anything here?
+            if context.cargo_options.profile.is_none() {
+                context.cargo_options.profile = Some("release".to_string());
+            }
+
+            let mut writer =
+                VirtualWriter::new(PathWriter::from_path(metadata_directory), Override::empty());
+            let dist_info_dir = write_dist_info(
                 &mut writer,
                 &context.project_layout.project_root,
                 &context.metadata24,
                 &context.tags_from_bridge()?,
             )?;
-            println!("{}", context.metadata24.get_dist_info_dir().display());
+            writer.finish()?;
+            println!("{}", dist_info_dir.display());
         }
         Pep517Command::BuildWheel {
             build_options,
             strip,
             editable,
         } => {
-            let build_context = build_options
+            let mut build_context = build_options
                 .into_build_context()
-                .release(true)
                 .strip(strip)
                 .editable(editable)
                 .build()?;
+            if build_context.cargo_options.profile.is_none() {
+                build_context.cargo_options.profile = Some("release".to_string());
+            }
             let wheels = build_context.build_wheels()?;
             assert_eq!(wheels.len(), 1);
             println!("{}", wheels[0].0.to_str().unwrap());
@@ -321,7 +329,6 @@ fn pep517(subcommand: Pep517Command) -> Result<()> {
             };
             let build_context = build_options
                 .into_build_context()
-                .release(false)
                 .strip(false)
                 .editable(false)
                 .sdist_only(true)
@@ -363,14 +370,17 @@ fn run() -> Result<()> {
 
     match opt.command {
         Command::Build {
-            build,
+            mut build,
             release,
             strip,
             sdist,
         } => {
+            // set profile to release if specified; `--release` and `--profile` are mutually exclusive
+            if release {
+                build.profile = Some("release".to_string());
+            }
             let build_context = build
                 .into_build_context()
-                .release(release)
                 .strip(strip)
                 .editable(false)
                 .build()?;
@@ -384,20 +394,34 @@ fn run() -> Result<()> {
         }
         #[cfg(feature = "upload")]
         Command::Publish {
-            build,
+            mut build,
             mut publish,
             debug,
             no_strip,
             no_sdist,
         } => {
-            let build_context = build
+            // set profile to dev if specified; `--debug` and `--profile` are mutually exclusive
+            //
+            // do it here to take precedence over pyproject.toml profile setting
+            if debug {
+                build.profile = Some("dev".to_string());
+            }
+
+            let mut build_context = build
                 .into_build_context()
-                .release(!debug)
                 .strip(!no_strip)
                 .editable(false)
                 .build()?;
 
-            if !build_context.release {
+            // ensure profile always set when publishing
+            // (respect pyproject.toml if set)
+            // don't need to check `debug` here, set above to take precedence if set
+            let profile = build_context
+                .cargo_options
+                .profile
+                .get_or_insert_with(|| "release".to_string());
+
+            if profile == "dev" {
                 eprintln!("⚠️  Warning: You're publishing debug wheels");
             }
 
@@ -462,7 +486,6 @@ fn run() -> Result<()> {
             };
             let build_context = build_options
                 .into_build_context()
-                .release(false)
                 .strip(false)
                 .editable(false)
                 .sdist_only(true)

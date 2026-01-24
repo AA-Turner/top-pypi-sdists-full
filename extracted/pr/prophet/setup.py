@@ -20,7 +20,7 @@ from wheel.bdist_wheel import bdist_wheel
 MODEL_DIR = "stan"
 MODEL_TARGET_DIR = os.path.join("prophet", "stan_model")
 
-CMDSTAN_VERSION = "2.33.1"
+CMDSTAN_VERSION = "2.37.0"
 BINARIES_DIR = "bin"
 BINARIES = ["diagnose", "print", "stanc", "stansummary"]
 TBB_PARENT = "stan/lib/stan_math/lib"
@@ -49,6 +49,7 @@ def prune_cmdstan(cmdstan_dir: str) -> None:
             os.remove(f)
     for tbb_dir in TBB_DIRS:
         copytree(original_dir / TBB_PARENT / tbb_dir, temp_dir / TBB_PARENT / tbb_dir)
+    copy(original_dir / "makefile", temp_dir / "makefile")
 
     rmtree(original_dir)
     temp_dir.rename(original_dir)

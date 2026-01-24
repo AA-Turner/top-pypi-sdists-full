@@ -3,7 +3,7 @@ Type annotations for deadline service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_deadline/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -52,6 +53,7 @@ from .literals import (
     QueueFleetAssociationStatusType,
     QueueLimitAssociationStatusType,
     QueueStatusType,
+    RangeConstraintType,
     RunAsType,
     SearchTermMatchingTypeType,
     ServiceManagedFleetOperatingSystemFamilyType,
@@ -75,12 +77,6 @@ from .literals import (
     WorkerStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -209,6 +205,8 @@ __all__ = (
     "GetFleetResponseTypeDef",
     "GetJobEntityErrorTypeDef",
     "GetJobRequestTypeDef",
+    "GetJobRequestWaitExtraExtraTypeDef",
+    "GetJobRequestWaitExtraTypeDef",
     "GetJobRequestWaitTypeDef",
     "GetJobResponseTypeDef",
     "GetLicenseEndpointRequestTypeDef",
@@ -410,12 +408,14 @@ __all__ = (
     "StepDetailsEntityTypeDef",
     "StepDetailsErrorTypeDef",
     "StepDetailsIdentifiersTypeDef",
+    "StepParameterChunksTypeDef",
     "StepParameterTypeDef",
     "StepRequiredCapabilitiesTypeDef",
     "StepSearchSummaryTypeDef",
     "StepSummaryTypeDef",
     "StorageProfileSummaryTypeDef",
     "StringFilterExpressionTypeDef",
+    "StringListFilterExpressionTypeDef",
     "SyncInputJobAttachmentsSessionActionDefinitionSummaryTypeDef",
     "SyncInputJobAttachmentsSessionActionDefinitionTypeDef",
     "TagResourceRequestTypeDef",
@@ -504,8 +504,8 @@ class AssignedSyncInputJobAttachmentsSessionActionDefinitionTypeDef(TypedDict):
 
 class LogConfigurationTypeDef(TypedDict):
     logDriver: str
-    options: NotRequired[Dict[str, str]]
-    parameters: NotRequired[Dict[str, str]]
+    options: NotRequired[dict[str, str]]
+    parameters: NotRequired[dict[str, str]]
     error: NotRequired[str]
 
 
@@ -572,7 +572,7 @@ class AwsCredentialsTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -604,7 +604,7 @@ class ManifestPropertiesOutputTypeDef(TypedDict):
     rootPath: str
     rootPathFormat: PathFormatType
     fileSystemLocationName: NotRequired[str]
-    outputRelativeDirectories: NotRequired[List[str]]
+    outputRelativeDirectories: NotRequired[list[str]]
     inputManifestPath: NotRequired[str]
     inputManifestHash: NotRequired[str]
 
@@ -749,7 +749,7 @@ FleetAmountCapabilityTypeDef = TypedDict(
 
 class FleetAttributeCapabilityOutputTypeDef(TypedDict):
     name: str
-    values: List[str]
+    values: list[str]
 
 
 MemoryMiBRangeTypeDef = TypedDict(
@@ -884,7 +884,7 @@ class EnvironmentDetailsEntityTypeDef(TypedDict):
     jobId: str
     environmentId: str
     schemaVersion: str
-    template: Dict[str, Any]
+    template: dict[str, Any]
 
 
 class EnvironmentDetailsErrorTypeDef(TypedDict):
@@ -1102,8 +1102,8 @@ class GetWorkerRequestTypeDef(TypedDict):
 
 
 class IpAddressesOutputTypeDef(TypedDict):
-    ipV4Addresses: NotRequired[List[str]]
-    ipV6Addresses: NotRequired[List[str]]
+    ipV4Addresses: NotRequired[list[str]]
+    ipV6Addresses: NotRequired[list[str]]
 
 
 class IpAddressesTypeDef(TypedDict):
@@ -1134,8 +1134,8 @@ class StepDetailsEntityTypeDef(TypedDict):
     jobId: str
     stepId: str
     schemaVersion: str
-    template: Dict[str, Any]
-    dependencies: List[str]
+    template: dict[str, Any]
+    dependencies: list[str]
 
 
 class JobMemberTypeDef(TypedDict):
@@ -1172,7 +1172,7 @@ class JobSummaryTypeDef(TypedDict):
     endedAt: NotRequired[datetime]
     taskRunStatus: NotRequired[TaskRunStatusType]
     targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
-    taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
+    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
     taskFailureRetryCount: NotRequired[int]
     maxFailedTasksCount: NotRequired[int]
     maxRetriesPerTask: NotRequired[int]
@@ -1531,15 +1531,6 @@ class ParameterSortExpressionTypeDef(TypedDict):
     name: str
 
 
-StepParameterTypeDef = TypedDict(
-    "StepParameterTypeDef",
-    {
-        "name": str,
-        "type": StepParameterTypeType,
-    },
-)
-
-
 class PutMeteredProductRequestTypeDef(TypedDict):
     licenseEndpointId: str
     productId: str
@@ -1558,6 +1549,14 @@ StringFilterExpressionTypeDef = TypedDict(
         "value": str,
     },
 )
+StringListFilterExpressionTypeDef = TypedDict(
+    "StringListFilterExpressionTypeDef",
+    {
+        "name": str,
+        "operator": ComparisonOperatorType,
+        "values": Sequence[str],
+    },
+)
 
 
 class UserJobsFirstTypeDef(TypedDict):
@@ -1573,7 +1572,7 @@ ServiceManagedEc2InstanceMarketOptionsTypeDef = TypedDict(
 
 
 class VpcConfigurationOutputTypeDef(TypedDict):
-    resourceConfigurationArns: NotRequired[List[str]]
+    resourceConfigurationArns: NotRequired[list[str]]
 
 
 class VpcConfigurationTypeDef(TypedDict):
@@ -1615,8 +1614,14 @@ StepAmountCapabilityTypeDef = TypedDict(
 
 class StepAttributeCapabilityTypeDef(TypedDict):
     name: str
-    anyOf: NotRequired[List[str]]
-    allOf: NotRequired[List[str]]
+    anyOf: NotRequired[list[str]]
+    allOf: NotRequired[list[str]]
+
+
+class StepParameterChunksTypeDef(TypedDict):
+    defaultTaskCount: int
+    rangeConstraint: RangeConstraintType
+    targetRuntimeSeconds: NotRequired[int]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1731,7 +1736,7 @@ class WorkerAttributeCapabilityTypeDef(TypedDict):
 
 
 class AcceleratorCapabilitiesOutputTypeDef(TypedDict):
-    selections: List[AcceleratorSelectionTypeDef]
+    selections: list[AcceleratorSelectionTypeDef]
     count: NotRequired[AcceleratorCountRangeTypeDef]
 
 
@@ -1742,19 +1747,19 @@ class AcceleratorCapabilitiesTypeDef(TypedDict):
 
 class AssignedTaskRunSessionActionDefinitionTypeDef(TypedDict):
     stepId: str
-    parameters: Dict[str, TaskParameterValueTypeDef]
+    parameters: dict[str, TaskParameterValueTypeDef]
     taskId: NotRequired[str]
 
 
 class TaskRunSessionActionDefinitionSummaryTypeDef(TypedDict):
     stepId: str
     taskId: NotRequired[str]
-    parameters: NotRequired[Dict[str, TaskParameterValueTypeDef]]
+    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
 
 
 class TaskRunSessionActionDefinitionTypeDef(TypedDict):
     stepId: str
-    parameters: Dict[str, TaskParameterValueTypeDef]
+    parameters: dict[str, TaskParameterValueTypeDef]
     taskId: NotRequired[str]
 
 
@@ -1765,12 +1770,13 @@ class TaskSearchSummaryTypeDef(TypedDict):
     queueId: NotRequired[str]
     runStatus: NotRequired[TaskRunStatusType]
     targetRunStatus: NotRequired[TaskTargetRunStatusType]
-    parameters: NotRequired[Dict[str, TaskParameterValueTypeDef]]
+    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
     failureRetryCount: NotRequired[int]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
+    latestSessionActionId: NotRequired[str]
 
 
 class TaskSummaryTypeDef(TypedDict):
@@ -1780,7 +1786,7 @@ class TaskSummaryTypeDef(TypedDict):
     runStatus: TaskRunStatusType
     targetRunStatus: NotRequired[TaskTargetRunStatusType]
     failureRetryCount: NotRequired[int]
-    parameters: NotRequired[Dict[str, TaskParameterValueTypeDef]]
+    parameters: NotRequired[dict[str, TaskParameterValueTypeDef]]
     startedAt: NotRequired[datetime]
     endedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
@@ -1892,8 +1898,8 @@ class GetLicenseEndpointResponseTypeDef(TypedDict):
     statusMessage: str
     vpcId: str
     dnsName: str
-    subnetIds: List[str]
-    securityGroupIds: List[str]
+    subnetIds: list[str]
+    securityGroupIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1969,7 +1975,7 @@ class GetTaskResponseTypeDef(TypedDict):
     runStatus: TaskRunStatusType
     targetRunStatus: TaskTargetRunStatusType
     failureRetryCount: int
-    parameters: Dict[str, TaskParameterValueTypeDef]
+    parameters: dict[str, TaskParameterValueTypeDef]
     startedAt: datetime
     endedAt: datetime
     updatedAt: datetime
@@ -1979,13 +1985,13 @@ class GetTaskResponseTypeDef(TypedDict):
 
 
 class ListJobParameterDefinitionsResponseTypeDef(TypedDict):
-    jobParameterDefinitions: List[Dict[str, Any]]
+    jobParameterDefinitions: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1995,7 +2001,7 @@ class StartSessionsStatisticsAggregationResponseTypeDef(TypedDict):
 
 
 class AttachmentsOutputTypeDef(TypedDict):
-    manifests: List[ManifestPropertiesOutputTypeDef]
+    manifests: list[ManifestPropertiesOutputTypeDef]
     fileSystem: NotRequired[JobAttachmentsFileSystemType]
 
 
@@ -2043,7 +2049,7 @@ class JobSearchSummaryTypeDef(TypedDict):
     lifecycleStatusMessage: NotRequired[str]
     taskRunStatus: NotRequired[TaskRunStatusType]
     targetTaskRunStatus: NotRequired[JobTargetTaskRunStatusType]
-    taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
+    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
     taskFailureRetryCount: NotRequired[int]
     priority: NotRequired[int]
     maxFailedTasksCount: NotRequired[int]
@@ -2054,7 +2060,7 @@ class JobSearchSummaryTypeDef(TypedDict):
     startedAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
     updatedBy: NotRequired[str]
-    jobParameters: NotRequired[Dict[str, JobParameterTypeDef]]
+    jobParameters: NotRequired[dict[str, JobParameterTypeDef]]
     maxWorkerCount: NotRequired[int]
     sourceJobId: NotRequired[str]
 
@@ -2071,7 +2077,7 @@ class GetStorageProfileForQueueResponseTypeDef(TypedDict):
     storageProfileId: str
     displayName: str
     osFamily: StorageProfileOperatingSystemFamilyType
-    fileSystemLocations: List[FileSystemLocationTypeDef]
+    fileSystemLocations: list[FileSystemLocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2083,7 +2089,7 @@ class GetStorageProfileResponseTypeDef(TypedDict):
     createdBy: str
     updatedAt: datetime
     updatedBy: str
-    fileSystemLocations: List[FileSystemLocationTypeDef]
+    fileSystemLocations: list[FileSystemLocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2098,8 +2104,8 @@ class UpdateStorageProfileRequestTypeDef(TypedDict):
 
 
 class FleetCapabilitiesTypeDef(TypedDict):
-    amounts: NotRequired[List[FleetAmountCapabilityTypeDef]]
-    attributes: NotRequired[List[FleetAttributeCapabilityOutputTypeDef]]
+    amounts: NotRequired[list[FleetAmountCapabilityTypeDef]]
+    attributes: NotRequired[list[FleetAttributeCapabilityOutputTypeDef]]
 
 
 class CustomerManagedWorkerCapabilitiesOutputTypeDef(TypedDict):
@@ -2107,11 +2113,11 @@ class CustomerManagedWorkerCapabilitiesOutputTypeDef(TypedDict):
     memoryMiB: MemoryMiBRangeTypeDef
     osFamily: CustomerManagedFleetOperatingSystemFamilyType
     cpuArchitectureType: CpuArchitectureTypeType
-    acceleratorTypes: NotRequired[List[Literal["gpu"]]]
+    acceleratorTypes: NotRequired[list[Literal["gpu"]]]
     acceleratorCount: NotRequired[AcceleratorCountRangeTypeDef]
     acceleratorTotalMemoryMiB: NotRequired[AcceleratorTotalMemoryMiBRangeTypeDef]
-    customAmounts: NotRequired[List[FleetAmountCapabilityTypeDef]]
-    customAttributes: NotRequired[List[FleetAttributeCapabilityOutputTypeDef]]
+    customAmounts: NotRequired[list[FleetAmountCapabilityTypeDef]]
+    customAttributes: NotRequired[list[FleetAttributeCapabilityOutputTypeDef]]
 
 
 class CustomerManagedWorkerCapabilitiesTypeDef(TypedDict):
@@ -2146,7 +2152,7 @@ class StepSummaryTypeDef(TypedDict):
     name: str
     lifecycleStatus: StepLifecycleStatusType
     taskRunStatus: TaskRunStatusType
-    taskRunStatusCounts: Dict[TaskRunStatusType, int]
+    taskRunStatusCounts: dict[TaskRunStatusType, int]
     createdAt: datetime
     createdBy: str
     lifecycleStatusMessage: NotRequired[str]
@@ -2160,19 +2166,19 @@ class StepSummaryTypeDef(TypedDict):
 
 
 class ListFarmMembersResponseTypeDef(TypedDict):
-    members: List[FarmMemberTypeDef]
+    members: list[FarmMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListFarmsResponseTypeDef(TypedDict):
-    farms: List[FarmSummaryTypeDef]
+    farms: list[FarmSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListFleetMembersResponseTypeDef(TypedDict):
-    members: List[FleetMemberTypeDef]
+    members: list[FleetMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2180,6 +2186,20 @@ class ListFleetMembersResponseTypeDef(TypedDict):
 class GetFleetRequestWaitTypeDef(TypedDict):
     farmId: str
     fleetId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetJobRequestWaitExtraExtraTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+
+class GetJobRequestWaitExtraTypeDef(TypedDict):
+    farmId: str
+    queueId: str
+    jobId: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
@@ -2434,7 +2454,7 @@ class JobEntityIdentifiersUnionTypeDef(TypedDict):
 
 
 class ListJobMembersResponseTypeDef(TypedDict):
-    members: List[JobMemberTypeDef]
+    members: list[JobMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2446,110 +2466,105 @@ class JobRunAsUserTypeDef(TypedDict):
 
 
 class ListJobsResponseTypeDef(TypedDict):
-    jobs: List[JobSummaryTypeDef]
+    jobs: list[JobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListLicenseEndpointsResponseTypeDef(TypedDict):
-    licenseEndpoints: List[LicenseEndpointSummaryTypeDef]
+    licenseEndpoints: list[LicenseEndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListLimitsResponseTypeDef(TypedDict):
-    limits: List[LimitSummaryTypeDef]
+    limits: list[LimitSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListAvailableMeteredProductsResponseTypeDef(TypedDict):
-    meteredProducts: List[MeteredProductSummaryTypeDef]
+    meteredProducts: list[MeteredProductSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListMeteredProductsResponseTypeDef(TypedDict):
-    meteredProducts: List[MeteredProductSummaryTypeDef]
+    meteredProducts: list[MeteredProductSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListMonitorsResponseTypeDef(TypedDict):
-    monitors: List[MonitorSummaryTypeDef]
+    monitors: list[MonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueueEnvironmentsResponseTypeDef(TypedDict):
-    environments: List[QueueEnvironmentSummaryTypeDef]
+    environments: list[QueueEnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueueFleetAssociationsResponseTypeDef(TypedDict):
-    queueFleetAssociations: List[QueueFleetAssociationSummaryTypeDef]
+    queueFleetAssociations: list[QueueFleetAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueueLimitAssociationsResponseTypeDef(TypedDict):
-    queueLimitAssociations: List[QueueLimitAssociationSummaryTypeDef]
+    queueLimitAssociations: list[QueueLimitAssociationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueueMembersResponseTypeDef(TypedDict):
-    members: List[QueueMemberTypeDef]
+    members: list[QueueMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListQueuesResponseTypeDef(TypedDict):
-    queues: List[QueueSummaryTypeDef]
+    queues: list[QueueSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSessionsForWorkerResponseTypeDef(TypedDict):
-    sessions: List[WorkerSessionSummaryTypeDef]
+    sessions: list[WorkerSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSessionsResponseTypeDef(TypedDict):
-    sessions: List[SessionSummaryTypeDef]
+    sessions: list[SessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStepConsumersResponseTypeDef(TypedDict):
-    consumers: List[StepConsumerTypeDef]
+    consumers: list[StepConsumerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStepDependenciesResponseTypeDef(TypedDict):
-    dependencies: List[StepDependencyTypeDef]
+    dependencies: list[StepDependencyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStorageProfilesForQueueResponseTypeDef(TypedDict):
-    storageProfiles: List[StorageProfileSummaryTypeDef]
+    storageProfiles: list[StorageProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStorageProfilesResponseTypeDef(TypedDict):
-    storageProfiles: List[StorageProfileSummaryTypeDef]
+    storageProfiles: list[StorageProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-
-class ParameterSpaceTypeDef(TypedDict):
-    parameters: List[StepParameterTypeDef]
-    combination: NotRequired[str]
 
 
 class SearchSortExpressionTypeDef(TypedDict):
@@ -2586,8 +2601,18 @@ class StatisticsTypeDef(TypedDict):
 
 
 class StepRequiredCapabilitiesTypeDef(TypedDict):
-    attributes: List[StepAttributeCapabilityTypeDef]
-    amounts: List[StepAmountCapabilityTypeDef]
+    attributes: list[StepAttributeCapabilityTypeDef]
+    amounts: list[StepAmountCapabilityTypeDef]
+
+
+StepParameterTypeDef = TypedDict(
+    "StepParameterTypeDef",
+    {
+        "name": str,
+        "type": StepParameterTypeType,
+        "chunks": NotRequired[StepParameterChunksTypeDef],
+    },
+)
 
 
 class UpdatedSessionActionInfoTypeDef(TypedDict):
@@ -2613,10 +2638,10 @@ class ServiceManagedEc2InstanceCapabilitiesOutputTypeDef(TypedDict):
     cpuArchitectureType: CpuArchitectureTypeType
     rootEbsVolume: NotRequired[Ec2EbsVolumeTypeDef]
     acceleratorCapabilities: NotRequired[AcceleratorCapabilitiesOutputTypeDef]
-    allowedInstanceTypes: NotRequired[List[str]]
-    excludedInstanceTypes: NotRequired[List[str]]
-    customAmounts: NotRequired[List[FleetAmountCapabilityTypeDef]]
-    customAttributes: NotRequired[List[FleetAttributeCapabilityOutputTypeDef]]
+    allowedInstanceTypes: NotRequired[list[str]]
+    excludedInstanceTypes: NotRequired[list[str]]
+    customAmounts: NotRequired[list[FleetAmountCapabilityTypeDef]]
+    customAttributes: NotRequired[list[FleetAttributeCapabilityOutputTypeDef]]
 
 
 class ServiceManagedEc2InstanceCapabilitiesTypeDef(TypedDict):
@@ -2658,14 +2683,14 @@ class SessionActionDefinitionTypeDef(TypedDict):
 
 
 class SearchTasksResponseTypeDef(TypedDict):
-    tasks: List[TaskSearchSummaryTypeDef]
+    tasks: list[TaskSearchSummaryTypeDef]
     nextItemOffset: int
     totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTasksResponseTypeDef(TypedDict):
-    tasks: List[TaskSummaryTypeDef]
+    tasks: list[TaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2684,12 +2709,12 @@ class GetJobResponseTypeDef(TypedDict):
     endedAt: datetime
     taskRunStatus: TaskRunStatusType
     targetTaskRunStatus: JobTargetTaskRunStatusType
-    taskRunStatusCounts: Dict[TaskRunStatusType, int]
+    taskRunStatusCounts: dict[TaskRunStatusType, int]
     taskFailureRetryCount: int
     storageProfileId: str
     maxFailedTasksCount: int
     maxRetriesPerTask: int
-    parameters: Dict[str, JobParameterTypeDef]
+    parameters: dict[str, JobParameterTypeDef]
     attachments: AttachmentsOutputTypeDef
     description: str
     maxWorkerCount: int
@@ -2713,7 +2738,7 @@ class GetBudgetResponseTypeDef(TypedDict):
     description: str
     approximateDollarLimit: float
     usages: ConsumedUsagesTypeDef
-    actions: List[ResponseBudgetActionTypeDef]
+    actions: list[ResponseBudgetActionTypeDef]
     schedule: BudgetScheduleOutputTypeDef
     createdBy: str
     createdAt: datetime
@@ -2724,13 +2749,13 @@ class GetBudgetResponseTypeDef(TypedDict):
 
 
 class ListBudgetsResponseTypeDef(TypedDict):
-    budgets: List[BudgetSummaryTypeDef]
+    budgets: list[BudgetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class SearchJobsResponseTypeDef(TypedDict):
-    jobs: List[JobSearchSummaryTypeDef]
+    jobs: list[JobSearchSummaryTypeDef]
     nextItemOffset: int
     totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2755,6 +2780,7 @@ class SearchFilterExpressionTypeDef(TypedDict):
     parameterFilter: NotRequired[ParameterFilterExpressionTypeDef]
     searchTermFilter: NotRequired[SearchTermFilterExpressionTypeDef]
     stringFilter: NotRequired[StringFilterExpressionTypeDef]
+    stringListFilter: NotRequired[StringListFilterExpressionTypeDef]
     groupFilter: NotRequired[Mapping[str, Any]]
 
 
@@ -2763,7 +2789,7 @@ class BudgetScheduleTypeDef(TypedDict):
 
 
 class ListStepsResponseTypeDef(TypedDict):
-    steps: List[StepSummaryTypeDef]
+    steps: list[StepSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2858,8 +2884,8 @@ class GetQueueResponseTypeDef(TypedDict):
     blockedReason: QueueBlockedReasonType
     jobAttachmentSettings: JobAttachmentSettingsTypeDef
     roleArn: str
-    requiredFileSystemLocationNames: List[str]
-    allowedStorageProfileIds: List[str]
+    requiredFileSystemLocationNames: list[str]
+    allowedStorageProfileIds: list[str]
     jobRunAsUser: JobRunAsUserTypeDef
     createdAt: datetime
     createdBy: str
@@ -2875,8 +2901,8 @@ class JobDetailsEntityTypeDef(TypedDict):
     jobAttachmentSettings: NotRequired[JobAttachmentSettingsTypeDef]
     jobRunAsUser: NotRequired[JobRunAsUserTypeDef]
     queueRoleArn: NotRequired[str]
-    parameters: NotRequired[Dict[str, JobParameterTypeDef]]
-    pathMappingRules: NotRequired[List[PathMappingRuleTypeDef]]
+    parameters: NotRequired[dict[str, JobParameterTypeDef]]
+    pathMappingRules: NotRequired[list[PathMappingRuleTypeDef]]
 
 
 class UpdateQueueRequestTypeDef(TypedDict):
@@ -2895,54 +2921,17 @@ class UpdateQueueRequestTypeDef(TypedDict):
     allowedStorageProfileIdsToRemove: NotRequired[Sequence[str]]
 
 
-class StepSearchSummaryTypeDef(TypedDict):
-    stepId: NotRequired[str]
-    jobId: NotRequired[str]
-    queueId: NotRequired[str]
-    name: NotRequired[str]
-    lifecycleStatus: NotRequired[StepLifecycleStatusType]
-    lifecycleStatusMessage: NotRequired[str]
-    taskRunStatus: NotRequired[TaskRunStatusType]
-    targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
-    taskRunStatusCounts: NotRequired[Dict[TaskRunStatusType, int]]
-    taskFailureRetryCount: NotRequired[int]
-    createdAt: NotRequired[datetime]
-    createdBy: NotRequired[str]
-    startedAt: NotRequired[datetime]
-    endedAt: NotRequired[datetime]
-    updatedAt: NotRequired[datetime]
-    updatedBy: NotRequired[str]
-    parameterSpace: NotRequired[ParameterSpaceTypeDef]
-
-
 class GetSessionsStatisticsAggregationResponseTypeDef(TypedDict):
-    statistics: List[StatisticsTypeDef]
+    statistics: list[StatisticsTypeDef]
     status: SessionsStatisticsAggregationStatusType
     statusMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
-class GetStepResponseTypeDef(TypedDict):
-    stepId: str
-    name: str
-    lifecycleStatus: StepLifecycleStatusType
-    lifecycleStatusMessage: str
-    taskRunStatus: TaskRunStatusType
-    taskRunStatusCounts: Dict[TaskRunStatusType, int]
-    taskFailureRetryCount: int
-    targetTaskRunStatus: StepTargetTaskRunStatusType
-    createdAt: datetime
-    createdBy: str
-    updatedAt: datetime
-    updatedBy: str
-    startedAt: datetime
-    endedAt: datetime
-    dependencyCounts: DependencyCountsTypeDef
-    requiredCapabilities: StepRequiredCapabilitiesTypeDef
-    parameterSpace: ParameterSpaceTypeDef
-    description: str
-    ResponseMetadata: ResponseMetadataTypeDef
+class ParameterSpaceTypeDef(TypedDict):
+    parameters: list[StepParameterTypeDef]
+    combination: NotRequired[str]
 
 
 class UpdateWorkerScheduleRequestTypeDef(TypedDict):
@@ -2979,7 +2968,7 @@ class SessionActionSummaryTypeDef(TypedDict):
     endedAt: NotRequired[datetime]
     workerUpdatedAt: NotRequired[datetime]
     progressPercent: NotRequired[float]
-    manifests: NotRequired[List[TaskRunManifestPropertiesResponseTypeDef]]
+    manifests: NotRequired[list[TaskRunManifestPropertiesResponseTypeDef]]
 
 
 class GetSessionActionResponseTypeDef(TypedDict):
@@ -2993,8 +2982,8 @@ class GetSessionActionResponseTypeDef(TypedDict):
     processExitCode: int
     progressMessage: str
     definition: SessionActionDefinitionTypeDef
-    acquiredLimits: List[AcquiredLimitTypeDef]
-    manifests: List[TaskRunManifestPropertiesResponseTypeDef]
+    acquiredLimits: list[AcquiredLimitTypeDef]
+    manifests: list[TaskRunManifestPropertiesResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3026,14 +3015,14 @@ BudgetScheduleUnionTypeDef = Union[BudgetScheduleTypeDef, BudgetScheduleOutputTy
 
 
 class SearchWorkersResponseTypeDef(TypedDict):
-    workers: List[WorkerSearchSummaryTypeDef]
+    workers: list[WorkerSearchSummaryTypeDef]
     nextItemOffset: int
     totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListWorkersResponseTypeDef(TypedDict):
-    workers: List[WorkerSummaryTypeDef]
+    workers: list[WorkerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3062,11 +3051,46 @@ class JobEntityTypeDef(TypedDict):
     environmentDetails: NotRequired[EnvironmentDetailsEntityTypeDef]
 
 
-class SearchStepsResponseTypeDef(TypedDict):
-    steps: List[StepSearchSummaryTypeDef]
-    nextItemOffset: int
-    totalResults: int
+class GetStepResponseTypeDef(TypedDict):
+    stepId: str
+    name: str
+    lifecycleStatus: StepLifecycleStatusType
+    lifecycleStatusMessage: str
+    taskRunStatus: TaskRunStatusType
+    taskRunStatusCounts: dict[TaskRunStatusType, int]
+    taskFailureRetryCount: int
+    targetTaskRunStatus: StepTargetTaskRunStatusType
+    createdAt: datetime
+    createdBy: str
+    updatedAt: datetime
+    updatedBy: str
+    startedAt: datetime
+    endedAt: datetime
+    dependencyCounts: DependencyCountsTypeDef
+    requiredCapabilities: StepRequiredCapabilitiesTypeDef
+    parameterSpace: ParameterSpaceTypeDef
+    description: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StepSearchSummaryTypeDef(TypedDict):
+    stepId: NotRequired[str]
+    jobId: NotRequired[str]
+    queueId: NotRequired[str]
+    name: NotRequired[str]
+    lifecycleStatus: NotRequired[StepLifecycleStatusType]
+    lifecycleStatusMessage: NotRequired[str]
+    taskRunStatus: NotRequired[TaskRunStatusType]
+    targetTaskRunStatus: NotRequired[StepTargetTaskRunStatusType]
+    taskRunStatusCounts: NotRequired[dict[TaskRunStatusType, int]]
+    taskFailureRetryCount: NotRequired[int]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    startedAt: NotRequired[datetime]
+    endedAt: NotRequired[datetime]
+    updatedAt: NotRequired[datetime]
+    updatedBy: NotRequired[str]
+    parameterSpace: NotRequired[ParameterSpaceTypeDef]
 
 
 class FleetConfigurationOutputTypeDef(TypedDict):
@@ -3082,12 +3106,12 @@ class FleetConfigurationTypeDef(TypedDict):
 class AssignedSessionTypeDef(TypedDict):
     queueId: str
     jobId: str
-    sessionActions: List[AssignedSessionActionTypeDef]
+    sessionActions: list[AssignedSessionActionTypeDef]
     logConfiguration: LogConfigurationTypeDef
 
 
 class ListSessionActionsResponseTypeDef(TypedDict):
-    sessionActions: List[SessionActionSummaryTypeDef]
+    sessionActions: list[SessionActionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3139,6 +3163,7 @@ class CreateBudgetRequestTypeDef(TypedDict):
     schedule: BudgetScheduleUnionTypeDef
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 
 class UpdateBudgetRequestTypeDef(TypedDict):
@@ -3155,8 +3180,15 @@ class UpdateBudgetRequestTypeDef(TypedDict):
 
 
 class BatchGetJobEntityResponseTypeDef(TypedDict):
-    entities: List[JobEntityTypeDef]
-    errors: List[GetJobEntityErrorTypeDef]
+    entities: list[JobEntityTypeDef]
+    errors: list[GetJobEntityErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class SearchStepsResponseTypeDef(TypedDict):
+    steps: list[StepSearchSummaryTypeDef]
+    nextItemOffset: int
+    totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3205,15 +3237,15 @@ FleetConfigurationUnionTypeDef = Union[FleetConfigurationTypeDef, FleetConfigura
 
 
 class UpdateWorkerScheduleResponseTypeDef(TypedDict):
-    assignedSessions: Dict[str, AssignedSessionTypeDef]
-    cancelSessionActions: Dict[str, List[str]]
+    assignedSessions: dict[str, AssignedSessionTypeDef]
+    cancelSessionActions: dict[str, list[str]]
     desiredWorkerStatus: Literal["STOPPED"]
     updateIntervalSeconds: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListFleetsResponseTypeDef(TypedDict):
-    fleets: List[FleetSummaryTypeDef]
+    fleets: list[FleetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

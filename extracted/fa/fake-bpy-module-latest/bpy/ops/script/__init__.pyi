@@ -13,12 +13,8 @@ def execute_preset(
 ) -> None:
     """Load a preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param menu_idname: Menu ID Name, ID name of the menu this was called from
-    :type menu_idname: str
     """
 
 def python_file_run(
@@ -30,10 +26,7 @@ def python_file_run(
 ) -> None:
     """Run Python file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: Path
-    :type filepath: str
     """
 
 def reload(
@@ -41,8 +34,4 @@ def reload(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reload scripts
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reload scripts"""

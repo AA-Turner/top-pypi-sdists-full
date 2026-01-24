@@ -2,7 +2,7 @@ use tombi_syntax::{SyntaxKind::*, T};
 use tombi_toml_version::TomlVersion;
 
 use crate::{
-    support, ArrayOfTable, AstChildren, AstNode, TableOrArrayOfTable, TombiValueCommentDirective,
+    ArrayOfTable, AstChildren, AstNode, TableOrArrayOfTable, TombiValueCommentDirective, support,
 };
 
 impl crate::Table {
@@ -87,10 +87,10 @@ impl crate::Table {
                 header_comment_directives.push(comment_directive);
             }
         }
-        if let Some(comment) = self.header_trailing_comment() {
-            if let Some(comment_directive) = comment.get_tombi_value_directive() {
-                header_comment_directives.push(comment_directive);
-            }
+        if let Some(comment) = self.header_trailing_comment()
+            && let Some(comment_directive) = comment.get_tombi_value_directive()
+        {
+            header_comment_directives.push(comment_directive);
         }
 
         header_comment_directives.into_iter()
@@ -133,7 +133,7 @@ impl crate::Table {
             && position <= self.bracket_end().unwrap().range().start
     }
 
-    /// Returns an iterator over the subtables of this table.
+    /// Returns an iterator over the sub-tables of this table.
     ///
     /// ```toml
     /// [foo]  # <- This is a self table
@@ -143,7 +143,7 @@ impl crate::Table {
     /// [[foo.bar.baz]]  # <- This is also a subtable
     /// key = true
     /// ```
-    pub fn subtables(&self) -> impl Iterator<Item = TableOrArrayOfTable> + '_ {
+    pub fn sub_tables(&self) -> impl Iterator<Item = TableOrArrayOfTable> + '_ {
         support::node::next_siblings_nodes(self)
             .skip(1)
             .take_while(|t: &TableOrArrayOfTable| {
@@ -158,7 +158,35 @@ impl crate::Table {
             })
     }
 
-    pub fn array_of_tables_keys(
+    pub fn parent_table_or_array_of_table_keys(
+        &self,
+        toml_version: TomlVersion,
+    ) -> impl Iterator<Item = AstChildren<crate::Key>> + '_ {
+        support::node::prev_siblings_nodes(self)
+            .filter_map(|node: TableOrArrayOfTable| node.header().map(|header| header.keys()))
+            .take_while(move |keys| {
+                match (
+                    self.header().and_then(|header| header.keys().next()),
+                    keys.clone().next(),
+                ) {
+                    (Some(a), Some(b)) => match (
+                        a.try_to_raw_text(toml_version),
+                        b.try_to_raw_text(toml_version),
+                    ) {
+                        (Ok(a), Ok(b)) => a == b,
+                        _ => false,
+                    },
+                    _ => false,
+                }
+            })
+            .filter(|keys| {
+                self.header()
+                    .map(|header_keys| header_keys.keys().starts_with(keys))
+                    .unwrap_or_default()
+            })
+    }
+
+    pub fn parent_array_of_tables_keys(
         &self,
         toml_version: TomlVersion,
     ) -> impl Iterator<Item = AstChildren<crate::Key>> + '_ {

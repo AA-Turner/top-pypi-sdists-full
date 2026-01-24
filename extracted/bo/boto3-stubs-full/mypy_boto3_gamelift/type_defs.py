@@ -3,7 +3,7 @@ Type annotations for gamelift service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gamelift/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -77,12 +78,6 @@ from .literals import (
     TerminationModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -464,8 +459,8 @@ class AnywhereConfigurationTypeDef(TypedDict):
 class AttributeValueOutputTypeDef(TypedDict):
     S: NotRequired[str]
     N: NotRequired[float]
-    SL: NotRequired[List[str]]
-    SDM: NotRequired[Dict[str, float]]
+    SL: NotRequired[list[str]]
+    SDM: NotRequired[dict[str, float]]
 
 
 class AttributeValueTypeDef(TypedDict):
@@ -521,7 +516,7 @@ class GameServerTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -578,7 +573,7 @@ class LogConfigurationTypeDef(TypedDict):
 
 
 class ContainerHealthCheckOutputTypeDef(TypedDict):
-    Command: List[str]
+    Command: list[str]
     Interval: NotRequired[int]
     Retries: NotRequired[int]
     StartPeriod: NotRequired[int]
@@ -1053,7 +1048,7 @@ class EC2InstanceCountsTypeDef(TypedDict):
 
 
 class FilterConfigurationOutputTypeDef(TypedDict):
-    AllowedLocations: NotRequired[List[str]]
+    AllowedLocations: NotRequired[list[str]]
 
 
 class FilterConfigurationTypeDef(TypedDict):
@@ -1088,13 +1083,13 @@ class PlayerLatencyTypeDef(TypedDict):
 
 
 class PriorityConfigurationOverrideOutputTypeDef(TypedDict):
-    LocationOrder: List[str]
+    LocationOrder: list[str]
     PlacementFallbackStrategy: NotRequired[PlacementFallbackStrategyType]
 
 
 class PriorityConfigurationOutputTypeDef(TypedDict):
-    PriorityOrder: NotRequired[List[PriorityTypeType]]
-    LocationOrder: NotRequired[List[str]]
+    PriorityOrder: NotRequired[list[PriorityTypeType]]
+    LocationOrder: NotRequired[list[str]]
 
 
 class GetComputeAccessInputTypeDef(TypedDict):
@@ -1351,9 +1346,9 @@ class UpdateAliasInputTypeDef(TypedDict):
 
 class PlayerOutputTypeDef(TypedDict):
     PlayerId: NotRequired[str]
-    PlayerAttributes: NotRequired[Dict[str, AttributeValueOutputTypeDef]]
+    PlayerAttributes: NotRequired[dict[str, AttributeValueOutputTypeDef]]
     Team: NotRequired[str]
-    LatencyInMs: NotRequired[Dict[str, int]]
+    LatencyInMs: NotRequired[dict[str, int]]
 
 
 AttributeValueUnionTypeDef = Union[AttributeValueTypeDef, AttributeValueOutputTypeDef]
@@ -1401,19 +1396,19 @@ class GetGameSessionLogUrlOutputTypeDef(TypedDict):
 
 
 class ListBuildsOutputTypeDef(TypedDict):
-    Builds: List[BuildTypeDef]
+    Builds: list[BuildTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFleetsOutputTypeDef(TypedDict):
-    FleetIds: List[str]
+    FleetIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListGameServersOutputTypeDef(TypedDict):
-    GameServers: List[GameServerTypeDef]
+    GameServers: list[GameServerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1497,7 +1492,7 @@ ComputeTypeDef = TypedDict(
         "GameLiftServiceSdkEndpoint": NotRequired[str],
         "GameLiftAgentEndpoint": NotRequired[str],
         "InstanceId": NotRequired[str],
-        "ContainerAttributes": NotRequired[List[ContainerAttributeTypeDef]],
+        "ContainerAttributes": NotRequired[list[ContainerAttributeTypeDef]],
         "GameServerContainerGroupDefinitionArn": NotRequired[str],
     },
 )
@@ -1506,7 +1501,7 @@ ComputeTypeDef = TypedDict(
 class DescribeFleetPortSettingsOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    InboundPermissions: List[IpPermissionTypeDef]
+    InboundPermissions: list[IpPermissionTypeDef]
     UpdateStatus: Literal["PENDING_UPDATE"]
     Location: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1527,20 +1522,20 @@ class ContainerFleetTypeDef(TypedDict):
     PerInstanceContainerGroupDefinitionName: NotRequired[str]
     PerInstanceContainerGroupDefinitionArn: NotRequired[str]
     InstanceConnectionPortRange: NotRequired[ConnectionPortRangeTypeDef]
-    InstanceInboundPermissions: NotRequired[List[IpPermissionTypeDef]]
+    InstanceInboundPermissions: NotRequired[list[IpPermissionTypeDef]]
     GameServerContainerGroupsPerInstance: NotRequired[int]
     MaximumGameServerContainerGroupsPerInstance: NotRequired[int]
     InstanceType: NotRequired[str]
     BillingType: NotRequired[ContainerFleetBillingTypeType]
     Description: NotRequired[str]
     CreationTime: NotRequired[datetime]
-    MetricGroups: NotRequired[List[str]]
+    MetricGroups: NotRequired[list[str]]
     NewGameSessionProtectionPolicy: NotRequired[ProtectionPolicyType]
     GameSessionCreationLimitPolicy: NotRequired[GameSessionCreationLimitPolicyTypeDef]
     Status: NotRequired[ContainerFleetStatusType]
     DeploymentDetails: NotRequired[DeploymentDetailsTypeDef]
     LogConfiguration: NotRequired[LogConfigurationTypeDef]
-    LocationAttributes: NotRequired[List[ContainerFleetLocationAttributesTypeDef]]
+    LocationAttributes: NotRequired[list[ContainerFleetLocationAttributesTypeDef]]
 
 
 ContainerHealthCheckUnionTypeDef = Union[
@@ -1555,12 +1550,12 @@ class GetComputeAccessOutputTypeDef(TypedDict):
     ComputeArn: str
     Credentials: AwsCredentialsTypeDef
     Target: str
-    ContainerIdentifiers: List[ContainerIdentifierTypeDef]
+    ContainerIdentifiers: list[ContainerIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ContainerPortConfigurationOutputTypeDef(TypedDict):
-    ContainerPortRanges: List[ContainerPortRangeTypeDef]
+    ContainerPortRanges: list[ContainerPortRangeTypeDef]
 
 
 class ContainerPortConfigurationTypeDef(TypedDict):
@@ -1586,7 +1581,7 @@ class CreateMatchmakingRuleSetInputTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1617,6 +1612,7 @@ class CreateScriptInputTypeDef(TypedDict):
     StorageLocation: NotRequired[S3LocationTypeDef]
     ZipFile: NotRequired[BlobTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    NodeJsVersion: NotRequired[str]
 
 
 class RequestUploadCredentialsOutputTypeDef(TypedDict):
@@ -1633,6 +1629,7 @@ class ScriptTypeDef(TypedDict):
     SizeOnDisk: NotRequired[int]
     CreationTime: NotRequired[datetime]
     StorageLocation: NotRequired[S3LocationTypeDef]
+    NodeJsVersion: NotRequired[str]
 
 
 class UpdateScriptInputTypeDef(TypedDict):
@@ -1682,12 +1679,12 @@ class FleetAttributesTypeDef(TypedDict):
     ScriptArn: NotRequired[str]
     ServerLaunchPath: NotRequired[str]
     ServerLaunchParameters: NotRequired[str]
-    LogPaths: NotRequired[List[str]]
+    LogPaths: NotRequired[list[str]]
     NewGameSessionProtectionPolicy: NotRequired[ProtectionPolicyType]
     OperatingSystem: NotRequired[OperatingSystemType]
     ResourceCreationLimitPolicy: NotRequired[ResourceCreationLimitPolicyTypeDef]
-    MetricGroups: NotRequired[List[str]]
-    StoppedActions: NotRequired[List[Literal["AUTO_SCALING"]]]
+    MetricGroups: NotRequired[list[str]]
+    StoppedActions: NotRequired[list[Literal["AUTO_SCALING"]]]
     InstanceRoleArn: NotRequired[str]
     CertificateConfiguration: NotRequired[CertificateConfigurationTypeDef]
     ComputeType: NotRequired[ComputeTypeType]
@@ -1708,20 +1705,20 @@ class UpdateFleetAttributesInputTypeDef(TypedDict):
 class CreateFleetLocationsOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteFleetLocationsOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LocationAttributesTypeDef(TypedDict):
     LocationState: NotRequired[LocationStateTypeDef]
-    StoppedActions: NotRequired[List[Literal["AUTO_SCALING"]]]
+    StoppedActions: NotRequired[list[Literal["AUTO_SCALING"]]]
     UpdateStatus: NotRequired[Literal["PENDING_UPDATE"]]
 
 
@@ -1729,13 +1726,13 @@ class GameServerGroupTypeDef(TypedDict):
     GameServerGroupName: NotRequired[str]
     GameServerGroupArn: NotRequired[str]
     RoleArn: NotRequired[str]
-    InstanceDefinitions: NotRequired[List[InstanceDefinitionTypeDef]]
+    InstanceDefinitions: NotRequired[list[InstanceDefinitionTypeDef]]
     BalancingStrategy: NotRequired[BalancingStrategyType]
     GameServerProtectionPolicy: NotRequired[GameServerProtectionPolicyType]
     AutoScalingGroupArn: NotRequired[str]
     Status: NotRequired[GameServerGroupStatusType]
     StatusReason: NotRequired[str]
-    SuspendedActions: NotRequired[List[Literal["REPLACE_INSTANCE_TYPES"]]]
+    SuspendedActions: NotRequired[list[Literal["REPLACE_INSTANCE_TYPES"]]]
     CreationTime: NotRequired[datetime]
     LastUpdatedTime: NotRequired[datetime]
 
@@ -1790,7 +1787,7 @@ class GameSessionTypeDef(TypedDict):
     MaximumPlayerSessionCount: NotRequired[int]
     Status: NotRequired[GameSessionStatusType]
     StatusReason: NotRequired[GameSessionStatusReasonType]
-    GameProperties: NotRequired[List[GamePropertyTypeDef]]
+    GameProperties: NotRequired[list[GamePropertyTypeDef]]
     IpAddress: NotRequired[str]
     DnsName: NotRequired[str]
     Port: NotRequired[int]
@@ -1805,7 +1802,7 @@ class MatchmakingConfigurationTypeDef(TypedDict):
     Name: NotRequired[str]
     ConfigurationArn: NotRequired[str]
     Description: NotRequired[str]
-    GameSessionQueueArns: NotRequired[List[str]]
+    GameSessionQueueArns: NotRequired[list[str]]
     RequestTimeoutSeconds: NotRequired[int]
     AcceptanceTimeoutSeconds: NotRequired[int]
     AcceptanceRequired: NotRequired[bool]
@@ -1815,7 +1812,7 @@ class MatchmakingConfigurationTypeDef(TypedDict):
     AdditionalPlayerCount: NotRequired[int]
     CustomEventData: NotRequired[str]
     CreationTime: NotRequired[datetime]
-    GameProperties: NotRequired[List[GamePropertyTypeDef]]
+    GameProperties: NotRequired[list[GamePropertyTypeDef]]
     GameSessionData: NotRequired[str]
     BackfillMode: NotRequired[BackfillModeType]
     FlexMatchMode: NotRequired[FlexMatchModeType]
@@ -1853,7 +1850,7 @@ class CreateMatchmakingRuleSetOutputTypeDef(TypedDict):
 
 
 class DescribeMatchmakingRuleSetsOutputTypeDef(TypedDict):
-    RuleSets: List[MatchmakingRuleSetTypeDef]
+    RuleSets: list[MatchmakingRuleSetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1864,12 +1861,12 @@ class CreatePlayerSessionOutputTypeDef(TypedDict):
 
 
 class CreatePlayerSessionsOutputTypeDef(TypedDict):
-    PlayerSessions: List[PlayerSessionTypeDef]
+    PlayerSessions: list[PlayerSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribePlayerSessionsOutputTypeDef(TypedDict):
-    PlayerSessions: List[PlayerSessionTypeDef]
+    PlayerSessions: list[PlayerSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1880,7 +1877,7 @@ class CreateVpcPeeringAuthorizationOutputTypeDef(TypedDict):
 
 
 class DescribeVpcPeeringAuthorizationsOutputTypeDef(TypedDict):
-    VpcPeeringAuthorizations: List[VpcPeeringAuthorizationTypeDef]
+    VpcPeeringAuthorizations: list[VpcPeeringAuthorizationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1914,7 +1911,7 @@ class UpdateContainerFleetInputTypeDef(TypedDict):
 
 
 class DescribeEC2InstanceLimitsOutputTypeDef(TypedDict):
-    EC2InstanceLimits: List[EC2InstanceLimitTypeDef]
+    EC2InstanceLimits: list[EC2InstanceLimitTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2084,7 +2081,7 @@ class DescribeFleetEventsInputTypeDef(TypedDict):
 
 
 class DescribeFleetEventsOutputTypeDef(TypedDict):
-    Events: List[EventTypeDef]
+    Events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2095,19 +2092,19 @@ class DescribeFleetLocationUtilizationOutputTypeDef(TypedDict):
 
 
 class DescribeFleetUtilizationOutputTypeDef(TypedDict):
-    FleetUtilization: List[FleetUtilizationTypeDef]
+    FleetUtilization: list[FleetUtilizationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeGameServerInstancesOutputTypeDef(TypedDict):
-    GameServerInstances: List[GameServerInstanceTypeDef]
+    GameServerInstances: list[GameServerInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeInstancesOutputTypeDef(TypedDict):
-    Instances: List[InstanceTypeDef]
+    Instances: list[InstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2136,26 +2133,26 @@ class GameSessionConnectionInfoTypeDef(TypedDict):
     IpAddress: NotRequired[str]
     DnsName: NotRequired[str]
     Port: NotRequired[int]
-    MatchedPlayerSessions: NotRequired[List[MatchedPlayerSessionTypeDef]]
+    MatchedPlayerSessions: NotRequired[list[MatchedPlayerSessionTypeDef]]
 
 
 class GameSessionPlacementTypeDef(TypedDict):
     PlacementId: NotRequired[str]
     GameSessionQueueName: NotRequired[str]
     Status: NotRequired[GameSessionPlacementStateType]
-    GameProperties: NotRequired[List[GamePropertyTypeDef]]
+    GameProperties: NotRequired[list[GamePropertyTypeDef]]
     MaximumPlayerSessionCount: NotRequired[int]
     GameSessionName: NotRequired[str]
     GameSessionId: NotRequired[str]
     GameSessionArn: NotRequired[str]
     GameSessionRegion: NotRequired[str]
-    PlayerLatencies: NotRequired[List[PlayerLatencyTypeDef]]
+    PlayerLatencies: NotRequired[list[PlayerLatencyTypeDef]]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     IpAddress: NotRequired[str]
     DnsName: NotRequired[str]
     Port: NotRequired[int]
-    PlacedPlayerSessions: NotRequired[List[PlacedPlayerSessionTypeDef]]
+    PlacedPlayerSessions: NotRequired[list[PlacedPlayerSessionTypeDef]]
     GameSessionData: NotRequired[str]
     MatchmakerData: NotRequired[str]
     PriorityConfigurationOverride: NotRequired[PriorityConfigurationOverrideOutputTypeDef]
@@ -2165,8 +2162,8 @@ class GameSessionQueueTypeDef(TypedDict):
     Name: NotRequired[str]
     GameSessionQueueArn: NotRequired[str]
     TimeoutInSeconds: NotRequired[int]
-    PlayerLatencyPolicies: NotRequired[List[PlayerLatencyPolicyTypeDef]]
-    Destinations: NotRequired[List[GameSessionQueueDestinationTypeDef]]
+    PlayerLatencyPolicies: NotRequired[list[PlayerLatencyPolicyTypeDef]]
+    Destinations: NotRequired[list[GameSessionQueueDestinationTypeDef]]
     FilterConfiguration: NotRequired[FilterConfigurationOutputTypeDef]
     PriorityConfiguration: NotRequired[PriorityConfigurationOutputTypeDef]
     CustomEventData: NotRequired[str]
@@ -2224,7 +2221,7 @@ class ScalingPolicyTypeDef(TypedDict):
 
 
 class RuntimeConfigurationOutputTypeDef(TypedDict):
-    ServerProcesses: NotRequired[List[ServerProcessTypeDef]]
+    ServerProcesses: NotRequired[list[ServerProcessTypeDef]]
     MaxConcurrentGameSessionActivations: NotRequired[int]
     GameSessionActivationTimeoutSeconds: NotRequired[int]
 
@@ -2256,7 +2253,7 @@ class DescribeAliasOutputTypeDef(TypedDict):
 
 
 class ListAliasesOutputTypeDef(TypedDict):
-    Aliases: List[AliasTypeDef]
+    Aliases: list[AliasTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2279,7 +2276,7 @@ class DescribeComputeOutputTypeDef(TypedDict):
 
 
 class ListComputeOutputTypeDef(TypedDict):
-    ComputeList: List[ComputeTypeDef]
+    ComputeList: list[ComputeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2300,7 +2297,7 @@ class DescribeContainerFleetOutputTypeDef(TypedDict):
 
 
 class ListContainerFleetsOutputTypeDef(TypedDict):
-    ContainerFleets: List[ContainerFleetTypeDef]
+    ContainerFleets: list[ContainerFleetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2312,9 +2309,9 @@ class UpdateContainerFleetOutputTypeDef(TypedDict):
 
 class GameServerContainerDefinitionTypeDef(TypedDict):
     ContainerName: NotRequired[str]
-    DependsOn: NotRequired[List[ContainerDependencyTypeDef]]
-    MountPoints: NotRequired[List[ContainerMountPointTypeDef]]
-    EnvironmentOverride: NotRequired[List[ContainerEnvironmentTypeDef]]
+    DependsOn: NotRequired[list[ContainerDependencyTypeDef]]
+    MountPoints: NotRequired[list[ContainerMountPointTypeDef]]
+    EnvironmentOverride: NotRequired[list[ContainerEnvironmentTypeDef]]
     ImageUri: NotRequired[str]
     PortConfiguration: NotRequired[ContainerPortConfigurationOutputTypeDef]
     ResolvedImageDigest: NotRequired[str]
@@ -2323,9 +2320,9 @@ class GameServerContainerDefinitionTypeDef(TypedDict):
 
 class SupportContainerDefinitionTypeDef(TypedDict):
     ContainerName: NotRequired[str]
-    DependsOn: NotRequired[List[ContainerDependencyTypeDef]]
-    MountPoints: NotRequired[List[ContainerMountPointTypeDef]]
-    EnvironmentOverride: NotRequired[List[ContainerEnvironmentTypeDef]]
+    DependsOn: NotRequired[list[ContainerDependencyTypeDef]]
+    MountPoints: NotRequired[list[ContainerMountPointTypeDef]]
+    EnvironmentOverride: NotRequired[list[ContainerEnvironmentTypeDef]]
     Essential: NotRequired[bool]
     HealthCheck: NotRequired[ContainerHealthCheckOutputTypeDef]
     ImageUri: NotRequired[str]
@@ -2351,7 +2348,7 @@ class DescribeScriptOutputTypeDef(TypedDict):
 
 
 class ListScriptsOutputTypeDef(TypedDict):
-    Scripts: List[ScriptTypeDef]
+    Scripts: list[ScriptTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2363,12 +2360,12 @@ class UpdateScriptOutputTypeDef(TypedDict):
 
 class CreateFleetOutputTypeDef(TypedDict):
     FleetAttributes: FleetAttributesTypeDef
-    LocationStates: List[LocationStateTypeDef]
+    LocationStates: list[LocationStateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeFleetAttributesOutputTypeDef(TypedDict):
-    FleetAttributes: List[FleetAttributesTypeDef]
+    FleetAttributes: list[FleetAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2376,7 +2373,7 @@ class DescribeFleetAttributesOutputTypeDef(TypedDict):
 class DescribeFleetLocationAttributesOutputTypeDef(TypedDict):
     FleetId: str
     FleetArn: str
-    LocationAttributes: List[LocationAttributesTypeDef]
+    LocationAttributes: list[LocationAttributesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2397,7 +2394,7 @@ class DescribeGameServerGroupOutputTypeDef(TypedDict):
 
 
 class ListGameServerGroupsOutputTypeDef(TypedDict):
-    GameServerGroups: List[GameServerGroupTypeDef]
+    GameServerGroups: list[GameServerGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2423,7 +2420,7 @@ class CreateGameSessionOutputTypeDef(TypedDict):
 
 
 class DescribeGameSessionsOutputTypeDef(TypedDict):
-    GameSessions: List[GameSessionTypeDef]
+    GameSessions: list[GameSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2434,7 +2431,7 @@ class GameSessionDetailTypeDef(TypedDict):
 
 
 class SearchGameSessionsOutputTypeDef(TypedDict):
-    GameSessions: List[GameSessionTypeDef]
+    GameSessions: list[GameSessionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2455,7 +2452,7 @@ class CreateMatchmakingConfigurationOutputTypeDef(TypedDict):
 
 
 class DescribeMatchmakingConfigurationsOutputTypeDef(TypedDict):
-    Configurations: List[MatchmakingConfigurationTypeDef]
+    Configurations: list[MatchmakingConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2467,18 +2464,18 @@ class UpdateMatchmakingConfigurationOutputTypeDef(TypedDict):
 
 class DescribeFleetDeploymentOutputTypeDef(TypedDict):
     FleetDeployment: FleetDeploymentTypeDef
-    LocationalDeployments: Dict[str, LocationalDeploymentTypeDef]
+    LocationalDeployments: dict[str, LocationalDeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListFleetDeploymentsOutputTypeDef(TypedDict):
-    FleetDeployments: List[FleetDeploymentTypeDef]
+    FleetDeployments: list[FleetDeploymentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeFleetCapacityOutputTypeDef(TypedDict):
-    FleetCapacity: List[FleetCapacityTypeDef]
+    FleetCapacity: list[FleetCapacityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2511,7 +2508,7 @@ class MatchmakingTicketTypeDef(TypedDict):
     StatusMessage: NotRequired[str]
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
-    Players: NotRequired[List[PlayerOutputTypeDef]]
+    Players: NotRequired[list[PlayerOutputTypeDef]]
     GameSessionConnectionInfo: NotRequired[GameSessionConnectionInfoTypeDef]
     EstimatedWaitTime: NotRequired[int]
 
@@ -2537,7 +2534,7 @@ class CreateGameSessionQueueOutputTypeDef(TypedDict):
 
 
 class DescribeGameSessionQueuesOutputTypeDef(TypedDict):
-    GameSessionQueues: List[GameSessionQueueTypeDef]
+    GameSessionQueues: list[GameSessionQueueTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2594,7 +2591,7 @@ class UpdateGameSessionQueueInputTypeDef(TypedDict):
 
 
 class DescribeScalingPoliciesOutputTypeDef(TypedDict):
-    ScalingPolicies: List[ScalingPolicyTypeDef]
+    ScalingPolicies: list[ScalingPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2615,7 +2612,7 @@ RuntimeConfigurationUnionTypeDef = Union[
 
 
 class DescribeVpcPeeringConnectionsOutputTypeDef(TypedDict):
-    VpcPeeringConnections: List[VpcPeeringConnectionTypeDef]
+    VpcPeeringConnections: list[VpcPeeringConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2631,7 +2628,7 @@ class ContainerGroupDefinitionTypeDef(TypedDict):
     TotalMemoryLimitMebibytes: NotRequired[int]
     TotalVcpuLimit: NotRequired[float]
     GameServerContainerDefinition: NotRequired[GameServerContainerDefinitionTypeDef]
-    SupportContainerDefinitions: NotRequired[List[SupportContainerDefinitionTypeDef]]
+    SupportContainerDefinitions: NotRequired[list[SupportContainerDefinitionTypeDef]]
     VersionNumber: NotRequired[int]
     VersionDescription: NotRequired[str]
     Status: NotRequired[ContainerGroupDefinitionStatusType]
@@ -2662,13 +2659,13 @@ class SupportContainerDefinitionInputTypeDef(TypedDict):
 
 
 class DescribeGameSessionDetailsOutputTypeDef(TypedDict):
-    GameSessionDetails: List[GameSessionDetailTypeDef]
+    GameSessionDetails: list[GameSessionDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeMatchmakingOutputTypeDef(TypedDict):
-    TicketList: List[MatchmakingTicketTypeDef]
+    TicketList: list[MatchmakingTicketTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2688,7 +2685,7 @@ class CreateLocationOutputTypeDef(TypedDict):
 
 
 class ListLocationsOutputTypeDef(TypedDict):
-    Locations: List[LocationModelTypeDef]
+    Locations: list[LocationModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2748,13 +2745,13 @@ class DescribeContainerGroupDefinitionOutputTypeDef(TypedDict):
 
 
 class ListContainerGroupDefinitionVersionsOutputTypeDef(TypedDict):
-    ContainerGroupDefinitions: List[ContainerGroupDefinitionTypeDef]
+    ContainerGroupDefinitions: list[ContainerGroupDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListContainerGroupDefinitionsOutputTypeDef(TypedDict):
-    ContainerGroupDefinitions: List[ContainerGroupDefinitionTypeDef]
+    ContainerGroupDefinitions: list[ContainerGroupDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

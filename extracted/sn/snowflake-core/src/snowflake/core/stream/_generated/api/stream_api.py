@@ -489,7 +489,7 @@ class StreamApi:
         # process the body parameter
         _body_params = None
 
-        if _params["stream"]:
+        if _params["stream"] is not None:
             _body_params = _params["stream"]
 
         # set the HTTP header `Accept`
@@ -912,7 +912,7 @@ class StreamApi:
         # process the body parameter
         _body_params = None
 
-        if _params["stream_clone"]:
+        if _params["stream_clone"] is not None:
             _body_params = _params["stream_clone"]
 
         # set the HTTP header `Accept`

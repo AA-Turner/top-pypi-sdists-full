@@ -4,7 +4,8 @@ from .. import exceptions, config
 
 
 def get_message(path: str) -> str:
-    return open(config.DATA_DIRECTORY + 'soap_messages/' + path).read()
+    return (config.DATA_DIRECTORY / 'soap_messages' / path).read_text()
+
 
 def parse_path(path: str) -> list:
     return path.split('/')
@@ -13,7 +14,7 @@ def parse_path(path: str) -> list:
 class Result:
     def __init__(self, data):
         if isinstance(data, str):
-            self._dict = dict(xmltodict.parse(data))
+            self._dict = xmltodict.parse(data)
         elif isinstance(data, dict):
             self._dict = data
 

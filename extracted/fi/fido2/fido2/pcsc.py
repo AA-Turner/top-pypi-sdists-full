@@ -61,6 +61,7 @@ class CtapPcscDevice(CtapDevice):
         self._name = name
         self._capabilities = CAPABILITY(0)
         self.use_ext_apdu = False
+        self.use_nfcctap_getresponse = True
         self._conn = connection
         self.connect()
 
@@ -100,7 +101,7 @@ class CtapPcscDevice(CtapDevice):
 
     def get_atr(self) -> bytes:
         """Get the ATR/ATS of the connected card."""
-        return bytes(self._conn.getATR())
+        return bytes(self._conn.getATR() or b"")
 
     def apdu_exchange(
         self, apdu: bytes, protocol: int | None = None
@@ -191,26 +192,34 @@ class CtapPcscDevice(CtapDevice):
         on_keepalive: Callable[[STATUS], None] | None = None,
     ) -> bytes:
         event = event or Event()
+
         # NFCCTAP_MSG
-        resp, sw1, sw2 = self._chain_apdus(0x80, 0x10, 0x80, 0x00, data)
+        p1 = 0x80 if self.use_nfcctap_getresponse else 0x00
+        resp, sw1, sw2 = self._chain_apdus(0x80, 0x10, p1, 0x00, data)
         last_ka = None
 
-        while not event.is_set():
+        # NFCCTAP_GETRESPONSE
+        p1 = 0x00
+        try:
             while (sw1, sw2) == SW_UPDATE:
                 ka_status = STATUS(resp[0])
                 if on_keepalive and last_ka != ka_status:
                     last_ka = ka_status
                     on_keepalive(ka_status)
 
-                # NFCCTAP_GETRESPONSE
-                resp, sw1, sw2 = self._chain_apdus(0x80, 0x11, 0x00, 0x00)
+                if event.wait(0.1):
+                    p1 = 0x11  # cancel
+                resp, sw1, sw2 = self._chain_apdus(0x80, 0x11, p1, 0x00)
+        except KeyboardInterrupt:
+            logger.debug("Keyboard interrupt, cancelling...")
+            self._chain_apdus(0x80, 0x11, 0x11, 0x00)
 
-            if (sw1, sw2) != SW_SUCCESS:
-                raise CtapError(CtapError.ERR.OTHER)  # TODO: Map from SW error
+            raise
 
-            return resp
+        if (sw1, sw2) != SW_SUCCESS:
+            raise CtapError(CtapError.ERR.OTHER)  # TODO: Map from SW error
 
-        raise CtapError(CtapError.ERR.KEEPALIVE_CANCEL)
+        return resp
 
     def call(
         self,
@@ -247,7 +256,7 @@ def _list_readers():
         # forcing a new context (This happens on Windows if the last reader is
         # removed):
         try:
-            from smartcard.pcsc.PCSCContext import PCSCContext
+            from smartcard.pcsc.PCSCContext import PCSCContext  # type: ignore
 
             PCSCContext.instance = None
             return System.readers()

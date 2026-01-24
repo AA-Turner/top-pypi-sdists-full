@@ -23,8 +23,8 @@ if (MSVC)
   elseif (NOT NB_TEST_CUDA)
     add_compile_options(/W4)
   endif()
-elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-  add_compile_options(-Wall -Wextra -Wno-unused-local-typedefs)
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU|IntelLLVM")
+  add_compile_options(-Wall -Wextra)
 endif()
 
 if (UNIX AND (CMAKE_SIZEOF_VOID_P EQUAL 4) AND (CMAKE_SYSTEM_PROCESSOR STREQUAL i686))
@@ -104,6 +104,7 @@ foreach (NAME functions classes ndarray jax tensorflow stl enum typing make_iter
     set(EXTRA
       MARKER_FILE py.typed
       PATTERN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pattern_file.nb"
+      EXCLUDE_VALUES
     )
     set(EXTRA_DEPENDS "${OUT_DIR}/py_stub_test.py")
   else()

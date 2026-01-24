@@ -398,10 +398,11 @@ class TimeWindowPartitionsSubset(
             "num_partitions would become inaccurate if the partitions_defs had different cron"
             " schedules",
         )
+        self_as_dict = self._asdict()
         return TimeWindowPartitionsSubset(
             partitions_def=partitions_def,
-            num_partitions=self.num_partitions,
-            included_time_windows=self.included_time_windows,
+            num_partitions=self_as_dict["num_partitions"],
+            included_time_windows=self_as_dict["included_time_windows"],
         )
 
     def __repr__(self) -> str:
@@ -457,15 +458,26 @@ class TimeWindowPartitionsSubset(
             [*self.included_time_windows, *other.included_time_windows],
             key=lambda tw: tw.start_timestamp,
         )
+
         result_windows = [input_time_windows[0]] if len(input_time_windows) > 0 else []
+
         for window in input_time_windows[1:]:
             latest_window = result_windows[-1]
             if window.start_timestamp <= latest_window.end_timestamp:
                 # merge this window with the latest window
-                result_windows[-1] = PersistedTimeWindow.from_public_time_window(
-                    TimeWindow(latest_window.start, max(latest_window.end, window.end)),
-                    self.partitions_def.timezone,
+                merged_window_end = (
+                    latest_window.end_timestamp_with_timezone
+                    if latest_window.end_timestamp >= window.end_timestamp
+                    else window.end_timestamp_with_timezone
                 )
+
+                merged_window = PersistedTimeWindow(
+                    latest_window.start_timestamp_with_timezone,
+                    merged_window_end,
+                )
+
+                # merge this window with the latest window
+                result_windows[-1] = merged_window
             else:
                 result_windows.append(window)
 
@@ -565,7 +577,7 @@ class TimeWindowPartitionsSubset(
         # note that we rarely serialize subsets on the user code side of a serialization boundary,
         # and so this conversion is rarely necessary.
         partitions_def = self.partitions_def
-        if type(self.partitions_def) != TimeWindowPartitionsSubset:
+        if type(self.partitions_def) != TimeWindowPartitionsDefinition:
             partitions_def = TimeWindowPartitionsSnap.from_def(
                 partitions_def
             ).get_partitions_definition()

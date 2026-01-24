@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vectorbt
-Version: 0.28.1
+Version: 0.28.2
 Summary: Python library for backtesting and analyzing trading strategies at scale
 Home-page: https://github.com/polakowo/vectorbt
 Author: Oleg Polakow
@@ -51,7 +51,7 @@ Requires-Dist: ccxt>=4.0.14; extra == "full"
 Requires-Dist: alpaca-py; extra == "full"
 Requires-Dist: ray>=1.4.1; extra == "full"
 Requires-Dist: ta; extra == "full"
-Requires-Dist: pandas_ta; extra == "full"
+Requires-Dist: pandas-ta-classic; extra == "full"
 Requires-Dist: TA-Lib; extra == "full"
 Requires-Dist: python-telegram-bot<20.0,>=13.4; extra == "full"
 Requires-Dist: quantstats>=0.0.37; extra == "full"
@@ -62,7 +62,7 @@ Requires-Dist: ccxt>=4.0.14; extra == "full-no-talib"
 Requires-Dist: alpaca-py; extra == "full-no-talib"
 Requires-Dist: ray>=1.4.1; extra == "full-no-talib"
 Requires-Dist: ta; extra == "full-no-talib"
-Requires-Dist: pandas_ta; extra == "full-no-talib"
+Requires-Dist: pandas-ta-classic; extra == "full-no-talib"
 Requires-Dist: python-telegram-bot<20.0,>=13.4; extra == "full-no-talib"
 Requires-Dist: quantstats>=0.0.37; extra == "full-no-talib"
 Provides-Extra: cov

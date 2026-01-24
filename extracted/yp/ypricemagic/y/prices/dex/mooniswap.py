@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from typing import Optional
 
 import dank_mids
 from a_sync import a_sync, cgather
@@ -60,7 +59,7 @@ async def is_mooniswap_pool(token: AnyAddressType) -> bool:
 @a_sync(default="sync")
 async def get_pool_price(
     token: AnyAddressType,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ) -> UsdPrice:
     """

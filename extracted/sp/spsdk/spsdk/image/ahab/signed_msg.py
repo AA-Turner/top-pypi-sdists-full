@@ -4,34 +4,29 @@
 # Copyright 2021-2025 NXP
 #
 # SPDX-License-Identifier: BSD-3-Clause
-"""AHAB signed message implementation.
+"""AHAB signed message implementation for secure device communication.
 
 This module provides classes and functions to create, parse, and manipulate AHAB
 (Advanced High Assurance Boot) signed messages. The implementation supports various
 message types such as key provisioning, lifecycle management, secure fuse operations,
 and debug authentication.
-
 Signed messages are used for secure communication with NXP devices that support
 EdgeLock security features. The module allows customization of container values
-according to device-specific requirements - consult your device reference manual
-for allowed values and message formats.
+according to device-specific requirements.
 """
 
 import datetime
 import logging
+import os
 from abc import abstractmethod
 from inspect import isclass
 from struct import calcsize, pack, unpack
 from typing import Any, Optional, Type, Union
 
 from typing_extensions import Self, TypeAlias
-from x690.types import TypeClass, TypeNature, X690Type, decode
 
-from spsdk.crypto.cmac import cmac
-from spsdk.crypto.crypto_types import SPSDKEncoding
 from spsdk.crypto.hkdf import hkdf
-from spsdk.crypto.keys import PrivateKey
-from spsdk.crypto.symmetric import aes_cbc_encrypt, aes_key_wrap
+from spsdk.crypto.keys import PrivateKeyEcc, PublicKeyEcc
 from spsdk.exceptions import (
     SPSDKError,
     SPSDKNotImplementedError,
@@ -51,12 +46,10 @@ from spsdk.image.ahab.ahab_data import (
     FlagsSrkSet,
     KeyAlgorithm,
     KeyDerivationAlgorithm,
-    KeyImportSigningAlgorithm,
     KeyType,
     KeyUsage,
     LifeCycle,
     LifeTime,
-    WrappingAlgorithm,
     create_chip_config,
 )
 from spsdk.image.ahab.ahab_sign_block import SignatureBlock, SignatureBlockV2
@@ -66,7 +59,14 @@ from spsdk.utils.binary_image import BinaryImage
 from spsdk.utils.config import Config
 from spsdk.utils.database import DatabaseManager, get_schema_file
 from spsdk.utils.family import FamilyRevision, get_db, update_validation_schema_family
-from spsdk.utils.misc import BinaryPattern, Endianness, align, align_block, value_to_int
+from spsdk.utils.misc import (
+    BinaryPattern,
+    Endianness,
+    align,
+    align_block,
+    get_printable_path,
+    value_to_int,
+)
 from spsdk.utils.schema_validator import CommentedConfig
 from spsdk.utils.spsdk_enum import SpsdkEnum
 from spsdk.utils.verifier import Verifier, VerifierResult
@@ -75,13 +75,23 @@ logger = logging.getLogger(__name__)
 
 
 class SignedMessageTags(SpsdkEnum):
-    """Signed message container related tags."""
+    """Enumeration of AHAB signed message container tags.
+
+    This enumeration defines the standardized tags used to identify and categorize
+    signed message containers in the AHAB (Advanced High Assurance Boot) format.
+
+    :cvar SIGNED_MSG: Tag identifier for signed message containers.
+    """
 
     SIGNED_MSG = (0x89, "SIGNED_MSG", "Signed message.")
 
 
 class MessageCommands(SpsdkEnum):
-    """Signed messages commands."""
+    """AHAB signed message commands enumeration.
+
+    This enumeration defines the available command types for AHAB (Advanced High Assurance Boot)
+    signed messages, including keystore operations, lifecycle management, and debug authentication.
+    """
 
     KEYSTORE_REPROVISIONING_ENABLE_REQ = (
         0x3F,
@@ -93,11 +103,6 @@ class MessageCommands(SpsdkEnum):
         0x47,
         "KEY_EXCHANGE_REQ",
         "Key exchange signed message content",
-    )
-    KEY_IMPORT_REQ = (
-        0x4F,
-        "KEY_IMPORT_REQ",
-        "Key import signed message content",
     )
     WRITE_SEC_FUSE_REQ = (0x91, "WRITE_SEC_FUSE_REQ", "Write secure fuse request.")
     RETURN_LIFECYCLE_UPDATE_REQ = (
@@ -113,9 +118,14 @@ class MessageCommands(SpsdkEnum):
 
 
 class Message(Container):
-    """Class representing the Signed message.
+    """AHAB signed message container for EdgeLock secure provisioning.
 
-    Message::
+    This class represents a signed message used in AHAB (Advanced High Assurance Boot)
+    protocol for communication with EdgeLock-enabled devices. The message consists of
+    a common header containing certificate information, permissions, and unique
+    identifiers, followed by a variable payload section.
+    Message structure:
+
         +-----+--------------+--------------+----------------+----------------+
         |Off  |    Byte 3    |    Byte 2    |      Byte 1    |     Byte 0     |
         +-----+--------------+--------------+----------------+----------------+
@@ -124,8 +134,7 @@ class Message(Container):
         |0x10 |                      Message payload                          |
         +-----+---------------------------------------------------------------+
 
-
-    Message header::
+    Message header format:
         +-----+--------------+--------------+----------------+----------------+
         |Off  |    Byte 3    |    Byte 2    |      Byte 1    |     Byte 0     |
         +-----+--------------+--------------+----------------+----------------+
@@ -138,8 +147,9 @@ class Message(Container):
         |0x.. |                                                               |
         +-----+---------------------------------------------------------------+
 
-        The message header is common for all signed messages.
-
+    :cvar UNIQUE_ID_LEN: Default length of unique identifier in bytes.
+    :cvar TAG: Message tag identifier.
+    :cvar PAYLOAD_LENGTH: Default payload length.
     """
 
     UNIQUE_ID_LEN = 8
@@ -156,17 +166,22 @@ class Message(Container):
         unique_id: Optional[bytes] = None,
         unique_id_len: int = UNIQUE_ID_LEN,
     ) -> None:
-        """Message used to sign and send to device with EdgeLock.
+        """Initialize signed message for EdgeLock device communication.
 
-        :param family: Family revision
-        :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param cmd: Message command ID, defaults to 0
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
+        Creates a message structure that can be signed and sent to devices with EdgeLock
+        security subsystem. The message includes authentication and authorization data
+        required for secure communication.
+
+        :param family: Target device family and revision information
+        :param cert_ver: Certificate version number, defaults to 0
+        :param permissions: Certificate permissions for future use - must allow the
+            operation requested by the signed message, defaults to 0
+        :param issue_date: Message issue date as encoded value, defaults to None
+            (current date will be automatically applied)
+        :param cmd: Message command identifier, defaults to 0
+        :param unique_id: Device UUID bytes, defaults to None (zero-filled bytes)
+        :param unique_id_len: UUID length in bytes - 8 or 16 bytes supported,
+            defaults to 8 bytes
         """
         self.family = family
         self.cert_ver = cert_ver
@@ -183,9 +198,23 @@ class Message(Container):
             )
 
     def __repr__(self) -> str:
+        """Return string representation of the message object.
+
+        The representation includes the message type description obtained from MessageCommands
+        based on the object's TAG attribute.
+
+        :return: String representation in format "Message, <description>".
+        """
         return f"Message, {MessageCommands.get_description(self.TAG, 'Base Class')}"
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        Provides a formatted string containing certificate version, permissions,
+        issue date, and UUID information for debugging and logging purposes.
+
+        :return: Formatted string representation of the signed message object.
+        """
         ret = repr(self) + ":\n"
         ret += (
             f"  Certificate version:{self.cert_ver}\n"
@@ -196,20 +225,33 @@ class Message(Container):
         return ret
 
     def __len__(self) -> int:
-        """Returns the total length of a container.
+        """Get the total length of the container.
 
-        The length includes the fixed as well as the variable length part.
+        The length includes both the fixed length part and the variable length part
+        (unique ID length and payload length).
+
+        :return: Total container length in bytes.
         """
         return self.fixed_length() + self.unique_id_len + self.payload_len
 
     @property
     def payload_len(self) -> int:
-        """Message payload length in bytes."""
+        """Get message payload length in bytes.
+
+        :return: Length of the message payload in bytes.
+        """
         return self.PAYLOAD_LENGTH
 
     @classmethod
     def format(cls) -> str:
-        """Format of binary representation without UUID."""
+        """Get format of binary representation without UUID.
+
+        Returns the format string that describes the binary layout of the signed message
+        structure, excluding the UUID field. The format includes issue date, permission,
+        certificate version, reserved fields, and command fields.
+
+        :return: Format string describing the binary structure layout.
+        """
         return (
             super().format()
             + UINT16  # Issue Date
@@ -220,8 +262,26 @@ class Message(Container):
             + UINT8  # Reserved
         )
 
+    def post_export(self, output_path: str) -> list[str]:
+        """Post export operations after the main export process.
+
+        This method is called after the primary export functionality to perform
+        any additional operations or cleanup tasks specific to the message type.
+
+        :param output_path: Base directory for exported files
+        :raises SPSDKNotImplementedError: If post-export is not implemented for this message type
+        """
+        raise SPSDKNotImplementedError("Post export is not implemented for this message type")
+
     def verify(self) -> Verifier:
-        """Verify general message properties."""
+        """Verify general message properties and return verification results.
+
+        Creates a Verifier object to validate the message's certificate version,
+        permissions, issue date, command type, and unique ID against expected
+        formats and ranges.
+
+        :return: Verifier object containing validation records for all message properties.
+        """
         name = (
             MessageCommands.get_label(self.cmd)
             if self.cmd in MessageCommands.tags()
@@ -241,9 +301,12 @@ class Message(Container):
         return ret
 
     def export(self) -> bytes:
-        """Exports message into to bytes array.
+        """Export message into bytes array.
 
-        :return: Bytes representation of message object.
+        Serializes the signed message object into its binary representation by packing
+        the message header fields and appending the unique ID and payload data.
+
+        :return: Binary representation of the signed message.
         """
         msg = pack(
             self.format(),
@@ -267,13 +330,15 @@ class Message(Container):
 
     @classmethod
     def load_from_config(cls, config: Config, family: FamilyRevision) -> Self:
-        """Converts the configuration option into an message object.
+        """Load message object from configuration data.
 
-        "config" content of container configurations.
+        The method parses the configuration to extract command information and creates
+        the appropriate message object based on the command type found in the configuration.
 
-        :param config: Message configuration dictionaries.
-        :param family: Family revision
-        :return: Message object.
+        :param config: Message configuration dictionaries containing command definitions.
+        :param family: Family revision specification for the target device.
+        :raises SPSDKError: Invalid configuration when command field doesn't contain exactly one entry.
+        :return: Message object instance created from the configuration.
         """
         command = config.get_dict("command")
         if len(command) != 1:
@@ -283,12 +348,16 @@ class Message(Container):
 
     @classmethod
     def load_from_config_generic(cls, config: Config) -> tuple[int, int, Optional[int], bytes]:
-        """Converts the general configuration option into an message object.
+        """Load configuration data into message components.
 
-        "config" content of container configurations.
+        Converts the general configuration options from container configurations
+        into message object components including certificate version, permissions,
+        issue date, and UUID.
 
-        :param config: Message configuration dictionaries.
-        :return: Message object.
+        :param config: Message configuration dictionaries containing cert_version,
+            cert_permission, issue_date, and uuid fields.
+        :return: Tuple containing certificate version, permission, issue date
+            (or None if not specified), and UUID bytes.
         """
         cert_ver = config.get_int("cert_version", 0)
         permission = config.get_int("cert_permission", 0)
@@ -305,22 +374,27 @@ class Message(Container):
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type["Message"]
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load message object from configuration data.
 
-        "config" content of container configurations.
+        This method converts configuration dictionary into a concrete message object
+        instance. Must be implemented by child classes to handle specific message types.
 
         :param config: Message configuration dictionaries.
         :param family: Family revision for message configuration.
         :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
+        :raises SPSDKNotImplementedError: Method must be implemented in child class.
+        :return: Message object instance.
         """
         raise SPSDKNotImplementedError("'_load_from_config' must be implemented in child class")
 
     def _create_general_config(self) -> Config:
-        """Create configuration of the general parts of  Message.
+        """Create configuration of the general parts of Message.
 
-        :return: Configuration dictionary.
+        The method builds a configuration dictionary containing certificate version, permissions,
+        issue date, and UUID from the message's internal properties.
+
+        :raises AssertionError: If unique_id is not of bytes type.
+        :return: Configuration dictionary with general message parameters.
         """
         assert isinstance(self.unique_id, bytes)
         cfg = Config()
@@ -340,7 +414,15 @@ class Message(Container):
 
     @classmethod
     def get_message_class(cls, cmd: str) -> Type[Self]:
-        """Get the dedicated message class for command."""
+        """Get the dedicated message class for command.
+
+        Searches through all available Message subclasses to find the one that matches
+        the specified command label.
+
+        :param cmd: Command label to find the corresponding message class for.
+        :return: Message class that handles the specified command.
+        :raises SPSDKValueError: When the specified command is not supported.
+        """
         for var in globals():
             obj = globals()[var]
             if isclass(obj) and issubclass(obj, Message) and obj is not Message:
@@ -354,8 +436,13 @@ class Message(Container):
     def parse(cls, data: bytes, family: Optional[FamilyRevision] = None) -> Self:
         """Parse input binary to the signed message object.
 
+        The method extracts message components from binary data including issue date,
+        permissions, certificate version, command, and unique ID, then creates the
+        appropriate message class instance based on the command type.
+
         :param data: Binary data with Container block to parse.
-        :param family: Family revision context.
+        :param family: Family revision context for parsing.
+        :raises SPSDKValueError: When family revision is not provided.
         :return: Object recreated from the binary data.
         """
         if family is None:
@@ -385,20 +472,38 @@ class Message(Container):
 
     @abstractmethod
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload from binary data.
 
-        :param data: Binary data with Payload to parse.
+        This method processes the provided binary data to extract and initialize
+        the payload structure for the signed message.
+
+        :param data: Binary data containing the payload to be parsed.
+        :raises SPSDKParsingError: Invalid or corrupted payload data format.
         """
 
 
 class MessageV2(Message):
-    """Class representing the Signed message version 2."""
+    """AHAB Signed Message Version 2.
+
+    This class represents a version 2 signed message in the AHAB (Advanced High Assurance Boot)
+    format, extending the base Message class with version-specific functionality and structure.
+
+    :cvar UNIQUE_ID_LEN: Length of the unique identifier field in bytes.
+    """
 
     UNIQUE_ID_LEN = 16
 
 
 class MessageReturnLifeCycle(Message):
-    """Return life cycle request message class representation."""
+    """AHAB signed message for device life cycle management.
+
+    This class represents a signed message used to request life cycle changes
+    on devices with EdgeLock security subsystem. It handles the creation,
+    serialization, and configuration of life cycle update requests.
+
+    :cvar TAG: Message command tag identifier.
+    :cvar PAYLOAD_LENGTH: Fixed payload length in bytes.
+    """
 
     TAG = MessageCommands.RETURN_LIFECYCLE_UPDATE_REQ.tag
     PAYLOAD_LENGTH = 4
@@ -413,17 +518,19 @@ class MessageReturnLifeCycle(Message):
         unique_id_len: int = Message.UNIQUE_ID_LEN,
         life_cycle: int = 0,
     ) -> None:
-        """Message used to sign and send to device with EdgeLock.
+        """Initialize AHAB signed message for EdgeLock device communication.
 
-        :param family: Family revision of the device
-        :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
-        :param life_cycle: Requested life cycle, defaults to 0
+        Creates a message structure that can be signed and sent to devices with EdgeLock
+        security subsystem for life cycle management operations.
+
+        :param family: Family revision of the target device.
+        :param cert_ver: Certificate version, defaults to 0.
+        :param permissions: Certificate permissions for future use. Must allow the operation
+            requested by the signed message, defaults to 0.
+        :param issue_date: Message issue date. If None, current date will be used.
+        :param unique_id: Unique identifier of the target device, defaults to None.
+        :param unique_id_len: Length of unique ID in bytes (8 or 16), defaults to 8 bytes.
+        :param life_cycle: Target life cycle state to request, defaults to 0.
         """
         super().__init__(
             family=family,
@@ -437,21 +544,33 @@ class MessageReturnLifeCycle(Message):
         self.life_cycle = life_cycle
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        Extends the parent class string representation with life cycle information.
+
+        :return: Formatted string containing the signed message details including life cycle value.
+        """
         ret = super().__str__() + "\n"
         ret += f"  Life Cycle:         {hex(self.life_cycle)}"
         return ret
 
     def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
+        """Export message payload to bytes array.
 
-        :return: Bytes representation of message payload.
+        The method converts the life cycle value to a 4-byte little-endian byte representation
+        that forms the message payload.
+
+        :return: Bytes representation of message payload containing life cycle data.
         """
         return self.life_cycle.to_bytes(length=4, byteorder=Endianness.LITTLE.value)
 
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload data and extract lifecycle information.
 
-        :param data: Binary data with Payload to parse.
+        The method extracts the lifecycle value from the first 4 bytes of the provided
+        binary data using little-endian byte order.
+
+        :param data: Binary data with payload to parse.
         """
         self.life_cycle = int.from_bytes(data[:4], byteorder=Endianness.LITTLE.value)
 
@@ -459,9 +578,10 @@ class MessageReturnLifeCycle(Message):
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load message object from configuration data.
 
-        "config" content of container configurations.
+        Creates a Return Life Cycle Request message from the provided configuration dictionary,
+        validating the command type and extracting necessary parameters.
 
         :param config: Message configuration dictionaries.
         :param family: Family revision context.
@@ -493,7 +613,10 @@ class MessageReturnLifeCycle(Message):
     def get_config(self) -> Config:
         """Create configuration of the Signed Message.
 
-        :return: Configuration dictionary.
+        Generates a configuration dictionary containing the general configuration settings
+        and command-specific parameters including the life cycle value.
+
+        :return: Configuration dictionary with general settings and command parameters.
         """
         cfg = self._create_general_config()
         cmd_cfg = {}
@@ -503,14 +626,28 @@ class MessageReturnLifeCycle(Message):
         return cfg
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties and life cycle information.
+
+        This method extends the parent verification by adding a life cycle record
+        to the verification results.
+
+        :return: Verifier object containing verification results with life cycle data.
+        """
         ret = super().verify()
         ret.add_record_range("Life Cycle", self.life_cycle)
         return ret
 
 
 class MessageWriteSecureFuse(Message):
-    """Write secure fuse request message class representation."""
+    """AHAB secure fuse write request message.
+
+    This class represents a signed message used to write secure fuses on devices with EdgeLock
+    security subsystem. It encapsulates the fuse write operation parameters including fuse ID,
+    data, and security flags for authenticated fuse programming.
+
+    :cvar TAG: Message command tag for write secure fuse requests.
+    :cvar PAYLOAD_FORMAT: Binary format specification for message payload.
+    """
 
     TAG = MessageCommands.WRITE_SEC_FUSE_REQ.tag
     PAYLOAD_FORMAT = LITTLE_ENDIAN + UINT16 + UINT8 + UINT8
@@ -528,20 +665,23 @@ class MessageWriteSecureFuse(Message):
         flags: int = 0,
         data: Optional[list[int]] = None,
     ) -> None:
-        """Message used to sign and send to device with EdgeLock.
+        """Initialize EdgeLock signed message for device communication.
 
-        :param family: Family revision of the device
-        :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
-        :param fuse_id: Fuse ID, defaults to 0
-        :param length: Fuse length, defaults to 0
-        :param flags: Fuse flags, defaults to 0
-        :param data: List of fuse values
+        Creates a message structure that can be signed and sent to devices with EdgeLock
+        security subsystem for fuse operations and other secure commands.
+
+        :param family: Family revision of the target device.
+        :param cert_ver: Certificate version, defaults to 0.
+        :param permissions: Certificate permissions for future use, must allow the requested
+            operation, defaults to 0.
+        :param issue_date: Message issue date, defaults to None (current date will be used).
+        :param unique_id: Device UUID for identification, defaults to None.
+        :param unique_id_len: UUID length in bytes (8 for 64-bit, 16 for 128-bit),
+            defaults to 8 bytes.
+        :param fuse_id: Target fuse identifier, defaults to 0.
+        :param length: Fuse data length, defaults to 0.
+        :param flags: Fuse operation flags, defaults to 0.
+        :param data: List of fuse values to be written, defaults to None.
         """
         super().__init__(
             family=family,
@@ -558,6 +698,13 @@ class MessageWriteSecureFuse(Message):
         self.fuse_data: list[int] = data or []
 
     def __str__(self) -> str:
+        """Get string representation of the fuse data.
+
+        Creates a formatted string containing fuse index, length, flags, and individual fuse values
+        in both hexadecimal and decimal formats where applicable.
+
+        :return: Formatted string representation of the fuse data.
+        """
         ret = super().__str__() + "\n"
         ret += f"  Fuse Index:         {hex(self.fuse_id)}, {self.fuse_id}\n"
         ret += f"  Fuse Length:        {self.length}\n"
@@ -568,11 +715,20 @@ class MessageWriteSecureFuse(Message):
 
     @property
     def payload_len(self) -> int:
-        """Message payload length in bytes."""
+        """Get message payload length in bytes.
+
+        Calculates the total payload length including the base 4 bytes plus
+        4 bytes for each fuse data entry.
+
+        :return: Total payload length in bytes.
+        """
         return 4 + len(self.fuse_data) * 4
 
     def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
+        """Export message payload to bytes array.
+
+        The method packs the fuse ID, length, and flags using the payload format,
+        then appends each fuse data element as 4-byte little-endian values.
 
         :return: Bytes representation of message payload.
         """
@@ -582,9 +738,13 @@ class MessageWriteSecureFuse(Message):
         return payload
 
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload data and populate fuse information.
 
-        :param data: Binary data with Payload to parse.
+        The method extracts fuse ID, length, and flags from the binary data header,
+        then parses the fuse data values according to the specified length.
+
+        :param data: Binary data with payload to parse.
+        :raises struct.error: If data format is invalid or insufficient data provided.
         """
         self.fuse_id, self.length, self.flags = unpack(self.PAYLOAD_FORMAT, data[:4])
         self.fuse_data.clear()
@@ -597,15 +757,16 @@ class MessageWriteSecureFuse(Message):
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load write secure fuse request message from configuration.
 
-        "config" content of container configurations.
+        Parses the configuration dictionary to create a MessageWriteSecureFuse object with
+        validated command structure and secure fuse parameters.
 
-        :param config: Message configuration dictionaries.
-        :param family: Family revision context.
+        :param config: Message configuration dictionaries containing command and fuse data.
+        :param family: Family revision context for the target device.
         :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
+        :raises SPSDKError: Invalid configuration detected or unsupported command type.
+        :return: MessageWriteSecureFuse object configured with parsed parameters.
         """
         command = config.get_config("command")
         if len(command) != 1:
@@ -640,7 +801,10 @@ class MessageWriteSecureFuse(Message):
     def get_config(self) -> Config:
         """Create configuration of the Signed Message.
 
-        :return: Configuration dictionary.
+        Generates a configuration dictionary containing the signed message structure with fuse
+        writing command, including fuse ID, flags, and data formatted as hexadecimal strings.
+
+        :return: Configuration dictionary with command structure for signed message.
         """
         cfg = self._create_general_config()
         write_fuse_cfg: dict[str, Any] = {}
@@ -655,7 +819,14 @@ class MessageWriteSecureFuse(Message):
         return cfg
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties and fuse data integrity.
+
+        Performs comprehensive verification of the signed message including validation
+        of fuse data existence, count consistency, and individual fuse data values.
+        Each verification step is recorded with appropriate result status.
+
+        :return: Verifier object containing all verification results and status records.
+        """
         ret = super().verify()
         if self.fuse_data is None:
             ret.add_record("Fuse data", VerifierResult.ERROR, "Doesn't exists")
@@ -667,7 +838,19 @@ class MessageWriteSecureFuse(Message):
 
 
 class MessageKeyStoreReprovisioningEnable(Message):
-    """Key store reprovisioning enable request message class representation."""
+    """AHAB key store reprovisioning enable request message.
+
+    This class represents a signed message used to enable key store reprovisioning
+    operations in AHAB (Advanced High Assurance Boot) security subsystem. It handles
+    the creation and management of reprovisioning enable requests with proper
+    authentication and validation.
+
+    :cvar TAG: Message command tag identifier.
+    :cvar PAYLOAD_LENGTH: Fixed payload length in bytes.
+    :cvar PAYLOAD_FORMAT: Binary format specification for payload structure.
+    :cvar FLAGS: HSM storage flags configuration.
+    :cvar TARGET: Target ELE (EdgeLock Enclave) identifier.
+    """
 
     TAG = MessageCommands.KEYSTORE_REPROVISIONING_ENABLE_REQ.tag
     PAYLOAD_LENGTH = 12
@@ -687,18 +870,20 @@ class MessageKeyStoreReprovisioningEnable(Message):
         monotonic_counter: int = 0,
         user_sab_id: int = 0,
     ) -> None:
-        """Key store reprovisioning enable signed message class init.
+        """Initialize key store reprovisioning enable signed message.
 
-        :param family: Family revision
+        Creates a signed message for enabling key store reprovisioning operations
+        with specified security parameters and device identification.
+
+        :param family: Family revision for target device
         :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
+        :param permissions: Certificate permissions for future use, must allow the
+            operation requested by the signed message, defaults to 0
+        :param issue_date: Issue date timestamp, defaults to None (current date applied)
+        :param unique_id: UUID of target device, defaults to None
+        :param unique_id_len: UUID length in bytes (8 or 16), defaults to 8 bytes
         :param monotonic_counter: Monotonic counter value, defaults to 0
-        :param user_sab_id: User SAB id, defaults to 0
+        :param user_sab_id: User SAB identifier, defaults to 0
         """
         super().__init__(
             family=family,
@@ -716,7 +901,11 @@ class MessageKeyStoreReprovisioningEnable(Message):
         self.user_sab_id = user_sab_id
 
     def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
+        """Export message payload to bytes array.
+
+        The method packs the message payload fields (flags, target, reserved,
+        monotonic_counter, user_sab_id) into a binary format using the predefined
+        PAYLOAD_FORMAT structure.
 
         :return: Bytes representation of message payload.
         """
@@ -730,16 +919,26 @@ class MessageKeyStoreReprovisioningEnable(Message):
         )
 
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload from binary data.
 
-        :param data: Binary data with Payload to parse.
+        Extracts and assigns payload fields including flags, target, reserved field,
+        monotonic counter, and user SAB ID from the provided binary data.
+
+        :param data: Binary data containing the payload to parse.
+        :raises struct.error: If data is too short or has invalid format.
         """
         self.flags, self.target, self.reserved, self.monotonic_counter, self.user_sab_id = unpack(
             self.PAYLOAD_FORMAT, data[: self.PAYLOAD_LENGTH]
         )
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties.
+
+        Performs verification of the signed message by checking flags, target,
+        reserved fields, monotonic counter, and user SAB ID against expected values.
+
+        :return: Verifier object containing verification results for all message properties.
+        """
         ret = super().verify()
         ret.add_record("Flags", self.flags == self.FLAGS, self.flags)
         ret.add_record("Target", self.target == self.TARGET, self.target)
@@ -749,6 +948,13 @@ class MessageKeyStoreReprovisioningEnable(Message):
         return ret
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        Provides a formatted string containing the monotonic counter value and user SAB ID
+        in both hexadecimal and decimal formats, extending the parent class representation.
+
+        :return: Formatted string representation of the signed message.
+        """
         ret = super().__str__() + "\n"
         ret += (
             f"  Monotonic counter value: 0x{self.monotonic_counter:08X}, {self.monotonic_counter}\n"
@@ -760,15 +966,16 @@ class MessageKeyStoreReprovisioningEnable(Message):
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load keystore reprovisioning enable request message from configuration.
 
-        "config" content of container configurations.
+        The method parses configuration data to create a keystore reprovisioning enable request
+        message object with proper validation of command structure and parameters.
 
-        :param config: Message configuration dictionaries.
-        :param family: Family revision context.
+        :param config: Message configuration dictionaries containing command details.
+        :param family: Family revision context for the target device.
         :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
+        :raises SPSDKError: Invalid configuration detected or mismatched command type.
+        :return: Keystore reprovisioning enable request message object.
         """
         command = config.get_config("command")
         if len(command) != 1:
@@ -796,7 +1003,10 @@ class MessageKeyStoreReprovisioningEnable(Message):
     def get_config(self) -> Config:
         """Create configuration of the Signed Message.
 
-        :return: Configuration dictionary.
+        The method generates a configuration dictionary containing general settings and command-specific
+        parameters including monotonic counter and user SAB ID values formatted as hexadecimal strings.
+
+        :return: Configuration dictionary with signed message settings.
         """
         cfg = self._create_general_config()
         keystore_repr_en_cfg: dict[str, Any] = {}
@@ -811,7 +1021,20 @@ class MessageKeyStoreReprovisioningEnable(Message):
 
 
 class MessageKeyExchange(Message):
-    """Key exchange request message class representation."""
+    """AHAB key exchange request message for cryptographic key derivation.
+
+    This class represents a message used in AHAB (Advanced High Assurance Boot) protocol
+    for requesting cryptographic key exchange operations. It supports ECDH (Elliptic Curve
+    Diffie-Hellman) key exchange and manages the derivation of shared secrets between
+    communicating parties. The message encapsulates all necessary parameters for secure
+    key establishment including key store identifiers, derivation algorithms, and
+    cryptographic material.
+
+    :cvar TAG: Message command tag identifier for key exchange requests.
+    :cvar PAYLOAD_LENGTH: Fixed payload length in bytes (27 * 4 = 108 bytes).
+    :cvar PAYLOAD_VERSION: Message payload version (0x07).
+    :cvar PAYLOAD_FORMAT: Binary format specification for message serialization.
+    """
 
     TAG = MessageCommands.KEY_EXCHANGE_REQ.tag
     PAYLOAD_LENGTH = 27 * 4
@@ -859,107 +1082,52 @@ class MessageKeyExchange(Message):
         private_key_id: int = 0,
         input_peer_public_key_digest: bytes = bytes(),
         input_user_fixed_info_digest: bytes = bytes(),
+        oem_private_key: Optional[PrivateKeyEcc] = None,
+        nxp_prod_ka_pub: Optional[PublicKeyEcc] = None,
     ) -> None:
-        """Key exchange signed message class init.
+        """Initialize key exchange signed message with ECDH support.
 
-        :para family: Family revision for the message
-        :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
-        :param key_store_id: Key store ID where to store the derived key. It must be the key store ID
-            related to the key management handle set in the command API, defaults to 0
-        :param key_exchange_algorithm: Algorithm used by the key exchange process:
+        Creates a new instance of the key exchange signed message class with support for Elliptic
+        Curve Diffie-Hellman (ECDH) key agreement protocol. This message is used for secure key
+        derivation and exchange operations in NXP MCU security subsystems.
 
-            | HKDF SHA256 0x09020109
-            | HKDF SHA384 0x0902010A
-            | , defaults to HKDF_SHA256
-
-        :param salt_flags: Bit field indicating the requested operations:
-
-            | Bit 0: Salt in step #1 (HKDF-extract) of HMAC based two-step key derivation process:
-            | - 0: Use zeros salt;
-            | - 1:Use peer public key hash as salt;
-            | Bit 1: In case of ELE import, salt used to derive OEM_IMPORT_WRAP_SK and OEM_IMPORT_CMAC_SK:
-            | - 0: Zeros string;
-            | - 1: Device SRKH.
-            | Bit 2 to 15: Reserved, defaults to 0
-
-        :param derived_key_grp: Derived key group. 100 groups are available per key store. It must be a
-            value in the range [0; 99]. Keys belonging to the same group can be managed through
-            the Manage key group command, defaults to 0
-        :param derived_key_size_bits:  Derived key size bits attribute, defaults to 0
-        :param derived_key_type:
-
-            +-------------------+-------+------------------+
-            |Key type           | Value | Key size in bits |
-            +===================+=======+==================+
-            |   AES             |0x2400 | 128/192/256      |
-            +-------------------+-------+------------------+
-            |  HMAC             |0x1100 | 224/256/384/512  |
-            +-------------------+-------+------------------+
-            | OEM_IMPORT_MK_SK* |0x9200 | 128/192/256      |
-            +-------------------+-------+------------------+
-
-            , defaults to AES
-
-        :param derived_key_lifetime: Derived key lifetime attribute
-
-            | VOLATILE           0x00  Standard volatile key.
-            | PERSISTENT         0x01  Standard persistent key.
-            | PERMANENT          0xFF  Standard permanent key., defaults to PERSISTENT
-
-        :param derived_key_usage: Derived key usage attribute.
-
-            | Cache  0x00000004  Permission to cache the key in the ELE internal secure memory.
-            |                     This usage is set by default by ELE FW for all keys generated or imported.
-            | Encrypt  0x00000100  Permission to encrypt a message with the key. It could be cipher
-            |                     encryption, AEAD encryption or asymmetric encryption operation.
-            | Decrypt  0x00000200  Permission to decrypt a message with the key. It could be
-            |                     cipher decryption, AEAD decryption or asymmetric decryption operation.
-            | Sign message  0x00000400  Permission to sign a message with the key. It could be
-            |                     a MAC generation or an asymmetric message signature operation.
-            | Verify message  0x00000800  Permission to verify a message signature with the key.
-            |                     It could be a MAC verification or an asymmetric message signature
-            |                     verification operation.
-            | Sign hash  0x00001000  Permission to sign a hashed message with the key
-            |                     with an asymmetric signature operation. Setting this permission automatically
-            |                     sets the Sign Message usage.
-            | Verify hash  0x00002000  Permission to verify a hashed message signature with
-            |                     the key with an asymmetric signature verification operation.
-            |                     Setting this permission automatically sets the Verify Message usage.
-            | Derive  0x00004000  Permission to derive other keys from this key.
-            | , defaults to 0
-
-        :param derived_key_permitted_algorithm: Derived key permitted algorithm attribute
-
-            | HKDF SHA256 (HMAC two-step)  0x08000109
-            | HKDF SHA384 (HMAC two-step)  0x0800010A, defaults to HKDF_SHA256
-
-        :param derived_key_lifecycle: Derived key lifecycle attribute
-
-            | CURRENT  0x00  Key is usable in current lifecycle.
-            | OPEN  0x01  Key is usable in open lifecycle.
-            | CLOSED  0x02  Key is usable in closed lifecycle.
-            | CLOSED and LOCKED  0x04  Key is usable in closed and locked lifecycle.
-            | , defaults to OPEN
-
-        :param derived_key_id: Derived key ID attribute. It could be:
-
-            - Wanted key identifier of the generated key: only supported by persistent
-                and permanent keys;
-            - 0x00000000 to let the FW chose the key identifier: supported by all
-                keys (all persistence levels). , defaults to 0
-
-        :param private_key_id: Identifier in the ELE key storage of the private key to use with the peer
-            public key during the key agreement process, defaults to 0
-        :param input_peer_public_key_digest: Input peer public key digest buffer.
-            The algorithm used to generate the digest must be SHA256, defaults to list(8)
-        :param input_user_fixed_info_digest: Input user fixed info digest buffer.
-            The algorithm used to generate the digest must be SHA256, defaults to list(8)
+        :param family: Family revision for the message.
+        :param cert_ver: Certificate version, defaults to 0.
+        :param permissions: Certificate permission for future use. The stated permission must allow
+            the operation requested by the signed message, defaults to 0.
+        :param issue_date: Issue date, defaults to None (current date will be applied).
+        :param unique_id: UUID of device, defaults to None.
+        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes).
+        :param key_store_id: Key store ID where to store the derived key. Must be the key store ID
+            related to the key management handle set in the command API, defaults to 0.
+        :param key_exchange_algorithm: Algorithm used by the key exchange process (HKDF_SHA256 or
+            HKDF_SHA384), defaults to HKDF_SHA256.
+        :param salt_flags: Bit field indicating requested operations. Bit 0: Salt in HKDF-extract
+            step (0=zeros salt, 1=peer public key hash). Bit 1: ELE import salt for deriving
+            OEM_IMPORT_WRAP_SK and OEM_IMPORT_CMAC_SK (0=zeros, 1=device SRKH). Bits 2-15 reserved,
+            defaults to 0.
+        :param derived_key_grp: Derived key group (0-99). Keys in same group can be managed through
+            Manage key group command, defaults to 0.
+        :param derived_key_size_bits: Derived key size in bits, defaults to 0.
+        :param derived_key_type: Derived key type (AES, HMAC, or OEM_IMPORT_MK_SK), defaults to AES.
+        :param derived_key_lifetime: Derived key lifetime (VOLATILE, PERSISTENT, or PERMANENT),
+            defaults to PERSISTENT.
+        :param derived_key_usage: List of derived key usage permissions (Cache, Encrypt, Decrypt,
+            Sign message, Verify message, Sign hash, Verify hash, Derive), defaults to None.
+        :param derived_key_permitted_algorithm: Derived key permitted algorithm for HKDF operations,
+            defaults to HKDF_SHA256.
+        :param derived_key_lifecycle: Derived key lifecycle (CURRENT, OPEN, CLOSED, or
+            CLOSED_AND_LOCKED), defaults to OPEN.
+        :param derived_key_id: Derived key ID. Use specific ID for persistent/permanent keys or 0
+            to let FW choose, defaults to 0.
+        :param private_key_id: Identifier in ELE key storage of private key for key agreement
+            process, defaults to 0.
+        :param input_peer_public_key_digest: Input peer public key digest buffer (SHA256),
+            defaults to empty bytes.
+        :param input_user_fixed_info_digest: Input user fixed info digest buffer (SHA256),
+            defaults to empty bytes.
+        :param oem_private_key: OEM P256 private key for ECDH, defaults to None.
+        :param nxp_prod_ka_pub: NXP production key agreement public key, defaults to None.
         """
         super().__init__(
             family=family,
@@ -985,11 +1153,125 @@ class MessageKeyExchange(Message):
         self.derived_key_lifecycle = derived_key_lifecycle
         self.derived_key_id = derived_key_id
         self.private_key_id = private_key_id
-        self.input_peer_public_key_digest = input_peer_public_key_digest
         self.input_user_fixed_info_digest = input_user_fixed_info_digest
 
+        # ECDH specific attributes
+        self.oem_private_key = oem_private_key
+        self.nxp_prod_ka_pub = nxp_prod_ka_pub
+
+        # Derived keys storage
+        self._shared_secret: Optional[bytes] = None
+        self._oem_import_mk_sk: Optional[bytes] = None
+        self._oem_import_wrap_sk: Optional[bytes] = None
+        self._oem_import_cmac_sk: Optional[bytes] = None
+
+        if input_peer_public_key_digest == bytes(32) and oem_private_key:
+            oem_public_key = oem_private_key.get_public_key()
+            # Calculate SHA256 hash using SPSDK crypto API
+            self.input_peer_public_key_digest = oem_public_key.key_hash()
+            msg = f"Calculated input_peer_public_key_digest: {self.input_peer_public_key_digest.hex()}"
+            logger.info(msg)
+        else:
+            self.input_peer_public_key_digest = input_peer_public_key_digest
+
+    def perform_ecdh_key_derivation(self, srkh: Optional[bytes] = None) -> None:
+        """Perform ECDH key derivation following the C code flow.
+
+        This method performs a multi-step key derivation process:
+        1. Performs ECDH with NXP_PROD_KA_PUB to get shared secret
+        2. Derives OEM_Import_MK_SK from shared secret using HKDF
+        3. Derives OEM_Import_Wrap_SK and OEM_Import_CMAC_SK from OEM_Import_MK_SK
+        The salt used in derivation steps 2 and 3 depends on salt_flags configuration and
+        availability of SRKH parameter.
+
+        :param srkh: Optional SRKH bytes for salt in key derivation, defaults to None
+        :raises SPSDKError: If ECDH keys are not provided or ECDH fails
+        """
+        if not self.oem_private_key or not self.nxp_prod_ka_pub:
+            raise SPSDKError(
+                "OEM private key and NXP production KA public key are required for ECDH"
+            )
+
+        try:
+
+            self._shared_secret = self.oem_private_key.exchange(
+                peer_public_key=self.nxp_prod_ka_pub
+            )
+            logger.info(f"ECDH shared secret: {self._shared_secret.hex()}")
+
+            # Derive OEM_Import_MK_SK from shared secret using HKDF
+            self._oem_import_mk_sk = hkdf(
+                salt=bytes(32),  # No salt for first derivation
+                ikm=self._shared_secret,
+                info=b"",  # No info for first derivation
+                length=32,
+            )
+            logger.info(f"Derived OEM_Import_MK_SK: {self._oem_import_mk_sk.hex()}")
+
+            # Use SRKH as salt if provided and salt_flags bit 1 is set
+            salt = srkh if (srkh and (self.salt_flags & 0x02)) else bytes(32)
+
+            # Derive OEM_Import_Wrap_SK from OEM_Import_MK_SK
+            self._oem_import_wrap_sk = hkdf(
+                salt=salt,
+                ikm=self._oem_import_mk_sk,
+                info=b"oemelefwkeyimportwrap256",
+                length=32,
+            )
+            logger.info(f"Derived OEM_Import_Wrap_SK: {self._oem_import_wrap_sk.hex()}")
+
+            # Derive OEM_Import_CMAC_SK from OEM_Import_MK_SK
+            self._oem_import_cmac_sk = hkdf(
+                salt=salt,
+                ikm=self._oem_import_mk_sk,
+                info=b"oemelefwkeyimportcmac256",
+                length=32,
+            )
+            logger.info(f"Derived OEM_Import_CMAC_SK: {self._oem_import_cmac_sk.hex()}")
+
+        except Exception as exc:
+            raise SPSDKError(f"ECDH key derivation failed: {str(exc)}") from exc
+
+    @property
+    def shared_secret(self) -> Optional[bytes]:
+        """Get the ECDH shared secret.
+
+        :return: The ECDH shared secret bytes if available, None otherwise.
+        """
+        return self._shared_secret
+
+    @property
+    def oem_import_mk_sk(self) -> Optional[bytes]:
+        """Get the derived OEM_Import_MK_SK.
+
+        :return: The derived OEM Import Master Key Signing Key bytes, or None if not set.
+        """
+        return self._oem_import_mk_sk
+
+    @property
+    def oem_import_wrap_sk(self) -> Optional[bytes]:
+        """Get the derived OEM Import Wrap Secret Key.
+
+        This method retrieves the OEM Import Wrap Secret Key that has been derived during the
+        signed message processing. The key is used for wrapping operations in OEM import scenarios.
+
+        :return: The derived OEM Import Wrap Secret Key as bytes, or None if not available.
+        """
+        return self._oem_import_wrap_sk
+
+    @property
+    def oem_import_cmac_sk(self) -> Optional[bytes]:
+        """Get the derived OEM Import CMAC secret key.
+
+        :return: The derived OEM Import CMAC secret key if available, None otherwise.
+        """
+        return self._oem_import_cmac_sk
+
     def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
+        """Export message payload to bytes array.
+
+        Converts the signed message object into its binary representation by packing
+        all the message fields according to the PAYLOAD_FORMAT structure.
 
         :return: Bytes representation of message payload.
         """
@@ -1018,9 +1300,12 @@ class MessageKeyExchange(Message):
         )
 
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload from binary data.
 
-        :param data: Binary data with Payload to parse.
+        Unpacks binary payload data and converts raw values to appropriate enum types
+        for key exchange algorithm, derived key properties, and usage flags.
+
+        :param data: Binary data with payload to parse.
         """
         (
             self.tag,
@@ -1059,7 +1344,14 @@ class MessageKeyExchange(Message):
                 self.derived_key_usage.append(KeyUsage.from_tag(tag))
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties and validate all key derivation parameters.
+
+        Performs comprehensive verification of the signed message including key store ID,
+        key exchange algorithm, salt flags, derived key properties, and ECDH-related
+        components. Validates byte lengths for digests and derived keys when available.
+
+        :return: Verifier object containing validation results for all message components.
+        """
         ret = super().verify()
         ret.add_record_range("KeyStore ID", self.key_store_id)
         ret.add_record_enum("Key exchange algorithm", self.key_exchange_algorithm, KeyAlgorithm)
@@ -1091,9 +1383,41 @@ class MessageKeyExchange(Message):
             max_length=32,
         )
 
+        # Verify ECDH keys if provided
+        if self.oem_private_key:
+            ret.add_record("OEM Private Key", VerifierResult.SUCCEEDED, "Provided")
+        if self.nxp_prod_ka_pub:
+            ret.add_record("NXP PROD KA Pub", VerifierResult.SUCCEEDED, "Provided")
+
+        # Verify derived keys if ECDH was performed
+        if self._shared_secret:
+            ret.add_record_bytes(
+                "ECDH Shared Secret", self._shared_secret, min_length=32, max_length=32
+            )
+        if self._oem_import_mk_sk:
+            ret.add_record_bytes(
+                "OEM Import MK SK", self._oem_import_mk_sk, min_length=32, max_length=32
+            )
+        if self._oem_import_wrap_sk:
+            ret.add_record_bytes(
+                "OEM Import Wrap SK", self._oem_import_wrap_sk, min_length=32, max_length=32
+            )
+        if self._oem_import_cmac_sk:
+            ret.add_record_bytes(
+                "OEM Import CMAC SK", self._oem_import_cmac_sk, min_length=32, max_length=32
+            )
+
         return ret
 
     def __str__(self) -> str:
+        """Get string representation of the signed message with key exchange details.
+
+        Provides a formatted string containing all key exchange parameters, cryptographic
+        settings, and derived key information including KeyStore ID, exchange algorithm,
+        salt flags, derived key properties, and ECDH-related data when available.
+
+        :return: Formatted string representation of the signed message object.
+        """
         ret = super().__str__() + "\n"
         ret += f"  KeyStore ID value: 0x{self.key_store_id:08X}, {self.key_store_id}\n"
         ret += f"  Key exchange algorithm value: {self.key_exchange_algorithm.label}\n"
@@ -1109,28 +1433,45 @@ class MessageKeyExchange(Message):
         ret += f"  Private key ID value: 0x{self.private_key_id:08X}, {self.private_key_id}\n"
         ret += f"  Input peer public key digest value: {self.input_peer_public_key_digest.hex()}\n"
         ret += f"  Input user public fixed info digest value: {self.input_peer_public_key_digest.hex()}\n"
+
+        # Add ECDH information
+        if self.oem_private_key:
+            ret += "  OEM Private Key: Available\n"
+        if self.nxp_prod_ka_pub:
+            ret += f"  NXP Production KA Public Key: {self.nxp_prod_ka_pub}\n"
+        if self._shared_secret:
+            ret += f"  ECDH Shared Secret: {self._shared_secret.hex()}\n"
+        if self._oem_import_mk_sk:
+            ret += f"  OEM Import MK SK: {self._oem_import_mk_sk.hex()}\n"
+        if self._oem_import_wrap_sk:
+            ret += f"  OEM Import Wrap SK: {self._oem_import_wrap_sk.hex()}\n"
+        if self._oem_import_cmac_sk:
+            ret += f"  OEM Import CMAC SK: {self._oem_import_cmac_sk.hex()}\n"
+
         return ret
 
     @classmethod
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load key exchange message from configuration.
 
-        "config" content of container configurations.
+        Creates a MessageKeyExchange object from configuration data, including validation
+        of command type, loading of key exchange parameters, and optional ECDH key
+        derivation if both OEM private key and NXP production public key are provided.
 
-        :param config: Message configuration dictionaries.
-        :param family: Family revision context.
+        :param config: Message configuration dictionaries containing key exchange settings.
+        :param family: Family revision context for the target device.
         :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
+        :raises SPSDKError: Invalid configuration detected or unsupported command type.
+        :return: Configured MessageKeyExchange object with loaded parameters.
         """
         command = config.get_config("command")
         if len(command) != 1:
             raise SPSDKError(f"Invalid config field command: {command}")
         command_name = list(command.keys())[0]
         if MessageCommands.from_label(command_name) != MessageKeyExchange.TAG:
-            raise SPSDKError("Invalid configuration forKey Exchange Request command.")
+            raise SPSDKError("Invalid configuration for Key Exchange Request command.")
 
         cert_ver, permission, issue_date, uuid = cls.load_from_config_generic(config)
 
@@ -1143,7 +1484,7 @@ class MessageKeyExchange(Message):
         salt_flags = key_exchange.get_int("salt_flags", 0)
         derived_key_grp = key_exchange.get_int("derived_key_grp", 0)
         derived_key_size_bits = key_exchange.get_int("derived_key_size_bits", 128)
-        derived_key_type = KeyType.from_attr(key_exchange.get_str("derived_key_type", "AES SHA256"))
+        derived_key_type = KeyType.from_attr(key_exchange.get_str("derived_key_type", "AES"))
         derived_key_lifetime = LifeTime.from_attr(
             key_exchange.get_str("derived_key_lifetime", "PERSISTENT")
         )
@@ -1165,7 +1506,33 @@ class MessageKeyExchange(Message):
             "input_user_fixed_info_digest", expected_size=32, default=bytes(32)
         )
 
-        return cls(
+        # Load ECDH parameters if provided
+        oem_private_key = None
+        nxp_prod_ka_pub = None
+
+        if "oem_private_key" in key_exchange:
+            oem_private_key = PrivateKeyEcc.load(
+                key_exchange.get_input_file_name("oem_private_key")
+            )
+
+        # If input_peer_public_key_digest is empty/zeros and we have oem_private_key, calculate it
+        if input_peer_public_key_digest == bytes(32) and oem_private_key:
+
+            oem_public_key = oem_private_key.get_public_key()
+            input_peer_public_key_digest = oem_public_key.key_hash()
+            msg = (
+                "Calculated input_peer_public_key_digest from OEM private key"
+                + f" during config loading {input_peer_public_key_digest.hex()}"
+            )
+            logger.info(msg)
+            input_user_fixed_info_digest = key_exchange.load_symmetric_key(
+                "input_user_fixed_info_digest", expected_size=32, default=bytes(32)
+            )
+
+        if "nxp_prod_ka_pub" in key_exchange:
+            nxp_prod_ka_pub = PublicKeyEcc.load(key_exchange.get_input_file_name("nxp_prod_ka_pub"))
+
+        ret = cls(
             family=family,
             cert_ver=cert_ver,
             permissions=permission,
@@ -1186,12 +1553,28 @@ class MessageKeyExchange(Message):
             private_key_id=private_key_id,
             input_peer_public_key_digest=input_peer_public_key_digest,
             input_user_fixed_info_digest=input_user_fixed_info_digest,
+            oem_private_key=oem_private_key,
+            nxp_prod_ka_pub=nxp_prod_ka_pub,
         )
+
+        # Perform ECDH key derivation if both keys are provided
+        if oem_private_key and nxp_prod_ka_pub:
+            srkh = None
+            if "srkh" in key_exchange:
+                srkh = key_exchange.load_symmetric_key("srkh", expected_size=32)
+            ret.perform_ecdh_key_derivation(srkh=srkh)
+            logger.info("ECDH key derivation completed during configuration loading")
+
+        return ret
 
     def get_config(self) -> Config:
         """Create configuration of the Signed Message.
 
-        :return: Configuration dictionary.
+        Generates a configuration dictionary containing all key exchange parameters and command
+        settings for the signed message, including key store information, algorithm settings,
+        derived key properties, and input digests.
+
+        :return: Configuration dictionary with command and key exchange settings.
         """
         cfg = self._create_general_config()
         key_exchange_cfg: dict[str, Any] = {}
@@ -1216,550 +1599,92 @@ class MessageKeyExchange(Message):
             if self.input_user_fixed_info_digest
             else bytes(32).hex()
         )
-
         cmd_cfg[MessageCommands.get_label(self.TAG)] = key_exchange_cfg
         cfg["command"] = cmd_cfg
 
         return cfg
 
+    def get_derived_keys_info(self) -> dict[str, Optional[str]]:
+        """Get information about derived keys for external use.
 
-class MessageKeyImport(Message):
-    """Key import request message class representation."""
+        This method provides access to the derived cryptographic keys in hexadecimal string format
+        for debugging, logging, or external processing purposes.
 
-    TAG = MessageCommands.KEY_IMPORT_REQ.tag
-    PAYLOAD_VERSION = 0x07
-    HEADER_MAGIC = "edgelockenclaveimport"
-
-    def __init__(
-        self,
-        family: FamilyRevision,
-        cert_ver: int = 0,
-        permissions: int = 0,
-        issue_date: Optional[int] = None,
-        unique_id: Optional[bytes] = None,
-        unique_id_len: int = Message.UNIQUE_ID_LEN,
-        key_id: int = 0,
-        key_import_algorithm: KeyAlgorithm = KeyAlgorithm.SHA256,
-        key_usage: Optional[list[KeyUsage]] = None,
-        key_type: KeyType = KeyType.AES,
-        key_size_bits: int = 0,
-        key_lifetime: LifeTime = LifeTime.ELE_KEY_IMPORT_PERMANENT,
-        key_lifecycle: LifeCycle = LifeCycle.OPEN,
-        oem_import_mk_sk_key_id: int = 0,
-        wrapping_algorithm: WrappingAlgorithm = WrappingAlgorithm.RFC3394,
-        iv: Optional[bytes] = None,
-        signing_algorithm: KeyImportSigningAlgorithm = KeyImportSigningAlgorithm.CMAC,
-        wrapped_private_key: bytes = bytes(),
-        signature: bytes = bytes(),
-    ) -> None:
-        """Key exchange signed message class init.
-
-        :param family: Family revision
-        :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
-        :param unique_id: UUID of device, defaults to None
-        :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
-        :param key_id: Key ID where to store the derived key. It must be the key store ID
-            related to the key management handle set in the command API, defaults to 0
-        :param key_import_algorithm: Algorithm used by the key import process:
-
-            | MD5 = 0x0200000
-            | SHA1 = 0x02000005
-            | SHA224 = 0x02000008
-            | SHA256 = 0x02000009
-            | SHA384 = 0x0200000A
-            | SHA512 = 0x0200000B
-            | , defaults to HKDF_SHA256
-
-        :param key_usage: Imported key usage attribute.
-
-            | Cache  0x00000004  Permission to cache the key in the ELE internal secure memory.
-            |                     This usage is set by default by ELE FW for all keys generated or imported.
-            | Encrypt  0x00000100  Permission to encrypt a message with the key. It could be cipher
-            |                     encryption, AEAD encryption or asymmetric encryption operation.
-            | Decrypt  0x00000200  Permission to decrypt a message with the key. It could be
-            |                     cipher decryption, AEAD decryption or asymmetric decryption operation.
-            | Sign message  0x00000400  Permission to sign a message with the key. It could be
-            |                     a MAC generation or an asymmetric message signature operation.
-            | Verify message  0x00000800  Permission to verify a message signature with the key.
-            |                     It could be a MAC verification or an asymmetric message signature
-            |                     verification operation.
-            | Sign hash  0x00001000  Permission to sign a hashed message with the key
-            |                     with an asymmetric signature operation. Setting this permission automatically
-            |                     sets the Sign Message usage.
-            | Verify hash  0x00002000  Permission to verify a hashed message signature with
-            |                     the key with an asymmetric signature verification operation.
-            |                     Setting this permission automatically sets the Verify Message usage.
-            | Derive  0x00004000  Permission to derive other keys from this key.
-            | , defaults to 0
-
-        :param key_type:
-
-            +-------------------+-------+------------------+
-            |Key type           | Value | Key size in bits |
-            +===================+=======+==================+
-            |   AES             |0x2400 | 128/192/256      |
-            +-------------------+-------+------------------+
-            |  HMAC             |0x1100 | 224/256/384/512  |
-            +-------------------+-------+------------------+
-            | OEM_IMPORT_MK_SK* |0x9200 | 128/192/256      |
-            +-------------------+-------+------------------+
-
-            , defaults to AES
-
-        :param key_size_bits:  Derived key size bits attribute, defaults to 0
-        :param key_lifetime: Imported key lifetime attribute
-
-            | ELE_KEY_IMPORT_VOLATILE           0xC0020000  Standard volatile key.
-            | ELE_KEY_IMPORT_PERSISTENT         0xC0020001  Standard persistent key.
-            | ELE_KEY_IMPORT_PERMANENT          0xC00200FF  Standard permanent key., defaults to PERSISTENT
-
-        :param key_lifecycle: Imported key lifecycle attribute
-
-            | CURRENT  0x00  Key is usable in current lifecycle.
-            | OPEN  0x01  Key is usable in open lifecycle.
-            | CLOSED  0x02  Key is usable in closed lifecycle.
-            | CLOSED and LOCKED  0x04  Key is usable in closed and locked lifecycle.
-            | , defaults to OPEN
-
-        :param oem_import_mk_sk_key_id: Identifier in the ELE key storage of the OEM_IMPORT_MK_SK key to use
-            to encrypt and sign the imported key, defaults to 0
-        :param wrapping_algorithm: Wrapping algorithm of the key blob. This field is
-            required to distinguish between different flavors of wrapping algorithms.
-
-            Possible values are:
-            - 0x01: RFC3394 wrapping
-            - 0x02: AES CBC wrapping
-
-        :param iv: IV to use for CBC wrapping. Not used if 'wrapping algorithm' not equal 0x02.
-        :param signing_algorithm: Algorithm used to sign the blob itself. Field “Signature” of this blob.
-            It must be: 0x01 (CMAC).
-        :param wrapped_private_key: Private key data in encrypted format as defined by the 'Wrapping Algorithm'.
-            Key used to do the encryption must be OEM_IMPORT_WRAP_SK derived from OEM_IMPORT_MK_SK.
-        :param signature: Signature of all previous fields of this blob including
-            the signature tag (0x5E) and signature length fields. Key used to do the signature must be
-            OEM_IMPORT_CMAC_SK derived from OEM_IMPORT_MK_SK.
-
-
+        :return: Dictionary with key names as keys and hex string representations of derived keys
+                 as values. Keys include 'shared_secret', 'oem_import_mk_sk', 'oem_import_wrap_sk',
+                 and 'oem_import_cmac_sk'. Values are None if the corresponding key is not available.
         """
-        super().__init__(
-            family=family,
-            cert_ver=cert_ver,
-            permissions=permissions,
-            issue_date=issue_date,
-            cmd=self.TAG,
-            unique_id=unique_id,
-            unique_id_len=unique_id_len,
-        )
-        self.tag = self.TAG
-        self.version = self.PAYLOAD_VERSION
-        self.reserved = RESERVED
-        self.key_id = key_id
-        self.key_import_algorithm = key_import_algorithm
-        self.key_usage: list[KeyUsage] = key_usage or []
-        self.key_type = key_type
-        self.key_size_bits = key_size_bits
-        self.key_lifetime = key_lifetime
-        self.key_lifecycle = key_lifecycle
-        self.oem_import_mk_sk_key_id = oem_import_mk_sk_key_id
-        self.wrapping_algorithm = wrapping_algorithm
-        self.iv = iv or bytes(16)
-        self.signing_algorithm = signing_algorithm
-        self.wrapped_private_key = wrapped_private_key
-        self.signature = signature
+        return {
+            "shared_secret": self._shared_secret.hex() if self._shared_secret else None,
+            "oem_import_mk_sk": self._oem_import_mk_sk.hex() if self._oem_import_mk_sk else None,
+            "oem_import_wrap_sk": (
+                self._oem_import_wrap_sk.hex() if self._oem_import_wrap_sk else None
+            ),
+            "oem_import_cmac_sk": (
+                self._oem_import_cmac_sk.hex() if self._oem_import_cmac_sk else None
+            ),
+        }
 
-    @property
-    def payload_len(self) -> int:
-        """Message payload length in bytes."""
-        return len(self.export_payload())
+    def post_export(self, output_path: str) -> list[str]:
+        """Export remaining derived keys to files.
 
-    def wrap_and_sign(
-        self, private_key: bytes, oem_import_mk_sk_key: bytes, srkh: Optional[bytes] = None
-    ) -> None:
-        """Get wrapped key and sign whole Import Key message.
+        This method handles the post-export process by delegating to the export_derived_keys
+        method to write any remaining cryptographic keys to the filesystem.
 
-        :param private_key: Unwrapped private key
-        :param oem_import_mk_sk_key: OEM_IMPORT_MK_SK_KEY
-        :param srkh: Optionally SRKH if Salt flags requires it in Key Exchange commands, defaults to None
+        :param output_path: Base directory path where the derived key files will be exported.
+        :return: List of file paths where the derived keys were successfully exported.
         """
-        oem_import_wrap_sk = hkdf(
-            salt=srkh or bytes(32),
-            ikm=oem_import_mk_sk_key,
-            info="oemelefwkeyimportwrap256".encode(),
-            length=32,
-        )
-        oem_import_cmac_sk = hkdf(
-            salt=srkh or bytes(32),
-            ikm=oem_import_mk_sk_key,
-            info="oemelefwkeyimportcmac256".encode(),
-            length=32,
-        )
-        logger.info(f"Derived OEM_IMPORT_WRAP_SK: {oem_import_wrap_sk.hex()}")
-        logger.info(f"Derived OEM_IMPORT_CMAC_SK: {oem_import_cmac_sk.hex()}")
-        if self.wrapping_algorithm == WrappingAlgorithm.RFC3394:
-            self.wrapped_private_key = aes_key_wrap(kek=oem_import_wrap_sk, key_to_wrap=private_key)
-        elif self.wrapping_algorithm == WrappingAlgorithm.AES_CBC:
-            self.wrapped_private_key = aes_cbc_encrypt(
-                key=oem_import_wrap_sk, plain_data=private_key, iv_data=self.iv
-            )
-        else:
-            raise SPSDKError(f"Invalid wrapping algorithm: {self.wrapping_algorithm}")
+        return self.export_derived_keys(output_path)
 
-        self.signature = cmac(key=oem_import_cmac_sk, data=self.export_payload()[:-16])
+    def export_derived_keys(self, output_dir: str = "./") -> list[str]:
+        """Export derived keys to files.
 
-    class Ki(X690Type[bytes]):
-        """Key Import base field type."""
+        The method exports all derived cryptographic keys (shared secret, OEM import keys)
+        to binary files in the specified output directory. Creates the directory if it
+        doesn't exist.
 
-        TAG = 0x00
-        TYPECLASS = TypeClass.APPLICATION
-        NATURE = [TypeNature.PRIMITIVE]
-
-    class KiMagic(Ki):
-        """TLV record - Magic header."""
-
-        TAG = 0x00
-
-    class KiKeyId(Ki):
-        """TLV record - Key ID."""
-
-        TAG = 0x01
-
-    class KiKeyAlgorithm(Ki):
-        """TLV record - Key algorithm."""
-
-        TAG = 0x02
-
-    class KiKeyUsage(Ki):
-        """TLV record - Key usage."""
-
-        TAG = 0x03
-
-    class KiKeyType(Ki):
-        """TLV record - Key type."""
-
-        TAG = 0x04
-
-    class KiKeyBitsSize(Ki):
-        """TLV record - Key size."""
-
-        TAG = 0x05
-
-    class KiKeyLifeTime(Ki):
-        """TLV record - Key life time."""
-
-        TAG = 0x06
-
-    class KiKeyLifeCycle(Ki):
-        """TLV record - Key life cycle."""
-
-        TAG = 0x07
-
-    class KiImportMkSkKeyId(Ki):
-        """TLV record - Import MK SK KEY id."""
-
-        TAG = 0x10
-
-    class KiWrappingAlgorithm(Ki):
-        """TLV record - Key wrapping algorithm."""
-
-        TAG = 0x11
-
-    class KiIv(Ki):
-        """TLV record - Optional Initial vector."""
-
-        TAG = 0x12
-
-    class KiSigningAlgorithm(Ki):
-        """TLV record - Key signing algorithm."""
-
-        TAG = 0x14
-
-    class KiEncryptedPrk(Ki):
-        """TLV record - Key wrapped data."""
-
-        TAG = 0x15
-
-    class KiSignature(Ki):
-        """TLV record - Signature."""
-
-        TAG = 0x1E
-
-    def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
-
-        :return: Bytes representation of message payload.
+        :param output_dir: Directory path to save the key files, defaults to current directory.
+        :raises SPSDKError: If ECDH has not been performed or output directory is invalid.
+        :return: List of file paths where the keys were exported.
         """
-        key_usage = 0
-        for usage in self.key_usage:
-            key_usage |= usage.tag
+        if not self._shared_secret:
+            raise SPSDKError("ECDH key derivation must be performed before exporting keys")
 
-        ret = bytes()
-        ret += bytes(self.KiMagic(self.HEADER_MAGIC.encode()))
-        ret += bytes(self.KiKeyId(self.key_id.to_bytes(4, "big")))
-        ret += bytes(self.KiKeyAlgorithm(self.key_import_algorithm.tag.to_bytes(4, "big")))
-        ret += bytes(self.KiKeyUsage(key_usage.to_bytes(4, "big")))
-        ret += bytes(self.KiKeyType(self.key_type.tag.to_bytes(2, "big")))
-        ret += bytes(self.KiKeyBitsSize(self.key_size_bits.to_bytes(4, "big")))
-        ret += bytes(self.KiKeyLifeTime(self.key_lifetime.tag.to_bytes(4, "big")))
-        ret += bytes(self.KiKeyLifeCycle(self.key_lifecycle.tag.to_bytes(4, "big")))
-        ret += bytes(self.KiImportMkSkKeyId(self.oem_import_mk_sk_key_id.to_bytes(4, "big")))
-        ret += bytes(self.KiWrappingAlgorithm(self.wrapping_algorithm.tag.to_bytes(4, "big")))
-        if self.wrapping_algorithm == WrappingAlgorithm.AES_CBC:
-            ret += bytes(self.KiIv(self.iv))
-        ret += bytes(self.KiSigningAlgorithm(self.signing_algorithm.tag.to_bytes(4, "big")))
-        ret += bytes(self.KiEncryptedPrk(self.wrapped_private_key))
-        ret += bytes(self.KiSignature(self.signature))
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-        return ret
+        exported_files = []
 
-    def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        key_data = {
+            "shared_secret": self._shared_secret,
+            "oem_import_mk_sk": self._oem_import_mk_sk,
+            "oem_import_wrap_sk": self._oem_import_wrap_sk,
+            "oem_import_cmac_sk": self._oem_import_cmac_sk,
+        }
 
-        :param data: Binary data with Payload to parse.
-        """
-        tlv_magic, nxt = decode(data=data, enforce_type=self.KiMagic)
-        if tlv_magic.value.decode() != self.HEADER_MAGIC:
-            raise SPSDKParsingError("This is not Import Key datablob, magic value is invalid.")
-        tlv_key_id, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiKeyId)
-        tlv_key_import_algorithm, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiKeyAlgorithm
-        )
-        tlv_key_usage, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiKeyUsage)
-        tlv_key_type, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiKeyType)
-        tlv_key_size_bits, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiKeyBitsSize)
-        tlv_key_lifetime, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiKeyLifeTime)
-        tlv_key_lifecycle, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiKeyLifeCycle
-        )
-        tlv_oem_import_mk_sk_key_id, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiImportMkSkKeyId
-        )
-        tlv_wrapping_algorithm, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiWrappingAlgorithm
-        )
-        wrapping_algorithm = WrappingAlgorithm.from_tag(
-            int.from_bytes(tlv_wrapping_algorithm.value, "big")
-        )
-        if wrapping_algorithm == WrappingAlgorithm.AES_CBC:
-            tlv_iv, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiIv)
-        else:
-            tlv_iv = None
-        tlv_signing_algorithm, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiSigningAlgorithm
-        )
-        tlv_wrapped_private_key, nxt = decode(
-            data=data, start_index=nxt, enforce_type=self.KiEncryptedPrk
-        )
-        tlv_signature, nxt = decode(data=data, start_index=nxt, enforce_type=self.KiSignature)
+        for key_name, key_bytes in key_data.items():
+            if key_bytes:
+                file_path = os.path.join(output_dir, f"{key_name}.bin")
+                with open(file_path, "wb") as f:
+                    f.write(key_bytes)
+                exported_files.append(file_path)
+                logger.info(f"Exported {key_name} to {get_printable_path(file_path)}")
 
-        # Do some post process
-
-        self.key_id = int.from_bytes(tlv_key_id.value, "big")
-        self.key_import_algorithm = KeyAlgorithm.from_tag(
-            int.from_bytes(tlv_key_import_algorithm.value, "big")
-        )
-        key_usage = int.from_bytes(tlv_key_usage.value, "big")
-        self.key_usage.clear()
-        for tag in KeyUsage.tags():
-            if tag & key_usage:
-                self.key_usage.append(KeyUsage.from_tag(tag))
-        self.key_type = KeyType.from_tag(int.from_bytes(tlv_key_type.value, "big"))
-        self.key_size_bits = int.from_bytes(tlv_key_size_bits.value, "big")
-        self.key_lifetime = LifeTime.from_tag(int.from_bytes(tlv_key_lifetime.value, "big"))
-        self.key_lifecycle = LifeCycle.from_tag(int.from_bytes(tlv_key_lifecycle.value, "big"))
-        self.oem_import_mk_sk_key_id = int.from_bytes(tlv_oem_import_mk_sk_key_id.value, "big")
-        self.wrapping_algorithm = WrappingAlgorithm.from_tag(
-            int.from_bytes(tlv_wrapping_algorithm.value, "big")
-        )
-        self.iv = tlv_iv.value if tlv_iv else bytes(32)
-        self.signing_algorithm = KeyImportSigningAlgorithm.from_tag(
-            int.from_bytes(tlv_signing_algorithm.value, "big")
-        )
-        self.wrapped_private_key = tlv_wrapped_private_key.value
-        self.signature = tlv_signature.value
-
-    def verify(self) -> Verifier:
-        """Verify message properties."""
-        ret = super().verify()
-        ret.add_record_range("Key ID", self.key_id)
-        ret.add_record_enum("Key import algorithm", self.key_import_algorithm, KeyAlgorithm)
-        for key_usage in self.key_usage:
-            ret.add_record_enum(f"Key usage [{key_usage.label}]", key_usage, KeyUsage)
-        ret.add_record_enum("Key type", self.key_type, KeyType)
-        ret.add_record_range("Key bit size", self.key_size_bits)
-        ret.add_record_enum("Key life time", self.key_lifetime, LifeTime)
-        ret.add_record_enum("Key life cycle", self.key_lifecycle, LifeCycle)
-        ret.add_record_range("OEM import MK SK key ID", self.oem_import_mk_sk_key_id)
-        ret.add_record_enum("Key wrapping algorithm", self.wrapping_algorithm, WrappingAlgorithm)
-        ret.add_record_bytes("Initial Vector", self.iv, min_length=16, max_length=16)
-        ret.add_record_enum(
-            "Key signing algorithm", self.signing_algorithm, KeyImportSigningAlgorithm
-        )
-        ret.add_record_bytes("Import key wrapped data", self.wrapped_private_key, min_length=4)
-        ret.add_record_bytes("Signature", self.signature, min_length=16, max_length=16)
-
-        return ret
-
-    def __str__(self) -> str:
-        ret = super().__str__() + "\n"
-        ret += f"  Key ID value: 0x{self.key_id:08X}, {self.key_id}\n"
-        ret += f"  Key import algorithm value: {self.key_import_algorithm.label}\n"
-        ret += f"  Key usage value: {[x.label for x in self.key_usage]}\n"
-        ret += f"  Key type value: {self.key_type.label}\n"
-        ret += f"  Key bit size value: 0x{self.key_size_bits:08X}, {self.key_size_bits}\n"
-        ret += f"  Key life time value: {self.key_lifetime.label}\n"
-        ret += f"  Key life cycle value: {self.key_lifecycle.label}\n"
-        ret += (
-            f"  OEM Import MK SK key ID value: 0x{self.oem_import_mk_sk_key_id:08X},"
-            f" {self.oem_import_mk_sk_key_id}\n"
-        )
-        ret += f"  Key wrapping algorithm: {self.wrapping_algorithm.label}\n"
-        ret += f"  Initial vector value: {self.iv.hex()}\n"
-        ret += f"  Key signing algorithm: {self.signing_algorithm.label}\n"
-        ret += f"  Import key wrapped data: {self.wrapped_private_key.hex()}\n"
-        ret += f"  Signature: {self.signature.hex()}"
-        return ret
-
-    @classmethod
-    def _load_from_config(
-        cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
-    ) -> Self:
-        """Converts the configuration option into an message object.
-
-        "config" content of container configurations.
-
-        :param config: Message configuration dictionaries.
-        :param family: Family revision context.
-        :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
-        """
-        command = config.get_config("command")
-        if len(command) != 1:
-            raise SPSDKError(f"Invalid config field command: {command}")
-        command_name = list(command.keys())[0]
-        if MessageCommands.from_label(command_name) != MessageKeyImport.TAG:
-            raise SPSDKError("Invalid configuration for Key Import Request command.")
-
-        cert_ver, permission, issue_date, uuid = cls.load_from_config_generic(config)
-
-        key_import = command.get_config("KEY_IMPORT_REQ")
-
-        key_id = key_import.get_int("key_id", 0)
-        key_algorithm = KeyAlgorithm.from_attr(key_import.get_str("key_import_algorithm", "SHA256"))
-        key_usage = [KeyUsage.from_attr(x) for x in key_import.get_list("key_usage", [])]
-        key_type = KeyType.from_attr(key_import.get_str("key_type", "AES SHA256"))
-        key_size_bits = key_import.get_int("key_size_bits", 128)
-        key_lifetime = LifeTime.from_attr(
-            key_import.get_str("key_lifetime", "ELE_KEY_IMPORT_PERMANENT")
-        )
-        key_lifecycle = LifeCycle.from_attr(key_import.get_str("key_lifecycle", "OPEN"))
-        oem_mk_sk_key_id = key_import.get_int("oem_mk_sk_key_id", 0)
-        key_wrapping_algorithm = WrappingAlgorithm.from_attr(
-            key_import.get_str("key_wrapping_algorithm", "RFC3394")
-        )
-        if key_wrapping_algorithm == WrappingAlgorithm.AES_CBC:
-            iv = key_import.load_symmetric_key(key="iv", expected_size=16, default=bytes(16))
-        else:
-            iv = None
-        signing_algorithm = KeyImportSigningAlgorithm.from_attr(
-            key_import.get_str("signing_algorithm", "CMAC")
-        )
-
-        ret = cls(
-            family=family,
-            cert_ver=cert_ver,
-            permissions=permission,
-            issue_date=issue_date,
-            unique_id=uuid,
-            unique_id_len=base_cls.UNIQUE_ID_LEN,
-            key_id=key_id,
-            key_import_algorithm=key_algorithm,
-            key_usage=key_usage,
-            key_type=key_type,
-            key_size_bits=key_size_bits,
-            key_lifetime=key_lifetime,
-            key_lifecycle=key_lifecycle,
-            oem_import_mk_sk_key_id=oem_mk_sk_key_id,
-            wrapping_algorithm=key_wrapping_algorithm,
-            iv=iv,
-            signing_algorithm=signing_algorithm,
-            wrapped_private_key=bytes(4),
-            signature=bytes(16),
-        )
-
-        if "import_key" in key_import and "oem_import_mk_sk_key" in key_import:
-            logger.info(
-                "The Import key Signed message created with raw key and OEM_IMPORT_MK_SK key."
-            )
-            if key_type == KeyType.ECC:
-                import_key = PrivateKey.load(key_import.get_input_file_name("import_key")).export(
-                    encoding=SPSDKEncoding.NXP
-                )
-            else:
-                import_key = key_import.load_symmetric_key(
-                    "import_key", expected_size=key_size_bits // 8
-                )
-            oem_import_mk_sk_key = key_import.load_symmetric_key(
-                "oem_import_mk_sk_key", expected_size=32
-            )
-            srkh = (
-                key_import.load_symmetric_key("srkh", expected_size=32)
-                if "srkh" in key_import
-                else None
-            )
-            ret.wrap_and_sign(
-                private_key=import_key,
-                oem_import_mk_sk_key=oem_import_mk_sk_key,
-                srkh=srkh,
-            )
-        elif "wrapped_key" in key_import and "signature" in key_import:
-            logger.info(
-                "The Import key Signed message created with already wrapped key and signature."
-            )
-            ret.wrapped_private_key = key_import.get_bytes("wrapped_key", bytes(4))
-            ret.signature = key_import.load_symmetric_key(
-                "signature", expected_size=16, default=bytes(16)
-            )
-
-        else:
-            raise SPSDKValueError("Invalid IMPORT KEY configuration.")
-
-        return ret
-
-    def get_config(self) -> Config:
-        """Create configuration of the Signed Message.
-
-        :return: Configuration dictionary.
-        """
-        cfg = self._create_general_config()
-        key_import_cfg = Config()
-        cmd_cfg = Config()
-        key_import_cfg["key_id"] = f"0x{self.key_id:08X}"
-        key_import_cfg["key_import_algorithm"] = self.key_import_algorithm.label
-        key_import_cfg["key_usage"] = [x.label for x in self.key_usage]
-        key_import_cfg["key_type"] = self.key_type.label
-        key_import_cfg["key_size_bits"] = self.key_size_bits
-        key_import_cfg["key_lifetime"] = self.key_lifetime.label
-        key_import_cfg["key_lifecycle"] = self.key_lifecycle.label
-        key_import_cfg["oem_mk_sk_key_id"] = f"0x{self.oem_import_mk_sk_key_id:08X}"
-        key_import_cfg["key_wrapping_algorithm"] = self.wrapping_algorithm.label
-        key_import_cfg["iv"] = self.iv.hex()
-        key_import_cfg["signing_algorithm"] = self.signing_algorithm.label
-        key_import_cfg["wrapped_key"] = self.wrapped_private_key.hex()
-        key_import_cfg["signature"] = self.signature.hex()
-
-        cmd_cfg[MessageCommands.get_label(self.TAG)] = key_import_cfg
-        cfg["command"] = cmd_cfg
-
-        return cfg
+        return exported_files
 
 
 class MessageDat(Message):
-    """Debug authentication request message class representation."""
+    """Debug authentication request message for AHAB signed messaging.
+
+    This class represents a DAT (Debug Authentication Token) message used in the
+    AHAB (Advanced High Assurance Boot) authentication process. It handles the
+    creation, parsing, and validation of debug authentication requests that are
+    sent to devices with EdgeLock security features.
+
+    :cvar TAG: Message command tag for DAT authentication requests.
+    :cvar PAYLOAD_LENGTH: Fixed payload length in bytes.
+    :cvar CHALLENGE_VECTOR_LEN: Length of the challenge vector in bytes.
+    """
 
     TAG = MessageCommands.DAT_AUTHENTICATION_REQ.tag
     PAYLOAD_LENGTH = 32 + 2
@@ -1776,18 +1701,22 @@ class MessageDat(Message):
         challenge_vector: bytes = bytes(32),
         authentication_beacon: int = 0,
     ) -> None:
-        """Message used to sign and send to device with EdgeLock.
+        """Initialize Message for EdgeLock device communication.
+
+        Creates a signed message that can be sent to devices with EdgeLock security features.
+        The message includes authentication and challenge-response mechanisms for secure communication.
 
         :param family: Family revision of the device
         :param cert_ver: Certificate version, defaults to 0
-        :param permissions: Certificate permission, to be used in future
-            The stated permission must allow the operation requested by the signed message
-            , defaults to 0
-        :param issue_date: Issue date, defaults to None (Current date will be applied)
+        :param permissions: Certificate permission for future use. The stated permission must allow
+            the operation requested by the signed message, defaults to 0
+        :param issue_date: Issue date, defaults to None (current date will be applied)
         :param unique_id: UUID of device, defaults to None
         :param unique_id_len: UUID length - 64 or 128 bits, defaults to 64 bits (8 bytes)
-        :param challenge_vector: 32 bytes of challenge request got's from device by DAC.
-        :param authentication_beacon: Authentication beacon in range specified in authentication_beacon_length in bytes.
+        :param challenge_vector: 32 bytes of challenge request received from device by DAC
+        :param authentication_beacon: Authentication beacon value within range specified by
+            authentication_beacon_length
+        :raises SPSDKValueError: Invalid authentication beacon length from database
         """
         super().__init__(
             family=family,
@@ -1812,19 +1741,36 @@ class MessageDat(Message):
 
     @property
     def payload_len(self) -> int:
-        """Message payload length in bytes."""
+        """Get message payload length in bytes.
+
+        Calculates the total payload length by adding the base size (32 bytes)
+        to the authentication beacon length.
+
+        :return: Total payload length in bytes.
+        """
         return 32 + self.authentication_beacon_length
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        The method extends the parent class string representation with challenge vector
+        and authentication beacon information formatted as hexadecimal values.
+
+        :return: Formatted string containing signed message details.
+        """
         ret = super().__str__() + "\n"
         ret += f"  Challenge Vector: {self.challenge_vector.hex()}"
         ret += f"  Authentication beacon: {self.authentication_beacon:08x}"
         return ret
 
     def export_payload(self) -> bytes:
-        """Exports message payload to bytes array.
+        """Export message payload to bytes array.
 
-        :return: Bytes representation of message payload.
+        The method combines the challenge vector (truncated to the specified length) and
+        the authentication beacon converted to bytes using little-endian byte order.
+
+        :return: Bytes representation of message payload containing challenge vector and
+            authentication beacon.
         """
         return self.challenge_vector[
             : self.CHALLENGE_VECTOR_LEN
@@ -1833,9 +1779,14 @@ class MessageDat(Message):
         )
 
     def parse_payload(self, data: bytes) -> None:
-        """Parse payload.
+        """Parse payload data and extract challenge vector and authentication beacon.
 
-        :param data: Binary data with Payload to parse.
+        The method extracts the challenge vector from the beginning of the data
+        and parses the authentication beacon from the specified offset using
+        little-endian byte order.
+
+        :param data: Binary data with payload to parse.
+        :raises IndexError: If data is shorter than expected payload structure.
         """
         self.challenge_vector = data[: self.CHALLENGE_VECTOR_LEN]
         self.authentication_beacon = int.from_bytes(
@@ -1846,15 +1797,17 @@ class MessageDat(Message):
     def _load_from_config(
         cls, config: Config, family: FamilyRevision, base_cls: type[Message] = Message
     ) -> Self:
-        """Converts the configuration option into an message object.
+        """Load DAT authentication request message from configuration.
 
-        "config" content of container configurations.
+        Converts the configuration option into a DAT (Debug Authentication Token) authentication
+        request message object. The method validates the command configuration and extracts
+        required parameters including challenge vector and authentication beacon.
 
-        :param config: Message configuration dictionaries.
-        :param family: Family revision context.
+        :param config: Message configuration dictionaries containing DAT request parameters.
+        :param family: Family revision context for the target device.
         :param base_cls: Base message class for configuration loading.
-        :raises SPSDKError: Invalid configuration detected.
-        :return: Message object.
+        :raises SPSDKError: Invalid configuration detected or unsupported command type.
+        :return: DAT authentication request message object.
         """
         command = config.get_config("command")
         if len(command) != 1:
@@ -1885,7 +1838,10 @@ class MessageDat(Message):
     def get_config(self) -> Config:
         """Create configuration of the Signed Message.
 
-        :return: Configuration dictionary.
+        The method generates a configuration dictionary containing the signed message data including
+        challenge vector and authentication beacon values.
+
+        :return: Configuration dictionary with command data.
         """
         cfg = self._create_general_config()
         cmd_cfg = {}
@@ -1899,7 +1855,13 @@ class MessageDat(Message):
         return cfg
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties.
+
+        Validates the challenge vector length and authentication beacon value range
+        to ensure the signed message meets AHAB specification requirements.
+
+        :return: Verifier object containing validation results and any detected issues.
+        """
         ret = super().verify()
         ret.add_record_bytes(
             "Challenge Vector",
@@ -1917,8 +1879,12 @@ class MessageDat(Message):
 
 
 class SignedMessageContainer(AHABContainerBase):
-    """Class representing the Signed message container.
+    """AHAB Signed Message Container for secure message processing.
 
+    This class represents a signed message container in the AHAB (Advanced High Assurance Boot)
+    format, managing cryptographically signed messages with optional encryption. It handles
+    the complete container structure including message descriptors, headers, payloads, and
+    signature blocks for secure boot and messaging operations.
     DAT Container::
 
         +-----+--------------+--------------+----------------+----------------+
@@ -1934,7 +1900,6 @@ class SignedMessageContainer(AHABContainerBase):
         +-----+---------------------------------------------------------------+
 
     Signed Message::
-
         +-----+--------------+--------------+----------------+----------------+
         |Off  |    Byte 3    |    Byte 2    |      Byte 1    |     Byte 0     |
         +-----+--------------+--------------+----------------+----------------+
@@ -1962,6 +1927,8 @@ class SignedMessageContainer(AHABContainerBase):
         |0x04 |                       IV (256 bits)                           |
         +-----+---------------------------------------------------------------+
 
+    :cvar TAG: Container tag identifier for signed messages.
+    :cvar ENCRYPT_IV_LEN: Length of encryption initialization vector (32 bytes).
     """
 
     TAG = SignedMessageTags.SIGNED_MSG.tag
@@ -1980,17 +1947,21 @@ class SignedMessageContainer(AHABContainerBase):
         signature_block: Optional[Union[SignatureBlock, SignatureBlockV2]] = None,
         encrypt_iv: Optional[bytes] = None,
     ):
-        """Class object initializer.
+        """Initialize AHAB signed message container.
 
-        :chip_config: Chip configuration for AHAB.
-        :param flags: flags.
-        :param fuse_version: value must be equal to or greater than the version
-            stored in the fuses to allow loading this container.
-        :param sw_version: used by PHBC (Privileged Host Boot Companion) to select
-            between multiple images with same fuse version field.
-        :param message: Message command to be signed.
-        :param signature_block: signature block.
-        :param encrypt_iv: Encryption Initial Vector - if defined the encryption is used.
+        Creates a signed message container for AHAB (Advanced High Assurance Boot) with
+        optional encryption support and signature verification.
+
+        :param chip_config: Chip configuration for AHAB operations.
+        :param flags: Container flags for message processing.
+        :param fuse_version: Minimum fuse version required, must be equal to or greater
+            than the version stored in fuses to allow loading this container.
+        :param sw_version: Software version used by PHBC (Privileged Host Boot Companion)
+            to select between multiple images with same fuse version.
+        :param message: Message command to be signed, can be Message or MessageV2.
+        :param signature_block: Signature block for message verification, can be
+            SignatureBlock or SignatureBlockV2.
+        :param encrypt_iv: Encryption Initial Vector, when provided enables encryption.
         """
         super().__init__(
             chip_config=chip_config,
@@ -2003,6 +1974,14 @@ class SignedMessageContainer(AHABContainerBase):
         self.encrypt_iv = encrypt_iv
 
     def __eq__(self, other: object) -> bool:
+        """Check equality of signed message objects.
+
+        Compares this signed message instance with another object for equality.
+        The comparison includes both the parent class attributes and the message content.
+
+        :param other: Object to compare with this signed message instance.
+        :return: True if objects are equal, False otherwise.
+        """
         if isinstance(other, type(self)):
             if super().__eq__(other) and self.message == other.message:
                 return True
@@ -2010,9 +1989,23 @@ class SignedMessageContainer(AHABContainerBase):
         return False
 
     def __repr__(self) -> str:
+        """Return string representation of the Signed Message object.
+
+        Provides a human-readable string indicating whether the message is encrypted or plain
+        based on the presence of an encryption initialization vector.
+
+        :return: String representation showing message type and encryption status.
+        """
         return f"Signed Message, {'Encrypted' if self.encrypt_iv else 'Plain'}"
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        Provides a formatted string containing all key components of the signed message
+        including flags, versions, signature block, message content, and encryption IV.
+
+        :return: Formatted string representation of the signed message.
+        """
         return (
             f"  Flags:              {hex(self.flags)}\n"
             f"  Fuse version:       {hex(self.fuse_version)}\n"
@@ -2024,9 +2017,12 @@ class SignedMessageContainer(AHABContainerBase):
 
     @property
     def _signature_block_offset(self) -> int:
-        """Returns current signature block offset.
+        """Calculate the signature block offset within the signed message.
 
-        :return: Offset in bytes of Signature block.
+        The offset is computed as the sum of the container header size (based on the
+        format) and the length of the message content.
+
+        :return: Offset in bytes where the signature block begins.
         """
         # Constant size of Container header + Image array Entry table
         assert isinstance(self.message, Message)
@@ -2045,7 +2041,14 @@ class SignedMessageContainer(AHABContainerBase):
 
     @classmethod
     def format(cls) -> str:
-        """Format of binary representation."""
+        """Get binary format string for signed message structure.
+
+        Returns the format string used for struct packing/unpacking of the signed
+        message binary representation, including descriptor flags, reserved fields,
+        and initialization vector.
+
+        :return: Format string for struct operations with binary data.
+        """
         return (
             super().format()
             + UINT8  # Descriptor Flags
@@ -2056,6 +2059,9 @@ class SignedMessageContainer(AHABContainerBase):
 
     def update_fields(self) -> None:
         """Updates all volatile information in whole container structure.
+
+        This method updates the signature block if present, recalculates the container length,
+        and signs the image header when SRK (Super Root Key) is configured.
 
         :raises SPSDKError: When inconsistent image array length is detected.
         """
@@ -2073,9 +2079,13 @@ class SignedMessageContainer(AHABContainerBase):
             self.length = len(self)
 
     def _export(self) -> bytes:
-        """Export raw data without updates fields into bytes.
+        """Export signed message to binary format.
 
-        :return: bytes representing container header content including the signature block.
+        Exports the complete signed message structure including the message header,
+        message payload, and signature block. The signature block is aligned to
+        container alignment requirements.
+
+        :return: Binary representation of the signed message with all components.
         """
         signed_message = pack(
             self.format(),
@@ -2104,14 +2114,20 @@ class SignedMessageContainer(AHABContainerBase):
     def export(self) -> bytes:
         """Export the signed image into one chunk.
 
-        :raises SPSDKValueError: if the number of images doesn't correspond the the number of
+        :raises SPSDKValueError: If the number of images doesn't correspond to the number of
             entries in image array info.
-        :return: images exported into single binary
+        :return: Images exported into single binary.
         """
         return self._export()
 
     def verify(self) -> Verifier:
-        """Verify message properties."""
+        """Verify message properties and structure.
+
+        Performs comprehensive verification of the signed message including encryption
+        initialization vector validation and message content verification.
+
+        :return: Verifier object containing verification results and any child verification records.
+        """
         ret = self._verify()
         if self.encrypt_iv:
             ret.add_record_bytes(
@@ -2128,11 +2144,15 @@ class SignedMessageContainer(AHABContainerBase):
 
     @classmethod
     def parse(cls, data: bytes, chip_config: AhabChipConfig) -> Self:  # type: ignore # pylint: disable=arguments-differ
-        """Parse input binary to the signed message object.
+        """Parse input binary data to create a signed message container object.
 
-        :param data: Binary data with Container block to parse.
-        :param chip_config: Ahab image chip configuration.
-        :return: The Signed Message Container
+        This method deserializes binary data containing an AHAB container block into a
+        SignedMessage object, extracting all relevant fields including flags, versions,
+        message content, and signature block.
+
+        :param data: Binary data containing the AHAB container block to parse.
+        :param chip_config: AHAB chip configuration settings for the target device.
+        :return: Parsed SignedMessage container object with all extracted fields.
         """
         cls.check_container_head(data)
         image_format = cls.format()
@@ -2184,13 +2204,14 @@ class SignedMessageContainer(AHABContainerBase):
 
     @classmethod
     def load_from_config(cls, chip_config: AhabChipConfig, config: Config) -> Self:
-        """Converts the configuration option into an Signed message object.
+        """Load signed message object from configuration.
 
-        "config" content of container configurations.
+        Creates a new signed message instance using the provided chip configuration
+        and populates it with data from the configuration dictionary.
 
-        :param chip_config: Ahab chip configuration.
-        :param config: Signed Message configuration dictionaries.
-        :return: Message object.
+        :param chip_config: AHAB chip configuration containing chip-specific settings.
+        :param config: Configuration dictionary containing signed message parameters.
+        :return: Configured signed message object.
         """
         signed_msg = cls(chip_config)
         signed_msg.load_from_config_generic(config)
@@ -2202,9 +2223,12 @@ class SignedMessageContainer(AHABContainerBase):
         return signed_msg
 
     def image_info(self) -> BinaryImage:
-        """Get Image info object.
+        """Get Image info object for the signed message.
 
-        :return: Signed Message Info object.
+        Creates a BinaryImage representation of the signed message containing
+        metadata and binary data for further processing or analysis.
+
+        :return: BinaryImage object containing signed message information and binary data.
         """
         assert isinstance(self.message, Message)
         ret = BinaryImage(
@@ -2218,10 +2242,13 @@ class SignedMessageContainer(AHABContainerBase):
 
     @classmethod
     def get_validation_schemas(cls, family: FamilyRevision) -> list[dict[str, Any]]:
-        """Get list of validation schemas.
+        """Get list of validation schemas for signed message.
 
-        :param family: Family for which the validation schema should be generated.
-        :return: Validation list of schemas.
+        The method retrieves and configures validation schemas specific to the given family,
+        including both general family schema and signed message schema.
+
+        :param family: Family revision for which the validation schema should be generated.
+        :return: List containing family schema and signed message schema dictionaries.
         """
         sch = get_schema_file(DatabaseManager.SIGNED_MSG)
         sch_family = get_schema_file("general")["family"]
@@ -2232,7 +2259,17 @@ class SignedMessageContainer(AHABContainerBase):
 
 
 class SignedMessageContainerV2(SignedMessageContainer):
-    """Class representing the Signed message container V2."""
+    """AHAB Signed Message Container Version 2.
+
+    This class implements the version 2 specification of the AHAB (Advanced High Assurance Boot)
+    signed message container format. It extends the base SignedMessageContainer with V2-specific
+    signature blocks, message types, and validation schemas that support enhanced security
+    features including dual signature verification and certificate-based authentication.
+
+    :cvar VERSION: Container format version identifier (0x02).
+    :cvar SIGNATURE_BLOCK: Type alias for V2 signature block implementation.
+    :cvar MESSAGE_TYPE: Type alias for V2 message format implementation.
+    """
 
     VERSION = 0x02
     SIGNATURE_BLOCK: TypeAlias = SignatureBlockV2
@@ -2240,10 +2277,13 @@ class SignedMessageContainerV2(SignedMessageContainer):
 
     @classmethod
     def get_validation_schemas(cls, family: FamilyRevision) -> list[dict[str, Any]]:
-        """Get list of validation schemas.
+        """Get list of validation schemas for AHAB signed message.
 
-        :param family: Family for which the validation schema should be generated.
-        :return: Validation list of schemas.
+        The method retrieves and customizes validation schemas based on family-specific features
+        like container types, certificate support, and signature validation requirements.
+
+        :param family: Family revision for which the validation schema should be generated.
+        :return: List containing family schema and customized signed message schema.
         """
         db = get_db(family)
         container_type = db.get_list(DatabaseManager.AHAB, "container_types", [])
@@ -2274,7 +2314,14 @@ class SignedMessageContainerV2(SignedMessageContainer):
 
 
 class SignedMessage(FeatureBaseClass):
-    """Signed message class."""
+    """AHAB Signed Message handler for secure boot operations.
+
+    This class manages AHAB (Advanced High Assurance Boot) signed messages used in
+    NXP MCU secure boot process. It handles signed message containers, validates
+    configurations, and provides export functionality for bootable images.
+
+    :cvar FEATURE: Database feature identifier for AHAB operations.
+    """
 
     FEATURE = DatabaseManager.AHAB
 
@@ -2285,10 +2332,13 @@ class SignedMessage(FeatureBaseClass):
             Union[SignedMessageContainer, SignedMessageContainerV2]
         ] = None,
     ) -> None:
-        """AHAB Image constructor.
+        """Initialize AHAB Image instance.
 
-        :param family: Name of device family.
-        :param ahab_containers: _description_, defaults to None
+        Creates a new AHAB Image with the specified device family and optional signed message container.
+        Initializes chip configuration, database connection, and container type tracking.
+
+        :param family: Device family revision specification.
+        :param signed_msg_container: Optional signed message container (V1 or V2), defaults to None.
         :raises SPSDKValueError: Invalid input configuration.
         """
         self.chip_config = create_chip_config(family=family)
@@ -2300,17 +2350,30 @@ class SignedMessage(FeatureBaseClass):
 
     @property
     def family(self) -> FamilyRevision:
-        """Just public family member."""
+        """Get the family revision information.
+
+        :return: Family revision configuration for the current chip.
+        """
         return self.chip_config.family
 
     @family.setter
     def family(self, value: FamilyRevision) -> None:
-        """Just public family member."""
+        """Set the family revision for the chip configuration.
+
+        :param value: The family revision to set for the chip configuration.
+        """
         self.chip_config.family = value
 
     @property
     def container_type(self) -> Union[Type[SignedMessageContainer], Type[SignedMessageContainerV2]]:
-        """Get container class type."""
+        """Get container class type.
+
+        Determines and returns the type of the signed message container. The container type
+        is cached after first determination to avoid repeated type checking.
+
+        :raises SPSDKError: When signed message container is None and type cannot be determined.
+        :return: Class type of the signed message container (either SignedMessageContainer or SignedMessageContainerV2).
+        """
         if self._container_type is None:
             if self.signed_msg_container is None:
                 raise SPSDKError("Can't determine the Signed Message Container type.")
@@ -2318,6 +2381,15 @@ class SignedMessage(FeatureBaseClass):
         return self._container_type
 
     def __eq__(self, other: object) -> bool:
+        """Check equality between two signed message objects.
+
+        Compares this signed message object with another object for equality by checking
+        if they are of the same type and have identical signed message containers and
+        chip configurations.
+
+        :param other: Object to compare with this signed message object.
+        :return: True if objects are equal, False otherwise.
+        """
         return (
             isinstance(other, type(self))
             and super().__eq__(other)
@@ -2326,12 +2398,23 @@ class SignedMessage(FeatureBaseClass):
         )
 
     def __repr__(self) -> str:
+        """Get string representation of the Signed Message object.
+
+        :return: Human-readable string representation containing signed message container information.
+        """
         return (
             "Signed Message, "
             f"{self.signed_msg_container.__repr__() if self.signed_msg_container else 'Not specified'}"
         )
 
     def __str__(self) -> str:
+        """Get string representation of the signed message.
+
+        Provides a formatted string containing the signed message container information
+        or a notification if the container is not specified.
+
+        :return: Formatted string representation of the signed message.
+        """
         ret = "Signed message:\n"
         if self.signed_msg_container:
             ret += str(self.signed_msg_container)
@@ -2340,29 +2423,62 @@ class SignedMessage(FeatureBaseClass):
         return ret
 
     def __len__(self) -> int:
-        """Get maximal size of AHAB Image.
+        """Get length of signed message container.
 
-        :return: Size in Bytes of AHAB Image.
+        :return: Size in bytes of the signed message container, or 0 if no container exists.
         """
         if self.signed_msg_container:
             return len(self.signed_msg_container)
         return 0
 
     def update_fields(self) -> None:
-        """Automatically updates all volatile fields in every Signed message container."""
+        """Update all volatile fields in every Signed message container.
+
+        This method automatically refreshes dynamic fields that may change during
+        the container's lifecycle, ensuring data consistency and proper validation.
+        """
         if self.signed_msg_container:
             self.signed_msg_container.update_fields()
 
     def export(self) -> bytes:
         """Export Signed message image.
 
-        :return: Signed message image.
+        The method validates the signed message and exports the complete image data
+        including all necessary components for deployment.
+
+        :raises SPSDKError: If validation of the signed message fails.
+        :return: Complete signed message image as bytes.
         """
         self.verify().validate()
         return self.image_info().export()
 
+    def post_export(self, output_path: str) -> list[str]:
+        """Export post-processing artifacts after signed message generation.
+
+        This method delegates the post-export functionality to the underlying signed message
+        container's message component, which handles the creation and organization of
+        artifacts generated during the export process.
+
+        :param output_path: Directory path where post-export artifacts will be saved.
+        :return: List of file paths to the generated post-export artifacts.
+        """
+        assert isinstance(
+            self.signed_msg_container, (SignedMessageContainer, SignedMessageContainerV2)
+        ), "Invalid container type"
+        assert isinstance(
+            self.signed_msg_container.message, (Message, MessageV2)
+        ), "Invalid message type"
+        return self.signed_msg_container.message.post_export(output_path)
+
     def image_info(self) -> BinaryImage:
-        """Get Image info object."""
+        """Get Image info object for the signed message.
+
+        Creates a BinaryImage representation of the signed message with metadata
+        including size, alignment, and description. If a signed message container
+        exists, its image info is added as a sub-image.
+
+        :return: Binary image object containing signed message information.
+        """
         ret = BinaryImage(
             name="Signed Message Image",
             size=len(self),
@@ -2378,10 +2494,13 @@ class SignedMessage(FeatureBaseClass):
 
     @classmethod
     def pre_parse_verify(cls, data: bytes) -> Verifier:
-        """Pre-Parse verify of AHAB container.
+        """Pre-parse verify of AHAB container.
+
+        Performs initial verification of the AHAB container by determining its type and
+        delegating to the appropriate type-specific pre-parse verification method.
 
         :param data: Binary data with Container block to pre-parse.
-        :return: Verifier of pre-parsed binary data.
+        :return: Verifier object containing pre-parsed binary data verification results.
         """
         try:
             return cls._parse_signed_message_type(data).pre_parse_verify(data)
@@ -2391,7 +2510,13 @@ class SignedMessage(FeatureBaseClass):
             return ver
 
     def verify(self) -> Verifier:
-        """Verifier object data."""
+        """Verify the signed message image integrity and structure.
+
+        Creates a verification report that checks the presence and validity of the signed
+        message container within this signed message image.
+
+        :return: Verifier object containing the verification results and any child verifications.
+        """
         ret = Verifier("Signed Message Image", description=str(self))
         if self.signed_msg_container:
             ret.add_child(self.signed_msg_container.verify())
@@ -2414,10 +2539,15 @@ class SignedMessage(FeatureBaseClass):
 
     @classmethod
     def get_validation_schemas_from_cfg(cls, config: Config) -> list[dict[str, Any]]:
-        """Get validation schema based on configuration.
+        """Get validation schemas based on configuration.
 
-        :param config: Valid configuration
-        :return: Validation schemas
+        This method validates the basic configuration, extracts family information,
+        determines the appropriate signed message class, and returns the validation
+        schemas specific to that family.
+
+        :param config: Valid configuration object containing family and other settings
+        :raises SPSDKError: Invalid configuration or unsupported family
+        :return: List of validation schema dictionaries for the signed message class
         """
         config.check(cls.get_validation_schemas_basic())
         family = FamilyRevision.load_from_config(config)
@@ -2426,12 +2556,13 @@ class SignedMessage(FeatureBaseClass):
 
     @classmethod
     def load_from_config(cls, config: Config) -> Self:
-        """Converts the configuration option into an Signed message object.
+        """Create signed message object from configuration data.
 
-        "config" content of container configurations.
+        Loads family revision information and creates appropriate signed message
+        container based on the chip configuration.
 
-        :param config: Signed Message configuration dictionaries.
-        :return: Signed message object.
+        :param config: Configuration dictionary containing signed message settings.
+        :return: Configured signed message object.
         """
         family = FamilyRevision.load_from_config(config)
         signed_msg_class = cls._get_signed_message_class(family)
@@ -2444,10 +2575,13 @@ class SignedMessage(FeatureBaseClass):
     def parse(cls, data: bytes, family: Optional[FamilyRevision] = None) -> Self:
         """Parse input binary chunk to the container object.
 
-        :param data: Input binary data to parse
-        :param family: The MCU family
+        The method parses binary data containing a signed message and creates the appropriate
+        signed message container based on the detected message type.
 
-        :raises SPSDKError: No AHAB container found in binary data.
+        :param data: Input binary data to parse.
+        :param family: The MCU family revision used for parsing configuration.
+        :raises SPSDKValueError: Missing family parameter.
+        :return: Parsed signed message container object.
         """
         if family is None:
             raise SPSDKValueError("Missing family parameter to parse method of signed message")
@@ -2460,16 +2594,22 @@ class SignedMessage(FeatureBaseClass):
 
     @classmethod
     def get_validation_schemas(cls, family: FamilyRevision) -> list[dict[str, Any]]:
-        """Get list of validation schemas.
+        """Get list of validation schemas for the specified family.
 
-        :param family: Family for which the validation schema should be generated.
-        :return: Validation list of schemas.
+        This method retrieves validation schemas by delegating to the appropriate signed message class
+        based on the provided family revision.
+
+        :param family: Family revision for which the validation schemas should be generated.
+        :return: List of validation schema dictionaries.
         """
         return cls._get_signed_message_class(family=family).get_validation_schemas(family=family)
 
     @property
     def srk_count(self) -> int:
-        """Get  count of used SRKs."""
+        """Get count of used SRKs.
+
+        :return: Number of Super Root Keys (SRKs) used in the signed message container, or 0 if no container exists.
+        """
         if self.signed_msg_container:
             return self.signed_msg_container.srk_count
         return 0
@@ -2477,8 +2617,10 @@ class SignedMessage(FeatureBaseClass):
     def get_srk_hash(self, srk_id: int = 0) -> bytes:
         """Get SRK hash.
 
-        :param srk_id: ID of SRK table in case of using multiple Signatures, default is 0.
-        :return: SHA256 hash of SRK table.
+        Retrieves the SHA256 hash of the Super Root Key (SRK) table from the signed message container.
+
+        :param srk_id: ID of SRK table in case of using multiple signatures, defaults to 0
+        :return: SHA256 hash of SRK table, or empty bytes if no signed message container exists
         """
         if self.signed_msg_container:
             return self.signed_msg_container.get_srk_hash(srk_id)
@@ -2490,9 +2632,14 @@ class SignedMessage(FeatureBaseClass):
     ) -> str:
         """Get AHAB configuration template.
 
+        The method generates a configuration template for AHAB signed messages. If a specific
+        message type is provided, the template will be filtered to include only that message
+        type, otherwise all available message types for the family will be included.
+
         :param family: Family for which the template should be generated.
-        :param message: Generate the template just for one message type, if not used , its generated for all messages
-        :return: Dictionary of individual templates (key is name of template, value is template itself).
+        :param message: Generate the template just for one message type, if not used, it's
+            generated for all messages.
+        :return: Configuration template string for the specified family and message type.
         """
         val_schemas = cls.get_validation_schemas(family=family)
         if message:
@@ -2511,9 +2658,13 @@ class SignedMessage(FeatureBaseClass):
     ) -> Union[Type[SignedMessageContainer], Type[SignedMessageContainerV2]]:
         """Recognize container type from binary data.
 
-        :param data: Data of signed message.
-        :raises SPSDKParsingError: In case of invalid data detected.
-        :return: Container type
+        The method analyzes the provided binary data to determine whether it represents
+        a classic SignedMessageContainer or a PQC (Post-Quantum Cryptography) version
+        SignedMessageContainerV2 by checking container headers.
+
+        :param data: Binary data of the signed message to analyze.
+        :raises SPSDKParsingError: In case of invalid data or unrecognizable container type.
+        :return: Container class type (SignedMessageContainer or SignedMessageContainerV2).
         """
         if not SignedMessageContainer.check_container_head(data).has_errors:
             logger.debug("Detected Signed message classic version in parsed data.")
@@ -2528,10 +2679,13 @@ class SignedMessage(FeatureBaseClass):
     def _get_signed_message_class(
         family: FamilyRevision,
     ) -> Union[Type[SignedMessageContainer], Type[SignedMessageContainerV2]]:
-        """Recognize container type from binary data.
+        """Get signed message container class based on family revision.
 
-        :param data: Binary data
-        :return: Container type
+        The method determines whether to use classic or PQC (Post-Quantum Cryptography) version
+        of the signed message container based on the supported container types in the database.
+
+        :param family: Family revision to determine container type for.
+        :return: Appropriate signed message container class type.
         """
         db = get_db(family)
         container_type_2 = bool(2 in db.get_list(DatabaseManager.AHAB, "container_types", []))

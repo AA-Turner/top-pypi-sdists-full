@@ -4,6 +4,7 @@ import pytest
 from django import __version__ as DJANGO_VERSION
 from django.db import models
 from django.db.models import F
+from django.test import override_settings
 from django.urls import include, path
 from rest_framework import generics, routers, serializers, viewsets
 from rest_framework.test import APIClient
@@ -61,6 +62,10 @@ class Product(models.Model):
 
 class SubProduct(models.Model):
     sub_price = models.FloatField()
+    sub_category = models.CharField(
+        max_length=10,
+        choices=(('C', 'ccc'), ('D', 'ddd')),
+    )
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
 
@@ -94,6 +99,12 @@ class ProductFilter(FilterSet):
     # implicit filter declaration
     subproduct__sub_price = NumberFilter()  # reverse relation
     other_sub_product__uuid = UUIDFilter()  # forward relation
+    # actually correct usage of ModelChoiceFilter - keep old for continuity
+    sub_prod_cat = ModelChoiceFilter(
+        queryset=SubProduct.objects.all(), field_name="subproduct", to_field_name="sub_category"
+    )
+    sub_prod_id = ModelChoiceFilter(queryset=SubProduct.objects.all(), field_name="subproduct")
+
     # special cases
     ordering = OrderingFilter(
         fields=('price', 'in_stock'),
@@ -140,7 +151,7 @@ class ProductFilter(FilterSet):
         model = Product
         fields = [
             'category', 'in_stock', 'max_price', 'max_sub_price', 'sub',
-            'subproduct__sub_price', 'other_sub_product__uuid',
+            'subproduct__sub_price', 'other_sub_product__uuid', 'other_sub_product'
         ]
 
     def filter_method_typed(self, queryset, name, value: int):
@@ -205,7 +216,7 @@ def test_django_filters_requests(no_warnings):
     product = Product.objects.create(
         category='A', price=4, in_stock=True, other_sub_product=other_sub_product
     )
-    SubProduct.objects.create(sub_price=5, product=product)
+    SubProduct.objects.create(sub_price=5, product=product, sub_category="C")
 
     response = APIClient().get('/api/products/?max_price=1')
     assert response.status_code == 200
@@ -249,6 +260,10 @@ def test_django_filters_requests(no_warnings):
     response = APIClient().get('/api/products/?cat_callable=A')
     assert response.status_code == 200, response.content
     assert len(response.json()) == 1
+    response = APIClient().get('/api/products/?sub_prod_cat=C')
+    assert response.status_code == 200 and len(response.json()) == 1
+    response = APIClient().get('/api/products/?sub_prod_id=1')
+    assert response.status_code == 200 and len(response.json()) == 1
 
 
 @pytest.mark.contrib('django_filter')
@@ -436,3 +451,31 @@ def test_filter_on_listapiview(no_warnings):
 
     schema = generate_schema('/x/', view=XListView)
     assert len(schema['paths']['/x/']['get']['parameters']) > 1
+
+
+@pytest.mark.contrib('django_filter')
+@override_settings(
+    FILTERS_NULL_CHOICE_VALUE="NULL VALUE",
+)
+def test_filterset_enum_includes_null_label(no_warnings):
+    class SimpleModelFilterSet(FilterSet):
+        class Meta:
+            model = SimpleModel
+            fields = ("category",)
+
+        category = ChoiceFilter(
+            choices=(('a', 'A'), ('b', 'B')),
+            null_label="NULL LABEL"
+        )
+
+    class XViewSet(viewsets.ModelViewSet):
+        queryset = SimpleModel.objects.all()
+        serializer_class = SimpleSerializer
+        filter_backends = [DjangoFilterBackend]
+        filterset_class = SimpleModelFilterSet
+
+    schema = generate_schema('/x', XViewSet)
+    category_type_schema = schema['paths']['/x/']['get']['parameters'][0]
+
+    assert category_type_schema['name'] == 'category'
+    assert category_type_schema['schema']['enum'] == ["NULL VALUE", "a", "b"]

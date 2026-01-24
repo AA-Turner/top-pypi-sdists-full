@@ -22,6 +22,8 @@ import functools
 import importlib
 import itertools
 import math
+import numbers
+import operator
 import threading
 from collections import OrderedDict, defaultdict
 from inspect import signature
@@ -31,6 +33,19 @@ def do(fn, *args, like=None, **kwargs):
     """Do function named ``fn`` on ``(*args, **kwargs)``, peforming single
     dispatch to retrieve ``fn`` based on whichever library defines the class of
     the ``args[0]``, or the ``like`` keyword argument if specified.
+
+    Parameters
+    ----------
+    fn : str
+        Name of the function to do, e.g. 'sum' or 'linalg.svd'.
+    args
+        Positional arguments to pass to the function.
+    like : str or array, optional
+        Backend to use, either as an explicit backend name or an example array
+        to infer the backend from. If not specified, the backend is inferred
+        from the first argument, or from a globally set backend if any.
+    kwargs
+        Keyword arguments to pass to the function.
 
     Examples
     --------
@@ -338,12 +353,15 @@ def infer_backend_multi(*arrays):
 # the set of functions that create new arrays, with `dtype` and possibly
 # `device` kwargs, that should be inferred from the like argument
 _CREATION_ROUTINES = {
-    "empty",
-    "eye",
-    "full",
-    "identity",
-    "ones",
-    "zeros",
+    "array": (False, False),
+    "asarray": (False, False),
+    "empty": (True, False),
+    "eye": (True, False),
+    "full": (True, False),
+    "identity": (True, False),
+    "ones": (True, False),
+    "zeros": (True, False),
+    "random.default_rng": (False, False),
     # TODO: should these be included?
     # "arange",
     # "geomspace",
@@ -373,6 +391,16 @@ def register_creation_routine(
     inject_device : bool, optional
         Whether to inject a `device` argument based on the `like` argument.
     """
+    if fn not in _CREATION_ROUTINES:
+        import warnings
+
+        warnings.warn(
+            f"Registering creation routine for backend '{backend}' and "
+            f"function '{fn}' which is not in the default set of known "
+            f"creation routines: {_CREATION_ROUTINES.keys()}, this will "
+            "currently have no effect.",
+        )
+
     _CREATION_INJECT[backend, fn] = (inject_dtype, inject_device)
 
 
@@ -395,11 +423,11 @@ def _choose_backend(fn, args, kwargs, like=None):
         # check if we should set some extra defaults based on the example array
         if fn in _CREATION_ROUTINES:
             try:
+                # check for backend specific defaults
                 inject_dtype, inject_device = _CREATION_INJECT[backend, fn]
             except KeyError:
-                # default to just dtype (e.g. for numpy)
-                inject_dtype = True
-                inject_device = False
+                # populate with non backend specific defaults
+                inject_dtype, inject_device = _CREATION_ROUTINES[fn]
                 _CREATION_INJECT[backend, fn] = (inject_dtype, inject_device)
 
             if inject_dtype:
@@ -572,6 +600,77 @@ def register_function(backend, name, fn, wrap=False):
         _FUNCS[backend, name] = fn
 
 
+# -------------------------- array detection utils -------------------------- #
+
+
+def is_array(x):
+    """Is ``x`` an array-like object? This simply checks for a ``shape``
+    attribute, thus 0-dimensional arrays are also considered arrays, but lists
+    and tuples are not.
+
+    Parameters
+    ----------
+    x : object
+        Object to check.
+
+    Returns
+    -------
+    bool
+
+    See Also
+    --------
+    is_scalar
+    """
+    return hasattr(x, "shape")
+
+
+_IS_SCALAR_CACHE = {}
+
+
+def _is_scalar_ndim(x):
+    return x.ndim == 0
+
+
+def _always_false(x):
+    return False
+
+
+def _always_true(x):
+    return True
+
+
+def is_scalar(x):
+    """Is ``x`` a scalar-like object? This checks if ``x`` has an ``ndim``
+    attribute equal to 0. If ``x`` has no ``ndim`` attribute, it checks if
+    ``x`` is iterable - if it is not iterable, it is considered a scalar.
+
+    Parameters
+    ----------
+    x : object
+        Object to check.
+
+    Returns
+    -------
+    bool
+
+    See Also
+    --------
+    is_array
+    """
+    try:
+        return _IS_SCALAR_CACHE[x.__class__](x)
+    except KeyError:
+        if hasattr(x, "ndim"):
+            _IS_SCALAR_CACHE[x.__class__] = _is_scalar_ndim
+        else:
+            try:
+                iter(x)
+                _IS_SCALAR_CACHE[x.__class__] = _always_false
+            except TypeError:
+                _IS_SCALAR_CACHE[x.__class__] = _always_true
+        return _IS_SCALAR_CACHE[x.__class__](x)
+
+
 # ------------------------------- tree utils -------------------------------- #
 
 TREE_MAP_REGISTRY = {}
@@ -613,11 +712,6 @@ def is_not_container(x):
         isleaf = not any(isinstance(x, cls) for cls in TREE_MAP_REGISTRY)
         IS_CONTAINER_CACHE[x.__class__] = isleaf
         return isleaf
-
-
-def is_array(x):
-    """An alternative leaf tester for addressing only arrays within trees."""
-    return hasattr(x, "shape")
 
 
 def identity(f, tree, is_leaf):
@@ -1178,15 +1272,20 @@ def svd_manual_full_matrices_kwarg(fn):
 def qr_allow_fat(fn):
     @functools.wraps(fn)
     def numpy_like(a, **kwargs):
-        m, n = shape(a)
+        *_, m, n = shape(a)
 
         if m >= n:
             # square or thin
             return fn(a, **kwargs)
 
-        Q, R_sq = fn(a[:, :m])
-        R_r = dag(Q) @ a[:, m:]
-        R = do("concatenate", (R_sq, R_r), axis=1, like=a)
+        backend = _infer_class_backend_cached(a.__class__)
+
+        Q, R_sq = fn(a[..., :, :m])
+        Qdag = do(
+            "conj", do("swapaxes", Q, -2, -1, like=backend), like=backend
+        )
+        R_r = Qdag @ a[..., :, m:]
+        R = do("concatenate", (R_sq, R_r), axis=-1, like=backend)
 
         return Q, R
 
@@ -1487,6 +1586,13 @@ class InjectDtypeDevice:
         )
 
 
+_NAME_SPACE_SUBMODULES = {
+    "random",
+    "linalg",
+    "scipy",
+}
+
+
 class AutoNamespace:
     """Mimics a namespace, optionally for a specific backend, device, and
     dtype, caching the lookup of functions, and injecting default device and
@@ -1553,7 +1659,7 @@ class AutoNamespace:
             # prepend the submodule name
             name = f"{self._submodule}.{name}"
 
-        if name in ("random", "linalg"):
+        if name in _NAME_SPACE_SUBMODULES:
             # note that other submodules can be accessed, these are just the
             # ones with functions that we possibly want to translate
             return self._get_submodule(name)
@@ -1566,18 +1672,23 @@ class AutoNamespace:
 
         # possibly wrap for dtype and device injection
         if name in _CREATION_ROUTINES:
-            inject_dtype, inject_device = _CREATION_INJECT.get(
-                (self._backend, fn), (True, False)
-            )
+            key = (self._backend, name)
+            try:
+                # check for backend specific defaults
+                inject_dtype, inject_device = _CREATION_INJECT[key]
+            except KeyError:
+                # populate with non backend specific defaults
+                inject_dtype, inject_device = _CREATION_ROUTINES[name]
+                _CREATION_INJECT[key] = (inject_dtype, inject_device)
 
             if not inject_dtype:
-                # this is not a function accepts dtype
+                # this is not a function that accepts dtype
                 dtype_to_inject = None
             else:
                 dtype_to_inject = self._dtype
 
             if not inject_device:
-                # this is not a function accepts device
+                # this is not a function that accepts device
                 device_to_inject = None
             else:
                 device_to_inject = self._device
@@ -1588,13 +1699,10 @@ class AutoNamespace:
 
         return fn
 
-    def __getattribute__(self, name):
-        try:
-            return object.__getattribute__(self, name)
-        except AttributeError:
-            x = self._get_fn(name)
-            super().__getattribute__("__dict__")[name] = x
-            return x
+    def __getattr__(self, name):
+        x = self._get_fn(name)
+        self.__dict__[name] = x
+        return x
 
     def __repr__(self):
         return (
@@ -1607,7 +1715,7 @@ class AutoNamespace:
         )
 
 
-numpy = AutoNamespace()
+_NAMESPACE_CACHE = {}
 
 
 def get_namespace(like=None, device=None, dtype=None, submodule=None):
@@ -1636,12 +1744,45 @@ def get_namespace(like=None, device=None, dtype=None, submodule=None):
     AutoNamespace
         An automatic namespace object.
     """
-    return AutoNamespace(
-        like=like,
-        device=device,
-        dtype=dtype,
-        submodule=submodule,
-    )
+    if like is not None:
+        if not isinstance(like, str):
+            # array
+            cls = like.__class__
+            if device is None:
+                try:
+                    device = like.device
+                except AttributeError:
+                    device = None
+            if dtype is None:
+                try:
+                    dtype = like.dtype
+                except AttributeError:
+                    dtype = None
+        else:
+            # manually specified backend
+            cls = str
+    else:
+        # namespace functions will dispatch at call time
+        cls = None
+
+    key = (cls, device, dtype, submodule)
+
+    try:
+        xp = _NAMESPACE_CACHE[key]
+    except KeyError:
+        xp = _NAMESPACE_CACHE[key] = AutoNamespace(
+            like=like,
+            device=device,
+            dtype=dtype,
+            submodule=submodule,
+        )
+
+    return xp
+
+
+# note this is the backend agnostic numpy mimic (`import autoray.numpy as np`)
+# not the namespace for backend numpy (`xp = get_namespace(like="numpy")`)
+numpy = get_namespace()
 
 
 # --------------------------------------------------------------------------- #
@@ -1884,9 +2025,22 @@ _FUNCS["aesara", "shape"] = aesara_shape
 
 # -------------------------------- autograd --------------------------------- #
 
+
+def autograd_take(x, indices, axis=None):
+    # NOTE: autograd take doesn't support grad
+    if axis is None:
+        return x.ravel()[indices]
+    else:
+        selector = tuple(
+            slice(None) if i != axis else indices for i in range(x.ndim)
+        )
+        return x[selector]
+
+
 _MODULE_ALIASES["autograd"] = "autograd.numpy"
 _CUSTOM_WRAPPERS["autograd", "linalg.svd"] = svd_not_full_matrices_wrapper
 _FUNCS["autograd", "complex"] = complex_add_re_im
+_FUNCS["autograd", "take"] = autograd_take
 
 
 # ---------------------------------- dask ----------------------------------- #
@@ -2140,10 +2294,17 @@ _CUSTOM_WRAPPERS["tensorflow", "pad"] = tensorflow_pad_wrap
 _SUBMODULE_ALIASES["tensorflow", "pad"] = "tensorflow"
 
 
-register_creation_routine("tensorflow", "linspace", inject_dtype=False)
+# register_creation_routine("tensorflow", "linspace", inject_dtype=False)
 
 
 # ---------------------------------- torch ---------------------------------- #
+
+
+@functools.cache
+def get_torch():
+    import torch
+
+    return torch
 
 
 @shape.register("torch")
@@ -2169,10 +2330,6 @@ def torch_transpose(x, axes=None):
     if axes is None:
         axes = reversed(range(0, x.ndimension()))
     return x.permute(*axes)
-
-
-def torch_count_nonzero(x):
-    return do("sum", x != 0, like="torch")
 
 
 def torch_astype(x, dtype):
@@ -2265,7 +2422,7 @@ def torch_split_wrap(fn):
     # release this function has not been added
     @functools.wraps(fn)
     def numpy_like(ary, indices_or_sections, axis=0, **kwargs):
-        if isinstance(indices_or_sections, int):
+        if isinstance(indices_or_sections, numbers.Integral):
             split_size = shape(ary)[axis] // indices_or_sections
             return fn(ary, split_size, dim=axis, **kwargs)
         else:
@@ -2337,12 +2494,37 @@ def torch_flip_wrap(torch_flip):
     return numpy_like
 
 
+def torch_take(a, indices, axis=None):
+    torch = get_torch()
+
+    if isinstance(indices, (tuple, list)) and len(indices) == 1:
+        # need to convert list/tuple dimension to tensor, and not squeeze
+        indices = torch.as_tensor(indices[0], device=a.device)
+        unsqueeze = True
+        squeeze = False
+    else:
+        indices = torch.as_tensor(indices, device=a.device)
+        # XXX: if scalar can't yet use torch.select as it can't vmap
+        squeeze = unsqueeze = indices.ndim == 0
+
+    if unsqueeze:
+        # promote scalar indices to 1D
+        indices = torch.unsqueeze(indices, dim=0)
+
+    # perform the take!
+    a = torch.index_select(a, dim=axis, index=indices)
+
+    if squeeze:
+        # remove scalar dimension
+        return a.squeeze(dim=axis)
+
+    return a
+
+
 class TorchDefaultRNG:
     def __init__(self, seed, device=None):
-        import torch
-
-        self._torch = torch
-        self._generator = torch.Generator(device=device)
+        self._torch = get_torch()
+        self._generator = self._torch.Generator(device=device)
         self._generator.manual_seed(seed)
 
     # def binomial(self, n, p, size=None, **kwargs):
@@ -2400,6 +2582,52 @@ class TorchDefaultRNG:
             x = x * (high - low) + low
         return x
 
+    def choice(self, a, size=None, replace=True, p=None):
+        scalar = reshape = None
+        if size is None:
+            scalar = True
+            size = 1
+        elif not isinstance(size, numbers.Integral):
+            # assume tuple
+            reshape = size
+            size = functools.reduce(operator.mul, size)
+
+        if isinstance(a, numbers.Integral):
+            a = self._torch.arange(a, device=self._generator.device)
+
+        # with torch have to first generate indices
+
+        if (p is not None) or (not replace):
+            if p is None:
+                # uniform distribution, multinomial renormalizes internally
+                p = self._torch.ones(a.shape[0], device=self._generator.device)
+
+            idx = self._torch.multinomial(
+                p,
+                num_samples=size,
+                replacement=replace,
+                generator=self._generator,
+            )
+        else:
+            # quicker for uniform *with* replacement
+            idx = self._torch.randint(
+                low=0,
+                high=a.shape[0],
+                size=(size,),
+                generator=self._generator,
+            )
+
+        # then take the samples!
+        random_choices = a[idx]
+
+        if scalar:
+            random_choices = random_choices.squeeze(0)
+
+        if reshape is not None:
+            random_choices = random_choices.reshape(reshape)
+
+        return random_choices
+
 
 def torch_default_rng(seed, **kwargs):
     if isinstance(seed, TorchDefaultRNG):
@@ -2419,8 +2647,8 @@ _FUNCS["torch", "copy"] = torch_copy
 _FUNCS["torch", "to_numpy"] = torch_to_numpy
 _FUNCS["torch", "complex"] = complex_add_re_im
 _FUNCS["torch", "transpose"] = torch_transpose
-_FUNCS["torch", "count_nonzero"] = torch_count_nonzero
 _FUNCS["torch", "indices"] = torch_indices
+_FUNCS["torch", "take"] = torch_take
 
 _FUNC_ALIASES["torch", "array"] = "tensor"
 _FUNC_ALIASES["torch", "asarray"] = "as_tensor"
@@ -2438,7 +2666,6 @@ _FUNC_ALIASES["torch", "random.normal"] = "randn"
 _FUNC_ALIASES["torch", "random.uniform"] = "rand"
 _FUNC_ALIASES["torch", "scipy.linalg.expm"] = "matrix_exp"
 _FUNC_ALIASES["torch", "split"] = "tensor_split"
-_FUNC_ALIASES["torch", "take"] = "index_select"
 _FUNC_ALIASES["torch", "take_along_axis"] = "take_along_dim"
 
 _SUBMODULE_ALIASES["torch", "linalg.expm"] = "torch"
@@ -2469,9 +2696,6 @@ _CUSTOM_WRAPPERS["torch", "sort"] = torch_sort_wrap
 _CUSTOM_WRAPPERS["torch", "stack"] = make_translator(
     [("arrays", ("tensors",)), ("axis", ("dim", 0))]
 )
-_CUSTOM_WRAPPERS["torch", "take"] = make_translator(
-    [("a", ("input",)), ("indices", ("index",)), ("axis", ("dim",))]
-)
 _CUSTOM_WRAPPERS["torch", "tensordot"] = torch_tensordot_wrap
 _CUSTOM_WRAPPERS["torch", "tril"] = make_translator(
     [("m", ("input",)), ("k", ("diagonal", 0))]
@@ -2482,6 +2706,14 @@ _CUSTOM_WRAPPERS["torch", "triu"] = make_translator(
 _CUSTOM_WRAPPERS["torch", "zeros"] = torch_zeros_ones_wrap
 _CUSTOM_WRAPPERS["torch", "take_along_axis"] = make_translator(
     [("arr", ("input",)), ("indices", ("indices",)), ("axis", ("dim", -1))]
+)
+_CUSTOM_WRAPPERS["torch", "linalg.norm"] = make_translator(
+    [
+        ("x", ("input",)),
+        ("ord", ("ord", None)),
+        ("axis", ("dim", None)),
+        ("keepdims", ("keepdim", False)),
+    ]
 )
 
 _torch_reduce_translation = [
@@ -2511,6 +2743,16 @@ _CUSTOM_WRAPPERS["torch[alt]", "split"] = torch_split_wrap
 
 for f in _CREATION_ROUTINES:
     register_creation_routine("torch", f, inject_device=True)
+register_creation_routine(
+    "torch", "array", inject_dtype=False, inject_device=True
+)
+register_creation_routine(
+    "torch", "asarray", inject_dtype=False, inject_device=True
+)
+register_creation_routine(
+    "torch", "random.default_rng", inject_dtype=False, inject_device=True
+)
+
 
 # ---------------------------------- mxnet ---------------------------------- #
 
@@ -2632,7 +2874,7 @@ def paddle_split_wrap(fn):
 
     @functools.wraps(fn)
     def numpy_like(ary, indices_or_sections, axis=0, **kwargs):
-        if isinstance(indices_or_sections, int):
+        if isinstance(indices_or_sections, numbers.Integral):
             return fn(ary, indices_or_sections, axis=axis, **kwargs)
         else:
             diff = do(

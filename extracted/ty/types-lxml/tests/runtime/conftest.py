@@ -334,11 +334,11 @@ def _get_compressed_fp_from(zmode: str) -> Any:
     def _wrapped(path: Path, /) -> Any:
         buffer = io.BytesIO()
         comp_type, param = param_name[zmode]
-        with path.open("rb") as f, comp_type(**{param: buffer, "mode": "wb"}) as z:  # pyright: ignore
+        with path.open("rb") as f, comp_type(**{param: buffer, "mode": "wb"}) as z:  # pyright: ignore  # pyrefly: ignore
             z.write(f.read())
 
         buffer.seek(0, io.SEEK_SET)
-        return comp_type(**{param: buffer, "mode": "rb"})  # pyright: ignore
+        return comp_type(**{param: buffer, "mode": "rb"})  # pyright: ignore  # pyrefly: ignore
 
     return _wrapped
 
@@ -352,7 +352,7 @@ def generate_input_file_arguments(
     def _wrapped(
         path: Path,
         *,
-        exclude_type: tuple[type[Any]] = tuple(),
+        exclude_type: tuple[type[Any], ...] = tuple(),
         include: Collection[Callable[[Path], Any]] = tuple(),
     ) -> Iterator[Any]:
         assert path.is_file()
@@ -400,6 +400,7 @@ def generate_input_file_arguments(
                 i = i(path)
             if pytestconfig.get_verbosity() >= 2:
                 _logger.debug(f"Testing file input {i!r}")
+            # pyrefly: ignore[unsafe-overlap]
             if isinstance(i, AbstractContextManager) and not isinstance(i, Path):
                 cm = i
             else:

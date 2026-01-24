@@ -1,34 +1,29 @@
-import base64
-import contextlib
-from collections.abc import Iterable, Mapping, Sequence
-from contextvars import ContextVar, Token
-from http import HTTPStatus
-from types import TracebackType
-from typing import TypeVar
+from __future__ import annotations
 
-from httpx import Headers as HttpxHeaders
+import base64
+import re
+from http import HTTPStatus
+from typing import TYPE_CHECKING, TypeVar
+
+from pyqwest import Headers as HTTPHeaders
+from pyqwest import StreamError, StreamErrorCode
 
 from . import _compression
 from ._codec import CODEC_NAME_JSON, CODEC_NAME_JSON_CHARSET_UTF8, Codec
 from ._compression import Compression, get_available_compressions, get_compression
-from ._protocol import (
+from ._protocol import ConnectWireError
+from ._protocol_connect import (
     CONNECT_PROTOCOL_VERSION,
     CONNECT_STREAMING_CONTENT_TYPE_PREFIX,
-    CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION,
-    CONNECT_STREAMING_HEADER_COMPRESSION,
     CONNECT_UNARY_CONTENT_TYPE_PREFIX,
-    CONNECT_UNARY_HEADER_ACCEPT_COMPRESSION,
-    CONNECT_UNARY_HEADER_COMPRESSION,
-    ConnectWireError,
     codec_name_from_content_type,
 )
-from ._version import __version__
 from .code import Code
 from .errors import ConnectError
-from .method import MethodInfo
-from .request import Headers, RequestContext
 
-_DEFAULT_CONNECT_USER_AGENT = f"connectrpc/{__version__}"
+if TYPE_CHECKING:
+    from .request import RequestContext
+
 
 REQ = TypeVar("REQ")
 RES = TypeVar("RES")
@@ -47,66 +42,8 @@ def resolve_send_compression(compression_name: str | None) -> Compression | None
     return compression
 
 
-def create_request_context(
-    *,
-    method: MethodInfo[REQ, RES],
-    http_method: str,
-    user_headers: Headers | Mapping[str, str] | None,
-    timeout_ms: int | None,
-    codec: Codec,
-    stream: bool,
-    accept_compression: Iterable[str] | None,
-    send_compression: Compression | None,
-) -> RequestContext:
-    match user_headers:
-        case Headers():
-            # Copy to prevent modification if user keeps reference
-            # TODO: Optimize
-            headers = Headers(tuple(user_headers.allitems()))
-        case None:
-            headers = Headers()
-        case _:
-            headers = Headers(user_headers)
-
-    if "user-agent" not in headers:
-        headers["user-agent"] = _DEFAULT_CONNECT_USER_AGENT
-    headers["connect-protocol-version"] = CONNECT_PROTOCOL_VERSION
-
-    compression_header = (
-        CONNECT_STREAMING_HEADER_COMPRESSION
-        if stream
-        else CONNECT_UNARY_HEADER_COMPRESSION
-    )
-    accept_compression_header = (
-        CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION
-        if stream
-        else CONNECT_UNARY_HEADER_ACCEPT_COMPRESSION
-    )
-
-    if accept_compression is not None:
-        headers[accept_compression_header] = ", ".join(accept_compression)
-    else:
-        headers[accept_compression_header] = "gzip, br, zstd"
-    if send_compression is not None:
-        headers[compression_header] = send_compression.name()
-    else:
-        headers.pop(compression_header, None)
-    headers["content-type"] = (
-        f"{CONNECT_STREAMING_CONTENT_TYPE_PREFIX if stream else CONNECT_UNARY_CONTENT_TYPE_PREFIX}{codec.name()}"
-    )
-    if timeout_ms is not None:
-        headers["connect-timeout-ms"] = str(timeout_ms)
-
-    return RequestContext(
-        method=method,
-        http_method=http_method,
-        request_headers=headers,
-        timeout_ms=timeout_ms,
-    )
-
-
 def prepare_get_params(
-    codec: Codec, request_data: bytes, headers: HttpxHeaders
+    codec: Codec, request_data: bytes, headers: HTTPHeaders
 ) -> dict[str, str]:
     params = {"connect": f"v{CONNECT_PROTOCOL_VERSION}"}
     if request_data:
@@ -116,9 +53,6 @@ def prepare_get_params(
     if "content-encoding" in headers:
         params["compression"] = headers.pop("content-encoding")
     return params
-
-
-_current_response = ContextVar["ResponseMetadata"]("connectrpc_current_response")
 
 
 def validate_response_content_encoding(
@@ -135,7 +69,7 @@ def validate_response_content_encoding(
     return res
 
 
-def validate_response_content_type(
+def validate_unary_response(
     request_codec_name: str, status_code: int, response_content_type: str
 ) -> None:
     if status_code != HTTPStatus.OK:
@@ -194,87 +128,44 @@ def validate_stream_response_content_type(
         )
 
 
-def handle_response_headers(headers: HttpxHeaders) -> None:
-    response = _current_response.get(None)
-    if not response:
-        return
-
-    response_headers: Headers = Headers()
-    response_trailers: Headers = Headers()
-    for key, value in headers.multi_items():
-        if key.startswith("trailer-"):
-            normalized_key = key[len("trailer-") :]
-            obj = response_trailers
-        else:
-            normalized_key = key
-            obj = response_headers
-        obj.add(normalized_key, value)
-    if response_headers:
-        response._headers = response_headers  # noqa: SLF001
-    if response_trailers:
-        response._trailers = response_trailers  # noqa: SLF001
+_stream_error_code_regex = re.compile(
+    r".*<StreamReset .*, error_code:(\d+), .*remote_reset:True>.*"
+)
 
 
-def handle_response_trailers(trailers: Mapping[str, Sequence[str]]) -> None:
-    response = _current_response.get(None)
-    if not response:
-        return
-    response_trailers = response.trailers()
-    for key, values in trailers.items():
-        for value in values:
-            response_trailers.add(key, value)
-    if response_trailers:
-        response._trailers = response_trailers  # noqa: SLF001
+# https://github.com/connectrpc/connect-go/blob/59cc6973156cd9164d6bea493b1d106ed894f2df/error.go#L393
+def maybe_map_stream_reset(
+    e: Exception, ctx: RequestContext[REQ, RES]
+) -> ConnectError | None:
+    if not isinstance(e, StreamError):
+        return None
 
+    msg = str(e)
+    match e.code:
+        case (
+            StreamErrorCode.NO_ERROR
+            | StreamErrorCode.PROTOCOL_ERROR
+            | StreamErrorCode.INTERNAL_ERROR
+            | StreamErrorCode.FLOW_CONTROL_ERROR
+            | StreamErrorCode.SETTINGS_TIMEOUT
+            | StreamErrorCode.FRAME_SIZE_ERROR
+            | StreamErrorCode.COMPRESSION_ERROR
+            | StreamErrorCode.CONNECT_ERROR
+        ):
+            return ConnectError(Code.INTERNAL, msg)
+        case StreamErrorCode.REFUSED_STREAM:
+            return ConnectError(Code.UNAVAILABLE, msg)
+        case StreamErrorCode.CANCEL:
+            # Some servers use CANCEL when deadline expires. We can't differentiate
+            # that from normal cancel without checking our own deadline.
+            if (t := ctx.timeout_ms()) is not None and t <= 0:
+                return ConnectError(Code.DEADLINE_EXCEEDED, msg)
+            return ConnectError(Code.CANCELED, msg)
+        case StreamErrorCode.ENHANCE_YOUR_CALM:
+            return ConnectError(Code.RESOURCE_EXHAUSTED, f"Bandwidth exhausted: {msg}")
+        case StreamErrorCode.INADEQUATE_SECURITY:
+            return ConnectError(
+                Code.PERMISSION_DENIED, f"Transport protocol insecure: {msg}"
+            )
 
-class ResponseMetadata:
-    """
-    Response metadata separate from the message payload.
-
-    Commonly, RPC client invocations only need the message payload and do not need to
-    directly read other data such as headers or trailers. In cases where they are needed,
-    initialize this class in a context manager to access the response headers and trailers
-    for the invocation made within the context.
-
-    Example:
-
-        with ResponseMetadata() as resp_data:
-            resp = client.MakeHat(Size(inches=10))
-            do_something_with_response_payload(resp)
-            check_response_headers(resp_data.headers())
-            check_response_trailers(resp_data.trailers())
-    """
-
-    _headers: Headers | None = None
-    _trailers: Headers | None = None
-    _token: Token["ResponseMetadata"] | None = None
-
-    def __enter__(self) -> "ResponseMetadata":
-        self._token = _current_response.set(self)
-        return self
-
-    def __exit__(
-        self,
-        _exc_type: type[BaseException] | None,
-        _exc_value: BaseException | None,
-        _traceback: TracebackType | None,
-    ) -> None:
-        if self._token:
-            # Normal usage with context manager will always work but it is
-            # theoretically possible for user to move to another thread
-            # and this fails, it is fine to ignore it.
-            with contextlib.suppress(Exception):
-                _current_response.reset(self._token)
-        self._token = None
-
-    def headers(self) -> Headers:
-        """Returns the response headers."""
-        if self._headers is None:
-            return Headers()
-        return self._headers
-
-    def trailers(self) -> Headers:
-        """Returns the response trailers."""
-        if self._trailers is None:
-            return Headers()
-        return self._trailers
+    return None

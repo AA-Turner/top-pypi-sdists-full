@@ -31,6 +31,7 @@ from io import BytesIO
 
 from dulwich.errors import NotTreeError
 from dulwich.index import commit_tree
+from dulwich.object_format import DEFAULT_OBJECT_FORMAT
 from dulwich.object_store import (
     DiskObjectStore,
     MemoryObjectStore,
@@ -75,7 +76,9 @@ class MemoryObjectStoreTests(ObjectStoreTests, TestCase):
         f, commit, abort = o.add_pack()
         try:
             b = make_object(Blob, data=b"more yummy data")
-            write_pack_objects(f.write, [(b, None)])
+            write_pack_objects(
+                f.write, [(b, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
         except BaseException:
             abort()
             raise
@@ -84,7 +87,7 @@ class MemoryObjectStoreTests(ObjectStoreTests, TestCase):
 
     def test_add_pack_emtpy(self) -> None:
         o = MemoryObjectStore()
-        f, commit, abort = o.add_pack()
+        _f, commit, _abort = o.add_pack()
         commit()
 
     def test_add_thin_pack(self) -> None:
@@ -166,6 +169,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         alternate_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, alternate_dir)
         alternate_store = DiskObjectStore(alternate_dir, loose_compression_level=6)
+        self.addCleanup(alternate_store.close)
         b2 = make_object(Blob, data=b"yummy data")
         alternate_store.add_object(b2)
 
@@ -173,9 +177,11 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         alternate_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, alternate_dir)
         alternate_store = DiskObjectStore(alternate_dir)
+        self.addCleanup(alternate_store.close)
         b2 = make_object(Blob, data=b"yummy data")
         alternate_store.add_object(b2)
         store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
         self.assertRaises(KeyError, store.__getitem__, b2.id)
         store.add_alternate_path(alternate_dir)
         self.assertIn(b2.id, store)
@@ -183,6 +189,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
 
     def test_read_alternate_paths(self) -> None:
         store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
 
         abs_path = os.path.abspath(os.path.normpath("/abspath"))
         # ensures in particular existence of the alternates file
@@ -248,7 +255,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
             dirname = os.path.join(self.store_dir, f"{i:02x}")
             if not os.path.isdir(dirname):
                 os.makedirs(dirname)
-            fd, n = tempfile.mkstemp(prefix="tmp_obj_", dir=dirname)
+            fd, _n = tempfile.mkstemp(prefix="tmp_obj_", dir=dirname)
             os.close(fd)
 
         self.assertEqual([testobject.id], list(self.store._iter_loose_objects()))
@@ -280,9 +287,11 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         alternate_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, alternate_dir)
         alternate_store = DiskObjectStore(alternate_dir)
+        self.addCleanup(alternate_store.close)
         b2 = make_object(Blob, data=b"yummy data")
         alternate_store.add_object(b2)
         store = DiskObjectStore(self.store_dir)
+        self.addCleanup(store.close)
         self.assertRaises(KeyError, store.__getitem__, b2.id)
         store.add_alternate_path(os.path.relpath(alternate_dir, self.store_dir))
         self.assertEqual(list(alternate_store), list(store.alternates[0]))
@@ -299,7 +308,9 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         f, commit, abort = o.add_pack()
         try:
             b = make_object(Blob, data=b"more yummy data")
-            write_pack_objects(f.write, [(b, None)])
+            write_pack_objects(
+                f.write, [(b, None)], object_format=DEFAULT_OBJECT_FORMAT
+            )
         except BaseException:
             abort()
             raise
@@ -382,7 +393,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
 
         # Load and verify it's version 1
         idx_path = os.path.join(pack_dir, idx_files[0])
-        idx = load_pack_index(idx_path)
+        idx = load_pack_index(idx_path, DEFAULT_OBJECT_FORMAT)
         self.assertEqual(1, idx.version)
 
         # Test version 3
@@ -411,7 +422,7 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         self.assertEqual(1, len(idx_files2))
 
         idx_path2 = os.path.join(pack_dir2, idx_files2[0])
-        idx2 = load_pack_index(idx_path2)
+        idx2 = load_pack_index(idx_path2, DEFAULT_OBJECT_FORMAT)
         self.assertEqual(3, idx2.version)
 
     def test_prune_orphaned_tempfiles(self) -> None:
@@ -766,6 +777,90 @@ class DiskObjectStoreTests(PackBasedObjectStoreTests, TestCase):
         depth_disabled = get_depth(self.store, c4.id)
         self.assertEqual(3, depth_disabled)
 
+    def test_fsync_object_files_disabled_by_default(self) -> None:
+        """Test that fsync is disabled by default for object files."""
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+
+        # Should be disabled by default
+        self.assertFalse(store.fsync_object_files)
+
+    def test_fsync_object_files_enabled_by_config(self) -> None:
+        """Test that fsync can be enabled via core.fsyncObjectFiles config."""
+        from unittest.mock import patch
+
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config[(b"core",)] = {b"fsyncObjectFiles": b"true"}
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+
+        # Should be enabled
+        self.assertTrue(store.fsync_object_files)
+
+        # Test that fsync is actually called when adding objects
+        blob = make_object(Blob, data=b"test fsync data")
+        with patch("os.fsync") as mock_fsync:
+            store.add_object(blob)
+            # fsync should have been called
+            mock_fsync.assert_called_once()
+
+    def test_fsync_object_files_disabled_by_config(self) -> None:
+        """Test that fsync can be explicitly disabled via config."""
+        from unittest.mock import patch
+
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        config[(b"core",)] = {b"fsyncObjectFiles": b"false"}
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+
+        # Should be disabled
+        self.assertFalse(store.fsync_object_files)
+
+        # Test that fsync is NOT called when adding objects
+        blob = make_object(Blob, data=b"test no fsync data")
+        with patch("os.fsync") as mock_fsync:
+            store.add_object(blob)
+            # fsync should NOT have been called
+            mock_fsync.assert_not_called()
+
+    def test_fsync_object_files_for_pack_files(self) -> None:
+        """Test that fsync config applies to pack files."""
+        from unittest.mock import patch
+
+        from dulwich.config import ConfigDict
+        from dulwich.pack import write_pack_objects
+
+        # Test with fsync enabled
+        config = ConfigDict()
+        config[(b"core",)] = {b"fsyncObjectFiles": b"true"}
+        store = DiskObjectStore.from_config(self.store_dir, config)
+        self.addCleanup(store.close)
+
+        self.assertTrue(store.fsync_object_files)
+
+        # Add some objects via pack
+        blob = make_object(Blob, data=b"pack test data")
+        with patch("os.fsync") as mock_fsync:
+            f, commit, abort = store.add_pack()
+            try:
+                write_pack_objects(
+                    f.write, [(blob, None)], object_format=DEFAULT_OBJECT_FORMAT
+                )
+            except BaseException:
+                abort()
+                raise
+            else:
+                commit()
+            # fsync should have been called at least once (for pack file and index)
+            self.assertGreater(mock_fsync.call_count, 0)
+
 
 class TreeLookupPathTests(TestCase):
     def setUp(self) -> None:
@@ -934,16 +1029,18 @@ class CommitTreeChangesTests(TestCase):
         self.tree_id = commit_tree(self.store, blobs)
 
     def test_no_changes(self) -> None:
+        # When no changes, should return the same tree SHA
         self.assertEqual(
-            self.store[self.tree_id],
+            self.tree_id,
             commit_tree_changes(self.store, self.store[self.tree_id], []),
         )
 
     def test_add_blob(self) -> None:
         blob_d = make_object(Blob, data=b"d")
-        new_tree = commit_tree_changes(
+        new_tree_id = commit_tree_changes(
             self.store, self.store[self.tree_id], [(b"d", 0o100644, blob_d.id)]
         )
+        new_tree = self.store[new_tree_id]
         self.assertEqual(
             new_tree[b"d"],
             (33188, b"c59d9b6344f1af00e504ba698129f07a34bbed8d"),
@@ -951,11 +1048,12 @@ class CommitTreeChangesTests(TestCase):
 
     def test_add_blob_in_dir(self) -> None:
         blob_d = make_object(Blob, data=b"d")
-        new_tree = commit_tree_changes(
+        new_tree_id = commit_tree_changes(
             self.store,
             self.store[self.tree_id],
             [(b"e/f/d", 0o100644, blob_d.id)],
         )
+        new_tree = self.store[new_tree_id]
         self.assertEqual(
             new_tree.items(),
             [
@@ -991,9 +1089,10 @@ class CommitTreeChangesTests(TestCase):
         )
 
     def test_delete_blob(self) -> None:
-        new_tree = commit_tree_changes(
+        new_tree_id = commit_tree_changes(
             self.store, self.store[self.tree_id], [(b"ad/bd/c", None, None)]
         )
+        new_tree = self.store[new_tree_id]
         self.assertEqual(set(new_tree), {b"a", b"ad", b"c"})
         ad_tree = self.store[new_tree[b"ad"][1]]
         self.assertEqual(set(ad_tree), {b"b", b"c"})

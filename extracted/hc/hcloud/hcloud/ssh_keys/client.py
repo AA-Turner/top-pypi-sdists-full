@@ -5,8 +5,14 @@ from typing import Any, NamedTuple
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import SSHKey
 
+__all__ = [
+    "BoundSSHKey",
+    "SSHKeysPageResult",
+    "SSHKeysClient",
+]
 
-class BoundSSHKey(BoundModelBase, SSHKey):
+
+class BoundSSHKey(BoundModelBase[SSHKey], SSHKey):
     _client: SSHKeysClient
 
     model = SSHKey
@@ -24,7 +30,7 @@ class BoundSSHKey(BoundModelBase, SSHKey):
                User-defined labels (key-value pairs)
         :return: :class:`BoundSSHKey <hcloud.ssh_keys.client.BoundSSHKey>`
         """
-        return self._client.update(self, name, labels)
+        return self._client.update(self, name=name, labels=labels)
 
     def delete(self) -> bool:
         """Deletes an SSH key. It cannot be used anymore.
@@ -121,7 +127,7 @@ class SSHKeysClient(ResourceClientBase):
                Used to get ssh key by name.
         :return: :class:`BoundSSHKey <hcloud.ssh_keys.client.BoundSSHKey>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)
 
     def get_by_fingerprint(self, fingerprint: str) -> BoundSSHKey | None:
         """Get ssh key by fingerprint
@@ -130,7 +136,7 @@ class SSHKeysClient(ResourceClientBase):
                 Used to get ssh key by fingerprint.
         :return: :class:`BoundSSHKey <hcloud.ssh_keys.client.BoundSSHKey>`
         """
-        return self._get_first_by(fingerprint=fingerprint)
+        return self._get_first_by(self.get_list, fingerprint=fingerprint)
 
     def create(
         self,

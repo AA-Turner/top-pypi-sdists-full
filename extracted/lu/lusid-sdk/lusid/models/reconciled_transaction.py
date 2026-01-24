@@ -18,18 +18,20 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional, Union
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictBool, StrictFloat, StrictInt, conlist 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.transaction import Transaction
 
 class ReconciledTransaction(BaseModel):
     """
-    Information about reconciled transactions.  At least one of Finbourne.WebApi.Interface.Dto.Reconciliation.ReconciledTransaction.Left and Finbourne.WebApi.Interface.Dto.Reconciliation.ReconciledTransaction.Right will be populated.  # noqa: E501
+    Information about reconciled transactions.  At least one of Left and Right will be populated.  # noqa: E501
     """
     left: Optional[Transaction] = None
     right: Optional[Transaction] = None
-    percentage_match: Optional[Union[StrictFloat, StrictInt]] = Field(None, alias="percentageMatch", description="How good a match this is considered to be.")
-    mapping_rule_set_results: Optional[conlist(StrictBool)] = Field(None, alias="mappingRuleSetResults", description="The result of each individual mapping rule result.  Will only be present if both Finbourne.WebApi.Interface.Dto.Reconciliation.ReconciledTransaction.Left and Finbourne.WebApi.Interface.Dto.Reconciliation.ReconciledTransaction.Right are populated.")
+    percentage_match: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="How good a match this is considered to be.", alias="percentageMatch")
+    mapping_rule_set_results: Optional[List[StrictBool]] = Field(default=None, description="The result of each individual mapping rule result.  Will only be present if both Left and Right are populated.", alias="mappingRuleSetResults")
     __properties = ["left", "right", "percentageMatch", "mappingRuleSetResults"]
 
     class Config:
@@ -93,3 +95,5 @@ class ReconciledTransaction(BaseModel):
             "mapping_rule_set_results": obj.get("mappingRuleSetResults")
         })
         return _obj
+
+ReconciledTransaction.update_forward_refs()

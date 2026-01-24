@@ -1,42 +1,29 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: types-google-cloud-ndb
-Version: 2.3.0.20250317
+Version: 2.4.0.20251217
 Summary: Typing stubs for google-cloud-ndb
-Home-page: https://github.com/python/typeshed
-License: Apache-2.0
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/python/typeshed
 Project-URL: GitHub, https://github.com/python/typeshed
 Project-URL: Changes, https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/google-cloud-ndb.md
 Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: project-url
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 ## Typing stubs for google-cloud-ndb
 
-This is a [PEP 561](https://peps.python.org/pep-0561/)
-type stub package for the [`google-cloud-ndb`](https://github.com/googleapis/python-ndb) package.
-It can be used by type-checking tools like
-[mypy](https://github.com/python/mypy/),
-[pyright](https://github.com/microsoft/pyright),
-[pytype](https://github.com/google/pytype/),
-[Pyre](https://pyre-check.org/),
-PyCharm, etc. to check code that uses `google-cloud-ndb`. This version of
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`google-cloud-ndb`](https://github.com/googleapis/python-ndb) package. It can be used by type checkers
+to check code that uses `google-cloud-ndb`. This version of
 `types-google-cloud-ndb` aims to provide accurate annotations for
-`google-cloud-ndb==2.3.*`.
+`google-cloud-ndb==2.4.*`.
 
-This stub package is marked as [partial](https://peps.python.org/pep-0561/#partial-stub-packages).
+This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
 
 
@@ -47,9 +34,9 @@ for more details. The source for this package can be found in the
 [`stubs/google-cloud-ndb`](https://github.com/python/typeshed/tree/main/stubs/google-cloud-ndb)
 directory.
 
-This package was tested with
-mypy 1.15.0,
-pyright 1.1.396,
-and pytype 2024.10.11.
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
+
 It was generated from typeshed commit
-[`da50b5c4112bc44dce08685f9e30708b8cb88489`](https://github.com/python/typeshed/commit/da50b5c4112bc44dce08685f9e30708b8cb88489).
+[`8d96801533918957fb194e101cb321bfe1f836f8`](https://github.com/python/typeshed/commit/8d96801533918957fb194e101cb321bfe1f836f8).

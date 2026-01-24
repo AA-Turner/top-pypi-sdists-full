@@ -27,7 +27,7 @@ limitations under the License.
 
 namespace optree {
 
-/*static*/ std::string PyTreeSpec::NodeKindToString(const Node& node) {
+/*static*/ std::string PyTreeSpec::NodeKindToString(const Node &node) {
     switch (node.kind) {
         case PyTreeKind::Leaf:
             return "leaf type";
@@ -60,7 +60,7 @@ namespace optree {
 // NOLINTNEXTLINE[readability-function-cognitive-complexity]
 std::string PyTreeSpec::ToStringImpl() const {
     auto agenda = reserved_vector<std::string>(4);
-    for (const Node& node : m_traversal) {
+    for (const Node &node : m_traversal) {
         EXPECT_GE(py::ssize_t_cast(agenda.size()), node.arity, "Too few elements for container.");
 
         std::ostringstream children_sstream{};
@@ -116,13 +116,13 @@ std::string PyTreeSpec::ToStringImpl() const {
                     sstream << "{";
                 }
                 bool first = true;
-                auto child_iter = agenda.cend() - node.arity;
-                for (const py::handle& key : node.node_data) {
+                auto child_it = agenda.cend() - node.arity;
+                for (const py::handle &key : node.node_data) {
                     if (!first) [[likely]] {
                         sstream << ", ";
                     }
-                    sstream << PyRepr(key) << ": " << *child_iter;
-                    ++child_iter;
+                    sstream << PyRepr(key) << ": " << *child_it;
+                    ++child_it;
                     first = false;
                 }
                 if (node.kind == PyTreeKind::Dict || node.arity > 0) [[likely]] {
@@ -144,13 +144,13 @@ std::string PyTreeSpec::ToStringImpl() const {
                     PyStr(EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(__name__)), type));
                 sstream << kind << "(";
                 bool first = true;
-                auto child_iter = agenda.cend() - node.arity;
-                for (const py::handle& field : fields) {
+                auto child_it = agenda.cend() - node.arity;
+                for (const py::handle &field : fields) {
                     if (!first) [[likely]] {
                         sstream << ", ";
                     }
-                    sstream << PyStr(field) << "=" << *child_iter;
-                    ++child_iter;
+                    sstream << PyStr(field) << "=" << *child_it;
+                    ++child_it;
                     first = false;
                 }
                 sstream << ")";
@@ -168,7 +168,7 @@ std::string PyTreeSpec::ToStringImpl() const {
                 sstream << "defaultdict(" << PyRepr(default_factory) << ", {";
                 bool first = true;
                 auto child_it = agenda.cend() - node.arity;
-                for (const py::handle& key : keys) {
+                for (const py::handle &key : keys) {
                     if (!first) [[likely]] {
                         sstream << ", ";
                     }
@@ -209,13 +209,13 @@ std::string PyTreeSpec::ToStringImpl() const {
                     EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(__qualname__)), type);
                 sstream << PyStr(qualname) << "(";
                 bool first = true;
-                auto child_iter = agenda.cend() - node.arity;
-                for (const py::handle& field : fields) {
+                auto child_it = agenda.cend() - node.arity;
+                for (const py::handle &field : fields) {
                     if (!first) [[likely]] {
                         sstream << ", ";
                     }
-                    sstream << PyStr(field) << "=" << *child_iter;
-                    ++child_iter;
+                    sstream << PyStr(field) << "=" << *child_it;
+                    ++child_it;
                     first = false;
                 }
                 sstream << ")";
@@ -264,26 +264,26 @@ std::string PyTreeSpec::ToString() const {
 
     const ThreadedIdentity ident{this, std::this_thread::get_id()};
     {
-        const scoped_read_lock_guard lock{mutex};
+        const scoped_read_lock lock{mutex};
         if (running.find(ident) != running.end()) [[unlikely]] {
             return "...";
         }
     }
 
     {
-        const scoped_write_lock_guard lock{mutex};
+        const scoped_write_lock lock{mutex};
         running.insert(ident);
     }
     try {
         std::string representation = ToStringImpl();
         {
-            const scoped_write_lock_guard lock{mutex};
+            const scoped_write_lock lock{mutex};
             running.erase(ident);
         }
         return representation;
     } catch (...) {
         {
-            const scoped_write_lock_guard lock{mutex};
+            const scoped_write_lock lock{mutex};
             running.erase(ident);
         }
         std::rethrow_exception(std::current_exception());
@@ -295,7 +295,7 @@ py::object PyTreeSpec::ToPickleable() const {
 
     const py::tuple node_states{GetNumNodes()};
     ssize_t i = 0;
-    for (const auto& node : m_traversal) {
+    for (const auto &node : m_traversal) {
         const scoped_critical_section2 cs{
             node.custom != nullptr ? py::handle{node.custom->type.ptr()} : py::handle{},
             node.node_data};
@@ -315,7 +315,7 @@ py::object PyTreeSpec::ToPickleable() const {
 
 // NOLINTBEGIN[cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers]
 // NOLINTNEXTLINE[readability-function-cognitive-complexity]
-/*static*/ std::unique_ptr<PyTreeSpec> PyTreeSpec::FromPickleable(const py::object& pickleable) {
+/*static*/ std::unique_ptr<PyTreeSpec> PyTreeSpec::FromPickleable(const py::object &pickleable) {
     const auto state = thread_safe_cast<py::tuple>(pickleable);
     if (state.size() != 3) [[unlikely]] {
         throw std::runtime_error("Malformed pickled PyTreeSpec.");
@@ -326,9 +326,9 @@ py::object PyTreeSpec::ToPickleable() const {
     out->m_none_is_leaf = none_is_leaf = thread_safe_cast<bool>(state[1]);
     out->m_namespace = registry_namespace = thread_safe_cast<std::string>(state[2]);
     const auto node_states = thread_safe_cast<py::tuple>(state[0]);
-    for (const auto& item : node_states) {
+    for (const auto &item : node_states) {
         const auto t = thread_safe_cast<py::tuple>(item);
-        Node& node = out->m_traversal.emplace_back();
+        Node &node = out->m_traversal.emplace_back();
         node.kind = static_cast<PyTreeKind>(thread_safe_cast<ssize_t>(t[0]));
         if (t.size() != 7) [[unlikely]] {
             if (t.size() == 8) [[likely]] {

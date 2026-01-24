@@ -1,0 +1,111 @@
+- project:
+    templates:
+      - openstack-cover-jobs
+      - check-requirements
+      - release-notes-jobs-python3
+    check:
+      jobs:
+        - openstack-tox-linters
+        - tox-py38:
+            nodeset:
+              nodes:
+                - name: ubuntu-focal
+                  label: ubuntu-focal
+        - tox-py39:
+            nodeset:
+              nodes:
+                - name: ubuntu-focal
+                  label: ubuntu-focal
+        - tox-py310:
+            nodeset:
+              nodes:
+                - name: ubuntu-jammy
+                  label: ubuntu-jammy
+        - tox-py311:
+            nodeset:
+              nodes:
+                - name: debian-bookworm
+                  label: debian-bookworm
+        - tox-py312:
+            nodeset:
+              nodes:
+                - name: ubuntu-noble
+                  label: ubuntu-noble
+        - dib-functests
+        - opendev-buildset-registry
+        - dib-devstack-functional-openstack-almalinux-8-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-almalinux-9-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-almalinux-10-v2-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-centos-9-stream-src
+        - dib-devstack-functional-openstack-centos-10-stream-src:
+            voting: false
+        - dib-devstack-functional-openstack-rockylinux-8-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-rockylinux-9-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-rockylinux-10-containerfile-src:
+            voting: false
+        - dib-devstack-functional-openstack-ubuntu-focal-src
+        - dib-devstack-functional-openstack-ubuntu-jammy-src
+        - dib-devstack-functional-openstack-ubuntu-noble-src
+        # NOTE(ianw): 2020-04-22 these have been out of the gate for a
+        # while; promote to voting after some stability.
+        - dib-devstack-functional-openstack-opensuse-15-src:
+            voting: false
+        - dib-devstack-functional-openstack-gentoo-src:
+            voting: false
+        - dib-devstack-functional-openstack-debian-bullseye-src:
+            voting: false
+        - ironic-python-agent-check-image-dib-centos9
+        # IPA job that builds AND validates an image via deployment
+        - ipa-tempest-bios-ipmi-direct-src:
+            voting: false
+    check-arm64:
+      jobs:
+        - dib-functests-arm64-deb
+        - dib-functests-arm64-rpm
+    gate:
+      jobs:
+        - openstack-tox-linters
+        - tox-py38:
+            nodeset:
+              nodes:
+                - name: ubuntu-focal
+                  label: ubuntu-focal
+        - tox-py39:
+            nodeset:
+              nodes:
+                - name: ubuntu-focal
+                  label: ubuntu-focal
+        - tox-py310:
+            nodeset:
+              nodes:
+                - name: ubuntu-jammy
+                  label: ubuntu-jammy
+        - tox-py311:
+            nodeset:
+              nodes:
+                - name: debian-bookworm
+                  label: debian-bookworm
+        - tox-py312:
+            nodeset:
+              nodes:
+                - name: ubuntu-noble
+                  label: ubuntu-noble
+        - opendev-buildset-registry
+        - nodepool-build-image-siblings
+        - dib-devstack-functional-openstack-centos-9-stream-src
+        - dib-devstack-functional-openstack-ubuntu-focal-src
+        - dib-devstack-functional-openstack-ubuntu-jammy-src
+        - dib-devstack-functional-openstack-ubuntu-noble-src
+        - dib-functests
+        - ironic-python-agent-check-image-dib-centos9
+    experimental:
+      jobs:
+        - opendev-buildset-registry
+        - nodepool-build-image-siblings
+        - dib-devstack-functional-openstack-debian-stretch-src
+        - dib-devstack-functional-openstack-debian-buster-src

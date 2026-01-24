@@ -1,12 +1,13 @@
 import json
 import pathlib
 import re
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, List, Optional, Type, TypeVar, Union
+from typing import Any, TypeVar
 
 import click
 
-from .constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskImpl
+from .constants import HTTPModes, Interfaces, Loops, RuntimeModes, SSLProtocols, TaskImpl
 from .errors import FatalError
 from .http import HTTP1Settings, HTTP2Settings
 from .log import LogLevels
@@ -14,7 +15,7 @@ from .server import Server
 
 
 _AnyCallable = Callable[..., Any]
-FC = TypeVar('FC', bound=Union[_AnyCallable, click.Command])
+FC = TypeVar('FC', bound=_AnyCallable | click.Command)
 
 
 class Duration(click.IntRange):
@@ -27,10 +28,10 @@ class Duration(click.IntRange):
     _multipliers = {'s': 1, 'm': 60, 'h': 60 * 60, 'd': 60 * 60 * 24}
     _pattern = re.compile(r'^(?:(?P<d>\d+)d)?(?:(?P<h>\d+)h)?(?:(?P<m>\d+)m)?(?:(?P<s>\d+)s)?$')
 
-    def __init__(self, min: Optional[int] = None, max: Optional[int] = None) -> None:
+    def __init__(self, min: int | None = None, max: int | None = None) -> None:
         super().__init__(min, max, min_open=False, max_open=False, clamp=False)
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> Any:
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> Any:
         if value is None:
             return value
 
@@ -65,7 +66,7 @@ class EnumType(click.Choice):
         self.__enum = enum
         super().__init__(choices=[item.value for item in enum], case_sensitive=case_sensitive)
 
-    def convert(self, value: Any, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> Enum:
+    def convert(self, value: Any, param: click.Parameter | None, ctx: click.Context | None) -> Enum:
         if value is None or isinstance(value, Enum):
             return value
 
@@ -73,7 +74,24 @@ class EnumType(click.Choice):
         return self.__enum(converted_str)
 
 
-def _pretty_print_default(value: Optional[bool]) -> Optional[str]:
+class OctalIntType(click.ParamType):
+    name = 'Octal integer'
+
+    def convert(self, value, param, ctx):
+        if value is None or isinstance(value, int):
+            return value
+
+        if not isinstance(value, str):
+            self.fail(f'{value!r} is not a valid integer')
+
+        base = 8 if len(value) > 0 and value[0] == '0' else 10
+        try:
+            return int(value, base)
+        except ValueError as e:
+            self.fail(str(e))
+
+
+def _pretty_print_default(value: bool | None) -> str | None:
     if isinstance(value, bool):
         return 'enabled' if value else 'disabled'
     if isinstance(value, Enum):
@@ -81,7 +99,7 @@ def _pretty_print_default(value: Optional[bool]) -> Optional[str]:
     return value
 
 
-def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs: Any) -> Callable[[FC], FC]:
+def option(*param_decls: str, cls: type[click.Option] | None = None, **attrs: Any) -> Callable[[FC], FC]:
     attrs['show_envvar'] = True
     if 'default' in attrs:
         attrs['show_default'] = _pretty_print_default(attrs['default'])
@@ -102,6 +120,7 @@ def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs:
 @option(
     '--uds', type=click.Path(exists=False, writable=True, path_type=pathlib.Path), help='Unix Domain Socket to bind to.'
 )
+@option('--uds-permissions', type=OctalIntType(), default=None, help='Unix Domain Socket file permissions')
 @option(
     '--interface',
     type=EnumType(Interfaces),
@@ -131,7 +150,7 @@ def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs:
 @option(
     '--runtime-mode',
     type=EnumType(RuntimeModes),
-    default=RuntimeModes.st,
+    default=RuntimeModes.auto,
     help='Runtime mode to use (single/multi threaded)',
 )
 @option('--loop', type=EnumType(Loops), default=Loops.auto, help='Event loop implementation')
@@ -245,9 +264,15 @@ def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs:
 @option(
     '--ssl-keyfile',
     type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=pathlib.Path),
-    help='SSL key file',
+    help='SSL key file (PKCS#8 format only)',
 )
 @option('--ssl-keyfile-password', help='SSL key password')
+@option(
+    '--ssl-protocol-min',
+    type=EnumType(SSLProtocols),
+    default=SSLProtocols.tls13,
+    help='Set the minimum supported protocol for SSL connections.',
+)
 @option(
     '--ssl-ca',
     type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=pathlib.Path),
@@ -277,9 +302,15 @@ def option(*param_decls: str, cls: Optional[Type[click.Option]] = None, **attrs:
 )
 @option(
     '--rss-sample-interval',
-    type=Duration(10, 300),
+    type=Duration(1, 300),
     default=30,
     help='The sample rate in seconds (or a human-readable duration) for the resource monitor',
+)
+@option(
+    '--rss-samples',
+    type=click.IntRange(1),
+    default=1,
+    help='The number of consecutive samples to consider a worker over resource limit',
 )
 @option(
     '--workers-lifetime',
@@ -388,20 +419,21 @@ def cli(
     app: str,
     host: str,
     port: int,
-    uds: Optional[pathlib.Path],
+    uds: pathlib.Path | None,
+    uds_permissions: int | None,
     interface: Interfaces,
     http: HTTPModes,
     websockets: bool,
     workers: int,
-    blocking_threads: Optional[int],
+    blocking_threads: int | None,
     blocking_threads_idle_timeout: int,
     runtime_threads: int,
-    runtime_blocking_threads: Optional[int],
+    runtime_blocking_threads: int | None,
     runtime_mode: RuntimeModes,
     loop: Loops,
     task_impl: TaskImpl,
     backlog: int,
-    backpressure: Optional[int],
+    backpressure: int | None,
     http1_buffer_size: int,
     http1_header_read_timeout: int,
     http1_keep_alive: bool,
@@ -409,7 +441,7 @@ def cli(
     http2_adaptive_window: bool,
     http2_initial_connection_window_size: int,
     http2_initial_stream_window_size: int,
-    http2_keep_alive_interval: Optional[int],
+    http2_keep_alive_interval: int | None,
     http2_keep_alive_timeout: int,
     http2_max_concurrent_streams: int,
     http2_max_frame_size: int,
@@ -417,37 +449,39 @@ def cli(
     http2_max_send_buffer_size: int,
     log_enabled: bool,
     log_access_enabled: bool,
-    log_access_fmt: Optional[str],
+    log_access_fmt: str | None,
     log_level: LogLevels,
-    log_config: Optional[pathlib.Path],
-    ssl_certificate: Optional[pathlib.Path],
-    ssl_keyfile: Optional[pathlib.Path],
-    ssl_keyfile_password: Optional[str],
-    ssl_ca: Optional[pathlib.Path],
-    ssl_crl: Optional[List[pathlib.Path]],
+    log_config: pathlib.Path | None,
+    ssl_certificate: pathlib.Path | None,
+    ssl_keyfile: pathlib.Path | None,
+    ssl_keyfile_password: str | None,
+    ssl_protocol_min: SSLProtocols,
+    ssl_ca: pathlib.Path | None,
+    ssl_crl: list[pathlib.Path] | None,
     ssl_client_verify: bool,
-    url_path_prefix: Optional[str],
+    url_path_prefix: str | None,
     respawn_failed_workers: bool,
     respawn_interval: float,
     rss_sample_interval: int,
-    workers_lifetime: Optional[int],
-    workers_max_rss: Optional[int],
-    workers_kill_timeout: Optional[int],
+    rss_samples: int,
+    workers_lifetime: int | None,
+    workers_max_rss: int | None,
+    workers_kill_timeout: int | None,
     factory: bool,
-    working_dir: Optional[pathlib.Path],
-    env_files: Optional[List[pathlib.Path]],
+    working_dir: pathlib.Path | None,
+    env_files: list[pathlib.Path] | None,
     static_path_route: str,
-    static_path_mount: Optional[pathlib.Path],
+    static_path_mount: pathlib.Path | None,
     static_path_expires: int,
     reload: bool,
-    reload_paths: Optional[List[pathlib.Path]],
-    reload_ignore_dirs: Optional[List[str]],
-    reload_ignore_patterns: Optional[List[str]],
-    reload_ignore_paths: Optional[List[pathlib.Path]],
+    reload_paths: list[pathlib.Path] | None,
+    reload_ignore_dirs: list[str] | None,
+    reload_ignore_patterns: list[str] | None,
+    reload_ignore_paths: list[pathlib.Path] | None,
     reload_tick: int,
     reload_ignore_worker_failure: bool,
-    process_name: Optional[str],
-    pid_file: Optional[pathlib.Path],
+    process_name: str | None,
+    pid_file: pathlib.Path | None,
 ) -> None:
     log_dictconfig = None
     if log_config:
@@ -467,6 +501,7 @@ def cli(
         address=host,
         port=port,
         uds=uds,
+        uds_permissions=uds_permissions,
         interface=interface,
         workers=workers,
         blocking_threads=blocking_threads,
@@ -505,6 +540,7 @@ def cli(
         ssl_cert=ssl_certificate,
         ssl_key=ssl_keyfile,
         ssl_key_password=ssl_keyfile_password,
+        ssl_protocol_min=ssl_protocol_min,
         ssl_ca=ssl_ca,
         ssl_crl=ssl_crl,
         ssl_client_verify=ssl_client_verify,
@@ -512,6 +548,7 @@ def cli(
         respawn_failed_workers=respawn_failed_workers,
         respawn_interval=respawn_interval,
         rss_sample_interval=rss_sample_interval,
+        rss_samples=rss_samples,
         workers_lifetime=workers_lifetime,
         workers_max_rss=workers_max_rss,
         workers_kill_timeout=workers_kill_timeout,

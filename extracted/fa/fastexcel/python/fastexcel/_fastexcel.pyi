@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import typing
-from typing import TYPE_CHECKING, Callable, Literal
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     import pyarrow as pa
@@ -13,11 +14,20 @@ DTypeFrom = Literal["provided_for_all", "provided_by_index", "provided_by_name",
 SheetVisible = Literal["visible", "hidden", "veryhidden"]
 
 class ColumnInfoNoDtype:
-    def __init__(self, *, name: str, index: int, column_name_from: ColumnNameFrom) -> None: ...
+    def __init__(
+        self,
+        *,
+        name: str,
+        index: int,
+        absolute_index: int,
+        column_name_from: ColumnNameFrom,
+    ) -> None: ...
     @property
     def name(self) -> str: ...
     @property
     def index(self) -> int: ...
+    @property
+    def absolute_index(self) -> int: ...
     @property
     def column_name_from(self) -> ColumnNameFrom: ...
 
@@ -27,6 +37,7 @@ class ColumnInfo:
         *,
         name: str,
         index: int,
+        absolute_index: int,
         column_name_from: ColumnNameFrom,
         dtype: DType,
         dtype_from: DTypeFrom,
@@ -36,11 +47,25 @@ class ColumnInfo:
     @property
     def index(self) -> int: ...
     @property
+    def absolute_index(self) -> int: ...
+    @property
     def dtype(self) -> DType: ...
     @property
     def column_name_from(self) -> ColumnNameFrom: ...
     @property
     def dtype_from(self) -> DTypeFrom: ...
+
+class DefinedName:
+    def __init__(
+        self,
+        *,
+        name: str,
+        formula: str,
+    ) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def formula(self) -> str: ...
 
 class CellError:
     @property
@@ -83,12 +108,12 @@ class _ExcelSheet:
     @property
     def visible(self) -> SheetVisible:
         """The visibility of the sheet"""
-    def to_arrow(self) -> "pa.RecordBatch":
+    def to_arrow(self) -> pa.RecordBatch:
         """Converts the sheet to a pyarrow `RecordBatch`
 
         Requires the `pyarrow` extra to be installed.
         """
-    def to_arrow_with_errors(self) -> "tuple[pa.RecordBatch, CellErrors]":
+    def to_arrow_with_errors(self) -> tuple[pa.RecordBatch, CellErrors]:
         """Converts the sheet to a pyarrow `RecordBatch` with error information.
 
         Stores the positions of any values that cannot be parsed as the specified type and were
@@ -142,7 +167,7 @@ class _ExcelTable:
     @property
     def specified_dtypes(self) -> DTypeMap | None:
         """The dtypes specified for the table"""
-    def to_arrow(self) -> "pa.RecordBatch":
+    def to_arrow(self) -> pa.RecordBatch:
         """Converts the table to a pyarrow `RecordBatch`
 
         Requires the `pyarrow` extra to be installed.
@@ -188,6 +213,8 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[False] = ...,
+        skip_whitespace_tail_rows: bool = False,
+        whitespace_as_null: bool = False,
     ) -> _ExcelSheet: ...
     @typing.overload
     def load_sheet(
@@ -207,6 +234,8 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[True] = ...,
+        skip_whitespace_tail_rows: bool = False,
+        whitespace_as_null: bool = False,
     ) -> pa.RecordBatch: ...
     @typing.overload
     def load_sheet(
@@ -226,6 +255,8 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: bool = False,
+        skip_whitespace_tail_rows: bool = False,
+        whitespace_as_null: bool = False,
     ) -> pa.RecordBatch: ...
     @typing.overload
     def load_table(
@@ -245,6 +276,8 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[False] = ...,
+        skip_whitespace_tail_rows: bool = False,
+        whitespace_as_null: bool = False,
     ) -> _ExcelTable: ...
     @typing.overload
     def load_table(
@@ -264,10 +297,13 @@ class _ExcelReader:
         | None = None,
         dtypes: DType | DTypeMap | None = None,
         eager: Literal[True] = ...,
+        skip_whitespace_tail_rows: bool = False,
+        whitespace_as_null: bool = False,
     ) -> pa.RecordBatch: ...
     @property
     def sheet_names(self) -> list[str]: ...
     def table_names(self, sheet_name: str | None = None) -> list[str]: ...
+    def defined_names(self) -> list[DefinedName]: ...
 
 def read_excel(source: str | bytes) -> _ExcelReader:
     """Reads an excel file and returns an ExcelReader"""

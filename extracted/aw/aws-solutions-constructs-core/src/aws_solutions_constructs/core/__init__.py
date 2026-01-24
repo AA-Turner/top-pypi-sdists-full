@@ -138,7 +138,6 @@ import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
 import aws_cdk.aws_lambda_event_sources as _aws_cdk_aws_lambda_event_sources_ceddda9d
 import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_mediastore as _aws_cdk_aws_mediastore_ceddda9d
 import aws_cdk.aws_opensearchservice as _aws_cdk_aws_opensearchservice_ceddda9d
 import aws_cdk.aws_pipes as _aws_cdk_aws_pipes_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
@@ -440,6 +439,69 @@ class BedrockInferenceProps:
 
     def __repr__(self) -> str:
         return "BedrockInferenceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.BucketDetails",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bucket_interface": "bucketInterface",
+        "bucket": "bucket",
+        "logging_bucket": "loggingBucket",
+    },
+)
+class BucketDetails:
+    def __init__(
+        self,
+        *,
+        bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    ) -> None:
+        '''
+        :param bucket_interface: -
+        :param bucket: -
+        :param logging_bucket: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6f934ee544ef1f015859298db3b59b9c7d7c3b7396123a3d227779c1e7dd0b27)
+            check_type(argname="argument bucket_interface", value=bucket_interface, expected_type=type_hints["bucket_interface"])
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+            check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bucket_interface": bucket_interface,
+        }
+        if bucket is not None:
+            self._values["bucket"] = bucket
+        if logging_bucket is not None:
+            self._values["logging_bucket"] = logging_bucket
+
+    @builtins.property
+    def bucket_interface(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+        result = self._values.get("bucket_interface")
+        assert result is not None, "Required property 'bucket_interface' is missing"
+        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+
+    @builtins.property
+    def bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    @builtins.property
+    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
+        result = self._values.get("logging_bucket")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "BucketDetails(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3528,82 +3590,6 @@ class CloudFrontDistributionForApiGatewayResponse:
 
 
 @jsii.data_type(
-    jsii_type="@aws-solutions-constructs/core.CloudFrontDistributionForMediaStoreResponse",
-    jsii_struct_bases=[],
-    name_mapping={
-        "distribution": "distribution",
-        "request_policy": "requestPolicy",
-        "cloudfront_function": "cloudfrontFunction",
-        "logging_bucket": "loggingBucket",
-    },
-)
-class CloudFrontDistributionForMediaStoreResponse:
-    def __init__(
-        self,
-        *,
-        distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-        request_policy: _aws_cdk_aws_cloudfront_ceddda9d.OriginRequestPolicy,
-        cloudfront_function: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function] = None,
-        logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-    ) -> None:
-        '''
-        :param distribution: -
-        :param request_policy: -
-        :param cloudfront_function: -
-        :param logging_bucket: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__39bce18a31569e2158389732534266e87e792a1af744d954a8b870e46d37ad50)
-            check_type(argname="argument distribution", value=distribution, expected_type=type_hints["distribution"])
-            check_type(argname="argument request_policy", value=request_policy, expected_type=type_hints["request_policy"])
-            check_type(argname="argument cloudfront_function", value=cloudfront_function, expected_type=type_hints["cloudfront_function"])
-            check_type(argname="argument logging_bucket", value=logging_bucket, expected_type=type_hints["logging_bucket"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "distribution": distribution,
-            "request_policy": request_policy,
-        }
-        if cloudfront_function is not None:
-            self._values["cloudfront_function"] = cloudfront_function
-        if logging_bucket is not None:
-            self._values["logging_bucket"] = logging_bucket
-
-    @builtins.property
-    def distribution(self) -> _aws_cdk_aws_cloudfront_ceddda9d.Distribution:
-        result = self._values.get("distribution")
-        assert result is not None, "Required property 'distribution' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.Distribution, result)
-
-    @builtins.property
-    def request_policy(self) -> _aws_cdk_aws_cloudfront_ceddda9d.OriginRequestPolicy:
-        result = self._values.get("request_policy")
-        assert result is not None, "Required property 'request_policy' is missing"
-        return typing.cast(_aws_cdk_aws_cloudfront_ceddda9d.OriginRequestPolicy, result)
-
-    @builtins.property
-    def cloudfront_function(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function]:
-        result = self._values.get("cloudfront_function")
-        return typing.cast(typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function], result)
-
-    @builtins.property
-    def logging_bucket(self) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket]:
-        result = self._values.get("logging_bucket")
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CloudFrontDistributionForMediaStoreResponse(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="@aws-solutions-constructs/core.CloudFrontProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -3828,6 +3814,25 @@ class CognitoOptions:
         return "CognitoOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+class ConstructsFeatureFlagsReport(
+    _constructs_77d1e7e8.Construct,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@aws-solutions-constructs/core.ConstructsFeatureFlagsReport",
+):
+    '''A CDK L3 construct that creates resources for Solutions Feature Flags reporting.'''
+
+    @jsii.member(jsii_name="ensure")
+    @builtins.classmethod
+    def ensure(cls, scope: _constructs_77d1e7e8.Construct) -> None:
+        '''
+        :param scope: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3edcfc4cfd2d4d8845ee3d0c565a10a36de7544d7ff294673137304aa6e70318)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        return typing.cast(None, jsii.sinvoke(cls, "ensure", [scope]))
 
 
 @jsii.data_type(
@@ -5463,63 +5468,6 @@ class MappingResponse:
 
 
 @jsii.data_type(
-    jsii_type="@aws-solutions-constructs/core.MediaStoreProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "existing_media_store_container_obj": "existingMediaStoreContainerObj",
-        "media_store_container_props": "mediaStoreContainerProps",
-    },
-)
-class MediaStoreProps:
-    def __init__(
-        self,
-        *,
-        existing_media_store_container_obj: typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainer] = None,
-        media_store_container_props: typing.Optional[typing.Union[_aws_cdk_aws_mediastore_ceddda9d.CfnContainerProps, typing.Dict[builtins.str, typing.Any]]] = None,
-    ) -> None:
-        '''
-        :param existing_media_store_container_obj: -
-        :param media_store_container_props: -
-        '''
-        if isinstance(media_store_container_props, dict):
-            media_store_container_props = _aws_cdk_aws_mediastore_ceddda9d.CfnContainerProps(**media_store_container_props)
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d2aa532ddbd324fb791db84dcad85f906a5b71e1140b139d99d630f5200479af)
-            check_type(argname="argument existing_media_store_container_obj", value=existing_media_store_container_obj, expected_type=type_hints["existing_media_store_container_obj"])
-            check_type(argname="argument media_store_container_props", value=media_store_container_props, expected_type=type_hints["media_store_container_props"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if existing_media_store_container_obj is not None:
-            self._values["existing_media_store_container_obj"] = existing_media_store_container_obj
-        if media_store_container_props is not None:
-            self._values["media_store_container_props"] = media_store_container_props
-
-    @builtins.property
-    def existing_media_store_container_obj(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainer]:
-        result = self._values.get("existing_media_store_container_obj")
-        return typing.cast(typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainer], result)
-
-    @builtins.property
-    def media_store_container_props(
-        self,
-    ) -> typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainerProps]:
-        result = self._values.get("media_store_container_props")
-        return typing.cast(typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainerProps], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MediaStoreProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="@aws-solutions-constructs/core.ObtainAlbProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -5936,6 +5884,7 @@ class S3OacOrigin(
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
+        response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     ) -> None:
         '''
         :param bucket: -
@@ -5948,6 +5897,7 @@ class S3OacOrigin(
         :param origin_id: A unique identifier for the origin. This value must be unique within the distribution. Default: - an originid will be generated for you
         :param origin_shield_enabled: Origin Shield is enabled by setting originShieldRegion to a valid region, after this to disable Origin Shield again you must set this flag to false. Default: - true
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
+        :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44846869b9ecaeab140b843e216e72ede263e14e7846fdeed302ad40eedcc020)
@@ -5962,6 +5912,7 @@ class S3OacOrigin(
             origin_id=origin_id,
             origin_shield_enabled=origin_shield_enabled,
             origin_shield_region=origin_shield_region,
+            response_completion_timeout=response_completion_timeout,
         )
 
         jsii.create(self.__class__, self, [bucket, props])
@@ -6001,6 +5952,7 @@ class S3OacOrigin(
         "origin_id": "originId",
         "origin_shield_enabled": "originShieldEnabled",
         "origin_shield_region": "originShieldRegion",
+        "response_completion_timeout": "responseCompletionTimeout",
         "origin_path": "originPath",
         "origin_access_control": "originAccessControl",
     },
@@ -6016,6 +5968,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         origin_id: typing.Optional[builtins.str] = None,
         origin_shield_enabled: typing.Optional[builtins.bool] = None,
         origin_shield_region: typing.Optional[builtins.str] = None,
+        response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
         origin_path: typing.Optional[builtins.str] = None,
         origin_access_control: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl] = None,
     ) -> None:
@@ -6028,6 +5981,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         :param origin_id: A unique identifier for the origin. This value must be unique within the distribution. Default: - an originid will be generated for you
         :param origin_shield_enabled: Origin Shield is enabled by setting originShieldRegion to a valid region, after this to disable Origin Shield again you must set this flag to false. Default: - true
         :param origin_shield_region: When you enable Origin Shield in the AWS Region that has the lowest latency to your origin, you can get better network performance. Default: - origin shield not enabled
+        :param response_completion_timeout: The time that a request from CloudFront to the origin can stay open and wait for a response. If the complete response isn't received from the origin by this time, CloudFront ends the connection. Valid values are 1-3600 seconds, inclusive. Default: undefined - AWS CloudFront default is not enforcing a maximum value
         :param origin_path: An optional path that CloudFront appends to the origin domain name when CloudFront requests content from the origin. Must begin, but not end, with '/' (e.g., '/production/images'). Default: '/'
         :param origin_access_control: The origin access control that will be used when calling your S3 bucket.
         '''
@@ -6040,6 +5994,7 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
             check_type(argname="argument origin_id", value=origin_id, expected_type=type_hints["origin_id"])
             check_type(argname="argument origin_shield_enabled", value=origin_shield_enabled, expected_type=type_hints["origin_shield_enabled"])
             check_type(argname="argument origin_shield_region", value=origin_shield_region, expected_type=type_hints["origin_shield_region"])
+            check_type(argname="argument response_completion_timeout", value=response_completion_timeout, expected_type=type_hints["response_completion_timeout"])
             check_type(argname="argument origin_path", value=origin_path, expected_type=type_hints["origin_path"])
             check_type(argname="argument origin_access_control", value=origin_access_control, expected_type=type_hints["origin_access_control"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -6057,6 +6012,8 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
             self._values["origin_shield_enabled"] = origin_shield_enabled
         if origin_shield_region is not None:
             self._values["origin_shield_region"] = origin_shield_region
+        if response_completion_timeout is not None:
+            self._values["response_completion_timeout"] = response_completion_timeout
         if origin_path is not None:
             self._values["origin_path"] = origin_path
         if origin_access_control is not None:
@@ -6134,6 +6091,23 @@ class S3OacOriginProps(_aws_cdk_aws_cloudfront_ceddda9d.OriginProps):
         '''
         result = self._values.get("origin_shield_region")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def response_completion_timeout(
+        self,
+    ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+        '''The time that a request from CloudFront to the origin can stay open and wait for a response.
+
+        If the complete response isn't received from the origin by this time, CloudFront ends the connection.
+
+        Valid values are 1-3600 seconds, inclusive.
+
+        :default: undefined -  AWS CloudFront default is not enforcing a maximum value
+
+        :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/DownloadDistValuesOrigin.html#response-completion-timeout
+        '''
+        result = self._values.get("response_completion_timeout")
+        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
 
     @builtins.property
     def origin_path(self) -> typing.Optional[builtins.str]:
@@ -6477,6 +6451,8 @@ class ServiceEndpointTypes(enum.Enum):
     BEDROCK = "BEDROCK"
     BEDROCK_RUNTIME = "BEDROCK_RUNTIME"
     KENDRA = "KENDRA"
+    TRANSCRIBE = "TRANSCRIBE"
+    TRANSLATE = "TRANSLATE"
 
 
 @jsii.data_type(
@@ -6879,6 +6855,280 @@ class StateMachineProps:
 
 
 @jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TranslateConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={
+        "lambda_iam_actions_required": "lambdaIamActionsRequired",
+        "destination_bucket": "destinationBucket",
+        "source_bucket": "sourceBucket",
+        "translate_role": "translateRole",
+    },
+)
+class TranslateConfiguration:
+    def __init__(
+        self,
+        *,
+        lambda_iam_actions_required: typing.Sequence[builtins.str],
+        destination_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+        source_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+        translate_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+    ) -> None:
+        '''
+        :param lambda_iam_actions_required: -
+        :param destination_bucket: -
+        :param source_bucket: -
+        :param translate_role: -
+        '''
+        if isinstance(destination_bucket, dict):
+            destination_bucket = BucketDetails(**destination_bucket)
+        if isinstance(source_bucket, dict):
+            source_bucket = BucketDetails(**source_bucket)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__713eb796d252c8f3fb0708436b6c0450950c3e5054d2f47bee4ae2e03a2e710f)
+            check_type(argname="argument lambda_iam_actions_required", value=lambda_iam_actions_required, expected_type=type_hints["lambda_iam_actions_required"])
+            check_type(argname="argument destination_bucket", value=destination_bucket, expected_type=type_hints["destination_bucket"])
+            check_type(argname="argument source_bucket", value=source_bucket, expected_type=type_hints["source_bucket"])
+            check_type(argname="argument translate_role", value=translate_role, expected_type=type_hints["translate_role"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "lambda_iam_actions_required": lambda_iam_actions_required,
+        }
+        if destination_bucket is not None:
+            self._values["destination_bucket"] = destination_bucket
+        if source_bucket is not None:
+            self._values["source_bucket"] = source_bucket
+        if translate_role is not None:
+            self._values["translate_role"] = translate_role
+
+    @builtins.property
+    def lambda_iam_actions_required(self) -> typing.List[builtins.str]:
+        result = self._values.get("lambda_iam_actions_required")
+        assert result is not None, "Required property 'lambda_iam_actions_required' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket(self) -> typing.Optional[BucketDetails]:
+        result = self._values.get("destination_bucket")
+        return typing.cast(typing.Optional[BucketDetails], result)
+
+    @builtins.property
+    def source_bucket(self) -> typing.Optional[BucketDetails]:
+        result = self._values.get("source_bucket")
+        return typing.cast(typing.Optional[BucketDetails], result)
+
+    @builtins.property
+    def translate_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role]:
+        result = self._values.get("translate_role")
+        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TranslateConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@aws-solutions-constructs/core.TranslateProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "async_jobs": "asyncJobs",
+        "data_access_role_arn_environment_variable_name": "dataAccessRoleArnEnvironmentVariableName",
+        "destination_bucket_environment_variable_name": "destinationBucketEnvironmentVariableName",
+        "destination_bucket_props": "destinationBucketProps",
+        "destination_logging_bucket_props": "destinationLoggingBucketProps",
+        "existing_destination_bucket_obj": "existingDestinationBucketObj",
+        "existing_source_bucket_obj": "existingSourceBucketObj",
+        "log_destination_s3_access_logs": "logDestinationS3AccessLogs",
+        "log_source_s3_access_logs": "logSourceS3AccessLogs",
+        "source_bucket_environment_variable_name": "sourceBucketEnvironmentVariableName",
+        "source_bucket_props": "sourceBucketProps",
+        "source_logging_bucket_props": "sourceLoggingBucketProps",
+        "use_same_bucket": "useSameBucket",
+    },
+)
+class TranslateProps:
+    def __init__(
+        self,
+        *,
+        async_jobs: typing.Optional[builtins.bool] = None,
+        data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+        log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+        log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+        source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+        source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        use_same_bucket: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param async_jobs: -
+        :param data_access_role_arn_environment_variable_name: -
+        :param destination_bucket_environment_variable_name: -
+        :param destination_bucket_props: -
+        :param destination_logging_bucket_props: -
+        :param existing_destination_bucket_obj: -
+        :param existing_source_bucket_obj: -
+        :param log_destination_s3_access_logs: -
+        :param log_source_s3_access_logs: -
+        :param source_bucket_environment_variable_name: -
+        :param source_bucket_props: -
+        :param source_logging_bucket_props: -
+        :param use_same_bucket: -
+        '''
+        if isinstance(destination_bucket_props, dict):
+            destination_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_bucket_props)
+        if isinstance(destination_logging_bucket_props, dict):
+            destination_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**destination_logging_bucket_props)
+        if isinstance(source_bucket_props, dict):
+            source_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_bucket_props)
+        if isinstance(source_logging_bucket_props, dict):
+            source_logging_bucket_props = _aws_cdk_aws_s3_ceddda9d.BucketProps(**source_logging_bucket_props)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34d19a40ef57536e8e291a635def7aeb6d2a5c76f4c38a59227cd77081d73f8b)
+            check_type(argname="argument async_jobs", value=async_jobs, expected_type=type_hints["async_jobs"])
+            check_type(argname="argument data_access_role_arn_environment_variable_name", value=data_access_role_arn_environment_variable_name, expected_type=type_hints["data_access_role_arn_environment_variable_name"])
+            check_type(argname="argument destination_bucket_environment_variable_name", value=destination_bucket_environment_variable_name, expected_type=type_hints["destination_bucket_environment_variable_name"])
+            check_type(argname="argument destination_bucket_props", value=destination_bucket_props, expected_type=type_hints["destination_bucket_props"])
+            check_type(argname="argument destination_logging_bucket_props", value=destination_logging_bucket_props, expected_type=type_hints["destination_logging_bucket_props"])
+            check_type(argname="argument existing_destination_bucket_obj", value=existing_destination_bucket_obj, expected_type=type_hints["existing_destination_bucket_obj"])
+            check_type(argname="argument existing_source_bucket_obj", value=existing_source_bucket_obj, expected_type=type_hints["existing_source_bucket_obj"])
+            check_type(argname="argument log_destination_s3_access_logs", value=log_destination_s3_access_logs, expected_type=type_hints["log_destination_s3_access_logs"])
+            check_type(argname="argument log_source_s3_access_logs", value=log_source_s3_access_logs, expected_type=type_hints["log_source_s3_access_logs"])
+            check_type(argname="argument source_bucket_environment_variable_name", value=source_bucket_environment_variable_name, expected_type=type_hints["source_bucket_environment_variable_name"])
+            check_type(argname="argument source_bucket_props", value=source_bucket_props, expected_type=type_hints["source_bucket_props"])
+            check_type(argname="argument source_logging_bucket_props", value=source_logging_bucket_props, expected_type=type_hints["source_logging_bucket_props"])
+            check_type(argname="argument use_same_bucket", value=use_same_bucket, expected_type=type_hints["use_same_bucket"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if async_jobs is not None:
+            self._values["async_jobs"] = async_jobs
+        if data_access_role_arn_environment_variable_name is not None:
+            self._values["data_access_role_arn_environment_variable_name"] = data_access_role_arn_environment_variable_name
+        if destination_bucket_environment_variable_name is not None:
+            self._values["destination_bucket_environment_variable_name"] = destination_bucket_environment_variable_name
+        if destination_bucket_props is not None:
+            self._values["destination_bucket_props"] = destination_bucket_props
+        if destination_logging_bucket_props is not None:
+            self._values["destination_logging_bucket_props"] = destination_logging_bucket_props
+        if existing_destination_bucket_obj is not None:
+            self._values["existing_destination_bucket_obj"] = existing_destination_bucket_obj
+        if existing_source_bucket_obj is not None:
+            self._values["existing_source_bucket_obj"] = existing_source_bucket_obj
+        if log_destination_s3_access_logs is not None:
+            self._values["log_destination_s3_access_logs"] = log_destination_s3_access_logs
+        if log_source_s3_access_logs is not None:
+            self._values["log_source_s3_access_logs"] = log_source_s3_access_logs
+        if source_bucket_environment_variable_name is not None:
+            self._values["source_bucket_environment_variable_name"] = source_bucket_environment_variable_name
+        if source_bucket_props is not None:
+            self._values["source_bucket_props"] = source_bucket_props
+        if source_logging_bucket_props is not None:
+            self._values["source_logging_bucket_props"] = source_logging_bucket_props
+        if use_same_bucket is not None:
+            self._values["use_same_bucket"] = use_same_bucket
+
+    @builtins.property
+    def async_jobs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("async_jobs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def data_access_role_arn_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("data_access_role_arn_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_environment_variable_name(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        result = self._values.get("destination_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("destination_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def destination_logging_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("destination_logging_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def existing_destination_bucket_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+        result = self._values.get("existing_destination_bucket_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+
+    @builtins.property
+    def existing_source_bucket_obj(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+        result = self._values.get("existing_source_bucket_obj")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], result)
+
+    @builtins.property
+    def log_destination_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_destination_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def log_source_s3_access_logs(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("log_source_s3_access_logs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def source_bucket_environment_variable_name(self) -> typing.Optional[builtins.str]:
+        result = self._values.get("source_bucket_environment_variable_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("source_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def source_logging_bucket_props(
+        self,
+    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps]:
+        result = self._values.get("source_logging_bucket_props")
+        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.BucketProps], result)
+
+    @builtins.property
+    def use_same_bucket(self) -> typing.Optional[builtins.bool]:
+        result = self._values.get("use_same_bucket")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TranslateProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="@aws-solutions-constructs/core.VpcPropsSet",
     jsii_struct_bases=[],
     name_mapping={
@@ -7000,6 +7250,7 @@ __all__ = [
     "AddProxyMethodToApiResourceInputParams",
     "ApiProps",
     "BedrockInferenceProps",
+    "BucketDetails",
     "BuildDeadLetterQueueProps",
     "BuildDynamoDBTableProps",
     "BuildDynamoDBTableResponse",
@@ -7039,10 +7290,10 @@ __all__ = [
     "BuildWebaclProps",
     "CfnNagSuppressRule",
     "CloudFrontDistributionForApiGatewayResponse",
-    "CloudFrontDistributionForMediaStoreResponse",
     "CloudFrontProps",
     "CloudfrontS3Props",
     "CognitoOptions",
+    "ConstructsFeatureFlagsReport",
     "CreateCloudFrontDistributionForS3Props",
     "CreateCloudFrontDistributionForS3Response",
     "CreateCloudFrontLoggingBucketRequest",
@@ -7065,7 +7316,6 @@ __all__ = [
     "KinesisStreamProps",
     "LambdaProps",
     "MappingResponse",
-    "MediaStoreProps",
     "ObtainAlbProps",
     "ObtainMemcachedClusterProps",
     "OpenSearchProps",
@@ -7085,6 +7335,8 @@ __all__ = [
     "SnsProps",
     "SqsProps",
     "StateMachineProps",
+    "TranslateConfiguration",
+    "TranslateProps",
     "VpcPropsSet",
     "WafWebAclProps",
 ]
@@ -7122,6 +7374,15 @@ def _typecheckingstub__8700501d94a3c0ea38de6db5f733bbe926a025118f03ab465d8339739
     bedrock_model_id: builtins.str,
     deploy_cross_region_profile: typing.Optional[builtins.bool] = None,
     inference_profile_props: typing.Optional[typing.Union[_aws_cdk_aws_bedrock_ceddda9d.CfnApplicationInferenceProfileProps, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f934ee544ef1f015859298db3b59b9c7d7c3b7396123a3d227779c1e7dd0b27(
+    *,
+    bucket_interface: _aws_cdk_aws_s3_ceddda9d.IBucket,
+    bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
+    logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7502,16 +7763,6 @@ def _typecheckingstub__28e9958969b69d0c97ca692c45e5f4cd38c0a074d7bc4828880509272
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__39bce18a31569e2158389732534266e87e792a1af744d954a8b870e46d37ad50(
-    *,
-    distribution: _aws_cdk_aws_cloudfront_ceddda9d.Distribution,
-    request_policy: _aws_cdk_aws_cloudfront_ceddda9d.OriginRequestPolicy,
-    cloudfront_function: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.Function] = None,
-    logging_bucket: typing.Optional[_aws_cdk_aws_s3_ceddda9d.Bucket] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__cd3111b21580a09c6860dda1c78369e81b4db80bfcf046e07f6921b72d858ab8(
     *,
     insert_http_security_headers: typing.Optional[builtins.bool] = None,
@@ -7537,6 +7788,12 @@ def _typecheckingstub__2ab3cd723e5c01a12a9f21b04d8cb1909bd59787d38342b627934c458
     identitypool: _aws_cdk_aws_cognito_ceddda9d.CfnIdentityPool,
     userpool: _aws_cdk_aws_cognito_ceddda9d.UserPool,
     userpoolclient: _aws_cdk_aws_cognito_ceddda9d.UserPoolClient,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3edcfc4cfd2d4d8845ee3d0c565a10a36de7544d7ff294673137304aa6e70318(
+    scope: _constructs_77d1e7e8.Construct,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7755,14 +8012,6 @@ def _typecheckingstub__d1ba435ba7bd3ef62bb8c53ca638e782145ebfe4f85606498a0bfdad8
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d2aa532ddbd324fb791db84dcad85f906a5b71e1140b139d99d630f5200479af(
-    *,
-    existing_media_store_container_obj: typing.Optional[_aws_cdk_aws_mediastore_ceddda9d.CfnContainer] = None,
-    media_store_container_props: typing.Optional[typing.Union[_aws_cdk_aws_mediastore_ceddda9d.CfnContainerProps, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__12b14feea16b19036cf050ea8dd837f794807f0bf081e9b64939210089265868(
     *,
     public_api: builtins.bool,
@@ -7830,6 +8079,7 @@ def _typecheckingstub__44846869b9ecaeab140b843e216e72ede263e14e7846fdeed302ad40e
     origin_id: typing.Optional[builtins.str] = None,
     origin_shield_enabled: typing.Optional[builtins.bool] = None,
     origin_shield_region: typing.Optional[builtins.str] = None,
+    response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7852,6 +8102,7 @@ def _typecheckingstub__f4727907366b00308bea7c2d08561f315c9f243b37d0b3a99db676ce6
     origin_id: typing.Optional[builtins.str] = None,
     origin_shield_enabled: typing.Optional[builtins.bool] = None,
     origin_shield_region: typing.Optional[builtins.str] = None,
+    response_completion_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
     origin_path: typing.Optional[builtins.str] = None,
     origin_access_control: typing.Optional[_aws_cdk_aws_cloudfront_ceddda9d.CfnOriginAccessControl] = None,
 ) -> None:
@@ -7935,6 +8186,35 @@ def _typecheckingstub__f08646452b145e569da8f0e193b37ccb2f89096eac1b603e02a301d09
     existing_state_machine_obj: typing.Optional[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachine] = None,
     log_group_props: typing.Optional[typing.Union[_aws_cdk_aws_logs_ceddda9d.LogGroupProps, typing.Dict[builtins.str, typing.Any]]] = None,
     state_machine_props: typing.Optional[typing.Union[_aws_cdk_aws_stepfunctions_ceddda9d.StateMachineProps, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__713eb796d252c8f3fb0708436b6c0450950c3e5054d2f47bee4ae2e03a2e710f(
+    *,
+    lambda_iam_actions_required: typing.Sequence[builtins.str],
+    destination_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_bucket: typing.Optional[typing.Union[BucketDetails, typing.Dict[builtins.str, typing.Any]]] = None,
+    translate_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.Role] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34d19a40ef57536e8e291a635def7aeb6d2a5c76f4c38a59227cd77081d73f8b(
+    *,
+    async_jobs: typing.Optional[builtins.bool] = None,
+    data_access_role_arn_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    destination_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    destination_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    existing_destination_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    existing_source_bucket_obj: typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket] = None,
+    log_destination_s3_access_logs: typing.Optional[builtins.bool] = None,
+    log_source_s3_access_logs: typing.Optional[builtins.bool] = None,
+    source_bucket_environment_variable_name: typing.Optional[builtins.str] = None,
+    source_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    source_logging_bucket_props: typing.Optional[typing.Union[_aws_cdk_aws_s3_ceddda9d.BucketProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    use_same_bucket: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

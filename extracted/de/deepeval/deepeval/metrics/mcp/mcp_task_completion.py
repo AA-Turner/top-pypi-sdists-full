@@ -7,15 +7,17 @@ from deepeval.metrics.utils import (
     check_conversational_test_case_params,
     construct_verbose_logs,
     get_unit_interactions,
-    trimAndLoadJson,
     initialize_model,
+    a_generate_with_schema_and_extract,
+    generate_with_schema_and_extract,
 )
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.test_case import ConversationalTestCase, TurnParams
 from deepeval.utils import get_or_create_event_loop, prettify_list
-from deepeval.metrics.mcp.schema import Task, TaskScore
+from deepeval.metrics.mcp.schema import Task, TaskScore, Reason
 from deepeval.metrics.mcp.template import MCPTaskCompletionTemplate
 from deepeval.errors import MissingTestCaseParamsError
+from deepeval.metrics.api import metric_data_manager
 
 
 class MCPTaskCompletionMetric(BaseConversationalMetric):
@@ -46,9 +48,15 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ):
         check_conversational_test_case_params(
-            test_case, self._required_test_case_params, self
+            test_case,
+            self._required_test_case_params,
+            self,
+            False,
+            self.model,
+            test_case.multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
@@ -62,6 +70,7 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
                         test_case,
                         _show_indicator=False,
                         _in_component=_in_component,
+                        _log_metric_to_confident=_log_metric_to_confident,
                     )
                 )
             else:
@@ -90,6 +99,10 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
                         f"Score: {self.score}",
                     ],
                 )
+                if _log_metric_to_confident:
+                    metric_data_manager.post_metric_if_enabled(
+                        self, test_case=test_case
+                    )
             return self.score
 
     async def a_measure(
@@ -97,14 +110,23 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
         test_case: ConversationalTestCase,
         _show_indicator: bool = True,
         _in_component: bool = False,
+        _log_metric_to_confident: bool = True,
     ):
         check_conversational_test_case_params(
-            test_case, self._required_test_case_params, self
+            test_case,
+            self._required_test_case_params,
+            self,
+            False,
+            self.model,
+            test_case.multimodal,
         )
 
         self.evaluation_cost = 0 if self.using_native_model else None
         with metric_progress_indicator(
-            self, async_mode=True, _show_indicator=_show_indicator
+            self,
+            async_mode=True,
+            _show_indicator=_show_indicator,
+            _in_component=_in_component,
         ):
             if not test_case.mcp_servers:
                 error_str = "'mcp_servers' in a conversational test case cannot be empty for the 'MCPTaskCompletionMetric' metric."
@@ -131,50 +153,73 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
                     f"Score: {self.score}",
                 ],
             )
+            if _log_metric_to_confident:
+                metric_data_manager.post_metric_if_enabled(
+                    self, test_case=test_case
+                )
+
         return self.score
 
-    def _generate_reason(self, task_scores: List[TaskScore]) -> str:
-        reason = "["
+    def _generate_reason(self, task_scores: List[TaskScore]) -> Optional[str]:
+        if not self.include_reason:
+            return None
+
+        reasons = []
         for task_score in task_scores:
-            if task_score.score < self.threshold:
-                reason += (
-                    f"\nScore: {task_score.score}\n"
-                    f"Reason: {task_score.reason}\n"
-                )
-        reason += "]"
-        return reason
+            reasons.append(task_score.reason)
+
+        prompt = MCPTaskCompletionTemplate.generate_final_reason(
+            self.score, self.success, reasons
+        )
+        return generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=Reason,
+            extract_schema=lambda s: s.reason,
+            extract_json=lambda data: data["reason"],
+        )
+
+    async def _a_generate_reason(
+        self, task_scores: List[TaskScore]
+    ) -> Optional[str]:
+        if not self.include_reason:
+            return None
+
+        reasons = []
+        for task_score in task_scores:
+            reasons.append(task_score.reason)
+
+        prompt = MCPTaskCompletionTemplate.generate_final_reason(
+            self.score, self.success, reasons
+        )
+
+        return await a_generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=Reason,
+            extract_schema=lambda s: s.reason,
+            extract_json=lambda data: data["reason"],
+        )
 
     def _get_task_score(self, task: Task) -> TaskScore:
         prompt = MCPTaskCompletionTemplate.get_task_completion_score(task)
-        if self.using_native_model:
-            res, cost = self.model.generate(prompt, schema=TaskScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: TaskScore = self.model.generate(prompt, schema=TaskScore)
-                return res
-            except TypeError:
-                res = self.model.generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return TaskScore(**data)
+        return generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=TaskScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: TaskScore(**data),
+        )
 
     async def _a_get_task_score(self, task: Task) -> TaskScore:
         prompt = MCPTaskCompletionTemplate.get_task_completion_score(task)
-        if self.using_native_model:
-            res, cost = await self.model.a_generate(prompt, schema=TaskScore)
-            self.evaluation_cost += cost
-            return res
-        else:
-            try:
-                res: TaskScore = await self.model.a_generate(
-                    prompt, schema=TaskScore
-                )
-                return res
-            except TypeError:
-                res = await self.model.a_generate(prompt)
-                data = trimAndLoadJson(res, self)
-                return TaskScore(**data)
+        return await a_generate_with_schema_and_extract(
+            metric=self,
+            prompt=prompt,
+            schema_cls=TaskScore,
+            extract_schema=lambda s: s,
+            extract_json=lambda data: TaskScore(**data),
+        )
 
     def _get_tasks(self, unit_interactions: List) -> List[Task]:
         tasks = []
@@ -228,16 +273,18 @@ class MCPTaskCompletionMetric(BaseConversationalMetric):
         return tasks
 
     def _calculate_score(self, scores: List[TaskScore]) -> float:
+        score_divisor = len(scores) if len(scores) > 0 else 1
         total_score = sum(score.score for score in scores)
-        return total_score / len(scores)
+        score = total_score / score_divisor
+        return 0 if self.strict_mode and score < self.threshold else score
 
     def is_successful(self) -> bool:
         if self.error is not None:
             self.success = False
         else:
             try:
-                self.score >= self.threshold
-            except:
+                self.success = self.score >= self.threshold
+            except TypeError:
                 self.success = False
         return self.success
 

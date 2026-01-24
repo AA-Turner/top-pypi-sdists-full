@@ -43,6 +43,7 @@ class RuleGroupArgs:
         :param pulumi.Input[_builtins.str] name_prefix: Creates a unique name beginning with the specified prefix. Conflicts with `name`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Sequence[pulumi.Input['RuleGroupRuleArgs']]] rules: The rule blocks used to identify the web requests that you want to `allow`, `block`, or `count`. See Rules below for details.
+        :param pulumi.Input[_builtins.str] rules_json: Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: An array of key:value pairs to associate with the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         """
         pulumi.set(__self__, "capacity", capacity)
@@ -176,6 +177,9 @@ class RuleGroupArgs:
     @_builtins.property
     @pulumi.getter(name="rulesJson")
     def rules_json(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
+        """
         return pulumi.get(self, "rules_json")
 
     @rules_json.setter
@@ -222,6 +226,7 @@ class _RuleGroupState:
         :param pulumi.Input[_builtins.str] name_prefix: Creates a unique name beginning with the specified prefix. Conflicts with `name`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Sequence[pulumi.Input['RuleGroupRuleArgs']]] rules: The rule blocks used to identify the web requests that you want to `allow`, `block`, or `count`. See Rules below for details.
+        :param pulumi.Input[_builtins.str] rules_json: Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
         :param pulumi.Input[_builtins.str] scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1` (N. Virginia) on the AWS provider.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: An array of key:value pairs to associate with the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
@@ -364,6 +369,9 @@ class _RuleGroupState:
     @_builtins.property
     @pulumi.getter(name="rulesJson")
     def rules_json(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
+        """
         return pulumi.get(self, "rules_json")
 
     @rules_json.setter
@@ -479,6 +487,271 @@ class RuleGroup(pulumi.CustomResource):
             })
         ```
 
+        ### Complex
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        test = aws.wafv2.IpSet("test",
+            name="test",
+            scope="REGIONAL",
+            ip_address_version="IPV4",
+            addresses=[
+                "1.1.1.1/32",
+                "2.2.2.2/32",
+            ])
+        test_regex_pattern_set = aws.wafv2.RegexPatternSet("test",
+            name="test",
+            scope="REGIONAL",
+            regular_expressions=[{
+                "regex_string": "one",
+            }])
+        example = aws.wafv2.RuleGroup("example",
+            name="complex-example",
+            description="An rule group containing all statements",
+            scope="REGIONAL",
+            capacity=500,
+            rules=[
+                {
+                    "name": "rule-1",
+                    "priority": 1,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "not_statement": {
+                            "statements": [{
+                                "and_statement": {
+                                    "statements": [
+                                        {
+                                            "geo_match_statement": {
+                                                "country_codes": ["US"],
+                                            },
+                                        },
+                                        {
+                                            "byte_match_statement": {
+                                                "positional_constraint": "CONTAINS",
+                                                "search_string": "word",
+                                                "field_to_match": {
+                                                    "all_query_arguments": {},
+                                                },
+                                                "text_transformations": [
+                                                    {
+                                                        "priority": 5,
+                                                        "type": "CMD_LINE",
+                                                    },
+                                                    {
+                                                        "priority": 2,
+                                                        "type": "LOWERCASE",
+                                                    },
+                                                ],
+                                            },
+                                        },
+                                    ],
+                                },
+                            }],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-1",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+                {
+                    "name": "rule-2",
+                    "priority": 2,
+                    "action": {
+                        "count": {},
+                    },
+                    "statement": {
+                        "or_statement": {
+                            "statements": [
+                                {
+                                    "regex_match_statement": {
+                                        "regex_string": "a-z?",
+                                        "field_to_match": {
+                                            "single_header": {
+                                                "name": "user-agent",
+                                            },
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 6,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                                {
+                                    "sqli_match_statement": {
+                                        "field_to_match": {
+                                            "body": {},
+                                        },
+                                        "text_transformations": [
+                                            {
+                                                "priority": 5,
+                                                "type": "URL_DECODE",
+                                            },
+                                            {
+                                                "priority": 4,
+                                                "type": "HTML_ENTITY_DECODE",
+                                            },
+                                            {
+                                                "priority": 3,
+                                                "type": "COMPRESS_WHITE_SPACE",
+                                            },
+                                        ],
+                                    },
+                                },
+                                {
+                                    "xss_match_statement": {
+                                        "field_to_match": {
+                                            "method": {},
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 2,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-2",
+                        "sampled_requests_enabled": False,
+                    },
+                    "captcha_config": {
+                        "immunity_time_property": {
+                            "immunity_time": 240,
+                        },
+                    },
+                },
+                {
+                    "name": "rule-3",
+                    "priority": 3,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "size_constraint_statement": {
+                            "comparison_operator": "GT",
+                            "size": 100,
+                            "field_to_match": {
+                                "single_query_argument": {
+                                    "name": "username",
+                                },
+                            },
+                            "text_transformations": [{
+                                "priority": 5,
+                                "type": "NONE",
+                            }],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-3",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+                {
+                    "name": "rule-4",
+                    "priority": 4,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "or_statement": {
+                            "statements": [
+                                {
+                                    "ip_set_reference_statement": {
+                                        "arn": test.arn,
+                                    },
+                                },
+                                {
+                                    "regex_pattern_set_reference_statement": {
+                                        "arn": test_regex_pattern_set.arn,
+                                        "field_to_match": {
+                                            "single_header": {
+                                                "name": "referer",
+                                            },
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 2,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-4",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+            ],
+            visibility_config={
+                "cloudwatch_metrics_enabled": False,
+                "metric_name": "friendly-metric-name",
+                "sampled_requests_enabled": False,
+            },
+            captcha_config=[{
+                "immunityTimeProperty": [{
+                    "immunityTime": 120,
+                }],
+            }],
+            tags={
+                "Name": "example-and-statement",
+                "Code": "123456",
+            })
+        ```
+
+        ### Using rules_json
+
+        ```python
+        import pulumi
+        import json
+        import pulumi_aws as aws
+
+        example = aws.wafv2.RuleGroup("example",
+            name="example-rule-group",
+            scope="REGIONAL",
+            capacity=100,
+            rules_json=json.dumps([{
+                "Name": "rule-1",
+                "Priority": 1,
+                "Action": {
+                    "Count": {},
+                },
+                "Statement": {
+                    "ByteMatchStatement": {
+                        "SearchString": "badbot",
+                        "FieldToMatch": {
+                            "UriPath": {},
+                        },
+                        "TextTransformations": [{
+                            "Priority": 1,
+                            "Type": "NONE",
+                        }],
+                        "PositionalConstraint": "CONTAINS",
+                    },
+                },
+                "VisibilityConfig": {
+                    "CloudwatchMetricsEnabled": False,
+                    "MetricName": "friendly-rule-metric-name",
+                    "SampledRequestsEnabled": False,
+                },
+            }]),
+            visibility_config={
+                "cloudwatch_metrics_enabled": False,
+                "metric_name": "friendly-metric-name",
+                "sampled_requests_enabled": False,
+            })
+        ```
+
         ## Import
 
         Using `pulumi import`, import WAFv2 Rule Group using `ID/name/scope`. For example:
@@ -496,6 +769,7 @@ class RuleGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name_prefix: Creates a unique name beginning with the specified prefix. Conflicts with `name`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['RuleGroupRuleArgs', 'RuleGroupRuleArgsDict']]]] rules: The rule blocks used to identify the web requests that you want to `allow`, `block`, or `count`. See Rules below for details.
+        :param pulumi.Input[_builtins.str] rules_json: Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
         :param pulumi.Input[_builtins.str] scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1` (N. Virginia) on the AWS provider.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: An array of key:value pairs to associate with the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Union['RuleGroupVisibilityConfigArgs', 'RuleGroupVisibilityConfigArgsDict']] visibility_config: Defines and enables Amazon CloudWatch metrics and web request sample collection. See Visibility Configuration below for details.
@@ -541,6 +815,271 @@ class RuleGroup(pulumi.CustomResource):
                     "sampled_requests_enabled": False,
                 },
             }],
+            visibility_config={
+                "cloudwatch_metrics_enabled": False,
+                "metric_name": "friendly-metric-name",
+                "sampled_requests_enabled": False,
+            })
+        ```
+
+        ### Complex
+
+        ```python
+        import pulumi
+        import pulumi_aws as aws
+
+        test = aws.wafv2.IpSet("test",
+            name="test",
+            scope="REGIONAL",
+            ip_address_version="IPV4",
+            addresses=[
+                "1.1.1.1/32",
+                "2.2.2.2/32",
+            ])
+        test_regex_pattern_set = aws.wafv2.RegexPatternSet("test",
+            name="test",
+            scope="REGIONAL",
+            regular_expressions=[{
+                "regex_string": "one",
+            }])
+        example = aws.wafv2.RuleGroup("example",
+            name="complex-example",
+            description="An rule group containing all statements",
+            scope="REGIONAL",
+            capacity=500,
+            rules=[
+                {
+                    "name": "rule-1",
+                    "priority": 1,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "not_statement": {
+                            "statements": [{
+                                "and_statement": {
+                                    "statements": [
+                                        {
+                                            "geo_match_statement": {
+                                                "country_codes": ["US"],
+                                            },
+                                        },
+                                        {
+                                            "byte_match_statement": {
+                                                "positional_constraint": "CONTAINS",
+                                                "search_string": "word",
+                                                "field_to_match": {
+                                                    "all_query_arguments": {},
+                                                },
+                                                "text_transformations": [
+                                                    {
+                                                        "priority": 5,
+                                                        "type": "CMD_LINE",
+                                                    },
+                                                    {
+                                                        "priority": 2,
+                                                        "type": "LOWERCASE",
+                                                    },
+                                                ],
+                                            },
+                                        },
+                                    ],
+                                },
+                            }],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-1",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+                {
+                    "name": "rule-2",
+                    "priority": 2,
+                    "action": {
+                        "count": {},
+                    },
+                    "statement": {
+                        "or_statement": {
+                            "statements": [
+                                {
+                                    "regex_match_statement": {
+                                        "regex_string": "a-z?",
+                                        "field_to_match": {
+                                            "single_header": {
+                                                "name": "user-agent",
+                                            },
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 6,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                                {
+                                    "sqli_match_statement": {
+                                        "field_to_match": {
+                                            "body": {},
+                                        },
+                                        "text_transformations": [
+                                            {
+                                                "priority": 5,
+                                                "type": "URL_DECODE",
+                                            },
+                                            {
+                                                "priority": 4,
+                                                "type": "HTML_ENTITY_DECODE",
+                                            },
+                                            {
+                                                "priority": 3,
+                                                "type": "COMPRESS_WHITE_SPACE",
+                                            },
+                                        ],
+                                    },
+                                },
+                                {
+                                    "xss_match_statement": {
+                                        "field_to_match": {
+                                            "method": {},
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 2,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-2",
+                        "sampled_requests_enabled": False,
+                    },
+                    "captcha_config": {
+                        "immunity_time_property": {
+                            "immunity_time": 240,
+                        },
+                    },
+                },
+                {
+                    "name": "rule-3",
+                    "priority": 3,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "size_constraint_statement": {
+                            "comparison_operator": "GT",
+                            "size": 100,
+                            "field_to_match": {
+                                "single_query_argument": {
+                                    "name": "username",
+                                },
+                            },
+                            "text_transformations": [{
+                                "priority": 5,
+                                "type": "NONE",
+                            }],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-3",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+                {
+                    "name": "rule-4",
+                    "priority": 4,
+                    "action": {
+                        "block": {},
+                    },
+                    "statement": {
+                        "or_statement": {
+                            "statements": [
+                                {
+                                    "ip_set_reference_statement": {
+                                        "arn": test.arn,
+                                    },
+                                },
+                                {
+                                    "regex_pattern_set_reference_statement": {
+                                        "arn": test_regex_pattern_set.arn,
+                                        "field_to_match": {
+                                            "single_header": {
+                                                "name": "referer",
+                                            },
+                                        },
+                                        "text_transformations": [{
+                                            "priority": 2,
+                                            "type": "NONE",
+                                        }],
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    "visibility_config": {
+                        "cloudwatch_metrics_enabled": False,
+                        "metric_name": "rule-4",
+                        "sampled_requests_enabled": False,
+                    },
+                },
+            ],
+            visibility_config={
+                "cloudwatch_metrics_enabled": False,
+                "metric_name": "friendly-metric-name",
+                "sampled_requests_enabled": False,
+            },
+            captcha_config=[{
+                "immunityTimeProperty": [{
+                    "immunityTime": 120,
+                }],
+            }],
+            tags={
+                "Name": "example-and-statement",
+                "Code": "123456",
+            })
+        ```
+
+        ### Using rules_json
+
+        ```python
+        import pulumi
+        import json
+        import pulumi_aws as aws
+
+        example = aws.wafv2.RuleGroup("example",
+            name="example-rule-group",
+            scope="REGIONAL",
+            capacity=100,
+            rules_json=json.dumps([{
+                "Name": "rule-1",
+                "Priority": 1,
+                "Action": {
+                    "Count": {},
+                },
+                "Statement": {
+                    "ByteMatchStatement": {
+                        "SearchString": "badbot",
+                        "FieldToMatch": {
+                            "UriPath": {},
+                        },
+                        "TextTransformations": [{
+                            "Priority": 1,
+                            "Type": "NONE",
+                        }],
+                        "PositionalConstraint": "CONTAINS",
+                    },
+                },
+                "VisibilityConfig": {
+                    "CloudwatchMetricsEnabled": False,
+                    "MetricName": "friendly-rule-metric-name",
+                    "SampledRequestsEnabled": False,
+                },
+            }]),
             visibility_config={
                 "cloudwatch_metrics_enabled": False,
                 "metric_name": "friendly-metric-name",
@@ -650,6 +1189,7 @@ class RuleGroup(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name_prefix: Creates a unique name beginning with the specified prefix. Conflicts with `name`.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['RuleGroupRuleArgs', 'RuleGroupRuleArgsDict']]]] rules: The rule blocks used to identify the web requests that you want to `allow`, `block`, or `count`. See Rules below for details.
+        :param pulumi.Input[_builtins.str] rules_json: Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
         :param pulumi.Input[_builtins.str] scope: Specifies whether this is for an AWS CloudFront distribution or for a regional application. Valid values are `CLOUDFRONT` or `REGIONAL`. To work with CloudFront, you must also specify the region `us-east-1` (N. Virginia) on the AWS provider.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: An array of key:value pairs to associate with the resource. If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
@@ -747,6 +1287,9 @@ class RuleGroup(pulumi.CustomResource):
     @_builtins.property
     @pulumi.getter(name="rulesJson")
     def rules_json(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        Raw JSON string to allow more than three nested statements. Conflicts with `rule` attribute. This is for advanced use cases where more than 3 levels of nested statements are required. **There is no drift detection at this time**. If you use this attribute instead of `rule`, you will be foregoing drift detection. Additionally, importing an existing rule group into a configuration with `rules_json` set will result in a one time in-place update as the remote rule configuration is initially written to the `rule` attribute. See the AWS [documentation](https://docs.aws.amazon.com/waf/latest/APIReference/API_CreateRuleGroup.html) for the JSON structure.
+        """
         return pulumi.get(self, "rules_json")
 
     @_builtins.property

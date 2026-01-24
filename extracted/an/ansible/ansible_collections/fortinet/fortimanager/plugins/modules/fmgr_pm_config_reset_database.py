@@ -16,7 +16,6 @@ short_description: Reset Global ADOM to a specific version.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -90,8 +89,8 @@ EXAMPLES = '''
     - name: Reset Global ADOM to a specific version.
       fortinet.fortimanager.fmgr_pm_config_reset_database:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         pm_config_reset_database:

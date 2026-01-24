@@ -47,8 +47,7 @@ static const char *RcsId = "$Id:  $";
  *	Create IfchangeServer Class singleton and store it in DServer object.
  */
 
-void Tango::DServer::class_factory()
-{
+void Tango::DServer::class_factory() {
     //	Add method class init if needed
     add_class(IfchangeServer_ns::IfchangeServerClass::init("IfchangeServer"));
 }

@@ -15,16 +15,14 @@ import trafaret as t
 
 from datarobot.models.api_object import APIObject
 
-notebook_settings_trafaret = t.Dict(
-    {
-        t.Key("show_line_numbers"): t.Bool,
-        t.Key("hide_cell_titles"): t.Bool,
-        t.Key("hide_cell_outputs"): t.Bool,
-        t.Key("show_scrollers"): t.Bool,
-        t.Key("hide_cell_footers"): t.Bool,
-        t.Key("highlight_whitespace"): t.Bool,
-    }
-).ignore_extra("*")
+notebook_settings_trafaret = t.Dict({
+    t.Key("show_line_numbers"): t.Bool,
+    t.Key("hide_cell_titles"): t.Bool,
+    t.Key("hide_cell_outputs"): t.Bool,
+    t.Key("show_scrollers"): t.Bool,
+    t.Key("hide_cell_footers"): t.Bool,
+    t.Key("highlight_whitespace"): t.Bool,
+}).ignore_extra("*")
 
 
 class NotebookSettings(APIObject):

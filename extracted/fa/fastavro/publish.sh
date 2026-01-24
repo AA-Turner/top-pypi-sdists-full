@@ -27,6 +27,7 @@ PyVers="39
 311
 312
 313
+314
 "
 
 for os in $OSes; do
@@ -35,6 +36,8 @@ for os in $OSes; do
             wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}-macosx_10_13_universal2.whl
         elif [[ ${os} == "macosx_10_9_universal2" && ${pyver} == "313" ]]; then
             wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}-macosx_10_13_universal2.whl
+        elif [[ ${os} == "macosx_10_9_universal2" && ${pyver} == "314" ]]; then
+            wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}-macosx_10_15_universal2.whl
         else
             wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}-${os}.whl
         fi
@@ -49,11 +52,16 @@ musllinux_1_2_x86_64
 musllinux_1_2_aarch64"
 
 PyVers="313
+314
 "
 
 for os in $OSes; do
     for pyver in $PyVers; do
-        wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}t-${os}.whl
+        if [[ ${os} == "macosx_10_13_universal2" && ${pyver} == "314" ]]; then
+            wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}-macosx_10_15_universal2.whl
+        else
+            wget -q --directory-prefix=dist/ https://github.com/fastavro/fastavro/releases/download/${ver}/fastavro-${ver}-cp${pyver}-cp${pyver}t-${os}.whl
+        fi
     done
 done
 

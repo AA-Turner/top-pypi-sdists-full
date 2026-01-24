@@ -42,7 +42,7 @@ class VitsConfig(BaseTTSConfig):
             Parameters for the learning rate scheduler of the discriminator. Defaults to `{'gamma': 0.999875, "last_epoch":-1}`.
 
         scheduler_after_epoch (bool):
-            If true, step the schedulers after each epoch else after each step. Defaults to `False`.
+            If true, step the schedulers after each epoch else after each step. Defaults to `True`.
 
         optimizer (str):
             Name of the optimizer to use with both the generator and the discriminator networks. One of the
@@ -159,15 +159,15 @@ class VitsConfig(BaseTTSConfig):
     # use speaker embedding layer
     num_speakers: int = 0
     use_speaker_embedding: bool = False
-    speakers_file: str = None
+    speakers_file: str | None = None
     speaker_embedding_channels: int = 256
-    language_ids_file: str = None
+    language_ids_file: str | None = None
     use_language_embedding: bool = False
 
     # use d-vectors
     use_d_vector_file: bool = False
-    d_vector_file: list[str] = None
-    d_vector_dim: int = None
+    d_vector_file: str | list[str] | None = None
+    d_vector_dim: int | None = None
 
     def __post_init__(self):
         for key, val in self.model_args.items():

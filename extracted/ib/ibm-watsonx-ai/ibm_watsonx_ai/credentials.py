@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 
@@ -40,7 +41,7 @@ class Credentials:
     :param instance_id: instance ID, mandatory for ICP
     :type instance_id: str, optional
 
-    :param version: IBM Cloud Pak® for Data two-digit version, if not provided the version will be recognized automatically for IBM Cloud Pak® for Data 4.8 release and higher.
+    :param version: IBM Cloud Pak® for Data two-digit version, if not provided the version will be recognized automatically for IBM Cloud Pak® for Data 5.0 release and higher.
     :type version: str, optional
 
     :param bedrock_url: Bedrock URL, applicable for ICP only
@@ -50,7 +51,7 @@ class Credentials:
     :type proxies: dict, optional
 
     :param verify: certificate verification flag
-    :type verify: bool, optional
+    :type verify: bool | str | Path, optional
 
     **Example of create Credentials object**
 
@@ -62,14 +63,12 @@ class Credentials:
 
         # Example of creating the credentials using an API key:
         credentials = Credentials(
-            url = "https://us-south.ml.cloud.ibm.com",
-            api_key = IAM_API_KEY
+            url="https://us-south.ml.cloud.ibm.com", api_key=IAM_API_KEY
         )
 
         # Example of creating the credentials using a token:
         credentials = Credentials(
-            url = "https://us-south.ml.cloud.ibm.com",
-            token = "***********"
+            url="https://us-south.ml.cloud.ibm.com", token="***********"
         )
 
     - IBM watsonx.ai software
@@ -123,8 +122,11 @@ class Credentials:
         bedrock_url: str | None = None,
         platform_url: str | None = None,
         proxies: dict | None = None,
-        verify: str | bool | None = None,
+        verify: str | Path | bool | None = None,
     ) -> None:
+        if isinstance(verify, Path):
+            verify = str(verify)
+
         env_credentials = Credentials._get_values_from_env_vars()
 
         self.url = url
@@ -141,7 +143,7 @@ class Credentials:
         self.bedrock_url = bedrock_url
         self.platform_url = platform_url
         self.proxies = proxies
-        self.verify = verify
+        self.verify = self._get_verify_value(verify)
         self._is_env_token = token is None and "token" in env_credentials
 
         if isinstance(self.version, str) and self.instance_id is not None:
@@ -157,21 +159,29 @@ class Credentials:
                 self.__dict__[k] = v
 
     @staticmethod
-    def _get_values_from_env_vars() -> dict[str, Any]:
-        def get_value_from_file(filename: str) -> str:
-            with open(filename, "r") as f:
-                return f.read()
-
-        def get_verify_value(x: str) -> bool | str:
-            if x in ["True", "False"]:
-                return x == "True"
-            else:
+    def _get_verify_value(x: str | bool | Path | None) -> bool | str | None:
+        match x:
+            case bool():
                 return x
+            case str():
+                return x == "True" if x in {"True", "False"} else x
+            case Path():
+                return str(x)
+            case _:
+                return None
+
+    @classmethod
+    def _get_values_from_env_vars(cls) -> dict[str, Any]:
+        def get_value_from_file(filename: str) -> str:
+            return Path(filename).read_text()
 
         env_vars_mapping = {
             "FLIGHT_SERVICE_LOCATION": lambda x: ("flight_service_location", x),
             "FLIGHT_SERVICE_PORT": lambda x: ("flight_service_port", int(x)),
-            "WX_CLIENT_VERIFY_REQUESTS": lambda x: ("verify", get_verify_value(x)),
+            "WX_CLIENT_VERIFY_REQUESTS": lambda x: (
+                "verify",
+                cls._get_verify_value(x),
+            ),
             "USER_ACCESS_TOKEN": lambda x: ("token", x.replace("Bearer ", "")),
             "RUNTIME_ENV_ACCESS_TOKEN_FILE": lambda x: (
                 "token",
@@ -203,7 +213,7 @@ class Credentials:
 
     @staticmethod
     def from_dict(
-        credentials: dict[str, Any], _verify: bool | None = None
+        credentials: dict[str, Any], _verify: bool | str | Path | None = None
     ) -> Credentials:
         """Create a Credentials object from dictionary.
 
@@ -219,10 +229,9 @@ class Credentials:
 
             from ibm_watsonx_ai import Credentials
 
-            credentials = Credentials.from_dict({
-                'url': "<url>",
-                'apikey': IAM_API_URL
-            })
+            credentials = Credentials.from_dict(
+                {"url": "<url>", "apikey": IAM_API_URL}
+            )
 
         """
         hidden_options_list = [
@@ -235,6 +244,7 @@ class Credentials:
             "FLIGHT_SERVICE_PORT",
             "flight_url",
             "token_function",
+            "atoken_function",
         ]
 
         creds = Credentials(
@@ -273,10 +283,9 @@ class Credentials:
 
             from ibm_watsonx_ai import Credentials
 
-            credentials = Credentials.from_dict({
-                'url': "<url>",
-                'apikey': IAM_API_KEY
-            })
+            credentials = Credentials.from_dict(
+                {"url": "<url>", "apikey": IAM_API_KEY}
+            )
 
             credentials_dict = credentials.to_dict()
 
@@ -288,10 +297,15 @@ class Credentials:
                 if v is not None and not k.startswith("_")
             ]
         )
-        if "instance_id" in data and self.instance_id.lower() not in [
-            "icp",
-            "openshift",
-        ]:
+        if (
+            "instance_id" in data
+            and self.instance_id is not None
+            and self.instance_id.lower()
+            not in [
+                "icp",
+                "openshift",
+            ]
+        ):
             data.pop("instance_id")
         return data
 

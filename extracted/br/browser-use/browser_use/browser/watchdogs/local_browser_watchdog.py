@@ -18,6 +18,7 @@ from browser_use.browser.events import (
 	BrowserStopEvent,
 )
 from browser_use.browser.watchdog_base import BaseWatchdog
+from browser_use.observability import observe_debug
 
 if TYPE_CHECKING:
 	pass
@@ -42,6 +43,7 @@ class LocalBrowserWatchdog(BaseWatchdog):
 	_temp_dirs_to_cleanup: list[Path] = PrivateAttr(default_factory=list)
 	_original_user_data_dir: str | None = PrivateAttr(default=None)
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='browser_launch_event')
 	async def on_BrowserLaunchEvent(self, event: BrowserLaunchEvent) -> BrowserLaunchResult:
 		"""Launch a local browser process."""
 
@@ -85,6 +87,7 @@ class LocalBrowserWatchdog(BaseWatchdog):
 			# Dispatch BrowserKillEvent without awaiting so it gets processed after all BrowserStopEvent handlers
 			self.event_bus.dispatch(BrowserKillEvent())
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='launch_browser_process')
 	async def _launch_browser(self, max_retries: int = 3) -> tuple[psutil.Process, str]:
 		"""Launch browser process and return (process, cdp_url).
 
@@ -135,6 +138,9 @@ class LocalBrowserWatchdog(BaseWatchdog):
 
 				# Launch browser subprocess directly
 				self.logger.debug(f'[LocalBrowserWatchdog] 🚀 Launching browser subprocess with {len(launch_args)} args...')
+				self.logger.debug(
+					f'[LocalBrowserWatchdog] 📂 user_data_dir={profile.user_data_dir}, profile_directory={profile.profile_directory}'
+				)
 				subprocess = await asyncio.create_subprocess_exec(
 					browser_path,
 					*launch_args,
@@ -151,12 +157,21 @@ class LocalBrowserWatchdog(BaseWatchdog):
 				# Wait for CDP to be ready and get the URL
 				cdp_url = await self._wait_for_cdp_url(debug_port)
 
-				# Success! Clean up any temp dirs we created but didn't use
-				for tmp_dir in self._temp_dirs_to_cleanup:
+				# Success! Clean up only the temp dirs we created but didn't use
+				currently_used_dir = str(profile.user_data_dir)
+				unused_temp_dirs = [tmp_dir for tmp_dir in self._temp_dirs_to_cleanup if str(tmp_dir) != currently_used_dir]
+
+				for tmp_dir in unused_temp_dirs:
 					try:
 						shutil.rmtree(tmp_dir, ignore_errors=True)
 					except Exception:
 						pass
+
+				# Keep only the in-use directory for cleanup during browser kill
+				if currently_used_dir and 'browseruse-tmp-' in currently_used_dir:
+					self._temp_dirs_to_cleanup = [Path(currently_used_dir)]
+				else:
+					self._temp_dirs_to_cleanup = []
 
 				return process, cdp_url
 
@@ -240,7 +255,7 @@ class LocalBrowserWatchdog(BaseWatchdog):
 				'/usr/bin/google-chrome-stable',
 				'/usr/bin/google-chrome',
 				'/usr/local/bin/google-chrome',
-				f'{playwright_path}/chromium-*/chrome-linux/chrome',
+				f'{playwright_path}/chromium-*/chrome-linux*/chrome',
 				'/usr/bin/chromium',
 				'/usr/bin/chromium-browser',
 				'/usr/local/bin/chromium',
@@ -248,7 +263,7 @@ class LocalBrowserWatchdog(BaseWatchdog):
 				'/usr/bin/google-chrome-beta',
 				'/usr/bin/google-chrome-dev',
 				'/usr/bin/brave-browser',
-				f'{playwright_path}/chromium_headless_shell-*/chrome-linux/chrome',
+				f'{playwright_path}/chromium_headless_shell-*/chrome-linux*/chrome',
 			]
 		elif system == 'Windows':
 			if not playwright_path:
@@ -308,14 +323,16 @@ class LocalBrowserWatchdog(BaseWatchdog):
 
 	async def _install_browser_with_playwright(self) -> str:
 		"""Get browser executable path from playwright in a subprocess to avoid thread issues."""
+		import platform
+
+		# Build command - only use --with-deps on Linux (it fails on Windows/macOS)
+		cmd = ['uvx', 'playwright', 'install', 'chrome']
+		if platform.system() == 'Linux':
+			cmd.append('--with-deps')
 
 		# Run in subprocess with timeout
 		process = await asyncio.create_subprocess_exec(
-			'uvx',
-			'playwright',
-			'install',
-			'chrome',
-			'--with-deps',
+			*cmd,
 			stdout=asyncio.subprocess.PIPE,
 			stderr=asyncio.subprocess.PIPE,
 		)
@@ -327,7 +344,7 @@ class LocalBrowserWatchdog(BaseWatchdog):
 			if browser_path:
 				return browser_path
 			self.logger.error(f'[LocalBrowserWatchdog] ❌ Playwright local browser installation error: \n{stdout}\n{stderr}')
-			raise RuntimeError('No local browser path found after: uvx playwright install chrome --with-deps')
+			raise RuntimeError('No local browser path found after: uvx playwright install chrome')
 		except TimeoutError:
 			# Kill the subprocess if it times out
 			process.kill()
@@ -361,10 +378,10 @@ class LocalBrowserWatchdog(BaseWatchdog):
 		while asyncio.get_event_loop().time() - start_time < timeout:
 			try:
 				async with aiohttp.ClientSession() as session:
-					async with session.get(f'http://localhost:{port}/json/version') as resp:
+					async with session.get(f'http://127.0.0.1:{port}/json/version') as resp:
 						if resp.status == 200:
 							# Chrome is ready
-							return f'http://localhost:{port}/'
+							return f'http://127.0.0.1:{port}/'
 						else:
 							# Chrome is starting up and returning 502/500 errors
 							await asyncio.sleep(0.1)

@@ -15,8 +15,9 @@ from capnp.includes.schema_cpp cimport (MessageReader,)
 
 from builtins import memoryview as BuiltinsMemoryview
 from cpython cimport array, Py_buffer, PyObject_CheckBuffer
-from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_WRITE, PyBUF_READ, PyBUF_CONTIG_RO
-from cpython.memoryview cimport PyMemoryView_FromMemory
+from cpython.buffer cimport PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_WRITE, PyBUF_READ, PyBUF_CONTIG_RO, PyBuffer_FillInfo
+from cpython.memoryview cimport PyMemoryView_FromMemory, PyMemoryView_FromBuffer
+from cpython.bytes cimport PyBytes_FromStringAndSize
 from cpython.exc cimport PyErr_Clear
 from cython.operator cimport dereference as deref
 from libc.stdlib cimport malloc, free
@@ -668,7 +669,7 @@ cdef to_python_reader(C_DynamicValue.Reader self, object parent):
         return (<char*>temp_text.begin())[:temp_text.size()]
     elif type == capnp.TYPE_DATA:
         temp_data = self.asData()
-        return PyMemoryView_FromMemory(<char *> temp_data.begin(), temp_data.size(), PyBUF_READ)
+        return <bytes>((<char*>temp_data.begin())[:temp_data.size()])
     elif type == capnp.TYPE_LIST:
         return _DynamicListReader()._init(self.asList(), parent)
     elif type == capnp.TYPE_STRUCT:
@@ -702,7 +703,7 @@ cdef to_python_builder(C_DynamicValue.Builder self, object parent):
         return (<char*>temp_text.begin())[:temp_text.size()]
     elif type == capnp.TYPE_DATA:
         temp_data = self.asData()
-        return PyMemoryView_FromMemory(<char *> temp_data.begin(), temp_data.size(), PyBUF_WRITE)
+        return <bytes>((<char*>temp_data.begin())[:temp_data.size()])
     elif type == capnp.TYPE_LIST:
         return _DynamicListBuilder()._init(self.asList(), parent)
     elif type == capnp.TYPE_STRUCT:
@@ -1060,6 +1061,12 @@ cdef _to_dict(msg, bint verbose, bint ordered, bint encode_bytes_as_base64=False
         # encode the message as base64 and return utf-8 string
         return base64.b64encode(msg).decode('utf-8')
 
+    if msg_type is memoryview:
+        if encode_bytes_as_base64:
+            return base64.b64encode(bytes(msg)).decode('utf-8')
+        else:
+            return bytes(msg)
+
     return msg
 
 
@@ -1218,6 +1225,29 @@ cdef class _DynamicStructReader:
 
     cpdef _has_by_field(self, _StructSchemaField field):
         return self.thisptr.hasByField(field.thisptr)
+
+    cpdef get_data_as_view(self, field):
+        """
+        Efficiently get a read-only memoryview for a DATA field without copying.
+        """
+        cdef C_DynamicValue.Reader val
+        cdef capnp.Data.Reader temp_data
+
+        try:
+            val = self.thisptr.get(field)
+        except KjException as e:
+            raise e._to_python() from None
+
+        if val.getType() != capnp.TYPE_DATA:
+            raise TypeError("Field '{}' is not a DATA field".format(field))
+
+        temp_data = val.asData()
+
+        # Return read-only memoryview
+        cdef Py_buffer buf
+        if PyBuffer_FillInfo(&buf, self, <void*>temp_data.begin(), temp_data.size(), 1, PyBUF_CONTIG_RO) < 0:
+            raise KjException("Failed to create buffer info")
+        return PyMemoryView_FromBuffer(&buf)
 
     cpdef _which_str(self):
         try:
@@ -1620,6 +1650,32 @@ cdef class _DynamicStructBuilder:
         :rtype: :class:`_DynamicOrphan`
         """
         return _DynamicOrphan()._init(self.thisptr.disown(field), self._parent)
+
+    cpdef get_data_as_view(self, field):
+        """
+        Efficiently get a writable memoryview for a DATA field without copying.
+
+        This allows in-place modification of the underlying buffer:
+        msg.get_data_as_view('myField')[0] = 0xFF
+        """
+        cdef C_DynamicValue.Builder val
+        cdef capnp.Data.Builder temp_data
+
+        try:
+            val = self.thisptr.get(field)
+        except KjException as e:
+            raise e._to_python() from None
+
+        if val.getType() != capnp.TYPE_DATA:
+            raise TypeError("Field '{}' is not a DATA field".format(field))
+
+        temp_data = val.asData()
+
+        # Return writable memoryview
+        cdef Py_buffer buf
+        if PyBuffer_FillInfo(&buf, self, <void*>temp_data.begin(), temp_data.size(), 0, PyBUF_WRITABLE) < 0:
+            raise KjException("Failed to create buffer info")
+        return PyMemoryView_FromBuffer(&buf)
 
     cpdef as_reader(self):
         """A method for casting this Builder to a Reader
@@ -2693,8 +2749,13 @@ cdef class _PyAsyncIoStreamProtocol(DummyBaseClass, asyncio.BufferedProtocol):
         cdef const ArrayPtr[const uint8_t]* piece
         for i in range(self.write_index, self.write_pieces.size()):
             piece = &self.write_pieces[i]
-            view = PyMemoryView_FromMemory(<char*>piece.begin(), piece.size(), PyBUF_READ)
-            self.transport.write(view)
+            # Copy data to Python bytes to avoid use-after-free.
+            # transport.write() is non-blocking and buffers data asynchronously.
+            # The memoryview would point to C++ memory that gets freed when
+            # fulfill() is called below, but asyncio may not have sent the data
+            # yet, causing memory corruption with large payloads.
+            data = PyBytes_FromStringAndSize(<char*>piece.begin(), piece.size())
+            self.transport.write(data)
             if self.write_paused:
                 self.write_index = i+1
                 break

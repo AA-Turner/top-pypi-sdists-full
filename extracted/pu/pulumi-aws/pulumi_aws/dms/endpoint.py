@@ -32,6 +32,7 @@ class EndpointArgs:
                  kinesis_settings: Optional[pulumi.Input['EndpointKinesisSettingsArgs']] = None,
                  kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  mongodb_settings: Optional[pulumi.Input['EndpointMongodbSettingsArgs']] = None,
+                 mysql_settings: Optional[pulumi.Input['EndpointMysqlSettingsArgs']] = None,
                  oracle_settings: Optional[pulumi.Input['EndpointOracleSettingsArgs']] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  pause_replication_tasks: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -51,7 +52,7 @@ class EndpointArgs:
         The set of arguments for constructing a Endpoint resource.
         :param pulumi.Input[_builtins.str] endpoint_id: Database endpoint identifier. Identifiers must contain from 1 to 255 alphanumeric characters or hyphens, begin with a letter, contain only ASCII letters, digits, and hyphens, not end with a hyphen, and not contain two consecutive hyphens.
         :param pulumi.Input[_builtins.str] endpoint_type: Type of endpoint. Valid values are `source`, `target`.
-        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         :param pulumi.Input[_builtins.str] certificate_arn: ARN for the certificate.
         :param pulumi.Input[_builtins.str] database_name: Name of the endpoint database.
         :param pulumi.Input['EndpointElasticsearchSettingsArgs'] elasticsearch_settings: Configuration block for OpenSearch settings. See below.
@@ -62,6 +63,7 @@ class EndpointArgs:
                
                The following arguments are optional:
         :param pulumi.Input['EndpointMongodbSettingsArgs'] mongodb_settings: Configuration block for MongoDB settings. See below.
+        :param pulumi.Input['EndpointMysqlSettingsArgs'] mysql_settings: Configuration block for MySQL settings. See below.
         :param pulumi.Input['EndpointOracleSettingsArgs'] oracle_settings: Configuration block for Oracle settings. See below.
         :param pulumi.Input[_builtins.str] password: Password to be used to login to the endpoint database.
         :param pulumi.Input[_builtins.int] port: Port used by the endpoint database.
@@ -97,6 +99,8 @@ class EndpointArgs:
             pulumi.set(__self__, "kms_key_arn", kms_key_arn)
         if mongodb_settings is not None:
             pulumi.set(__self__, "mongodb_settings", mongodb_settings)
+        if mysql_settings is not None:
+            pulumi.set(__self__, "mysql_settings", mysql_settings)
         if oracle_settings is not None:
             pulumi.set(__self__, "oracle_settings", oracle_settings)
         if password is not None:
@@ -156,7 +160,7 @@ class EndpointArgs:
     @pulumi.getter(name="engineName")
     def engine_name(self) -> pulumi.Input[_builtins.str]:
         """
-        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         """
         return pulumi.get(self, "engine_name")
 
@@ -261,6 +265,18 @@ class EndpointArgs:
     @mongodb_settings.setter
     def mongodb_settings(self, value: Optional[pulumi.Input['EndpointMongodbSettingsArgs']]):
         pulumi.set(self, "mongodb_settings", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mysqlSettings")
+    def mysql_settings(self) -> Optional[pulumi.Input['EndpointMysqlSettingsArgs']]:
+        """
+        Configuration block for MySQL settings. See below.
+        """
+        return pulumi.get(self, "mysql_settings")
+
+    @mysql_settings.setter
+    def mysql_settings(self, value: Optional[pulumi.Input['EndpointMysqlSettingsArgs']]):
+        pulumi.set(self, "mysql_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="oracleSettings")
@@ -454,6 +470,7 @@ class _EndpointState:
                  kinesis_settings: Optional[pulumi.Input['EndpointKinesisSettingsArgs']] = None,
                  kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  mongodb_settings: Optional[pulumi.Input['EndpointMongodbSettingsArgs']] = None,
+                 mysql_settings: Optional[pulumi.Input['EndpointMysqlSettingsArgs']] = None,
                  oracle_settings: Optional[pulumi.Input['EndpointOracleSettingsArgs']] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  pause_replication_tasks: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -478,7 +495,7 @@ class _EndpointState:
         :param pulumi.Input[_builtins.str] endpoint_arn: ARN for the endpoint.
         :param pulumi.Input[_builtins.str] endpoint_id: Database endpoint identifier. Identifiers must contain from 1 to 255 alphanumeric characters or hyphens, begin with a letter, contain only ASCII letters, digits, and hyphens, not end with a hyphen, and not contain two consecutive hyphens.
         :param pulumi.Input[_builtins.str] endpoint_type: Type of endpoint. Valid values are `source`, `target`.
-        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         :param pulumi.Input[_builtins.str] extra_connection_attributes: Additional attributes associated with the connection. For available attributes for a `source` Endpoint, see [Sources for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.html). For available attributes for a `target` Endpoint, see [Targets for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.html).
         :param pulumi.Input['EndpointKafkaSettingsArgs'] kafka_settings: Configuration block for Kafka settings. See below.
         :param pulumi.Input['EndpointKinesisSettingsArgs'] kinesis_settings: Configuration block for Kinesis settings. See below.
@@ -486,6 +503,7 @@ class _EndpointState:
                
                The following arguments are optional:
         :param pulumi.Input['EndpointMongodbSettingsArgs'] mongodb_settings: Configuration block for MongoDB settings. See below.
+        :param pulumi.Input['EndpointMysqlSettingsArgs'] mysql_settings: Configuration block for MySQL settings. See below.
         :param pulumi.Input['EndpointOracleSettingsArgs'] oracle_settings: Configuration block for Oracle settings. See below.
         :param pulumi.Input[_builtins.str] password: Password to be used to login to the endpoint database.
         :param pulumi.Input[_builtins.int] port: Port used by the endpoint database.
@@ -527,6 +545,8 @@ class _EndpointState:
             pulumi.set(__self__, "kms_key_arn", kms_key_arn)
         if mongodb_settings is not None:
             pulumi.set(__self__, "mongodb_settings", mongodb_settings)
+        if mysql_settings is not None:
+            pulumi.set(__self__, "mysql_settings", mysql_settings)
         if oracle_settings is not None:
             pulumi.set(__self__, "oracle_settings", oracle_settings)
         if password is not None:
@@ -636,7 +656,7 @@ class _EndpointState:
     @pulumi.getter(name="engineName")
     def engine_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         """
         return pulumi.get(self, "engine_name")
 
@@ -705,6 +725,18 @@ class _EndpointState:
     @mongodb_settings.setter
     def mongodb_settings(self, value: Optional[pulumi.Input['EndpointMongodbSettingsArgs']]):
         pulumi.set(self, "mongodb_settings", value)
+
+    @_builtins.property
+    @pulumi.getter(name="mysqlSettings")
+    def mysql_settings(self) -> Optional[pulumi.Input['EndpointMysqlSettingsArgs']]:
+        """
+        Configuration block for MySQL settings. See below.
+        """
+        return pulumi.get(self, "mysql_settings")
+
+    @mysql_settings.setter
+    def mysql_settings(self, value: Optional[pulumi.Input['EndpointMysqlSettingsArgs']]):
+        pulumi.set(self, "mysql_settings", value)
 
     @_builtins.property
     @pulumi.getter(name="oracleSettings")
@@ -912,6 +944,7 @@ class Endpoint(pulumi.CustomResource):
                  kinesis_settings: Optional[pulumi.Input[Union['EndpointKinesisSettingsArgs', 'EndpointKinesisSettingsArgsDict']]] = None,
                  kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  mongodb_settings: Optional[pulumi.Input[Union['EndpointMongodbSettingsArgs', 'EndpointMongodbSettingsArgsDict']]] = None,
+                 mysql_settings: Optional[pulumi.Input[Union['EndpointMysqlSettingsArgs', 'EndpointMysqlSettingsArgsDict']]] = None,
                  oracle_settings: Optional[pulumi.Input[Union['EndpointOracleSettingsArgs', 'EndpointOracleSettingsArgsDict']]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  pause_replication_tasks: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -970,7 +1003,7 @@ class Endpoint(pulumi.CustomResource):
         :param pulumi.Input[Union['EndpointElasticsearchSettingsArgs', 'EndpointElasticsearchSettingsArgsDict']] elasticsearch_settings: Configuration block for OpenSearch settings. See below.
         :param pulumi.Input[_builtins.str] endpoint_id: Database endpoint identifier. Identifiers must contain from 1 to 255 alphanumeric characters or hyphens, begin with a letter, contain only ASCII letters, digits, and hyphens, not end with a hyphen, and not contain two consecutive hyphens.
         :param pulumi.Input[_builtins.str] endpoint_type: Type of endpoint. Valid values are `source`, `target`.
-        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         :param pulumi.Input[_builtins.str] extra_connection_attributes: Additional attributes associated with the connection. For available attributes for a `source` Endpoint, see [Sources for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.html). For available attributes for a `target` Endpoint, see [Targets for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.html).
         :param pulumi.Input[Union['EndpointKafkaSettingsArgs', 'EndpointKafkaSettingsArgsDict']] kafka_settings: Configuration block for Kafka settings. See below.
         :param pulumi.Input[Union['EndpointKinesisSettingsArgs', 'EndpointKinesisSettingsArgsDict']] kinesis_settings: Configuration block for Kinesis settings. See below.
@@ -978,6 +1011,7 @@ class Endpoint(pulumi.CustomResource):
                
                The following arguments are optional:
         :param pulumi.Input[Union['EndpointMongodbSettingsArgs', 'EndpointMongodbSettingsArgsDict']] mongodb_settings: Configuration block for MongoDB settings. See below.
+        :param pulumi.Input[Union['EndpointMysqlSettingsArgs', 'EndpointMysqlSettingsArgsDict']] mysql_settings: Configuration block for MySQL settings. See below.
         :param pulumi.Input[Union['EndpointOracleSettingsArgs', 'EndpointOracleSettingsArgsDict']] oracle_settings: Configuration block for Oracle settings. See below.
         :param pulumi.Input[_builtins.str] password: Password to be used to login to the endpoint database.
         :param pulumi.Input[_builtins.int] port: Port used by the endpoint database.
@@ -1061,6 +1095,7 @@ class Endpoint(pulumi.CustomResource):
                  kinesis_settings: Optional[pulumi.Input[Union['EndpointKinesisSettingsArgs', 'EndpointKinesisSettingsArgsDict']]] = None,
                  kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
                  mongodb_settings: Optional[pulumi.Input[Union['EndpointMongodbSettingsArgs', 'EndpointMongodbSettingsArgsDict']]] = None,
+                 mysql_settings: Optional[pulumi.Input[Union['EndpointMysqlSettingsArgs', 'EndpointMysqlSettingsArgsDict']]] = None,
                  oracle_settings: Optional[pulumi.Input[Union['EndpointOracleSettingsArgs', 'EndpointOracleSettingsArgsDict']]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  pause_replication_tasks: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1102,6 +1137,7 @@ class Endpoint(pulumi.CustomResource):
             __props__.__dict__["kinesis_settings"] = kinesis_settings
             __props__.__dict__["kms_key_arn"] = kms_key_arn
             __props__.__dict__["mongodb_settings"] = mongodb_settings
+            __props__.__dict__["mysql_settings"] = mysql_settings
             __props__.__dict__["oracle_settings"] = oracle_settings
             __props__.__dict__["password"] = None if password is None else pulumi.Output.secret(password)
             __props__.__dict__["pause_replication_tasks"] = pause_replication_tasks
@@ -1143,6 +1179,7 @@ class Endpoint(pulumi.CustomResource):
             kinesis_settings: Optional[pulumi.Input[Union['EndpointKinesisSettingsArgs', 'EndpointKinesisSettingsArgsDict']]] = None,
             kms_key_arn: Optional[pulumi.Input[_builtins.str]] = None,
             mongodb_settings: Optional[pulumi.Input[Union['EndpointMongodbSettingsArgs', 'EndpointMongodbSettingsArgsDict']]] = None,
+            mysql_settings: Optional[pulumi.Input[Union['EndpointMysqlSettingsArgs', 'EndpointMysqlSettingsArgsDict']]] = None,
             oracle_settings: Optional[pulumi.Input[Union['EndpointOracleSettingsArgs', 'EndpointOracleSettingsArgsDict']]] = None,
             password: Optional[pulumi.Input[_builtins.str]] = None,
             pause_replication_tasks: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1172,7 +1209,7 @@ class Endpoint(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] endpoint_arn: ARN for the endpoint.
         :param pulumi.Input[_builtins.str] endpoint_id: Database endpoint identifier. Identifiers must contain from 1 to 255 alphanumeric characters or hyphens, begin with a letter, contain only ASCII letters, digits, and hyphens, not end with a hyphen, and not contain two consecutive hyphens.
         :param pulumi.Input[_builtins.str] endpoint_type: Type of endpoint. Valid values are `source`, `target`.
-        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        :param pulumi.Input[_builtins.str] engine_name: Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         :param pulumi.Input[_builtins.str] extra_connection_attributes: Additional attributes associated with the connection. For available attributes for a `source` Endpoint, see [Sources for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.html). For available attributes for a `target` Endpoint, see [Targets for data migration](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.html).
         :param pulumi.Input[Union['EndpointKafkaSettingsArgs', 'EndpointKafkaSettingsArgsDict']] kafka_settings: Configuration block for Kafka settings. See below.
         :param pulumi.Input[Union['EndpointKinesisSettingsArgs', 'EndpointKinesisSettingsArgsDict']] kinesis_settings: Configuration block for Kinesis settings. See below.
@@ -1180,6 +1217,7 @@ class Endpoint(pulumi.CustomResource):
                
                The following arguments are optional:
         :param pulumi.Input[Union['EndpointMongodbSettingsArgs', 'EndpointMongodbSettingsArgsDict']] mongodb_settings: Configuration block for MongoDB settings. See below.
+        :param pulumi.Input[Union['EndpointMysqlSettingsArgs', 'EndpointMysqlSettingsArgsDict']] mysql_settings: Configuration block for MySQL settings. See below.
         :param pulumi.Input[Union['EndpointOracleSettingsArgs', 'EndpointOracleSettingsArgsDict']] oracle_settings: Configuration block for Oracle settings. See below.
         :param pulumi.Input[_builtins.str] password: Password to be used to login to the endpoint database.
         :param pulumi.Input[_builtins.int] port: Port used by the endpoint database.
@@ -1213,6 +1251,7 @@ class Endpoint(pulumi.CustomResource):
         __props__.__dict__["kinesis_settings"] = kinesis_settings
         __props__.__dict__["kms_key_arn"] = kms_key_arn
         __props__.__dict__["mongodb_settings"] = mongodb_settings
+        __props__.__dict__["mysql_settings"] = mysql_settings
         __props__.__dict__["oracle_settings"] = oracle_settings
         __props__.__dict__["password"] = password
         __props__.__dict__["pause_replication_tasks"] = pause_replication_tasks
@@ -1283,7 +1322,7 @@ class Endpoint(pulumi.CustomResource):
     @pulumi.getter(name="engineName")
     def engine_name(self) -> pulumi.Output[_builtins.str]:
         """
-        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `s3`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
+        Type of engine for the endpoint. Valid values are `aurora`, `aurora-postgresql`, `aurora-serverless`, `aurora-postgresql-serverless`,`azuredb`, `azure-sql-managed-instance`, `babelfish`, `db2`, `db2-zos`, `docdb`, `dynamodb`, `elasticsearch`, `kafka`, `kinesis`, `mariadb`, `mongodb`, `mysql`, `opensearch`, `oracle`, `postgres`, `redshift`,`redshift-serverless`, `sqlserver`, `neptune` ,`sybase`. Please note that some of engine names are available only for `target` endpoint type (e.g. `redshift`).
         """
         return pulumi.get(self, "engine_name")
 
@@ -1328,6 +1367,14 @@ class Endpoint(pulumi.CustomResource):
         Configuration block for MongoDB settings. See below.
         """
         return pulumi.get(self, "mongodb_settings")
+
+    @_builtins.property
+    @pulumi.getter(name="mysqlSettings")
+    def mysql_settings(self) -> pulumi.Output[Optional['outputs.EndpointMysqlSettings']]:
+        """
+        Configuration block for MySQL settings. See below.
+        """
+        return pulumi.get(self, "mysql_settings")
 
     @_builtins.property
     @pulumi.getter(name="oracleSettings")

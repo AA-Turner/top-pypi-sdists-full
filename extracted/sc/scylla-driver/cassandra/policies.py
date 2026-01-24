@@ -14,7 +14,6 @@
 import random
 
 from collections import namedtuple
-from functools import lru_cache
 from itertools import islice, cycle, groupby, repeat
 import logging
 from random import randint, shuffle
@@ -254,7 +253,7 @@ class DCAwareRoundRobinPolicy(LoadBalancingPolicy):
 
     def populate(self, cluster, hosts):
         for dc, dc_hosts in groupby(hosts, lambda h: self._dc(h)):
-            self._dc_live_hosts[dc] = tuple(set(dc_hosts))
+            self._dc_live_hosts[dc] = tuple({*dc_hosts, *self._dc_live_hosts.get(dc, [])})
 
         if not self.local_dc:
             self._endpoints = [
@@ -374,9 +373,9 @@ class RackAwareRoundRobinPolicy(LoadBalancingPolicy):
 
     def populate(self, cluster, hosts):
         for (dc, rack), rack_hosts in groupby(hosts, lambda host: (self._dc(host), self._rack(host))):
-            self._live_hosts[(dc, rack)] = tuple(set(rack_hosts))
+            self._live_hosts[(dc, rack)] = tuple({*rack_hosts, *self._live_hosts.get((dc, rack), [])})
         for dc, dc_hosts in groupby(hosts, lambda host: self._dc(host)):
-            self._dc_live_hosts[dc] = tuple(set(dc_hosts))
+            self._dc_live_hosts[dc] = tuple({*dc_hosts, *self._dc_live_hosts.get(dc, [])})
 
         self._position = randint(0, len(hosts) - 1) if hosts else 0
 
@@ -477,19 +476,17 @@ class TokenAwarePolicy(LoadBalancingPolicy):
 
     _child_policy = None
     _cluster_metadata = None
-    _tablets_routing_v1 = False
-    shuffle_replicas = False
+    shuffle_replicas = True
     """
     Yield local replicas in a random order.
     """
 
-    def __init__(self, child_policy, shuffle_replicas=False):
+    def __init__(self, child_policy, shuffle_replicas=True):
         self._child_policy = child_policy
         self.shuffle_replicas = shuffle_replicas
 
     def populate(self, cluster, hosts):
         self._cluster_metadata = cluster.metadata
-        self._tablets_routing_v1 = cluster.control_connection._tablets_routing_v1
         self._child_policy.populate(cluster, hosts)
 
     def check_supported(self):
@@ -514,30 +511,31 @@ class TokenAwarePolicy(LoadBalancingPolicy):
             return
 
         replicas = []
-        if self._tablets_routing_v1:
+        if self._cluster_metadata._tablets.table_has_tablets(keyspace, query.table):
             tablet = self._cluster_metadata._tablets.get_tablet_for_key(
-                keyspace, query.table, self._cluster_metadata.token_map.token_class.from_key(query.routing_key))
+            keyspace, query.table, self._cluster_metadata.token_map.token_class.from_key(query.routing_key))
 
             if tablet is not None:
                 replicas_mapped = set(map(lambda r: r[0], tablet.replicas))
                 child_plan = child.make_query_plan(keyspace, query)
 
                 replicas = [host for host in child_plan if host.host_id in replicas_mapped]
-
-        if not replicas:
+        else:
             replicas = self._cluster_metadata.get_replicas(keyspace, query.routing_key)
 
-        if self.shuffle_replicas:
+        if self.shuffle_replicas and not query.is_lwt():
             shuffle(replicas)
 
-        for replica in replicas:
-            if replica.is_up and child.distance(replica) in [HostDistance.LOCAL, HostDistance.LOCAL_RACK]:
-                yield replica
+        def yield_in_order(hosts):
+            for distance in [HostDistance.LOCAL_RACK, HostDistance.LOCAL, HostDistance.REMOTE]:
+                for replica in hosts:
+                    if replica.is_up and child.distance(replica) == distance:
+                        yield replica
 
-        for host in child.make_query_plan(keyspace, query):
-            # skip if we've already listed this host
-            if host not in replicas or child.distance(host) == HostDistance.REMOTE:
-                yield host
+        # yield replicas: local_rack, local, remote
+        yield from yield_in_order(replicas)
+        # yield rest of the cluster: local_rack, local, remote
+        yield from yield_in_order([host for host in child.make_query_plan(keyspace, query) if host not in replicas])
 
     def on_up(self, *args, **kwargs):
         return self._child_policy.on_up(*args, **kwargs)

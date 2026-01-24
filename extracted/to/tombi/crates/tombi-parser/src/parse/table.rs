@@ -1,13 +1,13 @@
 use tombi_syntax::{SyntaxKind::*, T};
 
 use crate::{
+    ErrorKind::*,
     parse::{
-        begin_dangling_comments, end_dangling_comments, invalid_line, leading_comments,
-        peek_leading_comments, trailing_comment, Parse, TS_LINE_END,
+        Parse, TS_LINE_END, begin_dangling_comments, end_dangling_comments, invalid_line,
+        leading_comments, peek_leading_comments, trailing_comment,
     },
     parser::Parser,
     token_set::TS_NEXT_SECTION,
-    ErrorKind::*,
 };
 
 impl Parse for tombi_ast::Table {
@@ -16,7 +16,7 @@ impl Parse for tombi_ast::Table {
 
         leading_comments(p);
 
-        assert!(p.at(T!['[']));
+        debug_assert!(p.at(T!['[']));
 
         p.eat(T!['[']);
 
@@ -63,7 +63,7 @@ impl Parse for tombi_ast::Table {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_parser, ErrorKind::*};
+    use crate::{ErrorKind::*, test_parser};
 
     test_parser! {
         #[test]
@@ -136,5 +136,36 @@ mod test {
         ) -> Err([
             SyntaxError(ExpectedLineBreak, 1:9..1:16),
         ])
+    }
+
+    test_parser! {
+        #[test]
+        fn hex_like_table_key(
+            r#"
+            [0x96f]
+            submodule = "extensions/0x96f"
+            version = "1.3.5"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn octal_like_table_key(
+            r#"
+            [0o755]
+            value = "octal key"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn binary_like_table_key(
+            r#"
+            [0b1010]
+            value = "binary key"
+            "#
+        ) -> Ok(_)
     }
 }

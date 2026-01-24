@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -36,19 +36,21 @@ class LangChainChunker(BaseChunker[Document]):
 
     .. code-block:: python
 
-        from ibm_watsonx_ai.foundation_models.extensions.rag.chunker import LangChainChunker
+        from ibm_watsonx_ai.foundation_models.extensions.rag.chunker import (
+            LangChainChunker,
+        )
 
         text_splitter = LangChainChunker(
-            method="recursive",
-            chunk_size=1000,
-            chunk_overlap=200
+            method="recursive", chunk_size=1000, chunk_overlap=200
         )
 
         chunks_ids = []
 
         for i, document in enumerate(data_loader):
             chunks = text_splitter.split_documents([document])
-            chunks_ids.append(vector_store.add_documents(chunks, batch_size=300))
+            chunks_ids.append(
+                vector_store.add_documents(chunks, batch_size=300)
+            )
     """
 
     supported_methods = ("recursive", "character", "token")

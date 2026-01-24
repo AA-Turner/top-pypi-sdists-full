@@ -1,30 +1,28 @@
 Metadata-Version: 2.4
 Name: docstring-inheritance
-Version: 2.2.2
+Version: 3.0.0
 Summary: Avoid writing and maintaining duplicated docstrings.
 Author: Antoine Dechaume
-License: MIT
+License-Expression: MIT
 Project-URL: Documentation, https://antoined.github.io/docstring-inheritance
 Project-URL: Homepage, https://github.com/AntoineD/docstring-inheritance
 Project-URL: Source, https://github.com/AntoineD/docstring-inheritance
 Project-URL: Tracker, https://github.com/AntoineD/docstring-inheritance/issues
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <4,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Provides-Extra: test
-Requires-Dist: covdefaults; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: typing-extensions<5,>=4
+Provides-Extra: griffe
+Requires-Dist: griffe>1; extra == "griffe"
 Dynamic: license-file
 
 <!--
@@ -41,24 +39,25 @@ Dynamic: license-file
 ![Conda (channel only)](https://img.shields.io/conda/vn/conda-forge/docstring-inheritance)
 ![Codecov branch](https://img.shields.io/codecov/c/gh/AntoineD/docstring-inheritance/main)
 
-`docstring-inheritance` is a python package to avoid writing and maintaining duplicated python docstrings.
-The typical usage is to enable the inheritance of the docstrings from a base class
-such that its derived classes fully or partly inherit the docstrings.
+`docstring-inheritance` is a Python package that eliminates the need to write and maintain duplicate docstrings.
+Its primary purpose is to enable docstrings defined in a base class to be inherited—either wholly or partially—by derived subclasses.
+Inheritance is applied only when it is explicitly enabled, typically during documentation builds.
 
 # Features
 
+- By default, the metaclasses and functions in this package do nothing, so they have virtually no performance impact.
+- When building documentation, enable the inheritance of the docstrings by defining the environment variable `DOCSTRING_INHERITANCE_ENABLE=1`.
 - Handle numpy and google docstring formats (i.e. sections based docstrings):
-    - [NumPy docstring format specification](https://numpydoc.readthedocs.io/en/latest/format.html)
-    - [Google docstring format specification](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+  - [NumPy docstring format specification](https://numpydoc.readthedocs.io/en/latest/format.html)
+  - [Google docstring format specification](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
 - Handle docstrings for functions, classes, methods, class methods, static methods, properties.
 - Handle docstrings for classes with multiple or multi-level inheritance.
-- Docstring sections are inherited individually,
-  like methods.
+- Docstring sections are inherited individually, like methods.
 - For docstring sections documenting signatures,
   the signature arguments are inherited individually.
 - Minimum performance cost: the inheritance is performed at import time,
   not for each call.
-- Compatible with rendering the documentation with [Sphinx](http://www.sphinx-doc.org/) and [mkdocs](https://www.mkdocs.org/) (See [below](#mkdocs)).
+- Compatible with rendering the documentation with [Sphinx](http://www.sphinx-doc.org/) and [mkdocs](https://www.mkdocs.org/) (See [below](#mkdocs)). (Be sure to install the package your are building the docs for in the environment used to build the docs.)
 - Missing docstring sections for signature arguments can be notified by warnings
   when the environment variable `DOCSTRING_INHERITANCE_WARNS` is set.
 - Docstring sections can be compared to detect duplicated or similar contents that could be inherited.
@@ -92,6 +91,7 @@ conda install -c conda-forge docstring-inheritance
 to enable the docstrings of a class to be inherited from its base classes.
 This feature is automatically transmitted to its derived classes as well.
 The docstring inheritance is performed for the docstrings of the:
+
 - class
 - methods
 - classmethods
@@ -103,7 +103,7 @@ if `__init__` method is documented in its own docstring.
 Otherwise, if `__init__` method is documented in the class docstring,
 use the `NumpyDocstringInheritanceInitMeta` metaclass.
 
-Use the `GoogleDocstringInheritanceMeta` metaclass to inherit docstrings in google format.
+Use the `GoogleDocstringInheritanceMeta` metaclass to inherit docstrings in google format
 if `__init__` method is documented in its own docstring.
 Otherwise, if `__init__` method is documented in the class docstring,
 use the `GoogleDocstringInheritanceInitMeta` metaclass.
@@ -224,47 +224,23 @@ Notes:
 
 # Docstring inheritance specification
 
-## Sections order
+## Sections without sub-sections
 
-The sections of an inherited docstring are sorted according to order defined in the
-[NumPy docstring format specification](https://numpydoc.readthedocs.io/en/latest/format.html):
-- `Summary`
-- `Extended summary`
-- `Parameters` for the NumPy format or `Args` for the Google format
-- `Returns`
-- `Yields`
-- `Receives`
-- `Other Parameters`
-- `Attributes`
-- `Methods`
-- `Raises`
-- `Warns`
-- `Warnings`
-- `See Also`
-- `Notes`
-- `References`
-- `Examples`
-- sections with other names come next
+For sections that have no sub-sections,
+like the `Returns` section for instance,
+the inheritance applies to the entire content of the section.
 
-This ordering is also used for the docstring written with the
-[Google docstring format specification](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
-even though it does not define all of these sections.
-
-## Sections with items
+## Sections with sub-sections
 
 Those sections are:
+
+- `Args`
+- `Parameters`
 - `Other Parameters`
 - `Methods`
 - `Attributes`
 
-The inheritance is done at the key level,
-i.e. a section of the inheritor will not fully override the parent one:
-- the keys in the parent section and not in the child section are inherited,
-- the keys in the child section and not in the parent section are kept,
-- for keys that are both in the parent and child section,
-  the child ones are kept.
-
-This allows to only document the new keys in such a section of an inheritor.
+The inheritance applies at the sub-section levels.
 For instance:
 
 ```python
@@ -306,7 +282,8 @@ z:
 """
 ```
 
-Here the keys are the attribute names.
+Here the section is `Attributes`,
+the sub-sections describe the attribute names.
 The description for the attribute `y` has been overridden
 and the description for the attribute `z` has been added.
 The only remaining description from the parent is for the attribute `x`.
@@ -314,12 +291,14 @@ The only remaining description from the parent is for the attribute `x`.
 ### Sections documenting signatures
 
 Those sections are:
+
 - `Parameters` (numpy format only)
 - `Args` (google format only)
 
-In addition to the inheritance behavior described [above](#sections-with-items):
-- the arguments not existing in the inheritor signature are removed,
-- the arguments are sorted according the inheritor signature,
+In addition to the inheritance behavior described [above](#sections-with-sub-sections):
+
+- the arguments not existing in the child signature are removed,
+- the arguments are sorted according the child signature,
 - the arguments with no description are provided with a dummy description.
 
 ```python
@@ -354,7 +333,6 @@ Args:
 """
 ```
 
-Here the keys are the argument names.
 The description for the argument `y` has been overridden
 and the description for the argument `z` has been added.
 The only remaining description from the parent is for the argument `w`.
@@ -363,7 +341,7 @@ The only remaining description from the parent is for the argument `w`.
 
 ## Abstract base class
 
-To create a parent class that both is abstract and has docstring inheritance,
+To create a parent class that is both abstract and has docstring inheritance,
 an additional metaclass is required:
 
 ```python
@@ -407,8 +385,8 @@ plugins:
       python:
         options:
           extensions:
-            - griffe_inherited_docstrings
             - docstring_inheritance.griffe
+            - griffe_inherited_docstrings
 ```
 
 # Similar projects

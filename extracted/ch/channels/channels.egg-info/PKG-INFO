@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: channels
-Version: 4.3.1
+Version: 4.3.2
 Summary: Brings async, event-driven capabilities to Django.
 Home-page: http://github.com/django/channels
 Author: Django Software Foundation
@@ -18,10 +18,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
@@ -37,6 +39,8 @@ Requires-Dist: pytest-asyncio; extra == "tests"
 Requires-Dist: selenium; extra == "tests"
 Provides-Extra: daphne
 Requires-Dist: daphne>=4.0.0; extra == "daphne"
+Provides-Extra: types
+Requires-Dist: types-channels; extra == "types"
 Dynamic: license-file
 
 Django Channels

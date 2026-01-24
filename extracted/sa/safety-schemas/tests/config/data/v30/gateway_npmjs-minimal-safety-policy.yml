@@ -1,0 +1,41 @@
+version: '3.0'
+
+installation:
+  default-action: allow
+  audit-logging:
+    enabled: true
+  allow:
+    packages:
+      - ecosystem: npmjs
+        specifications:
+          - "react@19"
+          - "@angular/core@18"
+    vulnerabilities:
+      59901:
+        reason: We are not impacted by this vulnerability
+        expires: '2024-03-15'
+      62044:
+        reason: No upstream python images provide updated pip yet
+        expires: '2024-06-01'
+  deny:
+    packages:
+      warning-on-any-of:
+        age-below: "3 months"
+        packages:
+          - ecosystem: npmjs
+            specifications:
+              - "react"
+      block-on-any-of:
+        age-below: "1 month"
+        packages:
+          - ecosystem: npmjs
+            specifications:
+              - "react"
+    vulnerabilities:
+      warning-on-any-of:
+        cvss-severity:
+          - critical
+          - high
+      block-on-any-of:
+        cvss-severity:
+          - critical

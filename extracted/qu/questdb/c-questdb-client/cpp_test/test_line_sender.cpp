@@ -196,39 +196,42 @@ TEST_CASE("line_sender c api basics")
         2.7,
         48121.5,
         4.3};
-    CHECK(::line_sender_buffer_column_f64_arr_byte_strides(
-        buffer,
-        arr_name,
-        rank,
-        shape,
-        strides,
-        arr_data.data(),
-        arr_data.size(),
-        &err));
+    CHECK(
+        ::line_sender_buffer_column_f64_arr_byte_strides(
+            buffer,
+            arr_name,
+            rank,
+            shape,
+            strides,
+            arr_data.data(),
+            arr_data.size(),
+            &err));
 
     line_sender_column_name arr_name2 = QDB_COLUMN_NAME_LITERAL("a2");
     intptr_t elem_strides[] = {6, 2, 1};
-    CHECK(::line_sender_buffer_column_f64_arr_elem_strides(
-        buffer,
-        arr_name2,
-        rank,
-        shape,
-        elem_strides,
-        arr_data.data(),
-        arr_data.size(),
-        &err));
+    CHECK(
+        ::line_sender_buffer_column_f64_arr_elem_strides(
+            buffer,
+            arr_name2,
+            rank,
+            shape,
+            elem_strides,
+            arr_data.data(),
+            arr_data.size(),
+            &err));
     line_sender_column_name arr_name3 = QDB_COLUMN_NAME_LITERAL("a3");
-    CHECK(::line_sender_buffer_column_f64_arr_c_major(
-        buffer,
-        arr_name3,
-        rank,
-        shape,
-        arr_data.data(),
-        arr_data.size(),
-        &err));
+    CHECK(
+        ::line_sender_buffer_column_f64_arr_c_major(
+            buffer,
+            arr_name3,
+            rank,
+            shape,
+            arr_data.data(),
+            arr_data.size(),
+            &err));
     CHECK(::line_sender_buffer_at_nanos(buffer, 10000000, &err));
     CHECK(server.recv() == 0);
-    CHECK(::line_sender_buffer_size(buffer) == 382);
+    CHECK(::line_sender_buffer_size(buffer) == 383);
     CHECK(::line_sender_flush(sender, buffer, &err));
     ::line_sender_buffer_free(buffer);
     CHECK(server.recv() == 1);
@@ -236,7 +239,8 @@ TEST_CASE("line_sender c api basics")
     push_double_to_buffer(expect, 0.5).append(",a1==");
     push_double_arr_to_buffer(expect, arr_data, 3, shape).append(",a2==");
     push_double_arr_to_buffer(expect, arr_data, 3, shape).append(",a3==");
-    push_double_arr_to_buffer(expect, arr_data, 3, shape).append(" 10000000\n");
+    push_double_arr_to_buffer(expect, arr_data, 3, shape)
+        .append(" 10000000n\n");
     CHECK(server.msgs(0) == expect);
 }
 
@@ -281,7 +285,7 @@ TEST_CASE("line_sender c++ api basics")
         questdb::ingress::protocol::tcp,
         std::string("127.0.0.1"),
         std::to_string(server.port())};
-    opts.protocol_version(questdb::ingress::protocol_version::v2);
+    opts.protocol_version(questdb::ingress::protocol_version::v3);
     questdb::ingress::line_sender sender{opts};
     CHECK_FALSE(sender.must_close());
     server.accept();
@@ -329,7 +333,7 @@ TEST_CASE("line_sender c++ api basics")
         .at(questdb::ingress::timestamp_nanos{10000000});
 
     CHECK(server.recv() == 0);
-    CHECK(buffer.size() == 610);
+    CHECK(buffer.size() == 611);
     sender.flush(buffer);
     CHECK(server.recv() == 1);
     std::string expect{"test,t1=v1,t2= f1=="};
@@ -340,7 +344,7 @@ TEST_CASE("line_sender c++ api basics")
     push_double_arr_to_buffer(expect, arr_data, 3, shape).append(",a4==");
     push_double_arr_to_buffer(expect, arr_data, 3, shape).append(",a5==");
     push_double_arr_to_buffer(expect, arr_data, 1, shapes_1dim)
-        .append(" 10000000\n");
+        .append(" 10000000n\n");
     CHECK(server.msgs(0) == expect);
 }
 
@@ -351,7 +355,7 @@ TEST_CASE("line_sender array vector API")
         questdb::ingress::protocol::tcp,
         std::string("127.0.0.1"),
         std::to_string(server.port())};
-    opts.protocol_version(questdb::ingress::protocol_version::v2);
+    opts.protocol_version(questdb::ingress::protocol_version::v3);
     questdb::ingress::line_sender sender{opts};
     CHECK_FALSE(sender.must_close());
     server.accept();
@@ -378,12 +382,12 @@ TEST_CASE("line_sender array vector API")
 
     uintptr_t test_shape[] = {12};
     CHECK(server.recv() == 0);
-    CHECK(buffer.size() == 132);
+    CHECK(buffer.size() == 133);
     sender.flush(buffer);
     CHECK(server.recv() == 1);
     std::string expect{"test,t1=v1,t2= a1=="};
     push_double_arr_to_buffer(expect, arr_data, 1, test_shape)
-        .append(" 10000000\n");
+        .append(" 10000000n\n");
     CHECK(server.msgs(0) == expect);
 }
 
@@ -395,7 +399,7 @@ TEST_CASE("line_sender array span API")
         questdb::ingress::protocol::tcp,
         std::string("127.0.0.1"),
         std::to_string(server.port())};
-    opts.protocol_version(questdb::ingress::protocol_version::v2);
+    opts.protocol_version(questdb::ingress::protocol_version::v3);
     questdb::ingress::line_sender sender{opts};
     CHECK_FALSE(sender.must_close());
     server.accept();
@@ -427,12 +431,12 @@ TEST_CASE("line_sender array span API")
 
     uintptr_t test_shape[] = {8};
     CHECK(server.recv() == 0);
-    CHECK(buffer.size() == 100);
+    CHECK(buffer.size() == 101);
     sender.flush(buffer);
     CHECK(server.recv() == 1);
     std::string expect{"test,t1=v1,t2= a1=="};
     push_double_arr_to_buffer(expect, expect_arr_data, 1, test_shape)
-        .append(" 10000000\n");
+        .append(" 10000000n\n");
     CHECK(server.msgs(0) == expect);
 }
 #endif
@@ -442,7 +446,7 @@ TEST_CASE("test multiple lines")
     questdb::ingress::test::mock_server server;
     std::string conf_str =
         "tcp::addr=127.0.0.1:" + std::to_string(server.port()) +
-        ";protocol_version=2;";
+        ";protocol_version=3;";
     questdb::ingress::line_sender sender =
         questdb::ingress::line_sender::from_conf(conf_str);
     CHECK_FALSE(sender.must_close());
@@ -468,12 +472,12 @@ TEST_CASE("test multiple lines")
         .at_now();
 
     CHECK(server.recv() == 0);
-    CHECK(buffer.size() == 142);
+    CHECK(buffer.size() == 143);
     sender.flush(buffer);
     CHECK(server.recv() == 2);
     std::string expect{"metric1,t1=val1,t2=val2 f1=t,f2=12345i,f3=="};
     push_double_to_buffer(expect, 10.75)
-        .append(",f4=\"val3\",f5=\"val4\",f6=\"val5\" 111222233333\n");
+        .append(",f4=\"val3\",f5=\"val4\",f6=\"val5\" 111222233333n\n");
     CHECK(server.msgs(0) == expect);
     CHECK(
         server.msgs(1) == "metric1,tag3=value\\ 3,tag\\ 4=value:4 field5=f\n");
@@ -917,7 +921,7 @@ TEST_CASE("Opts copy ctor, assignment and move testing.")
     }
 }
 
-TEST_CASE("Test timestamp column.")
+TEST_CASE("Test timestamp column V1.")
 {
     questdb::ingress::test::mock_server server;
     questdb::ingress::line_sender sender{questdb::ingress::opts{
@@ -943,8 +947,8 @@ TEST_CASE("Test timestamp column.")
         .at(now_nanos_ts);
 
     std::stringstream ss;
-    ss << "test ts1=12345t,ts2=" << now_micros << "t,ts3=" << now_micros << "t "
-       << now_nanos << "\n";
+    ss << "test ts1=12345t,ts2=" << now_micros << "t,ts3=" << (now_nanos / 1000)
+       << "t " << now_nanos << "\n";
     const auto exp = ss.str();
     CHECK(buffer.peek() == exp);
 
@@ -1060,21 +1064,21 @@ TEST_CASE("Moved View")
 TEST_CASE("Empty Buffer")
 {
     questdb::ingress::line_sender_buffer b1{
-        questdb::ingress::protocol_version::v2};
+        questdb::ingress::protocol_version::v3};
     CHECK(b1.size() == 0);
     questdb::ingress::line_sender_buffer b2{std::move(b1)};
     CHECK(b1.size() == 0);
     CHECK(b2.size() == 0);
     questdb::ingress::line_sender_buffer b3{
-        questdb::ingress::protocol_version::v2};
+        questdb::ingress::protocol_version::v3};
     b3 = std::move(b2);
     CHECK(b2.size() == 0);
     CHECK(b3.size() == 0);
     questdb::ingress::line_sender_buffer b4{
-        questdb::ingress::protocol_version::v2};
+        questdb::ingress::protocol_version::v3};
     b4.table("test").symbol("a", "b").at_now();
     questdb::ingress::line_sender_buffer b5{
-        questdb::ingress::protocol_version::v2};
+        questdb::ingress::protocol_version::v3};
     b5 = std::move(b4);
     CHECK(b4.size() == 0);
     CHECK(b5.size() == 9);
@@ -1110,19 +1114,19 @@ TEST_CASE("HTTP basics")
         questdb::ingress::protocol::http, "127.0.0.1", 1};
     questdb::ingress::opts opts1conf = questdb::ingress::opts::from_conf(
         "http::addr=127.0.0.1:1;username=user;password=pass;request_timeout="
-        "5000;retry_timeout=5;protocol_version=2;");
+        "5000;retry_timeout=5;protocol_version=3;");
     questdb::ingress::opts opts2{
         questdb::ingress::protocol::https, "localhost", "1"};
     questdb::ingress::opts opts2conf = questdb::ingress::opts::from_conf(
         "http::addr=127.0.0.1:1;token=token;request_min_throughput=1000;retry_"
-        "timeout=0;protocol_version=2;");
-    opts1.protocol_version(questdb::ingress::protocol_version::v2)
+        "timeout=0;protocol_version=3;");
+    opts1.protocol_version(questdb::ingress::protocol_version::v3)
         .username("user")
         .password("pass")
         .max_buf_size(1000000)
         .request_timeout(5000)
         .retry_timeout(5);
-    opts2.protocol_version(questdb::ingress::protocol_version::v2)
+    opts2.protocol_version(questdb::ingress::protocol_version::v3)
         .token("token")
         .request_min_throughput(1000)
         .retry_timeout(0);
@@ -1179,7 +1183,7 @@ TEST_CASE("line sender protocol version v2")
         questdb::ingress::protocol::tcp,
         std::string("127.0.0.1"),
         std::to_string(server.port())};
-    opts.protocol_version(questdb::ingress::protocol_version::v2);
+    opts.protocol_version(questdb::ingress::protocol_version::v3);
     questdb::ingress::line_sender sender{opts};
     CHECK_FALSE(sender.must_close());
     server.accept();
@@ -1193,11 +1197,11 @@ TEST_CASE("line sender protocol version v2")
         .at(questdb::ingress::timestamp_nanos{10000000});
 
     CHECK(server.recv() == 0);
-    CHECK(buffer.size() == 38);
+    CHECK(buffer.size() == 39);
     sender.flush(buffer);
     CHECK(server.recv() == 1);
     std::string expect{"test,t1=v1,t2= f1=="};
-    push_double_to_buffer(expect, 0.5).append(" 10000000\n");
+    push_double_to_buffer(expect, 0.5).append(" 10000000n\n");
     CHECK(server.msgs(0) == expect);
 }
 

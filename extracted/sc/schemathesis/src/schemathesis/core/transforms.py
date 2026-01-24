@@ -1,6 +1,38 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Mapping, Union, overload
+import string
+from collections.abc import Callable, Iterator, Mapping
+from functools import lru_cache
+from typing import Any, TypeVar, overload
+
+T = TypeVar("T")
+
+
+@lru_cache
+def get_template_fields(template: str) -> frozenset[str]:
+    """Extract named placeholders from a string template.
+
+    "/users/{userId}/posts/{postId}" -> {"userId", "postId"}
+    """
+    try:
+        parameters = frozenset(name for _, name, _, _ in string.Formatter().parse(template) if name is not None)
+        # Check for malformed params to avoid injecting them
+        template.format(**dict.fromkeys(parameters, ""))
+        return parameters
+    except (ValueError, IndexError):
+        return frozenset()
+
+
+@overload
+def deepclone(value: dict) -> dict: ...  # pragma: no cover
+
+
+@overload
+def deepclone(value: list) -> list: ...  # pragma: no cover
+
+
+@overload
+def deepclone(value: T) -> T: ...  # pragma: no cover
 
 
 def deepclone(value: Any) -> Any:
@@ -11,7 +43,16 @@ def deepclone(value: Any) -> Any:
     if isinstance(value, dict):
         return {
             k1: (
-                {k2: deepclone(v2) for k2, v2 in v1.items()}
+                {
+                    k2: (
+                        {k3: deepclone(v3) for k3, v3 in v2.items()}
+                        if isinstance(v2, dict)
+                        else [deepclone(v3) for v3 in v2]
+                        if isinstance(v2, list)
+                        else v2
+                    )
+                    for k2, v2 in v1.items()
+                }
                 if isinstance(v1, dict)
                 else [deepclone(v2) for v2 in v1]
                 if isinstance(v1, list)
@@ -47,7 +88,7 @@ def merge_at(data: dict[str, Any], data_key: str, new: dict[str, Any]) -> None:
     data[data_key] = original
 
 
-JsonValue = Union[Dict[str, Any], List, str, float, int]
+JsonValue = dict[str, Any] | list | str | float | int
 
 
 @overload
@@ -83,6 +124,18 @@ class Unresolvable: ...
 UNRESOLVABLE = Unresolvable()
 
 
+def encode_pointer(pointer: str) -> str:
+    return pointer.replace("~", "~0").replace("/", "~1")
+
+
+def decode_pointer(value: str) -> str:
+    return value.replace("~1", "/").replace("~0", "~")
+
+
+def iter_decoded_pointer_segments(pointer: str) -> Iterator[str]:
+    return map(decode_pointer, pointer.split("/")[1:])
+
+
 def resolve_pointer(document: Any, pointer: str) -> dict | list | str | int | float | None | Unresolvable:
     """Implementation is adapted from Rust's `serde-json` crate.
 
@@ -93,12 +146,8 @@ def resolve_pointer(document: Any, pointer: str) -> dict | list | str | int | fl
     if not pointer.startswith("/"):
         return UNRESOLVABLE
 
-    def replace(value: str) -> str:
-        return value.replace("~1", "/").replace("~0", "~")
-
-    tokens = map(replace, pointer.split("/")[1:])
     target = document
-    for token in tokens:
+    for token in iter_decoded_pointer_segments(pointer):
         if isinstance(target, dict):
             target = target.get(token, UNRESOLVABLE)
             if target is UNRESOLVABLE:

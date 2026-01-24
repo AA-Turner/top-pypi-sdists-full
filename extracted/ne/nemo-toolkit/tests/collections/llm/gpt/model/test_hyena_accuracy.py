@@ -36,7 +36,7 @@ from megatron.core.transformer.enums import AttnBackend
 from megatron.core.transformer.module import Float16Module, MegatronModule
 
 from nemo.collections import llm
-from nemo.collections.nlp.modules.common.tokenizer_utils import get_nmt_tokenizer
+from nemo.collections.common.tokenizers.tokenizer_utils import get_nmt_tokenizer
 from nemo.lightning.io.pl import MegatronCheckpointIO
 
 
@@ -105,7 +105,6 @@ def _initialize_distributed_parallel_state(
         parallel_state.initialize_model_parallel(
             tensor_model_parallel_size=tensor_model_parallel_size,
             pipeline_model_parallel_size=pipeline_model_parallel_size,
-            pipeline_model_parallel_split_rank=pipeline_model_parallel_split_rank,
             context_parallel_size=context_parallel_size,
         )
 

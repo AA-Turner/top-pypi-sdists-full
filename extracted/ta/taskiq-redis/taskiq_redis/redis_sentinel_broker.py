@@ -1,18 +1,11 @@
-import sys
 import uuid
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from logging import getLogger
 from typing import (
     TYPE_CHECKING,
     Any,
-    AsyncGenerator,
-    AsyncIterator,
-    Awaitable,
-    Callable,
-    Dict,
-    List,
-    Optional,
-    Tuple,
+    TypeAlias,
     TypeVar,
 )
 
@@ -20,11 +13,6 @@ from redis import ResponseError
 from redis.asyncio import Redis, Sentinel
 from taskiq import AckableMessage, AsyncResultBackend, BrokerMessage
 from taskiq.abc.broker import AsyncBroker
-
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 if TYPE_CHECKING:
     _Redis: TypeAlias = Redis[bytes]  # type: ignore
@@ -41,13 +29,13 @@ class BaseSentinelBroker(AsyncBroker):
 
     def __init__(
         self,
-        sentinels: List[Tuple[str, int]],
+        sentinels: list[tuple[str, int]],
         master_name: str,
-        result_backend: Optional[AsyncResultBackend[_T]] = None,
-        task_id_generator: Optional[Callable[[], str]] = None,
+        result_backend: AsyncResultBackend[_T] | None = None,
+        task_id_generator: Callable[[], str] | None = None,
         queue_name: str = "taskiq",
         min_other_sentinels: int = 0,
-        sentinel_kwargs: Optional[Any] = None,
+        sentinel_kwargs: Any | None = None,
         **connection_kwargs: Any,
     ) -> None:
         super().__init__(
@@ -148,18 +136,18 @@ class RedisStreamSentinelBroker(BaseSentinelBroker):
 
     def __init__(
         self,
-        sentinels: List[Tuple[str, int]],
+        sentinels: list[tuple[str, int]],
         master_name: str,
         min_other_sentinels: int = 0,
         queue_name: str = "taskiq",
         consumer_group_name: str = "taskiq",
-        consumer_name: Optional[str] = None,
+        consumer_name: str | None = None,
         consumer_id: str = "$",
         mkstream: bool = True,
         xread_block: int = 10000,
-        maxlen: Optional[int] = None,
+        maxlen: int | None = None,
         approximate: bool = True,
-        additional_streams: Optional[Dict[str, str]] = None,
+        additional_streams: dict[str, str] | None = None,
         **connection_kwargs: Any,
     ) -> None:
         """
@@ -230,19 +218,20 @@ class RedisStreamSentinelBroker(BaseSentinelBroker):
 
         :param message: message to append.
         """
+        queue_name = message.labels.get("queue_name") or self.queue_name
         async with self._acquire_master_conn() as redis_conn:
             await redis_conn.xadd(
-                self.queue_name,
+                queue_name,
                 {b"data": message.message},
                 maxlen=self.maxlen,
                 approximate=self.approximate,
             )
 
-    def _ack_generator(self, id: str) -> Callable[[], Awaitable[None]]:
+    def _ack_generator(self, id: str, queue_name: str) -> Callable[[], Awaitable[None]]:
         async def _ack() -> None:
             async with self._acquire_master_conn() as redis_conn:
                 await redis_conn.xack(
-                    self.queue_name,
+                    queue_name,
                     self.consumer_group_name,
                     id,
                 )
@@ -263,10 +252,10 @@ class RedisStreamSentinelBroker(BaseSentinelBroker):
                     block=self.block,
                     noack=False,
                 )
-                for _, msg_list in fetched:
+                for stream, msg_list in fetched:
                     for msg_id, msg in msg_list:
                         logger.debug("Received message: %s", msg)
                         yield AckableMessage(
                             data=msg[b"data"],
-                            ack=self._ack_generator(msg_id),
+                            ack=self._ack_generator(id=msg_id, queue_name=stream),
                         )

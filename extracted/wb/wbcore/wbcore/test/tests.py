@@ -1,10 +1,9 @@
 import pytest
 from django.conf import settings
 from django.db import models
-from django.urls import get_resolver
 
 from wbcore import serializers, viewsets
-from wbcore.pandas.views import PandasAPIViewSet
+from wbcore.contrib.pandas.views import PandasAPIViewSet
 
 from .mixins import (
     TestChartViewSet,
@@ -23,8 +22,6 @@ That is, tasks will be executed locally instead of being sent to the queue.
 This is useful mainly when running tests, or running locally without Celery workers.
 """
 settings.CELERY_TASK_ALWAYS_EAGER = True
-
-get_resolver().url_patterns
 
 
 def modules_condition(module):
@@ -122,11 +119,11 @@ class GenerateTest:
         def _test_chartviewsets(_self, cvs):
             self.test_chartviewsets(cvs)
 
-        setattr(test_class, "test_models", _test_models)
-        setattr(test_class, "test_serializers", _test_serializers)
-        setattr(test_class, "test_representationviewsets", _test_representationviewsets)
-        setattr(test_class, "test_modelviewsets", _test_modelviewsets)
-        setattr(test_class, "test_pandasviews", _test_pandasviews)
-        setattr(test_class, "test_chartviewsets", _test_chartviewsets)
+        test_class.test_models = _test_models
+        test_class.test_serializers = _test_serializers
+        test_class.test_representationviewsets = _test_representationviewsets
+        test_class.test_modelviewsets = _test_modelviewsets
+        test_class.test_pandasviews = _test_pandasviews
+        test_class.test_chartviewsets = _test_chartviewsets
 
         return test_class

@@ -43,14 +43,19 @@ class Label:
     decoration: str | None = None
 
 
+@dataclass
+class LabelHint:
+    ofst: XY | float | None
+    halign: Halign | None = None
+    valign: Valign | None = None
+    fontsize: float | None = None
+
+
 class Element:
     ''' Standard circuit element.
 
         Keyword Arguments are equivalent to calling
         setter methods.
-
-        Args:
-            d: Drawing direction ('up', 'down', 'left', 'right')
 
         Attributes:
             anchors: Dictionary of anchor positions in element
@@ -72,6 +77,7 @@ class Element:
         self._userparams.update(kwargs)         # Specified by user
         self._localshift: XY = Point((0, 0))
         self._userlabels: list[Label] = []
+        self._labelhints: dict[str, LabelHint] = {}
 
         self.anchors: MutableMapping[str, Union[Point, tuple[float, float]]] = {}  # Untransformed anchors
         self.absanchors: MutableMapping[str, Any] = {}  # Transformed, absolute anchors
@@ -343,6 +349,13 @@ class Element:
             rotate = 0
         elif isinstance(rotate, bool):
             rotate = True
+
+        if not self._userparams.get('ignore_hints', False) and (hint := self._labelhints.get(str(loc), None)):
+            ofst = ofst if ofst is not None else hint.ofst
+            halign = halign if halign else hint.halign
+            valign = valign if valign else hint.valign
+            fontsize = fontsize if fontsize is not None else hint.fontsize
+
         self._userlabels.append(Label(label, loc, ofst, halign, valign, rotate, fontsize, font, mathfont, color, href, decoration))
         return self
 
@@ -660,6 +673,10 @@ class Element:
         label.valign = label.valign if label.valign is not None else valign
         label.ofst = ofst
 
+        if (shift := self.params.get('_shift_magnitude')) and label.loc in ['top', 'bottom']:
+            # Adjust for shifted two-term element
+            label.ofst = Point((label.ofst[0]+shift, label.ofst[1]))
+
         # Parameters to send to SegmentText
         segment_params = {
             'color': label.color if label.color else self.params.get('color'),
@@ -869,6 +886,14 @@ class Element2Term(Element):
         self._userparams['idot'] = True if not open else 'open'
         return self
 
+    def shift(self, shift: float) -> 'Element2Term':
+        ''' Shift the element within its leads to one end or the other.
+            The shift parameter should be between -1 and 1, indicating fraction
+            of the lead extension.
+        '''
+        self._userparams['shift'] = shift
+        return self
+
     def _place(self, dwgxy: XY, dwgtheta: float, **dwgparams) -> tuple[Point, float]:
         ''' Calculate element placement, adding lead extensions '''
         self._dwgparams.clear()
@@ -913,20 +938,34 @@ class Element2Term(Element):
                 x = float(tox)
             else:
                 x = tox[0]
-            endpt = Point((x, xy[1]))
-            totlen = util.dist(xy, endpt)
-            theta = 180 if xy.x > x else 0
-            self.elmparams['theta'] = theta
+
+            if (user_th := self._userparams.get('theta')) is not None:
+                dx = xy[0]-x
+                dy = math.tan(math.radians(user_th))*dx
+                totlen = math.sqrt(dx**2 + dy**2)
+                endpt = Point((xy[0]+dx, xy[1]+dy))
+            else:
+                endpt = Point((x, xy[1]))
+                totlen = util.dist(xy, endpt)
+                theta = 180 if xy.x > x else 0
+                self.elmparams['theta'] = theta
         elif toy is not None:
             # Allow either full coordinate (only keeping y), or just a y value
             if isinstance(toy, (int, float)):
                 y = toy
             else:
                 y = toy[1]
-            endpt = Point((xy[0], y))
-            totlen = util.dist(xy, endpt)
-            theta = -90 if xy.y > y else 90
-            self.elmparams['theta'] = theta
+
+            if (user_th := self._userparams.get('theta')) is not None:
+                dy = xy[1]-y
+                dx = dy/math.tan(math.radians(user_th))
+                totlen = math.sqrt(dx**2 + dy**2)
+                endpt = Point((xy[0]+dx, xy[1]+dy))
+            else:
+                endpt = Point((xy[0], y))
+                totlen = util.dist(xy, endpt)
+                theta = -90 if xy.y > y else 90
+                self.elmparams['theta'] = theta
 
         self.anchors['istart'] = self.segments[0].path[0]  # type: ignore
         self.anchors['iend'] = self.segments[0].path[-1]  # type: ignore
@@ -942,8 +981,11 @@ class Element2Term(Element):
                 lead_len = (totlen - in_len*zoom)/2 / zoom
 
             if lead_len > 0:  # Don't make element shorter
-                start = Point(in_path[0]) - Point((lead_len, 0))
-                end = Point(in_path[-1]) + Point((lead_len, 0))
+                shift = self.params.get('shift', 0) * lead_len
+                if shift:
+                    self.params['_shift_magnitude'] = shift  # Save for label adjustmnet
+                start = Point(in_path[0]) - Point((lead_len+shift, 0))
+                end = Point(in_path[-1]) + Point((lead_len-shift, 0))
                 self._localshift = -start
                 self.segments[0].path = [start] + self.segments[0].path + [end]  # type: ignore
                 if in_len > 0 and (leadcolor := self.params.get('leadcolor')):

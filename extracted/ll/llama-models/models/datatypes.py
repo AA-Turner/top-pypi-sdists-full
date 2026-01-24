@@ -7,14 +7,11 @@
 
 import base64
 from enum import Enum
-
 from io import BytesIO
-from typing import Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
-
 from typing_extensions import Annotated
-
 
 # The goal is that these set of types are relevant for all Llama models.
 # That isn't the current state yet -- e.g., BuiltinTool is somewhat specific to
@@ -42,7 +39,14 @@ RecursiveType = Union[Primitive, List[Primitive], Dict[str, Primitive]]
 class ToolCall(BaseModel):
     call_id: str
     tool_name: Union[BuiltinTool, str]
-    arguments: Dict[str, RecursiveType]
+    # Plan is to deprecate the Dict in favor of a JSON string
+    # that is parsed on the client side instead of trying to manage
+    # the recursive type here.
+    # Making this a union so that client side can start prepping for this change.
+    # Eventually, we will remove both the Dict and arguments_json field,
+    # and arguments will just be a str
+    arguments: Union[str, Dict[str, RecursiveType]]
+    arguments_json: Optional[str] = None
 
     @field_validator("tool_name", mode="before")
     @classmethod
@@ -86,6 +90,29 @@ class StopReason(Enum):
     out_of_tokens = "out_of_tokens"
 
 
+class ToolParamDefinition(BaseModel):
+    param_type: str
+    description: Optional[str] = None
+    required: Optional[bool] = True
+    default: Optional[Any] = None
+
+
+class ToolDefinition(BaseModel):
+    tool_name: Union[BuiltinTool, str]
+    description: Optional[str] = None
+    parameters: Optional[Dict[str, ToolParamDefinition]] = None
+
+    @field_validator("tool_name", mode="before")
+    @classmethod
+    def validate_field(cls, v):
+        if isinstance(v, str):
+            try:
+                return BuiltinTool(v)
+            except ValueError:
+                return v
+        return v
+
+
 class RawMediaItem(BaseModel):
     type: Literal["image"] = "image"
     data: bytes | BytesIO
@@ -126,3 +153,27 @@ class RawMessage(BaseModel):
     # These are for the output message coming from the assistant
     stop_reason: Optional[StopReason] = None
     tool_calls: List[ToolCall] = Field(default_factory=list)
+
+
+class GenerationResult(BaseModel):
+    token: int
+    text: str
+    logprobs: Optional[List[float]] = None
+
+    source: Literal["input"] | Literal["output"]
+
+    # index within the batch
+    batch_idx: int
+    # whether generation for this item is already finished. note that tokens can
+    # get returned even afterwards since other items in the batch can still be generating tokens
+    finished: bool
+    # because a batch is parallel processed, useful decoding for one item can correspond to processing
+    # pad tokens or tokens beyond EOS for other items. we could have decided to return None for this case
+    # but it's more convenient to return a list of GenerationResult and filter out the ignored tokens
+    ignore_token: bool
+
+
+class QuantizationMode(str, Enum):
+    none = "none"
+    fp8_mixed = "fp8_mixed"
+    int4_mixed = "int4_mixed"

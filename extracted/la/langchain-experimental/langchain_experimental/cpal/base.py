@@ -5,13 +5,13 @@ CPAL Chain and its subchains
 from __future__ import annotations
 
 import json
-from typing import Any, ClassVar, Dict, List, Optional, Type
+from typing import Any, ClassVar, Dict, List, Optional, Type, cast
 
 import pydantic
-from langchain.base_language import BaseLanguageModel
-from langchain.chains.base import Chain
-from langchain.chains.llm import LLMChain
-from langchain.output_parsers import PydanticOutputParser
+from langchain_classic.base_language import BaseLanguageModel
+from langchain_classic.chains.base import Chain
+from langchain_classic.chains.llm import LLMChain
+from langchain_classic.output_parsers import PydanticOutputParser
 from langchain_core.callbacks.manager import CallbackManagerForChainRun
 from langchain_core.prompts.prompt import PromptTemplate
 
@@ -165,7 +165,8 @@ class CPALChain(_BaseStoryElementChain):
     causal_chain: Optional[CausalChain] = None
     intervention_chain: Optional[InterventionChain] = None
     query_chain: Optional[QueryChain] = None
-    _story: StoryModel = pydantic.PrivateAttr(default=None)  # TODO: change name ?
+    # TODO: change name  of _story?
+    _story: Optional[StoryModel] = pydantic.PrivateAttr(default=None)
 
     @classmethod
     def from_univariate_prompt(
@@ -300,4 +301,4 @@ class CPALChain(_BaseStoryElementChain):
             >>> cpal_chain.draw(path="graph.svg")
             >>> SVG('graph.svg')
         """
-        self._story._networkx_wrapper.draw_graphviz(**kwargs)
+        cast(StoryModel, self._story)._networkx_wrapper.draw_graphviz(**kwargs)

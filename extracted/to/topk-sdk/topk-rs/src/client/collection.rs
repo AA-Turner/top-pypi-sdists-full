@@ -5,6 +5,7 @@ use super::retry::call_with_retry;
 use crate::error::Error;
 use crate::proto::v1::data::Query;
 use crate::proto::v1::data::Stage;
+use crate::proto::v1::data::UpdateDocumentsRequest;
 use crate::proto::v1::data::{ConsistencyLevel, GetRequest};
 use crate::proto::v1::data::{
     DeleteDocumentsRequest, Document, QueryRequest, UpsertDocumentsRequest, Value,
@@ -53,7 +54,7 @@ impl CollectionClient {
             create_query_client(&self.config, &self.collection_name, &self.channel).await?;
         let ids: Vec<String> = ids.into_iter().map(|id| id.into()).collect();
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let ids = ids.clone();
             let fields = fields.clone();
@@ -104,7 +105,7 @@ impl CollectionClient {
     ) -> Result<u64, Error> {
         let query = Query::new(vec![Stage::count()]);
 
-        let docs = call_with_retry(&self.config.retry_config, || {
+        let docs = call_with_retry(&self.config.retry_config(), || {
             let query = query.clone();
             let lsn = lsn.clone();
             let consistency = consistency.clone();
@@ -145,7 +146,7 @@ impl CollectionClient {
         let client =
             create_query_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let query = query.clone();
             let lsn = lsn.clone();
@@ -180,11 +181,14 @@ impl CollectionClient {
         Ok(results)
     }
 
+    /// Upsert documents into the collection.
+    ///
+    /// Existing documents will be replaced, new documents will be created.
     pub async fn upsert(&self, docs: Vec<Document>) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
             let docs = docs.clone();
 
@@ -205,17 +209,56 @@ impl CollectionClient {
         Ok(response.into_inner().lsn)
     }
 
-    pub async fn delete(&self, ids: Vec<String>) -> Result<String, Error> {
+    /// Update documents in the collection.
+    ///
+    /// Existing documents will be merged with the provided fields.
+    /// Missing documents will be ignored.
+    pub async fn update(
+        &self,
+        docs: Vec<Document>,
+        fail_on_missing: bool,
+    ) -> Result<String, Error> {
         let client =
             create_write_client(&self.config, &self.collection_name, &self.channel).await?;
 
-        let response = call_with_retry(&self.config.retry_config, || {
+        let response = call_with_retry(&self.config.retry_config(), || {
             let mut client = client.clone();
-            let ids = ids.clone();
+            let docs = docs.clone();
 
             async move {
                 client
-                    .delete_documents(DeleteDocumentsRequest { ids })
+                    .update_documents(UpdateDocumentsRequest {
+                        docs,
+                        fail_on_missing,
+                    })
+                    .await
+                    .map_err(|e| match e.code() {
+                        // Explicitly map `NotFound` to `CollectionNotFound` error
+                        tonic::Code::NotFound => Error::CollectionNotFound,
+                        // Delegate other errors
+                        _ => e.into(),
+                    })
+            }
+        })
+        .await?;
+
+        Ok(response.into_inner().lsn)
+    }
+
+    /// Delete documents from the collection.
+    pub async fn delete(&self, req: impl Into<DeleteDocumentsRequest>) -> Result<String, Error> {
+        let client =
+            create_write_client(&self.config, &self.collection_name, &self.channel).await?;
+
+        let req = req.into();
+
+        let response = call_with_retry(&self.config.retry_config(), || {
+            let mut client = client.clone();
+            let req = req.clone();
+
+            async move {
+                client
+                    .delete_documents(req)
                     .await
                     .map_err(|e| match e.code() {
                         // Explicitly map `NotFound` to `CollectionNotFound` error

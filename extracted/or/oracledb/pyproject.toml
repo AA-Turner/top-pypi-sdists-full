@@ -2,7 +2,7 @@
 requires = [
     "setuptools >= 77.0.0",
     "wheel",
-    "cython == 3.1",
+    "cython ~= 3.1",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -34,7 +34,10 @@ classifiers = [
     "Topic :: Database",
 ]
 requires-python = ">=3.9"
-dependencies = ["cryptography>=3.2.1"]
+dependencies = [
+    "cryptography>=3.2.1",
+    "typing_extensions>=4.14.0",
+]
 dynamic = ["version"]
 
 [project.readme]
@@ -49,6 +52,23 @@ Documentation = "http://python-oracledb.readthedocs.io"
 "Release Notes" = "https://python-oracledb.readthedocs.io/en/latest/release_notes.html"
 Issues = "https://github.com/oracle/python-oracledb/issues"
 Source = "https://github.com/oracle/python-oracledb"
+
+[project.optional-dependencies]
+test = [
+    "anyio",
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "pytest",
+]
+oci_config = ["oci"]
+oci_auth = ["oci"]
+azure_config = [
+    "azure-appconfiguration",
+    "azure-identity",
+    "azure-keyvault-secrets"
+]
+azure_auth = ["msal"]
 
 [tool.setuptools]
 zip-safe = false
@@ -74,9 +94,8 @@ line-length = 79
 target-version = "py39"
 exclude = ["templates"]
 
-[project.optional-dependencies]
-test = [
-    "numpy",
-    "pandas",
-    "pyarrow",
+[tool.pytest.ini_options]
+minversion = "8.3.0"
+testpaths = [
+    "tests"
 ]

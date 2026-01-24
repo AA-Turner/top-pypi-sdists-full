@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: orderedmultidict
-Version: 1.0.1
+Version: 1.0.2
 Summary: Ordered Multivalue Dictionary
 Home-page: https://github.com/gruns/orderedmultidict
 Author: Ansgar Grunseid
@@ -21,11 +21,10 @@ Classifier: License :: Freely Distributable
 Classifier: Intended Audience :: Developers
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.6
 Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: Implementation :: PyPy

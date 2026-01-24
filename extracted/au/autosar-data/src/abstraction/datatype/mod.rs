@@ -43,6 +43,15 @@ impl Unit {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -96,6 +105,15 @@ impl DataConstr {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -162,6 +180,15 @@ impl DataConstrRule {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[getter]
@@ -233,10 +260,10 @@ impl From<DataConstrType> for autosar_data_abstraction::datatype::DataConstrType
 
 //##################################################################
 
-pub(crate) fn autosar_data_type_to_pyobject(
+pub(crate) fn autosar_data_type_to_pyany(
     value: autosar_data_abstraction::datatype::AutosarDataType,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match value {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match value {
         autosar_data_abstraction::datatype::AutosarDataType::ApplicationArrayDataType(value) => {
             ApplicationArrayDataType(value).into_py_any(py)
         }
@@ -252,7 +279,7 @@ pub(crate) fn autosar_data_type_to_pyobject(
     })
 }
 
-pub(crate) fn pyobject_to_autosar_data_type(
+pub(crate) fn pyany_to_autosar_data_type(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::AutosarDataType> {
     if let Ok(application_array_data_type) = pyobject.extract::<ApplicationArrayDataType>() {

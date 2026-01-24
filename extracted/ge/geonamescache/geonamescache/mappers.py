@@ -1,9 +1,27 @@
-# -*- coding: utf-8 -*-
-from geonamescache import GeonamesCache
-from . import mappings
+from collections.abc import Callable
+from typing import Any, Literal, overload
+
+from geonamescache import GeonamesCache, mappings
+from geonamescache.types import ContinentCode, CountryFields, CountryNumericFields, CountryStringFields
 
 
-def country(from_key='name', to_key='iso'):
+gc = GeonamesCache()
+countries = gc.get_countries()
+
+
+@overload
+def country(from_key: str = "name", *, to_key: CountryNumericFields) -> Callable[[str], int]: ...
+
+
+@overload
+def country(from_key: str = "name", to_key: CountryStringFields = "iso") -> Callable[[str], str]: ...
+
+
+@overload
+def country(from_key: str = "name", *, to_key: Literal["continentcode"]) -> Callable[[str], ContinentCode]: ...
+
+
+def country(from_key: str = "name", to_key: CountryFields = "iso") -> Callable[[str], Any]:
     """Creates and returns a mapper function to access country data.
 
     The mapper function that is returned must be called with one argument. In
@@ -18,16 +36,17 @@ def country(from_key='name', to_key='iso'):
     :rtype: function
     """
 
-    gc = GeonamesCache()
-    dataset = gc.get_dataset_by_key(gc.get_countries(), from_key)
+    dataset = gc.get_dataset_by_key(countries, from_key)
 
-    def mapper(input):
-        # For country name inputs take the names mapping into account.
-        if 'name' == from_key:
-            input = mappings.country_names.get(input, input)
-        # If there is a record return the demanded attribute.
-        item = dataset.get(input)
-        if item:
+    def mapper(value: str) -> Any:
+        # For country names take the mappings into account.
+        if from_key == "name":
+            value = mappings.country_names.get(value, value)
+
+        # If there is a record return the corresponding attribute value.
+        if item := dataset.get(value):
             return item[to_key]
+
+        return None
 
     return mapper

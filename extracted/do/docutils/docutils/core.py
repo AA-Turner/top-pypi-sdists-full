@@ -1,4 +1,4 @@
-# $Id: core.py 10045 2025-03-09 01:02:23Z aa-turner $
+# $Id: core.py 10267 2025-12-01 22:43:32Z milde $
 # Author: David Goodger <goodger@python.org>
 # Copyright: This module has been placed in the public domain.
 
@@ -719,7 +719,7 @@ def publish_programmatically(source_class, source, source_path,
       - `io.FileInput`: Path to the input file, opened if no `source`
         supplied.
 
-      - `io.StringInput`: Optional.  Path to the file or name of the
+      - `io.StringInput`: Optional.  Path to the file or description of the
         object that produced `source`.  Only used for diagnostic output.
 
     * `destination_class` **required**: The class for dynamically created

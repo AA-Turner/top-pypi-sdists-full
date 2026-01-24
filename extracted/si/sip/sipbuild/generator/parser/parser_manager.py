@@ -8,6 +8,7 @@ import os
 
 from ...exceptions import deprecated, UserException
 from ...module import get_latest_version
+from ...py_versions import DEFAULT_ABI_MAJOR
 
 from ..bindings_configuration import get_bindings_configuration
 from ..error_log import ErrorLog
@@ -29,6 +30,7 @@ from . import rules
 from . import tokens
 from .annotations import InvalidAnnotation, validate_annotation_value
 from .ply import lex, yacc
+
 
 class ParserManager:
     """ This object manages the actual lexer and parser objects providing them
@@ -123,6 +125,8 @@ class ParserManager:
             klass.supertype = cached_name(self.spec, supertype)
 
         klass.export_derived = annotations.get('ExportDerived', False)
+        klass.export_derived_locally = annotations.get('ExportDerivedLocally',
+                False)
         klass.mixin = annotations.get('Mixin', False)
 
         file_extension = annotations.get('FileExtension')
@@ -881,7 +885,7 @@ class ParserManager:
         module = self.module_state.module
 
         # See if it already exists.
-        qualifier = self.find_qualifier(p, symbol, name, required=False)
+        qualifier = self._find_qualifier(p, symbol, name, required=False)
 
         if qualifier is not None:
             # We allow versions to be defined more than once so long as they
@@ -907,11 +911,10 @@ class ParserManager:
         """ Add a typedef to the current scope. """
 
         if self.spec.is_strict:
-            for td in self.spec.typedefs:
-                if td.fq_cpp_name == typedef.fq_cpp_name:
-                    self.parser_error(p, symbol,
-                            "'{0}' has already been defined".format(
-                                    typedef.fq_cpp_name))
+            if self.spec.typedefs.by_fq_cpp_name(typedef.fq_cpp_name):
+                self.parser_error(p, symbol,
+                        "'{0}' has already been defined".format(
+                                typedef.fq_cpp_name))
 
         self.module_state.module.nr_typedefs += 1
 
@@ -1018,20 +1021,11 @@ class ParserManager:
                             py_name))
 
         # Check the enums.
-        for ed in self.spec.enums:
-            if ed.py_name is None:
-                continue
+        if self.spec.enums.by_scope_and_py_name(self.scope, py_name):
+            clash("an enum")
 
-            if ed.scope is not self.scope:
-                continue
-
-            if ed.py_name.name == py_name:
-                clash("an enum")
-
-            if not ed.is_scoped:
-                for emd in ed.members:
-                    if emd.py_name.name == py_name:
-                        clash("an enum member")
+        if self.spec.enums.by_scope_and_unscoped_member_py_name(self.scope, py_name):
+            clash("an enum member")
 
         # Only check the members if this attribute isn't a member because we
         # can handle members with the same name in the same scope.
@@ -1211,7 +1205,7 @@ class ParserManager:
         if name is None:
             name = p[symbol]
 
-        qual = self.find_qualifier(p, symbol, name)
+        qual = self._find_qualifier(p, symbol, name)
         if qual is None:
             return False
 
@@ -1282,8 +1276,22 @@ class ParserManager:
             module = upper_qual.module
             timeline = upper_qual.timeline
 
-        # Handle the SIP version number pseudo-timeline.
-        if timeline < 0:
+        # Handle the pseudo-timelines.
+        if timeline == self._SIP_ABI_TIMELINE:
+            if self.spec.target_abi is None:
+                return False
+
+            abi_major = self.spec.target_abi[0]
+
+            if lower_qual is not None and abi_major < lower_qual.order:
+                return False
+
+            if upper_qual is not None and abi_major >= upper_qual.order:
+                return False
+
+            return True
+
+        if timeline == self._SIP_TIMELINE:
             if lower_qual is not None and self._hex_version < lower_qual.order:
                 return False
 
@@ -1305,46 +1313,14 @@ class ParserManager:
 
         return upper_qual is None
 
-    def find_qualifier(self, p, symbol, name, required=True):
-        """ Return a Qualifier or None if one doesn't exist. """
-
-        for module in self.modules:
-            for qual in module.qualifiers:
-                if qual.name == name:
-                    return qual
-
-        # Qualifiers corresponding to the SIP version are created on the fly.
-        if name.startswith('SIP_'):
-            parts = name.split('_')[1:]
-            if len(parts) > 3:
-                order = -1
-            else:
-                while len(parts) < 3:
-                    parts.append('0')
-
-                order = 0
-
-                for part in parts:
-                    try:
-                        order = (order << 8) + int(part)
-                    except ValueError:
-                        order = -1
-                        break
-
-            if order >= 0:
-                module = self.module_state.module
-
-                qualifier = Qualifier(module, name, QualifierType.TIME,
-                        order=order)
-                module.qualifiers.append(qualifier)
-
-                return qualifier
-
-        if required:
-            self.parser_error(p, symbol,
-                    "'{0}' is not a known qualifier".format(name))
-
-        return None
+    # The Python keywords.
+    _PYTHON_KEYWORDS = (
+        'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
+        'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
+        'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
+        'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
+        'while', 'with', 'yield',
+    )
 
     def get_py_name(self, cpp_name, annotations):
         """ Return a valid Python name given a C/C++ name. """
@@ -1626,8 +1602,6 @@ class ParserManager:
         # Check we aren't reading the file recursively.
         for detail in self._file_stack:
             if detail[0] == sip_file:
-                self.parser_error(p, symbol,
-                        "'{0}' is being read recursively".format(sip_file))
                 return
 
         # Ignore the file if we have already read it.
@@ -1783,7 +1757,9 @@ class ParserManager:
     def validate_mapped_type(self, p, symbol, mapped_type):
         """ Validate a completed mapped type. """
 
-        if self.spec.target_abi is None or self.spec.target_abi >= (13, 0):
+        # The minor version of the target ABI may not be known yet (and we
+        # don't need it) so just test the major version.
+        if self.spec.target_abi is None or self.spec.target_abi[0] >= 13:
             convert_to_us = mapped_type.convert_to_type_code is not None and 'sipUserState' in mapped_type.convert_to_type_code.text
 
             release_us = mapped_type.release_code is not None and 'sipUserState' in mapped_type.release_code.text
@@ -1825,12 +1801,6 @@ class ParserManager:
             if variable.access_code is not None:
                 self.parser_error(p, symbol,
                         "%AccessCode cannot be specified with %GetCode or %SetCode")
-
-            if self.scope is None:
-                # TODO: this can be supported for versions of Python that
-                # support module descriptors.
-                self.parser_error(p, symbol,
-                        "%GetCode or %SetCode cannot be specified for global variables")
 
         if self.scope is not None and self.scope.iface_file.type is IfaceFileType.NAMESPACE:
             variable.is_static = True
@@ -1888,13 +1858,70 @@ class ParserManager:
                 fq_cpp_name, iface_file_type, error_logger, cpp_type=cpp_type,
                 scope=self.scope)
 
+    # Define the pseudo-timelines.
+    _SIP_TIMELINE = -1
+    _SIP_ABI_TIMELINE = -2
+
+    def _find_qualifier(self, p, symbol, name, required=True):
+        """ Return a Qualifier or None if one doesn't exist. """
+
+        for module in self.modules:
+            for qual in module.qualifiers:
+                if qual.name == name:
+                    return qual
+
+        # Some qualifiers are created on the fly.
+        order = -1
+
+        if name.startswith('SIP_ABI_'):
+            # The ABI version number.
+            timeline = self._SIP_ABI_TIMELINE
+
+            try:
+                order = int(name.split('_')[-1])
+            except ValueError:
+                pass
+
+        elif name.startswith('SIP_'):
+            # The SIP version number.
+            timeline = self._SIP_TIMELINE
+
+            parts = name.split('_')[1:]
+            if len(parts) <= 3:
+                while len(parts) < 3:
+                    parts.append('0')
+
+                order = 0
+
+                for part in parts:
+                    try:
+                        order = (order << 8) + int(part)
+                    except ValueError:
+                        order = -1
+                        break
+
+        if order >= 0:
+            module = self.module_state.module
+
+            qualifier = Qualifier(module, name, QualifierType.TIME,
+                    order=order, timeline=timeline)
+            module.qualifiers.append(qualifier)
+
+            return qualifier
+
+        if required:
+            self.parser_error(p, symbol,
+                    "'{0}' is not a known qualifier".format(name))
+
+        return None
+
     def _finalise_target_abi(self):
         """ Finalise the target ABI. """
 
         target_abi = self.spec.target_abi
 
         if target_abi is None:
-            major_version = get_latest_version()
+            major_version = DEFAULT_ABI_MAJOR
             minor_version = None
         else:
             major_version, minor_version = target_abi
@@ -1932,7 +1959,8 @@ class ParserManager:
             py_slot, needs_method_code, nr_args_needed = slot_detail
 
             if needs_method_code and method_code is None:
-                self.parser_error("'{0}' requires %MethodCode".format(py_name))
+                self.parser_error(p, symbol,
+                        f"'{py_name}' requires %MethodCode")
 
             if nr_args_needed >= 0:
                 # Global operators need an extra argument.
@@ -2006,7 +2034,7 @@ class ParserManager:
 
         name = p[symbol]
 
-        qual = self.find_qualifier(p, symbol, name, required=False)
+        qual = self._find_qualifier(p, symbol, name, required=False)
         if qual is None:
             return None
 
@@ -2043,15 +2071,6 @@ class ParserManager:
             return GILAction.RELEASE
 
         return GILAction.DEFAULT
-
-    # The Python keywords.
-    _PYTHON_KEYWORDS = (
-        'False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await',
-        'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except',
-        'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is',
-        'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try',
-        'while', 'with', 'yield',
-    )
 
     def _get_kw_args(self, p, symbol, annotations, signature, need_name=False):
         """ Return the keyword argument support. """

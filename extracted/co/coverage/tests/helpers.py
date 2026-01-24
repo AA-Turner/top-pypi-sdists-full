@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Helpers for coverage.py tests."""
 
@@ -19,9 +19,9 @@ import sys
 import textwrap
 import warnings
 
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
-from typing import Any, Callable, NoReturn, TypeVar, cast
-from collections.abc import Iterable, Iterator
+from typing import Any, NoReturn, TypeVar, cast
 
 from coverage import env
 from coverage.debug import DebugControl
@@ -399,7 +399,7 @@ class DebugControlString(DebugControl):
         return self.io.getvalue()
 
 
-def all_our_source_files() -> Iterator[tuple[Path, str]]:
+def all_our_source_files() -> Iterable[tuple[Path, str]]:
     """Iterate over all of our own source files.
 
     This is used in tests that need a bunch of Python code to analyze, so we
@@ -410,7 +410,7 @@ def all_our_source_files() -> Iterator[tuple[Path, str]]:
     cov_dir = Path(__file__).parent.parent
     # To run against all the files in the tox venvs:
     #   for source_file in cov_dir.rglob("*.py"):
-    for sub in [".", "benchmark", "ci", "coverage", "lab", "tests"]:
+    for sub in [".", "ci", "coverage", "lab", "tests"]:
         assert (cov_dir / sub).is_dir()
         for source_file in (cov_dir / sub).glob("*.py"):
             yield (source_file, source_file.read_text(encoding="utf-8"))

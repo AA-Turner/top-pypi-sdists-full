@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from typing import Optional
 
 import a_sync
 from a_sync import cgather
@@ -60,7 +59,7 @@ class wstEth(a_sync.ASyncGenericBase):
             self.address = None
 
     async def get_price(
-        self, block: Optional[Block] = None, skip_cache: bool = ENVS.SKIP_CACHE
+        self, block: Block | None = None, skip_cache: bool = ENVS.SKIP_CACHE
     ) -> UsdPrice:
         """
         Fetch the price of wstETH in USD.

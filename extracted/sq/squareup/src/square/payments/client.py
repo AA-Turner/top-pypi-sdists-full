@@ -18,6 +18,7 @@ from ..types.complete_payment_response import CompletePaymentResponse
 from ..types.create_payment_response import CreatePaymentResponse
 from ..types.get_payment_response import GetPaymentResponse
 from ..types.list_payments_request_sort_field import ListPaymentsRequestSortField
+from ..types.list_payments_response import ListPaymentsResponse
 from ..types.payment import Payment
 from ..types.update_payment_response import UpdatePaymentResponse
 from .raw_client import AsyncRawPaymentsClient, RawPaymentsClient
@@ -60,7 +61,7 @@ class PaymentsClient:
         updated_at_end_time: typing.Optional[str] = None,
         sort_field: typing.Optional[ListPaymentsRequestSortField] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[Payment]:
+    ) -> SyncPager[Payment, ListPaymentsResponse]:
         """
         Retrieves a list of payments taken by the account making the request.
 
@@ -150,7 +151,7 @@ class PaymentsClient:
 
         Returns
         -------
-        SyncPager[Payment]
+        SyncPager[Payment, ListPaymentsResponse]
             Success
 
         Examples
@@ -160,7 +161,23 @@ class PaymentsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.payments.list()
+        response = client.payments.list(
+            begin_time="begin_time",
+            end_time="end_time",
+            sort_order="sort_order",
+            cursor="cursor",
+            location_id="location_id",
+            total=1000000,
+            last4="last_4",
+            card_brand="card_brand",
+            limit=1,
+            is_offline_payment=True,
+            offline_begin_time="offline_begin_time",
+            offline_end_time="offline_end_time",
+            updated_at_begin_time="updated_at_begin_time",
+            updated_at_end_time="updated_at_end_time",
+            sort_field="CREATED_AT",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -262,6 +279,8 @@ class PaymentsClient:
             The amount must be specified in the smallest denomination of the applicable currency
             (for example, US dollar amounts are specified in cents). For more information, see
             [Working with Monetary Amounts](https://developer.squareup.com/docs/build-basics/working-with-monetary-amounts).
+
+            Tips for external vendors such as a 3rd party delivery courier must be recorded using Order.service_charges.
 
             The currency code must match the currency associated with the business
             that is accepting the payment.
@@ -703,7 +722,7 @@ class AsyncPaymentsClient:
         updated_at_end_time: typing.Optional[str] = None,
         sort_field: typing.Optional[ListPaymentsRequestSortField] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[Payment]:
+    ) -> AsyncPager[Payment, ListPaymentsResponse]:
         """
         Retrieves a list of payments taken by the account making the request.
 
@@ -793,7 +812,7 @@ class AsyncPaymentsClient:
 
         Returns
         -------
-        AsyncPager[Payment]
+        AsyncPager[Payment, ListPaymentsResponse]
             Success
 
         Examples
@@ -808,7 +827,23 @@ class AsyncPaymentsClient:
 
 
         async def main() -> None:
-            response = await client.payments.list()
+            response = await client.payments.list(
+                begin_time="begin_time",
+                end_time="end_time",
+                sort_order="sort_order",
+                cursor="cursor",
+                location_id="location_id",
+                total=1000000,
+                last4="last_4",
+                card_brand="card_brand",
+                limit=1,
+                is_offline_payment=True,
+                offline_begin_time="offline_begin_time",
+                offline_end_time="offline_end_time",
+                updated_at_begin_time="updated_at_begin_time",
+                updated_at_end_time="updated_at_end_time",
+                sort_field="CREATED_AT",
+            )
             async for item in response:
                 yield item
 
@@ -914,6 +949,8 @@ class AsyncPaymentsClient:
             The amount must be specified in the smallest denomination of the applicable currency
             (for example, US dollar amounts are specified in cents). For more information, see
             [Working with Monetary Amounts](https://developer.squareup.com/docs/build-basics/working-with-monetary-amounts).
+
+            Tips for external vendors such as a 3rd party delivery courier must be recorded using Order.service_charges.
 
             The currency code must match the currency associated with the business
             that is accepting the payment.

@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import Mock, patch
 from pyspark.sql.functions import col
 from pyspark.sql.functions import lit, to_timestamp
+from pyspark.sql.streaming import StreamingQuery
 from spark_expectations.core import get_spark_session
 from spark_expectations.core.context import SparkExpectationsContext
 from spark_expectations.sinks.utils.writer import SparkExpectationsWriter
@@ -42,15 +43,15 @@ def fixture_setup_local_kafka_topic():
 
     if os.getenv("UNIT_TESTING_ENV") != "spark_expectations_unit_testing_on_github_actions":
         # remove if docker conatiner is running
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_stop_script.sh")
+        os.system(f"sh {current_dir}/../../../../containers/kafka/scripts/docker_kafka_stop_script.sh")
 
         # start docker container and create the topic
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_start_script.sh")
+        os.system(f"sh {current_dir}/../../../../containers/kafka/scripts/docker_kafka_start_script.sh")
 
         yield "docker container started"
 
         # remove docker container
-        os.system(f"sh {current_dir}/../../../spark_expectations/examples/docker_scripts/docker_kafka_stop_script.sh")
+        os.system(f"sh {current_dir}/../../../../containers/kafka/scripts/docker_kafka_stop_script.sh")
 
     else:
         yield (
@@ -86,6 +87,7 @@ def fixture_context():
                 "description": "col1 should not be null",
                 "enable_error_drop_alert": False,
                 "error_drop_threshold": 0,
+                "priority": "medium"
             },
             {
                 "product_id": "product1",
@@ -101,6 +103,7 @@ def fixture_context():
                 "description": "col2 should start with A",
                 "enable_error_drop_alert": False,
                 "error_drop_threshold": 0,
+                "priority": "medium"
             },
         ]
     }
@@ -2024,7 +2027,6 @@ def test_write_error_stats(
         ),
     )
     setattr(_mock_context, "get_env", "local")
-    setattr(_mock_context, "get_se_streaming_stats_topic_name", "dq-sparkexpectations-stats")
     setattr(
         _mock_context,
         "get_source_query_dq_result",
@@ -2176,6 +2178,7 @@ def test_write_error_stats(
         "get_job_metadata",
         '{"dag": "dag1", "task": "task1", "team": "my_squad"}',
     )
+    setattr(_mock_context, "get_topic_name", "dq-sparkexpectations-stats")
 
     if writer_config is None:
         setattr(
@@ -3333,6 +3336,432 @@ def test_write_detailed_stats(
         assert row.target_dq_row_count == expected_result.get("target_dq_row_count")
 
 
+def test_kafka_write_disabled_status():
+    """
+    Test that Kafka write sets disabled status when streaming is disabled
+    """
+    # Create a real context instance for testing Kafka status methods
+    from spark_expectations.core.context import SparkExpectationsContext
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test the disabled path directly
+    _se_stats_dict = {"se.streaming.enable": False}
+    from spark_expectations.config.user_config import Constants as user_config
+    
+    if not _se_stats_dict[user_config.se_enable_streaming]:
+        context.set_kafka_write_status("Disabled")
+    
+    # Verify the status was set to Disabled
+    assert context.get_kafka_write_status == "Disabled"
+
+
+def test_kafka_write_success_status():
+    """
+    Test that Kafka write sets success status when write is successful
+    """
+    # Create a real context instance for testing Kafka status methods
+    from spark_expectations.core.context import SparkExpectationsContext
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test success path
+    context.set_kafka_write_status("Success")
+    
+    # Verify the status was set to Success
+    assert context.get_kafka_write_status == "Success"
+
+
+def test_kafka_write_failure_status():
+    """
+    Test that Kafka write sets failure status and error message when write fails
+    """
+    # Create a real context instance for testing Kafka status methods
+    from spark_expectations.core.context import SparkExpectationsContext
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test failure path
+    error_message = "Connection refused: kafka broker not available"
+    context.set_kafka_write_status("Failed")
+    context.set_kafka_write_error_message(error_message)
+    
+    # Verify the status was set to Failed and error message was captured
+    assert context.get_kafka_write_status == "Failed"
+    assert context.get_kafka_write_error_message == error_message
+
+
+def test_kafka_error_message_logging():
+    """
+    Test that error messages are properly logged and stored when Kafka write fails
+    """
+    # Create a real context instance for testing Kafka status methods
+    from spark_expectations.core.context import SparkExpectationsContext
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test different error scenarios
+    test_errors = [
+        "Kafka write timeout",
+        "Network unreachable",
+        "Authentication failed",
+        "Topic does not exist"
+    ]
+    
+    for error_msg in test_errors:
+        # Test error handling
+        context.set_kafka_write_status("Failed")
+        context.set_kafka_write_error_message(error_msg)
+        
+        # Verify the status and error message were set correctly
+        assert context.get_kafka_write_status == "Failed"
+        assert context.get_kafka_write_error_message == error_msg
+
+
+def test_kafka_write_error_in_streaming_stats():
+    """
+    Test Kafka error handling by directly testing the Kafka write logic with mocking
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    from spark_expectations.config.user_config import Constants as user_config
+    from spark_expectations.sinks.utils.writer import SparkExpectationsWriter
+    
+    # Create context and enable streaming
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_streaming_stats_dict({user_config.se_enable_streaming: True})
+    
+    writer = SparkExpectationsWriter(context)
+    
+    # Mock the _sink_hook.writer to raise an exception
+    with patch("spark_expectations.sinks._sink_hook.writer") as mock_writer:
+        mock_writer.side_effect = Exception("Kafka connection failed")
+        
+        # Mock the get_kafka_write_options method
+        writer.get_kafka_write_options = Mock(return_value={"kafka.bootstrap.servers": "localhost:9092"})
+        
+        # Test by calling the Kafka writing portion directly
+        # Since we can't easily call write_error_stats, we'll test the specific error handling logic
+        _se_stats_dict = context.get_se_streaming_stats_dict
+        
+        if _se_stats_dict[user_config.se_enable_streaming]:
+            with pytest.raises(Exception, match="Kafka connection failed"):
+                try:
+                    kafka_write_options = writer.get_kafka_write_options(_se_stats_dict)
+                    from spark_expectations.sinks import _sink_hook
+                    _sink_hook.writer(
+                        _write_args={
+                            "product_id": context.product_id,
+                            "enable_se_streaming": _se_stats_dict[user_config.se_enable_streaming],
+                            "kafka_write_options": kafka_write_options,
+                            "stats_df": spark.createDataFrame([("test",)], ["value"]),
+                        }
+                    )
+                    context.set_kafka_write_status("Success")
+                except Exception as kafka_error:
+                    error_message = str(kafka_error)
+                    context.set_kafka_write_status("Failed")
+                    context.set_kafka_write_error_message(error_message)
+                    raise kafka_error
+        
+        # Verify error handling worked
+        assert context.get_kafka_write_status == "Failed"
+        assert "Kafka connection failed" in context.get_kafka_write_error_message
+
+
+def test_write_error_stats_kafka_success():
+    """
+    Test successful Kafka write in write_error_stats method
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    from spark_expectations.config.user_config import Constants as user_config
+    from spark_expectations.sinks.utils.writer import SparkExpectationsWriter
+    from spark_expectations.core.expectations import WrappedDataFrameWriter
+    
+    # Create context
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_streaming_stats_dict({user_config.se_enable_streaming: True})
+    
+    # Mock required context methods
+    context.set_table_name("test_table")
+    context.set_input_count(100)
+    context.set_error_count(5)
+    context.set_output_count(95)
+    
+    # Set up required stats table configuration
+    context.set_dq_stats_table_name("test_dq_stats_table")
+    context._stats_table_writer_config = WrappedDataFrameWriter().mode("overwrite").format("delta").build()
+    
+    # Set up DQ rules params (required for environment variable access)
+    context.set_dq_rules_params({"env": "test"})
+    
+    # Set up run ID and date (setting internal attributes directly)
+    context._run_id = "test_run_id"
+    context._run_date = "2023-01-01 10:00:00"
+    
+    # Mock the attributes that don't have setters but are expected by write_error_stats
+    context._source_agg_dq_result = []
+    context._final_agg_dq_result = []
+    context._source_query_dq_result = []
+    context._final_query_dq_result = []
+    context._summarized_row_dq_res = []
+    context._rules_exceeds_threshold = []
+    context._dq_run_status = "Passed"
+    context._source_agg_dq_status = "Passed"
+    context._source_query_dq_status = "Passed"
+    context._row_dq_status = "Passed"
+    context._final_agg_dq_status = "Passed"
+    context._final_query_dq_status = "Passed"
+    # Set times that are required
+    context._dq_run_time = 10.0
+    context._source_agg_dq_run_time = 2.0
+    context._source_query_dq_run_time = 1.0
+    context._row_dq_run_time = 3.0
+    context._final_agg_dq_run_time = 2.0
+    context._final_query_dq_run_time = 2.0
+    context._num_row_dq_rules = 5
+    context._num_dq_rules = 10
+    # Set up dictionary format for agg and query dq rules
+    context._num_agg_dq_rules = {
+        "num_source_agg_dq_rules": 2,
+        "num_agg_dq_rules": 3,
+        "num_final_agg_dq_rules": 1,
+    }
+    context._num_query_dq_rules = {
+        "num_source_query_dq_rules": 1,
+        "num_query_dq_rules": 2,
+        "num_final_query_dq_rules": 1,
+    }
+    
+    writer = SparkExpectationsWriter(context)
+    
+    # Mock successful Kafka write
+    with patch("spark_expectations.sinks._sink_hook.writer") as mock_writer:
+        mock_writer.return_value = None  # Successful write
+        
+        # Mock get_kafka_write_options
+        writer.get_kafka_write_options = Mock(return_value={"kafka.bootstrap.servers": "localhost:9092"})
+        
+        # Mock save_df_as_table to prevent actual table operations
+        writer.save_df_as_table = Mock()
+        
+        # Call write_error_stats
+        writer.write_error_stats()
+        
+        # Verify Kafka write was attempted and successful
+        mock_writer.assert_called_once()
+        assert context.get_kafka_write_status == "Success"
+        assert context.get_kafka_write_error_message == ""
+
+
+def test_write_error_stats_kafka_failure():
+    """
+    Test Kafka write failure in write_error_stats method
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    from spark_expectations.config.user_config import Constants as user_config
+    from spark_expectations.sinks.utils.writer import SparkExpectationsWriter
+    from spark_expectations.core.exceptions import SparkExpectationsMiscException
+    from spark_expectations.core.expectations import WrappedDataFrameWriter
+    
+    # Create context
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_streaming_stats_dict({user_config.se_enable_streaming: True})
+    
+    # Mock required context methods
+    context.set_table_name("test_table")
+    context.set_input_count(100)
+    context.set_error_count(5)
+    context.set_output_count(95)
+    
+    # Set up required stats table configuration
+    context.set_dq_stats_table_name("test_dq_stats_table")
+    context._stats_table_writer_config = WrappedDataFrameWriter().mode("overwrite").format("delta").build()
+    
+    # Set up DQ rules params (required for environment variable access)
+    context.set_dq_rules_params({"env": "test"})
+    
+    # Set up run ID and date (setting internal attributes directly)
+    context._run_id = "test_run_id"
+    context._run_date = "2023-01-01 10:00:00"
+    
+    # Mock the attributes that don't have setters but are expected by write_error_stats
+    context._source_agg_dq_result = []
+    context._final_agg_dq_result = []
+    context._source_query_dq_result = []
+    context._final_query_dq_result = []
+    context._summarized_row_dq_res = []
+    context._rules_exceeds_threshold = []
+    context._dq_run_status = "Passed"
+    context._source_agg_dq_status = "Passed"
+    context._source_query_dq_status = "Passed"
+    context._row_dq_status = "Passed"
+    context._final_agg_dq_status = "Passed"
+    context._final_query_dq_status = "Passed"
+    context._dq_run_time = 10.0
+    context._source_agg_dq_run_time = 2.0
+    context._source_query_dq_run_time = 1.0
+    context._row_dq_run_time = 3.0
+    context._final_agg_dq_run_time = 2.0
+    context._final_query_dq_run_time = 2.0
+    context._num_row_dq_rules = 5
+    context._num_dq_rules = 10
+    # Set up dictionary format for agg and query dq rules
+    context._num_agg_dq_rules = {
+        "num_source_agg_dq_rules": 2,
+        "num_agg_dq_rules": 3,
+        "num_final_agg_dq_rules": 1,
+    }
+    context._num_query_dq_rules = {
+        "num_source_query_dq_rules": 1,
+        "num_query_dq_rules": 2,
+        "num_final_query_dq_rules": 1,
+    }
+    
+    writer = SparkExpectationsWriter(context)
+    
+    # Mock Kafka write failure
+    with patch("spark_expectations.sinks._sink_hook.writer") as mock_writer:
+        mock_writer.side_effect = Exception("Kafka broker unreachable")
+        
+        # Mock get_kafka_write_options
+        writer.get_kafka_write_options = Mock(return_value={"kafka.bootstrap.servers": "localhost:9092"})
+        
+        # Mock save_df_as_table to prevent actual table operations
+        writer.save_df_as_table = Mock()
+        
+        # Call write_error_stats and expect it to raise the Kafka exception
+        with pytest.raises(Exception, match="Kafka broker unreachable"):
+            writer.write_error_stats()
+        
+        # Verify Kafka write was attempted and failed
+        mock_writer.assert_called_once()
+        assert context.get_kafka_write_status == "Failed"
+        assert "Kafka broker unreachable" in context.get_kafka_write_error_message
+
+
+def test_write_error_stats_kafka_disabled():
+    """
+    Test write_error_stats when Kafka is disabled
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    from spark_expectations.config.user_config import Constants as user_config
+    from spark_expectations.sinks.utils.writer import SparkExpectationsWriter
+    from spark_expectations.core.expectations import WrappedDataFrameWriter
+    
+    # Create context with Kafka disabled
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    context.set_se_streaming_stats_dict({user_config.se_enable_streaming: False})
+    
+    # Mock required context methods
+    context.set_table_name("test_table")
+    context.set_input_count(100)
+    context.set_error_count(5)
+    context.set_output_count(95)
+    
+    # Set up required stats table configuration
+    context.set_dq_stats_table_name("test_dq_stats_table")
+    context._stats_table_writer_config = WrappedDataFrameWriter().mode("overwrite").format("delta").build()
+    
+    # Set up DQ rules params (required for environment variable access)
+    context.set_dq_rules_params({"env": "test"})
+    
+    # Set up run ID and date (setting internal attributes directly)
+    context._run_id = "test_run_id"
+    context._run_date = "2023-01-01 10:00:00"
+    
+    # Mock the attributes that don't have setters but are expected by write_error_stats
+    context._source_agg_dq_result = []
+    context._final_agg_dq_result = []
+    context._source_query_dq_result = []
+    context._final_query_dq_result = []
+    context._summarized_row_dq_res = []
+    context._rules_exceeds_threshold = []
+    context._dq_run_status = "Passed"
+    context._source_agg_dq_status = "Passed"
+    context._source_query_dq_status = "Passed"
+    context._row_dq_status = "Passed"
+    context._final_agg_dq_status = "Passed"
+    context._final_query_dq_status = "Passed"
+    context._dq_run_time = 10.0
+    context._source_agg_dq_run_time = 2.0
+    context._source_query_dq_run_time = 1.0
+    context._row_dq_run_time = 3.0
+    context._final_agg_dq_run_time = 2.0
+    context._final_query_dq_run_time = 2.0
+    context._num_row_dq_rules = 5
+    context._num_dq_rules = 10
+    # Set up dictionary format for agg and query dq rules
+    context._num_agg_dq_rules = {
+        "num_source_agg_dq_rules": 2,
+        "num_agg_dq_rules": 3,
+        "num_final_agg_dq_rules": 1,
+    }
+    context._num_query_dq_rules = {
+        "num_source_query_dq_rules": 1,
+        "num_query_dq_rules": 2,
+        "num_final_query_dq_rules": 1,
+    }
+    
+    writer = SparkExpectationsWriter(context)
+    
+    # Mock save_df_as_table to prevent actual table operations
+    writer.save_df_as_table = Mock()
+    
+    # Call write_error_stats
+    writer.write_error_stats()
+    
+    # Verify Kafka status is disabled and no error message
+    assert context.get_kafka_write_status == "Disabled"
+    assert context.get_kafka_write_error_message == ""
+
+
+def test_kafka_write_error_message_methods():
+    """
+    Test the Kafka error message getter and setter methods in context
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test default error message is empty
+    assert context.get_kafka_write_error_message == ""
+    
+    # Test setting error message
+    test_error = "Connection timeout to Kafka broker"
+    context.set_kafka_write_error_message(test_error)
+    assert context.get_kafka_write_error_message == test_error
+    
+    # Test setting empty error message
+    context.set_kafka_write_error_message("")
+    assert context.get_kafka_write_error_message == ""
+    
+    # Test setting None as error message
+    context.set_kafka_write_error_message()
+    assert context.get_kafka_write_error_message == ""
+
+
+def test_kafka_write_status_methods():
+    """
+    Test the Kafka status getter and setter methods in context
+    """
+    from spark_expectations.core.context import SparkExpectationsContext
+    
+    context = SparkExpectationsContext(product_id="test_product", spark=spark)
+    
+    # Test default status is Disabled
+    assert context.get_kafka_write_status == "Disabled"
+    
+    # Test setting success status
+    context.set_kafka_write_status("Success")
+    assert context.get_kafka_write_status == "Success"
+    
+    # Test setting failed status
+    context.set_kafka_write_status("Failed")
+    assert context.get_kafka_write_status == "Failed"
+    
+    # Test setting back to disabled
+    context.set_kafka_write_status("Disabled")
+    assert context.get_kafka_write_status == "Disabled"
+    
+    # Test default parameter
+    context.set_kafka_write_status()
+    assert context.get_kafka_write_status == "Disabled"
 def test_write_detailed_stats_exception() -> None:
     """
     This functions writes the detailed stats for all rule type into the detailed stats table
@@ -3485,6 +3914,7 @@ def test_write_error_records_final_dependent(
                             "column_name":"col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         },
                         {
                             "rule_type": "row_dq",
@@ -3493,6 +3923,7 @@ def test_write_error_records_final_dependent(
                             "column_name": "col2",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         },
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3507,6 +3938,7 @@ def test_write_error_records_final_dependent(
                             "column_name": "col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3521,6 +3953,7 @@ def test_write_error_records_final_dependent(
                             "column_name": "col2",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3536,6 +3969,7 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
+                    "priority": "medium"
                 },
                 {
                     "rule_type": "row_dq",
@@ -3545,6 +3979,7 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
+                    "priority": "medium"
                 },
             ],
         ),
@@ -3559,6 +3994,7 @@ def test_write_error_records_final_dependent(
                             "column_name":"col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3573,6 +4009,7 @@ def test_write_error_records_final_dependent(
                             "column_name": "col1",
                             "tag": "validity",
                             "action_if_failed": "ignore",
+                            "priority": "medium"
                         }
                     ],
                     "meta_dq_run_id": "run_id",
@@ -3588,6 +4025,7 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 2,
+                    "priority": "medium"
                 },
                 {
                     "rule_type": "row_dq",
@@ -3597,6 +4035,7 @@ def test_write_error_records_final_dependent(
                     "tag": "validity",
                     "action_if_failed": "ignore",
                     "failed_row_count": 0,
+                    "priority": "medium"
                 },
             ],
         ),
@@ -3811,6 +4250,13 @@ def test_generate_summarized_row_dq_res_exception(test_data, _fixture_writer):
         _fixture_writer.generate_summarized_row_dq_res(test_df, "row_dq")
 
 
+def test_generate_summarized_row_dq_res_streaming_skip(_fixture_writer):
+    """Test line 1011-1013: streaming DataFrame skips generation"""
+    streaming_df = spark.readStream.format("rate").option("rowsPerSecond", "1").load()
+    _fixture_writer.generate_summarized_row_dq_res(streaming_df, "row_dq")
+    _fixture_writer._context.set_summarized_row_dq_res.assert_not_called()
+
+
 def test_save_df_as_table_exception(_fixture_employee, _fixture_writer):
     with pytest.raises(
         SparkExpectationsUserInputOrConfigInvalidException,
@@ -3873,7 +4319,7 @@ def test_generate_rules_exceeds_threshold_exception():
             "local",
             {
                 "kafka.bootstrap.servers": "localhost:9092",
-                "topic": "dq-sparkexpectations-stats",
+                "topic": "test-topic",
                 "failOnDataLoss": "true",
             },
         ),
@@ -3920,6 +4366,79 @@ def test_get_kafka_write_options(dbr_version, env, expected_options):
         patch(
             "spark_expectations.core.context.SparkExpectationsContext.get_token_endpoint_url",
             new_callable=Mock(return_value="test-endpoint"),
+        ),
+        patch(
+            "spark_expectations.core.context.SparkExpectationsContext.get_topic_name",
+            new_callable=Mock(return_value="test-topic"),
+        ),
+    ):
+        # Configure mock to return the value passed to get_secret
+        mock_get_secret.side_effect = lambda x: x
+
+        writer = SparkExpectationsWriter(context)
+        actual_options = writer.get_kafka_write_options(
+            {}
+        )  # Empty dict since we mock everything
+        assert actual_options == expected_options
+
+
+def test_get_streaming_query_status_input_rows_per_second(_fixture_writer):
+    """Test line 1181: input_rows_per_second is set when present in progress"""
+    mock_query = Mock(spec=StreamingQuery)
+    mock_query.id, mock_query.runId, mock_query.name = "test_input_rows", "run_004", "input_rows_query"
+    mock_query.isActive, mock_query.lastProgress = True, {"inputRowsPerSecond": 100.5}
+    assert _fixture_writer.get_streaming_query_status(mock_query)["input_rows_per_second"] == 100.5
+
+
+def test_get_streaming_query_status_processed_rows_per_second(_fixture_writer):
+    """Test line 1183: processed_rows_per_second is set when present in progress"""
+    mock_query = Mock(spec=StreamingQuery)
+    mock_query.id, mock_query.runId, mock_query.name = "test_processed_rows", "run_005", "processed_rows_query"
+    mock_query.isActive, mock_query.lastProgress = True, {"processedRowsPerSecond": 200.7}
+    assert _fixture_writer.get_streaming_query_status(mock_query)["processed_rows_per_second"] == 200.7
+
+
+def test_get_streaming_query_status_active_path_entry(_fixture_writer):
+    """Test line 1172: active query path is entered correctly"""
+    mock_query = Mock(spec=StreamingQuery)
+    mock_query.id, mock_query.runId, mock_query.name = "test_active", "run_006", "active_query"
+    mock_query.isActive, mock_query.lastProgress = True, {}
+    status = _fixture_writer.get_streaming_query_status(mock_query)
+    assert status["status"] == "active" and status["is_active"] is True
+def test_get_kafka_write_options_custom():
+    """Test the Kafka write options generation for custom Kafka config option"""
+    context = SparkExpectationsContext("product1", spark)
+    context._env = "test"
+
+    expected_options = {
+                "kafka.bootstrap.servers": "test-server",
+                "kafka.security.protocol": "SASL_SSL",
+                "kafka.sasl.mechanism": "OAUTHBEARER",
+                "kafka.sasl.jaas.config": """kafkashaded.org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="test-client-id" clientSecret="test-token";""",
+                "kafka.sasl.login.callback.handler.class": "kafkashaded.org.apache.kafka.common.security.oauthbearer.secured.OAuthBearerLoginCallbackHandler",
+                "topic": "test-topic",
+            }
+
+    # Mock runtime environment check and secrets handler
+    with (
+        patch(
+            "spark_expectations.secrets.SparkExpectationsSecretsBackend.get_secret"
+        ) as mock_get_secret,
+        patch(
+            "spark_expectations.core.context.SparkExpectationsContext.get_client_id",
+            new_callable=Mock(return_value="test-client-id"),
+        ),
+        patch(
+            "spark_expectations.core.context.SparkExpectationsContext.get_token",
+            new_callable=Mock(return_value="test-token"),
+        ),
+        patch(
+            "spark_expectations.core.context.SparkExpectationsContext.get_se_streaming_stats_kafka_custom_config_enable",
+            new_callable=Mock(return_value=True),
+        ),
+        patch(
+            "spark_expectations.core.context.SparkExpectationsContext.get_se_streaming_stats_kafka_bootstrap_server",
+            new_callable=Mock(return_value="test-server"),
         ),
         patch(
             "spark_expectations.core.context.SparkExpectationsContext.get_topic_name",

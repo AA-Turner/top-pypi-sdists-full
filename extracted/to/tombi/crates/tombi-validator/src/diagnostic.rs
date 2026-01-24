@@ -6,6 +6,9 @@ use tombi_x_keyword::StringFormat;
 
 #[derive(thiserror::Error, Debug)]
 pub enum DiagnosticKind {
+    #[error("Don't need to use `{rule_name}.disabled = true`. Please remove it.")]
+    UnusedNoqa { rule_name: &'static str },
+
     /// The entire Table or Array is deprecated
     #[error("`{0}` is deprecated")]
     Deprecated(SchemaAccessors),
@@ -42,36 +45,36 @@ or set `schema.strict = false` in your `tombi.toml`."#
     Const { expected: String, actual: String },
 
     #[error("The value must be one of [{}], but found {actual}", .expected.join(", "))]
-    Enumerate {
+    Enum {
         expected: Vec<String>,
         actual: String,
     },
 
-    #[error("The value must be > {maximum}, but found {actual}")]
+    #[error("The value must be < {maximum}, but found {actual}")]
     IntegerMaximum { maximum: i64, actual: i64 },
 
-    #[error("The value must be < {minimum}, but found {actual}")]
+    #[error("The value must be > {minimum}, but found {actual}")]
     IntegerMinimum { minimum: i64, actual: i64 },
 
-    #[error("The value must be ≥ {maximum}, but found {actual}")]
+    #[error("The value must be ≤ {maximum}, but found {actual}")]
     IntegerExclusiveMaximum { maximum: i64, actual: i64 },
 
-    #[error("The value must be ≤ {minimum}, but found {actual}")]
+    #[error("The value must be ≥ {minimum}, but found {actual}")]
     IntegerExclusiveMinimum { minimum: i64, actual: i64 },
 
     #[error("The value {actual} is not a multiple of {multiple_of}")]
     IntegerMultipleOf { multiple_of: i64, actual: i64 },
 
-    #[error("The value must be > {maximum}, but found {actual}")]
+    #[error("The value must be < {maximum}, but found {actual}")]
     FloatMaximum { maximum: f64, actual: f64 },
 
-    #[error("The value must be < {minimum}, but found {actual}")]
+    #[error("The value must be > {minimum}, but found {actual}")]
     FloatMinimum { minimum: f64, actual: f64 },
 
-    #[error("The value must be ≥ {maximum}, but found {actual}")]
+    #[error("The value must be ≤ {maximum}, but found {actual}")]
     FloatExclusiveMaximum { maximum: f64, actual: f64 },
 
-    #[error("The value must be ≤ {minimum}, but found {actual}")]
+    #[error("The value must be ≥ {minimum}, but found {actual}")]
     FloatExclusiveMinimum { minimum: f64, actual: f64 },
 
     #[error("The value {actual} is not a multiple of {multiple_of}")]
@@ -109,6 +112,15 @@ or set `schema.strict = false` in your `tombi.toml`."#
 
     #[error("\"{key}\" is required")]
     TableKeyRequired { key: String },
+
+    #[error("1 of {total_count} schemas must be matched, but found {valid_count} matched schemas")]
+    OneOfMultipleMatch {
+        valid_count: usize,
+        total_count: usize,
+    },
+
+    #[error("\"not\" schema is matched")]
+    NotSchemaMatch,
 }
 
 #[derive(Debug)]
@@ -121,6 +133,7 @@ impl Diagnostic {
     #[inline]
     pub fn code(&self) -> &'static str {
         match *self.kind {
+            DiagnosticKind::UnusedNoqa { .. } => "unused-noqa",
             DiagnosticKind::Deprecated { .. } | DiagnosticKind::DeprecatedValue { .. } => {
                 "deprecated"
             }
@@ -129,7 +142,7 @@ impl Diagnostic {
             DiagnosticKind::KeyPattern { .. } => "key-pattern",
             DiagnosticKind::TypeMismatch { .. } => "type-mismatch",
             DiagnosticKind::Const { .. } => "const",
-            DiagnosticKind::Enumerate { .. } => "enumerate",
+            DiagnosticKind::Enum { .. } => "enum",
             DiagnosticKind::IntegerMaximum { .. } => "integer-maximum",
             DiagnosticKind::IntegerMinimum { .. } => "integer-minimum",
             DiagnosticKind::IntegerExclusiveMaximum { .. } => "integer-exclusive-maximum",
@@ -150,6 +163,8 @@ impl Diagnostic {
             DiagnosticKind::TableMaxKeys { .. } => "table-max-keys",
             DiagnosticKind::TableMinKeys { .. } => "table-min-keys",
             DiagnosticKind::TableKeyRequired { .. } => "table-key-required",
+            DiagnosticKind::OneOfMultipleMatch { .. } => "one-of-multiple-match",
+            DiagnosticKind::NotSchemaMatch => "not-schema-match",
         }
     }
 

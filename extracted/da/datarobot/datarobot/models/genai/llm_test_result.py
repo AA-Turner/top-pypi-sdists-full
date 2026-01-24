@@ -49,48 +49,40 @@ def get_entity_id(entity: Union[LLMTestConfiguration, LLMBlueprint, LLMTestResul
     return entity.id
 
 
-insight_evaluation_result_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("llm_test_result_id"): t.String,
-        t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("evaluation_dataset_name"): t.String(allow_blank=True),
-        t.Key("metric_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("chat_id"): t.String,
-        t.Key("chat_name"): t.String(allow_blank=True),
-        t.Key("aggregation_value", optional=True): t.Or(
-            t.Float, t.List(aggregation_value_trafaret), t.Null
-        ),
-        t.Key("aggregation_type", optional=True): t.Or(
-            t.Enum(*enum_to_list(AggregationType)), t.Null
-        ),
-        t.Key("grading_result", optional=True): t.Or(t.Enum(*enum_to_list(GradingResult)), t.Null),
-        t.Key("execution_status"): t.String,
-        t.Key("evaluation_name"): t.String(allow_blank=True),
-        t.Key("insight_grading_criteria"): insight_grading_criteria_trafaret,
-        t.Key("last_update_date"): t.String,
-    }
-).ignore_extra("*")
+insight_evaluation_result_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("llm_test_result_id"): t.String,
+    t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("evaluation_dataset_name"): t.String(allow_blank=True),
+    t.Key("metric_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("chat_id"): t.String,
+    t.Key("chat_name"): t.String(allow_blank=True),
+    t.Key("aggregation_value", optional=True): t.Or(t.Float, t.List(aggregation_value_trafaret), t.Null),
+    t.Key("aggregation_type", optional=True): t.Or(t.Enum(*enum_to_list(AggregationType)), t.Null),
+    t.Key("grading_result", optional=True): t.Or(t.Enum(*enum_to_list(GradingResult)), t.Null),
+    t.Key("execution_status"): t.String,
+    t.Key("evaluation_name"): t.String(allow_blank=True),
+    t.Key("insight_grading_criteria"): insight_grading_criteria_trafaret,
+    t.Key("last_update_date"): t.String,
+}).ignore_extra("*")
 
 
-llm_test_result_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("llm_test_configuration_id"): t.String,
-        t.Key("llm_test_configuration_name"): t.String(allow_blank=True),
-        t.Key("use_case_id"): t.String,
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("llm_blueprint_snapshot"): t.Dict().allow_extra("*"),
-        t.Key("llm_test_grading_criteria"): llm_test_grading_criteria_trafaret,
-        t.Key("grading_result", optional=True): t.Or(t.Enum(*enum_to_list(GradingResult)), t.Null),
-        t.Key("pass_percentage", optional=True): t.Or(t.Float, t.Null),
-        t.Key("execution_status"): t.String,
-        t.Key("insight_evaluation_results"): t.List(insight_evaluation_result_trafaret),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("creation_user_name"): t.String(allow_blank=True),
-    }
-).ignore_extra("*")
+llm_test_result_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("llm_test_configuration_id"): t.String,
+    t.Key("llm_test_configuration_name"): t.String(allow_blank=True),
+    t.Key("use_case_id"): t.String,
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("llm_blueprint_snapshot"): t.Dict().allow_extra("*"),
+    t.Key("llm_test_grading_criteria"): llm_test_grading_criteria_trafaret,
+    t.Key("grading_result", optional=True): t.Or(t.Enum(*enum_to_list(GradingResult)), t.Null),
+    t.Key("pass_percentage", optional=True): t.Or(t.Float, t.Null),
+    t.Key("execution_status"): t.String,
+    t.Key("insight_evaluation_results"): t.List(insight_evaluation_result_trafaret),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("creation_user_name"): t.String(allow_blank=True),
+}).ignore_extra("*")
 
 
 class InsightEvaluationResult(APIObject):
@@ -159,9 +151,7 @@ class InsightEvaluationResult(APIObject):
         self.execution_status = execution_status
         self.evaluation_name = evaluation_name
         self.evaluation_dataset_name = evaluation_dataset_name
-        self.insight_grading_criteria = InsightGradingCriteria.from_server_data(
-            insight_grading_criteria
-        )
+        self.insight_grading_criteria = InsightGradingCriteria.from_server_data(insight_grading_criteria)
         self.last_update_date = last_update_date
         self.aggregation_value = aggregation_value
 
@@ -229,15 +219,12 @@ class LLMTestResult(APIObject):
         self.llm_test_configuration_name = llm_test_configuration_name
         self.use_case_id = use_case_id
         self.llm_blueprint_id = llm_blueprint_id
-        self.llm_test_grading_criteria = LLMTestGradingCriteria.from_server_data(
-            llm_test_grading_criteria
-        )
+        self.llm_test_grading_criteria = LLMTestGradingCriteria.from_server_data(llm_test_grading_criteria)
         self.pass_percentage = pass_percentage
         self.execution_status = execution_status
         self.llm_blueprint_snapshot = llm_blueprint_snapshot
         self.insight_evaluation_results = [
-            InsightEvaluationResult.from_server_data(result)
-            for result in insight_evaluation_results
+            InsightEvaluationResult.from_server_data(result) for result in insight_evaluation_results
         ]
         self.creation_date = creation_date
         self.creation_user_id = creation_user_id

@@ -18,6 +18,7 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
+#include "tools/GpuToolUtils.h"
 #include "tools/ToolUtils.h"
 
 namespace skiagm {
@@ -25,7 +26,7 @@ namespace skiagm {
 constexpr SkRect kSrcImageClip{75, 75, 275, 275};
 
 static sk_sp<SkImage> create_image(SkCanvas* destCanvas) {
-    sk_sp<SkSurface> srcSurface = SkSurface::MakeRasterN32Premul(500, 500);
+    sk_sp<SkSurface> srcSurface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(500, 500));
     SkCanvas* srcCanvas = srcSurface->getCanvas();
 
     srcCanvas->clear(SK_ColorRED);
@@ -55,8 +56,8 @@ static sk_sp<SkImage> create_image(SkCanvas* destCanvas) {
  */
 class CroppedRectsGM : public GM {
 private:
-    SkString onShortName() final { return SkString("croppedrects"); }
-    SkISize onISize() override { return SkISize::Make(500, 500); }
+    SkString getName() const override { return SkString("croppedrects"); }
+    SkISize getISize() override { return SkISize::Make(500, 500); }
 
     void onDraw(SkCanvas* canvas) override {
         if (!fSrcImage) {

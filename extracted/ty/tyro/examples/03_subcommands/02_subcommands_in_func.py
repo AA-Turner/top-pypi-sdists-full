@@ -1,4 +1,4 @@
-"""Subcommands as Function Arguments
+"""Subcommands as function arguments
 
 A subcommand will be created for each input annotated with a union over
 struct types.
@@ -12,7 +12,7 @@ struct types.
 
     Argument ordering for subcommands can be tricky. In the example below,
     ``--shared-arg`` must always come *before* the subcommand. As an option for
-    alleviating this, see :class:`tyro.conf.ConsolidateSubcommandArgs`.
+    alleviating this, see :class:`tyro.conf.CascadeSubcommandArgs`.
 
 
 Usage:

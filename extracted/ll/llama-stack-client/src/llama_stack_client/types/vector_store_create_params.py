@@ -1,40 +1,63 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
-from typing_extensions import TypedDict
+from typing import Dict, Union, Optional
+from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
-__all__ = ["VectorStoreCreateParams"]
+from .._types import SequenceNotStr
+
+__all__ = [
+    "VectorStoreCreateParams",
+    "ChunkingStrategy",
+    "ChunkingStrategyVectorStoreChunkingStrategyAuto",
+    "ChunkingStrategyVectorStoreChunkingStrategyStatic",
+    "ChunkingStrategyVectorStoreChunkingStrategyStaticStatic",
+]
 
 
 class VectorStoreCreateParams(TypedDict, total=False):
-    chunking_strategy: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
-    """The chunking strategy used to chunk the file(s).
+    chunking_strategy: Optional[ChunkingStrategy]
+    """Automatic chunking strategy for vector store files."""
 
-    If not set, will use the `auto` strategy.
-    """
+    expires_after: Optional[Dict[str, object]]
 
-    embedding_dimension: int
-    """The dimension of the embedding vectors (default: 384)."""
+    file_ids: Optional[SequenceNotStr[str]]
 
-    embedding_model: str
-    """The embedding model to use for this vector store."""
+    metadata: Optional[Dict[str, object]]
 
-    expires_after: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
-    """The expiration policy for a vector store."""
+    name: Optional[str]
 
-    file_ids: List[str]
-    """A list of File IDs that the vector store should use.
 
-    Useful for tools like `file_search` that can access files.
-    """
+class ChunkingStrategyVectorStoreChunkingStrategyAuto(TypedDict, total=False):
+    """Automatic chunking strategy for vector store files."""
 
-    metadata: Dict[str, Union[bool, float, str, Iterable[object], object, None]]
-    """Set of 16 key-value pairs that can be attached to an object."""
+    type: Literal["auto"]
 
-    name: str
-    """A name for the vector store."""
 
-    provider_id: str
-    """The ID of the provider to use for this vector store."""
+class ChunkingStrategyVectorStoreChunkingStrategyStaticStatic(TypedDict, total=False):
+    """Configuration for static chunking strategy."""
+
+    chunk_overlap_tokens: int
+
+    max_chunk_size_tokens: int
+
+
+class ChunkingStrategyVectorStoreChunkingStrategyStatic(TypedDict, total=False):
+    """Static chunking strategy with configurable parameters."""
+
+    static: Required[ChunkingStrategyVectorStoreChunkingStrategyStaticStatic]
+    """Configuration for static chunking strategy."""
+
+    type: Literal["static"]
+
+
+ChunkingStrategy: TypeAlias = Union[
+    ChunkingStrategyVectorStoreChunkingStrategyAuto, ChunkingStrategyVectorStoreChunkingStrategyStatic
+]

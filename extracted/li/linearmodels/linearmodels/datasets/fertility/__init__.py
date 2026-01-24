@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 W. Sander, "The Effect of Women's Schooling on Fertility," Economics Letters
@@ -37,6 +37,5 @@ y84educ
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "fertility.csv.bz2")

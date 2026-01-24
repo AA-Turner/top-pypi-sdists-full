@@ -132,8 +132,9 @@ from bigeye_sdk.generated.com.bigeye.models.generated import (
     WarehouseType, BulkChangeGroupGrantsRequest, Grant, RoleV2, IdAndDisplayName, BulkChangeGroupGrantsResponse,
     IssuePriorityChangeEvent, TableLineageV2Response, CreateLineageNodeV2BulkRequest, CreateLineageEdgeV2BulkRequest,
     GetMetricObservedColumnBulkRequest, MetricObservedColumnListResponse, MetricObservedColumnRequest,
-    MetricObservedColumnResponse, GetCustomRuleListRequest
+    MetricObservedColumnResponse, GetCustomRuleListRequest, GetDimensionsListResponse, Dimension
 )
+from bigeye_sdk.generated.com.bigeye.models._generated_root import AgentApiKeyType, MonitorType
 
 # create logger
 from bigeye_sdk.log import get_logger
@@ -333,7 +334,9 @@ class GeneratedDatawatchClient(abc.ABC):
             column_ids: List[int] = [],
             search: str = "",
             sort_direction: SortDirection = 0,
-    ) -> MetricInfoList:
+            return_raw_response: bool = False,
+            monitor_types: List[MonitorType] = []
+    ) -> Union[MetricInfoList, List[dict]]:
         """
         Get metric information as batch.
         Args:
@@ -351,6 +354,8 @@ class GeneratedDatawatchClient(abc.ABC):
             column_ids: a list of column ids
             search: a raw search of metric names.
             sort_direction: three-legged ascending, descending, unspecified
+            return_raw_response: return raw response from API
+            monitor_types: a list of monitor types (enum)
 
         Returns: a list of metric info fitting the argument criteria.
 
@@ -371,14 +376,17 @@ class GeneratedDatawatchClient(abc.ABC):
         request.column_ids = column_ids
         request.search = search
         request.sort_direction = sort_direction
+        request.monitor_types = monitor_types
 
         url = '/api/v1/metrics/info'
+        raw_metrics = []
 
         if len(request.to_dict()) != 0:
             response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
         else:
             response = self._call_datawatch(Method.GET, url=url)
 
+        raw_metrics.extend(response.get("metrics"))
         try:
             mil_current = MetricInfoList().from_dict(response)
         except ValueError as e:
@@ -392,13 +400,14 @@ class GeneratedDatawatchClient(abc.ABC):
         while mil_current.pagination_info.next_cursor:
             request.page_cursor = mil_current.pagination_info.next_cursor
             response = self._call_datawatch(Method.POST, url=url, body=request.to_json())
+            raw_metrics.extend(response.get("metrics"))
             try:
                 mil_current = MetricInfoList().from_dict(response)
             except ValueError:
                 mil_current = create_metric_info_list(metric_infos=response)
             mil_return.metrics.extend(mil_current.metrics)
 
-        return mil_return
+        return mil_return if not return_raw_response else raw_metrics
 
     def get_existing_metric(self,
                             warehouse_id: int, table: Table, column_name: str, user_defined_name: str,
@@ -515,20 +524,6 @@ class GeneratedDatawatchClient(abc.ABC):
 
         return EditCollectionResponse().from_dict(response)
 
-    def upsert_metric_to_collection(self, collection_id: int,
-                                    add_metric_ids: Union[int, List[int]]) -> EditCollectionResponse:
-
-        if type(add_metric_ids) == int:
-            mids = list(add_metric_ids)
-        else:
-            mids = add_metric_ids
-
-        collection: Collection = self.get_collection(collection_id=collection_id).collection
-
-        for mid in mids:
-            collection.metric_ids.append(mid)
-
-        return self.update_collection(collection=collection)
 
     def delete_collection(self, collection_id: int):
         url = f"/api/v1/collections/{collection_id}"
@@ -1191,7 +1186,7 @@ class GeneratedDatawatchClient(abc.ABC):
                                          depth: int = 1,
                                          direction: LineageDirection = LineageDirection.ALL,
                                          timeout: Optional[int] = None) -> TableLineageV2Response:
-        url = f"/api/v2/lineage/nodes/{data_node_id}/graph?depth={depth}&direction={direction}"
+        url = f"/api/v2/lineage/nodes/{data_node_id}/graph?depth={depth}&direction={direction.value}"
         return TableLineageV2Response().from_dict(
             self._call_datawatch(Method.GET, url=url, timeout=timeout)
         )
@@ -1751,6 +1746,18 @@ class GeneratedDatawatchClient(abc.ABC):
         request = CreateAgentApiKeyRequest()
         request.name = name
         request.description = description
+        request.type = AgentApiKeyType.AGENT_API_KEY_TYPE_AGENT
+        return CreateAgentApiKeyResponse().from_dict(
+            self._call_datawatch(Method.POST, url=url, body=request.to_json())
+        )
+
+    def create_integration_api_key(self, *, name: str, description: Optional[str] = "") -> CreateAgentApiKeyResponse:
+        """Create an Integration API Key for connector integrations"""
+        url = "/api/v1/agent-api-keys"
+        request = CreateAgentApiKeyRequest()
+        request.name = name
+        request.description = description
+        request.type = AgentApiKeyType.AGENT_API_KEY_TYPE_INTEGRATION
         return CreateAgentApiKeyResponse().from_dict(
             self._call_datawatch(Method.POST, url=url, body=request.to_json())
         )
@@ -1816,3 +1823,14 @@ class GeneratedDatawatchClient(abc.ABC):
         return MetricObservedColumnListResponse().from_dict(
             self._call_datawatch(method=Method.GET, url=url)
         )
+
+    def get_dimensions(self) -> GetDimensionsListResponse:
+        """
+        Get all dimensions for the current workspace.
+
+        Returns:
+            GetDimensionsListResponse containing list of Dimension objects
+        """
+        url = "/api/v1/dimensions"
+        response = self._call_datawatch(Method.GET, url=url)
+        return GetDimensionsListResponse().from_dict(response)

@@ -1,14 +1,15 @@
-use crate::errors::map_py_value_err;
-use crate::isoformat::{iso_weekdate_to_string, parse_iso_week_date};
-use crate::{JiffWeekday, RyDate};
+use crate::{JiffWeekday, RyDate, RyDateTime, RyTimestamp, RyZoned};
 use jiff::Zoned;
 use jiff::civil::ISOWeekDate;
-use pyo3::prelude::*;
+use pyo3::basic::CompareOp;
 use pyo3::types::{PyDict, PyTuple};
+use pyo3::{BoundObject, prelude::*};
+use ryo3_core::{PyAsciiString, map_py_value_err};
+use ryo3_macro_rules::{any_repr, py_type_err};
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "ISOWeekDate", frozen)]
+#[pyclass(name = "ISOWeekDate", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RyISOWeekDate(pub(crate) ISOWeekDate);
 
@@ -60,20 +61,29 @@ impl RyISOWeekDate {
     // ========================================================================
     // CLASSMETHOD
     // ========================================================================
-    #[staticmethod]
-    fn from_str(s: &str) -> PyResult<Self> {
-        parse_iso_week_date(s).map(Self::from)
-    }
 
+    /// Returns the `ISOWeekDate` for the given `Date`.
     #[staticmethod]
-    fn parse(s: &str) -> PyResult<Self> {
-        parse_iso_week_date(s).map(Self::from)
+    fn from_pydate(date: jiff::civil::Date) -> Self {
+        Self::from(date)
     }
 
     /// Returns the `ISOWeekDate` for the given `Date`.
     #[staticmethod]
     fn from_date(date: &RyDate) -> Self {
         Self(ISOWeekDate::from(date.0))
+    }
+
+    /// Convert to `datetime.date`
+    #[expect(clippy::wrong_self_convention)]
+    fn to_py(&self) -> jiff::civil::Date {
+        self.to_pydate()
+    }
+
+    /// Convert to `datetime.date`
+    #[expect(clippy::wrong_self_convention)]
+    fn to_pydate(&self) -> jiff::civil::Date {
+        self.0.date()
     }
 
     /// Returns the date today as an `ISOWeekDate`
@@ -114,21 +124,21 @@ impl RyISOWeekDate {
     // ========================================================================
     // METHODS
     // ========================================================================
-
     fn date(&self) -> RyDate {
         self.0.date().into()
     }
 
-    fn __str__(&self) -> String {
-        iso_weekdate_to_string(&self.0)
+    fn __str__(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
     }
 
-    fn string(&self) -> String {
+    #[pyo3(name = "to_string")]
+    fn py_to_string(&self) -> PyAsciiString {
         self.__str__()
     }
 
-    fn __repr__(&self) -> String {
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
     #[expect(clippy::wrong_self_convention)]
@@ -144,36 +154,94 @@ impl RyISOWeekDate {
     // ========================================================================
     // DUNDERS/OPERATORS
     // ========================================================================
-
-    fn __eq__(&self, other: &Self) -> bool {
-        self.0 == other.0
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => self.0 == other.0,
+            CompareOp::Ne => self.0 != other.0,
+            CompareOp::Lt => self.0 < other.0,
+            CompareOp::Le => self.0 <= other.0,
+            CompareOp::Gt => self.0 > other.0,
+            CompareOp::Ge => self.0 >= other.0,
+        }
     }
-
-    fn __ne__(&self, other: &Self) -> bool {
-        self.0 != other.0
-    }
-
-    fn __lt__(&self, other: &Self) -> bool {
-        self.0 < other.0
-    }
-
-    fn __le__(&self, other: &Self) -> bool {
-        self.0 <= other.0
-    }
-
-    fn __gt__(&self, other: &Self) -> bool {
-        self.0 > other.0
-    }
-
-    fn __ge__(&self, other: &Self) -> bool {
-        self.0 >= other.0
-    }
-
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.0.hash(&mut hasher);
         hasher.finish()
     }
+
+    #[staticmethod]
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
+        let py = value.py();
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+            let s = pystr.extract::<&str>()?;
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
+            let s = String::from_utf8_lossy(pybytes.as_bytes());
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
+        } else if let Ok(d) = value.cast_exact::<RyDate>() {
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(d) = value.cast_exact::<RyDateTime>() {
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(d) = value.cast_exact::<RyZoned>() {
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(d) = value.cast_exact::<RyTimestamp>() {
+            Self::from(d.get()).into_pyobject(py)
+        } else if let Ok(d) = value.extract::<jiff::civil::Date>() {
+            Self::from(d).into_pyobject(py)
+        } else {
+            let valtype = any_repr!(value);
+            py_type_err!("Date conversion error: {valtype}",)
+        }
+    }
+
+    // ========================================================================
+    // PYDANTIC
+    // ========================================================================
+
+    /// Try to create a Date from a variety of python objects
+    #[cfg(feature = "pydantic")]
+    #[staticmethod]
+    fn _pydantic_validate<'py>(
+        value: &Bound<'py, PyAny>,
+        _handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, Self>> {
+        Self::from_any(value).map_err(map_py_value_err)
+    }
+
+    #[cfg(feature = "pydantic")]
+    #[classmethod]
+    fn __get_pydantic_core_schema__<'py>(
+        cls: &Bound<'py, ::pyo3::types::PyType>,
+        source: &Bound<'py, PyAny>,
+        handler: &Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        use ryo3_pydantic::GetPydanticCoreSchemaCls;
+        Self::get_pydantic_core_schema(cls, source, handler)
+    }
+
+    // ========================================================================
+    // STANDARD METHODS
+    // ========================================================================
+    // <STD-METHODS>
+    #[staticmethod]
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
+    }
+
+    #[staticmethod]
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
+    }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
+    }
+    // </STD-METHODS>
 }
 
 impl std::fmt::Display for RyISOWeekDate {
@@ -185,11 +253,5 @@ impl std::fmt::Display for RyISOWeekDate {
             self.week(),
             self.weekday()
         )
-    }
-}
-
-impl From<ISOWeekDate> for RyISOWeekDate {
-    fn from(date: ISOWeekDate) -> Self {
-        Self(date)
     }
 }

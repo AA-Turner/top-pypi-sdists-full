@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Literal, Set, cast  # noqa: UP035
+from typing import TYPE_CHECKING, Literal, cast
 
 from tox.execute.request import StdinSource
 from tox.report import HandledError
@@ -47,7 +47,7 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
         add_extras_to_env(self.conf)
         self.conf.add_config(
             keys=["dependency_groups"],
-            of_type=Set[str],  # noqa: UP006
+            of_type=set[str],
             default=set(),
             desc="dependency groups to install of the target package",
         )
@@ -59,7 +59,7 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
         )
         self.conf.add_config(
             keys=["uv_sync_flags"],
-            of_type=List[str],  # noqa: UP006
+            of_type=list[str],
             default=[],
             desc="Additional flags to pass to uv sync (for flags not configurable via environment variables)",
         )
@@ -69,9 +69,9 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
             default=True,
             desc="When set to 'false', it will remove `--locked` argument from 'uv sync' implicit arguments.",
         )
-        self.conf.add_config(
+        self.conf.add_config(  # type: ignore[call-overload]
             keys=["package"],
-            of_type=Literal["editable", "wheel", "skip"],  # type: ignore[arg-type]
+            of_type=Literal["editable", "wheel", "skip"],
             default="editable",
             desc="How should the package be installed",
         )
@@ -124,7 +124,7 @@ class UvVenvLockRunner(UvVenv, RunToxEnv):
         if install_pkg is not None:
             path = Path(install_pkg)
             pkg = (WheelPackage if path.suffix == ".whl" else SdistPackage)(path, deps=[])
-            self.installer.install([pkg], "install-pkg", of_type="external")
+            self._install([pkg], "install-pkg", of_type="external")
 
     @property
     def environment_variables(self) -> dict[str, str]:

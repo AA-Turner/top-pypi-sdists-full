@@ -1,25 +1,17 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-together
-Version: 0.47.3
+Version: 0.51.0
 Summary: OpenTelemetry Together AI instrumentation
-License: Apache-2.0
-Author: Gal Kleinman
-Author-email: gal@traceloop.com
-Requires-Python: >=3.9,<4
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Provides-Extra: instruments
-Requires-Dist: opentelemetry-api (>=1.28.0,<2.0.0)
-Requires-Dist: opentelemetry-instrumentation (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions (>=0.50b0)
-Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.13,<0.5.0)
 Project-URL: Repository, https://github.com/traceloop/openllmetry/tree/main/packages/opentelemetry-instrumentation-together
+Author-email: Gal Kleinman <gal@traceloop.com>, Nir Gazit <nir@traceloop.com>, Benedikt Wolf <bene25@web.de>
+License-Expression: Apache-2.0
+Requires-Python: <4,>=3.10
+Requires-Dist: opentelemetry-api<2,>=1.38.0
+Requires-Dist: opentelemetry-instrumentation>=0.59b0
+Requires-Dist: opentelemetry-semantic-conventions-ai<0.5.0,>=0.4.13
+Requires-Dist: opentelemetry-semantic-conventions>=0.59b0
+Provides-Extra: instruments
+Requires-Dist: together; extra == 'instruments'
 Description-Content-Type: text/markdown
 
 # OpenTelemetry Together AI Instrumentation
@@ -55,4 +47,3 @@ To disable logging, set the `TRACELOOP_TRACE_CONTENT` environment variable to `f
 ```bash
 TRACELOOP_TRACE_CONTENT=false
 ```
-

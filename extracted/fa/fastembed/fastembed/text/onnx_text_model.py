@@ -54,6 +54,7 @@ class OnnxTextModel(OnnxModel[T]):
         providers: Optional[Sequence[OnnxProvider]] = None,
         cuda: bool = False,
         device_id: Optional[int] = None,
+        extra_session_options: Optional[dict[str, Any]] = None,
     ) -> None:
         super()._load_onnx_model(
             model_dir=model_dir,
@@ -62,6 +63,7 @@ class OnnxTextModel(OnnxModel[T]):
             providers=providers,
             cuda=cuda,
             device_id=device_id,
+            extra_session_options=extra_session_options,
         )
         self.tokenizer, self.special_token_to_id = load_tokenizer(model_dir=model_dir)
 
@@ -110,6 +112,7 @@ class OnnxTextModel(OnnxModel[T]):
         device_ids: Optional[list[int]] = None,
         local_files_only: bool = False,
         specific_model_path: Optional[str] = None,
+        extra_session_options: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Iterable[T]:
         is_small = False
@@ -143,6 +146,9 @@ class OnnxTextModel(OnnxModel[T]):
                 **kwargs,
             }
 
+            if extra_session_options is not None:
+                params.update(extra_session_options)
+
             pool = ParallelWorkerPool(
                 num_workers=parallel or 1,
                 worker=self._get_worker_class(),
@@ -152,6 +158,21 @@ class OnnxTextModel(OnnxModel[T]):
             )
             for batch in pool.ordered_map(iter_batch(documents, batch_size), **params):
                 yield from self._post_process_onnx_output(batch, **kwargs)  # type: ignore
+
+    def _token_count(
+        self, texts: Union[str, Iterable[str]], batch_size: int = 1024, **_: Any
+    ) -> int:
+        if not hasattr(self, "model") or self.model is None:
+            self.load_onnx_model()  # loads the tokenizer as well
+
+        token_num = 0
+        assert self.tokenizer is not None
+        texts = [texts] if isinstance(texts, str) else texts
+        for batch in iter_batch(texts, batch_size):
+            for tokens in self.tokenizer.encode_batch(batch):
+                token_num += sum(tokens.attention_mask)
+
+        return token_num
 
 
 class TextEmbeddingWorker(EmbeddingWorker[T]):

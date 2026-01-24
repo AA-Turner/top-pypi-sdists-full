@@ -1,14 +1,12 @@
 """Yahoo search engine."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from secrets import token_urlsafe
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import unquote_plus
 
-from ..base import BaseSearchEngine
-from ..results import TextResult
+from ddgs.base import BaseSearchEngine
+from ddgs.results import TextResult
 
 
 def extract_url(u: str) -> str:
@@ -28,14 +26,20 @@ class Yahoo(BaseSearchEngine[TextResult]):
     search_method = "GET"
 
     items_xpath = "//div[contains(@class, 'relsrch')]"
-    elements_xpath: Mapping[str, str] = {
+    elements_xpath: ClassVar[Mapping[str, str]] = {
         "title": ".//div[contains(@class, 'Title')]//h3//text()",
         "href": ".//div[contains(@class, 'Title')]//a/@href",
         "body": ".//div[contains(@class, 'Text')]//text()",
     }
 
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int = 1, **kwargs: Any
+        self,
+        query: str,
+        region: str,  # noqa: ARG002
+        safesearch: str,  # noqa: ARG002
+        timelimit: str | None,
+        page: int = 1,
+        **kwargs: str,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         self.search_url = (

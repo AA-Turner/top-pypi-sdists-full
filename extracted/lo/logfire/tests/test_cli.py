@@ -49,7 +49,7 @@ def logfire_credentials() -> LogfireCredentials:
 
 def test_no_args(capsys: pytest.CaptureFixture[str]) -> None:
     main([])
-    assert 'usage: logfire [-h] [--version] [--region {us,eu}]  ...' in capsys.readouterr().out
+    assert 'usage: logfire [-h] [--version] [--base-url BASE_URL | --region {us,eu}]  ...' in capsys.readouterr().out
 
 
 def test_version(capsys: pytest.CaptureFixture[str]) -> None:
@@ -333,8 +333,8 @@ def test_auth(tmp_path: Path, webbrowser_error: bool, capsys: pytest.CaptureFixt
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
         webbrowser_open = stack.enter_context(
             patch('webbrowser.open', side_effect=webbrowser.Error if webbrowser_error is True else None)
         )
@@ -369,6 +369,7 @@ expiration = "fake_exp"
                 'Welcome to Logfire! 🔥',
                 'Before you can send data to Logfire, we need to authenticate you.',
                 '',
+                'Press Enter to open example.com in your browser...',
                 "Please open http://example.com/auth in your browser to authenticate if it hasn't already.",
                 'Waiting for you to authenticate with Logfire...',
                 'Successfully authenticated!',
@@ -384,8 +385,8 @@ def test_auth_temp_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -409,8 +410,8 @@ def test_auth_permanent_failure(tmp_path: Path) -> None:
     auth_file = tmp_path / 'default.toml'
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
-        stack.enter_context(patch('logfire._internal.cli.input'))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input'))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -439,11 +440,11 @@ def test_auth_no_region_specified(tmp_path: Path) -> None:
     with ExitStack() as stack:
         stack.enter_context(patch('logfire._internal.auth.DEFAULT_FILE', auth_file))
         # Necessary to assert that credentials are written to the `auth_file` (which happens from the `cli` module)
-        stack.enter_context(patch('logfire._internal.cli.DEFAULT_FILE', auth_file))
+        stack.enter_context(patch('logfire._internal.cli.auth.DEFAULT_FILE', auth_file))
         # 'not_an_int' is used as the first input to test that invalid inputs are supported,
         # '2' will result in the EU region being used:
-        stack.enter_context(patch('logfire._internal.cli.input', side_effect=['not_an_int', '2', '']))
-        stack.enter_context(patch('logfire._internal.cli.webbrowser.open'))
+        stack.enter_context(patch('logfire._internal.cli.auth.input', side_effect=['not_an_int', '2', '']))
+        stack.enter_context(patch('logfire._internal.cli.auth.webbrowser.open'))
 
         m = requests_mock.Mocker()
         stack.enter_context(m)
@@ -499,6 +500,8 @@ def test_projects_list(default_credentials: Path, capsys: pytest.CaptureFixture[
         output = capsys.readouterr().err
         assert output.splitlines() == snapshot(
             [
+                "List of the projects you have write access to (requires the 'write_token' permission):",
+                '',
                 ' Organization   | Project',
                 '----------------|--------',
                 ' test-org       | test-pr',
@@ -1207,7 +1210,7 @@ def test_projects_use_without_project_name(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. fake_org/otherproject\n'
                 ),
@@ -1275,7 +1278,7 @@ def test_projects_use_multiple(
         assert prompt_mock.mock_calls == [
             call(
                 (
-                    'Please select one of the following projects by number:\n'
+                    "Please select one of the following projects by number (requires the 'write_token' permission):\n"
                     '1. fake_org/myproject\n'
                     '2. other_org/myproject\n'
                 ),
@@ -1376,7 +1379,7 @@ def test_projects_use_wrong_project(
                 default='y',
             ),
             call(
-                'Please select one of the following projects by number:\n1. fake_org/myproject\n',
+                "Please select one of the following projects by number (requires the 'write_token' permission):\n1. fake_org/myproject\n",
                 choices=['1'],
                 default='1',
             ),

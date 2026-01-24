@@ -1,5 +1,0 @@
-version: 2
-groups:
-  dev-dependencies:
-    dependency-type: development
-    applies-to: version-updates

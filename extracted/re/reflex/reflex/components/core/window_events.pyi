@@ -12,11 +12,11 @@ from reflex.event import EventType, KeyInputInfo, PointerEventInfo
 from reflex.vars.base import Var
 
 class WindowEventListener(Fragment):
-    def add_hooks(self) -> list[str | Var[str]]: ...
     @classmethod
     def create(
         cls,
         *children,
+        hooks: list[str] | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -62,10 +62,9 @@ class WindowEventListener(Fragment):
         on_visibility_change: EventType[()] | EventType[bool] | None = None,
         **props,
     ) -> WindowEventListener:
-        """Create the component.
+        """Create a WindowEventListener component.
 
         Args:
-            *children: The children of the component.
             on_resize: Event handlers
             style: The style of the component.
             key: A unique key for the component.
@@ -73,10 +72,12 @@ class WindowEventListener(Fragment):
             ref: The Var to pass as the ref to the component.
             class_name: The class name for the component.
             custom_attrs: custom attribute
-            **props: The props of the component.
+            **props: The props to set on the component.
 
         Returns:
-            The component.
+            The created component.
         """
+
+    def add_hooks(self) -> list[str | Var[Any]]: ...
 
 window_event_listener = WindowEventListener.create

@@ -3,7 +3,7 @@ Type annotations for cleanrooms service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -31,6 +32,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAnalysisTemplatesPaginator,
     ListCollaborationAnalysisTemplatesPaginator,
+    ListCollaborationChangeRequestsPaginator,
     ListCollaborationConfiguredAudienceModelAssociationsPaginator,
     ListCollaborationIdNamespaceAssociationsPaginator,
     ListCollaborationPrivacyBudgetsPaginator,
@@ -58,6 +60,8 @@ from .type_defs import (
     BatchGetSchemaOutputTypeDef,
     CreateAnalysisTemplateInputTypeDef,
     CreateAnalysisTemplateOutputTypeDef,
+    CreateCollaborationChangeRequestInputTypeDef,
+    CreateCollaborationChangeRequestOutputTypeDef,
     CreateCollaborationInputTypeDef,
     CreateCollaborationOutputTypeDef,
     CreateConfiguredAudienceModelAssociationInputTypeDef,
@@ -94,6 +98,8 @@ from .type_defs import (
     GetAnalysisTemplateOutputTypeDef,
     GetCollaborationAnalysisTemplateInputTypeDef,
     GetCollaborationAnalysisTemplateOutputTypeDef,
+    GetCollaborationChangeRequestInputTypeDef,
+    GetCollaborationChangeRequestOutputTypeDef,
     GetCollaborationConfiguredAudienceModelAssociationInputTypeDef,
     GetCollaborationConfiguredAudienceModelAssociationOutputTypeDef,
     GetCollaborationIdNamespaceAssociationInputTypeDef,
@@ -132,6 +138,8 @@ from .type_defs import (
     ListAnalysisTemplatesOutputTypeDef,
     ListCollaborationAnalysisTemplatesInputTypeDef,
     ListCollaborationAnalysisTemplatesOutputTypeDef,
+    ListCollaborationChangeRequestsInputTypeDef,
+    ListCollaborationChangeRequestsOutputTypeDef,
     ListCollaborationConfiguredAudienceModelAssociationsInputTypeDef,
     ListCollaborationConfiguredAudienceModelAssociationsOutputTypeDef,
     ListCollaborationIdNamespaceAssociationsInputTypeDef,
@@ -180,6 +188,8 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateAnalysisTemplateInputTypeDef,
     UpdateAnalysisTemplateOutputTypeDef,
+    UpdateCollaborationChangeRequestInputTypeDef,
+    UpdateCollaborationChangeRequestOutputTypeDef,
     UpdateCollaborationInputTypeDef,
     UpdateCollaborationOutputTypeDef,
     UpdateConfiguredAudienceModelAssociationInputTypeDef,
@@ -206,12 +216,6 @@ from .type_defs import (
     UpdateProtectedQueryOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -222,14 +226,14 @@ __all__ = ("CleanRoomsServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CleanRoomsServiceClient(AioBaseClient):
@@ -316,6 +320,16 @@ class CleanRoomsServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/create_collaboration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#create_collaboration)
+        """
+
+    async def create_collaboration_change_request(
+        self, **kwargs: Unpack[CreateCollaborationChangeRequestInputTypeDef]
+    ) -> CreateCollaborationChangeRequestOutputTypeDef:
+        """
+        Creates a new change request to modify an existing collaboration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/create_collaboration_change_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#create_collaboration_change_request)
         """
 
     async def create_configured_audience_model_association(
@@ -412,7 +426,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_analysis_template(
         self, **kwargs: Unpack[DeleteAnalysisTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an analysis template.
 
@@ -422,7 +436,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_collaboration(
         self, **kwargs: Unpack[DeleteCollaborationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a collaboration.
 
@@ -432,7 +446,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_configured_audience_model_association(
         self, **kwargs: Unpack[DeleteConfiguredAudienceModelAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Provides the information necessary to delete a configured audience model
         association.
@@ -443,7 +457,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_configured_table(
         self, **kwargs: Unpack[DeleteConfiguredTableInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table.
 
@@ -453,7 +467,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_configured_table_analysis_rule(
         self, **kwargs: Unpack[DeleteConfiguredTableAnalysisRuleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table analysis rule.
 
@@ -463,7 +477,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_configured_table_association(
         self, **kwargs: Unpack[DeleteConfiguredTableAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table association.
 
@@ -473,7 +487,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_configured_table_association_analysis_rule(
         self, **kwargs: Unpack[DeleteConfiguredTableAssociationAnalysisRuleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an analysis rule for a configured table association.
 
@@ -483,7 +497,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_id_mapping_table(
         self, **kwargs: Unpack[DeleteIdMappingTableInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ID mapping table.
 
@@ -493,7 +507,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_id_namespace_association(
         self, **kwargs: Unpack[DeleteIdNamespaceAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ID namespace association.
 
@@ -501,7 +515,7 @@ class CleanRoomsServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#delete_id_namespace_association)
         """
 
-    async def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> Dict[str, Any]:
+    async def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified member from a collaboration.
 
@@ -511,7 +525,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_membership(
         self, **kwargs: Unpack[DeleteMembershipInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified membership.
 
@@ -521,7 +535,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def delete_privacy_budget_template(
         self, **kwargs: Unpack[DeletePrivacyBudgetTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a privacy budget template for a specified collaboration.
 
@@ -557,6 +571,16 @@ class CleanRoomsServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_collaboration_analysis_template.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#get_collaboration_analysis_template)
+        """
+
+    async def get_collaboration_change_request(
+        self, **kwargs: Unpack[GetCollaborationChangeRequestInputTypeDef]
+    ) -> GetCollaborationChangeRequestOutputTypeDef:
+        """
+        Retrieves detailed information about a specific collaboration change request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_collaboration_change_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#get_collaboration_change_request)
         """
 
     async def get_collaboration_configured_audience_model_association(
@@ -735,6 +759,16 @@ class CleanRoomsServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/list_collaboration_analysis_templates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#list_collaboration_analysis_templates)
+        """
+
+    async def list_collaboration_change_requests(
+        self, **kwargs: Unpack[ListCollaborationChangeRequestsInputTypeDef]
+    ) -> ListCollaborationChangeRequestsOutputTypeDef:
+        """
+        Lists all change requests for a collaboration with pagination support.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/list_collaboration_change_requests.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#list_collaboration_change_requests)
         """
 
     async def list_collaboration_configured_audience_model_associations(
@@ -962,7 +996,7 @@ class CleanRoomsServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#start_protected_query)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
 
@@ -970,7 +1004,7 @@ class CleanRoomsServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or list of tags from a resource.
 
@@ -997,6 +1031,16 @@ class CleanRoomsServiceClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_collaboration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#update_collaboration)
+        """
+
+    async def update_collaboration_change_request(
+        self, **kwargs: Unpack[UpdateCollaborationChangeRequestInputTypeDef]
+    ) -> UpdateCollaborationChangeRequestOutputTypeDef:
+        """
+        Updates an existing collaboration change request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_collaboration_change_request.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#update_collaboration_change_request)
         """
 
     async def update_configured_audience_model_association(
@@ -1125,6 +1169,17 @@ class CleanRoomsServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_collaboration_analysis_templates"]
     ) -> ListCollaborationAnalysisTemplatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanrooms/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_collaboration_change_requests"]
+    ) -> ListCollaborationChangeRequestsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1327,7 +1382,7 @@ class CleanRoomsServiceClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

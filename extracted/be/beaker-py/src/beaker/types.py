@@ -485,7 +485,7 @@ class BeakerTaskSpec(_BeakerSpecBase):
 
     image: BeakerImageSource
     context: BeakerTaskContext
-    result: BeakerResultSpec | None
+    result: BeakerResultSpec | None = None
     constraints: BeakerConstraints | None = None
     name: str | None = None
     command: list[str] | None = None
@@ -540,7 +540,7 @@ class BeakerTaskSpec(_BeakerSpecBase):
         cluster: str | list[str] | None = None,
         beaker_image: str | None = None,
         docker_image: str | None = None,
-        result_path: str = "/unused",
+        result_path: str | None = None,
         priority: BeakerJobPriority | str | None = None,
         preemptible: bool | None = None,
         **kwargs,
@@ -566,7 +566,7 @@ class BeakerTaskSpec(_BeakerSpecBase):
         return cls(
             name=name,
             image=BeakerImageSource(beaker=beaker_image, docker=docker_image),
-            result=BeakerResultSpec(path=result_path),
+            result=BeakerResultSpec(path=result_path) if result_path is not None else None,
             context=BeakerTaskContext(
                 priority=None if priority is None else BeakerJobPriority.from_any(priority),
                 preemptible=preemptible,
@@ -685,7 +685,7 @@ class BeakerExperimentSpec(_BeakerSpecBase):
         cluster: str | list[str] | None = None,
         beaker_image: str | None = None,
         docker_image: str | None = None,
-        result_path: str = "/unused",
+        result_path: str | None = None,
         priority: BeakerJobPriority | str | None = None,
         **kwargs,
     ) -> BeakerExperimentSpec:

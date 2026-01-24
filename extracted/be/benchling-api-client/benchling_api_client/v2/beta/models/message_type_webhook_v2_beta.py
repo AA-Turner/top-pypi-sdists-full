@@ -37,6 +37,20 @@ class MessageTypeWebhookV2Beta(Enums.KnownString):
     V2_WORKFLOWTASKGROUPCREATED = "v2.workflowTaskGroup.created"
     V2_WORKFLOWTASKGROUPMAPPINGCOMPLETED = "v2.workflowTaskGroup.mappingCompleted"
     V2_WORKFLOWTASKGROUPUPDATEDWATCHERS = "v2.workflowTaskGroup.updated.watchers"
+    V3_CUSTOMENTITYCREATED = "v3.customEntity.created"
+    V3_CUSTOMENTITYUPDATED = "v3.customEntity.updated"
+    V3_DNAOLIGOCREATED = "v3.dnaOligo.created"
+    V3_DNAOLIGOUPDATED = "v3.dnaOligo.updated"
+    V3_DNASEQUENCECREATED = "v3.dnaSequence.created"
+    V3_DNASEQUENCEUPDATED = "v3.dnaSequence.updated"
+    V3_ENTRYCREATED = "v3.entry.created"
+    V3_PROJECTCREATED = "v3.project.created"
+    V3_PROJECTUPDATED = "v3.project.updated"
+    V3_RNAOLIGOCREATED = "v3.rnaOligo.created"
+    V3_RNAOLIGOUPDATED = "v3.rnaOligo.updated"
+    V3_RNASEQUENCECREATED = "v3.rnaSequence.created"
+    V3_RNASEQUENCEUPDATED = "v3.rnaSequence.updated"
+    V3_RUNCREATED = "v3.run.created"
 
     def __str__(self) -> str:
         return str(self.value)

@@ -5,6 +5,7 @@ import sys
 import shutil
 import subprocess
 import re
+import sysconfig
 
 from distutils import log
 from setuptools.command.install import install
@@ -12,13 +13,14 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.version import LooseVersion
 
-import numpy as np
-
 if os.environ.get('KIWI_CPU_ARCH'):
     from sysconfig import get_platform
     fd = get_platform().split('-')
     if fd[0] == 'macosx':
         os.environ['_PYTHON_HOST_PLATFORM'] = '-'.join(fd[:-1] + [os.environ['KIWI_CPU_ARCH']])
+
+is_gil_free = sysconfig.get_config_var('Py_GIL_DISABLED')
+is_limited_api = not is_gil_free and os.environ.get('Py_LIMITED_API') == '1'
 
 def get_extra_cmake_options():
     """read --clean, --no, --set, --compiler-flags, and -G options from the command line and add them as cmake switches.
@@ -28,6 +30,10 @@ def get_extra_cmake_options():
         _cmake_extra_options.append("-DKIWI_CPU_ARCH=" + os.environ['KIWI_CPU_ARCH'])
     if os.environ.get('MACOSX_DEPLOYMENT_TARGET'):
         _cmake_extra_options.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=" + os.environ['MACOSX_DEPLOYMENT_TARGET'])
+    if is_gil_free:
+        _cmake_extra_options.append("-DPy_GIL_DISABLED=1")
+    if is_limited_api:
+        _cmake_extra_options.append("-DPy_LIMITED_API=0x03090000")
     _clean_build_folder = False
     print(_cmake_extra_options)
 
@@ -112,15 +118,23 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         libs = self.get_libraries(ext)
+        if is_gil_free:
+            for i, lib in enumerate(libs):
+                if re.fullmatch(r'python3[0-9]+', lib):
+                    libs[i] = lib + 't'
+        if is_limited_api:
+            for i, lib in enumerate(libs):
+                if re.fullmatch(r'python3[0-9]+', lib):
+                    libs[i] = 'python3'
 
         cmake_args = [
-            '-DINCLUDE_DIRS={}'.format(';'.join(self.include_dirs + [np.get_include()])),
+            '-DINCLUDE_DIRS={}'.format(';'.join(self.include_dirs)),
             '-DLIBRARY_DIRS={}'.format(';'.join(self.library_dirs)),
             '-DLIBRARIES={}'.format(';'.join(libs)),
             '-DPYTHON_EXECUTABLE=' + sys.executable,
         ]
-        print(cmake_args)
         cmake_args += cmake_extra_options
+        print(cmake_args)
 
         cfg = 'Debug' if self.debug else 'Release'
         build_args = ['--config', cfg]
@@ -209,7 +223,7 @@ setup(
     keywords='Korean morphological analysis',
     install_requires=[
         'dataclasses; python_version < "3.7"',
-        'kiwipiepy_model>=0.21,<0.22',
+        'kiwipiepy_model>=0.22,<0.23',
         'numpy<2; python_version < "3.9"',
         'numpy; python_version >= "3.9"',
         'tqdm',
@@ -218,6 +232,8 @@ setup(
     include_package_data=True,
     ext_modules=[CMakeExtension('_kiwipiepy',
         libraries=libraries,
+        py_limited_api=is_limited_api,
     )],
+    options={"bdist_wheel": {"py_limited_api": "cp39"}} if is_limited_api else {},
     cmdclass=dict(build_ext=CMakeBuild),
 )

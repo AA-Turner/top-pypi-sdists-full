@@ -1,12 +1,13 @@
-[tool.poetry]
+[project]
 name = "beautysh"
-version = "6.2.1"
+version = "6.4.2"
 description = "A Bash beautifier for the masses."
-authors = ["Bernardo Meurer <bernardo@meurer.org>"]
-license = "MIT"
+authors = [
+    {name = "Bernardo Meurer", email = "bernardo@meurer.org"}
+]
+license = {text = "MIT"}
 readme = "README.md"
-homepage = "https://github.com/lovesegfault/beautysh"
-repository = "https://github.com/lovesegfault/beautysh"
+requires-python = ">=3.9"
 keywords = ["beautify", "bash", "shell", "beautifier", "script", "auto"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -20,36 +21,59 @@ classifiers = [
     "Topic :: Text Processing :: Filters",
     "Topic :: Utilities"
 ]
-include = ["LICENSE"]
+dependencies = [
+    "colorama>=0.4.4",
+    "editorconfig>=0.12.0",
+    "tomli>=1.0.0; python_version < '3.11'",
+]
 
-[tool.poetry.scripts]
-beautysh = "beautysh:main"
+[project.urls]
+Homepage = "https://github.com/lovesegfault/beautysh"
+Repository = "https://github.com/lovesegfault/beautysh"
 
-[tool.poetry.dependencies]
-python = "^3.6.2"
-colorama = "^0.4.4"
-types-colorama = "^0.4.3"
-types-setuptools = "^57.4.0"
+[project.scripts]
+beautysh = "beautysh.__main__:main"
 
-[tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
-black = "^21.7b0"
-isort = "^5.9.3"
-mypy = "^0.910"
-flake8 = "^4.0.1"
+[dependency-groups]
+dev = [
+    "build>=1.0.0",
+    "hypothesis>=6.0.0",
+    "mypy>=0.931",
+    "pytest>=7.0.0",
+    "PyYAML>=6.0.0",
+    "ruff>=0.1.0",
+    "types-colorama>=0.4.3",
+    "types-PyYAML>=6.0.0",
+    "vermin >= 1.7.0",
+    "uv >= 0.9",
+]
 
 [tool.pytest.ini_options]
 addopts = "-v -Wdefault"
 
-[tool.black]
+[tool.ruff]
 line-length = 99
 
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 99
-skip_glob = ["/nix/store/*", "result/*"]
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = false
 
 [build-system]
-requires = ["poetry"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

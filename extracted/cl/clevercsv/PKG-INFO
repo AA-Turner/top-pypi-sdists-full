@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: clevercsv
-Version: 0.8.3
+Version: 0.8.4
 Summary: A Python package for handling messy CSV files
 Home-page: https://github.com/alan-turing-institute/CleverCSV
 Author: Gertjan van den Burg
@@ -9,10 +9,15 @@ License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8.0
+Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: chardet>=3.0
@@ -46,6 +51,18 @@ Requires-Dist: termcolor; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Provides-Extra: precommit
 Requires-Dist: wilderness>=0.1.5; extra == "precommit"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 
 <p align="center">
@@ -285,7 +302,7 @@ file, for example:
 dialect = clevercsv.Sniffer().sniff(fp.read(10000))
 ```
 You can also speed up encoding detection by installing 
-[cCharDet](https://github.com/PyYoshi/cChardet), it will automatically be used 
+[cCharDet](https://github.com/faust-streaming/cChardet/), it will automatically be used 
 when it is available on the system.
 
 That's the basics! If you want more details, you can look at the code of the 

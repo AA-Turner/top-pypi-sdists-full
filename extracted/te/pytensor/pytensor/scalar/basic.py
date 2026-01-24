@@ -13,7 +13,6 @@ you probably want to use pytensor.tensor.[c,z,f,d,b,w,i,l,]scalar!
 import builtins
 import math
 from collections.abc import Callable
-from copy import copy
 from itertools import chain
 from textwrap import dedent
 from typing import Any, TypeAlias
@@ -23,11 +22,12 @@ import numpy as np
 import pytensor
 from pytensor import printing
 from pytensor.configdefaults import config
-from pytensor.gradient import DisconnectedType, grad_undefined
-from pytensor.graph.basic import Apply, Constant, Variable, applys_between, clone
+from pytensor.gradient import disconnected_type, grad_undefined
+from pytensor.graph.basic import Apply, Constant, Variable, clone
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import HasInnerGraph
 from pytensor.graph.rewriting.basic import MergeOptimizer
+from pytensor.graph.traversal import applys_between
 from pytensor.graph.type import HasDataType, HasShape
 from pytensor.graph.utils import MetaObject, MethodNotDefined
 from pytensor.link.c.op import COp
@@ -484,20 +484,32 @@ class ScalarType(CType, HasDataType, HasShape):
     def c_sync(self, name, sub):
         specs = self.dtype_specs()
         fail = sub["fail"]
-        dtype = specs[1]
-        cls = specs[2]
+        (np_dtype, _c_dtype, _cls_name) = specs
+        np_dtype_num = np.dtype(np_dtype).num
+
         return f"""
         Py_XDECREF(py_{name});
-        py_{name} = PyArrayScalar_New({cls});
+
+        PyArray_Descr* {name}_descr = PyArray_DescrFromType({np_dtype_num});  // {np_dtype}
+        if (!{name}_descr) {{
+            PyErr_Format(PyExc_RuntimeError, "Could not get descriptor for {np_dtype_num}={np_dtype}");
+            {fail}
+        }}
+
+        // PyArray_Scalar creates a new scalar object by copying data from the pointer &{name}
+        py_{name} = PyArray_Scalar(&{name}, {name}_descr, NULL);
+
+        // Clean up the descriptor reference (PyArray_DescrFromType returns a new ref)
+        Py_DECREF({name}_descr);
+
         if (!py_{name})
         {{
             Py_XINCREF(Py_None);
             py_{name} = Py_None;
             PyErr_Format(PyExc_MemoryError,
-                "Instantiation of new Python scalar failed ({dtype})");
+                "Instantiation of new Python NumPy scalar failed ({np_dtype_num}={np_dtype})");
             {fail}
         }}
-        PyArrayScalar_ASSIGN(py_{name}, {cls}, {name});
         """
 
     def c_cleanup(self, name, sub):
@@ -511,6 +523,10 @@ class ScalarType(CType, HasDataType, HasShape):
                 "npy_int16",
                 "npy_int32",
                 "npy_int64",
+                "npy_uint8",  # also covers npy_bool
+                "npy_uint16",
+                "npy_uint32",
+                "npy_uint64",
                 "npy_float32",
                 "npy_float64",
             ]
@@ -521,43 +537,10 @@ class ScalarType(CType, HasDataType, HasShape):
                 # In that case we add the 'int' type to the real types.
                 real_types.append("int")
 
-            # Macros for backwards compatibility with numpy < 2.0
-            #
-            # In numpy 2.0+, these are defined in npy_math.h, but
-            # for early versions, they must be vendored by users (e.g. PyTensor)
-            backwards_compat_macros = """
-            #ifndef NUMPY_CORE_INCLUDE_NUMPY_NPY_2_COMPLEXCOMPAT_H_
-            #define NUMPY_CORE_INCLUDE_NUMPY_NPY_2_COMPLEXCOMPAT_H_
-
-            #include <numpy/npy_math.h>
-
-            #ifndef NPY_CSETREALF
-            #define NPY_CSETREALF(c, r) (c)->real = (r)
-            #endif
-            #ifndef NPY_CSETIMAGF
-            #define NPY_CSETIMAGF(c, i) (c)->imag = (i)
-            #endif
-            #ifndef NPY_CSETREAL
-            #define NPY_CSETREAL(c, r)  (c)->real = (r)
-            #endif
-            #ifndef NPY_CSETIMAG
-            #define NPY_CSETIMAG(c, i)  (c)->imag = (i)
-            #endif
-            #ifndef NPY_CSETREALL
-            #define NPY_CSETREALL(c, r) (c)->real = (r)
-            #endif
-            #ifndef NPY_CSETIMAGL
-            #define NPY_CSETIMAGL(c, i) (c)->imag = (i)
-            #endif
-
-            #endif
-            """
-
             def _make_get_set_real_imag(scalar_type: str) -> str:
                 """Make overloaded getter/setter functions for real/imag parts of numpy complex types.
 
-                The functions called by these getter/setter functions are defining in npy_math.h, or
-                in the `backward_compat_macros` defined above.
+                The functions called by these getter/setter functions are defining in npy_math.h
 
                 Args:
                     scalar_type: float, double, or longdouble
@@ -601,8 +584,6 @@ class ScalarType(CType, HasDataType, HasShape):
                 _make_get_set_real_imag(stype)
                 for stype in ["float", "double", "longdouble"]
             )
-
-            get_set_aliases = backwards_compat_macros + "\n" + get_set_aliases
 
             # Template for defining pytensor_complex64 and pytensor_complex128 structs/classes
             #
@@ -762,7 +743,7 @@ class ScalarType(CType, HasDataType, HasShape):
         return ["import_array();"]
 
     def c_code_cache_version(self):
-        return (14, np.__version__)
+        return (15, np.__version__)
 
     def get_shape_info(self, obj):
         return obj.itemsize
@@ -778,9 +759,11 @@ def get_scalar_type(dtype, cache: dict[str, ScalarType] = {}) -> ScalarType:
     This caches objects to save allocation and run time.
 
     """
-    if dtype not in cache:
-        cache[dtype] = ScalarType(dtype=dtype)
-    return cache[dtype]
+    try:
+        return cache[dtype]
+    except KeyError:
+        cache[dtype] = res = ScalarType(dtype=dtype)
+    return res
 
 
 # Register C code for ViewOp on Scalars.
@@ -941,6 +924,12 @@ class _scalar_py_operators:
     def __rmul__(self, other):
         return mul(other, self)
 
+    def __rtruediv__(self, other):
+        return true_div(other, self)
+
+    def __rfloordiv__(self, other):
+        return int_div(other, self)
+
     def __rmod__(self, other):
         return mod(other, self)
 
@@ -986,25 +975,27 @@ def constant(x, name=None, dtype=None) -> ScalarConstant:
 
 
 def as_scalar(x: Any, name: str | None = None) -> ScalarVariable:
-    from pytensor.tensor.basic import scalar_from_tensor
-    from pytensor.tensor.type import TensorType
+    if isinstance(x, ScalarVariable):
+        return x
 
-    if isinstance(x, Apply):
-        if len(x.outputs) != 1:
-            raise ValueError(
-                "It is ambiguous which output of a multi-output"
-                " Op has to be fetched.",
-                x,
-            )
-        else:
-            x = x.outputs[0]
     if isinstance(x, Variable):
-        if isinstance(x, ScalarVariable):
-            return x
-        elif isinstance(x.type, TensorType) and x.type.ndim == 0:
+        from pytensor.tensor.basic import scalar_from_tensor
+        from pytensor.tensor.type import TensorType
+
+        if isinstance(x.type, TensorType) and x.type.ndim == 0:
             return scalar_from_tensor(x)
         else:
             raise TypeError(f"Cannot convert {x} to a scalar type")
+
+    if isinstance(x, Apply):
+        # FIXME: Why do we support calling this with Apply?
+        #  Also, if we do, why can't we support multiple outputs?
+        if len(x.outputs) != 1:
+            raise ValueError(
+                "It is ambiguous which output of a multi-output Op has to be fetched.",
+                x,
+            )
+        return as_scalar(x.outputs[0])
 
     return constant(x)
 
@@ -1089,30 +1080,6 @@ def same_out_float_only(type) -> tuple[ScalarType]:
     if type not in float_types:
         raise TypeError("only float type are supported")
     return (type,)
-
-
-class transfer_type(MetaObject):
-    __props__ = ("transfer",)
-
-    def __init__(self, *transfer):
-        assert all(isinstance(x, int | str) or x is None for x in transfer)
-        self.transfer = transfer
-
-    def __str__(self):
-        return f"transfer_type{self.transfer}"
-
-    def __call__(self, *types):
-        upcast = upcast_out(*types)
-        retval = []
-        for i in self.transfer:
-            if i is None:
-                retval += [upcast]
-            elif isinstance(i, str):
-                retval += [i]
-            else:
-                retval += [types[i]]
-        return retval
-        # return [upcast if i is None else types[i] for i in self.transfer]
 
 
 class specific_out(MetaObject):
@@ -1228,6 +1195,8 @@ class ScalarOp(COp):
                     f"(got: {output_types_preference})"
                 )
             self.output_types_preference = output_types_preference
+        elif not hasattr(self, "output_types_preference"):
+            self.output_types_preference = None
 
     def make_node(self, *inputs):
         if self.nin >= 0:
@@ -1247,7 +1216,7 @@ class ScalarOp(COp):
         return Apply(self, inputs, outputs)
 
     def output_types(self, types):
-        if hasattr(self, "output_types_preference"):
+        if self.output_types_preference is not None:
             variables = self.output_types_preference(*types)
             if not isinstance(variables, list | tuple) or any(
                 not isinstance(x, CType) for x in variables
@@ -1291,13 +1260,12 @@ class ScalarOp(COp):
         return self.grad(inputs, output_gradients)
 
     def __eq__(self, other):
-        test = type(self) is type(other) and getattr(
+        return type(self) is type(other) and getattr(
             self, "output_types_preference", None
         ) == getattr(other, "output_types_preference", None)
-        return test
 
     def __hash__(self):
-        return hash((type(self), getattr(self, "output_types_preference", 0)))
+        return hash((type(self), getattr(self, "output_types_preference", None)))
 
     def __str__(self):
         if hasattr(self, "name") and self.name:
@@ -1327,32 +1295,26 @@ class ScalarOp(COp):
         the given Elemwise inputs, outputs.
 
         """
+        tmp_s_input = []
+        # To keep the same aliasing between inputs
+        mapping = {}
+        for ii in inputs:
+            if ii in mapping:
+                tmp_s_input.append(mapping[ii])
+            else:
+                tmp = mapping[ii] = get_scalar_type(ii.dtype).make_variable()
+                tmp_s_input.append(tmp)
+
         try:
-            tmp_s_input = []
-            # To keep the same aliasing between inputs
-            mapping = dict()
-            for ii in inputs:
-                if ii in mapping:
-                    tmp_s_input.append(mapping[ii])
-                else:
-                    tmp = get_scalar_type(ii.dtype).make_variable()
-                    tmp_s_input.append(tmp)
-                    mapping[ii] = tmp_s_input[-1]
-
-            with config.change_flags(compute_test_value="ignore"):
-                s_op = self(*tmp_s_input, return_list=True)
-
-            # if the scalar_op don't have a c implementation,
-            # we skip its fusion to allow the fusion of the
-            # other ops.
             self.c_code(
-                s_op[0].owner,
+                self.make_node(*tmp_s_input),
                 "test_presence_of_c_code",
+                # FIXME: Shouldn't this be a unique name per unique variable?
                 ["x" for x in inputs],
                 ["z" for z in outputs],
                 {"fail": "%(fail)s"},
             )
-        except (MethodNotDefined, NotImplementedError):
+        except (NotImplementedError, MethodNotDefined):
             return False
         return True
 
@@ -1651,56 +1613,6 @@ class IsInf(FixedLogicalComparison):
 isinf = IsInf()
 
 
-class InRange(LogicalComparison):
-    nin = 3
-
-    def __init__(self, openlow, openhi):
-        self.openlow = openlow
-        self.openhi = openhi
-
-    def impl(self, x, low, hi):
-        if self.openlow and x <= low:
-            return False
-        elif not self.openlow and x < low:
-            return False
-        if self.openhi and x >= hi:
-            return False
-        elif not self.openhi and x > hi:
-            return False
-        return True
-
-    def c_code(self, node, name, inputs, outputs, sub):
-        (x, low, hi) = inputs
-        (z,) = outputs
-
-        cmp1 = ">" if self.openlow else ">="
-        cmp2 = "<" if self.openhi else "<="
-
-        return f"{z} = {x} {cmp1} {low} && {x} {cmp2} {hi};"
-
-    def get_grad(self, elem):
-        if elem.type in complex_types:
-            msg = (
-                "No gradient implemented for complex numbers in "
-                "class scalar.basic.InRange"
-            )
-            raise NotImplementedError(msg)
-        elif elem.type in discrete_types:
-            return elem.zeros_like(dtype=config.floatX)
-        else:
-            return elem.zeros_like()
-
-    def L_op(self, inputs, outputs, gout):
-        (x, low, hi) = inputs
-        (gz,) = gout
-        grads = [self.get_grad(elem) for elem in [x, low, hi]]
-        return grads
-
-
-inopenrange = InRange(True, True)
-inclosedrange = InRange(False, False)
-
-
 class Switch(ScalarOp):
     nin = 3
     nfunc_spec = ("where", 3, 1)
@@ -1731,7 +1643,7 @@ class Switch(ScalarOp):
         return (condition_grad, first_part, second_part)
 
     def output_types(self, types):
-        (cond_t, ift_t, iff_t) = types
+        (_cond_t, ift_t, iff_t) = types
         return upcast_out(ift_t, iff_t)
 
 
@@ -1856,7 +1768,7 @@ invert = Invert()
 ##############
 # Arithmetic
 ##############
-class ScalarMaximum(BinaryScalarOp):
+class Maximum(BinaryScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("maximum", 2, 1)
@@ -1896,10 +1808,14 @@ class ScalarMaximum(BinaryScalarOp):
         return (gx, gy)
 
 
-scalar_maximum = ScalarMaximum(upcast_out, name="maximum")
+maximum = Maximum(upcast_out)
+
+# Backward compatibility
+ScalarMaximum = Maximum
+scalar_maximum = maximum
 
 
-class ScalarMinimum(BinaryScalarOp):
+class Minimum(BinaryScalarOp):
     commutative = True
     associative = True
     nfunc_spec = ("minimum", 2, 1)
@@ -1938,7 +1854,11 @@ class ScalarMinimum(BinaryScalarOp):
         return (gx, gy)
 
 
-scalar_minimum = ScalarMinimum(upcast_out, name="minimum")
+minimum = Minimum(upcast_out)
+
+# Backward compatibility
+ScalarMinimum = Minimum
+scalar_minimum = minimum
 
 
 class Add(ScalarOp):
@@ -2483,11 +2403,15 @@ clip = Clip(upcast_out_no_complex, name="clip")
 
 
 class Second(BinaryScalarOp):
+    @staticmethod
+    def output_types_preference(_first_type, second_type):
+        return [second_type]
+
     def impl(self, x, y):
         return y
 
     def c_code(self, node, name, inputs, outputs, sub):
-        (x, y) = inputs
+        (_x, y) = inputs
         (z,) = outputs
         return f"{z} = {y};"
 
@@ -2498,20 +2422,20 @@ class Second(BinaryScalarOp):
         return [[False], [True]]
 
     def grad(self, inputs, gout):
-        (x, y) = inputs
+        (_x, y) = inputs
         (gz,) = gout
         if y.type in continuous_types:
             # x is disconnected because the elements of x are not used
-            return DisconnectedType()(), gz
+            return disconnected_type(), gz
         else:
             # when y is discrete, we assume the function can be extended
             # to deal with real-valued inputs by rounding them to the
             # nearest integer. f(x+eps) thus equals f(x) so the gradient
             # is zero, not disconnected or undefined
-            return DisconnectedType()(), y.zeros_like(dtype=config.floatX)
+            return disconnected_type(), y.zeros_like(dtype=config.floatX)
 
 
-second = Second(transfer_type(1), name="second")
+second = Second(name="second")
 
 
 class Identity(UnaryScalarOp):
@@ -2551,18 +2475,6 @@ class Cast(UnaryScalarOp):
         if self.o_type == float16:
             return convert_to_float32
         return self
-
-    def make_new_inplace(self, output_types_preference=None, name=None):
-        """
-        This op.__init__ fct don't have the same parameter as other scalar op.
-        This breaks the insert_inplace_optimizer optimization.
-        This function is a fix to patch this, by ignoring the
-        output_types_preference passed by the optimization, and replacing it
-        by the current output type. This should only be triggered when
-        both input and output have the same dtype anyway.
-
-        """
-        return self.__class__(self.o_type, name)
 
     def impl(self, input):
         return self.ctor(input)
@@ -2696,7 +2608,7 @@ class Sign(UnaryScalarOp):
     nfunc_spec = ("sign", 1, 1)
 
     @staticmethod
-    def output_types_preference(x):
+    def _output_types_preference(x):
         if x == bool:
             raise TypeError(x)
         return same_out_nocomplex(x)
@@ -2707,7 +2619,7 @@ class Sign(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         rval = x.zeros_like()
 
         if rval.type in discrete_types:
@@ -2737,7 +2649,7 @@ class Sign(UnaryScalarOp):
             return s
 
 
-sign = Sign(name="sign")
+sign = Sign(name="sign", output_types_preference=Sign._output_types_preference)
 
 
 class Ceil(UnaryScalarOp):
@@ -2748,7 +2660,7 @@ class Ceil(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         rval = x.zeros_like()
 
         if rval.type in discrete_types:
@@ -2774,7 +2686,7 @@ class Floor(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         rval = x.zeros_like()
 
         if rval.type in discrete_types:
@@ -2800,7 +2712,7 @@ class Trunc(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         return [x.zeros_like(dtype=config.floatX)]
 
     def c_code(self, node, name, inputs, outputs, sub):
@@ -2828,7 +2740,7 @@ class RoundHalfToEven(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         rval = x.zeros_like()
 
         if rval.type in discrete_types:
@@ -2914,7 +2826,7 @@ class RoundHalfAwayFromZero(UnaryScalarOp):
 
     def grad(self, inputs, gout):
         (x,) = inputs
-        (gz,) = gout
+        (_gz,) = gout
         rval = x.zeros_like()
 
         if rval.type in discrete_types:
@@ -3935,7 +3847,7 @@ class Real(UnaryScalarOp):
         return np.real(x)
 
     def grad(self, inputs, gout):
-        (x,) = inputs
+        (_x,) = inputs
         (gz,) = gout
         return [complex(gz, 0)]
 
@@ -4092,12 +4004,12 @@ class ScalarInnerGraphOp(ScalarOp, HasInnerGraph):
         self.prepare_node_called = set()
         super().__init__(*args, **kwargs)
 
-    def _cleanup_graph(self, inputs, outputs):
+    def _cleanup_graph(self, inputs, outputs, clone: builtins.bool = True):
         # TODO: We could convert to TensorVariable, optimize graph,
         # and then convert back to ScalarVariable.
         # This would introduce rewrites like `log(1 + x) -> log1p`.
 
-        fgraph = FunctionGraph(copy(inputs), copy(outputs))
+        fgraph = FunctionGraph(inputs, outputs, clone=clone)
 
         # Validate node types
         for node in fgraph.apply_nodes:
@@ -4280,7 +4192,9 @@ class Composite(ScalarInnerGraphOp):
 
     init_param: tuple[str, ...] = ("inputs", "outputs")
 
-    def __init__(self, inputs, outputs, name="Composite"):
+    def __init__(
+        self, inputs, outputs, name="Composite", clone_graph: builtins.bool = True
+    ):
         self.name = name
         self._name = None
         # We need to clone the graph as sometimes its nodes already
@@ -4298,10 +4212,13 @@ class Composite(ScalarInnerGraphOp):
         if len(outputs) > 1 or not any(
             isinstance(var.owner.op, Composite) for var in outputs
         ):
-            # No inner Composite
-            inputs, outputs = clone(inputs, outputs)
+            if clone_graph:
+                inputs, outputs = clone(inputs, outputs)
+
         else:
             # Inner Composite that we need to flatten
+            # FIXME: There could be a composite in the middle of the graph, why is this here?
+            #  If anything it should be an optimization, but I suspect lower-level compilation can handle this anyway.
             assert len(outputs) == 1
             # 1. Create a new graph from inputs up to the
             # Composite
@@ -4320,7 +4237,8 @@ class Composite(ScalarInnerGraphOp):
             assert res[0] != inputs
             inputs, outputs = res[0], res2[1]
 
-        self.inputs, self.outputs = self._cleanup_graph(inputs, outputs)
+        # We already cloned the graph, or the user told us there was no need for it
+        self.inputs, self.outputs = self._cleanup_graph(inputs, outputs, clone=False)
         self.inputs_type = tuple(input.type for input in self.inputs)
         self.outputs_type = tuple(output.type for output in self.outputs)
         self.nin = len(inputs)
@@ -4353,22 +4271,6 @@ class Composite(ScalarInnerGraphOp):
 
         return self._name
 
-    def make_new_inplace(self, output_types_preference=None, name=None):
-        """
-        This op.__init__ fct don't have the same parameter as other scalar op.
-        This break the insert_inplace_optimizer optimization.
-        This fct allow fix patch this.
-
-        """
-        d = {k: getattr(self, k) for k in self.init_param}
-        out = self.__class__(**d)
-        if name:
-            out.name = name
-        else:
-            name = out.name
-        super(Composite, out).__init__(output_types_preference, name)
-        return out
-
     @property
     def fgraph(self):
         if hasattr(self, "_fgraph"):
@@ -4379,14 +4281,8 @@ class Composite(ScalarInnerGraphOp):
         self._fgraph = fgraph
         return self._fgraph
 
-    def clone_float32(self):
-        # This will not modify the fgraph or the nodes
-        new_ins, new_outs = composite_f32.apply(self.fgraph)
-        return Composite(new_ins, new_outs)
-
     def clone(self):
-        new_ins, new_outs = composite_f32.apply(self.fgraph)
-        return Composite(new_ins, new_outs)
+        return self.__class__(self.fgraph.inputs, self.fgraph.outputs)
 
     def output_types(self, input_types):
         if tuple(input_types) != self.inputs_type:
@@ -4502,86 +4398,4 @@ class Composite(ScalarInnerGraphOp):
         return self.c_code_template % d
 
     def c_code_cache_version_outer(self) -> tuple[int, ...]:
-        return (6,)
-
-
-class Compositef32:
-    # This is a dict of scalar op classes that need special handling
-    special: dict = {}
-
-    def apply(self, fgraph):
-        mapping = {}
-        topo = fgraph.toposort()
-        for i in fgraph.inputs:
-            if i.dtype == "float16":
-                mapping[i] = get_scalar_type("float32")()
-                if hasattr(i.tag, "test_value"):
-                    mapping[i].tag.test_value = i.tag.test_value
-            else:
-                mapping[i] = i
-        for node in topo:
-            # Patch up for constants
-            for i in node.inputs:
-                if i not in mapping:
-                    assert type(i) is ScalarConstant
-                    if i.type == float16:
-                        ni = ScalarConstant(float32, i.data)
-                    else:
-                        ni = i
-                    mapping[i] = ni
-            if isinstance(node.op, tuple(self.special)):
-                self.special[type(node.op)](node, mapping)
-                continue
-            new_node = node.clone_with_new_inputs(
-                [mapping[inp] for inp in node.inputs], strict=False
-            )
-            # make sure we don't produce any float16.
-            assert not any(o.dtype == "float16" for o in new_node.outputs)
-            mapping.update(zip(node.outputs, new_node.outputs, strict=True))
-
-        new_ins = [mapping[inp] for inp in fgraph.inputs]
-        new_outs = [mapping[out] for out in fgraph.outputs]
-        return new_ins, new_outs
-
-
-composite_f32 = Compositef32()
-
-
-def handle_cast(node, mapping):
-    inp = mapping[node.inputs[0]]
-    out = node.outputs[0]
-    node_ok = False
-    if node.op.o_type == float16:
-        if node.inputs[0].type == float32:
-            # cast f32 -> f16, remove
-            mapping[out] = inp
-            return
-        else:
-            # cast to f16, convert to f32
-            new_out = cast(inp, "float32")
-            # change the node for the following if
-            node = new_out.owner
-            mapping[out] = new_out
-            node_ok = True
-    if node.inputs[0].type == float16:
-        if node.op.o_type == inp.type:
-            # cast f16 to new input type, remove
-            mapping[out] = inp
-            return
-    if not node_ok:
-        new_node = node.clone_with_new_inputs([inp], strict=False)
-        mapping[out] = new_node.outputs[0]
-
-
-Compositef32.special[Cast] = handle_cast
-
-
-def handle_composite(node, mapping):
-    new_op = node.op.clone_float32()
-    new_outs = new_op(*[mapping[i] for i in node.inputs], return_list=True)
-    assert len(new_outs) == len(node.outputs)
-    for o, no in zip(node.outputs, new_outs, strict=True):
-        mapping[o] = no
-
-
-Compositef32.special[Composite] = handle_composite
+        return (7,)

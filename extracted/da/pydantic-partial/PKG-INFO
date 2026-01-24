@@ -1,19 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pydantic-partial
-Version: 0.9.0
+Version: 0.10.1
 Summary: Create partial models from your pydantic models. Partial models may allow None for certain or all fields.
-License: MIT
 Author: TEAM23 GmbH
-Author-email: info@team23.de
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: pydantic (>=2.0.0,<3.0.0)
+Author-email: TEAM23 GmbH <info@team23.de>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Dist: pydantic>=2.0.0,<3.0.0
+Requires-Python: >=3.10
 Project-URL: Repository, https://github.com/team23/pydantic-partial
 Description-Content-Type: text/markdown
 
@@ -23,7 +17,7 @@ Description-Content-Type: text/markdown
 
 Just use `pip install pydantic-partial` to install the library.
 
-**Note:** `pydantic-partial` is compatible with `pydantic` version `2.x` on Python `3.9`, `3.10`, `3.11`, `3.12`
+**Note:** `pydantic-partial` is compatible with `pydantic` version `2.x` on Python `3.10`, `3.11`, `3.12`
 and `3.13`. This is also ensured running all tests on all those versions using `tox`.
 
 ## About
@@ -168,4 +162,3 @@ If you want to contribute to this project, feel free to just fork the project,
 create a dev branch in your fork and then create a pull request (PR). If you
 are unsure about whether your changes really suit the project please create an
 issue first, to talk about this.
-

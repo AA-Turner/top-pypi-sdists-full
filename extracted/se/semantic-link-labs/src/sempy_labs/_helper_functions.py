@@ -229,12 +229,11 @@ def delete_item(
 
     (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
     (item_name, item_id) = resolve_item_name_and_id(item, type, workspace_id)
-    item_type = item_types.get(type)[0].lower()
 
     fabric.delete_item(item_id=item_id, workspace=workspace_id)
 
     print(
-        f"{icons.green_dot} The '{item_name}' {item_type} has been successfully deleted from the '{workspace_name}' workspace."
+        f"{icons.green_dot} The '{item_name}' {type} has been successfully deleted from the '{workspace_name}' workspace."
     )
 
 
@@ -282,8 +281,7 @@ def create_item(
     """
 
     (workspace_name, workspace_id) = resolve_workspace_name_and_id(workspace)
-    item_type = utils.item_types.get(type)[0].lower()
-    item_type_url = utils.item_types.get(type)[1]
+    item_type_url = utils.items.get(type)
 
     payload = {
         "displayName": name,
@@ -306,7 +304,7 @@ def create_item(
         client="fabric_sp",
     )
     print(
-        f"{icons.green_dot} The '{name}' {item_type} has been successfully created within the '{workspace_name}' workspace."
+        f"{icons.green_dot} The '{name}' {type} has been successfully created within the '{workspace_name}' workspace."
     )
 
 
@@ -1004,6 +1002,7 @@ def save_as_delta_table(
 
         if merge_schema:
             write_args["schema_mode"] = "merge"
+            write_args["engine"] = "rust"
 
         write_deltalake(**write_args)
     else:
@@ -1568,7 +1567,9 @@ def lro(
     status_codes: Optional[List[str]] = [200, 202],
     sleep_time: Optional[int] = 1,
     return_status_code: bool = False,
+    job_scheduler: bool = False,
 ):
+    from sempy_labs._job_scheduler import _get_item_job_instance
 
     if response.status_code not in status_codes:
         raise FabricHTTPException(response)
@@ -1578,20 +1579,32 @@ def lro(
         else:
             result = response
     if response.status_code == status_codes[1]:
-        operationId = response.headers["x-ms-operation-id"]
-        response = client.get(f"/v1/operations/{operationId}")
-        response_body = json.loads(response.content)
-        while response_body["status"] not in ["Succeeded", "Failed"]:
-            time.sleep(sleep_time)
-            response = client.get(f"/v1/operations/{operationId}")
-            response_body = json.loads(response.content)
-        if response_body["status"] != "Succeeded":
-            raise FabricHTTPException(response)
-        if return_status_code:
-            result = response.status_code
+        if job_scheduler:
+            status_url = response.headers.get("Location").split("fabric.microsoft.com")[
+                1
+            ]
+            status = None
+            while status not in ["Completed", "Failed"]:
+                response = _base_api(request=status_url)
+                status = response.json().get("status")
+                time.sleep(3)
+
+            return _get_item_job_instance(url=status_url)
         else:
-            response = client.get(f"/v1/operations/{operationId}/result")
-            result = response
+            operation_id = response.headers["x-ms-operation-id"]
+            response = client.get(f"/v1/operations/{operation_id}")
+            response_body = json.loads(response.content)
+            while response_body["status"] not in ["Succeeded", "Failed"]:
+                time.sleep(sleep_time)
+                response = client.get(f"/v1/operations/{operation_id}")
+                response_body = json.loads(response.content)
+            if response_body["status"] != "Succeeded":
+                raise FabricHTTPException(response)
+            if return_status_code:
+                result = response.status_code
+            else:
+                response = client.get(f"/v1/operations/{operation_id}/result")
+                result = response
 
     return result
 
@@ -1615,6 +1628,27 @@ def pagination(client, response):
         # Update the continuation token and URI for the next iteration
         continuation_token = response_json.get("continuationToken")
         continuation_uri = response_json.get("continuationUri")
+
+    return responses
+
+
+def graph_pagination(response, headers):
+
+    responses = []
+    response_json = response.json()
+    responses.append(response_json)
+
+    # Check for pagination
+    odata_next_link = response_json.get("@odata.nextLink")
+
+    # Loop to handle pagination
+    while odata_next_link is not None:
+        response = requests.get(odata_next_link, headers=headers)
+        response_json = response.json()
+        responses.append(response_json)
+
+        # Update the odata next link for the next iteration
+        odata_next_link = response_json.get("@odata.nextLink")
 
     return responses
 
@@ -2125,6 +2159,11 @@ def _process_and_display_chart(df, title, widget):
 
 def _convert_data_type(input_data_type: str) -> str:
 
+    if not input_data_type:
+        return None
+
+    input_data_type = input_data_type.lower()
+
     data_type_mapping = {
         "string": "String",
         "int": "Int64",
@@ -2140,10 +2179,10 @@ def _convert_data_type(input_data_type: str) -> str:
         "long": "Int64",
     }
 
-    if "decimal" in input_data_type:
-        return "Decimal"
-    else:
-        return data_type_mapping.get(input_data_type)
+    if input_data_type.startswith("decimal"):
+        return "Double"
+
+    return data_type_mapping.get(input_data_type)
 
 
 def _is_valid_uuid(
@@ -2191,6 +2230,7 @@ def _base_api(
     uses_pagination: bool = False,
     lro_return_json: bool = False,
     lro_return_status_code: bool = False,
+    lro_return_df: bool = False,
 ):
     import notebookutils
     from sempy_labs._authentication import _get_headers
@@ -2213,12 +2253,12 @@ def _base_api(
     elif client == "fabric_sp":
         token = auth.token_provider.get() or FabricDefaultCredential()
         c = fabric.FabricRestClient(credential=token)
-    elif client in ["azure", "graph"]:
+    elif client in ["azure", "graph", "onelake"]:
         pass
     else:
         raise ValueError(f"{icons.red_dot} The '{client}' client is not supported.")
 
-    if client not in ["azure", "graph"]:
+    if client not in ["azure", "graph", "onelake"]:
         if method == "get":
             response = c.get(request)
         elif method == "delete":
@@ -2232,13 +2272,18 @@ def _base_api(
         else:
             raise NotImplementedError
     else:
-        headers = _get_headers(auth.token_provider.get(), audience=client)
-        if client == "graph":
-            url = f"https://graph.microsoft.com/v1.0/{request}"
-        elif client == "azure":
-            url = request
+        if client == "onelake":
+            import notebookutils
+
+            token = notebookutils.credentials.getToken("storage")
+            headers = {"Authorization": f"Bearer {token}"}
+            url = f"https://onelake.table.fabric.microsoft.com/delta/{request}"
         else:
-            raise NotImplementedError
+            headers = _get_headers(auth.token_provider.get(), audience=client)
+            if client == "graph":
+                url = f"https://graph.microsoft.com/v1.0/{request}"
+            elif client == "azure":
+                url = request
         response = requests.request(
             method.upper(),
             url,
@@ -2246,7 +2291,9 @@ def _base_api(
             json=payload,
         )
 
-    if lro_return_json:
+    if lro_return_df:
+        return lro(c, response, status_codes, job_scheduler=True)
+    elif lro_return_json:
         return lro(c, response, status_codes).json()
     elif lro_return_status_code:
         return lro(c, response, status_codes, return_status_code=True)
@@ -2254,7 +2301,10 @@ def _base_api(
         if response.status_code not in status_codes:
             raise FabricHTTPException(response)
         if uses_pagination:
-            responses = pagination(c, response)
+            if client == "graph":
+                responses = graph_pagination(response, headers)
+            else:
+                responses = pagination(c, response)
             return responses
         else:
             return response
@@ -2294,9 +2344,16 @@ def _update_dataframe_datatypes(dataframe: pd.DataFrame, column_map: dict):
                 dataframe[column] = dataframe[column].fillna(0).astype(float)
             # This is to avoid NaN values in integer columns (for delta analyzer)
             elif data_type == "int_fillna":
-                dataframe[column] = dataframe[column].fillna(0).astype(int)
+                dataframe[column] = (
+                    pd.to_numeric(dataframe[column], errors="coerce")
+                    .fillna(0)
+                    .astype(int)
+                )
             elif data_type in ["str", "string"]:
-                dataframe[column] = dataframe[column].astype(str)
+                try:
+                    dataframe[column] = dataframe[column].astype(str)
+                except Exception:
+                    pass
             # Avoid having empty lists or lists with a value of None.
             elif data_type in ["list"]:
                 dataframe[column] = dataframe[column].apply(
@@ -2774,3 +2831,23 @@ def _get_url_prefix() -> str:
     context = response.json().get("@odata.context")
 
     return context.split("/v1.0")[0]
+
+
+def get_pbi_token_headers():
+
+    import notebookutils
+
+    token = notebookutils.credentials.getToken("pbi")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def get_model_id(item_id: UUID, prefix: str = None, headers: dict = None):
+
+    if prefix is None:
+        prefix = _get_url_prefix()
+    if headers is None:
+        headers = get_pbi_token_headers()
+
+    response = requests.get(url=f"{prefix}/metadata/models/{item_id}", headers=headers)
+
+    return response.json().get("model", {}).get("id")

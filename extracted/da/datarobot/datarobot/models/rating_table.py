@@ -56,19 +56,17 @@ class RatingTable(APIObject):
         Contains a description of any errors caused during validation.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String,
-            t.Key("project_id"): String,
-            t.Key("rating_table_name", optional=True): String,
-            t.Key("original_filename", optional=True): String,
-            t.Key("parent_model_id", optional=True): String,
-            t.Key("model_id", optional=True): String,
-            t.Key("model_job_id", optional=True): String,
-            t.Key("validation_job_id", optional=True): String,
-            t.Key("validation_error", optional=True): String(allow_blank=True),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String,
+        t.Key("project_id"): String,
+        t.Key("rating_table_name", optional=True): String,
+        t.Key("original_filename", optional=True): String,
+        t.Key("parent_model_id", optional=True): String,
+        t.Key("model_id", optional=True): String,
+        t.Key("model_job_id", optional=True): String,
+        t.Key("validation_job_id", optional=True): String,
+        t.Key("validation_error", optional=True): String(allow_blank=True),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -123,8 +121,7 @@ class RatingTable(APIObject):
     def _warn_on_validation_error(validation_error: str) -> None:
         if validation_error != "":
             warnings.warn(
-                "The retrieved rating table was invalid, "
-                "validation error: {}".format(validation_error),
+                "The retrieved rating table was invalid, validation error: {}".format(validation_error),
                 InvalidRatingTableWarning,
                 stacklevel=6,
             )

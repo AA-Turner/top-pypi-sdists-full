@@ -18,6 +18,9 @@ def test_create_bucket_table(dialect: str):
         None,
         {"tab1"},
         dialect,
+        # SqlGlot doesn't recognize BUCKETED tables, but no error is raised
+        # TODO: Fix SqlGlot to recognize BUCKETED tables
+        test_sqlglot=False,
     )
 
 
@@ -65,6 +68,10 @@ WITH SERDEPROPERTIES (
 STORED AS TEXTFILE""",  # noqa
         None,
         {"apachelog"},
+        # SqlGlot thows error for this syntax.
+        # sqlglot.errors.ParseError: Expecting ). Line 13, Col: 59.
+        # TODO: Evaluate and fix SqlGlot to support this syntax
+        test_sqlglot=False,
         test_sqlfluff=False,
     )
 
@@ -106,6 +113,9 @@ def test_alter_table_exchange_partition(dialect: str):
         {"tab2"},
         {"tab1"},
         dialect=dialect,
+        # SqlGlot doesn't recognize this syntax, but no error is raised
+        # TODO: Fix SqlGlot to recognize ALTER TABLE EXCHANGE PARTITION syntax
+        test_sqlglot=False,
     )
 
 
@@ -216,6 +226,9 @@ LEFT JOIN [dbo].[product] ON [client].[id] = [product].[client_id]"""
         {"dbo.client", "dbo.product"},
         {"dbo.client_product"},
         dialect=dialect,
+        # SqlFluff creates orphan nodes with <default> schema
+        # TODO: Remove skip_graph_check once SqlFluff fixes orphan node issue in T-SQL parser
+        skip_graph_check=True,
     )
 
 
@@ -255,7 +268,14 @@ def test_snowflake_materialize_view(dialect: str):
 );
 """
     assert_table_lineage_equal(
-        sql, {"my_table"}, {"view_with_rls"}, dialect=dialect, test_sqlparse=False
+        sql,
+        {"my_table"},
+        {"view_with_rls"},
+        dialect=dialect,
+        # SqlGlot doesn't support materialized views yet but no error is raised
+        # TODO: Fix SqlGlot to support materialized views
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
     sql = """CREATE OR REPLACE VIEW IF NOT EXISTS view_with_rls
@@ -270,7 +290,14 @@ def test_snowflake_materialize_view(dialect: str):
 );
 """
     assert_table_lineage_equal(
-        sql, {"my_table"}, {"view_with_rls"}, dialect=dialect, test_sqlparse=False
+        sql,
+        {"my_table"},
+        {"view_with_rls"},
+        dialect=dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
     assert_column_lineage_equal(
@@ -286,6 +313,9 @@ def test_snowflake_materialize_view(dialect: str):
             ),
         ],
         dialect=dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
         test_sqlparse=False,
     )
 
@@ -342,7 +372,14 @@ def test_snowflake_create_stream(dialect: str):
     CREATE STREAM mystream ON TABLE mytable;
     """
     assert_table_lineage_equal(
-        sql, {"mytable"}, {"mystream"}, dialect, test_sqlparse=False
+        sql,
+        {"mytable"},
+        {"mystream"},
+        dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
 
@@ -353,7 +390,14 @@ def test_snowflake_create_stream_complex(dialect: str):
     TO_TIMESTAMP_TZ('02/02/2019 01:02:03', 'mm/dd/yyyy hh24:mi:ss'));
     """
     assert_table_lineage_equal(
-        sql, {"mytable"}, {"mystream"}, dialect, test_sqlparse=False
+        sql,
+        {"mytable"},
+        {"mystream"},
+        dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
     sql = """
@@ -361,14 +405,28 @@ def test_snowflake_create_stream_complex(dialect: str):
     BEFORE(STATEMENT => '8e5d0ca9-005e-44e6-b858-a8f5b37c5726');
     """
     assert_table_lineage_equal(
-        sql, {"mytable"}, {"mystream"}, dialect, test_sqlparse=False
+        sql,
+        {"mytable"},
+        {"mystream"},
+        dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
     sql = """
     CREATE STREAM mystream ON VIEW myview;
     """
     assert_table_lineage_equal(
-        sql, {"myview"}, {"mystream"}, dialect, test_sqlparse=False
+        sql,
+        {"myview"},
+        {"mystream"},
+        dialect,
+        # SqlGlot doesn't support streams yet but no error is raised
+        # TODO: Fix SqlGlot to support streams
+        test_sqlglot=False,
+        test_sqlparse=False,
     )
 
 
@@ -381,4 +439,46 @@ def test_update_set_clause_with_select_statement(dialect: str):
     """
     assert_table_lineage_equal(
         sql, {"RAW.TABLE_B"}, {"RAW.TABLKE_A"}, dialect, test_sqlparse=False
+    )
+
+
+@pytest.mark.parametrize("dialect", ["trino"])
+def test_trino_create_view(dialect: str):
+    """
+    Test Trino CREATE VIEW statement syntax
+    Reference: https://trino.io/docs/current/sql/create-view.html
+    """
+    sql = """CREATE VIEW test AS
+SELECT orderkey, orderstatus, totalprice / 2 AS half
+FROM orders"""
+    assert_table_lineage_equal(
+        sql,
+        {"orders"},
+        {"test"},
+        dialect=dialect,
+    )
+
+    sql = """CREATE OR REPLACE VIEW orders_by_date
+COMMENT 'A view to keep track of orders.'
+AS
+SELECT orderdate, sum(totalprice) AS price
+FROM orders
+GROUP BY orderdate"""
+    assert_table_lineage_equal(
+        sql,
+        {"orders"},
+        {"orders_by_date"},
+        dialect=dialect,
+    )
+
+    sql = """CREATE VIEW test
+SECURITY INVOKER
+AS
+SELECT orderkey, orderstatus
+FROM orders"""
+    assert_table_lineage_equal(
+        sql,
+        {"orders"},
+        {"test"},
+        dialect=dialect,
     )

@@ -28,6 +28,7 @@ fn snapshot_test() {
     use std::env;
     use std::fs;
 
+    use crate::state::require::Require;
     use crate::test::util::mk_multi_file_state_assert_no_errors;
 
     // Helper function to sort JSON for deterministic comparison
@@ -98,7 +99,12 @@ x = 42
 """Answer to everything"""
 y = hello_world()"#;
 
-    let classes_code = r#"class Animal:
+    let classes_code = r#"
+import typing
+
+T = typing.TypeVar('T')
+
+class Animal(typing.Generic[T]):
     def __init__(self, name: str):
         self.name = name
 
@@ -115,6 +121,7 @@ sound = dog.speak()"#;
     let imports_code = r#"import os
 from typing import List
 from .simple import hello_world
+from os import *
 
 def process_files(paths: List[str]) -> int:
     """Count files in given paths."""
@@ -160,6 +167,36 @@ print(b"world")
 
 "#;
 
+    let type_lit_str = r#"from typing import Union
+class B:
+    class A:
+        pass
+
+    def other(self, x: "B") -> "Union[list[B], A, bool]":
+        return False
+"#;
+
+    let exports_all = r#"from typing import Union as U
+x = 1
+y = 2
+
+__all__ = ["x", "U"]
+
+__all__ += ["y"]
+"#;
+
+    let generated_file = format!(
+        r#" # {}generated SignedSource<<abcde123456>>
+ # @codegen-command : scripts/foo/bar
+ # @codegen-source FooConfig: this/is/the/Way.php
+ # @codegen-class : BarCodeGen
+
+def helloworld():
+    pass
+"#,
+        "@",
+    );
+
     let files = [
         ("simple", simple_code),
         ("classes", classes_code),
@@ -167,8 +204,11 @@ print(b"world")
         ("try_except", try_except_code),
         ("return_types", return_types),
         ("calls", calls),
+        ("type_lit_str", type_lit_str),
+        ("exports_all", exports_all),
+        ("generated_file", &generated_file),
     ];
-    let (handles, state) = mk_multi_file_state_assert_no_errors(&files);
+    let (handles, state) = mk_multi_file_state_assert_no_errors(&files, Require::Everything);
     let transaction = state.transaction();
 
     let update_snapshots = env::var("GLEAN_SNAPSHOTS_WRITE_PATH").is_ok();

@@ -16,10 +16,15 @@ class ApiKey:
         "created_at": None,  # date-time - Time which API Key was created
         "expires_at": None,  # date-time - API Key expiration date
         "key": None,  # string - API Key actual key string
+        "aws_style_credentials": None,  # boolean - If `true`, this API key will be usable with AWS-compatible endpoints, such as our Inbound S3-compatible endpoint.
+        "aws_access_key_id": None,  # string - AWS Access Key ID to use with AWS-compatible endpoints, such as our Inbound S3-compatible endpoint.
+        "aws_secret_key": None,  # string - AWS Secret Key to use with AWS-compatible endpoints, such as our Inbound S3-compatible endpoint.
         "last_use_at": None,  # date-time - API Key last used - note this value is only updated once per 3 hour period, so the 'actual' time of last use may be up to 3 hours later than this timestamp.
         "name": None,  # string - Internal name for the API Key.  For your use.
         "permission_set": None,  # string - Permissions for this API Key. It must be full for site-wide API Keys.  Keys with the `desktop_app` permission set only have the ability to do the functions provided in our Desktop App (File and Share Link operations). Keys with the `office_integration` permission set are auto generated, and automatically expire, to allow users to interact with office integration platforms. Additional permission sets may become available in the future, such as for a Site Admin to give a key with no administrator privileges.  If you have ideas for permission sets, please let us know.
         "platform": None,  # string - If this API key represents a Desktop app, what platform was it created on?
+        "site_id": None,  # int64 - Site ID
+        "site_name": None,  # string - Site Name
         "url": None,  # string - URL for API host.
         "user_id": None,  # int64 - User ID for the owner of this API Key.  May be blank for Site-wide API Keys.
         "path": None,  # string - Folder path restriction for `office_integration` permission set API keys.
@@ -47,7 +52,6 @@ class ApiKey:
     # Parameters:
     #   description - string - User-supplied description of API key.
     #   expires_at - string - API Key expiration date
-    #   permission_set - string - Permissions for this API Key. It must be full for site-wide API Keys.  Keys with the `desktop_app` permission set only have the ability to do the functions provided in our Desktop App (File and Share Link operations). Keys with the `office_integration` permission set are auto generated, and automatically expire, to allow users to interact with office integration platforms. Additional permission sets may become available in the future, such as for a Site Admin to give a key with no administrator privileges.  If you have ideas for permission sets, please let us know.
     #   name - string - Internal name for the API Key.  For your use.
     def update(self, params=None):
         if not isinstance(params, dict):
@@ -72,12 +76,6 @@ class ApiKey:
         ):
             raise InvalidParameterError(
                 "Bad parameter: expires_at must be an str"
-            )
-        if "permission_set" in params and not isinstance(
-            params["permission_set"], str
-        ):
-            raise InvalidParameterError(
-                "Bad parameter: permission_set must be an str"
             )
         if "name" in params and not isinstance(params["name"], str):
             raise InvalidParameterError("Bad parameter: name must be an str")
@@ -126,7 +124,7 @@ class ApiKey:
 #   user_id - int64 - User ID.  Provide a value of `0` to operate the current session's user.
 #   cursor - string - Used for pagination.  When a list request has more records available, cursors are provided in the response headers `X-Files-Cursor-Next` and `X-Files-Cursor-Prev`.  Send one of those cursor value here to resume an existing list from the next available record.  Note: many of our SDKs have iterator methods that will automatically handle cursor-based pagination.
 #   per_page - int64 - Number of records to show per page.  (Max: 10,000, 1,000 or less is recommended).
-#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `expires_at`.
+#   sort_by - object - If set, sort records by the specified field in either `asc` or `desc` direction. Valid fields are `site_id`.
 #   filter - object - If set, return records where the specified field is equal to the supplied value. Valid fields are `expires_at`.
 #   filter_gt - object - If set, return records where the specified field is greater than the supplied value. Valid fields are `expires_at`.
 #   filter_gteq - object - If set, return records where the specified field is greater than or equal the supplied value. Valid fields are `expires_at`.
@@ -201,9 +199,10 @@ def get(id, params=None, options=None):
 #   user_id - int64 - User ID.  Provide a value of `0` to operate the current session's user.
 #   description - string - User-supplied description of API key.
 #   expires_at - string - API Key expiration date
-#   permission_set - string - Permissions for this API Key. It must be full for site-wide API Keys.  Keys with the `desktop_app` permission set only have the ability to do the functions provided in our Desktop App (File and Share Link operations). Keys with the `office_integration` permission set are auto generated, and automatically expire, to allow users to interact with office integration platforms. Additional permission sets may become available in the future, such as for a Site Admin to give a key with no administrator privileges.  If you have ideas for permission sets, please let us know.
 #   name (required) - string - Internal name for the API Key.  For your use.
+#   aws_style_credentials - boolean - If `true`, this API key will be usable with AWS-compatible endpoints, such as our Inbound S3-compatible endpoint.
 #   path - string - Folder path restriction for `office_integration` permission set API keys.
+#   permission_set - string - Permissions for this API Key. It must be full for site-wide API Keys.  Keys with the `desktop_app` permission set only have the ability to do the functions provided in our Desktop App (File and Share Link operations). Keys with the `office_integration` permission set are auto generated, and automatically expire, to allow users to interact with office integration platforms. Additional permission sets may become available in the future, such as for a Site Admin to give a key with no administrator privileges.  If you have ideas for permission sets, please let us know.
 def create(params=None, options=None):
     if not isinstance(params, dict):
         params = {}
@@ -217,16 +216,22 @@ def create(params=None, options=None):
         )
     if "expires_at" in params and not isinstance(params["expires_at"], str):
         raise InvalidParameterError("Bad parameter: expires_at must be an str")
+    if "name" in params and not isinstance(params["name"], str):
+        raise InvalidParameterError("Bad parameter: name must be an str")
+    if "aws_style_credentials" in params and not isinstance(
+        params["aws_style_credentials"], bool
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: aws_style_credentials must be an bool"
+        )
+    if "path" in params and not isinstance(params["path"], str):
+        raise InvalidParameterError("Bad parameter: path must be an str")
     if "permission_set" in params and not isinstance(
         params["permission_set"], str
     ):
         raise InvalidParameterError(
             "Bad parameter: permission_set must be an str"
         )
-    if "name" in params and not isinstance(params["name"], str):
-        raise InvalidParameterError("Bad parameter: name must be an str")
-    if "path" in params and not isinstance(params["path"], str):
-        raise InvalidParameterError("Bad parameter: path must be an str")
     if "name" not in params:
         raise MissingParameterError("Parameter missing: name")
     response, options = Api.send_request("POST", "/api_keys", params, options)
@@ -259,7 +264,6 @@ def update_current(params=None, options=None):
 # Parameters:
 #   description - string - User-supplied description of API key.
 #   expires_at - string - API Key expiration date
-#   permission_set - string - Permissions for this API Key. It must be full for site-wide API Keys.  Keys with the `desktop_app` permission set only have the ability to do the functions provided in our Desktop App (File and Share Link operations). Keys with the `office_integration` permission set are auto generated, and automatically expire, to allow users to interact with office integration platforms. Additional permission sets may become available in the future, such as for a Site Admin to give a key with no administrator privileges.  If you have ideas for permission sets, please let us know.
 #   name - string - Internal name for the API Key.  For your use.
 def update(id, params=None, options=None):
     if not isinstance(params, dict):
@@ -275,12 +279,6 @@ def update(id, params=None, options=None):
         )
     if "expires_at" in params and not isinstance(params["expires_at"], str):
         raise InvalidParameterError("Bad parameter: expires_at must be an str")
-    if "permission_set" in params and not isinstance(
-        params["permission_set"], str
-    ):
-        raise InvalidParameterError(
-            "Bad parameter: permission_set must be an str"
-        )
     if "name" in params and not isinstance(params["name"], str):
         raise InvalidParameterError("Bad parameter: name must be an str")
     if "id" not in params:

@@ -38,9 +38,7 @@ _global_client: Optional[RESTClientObject] = None
 _context_client: contextvars.ContextVar[RESTClientObject] = contextvars.ContextVar("dr_rest_client")
 
 
-def _create_client(
-    *args, **kwargs
-) -> Tuple[RESTClientObject, Optional[str], Optional[bool], Optional[str]]:
+def _create_client(*args, **kwargs) -> Tuple[RESTClientObject, Optional[str], Optional[bool], Optional[str]]:
     """Return a new `RESTClientObject` and default_use_case id with optional configuration.
 
     Parameters
@@ -115,9 +113,7 @@ def _is_compatible_client(client: RESTClientObject) -> bool:
             "`https://app.datarobot.com`, then the correct endpoint to specify would "
             "be `https://app.datarobot.com/api/v2`."
         )
-        raise ClientError(
-            w_msg_tmpl.format(client.endpoint), status_code=cerr.status_code
-        ) from cerr
+        raise ClientError(w_msg_tmpl.format(client.endpoint), status_code=cerr.status_code) from cerr
 
     if not _is_compatible_version(server_response):
         return False
@@ -208,8 +204,7 @@ def _ensure_protocol_match(client: RESTClientObject, server_response: Response) 
     expected_location = client._join_endpoint("version/").replace("http://", "https://")
     if location == expected_location:
         warn_msg = (
-            "Client endpoint is configured for HTTP protocol; "
-            "however the server users HTTPS. HTTPS will be used."
+            "Client endpoint is configured for HTTP protocol; however the server users HTTPS. HTTPS will be used."
         )
         warnings.warn(warn_msg)
         if not client.endpoint:
@@ -396,9 +391,7 @@ def client_configuration(*args, **kwargs):
     previous_enable_api_consumer_tracking: Optional[bool] = None
     previous_trace_context: Optional[str] = None
     try:
-        client, default_use_case, enable_api_consumer_tracking, trace_context = _create_client(
-            *args, **kwargs
-        )
+        client, default_use_case, enable_api_consumer_tracking, trace_context = _create_client(*args, **kwargs)
         contextvars_token = _context_client.set(client)
         previous_use_case = Context.get_use_case(raw=True)
         previous_enable_api_consumer_tracking = Context.enable_api_consumer_tracking

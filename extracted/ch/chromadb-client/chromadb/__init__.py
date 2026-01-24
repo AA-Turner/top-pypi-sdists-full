@@ -11,6 +11,7 @@ from chromadb.config import DEFAULT_DATABASE, DEFAULT_TENANT, Settings
 from chromadb.api import AdminAPI, AsyncClientAPI, ClientAPI
 from chromadb.api.models.Collection import Collection
 from chromadb.api.types import (
+    Cmek,
     CollectionMetadata,
     UpdateMetadata,
     Documents,
@@ -22,11 +23,25 @@ from chromadb.api.types import (
     Include,
     Metadata,
     Metadatas,
+    ReadLevel,
     Where,
     QueryResult,
     GetResult,
     WhereDocument,
     UpdateCollectionMetadata,
+    SparseVector,
+    SparseVectors,
+    SparseEmbeddingFunction,
+    Schema,
+    VectorIndexConfig,
+    HnswIndexConfig,
+    SpannIndexConfig,
+    FtsIndexConfig,
+    SparseVectorIndexConfig,
+    StringInvertedIndexConfig,
+    IntInvertedIndexConfig,
+    FloatInvertedIndexConfig,
+    BoolInvertedIndexConfig,
 )
 
 # Import Search API components
@@ -37,12 +52,15 @@ from chromadb.execution.expression.operator import (
     K,  # Alias for Key
     # KNN-based ranking for hybrid search
     Knn,
+    # Reciprocal Rank Fusion for combining rankings
+    Rrf,
 )
 from pathlib import Path
 import os
 
 # Re-export types from chromadb.types
 __all__ = [
+    "Cmek",
     "Collection",
     "Metadata",
     "Metadatas",
@@ -66,6 +84,22 @@ __all__ = [
     "Key",
     "K",
     "Knn",
+    "Rrf",
+    # Sparse Vector Types
+    "SparseVector",
+    "SparseVectors",
+    "SparseEmbeddingFunction",
+    # Schema and Index Configuration
+    "Schema",
+    "VectorIndexConfig",
+    "HnswIndexConfig",
+    "SpannIndexConfig",
+    "FtsIndexConfig",
+    "SparseVectorIndexConfig",
+    "StringInvertedIndexConfig",
+    "IntInvertedIndexConfig",
+    "FloatInvertedIndexConfig",
+    "BoolInvertedIndexConfig",
 ]
 
 from chromadb.types import CloudClientArg
@@ -74,7 +108,7 @@ logger = logging.getLogger(__name__)
 
 __settings = Settings()
 
-__version__ = "1.1.0"
+__version__ = "1.4.1"
 
 
 # Workaround to deal with Colab's old sqlite3 version

@@ -67,8 +67,8 @@ container = database.get_container_client(container_name)
 
 # [START list_containers]
 database = client.get_database_client(database_name)
-for container in database.list_containers():
-    print("Container ID: {}".format(container['id']))
+for container_dict in database.list_containers():
+    print("Container ID: {}".format(container_dict['id']))
 # [END list_containers]
 
 # Insert new items by defining a dict and calling Container.upsert_item
@@ -92,11 +92,11 @@ updated_item = container.upsert_item(item)
 # [START query_items]
 import json
 
-for item in container.query_items(
+for queried_item in container.query_items(
     query='SELECT * FROM products p WHERE p.productModel <> "DISCONTINUED"',
     enable_cross_partition_query=True,
 ):
-    print(json.dumps(item, indent=True))
+    print(json.dumps(queried_item, indent=True))
 # [END query_items]
 
 # Parameterized queries are also supported. This example
@@ -106,8 +106,8 @@ discontinued_items = container.query_items(
     query='SELECT * FROM products p WHERE p.productModel = @model AND p.productName="Widget"',
     parameters=[dict(name="@model", value="DISCONTINUED")],
 )
-for item in discontinued_items:
-    print(json.dumps(item, indent=True))
+for discontinued_item in discontinued_items:
+    print(json.dumps(discontinued_item, indent=True))
 # [END query_items_param]
 
 # [START priority_level option]
@@ -117,30 +117,102 @@ for item in discontinued_items:
 # then Azure Cosmos DB will throttle low priority requests to allow high priority requests to execute.
 # Can be used for Read, Write, and Query operations. This is specified with the `priority` keyword.
 # the value can either be low or high.
-for item in container.query_items(
+for queried_item in container.query_items(
     query='SELECT * FROM products p WHERE p.productModel <> "DISCONTINUED"',
     enable_cross_partition_query=True,
     priority="High"
 ):
-    print(json.dumps(item, indent=True))
+    print(json.dumps(queried_item, indent=True))
 
 # [END priority_level option]
+
+# [START client_level_priority]
+# Priority can also be set at the client level, which will apply to all requests made by that client.
+# This is useful when you want all operations from a particular client to have the same priority.
+# The client-level priority is set during client initialization with the `priority` parameter.
+
+# Create a client with Low priority for all requests
+low_priority_client = CosmosClient(url, key, priority="Low")
+low_priority_database = low_priority_client.get_database_client(database_name)
+low_priority_container = low_priority_database.get_container_client(container_name)
+
+# Add some items to query
+for i in range(1, 4):
+    low_priority_container.upsert_item(
+        dict(id="low_priority_item{}".format(i), productName="Widget", productModel="Model {}".format(i))
+    )
+
+# All requests from this client will have Low priority by default
+for queried_item in low_priority_container.query_items(
+    query='SELECT * FROM products p WHERE p.productName = "Widget"',
+    enable_cross_partition_query=True
+):
+    print(json.dumps(queried_item, indent=True))
+
+# [END client_level_priority]
+
+# [START request_priority_precedence]
+# Request-level priority takes precedence over client-level priority.
+# This allows you to override the default priority for specific operations.
+
+# Create a client with Low priority
+client_with_default_priority = CosmosClient(url, key, priority="Low")
+database_with_priority = client_with_default_priority.get_database_client(database_name)
+container_with_priority = database_with_priority.get_container_client(container_name)
+
+# Add items with different priority levels to the container
+container_with_priority.upsert_item(
+    dict(id="urgent_item1", productName="Widget", priority="High", productModel="High Priority Model")
+)
+container_with_priority.upsert_item(
+    dict(id="normal_item1", productName="Widget", priority="Low", productModel="Low Priority Model")
+)
+
+# This query will use High priority, overriding the client's Low priority setting
+for important_item in container_with_priority.query_items(
+    query='SELECT * FROM products p WHERE p.priority = "High"',
+    enable_cross_partition_query=True,
+    priority="High"  # Request-level priority overrides client-level priority
+):
+    print(json.dumps(important_item, indent=True))
+
+# This query will use the client's default Low priority
+for normal_item in container_with_priority.query_items(
+    query='SELECT * FROM products p WHERE p.priority = "Low"',
+    enable_cross_partition_query=True
+):
+    print(json.dumps(normal_item, indent=True))
+
+# [END request_priority_precedence]
 
 # Delete items from the container.
 # The Cosmos DB SQL API does not support 'DELETE' queries,
 # so deletes must be done with the delete_item method
 # on the container.
 # [START delete_items]
-for item in container.query_items(
+for queried_item in container.query_items(
     query='SELECT * FROM products p WHERE p.productModel = "DISCONTINUED" AND p.productName="Widget"'
 ):
-    container.delete_item(item, partition_key="Widget")
+    container.delete_item(queried_item, partition_key="Widget")
 # [END delete_items]
+
+# Query items with feed range is also supported. This example
+# gets all items within the feed range.
+# [START query_items_feed_range]
+import json
+
+for feed_range in container.read_feed_ranges():
+    for queried_item in container.query_items(
+        query='SELECT * FROM c',
+        feed_range=feed_range,
+    ):
+        print(json.dumps(queried_item, indent=True))
+# [END query_items_param]
 
 # Retrieve the properties of a database
 # [START get_database_properties]
-properties = database.read()
-print(json.dumps(properties, indent=True))
+read_properties = database.read()
+print(json.dumps(read_properties, indent=True))
 # [END get_database_properties]
 
 # Retrieve the properties of a container
@@ -202,13 +274,13 @@ for i in range(1, 10):
         dict(id="item{}".format(i), productName="Gadget", productModel="Model {}".format(i))
     )
 items = container.read_all_items()
-for item in items:
-    print(json.dumps(item, indent=True))
+for item_dict in items:
+    print(json.dumps(item_dict, indent=True))
 container.delete_all_items_by_partition_key("Gadget")
 print("All items in partition {} deleted.".format("Gadget"))
 items = container.read_all_items()
-for item in items:
-    print(json.dumps(item, indent=True))
+for item_dict in items:
+    print(json.dumps(item_dict, indent=True))
 # [END delete_all_items_by_partition_key]
 
 # Subpartitioning Samples Similar samples that show how to use subpartitioning
@@ -244,18 +316,18 @@ updated_item = container.upsert_item(item)
 # [START query_items]
 import json
 
-for item in container.query_items(
+for queried_item in container.query_items(
     query='SELECT * FROM products p WHERE p.state = "WA"',
     enable_cross_partition_query=True,
 ):
-    print(json.dumps(item, indent=True))
+    print(json.dumps(queried_item, indent=True))
 # [END query_items]
 
 # [START delete_items]
-for item in container.query_items(
+for queried_item in container.query_items(
     query='SELECT * FROM products p WHERE p.state = "GA"'
 ):
-    container.delete_item(item, partition_key=["GA", "Atlanta", 30363])
+    container.delete_item(queried_item, partition_key=["GA", "Atlanta", 30363])
 # [END delete_items]
 
 # Get the feed ranges list from container.
@@ -280,12 +352,12 @@ for feed_range in feed_ranges:
 
 # Query a sorted list of items that were changed for one feed range
 # [START query_items_change_feed]
-for item in container.query_items_change_feed(feed_range=feed_ranges[0]):
-    print(json.dumps(item, indent=True))
+for queried_item in container.query_items_change_feed(feed_range=feed_ranges[0]):
+    print(json.dumps(queried_item, indent=True))
 # [END query_items_change_feed]
 
 # Query a sorted list of items that were changed for one feed range
 # [START query_items_change_feed_from_beginning]
-for item in container.query_items_change_feed(feed_range=feed_ranges[0], start_time="Beginning"):
-    print(json.dumps(item, indent=True))
+for queried_item in container.query_items_change_feed(feed_range=feed_ranges[0], start_time="Beginning"):
+    print(json.dumps(queried_item, indent=True))
 # [END query_items_change_feed_from_beginning]

@@ -279,7 +279,7 @@ class VFGNode:
             self.widened_state = s
 
 
-class VFG(ForwardAnalysis[SimState, VFGNode, VFGJob, BlockID], Analysis):  # pylint:disable=abstract-method
+class VFG(ForwardAnalysis[SimState, VFGNode, VFGJob, BlockID, SimState], Analysis):  # pylint:disable=abstract-method
     """
     This class represents a control-flow graph with static analysis result.
 
@@ -336,7 +336,7 @@ class VFG(ForwardAnalysis[SimState, VFGNode, VFGJob, BlockID], Analysis):  # pyl
 
         ForwardAnalysis.__init__(
             self, order_jobs=True, allow_merging=True, allow_widening=True, status_callback=status_callback
-        )  # type:ignore
+        )  # type: ignore
 
         # Related CFG.
         # We can still perform analysis if you don't specify a CFG. But providing a CFG may give you better result.
@@ -482,7 +482,7 @@ class VFG(ForwardAnalysis[SimState, VFGNode, VFGJob, BlockID], Analysis):  # pyl
     #
 
     def copy(self):
-        new_vfg = VFG(self.project)  # type:ignore
+        new_vfg = VFG(self.project)  # type: ignore
         new_vfg._cfg = self._cfg
         new_vfg._graph = networkx.DiGraph(self.graph)
         new_vfg._nodes = self._nodes.copy()
@@ -685,7 +685,7 @@ class VFG(ForwardAnalysis[SimState, VFGNode, VFGJob, BlockID], Analysis):  # pyl
         self._top_task.jobs.remove(job)
 
         # set up some essential variables and parameters
-        job.call_stack_suffix = job.get_call_stack_suffix()  # type:ignore
+        job.call_stack_suffix = job.get_call_stack_suffix()  # type: ignore
         job.jumpkind = "Ijk_Boring" if job.state.history.jumpkind is None else job.state.history.jumpkind
 
         src_block_id = job.src_block_id

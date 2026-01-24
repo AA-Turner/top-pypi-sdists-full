@@ -9,6 +9,7 @@ import numpy as np
 try:
     import pandas as pd
     from pandas import DataFrame, Series, to_datetime
+    from pandas.api.types import is_datetime64_any_dtype
     from scipy.sparse import issparse
     from sklearn.compose import ColumnTransformer
     from sklearn.impute import SimpleImputer
@@ -120,7 +121,12 @@ class TimeSeriesDataset:
 
     @property
     def X_all(self) -> pd.DataFrame:
-        return pd.concat([self.X_train, self.X_val], axis=0)
+        # Remove empty or all-NA columns before concatenation
+        X_train_filtered = self.X_train.dropna(axis=1, how="all")
+        X_val_filtered = self.X_val.dropna(axis=1, how="all")
+
+        # Concatenate the filtered DataFrames
+        return pd.concat([X_train_filtered, X_val_filtered], axis=0)
 
     @property
     def y_train(self) -> pd.DataFrame:
@@ -392,6 +398,15 @@ class DataTransformerTS:
         assert len(self.num_columns) == 0, "Trying to call fit() twice, something is wrong"
 
         for column in X.columns:
+            # Never treat the time column as a feature for sklearn preprocessing
+            if column == self.time_col:
+                continue
+
+            # Robust datetime detection (covers datetime64[ms/us/ns], tz-aware, etc.)
+            if is_datetime64_any_dtype(X[column]):
+                self.datetime_columns.append(column)
+                continue
+
             # sklearn/utils/validation.py needs int/float values
             if X[column].dtype.name in ("object", "category", "string"):
                 if (
@@ -462,7 +477,7 @@ class DataTransformerTS:
                 if "__NAN__" not in X[col].cat.categories:
                     X[col] = X[col].cat.add_categories("__NAN__").fillna("__NAN__")
             else:
-                X[col] = X[col].fillna("__NAN__")
+                X[col] = X[col].fillna("__NAN__").infer_objects(copy=False)
                 X[col] = X[col].astype("category")
 
         for column in self.num_columns:
@@ -531,14 +546,12 @@ def normalize_ts_data(X_train_all, target_names, time_col, y_train_all=None):
 
 
 def validate_data_basic(X_train_all, y_train_all):
-    assert isinstance(X_train_all, np.ndarray) or issparse(X_train_all) or isinstance(X_train_all, pd.DataFrame), (
-        "X_train_all must be a numpy array, a pandas dataframe, " "or Scipy sparse matrix."
-    )
+    assert isinstance(X_train_all, (np.ndarray, DataFrame)) or issparse(
+        X_train_all
+    ), "X_train_all must be a numpy array, a pandas dataframe, or Scipy sparse matrix."
 
-    assert (
-        isinstance(y_train_all, np.ndarray)
-        or isinstance(y_train_all, pd.Series)
-        or isinstance(y_train_all, pd.DataFrame)
+    assert isinstance(
+        y_train_all, (np.ndarray, pd.Series, pd.DataFrame)
     ), "y_train_all must be a numpy array or a pandas series or DataFrame."
 
     assert X_train_all.size != 0 and y_train_all.size != 0, "Input data must not be empty, use None if no data"

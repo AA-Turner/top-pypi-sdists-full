@@ -18,7 +18,8 @@ T = TypeVar("T", bound="RunFlowPreviewJsonBody")
 class RunFlowPreviewJsonBody:
     """
     Attributes:
-        value (RunFlowPreviewJsonBodyValue):
+        value (RunFlowPreviewJsonBodyValue): The flow structure containing modules and optional preprocessor/failure
+            handlers
         args (RunFlowPreviewJsonBodyArgs): The arguments to pass to the script or flow
         path (Union[Unset, str]):
         tag (Union[Unset, str]):

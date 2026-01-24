@@ -43,7 +43,9 @@ class EmailVerificationProcess(AbstractCodeVerificationProcess):
         )
 
         email_address = self.email_address
-        signup = did_user_login(email_address.user) if email_address.user_id else True
+        signup = (
+            (not did_user_login(email_address.user)) if email_address.user_id else True
+        )
         self.did_send = send_verification_email_to_address(
             self.request,
             email_address,
@@ -87,6 +89,8 @@ class EmailVerificationProcess(AbstractCodeVerificationProcess):
 
     @classmethod
     def resume(cls, request) -> Optional["EmailVerificationProcess"]:
+        if not app_settings.EMAIL_VERIFICATION_BY_CODE_ENABLED:
+            return None
         state = request.session.get(EMAIL_VERIFICATION_CODE_SESSION_KEY)
         if not state:
             return None

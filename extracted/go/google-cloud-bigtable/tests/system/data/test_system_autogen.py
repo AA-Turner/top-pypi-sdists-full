@@ -27,6 +27,9 @@ from google.cloud.environment_vars import BIGTABLE_EMULATOR
 from google.type import date_pb2
 from google.cloud.bigtable.data._cross_sync import CrossSync
 from . import TEST_FAMILY, TEST_FAMILY_2, TEST_AGGREGATE_FAMILY
+from google.cloud.bigtable_v2.services.bigtable.transports.grpc import (
+    _LoggingClientInterceptor as GapicInterceptor,
+)
 
 TARGETS = ["table"]
 if not os.environ.get(BIGTABLE_EMULATOR):
@@ -99,10 +102,13 @@ class TempRowBuilder:
 
 
 class TestSystem:
+    def _make_client(self):
+        project = os.getenv("GOOGLE_CLOUD_PROJECT") or None
+        return CrossSync._Sync_Impl.DataClient(project=project)
+
     @pytest.fixture(scope="session")
     def client(self):
-        project = os.getenv("GOOGLE_CLOUD_PROJECT") or None
-        with CrossSync._Sync_Impl.DataClient(project=project) as client:
+        with self._make_client() as client:
             yield client
 
     @pytest.fixture(scope="session", params=TARGETS)
@@ -215,31 +221,33 @@ class TestSystem:
         reason="emulator mode doesn't refresh channel",
     )
     def test_channel_refresh(self, table_id, instance_id, temp_rows):
-        """change grpc channel to refresh after 1 second. Schedule a read_rows call after refresh,
-        to ensure new channel works"""
-        temp_rows.add_row(b"row_key_1")
-        temp_rows.add_row(b"row_key_2")
-        project = os.getenv("GOOGLE_CLOUD_PROJECT") or None
-        client = CrossSync._Sync_Impl.DataClient(project=project)
-        try:
+        """perform requests while swapping out the grpc channel. Requests should continue without error"""
+        import time
+
+        temp_rows.add_row(b"test_row")
+        with self._make_client() as client:
+            client._channel_refresh_task.cancel()
+            channel_wrapper = client.transport.grpc_channel
+            first_channel = channel_wrapper._channel
             client._channel_refresh_task = CrossSync._Sync_Impl.create_task(
                 client._manage_channel,
-                refresh_interval_min=1,
-                refresh_interval_max=1,
+                refresh_interval_min=0.1,
+                refresh_interval_max=0.1,
+                grace_period=1,
                 sync_executor=client._executor,
             )
-            CrossSync._Sync_Impl.yield_to_event_loop()
+            end_time = time.monotonic() + 3
             with client.get_table(instance_id, table_id) as table:
-                rows = table.read_rows({})
-                first_channel = client.transport.grpc_channel
-                assert len(rows) == 2
-                CrossSync._Sync_Impl.sleep(2)
-                rows_after_refresh = table.read_rows({})
-                assert len(rows_after_refresh) == 2
-                assert client.transport.grpc_channel is not first_channel
-                print(table)
-        finally:
-            client.close()
+                while time.monotonic() < end_time:
+                    rows = table.read_rows({})
+                    assert len(rows) == 1
+                    CrossSync._Sync_Impl.yield_to_event_loop()
+            updated_channel = channel_wrapper._channel
+            assert updated_channel is not first_channel
+            assert isinstance(
+                client.transport._logged_channel._interceptor, GapicInterceptor
+            )
+            assert updated_channel._interceptor == client._metrics_interceptor
 
     @pytest.mark.usefixtures("target")
     @CrossSync._Sync_Impl.Retry(
@@ -249,7 +257,7 @@ class TestSystem:
         """Ensure cells can be set properly"""
         row_key = b"bulk_mutate"
         new_value = uuid.uuid4().hex.encode()
-        row_key, mutation = self._create_row_and_mutation(
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
         target.mutate_row(row_key, mutation)
@@ -303,7 +311,7 @@ class TestSystem:
         from google.cloud.bigtable.data.mutations import RowMutationEntry
 
         new_value = uuid.uuid4().hex.encode()
-        row_key, mutation = self._create_row_and_mutation(
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
@@ -338,11 +346,11 @@ class TestSystem:
         """test batcher with context manager. Should flush on exit"""
         from google.cloud.bigtable.data.mutations import RowMutationEntry
 
-        new_value, new_value2 = [uuid.uuid4().hex.encode() for _ in range(2)]
-        row_key, mutation = self._create_row_and_mutation(
+        (new_value, new_value2) = [uuid.uuid4().hex.encode() for _ in range(2)]
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
-        row_key2, mutation2 = self._create_row_and_mutation(
+        (row_key2, mutation2) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value2
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
@@ -363,7 +371,7 @@ class TestSystem:
         from google.cloud.bigtable.data.mutations import RowMutationEntry
 
         new_value = uuid.uuid4().hex.encode()
-        row_key, mutation = self._create_row_and_mutation(
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
@@ -385,12 +393,12 @@ class TestSystem:
         """batch should flush after flush_limit_mutation_count mutations"""
         from google.cloud.bigtable.data.mutations import RowMutationEntry
 
-        new_value, new_value2 = [uuid.uuid4().hex.encode() for _ in range(2)]
-        row_key, mutation = self._create_row_and_mutation(
+        (new_value, new_value2) = [uuid.uuid4().hex.encode() for _ in range(2)]
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
-        row_key2, mutation2 = self._create_row_and_mutation(
+        (row_key2, mutation2) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value2
         )
         bulk_mutation2 = RowMutationEntry(row_key2, [mutation2])
@@ -417,12 +425,12 @@ class TestSystem:
         """batch should flush after flush_limit_bytes bytes"""
         from google.cloud.bigtable.data.mutations import RowMutationEntry
 
-        new_value, new_value2 = [uuid.uuid4().hex.encode() for _ in range(2)]
-        row_key, mutation = self._create_row_and_mutation(
+        (new_value, new_value2) = [uuid.uuid4().hex.encode() for _ in range(2)]
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
-        row_key2, mutation2 = self._create_row_and_mutation(
+        (row_key2, mutation2) = self._create_row_and_mutation(
             target, temp_rows, new_value=new_value2
         )
         bulk_mutation2 = RowMutationEntry(row_key2, [mutation2])
@@ -448,11 +456,11 @@ class TestSystem:
 
         new_value = uuid.uuid4().hex.encode()
         start_value = b"unchanged"
-        row_key, mutation = self._create_row_and_mutation(
+        (row_key, mutation) = self._create_row_and_mutation(
             target, temp_rows, start_value=start_value, new_value=new_value
         )
         bulk_mutation = RowMutationEntry(row_key, [mutation])
-        row_key2, mutation2 = self._create_row_and_mutation(
+        (row_key2, mutation2) = self._create_row_and_mutation(
             target, temp_rows, start_value=start_value, new_value=new_value
         )
         bulk_mutation2 = RowMutationEntry(row_key2, [mutation2])

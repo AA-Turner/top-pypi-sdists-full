@@ -15,6 +15,7 @@ from telnyx.types import (
     MessageScheduleResponse,
     MessageSendGroupMmsResponse,
     MessageSendLongCodeResponse,
+    MessageSendWhatsappResponse,
     MessageSendShortCodeResponse,
     MessageSendNumberPoolResponse,
     MessageCancelScheduledResponse,
@@ -328,7 +329,7 @@ class TestMessages:
     def test_method_send_number_pool(self, client: Telnyx) -> None:
         message = client.messages.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         )
         assert_matches_type(MessageSendNumberPoolResponse, message, path=["response"])
 
@@ -337,7 +338,7 @@ class TestMessages:
     def test_method_send_number_pool_with_all_params(self, client: Telnyx) -> None:
         message = client.messages.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
             auto_detect=True,
             media_urls=["http://example.com"],
             subject="From Telnyx!",
@@ -354,7 +355,7 @@ class TestMessages:
     def test_raw_response_send_number_pool(self, client: Telnyx) -> None:
         response = client.messages.with_raw_response.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         )
 
         assert response.is_closed is True
@@ -367,7 +368,7 @@ class TestMessages:
     def test_streaming_response_send_number_pool(self, client: Telnyx) -> None:
         with client.messages.with_streaming_response.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -428,6 +429,228 @@ class TestMessages:
 
             message = response.parse()
             assert_matches_type(MessageSendShortCodeResponse, message, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_send_whatsapp(self, client: Telnyx) -> None:
+        message = client.messages.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        )
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_method_send_whatsapp_with_all_params(self, client: Telnyx) -> None:
+        message = client.messages.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={
+                "audio": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "biz_opaque_callback_data": "biz_opaque_callback_data",
+                "contacts": [
+                    {
+                        "addresses": [
+                            {
+                                "city": "city",
+                                "country": "country",
+                                "country_code": "country_code",
+                                "state": "state",
+                                "street": "street",
+                                "type": "type",
+                                "zip": "zip",
+                            }
+                        ],
+                        "birthday": "birthday",
+                        "emails": [
+                            {
+                                "email": "email",
+                                "type": "type",
+                            }
+                        ],
+                        "name": "name",
+                        "org": {
+                            "company": "company",
+                            "department": "department",
+                            "title": "title",
+                        },
+                        "phones": [
+                            {
+                                "phone": "phone",
+                                "type": "type",
+                                "wa_id": "wa_id",
+                            }
+                        ],
+                        "urls": [
+                            {
+                                "type": "type",
+                                "url": "url",
+                            }
+                        ],
+                    }
+                ],
+                "document": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "image": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "interactive": {
+                    "action": {
+                        "button": "button",
+                        "buttons": [
+                            {
+                                "reply": {
+                                    "id": "id",
+                                    "title": "title",
+                                },
+                                "type": "reply",
+                            }
+                        ],
+                        "cards": [
+                            {
+                                "action": {
+                                    "catalog_id": "catalog_id",
+                                    "product_retailer_id": "product_retailer_id",
+                                },
+                                "body": {"text": "text"},
+                                "card_index": 0,
+                                "header": {
+                                    "image": {
+                                        "caption": "caption",
+                                        "filename": "filename",
+                                        "link": "http://example.com/media.jpg",
+                                        "voice": True,
+                                    },
+                                    "type": "image",
+                                    "video": {
+                                        "caption": "caption",
+                                        "filename": "filename",
+                                        "link": "http://example.com/media.jpg",
+                                        "voice": True,
+                                    },
+                                },
+                                "type": "cta_url",
+                            }
+                        ],
+                        "catalog_id": "catalog_id",
+                        "mode": "mode",
+                        "name": "name",
+                        "parameters": {
+                            "display_text": "display_text",
+                            "url": "url",
+                        },
+                        "product_retailer_id": "product_retailer_id",
+                        "sections": [
+                            {
+                                "product_items": [{"product_retailer_id": "product_retailer_id"}],
+                                "rows": [
+                                    {
+                                        "id": "id",
+                                        "description": "description",
+                                        "title": "title",
+                                    }
+                                ],
+                                "title": "title",
+                            }
+                        ],
+                    },
+                    "body": {"text": "text"},
+                    "footer": {"text": "text"},
+                    "header": {
+                        "document": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                        "image": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                        "sub_text": "sub_text",
+                        "text": "text",
+                        "video": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                    },
+                    "type": "cta_url",
+                },
+                "location": {
+                    "address": "address",
+                    "latitude": "latitude",
+                    "longitude": "longitude",
+                    "name": "name",
+                },
+                "reaction": {
+                    "emoji": "emoji",
+                    "message_id": "message_id",
+                },
+                "sticker": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "type": "audio",
+                "video": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+            },
+            type="WHATSAPP",
+            webhook_url="webhook_url",
+        )
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_raw_response_send_whatsapp(self, client: Telnyx) -> None:
+        response = client.messages.with_raw_response.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        message = response.parse()
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    def test_streaming_response_send_whatsapp(self, client: Telnyx) -> None:
+        with client.messages.with_streaming_response.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            message = response.parse()
+            assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -738,7 +961,7 @@ class TestAsyncMessages:
     async def test_method_send_number_pool(self, async_client: AsyncTelnyx) -> None:
         message = await async_client.messages.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         )
         assert_matches_type(MessageSendNumberPoolResponse, message, path=["response"])
 
@@ -747,7 +970,7 @@ class TestAsyncMessages:
     async def test_method_send_number_pool_with_all_params(self, async_client: AsyncTelnyx) -> None:
         message = await async_client.messages.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
             auto_detect=True,
             media_urls=["http://example.com"],
             subject="From Telnyx!",
@@ -764,7 +987,7 @@ class TestAsyncMessages:
     async def test_raw_response_send_number_pool(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.messages.with_raw_response.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         )
 
         assert response.is_closed is True
@@ -777,7 +1000,7 @@ class TestAsyncMessages:
     async def test_streaming_response_send_number_pool(self, async_client: AsyncTelnyx) -> None:
         async with async_client.messages.with_streaming_response.send_number_pool(
             messaging_profile_id="abc85f64-5717-4562-b3fc-2c9600000000",
-            to="to",
+            to="+13125550002",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -838,5 +1061,227 @@ class TestAsyncMessages:
 
             message = await response.parse()
             assert_matches_type(MessageSendShortCodeResponse, message, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_send_whatsapp(self, async_client: AsyncTelnyx) -> None:
+        message = await async_client.messages.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        )
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_method_send_whatsapp_with_all_params(self, async_client: AsyncTelnyx) -> None:
+        message = await async_client.messages.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={
+                "audio": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "biz_opaque_callback_data": "biz_opaque_callback_data",
+                "contacts": [
+                    {
+                        "addresses": [
+                            {
+                                "city": "city",
+                                "country": "country",
+                                "country_code": "country_code",
+                                "state": "state",
+                                "street": "street",
+                                "type": "type",
+                                "zip": "zip",
+                            }
+                        ],
+                        "birthday": "birthday",
+                        "emails": [
+                            {
+                                "email": "email",
+                                "type": "type",
+                            }
+                        ],
+                        "name": "name",
+                        "org": {
+                            "company": "company",
+                            "department": "department",
+                            "title": "title",
+                        },
+                        "phones": [
+                            {
+                                "phone": "phone",
+                                "type": "type",
+                                "wa_id": "wa_id",
+                            }
+                        ],
+                        "urls": [
+                            {
+                                "type": "type",
+                                "url": "url",
+                            }
+                        ],
+                    }
+                ],
+                "document": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "image": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "interactive": {
+                    "action": {
+                        "button": "button",
+                        "buttons": [
+                            {
+                                "reply": {
+                                    "id": "id",
+                                    "title": "title",
+                                },
+                                "type": "reply",
+                            }
+                        ],
+                        "cards": [
+                            {
+                                "action": {
+                                    "catalog_id": "catalog_id",
+                                    "product_retailer_id": "product_retailer_id",
+                                },
+                                "body": {"text": "text"},
+                                "card_index": 0,
+                                "header": {
+                                    "image": {
+                                        "caption": "caption",
+                                        "filename": "filename",
+                                        "link": "http://example.com/media.jpg",
+                                        "voice": True,
+                                    },
+                                    "type": "image",
+                                    "video": {
+                                        "caption": "caption",
+                                        "filename": "filename",
+                                        "link": "http://example.com/media.jpg",
+                                        "voice": True,
+                                    },
+                                },
+                                "type": "cta_url",
+                            }
+                        ],
+                        "catalog_id": "catalog_id",
+                        "mode": "mode",
+                        "name": "name",
+                        "parameters": {
+                            "display_text": "display_text",
+                            "url": "url",
+                        },
+                        "product_retailer_id": "product_retailer_id",
+                        "sections": [
+                            {
+                                "product_items": [{"product_retailer_id": "product_retailer_id"}],
+                                "rows": [
+                                    {
+                                        "id": "id",
+                                        "description": "description",
+                                        "title": "title",
+                                    }
+                                ],
+                                "title": "title",
+                            }
+                        ],
+                    },
+                    "body": {"text": "text"},
+                    "footer": {"text": "text"},
+                    "header": {
+                        "document": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                        "image": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                        "sub_text": "sub_text",
+                        "text": "text",
+                        "video": {
+                            "caption": "caption",
+                            "filename": "filename",
+                            "link": "http://example.com/media.jpg",
+                            "voice": True,
+                        },
+                    },
+                    "type": "cta_url",
+                },
+                "location": {
+                    "address": "address",
+                    "latitude": "latitude",
+                    "longitude": "longitude",
+                    "name": "name",
+                },
+                "reaction": {
+                    "emoji": "emoji",
+                    "message_id": "message_id",
+                },
+                "sticker": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+                "type": "audio",
+                "video": {
+                    "caption": "caption",
+                    "filename": "filename",
+                    "link": "http://example.com/media.jpg",
+                    "voice": True,
+                },
+            },
+            type="WHATSAPP",
+            webhook_url="webhook_url",
+        )
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_raw_response_send_whatsapp(self, async_client: AsyncTelnyx) -> None:
+        response = await async_client.messages.with_raw_response.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        message = await response.parse()
+        assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
+
+    @pytest.mark.skip(reason="Prism tests are disabled")
+    @parametrize
+    async def test_streaming_response_send_whatsapp(self, async_client: AsyncTelnyx) -> None:
+        async with async_client.messages.with_streaming_response.send_whatsapp(
+            from_="+13125551234",
+            to="+13125551234",
+            whatsapp_message={},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            message = await response.parse()
+            assert_matches_type(MessageSendWhatsappResponse, message, path=["response"])
 
         assert cast(Any, response.is_closed) is True

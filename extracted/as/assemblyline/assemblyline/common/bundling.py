@@ -1,4 +1,3 @@
-
 import json
 import logging
 import os
@@ -258,8 +257,19 @@ def create_bundle(sid, working_dir=WORK_DIR, use_alert=False, user_classificatio
 
 
 # noinspection PyBroadException,PyProtectedMember
-def import_bundle(path, working_dir=WORK_DIR, min_classification=Classification.UNRESTRICTED, allow_incomplete=False,
-                  rescan_services=None, exist_ok=False, cleanup=True, identify=None, reclassification=None):
+def import_bundle(
+    path,
+    working_dir=WORK_DIR,
+    min_classification=Classification.UNRESTRICTED,
+    allow_incomplete=False,
+    rescan_services=None,
+    exist_ok=False,
+    cleanup=True,
+    identify=None,
+    reclassification=None,
+    to_ingest=False,
+    dtl=None
+):
     with forge.get_datastore(archive_access=True) as datastore:
         current_working_dir = os.path.join(working_dir, get_random_id())
         res_file = os.path.join(current_working_dir, "results.json")
@@ -343,6 +353,13 @@ def import_bundle(path, working_dir=WORK_DIR, min_classification=Classification.
                     submission['metadata']['bundle.loaded'] = now_as_iso()
                     submission['metadata']['bundle.classification'] = original_classification
                     submission['metadata'].pop('replay', None)
+                    if dtl:
+                        if dtl <= 0:
+                            # Submission should never expire
+                            submission['expiry_ts'] = None
+                        else:
+                            # Otherwise set the new expiry time
+                            submission['expiry_ts'] = now_as_iso(dtl * 24 * 60 * 60)
                     submission.update(Classification.get_access_control_parts(submission['classification']))
 
                     if not rescan_services:
@@ -353,7 +370,15 @@ def import_bundle(path, working_dir=WORK_DIR, min_classification=Classification.
                     with forge.get_filestore() as filestore:
                         for f, f_data in files['infos'].items():
                             check_classification(f_data)
-                            datastore.save_or_freshen_file(f, f_data, f_data['expiry_ts'], f_data['classification'],
+                            expiry_ts = f_data.get('expiry_ts', None)
+                            if dtl is not None:
+                                if dtl <= 0:
+                                    # File should never expire
+                                    expiry_ts = None
+                                else:
+                                    # Otherwise set the new expiry time
+                                    expiry_ts = now_as_iso(dtl * 24 * 60 * 60)
+                            datastore.save_or_freshen_file(f, f_data, expiry_ts, f_data['classification'],
                                                            cl_engine=Classification)
                             try:
                                 filestore.upload(os.path.join(current_working_dir, f), f)
@@ -367,6 +392,13 @@ def import_bundle(path, working_dir=WORK_DIR, min_classification=Classification.
                                     config.submission.emptyresult_dtl * 24 * 60 * 60)})
                             else:
                                 check_classification(res)
+                                if dtl is not None:
+                                    if dtl <= 0:
+                                        # Result should never expire
+                                        res.pop('expiry_ts', None)
+                                    else:
+                                        # Otherwise set the new expiry time
+                                        res['expiry_ts'] = now_as_iso(dtl * 24 * 60 * 60)
                                 datastore.result.save(key, res)
 
                         # Make sure errors meet minimum classification and save the errors
@@ -382,8 +414,16 @@ def import_bundle(path, working_dir=WORK_DIR, min_classification=Classification.
                             }
                             with SubmissionClient(datastore=datastore, filestore=filestore,
                                                   config=config, identify=identify) as sc:
-                                sc.rescan(submission, results['results'], extracted_file_infos,
-                                          files['tree'], list(errors['errors'].keys()), rescan_services)
+
+                                sc.rescan(
+                                    submission,
+                                    results["results"],
+                                    extracted_file_infos,
+                                    files["tree"],
+                                    list(errors["errors"].keys()),
+                                    rescan_services,
+                                    to_ingest=to_ingest,
+                                )
                 elif not exist_ok:
                     raise SubmissionAlreadyExist("Submission %s already exists." % sid)
 

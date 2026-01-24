@@ -7,7 +7,7 @@ r'''
 [![npm version](https://badge.fury.io/js/constructs.svg)](https://badge.fury.io/js/constructs)
 [![PyPI version](https://badge.fury.io/py/constructs.svg)](https://badge.fury.io/py/constructs)
 [![NuGet version](https://badge.fury.io/nu/Constructs.svg)](https://badge.fury.io/nu/Constructs)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/software.constructs/constructs/badge.svg?style=plastic)](https://maven-badges.herokuapp.com/maven-central/software.constructs/constructs)
+[![Maven Central](https://maven-badges.sml.io/maven-central/software.constructs/constructs/badge.svg?style=plastic)](https://maven-badges.sml.io/maven-central/software.constructs/constructs)
 
 ## What are constructs?
 
@@ -45,7 +45,22 @@ import jsii
 import publication
 import typing_extensions
 
-from typeguard import check_type
+import typeguard
+from importlib.metadata import version as _metadata_package_version
+TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+
+def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
+    if TYPEGUARD_MAJOR_VERSION <= 2:
+        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
+    else:
+        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
+           pass
+        else:
+            if TYPEGUARD_MAJOR_VERSION == 3:
+                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
+                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
+            else:
+                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
@@ -391,7 +406,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         return typing.cast("Node", jsii.sinvoke(cls, "of", [construct]))
 
     @jsii.member(jsii_name="addDependency")
-    def add_dependency(self, *deps: IDependable) -> None:
+    def add_dependency(self, *deps: "IDependable") -> None:
         '''Add an ordering dependency on another construct.
 
         An ``IDependable``
@@ -436,7 +451,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         return typing.cast(None, jsii.invoke(self, "addMetadata", [type, data, options]))
 
     @jsii.member(jsii_name="addValidation")
-    def add_validation(self, validation: IValidation) -> None:
+    def add_validation(self, validation: "IValidation") -> None:
         '''Adds a validation to this construct.
 
         When ``node.validate()`` is called, the ``validate()`` method will be called on
@@ -452,7 +467,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     @jsii.member(jsii_name="findAll")
     def find_all(
         self,
-        order: typing.Optional[ConstructOrder] = None,
+        order: typing.Optional["ConstructOrder"] = None,
     ) -> typing.List["IConstruct"]:
         '''Return this construct and all of its children in the given order.
 
@@ -647,12 +662,12 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
 
     @builtins.property
     @jsii.member(jsii_name="metadata")
-    def metadata(self) -> typing.List[MetadataEntry]:
+    def metadata(self) -> typing.List["MetadataEntry"]:
         '''An immutable array of metadata objects associated with this construct.
 
         This can be used, for example, to implement support for deprecation notices, source mapping, etc.
         '''
-        return typing.cast(typing.List[MetadataEntry], jsii.get(self, "metadata"))
+        return typing.cast(typing.List["MetadataEntry"], jsii.get(self, "metadata"))
 
     @builtins.property
     @jsii.member(jsii_name="path")
@@ -697,7 +712,7 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
     @builtins.property
     @jsii.member(jsii_name="defaultChild")
     def default_child(self) -> typing.Optional["IConstruct"]:
-        '''Returns the child construct that has the id ``Default`` or ``Resource"``.
+        '''Returns the child construct that has the id ``Default`` or ``Resource``.
 
         This is usually the construct that provides the bulk of the underlying functionality.
         Useful for modifications of the underlying construct that are not available at the higher levels.
@@ -732,7 +747,7 @@ class DependencyGroup(metaclass=jsii.JSIIMeta, jsii_type="constructs.DependencyG
     construct tree needs to be combined to be used as a single dependable.
     '''
 
-    def __init__(self, *deps: IDependable) -> None:
+    def __init__(self, *deps: "IDependable") -> None:
         '''
         :param deps: -
         '''
@@ -742,7 +757,7 @@ class DependencyGroup(metaclass=jsii.JSIIMeta, jsii_type="constructs.DependencyG
         jsii.create(self.__class__, self, [*deps])
 
     @jsii.member(jsii_name="add")
-    def add(self, *scopes: IDependable) -> None:
+    def add(self, *scopes: "IDependable") -> None:
         '''Add a construct to the dependency roots.
 
         :param scopes: -
@@ -759,7 +774,7 @@ class IConstruct(IDependable, typing_extensions.Protocol):
 
     @builtins.property
     @jsii.member(jsii_name="node")
-    def node(self) -> Node:
+    def node(self) -> "Node":
         '''The tree node.'''
         ...
 
@@ -773,9 +788,9 @@ class _IConstructProxy(
 
     @builtins.property
     @jsii.member(jsii_name="node")
-    def node(self) -> Node:
+    def node(self) -> "Node":
         '''The tree node.'''
-        return typing.cast(Node, jsii.get(self, "node"))
+        return typing.cast("Node", jsii.get(self, "node"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConstruct).__jsii_proxy_class__ = lambda : _IConstructProxy
@@ -836,9 +851,9 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
 
     @builtins.property
     @jsii.member(jsii_name="node")
-    def node(self) -> Node:
+    def node(self) -> "Node":
         '''The tree node.'''
-        return typing.cast(Node, jsii.get(self, "node"))
+        return typing.cast("Node", jsii.get(self, "node"))
 
 
 class RootConstruct(
@@ -1036,3 +1051,6 @@ def _typecheckingstub__43869d89939a2770444321abd60b2fdb0daaa395e2fa7d025fe7acd93
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IConstruct, IDependable, IValidation]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

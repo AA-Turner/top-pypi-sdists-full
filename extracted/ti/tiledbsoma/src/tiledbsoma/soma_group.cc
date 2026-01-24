@@ -41,31 +41,29 @@ void load_soma_group(py::module& m) {
         .def("__enter__", [](SOMAGroup& group) { return group; })
         .def(
             "__exit__",
-            [](SOMAGroup& group,
-               py::object exc_type,
-               py::object exc_value,
-               py::object traceback) { group.close(); })
+            [](SOMAGroup& group, py::object exc_type, py::object exc_value, py::object traceback) { group.close(); })
         .def_property_readonly(
             "mode",
             [](SOMAGroup& group) {
-                return group.mode() == OpenMode::read ? "r" : "w";
+                OpenMode soma_mode = group.mode();
+                switch (soma_mode) {
+                    case OpenMode::soma_read:
+                        return "r";
+                    case OpenMode::soma_write:
+                        return "w";
+                    case OpenMode::soma_delete:
+                        return "d";
+                    default:
+                        throw TileDBSOMAError("Internal error: unrecognized mode.");
+                }
             })
-        .def("reopen", &SOMAGroup::reopen)
         .def("close", &SOMAGroup::close)
-        .def_property_readonly(
-            "closed",
-            [](SOMAGroup& group) -> bool { return not group.is_open(); })
+        .def_property_readonly("closed", [](SOMAGroup& group) -> bool { return not group.is_open(); })
         .def_property_readonly("uri", &SOMAGroup::uri)
         .def("context", &SOMAGroup::ctx)
         .def("is_relative", &SOMAGroup::is_relative)
         .def("has", &SOMAGroup::has)
-        .def(
-            "add",
-            &SOMAGroup::set,
-            "uri"_a,
-            "uri_type"_a,
-            "name"_a,
-            "soma_type"_a)
+        .def("add", &SOMAGroup::set, "uri"_a, "uri_type"_a, "name"_a, "soma_type"_a)
         .def("count", &SOMAGroup::count)
         .def("remove", &SOMAGroup::del)
         .def("members", &SOMAGroup::members_map)
@@ -77,24 +75,15 @@ void load_soma_group(py::module& m) {
                 return py::cast(group.timestamp()->second);
             })
 
-        .def_property_readonly(
-            "meta",
-            [](SOMAGroup& group) -> py::dict {
-                return meta(group.get_metadata());
-            })
+        .def_property_readonly("type", &SOMAGroup::type)
 
-        .def(
-            "set_metadata",
-            set_metadata,
-            py::arg("key"),
-            py::arg("value"),
-            py::arg("force") = false)
+        .def_property_readonly("meta", [](SOMAGroup& group) -> py::dict { return meta(group.get_metadata()); })
 
-        .def(
-            "delete_metadata",
-            &SOMAGroup::delete_metadata,
-            py::arg("key"),
-            py::arg("force") = false)
+        .def("get_metadata", py::overload_cast<const std::string&>(&SOMAGroup::get_metadata))
+
+        .def("set_metadata", set_metadata, py::arg("key"), py::arg("value"), py::arg("force") = false)
+
+        .def("delete_metadata", &SOMAGroup::delete_metadata, py::arg("key"), py::arg("force") = false)
 
         .def("has_metadata", &SOMAGroup::has_metadata)
 

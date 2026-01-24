@@ -195,6 +195,12 @@ class QMPClient(AsyncProtocol[Message], Events):
         Optional nickname for the connection, used to differentiate
         instances when logging.
 
+    :param readbuflen:
+        The maximum buffer length for reads and writes to and from the QMP
+        server, in bytes. Default is 10MB. If `QMPClient` is used to
+        connect to a guest agent to transfer files via ``guest-file-read``/
+        ``guest-file-write``, increasing this value may be required.
+
     Basic script-style usage looks like this::
 
       import asyncio
@@ -236,14 +242,18 @@ class QMPClient(AsyncProtocol[Message], Events):
     #: Logger object used for debugging messages.
     logger = logging.getLogger(__name__)
 
-    # Read buffer limit; 10MB like libvirt default
-    _limit = 10 * 1024 * 1024
+    # Read buffer default limit; 10MB like libvirt default
+    _readbuflen = 10 * 1024 * 1024
 
     # Type alias for pending execute() result items
     _PendingT = Union[Message, ExecInterruptedError]
 
-    def __init__(self, name: Optional[str] = None) -> None:
-        super().__init__(name)
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        readbuflen: int = _readbuflen
+    ) -> None:
+        super().__init__(name, readbuflen)
         Events.__init__(self)
 
         #: Whether or not to await a greeting after establishing a connection.
@@ -416,7 +426,7 @@ class QMPClient(AsyncProtocol[Message], Events):
             # This is very likely a server parsing error.
             # It doesn't inherently belong to any pending execution.
             # Instead of performing clever recovery, just terminate.
-            # See "NOTE" in qmp-spec.txt, section 2.4.2
+            # See "NOTE" in interop/qmp-spec, "Error" section.
             raise ServerParseError(
                 ("Server sent an error response without an ID, "
                  "but there are no ID-less executions pending. "
@@ -424,7 +434,7 @@ class QMPClient(AsyncProtocol[Message], Events):
                 msg
             )
 
-        # qmp-spec.txt, section 2.4:
+        # qmp-spec.rst, "Commands Responses" section:
         # 'Clients should drop all the responses
         # that have an unknown "id" field.'
         self.logger.log(
@@ -651,8 +661,8 @@ class QMPClient(AsyncProtocol[Message], Events):
         :param cmd: QMP command name.
         :param arguments: Arguments (if any). Must be JSON-serializable.
         :param oob:
-            If `True`, execute `"out of band"
-            <https://gitlab.com/qemu-project/qemu/-/blob/master/docs/interop/qmp-spec.txt#L116>`_.
+            If `True`, execute "out of band". See `interop/qmp-spec`
+            section "Out-of-band execution".
 
         :return: A QMP `Message` that can be executed with `execute_msg()`.
         """
@@ -671,8 +681,8 @@ class QMPClient(AsyncProtocol[Message], Events):
         :param cmd: QMP command name.
         :param arguments: Arguments (if any). Must be JSON-serializable.
         :param oob:
-            If `True`, execute `"out of band"
-            <https://gitlab.com/qemu-project/qemu/-/blob/master/docs/interop/qmp-spec.txt#L116>`_.
+            If `True`, execute "out of band". See `interop/qmp-spec`
+            section "Out-of-band execution".
 
         :return:
             The command execution return value from the server. The type of

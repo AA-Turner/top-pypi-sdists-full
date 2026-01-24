@@ -1,0 +1,366 @@
+from enum import Enum
+from pathlib import Path
+from typing import Annotated, Any, cast
+
+import questionary
+import typer
+from rich import print
+
+from cognite_toolkit._cdf_tk.commands import PurgeCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.storageio.selectors import (
+    InstanceFileSelector,
+    InstanceSelector,
+    InstanceViewSelector,
+    SelectedView,
+)
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.cli_args import parse_view_str
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, DataModelingSelect
+
+
+class InstanceTypeEnum(str, Enum):
+    node = "node"
+    edge = "edge"
+
+
+class PurgeApp(typer.Typer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.callback(invoke_without_command=True)(self.main)
+        self.command("dataset")(self.purge_dataset)
+        self.command("space")(self.purge_space)
+        self.command("instances")(self.purge_instances)
+
+    def main(self, ctx: typer.Context) -> None:
+        """Commands deleting data from Cognite Data Fusion."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf purge --help[/] for more information.")
+
+    @staticmethod
+    def purge_dataset(
+        ctx: typer.Context,
+        external_id: Annotated[
+            str | None,
+            typer.Argument(
+                help="External id of the dataset to purge. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+        archive_dataset: Annotated[
+            bool,
+            typer.Option(
+                "--archive-dataset",
+                help="Whether to archive the dataset itself after purging its contents.",
+            ),
+        ] = False,
+        skip_data: Annotated[
+            bool,
+            typer.Option(
+                "--skip-data",
+                "-s",
+                help="Skip deleting the data in the dataset, only delete configurations. The resources that are "
+                "considered data are: time series, event, files, assets, sequences, relationships, "
+                "labels, and 3D Models",
+            ),
+        ] = False,
+        include_configurations: Annotated[
+            bool,
+            typer.Option(
+                "--include-configurations",
+                "-c",
+                help="Include configurations, workflows, extraction pipelines and transformations in the purge.",
+            ),
+        ] = False,
+        asset_recursive: Annotated[
+            bool,
+            typer.Option(
+                "--asset-recursive",
+                "-a",
+                help="When deleting assets, delete all child assets recursively. CAVEAT: This can lead to assets"
+                " not in the selected dataset being deleted if they are children of assets in the dataset.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the dataset.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will delete the contents of the specified dataset"""
+        cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        if external_id is None:
+            # Is Interactive
+            interactive = AssetInteractiveSelect(client, operation="purge")
+            external_id = interactive.select_data_set(allow_empty=False)
+            skip_data = not questionary.confirm(
+                "Delete data in the dataset (time series, events, files, assets, sequences, relationships, labels, 3D models)?",
+                default=True,
+            ).ask()
+            include_configurations = questionary.confirm(
+                "Delete configurations (workflows, extraction pipelines and transformations) in the dataset?",
+                default=False,
+            ).ask()
+            asset_recursive = questionary.confirm(
+                "When deleting assets, delete all child assets recursively? (WARNING: This can lead "
+                "to assets not in the selected dataset being deleted if they are children of assets in the dataset.)",
+                default=False,
+            ).ask()
+            archive_dataset = questionary.confirm("Archive the dataset itself after purging?", default=False).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            verbose = questionary.confirm("Verbose?", default=True).ask()
+
+            user_options = [archive_dataset, dry_run, verbose, skip_data, include_configurations, asset_recursive]
+
+            if any(selected is None for selected in user_options):
+                raise typer.Abort("Aborted by user.")
+
+        cmd.run(
+            lambda: cmd.dataset(
+                client,
+                external_id,
+                archive_dataset,
+                not skip_data,
+                include_configurations,
+                asset_recursive,
+                dry_run,
+                auto_yes,
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def purge_space(
+        ctx: typer.Context,
+        space: Annotated[
+            str | None,
+            typer.Argument(
+                help="Space to purge. If not provided, interactive mode will be used.",
+            ),
+        ] = None,
+        include_space: Annotated[
+            bool,
+            typer.Option(
+                "--include-space",
+                "-i",
+                help="Include space in the purge. This will also delete the space.",
+            ),
+        ] = False,
+        delete_datapoints: Annotated[
+            bool,
+            typer.Option(
+                "--delete-datapoints",
+                help="Delete datapoints linked to CogniteTimeSeries nodes in the space.",
+            ),
+        ] = False,
+        delete_file_content: Annotated[
+            bool,
+            typer.Option(
+                "--delete-file-content",
+                help="Delete file content linked to CogniteFile nodes in the space.",
+            ),
+        ] = False,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the space.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will delete the contents of the specified space."""
+
+        cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        if space is None:
+            # Is Interactive
+            interactive = DataModelingSelect(client, operation="purge")
+            space_type = interactive.select_space_type()
+            if space_type == "empty":
+                space = interactive.select_empty_spaces(multiselect=False)
+            elif space_type == "instance":
+                space = interactive.select_instance_space(multiselect=False)
+            elif space_type == "schema":
+                space = interactive.select_schema_space(include_global=False).space
+            else:
+                raise ToolkitValueError("Invalid space type selected.")
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            if space_type == "empty":
+                include_space = True
+            else:
+                include_space = questionary.confirm("Delete the space itself?", default=False).ask()
+
+        cmd.run(
+            lambda: cmd.space(
+                client=client,
+                selected_space=space,
+                include_space=include_space,
+                delete_datapoints=delete_datapoints,
+                delete_file_content=delete_file_content,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def purge_instances(
+        view: Annotated[
+            str | None,
+            typer.Argument(
+                help="Purge instances with properties in the specified view. Expected format is "
+                "'space:externalId/version'. For example 'cdf_cdm:CogniteTimeSeries/v1' will purge all nodes"
+                "that have properties in the CogniteTimeSeries view. If not provided and no "
+                "instance list is provided, interactive mode will be used.",
+            ),
+        ] = None,
+        instance_space: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="Only purge instances that are in the specified instance space(s).",
+            ),
+        ] = None,
+        instance_type: Annotated[
+            InstanceTypeEnum,
+            typer.Option(
+                "--instance-type",
+                "-t",
+                help="Type of instances to purge. Can be 'node' or 'edge'. Default is 'node'.",
+                case_sensitive=False,
+                show_default=True,
+            ),
+        ] = InstanceTypeEnum.node,
+        instance_list: Annotated[
+            Path | None,
+            typer.Option(
+                "--list",
+                "-l",
+                help="Path to a file containing a list of instance external IDs to purge. This file should be a csv file with space,externalId,instanceType columns."
+                "If this option is provided, the view, instance-space and instance-type options will be ignored.",
+                exists=True,
+                file_okay=True,
+                dir_okay=False,
+                readable=True,
+                resolve_path=True,
+                show_default=True,
+            ),
+        ] = None,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present.",
+            ),
+        ] = False,
+        unlink: Annotated[
+            bool,
+            typer.Option(
+                "--skip-unlink",
+                "-u",
+                help="This only applies to CogniteTimeSeries and CogniteFile nodes. By default, the purge command will unlink the "
+                "node from the datapoints/file content before deleting the node. If you want to delete the nodes with their datapoints/file content, "
+                "you can skip the unlinking. Note that this will delete the datapoints/file content "
+                "themselves, not the links to their parent nodes.",
+            ),
+        ] = True,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the instances.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will delete the contents of the specified instances."""
+
+        cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        is_interactive = view is None and instance_list is None
+        selector: InstanceSelector
+        if is_interactive:
+            interactive = DataModelingSelect(client, operation="purge")
+            select_view = interactive.select_view(include_global=True)
+            selected_instance_type = interactive.select_instance_type(select_view.used_for)
+            instance_space = interactive.select_instance_space(True, select_view.as_id(), selected_instance_type)
+            selector = InstanceViewSelector(
+                view=SelectedView(
+                    space=select_view.space, external_id=select_view.external_id, version=select_view.version
+                ),
+                instance_type=selected_instance_type,
+                instance_spaces=tuple(instance_space) if instance_space else None,
+            )
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+            unlink = questionary.confirm("Unlink instances connected to timeseries or files?", default=True).ask()
+        elif instance_list is not None:
+            selector = InstanceFileSelector(datafile=instance_list)
+        elif view is not None:
+            view_id = parse_view_str(view)
+            selector = InstanceViewSelector(
+                view=SelectedView(
+                    space=view_id.space, external_id=view_id.external_id, version=cast(str, view_id.version)
+                ),
+                instance_type=instance_type.value,
+                instance_spaces=tuple(instance_space) if instance_space is not None else None,
+            )
+        else:
+            raise ToolkitValueError("Invalid combination of arguments.")
+        cmd.run(
+            lambda: cmd.instances(
+                client=client,
+                selector=selector,
+                unlink=unlink,
+                dry_run=dry_run,
+                auto_yes=auto_yes,
+                verbose=verbose,
+            )
+        )

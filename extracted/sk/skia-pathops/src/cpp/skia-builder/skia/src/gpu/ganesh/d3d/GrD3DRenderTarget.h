@@ -12,7 +12,7 @@
 #include "src/gpu/ganesh/GrRenderTarget.h"
 #include "src/gpu/ganesh/d3d/GrD3DTextureResource.h"
 
-#include "include/gpu/d3d/GrD3DTypes.h"
+#include "include/gpu/ganesh/d3d/GrD3DTypes.h"
 #include "src/gpu/ganesh/GrGpu.h"
 #include "src/gpu/ganesh/d3d/GrD3DDescriptorHeap.h"
 #include "src/gpu/ganesh/d3d/GrD3DResourceProvider.h"
@@ -83,8 +83,8 @@ protected:
             // Add one to account for the resolved VkImage.
             numColorSamples += 1;
         }
-        return GrSurface::ComputeSize(this->backendFormat(), this->dimensions(),
-                                      numColorSamples, GrMipmapped::kNo);
+        return GrSurface::ComputeSize(
+                this->backendFormat(), this->dimensions(), numColorSamples, skgpu::Mipmapped::kNo);
     }
 
     void onSetLabel() override;

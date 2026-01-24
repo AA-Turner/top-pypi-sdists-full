@@ -121,3 +121,6 @@ from .webhook_subscope import WebhookSubscope
 from .widget import Widget
 from .widget_content import WidgetContent
 from .workspace import Workspace
+from .user_plan import UserPlan
+from .asset_shares_paginated_result import AssetSharesPaginatedResult
+from .asset_share import AssetShare

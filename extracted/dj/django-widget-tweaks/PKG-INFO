@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-widget-tweaks
-Version: 1.5.0
+Version: 1.5.1
 Summary: Tweak the form field rendering in templates, not in python-level form definitions.
 Home-page: https://github.com/jazzband/django-widget-tweaks
 Author: Mikhail Korobov
@@ -8,24 +8,37 @@ Author-email: kmike84@gmail.com
 License: MIT license
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires: django (>=2.2)
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: django>=4.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ====================
 django-widget-tweaks
@@ -44,7 +57,7 @@ django-widget-tweaks
    :alt: GitHub Actions
 
 .. image:: https://codecov.io/gh/jazzband/django-widget-tweaks/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/jazzband/django-widget-tweaks
+   :target: https://app.codecov.io/gh/jazzband/django-widget-tweaks
    :alt: Coverage
 
 Tweak the form field rendering in templates, not in python-level
@@ -132,7 +145,6 @@ You can be creative with these variables: e.g. a context processor could
 set a default CSS error class on all fields rendered by
 ``{% render_field %}``.
 
-
 attr
 ----
 Adds or replaces any single html attribute for the form field.
@@ -156,7 +168,6 @@ Examples:
     <!-- attributes with double colon Vuejs output: v-bind:class="{active:ValueEnabled}" -->
     {{ form.search_query|attr:"v-bind::class:{active:ValueEnabled}" }}
 
-
 add_class
 ---------
 
@@ -175,7 +186,7 @@ Example:
 set_data
 --------
 
-Sets HTML5 data attribute ( http://ejohn.org/blog/html-5-data-attributes/ ).
+Sets HTML5 data attribute ( https://johnresig.com/blog/html-5-data-attributes/ ).
 Useful for unobtrusive javascript. It is just a shortcut for 'attr' filter
 that prepends attribute names with 'data-' string.
 
@@ -205,7 +216,6 @@ Example:
 'add_class' filter is just a shortcut for 'append_attr' filter that
 adds values to the 'class' attribute.
 
-
 remove_attr
 -----------
 Removes any single html attribute for the form field.
@@ -218,7 +228,6 @@ Example:
 
     <!-- removes autofocus attribute from field element -->
     {{ form.title|remove_attr:"autofocus" }}
-
 
 add_label_class
 ---------------
@@ -234,7 +243,6 @@ Example:
     <!-- add 2 extra css classes to field label element -->
     {{ form.title|add_label_class:"label_class_1 label_class_2" }}
 
-
 add_error_class
 ---------------
 
@@ -249,7 +257,6 @@ Example:
 
     <!-- add 'error-border' css class on field error -->
     {{ form.title|add_error_class:"error-border" }}
-
 
 add_error_attr
 --------------
@@ -279,7 +286,6 @@ Example:
     <!-- add 'is-required' css class on field required -->
     {{ form.title|add_required_class:"is-required" }}
 
-
 field_type and widget_type
 --------------------------
 
@@ -304,6 +310,21 @@ Output:
         <input id="id_name" type="text" name="name" maxlength="100" />
     </div>
 
+Fields with multiple widgets
+============================
+
+Some fields may render as a `MultiWidget`, composed of multiple subwidgets
+(for example, a `ChoiceField` using `RadioSelect`). You can use the same tags
+and filters, but your template code will need to include a for loop for fields
+like this:
+
+.. code-block:: html+django
+
+    {% load widget_tweaks %}
+
+    {% for widget in form.choice %}
+        {{ widget|add_class:"css_class_1 css_class_2" }}
+    {% endfor %}
 
 Mixing render_field and filters
 ===============================
@@ -322,7 +343,6 @@ returns:
 .. code-block:: html+django
 
     <input name="category" placeholder="Profession" readonly="readonly" type="text">
-
 
 Filter chaining
 ===============
@@ -365,6 +385,79 @@ Example usage:
 With 'rightmost filter wins' rule it wouldn't be possible to override
 ``|attr:"foo:default_foo"`` in main template.
 
+Rendering form error messages
+=============================
+
+This app can render the following form error messages:
+
+1. Field related errors
+2. Non-field related errors
+3. All form errors - Displays all field and Non-field related errors. If related to a specific field the name is displayed above the error, if the error is a general form error, displays __all__
+
+Field related errors
+--------------------
+
+To render field related errors in your form:
+
+Example:
+
+.. code-block:: html+django
+
+    {% load widget_tweaks %}
+    {% for error in field.errors %}
+    <span class="text-danger">{{ error }}</span>
+    {% endfor %}
+
+Example usage:
+
+.. code-block:: html+django
+
+    {% for field in form.visible_fields %}
+    {{ field }}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {% for error in field.errors %}
+    <span class="text-danger">{{ error }}</span>
+    {% endfor %}
+    {% endfor %}
+
+Non-field related errors
+------------------------
+
+Render general form errors:
+
+Example:
+
+.. code-block:: html+django
+
+    {% load widget_tweaks %}
+    {% if form.non_field_errors %}
+    <span class="text-danger"> {{ form.non_field_errors  }}</span>
+    {% endif %}
+
+Example usage:
+
+.. code-block:: html+django
+
+    {% for field in form.visible_fields %}
+    {{ field }}
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {% for error in field.errors %}
+    <span class="text-danger">{{ error }}</span>
+    {% endfor %}
+    {% endfor %}
+
+All form errors
+---------------
+
+Render all form errors:
+
+Example:
+
+.. code-block:: html+django
+
+    {% load widget_tweaks %}
+    {{ form.errors }}
+
 Contributing
 ============
 
@@ -377,7 +470,7 @@ do not hesitate to contact me, fire an issue or send a pull request.
 Testing
 -------
 
-Make sure you have `tox <http://tox.testrun.org/>`_ installed, then type
+Make sure you have `tox <https://tox.wiki/>`_ installed, then type
 
 ::
 
@@ -385,15 +478,21 @@ Make sure you have `tox <http://tox.testrun.org/>`_ installed, then type
 
 from the source checkout.
 
-NOT SUPPORTED
-=============
-
-MultiWidgets: SplitDateTimeWidget, SplitHiddenDateTimeWidget
-
 
 Changes
 =======
 
+1.5.1 (2025-04-25)
+------------------
+
+* Drop support for Django 4.1
+* Drop support for Python 3.8
+* Add Django 5.0 support
+* Add Django 5.1 support
+* Add Python 3.12 support
+* Add Python 3.13 support
+* Add PyPy 3.11 support
+* See GitHub releases for further release notes: https://github.com/jazzband/django-widget-tweaks/releases
 
 1.5.0 (2023-08-25)
 ------------------
@@ -449,7 +548,7 @@ Changes
 
 * Feature remove attribute from field
 * Added documentation for remove_attr feature
-* Reformat code with black for PEP8 compatibility 
+* Reformat code with black for PEP8 compatibility
 * More consistent tox configuration
 * adding a new templatetag, unittest and documentation
 * Deprecate Python 2.7 support

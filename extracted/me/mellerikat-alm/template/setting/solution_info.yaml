@@ -1,0 +1,18 @@
+name: "" # 솔루션 이름
+type: private  #
+update: false  # true  # 기존 솔루션 업데이트 유무
+overview: ""  # 설명
+contents_type:
+  labeling_column_name: null
+  support_labeling: false
+detail:
+  - content: ""
+    title: ""
+inference:                # 추론 spec
+  cpu: amd64                # cpu 유형 amd64/arm64
+  gpu: false                # GPU 적용 유무
+  only: false               # 추론 전용 유무
+  datatype: table           # table or image
+train:                    # 학습 spec
+  gpu: false                # GPU 적용 유무
+  datatype: table             # table or image

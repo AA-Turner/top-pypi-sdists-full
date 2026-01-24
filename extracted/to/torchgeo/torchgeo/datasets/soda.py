@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """SODA datasets."""
@@ -15,7 +15,7 @@ import pandas as pd
 import torch
 from matplotlib.figure import Figure
 from PIL import Image
-from shapely.geometry import MultiPoint, Polygon
+from shapely import MultiPoint, Polygon
 from torch import Tensor
 
 from .errors import DatasetNotFoundError

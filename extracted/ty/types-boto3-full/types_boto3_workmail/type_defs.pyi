@@ -3,7 +3,7 @@ Type annotations for workmail service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_workmail/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -40,12 +41,6 @@ from .literals import (
     UserRoleType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -244,16 +239,16 @@ class AccessControlRuleTypeDef(TypedDict):
     Name: NotRequired[str]
     Effect: NotRequired[AccessControlRuleEffectType]
     Description: NotRequired[str]
-    IpRanges: NotRequired[List[str]]
-    NotIpRanges: NotRequired[List[str]]
-    Actions: NotRequired[List[str]]
-    NotActions: NotRequired[List[str]]
-    UserIds: NotRequired[List[str]]
-    NotUserIds: NotRequired[List[str]]
+    IpRanges: NotRequired[list[str]]
+    NotIpRanges: NotRequired[list[str]]
+    Actions: NotRequired[list[str]]
+    NotActions: NotRequired[list[str]]
+    UserIds: NotRequired[list[str]]
+    NotUserIds: NotRequired[list[str]]
     DateCreated: NotRequired[datetime]
     DateModified: NotRequired[datetime]
-    ImpersonationRoleIds: NotRequired[List[str]]
-    NotImpersonationRoleIds: NotRequired[List[str]]
+    ImpersonationRoleIds: NotRequired[list[str]]
+    NotImpersonationRoleIds: NotRequired[list[str]]
 
 class AssociateDelegateToResourceRequestTypeDef(TypedDict):
     OrganizationId: str
@@ -272,7 +267,7 @@ class AssumeImpersonationRoleRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -529,8 +524,8 @@ class ImpersonationRuleOutputTypeDef(TypedDict):
     Effect: AccessEffectType
     Name: NotRequired[str]
     Description: NotRequired[str]
-    TargetUsers: NotRequired[List[str]]
-    NotTargetUsers: NotRequired[List[str]]
+    TargetUsers: NotRequired[list[str]]
+    NotTargetUsers: NotRequired[list[str]]
 
 class GetMailDomainRequestTypeDef(TypedDict):
     OrganizationId: str
@@ -675,7 +670,7 @@ class ListMailboxPermissionsRequestTypeDef(TypedDict):
 class PermissionTypeDef(TypedDict):
     GranteeId: str
     GranteeType: MemberTypeType
-    PermissionValues: List[PermissionTypeType]
+    PermissionValues: list[PermissionTypeType]
 
 class ListMobileDeviceAccessOverridesRequestTypeDef(TypedDict):
     OrganizationId: str
@@ -700,14 +695,14 @@ class MobileDeviceAccessRuleTypeDef(TypedDict):
     Name: NotRequired[str]
     Description: NotRequired[str]
     Effect: NotRequired[MobileDeviceAccessRuleEffectType]
-    DeviceTypes: NotRequired[List[str]]
-    NotDeviceTypes: NotRequired[List[str]]
-    DeviceModels: NotRequired[List[str]]
-    NotDeviceModels: NotRequired[List[str]]
-    DeviceOperatingSystems: NotRequired[List[str]]
-    NotDeviceOperatingSystems: NotRequired[List[str]]
-    DeviceUserAgents: NotRequired[List[str]]
-    NotDeviceUserAgents: NotRequired[List[str]]
+    DeviceTypes: NotRequired[list[str]]
+    NotDeviceTypes: NotRequired[list[str]]
+    DeviceModels: NotRequired[list[str]]
+    NotDeviceModels: NotRequired[list[str]]
+    DeviceOperatingSystems: NotRequired[list[str]]
+    NotDeviceOperatingSystems: NotRequired[list[str]]
+    DeviceUserAgents: NotRequired[list[str]]
+    NotDeviceUserAgents: NotRequired[list[str]]
     DateCreated: NotRequired[datetime]
     DateModified: NotRequired[datetime]
 
@@ -735,7 +730,7 @@ class PersonalAccessTokenSummaryTypeDef(TypedDict):
     DateCreated: NotRequired[datetime]
     DateLastUsed: NotRequired[datetime]
     ExpiresTime: NotRequired[datetime]
-    Scopes: NotRequired[List[str]]
+    Scopes: NotRequired[list[str]]
 
 class ListResourceDelegatesRequestTypeDef(TypedDict):
     OrganizationId: str
@@ -1033,7 +1028,7 @@ class DescribeUserResponseTypeDef(TypedDict):
 
 class GetAccessControlEffectResponseTypeDef(TypedDict):
     Effect: AccessControlRuleEffectType
-    MatchedRules: List[str]
+    MatchedRules: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMailboxDetailsResponseTypeDef(TypedDict):
@@ -1057,15 +1052,15 @@ class GetPersonalAccessTokenMetadataResponseTypeDef(TypedDict):
     DateCreated: datetime
     DateLastUsed: datetime
     ExpiresTime: datetime
-    Scopes: List[str]
+    Scopes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccessControlRulesResponseTypeDef(TypedDict):
-    Rules: List[AccessControlRuleTypeDef]
+    Rules: list[AccessControlRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAliasesResponseTypeDef(TypedDict):
-    Aliases: List[str]
+    Aliases: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1143,7 +1138,7 @@ class CreateOrganizationRequestTypeDef(TypedDict):
     EnableInteroperability: NotRequired[bool]
 
 class ListResourceDelegatesResponseTypeDef(TypedDict):
-    Delegates: List[DelegateTypeDef]
+    Delegates: list[DelegateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1160,7 +1155,7 @@ class PutIdentityProviderConfigurationRequestTypeDef(TypedDict):
     PersonalAccessTokenConfiguration: PersonalAccessTokenConfigurationTypeDef
 
 class GetMailDomainResponseTypeDef(TypedDict):
-    Records: List[DnsRecordTypeDef]
+    Records: list[DnsRecordTypeDef]
     IsTestDomain: bool
     IsDefault: bool
     OwnershipVerificationStatus: DnsRecordVerificationStatusType
@@ -1171,7 +1166,7 @@ class GetDefaultRetentionPolicyResponseTypeDef(TypedDict):
     Id: str
     Name: str
     Description: str
-    FolderConfigurations: List[FolderConfigurationTypeDef]
+    FolderConfigurations: list[FolderConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutRetentionPolicyRequestTypeDef(TypedDict):
@@ -1186,7 +1181,7 @@ GetImpersonationRoleEffectResponseTypeDef = TypedDict(
     {
         "Type": ImpersonationRoleTypeType,
         "Effect": AccessEffectType,
-        "MatchedRules": List[ImpersonationMatchedRuleTypeDef],
+        "MatchedRules": list[ImpersonationMatchedRuleTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1197,7 +1192,7 @@ GetImpersonationRoleResponseTypeDef = TypedDict(
         "Name": str,
         "Type": ImpersonationRoleTypeType,
         "Description": str,
-        "Rules": List[ImpersonationRuleOutputTypeDef],
+        "Rules": list[ImpersonationRuleOutputTypeDef],
         "DateCreated": datetime,
         "DateModified": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1206,21 +1201,21 @@ GetImpersonationRoleResponseTypeDef = TypedDict(
 
 class GetMobileDeviceAccessEffectResponseTypeDef(TypedDict):
     Effect: MobileDeviceAccessRuleEffectType
-    MatchedRules: List[MobileDeviceAccessMatchedRuleTypeDef]
+    MatchedRules: list[MobileDeviceAccessMatchedRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListGroupsForEntityResponseTypeDef(TypedDict):
-    Groups: List[GroupIdentifierTypeDef]
+    Groups: list[GroupIdentifierTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListGroupsResponseTypeDef(TypedDict):
-    Groups: List[GroupTypeDef]
+    Groups: list[GroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListImpersonationRolesResponseTypeDef(TypedDict):
-    Roles: List[ImpersonationRoleTypeDef]
+    Roles: list[ImpersonationRoleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1259,7 +1254,7 @@ class ListResourceDelegatesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGroupMembersResponseTypeDef(TypedDict):
-    Members: List[MemberTypeDef]
+    Members: list[MemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1282,36 +1277,36 @@ class ListGroupsForEntityRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 class ListMailDomainsResponseTypeDef(TypedDict):
-    MailDomains: List[MailDomainSummaryTypeDef]
+    MailDomains: list[MailDomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMailboxExportJobsResponseTypeDef(TypedDict):
-    Jobs: List[MailboxExportJobTypeDef]
+    Jobs: list[MailboxExportJobTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMailboxPermissionsResponseTypeDef(TypedDict):
-    Permissions: List[PermissionTypeDef]
+    Permissions: list[PermissionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMobileDeviceAccessOverridesResponseTypeDef(TypedDict):
-    Overrides: List[MobileDeviceAccessOverrideTypeDef]
+    Overrides: list[MobileDeviceAccessOverrideTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListMobileDeviceAccessRulesResponseTypeDef(TypedDict):
-    Rules: List[MobileDeviceAccessRuleTypeDef]
+    Rules: list[MobileDeviceAccessRuleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListOrganizationsResponseTypeDef(TypedDict):
-    OrganizationSummaries: List[OrganizationSummaryTypeDef]
+    OrganizationSummaries: list[OrganizationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListPersonalAccessTokensResponseTypeDef(TypedDict):
-    PersonalAccessTokenSummaries: List[PersonalAccessTokenSummaryTypeDef]
+    PersonalAccessTokenSummaries: list[PersonalAccessTokenSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1327,12 +1322,12 @@ class ListResourcesRequestTypeDef(TypedDict):
     Filters: NotRequired[ListResourcesFiltersTypeDef]
 
 class ListResourcesResponseTypeDef(TypedDict):
-    Resources: List[ResourceTypeDef]
+    Resources: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -1351,12 +1346,12 @@ class ListUsersRequestTypeDef(TypedDict):
     Filters: NotRequired[ListUsersFiltersTypeDef]
 
 class ListUsersResponseTypeDef(TypedDict):
-    Users: List[UserTypeDef]
+    Users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAvailabilityConfigurationsResponseTypeDef(TypedDict):
-    AvailabilityConfigurations: List[AvailabilityConfigurationTypeDef]
+    AvailabilityConfigurations: list[AvailabilityConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

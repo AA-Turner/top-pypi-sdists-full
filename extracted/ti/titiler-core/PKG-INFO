@@ -1,46 +1,42 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: titiler-core
-Version: 0.24.0
+Version: 1.1.1
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
-Keywords: COG,STAC,MosaicJSON,Fastapi,Dynamic tile server,GDAL,Rasterio,OGC
-Author-Email: Vincent Sarago <vincent@developmentseed.com>
-License: MIT
-Classifier: Intended Audience :: Information Technology
-Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Scientific/Engineering :: GIS
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
 Project-URL: Issues, https://github.com/developmentseed/titiler/issues
 Project-URL: Source, https://github.com/developmentseed/titiler
 Project-URL: Changelog, https://developmentseed.org/titiler/release-notes/
-Requires-Python: >=3.10
+Author-email: Vincent Sarago <vincent@developmentseed.com>
+License: MIT
+License-File: LICENSE
+Keywords: COG,Dynamic tile server,Fastapi,GDAL,MosaicJSON,OGC,Rasterio,STAC
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.11
 Requires-Dist: fastapi>=0.108.0
 Requires-Dist: geojson-pydantic<3.0,>=1.1.2
 Requires-Dist: jinja2<4.0.0,>=2.11.2
+Requires-Dist: morecantile
 Requires-Dist: numpy
 Requires-Dist: pydantic~=2.0
 Requires-Dist: rasterio
-Requires-Dist: rio-tiler<8.0,>=7.7
-Requires-Dist: morecantile
+Requires-Dist: rio-tiler<9.0,>=8.0
 Requires-Dist: simplejson
-Requires-Dist: typing_extensions>=4.6.1
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: httpx; extra == "test"
+Requires-Dist: typing-extensions>=4.6.1
 Provides-Extra: telemetry
-Requires-Dist: opentelemetry-api; extra == "telemetry"
-Requires-Dist: opentelemetry-sdk; extra == "telemetry"
-Requires-Dist: opentelemetry-instrumentation-fastapi; extra == "telemetry"
-Requires-Dist: opentelemetry-instrumentation-logging; extra == "telemetry"
-Requires-Dist: opentelemetry-exporter-otlp; extra == "telemetry"
+Requires-Dist: opentelemetry-api; extra == 'telemetry'
+Requires-Dist: opentelemetry-exporter-otlp; extra == 'telemetry'
+Requires-Dist: opentelemetry-instrumentation-fastapi; extra == 'telemetry'
+Requires-Dist: opentelemetry-instrumentation-logging; extra == 'telemetry'
+Requires-Dist: opentelemetry-sdk; extra == 'telemetry'
 Description-Content-Type: text/markdown
 
 ## titiler.core

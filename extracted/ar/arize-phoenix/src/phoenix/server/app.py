@@ -3,6 +3,7 @@ import contextlib
 import importlib
 import json
 import logging
+import mimetypes
 import os
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from dataclasses import dataclass, field
@@ -45,7 +46,6 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.staticfiles import StaticFiles
-from starlette.status import HTTP_401_UNAUTHORIZED
 from starlette.templating import Jinja2Templates
 from starlette.types import Scope, StatefulLifespan
 from strawberry.extensions import SchemaExtension
@@ -67,7 +67,6 @@ from phoenix.config import (
     get_env_gql_extension_paths,
     get_env_grpc_interceptor_paths,
     get_env_host,
-    get_env_host_root_path,
     get_env_max_spans_queue_size,
     get_env_port,
     get_env_support_email,
@@ -82,6 +81,7 @@ from phoenix.db.facilitator import Facilitator
 from phoenix.db.helpers import SupportedSQLDialect
 from phoenix.exceptions import PhoenixMigrationError
 from phoenix.pointcloud.umap_parameters import UMAPParameters
+from phoenix.server.api.auth_messages import AUTH_ERROR_MESSAGES, AuthErrorCode
 from phoenix.server.api.context import Context, DataLoaders
 from phoenix.server.api.dataloaders import (
     AnnotationConfigsByProjectDataLoader,
@@ -89,19 +89,22 @@ from phoenix.server.api.dataloaders import (
     AverageExperimentRepeatedRunGroupLatencyDataLoader,
     AverageExperimentRunLatencyDataLoader,
     CacheForDataLoaders,
+    DatasetDatasetSplitsDataLoader,
     DatasetExampleRevisionsDataLoader,
     DatasetExamplesAndVersionsByExperimentRunDataLoader,
     DatasetExampleSpansDataLoader,
+    DatasetExampleSplitsDataLoader,
     DocumentEvaluationsDataLoader,
     DocumentEvaluationSummaryDataLoader,
     DocumentRetrievalMetricsDataLoader,
     ExperimentAnnotationSummaryDataLoader,
+    ExperimentDatasetSplitsDataLoader,
     ExperimentErrorRatesDataLoader,
     ExperimentRepeatedRunGroupAnnotationSummariesDataLoader,
     ExperimentRepeatedRunGroupsDataLoader,
-    ExperimentRepetitionCountsDataLoader,
     ExperimentRunAnnotations,
     ExperimentRunCountsDataLoader,
+    ExperimentRunsByExperimentAndExampleDataLoader,
     ExperimentSequenceNumberDataLoader,
     LastUsedTimesByGenerativeModelIdDataLoader,
     LatencyMsQuantileDataLoader,
@@ -112,6 +115,7 @@ from phoenix.server.api.dataloaders import (
     ProjectIdsByTraceRetentionPolicyIdDataLoader,
     PromptVersionSequenceNumberDataLoader,
     RecordCountDataLoader,
+    SessionAnnotationsBySessionDataLoader,
     SessionIODataLoader,
     SessionNumTracesDataLoader,
     SessionNumTracesWithErrorDataLoader,
@@ -137,14 +141,17 @@ from phoenix.server.api.dataloaders import (
     SpanProjectsDataLoader,
     TableFieldsDataLoader,
     TokenCountDataLoader,
+    TokenPricesByModelDataLoader,
+    TraceAnnotationsByTraceDataLoader,
     TraceByTraceIdsDataLoader,
     TraceRetentionPolicyIdByProjectIdDataLoader,
     TraceRootSpansDataLoader,
     UserRolesDataLoader,
     UsersDataLoader,
 )
+from phoenix.server.api.dataloaders.dataset_labels import DatasetLabelsDataLoader
 from phoenix.server.api.routers import (
-    auth_router,
+    create_auth_router,
     create_embeddings_router,
     create_v1_router,
     oauth2_router,
@@ -173,6 +180,7 @@ from phoenix.server.types import (
     LastUpdatedAt,
     TokenStore,
 )
+from phoenix.server.utils import get_root_path, prepend_root_path
 from phoenix.settings import Settings
 from phoenix.trace.fixtures import (
     TracesFixture,
@@ -190,6 +198,14 @@ from phoenix.version import __version__ as phoenix_version
 
 if TYPE_CHECKING:
     from opentelemetry.trace import TracerProvider
+
+    from phoenix.config import LDAPConfig
+
+# Fix incorrect MIME types on Windows where the registry may have wrong entries.
+# See: https://github.com/python/cpython/issues/88141
+# Using text/javascript per RFC 9239: https://www.rfc-editor.org/rfc/rfc9239
+mimetypes.add_type("text/javascript", ".js", strict=True)
+mimetypes.add_type("text/javascript", ".mjs", strict=True)
 
 logger = logging.getLogger(__name__)
 
@@ -247,11 +263,19 @@ class AppConfig(NamedTuple):
     web_manifest_path: Path
     authentication_enabled: bool
     """ Whether authentication is enabled """
+    auth_error_messages: dict[AuthErrorCode, str]
+    """ Mapping of auth error codes to user-friendly messages """
     oauth2_idps: Sequence[OAuth2Idp]
     basic_auth_disabled: bool = False
+    ldap_enabled: bool = False
+    """ Whether LDAP authentication is configured """
+    ldap_manual_user_creation_enabled: bool = False
+    """ Whether manual LDAP user creation is allowed (False when LDAP disabled or no email attr) """
     auto_login_idp_name: Optional[str] = None
     fullstory_org: Optional[str] = None
     """ FullStory organization ID for web analytics tracking """
+    scarf_sh_pixel_id: Optional[str] = None
+    """ Scarf.sh pixel ID for open-source analytics and usage """
     management_url: Optional[str] = None
     """ URL for a phoenix management interface, only visible to management users """
     support_email: Optional[str] = None
@@ -281,9 +305,6 @@ class Static(StaticFiles):
                 return {}
             raise e
 
-    def _sanitize_basename(self, basename: str) -> str:
-        return basename[:-1] if basename.endswith("/") else basename
-
     async def get_response(self, path: str, scope: Scope) -> Response:
         # Redirect to the oauth2 login page if basic auth is disabled and auto_login is enabled
         # TODO: this needs to be refactored to be cleaner
@@ -292,14 +313,10 @@ class Static(StaticFiles):
             and self._app_config.basic_auth_disabled
             and self._app_config.auto_login_idp_name
         ):
-            request = Request(scope)
-            url = URL(
-                str(
-                    Path(get_env_host_root_path())
-                    / f"oauth2/{self._app_config.auto_login_idp_name}/login"
-                )
+            redirect_path = prepend_root_path(
+                scope, f"oauth2/{self._app_config.auto_login_idp_name}/login"
             )
-            url = url.include_query_params(**request.query_params)
+            url = URL(redirect_path).include_query_params(**Request(scope).query_params)
             return RedirectResponse(url=url)
         try:
             response = await super().get_response(path, scope)
@@ -316,7 +333,7 @@ class Static(StaticFiles):
                     "min_dist": self._app_config.min_dist,
                     "n_neighbors": self._app_config.n_neighbors,
                     "n_samples": self._app_config.n_samples,
-                    "basename": self._sanitize_basename(request.scope.get("root_path", "")),
+                    "basename": get_root_path(scope),
                     "platform_version": phoenix_version,
                     "request": request,
                     "is_development": self._app_config.is_development,
@@ -324,12 +341,16 @@ class Static(StaticFiles):
                     "authentication_enabled": self._app_config.authentication_enabled,
                     "oauth2_idps": self._app_config.oauth2_idps,
                     "basic_auth_disabled": self._app_config.basic_auth_disabled,
+                    "ldap_enabled": self._app_config.ldap_enabled,
+                    "ldap_manual_user_creation_enabled": self._app_config.ldap_manual_user_creation_enabled,  # noqa: E501
                     "auto_login_idp_name": self._app_config.auto_login_idp_name,
                     "fullstory_org": self._app_config.fullstory_org,
+                    "scarf_sh_pixel_id": self._app_config.scarf_sh_pixel_id,
                     "management_url": self._app_config.management_url,
                     "support_email": self._app_config.support_email,
                     "has_db_threshold": self._app_config.has_db_threshold,
                     "allow_external_resources": self._app_config.allow_external_resources,
+                    "auth_error_messages": self._app_config.auth_error_messages,
                 },
             )
         except Exception as e:
@@ -352,7 +373,7 @@ class RequestOriginHostnameValidator(BaseHTTPMiddleware):
             if not (url := headers.get(key)):
                 continue
             if urlparse(url).hostname not in self._trusted_hostnames:
-                return Response(f"untrusted {key}", status_code=HTTP_401_UNAUTHORIZED)
+                return Response(f"untrusted {key}", status_code=401)
         return await call_next(request)
 
 
@@ -710,11 +731,19 @@ def create_graphql_router(
                     db
                 ),
                 average_experiment_run_latency=AverageExperimentRunLatencyDataLoader(db),
+                dataset_dataset_splits=DatasetDatasetSplitsDataLoader(db),
+                dataset_example_fields=TableFieldsDataLoader(db, models.DatasetExample),
                 dataset_example_revisions=DatasetExampleRevisionsDataLoader(db),
                 dataset_example_spans=DatasetExampleSpansDataLoader(db),
                 dataset_examples_and_versions_by_experiment_run=DatasetExamplesAndVersionsByExperimentRunDataLoader(
                     db
                 ),
+                dataset_example_splits=DatasetExampleSplitsDataLoader(db),
+                dataset_fields=TableFieldsDataLoader(db, models.Dataset),
+                dataset_split_fields=TableFieldsDataLoader(db, models.DatasetSplit),
+                dataset_version_fields=TableFieldsDataLoader(db, models.DatasetVersion),
+                dataset_labels=DatasetLabelsDataLoader(db),
+                dataset_label_fields=TableFieldsDataLoader(db, models.DatasetLabel),
                 document_evaluation_summaries=DocumentEvaluationSummaryDataLoader(
                     db,
                     cache_map=(
@@ -723,6 +752,7 @@ def create_graphql_router(
                         else None
                     ),
                 ),
+                document_annotation_fields=TableFieldsDataLoader(db, models.DocumentAnnotation),
                 document_evaluations=DocumentEvaluationsDataLoader(db),
                 document_retrieval_metrics=DocumentRetrievalMetricsDataLoader(db),
                 annotation_summaries=AnnotationSummaryDataLoader(
@@ -732,15 +762,24 @@ def create_graphql_router(
                     ),
                 ),
                 experiment_annotation_summaries=ExperimentAnnotationSummaryDataLoader(db),
+                experiment_dataset_splits=ExperimentDatasetSplitsDataLoader(db),
                 experiment_error_rates=ExperimentErrorRatesDataLoader(db),
+                experiment_fields=TableFieldsDataLoader(db, models.Experiment),
                 experiment_repeated_run_group_annotation_summaries=ExperimentRepeatedRunGroupAnnotationSummariesDataLoader(
                     db
                 ),
                 experiment_repeated_run_groups=ExperimentRepeatedRunGroupsDataLoader(db),
-                experiment_repetition_counts=ExperimentRepetitionCountsDataLoader(db),
+                experiment_run_annotation_fields=TableFieldsDataLoader(
+                    db, models.ExperimentRunAnnotation
+                ),
                 experiment_run_annotations=ExperimentRunAnnotations(db),
                 experiment_run_counts=ExperimentRunCountsDataLoader(db),
+                experiment_run_fields=TableFieldsDataLoader(db, models.ExperimentRun),
+                experiment_runs_by_experiment_and_example=ExperimentRunsByExperimentAndExampleDataLoader(
+                    db
+                ),
                 experiment_sequence_number=ExperimentSequenceNumberDataLoader(db),
+                generative_model_fields=TableFieldsDataLoader(db, models.GenerativeModel),
                 last_used_times_by_generative_model_id=LastUsedTimesByGenerativeModelIdDataLoader(
                     db
                 ),
@@ -764,17 +803,26 @@ def create_graphql_router(
                 projects_by_trace_retention_policy_id=ProjectIdsByTraceRetentionPolicyIdDataLoader(
                     db
                 ),
+                prompt_fields=TableFieldsDataLoader(db, models.Prompt),
+                prompt_label_fields=TableFieldsDataLoader(db, models.PromptLabel),
                 prompt_version_sequence_number=PromptVersionSequenceNumberDataLoader(db),
+                prompt_version_tag_fields=TableFieldsDataLoader(db, models.PromptVersionTag),
+                project_session_annotation_fields=TableFieldsDataLoader(
+                    db, models.ProjectSessionAnnotation
+                ),
+                project_session_fields=TableFieldsDataLoader(db, models.ProjectSession),
                 record_counts=RecordCountDataLoader(
                     db,
                     cache_map=cache_for_dataloaders.record_count if cache_for_dataloaders else None,
                 ),
+                session_annotations_by_session=SessionAnnotationsBySessionDataLoader(db),
                 session_first_inputs=SessionIODataLoader(db, "first_input"),
                 session_last_outputs=SessionIODataLoader(db, "last_output"),
                 session_num_traces=SessionNumTracesDataLoader(db),
                 session_num_traces_with_error=SessionNumTracesWithErrorDataLoader(db),
                 session_token_usages=SessionTokenUsagesDataLoader(db),
                 session_trace_latency_ms_quantile=SessionTraceLatencyMsQuantileDataLoader(db),
+                span_annotation_fields=TableFieldsDataLoader(db, models.SpanAnnotation),
                 span_annotations=SpanAnnotationsDataLoader(db),
                 span_fields=TableFieldsDataLoader(db, models.Span),
                 span_by_id=SpanByIdDataLoader(db),
@@ -815,6 +863,9 @@ def create_graphql_router(
                     db,
                     cache_map=cache_for_dataloaders.token_count if cache_for_dataloaders else None,
                 ),
+                token_prices_by_model=TokenPricesByModelDataLoader(db),
+                trace_annotation_fields=TableFieldsDataLoader(db, models.TraceAnnotation),
+                trace_annotations_by_trace=TraceAnnotationsByTraceDataLoader(db),
                 trace_by_trace_ids=TraceByTraceIdsDataLoader(db),
                 trace_fields=TableFieldsDataLoader(db, models.Trace),
                 trace_retention_policy_id_by_project_id=TraceRetentionPolicyIdByProjectIdDataLoader(
@@ -826,6 +877,8 @@ def create_graphql_router(
                 trace_root_spans=TraceRootSpansDataLoader(db),
                 project_by_name=ProjectByNameDataLoader(db),
                 users=UsersDataLoader(db),
+                user_api_key_fields=TableFieldsDataLoader(db, models.ApiKey),
+                user_fields=TableFieldsDataLoader(db, models.User),
                 user_roles=UserRolesDataLoader(db),
             ),
             cache_for_dataloaders=cache_for_dataloaders,
@@ -953,6 +1006,7 @@ def create_app(
     scaffolder_config: Optional[ScaffolderConfig] = None,
     email_sender: Optional[EmailSender] = None,
     oauth2_client_configs: Optional[list[OAuth2ClientConfig]] = None,
+    ldap_config: Optional["LDAPConfig"] = None,
     basic_auth_disabled: bool = False,
     bulk_inserter_factory: Optional[Callable[..., BulkInserter]] = None,
     allowed_origins: Optional[list[str]] = None,
@@ -1111,7 +1165,8 @@ def create_app(
     app.include_router(router)
     app.include_router(graphql_router)
     if authentication_enabled:
-        app.include_router(auth_router)
+        # Only register LDAP endpoint if LDAP is configured
+        app.include_router(create_auth_router(ldap_enabled=ldap_config is not None))
         app.include_router(oauth2_router)
     app.add_middleware(GZipMiddleware)
     web_manifest_path = SERVER_DIR / "static" / ".vite" / "manifest.json"
@@ -1138,8 +1193,14 @@ def create_app(
                     web_manifest_path=web_manifest_path,
                     oauth2_idps=oauth2_idps,
                     basic_auth_disabled=basic_auth_disabled,
+                    ldap_enabled=ldap_config is not None,
+                    # Disable manual user creation when LDAP disabled or no email attr
+                    ldap_manual_user_creation_enabled=(
+                        ldap_config.attr_email is not None if ldap_config else False
+                    ),
                     auto_login_idp_name=auto_login_idp_name,
                     fullstory_org=Settings.fullstory_org,
+                    scarf_sh_pixel_id=Settings.scarf_sh_pixel_id,
                     management_url=management_url,
                     support_email=get_env_support_email(),
                     has_db_threshold=bool(
@@ -1147,6 +1208,7 @@ def create_app(
                         and get_env_database_usage_insertion_blocking_threshold_percentage()
                     ),
                     allow_external_resources=get_env_allow_external_resources(),
+                    auth_error_messages=dict(AUTH_ERROR_MESSAGES) if authentication_enabled else {},
                 ),
             ),
             name="static",
@@ -1158,6 +1220,11 @@ def create_app(
     app.state.access_token_expiry = access_token_expiry
     app.state.refresh_token_expiry = refresh_token_expiry
     app.state.oauth2_clients = OAuth2Clients.from_configs(oauth2_client_configs or [])
+    # Cache LDAPAuthenticator to avoid re-parsing TLS config on every login
+    if ldap_config:
+        from phoenix.server.ldap import LDAPAuthenticator
+
+        app.state.ldap_authenticator = LDAPAuthenticator(ldap_config)
     app.state.db = db
     app.state.email_sender = email_sender
     app.state.span_cost_calculator = span_cost_calculator

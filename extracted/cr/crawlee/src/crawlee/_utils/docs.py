@@ -1,11 +1,34 @@
 from __future__ import annotations
 
-from typing import Callable, Literal
+from collections.abc import Callable
+from typing import Any, Literal, TypeVar
 
-GroupName = Literal['Classes', 'Abstract classes', 'Data structures', 'Event payloads', 'Errors', 'Functions']
+# The order of the rendered API groups is defined in the website/docusaurus.config.js file.
+GroupName = Literal[
+    'Autoscaling',
+    'Browser management',
+    'Configuration',
+    'Crawlers',
+    'Crawling contexts',
+    'Errors',
+    'Event data',
+    'Event managers',
+    'Functions',
+    'HTTP clients',
+    'HTTP parsers',
+    'Request loaders',
+    'Session management',
+    'Statistics',
+    'Storage clients',
+    'Storage data',
+    'Storages',
+    'Other',
+]
+
+T = TypeVar('T', bound=Callable[..., Any])
 
 
-def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
+def docs_group(group_name: GroupName) -> Callable[[T], T]:  # noqa: ARG001
     """Mark a symbol for rendering and grouping in documentation.
 
     This decorator is used solely for documentation purposes and does not modify the behavior
@@ -18,7 +41,7 @@ def docs_group(group_name: GroupName) -> Callable:  # noqa: ARG001
         The original callable without modification.
     """
 
-    def wrapper(func: Callable) -> Callable:
+    def wrapper(func: T) -> T:
         return func
 
     return wrapper

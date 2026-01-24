@@ -79,7 +79,7 @@ def _default_m_values(num_levels: int) -> list[float]:
 def _default_u_values(num_levels: int) -> list[float]:
     m_vals = _default_m_values(num_levels)
     if num_levels == 2:
-        match_weights = [-5]
+        match_weights: list[float] = [-5]
     else:
         match_weights = interpolate(-5, 3, num_levels - 1)
     match_weights = match_weights + [10]
@@ -164,7 +164,6 @@ class ComparisonLevel:
         # TODO: control this in comparison getter setter ?
         # These will be set when the ComparisonLevel is passed into a Comparison
         self._comparison_vector_value: Optional[int] = None
-        self._max_level: Optional[bool] = None
 
         # Enable the level to 'know' when it's been trained
         self._trained_m_probabilities: list[dict[str, Any]] = []

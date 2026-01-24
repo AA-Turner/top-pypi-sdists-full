@@ -17,15 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from .literals import OutputFormatType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -36,7 +32,7 @@ __all__ = ("ResponseMetadataTypeDef", "ScanSbomRequestTypeDef", "ScanSbomRespons
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -45,5 +41,5 @@ class ScanSbomRequestTypeDef(TypedDict):
     outputFormat: NotRequired[OutputFormatType]
 
 class ScanSbomResponseTypeDef(TypedDict):
-    sbom: Dict[str, Any]
+    sbom: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef

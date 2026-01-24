@@ -293,7 +293,7 @@ class PrepareClusterBlock:
                 name = f"cluster-{i}"
                 if name not in used_names:
                     cluster_name = name
-                    self.log.debug("Starting cluster", cluster_name)
+                    self.log.debug("Starting cluster %s", cluster_name)
                     break
 
         self.log.debug(

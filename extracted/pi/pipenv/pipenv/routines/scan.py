@@ -42,10 +42,13 @@ def build_safety_check_options(
         options.append("--disable-audit-and-monitor")
 
     # Map output formats to safety CLI options
+    # "minimal" maps to --short-report for concise output
     if output == "full-report":
         options.append("--full-report")
-    elif output in ["json", "minimal"]:
+    elif output == "json":
         options.append("--json")
+    elif output == "minimal":
+        options.append("--short-report")
     elif output not in ["screen", "default"]:
         options.append(f"--output={output}")
 
@@ -185,13 +188,18 @@ def get_requirements(project, use_installed, categories):
             _cmd + ["-m", "pip", "list", "--format=freeze"],
             is_verbose=project.s.is_verbose(),
         )
+    # Use sys.executable -m pipenv to ensure pipenv is found even if not on PATH
+    # See: https://github.com/pypa/pipenv/issues/6042
     elif categories:
         return run_command(
-            ["pipenv", "requirements", "--categories", categories],
+            [sys.executable, "-m", "pipenv", "requirements", "--categories", categories],
             is_verbose=project.s.is_verbose(),
         )
     else:
-        return run_command(["pipenv", "requirements"], is_verbose=project.s.is_verbose())
+        return run_command(
+            [sys.executable, "-m", "pipenv", "requirements"],
+            is_verbose=project.s.is_verbose(),
+        )
 
 
 def create_temp_requirements_file(requirements_content):

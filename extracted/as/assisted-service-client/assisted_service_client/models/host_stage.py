@@ -32,6 +32,7 @@ class HostStage(object):
     WAITING_FOR_CONTROLLER = "Waiting for controller"
     INSTALLING = "Installing"
     WRITING_IMAGE_TO_DISK = "Writing image to disk"
+    COPYING_REGISTRY_DATA_TO_DISK = "Copying registry data to disk"
     REBOOTING = "Rebooting"
     WAITING_FOR_IGNITION = "Waiting for ignition"
     CONFIGURING = "Configuring"

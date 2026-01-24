@@ -3,6 +3,7 @@
 # Licensed under the MIT License.
 
 """Implementation of a SOMA Collection."""
+
 from __future__ import annotations
 
 import itertools
@@ -20,31 +21,28 @@ import somacore.collection
 from somacore import options
 from typing_extensions import Self
 
-from . import _funcs, _tdb_handles
+from . import _funcs
 from . import pytiledbsoma as clib
 from ._common_nd_array import NDArray
 from ._dataframe import DataFrame
 from ._dense_nd_array import DenseNDArray
-from ._exception import (
-    SOMAError,
-    map_exception_for_create,
-)
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error, map_exception_for_create
 from ._funcs import typeguard_ignore
 from ._soma_group import SOMAGroup
-from ._soma_object import AnySOMAObject, SOMAObject
+from ._soma_object import SOMAObject
 from ._sparse_nd_array import SparseNDArray
 from ._types import OpenTimestamp
 from .options import SOMATileDBContext
 from .options._soma_tiledb_context import _validate_soma_tiledb_context
 
 # A collection can hold any sub-type of SOMAObject
-CollectionElementType = TypeVar("CollectionElementType", bound=AnySOMAObject)
-_TDBO = TypeVar("_TDBO", bound=SOMAObject)  # type: ignore[type-arg]
-_Coll = TypeVar("_Coll", bound="CollectionBase[AnySOMAObject]")
+CollectionElementType = TypeVar("CollectionElementType", bound=SOMAObject)
+_TDBO = TypeVar("_TDBO", bound=SOMAObject)
+_Coll = TypeVar("_Coll", bound="CollectionBase[SOMAObject]")
 _NDArr = TypeVar("_NDArr", bound=NDArray)
 
 
-class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
+class CollectionBase(
     SOMAGroup[CollectionElementType],
     somacore.collection.BaseCollection[CollectionElementType],
 ):
@@ -61,7 +59,7 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         cls,
         uri: str,
         *,
-        platform_config: options.PlatformConfig | None = None,
+        platform_config: options.PlatformConfig | None = None,  # noqa: ARG003
         context: SOMATileDBContext | None = None,
         tiledb_timestamp: OpenTimestamp | None = None,
     ) -> Self:
@@ -90,8 +88,6 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         Raises:
             tiledbsoma.AlreadyExistsError:
                 If the underlying object already exists at the given URI.
-            tiledbsoma.NotCreateableError:
-                If the URI is malformed for a particular storage backend.
             TileDBError:
                 If unable to create the underlying object.
 
@@ -100,21 +96,31 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         """
         context = _validate_soma_tiledb_context(context)
         try:
-            wrapper = cast(_tdb_handles.SOMAGroupWrapper[Any], cls._wrapper_type)
             timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
             clib.SOMAGroup.create(
                 uri=uri,
-                soma_type=wrapper._WRAPPED_TYPE.__name__,
+                soma_type=cls._handle_type.__name__,
                 ctx=context.native_context,
                 timestamp=(0, timestamp_ms),
             )
-            handle = wrapper.open(uri, "w", context, tiledb_timestamp)
-            return cls(
-                handle,
-                _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
-            )
         except SOMAError as e:
             raise map_exception_for_create(e, uri) from None
+
+        try:
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            handle = cls._handle_type.open(
+                uri,
+                mode=clib.OpenMode.soma_write,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
+            )
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
+        return cls(
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
+        )
 
     # Subclass protocol to constrain which SOMA objects types  may be set on a
     # particular collection key. Used by Experiment and Measurement.
@@ -128,9 +134,9 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
 
     # Overloads to allow type inference to work when doing:
     #
-    #     some_coll.add_new_collection("key")  # -> Collection
+    #     some_coll.add_new_collection("key")  # -> Collection  # noqa: ERA001
     # and
-    #     some_coll.add_new_collection("key", Experiment)  # -> Experiment
+    #     some_coll.add_new_collection("key", Experiment)  # -> Experiment  # noqa: ERA001
     #
     # These are only used in type inference to provide better type-checking and
     # autocompletion etc. in static analysis, not at runtime.
@@ -143,8 +149,8 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         *,
         uri: str | None = ...,
         platform_config: options.PlatformConfig | None = ...,
-        **kwargs: Any,
-    ) -> "Collection[AnySOMAObject]": ...
+        **kwargs: Any,  # noqa: ANN401
+    ) -> Collection[SOMAObject]: ...
 
     @overload
     def add_new_collection(
@@ -154,7 +160,7 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         *,
         uri: str | None = ...,
         platform_config: options.PlatformConfig | None = ...,
-        **kwargs: Any,
+        **kwargs: Any,  # noqa: ANN401
     ) -> _Coll: ...
 
     def add_new_collection(
@@ -223,12 +229,8 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
             uri,
         )
 
-    @_funcs.forwards_kwargs_to(
-        DataFrame.create, exclude=("context", "tiledb_timestamp")
-    )
-    def add_new_dataframe(
-        self, key: str, *, uri: str | None = None, **kwargs: Any
-    ) -> DataFrame:
+    @_funcs.forwards_kwargs_to(DataFrame.create, exclude=("context", "tiledb_timestamp"))
+    def add_new_dataframe(self, key: str, *, uri: str | None = None, **kwargs: Any) -> DataFrame:  # noqa: ANN401
         """Adds a new DataFrame to this collection.
 
         For details about the behavior of ``key`` and ``uri``, see
@@ -270,9 +272,7 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         )
 
     @_funcs.forwards_kwargs_to(NDArray.create, exclude=("context", "tiledb_timestamp"))
-    def _add_new_ndarray(
-        self, cls: type[_NDArr], key: str, *, uri: str | None = None, **kwargs: Any
-    ) -> _NDArr:
+    def _add_new_ndarray(self, cls: type[_NDArr], key: str, *, uri: str | None = None, **kwargs: Any) -> _NDArr:  # noqa: ANN401
         """Internal implementation of common NDArray-adding operations."""
         return self._add_new_element(
             key,
@@ -287,7 +287,7 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         )
 
     @_funcs.forwards_kwargs_to(_add_new_ndarray, exclude=("kind",))
-    def add_new_dense_ndarray(self, key: str, **kwargs: Any) -> DenseNDArray:
+    def add_new_dense_ndarray(self, key: str, **kwargs: Any) -> DenseNDArray:  # noqa: ANN401
         """Adds a new DenseNDArray to this Collection.
 
         For details about the behavior of ``key`` and ``uri``, see
@@ -325,7 +325,7 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
         return self._add_new_ndarray(DenseNDArray, key, **kwargs)
 
     @_funcs.forwards_kwargs_to(_add_new_ndarray, exclude=("kind",))
-    def add_new_sparse_ndarray(self, key: str, **kwargs: Any) -> SparseNDArray:
+    def add_new_sparse_ndarray(self, key: str, **kwargs: Any) -> SparseNDArray:  # noqa: ANN401
         """Adds a new SparseNDArray to this Collection.
 
         For details about the behavior of ``key`` and ``uri``, see
@@ -381,14 +381,11 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
                 instead of the default.
         """
         self._check_allows_child(key, kind)
-        return super()._add_new_element(
-            key, kind=kind, factory=factory, user_uri=user_uri
-        )
+        return super()._add_new_element(key, kind=kind, factory=factory, user_uri=user_uri)
 
     def members(self) -> dict[str, tuple[str, str]]:
         """Get a mapping of {member_name: (uri, soma_object_type)}."""
-        handle = cast(_tdb_handles.SOMAGroupWrapper[Any], self._handle)
-        return handle.members()
+        return cast("dict[str, tuple[str, str]]", self._handle.members())
 
     def __repr__(self) -> str:
         """Default display for :class:`Collection`."""
@@ -439,22 +436,16 @@ class CollectionBase(  # type: ignore[misc]  # __eq__ false positive
     def _check_allows_child(cls, key: str, child_cls: type) -> None:
         real_child = _real_class(child_cls)
         if not issubclass(real_child, SOMAObject):
-            raise TypeError(
-                f"only TileDB objects can be added as children of {cls}, not {child_cls}"
-            )
+            raise TypeError(f"only TileDB objects can be added as children of {cls}, not {child_cls}")
         constraint = cls._subclass_constrained_soma_types.get(key)
         if constraint is not None and real_child.soma_type not in constraint:
-            raise TypeError(
-                f"cannot add {child_cls} at {cls}[{key!r}]; only {constraint}"
-            )
+            raise TypeError(f"cannot add {child_cls} at {cls}[{key!r}]; only {constraint}")
 
 
 AnyTileDBCollection = CollectionBase[Any]
 
 
-class Collection(  # type: ignore[misc]  # __eq__ false positive
-    CollectionBase[CollectionElementType], somacore.Collection[CollectionElementType]
-):
+class Collection(CollectionBase[CollectionElementType], somacore.Collection[CollectionElementType]):
     """:class:`Collection` is a persistent container of named SOMA objects, stored as
     a mapping of string keys and SOMA object values. Values may be any
     persistent ``tiledbsoma`` object, including :class:`DataFrame`,
@@ -498,7 +489,7 @@ class Collection(  # type: ignore[misc]  # __eq__ false positive
 
     __slots__ = ()
 
-    _wrapper_type = _tdb_handles.CollectionWrapper
+    _handle_type = clib.SOMACollection
 
 
 @typeguard_ignore
@@ -523,7 +514,7 @@ def _real_class(cls: type[Any]) -> type:
     err = TypeError(f"{cls} cannot be turned into a real type")
     try:
         # All types of generic alias have this.
-        origin = getattr(cls, "__origin__")
+        origin = cls.__origin__
         # Other special forms, like Union, also have an __origin__ that is not
         # an actual type.  Verify that the origin is a real, instantiable type.
         issubclass(object, origin)  # Ordering intentional here.

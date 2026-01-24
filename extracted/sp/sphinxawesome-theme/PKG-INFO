@@ -1,32 +1,29 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxawesome-theme
-Version: 5.3.2
+Version: 6.0.0
 Summary: An awesome theme for the Sphinx documentation generator
-Home-page: https://sphinxawesome.xyz
-License: MIT
-Author: Kai Welke
-Author-email: kai687@pm.me
-Requires-Python: >=3.8,<4.0
+Project-URL: documentation, https://sphinxawesome.xyz
+Project-URL: homepage, https://sphinxawesome.xyz
+Project-URL: issues, https://github.com/kai687/sphinxawesome-theme/issues
+Project-URL: repository, https://github.com/kai687/sphinxawesome-theme
+Author-email: Kai Welke <kai687@pm.me>
+License-File: LICENSE
 Classifier: Framework :: Sphinx
 Classifier: Framework :: Sphinx :: Theme
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development :: Documentation
-Requires-Dist: beautifulsoup4 (>=4.9.1,<5.0.0)
-Requires-Dist: sphinx (<7.2) ; python_version >= "3.8" and python_version < "3.9"
-Requires-Dist: sphinx (>=7.2,<7.5) ; python_version >= "3.9" and python_version < "3.10"
-Requires-Dist: sphinx (>=8,<9) ; python_version >= "3.10" and python_version < "3.13"
-Project-URL: Documentation, https://sphinxawesome.xyz
-Project-URL: Repository, https://github.com/kai687/sphinxawesome-theme
+Requires-Python: >=3.10
+Requires-Dist: beautifulsoup4<5,>=4.9.1
+Requires-Dist: sphinx<10,>7
 Description-Content-Type: text/markdown
 
 <h1 align="center">Sphinx awesome theme</h1>
@@ -34,8 +31,6 @@ Description-Content-Type: text/markdown
 <p align="center">
    <img src="https://img.shields.io/github/license/kai687/sphinxawesome-theme?color=blue&style=for-the-badge" alt="MIT license">
    <img src="https://img.shields.io/pypi/v/sphinxawesome-theme?color=eb5&style=for-the-badge&logo=pypi" alt="PyPI version">
-   <img src="https://img.shields.io/netlify/e6d20a5c-b49e-4ebc-80f6-59fde8f24e22?logo=netlify&style=for-the-badge" alt="Netlify Deploy">
-   <img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/kai687/sphinxawesome-theme/lint.yml?label=Linted&style=for-the-badge">
 </p>
 
 <p align="center">
@@ -47,7 +42,7 @@ Description-Content-Type: text/markdown
 
 1. Install the theme as a Python package:
 
-   ```console
+   ```sh
    pip install sphinxawesome-theme
    ```
 
@@ -82,4 +77,3 @@ Clicking the link icon after headers or captions automatically copies the URL to
 
 This theme supports the [`sphinx-docsearch`](https://sphinx-docsearch.readthedocs.io/) extension
 to replace the built-in search with Algolia DocSearch.
-

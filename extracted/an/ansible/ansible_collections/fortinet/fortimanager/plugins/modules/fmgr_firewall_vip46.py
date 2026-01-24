@@ -16,7 +16,6 @@ short_description: Configure IPv4 to IPv6 virtual IPs.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -333,11 +335,11 @@ EXAMPLES = '''
         adom: ansible
         state: present
         firewall_vip46:
-          arp-reply: enable
+          arp_reply: enable
           color: 1
           comment: "ansible-comment"
           id: 1
-          ldb-method: static # <value in [static, round-robin, weighted, ...]>
+          ldb_method: static # <value in [static, round-robin, weighted, ...]>
           name: "ansible-test-vip46"
           protocol: tcp # <value in [tcp, udp]>
 
@@ -413,6 +415,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_vip46': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

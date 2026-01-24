@@ -30,18 +30,14 @@ def add_multiscale_image(
         coords = (slice(None), slice(None), slice(None))
         image["level0"].write(
             coords,
-            pa.Tensor.from_numpy(
-                np.random.randint(0, 255, size=shapes[0], dtype=np.uint8)
-            ),
+            pa.Tensor.from_numpy(np.random.randint(0, 255, size=shapes[0], dtype=np.uint8)),
         )
 
         for index, level_shape in enumerate(shapes[1:]):
-            level = image.add_new_level(f"level{index+1}", shape=level_shape)
+            level = image.add_new_level(f"level{index + 1}", shape=level_shape)
             level.write(
                 coords,
-                pa.Tensor.from_numpy(
-                    np.random.randint(0, 255, size=level_shape, dtype=np.uint8)
-                ),
+                pa.Tensor.from_numpy(np.random.randint(0, 255, size=level_shape, dtype=np.uint8)),
             )
 
 
@@ -59,7 +55,7 @@ def add_presence_dataframe(
                 ("soma_joinid", pa.int64()),
                 ("scene_id", pa.string()),
                 ("data", pa.bool_()),
-            ]
+            ],
         ),
         domain=((0, max_joinids - 1), ("", "")),
         index_column_names=("soma_joinid", "scene_id"),
@@ -70,8 +66,8 @@ def add_presence_dataframe(
                 "soma_joinid": joinids,
                 "scene_id": scene_ids,
                 "data": len(scene_ids) * [True],
-            }
-        )
+            },
+        ),
     )
 
 
@@ -89,7 +85,6 @@ def add_point_cloud_dataframe(
         schema=pa.schema([("x", pa.float64()), ("y", pa.float64())]),
         domain=[[-1, 1], [-1, 1], [0, 63]],
     ) as points:
-
         if circles:
             points.metadata["soma_geometry"] = 2.0
             points.metadata["soma_geometry_type"] = "radius"
@@ -143,13 +138,10 @@ def soma_spatial_experiment(tmp_path_factory) -> soma.Experiment:
     n_vars = 100
 
     with soma.Experiment.create(uri) as exp:
-
         # Add spatial data.
         spatial = exp.add_new_collection("spatial")
         for index in range(4):
-            x, y = np.meshgrid(
-                np.linspace(-1.0, 1.0, num=4), np.linspace(-1.0, 1.0, num=4)
-            )
+            x, y = np.meshgrid(np.linspace(-1.0, 1.0, num=4), np.linspace(-1.0, 1.0, num=4))
             point_df = {
                 "x": x.flatten()[:8],
                 "y": y.flatten()[:8],
@@ -158,9 +150,7 @@ def soma_spatial_experiment(tmp_path_factory) -> soma.Experiment:
             circle_df = {
                 "x": x.flatten()[8:],
                 "y": y.flatten()[8:],
-                "soma_joinid": np.arange(
-                    index * 16 + 8, (index + 1) * 16, dtype=np.int64
-                ),
+                "soma_joinid": np.arange(index * 16 + 8, (index + 1) * 16, dtype=np.int64),
             }
             add_scene(
                 spatial,
@@ -196,9 +186,7 @@ def soma_spatial_experiment(tmp_path_factory) -> soma.Experiment:
         add_sparse_array(rna_x, "data", (n_obs, n_vars))
 
         # Add var/spatial presence matrix that specifies all scenes have variables 20-80
-        var_ids, scene_ids = np.meshgrid(
-            np.arange(20, 81), np.array(["scene0", "scene1", "scene2", "scene3"])
-        )
+        var_ids, scene_ids = np.meshgrid(np.arange(20, 81), np.array(["scene0", "scene1", "scene2", "scene3"]))
         add_presence_dataframe(
             rna,
             "var_spatial_presence",
@@ -227,21 +215,15 @@ def check_for_scene_data(sdata, has_scenes: list[bool]):
             {
                 "x": x.flatten()[:8],
                 "y": y.flatten()[:8],
-                "soma_joinid": np.arange(
-                    index * 16, (index + 1) * 16 - 8, dtype=np.int64
-                ),
-            }
+                "soma_joinid": np.arange(index * 16, (index + 1) * 16 - 8, dtype=np.int64),
+            },
         )
         expected_shapes = pd.DataFrame.from_dict(
             {
-                "soma_joinid": np.arange(
-                    index * 16 + 8, (index + 1) * 16, dtype=np.int64
-                ),
+                "soma_joinid": np.arange(index * 16 + 8, (index + 1) * 16, dtype=np.int64),
                 "radius": 8 * [2.0],
-                "geometry": shapely.points(
-                    list(zip(x.flatten()[8:], y.flatten()[8:]))
-                ).tolist(),
-            }
+                "geometry": shapely.points(list(zip(x.flatten()[8:], y.flatten()[8:]))).tolist(),
+            },
         )
 
         scene_id = f"scene{index}"
@@ -358,22 +340,16 @@ def test_spatial_experiment_query_all(soma_spatial_experiment):
         (slice(48, 63), [False, False, False, True]),
     ],
 )
-def test_spatial_experiment_query_obs_slice(
-    soma_spatial_experiment, obs_slice, has_scene
-):
+def test_spatial_experiment_query_obs_slice(soma_spatial_experiment, obs_slice, has_scene):
     nscene = has_scene.count(True)
-    with soma_spatial_experiment.axis_query(
-        "RNA", obs_query=soma.AxisQuery(coords=(obs_slice,))
-    ) as query:
+    with soma_spatial_experiment.axis_query("RNA", obs_query=soma.AxisQuery(coords=(obs_slice,))) as query:
         # Check all obs/var read.
         assert query.n_obs == obs_slice.stop - obs_slice.start + 1
         assert query.n_vars == 100
 
         # Check the expected scenes are included.
         scene_ids = set(str(val) for val in query.obs_scene_ids())
-        expected_scene_ids = set(
-            f"scene{index}" for index, val in enumerate(has_scene) if val
-        )
+        expected_scene_ids = set(f"scene{index}" for index, val in enumerate(has_scene) if val)
         assert scene_ids == expected_scene_ids
 
         # Read to SpatialData.
@@ -396,21 +372,15 @@ def test_spatial_experiment_query_obs_slice(
     ],
 )
 @pytest.mark.spatialdata
-def test_spatial_experiment_query_var_slice(
-    soma_spatial_experiment, var_slice, has_scene
-):
+def test_spatial_experiment_query_var_slice(soma_spatial_experiment, var_slice, has_scene):
     nscene = has_scene.count(True)
-    with soma_spatial_experiment.axis_query(
-        "RNA", var_query=soma.AxisQuery(coords=(var_slice,))
-    ) as query:
+    with soma_spatial_experiment.axis_query("RNA", var_query=soma.AxisQuery(coords=(var_slice,))) as query:
         assert query.n_obs == 64
         assert query.n_vars == var_slice.stop - var_slice.start + 1
 
         # Check the expected scenes are included.
         scene_ids = set(str(val) for val in query.var_scene_ids())
-        expected_scene_ids = set(
-            f"scene{index}" for index, val in enumerate(has_scene) if val
-        )
+        expected_scene_ids = set(f"scene{index}" for index, val in enumerate(has_scene) if val)
         assert scene_ids == expected_scene_ids
 
         # Read to SpatialData.

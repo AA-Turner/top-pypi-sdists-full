@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: sciencebasepy
+Version: 2.0.20
+Summary: Python ScienceBase Utilities
+Home-page: https://code.usgs.gov/sas/sdm/sciencebasepy
+Author: USGS ScienceBase Development Team
+Author-email: sciencebase@usgs.gov
+Classifier: License :: Public Domain
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.2
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: requests
+Requires-Dist: requests-mock
+Requires-Dist: progress
+Requires-Dist: pytest
+Requires-Dist: charset-normalizer
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+This Python module provides functionality for interacting with the USGS ScienceBase platform.

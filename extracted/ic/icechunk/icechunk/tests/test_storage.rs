@@ -38,6 +38,7 @@ async fn mk_s3_storage(prefix: &str) -> StorageResult<Arc<dyn Storage + Send + S
             anonymous: false,
             force_path_style: true,
             network_stream_timeout_seconds: None,
+            requester_pays: false,
         },
         "testbucket".to_string(),
         Some(prefix.to_string()),
@@ -74,6 +75,7 @@ async fn mk_s3_object_store_storage(
                 anonymous: false,
                 force_path_style: true,
                 network_stream_timeout_seconds: None,
+                requester_pays: false,
             }),
         )
         .await?,
@@ -658,7 +660,7 @@ pub async fn test_storage_classes() -> Result<(), Box<dyn std::error::Error>> {
     let out = client
         .list_objects_v2()
         .bucket(common::get_aws_integration_bucket()?)
-        .prefix(format!("{prefix}/chunks"))
+        .prefix(format!("{prefix}/manifests"))
         .into_paginator()
         .send()
         .collect::<Vec<_>>()

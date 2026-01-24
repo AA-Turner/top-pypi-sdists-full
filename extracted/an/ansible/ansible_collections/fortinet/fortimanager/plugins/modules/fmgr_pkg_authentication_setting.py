@@ -16,7 +16,6 @@ short_description: Configure authentication setting.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -187,6 +189,13 @@ options:
                 aliases: ['update-time']
                 type: str
                 description: Time of the last update.
+            log_auth_request:
+                aliases: ['log-auth-request']
+                type: str
+                description: Log auth request.
+                choices:
+                    - 'disable'
+                    - 'enable'
 '''
 
 EXAMPLES = '''
@@ -202,8 +211,8 @@ EXAMPLES = '''
     - name: Configure authentication setting.
       fortinet.fortimanager.fmgr_pkg_authentication_setting:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -231,6 +240,7 @@ EXAMPLES = '''
           # ip_auth_cookie: <value in [disable, enable]>
           # persistent_cookie: <value in [disable, enable]>
           # update_time: <string>
+          # log_auth_request: <value in [disable, enable]>
 '''
 
 RETURN = '''
@@ -287,6 +297,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'pkg': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'pkg_authentication_setting': {
             'type': 'dict',
             'v_range': [['6.2.1', '']],
@@ -300,7 +311,7 @@ def main():
                 'captive-portal-ssl-port': {'v_range': [['6.2.1', '']], 'type': 'int'},
                 'captive-portal-type': {'v_range': [['6.2.1', '']], 'choices': ['fqdn', 'ip'], 'type': 'str'},
                 'captive-portal6': {'v_range': [['6.2.1', '']], 'type': 'str'},
-                'rewrite-https-port': {'v_range': [['6.2.1', '7.6.2']], 'type': 'int'},
+                'rewrite-https-port': {'v_range': [['6.2.1', '7.6.2'], ['7.6.4', '']], 'type': 'int'},
                 'sso-auth-scheme': {'v_range': [['6.2.1', '']], 'type': 'str'},
                 'dev-range': {'v_range': [['7.0.0', '']], 'type': 'raw'},
                 'user-cert-ca': {'v_range': [['7.0.0', '']], 'type': 'raw'},
@@ -312,7 +323,8 @@ def main():
                 'cookie-refresh-div': {'v_range': [['7.2.0', '']], 'type': 'int'},
                 'ip-auth-cookie': {'v_range': [['7.2.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'persistent-cookie': {'v_range': [['7.2.0', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'update-time': {'v_range': [['7.2.0', '']], 'type': 'str'}
+                'update-time': {'v_range': [['7.2.0', '']], 'type': 'str'},
+                'log-auth-request': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

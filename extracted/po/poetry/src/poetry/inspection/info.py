@@ -7,6 +7,7 @@ import logging
 import tempfile
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 from typing import Any
 
@@ -18,7 +19,6 @@ from poetry.core.packages.dependency import Dependency
 from poetry.core.packages.package import Package
 from poetry.core.pyproject.toml import PyProjectTOML
 from poetry.core.utils.helpers import parse_requires
-from poetry.core.utils.helpers import temporary_directory
 from poetry.core.version.markers import InvalidMarkerError
 from poetry.core.version.requirements import InvalidRequirementError
 
@@ -29,11 +29,11 @@ from poetry.utils.isolated_build import isolated_builder
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from collections.abc import Mapping
     from collections.abc import Sequence
 
     from packaging.metadata import RawMetadata
     from packaging.utils import NormalizedName
+    from poetry.core.packages.package import PackageFile
     from poetry.core.packages.project_package import ProjectPackage
 
 
@@ -57,7 +57,7 @@ class PackageInfo:
         summary: str | None = None,
         requires_dist: list[str] | None = None,
         requires_python: str | None = None,
-        files: Sequence[Mapping[str, str]] | None = None,
+        files: Sequence[PackageFile] | None = None,
         yanked: str | bool = False,
         cache_version: str | None = None,
     ) -> None:
@@ -317,7 +317,7 @@ class PackageInfo:
         elif not zip:
             suffix = ".tar.gz"
 
-        with temporary_directory() as tmp_str:
+        with TemporaryDirectory(ignore_cleanup_errors=True) as tmp_str:
             tmp = Path(tmp_str)
             extractall(source=path, dest=tmp, zip=zip)
 
@@ -533,7 +533,7 @@ def get_pep517_metadata(path: Path) -> PackageInfo:
     """
     info = None
 
-    with tempfile.TemporaryDirectory() as dist:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as dist:
         try:
             dest = Path(dist)
 

@@ -15,21 +15,26 @@ from collections.abc import Sequence
 from types import MethodType, FunctionType, MappingProxyType
 
 import numba
-from numba.core import types, utils, targetconfig
-from numba.core.errors import (
+from numba.cuda import types
+from numba.cuda.core.errors import (
     TypingError,
     InternalError,
 )
-from numba.core.cpu_options import InlineOptions
-from numba.core.typing.templates import Signature as CoreSignature
-from numba.cuda.core import ir_utils
+from numba.cuda.core.options import InlineOptions
+
+from numba.cuda import utils
+from numba.cuda.core import targetconfig
+
+from numba.cuda import HAS_NUMBA
+
+if HAS_NUMBA:
+    from numba.core.typing import Signature as CoreSignature
 
 # info store for inliner callback functions e.g. cost model
 _inline_info = namedtuple("inline_info", "func_ir typemap calltypes signature")
 
 
-# HACK: Remove this inheritance once all references to CoreSignature are removed
-class Signature(CoreSignature):
+class Signature(object):
     """
     The signature of a function call or operation, i.e. its argument types
     and return type.
@@ -92,7 +97,10 @@ class Signature(CoreSignature):
         return hash((self.args, self.return_type))
 
     def __eq__(self, other):
-        if isinstance(other, Signature):
+        sig_types = (Signature,)
+        if HAS_NUMBA:
+            sig_types = (Signature, CoreSignature)
+        if isinstance(other, sig_types):
             return (
                 self.args == other.args
                 and self.return_type == other.return_type
@@ -192,7 +200,11 @@ def make_callable_template(key, typer, recvr=None):
 def signature(return_type, *args, **kws):
     recvr = kws.pop("recvr", None)
     assert not kws
-    return Signature(return_type, args, recvr=recvr)
+    if HAS_NUMBA:
+        signature_class = CoreSignature
+    else:
+        signature_class = Signature
+    return signature_class(return_type, args, recvr=recvr)
 
 
 def fold_arguments(
@@ -373,10 +385,10 @@ class AbstractTemplate(FunctionTemplate):
         sig = generic(args, kws)
         # Enforce that *generic()* must return None or Signature
         if sig is not None:
-            # HACK: Remove this inheritance once all references to CoreSignature are removed
-            if not isinstance(
-                sig, (Signature, numba.core.typing.templates.Signature)
-            ):
+            sig_types = (Signature,)
+            if HAS_NUMBA:
+                sig_types = (Signature, CoreSignature)
+            if not isinstance(sig, sig_types):
                 raise AssertionError(
                     "generic() must return a Signature or None. "
                     "{} returned {}".format(generic, type(sig)),
@@ -399,7 +411,9 @@ class AbstractTemplate(FunctionTemplate):
 
     def get_template_info(self):
         impl = getattr(self, "generic")
-        basepath = os.path.dirname(os.path.dirname(numba.__file__))
+        basepath = os.path.dirname(
+            os.path.dirname(os.path.dirname(numba.cuda.__file__))
+        )
 
         code, firstlineno, path = self.get_source_code_info(impl)
         sig = str(utils.pysignature(impl))
@@ -486,7 +500,9 @@ class CallableTemplate(FunctionTemplate):
 
     def get_template_info(self):
         impl = getattr(self, "generic")
-        basepath = os.path.dirname(os.path.dirname(numba.__file__))
+        basepath = os.path.dirname(
+            os.path.dirname(os.path.dirname(numba.cuda.__file__))
+        )
         code, firstlineno, path = self.get_source_code_info(impl)
         sig = str(utils.pysignature(impl))
         info = {
@@ -645,7 +661,7 @@ class _OverloadFunctionTemplate(AbstractTemplate):
         Type the overloaded function by compiling the appropriate
         implementation for the given args.
         """
-        from numba.core.typed_passes import PreLowerStripPhis
+        from numba.cuda.core.typed_passes import PreLowerStripPhis
 
         disp, new_args = self._get_impl(args, kws)
         if disp is None:
@@ -658,11 +674,12 @@ class _OverloadFunctionTemplate(AbstractTemplate):
         if not self._inline.is_never_inline:
             # need to run the compiler front end up to type inference to compute
             # a signature
-            from numba.core import typed_passes, compiler
-            from numba.core.inline_closurecall import InlineWorker
+            from numba.cuda.core import typed_passes
+            from numba.cuda.flags import Flags
+            from numba.cuda.core.inline_closurecall import InlineWorker
 
             fcomp = disp._compiler
-            flags = compiler.Flags()
+            flags = Flags()
 
             # Updating these causes problems?!
             # fcomp.targetdescr.options.parse_as_flags(flags,
@@ -710,7 +727,9 @@ class _OverloadFunctionTemplate(AbstractTemplate):
                 )
             )
             ir = PreLowerStripPhis()._strip_phi_nodes(ir)
-            ir._definitions = ir_utils.build_definitions(ir.blocks)
+            ir._definitions = numba.cuda.core.ir_utils.build_definitions(
+                ir.blocks
+            )
 
             sig = Signature(return_type, folded_args, None)
             # this stores a load of info for the cost model function if supplied
@@ -765,37 +784,9 @@ class _OverloadFunctionTemplate(AbstractTemplate):
 
     def _get_jit_decorator(self):
         """Gets a jit decorator suitable for the current target"""
+        from numba.cuda.decorators import jit
 
-        from numba.core.target_extension import (
-            target_registry,
-            get_local_target,
-            jit_registry,
-        )
-
-        jitter_str = self.metadata.get("target", "generic")
-        jitter = jit_registry.get(jitter_str, None)
-
-        if jitter is None:
-            # No JIT known for target string, see if something is
-            # registered for the string and report if not.
-            target_class = target_registry.get(jitter_str, None)
-            if target_class is None:
-                msg = ("Unknown target '{}', has it been ", "registered?")
-                raise ValueError(msg.format(jitter_str))
-
-            target_hw = get_local_target(self.context)
-
-            # check that the requested target is in the hierarchy for the
-            # current frame's target.
-            if not issubclass(target_hw, target_class):
-                msg = "No overloads exist for the requested target: {}."
-
-            jitter = jit_registry[target_hw]
-
-        if jitter is None:
-            raise ValueError("Cannot find a suitable jit decorator")
-
-        return jitter
+        return jit
 
     def _build_impl(self, cache_key, args, kws):
         """Build and cache the implementation.
@@ -900,7 +891,9 @@ class _OverloadFunctionTemplate(AbstractTemplate):
             - "docstring": str
                 The docstring of the definition.
         """
-        basepath = os.path.dirname(os.path.dirname(numba.__file__))
+        basepath = os.path.dirname(
+            os.path.dirname(os.path.dirname(numba.cuda.__file__))
+        )
         impl = cls._overload_func
         code, firstlineno, path = cls.get_source_code_info(impl)
         sig = str(utils.pysignature(impl))
@@ -915,7 +908,9 @@ class _OverloadFunctionTemplate(AbstractTemplate):
         return info
 
     def get_template_info(self):
-        basepath = os.path.dirname(os.path.dirname(numba.__file__))
+        basepath = os.path.dirname(
+            os.path.dirname(os.path.dirname(numba.cuda.__file__))
+        )
         impl = self._overload_func
         code, firstlineno, path = self.get_source_code_info(impl)
         sig = str(utils.pysignature(impl))
@@ -975,16 +970,9 @@ class _TemplateTargetHelperMixin(object):
         -------
         reg : a registry suitable for the current target.
         """
-        from numba.core.target_extension import (
-            _get_local_target_checked,
-            dispatcher_registry,
-        )
+        from numba.cuda.descriptor import cuda_target
 
-        hwstr = self.metadata.get("target", "generic")
-        target_hw = _get_local_target_checked(self.context, hwstr, reason)
-        # Get registry for the current hardware
-        disp = dispatcher_registry[target_hw]
-        tgtctx = disp.targetdescr.target_context
+        tgtctx = cuda_target.target_context
 
         # ---------------------------------------------------------------------
         # XXX: In upstream Numba, this function would prefer the builtin
@@ -1079,7 +1067,9 @@ class _IntrinsicTemplate(_TemplateTargetHelperMixin, AbstractTemplate):
         return self._overload_cache[sig.args]
 
     def get_template_info(self):
-        basepath = os.path.dirname(os.path.dirname(numba.__file__))
+        basepath = os.path.dirname(
+            os.path.dirname(os.path.dirname(numba.cuda.__file__))
+        )
         impl = self._definition_func
         code, firstlineno, path = self.get_source_code_info(impl)
         sig = str(utils.pysignature(impl))
@@ -1241,7 +1231,9 @@ class _OverloadMethodTemplate(_OverloadAttributeTemplate):
                     return sig.as_method()
 
             def get_template_info(self):
-                basepath = os.path.dirname(os.path.dirname(numba.__file__))
+                basepath = os.path.dirname(
+                    os.path.dirname(os.path.dirname(numba.cuda.__file__))
+                )
                 impl = self._overload_func
                 code, firstlineno, path = self.get_source_code_info(impl)
                 sig = str(utils.pysignature(impl))
@@ -1446,3 +1438,9 @@ class RegistryLoader(BaseRegistryLoader):
     """
 
     registry_items = ("functions", "attributes", "globals")
+
+
+builtin_registry = Registry()
+infer = builtin_registry.register
+infer_getattr = builtin_registry.register_attr
+infer_global = builtin_registry.register_global

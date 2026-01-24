@@ -1,7 +1,10 @@
 import html
+import inspect
+import ipaddress
 import json
 import typing
 import warnings
+from http import HTTPStatus
 from urllib.parse import urlparse
 
 from django.conf import settings
@@ -19,9 +22,10 @@ from django.contrib.auth.password_validation import (
     validate_password,
 )
 from django.contrib.sites.shortcuts import get_current_site
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, PermissionDenied
 from django.core.mail import EmailMessage, EmailMultiAlternatives
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http.request import split_domain_port, validate_host
 from django.shortcuts import resolve_url
 from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
@@ -37,7 +41,11 @@ from allauth.core import context
 from allauth.core.internal import ratelimit
 from allauth.core.internal.adapter import BaseAdapter
 from allauth.core.internal.cryptokit import generate_user_code
-from allauth.core.internal.httpkit import headed_redirect_response, is_headless_request
+from allauth.core.internal.httpkit import (
+    HTTP_USER_AGENT_MAX_LENGTH,
+    headed_redirect_response,
+    is_headless_request,
+)
 from allauth.utils import generate_unique_username, import_attribute
 
 
@@ -118,6 +126,8 @@ class DefaultAccountAdapter(BaseAdapter):
         """
         from allauth.account.models import EmailAddress
 
+        if not email_address.pk:
+            return True
         has_other = (
             EmailAddress.objects.filter(user_id=email_address.user_id)
             .exclude(pk=email_address.pk)
@@ -149,7 +159,7 @@ class DefaultAccountAdapter(BaseAdapter):
         prefix = app_settings.EMAIL_SUBJECT_PREFIX
         if prefix is None:
             site = get_current_site(context.request)
-            prefix = "[{name}] ".format(name=site.name)
+            prefix = f"[{site.name}] "
         return prefix + force_str(subject)
 
     def get_from_email(self):
@@ -165,7 +175,7 @@ class DefaultAccountAdapter(BaseAdapter):
         email that is to be sent, e.g. "account/email/email_confirmation"
         """
         to = [email] if isinstance(email, str) else email
-        subject = render_to_string("{0}_subject.txt".format(template_prefix), context)
+        subject = render_to_string(f"{template_prefix}_subject.txt", context)
         # remove superfluous line breaks
         subject = " ".join(subject.splitlines()).strip()
         subject = self.format_email_subject(subject)
@@ -176,7 +186,7 @@ class DefaultAccountAdapter(BaseAdapter):
         html_ext = app_settings.TEMPLATE_EXTENSION
         for ext in [html_ext, "txt"]:
             try:
-                template_name = "{0}_message.{1}".format(template_prefix, ext)
+                template_name = f"{template_prefix}_message.{ext}"
                 bodies[ext] = render_to_string(
                     template_name,
                     context,
@@ -436,16 +446,16 @@ class DefaultAccountAdapter(BaseAdapter):
         status = response.status_code
 
         if redirect_to:
-            status = 200
+            status = HTTPStatus.OK
             resp["location"] = redirect_to
         if form:
             if request.method == "POST":
                 if form.is_valid():
-                    status = 200
+                    status = HTTPStatus.OK
                 else:
-                    status = 400
+                    status = HTTPStatus.BAD_REQUEST
             else:
-                status = 200
+                status = HTTPStatus.OK
             resp["form"] = self.ajax_response_form(form)
             if hasattr(response, "render"):
                 response.render()
@@ -547,7 +557,7 @@ class DefaultAccountAdapter(BaseAdapter):
                 elif not backend and hasattr(b, "get_user"):
                     # Pick the first valid one
                     backend = b
-            backend_path = ".".join([backend.__module__, backend.__class__.__name__])
+            backend_path = f"{backend.__module__}.{backend.__class__.__name__}"
             user.backend = backend_path
         django_login(request, user)
 
@@ -598,11 +608,15 @@ class DefaultAccountAdapter(BaseAdapter):
         }
         allowed_hosts.update(trusted_hosts)
 
-        # Handle wildcard case
-        if "*" in allowed_hosts:
-            parsed_host = urlparse(url).netloc
-            allowed_host = {parsed_host} if parsed_host else None
-            return url_has_allowed_host_and_scheme(url, allowed_hosts=allowed_host)
+        # ALLOWED_HOSTS supports wildcards, and subdomains using a '.' prefix.
+        # But, `url_has_allowed_host_and_scheme()` doesn't support that. So,
+        # let's check the domain using the ALLOWED_HOSTS logic, and if valid,
+        # add it as allowed so that we can then call
+        # `url_has_allowed_host_and_scheme()`.
+        parsed_host = urlparse(url).netloc
+        if parsed_host:
+            if validate_host(parsed_host, allowed_hosts):
+                allowed_hosts.add(parsed_host)
 
         return url_has_allowed_host_and_scheme(url, allowed_hosts=allowed_hosts)
 
@@ -684,7 +698,7 @@ class DefaultAccountAdapter(BaseAdapter):
     def _get_login_attempts_cache_key(self, request, **credentials):
         site = get_current_site(request)
         login = credentials.get("email", credentials.get("username", "")).lower()
-        return "{site}:{login}".format(site=site.domain, login=login)
+        return f"{site.domain}:{login}"
 
     def _delete_login_attempts_cached_email(self, request, **credentials):
         cache_key = self._get_login_attempts_cache_key(request, **credentials)
@@ -767,12 +781,26 @@ class DefaultAccountAdapter(BaseAdapter):
     def get_client_ip(self, request) -> str:
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
+            ip_value = x_forwarded_for.split(",")[0]
         else:
-            ip = request.META.get("REMOTE_ADDR")
-        return ip
+            ip_value = request.META["REMOTE_ADDR"]
 
-    def get_http_user_agent(self, request):
+        # Try to parse the value as an IP address to make sure it's a valid one.
+        try:
+            domain, port = split_domain_port(ip_value)
+            if port and domain:
+                ip_value = domain
+                # If Django splits off the port of an IPv6 address, the domain
+                # has brackets.
+                if ip_value[0] == "[" and ip_value[-1] == "]":
+                    ip_value = ip_value[1:-1]
+            ip_addr = ipaddress.ip_address(ip_value)
+        except ValueError:
+            raise PermissionDenied(f"Invalid IP address: {ip_value!r}")
+        else:
+            return str(ip_addr)
+
+    def get_http_user_agent(self, request: HttpRequest) -> str:
         return request.META.get("HTTP_USER_AGENT", "Unspecified")
 
     def generate_emailconfirmation_key(self, email):
@@ -788,7 +816,7 @@ class DefaultAccountAdapter(BaseAdapter):
             from allauth.mfa import app_settings as mfa_settings
 
             ret.append("allauth.mfa.stages.AuthenticateStage")
-            if mfa_settings.TRUST_ENABLED:
+            if mfa_settings._TRUST_STAGE_ENABLED:
                 ret.append("allauth.mfa.stages.TrustStage")
 
             if mfa_settings.PASSKEY_SIGNUP_ENABLED:
@@ -842,7 +870,9 @@ class DefaultAccountAdapter(BaseAdapter):
         ctx = {
             "timestamp": timezone.now(),
             "ip": self.get_client_ip(self.request),
-            "user_agent": self.get_http_user_agent(self.request),
+            "user_agent": self.get_http_user_agent(self.request)[
+                :HTTP_USER_AGENT_MAX_LENGTH
+            ],
         }
         if context:
             ctx.update(context)
@@ -866,11 +896,22 @@ class DefaultAccountAdapter(BaseAdapter):
         """
         return generate_user_code()
 
-    def generate_phone_verification_code(self) -> str:
+    def generate_phone_verification_code(self, *, user, phone: str) -> str:
         """
         Generates a new phone verification code.
         """
         return generate_user_code()
+
+    def _generate_phone_verification_code_compat(self, *, user, phone: str) -> str:
+        sig = inspect.signature(self.generate_phone_verification_code)
+        if len(sig.parameters) == 0:
+            warnings.warn(
+                "generate_phone_verification_code(self) is deprecated, use generate_phone_verification_code(self, *, user, phone)",
+                DeprecationWarning,
+            )
+            return self.generate_phone_verification_code()  # type: ignore[call-arg]
+
+        return self.generate_phone_verification_code(user=user, phone=phone)
 
     def is_login_by_code_required(self, login) -> bool:
         """

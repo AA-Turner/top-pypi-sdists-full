@@ -3,7 +3,7 @@ Type annotations for cloudwatch service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,6 +25,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from datetime import datetime
 from typing import NoReturn
 
@@ -56,11 +57,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -153,7 +149,7 @@ class ServiceResourceAlarmsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Alarm]]:
+    ) -> AsyncIterator[list[Alarm]]:
         """
         A generator which yields pages of Alarms.
 
@@ -229,7 +225,7 @@ class ServiceResourceMetricsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Metric]]:
+    ) -> AsyncIterator[list[Metric]]:
         """
         A generator which yields pages of Metrics.
 
@@ -327,7 +323,7 @@ class MetricAlarmsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Alarm]]:
+    ) -> AsyncIterator[list[Alarm]]:
         """
         A generator which yields pages of Alarms.
 
@@ -364,9 +360,9 @@ class Alarm(AIOBoto3ServiceResource):
     alarm_description: Awaitable[str]
     alarm_configuration_updated_timestamp: Awaitable[datetime]
     actions_enabled: Awaitable[bool]
-    ok_actions: Awaitable[List[str]]
-    alarm_actions: Awaitable[List[str]]
-    insufficient_data_actions: Awaitable[List[str]]
+    ok_actions: Awaitable[list[str]]
+    alarm_actions: Awaitable[list[str]]
+    insufficient_data_actions: Awaitable[list[str]]
     state_value: Awaitable[StateValueType]
     state_reason: Awaitable[str]
     state_reason_data: Awaitable[str]
@@ -375,7 +371,7 @@ class Alarm(AIOBoto3ServiceResource):
     namespace: Awaitable[str]
     statistic: Awaitable[StatisticType]
     extended_statistic: Awaitable[str]
-    dimensions: Awaitable[List[DimensionTypeDef]]
+    dimensions: Awaitable[list[DimensionTypeDef]]
     period: Awaitable[int]
     unit: Awaitable[StandardUnitType]
     evaluation_periods: Awaitable[int]
@@ -384,7 +380,7 @@ class Alarm(AIOBoto3ServiceResource):
     comparison_operator: Awaitable[ComparisonOperatorType]
     treat_missing_data: Awaitable[str]
     evaluate_low_sample_count_percentile: Awaitable[str]
-    metrics: Awaitable[List[MetricDataQueryAlarmTypeDef]]
+    metrics: Awaitable[list[MetricDataQueryAlarmTypeDef]]
     threshold_metric_id: Awaitable[str]
     evaluation_state: Awaitable[Literal["PARTIAL_DATA"]]
     state_transitioned_timestamp: Awaitable[datetime]
@@ -464,7 +460,7 @@ class Metric(AIOBoto3ServiceResource):
     name: str
     alarms: MetricAlarmsCollection
     metric_name: Awaitable[str]
-    dimensions: Awaitable[List[DimensionTypeDef]]
+    dimensions: Awaitable[list[DimensionTypeDef]]
     meta: CloudWatchResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

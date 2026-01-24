@@ -1,2 +1,0 @@
-
-            GetEventHandler().SafelyProcessEvent(event)

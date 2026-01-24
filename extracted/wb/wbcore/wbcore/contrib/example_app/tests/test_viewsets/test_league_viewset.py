@@ -19,7 +19,7 @@ from wbcore.contrib.example_app.viewsets import LeagueModelViewSet
 @pytest.mark.django_db
 class TestLeagueModelViewSet(TestCase):
     def setUp(self):
-        self.user = SuperUserFactory()
+        self.user = SuperUserFactory.create()
         self.client = Client()
         self.client.force_login(user=self.user)
         self.list_url = reverse("example_app:league-list")
@@ -30,19 +30,19 @@ class TestLeagueModelViewSet(TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_create_view(self):
-        league = LeagueFactory()
+        league = LeagueFactory.create()
         response = get_create_view(self.client, league, self.user, self.list_url, LeagueModelViewSet)
         self.assertEqual(response.status_code, 201)
         self.assertTrue(League.objects.filter(name=league.name).exists())
 
     def test_detail_view(self):
-        instance = LeagueFactory()
+        instance = LeagueFactory.create()
         response = get_detail_view(self.client, instance.pk, self.detail_url_str)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["name"], instance.name)
 
     def test_update_view(self):
-        instance = LeagueFactory()
+        instance = LeagueFactory.create()
         instance.name = "Updated Instance"
         response = get_update_view(self.client, instance, LeagueModelSerializer, self.detail_url_str)
         instance.refresh_from_db()
@@ -50,22 +50,22 @@ class TestLeagueModelViewSet(TestCase):
         self.assertEqual(response.data["instance"]["name"], instance.name)
 
     def test_partial_update_view(self):
-        instance = LeagueFactory()
+        instance = LeagueFactory.create()
         response = get_partial_view(self.client, instance.id, {"name": "Updated Instance"}, self.detail_url_str)
         instance.refresh_from_db()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["instance"]["name"], instance.name)
 
     def test_delete_view(self):
-        instance = LeagueFactory()
+        instance = LeagueFactory.create()
         response = get_delete_view(self.client, self.detail_url_str, instance.pk)
         self.assertEqual(response.status_code, 204)
         self.assertFalse(League.objects.filter(pk=instance.pk).exists())
 
     def test_league_sport(self):
-        league_a = LeagueFactory()
-        league_b = LeagueFactory(sport=league_a.sport)
-        league_c = LeagueFactory()
+        league_a = LeagueFactory.create()
+        league_b = LeagueFactory.create(sport=league_a.sport)
+        league_c = LeagueFactory.create()
         expected_number_of_league = League.objects.filter(sport=league_a.sport).count()
         league_sport_url = reverse("example_app:league-sport-list", args=[league_a.sport.id])
         response = self.client.get(league_sport_url)

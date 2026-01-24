@@ -17,24 +17,28 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from pydantic.v1 import StrictStr, Field, Field, StrictFloat, StrictInt, StrictStr, conlist, constr, validator 
 from lusid.models.complex_market_data import ComplexMarketData
 from lusid.models.market_data_options import MarketDataOptions
+from lusid.models.version import Version
 
 class EquityCurveByPricesData(ComplexMarketData):
     """
     Contains data (i.e. dates and prices + metadata) for building Equity curves  # noqa: E501
     """
-    base_date: datetime = Field(..., alias="baseDate", description="EffectiveAt date of the provided prices")
-    dates: conlist(datetime) = Field(..., description="Dates provided for the forward price of the Equity at the corresponding price in Prices.  These dates should be in the future with respect to the BaseDate.")
+    base_date: datetime = Field(description="EffectiveAt date of the provided prices", alias="baseDate")
+    dates: List[datetime] = Field(description="Dates provided for the forward price of the Equity at the corresponding price in Prices.  These dates should be in the future with respect to the BaseDate.")
     lineage:  Optional[StrictStr] = Field(None,alias="lineage", description="Description of the complex market data's lineage e.g. 'FundAccountant_GreenQuality'.") 
-    prices: conlist(Union[StrictFloat, StrictInt]) = Field(..., description="Prices provided for the forward price of the Equity at the corresponding date in Dates.")
-    market_data_options: Optional[MarketDataOptions] = Field(None, alias="marketDataOptions")
+    prices: List[Union[StrictFloat, StrictInt]] = Field(description="Prices provided for the forward price of the Equity at the corresponding date in Dates.")
+    market_data_options: Optional[MarketDataOptions] = Field(default=None, alias="marketDataOptions")
+    version: Optional[Version] = None
     market_data_type:  StrictStr = Field(...,alias="marketDataType", description="The available values are: DiscountFactorCurveData, EquityVolSurfaceData, FxVolSurfaceData, IrVolCubeData, OpaqueMarketData, YieldCurveData, FxForwardCurveData, FxForwardPipsCurveData, FxForwardTenorCurveData, FxForwardTenorPipsCurveData, FxForwardCurveByQuoteReference, CreditSpreadCurveData, EquityCurveByPricesData, ConstantVolatilitySurface") 
     additional_properties: Dict[str, Any] = {}
-    __properties = ["marketDataType", "baseDate", "dates", "lineage", "prices", "marketDataOptions"]
+    __properties = ["marketDataType", "baseDate", "dates", "lineage", "prices", "marketDataOptions", "version"]
 
     @validator('market_data_type')
     def market_data_type_validate_enum(cls, value):
@@ -84,14 +88,21 @@ class EquityCurveByPricesData(ComplexMarketData):
                                     'HealthCheckResponse', 
                                     'LuminesceViewResponse', 
                                     'SchedulerJobResponse', 
-                                    'SleepResponse']:
+                                    'SleepResponse',
+                                    'Library',
+                                    'LibraryResponse',
+                                    'DayRegularity',
+                                    'RelativeMonthRegularity',
+                                    'SpecificMonthRegularity',
+                                    'WeekRegularity',
+                                    'YearRegularity']:
            return value
         
         # Only validate the 'type' property of the class
         if "market_data_type" != "type":
             return value
 
-        if value not in ('DiscountFactorCurveData', 'EquityVolSurfaceData', 'FxVolSurfaceData', 'IrVolCubeData', 'OpaqueMarketData', 'YieldCurveData', 'FxForwardCurveData', 'FxForwardPipsCurveData', 'FxForwardTenorCurveData', 'FxForwardTenorPipsCurveData', 'FxForwardCurveByQuoteReference', 'CreditSpreadCurveData', 'EquityCurveByPricesData', 'ConstantVolatilitySurface'):
+        if value not in ['DiscountFactorCurveData', 'EquityVolSurfaceData', 'FxVolSurfaceData', 'IrVolCubeData', 'OpaqueMarketData', 'YieldCurveData', 'FxForwardCurveData', 'FxForwardPipsCurveData', 'FxForwardTenorCurveData', 'FxForwardTenorPipsCurveData', 'FxForwardCurveByQuoteReference', 'CreditSpreadCurveData', 'EquityCurveByPricesData', 'ConstantVolatilitySurface']:
             raise ValueError("must be one of enum values ('DiscountFactorCurveData', 'EquityVolSurfaceData', 'FxVolSurfaceData', 'IrVolCubeData', 'OpaqueMarketData', 'YieldCurveData', 'FxForwardCurveData', 'FxForwardPipsCurveData', 'FxForwardTenorCurveData', 'FxForwardTenorPipsCurveData', 'FxForwardCurveByQuoteReference', 'CreditSpreadCurveData', 'EquityCurveByPricesData', 'ConstantVolatilitySurface')")
         return value
 
@@ -131,6 +142,9 @@ class EquityCurveByPricesData(ComplexMarketData):
         # override the default output from pydantic by calling `to_dict()` of market_data_options
         if self.market_data_options:
             _dict['marketDataOptions'] = self.market_data_options.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of version
+        if self.version:
+            _dict['version'] = self.version.to_dict()
         # puts key-value pairs in additional_properties in the top level
         if self.additional_properties is not None:
             for _key, _value in self.additional_properties.items():
@@ -158,7 +172,8 @@ class EquityCurveByPricesData(ComplexMarketData):
             "dates": obj.get("dates"),
             "lineage": obj.get("lineage"),
             "prices": obj.get("prices"),
-            "market_data_options": MarketDataOptions.from_dict(obj.get("marketDataOptions")) if obj.get("marketDataOptions") is not None else None
+            "market_data_options": MarketDataOptions.from_dict(obj.get("marketDataOptions")) if obj.get("marketDataOptions") is not None else None,
+            "version": Version.from_dict(obj.get("version")) if obj.get("version") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():
@@ -166,3 +181,5 @@ class EquityCurveByPricesData(ComplexMarketData):
                 _obj.additional_properties[_key] = obj.get(_key)
 
         return _obj
+
+EquityCurveByPricesData.update_forward_refs()

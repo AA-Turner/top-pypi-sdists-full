@@ -96,22 +96,6 @@ mutation testSparkCredentials($url:String!, $username:String!, $password:String!
 }
 """
 
-TEST_SPARK_DATABRICKS_CRED_MUTATION = """
-mutation testSparkCredentials($databricksWorkspaceUrl:String!, $databricksWorkspaceId:String!, $databricksClusterId:String!, $databricksToken:String!, $connectionOptions:ConnectionTestOptions) {
-  testSparkCredentials(databricks: {databricksWorkspaceUrl:$databricksWorkspaceUrl, databricksWorkspaceId:$databricksWorkspaceId, databricksClusterId:$databricksClusterId, databricksToken:$databricksToken}, connectionOptions:$connectionOptions) {
-    key
-  }
-}
-"""
-
-TEST_DATABRICKS_CRED_MUTATION = """
-mutation testDatabricksCredentials($databricksWorkspaceUrl:String!, $databricksWorkspaceId:String!, $databricksClusterId:String!, $databricksToken:String!, $connectionOptions:ConnectionTestOptions) {
-  testDatabricksCredentials(databricksConfig: {databricksWorkspaceUrl:$databricksWorkspaceUrl, databricksWorkspaceId:$databricksWorkspaceId, databricksClusterId:$databricksClusterId, databricksToken:$databricksToken}, connectionOptions:$connectionOptions) {
-    key
-    success
-  }
-}
-"""
 
 TEST_SNOWFLAKE_CRED_MUTATION = """
 mutation testSnowflakeCredentials($account:String!, $privateKey: String, $privateKeyPassphrase: String, $user:String!, $warehouse:String, $oauth:OAuthConfiguration, $connectionOptions:ConnectionTestOptions) {
@@ -1003,7 +987,12 @@ mutation testSelfHostedCredentialsV2(
     $assumableRole: String,
     $externalId: String,
     $validationName: String!,
-    $connectionOptions: ConnectionTestOptions
+    $connectionOptions: ConnectionTestOptions,
+    $gcpSecret: String
+    $akvSecret: String
+    $akvVaultName: String
+    $bqProjectId: String
+    $filePath: String
 ) {
     testSelfHostedCredentialsV2(
         connectionDetails: {
@@ -1016,6 +1005,11 @@ mutation testSelfHostedCredentialsV2(
             awsRegion: $awsRegion,
             assumableRole: $assumableRole,
             externalId: $externalId
+            gcpSecret: $gcpSecret
+            akvSecret: $akvSecret
+            akvVaultName: $akvVaultName
+            bqProjectId: $bqProjectId
+            filePath: $filePath
         }
         validationName: $validationName
         connectionOptions: $connectionOptions
@@ -1116,8 +1110,8 @@ class ConnectionOperationsQueries:
 class DatabricksSqlWarehouseOnboardingQueries:
     test_credentials = GQL(
         query="""
-      mutation testDatabricksSqlWarehouseCredentials($databricksWorkspaceUrl:String!, $databricksWarehouseId:String!, $databricksToken:String, $databricksClientId:String, $databricksClientSecret:String $connectionOptions:ConnectionTestOptions, $databricksWorkspaceId:String) {
-        testDatabricksSqlWarehouseCredentials(databricksConfig: {databricksWorkspaceUrl:$databricksWorkspaceUrl, databricksWarehouseId:$databricksWarehouseId, databricksToken:$databricksToken, databricksClientId:$databricksClientId, databricksClientSecret:$databricksClientSecret, databricksWorkspaceId:$databricksWorkspaceId}, connectionOptions:$connectionOptions) {
+      mutation testDatabricksSqlWarehouseCredentials($databricksWorkspaceUrl:String!, $databricksWarehouseId:String!, $databricksToken:String, $databricksClientId:String, $databricksClientSecret:String $connectionOptions:ConnectionTestOptions, $databricksWorkspaceId:String, $azureTenantId:String, $azureWorkspaceResourceId:String) {
+        testDatabricksSqlWarehouseCredentials(databricksConfig: {databricksWorkspaceUrl:$databricksWorkspaceUrl, databricksWarehouseId:$databricksWarehouseId, databricksToken:$databricksToken, databricksClientId:$databricksClientId, databricksClientSecret:$databricksClientSecret, databricksWorkspaceId:$databricksWorkspaceId, azureTenantId:$azureTenantId, azureWorkspaceResourceId:$azureWorkspaceResourceId}, connectionOptions:$connectionOptions) {
           key
           success
         }

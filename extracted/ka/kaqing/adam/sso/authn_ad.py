@@ -1,6 +1,5 @@
 import json
 import re
-import traceback
 import jwt
 import requests
 from urllib.parse import urlparse, parse_qs
@@ -8,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 from adam.log import Log
 from adam.sso.authenticator import Authenticator
 from adam.sso.id_token import IdToken
+from adam.utils import debug, log_exc
 from .idp_login import IdpLogin
 from adam.config import Config
 
@@ -33,7 +33,7 @@ class AdAuthenticator(Authenticator):
 
         session = requests.Session()
         r = session.get(idp_uri)
-        Config().debug(f'{r.status_code} {idp_uri}')
+        debug(f'{r.status_code} {idp_uri}')
 
         config = self.validate_and_return_config(r)
 
@@ -52,7 +52,7 @@ class AdAuthenticator(Authenticator):
         r = session.post(login_uri, data=body, headers={
             'Content-Type': 'application/x-www-form-urlencoded'
         })
-        Config().debug(f'{r.status_code} {login_uri}')
+        debug(f'{r.status_code} {login_uri}')
 
         config = self.validate_and_return_config(r)
 
@@ -69,7 +69,7 @@ class AdAuthenticator(Authenticator):
         r = session.post(kmsi_uri, data=body, headers={
             'Content-Type': 'application/x-www-form-urlencoded'
         })
-        Config().debug(f'{r.status_code} {kmsi_uri}')
+        debug(f'{r.status_code} {kmsi_uri}')
 
         if (config := self.extract_config_object(r.text)):
             if 'sErrorCode' in config and config['sErrorCode'] == '50058':
@@ -101,7 +101,7 @@ class AdAuthenticator(Authenticator):
 
     def validate_and_return_config(self, r: requests.Response):
         if r.status_code < 200 or r.status_code >= 300:
-            Config().debug(r.text)
+            debug(r.text)
 
             return None
 
@@ -138,7 +138,7 @@ class AdAuthenticator(Authenticator):
 
     def parse_id_token(self, id_token: str) -> IdToken:
         jwks_url = Config().get('idps.ad.jwks-uri', '')
-        try:
+        with log_exc():
             jwks_client = jwt.PyJWKClient(jwks_url, cache_jwk_set=True, lifespan=360)
             signing_key = jwks_client.get_signing_key_from_jwt(id_token)
             data = jwt.decode(
@@ -163,7 +163,5 @@ class AdAuthenticator(Authenticator):
                 nbf=data['nbf'] if 'nbf' in data else 0,
                 exp=data['exp'] if 'exp' in data else 0
             )
-        except:
-            Config().debug(traceback.format_exc())
 
         return None

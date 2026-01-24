@@ -3,7 +3,7 @@ Type annotations for cloudtrail service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudtrail/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,6 +28,7 @@ __all__ = (
     "DashboardTypeType",
     "DeliveryStatusType",
     "DestinationTypeType",
+    "EventCategoryAggregationType",
     "EventCategoryType",
     "EventDataStoreStatusType",
     "FederationStatusType",
@@ -37,6 +38,9 @@ __all__ = (
     "InsightsMetricDataTypeType",
     "ListImportFailuresPaginatorName",
     "ListImportsPaginatorName",
+    "ListInsightsDataDimensionKeyType",
+    "ListInsightsDataPaginatorName",
+    "ListInsightsDataTypeType",
     "ListPublicKeysPaginatorName",
     "ListTagsPaginatorName",
     "ListTrailsPaginatorName",
@@ -51,6 +55,8 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "SourceEventCategoryType",
+    "TemplateType",
     "TypeType",
 )
 
@@ -69,6 +75,7 @@ DeliveryStatusType = Literal[
     "UNKNOWN",
 ]
 DestinationTypeType = Literal["AWS_SERVICE", "EVENT_DATA_STORE"]
+EventCategoryAggregationType = Literal["Data"]
 EventCategoryType = Literal["insight"]
 EventDataStoreStatusType = Literal[
     "CREATED",
@@ -85,6 +92,9 @@ InsightTypeType = Literal["ApiCallRateInsight", "ApiErrorRateInsight"]
 InsightsMetricDataTypeType = Literal["FillWithZeros", "NonZeroData"]
 ListImportFailuresPaginatorName = Literal["list_import_failures"]
 ListImportsPaginatorName = Literal["list_imports"]
+ListInsightsDataDimensionKeyType = Literal["EventId", "EventName", "EventSource"]
+ListInsightsDataPaginatorName = Literal["list_insights_data"]
+ListInsightsDataTypeType = Literal["InsightsEvents"]
 ListPublicKeysPaginatorName = Literal["list_public_keys"]
 ListTagsPaginatorName = Literal["list_tags"]
 ListTrailsPaginatorName = Literal["list_trails"]
@@ -104,6 +114,8 @@ QueryStatusType = Literal["CANCELLED", "FAILED", "FINISHED", "QUEUED", "RUNNING"
 ReadWriteTypeType = Literal["All", "ReadOnly", "WriteOnly"]
 RefreshScheduleFrequencyUnitType = Literal["DAYS", "HOURS"]
 RefreshScheduleStatusType = Literal["DISABLED", "ENABLED"]
+SourceEventCategoryType = Literal["Data", "Management"]
+TemplateType = Literal["API_ACTIVITY", "RESOURCE_ACCESS", "USER_ACTIONS"]
 TypeType = Literal["RequestContext", "TagContext"]
 CloudTrailServiceName = Literal["cloudtrail"]
 ServiceName = Literal[
@@ -132,7 +144,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -202,6 +213,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -247,7 +259,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -300,7 +311,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -339,8 +349,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -375,6 +383,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -384,6 +393,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -394,6 +404,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -415,8 +428,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -431,15 +442,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -470,6 +482,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -510,6 +523,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -526,6 +540,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_import_failures",
     "list_imports",
+    "list_insights_data",
     "list_public_keys",
     "list_tags",
     "list_trails",

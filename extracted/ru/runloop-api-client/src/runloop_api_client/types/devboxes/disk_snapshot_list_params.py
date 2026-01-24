@@ -14,7 +14,7 @@ class DiskSnapshotListParams(TypedDict, total=False):
     """Devbox ID to filter by."""
 
     limit: int
-    """The limit of items to return. Default is 20."""
+    """The limit of items to return. Default is 20. Max is 5000."""
 
     metadata_key: Annotated[str, PropertyInfo(alias="metadata[key]")]
     """Filter snapshots by metadata key-value pair.
@@ -24,6 +24,9 @@ class DiskSnapshotListParams(TypedDict, total=False):
 
     metadata_key_in: Annotated[str, PropertyInfo(alias="metadata[key][in]")]
     """Filter snapshots by metadata key with multiple possible values (OR condition)."""
+
+    source_blueprint_id: str
+    """Source Blueprint ID to filter snapshots by."""
 
     starting_after: str
     """Load the next page of data starting after the item with the given ID."""

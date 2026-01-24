@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2025, Eduardo Rodrigues and Henry Schreiner.
+# Copyright (c) 2018-2026, Eduardo Rodrigues and Henry Schreiner.
 #
 # Distributed under the 3-clause BSD license, see accompanying file LICENSE
 # or https://github.com/scikit-hep/particle for details.
@@ -8,14 +8,12 @@ from __future__ import annotations
 
 import contextlib
 import csv
-import sys
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import (
     IO,
     Any,
     Callable,
     Generic,
-    Iterator,
     TypeVar,
     Union,
     overload,
@@ -213,10 +211,7 @@ def DirectionalMaps(
     )
 
 
-if sys.version_info < (3, 9):
-    StrStrMapping = Mapping
-else:
-    StrStrMapping = Mapping[str, str]
+StrStrMapping = Mapping[str, str]
 
 
 class DirectionalMap(StrStrMapping):

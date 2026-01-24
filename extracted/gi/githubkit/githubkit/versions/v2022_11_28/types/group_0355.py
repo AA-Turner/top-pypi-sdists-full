@@ -9,42 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
 from typing_extensions import TypedDict
 
-from .group_0019 import LicenseSimpleType
 
+class CheckImmutableReleasesType(TypedDict):
+    """Check immutable releases
 
-class LicenseContentType(TypedDict):
-    """License Content
-
-    License Content
+    Check immutable releases
     """
 
-    name: str
-    path: str
-    sha: str
-    size: int
-    url: str
-    html_url: Union[str, None]
-    git_url: Union[str, None]
-    download_url: Union[str, None]
-    type: str
-    content: str
-    encoding: str
-    links: LicenseContentPropLinksType
-    license_: Union[None, LicenseSimpleType]
+    enabled: bool
+    enforced_by_owner: bool
 
 
-class LicenseContentPropLinksType(TypedDict):
-    """LicenseContentPropLinks"""
+class CheckImmutableReleasesTypeForResponse(TypedDict):
+    """Check immutable releases
 
-    git: Union[str, None]
-    html: Union[str, None]
-    self_: str
+    Check immutable releases
+    """
+
+    enabled: bool
+    enforced_by_owner: bool
 
 
 __all__ = (
-    "LicenseContentPropLinksType",
-    "LicenseContentType",
+    "CheckImmutableReleasesType",
+    "CheckImmutableReleasesTypeForResponse",
 )

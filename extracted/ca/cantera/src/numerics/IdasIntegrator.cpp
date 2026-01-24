@@ -43,28 +43,28 @@ static int ida_rhs(sunrealtype t, N_Vector y, N_Vector ydot, N_Vector r, void* f
     return f->evalDaeNoThrow(t, NV_DATA_S(y), NV_DATA_S(ydot), NV_DATA_S(r));
 }
 
-//! Function called by IDA when an error is encountered instead of writing to stdout.
-//! Here, save the error message provided by IDA so that it can be included in the
-//! subsequently raised CanteraError.
-static void ida_err(int error_code, const char* module,
-                    const char* function, char* msg, void* eh_data)
-{
-    IdasIntegrator* integrator = (IdasIntegrator*) eh_data;
-    integrator->m_error_message = msg;
-    integrator->m_error_message += "\n";
-}
-
-//! Function called by CVodes when an error is encountered instead of
-//! writing to stdout. Here, save the error message provided by CVodes so
-//! that it can be included in the subsequently raised CanteraError. Used by
-//! SUNDIALS 7.0 and newer.
 #if SUNDIALS_VERSION_MAJOR >= 7
+    //! Function called by CVodes when an error is encountered instead of
+    //! writing to stdout. Here, save the error message provided by CVodes so
+    //! that it can be included in the subsequently raised CanteraError. Used by
+    //! SUNDIALS 7.0 and newer.
     static void sundials_err(int line, const char *func, const char *file,
                             const char *msg, SUNErrCode err_code,
                             void *err_user_data, SUNContext sunctx)
     {
         IdasIntegrator* integrator = (IdasIntegrator*) err_user_data;
         integrator->m_error_message = fmt::format("{}: {}\n", func, msg);
+    }
+#else
+    //! Function called by IDA when an error is encountered instead of writing to
+    //! stdout. Here, save the error message provided by IDA so that it can be included
+    //! in the subsequently raised CanteraError.
+    static void ida_err(int error_code, const char* module,
+                        const char* function, char* msg, void* eh_data)
+    {
+        IdasIntegrator* integrator = (IdasIntegrator*) eh_data;
+        integrator->m_error_message = msg;
+        integrator->m_error_message += "\n";
     }
 #endif
 
@@ -350,11 +350,6 @@ void IdasIntegrator::applyOptions()
         #else
             m_linsol_matrix = SUNDenseMatrix(N, N);
         #endif
-        #if SUNDIALS_VERSION_MAJOR >= 6
-            m_linsol_matrix = SUNDenseMatrix(N, N, m_sundials_ctx.get());
-        #else
-            m_linsol_matrix = SUNDenseMatrix(N, N);
-        #endif
         #if CT_SUNDIALS_USE_LAPACK
             #if SUNDIALS_VERSION_MAJOR >= 6
                 m_linsol = SUNLinSol_LapackDense(m_y, (SUNMatrix) m_linsol_matrix,
@@ -382,11 +377,8 @@ void IdasIntegrator::applyOptions()
         #if SUNDIALS_VERSION_MAJOR >= 6
             m_linsol = SUNLinSol_SPGMR(m_y, SUN_PREC_NONE, 0, m_sundials_ctx.get());
             IDASetLinearSolver(m_ida_mem, (SUNLinearSolver) m_linsol, nullptr);
-        #elif SUNDIALS_VERSION_MAJOR >= 4
-            m_linsol = SUNLinSol_SPGMR(m_y, PREC_NONE, 0);
-            IDASpilsSetLinearSolver(m_ida_mem, (SUNLinearSolver) m_linsol);
         #else
-            m_linsol = SUNSPGMR(m_y, PREC_NONE, 0);
+            m_linsol = SUNLinSol_SPGMR(m_y, PREC_NONE, 0);
             IDASpilsSetLinearSolver(m_ida_mem, (SUNLinearSolver) m_linsol);
         #endif
     } else {

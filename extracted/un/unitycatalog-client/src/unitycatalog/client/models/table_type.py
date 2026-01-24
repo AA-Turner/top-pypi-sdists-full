@@ -28,6 +28,8 @@ class TableType(str, Enum):
     """
     MANAGED = 'MANAGED'
     EXTERNAL = 'EXTERNAL'
+    STREAMING_TABLE = 'STREAMING_TABLE'
+    MATERIALIZED_VIEW = 'MATERIALIZED_VIEW'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

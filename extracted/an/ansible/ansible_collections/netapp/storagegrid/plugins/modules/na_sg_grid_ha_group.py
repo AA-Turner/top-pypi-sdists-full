@@ -40,7 +40,11 @@ options:
     type: str
   gateway_cidr:
     description:
-    - CIDR for the gateway IP and VIP subnet.
+    - The C(gateway_cidr) field specifies the gateway IP address and prefix length of the VIP subnet in CIDR notation. i.e. C(IP_address/prefix_length).
+    - This must match the subnet CIDR if any interface in the HA group already has an IP address configured.
+    - The IP address may be specified as the network address of the subnet, or as the gateway IP address within the subnet if clients will access the VIP
+      address from a different subnet.
+    - For example C(10.193.150.0/25) or C(10.193.150.1/25).
     type: str
   virtual_ips:
     description:
@@ -65,7 +69,23 @@ options:
 """
 
 EXAMPLES = """
-- name: create HA Group
+- name: create HA Group (layer 2)
+  netapp.storagegrid.na_sg_grid_ha_group:
+    api_url: "https://<storagegrid-endpoint-url>"
+    auth_token: "storagegrid-auth-token"
+    validate_certs: false
+    state: present
+    name: Site1-HA-Group
+    description: "Site 1 HA Group"
+    gateway_cidr: 192.168.50.0/24
+    virtual_ips: 192.168.50.5
+    interfaces:
+      - node: SITE1-ADM1
+        interface: eth2
+      - node: SITE1-G1
+        interface: eth2
+
+- name: create HA Group (routable)
   netapp.storagegrid.na_sg_grid_ha_group:
     api_url: "https://<storagegrid-endpoint-url>"
     auth_token: "storagegrid-auth-token"
@@ -206,6 +226,10 @@ class SgGridHaGroup:
         self.parameters = self.na_helper.set_parameters(self.module.params)
         # Calling generic SG rest_api class
         self.rest_api = SGRestAPI(self.module)
+        # Get API version
+        self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
+
         # Checking for the parameters passed and create new parameters list
         self.data = {}
 
@@ -220,7 +244,7 @@ class SgGridHaGroup:
     def build_node_interface_list(self):
         node_interfaces = []
 
-        api = "api/v3/grid/node-health"
+        api = "api/%s/grid/node-health" % self.api_version
         nodes, error = self.rest_api.get(api)
 
         if error:
@@ -241,7 +265,7 @@ class SgGridHaGroup:
     def get_ha_group_id(self):
         # Check if HA Group exists
         # Return HA Group info if found, or None
-        api = "api/v3/private/ha-groups"
+        api = "api/%s/private/ha-groups" % self.api_version
         response, error = self.rest_api.get(api)
 
         if error:
@@ -250,7 +274,7 @@ class SgGridHaGroup:
         return next((item["id"] for item in response.get("data") if item["name"] == self.parameters["name"]), None)
 
     def get_ha_group(self, ha_group_id):
-        api = "api/v3/private/ha-groups/%s" % ha_group_id
+        api = "api/%s/private/ha-groups/%s" % (self.api_version, ha_group_id)
         response, error = self.rest_api.get(api)
 
         if error:
@@ -259,7 +283,7 @@ class SgGridHaGroup:
         return response["data"]
 
     def create_ha_group(self):
-        api = "api/v3/private/ha-groups"
+        api = "api/%s/private/ha-groups" % self.api_version
         response, error = self.rest_api.post(api, self.data)
 
         if error:
@@ -268,14 +292,14 @@ class SgGridHaGroup:
         return response["data"]
 
     def delete_ha_group(self, ha_group_id):
-        api = "api/v3/private/ha-groups/%s" % ha_group_id
+        api = "api/%s/private/ha-groups/%s" % (self.api_version, ha_group_id)
         dummy, error = self.rest_api.delete(api, self.data)
 
         if error:
             self.module.fail_json(msg=error)
 
     def update_ha_group(self, ha_group_id):
-        api = "api/v3/private/ha-groups/%s" % ha_group_id
+        api = "api/%s/private/ha-groups/%s" % (self.api_version, ha_group_id)
         response, error = self.rest_api.put(api, self.data)
 
         if error:

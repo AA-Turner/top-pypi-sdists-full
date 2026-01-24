@@ -20,11 +20,14 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 dependencies = [
     "python-dateutil>=2.7.0",
-    "types-python-dateutil>=2.8.10",
+    "backports.zoneinfo==0.2.1;python_version<'3.9'",
+    "tzdata;python_version>='3.9'",
 ]
 requires-python = ">=3.8"
 description = "Better dates & times for Python"
@@ -46,7 +49,7 @@ test = [
     "pytest",
     "pytest-cov",
     "pytest-mock",
-    "pytz==2021.1",
+    "pytz==2025.2",
     "simplejson==3.*",
 ]
 doc = [

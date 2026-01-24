@@ -1,11 +1,14 @@
 import io
 import logging
 import sys
-from typing import List, Union
+from typing import Union
 
 import pytest
 
+from bigtree.binarytree import binarytree
+from bigtree.dag import dag
 from bigtree.node import basenode, binarynode, dagnode, node
+from bigtree.tree import tree
 
 
 @pytest.fixture
@@ -73,6 +76,16 @@ def tree_node():
 
 
 @pytest.fixture
+def tree_tree(tree_node):
+    return tree.Tree(tree_node)
+
+
+@pytest.fixture
+def tree_tree_diff(tree_node_diff):
+    return tree.Tree(tree_node_diff)
+
+
+@pytest.fixture
 def tree_node2():
     """
     Tree should have structure
@@ -128,6 +141,11 @@ def dag_node():
 
 
 @pytest.fixture
+def dag_dag(dag_node):
+    return dag.DAG(dag_node)
+
+
+@pytest.fixture
 def dag_node_child():
     a = dagnode.DAGNode("a", age=90)
     b = dagnode.DAGNode("b", age=65)
@@ -175,6 +193,11 @@ def binarytree_node():
     return a
 
 
+@pytest.fixture
+def binarytree_tree(binarytree_node):
+    return binarytree.BinaryTree(binarytree_node)
+
+
 def pytest_benchmark_scale_unit(config, unit, benchmarks, best, worst, sort):
     prefix = ""
     if unit == "seconds":
@@ -196,7 +219,7 @@ def assert_print_statement(func, expected, *args, **kwargs):
     assert actual == expected, f"Expected\n{expected}\nReceived\n{actual}"
 
 
-def assert_console_output(expected: Union[List[str], str]):
+def assert_console_output(expected: Union[list[str], str]):
     def _decorator(func):
         def wrapper(caplog, *args, **kwargs):
             caplog.set_level(logging.DEBUG)

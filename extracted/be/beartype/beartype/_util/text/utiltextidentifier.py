@@ -13,7 +13,7 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar._roarexc import _BeartypeUtilTextIdentifierException
-from beartype._data.hint.datahinttyping import TypeException
+from beartype._data.typing.datatyping import TypeException
 
 # ....................{ RAISERS                            }....................
 def die_unless_identifier(
@@ -82,6 +82,7 @@ def is_dunder(text: str) -> bool:
     '''
     assert isinstance(text, str), f'{repr(text)} not string.'
 
+    #FIXME: *INSUFFICIENT.* We also need to call is_identifier() here. *sigh*
     # Return us up the powerful one-liner of power.
     return text.startswith('__') and text.endswith('__')
 
@@ -97,7 +98,7 @@ def is_identifier(text: str) -> bool:
     fully-qualified name of an arbitrary Python object.
 
     Caveats
-    ----------
+    -------
     **This tester is mildly slow,** due to unavoidably splitting this string on
     ``.`` delimiters and iteratively passing each of the split substrings to
     the :meth:`str.isidentifier` builtin. Due to the following caveat, this

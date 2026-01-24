@@ -3,6 +3,25 @@
 # isort: skip_file
 
 from .aggregation_data import AggregationData
+from .alert import Alert
+from .alert_alert_type import AlertAlertType
+from .alert_page_public import AlertPagePublic
+from .alert_public import AlertPublic
+from .alert_public_alert_type import AlertPublicAlertType
+from .alert_trigger import AlertTrigger
+from .alert_trigger_config import AlertTriggerConfig
+from .alert_trigger_config_public import AlertTriggerConfigPublic
+from .alert_trigger_config_public_type import AlertTriggerConfigPublicType
+from .alert_trigger_config_type import AlertTriggerConfigType
+from .alert_trigger_config_write import AlertTriggerConfigWrite
+from .alert_trigger_config_write_type import AlertTriggerConfigWriteType
+from .alert_trigger_event_type import AlertTriggerEventType
+from .alert_trigger_public import AlertTriggerPublic
+from .alert_trigger_public_event_type import AlertTriggerPublicEventType
+from .alert_trigger_write import AlertTriggerWrite
+from .alert_trigger_write_event_type import AlertTriggerWriteEventType
+from .alert_write import AlertWrite
+from .alert_write_alert_type import AlertWriteAlertType
 from .annotation_queue import AnnotationQueue
 from .annotation_queue_batch import AnnotationQueueBatch
 from .annotation_queue_item_ids import AnnotationQueueItemIds
@@ -18,31 +37,55 @@ from .assistant_message import AssistantMessage
 from .assistant_message_role import AssistantMessageRole
 from .attachment import Attachment
 from .attachment_page import AttachmentPage
+from .audio_url import AudioUrl
+from .audio_url_public import AudioUrlPublic
+from .audio_url_write import AudioUrlWrite
 from .auth_details_holder import AuthDetailsHolder
 from .automation_rule_evaluator import (
     AutomationRuleEvaluator,
     AutomationRuleEvaluator_LlmAsJudge,
+    AutomationRuleEvaluator_SpanLlmAsJudge,
+    AutomationRuleEvaluator_SpanUserDefinedMetricPython,
     AutomationRuleEvaluator_TraceThreadLlmAsJudge,
     AutomationRuleEvaluator_TraceThreadUserDefinedMetricPython,
     AutomationRuleEvaluator_UserDefinedMetricPython,
 )
+from .automation_rule_evaluator_action import AutomationRuleEvaluatorAction
 from .automation_rule_evaluator_llm_as_judge import AutomationRuleEvaluatorLlmAsJudge
 from .automation_rule_evaluator_llm_as_judge_public import AutomationRuleEvaluatorLlmAsJudgePublic
 from .automation_rule_evaluator_llm_as_judge_write import AutomationRuleEvaluatorLlmAsJudgeWrite
-from .automation_rule_evaluator_object_public import (
-    AutomationRuleEvaluatorObjectPublic,
-    AutomationRuleEvaluatorObjectPublic_LlmAsJudge,
-    AutomationRuleEvaluatorObjectPublic_TraceThreadLlmAsJudge,
-    AutomationRuleEvaluatorObjectPublic_TraceThreadUserDefinedMetricPython,
-    AutomationRuleEvaluatorObjectPublic_UserDefinedMetricPython,
+from .automation_rule_evaluator_object_object_public import (
+    AutomationRuleEvaluatorObjectObjectPublic,
+    AutomationRuleEvaluatorObjectObjectPublic_LlmAsJudge,
+    AutomationRuleEvaluatorObjectObjectPublic_SpanLlmAsJudge,
+    AutomationRuleEvaluatorObjectObjectPublic_SpanUserDefinedMetricPython,
+    AutomationRuleEvaluatorObjectObjectPublic_TraceThreadLlmAsJudge,
+    AutomationRuleEvaluatorObjectObjectPublic_TraceThreadUserDefinedMetricPython,
+    AutomationRuleEvaluatorObjectObjectPublic_UserDefinedMetricPython,
 )
+from .automation_rule_evaluator_object_object_public_action import AutomationRuleEvaluatorObjectObjectPublicAction
 from .automation_rule_evaluator_page_public import AutomationRuleEvaluatorPagePublic
 from .automation_rule_evaluator_public import (
     AutomationRuleEvaluatorPublic,
     AutomationRuleEvaluatorPublic_LlmAsJudge,
+    AutomationRuleEvaluatorPublic_SpanLlmAsJudge,
+    AutomationRuleEvaluatorPublic_SpanUserDefinedMetricPython,
     AutomationRuleEvaluatorPublic_TraceThreadLlmAsJudge,
     AutomationRuleEvaluatorPublic_TraceThreadUserDefinedMetricPython,
     AutomationRuleEvaluatorPublic_UserDefinedMetricPython,
+)
+from .automation_rule_evaluator_public_action import AutomationRuleEvaluatorPublicAction
+from .automation_rule_evaluator_span_llm_as_judge import AutomationRuleEvaluatorSpanLlmAsJudge
+from .automation_rule_evaluator_span_llm_as_judge_public import AutomationRuleEvaluatorSpanLlmAsJudgePublic
+from .automation_rule_evaluator_span_llm_as_judge_write import AutomationRuleEvaluatorSpanLlmAsJudgeWrite
+from .automation_rule_evaluator_span_user_defined_metric_python import (
+    AutomationRuleEvaluatorSpanUserDefinedMetricPython,
+)
+from .automation_rule_evaluator_span_user_defined_metric_python_public import (
+    AutomationRuleEvaluatorSpanUserDefinedMetricPythonPublic,
+)
+from .automation_rule_evaluator_span_user_defined_metric_python_write import (
+    AutomationRuleEvaluatorSpanUserDefinedMetricPythonWrite,
 )
 from .automation_rule_evaluator_trace_thread_llm_as_judge import AutomationRuleEvaluatorTraceThreadLlmAsJudge
 from .automation_rule_evaluator_trace_thread_llm_as_judge_public import (
@@ -61,11 +104,18 @@ from .automation_rule_evaluator_trace_thread_user_defined_metric_python_write im
 from .automation_rule_evaluator_update import (
     AutomationRuleEvaluatorUpdate,
     AutomationRuleEvaluatorUpdate_LlmAsJudge,
+    AutomationRuleEvaluatorUpdate_SpanLlmAsJudge,
+    AutomationRuleEvaluatorUpdate_SpanUserDefinedMetricPython,
     AutomationRuleEvaluatorUpdate_TraceThreadLlmAsJudge,
     AutomationRuleEvaluatorUpdate_TraceThreadUserDefinedMetricPython,
     AutomationRuleEvaluatorUpdate_UserDefinedMetricPython,
 )
+from .automation_rule_evaluator_update_action import AutomationRuleEvaluatorUpdateAction
 from .automation_rule_evaluator_update_llm_as_judge import AutomationRuleEvaluatorUpdateLlmAsJudge
+from .automation_rule_evaluator_update_span_llm_as_judge import AutomationRuleEvaluatorUpdateSpanLlmAsJudge
+from .automation_rule_evaluator_update_span_user_defined_metric_python import (
+    AutomationRuleEvaluatorUpdateSpanUserDefinedMetricPython,
+)
 from .automation_rule_evaluator_update_trace_thread_llm_as_judge import (
     AutomationRuleEvaluatorUpdateTraceThreadLlmAsJudge,
 )
@@ -85,15 +135,26 @@ from .automation_rule_evaluator_user_defined_metric_python_write import (
 from .automation_rule_evaluator_write import (
     AutomationRuleEvaluatorWrite,
     AutomationRuleEvaluatorWrite_LlmAsJudge,
+    AutomationRuleEvaluatorWrite_SpanLlmAsJudge,
+    AutomationRuleEvaluatorWrite_SpanUserDefinedMetricPython,
     AutomationRuleEvaluatorWrite_TraceThreadLlmAsJudge,
     AutomationRuleEvaluatorWrite_TraceThreadUserDefinedMetricPython,
     AutomationRuleEvaluatorWrite_UserDefinedMetricPython,
 )
+from .automation_rule_evaluator_write_action import AutomationRuleEvaluatorWriteAction
 from .avg_value_stat_public import AvgValueStatPublic
 from .batch_delete import BatchDelete
 from .batch_delete_by_project import BatchDeleteByProject
 from .bi_information import BiInformation
 from .bi_information_response import BiInformationResponse
+from .boolean_feedback_definition import BooleanFeedbackDefinition
+from .boolean_feedback_definition_create import BooleanFeedbackDefinitionCreate
+from .boolean_feedback_definition_public import BooleanFeedbackDefinitionPublic
+from .boolean_feedback_definition_update import BooleanFeedbackDefinitionUpdate
+from .boolean_feedback_detail import BooleanFeedbackDetail
+from .boolean_feedback_detail_create import BooleanFeedbackDetailCreate
+from .boolean_feedback_detail_public import BooleanFeedbackDetailPublic
+from .boolean_feedback_detail_update import BooleanFeedbackDetailUpdate
 from .categorical_feedback_definition import CategoricalFeedbackDefinition
 from .categorical_feedback_definition_create import CategoricalFeedbackDefinitionCreate
 from .categorical_feedback_definition_public import CategoricalFeedbackDefinitionPublic
@@ -127,25 +188,41 @@ from .complete_multipart_upload_request import CompleteMultipartUploadRequest
 from .complete_multipart_upload_request_entity_type import CompleteMultipartUploadRequestEntityType
 from .completion_tokens_details import CompletionTokensDetails
 from .count_value_stat_public import CountValueStatPublic
+from .dashboard_page_public import DashboardPagePublic
+from .dashboard_public import DashboardPublic
 from .data_point_double import DataPointDouble
 from .data_point_number_public import DataPointNumberPublic
 from .dataset import Dataset
 from .dataset_expansion import DatasetExpansion
 from .dataset_expansion_response import DatasetExpansionResponse
+from .dataset_export_job_public import DatasetExportJobPublic
+from .dataset_export_job_public_status import DatasetExportJobPublicStatus
 from .dataset_item import DatasetItem
 from .dataset_item_batch import DatasetItemBatch
+from .dataset_item_changes_public import DatasetItemChangesPublic
 from .dataset_item_compare import DatasetItemCompare
 from .dataset_item_compare_source import DatasetItemCompareSource
+from .dataset_item_filter import DatasetItemFilter
+from .dataset_item_filter_operator import DatasetItemFilterOperator
 from .dataset_item_page_compare import DatasetItemPageCompare
 from .dataset_item_page_public import DatasetItemPagePublic
 from .dataset_item_public import DatasetItemPublic
 from .dataset_item_public_source import DatasetItemPublicSource
 from .dataset_item_source import DatasetItemSource
+from .dataset_item_update import DatasetItemUpdate
 from .dataset_item_write import DatasetItemWrite
 from .dataset_item_write_source import DatasetItemWriteSource
 from .dataset_page_public import DatasetPagePublic
 from .dataset_public import DatasetPublic
+from .dataset_public_status import DatasetPublicStatus
 from .dataset_public_visibility import DatasetPublicVisibility
+from .dataset_status import DatasetStatus
+from .dataset_version_diff import DatasetVersionDiff
+from .dataset_version_diff_stats import DatasetVersionDiffStats
+from .dataset_version_page_public import DatasetVersionPagePublic
+from .dataset_version_public import DatasetVersionPublic
+from .dataset_version_summary import DatasetVersionSummary
+from .dataset_version_summary_public import DatasetVersionSummaryPublic
 from .dataset_visibility import DatasetVisibility
 from .delete_attachments_request import DeleteAttachmentsRequest
 from .delete_attachments_request_entity_type import DeleteAttachmentsRequestEntityType
@@ -178,18 +255,37 @@ from .experiment_item_public_trace_visibility_mode import ExperimentItemPublicTr
 from .experiment_item_trace_visibility_mode import ExperimentItemTraceVisibilityMode
 from .experiment_page_public import ExperimentPagePublic
 from .experiment_public import ExperimentPublic
+from .experiment_public_status import ExperimentPublicStatus
 from .experiment_public_type import ExperimentPublicType
+from .experiment_score import ExperimentScore
+from .experiment_score_public import ExperimentScorePublic
+from .experiment_score_write import ExperimentScoreWrite
+from .experiment_status import ExperimentStatus
 from .experiment_type import ExperimentType
+from .experiment_update import ExperimentUpdate
+from .experiment_update_status import ExperimentUpdateStatus
+from .experiment_update_type import ExperimentUpdateType
 from .export_trace_service_request import ExportTraceServiceRequest
-from .feedback import Feedback, Feedback_Categorical, Feedback_Numerical
-from .feedback_create import FeedbackCreate, FeedbackCreate_Categorical, FeedbackCreate_Numerical
+from .feedback import Feedback, Feedback_Boolean, Feedback_Categorical, Feedback_Numerical
+from .feedback_create import (
+    FeedbackCreate,
+    FeedbackCreate_Boolean,
+    FeedbackCreate_Categorical,
+    FeedbackCreate_Numerical,
+)
 from .feedback_definition_page_public import FeedbackDefinitionPagePublic
 from .feedback_object_public import (
     FeedbackObjectPublic,
+    FeedbackObjectPublic_Boolean,
     FeedbackObjectPublic_Categorical,
     FeedbackObjectPublic_Numerical,
 )
-from .feedback_public import FeedbackPublic, FeedbackPublic_Categorical, FeedbackPublic_Numerical
+from .feedback_public import (
+    FeedbackPublic,
+    FeedbackPublic_Boolean,
+    FeedbackPublic_Categorical,
+    FeedbackPublic_Numerical,
+)
 from .feedback_score import FeedbackScore
 from .feedback_score_average import FeedbackScoreAverage
 from .feedback_score_average_detailed import FeedbackScoreAverageDetailed
@@ -207,11 +303,18 @@ from .feedback_score_names import FeedbackScoreNames
 from .feedback_score_public import FeedbackScorePublic
 from .feedback_score_public_source import FeedbackScorePublicSource
 from .feedback_score_source import FeedbackScoreSource
-from .feedback_update import FeedbackUpdate, FeedbackUpdate_Categorical, FeedbackUpdate_Numerical
+from .feedback_update import (
+    FeedbackUpdate,
+    FeedbackUpdate_Boolean,
+    FeedbackUpdate_Categorical,
+    FeedbackUpdate_Numerical,
+)
 from .function import Function
 from .function_call import FunctionCall
 from .group_content import GroupContent
 from .group_content_with_aggregations import GroupContentWithAggregations
+from .group_detail import GroupDetail
+from .group_details import GroupDetails
 from .guardrail import Guardrail
 from .guardrail_batch import GuardrailBatch
 from .guardrail_name import GuardrailName
@@ -221,6 +324,10 @@ from .guardrail_write_name import GuardrailWriteName
 from .guardrail_write_result import GuardrailWriteResult
 from .guardrails_validation import GuardrailsValidation
 from .guardrails_validation_public import GuardrailsValidationPublic
+from .ids_holder import IdsHolder
+from .image_url import ImageUrl
+from .image_url_public import ImageUrlPublic
+from .image_url_write import ImageUrlWrite
 from .json_list_string import JsonListString
 from .json_list_string_compare import JsonListStringCompare
 from .json_list_string_experiment_item_bulk_write_view import JsonListStringExperimentItemBulkWriteView
@@ -235,6 +342,9 @@ from .llm_as_judge_code import LlmAsJudgeCode
 from .llm_as_judge_code_public import LlmAsJudgeCodePublic
 from .llm_as_judge_code_write import LlmAsJudgeCodeWrite
 from .llm_as_judge_message import LlmAsJudgeMessage
+from .llm_as_judge_message_content import LlmAsJudgeMessageContent
+from .llm_as_judge_message_content_public import LlmAsJudgeMessageContentPublic
+from .llm_as_judge_message_content_write import LlmAsJudgeMessageContentWrite
 from .llm_as_judge_message_public import LlmAsJudgeMessagePublic
 from .llm_as_judge_message_public_role import LlmAsJudgeMessagePublicRole
 from .llm_as_judge_message_role import LlmAsJudgeMessageRole
@@ -252,6 +362,9 @@ from .llm_as_judge_output_schema_write_type import LlmAsJudgeOutputSchemaWriteTy
 from .log_item import LogItem
 from .log_item_level import LogItemLevel
 from .log_page import LogPage
+from .manual_evaluation_request import ManualEvaluationRequest
+from .manual_evaluation_request_entity_type import ManualEvaluationRequestEntityType
+from .manual_evaluation_response import ManualEvaluationResponse
 from .message import Message
 from .multipart_upload_part import MultipartUploadPart
 from .numerical_feedback_definition import NumericalFeedbackDefinition
@@ -267,6 +380,10 @@ from .optimization_page_public import OptimizationPagePublic
 from .optimization_public import OptimizationPublic
 from .optimization_public_status import OptimizationPublicStatus
 from .optimization_status import OptimizationStatus
+from .optimization_studio_config import OptimizationStudioConfig
+from .optimization_studio_config_public import OptimizationStudioConfigPublic
+from .optimization_studio_config_write import OptimizationStudioConfigWrite
+from .optimization_studio_log import OptimizationStudioLog
 from .optimization_write import OptimizationWrite
 from .optimization_write_status import OptimizationWriteStatus
 from .page_columns import PageColumns
@@ -283,6 +400,8 @@ from .project_metric_response_public_metric_type import ProjectMetricResponsePub
 from .project_page_public import ProjectPagePublic
 from .project_public import ProjectPublic
 from .project_public_visibility import ProjectPublicVisibility
+from .project_reference import ProjectReference
+from .project_reference_public import ProjectReferencePublic
 from .project_stat_item_object_public import (
     ProjectStatItemObjectPublic,
     ProjectStatItemObjectPublic_Avg,
@@ -295,20 +414,27 @@ from .project_stats_summary_item import ProjectStatsSummaryItem
 from .project_visibility import ProjectVisibility
 from .prompt import Prompt
 from .prompt_detail import PromptDetail
+from .prompt_detail_template_structure import PromptDetailTemplateStructure
 from .prompt_page_public import PromptPagePublic
 from .prompt_public import PromptPublic
+from .prompt_public_template_structure import PromptPublicTemplateStructure
+from .prompt_template_structure import PromptTemplateStructure
 from .prompt_tokens_details import PromptTokensDetails
 from .prompt_type import PromptType
 from .prompt_version import PromptVersion
 from .prompt_version_detail import PromptVersionDetail
+from .prompt_version_detail_template_structure import PromptVersionDetailTemplateStructure
 from .prompt_version_detail_type import PromptVersionDetailType
 from .prompt_version_link import PromptVersionLink
 from .prompt_version_link_public import PromptVersionLinkPublic
 from .prompt_version_link_write import PromptVersionLinkWrite
 from .prompt_version_page_public import PromptVersionPagePublic
 from .prompt_version_public import PromptVersionPublic
+from .prompt_version_public_template_structure import PromptVersionPublicTemplateStructure
 from .prompt_version_public_type import PromptVersionPublicType
+from .prompt_version_template_structure import PromptVersionTemplateStructure
 from .prompt_version_type import PromptVersionType
+from .prompt_version_update import PromptVersionUpdate
 from .provider_api_key import ProviderApiKey
 from .provider_api_key_page_public import ProviderApiKeyPagePublic
 from .provider_api_key_provider import ProviderApiKeyProvider
@@ -322,27 +448,65 @@ from .score_name import ScoreName
 from .service_toggles_config import ServiceTogglesConfig
 from .span import Span
 from .span_batch import SpanBatch
+from .span_enrichment_options import SpanEnrichmentOptions
 from .span_experiment_item_bulk_write_view import SpanExperimentItemBulkWriteView
 from .span_experiment_item_bulk_write_view_type import SpanExperimentItemBulkWriteViewType
+from .span_filter import SpanFilter
+from .span_filter_operator import SpanFilterOperator
 from .span_filter_public import SpanFilterPublic
 from .span_filter_public_operator import SpanFilterPublicOperator
+from .span_filter_write import SpanFilterWrite
+from .span_filter_write_operator import SpanFilterWriteOperator
+from .span_llm_as_judge_code import SpanLlmAsJudgeCode
+from .span_llm_as_judge_code_public import SpanLlmAsJudgeCodePublic
+from .span_llm_as_judge_code_write import SpanLlmAsJudgeCodeWrite
 from .span_page_public import SpanPagePublic
 from .span_public import SpanPublic
 from .span_public_type import SpanPublicType
 from .span_type import SpanType
+from .span_update import SpanUpdate
+from .span_update_type import SpanUpdateType
+from .span_user_defined_metric_python_code import SpanUserDefinedMetricPythonCode
+from .span_user_defined_metric_python_code_public import SpanUserDefinedMetricPythonCodePublic
+from .span_user_defined_metric_python_code_write import SpanUserDefinedMetricPythonCodeWrite
 from .span_write import SpanWrite
 from .span_write_type import SpanWriteType
 from .spans_count_response import SpansCountResponse
 from .start_multipart_upload_response import StartMultipartUploadResponse
 from .stream_options import StreamOptions
+from .studio_evaluation import StudioEvaluation
+from .studio_evaluation_public import StudioEvaluationPublic
+from .studio_evaluation_write import StudioEvaluationWrite
+from .studio_llm_model import StudioLlmModel
+from .studio_llm_model_public import StudioLlmModelPublic
+from .studio_llm_model_write import StudioLlmModelWrite
+from .studio_message import StudioMessage
+from .studio_message_public import StudioMessagePublic
+from .studio_message_write import StudioMessageWrite
+from .studio_metric import StudioMetric
+from .studio_metric_public import StudioMetricPublic
+from .studio_metric_write import StudioMetricWrite
+from .studio_optimizer import StudioOptimizer
+from .studio_optimizer_public import StudioOptimizerPublic
+from .studio_optimizer_write import StudioOptimizerWrite
+from .studio_prompt import StudioPrompt
+from .studio_prompt_public import StudioPromptPublic
+from .studio_prompt_write import StudioPromptWrite
 from .tool import Tool
 from .tool_call import ToolCall
+from .tool_call_type import ToolCallType
+from .tool_type import ToolType
 from .trace import Trace
 from .trace_batch import TraceBatch
 from .trace_count_response import TraceCountResponse
+from .trace_enrichment_options import TraceEnrichmentOptions
 from .trace_experiment_item_bulk_write_view import TraceExperimentItemBulkWriteView
+from .trace_filter import TraceFilter
+from .trace_filter_operator import TraceFilterOperator
 from .trace_filter_public import TraceFilterPublic
 from .trace_filter_public_operator import TraceFilterPublicOperator
+from .trace_filter_write import TraceFilterWrite
+from .trace_filter_write_operator import TraceFilterWriteOperator
 from .trace_page_public import TracePagePublic
 from .trace_public import TracePublic
 from .trace_public_visibility_mode import TracePublicVisibilityMode
@@ -351,15 +515,19 @@ from .trace_thread_filter import TraceThreadFilter
 from .trace_thread_filter_operator import TraceThreadFilterOperator
 from .trace_thread_filter_public import TraceThreadFilterPublic
 from .trace_thread_filter_public_operator import TraceThreadFilterPublicOperator
+from .trace_thread_filter_write import TraceThreadFilterWrite
+from .trace_thread_filter_write_operator import TraceThreadFilterWriteOperator
 from .trace_thread_identifier import TraceThreadIdentifier
 from .trace_thread_llm_as_judge_code import TraceThreadLlmAsJudgeCode
 from .trace_thread_llm_as_judge_code_public import TraceThreadLlmAsJudgeCodePublic
 from .trace_thread_llm_as_judge_code_write import TraceThreadLlmAsJudgeCodeWrite
 from .trace_thread_page import TraceThreadPage
 from .trace_thread_status import TraceThreadStatus
+from .trace_thread_update import TraceThreadUpdate
 from .trace_thread_user_defined_metric_python_code import TraceThreadUserDefinedMetricPythonCode
 from .trace_thread_user_defined_metric_python_code_public import TraceThreadUserDefinedMetricPythonCodePublic
 from .trace_thread_user_defined_metric_python_code_write import TraceThreadUserDefinedMetricPythonCodeWrite
+from .trace_update import TraceUpdate
 from .trace_visibility_mode import TraceVisibilityMode
 from .trace_write import TraceWrite
 from .usage import Usage
@@ -374,6 +542,16 @@ from .value_entry_experiment_item_bulk_write_view_source import ValueEntryExperi
 from .value_entry_public import ValueEntryPublic
 from .value_entry_public_source import ValueEntryPublicSource
 from .value_entry_source import ValueEntrySource
+from .video_url import VideoUrl
+from .video_url_public import VideoUrlPublic
+from .video_url_write import VideoUrlWrite
+from .webhook import Webhook
+from .webhook_examples import WebhookExamples
+from .webhook_public import WebhookPublic
+from .webhook_test_result import WebhookTestResult
+from .webhook_test_result_status import WebhookTestResultStatus
+from .webhook_write import WebhookWrite
+from .welcome_wizard_tracking import WelcomeWizardTracking
 from .workspace_configuration import WorkspaceConfiguration
 from .workspace_metric_request import WorkspaceMetricRequest
 from .workspace_metric_response import WorkspaceMetricResponse
@@ -385,6 +563,25 @@ from .workspace_trace_count import WorkspaceTraceCount
 
 __all__ = [
     "AggregationData",
+    "Alert",
+    "AlertAlertType",
+    "AlertPagePublic",
+    "AlertPublic",
+    "AlertPublicAlertType",
+    "AlertTrigger",
+    "AlertTriggerConfig",
+    "AlertTriggerConfigPublic",
+    "AlertTriggerConfigPublicType",
+    "AlertTriggerConfigType",
+    "AlertTriggerConfigWrite",
+    "AlertTriggerConfigWriteType",
+    "AlertTriggerEventType",
+    "AlertTriggerPublic",
+    "AlertTriggerPublicEventType",
+    "AlertTriggerWrite",
+    "AlertTriggerWriteEventType",
+    "AlertWrite",
+    "AlertWriteAlertType",
     "AnnotationQueue",
     "AnnotationQueueBatch",
     "AnnotationQueueItemIds",
@@ -400,22 +597,38 @@ __all__ = [
     "AssistantMessageRole",
     "Attachment",
     "AttachmentPage",
+    "AudioUrl",
+    "AudioUrlPublic",
+    "AudioUrlWrite",
     "AuthDetailsHolder",
     "AutomationRuleEvaluator",
+    "AutomationRuleEvaluatorAction",
     "AutomationRuleEvaluatorLlmAsJudge",
     "AutomationRuleEvaluatorLlmAsJudgePublic",
     "AutomationRuleEvaluatorLlmAsJudgeWrite",
-    "AutomationRuleEvaluatorObjectPublic",
-    "AutomationRuleEvaluatorObjectPublic_LlmAsJudge",
-    "AutomationRuleEvaluatorObjectPublic_TraceThreadLlmAsJudge",
-    "AutomationRuleEvaluatorObjectPublic_TraceThreadUserDefinedMetricPython",
-    "AutomationRuleEvaluatorObjectPublic_UserDefinedMetricPython",
+    "AutomationRuleEvaluatorObjectObjectPublic",
+    "AutomationRuleEvaluatorObjectObjectPublicAction",
+    "AutomationRuleEvaluatorObjectObjectPublic_LlmAsJudge",
+    "AutomationRuleEvaluatorObjectObjectPublic_SpanLlmAsJudge",
+    "AutomationRuleEvaluatorObjectObjectPublic_SpanUserDefinedMetricPython",
+    "AutomationRuleEvaluatorObjectObjectPublic_TraceThreadLlmAsJudge",
+    "AutomationRuleEvaluatorObjectObjectPublic_TraceThreadUserDefinedMetricPython",
+    "AutomationRuleEvaluatorObjectObjectPublic_UserDefinedMetricPython",
     "AutomationRuleEvaluatorPagePublic",
     "AutomationRuleEvaluatorPublic",
+    "AutomationRuleEvaluatorPublicAction",
     "AutomationRuleEvaluatorPublic_LlmAsJudge",
+    "AutomationRuleEvaluatorPublic_SpanLlmAsJudge",
+    "AutomationRuleEvaluatorPublic_SpanUserDefinedMetricPython",
     "AutomationRuleEvaluatorPublic_TraceThreadLlmAsJudge",
     "AutomationRuleEvaluatorPublic_TraceThreadUserDefinedMetricPython",
     "AutomationRuleEvaluatorPublic_UserDefinedMetricPython",
+    "AutomationRuleEvaluatorSpanLlmAsJudge",
+    "AutomationRuleEvaluatorSpanLlmAsJudgePublic",
+    "AutomationRuleEvaluatorSpanLlmAsJudgeWrite",
+    "AutomationRuleEvaluatorSpanUserDefinedMetricPython",
+    "AutomationRuleEvaluatorSpanUserDefinedMetricPythonPublic",
+    "AutomationRuleEvaluatorSpanUserDefinedMetricPythonWrite",
     "AutomationRuleEvaluatorTraceThreadLlmAsJudge",
     "AutomationRuleEvaluatorTraceThreadLlmAsJudgePublic",
     "AutomationRuleEvaluatorTraceThreadLlmAsJudgeWrite",
@@ -423,11 +636,16 @@ __all__ = [
     "AutomationRuleEvaluatorTraceThreadUserDefinedMetricPythonPublic",
     "AutomationRuleEvaluatorTraceThreadUserDefinedMetricPythonWrite",
     "AutomationRuleEvaluatorUpdate",
+    "AutomationRuleEvaluatorUpdateAction",
     "AutomationRuleEvaluatorUpdateLlmAsJudge",
+    "AutomationRuleEvaluatorUpdateSpanLlmAsJudge",
+    "AutomationRuleEvaluatorUpdateSpanUserDefinedMetricPython",
     "AutomationRuleEvaluatorUpdateTraceThreadLlmAsJudge",
     "AutomationRuleEvaluatorUpdateTraceThreadUserDefinedMetricPython",
     "AutomationRuleEvaluatorUpdateUserDefinedMetricPython",
     "AutomationRuleEvaluatorUpdate_LlmAsJudge",
+    "AutomationRuleEvaluatorUpdate_SpanLlmAsJudge",
+    "AutomationRuleEvaluatorUpdate_SpanUserDefinedMetricPython",
     "AutomationRuleEvaluatorUpdate_TraceThreadLlmAsJudge",
     "AutomationRuleEvaluatorUpdate_TraceThreadUserDefinedMetricPython",
     "AutomationRuleEvaluatorUpdate_UserDefinedMetricPython",
@@ -435,11 +653,16 @@ __all__ = [
     "AutomationRuleEvaluatorUserDefinedMetricPythonPublic",
     "AutomationRuleEvaluatorUserDefinedMetricPythonWrite",
     "AutomationRuleEvaluatorWrite",
+    "AutomationRuleEvaluatorWriteAction",
     "AutomationRuleEvaluatorWrite_LlmAsJudge",
+    "AutomationRuleEvaluatorWrite_SpanLlmAsJudge",
+    "AutomationRuleEvaluatorWrite_SpanUserDefinedMetricPython",
     "AutomationRuleEvaluatorWrite_TraceThreadLlmAsJudge",
     "AutomationRuleEvaluatorWrite_TraceThreadUserDefinedMetricPython",
     "AutomationRuleEvaluatorWrite_UserDefinedMetricPython",
     "AutomationRuleEvaluator_LlmAsJudge",
+    "AutomationRuleEvaluator_SpanLlmAsJudge",
+    "AutomationRuleEvaluator_SpanUserDefinedMetricPython",
     "AutomationRuleEvaluator_TraceThreadLlmAsJudge",
     "AutomationRuleEvaluator_TraceThreadUserDefinedMetricPython",
     "AutomationRuleEvaluator_UserDefinedMetricPython",
@@ -448,6 +671,14 @@ __all__ = [
     "BatchDeleteByProject",
     "BiInformation",
     "BiInformationResponse",
+    "BooleanFeedbackDefinition",
+    "BooleanFeedbackDefinitionCreate",
+    "BooleanFeedbackDefinitionPublic",
+    "BooleanFeedbackDefinitionUpdate",
+    "BooleanFeedbackDetail",
+    "BooleanFeedbackDetailCreate",
+    "BooleanFeedbackDetailPublic",
+    "BooleanFeedbackDetailUpdate",
     "CategoricalFeedbackDefinition",
     "CategoricalFeedbackDefinitionCreate",
     "CategoricalFeedbackDefinitionPublic",
@@ -481,25 +712,41 @@ __all__ = [
     "CompleteMultipartUploadRequestEntityType",
     "CompletionTokensDetails",
     "CountValueStatPublic",
+    "DashboardPagePublic",
+    "DashboardPublic",
     "DataPointDouble",
     "DataPointNumberPublic",
     "Dataset",
     "DatasetExpansion",
     "DatasetExpansionResponse",
+    "DatasetExportJobPublic",
+    "DatasetExportJobPublicStatus",
     "DatasetItem",
     "DatasetItemBatch",
+    "DatasetItemChangesPublic",
     "DatasetItemCompare",
     "DatasetItemCompareSource",
+    "DatasetItemFilter",
+    "DatasetItemFilterOperator",
     "DatasetItemPageCompare",
     "DatasetItemPagePublic",
     "DatasetItemPublic",
     "DatasetItemPublicSource",
     "DatasetItemSource",
+    "DatasetItemUpdate",
     "DatasetItemWrite",
     "DatasetItemWriteSource",
     "DatasetPagePublic",
     "DatasetPublic",
+    "DatasetPublicStatus",
     "DatasetPublicVisibility",
+    "DatasetStatus",
+    "DatasetVersionDiff",
+    "DatasetVersionDiffStats",
+    "DatasetVersionPagePublic",
+    "DatasetVersionPublic",
+    "DatasetVersionSummary",
+    "DatasetVersionSummaryPublic",
     "DatasetVisibility",
     "DeleteAttachmentsRequest",
     "DeleteAttachmentsRequestEntityType",
@@ -530,18 +777,29 @@ __all__ = [
     "ExperimentItemTraceVisibilityMode",
     "ExperimentPagePublic",
     "ExperimentPublic",
+    "ExperimentPublicStatus",
     "ExperimentPublicType",
+    "ExperimentScore",
+    "ExperimentScorePublic",
+    "ExperimentScoreWrite",
+    "ExperimentStatus",
     "ExperimentType",
+    "ExperimentUpdate",
+    "ExperimentUpdateStatus",
+    "ExperimentUpdateType",
     "ExportTraceServiceRequest",
     "Feedback",
     "FeedbackCreate",
+    "FeedbackCreate_Boolean",
     "FeedbackCreate_Categorical",
     "FeedbackCreate_Numerical",
     "FeedbackDefinitionPagePublic",
     "FeedbackObjectPublic",
+    "FeedbackObjectPublic_Boolean",
     "FeedbackObjectPublic_Categorical",
     "FeedbackObjectPublic_Numerical",
     "FeedbackPublic",
+    "FeedbackPublic_Boolean",
     "FeedbackPublic_Categorical",
     "FeedbackPublic_Numerical",
     "FeedbackScore",
@@ -562,14 +820,18 @@ __all__ = [
     "FeedbackScorePublicSource",
     "FeedbackScoreSource",
     "FeedbackUpdate",
+    "FeedbackUpdate_Boolean",
     "FeedbackUpdate_Categorical",
     "FeedbackUpdate_Numerical",
+    "Feedback_Boolean",
     "Feedback_Categorical",
     "Feedback_Numerical",
     "Function",
     "FunctionCall",
     "GroupContent",
     "GroupContentWithAggregations",
+    "GroupDetail",
+    "GroupDetails",
     "Guardrail",
     "GuardrailBatch",
     "GuardrailName",
@@ -579,6 +841,10 @@ __all__ = [
     "GuardrailWriteResult",
     "GuardrailsValidation",
     "GuardrailsValidationPublic",
+    "IdsHolder",
+    "ImageUrl",
+    "ImageUrlPublic",
+    "ImageUrlWrite",
     "JsonListString",
     "JsonListStringCompare",
     "JsonListStringExperimentItemBulkWriteView",
@@ -593,6 +859,9 @@ __all__ = [
     "LlmAsJudgeCodePublic",
     "LlmAsJudgeCodeWrite",
     "LlmAsJudgeMessage",
+    "LlmAsJudgeMessageContent",
+    "LlmAsJudgeMessageContentPublic",
+    "LlmAsJudgeMessageContentWrite",
     "LlmAsJudgeMessagePublic",
     "LlmAsJudgeMessagePublicRole",
     "LlmAsJudgeMessageRole",
@@ -610,6 +879,9 @@ __all__ = [
     "LogItem",
     "LogItemLevel",
     "LogPage",
+    "ManualEvaluationRequest",
+    "ManualEvaluationRequestEntityType",
+    "ManualEvaluationResponse",
     "Message",
     "MultipartUploadPart",
     "NumericalFeedbackDefinition",
@@ -625,6 +897,10 @@ __all__ = [
     "OptimizationPublic",
     "OptimizationPublicStatus",
     "OptimizationStatus",
+    "OptimizationStudioConfig",
+    "OptimizationStudioConfigPublic",
+    "OptimizationStudioConfigWrite",
+    "OptimizationStudioLog",
     "OptimizationWrite",
     "OptimizationWriteStatus",
     "PageColumns",
@@ -641,6 +917,8 @@ __all__ = [
     "ProjectPagePublic",
     "ProjectPublic",
     "ProjectPublicVisibility",
+    "ProjectReference",
+    "ProjectReferencePublic",
     "ProjectStatItemObjectPublic",
     "ProjectStatItemObjectPublic_Avg",
     "ProjectStatItemObjectPublic_Count",
@@ -651,20 +929,27 @@ __all__ = [
     "ProjectVisibility",
     "Prompt",
     "PromptDetail",
+    "PromptDetailTemplateStructure",
     "PromptPagePublic",
     "PromptPublic",
+    "PromptPublicTemplateStructure",
+    "PromptTemplateStructure",
     "PromptTokensDetails",
     "PromptType",
     "PromptVersion",
     "PromptVersionDetail",
+    "PromptVersionDetailTemplateStructure",
     "PromptVersionDetailType",
     "PromptVersionLink",
     "PromptVersionLinkPublic",
     "PromptVersionLinkWrite",
     "PromptVersionPagePublic",
     "PromptVersionPublic",
+    "PromptVersionPublicTemplateStructure",
     "PromptVersionPublicType",
+    "PromptVersionTemplateStructure",
     "PromptVersionType",
+    "PromptVersionUpdate",
     "ProviderApiKey",
     "ProviderApiKeyPagePublic",
     "ProviderApiKeyProvider",
@@ -678,27 +963,65 @@ __all__ = [
     "ServiceTogglesConfig",
     "Span",
     "SpanBatch",
+    "SpanEnrichmentOptions",
     "SpanExperimentItemBulkWriteView",
     "SpanExperimentItemBulkWriteViewType",
+    "SpanFilter",
+    "SpanFilterOperator",
     "SpanFilterPublic",
     "SpanFilterPublicOperator",
+    "SpanFilterWrite",
+    "SpanFilterWriteOperator",
+    "SpanLlmAsJudgeCode",
+    "SpanLlmAsJudgeCodePublic",
+    "SpanLlmAsJudgeCodeWrite",
     "SpanPagePublic",
     "SpanPublic",
     "SpanPublicType",
     "SpanType",
+    "SpanUpdate",
+    "SpanUpdateType",
+    "SpanUserDefinedMetricPythonCode",
+    "SpanUserDefinedMetricPythonCodePublic",
+    "SpanUserDefinedMetricPythonCodeWrite",
     "SpanWrite",
     "SpanWriteType",
     "SpansCountResponse",
     "StartMultipartUploadResponse",
     "StreamOptions",
+    "StudioEvaluation",
+    "StudioEvaluationPublic",
+    "StudioEvaluationWrite",
+    "StudioLlmModel",
+    "StudioLlmModelPublic",
+    "StudioLlmModelWrite",
+    "StudioMessage",
+    "StudioMessagePublic",
+    "StudioMessageWrite",
+    "StudioMetric",
+    "StudioMetricPublic",
+    "StudioMetricWrite",
+    "StudioOptimizer",
+    "StudioOptimizerPublic",
+    "StudioOptimizerWrite",
+    "StudioPrompt",
+    "StudioPromptPublic",
+    "StudioPromptWrite",
     "Tool",
     "ToolCall",
+    "ToolCallType",
+    "ToolType",
     "Trace",
     "TraceBatch",
     "TraceCountResponse",
+    "TraceEnrichmentOptions",
     "TraceExperimentItemBulkWriteView",
+    "TraceFilter",
+    "TraceFilterOperator",
     "TraceFilterPublic",
     "TraceFilterPublicOperator",
+    "TraceFilterWrite",
+    "TraceFilterWriteOperator",
     "TracePagePublic",
     "TracePublic",
     "TracePublicVisibilityMode",
@@ -707,15 +1030,19 @@ __all__ = [
     "TraceThreadFilterOperator",
     "TraceThreadFilterPublic",
     "TraceThreadFilterPublicOperator",
+    "TraceThreadFilterWrite",
+    "TraceThreadFilterWriteOperator",
     "TraceThreadIdentifier",
     "TraceThreadLlmAsJudgeCode",
     "TraceThreadLlmAsJudgeCodePublic",
     "TraceThreadLlmAsJudgeCodeWrite",
     "TraceThreadPage",
     "TraceThreadStatus",
+    "TraceThreadUpdate",
     "TraceThreadUserDefinedMetricPythonCode",
     "TraceThreadUserDefinedMetricPythonCodePublic",
     "TraceThreadUserDefinedMetricPythonCodeWrite",
+    "TraceUpdate",
     "TraceVisibilityMode",
     "TraceWrite",
     "Usage",
@@ -730,6 +1057,16 @@ __all__ = [
     "ValueEntryPublic",
     "ValueEntryPublicSource",
     "ValueEntrySource",
+    "VideoUrl",
+    "VideoUrlPublic",
+    "VideoUrlWrite",
+    "Webhook",
+    "WebhookExamples",
+    "WebhookPublic",
+    "WebhookTestResult",
+    "WebhookTestResultStatus",
+    "WebhookWrite",
+    "WelcomeWizardTracking",
     "WorkspaceConfiguration",
     "WorkspaceMetricRequest",
     "WorkspaceMetricResponse",

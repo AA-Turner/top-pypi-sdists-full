@@ -6,14 +6,16 @@ import time
 
 import httpx
 import aiohttp
-
+import sys
 import stripe
 import pytest
 from queue import Queue
 from collections import defaultdict
 from typing import List, Dict, Tuple, Optional
 
+
 from stripe._stripe_client import StripeClient
+from stripe._http_client import new_default_http_client
 
 if platform.python_implementation() == "PyPy":
     pytest.skip("skip integration tests with PyPy", allow_module_level=True)
@@ -191,7 +193,7 @@ class TestIntegration(object):
 
         client = stripe.StripeClient(
             "sk_test_123",
-            http_client=stripe.http_client.new_default_http_client(
+            http_client=new_default_http_client(
                 proxy="http://localhost:%s" % self.mock_server_port
             ),
             base_addresses={"api": "http://localhost:12111"},
@@ -333,7 +335,6 @@ class TestIntegration(object):
         usage = telemetry["last_request_metrics"]["usage"]
         assert usage == ["stripe_client", "async"]
 
-    @pytest.mark.anyio
     @pytest.fixture(params=["aiohttp", "httpx"])
     async def async_http_client(self, request, anyio_backend):
         if request.param == "httpx":
@@ -397,7 +398,14 @@ class TestIntegration(object):
             expected_message = "A ReadTimeout was raised"
         elif isinstance(hc, stripe.AIOHTTPClient):
             hc._timeout = aiohttp.ClientTimeout(sock_read=0.01)
-            expected_message = "A ServerTimeoutError was raised"
+            # aiohttp timeout error message is different in different versions.
+            # aiohttp(3.8.6) supported by Python 3.7, the error is called ServerTimeoutError.
+            # aiohttp(>3.10.0) supported by Python 3.8+, the error is called SocketTimeoutError.
+            # Ref PR: https://github.com/aio-libs/aiohttp/issues/7801
+            if sys.version_info >= (3, 8):
+                expected_message = "A SocketTimeoutError was raised"
+            else:
+                expected_message = "A ServerTimeoutError was raised"
         else:
             raise ValueError(f"Unknown http client: {hc.name}")
 

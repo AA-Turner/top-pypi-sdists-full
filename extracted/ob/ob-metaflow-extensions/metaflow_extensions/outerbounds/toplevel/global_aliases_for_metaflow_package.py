@@ -136,4 +136,5 @@ from ..plugins.snowflake import Snowflake
 from ..plugins.checkpoint_datastores import nebius_checkpoints, coreweave_checkpoints
 from ..plugins.aws import assume_role
 from . import ob_internal
-from .ob_internal import AppDeployer
+from ..plugins.apps.core.app_deploy_decorator import app_deploy
+from . import apps

@@ -30,36 +30,6 @@ which provides the documentation and API.
 #include "faultinject.h"
 #endif
 
-/* back compat - we can't use pyutil because the compilers whine about
-   unused static defs */
-
-/* Various routines added in python 3.10 */
-#if PY_VERSION_HEX < 0x030a0000
-static PyObject *
-Py_NewRef(PyObject *o)
-{
-  Py_INCREF(o);
-  return o;
-}
-
-static int
-Py_Is(const PyObject *left, const PyObject *right)
-{
-  return left == right;
-}
-
-static int
-Py_IsNone(const PyObject *val)
-{
-  return Py_Is(val, Py_None);
-}
-
-#define Py_TPFLAGS_IMMUTABLETYPE 0
-
-#endif
-
-/* end of back compat */
-
 #define EOT 0
 #include "_unicodedb.c"
 
@@ -942,7 +912,7 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
     /* LB12a */
     if (it.lookahead & LB_GL)
     {
-      if (it.curchar & (LB_SP | LB_BA | LB_HY))
+      if (it.curchar & (LB_SP | LB_BA | LB_HY | LB_HH))
         break;
       it_advance();
       continue;
@@ -1021,10 +991,10 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
       {
         it_begin();
         it_advance();
-        if (it.lookahead & (LB_HY | LB_HYPHEN))
+        if (it.lookahead & (LB_HY | LB_HH))
         {
           it_advance();
-          if (it.lookahead & LB_AL)
+          if (it.lookahead & (LB_AL | LB_HL))
           {
             it_commit();
             continue;
@@ -1106,17 +1076,19 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
       break;
 
     /* LB 20a */
-    if (!it_has_accepted && it.curchar & (LB_HY | LB_HYPHEN) && it.lookahead & LB_AL)
+    /* SOT case */
+    if (!it_has_accepted && it.curchar & (LB_HY | LB_HH) && it.lookahead & (LB_AL | LB_HL))
     {
       it_advance();
       continue;
     }
+    /* non-SOT case */
     if (it.curchar & (LB_BK | LB_CR | LB_LF | LB_NL | LB_SP | LB_ZW | LB_CB | LB_GL)
-        && it.lookahead & (LB_HY | LB_HYPHEN))
+        && it.lookahead & (LB_HY | LB_HH))
     {
       it_begin();
       it_advance();
-      if (it.lookahead & LB_AL)
+      if (it.lookahead & (LB_AL | LB_HL))
       {
         it_advance();
         it_commit();
@@ -1126,7 +1098,7 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
     }
 
     /* LB21a - has to be before LB21 because both lookahead & LB_HY */
-    if (it.curchar & LB_HL && it.lookahead & (LB_HY | LB_BA) && !(it.lookahead & LB_EastAsianWidth_FWH))
+    if (it.curchar & LB_HL && it.lookahead & (LB_HY | LB_HH ))
     {
       it_begin();
       it_advance();
@@ -1139,7 +1111,7 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
     }
 
     /* LB21 */
-    if (it.lookahead & (LB_BA | LB_HY | LB_NS))
+    if (it.lookahead & (LB_BA | LB_HH | LB_HY | LB_NS))
       continue;
     if (it.curchar & LB_BB)
       continue;
@@ -1243,8 +1215,7 @@ line_next_break(PyObject *Py_UNUSED(self), PyObject *const *fast_args, Py_ssize_
     /* LB30b */
     if (it.curchar & LB_EB && it.lookahead & LB_EM)
       continue;
-    if ((it.curchar & (LB_Extended_Pictographic | LB_Other_NotAssigned))
-            == (LB_Extended_Pictographic | LB_Other_NotAssigned)
+    if ((it.curchar & (LB_Extended_Pictographic | LB_OtherNotAssigned)) == (LB_Extended_Pictographic | LB_OtherNotAssigned)
         && it.lookahead & LB_EM)
       continue;
 

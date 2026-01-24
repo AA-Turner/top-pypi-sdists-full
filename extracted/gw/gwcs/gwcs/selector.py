@@ -28,104 +28,103 @@ should have the same number of inputs and outputs.
 This is illustrated below using two regions, labeled 1 and 2
 
 
-.. tabs::
-    .. tab:: Diagram
+.. tab:: Diagram
 
-        .. graphviz::
-            :align: center
+    .. graphviz::
+        :align: center
 
-            digraph regions {
-                node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", margin="0.3,0.3"];
+        digraph regions {
+            node [shape=box, style=filled, fillcolor=lightyellow, fontname="Helvetica", margin="0.3,0.3"];
 
-                subgraph cluster_detector {
-                    label="Detector";
-                    style=filled;
-                    color=lightgray;
-                    fontname="Helvetica";
+            subgraph cluster_detector {
+                label="Detector";
+                style=filled;
+                color=lightgray;
+                fontname="Helvetica";
 
-                    region1 [label="1", shape=box, height=2, width=1];
-                    region2 [label="2", shape=box, height=1, width=1];
+                region1 [label="1", shape=box, height=2, width=1];
+                region2 [label="2", shape=box, height=1, width=1];
 
-                    {rank=same; region1 region2}
-                }
+                {rank=same; region1 region2}
             }
+        }
 
-    .. tab:: ASCII
+.. tab:: ASCII
 
-        .. code-block::
+    .. code-block::
 
-            +-----------+
-            | +-+       |
-            | | |  +-+  |
-            | |1|  |2|  |
-            | | |  +-+  |
-            | +-+       |
-            +-----------+
+        +-----------+
+        | +-+       |
+        | | |  +-+  |
+        | |1|  |2|  |
+        | | |  +-+  |
+        | +-+       |
+        +-----------+
 
+Label mapper workflow:
 
-.. tabs::
-    .. tab:: Diagram
+.. tab:: Diagram
 
-        .. graphviz::
-            :align: center
+    .. graphviz::
+        :align: center
 
-            digraph selector_workflow {
-                splines="ortho"
-                node [shape=box, style=filled, fillcolor=lightblue, fontname="Arial", margin="0.3,0.3"];
+        digraph selector_workflow {
+            splines="ortho"
+            node [shape=box, style=filled, fillcolor=lightblue, fontname="Arial", margin="0.3,0.3"];
 
-                // Nodes
-                in [shape=point, width=0, height=0];
-                inputs [label="inputs", fillcolor=lightgreen];
-                label_mapper [label="label mapper"];
-                label [label="label"];
-                transform_selector [label="transform_selector"];
-                transform [label="transform"];
-                outputs [label="outputs", fillcolor=lightgreen];
+            // Nodes
+            in [shape=point, width=0, height=0];
+            inputs [label="inputs", fillcolor=lightgreen];
+            label_mapper [label="label mapper"];
+            label [label="label"];
+            transform_selector [label="transform_selector"];
+            transform [label="transform"];
+            outputs [label="outputs", fillcolor=lightgreen];
 
-                // Invisible nodes for alignment
-                invisible1 [style=invis, shape=point];
-                invisible2 [style=invis, shape=point];
+            // Invisible nodes for alignment
+            invisible1 [style=invis, shape=point];
+            invisible2 [style=invis, shape=point];
 
-                // Main flow
-                in ->inputs -> transform -> outputs;
-                inputs -> invisible1 [style=invis];
-                inputs -> label_mapper [constraint=false];
-                label_mapper -> label;
-                label -> transform_selector;
-                transform_selector -> transform;
-                invisible2 -> transform [style=invis];
+            // Main flow
+            in ->inputs -> transform -> outputs;
+            inputs -> invisible1 [style=invis];
+            inputs -> label_mapper [constraint=false];
+            label_mapper -> label;
+            label -> transform_selector;
+            transform_selector -> transform;
+            invisible2 -> transform [style=invis];
 
-                // Layout adjustments
-                {rank=same; label_mapper; invisible1;}
-                {rank=same; transform_selector; invisible2;}
-            }
+            // Layout adjustments
+            {rank=same; label_mapper; invisible1;}
+            {rank=same; transform_selector; invisible2;}
+        }
 
-    .. tab:: ASCII
+.. tab:: ASCII
 
-        .. code-block::
+    .. code-block::
 
-                               +--------------+
-                               | label mapper |
-                               +--------------+
-                                 ^       |
-                                 |       V
-                       ----------|   +-------+
-                       |             | label |
-                     +--------+      +-------+
-            --->     | inputs |          |
-                     +--------+          V
-                          |          +--------------------+
-                          |          | transform_selector |
-                          |          +--------------------+
-                          V                  |
-                     +-----------+           |
-                     | transform |<-----------
-                     +------------+
-                          |
-                          V
-                     +---------+
-                     | outputs |
-                     +---------+
+                           +--------------+
+                           | label mapper |
+                           +--------------+
+                             ^       |
+                             |       V
+                   ----------|   +-------+
+                   |             | label |
+                 +--------+      +-------+
+        --->     | inputs |          |
+                 +--------+          V
+                      |          +--------------------+
+                      |          | transform_selector |
+                      |          +--------------------+
+                      V                  |
+                 +-----------+           |
+                 | transform |<-----------
+                 +------------+
+                      |
+                      V
+                 +---------+
+                 | outputs |
+                 +---------+
 
 
 The base class _LabelMapper can be subclassed to create other
@@ -140,7 +139,7 @@ from astropy.modeling import models as astmodels
 from astropy.modeling.core import Model
 
 from . import region
-from .utils import RegionError, _toindex
+from .utils import RegionError, to_index
 
 __all__ = [
     "LabelMapper",
@@ -276,7 +275,7 @@ class LabelMapperArray(_LabelMapper):
 
     def evaluate(self, *args):
         keys = self.filter_inputs(args, self.inputs_mapping)
-        keys = tuple(_toindex(a) for a in keys)
+        keys = tuple(to_index(a) for a in keys)
         try:
             result = self._mapper[keys[::-1]]
         except IndexError as e:
@@ -403,8 +402,8 @@ class LabelMapperDict(_LabelMapper):
             ind = np.isclose(key, keys, atol=self._atol)
             inputs = [a[ind] for a in args]
             res[ind] = self.mapper[key](*inputs)
-        res.shape = shape
-        return res
+
+        return np.reshape(res, shape)
 
 
 class LabelMapperRange(_LabelMapper):
@@ -522,7 +521,7 @@ class LabelMapperRange(_LabelMapper):
                 res[ind] = self.mapper[tuple(val_range)](*inputs)
             else:
                 continue
-        res.shape = shape
+        res = np.reshape(res, shape)
         if len(np.nonzero(res)[0]) == 0:
             warnings.warn(
                 f"All data is outside the valid range - {self.name}.", stacklevel=2

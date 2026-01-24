@@ -1,0 +1,63 @@
+[project]
+name = "axe-playwright-python"
+description = "Automated web accessibility testing using axe-core engine and Playwright."
+version = "0.1.7"
+authors = [{name = "Pamela Fox", "email" = "pamela.fox@gmail.com"}]
+requires-python = ">=3.8"
+readme = "README.md"
+license = {file = "LICENSE"}
+dependencies = [
+    "playwright >= 1.36.0"
+    ]
+keywords = ["accessibility", "axe", "axe-core",  "playwright"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Adaptive Technologies",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    ]
+
+[project.urls]
+GitHub = "https://github.com/pamelafox/axe-playwright-python"
+Documentation = "https://pamelafox.github.io/axe-playwright-python"
+
+[project.optional-dependencies]
+dev = [
+    "pytest == 7.4.0",
+    "pytest-cov == 4.1.0",
+    "pytest-playwright == 0.3.3",
+    "pytest-asyncio == 0.21.1",
+    "mkdocs == 1.4.3",
+    "mkdocstrings == 0.22.0",
+    "mkdocs-material == 9.1.19",
+    "black == 23.7.0",
+    "ruff == 0.0.280",
+    "pre-commit == 3.3.3",
+    "flit"
+]
+
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.module]
+name = "axe_playwright_python"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+select = ["E", "F", "I", "UP"]
+ignore = ["D203"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]

@@ -244,7 +244,7 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
     def _handle_restart(self, workflow_id: str) -> None:
         try:
             print(f"Restarting workflow {workflow_id}")
-            handle = self.dbos.restart_workflow(workflow_id)
+            handle = self.dbos.fork_workflow(workflow_id, 1)
             response_body = json.dumps(
                 {
                     "workflow_id": handle.workflow_id,
@@ -314,21 +314,14 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
         self._end_headers()
 
     def _handle_steps(self, workflow_id: str) -> None:
-        steps = self.dbos.list_workflow_steps(workflow_id)
-
-        updated_steps = [
-            {
-                **step,
-                "output": str(step["output"]) if step["output"] is not None else None,
-                "error": str(step["error"]) if step["error"] is not None else None,
-            }
-            for step in steps
+        step_infos = self.dbos.list_workflow_steps(workflow_id)
+        workflow_steps = [
+            conductor_protocol.WorkflowSteps.from_step_info(s) for s in step_infos
         ]
-
-        json_steps = json.dumps(updated_steps).encode("utf-8")
+        response_body = json.dumps([s.__dict__ for s in workflow_steps]).encode("utf-8")
         self.send_response(200)
         self._end_headers()
-        self.wfile.write(json_steps)
+        self.wfile.write(response_body)
 
     def _handle_workflows(self, filters: Dict[str, Any]) -> None:
         workflows = self.dbos.list_workflows(
@@ -338,6 +331,7 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
             end_time=filters.get("end_time"),
             status=filters.get("status"),
             app_version=filters.get("application_version"),
+            forked_from=filters.get("forked_from"),
             name=filters.get("workflow_name"),
             limit=filters.get("limit"),
             offset=filters.get("offset"),
@@ -364,6 +358,7 @@ class AdminRequestHandler(BaseHTTPRequestHandler):
             start_time=filters.get("start_time"),
             end_time=filters.get("end_time"),
             status=filters.get("status"),
+            forked_from=filters.get("forked_from"),
             name=filters.get("workflow_name"),
             limit=filters.get("limit"),
             offset=filters.get("offset"),

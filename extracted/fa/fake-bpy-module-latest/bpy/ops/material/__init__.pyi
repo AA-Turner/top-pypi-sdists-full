@@ -8,30 +8,18 @@ def copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the material settings and nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the material settings and nodes"""
 
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a new material
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a new material"""
 
 def paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste the material settings and nodes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste the material settings and nodes"""

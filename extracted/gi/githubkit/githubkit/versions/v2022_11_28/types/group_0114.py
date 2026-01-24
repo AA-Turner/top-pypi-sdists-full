@@ -9,20 +9,44 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0113 import RunnerLabelType, RunnerLabelTypeForResponse
 
 
-class InteractionLimitResponseType(TypedDict):
-    """Interaction Limits
+class RunnerType(TypedDict):
+    """Self hosted runners
 
-    Interaction limit settings.
+    A self hosted runner
     """
 
-    limit: Literal["existing_users", "contributors_only", "collaborators_only"]
-    origin: str
-    expires_at: datetime
+    id: int
+    runner_group_id: NotRequired[int]
+    name: str
+    os: str
+    status: str
+    busy: bool
+    labels: list[RunnerLabelType]
+    ephemeral: NotRequired[bool]
 
 
-__all__ = ("InteractionLimitResponseType",)
+class RunnerTypeForResponse(TypedDict):
+    """Self hosted runners
+
+    A self hosted runner
+    """
+
+    id: int
+    runner_group_id: NotRequired[int]
+    name: str
+    os: str
+    status: str
+    busy: bool
+    labels: list[RunnerLabelTypeForResponse]
+    ephemeral: NotRequired[bool]
+
+
+__all__ = (
+    "RunnerType",
+    "RunnerTypeForResponse",
+)

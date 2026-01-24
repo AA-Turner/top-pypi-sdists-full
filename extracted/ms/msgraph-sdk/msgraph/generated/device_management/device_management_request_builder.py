@@ -44,7 +44,6 @@ if TYPE_CHECKING:
     from .role_assignments.role_assignments_request_builder import RoleAssignmentsRequestBuilder
     from .role_definitions.role_definitions_request_builder import RoleDefinitionsRequestBuilder
     from .software_update_status_summary.software_update_status_summary_request_builder import SoftwareUpdateStatusSummaryRequestBuilder
-    from .telecom_expense_management_partners.telecom_expense_management_partners_request_builder import TelecomExpenseManagementPartnersRequestBuilder
     from .terms_and_conditions.terms_and_conditions_request_builder import TermsAndConditionsRequestBuilder
     from .troubleshooting_events.troubleshooting_events_request_builder import TroubleshootingEventsRequestBuilder
     from .user_experience_analytics_app_health_application_performance.user_experience_analytics_app_health_application_performance_request_builder import UserExperienceAnalyticsAppHealthApplicationPerformanceRequestBuilder
@@ -93,10 +92,9 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
     
     async def get(self,request_configuration: Optional[RequestConfiguration[DeviceManagementRequestBuilderGetQueryParameters]] = None) -> Optional[DeviceManagement]:
         """
-        Read properties and relationships of the deviceManagement object.
+        Get deviceManagement
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[DeviceManagement]
-        Find more info here: https://learn.microsoft.com/graph/api/intune-companyterms-devicemanagement-get?view=graph-rest-1.0
         """
         request_info = self.to_get_request_information(
             request_configuration
@@ -126,11 +124,10 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
     
     async def patch(self,body: DeviceManagement, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> Optional[DeviceManagement]:
         """
-        Update the properties of a deviceManagement object.
+        Update deviceManagement
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[DeviceManagement]
-        Find more info here: https://learn.microsoft.com/graph/api/intune-wip-devicemanagement-update?view=graph-rest-1.0
         """
         if body is None:
             raise TypeError("body cannot be null.")
@@ -150,7 +147,7 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[DeviceManagementRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
-        Read properties and relationships of the deviceManagement object.
+        Get deviceManagement
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -161,7 +158,7 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
     
     def to_patch_request_information(self,body: DeviceManagement, request_configuration: Optional[RequestConfiguration[QueryParameters]] = None) -> RequestInformation:
         """
-        Update the properties of a deviceManagement object.
+        Update deviceManagement
         param body: The request body
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
@@ -438,15 +435,6 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
         from .software_update_status_summary.software_update_status_summary_request_builder import SoftwareUpdateStatusSummaryRequestBuilder
 
         return SoftwareUpdateStatusSummaryRequestBuilder(self.request_adapter, self.path_parameters)
-    
-    @property
-    def telecom_expense_management_partners(self) -> TelecomExpenseManagementPartnersRequestBuilder:
-        """
-        Provides operations to manage the telecomExpenseManagementPartners property of the microsoft.graph.deviceManagement entity.
-        """
-        from .telecom_expense_management_partners.telecom_expense_management_partners_request_builder import TelecomExpenseManagementPartnersRequestBuilder
-
-        return TelecomExpenseManagementPartnersRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
     def terms_and_conditions(self) -> TermsAndConditionsRequestBuilder:
@@ -730,7 +718,7 @@ class DeviceManagementRequestBuilder(BaseRequestBuilder):
     @dataclass
     class DeviceManagementRequestBuilderGetQueryParameters():
         """
-        Read properties and relationships of the deviceManagement object.
+        Get deviceManagement
         """
         def get_query_parameter(self,original_name: str) -> str:
             """

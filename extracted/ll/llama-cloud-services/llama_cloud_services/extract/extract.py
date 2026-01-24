@@ -2,10 +2,9 @@ import asyncio
 import base64
 import os
 import time
-from io import BufferedIOBase, BufferedReader, BytesIO, TextIOWrapper
+from io import BufferedIOBase, TextIOWrapper
 from pathlib import Path
 from typing import List, Optional, Type, Union, Coroutine, Any, TypeVar
-import secrets
 import warnings
 import httpx
 from pydantic import BaseModel
@@ -19,14 +18,12 @@ from llama_cloud import (
     ExtractAgent as CloudExtractAgent,
     ExtractConfig,
     ExtractJob,
-    ExtractJobCreate,
     ExtractRun,
     File,
     FileData,
     ExtractMode,
     StatusEnum,
     ExtractTarget,
-    LlamaExtractSettings,
     PaginatedExtractRunsResponse,
 )
 from llama_cloud.client import AsyncLlamaCloud
@@ -35,7 +32,8 @@ from llama_cloud_services.extract.utils import (
     JSONObjectType,
     ExperimentalWarning,
 )
-from llama_cloud_services.utils import augment_async_errors
+from llama_cloud_services.utils import augment_async_errors, SourceText, FileInput
+from llama_cloud_services.files.client import FileClient
 from llama_index.core.schema import BaseComponent
 from llama_index.core.async_utils import run_jobs
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
@@ -190,46 +188,6 @@ async def _wait_for_job_result(
             )
 
 
-class SourceText:
-    def __init__(
-        self,
-        *,
-        file: Union[bytes, BufferedIOBase, TextIOWrapper, str, Path, None] = None,
-        text_content: Optional[str] = None,
-        filename: Optional[str] = None,
-    ):
-        self.file = file
-        self.filename = filename
-        self.text_content = text_content
-        self._validate()
-
-    def _validate(self) -> None:
-        """Ensure filename is provided when needed."""
-        if not ((self.file is None) ^ (self.text_content is None)):
-            raise ValueError("Either file or text_content must be provided.")
-        if self.text_content is not None:
-            if not self.filename:
-                random_hex = secrets.token_hex(4)
-                self.filename = f"text_input_{random_hex}.txt"
-            return
-
-        if isinstance(self.file, (bytes, BufferedIOBase, TextIOWrapper)):
-            if not self.filename and hasattr(self.file, "name"):
-                self.filename = os.path.basename(str(self.file.name))
-            elif not hasattr(self.file, "name") and self.filename is None:
-                raise ValueError(
-                    "filename must be provided when file is bytes or a file-like object without a name"
-                )
-        elif isinstance(self.file, (str, Path)):
-            if not self.filename:
-                self.filename = os.path.basename(str(self.file))
-        else:
-            raise ValueError(f"Unsupported file type: {type(self.file)}")
-
-
-FileInput = Union[str, Path, BufferedIOBase, SourceText, File]
-
-
 def run_in_thread(
     coro: Coroutine[Any, Any, T],
     thread_pool: ThreadPoolExecutor,
@@ -282,11 +240,6 @@ def _extraction_config_warning(config: ExtractConfig) -> None:
             raise ValueError(
                 "`cite_sources` is only supported with MULTIMODAL or PREMIUM extraction modes."
             )
-    if config.confidence_scores:
-        if config.extraction_mode in (ExtractMode.FAST, ExtractMode.BALANCED):
-            raise ValueError(
-                "`confidence_scores` is only supported with MULTIMODAL or PREMIUM extraction modes."
-            )
 
 
 class ExtractionAgent:
@@ -322,6 +275,7 @@ class ExtractionAgent:
         self._thread_pool = ThreadPoolExecutor(
             max_workers=min(10, (os.cpu_count() or 1) + 4)
         )
+        self._file_client = FileClient(client, project_id, organization_id)
 
     @property
     def id(self) -> str:
@@ -371,65 +325,11 @@ class ExtractionAgent:
             ValueError: If filename is not provided for bytes input or for file-like objects
                        without a name attribute.
         """
-        file_contents: Optional[Union[BufferedIOBase, BytesIO]] = None
-        try:
-            if file_input.text_content is not None:
-                # Handle direct text content
-                file_contents = BytesIO(file_input.text_content.encode("utf-8"))
-            elif isinstance(file_input.file, TextIOWrapper):
-                # Handle text-based IO objects
-                file_contents = BytesIO(file_input.file.read().encode("utf-8"))
-            elif isinstance(file_input.file, (str, Path)):
-                # Handle file paths
-                file_contents = open(file_input.file, "rb")
-            elif isinstance(file_input.file, bytes):
-                # Handle bytes
-                file_contents = BytesIO(file_input.file)
-            elif isinstance(file_input.file, BufferedIOBase):
-                # Handle binary IO objects
-                file_contents = file_input.file
-            else:
-                raise ValueError(f"Unsupported file type: {type(file_input.file)}")
-
-            # Add name attribute to file object if needed
-            if not hasattr(file_contents, "name"):
-                file_contents.name = file_input.filename  # type: ignore
-
-            return await self._client.files.upload_file(
-                project_id=self._project_id, upload_file=file_contents
-            )
-        finally:
-            if file_contents is not None and isinstance(
-                file_contents, (BufferedReader, BytesIO)
-            ):
-                file_contents.close()
+        return await self._file_client.upload_content(file_input)
 
     async def _upload_file(self, file_input: FileInput) -> File:
-        source_text = None
-        if isinstance(file_input, File):
-            return file_input
-        if isinstance(file_input, SourceText):
-            source_text = file_input
-        elif isinstance(file_input, (str, Path)):
-            path = Path(file_input)
-            source_text = SourceText(file=path, filename=path.name)
-        else:
-            # Try to get filename from the file object if not provided
-            filename = None
-            if hasattr(file_input, "name"):
-                filename = os.path.basename(str(file_input.name))
-            if filename is None:
-                raise ValueError(
-                    "Use SourceText to provide filename when uploading bytes or file-like objects."
-                )
-
-            warnings.warn(
-                "Use SourceText instead of bytes or file-like objects",
-                DeprecationWarning,
-            )
-            source_text = SourceText(file=file_input, filename=filename)
-
-        return await self.upload_file(source_text)
+        """Upload a file from various input types using FileClient."""
+        return await self._file_client.upload_content(file_input)
 
     async def _wait_for_job_result(self, job_id: str) -> Optional[ExtractRun]:
         """Wait for and return the results of an extraction job."""
@@ -463,56 +363,6 @@ class ExtractionAgent:
             )
         )
 
-    async def _run_extraction_test(
-        self,
-        files: Union[FileInput, List[FileInput]],
-        extract_settings: LlamaExtractSettings,
-    ) -> Union[ExtractJob, List[ExtractJob]]:
-        if not isinstance(files, list):
-            files = [files]
-            single_file = True
-        else:
-            single_file = False
-
-        upload_tasks = [self._upload_file(file) for file in files]
-        with augment_async_errors():
-            uploaded_files = await run_jobs(
-                upload_tasks,
-                workers=self.num_workers,
-                desc="Uploading files",
-                show_progress=self.show_progress,
-            )
-
-        async def run_job(file: File) -> ExtractRun:
-            job_queued = await self._client.llama_extract.run_job_test_user(
-                job_create=ExtractJobCreate(
-                    extraction_agent_id=self.id,
-                    file_id=file.id,
-                    data_schema_override=self.data_schema,
-                    config_override=self.config,
-                ),
-                extract_settings=extract_settings,
-            )
-            return await self._wait_for_job_result(job_queued.id)
-
-        job_tasks = [run_job(file) for file in uploaded_files]
-        with augment_async_errors():
-            extract_results = await run_jobs(
-                job_tasks,
-                workers=self.num_workers,
-                desc="Running extraction jobs",
-                show_progress=self.show_progress,
-            )
-
-        if self._verbose:
-            for file, job in zip(files, extract_results):
-                file_repr = (
-                    str(file) if isinstance(file, (str, Path)) else "<bytes/buffer>"
-                )
-                print(f"Running extraction for file {file_repr} under job_id {job.id}")
-
-        return extract_results[0] if single_file else extract_results
-
     async def queue_extraction(
         self,
         files: Union[FileInput, List[FileInput]],
@@ -544,12 +394,10 @@ class ExtractionAgent:
 
         job_tasks = [
             self._client.llama_extract.run_job(
-                request=ExtractJobCreate(
-                    extraction_agent_id=self.id,
-                    file_id=file.id,
-                    data_schema_override=self.data_schema,
-                    config_override=self.config,
-                ),
+                extraction_agent_id=self.id,
+                file_id=file.id,
+                data_schema_override=self.data_schema,
+                config_override=self.config,
             )
             for file in uploaded_files
         ]

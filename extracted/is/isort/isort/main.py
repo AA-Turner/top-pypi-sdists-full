@@ -5,10 +5,11 @@ import functools
 import json
 import os
 import sys
+from collections.abc import Sequence
 from gettext import gettext as _
 from io import TextIOWrapper
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 from warnings import warn
 
 from . import __version__, api, files, sections
@@ -79,7 +80,7 @@ def sort_imports(
     ask_to_apply: bool = False,
     write_to_stdout: bool = False,
     **kwargs: Any,
-) -> Optional[SortAttempt]:
+) -> SortAttempt | None:
     incorrectly_sorted: bool = False
     skipped: bool = False
     try:
@@ -117,7 +118,7 @@ def sort_imports(
 
 
 def _print_hard_fail(
-    config: Config, offending_file: Optional[str] = None, message: Optional[str] = None
+    config: Config, offending_file: str | None = None, message: str | None = None
 ) -> None:
     """Fail on unrecoverable exception with custom message."""
     message = message or (
@@ -924,7 +925,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def parse_args(argv: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+def parse_args(argv: Sequence[str] | None = None) -> dict[str, Any]:
     argv = sys.argv[1:] if argv is None else list(argv)
     remapped_deprecated_args = []
     for index, arg in enumerate(argv):
@@ -958,7 +959,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     return arguments
 
 
-def _preconvert(item: Any) -> Union[str, List[Any]]:
+def _preconvert(item: Any) -> str | list[Any]:
     """Preconverts objects from native types into JSONifyiable types"""
     if isinstance(item, (set, frozenset)):
         return list(item)
@@ -972,7 +973,7 @@ def _preconvert(item: Any) -> Union[str, List[Any]]:
 
 
 def identify_imports_main(
-    argv: Optional[Sequence[str]] = None, stdin: Optional[TextIOWrapper] = None
+    argv: Sequence[str] | None = None, stdin: TextIOWrapper | None = None
 ) -> None:
     parser = argparse.ArgumentParser(
         description="Get all import definitions from a given file."
@@ -1057,7 +1058,7 @@ def identify_imports_main(
             print(str(identified_import))
 
 
-def main(argv: Optional[Sequence[str]] = None, stdin: Optional[TextIOWrapper] = None) -> None:
+def main(argv: Sequence[str] | None = None, stdin: TextIOWrapper | None = None) -> None:
     arguments = parse_args(argv)
     if arguments.get("show_version"):
         print(ASCII_ART)
@@ -1112,7 +1113,7 @@ def main(argv: Optional[Sequence[str]] = None, stdin: Optional[TextIOWrapper] = 
     all_attempt_broken = False
     no_valid_encodings = False
 
-    config_trie: Optional[Trie] = None
+    config_trie: Trie | None = None
     if resolve_all_configs:
         config_trie = find_all_configs(config_dict.pop("config_root", "."))
 
@@ -1168,14 +1169,14 @@ def main(argv: Optional[Sequence[str]] = None, stdin: Optional[TextIOWrapper] = 
             )
             printer.error("Filename override is intended only for stream (-) sorting.")
             sys.exit(1)
-        skipped: List[str] = []
-        broken: List[str] = []
+        skipped: list[str] = []
+        broken: list[str] = []
 
         if config.filter_files:
             filtered_files = []
             for file_name in file_names:
                 if config.is_skipped(Path(file_name)):
-                    skipped.append(file_name)
+                    skipped.append(str(Path(file_name).resolve()))
                 else:
                     filtered_files.append(file_name)
             file_names = filtered_files
@@ -1192,7 +1193,7 @@ def main(argv: Optional[Sequence[str]] = None, stdin: Optional[TextIOWrapper] = 
             print(ASCII_ART)
 
         if jobs:
-            import multiprocessing
+            import multiprocessing  # noqa: PLC0415
 
             executor = multiprocessing.Pool(jobs if jobs > 0 else multiprocessing.cpu_count())
             attempt_iterator = executor.imap(

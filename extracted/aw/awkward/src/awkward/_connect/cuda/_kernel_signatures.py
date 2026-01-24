@@ -1,4 +1,4 @@
-# AUTO GENERATED ON 2025-09-20 AT 15:57:04
+# AUTO GENERATED ON 2025-12-15 AT 13:53:47
 # DO NOT EDIT BY HAND!
 #
 # To regenerate file, run
@@ -1984,9 +1984,29 @@ def by_signature(cuda_kernel_templates):
 
     out['awkward_NumpyArray_unique_strings', uint8, int64, int64, int64] = None
 
+    out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, int32, int64] = None
+
     out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, int64, int64] = None
 
+    out['awkward_NumpyArray_prepare_utf8_to_utf32_padded', uint8, uint32, int64] = None
+
+    out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, int32, uint32] = None
+
     out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, int64, uint32] = None
+
+    out['awkward_NumpyArray_utf8_to_utf32_padded', uint8, uint32, uint32] = None
+
+    def f(grid, block, args):
+        (fromptr, fromoffsets, offsetslength, target, toptr, invocation_index, err_code) = args
+        diff = cupy.diff(fromoffsets)
+        mask = diff > target
+        scan_in_array = cupy.where(mask, diff, target)
+        scan_in_array = cupy.cumsum(scan_in_array)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_NumpyArray_pad_zero_to_length", fromptr.dtype, fromoffsets.dtype, toptr.dtype]))(grid, block, (fromptr, fromoffsets, offsetslength, target, toptr, scan_in_array, invocation_index, err_code))
+    out["awkward_NumpyArray_pad_zero_to_length", uint8, int32, uint8] = None
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    f.is_ptr = [True, True, False, False, True]
+    out['awkward_NumpyArray_pad_zero_to_length', uint8, int32, uint8] = f
 
     def f(grid, block, args):
         (fromptr, fromoffsets, offsetslength, target, toptr, invocation_index, err_code) = args
@@ -1999,6 +2019,18 @@ def by_signature(cuda_kernel_templates):
     f.dir = ['in', 'in', 'in', 'in', 'out']
     f.is_ptr = [True, True, False, False, True]
     out['awkward_NumpyArray_pad_zero_to_length', uint8, int64, uint8] = f
+
+    def f(grid, block, args):
+        (fromptr, fromoffsets, offsetslength, target, toptr, invocation_index, err_code) = args
+        diff = cupy.diff(fromoffsets)
+        mask = diff > target
+        scan_in_array = cupy.where(mask, diff, target)
+        scan_in_array = cupy.cumsum(scan_in_array)
+        cuda_kernel_templates.get_function(fetch_specialization(["awkward_NumpyArray_pad_zero_to_length", fromptr.dtype, fromoffsets.dtype, toptr.dtype]))(grid, block, (fromptr, fromoffsets, offsetslength, target, toptr, scan_in_array, invocation_index, err_code))
+    out["awkward_NumpyArray_pad_zero_to_length", uint8, uint32, uint8] = None
+    f.dir = ['in', 'in', 'in', 'in', 'out']
+    f.is_ptr = [True, True, False, False, True]
+    out['awkward_NumpyArray_pad_zero_to_length', uint8, uint32, uint8] = f
 
     def f(grid, block, args):
         (tmpptr, fromstarts, fromstops, length, toequal, invocation_index, err_code) = args

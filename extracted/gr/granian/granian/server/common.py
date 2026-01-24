@@ -7,15 +7,16 @@ import ssl
 import sys
 import threading
 import time
+from collections.abc import Callable, Sequence
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, List, Optional, Sequence, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from .._compat import _PY_312, _PYV
 from .._imports import dotenv, setproctitle, watchfiles
 from .._internal import build_env_loader, load_target
 from .._signals import set_main_signals
-from ..constants import HTTPModes, Interfaces, Loops, RuntimeModes, TaskImpl
+from ..constants import HTTPModes, Interfaces, Loops, RuntimeModes, SSLProtocols, TaskImpl
 from ..errors import ConfigurationError, PidFileError
 from ..http import HTTP1Settings, HTTP2Settings
 from ..log import DEFAULT_ACCESSLOG_FMT, LogLevels, configure_logging, logger
@@ -83,61 +84,65 @@ class AbstractServer(Generic[WT]):
         target: str,
         address: str = '127.0.0.1',
         port: int = 8000,
-        uds: Optional[Path] = None,
+        uds: Path | None = None,
+        uds_permissions: int | None = None,
         interface: Interfaces = Interfaces.RSGI,
         workers: int = 1,
-        blocking_threads: Optional[int] = None,
+        blocking_threads: int | None = None,
         blocking_threads_idle_timeout: int = 30,
         runtime_threads: int = 1,
-        runtime_blocking_threads: Optional[int] = None,
-        runtime_mode: RuntimeModes = RuntimeModes.st,
+        runtime_blocking_threads: int | None = None,
+        runtime_mode: RuntimeModes = RuntimeModes.auto,
         loop: Loops = Loops.auto,
         task_impl: TaskImpl = TaskImpl.asyncio,
         http: HTTPModes = HTTPModes.auto,
         websockets: bool = True,
         backlog: int = 1024,
-        backpressure: Optional[int] = None,
-        http1_settings: Optional[HTTP1Settings] = None,
-        http2_settings: Optional[HTTP2Settings] = None,
+        backpressure: int | None = None,
+        http1_settings: HTTP1Settings | None = None,
+        http2_settings: HTTP2Settings | None = None,
         log_enabled: bool = True,
         log_level: LogLevels = LogLevels.info,
-        log_dictconfig: Optional[Dict[str, Any]] = None,
+        log_dictconfig: dict[str, Any] | None = None,
         log_access: bool = False,
-        log_access_format: Optional[str] = None,
-        ssl_cert: Optional[Path] = None,
-        ssl_key: Optional[Path] = None,
-        ssl_key_password: Optional[str] = None,
-        ssl_ca: Optional[Path] = None,
-        ssl_crl: Optional[List[Path]] = None,
+        log_access_format: str | None = None,
+        ssl_cert: Path | None = None,
+        ssl_key: Path | None = None,
+        ssl_key_password: str | None = None,
+        ssl_protocol_min: SSLProtocols = SSLProtocols.tls13,
+        ssl_ca: Path | None = None,
+        ssl_crl: list[Path] | None = None,
         ssl_client_verify: bool = False,
-        url_path_prefix: Optional[str] = None,
+        url_path_prefix: str | None = None,
         respawn_failed_workers: bool = False,
         respawn_interval: float = 3.5,
         rss_sample_interval: int = 30,
-        workers_lifetime: Optional[int] = None,
-        workers_max_rss: Optional[int] = None,
-        workers_kill_timeout: Optional[int] = None,
+        rss_samples: int = 1,
+        workers_lifetime: int | None = None,
+        workers_max_rss: int | None = None,
+        workers_kill_timeout: int | None = None,
         factory: bool = False,
-        working_dir: Optional[Path] = None,
-        env_files: Optional[Sequence[Path]] = None,
+        working_dir: Path | None = None,
+        env_files: Sequence[Path] | None = None,
         static_path_route: str = '/static',
-        static_path_mount: Optional[Path] = None,
+        static_path_mount: Path | None = None,
         static_path_expires: int = 86400,
         reload: bool = False,
-        reload_paths: Optional[Sequence[Path]] = None,
-        reload_ignore_dirs: Optional[Sequence[str]] = None,
-        reload_ignore_patterns: Optional[Sequence[str]] = None,
-        reload_ignore_paths: Optional[Sequence[Path]] = None,
-        reload_filter: Optional[Type[watchfiles.BaseFilter]] = None,
+        reload_paths: Sequence[Path] | None = None,
+        reload_ignore_dirs: Sequence[str] | None = None,
+        reload_ignore_patterns: Sequence[str] | None = None,
+        reload_ignore_paths: Sequence[Path] | None = None,
+        reload_filter: type[watchfiles.BaseFilter] | None = None,
         reload_tick: int = 50,
         reload_ignore_worker_failure: bool = False,
-        process_name: Optional[str] = None,
-        pid_file: Optional[Path] = None,
+        process_name: str | None = None,
+        pid_file: Path | None = None,
     ):
         self.target = target
         self.bind_addr = address
         self.bind_port = port
         self.bind_uds = uds.resolve() if uds else None
+        self.uds_permissions = uds_permissions
         self.interface = interface
         self.workers = max(1, workers)
         self.runtime_threads = max(1, runtime_threads)
@@ -167,6 +172,8 @@ class AbstractServer(Generic[WT]):
         self.reload_on_changes = reload
         self.respawn_interval = respawn_interval
         self.rss_sample_interval = rss_sample_interval
+        self.rss_samples = rss_samples
+        self._rss_wrk_samples = {}
         self.workers_lifetime = workers_lifetime
         self.workers_rss = workers_max_rss * 1024 * 1024 if workers_max_rss else None
         self.workers_kill_timeout = workers_kill_timeout
@@ -192,20 +199,19 @@ class AbstractServer(Generic[WT]):
         self.process_name = process_name
         self.pid_file = pid_file
 
-        if self.reload_on_changes and self.workers_kill_timeout is None:
-            self.workers_kill_timeout = 3.5
-
         self.hooks_startup = []
         self.hooks_reload = []
         self.hooks_shutdown = []
 
         configure_logging(self.log_level, self.log_config, self.log_enabled)
 
-        self.build_ssl_context(ssl_cert, ssl_key, ssl_key_password, ssl_ca, ssl_crl or [], ssl_client_verify)
+        self.build_ssl_context(
+            ssl_cert, ssl_key, ssl_key_password, ssl_protocol_min, ssl_ca, ssl_crl or [], ssl_client_verify
+        )
         self._ssp = None
         self._shd = None
         self._sfd = None
-        self.wrks: List[WT] = []
+        self.wrks: list[WT] = []
         self.main_loop_interrupt = threading.Event()
         self.interrupt_signal = False
         self.interrupt_children = []
@@ -218,15 +224,16 @@ class AbstractServer(Generic[WT]):
 
     def build_ssl_context(
         self,
-        cert: Optional[Path],
-        key: Optional[Path],
-        password: Optional[str],
-        ca: Optional[Path],
-        crl: List[Path],
+        cert: Path | None,
+        key: Path | None,
+        password: str | None,
+        proto: SSLProtocols,
+        ca: Path | None,
+        crl: list[Path],
         client_verify: bool,
     ):
         if not (cert and key):
-            self.ssl_ctx = (False, None, None, None, None, [], False)
+            self.ssl_ctx = (False, None, None, None, str(proto), None, [], False)
             return
         # uneeded?
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -240,6 +247,7 @@ class AbstractServer(Generic[WT]):
             str(cert.resolve()),
             str(key.resolve()),
             password,
+            str(proto),
             str(ca.resolve()) if ca else None,
             [str(item.resolve()) for item in crl],
             client_verify,
@@ -268,7 +276,7 @@ class AbstractServer(Generic[WT]):
 
     def _init_shared_socket(self):
         if self.bind_uds:
-            self._ssp = UnixSocketSpec(str(self.bind_uds), self.backlog)
+            self._ssp = UnixSocketSpec(str(self.bind_uds), self.backlog, self.uds_permissions)
         else:
             self._ssp = SocketSpec(self.bind_addr, self.bind_port, self.backlog)
         self._shd = self._ssp.build()
@@ -540,8 +548,8 @@ class AbstractServer(Generic[WT]):
 
     def serve(
         self,
-        spawn_target: Optional[Callable[..., None]] = None,
-        target_loader: Optional[Callable[..., Callable[..., Any]]] = None,
+        spawn_target: Callable[..., None] | None = None,
+        target_loader: Callable[..., Callable[..., Any]] | None = None,
         wrap_loader: bool = True,
     ):
         default_spawners = {
@@ -566,11 +574,9 @@ class AbstractServer(Generic[WT]):
                     'Number of workers will now fallback to 1.'
                 )
 
-        if self.bind_uds:
-            if sys.platform == 'win32':
-                logger.error('Unix Domain sockets are not available on Windows')
-                raise ConfigurationError('uds')
-            logger.warning('Unix Domain Sockets support is experimental!')
+        if self.bind_uds and sys.platform == 'win32':
+            logger.error('Unix Domain sockets are not available on Windows')
+            raise ConfigurationError('uds')
 
         if self.interface != Interfaces.WSGI and self.blocking_threads > 1:
             logger.error('Blocking threads > 1 is not supported on ASGI and RSGI')
@@ -595,11 +601,17 @@ class AbstractServer(Generic[WT]):
             raise ConfigurationError('env_files')
 
         if self.workers_lifetime is not None:
-            if self.reload_on_changes:
-                logger.info('Workers lifetime is not available in combination with changes reloader, ignoring')
             if self.workers_lifetime < 60:
                 logger.error('Workers lifetime cannot be less than 60 seconds')
                 raise ConfigurationError('workers_lifetime')
+            if self.reload_on_changes:
+                self.workers_lifetime = None
+                logger.info('Workers lifetime is not available in combination with changes reloader, ignoring')
+
+        if self.workers_rss is not None:
+            if self.reload_on_changes:
+                self.workers_rss = None
+                logger.info('The resource monitor is not available in combination with changes reloader, ignoring')
 
         if self.blocking_threads_idle_timeout < 10 or self.blocking_threads_idle_timeout > 600:
             logger.error('Blocking threads idle timeout must be between 10 and 600 seconds')
@@ -618,6 +630,13 @@ class AbstractServer(Generic[WT]):
                 'Mind that Rust threads are not involved in Python code execution, and they almost never be the '
                 'limiting factor in scaling. Consider configuring the amount of blocking threads instead'
             )
+
+        if self.runtime_mode == RuntimeModes.auto:
+            self.runtime_mode = RuntimeModes.st
+            if self.interface == Interfaces.WSGI:
+                self.runtime_mode = RuntimeModes.mt
+            if self.http == HTTPModes.http2:
+                self.runtime_mode = RuntimeModes.mt
 
         if self.task_impl == TaskImpl.rust:
             if _PYV >= _PY_312:

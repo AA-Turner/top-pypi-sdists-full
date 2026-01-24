@@ -13,6 +13,8 @@
     ARGV[2] (job.opts.lifo ? 'R' : 'L') + 'PUSH'
     ARGV[3] propVal - failedReason/returnvalue
     ARGV[4] prev state - failed/completed
+    ARGV[5] reset attemptsMade - "1" or "0"
+    ARGV[6] reset attemptsStarted - "1" or "0"
   Output:
      1 means the operation was a success
     -1 means the job does not exist
@@ -52,26 +54,33 @@ end
   (since an empty list and !EXISTS are not really the same).
 ]]
 local function getTargetQueueList(queueMetaKey, activeKey, waitKey, pausedKey)
-  local queueAttributes = rcall("HMGET", queueMetaKey, "paused", "concurrency")
+  local queueAttributes = rcall("HMGET", queueMetaKey, "paused", "concurrency", "max", "duration")
   if queueAttributes[1] then
-    return pausedKey, true
+    return pausedKey, true, queueAttributes[3], queueAttributes[4]
   else
     if queueAttributes[2] then
       local activeCount = rcall("LLEN", activeKey)
       if activeCount >= tonumber(queueAttributes[2]) then
-        return waitKey, true
+        return waitKey, true, queueAttributes[3], queueAttributes[4]
       else
-        return waitKey, false
+        return waitKey, false, queueAttributes[3], queueAttributes[4]
       end
     end
   end
-  return waitKey, false
+  return waitKey, false, queueAttributes[3], queueAttributes[4]
 end
 local jobKey = KEYS[1]
 if rcall("EXISTS", jobKey) == 1 then
   local jobId = ARGV[1]
   if (rcall("ZREM", KEYS[3], jobId) == 1) then
-    rcall("HDEL", jobKey, "finishedOn", "processedOn", ARGV[3])
+    local attributesToRemove = {}
+    if ARGV[5] == "1" then
+      table.insert(attributesToRemove, "atm")
+    end
+    if ARGV[6] == "1" then
+      table.insert(attributesToRemove, "ats")
+    end
+    rcall("HDEL", jobKey, "finishedOn", "processedOn", ARGV[3], unpack(attributesToRemove))
     local target, isPausedOrMaxed = getTargetQueueList(KEYS[5], KEYS[7], KEYS[4], KEYS[6])
     addJobInTargetList(target, KEYS[8], ARGV[2], isPausedOrMaxed, jobId)
     local parentKey = rcall("HGET", jobKey, "parentKey")

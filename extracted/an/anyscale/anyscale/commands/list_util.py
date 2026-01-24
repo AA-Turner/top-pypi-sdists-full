@@ -108,7 +108,9 @@ def display_list(  # noqa: PLR0913, PLR0912
     # Start interactive session if needed
     if interactive:
         try:
-            from anyscale.telemetry import start_interactive_session
+            from anyscale.telemetry import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid telemetry startup unless interactive")
+                start_interactive_session,
+            )
 
             start_interactive_session()
         except Exception:  # noqa: BLE001
@@ -129,7 +131,9 @@ def display_list(  # noqa: PLR0913, PLR0912
     # For interactive commands, mark when command logic completes
     if interactive:
         try:
-            from anyscale.telemetry import mark_command_complete
+            from anyscale.telemetry import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid telemetry startup unless interactive")
+                mark_command_complete,
+            )
 
             mark_command_complete()
         except Exception:  # noqa: BLE001
@@ -148,7 +152,9 @@ def display_list(  # noqa: PLR0913, PLR0912
     while True:
         # Start page fetch timing and generate new trace ID BEFORE fetching
         try:
-            from anyscale.telemetry import mark_page_fetch_start
+            from anyscale.telemetry import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid telemetry startup unless interactive")
+                mark_page_fetch_start,
+            )
 
             mark_page_fetch_start(page_num)
         except Exception:  # noqa: BLE001
@@ -167,7 +173,9 @@ def display_list(  # noqa: PLR0913, PLR0912
 
         # Complete page fetch telemetry
         try:
-            from anyscale.telemetry import mark_page_fetch_complete
+            from anyscale.telemetry import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid telemetry startup unless interactive")
+                mark_page_fetch_complete,
+            )
 
             mark_page_fetch_complete(page_num)
         except Exception:  # noqa: BLE001

@@ -52,11 +52,23 @@ class DatabaseFeatures(BaseDatabaseFeatures):
 
     # Map fields which some backends may not be able to differentiate to the
     # field it's introspected as.
+
     introspected_field_types = {
         "AutoField": "Int64Field",
         "BigAutoField": "Int64Field",
+        "BigIntegerField": "Int64Field",
+        "BinaryField": "StringField",
+        "BooleanField": "BoolField",
+        "CharField": "FixedStringField",
+        # "DurationField": "DurationField",
         "GenericIPAddressField": "IPv6Field",
+        "IntegerField": "Int32Field",
+        "PositiveBigIntegerField": "UInt64Field",
+        "PositiveIntegerField": "UInt32Field",
+        "PositiveSmallIntegerField": "UInt16Field",
         "SmallAutoField": "Int64Field",
+        "SmallIntegerField": "Int16Field",
+        # "TimeField": "TimeField",
     }
 
     # https://clickhouse.com/docs/en/sql-reference/statements/alter/index/
@@ -122,7 +134,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # Does the backend support column and table comments?
     supports_comments = True
     # Does the backend support column comments in ADD COLUMN statements?
-    supports_comments_inline = False
+    supports_comments_inline = True
 
     # SQL template override for tests.aggregation.tests.NowUTC
     test_now_utc_template = "now64()"
@@ -135,7 +147,45 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_over_clause = True
     supports_frame_range_fixed_distance = True
     only_supports_unbounded_with_preceding_and_following = False
+    insert_test_table_with_defaults = (
+        "INSERT INTO {} VALUES (DEFAULT, DEFAULT, DEFAULT)"
+    )
 
     @cached_property
     def supports_transactions(self):
         return self.fake_transaction
+
+    @cached_property
+    def django_test_skips(self):
+        skips = {}
+        version = self.connection.get_database_version()
+        if version >= (25, 11):
+            skips.update(
+                {
+                    "ClickHouse 25.11 remove deprecated Object('json') type.": {
+                        "clickhouse_fields.test_jsonfield.JsonFieldTests.test_query",
+                        "expressions_window.tests.WindowFunctionTests.test_key_transform",
+                    }
+                }
+            )
+        if version < (25, 1):
+            skips.update(
+                {
+                    "ClickHouse 25.1 add generateSerialID function.": {
+                        "clickhouse_functions.test_other.OtherTests.test_generateSerialID",
+                    }
+                }
+            )
+        return skips
+
+    @cached_property
+    def django_test_expected_failures(self):
+        # DB::Exception: Cannot convert column 'height' from nullable type Nullable(UInt32) to non-nullable type UInt32.
+        # Please specify `DEFAULT` expression in ALTER MODIFY COLUMN statement.
+        # A bug in ClickHouse 25.11, they force a `DEFAULT` expression when alter column type from nullable to non-nullable.
+        if self.connection.get_database_version() >= (25, 11):
+            return {
+                "schema.tests.SchemaTests.test_alter_null_to_not_null_keeping_default",
+                "schema.tests.SchemaTests.test_alter",
+            }
+        return set()

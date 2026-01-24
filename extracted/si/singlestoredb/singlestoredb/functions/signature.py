@@ -9,12 +9,12 @@ import string
 import sys
 import types
 import typing
+from collections.abc import Sequence
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional
-from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
 from typing import Union
@@ -55,6 +55,7 @@ array_types: Tuple[Any, ...]
 if has_numpy:
     array_types = (Sequence, np.ndarray)
     numpy_type_map = {
+        np.bool_: 'bool',
         np.integer: 'int64',
         np.int_: 'int64',
         np.int64: 'int64',
@@ -99,6 +100,7 @@ float_type_map = {
 }
 
 int_type_map = {
+    'bool': 'bool',
     'int': 'int64',
     'integer': 'int64',
     'int_': 'int64',
@@ -133,6 +135,7 @@ sql_type_map = {
     'uint16': 'SMALLINT UNSIGNED',
     'uint32': 'INT UNSIGNED',
     'uint64': 'BIGINT UNSIGNED',
+    'float16': 'FLOAT',
     'float32': 'FLOAT',
     'float64': 'DOUBLE',
     'str': 'TEXT',

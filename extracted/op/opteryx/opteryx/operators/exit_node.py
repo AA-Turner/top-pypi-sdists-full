@@ -17,9 +17,12 @@ This does two things that the projection node doesn't do:
 This node doesn't do any calculations, it is a pure Projection.
 """
 
+import pyarrow
+from orso.types import OrsoTypes
 from pyarrow import Table
 
 from opteryx import EOS
+from opteryx.datatypes.intervals import to_arrow_interval
 from opteryx.exceptions import AmbiguousIdentifierError
 from opteryx.exceptions import InvalidInternalStateError
 from opteryx.models import QueryProperties
@@ -38,7 +41,7 @@ class ExitNode(BasePlanNode):
         final_names = []
         for column in self.columns:
             final_columns.append(column.schema_column.identity)
-            final_names.append(column.current_name)
+            final_names.append(column.alias)
 
         if len(final_columns) != len(set(final_columns)):  # pragma: no cover
             from collections import Counter
@@ -55,7 +58,7 @@ class ExitNode(BasePlanNode):
                 # if column.schema_column.origin:
                 #    final_names.append(f"{column.schema_column.origin[0]}.{column.current_name}")
                 # else:
-                final_names.append(column.qualified_name)
+                final_names.append(column.alias)
 
         self.final_columns = final_columns
         self.final_names = final_names
@@ -69,10 +72,11 @@ class ExitNode(BasePlanNode):
         return "Exit"
 
     def execute(self, morsel: Table, **kwargs) -> Table:
+        morsel = self.ensure_arrow_table(morsel)
+
         # Exit doesn't return EOS
         if morsel == EOS:
             if not self.at_least_one:
-                import pyarrow
                 from orso.schema import RelationSchema
                 from orso.schema import convert_orso_schema_to_arrow_schema
 
@@ -113,6 +117,25 @@ class ExitNode(BasePlanNode):
             )
 
         morsel = morsel.select(self.final_columns)
+
+        for index, column in enumerate(self.columns):
+            column_array = morsel.column(index)
+            column_identity = column.schema_column.identity
+            column_type = column.schema_column.type
+
+            if column_type == OrsoTypes.INTERVAL:
+                converted = to_arrow_interval(column_array)
+                morsel = morsel.set_column(index, column_identity, converted)
+                continue
+
+            if column_type == OrsoTypes.VARCHAR and (
+                pyarrow.types.is_binary(column_array.type)
+                or pyarrow.types.is_large_binary(column_array.type)
+                or pyarrow.types.is_fixed_size_binary(column_array.type)
+            ):
+                converted = column_array.cast(pyarrow.string())
+                morsel = morsel.set_column(index, column_identity, converted)
+
         morsel = morsel.rename_columns(self.final_names)
 
         yield morsel

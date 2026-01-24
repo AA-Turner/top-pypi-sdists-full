@@ -6,6 +6,18 @@ from mcp.types import ContentBlock, ImageContent, TextContent
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class Coordinate(BaseModel):
+    """A coordinate point with x and y values.
+
+    Used for path-based actions like drag operations.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    x: int = Field(..., description="X coordinate")
+    y: int = Field(..., description="Y coordinate")
+
+
 class EvaluationResult(BaseModel):
     """Standard evaluation result format."""
 
@@ -28,6 +40,7 @@ class ContentResult(BaseModel):
     error: str | None = Field(default=None, description="Error message")
     base64_image: str | None = Field(default=None, description="Base64-encoded image")
     system: str | None = Field(default=None, description="System message")
+    url: str | None = Field(default=None, description="Current page URL (for browser automation)")
 
     def __add__(self, other: ContentResult) -> ContentResult:
         def combine_fields(
@@ -44,6 +57,7 @@ class ContentResult(BaseModel):
             error=combine_fields(self.error, other.error),
             base64_image=combine_fields(self.base64_image, other.base64_image, False),
             system=combine_fields(self.system, other.system),
+            url=combine_fields(self.url, other.url, False),
         )
 
     def to_content_blocks(self) -> list[ContentBlock]:
@@ -55,7 +69,7 @@ class ContentResult(BaseModel):
             result: ContentResult to convert
 
         Returns:
-            List of ContentBlock
+            List of ContentBlock with URL embedded as metadata if available
         """
         blocks: list[ContentBlock] = []
 
@@ -65,6 +79,12 @@ class ContentResult(BaseModel):
             blocks.append(TextContent(text=self.error, type="text"))
         if self.base64_image:
             blocks.append(ImageContent(data=self.base64_image, mimeType="image/png", type="image"))
+
+        # Add URL as a special metadata text block (for Gemini Computer Use)
+        # Always include URL if set, even if it's a placeholder like "about:blank"
+        if self.url:
+            blocks.append(TextContent(text=f"__URL__:{self.url}", type="text"))
+
         return blocks
 
 

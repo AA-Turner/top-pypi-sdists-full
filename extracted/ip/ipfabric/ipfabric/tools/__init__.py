@@ -1,8 +1,8 @@
 from .configuration import DeviceConfigs, trigger_backup
 from .discovery_history import DiscoveryHistory
 from .feature_matrix import FeatureMatrix
-from .restore_intents import RestoreIntents
 from .shared import (
+    api_header,
     parse_mac,
     TIMEZONES,
     VALID_REFS,
@@ -19,9 +19,9 @@ __all__ = [
     "DeviceConfigs",
     "trigger_backup",
     "Vulnerabilities",
-    "RestoreIntents",
     "DiscoveryHistory",
     "map_devices_to_rules",
+    "api_header",
     "parse_mac",
     "TIMEZONES",
     "VALID_REFS",

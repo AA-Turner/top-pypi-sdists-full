@@ -3,17 +3,12 @@
 from __future__ import annotations
 from .commercemoneyresponse import CommerceMoneyResponse, CommerceMoneyResponseTypedDict
 from .featureresponse import FeatureResponse, FeatureResponseTypedDict
-from clerk_backend_api.types import (
-    BaseModel,
-    Nullable,
-    OptionalNullable,
-    UNSET,
-    UNSET_SENTINEL,
-)
+from clerk_backend_api.types import BaseModel, Nullable, UNSET_SENTINEL
 from enum import Enum
+import pydantic
 from pydantic import model_serializer
 from typing import List, Optional
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class CommercePlanObject(str, Enum):
@@ -22,34 +17,68 @@ class CommercePlanObject(str, Enum):
     COMMERCE_PLAN = "commerce_plan"
 
 
+class AnnualMonthlyFeeTypedDict(TypedDict):
+    amount: int
+    r"""The amount in cents."""
+    amount_formatted: str
+    r"""The formatted amount as a string (e.g., \"$49.99\")."""
+    currency: str
+    r"""The currency code (e.g., \"USD\")."""
+    currency_symbol: str
+    r"""The currency symbol (e.g., \"$\")."""
+
+
+class AnnualMonthlyFee(BaseModel):
+    amount: int
+    r"""The amount in cents."""
+
+    amount_formatted: str
+    r"""The formatted amount as a string (e.g., \"$49.99\")."""
+
+    currency: str
+    r"""The currency code (e.g., \"USD\")."""
+
+    currency_symbol: str
+    r"""The currency symbol (e.g., \"$\")."""
+
+
+class AnnualFeeTypedDict(TypedDict):
+    amount: int
+    r"""The amount in cents."""
+    amount_formatted: str
+    r"""The formatted amount as a string (e.g., \"$49.99\")."""
+    currency: str
+    r"""The currency code (e.g., \"USD\")."""
+    currency_symbol: str
+    r"""The currency symbol (e.g., \"$\")."""
+
+
+class AnnualFee(BaseModel):
+    amount: int
+    r"""The amount in cents."""
+
+    amount_formatted: str
+    r"""The formatted amount as a string (e.g., \"$49.99\")."""
+
+    currency: str
+    r"""The currency code (e.g., \"USD\")."""
+
+    currency_symbol: str
+    r"""The currency symbol (e.g., \"$\")."""
+
+
 class CommercePlanTypedDict(TypedDict):
     object: CommercePlanObject
     r"""String representing the object's type. Objects of the same type share the same value."""
     id: str
-    r"""Unique identifier for the commerce plan."""
+    r"""Unique identifier for the plan."""
     name: str
-    r"""The name of the commerce plan."""
+    r"""The name of the plan."""
     fee: CommerceMoneyResponseTypedDict
-    annual_monthly_fee: CommerceMoneyResponseTypedDict
-    annual_fee: CommerceMoneyResponseTypedDict
-    amount: int
-    r"""The amount in cents for the plan."""
-    amount_formatted: str
-    r"""The formatted amount as a string (e.g., \"$49.99\")."""
-    annual_monthly_amount: int
-    r"""The monthly amount in cents when billed annually."""
-    annual_monthly_amount_formatted: str
-    r"""The formatted annual monthly amount as a string."""
-    annual_amount: int
-    r"""The total annual amount in cents."""
-    annual_amount_formatted: str
-    r"""The formatted annual amount as a string."""
-    currency_symbol: str
-    r"""The currency symbol (e.g., \"$\")."""
-    currency: str
-    r"""The currency code (e.g., \"USD\")."""
-    description: str
-    r"""The description of the commerce plan."""
+    annual_monthly_fee: Nullable[AnnualMonthlyFeeTypedDict]
+    annual_fee: Nullable[AnnualFeeTypedDict]
+    description: Nullable[str]
+    r"""The description of the plan."""
     product_id: str
     r"""The ID of the product this plan belongs to."""
     is_default: bool
@@ -60,24 +89,18 @@ class CommercePlanTypedDict(TypedDict):
     r"""Whether this plan is publicly visible."""
     has_base_fee: bool
     r"""Whether this plan has a base fee."""
-    payer_type: List[str]
-    r"""The types of payers that can use this plan."""
     for_payer_type: str
     r"""The payer type this plan is designed for."""
     slug: str
     r"""The URL-friendly slug for the plan."""
-    avatar_url: str
+    avatar_url: Nullable[str]
     r"""The URL of the plan's avatar image."""
-    features: List[FeatureResponseTypedDict]
-    r"""The features included in this plan."""
-    period: NotRequired[str]
-    r"""The billing period for the plan."""
-    interval: NotRequired[int]
-    r"""The billing interval."""
-    free_trial_enabled: NotRequired[bool]
+    free_trial_enabled: bool
     r"""Whether free trial is enabled for this plan."""
-    free_trial_days: NotRequired[Nullable[int]]
+    free_trial_days: Nullable[int]
     r"""Number of free trial days for this plan."""
+    features: NotRequired[List[FeatureResponseTypedDict]]
+    r"""The features included in this plan."""
 
 
 class CommercePlan(BaseModel):
@@ -85,45 +108,26 @@ class CommercePlan(BaseModel):
     r"""String representing the object's type. Objects of the same type share the same value."""
 
     id: str
-    r"""Unique identifier for the commerce plan."""
+    r"""Unique identifier for the plan."""
 
     name: str
-    r"""The name of the commerce plan."""
+    r"""The name of the plan."""
 
     fee: CommerceMoneyResponse
 
-    annual_monthly_fee: CommerceMoneyResponse
+    annual_monthly_fee: Nullable[AnnualMonthlyFee]
 
-    annual_fee: CommerceMoneyResponse
+    annual_fee: Nullable[AnnualFee]
 
-    amount: int
-    r"""The amount in cents for the plan."""
+    description: Nullable[str]
+    r"""The description of the plan."""
 
-    amount_formatted: str
-    r"""The formatted amount as a string (e.g., \"$49.99\")."""
-
-    annual_monthly_amount: int
-    r"""The monthly amount in cents when billed annually."""
-
-    annual_monthly_amount_formatted: str
-    r"""The formatted annual monthly amount as a string."""
-
-    annual_amount: int
-    r"""The total annual amount in cents."""
-
-    annual_amount_formatted: str
-    r"""The formatted annual amount as a string."""
-
-    currency_symbol: str
-    r"""The currency symbol (e.g., \"$\")."""
-
-    currency: str
-    r"""The currency code (e.g., \"USD\")."""
-
-    description: str
-    r"""The description of the commerce plan."""
-
-    product_id: str
+    product_id: Annotated[
+        str,
+        pydantic.Field(
+            deprecated="warning: ** DEPRECATED ** - This will be removed in a future release, please migrate away from it as soon as possible."
+        ),
+    ]
     r"""The ID of the product this plan belongs to."""
 
     is_default: bool
@@ -138,42 +142,34 @@ class CommercePlan(BaseModel):
     has_base_fee: bool
     r"""Whether this plan has a base fee."""
 
-    payer_type: List[str]
-    r"""The types of payers that can use this plan."""
-
     for_payer_type: str
     r"""The payer type this plan is designed for."""
 
     slug: str
     r"""The URL-friendly slug for the plan."""
 
-    avatar_url: str
+    avatar_url: Nullable[str]
     r"""The URL of the plan's avatar image."""
 
-    features: List[FeatureResponse]
-    r"""The features included in this plan."""
-
-    period: Optional[str] = None
-    r"""The billing period for the plan."""
-
-    interval: Optional[int] = None
-    r"""The billing interval."""
-
-    free_trial_enabled: Optional[bool] = None
+    free_trial_enabled: bool
     r"""Whether free trial is enabled for this plan."""
 
-    free_trial_days: OptionalNullable[int] = UNSET
+    free_trial_days: Nullable[int]
     r"""Number of free trial days for this plan."""
+
+    features: Optional[List[FeatureResponse]] = None
+    r"""The features included in this plan."""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = [
-            "period",
-            "interval",
-            "free_trial_enabled",
+        optional_fields = ["features"]
+        nullable_fields = [
+            "annual_monthly_fee",
+            "annual_fee",
+            "description",
+            "avatar_url",
             "free_trial_days",
         ]
-        nullable_fields = ["free_trial_days"]
         null_default_fields = []
 
         serialized = handler(self)

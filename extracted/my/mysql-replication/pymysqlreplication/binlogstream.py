@@ -1,6 +1,7 @@
 import struct
-import logging
 from packaging.version import Version
+
+from .logger import logger
 
 import pymysql
 from pymysql.constants.COMMAND import COM_BINLOG_DUMP, COM_REGISTER_SLAVE
@@ -188,6 +189,7 @@ class BinLogStreamReader(object):
         ignore_decode_errors=False,
         verify_checksum=False,
         enable_logging=True,
+        use_column_name_cache=False,
     ):
         """
         Attributes:
@@ -230,6 +232,8 @@ class BinLogStreamReader(object):
             verify_checksum: If true, verify events read from the binary log by examining checksums.
             enable_logging: When set to True, logs various details helpful for debugging and monitoring
                             When set to False, logging is disabled to enhance performance.
+            use_column_name_cache: If true, enables caching of column names from INFORMATION_SCHEMA
+                            for MySQL 5.7 compatibility when binlog metadata is missing. Default is False.
         """
 
         self.__connection_settings = connection_settings
@@ -254,6 +258,8 @@ class BinLogStreamReader(object):
         self.__ignore_decode_errors = ignore_decode_errors
         self.__verify_checksum = verify_checksum
         self.__optional_meta_data = False
+        self.__enable_logging = enable_logging
+        self.__use_column_name_cache = use_column_name_cache
 
         # We can't filter on packet level TABLE_MAP and rotate event because
         # we need them for handling other operations
@@ -559,17 +565,15 @@ class BinLogStreamReader(object):
         cur.execute("SHOW VARIABLES LIKE 'BINLOG_ROW_METADATA';")
         value = cur.fetchone()
         if value is None:  # BinLog Variable Not exist It means Not Supported Version
-            logging.log(
-                logging.WARN,
+            logger.warning(
                 """
                     Before using MARIADB 10.5.0 and MYSQL 8.0.14 versions,
-                    use python-mysql-replication version Before 1.0 version """,
+                    use python-mysql-replication version Before 1.0 version """
             )
         else:
             value = value.get("Value", "")
             if value.upper() != "FULL":
-                logging.log(
-                    logging.WARN,
+                logger.warning(
                     """
                        Setting The Variable Value BINLOG_ROW_METADATA = FULL, BINLOG_ROW_IMAGE = FULL.
                        By Applying this, provide properly mapped column information on UPDATE,DELETE,INSERT.
@@ -599,8 +603,7 @@ class BinLogStreamReader(object):
                 if code in MYSQL_EXPECTED_ERROR_CODES:
                     self._stream_connection.close()
                     self.__connected_stream = False
-                    logging.log(
-                        logging.WARN,
+                    logger.warning(
                         """
                           A pymysql.OperationalError error occurred, Re-request the connection.
                         """,
@@ -630,6 +633,8 @@ class BinLogStreamReader(object):
                 self.__ignore_decode_errors,
                 self.__verify_checksum,
                 self.__optional_meta_data,
+                self.__enable_logging,
+                self.__use_column_name_cache,
             )
 
             if binlog_event.event_type == ROTATE_EVENT:
@@ -775,7 +780,7 @@ class BinLogStreamReader(object):
                 comment = f"{parameter}: [{items}]"
             else:
                 comment = f"{parameter}: {value}"
-            logging.info(comment)
+            logger.info(comment)
 
     def __iter__(self):
         return iter(self.fetchone, None)

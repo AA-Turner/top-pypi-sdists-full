@@ -51,7 +51,17 @@ class EditOptions(TypedDict, total=False):
     color: str
     """The color to use for edits, in hex format."""
 
-    llm_provider_preference: Literal["openai", "anthropic", "gemini"]
+    enable_overflow_pages: bool
+    """If True, creates overflow pages for text that doesn't fit in form fields.
+
+    Defaults to False.
+    """
+
+    llm_provider_preference: Optional[Literal["openai", "anthropic", "google"]]
+    """The LLM provider to use for edit processing.
+
+    If not specified, defaults to 'google'
+    """
 
 
 class FormSchema(TypedDict, total=False):
@@ -61,7 +71,7 @@ class FormSchema(TypedDict, total=False):
     description: Required[str]
     """Description of the widget extracted from the document"""
 
-    type: Required[Literal["text", "checkbox", "dropdown", "barcode"]]
+    type: Required[Literal["text", "checkbox", "radio", "dropdown", "barcode"]]
     """Type of the form widget"""
 
     fill: bool

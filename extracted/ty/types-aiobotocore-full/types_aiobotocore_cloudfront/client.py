@@ -3,7 +3,7 @@ Type annotations for cloudfront service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -30,8 +31,11 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListCloudFrontOriginAccessIdentitiesPaginator,
+    ListConnectionFunctionsPaginator,
     ListConnectionGroupsPaginator,
+    ListDistributionsByConnectionFunctionPaginator,
     ListDistributionsByConnectionModePaginator,
+    ListDistributionsByTrustStorePaginator,
     ListDistributionsPaginator,
     ListDistributionTenantsByCustomizationPaginator,
     ListDistributionTenantsPaginator,
@@ -42,6 +46,7 @@ from .paginator import (
     ListOriginAccessControlsPaginator,
     ListPublicKeysPaginator,
     ListStreamingDistributionsPaginator,
+    ListTrustStoresPaginator,
 )
 from .type_defs import (
     AssociateAliasRequestTypeDef,
@@ -57,6 +62,8 @@ from .type_defs import (
     CreateCachePolicyResultTypeDef,
     CreateCloudFrontOriginAccessIdentityRequestTypeDef,
     CreateCloudFrontOriginAccessIdentityResultTypeDef,
+    CreateConnectionFunctionRequestTypeDef,
+    CreateConnectionFunctionResultTypeDef,
     CreateConnectionGroupRequestTypeDef,
     CreateConnectionGroupResultTypeDef,
     CreateContinuousDeploymentPolicyRequestTypeDef,
@@ -97,11 +104,14 @@ from .type_defs import (
     CreateStreamingDistributionResultTypeDef,
     CreateStreamingDistributionWithTagsRequestTypeDef,
     CreateStreamingDistributionWithTagsResultTypeDef,
+    CreateTrustStoreRequestTypeDef,
+    CreateTrustStoreResultTypeDef,
     CreateVpcOriginRequestTypeDef,
     CreateVpcOriginResultTypeDef,
     DeleteAnycastIpListRequestTypeDef,
     DeleteCachePolicyRequestTypeDef,
     DeleteCloudFrontOriginAccessIdentityRequestTypeDef,
+    DeleteConnectionFunctionRequestTypeDef,
     DeleteConnectionGroupRequestTypeDef,
     DeleteContinuousDeploymentPolicyRequestTypeDef,
     DeleteDistributionRequestTypeDef,
@@ -116,10 +126,14 @@ from .type_defs import (
     DeleteOriginRequestPolicyRequestTypeDef,
     DeletePublicKeyRequestTypeDef,
     DeleteRealtimeLogConfigRequestTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
     DeleteResponseHeadersPolicyRequestTypeDef,
     DeleteStreamingDistributionRequestTypeDef,
+    DeleteTrustStoreRequestTypeDef,
     DeleteVpcOriginRequestTypeDef,
     DeleteVpcOriginResultTypeDef,
+    DescribeConnectionFunctionRequestTypeDef,
+    DescribeConnectionFunctionResultTypeDef,
     DescribeFunctionRequestTypeDef,
     DescribeFunctionResultTypeDef,
     DescribeKeyValueStoreRequestTypeDef,
@@ -139,6 +153,8 @@ from .type_defs import (
     GetCloudFrontOriginAccessIdentityConfigResultTypeDef,
     GetCloudFrontOriginAccessIdentityRequestTypeDef,
     GetCloudFrontOriginAccessIdentityResultTypeDef,
+    GetConnectionFunctionRequestTypeDef,
+    GetConnectionFunctionResultTypeDef,
     GetConnectionGroupByRoutingEndpointRequestTypeDef,
     GetConnectionGroupByRoutingEndpointResultTypeDef,
     GetConnectionGroupRequestTypeDef,
@@ -191,6 +207,8 @@ from .type_defs import (
     GetPublicKeyResultTypeDef,
     GetRealtimeLogConfigRequestTypeDef,
     GetRealtimeLogConfigResultTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResultTypeDef,
     GetResponseHeadersPolicyConfigRequestTypeDef,
     GetResponseHeadersPolicyConfigResultTypeDef,
     GetResponseHeadersPolicyRequestTypeDef,
@@ -199,6 +217,8 @@ from .type_defs import (
     GetStreamingDistributionConfigResultTypeDef,
     GetStreamingDistributionRequestTypeDef,
     GetStreamingDistributionResultTypeDef,
+    GetTrustStoreRequestTypeDef,
+    GetTrustStoreResultTypeDef,
     GetVpcOriginRequestTypeDef,
     GetVpcOriginResultTypeDef,
     ListAnycastIpListsRequestTypeDef,
@@ -209,6 +229,8 @@ from .type_defs import (
     ListCloudFrontOriginAccessIdentitiesResultTypeDef,
     ListConflictingAliasesRequestTypeDef,
     ListConflictingAliasesResultTypeDef,
+    ListConnectionFunctionsRequestTypeDef,
+    ListConnectionFunctionsResultTypeDef,
     ListConnectionGroupsRequestTypeDef,
     ListConnectionGroupsResultTypeDef,
     ListContinuousDeploymentPoliciesRequestTypeDef,
@@ -217,16 +239,22 @@ from .type_defs import (
     ListDistributionsByAnycastIpListIdResultTypeDef,
     ListDistributionsByCachePolicyIdRequestTypeDef,
     ListDistributionsByCachePolicyIdResultTypeDef,
+    ListDistributionsByConnectionFunctionRequestTypeDef,
+    ListDistributionsByConnectionFunctionResultTypeDef,
     ListDistributionsByConnectionModeRequestTypeDef,
     ListDistributionsByConnectionModeResultTypeDef,
     ListDistributionsByKeyGroupRequestTypeDef,
     ListDistributionsByKeyGroupResultTypeDef,
     ListDistributionsByOriginRequestPolicyIdRequestTypeDef,
     ListDistributionsByOriginRequestPolicyIdResultTypeDef,
+    ListDistributionsByOwnedResourceRequestTypeDef,
+    ListDistributionsByOwnedResourceResultTypeDef,
     ListDistributionsByRealtimeLogConfigRequestTypeDef,
     ListDistributionsByRealtimeLogConfigResultTypeDef,
     ListDistributionsByResponseHeadersPolicyIdRequestTypeDef,
     ListDistributionsByResponseHeadersPolicyIdResultTypeDef,
+    ListDistributionsByTrustStoreRequestTypeDef,
+    ListDistributionsByTrustStoreResultTypeDef,
     ListDistributionsByVpcOriginIdRequestTypeDef,
     ListDistributionsByVpcOriginIdResultTypeDef,
     ListDistributionsByWebACLIdRequestTypeDef,
@@ -267,18 +295,30 @@ from .type_defs import (
     ListStreamingDistributionsResultTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResultTypeDef,
+    ListTrustStoresRequestTypeDef,
+    ListTrustStoresResultTypeDef,
     ListVpcOriginsRequestTypeDef,
     ListVpcOriginsResultTypeDef,
+    PublishConnectionFunctionRequestTypeDef,
+    PublishConnectionFunctionResultTypeDef,
     PublishFunctionRequestTypeDef,
     PublishFunctionResultTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResultTypeDef,
     TagResourceRequestTypeDef,
+    TestConnectionFunctionRequestTypeDef,
+    TestConnectionFunctionResultTypeDef,
     TestFunctionRequestTypeDef,
     TestFunctionResultTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAnycastIpListRequestTypeDef,
+    UpdateAnycastIpListResultTypeDef,
     UpdateCachePolicyRequestTypeDef,
     UpdateCachePolicyResultTypeDef,
     UpdateCloudFrontOriginAccessIdentityRequestTypeDef,
     UpdateCloudFrontOriginAccessIdentityResultTypeDef,
+    UpdateConnectionFunctionRequestTypeDef,
+    UpdateConnectionFunctionResultTypeDef,
     UpdateConnectionGroupRequestTypeDef,
     UpdateConnectionGroupResultTypeDef,
     UpdateContinuousDeploymentPolicyRequestTypeDef,
@@ -313,6 +353,8 @@ from .type_defs import (
     UpdateResponseHeadersPolicyResultTypeDef,
     UpdateStreamingDistributionRequestTypeDef,
     UpdateStreamingDistributionResultTypeDef,
+    UpdateTrustStoreRequestTypeDef,
+    UpdateTrustStoreResultTypeDef,
     UpdateVpcOriginRequestTypeDef,
     UpdateVpcOriginResultTypeDef,
     VerifyDnsConfigurationRequestTypeDef,
@@ -325,12 +367,6 @@ from .waiter import (
     StreamingDistributionDeployedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -341,159 +377,159 @@ __all__ = ("CloudFrontClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDenied: Type[BotocoreClientError]
-    BatchTooLarge: Type[BotocoreClientError]
-    CNAMEAlreadyExists: Type[BotocoreClientError]
-    CachePolicyAlreadyExists: Type[BotocoreClientError]
-    CachePolicyInUse: Type[BotocoreClientError]
-    CannotChangeImmutablePublicKeyFields: Type[BotocoreClientError]
-    CannotDeleteEntityWhileInUse: Type[BotocoreClientError]
-    CannotUpdateEntityWhileInUse: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CloudFrontOriginAccessIdentityAlreadyExists: Type[BotocoreClientError]
-    CloudFrontOriginAccessIdentityInUse: Type[BotocoreClientError]
-    ContinuousDeploymentPolicyAlreadyExists: Type[BotocoreClientError]
-    ContinuousDeploymentPolicyInUse: Type[BotocoreClientError]
-    DistributionAlreadyExists: Type[BotocoreClientError]
-    DistributionNotDisabled: Type[BotocoreClientError]
-    EntityAlreadyExists: Type[BotocoreClientError]
-    EntityLimitExceeded: Type[BotocoreClientError]
-    EntityNotFound: Type[BotocoreClientError]
-    EntitySizeLimitExceeded: Type[BotocoreClientError]
-    FieldLevelEncryptionConfigAlreadyExists: Type[BotocoreClientError]
-    FieldLevelEncryptionConfigInUse: Type[BotocoreClientError]
-    FieldLevelEncryptionProfileAlreadyExists: Type[BotocoreClientError]
-    FieldLevelEncryptionProfileInUse: Type[BotocoreClientError]
-    FieldLevelEncryptionProfileSizeExceeded: Type[BotocoreClientError]
-    FunctionAlreadyExists: Type[BotocoreClientError]
-    FunctionInUse: Type[BotocoreClientError]
-    FunctionSizeLimitExceeded: Type[BotocoreClientError]
-    IllegalDelete: Type[BotocoreClientError]
-    IllegalFieldLevelEncryptionConfigAssociationWithCacheBehavior: Type[BotocoreClientError]
-    IllegalOriginAccessConfiguration: Type[BotocoreClientError]
-    IllegalUpdate: Type[BotocoreClientError]
-    InconsistentQuantities: Type[BotocoreClientError]
-    InvalidArgument: Type[BotocoreClientError]
-    InvalidAssociation: Type[BotocoreClientError]
-    InvalidDefaultRootObject: Type[BotocoreClientError]
-    InvalidDomainNameForOriginAccessControl: Type[BotocoreClientError]
-    InvalidErrorCode: Type[BotocoreClientError]
-    InvalidForwardCookies: Type[BotocoreClientError]
-    InvalidFunctionAssociation: Type[BotocoreClientError]
-    InvalidGeoRestrictionParameter: Type[BotocoreClientError]
-    InvalidHeadersForS3Origin: Type[BotocoreClientError]
-    InvalidIfMatchVersion: Type[BotocoreClientError]
-    InvalidLambdaFunctionAssociation: Type[BotocoreClientError]
-    InvalidLocationCode: Type[BotocoreClientError]
-    InvalidMinimumProtocolVersion: Type[BotocoreClientError]
-    InvalidOrigin: Type[BotocoreClientError]
-    InvalidOriginAccessControl: Type[BotocoreClientError]
-    InvalidOriginAccessIdentity: Type[BotocoreClientError]
-    InvalidOriginKeepaliveTimeout: Type[BotocoreClientError]
-    InvalidOriginReadTimeout: Type[BotocoreClientError]
-    InvalidProtocolSettings: Type[BotocoreClientError]
-    InvalidQueryStringParameters: Type[BotocoreClientError]
-    InvalidRelativePath: Type[BotocoreClientError]
-    InvalidRequiredProtocol: Type[BotocoreClientError]
-    InvalidResponseCode: Type[BotocoreClientError]
-    InvalidTTLOrder: Type[BotocoreClientError]
-    InvalidTagging: Type[BotocoreClientError]
-    InvalidViewerCertificate: Type[BotocoreClientError]
-    InvalidWebACLId: Type[BotocoreClientError]
-    KeyGroupAlreadyExists: Type[BotocoreClientError]
-    MissingBody: Type[BotocoreClientError]
-    MonitoringSubscriptionAlreadyExists: Type[BotocoreClientError]
-    NoSuchCachePolicy: Type[BotocoreClientError]
-    NoSuchCloudFrontOriginAccessIdentity: Type[BotocoreClientError]
-    NoSuchContinuousDeploymentPolicy: Type[BotocoreClientError]
-    NoSuchDistribution: Type[BotocoreClientError]
-    NoSuchFieldLevelEncryptionConfig: Type[BotocoreClientError]
-    NoSuchFieldLevelEncryptionProfile: Type[BotocoreClientError]
-    NoSuchFunctionExists: Type[BotocoreClientError]
-    NoSuchInvalidation: Type[BotocoreClientError]
-    NoSuchMonitoringSubscription: Type[BotocoreClientError]
-    NoSuchOrigin: Type[BotocoreClientError]
-    NoSuchOriginAccessControl: Type[BotocoreClientError]
-    NoSuchOriginRequestPolicy: Type[BotocoreClientError]
-    NoSuchPublicKey: Type[BotocoreClientError]
-    NoSuchRealtimeLogConfig: Type[BotocoreClientError]
-    NoSuchResource: Type[BotocoreClientError]
-    NoSuchResponseHeadersPolicy: Type[BotocoreClientError]
-    NoSuchStreamingDistribution: Type[BotocoreClientError]
-    OriginAccessControlAlreadyExists: Type[BotocoreClientError]
-    OriginAccessControlInUse: Type[BotocoreClientError]
-    OriginRequestPolicyAlreadyExists: Type[BotocoreClientError]
-    OriginRequestPolicyInUse: Type[BotocoreClientError]
-    PreconditionFailed: Type[BotocoreClientError]
-    PublicKeyAlreadyExists: Type[BotocoreClientError]
-    PublicKeyInUse: Type[BotocoreClientError]
-    QueryArgProfileEmpty: Type[BotocoreClientError]
-    RealtimeLogConfigAlreadyExists: Type[BotocoreClientError]
-    RealtimeLogConfigInUse: Type[BotocoreClientError]
-    RealtimeLogConfigOwnerMismatch: Type[BotocoreClientError]
-    ResourceInUse: Type[BotocoreClientError]
-    ResourceNotDisabled: Type[BotocoreClientError]
-    ResponseHeadersPolicyAlreadyExists: Type[BotocoreClientError]
-    ResponseHeadersPolicyInUse: Type[BotocoreClientError]
-    StagingDistributionInUse: Type[BotocoreClientError]
-    StreamingDistributionAlreadyExists: Type[BotocoreClientError]
-    StreamingDistributionNotDisabled: Type[BotocoreClientError]
-    TestFunctionFailed: Type[BotocoreClientError]
-    TooLongCSPInResponseHeadersPolicy: Type[BotocoreClientError]
-    TooManyCacheBehaviors: Type[BotocoreClientError]
-    TooManyCachePolicies: Type[BotocoreClientError]
-    TooManyCertificates: Type[BotocoreClientError]
-    TooManyCloudFrontOriginAccessIdentities: Type[BotocoreClientError]
-    TooManyContinuousDeploymentPolicies: Type[BotocoreClientError]
-    TooManyCookieNamesInWhiteList: Type[BotocoreClientError]
-    TooManyCookiesInCachePolicy: Type[BotocoreClientError]
-    TooManyCookiesInOriginRequestPolicy: Type[BotocoreClientError]
-    TooManyCustomHeadersInResponseHeadersPolicy: Type[BotocoreClientError]
-    TooManyDistributionCNAMEs: Type[BotocoreClientError]
-    TooManyDistributions: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToCachePolicy: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToFieldLevelEncryptionConfig: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToKeyGroup: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToOriginAccessControl: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToOriginRequestPolicy: Type[BotocoreClientError]
-    TooManyDistributionsAssociatedToResponseHeadersPolicy: Type[BotocoreClientError]
-    TooManyDistributionsWithFunctionAssociations: Type[BotocoreClientError]
-    TooManyDistributionsWithLambdaAssociations: Type[BotocoreClientError]
-    TooManyDistributionsWithSingleFunctionARN: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionConfigs: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionContentTypeProfiles: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionEncryptionEntities: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionFieldPatterns: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionProfiles: Type[BotocoreClientError]
-    TooManyFieldLevelEncryptionQueryArgProfiles: Type[BotocoreClientError]
-    TooManyFunctionAssociations: Type[BotocoreClientError]
-    TooManyFunctions: Type[BotocoreClientError]
-    TooManyHeadersInCachePolicy: Type[BotocoreClientError]
-    TooManyHeadersInForwardedValues: Type[BotocoreClientError]
-    TooManyHeadersInOriginRequestPolicy: Type[BotocoreClientError]
-    TooManyInvalidationsInProgress: Type[BotocoreClientError]
-    TooManyKeyGroups: Type[BotocoreClientError]
-    TooManyKeyGroupsAssociatedToDistribution: Type[BotocoreClientError]
-    TooManyLambdaFunctionAssociations: Type[BotocoreClientError]
-    TooManyOriginAccessControls: Type[BotocoreClientError]
-    TooManyOriginCustomHeaders: Type[BotocoreClientError]
-    TooManyOriginGroupsPerDistribution: Type[BotocoreClientError]
-    TooManyOriginRequestPolicies: Type[BotocoreClientError]
-    TooManyOrigins: Type[BotocoreClientError]
-    TooManyPublicKeys: Type[BotocoreClientError]
-    TooManyPublicKeysInKeyGroup: Type[BotocoreClientError]
-    TooManyQueryStringParameters: Type[BotocoreClientError]
-    TooManyQueryStringsInCachePolicy: Type[BotocoreClientError]
-    TooManyQueryStringsInOriginRequestPolicy: Type[BotocoreClientError]
-    TooManyRealtimeLogConfigs: Type[BotocoreClientError]
-    TooManyRemoveHeadersInResponseHeadersPolicy: Type[BotocoreClientError]
-    TooManyResponseHeadersPolicies: Type[BotocoreClientError]
-    TooManyStreamingDistributionCNAMEs: Type[BotocoreClientError]
-    TooManyStreamingDistributions: Type[BotocoreClientError]
-    TooManyTrustedSigners: Type[BotocoreClientError]
-    TrustedKeyGroupDoesNotExist: Type[BotocoreClientError]
-    TrustedSignerDoesNotExist: Type[BotocoreClientError]
-    UnsupportedOperation: Type[BotocoreClientError]
+    AccessDenied: type[BotocoreClientError]
+    BatchTooLarge: type[BotocoreClientError]
+    CNAMEAlreadyExists: type[BotocoreClientError]
+    CachePolicyAlreadyExists: type[BotocoreClientError]
+    CachePolicyInUse: type[BotocoreClientError]
+    CannotChangeImmutablePublicKeyFields: type[BotocoreClientError]
+    CannotDeleteEntityWhileInUse: type[BotocoreClientError]
+    CannotUpdateEntityWhileInUse: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CloudFrontOriginAccessIdentityAlreadyExists: type[BotocoreClientError]
+    CloudFrontOriginAccessIdentityInUse: type[BotocoreClientError]
+    ContinuousDeploymentPolicyAlreadyExists: type[BotocoreClientError]
+    ContinuousDeploymentPolicyInUse: type[BotocoreClientError]
+    DistributionAlreadyExists: type[BotocoreClientError]
+    DistributionNotDisabled: type[BotocoreClientError]
+    EntityAlreadyExists: type[BotocoreClientError]
+    EntityLimitExceeded: type[BotocoreClientError]
+    EntityNotFound: type[BotocoreClientError]
+    EntitySizeLimitExceeded: type[BotocoreClientError]
+    FieldLevelEncryptionConfigAlreadyExists: type[BotocoreClientError]
+    FieldLevelEncryptionConfigInUse: type[BotocoreClientError]
+    FieldLevelEncryptionProfileAlreadyExists: type[BotocoreClientError]
+    FieldLevelEncryptionProfileInUse: type[BotocoreClientError]
+    FieldLevelEncryptionProfileSizeExceeded: type[BotocoreClientError]
+    FunctionAlreadyExists: type[BotocoreClientError]
+    FunctionInUse: type[BotocoreClientError]
+    FunctionSizeLimitExceeded: type[BotocoreClientError]
+    IllegalDelete: type[BotocoreClientError]
+    IllegalFieldLevelEncryptionConfigAssociationWithCacheBehavior: type[BotocoreClientError]
+    IllegalOriginAccessConfiguration: type[BotocoreClientError]
+    IllegalUpdate: type[BotocoreClientError]
+    InconsistentQuantities: type[BotocoreClientError]
+    InvalidArgument: type[BotocoreClientError]
+    InvalidAssociation: type[BotocoreClientError]
+    InvalidDefaultRootObject: type[BotocoreClientError]
+    InvalidDomainNameForOriginAccessControl: type[BotocoreClientError]
+    InvalidErrorCode: type[BotocoreClientError]
+    InvalidForwardCookies: type[BotocoreClientError]
+    InvalidFunctionAssociation: type[BotocoreClientError]
+    InvalidGeoRestrictionParameter: type[BotocoreClientError]
+    InvalidHeadersForS3Origin: type[BotocoreClientError]
+    InvalidIfMatchVersion: type[BotocoreClientError]
+    InvalidLambdaFunctionAssociation: type[BotocoreClientError]
+    InvalidLocationCode: type[BotocoreClientError]
+    InvalidMinimumProtocolVersion: type[BotocoreClientError]
+    InvalidOrigin: type[BotocoreClientError]
+    InvalidOriginAccessControl: type[BotocoreClientError]
+    InvalidOriginAccessIdentity: type[BotocoreClientError]
+    InvalidOriginKeepaliveTimeout: type[BotocoreClientError]
+    InvalidOriginReadTimeout: type[BotocoreClientError]
+    InvalidProtocolSettings: type[BotocoreClientError]
+    InvalidQueryStringParameters: type[BotocoreClientError]
+    InvalidRelativePath: type[BotocoreClientError]
+    InvalidRequiredProtocol: type[BotocoreClientError]
+    InvalidResponseCode: type[BotocoreClientError]
+    InvalidTTLOrder: type[BotocoreClientError]
+    InvalidTagging: type[BotocoreClientError]
+    InvalidViewerCertificate: type[BotocoreClientError]
+    InvalidWebACLId: type[BotocoreClientError]
+    KeyGroupAlreadyExists: type[BotocoreClientError]
+    MissingBody: type[BotocoreClientError]
+    MonitoringSubscriptionAlreadyExists: type[BotocoreClientError]
+    NoSuchCachePolicy: type[BotocoreClientError]
+    NoSuchCloudFrontOriginAccessIdentity: type[BotocoreClientError]
+    NoSuchContinuousDeploymentPolicy: type[BotocoreClientError]
+    NoSuchDistribution: type[BotocoreClientError]
+    NoSuchFieldLevelEncryptionConfig: type[BotocoreClientError]
+    NoSuchFieldLevelEncryptionProfile: type[BotocoreClientError]
+    NoSuchFunctionExists: type[BotocoreClientError]
+    NoSuchInvalidation: type[BotocoreClientError]
+    NoSuchMonitoringSubscription: type[BotocoreClientError]
+    NoSuchOrigin: type[BotocoreClientError]
+    NoSuchOriginAccessControl: type[BotocoreClientError]
+    NoSuchOriginRequestPolicy: type[BotocoreClientError]
+    NoSuchPublicKey: type[BotocoreClientError]
+    NoSuchRealtimeLogConfig: type[BotocoreClientError]
+    NoSuchResource: type[BotocoreClientError]
+    NoSuchResponseHeadersPolicy: type[BotocoreClientError]
+    NoSuchStreamingDistribution: type[BotocoreClientError]
+    OriginAccessControlAlreadyExists: type[BotocoreClientError]
+    OriginAccessControlInUse: type[BotocoreClientError]
+    OriginRequestPolicyAlreadyExists: type[BotocoreClientError]
+    OriginRequestPolicyInUse: type[BotocoreClientError]
+    PreconditionFailed: type[BotocoreClientError]
+    PublicKeyAlreadyExists: type[BotocoreClientError]
+    PublicKeyInUse: type[BotocoreClientError]
+    QueryArgProfileEmpty: type[BotocoreClientError]
+    RealtimeLogConfigAlreadyExists: type[BotocoreClientError]
+    RealtimeLogConfigInUse: type[BotocoreClientError]
+    RealtimeLogConfigOwnerMismatch: type[BotocoreClientError]
+    ResourceInUse: type[BotocoreClientError]
+    ResourceNotDisabled: type[BotocoreClientError]
+    ResponseHeadersPolicyAlreadyExists: type[BotocoreClientError]
+    ResponseHeadersPolicyInUse: type[BotocoreClientError]
+    StagingDistributionInUse: type[BotocoreClientError]
+    StreamingDistributionAlreadyExists: type[BotocoreClientError]
+    StreamingDistributionNotDisabled: type[BotocoreClientError]
+    TestFunctionFailed: type[BotocoreClientError]
+    TooLongCSPInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyCacheBehaviors: type[BotocoreClientError]
+    TooManyCachePolicies: type[BotocoreClientError]
+    TooManyCertificates: type[BotocoreClientError]
+    TooManyCloudFrontOriginAccessIdentities: type[BotocoreClientError]
+    TooManyContinuousDeploymentPolicies: type[BotocoreClientError]
+    TooManyCookieNamesInWhiteList: type[BotocoreClientError]
+    TooManyCookiesInCachePolicy: type[BotocoreClientError]
+    TooManyCookiesInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyCustomHeadersInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyDistributionCNAMEs: type[BotocoreClientError]
+    TooManyDistributions: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToCachePolicy: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToFieldLevelEncryptionConfig: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToKeyGroup: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToOriginAccessControl: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToOriginRequestPolicy: type[BotocoreClientError]
+    TooManyDistributionsAssociatedToResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyDistributionsWithFunctionAssociations: type[BotocoreClientError]
+    TooManyDistributionsWithLambdaAssociations: type[BotocoreClientError]
+    TooManyDistributionsWithSingleFunctionARN: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionConfigs: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionContentTypeProfiles: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionEncryptionEntities: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionFieldPatterns: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionProfiles: type[BotocoreClientError]
+    TooManyFieldLevelEncryptionQueryArgProfiles: type[BotocoreClientError]
+    TooManyFunctionAssociations: type[BotocoreClientError]
+    TooManyFunctions: type[BotocoreClientError]
+    TooManyHeadersInCachePolicy: type[BotocoreClientError]
+    TooManyHeadersInForwardedValues: type[BotocoreClientError]
+    TooManyHeadersInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyInvalidationsInProgress: type[BotocoreClientError]
+    TooManyKeyGroups: type[BotocoreClientError]
+    TooManyKeyGroupsAssociatedToDistribution: type[BotocoreClientError]
+    TooManyLambdaFunctionAssociations: type[BotocoreClientError]
+    TooManyOriginAccessControls: type[BotocoreClientError]
+    TooManyOriginCustomHeaders: type[BotocoreClientError]
+    TooManyOriginGroupsPerDistribution: type[BotocoreClientError]
+    TooManyOriginRequestPolicies: type[BotocoreClientError]
+    TooManyOrigins: type[BotocoreClientError]
+    TooManyPublicKeys: type[BotocoreClientError]
+    TooManyPublicKeysInKeyGroup: type[BotocoreClientError]
+    TooManyQueryStringParameters: type[BotocoreClientError]
+    TooManyQueryStringsInCachePolicy: type[BotocoreClientError]
+    TooManyQueryStringsInOriginRequestPolicy: type[BotocoreClientError]
+    TooManyRealtimeLogConfigs: type[BotocoreClientError]
+    TooManyRemoveHeadersInResponseHeadersPolicy: type[BotocoreClientError]
+    TooManyResponseHeadersPolicies: type[BotocoreClientError]
+    TooManyStreamingDistributionCNAMEs: type[BotocoreClientError]
+    TooManyStreamingDistributions: type[BotocoreClientError]
+    TooManyTrustedSigners: type[BotocoreClientError]
+    TrustedKeyGroupDoesNotExist: type[BotocoreClientError]
+    TrustedSignerDoesNotExist: type[BotocoreClientError]
+    UnsupportedOperation: type[BotocoreClientError]
 
 
 class CloudFrontClient(AioBaseClient):
@@ -601,6 +637,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_cloud_front_origin_access_identity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#create_cloud_front_origin_access_identity)
+        """
+
+    async def create_connection_function(
+        self, **kwargs: Unpack[CreateConnectionFunctionRequestTypeDef]
+    ) -> CreateConnectionFunctionResultTypeDef:
+        """
+        Creates a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#create_connection_function)
         """
 
     async def create_connection_group(
@@ -810,6 +856,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#create_streaming_distribution_with_tags)
         """
 
+    async def create_trust_store(
+        self, **kwargs: Unpack[CreateTrustStoreRequestTypeDef]
+    ) -> CreateTrustStoreResultTypeDef:
+        """
+        Creates a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/create_trust_store.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#create_trust_store)
+        """
+
     async def create_vpc_origin(
         self, **kwargs: Unpack[CreateVpcOriginRequestTypeDef]
     ) -> CreateVpcOriginResultTypeDef:
@@ -848,6 +904,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_cloud_front_origin_access_identity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_cloud_front_origin_access_identity)
+        """
+
+    async def delete_connection_function(
+        self, **kwargs: Unpack[DeleteConnectionFunctionRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_connection_function)
         """
 
     async def delete_connection_group(
@@ -942,7 +1008,7 @@ class CloudFrontClient(AioBaseClient):
 
     async def delete_monitoring_subscription(
         self, **kwargs: Unpack[DeleteMonitoringSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables additional CloudWatch metrics for the specified CloudFront
         distribution.
@@ -991,6 +1057,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_realtime_log_config)
         """
 
+    async def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the resource policy attached to the CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_resource_policy)
+        """
+
     async def delete_response_headers_policy(
         self, **kwargs: Unpack[DeleteResponseHeadersPolicyRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1011,6 +1087,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_streaming_distribution)
         """
 
+    async def delete_trust_store(
+        self, **kwargs: Unpack[DeleteTrustStoreRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_trust_store.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_trust_store)
+        """
+
     async def delete_vpc_origin(
         self, **kwargs: Unpack[DeleteVpcOriginRequestTypeDef]
     ) -> DeleteVpcOriginResultTypeDef:
@@ -1019,6 +1105,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/delete_vpc_origin.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#delete_vpc_origin)
+        """
+
+    async def describe_connection_function(
+        self, **kwargs: Unpack[DescribeConnectionFunctionRequestTypeDef]
+    ) -> DescribeConnectionFunctionResultTypeDef:
+        """
+        Describes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/describe_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#describe_connection_function)
         """
 
     async def describe_function(
@@ -1110,6 +1206,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_cloud_front_origin_access_identity_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_cloud_front_origin_access_identity_config)
+        """
+
+    async def get_connection_function(
+        self, **kwargs: Unpack[GetConnectionFunctionRequestTypeDef]
+    ) -> GetConnectionFunctionResultTypeDef:
+        """
+        Gets a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_connection_function)
         """
 
     async def get_connection_group(
@@ -1376,6 +1482,17 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_realtime_log_config)
         """
 
+    async def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResultTypeDef:
+        """
+        Retrieves the resource policy for the specified CloudFront resource that you
+        own and have shared.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_resource_policy)
+        """
+
     async def get_response_headers_policy(
         self, **kwargs: Unpack[GetResponseHeadersPolicyRequestTypeDef]
     ) -> GetResponseHeadersPolicyResultTypeDef:
@@ -1416,6 +1533,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_streaming_distribution_config.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_streaming_distribution_config)
+        """
+
+    async def get_trust_store(
+        self, **kwargs: Unpack[GetTrustStoreRequestTypeDef]
+    ) -> GetTrustStoreResultTypeDef:
+        """
+        Gets a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_trust_store.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_trust_store)
         """
 
     async def get_vpc_origin(
@@ -1467,6 +1594,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_conflicting_aliases.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_conflicting_aliases)
+        """
+
+    async def list_connection_functions(
+        self, **kwargs: Unpack[ListConnectionFunctionsRequestTypeDef]
+    ) -> ListConnectionFunctionsResultTypeDef:
+        """
+        Lists connection functions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_connection_functions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_connection_functions)
         """
 
     async def list_connection_groups(
@@ -1542,6 +1679,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_cache_policy_id)
         """
 
+    async def list_distributions_by_connection_function(
+        self, **kwargs: Unpack[ListDistributionsByConnectionFunctionRequestTypeDef]
+    ) -> ListDistributionsByConnectionFunctionResultTypeDef:
+        """
+        Lists distributions by connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_connection_function)
+        """
+
     async def list_distributions_by_connection_mode(
         self, **kwargs: Unpack[ListDistributionsByConnectionModeRequestTypeDef]
     ) -> ListDistributionsByConnectionModeResultTypeDef:
@@ -1574,6 +1721,17 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_origin_request_policy_id)
         """
 
+    async def list_distributions_by_owned_resource(
+        self, **kwargs: Unpack[ListDistributionsByOwnedResourceRequestTypeDef]
+    ) -> ListDistributionsByOwnedResourceResultTypeDef:
+        """
+        Lists the CloudFront distributions that are associated with the specified
+        resource that you own.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_owned_resource.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_owned_resource)
+        """
+
     async def list_distributions_by_realtime_log_config(
         self, **kwargs: Unpack[ListDistributionsByRealtimeLogConfigRequestTypeDef]
     ) -> ListDistributionsByRealtimeLogConfigResultTypeDef:
@@ -1594,6 +1752,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_response_headers_policy_id.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_response_headers_policy_id)
+        """
+
+    async def list_distributions_by_trust_store(
+        self, **kwargs: Unpack[ListDistributionsByTrustStoreRequestTypeDef]
+    ) -> ListDistributionsByTrustStoreResultTypeDef:
+        """
+        Lists distributions by trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_distributions_by_trust_store.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_distributions_by_trust_store)
         """
 
     async def list_distributions_by_vpc_origin_id(
@@ -1771,6 +1939,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_tags_for_resource)
         """
 
+    async def list_trust_stores(
+        self, **kwargs: Unpack[ListTrustStoresRequestTypeDef]
+    ) -> ListTrustStoresResultTypeDef:
+        """
+        Lists trust stores.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_trust_stores.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_trust_stores)
+        """
+
     async def list_vpc_origins(
         self, **kwargs: Unpack[ListVpcOriginsRequestTypeDef]
     ) -> ListVpcOriginsResultTypeDef:
@@ -1779,6 +1957,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/list_vpc_origins.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#list_vpc_origins)
+        """
+
+    async def publish_connection_function(
+        self, **kwargs: Unpack[PublishConnectionFunctionRequestTypeDef]
+    ) -> PublishConnectionFunctionResultTypeDef:
+        """
+        Publishes a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/publish_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#publish_connection_function)
         """
 
     async def publish_function(
@@ -1792,6 +1980,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#publish_function)
         """
 
+    async def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResultTypeDef:
+        """
+        Creates a resource control policy for a given CloudFront resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/put_resource_policy.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#put_resource_policy)
+        """
+
     async def tag_resource(
         self, **kwargs: Unpack[TagResourceRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1800,6 +1998,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#tag_resource)
+        """
+
+    async def test_connection_function(
+        self, **kwargs: Unpack[TestConnectionFunctionRequestTypeDef]
+    ) -> TestConnectionFunctionResultTypeDef:
+        """
+        Tests a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/test_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#test_connection_function)
         """
 
     async def test_function(
@@ -1822,6 +2030,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#untag_resource)
         """
 
+    async def update_anycast_ip_list(
+        self, **kwargs: Unpack[UpdateAnycastIpListRequestTypeDef]
+    ) -> UpdateAnycastIpListResultTypeDef:
+        """
+        Updates an Anycast static IP list.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_anycast_ip_list.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#update_anycast_ip_list)
+        """
+
     async def update_cache_policy(
         self, **kwargs: Unpack[UpdateCachePolicyRequestTypeDef]
     ) -> UpdateCachePolicyResultTypeDef:
@@ -1840,6 +2058,16 @@ class CloudFrontClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_cloud_front_origin_access_identity.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#update_cloud_front_origin_access_identity)
+        """
+
+    async def update_connection_function(
+        self, **kwargs: Unpack[UpdateConnectionFunctionRequestTypeDef]
+    ) -> UpdateConnectionFunctionResultTypeDef:
+        """
+        Updates a connection function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_connection_function.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#update_connection_function)
         """
 
     async def update_connection_group(
@@ -2015,6 +2243,16 @@ class CloudFrontClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#update_streaming_distribution)
         """
 
+    async def update_trust_store(
+        self, **kwargs: Unpack[UpdateTrustStoreRequestTypeDef]
+    ) -> UpdateTrustStoreResultTypeDef:
+        """
+        Updates a trust store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/update_trust_store.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#update_trust_store)
+        """
+
     async def update_vpc_origin(
         self, **kwargs: Unpack[UpdateVpcOriginRequestTypeDef]
     ) -> UpdateVpcOriginResultTypeDef:
@@ -2039,6 +2277,17 @@ class CloudFrontClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cloud_front_origin_access_identities"]
     ) -> ListCloudFrontOriginAccessIdentitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connection_functions"]
+    ) -> ListConnectionFunctionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -2081,8 +2330,30 @@ class CloudFrontClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_connection_function"]
+    ) -> ListDistributionsByConnectionFunctionPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_distributions_by_connection_mode"]
     ) -> ListDistributionsByConnectionModePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_distributions_by_trust_store"]
+    ) -> ListDistributionsByTrustStorePaginator:
         """
         Create a paginator for an operation.
 
@@ -2179,6 +2450,17 @@ class CloudFrontClient(AioBaseClient):
         """
 
     @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_trust_stores"]
+    ) -> ListTrustStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["distribution_deployed"]
     ) -> DistributionDeployedWaiter:
@@ -2230,7 +2512,7 @@ class CloudFrontClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -112,8 +112,7 @@ def create_examples():
 @pytest.mark.parametrize("example", create_examples())
 def test_read_examples(example):
     buff = yaml_to_asdf(f"example: {example['example'].strip()}", version="1.5.0")
-    with asdf.AsdfFile() as af:
-        af._open_impl(af, buff, mode="rw")
+    with asdf.open(buff) as af:
         assert np.all(af["example"] == example["truth"])
 
 
@@ -136,6 +135,10 @@ def create_formats():
         if format_ == "stardate":
             # stardate is not a documented format for astropy
             # https://docs.astropy.org/en/latest/time/index.html#time-format
+            continue
+        if format_ == "galexsec":
+            # galexsec is unsupported until the time schema can be updated
+            # https://github.com/astropy/asdf-astropy/issues/292
             continue
         new = Time("B2000.0")
         new.format = format_

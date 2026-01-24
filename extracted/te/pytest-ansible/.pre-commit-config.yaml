@@ -1,14 +1,25 @@
 ---
 ci:
-  # format compatible with commitlint
-  autoupdate_commit_msg: "chore: pre-commit autoupdate"
-  autoupdate_schedule: monthly
-  autofix_commit_msg: "chore: auto fixes from pre-commit.com hooks"
-  skip:
-    - deps
+  # We rely on renovate to update it but there is no way to fully disable it
+  # https://github.com/pre-commit-ci/issues/issues/83
+  autoupdate_schedule: quarterly
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v9.4.0
+    hooks:
+      - id: cspell
+        entry: bash
+        pass_filenames: false
+        args:
+          [
+            "-euo",
+            "pipefail",
+            "-c",
+            "cspell-cli . --relative --no-progress --no-summary && cspell-cli . --disable-dictionary=words --no-exit-code --words-only --quiet --unique | LC_ALL=C sort > .config/dictionary.txt",
+          ]
+        name: cspell + remove unused and sort dictionary
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v6.0.0
     hooks:
       - id: check-added-large-files
       - id: check-merge-conflict
@@ -19,7 +30,7 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks.git
-    rev: v1.5.5
+    rev: v1.5.6
     hooks:
       - id: remove-tabs
         exclude: >
@@ -28,40 +39,35 @@ repos:
           )$
 
   - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.6.2
+    rev: v3.8.0
     hooks:
       - id: prettier
         always_run: true
         additional_dependencies:
           - prettier
-          - prettier-plugin-toml
           - prettier-plugin-sort-json
 
   - repo: https://github.com/pappasam/toml-sort
-    rev: v0.24.2
+    rev: v0.24.3
     hooks:
       - id: toml-sort-fix
-
-  - repo: https://github.com/tox-dev/tox-ini-fmt
-    rev: 1.6.0
-    hooks:
-      - id: tox-ini-fmt
+        alias: toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.7
+    rev: v0.14.13
     hooks:
       - id: ruff-format
         alias: ruff
       - id: ruff-check
         alias: ruff
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v9.2.0
+    rev: v9.4.0
     hooks:
       - id: cspell
         name: Spell check with cspell
 
   - repo: https://github.com/jsh9/pydoclint
-    rev: "0.6.7"
+    rev: "0.8.3"
     hooks:
       - id: pydoclint
         # This allows automatic reduction of the baseline file when needed.
@@ -69,7 +75,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/pycqa/pylint.git
-    rev: v3.3.7
+    rev: v4.0.4
     hooks:
       - id: pylint
         args:
@@ -84,7 +90,7 @@ repos:
           - typing_extensions
 
   - repo: https://github.com/pre-commit/mirrors-mypy.git
-    rev: v1.17.1
+    rev: v1.19.1
     hooks:
       - id: mypy
         additional_dependencies:
@@ -96,16 +102,7 @@ repos:
           - typing_extensions
         # Override default pre-commit '--ignore-missing-imports'
         args: [--strict]
-
-  # Keep last due to being considerably slower than the others:
-  - repo: local
+  - repo: https://github.com/ansible/team-devtools
+    rev: v26.1.0
     hooks:
-      - id: deps
-        name: Upgrade constraints files and requirements
-        language: python
-        entry: python3 -m uv pip compile -q --all-extras --output-file=.config/constraints.txt pyproject.toml --upgrade
-        pass_filenames: false
-        stages:
-          - manual
-        additional_dependencies:
-          - uv>=0.4.3
+      - id: check-platform-constraints

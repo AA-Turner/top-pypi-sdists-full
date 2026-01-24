@@ -50,6 +50,7 @@ from pyrogram.errors import (
     SessionPasswordNeeded,
     Unauthorized,
     VolumeLocNotFound,
+    AuthTokenExpired
 )
 from pyrogram.handlers.handler import Handler
 from pyrogram.methods import Methods
@@ -257,6 +258,7 @@ class Client(Methods):
 
     INVITE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:joinchat/|\+))([\w-]+)$")
     UPGRADED_GIFT_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:nft/|\+))([\w-]+)$")
+    SAVED_GIFT_RE = re.compile(r"^(-\d+)_(\d+)$")
     CHANNEL_MESSAGE_LINK_RE = re.compile(r"^(?:https?://)?(?:www\.)?(?:t(?:elegram)?\.(?:org|me|dog)/(?:c/)?)([\w]+)(?:.+)?$")
     WORKERS = min(32, (os.cpu_count() or 0) + 4)  # os.cpu_count() can be None
     WORKDIR = PARENT_DIR
@@ -421,7 +423,7 @@ class Client(Methods):
         if isinstance(loop, asyncio.AbstractEventLoop):
             self.loop = loop
         else:
-            self.loop = asyncio.get_event_loop()
+            self.loop = utils.get_event_loop()
 
         self.__config: "raw.types.Config" = None
 
@@ -532,8 +534,9 @@ class Client(Methods):
 
                     if isinstance(email_sent_code, raw.types.account.EmailVerifiedLogin):
                         if isinstance(email_sent_code.sent_code, raw.types.auth.SentCodePaymentRequired):
+                            # TODO: raw.functions.auth.CheckPaidAuth
                             raise Unauthorized(
-                                "You need to pay for or purchase premium to continue authorization "
+                                f"You need to pay {email_sent_code.sent_code.amount}{email_sent_code.sent_code.currency} or purchase premium to continue authorization "
                                 "process, which is currently not supported by Pyrogram."
                             )
                 except BadRequest as e:
@@ -655,6 +658,9 @@ class Client(Methods):
                     return signed_in
             except asyncio.TimeoutError:
                 log.info("Recreating QR code.")
+                await qr_login.recreate()
+            except AuthTokenExpired:
+                log.info("Auth token expired. Recreating QR code.")
                 await qr_login.recreate()
             except SessionPasswordNeeded as e:
                 print(e.MESSAGE)
@@ -1422,8 +1428,7 @@ class Client(Methods):
         is_cdn: bool = False,
         ipv6: bool = False
     ) -> "raw.types.DcOption":
-        if not self.__config:
-            self.__config = await self.invoke(raw.functions.help.GetConfig())
+        self.__config = await self.invoke(raw.functions.help.GetConfig())
 
         if dc_id is None:
             dc_id = self.__config.this_dc

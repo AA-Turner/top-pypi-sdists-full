@@ -3,13 +3,13 @@
 requires = [
     'setuptools >= 77.0.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.6.27.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.6.27.0',
-    'passagemath-categories ~= 10.6.27.0',
-    'passagemath-environment ~= 10.6.27.0',
-    'passagemath-objects ~= 10.6.27.0',
-    'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
-    'cysignals <1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
+    'passagemath-conf ~= 10.6.47.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.6.47.0',
+    'passagemath-categories ~= 10.6.47.0',
+    'passagemath-environment ~= 10.6.47.0',
+    'passagemath-objects ~= 10.6.47.0',
+    'cython >=3.0.8, <3.3.0', 'cython >=3.0.8,<3.3.0',
+    'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >=1.11.2, != 1.12.0',
 ]
 build-backend = "setuptools.build_meta"
 
@@ -37,10 +37,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-requires-python = ">=3.10, <3.14"
+requires-python = ">=3.10, <3.15"
 
 [project.urls]
 "release notes" = "https://github.com/passagemath/passagemath/releases"
@@ -63,18 +64,15 @@ test = [
 ]
 
 [tool.cibuildwheel.linux]
-# Unfortunately CIBW_REPAIR_WHEEL_COMMAND does not expand {project} (and other placeholders),
-# so there is no clean way to refer to the repair_wheel.py script
-# https://github.com/pypa/cibuildwheel/issues/1931
 repair-wheel-command = [
     'python3 -m pip install passagemath-conf auditwheel',
-    'python3 pkgs/sagemath-kissat/repair_wheel.py {wheel}',
+    'python3 {package}/repair_wheel.py {wheel}',
     'auditwheel repair -w {dest_dir} {wheel}',
 ]
 [tool.cibuildwheel.macos]
 repair-wheel-command = [
     'python3 -m pip install passagemath-conf auditwheel',
-    'python3 pkgs/sagemath-kissat/repair_wheel.py {wheel}',
+    'python3 {package}/repair_wheel.py {wheel}',
     'delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}',
 ]
 

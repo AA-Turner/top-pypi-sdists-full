@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -7,6 +7,14 @@ import typing
 import QuantConnect
 import QuantConnect.Util.RateLimit
 import System
+
+
+class IRefillStrategy(metaclass=abc.ABCMeta):
+    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
+
+    def refill(self) -> int:
+        """Computes the number of new tokens made available, typically via the passing of time."""
+        ...
 
 
 class ITokenBucket(metaclass=abc.ABCMeta):
@@ -33,7 +41,9 @@ class ITokenBucket(metaclass=abc.ABCMeta):
         and then consumes that number of tokens.
         
         :param tokens: The number of tokens to consume
-        :param timeout: The maximum amount of time, in milliseconds, to block. A TimeoutException is throw in the event it takes longer than the stated timeout to consume the requested number of tokens. The default timeout is set to infinite, which will block forever.
+        :param timeout: The maximum amount of time, in milliseconds, to block. A TimeoutException
+        is throw in the event it takes longer than the stated timeout to consume the requested number of tokens.
+        The default timeout is set to infinite, which will block forever.
         """
         ...
 
@@ -49,7 +59,7 @@ class ITokenBucket(metaclass=abc.ABCMeta):
 class TokenBucket(System.Object):
     """
     Provides extension methods for interacting with ITokenBucket instances as well
-    as access to the NullTokenBucket via TokenBucket.Null
+    as access to the NullTokenBucket via TokenBucket.null
     """
 
     null: QuantConnect.Util.RateLimit.ITokenBucket = ...
@@ -57,14 +67,14 @@ class TokenBucket(System.Object):
 
     @staticmethod
     def consume(bucket: QuantConnect.Util.RateLimit.ITokenBucket, tokens: int, timeout: datetime.timedelta) -> None:
-        """Provides an overload of ITokenBucket.Consume that accepts a TimeSpan timeout"""
+        """Provides an overload of ITokenBucket.consume that accepts a TimeSpan timeout"""
         ...
 
 
 class ISleepStrategy(metaclass=abc.ABCMeta):
     """
     Defines a strategy for sleeping the current thread of execution. This is currently used via the
-    ITokenBucket.Consume in order to wait for new tokens to become available for consumption.
+    ITokenBucket.consume in order to wait for new tokens to become available for consumption.
     """
 
     def sleep(self) -> None:
@@ -72,88 +82,6 @@ class ISleepStrategy(metaclass=abc.ABCMeta):
         Sleeps the current thread in an implementation specific way
         and for an implementation specific amount of time
         """
-        ...
-
-
-class IRefillStrategy(metaclass=abc.ABCMeta):
-    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
-
-    def refill(self) -> int:
-        """Computes the number of new tokens made available, typically via the passing of time."""
-        ...
-
-
-class LeakyBucket(System.Object, QuantConnect.Util.RateLimit.ITokenBucket):
-    """
-    Provides an implementation of ITokenBucket that implements the leaky bucket algorithm
-    See: https://en.wikipedia.org/wiki/Leaky_bucket
-    """
-
-    @property
-    def capacity(self) -> int:
-        """Gets the maximum capacity of tokens this bucket can hold."""
-        ...
-
-    @property
-    def available_tokens(self) -> int:
-        """Gets the total number of currently available tokens for consumption"""
-        ...
-
-    @overload
-    def __init__(self, capacity: int, refill_amount: int, refill_interval: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of the LeakyBucket class.
-        This constructor initializes the bucket using the ThreadSleepStrategy.Sleep with a 1 millisecond
-        sleep to prevent being CPU intensive and uses the FixedIntervalRefillStrategy to refill bucket
-        tokens according to the  and  parameters.
-        
-        :param capacity: The maximum number of tokens this bucket can hold
-        :param refill_amount: The number of tokens to add to the bucket each
-        :param refill_interval: The interval which after passing more tokens are added to the bucket
-        """
-        ...
-
-    @overload
-    def __init__(self, capacity: int, sleep: QuantConnect.Util.RateLimit.ISleepStrategy, refill: QuantConnect.Util.RateLimit.IRefillStrategy, time_provider: QuantConnect.ITimeProvider = None) -> None:
-        """
-        Initializes a new instance of the LeakyBucket class
-        
-        :param capacity: The maximum number of tokens this bucket can hold
-        :param sleep: Defines the ISleepStrategy used when Consume is invoked but the bucket does not have enough tokens yet
-        :param refill: Defines the IRefillStrategy that computes how many tokens to add back to the bucket each time consumption is attempted
-        :param time_provider: Defines the ITimeProvider used to enforce timeouts when invoking Consume
-        """
-        ...
-
-    def consume(self, tokens: int, timeout: int = ...) -> None:
-        """
-        Blocks until the specified number of tokens are available for consumption
-        and then consumes that number of tokens.
-        
-        :param tokens: The number of tokens to consume
-        :param timeout: The maximum amount of time, in milliseconds, to block. An exception is throw in the event it takes longer than the stated timeout to consume the requested number of tokens
-        """
-        ...
-
-    def try_consume(self, tokens: int) -> bool:
-        """
-        Attempts to consume the specified number of tokens from the bucket. If the
-        requested number of tokens are not immediately available, then this method
-        will return false to indicate that zero tokens have been consumed.
-        """
-        ...
-
-
-class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
-    """
-    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
-    This strategy is only viable when the requested number of tokens is expected to become available in an
-    extremely short period of time. This implementation aims to keep the current thread executing to prevent
-    potential content switches arising from a thread yielding or sleeping strategy.
-    """
-
-    def sleep(self) -> None:
-        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
         ...
 
 
@@ -168,9 +96,12 @@ class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRe
         """
         Initializes a new instance of the FixedIntervalRefillStrategy class.
         
-        :param time_provider: Provides the current time used for determining how much time has elapsed between invocations of the refill method
-        :param refill_amount: Defines the constant number of tokens to be made available for consumption each time the provided  has passed
-        :param refill_interval: The amount of time that must pass before adding the specified  back to the bucket
+        :param time_provider: Provides the current time used for determining how much time has elapsed
+        between invocations of the refill method
+        :param refill_amount: Defines the constant number of tokens to be made available for consumption
+        each time the provided refill_interval has passed
+        :param refill_interval: The amount of time that must pass before adding the specified refill_amount
+        back to the bucket
         """
         ...
 
@@ -197,7 +128,7 @@ class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrat
     def __init__(self, milliseconds: int) -> None:
         """
         Initializes a new instance of the ThreadSleepStrategy using the specified
-        number of  for each Sleep invocation.
+        number of milliseconds for each sleep invocation.
         
         :param milliseconds: The duration of time to sleep, in milliseconds
         """
@@ -214,6 +145,85 @@ class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrat
         the specified number of milliseconds
         
         :param milliseconds: The duration of time to sleep, in milliseconds
+        """
+        ...
+
+
+class BusyWaitSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
+    """
+    Provides a CPU intensive means of waiting for more tokens to be available in ITokenBucket.
+    This strategy is only viable when the requested number of tokens is expected to become available in an
+    extremely short period of time. This implementation aims to keep the current thread executing to prevent
+    potential content switches arising from a thread yielding or sleeping strategy.
+    """
+
+    def sleep(self) -> None:
+        """Provides a CPU intensive sleep by executing Thread.SpinWait for a single spin."""
+        ...
+
+
+class LeakyBucket(System.Object, QuantConnect.Util.RateLimit.ITokenBucket):
+    """
+    Provides an implementation of ITokenBucket that implements the leaky bucket algorithm
+    See: https://en.wikipedia.org/wiki/Leaky_bucket
+    """
+
+    @property
+    def capacity(self) -> int:
+        """Gets the maximum capacity of tokens this bucket can hold."""
+        ...
+
+    @property
+    def available_tokens(self) -> int:
+        """Gets the total number of currently available tokens for consumption"""
+        ...
+
+    @overload
+    def __init__(self, capacity: int, refill_amount: int, refill_interval: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the LeakyBucket class.
+        This constructor initializes the bucket using the ThreadsleepStrategy.sleep with a 1 millisecond
+        sleep to prevent being CPU intensive and uses the FixedIntervalRefillStrategy to refill bucket
+        tokens according to the refill_amount and refill_interval parameters.
+        
+        :param capacity: The maximum number of tokens this bucket can hold
+        :param refill_amount: The number of tokens to add to the bucket each refill_interval
+        :param refill_interval: The interval which after passing more tokens are added to the bucket
+        """
+        ...
+
+    @overload
+    def __init__(self, capacity: int, sleep: QuantConnect.Util.RateLimit.ISleepStrategy, refill: QuantConnect.Util.RateLimit.IRefillStrategy, time_provider: QuantConnect.ITimeProvider = None) -> None:
+        """
+        Initializes a new instance of the LeakyBucket class
+        
+        :param capacity: The maximum number of tokens this bucket can hold
+        :param sleep: Defines the ISleepStrategy used when consume is invoked
+        but the bucket does not have enough tokens yet
+        :param refill: Defines the IRefillStrategy that computes how many tokens to add
+        back to the bucket each time consumption is attempted
+        :param time_provider: Defines the ITimeProvider used to enforce timeouts when
+        invoking consume
+        """
+        ...
+
+    def consume(self, tokens: int, timeout: int = ...) -> None:
+        """
+        Blocks until the specified number of tokens are available for consumption
+        and then consumes that number of tokens.
+        
+        :param tokens: The number of tokens to consume
+        :param timeout: The maximum amount of time, in milliseconds, to block. An exception is
+        throw in the event it takes longer than the stated timeout to consume the requested number
+        of tokens
+        """
+        ...
+
+    def try_consume(self, tokens: int) -> bool:
+        """
+        Attempts to consume the specified number of tokens from the bucket. If the
+        requested number of tokens are not immediately available, then this method
+        will return false to indicate that zero tokens have been consumed.
         """
         ...
 

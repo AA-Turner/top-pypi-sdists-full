@@ -22,9 +22,10 @@ class OpenIDConnectOAuth2Adapter(OAuth2Adapter):
     def openid_config(self):
         if not hasattr(self, "_openid_config"):
             server_url = self.get_provider().server_url
-            resp = get_adapter().get_requests_session().get(server_url)
-            resp.raise_for_status()
-            self._openid_config = resp.json()
+            with get_adapter().get_requests_session() as sess:
+                resp = sess.get(server_url)
+                resp.raise_for_status()
+                self._openid_config = resp.json()
         return self._openid_config
 
     @property
@@ -32,9 +33,9 @@ class OpenIDConnectOAuth2Adapter(OAuth2Adapter):
         token_auth_method = self.get_provider().app.settings.get("token_auth_method")
         if token_auth_method:
             return token_auth_method == "client_secret_basic"  # nosec
-        return "client_secret_basic" in self.openid_config.get(
-            "token_endpoint_auth_methods_supported", []
-        )
+        methods = self.openid_config.get("token_endpoint_auth_methods_supported", [])
+        # Basic auth is problematic, especially when client ID contains a colon.
+        return "client_secret_post" not in methods and "client_secret_basic" in methods
 
     @property
     def access_token_url(self):
@@ -59,12 +60,10 @@ class OpenIDConnectOAuth2Adapter(OAuth2Adapter):
         return self.get_provider().sociallogin_from_response(request, data)
 
     def _fetch_user_info(self, access_token: str) -> dict:
-        response = (
-            get_adapter()
-            .get_requests_session()
-            .get(self.profile_url, headers={"Authorization": "Bearer " + access_token})
-        )
-        response.raise_for_status()
+        headers = {"Authorization": f"Bearer {access_token}"}
+        with get_adapter().get_requests_session() as sess:
+            response = sess.get(self.profile_url, headers=headers)
+            response.raise_for_status()
         return response.json()
 
     def _decode_id_token(self, app: SocialApp, id_token: str) -> dict:

@@ -11,11 +11,7 @@ def bake_keys(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add keyframes on every frame between the selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add keyframes on every frame between the selected keyframes"""
 
 def clean(
     execution_context: int | str | None = None,
@@ -27,12 +23,8 @@ def clean(
 ) -> None:
     """Simplify F-Curves by removing closely spaced keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param threshold: Threshold
-    :type threshold: float | None
     :param channels: Channels
-    :type channels: bool | None
     """
 
 def clickselect(
@@ -41,6 +33,7 @@ def clickselect(
     /,
     *,
     wait_to_deselect_others: bool | None = False,
+    use_select_on_click: bool | None = False,
     mouse_x: int | None = 0,
     mouse_y: int | None = 0,
     extend: bool | None = False,
@@ -50,22 +43,14 @@ def clickselect(
 ) -> None:
     """Select keyframes by clicking on them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param wait_to_deselect_others: Wait to Deselect Others
-    :type wait_to_deselect_others: bool | None
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
     :param mouse_x: Mouse X
-    :type mouse_x: int | None
     :param mouse_y: Mouse Y
-    :type mouse_y: int | None
     :param extend: Extend Select, Toggle keyframe selection instead of leaving newly selected keyframes only
-    :type extend: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     :param column: Column Select, Select all keyframes that occur on the same frame as the one under the mouse
-    :type column: bool | None
     :param channel: Only Channel, Select all the keyframes in the channel under the mouse
-    :type channel: bool | None
     """
 
 def copy(
@@ -73,11 +58,7 @@ def copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy selected keyframes to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy selected keyframes to the internal clipboard"""
 
 def delete(
     execution_context: int | str | None = None,
@@ -88,10 +69,7 @@ def delete(
 ) -> None:
     """Remove all selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param confirm: Confirm, Prompt for confirmation
-    :type confirm: bool | None
     """
 
 def duplicate(
@@ -99,11 +77,7 @@ def duplicate(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Make a copy of all selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Make a copy of all selected keyframes"""
 
 def duplicate_move(
     execution_context: int | str | None = None,
@@ -115,12 +89,8 @@ def duplicate_move(
 ) -> None:
     """Make a copy of all selected keyframes and move them
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param ACTION_OT_duplicate: Duplicate Keyframes, Make a copy of all selected keyframes
-    :type ACTION_OT_duplicate: duplicate | None
     :param TRANSFORM_OT_transform: Transform, Transform selected items by mode type
-    :type TRANSFORM_OT_transform: bpy.ops.transform.transform | None
     """
 
 def easing_type(
@@ -132,10 +102,7 @@ def easing_type(
 ) -> None:
     """Set easing type for the F-Curve segments starting from the selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.BeztripleInterpolationEasingItems | None
     """
 
 def extrapolation_type(
@@ -148,8 +115,6 @@ def extrapolation_type(
 ) -> None:
     """Set extrapolation mode for selected F-Curves
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CONSTANT
@@ -163,7 +128,6 @@ def extrapolation_type(
 
     CLEAR_CYCLIC
     Clear Cyclic (F-Modifier) -- Remove Cycles F-Modifier if not needed anymore.
-        :type type: typing.Literal['CONSTANT','LINEAR','MAKE_CYCLIC','CLEAR_CYCLIC'] | None
     """
 
 def frame_jump(
@@ -171,11 +135,7 @@ def frame_jump(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set the current frame to the average frame value of selected keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set the current frame to the average frame value of selected keyframes"""
 
 def handle_type(
     execution_context: int | str | None = None,
@@ -186,10 +146,7 @@ def handle_type(
 ) -> None:
     """Set type of handle for selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.KeyframeHandleTypeItems | None
     """
 
 def interpolation_type(
@@ -202,10 +159,7 @@ def interpolation_type(
 ) -> None:
     """Set interpolation mode for the F-Curve segments starting from the selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.BeztripleInterpolationModeItems | None
     """
 
 def keyframe_insert(
@@ -217,10 +171,7 @@ def keyframe_insert(
 ) -> None:
     """Insert keyframes for the specified channels
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: typing.Literal['ALL','SEL','GROUP'] | None
     """
 
 def keyframe_type(
@@ -232,32 +183,7 @@ def keyframe_type(
 ) -> None:
     """Set type of keyframe for the selected keyframes
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.BeztripleKeyframeTypeItems | None
-    """
-
-def layer_next(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Switch to editing action in animation layer above the current action in the NLA Stack
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
-
-def layer_prev(
-    execution_context: int | str | None = None,
-    undo: bool | None = None,
-    /,
-) -> None:
-    """Switch to editing action in animation layer below the current action in the NLA Stack
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
     """
 
 def markers_make_local(
@@ -265,11 +191,7 @@ def markers_make_local(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move selected scene markers to the active Action as local pose markers
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move selected scene markers to the active Action as local pose markers"""
 
 def mirror(
     execution_context: int | str | None = None,
@@ -280,8 +202,6 @@ def mirror(
 ) -> None:
     """Flip selected keyframes over the selected mirror line
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CFRA
@@ -292,7 +212,6 @@ def mirror(
 
     MARKER
     By Times Over First Selected Marker -- Flip times of selected keyframes using the first selected marker as the reference point.
-        :type type: typing.Literal['CFRA','XAXIS','MARKER'] | None
     """
 
 def new(
@@ -300,11 +219,7 @@ def new(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create new action
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create new action"""
 
 def paste(
     execution_context: int | str | None = None,
@@ -317,14 +232,9 @@ def paste(
 ) -> None:
     """Paste keyframes from the internal clipboard for the selected channels, starting on the current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param offset: Offset, Paste time offset of keys
-    :type offset: bpy.stub_internal.rna_enums.KeyframePasteOffsetItems | None
     :param merge: Type, Method of merging pasted keys and existing
-    :type merge: bpy.stub_internal.rna_enums.KeyframePasteMergeItems | None
     :param flipped: Flipped, Paste keyframes from mirrored bones if they exist
-    :type flipped: bool | None
     """
 
 def previewrange_set(
@@ -332,22 +242,14 @@ def previewrange_set(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Set Preview Range based on extents of selected Keyframes
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Set Preview Range based on extents of selected Keyframes"""
 
 def push_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Push action down on to the NLA stack as a new strip
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Push action down on to the NLA stack as a new strip"""
 
 def select_all(
     execution_context: int | str | None = None,
@@ -358,8 +260,6 @@ def select_all(
 ) -> None:
     """Toggle selection of all keyframes
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -373,7 +273,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -392,20 +291,12 @@ def select_box(
 ) -> None:
     """Select all keyframes within the specified region
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param axis_range: Axis Range
-        :type axis_range: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -416,9 +307,7 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
         :param tweak: Tweak, Operator has been activated using a click-drag event
-        :type tweak: bool | None
     """
 
 def select_circle(
@@ -434,16 +323,10 @@ def select_circle(
 ) -> None:
     """Select keyframe points using circle selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param x: X
-        :type x: int | None
         :param y: Y
-        :type y: int | None
         :param radius: Radius
-        :type radius: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -454,7 +337,6 @@ def select_circle(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_column(
@@ -467,10 +349,7 @@ def select_column(
 ) -> None:
     """Select all keyframes on the specified frame(s)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['KEYS','CFRA','MARKERS_COLUMN','MARKERS_BETWEEN'] | None
     """
 
 def select_lasso(
@@ -486,16 +365,10 @@ def select_lasso(
 ) -> None:
     """Select keyframe points using lasso selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param mode: Mode
 
     SET
@@ -506,7 +379,6 @@ def select_lasso(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_leftright(
@@ -519,12 +391,8 @@ def select_leftright(
 ) -> None:
     """Select keyframes to the left or the right of the current frame
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mode: Mode
-    :type mode: typing.Literal['CHECK','LEFT','RIGHT'] | None
     :param extend: Extend Select
-    :type extend: bool | None
     """
 
 def select_less(
@@ -532,33 +400,21 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect keyframes on ends of selection islands
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect keyframes on ends of selection islands"""
 
 def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select keyframes occurring in the same F-Curves as selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select keyframes occurring in the same F-Curves as selected ones"""
 
 def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select keyframes beside already selected ones
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select keyframes beside already selected ones"""
 
 def snap(
     execution_context: int | str | None = None,
@@ -570,8 +426,6 @@ def snap(
 ) -> None:
     """Snap selected keyframes to the times specified
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     CFRA
@@ -585,7 +439,6 @@ def snap(
 
     NEAREST_MARKER
     Selection to Nearest Marker -- Snap selected keyframes to the nearest marker.
-        :type type: typing.Literal['CFRA','NEAREST_FRAME','NEAREST_SECOND','NEAREST_MARKER'] | None
     """
 
 def stash(
@@ -597,10 +450,7 @@ def stash(
 ) -> None:
     """Store this action in the NLA stack as a non-contributing strip for later use
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param create_new: Create New Action, Create a new action once the existing one has been safely stored
-    :type create_new: bool | None
     """
 
 def stash_and_create(
@@ -608,11 +458,7 @@ def stash_and_create(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Store this action in the NLA stack as a non-contributing strip for later use, and create a new action
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Store this action in the NLA stack as a non-contributing strip for later use, and create a new action"""
 
 def unlink(
     execution_context: int | str | None = None,
@@ -623,10 +469,7 @@ def unlink(
 ) -> None:
     """Unlink this action from the active action slot (and/or exit Tweak Mode)
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack
-    :type force_delete: bool | None
     """
 
 def view_all(
@@ -634,30 +477,18 @@ def view_all(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset viewable area to show full keyframe range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset viewable area to show full keyframe range"""
 
 def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Move the view to the current frame
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Move the view to the current frame"""
 
 def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset viewable area to show selected keyframes range
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset viewable area to show selected keyframes range"""

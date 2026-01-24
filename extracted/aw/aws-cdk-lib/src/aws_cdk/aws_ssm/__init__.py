@@ -261,5038 +261,37 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-from ..aws_iam import Grant as _Grant_a7ae64f8, IGrantable as _IGrantable_71c4f5de
+from ..aws_iam import (
+    Grant as _Grant_a7ae64f8,
+    GrantOnKeyResult as _GrantOnKeyResult_35320c49,
+    IEncryptedResource as _IEncryptedResource_8e9bf351,
+    IGrantable as _IGrantable_71c4f5de,
+)
 from ..aws_kms import IKey as _IKey_5f11635f
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.AssociationReference",
-    jsii_struct_bases=[],
-    name_mapping={"association_id": "associationId"},
+from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+from ..interfaces.aws_ssm import (
+    AssociationReference as _AssociationReference_4aae9ddd,
+    DocumentReference as _DocumentReference_5661bc29,
+    IAssociationRef as _IAssociationRef_a842a755,
+    IDocumentRef as _IDocumentRef_6c66ce42,
+    IMaintenanceWindowRef as _IMaintenanceWindowRef_1033e8f7,
+    IMaintenanceWindowTargetRef as _IMaintenanceWindowTargetRef_fe2384dd,
+    IMaintenanceWindowTaskRef as _IMaintenanceWindowTaskRef_72680416,
+    IParameterRef as _IParameterRef_b350095e,
+    IPatchBaselineRef as _IPatchBaselineRef_f929afe1,
+    IResourceDataSyncRef as _IResourceDataSyncRef_e153aa7a,
+    IResourcePolicyRef as _IResourcePolicyRef_8068eedb,
+    MaintenanceWindowReference as _MaintenanceWindowReference_601f32fe,
+    MaintenanceWindowTargetReference as _MaintenanceWindowTargetReference_ea6d19ad,
+    MaintenanceWindowTaskReference as _MaintenanceWindowTaskReference_0ac0909d,
+    ParameterReference as _ParameterReference_18138f09,
+    PatchBaselineReference as _PatchBaselineReference_b75c4dc5,
+    ResourceDataSyncReference as _ResourceDataSyncReference_a81c599c,
+    ResourcePolicyReference as _ResourcePolicyReference_937b9005,
 )
-class AssociationReference:
-    def __init__(self, *, association_id: builtins.str) -> None:
-        '''A reference to a Association resource.
 
-        :param association_id: The AssociationId of the Association resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            association_reference = ssm.AssociationReference(
-                association_id="associationId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b54a9b545ae754569ee0b60a5c0f4124e91ea5d0690502f11824d39b2838c5d3)
-            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "association_id": association_id,
-        }
-
-    @builtins.property
-    def association_id(self) -> builtins.str:
-        '''The AssociationId of the Association resource.'''
-        result = self._values.get("association_id")
-        assert result is not None, "Required property 'association_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AssociationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnAssociationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "apply_only_at_cron_interval": "applyOnlyAtCronInterval",
-        "association_name": "associationName",
-        "automation_target_parameter_name": "automationTargetParameterName",
-        "calendar_names": "calendarNames",
-        "compliance_severity": "complianceSeverity",
-        "document_version": "documentVersion",
-        "instance_id": "instanceId",
-        "max_concurrency": "maxConcurrency",
-        "max_errors": "maxErrors",
-        "output_location": "outputLocation",
-        "parameters": "parameters",
-        "schedule_expression": "scheduleExpression",
-        "schedule_offset": "scheduleOffset",
-        "sync_compliance": "syncCompliance",
-        "targets": "targets",
-        "wait_for_success_timeout_seconds": "waitForSuccessTimeoutSeconds",
-    },
-)
-class CfnAssociationProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        association_name: typing.Optional[builtins.str] = None,
-        automation_target_parameter_name: typing.Optional[builtins.str] = None,
-        calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        compliance_severity: typing.Optional[builtins.str] = None,
-        document_version: typing.Optional[builtins.str] = None,
-        instance_id: typing.Optional[builtins.str] = None,
-        max_concurrency: typing.Optional[builtins.str] = None,
-        max_errors: typing.Optional[builtins.str] = None,
-        output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssociation.InstanceAssociationOutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        parameters: typing.Any = None,
-        schedule_expression: typing.Optional[builtins.str] = None,
-        schedule_offset: typing.Optional[jsii.Number] = None,
-        sync_compliance: typing.Optional[builtins.str] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnAssociation``.
-
-        :param name: The name of the SSM document that contains the configuration information for the instance. You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format: ``arn:partition:ssm:region:account-id:document/document-name`` For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document`` For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
-        :param apply_only_at_cron_interval: By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified. Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
-        :param association_name: Specify a descriptive name for the association.
-        :param automation_target_parameter_name: Choose the parameter that will define how your automation will branch out. This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
-        :param calendar_names: The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under. The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
-        :param compliance_severity: The severity level that is assigned to the association.
-        :param document_version: The version of the SSM document to associate with the target. .. epigraph:: Note the following important information. - State Manager doesn't support running associations that use a new version of a document if that document is shared from another account. State Manager always runs the ``default`` version of a document if shared from another account, even though the Systems Manager console shows that a new version was processed. If you want to run an association using a new version of a document shared form another account, you must set the document version to ``default`` . - ``DocumentVersion`` is not valid for documents owned by AWS , such as ``AWS-RunPatchBaseline`` or ``AWS-UpdateSSMAgent`` . If you specify ``DocumentVersion`` for an AWS document, the system returns the following error: "Error occurred during operation 'CreateAssociation'." (RequestToken: , HandlerErrorCode: GeneralServiceException).
-        :param instance_id: .. epigraph:: ``InstanceId`` has been deprecated. To specify an instance ID for an association, use the ``Targets`` parameter. If you use the parameter ``InstanceId`` , you cannot use the parameters ``AssociationName`` , ``DocumentVersion`` , ``MaxErrors`` , ``MaxConcurrency`` , ``OutputLocation`` , or ``ScheduleExpression`` . To use these parameters, you must use the ``Targets`` parameter. .. epigraph:: Note that in some examples later in this page, ``InstanceIds`` is used as the tag-key name in a ``Targets`` filter. ``InstanceId`` is not used as a parameter. The ID of the instance that the SSM document is associated with. You must specify the ``InstanceId`` or ``Targets`` property.
-        :param max_concurrency: The maximum number of targets allowed to run the association at the same time. You can specify a number, for example 10, or a percentage of the target set, for example 10%. The default value is 100%, which means all targets run the association at the same time. If a new managed node starts and attempts to run an association while Systems Manager is running ``MaxConcurrency`` associations, the association is allowed to run. During the next association interval, the new managed node will process its association within the limit specified for ``MaxConcurrency`` .
-        :param max_errors: The number of errors that are allowed before the system stops sending requests to run the association on additional targets. You can specify either an absolute number of errors, for example 10, or a percentage of the target set, for example 10%. If you specify 3, for example, the system stops sending requests when the fourth error is received. If you specify 0, then the system stops sending requests after the first error is returned. If you run an association on 50 managed nodes and set ``MaxError`` to 10%, then the system stops sending the request when the sixth error is received. Executions that are already running an association when ``MaxErrors`` is reached are allowed to complete, but some of these executions may fail as well. If you need to ensure that there won't be more than max-errors failed executions, set ``MaxConcurrency`` to 1 so that executions proceed one at a time.
-        :param output_location: An Amazon Simple Storage Service (Amazon S3) bucket where you want to store the output details of the request.
-        :param parameters: The parameters for the runtime configuration of the document.
-        :param schedule_expression: A cron expression that specifies a schedule when the association runs. The schedule runs in Coordinated Universal Time (UTC).
-        :param schedule_offset: Number of days to wait after the scheduled day to run an association.
-        :param sync_compliance: The mode for generating association compliance. You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` . In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action. By default, all associations use ``AUTO`` mode.
-        :param targets: The targets for the association. You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` . Supported formats include the following. - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>`` - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>`` To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
-        :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your AWS CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            # parameters: Any
-            
-            cfn_association_props = ssm.CfnAssociationProps(
-                name="name",
-            
-                # the properties below are optional
-                apply_only_at_cron_interval=False,
-                association_name="associationName",
-                automation_target_parameter_name="automationTargetParameterName",
-                calendar_names=["calendarNames"],
-                compliance_severity="complianceSeverity",
-                document_version="documentVersion",
-                instance_id="instanceId",
-                max_concurrency="maxConcurrency",
-                max_errors="maxErrors",
-                output_location=ssm.CfnAssociation.InstanceAssociationOutputLocationProperty(
-                    s3_location=ssm.CfnAssociation.S3OutputLocationProperty(
-                        output_s3_bucket_name="outputS3BucketName",
-                        output_s3_key_prefix="outputS3KeyPrefix",
-                        output_s3_region="outputS3Region"
-                    )
-                ),
-                parameters=parameters,
-                schedule_expression="scheduleExpression",
-                schedule_offset=123,
-                sync_compliance="syncCompliance",
-                targets=[ssm.CfnAssociation.TargetProperty(
-                    key="key",
-                    values=["values"]
-                )],
-                wait_for_success_timeout_seconds=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01cc7e0dac)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument apply_only_at_cron_interval", value=apply_only_at_cron_interval, expected_type=type_hints["apply_only_at_cron_interval"])
-            check_type(argname="argument association_name", value=association_name, expected_type=type_hints["association_name"])
-            check_type(argname="argument automation_target_parameter_name", value=automation_target_parameter_name, expected_type=type_hints["automation_target_parameter_name"])
-            check_type(argname="argument calendar_names", value=calendar_names, expected_type=type_hints["calendar_names"])
-            check_type(argname="argument compliance_severity", value=compliance_severity, expected_type=type_hints["compliance_severity"])
-            check_type(argname="argument document_version", value=document_version, expected_type=type_hints["document_version"])
-            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
-            check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
-            check_type(argname="argument max_errors", value=max_errors, expected_type=type_hints["max_errors"])
-            check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
-            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
-            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
-            check_type(argname="argument schedule_offset", value=schedule_offset, expected_type=type_hints["schedule_offset"])
-            check_type(argname="argument sync_compliance", value=sync_compliance, expected_type=type_hints["sync_compliance"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-            check_type(argname="argument wait_for_success_timeout_seconds", value=wait_for_success_timeout_seconds, expected_type=type_hints["wait_for_success_timeout_seconds"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if apply_only_at_cron_interval is not None:
-            self._values["apply_only_at_cron_interval"] = apply_only_at_cron_interval
-        if association_name is not None:
-            self._values["association_name"] = association_name
-        if automation_target_parameter_name is not None:
-            self._values["automation_target_parameter_name"] = automation_target_parameter_name
-        if calendar_names is not None:
-            self._values["calendar_names"] = calendar_names
-        if compliance_severity is not None:
-            self._values["compliance_severity"] = compliance_severity
-        if document_version is not None:
-            self._values["document_version"] = document_version
-        if instance_id is not None:
-            self._values["instance_id"] = instance_id
-        if max_concurrency is not None:
-            self._values["max_concurrency"] = max_concurrency
-        if max_errors is not None:
-            self._values["max_errors"] = max_errors
-        if output_location is not None:
-            self._values["output_location"] = output_location
-        if parameters is not None:
-            self._values["parameters"] = parameters
-        if schedule_expression is not None:
-            self._values["schedule_expression"] = schedule_expression
-        if schedule_offset is not None:
-            self._values["schedule_offset"] = schedule_offset
-        if sync_compliance is not None:
-            self._values["sync_compliance"] = sync_compliance
-        if targets is not None:
-            self._values["targets"] = targets
-        if wait_for_success_timeout_seconds is not None:
-            self._values["wait_for_success_timeout_seconds"] = wait_for_success_timeout_seconds
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the SSM document that contains the configuration information for the instance.
-
-        You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format:
-
-        ``arn:partition:ssm:region:account-id:document/document-name``
-
-        For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document``
-
-        For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def apply_only_at_cron_interval(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified.
-
-        Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-applyonlyatcroninterval
-        '''
-        result = self._values.get("apply_only_at_cron_interval")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def association_name(self) -> typing.Optional[builtins.str]:
-        '''Specify a descriptive name for the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-associationname
-        '''
-        result = self._values.get("association_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def automation_target_parameter_name(self) -> typing.Optional[builtins.str]:
-        '''Choose the parameter that will define how your automation will branch out.
-
-        This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-automationtargetparametername
-        '''
-        result = self._values.get("automation_target_parameter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def calendar_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under.
-
-        The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-calendarnames
-        '''
-        result = self._values.get("calendar_names")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def compliance_severity(self) -> typing.Optional[builtins.str]:
-        '''The severity level that is assigned to the association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-complianceseverity
-        '''
-        result = self._values.get("compliance_severity")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_version(self) -> typing.Optional[builtins.str]:
-        '''The version of the SSM document to associate with the target.
-
-        .. epigraph::
-
-           Note the following important information.
-
-           - State Manager doesn't support running associations that use a new version of a document if that document is shared from another account. State Manager always runs the ``default`` version of a document if shared from another account, even though the Systems Manager console shows that a new version was processed. If you want to run an association using a new version of a document shared form another account, you must set the document version to ``default`` .
-           - ``DocumentVersion`` is not valid for documents owned by AWS , such as ``AWS-RunPatchBaseline`` or ``AWS-UpdateSSMAgent`` . If you specify ``DocumentVersion`` for an AWS document, the system returns the following error: "Error occurred during operation 'CreateAssociation'." (RequestToken: , HandlerErrorCode: GeneralServiceException).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-documentversion
-        '''
-        result = self._values.get("document_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_id(self) -> typing.Optional[builtins.str]:
-        '''.. epigraph::
-
-   ``InstanceId`` has been deprecated.
-
-        To specify an instance ID for an association, use the ``Targets`` parameter. If you use the parameter ``InstanceId`` , you cannot use the parameters ``AssociationName`` , ``DocumentVersion`` , ``MaxErrors`` , ``MaxConcurrency`` , ``OutputLocation`` , or ``ScheduleExpression`` . To use these parameters, you must use the ``Targets`` parameter.
-        .. epigraph::
-
-           Note that in some examples later in this page, ``InstanceIds`` is used as the tag-key name in a ``Targets`` filter. ``InstanceId`` is not used as a parameter.
-
-        The ID of the instance that the SSM document is associated with. You must specify the ``InstanceId`` or ``Targets`` property.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-instanceid
-        '''
-        result = self._values.get("instance_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_concurrency(self) -> typing.Optional[builtins.str]:
-        '''The maximum number of targets allowed to run the association at the same time.
-
-        You can specify a number, for example 10, or a percentage of the target set, for example 10%. The default value is 100%, which means all targets run the association at the same time.
-
-        If a new managed node starts and attempts to run an association while Systems Manager is running ``MaxConcurrency`` associations, the association is allowed to run. During the next association interval, the new managed node will process its association within the limit specified for ``MaxConcurrency`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-maxconcurrency
-        '''
-        result = self._values.get("max_concurrency")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_errors(self) -> typing.Optional[builtins.str]:
-        '''The number of errors that are allowed before the system stops sending requests to run the association on additional targets.
-
-        You can specify either an absolute number of errors, for example 10, or a percentage of the target set, for example 10%. If you specify 3, for example, the system stops sending requests when the fourth error is received. If you specify 0, then the system stops sending requests after the first error is returned. If you run an association on 50 managed nodes and set ``MaxError`` to 10%, then the system stops sending the request when the sixth error is received.
-
-        Executions that are already running an association when ``MaxErrors`` is reached are allowed to complete, but some of these executions may fail as well. If you need to ensure that there won't be more than max-errors failed executions, set ``MaxConcurrency`` to 1 so that executions proceed one at a time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-maxerrors
-        '''
-        result = self._values.get("max_errors")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def output_location(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.InstanceAssociationOutputLocationProperty"]]:
-        '''An Amazon Simple Storage Service (Amazon S3) bucket where you want to store the output details of the request.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-outputlocation
-        '''
-        result = self._values.get("output_location")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.InstanceAssociationOutputLocationProperty"]], result)
-
-    @builtins.property
-    def parameters(self) -> typing.Any:
-        '''The parameters for the runtime configuration of the document.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-parameters
-        '''
-        result = self._values.get("parameters")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def schedule_expression(self) -> typing.Optional[builtins.str]:
-        '''A cron expression that specifies a schedule when the association runs.
-
-        The schedule runs in Coordinated Universal Time (UTC).
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-scheduleexpression
-        '''
-        result = self._values.get("schedule_expression")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule_offset(self) -> typing.Optional[jsii.Number]:
-        '''Number of days to wait after the scheduled day to run an association.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-scheduleoffset
-        '''
-        result = self._values.get("schedule_offset")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def sync_compliance(self) -> typing.Optional[builtins.str]:
-        '''The mode for generating association compliance.
-
-        You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` .
-
-        In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action.
-
-        By default, all associations use ``AUTO`` mode.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-synccompliance
-        '''
-        result = self._values.get("sync_compliance")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssociation.TargetProperty"]]]]:
-        '''The targets for the association.
-
-        You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` .
-
-        Supported formats include the following.
-
-        - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>``
-        - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>``
-
-        To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-targets
-        '''
-        result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssociation.TargetProperty"]]]], result)
-
-    @builtins.property
-    def wait_for_success_timeout_seconds(self) -> typing.Optional[jsii.Number]:
-        '''The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution.
-
-        If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails.
-        .. epigraph::
-
-           When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your AWS CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-waitforsuccesstimeoutseconds
-        '''
-        result = self._values.get("wait_for_success_timeout_seconds")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnAssociationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnDocumentProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "content": "content",
-        "attachments": "attachments",
-        "document_format": "documentFormat",
-        "document_type": "documentType",
-        "name": "name",
-        "requires": "requires",
-        "tags": "tags",
-        "target_type": "targetType",
-        "update_method": "updateMethod",
-        "version_name": "versionName",
-    },
-)
-class CfnDocumentProps:
-    def __init__(
-        self,
-        *,
-        content: typing.Any,
-        attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocument.AttachmentsSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        document_format: typing.Optional[builtins.str] = None,
-        document_type: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        requires: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocument.DocumentRequiresProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_type: typing.Optional[builtins.str] = None,
-        update_method: typing.Optional[builtins.str] = None,
-        version_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDocument``.
-
-        :param content: The content for the new SSM document in JSON or YAML. For more information about the schemas for SSM document content, see `SSM document schema features and examples <https://docs.aws.amazon.com/systems-manager/latest/userguide/document-schemas-features.html>`_ in the *AWS Systems Manager User Guide* . .. epigraph:: This parameter also supports ``String`` data types.
-        :param attachments: A list of key-value pairs that describe attachments to a version of a document.
-        :param document_format: Specify the document format for the request. ``JSON`` is the default format. Default: - "JSON"
-        :param document_type: The type of document to create.
-        :param name: A name for the SSM document. .. epigraph:: You can't use the following strings as document name prefixes. These are reserved by AWS for use as document name prefixes: - ``aws`` - ``amazon`` - ``amzn`` - ``AWSEC2`` - ``AWSConfigRemediation`` - ``AWSSupport``
-        :param requires: A list of SSM documents required by a document. This parameter is used exclusively by AWS AppConfig . When a user creates an AWS AppConfig configuration in an SSM document, the user must also specify a required document for validation purposes. In this case, an ``ApplicationConfiguration`` document requires an ``ApplicationConfigurationSchema`` document for validation purposes. For more information, see `What is AWS AppConfig ? <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-        :param tags: AWS CloudFormation resource tags to apply to the document. Use tags to help you identify and categorize resources.
-        :param target_type: Specify a target type to define the kinds of resources the document can run on. For example, to run a document on EC2 instances, specify the following value: ``/AWS::EC2::Instance`` . If you specify a value of '/' the document can run on all types of resources. If you don't specify a value, the document can't run on any resources. For a list of valid resource types, see `AWS resource and property types reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html>`_ in the *AWS CloudFormation User Guide* .
-        :param update_method: If the document resource you specify in your template already exists, this parameter determines whether a new version of the existing document is created, or the existing document is replaced. ``Replace`` is the default method. If you specify ``NewVersion`` for the ``UpdateMethod`` parameter, and the ``Name`` of the document does not match an existing resource, a new document is created. When you specify ``NewVersion`` , the default version of the document is changed to the newly created version. Default: - "Replace"
-        :param version_name: An optional field specifying the version of the artifact you are creating with the document. For example, ``Release12.1`` . This value is unique across all versions of a document, and can't be changed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            # content: Any
-            
-            cfn_document_props = ssm.CfnDocumentProps(
-                content=content,
-            
-                # the properties below are optional
-                attachments=[ssm.CfnDocument.AttachmentsSourceProperty(
-                    key="key",
-                    name="name",
-                    values=["values"]
-                )],
-                document_format="documentFormat",
-                document_type="documentType",
-                name="name",
-                requires=[ssm.CfnDocument.DocumentRequiresProperty(
-                    name="name",
-                    version="version"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_type="targetType",
-                update_method="updateMethod",
-                version_name="versionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25566dec89d0b8b9f0c9ebb93fd7f63988acea14deb943fd94cfe89a3d03a14a)
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument attachments", value=attachments, expected_type=type_hints["attachments"])
-            check_type(argname="argument document_format", value=document_format, expected_type=type_hints["document_format"])
-            check_type(argname="argument document_type", value=document_type, expected_type=type_hints["document_type"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument requires", value=requires, expected_type=type_hints["requires"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
-            check_type(argname="argument update_method", value=update_method, expected_type=type_hints["update_method"])
-            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content": content,
-        }
-        if attachments is not None:
-            self._values["attachments"] = attachments
-        if document_format is not None:
-            self._values["document_format"] = document_format
-        if document_type is not None:
-            self._values["document_type"] = document_type
-        if name is not None:
-            self._values["name"] = name
-        if requires is not None:
-            self._values["requires"] = requires
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_type is not None:
-            self._values["target_type"] = target_type
-        if update_method is not None:
-            self._values["update_method"] = update_method
-        if version_name is not None:
-            self._values["version_name"] = version_name
-
-    @builtins.property
-    def content(self) -> typing.Any:
-        '''The content for the new SSM document in JSON or YAML.
-
-        For more information about the schemas for SSM document content, see `SSM document schema features and examples <https://docs.aws.amazon.com/systems-manager/latest/userguide/document-schemas-features.html>`_ in the *AWS Systems Manager User Guide* .
-        .. epigraph::
-
-           This parameter also supports ``String`` data types.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def attachments(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.AttachmentsSourceProperty"]]]]:
-        '''A list of key-value pairs that describe attachments to a version of a document.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-attachments
-        '''
-        result = self._values.get("attachments")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.AttachmentsSourceProperty"]]]], result)
-
-    @builtins.property
-    def document_format(self) -> typing.Optional[builtins.str]:
-        '''Specify the document format for the request.
-
-        ``JSON`` is the default format.
-
-        :default: - "JSON"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-documentformat
-        '''
-        result = self._values.get("document_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def document_type(self) -> typing.Optional[builtins.str]:
-        '''The type of document to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-documenttype
-        '''
-        result = self._values.get("document_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''A name for the SSM document.
-
-        .. epigraph::
-
-           You can't use the following strings as document name prefixes. These are reserved by AWS for use as document name prefixes:
-
-           - ``aws``
-           - ``amazon``
-           - ``amzn``
-           - ``AWSEC2``
-           - ``AWSConfigRemediation``
-           - ``AWSSupport``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def requires(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.DocumentRequiresProperty"]]]]:
-        '''A list of SSM documents required by a document.
-
-        This parameter is used exclusively by AWS AppConfig . When a user creates an AWS AppConfig configuration in an SSM document, the user must also specify a required document for validation purposes. In this case, an ``ApplicationConfiguration`` document requires an ``ApplicationConfigurationSchema`` document for validation purposes. For more information, see `What is AWS AppConfig ? <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-requires
-        '''
-        result = self._values.get("requires")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.DocumentRequiresProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''AWS CloudFormation resource tags to apply to the document.
-
-        Use tags to help you identify and categorize resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_type(self) -> typing.Optional[builtins.str]:
-        '''Specify a target type to define the kinds of resources the document can run on.
-
-        For example, to run a document on EC2 instances, specify the following value: ``/AWS::EC2::Instance`` . If you specify a value of '/' the document can run on all types of resources. If you don't specify a value, the document can't run on any resources. For a list of valid resource types, see `AWS resource and property types reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html>`_ in the *AWS CloudFormation User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-targettype
-        '''
-        result = self._values.get("target_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def update_method(self) -> typing.Optional[builtins.str]:
-        '''If the document resource you specify in your template already exists, this parameter determines whether a new version of the existing document is created, or the existing document is replaced.
-
-        ``Replace`` is the default method. If you specify ``NewVersion`` for the ``UpdateMethod`` parameter, and the ``Name`` of the document does not match an existing resource, a new document is created. When you specify ``NewVersion`` , the default version of the document is changed to the newly created version.
-
-        :default: - "Replace"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-updatemethod
-        '''
-        result = self._values.get("update_method")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def version_name(self) -> typing.Optional[builtins.str]:
-        '''An optional field specifying the version of the artifact you are creating with the document.
-
-        For example, ``Release12.1`` . This value is unique across all versions of a document, and can't be changed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-versionname
-        '''
-        result = self._values.get("version_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDocumentProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "allow_unassociated_targets": "allowUnassociatedTargets",
-        "cutoff": "cutoff",
-        "duration": "duration",
-        "name": "name",
-        "schedule": "schedule",
-        "description": "description",
-        "end_date": "endDate",
-        "schedule_offset": "scheduleOffset",
-        "schedule_timezone": "scheduleTimezone",
-        "start_date": "startDate",
-        "tags": "tags",
-    },
-)
-class CfnMaintenanceWindowProps:
-    def __init__(
-        self,
-        *,
-        allow_unassociated_targets: typing.Union[builtins.bool, _IResolvable_da3f097b],
-        cutoff: jsii.Number,
-        duration: jsii.Number,
-        name: builtins.str,
-        schedule: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        end_date: typing.Optional[builtins.str] = None,
-        schedule_offset: typing.Optional[jsii.Number] = None,
-        schedule_timezone: typing.Optional[builtins.str] = None,
-        start_date: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMaintenanceWindow``.
-
-        :param allow_unassociated_targets: Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets. If enabled, then you must specify the unregistered instances (by instance ID) when you register a task with the maintenance window.
-        :param cutoff: The number of hours before the end of the maintenance window that AWS Systems Manager stops scheduling new tasks for execution.
-        :param duration: The duration of the maintenance window in hours.
-        :param name: The name of the maintenance window.
-        :param schedule: The schedule of the maintenance window in the form of a cron or rate expression.
-        :param description: A description of the maintenance window.
-        :param end_date: The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become inactive.
-        :param schedule_offset: The number of days to wait to run a maintenance window after the scheduled cron expression date and time.
-        :param schedule_timezone: The time zone that the scheduled maintenance window executions are based on, in Internet Assigned Numbers Authority (IANA) format.
-        :param start_date: The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become active. ``StartDate`` allows you to delay activation of the maintenance window until the specified future date.
-        :param tags: Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs). Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a maintenance window to identify the type of tasks it will run, the types of targets, and the environment it will run in.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            cfn_maintenance_window_props = ssm.CfnMaintenanceWindowProps(
-                allow_unassociated_targets=False,
-                cutoff=123,
-                duration=123,
-                name="name",
-                schedule="schedule",
-            
-                # the properties below are optional
-                description="description",
-                end_date="endDate",
-                schedule_offset=123,
-                schedule_timezone="scheduleTimezone",
-                start_date="startDate",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e76d52f884f4303547d94985493397dbda06375d2fb22bef09cd893b8126578e)
-            check_type(argname="argument allow_unassociated_targets", value=allow_unassociated_targets, expected_type=type_hints["allow_unassociated_targets"])
-            check_type(argname="argument cutoff", value=cutoff, expected_type=type_hints["cutoff"])
-            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
-            check_type(argname="argument schedule_offset", value=schedule_offset, expected_type=type_hints["schedule_offset"])
-            check_type(argname="argument schedule_timezone", value=schedule_timezone, expected_type=type_hints["schedule_timezone"])
-            check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "allow_unassociated_targets": allow_unassociated_targets,
-            "cutoff": cutoff,
-            "duration": duration,
-            "name": name,
-            "schedule": schedule,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if end_date is not None:
-            self._values["end_date"] = end_date
-        if schedule_offset is not None:
-            self._values["schedule_offset"] = schedule_offset
-        if schedule_timezone is not None:
-            self._values["schedule_timezone"] = schedule_timezone
-        if start_date is not None:
-            self._values["start_date"] = start_date
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def allow_unassociated_targets(
-        self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
-        '''Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets.
-
-        If enabled, then you must specify the unregistered instances (by instance ID) when you register a task with the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-allowunassociatedtargets
-        '''
-        result = self._values.get("allow_unassociated_targets")
-        assert result is not None, "Required property 'allow_unassociated_targets' is missing"
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
-
-    @builtins.property
-    def cutoff(self) -> jsii.Number:
-        '''The number of hours before the end of the maintenance window that AWS Systems Manager stops scheduling new tasks for execution.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-cutoff
-        '''
-        result = self._values.get("cutoff")
-        assert result is not None, "Required property 'cutoff' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def duration(self) -> jsii.Number:
-        '''The duration of the maintenance window in hours.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-duration
-        '''
-        result = self._values.get("duration")
-        assert result is not None, "Required property 'duration' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def schedule(self) -> builtins.str:
-        '''The schedule of the maintenance window in the form of a cron or rate expression.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-schedule
-        '''
-        result = self._values.get("schedule")
-        assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def end_date(self) -> typing.Optional[builtins.str]:
-        '''The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become inactive.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-enddate
-        '''
-        result = self._values.get("end_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schedule_offset(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to wait to run a maintenance window after the scheduled cron expression date and time.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-scheduleoffset
-        '''
-        result = self._values.get("schedule_offset")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def schedule_timezone(self) -> typing.Optional[builtins.str]:
-        '''The time zone that the scheduled maintenance window executions are based on, in Internet Assigned Numbers Authority (IANA) format.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-scheduletimezone
-        '''
-        result = self._values.get("schedule_timezone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def start_date(self) -> typing.Optional[builtins.str]:
-        '''The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become active.
-
-        ``StartDate`` allows you to delay activation of the maintenance window until the specified future date.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-startdate
-        '''
-        result = self._values.get("start_date")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs).
-
-        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a maintenance window to identify the type of tasks it will run, the types of targets, and the environment it will run in.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMaintenanceWindowProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowTargetProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_type": "resourceType",
-        "targets": "targets",
-        "window_id": "windowId",
-        "description": "description",
-        "name": "name",
-        "owner_information": "ownerInformation",
-    },
-)
-class CfnMaintenanceWindowTargetProps:
-    def __init__(
-        self,
-        *,
-        resource_type: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTarget.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        window_id: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        owner_information: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMaintenanceWindowTarget``.
-
-        :param resource_type: The type of target that is being registered with the maintenance window.
-        :param targets: The targets to register with the maintenance window. In other words, the instances to run commands on when the maintenance window runs. You must specify targets by using the ``WindowTargetIds`` parameter.
-        :param window_id: The ID of the maintenance window to register the target with.
-        :param description: A description for the target.
-        :param name: The name for the maintenance window target.
-        :param owner_information: A user-provided value that will be included in any Amazon CloudWatch Events events that are raised while running tasks for these targets in this maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            cfn_maintenance_window_target_props = ssm.CfnMaintenanceWindowTargetProps(
-                resource_type="resourceType",
-                targets=[ssm.CfnMaintenanceWindowTarget.TargetsProperty(
-                    key="key",
-                    values=["values"]
-                )],
-                window_id="windowId",
-            
-                # the properties below are optional
-                description="description",
-                name="name",
-                owner_information="ownerInformation"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f19925b4e71098d1d7c3ce4f156f1dd7af4f0d2c164edb55bdbb1bc8cefb0b22)
-            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-            check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument owner_information", value=owner_information, expected_type=type_hints["owner_information"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_type": resource_type,
-            "targets": targets,
-            "window_id": window_id,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if owner_information is not None:
-            self._values["owner_information"] = owner_information
-
-    @builtins.property
-    def resource_type(self) -> builtins.str:
-        '''The type of target that is being registered with the maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-resourcetype
-        '''
-        result = self._values.get("resource_type")
-        assert result is not None, "Required property 'resource_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTarget.TargetsProperty"]]]:
-        '''The targets to register with the maintenance window.
-
-        In other words, the instances to run commands on when the maintenance window runs.
-
-        You must specify targets by using the ``WindowTargetIds`` parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-targets
-        '''
-        result = self._values.get("targets")
-        assert result is not None, "Required property 'targets' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTarget.TargetsProperty"]]], result)
-
-    @builtins.property
-    def window_id(self) -> builtins.str:
-        '''The ID of the maintenance window to register the target with.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-windowid
-        '''
-        result = self._values.get("window_id")
-        assert result is not None, "Required property 'window_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description for the target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name for the maintenance window target.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def owner_information(self) -> typing.Optional[builtins.str]:
-        '''A user-provided value that will be included in any Amazon CloudWatch Events events that are raised while running tasks for these targets in this maintenance window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-ownerinformation
-        '''
-        result = self._values.get("owner_information")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMaintenanceWindowTargetProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowTaskProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "priority": "priority",
-        "task_arn": "taskArn",
-        "task_type": "taskType",
-        "window_id": "windowId",
-        "cutoff_behavior": "cutoffBehavior",
-        "description": "description",
-        "logging_info": "loggingInfo",
-        "max_concurrency": "maxConcurrency",
-        "max_errors": "maxErrors",
-        "name": "name",
-        "service_role_arn": "serviceRoleArn",
-        "targets": "targets",
-        "task_invocation_parameters": "taskInvocationParameters",
-        "task_parameters": "taskParameters",
-    },
-)
-class CfnMaintenanceWindowTaskProps:
-    def __init__(
-        self,
-        *,
-        priority: jsii.Number,
-        task_arn: builtins.str,
-        task_type: builtins.str,
-        window_id: builtins.str,
-        cutoff_behavior: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.LoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        max_concurrency: typing.Optional[builtins.str] = None,
-        max_errors: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        service_role_arn: typing.Optional[builtins.str] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        task_invocation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.TaskInvocationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        task_parameters: typing.Any = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMaintenanceWindowTask``.
-
-        :param priority: The priority of the task in the maintenance window. The lower the number, the higher the priority. Tasks that have the same priority are scheduled in parallel.
-        :param task_arn: The resource that the task uses during execution. For ``RUN_COMMAND`` and ``AUTOMATION`` task types, ``TaskArn`` is the SSM document name or Amazon Resource Name (ARN). For ``LAMBDA`` tasks, ``TaskArn`` is the function name or ARN. For ``STEP_FUNCTIONS`` tasks, ``TaskArn`` is the state machine ARN.
-        :param task_type: The type of task. Valid values: ``RUN_COMMAND`` , ``AUTOMATION`` , ``LAMBDA`` , ``STEP_FUNCTIONS`` .
-        :param window_id: The ID of the maintenance window where the task is registered.
-        :param cutoff_behavior: The specification for whether tasks should continue to run after the cutoff time specified in the maintenance windows is reached.
-        :param description: A description of the task.
-        :param logging_info: .. epigraph:: ``LoggingInfo`` has been deprecated. To specify an Amazon S3 bucket to contain logs for Run Command tasks, instead use the ``OutputS3BucketName`` and ``OutputS3KeyPrefix`` options in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `AWS ::SSM::MaintenanceWindowTask MaintenanceWindowRunCommandParameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html>`_ . Information about an Amazon S3 bucket to write Run Command task-level logs to.
-        :param max_concurrency: The maximum number of targets this task can be run for, in parallel. .. epigraph:: Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases. For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
-        :param max_errors: The maximum number of errors allowed before this task stops being scheduled. .. epigraph:: Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases. For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
-        :param name: The task name.
-        :param service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for AWS Systems Manager to assume when running a maintenance window task. If you do not specify a service role ARN, Systems Manager uses a service-linked role in your account. If no appropriate service-linked role for Systems Manager exists in your account, it is created when you run ``RegisterTaskWithMaintenanceWindow`` . However, for an improved security posture, we strongly recommend creating a custom policy and custom service role for running your maintenance window tasks. The policy can be crafted to provide only the permissions needed for your particular maintenance window tasks. For more information, see `Setting up Maintenance Windows <https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-maintenance-permissions.html>`_ in the in the *AWS Systems Manager User Guide* .
-        :param targets: The targets, either instances or window target IDs. - Specify instances using ``Key=InstanceIds,Values= *instanceid1* , *instanceid2*`` . - Specify window target IDs using ``Key=WindowTargetIds,Values= *window-target-id-1* , *window-target-id-2*`` .
-        :param task_invocation_parameters: The parameters to pass to the task when it runs. Populate only the fields that match the task type. All other fields should be empty. .. epigraph:: When you update a maintenance window task that has options specified in ``TaskInvocationParameters`` , you must provide again all the ``TaskInvocationParameters`` values that you want to retain. The values you do not specify again are removed. For example, suppose that when you registered a Run Command task, you specified ``TaskInvocationParameters`` values for ``Comment`` , ``NotificationConfig`` , and ``OutputS3BucketName`` . If you update the maintenance window task and specify only a different ``OutputS3BucketName`` value, the values for ``Comment`` and ``NotificationConfig`` are removed.
-        :param task_parameters: .. epigraph:: ``TaskParameters`` has been deprecated. To specify parameters to pass to a task when it runs, instead use the ``Parameters`` option in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `MaintenanceWindowTaskInvocationParameters <https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_MaintenanceWindowTaskInvocationParameters.html>`_ . The parameters to pass to the task when it runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            # parameters: Any
-            # task_parameters: Any
-            
-            cfn_maintenance_window_task_props = ssm.CfnMaintenanceWindowTaskProps(
-                priority=123,
-                task_arn="taskArn",
-                task_type="taskType",
-                window_id="windowId",
-            
-                # the properties below are optional
-                cutoff_behavior="cutoffBehavior",
-                description="description",
-                logging_info=ssm.CfnMaintenanceWindowTask.LoggingInfoProperty(
-                    region="region",
-                    s3_bucket="s3Bucket",
-            
-                    # the properties below are optional
-                    s3_prefix="s3Prefix"
-                ),
-                max_concurrency="maxConcurrency",
-                max_errors="maxErrors",
-                name="name",
-                service_role_arn="serviceRoleArn",
-                targets=[ssm.CfnMaintenanceWindowTask.TargetProperty(
-                    key="key",
-                    values=["values"]
-                )],
-                task_invocation_parameters=ssm.CfnMaintenanceWindowTask.TaskInvocationParametersProperty(
-                    maintenance_window_automation_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty(
-                        document_version="documentVersion",
-                        parameters=parameters
-                    ),
-                    maintenance_window_lambda_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty(
-                        client_context="clientContext",
-                        payload="payload",
-                        qualifier="qualifier"
-                    ),
-                    maintenance_window_run_command_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty(
-                        cloud_watch_output_config=ssm.CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty(
-                            cloud_watch_log_group_name="cloudWatchLogGroupName",
-                            cloud_watch_output_enabled=False
-                        ),
-                        comment="comment",
-                        document_hash="documentHash",
-                        document_hash_type="documentHashType",
-                        document_version="documentVersion",
-                        notification_config=ssm.CfnMaintenanceWindowTask.NotificationConfigProperty(
-                            notification_arn="notificationArn",
-            
-                            # the properties below are optional
-                            notification_events=["notificationEvents"],
-                            notification_type="notificationType"
-                        ),
-                        output_s3_bucket_name="outputS3BucketName",
-                        output_s3_key_prefix="outputS3KeyPrefix",
-                        parameters=parameters,
-                        service_role_arn="serviceRoleArn",
-                        timeout_seconds=123
-                    ),
-                    maintenance_window_step_functions_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty(
-                        input="input",
-                        name="name"
-                    )
-                ),
-                task_parameters=task_parameters
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a897371c334ec198a4346a790b33c5836646788eb0a73ef18f8c56d7c89a1da3)
-            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
-            check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
-            check_type(argname="argument task_type", value=task_type, expected_type=type_hints["task_type"])
-            check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
-            check_type(argname="argument cutoff_behavior", value=cutoff_behavior, expected_type=type_hints["cutoff_behavior"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument logging_info", value=logging_info, expected_type=type_hints["logging_info"])
-            check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
-            check_type(argname="argument max_errors", value=max_errors, expected_type=type_hints["max_errors"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
-            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
-            check_type(argname="argument task_invocation_parameters", value=task_invocation_parameters, expected_type=type_hints["task_invocation_parameters"])
-            check_type(argname="argument task_parameters", value=task_parameters, expected_type=type_hints["task_parameters"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "priority": priority,
-            "task_arn": task_arn,
-            "task_type": task_type,
-            "window_id": window_id,
-        }
-        if cutoff_behavior is not None:
-            self._values["cutoff_behavior"] = cutoff_behavior
-        if description is not None:
-            self._values["description"] = description
-        if logging_info is not None:
-            self._values["logging_info"] = logging_info
-        if max_concurrency is not None:
-            self._values["max_concurrency"] = max_concurrency
-        if max_errors is not None:
-            self._values["max_errors"] = max_errors
-        if name is not None:
-            self._values["name"] = name
-        if service_role_arn is not None:
-            self._values["service_role_arn"] = service_role_arn
-        if targets is not None:
-            self._values["targets"] = targets
-        if task_invocation_parameters is not None:
-            self._values["task_invocation_parameters"] = task_invocation_parameters
-        if task_parameters is not None:
-            self._values["task_parameters"] = task_parameters
-
-    @builtins.property
-    def priority(self) -> jsii.Number:
-        '''The priority of the task in the maintenance window.
-
-        The lower the number, the higher the priority. Tasks that have the same priority are scheduled in parallel.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-priority
-        '''
-        result = self._values.get("priority")
-        assert result is not None, "Required property 'priority' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def task_arn(self) -> builtins.str:
-        '''The resource that the task uses during execution.
-
-        For ``RUN_COMMAND`` and ``AUTOMATION`` task types, ``TaskArn`` is the SSM document name or Amazon Resource Name (ARN).
-
-        For ``LAMBDA`` tasks, ``TaskArn`` is the function name or ARN.
-
-        For ``STEP_FUNCTIONS`` tasks, ``TaskArn`` is the state machine ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskarn
-        '''
-        result = self._values.get("task_arn")
-        assert result is not None, "Required property 'task_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def task_type(self) -> builtins.str:
-        '''The type of task.
-
-        Valid values: ``RUN_COMMAND`` , ``AUTOMATION`` , ``LAMBDA`` , ``STEP_FUNCTIONS`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-tasktype
-        '''
-        result = self._values.get("task_type")
-        assert result is not None, "Required property 'task_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def window_id(self) -> builtins.str:
-        '''The ID of the maintenance window where the task is registered.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-windowid
-        '''
-        result = self._values.get("window_id")
-        assert result is not None, "Required property 'window_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cutoff_behavior(self) -> typing.Optional[builtins.str]:
-        '''The specification for whether tasks should continue to run after the cutoff time specified in the maintenance windows is reached.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-cutoffbehavior
-        '''
-        result = self._values.get("cutoff_behavior")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def logging_info(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.LoggingInfoProperty"]]:
-        '''.. epigraph::
-
-   ``LoggingInfo`` has been deprecated.
-
-        To specify an Amazon S3 bucket to contain logs for Run Command tasks, instead use the ``OutputS3BucketName`` and ``OutputS3KeyPrefix`` options in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `AWS ::SSM::MaintenanceWindowTask MaintenanceWindowRunCommandParameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html>`_ .
-
-        Information about an Amazon S3 bucket to write Run Command task-level logs to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-logginginfo
-        '''
-        result = self._values.get("logging_info")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.LoggingInfoProperty"]], result)
-
-    @builtins.property
-    def max_concurrency(self) -> typing.Optional[builtins.str]:
-        '''The maximum number of targets this task can be run for, in parallel.
-
-        .. epigraph::
-
-           Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases.
-
-           For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-maxconcurrency
-        '''
-        result = self._values.get("max_concurrency")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_errors(self) -> typing.Optional[builtins.str]:
-        '''The maximum number of errors allowed before this task stops being scheduled.
-
-        .. epigraph::
-
-           Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases.
-
-           For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-maxerrors
-        '''
-        result = self._values.get("max_errors")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The task name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def service_role_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the IAM service role for AWS Systems Manager to assume when running a maintenance window task.
-
-        If you do not specify a service role ARN, Systems Manager uses a service-linked role in your account. If no appropriate service-linked role for Systems Manager exists in your account, it is created when you run ``RegisterTaskWithMaintenanceWindow`` .
-
-        However, for an improved security posture, we strongly recommend creating a custom policy and custom service role for running your maintenance window tasks. The policy can be crafted to provide only the permissions needed for your particular maintenance window tasks. For more information, see `Setting up Maintenance Windows <https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-maintenance-permissions.html>`_ in the in the *AWS Systems Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-servicerolearn
-        '''
-        result = self._values.get("service_role_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def targets(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TargetProperty"]]]]:
-        '''The targets, either instances or window target IDs.
-
-        - Specify instances using ``Key=InstanceIds,Values= *instanceid1* , *instanceid2*`` .
-        - Specify window target IDs using ``Key=WindowTargetIds,Values= *window-target-id-1* , *window-target-id-2*`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-targets
-        '''
-        result = self._values.get("targets")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TargetProperty"]]]], result)
-
-    @builtins.property
-    def task_invocation_parameters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]]:
-        '''The parameters to pass to the task when it runs.
-
-        Populate only the fields that match the task type. All other fields should be empty.
-        .. epigraph::
-
-           When you update a maintenance window task that has options specified in ``TaskInvocationParameters`` , you must provide again all the ``TaskInvocationParameters`` values that you want to retain. The values you do not specify again are removed. For example, suppose that when you registered a Run Command task, you specified ``TaskInvocationParameters`` values for ``Comment`` , ``NotificationConfig`` , and ``OutputS3BucketName`` . If you update the maintenance window task and specify only a different ``OutputS3BucketName`` value, the values for ``Comment`` and ``NotificationConfig`` are removed.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters
-        '''
-        result = self._values.get("task_invocation_parameters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]], result)
-
-    @builtins.property
-    def task_parameters(self) -> typing.Any:
-        '''.. epigraph::
-
-   ``TaskParameters`` has been deprecated.
-
-        To specify parameters to pass to a task when it runs, instead use the ``Parameters`` option in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `MaintenanceWindowTaskInvocationParameters <https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_MaintenanceWindowTaskInvocationParameters.html>`_ .
-
-        The parameters to pass to the task when it runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskparameters
-        '''
-        result = self._values.get("task_parameters")
-        return typing.cast(typing.Any, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMaintenanceWindowTaskProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnParameterProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "type": "type",
-        "value": "value",
-        "allowed_pattern": "allowedPattern",
-        "data_type": "dataType",
-        "description": "description",
-        "name": "name",
-        "policies": "policies",
-        "tags": "tags",
-        "tier": "tier",
-    },
-)
-class CfnParameterProps:
-    def __init__(
-        self,
-        *,
-        type: builtins.str,
-        value: builtins.str,
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        data_type: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        tier: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnParameter``.
-
-        :param type: The type of parameter. .. epigraph:: Parameters of type ``SecureString`` are not supported by AWS CloudFormation .
-        :param value: The parameter value. .. epigraph:: If type is ``StringList`` , the system returns a comma-separated string with no spaces between commas in the ``Value`` field.
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for ``String`` types with values restricted to numbers, you can specify the following: ``AllowedPattern=^\\d+$``
-        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image`` . The default is ``text`` .
-        :param description: Information about the parameter.
-        :param name: The name of the parameter. .. epigraph:: The reported maximum length of 2048 characters for a parameter name includes 1037 characters that are reserved for internal use by Systems Manager . The maximum length for a parameter name that you specify is 1011 characters. This count of 1011 characters includes the characters in the ARN that precede the name you specify. This ARN length will vary depending on your partition and Region. For example, the following 45 characters count toward the 1011 character maximum for a parameter created in the US East (Ohio) Region: ``arn:aws:ssm:us-east-2:111122223333:parameter/`` .
-        :param policies: Information about the policies assigned to a parameter. `Assigning parameter policies <https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-policies.html>`_ in the *AWS Systems Manager User Guide* .
-        :param tags: Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs). Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a Systems Manager parameter to identify the type of resource to which it applies, the environment, or the type of configuration data referenced by the parameter.
-        :param tier: The parameter tier.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            cfn_parameter_props = ssm.CfnParameterProps(
-                type="type",
-                value="value",
-            
-                # the properties below are optional
-                allowed_pattern="allowedPattern",
-                data_type="dataType",
-                description="description",
-                name="name",
-                policies="policies",
-                tags={
-                    "tags_key": "tags"
-                },
-                tier="tier"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f89012f4986143c527853d7179ea46d1a3002d4025caeaa2123f32786cfdef8)
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
-            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "type": type,
-            "value": value,
-        }
-        if allowed_pattern is not None:
-            self._values["allowed_pattern"] = allowed_pattern
-        if data_type is not None:
-            self._values["data_type"] = data_type
-        if description is not None:
-            self._values["description"] = description
-        if name is not None:
-            self._values["name"] = name
-        if policies is not None:
-            self._values["policies"] = policies
-        if tags is not None:
-            self._values["tags"] = tags
-        if tier is not None:
-            self._values["tier"] = tier
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of parameter.
-
-        .. epigraph::
-
-           Parameters of type ``SecureString`` are not supported by AWS CloudFormation .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def value(self) -> builtins.str:
-        '''The parameter value.
-
-        .. epigraph::
-
-           If type is ``StringList`` , the system returns a comma-separated string with no spaces between commas in the ``Value`` field.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-value
-        '''
-        result = self._values.get("value")
-        assert result is not None, "Required property 'value' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allowed_pattern(self) -> typing.Optional[builtins.str]:
-        '''A regular expression used to validate the parameter value.
-
-        For example, for ``String`` types with values restricted to numbers, you can specify the following: ``AllowedPattern=^\\d+$``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-allowedpattern
-        '''
-        result = self._values.get("allowed_pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_type(self) -> typing.Optional[builtins.str]:
-        '''The data type of the parameter, such as ``text`` or ``aws:ec2:image`` .
-
-        The default is ``text`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-datatype
-        '''
-        result = self._values.get("data_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter.
-
-        .. epigraph::
-
-           The reported maximum length of 2048 characters for a parameter name includes 1037 characters that are reserved for internal use by Systems Manager . The maximum length for a parameter name that you specify is 1011 characters.
-
-           This count of 1011 characters includes the characters in the ARN that precede the name you specify. This ARN length will vary depending on your partition and Region. For example, the following 45 characters count toward the 1011 character maximum for a parameter created in the US East (Ohio) Region: ``arn:aws:ssm:us-east-2:111122223333:parameter/`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-name
-        '''
-        result = self._values.get("name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def policies(self) -> typing.Optional[builtins.str]:
-        '''Information about the policies assigned to a parameter.
-
-        `Assigning parameter policies <https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-policies.html>`_ in the *AWS Systems Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-policies
-        '''
-        result = self._values.get("policies")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs).
-
-        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a Systems Manager parameter to identify the type of resource to which it applies, the environment, or the type of configuration data referenced by the parameter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
-
-    @builtins.property
-    def tier(self) -> typing.Optional[builtins.str]:
-        '''The parameter tier.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-tier
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnParameterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnPatchBaselineProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "approval_rules": "approvalRules",
-        "approved_patches": "approvedPatches",
-        "approved_patches_compliance_level": "approvedPatchesComplianceLevel",
-        "approved_patches_enable_non_security": "approvedPatchesEnableNonSecurity",
-        "available_security_updates_compliance_status": "availableSecurityUpdatesComplianceStatus",
-        "default_baseline": "defaultBaseline",
-        "description": "description",
-        "global_filters": "globalFilters",
-        "operating_system": "operatingSystem",
-        "patch_groups": "patchGroups",
-        "rejected_patches": "rejectedPatches",
-        "rejected_patches_action": "rejectedPatchesAction",
-        "sources": "sources",
-        "tags": "tags",
-    },
-)
-class CfnPatchBaselineProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        approval_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        approved_patches_compliance_level: typing.Optional[builtins.str] = None,
-        approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
-        default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        description: typing.Optional[builtins.str] = None,
-        global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        operating_system: typing.Optional[builtins.str] = None,
-        patch_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        rejected_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
-        rejected_patches_action: typing.Optional[builtins.str] = None,
-        sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPatchBaseline``.
-
-        :param name: The name of the patch baseline.
-        :param approval_rules: A set of rules used to include patches in the baseline.
-        :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
-        :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
-        :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
-        :param available_security_updates_compliance_status: Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline. Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed. Supported for Windows Server managed nodes only.
-        :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
-        :param description: A description of the patch baseline.
-        :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
-        :param operating_system: Defines the operating system the patch baseline applies to. The default value is ``WINDOWS`` . Default: - "WINDOWS"
-        :param patch_groups: The name of the patch group to be registered with the patch baseline.
-        :param rejected_patches: A list of explicitly rejected patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
-        :param rejected_patches_action: The action for Patch Manager to take on patches included in the ``RejectedPackages`` list. - **ALLOW_AS_DEPENDENCY** - *Linux and macOS* : A package in the rejected patches list is installed only if it is a dependency of another package. It is considered compliant with the patch baseline, and its status is reported as ``INSTALLED_OTHER`` . This is the default action if no option is specified. *Windows Server* : Windows Server doesn't support the concept of package dependencies. If a package in the rejected patches list and already installed on the node, its status is reported as ``INSTALLED_OTHER`` . Any package not already installed on the node is skipped. This is the default action if no option is specified. - **BLOCK** - *All OSs* : Packages in the rejected patches list, and packages that include them as dependencies, aren't installed by Patch Manager under any circumstances. State value assignment for patch compliance: - If a package was installed before it was added to the rejected patches list, or is installed outside of Patch Manager afterward, it's considered noncompliant with the patch baseline and its status is reported as ``INSTALLED_REJECTED`` . - If an update attempts to install a dependency package that is now rejected by the baseline, when previous versions of the package were not rejected, the package being updated is reported as ``MISSING`` for ``SCAN`` operations and as ``FAILED`` for ``INSTALL`` operations. Default: - "ALLOW_AS_DEPENDENCY"
-        :param sources: Information about the patches to use to update the managed nodes, including target operating systems and source repositories. Applies to Linux managed nodes only.
-        :param tags: Optional metadata that you assign to a resource. Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a patch baseline to identify the severity level of patches it specifies and the operating system family it applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            cfn_patch_baseline_props = ssm.CfnPatchBaselineProps(
-                name="name",
-            
-                # the properties below are optional
-                approval_rules=ssm.CfnPatchBaseline.RuleGroupProperty(
-                    patch_rules=[ssm.CfnPatchBaseline.RuleProperty(
-                        approve_after_days=123,
-                        approve_until_date="approveUntilDate",
-                        compliance_level="complianceLevel",
-                        enable_non_security=False,
-                        patch_filter_group=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
-                            patch_filters=[ssm.CfnPatchBaseline.PatchFilterProperty(
-                                key="key",
-                                values=["values"]
-                            )]
-                        )
-                    )]
-                ),
-                approved_patches=["approvedPatches"],
-                approved_patches_compliance_level="approvedPatchesComplianceLevel",
-                approved_patches_enable_non_security=False,
-                available_security_updates_compliance_status="availableSecurityUpdatesComplianceStatus",
-                default_baseline=False,
-                description="description",
-                global_filters=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
-                    patch_filters=[ssm.CfnPatchBaseline.PatchFilterProperty(
-                        key="key",
-                        values=["values"]
-                    )]
-                ),
-                operating_system="operatingSystem",
-                patch_groups=["patchGroups"],
-                rejected_patches=["rejectedPatches"],
-                rejected_patches_action="rejectedPatchesAction",
-                sources=[ssm.CfnPatchBaseline.PatchSourceProperty(
-                    configuration="configuration",
-                    name="name",
-                    products=["products"]
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff6666a30d275f2a85d64de631c940fb83198b8b5a376b87a3a684f4a2dddf80)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument approval_rules", value=approval_rules, expected_type=type_hints["approval_rules"])
-            check_type(argname="argument approved_patches", value=approved_patches, expected_type=type_hints["approved_patches"])
-            check_type(argname="argument approved_patches_compliance_level", value=approved_patches_compliance_level, expected_type=type_hints["approved_patches_compliance_level"])
-            check_type(argname="argument approved_patches_enable_non_security", value=approved_patches_enable_non_security, expected_type=type_hints["approved_patches_enable_non_security"])
-            check_type(argname="argument available_security_updates_compliance_status", value=available_security_updates_compliance_status, expected_type=type_hints["available_security_updates_compliance_status"])
-            check_type(argname="argument default_baseline", value=default_baseline, expected_type=type_hints["default_baseline"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument global_filters", value=global_filters, expected_type=type_hints["global_filters"])
-            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
-            check_type(argname="argument patch_groups", value=patch_groups, expected_type=type_hints["patch_groups"])
-            check_type(argname="argument rejected_patches", value=rejected_patches, expected_type=type_hints["rejected_patches"])
-            check_type(argname="argument rejected_patches_action", value=rejected_patches_action, expected_type=type_hints["rejected_patches_action"])
-            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if approval_rules is not None:
-            self._values["approval_rules"] = approval_rules
-        if approved_patches is not None:
-            self._values["approved_patches"] = approved_patches
-        if approved_patches_compliance_level is not None:
-            self._values["approved_patches_compliance_level"] = approved_patches_compliance_level
-        if approved_patches_enable_non_security is not None:
-            self._values["approved_patches_enable_non_security"] = approved_patches_enable_non_security
-        if available_security_updates_compliance_status is not None:
-            self._values["available_security_updates_compliance_status"] = available_security_updates_compliance_status
-        if default_baseline is not None:
-            self._values["default_baseline"] = default_baseline
-        if description is not None:
-            self._values["description"] = description
-        if global_filters is not None:
-            self._values["global_filters"] = global_filters
-        if operating_system is not None:
-            self._values["operating_system"] = operating_system
-        if patch_groups is not None:
-            self._values["patch_groups"] = patch_groups
-        if rejected_patches is not None:
-            self._values["rejected_patches"] = rejected_patches
-        if rejected_patches_action is not None:
-            self._values["rejected_patches_action"] = rejected_patches_action
-        if sources is not None:
-            self._values["sources"] = sources
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the patch baseline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def approval_rules(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleGroupProperty"]]:
-        '''A set of rules used to include patches in the baseline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvalrules
-        '''
-        result = self._values.get("approval_rules")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleGroupProperty"]], result)
-
-    @builtins.property
-    def approved_patches(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of explicitly approved patches for the baseline.
-
-        For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatches
-        '''
-        result = self._values.get("approved_patches")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def approved_patches_compliance_level(self) -> typing.Optional[builtins.str]:
-        '''Defines the compliance level for approved patches.
-
-        When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` .
-
-        :default: - "UNSPECIFIED"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatchescompliancelevel
-        '''
-        result = self._values.get("approved_patches_compliance_level")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def approved_patches_enable_non_security(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes.
-
-        The default value is ``false`` . Applies to Linux managed nodes only.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatchesenablenonsecurity
-        '''
-        result = self._values.get("approved_patches_enable_non_security")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def available_security_updates_compliance_status(
-        self,
-    ) -> typing.Optional[builtins.str]:
-        '''Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline.
-
-        Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed.
-
-        Supported for Windows Server managed nodes only.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-availablesecurityupdatescompliancestatus
-        '''
-        result = self._values.get("available_security_updates_compliance_status")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_baseline(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether this is the default baseline.
-
-        AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-defaultbaseline
-        '''
-        result = self._values.get("default_baseline")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the patch baseline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def global_filters(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]]:
-        '''A set of global filters used to include patches in the baseline.
-
-        .. epigraph::
-
-           The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-globalfilters
-        '''
-        result = self._values.get("global_filters")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]], result)
-
-    @builtins.property
-    def operating_system(self) -> typing.Optional[builtins.str]:
-        '''Defines the operating system the patch baseline applies to.
-
-        The default value is ``WINDOWS`` .
-
-        :default: - "WINDOWS"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-operatingsystem
-        '''
-        result = self._values.get("operating_system")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def patch_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of the patch group to be registered with the patch baseline.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-patchgroups
-        '''
-        result = self._values.get("patch_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def rejected_patches(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of explicitly rejected patches for the baseline.
-
-        For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-rejectedpatches
-        '''
-        result = self._values.get("rejected_patches")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def rejected_patches_action(self) -> typing.Optional[builtins.str]:
-        '''The action for Patch Manager to take on patches included in the ``RejectedPackages`` list.
-
-        - **ALLOW_AS_DEPENDENCY** - *Linux and macOS* : A package in the rejected patches list is installed only if it is a dependency of another package. It is considered compliant with the patch baseline, and its status is reported as ``INSTALLED_OTHER`` . This is the default action if no option is specified.
-
-        *Windows Server* : Windows Server doesn't support the concept of package dependencies. If a package in the rejected patches list and already installed on the node, its status is reported as ``INSTALLED_OTHER`` . Any package not already installed on the node is skipped. This is the default action if no option is specified.
-
-        - **BLOCK** - *All OSs* : Packages in the rejected patches list, and packages that include them as dependencies, aren't installed by Patch Manager under any circumstances.
-
-        State value assignment for patch compliance:
-
-        - If a package was installed before it was added to the rejected patches list, or is installed outside of Patch Manager afterward, it's considered noncompliant with the patch baseline and its status is reported as ``INSTALLED_REJECTED`` .
-        - If an update attempts to install a dependency package that is now rejected by the baseline, when previous versions of the package were not rejected, the package being updated is reported as ``MISSING`` for ``SCAN`` operations and as ``FAILED`` for ``INSTALL`` operations.
-
-        :default: - "ALLOW_AS_DEPENDENCY"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-rejectedpatchesaction
-        '''
-        result = self._values.get("rejected_patches_action")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sources(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchSourceProperty"]]]]:
-        '''Information about the patches to use to update the managed nodes, including target operating systems and source repositories.
-
-        Applies to Linux managed nodes only.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-sources
-        '''
-        result = self._values.get("sources")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchSourceProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''Optional metadata that you assign to a resource.
-
-        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a patch baseline to identify the severity level of patches it specifies and the operating system family it applies to.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPatchBaselineProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnResourceDataSyncProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "sync_name": "syncName",
-        "bucket_name": "bucketName",
-        "bucket_prefix": "bucketPrefix",
-        "bucket_region": "bucketRegion",
-        "kms_key_arn": "kmsKeyArn",
-        "s3_destination": "s3Destination",
-        "sync_format": "syncFormat",
-        "sync_source": "syncSource",
-        "sync_type": "syncType",
-    },
-)
-class CfnResourceDataSyncProps:
-    def __init__(
-        self,
-        *,
-        sync_name: builtins.str,
-        bucket_name: typing.Optional[builtins.str] = None,
-        bucket_prefix: typing.Optional[builtins.str] = None,
-        bucket_region: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDataSync.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sync_format: typing.Optional[builtins.str] = None,
-        sync_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDataSync.SyncSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        sync_type: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourceDataSync``.
-
-        :param sync_name: A name for the resource data sync.
-        :param bucket_name: The name of the S3 bucket where the aggregated data is stored.
-        :param bucket_prefix: An Amazon S3 prefix for the bucket.
-        :param bucket_region: The AWS Region with the S3 bucket targeted by the resource data sync.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of an encryption key for a destination in Amazon S3 . You can use a KMS key to encrypt inventory data in Amazon S3 . You must specify a key that exist in the same AWS Region as the destination Amazon S3 bucket.
-        :param s3_destination: Configuration information for the target S3 bucket.
-        :param sync_format: A supported sync format. The following format is currently supported: JsonSerDe
-        :param sync_source: Information about the source where the data was synchronized.
-        :param sync_type: The type of resource data sync. If ``SyncType`` is ``SyncToDestination`` , then the resource data sync synchronizes data to an S3 bucket. If the ``SyncType`` is ``SyncFromSource`` then the resource data sync synchronizes data from AWS Organizations or from multiple AWS Regions .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            cfn_resource_data_sync_props = ssm.CfnResourceDataSyncProps(
-                sync_name="syncName",
-            
-                # the properties below are optional
-                bucket_name="bucketName",
-                bucket_prefix="bucketPrefix",
-                bucket_region="bucketRegion",
-                kms_key_arn="kmsKeyArn",
-                s3_destination=ssm.CfnResourceDataSync.S3DestinationProperty(
-                    bucket_name="bucketName",
-                    bucket_region="bucketRegion",
-                    sync_format="syncFormat",
-            
-                    # the properties below are optional
-                    bucket_prefix="bucketPrefix",
-                    kms_key_arn="kmsKeyArn"
-                ),
-                sync_format="syncFormat",
-                sync_source=ssm.CfnResourceDataSync.SyncSourceProperty(
-                    source_regions=["sourceRegions"],
-                    source_type="sourceType",
-            
-                    # the properties below are optional
-                    aws_organizations_source=ssm.CfnResourceDataSync.AwsOrganizationsSourceProperty(
-                        organization_source_type="organizationSourceType",
-            
-                        # the properties below are optional
-                        organizational_units=["organizationalUnits"]
-                    ),
-                    include_future_regions=False
-                ),
-                sync_type="syncType"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26353d4906971bfc49271a95bc4480dfb3fac99c43391b8a0aa7279209b75bb5)
-            check_type(argname="argument sync_name", value=sync_name, expected_type=type_hints["sync_name"])
-            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
-            check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
-            check_type(argname="argument bucket_region", value=bucket_region, expected_type=type_hints["bucket_region"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
-            check_type(argname="argument sync_format", value=sync_format, expected_type=type_hints["sync_format"])
-            check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
-            check_type(argname="argument sync_type", value=sync_type, expected_type=type_hints["sync_type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sync_name": sync_name,
-        }
-        if bucket_name is not None:
-            self._values["bucket_name"] = bucket_name
-        if bucket_prefix is not None:
-            self._values["bucket_prefix"] = bucket_prefix
-        if bucket_region is not None:
-            self._values["bucket_region"] = bucket_region
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if s3_destination is not None:
-            self._values["s3_destination"] = s3_destination
-        if sync_format is not None:
-            self._values["sync_format"] = sync_format
-        if sync_source is not None:
-            self._values["sync_source"] = sync_source
-        if sync_type is not None:
-            self._values["sync_type"] = sync_type
-
-    @builtins.property
-    def sync_name(self) -> builtins.str:
-        '''A name for the resource data sync.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncname
-        '''
-        result = self._values.get("sync_name")
-        assert result is not None, "Required property 'sync_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def bucket_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the S3 bucket where the aggregated data is stored.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketname
-        '''
-        result = self._values.get("bucket_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def bucket_prefix(self) -> typing.Optional[builtins.str]:
-        '''An Amazon S3 prefix for the bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketprefix
-        '''
-        result = self._values.get("bucket_prefix")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def bucket_region(self) -> typing.Optional[builtins.str]:
-        '''The AWS Region with the S3 bucket targeted by the resource data sync.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketregion
-        '''
-        result = self._values.get("bucket_region")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of an encryption key for a destination in Amazon S3 .
-
-        You can use a KMS key to encrypt inventory data in Amazon S3 . You must specify a key that exist in the same AWS Region as the destination Amazon S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_destination(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.S3DestinationProperty"]]:
-        '''Configuration information for the target S3 bucket.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-s3destination
-        '''
-        result = self._values.get("s3_destination")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.S3DestinationProperty"]], result)
-
-    @builtins.property
-    def sync_format(self) -> typing.Optional[builtins.str]:
-        '''A supported sync format.
-
-        The following format is currently supported: JsonSerDe
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncformat
-        '''
-        result = self._values.get("sync_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sync_source(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.SyncSourceProperty"]]:
-        '''Information about the source where the data was synchronized.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncsource
-        '''
-        result = self._values.get("sync_source")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.SyncSourceProperty"]], result)
-
-    @builtins.property
-    def sync_type(self) -> typing.Optional[builtins.str]:
-        '''The type of resource data sync.
-
-        If ``SyncType`` is ``SyncToDestination`` , then the resource data sync synchronizes data to an S3 bucket. If the ``SyncType`` is ``SyncFromSource`` then the resource data sync synchronizes data from AWS Organizations or from multiple AWS Regions .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-synctype
-        '''
-        result = self._values.get("sync_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourceDataSyncProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
-)
-class CfnResourcePolicyProps:
-    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param policy: A policy you want to associate with a resource.
-        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to attach a policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            # policy: Any
-            
-            cfn_resource_policy_props = ssm.CfnResourcePolicyProps(
-                policy=policy,
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da98262576855)
-            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy": policy,
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def policy(self) -> typing.Any:
-        '''A policy you want to associate with a resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html#cfn-ssm-resourcepolicy-policy
-        '''
-        result = self._values.get("policy")
-        assert result is not None, "Required property 'policy' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the resource to which you want to attach a policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html#cfn-ssm-resourcepolicy-resourcearn
-        '''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.CommonStringParameterAttributes",
-    jsii_struct_bases=[],
-    name_mapping={"parameter_name": "parameterName", "simple_name": "simpleName"},
-)
-class CommonStringParameterAttributes:
-    def __init__(
-        self,
-        *,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-    ) -> None:
-        '''Common attributes for string parameters.
-
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            common_string_parameter_attributes = ssm.CommonStringParameterAttributes(
-                parameter_name="parameterName",
-            
-                # the properties below are optional
-                simple_name=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__60f4e05a41320bc1b3f1ba81e5056d43a2052eca526364b7ba62177a7542034f)
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_name": parameter_name,
-        }
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-
-    @builtins.property
-    def parameter_name(self) -> builtins.str:
-        '''The name of the parameter store value.
-
-        This value can be a token or a concrete string. If it is a concrete string
-        and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        '''
-        result = self._values.get("parameter_name")
-        assert result is not None, "Required property 'parameter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CommonStringParameterAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.DocumentReference",
-    jsii_struct_bases=[],
-    name_mapping={"document_name": "documentName"},
-)
-class DocumentReference:
-    def __init__(self, *, document_name: builtins.str) -> None:
-        '''A reference to a Document resource.
-
-        :param document_name: The Name of the Document resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            document_reference = ssm.DocumentReference(
-                document_name="documentName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9beae103a75fe41cfb911f1d1717bf7877fb37c51da2febfd9bf11a5eb9cad6)
-            check_type(argname="argument document_name", value=document_name, expected_type=type_hints["document_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "document_name": document_name,
-        }
-
-    @builtins.property
-    def document_name(self) -> builtins.str:
-        '''The Name of the Document resource.'''
-        result = self._values.get("document_name")
-        assert result is not None, "Required property 'document_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DocumentReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IAssociationRef")
-class IAssociationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Association.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="associationRef")
-    def association_ref(self) -> AssociationReference:
-        '''(experimental) A reference to a Association resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAssociationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Association.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IAssociationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="associationRef")
-    def association_ref(self) -> AssociationReference:
-        '''(experimental) A reference to a Association resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AssociationReference, jsii.get(self, "associationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAssociationRef).__jsii_proxy_class__ = lambda : _IAssociationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IDocumentRef")
-class IDocumentRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Document.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="documentRef")
-    def document_ref(self) -> DocumentReference:
-        '''(experimental) A reference to a Document resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDocumentRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Document.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IDocumentRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="documentRef")
-    def document_ref(self) -> DocumentReference:
-        '''(experimental) A reference to a Document resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DocumentReference, jsii.get(self, "documentRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDocumentRef).__jsii_proxy_class__ = lambda : _IDocumentRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IMaintenanceWindowRef")
-class IMaintenanceWindowRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindow.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowRef")
-    def maintenance_window_ref(self) -> "MaintenanceWindowReference":
-        '''(experimental) A reference to a MaintenanceWindow resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMaintenanceWindowRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindow.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IMaintenanceWindowRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowRef")
-    def maintenance_window_ref(self) -> "MaintenanceWindowReference":
-        '''(experimental) A reference to a MaintenanceWindow resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MaintenanceWindowReference", jsii.get(self, "maintenanceWindowRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMaintenanceWindowRef).__jsii_proxy_class__ = lambda : _IMaintenanceWindowRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IMaintenanceWindowTargetRef")
-class IMaintenanceWindowTargetRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTarget.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowTargetRef")
-    def maintenance_window_target_ref(self) -> "MaintenanceWindowTargetReference":
-        '''(experimental) A reference to a MaintenanceWindowTarget resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMaintenanceWindowTargetRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTarget.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IMaintenanceWindowTargetRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowTargetRef")
-    def maintenance_window_target_ref(self) -> "MaintenanceWindowTargetReference":
-        '''(experimental) A reference to a MaintenanceWindowTarget resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MaintenanceWindowTargetReference", jsii.get(self, "maintenanceWindowTargetRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMaintenanceWindowTargetRef).__jsii_proxy_class__ = lambda : _IMaintenanceWindowTargetRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IMaintenanceWindowTaskRef")
-class IMaintenanceWindowTaskRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTask.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowTaskRef")
-    def maintenance_window_task_ref(self) -> "MaintenanceWindowTaskReference":
-        '''(experimental) A reference to a MaintenanceWindowTask resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMaintenanceWindowTaskRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MaintenanceWindowTask.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IMaintenanceWindowTaskRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="maintenanceWindowTaskRef")
-    def maintenance_window_task_ref(self) -> "MaintenanceWindowTaskReference":
-        '''(experimental) A reference to a MaintenanceWindowTask resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MaintenanceWindowTaskReference", jsii.get(self, "maintenanceWindowTaskRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMaintenanceWindowTaskRef).__jsii_proxy_class__ = lambda : _IMaintenanceWindowTaskRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IParameter")
-class IParameter(_IResource_c80c4260, typing_extensions.Protocol):
-    '''An SSM Parameter reference.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterArn")
-    def parameter_arn(self) -> builtins.str:
-        '''The ARN of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterName")
-    def parameter_name(self) -> builtins.str:
-        '''The name of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterType")
-    def parameter_type(self) -> builtins.str:
-        '''The type of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
-
-        :param grantee: the role to be granted read-only access to the parameter.
-        '''
-        ...
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants write (PutParameter) permissions on the SSM Parameter.
-
-        :param grantee: the role to be granted write access to the parameter.
-        '''
-        ...
-
-
-class _IParameterProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-):
-    '''An SSM Parameter reference.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IParameter"
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterArn")
-    def parameter_arn(self) -> builtins.str:
-        '''The ARN of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterName")
-    def parameter_name(self) -> builtins.str:
-        '''The name of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterType")
-    def parameter_type(self) -> builtins.str:
-        '''The type of the SSM Parameter resource.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
-
-        :param grantee: the role to be granted read-only access to the parameter.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__893dbe773f4eba8ae68bead053c2684acc5663f3c6568bf7b8860bed6523f05c)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [grantee]))
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants write (PutParameter) permissions on the SSM Parameter.
-
-        :param grantee: the role to be granted write access to the parameter.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf6ae2a6ac121e36c84da0bbab30988cb29b98a2a83327833cd5a201ac06b622)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWrite", [grantee]))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IParameter).__jsii_proxy_class__ = lambda : _IParameterProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IParameterRef")
-class IParameterRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Parameter.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterRef")
-    def parameter_ref(self) -> "ParameterReference":
-        '''(experimental) A reference to a Parameter resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IParameterRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Parameter.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IParameterRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterRef")
-    def parameter_ref(self) -> "ParameterReference":
-        '''(experimental) A reference to a Parameter resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ParameterReference", jsii.get(self, "parameterRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IParameterRef).__jsii_proxy_class__ = lambda : _IParameterRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IPatchBaselineRef")
-class IPatchBaselineRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a PatchBaseline.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="patchBaselineRef")
-    def patch_baseline_ref(self) -> "PatchBaselineReference":
-        '''(experimental) A reference to a PatchBaseline resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPatchBaselineRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a PatchBaseline.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IPatchBaselineRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="patchBaselineRef")
-    def patch_baseline_ref(self) -> "PatchBaselineReference":
-        '''(experimental) A reference to a PatchBaseline resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PatchBaselineReference", jsii.get(self, "patchBaselineRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPatchBaselineRef).__jsii_proxy_class__ = lambda : _IPatchBaselineRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IResourceDataSyncRef")
-class IResourceDataSyncRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceDataSync.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceDataSyncRef")
-    def resource_data_sync_ref(self) -> "ResourceDataSyncReference":
-        '''(experimental) A reference to a ResourceDataSync resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourceDataSyncRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourceDataSync.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IResourceDataSyncRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceDataSyncRef")
-    def resource_data_sync_ref(self) -> "ResourceDataSyncReference":
-        '''(experimental) A reference to a ResourceDataSync resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourceDataSyncReference", jsii.get(self, "resourceDataSyncRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceDataSyncRef).__jsii_proxy_class__ = lambda : _IResourceDataSyncRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IResourcePolicyRef")
-class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourcePolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IResourcePolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IStringListParameter")
-class IStringListParameter(IParameter, typing_extensions.Protocol):
-    '''A StringList SSM Parameter.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="stringListValue")
-    def string_list_value(self) -> typing.List[builtins.str]:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
-        cannot contain commas (``,``).
-
-        :attribute: Value
-        '''
-        ...
-
-
-class _IStringListParameterProxy(
-    jsii.proxy_for(IParameter), # type: ignore[misc]
-):
-    '''A StringList SSM Parameter.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IStringListParameter"
-
-    @builtins.property
-    @jsii.member(jsii_name="stringListValue")
-    def string_list_value(self) -> typing.List[builtins.str]:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
-        cannot contain commas (``,``).
-
-        :attribute: Value
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "stringListValue"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStringListParameter).__jsii_proxy_class__ = lambda : _IStringListParameterProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IStringParameter")
-class IStringParameter(IParameter, typing_extensions.Protocol):
-    '''A String SSM Parameter.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="stringValue")
-    def string_value(self) -> builtins.str:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value.
-
-        :attribute: Value
-        '''
-        ...
-
-
-class _IStringParameterProxy(
-    jsii.proxy_for(IParameter), # type: ignore[misc]
-):
-    '''A String SSM Parameter.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IStringParameter"
-
-    @builtins.property
-    @jsii.member(jsii_name="stringValue")
-    def string_value(self) -> builtins.str:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value.
-
-        :attribute: Value
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "stringValue"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IStringParameter).__jsii_proxy_class__ = lambda : _IStringParameterProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.ListParameterAttributes",
-    jsii_struct_bases=[CommonStringParameterAttributes],
-    name_mapping={
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "element_type": "elementType",
-        "version": "version",
-    },
-)
-class ListParameterAttributes(CommonStringParameterAttributes):
-    def __init__(
-        self,
-        *,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-        element_type: typing.Optional["ParameterValueType"] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Attributes for parameters of string list type.
-
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param element_type: The type of the string list parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
-        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
-
-        :see: ParameterType
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            list_parameter_attributes = ssm.ListParameterAttributes(
-                parameter_name="parameterName",
-            
-                # the properties below are optional
-                element_type=ssm.ParameterValueType.STRING,
-                simple_name=False,
-                version=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__caa32518e1d362afcbf135bf8697e59bfcd27563570e63250f9b6ad629ce1479)
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument element_type", value=element_type, expected_type=type_hints["element_type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_name": parameter_name,
-        }
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if element_type is not None:
-            self._values["element_type"] = element_type
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def parameter_name(self) -> builtins.str:
-        '''The name of the parameter store value.
-
-        This value can be a token or a concrete string. If it is a concrete string
-        and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        '''
-        result = self._values.get("parameter_name")
-        assert result is not None, "Required property 'parameter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def element_type(self) -> typing.Optional["ParameterValueType"]:
-        '''The type of the string list parameter value.
-
-        Using specific types can be helpful in catching invalid values
-        at the start of creating or updating a stack. CloudFormation validates
-        the values against existing values in the account.
-
-        Note - if you want to allow values from different AWS accounts, use
-        ParameterValueType.STRING
-
-        :default: ParameterValueType.STRING
-
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
-        '''
-        result = self._values.get("element_type")
-        return typing.cast(typing.Optional["ParameterValueType"], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[jsii.Number]:
-        '''The version number of the value you wish to retrieve.
-
-        :default: The latest version will be retrieved.
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ListParameterAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.MaintenanceWindowReference",
-    jsii_struct_bases=[],
-    name_mapping={"maintenance_window_id": "maintenanceWindowId"},
-)
-class MaintenanceWindowReference:
-    def __init__(self, *, maintenance_window_id: builtins.str) -> None:
-        '''A reference to a MaintenanceWindow resource.
-
-        :param maintenance_window_id: The Id of the MaintenanceWindow resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            maintenance_window_reference = ssm.MaintenanceWindowReference(
-                maintenance_window_id="maintenanceWindowId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94e75f749de5c7388059c82a1b091d0437ed5b9e362a2387a8dc4ad9ed462f79)
-            check_type(argname="argument maintenance_window_id", value=maintenance_window_id, expected_type=type_hints["maintenance_window_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "maintenance_window_id": maintenance_window_id,
-        }
-
-    @builtins.property
-    def maintenance_window_id(self) -> builtins.str:
-        '''The Id of the MaintenanceWindow resource.'''
-        result = self._values.get("maintenance_window_id")
-        assert result is not None, "Required property 'maintenance_window_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MaintenanceWindowReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.MaintenanceWindowTargetReference",
-    jsii_struct_bases=[],
-    name_mapping={"maintenance_window_target_id": "maintenanceWindowTargetId"},
-)
-class MaintenanceWindowTargetReference:
-    def __init__(self, *, maintenance_window_target_id: builtins.str) -> None:
-        '''A reference to a MaintenanceWindowTarget resource.
-
-        :param maintenance_window_target_id: The Id of the MaintenanceWindowTarget resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            maintenance_window_target_reference = ssm.MaintenanceWindowTargetReference(
-                maintenance_window_target_id="maintenanceWindowTargetId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d18ecd6547ecbce6faca4d79a28239ad1db0afff5cbc46f668e753d575aeb613)
-            check_type(argname="argument maintenance_window_target_id", value=maintenance_window_target_id, expected_type=type_hints["maintenance_window_target_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "maintenance_window_target_id": maintenance_window_target_id,
-        }
-
-    @builtins.property
-    def maintenance_window_target_id(self) -> builtins.str:
-        '''The Id of the MaintenanceWindowTarget resource.'''
-        result = self._values.get("maintenance_window_target_id")
-        assert result is not None, "Required property 'maintenance_window_target_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MaintenanceWindowTargetReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.MaintenanceWindowTaskReference",
-    jsii_struct_bases=[],
-    name_mapping={"maintenance_window_task_id": "maintenanceWindowTaskId"},
-)
-class MaintenanceWindowTaskReference:
-    def __init__(self, *, maintenance_window_task_id: builtins.str) -> None:
-        '''A reference to a MaintenanceWindowTask resource.
-
-        :param maintenance_window_task_id: The Id of the MaintenanceWindowTask resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            maintenance_window_task_reference = ssm.MaintenanceWindowTaskReference(
-                maintenance_window_task_id="maintenanceWindowTaskId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26939a9babb8f324ecbe47e1c82adc25bec9503648b1dc37273ce4962ab58e25)
-            check_type(argname="argument maintenance_window_task_id", value=maintenance_window_task_id, expected_type=type_hints["maintenance_window_task_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "maintenance_window_task_id": maintenance_window_task_id,
-        }
-
-    @builtins.property
-    def maintenance_window_task_id(self) -> builtins.str:
-        '''The Id of the MaintenanceWindowTask resource.'''
-        result = self._values.get("maintenance_window_task_id")
-        assert result is not None, "Required property 'maintenance_window_task_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MaintenanceWindowTaskReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterDataType")
-class ParameterDataType(enum.Enum):
-    '''SSM parameter data type.'''
-
-    TEXT = "TEXT"
-    '''Text.'''
-    AWS_EC2_IMAGE = "AWS_EC2_IMAGE"
-    '''Aws Ec2 Image.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.ParameterOptions",
-    jsii_struct_bases=[],
-    name_mapping={
-        "allowed_pattern": "allowedPattern",
-        "description": "description",
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "tier": "tier",
-    },
-)
-class ParameterOptions:
-    def __init__(
-        self,
-        *,
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        parameter_name: typing.Optional[builtins.str] = None,
-        simple_name: typing.Optional[builtins.bool] = None,
-        tier: typing.Optional["ParameterTier"] = None,
-    ) -> None:
-        '''Properties needed to create a new SSM Parameter.
-
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
-        :param description: Information about the parameter that you want to add to the system. Default: none
-        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param tier: The tier of the string parameter. Default: - undefined
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            parameter_options = ssm.ParameterOptions(
-                allowed_pattern="allowedPattern",
-                description="description",
-                parameter_name="parameterName",
-                simple_name=False,
-                tier=ssm.ParameterTier.ADVANCED
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54be6c6ec55adec6de5f0a4b285882a64b6047fff6c35192fc38b5de44f05ec5)
-            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if allowed_pattern is not None:
-            self._values["allowed_pattern"] = allowed_pattern
-        if description is not None:
-            self._values["description"] = description
-        if parameter_name is not None:
-            self._values["parameter_name"] = parameter_name
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if tier is not None:
-            self._values["tier"] = tier
-
-    @builtins.property
-    def allowed_pattern(self) -> typing.Optional[builtins.str]:
-        '''A regular expression used to validate the parameter value.
-
-        For example, for String types with values restricted to
-        numbers, you can specify the following: ``^\\d+$``
-
-        :default: no validation is performed
-        '''
-        result = self._values.get("allowed_pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the parameter that you want to add to the system.
-
-        :default: none
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter.
-
-        :default: - a name will be generated by CloudFormation
-        '''
-        result = self._values.get("parameter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tier(self) -> typing.Optional["ParameterTier"]:
-        '''The tier of the string parameter.
-
-        :default: - undefined
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional["ParameterTier"], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ParameterOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.ParameterReference",
-    jsii_struct_bases=[],
-    name_mapping={"parameter_name": "parameterName"},
-)
-class ParameterReference:
-    def __init__(self, *, parameter_name: builtins.str) -> None:
-        '''A reference to a Parameter resource.
-
-        :param parameter_name: The Name of the Parameter resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            parameter_reference = ssm.ParameterReference(
-                parameter_name="parameterName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbfdc70868c5a9c16217cb7ffe4a31d1d4c065de1d1fc4b9b4d37a6ffd336d53)
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_name": parameter_name,
-        }
-
-    @builtins.property
-    def parameter_name(self) -> builtins.str:
-        '''The Name of the Parameter resource.'''
-        result = self._values.get("parameter_name")
-        assert result is not None, "Required property 'parameter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ParameterReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterTier")
-class ParameterTier(enum.Enum):
-    '''SSM parameter tier.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        ssm.StringParameter(self, "Parameter",
-            allowed_pattern=".*",
-            description="The value Foo",
-            parameter_name="FooParameter",
-            string_value="Foo",
-            tier=ssm.ParameterTier.ADVANCED
-        )
-    '''
-
-    ADVANCED = "ADVANCED"
-    '''String.'''
-    INTELLIGENT_TIERING = "INTELLIGENT_TIERING"
-    '''String.'''
-    STANDARD = "STANDARD"
-    '''String.'''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterType")
-class ParameterType(enum.Enum):
-    '''(deprecated) SSM parameter type.
-
-    :deprecated: these types are no longer used
-
-    :stability: deprecated
-    '''
-
-    STRING = "STRING"
-    '''(deprecated) String.
-
-    :stability: deprecated
-    '''
-    SECURE_STRING = "SECURE_STRING"
-    '''(deprecated) Secure String.
-
-    Parameter Store uses an AWS Key Management Service (KMS) customer master key (CMK) to encrypt the parameter value.
-    Parameters of type SecureString cannot be created directly from a CDK application.
-
-    :stability: deprecated
-    '''
-    STRING_LIST = "STRING_LIST"
-    '''(deprecated) String List.
-
-    :stability: deprecated
-    '''
-    AWS_EC2_IMAGE_ID = "AWS_EC2_IMAGE_ID"
-    '''(deprecated) An Amazon EC2 image ID, such as ami-0ff8a91507f77f867.
-
-    :stability: deprecated
-    '''
-
-
-@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterValueType")
-class ParameterValueType(enum.Enum):
-    '''The type of CFN SSM Parameter.
-
-    Using specific types can be helpful in catching invalid values
-    at the start of creating or updating a stack. CloudFormation validates
-    the values against existing values in the account.
-
-    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
-    :exampleMetadata: infused
-
-    Example::
-
-        ssm.StringParameter.value_for_typed_string_parameter_v2(self, "/My/Public/Parameter", ssm.ParameterValueType.AWS_EC2_IMAGE_ID)
-    '''
-
-    STRING = "STRING"
-    '''String.'''
-    AWS_EC2_AVAILABILITYZONE_NAME = "AWS_EC2_AVAILABILITYZONE_NAME"
-    '''An Availability Zone, such as us-west-2a.'''
-    AWS_EC2_IMAGE_ID = "AWS_EC2_IMAGE_ID"
-    '''An Amazon EC2 image ID, such as ami-0ff8a91507f77f867.'''
-    AWS_EC2_INSTANCE_ID = "AWS_EC2_INSTANCE_ID"
-    '''An Amazon EC2 instance ID, such as i-1e731a32.'''
-    AWS_EC2_KEYPAIR_KEYNAME = "AWS_EC2_KEYPAIR_KEYNAME"
-    '''An Amazon EC2 key pair name.'''
-    AWS_EC2_SECURITYGROUP_GROUPNAME = "AWS_EC2_SECURITYGROUP_GROUPNAME"
-    '''An EC2-Classic or default VPC security group name, such as my-sg-abc.'''
-    AWS_EC2_SECURITYGROUP_ID = "AWS_EC2_SECURITYGROUP_ID"
-    '''A security group ID, such as sg-a123fd85.'''
-    AWS_EC2_SUBNET_ID = "AWS_EC2_SUBNET_ID"
-    '''A subnet ID, such as subnet-123a351e.'''
-    AWS_EC2_VOLUME_ID = "AWS_EC2_VOLUME_ID"
-    '''An Amazon EBS volume ID, such as vol-3cdd3f56.'''
-    AWS_EC2_VPC_ID = "AWS_EC2_VPC_ID"
-    '''A VPC ID, such as vpc-a123baa3.'''
-    AWS_ROUTE53_HOSTEDZONE_ID = "AWS_ROUTE53_HOSTEDZONE_ID"
-    '''An Amazon Route 53 hosted zone ID, such as Z23YXV4OVPL04A.'''
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.PatchBaselineReference",
-    jsii_struct_bases=[],
-    name_mapping={"patch_baseline_id": "patchBaselineId"},
-)
-class PatchBaselineReference:
-    def __init__(self, *, patch_baseline_id: builtins.str) -> None:
-        '''A reference to a PatchBaseline resource.
-
-        :param patch_baseline_id: The Id of the PatchBaseline resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            patch_baseline_reference = ssm.PatchBaselineReference(
-                patch_baseline_id="patchBaselineId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bc828b5f97283efc45abe23d163212aa8f42e523abca8f098414ae4a03a5412)
-            check_type(argname="argument patch_baseline_id", value=patch_baseline_id, expected_type=type_hints["patch_baseline_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "patch_baseline_id": patch_baseline_id,
-        }
-
-    @builtins.property
-    def patch_baseline_id(self) -> builtins.str:
-        '''The Id of the PatchBaseline resource.'''
-        result = self._values.get("patch_baseline_id")
-        assert result is not None, "Required property 'patch_baseline_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PatchBaselineReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.ResourceDataSyncReference",
-    jsii_struct_bases=[],
-    name_mapping={"sync_name": "syncName"},
-)
-class ResourceDataSyncReference:
-    def __init__(self, *, sync_name: builtins.str) -> None:
-        '''A reference to a ResourceDataSync resource.
-
-        :param sync_name: The SyncName of the ResourceDataSync resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            resource_data_sync_reference = ssm.ResourceDataSyncReference(
-                sync_name="syncName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__899fcc4cc5c3a254f511f481ad9836b22d8125176ef8bbae6716968fd5b3bfc3)
-            check_type(argname="argument sync_name", value=sync_name, expected_type=type_hints["sync_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sync_name": sync_name,
-        }
-
-    @builtins.property
-    def sync_name(self) -> builtins.str:
-        '''The SyncName of the ResourceDataSync resource.'''
-        result = self._values.get("sync_name")
-        assert result is not None, "Required property 'sync_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourceDataSyncReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.ResourcePolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_id": "policyId", "resource_arn": "resourceArn"},
-)
-class ResourcePolicyReference:
-    def __init__(self, *, policy_id: builtins.str, resource_arn: builtins.str) -> None:
-        '''A reference to a ResourcePolicy resource.
-
-        :param policy_id: The PolicyId of the ResourcePolicy resource.
-        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_ssm as ssm
-            
-            resource_policy_reference = ssm.ResourcePolicyReference(
-                policy_id="policyId",
-                resource_arn="resourceArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35d103cb1ee0617d2fd806fab17799ab15095c031720120dd9d2762241c5c7de)
-            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
-            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_id": policy_id,
-            "resource_arn": resource_arn,
-        }
-
-    @builtins.property
-    def policy_id(self) -> builtins.str:
-        '''The PolicyId of the ResourcePolicy resource.'''
-        result = self._values.get("policy_id")
-        assert result is not None, "Required property 'policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_arn(self) -> builtins.str:
-        '''The ResourceArn of the ResourcePolicy resource.'''
-        result = self._values.get("resource_arn")
-        assert result is not None, "Required property 'resource_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourcePolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.SecureStringParameterAttributes",
-    jsii_struct_bases=[CommonStringParameterAttributes],
-    name_mapping={
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "encryption_key": "encryptionKey",
-        "version": "version",
-    },
-)
-class SecureStringParameterAttributes(CommonStringParameterAttributes):
-    def __init__(
-        self,
-        *,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Attributes for secure string parameters.
-
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param encryption_key: The encryption key that is used to encrypt this parameter. Default: - default master key
-        :param version: The version number of the value you wish to retrieve. Default: - AWS CloudFormation uses the latest version of the parameter
-
-        :exampleMetadata: infused
-
-        Example::
-
-            parameter_version = Token.as_number({"Ref": "MyParameter"})
-            
-            # Retrieve the latest value of the non-secret parameter
-            # with name "/My/String/Parameter".
-            string_value = ssm.StringParameter.from_string_parameter_attributes(self, "MyValue",
-                parameter_name="/My/Public/Parameter"
-            ).string_value
-            string_value_version_from_token = ssm.StringParameter.from_string_parameter_attributes(self, "MyValueVersionFromToken",
-                parameter_name="/My/Public/Parameter",
-                # parameter version from token
-                version=parameter_version
-            ).string_value
-            
-            # Retrieve a specific version of the secret (SecureString) parameter.
-            # 'version' is always required.
-            secret_value = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValue",
-                parameter_name="/My/Secret/Parameter",
-                version=5
-            )
-            secret_value_version_from_token = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValueVersionFromToken",
-                parameter_name="/My/Secret/Parameter",
-                # parameter version from token
-                version=parameter_version
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c29a999cdf02428bb99b29e94af353e96064d305daa31ac2e3c9bbd7cff7dee)
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_name": parameter_name,
-        }
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def parameter_name(self) -> builtins.str:
-        '''The name of the parameter store value.
-
-        This value can be a token or a concrete string. If it is a concrete string
-        and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        '''
-        result = self._values.get("parameter_name")
-        assert result is not None, "Required property 'parameter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The encryption key that is used to encrypt this parameter.
-
-        :default: - default master key
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[jsii.Number]:
-        '''The version number of the value you wish to retrieve.
-
-        :default: - AWS CloudFormation uses the latest version of the parameter
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SecureStringParameterAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(IStringListParameter, IParameter)
-class StringListParameter(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ssm.StringListParameter",
-):
-    '''Creates a new StringList SSM Parameter.
-
-    :resource: AWS::SSM::Parameter
-    :exampleMetadata: infused
-
-    Example::
-
-        ssm.StringListParameter.value_for_typed_list_parameter(self, "/My/Public/Parameter", ssm.ParameterValueType.AWS_EC2_IMAGE_ID)
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        string_list_value: typing.Sequence[builtins.str],
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        parameter_name: typing.Optional[builtins.str] = None,
-        simple_name: typing.Optional[builtins.bool] = None,
-        tier: typing.Optional[ParameterTier] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param string_list_value: The values of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
-        :param description: Information about the parameter that you want to add to the system. Default: none
-        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param tier: The tier of the string parameter. Default: - undefined
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94de6d51dda014e2ac4e863b9f9611f97d1e28dc774309241f1b4d807451758f)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = StringListParameterProps(
-            string_list_value=string_list_value,
-            allowed_pattern=allowed_pattern,
-            description=description,
-            parameter_name=parameter_name,
-            simple_name=simple_name,
-            tier=tier,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromListParameterAttributes")
-    @builtins.classmethod
-    def from_list_parameter_attributes(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        element_type: typing.Optional[ParameterValueType] = None,
-        version: typing.Optional[jsii.Number] = None,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-    ) -> IStringListParameter:
-        '''Imports an external string list parameter with name and optional version.
-
-        :param scope: -
-        :param id: -
-        :param element_type: The type of the string list parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
-        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b477545ed5d53e5b666f41087db25aa6bdc347c4cead18a586bd16678f612801)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        attrs = ListParameterAttributes(
-            element_type=element_type,
-            version=version,
-            parameter_name=parameter_name,
-            simple_name=simple_name,
-        )
-
-        return typing.cast(IStringListParameter, jsii.sinvoke(cls, "fromListParameterAttributes", [scope, id, attrs]))
-
-    @jsii.member(jsii_name="fromStringListParameterName")
-    @builtins.classmethod
-    def from_string_list_parameter_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        string_list_parameter_name: builtins.str,
-    ) -> IStringListParameter:
-        '''Imports an external parameter of type string list.
-
-        Returns a token and should not be parsed.
-
-        :param scope: -
-        :param id: -
-        :param string_list_parameter_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ee02d93e11a637ffc18281f9eda840005cd8f1adec7265948e87be3b063fd8b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument string_list_parameter_name", value=string_list_parameter_name, expected_type=type_hints["string_list_parameter_name"])
-        return typing.cast(IStringListParameter, jsii.sinvoke(cls, "fromStringListParameterName", [scope, id, string_list_parameter_name]))
-
-    @jsii.member(jsii_name="valueForTypedListParameter")
-    @builtins.classmethod
-    def value_for_typed_list_parameter(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        type: typing.Optional[ParameterValueType] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> typing.List[builtins.str]:
-        '''Returns a token that will resolve (during deployment) to the list value of an SSM StringList parameter.
-
-        :param scope: Some scope within a stack.
-        :param parameter_name: The name of the SSM parameter.
-        :param type: the type of the SSM list parameter.
-        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b9ae745d086e0dea148aea94e9f88d8efd375fa182578d056bcfd3fd08b1771)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "valueForTypedListParameter", [scope, parameter_name, type, version]))
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__819241aedbf400f619f3bb1dab30b0594eef1072ffeee79fad21356c807bec86)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [grantee]))
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants write (PutParameter) permissions on the SSM Parameter.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a6c74a7f6bd369fd4593adcf2cfb417138607dd7b20b5da6ea534219eee0c55)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWrite", [grantee]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterArn")
-    def parameter_arn(self) -> builtins.str:
-        '''The ARN of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterName")
-    def parameter_name(self) -> builtins.str:
-        '''The name of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterType")
-    def parameter_type(self) -> builtins.str:
-        '''The type of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="stringListValue")
-    def string_list_value(self) -> typing.List[builtins.str]:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
-        cannot contain commas (``,``).
-        '''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "stringListValue"))
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The encryption key that is used to encrypt this parameter.
-
-        :default: - default master key
-        '''
-        return typing.cast(typing.Optional[_IKey_5f11635f], jsii.get(self, "encryptionKey"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.StringListParameterProps",
-    jsii_struct_bases=[ParameterOptions],
-    name_mapping={
-        "allowed_pattern": "allowedPattern",
-        "description": "description",
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "tier": "tier",
-        "string_list_value": "stringListValue",
-    },
-)
-class StringListParameterProps(ParameterOptions):
-    def __init__(
-        self,
-        *,
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        parameter_name: typing.Optional[builtins.str] = None,
-        simple_name: typing.Optional[builtins.bool] = None,
-        tier: typing.Optional[ParameterTier] = None,
-        string_list_value: typing.Sequence[builtins.str],
-    ) -> None:
-        '''Properties needed to create a StringList SSM Parameter.
-
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
-        :param description: Information about the parameter that you want to add to the system. Default: none
-        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param tier: The tier of the string parameter. Default: - undefined
-        :param string_list_value: The values of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
-
-        :exampleMetadata: infused
-
-        Example::
-
-            # Grant read access to some Role
-            # role: iam.IRole
-            # Create a new SSM Parameter holding a String
-            param = ssm.StringParameter(self, "StringParameter",
-                # description: 'Some user-friendly description',
-                # name: 'ParameterName',
-                string_value="Initial parameter value"
-            )
-            param.grant_read(role)
-            
-            # Create a new SSM Parameter holding a StringList
-            list_parameter = ssm.StringListParameter(self, "StringListParameter",
-                # description: 'Some user-friendly description',
-                # name: 'ParameterName',
-                string_list_value=["Initial parameter value A", "Initial parameter value B"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1fda8a7b3397aad49f6c3720e316364d4df6b092c111c31c5e48e223f7ab4b46)
-            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-            check_type(argname="argument string_list_value", value=string_list_value, expected_type=type_hints["string_list_value"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "string_list_value": string_list_value,
-        }
-        if allowed_pattern is not None:
-            self._values["allowed_pattern"] = allowed_pattern
-        if description is not None:
-            self._values["description"] = description
-        if parameter_name is not None:
-            self._values["parameter_name"] = parameter_name
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if tier is not None:
-            self._values["tier"] = tier
-
-    @builtins.property
-    def allowed_pattern(self) -> typing.Optional[builtins.str]:
-        '''A regular expression used to validate the parameter value.
-
-        For example, for String types with values restricted to
-        numbers, you can specify the following: ``^\\d+$``
-
-        :default: no validation is performed
-        '''
-        result = self._values.get("allowed_pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the parameter that you want to add to the system.
-
-        :default: none
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter.
-
-        :default: - a name will be generated by CloudFormation
-        '''
-        result = self._values.get("parameter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tier(self) -> typing.Optional[ParameterTier]:
-        '''The tier of the string parameter.
-
-        :default: - undefined
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional[ParameterTier], result)
-
-    @builtins.property
-    def string_list_value(self) -> typing.List[builtins.str]:
-        '''The values of the parameter.
-
-        It may not reference another parameter and ``{{}}`` cannot be used in the value.
-        '''
-        result = self._values.get("string_list_value")
-        assert result is not None, "Required property 'string_list_value' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StringListParameterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(IStringParameter, IParameter)
-class StringParameter(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_ssm.StringParameter",
-):
-    '''Creates a new String SSM Parameter.
-
-    :resource: AWS::SSM::Parameter
-
-    Example::
-
-        ssm_parameter = ssm.StringParameter(self, "mySsmParameter",
-            parameter_name="mySsmParameter",
-            string_value="mySsmParameterValue"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        string_value: builtins.str,
-        data_type: typing.Optional[ParameterDataType] = None,
-        type: typing.Optional[ParameterType] = None,
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        parameter_name: typing.Optional[builtins.str] = None,
-        simple_name: typing.Optional[builtins.bool] = None,
-        tier: typing.Optional[ParameterTier] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param string_value: The value of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
-        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image``. Default: ParameterDataType.TEXT
-        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
-        :param description: Information about the parameter that you want to add to the system. Default: none
-        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param tier: The tier of the string parameter. Default: - undefined
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2eeba991f657f464e2410cd38fdeecff2bdaa0b51e35cd0e4ca251c97217a46)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = StringParameterProps(
-            string_value=string_value,
-            data_type=data_type,
-            type=type,
-            allowed_pattern=allowed_pattern,
-            description=description,
-            parameter_name=parameter_name,
-            simple_name=simple_name,
-            tier=tier,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromSecureStringParameterAttributes")
-    @builtins.classmethod
-    def from_secure_string_parameter_attributes(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
-        version: typing.Optional[jsii.Number] = None,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-    ) -> IStringParameter:
-        '''Imports a secure string parameter from the SSM parameter store.
-
-        :param scope: -
-        :param id: -
-        :param encryption_key: The encryption key that is used to encrypt this parameter. Default: - default master key
-        :param version: The version number of the value you wish to retrieve. Default: - AWS CloudFormation uses the latest version of the parameter
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef716b2d64b7c95b87119e190e88504880c3f46c45b769e05e9f4f805b08c63d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        attrs = SecureStringParameterAttributes(
-            encryption_key=encryption_key,
-            version=version,
-            parameter_name=parameter_name,
-            simple_name=simple_name,
-        )
-
-        return typing.cast(IStringParameter, jsii.sinvoke(cls, "fromSecureStringParameterAttributes", [scope, id, attrs]))
-
-    @jsii.member(jsii_name="fromStringParameterArn")
-    @builtins.classmethod
-    def from_string_parameter_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        string_parameter_arn: builtins.str,
-    ) -> IStringParameter:
-        '''Imports an external string parameter by ARN.
-
-        :param scope: -
-        :param id: -
-        :param string_parameter_arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9575783638c75217cf30c3b85a444f0d969712861524ca788f0f3c83fa889f88)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument string_parameter_arn", value=string_parameter_arn, expected_type=type_hints["string_parameter_arn"])
-        return typing.cast(IStringParameter, jsii.sinvoke(cls, "fromStringParameterArn", [scope, id, string_parameter_arn]))
-
-    @jsii.member(jsii_name="fromStringParameterAttributes")
-    @builtins.classmethod
-    def from_string_parameter_attributes(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        force_dynamic_reference: typing.Optional[builtins.bool] = None,
-        type: typing.Optional[ParameterType] = None,
-        value_type: typing.Optional[ParameterValueType] = None,
-        version: typing.Optional[jsii.Number] = None,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-    ) -> IStringParameter:
-        '''Imports an external string parameter with name and optional version.
-
-        :param scope: -
-        :param id: -
-        :param force_dynamic_reference: Use a dynamic reference as the representation in CloudFormation template level. By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work. Default: false
-        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
-        :param value_type: The type of the string parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
-        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e612c2654654e8b8bb7821bcd1e47680b025862a2a411467ffa6334e46371b05)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        attrs = StringParameterAttributes(
-            force_dynamic_reference=force_dynamic_reference,
-            type=type,
-            value_type=value_type,
-            version=version,
-            parameter_name=parameter_name,
-            simple_name=simple_name,
-        )
-
-        return typing.cast(IStringParameter, jsii.sinvoke(cls, "fromStringParameterAttributes", [scope, id, attrs]))
-
-    @jsii.member(jsii_name="fromStringParameterName")
-    @builtins.classmethod
-    def from_string_parameter_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        string_parameter_name: builtins.str,
-    ) -> IStringParameter:
-        '''Imports an external string parameter by name.
-
-        :param scope: -
-        :param id: -
-        :param string_parameter_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb0299149e02d9543818343516306f4b32ee1ac5f245ff3c79ee5fd2016ec670)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument string_parameter_name", value=string_parameter_name, expected_type=type_hints["string_parameter_name"])
-        return typing.cast(IStringParameter, jsii.sinvoke(cls, "fromStringParameterName", [scope, id, string_parameter_name]))
-
-    @jsii.member(jsii_name="valueForSecureStringParameter")
-    @builtins.classmethod
-    def value_for_secure_string_parameter(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        version: jsii.Number,
-    ) -> builtins.str:
-        '''(deprecated) Returns a token that will resolve (during deployment).
-
-        :param scope: Some scope within a stack.
-        :param parameter_name: The name of the SSM parameter.
-        :param version: The parameter version (required for secure strings).
-
-        :deprecated: Use ``SecretValue.ssmSecure()`` instead, it will correctly type the imported value as a ``SecretValue`` and allow importing without version. ``SecretValue`` lives in the core ``aws-cdk-lib`` module.
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38dfc6aee7234162b6dfa7fd6d79daf1e5e20fb93a83a884110ee85c9406a842)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForSecureStringParameter", [scope, parameter_name, version]))
-
-    @jsii.member(jsii_name="valueForStringParameter")
-    @builtins.classmethod
-    def value_for_string_parameter(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> builtins.str:
-        '''Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
-
-        :param scope: Some scope within a stack.
-        :param parameter_name: The name of the SSM parameter.
-        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__587bcd33299d81a1c2d922ca6d8a6c0dbb1a57b5bf5619f44b25a23071ffcf19)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForStringParameter", [scope, parameter_name, version]))
-
-    @jsii.member(jsii_name="valueForTypedStringParameter")
-    @builtins.classmethod
-    def value_for_typed_string_parameter(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        type: typing.Optional[ParameterType] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> builtins.str:
-        '''(deprecated) Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
-
-        :param scope: Some scope within a stack.
-        :param parameter_name: The name of the SSM parameter.
-        :param type: The type of the SSM parameter.
-        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
-
-        :deprecated: - use valueForTypedStringParameterV2 instead
-
-        :stability: deprecated
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76ddd12c8dffbad4b7f599d939f1683184715d90ae73713323484cf1f89d0f99)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForTypedStringParameter", [scope, parameter_name, type, version]))
-
-    @jsii.member(jsii_name="valueForTypedStringParameterV2")
-    @builtins.classmethod
-    def value_for_typed_string_parameter_v2(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        type: typing.Optional[ParameterValueType] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> builtins.str:
-        '''Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
-
-        :param scope: Some scope within a stack.
-        :param parameter_name: The name of the SSM parameter.
-        :param type: The type of the SSM parameter.
-        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4ec30255f3ac830ba0695e062a34e2012e0542d68a61c236b791945a367b24b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForTypedStringParameterV2", [scope, parameter_name, type, version]))
-
-    @jsii.member(jsii_name="valueFromLookup")
-    @builtins.classmethod
-    def value_from_lookup(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        parameter_name: builtins.str,
-        default_value: typing.Optional[builtins.str] = None,
-        *,
-        additional_cache_key: typing.Optional[builtins.str] = None,
-    ) -> builtins.str:
-        '''Reads the value of an SSM parameter during synthesis through an environmental context provider.
-
-        Requires that the stack this scope is defined in will have explicit
-        account/region information. Otherwise, it will fail during synthesis.
-
-        If defaultValue is provided, it will be used as the dummyValue
-        and the ContextProvider will be told NOT to raise an error on synthesis
-        if the SSM Parameter is not found in the account at synth time.
-
-        :param scope: -
-        :param parameter_name: -
-        :param default_value: -
-        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372f650250)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
-        options = StringParameterLookupOptions(
-            additional_cache_key=additional_cache_key
-        )
-
-        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueFromLookup", [scope, parameter_name, default_value, options]))
-
-    @jsii.member(jsii_name="grantRead")
-    def grant_read(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f2b954516f020047895372042cbf3497906d242b8a2c10008ce8a5c2e1335370)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantRead", [grantee]))
-
-    @jsii.member(jsii_name="grantWrite")
-    def grant_write(self, grantee: _IGrantable_71c4f5de) -> _Grant_a7ae64f8:
-        '''Grants write (PutParameter) permissions on the SSM Parameter.
-
-        :param grantee: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9601cc05d10fcfadbdc97c8deacf47393567be2f0e90bd28ea11cdfe571976fa)
-            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(_Grant_a7ae64f8, jsii.invoke(self, "grantWrite", [grantee]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterArn")
-    def parameter_arn(self) -> builtins.str:
-        '''The ARN of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterName")
-    def parameter_name(self) -> builtins.str:
-        '''The name of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="parameterType")
-    def parameter_type(self) -> builtins.str:
-        '''The type of the SSM Parameter resource.'''
-        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
-
-    @builtins.property
-    @jsii.member(jsii_name="stringValue")
-    def string_value(self) -> builtins.str:
-        '''The parameter value.
-
-        Value must not nest another parameter. Do not use {{}} in the value.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "stringValue"))
-
-    @builtins.property
-    @jsii.member(jsii_name="encryptionKey")
-    def encryption_key(self) -> typing.Optional[_IKey_5f11635f]:
-        '''The encryption key that is used to encrypt this parameter.
-
-        :default: - default master key
-        '''
-        return typing.cast(typing.Optional[_IKey_5f11635f], jsii.get(self, "encryptionKey"))
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.StringParameterAttributes",
-    jsii_struct_bases=[CommonStringParameterAttributes],
-    name_mapping={
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "force_dynamic_reference": "forceDynamicReference",
-        "type": "type",
-        "value_type": "valueType",
-        "version": "version",
-    },
-)
-class StringParameterAttributes(CommonStringParameterAttributes):
-    def __init__(
-        self,
-        *,
-        parameter_name: builtins.str,
-        simple_name: typing.Optional[builtins.bool] = None,
-        force_dynamic_reference: typing.Optional[builtins.bool] = None,
-        type: typing.Optional[ParameterType] = None,
-        value_type: typing.Optional[ParameterValueType] = None,
-        version: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Attributes for parameters of various types of string.
-
-        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param force_dynamic_reference: Use a dynamic reference as the representation in CloudFormation template level. By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work. Default: false
-        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
-        :param value_type: The type of the string parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
-        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
-
-        :see: ParameterType
-        :exampleMetadata: infused
-
-        Example::
-
-            parameter_version = Token.as_number({"Ref": "MyParameter"})
-            
-            # Retrieve the latest value of the non-secret parameter
-            # with name "/My/String/Parameter".
-            string_value = ssm.StringParameter.from_string_parameter_attributes(self, "MyValue",
-                parameter_name="/My/Public/Parameter"
-            ).string_value
-            string_value_version_from_token = ssm.StringParameter.from_string_parameter_attributes(self, "MyValueVersionFromToken",
-                parameter_name="/My/Public/Parameter",
-                # parameter version from token
-                version=parameter_version
-            ).string_value
-            
-            # Retrieve a specific version of the secret (SecureString) parameter.
-            # 'version' is always required.
-            secret_value = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValue",
-                parameter_name="/My/Secret/Parameter",
-                version=5
-            )
-            secret_value_version_from_token = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValueVersionFromToken",
-                parameter_name="/My/Secret/Parameter",
-                # parameter version from token
-                version=parameter_version
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045695ee32d353600237b891b14ad138098a0add8ba99199144ee57eff4ad99f)
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument force_dynamic_reference", value=force_dynamic_reference, expected_type=type_hints["force_dynamic_reference"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument value_type", value=value_type, expected_type=type_hints["value_type"])
-            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "parameter_name": parameter_name,
-        }
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if force_dynamic_reference is not None:
-            self._values["force_dynamic_reference"] = force_dynamic_reference
-        if type is not None:
-            self._values["type"] = type
-        if value_type is not None:
-            self._values["value_type"] = value_type
-        if version is not None:
-            self._values["version"] = version
-
-    @builtins.property
-    def parameter_name(self) -> builtins.str:
-        '''The name of the parameter store value.
-
-        This value can be a token or a concrete string. If it is a concrete string
-        and includes "/" it must also be prefixed with a "/" (fully-qualified).
-        '''
-        result = self._values.get("parameter_name")
-        assert result is not None, "Required property 'parameter_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def force_dynamic_reference(self) -> typing.Optional[builtins.bool]:
-        '''Use a dynamic reference as the representation in CloudFormation template level.
-
-        By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work.
-
-        :default: false
-        '''
-        result = self._values.get("force_dynamic_reference")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[ParameterType]:
-        '''(deprecated) The type of the string parameter.
-
-        :default: ParameterType.STRING
-
-        :deprecated: - use valueType instead
-
-        :stability: deprecated
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[ParameterType], result)
-
-    @builtins.property
-    def value_type(self) -> typing.Optional[ParameterValueType]:
-        '''The type of the string parameter value.
-
-        Using specific types can be helpful in catching invalid values
-        at the start of creating or updating a stack. CloudFormation validates
-        the values against existing values in the account.
-
-        Note - if you want to allow values from different AWS accounts, use
-        ParameterValueType.STRING
-
-        :default: ParameterValueType.STRING
-
-        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
-        '''
-        result = self._values.get("value_type")
-        return typing.cast(typing.Optional[ParameterValueType], result)
-
-    @builtins.property
-    def version(self) -> typing.Optional[jsii.Number]:
-        '''The version number of the value you wish to retrieve.
-
-        :default: The latest version will be retrieved.
-        '''
-        result = self._values.get("version")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StringParameterAttributes(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.StringParameterLookupOptions",
-    jsii_struct_bases=[],
-    name_mapping={"additional_cache_key": "additionalCacheKey"},
-)
-class StringParameterLookupOptions:
-    def __init__(
-        self,
-        *,
-        additional_cache_key: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Additional properties for looking up an existing StringParameter.
-
-        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
-
-        :exampleMetadata: infused
-
-        Example::
-
-            string_value = ssm.StringParameter.value_from_lookup(self, "/My/Public/Parameter", undefined, additional_cache_key=self.node.path)
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3)
-            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if additional_cache_key is not None:
-            self._values["additional_cache_key"] = additional_cache_key
-
-    @builtins.property
-    def additional_cache_key(self) -> typing.Optional[builtins.str]:
-        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
-
-        :default: - no additional cache key
-        '''
-        result = self._values.get("additional_cache_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StringParameterLookupOptions(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ssm.StringParameterProps",
-    jsii_struct_bases=[ParameterOptions],
-    name_mapping={
-        "allowed_pattern": "allowedPattern",
-        "description": "description",
-        "parameter_name": "parameterName",
-        "simple_name": "simpleName",
-        "tier": "tier",
-        "string_value": "stringValue",
-        "data_type": "dataType",
-        "type": "type",
-    },
-)
-class StringParameterProps(ParameterOptions):
-    def __init__(
-        self,
-        *,
-        allowed_pattern: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        parameter_name: typing.Optional[builtins.str] = None,
-        simple_name: typing.Optional[builtins.bool] = None,
-        tier: typing.Optional[ParameterTier] = None,
-        string_value: builtins.str,
-        data_type: typing.Optional[ParameterDataType] = None,
-        type: typing.Optional[ParameterType] = None,
-    ) -> None:
-        '''Properties needed to create a String SSM parameter.
-
-        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
-        :param description: Information about the parameter that you want to add to the system. Default: none
-        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
-        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
-        :param tier: The tier of the string parameter. Default: - undefined
-        :param string_value: The value of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
-        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image``. Default: ParameterDataType.TEXT
-        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
-
-        :exampleMetadata: infused
-
-        Example::
-
-            import aws_cdk.aws_lambda as lambda_
-            
-            # func: lambda.IFunction
-            
-            
-            simple_parameter = ssm.StringParameter(self, "StringParameter",
-                # the parameter name doesn't contain any '/'
-                parameter_name="parameter",
-                string_value="SOME_VALUE",
-                simple_name=True
-            )
-            non_simple_parameter = ssm.StringParameter(self, "StringParameter",
-                # the parameter name contains '/'
-                parameter_name=f"/{func.functionName}/my/app/param",
-                string_value="SOME_VALUE",
-                simple_name=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a14e5cea1d211f374b7c289d526224c03be1f2e91a2a94cbcdf8f1d251335822)
-            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
-            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
-            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
-            check_type(argname="argument string_value", value=string_value, expected_type=type_hints["string_value"])
-            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "string_value": string_value,
-        }
-        if allowed_pattern is not None:
-            self._values["allowed_pattern"] = allowed_pattern
-        if description is not None:
-            self._values["description"] = description
-        if parameter_name is not None:
-            self._values["parameter_name"] = parameter_name
-        if simple_name is not None:
-            self._values["simple_name"] = simple_name
-        if tier is not None:
-            self._values["tier"] = tier
-        if data_type is not None:
-            self._values["data_type"] = data_type
-        if type is not None:
-            self._values["type"] = type
-
-    @builtins.property
-    def allowed_pattern(self) -> typing.Optional[builtins.str]:
-        '''A regular expression used to validate the parameter value.
-
-        For example, for String types with values restricted to
-        numbers, you can specify the following: ``^\\d+$``
-
-        :default: no validation is performed
-        '''
-        result = self._values.get("allowed_pattern")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Information about the parameter that you want to add to the system.
-
-        :default: none
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def parameter_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the parameter.
-
-        :default: - a name will be generated by CloudFormation
-        '''
-        result = self._values.get("parameter_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def simple_name(self) -> typing.Optional[builtins.bool]:
-        '''Indicates whether the parameter name is a simple name.
-
-        A parameter name
-        without any "/" is considered a simple name. If the parameter name includes
-        "/", setting simpleName to true might cause unintended issues such
-        as duplicate "/" in the resulting ARN.
-
-        This is required only if ``parameterName`` is a token, which means we
-        are unable to detect if the name is simple or "path-like" for the purpose
-        of rendering SSM parameter ARNs.
-
-        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
-        undefined) since the name generated by AWS CloudFormation is always a
-        simple name.
-
-        :default: - auto-detect based on ``parameterName``
-        '''
-        result = self._values.get("simple_name")
-        return typing.cast(typing.Optional[builtins.bool], result)
-
-    @builtins.property
-    def tier(self) -> typing.Optional[ParameterTier]:
-        '''The tier of the string parameter.
-
-        :default: - undefined
-        '''
-        result = self._values.get("tier")
-        return typing.cast(typing.Optional[ParameterTier], result)
-
-    @builtins.property
-    def string_value(self) -> builtins.str:
-        '''The value of the parameter.
-
-        It may not reference another parameter and ``{{}}`` cannot be used in the value.
-        '''
-        result = self._values.get("string_value")
-        assert result is not None, "Required property 'string_value' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_type(self) -> typing.Optional[ParameterDataType]:
-        '''The data type of the parameter, such as ``text`` or ``aws:ec2:image``.
-
-        :default: ParameterDataType.TEXT
-        '''
-        result = self._values.get("data_type")
-        return typing.cast(typing.Optional[ParameterDataType], result)
-
-    @builtins.property
-    def type(self) -> typing.Optional[ParameterType]:
-        '''(deprecated) The type of the string parameter.
-
-        :default: ParameterType.STRING
-
-        :deprecated: - type will always be 'String'
-
-        :stability: deprecated
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional[ParameterType], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "StringParameterProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAssociationRef)
+@jsii.implements(_IInspectable_c2943556, _IAssociationRef_a842a755)
 class CfnAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5300,7 +299,7 @@ class CfnAssociation(
 ):
     '''The ``AWS::SSM::Association`` resource creates a State Manager association for your managed instances.
 
-    A State Manager association defines the state that you want to maintain on your instances. For example, an association can specify that anti-virus software must be installed and running on your instances, or that certain ports must be closed. For static targets, the association specifies a schedule for when the configuration is reapplied. For dynamic targets, such as an AWS Resource Groups or an AWS Auto Scaling Group, State Manager applies the configuration when new instances are added to the group. The association also specifies actions to take when applying the configuration. For example, an association for anti-virus software might run once a day. If the software is not installed, then State Manager installs it. If the software is installed, but the service is not running, then the association might instruct State Manager to start the service.
+    A State Manager association defines the state that you want to maintain on your instances. For example, an association can specify that anti-virus software must be installed and running on your instances, or that certain ports must be closed. For static targets, the association specifies a schedule for when the configuration is reapplied. For dynamic targets, such as an Resource Groups or an AWS Auto Scaling Group, State Manager applies the configuration when new instances are added to the group. The association also specifies actions to take when applying the configuration. For example, an association for anti-virus software might run once a day. If the software is not installed, then State Manager installs it. If the software is installed, but the service is not running, then the association might instruct State Manager to start the service.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html
     :cloudformationResource: AWS::SSM::Association
@@ -5348,11 +347,11 @@ class CfnAssociation(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        name: builtins.str,
-        apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        name: typing.Union[builtins.str, "_IDocumentRef_6c66ce42"],
+        apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         association_name: typing.Optional[builtins.str] = None,
         automation_target_parameter_name: typing.Optional[builtins.str] = None,
         calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -5361,15 +360,16 @@ class CfnAssociation(
         instance_id: typing.Optional[builtins.str] = None,
         max_concurrency: typing.Optional[builtins.str] = None,
         max_errors: typing.Optional[builtins.str] = None,
-        output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssociation.InstanceAssociationOutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        output_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.InstanceAssociationOutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         parameters: typing.Any = None,
         schedule_expression: typing.Optional[builtins.str] = None,
         schedule_offset: typing.Optional[jsii.Number] = None,
         sync_compliance: typing.Optional[builtins.str] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::Association``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the SSM document that contains the configuration information for the instance. You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format: ``arn:partition:ssm:region:account-id:document/document-name`` For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document`` For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
@@ -5388,7 +388,7 @@ class CfnAssociation(
         :param schedule_offset: Number of days to wait after the scheduled day to run an association.
         :param sync_compliance: The mode for generating association compliance. You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` . In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action. By default, all associations use ``AUTO`` mode.
         :param targets: The targets for the association. You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` . Supported formats include the following. - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>`` - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>`` To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
-        :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your AWS CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
+        :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__92579425f735301e17a993e7df464a283a7d42ba685c2d4205cf945db662d245)
@@ -5416,8 +416,52 @@ class CfnAssociation(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForAssociation")
+    @builtins.classmethod
+    def arn_for_association(cls, resource: "_IAssociationRef_a842a755") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2e4a265e7dc882e8a494568f857f8e9472592c22f1b91672cc1b1b43827911bc)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAssociation", [resource]))
+
+    @jsii.member(jsii_name="fromAssociationId")
+    @builtins.classmethod
+    def from_association_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        association_id: builtins.str,
+    ) -> "_IAssociationRef_a842a755":
+        '''Creates a new IAssociationRef from a associationId.
+
+        :param scope: -
+        :param id: -
+        :param association_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2a4e2f6f1ad5f1b777c7a5fcb533625aa60df723d920b56a3738329f8b631cb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument association_id", value=association_id, expected_type=type_hints["association_id"])
+        return typing.cast("_IAssociationRef_a842a755", jsii.sinvoke(cls, "fromAssociationId", [scope, id, association_id]))
+
+    @jsii.member(jsii_name="isCfnAssociation")
+    @builtins.classmethod
+    def is_cfn_association(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAssociation.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be18d2efefd249dd9329703cfb13014e5a0e3ac4b46962689c82576cf746770b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAssociation", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5448,9 +492,9 @@ class CfnAssociation(
 
     @builtins.property
     @jsii.member(jsii_name="associationRef")
-    def association_ref(self) -> AssociationReference:
+    def association_ref(self) -> "_AssociationReference_4aae9ddd":
         '''A reference to a Association resource.'''
-        return typing.cast(AssociationReference, jsii.get(self, "associationRef"))
+        return typing.cast("_AssociationReference_4aae9ddd", jsii.get(self, "associationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="attrAssociationId")
@@ -5483,14 +527,14 @@ class CfnAssociation(
     @jsii.member(jsii_name="applyOnlyAtCronInterval")
     def apply_only_at_cron_interval(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "applyOnlyAtCronInterval"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "applyOnlyAtCronInterval"))
 
     @apply_only_at_cron_interval.setter
     def apply_only_at_cron_interval(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9023084f7868b14116f97ca76b80fe2c8428bca0dc340c9e250534372a8882b)
@@ -5610,14 +654,14 @@ class CfnAssociation(
     @jsii.member(jsii_name="outputLocation")
     def output_location(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.InstanceAssociationOutputLocationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.InstanceAssociationOutputLocationProperty"]]:
         '''An Amazon Simple Storage Service (Amazon S3) bucket where you want to store the output details of the request.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.InstanceAssociationOutputLocationProperty"]], jsii.get(self, "outputLocation"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.InstanceAssociationOutputLocationProperty"]], jsii.get(self, "outputLocation"))
 
     @output_location.setter
     def output_location(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.InstanceAssociationOutputLocationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.InstanceAssociationOutputLocationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b7f2d6bae4a2f47caddaa51675bf95100b06b460f639a924aec4c36f3e0dfe13)
@@ -5680,14 +724,14 @@ class CfnAssociation(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssociation.TargetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAssociation.TargetProperty"]]]]:
         '''The targets for the association.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssociation.TargetProperty"]]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAssociation.TargetProperty"]]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnAssociation.TargetProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAssociation.TargetProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ce3b93eff1353677d4fb546ad1db9172eecc860870a57f1426f1ff63ce088d4)
@@ -5719,7 +763,7 @@ class CfnAssociation(
         def __init__(
             self,
             *,
-            s3_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnAssociation.S3OutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.S3OutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''``InstanceAssociationOutputLocation`` is a property of the `AWS::SSM::Association <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html>`_ resource that specifies an Amazon S3 bucket where you want to store the results of this association request.
 
@@ -5754,13 +798,13 @@ class CfnAssociation(
         @builtins.property
         def s3_location(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.S3OutputLocationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.S3OutputLocationProperty"]]:
             '''``S3OutputLocation`` is a property of the `InstanceAssociationOutputLocation <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-association-instanceassociationoutputlocation.html>`_ property that specifies an Amazon S3 bucket where you want to store the results of this request.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-association-instanceassociationoutputlocation.html#cfn-ssm-association-instanceassociationoutputlocation-s3location
             '''
             result = self._values.get("s3_location")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnAssociation.S3OutputLocationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.S3OutputLocationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5938,7 +982,401 @@ class CfnAssociation(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IDocumentRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnAssociationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "apply_only_at_cron_interval": "applyOnlyAtCronInterval",
+        "association_name": "associationName",
+        "automation_target_parameter_name": "automationTargetParameterName",
+        "calendar_names": "calendarNames",
+        "compliance_severity": "complianceSeverity",
+        "document_version": "documentVersion",
+        "instance_id": "instanceId",
+        "max_concurrency": "maxConcurrency",
+        "max_errors": "maxErrors",
+        "output_location": "outputLocation",
+        "parameters": "parameters",
+        "schedule_expression": "scheduleExpression",
+        "schedule_offset": "scheduleOffset",
+        "sync_compliance": "syncCompliance",
+        "targets": "targets",
+        "wait_for_success_timeout_seconds": "waitForSuccessTimeoutSeconds",
+    },
+)
+class CfnAssociationProps:
+    def __init__(
+        self,
+        *,
+        name: typing.Union[builtins.str, "_IDocumentRef_6c66ce42"],
+        apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        association_name: typing.Optional[builtins.str] = None,
+        automation_target_parameter_name: typing.Optional[builtins.str] = None,
+        calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        compliance_severity: typing.Optional[builtins.str] = None,
+        document_version: typing.Optional[builtins.str] = None,
+        instance_id: typing.Optional[builtins.str] = None,
+        max_concurrency: typing.Optional[builtins.str] = None,
+        max_errors: typing.Optional[builtins.str] = None,
+        output_location: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.InstanceAssociationOutputLocationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        parameters: typing.Any = None,
+        schedule_expression: typing.Optional[builtins.str] = None,
+        schedule_offset: typing.Optional[jsii.Number] = None,
+        sync_compliance: typing.Optional[builtins.str] = None,
+        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAssociation``.
+
+        :param name: The name of the SSM document that contains the configuration information for the instance. You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format: ``arn:partition:ssm:region:account-id:document/document-name`` For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document`` For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
+        :param apply_only_at_cron_interval: By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified. Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
+        :param association_name: Specify a descriptive name for the association.
+        :param automation_target_parameter_name: Choose the parameter that will define how your automation will branch out. This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
+        :param calendar_names: The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under. The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
+        :param compliance_severity: The severity level that is assigned to the association.
+        :param document_version: The version of the SSM document to associate with the target. .. epigraph:: Note the following important information. - State Manager doesn't support running associations that use a new version of a document if that document is shared from another account. State Manager always runs the ``default`` version of a document if shared from another account, even though the Systems Manager console shows that a new version was processed. If you want to run an association using a new version of a document shared form another account, you must set the document version to ``default`` . - ``DocumentVersion`` is not valid for documents owned by AWS , such as ``AWS-RunPatchBaseline`` or ``AWS-UpdateSSMAgent`` . If you specify ``DocumentVersion`` for an AWS document, the system returns the following error: "Error occurred during operation 'CreateAssociation'." (RequestToken: , HandlerErrorCode: GeneralServiceException).
+        :param instance_id: .. epigraph:: ``InstanceId`` has been deprecated. To specify an instance ID for an association, use the ``Targets`` parameter. If you use the parameter ``InstanceId`` , you cannot use the parameters ``AssociationName`` , ``DocumentVersion`` , ``MaxErrors`` , ``MaxConcurrency`` , ``OutputLocation`` , or ``ScheduleExpression`` . To use these parameters, you must use the ``Targets`` parameter. .. epigraph:: Note that in some examples later in this page, ``InstanceIds`` is used as the tag-key name in a ``Targets`` filter. ``InstanceId`` is not used as a parameter. The ID of the instance that the SSM document is associated with. You must specify the ``InstanceId`` or ``Targets`` property.
+        :param max_concurrency: The maximum number of targets allowed to run the association at the same time. You can specify a number, for example 10, or a percentage of the target set, for example 10%. The default value is 100%, which means all targets run the association at the same time. If a new managed node starts and attempts to run an association while Systems Manager is running ``MaxConcurrency`` associations, the association is allowed to run. During the next association interval, the new managed node will process its association within the limit specified for ``MaxConcurrency`` .
+        :param max_errors: The number of errors that are allowed before the system stops sending requests to run the association on additional targets. You can specify either an absolute number of errors, for example 10, or a percentage of the target set, for example 10%. If you specify 3, for example, the system stops sending requests when the fourth error is received. If you specify 0, then the system stops sending requests after the first error is returned. If you run an association on 50 managed nodes and set ``MaxError`` to 10%, then the system stops sending the request when the sixth error is received. Executions that are already running an association when ``MaxErrors`` is reached are allowed to complete, but some of these executions may fail as well. If you need to ensure that there won't be more than max-errors failed executions, set ``MaxConcurrency`` to 1 so that executions proceed one at a time.
+        :param output_location: An Amazon Simple Storage Service (Amazon S3) bucket where you want to store the output details of the request.
+        :param parameters: The parameters for the runtime configuration of the document.
+        :param schedule_expression: A cron expression that specifies a schedule when the association runs. The schedule runs in Coordinated Universal Time (UTC).
+        :param schedule_offset: Number of days to wait after the scheduled day to run an association.
+        :param sync_compliance: The mode for generating association compliance. You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` . In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action. By default, all associations use ``AUTO`` mode.
+        :param targets: The targets for the association. You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` . Supported formats include the following. - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>`` - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>`` To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
+        :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            # parameters: Any
+            
+            cfn_association_props = ssm.CfnAssociationProps(
+                name="name",
+            
+                # the properties below are optional
+                apply_only_at_cron_interval=False,
+                association_name="associationName",
+                automation_target_parameter_name="automationTargetParameterName",
+                calendar_names=["calendarNames"],
+                compliance_severity="complianceSeverity",
+                document_version="documentVersion",
+                instance_id="instanceId",
+                max_concurrency="maxConcurrency",
+                max_errors="maxErrors",
+                output_location=ssm.CfnAssociation.InstanceAssociationOutputLocationProperty(
+                    s3_location=ssm.CfnAssociation.S3OutputLocationProperty(
+                        output_s3_bucket_name="outputS3BucketName",
+                        output_s3_key_prefix="outputS3KeyPrefix",
+                        output_s3_region="outputS3Region"
+                    )
+                ),
+                parameters=parameters,
+                schedule_expression="scheduleExpression",
+                schedule_offset=123,
+                sync_compliance="syncCompliance",
+                targets=[ssm.CfnAssociation.TargetProperty(
+                    key="key",
+                    values=["values"]
+                )],
+                wait_for_success_timeout_seconds=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01cc7e0dac)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument apply_only_at_cron_interval", value=apply_only_at_cron_interval, expected_type=type_hints["apply_only_at_cron_interval"])
+            check_type(argname="argument association_name", value=association_name, expected_type=type_hints["association_name"])
+            check_type(argname="argument automation_target_parameter_name", value=automation_target_parameter_name, expected_type=type_hints["automation_target_parameter_name"])
+            check_type(argname="argument calendar_names", value=calendar_names, expected_type=type_hints["calendar_names"])
+            check_type(argname="argument compliance_severity", value=compliance_severity, expected_type=type_hints["compliance_severity"])
+            check_type(argname="argument document_version", value=document_version, expected_type=type_hints["document_version"])
+            check_type(argname="argument instance_id", value=instance_id, expected_type=type_hints["instance_id"])
+            check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
+            check_type(argname="argument max_errors", value=max_errors, expected_type=type_hints["max_errors"])
+            check_type(argname="argument output_location", value=output_location, expected_type=type_hints["output_location"])
+            check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
+            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument schedule_offset", value=schedule_offset, expected_type=type_hints["schedule_offset"])
+            check_type(argname="argument sync_compliance", value=sync_compliance, expected_type=type_hints["sync_compliance"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument wait_for_success_timeout_seconds", value=wait_for_success_timeout_seconds, expected_type=type_hints["wait_for_success_timeout_seconds"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if apply_only_at_cron_interval is not None:
+            self._values["apply_only_at_cron_interval"] = apply_only_at_cron_interval
+        if association_name is not None:
+            self._values["association_name"] = association_name
+        if automation_target_parameter_name is not None:
+            self._values["automation_target_parameter_name"] = automation_target_parameter_name
+        if calendar_names is not None:
+            self._values["calendar_names"] = calendar_names
+        if compliance_severity is not None:
+            self._values["compliance_severity"] = compliance_severity
+        if document_version is not None:
+            self._values["document_version"] = document_version
+        if instance_id is not None:
+            self._values["instance_id"] = instance_id
+        if max_concurrency is not None:
+            self._values["max_concurrency"] = max_concurrency
+        if max_errors is not None:
+            self._values["max_errors"] = max_errors
+        if output_location is not None:
+            self._values["output_location"] = output_location
+        if parameters is not None:
+            self._values["parameters"] = parameters
+        if schedule_expression is not None:
+            self._values["schedule_expression"] = schedule_expression
+        if schedule_offset is not None:
+            self._values["schedule_offset"] = schedule_offset
+        if sync_compliance is not None:
+            self._values["sync_compliance"] = sync_compliance
+        if targets is not None:
+            self._values["targets"] = targets
+        if wait_for_success_timeout_seconds is not None:
+            self._values["wait_for_success_timeout_seconds"] = wait_for_success_timeout_seconds
+
+    @builtins.property
+    def name(self) -> typing.Union[builtins.str, "_IDocumentRef_6c66ce42"]:
+        '''The name of the SSM document that contains the configuration information for the instance.
+
+        You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format:
+
+        ``arn:partition:ssm:region:account-id:document/document-name``
+
+        For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document``
+
+        For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(typing.Union[builtins.str, "_IDocumentRef_6c66ce42"], result)
+
+    @builtins.property
+    def apply_only_at_cron_interval(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified.
+
+        Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-applyonlyatcroninterval
+        '''
+        result = self._values.get("apply_only_at_cron_interval")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def association_name(self) -> typing.Optional[builtins.str]:
+        '''Specify a descriptive name for the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-associationname
+        '''
+        result = self._values.get("association_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def automation_target_parameter_name(self) -> typing.Optional[builtins.str]:
+        '''Choose the parameter that will define how your automation will branch out.
+
+        This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-automationtargetparametername
+        '''
+        result = self._values.get("automation_target_parameter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def calendar_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under.
+
+        The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-calendarnames
+        '''
+        result = self._values.get("calendar_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def compliance_severity(self) -> typing.Optional[builtins.str]:
+        '''The severity level that is assigned to the association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-complianceseverity
+        '''
+        result = self._values.get("compliance_severity")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_version(self) -> typing.Optional[builtins.str]:
+        '''The version of the SSM document to associate with the target.
+
+        .. epigraph::
+
+           Note the following important information.
+
+           - State Manager doesn't support running associations that use a new version of a document if that document is shared from another account. State Manager always runs the ``default`` version of a document if shared from another account, even though the Systems Manager console shows that a new version was processed. If you want to run an association using a new version of a document shared form another account, you must set the document version to ``default`` .
+           - ``DocumentVersion`` is not valid for documents owned by AWS , such as ``AWS-RunPatchBaseline`` or ``AWS-UpdateSSMAgent`` . If you specify ``DocumentVersion`` for an AWS document, the system returns the following error: "Error occurred during operation 'CreateAssociation'." (RequestToken: , HandlerErrorCode: GeneralServiceException).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-documentversion
+        '''
+        result = self._values.get("document_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_id(self) -> typing.Optional[builtins.str]:
+        '''.. epigraph::
+
+   ``InstanceId`` has been deprecated.
+
+        To specify an instance ID for an association, use the ``Targets`` parameter. If you use the parameter ``InstanceId`` , you cannot use the parameters ``AssociationName`` , ``DocumentVersion`` , ``MaxErrors`` , ``MaxConcurrency`` , ``OutputLocation`` , or ``ScheduleExpression`` . To use these parameters, you must use the ``Targets`` parameter.
+        .. epigraph::
+
+           Note that in some examples later in this page, ``InstanceIds`` is used as the tag-key name in a ``Targets`` filter. ``InstanceId`` is not used as a parameter.
+
+        The ID of the instance that the SSM document is associated with. You must specify the ``InstanceId`` or ``Targets`` property.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-instanceid
+        '''
+        result = self._values.get("instance_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_concurrency(self) -> typing.Optional[builtins.str]:
+        '''The maximum number of targets allowed to run the association at the same time.
+
+        You can specify a number, for example 10, or a percentage of the target set, for example 10%. The default value is 100%, which means all targets run the association at the same time.
+
+        If a new managed node starts and attempts to run an association while Systems Manager is running ``MaxConcurrency`` associations, the association is allowed to run. During the next association interval, the new managed node will process its association within the limit specified for ``MaxConcurrency`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-maxconcurrency
+        '''
+        result = self._values.get("max_concurrency")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_errors(self) -> typing.Optional[builtins.str]:
+        '''The number of errors that are allowed before the system stops sending requests to run the association on additional targets.
+
+        You can specify either an absolute number of errors, for example 10, or a percentage of the target set, for example 10%. If you specify 3, for example, the system stops sending requests when the fourth error is received. If you specify 0, then the system stops sending requests after the first error is returned. If you run an association on 50 managed nodes and set ``MaxError`` to 10%, then the system stops sending the request when the sixth error is received.
+
+        Executions that are already running an association when ``MaxErrors`` is reached are allowed to complete, but some of these executions may fail as well. If you need to ensure that there won't be more than max-errors failed executions, set ``MaxConcurrency`` to 1 so that executions proceed one at a time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-maxerrors
+        '''
+        result = self._values.get("max_errors")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def output_location(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.InstanceAssociationOutputLocationProperty"]]:
+        '''An Amazon Simple Storage Service (Amazon S3) bucket where you want to store the output details of the request.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-outputlocation
+        '''
+        result = self._values.get("output_location")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAssociation.InstanceAssociationOutputLocationProperty"]], result)
+
+    @builtins.property
+    def parameters(self) -> typing.Any:
+        '''The parameters for the runtime configuration of the document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-parameters
+        '''
+        result = self._values.get("parameters")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def schedule_expression(self) -> typing.Optional[builtins.str]:
+        '''A cron expression that specifies a schedule when the association runs.
+
+        The schedule runs in Coordinated Universal Time (UTC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-scheduleexpression
+        '''
+        result = self._values.get("schedule_expression")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule_offset(self) -> typing.Optional[jsii.Number]:
+        '''Number of days to wait after the scheduled day to run an association.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-scheduleoffset
+        '''
+        result = self._values.get("schedule_offset")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def sync_compliance(self) -> typing.Optional[builtins.str]:
+        '''The mode for generating association compliance.
+
+        You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` .
+
+        In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action.
+
+        By default, all associations use ``AUTO`` mode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-synccompliance
+        '''
+        result = self._values.get("sync_compliance")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAssociation.TargetProperty"]]]]:
+        '''The targets for the association.
+
+        You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` .
+
+        Supported formats include the following.
+
+        - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>``
+        - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>``
+
+        To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-targets
+        '''
+        result = self._values.get("targets")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnAssociation.TargetProperty"]]]], result)
+
+    @builtins.property
+    def wait_for_success_timeout_seconds(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution.
+
+        If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails.
+        .. epigraph::
+
+           When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-waitforsuccesstimeoutseconds
+        '''
+        result = self._values.get("wait_for_success_timeout_seconds")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAssociationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDocumentRef_6c66ce42, _ITaggable_36806126)
 class CfnDocument(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5949,7 +1387,7 @@ class CfnDocument(
     This document defines the actions that Systems Manager performs on your AWS resources.
     .. epigraph::
 
-       This resource does not support AWS CloudFormation drift detection.
+       This resource does not support CloudFormation drift detection.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html
     :cloudformationResource: AWS::SSM::Document
@@ -5969,21 +1407,22 @@ class CfnDocument(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         content: typing.Any,
-        attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocument.AttachmentsSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDocument.AttachmentsSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         document_format: typing.Optional[builtins.str] = None,
         document_type: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        requires: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDocument.DocumentRequiresProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        requires: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDocument.DocumentRequiresProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_type: typing.Optional[builtins.str] = None,
         update_method: typing.Optional[builtins.str] = None,
         version_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::Document``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param content: The content for the new SSM document in JSON or YAML. For more information about the schemas for SSM document content, see `SSM document schema features and examples <https://docs.aws.amazon.com/systems-manager/latest/userguide/document-schemas-features.html>`_ in the *AWS Systems Manager User Guide* . .. epigraph:: This parameter also supports ``String`` data types.
@@ -6016,8 +1455,52 @@ class CfnDocument(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDocument")
+    @builtins.classmethod
+    def arn_for_document(cls, resource: "_IDocumentRef_6c66ce42") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4f1617c8f43e163a2e8d6035d529cd8344ebef58cbe1c0e295ffce456043e36)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDocument", [resource]))
+
+    @jsii.member(jsii_name="fromDocumentName")
+    @builtins.classmethod
+    def from_document_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        document_name: builtins.str,
+    ) -> "_IDocumentRef_6c66ce42":
+        '''Creates a new IDocumentRef from a documentName.
+
+        :param scope: -
+        :param id: -
+        :param document_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c67b192e3e153596beb12dc7520f7cbf677768f2e862aa4d968b306611aea53)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument document_name", value=document_name, expected_type=type_hints["document_name"])
+        return typing.cast("_IDocumentRef_6c66ce42", jsii.sinvoke(cls, "fromDocumentName", [scope, id, document_name]))
+
+    @jsii.member(jsii_name="isCfnDocument")
+    @builtins.classmethod
+    def is_cfn_document(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDocument.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0cd3ae3bef13e2e5f76ab6255ccd28afa86202bd33e0eed8f738f2c989bdf8fe)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDocument", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6053,15 +1536,15 @@ class CfnDocument(
 
     @builtins.property
     @jsii.member(jsii_name="documentRef")
-    def document_ref(self) -> DocumentReference:
+    def document_ref(self) -> "_DocumentReference_5661bc29":
         '''A reference to a Document resource.'''
-        return typing.cast(DocumentReference, jsii.get(self, "documentRef"))
+        return typing.cast("_DocumentReference_5661bc29", jsii.get(self, "documentRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -6080,14 +1563,14 @@ class CfnDocument(
     @jsii.member(jsii_name="attachments")
     def attachments(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.AttachmentsSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.AttachmentsSourceProperty"]]]]:
         '''A list of key-value pairs that describe attachments to a version of a document.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.AttachmentsSourceProperty"]]]], jsii.get(self, "attachments"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.AttachmentsSourceProperty"]]]], jsii.get(self, "attachments"))
 
     @attachments.setter
     def attachments(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.AttachmentsSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.AttachmentsSourceProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__175aeee83820e4c740052899af41bd6da137e36dc8a7c97e1979f2a38dfb8ad5)
@@ -6137,14 +1620,14 @@ class CfnDocument(
     @jsii.member(jsii_name="requires")
     def requires(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.DocumentRequiresProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.DocumentRequiresProperty"]]]]:
         '''A list of SSM documents required by a document.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.DocumentRequiresProperty"]]]], jsii.get(self, "requires"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.DocumentRequiresProperty"]]]], jsii.get(self, "requires"))
 
     @requires.setter
     def requires(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDocument.DocumentRequiresProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.DocumentRequiresProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9f21e2047334ed6671ad1892afe1b670d99e12c8d4d4404c82dc71a489c595d3)
@@ -6153,12 +1636,12 @@ class CfnDocument(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''AWS CloudFormation resource tags to apply to the document.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__562d6c2a06cbb316f503d8b64a06c9f80424782257db2c710c729b1f8466d90f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6379,7 +1862,261 @@ class CfnDocument(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMaintenanceWindowRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnDocumentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "attachments": "attachments",
+        "document_format": "documentFormat",
+        "document_type": "documentType",
+        "name": "name",
+        "requires": "requires",
+        "tags": "tags",
+        "target_type": "targetType",
+        "update_method": "updateMethod",
+        "version_name": "versionName",
+    },
+)
+class CfnDocumentProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Any,
+        attachments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDocument.AttachmentsSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        document_format: typing.Optional[builtins.str] = None,
+        document_type: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        requires: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDocument.DocumentRequiresProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_type: typing.Optional[builtins.str] = None,
+        update_method: typing.Optional[builtins.str] = None,
+        version_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDocument``.
+
+        :param content: The content for the new SSM document in JSON or YAML. For more information about the schemas for SSM document content, see `SSM document schema features and examples <https://docs.aws.amazon.com/systems-manager/latest/userguide/document-schemas-features.html>`_ in the *AWS Systems Manager User Guide* . .. epigraph:: This parameter also supports ``String`` data types.
+        :param attachments: A list of key-value pairs that describe attachments to a version of a document.
+        :param document_format: Specify the document format for the request. ``JSON`` is the default format. Default: - "JSON"
+        :param document_type: The type of document to create.
+        :param name: A name for the SSM document. .. epigraph:: You can't use the following strings as document name prefixes. These are reserved by AWS for use as document name prefixes: - ``aws`` - ``amazon`` - ``amzn`` - ``AWSEC2`` - ``AWSConfigRemediation`` - ``AWSSupport``
+        :param requires: A list of SSM documents required by a document. This parameter is used exclusively by AWS AppConfig . When a user creates an AWS AppConfig configuration in an SSM document, the user must also specify a required document for validation purposes. In this case, an ``ApplicationConfiguration`` document requires an ``ApplicationConfigurationSchema`` document for validation purposes. For more information, see `What is AWS AppConfig ? <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+        :param tags: AWS CloudFormation resource tags to apply to the document. Use tags to help you identify and categorize resources.
+        :param target_type: Specify a target type to define the kinds of resources the document can run on. For example, to run a document on EC2 instances, specify the following value: ``/AWS::EC2::Instance`` . If you specify a value of '/' the document can run on all types of resources. If you don't specify a value, the document can't run on any resources. For a list of valid resource types, see `AWS resource and property types reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html>`_ in the *AWS CloudFormation User Guide* .
+        :param update_method: If the document resource you specify in your template already exists, this parameter determines whether a new version of the existing document is created, or the existing document is replaced. ``Replace`` is the default method. If you specify ``NewVersion`` for the ``UpdateMethod`` parameter, and the ``Name`` of the document does not match an existing resource, a new document is created. When you specify ``NewVersion`` , the default version of the document is changed to the newly created version. Default: - "Replace"
+        :param version_name: An optional field specifying the version of the artifact you are creating with the document. For example, ``Release12.1`` . This value is unique across all versions of a document, and can't be changed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            # content: Any
+            
+            cfn_document_props = ssm.CfnDocumentProps(
+                content=content,
+            
+                # the properties below are optional
+                attachments=[ssm.CfnDocument.AttachmentsSourceProperty(
+                    key="key",
+                    name="name",
+                    values=["values"]
+                )],
+                document_format="documentFormat",
+                document_type="documentType",
+                name="name",
+                requires=[ssm.CfnDocument.DocumentRequiresProperty(
+                    name="name",
+                    version="version"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_type="targetType",
+                update_method="updateMethod",
+                version_name="versionName"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25566dec89d0b8b9f0c9ebb93fd7f63988acea14deb943fd94cfe89a3d03a14a)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument attachments", value=attachments, expected_type=type_hints["attachments"])
+            check_type(argname="argument document_format", value=document_format, expected_type=type_hints["document_format"])
+            check_type(argname="argument document_type", value=document_type, expected_type=type_hints["document_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument requires", value=requires, expected_type=type_hints["requires"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_type", value=target_type, expected_type=type_hints["target_type"])
+            check_type(argname="argument update_method", value=update_method, expected_type=type_hints["update_method"])
+            check_type(argname="argument version_name", value=version_name, expected_type=type_hints["version_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+        }
+        if attachments is not None:
+            self._values["attachments"] = attachments
+        if document_format is not None:
+            self._values["document_format"] = document_format
+        if document_type is not None:
+            self._values["document_type"] = document_type
+        if name is not None:
+            self._values["name"] = name
+        if requires is not None:
+            self._values["requires"] = requires
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_type is not None:
+            self._values["target_type"] = target_type
+        if update_method is not None:
+            self._values["update_method"] = update_method
+        if version_name is not None:
+            self._values["version_name"] = version_name
+
+    @builtins.property
+    def content(self) -> typing.Any:
+        '''The content for the new SSM document in JSON or YAML.
+
+        For more information about the schemas for SSM document content, see `SSM document schema features and examples <https://docs.aws.amazon.com/systems-manager/latest/userguide/document-schemas-features.html>`_ in the *AWS Systems Manager User Guide* .
+        .. epigraph::
+
+           This parameter also supports ``String`` data types.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def attachments(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.AttachmentsSourceProperty"]]]]:
+        '''A list of key-value pairs that describe attachments to a version of a document.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-attachments
+        '''
+        result = self._values.get("attachments")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.AttachmentsSourceProperty"]]]], result)
+
+    @builtins.property
+    def document_format(self) -> typing.Optional[builtins.str]:
+        '''Specify the document format for the request.
+
+        ``JSON`` is the default format.
+
+        :default: - "JSON"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-documentformat
+        '''
+        result = self._values.get("document_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def document_type(self) -> typing.Optional[builtins.str]:
+        '''The type of document to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-documenttype
+        '''
+        result = self._values.get("document_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''A name for the SSM document.
+
+        .. epigraph::
+
+           You can't use the following strings as document name prefixes. These are reserved by AWS for use as document name prefixes:
+
+           - ``aws``
+           - ``amazon``
+           - ``amzn``
+           - ``AWSEC2``
+           - ``AWSConfigRemediation``
+           - ``AWSSupport``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def requires(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.DocumentRequiresProperty"]]]]:
+        '''A list of SSM documents required by a document.
+
+        This parameter is used exclusively by AWS AppConfig . When a user creates an AWS AppConfig configuration in an SSM document, the user must also specify a required document for validation purposes. In this case, an ``ApplicationConfiguration`` document requires an ``ApplicationConfigurationSchema`` document for validation purposes. For more information, see `What is AWS AppConfig ? <https://docs.aws.amazon.com/appconfig/latest/userguide/what-is-appconfig.html>`_ in the *AWS AppConfig User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-requires
+        '''
+        result = self._values.get("requires")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDocument.DocumentRequiresProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''AWS CloudFormation resource tags to apply to the document.
+
+        Use tags to help you identify and categorize resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def target_type(self) -> typing.Optional[builtins.str]:
+        '''Specify a target type to define the kinds of resources the document can run on.
+
+        For example, to run a document on EC2 instances, specify the following value: ``/AWS::EC2::Instance`` . If you specify a value of '/' the document can run on all types of resources. If you don't specify a value, the document can't run on any resources. For a list of valid resource types, see `AWS resource and property types reference <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-template-resource-type-ref.html>`_ in the *AWS CloudFormation User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-targettype
+        '''
+        result = self._values.get("target_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def update_method(self) -> typing.Optional[builtins.str]:
+        '''If the document resource you specify in your template already exists, this parameter determines whether a new version of the existing document is created, or the existing document is replaced.
+
+        ``Replace`` is the default method. If you specify ``NewVersion`` for the ``UpdateMethod`` parameter, and the ``Name`` of the document does not match an existing resource, a new document is created. When you specify ``NewVersion`` , the default version of the document is changed to the newly created version.
+
+        :default: - "Replace"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-updatemethod
+        '''
+        result = self._values.get("update_method")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def version_name(self) -> typing.Optional[builtins.str]:
+        '''An optional field specifying the version of the artifact you are creating with the document.
+
+        For example, ``Release12.1`` . This value is unique across all versions of a document, and can't be changed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-document.html#cfn-ssm-document-versionname
+        '''
+        result = self._values.get("version_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDocumentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMaintenanceWindowRef_1033e8f7, _ITaggable_36806126)
 class CfnMaintenanceWindow(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6397,6 +2134,7 @@ class CfnMaintenanceWindow(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_ssm as ssm
@@ -6423,10 +2161,10 @@ class CfnMaintenanceWindow(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        allow_unassociated_targets: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        allow_unassociated_targets: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
         cutoff: jsii.Number,
         duration: jsii.Number,
         name: builtins.str,
@@ -6436,9 +2174,10 @@ class CfnMaintenanceWindow(
         schedule_offset: typing.Optional[jsii.Number] = None,
         schedule_timezone: typing.Optional[builtins.str] = None,
         start_date: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::MaintenanceWindow``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param allow_unassociated_targets: Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets. If enabled, then you must specify the unregistered instances (by instance ID) when you register a task with the maintenance window.
@@ -6473,8 +2212,20 @@ class CfnMaintenanceWindow(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnMaintenanceWindow")
+    @builtins.classmethod
+    def is_cfn_maintenance_window(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMaintenanceWindow.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__638f16c294e81c950c9fdcf1c2bbf0c60a2f50e11404c0dc2c972bda72c6e5fa)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMaintenanceWindow", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6518,28 +2269,28 @@ class CfnMaintenanceWindow(
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceWindowRef")
-    def maintenance_window_ref(self) -> MaintenanceWindowReference:
+    def maintenance_window_ref(self) -> "_MaintenanceWindowReference_601f32fe":
         '''A reference to a MaintenanceWindow resource.'''
-        return typing.cast(MaintenanceWindowReference, jsii.get(self, "maintenanceWindowRef"))
+        return typing.cast("_MaintenanceWindowReference_601f32fe", jsii.get(self, "maintenanceWindowRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="allowUnassociatedTargets")
     def allow_unassociated_targets(
         self,
-    ) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
         '''Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets.'''
-        return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], jsii.get(self, "allowUnassociatedTargets"))
+        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], jsii.get(self, "allowUnassociatedTargets"))
 
     @allow_unassociated_targets.setter
     def allow_unassociated_targets(
         self,
-        value: typing.Union[builtins.bool, _IResolvable_da3f097b],
+        value: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b59de04623e80b94c25e028af2976d77afe2bc536f6dd59cd55cec25843686a)
@@ -6665,19 +2416,252 @@ class CfnMaintenanceWindow(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs).'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ff8aedf9ec0e769950717671246b7841aefbc47689520e9925ec90bc7e70a148)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IMaintenanceWindowTargetRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allow_unassociated_targets": "allowUnassociatedTargets",
+        "cutoff": "cutoff",
+        "duration": "duration",
+        "name": "name",
+        "schedule": "schedule",
+        "description": "description",
+        "end_date": "endDate",
+        "schedule_offset": "scheduleOffset",
+        "schedule_timezone": "scheduleTimezone",
+        "start_date": "startDate",
+        "tags": "tags",
+    },
+)
+class CfnMaintenanceWindowProps:
+    def __init__(
+        self,
+        *,
+        allow_unassociated_targets: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        cutoff: jsii.Number,
+        duration: jsii.Number,
+        name: builtins.str,
+        schedule: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        end_date: typing.Optional[builtins.str] = None,
+        schedule_offset: typing.Optional[jsii.Number] = None,
+        schedule_timezone: typing.Optional[builtins.str] = None,
+        start_date: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMaintenanceWindow``.
+
+        :param allow_unassociated_targets: Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets. If enabled, then you must specify the unregistered instances (by instance ID) when you register a task with the maintenance window.
+        :param cutoff: The number of hours before the end of the maintenance window that AWS Systems Manager stops scheduling new tasks for execution.
+        :param duration: The duration of the maintenance window in hours.
+        :param name: The name of the maintenance window.
+        :param schedule: The schedule of the maintenance window in the form of a cron or rate expression.
+        :param description: A description of the maintenance window.
+        :param end_date: The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become inactive.
+        :param schedule_offset: The number of days to wait to run a maintenance window after the scheduled cron expression date and time.
+        :param schedule_timezone: The time zone that the scheduled maintenance window executions are based on, in Internet Assigned Numbers Authority (IANA) format.
+        :param start_date: The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become active. ``StartDate`` allows you to delay activation of the maintenance window until the specified future date.
+        :param tags: Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs). Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a maintenance window to identify the type of tasks it will run, the types of targets, and the environment it will run in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_maintenance_window_props = ssm.CfnMaintenanceWindowProps(
+                allow_unassociated_targets=False,
+                cutoff=123,
+                duration=123,
+                name="name",
+                schedule="schedule",
+            
+                # the properties below are optional
+                description="description",
+                end_date="endDate",
+                schedule_offset=123,
+                schedule_timezone="scheduleTimezone",
+                start_date="startDate",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e76d52f884f4303547d94985493397dbda06375d2fb22bef09cd893b8126578e)
+            check_type(argname="argument allow_unassociated_targets", value=allow_unassociated_targets, expected_type=type_hints["allow_unassociated_targets"])
+            check_type(argname="argument cutoff", value=cutoff, expected_type=type_hints["cutoff"])
+            check_type(argname="argument duration", value=duration, expected_type=type_hints["duration"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument end_date", value=end_date, expected_type=type_hints["end_date"])
+            check_type(argname="argument schedule_offset", value=schedule_offset, expected_type=type_hints["schedule_offset"])
+            check_type(argname="argument schedule_timezone", value=schedule_timezone, expected_type=type_hints["schedule_timezone"])
+            check_type(argname="argument start_date", value=start_date, expected_type=type_hints["start_date"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "allow_unassociated_targets": allow_unassociated_targets,
+            "cutoff": cutoff,
+            "duration": duration,
+            "name": name,
+            "schedule": schedule,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if end_date is not None:
+            self._values["end_date"] = end_date
+        if schedule_offset is not None:
+            self._values["schedule_offset"] = schedule_offset
+        if schedule_timezone is not None:
+            self._values["schedule_timezone"] = schedule_timezone
+        if start_date is not None:
+            self._values["start_date"] = start_date
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def allow_unassociated_targets(
+        self,
+    ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        '''Enables a maintenance window task to run on managed instances, even if you have not registered those instances as targets.
+
+        If enabled, then you must specify the unregistered instances (by instance ID) when you register a task with the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-allowunassociatedtargets
+        '''
+        result = self._values.get("allow_unassociated_targets")
+        assert result is not None, "Required property 'allow_unassociated_targets' is missing"
+        return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+    @builtins.property
+    def cutoff(self) -> jsii.Number:
+        '''The number of hours before the end of the maintenance window that AWS Systems Manager stops scheduling new tasks for execution.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-cutoff
+        '''
+        result = self._values.get("cutoff")
+        assert result is not None, "Required property 'cutoff' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def duration(self) -> jsii.Number:
+        '''The duration of the maintenance window in hours.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-duration
+        '''
+        result = self._values.get("duration")
+        assert result is not None, "Required property 'duration' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule(self) -> builtins.str:
+        '''The schedule of the maintenance window in the form of a cron or rate expression.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-schedule
+        '''
+        result = self._values.get("schedule")
+        assert result is not None, "Required property 'schedule' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def end_date(self) -> typing.Optional[builtins.str]:
+        '''The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become inactive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-enddate
+        '''
+        result = self._values.get("end_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schedule_offset(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to wait to run a maintenance window after the scheduled cron expression date and time.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-scheduleoffset
+        '''
+        result = self._values.get("schedule_offset")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schedule_timezone(self) -> typing.Optional[builtins.str]:
+        '''The time zone that the scheduled maintenance window executions are based on, in Internet Assigned Numbers Authority (IANA) format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-scheduletimezone
+        '''
+        result = self._values.get("schedule_timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def start_date(self) -> typing.Optional[builtins.str]:
+        '''The date and time, in ISO-8601 Extended format, for when the maintenance window is scheduled to become active.
+
+        ``StartDate`` allows you to delay activation of the maintenance window until the specified future date.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-startdate
+        '''
+        result = self._values.get("start_date")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs).
+
+        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a maintenance window to identify the type of tasks it will run, the types of targets, and the environment it will run in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindow.html#cfn-ssm-maintenancewindow-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMaintenanceWindowProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMaintenanceWindowTargetRef_fe2384dd)
 class CfnMaintenanceWindowTarget(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6714,17 +2698,18 @@ class CfnMaintenanceWindowTarget(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         resource_type: builtins.str,
-        targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTarget.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        targets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTarget.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]],
         window_id: builtins.str,
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         owner_information: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::MaintenanceWindowTarget``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param resource_type: The type of target that is being registered with the maintenance window.
@@ -6749,8 +2734,34 @@ class CfnMaintenanceWindowTarget(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMaintenanceWindowTarget")
+    @builtins.classmethod
+    def arn_for_maintenance_window_target(
+        cls,
+        resource: "_IMaintenanceWindowTargetRef_fe2384dd",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eae2668c29d077c60c806a238378a87a290e297573490664090be5e37ee9be63)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMaintenanceWindowTarget", [resource]))
+
+    @jsii.member(jsii_name="isCfnMaintenanceWindowTarget")
+    @builtins.classmethod
+    def is_cfn_maintenance_window_target(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMaintenanceWindowTarget.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ac73bac81db0daff20aedfc5ebaa62aeb70cd07185310294daa172e040264a9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMaintenanceWindowTarget", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6780,12 +2791,13 @@ class CfnMaintenanceWindowTarget(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrWindowTargetId")
+    def attr_window_target_id(self) -> builtins.str:
+        '''The ID of the target.
+
+        :cloudformationAttribute: WindowTargetId
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrWindowTargetId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6794,9 +2806,11 @@ class CfnMaintenanceWindowTarget(
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceWindowTargetRef")
-    def maintenance_window_target_ref(self) -> MaintenanceWindowTargetReference:
+    def maintenance_window_target_ref(
+        self,
+    ) -> "_MaintenanceWindowTargetReference_ea6d19ad":
         '''A reference to a MaintenanceWindowTarget resource.'''
-        return typing.cast(MaintenanceWindowTargetReference, jsii.get(self, "maintenanceWindowTargetRef"))
+        return typing.cast("_MaintenanceWindowTargetReference_ea6d19ad", jsii.get(self, "maintenanceWindowTargetRef"))
 
     @builtins.property
     @jsii.member(jsii_name="resourceType")
@@ -6815,14 +2829,14 @@ class CfnMaintenanceWindowTarget(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTarget.TargetsProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTarget.TargetsProperty"]]]:
         '''The targets to register with the maintenance window.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTarget.TargetsProperty"]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTarget.TargetsProperty"]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTarget.TargetsProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTarget.TargetsProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__803208e9f40c4e62295f82d8ba5e2943d3dba56d9a7f29d414b3e56f6b4ffdb3)
@@ -6959,7 +2973,157 @@ class CfnMaintenanceWindowTarget(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IMaintenanceWindowTaskRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowTargetProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_type": "resourceType",
+        "targets": "targets",
+        "window_id": "windowId",
+        "description": "description",
+        "name": "name",
+        "owner_information": "ownerInformation",
+    },
+)
+class CfnMaintenanceWindowTargetProps:
+    def __init__(
+        self,
+        *,
+        resource_type: builtins.str,
+        targets: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTarget.TargetsProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        window_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        owner_information: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMaintenanceWindowTarget``.
+
+        :param resource_type: The type of target that is being registered with the maintenance window.
+        :param targets: The targets to register with the maintenance window. In other words, the instances to run commands on when the maintenance window runs. You must specify targets by using the ``WindowTargetIds`` parameter.
+        :param window_id: The ID of the maintenance window to register the target with.
+        :param description: A description for the target.
+        :param name: The name for the maintenance window target.
+        :param owner_information: A user-provided value that will be included in any Amazon CloudWatch Events events that are raised while running tasks for these targets in this maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_maintenance_window_target_props = ssm.CfnMaintenanceWindowTargetProps(
+                resource_type="resourceType",
+                targets=[ssm.CfnMaintenanceWindowTarget.TargetsProperty(
+                    key="key",
+                    values=["values"]
+                )],
+                window_id="windowId",
+            
+                # the properties below are optional
+                description="description",
+                name="name",
+                owner_information="ownerInformation"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f19925b4e71098d1d7c3ce4f156f1dd7af4f0d2c164edb55bdbb1bc8cefb0b22)
+            check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument owner_information", value=owner_information, expected_type=type_hints["owner_information"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_type": resource_type,
+            "targets": targets,
+            "window_id": window_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if owner_information is not None:
+            self._values["owner_information"] = owner_information
+
+    @builtins.property
+    def resource_type(self) -> builtins.str:
+        '''The type of target that is being registered with the maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-resourcetype
+        '''
+        result = self._values.get("resource_type")
+        assert result is not None, "Required property 'resource_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTarget.TargetsProperty"]]]:
+        '''The targets to register with the maintenance window.
+
+        In other words, the instances to run commands on when the maintenance window runs.
+
+        You must specify targets by using the ``WindowTargetIds`` parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-targets
+        '''
+        result = self._values.get("targets")
+        assert result is not None, "Required property 'targets' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTarget.TargetsProperty"]]], result)
+
+    @builtins.property
+    def window_id(self) -> builtins.str:
+        '''The ID of the maintenance window to register the target with.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-windowid
+        '''
+        result = self._values.get("window_id")
+        assert result is not None, "Required property 'window_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description for the target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name for the maintenance window target.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def owner_information(self) -> typing.Optional[builtins.str]:
+        '''A user-provided value that will be included in any Amazon CloudWatch Events events that are raised while running tasks for these targets in this maintenance window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtarget.html#cfn-ssm-maintenancewindowtarget-ownerinformation
+        '''
+        result = self._values.get("owner_information")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMaintenanceWindowTargetProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMaintenanceWindowTaskRef_72680416)
 class CfnMaintenanceWindowTask(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7049,7 +3213,7 @@ class CfnMaintenanceWindowTask(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         priority: jsii.Number,
@@ -7058,16 +3222,17 @@ class CfnMaintenanceWindowTask(
         window_id: builtins.str,
         cutoff_behavior: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.LoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        logging_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.LoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         max_concurrency: typing.Optional[builtins.str] = None,
         max_errors: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
         service_role_arn: typing.Optional[builtins.str] = None,
-        targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        task_invocation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.TaskInvocationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        task_invocation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.TaskInvocationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_parameters: typing.Any = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::MaintenanceWindowTask``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param priority: The priority of the task in the maintenance window. The lower the number, the higher the priority. Tasks that have the same priority are scheduled in parallel.
@@ -7108,8 +3273,34 @@ class CfnMaintenanceWindowTask(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMaintenanceWindowTask")
+    @builtins.classmethod
+    def arn_for_maintenance_window_task(
+        cls,
+        resource: "_IMaintenanceWindowTaskRef_72680416",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__371178f378061efc90f540775612d1073e0b94ad409b89c6bfdf2492191649f0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMaintenanceWindowTask", [resource]))
+
+    @jsii.member(jsii_name="isCfnMaintenanceWindowTask")
+    @builtins.classmethod
+    def is_cfn_maintenance_window_task(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMaintenanceWindowTask.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1013cf15a39ff39438ea96a01c60d0c580321c58b2bc730f3331f7838e09e5e2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMaintenanceWindowTask", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7139,12 +3330,13 @@ class CfnMaintenanceWindowTask(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrWindowTaskId")
+    def attr_window_task_id(self) -> builtins.str:
+        '''The task ID.
+
+        :cloudformationAttribute: WindowTaskId
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrWindowTaskId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7153,9 +3345,9 @@ class CfnMaintenanceWindowTask(
 
     @builtins.property
     @jsii.member(jsii_name="maintenanceWindowTaskRef")
-    def maintenance_window_task_ref(self) -> MaintenanceWindowTaskReference:
+    def maintenance_window_task_ref(self) -> "_MaintenanceWindowTaskReference_0ac0909d":
         '''A reference to a MaintenanceWindowTask resource.'''
-        return typing.cast(MaintenanceWindowTaskReference, jsii.get(self, "maintenanceWindowTaskRef"))
+        return typing.cast("_MaintenanceWindowTaskReference_0ac0909d", jsii.get(self, "maintenanceWindowTaskRef"))
 
     @builtins.property
     @jsii.member(jsii_name="priority")
@@ -7239,16 +3431,16 @@ class CfnMaintenanceWindowTask(
     @jsii.member(jsii_name="loggingInfo")
     def logging_info(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.LoggingInfoProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.LoggingInfoProperty"]]:
         '''.. epigraph::
 
    ``LoggingInfo`` has been deprecated.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.LoggingInfoProperty"]], jsii.get(self, "loggingInfo"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.LoggingInfoProperty"]], jsii.get(self, "loggingInfo"))
 
     @logging_info.setter
     def logging_info(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.LoggingInfoProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.LoggingInfoProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7420eb69352c5dffbc63903691d96642ddd213905d4bd87088eb40562b6c37b7)
@@ -7311,14 +3503,14 @@ class CfnMaintenanceWindowTask(
     @jsii.member(jsii_name="targets")
     def targets(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TargetProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TargetProperty"]]]]:
         '''The targets, either instances or window target IDs.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TargetProperty"]]]], jsii.get(self, "targets"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TargetProperty"]]]], jsii.get(self, "targets"))
 
     @targets.setter
     def targets(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TargetProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TargetProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba1a5fa6e80a94431946dcbb6c59475e65e96ae172de3aac908aa8b1fbbad49c)
@@ -7329,14 +3521,14 @@ class CfnMaintenanceWindowTask(
     @jsii.member(jsii_name="taskInvocationParameters")
     def task_invocation_parameters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]]:
         '''The parameters to pass to the task when it runs.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]], jsii.get(self, "taskInvocationParameters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]], jsii.get(self, "taskInvocationParameters"))
 
     @task_invocation_parameters.setter
     def task_invocation_parameters(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e676346c741943a2f14e79e926c8b5230365f4924b6a9161db3fc3486bab0d22)
@@ -7371,7 +3563,7 @@ class CfnMaintenanceWindowTask(
             self,
             *,
             cloud_watch_log_group_name: typing.Optional[builtins.str] = None,
-            cloud_watch_output_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            cloud_watch_output_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Configuration options for sending command output to Amazon CloudWatch Logs.
 
@@ -7418,13 +3610,13 @@ class CfnMaintenanceWindowTask(
         @builtins.property
         def cloud_watch_output_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Enables Systems Manager to send command output to CloudWatch Logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-cloudwatchoutputconfig.html#cfn-ssm-maintenancewindowtask-cloudwatchoutputconfig-cloudwatchoutputenabled
             '''
             result = self._values.get("cloud_watch_output_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7738,12 +3930,12 @@ class CfnMaintenanceWindowTask(
         def __init__(
             self,
             *,
-            cloud_watch_output_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            cloud_watch_output_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             comment: typing.Optional[builtins.str] = None,
             document_hash: typing.Optional[builtins.str] = None,
             document_hash_type: typing.Optional[builtins.str] = None,
             document_version: typing.Optional[builtins.str] = None,
-            notification_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.NotificationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            notification_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.NotificationConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             output_s3_bucket_name: typing.Optional[builtins.str] = None,
             output_s3_key_prefix: typing.Optional[builtins.str] = None,
             parameters: typing.Any = None,
@@ -7844,13 +4036,13 @@ class CfnMaintenanceWindowTask(
         @builtins.property
         def cloud_watch_output_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty"]]:
             '''Configuration options for sending command output to Amazon CloudWatch Logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html#cfn-ssm-maintenancewindowtask-maintenancewindowruncommandparameters-cloudwatchoutputconfig
             '''
             result = self._values.get("cloud_watch_output_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty"]], result)
 
         @builtins.property
         def comment(self) -> typing.Optional[builtins.str]:
@@ -7903,13 +4095,13 @@ class CfnMaintenanceWindowTask(
         @builtins.property
         def notification_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.NotificationConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.NotificationConfigProperty"]]:
             '''Configurations for sending notifications about command status changes on a per-managed node basis.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html#cfn-ssm-maintenancewindowtask-maintenancewindowruncommandparameters-notificationconfig
             '''
             result = self._values.get("notification_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.NotificationConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.NotificationConfigProperty"]], result)
 
         @builtins.property
         def output_s3_bucket_name(self) -> typing.Optional[builtins.str]:
@@ -8242,10 +4434,10 @@ class CfnMaintenanceWindowTask(
         def __init__(
             self,
             *,
-            maintenance_window_automation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            maintenance_window_lambda_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            maintenance_window_run_command_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            maintenance_window_step_functions_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maintenance_window_automation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maintenance_window_lambda_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maintenance_window_run_command_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maintenance_window_step_functions_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``TaskInvocationParameters`` property type specifies the task execution parameters for a maintenance window task in AWS Systems Manager .
 
@@ -8324,46 +4516,46 @@ class CfnMaintenanceWindowTask(
         @builtins.property
         def maintenance_window_automation_parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty"]]:
             '''The parameters for an ``AUTOMATION`` task type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-taskinvocationparameters.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters-maintenancewindowautomationparameters
             '''
             result = self._values.get("maintenance_window_automation_parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty"]], result)
 
         @builtins.property
         def maintenance_window_lambda_parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty"]]:
             '''The parameters for a ``LAMBDA`` task type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-taskinvocationparameters.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters-maintenancewindowlambdaparameters
             '''
             result = self._values.get("maintenance_window_lambda_parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty"]], result)
 
         @builtins.property
         def maintenance_window_run_command_parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty"]]:
             '''The parameters for a ``RUN_COMMAND`` task type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-taskinvocationparameters.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters-maintenancewindowruncommandparameters
             '''
             result = self._values.get("maintenance_window_run_command_parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty"]], result)
 
         @builtins.property
         def maintenance_window_step_functions_parameters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty"]]:
             '''The parameters for a ``STEP_FUNCTIONS`` task type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-taskinvocationparameters.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters-maintenancewindowstepfunctionsparameters
             '''
             result = self._values.get("maintenance_window_step_functions_parameters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8377,7 +4569,376 @@ class CfnMaintenanceWindowTask(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IParameterRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnMaintenanceWindowTaskProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "priority": "priority",
+        "task_arn": "taskArn",
+        "task_type": "taskType",
+        "window_id": "windowId",
+        "cutoff_behavior": "cutoffBehavior",
+        "description": "description",
+        "logging_info": "loggingInfo",
+        "max_concurrency": "maxConcurrency",
+        "max_errors": "maxErrors",
+        "name": "name",
+        "service_role_arn": "serviceRoleArn",
+        "targets": "targets",
+        "task_invocation_parameters": "taskInvocationParameters",
+        "task_parameters": "taskParameters",
+    },
+)
+class CfnMaintenanceWindowTaskProps:
+    def __init__(
+        self,
+        *,
+        priority: jsii.Number,
+        task_arn: builtins.str,
+        task_type: builtins.str,
+        window_id: builtins.str,
+        cutoff_behavior: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        logging_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.LoggingInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        max_concurrency: typing.Optional[builtins.str] = None,
+        max_errors: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        service_role_arn: typing.Optional[builtins.str] = None,
+        targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        task_invocation_parameters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMaintenanceWindowTask.TaskInvocationParametersProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_parameters: typing.Any = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMaintenanceWindowTask``.
+
+        :param priority: The priority of the task in the maintenance window. The lower the number, the higher the priority. Tasks that have the same priority are scheduled in parallel.
+        :param task_arn: The resource that the task uses during execution. For ``RUN_COMMAND`` and ``AUTOMATION`` task types, ``TaskArn`` is the SSM document name or Amazon Resource Name (ARN). For ``LAMBDA`` tasks, ``TaskArn`` is the function name or ARN. For ``STEP_FUNCTIONS`` tasks, ``TaskArn`` is the state machine ARN.
+        :param task_type: The type of task. Valid values: ``RUN_COMMAND`` , ``AUTOMATION`` , ``LAMBDA`` , ``STEP_FUNCTIONS`` .
+        :param window_id: The ID of the maintenance window where the task is registered.
+        :param cutoff_behavior: The specification for whether tasks should continue to run after the cutoff time specified in the maintenance windows is reached.
+        :param description: A description of the task.
+        :param logging_info: .. epigraph:: ``LoggingInfo`` has been deprecated. To specify an Amazon S3 bucket to contain logs for Run Command tasks, instead use the ``OutputS3BucketName`` and ``OutputS3KeyPrefix`` options in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `AWS ::SSM::MaintenanceWindowTask MaintenanceWindowRunCommandParameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html>`_ . Information about an Amazon S3 bucket to write Run Command task-level logs to.
+        :param max_concurrency: The maximum number of targets this task can be run for, in parallel. .. epigraph:: Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases. For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
+        :param max_errors: The maximum number of errors allowed before this task stops being scheduled. .. epigraph:: Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases. For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
+        :param name: The task name.
+        :param service_role_arn: The Amazon Resource Name (ARN) of the IAM service role for AWS Systems Manager to assume when running a maintenance window task. If you do not specify a service role ARN, Systems Manager uses a service-linked role in your account. If no appropriate service-linked role for Systems Manager exists in your account, it is created when you run ``RegisterTaskWithMaintenanceWindow`` . However, for an improved security posture, we strongly recommend creating a custom policy and custom service role for running your maintenance window tasks. The policy can be crafted to provide only the permissions needed for your particular maintenance window tasks. For more information, see `Setting up Maintenance Windows <https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-maintenance-permissions.html>`_ in the in the *AWS Systems Manager User Guide* .
+        :param targets: The targets, either instances or window target IDs. - Specify instances using ``Key=InstanceIds,Values= *instanceid1* , *instanceid2*`` . - Specify window target IDs using ``Key=WindowTargetIds,Values= *window-target-id-1* , *window-target-id-2*`` .
+        :param task_invocation_parameters: The parameters to pass to the task when it runs. Populate only the fields that match the task type. All other fields should be empty. .. epigraph:: When you update a maintenance window task that has options specified in ``TaskInvocationParameters`` , you must provide again all the ``TaskInvocationParameters`` values that you want to retain. The values you do not specify again are removed. For example, suppose that when you registered a Run Command task, you specified ``TaskInvocationParameters`` values for ``Comment`` , ``NotificationConfig`` , and ``OutputS3BucketName`` . If you update the maintenance window task and specify only a different ``OutputS3BucketName`` value, the values for ``Comment`` and ``NotificationConfig`` are removed.
+        :param task_parameters: .. epigraph:: ``TaskParameters`` has been deprecated. To specify parameters to pass to a task when it runs, instead use the ``Parameters`` option in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `MaintenanceWindowTaskInvocationParameters <https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_MaintenanceWindowTaskInvocationParameters.html>`_ . The parameters to pass to the task when it runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            # parameters: Any
+            # task_parameters: Any
+            
+            cfn_maintenance_window_task_props = ssm.CfnMaintenanceWindowTaskProps(
+                priority=123,
+                task_arn="taskArn",
+                task_type="taskType",
+                window_id="windowId",
+            
+                # the properties below are optional
+                cutoff_behavior="cutoffBehavior",
+                description="description",
+                logging_info=ssm.CfnMaintenanceWindowTask.LoggingInfoProperty(
+                    region="region",
+                    s3_bucket="s3Bucket",
+            
+                    # the properties below are optional
+                    s3_prefix="s3Prefix"
+                ),
+                max_concurrency="maxConcurrency",
+                max_errors="maxErrors",
+                name="name",
+                service_role_arn="serviceRoleArn",
+                targets=[ssm.CfnMaintenanceWindowTask.TargetProperty(
+                    key="key",
+                    values=["values"]
+                )],
+                task_invocation_parameters=ssm.CfnMaintenanceWindowTask.TaskInvocationParametersProperty(
+                    maintenance_window_automation_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowAutomationParametersProperty(
+                        document_version="documentVersion",
+                        parameters=parameters
+                    ),
+                    maintenance_window_lambda_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowLambdaParametersProperty(
+                        client_context="clientContext",
+                        payload="payload",
+                        qualifier="qualifier"
+                    ),
+                    maintenance_window_run_command_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowRunCommandParametersProperty(
+                        cloud_watch_output_config=ssm.CfnMaintenanceWindowTask.CloudWatchOutputConfigProperty(
+                            cloud_watch_log_group_name="cloudWatchLogGroupName",
+                            cloud_watch_output_enabled=False
+                        ),
+                        comment="comment",
+                        document_hash="documentHash",
+                        document_hash_type="documentHashType",
+                        document_version="documentVersion",
+                        notification_config=ssm.CfnMaintenanceWindowTask.NotificationConfigProperty(
+                            notification_arn="notificationArn",
+            
+                            # the properties below are optional
+                            notification_events=["notificationEvents"],
+                            notification_type="notificationType"
+                        ),
+                        output_s3_bucket_name="outputS3BucketName",
+                        output_s3_key_prefix="outputS3KeyPrefix",
+                        parameters=parameters,
+                        service_role_arn="serviceRoleArn",
+                        timeout_seconds=123
+                    ),
+                    maintenance_window_step_functions_parameters=ssm.CfnMaintenanceWindowTask.MaintenanceWindowStepFunctionsParametersProperty(
+                        input="input",
+                        name="name"
+                    )
+                ),
+                task_parameters=task_parameters
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a897371c334ec198a4346a790b33c5836646788eb0a73ef18f8c56d7c89a1da3)
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument task_arn", value=task_arn, expected_type=type_hints["task_arn"])
+            check_type(argname="argument task_type", value=task_type, expected_type=type_hints["task_type"])
+            check_type(argname="argument window_id", value=window_id, expected_type=type_hints["window_id"])
+            check_type(argname="argument cutoff_behavior", value=cutoff_behavior, expected_type=type_hints["cutoff_behavior"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument logging_info", value=logging_info, expected_type=type_hints["logging_info"])
+            check_type(argname="argument max_concurrency", value=max_concurrency, expected_type=type_hints["max_concurrency"])
+            check_type(argname="argument max_errors", value=max_errors, expected_type=type_hints["max_errors"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument service_role_arn", value=service_role_arn, expected_type=type_hints["service_role_arn"])
+            check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
+            check_type(argname="argument task_invocation_parameters", value=task_invocation_parameters, expected_type=type_hints["task_invocation_parameters"])
+            check_type(argname="argument task_parameters", value=task_parameters, expected_type=type_hints["task_parameters"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "priority": priority,
+            "task_arn": task_arn,
+            "task_type": task_type,
+            "window_id": window_id,
+        }
+        if cutoff_behavior is not None:
+            self._values["cutoff_behavior"] = cutoff_behavior
+        if description is not None:
+            self._values["description"] = description
+        if logging_info is not None:
+            self._values["logging_info"] = logging_info
+        if max_concurrency is not None:
+            self._values["max_concurrency"] = max_concurrency
+        if max_errors is not None:
+            self._values["max_errors"] = max_errors
+        if name is not None:
+            self._values["name"] = name
+        if service_role_arn is not None:
+            self._values["service_role_arn"] = service_role_arn
+        if targets is not None:
+            self._values["targets"] = targets
+        if task_invocation_parameters is not None:
+            self._values["task_invocation_parameters"] = task_invocation_parameters
+        if task_parameters is not None:
+            self._values["task_parameters"] = task_parameters
+
+    @builtins.property
+    def priority(self) -> jsii.Number:
+        '''The priority of the task in the maintenance window.
+
+        The lower the number, the higher the priority. Tasks that have the same priority are scheduled in parallel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-priority
+        '''
+        result = self._values.get("priority")
+        assert result is not None, "Required property 'priority' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def task_arn(self) -> builtins.str:
+        '''The resource that the task uses during execution.
+
+        For ``RUN_COMMAND`` and ``AUTOMATION`` task types, ``TaskArn`` is the SSM document name or Amazon Resource Name (ARN).
+
+        For ``LAMBDA`` tasks, ``TaskArn`` is the function name or ARN.
+
+        For ``STEP_FUNCTIONS`` tasks, ``TaskArn`` is the state machine ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskarn
+        '''
+        result = self._values.get("task_arn")
+        assert result is not None, "Required property 'task_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def task_type(self) -> builtins.str:
+        '''The type of task.
+
+        Valid values: ``RUN_COMMAND`` , ``AUTOMATION`` , ``LAMBDA`` , ``STEP_FUNCTIONS`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-tasktype
+        '''
+        result = self._values.get("task_type")
+        assert result is not None, "Required property 'task_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def window_id(self) -> builtins.str:
+        '''The ID of the maintenance window where the task is registered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-windowid
+        '''
+        result = self._values.get("window_id")
+        assert result is not None, "Required property 'window_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cutoff_behavior(self) -> typing.Optional[builtins.str]:
+        '''The specification for whether tasks should continue to run after the cutoff time specified in the maintenance windows is reached.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-cutoffbehavior
+        '''
+        result = self._values.get("cutoff_behavior")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def logging_info(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.LoggingInfoProperty"]]:
+        '''.. epigraph::
+
+   ``LoggingInfo`` has been deprecated.
+
+        To specify an Amazon S3 bucket to contain logs for Run Command tasks, instead use the ``OutputS3BucketName`` and ``OutputS3KeyPrefix`` options in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `AWS ::SSM::MaintenanceWindowTask MaintenanceWindowRunCommandParameters <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-maintenancewindowtask-maintenancewindowruncommandparameters.html>`_ .
+
+        Information about an Amazon S3 bucket to write Run Command task-level logs to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-logginginfo
+        '''
+        result = self._values.get("logging_info")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.LoggingInfoProperty"]], result)
+
+    @builtins.property
+    def max_concurrency(self) -> typing.Optional[builtins.str]:
+        '''The maximum number of targets this task can be run for, in parallel.
+
+        .. epigraph::
+
+           Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases.
+
+           For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-maxconcurrency
+        '''
+        result = self._values.get("max_concurrency")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_errors(self) -> typing.Optional[builtins.str]:
+        '''The maximum number of errors allowed before this task stops being scheduled.
+
+        .. epigraph::
+
+           Although this element is listed as "Required: No", a value can be omitted only when you are registering or updating a `targetless task <https://docs.aws.amazon.com/systems-manager/latest/userguide/maintenance-windows-targetless-tasks.html>`_ You must provide a value in all other cases.
+
+           For maintenance window tasks without a target specified, you can't supply a value for this option. Instead, the system inserts a placeholder value of ``1`` . This value doesn't affect the running of your task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-maxerrors
+        '''
+        result = self._values.get("max_errors")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The task name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def service_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM service role for AWS Systems Manager to assume when running a maintenance window task.
+
+        If you do not specify a service role ARN, Systems Manager uses a service-linked role in your account. If no appropriate service-linked role for Systems Manager exists in your account, it is created when you run ``RegisterTaskWithMaintenanceWindow`` .
+
+        However, for an improved security posture, we strongly recommend creating a custom policy and custom service role for running your maintenance window tasks. The policy can be crafted to provide only the permissions needed for your particular maintenance window tasks. For more information, see `Setting up Maintenance Windows <https://docs.aws.amazon.com/systems-manager/latest/userguide/sysman-maintenance-permissions.html>`_ in the in the *AWS Systems Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-servicerolearn
+        '''
+        result = self._values.get("service_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def targets(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TargetProperty"]]]]:
+        '''The targets, either instances or window target IDs.
+
+        - Specify instances using ``Key=InstanceIds,Values= *instanceid1* , *instanceid2*`` .
+        - Specify window target IDs using ``Key=WindowTargetIds,Values= *window-target-id-1* , *window-target-id-2*`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-targets
+        '''
+        result = self._values.get("targets")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TargetProperty"]]]], result)
+
+    @builtins.property
+    def task_invocation_parameters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]]:
+        '''The parameters to pass to the task when it runs.
+
+        Populate only the fields that match the task type. All other fields should be empty.
+        .. epigraph::
+
+           When you update a maintenance window task that has options specified in ``TaskInvocationParameters`` , you must provide again all the ``TaskInvocationParameters`` values that you want to retain. The values you do not specify again are removed. For example, suppose that when you registered a Run Command task, you specified ``TaskInvocationParameters`` values for ``Comment`` , ``NotificationConfig`` , and ``OutputS3BucketName`` . If you update the maintenance window task and specify only a different ``OutputS3BucketName`` value, the values for ``Comment`` and ``NotificationConfig`` are removed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskinvocationparameters
+        '''
+        result = self._values.get("task_invocation_parameters")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMaintenanceWindowTask.TaskInvocationParametersProperty"]], result)
+
+    @builtins.property
+    def task_parameters(self) -> typing.Any:
+        '''.. epigraph::
+
+   ``TaskParameters`` has been deprecated.
+
+        To specify parameters to pass to a task when it runs, instead use the ``Parameters`` option in the ``TaskInvocationParameters`` structure. For information about how Systems Manager handles these options for the supported maintenance window task types, see `MaintenanceWindowTaskInvocationParameters <https://docs.aws.amazon.com/systems-manager/latest/APIReference/API_MaintenanceWindowTaskInvocationParameters.html>`_ .
+
+        The parameters to pass to the task when it runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-maintenancewindowtask.html#cfn-ssm-maintenancewindowtask-taskparameters
+        '''
+        result = self._values.get("task_parameters")
+        return typing.cast(typing.Any, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMaintenanceWindowTaskProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IParameterRef_b350095e, _ITaggable_36806126)
 class CfnParameter(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8422,7 +4983,7 @@ class CfnParameter(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         type: builtins.str,
@@ -8435,7 +4996,8 @@ class CfnParameter(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tier: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::Parameter``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param type: The type of parameter. .. epigraph:: Parameters of type ``SecureString`` are not supported by AWS CloudFormation .
@@ -8466,8 +5028,20 @@ class CfnParameter(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnParameter")
+    @builtins.classmethod
+    def is_cfn_parameter(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnParameter.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__27e066e7ba148ee83794f24c2642a1dd83e547fe2f7eb2c8b89a114b47708a42)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnParameter", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8523,15 +5097,15 @@ class CfnParameter(
 
     @builtins.property
     @jsii.member(jsii_name="parameterRef")
-    def parameter_ref(self) -> ParameterReference:
+    def parameter_ref(self) -> "_ParameterReference_18138f09":
         '''A reference to a Parameter resource.'''
-        return typing.cast(ParameterReference, jsii.get(self, "parameterRef"))
+        return typing.cast("_ParameterReference_18138f09", jsii.get(self, "parameterRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="type")
@@ -8654,7 +5228,220 @@ class CfnParameter(
         jsii.set(self, "tier", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IPatchBaselineRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnParameterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "type": "type",
+        "value": "value",
+        "allowed_pattern": "allowedPattern",
+        "data_type": "dataType",
+        "description": "description",
+        "name": "name",
+        "policies": "policies",
+        "tags": "tags",
+        "tier": "tier",
+    },
+)
+class CfnParameterProps:
+    def __init__(
+        self,
+        *,
+        type: builtins.str,
+        value: builtins.str,
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        data_type: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        policies: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        tier: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnParameter``.
+
+        :param type: The type of parameter. .. epigraph:: Parameters of type ``SecureString`` are not supported by AWS CloudFormation .
+        :param value: The parameter value. .. epigraph:: If type is ``StringList`` , the system returns a comma-separated string with no spaces between commas in the ``Value`` field.
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for ``String`` types with values restricted to numbers, you can specify the following: ``AllowedPattern=^\\d+$``
+        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image`` . The default is ``text`` .
+        :param description: Information about the parameter.
+        :param name: The name of the parameter. .. epigraph:: The reported maximum length of 2048 characters for a parameter name includes 1037 characters that are reserved for internal use by Systems Manager . The maximum length for a parameter name that you specify is 1011 characters. This count of 1011 characters includes the characters in the ARN that precede the name you specify. This ARN length will vary depending on your partition and Region. For example, the following 45 characters count toward the 1011 character maximum for a parameter created in the US East (Ohio) Region: ``arn:aws:ssm:us-east-2:111122223333:parameter/`` .
+        :param policies: Information about the policies assigned to a parameter. `Assigning parameter policies <https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-policies.html>`_ in the *AWS Systems Manager User Guide* .
+        :param tags: Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs). Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a Systems Manager parameter to identify the type of resource to which it applies, the environment, or the type of configuration data referenced by the parameter.
+        :param tier: The parameter tier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_parameter_props = ssm.CfnParameterProps(
+                type="type",
+                value="value",
+            
+                # the properties below are optional
+                allowed_pattern="allowedPattern",
+                data_type="dataType",
+                description="description",
+                name="name",
+                policies="policies",
+                tags={
+                    "tags_key": "tags"
+                },
+                tier="tier"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f89012f4986143c527853d7179ea46d1a3002d4025caeaa2123f32786cfdef8)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
+            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument policies", value=policies, expected_type=type_hints["policies"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "type": type,
+            "value": value,
+        }
+        if allowed_pattern is not None:
+            self._values["allowed_pattern"] = allowed_pattern
+        if data_type is not None:
+            self._values["data_type"] = data_type
+        if description is not None:
+            self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
+        if policies is not None:
+            self._values["policies"] = policies
+        if tags is not None:
+            self._values["tags"] = tags
+        if tier is not None:
+            self._values["tier"] = tier
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of parameter.
+
+        .. epigraph::
+
+           Parameters of type ``SecureString`` are not supported by AWS CloudFormation .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def value(self) -> builtins.str:
+        '''The parameter value.
+
+        .. epigraph::
+
+           If type is ``StringList`` , the system returns a comma-separated string with no spaces between commas in the ``Value`` field.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-value
+        '''
+        result = self._values.get("value")
+        assert result is not None, "Required property 'value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allowed_pattern(self) -> typing.Optional[builtins.str]:
+        '''A regular expression used to validate the parameter value.
+
+        For example, for ``String`` types with values restricted to numbers, you can specify the following: ``AllowedPattern=^\\d+$``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-allowedpattern
+        '''
+        result = self._values.get("allowed_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_type(self) -> typing.Optional[builtins.str]:
+        '''The data type of the parameter, such as ``text`` or ``aws:ec2:image`` .
+
+        The default is ``text`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-datatype
+        '''
+        result = self._values.get("data_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter.
+
+        .. epigraph::
+
+           The reported maximum length of 2048 characters for a parameter name includes 1037 characters that are reserved for internal use by Systems Manager . The maximum length for a parameter name that you specify is 1011 characters.
+
+           This count of 1011 characters includes the characters in the ARN that precede the name you specify. This ARN length will vary depending on your partition and Region. For example, the following 45 characters count toward the 1011 character maximum for a parameter created in the US East (Ohio) Region: ``arn:aws:ssm:us-east-2:111122223333:parameter/`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policies(self) -> typing.Optional[builtins.str]:
+        '''Information about the policies assigned to a parameter.
+
+        `Assigning parameter policies <https://docs.aws.amazon.com/systems-manager/latest/userguide/parameter-store-policies.html>`_ in the *AWS Systems Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-policies
+        '''
+        result = self._values.get("policies")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Optional metadata that you assign to a resource in the form of an arbitrary set of tags (key-value pairs).
+
+        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a Systems Manager parameter to identify the type of resource to which it applies, the environment, or the type of configuration data referenced by the parameter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+
+    @builtins.property
+    def tier(self) -> typing.Optional[builtins.str]:
+        '''The parameter tier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html#cfn-ssm-parameter-tier
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnParameterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPatchBaselineRef_f929afe1, _ITaggable_36806126)
 class CfnPatchBaseline(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8672,6 +5459,7 @@ class CfnPatchBaseline(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_ssm as ssm
@@ -8724,26 +5512,27 @@ class CfnPatchBaseline(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
-        approval_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        approval_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
         approved_patches_compliance_level: typing.Optional[builtins.str] = None,
-        approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
-        default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        default_baseline: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
-        global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        global_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         operating_system: typing.Optional[builtins.str] = None,
         patch_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
         rejected_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
         rejected_patches_action: typing.Optional[builtins.str] = None,
-        sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::PatchBaseline``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the patch baseline.
@@ -8786,8 +5575,20 @@ class CfnPatchBaseline(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnPatchBaseline")
+    @builtins.classmethod
+    def is_cfn_patch_baseline(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPatchBaseline.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4a9b307c46c6eab44c4fbbd3e201b2d07635928f1f4e11b97ae182f292e794a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPatchBaseline", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8832,15 +5633,15 @@ class CfnPatchBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="patchBaselineRef")
-    def patch_baseline_ref(self) -> PatchBaselineReference:
+    def patch_baseline_ref(self) -> "_PatchBaselineReference_b75c4dc5":
         '''A reference to a PatchBaseline resource.'''
-        return typing.cast(PatchBaselineReference, jsii.get(self, "patchBaselineRef"))
+        return typing.cast("_PatchBaselineReference_b75c4dc5", jsii.get(self, "patchBaselineRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -8859,14 +5660,14 @@ class CfnPatchBaseline(
     @jsii.member(jsii_name="approvalRules")
     def approval_rules(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleGroupProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleGroupProperty"]]:
         '''A set of rules used to include patches in the baseline.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleGroupProperty"]], jsii.get(self, "approvalRules"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleGroupProperty"]], jsii.get(self, "approvalRules"))
 
     @approval_rules.setter
     def approval_rules(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleGroupProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleGroupProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b56dfe31210955c8b1e478e9b12fb384520f16c624a7f1fd4ca7edc6c9d052e)
@@ -8909,14 +5710,14 @@ class CfnPatchBaseline(
     @jsii.member(jsii_name="approvedPatchesEnableNonSecurity")
     def approved_patches_enable_non_security(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "approvedPatchesEnableNonSecurity"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "approvedPatchesEnableNonSecurity"))
 
     @approved_patches_enable_non_security.setter
     def approved_patches_enable_non_security(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__596ca4adbe9b66ae96ac84884c609e25720aab40b7f9d665e6ea16808f1a16ca)
@@ -8945,14 +5746,14 @@ class CfnPatchBaseline(
     @jsii.member(jsii_name="defaultBaseline")
     def default_baseline(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether this is the default baseline.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "defaultBaseline"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "defaultBaseline"))
 
     @default_baseline.setter
     def default_baseline(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a82f38addd776fccd7d2225bc356d9a6e4dc42b938cbf56c083c34cd4994c239)
@@ -8976,14 +5777,14 @@ class CfnPatchBaseline(
     @jsii.member(jsii_name="globalFilters")
     def global_filters(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]]:
         '''A set of global filters used to include patches in the baseline.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]], jsii.get(self, "globalFilters"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]], jsii.get(self, "globalFilters"))
 
     @global_filters.setter
     def global_filters(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2179c7d6864a34b00339c58eb461fef37a68a420e457e90e7c0c7a25130bfbdf)
@@ -9049,14 +5850,14 @@ class CfnPatchBaseline(
     @jsii.member(jsii_name="sources")
     def sources(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchSourceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchSourceProperty"]]]]:
         '''Information about the patches to use to update the managed nodes, including target operating systems and source repositories.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchSourceProperty"]]]], jsii.get(self, "sources"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchSourceProperty"]]]], jsii.get(self, "sources"))
 
     @sources.setter
     def sources(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchSourceProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchSourceProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0b14c56c59457cef6fb23f44714aa782c4d1965f4fe83bb31bf5f3ff58e6d22)
@@ -9065,12 +5866,12 @@ class CfnPatchBaseline(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Optional metadata that you assign to a resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8dc0a5821b51a90338294cb305cbf01102292e653fb3aa3f3b379b34ab3a9d0b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -9085,7 +5886,7 @@ class CfnPatchBaseline(
         def __init__(
             self,
             *,
-            patch_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            patch_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchFilterProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``PatchFilterGroup`` property type specifies a set of patch filters for an AWS Systems Manager patch baseline, typically used for approval rules for a Systems Manager patch baseline.
 
@@ -9119,13 +5920,13 @@ class CfnPatchBaseline(
         @builtins.property
         def patch_filters(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterProperty"]]]]:
             '''The set of patch filters that make up the group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-patchbaseline-patchfiltergroup.html#cfn-ssm-patchbaseline-patchfiltergroup-patchfilters
             '''
             result = self._values.get("patch_filters")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9336,7 +6137,7 @@ class CfnPatchBaseline(
         def __init__(
             self,
             *,
-            patch_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            patch_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``RuleGroup`` property type specifies a set of rules that define the approval rules for an AWS Systems Manager patch baseline.
 
@@ -9378,13 +6179,13 @@ class CfnPatchBaseline(
         @builtins.property
         def patch_rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleProperty"]]]]:
             '''The rules that make up the rule group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-patchbaseline-rulegroup.html#cfn-ssm-patchbaseline-rulegroup-patchrules
             '''
             result = self._values.get("patch_rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.RuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9415,15 +6216,15 @@ class CfnPatchBaseline(
             approve_after_days: typing.Optional[jsii.Number] = None,
             approve_until_date: typing.Optional[builtins.str] = None,
             compliance_level: typing.Optional[builtins.str] = None,
-            enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            patch_filter_group: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enable_non_security: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            patch_filter_group: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The ``Rule`` property type specifies an approval rule for a Systems Manager patch baseline.
 
             The ``PatchRules`` property of the `RuleGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-patchbaseline-rulegroup.html>`_ property type contains a list of ``Rule`` property types.
 
-            :param approve_after_days: The number of days after the release date of each patch matched by the rule that the patch is marked as approved in the patch baseline. For example, a value of ``7`` means that patches are approved seven days after they are released. This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveAfterDays`` or ``ApproveUntilDate`` . Not supported for Debian Server or Ubuntu Server. .. epigraph:: Use caution when setting this value for Windows Server patch baselines. Because patch updates that are replaced by later updates are removed, setting too broad a value for this parameter can result in crucial patches not being installed. For more information, see the *Windows Server* tab in the topic `How security patches are selected <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-selecting-patches.html>`_ in the *AWS Systems Manager User Guide* .
-            :param approve_until_date: The cutoff date for auto approval of released patches. Any patches released on or before this date are installed automatically. Enter dates in the format ``YYYY-MM-DD`` . For example, ``2024-12-31`` . This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveUntilDate`` or ``ApproveAfterDays`` . Not supported for Debian Server or Ubuntu Server. .. epigraph:: Use caution when setting this value for Windows Server patch baselines. Because patch updates that are replaced by later updates are removed, setting too broad a value for this parameter can result in crucial patches not being installed. For more information, see the *Windows Server* tab in the topic `How security patches are selected <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-selecting-patches.html>`_ in the *AWS Systems Manager User Guide* .
+            :param approve_after_days: The number of days after the release date of each patch matched by the rule that the patch is marked as approved in the patch baseline. For example, a value of ``7`` means that patches are approved seven days after they are released. Patch Manager evaluates patch release dates using Coordinated Universal Time (UTC). If the day represented by ``7`` is ``2025-11-16`` , patches released between ``2025-11-16T00:00:00Z`` and ``2025-11-16T23:59:59Z`` will be included in the approval. This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveAfterDays`` or ``ApproveUntilDate`` . Not supported for Debian Server or Ubuntu Server. .. epigraph:: Use caution when setting this value for Windows Server patch baselines. Because patch updates that are replaced by later updates are removed, setting too broad a value for this parameter can result in crucial patches not being installed. For more information, see the *Windows Server* tab in the topic `How security patches are selected <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-selecting-patches.html>`_ in the *AWS Systems Manager User Guide* .
+            :param approve_until_date: The cutoff date for auto approval of released patches. Any patches released on or before this date are installed automatically. Enter dates in the format ``YYYY-MM-DD`` . For example, ``2025-11-16`` . Patch Manager evaluates patch release dates using Coordinated Universal Time (UTC). If you enter the date ``2025-11-16`` , patches released between ``2025-11-16T00:00:00Z`` and ``2025-11-16T23:59:59Z`` will be included in the approval. This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveUntilDate`` or ``ApproveAfterDays`` . Not supported for Debian Server or Ubuntu Server. .. epigraph:: Use caution when setting this value for Windows Server patch baselines. Because patch updates that are replaced by later updates are removed, setting too broad a value for this parameter can result in crucial patches not being installed. For more information, see the *Windows Server* tab in the topic `How security patches are selected <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-selecting-patches.html>`_ in the *AWS Systems Manager User Guide* .
             :param compliance_level: A compliance severity level for all approved patches in a patch baseline. Valid compliance severity levels include the following: ``UNSPECIFIED`` , ``CRITICAL`` , ``HIGH`` , ``MEDIUM`` , ``LOW`` , and ``INFORMATIONAL`` .
             :param enable_non_security: For managed nodes identified by the approval rule filters, enables a patch baseline to apply non-security updates available in the specified repository. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
             :param patch_filter_group: The patch filter group that defines the criteria for the rule.
@@ -9475,6 +6276,8 @@ class CfnPatchBaseline(
 
             For example, a value of ``7`` means that patches are approved seven days after they are released.
 
+            Patch Manager evaluates patch release dates using Coordinated Universal Time (UTC). If the day represented by ``7`` is ``2025-11-16`` , patches released between ``2025-11-16T00:00:00Z`` and ``2025-11-16T23:59:59Z`` will be included in the approval.
+
             This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveAfterDays`` or ``ApproveUntilDate`` .
 
             Not supported for Debian Server or Ubuntu Server.
@@ -9493,7 +6296,9 @@ class CfnPatchBaseline(
 
             Any patches released on or before this date are installed automatically.
 
-            Enter dates in the format ``YYYY-MM-DD`` . For example, ``2024-12-31`` .
+            Enter dates in the format ``YYYY-MM-DD`` . For example, ``2025-11-16`` .
+
+            Patch Manager evaluates patch release dates using Coordinated Universal Time (UTC). If you enter the date ``2025-11-16`` , patches released between ``2025-11-16T00:00:00Z`` and ``2025-11-16T23:59:59Z`` will be included in the approval.
 
             This parameter is marked as ``Required: No`` , but your request must include a value for either ``ApproveUntilDate`` or ``ApproveAfterDays`` .
 
@@ -9521,7 +6326,7 @@ class CfnPatchBaseline(
         @builtins.property
         def enable_non_security(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''For managed nodes identified by the approval rule filters, enables a patch baseline to apply non-security updates available in the specified repository.
 
             The default value is ``false`` . Applies to Linux managed nodes only.
@@ -9531,18 +6336,18 @@ class CfnPatchBaseline(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-patchbaseline-rule.html#cfn-ssm-patchbaseline-rule-enablenonsecurity
             '''
             result = self._values.get("enable_non_security")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def patch_filter_group(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]]:
             '''The patch filter group that defines the criteria for the rule.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-patchbaseline-rule.html#cfn-ssm-patchbaseline-rule-patchfiltergroup
             '''
             result = self._values.get("patch_filter_group")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPatchBaseline.PatchFilterGroupProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9556,7 +6361,375 @@ class CfnPatchBaseline(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResourceDataSyncRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnPatchBaselineProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "approval_rules": "approvalRules",
+        "approved_patches": "approvedPatches",
+        "approved_patches_compliance_level": "approvedPatchesComplianceLevel",
+        "approved_patches_enable_non_security": "approvedPatchesEnableNonSecurity",
+        "available_security_updates_compliance_status": "availableSecurityUpdatesComplianceStatus",
+        "default_baseline": "defaultBaseline",
+        "description": "description",
+        "global_filters": "globalFilters",
+        "operating_system": "operatingSystem",
+        "patch_groups": "patchGroups",
+        "rejected_patches": "rejectedPatches",
+        "rejected_patches_action": "rejectedPatchesAction",
+        "sources": "sources",
+        "tags": "tags",
+    },
+)
+class CfnPatchBaselineProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        approval_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.RuleGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
+        approved_patches_compliance_level: typing.Optional[builtins.str] = None,
+        approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
+        default_baseline: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        description: typing.Optional[builtins.str] = None,
+        global_filters: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchFilterGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        operating_system: typing.Optional[builtins.str] = None,
+        patch_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        rejected_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
+        rejected_patches_action: typing.Optional[builtins.str] = None,
+        sources: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPatchBaseline.PatchSourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPatchBaseline``.
+
+        :param name: The name of the patch baseline.
+        :param approval_rules: A set of rules used to include patches in the baseline.
+        :param approved_patches: A list of explicitly approved patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
+        :param approved_patches_compliance_level: Defines the compliance level for approved patches. When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` . Default: - "UNSPECIFIED"
+        :param approved_patches_enable_non_security: Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes. The default value is ``false`` . Applies to Linux managed nodes only. Default: - false
+        :param available_security_updates_compliance_status: Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline. Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed. Supported for Windows Server managed nodes only.
+        :param default_baseline: Indicates whether this is the default baseline. AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system. Default: - false
+        :param description: A description of the patch baseline.
+        :param global_filters: A set of global filters used to include patches in the baseline. .. epigraph:: The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
+        :param operating_system: Defines the operating system the patch baseline applies to. The default value is ``WINDOWS`` . Default: - "WINDOWS"
+        :param patch_groups: The name of the patch group to be registered with the patch baseline.
+        :param rejected_patches: A list of explicitly rejected patches for the baseline. For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
+        :param rejected_patches_action: The action for Patch Manager to take on patches included in the ``RejectedPackages`` list. - **ALLOW_AS_DEPENDENCY** - *Linux and macOS* : A package in the rejected patches list is installed only if it is a dependency of another package. It is considered compliant with the patch baseline, and its status is reported as ``INSTALLED_OTHER`` . This is the default action if no option is specified. *Windows Server* : Windows Server doesn't support the concept of package dependencies. If a package in the rejected patches list and already installed on the node, its status is reported as ``INSTALLED_OTHER`` . Any package not already installed on the node is skipped. This is the default action if no option is specified. - **BLOCK** - *All OSs* : Packages in the rejected patches list, and packages that include them as dependencies, aren't installed by Patch Manager under any circumstances. State value assignment for patch compliance: - If a package was installed before it was added to the rejected patches list, or is installed outside of Patch Manager afterward, it's considered noncompliant with the patch baseline and its status is reported as ``INSTALLED_REJECTED`` . - If an update attempts to install a dependency package that is now rejected by the baseline, when previous versions of the package were not rejected, the package being updated is reported as ``MISSING`` for ``SCAN`` operations and as ``FAILED`` for ``INSTALL`` operations. Default: - "ALLOW_AS_DEPENDENCY"
+        :param sources: Information about the patches to use to update the managed nodes, including target operating systems and source repositories. Applies to Linux managed nodes only.
+        :param tags: Optional metadata that you assign to a resource. Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a patch baseline to identify the severity level of patches it specifies and the operating system family it applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_patch_baseline_props = ssm.CfnPatchBaselineProps(
+                name="name",
+            
+                # the properties below are optional
+                approval_rules=ssm.CfnPatchBaseline.RuleGroupProperty(
+                    patch_rules=[ssm.CfnPatchBaseline.RuleProperty(
+                        approve_after_days=123,
+                        approve_until_date="approveUntilDate",
+                        compliance_level="complianceLevel",
+                        enable_non_security=False,
+                        patch_filter_group=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
+                            patch_filters=[ssm.CfnPatchBaseline.PatchFilterProperty(
+                                key="key",
+                                values=["values"]
+                            )]
+                        )
+                    )]
+                ),
+                approved_patches=["approvedPatches"],
+                approved_patches_compliance_level="approvedPatchesComplianceLevel",
+                approved_patches_enable_non_security=False,
+                available_security_updates_compliance_status="availableSecurityUpdatesComplianceStatus",
+                default_baseline=False,
+                description="description",
+                global_filters=ssm.CfnPatchBaseline.PatchFilterGroupProperty(
+                    patch_filters=[ssm.CfnPatchBaseline.PatchFilterProperty(
+                        key="key",
+                        values=["values"]
+                    )]
+                ),
+                operating_system="operatingSystem",
+                patch_groups=["patchGroups"],
+                rejected_patches=["rejectedPatches"],
+                rejected_patches_action="rejectedPatchesAction",
+                sources=[ssm.CfnPatchBaseline.PatchSourceProperty(
+                    configuration="configuration",
+                    name="name",
+                    products=["products"]
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff6666a30d275f2a85d64de631c940fb83198b8b5a376b87a3a684f4a2dddf80)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument approval_rules", value=approval_rules, expected_type=type_hints["approval_rules"])
+            check_type(argname="argument approved_patches", value=approved_patches, expected_type=type_hints["approved_patches"])
+            check_type(argname="argument approved_patches_compliance_level", value=approved_patches_compliance_level, expected_type=type_hints["approved_patches_compliance_level"])
+            check_type(argname="argument approved_patches_enable_non_security", value=approved_patches_enable_non_security, expected_type=type_hints["approved_patches_enable_non_security"])
+            check_type(argname="argument available_security_updates_compliance_status", value=available_security_updates_compliance_status, expected_type=type_hints["available_security_updates_compliance_status"])
+            check_type(argname="argument default_baseline", value=default_baseline, expected_type=type_hints["default_baseline"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument global_filters", value=global_filters, expected_type=type_hints["global_filters"])
+            check_type(argname="argument operating_system", value=operating_system, expected_type=type_hints["operating_system"])
+            check_type(argname="argument patch_groups", value=patch_groups, expected_type=type_hints["patch_groups"])
+            check_type(argname="argument rejected_patches", value=rejected_patches, expected_type=type_hints["rejected_patches"])
+            check_type(argname="argument rejected_patches_action", value=rejected_patches_action, expected_type=type_hints["rejected_patches_action"])
+            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if approval_rules is not None:
+            self._values["approval_rules"] = approval_rules
+        if approved_patches is not None:
+            self._values["approved_patches"] = approved_patches
+        if approved_patches_compliance_level is not None:
+            self._values["approved_patches_compliance_level"] = approved_patches_compliance_level
+        if approved_patches_enable_non_security is not None:
+            self._values["approved_patches_enable_non_security"] = approved_patches_enable_non_security
+        if available_security_updates_compliance_status is not None:
+            self._values["available_security_updates_compliance_status"] = available_security_updates_compliance_status
+        if default_baseline is not None:
+            self._values["default_baseline"] = default_baseline
+        if description is not None:
+            self._values["description"] = description
+        if global_filters is not None:
+            self._values["global_filters"] = global_filters
+        if operating_system is not None:
+            self._values["operating_system"] = operating_system
+        if patch_groups is not None:
+            self._values["patch_groups"] = patch_groups
+        if rejected_patches is not None:
+            self._values["rejected_patches"] = rejected_patches
+        if rejected_patches_action is not None:
+            self._values["rejected_patches_action"] = rejected_patches_action
+        if sources is not None:
+            self._values["sources"] = sources
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the patch baseline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def approval_rules(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleGroupProperty"]]:
+        '''A set of rules used to include patches in the baseline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvalrules
+        '''
+        result = self._values.get("approval_rules")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.RuleGroupProperty"]], result)
+
+    @builtins.property
+    def approved_patches(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of explicitly approved patches for the baseline.
+
+        For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatches
+        '''
+        result = self._values.get("approved_patches")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def approved_patches_compliance_level(self) -> typing.Optional[builtins.str]:
+        '''Defines the compliance level for approved patches.
+
+        When an approved patch is reported as missing, this value describes the severity of the compliance violation. The default value is ``UNSPECIFIED`` .
+
+        :default: - "UNSPECIFIED"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatchescompliancelevel
+        '''
+        result = self._values.get("approved_patches_compliance_level")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def approved_patches_enable_non_security(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether the list of approved patches includes non-security updates that should be applied to the managed nodes.
+
+        The default value is ``false`` . Applies to Linux managed nodes only.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-approvedpatchesenablenonsecurity
+        '''
+        result = self._values.get("approved_patches_enable_non_security")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def available_security_updates_compliance_status(
+        self,
+    ) -> typing.Optional[builtins.str]:
+        '''Indicates the status you want to assign to security patches that are available but not approved because they don't meet the installation criteria specified in the patch baseline.
+
+        Example scenario: Security patches that you might want installed can be skipped if you have specified a long period to wait after a patch is released before installation. If an update to the patch is released during your specified waiting period, the waiting period for installing the patch starts over. If the waiting period is too long, multiple versions of the patch could be released but never installed.
+
+        Supported for Windows Server managed nodes only.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-availablesecurityupdatescompliancestatus
+        '''
+        result = self._values.get("available_security_updates_compliance_status")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_baseline(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether this is the default baseline.
+
+        AWS Systems Manager supports creating multiple default patch baselines. For example, you can create a default patch baseline for each operating system.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-defaultbaseline
+        '''
+        result = self._values.get("default_baseline")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the patch baseline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def global_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]]:
+        '''A set of global filters used to include patches in the baseline.
+
+        .. epigraph::
+
+           The ``GlobalFilters`` parameter can be configured only by using the AWS CLI or an AWS SDK. It can't be configured from the Patch Manager console, and its value isn't displayed in the console.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-globalfilters
+        '''
+        result = self._values.get("global_filters")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchFilterGroupProperty"]], result)
+
+    @builtins.property
+    def operating_system(self) -> typing.Optional[builtins.str]:
+        '''Defines the operating system the patch baseline applies to.
+
+        The default value is ``WINDOWS`` .
+
+        :default: - "WINDOWS"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-operatingsystem
+        '''
+        result = self._values.get("operating_system")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def patch_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of the patch group to be registered with the patch baseline.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-patchgroups
+        '''
+        result = self._values.get("patch_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def rejected_patches(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of explicitly rejected patches for the baseline.
+
+        For information about accepted formats for lists of approved patches and rejected patches, see `Package name formats for approved and rejected patch lists <https://docs.aws.amazon.com/systems-manager/latest/userguide/patch-manager-approved-rejected-package-name-formats.html>`_ in the *AWS Systems Manager User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-rejectedpatches
+        '''
+        result = self._values.get("rejected_patches")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def rejected_patches_action(self) -> typing.Optional[builtins.str]:
+        '''The action for Patch Manager to take on patches included in the ``RejectedPackages`` list.
+
+        - **ALLOW_AS_DEPENDENCY** - *Linux and macOS* : A package in the rejected patches list is installed only if it is a dependency of another package. It is considered compliant with the patch baseline, and its status is reported as ``INSTALLED_OTHER`` . This is the default action if no option is specified.
+
+        *Windows Server* : Windows Server doesn't support the concept of package dependencies. If a package in the rejected patches list and already installed on the node, its status is reported as ``INSTALLED_OTHER`` . Any package not already installed on the node is skipped. This is the default action if no option is specified.
+
+        - **BLOCK** - *All OSs* : Packages in the rejected patches list, and packages that include them as dependencies, aren't installed by Patch Manager under any circumstances.
+
+        State value assignment for patch compliance:
+
+        - If a package was installed before it was added to the rejected patches list, or is installed outside of Patch Manager afterward, it's considered noncompliant with the patch baseline and its status is reported as ``INSTALLED_REJECTED`` .
+        - If an update attempts to install a dependency package that is now rejected by the baseline, when previous versions of the package were not rejected, the package being updated is reported as ``MISSING`` for ``SCAN`` operations and as ``FAILED`` for ``INSTALL`` operations.
+
+        :default: - "ALLOW_AS_DEPENDENCY"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-rejectedpatchesaction
+        '''
+        result = self._values.get("rejected_patches_action")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sources(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchSourceProperty"]]]]:
+        '''Information about the patches to use to update the managed nodes, including target operating systems and source repositories.
+
+        Applies to Linux managed nodes only.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-sources
+        '''
+        result = self._values.get("sources")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPatchBaseline.PatchSourceProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Optional metadata that you assign to a resource.
+
+        Tags enable you to categorize a resource in different ways, such as by purpose, owner, or environment. For example, you might want to tag a patch baseline to identify the severity level of patches it specifies and the operating system family it applies to.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-patchbaseline.html#cfn-ssm-patchbaseline-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPatchBaselineProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourceDataSyncRef_e153aa7a)
 class CfnResourceDataSync(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -9626,20 +6799,21 @@ class CfnResourceDataSync(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         sync_name: builtins.str,
-        bucket_name: typing.Optional[builtins.str] = None,
+        bucket_name: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
         bucket_prefix: typing.Optional[builtins.str] = None,
         bucket_region: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
-        s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDataSync.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDataSync.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sync_format: typing.Optional[builtins.str] = None,
-        sync_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDataSync.SyncSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sync_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDataSync.SyncSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sync_type: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::ResourceDataSync``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param sync_name: A name for the resource data sync.
@@ -9670,8 +6844,55 @@ class CfnResourceDataSync(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForResourceDataSync")
+    @builtins.classmethod
+    def arn_for_resource_data_sync(
+        cls,
+        resource: "_IResourceDataSyncRef_e153aa7a",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d0a40ad9955f97a81b9896272461da3bd9173c429e5e12bf580c639715a769d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourceDataSync", [resource]))
+
+    @jsii.member(jsii_name="fromSyncName")
+    @builtins.classmethod
+    def from_sync_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        sync_name: builtins.str,
+    ) -> "_IResourceDataSyncRef_e153aa7a":
+        '''Creates a new IResourceDataSyncRef from a syncName.
+
+        :param scope: -
+        :param id: -
+        :param sync_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cedf0c69b18eabda62c763c9450657c3f2ff5e3fd11df7e4494672287104d75)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument sync_name", value=sync_name, expected_type=type_hints["sync_name"])
+        return typing.cast("_IResourceDataSyncRef_e153aa7a", jsii.sinvoke(cls, "fromSyncName", [scope, id, sync_name]))
+
+    @jsii.member(jsii_name="isCfnResourceDataSync")
+    @builtins.classmethod
+    def is_cfn_resource_data_sync(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceDataSync.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d33e64b1c41c129aded6dccdb0a3d8d1db53a5ed05389792cdd5e012482ba5c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceDataSync", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -9715,9 +6936,9 @@ class CfnResourceDataSync(
 
     @builtins.property
     @jsii.member(jsii_name="resourceDataSyncRef")
-    def resource_data_sync_ref(self) -> ResourceDataSyncReference:
+    def resource_data_sync_ref(self) -> "_ResourceDataSyncReference_a81c599c":
         '''A reference to a ResourceDataSync resource.'''
-        return typing.cast(ResourceDataSyncReference, jsii.get(self, "resourceDataSyncRef"))
+        return typing.cast("_ResourceDataSyncReference_a81c599c", jsii.get(self, "resourceDataSyncRef"))
 
     @builtins.property
     @jsii.member(jsii_name="syncName")
@@ -9788,14 +7009,14 @@ class CfnResourceDataSync(
     @jsii.member(jsii_name="s3Destination")
     def s3_destination(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.S3DestinationProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.S3DestinationProperty"]]:
         '''Configuration information for the target S3 bucket.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.S3DestinationProperty"]], jsii.get(self, "s3Destination"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.S3DestinationProperty"]], jsii.get(self, "s3Destination"))
 
     @s3_destination.setter
     def s3_destination(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.S3DestinationProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.S3DestinationProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b7a3560b2c82654cd5bf6fbf841a21a5f937cad116af54ea4ddd8a8d62231d8)
@@ -9819,14 +7040,14 @@ class CfnResourceDataSync(
     @jsii.member(jsii_name="syncSource")
     def sync_source(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.SyncSourceProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.SyncSourceProperty"]]:
         '''Information about the source where the data was synchronized.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.SyncSourceProperty"]], jsii.get(self, "syncSource"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.SyncSourceProperty"]], jsii.get(self, "syncSource"))
 
     @sync_source.setter
     def sync_source(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.SyncSourceProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.SyncSourceProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__157e7eb014224199daee91a842f040069c8ada6fa6deb70c8401e5815620c3e5)
@@ -10070,8 +7291,8 @@ class CfnResourceDataSync(
             *,
             source_regions: typing.Sequence[builtins.str],
             source_type: builtins.str,
-            aws_organizations_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnResourceDataSync.AwsOrganizationsSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            include_future_regions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            aws_organizations_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDataSync.AwsOrganizationsSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            include_future_regions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Information about the source of the data included in the resource data sync.
 
@@ -10143,7 +7364,7 @@ class CfnResourceDataSync(
         @builtins.property
         def aws_organizations_source(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.AwsOrganizationsSourceProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.AwsOrganizationsSourceProperty"]]:
             '''Information about the AwsOrganizationsSource resource data sync source.
 
             A sync source of this type can synchronize data from AWS Organizations .
@@ -10151,18 +7372,18 @@ class CfnResourceDataSync(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-resourcedatasync-syncsource.html#cfn-ssm-resourcedatasync-syncsource-awsorganizationssource
             '''
             result = self._values.get("aws_organizations_source")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnResourceDataSync.AwsOrganizationsSourceProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.AwsOrganizationsSourceProperty"]], result)
 
         @builtins.property
         def include_future_regions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Whether to automatically synchronize and aggregate data from new AWS Regions when those Regions come online.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-resourcedatasync-syncsource.html#cfn-ssm-resourcedatasync-syncsource-includefutureregions
             '''
             result = self._values.get("include_future_regions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10176,7 +7397,228 @@ class CfnResourceDataSync(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnResourceDataSyncProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "sync_name": "syncName",
+        "bucket_name": "bucketName",
+        "bucket_prefix": "bucketPrefix",
+        "bucket_region": "bucketRegion",
+        "kms_key_arn": "kmsKeyArn",
+        "s3_destination": "s3Destination",
+        "sync_format": "syncFormat",
+        "sync_source": "syncSource",
+        "sync_type": "syncType",
+    },
+)
+class CfnResourceDataSyncProps:
+    def __init__(
+        self,
+        *,
+        sync_name: builtins.str,
+        bucket_name: typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]] = None,
+        bucket_prefix: typing.Optional[builtins.str] = None,
+        bucket_region: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        s3_destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDataSync.S3DestinationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sync_format: typing.Optional[builtins.str] = None,
+        sync_source: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResourceDataSync.SyncSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        sync_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceDataSync``.
+
+        :param sync_name: A name for the resource data sync.
+        :param bucket_name: The name of the S3 bucket where the aggregated data is stored.
+        :param bucket_prefix: An Amazon S3 prefix for the bucket.
+        :param bucket_region: The AWS Region with the S3 bucket targeted by the resource data sync.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of an encryption key for a destination in Amazon S3 . You can use a KMS key to encrypt inventory data in Amazon S3 . You must specify a key that exist in the same AWS Region as the destination Amazon S3 bucket.
+        :param s3_destination: Configuration information for the target S3 bucket.
+        :param sync_format: A supported sync format. The following format is currently supported: JsonSerDe
+        :param sync_source: Information about the source where the data was synchronized.
+        :param sync_type: The type of resource data sync. If ``SyncType`` is ``SyncToDestination`` , then the resource data sync synchronizes data to an S3 bucket. If the ``SyncType`` is ``SyncFromSource`` then the resource data sync synchronizes data from AWS Organizations or from multiple AWS Regions .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            cfn_resource_data_sync_props = ssm.CfnResourceDataSyncProps(
+                sync_name="syncName",
+            
+                # the properties below are optional
+                bucket_name="bucketName",
+                bucket_prefix="bucketPrefix",
+                bucket_region="bucketRegion",
+                kms_key_arn="kmsKeyArn",
+                s3_destination=ssm.CfnResourceDataSync.S3DestinationProperty(
+                    bucket_name="bucketName",
+                    bucket_region="bucketRegion",
+                    sync_format="syncFormat",
+            
+                    # the properties below are optional
+                    bucket_prefix="bucketPrefix",
+                    kms_key_arn="kmsKeyArn"
+                ),
+                sync_format="syncFormat",
+                sync_source=ssm.CfnResourceDataSync.SyncSourceProperty(
+                    source_regions=["sourceRegions"],
+                    source_type="sourceType",
+            
+                    # the properties below are optional
+                    aws_organizations_source=ssm.CfnResourceDataSync.AwsOrganizationsSourceProperty(
+                        organization_source_type="organizationSourceType",
+            
+                        # the properties below are optional
+                        organizational_units=["organizationalUnits"]
+                    ),
+                    include_future_regions=False
+                ),
+                sync_type="syncType"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__26353d4906971bfc49271a95bc4480dfb3fac99c43391b8a0aa7279209b75bb5)
+            check_type(argname="argument sync_name", value=sync_name, expected_type=type_hints["sync_name"])
+            check_type(argname="argument bucket_name", value=bucket_name, expected_type=type_hints["bucket_name"])
+            check_type(argname="argument bucket_prefix", value=bucket_prefix, expected_type=type_hints["bucket_prefix"])
+            check_type(argname="argument bucket_region", value=bucket_region, expected_type=type_hints["bucket_region"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument s3_destination", value=s3_destination, expected_type=type_hints["s3_destination"])
+            check_type(argname="argument sync_format", value=sync_format, expected_type=type_hints["sync_format"])
+            check_type(argname="argument sync_source", value=sync_source, expected_type=type_hints["sync_source"])
+            check_type(argname="argument sync_type", value=sync_type, expected_type=type_hints["sync_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sync_name": sync_name,
+        }
+        if bucket_name is not None:
+            self._values["bucket_name"] = bucket_name
+        if bucket_prefix is not None:
+            self._values["bucket_prefix"] = bucket_prefix
+        if bucket_region is not None:
+            self._values["bucket_region"] = bucket_region
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if s3_destination is not None:
+            self._values["s3_destination"] = s3_destination
+        if sync_format is not None:
+            self._values["sync_format"] = sync_format
+        if sync_source is not None:
+            self._values["sync_source"] = sync_source
+        if sync_type is not None:
+            self._values["sync_type"] = sync_type
+
+    @builtins.property
+    def sync_name(self) -> builtins.str:
+        '''A name for the resource data sync.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncname
+        '''
+        result = self._values.get("sync_name")
+        assert result is not None, "Required property 'sync_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def bucket_name(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]]:
+        '''The name of the S3 bucket where the aggregated data is stored.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketname
+        '''
+        result = self._values.get("bucket_name")
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IBucketRef_3debe44e"]], result)
+
+    @builtins.property
+    def bucket_prefix(self) -> typing.Optional[builtins.str]:
+        '''An Amazon S3 prefix for the bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketprefix
+        '''
+        result = self._values.get("bucket_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def bucket_region(self) -> typing.Optional[builtins.str]:
+        '''The AWS Region with the S3 bucket targeted by the resource data sync.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-bucketregion
+        '''
+        result = self._values.get("bucket_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an encryption key for a destination in Amazon S3 .
+
+        You can use a KMS key to encrypt inventory data in Amazon S3 . You must specify a key that exist in the same AWS Region as the destination Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_destination(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.S3DestinationProperty"]]:
+        '''Configuration information for the target S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-s3destination
+        '''
+        result = self._values.get("s3_destination")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.S3DestinationProperty"]], result)
+
+    @builtins.property
+    def sync_format(self) -> typing.Optional[builtins.str]:
+        '''A supported sync format.
+
+        The following format is currently supported: JsonSerDe
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncformat
+        '''
+        result = self._values.get("sync_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sync_source(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.SyncSourceProperty"]]:
+        '''Information about the source where the data was synchronized.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-syncsource
+        '''
+        result = self._values.get("sync_source")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResourceDataSync.SyncSourceProperty"]], result)
+
+    @builtins.property
+    def sync_type(self) -> typing.Optional[builtins.str]:
+        '''The type of resource data sync.
+
+        If ``SyncType`` is ``SyncToDestination`` , then the resource data sync synchronizes data to an S3 bucket. If the ``SyncType`` is ``SyncFromSource`` then the resource data sync synchronizes data from AWS Organizations or from multiple AWS Regions .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcedatasync.html#cfn-ssm-resourcedatasync-synctype
+        '''
+        result = self._values.get("sync_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceDataSyncProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_8068eedb)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -10206,13 +7648,14 @@ class CfnResourcePolicy(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         policy: typing.Any,
         resource_arn: builtins.str,
     ) -> None:
-        '''
+        '''Create a new ``AWS::SSM::ResourcePolicy``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param policy: A policy you want to associate with a resource.
@@ -10226,8 +7669,20 @@ class CfnResourcePolicy(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b238346a0d0cf753e1f7c714529dea2ebe0ddf212c5943f941827a2a47195d11)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -10283,9 +7738,9 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> ResourcePolicyReference:
+    def resource_policy_ref(self) -> "_ResourcePolicyReference_937b9005":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_ResourcePolicyReference_937b9005", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policy")
@@ -10314,8 +7769,2161 @@ class CfnResourcePolicy(
         jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(self, *, policy: typing.Any, resource_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy: A policy you want to associate with a resource.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource to which you want to attach a policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            # policy: Any
+            
+            cfn_resource_policy_props = ssm.CfnResourcePolicyProps(
+                policy=policy,
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da98262576855)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy(self) -> typing.Any:
+        '''A policy you want to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html#cfn-ssm-resourcepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource to which you want to attach a policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-resourcepolicy.html#cfn-ssm-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.CommonStringParameterAttributes",
+    jsii_struct_bases=[],
+    name_mapping={"parameter_name": "parameterName", "simple_name": "simpleName"},
+)
+class CommonStringParameterAttributes:
+    def __init__(
+        self,
+        *,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Common attributes for string parameters.
+
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            common_string_parameter_attributes = ssm.CommonStringParameterAttributes(
+                parameter_name="parameterName",
+            
+                # the properties below are optional
+                simple_name=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60f4e05a41320bc1b3f1ba81e5056d43a2052eca526364b7ba62177a7542034f)
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_name": parameter_name,
+        }
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+
+    @builtins.property
+    def parameter_name(self) -> builtins.str:
+        '''The name of the parameter store value.
+
+        This value can be a token or a concrete string. If it is a concrete string
+        and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        '''
+        result = self._values.get("parameter_name")
+        assert result is not None, "Required property 'parameter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CommonStringParameterAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IParameter")
+class IParameter(
+    _IResource_c80c4260,
+    _IParameterRef_b350095e,
+    typing_extensions.Protocol,
+):
+    '''An SSM Parameter reference.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterArn")
+    def parameter_arn(self) -> builtins.str:
+        '''The ARN of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterName")
+    def parameter_name(self) -> builtins.str:
+        '''The name of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterType")
+    def parameter_type(self) -> builtins.str:
+        '''The type of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
+
+        :param grantee: the role to be granted read-only access to the parameter.
+        '''
+        ...
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grants write (PutParameter) permissions on the SSM Parameter.
+
+        :param grantee: the role to be granted write access to the parameter.
+        '''
+        ...
+
+
+class _IParameterProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IParameterRef_b350095e), # type: ignore[misc]
+):
+    '''An SSM Parameter reference.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IParameter"
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterArn")
+    def parameter_arn(self) -> builtins.str:
+        '''The ARN of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterName")
+    def parameter_name(self) -> builtins.str:
+        '''The name of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterType")
+    def parameter_type(self) -> builtins.str:
+        '''The type of the SSM Parameter resource.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grants read (DescribeParameter, GetParameters, GetParameter, GetParameterHistory) permissions on the SSM Parameter.
+
+        :param grantee: the role to be granted read-only access to the parameter.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__893dbe773f4eba8ae68bead053c2684acc5663f3c6568bf7b8860bed6523f05c)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grants write (PutParameter) permissions on the SSM Parameter.
+
+        :param grantee: the role to be granted write access to the parameter.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cf6ae2a6ac121e36c84da0bbab30988cb29b98a2a83327833cd5a201ac06b622)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IParameter).__jsii_proxy_class__ = lambda : _IParameterProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IStringListParameter")
+class IStringListParameter(IParameter, typing_extensions.Protocol):
+    '''A StringList SSM Parameter.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="stringListValue")
+    def string_list_value(self) -> typing.List[builtins.str]:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
+        cannot contain commas (``,``).
+
+        :attribute: Value
+        '''
+        ...
+
+
+class _IStringListParameterProxy(
+    jsii.proxy_for(IParameter), # type: ignore[misc]
+):
+    '''A StringList SSM Parameter.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IStringListParameter"
+
+    @builtins.property
+    @jsii.member(jsii_name="stringListValue")
+    def string_list_value(self) -> typing.List[builtins.str]:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
+        cannot contain commas (``,``).
+
+        :attribute: Value
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "stringListValue"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStringListParameter).__jsii_proxy_class__ = lambda : _IStringListParameterProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_ssm.IStringParameter")
+class IStringParameter(IParameter, typing_extensions.Protocol):
+    '''A String SSM Parameter.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="stringValue")
+    def string_value(self) -> builtins.str:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value.
+
+        :attribute: Value
+        '''
+        ...
+
+
+class _IStringParameterProxy(
+    jsii.proxy_for(IParameter), # type: ignore[misc]
+):
+    '''A String SSM Parameter.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_ssm.IStringParameter"
+
+    @builtins.property
+    @jsii.member(jsii_name="stringValue")
+    def string_value(self) -> builtins.str:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value.
+
+        :attribute: Value
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "stringValue"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IStringParameter).__jsii_proxy_class__ = lambda : _IStringParameterProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.ListParameterAttributes",
+    jsii_struct_bases=[CommonStringParameterAttributes],
+    name_mapping={
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "element_type": "elementType",
+        "version": "version",
+    },
+)
+class ListParameterAttributes(CommonStringParameterAttributes):
+    def __init__(
+        self,
+        *,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+        element_type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Attributes for parameters of string list type.
+
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param element_type: The type of the string list parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
+        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
+
+        :see: ParameterType
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            list_parameter_attributes = ssm.ListParameterAttributes(
+                parameter_name="parameterName",
+            
+                # the properties below are optional
+                element_type=ssm.ParameterValueType.STRING,
+                simple_name=False,
+                version=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__caa32518e1d362afcbf135bf8697e59bfcd27563570e63250f9b6ad629ce1479)
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument element_type", value=element_type, expected_type=type_hints["element_type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_name": parameter_name,
+        }
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if element_type is not None:
+            self._values["element_type"] = element_type
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def parameter_name(self) -> builtins.str:
+        '''The name of the parameter store value.
+
+        This value can be a token or a concrete string. If it is a concrete string
+        and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        '''
+        result = self._values.get("parameter_name")
+        assert result is not None, "Required property 'parameter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def element_type(self) -> typing.Optional["ParameterValueType"]:
+        '''The type of the string list parameter value.
+
+        Using specific types can be helpful in catching invalid values
+        at the start of creating or updating a stack. CloudFormation validates
+        the values against existing values in the account.
+
+        Note - if you want to allow values from different AWS accounts, use
+        ParameterValueType.STRING
+
+        :default: ParameterValueType.STRING
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
+        '''
+        result = self._values.get("element_type")
+        return typing.cast(typing.Optional["ParameterValueType"], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the value you wish to retrieve.
+
+        :default: The latest version will be retrieved.
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ListParameterAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterDataType")
+class ParameterDataType(enum.Enum):
+    '''SSM parameter data type.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        distribution_configuration = imagebuilder.DistributionConfiguration(self, "DistributionConfiguration",
+            distribution_configuration_name="test-distribution-configuration",
+            description="A Distribution Configuration",
+            ami_distributions=[imagebuilder.AmiDistribution(
+                # Distribute AMI to us-east-2 and publish the AMI ID to an SSM parameter
+                region="us-east-2",
+                ssm_parameters=[imagebuilder.SSMParameterConfigurations(
+                    parameter=ssm.StringParameter.from_string_parameter_attributes(self, "CrossRegionParameter",
+                        parameter_name="/imagebuilder/ami",
+                        force_dynamic_reference=True
+                    )
+                )
+                ]
+            )
+            ]
+        )
+        
+        # For AMI-based image builds - add an AMI distribution in the current region
+        distribution_configuration.add_ami_distributions(
+            ami_name="imagebuilder-{{ imagebuilder:buildDate }}",
+            ami_description="Build AMI",
+            ami_kms_key=kms.Key.from_lookup(self, "ComponentKey", alias_name="alias/distribution-encryption-key"),
+            # Copy the AMI to different accounts
+            ami_target_account_ids=["123456789012", "098765432109"],
+            # Add launch permissions on the AMI
+            ami_launch_permission=imagebuilder.AmiLaunchPermission(
+                organization_arns=[
+                    self.format_arn(region="", service="organizations", resource="organization", resource_name="o-1234567abc")
+                ],
+                organizational_unit_arns=[
+                    self.format_arn(
+                        region="",
+                        service="organizations",
+                        resource="ou",
+                        resource_name="o-1234567abc/ou-a123-b4567890"
+                    )
+                ],
+                is_public_user_group=True,
+                account_ids=["234567890123"]
+            ),
+            # Attach tags to the AMI
+            ami_tags={
+                "Environment": "production",
+                "Version": "{{ imagebuilder:buildVersion }}"
+            },
+            # Optional - publish the distributed AMI ID to an SSM parameter
+            ssm_parameters=[imagebuilder.SSMParameterConfigurations(
+                parameter=ssm.StringParameter.from_string_parameter_attributes(self, "Parameter",
+                    parameter_name="/imagebuilder/ami",
+                    force_dynamic_reference=True
+                )
+            ), imagebuilder.SSMParameterConfigurations(
+                ami_account="098765432109",
+                data_type=ssm.ParameterDataType.TEXT,
+                parameter=ssm.StringParameter.from_string_parameter_attributes(self, "CrossAccountParameter",
+                    parameter_name="imagebuilder-prod-ami",
+                    force_dynamic_reference=True
+                )
+            )
+            ],
+            # Optional - create a new launch template version with the distributed AMI ID
+            launch_templates=[imagebuilder.LaunchTemplateConfiguration(
+                launch_template=ec2.LaunchTemplate.from_launch_template_attributes(self, "LaunchTemplate",
+                    launch_template_id="lt-1234"
+                ),
+                set_default_version=True
+            ), imagebuilder.LaunchTemplateConfiguration(
+                account_id="123456789012",
+                launch_template=ec2.LaunchTemplate.from_launch_template_attributes(self, "CrossAccountLaunchTemplate",
+                    launch_template_id="lt-5678"
+                ),
+                set_default_version=True
+            )
+            ],
+            # Optional - enable Fast Launch on an imported launch template
+            fast_launch_configurations=[imagebuilder.FastLaunchConfiguration(
+                enabled=True,
+                launch_template=ec2.LaunchTemplate.from_launch_template_attributes(self, "FastLaunchLT",
+                    launch_template_name="fast-launch-lt"
+                ),
+                max_parallel_launches=10,
+                target_snapshot_count=2
+            )
+            ],
+            # Optional - license configurations to apply to the AMI
+            license_configuration_arns=["arn:aws:license-manager:us-west-2:123456789012:license-configuration:lic-abcdefghijklmnopqrstuvwxyz"
+            ]
+        )
+    '''
+
+    TEXT = "TEXT"
+    '''Text.'''
+    AWS_EC2_IMAGE = "AWS_EC2_IMAGE"
+    '''Aws Ec2 Image.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.ParameterOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allowed_pattern": "allowedPattern",
+        "description": "description",
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "tier": "tier",
+    },
+)
+class ParameterOptions:
+    def __init__(
+        self,
+        *,
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        parameter_name: typing.Optional[builtins.str] = None,
+        simple_name: typing.Optional[builtins.bool] = None,
+        tier: typing.Optional["ParameterTier"] = None,
+    ) -> None:
+        '''Properties needed to create a new SSM Parameter.
+
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
+        :param description: Information about the parameter that you want to add to the system. Default: none
+        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param tier: The tier of the string parameter. Default: - undefined
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ssm as ssm
+            
+            parameter_options = ssm.ParameterOptions(
+                allowed_pattern="allowedPattern",
+                description="description",
+                parameter_name="parameterName",
+                simple_name=False,
+                tier=ssm.ParameterTier.ADVANCED
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54be6c6ec55adec6de5f0a4b285882a64b6047fff6c35192fc38b5de44f05ec5)
+            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allowed_pattern is not None:
+            self._values["allowed_pattern"] = allowed_pattern
+        if description is not None:
+            self._values["description"] = description
+        if parameter_name is not None:
+            self._values["parameter_name"] = parameter_name
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if tier is not None:
+            self._values["tier"] = tier
+
+    @builtins.property
+    def allowed_pattern(self) -> typing.Optional[builtins.str]:
+        '''A regular expression used to validate the parameter value.
+
+        For example, for String types with values restricted to
+        numbers, you can specify the following: ``^\\d+$``
+
+        :default: no validation is performed
+        '''
+        result = self._values.get("allowed_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the parameter that you want to add to the system.
+
+        :default: none
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter.
+
+        :default: - a name will be generated by CloudFormation
+        '''
+        result = self._values.get("parameter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tier(self) -> typing.Optional["ParameterTier"]:
+        '''The tier of the string parameter.
+
+        :default: - undefined
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional["ParameterTier"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ParameterOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterTier")
+class ParameterTier(enum.Enum):
+    '''SSM parameter tier.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        ssm.StringParameter(self, "Parameter",
+            allowed_pattern=".*",
+            description="The value Foo",
+            parameter_name="FooParameter",
+            string_value="Foo",
+            tier=ssm.ParameterTier.ADVANCED
+        )
+    '''
+
+    ADVANCED = "ADVANCED"
+    '''String.'''
+    INTELLIGENT_TIERING = "INTELLIGENT_TIERING"
+    '''String.'''
+    STANDARD = "STANDARD"
+    '''String.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterType")
+class ParameterType(enum.Enum):
+    '''(deprecated) SSM parameter type.
+
+    :deprecated: these types are no longer used
+
+    :stability: deprecated
+    '''
+
+    STRING = "STRING"
+    '''(deprecated) String.
+
+    :stability: deprecated
+    '''
+    SECURE_STRING = "SECURE_STRING"
+    '''(deprecated) Secure String.
+
+    Parameter Store uses an AWS Key Management Service (KMS) customer master key (CMK) to encrypt the parameter value.
+    Parameters of type SecureString cannot be created directly from a CDK application.
+
+    :stability: deprecated
+    '''
+    STRING_LIST = "STRING_LIST"
+    '''(deprecated) String List.
+
+    :stability: deprecated
+    '''
+    AWS_EC2_IMAGE_ID = "AWS_EC2_IMAGE_ID"
+    '''(deprecated) An Amazon EC2 image ID, such as ami-0ff8a91507f77f867.
+
+    :stability: deprecated
+    '''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_ssm.ParameterValueType")
+class ParameterValueType(enum.Enum):
+    '''The type of CFN SSM Parameter.
+
+    Using specific types can be helpful in catching invalid values
+    at the start of creating or updating a stack. CloudFormation validates
+    the values against existing values in the account.
+
+    :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
+    :exampleMetadata: infused
+
+    Example::
+
+        ssm.StringParameter.value_for_typed_string_parameter_v2(self, "/My/Public/Parameter", ssm.ParameterValueType.AWS_EC2_IMAGE_ID)
+    '''
+
+    STRING = "STRING"
+    '''String.'''
+    AWS_EC2_AVAILABILITYZONE_NAME = "AWS_EC2_AVAILABILITYZONE_NAME"
+    '''An Availability Zone, such as us-west-2a.'''
+    AWS_EC2_IMAGE_ID = "AWS_EC2_IMAGE_ID"
+    '''An Amazon EC2 image ID, such as ami-0ff8a91507f77f867.'''
+    AWS_EC2_INSTANCE_ID = "AWS_EC2_INSTANCE_ID"
+    '''An Amazon EC2 instance ID, such as i-1e731a32.'''
+    AWS_EC2_KEYPAIR_KEYNAME = "AWS_EC2_KEYPAIR_KEYNAME"
+    '''An Amazon EC2 key pair name.'''
+    AWS_EC2_SECURITYGROUP_GROUPNAME = "AWS_EC2_SECURITYGROUP_GROUPNAME"
+    '''An EC2-Classic or default VPC security group name, such as my-sg-abc.'''
+    AWS_EC2_SECURITYGROUP_ID = "AWS_EC2_SECURITYGROUP_ID"
+    '''A security group ID, such as sg-a123fd85.'''
+    AWS_EC2_SUBNET_ID = "AWS_EC2_SUBNET_ID"
+    '''A subnet ID, such as subnet-123a351e.'''
+    AWS_EC2_VOLUME_ID = "AWS_EC2_VOLUME_ID"
+    '''An Amazon EBS volume ID, such as vol-3cdd3f56.'''
+    AWS_EC2_VPC_ID = "AWS_EC2_VPC_ID"
+    '''A VPC ID, such as vpc-a123baa3.'''
+    AWS_ROUTE53_HOSTEDZONE_ID = "AWS_ROUTE53_HOSTEDZONE_ID"
+    '''An Amazon Route 53 hosted zone ID, such as Z23YXV4OVPL04A.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.SecureStringParameterAttributes",
+    jsii_struct_bases=[CommonStringParameterAttributes],
+    name_mapping={
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "encryption_key": "encryptionKey",
+        "version": "version",
+    },
+)
+class SecureStringParameterAttributes(CommonStringParameterAttributes):
+    def __init__(
+        self,
+        *,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Attributes for secure string parameters.
+
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param encryption_key: The encryption key that is used to encrypt this parameter. Default: - default master key
+        :param version: The version number of the value you wish to retrieve. Default: - AWS CloudFormation uses the latest version of the parameter
+
+        :exampleMetadata: infused
+
+        Example::
+
+            parameter_version = Token.as_number({"Ref": "MyParameter"})
+            
+            # Retrieve the latest value of the non-secret parameter
+            # with name "/My/String/Parameter".
+            string_value = ssm.StringParameter.from_string_parameter_attributes(self, "MyValue",
+                parameter_name="/My/Public/Parameter"
+            ).string_value
+            string_value_version_from_token = ssm.StringParameter.from_string_parameter_attributes(self, "MyValueVersionFromToken",
+                parameter_name="/My/Public/Parameter",
+                # parameter version from token
+                version=parameter_version
+            ).string_value
+            
+            # Retrieve a specific version of the secret (SecureString) parameter.
+            # 'version' is always required.
+            secret_value = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValue",
+                parameter_name="/My/Secret/Parameter",
+                version=5
+            )
+            secret_value_version_from_token = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValueVersionFromToken",
+                parameter_name="/My/Secret/Parameter",
+                # parameter version from token
+                version=parameter_version
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c29a999cdf02428bb99b29e94af353e96064d305daa31ac2e3c9bbd7cff7dee)
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_name": parameter_name,
+        }
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if encryption_key is not None:
+            self._values["encryption_key"] = encryption_key
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def parameter_name(self) -> builtins.str:
+        '''The name of the parameter store value.
+
+        This value can be a token or a concrete string. If it is a concrete string
+        and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        '''
+        result = self._values.get("parameter_name")
+        assert result is not None, "Required property 'parameter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+        '''The encryption key that is used to encrypt this parameter.
+
+        :default: - default master key
+        '''
+        result = self._values.get("encryption_key")
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the value you wish to retrieve.
+
+        :default: - AWS CloudFormation uses the latest version of the parameter
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecureStringParameterAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IStringListParameter, IParameter, _IEncryptedResource_8e9bf351)
+class StringListParameter(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.StringListParameter",
+):
+    '''Creates a new StringList SSM Parameter.
+
+    :resource: AWS::SSM::Parameter
+    :exampleMetadata: infused
+
+    Example::
+
+        ssm.StringListParameter.value_for_typed_list_parameter(self, "/My/Public/Parameter", ssm.ParameterValueType.AWS_EC2_IMAGE_ID)
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        string_list_value: typing.Sequence[builtins.str],
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        parameter_name: typing.Optional[builtins.str] = None,
+        simple_name: typing.Optional[builtins.bool] = None,
+        tier: typing.Optional["ParameterTier"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param string_list_value: The values of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
+        :param description: Information about the parameter that you want to add to the system. Default: none
+        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param tier: The tier of the string parameter. Default: - undefined
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94de6d51dda014e2ac4e863b9f9611f97d1e28dc774309241f1b4d807451758f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = StringListParameterProps(
+            string_list_value=string_list_value,
+            allowed_pattern=allowed_pattern,
+            description=description,
+            parameter_name=parameter_name,
+            simple_name=simple_name,
+            tier=tier,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromListParameterAttributes")
+    @builtins.classmethod
+    def from_list_parameter_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        element_type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+    ) -> "IStringListParameter":
+        '''Imports an external string list parameter with name and optional version.
+
+        :param scope: -
+        :param id: -
+        :param element_type: The type of the string list parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
+        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b477545ed5d53e5b666f41087db25aa6bdc347c4cead18a586bd16678f612801)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = ListParameterAttributes(
+            element_type=element_type,
+            version=version,
+            parameter_name=parameter_name,
+            simple_name=simple_name,
+        )
+
+        return typing.cast("IStringListParameter", jsii.sinvoke(cls, "fromListParameterAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromStringListParameterName")
+    @builtins.classmethod
+    def from_string_list_parameter_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        string_list_parameter_name: builtins.str,
+    ) -> "IStringListParameter":
+        '''Imports an external parameter of type string list.
+
+        Returns a token and should not be parsed.
+
+        :param scope: -
+        :param id: -
+        :param string_list_parameter_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ee02d93e11a637ffc18281f9eda840005cd8f1adec7265948e87be3b063fd8b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument string_list_parameter_name", value=string_list_parameter_name, expected_type=type_hints["string_list_parameter_name"])
+        return typing.cast("IStringListParameter", jsii.sinvoke(cls, "fromStringListParameterName", [scope, id, string_list_parameter_name]))
+
+    @jsii.member(jsii_name="valueForTypedListParameter")
+    @builtins.classmethod
+    def value_for_typed_list_parameter(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> typing.List[builtins.str]:
+        '''Returns a token that will resolve (during deployment) to the list value of an SSM StringList parameter.
+
+        :param scope: Some scope within a stack.
+        :param parameter_name: The name of the SSM parameter.
+        :param type: the type of the SSM list parameter.
+        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b9ae745d086e0dea148aea94e9f88d8efd375fa182578d056bcfd3fd08b1771)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(typing.List[builtins.str], jsii.sinvoke(cls, "valueForTypedListParameter", [scope, parameter_name, type, version]))
+
+    @jsii.member(jsii_name="grantOnKey")
+    def grant_on_key(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_GrantOnKeyResult_35320c49":
+        '''Gives permissions to a grantable entity to perform actions on the encryption key.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__824e8abcbca38ad92af3ff44fd0365b7d085fe7ecaacd4bc420f85fa7d6e2417)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_GrantOnKeyResult_35320c49", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__819241aedbf400f619f3bb1dab30b0594eef1072ffeee79fad21356c807bec86)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a6c74a7f6bd369fd4593adcf2cfb417138607dd7b20b5da6ea534219eee0c55)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterArn")
+    def parameter_arn(self) -> builtins.str:
+        '''The ARN of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterName")
+    def parameter_name(self) -> builtins.str:
+        '''The name of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterRef")
+    def parameter_ref(self) -> "_ParameterReference_18138f09":
+        '''A reference to a Parameter resource.'''
+        return typing.cast("_ParameterReference_18138f09", jsii.get(self, "parameterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterType")
+    def parameter_type(self) -> builtins.str:
+        '''The type of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stringListValue")
+    def string_list_value(self) -> typing.List[builtins.str]:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value. Values in the array
+        cannot contain commas (``,``).
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "stringListValue"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+        '''The encryption key that is used to encrypt this parameter.
+
+        :default: - default master key
+        '''
+        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.StringListParameterProps",
+    jsii_struct_bases=[ParameterOptions],
+    name_mapping={
+        "allowed_pattern": "allowedPattern",
+        "description": "description",
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "tier": "tier",
+        "string_list_value": "stringListValue",
+    },
+)
+class StringListParameterProps(ParameterOptions):
+    def __init__(
+        self,
+        *,
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        parameter_name: typing.Optional[builtins.str] = None,
+        simple_name: typing.Optional[builtins.bool] = None,
+        tier: typing.Optional["ParameterTier"] = None,
+        string_list_value: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Properties needed to create a StringList SSM Parameter.
+
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
+        :param description: Information about the parameter that you want to add to the system. Default: none
+        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param tier: The tier of the string parameter. Default: - undefined
+        :param string_list_value: The values of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # Grant read access to some Role
+            # role: iam.IRole
+            # Create a new SSM Parameter holding a String
+            param = ssm.StringParameter(self, "StringParameter",
+                # description: 'Some user-friendly description',
+                # name: 'ParameterName',
+                string_value="Initial parameter value"
+            )
+            param.grant_read(role)
+            
+            # Create a new SSM Parameter holding a StringList
+            list_parameter = ssm.StringListParameter(self, "StringListParameter",
+                # description: 'Some user-friendly description',
+                # name: 'ParameterName',
+                string_list_value=["Initial parameter value A", "Initial parameter value B"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1fda8a7b3397aad49f6c3720e316364d4df6b092c111c31c5e48e223f7ab4b46)
+            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+            check_type(argname="argument string_list_value", value=string_list_value, expected_type=type_hints["string_list_value"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "string_list_value": string_list_value,
+        }
+        if allowed_pattern is not None:
+            self._values["allowed_pattern"] = allowed_pattern
+        if description is not None:
+            self._values["description"] = description
+        if parameter_name is not None:
+            self._values["parameter_name"] = parameter_name
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if tier is not None:
+            self._values["tier"] = tier
+
+    @builtins.property
+    def allowed_pattern(self) -> typing.Optional[builtins.str]:
+        '''A regular expression used to validate the parameter value.
+
+        For example, for String types with values restricted to
+        numbers, you can specify the following: ``^\\d+$``
+
+        :default: no validation is performed
+        '''
+        result = self._values.get("allowed_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the parameter that you want to add to the system.
+
+        :default: none
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter.
+
+        :default: - a name will be generated by CloudFormation
+        '''
+        result = self._values.get("parameter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tier(self) -> typing.Optional["ParameterTier"]:
+        '''The tier of the string parameter.
+
+        :default: - undefined
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional["ParameterTier"], result)
+
+    @builtins.property
+    def string_list_value(self) -> typing.List[builtins.str]:
+        '''The values of the parameter.
+
+        It may not reference another parameter and ``{{}}`` cannot be used in the value.
+        '''
+        result = self._values.get("string_list_value")
+        assert result is not None, "Required property 'string_list_value' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StringListParameterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IStringParameter, IParameter, _IEncryptedResource_8e9bf351)
+class StringParameter(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ssm.StringParameter",
+):
+    '''Creates a new String SSM Parameter.
+
+    :resource: AWS::SSM::Parameter
+
+    Example::
+
+        ssm_parameter = ssm.StringParameter(self, "mySsmParameter",
+            parameter_name="mySsmParameter",
+            string_value="mySsmParameterValue"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        string_value: builtins.str,
+        data_type: typing.Optional["ParameterDataType"] = None,
+        type: typing.Optional["ParameterType"] = None,
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        parameter_name: typing.Optional[builtins.str] = None,
+        simple_name: typing.Optional[builtins.bool] = None,
+        tier: typing.Optional["ParameterTier"] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param string_value: The value of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
+        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image``. Default: ParameterDataType.TEXT
+        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
+        :param description: Information about the parameter that you want to add to the system. Default: none
+        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param tier: The tier of the string parameter. Default: - undefined
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2eeba991f657f464e2410cd38fdeecff2bdaa0b51e35cd0e4ca251c97217a46)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = StringParameterProps(
+            string_value=string_value,
+            data_type=data_type,
+            type=type,
+            allowed_pattern=allowed_pattern,
+            description=description,
+            parameter_name=parameter_name,
+            simple_name=simple_name,
+            tier=tier,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromSecureStringParameterAttributes")
+    @builtins.classmethod
+    def from_secure_string_parameter_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
+        version: typing.Optional[jsii.Number] = None,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+    ) -> "IStringParameter":
+        '''Imports a secure string parameter from the SSM parameter store.
+
+        :param scope: -
+        :param id: -
+        :param encryption_key: The encryption key that is used to encrypt this parameter. Default: - default master key
+        :param version: The version number of the value you wish to retrieve. Default: - AWS CloudFormation uses the latest version of the parameter
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef716b2d64b7c95b87119e190e88504880c3f46c45b769e05e9f4f805b08c63d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = SecureStringParameterAttributes(
+            encryption_key=encryption_key,
+            version=version,
+            parameter_name=parameter_name,
+            simple_name=simple_name,
+        )
+
+        return typing.cast("IStringParameter", jsii.sinvoke(cls, "fromSecureStringParameterAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromStringParameterArn")
+    @builtins.classmethod
+    def from_string_parameter_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        string_parameter_arn: builtins.str,
+    ) -> "IStringParameter":
+        '''Imports an external string parameter by ARN.
+
+        :param scope: -
+        :param id: -
+        :param string_parameter_arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9575783638c75217cf30c3b85a444f0d969712861524ca788f0f3c83fa889f88)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument string_parameter_arn", value=string_parameter_arn, expected_type=type_hints["string_parameter_arn"])
+        return typing.cast("IStringParameter", jsii.sinvoke(cls, "fromStringParameterArn", [scope, id, string_parameter_arn]))
+
+    @jsii.member(jsii_name="fromStringParameterAttributes")
+    @builtins.classmethod
+    def from_string_parameter_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        force_dynamic_reference: typing.Optional[builtins.bool] = None,
+        type: typing.Optional["ParameterType"] = None,
+        value_type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+    ) -> "IStringParameter":
+        '''Imports an external string parameter with name and optional version.
+
+        :param scope: -
+        :param id: -
+        :param force_dynamic_reference: Use a dynamic reference as the representation in CloudFormation template level. By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work. Default: false
+        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
+        :param value_type: The type of the string parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
+        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e612c2654654e8b8bb7821bcd1e47680b025862a2a411467ffa6334e46371b05)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = StringParameterAttributes(
+            force_dynamic_reference=force_dynamic_reference,
+            type=type,
+            value_type=value_type,
+            version=version,
+            parameter_name=parameter_name,
+            simple_name=simple_name,
+        )
+
+        return typing.cast("IStringParameter", jsii.sinvoke(cls, "fromStringParameterAttributes", [scope, id, attrs]))
+
+    @jsii.member(jsii_name="fromStringParameterName")
+    @builtins.classmethod
+    def from_string_parameter_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        string_parameter_name: builtins.str,
+    ) -> "IStringParameter":
+        '''Imports an external string parameter by name.
+
+        :param scope: -
+        :param id: -
+        :param string_parameter_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb0299149e02d9543818343516306f4b32ee1ac5f245ff3c79ee5fd2016ec670)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument string_parameter_name", value=string_parameter_name, expected_type=type_hints["string_parameter_name"])
+        return typing.cast("IStringParameter", jsii.sinvoke(cls, "fromStringParameterName", [scope, id, string_parameter_name]))
+
+    @jsii.member(jsii_name="valueForSecureStringParameter")
+    @builtins.classmethod
+    def value_for_secure_string_parameter(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        version: jsii.Number,
+    ) -> builtins.str:
+        '''(deprecated) Returns a token that will resolve (during deployment).
+
+        :param scope: Some scope within a stack.
+        :param parameter_name: The name of the SSM parameter.
+        :param version: The parameter version (required for secure strings).
+
+        :deprecated: Use ``SecretValue.ssmSecure()`` instead, it will correctly type the imported value as a ``SecretValue`` and allow importing without version. ``SecretValue`` lives in the core ``aws-cdk-lib`` module.
+
+        :stability: deprecated
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__38dfc6aee7234162b6dfa7fd6d79daf1e5e20fb93a83a884110ee85c9406a842)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForSecureStringParameter", [scope, parameter_name, version]))
+
+    @jsii.member(jsii_name="valueForStringParameter")
+    @builtins.classmethod
+    def value_for_string_parameter(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> builtins.str:
+        '''Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
+
+        :param scope: Some scope within a stack.
+        :param parameter_name: The name of the SSM parameter.
+        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__587bcd33299d81a1c2d922ca6d8a6c0dbb1a57b5bf5619f44b25a23071ffcf19)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForStringParameter", [scope, parameter_name, version]))
+
+    @jsii.member(jsii_name="valueForTypedStringParameter")
+    @builtins.classmethod
+    def value_for_typed_string_parameter(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        type: typing.Optional["ParameterType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> builtins.str:
+        '''(deprecated) Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
+
+        :param scope: Some scope within a stack.
+        :param parameter_name: The name of the SSM parameter.
+        :param type: The type of the SSM parameter.
+        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
+
+        :deprecated: - use valueForTypedStringParameterV2 instead
+
+        :stability: deprecated
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__76ddd12c8dffbad4b7f599d939f1683184715d90ae73713323484cf1f89d0f99)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForTypedStringParameter", [scope, parameter_name, type, version]))
+
+    @jsii.member(jsii_name="valueForTypedStringParameterV2")
+    @builtins.classmethod
+    def value_for_typed_string_parameter_v2(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> builtins.str:
+        '''Returns a token that will resolve (during deployment) to the string value of an SSM string parameter.
+
+        :param scope: Some scope within a stack.
+        :param parameter_name: The name of the SSM parameter.
+        :param type: The type of the SSM parameter.
+        :param version: The parameter version (recommended in order to ensure that the value won't change during deployment).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4ec30255f3ac830ba0695e062a34e2012e0542d68a61c236b791945a367b24b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueForTypedStringParameterV2", [scope, parameter_name, type, version]))
+
+    @jsii.member(jsii_name="valueFromLookup")
+    @builtins.classmethod
+    def value_from_lookup(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        parameter_name: builtins.str,
+        default_value: typing.Optional[builtins.str] = None,
+        *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
+    ) -> builtins.str:
+        '''Reads the value of an SSM parameter during synthesis through an environmental context provider.
+
+        Requires that the stack this scope is defined in will have explicit
+        account/region information. Otherwise, it will fail during synthesis.
+
+        If defaultValue is provided, it will be used as the dummyValue
+        and the ContextProvider will be told NOT to raise an error on synthesis
+        if the SSM Parameter is not found in the account at synth time.
+
+        :param scope: -
+        :param parameter_name: -
+        :param default_value: -
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372f650250)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument default_value", value=default_value, expected_type=type_hints["default_value"])
+        options = StringParameterLookupOptions(
+            additional_cache_key=additional_cache_key
+        )
+
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "valueFromLookup", [scope, parameter_name, default_value, options]))
+
+    @jsii.member(jsii_name="grantOnKey")
+    def grant_on_key(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_GrantOnKeyResult_35320c49":
+        '''Gives permissions to a grantable entity to perform actions on the encryption key.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7acb1faa506233f639c04fd634f594bfa266630c67808f0fe4755dc49acc3e5b)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_GrantOnKeyResult_35320c49", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
+
+    @jsii.member(jsii_name="grantRead")
+    def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f2b954516f020047895372042cbf3497906d242b8a2c10008ce8a5c2e1335370)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantRead", [grantee]))
+
+    @jsii.member(jsii_name="grantWrite")
+    def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''[disable-awslint:no-grants].
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9601cc05d10fcfadbdc97c8deacf47393567be2f0e90bd28ea11cdfe571976fa)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantWrite", [grantee]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterArn")
+    def parameter_arn(self) -> builtins.str:
+        '''The ARN of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterName")
+    def parameter_name(self) -> builtins.str:
+        '''The name of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterRef")
+    def parameter_ref(self) -> "_ParameterReference_18138f09":
+        '''A reference to a Parameter resource.'''
+        return typing.cast("_ParameterReference_18138f09", jsii.get(self, "parameterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parameterType")
+    def parameter_type(self) -> builtins.str:
+        '''The type of the SSM Parameter resource.'''
+        return typing.cast(builtins.str, jsii.get(self, "parameterType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="stringValue")
+    def string_value(self) -> builtins.str:
+        '''The parameter value.
+
+        Value must not nest another parameter. Do not use {{}} in the value.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "stringValue"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+        '''The encryption key that is used to encrypt this parameter.
+
+        :default: - default master key
+        '''
+        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.StringParameterAttributes",
+    jsii_struct_bases=[CommonStringParameterAttributes],
+    name_mapping={
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "force_dynamic_reference": "forceDynamicReference",
+        "type": "type",
+        "value_type": "valueType",
+        "version": "version",
+    },
+)
+class StringParameterAttributes(CommonStringParameterAttributes):
+    def __init__(
+        self,
+        *,
+        parameter_name: builtins.str,
+        simple_name: typing.Optional[builtins.bool] = None,
+        force_dynamic_reference: typing.Optional[builtins.bool] = None,
+        type: typing.Optional["ParameterType"] = None,
+        value_type: typing.Optional["ParameterValueType"] = None,
+        version: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Attributes for parameters of various types of string.
+
+        :param parameter_name: The name of the parameter store value. This value can be a token or a concrete string. If it is a concrete string and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param force_dynamic_reference: Use a dynamic reference as the representation in CloudFormation template level. By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work. Default: false
+        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
+        :param value_type: The type of the string parameter value. Using specific types can be helpful in catching invalid values at the start of creating or updating a stack. CloudFormation validates the values against existing values in the account. Note - if you want to allow values from different AWS accounts, use ParameterValueType.STRING Default: ParameterValueType.STRING
+        :param version: The version number of the value you wish to retrieve. Default: The latest version will be retrieved.
+
+        :see: ParameterType
+        :exampleMetadata: infused
+
+        Example::
+
+            parameter_version = Token.as_number({"Ref": "MyParameter"})
+            
+            # Retrieve the latest value of the non-secret parameter
+            # with name "/My/String/Parameter".
+            string_value = ssm.StringParameter.from_string_parameter_attributes(self, "MyValue",
+                parameter_name="/My/Public/Parameter"
+            ).string_value
+            string_value_version_from_token = ssm.StringParameter.from_string_parameter_attributes(self, "MyValueVersionFromToken",
+                parameter_name="/My/Public/Parameter",
+                # parameter version from token
+                version=parameter_version
+            ).string_value
+            
+            # Retrieve a specific version of the secret (SecureString) parameter.
+            # 'version' is always required.
+            secret_value = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValue",
+                parameter_name="/My/Secret/Parameter",
+                version=5
+            )
+            secret_value_version_from_token = ssm.StringParameter.from_secure_string_parameter_attributes(self, "MySecureValueVersionFromToken",
+                parameter_name="/My/Secret/Parameter",
+                # parameter version from token
+                version=parameter_version
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__045695ee32d353600237b891b14ad138098a0add8ba99199144ee57eff4ad99f)
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument force_dynamic_reference", value=force_dynamic_reference, expected_type=type_hints["force_dynamic_reference"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument value_type", value=value_type, expected_type=type_hints["value_type"])
+            check_type(argname="argument version", value=version, expected_type=type_hints["version"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "parameter_name": parameter_name,
+        }
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if force_dynamic_reference is not None:
+            self._values["force_dynamic_reference"] = force_dynamic_reference
+        if type is not None:
+            self._values["type"] = type
+        if value_type is not None:
+            self._values["value_type"] = value_type
+        if version is not None:
+            self._values["version"] = version
+
+    @builtins.property
+    def parameter_name(self) -> builtins.str:
+        '''The name of the parameter store value.
+
+        This value can be a token or a concrete string. If it is a concrete string
+        and includes "/" it must also be prefixed with a "/" (fully-qualified).
+        '''
+        result = self._values.get("parameter_name")
+        assert result is not None, "Required property 'parameter_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def force_dynamic_reference(self) -> typing.Optional[builtins.bool]:
+        '''Use a dynamic reference as the representation in CloudFormation template level.
+
+        By default, CDK tries to deduce an appropriate representation based on the parameter value (a CfnParameter or a dynamic reference). Use this flag to override the representation when it does not work.
+
+        :default: false
+        '''
+        result = self._values.get("force_dynamic_reference")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["ParameterType"]:
+        '''(deprecated) The type of the string parameter.
+
+        :default: ParameterType.STRING
+
+        :deprecated: - use valueType instead
+
+        :stability: deprecated
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["ParameterType"], result)
+
+    @builtins.property
+    def value_type(self) -> typing.Optional["ParameterValueType"]:
+        '''The type of the string parameter value.
+
+        Using specific types can be helpful in catching invalid values
+        at the start of creating or updating a stack. CloudFormation validates
+        the values against existing values in the account.
+
+        Note - if you want to allow values from different AWS accounts, use
+        ParameterValueType.STRING
+
+        :default: ParameterValueType.STRING
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/parameters-section-structure.html#aws-ssm-parameter-types
+        '''
+        result = self._values.get("value_type")
+        return typing.cast(typing.Optional["ParameterValueType"], result)
+
+    @builtins.property
+    def version(self) -> typing.Optional[jsii.Number]:
+        '''The version number of the value you wish to retrieve.
+
+        :default: The latest version will be retrieved.
+        '''
+        result = self._values.get("version")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StringParameterAttributes(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.StringParameterLookupOptions",
+    jsii_struct_bases=[],
+    name_mapping={"additional_cache_key": "additionalCacheKey"},
+)
+class StringParameterLookupOptions:
+    def __init__(
+        self,
+        *,
+        additional_cache_key: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Additional properties for looking up an existing StringParameter.
+
+        :param additional_cache_key: Adds an additional discriminator to the ``cdk.context.json`` cache key. Default: - no additional cache key
+
+        :exampleMetadata: infused
+
+        Example::
+
+            string_value = ssm.StringParameter.value_from_lookup(self, "/My/Public/Parameter", undefined, additional_cache_key=self.node.path)
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3)
+            check_type(argname="argument additional_cache_key", value=additional_cache_key, expected_type=type_hints["additional_cache_key"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if additional_cache_key is not None:
+            self._values["additional_cache_key"] = additional_cache_key
+
+    @builtins.property
+    def additional_cache_key(self) -> typing.Optional[builtins.str]:
+        '''Adds an additional discriminator to the ``cdk.context.json`` cache key.
+
+        :default: - no additional cache key
+        '''
+        result = self._values.get("additional_cache_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StringParameterLookupOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ssm.StringParameterProps",
+    jsii_struct_bases=[ParameterOptions],
+    name_mapping={
+        "allowed_pattern": "allowedPattern",
+        "description": "description",
+        "parameter_name": "parameterName",
+        "simple_name": "simpleName",
+        "tier": "tier",
+        "string_value": "stringValue",
+        "data_type": "dataType",
+        "type": "type",
+    },
+)
+class StringParameterProps(ParameterOptions):
+    def __init__(
+        self,
+        *,
+        allowed_pattern: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        parameter_name: typing.Optional[builtins.str] = None,
+        simple_name: typing.Optional[builtins.bool] = None,
+        tier: typing.Optional["ParameterTier"] = None,
+        string_value: builtins.str,
+        data_type: typing.Optional["ParameterDataType"] = None,
+        type: typing.Optional["ParameterType"] = None,
+    ) -> None:
+        '''Properties needed to create a String SSM parameter.
+
+        :param allowed_pattern: A regular expression used to validate the parameter value. For example, for String types with values restricted to numbers, you can specify the following: ``^\\d+$`` Default: no validation is performed
+        :param description: Information about the parameter that you want to add to the system. Default: none
+        :param parameter_name: The name of the parameter. Default: - a name will be generated by CloudFormation
+        :param simple_name: Indicates whether the parameter name is a simple name. A parameter name without any "/" is considered a simple name. If the parameter name includes "/", setting simpleName to true might cause unintended issues such as duplicate "/" in the resulting ARN. This is required only if ``parameterName`` is a token, which means we are unable to detect if the name is simple or "path-like" for the purpose of rendering SSM parameter ARNs. If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or undefined) since the name generated by AWS CloudFormation is always a simple name. Default: - auto-detect based on ``parameterName``
+        :param tier: The tier of the string parameter. Default: - undefined
+        :param string_value: The value of the parameter. It may not reference another parameter and ``{{}}`` cannot be used in the value.
+        :param data_type: The data type of the parameter, such as ``text`` or ``aws:ec2:image``. Default: ParameterDataType.TEXT
+        :param type: (deprecated) The type of the string parameter. Default: ParameterType.STRING
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk.aws_lambda as lambda_
+            
+            # func: lambda.IFunction
+            
+            
+            simple_parameter = ssm.StringParameter(self, "StringParameter",
+                # the parameter name doesn't contain any '/'
+                parameter_name="parameter",
+                string_value="SOME_VALUE",
+                simple_name=True
+            )
+            non_simple_parameter = ssm.StringParameter(self, "StringParameter",
+                # the parameter name contains '/'
+                parameter_name=f"/{func.functionName}/my/app/param",
+                string_value="SOME_VALUE",
+                simple_name=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a14e5cea1d211f374b7c289d526224c03be1f2e91a2a94cbcdf8f1d251335822)
+            check_type(argname="argument allowed_pattern", value=allowed_pattern, expected_type=type_hints["allowed_pattern"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument parameter_name", value=parameter_name, expected_type=type_hints["parameter_name"])
+            check_type(argname="argument simple_name", value=simple_name, expected_type=type_hints["simple_name"])
+            check_type(argname="argument tier", value=tier, expected_type=type_hints["tier"])
+            check_type(argname="argument string_value", value=string_value, expected_type=type_hints["string_value"])
+            check_type(argname="argument data_type", value=data_type, expected_type=type_hints["data_type"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "string_value": string_value,
+        }
+        if allowed_pattern is not None:
+            self._values["allowed_pattern"] = allowed_pattern
+        if description is not None:
+            self._values["description"] = description
+        if parameter_name is not None:
+            self._values["parameter_name"] = parameter_name
+        if simple_name is not None:
+            self._values["simple_name"] = simple_name
+        if tier is not None:
+            self._values["tier"] = tier
+        if data_type is not None:
+            self._values["data_type"] = data_type
+        if type is not None:
+            self._values["type"] = type
+
+    @builtins.property
+    def allowed_pattern(self) -> typing.Optional[builtins.str]:
+        '''A regular expression used to validate the parameter value.
+
+        For example, for String types with values restricted to
+        numbers, you can specify the following: ``^\\d+$``
+
+        :default: no validation is performed
+        '''
+        result = self._values.get("allowed_pattern")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Information about the parameter that you want to add to the system.
+
+        :default: none
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def parameter_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the parameter.
+
+        :default: - a name will be generated by CloudFormation
+        '''
+        result = self._values.get("parameter_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def simple_name(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether the parameter name is a simple name.
+
+        A parameter name
+        without any "/" is considered a simple name. If the parameter name includes
+        "/", setting simpleName to true might cause unintended issues such
+        as duplicate "/" in the resulting ARN.
+
+        This is required only if ``parameterName`` is a token, which means we
+        are unable to detect if the name is simple or "path-like" for the purpose
+        of rendering SSM parameter ARNs.
+
+        If ``parameterName`` is not specified, ``simpleName`` must be ``true`` (or
+        undefined) since the name generated by AWS CloudFormation is always a
+        simple name.
+
+        :default: - auto-detect based on ``parameterName``
+        '''
+        result = self._values.get("simple_name")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def tier(self) -> typing.Optional["ParameterTier"]:
+        '''The tier of the string parameter.
+
+        :default: - undefined
+        '''
+        result = self._values.get("tier")
+        return typing.cast(typing.Optional["ParameterTier"], result)
+
+    @builtins.property
+    def string_value(self) -> builtins.str:
+        '''The value of the parameter.
+
+        It may not reference another parameter and ``{{}}`` cannot be used in the value.
+        '''
+        result = self._values.get("string_value")
+        assert result is not None, "Required property 'string_value' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_type(self) -> typing.Optional["ParameterDataType"]:
+        '''The data type of the parameter, such as ``text`` or ``aws:ec2:image``.
+
+        :default: ParameterDataType.TEXT
+        '''
+        result = self._values.get("data_type")
+        return typing.cast(typing.Optional["ParameterDataType"], result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["ParameterType"]:
+        '''(deprecated) The type of the string parameter.
+
+        :default: ParameterType.STRING
+
+        :deprecated: - type will always be 'String'
+
+        :stability: deprecated
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["ParameterType"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "StringParameterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AssociationReference",
     "CfnAssociation",
     "CfnAssociationProps",
     "CfnDocument",
@@ -10335,32 +9943,15 @@ __all__ = [
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
     "CommonStringParameterAttributes",
-    "DocumentReference",
-    "IAssociationRef",
-    "IDocumentRef",
-    "IMaintenanceWindowRef",
-    "IMaintenanceWindowTargetRef",
-    "IMaintenanceWindowTaskRef",
     "IParameter",
-    "IParameterRef",
-    "IPatchBaselineRef",
-    "IResourceDataSyncRef",
-    "IResourcePolicyRef",
     "IStringListParameter",
     "IStringParameter",
     "ListParameterAttributes",
-    "MaintenanceWindowReference",
-    "MaintenanceWindowTargetReference",
-    "MaintenanceWindowTaskReference",
     "ParameterDataType",
     "ParameterOptions",
-    "ParameterReference",
     "ParameterTier",
     "ParameterType",
     "ParameterValueType",
-    "PatchBaselineReference",
-    "ResourceDataSyncReference",
-    "ResourcePolicyReference",
     "SecureStringParameterAttributes",
     "StringListParameter",
     "StringListParameterProps",
@@ -10372,503 +9963,47 @@ __all__ = [
 
 publication.publish()
 
-def _typecheckingstub__b54a9b545ae754569ee0b60a5c0f4124e91ea5d0690502f11824d39b2838c5d3(
+def _typecheckingstub__92579425f735301e17a993e7df464a283a7d42ba685c2d4205cf945db662d245(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
     *,
+    name: typing.Union[builtins.str, _IDocumentRef_6c66ce42],
+    apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    association_name: typing.Optional[builtins.str] = None,
+    automation_target_parameter_name: typing.Optional[builtins.str] = None,
+    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    compliance_severity: typing.Optional[builtins.str] = None,
+    document_version: typing.Optional[builtins.str] = None,
+    instance_id: typing.Optional[builtins.str] = None,
+    max_concurrency: typing.Optional[builtins.str] = None,
+    max_errors: typing.Optional[builtins.str] = None,
+    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.InstanceAssociationOutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Any = None,
+    schedule_expression: typing.Optional[builtins.str] = None,
+    schedule_offset: typing.Optional[jsii.Number] = None,
+    sync_compliance: typing.Optional[builtins.str] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e4a265e7dc882e8a494568f857f8e9472592c22f1b91672cc1b1b43827911bc(
+    resource: _IAssociationRef_a842a755,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2a4e2f6f1ad5f1b777c7a5fcb533625aa60df723d920b56a3738329f8b631cb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
     association_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01cc7e0dac(
-    *,
-    name: builtins.str,
-    apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    association_name: typing.Optional[builtins.str] = None,
-    automation_target_parameter_name: typing.Optional[builtins.str] = None,
-    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    compliance_severity: typing.Optional[builtins.str] = None,
-    document_version: typing.Optional[builtins.str] = None,
-    instance_id: typing.Optional[builtins.str] = None,
-    max_concurrency: typing.Optional[builtins.str] = None,
-    max_errors: typing.Optional[builtins.str] = None,
-    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.InstanceAssociationOutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parameters: typing.Any = None,
-    schedule_expression: typing.Optional[builtins.str] = None,
-    schedule_offset: typing.Optional[jsii.Number] = None,
-    sync_compliance: typing.Optional[builtins.str] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__25566dec89d0b8b9f0c9ebb93fd7f63988acea14deb943fd94cfe89a3d03a14a(
-    *,
-    content: typing.Any,
-    attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocument.AttachmentsSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    document_format: typing.Optional[builtins.str] = None,
-    document_type: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    requires: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocument.DocumentRequiresProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_type: typing.Optional[builtins.str] = None,
-    update_method: typing.Optional[builtins.str] = None,
-    version_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e76d52f884f4303547d94985493397dbda06375d2fb22bef09cd893b8126578e(
-    *,
-    allow_unassociated_targets: typing.Union[builtins.bool, _IResolvable_da3f097b],
-    cutoff: jsii.Number,
-    duration: jsii.Number,
-    name: builtins.str,
-    schedule: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    end_date: typing.Optional[builtins.str] = None,
-    schedule_offset: typing.Optional[jsii.Number] = None,
-    schedule_timezone: typing.Optional[builtins.str] = None,
-    start_date: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f19925b4e71098d1d7c3ce4f156f1dd7af4f0d2c164edb55bdbb1bc8cefb0b22(
-    *,
-    resource_type: builtins.str,
-    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTarget.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    window_id: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    owner_information: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a897371c334ec198a4346a790b33c5836646788eb0a73ef18f8c56d7c89a1da3(
-    *,
-    priority: jsii.Number,
-    task_arn: builtins.str,
-    task_type: builtins.str,
-    window_id: builtins.str,
-    cutoff_behavior: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.LoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    max_concurrency: typing.Optional[builtins.str] = None,
-    max_errors: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    service_role_arn: typing.Optional[builtins.str] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    task_invocation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TaskInvocationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    task_parameters: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2f89012f4986143c527853d7179ea46d1a3002d4025caeaa2123f32786cfdef8(
-    *,
-    type: builtins.str,
-    value: builtins.str,
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    data_type: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-    tier: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ff6666a30d275f2a85d64de631c940fb83198b8b5a376b87a3a684f4a2dddf80(
-    *,
-    name: builtins.str,
-    approval_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    approved_patches_compliance_level: typing.Optional[builtins.str] = None,
-    approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
-    default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    description: typing.Optional[builtins.str] = None,
-    global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    operating_system: typing.Optional[builtins.str] = None,
-    patch_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    rejected_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
-    rejected_patches_action: typing.Optional[builtins.str] = None,
-    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26353d4906971bfc49271a95bc4480dfb3fac99c43391b8a0aa7279209b75bb5(
-    *,
-    sync_name: builtins.str,
-    bucket_name: typing.Optional[builtins.str] = None,
-    bucket_prefix: typing.Optional[builtins.str] = None,
-    bucket_region: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDataSync.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sync_format: typing.Optional[builtins.str] = None,
-    sync_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDataSync.SyncSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    sync_type: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da98262576855(
-    *,
-    policy: typing.Any,
-    resource_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60f4e05a41320bc1b3f1ba81e5056d43a2052eca526364b7ba62177a7542034f(
-    *,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e9beae103a75fe41cfb911f1d1717bf7877fb37c51da2febfd9bf11a5eb9cad6(
-    *,
-    document_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__893dbe773f4eba8ae68bead053c2684acc5663f3c6568bf7b8860bed6523f05c(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cf6ae2a6ac121e36c84da0bbab30988cb29b98a2a83327833cd5a201ac06b622(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__caa32518e1d362afcbf135bf8697e59bfcd27563570e63250f9b6ad629ce1479(
-    *,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-    element_type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94e75f749de5c7388059c82a1b091d0437ed5b9e362a2387a8dc4ad9ed462f79(
-    *,
-    maintenance_window_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d18ecd6547ecbce6faca4d79a28239ad1db0afff5cbc46f668e753d575aeb613(
-    *,
-    maintenance_window_target_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__26939a9babb8f324ecbe47e1c82adc25bec9503648b1dc37273ce4962ab58e25(
-    *,
-    maintenance_window_task_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__54be6c6ec55adec6de5f0a4b285882a64b6047fff6c35192fc38b5de44f05ec5(
-    *,
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    simple_name: typing.Optional[builtins.bool] = None,
-    tier: typing.Optional[ParameterTier] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bbfdc70868c5a9c16217cb7ffe4a31d1d4c065de1d1fc4b9b4d37a6ffd336d53(
-    *,
-    parameter_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9bc828b5f97283efc45abe23d163212aa8f42e523abca8f098414ae4a03a5412(
-    *,
-    patch_baseline_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__899fcc4cc5c3a254f511f481ad9836b22d8125176ef8bbae6716968fd5b3bfc3(
-    *,
-    sync_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__35d103cb1ee0617d2fd806fab17799ab15095c031720120dd9d2762241c5c7de(
-    *,
-    policy_id: builtins.str,
-    resource_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2c29a999cdf02428bb99b29e94af353e96064d305daa31ac2e3c9bbd7cff7dee(
-    *,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94de6d51dda014e2ac4e863b9f9611f97d1e28dc774309241f1b4d807451758f(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    string_list_value: typing.Sequence[builtins.str],
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    simple_name: typing.Optional[builtins.bool] = None,
-    tier: typing.Optional[ParameterTier] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b477545ed5d53e5b666f41087db25aa6bdc347c4cead18a586bd16678f612801(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    element_type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ee02d93e11a637ffc18281f9eda840005cd8f1adec7265948e87be3b063fd8b(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    string_list_parameter_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9b9ae745d086e0dea148aea94e9f88d8efd375fa182578d056bcfd3fd08b1771(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__819241aedbf400f619f3bb1dab30b0594eef1072ffeee79fad21356c807bec86(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0a6c74a7f6bd369fd4593adcf2cfb417138607dd7b20b5da6ea534219eee0c55(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1fda8a7b3397aad49f6c3720e316364d4df6b092c111c31c5e48e223f7ab4b46(
-    *,
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    simple_name: typing.Optional[builtins.bool] = None,
-    tier: typing.Optional[ParameterTier] = None,
-    string_list_value: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c2eeba991f657f464e2410cd38fdeecff2bdaa0b51e35cd0e4ca251c97217a46(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    string_value: builtins.str,
-    data_type: typing.Optional[ParameterDataType] = None,
-    type: typing.Optional[ParameterType] = None,
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    simple_name: typing.Optional[builtins.bool] = None,
-    tier: typing.Optional[ParameterTier] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ef716b2d64b7c95b87119e190e88504880c3f46c45b769e05e9f4f805b08c63d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    encryption_key: typing.Optional[_IKey_5f11635f] = None,
-    version: typing.Optional[jsii.Number] = None,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9575783638c75217cf30c3b85a444f0d969712861524ca788f0f3c83fa889f88(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    string_parameter_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e612c2654654e8b8bb7821bcd1e47680b025862a2a411467ffa6334e46371b05(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    force_dynamic_reference: typing.Optional[builtins.bool] = None,
-    type: typing.Optional[ParameterType] = None,
-    value_type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb0299149e02d9543818343516306f4b32ee1ac5f245ff3c79ee5fd2016ec670(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    string_parameter_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__38dfc6aee7234162b6dfa7fd6d79daf1e5e20fb93a83a884110ee85c9406a842(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    version: jsii.Number,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__587bcd33299d81a1c2d922ca6d8a6c0dbb1a57b5bf5619f44b25a23071ffcf19(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__76ddd12c8dffbad4b7f599d939f1683184715d90ae73713323484cf1f89d0f99(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    type: typing.Optional[ParameterType] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f4ec30255f3ac830ba0695e062a34e2012e0542d68a61c236b791945a367b24b(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372f650250(
-    scope: _constructs_77d1e7e8.Construct,
-    parameter_name: builtins.str,
-    default_value: typing.Optional[builtins.str] = None,
-    *,
-    additional_cache_key: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f2b954516f020047895372042cbf3497906d242b8a2c10008ce8a5c2e1335370(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9601cc05d10fcfadbdc97c8deacf47393567be2f0e90bd28ea11cdfe571976fa(
-    grantee: _IGrantable_71c4f5de,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__045695ee32d353600237b891b14ad138098a0add8ba99199144ee57eff4ad99f(
-    *,
-    parameter_name: builtins.str,
-    simple_name: typing.Optional[builtins.bool] = None,
-    force_dynamic_reference: typing.Optional[builtins.bool] = None,
-    type: typing.Optional[ParameterType] = None,
-    value_type: typing.Optional[ParameterValueType] = None,
-    version: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3(
-    *,
-    additional_cache_key: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a14e5cea1d211f374b7c289d526224c03be1f2e91a2a94cbcdf8f1d251335822(
-    *,
-    allowed_pattern: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    parameter_name: typing.Optional[builtins.str] = None,
-    simple_name: typing.Optional[builtins.bool] = None,
-    tier: typing.Optional[ParameterTier] = None,
-    string_value: builtins.str,
-    data_type: typing.Optional[ParameterDataType] = None,
-    type: typing.Optional[ParameterType] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__92579425f735301e17a993e7df464a283a7d42ba685c2d4205cf945db662d245(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    name: builtins.str,
-    apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    association_name: typing.Optional[builtins.str] = None,
-    automation_target_parameter_name: typing.Optional[builtins.str] = None,
-    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    compliance_severity: typing.Optional[builtins.str] = None,
-    document_version: typing.Optional[builtins.str] = None,
-    instance_id: typing.Optional[builtins.str] = None,
-    max_concurrency: typing.Optional[builtins.str] = None,
-    max_errors: typing.Optional[builtins.str] = None,
-    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.InstanceAssociationOutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    parameters: typing.Any = None,
-    schedule_expression: typing.Optional[builtins.str] = None,
-    schedule_offset: typing.Optional[jsii.Number] = None,
-    sync_compliance: typing.Optional[builtins.str] = None,
-    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
+def _typecheckingstub__be18d2efefd249dd9329703cfb13014e5a0e3ac4b46962689c82576cf746770b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11011,6 +10146,29 @@ def _typecheckingstub__e23bdeb61e8b0804a4fde32db838d3743a925dc709401804cd81e355e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01cc7e0dac(
+    *,
+    name: typing.Union[builtins.str, _IDocumentRef_6c66ce42],
+    apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    association_name: typing.Optional[builtins.str] = None,
+    automation_target_parameter_name: typing.Optional[builtins.str] = None,
+    calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    compliance_severity: typing.Optional[builtins.str] = None,
+    document_version: typing.Optional[builtins.str] = None,
+    instance_id: typing.Optional[builtins.str] = None,
+    max_concurrency: typing.Optional[builtins.str] = None,
+    max_errors: typing.Optional[builtins.str] = None,
+    output_location: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.InstanceAssociationOutputLocationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parameters: typing.Any = None,
+    schedule_expression: typing.Optional[builtins.str] = None,
+    schedule_offset: typing.Optional[jsii.Number] = None,
+    sync_compliance: typing.Optional[builtins.str] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4d0587e99b7ec516726ff27f1c34b1714d8645ad06944d59be27a612537ddab2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11025,6 +10183,26 @@ def _typecheckingstub__4d0587e99b7ec516726ff27f1c34b1714d8645ad06944d59be27a6125
     target_type: typing.Optional[builtins.str] = None,
     update_method: typing.Optional[builtins.str] = None,
     version_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4f1617c8f43e163a2e8d6035d529cd8344ebef58cbe1c0e295ffce456043e36(
+    resource: _IDocumentRef_6c66ce42,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c67b192e3e153596beb12dc7520f7cbf677768f2e862aa4d968b306611aea53(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    document_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0cd3ae3bef13e2e5f76ab6255ccd28afa86202bd33e0eed8f738f2c989bdf8fe(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11118,6 +10296,22 @@ def _typecheckingstub__aef1956d3e7560ca3d8bf2295207e843bbdd851217757941ff4d603fe
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__25566dec89d0b8b9f0c9ebb93fd7f63988acea14deb943fd94cfe89a3d03a14a(
+    *,
+    content: typing.Any,
+    attachments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocument.AttachmentsSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    document_format: typing.Optional[builtins.str] = None,
+    document_type: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    requires: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDocument.DocumentRequiresProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_type: typing.Optional[builtins.str] = None,
+    update_method: typing.Optional[builtins.str] = None,
+    version_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ad1b2a4216045934da690d96bf97784e2924381a651333920a48e8bccaa28bed(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11133,6 +10327,12 @@ def _typecheckingstub__ad1b2a4216045934da690d96bf97784e2924381a651333920a48e8bcc
     schedule_timezone: typing.Optional[builtins.str] = None,
     start_date: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__638f16c294e81c950c9fdcf1c2bbf0c60a2f50e11404c0dc2c972bda72c6e5fa(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11215,6 +10415,23 @@ def _typecheckingstub__ff8aedf9ec0e769950717671246b7841aefbc47689520e9925ec90bc7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e76d52f884f4303547d94985493397dbda06375d2fb22bef09cd893b8126578e(
+    *,
+    allow_unassociated_targets: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    cutoff: jsii.Number,
+    duration: jsii.Number,
+    name: builtins.str,
+    schedule: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    end_date: typing.Optional[builtins.str] = None,
+    schedule_offset: typing.Optional[jsii.Number] = None,
+    schedule_timezone: typing.Optional[builtins.str] = None,
+    start_date: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f2179f5bf9c66eb25232096c54c2b6db2fe7f605be13acfcdbc1bae1e8a27cf5(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11225,6 +10442,18 @@ def _typecheckingstub__f2179f5bf9c66eb25232096c54c2b6db2fe7f605be13acfcdbc1bae1e
     description: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
     owner_information: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eae2668c29d077c60c806a238378a87a290e297573490664090be5e37ee9be63(
+    resource: _IMaintenanceWindowTargetRef_fe2384dd,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ac73bac81db0daff20aedfc5ebaa62aeb70cd07185310294daa172e040264a9(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11285,6 +10514,18 @@ def _typecheckingstub__9f385d4e9e8ebe3c37486729db165f1ed4064a2d660f424ea0550adda
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f19925b4e71098d1d7c3ce4f156f1dd7af4f0d2c164edb55bdbb1bc8cefb0b22(
+    *,
+    resource_type: builtins.str,
+    targets: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTarget.TargetsProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    window_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    owner_information: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5ab957de8d8a36935188de8e7d81d523e1ab1253ec8aab9717d062cb647fc726(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11303,6 +10544,18 @@ def _typecheckingstub__5ab957de8d8a36935188de8e7d81d523e1ab1253ec8aab9717d062cb6
     targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     task_invocation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TaskInvocationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_parameters: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__371178f378061efc90f540775612d1073e0b94ad409b89c6bfdf2492191649f0(
+    resource: _IMaintenanceWindowTaskRef_72680416,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1013cf15a39ff39438ea96a01c60d0c580321c58b2bc730f3331f7838e09e5e2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11489,6 +10742,26 @@ def _typecheckingstub__6c4d0f27b97034ab166224c30178c332f8ccc78c97088665138b97e11
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a897371c334ec198a4346a790b33c5836646788eb0a73ef18f8c56d7c89a1da3(
+    *,
+    priority: jsii.Number,
+    task_arn: builtins.str,
+    task_type: builtins.str,
+    window_id: builtins.str,
+    cutoff_behavior: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    logging_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.LoggingInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    max_concurrency: typing.Optional[builtins.str] = None,
+    max_errors: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    service_role_arn: typing.Optional[builtins.str] = None,
+    targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    task_invocation_parameters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMaintenanceWindowTask.TaskInvocationParametersProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_parameters: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__84f5ae628815b139c6b10b41675bde183ddd347469f32bde65a41e5d61495260(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11502,6 +10775,12 @@ def _typecheckingstub__84f5ae628815b139c6b10b41675bde183ddd347469f32bde65a41e5d6
     policies: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27e066e7ba148ee83794f24c2642a1dd83e547fe2f7eb2c8b89a114b47708a42(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11572,6 +10851,21 @@ def _typecheckingstub__0cb309cb97ef3622d8ccca3962a03b455578863222196e6d48ee076e2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2f89012f4986143c527853d7179ea46d1a3002d4025caeaa2123f32786cfdef8(
+    *,
+    type: builtins.str,
+    value: builtins.str,
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    data_type: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    policies: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    tier: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5b87565e6649bbe5a503013adf6ae874b3dc918c05cd6b120b99a77e88b0b389(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11591,6 +10885,12 @@ def _typecheckingstub__5b87565e6649bbe5a503013adf6ae874b3dc918c05cd6b120b99a77e8
     rejected_patches_action: typing.Optional[builtins.str] = None,
     sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4a9b307c46c6eab44c4fbbd3e201b2d07635928f1f4e11b97ae182f292e794a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11739,12 +11039,33 @@ def _typecheckingstub__8cc64444abb423fe6f774ad5b2ff12d0f2a189d9ce78b6c8500268e76
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ff6666a30d275f2a85d64de631c940fb83198b8b5a376b87a3a684f4a2dddf80(
+    *,
+    name: builtins.str,
+    approval_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.RuleGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    approved_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
+    approved_patches_compliance_level: typing.Optional[builtins.str] = None,
+    approved_patches_enable_non_security: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    available_security_updates_compliance_status: typing.Optional[builtins.str] = None,
+    default_baseline: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    description: typing.Optional[builtins.str] = None,
+    global_filters: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchFilterGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    operating_system: typing.Optional[builtins.str] = None,
+    patch_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    rejected_patches: typing.Optional[typing.Sequence[builtins.str]] = None,
+    rejected_patches_action: typing.Optional[builtins.str] = None,
+    sources: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPatchBaseline.PatchSourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c8a24f4d86cad49691c9635278face17e76a24ad5a69daef9687e1e2d395158c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     sync_name: builtins.str,
-    bucket_name: typing.Optional[builtins.str] = None,
+    bucket_name: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
     bucket_prefix: typing.Optional[builtins.str] = None,
     bucket_region: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
@@ -11752,6 +11073,26 @@ def _typecheckingstub__c8a24f4d86cad49691c9635278face17e76a24ad5a69daef9687e1e2d
     sync_format: typing.Optional[builtins.str] = None,
     sync_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDataSync.SyncSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sync_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d0a40ad9955f97a81b9896272461da3bd9173c429e5e12bf580c639715a769d(
+    resource: _IResourceDataSyncRef_e153aa7a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cedf0c69b18eabda62c763c9450657c3f2ff5e3fd11df7e4494672287104d75(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    sync_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d33e64b1c41c129aded6dccdb0a3d8d1db53a5ed05389792cdd5e012482ba5c(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11851,12 +11192,33 @@ def _typecheckingstub__ac8e974fe62ffae098cb7f57d7ea4db9b8d0aafbbba47aa7622d2bdcc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__26353d4906971bfc49271a95bc4480dfb3fac99c43391b8a0aa7279209b75bb5(
+    *,
+    sync_name: builtins.str,
+    bucket_name: typing.Optional[typing.Union[builtins.str, _IBucketRef_3debe44e]] = None,
+    bucket_prefix: typing.Optional[builtins.str] = None,
+    bucket_region: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    s3_destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDataSync.S3DestinationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sync_format: typing.Optional[builtins.str] = None,
+    sync_source: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResourceDataSync.SyncSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sync_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fde734ca585a99029a54306ff0fc2e0b9d248ae4e5ec6603d9179a5e18853eb2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     policy: typing.Any,
     resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b238346a0d0cf753e1f7c714529dea2ebe0ddf212c5943f941827a2a47195d11(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11884,3 +11246,293 @@ def _typecheckingstub__cd166322a09f9cd5b0060ba3a485fb9349539a442b3ae8ec7ee33b0ad
 ) -> None:
     """Type checking stubs"""
     pass
+
+def _typecheckingstub__641aa0c71c4c89cb2aee737e31b19b3ae0745b8943985fb6855da98262576855(
+    *,
+    policy: typing.Any,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60f4e05a41320bc1b3f1ba81e5056d43a2052eca526364b7ba62177a7542034f(
+    *,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__893dbe773f4eba8ae68bead053c2684acc5663f3c6568bf7b8860bed6523f05c(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf6ae2a6ac121e36c84da0bbab30988cb29b98a2a83327833cd5a201ac06b622(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__caa32518e1d362afcbf135bf8697e59bfcd27563570e63250f9b6ad629ce1479(
+    *,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+    element_type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54be6c6ec55adec6de5f0a4b285882a64b6047fff6c35192fc38b5de44f05ec5(
+    *,
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    simple_name: typing.Optional[builtins.bool] = None,
+    tier: typing.Optional[ParameterTier] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c29a999cdf02428bb99b29e94af353e96064d305daa31ac2e3c9bbd7cff7dee(
+    *,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94de6d51dda014e2ac4e863b9f9611f97d1e28dc774309241f1b4d807451758f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    string_list_value: typing.Sequence[builtins.str],
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    simple_name: typing.Optional[builtins.bool] = None,
+    tier: typing.Optional[ParameterTier] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b477545ed5d53e5b666f41087db25aa6bdc347c4cead18a586bd16678f612801(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    element_type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ee02d93e11a637ffc18281f9eda840005cd8f1adec7265948e87be3b063fd8b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    string_list_parameter_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b9ae745d086e0dea148aea94e9f88d8efd375fa182578d056bcfd3fd08b1771(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__824e8abcbca38ad92af3ff44fd0365b7d085fe7ecaacd4bc420f85fa7d6e2417(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__819241aedbf400f619f3bb1dab30b0594eef1072ffeee79fad21356c807bec86(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a6c74a7f6bd369fd4593adcf2cfb417138607dd7b20b5da6ea534219eee0c55(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1fda8a7b3397aad49f6c3720e316364d4df6b092c111c31c5e48e223f7ab4b46(
+    *,
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    simple_name: typing.Optional[builtins.bool] = None,
+    tier: typing.Optional[ParameterTier] = None,
+    string_list_value: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2eeba991f657f464e2410cd38fdeecff2bdaa0b51e35cd0e4ca251c97217a46(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    string_value: builtins.str,
+    data_type: typing.Optional[ParameterDataType] = None,
+    type: typing.Optional[ParameterType] = None,
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    simple_name: typing.Optional[builtins.bool] = None,
+    tier: typing.Optional[ParameterTier] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef716b2d64b7c95b87119e190e88504880c3f46c45b769e05e9f4f805b08c63d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    encryption_key: typing.Optional[_IKey_5f11635f] = None,
+    version: typing.Optional[jsii.Number] = None,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9575783638c75217cf30c3b85a444f0d969712861524ca788f0f3c83fa889f88(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    string_parameter_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e612c2654654e8b8bb7821bcd1e47680b025862a2a411467ffa6334e46371b05(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    force_dynamic_reference: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[ParameterType] = None,
+    value_type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb0299149e02d9543818343516306f4b32ee1ac5f245ff3c79ee5fd2016ec670(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    string_parameter_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__38dfc6aee7234162b6dfa7fd6d79daf1e5e20fb93a83a884110ee85c9406a842(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    version: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__587bcd33299d81a1c2d922ca6d8a6c0dbb1a57b5bf5619f44b25a23071ffcf19(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__76ddd12c8dffbad4b7f599d939f1683184715d90ae73713323484cf1f89d0f99(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    type: typing.Optional[ParameterType] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4ec30255f3ac830ba0695e062a34e2012e0542d68a61c236b791945a367b24b(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__352ba5506c7762dcb469028a7b0515dc3daed2b43c5a8ff339ed16372f650250(
+    scope: _constructs_77d1e7e8.Construct,
+    parameter_name: builtins.str,
+    default_value: typing.Optional[builtins.str] = None,
+    *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7acb1faa506233f639c04fd634f594bfa266630c67808f0fe4755dc49acc3e5b(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2b954516f020047895372042cbf3497906d242b8a2c10008ce8a5c2e1335370(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9601cc05d10fcfadbdc97c8deacf47393567be2f0e90bd28ea11cdfe571976fa(
+    grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__045695ee32d353600237b891b14ad138098a0add8ba99199144ee57eff4ad99f(
+    *,
+    parameter_name: builtins.str,
+    simple_name: typing.Optional[builtins.bool] = None,
+    force_dynamic_reference: typing.Optional[builtins.bool] = None,
+    type: typing.Optional[ParameterType] = None,
+    value_type: typing.Optional[ParameterValueType] = None,
+    version: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b618e024c5c8f9f30e5674f96c195555764789c667bad41049a169d5d6af1d3(
+    *,
+    additional_cache_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a14e5cea1d211f374b7c289d526224c03be1f2e91a2a94cbcdf8f1d251335822(
+    *,
+    allowed_pattern: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    parameter_name: typing.Optional[builtins.str] = None,
+    simple_name: typing.Optional[builtins.bool] = None,
+    tier: typing.Optional[ParameterTier] = None,
+    string_value: builtins.str,
+    data_type: typing.Optional[ParameterDataType] = None,
+    type: typing.Optional[ParameterType] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IParameter, IStringListParameter, IStringParameter]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

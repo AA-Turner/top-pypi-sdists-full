@@ -123,11 +123,16 @@ def test_door_typehint_mapping(iter_hints_piths_meta) -> None:
         assert isinstance(wrapper, hint_meta.typehint_cls)
 
         # ....................{ PROPERTIES                 }....................
-        # Assert that the type hint wrapped by this instance is the same hint.
+        # Assert that the type hint wrapped by this instance is equal to the
+        # same hint. Note that, due to memoization, the type hint wrapped by
+        # this instance is only typically but *NOT* necessarily identical to the
+        # same hint. In theory, an "is"-based identity test would be preferable
+        # to an "=="-based equality test; in practice, the former would induce
+        # false positives in common edge cases.
         wrapper_hint = wrapper.hint
         # print(f'wrapper_hint: {repr(wrapper_hint), id(wrapper_hint), type(wrapper_hint)}')
         # print(f'hint: {repr(hint),  id(hint), type(hint)}')
-        assert wrapper_hint is hint
+        assert wrapper_hint == hint
 
 # ....................{ TESTS ~ dunders                    }....................
 #FIXME: Insufficient. Generalize to test *ALL* possible kinds of type hints.
@@ -392,10 +397,10 @@ def test_door_typehint_is_ignorable(hints_pep_meta, hints_ignorable) -> None:
     from beartype.door import TypeHint
     from beartype.roar import BeartypeDoorException, BeartypeDoorNonpepException
     from beartype.typing import TypeVar
-    from beartype._check.convert.convsanify import sanify_hint_any
+    from beartype._check.convert.convmain import sanify_hint_any
     from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
     from beartype._util.hint.pep.proposal.pep484.pep484typevar import (
-        get_hint_pep484_typevar_bound_or_none)
+        get_hint_pep484_typevar_bounded_constraints_or_none)
     from contextlib import suppress
 
     # ....................{ PASS                           }....................
@@ -431,7 +436,7 @@ def test_door_typehint_is_ignorable(hints_pep_meta, hints_ignorable) -> None:
         if isinstance(hint, TypeVar):
             # Type hint synthesized from all bounded constraints parametrizing
             # this type variable if any *OR* "None" otherwise.
-            hint_typevar_bound = get_hint_pep484_typevar_bound_or_none(hint)
+            hint_typevar_bound = get_hint_pep484_typevar_bounded_constraints_or_none(hint)
 
             # This type hint is ignorable only if either...
             hint_is_ignorable = (

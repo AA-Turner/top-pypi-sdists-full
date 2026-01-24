@@ -3,13 +3,12 @@ name = "stsci.imagestats"
 description = "Compute sigma-clipped statistics on data arrays"
 requires-python = ">=3.9"
 authors = [
-    { name = "Warren Hack", email = "help@stsci.edu" },
+    { name = "Warren Hack" },
     { name = "Christopher Hanley" },
 ]
-license = { text = "BSD-3-Clause" }
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: C",
     "Programming Language :: Cython",
@@ -53,13 +52,12 @@ test = [
 requires = [
     "setuptools>=61.2",
     "setuptools_scm[toml]>=3.6",
-    "numpy>=2.0.0rc2",
+    "numpy>=2.0.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 zip-safe = false
-license-files = ["LICENSE.txt"]
 
 [tool.setuptools_scm]
 write_to = "stsci/imagestats/_version.py"

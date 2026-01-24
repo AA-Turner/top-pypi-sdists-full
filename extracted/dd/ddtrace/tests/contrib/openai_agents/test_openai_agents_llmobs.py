@@ -1,5 +1,6 @@
 from typing import Dict
 from typing import List
+from typing import Optional
 from typing import Tuple
 
 import mock
@@ -13,7 +14,6 @@ from tests.llmobs._utils import _expected_llmobs_non_llm_span_event
 COMMON_RESPONSE_LLM_METADATA = {
     "temperature": mock.ANY,
     "top_p": mock.ANY,
-    "reasoning_tokens": mock.ANY,
     "tool_choice": "auto",
     "tools": mock.ANY,
     "truncation": "disabled",
@@ -122,9 +122,9 @@ def _assert_expected_agent_run(
     expected_span_names: List[str],
     spans,
     llmobs_events,
-    llm_calls: List[Tuple[List[Dict], List[Dict]]] = None,
-    tool_calls: List[dict] = None,
-    previous_tool_events: List[dict] = None,
+    llm_calls: Optional[List[Tuple[List[Dict], List[Dict]]]] = None,
+    tool_calls: Optional[List[dict]] = None,
+    previous_tool_events: Optional[List[dict]] = None,
     is_chat=False,
 ) -> List[dict]:
     """Assert expected LLMObs events matches actual events for an agent run
@@ -158,6 +158,7 @@ def _assert_expected_agent_run(
                     "input_tokens": mock.ANY,
                     "output_tokens": mock.ANY,
                     "total_tokens": mock.ANY,
+                    "reasoning_output_tokens": mock.ANY,
                 },
                 metadata=COMMON_RESPONSE_LLM_METADATA,
                 model_name="gpt-4o-2024-08-06",
@@ -762,3 +763,29 @@ async def test_llmobs_oai_agents_with_guardrail_spans(
     _assert_span_link(llmobs_events[2], llmobs_events[3], "output", "input")
     # assert LLM span links to output guardrail span
     _assert_span_link(llmobs_events[5], llmobs_events[6], "output", "input")
+
+
+@pytest.mark.asyncio
+async def test_no_error_when_current_span_is_none(agents, mock_tracer, simple_agent):
+    """Regression test: tag_agent_manifest should not raise AttributeError when current_span is None."""
+    from ddtrace._trace.pin import Pin
+    from ddtrace.contrib.internal.openai_agents.patch import _patched_run_single_turn
+
+    pin = Pin.get_from(agents)
+
+    # Create an async mock for the original function that _patched_run_single_turn wraps
+    async def mock_func(*args, **kwargs):
+        return None
+
+    # Directly test the patched function with current_span returning None
+    with mock.patch.object(pin.tracer, "current_span", return_value=None):
+        # Should not raise AttributeError: 'NoneType' object has no attribute '_set_ctx_item'
+        await _patched_run_single_turn(
+            agents,
+            pin,
+            mock_func,
+            instance=None,
+            args=(simple_agent,),
+            kwargs={"input": "What is the capital of France?"},
+            agent_index=0,
+        )

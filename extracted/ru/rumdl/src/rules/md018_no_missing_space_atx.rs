@@ -3,16 +3,11 @@
 /// See [docs/md018.md](../../docs/md018.md) for full documentation, configuration, and examples.
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::utils::range_utils::calculate_single_line_range;
-use lazy_static::lazy_static;
-use regex::Regex;
+use crate::utils::regex_cache::get_cached_regex;
 
-lazy_static! {
-    // Pattern to detect emoji hashtags like #️⃣
-    static ref EMOJI_HASHTAG_PATTERN: Regex = Regex::new(r"^#️⃣|^#⃣").unwrap();
-
-    // Pattern to detect Unicode hashtag symbols that shouldn't be treated as headings
-    static ref UNICODE_HASHTAG_PATTERN: Regex = Regex::new(r"^#[\u{FE0F}\u{20E3}]").unwrap();
-}
+// Emoji and Unicode hashtag patterns
+const EMOJI_HASHTAG_PATTERN_STR: &str = r"^#️⃣|^#⃣";
+const UNICODE_HASHTAG_PATTERN_STR: &str = r"^#[\u{FE0F}\u{20E3}]";
 
 #[derive(Clone)]
 pub struct MD018NoMissingSpaceAtx;
@@ -38,8 +33,23 @@ impl MD018NoMissingSpaceAtx {
             return None;
         }
 
+        // Only flag patterns at column 1 (no indentation) to match markdownlint behavior
+        // Indented patterns are likely:
+        // - Multi-line link continuations (e.g., "  #sig-contribex](url)")
+        // - List item content
+        // - Other continuation contexts
+        if indent > 0 {
+            return None;
+        }
+
         // Skip emoji hashtags and Unicode hashtag patterns
-        if EMOJI_HASHTAG_PATTERN.is_match(trimmed_line) || UNICODE_HASHTAG_PATTERN.is_match(trimmed_line) {
+        let is_emoji = get_cached_regex(EMOJI_HASHTAG_PATTERN_STR)
+            .map(|re| re.is_match(trimmed_line))
+            .unwrap_or(false);
+        let is_unicode = get_cached_regex(UNICODE_HASHTAG_PATTERN_STR)
+            .map(|re| re.is_match(trimmed_line))
+            .unwrap_or(false);
+        if is_emoji || is_unicode {
             return None;
         }
 
@@ -79,19 +89,6 @@ impl MD018NoMissingSpaceAtx {
             // Skip if it starts with emphasis markers
             if content.starts_with('*') || content.starts_with('_') {
                 return None;
-            }
-
-            // Skip if it looks like a hashtag (e.g., #tag, #123)
-            // But only skip if it's lowercase or a number to avoid skipping headings like #Summary
-            if hash_count == 1 && !content.is_empty() {
-                let first_char = content.chars().next();
-                if let Some(ch) = first_char {
-                    // Skip if it's a lowercase letter or number (common hashtag pattern)
-                    // Don't skip uppercase as those are likely headings
-                    if (ch.is_lowercase() || ch.is_numeric()) && !content.contains(' ') {
-                        return None;
-                    }
-                }
             }
 
             // This looks like a malformed heading that needs a space
@@ -142,15 +139,32 @@ impl Rule for MD018NoMissingSpaceAtx {
 
         // Check all lines that have ATX headings from cached info
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
+            // Skip lines inside HTML blocks or HTML comments (e.g., CSS selectors like #id)
+            if line_info.in_html_block || line_info.in_html_comment {
+                continue;
+            }
+
             if let Some(heading) = &line_info.heading {
                 // Only check ATX headings
                 if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
+                    // Skip indented headings to match markdownlint behavior
+                    // Markdownlint only flags patterns at column 1
+                    if line_info.indent > 0 {
+                        continue;
+                    }
+
                     // Check if there's a space after the marker
-                    let line = &line_info.content;
+                    let line = line_info.content(ctx.content);
                     let trimmed = line.trim_start();
 
                     // Skip emoji hashtags and Unicode hashtag patterns
-                    if EMOJI_HASHTAG_PATTERN.is_match(trimmed) || UNICODE_HASHTAG_PATTERN.is_match(trimmed) {
+                    let is_emoji = get_cached_regex(EMOJI_HASHTAG_PATTERN_STR)
+                        .map(|re| re.is_match(trimmed))
+                        .unwrap_or(false);
+                    let is_unicode = get_cached_regex(UNICODE_HASHTAG_PATTERN_STR)
+                        .map(|re| re.is_match(trimmed))
+                        .unwrap_or(false);
+                    if is_emoji || is_unicode {
                         continue;
                     }
 
@@ -167,7 +181,7 @@ impl Rule for MD018NoMissingSpaceAtx {
                             );
 
                             warnings.push(LintWarning {
-                                rule_name: Some(self.name()),
+                                rule_name: Some(self.name().to_string()),
                                 message: format!("No space after {} in heading", "#".repeat(heading.level as usize)),
                                 line: start_line,
                                 column: start_col,
@@ -176,20 +190,24 @@ impl Rule for MD018NoMissingSpaceAtx {
                                 severity: Severity::Warning,
                                 fix: Some(Fix {
                                     range: self.get_line_byte_range(ctx.content, line_num + 1),
-                                    replacement: format!(
-                                        "{}{} {}",
-                                        " ".repeat(line_info.indent),
-                                        heading.marker,
-                                        after_marker
-                                    ),
+                                    replacement: {
+                                        // Preserve original indentation (including tabs)
+                                        let line = line_info.content(ctx.content);
+                                        let original_indent = &line[..line_info.indent];
+                                        format!("{original_indent}{} {after_marker}", heading.marker)
+                                    },
                                 }),
                             });
                         }
                     }
                 }
-            } else if !line_info.in_code_block && !line_info.is_blank {
+            } else if !line_info.in_code_block
+                && !line_info.in_front_matter
+                && !line_info.in_html_comment
+                && !line_info.is_blank
+            {
                 // Check for malformed headings that weren't detected as proper headings
-                if let Some((hash_end_pos, fixed_line)) = self.check_atx_heading_line(&line_info.content) {
+                if let Some((hash_end_pos, fixed_line)) = self.check_atx_heading_line(line_info.content(ctx.content)) {
                     let (start_line, start_col, end_line, end_col) = calculate_single_line_range(
                         line_num + 1,     // Convert to 1-indexed
                         hash_end_pos + 1, // 1-indexed column
@@ -197,7 +215,7 @@ impl Rule for MD018NoMissingSpaceAtx {
                     );
 
                     warnings.push(LintWarning {
-                        rule_name: Some(self.name()),
+                        rule_name: Some(self.name().to_string()),
                         message: "No space after hash in heading".to_string(),
                         line: start_line,
                         column: start_col,
@@ -225,11 +243,17 @@ impl Rule for MD018NoMissingSpaceAtx {
             if let Some(heading) = &line_info.heading {
                 // Fix ATX headings missing space
                 if matches!(heading.style, crate::lint_context::HeadingStyle::ATX) {
-                    let line = &line_info.content;
+                    let line = line_info.content(ctx.content);
                     let trimmed = line.trim_start();
 
                     // Skip emoji hashtags and Unicode hashtag patterns
-                    if EMOJI_HASHTAG_PATTERN.is_match(trimmed) || UNICODE_HASHTAG_PATTERN.is_match(trimmed) {
+                    let is_emoji = get_cached_regex(EMOJI_HASHTAG_PATTERN_STR)
+                        .map(|re| re.is_match(trimmed))
+                        .unwrap_or(false);
+                    let is_unicode = get_cached_regex(UNICODE_HASHTAG_PATTERN_STR)
+                        .map(|re| re.is_match(trimmed))
+                        .unwrap_or(false);
+                    if is_emoji || is_unicode {
                         continue;
                     }
 
@@ -237,27 +261,28 @@ impl Rule for MD018NoMissingSpaceAtx {
                         let after_marker = &trimmed[heading.marker.len()..];
                         if !after_marker.is_empty() && !after_marker.starts_with(' ') && !after_marker.starts_with('\t')
                         {
-                            // Add space after marker
-                            lines.push(format!(
-                                "{}{} {}",
-                                " ".repeat(line_info.indent),
-                                heading.marker,
-                                after_marker
-                            ));
+                            // Add space after marker, preserving original indentation (including tabs)
+                            let line = line_info.content(ctx.content);
+                            let original_indent = &line[..line_info.indent];
+                            lines.push(format!("{original_indent}{} {after_marker}", heading.marker));
                             fixed = true;
                         }
                     }
                 }
-            } else if !line_info.in_code_block && !line_info.is_blank {
+            } else if !line_info.in_code_block
+                && !line_info.in_front_matter
+                && !line_info.in_html_comment
+                && !line_info.is_blank
+            {
                 // Fix malformed headings
-                if let Some((_, fixed_line)) = self.check_atx_heading_line(&line_info.content) {
+                if let Some((_, fixed_line)) = self.check_atx_heading_line(line_info.content(ctx.content)) {
                     lines.push(fixed_line);
                     fixed = true;
                 }
             }
 
             if !fixed {
-                lines.push(line_info.content.clone());
+                lines.push(line_info.content(ctx.content).to_string());
             }
         }
 
@@ -277,8 +302,8 @@ impl Rule for MD018NoMissingSpaceAtx {
 
     /// Check if this rule should be skipped
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if no lines contain hash symbols
-        !ctx.lines.iter().any(|line| line.content.contains('#'))
+        // Fast path: check if document likely has headings
+        !ctx.likely_has_headings()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -304,13 +329,13 @@ mod tests {
 
         // Test with correct space
         let content = "# Heading 1\n## Heading 2\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
 
         // Test with missing space
         let content = "#Heading 1\n## Heading 2\n###Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert_eq!(result.len(), 2); // Should flag the two headings with missing spaces
         assert_eq!(result[0].line, 1);
@@ -359,7 +384,7 @@ This should NOT be detected (fenced code block).
 This should be detected.
 "#;
 
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should detect malformed headings but ignore code blocks
@@ -380,7 +405,7 @@ This is a test.
 ###Background
 More content."#;
 
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         let expected = r#"## Introduction
@@ -407,7 +432,7 @@ More content."#;
 #### Proper with space
 "#;
 
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should only detect the malformed ones
@@ -415,5 +440,396 @@ More content."#;
         let detected_lines: Vec<usize> = result.iter().map(|w| w.line).collect();
         assert!(detected_lines.contains(&3)); // ##Malformed Heading
         assert!(detected_lines.contains(&7)); // ###Another Malformed
+    }
+
+    #[test]
+    fn test_css_selectors_in_html_blocks() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Test CSS selectors inside <style> tags should not trigger MD018
+        // This is a common pattern in Quarto/RMarkdown files
+        let content = r#"# Proper Heading
+
+<style>
+#slide-1 ol li {
+    margin-top: 0;
+}
+
+#special-slide ol li {
+    margin-top: 2em;
+}
+</style>
+
+## Another Heading
+"#;
+
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not detect CSS selectors as malformed headings
+        assert_eq!(
+            result.len(),
+            0,
+            "CSS selectors in <style> blocks should not be flagged as malformed headings"
+        );
+    }
+
+    #[test]
+    fn test_js_code_in_script_blocks() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Test that patterns like #element in <script> tags don't trigger MD018
+        let content = r#"# Heading
+
+<script>
+const element = document.querySelector('#main-content');
+#another-comment
+</script>
+
+## Another Heading
+"#;
+
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should not detect JS code as malformed headings
+        assert_eq!(
+            result.len(),
+            0,
+            "JavaScript code in <script> blocks should not be flagged as malformed headings"
+        );
+    }
+
+    #[test]
+    fn test_all_malformed_headings_detected() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // All patterns at line start should be detected as malformed headings
+        // (matching markdownlint behavior)
+
+        // Lowercase single-hash - should be detected
+        assert!(
+            rule.check_atx_heading_line("#hello").is_some(),
+            "#hello SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#tag").is_some(),
+            "#tag SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#hashtag").is_some(),
+            "#hashtag SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#javascript").is_some(),
+            "#javascript SHOULD be detected as malformed heading"
+        );
+
+        // Numeric patterns - should be detected (could be headings like "# 123")
+        assert!(
+            rule.check_atx_heading_line("#123").is_some(),
+            "#123 SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#12345").is_some(),
+            "#12345 SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#29039)").is_some(),
+            "#29039) SHOULD be detected as malformed heading"
+        );
+
+        // Uppercase single-hash - should be detected
+        assert!(
+            rule.check_atx_heading_line("#Summary").is_some(),
+            "#Summary SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#Introduction").is_some(),
+            "#Introduction SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("#API").is_some(),
+            "#API SHOULD be detected as malformed heading"
+        );
+
+        // Multi-hash patterns - should be detected
+        assert!(
+            rule.check_atx_heading_line("##introduction").is_some(),
+            "##introduction SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("###section").is_some(),
+            "###section SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("###fer").is_some(),
+            "###fer SHOULD be detected as malformed heading"
+        );
+        assert!(
+            rule.check_atx_heading_line("##123").is_some(),
+            "##123 SHOULD be detected as malformed heading"
+        );
+    }
+
+    #[test]
+    fn test_patterns_that_should_not_be_flagged() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Just hashes (horizontal rule or empty)
+        assert!(rule.check_atx_heading_line("###").is_none());
+        assert!(rule.check_atx_heading_line("#").is_none());
+
+        // Content too short
+        assert!(rule.check_atx_heading_line("##a").is_none());
+
+        // Emphasis markers
+        assert!(rule.check_atx_heading_line("#*emphasis").is_none());
+
+        // More than 6 hashes
+        assert!(rule.check_atx_heading_line("#######TooBig").is_none());
+
+        // Proper headings with space
+        assert!(rule.check_atx_heading_line("# Hello").is_none());
+        assert!(rule.check_atx_heading_line("## World").is_none());
+        assert!(rule.check_atx_heading_line("### Section").is_none());
+    }
+
+    #[test]
+    fn test_inline_issue_refs_not_at_line_start() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Inline patterns (not at line start) are not checked by check_atx_heading_line
+        // because that function only checks lines that START with #
+
+        // These should return None because they don't start with #
+        assert!(rule.check_atx_heading_line("See issue #123").is_none());
+        assert!(rule.check_atx_heading_line("Check #trending on Twitter").is_none());
+        assert!(rule.check_atx_heading_line("- fix: issue #29039").is_none());
+    }
+
+    #[test]
+    fn test_lowercase_patterns_full_check() {
+        // Integration test: verify lowercase patterns are flagged through full check() flow
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = "#hello\n\n#world\n\n#tag";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 3, "All three lowercase patterns should be flagged");
+        assert_eq!(result[0].line, 1);
+        assert_eq!(result[1].line, 3);
+        assert_eq!(result[2].line, 5);
+    }
+
+    #[test]
+    fn test_numeric_patterns_full_check() {
+        // Integration test: verify numeric patterns are flagged through full check() flow
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = "#123\n\n#456\n\n#29039";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(result.len(), 3, "All three numeric patterns should be flagged");
+    }
+
+    #[test]
+    fn test_fix_lowercase_patterns() {
+        // Verify fix() correctly handles lowercase patterns
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = "#hello\nSome text.\n\n#world";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        let expected = "# hello\nSome text.\n\n# world";
+        assert_eq!(fixed, expected);
+    }
+
+    #[test]
+    fn test_fix_numeric_patterns() {
+        // Verify fix() correctly handles numeric patterns
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = "#123\nContent.\n\n##456";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        let expected = "# 123\nContent.\n\n## 456";
+        assert_eq!(fixed, expected);
+    }
+
+    #[test]
+    fn test_indented_malformed_headings() {
+        // Indented patterns are skipped to match markdownlint behavior.
+        // Markdownlint only flags patterns at column 1 (no indentation).
+        // Indented patterns are often multi-line link continuations or list content.
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Indented patterns should NOT be flagged (matches markdownlint)
+        assert!(
+            rule.check_atx_heading_line(" #hello").is_none(),
+            "1-space indented #hello should be skipped"
+        );
+        assert!(
+            rule.check_atx_heading_line("  #hello").is_none(),
+            "2-space indented #hello should be skipped"
+        );
+        assert!(
+            rule.check_atx_heading_line("   #hello").is_none(),
+            "3-space indented #hello should be skipped"
+        );
+
+        // 4+ spaces is a code block, not checked by this function
+        // (code block detection happens at LintContext level)
+
+        // BUT patterns at column 1 (no indentation) ARE flagged
+        assert!(
+            rule.check_atx_heading_line("#hello").is_some(),
+            "Non-indented #hello should be detected"
+        );
+    }
+
+    #[test]
+    fn test_tab_after_hash_is_valid() {
+        // Tab after hash is valid (acts like space)
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        assert!(
+            rule.check_atx_heading_line("#\tHello").is_none(),
+            "Tab after # should be valid"
+        );
+        assert!(
+            rule.check_atx_heading_line("##\tWorld").is_none(),
+            "Tab after ## should be valid"
+        );
+    }
+
+    #[test]
+    fn test_mixed_case_patterns() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // All should be detected regardless of case
+        assert!(rule.check_atx_heading_line("#hELLO").is_some());
+        assert!(rule.check_atx_heading_line("#Hello").is_some());
+        assert!(rule.check_atx_heading_line("#HELLO").is_some());
+        assert!(rule.check_atx_heading_line("#hello").is_some());
+    }
+
+    #[test]
+    fn test_unicode_lowercase() {
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        // Unicode lowercase should be detected
+        assert!(
+            rule.check_atx_heading_line("#über").is_some(),
+            "Unicode lowercase #über should be detected"
+        );
+        assert!(
+            rule.check_atx_heading_line("#café").is_some(),
+            "Unicode lowercase #café should be detected"
+        );
+        assert!(
+            rule.check_atx_heading_line("#日本語").is_some(),
+            "Japanese #日本語 should be detected"
+        );
+    }
+
+    #[test]
+    fn test_matches_markdownlint_behavior() {
+        // Comprehensive test matching markdownlint's expected behavior
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = r#"#hello
+
+## world
+
+###fer
+
+#123
+
+#Tag
+"#;
+
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // markdownlint flags: #hello (line 1), ###fer (line 5), #123 (line 7), #Tag (line 9)
+        // ## world is correct (has space)
+        let flagged_lines: Vec<usize> = result.iter().map(|w| w.line).collect();
+
+        assert!(flagged_lines.contains(&1), "#hello should be flagged");
+        assert!(!flagged_lines.contains(&3), "## world should NOT be flagged");
+        assert!(flagged_lines.contains(&5), "###fer should be flagged");
+        assert!(flagged_lines.contains(&7), "#123 should be flagged");
+        assert!(flagged_lines.contains(&9), "#Tag should be flagged");
+
+        assert_eq!(result.len(), 4, "Should have exactly 4 warnings");
+    }
+
+    #[test]
+    fn test_skip_frontmatter_yaml_comments() {
+        // YAML comments in frontmatter should NOT be flagged as missing space in headings
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = r#"---
+#reviewers:
+#- sig-api-machinery
+#another_comment: value
+title: Test Document
+---
+
+# Valid heading
+
+#invalid heading without space
+"#;
+
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should only flag line 10 (#invalid heading without space)
+        // Lines 2-4 are YAML comments in frontmatter and should be skipped
+        assert_eq!(
+            result.len(),
+            1,
+            "Should only flag the malformed heading outside frontmatter"
+        );
+        assert_eq!(result[0].line, 10, "Should flag line 10");
+    }
+
+    #[test]
+    fn test_skip_html_comments() {
+        // Content inside HTML comments should NOT be flagged
+        // This includes Jupyter cell markers like #%% in commented-out code blocks
+        let rule = MD018NoMissingSpaceAtx::new();
+
+        let content = r#"# Real Heading
+
+Some text.
+
+<!--
+```
+#%% Cell marker
+import matplotlib.pyplot as plt
+
+#%% Another cell
+data = [1, 2, 3]
+```
+-->
+
+More content.
+"#;
+
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should find no issues - the #%% markers are inside HTML comments
+        assert!(
+            result.is_empty(),
+            "Should not flag content inside HTML comments, found {} issues",
+            result.len()
+        );
     }
 }

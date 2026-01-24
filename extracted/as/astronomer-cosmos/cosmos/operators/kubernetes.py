@@ -3,8 +3,9 @@ from __future__ import annotations
 import inspect
 import re
 from abc import ABC
+from collections.abc import Callable, Sequence
 from os import PathLike
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any
 
 import kubernetes.client as k8s
 from airflow.providers.cncf.kubernetes.backcompat.backwards_compat_converters import (
@@ -120,6 +121,7 @@ class DbtKubernetesBaseOperator(AbstractDbtBase, KubernetesPodOperator):  # type
         cmd_flags: list[str] | None = None,
         run_as_async: bool = False,
         async_context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> Any:
         self.build_kube_args(context, cmd_flags)
         self.log.info(f"Running command: {self.arguments}")
@@ -199,7 +201,7 @@ class DbtTestWarningHandler(KubernetesPodOperatorCallback):  # type: ignore[misc
         self,
         on_warning_callback: Callable[..., Any],
         operator: KubernetesPodOperator,
-        context: Optional[Context] = None,
+        context: Context | None = None,
     ) -> None:
         self.on_warning_callback = on_warning_callback
         self.operator = operator
@@ -263,7 +265,7 @@ class DbtTestWarningHandler(KubernetesPodOperatorCallback):  # type: ignore[misc
         context_merge(self.context, test_names=test_names, test_results=test_results)
         self.on_warning_callback(self.context)
 
-    def _detect_standard_warnings(self, log_text: str) -> Optional[int]:
+    def _detect_standard_warnings(self, log_text: str) -> int | None:
         """
         Detect warnings using the standard dbt summary pattern.
 
@@ -279,7 +281,7 @@ class DbtTestWarningHandler(KubernetesPodOperatorCallback):  # type: ignore[misc
             return int(match.group(1))
         return None
 
-    def _detect_source_freshness_warnings(self, log_text: str) -> List[Dict[str, Any]]:
+    def _detect_source_freshness_warnings(self, log_text: str) -> list[dict[str, Any]]:
         """
         Detect source freshness warnings from dbt logs.
 
@@ -360,6 +362,7 @@ class DbtWarningKubernetesOperator(DbtKubernetesBaseOperator, ABC):
         cmd_flags: list[str] | None = None,
         run_as_async: bool = False,
         async_context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> Any:
         if self.warning_handler:
             self.warning_handler.context = context

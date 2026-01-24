@@ -6,6 +6,7 @@ from .tts_request_voice_specifier import TtsRequestVoiceSpecifier
 import typing
 from .supported_language import SupportedLanguage
 from .sse_output_format import SseOutputFormat
+from .generation_config import GenerationConfig
 from .model_speed import ModelSpeed
 from .context_id import ContextId
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
@@ -21,6 +22,7 @@ class TtssseRequest(UniversalBaseModel):
     voice: TtsRequestVoiceSpecifier
     language: typing.Optional[SupportedLanguage] = None
     output_format: SseOutputFormat
+    generation_config: typing.Optional[GenerationConfig] = None
     duration: typing.Optional[float] = pydantic.Field(default=None)
     """
     The maximum duration of the audio in seconds. You do not usually need to specify this.
@@ -46,6 +48,11 @@ class TtssseRequest(UniversalBaseModel):
     context_id: typing.Optional[ContextId] = pydantic.Field(default=None)
     """
     Optional context ID for this request.
+    """
+
+    pronunciation_dict_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
     """
 
     if IS_PYDANTIC_V2:

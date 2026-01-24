@@ -9,44 +9,74 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as _dt
+from typing import Literal, Union
 
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0003 import SimpleUser
 
-class RepositoryRulePullRequestPropParameters(GitHubModel):
-    """RepositoryRulePullRequestPropParameters"""
 
-    allowed_merge_methods: Missing[list[Literal["merge", "squash", "rebase"]]] = Field(
+class ProjectsV2ItemWithContent(GitHubModel):
+    """Projects v2 Item
+
+    An item belonging to a project
+    """
+
+    id: float = Field(description="The unique identifier of the project item.")
+    node_id: Missing[str] = Field(
+        default=UNSET, description="The node ID of the project item."
+    )
+    project_url: Missing[str] = Field(
+        default=UNSET, description="The API URL of the project that contains this item."
+    )
+    content_type: Literal["Issue", "PullRequest", "DraftIssue"] = Field(
+        title="Projects v2 Item Content Type",
+        description="The type of content tracked in a project item",
+    )
+    content: Missing[Union[ProjectsV2ItemWithContentPropContent, None]] = Field(
         default=UNSET,
-        description="Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.",
+        description="The content of the item, which varies by content type.",
     )
-    automatic_copilot_code_review_enabled: Missing[bool] = Field(
-        default=UNSET,
-        description="Request Copilot code review for new pull requests automatically if the author has access to Copilot code review.",
+    creator: Missing[SimpleUser] = Field(
+        default=UNSET, title="Simple User", description="A GitHub user."
     )
-    dismiss_stale_reviews_on_push: bool = Field(
-        description="New, reviewable commits pushed will dismiss previous pull request review approvals."
+    created_at: _dt.datetime = Field(description="The time when the item was created.")
+    updated_at: _dt.datetime = Field(
+        description="The time when the item was last updated."
     )
-    require_code_owner_review: bool = Field(
-        description="Require an approving review in pull requests that modify files that have a designated code owner."
+    archived_at: Union[_dt.datetime, None] = Field(
+        description="The time when the item was archived."
     )
-    require_last_push_approval: bool = Field(
-        description="Whether the most recent reviewable push must be approved by someone other than the person who pushed it."
+    item_url: Missing[Union[str, None]] = Field(
+        default=UNSET, description="The API URL of this item."
     )
-    required_approving_review_count: int = Field(
-        le=10.0,
-        description="The number of approving reviews that are required before a pull request can be merged.",
-    )
-    required_review_thread_resolution: bool = Field(
-        description="All conversations on code must be resolved before a pull request can be merged."
+    fields: Missing[list[ProjectsV2ItemWithContentPropFieldsItems]] = Field(
+        default=UNSET, description="The fields and values associated with this item."
     )
 
 
-model_rebuild(RepositoryRulePullRequestPropParameters)
+class ProjectsV2ItemWithContentPropContent(ExtraGitHubModel):
+    """ProjectsV2ItemWithContentPropContent
 
-__all__ = ("RepositoryRulePullRequestPropParameters",)
+    The content of the item, which varies by content type.
+    """
+
+
+class ProjectsV2ItemWithContentPropFieldsItems(ExtraGitHubModel):
+    """ProjectsV2ItemWithContentPropFieldsItems"""
+
+
+model_rebuild(ProjectsV2ItemWithContent)
+model_rebuild(ProjectsV2ItemWithContentPropContent)
+model_rebuild(ProjectsV2ItemWithContentPropFieldsItems)
+
+__all__ = (
+    "ProjectsV2ItemWithContent",
+    "ProjectsV2ItemWithContentPropContent",
+    "ProjectsV2ItemWithContentPropFieldsItems",
+)

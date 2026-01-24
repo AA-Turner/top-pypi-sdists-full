@@ -20,7 +20,7 @@
 # derived from https://github.com/verisign/python-confluent-schemaregistry.git
 #
 import io
-import orjson
+import json
 import logging
 import struct
 import sys
@@ -30,9 +30,7 @@ import avro
 import avro.io
 
 from confluent_kafka.avro import ClientError
-from confluent_kafka.avro.serializer import (SerializerError,
-                                             KeySerializerError,
-                                             ValueSerializerError)
+from confluent_kafka.avro.serializer import KeySerializerError, SerializerError, ValueSerializerError
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +78,7 @@ class MessageSerializer(object):
     # Encoder support
     def _get_encoder_func(self, writer_schema):
         if HAS_FAST:
-            schema = orjson.loads(str(writer_schema))
+            schema = json.loads(str(writer_schema))
             parsed_schema = parse_schema(schema)
             return lambda record, fp: schemaless_writer(fp, parsed_schema, record)
         writer = avro.io.DatumWriter(writer_schema)
@@ -101,7 +99,7 @@ class MessageSerializer(object):
         """
         serialize_err = KeySerializerError if is_key else ValueSerializerError
 
-        subject_suffix = ('-key' if is_key else '-value')
+        subject_suffix = '-key' if is_key else '-value'
         # get the latest schema for the subject
         subject = topic + subject_suffix
         if self.registry_client.auto_register_schemas:
@@ -176,9 +174,9 @@ class MessageSerializer(object):
         if HAS_FAST:
             # try to use fast avro
             try:
-                fast_avro_writer_schema = parse_schema(orjson.loads(str(writer_schema_obj)))
+                fast_avro_writer_schema = parse_schema(json.loads(str(writer_schema_obj)))
                 if reader_schema_obj is not None:
-                    fast_avro_reader_schema = parse_schema(orjson.loads(str(reader_schema_obj)))
+                    fast_avro_reader_schema = parse_schema(json.loads(str(reader_schema_obj)))
                 else:
                     fast_avro_reader_schema = None
                 schemaless_reader(payload, fast_avro_writer_schema)
@@ -190,7 +188,8 @@ class MessageSerializer(object):
                 payload.seek(curr_pos)
 
                 self.id_to_decoder_func[schema_id] = lambda p: schemaless_reader(
-                    p, fast_avro_writer_schema, fast_avro_reader_schema)
+                    p, fast_avro_writer_schema, fast_avro_reader_schema
+                )
                 return self.id_to_decoder_func[schema_id]
             except Exception:
                 log.warning("Fast avro failed for schema with id %d, falling thru to standard avro" % (schema_id))

@@ -17,7 +17,9 @@ optsDecodeMap = {
     'fpof': 'failParentOnFailure',
     'cpof': 'continueParentOnFailure',
     'idof': 'ignoreDependencyOnFailure',
+    'rdof': 'removeDependencyOnFailure',
     'kl': 'keepLogs',
+    'de': 'deduplication',
 }
 
 optsEncodeMap = {v: k for k, v in optsDecodeMap.items()}
@@ -60,7 +62,37 @@ class Job:
         parent = opts.get("parent")
         self.parentKey = get_parent_key(parent)
         self.parent = {"id": parent.get("id"), "queueKey": parent.get("queue")} if parent else None
+        
+        # Validate mutually exclusive parent-related options
+        exclusive_options = [
+            'removeDependencyOnFailure',
+            'failParentOnFailure',
+            'continueParentOnFailure',
+            'ignoreDependencyOnFailure',
+        ]
+        enabled_exclusive_options = [opt for opt in exclusive_options if opts.get(opt)]
+        
+        if len(enabled_exclusive_options) > 1:
+            options_list = ', '.join(enabled_exclusive_options)
+            raise ValueError(f"The following options cannot be used together: {options_list}")
+        
+        # Add parent-related options to the parent object if they exist
+        if self.parent:
+            if opts.get("failParentOnFailure"):
+                self.parent["fpof"] = True
+            if opts.get("removeDependencyOnFailure"):
+                self.parent["rdof"] = True
+            if opts.get("ignoreDependencyOnFailure"):
+                self.parent["idof"] = True
+            if opts.get("continueParentOnFailure"):
+                self.parent["cpof"] = True
+        
         self.stacktrace: List[str] = []
+        
+        # Extract deduplication ID from options
+        deduplication = opts.get("deduplication")
+        self.deduplication_id = deduplication.get("id") if deduplication and isinstance(deduplication, dict) else None
+        
         self.scripts = Scripts(queue.prefix, queue.name, queue.redisConnection)
         self.queueQualifiedName = queue.qualifiedName
 
@@ -72,12 +104,34 @@ class Job:
         await self.scripts.promote(self.id)
         self.delay = 0
 
-    def retry(self, state: str = "failed"):
+    async def retry(self, state: str = "failed", opts: dict = {}):
+        """
+        Attempts to retry the job. Only a job that has failed or completed can be retried.
+
+        Args:
+            state: The state of the job to retry ('failed' or 'completed')
+            opts: Options for retrying the job
+                - resetAttemptsMade: boolean - Resets attemptsMade counter to 0
+                - resetAttemptsStarted: boolean - Resets attemptsStarted counter to 0
+        
+        Returns:
+            A coroutine that resolves when the job has been successfully moved to the wait queue.
+        
+        Raises:
+            Exception: If the job does not exist, is locked, or is not in the expected state.
+        """            
+        await self.scripts.reprocessJob(self, state, opts)
+
         self.failedReason = None
         self.finishedOn = None
         self.processedOn = None
         self.returnvalue = None
-        return self.scripts.reprocessJob(self, state)
+        
+        if opts.get("resetAttemptsMade"):
+            self.attemptsMade = 0
+        
+        if opts.get("resetAttemptsStarted"):
+            self.attemptsStarted = 0
 
     def getState(self):
         return self.scripts.getState(self.id)

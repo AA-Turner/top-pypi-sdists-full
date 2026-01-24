@@ -16,7 +16,6 @@ class AspectRatio(RadixThemesComponent):
     def create(
         cls,
         *children,
-        ratio: Var[float | int] | float | int | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -52,7 +51,6 @@ class AspectRatio(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            ratio: The ratio of the width to the height of the element
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

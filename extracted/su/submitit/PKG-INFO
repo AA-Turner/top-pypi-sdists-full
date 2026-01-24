@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: submitit
-Version: 1.5.3
+Version: 1.5.4
 Summary: "Python 3.8+ toolbox for submitting jobs to Slurm
 Author: Facebook AI Research
 Requires-Python: >=3.8
@@ -8,6 +8,7 @@ Description-Content-Type: text/markdown
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: System :: Distributed Computing
 Classifier: Development Status :: 5 - Production/Stable
+License-File: LICENSE
 Requires-Dist: cloudpickle>=1.2.1
 Requires-Dist: typing_extensions>=3.7.4.2
 Requires-Dist: pytest>=7.4.2 ; extra == "dev"
@@ -63,7 +64,7 @@ The `Job` class also provides tools for reading the log files (`job.stdout()` an
 If what you want to run is a command, turn it into a Python function using `submitit.helpers.CommandFunction`, then submit it.
 By default stdout is silenced in `CommandFunction`, but it can be unsilenced with `verbose=True`.
 
-**Find more examples [here](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/examples.md)!!!**
+**Find more examples [here](docs/examples.md)!!!**
 
 Submitit is a Python 3.8+ toolbox for submitting jobs to Slurm.
 It aims at running python function from python code.
@@ -85,18 +86,18 @@ Quick install, in a virtualenv/conda environment where `pip` is installed (check
   pip install git+https://github.com/facebookincubator/submitit@main#egg=submitit
   ```
 
-You can try running the [MNIST example](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/mnist.py) to check that everything is working as expected (requires sklearn).
+You can try running the [MNIST example](docs/mnist.py) to check that everything is working as expected (requires sklearn).
 
 
 ## Documentation
 
 See the following pages for more detailled information:
 
-- [Examples](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/examples.md): for a bunch of examples dealing with errors, concurrency, multi-tasking etc...
-- [Structure and main objects](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/structure.md): to get a better understanding of how `submitit` works, which files are created for each job, and the main objects you will interact with.
-- [Checkpointing](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/checkpointing.md): to understand how you can configure your job to get checkpointed when preempted and/or timed-out.
-- [Tips and caveats](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/tips.md): for a bunch of information that can be handy when working with `submitit`.
-- [Hyperparameter search with nevergrad](https://github.com/facebookincubator/submitit/blob/1.5.3/docs/nevergrad.md): basic example of `nevergrad` usage and how it interfaces with `submitit`.
+- [Examples](docs/examples.md): for a bunch of examples dealing with errors, concurrency, multi-tasking etc...
+- [Structure and main objects](docs/structure.md): to get a better understanding of how `submitit` works, which files are created for each job, and the main objects you will interact with.
+- [Checkpointing](docs/checkpointing.md): to understand how you can configure your job to get checkpointed when preempted and/or timed-out.
+- [Tips and caveats](docs/tips.md): for a bunch of information that can be handy when working with `submitit`.
+- [Hyperparameter search with nevergrad](docs/nevergrad.md): basic example of `nevergrad` usage and how it interfaces with `submitit`.
 
 
 ### Goals
@@ -140,9 +141,9 @@ The key difference with `submitit` is that `dask.distributed` distributes the jo
 
 ## Contributors
 
-By chronological order: Jérémy Rapin, Louis Martin, Lowik Chanussot, Lucas Hosseini, Fabio Petroni, Francisco Massa, Guillaume Wenzek, Thibaut Lavril, Vinayak Tantia, Andrea Vedaldi, Max Nickel, Quentin Duval (feel free to [contribute](https://github.com/facebookincubator/submitit/blob/1.5.3/.github/CONTRIBUTING.md) and add your name ;) )
+By chronological order: Jérémy Rapin, Louis Martin, Lowik Chanussot, Lucas Hosseini, Fabio Petroni, Francisco Massa, Guillaume Wenzek, Thibaut Lavril, Vinayak Tantia, Andrea Vedaldi, Max Nickel, Quentin Duval, Rushil Patel (feel free to [contribute](.github/CONTRIBUTING.md) and add your name ;) )
 
 ## License
 
-Submitit is released under the [MIT License](https://github.com/facebookincubator/submitit/blob/1.5.3/LICENSE).
+Submitit is released under the [MIT License](LICENSE).
 

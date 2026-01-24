@@ -3,8 +3,9 @@
 import math
 import os
 import re
+from collections.abc import Callable
 from importlib import metadata
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import google.api_core
 import proto  # type: ignore[import-untyped]
@@ -14,12 +15,12 @@ from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
-from vertexai.generative_models import (  # type: ignore[import-untyped]
-    Candidate,
+from vertexai.generative_models import (
+    Candidate,  # TODO: migrate to google-genai since this is deprecated
     Image,
 )
-from vertexai.language_models import (  # type: ignore[import-untyped]
-    TextGenerationResponse,
+from vertexai.language_models import (
+    TextGenerationResponse,  # TODO: migrate to google-genai since this is deprecated
 )
 
 from langchain_google_vertexai._retry import create_base_retry_decorator
@@ -27,30 +28,34 @@ from langchain_google_vertexai._retry import create_base_retry_decorator
 _TELEMETRY_TAG = "remote_reasoning_engine"
 _TELEMETRY_ENV_VARIABLE_NAME = "GOOGLE_CLOUD_AGENT_ENGINE_ID"
 
+# Cache package version at module import time to avoid blocking I/O in async contexts
+try:
+    _LANGCHAIN_VERTEXAI_VERSION = metadata.version("langchain-google-vertexai")
+except metadata.PackageNotFoundError:
+    _LANGCHAIN_VERTEXAI_VERSION = "0.0.0"
+
 
 def create_retry_decorator(
     *,
     max_retries: int = 1,
-    run_manager: Optional[
-        Union[AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun]
-    ] = None,
-    wait_exponential_kwargs: Optional[dict[str, float]] = None,
+    run_manager: AsyncCallbackManagerForLLMRun | CallbackManagerForLLMRun | None = None,
+    wait_exponential_kwargs: dict[str, float] | None = None,
 ) -> Callable[[Any], Any]:
     """Creates a retry decorator for Vertex / Palm LLMs.
 
     Args:
-        max_retries: Number of retries. Default is 1.
-        run_manager: Callback manager for the run. Default is None.
+        max_retries: Number of retries.
+        run_manager: Callback manager for the run.
         wait_exponential_kwargs: Optional dictionary with parameters:
-            - multiplier: Initial wait time multiplier (default: 1.0)
-            - min: Minimum wait time in seconds (default: 4.0)
-            - max: Maximum wait time in seconds (default: 10.0)
-            - exp_base: Exponent base to use (default: 2.0)
+
+            - multiplier: Initial wait time multiplier (Default: `1.0`)
+            - min: Minimum wait time in seconds (Default: `4.0`)
+            - max: Maximum wait time in seconds (Default: `10.0`)
+            - exp_base: Exponent base to use (Default: `2.0`)
 
     Returns:
         A retry decorator.
     """
-
     errors = [
         google.api_core.exceptions.ResourceExhausted,
         google.api_core.exceptions.ServiceUnavailable,
@@ -58,58 +63,55 @@ def create_retry_decorator(
         google.api_core.exceptions.DeadlineExceeded,
         google.api_core.exceptions.GoogleAPIError,
     ]
-    decorator = create_base_retry_decorator(
+    return create_base_retry_decorator(
         error_types=errors,
         max_retries=max_retries,
         run_manager=run_manager,
         wait_exponential_kwargs=wait_exponential_kwargs,
     )
-    return decorator
 
 
 def raise_vertex_import_error(minimum_expected_version: str = "1.44.0") -> None:
-    """Raise ImportError related to Vertex SDK being not available.
+    """Raise `ImportError` related to Vertex SDK being not available.
 
     Args:
         minimum_expected_version: The lowest expected version of the SDK.
+
     Raises:
-        ImportError: an ImportError that mentions a required version of the SDK.
+        ImportError: An `ImportError` that mentions a required version of the SDK.
     """
-    raise ImportError(
+    msg = (
         "Please, install or upgrade the google-cloud-aiplatform library: "
         f"pip install google-cloud-aiplatform>={minimum_expected_version}"
     )
+    raise ImportError(msg)
 
 
-def get_user_agent(module: Optional[str] = None) -> Tuple[str, str]:
+def get_user_agent(module: str | None = None) -> tuple[str, str]:
     r"""Returns a custom user agent header.
 
     Args:
-        module (Optional[str]):
-            Optional. The module for a custom user agent header.
-    Returns:
-        Tuple[str, str]
+        module: The module for a custom user agent header.
     """
-    try:
-        langchain_version = metadata.version("langchain-google-vertexai")
-    except metadata.PackageNotFoundError:
-        langchain_version = "0.0.0"
+    # Use cached version to avoid blocking I/O in async contexts
     client_library_version = (
-        f"{langchain_version}-{module}" if module else langchain_version
+        f"{_LANGCHAIN_VERTEXAI_VERSION}-{module}"
+        if module
+        else _LANGCHAIN_VERTEXAI_VERSION
     )
     if os.environ.get(_TELEMETRY_ENV_VARIABLE_NAME):
         client_library_version += f"+{_TELEMETRY_TAG}"
     return client_library_version, f"langchain-google-vertexai/{client_library_version}"
 
 
-def get_client_info(module: Optional[str] = None) -> "ClientInfo":
-    r"""Returns a client info object with a custom user agent header.
+def get_client_info(module: str | None = None) -> "ClientInfo":
+    r"""Returns a `ClientInfo` object with a custom user agent header.
 
     Args:
-        module (Optional[str]):
-            Optional. The module for a custom user agent header.
+        module: The module for a custom user agent header.
+
     Returns:
-        google.api_core.gapic_v1.client_info.ClientInfo
+        `google.api_core.gapic_v1.client_info.ClientInfo`
     """
     client_library_version, user_agent = get_user_agent(module)
     return ClientInfo(
@@ -128,24 +130,25 @@ def _format_model_name(model: str, project: str, location: str) -> str:
     return model
 
 
-def load_image_from_gcs(path: str, project: Optional[str] = None) -> Image:
-    """Loads an Image from GCS."""
+def load_image_from_gcs(path: str, project: str | None = None) -> Image:
+    """Loads an `Image` from GCS."""
     gcs_client = storage.Client(project=project)
     pieces = path.split("/")
     blobs = list(gcs_client.list_blobs(pieces[2], prefix="/".join(pieces[3:])))
     if len(blobs) > 1:
-        raise ValueError(f"Found more than one candidate for {path}!")
+        msg = f"Found more than one candidate for {path}!"
+        raise ValueError(msg)
     return Image.from_bytes(blobs[0].download_as_bytes())
 
 
-def _get_finish_reason_string(finish_reason: Any) -> Optional[str]:
-    """Convert finish_reason to string, handling both enum and raw integer values.
+def _get_finish_reason_string(finish_reason: Any) -> str | None:
+    """Convert finish_reason to string, handling both `enum` and raw `int` values.
 
     Args:
         finish_reason: The finish reason value from the candidate.
 
     Returns:
-        String representation of the finish reason, or None if not present.
+        String representation of the finish reason, or `None` if not present.
     """
     if finish_reason is None:
         return None
@@ -157,41 +160,62 @@ def _get_finish_reason_string(finish_reason: Any) -> Optional[str]:
 
 
 def get_generation_info(
-    candidate: Union[TextGenerationResponse, Candidate],
+    candidate: TextGenerationResponse | Candidate,
     *,
     stream: bool = False,
-    usage_metadata: Optional[Dict] = None,
-    logprobs: Union[bool, int] = False,
-) -> Dict[str, Any]:
+    usage_metadata: dict | None = None,
+    logprobs: bool | int = False,
+) -> dict[str, Any]:
     # https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/gemini#response_body
-    info = {
-        "is_blocked": any([rating.blocked for rating in candidate.safety_ratings]),
-        "safety_ratings": [
-            {
-                "category": rating.category.name,
-                "probability_label": rating.probability.name,
-                "probability_score": rating.probability_score,
-                "blocked": rating.blocked,
-                "severity": rating.severity.name,
-                "severity_score": rating.severity_score,
-            }
-            # Image generation models sometime return ratings that are not
-            # included in the proto.
-            for rating in candidate.safety_ratings
-            if hasattr(rating.category, "name")
-        ],
-        "citation_metadata": (
-            proto.Message.to_dict(candidate.citation_metadata)
-            if candidate.citation_metadata
-            else None
-        ),
-        "usage_metadata": usage_metadata,
-        "finish_reason": _get_finish_reason_string(candidate.finish_reason),
-        "finish_message": (
-            candidate.finish_message if candidate.finish_message else None
-        ),
-    }
-    if hasattr(candidate, "avg_logprobs") and candidate.avg_logprobs is not None:
+
+    # Handle TextGenerationResponse vs Candidate differences
+    # These types have different attributes, so we need type guards
+    if isinstance(candidate, TextGenerationResponse):
+        # TextGenerationResponse has limited attributes compared to Candidate
+        info = {
+            "is_blocked": False,  # TextGenerationResponse doesn't have safety_ratings
+            "safety_ratings": [],
+            "citation_metadata": None,
+            "usage_metadata": usage_metadata,
+            "finish_reason": None,  # Doesn't have finish_reason
+            "finish_message": None,
+        }
+    else:
+        # Handle Candidate type - has full set of attributes
+        info = {
+            "is_blocked": any(rating.blocked for rating in candidate.safety_ratings),
+            "safety_ratings": [
+                {
+                    "category": rating.category.name,
+                    "probability_label": rating.probability.name,
+                    "probability_score": rating.probability_score,
+                    "blocked": rating.blocked,
+                    "severity": rating.severity.name,
+                    "severity_score": rating.severity_score,
+                }
+                # Image generation models sometime return ratings that are not
+                # included in the proto.
+                for rating in candidate.safety_ratings
+                if hasattr(rating.category, "name")
+            ],
+            "citation_metadata": (
+                proto.Message.to_dict(candidate.citation_metadata)
+                if candidate.citation_metadata
+                else None
+            ),
+            "usage_metadata": usage_metadata,
+            "finish_reason": _get_finish_reason_string(candidate.finish_reason),
+            "finish_message": (
+                candidate.finish_message if candidate.finish_message else None
+            ),
+        }
+
+    # Check for avg_logprobs attribute - only available on Candidate
+    if (
+        not isinstance(candidate, TextGenerationResponse)
+        and hasattr(candidate, "avg_logprobs")
+        and candidate.avg_logprobs is not None
+    ):
         if (
             isinstance(candidate.avg_logprobs, float)
             and not math.isnan(candidate.avg_logprobs)
@@ -199,10 +223,18 @@ def get_generation_info(
         ):
             info["avg_logprobs"] = candidate.avg_logprobs
 
-    if hasattr(candidate, "logprobs_result") and logprobs:
+    # Check for logprobs_result attribute - only available on Candidate
+    if (
+        not isinstance(candidate, TextGenerationResponse)
+        and hasattr(candidate, "logprobs_result")
+        and logprobs
+    ):
 
         def is_valid_logprob(prob):
-            return isinstance(prob, float) and not math.isnan(prob) and prob < 0
+            # Logprobs can be 0.0 (probability=1.0, fully certain) or negative
+            # (probability < 1.0). We should include all valid logprobs, not just
+            # strictly negative ones.
+            return isinstance(prob, (float, int)) and not math.isnan(prob) and prob <= 0
 
         chosen_candidates = candidate.logprobs_result.chosen_candidates
         top_candidates_list = candidate.logprobs_result.top_candidates
@@ -233,13 +265,15 @@ def get_generation_info(
         if valid_log_probs:
             info["logprobs_result"] = valid_log_probs
 
-    try:
-        if candidate.grounding_metadata:
-            info["grounding_metadata"] = proto.Message.to_dict(
-                candidate.grounding_metadata
-            )
-    except AttributeError:
-        pass
+    # Check for grounding_metadata attribute - only available on Candidate
+    if not isinstance(candidate, TextGenerationResponse):
+        try:
+            if candidate.grounding_metadata:
+                info["grounding_metadata"] = proto.Message.to_dict(
+                    candidate.grounding_metadata
+                )
+        except AttributeError:
+            pass
     info = {k: v for k, v in info.items() if v is not None}
     # https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/text-chat#response_body
 
@@ -250,13 +284,13 @@ def get_generation_info(
     return info
 
 
-def enforce_stop_tokens(text: str, stop: List[str]) -> str:
+def enforce_stop_tokens(text: str, stop: list[str]) -> str:
     """Cut off the text as soon as any stop words occur."""
     return re.split("|".join(stop), text, maxsplit=1)[0]
 
 
-def replace_defs_in_schema(original_schema: dict, defs: Optional[dict] = None) -> dict:
-    """Given an OpenAPI schema with a property '$defs' replaces all occurrences of
+def replace_defs_in_schema(original_schema: dict, defs: dict | None = None) -> dict:
+    """Given an OpenAPI schema with a property `$defs` replaces all occurrences of
     referenced items in the dictionary.
 
     Args:
@@ -266,7 +300,6 @@ def replace_defs_in_schema(original_schema: dict, defs: Optional[dict] = None) -
     Returns:
         Schema with refs replaced.
     """
-
     new_defs = defs or original_schema.get("$defs")
 
     if new_defs is None or not isinstance(new_defs, dict):
@@ -280,20 +313,19 @@ def replace_defs_in_schema(original_schema: dict, defs: Optional[dict] = None) -
 
         if not isinstance(value, dict):
             resulting_schema[key] = value
+        elif "$ref" in value:
+            new_value = value.copy()
+
+            path = new_value.pop("$ref")
+            def_key = _get_def_key_from_schema_path(path)
+            new_item = new_defs.get(def_key)
+
+            assert isinstance(new_item, dict)
+            new_value.update(new_item)
+
+            resulting_schema[key] = replace_defs_in_schema(new_value, defs=new_defs)
         else:
-            if "$ref" in value:
-                new_value = value.copy()
-
-                path = new_value.pop("$ref")
-                def_key = _get_def_key_from_schema_path(path)
-                new_item = new_defs.get(def_key)
-
-                assert isinstance(new_item, dict)
-                new_value.update(new_item)
-
-                resulting_schema[key] = replace_defs_in_schema(new_value, defs=new_defs)
-            else:
-                resulting_schema[key] = replace_defs_in_schema(value, defs=new_defs)
+            resulting_schema[key] = replace_defs_in_schema(value, defs=new_defs)
 
     return resulting_schema
 
@@ -313,12 +345,13 @@ def _get_def_key_from_schema_path(schema_path: str) -> str:
 
 
 def _strip_nullable_anyof(schema: dict[str, Any]) -> dict[str, Any]:
-    """Collapse ``anyOf([{...}, {"type": "null"}])``` into the non-null schema,
+    """Collapse `anyOf([{...}, {"type": "null"}])` into the non-null schema,
     leave the rest of the keywords alone, and make the property optional.
+
     Works in place.
     """
 
-    def walk(node):
+    def walk(node) -> None:
         if not isinstance(node, dict):
             return
 

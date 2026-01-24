@@ -10,14 +10,15 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkClipOp.h"
 #include "include/core/SkColor.h"
+#include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
 #include "include/core/SkDocument.h"
-#include "include/core/SkFlattenable.h"
 #include "include/core/SkImageFilter.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkMatrix.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkPixmap.h"
 #include "include/core/SkPoint.h"
@@ -38,10 +39,8 @@
 #include "include/utils/SkNWayCanvas.h"
 #include "include/utils/SkPaintFilterCanvas.h"
 #include "src/core/SkBigPicture.h"
-#include "src/core/SkImageFilter_Base.h"
 #include "src/core/SkRecord.h"
 #include "src/core/SkRecords.h"
-#include "src/core/SkSpecialImage.h"
 #include "src/utils/SkCanvasStack.h"
 #include "tests/Test.h"
 
@@ -53,15 +52,24 @@
 using namespace skia_private;
 
 class SkPicture;
-class SkReadBuffer;
 
 #ifdef SK_BUILD_FOR_ANDROID_FRAMEWORK
 #include "include/core/SkColorSpace.h"
-#include "include/private/SkColorData.h"
+#include "src/core/SkColorData.h"
 #endif
 
-#ifdef SK_SUPPORT_PDF
+#if defined(SK_SUPPORT_PDF)
 #include "include/docs/SkPDFDocument.h"
+#include "include/docs/SkPDFJpegHelpers.h"
+#endif
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#endif
+
+#if defined(SK_GRAPHITE)
+#include "include/gpu/graphite/Context.h"
+#include "include/gpu/graphite/Surface.h"
 #endif
 
 struct ClipRectVisitor {
@@ -144,11 +152,11 @@ template <typename F> static void multi_canvas_driver(int w, int h, F proc) {
     proc(SkPictureRecorder().beginRecording(SkRect::MakeIWH(w, h)));
 
     SkNullWStream stream;
-    if (auto doc = SkPDF::MakeDocument(&stream)) {
+    if (auto doc = SkPDF::MakeDocument(&stream, SkPDF::JPEG::MetadataWithCallbacks())) {
         proc(doc->beginPage(SkIntToScalar(w), SkIntToScalar(h)));
     }
 
-    proc(SkSurface::MakeRasterN32Premul(w, h, nullptr)->getCanvas());
+    proc(SkSurfaces::Raster(SkImageInfo::MakeN32Premul(w, h), nullptr)->getCanvas());
 }
 
 const SkIRect gBaseRestrictedR = { 0, 0, 10, 10 };
@@ -236,9 +244,7 @@ DEF_TEST(CanvasNewRasterTest, reporter) {
 }
 
 static SkPath make_path_from_rect(SkRect r) {
-    SkPath path;
-    path.addRect(r);
-    return path;
+    return SkPath::Rect(r);
 }
 
 static SkRegion make_region_from_irect(SkIRect r) {
@@ -336,13 +342,13 @@ static CanvasTest kCanvasTests[] = {
         SkPaint paint;
         paint.setStrokeWidth(SkIntToScalar(1));
         paint.setStyle(SkPaint::kStroke_Style);
-        SkPath path;
-        path.moveTo(SkPoint{ 0, 0 });
-        path.lineTo(SkPoint{ 0, SK_ScalarNearlyZero });
-        path.lineTo(SkPoint{ SkIntToScalar(1), 0 });
-        path.lineTo(SkPoint{ SkIntToScalar(1), SK_ScalarNearlyZero/2 });
+        SkPathBuilder builder;
+        builder.moveTo(SkPoint{ 0, 0 });
+        builder.lineTo(SkPoint{ 0, SK_ScalarNearlyZero });
+        builder.lineTo(SkPoint{ SkIntToScalar(1), 0 });
+        builder.lineTo(SkPoint{ SkIntToScalar(1), SK_ScalarNearlyZero/2 });
         // test nearly zero length path
-        c->drawPath(path, paint);
+        c->drawPath(builder.detach(), paint);
     },
     [](SkCanvas* c, skiatest::Reporter* r) {
         SkPictureRecorder recorder;
@@ -364,42 +370,26 @@ static CanvasTest kCanvasTests[] = {
         c->restoreToCount(baseSaveCount + 1);
         REPORTER_ASSERT(r, baseSaveCount + 1 == c->getSaveCount());
 
-       // should this pin to 1, or be a no-op, or crash?
-       c->restoreToCount(0);
-       REPORTER_ASSERT(r, 1 == c->getSaveCount());
+        // should this pin to 1, or be a no-op, or crash?
+        c->restoreToCount(0);
+        REPORTER_ASSERT(r, 1 == c->getSaveCount());
     },
     [](SkCanvas* c, skiatest::Reporter* r) {
-       // This test step challenges the TestDeferredCanvasStateConsistency
-       // test cases because the opaque paint can trigger an optimization
-       // that discards previously recorded commands. The challenge is to maintain
-       // correct clip and matrix stack state.
-       c->resetMatrix();
-       c->rotate(SkIntToScalar(30));
-       c->save();
-       c->translate(SkIntToScalar(2), SkIntToScalar(1));
-       c->save();
-       c->scale(SkIntToScalar(3), SkIntToScalar(3));
-       SkPaint paint;
-       paint.setColor(0xFFFFFFFF);
-       c->drawPaint(paint);
-       c->restore();
-       c->restore();
-    },
-    [](SkCanvas* c, skiatest::Reporter* r) {
-       // This test step challenges the TestDeferredCanvasStateConsistency
-       // test case because the canvas flush on a deferred canvas will
-       // reset the recording session. The challenge is to maintain correct
-       // clip and matrix stack state on the playback canvas.
-       c->resetMatrix();
-       c->rotate(SkIntToScalar(30));
-       c->save();
-       c->translate(SkIntToScalar(2), SkIntToScalar(1));
-       c->save();
-       c->scale(SkIntToScalar(3), SkIntToScalar(3));
-       c->drawRect(kRect, SkPaint());
-       c->flush();
-       c->restore();
-       c->restore();
+        // This test step challenges the TestDeferredCanvasStateConsistency
+        // test cases because the opaque paint can trigger an optimization
+        // that discards previously recorded commands. The challenge is to maintain
+        // correct clip and matrix stack state.
+        c->resetMatrix();
+        c->rotate(SkIntToScalar(30));
+        c->save();
+        c->translate(SkIntToScalar(2), SkIntToScalar(1));
+        c->save();
+        c->scale(SkIntToScalar(3), SkIntToScalar(3));
+        SkPaint paint;
+        paint.setColor(0xFFFFFFFF);
+        c->drawPaint(paint);
+        c->restore();
+        c->restore();
     },
     [](SkCanvas* c, skiatest::Reporter* r) {
         SkPoint pts[4];
@@ -428,7 +418,7 @@ DEF_TEST(Canvas_bitmap, reporter) {
 DEF_TEST(Canvas_pdf, reporter) {
     for (const CanvasTest& test : kCanvasTests) {
         SkNullWStream outStream;
-        if (auto doc = SkPDF::MakeDocument(&outStream)) {
+        if (auto doc = SkPDF::MakeDocument(&outStream, SkPDF::JPEG::MetadataWithCallbacks())) {
             SkCanvas* canvas = doc->beginPage(SkIntToScalar(kWidth),
                                               SkIntToScalar(kHeight));
             REPORTER_ASSERT(reporter, canvas);
@@ -462,13 +452,16 @@ DEF_TEST(Canvas_ClipEmptyPath, reporter) {
     SkPath path;
     canvas.clipPath(path);
     canvas.restore();
+
     canvas.save();
-    path.moveTo(5, 5);
-    canvas.clipPath(path);
+    SkPathBuilder builder;
+    builder.moveTo(5, 5);
+    canvas.clipPath(builder.snapshot());
     canvas.restore();
+
     canvas.save();
-    path.moveTo(7, 7);
-    canvas.clipPath(path);  // should not assert here
+    builder.moveTo(7, 7);
+    canvas.clipPath(builder.detach());  // should not assert here
     canvas.restore();
 }
 
@@ -601,12 +594,12 @@ static void test_cliptype(SkCanvas* canvas, skiatest::Reporter* r) {
 
 DEF_TEST(CanvasClipType, r) {
     // test rasterclip backend
-    test_cliptype(SkSurface::MakeRasterN32Premul(10, 10)->getCanvas(), r);
+    test_cliptype(SkSurfaces::Raster(SkImageInfo::MakeN32Premul(10, 10))->getCanvas(), r);
 
 #ifdef SK_SUPPORT_PDF
     // test clipstack backend
     SkDynamicMemoryWStream stream;
-    if (auto doc = SkPDF::MakeDocument(&stream)) {
+    if (auto doc = SkPDF::MakeDocument(&stream, SkPDF::JPEG::MetadataWithCallbacks())) {
         test_cliptype(doc->beginPage(100, 100), r);
     }
 #endif
@@ -632,40 +625,10 @@ DEF_TEST(Canvas_LegacyColorBehavior, r) {
 }
 #endif
 
-namespace {
-
-class ZeroBoundsImageFilter : public SkImageFilter_Base {
-public:
-    static sk_sp<SkImageFilter> Make() { return sk_sp<SkImageFilter>(new ZeroBoundsImageFilter); }
-
-protected:
-    sk_sp<SkSpecialImage> onFilterImage(const Context&, SkIPoint*) const override {
-        return nullptr;
-    }
-    SkIRect onFilterNodeBounds(const SkIRect&, const SkMatrix&,
-                               MapDirection, const SkIRect* inputRect) const override {
-        return SkIRect::MakeEmpty();
-    }
-
-private:
-    SK_FLATTENABLE_HOOKS(ZeroBoundsImageFilter)
-
-    ZeroBoundsImageFilter() : INHERITED(nullptr, 0, nullptr) {}
-
-    using INHERITED = SkImageFilter_Base;
-};
-
-sk_sp<SkFlattenable> ZeroBoundsImageFilter::CreateProc(SkReadBuffer& buffer) {
-    SkDEBUGFAIL("Should never get here");
-    return nullptr;
-}
-
-}  // anonymous namespace
-
 DEF_TEST(Canvas_SaveLayerWithNullBoundsAndZeroBoundsImageFilter, r) {
     SkCanvas canvas(10, 10);
     SkPaint p;
-    p.setImageFilter(ZeroBoundsImageFilter::Make());
+    p.setImageFilter(SkImageFilters::Empty());
     // This should not fail any assert.
     canvas.saveLayer(nullptr, &p);
     REPORTER_ASSERT(r, canvas.getDeviceClipBounds().isEmpty());
@@ -738,7 +701,7 @@ DEF_TEST(canvas_savelayer_destructor, reporter) {
     auto do_test = [&](int saveCount, int restoreCount) {
         SkASSERT(restoreCount <= saveCount);
 
-        auto surf = SkSurface::MakeRasterDirect(pm);
+        auto surf = SkSurfaces::WrapPixels(pm);
         auto canvas = surf->getCanvas();
 
         canvas->clear(SK_ColorRED);
@@ -772,3 +735,59 @@ DEF_TEST(canvas_savelayer_destructor, reporter) {
     do_test(2, 0);
     check_pixels(SK_ColorRED);
 }
+
+DEF_TEST(Canvas_saveLayer_colorSpace, reporter) {
+    SkColor pixels[1];
+    const SkImageInfo info = SkImageInfo::MakeN32(1, 1, kOpaque_SkAlphaType);
+    SkPixmap pm(info, pixels, sizeof(SkColor));
+
+    auto surf = SkSurfaces::WrapPixels(pm);
+    auto canvas = surf->getCanvas();
+
+    sk_sp<SkColorSpace> cs = SkColorSpace::MakeSRGB()->makeColorSpin();
+    canvas->saveLayer(SkCanvas::SaveLayerRec(nullptr, nullptr, nullptr, cs.get(), 0));
+    SkPaint paint;
+    paint.setColor(SK_ColorRED);
+    canvas->drawPaint(paint);
+    canvas->restore();
+
+    REPORTER_ASSERT(reporter, pm.getColor(0, 0) == SK_ColorBLUE);
+}
+
+// Draw a lot of rectangles with different colors. On the GPU, the different colors make this
+// relatively difficult to batch.
+void test_many_draws(skiatest::Reporter* reporter, SkSurface* surface) {
+    SkCanvas* canvas = surface->getCanvas();
+    SkPaint paint;
+    for (int i = 0; i < 10000; ++i) {
+        paint.setColor((0xFF << 24) | i);
+        canvas->drawRect(SkRect::MakeXYWH(0, 0, 1, 1), paint);
+    }
+}
+
+#if defined(SK_GANESH)
+DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(TestManyDrawsGanesh,
+                                       reporter,
+                                       contextInfo,
+                                       CtsEnforcement::kApiLevel_202404) {
+    SkImageInfo ii = SkImageInfo::Make(SkISize::Make(1, 1),
+                                       SkColorType::kRGBA_8888_SkColorType,
+                                       SkAlphaType::kPremul_SkAlphaType);
+    GrDirectContext* context = contextInfo.directContext();
+    sk_sp<SkSurface> surface = SkSurfaces::RenderTarget(context, skgpu::Budgeted::kYes, ii);
+    test_many_draws(reporter, surface.get());
+}
+#endif
+
+#if defined(SK_GRAPHITE)
+DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(TestManyDrawsGraphite, reporter, context,
+                                         CtsEnforcement::kApiLevel_202404) {
+    using namespace skgpu::graphite;
+    SkImageInfo ii = SkImageInfo::Make(SkISize::Make(1, 1),
+                                       SkColorType::kRGBA_8888_SkColorType,
+                                       SkAlphaType::kPremul_SkAlphaType);
+    std::unique_ptr<Recorder> recorder = context->makeRecorder();
+    sk_sp<SkSurface> surface = SkSurfaces::RenderTarget(recorder.get(), ii);
+    test_many_draws(reporter, surface.get());
+}
+#endif

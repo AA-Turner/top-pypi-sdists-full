@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tink
-Version: 1.12.0
+Version: 1.13.0
 Summary: A multi-language, cross-platform library that provides cryptographic APIs that are secure, easy to use correctly, and hard(er) to misuse.
 Home-page: https://github.com/tink-crypto/tink-py
 Author: Tink Developers
@@ -19,27 +19,21 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: absl-py>=2.1.0
-Requires-Dist: protobuf>=6.30.2
+Requires-Dist: protobuf>=5.29.3
 Requires-Dist: bazel-runfiles>=1.3.0
 Provides-Extra: gcpkms
 Requires-Dist: google-auth>=2.38.0; extra == "gcpkms"
 Requires-Dist: google-api-core>=2.24.2; extra == "gcpkms"
 Requires-Dist: google-cloud-kms>=3.4.1; extra == "gcpkms"
-Requires-Dist: googleapis_common_protos>=1.69.2; extra == "gcpkms"
-Requires-Dist: grpc-google-iam-v1>=0.14.2; extra == "gcpkms"
 Provides-Extra: awskms
 Requires-Dist: boto3>=1.37.32; extra == "awskms"
-Requires-Dist: proto-plus>=1.26.1; extra == "awskms"
 Provides-Extra: hcvault
 Requires-Dist: hvac>=2.3.0; extra == "hcvault"
 Provides-Extra: all
 Requires-Dist: google-auth>=2.38.0; extra == "all"
 Requires-Dist: google-api-core>=2.24.2; extra == "all"
 Requires-Dist: google-cloud-kms>=3.4.1; extra == "all"
-Requires-Dist: googleapis_common_protos>=1.69.2; extra == "all"
-Requires-Dist: grpc-google-iam-v1>=0.14.2; extra == "all"
 Requires-Dist: boto3>=1.37.32; extra == "all"
-Requires-Dist: proto-plus>=1.26.1; extra == "all"
 Requires-Dist: hvac>=2.3.0; extra == "all"
 Dynamic: author
 Dynamic: author-email

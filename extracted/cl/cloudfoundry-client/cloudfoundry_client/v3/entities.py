@@ -1,6 +1,7 @@
 import functools
+from collections.abc import Callable
 from json import JSONDecodeError
-from typing import Any, Optional, List, Tuple, Union, TypeVar, TYPE_CHECKING, Callable, Type
+from typing import Any, TypeVar, TYPE_CHECKING, Type, Generic
 from urllib.parse import quote, urlparse
 
 from requests import Response
@@ -18,7 +19,7 @@ def plural(name: str) -> str:
 
 class Entity(JsonObject):
     def __init__(self, target_endpoint: str, client: "CloudFoundryClient", **kwargs):
-        super(Entity, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         default_manager = self._default_manager(target_endpoint, client)
         self._create_navigable_links(client.v3, default_manager)
         self._create_navigable_included_entities(client.v3, default_manager)
@@ -63,7 +64,7 @@ class Entity(JsonObject):
         return default_method
 
     @staticmethod
-    def _manager_method(link_name: str, link_method: str) -> Optional[str]:
+    def _manager_method(link_name: str, link_method: str) -> str | None:
         if link_method == "get":
             if link_name.endswith("s"):
                 return "_attempt_to_paginate"
@@ -79,8 +80,8 @@ class Entity(JsonObject):
 
 
 class Relationship(JsonObject):
-    def __init__(self, guid: Optional[str]):
-        super(Relationship, self).__init__(guid=guid)
+    def __init__(self, guid: str | None):
+        super().__init__(guid=guid)
 
 
 class ToOneRelationship(JsonObject):
@@ -93,8 +94,8 @@ class ToOneRelationship(JsonObject):
         result.update(to_one_relationship)
         return result
 
-    def __init__(self, guid: Optional[str]):
-        super(ToOneRelationship, self).__init__(data=Relationship(guid))
+    def __init__(self, guid: str | None):
+        super().__init__(data=Relationship(guid))
         self.guid = guid
 
 
@@ -106,38 +107,55 @@ class ToManyRelationship(JsonObject):
         return result
 
     def __init__(self, *guids: str):
-        super(ToManyRelationship, self).__init__(data=[Relationship(guid) for guid in guids])
+        super().__init__(data=[Relationship(guid) for guid in guids])
         self.guids = list(guids)
 
 
-ENTITY_TYPE = TypeVar("ENTITY_TYPE", bound=Entity)
+ENTITY_TYPE = TypeVar("ENTITY_TYPE", bound=Entity, covariant=True)
 
 
-class EntityManager(object):
-    def __init__(self, target_endpoint: str, client: "CloudFoundryClient", entity_uri: str, entity_type: ENTITY_TYPE = Entity):
+class EntityManager(Generic[ENTITY_TYPE]):
+    def __init__(
+            self,
+            target_endpoint: str,
+            client: "CloudFoundryClient",
+            entity_uri: str,
+            entity_type: type[ENTITY_TYPE] = Entity
+    ):
         self.target_endpoint = target_endpoint
         self.entity_uri = entity_uri
         self.client = client
         self.entity_type = entity_type
 
-    def _post(self, url: str, data: Optional[dict] = None, files: Any = None, entity_type: ENTITY_TYPE = None) -> Entity:
-        response = self.client.post(url, json=data, files=files)
-        return self._read_response(response, entity_type)
-
-    def _get(self, url: str, entity_type: Optional[ENTITY_TYPE] = None, **kwargs) -> Entity:
+    def _get(self, url: str, entity_type: type[ENTITY_TYPE] | None = None, **kwargs) -> ENTITY_TYPE:
         url_requested = EntityManager._get_url_with_encoded_params(url, **kwargs)
         response = self.client.get(url_requested)
         return self._read_response(response, entity_type)
 
-    def _put(self, url: str, data: dict, entity_type: Optional[ENTITY_TYPE] = None) -> Entity:
+    def _post(
+            self,
+            url: str,
+            entity_type: type[ENTITY_TYPE] | None = None,
+            data: dict | None = None,
+            params: dict | None = None,
+            files: Any = None
+    ) -> ENTITY_TYPE:
+        response = self.client.post(
+            url if params is None else EntityManager._get_url_with_encoded_params(url, **params),
+            json=data,
+            files=files
+        )
+        return self._read_response(response, entity_type)
+
+    def _put(self, url: str, data: dict, entity_type: type[ENTITY_TYPE] | None = None) -> ENTITY_TYPE:
         response = self.client.put(url, json=data)
         return self._read_response(response, entity_type)
 
-    def _patch(self, url: str, data: dict, entity_type: Optional[ENTITY_TYPE] = None) -> Entity:
+    def _patch(self, url: str, data: dict, entity_type: type[ENTITY_TYPE] | None = None) -> ENTITY_TYPE:
         response = self.client.patch(url, json=data)
         return self._read_response(response, entity_type)
 
-    def _delete(self, url: str) -> Optional[str]:
+    def _delete(self, url: str) -> str | None:
         response = self.client.delete(url)
         return self._location(response)
 
@@ -148,7 +166,7 @@ class EntityManager(object):
         except (AttributeError, KeyError):
             return None
 
-    def _remove(self, resource_id: str, asynchronous: bool = True) -> Optional[str]:
+    def _remove(self, resource_id: str, asynchronous: bool = True) -> str | None:
         url = "%s%s/%s" % (self.target_endpoint, self.entity_uri, resource_id)
         job_location = self._delete(url)
         if job_location is not None:
@@ -165,21 +183,21 @@ class EntityManager(object):
         job_guid = job_url.path.rsplit("/", 1)[-1]
         return job_guid
 
-    def _list(self, requested_path: str, entity_type: Optional[ENTITY_TYPE] = None, **kwargs) -> Pagination[Entity]:
+    def _list(self, requested_path: str, entity_type: type[ENTITY_TYPE] | None = None, **kwargs) -> Pagination[ENTITY_TYPE]:
         url_requested = EntityManager._get_url_with_encoded_params("%s%s" % (self.target_endpoint, requested_path), **kwargs)
         response_json = self._read_response(self.client.get(url_requested), JsonObject)
         return self._pagination(response_json, entity_type)
 
-    def _attempt_to_paginate(self, url_requested: str, entity_type: Optional[ENTITY_TYPE] = None) \
-            -> Union[Pagination[Entity], Entity]:
+    def _attempt_to_paginate(self, url_requested: str, entity_type: type[ENTITY_TYPE] | None = None) \
+            -> Pagination[ENTITY_TYPE] | ENTITY_TYPE:
         response_json = self._read_response(self.client.get(url_requested), JsonObject)
         if "resources" in response_json:
             return self._pagination(response_json, entity_type)
         else:
             return response_json
 
-    def _pagination(self, page: JsonObject, entity_type: Optional[ENTITY_TYPE] = None) -> Pagination[Entity]:
-        def _entity(json_object: JsonObject) -> Entity:
+    def _pagination(self, page: JsonObject, entity_type: type[ENTITY_TYPE] | None = None) -> Pagination[ENTITY_TYPE]:
+        def _entity(json_object: JsonObject) -> ENTITY_TYPE:
             return self._entity(json_object, entity_type)
 
         return Pagination(page,
@@ -188,7 +206,7 @@ class EntityManager(object):
                           lambda p: p["resources"],
                           _entity)
 
-    def _next_page(self, current_page: JsonObject) -> Optional[JsonObject]:
+    def _next_page(self, current_page: JsonObject) -> JsonObject | None:
         pagination = current_page.get("pagination")
         if (
                 pagination is None
@@ -199,23 +217,23 @@ class EntityManager(object):
             return None
         return self._read_response(self.client.get(current_page["pagination"]["next"]["href"]), JsonObject)
 
-    def _create(self, data: dict) -> Entity:
+    def _create(self, data: dict) -> ENTITY_TYPE:
         url = "%s%s" % (self.target_endpoint, self.entity_uri)
         return self._post(url, data=data)
 
-    def _upload_bits(self, resource_id: str, filename: str) -> Entity:
+    def _upload_bits(self, resource_id: str, filename: str) -> ENTITY_TYPE:
         url = "%s%s/%s/upload" % (self.target_endpoint, self.entity_uri, resource_id)
         files = {"bits": (filename, open(filename, "rb"))}
         return self._post(url, files=files)
 
-    def _update(self, resource_id: str, data: dict) -> Entity:
+    def _update(self, resource_id: str, data: dict) -> ENTITY_TYPE:
         url = "%s%s/%s" % (self.target_endpoint, self.entity_uri, resource_id)
         return self._patch(url, data)
 
-    def __iter__(self) -> Pagination[Entity]:
+    def __iter__(self) -> Pagination[ENTITY_TYPE]:
         return self.list()
 
-    def __getitem__(self, entity_guid) -> Entity:
+    def __getitem__(self, entity_guid) -> ENTITY_TYPE:
         return self.get(entity_guid)
 
     def __len__(self):
@@ -223,30 +241,34 @@ class EntityManager(object):
 
     def len(self, **kwargs):
         url_requested = EntityManager._get_url_with_encoded_params("%s%s" % (self.target_endpoint, self.entity_uri), **kwargs)
-        response_json = self._read_response(self.client.get(url_requested, JsonObject))
+        response_json = self._read_response(self.client.get(url_requested), JsonObject)
         pagination = response_json.get("pagination")
         if pagination is not None:
             return pagination.get("total_results", 0)
         else:
             return 0
 
-    def list(self, **kwargs) -> Pagination[Entity]:
+    def list(self, **kwargs) -> Pagination[ENTITY_TYPE]:
         return self._list(self.entity_uri, **kwargs)
 
-    def get_first(self, **kwargs) -> Optional[Entity]:
+    def get_first(self, **kwargs) -> ENTITY_TYPE | None:
         kwargs.setdefault("per_page", 1)
         for entity in self._list(self.entity_uri, **kwargs):
             return entity
         return None
 
-    def get(self, entity_id: str, *extra_paths, **kwargs) -> Entity:
+    def get(self, entity_id: str, *extra_paths, **kwargs) -> ENTITY_TYPE:
         if len(extra_paths) == 0:
             requested_path = "%s%s/%s" % (self.target_endpoint, self.entity_uri, entity_id)
         else:
             requested_path = "%s%s/%s/%s" % (self.target_endpoint, self.entity_uri, entity_id, "/".join(extra_paths))
         return self._get(requested_path, **kwargs)
 
-    def _read_response(self, response: Response, entity_type: Optional[ENTITY_TYPE]) -> Union[JsonObject, Entity]:
+    def _read_response(
+            self,
+            response: Response,
+            entity_type: type[ENTITY_TYPE] | type[JsonObject] | None
+    ) -> JsonObject | ENTITY_TYPE:
         try:
             result = response.json(object_pairs_hook=JsonObject)
         except JSONDecodeError:
@@ -288,7 +310,7 @@ class EntityManager(object):
     def _get_entity_type(entity_name: str) -> Type[ENTITY_TYPE]:
         return Entity
 
-    def _entity(self, result: JsonObject, entity_type: Optional[ENTITY_TYPE]) -> Union[JsonObject, Entity]:
+    def _entity(self, result: JsonObject, entity_type: type[ENTITY_TYPE] | None) -> JsonObject | ENTITY_TYPE:
         if "guid" in result or ("links" in result and "job" in result["links"]):
             return (entity_type or self.entity_type)(self.target_endpoint, self.client, **result)
         else:
@@ -296,11 +318,11 @@ class EntityManager(object):
 
     @staticmethod
     def _get_url_with_encoded_params(url: str, **kwargs) -> str:
-        def _append_encoded_parameter(parameters: List[str], args: Tuple[str, Any]) -> List[str]:
+        def _append_encoded_parameter(parameters: list[str], args: tuple[str, Any]) -> list[str]:
             parameter_name, parameter_value = args[0], args[1]
             if isinstance(parameter_value, (list, tuple)):
                 parameters.append("%s=%s" % (parameter_name, quote(",".join(parameter_value))))
-            elif isinstance(parameter_value, (dict)) and parameter_name == "fields":
+            elif isinstance(parameter_value, dict) and parameter_name == "fields":
                 for resource, key in parameter_value.items():
                     parameters.append("%s[%s]=%s" % (parameter_name, resource, ",".join(key)))
             else:
@@ -311,3 +333,12 @@ class EntityManager(object):
             return "%s?%s" % (url, "&".join(functools.reduce(_append_encoded_parameter, sorted(list(kwargs.items())), [])))
         else:
             return url
+
+    def _metadata(self, data, meta_labels, meta_annotations):
+        if meta_labels or meta_annotations:
+            metadata = dict()
+            if meta_labels:
+                metadata["labels"] = meta_labels
+            if meta_annotations:
+                metadata["annotations"] = meta_annotations
+            data["metadata"] = metadata

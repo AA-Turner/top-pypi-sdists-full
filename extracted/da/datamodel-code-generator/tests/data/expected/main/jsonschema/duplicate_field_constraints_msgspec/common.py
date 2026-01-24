@@ -4,11 +4,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, TypeAlias
 
 from msgspec import Meta
 
-Model = Any
+Model: TypeAlias = Any
 
 
-Ulid = Annotated[str, Meta(pattern='[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26,26}')]
+Ulid: TypeAlias = Annotated[str, Meta(pattern='[0-9ABCDEFGHJKMNPQRSTVWXYZ]{26,26}')]

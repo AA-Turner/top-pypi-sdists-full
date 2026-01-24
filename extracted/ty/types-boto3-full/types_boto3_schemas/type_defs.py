@@ -3,7 +3,7 @@ Type annotations for schemas service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_schemas/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,18 +17,13 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from botocore.response import StreamingBody
 
 from .literals import CodeGenerationStatusType, DiscovererStateType, TypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -120,7 +115,7 @@ class CreateDiscovererRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -199,7 +194,7 @@ class DiscovererSummaryTypeDef(TypedDict):
     SourceArn: NotRequired[str]
     State: NotRequired[DiscovererStateType]
     CrossAccount: NotRequired[bool]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 ExportSchemaRequestTypeDef = TypedDict(
@@ -256,7 +251,7 @@ class ListRegistriesRequestTypeDef(TypedDict):
 class RegistrySummaryTypeDef(TypedDict):
     RegistryArn: NotRequired[str]
     RegistryName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListSchemaVersionsRequestTypeDef(TypedDict):
@@ -288,7 +283,7 @@ class SchemaSummaryTypeDef(TypedDict):
     LastModified: NotRequired[datetime]
     SchemaArn: NotRequired[str]
     SchemaName: NotRequired[str]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     VersionCount: NotRequired[int]
 
 
@@ -375,7 +370,7 @@ class CreateDiscovererResponseTypeDef(TypedDict):
     SourceArn: str
     State: DiscovererStateType
     CrossAccount: bool
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -383,7 +378,7 @@ class CreateRegistryResponseTypeDef(TypedDict):
     Description: str
     RegistryArn: str
     RegistryName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -395,7 +390,7 @@ CreateSchemaResponseTypeDef = TypedDict(
         "SchemaArn": str,
         "SchemaName": str,
         "SchemaVersion": str,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": str,
         "VersionCreatedDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -418,7 +413,7 @@ class DescribeDiscovererResponseTypeDef(TypedDict):
     SourceArn: str
     State: DiscovererStateType
     CrossAccount: bool
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -426,7 +421,7 @@ class DescribeRegistryResponseTypeDef(TypedDict):
     Description: str
     RegistryArn: str
     RegistryName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -439,7 +434,7 @@ DescribeSchemaResponseTypeDef = TypedDict(
         "SchemaArn": str,
         "SchemaName": str,
         "SchemaVersion": str,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": str,
         "VersionCreatedDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -481,7 +476,7 @@ class GetResourcePolicyResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -518,7 +513,7 @@ class UpdateDiscovererResponseTypeDef(TypedDict):
     SourceArn: str
     State: DiscovererStateType
     CrossAccount: bool
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -526,7 +521,7 @@ class UpdateRegistryResponseTypeDef(TypedDict):
     Description: str
     RegistryArn: str
     RegistryName: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -538,7 +533,7 @@ UpdateSchemaResponseTypeDef = TypedDict(
         "SchemaArn": str,
         "SchemaName": str,
         "SchemaVersion": str,
-        "Tags": Dict[str, str],
+        "Tags": dict[str, str],
         "Type": str,
         "VersionCreatedDate": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -555,7 +550,7 @@ class DescribeCodeBindingRequestWaitTypeDef(TypedDict):
 
 
 class ListDiscoverersResponseTypeDef(TypedDict):
-    Discoverers: List[DiscovererSummaryTypeDef]
+    Discoverers: list[DiscovererSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -591,19 +586,19 @@ class SearchSchemasRequestPaginateTypeDef(TypedDict):
 
 
 class ListRegistriesResponseTypeDef(TypedDict):
-    Registries: List[RegistrySummaryTypeDef]
+    Registries: list[RegistrySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemaVersionsResponseTypeDef(TypedDict):
-    SchemaVersions: List[SchemaVersionSummaryTypeDef]
+    SchemaVersions: list[SchemaVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSchemasResponseTypeDef(TypedDict):
-    Schemas: List[SchemaSummaryTypeDef]
+    Schemas: list[SchemaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -612,10 +607,10 @@ class SearchSchemaSummaryTypeDef(TypedDict):
     RegistryName: NotRequired[str]
     SchemaArn: NotRequired[str]
     SchemaName: NotRequired[str]
-    SchemaVersions: NotRequired[List[SearchSchemaVersionSummaryTypeDef]]
+    SchemaVersions: NotRequired[list[SearchSchemaVersionSummaryTypeDef]]
 
 
 class SearchSchemasResponseTypeDef(TypedDict):
-    Schemas: List[SearchSchemaSummaryTypeDef]
+    Schemas: list[SearchSchemaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

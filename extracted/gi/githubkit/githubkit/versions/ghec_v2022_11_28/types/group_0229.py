@@ -9,17 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class OrganizationCustomOrganizationRoleCreateSchemaType(TypedDict):
-    """OrganizationCustomOrganizationRoleCreateSchema"""
+class GitignoreTemplateType(TypedDict):
+    """Gitignore Template
+
+    Gitignore Template
+    """
 
     name: str
-    description: NotRequired[str]
-    permissions: list[str]
-    base_role: NotRequired[Literal["read", "triage", "write", "maintain", "admin"]]
+    source: str
 
 
-__all__ = ("OrganizationCustomOrganizationRoleCreateSchemaType",)
+class GitignoreTemplateTypeForResponse(TypedDict):
+    """Gitignore Template
+
+    Gitignore Template
+    """
+
+    name: str
+    source: str
+
+
+__all__ = (
+    "GitignoreTemplateType",
+    "GitignoreTemplateTypeForResponse",
+)

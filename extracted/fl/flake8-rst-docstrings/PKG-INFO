@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flake8-rst-docstrings
-Version: 0.3.1
+Version: 0.4.0
 Summary: Python docstring reStructuredText (RST) validator for flake8
 Author: Peter J. A. Cock
 Maintainer-email: "Peter J. A. Cock" <p.j.a.cock@googlemail.com>
@@ -20,7 +20,7 @@ Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: flake8>=3
@@ -142,7 +142,7 @@ RST216 Multiple roles in interpreted text (both prefix and suffix present; only 
 RST217 Mismatch: both interpreted text role suffix and reference suffix.
 RST218 Literal block expected; none found.
 RST219 Inline substitution_reference start-string without end-string.
-RST220 
+RST220 Duplicate explicit target name: "XXX".
 RST299 Previously unseen warning, not yet assigned a unique code.
 ====== =======================================================================
 
@@ -158,6 +158,8 @@ RST304 Unknown interpreted text role "XXX".
 RST305 Undefined substitution referenced: "XXX".
 RST306 Unknown target name: "XXX".
 RST307 Error in "XXX" directive:
+RST308 Duplicate target name, cannot be used as a unique reference: "XXX".
+RST309 Unexpected section title. *(replaced RST401 in docutils v0.22)*
 RST399 Previously unseen major error, not yet assigned a unique code.
 ====== =======================================================================
 
@@ -166,7 +168,7 @@ Severe or critical error codes:
 ====== =======================================================================
 Code   Description
 ------ -----------------------------------------------------------------------
-RST401 Unexpected section title.
+RST401 Unexpected section title. *(downgraded to error, see RST309)*
 RST499 Previously unseen severe error, not yet assigned a unique code.
 ====== =======================================================================
 
@@ -279,6 +281,10 @@ Version History
 ======= ========== ===========================================================
 Version Released   Changes
 ------- ---------- -----------------------------------------------------------
+v0.4.0  2025-10-06 - Tested with docutils v0.22.2
+                   - Adds `RST308` for duplicated target names.
+                   - Adds `RST309` replacing `RST401` (downgraded severity).
+                   - Requires Python 3.9 or later.
 v0.3.1  2025-04-29 - Adds ``RST220`` for redefined anonymous links.
                    - Requires Python 3.8 or later (no code changes).
 v0.3.0  2022-11-16 - Replaced ``setup.py`` with ``pyproject.toml``.

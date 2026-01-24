@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zabbix-utils
-Version: 2.0.3
+Version: 2.0.4
 Summary: A library with modules for working with Zabbix (Zabbix API, Zabbix sender, Zabbix get)
 Home-page: https://github.com/zabbix/python-zabbix-utils
 Author: Zabbix SIA

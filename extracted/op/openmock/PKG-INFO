@@ -1,34 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: openmock
-Version: 3.1.4
+Version: 3.1.5
 Summary: Python OpenSearch Mock for test purposes
-License: MIT
-Keywords: opensearch,mocking,testing
+Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/openmock/issues
+Project-URL: Change Log, https://github.com/matthewdeanmartin/openmock/blob/main/CHANGELOG.md
 Author: Marcos Cardoso
-Requires-Python: >=3.9,<4
+Author-email: Mathew Martin <matthewdeanmartin@gmail.com>
+License: MIT
+License-File: LICENSE
+Keywords: mocking,opensearch,testing
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Requires-Dist: aiohttp
 Requires-Dist: opensearch-py
-Requires-Dist: python-dateutil (>=2.8.2)
-Requires-Dist: python-ranges (==0.2.1)
-Project-URL: Bug Tracker, https://github.com/matthewdeanmartin/openmock/issues
-Project-URL: Change Log, https://github.com/matthewdeanmartin/openmock/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://github.com/matthewdeanmartin/openmock
-Project-URL: Homepage, https://github.com/matthewdeanmartin/openmock
-Project-URL: Repository, https://github.com/matthewdeanmartin/openmock
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: python-ranges==0.2.1
 Description-Content-Type: text/markdown
 
 # Openmock
@@ -230,4 +226,3 @@ See [CHANGELOG.md](https://github.com/matthewdeanmartin/openmock/blob/main/CHANG
 ## License
 
 MIT with `normalize_host.py` being Apache 2 from Elasticsearch.
-

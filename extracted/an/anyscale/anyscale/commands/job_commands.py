@@ -5,6 +5,7 @@ from subprocess import list2cmdline
 from typing import List, Optional, Tuple
 
 import click
+from rich.console import Console
 import yaml
 
 import anyscale
@@ -14,8 +15,11 @@ from anyscale.client.openapi_client.models.ha_job_states import HaJobStates
 from anyscale.commands import command_examples
 from anyscale.commands.util import (
     AnyscaleCommand,
+    build_kv_table,
     convert_kv_strings_to_dict,
     override_env_vars,
+    parse_repeatable_tags_to_dict,
+    parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.job_controller import JobController
 from anyscale.job.models import JobConfig, JobLogMode, JobState, JobStatus
@@ -31,6 +35,50 @@ def _validate_job_name_and_id(name: Optional[str], id: Optional[str]):  # noqa: 
 
     if name is not None and id is not None:
         raise click.ClickException("Only one of '--name' and '--id' can be provided.")
+
+
+def _check_for_new_format_fields(config_file: str) -> None:
+    """Check if a config file contains new-format fields that require using -f flag.
+
+    Raises a ClickException if new-format fields are detected, suggesting the user
+    should use the --config-file/-f flag instead.
+    """
+    # Fields that are specific to the new job submission API
+    NEW_FORMAT_FIELDS = {
+        "image_uri",
+        "containerfile",
+        "working_dir",
+        "requirements",
+        "env_vars",
+        "py_modules",
+        "excludes",
+        "ray_version",
+        "registry_login_secret",
+        "timeout_s",
+        "tags",
+    }
+
+    try:
+        with open(config_file) as f:
+            config_dict = yaml.safe_load(f) or {}
+    except Exception:  # noqa: BLE001
+        # If we can't read the file, let the normal flow handle the error
+        return
+
+    if not isinstance(config_dict, dict):
+        return
+
+    found_fields = [field for field in NEW_FORMAT_FIELDS if field in config_dict]
+
+    if found_fields:
+        fields_str = ", ".join(f"'{field}'" for field in found_fields)
+        raise click.ClickException(
+            f"Your config file contains fields that require the new job submission API: {fields_str}\n\n"
+            f"Please use the '--config-file' or '-f' flag instead:\n"
+            f"  anyscale job submit -f {config_file}\n\n"
+            f"Alternatively, update your config to use the legacy format.\n"
+            f"See https://docs.anyscale.com/reference/job-api/ for more information."
+        )
 
 
 @click.group("job", help="Interact with production jobs running on Anyscale.")
@@ -130,6 +178,12 @@ def job_cli() -> None:
     help="Python modules to be available for import in the Ray workers. Each entry must be a path to a local directory.",
 )
 @click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+@click.option(
     "--cloud",
     required=False,
     default=None,
@@ -182,6 +236,7 @@ def submit(  # noqa: PLR0912 PLR0913 C901
     exclude: Tuple[str],
     requirements: Optional[str],
     py_module: Tuple[str],
+    tags: Tuple[str],
     cloud: Optional[str],
     project: Optional[str],
     max_retries: Optional[int],
@@ -244,6 +299,10 @@ and override the entrypoint with `python main.py`.
         config_file = entrypoint[0]
         if not pathlib.Path(config_file).is_file():
             raise click.ClickException(f"Job config file '{config_file}' not found.")
+
+        # Check if the config file contains new-format fields that require using -f
+        _check_for_new_format_fields(config_file)
+
         log.info(f"Submitting job from config file {config_file}.")
 
         job_id = job_controller.submit(config_file, name=name)
@@ -336,6 +395,11 @@ and override the entrypoint with `python main.py`.
         if timeout_s is not None:
             config = config.options(timeout_s=timeout_s)
 
+        if tags:
+            tag_map = parse_tags_kv_to_str_map(tags)
+            if tag_map:
+                config = config.options(tags=tag_map)
+
         log.info(f"Submitting job with config {config}.")
         job_id = anyscale.job.submit(config)
 
@@ -343,11 +407,9 @@ and override the entrypoint with `python main.py`.
         log.info(
             "Waiting for the job to run. Interrupting this command will not cancel the job."
         )
+        anyscale.job.wait(id=job_id, follow=True)
     else:
         log.info("Use `--wait` to wait for the job to run and stream logs.")
-
-    if wait:
-        anyscale.job.wait(id=job_id)
 
 
 # TODO(mowen): Add cloud support for this when we refactor to new SDK method
@@ -380,6 +442,17 @@ and override the entrypoint with `python main.py`.
     ),
 )
 @click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help=(
+        "This option can be repeated to filter by multiple tags. "
+        "Tags with the same key are ORed, whereas tags with different keys are ANDed. "
+        "Example: --tag team:mlops --tag team:infra --tag env:prod. "
+        "Filters with team: (mlops OR infra) AND env:prod."
+    ),
+)
+@click.option(
     "--max-items",
     required=False,
     default=10,
@@ -404,6 +477,7 @@ def list(  # noqa: A001 PLR0913
     include_archived: bool,
     max_items: int,
     states: List[HaJobStates],
+    tags: List[str],
 ) -> None:
     job_controller = JobController()
     job_controller.list(
@@ -414,6 +488,7 @@ def list(  # noqa: A001 PLR0913
         include_archived=include_archived,
         max_items=max_items,
         states=states,
+        tags=parse_repeatable_tags_to_dict(tags) if tags else None,
     )
 
 
@@ -675,14 +750,17 @@ def wait(
         state = JobState.validate(state)
     except ValueError as e:
         raise click.ClickException(str(e))
-    anyscale.job.wait(
-        name=name,
-        id=id,
-        cloud=cloud,
-        project=project,
-        state=state,
-        timeout_s=timeout_s,
-    )
+    try:
+        anyscale.job.wait(
+            name=name,
+            id=id,
+            cloud=cloud,
+            project=project,
+            state=state,
+            timeout_s=timeout_s,  # type: ignore
+        )
+    except Exception as e:  # noqa: BLE001
+        raise click.ClickException(str(e)) from None
 
 
 @job_cli.command(
@@ -755,3 +833,79 @@ status will be returned.
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
         print(stream.getvalue(), end="")
+
+
+@job_cli.group("tags", help="Manage tags for jobs.")
+def job_tags_cli() -> None:
+    pass
+
+
+@job_tags_cli.command(
+    name="add",
+    help="Add or update tags on a job.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_TAGS_ADD_EXAMPLE,
+)
+@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option("--name", "-n", required=False, help="Name of the job.")
+@click.option(
+    "--tag",
+    "tags",
+    multiple=True,
+    help="Tag in key=value (or key:value) format. Repeat to add multiple.",
+)
+def add_tags(job_id: Optional[str], name: Optional[str], tags: Tuple[str]) -> None:
+    if not job_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = parse_tags_kv_to_str_map(tags)
+    if not tag_map:
+        raise click.ClickException("Provide at least one --tag key=value.")
+    anyscale.job.add_tags(job_id=job_id, name=name, tags=tag_map)
+    stderr = Console(stderr=True)
+    ident = job_id or name or "<unknown>"
+    stderr.print(f"Tags updated for job '{ident}'.")
+
+
+@job_tags_cli.command(
+    name="remove",
+    help="Remove tags by key from a job.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_TAGS_REMOVE_EXAMPLE,
+)
+@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option("--name", "-n", required=False, help="Name of the job.")
+@click.option("--key", "keys", multiple=True, help="Tag key to remove. Repeatable.")
+def remove_tags(job_id: Optional[str], name: Optional[str], keys: Tuple[str]) -> None:
+    if not job_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    key_list = [k for k in keys if k and k.strip()]
+    if not key_list:
+        raise click.ClickException("Provide at least one --key to remove.")
+    anyscale.job.remove_tags(job_id=job_id, name=name, keys=key_list)
+    stderr = Console(stderr=True)
+    ident = job_id or name or "<unknown>"
+    stderr.print(f"Removed tag keys {key_list} from job '{ident}'.")
+
+
+@job_tags_cli.command(
+    name="list",
+    help="List tags for a job.",
+    cls=AnyscaleCommand,
+    example=command_examples.JOB_TAGS_LIST_EXAMPLE,
+)
+@click.option("--id", "job_id", required=False, help="Unique ID of the job.")
+@click.option("--name", "-n", required=False, help="Name of the job.")
+@click.option("--json", "json_output", is_flag=True, default=False, help="JSON output.")
+def list_tags(job_id: Optional[str], name: Optional[str], json_output: bool) -> None:
+    if not job_id and not name:
+        raise click.ClickException("Provide either --id or --name.")
+    tag_map = anyscale.job.list_tags(job_id=job_id, name=name)
+    if json_output:
+        Console().print_json(json=json_dumps(tag_map, indent=2))
+    else:
+        stderr = Console(stderr=True)
+        if not tag_map:
+            stderr.print("No tags found.")
+            return
+        pairs = tag_map.items()
+        stderr.print(build_kv_table(pairs, title="Tags"))

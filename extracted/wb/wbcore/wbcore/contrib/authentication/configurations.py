@@ -48,7 +48,6 @@ def auth_method(request):
     if "WB_SHOW_RESET_PASSWORD" in os.environ:
         config["config"]["reset_password"] = {
             "endpoint": reverse("wbcore:authentication:reset_password_email", request=request),
-            "method": "post",
             "key": "email",
             "success_message": "An e-mail has been sent to your address with instructions to reset your password.",
         }

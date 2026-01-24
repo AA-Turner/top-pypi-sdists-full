@@ -1,5 +1,6 @@
 import importlib
 import os
+from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING  # noqa:F401
 from typing import Set
@@ -7,10 +8,8 @@ from typing import Union
 
 from wrapt.importer import when_imported
 
-from ddtrace.appsec._listeners import load_common_appsec_modules
-from ddtrace.internal.compat import Path
+from ddtrace.internal.settings._config import config
 from ddtrace.internal.telemetry.constants import TELEMETRY_NAMESPACE
-from ddtrace.settings._config import config
 from ddtrace.vendor.debtcollector import deprecate
 from ddtrace.vendor.packaging.specifiers import SpecifierSet
 from ddtrace.vendor.packaging.version import Version
@@ -29,9 +28,10 @@ if TYPE_CHECKING:  # pragma: no cover
 
 log = get_logger(__name__)
 
+
 # Default set of modules to automatically patch or not
 PATCH_MODULES = {
-    "aioredis": True,
+    "aiokafka": True,
     "aiomysql": True,
     "aredis": True,
     "asyncio": True,
@@ -39,7 +39,6 @@ PATCH_MODULES = {
     "boto": True,
     "botocore": True,
     "bottle": True,
-    "cassandra": True,
     "celery": True,
     "consul": True,
     "ddtrace_api": True,
@@ -48,8 +47,7 @@ PATCH_MODULES = {
     "elasticsearch": True,
     "algoliasearch": True,
     "futures": True,
-    "freezegun": False,  # deprecated, to be removed in ddtrace 4.x
-    "google_generativeai": True,
+    "google_adk": True,
     "google_genai": True,
     "gevent": True,
     "graphql": True,
@@ -58,7 +56,6 @@ PATCH_MODULES = {
     "kafka": True,
     "langgraph": True,
     "litellm": True,
-    "mongoengine": True,
     "mysql": True,
     "mysqldb": True,
     "pymysql": True,
@@ -104,6 +101,7 @@ PATCH_MODULES = {
     "yaaredis": True,
     "asyncpg": True,
     "aws_lambda": True,  # patch only in AWS Lambda environments
+    "azure_eventhubs": True,
     "azure_functions": True,
     "azure_servicebus": True,
     "tornado": False,
@@ -112,12 +110,14 @@ PATCH_MODULES = {
     "anthropic": True,
     "crewai": True,
     "pydantic_ai": True,
+    "vllm": True,
     "subprocess": True,
     "unittest": True,
     "coverage": False,
     "selenium": True,
     "valkey": True,
     "openai_agents": True,
+    "ray": False,
     "protobuf": config._data_streams_enabled,
 }
 
@@ -153,18 +153,19 @@ _MODULES_FOR_CONTRIB = {
         "psycopg2",
     ),
     "snowflake": ("snowflake.connector",),
-    "cassandra": ("cassandra.cluster",),
     "dogpile_cache": ("dogpile.cache",),
     "mysqldb": ("MySQLdb",),
     "futures": ("concurrent.futures.thread",),
     "vertica": ("vertica_python",),
     "aws_lambda": ("datadog_lambda",),
+    "azure_eventhubs": ("azure.eventhub",),
     "azure_functions": ("azure.functions",),
     "azure_servicebus": ("azure.servicebus",),
     "httplib": ("http.client",),
     "kafka": ("confluent_kafka",),
-    "google_generativeai": ("google.generativeai",),
+    "google_adk": ("google.adk",),
     "google_genai": ("google.genai",),
+    "langchain": ("langchain_core",),
     "langgraph": (
         "langgraph",
         "langgraph.graph",
@@ -329,7 +330,7 @@ def patch_all(**patch_modules: bool) -> None:
 
     :param dict patch_modules: Override whether particular modules are patched or not.
 
-        >>> _patch_all(redis=False, cassandra=False)
+        >>> _patch_all(redis=False)
     """
     deprecate(
         "patch_all is deprecated and will be removed in a future version of the tracer.",
@@ -358,8 +359,6 @@ def _patch_all(**patch_modules: bool) -> None:
     modules.update(patch_modules)
 
     patch(raise_errors=False, **modules)
-
-    load_common_appsec_modules()
 
 
 def patch(raise_errors=True, **patch_modules):

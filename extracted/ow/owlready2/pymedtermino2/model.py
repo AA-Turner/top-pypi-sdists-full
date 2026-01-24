@@ -664,7 +664,7 @@ SELECT (STR(??1) AS ?iri) (STR(COALESCE(?label, ?label_en)) AS ?label_str) {
     if langs == "display_lang": r0 = self.world.graph.execute(self.sql_lang,    (FTS(label), '["@%s"]' % display_lang, -1)).fetchall()
     elif langs:                 r0 = self.world.graph.execute(self.sql_lang,    (FTS(label), "[%s]" % ",".join('"@%s"' % lang for lang in langs), -1)).fetchall()
     else:                       r0 = self.world.graph.execute(self.sql_no_lang, (FTS(label), -1)).fetchall()
-    
+
     r  = []
     for i in r0:
       if (not self.q2) or tuple(self.q2.execute((i[0],))):

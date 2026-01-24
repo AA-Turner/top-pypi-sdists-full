@@ -82,7 +82,11 @@ _type_mapping = MappingProxyType(
 )
 
 
-def SparkField(*args, spark_type: Optional[Union[Type['DataType'], str]] = None, **kwargs) -> Field:
+def SparkField(
+    *args,
+    spark_type: Optional[Union[Type['DataType'], 'DataType', str]] = None,
+    **kwargs,
+) -> Field:
     if spark_type is not None:
         kwargs['spark_type'] = spark_type
     return Field(*args, **kwargs)
@@ -202,6 +206,11 @@ def create_json_spark_schema(
             name = _get_field_alias(name, info, mode)
 
         field_info_extra = info.json_schema_extra or {}
+        # Computed fields could have json_schema_extra on the return type:
+        if (not field_info_extra) and isinstance(info, ComputedFieldInfo):
+            rt = info.return_type
+            return_field_info = FieldInfo.from_annotation(rt)
+            field_info_extra = return_field_info.json_schema_extra or {}
         override = field_info_extra.get('spark_type')
         annotation_or_return_type = _get_annotation_or_return_type(info)
         field_type = _get_union_type_arg(annotation_or_return_type)
@@ -220,9 +229,10 @@ def create_json_spark_schema(
                 if isinstance(override, str):
                     spark_type = override
                 elif utils.have_pyspark and _is_spark_datatype(override):
-                    spark_type = override.typeName()
-                    if spark_type == 'struct':
+                    if isinstance(override, DataType):
                         spark_type = override.jsonValue()
+                    else:
+                        spark_type = override.typeName()
                 else:
                     msg = '`spark_type` override should be a `str` type name (e.g. long)'
                     if utils.have_pyspark:
@@ -562,9 +572,7 @@ def _is_spark_datatype(t: Type) -> bool:
     Returns:
         bool: a boolean indicating if the type is a PySpark DataType.
     """
-    if isinstance(t, StructType):
-        return True
-    return inspect.isclass(t) and issubclass(t, DataType)
+    return (inspect.isclass(t) and issubclass(t, DataType)) or isinstance(t, DataType)
 
 
 def _json_type_to_ddl(json_type: Union[str, Dict[str, Any]]) -> str:

@@ -9,49 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
 from typing_extensions import TypedDict
 
 
-class RepositoryRuleCreationType(TypedDict):
-    """creation
+class LinkType(TypedDict):
+    """Link
 
-    Only allow users with bypass permission to create matching refs.
+    Hypermedia Link
     """
 
-    type: Literal["creation"]
+    href: str
 
 
-class RepositoryRuleDeletionType(TypedDict):
-    """deletion
+class LinkTypeForResponse(TypedDict):
+    """Link
 
-    Only allow users with bypass permissions to delete matching refs.
+    Hypermedia Link
     """
 
-    type: Literal["deletion"]
-
-
-class RepositoryRuleRequiredSignaturesType(TypedDict):
-    """required_signatures
-
-    Commits pushed to matching refs must have verified signatures.
-    """
-
-    type: Literal["required_signatures"]
-
-
-class RepositoryRuleNonFastForwardType(TypedDict):
-    """non_fast_forward
-
-    Prevent users with push access from force pushing to refs.
-    """
-
-    type: Literal["non_fast_forward"]
+    href: str
 
 
 __all__ = (
-    "RepositoryRuleCreationType",
-    "RepositoryRuleDeletionType",
-    "RepositoryRuleNonFastForwardType",
-    "RepositoryRuleRequiredSignaturesType",
+    "LinkType",
+    "LinkTypeForResponse",
 )

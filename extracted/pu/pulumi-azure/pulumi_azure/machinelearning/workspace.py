@@ -40,6 +40,7 @@ class WorkspaceArgs:
                  primary_user_assigned_identity: Optional[pulumi.Input[_builtins.str]] = None,
                  public_network_access_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  serverless_compute: Optional[pulumi.Input['WorkspaceServerlessComputeArgs']] = None,
+                 service_side_encryption_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  sku_name: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  v1_legacy_mode_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
@@ -70,6 +71,9 @@ class WorkspaceArgs:
                
                > **Note:** `public_access_behind_virtual_network_enabled` is deprecated and will be removed in favour of the property `public_network_access_enabled`.
         :param pulumi.Input['WorkspaceServerlessComputeArgs'] serverless_compute: A `serverless_compute` block as defined below.
+        :param pulumi.Input[_builtins.bool] service_side_encryption_enabled: Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+               
+               !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
         :param pulumi.Input[_builtins.str] sku_name: SKU/edition of the Machine Learning Workspace, possible values are `Free`, `Basic`, `Standard` and `Premium`. Defaults to `Basic`.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags to assign to the resource.
         :param pulumi.Input[_builtins.bool] v1_legacy_mode_enabled: Enable V1 API features, enabling `v1_legacy_mode` may prevent you from using features provided by the v2 API. Defaults to `false`.
@@ -107,6 +111,8 @@ class WorkspaceArgs:
             pulumi.set(__self__, "public_network_access_enabled", public_network_access_enabled)
         if serverless_compute is not None:
             pulumi.set(__self__, "serverless_compute", serverless_compute)
+        if service_side_encryption_enabled is not None:
+            pulumi.set(__self__, "service_side_encryption_enabled", service_side_encryption_enabled)
         if sku_name is not None:
             pulumi.set(__self__, "sku_name", sku_name)
         if tags is not None:
@@ -349,6 +355,20 @@ class WorkspaceArgs:
         pulumi.set(self, "serverless_compute", value)
 
     @_builtins.property
+    @pulumi.getter(name="serviceSideEncryptionEnabled")
+    def service_side_encryption_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+
+        !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
+        """
+        return pulumi.get(self, "service_side_encryption_enabled")
+
+    @service_side_encryption_enabled.setter
+    def service_side_encryption_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "service_side_encryption_enabled", value)
+
+    @_builtins.property
     @pulumi.getter(name="skuName")
     def sku_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -407,6 +427,7 @@ class _WorkspaceState:
                  public_network_access_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  serverless_compute: Optional[pulumi.Input['WorkspaceServerlessComputeArgs']] = None,
+                 service_side_encryption_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  sku_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -437,6 +458,9 @@ class _WorkspaceState:
                > **Note:** `public_access_behind_virtual_network_enabled` is deprecated and will be removed in favour of the property `public_network_access_enabled`.
         :param pulumi.Input[_builtins.str] resource_group_name: Specifies the name of the Resource Group in which the Machine Learning Workspace should exist. Changing this forces a new resource to be created.
         :param pulumi.Input['WorkspaceServerlessComputeArgs'] serverless_compute: A `serverless_compute` block as defined below.
+        :param pulumi.Input[_builtins.bool] service_side_encryption_enabled: Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+               
+               !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
         :param pulumi.Input[_builtins.str] sku_name: SKU/edition of the Machine Learning Workspace, possible values are `Free`, `Basic`, `Standard` and `Premium`. Defaults to `Basic`.
         :param pulumi.Input[_builtins.str] storage_account_id: The ID of the Storage Account associated with this Machine Learning Workspace. Changing this forces a new resource to be created.
                
@@ -483,6 +507,8 @@ class _WorkspaceState:
             pulumi.set(__self__, "resource_group_name", resource_group_name)
         if serverless_compute is not None:
             pulumi.set(__self__, "serverless_compute", serverless_compute)
+        if service_side_encryption_enabled is not None:
+            pulumi.set(__self__, "service_side_encryption_enabled", service_side_encryption_enabled)
         if sku_name is not None:
             pulumi.set(__self__, "sku_name", sku_name)
         if storage_account_id is not None:
@@ -727,6 +753,20 @@ class _WorkspaceState:
         pulumi.set(self, "serverless_compute", value)
 
     @_builtins.property
+    @pulumi.getter(name="serviceSideEncryptionEnabled")
+    def service_side_encryption_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+
+        !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
+        """
+        return pulumi.get(self, "service_side_encryption_enabled")
+
+    @service_side_encryption_enabled.setter
+    def service_side_encryption_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "service_side_encryption_enabled", value)
+
+    @_builtins.property
     @pulumi.getter(name="skuName")
     def sku_name(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -813,6 +853,7 @@ class Workspace(pulumi.CustomResource):
                  public_network_access_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  serverless_compute: Optional[pulumi.Input[Union['WorkspaceServerlessComputeArgs', 'WorkspaceServerlessComputeArgsDict']]] = None,
+                 service_side_encryption_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  sku_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -932,154 +973,6 @@ class Workspace(pulumi.CustomResource):
             })
         ```
 
-        ### With User Assigned Identity And Data Encryption
-
-        > **Note:** The Key Vault must enable purge protection.
-
-        ```python
-        import pulumi
-        import pulumi_azure as azure
-        import pulumi_azuread as azuread
-
-        current = azure.core.get_client_config()
-        example = azure.core.ResourceGroup("example",
-            name="example-resources",
-            location="West Europe")
-        example_insights = azure.appinsights.Insights("example",
-            name="example-ai",
-            location=example.location,
-            resource_group_name=example.name,
-            application_type="web")
-        example_account = azure.storage.Account("example",
-            name="examplestorageaccount",
-            location=example.location,
-            resource_group_name=example.name,
-            account_tier="Standard",
-            account_replication_type="GRS")
-        example_key_vault = azure.keyvault.KeyVault("example",
-            name="example-keyvalut",
-            location=example.location,
-            resource_group_name=example.name,
-            tenant_id=current.tenant_id,
-            sku_name="premium",
-            purge_protection_enabled=True)
-        example_user_assigned_identity = azure.authorization.UserAssignedIdentity("example",
-            name="example-identity",
-            location=example.location,
-            resource_group_name=example.name)
-        example_identity = azure.keyvault.AccessPolicy("example-identity",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=example_user_assigned_identity.principal_id,
-            key_permissions=[
-                "WrapKey",
-                "UnwrapKey",
-                "Get",
-                "Recover",
-            ],
-            secret_permissions=[
-                "Get",
-                "List",
-                "Set",
-                "Delete",
-                "Recover",
-                "Backup",
-                "Restore",
-            ])
-        example_sp = azure.keyvault.AccessPolicy("example-sp",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=current.object_id,
-            key_permissions=[
-                "Get",
-                "Create",
-                "Recover",
-                "Delete",
-                "Purge",
-                "GetRotationPolicy",
-            ])
-        test = azuread.get_service_principal(display_name="Azure Cosmos DB")
-        example_cosmosdb = azure.keyvault.AccessPolicy("example-cosmosdb",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=test.object_id,
-            key_permissions=[
-                "Get",
-                "Recover",
-                "UnwrapKey",
-                "WrapKey",
-            ],
-            opts = pulumi.ResourceOptions(depends_on=[
-                    test,
-                    current,
-                ]))
-        example_key = azure.keyvault.Key("example",
-            name="example-keyvaultkey",
-            key_vault_id=example_key_vault.id,
-            key_type="RSA",
-            key_size=2048,
-            key_opts=[
-                "decrypt",
-                "encrypt",
-                "sign",
-                "unwrapKey",
-                "verify",
-                "wrapKey",
-            ],
-            opts = pulumi.ResourceOptions(depends_on=[
-                    example_key_vault,
-                    example_sp,
-                ]))
-        example_role1 = azure.authorization.Assignment("example-role1",
-            scope=example_key_vault.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role2 = azure.authorization.Assignment("example-role2",
-            scope=example_account.id,
-            role_definition_name="Storage Blob Data Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role3 = azure.authorization.Assignment("example-role3",
-            scope=example_account.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role4 = azure.authorization.Assignment("example-role4",
-            scope=example_insights.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_workspace = azure.machinelearning.Workspace("example",
-            name="example-workspace",
-            location=example.location,
-            resource_group_name=example.name,
-            application_insights_id=example_insights.id,
-            key_vault_id=example_key_vault.id,
-            storage_account_id=example_account.id,
-            high_business_impact=True,
-            primary_user_assigned_identity=example_user_assigned_identity.id,
-            identity={
-                "type": "UserAssigned",
-                "identity_ids": [example_user_assigned_identity.id],
-            },
-            encryption={
-                "user_assigned_identity_id": example_user_assigned_identity.id,
-                "key_vault_id": example_key_vault.id,
-                "key_id": example_key.id,
-            },
-            opts = pulumi.ResourceOptions(depends_on=[
-                    example_role1,
-                    example_role2,
-                    example_role3,
-                    example_role4,
-                    example_cosmosdb,
-                ]))
-        ```
-
-        ## API Providers
-
-        <!-- This section is generated, changes will be overwritten -->
-        This resource uses the following Azure API Providers:
-
-        * `Microsoft.MachineLearningServices` - 2025-06-01
-
         ## Import
 
         Machine Learning Workspace can be imported using the `resource id`, e.g.
@@ -1112,6 +1005,9 @@ class Workspace(pulumi.CustomResource):
                > **Note:** `public_access_behind_virtual_network_enabled` is deprecated and will be removed in favour of the property `public_network_access_enabled`.
         :param pulumi.Input[_builtins.str] resource_group_name: Specifies the name of the Resource Group in which the Machine Learning Workspace should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[Union['WorkspaceServerlessComputeArgs', 'WorkspaceServerlessComputeArgsDict']] serverless_compute: A `serverless_compute` block as defined below.
+        :param pulumi.Input[_builtins.bool] service_side_encryption_enabled: Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+               
+               !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
         :param pulumi.Input[_builtins.str] sku_name: SKU/edition of the Machine Learning Workspace, possible values are `Free`, `Basic`, `Standard` and `Premium`. Defaults to `Basic`.
         :param pulumi.Input[_builtins.str] storage_account_id: The ID of the Storage Account associated with this Machine Learning Workspace. Changing this forces a new resource to be created.
                
@@ -1239,154 +1135,6 @@ class Workspace(pulumi.CustomResource):
             })
         ```
 
-        ### With User Assigned Identity And Data Encryption
-
-        > **Note:** The Key Vault must enable purge protection.
-
-        ```python
-        import pulumi
-        import pulumi_azure as azure
-        import pulumi_azuread as azuread
-
-        current = azure.core.get_client_config()
-        example = azure.core.ResourceGroup("example",
-            name="example-resources",
-            location="West Europe")
-        example_insights = azure.appinsights.Insights("example",
-            name="example-ai",
-            location=example.location,
-            resource_group_name=example.name,
-            application_type="web")
-        example_account = azure.storage.Account("example",
-            name="examplestorageaccount",
-            location=example.location,
-            resource_group_name=example.name,
-            account_tier="Standard",
-            account_replication_type="GRS")
-        example_key_vault = azure.keyvault.KeyVault("example",
-            name="example-keyvalut",
-            location=example.location,
-            resource_group_name=example.name,
-            tenant_id=current.tenant_id,
-            sku_name="premium",
-            purge_protection_enabled=True)
-        example_user_assigned_identity = azure.authorization.UserAssignedIdentity("example",
-            name="example-identity",
-            location=example.location,
-            resource_group_name=example.name)
-        example_identity = azure.keyvault.AccessPolicy("example-identity",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=example_user_assigned_identity.principal_id,
-            key_permissions=[
-                "WrapKey",
-                "UnwrapKey",
-                "Get",
-                "Recover",
-            ],
-            secret_permissions=[
-                "Get",
-                "List",
-                "Set",
-                "Delete",
-                "Recover",
-                "Backup",
-                "Restore",
-            ])
-        example_sp = azure.keyvault.AccessPolicy("example-sp",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=current.object_id,
-            key_permissions=[
-                "Get",
-                "Create",
-                "Recover",
-                "Delete",
-                "Purge",
-                "GetRotationPolicy",
-            ])
-        test = azuread.get_service_principal(display_name="Azure Cosmos DB")
-        example_cosmosdb = azure.keyvault.AccessPolicy("example-cosmosdb",
-            key_vault_id=example_key_vault.id,
-            tenant_id=current.tenant_id,
-            object_id=test.object_id,
-            key_permissions=[
-                "Get",
-                "Recover",
-                "UnwrapKey",
-                "WrapKey",
-            ],
-            opts = pulumi.ResourceOptions(depends_on=[
-                    test,
-                    current,
-                ]))
-        example_key = azure.keyvault.Key("example",
-            name="example-keyvaultkey",
-            key_vault_id=example_key_vault.id,
-            key_type="RSA",
-            key_size=2048,
-            key_opts=[
-                "decrypt",
-                "encrypt",
-                "sign",
-                "unwrapKey",
-                "verify",
-                "wrapKey",
-            ],
-            opts = pulumi.ResourceOptions(depends_on=[
-                    example_key_vault,
-                    example_sp,
-                ]))
-        example_role1 = azure.authorization.Assignment("example-role1",
-            scope=example_key_vault.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role2 = azure.authorization.Assignment("example-role2",
-            scope=example_account.id,
-            role_definition_name="Storage Blob Data Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role3 = azure.authorization.Assignment("example-role3",
-            scope=example_account.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_role4 = azure.authorization.Assignment("example-role4",
-            scope=example_insights.id,
-            role_definition_name="Contributor",
-            principal_id=example_user_assigned_identity.principal_id)
-        example_workspace = azure.machinelearning.Workspace("example",
-            name="example-workspace",
-            location=example.location,
-            resource_group_name=example.name,
-            application_insights_id=example_insights.id,
-            key_vault_id=example_key_vault.id,
-            storage_account_id=example_account.id,
-            high_business_impact=True,
-            primary_user_assigned_identity=example_user_assigned_identity.id,
-            identity={
-                "type": "UserAssigned",
-                "identity_ids": [example_user_assigned_identity.id],
-            },
-            encryption={
-                "user_assigned_identity_id": example_user_assigned_identity.id,
-                "key_vault_id": example_key_vault.id,
-                "key_id": example_key.id,
-            },
-            opts = pulumi.ResourceOptions(depends_on=[
-                    example_role1,
-                    example_role2,
-                    example_role3,
-                    example_role4,
-                    example_cosmosdb,
-                ]))
-        ```
-
-        ## API Providers
-
-        <!-- This section is generated, changes will be overwritten -->
-        This resource uses the following Azure API Providers:
-
-        * `Microsoft.MachineLearningServices` - 2025-06-01
-
         ## Import
 
         Machine Learning Workspace can be imported using the `resource id`, e.g.
@@ -1428,6 +1176,7 @@ class Workspace(pulumi.CustomResource):
                  public_network_access_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
                  serverless_compute: Optional[pulumi.Input[Union['WorkspaceServerlessComputeArgs', 'WorkspaceServerlessComputeArgsDict']]] = None,
+                 service_side_encryption_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  sku_name: Optional[pulumi.Input[_builtins.str]] = None,
                  storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1467,6 +1216,7 @@ class Workspace(pulumi.CustomResource):
                 raise TypeError("Missing required property 'resource_group_name'")
             __props__.__dict__["resource_group_name"] = resource_group_name
             __props__.__dict__["serverless_compute"] = serverless_compute
+            __props__.__dict__["service_side_encryption_enabled"] = service_side_encryption_enabled
             __props__.__dict__["sku_name"] = sku_name
             if storage_account_id is None and not opts.urn:
                 raise TypeError("Missing required property 'storage_account_id'")
@@ -1504,6 +1254,7 @@ class Workspace(pulumi.CustomResource):
             public_network_access_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             resource_group_name: Optional[pulumi.Input[_builtins.str]] = None,
             serverless_compute: Optional[pulumi.Input[Union['WorkspaceServerlessComputeArgs', 'WorkspaceServerlessComputeArgsDict']]] = None,
+            service_side_encryption_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             sku_name: Optional[pulumi.Input[_builtins.str]] = None,
             storage_account_id: Optional[pulumi.Input[_builtins.str]] = None,
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
@@ -1539,6 +1290,9 @@ class Workspace(pulumi.CustomResource):
                > **Note:** `public_access_behind_virtual_network_enabled` is deprecated and will be removed in favour of the property `public_network_access_enabled`.
         :param pulumi.Input[_builtins.str] resource_group_name: Specifies the name of the Resource Group in which the Machine Learning Workspace should exist. Changing this forces a new resource to be created.
         :param pulumi.Input[Union['WorkspaceServerlessComputeArgs', 'WorkspaceServerlessComputeArgsDict']] serverless_compute: A `serverless_compute` block as defined below.
+        :param pulumi.Input[_builtins.bool] service_side_encryption_enabled: Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+               
+               !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
         :param pulumi.Input[_builtins.str] sku_name: SKU/edition of the Machine Learning Workspace, possible values are `Free`, `Basic`, `Standard` and `Premium`. Defaults to `Basic`.
         :param pulumi.Input[_builtins.str] storage_account_id: The ID of the Storage Account associated with this Machine Learning Workspace. Changing this forces a new resource to be created.
                
@@ -1570,6 +1324,7 @@ class Workspace(pulumi.CustomResource):
         __props__.__dict__["public_network_access_enabled"] = public_network_access_enabled
         __props__.__dict__["resource_group_name"] = resource_group_name
         __props__.__dict__["serverless_compute"] = serverless_compute
+        __props__.__dict__["service_side_encryption_enabled"] = service_side_encryption_enabled
         __props__.__dict__["sku_name"] = sku_name
         __props__.__dict__["storage_account_id"] = storage_account_id
         __props__.__dict__["tags"] = tags
@@ -1732,6 +1487,16 @@ class Workspace(pulumi.CustomResource):
         A `serverless_compute` block as defined below.
         """
         return pulumi.get(self, "serverless_compute")
+
+    @_builtins.property
+    @pulumi.getter(name="serviceSideEncryptionEnabled")
+    def service_side_encryption_enabled(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        Whether to enable service-side encryption with customer-managed keys (CMK). Default to `false`. Changing this forces a new resource to be created.
+
+        !> **Note:** Setting `service_side_encryption_enabled` requires the `encryption` block to be set. When you use service-side encryption, Azure charges will continue to accrue during the soft delete retention period.
+        """
+        return pulumi.get(self, "service_side_encryption_enabled")
 
     @_builtins.property
     @pulumi.getter(name="skuName")

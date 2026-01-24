@@ -11,7 +11,7 @@ from wbcore.metadata.configs.buttons import (
     HyperlinkButton,
     WidgetButton,
 )
-from wbcore.metadata.configs.buttons.enums import ButtonDefaultColor, HyperlinkTarget
+from wbcore.metadata.configs.buttons.enums import ButtonDefaultColor
 from wbcore.metadata.configs.display.instance_display import create_simple_display
 from wbcore.metadata.utils import prefix_key
 
@@ -31,7 +31,6 @@ class TestDropDownButton:
         assert serialized_btn["icon"] == button.icon
         assert serialized_btn["title"] == button.title
         assert serialized_btn["color"] == button.color
-        assert serialized_btn["level"] == button.color
         assert serialized_btn["buttons"] == [button.buttons[0].serialize(rf)]
         assert serialized_btn["type"] == DropDownButton.button_type.value
 
@@ -43,7 +42,6 @@ class TestDropDownButton:
         assert serialized_btn["icon"] == button.icon
         assert serialized_btn["title"] == button.title
         assert serialized_btn["color"] == button.color
-        assert serialized_btn["level"] == button.color
         assert serialized_btn["buttons"] == [nested_button.serialize(rf, key_prefix=key_prefix)]
         assert serialized_btn["type"] == DropDownButton.button_type.value
         assert serialized_btn["buttons"][0]["key"] == prefix_key(nested_button.key, key_prefix)
@@ -78,7 +76,6 @@ class TestWidgetButton:
         assert serialized_btn["icon"] == key_button.icon
         assert serialized_btn["title"] == key_button.title
         assert serialized_btn["color"] == key_button.color
-        assert serialized_btn["level"] == key_button.color
         assert serialized_btn["key"] == key_button.key
         assert serialized_btn["type"] == self.button_class.button_type.value
 
@@ -89,7 +86,6 @@ class TestWidgetButton:
         assert serialized_btn["icon"] == key_button.icon
         assert serialized_btn["title"] == key_button.title
         assert serialized_btn["color"] == key_button.color
-        assert serialized_btn["level"] == key_button.color
         assert serialized_btn["type"] == self.button_class.button_type.value
         assert serialized_btn["key"] == prefix_key(key_button.key, key_prefix)
 
@@ -104,7 +100,6 @@ class TestWidgetButton:
         assert serialized_btn["icon"] == endpoint_button.icon
         assert serialized_btn["title"] == endpoint_button.title
         assert serialized_btn["color"] == endpoint_button.color
-        assert serialized_btn["level"] == endpoint_button.color
         assert serialized_btn["endpoint"] == endpoint_button.endpoint
         assert serialized_btn["type"] == self.button_class.button_type.value
 
@@ -118,18 +113,11 @@ class TestWidgetButton:
 class TestHyperlinkButtonutton(TestWidgetButton):
     button_class = HyperlinkButton
 
-    def test_serialize(self, rf, key_button):
-        super().test_serialize(rf, key_button)
-        key_button.target = random.choice(list(HyperlinkTarget))
-        serialized_btn = key_button.serialize(rf)
-        assert serialized_btn["target"] == key_button.target.value
-
     def test_serialize_endpoint_button(self, rf, endpoint_button):
         serialized_btn = endpoint_button.serialize(rf)
         assert serialized_btn["icon"] == endpoint_button.icon
         assert serialized_btn["title"] == endpoint_button.title
         assert serialized_btn["color"] == endpoint_button.color
-        assert serialized_btn["level"] == endpoint_button.color
         assert serialized_btn["endpoint"] == endpoint_button.endpoint
         assert serialized_btn["type"] == self.button_class.button_type.value
 

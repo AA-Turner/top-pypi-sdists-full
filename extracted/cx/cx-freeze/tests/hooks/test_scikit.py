@@ -1,24 +1,14 @@
-"""Tests for hooks:
-numpy, matplotlib, pandas, raterio, scipy, shapely, and vtk.
-"""
+"""Tests for hooks: scipy, skimage and sklearn."""
 
 from __future__ import annotations
 
-import sys
-
 import pytest
 
-from cx_Freeze._compat import (
-    ABI_THREAD,
-    IS_ARM_64,
-    IS_CONDA,
-    IS_MACOS,
-    IS_WINDOWS,
-)
+from cx_Freeze._compat import IS_CONDA
 
-TIMEOUT = 10
-TIMEOUT_SLOW = 60 if IS_CONDA else 20
-TIMEOUT_VERY_SLOW = 90 if IS_CONDA else 30
+TIMEOUT = 15
+TIMEOUT_SLOW = 60 if IS_CONDA else 30
+TIMEOUT_VERY_SLOW = 120 if IS_CONDA else 60
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -30,21 +20,25 @@ test_scipy.py
     import numpy as np
     import scipy
     from scipy.spatial.transform import Rotation
+    from scipy import signal
 
     print("Hello from cx_Freeze")
     print("numpy version", np.__version__)
     print("scipy version", scipy.__version__)
     print(Rotation.from_euler("XYZ", [10, 10, 10], degrees=True).as_matrix())
+
+    # Example usage of scipy.signal to create a Butterworth filter
+    b, a = signal.butter(4, 0.2)
+    print("Numerator coefficients:", b)
+    print("Denominator coefficients:", a)
 pyproject.toml
     [project]
     name = "test_scipy"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "numpy<2;python_version == '3.11'",
-        "numpy>=2;python_version >= '3.12'",
-        "scipy<1.9.2;python_version == '3.9'",
-        "scipy<1.16;python_version == '3.10'",
+        "numpy<2;python_version < '3.11'",
+        "numpy>=2;python_version >= '3.11'",
+        "scipy<1.16;python_version < '3.11'",
         "scipy>=1.16;python_version >= '3.11'",
     ]
 
@@ -59,12 +53,6 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="scipy does not support Windows arm64",
-    strict=True,
-)
 @pytest.mark.venv
 @zip_packages
 def test_scipy(tmp_package, zip_packages: bool) -> None:
@@ -88,6 +76,8 @@ def test_scipy(tmp_package, zip_packages: bool) -> None:
             "[[*",
             " [*",
             " [*",
+            "Numerator coefficients: *",
+            "Denominator coefficients: *",
         ]
     )
 
@@ -117,7 +107,7 @@ pyproject.toml
     name = "test_skimage"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
+        "numpy<2;python_version < '3.11'",
         "scikit-image",
     ]
 
@@ -131,24 +121,6 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="scikit-image does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t" and IS_MACOS,
-    raises=ModuleNotFoundError,
-    reason="scikit-image does not support Python 3.13t on macOS",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t" and IS_WINDOWS,
-    raises=ModuleNotFoundError,
-    reason="scikit-image does not support Python 3.13t on Windows",
-    strict=True,
-)
 @pytest.mark.venv
 @zip_packages
 def test_skimage(tmp_package, zip_packages: bool) -> None:
@@ -180,10 +152,9 @@ pyproject.toml
     name = "test_sklearn"
     version = "0.1.2.3"
     dependencies = [
-        "numpy<1.26;python_version <= '3.10'",
-        "scikit-learn<1.3;python_version <= '3.10'",
-        "scikit-learn<1.5;python_version == '3.11'",
-        "scikit-learn>=1.7;python_version >= '3.12'",
+        "numpy<2;python_version < '3.11'",
+        "scikit-learn<1.7;python_version < '3.11'",
+        "scikit-learn>=1.7;python_version >= '3.11'",
     ]
 
     [tool.cxfreeze]
@@ -196,12 +167,6 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="scikit-learn does not support Windows arm64",
-    strict=True,
-)
 @pytest.mark.venv
 @zip_packages
 def test_sklearn(tmp_package, zip_packages: bool) -> None:

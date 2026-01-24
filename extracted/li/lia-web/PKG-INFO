@@ -1,32 +1,41 @@
 Metadata-Version: 2.4
 Name: lia-web
-Version: 0.2.3
-Summary: A library for working with web frameworks
+Version: 0.3.1
+Summary: This package has been renamed to cross-web. Install cross-web instead.
 Author-email: Patrick Arminio <patrick.arminio@gmail.com>
-License-File: LICENSE
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
-Requires-Dist: typing-extensions>=4.14.0
+Requires-Dist: cross-web>=0.3.0
 Description-Content-Type: text/markdown
 
-# Lia
+# lia-web has been renamed to cross-web
 
-**Write once, run everywhere** - A universal web framework adapter for Python that lets you write code once and use it across multiple web frameworks.
+This package has been renamed to [cross-web](https://pypi.org/project/cross-web/).
 
-## Installation
+Please update your dependencies to use `cross-web` instead:
 
 ```bash
-uv add lia-web
+uv add cross-web
+# or
+pip install cross-web
 ```
 
-## Overview
+And update your imports from:
 
-Lia provides a unified interface for common web framework operations, allowing you to write framework-agnostic code that can be easily adapted to work with FastAPI, Flask, Django, and other popular Python web frameworks.
+```python
+from lia import Response
+```
 
-## Features
+to:
 
-This project is in early development!
+```python
+from cross_web import Response
+```
+
+## Backwards Compatibility
+
+This package (`lia-web`) now depends on `cross-web` and re-exports all its symbols under the `lia` namespace for backwards compatibility. However, we recommend updating your imports to use `cross` directly.

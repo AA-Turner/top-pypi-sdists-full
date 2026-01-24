@@ -139,7 +139,9 @@ class LocalPath(Path):
         return self.name.rsplit(os.path.extsep)[0]
 
     def with_suffix(self, suffix, depth=1):
-        if suffix and not suffix.startswith(os.path.extsep) or suffix == os.path.extsep:
+        if (
+            suffix and not suffix.startswith(os.path.extsep)
+        ) or suffix == os.path.extsep:
             raise ValueError(f"Invalid suffix {suffix!r}")
         name = self.name
         depth = len(self.suffixes) if depth is None else min(depth, len(self.suffixes))
@@ -205,7 +207,7 @@ class LocalPath(Path):
                     raise
 
     def open(self, mode="r", encoding=None):
-        return open(  # noqa: SIM115
+        return open(
             str(self),
             mode,
             encoding=encoding,
@@ -303,7 +305,7 @@ class LocalPath(Path):
                 raise
 
     def as_uri(self, scheme="file"):
-        return urlparse.urljoin(str(scheme) + ":", urllib.pathname2url(str(self)))
+        return urlparse.urljoin(f"{scheme}://", urllib.pathname2url(str(self)))
 
     @property
     def drive(self):

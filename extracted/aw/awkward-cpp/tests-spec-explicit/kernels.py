@@ -1463,7 +1463,9 @@ def awkward_NumpyArray_pad_zero_to_length(
             toptr[l_to_char] = 0
             l_to_char += 1
 
-awkward_NumpyArray_pad_zero_to_length_uint8 = awkward_NumpyArray_pad_zero_to_length
+awkward_NumpyArray_pad_zero_to_length_uint8_int32 = awkward_NumpyArray_pad_zero_to_length
+awkward_NumpyArray_pad_zero_to_length_uint8_int64 = awkward_NumpyArray_pad_zero_to_length
+awkward_NumpyArray_pad_zero_to_length_uint8_uint32 = awkward_NumpyArray_pad_zero_to_length
 
 
 def awkward_NumpyArray_subrange_equal_bool(

@@ -18,41 +18,54 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0018 import Installation
-from .group_0442 import EnterpriseWebhooks
-from .group_0444 import OrganizationSimpleWebhooks
-from .group_0445 import RepositoryWebhooks
-from .group_0458 import WebhooksRepositoriesItems
+from .group_0264 import Deployment
+from .group_0394 import PullRequest
+from .group_0474 import SimpleInstallation
+from .group_0475 import OrganizationSimpleWebhooks
+from .group_0476 import RepositoryWebhooks
 
 
-class WebhookInstallationUnsuspend(GitHubModel):
-    """installation unsuspend event"""
+class WebhookDeploymentProtectionRuleRequested(GitHubModel):
+    """deployment protection rule requested event"""
 
-    action: Literal["unsuspend"] = Field()
-    enterprise: Missing[EnterpriseWebhooks] = Field(
+    action: Literal["requested"] = Field()
+    environment: Missing[str] = Field(
         default=UNSET,
-        title="Enterprise",
-        description='An enterprise on GitHub. Webhook payloads contain the `enterprise` property when the webhook is configured\non an enterprise account or an organization that\'s part of an enterprise account. For more information,\nsee "[About enterprise accounts](https://docs.github.com/admin/overview/about-enterprise-accounts)."',
+        description="The name of the environment that has the deployment protection rule.",
     )
-    installation: Installation = Field(title="Installation", description="Installation")
-    organization: Missing[OrganizationSimpleWebhooks] = Field(
+    event: Missing[str] = Field(
         default=UNSET,
-        title="Organization Simple",
-        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
+        description="The event that triggered the deployment protection rule.",
     )
-    repositories: Missing[list[WebhooksRepositoriesItems]] = Field(
+    deployment_callback_url: Missing[str] = Field(
+        default=UNSET, description="The URL to review the deployment protection rule."
+    )
+    deployment: Missing[Deployment] = Field(
         default=UNSET,
-        description="An array of repository objects that the installation can access.",
+        title="Deployment",
+        description="A request for a specific ref(branch,sha,tag) to be deployed",
     )
+    pull_requests: Missing[list[PullRequest]] = Field(default=UNSET)
     repository: Missing[RepositoryWebhooks] = Field(
         default=UNSET,
         title="Repository",
         description="The repository on GitHub where the event occurred. Webhook payloads contain the `repository` property\nwhen the event occurs from activity in a repository.",
     )
-    requester: Missing[None] = Field(default=UNSET)
-    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    organization: Missing[OrganizationSimpleWebhooks] = Field(
+        default=UNSET,
+        title="Organization Simple",
+        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
+    )
+    installation: Missing[SimpleInstallation] = Field(
+        default=UNSET,
+        title="Simple Installation",
+        description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
+    )
+    sender: Missing[SimpleUser] = Field(
+        default=UNSET, title="Simple User", description="A GitHub user."
+    )
 
 
-model_rebuild(WebhookInstallationUnsuspend)
+model_rebuild(WebhookDeploymentProtectionRuleRequested)
 
-__all__ = ("WebhookInstallationUnsuspend",)
+__all__ = ("WebhookDeploymentProtectionRuleRequested",)

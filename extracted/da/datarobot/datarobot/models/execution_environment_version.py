@@ -74,23 +74,18 @@ class ExecutionEnvironmentVersion(APIObject):
     """
 
     _path = "executionEnvironments/{}/versions/"
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("environment_id"): String(),
-            t.Key("build_status"): String(),
-            t.Key("image_id"): String(),
-            t.Key("label", optional=True): t.Or(String(max_length=50, allow_blank=True), t.Null()),
-            t.Key("description", optional=True): t.Or(
-                String(max_length=10000, allow_blank=True), t.Null()
-            ),
-            t.Key("created", optional=True) >> "created_at": String(),
-            t.Key("docker_context_size", optional=True): t.Or(Int(), t.Null()),
-            t.Key("docker_image_size", optional=True): t.Or(Int(), t.Null()),
-            t.Key("source_docker_image_uri", optional=True)
-            >> "docker_image_uri": t.Or(String(allow_blank=True), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("environment_id"): String(),
+        t.Key("build_status"): String(),
+        t.Key("image_id"): String(),
+        t.Key("label", optional=True): t.Or(String(max_length=50, allow_blank=True), t.Null()),
+        t.Key("description", optional=True): t.Or(String(max_length=10000, allow_blank=True), t.Null()),
+        t.Key("created", optional=True) >> "created_at": String(),
+        t.Key("docker_context_size", optional=True): t.Or(Int(), t.Null()),
+        t.Key("docker_image_size", optional=True): t.Or(Int(), t.Null()),
+        t.Key("source_docker_image_uri", optional=True) >> "docker_image_uri": t.Or(String(allow_blank=True), t.Null()),
+    }).ignore_extra("*")
 
     schema = _converter
 
@@ -185,9 +180,7 @@ class ExecutionEnvironmentVersion(APIObject):
 
         if docker_context_path:
             if os.path.isdir(docker_context_path):
-                with tempfile.NamedTemporaryFile(
-                    prefix="docker_context_", suffix=".zip"
-                ) as temp_zip_file:
+                with tempfile.NamedTemporaryFile(prefix="docker_context_", suffix=".zip") as temp_zip_file:
                     temp_zip_file_path = temp_zip_file.name
                 archive_base_name = os.path.splitext(temp_zip_file_path)[0]
                 archive_path = shutil.make_archive(archive_base_name, "zip", docker_context_path)

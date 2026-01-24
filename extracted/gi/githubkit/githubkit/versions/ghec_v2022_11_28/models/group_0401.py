@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -17,28 +17,33 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0010 import Integration
+from .group_0089 import DependabotAlertPackage
 
 
-class StateChangeIssueEvent(GitHubModel):
-    """State Change Issue Event
+class DependabotAlertPropDependency(GitHubModel):
+    """DependabotAlertPropDependency
 
-    State Change Issue Event
+    Details for the vulnerable dependency.
     """
 
-    id: int = Field()
-    node_id: str = Field()
-    url: str = Field()
-    actor: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    event: str = Field()
-    commit_id: Union[str, None] = Field()
-    commit_url: Union[str, None] = Field()
-    created_at: str = Field()
-    performed_via_github_app: Union[None, Integration, None] = Field()
-    state_reason: Missing[Union[str, None]] = Field(default=UNSET)
+    package: Missing[DependabotAlertPackage] = Field(
+        default=UNSET, description="Details for the vulnerable package."
+    )
+    manifest_path: Missing[str] = Field(
+        default=UNSET,
+        description="The full path to the dependency manifest file, relative to the root of the repository.",
+    )
+    scope: Missing[Union[None, Literal["development", "runtime"]]] = Field(
+        default=UNSET, description="The execution scope of the vulnerable dependency."
+    )
+    relationship: Missing[Union[None, Literal["unknown", "direct", "transitive"]]] = (
+        Field(
+            default=UNSET,
+            description='The vulnerable dependency\'s relationship to your project.\n\n> [!NOTE]\n> We are rolling out support for dependency relationship across ecosystems. This value will be "unknown" for all dependencies in unsupported ecosystems.\n',
+        )
+    )
 
 
-model_rebuild(StateChangeIssueEvent)
+model_rebuild(DependabotAlertPropDependency)
 
-__all__ = ("StateChangeIssueEvent",)
+__all__ = ("DependabotAlertPropDependency",)

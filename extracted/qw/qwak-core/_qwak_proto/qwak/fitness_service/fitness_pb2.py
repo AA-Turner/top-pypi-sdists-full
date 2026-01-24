@@ -11,10 +11,9 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from _qwak_proto.qwak.fitness_service import constructs_pb2 as qwak_dot_fitness__service_dot_constructs__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/fitness_service/fitness.proto\x12\x14qwak.fitness.service\x1a%qwak/fitness_service/constructs.proto\"\xca\x04\n\tBuildSpec\x12?\n\x10\x62uild_properties\x18\x01 \x01(\x0b\x32%.qwak.fitness.service.BuildProperties\x12\x31\n\tbuild_env\x18\x02 \x01(\x0b\x32\x1e.qwak.fitness.service.BuildEnv\x12;\n\rcpu_resources\x18\x03 \x01(\x0b\x32\".qwak.fitness.service.CpuResourcesH\x00\x12;\n\rgpu_resources\x18\x07 \x01(\x0b\x32\".qwak.fitness.service.GpuResourcesH\x00\x12\x0f\n\x07verbose\x18\x04 \x01(\x05\x12\x14\n\x0c\x62uild_config\x18\x05 \x01(\t\x12\x15\n\rbuild_v1_flag\x18\x06 \x01(\x08\x12\x44\n\x13\x62uild_properties_v1\x18\x08 \x01(\x0b\x32\'.qwak.fitness.service.BuildPropertiesV1\x12=\n\x0fpurchase_option\x18\t \x01(\x0e\x32$.qwak.fitness.service.PurchaseOption\x12\x1c\n\x14\x62uild_destined_image\x18\n \x01(\t\x12\"\n\x1aprovision_instance_timeout\x18\x0b \x01(\x05\x12\x1f\n\x17\x61rtifactory_project_key\x18\x0c \x01(\t\x12\x1c\n\x14\x61rtifactory_base_url\x18\r \x01(\tB\x0b\n\tResources\"g\n\x11\x42uildPropertiesV1\x12\x18\n\x10\x62uild_config_url\x18\x01 \x01(\t\x12\x1a\n\x12qwak_sdk_wheel_url\x18\x02 \x01(\t\x12\x1c\n\x14qwak_sdk_version_url\x18\x03 \x01(\t*e\n\x0ePurchaseOption\x12\x1b\n\x17INVALID_PURCHASE_OPTION\x10\x00\x12\x18\n\x14SPOT_PURCHASE_OPTION\x10\x01\x12\x1c\n\x18ONDEMAND_PURCHASE_OPTION\x10\x02\x42#\n\x1f\x63om.qwak.ai.fitness.service.apiP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"qwak/fitness_service/fitness.proto\x12\x14qwak.fitness.service*e\n\x0ePurchaseOption\x12\x1b\n\x17INVALID_PURCHASE_OPTION\x10\x00\x12\x18\n\x14SPOT_PURCHASE_OPTION\x10\x01\x12\x1c\n\x18ONDEMAND_PURCHASE_OPTION\x10\x02\x42#\n\x1f\x63om.qwak.ai.fitness.service.apiP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,10 +22,6 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\037com.qwak.ai.fitness.service.apiP\001'
-  _globals['_PURCHASEOPTION']._serialized_start=793
-  _globals['_PURCHASEOPTION']._serialized_end=894
-  _globals['_BUILDSPEC']._serialized_start=100
-  _globals['_BUILDSPEC']._serialized_end=686
-  _globals['_BUILDPROPERTIESV1']._serialized_start=688
-  _globals['_BUILDPROPERTIESV1']._serialized_end=791
+  _globals['_PURCHASEOPTION']._serialized_start=60
+  _globals['_PURCHASEOPTION']._serialized_end=161
 # @@protoc_insertion_point(module_scope)

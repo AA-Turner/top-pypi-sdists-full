@@ -492,7 +492,7 @@ class EventTableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["event_table"]:
+        if _params["event_table"] is not None:
             _body_params = _params["event_table"]
 
         # set the HTTP header `Accept`

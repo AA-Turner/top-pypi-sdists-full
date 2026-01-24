@@ -146,7 +146,7 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-api_repsonse:
+api_response:
   description: The API response output returned by the specified resource.
   returned: always
   type: dict
@@ -283,15 +283,8 @@ def main():
         ],
     }
 
-    if intersight.module.params['tags']:
-        intersight.api_body['Tags'] = intersight.module.params['tags']
+    intersight.set_tags_and_description()
 
-    if intersight.module.params['description']:
-        intersight.api_body['Description'] = intersight.module.params['description']
-
-    #
-    # Code below should be common across all policy modules
-    #
     intersight.configure_policy_or_profile(resource_path=resource_path)
 
     module.exit_json(**intersight.result)

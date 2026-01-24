@@ -55,8 +55,16 @@ class MenstrualCycleClient:
         Examples
         --------
         from vital import Vital
-        client = Vital(api_key="YOUR_API_KEY", )
-        client.menstrual_cycle.get(user_id='user_id', start_date='start_date', )
+
+        client = Vital(
+            api_key="YOUR_API_KEY",
+        )
+        client.menstrual_cycle.get(
+            user_id="user_id",
+            provider="provider",
+            start_date="start_date",
+            end_date="end_date",
+        )
         """
         _response = self._raw_client.get(
             user_id, start_date=start_date, provider=provider, end_date=end_date, request_options=request_options
@@ -110,11 +118,24 @@ class AsyncMenstrualCycleClient:
 
         Examples
         --------
-        from vital import AsyncVital
         import asyncio
-        client = AsyncVital(api_key="YOUR_API_KEY", )
+
+        from vital import AsyncVital
+
+        client = AsyncVital(
+            api_key="YOUR_API_KEY",
+        )
+
+
         async def main() -> None:
-            await client.menstrual_cycle.get(user_id='user_id', start_date='start_date', )
+            await client.menstrual_cycle.get(
+                user_id="user_id",
+                provider="provider",
+                start_date="start_date",
+                end_date="end_date",
+            )
+
+
         asyncio.run(main())
         """
         _response = await self._raw_client.get(

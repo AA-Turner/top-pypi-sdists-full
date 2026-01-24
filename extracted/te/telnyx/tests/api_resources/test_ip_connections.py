@@ -10,12 +10,13 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    IPConnectionListResponse,
+    IPConnection,
     IPConnectionCreateResponse,
     IPConnectionDeleteResponse,
     IPConnectionUpdateResponse,
     IPConnectionRetrieveResponse,
 )
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -36,6 +37,7 @@ class TestIPConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -44,7 +46,7 @@ class TestIPConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
@@ -59,6 +61,11 @@ class TestIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=False,
             outbound={
                 "ani_override": "string",
@@ -168,6 +175,7 @@ class TestIPConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -176,7 +184,7 @@ class TestIPConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "default_primary_ip_id": "192.168.0.0",
                 "default_routing_method": "sequential",
                 "default_secondary_ip_id": "192.168.0.0",
@@ -194,6 +202,11 @@ class TestIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=False,
             outbound={
                 "ani_override": "string",
@@ -261,7 +274,7 @@ class TestIPConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         ip_connection = client.ip_connections.list()
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -278,7 +291,7 @@ class TestIPConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -288,7 +301,7 @@ class TestIPConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         ip_connection = response.parse()
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -298,7 +311,7 @@ class TestIPConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             ip_connection = response.parse()
-            assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+            assert_matches_type(SyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -363,6 +376,7 @@ class TestAsyncIPConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -371,7 +385,7 @@ class TestAsyncIPConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "default_routing_method": "sequential",
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
@@ -386,6 +400,11 @@ class TestAsyncIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=False,
             outbound={
                 "ani_override": "string",
@@ -495,6 +514,7 @@ class TestAsyncIPConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -503,7 +523,7 @@ class TestAsyncIPConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "default_primary_ip_id": "192.168.0.0",
                 "default_routing_method": "sequential",
                 "default_secondary_ip_id": "192.168.0.0",
@@ -521,6 +541,11 @@ class TestAsyncIPConnections:
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=False,
             outbound={
                 "ani_override": "string",
@@ -588,7 +613,7 @@ class TestAsyncIPConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         ip_connection = await async_client.ip_connections.list()
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -605,7 +630,7 @@ class TestAsyncIPConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -615,7 +640,7 @@ class TestAsyncIPConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         ip_connection = await response.parse()
-        assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -625,7 +650,7 @@ class TestAsyncIPConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             ip_connection = await response.parse()
-            assert_matches_type(IPConnectionListResponse, ip_connection, path=["response"])
+            assert_matches_type(AsyncDefaultPagination[IPConnection], ip_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

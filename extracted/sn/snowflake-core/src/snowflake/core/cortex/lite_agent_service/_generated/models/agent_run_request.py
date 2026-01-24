@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.cortex.lite_agent_service._generated.models.agent_instructions import (
@@ -70,6 +70,22 @@ class AgentRunRequest(BaseModel):
         The id of the thread.
     parent_message_id : int, optional
         The id of the message from which this run should begin.
+    variables : object, optional
+        Dictionary of variables with metadata.
+        Each variable can include value, type information, and flags indicating whether it's a session or prompt variable.
+    query_tags : list[object], optional
+        Query tags to be attached to the Snowflake session. These will be applied for all queries executed by the agent.
+    tool_bindings : object, optional
+        Maps tools to their variable bindings. For each tool, specifies which input parameters
+        should be automatically injected with variable definitions.
+    origin_application : str,  default 'external'
+        The application that initiated this agent run request.
+        Used for tracking and analytics.
+    internal_metadata : object, optional
+        Internal metadata for the request. This field is reserved for internal use.
+    client_metadata : object, optional
+        Client-provided metadata for the request. Can be used by clients
+        to pass additional context or configuration.
     """
 
     models: Optional[AgentModels] = None
@@ -96,6 +112,18 @@ class AgentRunRequest(BaseModel):
 
     parent_message_id: Optional[StrictInt] = None
 
+    variables: Optional[Dict[str, Any]] = None
+
+    query_tags: Optional[List[Any]] = None
+
+    tool_bindings: Optional[Dict[str, Any]] = None
+
+    origin_application: Optional[StrictStr] = "external"
+
+    internal_metadata: Optional[Dict[str, Any]] = None
+
+    client_metadata: Optional[Dict[str, Any]] = None
+
     __properties = [
         "models",
         "orchestration",
@@ -109,11 +137,28 @@ class AgentRunRequest(BaseModel):
         "tool_choice",
         "thread_id",
         "parent_message_id",
+        "variables",
+        "query_tags",
+        "tool_bindings",
+        "origin_application",
+        "internal_metadata",
+        "client_metadata",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    @field_validator("origin_application")
+    def origin_application_validate_enum(cls, v):
+        if v is None:
+            return v
+        if v not in ("inline_copilot", "data_science_agent", "microsoft_teams", "coding_agent", "external"):
+            raise ValueError(
+                "must validate the enum values ('inline_copilot','data_science_agent','microsoft_teams','coding_agent','external')"
+            )
+        return v
+
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -138,7 +183,7 @@ class AgentRunRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of models
         if self.models:
@@ -189,9 +234,9 @@ class AgentRunRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return AgentRunRequest.parse_obj(obj)
+            return AgentRunRequest.model_validate(obj)
 
-        _obj = AgentRunRequest.parse_obj(
+        _obj = AgentRunRequest.model_validate(
             {
                 "models": AgentModels.from_dict(obj.get("models")) if obj.get("models") is not None else None,
                 "orchestration": AgentOrchestration.from_dict(obj.get("orchestration"))
@@ -215,6 +260,14 @@ class AgentRunRequest(BaseModel):
                 else None,
                 "thread_id": obj.get("thread_id"),
                 "parent_message_id": obj.get("parent_message_id"),
+                "variables": obj.get("variables"),
+                "query_tags": obj.get("query_tags"),
+                "tool_bindings": obj.get("tool_bindings"),
+                "origin_application": obj.get("origin_application")
+                if obj.get("origin_application") is not None
+                else "external",
+                "internal_metadata": obj.get("internal_metadata"),
+                "client_metadata": obj.get("client_metadata"),
             }
         )
 
@@ -237,6 +290,12 @@ class AgentRunRequestModel:
         tool_choice: Optional[ToolChoice] = None,
         thread_id: Optional[int] = None,
         parent_message_id: Optional[int] = None,
+        variables: Optional[object] = None,
+        query_tags: Optional[list[object]] = None,
+        tool_bindings: Optional[object] = None,
+        origin_application: Optional[str] = "external",
+        internal_metadata: Optional[object] = None,
+        client_metadata: Optional[object] = None,
     ):
         """A model object representing the AgentRunRequest resource.
 
@@ -277,6 +336,28 @@ class AgentRunRequestModel:
 
                 parent_message_id : int, optional
                     The id of the message from which this run should begin.
+
+                variables : object, optional
+                    Dictionary of variables with metadata.
+        Each variable can include value, type information, and flags indicating whether it's a session or prompt variable.
+
+                query_tags : list[object], optional
+                    Query tags to be attached to the Snowflake session. These will be applied for all queries executed by the agent.
+
+                tool_bindings : object, optional
+                    Maps tools to their variable bindings. For each tool, specifies which input parameters
+        should be automatically injected with variable definitions.
+
+                origin_application : str,  default 'external'
+                    The application that initiated this agent run request.
+        Used for tracking and analytics.
+
+                internal_metadata : object, optional
+                    Internal metadata for the request. This field is reserved for internal use.
+
+                client_metadata : object, optional
+                    Client-provided metadata for the request. Can be used by clients
+        to pass additional context or configuration.
         """
         self.models = models
         self.orchestration = orchestration
@@ -290,6 +371,12 @@ class AgentRunRequestModel:
         self.tool_choice = tool_choice
         self.thread_id = thread_id
         self.parent_message_id = parent_message_id
+        self.variables = variables
+        self.query_tags = query_tags
+        self.tool_bindings = tool_bindings
+        self.origin_application = origin_application
+        self.internal_metadata = internal_metadata
+        self.client_metadata = client_metadata
 
     __properties = [
         "models",
@@ -304,6 +391,12 @@ class AgentRunRequestModel:
         "tool_choice",
         "thread_id",
         "parent_message_id",
+        "variables",
+        "query_tags",
+        "tool_bindings",
+        "origin_application",
+        "internal_metadata",
+        "client_metadata",
     ]
 
     def __repr__(self) -> str:
@@ -323,6 +416,12 @@ class AgentRunRequestModel:
             tool_choice=self.tool_choice._to_model() if self.tool_choice is not None else None,
             thread_id=self.thread_id,
             parent_message_id=self.parent_message_id,
+            variables=self.variables,
+            query_tags=self.query_tags,
+            tool_bindings=self.tool_bindings,
+            origin_application=self.origin_application,
+            internal_metadata=self.internal_metadata,
+            client_metadata=self.client_metadata,
         )
 
     @classmethod
@@ -340,6 +439,12 @@ class AgentRunRequestModel:
             tool_choice=ToolChoiceModel._from_model(model.tool_choice) if model.tool_choice else None,
             thread_id=model.thread_id,
             parent_message_id=model.parent_message_id,
+            variables=model.variables,
+            query_tags=model.query_tags,
+            tool_bindings=model.tool_bindings,
+            origin_application=model.origin_application,
+            internal_metadata=model.internal_metadata,
+            client_metadata=model.client_metadata,
         )
 
     def to_dict(self):

@@ -33,9 +33,6 @@ struct Entry {
 
 struct SubscriptionImpl final : public OperationBase, public Subscription
 {
-    // for use in log messages, even after cancel()
-    std::string channelName;
-
     evevent ackTick;
 
     // const after exec()
@@ -75,8 +72,8 @@ struct SubscriptionImpl final : public OperationBase, public Subscription
 
     INST_COUNTER(SubscriptionImpl);
 
-    explicit SubscriptionImpl(const evbase& loop)
-        :OperationBase (Operation::Monitor, loop)
+    explicit SubscriptionImpl(const evbase& loop, const std::string& name)
+        :OperationBase (Operation::Monitor, loop, name)
         ,ackTick(__FILE__, __LINE__,
                  event_new(loop.base, -1, EV_TIMEOUT, &tickAckS, this))
     {}
@@ -742,12 +739,13 @@ std::shared_ptr<Subscription> MonitorBuilder::exec()
 {
     if(!ctx)
         throw std::logic_error("NULL Builder");
+    if(_name.empty())
+        throw std::logic_error("Empty channel name");
 
     auto context(ctx->impl->shared_from_this());
 
-    auto op(std::make_shared<SubscriptionImpl>(context->tcp_loop));
+    auto op(std::make_shared<SubscriptionImpl>(context->tcp_loop, _name));
     op->self = op;
-    op->channelName = std::move(_name);
     op->event = std::move(_event);
     op->onInit = std::move(_onInit);
     op->pvRequest = _buildReq();

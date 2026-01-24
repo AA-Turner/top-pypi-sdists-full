@@ -20,7 +20,7 @@ fn test_md038_no_false_positive_for_commands() {
     let md038_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD038").collect();
 
     for content in test_cases {
-        let warnings = rumdl_lib::lint(content, &md038_rules, false, MarkdownFlavor::Standard).unwrap();
+        let warnings = rumdl_lib::lint(content, &md038_rules, false, MarkdownFlavor::Standard, None).unwrap();
 
         // These should NOT produce warnings - the code spans have no leading/trailing spaces
         assert_eq!(
@@ -35,11 +35,12 @@ fn test_md038_no_false_positive_for_commands() {
 
 #[test]
 fn test_md038_correctly_flags_actual_spaces() {
-    // These SHOULD be flagged
+    // CommonMark: Single space at BOTH ends is valid (spaces are stripped)
+    // Space at only ONE end should be flagged
     let test_cases = vec![
-        ("` pyproject.toml`", 1),  // Leading space
-        ("`pyproject.toml `", 1),  // Trailing space
-        ("` pyproject.toml `", 1), // Both leading and trailing
+        ("` pyproject.toml`", 1),  // Leading space only - SHOULD be flagged
+        ("`pyproject.toml `", 1),  // Trailing space only - SHOULD be flagged
+        ("` pyproject.toml `", 0), // Both leading and trailing - valid CommonMark (stripped)
     ];
 
     let config = Config::default();
@@ -47,12 +48,12 @@ fn test_md038_correctly_flags_actual_spaces() {
     let md038_rules: Vec<_> = all_rules.into_iter().filter(|r| r.name() == "MD038").collect();
 
     for (content, expected_warnings) in test_cases {
-        let warnings = rumdl_lib::lint(content, &md038_rules, false, MarkdownFlavor::Standard).unwrap();
+        let warnings = rumdl_lib::lint(content, &md038_rules, false, MarkdownFlavor::Standard, None).unwrap();
 
         assert_eq!(
             warnings.len(),
             expected_warnings,
-            "MD038 should flag code spans with leading/trailing spaces. Content: '{content}'"
+            "MD038 CommonMark space-stripping behavior. Content: '{content}'"
         );
     }
 }

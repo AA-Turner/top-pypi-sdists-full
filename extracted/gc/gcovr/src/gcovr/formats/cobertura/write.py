@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -23,13 +23,10 @@ from lxml import etree  # nosec # We only write XML files
 
 from ...options import Options
 
-from ...utils import (
-    force_unix_separator,
-    get_version_for_report,
-    open_binary_for_writing,
-    presentable_filename,
-)
-from ...coverage import CoverageContainer, CoverageStat, LineCoverage, SummarizedStats
+from ...utils import force_unix_separator, get_version_for_report, write_xml_output
+from ...data_model.container import CoverageContainer
+from ...data_model.coverage import LineCoverage
+from ...data_model.stats import CoverageStat, SummarizedStats
 
 
 def write_report(
@@ -58,9 +55,8 @@ def write_report(
     packages_elem = etree.SubElement(root_elem, "packages")
     packages = dict[str, PackageData]()
 
-    for fname in sorted(covdata):
-        filecov = covdata[fname]
-        filename = presentable_filename(fname, root_filter=options.root_filter)
+    for _, filecov in sorted(covdata.items()):
+        filename = filecov.presentable_filename(options.root_filter)
         if "/" in filename:
             directory, fname = filename.rsplit("/", 1)
         else:
@@ -77,30 +73,24 @@ def write_report(
         # The Cobertura DTD requires a methods section, which isn't
         # trivial to get from gcov (so we will leave it blank)
         methods_elem = etree.SubElement(class_elem, "methods")
-        for functioncov in filecov.functions.values():
-            if functioncov.name is not None:
-                filtered_filecov = filecov.filter_for_function(functioncov)
-                function_stats = filtered_filecov.stats
-                name = functioncov.demangled_name
-                if "(" in name:
-                    name = name.split("(", maxsplit=1)[0]
-                    signature = functioncov.demangled_name[len(name) :]
-                else:
-                    signature = "()"
-                method_elem = etree.SubElement(methods_elem, "method")
-                method_elem.set("name", name)
-                method_elem.set("signature", signature)
-                method_elem.set("line-rate", _rate(function_stats.line))
-                method_elem.set("branch-rate", _rate(function_stats.branch))
-                method_elem.set("complexity", "0.0")
-                lines_elem = etree.SubElement(method_elem, "lines")
-                for linecov in filtered_filecov.lines.values():
-                    if linecov.is_reportable:
-                        lines_elem.append(_line_element(linecov))
+        for functioncov in filecov.functioncov(sort=True):
+            filtered_filecov = filecov.filter_for_function(functioncov)
+            function_stats = filtered_filecov.stats
+            name, signature = functioncov.name_and_signature
+            method_elem = etree.SubElement(methods_elem, "method")
+            method_elem.set("name", name)
+            method_elem.set("signature", signature)
+            method_elem.set("line-rate", _rate(function_stats.line))
+            method_elem.set("branch-rate", _rate(function_stats.branch))
+            method_elem.set("complexity", "0.0")
+            lines_elem = etree.SubElement(method_elem, "lines")
+            for linecov in filtered_filecov.linecov(sort=True):
+                if linecov.is_reportable:
+                    lines_elem.append(_line_element(linecov))
 
         lines_elem = etree.SubElement(class_elem, "lines")
 
-        for linecov in filecov.lines.values():
+        for linecov in filecov.linecov(sort=True):
             if linecov.is_reportable:
                 lines_elem.append(_line_element(linecov))
 
@@ -116,12 +106,11 @@ def write_report(
         package_data.classes_xml[class_name] = class_elem
         package_data.stats += stats
 
-    for package_name in sorted(packages):
-        package_data = packages[package_name]
+    for package_name, package_data in sorted(packages.items()):
         package_elem = etree.SubElement(packages_elem, "package")
         classes_elem = etree.SubElement(package_elem, "classes")
-        for class_name in sorted(package_data.classes_xml):
-            classes_elem.append(package_data.classes_xml[class_name])
+        for _, class_data in sorted(package_data.classes_xml.items()):
+            classes_elem.append(class_data)
         package_elem.set("name", package_name.replace("/", "."))
         package_elem.set("line-rate", _rate(package_data.stats.line))
         package_elem.set("branch-rate", _rate(package_data.stats.branch))
@@ -132,16 +121,13 @@ def write_report(
         os.path.abspath(options.root)
     )
 
-    with open_binary_for_writing(output_file, "cobertura.xml") as fh:
-        fh.write(
-            etree.tostring(
-                root_elem,
-                pretty_print=options.cobertura_pretty,
-                encoding="UTF-8",
-                xml_declaration=True,
-                doctype="<!DOCTYPE coverage SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>",
-            )
-        )
+    write_xml_output(
+        root_elem,
+        pretty=options.cobertura_pretty,
+        filename=output_file,
+        default_filename="cobertura.xml",
+        doctype="<!DOCTYPE coverage SYSTEM 'http://cobertura.sourceforge.net/xml/coverage-04.dtd'>",
+    )
 
 
 @dataclass
@@ -154,11 +140,9 @@ class PackageData:
 
 def _rate(stat: CoverageStat) -> str:
     """format a CoverageStat as a string in range 0.0 to 1.0 inclusive"""
-    total = stat.total
-    covered = stat.covered
-    if not total:
+    if not stat.total:
         return "1.0"
-    return str(covered / total)
+    return str(stat.covered / stat.total)
 
 
 def _line_element(linecov: LineCoverage) -> etree._Element:

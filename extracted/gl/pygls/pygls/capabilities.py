@@ -14,31 +14,23 @@
 # See the License for the specific language governing permissions and      #
 # limitations under the License.                                           #
 ############################################################################
-from functools import reduce
-from typing import Any, Dict, List, Optional, Set, Union, TypeVar
 import logging
+from typing import Any, Dict, List, Optional, Set, TypeVar, Union
 
 from lsprotocol import types
 
+from pygls.lsp._capabilities import get_capability as get_capability
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
-
-def get_capability(
-    client_capabilities: types.ClientCapabilities, field: str, default: Any = None
-) -> Any:
-    """Check if ClientCapabilities has some nested value without raising
-    AttributeError.
-    e.g. get_capability('text_document.synchronization.will_save')
-    """
-    try:
-        value = reduce(getattr, field.split("."), client_capabilities)
-    except AttributeError:
-        return default
-
-    # If we reach the desired leaf value but it's None, return the default.
-    return default if value is None else value
+_SUPPORTED_ENCODINGS = frozenset(
+    [
+        types.PositionEncodingKind.Utf8,
+        types.PositionEncodingKind.Utf16,
+        types.PositionEncodingKind.Utf32,
+    ]
+)
 
 
 class ServerCapabilitiesBuilder:
@@ -54,6 +46,9 @@ class ServerCapabilitiesBuilder:
         commands: List[str],
         text_document_sync_kind: types.TextDocumentSyncKind,
         notebook_document_sync: Optional[types.NotebookDocumentSyncOptions] = None,
+        position_encoding: Union[
+            types.PositionEncodingKind, str
+        ] = types.PositionEncodingKind.Utf16,
     ):
         self.client_capabilities = client_capabilities
         self.features = features
@@ -63,11 +58,36 @@ class ServerCapabilitiesBuilder:
         self.notebook_document_sync = notebook_document_sync
 
         self.server_cap = types.ServerCapabilities()
+        self.server_cap.position_encoding = position_encoding
 
     def _provider_options(self, feature: str, default: T) -> Optional[Union[T, Any]]:
         if feature in self.features:
             return self.feature_options.get(feature, default)
         return None
+
+    @classmethod
+    def choose_position_encoding(
+        cls, client_capabilities: types.ClientCapabilities
+    ) -> Union[types.PositionEncodingKind, str]:
+        server_encoding: Union[types.PositionEncodingKind, str] = (
+            types.PositionEncodingKind.Utf16
+        )
+
+        if (general := client_capabilities.general) is None:
+            return server_encoding
+
+        if (encodings := general.position_encodings) is None:
+            return server_encoding
+
+        # We match client preference where this an overlap between its and our supported encodings.
+        for client_encoding in encodings:
+            if client_encoding in _SUPPORTED_ENCODINGS:
+                server_encoding = client_encoding
+                return server_encoding
+
+        logger.warning(f"Unknown `PositionEncoding`s: {encodings}")
+
+        return server_encoding
 
     def _with_text_document_sync(self):
         open_close = (
@@ -145,7 +165,7 @@ class ServerCapabilitiesBuilder:
 
     def _with_type_definition(self):
         value = self._provider_options(
-            types.TEXT_DOCUMENT_TYPE_DEFINITION, default=types.TypeDefinitionOptions()
+            types.TEXT_DOCUMENT_TYPE_DEFINITION, default=True
         )
         if value is not None:
             self.server_cap.type_definition_provider = value
@@ -161,9 +181,7 @@ class ServerCapabilitiesBuilder:
         return self
 
     def _with_implementation(self):
-        value = self._provider_options(
-            types.TEXT_DOCUMENT_IMPLEMENTATION, default=types.ImplementationOptions()
-        )
+        value = self._provider_options(types.TEXT_DOCUMENT_IMPLEMENTATION, default=True)
         if value is not None:
             self.server_cap.implementation_provider = value
         return self
@@ -201,6 +219,7 @@ class ServerCapabilitiesBuilder:
             types.TEXT_DOCUMENT_CODE_LENS, default=types.CodeLensOptions()
         )
         if value is not None:
+            value.resolve_provider = types.CODE_LENS_RESOLVE in self.features
             self.server_cap.code_lens_provider = value
         return self
 
@@ -209,6 +228,7 @@ class ServerCapabilitiesBuilder:
             types.TEXT_DOCUMENT_DOCUMENT_LINK, default=types.DocumentLinkOptions()
         )
         if value is not None:
+            value.resolve_provider = types.DOCUMENT_LINK_RESOLVE in self.features
             self.server_cap.document_link_provider = value
         return self
 
@@ -241,9 +261,25 @@ class ServerCapabilitiesBuilder:
         return self
 
     def _with_rename(self):
-        value = self._provider_options(types.TEXT_DOCUMENT_RENAME, default=True)
-        if value is not None:
-            self.server_cap.rename_provider = value
+        server_supports_rename = types.TEXT_DOCUMENT_RENAME in self.features
+        if server_supports_rename is False:
+            return self
+
+        client_prepare_support = get_capability(
+            self.client_capabilities, "text_document.rename.prepare_support", False
+        )
+
+        # From the spec:
+        # > RenameOptions may only be specified if the client states that it supports
+        # > prepareSupport in its initial initialize request.
+        if not client_prepare_support:
+            self.server_cap.rename_provider = server_supports_rename
+
+        else:
+            self.server_cap.rename_provider = types.RenameOptions(
+                prepare_provider=types.TEXT_DOCUMENT_PREPARE_RENAME in self.features
+            )
+
         return self
 
     def _with_folding_range(self):
@@ -302,12 +338,12 @@ class ServerCapabilitiesBuilder:
             self.server_cap.semantic_tokens_provider = value
             return self
 
-        full_support: Union[bool, types.SemanticTokensOptionsFullType1] = (
+        full_support: Union[bool, types.SemanticTokensFullDelta] = (
             types.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL in self.features
         )
 
         if types.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL_DELTA in self.features:
-            full_support = types.SemanticTokensOptionsFullType1(delta=True)
+            full_support = types.SemanticTokensFullDelta(delta=True)
 
         options = types.SemanticTokensOptions(
             legend=value,
@@ -364,7 +400,7 @@ class ServerCapabilitiesBuilder:
                 value = self._provider_options(method_name, default=None)
                 setattr(file_operations, capability_name, value)
 
-        self.server_cap.workspace = types.ServerCapabilitiesWorkspaceType(
+        self.server_cap.workspace = types.WorkspaceOptions(
             workspace_folders=types.WorkspaceFoldersServerCapabilities(
                 supported=True,
                 change_notifications=True,
@@ -391,30 +427,12 @@ class ServerCapabilitiesBuilder:
             self.server_cap.inline_value_provider = value
         return self
 
-    def _with_position_encodings(self):
-        self.server_cap.position_encoding = types.PositionEncodingKind.Utf16
-
-        general = self.client_capabilities.general
-        if general is None:
-            return self
-
-        encodings = general.position_encodings
-        if encodings is None:
-            return self
-
-        if types.PositionEncodingKind.Utf16 in encodings:
-            return self
-
-        if types.PositionEncodingKind.Utf32 in encodings:
-            self.server_cap.position_encoding = types.PositionEncodingKind.Utf32
-            return self
-
-        if types.PositionEncodingKind.Utf8 in encodings:
-            self.server_cap.position_encoding = types.PositionEncodingKind.Utf8
-            return self
-
-        logger.warning(f"Unknown `PositionEncoding`s: {encodings}")
-
+    def _with_inline_completion_provider(self):
+        value = self._provider_options(
+            types.TEXT_DOCUMENT_INLINE_COMPLETION, default=None
+        )
+        if value is not None:
+            self.server_cap.inline_completion_provider = value
         return self
 
     def _build(self):
@@ -455,6 +473,6 @@ class ServerCapabilitiesBuilder:
             ._with_workspace_capabilities()
             ._with_diagnostic_provider()
             ._with_inline_value_provider()
-            ._with_position_encodings()
+            ._with_inline_completion_provider()
             ._build()
         )

@@ -3,7 +3,7 @@ Type annotations for payment-cryptography-data service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -30,6 +31,8 @@ from .type_defs import (
     DecryptDataOutputTypeDef,
     EncryptDataInputTypeDef,
     EncryptDataOutputTypeDef,
+    GenerateAs2805KekValidationInputTypeDef,
+    GenerateAs2805KekValidationOutputTypeDef,
     GenerateCardValidationDataInputTypeDef,
     GenerateCardValidationDataOutputTypeDef,
     GenerateMacEmvPinChangeInputTypeDef,
@@ -40,6 +43,8 @@ from .type_defs import (
     GeneratePinDataOutputTypeDef,
     ReEncryptDataInputTypeDef,
     ReEncryptDataOutputTypeDef,
+    TranslateKeyMaterialInputTypeDef,
+    TranslateKeyMaterialOutputTypeDef,
     TranslatePinDataInputTypeDef,
     TranslatePinDataOutputTypeDef,
     VerifyAuthRequestCryptogramInputTypeDef,
@@ -52,11 +57,6 @@ from .type_defs import (
     VerifyPinDataOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -67,13 +67,13 @@ __all__ = ("PaymentCryptographyDataPlaneClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
-    VerificationFailedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
+    VerificationFailedException: type[BotocoreClientError]
 
 
 class PaymentCryptographyDataPlaneClient(BaseClient):
@@ -129,6 +129,18 @@ class PaymentCryptographyDataPlaneClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/client/#encrypt_data)
         """
 
+    def generate_as2805_kek_validation(
+        self, **kwargs: Unpack[GenerateAs2805KekValidationInputTypeDef]
+    ) -> GenerateAs2805KekValidationOutputTypeDef:
+        """
+        Establishes node-to-node initialization between payment processing nodes such
+        as an acquirer, issuer or payment network using Australian Standard 2805
+        (AS2805).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/generate_as2805_kek_validation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/client/#generate_as2805_kek_validation)
+        """
+
     def generate_card_validation_data(
         self, **kwargs: Unpack[GenerateCardValidationDataInputTypeDef]
     ) -> GenerateCardValidationDataOutputTypeDef:
@@ -180,6 +192,17 @@ class PaymentCryptographyDataPlaneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/re_encrypt_data.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/client/#re_encrypt_data)
+        """
+
+    def translate_key_material(
+        self, **kwargs: Unpack[TranslateKeyMaterialInputTypeDef]
+    ) -> TranslateKeyMaterialOutputTypeDef:
+        """
+        Translates an cryptographic key between different wrapping keys without
+        importing the key into Amazon Web Services Payment Cryptography.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/payment-cryptography-data/client/translate_key_material.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_payment_cryptography_data/client/#translate_key_material)
         """
 
     def translate_pin_data(

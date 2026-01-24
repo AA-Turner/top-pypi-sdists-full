@@ -1,7 +1,6 @@
 
 import random
 import string
-from itertools import repeat
 
 from ..helpers import msoConditionalTag, widthParser
 from ._base import BodyComponent
@@ -47,10 +46,15 @@ class MjCarousel(BodyComponent):
             'tb-border'               : '2px solid transparent',
             'tb-border-radius'        : '6px',
             'tb-hover-border-color'   : '#fead0d',
-            'tb-selected-border-color': '#ccc',
+            'tb-selected-border-color': '#cccccc',
         }
 
-    carouselId = ''.join(random.choices(string.digits, k=16))
+    @property
+    def carouselId(self):
+        if not self._carousel_id:
+            self._carousel_id = ''.join(random.choices(string.digits + 'abcdef', k=16))
+        return self._carousel_id
+    _carousel_id: str = ''
 
     def componentHeadStyle(self, breakpoint):
         length = len(self.props['children'])
@@ -61,9 +65,10 @@ class MjCarousel(BodyComponent):
 
         def buildCssSelectors(parent, repeatCount, sibling):
             def _selector_str(i):
-                return f'{parent(i)} {repeat("+ * ", repeatCount(i))}+ {sibling(i)}'
+                repeated = '+*' * repeatCount(i)
+                return f'{parent(i)}{repeated}+{sibling(i)}'
             _selectors = [_selector_str(i) for i in range(length)]
-            return ','.join(_selectors)
+            return ', '.join(_selectors)
 
         carouselCss = f'''
             .mj-carousel {{
@@ -128,8 +133,16 @@ class MjCarousel(BodyComponent):
                 border-color: {self.getAttribute('tb-selected-border-color')} !important;
             }}
 
-            .mj-carousel-image img + div,
-            .mj-carousel-thumbnail img + div {{
+            {buildCssSelectors(
+                lambda i: f'.mj-carousel-{carouselId}-radio-{i + 1}:checked',
+                lambda i: length - i - 1,
+                lambda i: f'.mj-carousel-content .mj-carousel-{carouselId}-thumbnail'
+            )} {{
+                display: inline-block !important;
+            }}
+
+            .mj-carousel-image img+div,
+            .mj-carousel-thumbnail img+div {{
                 display: none !important;
             }}
 
@@ -154,9 +167,10 @@ class MjCarousel(BodyComponent):
             }}
         ''' # noqa: E501
 
+        _sub_selector = '+*' * (length - 1)
         fallback = f'''
-            .mj-carousel noinput {{ display:block !important; }}
-            .mj-carousel noinput .mj-carousel-image-1 {{ display: block !important;  }}
+            .mj-carousel noinput {{ display: block !important; }}
+            .mj-carousel noinput .mj-carousel-image-1 {{ display: block !important; }}
             .mj-carousel noinput .mj-carousel-arrows,
             .mj-carousel noinput .mj-carousel-thumbnails {{ display: none !important; }}
 
@@ -169,15 +183,11 @@ class MjCarousel(BodyComponent):
                     display: none !important;
                 }}
 
-                {buildCssSelectors(
-                    lambda i: f'.mj-carousel-{carouselId}-radio-1:checked',
-                    lambda i: length - 1,
-                    lambda i: f'.mj-carousel-content .mj-carousel-{carouselId}-thumbnail-1'
-                )} {{
+                .mj-carousel-{carouselId}-radio-1:checked{_sub_selector}+.mj-carousel-content .mj-carousel-{carouselId}-thumbnail-1 {{
                     border-color: transparent;
                 }}
             }}
-        '''
+        ''' # noqa: E501
 
         return f'{carouselCss}\n{fallback}'
 
@@ -266,19 +276,10 @@ class MjCarousel(BodyComponent):
             style='controls.img',
             width=iconWidth
         )
-        content = ''.join(map(
-            lambda i: f'''
-                <label
-                    {self.html_attrs(
-                        for_=f'mj-carousel-{self.carouselId}-radio-{i}',
-                        class_=f'mj-carousel-{direction} mj-carousel-{direction}-{i}',
-                    )}
-                >
-                    <img {img_attrs} />
-                </label>
-            ''',
-            range(1, len(self.props['children']) + 1)
-        ))
+        def _label_html(i: int) -> str:
+            return f'<label {self.html_attrs(for_=f"mj-carousel-{self.carouselId}-radio-{i}", class_=f"mj-carousel-{direction} mj-carousel-{direction}-{i}")}><img {img_attrs} /></label>'  # noqa: E501
+        _num_children = len(self.props['children'])
+        content = ''.join([_label_html(i + 1) for i in range(_num_children)])
 
         td_attrs = self.html_attrs(
             class_=f'mj-carousel-{self.carouselId}-icons-cell',
@@ -288,13 +289,7 @@ class MjCarousel(BodyComponent):
             class_=f'mj-carousel-{direction}-icons',
             style='controls.div',
         )
-        return f'''
-            <td {td_attrs}>
-                <div {div_attrs}>
-                    {content}
-                </div>
-            </td>
-        '''
+        return f'<td {td_attrs}><div {div_attrs}>{content}</div></td>'
 
     def generateImages(self):
         return f'''

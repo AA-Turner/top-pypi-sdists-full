@@ -17,9 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
+
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from typing import Any, Dict, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr 
 
 class ProcessUpdateResult(BaseModel):
     """
@@ -29,7 +31,7 @@ class ProcessUpdateResult(BaseModel):
     entry_id:  StrictStr = Field(...,alias="entryId", description="") 
     process_name:  StrictStr = Field(...,alias="processName", description="") 
     run_id:  StrictStr = Field(...,alias="runId", description="") 
-    entry_date: datetime = Field(..., alias="entryDate")
+    entry_date: datetime = Field(alias="entryDate")
     status:  StrictStr = Field(...,alias="status", description="") 
     message:  StrictStr = Field(...,alias="message", description="") 
     schema_version:  Optional[StrictStr] = Field(None,alias="schemaVersion", description="") 
@@ -94,3 +96,5 @@ class ProcessUpdateResult(BaseModel):
             "schema_version": obj.get("schemaVersion")
         })
         return _obj
+
+ProcessUpdateResult.update_forward_refs()

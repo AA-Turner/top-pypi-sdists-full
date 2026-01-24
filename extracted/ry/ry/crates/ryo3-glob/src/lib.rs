@@ -2,26 +2,64 @@
 mod pattern;
 
 use crate::pattern::PyPattern;
-use parking_lot::Mutex;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyModule, PyType};
+use ryo3_core::RyMutex;
+use ryo3_macro_rules::py_value_err;
+use ryo3_macro_rules::py_value_error;
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+#[derive(Clone, Copy)]
 enum GlobDType {
     FsPath,
     PathBuf,
     OsString,
 }
 
+struct GlobPathsVec {
+    dtype: GlobDType,
+    paths: Vec<PathBuf>,
+}
+
+impl From<(GlobDType, Vec<PathBuf>)> for GlobPathsVec {
+    fn from(value: (GlobDType, Vec<PathBuf>)) -> Self {
+        Self {
+            dtype: value.0,
+            paths: value.1,
+        }
+    }
+}
+
+impl<'py> IntoPyObject<'py> for GlobPathsVec {
+    type Target = PyAny;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        match self.dtype {
+            GlobDType::FsPath => self
+                .paths
+                .into_iter()
+                .map(ryo3_fspath::PyFsPath::from)
+                .collect::<Vec<ryo3_fspath::PyFsPath>>()
+                .into_pyobject(py),
+            GlobDType::PathBuf => self.paths.into_pyobject(py),
+            GlobDType::OsString => self
+                .paths
+                .into_iter()
+                .map(OsString::from)
+                .collect::<Vec<OsString>>()
+                .into_pyobject(py),
+        }
+    }
+}
+
 impl GlobDType {
-    fn dtype_into_bound_py_any<'py>(
-        &self,
-        py: Python<'py>,
-        path: PathBuf,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    fn dtype_into_bound_py_any(self, py: Python<'_>, path: PathBuf) -> PyResult<Bound<'_, PyAny>> {
         match self {
             Self::FsPath => {
                 let fspath = ryo3_fspath::PyFsPath::from(path);
@@ -41,10 +79,10 @@ impl GlobDType {
     }
 }
 
-#[pyclass(name = "GlobPaths", frozen)]
+#[pyclass(name = "GlobPaths", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PyGlobPaths {
-    inner: Arc<Mutex<::glob::Paths>>,
+    inner: Arc<RyMutex<::glob::Paths, false>>,
     strict: bool,
     dtype: GlobDType,
 }
@@ -53,7 +91,7 @@ impl PyGlobPaths {
     /// Pull exactly one item -- fix `clippy::significant-drop-in-scrutinee`
     #[inline]
     fn next_path(&self) -> Option<Result<PathBuf, glob::GlobError>> {
-        self.inner.lock().next()
+        self.inner.py_lock().next()
     }
 }
 
@@ -62,6 +100,7 @@ impl PyGlobPaths {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
+
     fn __next__<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
         loop {
             match self.next_path() {
@@ -71,73 +110,70 @@ impl PyGlobPaths {
                 }
                 Some(Err(e)) => {
                     if self.strict {
-                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                            "{e}"
-                        )));
+                        return py_value_err!("{e}");
                     }
-                    // non-strict: skip error and keep iterating
                 }
                 None => return Ok(None),
             }
         }
     }
 
-    fn collect<'py>(&self, py: Python<'py>) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        if self.strict {
-            let mut results = Vec::new();
-            for path in self.inner.lock().by_ref() {
-                match path {
-                    Ok(path) => {
-                        let any = self.dtype.dtype_into_bound_py_any(py, path)?;
-                        results.push(any);
+    fn collect(&self, py: Python<'_>) -> PyResult<GlobPathsVec> {
+        let paths: Vec<PathBuf> = py
+            .detach(|| {
+                if self.strict {
+                    let mut results = Vec::new();
+                    for path in self.inner.py_lock().by_ref() {
+                        match path {
+                            Ok(path) => {
+                                results.push(path);
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
                     }
-                    Err(e) => {
-                        return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                            "{e}"
-                        )));
-                    }
+                    Ok(results)
+                } else {
+                    let a = self.inner.py_lock().by_ref().flatten().collect::<Vec<_>>();
+                    Ok(a)
                 }
-            }
-            Ok(results)
-        } else {
-            self.inner
-                .lock()
-                .by_ref()
-                .flatten()
-                .map(|path| {
-                    let py_any = self.dtype.dtype_into_bound_py_any(py, path)?;
-                    Ok(py_any)
-                })
-                .collect::<PyResult<Vec<_>>>()
-        }
+            })
+            .map_err(|e| py_value_error!("{e}"))?;
+        Ok(GlobPathsVec::from((self.dtype, paths)))
     }
 
     /// Take `n` items from the iterator or 1 if `n` is not specified.
     #[pyo3(signature = (n=1))]
-    fn take<'py>(&self, py: Python<'py>, n: usize) -> PyResult<Vec<Bound<'py, PyAny>>> {
-        if self.strict {
-            let mut results = Vec::new();
-
-            for path_result in self.inner.lock().by_ref().take(n) {
-                let path = path_result
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))?;
-                let el = self.dtype.dtype_into_bound_py_any(py, path)?;
-                results.push(el);
-            }
-
-            Ok(results)
-        } else {
-            self.inner
-                .lock()
-                .by_ref()
-                .take(n)
-                .flatten()
-                .map(|path| {
-                    let py_any = self.dtype.dtype_into_bound_py_any(py, path)?;
-                    Ok(py_any)
-                })
-                .collect::<PyResult<Vec<_>>>()
-        }
+    fn take(&self, py: Python<'_>, n: usize) -> PyResult<GlobPathsVec> {
+        let paths: Vec<PathBuf> = py
+            .detach(|| {
+                if self.strict {
+                    let mut results = Vec::new();
+                    for path_result in self.inner.py_lock().by_ref().take(n) {
+                        match path_result {
+                            Ok(path) => {
+                                results.push(path);
+                            }
+                            Err(e) => {
+                                return Err(e);
+                            }
+                        }
+                    }
+                    Ok(results)
+                } else {
+                    let pathbufs = self
+                        .inner
+                        .py_lock()
+                        .by_ref()
+                        .flatten()
+                        .take(n)
+                        .collect::<Vec<_>>();
+                    Ok(pathbufs)
+                }
+            })
+            .map_err(|e| py_value_error!("{e}"))?;
+        Ok(GlobPathsVec::from((self.dtype, paths)))
     }
 }
 
@@ -152,7 +188,7 @@ impl PyGlobPaths {
 /// - `*` matches any (possibly empty) sequence of characters.
 ///
 /// - `**` matches the current directory and arbitrary
-///   subdirectories. To match files in arbitrary subdiretories, use
+///   subdirectories. To match files in arbitrary subdirectories, use
 ///   `**/*`.
 ///
 ///   This sequence **must** form a single path component, so both
@@ -184,8 +220,8 @@ impl PyGlobPaths {
         case_sensitive=true,
         require_literal_separator=false,
         require_literal_leading_dot=false,
+        strict=true,
         dtype=None,
-        strict=true
     )
 )]
 pub fn py_glob(
@@ -193,8 +229,8 @@ pub fn py_glob(
     case_sensitive: bool,
     require_literal_separator: bool,
     require_literal_leading_dot: bool,
-    dtype: Option<Bound<'_, PyType>>,
     strict: bool,
+    dtype: Option<Bound<'_, PyType>>,
 ) -> PyResult<PyGlobPaths> {
     let dtype = extract_dtype(dtype)?;
     ::glob::glob_with(
@@ -206,11 +242,11 @@ pub fn py_glob(
         },
     )
     .map(|paths| PyGlobPaths {
-        inner: Arc::new(Mutex::new(paths)),
+        inner: Arc::new(RyMutex::new(paths)),
         strict,
         dtype,
     })
-    .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("{e}")))
+    .map_err(|e| py_value_error!("{e}"))
 }
 
 fn pathlib_path_type(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
@@ -238,7 +274,6 @@ fn extract_dtype(dtype: Option<Bound<'_, PyType>>) -> PyResult<GlobDType> {
         } else if dtype.is(ry_fspath_type(py)?) {
             Ok(GlobDType::FsPath)
         } else {
-            // If you want the repr of the type in the error, you can call `dtype.repr()` here.
             let repr = dtype.repr()?.to_string_lossy().into_owned();
             Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Invalid dtype: {repr} (only `str`, `pathlib.Path` or `ry.ryo3.FsPath` are supported)"

@@ -2,7 +2,17 @@ import inspect
 import re
 from collections import defaultdict
 
-from django.db.models.signals import *
+from django.db.models.signals import (
+    ModelSignal,
+    post_delete,
+    post_init,
+    post_migrate,
+    post_save,
+    pre_delete,
+    pre_init,
+    pre_migrate,
+    pre_save,
+)
 
 
 class DisableSignals(object):

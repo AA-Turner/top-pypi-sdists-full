@@ -5,12 +5,17 @@
  * found in the LICENSE file.
  */
 
-#include "include/gpu/gl/GrGLExtensions.h"
-#include "src/gpu/ganesh/gl/GrGLDefines_impl.h"
-#include "src/gpu/ganesh/gl/GrGLUtil.h"
+#include "include/gpu/ganesh/gl/GrGLExtensions.h"
 
+#include "include/private/base/SkAssert.h"
 #include "src/base/SkTSearch.h"
 #include "src/base/SkTSort.h"
+#include "src/gpu/ganesh/gl/GrGLDefines.h"
+#include "src/gpu/ganesh/gl/GrGLUtil.h"
+
+#include <cstring>
+
+using namespace skia_private;
 
 namespace { // This cannot be static because it is used as a template parameter.
 inline bool extension_compare(const SkString& a, const SkString& b) {
@@ -19,7 +24,7 @@ inline bool extension_compare(const SkString& a, const SkString& b) {
 }  // namespace
 
 // finds the index of ext in strings or a negative result if ext is not found.
-static int find_string(const SkTArray<SkString>& strings, const char ext[]) {
+static int find_string(const TArray<SkString>& strings, const char ext[]) {
     if (strings.empty()) {
         return -1;
     }
@@ -43,7 +48,7 @@ GrGLExtensions& GrGLExtensions::operator=(const GrGLExtensions& that) {
     return *this;
 }
 
-static void eat_space_sep_strings(SkTArray<SkString>* out, const char in[]) {
+static void eat_space_sep_strings(TArray<SkString>* out, const char in[]) {
     if (!in) {
         return;
     }

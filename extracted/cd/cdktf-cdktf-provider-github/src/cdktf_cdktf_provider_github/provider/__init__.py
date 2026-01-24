@@ -1,7 +1,7 @@
 r'''
 # `provider`
 
-Refer to the Terraform Registry for docs: [`github`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs).
+Refer to the Terraform Registry for docs: [`github`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class GithubProvider(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.provider.GithubProvider",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs github}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs github}.'''
 
     def __init__(
         self,
@@ -55,6 +55,7 @@ class GithubProvider(
         app_auth: typing.Optional[typing.Union["GithubProviderAppAuth", typing.Dict[builtins.str, typing.Any]]] = None,
         base_url: typing.Optional[builtins.str] = None,
         insecure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        max_per_page: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         organization: typing.Optional[builtins.str] = None,
         owner: typing.Optional[builtins.str] = None,
@@ -65,23 +66,24 @@ class GithubProvider(
         token: typing.Optional[builtins.str] = None,
         write_delay_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs github} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs github} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#alias GithubProvider#alias}
-        :param app_auth: app_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#app_auth GithubProvider#app_auth}
-        :param base_url: The GitHub Base API URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#base_url GithubProvider#base_url}
-        :param insecure: Enable ``insecure`` mode for testing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#insecure GithubProvider#insecure}
-        :param max_retries: Number of times to retry a request after receiving an error status codeDefaults to 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#max_retries GithubProvider#max_retries}
-        :param organization: The GitHub organization name to manage. Use this field instead of ``owner`` when managing organization accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#organization GithubProvider#organization}
-        :param owner: The GitHub owner name to manage. Use this field instead of ``organization`` when managing individual accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#owner GithubProvider#owner}
-        :param parallel_requests: Allow the provider to make parallel API calls to GitHub. You may want to set it to true when you have a private Github Enterprise without strict rate limits. Although, it is not possible to enable this setting on github.com because we enforce the respect of github.com's best practices to avoid hitting abuse rate limitsDefaults to false if not set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#parallel_requests GithubProvider#parallel_requests}
-        :param read_delay_ms: Amount of time in milliseconds to sleep in between non-write requests to GitHub API. Defaults to 0ms if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#read_delay_ms GithubProvider#read_delay_ms}
-        :param retryable_errors: Allow the provider to retry after receiving an error status code, the max_retries should be set for this to workDefaults to [500, 502, 503, 504]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retryable_errors GithubProvider#retryable_errors}
-        :param retry_delay_ms: Amount of time in milliseconds to sleep in between requests to GitHub API after an error response. Defaults to 1000ms or 1s if not set, the max_retries must be set to greater than zero. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
-        :param token: The OAuth token used to connect to GitHub. Anonymous mode is enabled if both ``token`` and ``app_auth`` are not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#token GithubProvider#token}
-        :param write_delay_ms: Amount of time in milliseconds to sleep in between writes to GitHub API. Defaults to 1000ms or 1s if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#write_delay_ms GithubProvider#write_delay_ms}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#alias GithubProvider#alias}
+        :param app_auth: app_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#app_auth GithubProvider#app_auth}
+        :param base_url: The GitHub Base API URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#base_url GithubProvider#base_url}
+        :param insecure: Enable ``insecure`` mode for testing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#insecure GithubProvider#insecure}
+        :param max_per_page: Number of items per page for paginationDefaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_per_page GithubProvider#max_per_page}
+        :param max_retries: Number of times to retry a request after receiving an error status codeDefaults to 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_retries GithubProvider#max_retries}
+        :param organization: The GitHub organization name to manage. Use this field instead of ``owner`` when managing organization accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#organization GithubProvider#organization}
+        :param owner: The GitHub owner name to manage. Use this field instead of ``organization`` when managing individual accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#owner GithubProvider#owner}
+        :param parallel_requests: Allow the provider to make parallel API calls to GitHub. You may want to set it to true when you have a private Github Enterprise without strict rate limits. While it is possible to enable this setting on github.com, github.com's best practices recommend using serialization to avoid hitting abuse rate limitsDefaults to false if not set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#parallel_requests GithubProvider#parallel_requests}
+        :param read_delay_ms: Amount of time in milliseconds to sleep in between non-write requests to GitHub API. Defaults to 0ms if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#read_delay_ms GithubProvider#read_delay_ms}
+        :param retryable_errors: Allow the provider to retry after receiving an error status code, the max_retries should be set for this to workDefaults to [500, 502, 503, 504]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retryable_errors GithubProvider#retryable_errors}
+        :param retry_delay_ms: Amount of time in milliseconds to sleep in between requests to GitHub API after an error response. Defaults to 1000ms or 1s if not set, the max_retries must be set to greater than zero. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
+        :param token: The OAuth token used to connect to GitHub. Anonymous mode is enabled if both ``token`` and ``app_auth`` are not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#token GithubProvider#token}
+        :param write_delay_ms: Amount of time in milliseconds to sleep in between writes to GitHub API. Defaults to 1000ms or 1s if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#write_delay_ms GithubProvider#write_delay_ms}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__263b17282ec79ed35fd0a2aa7312f65b9722bb22a4a929cbffd643911fccca4e)
@@ -92,6 +94,7 @@ class GithubProvider(
             app_auth=app_auth,
             base_url=base_url,
             insecure=insecure,
+            max_per_page=max_per_page,
             max_retries=max_retries,
             organization=organization,
             owner=owner,
@@ -118,7 +121,7 @@ class GithubProvider(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the GithubProvider to import.
-        :param import_from_id: The id of the existing GithubProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing GithubProvider that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the GithubProvider to import is found.
         '''
         if __debug__:
@@ -144,6 +147,10 @@ class GithubProvider(
     @jsii.member(jsii_name="resetInsecure")
     def reset_insecure(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetInsecure", []))
+
+    @jsii.member(jsii_name="resetMaxPerPage")
+    def reset_max_per_page(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxPerPage", []))
 
     @jsii.member(jsii_name="resetMaxRetries")
     def reset_max_retries(self) -> None:
@@ -215,6 +222,11 @@ class GithubProvider(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "insecureInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxPerPageInput")
+    def max_per_page_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxPerPageInput"))
 
     @builtins.property
     @jsii.member(jsii_name="maxRetriesInput")
@@ -315,6 +327,18 @@ class GithubProvider(
             type_hints = typing.get_type_hints(_typecheckingstub__f1547f34bf54e94384030ecc9635020b985570ab2b7847aba4122d15600c23f4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "insecure", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxPerPage")
+    def max_per_page(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxPerPage"))
+
+    @max_per_page.setter
+    def max_per_page(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51308dcb06ed6ea1f413c2c752a5b0c09b6f8caed256f2bd445ea3cd09cdfdec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxPerPage", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="maxRetries")
@@ -451,9 +475,9 @@ class GithubProviderAppAuth:
         pem_file: builtins.str,
     ) -> None:
         '''
-        :param id: The GitHub App ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#id GithubProvider#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param installation_id: The GitHub App installation instance ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#installation_id GithubProvider#installation_id}
-        :param pem_file: The GitHub App PEM file contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#pem_file GithubProvider#pem_file}
+        :param id: The GitHub App ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#id GithubProvider#id} Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param installation_id: The GitHub App installation instance ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#installation_id GithubProvider#installation_id}
+        :param pem_file: The GitHub App PEM file contents. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#pem_file GithubProvider#pem_file}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8729693c9234c4cd66566a7eb064abb87f28c8f6d397d9318fe071d5de03dc9)
@@ -470,7 +494,7 @@ class GithubProviderAppAuth:
     def id(self) -> builtins.str:
         '''The GitHub App ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#id GithubProvider#id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#id GithubProvider#id}
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -483,7 +507,7 @@ class GithubProviderAppAuth:
     def installation_id(self) -> builtins.str:
         '''The GitHub App installation instance ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#installation_id GithubProvider#installation_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#installation_id GithubProvider#installation_id}
         '''
         result = self._values.get("installation_id")
         assert result is not None, "Required property 'installation_id' is missing"
@@ -493,7 +517,7 @@ class GithubProviderAppAuth:
     def pem_file(self) -> builtins.str:
         '''The GitHub App PEM file contents.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#pem_file GithubProvider#pem_file}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#pem_file GithubProvider#pem_file}
         '''
         result = self._values.get("pem_file")
         assert result is not None, "Required property 'pem_file' is missing"
@@ -519,6 +543,7 @@ class GithubProviderAppAuth:
         "app_auth": "appAuth",
         "base_url": "baseUrl",
         "insecure": "insecure",
+        "max_per_page": "maxPerPage",
         "max_retries": "maxRetries",
         "organization": "organization",
         "owner": "owner",
@@ -538,6 +563,7 @@ class GithubProviderConfig:
         app_auth: typing.Optional[typing.Union[GithubProviderAppAuth, typing.Dict[builtins.str, typing.Any]]] = None,
         base_url: typing.Optional[builtins.str] = None,
         insecure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        max_per_page: typing.Optional[jsii.Number] = None,
         max_retries: typing.Optional[jsii.Number] = None,
         organization: typing.Optional[builtins.str] = None,
         owner: typing.Optional[builtins.str] = None,
@@ -549,19 +575,20 @@ class GithubProviderConfig:
         write_delay_ms: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#alias GithubProvider#alias}
-        :param app_auth: app_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#app_auth GithubProvider#app_auth}
-        :param base_url: The GitHub Base API URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#base_url GithubProvider#base_url}
-        :param insecure: Enable ``insecure`` mode for testing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#insecure GithubProvider#insecure}
-        :param max_retries: Number of times to retry a request after receiving an error status codeDefaults to 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#max_retries GithubProvider#max_retries}
-        :param organization: The GitHub organization name to manage. Use this field instead of ``owner`` when managing organization accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#organization GithubProvider#organization}
-        :param owner: The GitHub owner name to manage. Use this field instead of ``organization`` when managing individual accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#owner GithubProvider#owner}
-        :param parallel_requests: Allow the provider to make parallel API calls to GitHub. You may want to set it to true when you have a private Github Enterprise without strict rate limits. Although, it is not possible to enable this setting on github.com because we enforce the respect of github.com's best practices to avoid hitting abuse rate limitsDefaults to false if not set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#parallel_requests GithubProvider#parallel_requests}
-        :param read_delay_ms: Amount of time in milliseconds to sleep in between non-write requests to GitHub API. Defaults to 0ms if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#read_delay_ms GithubProvider#read_delay_ms}
-        :param retryable_errors: Allow the provider to retry after receiving an error status code, the max_retries should be set for this to workDefaults to [500, 502, 503, 504]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retryable_errors GithubProvider#retryable_errors}
-        :param retry_delay_ms: Amount of time in milliseconds to sleep in between requests to GitHub API after an error response. Defaults to 1000ms or 1s if not set, the max_retries must be set to greater than zero. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
-        :param token: The OAuth token used to connect to GitHub. Anonymous mode is enabled if both ``token`` and ``app_auth`` are not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#token GithubProvider#token}
-        :param write_delay_ms: Amount of time in milliseconds to sleep in between writes to GitHub API. Defaults to 1000ms or 1s if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#write_delay_ms GithubProvider#write_delay_ms}
+        :param alias: Alias name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#alias GithubProvider#alias}
+        :param app_auth: app_auth block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#app_auth GithubProvider#app_auth}
+        :param base_url: The GitHub Base API URL. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#base_url GithubProvider#base_url}
+        :param insecure: Enable ``insecure`` mode for testing purposes. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#insecure GithubProvider#insecure}
+        :param max_per_page: Number of items per page for paginationDefaults to 100. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_per_page GithubProvider#max_per_page}
+        :param max_retries: Number of times to retry a request after receiving an error status codeDefaults to 3. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_retries GithubProvider#max_retries}
+        :param organization: The GitHub organization name to manage. Use this field instead of ``owner`` when managing organization accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#organization GithubProvider#organization}
+        :param owner: The GitHub owner name to manage. Use this field instead of ``organization`` when managing individual accounts. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#owner GithubProvider#owner}
+        :param parallel_requests: Allow the provider to make parallel API calls to GitHub. You may want to set it to true when you have a private Github Enterprise without strict rate limits. While it is possible to enable this setting on github.com, github.com's best practices recommend using serialization to avoid hitting abuse rate limitsDefaults to false if not set Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#parallel_requests GithubProvider#parallel_requests}
+        :param read_delay_ms: Amount of time in milliseconds to sleep in between non-write requests to GitHub API. Defaults to 0ms if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#read_delay_ms GithubProvider#read_delay_ms}
+        :param retryable_errors: Allow the provider to retry after receiving an error status code, the max_retries should be set for this to workDefaults to [500, 502, 503, 504]. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retryable_errors GithubProvider#retryable_errors}
+        :param retry_delay_ms: Amount of time in milliseconds to sleep in between requests to GitHub API after an error response. Defaults to 1000ms or 1s if not set, the max_retries must be set to greater than zero. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
+        :param token: The OAuth token used to connect to GitHub. Anonymous mode is enabled if both ``token`` and ``app_auth`` are not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#token GithubProvider#token}
+        :param write_delay_ms: Amount of time in milliseconds to sleep in between writes to GitHub API. Defaults to 1000ms or 1s if not set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#write_delay_ms GithubProvider#write_delay_ms}
         '''
         if isinstance(app_auth, dict):
             app_auth = GithubProviderAppAuth(**app_auth)
@@ -571,6 +598,7 @@ class GithubProviderConfig:
             check_type(argname="argument app_auth", value=app_auth, expected_type=type_hints["app_auth"])
             check_type(argname="argument base_url", value=base_url, expected_type=type_hints["base_url"])
             check_type(argname="argument insecure", value=insecure, expected_type=type_hints["insecure"])
+            check_type(argname="argument max_per_page", value=max_per_page, expected_type=type_hints["max_per_page"])
             check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
             check_type(argname="argument organization", value=organization, expected_type=type_hints["organization"])
             check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
@@ -589,6 +617,8 @@ class GithubProviderConfig:
             self._values["base_url"] = base_url
         if insecure is not None:
             self._values["insecure"] = insecure
+        if max_per_page is not None:
+            self._values["max_per_page"] = max_per_page
         if max_retries is not None:
             self._values["max_retries"] = max_retries
         if organization is not None:
@@ -612,7 +642,7 @@ class GithubProviderConfig:
     def alias(self) -> typing.Optional[builtins.str]:
         '''Alias name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#alias GithubProvider#alias}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#alias GithubProvider#alias}
         '''
         result = self._values.get("alias")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -621,7 +651,7 @@ class GithubProviderConfig:
     def app_auth(self) -> typing.Optional[GithubProviderAppAuth]:
         '''app_auth block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#app_auth GithubProvider#app_auth}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#app_auth GithubProvider#app_auth}
         '''
         result = self._values.get("app_auth")
         return typing.cast(typing.Optional[GithubProviderAppAuth], result)
@@ -630,7 +660,7 @@ class GithubProviderConfig:
     def base_url(self) -> typing.Optional[builtins.str]:
         '''The GitHub Base API URL.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#base_url GithubProvider#base_url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#base_url GithubProvider#base_url}
         '''
         result = self._values.get("base_url")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -641,16 +671,25 @@ class GithubProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Enable ``insecure`` mode for testing purposes.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#insecure GithubProvider#insecure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#insecure GithubProvider#insecure}
         '''
         result = self._values.get("insecure")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
+    def max_per_page(self) -> typing.Optional[jsii.Number]:
+        '''Number of items per page for paginationDefaults to 100.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_per_page GithubProvider#max_per_page}
+        '''
+        result = self._values.get("max_per_page")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
         '''Number of times to retry a request after receiving an error status codeDefaults to 3.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#max_retries GithubProvider#max_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#max_retries GithubProvider#max_retries}
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -659,7 +698,7 @@ class GithubProviderConfig:
     def organization(self) -> typing.Optional[builtins.str]:
         '''The GitHub organization name to manage. Use this field instead of ``owner`` when managing organization accounts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#organization GithubProvider#organization}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#organization GithubProvider#organization}
         '''
         result = self._values.get("organization")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -668,7 +707,7 @@ class GithubProviderConfig:
     def owner(self) -> typing.Optional[builtins.str]:
         '''The GitHub owner name to manage. Use this field instead of ``organization`` when managing individual accounts.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#owner GithubProvider#owner}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#owner GithubProvider#owner}
         '''
         result = self._values.get("owner")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -679,9 +718,9 @@ class GithubProviderConfig:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Allow the provider to make parallel API calls to GitHub.
 
-        You may want to set it to true when you have a private Github Enterprise without strict rate limits. Although, it is not possible to enable this setting on github.com because we enforce the respect of github.com's best practices to avoid hitting abuse rate limitsDefaults to false if not set
+        You may want to set it to true when you have a private Github Enterprise without strict rate limits. While it is possible to enable this setting on github.com, github.com's best practices recommend using serialization to avoid hitting abuse rate limitsDefaults to false if not set
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#parallel_requests GithubProvider#parallel_requests}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#parallel_requests GithubProvider#parallel_requests}
         '''
         result = self._values.get("parallel_requests")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -692,7 +731,7 @@ class GithubProviderConfig:
 
         Defaults to 0ms if not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#read_delay_ms GithubProvider#read_delay_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#read_delay_ms GithubProvider#read_delay_ms}
         '''
         result = self._values.get("read_delay_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -701,7 +740,7 @@ class GithubProviderConfig:
     def retryable_errors(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''Allow the provider to retry after receiving an error status code, the max_retries should be set for this to workDefaults to [500, 502, 503, 504].
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retryable_errors GithubProvider#retryable_errors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retryable_errors GithubProvider#retryable_errors}
         '''
         result = self._values.get("retryable_errors")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -712,7 +751,7 @@ class GithubProviderConfig:
 
         Defaults to 1000ms or 1s if not set, the max_retries must be set to greater than zero.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#retry_delay_ms GithubProvider#retry_delay_ms}
         '''
         result = self._values.get("retry_delay_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -723,7 +762,7 @@ class GithubProviderConfig:
 
         Anonymous mode is enabled if both ``token`` and ``app_auth`` are not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#token GithubProvider#token}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#token GithubProvider#token}
         '''
         result = self._values.get("token")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -734,7 +773,7 @@ class GithubProviderConfig:
 
         Defaults to 1000ms or 1s if not set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs#write_delay_ms GithubProvider#write_delay_ms}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs#write_delay_ms GithubProvider#write_delay_ms}
         '''
         result = self._values.get("write_delay_ms")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -767,6 +806,7 @@ def _typecheckingstub__263b17282ec79ed35fd0a2aa7312f65b9722bb22a4a929cbffd643911
     app_auth: typing.Optional[typing.Union[GithubProviderAppAuth, typing.Dict[builtins.str, typing.Any]]] = None,
     base_url: typing.Optional[builtins.str] = None,
     insecure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    max_per_page: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
     organization: typing.Optional[builtins.str] = None,
     owner: typing.Optional[builtins.str] = None,
@@ -809,6 +849,12 @@ def _typecheckingstub__a1e8a9f050241b0adb2375d77c49a1dc5c5f3d61d7a4d56a2f69760ab
 
 def _typecheckingstub__f1547f34bf54e94384030ecc9635020b985570ab2b7847aba4122d15600c23f4(
     value: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51308dcb06ed6ea1f413c2c752a5b0c09b6f8caed256f2bd445ea3cd09cdfdec(
+    value: typing.Optional[jsii.Number],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -882,6 +928,7 @@ def _typecheckingstub__99f0b1a4ad7bbf7bdfb94d1229c680f6c695f2c4a01bd6bb2ed57295c
     app_auth: typing.Optional[typing.Union[GithubProviderAppAuth, typing.Dict[builtins.str, typing.Any]]] = None,
     base_url: typing.Optional[builtins.str] = None,
     insecure: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    max_per_page: typing.Optional[jsii.Number] = None,
     max_retries: typing.Optional[jsii.Number] = None,
     organization: typing.Optional[builtins.str] = None,
     owner: typing.Optional[builtins.str] = None,

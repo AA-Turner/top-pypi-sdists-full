@@ -17,8 +17,8 @@ import torch
 from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import override
 
-from lightning_fabric.accelerators import _AcceleratorRegistry
 from lightning_fabric.accelerators.cpu import _parse_cpu_cores
+from lightning_fabric.accelerators.registry import _AcceleratorRegistry
 from lightning_fabric.utilities.types import _DEVICE
 from pytorch_lightning.accelerators.accelerator import Accelerator
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
@@ -71,11 +71,16 @@ class CPUAccelerator(Accelerator):
         """CPU is always available for execution."""
         return True
 
+    @staticmethod
+    @override
+    def name() -> str:
+        return "cpu"
+
     @classmethod
     @override
     def register_accelerators(cls, accelerator_registry: _AcceleratorRegistry) -> None:
         accelerator_registry.register(
-            "cpu",
+            cls.name(),
             cls,
             description=cls.__name__,
         )

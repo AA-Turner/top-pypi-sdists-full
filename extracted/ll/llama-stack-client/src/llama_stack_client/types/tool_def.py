@@ -1,38 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, List, Union, Optional
+from typing import Dict, Optional
 
 from .._models import BaseModel
 
-__all__ = ["ToolDef", "Parameter"]
-
-
-class Parameter(BaseModel):
-    description: str
-    """Human-readable description of what the parameter does"""
-
-    name: str
-    """Name of the parameter"""
-
-    parameter_type: str
-    """Type of the parameter (e.g., string, integer)"""
-
-    required: bool
-    """Whether this parameter is required for tool invocation"""
-
-    default: Union[bool, float, str, List[object], object, None] = None
-    """(Optional) Default value for the parameter if not provided"""
+__all__ = ["ToolDef"]
 
 
 class ToolDef(BaseModel):
+    """Tool definition used in runtime contexts."""
+
     name: str
-    """Name of the tool"""
 
     description: Optional[str] = None
-    """(Optional) Human-readable description of what the tool does"""
 
-    metadata: Optional[Dict[str, Union[bool, float, str, List[object], object, None]]] = None
-    """(Optional) Additional metadata about the tool"""
+    input_schema: Optional[Dict[str, object]] = None
 
-    parameters: Optional[List[Parameter]] = None
-    """(Optional) List of parameters this tool accepts"""
+    metadata: Optional[Dict[str, object]] = None
+
+    output_schema: Optional[Dict[str, object]] = None
+
+    toolgroup_id: Optional[str] = None

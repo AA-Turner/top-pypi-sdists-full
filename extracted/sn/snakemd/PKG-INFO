@@ -1,27 +1,24 @@
-Metadata-Version: 2.1
-Name: snakemd
-Version: 2.3.0
+Metadata-Version: 2.3
+Name: SnakeMD
+Version: 2.4.0
 Summary: A markdown generation library for Python.
-Home-page: https://www.snakemd.io
 License: MIT
 Author: Jeremy Grifski
 Author-email: jeremy.grifski@therenegadecoder.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation :: Sphinx
 Project-URL: Changelog, https://www.snakemd.io/en/latest/version-history/
 Project-URL: Documentation, https://www.snakemd.io/en/latest/docs/
+Project-URL: Homepage, https://www.snakemd.io
 Project-URL: Repository, https://github.com/TheRenegadeCoder/SnakeMD
 Description-Content-Type: text/markdown
 

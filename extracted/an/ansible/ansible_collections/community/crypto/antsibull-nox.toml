@@ -5,24 +5,36 @@
 [collection_sources]
 "community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
 
+[vcs]
+vcs = "git"
+development_branch = "main"
+stable_branches = [ "stable-*" ]
+
 [sessions]
 
 [sessions.lint]
-run_isort = true
-isort_config = ".isort.cfg"
+run_isort = false
 run_black = true
+run_ruff_autofix = true
+ruff_autofix_config = "ruff.toml"
+ruff_autofix_select = [
+    "I",
+    "RUF022",
+]
+run_ruff_check = true
+ruff_check_config = "ruff.toml"
 run_flake8 = true
 flake8_config = ".flake8"
 run_pylint = true
 pylint_rcfile = ".pylintrc"
-pylint_ansible_core_package = "ansible-core>=2.19.0b4"
+pylint_ansible_core_package = "ansible-core>=2.19.0"
 run_yamllint = true
 yamllint_config = ".yamllint"
 yamllint_config_plugins = ".yamllint-docs"
 yamllint_config_plugins_examples = ".yamllint-examples"
 yamllint_config_extra_docs = ".yamllint-extra-docs"
 run_mypy = true
-mypy_ansible_core_package = "ansible-core>=2.19.0b4"
+mypy_ansible_core_package = "ansible-core>=2.19.0"
 mypy_config = ".mypy.ini"
 mypy_extra_deps = [
     "cryptography",
@@ -92,7 +104,7 @@ config.dependencies.python_interpreter.python_path = "/usr/bin/python3.12"
 runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
 
 [[sessions.ee_check.execution_environments]]
-name = "2.15-rocky-9"
+name = "2.17-rocky-9"
 description = "ansible-core 2.17 @ Rocky Linux 9"
 test_playbooks = ["tests/ee/all.yml"]
 config.images.base_image.name = "quay.io/rockylinux/rockylinux:9"
@@ -103,7 +115,7 @@ config.dependencies.python_interpreter.python_path = "/usr/bin/python3.11"
 runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
 
 [[sessions.ee_check.execution_environments]]
-name = "2.14-centos-stream-9"
+name = "2.18-centos-stream-9"
 description = "ansible-core 2.18 @ CentOS Stream 9"
 test_playbooks = ["tests/ee/all.yml"]
 config.images.base_image.name = "quay.io/centos/centos:stream9"

@@ -322,7 +322,7 @@ Keyword arguments:
 - withSeconds (boolean; optional):
     Determines whether the seconds part should be displayed, `False`
     by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'TimeGrid'

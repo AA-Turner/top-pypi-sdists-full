@@ -23,10 +23,12 @@ from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection, Request
 from starlette.responses import Response
 
+from langgraph_api import timing
 from langgraph_api.auth.langsmith.backend import LangsmithAuthBackend
 from langgraph_api.auth.studio_user import StudioUser
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
 from langgraph_api.js.base import is_js_path
+from langgraph_api.timing import profiled_import
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -233,7 +235,7 @@ def _get_custom_auth_middleware(
         auth_instance._authenticate_handler,
         disable_studio_auth,
     )
-    logger.info(f"Loaded custom auth middleware: {str(result)}")
+    logger.info(f"Loaded custom auth middleware: {result!s}")
     return result
 
 
@@ -355,34 +357,39 @@ def _solve_fastapi_dependencies(
     }
 
     async def decorator(scope: dict, request: Request):
-        async with AsyncExitStack() as stack:
-            all_solved = await asyncio.gather(
-                *(
-                    solve_dependencies(
-                        request=request,
-                        dependant=dependent,
-                        async_exit_stack=stack,
-                        embed_body_fields=False,
-                    )
-                    for dependent in dependents.values()
-                )
-            )
-            all_injected = await asyncio.gather(
-                *(
-                    _run_async(dependent.call, solved.values, is_async)
-                    for dependent, solved in zip(
-                        dependents.values(), all_solved, strict=False
+        async with AsyncExitStack() as request_stack:
+            scope["fastapi_inner_astack"] = request_stack
+            async with AsyncExitStack() as stack:
+                scope["fastapi_function_astack"] = stack
+                all_solved = await asyncio.gather(
+                    *(
+                        solve_dependencies(
+                            request=request,
+                            dependant=dependent,
+                            async_exit_stack=stack,
+                            embed_body_fields=False,
+                        )
+                        for dependent in dependents.values()
                     )
                 )
-            )
-            kwargs = {
-                name: value
-                for name, value in zip(dependents.keys(), all_injected, strict=False)
-            }
-            other_params = _extract_arguments_from_scope(
-                scope, _param_names, request=request
-            )
-            return await fn(**(kwargs | other_params))
+                all_injected = await asyncio.gather(
+                    *(
+                        _run_async(dependent.call, solved.values, is_async)
+                        for dependent, solved in zip(
+                            dependents.values(), all_solved, strict=False
+                        )
+                    )
+                )
+                kwargs = {
+                    name: value
+                    for name, value in zip(
+                        dependents.keys(), all_injected, strict=False
+                    )
+                }
+                other_params = _extract_arguments_from_scope(
+                    scope, _param_names, request=request
+                )
+                return await fn(**(kwargs | other_params))
 
     return decorator
 
@@ -580,6 +587,13 @@ def normalize_user(user: Any) -> BaseUser:
     )
 
 
+@timing.timer(
+    message="Loading custom auth {auth_path}",
+    metadata_fn=lambda auth_path: {"auth_path": auth_path},
+    warn_threshold_secs=5,
+    warn_message="Loading custom auth '{auth_path}' took longer than expected",
+    error_threshold_secs=10,
+)
 def _load_auth_obj(path: str) -> Auth | Literal["js"]:
     """Load an object from a path string."""
     if ":" not in path:
@@ -595,18 +609,19 @@ def _load_auth_obj(path: str) -> Auth | Literal["js"]:
         return "js"
 
     try:
-        if "/" in module_name or ".py" in module_name:
-            # Load from file path
-            modname = f"dynamic_module_{hash(module_name)}"
-            modspec = importlib.util.spec_from_file_location(modname, module_name)
-            if modspec is None or modspec.loader is None:
-                raise ValueError(f"Could not load file: {module_name}")
-            module = importlib.util.module_from_spec(modspec)
-            sys.modules[modname] = module
-            modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
-        else:
-            # Load from Python module
-            module = importlib.import_module(module_name)
+        with profiled_import(path):
+            if "/" in module_name or ".py" in module_name:
+                # Load from file path
+                modname = f"dynamic_module_{hash(module_name)}"
+                modspec = importlib.util.spec_from_file_location(modname, module_name)
+                if modspec is None or modspec.loader is None:
+                    raise ValueError(f"Could not load file: {module_name}")
+                module = importlib.util.module_from_spec(modspec)
+                sys.modules[modname] = module
+                modspec.loader.exec_module(module)  # type: ignore[possibly-unbound-attribute]
+            else:
+                # Load from Python module
+                module = importlib.import_module(module_name)
 
         loaded_auth = getattr(module, callable_name, None)
         if loaded_auth is None:

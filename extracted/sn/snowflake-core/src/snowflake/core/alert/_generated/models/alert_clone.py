@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.alert._generated.models.point_of_time import PointOfTime, PointOfTimeModel
 
@@ -41,9 +41,10 @@ class AlertClone(BaseModel):
 
     __properties = ["name", "point_of_time"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -68,7 +69,7 @@ class AlertClone(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of point_of_time
         if self.point_of_time:
@@ -87,9 +88,9 @@ class AlertClone(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return AlertClone.parse_obj(obj)
+            return AlertClone.model_validate(obj)
 
-        _obj = AlertClone.parse_obj(
+        _obj = AlertClone.model_validate(
             {
                 "name": obj.get("name"),
                 "point_of_time": PointOfTime.from_dict(obj.get("point_of_time"))

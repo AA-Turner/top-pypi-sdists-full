@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.767641                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.860641                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,10 @@ from __future__ import annotations
 import typing
 import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
+from .config_utils import ConfigFieldContext as ConfigFieldContext
 from .config_utils import ConfigField as ConfigField
 from .config_utils import ConfigMeta as ConfigMeta
 from .config_utils import JsonFriendlyKeyValuePairType as JsonFriendlyKeyValuePairType
@@ -28,7 +29,62 @@ from .config_utils import validate_required_fields as validate_required_fields
 from .config_utils import ConfigValidationFailedException as ConfigValidationFailedException
 from .config_utils import commit_owner_names_across_tree as commit_owner_names_across_tree
 
+class BakedImage(tuple, metaclass=type):
+    """
+    BakedImage(image, python_path)
+    """
+    @staticmethod
+    def __new__(_cls, image, python_path):
+        """
+        Create new instance of BakedImage(image, python_path)
+        """
+        ...
+    def __repr__(self):
+        """
+        Return a nicely formatted representation string
+        """
+        ...
+    def __getnewargs__(self):
+        """
+        Return self as a plain tuple.  Used by copy and pickle.
+        """
+        ...
+    ...
+
+class PackagedCode(tuple, metaclass=type):
+    """
+    PackagedCode(url, key)
+    """
+    @staticmethod
+    def __new__(_cls, url, key):
+        """
+        Create new instance of PackagedCode(url, key)
+        """
+        ...
+    def __repr__(self):
+        """
+        Return a nicely formatted representation string
+        """
+        ...
+    def __getnewargs__(self):
+        """
+        Return self as a plain tuple.  Used by copy and pickle.
+        """
+        ...
+    ...
+
+class classproperty(property, metaclass=type):
+    def __get__(self, owner_self, owner_cls):
+        ...
+    ...
+
 class AuthType(object, metaclass=type):
+    @classmethod
+    def enums(cls):
+        ...
+    @property
+    def default(cls):
+        ...
     @classmethod
     def choices(cls):
         ...

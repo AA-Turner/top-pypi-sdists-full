@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django.urls import reverse
 
 from pytest_django.asserts import assertTemplateUsed
@@ -22,13 +24,13 @@ def test_secure_admin_login_skips_admin_login_next(client):
     """
     Test that we're not using 'next=/admin/login%2Fnext=/foo'
     """
-    resp = client.get(reverse("admin:login") + "?next=/foo")
+    resp = client.get(f"{reverse('admin:login')}?next=/foo")
     assert resp["location"] == "/accounts/login/?next=%2Ffoo"
 
 
 def test_secure_admin_login_denies_regular_users(auth_client):
     resp = auth_client.get(reverse("admin:login"))
-    assert resp.status_code == 403
+    assert resp.status_code == HTTPStatus.FORBIDDEN
 
 
 def test_secure_admin_login_passes_staff(auth_client, user):
@@ -36,4 +38,4 @@ def test_secure_admin_login_passes_staff(auth_client, user):
     user.is_superuser = True
     user.save(update_fields=["is_staff", "is_superuser"])
     resp = auth_client.get(reverse("admin:auth_user_changelist"))
-    assert resp.status_code == 200
+    assert resp.status_code == HTTPStatus.OK

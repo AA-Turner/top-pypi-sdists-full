@@ -1,5 +1,5 @@
 # ruff: noqa: E402
-__version__ = "6.12.1"
+__version__ = "6.30.1"
 
 import logging
 
@@ -15,10 +15,18 @@ from sae_lens.saes import (
     GatedTrainingSAEConfig,
     JumpReLUSAE,
     JumpReLUSAEConfig,
+    JumpReLUSkipTranscoder,
+    JumpReLUSkipTranscoderConfig,
     JumpReLUTrainingSAE,
     JumpReLUTrainingSAEConfig,
     JumpReLUTranscoder,
     JumpReLUTranscoderConfig,
+    MatchingPursuitSAE,
+    MatchingPursuitSAEConfig,
+    MatchingPursuitTrainingSAE,
+    MatchingPursuitTrainingSAEConfig,
+    MatryoshkaBatchTopKTrainingSAE,
+    MatryoshkaBatchTopKTrainingSAEConfig,
     SAEConfig,
     SkipTranscoder,
     SkipTranscoderConfig,
@@ -26,6 +34,8 @@ from sae_lens.saes import (
     StandardSAEConfig,
     StandardTrainingSAE,
     StandardTrainingSAEConfig,
+    TemporalSAE,
+    TemporalSAEConfig,
     TopKSAE,
     TopKSAEConfig,
     TopKTrainingSAE,
@@ -53,6 +63,7 @@ from .loading.pretrained_sae_loaders import (
 from .pretokenize_runner import PretokenizeRunner, pretokenize_runner
 from .registry import register_sae_class, register_sae_training_class
 from .training.activations_store import ActivationsStore
+from .training.sae_trainer import SAETrainer
 from .training.upload_saes_to_huggingface import upload_saes_to_huggingface
 
 __all__ = [
@@ -92,6 +103,7 @@ __all__ = [
     "JumpReLUTrainingSAE",
     "JumpReLUTrainingSAEConfig",
     "SAETrainingRunner",
+    "SAETrainer",
     "LoggingConfig",
     "BatchTopKTrainingSAE",
     "BatchTopKTrainingSAEConfig",
@@ -101,6 +113,16 @@ __all__ = [
     "SkipTranscoderConfig",
     "JumpReLUTranscoder",
     "JumpReLUTranscoderConfig",
+    "JumpReLUSkipTranscoder",
+    "JumpReLUSkipTranscoderConfig",
+    "MatryoshkaBatchTopKTrainingSAE",
+    "MatryoshkaBatchTopKTrainingSAEConfig",
+    "TemporalSAE",
+    "TemporalSAEConfig",
+    "MatchingPursuitSAE",
+    "MatchingPursuitTrainingSAE",
+    "MatchingPursuitSAEConfig",
+    "MatchingPursuitTrainingSAEConfig",
 ]
 
 
@@ -115,6 +137,19 @@ register_sae_training_class("jumprelu", JumpReLUTrainingSAE, JumpReLUTrainingSAE
 register_sae_training_class(
     "batchtopk", BatchTopKTrainingSAE, BatchTopKTrainingSAEConfig
 )
+register_sae_training_class(
+    "matryoshka_batchtopk",
+    MatryoshkaBatchTopKTrainingSAE,
+    MatryoshkaBatchTopKTrainingSAEConfig,
+)
 register_sae_class("transcoder", Transcoder, TranscoderConfig)
 register_sae_class("skip_transcoder", SkipTranscoder, SkipTranscoderConfig)
 register_sae_class("jumprelu_transcoder", JumpReLUTranscoder, JumpReLUTranscoderConfig)
+register_sae_class(
+    "jumprelu_skip_transcoder", JumpReLUSkipTranscoder, JumpReLUSkipTranscoderConfig
+)
+register_sae_class("temporal", TemporalSAE, TemporalSAEConfig)
+register_sae_class("matching_pursuit", MatchingPursuitSAE, MatchingPursuitSAEConfig)
+register_sae_training_class(
+    "matching_pursuit", MatchingPursuitTrainingSAE, MatchingPursuitTrainingSAEConfig
+)

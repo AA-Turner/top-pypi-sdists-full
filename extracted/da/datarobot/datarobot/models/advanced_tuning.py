@@ -96,26 +96,18 @@ class GridSearchArguments(APIObject):
        The wall clock time limit, in seconds. The model with the best score, at this point, is selected.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("grid_search_arguments", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("search_type", optional=True): t.Enum(
-                            *enum_to_list(GridSearchSearchType)
-                        ),
-                        t.Key("algorithm", optional=True): t.Enum(
-                            *enum_to_list(GridSearchAlgorithm)
-                        ),
-                        t.Key("batch_size", optional=True): t.Int(),
-                        t.Key("max_iterations", optional=True): t.Int(),
-                        t.Key("random_state", optional=True): t.Int(),
-                        t.Key("wall_clock_time_limit", optional=True): t.Int(),
-                    }
-                )
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("grid_search_arguments", optional=True): t.List(
+            t.Dict({
+                t.Key("search_type", optional=True): t.Enum(*enum_to_list(GridSearchSearchType)),
+                t.Key("algorithm", optional=True): t.Enum(*enum_to_list(GridSearchAlgorithm)),
+                t.Key("batch_size", optional=True): t.Int(),
+                t.Key("max_iterations", optional=True): t.Int(),
+                t.Key("random_state", optional=True): t.Int(),
+                t.Key("wall_clock_time_limit", optional=True): t.Int(),
+            })
+        ),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -168,9 +160,7 @@ class AdvancedTuningSession:
         Defaults to the same description as the base model.
     """
 
-    def __init__(
-        self, model: Model, grid_search_arguments: Optional[GridSearchArguments] = None
-    ) -> None:
+    def __init__(self, model: Model, grid_search_arguments: Optional[GridSearchArguments] = None) -> None:
         """Initiate an Advanced Tuning session.
 
         Params
@@ -328,9 +318,7 @@ class AdvancedTuningSession:
 
         return {
             "tuning_description": self.description,
-            "tuning_parameters": [
-                self._add_value_to_param(param) for param in self._available_params
-            ],
+            "tuning_parameters": [self._add_value_to_param(param) for param in self._available_params],
         }
 
     def run(self) -> ModelJob:
@@ -341,6 +329,4 @@ class AdvancedTuningSession:
         datarobot.models.modeljob.ModelJob
             The created job to build the model
         """
-        return self._model.advanced_tune(
-            self._new_values, self.description, self._grid_search_arguments
-        )
+        return self._model.advanced_tune(self._new_values, self.description, self._grid_search_arguments)

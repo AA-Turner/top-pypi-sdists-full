@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -24,6 +24,7 @@ BlockDeviceEbsVolumeType = str
 BooleanType = bool
 CapacityRebalanceEnabled = bool
 CheckpointDelay = int
+ClientToken = str
 Context = str
 Cooldown = int
 DefaultInstanceWarmup = int
@@ -36,6 +37,7 @@ GlobalTimeout = int
 HealthCheckGracePeriod = int
 HeartbeatTimeout = int
 HonorCooldown = bool
+ImageId = str
 IncludeDeletedGroups = bool
 IncludeInstances = bool
 InstanceMetadataHttpPutResponseHopLimit = int
@@ -82,6 +84,7 @@ Progress = int
 PropagateAtLaunch = bool
 ProtectedFromScaleIn = bool
 RefreshInstanceWarmup = int
+RequestedCapacity = int
 ResourceName = str
 ReturnData = bool
 ReuseOnScaleIn = bool
@@ -286,6 +289,17 @@ class PredictiveScalingMode(StrEnum):
 
 class RefreshStrategy(StrEnum):
     Rolling = "Rolling"
+    ReplaceRootVolume = "ReplaceRootVolume"
+
+
+class RetentionAction(StrEnum):
+    retain = "retain"
+    terminate = "terminate"
+
+
+class RetryStrategy(StrEnum):
+    retry_with_group_configuration = "retry-with-group-configuration"
+    none = "none"
 
 
 class ScaleInProtectedInstances(StrEnum):
@@ -308,6 +322,9 @@ class ScalingActivityStatusCode(StrEnum):
     Failed = "Failed"
     Cancelled = "Cancelled"
     WaitingForConnectionDraining = "WaitingForConnectionDraining"
+    WaitingForInPlaceUpdateToStart = "WaitingForInPlaceUpdateToStart"
+    WaitingForInPlaceUpdateToFinalize = "WaitingForInPlaceUpdateToFinalize"
+    InPlaceUpdateInProgress = "InPlaceUpdateInProgress"
 
 
 class StandbyInstances(StrEnum):
@@ -342,6 +359,17 @@ class AlreadyExistsFault(ServiceException):
     """
 
     code: str = "AlreadyExists"
+    sender_fault: bool = True
+    status_code: int = 400
+
+
+class IdempotentParameterMismatchError(ServiceException):
+    """Indicates that the parameters in the current request do not match the
+    parameters from a previous request with the same client token within the
+    idempotency window.
+    """
+
+    code: str = "IdempotentParameterMismatch"
     sender_fault: bool = True
     status_code: int = 400
 
@@ -432,12 +460,12 @@ class AcceleratorCountRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveInteger]
-    Max: Optional[NullablePositiveInteger]
+    Min: NullablePositiveInteger | None
+    Max: NullablePositiveInteger | None
 
 
-AcceleratorManufacturers = List[AcceleratorManufacturer]
-AcceleratorNames = List[AcceleratorName]
+AcceleratorManufacturers = list[AcceleratorManufacturer]
+AcceleratorNames = list[AcceleratorName]
 
 
 class AcceleratorTotalMemoryMiBRequest(TypedDict, total=False):
@@ -447,11 +475,11 @@ class AcceleratorTotalMemoryMiBRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveInteger]
-    Max: Optional[NullablePositiveInteger]
+    Min: NullablePositiveInteger | None
+    Max: NullablePositiveInteger | None
 
 
-AcceleratorTypes = List[AcceleratorType]
+AcceleratorTypes = list[AcceleratorType]
 TimestampType = datetime
 
 
@@ -463,50 +491,50 @@ class Activity(TypedDict, total=False):
 
     ActivityId: XmlString
     AutoScalingGroupName: XmlStringMaxLen255
-    Description: Optional[XmlString]
+    Description: XmlString | None
     Cause: XmlStringMaxLen1023
     StartTime: TimestampType
-    EndTime: Optional[TimestampType]
+    EndTime: TimestampType | None
     StatusCode: ScalingActivityStatusCode
-    StatusMessage: Optional[XmlStringMaxLen255]
-    Progress: Optional[Progress]
-    Details: Optional[XmlString]
-    AutoScalingGroupState: Optional[AutoScalingGroupState]
-    AutoScalingGroupARN: Optional[ResourceName]
+    StatusMessage: XmlStringMaxLen255 | None
+    Progress: Progress | None
+    Details: XmlString | None
+    AutoScalingGroupState: AutoScalingGroupState | None
+    AutoScalingGroupARN: ResourceName | None
 
 
-Activities = List[Activity]
+Activities = list[Activity]
 
 
 class ActivitiesType(TypedDict, total=False):
     Activities: Activities
-    NextToken: Optional[XmlString]
+    NextToken: XmlString | None
 
 
-ActivityIds = List[XmlString]
+ActivityIds = list[XmlString]
 
 
 class ActivityType(TypedDict, total=False):
-    Activity: Optional[Activity]
+    Activity: Activity | None
 
 
 class AdjustmentType(TypedDict, total=False):
     """Describes a policy adjustment type."""
 
-    AdjustmentType: Optional[XmlStringMaxLen255]
+    AdjustmentType: XmlStringMaxLen255 | None
 
 
-AdjustmentTypes = List[AdjustmentType]
+AdjustmentTypes = list[AdjustmentType]
 
 
 class Alarm(TypedDict, total=False):
     """Describes an alarm."""
 
-    AlarmName: Optional[XmlStringMaxLen255]
-    AlarmARN: Optional[ResourceName]
+    AlarmName: XmlStringMaxLen255 | None
+    AlarmARN: ResourceName | None
 
 
-AlarmList = List[XmlStringMaxLen255]
+AlarmList = list[XmlStringMaxLen255]
 
 
 class AlarmSpecification(TypedDict, total=False):
@@ -514,16 +542,16 @@ class AlarmSpecification(TypedDict, total=False):
     refresh.
     """
 
-    Alarms: Optional[AlarmList]
+    Alarms: AlarmList | None
 
 
-Alarms = List[Alarm]
-AllowedInstanceTypes = List[AllowedInstanceType]
-InstanceIds = List[XmlStringMaxLen19]
+Alarms = list[Alarm]
+AllowedInstanceTypes = list[AllowedInstanceType]
+InstanceIds = list[XmlStringMaxLen19]
 
 
 class AttachInstancesQuery(ServiceRequest):
-    InstanceIds: Optional[InstanceIds]
+    InstanceIds: InstanceIds | None
     AutoScalingGroupName: XmlStringMaxLen255
 
 
@@ -531,7 +559,7 @@ class AttachLoadBalancerTargetGroupsResultType(TypedDict, total=False):
     pass
 
 
-TargetGroupARNs = List[XmlStringMaxLen511]
+TargetGroupARNs = list[XmlStringMaxLen511]
 
 
 class AttachLoadBalancerTargetGroupsType(ServiceRequest):
@@ -543,7 +571,7 @@ class AttachLoadBalancersResultType(TypedDict, total=False):
     pass
 
 
-LoadBalancerNames = List[XmlStringMaxLen255]
+LoadBalancerNames = list[XmlStringMaxLen255]
 
 
 class AttachLoadBalancersType(ServiceRequest):
@@ -559,20 +587,41 @@ class TrafficSourceIdentifier(TypedDict, total=False):
     """Identifying information for a traffic source."""
 
     Identifier: XmlStringMaxLen511
-    Type: Optional[XmlStringMaxLen511]
+    Type: XmlStringMaxLen511 | None
 
 
-TrafficSources = List[TrafficSourceIdentifier]
+TrafficSources = list[TrafficSourceIdentifier]
 
 
 class AttachTrafficSourcesType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
     TrafficSources: TrafficSources
-    SkipZonalShiftValidation: Optional[SkipZonalShiftValidation]
+    SkipZonalShiftValidation: SkipZonalShiftValidation | None
 
 
-CapacityReservationResourceGroupArns = List[ResourceName]
-CapacityReservationIds = List[AsciiStringMaxLen255]
+class RetentionTriggers(TypedDict, total=False):
+    """Defines the specific triggers that cause instances to be retained in a
+    Retained state rather than terminated. Each trigger corresponds to a
+    different failure scenario during the instance lifecycle. This allows
+    fine-grained control over when to preserve instances for manual
+    intervention.
+    """
+
+    TerminateHookAbandon: RetentionAction | None
+
+
+class InstanceLifecyclePolicy(TypedDict, total=False):
+    """Defines the lifecycle policy for instances in an Auto Scaling group.
+    This policy controls instance behavior when lifecycles transition and
+    operations fail. Use lifecycle policies to ensure graceful shutdown for
+    stateful workloads or applications requiring extended draining periods.
+    """
+
+    RetentionTriggers: RetentionTriggers | None
+
+
+CapacityReservationResourceGroupArns = list[ResourceName]
+CapacityReservationIds = list[AsciiStringMaxLen255]
 
 
 class CapacityReservationTarget(TypedDict, total=False):
@@ -580,8 +629,8 @@ class CapacityReservationTarget(TypedDict, total=False):
     IDs or Capacity Reservation resource group ARNs.
     """
 
-    CapacityReservationIds: Optional[CapacityReservationIds]
-    CapacityReservationResourceGroupArns: Optional[CapacityReservationResourceGroupArns]
+    CapacityReservationIds: CapacityReservationIds | None
+    CapacityReservationResourceGroupArns: CapacityReservationResourceGroupArns | None
 
 
 class CapacityReservationSpecification(TypedDict, total=False):
@@ -590,21 +639,21 @@ class CapacityReservationSpecification(TypedDict, total=False):
     do not specify a ``CapacityReservationTarget``.
     """
 
-    CapacityReservationPreference: Optional[CapacityReservationPreference]
-    CapacityReservationTarget: Optional[CapacityReservationTarget]
+    CapacityReservationPreference: CapacityReservationPreference | None
+    CapacityReservationTarget: CapacityReservationTarget | None
 
 
 class AvailabilityZoneImpairmentPolicy(TypedDict, total=False):
     """Describes an Availability Zone impairment policy."""
 
-    ZonalShiftEnabled: Optional[ZonalShiftEnabled]
-    ImpairedZoneHealthCheckBehavior: Optional[ImpairedZoneHealthCheckBehavior]
+    ZonalShiftEnabled: ZonalShiftEnabled | None
+    ImpairedZoneHealthCheckBehavior: ImpairedZoneHealthCheckBehavior | None
 
 
 class AvailabilityZoneDistribution(TypedDict, total=False):
     """Describes an Availability Zone distribution."""
 
-    CapacityDistributionStrategy: Optional[CapacityDistributionStrategy]
+    CapacityDistributionStrategy: CapacityDistributionStrategy | None
 
 
 class InstanceMaintenancePolicy(TypedDict, total=False):
@@ -615,8 +664,8 @@ class InstanceMaintenancePolicy(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    MinHealthyPercentage: Optional[IntPercentResettable]
-    MaxHealthyPercentage: Optional[IntPercent100To200Resettable]
+    MinHealthyPercentage: IntPercentResettable | None
+    MaxHealthyPercentage: IntPercent100To200Resettable | None
 
 
 class InstanceReusePolicy(TypedDict, total=False):
@@ -627,43 +676,43 @@ class InstanceReusePolicy(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    ReuseOnScaleIn: Optional[ReuseOnScaleIn]
+    ReuseOnScaleIn: ReuseOnScaleIn | None
 
 
 class WarmPoolConfiguration(TypedDict, total=False):
     """Describes a warm pool configuration."""
 
-    MaxGroupPreparedCapacity: Optional[MaxGroupPreparedCapacity]
-    MinSize: Optional[WarmPoolMinSize]
-    PoolState: Optional[WarmPoolState]
-    Status: Optional[WarmPoolStatus]
-    InstanceReusePolicy: Optional[InstanceReusePolicy]
+    MaxGroupPreparedCapacity: MaxGroupPreparedCapacity | None
+    MinSize: WarmPoolMinSize | None
+    PoolState: WarmPoolState | None
+    Status: WarmPoolStatus | None
+    InstanceReusePolicy: InstanceReusePolicy | None
 
 
-TerminationPolicies = List[XmlStringMaxLen1600]
+TerminationPolicies = list[XmlStringMaxLen1600]
 
 
 class TagDescription(TypedDict, total=False):
     """Describes a tag for an Auto Scaling group."""
 
-    ResourceId: Optional[XmlString]
-    ResourceType: Optional[XmlString]
-    Key: Optional[TagKey]
-    Value: Optional[TagValue]
-    PropagateAtLaunch: Optional[PropagateAtLaunch]
+    ResourceId: XmlString | None
+    ResourceType: XmlString | None
+    Key: TagKey | None
+    Value: TagValue | None
+    PropagateAtLaunch: PropagateAtLaunch | None
 
 
-TagDescriptionList = List[TagDescription]
+TagDescriptionList = list[TagDescription]
 
 
 class EnabledMetric(TypedDict, total=False):
     """Describes an enabled Auto Scaling group metric."""
 
-    Metric: Optional[XmlStringMaxLen255]
-    Granularity: Optional[XmlStringMaxLen255]
+    Metric: XmlStringMaxLen255 | None
+    Granularity: XmlStringMaxLen255 | None
 
 
-EnabledMetrics = List[EnabledMetric]
+EnabledMetrics = list[EnabledMetric]
 
 
 class SuspendedProcess(TypedDict, total=False):
@@ -674,11 +723,11 @@ class SuspendedProcess(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    ProcessName: Optional[XmlStringMaxLen255]
-    SuspensionReason: Optional[XmlStringMaxLen255]
+    ProcessName: XmlStringMaxLen255 | None
+    SuspensionReason: XmlStringMaxLen255 | None
 
 
-SuspendedProcesses = List[SuspendedProcess]
+SuspendedProcesses = list[SuspendedProcess]
 
 
 class LaunchTemplateSpecification(TypedDict, total=False):
@@ -689,27 +738,28 @@ class LaunchTemplateSpecification(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    LaunchTemplateId: Optional[XmlStringMaxLen255]
-    LaunchTemplateName: Optional[LaunchTemplateName]
-    Version: Optional[XmlStringMaxLen255]
+    LaunchTemplateId: XmlStringMaxLen255 | None
+    LaunchTemplateName: LaunchTemplateName | None
+    Version: XmlStringMaxLen255 | None
 
 
 class Instance(TypedDict, total=False):
     """Describes an EC2 instance."""
 
     InstanceId: XmlStringMaxLen19
-    InstanceType: Optional[XmlStringMaxLen255]
+    InstanceType: XmlStringMaxLen255 | None
     AvailabilityZone: XmlStringMaxLen255
     LifecycleState: LifecycleState
     HealthStatus: XmlStringMaxLen32
-    LaunchConfigurationName: Optional[XmlStringMaxLen255]
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
+    LaunchConfigurationName: XmlStringMaxLen255 | None
+    LaunchTemplate: LaunchTemplateSpecification | None
+    ImageId: XmlStringMaxLen255 | None
     ProtectedFromScaleIn: InstanceProtected
-    WeightedCapacity: Optional[XmlStringMaxLen32]
+    WeightedCapacity: XmlStringMaxLen32 | None
 
 
-Instances = List[Instance]
-AvailabilityZones = List[XmlStringMaxLen255]
+Instances = list[Instance]
+AvailabilityZones = list[XmlStringMaxLen255]
 
 
 class InstancesDistribution(TypedDict, total=False):
@@ -718,12 +768,12 @@ class InstancesDistribution(TypedDict, total=False):
     On-Demand and Spot capacities for a mixed instances policy.
     """
 
-    OnDemandAllocationStrategy: Optional[XmlString]
-    OnDemandBaseCapacity: Optional[OnDemandBaseCapacity]
-    OnDemandPercentageAboveBaseCapacity: Optional[OnDemandPercentageAboveBaseCapacity]
-    SpotAllocationStrategy: Optional[XmlString]
-    SpotInstancePools: Optional[SpotInstancePools]
-    SpotMaxPrice: Optional[MixedInstanceSpotPrice]
+    OnDemandAllocationStrategy: XmlString | None
+    OnDemandBaseCapacity: OnDemandBaseCapacity | None
+    OnDemandPercentageAboveBaseCapacity: OnDemandPercentageAboveBaseCapacity | None
+    SpotAllocationStrategy: XmlString | None
+    SpotInstancePools: SpotInstancePools | None
+    SpotMaxPrice: MixedInstanceSpotPrice | None
 
 
 class PerformanceFactorReferenceRequest(TypedDict, total=False):
@@ -736,10 +786,10 @@ class PerformanceFactorReferenceRequest(TypedDict, total=False):
     Currently only one instance family can be specified in the list.
     """
 
-    InstanceFamily: Optional[String]
+    InstanceFamily: String | None
 
 
-PerformanceFactorReferenceSetRequest = List[PerformanceFactorReferenceRequest]
+PerformanceFactorReferenceSetRequest = list[PerformanceFactorReferenceRequest]
 
 
 class CpuPerformanceFactorRequest(TypedDict, total=False):
@@ -747,7 +797,7 @@ class CpuPerformanceFactorRequest(TypedDict, total=False):
     baseline reference.
     """
 
-    References: Optional[PerformanceFactorReferenceSetRequest]
+    References: PerformanceFactorReferenceSetRequest | None
 
 
 class BaselinePerformanceFactorsRequest(TypedDict, total=False):
@@ -763,7 +813,7 @@ class BaselinePerformanceFactorsRequest(TypedDict, total=False):
     performance of the ``c6i`` family as the baseline reference.
     """
 
-    Cpu: Optional[CpuPerformanceFactorRequest]
+    Cpu: CpuPerformanceFactorRequest | None
 
 
 class NetworkBandwidthGbpsRequest(TypedDict, total=False):
@@ -781,8 +831,8 @@ class NetworkBandwidthGbpsRequest(TypedDict, total=False):
     in the *Amazon EC2 User Guide*.
     """
 
-    Min: Optional[NullablePositiveDouble]
-    Max: Optional[NullablePositiveDouble]
+    Min: NullablePositiveDouble | None
+    Max: NullablePositiveDouble | None
 
 
 class BaselineEbsBandwidthMbpsRequest(TypedDict, total=False):
@@ -792,8 +842,8 @@ class BaselineEbsBandwidthMbpsRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveInteger]
-    Max: Optional[NullablePositiveInteger]
+    Min: NullablePositiveInteger | None
+    Max: NullablePositiveInteger | None
 
 
 class TotalLocalStorageGBRequest(TypedDict, total=False):
@@ -803,11 +853,11 @@ class TotalLocalStorageGBRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveDouble]
-    Max: Optional[NullablePositiveDouble]
+    Min: NullablePositiveDouble | None
+    Max: NullablePositiveDouble | None
 
 
-LocalStorageTypes = List[LocalStorageType]
+LocalStorageTypes = list[LocalStorageType]
 
 
 class NetworkInterfaceCountRequest(TypedDict, total=False):
@@ -817,12 +867,12 @@ class NetworkInterfaceCountRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveInteger]
-    Max: Optional[NullablePositiveInteger]
+    Min: NullablePositiveInteger | None
+    Max: NullablePositiveInteger | None
 
 
-InstanceGenerations = List[InstanceGeneration]
-ExcludedInstanceTypes = List[ExcludedInstance]
+InstanceGenerations = list[InstanceGeneration]
+ExcludedInstanceTypes = list[ExcludedInstance]
 
 
 class MemoryGiBPerVCpuRequest(TypedDict, total=False):
@@ -832,11 +882,11 @@ class MemoryGiBPerVCpuRequest(TypedDict, total=False):
     for an Auto Scaling group.
     """
 
-    Min: Optional[NullablePositiveDouble]
-    Max: Optional[NullablePositiveDouble]
+    Min: NullablePositiveDouble | None
+    Max: NullablePositiveDouble | None
 
 
-CpuManufacturers = List[CpuManufacturer]
+CpuManufacturers = list[CpuManufacturer]
 
 
 class MemoryMiBRequest(TypedDict, total=False):
@@ -847,7 +897,7 @@ class MemoryMiBRequest(TypedDict, total=False):
     """
 
     Min: NullablePositiveInteger
-    Max: Optional[NullablePositiveInteger]
+    Max: NullablePositiveInteger | None
 
 
 class VCpuCountRequest(TypedDict, total=False):
@@ -858,7 +908,7 @@ class VCpuCountRequest(TypedDict, total=False):
     """
 
     Min: NullablePositiveInteger
-    Max: Optional[NullablePositiveInteger]
+    Max: NullablePositiveInteger | None
 
 
 class InstanceRequirements(TypedDict, total=False):
@@ -898,29 +948,29 @@ class InstanceRequirements(TypedDict, total=False):
 
     VCpuCount: VCpuCountRequest
     MemoryMiB: MemoryMiBRequest
-    CpuManufacturers: Optional[CpuManufacturers]
-    MemoryGiBPerVCpu: Optional[MemoryGiBPerVCpuRequest]
-    ExcludedInstanceTypes: Optional[ExcludedInstanceTypes]
-    InstanceGenerations: Optional[InstanceGenerations]
-    SpotMaxPricePercentageOverLowestPrice: Optional[NullablePositiveInteger]
-    MaxSpotPriceAsPercentageOfOptimalOnDemandPrice: Optional[NullablePositiveInteger]
-    OnDemandMaxPricePercentageOverLowestPrice: Optional[NullablePositiveInteger]
-    BareMetal: Optional[BareMetal]
-    BurstablePerformance: Optional[BurstablePerformance]
-    RequireHibernateSupport: Optional[NullableBoolean]
-    NetworkInterfaceCount: Optional[NetworkInterfaceCountRequest]
-    LocalStorage: Optional[LocalStorage]
-    LocalStorageTypes: Optional[LocalStorageTypes]
-    TotalLocalStorageGB: Optional[TotalLocalStorageGBRequest]
-    BaselineEbsBandwidthMbps: Optional[BaselineEbsBandwidthMbpsRequest]
-    AcceleratorTypes: Optional[AcceleratorTypes]
-    AcceleratorCount: Optional[AcceleratorCountRequest]
-    AcceleratorManufacturers: Optional[AcceleratorManufacturers]
-    AcceleratorNames: Optional[AcceleratorNames]
-    AcceleratorTotalMemoryMiB: Optional[AcceleratorTotalMemoryMiBRequest]
-    NetworkBandwidthGbps: Optional[NetworkBandwidthGbpsRequest]
-    AllowedInstanceTypes: Optional[AllowedInstanceTypes]
-    BaselinePerformanceFactors: Optional[BaselinePerformanceFactorsRequest]
+    CpuManufacturers: CpuManufacturers | None
+    MemoryGiBPerVCpu: MemoryGiBPerVCpuRequest | None
+    ExcludedInstanceTypes: ExcludedInstanceTypes | None
+    InstanceGenerations: InstanceGenerations | None
+    SpotMaxPricePercentageOverLowestPrice: NullablePositiveInteger | None
+    MaxSpotPriceAsPercentageOfOptimalOnDemandPrice: NullablePositiveInteger | None
+    OnDemandMaxPricePercentageOverLowestPrice: NullablePositiveInteger | None
+    BareMetal: BareMetal | None
+    BurstablePerformance: BurstablePerformance | None
+    RequireHibernateSupport: NullableBoolean | None
+    NetworkInterfaceCount: NetworkInterfaceCountRequest | None
+    LocalStorage: LocalStorage | None
+    LocalStorageTypes: LocalStorageTypes | None
+    TotalLocalStorageGB: TotalLocalStorageGBRequest | None
+    BaselineEbsBandwidthMbps: BaselineEbsBandwidthMbpsRequest | None
+    AcceleratorTypes: AcceleratorTypes | None
+    AcceleratorCount: AcceleratorCountRequest | None
+    AcceleratorManufacturers: AcceleratorManufacturers | None
+    AcceleratorNames: AcceleratorNames | None
+    AcceleratorTotalMemoryMiB: AcceleratorTotalMemoryMiBRequest | None
+    NetworkBandwidthGbps: NetworkBandwidthGbpsRequest | None
+    AllowedInstanceTypes: AllowedInstanceTypes | None
+    BaselinePerformanceFactors: BaselinePerformanceFactorsRequest | None
 
 
 class LaunchTemplateOverrides(TypedDict, total=False):
@@ -945,13 +995,14 @@ class LaunchTemplateOverrides(TypedDict, total=False):
     Scaling group to determine whether a new EC2 instance type can be used.
     """
 
-    InstanceType: Optional[XmlStringMaxLen255]
-    WeightedCapacity: Optional[XmlStringMaxLen32]
-    LaunchTemplateSpecification: Optional[LaunchTemplateSpecification]
-    InstanceRequirements: Optional[InstanceRequirements]
+    InstanceType: XmlStringMaxLen255 | None
+    WeightedCapacity: XmlStringMaxLen32 | None
+    LaunchTemplateSpecification: LaunchTemplateSpecification | None
+    InstanceRequirements: InstanceRequirements | None
+    ImageId: ImageId | None
 
 
-Overrides = List[LaunchTemplateOverrides]
+Overrides = list[LaunchTemplateOverrides]
 
 
 class LaunchTemplate(TypedDict, total=False):
@@ -959,8 +1010,8 @@ class LaunchTemplate(TypedDict, total=False):
     (overrides) for a mixed instances policy.
     """
 
-    LaunchTemplateSpecification: Optional[LaunchTemplateSpecification]
-    Overrides: Optional[Overrides]
+    LaunchTemplateSpecification: LaunchTemplateSpecification | None
+    Overrides: Overrides | None
 
 
 class MixedInstancesPolicy(TypedDict, total=False):
@@ -975,55 +1026,56 @@ class MixedInstancesPolicy(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    LaunchTemplate: Optional[LaunchTemplate]
-    InstancesDistribution: Optional[InstancesDistribution]
+    LaunchTemplate: LaunchTemplate | None
+    InstancesDistribution: InstancesDistribution | None
 
 
 class AutoScalingGroup(TypedDict, total=False):
     """Describes an Auto Scaling group."""
 
     AutoScalingGroupName: XmlStringMaxLen255
-    AutoScalingGroupARN: Optional[ResourceName]
-    LaunchConfigurationName: Optional[XmlStringMaxLen255]
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
-    MixedInstancesPolicy: Optional[MixedInstancesPolicy]
+    AutoScalingGroupARN: ResourceName | None
+    LaunchConfigurationName: XmlStringMaxLen255 | None
+    LaunchTemplate: LaunchTemplateSpecification | None
+    MixedInstancesPolicy: MixedInstancesPolicy | None
     MinSize: AutoScalingGroupMinSize
     MaxSize: AutoScalingGroupMaxSize
     DesiredCapacity: AutoScalingGroupDesiredCapacity
-    PredictedCapacity: Optional[AutoScalingGroupPredictedCapacity]
+    PredictedCapacity: AutoScalingGroupPredictedCapacity | None
     DefaultCooldown: Cooldown
     AvailabilityZones: AvailabilityZones
-    LoadBalancerNames: Optional[LoadBalancerNames]
-    TargetGroupARNs: Optional[TargetGroupARNs]
+    LoadBalancerNames: LoadBalancerNames | None
+    TargetGroupARNs: TargetGroupARNs | None
     HealthCheckType: XmlStringMaxLen32
-    HealthCheckGracePeriod: Optional[HealthCheckGracePeriod]
-    Instances: Optional[Instances]
+    HealthCheckGracePeriod: HealthCheckGracePeriod | None
+    Instances: Instances | None
     CreatedTime: TimestampType
-    SuspendedProcesses: Optional[SuspendedProcesses]
-    PlacementGroup: Optional[XmlStringMaxLen255]
-    VPCZoneIdentifier: Optional[XmlStringMaxLen5000]
-    EnabledMetrics: Optional[EnabledMetrics]
-    Status: Optional[XmlStringMaxLen255]
-    Tags: Optional[TagDescriptionList]
-    TerminationPolicies: Optional[TerminationPolicies]
-    NewInstancesProtectedFromScaleIn: Optional[InstanceProtected]
-    ServiceLinkedRoleARN: Optional[ResourceName]
-    MaxInstanceLifetime: Optional[MaxInstanceLifetime]
-    CapacityRebalance: Optional[CapacityRebalanceEnabled]
-    WarmPoolConfiguration: Optional[WarmPoolConfiguration]
-    WarmPoolSize: Optional[WarmPoolSize]
-    Context: Optional[Context]
-    DesiredCapacityType: Optional[XmlStringMaxLen255]
-    DefaultInstanceWarmup: Optional[DefaultInstanceWarmup]
-    TrafficSources: Optional[TrafficSources]
-    InstanceMaintenancePolicy: Optional[InstanceMaintenancePolicy]
-    AvailabilityZoneDistribution: Optional[AvailabilityZoneDistribution]
-    AvailabilityZoneImpairmentPolicy: Optional[AvailabilityZoneImpairmentPolicy]
-    CapacityReservationSpecification: Optional[CapacityReservationSpecification]
+    SuspendedProcesses: SuspendedProcesses | None
+    PlacementGroup: XmlStringMaxLen255 | None
+    VPCZoneIdentifier: XmlStringMaxLen5000 | None
+    EnabledMetrics: EnabledMetrics | None
+    Status: XmlStringMaxLen255 | None
+    Tags: TagDescriptionList | None
+    TerminationPolicies: TerminationPolicies | None
+    NewInstancesProtectedFromScaleIn: InstanceProtected | None
+    ServiceLinkedRoleARN: ResourceName | None
+    MaxInstanceLifetime: MaxInstanceLifetime | None
+    CapacityRebalance: CapacityRebalanceEnabled | None
+    WarmPoolConfiguration: WarmPoolConfiguration | None
+    WarmPoolSize: WarmPoolSize | None
+    Context: Context | None
+    DesiredCapacityType: XmlStringMaxLen255 | None
+    DefaultInstanceWarmup: DefaultInstanceWarmup | None
+    TrafficSources: TrafficSources | None
+    InstanceMaintenancePolicy: InstanceMaintenancePolicy | None
+    AvailabilityZoneDistribution: AvailabilityZoneDistribution | None
+    AvailabilityZoneImpairmentPolicy: AvailabilityZoneImpairmentPolicy | None
+    CapacityReservationSpecification: CapacityReservationSpecification | None
+    InstanceLifecyclePolicy: InstanceLifecyclePolicy | None
 
 
-AutoScalingGroupNames = List[XmlStringMaxLen255]
-Values = List[XmlString]
+AutoScalingGroupNames = list[XmlStringMaxLen255]
+Values = list[XmlString]
 
 
 class Filter(TypedDict, total=False):
@@ -1039,53 +1091,56 @@ class Filter(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    Name: Optional[XmlString]
-    Values: Optional[Values]
+    Name: XmlString | None
+    Values: Values | None
 
 
-Filters = List[Filter]
+Filters = list[Filter]
 
 
 class AutoScalingGroupNamesType(ServiceRequest):
-    AutoScalingGroupNames: Optional[AutoScalingGroupNames]
-    IncludeInstances: Optional[IncludeInstances]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
-    Filters: Optional[Filters]
+    AutoScalingGroupNames: AutoScalingGroupNames | None
+    IncludeInstances: IncludeInstances | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
+    Filters: Filters | None
 
 
-AutoScalingGroups = List[AutoScalingGroup]
+AutoScalingGroups = list[AutoScalingGroup]
 
 
 class AutoScalingGroupsType(TypedDict, total=False):
     AutoScalingGroups: AutoScalingGroups
-    NextToken: Optional[XmlString]
+    NextToken: XmlString | None
 
 
 class AutoScalingInstanceDetails(TypedDict, total=False):
     """Describes an EC2 instance associated with an Auto Scaling group."""
 
     InstanceId: XmlStringMaxLen19
-    InstanceType: Optional[XmlStringMaxLen255]
+    InstanceType: XmlStringMaxLen255 | None
     AutoScalingGroupName: XmlStringMaxLen255
     AvailabilityZone: XmlStringMaxLen255
     LifecycleState: XmlStringMaxLen32
     HealthStatus: XmlStringMaxLen32
-    LaunchConfigurationName: Optional[XmlStringMaxLen255]
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
+    LaunchConfigurationName: XmlStringMaxLen255 | None
+    LaunchTemplate: LaunchTemplateSpecification | None
+    ImageId: XmlStringMaxLen255 | None
     ProtectedFromScaleIn: InstanceProtected
-    WeightedCapacity: Optional[XmlStringMaxLen32]
+    WeightedCapacity: XmlStringMaxLen32 | None
 
 
-AutoScalingInstances = List[AutoScalingInstanceDetails]
+AutoScalingInstances = list[AutoScalingInstanceDetails]
 
 
 class AutoScalingInstancesType(TypedDict, total=False):
-    AutoScalingInstances: Optional[AutoScalingInstances]
-    NextToken: Optional[XmlString]
+    AutoScalingInstances: AutoScalingInstances | None
+    NextToken: XmlString | None
 
 
-AutoScalingNotificationTypes = List[XmlStringMaxLen255]
+AutoScalingNotificationTypes = list[XmlStringMaxLen255]
+AvailabilityZoneIdsLimit1 = list[XmlStringMaxLen255]
+AvailabilityZonesLimit1 = list[XmlStringMaxLen255]
 
 
 class FailedScheduledUpdateGroupActionRequest(TypedDict, total=False):
@@ -1094,18 +1149,18 @@ class FailedScheduledUpdateGroupActionRequest(TypedDict, total=False):
     """
 
     ScheduledActionName: XmlStringMaxLen255
-    ErrorCode: Optional[XmlStringMaxLen64]
-    ErrorMessage: Optional[XmlString]
+    ErrorCode: XmlStringMaxLen64 | None
+    ErrorMessage: XmlString | None
 
 
-FailedScheduledUpdateGroupActionRequests = List[FailedScheduledUpdateGroupActionRequest]
+FailedScheduledUpdateGroupActionRequests = list[FailedScheduledUpdateGroupActionRequest]
 
 
 class BatchDeleteScheduledActionAnswer(TypedDict, total=False):
-    FailedScheduledActions: Optional[FailedScheduledUpdateGroupActionRequests]
+    FailedScheduledActions: FailedScheduledUpdateGroupActionRequests | None
 
 
-ScheduledActionNames = List[XmlStringMaxLen255]
+ScheduledActionNames = list[XmlStringMaxLen255]
 
 
 class BatchDeleteScheduledActionType(ServiceRequest):
@@ -1114,7 +1169,7 @@ class BatchDeleteScheduledActionType(ServiceRequest):
 
 
 class BatchPutScheduledUpdateGroupActionAnswer(TypedDict, total=False):
-    FailedScheduledUpdateGroupActions: Optional[FailedScheduledUpdateGroupActionRequests]
+    FailedScheduledUpdateGroupActions: FailedScheduledUpdateGroupActionRequests | None
 
 
 class ScheduledUpdateGroupActionRequest(TypedDict, total=False):
@@ -1125,16 +1180,16 @@ class ScheduledUpdateGroupActionRequest(TypedDict, total=False):
     """
 
     ScheduledActionName: XmlStringMaxLen255
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    Recurrence: Optional[XmlStringMaxLen255]
-    MinSize: Optional[AutoScalingGroupMinSize]
-    MaxSize: Optional[AutoScalingGroupMaxSize]
-    DesiredCapacity: Optional[AutoScalingGroupDesiredCapacity]
-    TimeZone: Optional[XmlStringMaxLen255]
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    Recurrence: XmlStringMaxLen255 | None
+    MinSize: AutoScalingGroupMinSize | None
+    MaxSize: AutoScalingGroupMaxSize | None
+    DesiredCapacity: AutoScalingGroupDesiredCapacity | None
+    TimeZone: XmlStringMaxLen255 | None
 
 
-ScheduledUpdateGroupActionRequests = List[ScheduledUpdateGroupActionRequest]
+ScheduledUpdateGroupActionRequests = list[ScheduledUpdateGroupActionRequest]
 
 
 class BatchPutScheduledUpdateGroupActionType(ServiceRequest):
@@ -1147,38 +1202,38 @@ class Ebs(TypedDict, total=False):
     block device mapping.
     """
 
-    SnapshotId: Optional[XmlStringMaxLen255]
-    VolumeSize: Optional[BlockDeviceEbsVolumeSize]
-    VolumeType: Optional[BlockDeviceEbsVolumeType]
-    DeleteOnTermination: Optional[BlockDeviceEbsDeleteOnTermination]
-    Iops: Optional[BlockDeviceEbsIops]
-    Encrypted: Optional[BlockDeviceEbsEncrypted]
-    Throughput: Optional[BlockDeviceEbsThroughput]
+    SnapshotId: XmlStringMaxLen255 | None
+    VolumeSize: BlockDeviceEbsVolumeSize | None
+    VolumeType: BlockDeviceEbsVolumeType | None
+    DeleteOnTermination: BlockDeviceEbsDeleteOnTermination | None
+    Iops: BlockDeviceEbsIops | None
+    Encrypted: BlockDeviceEbsEncrypted | None
+    Throughput: BlockDeviceEbsThroughput | None
 
 
 class BlockDeviceMapping(TypedDict, total=False):
     """Describes a block device mapping."""
 
-    VirtualName: Optional[XmlStringMaxLen255]
+    VirtualName: XmlStringMaxLen255 | None
     DeviceName: XmlStringMaxLen255
-    Ebs: Optional[Ebs]
-    NoDevice: Optional[NoDevice]
+    Ebs: Ebs | None
+    NoDevice: NoDevice | None
 
 
-BlockDeviceMappings = List[BlockDeviceMapping]
+BlockDeviceMappings = list[BlockDeviceMapping]
 
 
 class CancelInstanceRefreshAnswer(TypedDict, total=False):
-    InstanceRefreshId: Optional[XmlStringMaxLen255]
+    InstanceRefreshId: XmlStringMaxLen255 | None
 
 
 class CancelInstanceRefreshType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    WaitForTransitioningInstances: Optional[BooleanType]
+    WaitForTransitioningInstances: BooleanType | None
 
 
-PredictiveScalingForecastValues = List[MetricScale]
-PredictiveScalingForecastTimestamps = List[TimestampType]
+PredictiveScalingForecastValues = list[MetricScale]
+PredictiveScalingForecastTimestamps = list[TimestampType]
 
 
 class CapacityForecast(TypedDict, total=False):
@@ -1192,8 +1247,8 @@ class CapacityForecast(TypedDict, total=False):
     Values: PredictiveScalingForecastValues
 
 
-CheckpointPercentages = List[NonZeroIntPercent]
-ClassicLinkVPCSecurityGroups = List[XmlStringMaxLen255]
+CheckpointPercentages = list[NonZeroIntPercent]
+ClassicLinkVPCSecurityGroups = list[XmlStringMaxLen255]
 
 
 class CompleteLifecycleActionAnswer(TypedDict, total=False):
@@ -1203,22 +1258,22 @@ class CompleteLifecycleActionAnswer(TypedDict, total=False):
 class CompleteLifecycleActionType(ServiceRequest):
     LifecycleHookName: AsciiStringMaxLen255
     AutoScalingGroupName: ResourceName
-    LifecycleActionToken: Optional[LifecycleActionToken]
+    LifecycleActionToken: LifecycleActionToken | None
     LifecycleActionResult: LifecycleActionResult
-    InstanceId: Optional[XmlStringMaxLen19]
+    InstanceId: XmlStringMaxLen19 | None
 
 
 class Tag(TypedDict, total=False):
     """Describes a tag for an Auto Scaling group."""
 
-    ResourceId: Optional[XmlString]
-    ResourceType: Optional[XmlString]
+    ResourceId: XmlString | None
+    ResourceType: XmlString | None
     Key: TagKey
-    Value: Optional[TagValue]
-    PropagateAtLaunch: Optional[PropagateAtLaunch]
+    Value: TagValue | None
+    PropagateAtLaunch: PropagateAtLaunch | None
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class LifecycleHookSpecification(TypedDict, total=False):
@@ -1232,49 +1287,50 @@ class LifecycleHookSpecification(TypedDict, total=False):
 
     LifecycleHookName: AsciiStringMaxLen255
     LifecycleTransition: LifecycleTransition
-    NotificationMetadata: Optional[AnyPrintableAsciiStringMaxLen4000]
-    HeartbeatTimeout: Optional[HeartbeatTimeout]
-    DefaultResult: Optional[LifecycleActionResult]
-    NotificationTargetARN: Optional[NotificationTargetResourceName]
-    RoleARN: Optional[XmlStringMaxLen255]
+    NotificationMetadata: AnyPrintableAsciiStringMaxLen4000 | None
+    HeartbeatTimeout: HeartbeatTimeout | None
+    DefaultResult: LifecycleActionResult | None
+    NotificationTargetARN: NotificationTargetResourceName | None
+    RoleARN: XmlStringMaxLen255 | None
 
 
-LifecycleHookSpecifications = List[LifecycleHookSpecification]
+LifecycleHookSpecifications = list[LifecycleHookSpecification]
 
 
 class CreateAutoScalingGroupType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    LaunchConfigurationName: Optional[XmlStringMaxLen255]
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
-    MixedInstancesPolicy: Optional[MixedInstancesPolicy]
-    InstanceId: Optional[XmlStringMaxLen19]
+    LaunchConfigurationName: XmlStringMaxLen255 | None
+    LaunchTemplate: LaunchTemplateSpecification | None
+    MixedInstancesPolicy: MixedInstancesPolicy | None
+    InstanceId: XmlStringMaxLen19 | None
     MinSize: AutoScalingGroupMinSize
     MaxSize: AutoScalingGroupMaxSize
-    DesiredCapacity: Optional[AutoScalingGroupDesiredCapacity]
-    DefaultCooldown: Optional[Cooldown]
-    AvailabilityZones: Optional[AvailabilityZones]
-    LoadBalancerNames: Optional[LoadBalancerNames]
-    TargetGroupARNs: Optional[TargetGroupARNs]
-    HealthCheckType: Optional[XmlStringMaxLen32]
-    HealthCheckGracePeriod: Optional[HealthCheckGracePeriod]
-    PlacementGroup: Optional[XmlStringMaxLen255]
-    VPCZoneIdentifier: Optional[XmlStringMaxLen5000]
-    TerminationPolicies: Optional[TerminationPolicies]
-    NewInstancesProtectedFromScaleIn: Optional[InstanceProtected]
-    CapacityRebalance: Optional[CapacityRebalanceEnabled]
-    LifecycleHookSpecificationList: Optional[LifecycleHookSpecifications]
-    Tags: Optional[Tags]
-    ServiceLinkedRoleARN: Optional[ResourceName]
-    MaxInstanceLifetime: Optional[MaxInstanceLifetime]
-    Context: Optional[Context]
-    DesiredCapacityType: Optional[XmlStringMaxLen255]
-    DefaultInstanceWarmup: Optional[DefaultInstanceWarmup]
-    TrafficSources: Optional[TrafficSources]
-    InstanceMaintenancePolicy: Optional[InstanceMaintenancePolicy]
-    AvailabilityZoneDistribution: Optional[AvailabilityZoneDistribution]
-    AvailabilityZoneImpairmentPolicy: Optional[AvailabilityZoneImpairmentPolicy]
-    SkipZonalShiftValidation: Optional[SkipZonalShiftValidation]
-    CapacityReservationSpecification: Optional[CapacityReservationSpecification]
+    DesiredCapacity: AutoScalingGroupDesiredCapacity | None
+    DefaultCooldown: Cooldown | None
+    AvailabilityZones: AvailabilityZones | None
+    LoadBalancerNames: LoadBalancerNames | None
+    TargetGroupARNs: TargetGroupARNs | None
+    HealthCheckType: XmlStringMaxLen32 | None
+    HealthCheckGracePeriod: HealthCheckGracePeriod | None
+    PlacementGroup: XmlStringMaxLen255 | None
+    VPCZoneIdentifier: XmlStringMaxLen5000 | None
+    TerminationPolicies: TerminationPolicies | None
+    NewInstancesProtectedFromScaleIn: InstanceProtected | None
+    CapacityRebalance: CapacityRebalanceEnabled | None
+    LifecycleHookSpecificationList: LifecycleHookSpecifications | None
+    Tags: Tags | None
+    ServiceLinkedRoleARN: ResourceName | None
+    MaxInstanceLifetime: MaxInstanceLifetime | None
+    Context: Context | None
+    DesiredCapacityType: XmlStringMaxLen255 | None
+    DefaultInstanceWarmup: DefaultInstanceWarmup | None
+    TrafficSources: TrafficSources | None
+    InstanceMaintenancePolicy: InstanceMaintenancePolicy | None
+    AvailabilityZoneDistribution: AvailabilityZoneDistribution | None
+    AvailabilityZoneImpairmentPolicy: AvailabilityZoneImpairmentPolicy | None
+    SkipZonalShiftValidation: SkipZonalShiftValidation | None
+    CapacityReservationSpecification: CapacityReservationSpecification | None
+    InstanceLifecyclePolicy: InstanceLifecyclePolicy | None
 
 
 class InstanceMetadataOptions(TypedDict, total=False):
@@ -1284,9 +1340,9 @@ class InstanceMetadataOptions(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    HttpTokens: Optional[InstanceMetadataHttpTokensState]
-    HttpPutResponseHopLimit: Optional[InstanceMetadataHttpPutResponseHopLimit]
-    HttpEndpoint: Optional[InstanceMetadataEndpointState]
+    HttpTokens: InstanceMetadataHttpTokensState | None
+    HttpPutResponseHopLimit: InstanceMetadataHttpPutResponseHopLimit | None
+    HttpEndpoint: InstanceMetadataEndpointState | None
 
 
 class InstanceMonitoring(TypedDict, total=False):
@@ -1294,32 +1350,32 @@ class InstanceMonitoring(TypedDict, total=False):
     instances.
     """
 
-    Enabled: Optional[MonitoringEnabled]
+    Enabled: MonitoringEnabled | None
 
 
-SecurityGroups = List[XmlString]
+SecurityGroups = list[XmlString]
 
 
 class CreateLaunchConfigurationType(ServiceRequest):
     LaunchConfigurationName: XmlStringMaxLen255
-    ImageId: Optional[XmlStringMaxLen255]
-    KeyName: Optional[XmlStringMaxLen255]
-    SecurityGroups: Optional[SecurityGroups]
-    ClassicLinkVPCId: Optional[XmlStringMaxLen255]
-    ClassicLinkVPCSecurityGroups: Optional[ClassicLinkVPCSecurityGroups]
-    UserData: Optional[XmlStringUserData]
-    InstanceId: Optional[XmlStringMaxLen19]
-    InstanceType: Optional[XmlStringMaxLen255]
-    KernelId: Optional[XmlStringMaxLen255]
-    RamdiskId: Optional[XmlStringMaxLen255]
-    BlockDeviceMappings: Optional[BlockDeviceMappings]
-    InstanceMonitoring: Optional[InstanceMonitoring]
-    SpotPrice: Optional[SpotPrice]
-    IamInstanceProfile: Optional[XmlStringMaxLen1600]
-    EbsOptimized: Optional[EbsOptimized]
-    AssociatePublicIpAddress: Optional[AssociatePublicIpAddress]
-    PlacementTenancy: Optional[XmlStringMaxLen64]
-    MetadataOptions: Optional[InstanceMetadataOptions]
+    ImageId: XmlStringMaxLen255 | None
+    KeyName: XmlStringMaxLen255 | None
+    SecurityGroups: SecurityGroups | None
+    ClassicLinkVPCId: XmlStringMaxLen255 | None
+    ClassicLinkVPCSecurityGroups: ClassicLinkVPCSecurityGroups | None
+    UserData: XmlStringUserData | None
+    InstanceId: XmlStringMaxLen19 | None
+    InstanceType: XmlStringMaxLen255 | None
+    KernelId: XmlStringMaxLen255 | None
+    RamdiskId: XmlStringMaxLen255 | None
+    BlockDeviceMappings: BlockDeviceMappings | None
+    InstanceMonitoring: InstanceMonitoring | None
+    SpotPrice: SpotPrice | None
+    IamInstanceProfile: XmlStringMaxLen1600 | None
+    EbsOptimized: EbsOptimized | None
+    AssociatePublicIpAddress: AssociatePublicIpAddress | None
+    PlacementTenancy: XmlStringMaxLen64 | None
+    MetadataOptions: InstanceMetadataOptions | None
 
 
 class CreateOrUpdateTagsType(ServiceRequest):
@@ -1333,7 +1389,7 @@ class MetricDimension(TypedDict, total=False):
     Value: MetricDimensionValue
 
 
-MetricDimensions = List[MetricDimension]
+MetricDimensions = list[MetricDimension]
 
 
 class Metric(TypedDict, total=False):
@@ -1341,7 +1397,7 @@ class Metric(TypedDict, total=False):
 
     Namespace: MetricNamespace
     MetricName: MetricName
-    Dimensions: Optional[MetricDimensions]
+    Dimensions: MetricDimensions | None
 
 
 class TargetTrackingMetricStat(TypedDict, total=False):
@@ -1356,8 +1412,8 @@ class TargetTrackingMetricStat(TypedDict, total=False):
 
     Metric: Metric
     Stat: XmlStringMetricStat
-    Unit: Optional[MetricUnit]
-    Period: Optional[MetricGranularityInSeconds]
+    Unit: MetricUnit | None
+    Period: MetricGranularityInSeconds | None
 
 
 class TargetTrackingMetricDataQuery(TypedDict, total=False):
@@ -1369,14 +1425,14 @@ class TargetTrackingMetricDataQuery(TypedDict, total=False):
     """
 
     Id: XmlStringMaxLen64
-    Expression: Optional[XmlStringMaxLen2047]
-    MetricStat: Optional[TargetTrackingMetricStat]
-    Label: Optional[XmlStringMetricLabel]
-    Period: Optional[MetricGranularityInSeconds]
-    ReturnData: Optional[ReturnData]
+    Expression: XmlStringMaxLen2047 | None
+    MetricStat: TargetTrackingMetricStat | None
+    Label: XmlStringMetricLabel | None
+    Period: MetricGranularityInSeconds | None
+    ReturnData: ReturnData | None
 
 
-TargetTrackingMetricDataQueries = List[TargetTrackingMetricDataQuery]
+TargetTrackingMetricDataQueries = list[TargetTrackingMetricDataQuery]
 
 
 class CustomizedMetricSpecification(TypedDict, total=False):
@@ -1408,18 +1464,18 @@ class CustomizedMetricSpecification(TypedDict, total=False):
     in the *Amazon CloudWatch User Guide*.
     """
 
-    MetricName: Optional[MetricName]
-    Namespace: Optional[MetricNamespace]
-    Dimensions: Optional[MetricDimensions]
-    Statistic: Optional[MetricStatistic]
-    Unit: Optional[MetricUnit]
-    Period: Optional[MetricGranularityInSeconds]
-    Metrics: Optional[TargetTrackingMetricDataQueries]
+    MetricName: MetricName | None
+    Namespace: MetricNamespace | None
+    Dimensions: MetricDimensions | None
+    Statistic: MetricStatistic | None
+    Unit: MetricUnit | None
+    Period: MetricGranularityInSeconds | None
+    Metrics: TargetTrackingMetricDataQueries | None
 
 
 class DeleteAutoScalingGroupType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    ForceDelete: Optional[ForceDelete]
+    ForceDelete: ForceDelete | None
 
 
 class DeleteLifecycleHookAnswer(TypedDict, total=False):
@@ -1437,7 +1493,7 @@ class DeleteNotificationConfigurationType(ServiceRequest):
 
 
 class DeletePolicyType(ServiceRequest):
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
     PolicyName: ResourceName
 
 
@@ -1456,35 +1512,35 @@ class DeleteWarmPoolAnswer(TypedDict, total=False):
 
 class DeleteWarmPoolType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    ForceDelete: Optional[ForceDelete]
+    ForceDelete: ForceDelete | None
 
 
 class DescribeAccountLimitsAnswer(TypedDict, total=False):
-    MaxNumberOfAutoScalingGroups: Optional[MaxNumberOfAutoScalingGroups]
-    MaxNumberOfLaunchConfigurations: Optional[MaxNumberOfLaunchConfigurations]
-    NumberOfAutoScalingGroups: Optional[NumberOfAutoScalingGroups]
-    NumberOfLaunchConfigurations: Optional[NumberOfLaunchConfigurations]
+    MaxNumberOfAutoScalingGroups: MaxNumberOfAutoScalingGroups | None
+    MaxNumberOfLaunchConfigurations: MaxNumberOfLaunchConfigurations | None
+    NumberOfAutoScalingGroups: NumberOfAutoScalingGroups | None
+    NumberOfLaunchConfigurations: NumberOfLaunchConfigurations | None
 
 
 class DescribeAdjustmentTypesAnswer(TypedDict, total=False):
-    AdjustmentTypes: Optional[AdjustmentTypes]
+    AdjustmentTypes: AdjustmentTypes | None
 
 
 class DescribeAutoScalingInstancesType(ServiceRequest):
-    InstanceIds: Optional[InstanceIds]
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[XmlString]
+    InstanceIds: InstanceIds | None
+    MaxRecords: MaxRecords | None
+    NextToken: XmlString | None
 
 
 class DescribeAutoScalingNotificationTypesAnswer(TypedDict, total=False):
-    AutoScalingNotificationTypes: Optional[AutoScalingNotificationTypes]
+    AutoScalingNotificationTypes: AutoScalingNotificationTypes | None
 
 
 class InstanceRefreshWarmPoolProgress(TypedDict, total=False):
     """Reports progress on replacing instances that are in the warm pool."""
 
-    PercentageComplete: Optional[IntPercent]
-    InstancesToUpdate: Optional[InstancesToUpdate]
+    PercentageComplete: IntPercent | None
+    InstancesToUpdate: InstancesToUpdate | None
 
 
 class InstanceRefreshLivePoolProgress(TypedDict, total=False):
@@ -1492,8 +1548,8 @@ class InstanceRefreshLivePoolProgress(TypedDict, total=False):
     group.
     """
 
-    PercentageComplete: Optional[IntPercent]
-    InstancesToUpdate: Optional[InstancesToUpdate]
+    PercentageComplete: IntPercent | None
+    InstancesToUpdate: InstancesToUpdate | None
 
 
 class InstanceRefreshProgressDetails(TypedDict, total=False):
@@ -1502,18 +1558,18 @@ class InstanceRefreshProgressDetails(TypedDict, total=False):
     warm pool and instances in the Auto Scaling group (the live pool).
     """
 
-    LivePoolProgress: Optional[InstanceRefreshLivePoolProgress]
-    WarmPoolProgress: Optional[InstanceRefreshWarmPoolProgress]
+    LivePoolProgress: InstanceRefreshLivePoolProgress | None
+    WarmPoolProgress: InstanceRefreshWarmPoolProgress | None
 
 
 class RollbackDetails(TypedDict, total=False):
     """Details about an instance refresh rollback."""
 
-    RollbackReason: Optional[XmlStringMaxLen1023]
-    RollbackStartTime: Optional[TimestampType]
-    PercentageCompleteOnRollback: Optional[IntPercent]
-    InstancesToUpdateOnRollback: Optional[InstancesToUpdate]
-    ProgressDetailsOnRollback: Optional[InstanceRefreshProgressDetails]
+    RollbackReason: XmlStringMaxLen1023 | None
+    RollbackStartTime: TimestampType | None
+    PercentageCompleteOnRollback: IntPercent | None
+    InstancesToUpdateOnRollback: InstancesToUpdate | None
+    ProgressDetailsOnRollback: InstanceRefreshProgressDetails | None
 
 
 class DesiredConfiguration(TypedDict, total=False):
@@ -1523,63 +1579,64 @@ class DesiredConfiguration(TypedDict, total=False):
     ``LaunchTemplate`` or a ``MixedInstancesPolicy``.
     """
 
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
-    MixedInstancesPolicy: Optional[MixedInstancesPolicy]
+    LaunchTemplate: LaunchTemplateSpecification | None
+    MixedInstancesPolicy: MixedInstancesPolicy | None
 
 
 class RefreshPreferences(TypedDict, total=False):
     """Describes the preferences for an instance refresh."""
 
-    MinHealthyPercentage: Optional[IntPercent]
-    InstanceWarmup: Optional[RefreshInstanceWarmup]
-    CheckpointPercentages: Optional[CheckpointPercentages]
-    CheckpointDelay: Optional[CheckpointDelay]
-    SkipMatching: Optional[SkipMatching]
-    AutoRollback: Optional[AutoRollback]
-    ScaleInProtectedInstances: Optional[ScaleInProtectedInstances]
-    StandbyInstances: Optional[StandbyInstances]
-    AlarmSpecification: Optional[AlarmSpecification]
-    MaxHealthyPercentage: Optional[IntPercent100To200]
-    BakeTime: Optional[BakeTime]
+    MinHealthyPercentage: IntPercent | None
+    InstanceWarmup: RefreshInstanceWarmup | None
+    CheckpointPercentages: CheckpointPercentages | None
+    CheckpointDelay: CheckpointDelay | None
+    SkipMatching: SkipMatching | None
+    AutoRollback: AutoRollback | None
+    ScaleInProtectedInstances: ScaleInProtectedInstances | None
+    StandbyInstances: StandbyInstances | None
+    AlarmSpecification: AlarmSpecification | None
+    MaxHealthyPercentage: IntPercent100To200 | None
+    BakeTime: BakeTime | None
 
 
 class InstanceRefresh(TypedDict, total=False):
     """Describes an instance refresh for an Auto Scaling group."""
 
-    InstanceRefreshId: Optional[XmlStringMaxLen255]
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    Status: Optional[InstanceRefreshStatus]
-    StatusReason: Optional[XmlStringMaxLen1023]
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    PercentageComplete: Optional[IntPercent]
-    InstancesToUpdate: Optional[InstancesToUpdate]
-    ProgressDetails: Optional[InstanceRefreshProgressDetails]
-    Preferences: Optional[RefreshPreferences]
-    DesiredConfiguration: Optional[DesiredConfiguration]
-    RollbackDetails: Optional[RollbackDetails]
+    InstanceRefreshId: XmlStringMaxLen255 | None
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    Status: InstanceRefreshStatus | None
+    StatusReason: XmlStringMaxLen1023 | None
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    PercentageComplete: IntPercent | None
+    InstancesToUpdate: InstancesToUpdate | None
+    ProgressDetails: InstanceRefreshProgressDetails | None
+    Preferences: RefreshPreferences | None
+    DesiredConfiguration: DesiredConfiguration | None
+    RollbackDetails: RollbackDetails | None
+    Strategy: RefreshStrategy | None
 
 
-InstanceRefreshes = List[InstanceRefresh]
+InstanceRefreshes = list[InstanceRefresh]
 
 
 class DescribeInstanceRefreshesAnswer(TypedDict, total=False):
-    InstanceRefreshes: Optional[InstanceRefreshes]
-    NextToken: Optional[XmlString]
+    InstanceRefreshes: InstanceRefreshes | None
+    NextToken: XmlString | None
 
 
-InstanceRefreshIds = List[XmlStringMaxLen255]
+InstanceRefreshIds = list[XmlStringMaxLen255]
 
 
 class DescribeInstanceRefreshesType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    InstanceRefreshIds: Optional[InstanceRefreshIds]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    InstanceRefreshIds: InstanceRefreshIds | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeLifecycleHookTypesAnswer(TypedDict, total=False):
-    LifecycleHookTypes: Optional[AutoScalingNotificationTypes]
+    LifecycleHookTypes: AutoScalingNotificationTypes | None
 
 
 class LifecycleHook(TypedDict, total=False):
@@ -1589,200 +1646,200 @@ class LifecycleHook(TypedDict, total=False):
     lifecycle event occurs.
     """
 
-    LifecycleHookName: Optional[AsciiStringMaxLen255]
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    LifecycleTransition: Optional[LifecycleTransition]
-    NotificationTargetARN: Optional[NotificationTargetResourceName]
-    RoleARN: Optional[XmlStringMaxLen255]
-    NotificationMetadata: Optional[AnyPrintableAsciiStringMaxLen4000]
-    HeartbeatTimeout: Optional[HeartbeatTimeout]
-    GlobalTimeout: Optional[GlobalTimeout]
-    DefaultResult: Optional[LifecycleActionResult]
+    LifecycleHookName: AsciiStringMaxLen255 | None
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    LifecycleTransition: LifecycleTransition | None
+    NotificationTargetARN: NotificationTargetResourceName | None
+    RoleARN: XmlStringMaxLen255 | None
+    NotificationMetadata: AnyPrintableAsciiStringMaxLen4000 | None
+    HeartbeatTimeout: HeartbeatTimeout | None
+    GlobalTimeout: GlobalTimeout | None
+    DefaultResult: LifecycleActionResult | None
 
 
-LifecycleHooks = List[LifecycleHook]
+LifecycleHooks = list[LifecycleHook]
 
 
 class DescribeLifecycleHooksAnswer(TypedDict, total=False):
-    LifecycleHooks: Optional[LifecycleHooks]
+    LifecycleHooks: LifecycleHooks | None
 
 
-LifecycleHookNames = List[AsciiStringMaxLen255]
+LifecycleHookNames = list[AsciiStringMaxLen255]
 
 
 class DescribeLifecycleHooksType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    LifecycleHookNames: Optional[LifecycleHookNames]
+    LifecycleHookNames: LifecycleHookNames | None
 
 
 class DescribeLoadBalancerTargetGroupsRequest(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class LoadBalancerTargetGroupState(TypedDict, total=False):
     """Describes the state of a target group."""
 
-    LoadBalancerTargetGroupARN: Optional[XmlStringMaxLen511]
-    State: Optional[XmlStringMaxLen255]
+    LoadBalancerTargetGroupARN: XmlStringMaxLen511 | None
+    State: XmlStringMaxLen255 | None
 
 
-LoadBalancerTargetGroupStates = List[LoadBalancerTargetGroupState]
+LoadBalancerTargetGroupStates = list[LoadBalancerTargetGroupState]
 
 
 class DescribeLoadBalancerTargetGroupsResponse(TypedDict, total=False):
-    LoadBalancerTargetGroups: Optional[LoadBalancerTargetGroupStates]
-    NextToken: Optional[XmlString]
+    LoadBalancerTargetGroups: LoadBalancerTargetGroupStates | None
+    NextToken: XmlString | None
 
 
 class DescribeLoadBalancersRequest(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class LoadBalancerState(TypedDict, total=False):
     """Describes the state of a Classic Load Balancer."""
 
-    LoadBalancerName: Optional[XmlStringMaxLen255]
-    State: Optional[XmlStringMaxLen255]
+    LoadBalancerName: XmlStringMaxLen255 | None
+    State: XmlStringMaxLen255 | None
 
 
-LoadBalancerStates = List[LoadBalancerState]
+LoadBalancerStates = list[LoadBalancerState]
 
 
 class DescribeLoadBalancersResponse(TypedDict, total=False):
-    LoadBalancers: Optional[LoadBalancerStates]
-    NextToken: Optional[XmlString]
+    LoadBalancers: LoadBalancerStates | None
+    NextToken: XmlString | None
 
 
 class MetricGranularityType(TypedDict, total=False):
     """Describes a granularity of a metric."""
 
-    Granularity: Optional[XmlStringMaxLen255]
+    Granularity: XmlStringMaxLen255 | None
 
 
-MetricGranularityTypes = List[MetricGranularityType]
+MetricGranularityTypes = list[MetricGranularityType]
 
 
 class MetricCollectionType(TypedDict, total=False):
     """Describes a metric."""
 
-    Metric: Optional[XmlStringMaxLen255]
+    Metric: XmlStringMaxLen255 | None
 
 
-MetricCollectionTypes = List[MetricCollectionType]
+MetricCollectionTypes = list[MetricCollectionType]
 
 
 class DescribeMetricCollectionTypesAnswer(TypedDict, total=False):
-    Metrics: Optional[MetricCollectionTypes]
-    Granularities: Optional[MetricGranularityTypes]
+    Metrics: MetricCollectionTypes | None
+    Granularities: MetricGranularityTypes | None
 
 
 class NotificationConfiguration(TypedDict, total=False):
     """Describes a notification."""
 
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    TopicARN: Optional[XmlStringMaxLen255]
-    NotificationType: Optional[XmlStringMaxLen255]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    TopicARN: XmlStringMaxLen255 | None
+    NotificationType: XmlStringMaxLen255 | None
 
 
-NotificationConfigurations = List[NotificationConfiguration]
+NotificationConfigurations = list[NotificationConfiguration]
 
 
 class DescribeNotificationConfigurationsAnswer(TypedDict, total=False):
     NotificationConfigurations: NotificationConfigurations
-    NextToken: Optional[XmlString]
+    NextToken: XmlString | None
 
 
 class DescribeNotificationConfigurationsType(ServiceRequest):
-    AutoScalingGroupNames: Optional[AutoScalingGroupNames]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    AutoScalingGroupNames: AutoScalingGroupNames | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
-PolicyTypes = List[XmlStringMaxLen64]
-PolicyNames = List[ResourceName]
+PolicyTypes = list[XmlStringMaxLen64]
+PolicyNames = list[ResourceName]
 
 
 class DescribePoliciesType(ServiceRequest):
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    PolicyNames: Optional[PolicyNames]
-    PolicyTypes: Optional[PolicyTypes]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    PolicyNames: PolicyNames | None
+    PolicyTypes: PolicyTypes | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeScalingActivitiesType(ServiceRequest):
-    ActivityIds: Optional[ActivityIds]
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    IncludeDeletedGroups: Optional[IncludeDeletedGroups]
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[XmlString]
+    ActivityIds: ActivityIds | None
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    IncludeDeletedGroups: IncludeDeletedGroups | None
+    MaxRecords: MaxRecords | None
+    NextToken: XmlString | None
 
 
 class DescribeScheduledActionsType(ServiceRequest):
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    ScheduledActionNames: Optional[ScheduledActionNames]
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    ScheduledActionNames: ScheduledActionNames | None
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeTagsType(ServiceRequest):
-    Filters: Optional[Filters]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    Filters: Filters | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class DescribeTerminationPolicyTypesAnswer(TypedDict, total=False):
-    TerminationPolicyTypes: Optional[TerminationPolicies]
+    TerminationPolicyTypes: TerminationPolicies | None
 
 
 class DescribeTrafficSourcesRequest(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    TrafficSourceType: Optional[XmlStringMaxLen255]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    TrafficSourceType: XmlStringMaxLen255 | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
 class TrafficSourceState(TypedDict, total=False):
     """Describes the state of a traffic source."""
 
-    TrafficSource: Optional[XmlStringMaxLen511]
-    State: Optional[XmlStringMaxLen255]
-    Identifier: Optional[XmlStringMaxLen511]
-    Type: Optional[XmlStringMaxLen511]
+    TrafficSource: XmlStringMaxLen511 | None
+    State: XmlStringMaxLen255 | None
+    Identifier: XmlStringMaxLen511 | None
+    Type: XmlStringMaxLen511 | None
 
 
-TrafficSourceStates = List[TrafficSourceState]
+TrafficSourceStates = list[TrafficSourceState]
 
 
 class DescribeTrafficSourcesResponse(TypedDict, total=False):
-    TrafficSources: Optional[TrafficSourceStates]
-    NextToken: Optional[XmlString]
+    TrafficSources: TrafficSourceStates | None
+    NextToken: XmlString | None
 
 
 class DescribeWarmPoolAnswer(TypedDict, total=False):
-    WarmPoolConfiguration: Optional[WarmPoolConfiguration]
-    Instances: Optional[Instances]
-    NextToken: Optional[XmlString]
+    WarmPoolConfiguration: WarmPoolConfiguration | None
+    Instances: Instances | None
+    NextToken: XmlString | None
 
 
 class DescribeWarmPoolType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    MaxRecords: Optional[MaxRecords]
-    NextToken: Optional[XmlString]
+    MaxRecords: MaxRecords | None
+    NextToken: XmlString | None
 
 
 class DetachInstancesAnswer(TypedDict, total=False):
-    Activities: Optional[Activities]
+    Activities: Activities | None
 
 
 class DetachInstancesQuery(ServiceRequest):
-    InstanceIds: Optional[InstanceIds]
+    InstanceIds: InstanceIds | None
     AutoScalingGroupName: XmlStringMaxLen255
     ShouldDecrementDesiredCapacity: ShouldDecrementDesiredCapacity
 
@@ -1814,44 +1871,44 @@ class DetachTrafficSourcesType(ServiceRequest):
     TrafficSources: TrafficSources
 
 
-Metrics = List[XmlStringMaxLen255]
+Metrics = list[XmlStringMaxLen255]
 
 
 class DisableMetricsCollectionQuery(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    Metrics: Optional[Metrics]
+    Metrics: Metrics | None
 
 
 class EnableMetricsCollectionQuery(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    Metrics: Optional[Metrics]
+    Metrics: Metrics | None
     Granularity: XmlStringMaxLen255
 
 
 class EnterStandbyAnswer(TypedDict, total=False):
-    Activities: Optional[Activities]
+    Activities: Activities | None
 
 
 class EnterStandbyQuery(ServiceRequest):
-    InstanceIds: Optional[InstanceIds]
+    InstanceIds: InstanceIds | None
     AutoScalingGroupName: XmlStringMaxLen255
     ShouldDecrementDesiredCapacity: ShouldDecrementDesiredCapacity
 
 
 class ExecutePolicyType(ServiceRequest):
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
     PolicyName: ResourceName
-    HonorCooldown: Optional[HonorCooldown]
-    MetricValue: Optional[MetricScale]
-    BreachThreshold: Optional[MetricScale]
+    HonorCooldown: HonorCooldown | None
+    MetricValue: MetricScale | None
+    BreachThreshold: MetricScale | None
 
 
 class ExitStandbyAnswer(TypedDict, total=False):
-    Activities: Optional[Activities]
+    Activities: Activities | None
 
 
 class ExitStandbyQuery(ServiceRequest):
-    InstanceIds: Optional[InstanceIds]
+    InstanceIds: InstanceIds | None
     AutoScalingGroupName: XmlStringMaxLen255
 
 
@@ -1867,7 +1924,7 @@ class MetricStat(TypedDict, total=False):
 
     Metric: Metric
     Stat: XmlStringMetricStat
-    Unit: Optional[MetricUnit]
+    Unit: MetricUnit | None
 
 
 class MetricDataQuery(TypedDict, total=False):
@@ -1884,13 +1941,13 @@ class MetricDataQuery(TypedDict, total=False):
     """
 
     Id: XmlStringMaxLen255
-    Expression: Optional[XmlStringMaxLen1023]
-    MetricStat: Optional[MetricStat]
-    Label: Optional[XmlStringMetricLabel]
-    ReturnData: Optional[ReturnData]
+    Expression: XmlStringMaxLen1023 | None
+    MetricStat: MetricStat | None
+    Label: XmlStringMetricLabel | None
+    ReturnData: ReturnData | None
 
 
-MetricDataQueries = List[MetricDataQuery]
+MetricDataQueries = list[MetricDataQuery]
 
 
 class PredictiveScalingCustomizedCapacityMetric(TypedDict, total=False):
@@ -1920,7 +1977,7 @@ class PredictiveScalingPredefinedLoadMetric(TypedDict, total=False):
     """
 
     PredefinedMetricType: PredefinedLoadMetricType
-    ResourceLabel: Optional[XmlStringMaxLen1023]
+    ResourceLabel: XmlStringMaxLen1023 | None
 
 
 class PredictiveScalingPredefinedScalingMetric(TypedDict, total=False):
@@ -1932,14 +1989,14 @@ class PredictiveScalingPredefinedScalingMetric(TypedDict, total=False):
     """
 
     PredefinedMetricType: PredefinedScalingMetricType
-    ResourceLabel: Optional[XmlStringMaxLen1023]
+    ResourceLabel: XmlStringMaxLen1023 | None
 
 
 class PredictiveScalingPredefinedMetricPair(TypedDict, total=False):
     """Represents a metric pair for a predictive scaling policy."""
 
     PredefinedMetricType: PredefinedMetricPairType
-    ResourceLabel: Optional[XmlStringMaxLen1023]
+    ResourceLabel: XmlStringMaxLen1023 | None
 
 
 class PredictiveScalingMetricSpecification(TypedDict, total=False):
@@ -1990,12 +2047,12 @@ class PredictiveScalingMetricSpecification(TypedDict, total=False):
     """
 
     TargetValue: MetricScale
-    PredefinedMetricPairSpecification: Optional[PredictiveScalingPredefinedMetricPair]
-    PredefinedScalingMetricSpecification: Optional[PredictiveScalingPredefinedScalingMetric]
-    PredefinedLoadMetricSpecification: Optional[PredictiveScalingPredefinedLoadMetric]
-    CustomizedScalingMetricSpecification: Optional[PredictiveScalingCustomizedScalingMetric]
-    CustomizedLoadMetricSpecification: Optional[PredictiveScalingCustomizedLoadMetric]
-    CustomizedCapacityMetricSpecification: Optional[PredictiveScalingCustomizedCapacityMetric]
+    PredefinedMetricPairSpecification: PredictiveScalingPredefinedMetricPair | None
+    PredefinedScalingMetricSpecification: PredictiveScalingPredefinedScalingMetric | None
+    PredefinedLoadMetricSpecification: PredictiveScalingPredefinedLoadMetric | None
+    CustomizedScalingMetricSpecification: PredictiveScalingCustomizedScalingMetric | None
+    CustomizedLoadMetricSpecification: PredictiveScalingCustomizedLoadMetric | None
+    CustomizedCapacityMetricSpecification: PredictiveScalingCustomizedCapacityMetric | None
 
 
 class LoadForecast(TypedDict, total=False):
@@ -2010,7 +2067,7 @@ class LoadForecast(TypedDict, total=False):
     MetricSpecification: PredictiveScalingMetricSpecification
 
 
-LoadForecasts = List[LoadForecast]
+LoadForecasts = list[LoadForecast]
 
 
 class GetPredictiveScalingForecastAnswer(TypedDict, total=False):
@@ -2026,53 +2083,104 @@ class GetPredictiveScalingForecastType(ServiceRequest):
     EndTime: TimestampType
 
 
+class InstanceCollection(TypedDict, total=False):
+    """Contains details about a collection of instances launched in the Auto
+    Scaling group.
+    """
+
+    InstanceType: XmlStringMaxLen255 | None
+    MarketType: XmlStringMaxLen64 | None
+    SubnetId: XmlStringMaxLen255 | None
+    AvailabilityZone: XmlStringMaxLen255 | None
+    AvailabilityZoneId: XmlStringMaxLen255 | None
+    InstanceIds: InstanceIds | None
+
+
+InstanceCollections = list[InstanceCollection]
+
+
 class LaunchConfiguration(TypedDict, total=False):
     """Describes a launch configuration."""
 
     LaunchConfigurationName: XmlStringMaxLen255
-    LaunchConfigurationARN: Optional[ResourceName]
+    LaunchConfigurationARN: ResourceName | None
     ImageId: XmlStringMaxLen255
-    KeyName: Optional[XmlStringMaxLen255]
-    SecurityGroups: Optional[SecurityGroups]
-    ClassicLinkVPCId: Optional[XmlStringMaxLen255]
-    ClassicLinkVPCSecurityGroups: Optional[ClassicLinkVPCSecurityGroups]
-    UserData: Optional[XmlStringUserData]
+    KeyName: XmlStringMaxLen255 | None
+    SecurityGroups: SecurityGroups | None
+    ClassicLinkVPCId: XmlStringMaxLen255 | None
+    ClassicLinkVPCSecurityGroups: ClassicLinkVPCSecurityGroups | None
+    UserData: XmlStringUserData | None
     InstanceType: XmlStringMaxLen255
-    KernelId: Optional[XmlStringMaxLen255]
-    RamdiskId: Optional[XmlStringMaxLen255]
-    BlockDeviceMappings: Optional[BlockDeviceMappings]
-    InstanceMonitoring: Optional[InstanceMonitoring]
-    SpotPrice: Optional[SpotPrice]
-    IamInstanceProfile: Optional[XmlStringMaxLen1600]
+    KernelId: XmlStringMaxLen255 | None
+    RamdiskId: XmlStringMaxLen255 | None
+    BlockDeviceMappings: BlockDeviceMappings | None
+    InstanceMonitoring: InstanceMonitoring | None
+    SpotPrice: SpotPrice | None
+    IamInstanceProfile: XmlStringMaxLen1600 | None
     CreatedTime: TimestampType
-    EbsOptimized: Optional[EbsOptimized]
-    AssociatePublicIpAddress: Optional[AssociatePublicIpAddress]
-    PlacementTenancy: Optional[XmlStringMaxLen64]
-    MetadataOptions: Optional[InstanceMetadataOptions]
+    EbsOptimized: EbsOptimized | None
+    AssociatePublicIpAddress: AssociatePublicIpAddress | None
+    PlacementTenancy: XmlStringMaxLen64 | None
+    MetadataOptions: InstanceMetadataOptions | None
 
 
 class LaunchConfigurationNameType(ServiceRequest):
     LaunchConfigurationName: XmlStringMaxLen255
 
 
-LaunchConfigurationNames = List[XmlStringMaxLen255]
+LaunchConfigurationNames = list[XmlStringMaxLen255]
 
 
 class LaunchConfigurationNamesType(ServiceRequest):
-    LaunchConfigurationNames: Optional[LaunchConfigurationNames]
-    NextToken: Optional[XmlString]
-    MaxRecords: Optional[MaxRecords]
+    LaunchConfigurationNames: LaunchConfigurationNames | None
+    NextToken: XmlString | None
+    MaxRecords: MaxRecords | None
 
 
-LaunchConfigurations = List[LaunchConfiguration]
+LaunchConfigurations = list[LaunchConfiguration]
 
 
 class LaunchConfigurationsType(TypedDict, total=False):
     LaunchConfigurations: LaunchConfigurations
-    NextToken: Optional[XmlString]
+    NextToken: XmlString | None
 
 
-PredictiveScalingMetricSpecifications = List[PredictiveScalingMetricSpecification]
+class LaunchInstancesError(TypedDict, total=False):
+    """Contains details about errors encountered during instance launch
+    attempts.
+    """
+
+    InstanceType: XmlStringMaxLen255 | None
+    MarketType: XmlStringMaxLen64 | None
+    SubnetId: XmlStringMaxLen255 | None
+    AvailabilityZone: XmlStringMaxLen255 | None
+    AvailabilityZoneId: XmlStringMaxLen255 | None
+    ErrorCode: XmlStringMaxLen64 | None
+    ErrorMessage: XmlString | None
+
+
+LaunchInstancesErrors = list[LaunchInstancesError]
+SubnetIdsLimit1 = list[XmlStringMaxLen255]
+
+
+class LaunchInstancesRequest(ServiceRequest):
+    AutoScalingGroupName: XmlStringMaxLen255
+    RequestedCapacity: RequestedCapacity
+    ClientToken: ClientToken
+    AvailabilityZones: AvailabilityZonesLimit1 | None
+    AvailabilityZoneIds: AvailabilityZoneIdsLimit1 | None
+    SubnetIds: SubnetIdsLimit1 | None
+    RetryStrategy: RetryStrategy | None
+
+
+class LaunchInstancesResult(TypedDict, total=False):
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    ClientToken: ClientToken | None
+    Instances: InstanceCollections | None
+    Errors: LaunchInstancesErrors | None
+
+
+PredictiveScalingMetricSpecifications = list[PredictiveScalingMetricSpecification]
 
 
 class PredictiveScalingConfiguration(TypedDict, total=False):
@@ -2081,10 +2189,10 @@ class PredictiveScalingConfiguration(TypedDict, total=False):
     """
 
     MetricSpecifications: PredictiveScalingMetricSpecifications
-    Mode: Optional[PredictiveScalingMode]
-    SchedulingBufferTime: Optional[PredictiveScalingSchedulingBufferTime]
-    MaxCapacityBreachBehavior: Optional[PredictiveScalingMaxCapacityBreachBehavior]
-    MaxCapacityBuffer: Optional[PredictiveScalingMaxCapacityBuffer]
+    Mode: PredictiveScalingMode | None
+    SchedulingBufferTime: PredictiveScalingSchedulingBufferTime | None
+    MaxCapacityBreachBehavior: PredictiveScalingMaxCapacityBreachBehavior | None
+    MaxCapacityBuffer: PredictiveScalingMaxCapacityBuffer | None
 
 
 class PredefinedMetricSpecification(TypedDict, total=False):
@@ -2093,7 +2201,7 @@ class PredefinedMetricSpecification(TypedDict, total=False):
     """
 
     PredefinedMetricType: MetricType
-    ResourceLabel: Optional[XmlStringMaxLen1023]
+    ResourceLabel: XmlStringMaxLen1023 | None
 
 
 class TargetTrackingConfiguration(TypedDict, total=False):
@@ -2101,10 +2209,10 @@ class TargetTrackingConfiguration(TypedDict, total=False):
     Amazon EC2 Auto Scaling.
     """
 
-    PredefinedMetricSpecification: Optional[PredefinedMetricSpecification]
-    CustomizedMetricSpecification: Optional[CustomizedMetricSpecification]
+    PredefinedMetricSpecification: PredefinedMetricSpecification | None
+    CustomizedMetricSpecification: CustomizedMetricSpecification | None
     TargetValue: MetricScale
-    DisableScaleIn: Optional[DisableScaleIn]
+    DisableScaleIn: DisableScaleIn | None
 
 
 class StepAdjustment(TypedDict, total=False):
@@ -2141,51 +2249,51 @@ class StepAdjustment(TypedDict, total=False):
     in the *Amazon EC2 Auto Scaling User Guide*.
     """
 
-    MetricIntervalLowerBound: Optional[MetricScale]
-    MetricIntervalUpperBound: Optional[MetricScale]
+    MetricIntervalLowerBound: MetricScale | None
+    MetricIntervalUpperBound: MetricScale | None
     ScalingAdjustment: PolicyIncrement
 
 
-StepAdjustments = List[StepAdjustment]
+StepAdjustments = list[StepAdjustment]
 
 
 class ScalingPolicy(TypedDict, total=False):
     """Describes a scaling policy."""
 
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    PolicyName: Optional[XmlStringMaxLen255]
-    PolicyARN: Optional[ResourceName]
-    PolicyType: Optional[XmlStringMaxLen64]
-    AdjustmentType: Optional[XmlStringMaxLen255]
-    MinAdjustmentStep: Optional[MinAdjustmentStep]
-    MinAdjustmentMagnitude: Optional[MinAdjustmentMagnitude]
-    ScalingAdjustment: Optional[PolicyIncrement]
-    Cooldown: Optional[Cooldown]
-    StepAdjustments: Optional[StepAdjustments]
-    MetricAggregationType: Optional[XmlStringMaxLen32]
-    EstimatedInstanceWarmup: Optional[EstimatedInstanceWarmup]
-    Alarms: Optional[Alarms]
-    TargetTrackingConfiguration: Optional[TargetTrackingConfiguration]
-    Enabled: Optional[ScalingPolicyEnabled]
-    PredictiveScalingConfiguration: Optional[PredictiveScalingConfiguration]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    PolicyName: XmlStringMaxLen255 | None
+    PolicyARN: ResourceName | None
+    PolicyType: XmlStringMaxLen64 | None
+    AdjustmentType: XmlStringMaxLen255 | None
+    MinAdjustmentStep: MinAdjustmentStep | None
+    MinAdjustmentMagnitude: MinAdjustmentMagnitude | None
+    ScalingAdjustment: PolicyIncrement | None
+    Cooldown: Cooldown | None
+    StepAdjustments: StepAdjustments | None
+    MetricAggregationType: XmlStringMaxLen32 | None
+    EstimatedInstanceWarmup: EstimatedInstanceWarmup | None
+    Alarms: Alarms | None
+    TargetTrackingConfiguration: TargetTrackingConfiguration | None
+    Enabled: ScalingPolicyEnabled | None
+    PredictiveScalingConfiguration: PredictiveScalingConfiguration | None
 
 
-ScalingPolicies = List[ScalingPolicy]
+ScalingPolicies = list[ScalingPolicy]
 
 
 class PoliciesType(TypedDict, total=False):
-    ScalingPolicies: Optional[ScalingPolicies]
-    NextToken: Optional[XmlString]
+    ScalingPolicies: ScalingPolicies | None
+    NextToken: XmlString | None
 
 
 class PolicyARNType(TypedDict, total=False):
     """Contains the output of PutScalingPolicy."""
 
-    PolicyARN: Optional[ResourceName]
-    Alarms: Optional[Alarms]
+    PolicyARN: ResourceName | None
+    Alarms: Alarms | None
 
 
-ProcessNames = List[XmlStringMaxLen255]
+ProcessNames = list[XmlStringMaxLen255]
 
 
 class ProcessType(TypedDict, total=False):
@@ -2199,11 +2307,11 @@ class ProcessType(TypedDict, total=False):
     ProcessName: XmlStringMaxLen255
 
 
-Processes = List[ProcessType]
+Processes = list[ProcessType]
 
 
 class ProcessesType(TypedDict, total=False):
-    Processes: Optional[Processes]
+    Processes: Processes | None
 
 
 class PutLifecycleHookAnswer(TypedDict, total=False):
@@ -2213,12 +2321,12 @@ class PutLifecycleHookAnswer(TypedDict, total=False):
 class PutLifecycleHookType(ServiceRequest):
     LifecycleHookName: AsciiStringMaxLen255
     AutoScalingGroupName: XmlStringMaxLen255
-    LifecycleTransition: Optional[LifecycleTransition]
-    RoleARN: Optional[XmlStringMaxLen255]
-    NotificationTargetARN: Optional[NotificationTargetResourceName]
-    NotificationMetadata: Optional[AnyPrintableAsciiStringMaxLen4000]
-    HeartbeatTimeout: Optional[HeartbeatTimeout]
-    DefaultResult: Optional[LifecycleActionResult]
+    LifecycleTransition: LifecycleTransition | None
+    RoleARN: XmlStringMaxLen255 | None
+    NotificationTargetARN: NotificationTargetResourceName | None
+    NotificationMetadata: AnyPrintableAsciiStringMaxLen4000 | None
+    HeartbeatTimeout: HeartbeatTimeout | None
+    DefaultResult: LifecycleActionResult | None
 
 
 class PutNotificationConfigurationType(ServiceRequest):
@@ -2230,31 +2338,31 @@ class PutNotificationConfigurationType(ServiceRequest):
 class PutScalingPolicyType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
     PolicyName: XmlStringMaxLen255
-    PolicyType: Optional[XmlStringMaxLen64]
-    AdjustmentType: Optional[XmlStringMaxLen255]
-    MinAdjustmentStep: Optional[MinAdjustmentStep]
-    MinAdjustmentMagnitude: Optional[MinAdjustmentMagnitude]
-    ScalingAdjustment: Optional[PolicyIncrement]
-    Cooldown: Optional[Cooldown]
-    MetricAggregationType: Optional[XmlStringMaxLen32]
-    StepAdjustments: Optional[StepAdjustments]
-    EstimatedInstanceWarmup: Optional[EstimatedInstanceWarmup]
-    TargetTrackingConfiguration: Optional[TargetTrackingConfiguration]
-    Enabled: Optional[ScalingPolicyEnabled]
-    PredictiveScalingConfiguration: Optional[PredictiveScalingConfiguration]
+    PolicyType: XmlStringMaxLen64 | None
+    AdjustmentType: XmlStringMaxLen255 | None
+    MinAdjustmentStep: MinAdjustmentStep | None
+    MinAdjustmentMagnitude: MinAdjustmentMagnitude | None
+    ScalingAdjustment: PolicyIncrement | None
+    Cooldown: Cooldown | None
+    MetricAggregationType: XmlStringMaxLen32 | None
+    StepAdjustments: StepAdjustments | None
+    EstimatedInstanceWarmup: EstimatedInstanceWarmup | None
+    TargetTrackingConfiguration: TargetTrackingConfiguration | None
+    Enabled: ScalingPolicyEnabled | None
+    PredictiveScalingConfiguration: PredictiveScalingConfiguration | None
 
 
 class PutScheduledUpdateGroupActionType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
     ScheduledActionName: XmlStringMaxLen255
-    Time: Optional[TimestampType]
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    Recurrence: Optional[XmlStringMaxLen255]
-    MinSize: Optional[AutoScalingGroupMinSize]
-    MaxSize: Optional[AutoScalingGroupMaxSize]
-    DesiredCapacity: Optional[AutoScalingGroupDesiredCapacity]
-    TimeZone: Optional[XmlStringMaxLen255]
+    Time: TimestampType | None
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    Recurrence: XmlStringMaxLen255 | None
+    MinSize: AutoScalingGroupMinSize | None
+    MaxSize: AutoScalingGroupMaxSize | None
+    DesiredCapacity: AutoScalingGroupDesiredCapacity | None
+    TimeZone: XmlStringMaxLen255 | None
 
 
 class PutWarmPoolAnswer(TypedDict, total=False):
@@ -2263,10 +2371,10 @@ class PutWarmPoolAnswer(TypedDict, total=False):
 
 class PutWarmPoolType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    MaxGroupPreparedCapacity: Optional[MaxGroupPreparedCapacity]
-    MinSize: Optional[WarmPoolMinSize]
-    PoolState: Optional[WarmPoolState]
-    InstanceReusePolicy: Optional[InstanceReusePolicy]
+    MaxGroupPreparedCapacity: MaxGroupPreparedCapacity | None
+    MinSize: WarmPoolMinSize | None
+    PoolState: WarmPoolState | None
+    InstanceReusePolicy: InstanceReusePolicy | None
 
 
 class RecordLifecycleActionHeartbeatAnswer(TypedDict, total=False):
@@ -2276,12 +2384,12 @@ class RecordLifecycleActionHeartbeatAnswer(TypedDict, total=False):
 class RecordLifecycleActionHeartbeatType(ServiceRequest):
     LifecycleHookName: AsciiStringMaxLen255
     AutoScalingGroupName: ResourceName
-    LifecycleActionToken: Optional[LifecycleActionToken]
-    InstanceId: Optional[XmlStringMaxLen19]
+    LifecycleActionToken: LifecycleActionToken | None
+    InstanceId: XmlStringMaxLen19 | None
 
 
 class RollbackInstanceRefreshAnswer(TypedDict, total=False):
-    InstanceRefreshId: Optional[XmlStringMaxLen255]
+    InstanceRefreshId: XmlStringMaxLen255 | None
 
 
 class RollbackInstanceRefreshType(ServiceRequest):
@@ -2290,43 +2398,43 @@ class RollbackInstanceRefreshType(ServiceRequest):
 
 class ScalingProcessQuery(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    ScalingProcesses: Optional[ProcessNames]
+    ScalingProcesses: ProcessNames | None
 
 
 class ScheduledUpdateGroupAction(TypedDict, total=False):
     """Describes a scheduled scaling action."""
 
-    AutoScalingGroupName: Optional[XmlStringMaxLen255]
-    ScheduledActionName: Optional[XmlStringMaxLen255]
-    ScheduledActionARN: Optional[ResourceName]
-    Time: Optional[TimestampType]
-    StartTime: Optional[TimestampType]
-    EndTime: Optional[TimestampType]
-    Recurrence: Optional[XmlStringMaxLen255]
-    MinSize: Optional[AutoScalingGroupMinSize]
-    MaxSize: Optional[AutoScalingGroupMaxSize]
-    DesiredCapacity: Optional[AutoScalingGroupDesiredCapacity]
-    TimeZone: Optional[XmlStringMaxLen255]
+    AutoScalingGroupName: XmlStringMaxLen255 | None
+    ScheduledActionName: XmlStringMaxLen255 | None
+    ScheduledActionARN: ResourceName | None
+    Time: TimestampType | None
+    StartTime: TimestampType | None
+    EndTime: TimestampType | None
+    Recurrence: XmlStringMaxLen255 | None
+    MinSize: AutoScalingGroupMinSize | None
+    MaxSize: AutoScalingGroupMaxSize | None
+    DesiredCapacity: AutoScalingGroupDesiredCapacity | None
+    TimeZone: XmlStringMaxLen255 | None
 
 
-ScheduledUpdateGroupActions = List[ScheduledUpdateGroupAction]
+ScheduledUpdateGroupActions = list[ScheduledUpdateGroupAction]
 
 
 class ScheduledActionsType(TypedDict, total=False):
-    ScheduledUpdateGroupActions: Optional[ScheduledUpdateGroupActions]
-    NextToken: Optional[XmlString]
+    ScheduledUpdateGroupActions: ScheduledUpdateGroupActions | None
+    NextToken: XmlString | None
 
 
 class SetDesiredCapacityType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
     DesiredCapacity: AutoScalingGroupDesiredCapacity
-    HonorCooldown: Optional[HonorCooldown]
+    HonorCooldown: HonorCooldown | None
 
 
 class SetInstanceHealthQuery(ServiceRequest):
     InstanceId: XmlStringMaxLen19
     HealthStatus: XmlStringMaxLen32
-    ShouldRespectGracePeriod: Optional[ShouldRespectGracePeriod]
+    ShouldRespectGracePeriod: ShouldRespectGracePeriod | None
 
 
 class SetInstanceProtectionAnswer(TypedDict, total=False):
@@ -2340,19 +2448,19 @@ class SetInstanceProtectionQuery(ServiceRequest):
 
 
 class StartInstanceRefreshAnswer(TypedDict, total=False):
-    InstanceRefreshId: Optional[XmlStringMaxLen255]
+    InstanceRefreshId: XmlStringMaxLen255 | None
 
 
 class StartInstanceRefreshType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    Strategy: Optional[RefreshStrategy]
-    DesiredConfiguration: Optional[DesiredConfiguration]
-    Preferences: Optional[RefreshPreferences]
+    Strategy: RefreshStrategy | None
+    DesiredConfiguration: DesiredConfiguration | None
+    Preferences: RefreshPreferences | None
 
 
 class TagsType(TypedDict, total=False):
-    Tags: Optional[TagDescriptionList]
-    NextToken: Optional[XmlString]
+    Tags: TagDescriptionList | None
+    NextToken: XmlString | None
 
 
 class TerminateInstanceInAutoScalingGroupType(ServiceRequest):
@@ -2362,36 +2470,37 @@ class TerminateInstanceInAutoScalingGroupType(ServiceRequest):
 
 class UpdateAutoScalingGroupType(ServiceRequest):
     AutoScalingGroupName: XmlStringMaxLen255
-    LaunchConfigurationName: Optional[XmlStringMaxLen255]
-    LaunchTemplate: Optional[LaunchTemplateSpecification]
-    MixedInstancesPolicy: Optional[MixedInstancesPolicy]
-    MinSize: Optional[AutoScalingGroupMinSize]
-    MaxSize: Optional[AutoScalingGroupMaxSize]
-    DesiredCapacity: Optional[AutoScalingGroupDesiredCapacity]
-    DefaultCooldown: Optional[Cooldown]
-    AvailabilityZones: Optional[AvailabilityZones]
-    HealthCheckType: Optional[XmlStringMaxLen32]
-    HealthCheckGracePeriod: Optional[HealthCheckGracePeriod]
-    PlacementGroup: Optional[UpdatePlacementGroupParam]
-    VPCZoneIdentifier: Optional[XmlStringMaxLen5000]
-    TerminationPolicies: Optional[TerminationPolicies]
-    NewInstancesProtectedFromScaleIn: Optional[InstanceProtected]
-    ServiceLinkedRoleARN: Optional[ResourceName]
-    MaxInstanceLifetime: Optional[MaxInstanceLifetime]
-    CapacityRebalance: Optional[CapacityRebalanceEnabled]
-    Context: Optional[Context]
-    DesiredCapacityType: Optional[XmlStringMaxLen255]
-    DefaultInstanceWarmup: Optional[DefaultInstanceWarmup]
-    InstanceMaintenancePolicy: Optional[InstanceMaintenancePolicy]
-    AvailabilityZoneDistribution: Optional[AvailabilityZoneDistribution]
-    AvailabilityZoneImpairmentPolicy: Optional[AvailabilityZoneImpairmentPolicy]
-    SkipZonalShiftValidation: Optional[SkipZonalShiftValidation]
-    CapacityReservationSpecification: Optional[CapacityReservationSpecification]
+    LaunchConfigurationName: XmlStringMaxLen255 | None
+    LaunchTemplate: LaunchTemplateSpecification | None
+    MixedInstancesPolicy: MixedInstancesPolicy | None
+    MinSize: AutoScalingGroupMinSize | None
+    MaxSize: AutoScalingGroupMaxSize | None
+    DesiredCapacity: AutoScalingGroupDesiredCapacity | None
+    DefaultCooldown: Cooldown | None
+    AvailabilityZones: AvailabilityZones | None
+    HealthCheckType: XmlStringMaxLen32 | None
+    HealthCheckGracePeriod: HealthCheckGracePeriod | None
+    PlacementGroup: UpdatePlacementGroupParam | None
+    VPCZoneIdentifier: XmlStringMaxLen5000 | None
+    TerminationPolicies: TerminationPolicies | None
+    NewInstancesProtectedFromScaleIn: InstanceProtected | None
+    ServiceLinkedRoleARN: ResourceName | None
+    MaxInstanceLifetime: MaxInstanceLifetime | None
+    CapacityRebalance: CapacityRebalanceEnabled | None
+    Context: Context | None
+    DesiredCapacityType: XmlStringMaxLen255 | None
+    DefaultInstanceWarmup: DefaultInstanceWarmup | None
+    InstanceMaintenancePolicy: InstanceMaintenancePolicy | None
+    AvailabilityZoneDistribution: AvailabilityZoneDistribution | None
+    AvailabilityZoneImpairmentPolicy: AvailabilityZoneImpairmentPolicy | None
+    SkipZonalShiftValidation: SkipZonalShiftValidation | None
+    CapacityReservationSpecification: CapacityReservationSpecification | None
+    InstanceLifecyclePolicy: InstanceLifecyclePolicy | None
 
 
 class AutoscalingApi:
-    service = "autoscaling"
-    version = "2011-01-01"
+    service: str = "autoscaling"
+    version: str = "2011-01-01"
 
     @handler("AttachInstances")
     def attach_instances(
@@ -2471,6 +2580,7 @@ class AutoscalingApi:
         :returns: AttachLoadBalancerTargetGroupsResultType
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:
+        :raises InstanceRefreshInProgressFault:
         """
         raise NotImplementedError
 
@@ -2513,6 +2623,7 @@ class AutoscalingApi:
         :returns: AttachLoadBalancersResultType
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:
+        :raises InstanceRefreshInProgressFault:
         """
         raise NotImplementedError
 
@@ -2559,6 +2670,7 @@ class AutoscalingApi:
         :returns: AttachTrafficSourcesResultType
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:
+        :raises InstanceRefreshInProgressFault:
         """
         raise NotImplementedError
 
@@ -2767,6 +2879,7 @@ class AutoscalingApi:
         :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers,
         capacity could become imbalanced across Availability Zones.
         :param capacity_reservation_specification: The capacity reservation specification for the Auto Scaling group.
+        :param instance_lifecycle_policy: The instance lifecycle policy for the Auto Scaling group.
         :raises AlreadyExistsFault:
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
@@ -3927,6 +4040,38 @@ class AutoscalingApi:
         """
         raise NotImplementedError
 
+    @handler("LaunchInstances")
+    def launch_instances(
+        self,
+        context: RequestContext,
+        auto_scaling_group_name: XmlStringMaxLen255,
+        requested_capacity: RequestedCapacity,
+        client_token: ClientToken,
+        availability_zones: AvailabilityZonesLimit1 | None = None,
+        availability_zone_ids: AvailabilityZoneIdsLimit1 | None = None,
+        subnet_ids: SubnetIdsLimit1 | None = None,
+        retry_strategy: RetryStrategy | None = None,
+        **kwargs,
+    ) -> LaunchInstancesResult:
+        """Launches a specified number of instances in an Auto Scaling group.
+        Returns instance IDs and other details if launch is successful or error
+        details if launch is unsuccessful.
+
+        :param auto_scaling_group_name: The name of the Auto Scaling group to launch instances into.
+        :param requested_capacity: The number of instances to launch.
+        :param client_token: A unique, case-sensitive identifier to ensure idempotency of the
+        request.
+        :param availability_zones: The Availability Zones for the instance launch.
+        :param availability_zone_ids: A list of Availability Zone IDs where instances should be launched.
+        :param subnet_ids: The subnet IDs for the instance launch.
+        :param retry_strategy: Specifies whether to retry asynchronously if the synchronous launch
+        fails.
+        :returns: LaunchInstancesResult
+        :raises ResourceContentionFault:
+        :raises IdempotentParameterMismatchError:
+        """
+        raise NotImplementedError
+
     @handler("PutLifecycleHook")
     def put_lifecycle_hook(
         self,
@@ -4215,6 +4360,7 @@ class AutoscalingApi:
         :returns: PutWarmPoolAnswer
         :raises LimitExceededFault:
         :raises ResourceContentionFault:
+        :raises InstanceRefreshInProgressFault:
         """
         raise NotImplementedError
 
@@ -4680,6 +4826,7 @@ class AutoscalingApi:
         :param skip_zonal_shift_validation: If you enable zonal shift with cross-zone disabled load balancers,
         capacity could become imbalanced across Availability Zones.
         :param capacity_reservation_specification: The capacity reservation specification for the Auto Scaling group.
+        :param instance_lifecycle_policy: The instance lifecycle policy for the Auto Scaling group.
         :raises ScalingActivityInProgressFault:
         :raises ResourceContentionFault:
         :raises ServiceLinkedRoleFailure:

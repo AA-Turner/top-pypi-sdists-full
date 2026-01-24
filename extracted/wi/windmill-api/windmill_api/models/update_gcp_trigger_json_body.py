@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.update_gcp_trigger_json_body_delivery_type import UpdateGcpTriggerJsonBodyDeliveryType
+from ..models.update_gcp_trigger_json_body_mode import UpdateGcpTriggerJsonBodyMode
 from ..models.update_gcp_trigger_json_body_subscription_mode import UpdateGcpTriggerJsonBodySubscriptionMode
 from ..types import UNSET, Unset
 
@@ -31,14 +32,14 @@ class UpdateGcpTriggerJsonBody:
         base_endpoint (Union[Unset, str]):
         delivery_type (Union[Unset, UpdateGcpTriggerJsonBodyDeliveryType]):
         delivery_config (Union[Unset, UpdateGcpTriggerJsonBodyDeliveryConfig]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, UpdateGcpTriggerJsonBodyMode]): job trigger mode
         auto_acknowledge_msg (Union[Unset, bool]):
         ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
             provided, defaults to the subscription's acknowledgment deadline (600 seconds).
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, UpdateGcpTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
             or flow
-        retry (Union[Unset, UpdateGcpTriggerJsonBodyRetry]):
+        retry (Union[Unset, UpdateGcpTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     gcp_resource_path: str
@@ -51,7 +52,7 @@ class UpdateGcpTriggerJsonBody:
     base_endpoint: Union[Unset, str] = UNSET
     delivery_type: Union[Unset, UpdateGcpTriggerJsonBodyDeliveryType] = UNSET
     delivery_config: Union[Unset, "UpdateGcpTriggerJsonBodyDeliveryConfig"] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, UpdateGcpTriggerJsonBodyMode] = UNSET
     auto_acknowledge_msg: Union[Unset, bool] = UNSET
     ack_deadline: Union[Unset, int] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
@@ -77,7 +78,10 @@ class UpdateGcpTriggerJsonBody:
         if not isinstance(self.delivery_config, Unset):
             delivery_config = self.delivery_config.to_dict()
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         auto_acknowledge_msg = self.auto_acknowledge_msg
         ack_deadline = self.ack_deadline
         error_handler_path = self.error_handler_path
@@ -109,8 +113,8 @@ class UpdateGcpTriggerJsonBody:
             field_dict["delivery_type"] = delivery_type
         if delivery_config is not UNSET:
             field_dict["delivery_config"] = delivery_config
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if auto_acknowledge_msg is not UNSET:
             field_dict["auto_acknowledge_msg"] = auto_acknowledge_msg
         if ack_deadline is not UNSET:
@@ -161,7 +165,12 @@ class UpdateGcpTriggerJsonBody:
         else:
             delivery_config = UpdateGcpTriggerJsonBodyDeliveryConfig.from_dict(_delivery_config)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, UpdateGcpTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = UpdateGcpTriggerJsonBodyMode(_mode)
 
         auto_acknowledge_msg = d.pop("auto_acknowledge_msg", UNSET)
 
@@ -194,7 +203,7 @@ class UpdateGcpTriggerJsonBody:
             base_endpoint=base_endpoint,
             delivery_type=delivery_type,
             delivery_config=delivery_config,
-            enabled=enabled,
+            mode=mode,
             auto_acknowledge_msg=auto_acknowledge_msg,
             ack_deadline=ack_deadline,
             error_handler_path=error_handler_path,

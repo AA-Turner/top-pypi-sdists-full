@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -44,12 +45,6 @@ from .literals import (
     WorkflowExecutionTerminatedCauseType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -247,7 +242,7 @@ class ActivityTaskStartedEventAttributesTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -921,7 +916,7 @@ StartChildWorkflowExecutionInitiatedEventAttributesTypeDef = TypedDict(
         "executionStartToCloseTimeout": NotRequired[str],
         "taskPriority": NotRequired[str],
         "taskStartToCloseTimeout": NotRequired[str],
-        "tagList": NotRequired[List[str]],
+        "tagList": NotRequired[list[str]],
         "lambdaRole": NotRequired[str],
     },
 )
@@ -958,7 +953,7 @@ WorkflowExecutionContinuedAsNewEventAttributesTypeDef = TypedDict(
         "executionStartToCloseTimeout": NotRequired[str],
         "taskPriority": NotRequired[str],
         "taskStartToCloseTimeout": NotRequired[str],
-        "tagList": NotRequired[List[str]],
+        "tagList": NotRequired[list[str]],
         "lambdaRole": NotRequired[str],
     },
 )
@@ -971,7 +966,7 @@ class WorkflowExecutionInfoTypeDef(TypedDict):
     closeTimestamp: NotRequired[datetime]
     closeStatus: NotRequired[CloseStatusType]
     parent: NotRequired[WorkflowExecutionTypeDef]
-    tagList: NotRequired[List[str]]
+    tagList: NotRequired[list[str]]
     cancelRequested: NotRequired[bool]
 
 WorkflowExecutionStartedEventAttributesTypeDef = TypedDict(
@@ -984,7 +979,7 @@ WorkflowExecutionStartedEventAttributesTypeDef = TypedDict(
         "executionStartToCloseTimeout": NotRequired[str],
         "taskStartToCloseTimeout": NotRequired[str],
         "taskPriority": NotRequired[str],
-        "tagList": NotRequired[List[str]],
+        "tagList": NotRequired[list[str]],
         "continuedExecutionRunId": NotRequired[str],
         "parentWorkflowExecution": NotRequired[WorkflowExecutionTypeDef],
         "parentInitiatedEventId": NotRequired[int],
@@ -1005,7 +1000,7 @@ class DomainDetailTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DomainInfosTypeDef(TypedDict):
-    domainInfos: List[DomainInfoTypeDef]
+    domainInfos: list[DomainInfoTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1047,7 +1042,7 @@ class PollForDecisionTaskInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: List[ResourceTagTypeDef]
+    tags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterDomainInputTypeDef(TypedDict):
@@ -1061,7 +1056,7 @@ class TagResourceInputTypeDef(TypedDict):
     tags: Sequence[ResourceTagTypeDef]
 
 class ActivityTypeInfosTypeDef(TypedDict):
-    typeInfos: List[ActivityTypeInfoTypeDef]
+    typeInfos: list[ActivityTypeInfoTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1115,7 +1110,7 @@ class WorkflowExecutionDetailTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class WorkflowExecutionInfosTypeDef(TypedDict):
-    executionInfos: List[WorkflowExecutionInfoTypeDef]
+    executionInfos: list[WorkflowExecutionInfoTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1252,7 +1247,7 @@ class WorkflowTypeDetailTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class WorkflowTypeInfosTypeDef(TypedDict):
-    typeInfos: List[WorkflowTypeInfoTypeDef]
+    typeInfos: list[WorkflowTypeInfoTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1326,12 +1321,12 @@ class DecisionTaskTypeDef(TypedDict):
     startedEventId: int
     workflowExecution: WorkflowExecutionTypeDef
     workflowType: WorkflowTypeTypeDef
-    events: List[HistoryEventTypeDef]
+    events: list[HistoryEventTypeDef]
     nextPageToken: str
     previousStartedEventId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class HistoryTypeDef(TypedDict):
-    events: List[HistoryEventTypeDef]
+    events: list[HistoryEventTypeDef]
     nextPageToken: str
     ResponseMetadata: ResponseMetadataTypeDef

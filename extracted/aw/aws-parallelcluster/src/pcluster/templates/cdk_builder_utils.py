@@ -12,9 +12,9 @@
 # pylint: disable=too-many-lines
 import abc
 from hashlib import sha1, sha256
+from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from typing import List, Union
 
-import pkg_resources
 from aws_cdk import aws_ec2 as ec2
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as awslambda
@@ -23,17 +23,18 @@ from aws_cdk import core
 from aws_cdk.aws_iam import ManagedPolicy, PermissionsBoundary
 from aws_cdk.core import Arn, ArnFormat, CfnDeletionPolicy, CfnTag, Construct, Fn, Stack
 
+from pcluster.aws.aws_api import AWSApi
 from pcluster.config.cluster_config import (
     BaseClusterConfig,
     BaseComputeResource,
     BaseQueue,
     HeadNode,
     LoginNodesPool,
-    SharedStorageType,
     SlurmClusterConfig,
     SlurmComputeResource,
     SlurmQueue,
 )
+from pcluster.config.common import SharedStorageType
 from pcluster.constants import (
     COOKBOOK_PACKAGES_VERSIONS,
     CW_LOGS_RETENTION_DAYS_DEFAULT,
@@ -42,11 +43,13 @@ from pcluster.constants import (
     PCLUSTER_CLUSTER_NAME_TAG,
     PCLUSTER_DYNAMODB_PREFIX,
     PCLUSTER_NODE_TYPE_TAG,
+    ULTRASERVER_INSTANCE_PREFIX_LIST,
 )
 from pcluster.launch_template_utils import _LaunchTemplateBuilder
 from pcluster.models.s3_bucket import S3Bucket, parse_bucket_url
 from pcluster.utils import (
     get_installed_version,
+    get_needed_ultraserver_capacity_block_statuses,
     get_resource_name_from_resource_arn,
     policy_name_to_arn,
     split_resource_prefix,
@@ -77,7 +80,7 @@ def create_hash_suffix(string_to_hash: str):
 
 def get_user_data_content(user_data_path: str):
     """Retrieve user data content."""
-    user_data_file_path = pkg_resources.resource_filename(__name__, user_data_path)
+    user_data_file_path = str(files(__package__) / user_data_path)
     with open(user_data_file_path, "r", encoding="utf-8") as user_data_file:
         user_data_content = user_data_file.read()
     return user_data_content
@@ -94,7 +97,6 @@ def get_common_user_data_env(node: Union[HeadNode, SlurmQueue, LoginNodesPool], 
         "ParallelClusterVersion": COOKBOOK_PACKAGES_VERSIONS["parallelcluster"],
         "CookbookVersion": COOKBOOK_PACKAGES_VERSIONS["cookbook"],
         "ChefVersion": COOKBOOK_PACKAGES_VERSIONS["chef"],
-        "BerkshelfVersion": COOKBOOK_PACKAGES_VERSIONS["berkshelf"],
     }
 
 
@@ -368,6 +370,59 @@ def generate_launch_template_version_cfn_parameter_hash(queue, compute_resource)
     # The sha1 is used just as a hashing function.
     # [B324:hashlib] Use of weak MD4, MD5, or SHA1 hash for security. Consider usedforsecurity=False
     return sha1((queue + compute_resource).encode()).hexdigest()[0:16].capitalize()  # nosec nosemgrep
+
+
+def process_ultraserver_capacity_block_sizes(cluster_ultraserver_capacity_block_dict):
+    """
+    Process ultraserver capacity block sizes and return sizes dictionary.
+
+    Note: Validation is now handled by UltraserverCapacityBlockSizeValidator.
+    This function only processes and returns the sizes for template generation.
+
+    Returns:
+        Dictionary mapping ultraserver instance prefixes to comma-separated size strings
+    """
+    cluster_ultraserver_capacity_block_sizes_dict = {}
+
+    for ultraserver_instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+        cluster_ultraserver_capacity_block_sizes_dict[ultraserver_instance_prefix] = []
+
+        capacity_reservation_ids = cluster_ultraserver_capacity_block_dict.get(ultraserver_instance_prefix)
+        if capacity_reservation_ids:
+            statuses = AWSApi.instance().ec2.describe_capacity_block_status()
+            needed_capacity_block_statuses = get_needed_ultraserver_capacity_block_statuses(
+                statuses, capacity_reservation_ids
+            )
+
+            for status in needed_capacity_block_statuses:
+                size = status.get("TotalCapacity")
+                if size is not None:
+                    cluster_ultraserver_capacity_block_sizes_dict.get(ultraserver_instance_prefix).append(size)
+
+        unique_sizes = sorted(set(cluster_ultraserver_capacity_block_sizes_dict.get(ultraserver_instance_prefix)))
+
+        cluster_ultraserver_capacity_block_sizes_dict[ultraserver_instance_prefix] = ", ".join(
+            str(unique_size) for unique_size in unique_sizes
+        )
+
+    return cluster_ultraserver_capacity_block_sizes_dict
+
+
+def has_ultraserver_instance(cr_target):
+    """Check if the compute resource uses ultraserver instances with capacity blocks."""
+    _has_ultraserver_instance = False
+    if cr_target and cr_target.capacity_reservation_id:
+        (
+            instance_type,
+            reservation_type,
+        ) = AWSApi.instance().ec2.get_instance_type_and_reservation_type_from_capacity_reservation(
+            cr_target.capacity_reservation_id
+        )
+        instance_prefix = instance_type.split(".")[0]
+        if reservation_type == "capacity-block" and instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+            _has_ultraserver_instance = True
+
+    return _has_ultraserver_instance
 
 
 class NodeIamResourcesBase(Construct):
@@ -1088,7 +1143,7 @@ class PclusterLambdaConstruct(Construct):
             handler=f"{handler_func}.handler",
             memory_size=128,
             role=execution_role,
-            runtime="python3.9",
+            runtime="python3.12",
             timeout=timeout,
             vpc_config=(
                 awslambda.CfnFunction.VpcConfigProperty(

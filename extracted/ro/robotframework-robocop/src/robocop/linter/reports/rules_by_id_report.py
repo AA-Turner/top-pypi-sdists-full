@@ -10,15 +10,16 @@ class RulesByIdReport(robocop.linter.reports.ComparableReport):
     """
     **Report name**: ``rules_by_id``
 
-    Report that groups linter rules messages by rule id and prints it ordered by most common message.
-    Example::
+    Report that groups linter rule messages by rule id and print it ordered by the most common message.
 
+    Example:
         Issues by ID:
         VAR03 [W] (variable-overwritten-before-usage) : 5
         DOC01 [W] (missing-doc-keyword)               : 4
         ERR01 [E] (parsing-error)                     : 3
         NAME01 [W] (not-allowed-char-in-name)         : 2
         MISC01 [W] (keyword-after-return)             : 1
+
     """
 
     def __init__(self, config: Config):
@@ -47,6 +48,8 @@ class RulesByIdReport(robocop.linter.reports.ComparableReport):
             output = self.get_report_with_compare(prev_results)
         else:
             output = self.get_report_without_compare()
+        if self.config.silent:
+            return
         print(output)
 
     def get_report_with_compare(self, prev_results: dict) -> str:

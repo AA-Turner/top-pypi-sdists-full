@@ -3,7 +3,7 @@ Type annotations for s3 service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -41,6 +41,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from datetime import datetime
 from typing import Any, NoReturn
 
@@ -148,12 +149,6 @@ try:
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
     from builtins import object as TransferConfig  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, Callable, Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -238,7 +233,7 @@ class ServiceResourceBucketsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Bucket]]:
+    ) -> AsyncIterator[list[Bucket]]:
         """
         A generator which yields pages of Buckets.
 
@@ -317,7 +312,7 @@ class BucketMultipartUploadsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MultipartUpload]]:
+    ) -> AsyncIterator[list[MultipartUpload]]:
         """
         A generator which yields pages of MultipartUploads.
 
@@ -387,7 +382,7 @@ class BucketObjectVersionsCollection(AIOResourceCollection):
         BypassGovernanceRetention: bool = ...,
         ExpectedBucketOwner: str = ...,
         ChecksumAlgorithm: ChecksumAlgorithmType = ...,
-    ) -> List[DeleteObjectsOutputTypeDef]:
+    ) -> list[DeleteObjectsOutputTypeDef]:
         """
         Batch method.
 
@@ -413,7 +408,7 @@ class BucketObjectVersionsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[ObjectVersion]]:
+    ) -> AsyncIterator[list[ObjectVersion]]:
         """
         A generator which yields pages of ObjectVersions.
 
@@ -482,7 +477,7 @@ class BucketObjectsCollection(AIOResourceCollection):
         BypassGovernanceRetention: bool = ...,
         ExpectedBucketOwner: str = ...,
         ChecksumAlgorithm: ChecksumAlgorithmType = ...,
-    ) -> List[DeleteObjectsOutputTypeDef]:
+    ) -> list[DeleteObjectsOutputTypeDef]:
         """
         Batch method.
 
@@ -508,7 +503,7 @@ class BucketObjectsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[ObjectSummary]]:
+    ) -> AsyncIterator[list[ObjectSummary]]:
         """
         A generator which yields pages of ObjectSummarys.
 
@@ -585,7 +580,7 @@ class MultipartUploadPartsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[MultipartUploadPart]]:
+    ) -> AsyncIterator[list[MultipartUploadPart]]:
         """
         A generator which yields pages of MultipartUploadParts.
 
@@ -637,8 +632,7 @@ class Bucket(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CreateBucketRequestBucketCreateTypeDef]
     ) -> CreateBucketOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        This action creates an Amazon S3 bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/create.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#bucketcreate-method)
@@ -665,8 +659,8 @@ class Bucket(AIOBoto3ServiceResource):
 
     async def put_object(self, **kwargs: Unpack[PutObjectRequestBucketPutObjectTypeDef]) -> _Object:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucket/put_object.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#bucketput_object-method)
@@ -796,7 +790,7 @@ class Bucket(AIOBoto3ServiceResource):
         self,
         CopySource: CopySourceTypeDef,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         SourceClient: AioBaseClient | None = ...,
         Config: TransferConfig | None = ...,
@@ -812,7 +806,7 @@ class Bucket(AIOBoto3ServiceResource):
         self,
         Key: str,
         Filename: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -827,7 +821,7 @@ class Bucket(AIOBoto3ServiceResource):
         self,
         Key: str,
         Fileobj: FileobjTypeDef,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -842,7 +836,7 @@ class Bucket(AIOBoto3ServiceResource):
         self,
         Filename: str,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -857,7 +851,7 @@ class Bucket(AIOBoto3ServiceResource):
         self,
         Fileobj: FileobjTypeDef,
         Key: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -880,7 +874,7 @@ class BucketAcl(AIOBoto3ServiceResource):
 
     bucket_name: str
     owner: Awaitable[OwnerTypeDef]
-    grants: Awaitable[List[GrantTypeDef]]
+    grants: Awaitable[list[GrantTypeDef]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -893,8 +887,8 @@ class BucketAcl(AIOBoto3ServiceResource):
 
     async def put(self, **kwargs: Unpack[PutBucketAclRequestBucketAclPutTypeDef]) -> None:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucketacl/put.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#bucketaclput-method)
@@ -931,7 +925,7 @@ class BucketCors(AIOBoto3ServiceResource):
     """
 
     bucket_name: str
-    cors_rules: Awaitable[List[CORSRuleOutputTypeDef]]
+    cors_rules: Awaitable[list[CORSRuleOutputTypeDef]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -991,7 +985,7 @@ class BucketLifecycle(AIOBoto3ServiceResource):
     """
 
     bucket_name: str
-    rules: Awaitable[List[RuleOutputTypeDef]]
+    rules: Awaitable[list[RuleOutputTypeDef]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -1053,7 +1047,7 @@ class BucketLifecycleConfiguration(AIOBoto3ServiceResource):
     """
 
     bucket_name: str
-    rules: Awaitable[List[LifecycleRuleOutputTypeDef]]
+    rules: Awaitable[list[LifecycleRuleOutputTypeDef]]
     transition_default_minimum_object_size: Awaitable[TransitionDefaultMinimumObjectSizeType]
     meta: S3ResourceMeta  # type: ignore[override]
 
@@ -1135,8 +1129,8 @@ class BucketLogging(AIOBoto3ServiceResource):
 
     async def put(self, **kwargs: Unpack[PutBucketLoggingRequestBucketLoggingPutTypeDef]) -> None:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/bucketlogging/put.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#bucketloggingput-method)
@@ -1173,10 +1167,10 @@ class BucketNotification(AIOBoto3ServiceResource):
     """
 
     bucket_name: str
-    topic_configurations: Awaitable[List[TopicConfigurationOutputTypeDef]]
-    queue_configurations: Awaitable[List[QueueConfigurationOutputTypeDef]]
-    lambda_function_configurations: Awaitable[List[LambdaFunctionConfigurationOutputTypeDef]]
-    event_bridge_configuration: Awaitable[Dict[str, Any]]
+    topic_configurations: Awaitable[list[TopicConfigurationOutputTypeDef]]
+    queue_configurations: Awaitable[list[QueueConfigurationOutputTypeDef]]
+    lambda_function_configurations: Awaitable[list[LambdaFunctionConfigurationOutputTypeDef]]
+    event_bridge_configuration: Awaitable[dict[str, Any]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -1341,7 +1335,7 @@ class BucketTagging(AIOBoto3ServiceResource):
     """
 
     bucket_name: str
-    tag_set: Awaitable[List[TagTypeDef]]
+    tag_set: Awaitable[list[TagTypeDef]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -1477,7 +1471,7 @@ class BucketWebsite(AIOBoto3ServiceResource):
     redirect_all_requests_to: Awaitable[RedirectAllRequestsToTypeDef]
     index_document: Awaitable[IndexDocumentTypeDef]
     error_document: Awaitable[ErrorDocumentTypeDef]
-    routing_rules: Awaitable[List[RoutingRuleTypeDef]]
+    routing_rules: Awaitable[list[RoutingRuleTypeDef]]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:
@@ -1691,7 +1685,7 @@ class Object(AIOBoto3ServiceResource):
     expires: Awaitable[datetime]
     website_redirect_location: Awaitable[str]
     server_side_encryption: Awaitable[ServerSideEncryptionType]
-    metadata: Awaitable[Dict[str, str]]
+    metadata: Awaitable[dict[str, str]]
     sse_customer_algorithm: Awaitable[str]
     sse_customer_key_md5: Awaitable[str]
     ssekms_key_id: Awaitable[str]
@@ -1718,8 +1712,7 @@ class Object(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CopyObjectRequestObjectCopyFromTypeDef]
     ) -> CopyObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        Creates a copy of an object that is already stored in Amazon S3.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/copy_from.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectcopy_from-method)
@@ -1749,8 +1742,8 @@ class Object(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CreateMultipartUploadRequestObjectInitiateMultipartUploadTypeDef]
     ) -> _MultipartUpload:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/initiate_multipart_upload.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectinitiate_multipart_upload-method)
@@ -1760,8 +1753,8 @@ class Object(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[PutObjectRequestObjectPutTypeDef]
     ) -> PutObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/object/put.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectput-method)
@@ -1828,7 +1821,7 @@ class Object(AIOBoto3ServiceResource):
     async def copy(
         self,
         CopySource: CopySourceTypeDef,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         SourceClient: AioBaseClient | None = ...,
         Config: TransferConfig | None = ...,
@@ -1843,7 +1836,7 @@ class Object(AIOBoto3ServiceResource):
     async def download_file(
         self,
         Filename: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1857,7 +1850,7 @@ class Object(AIOBoto3ServiceResource):
     async def download_fileobj(
         self,
         Fileobj: FileobjTypeDef,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1871,7 +1864,7 @@ class Object(AIOBoto3ServiceResource):
     async def upload_file(
         self,
         Filename: str,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1885,7 +1878,7 @@ class Object(AIOBoto3ServiceResource):
     async def upload_fileobj(
         self,
         Fileobj: FileobjTypeDef,
-        ExtraArgs: Dict[str, Any] | None = ...,
+        ExtraArgs: dict[str, Any] | None = ...,
         Callback: Callable[..., Any] | None = ...,
         Config: TransferConfig | None = ...,
     ) -> None:
@@ -1921,7 +1914,7 @@ class ObjectAcl(AIOBoto3ServiceResource):
     bucket_name: str
     object_key: str
     owner: Awaitable[OwnerTypeDef]
-    grants: Awaitable[List[GrantTypeDef]]
+    grants: Awaitable[list[GrantTypeDef]]
     request_charged: Awaitable[Literal["requester"]]
     meta: S3ResourceMeta  # type: ignore[override]
 
@@ -1937,7 +1930,8 @@ class ObjectAcl(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[PutObjectAclRequestObjectAclPutTypeDef]
     ) -> PutObjectAclOutputTypeDef:
         """
-        This operation is not supported for directory buckets.
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectacl/put.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectaclput-method)
@@ -1977,7 +1971,7 @@ class ObjectSummary(AIOBoto3ServiceResource):
     key: str
     last_modified: Awaitable[datetime]
     e_tag: Awaitable[str]
-    checksum_algorithm: Awaitable[List[ChecksumAlgorithmType]]
+    checksum_algorithm: Awaitable[list[ChecksumAlgorithmType]]
     checksum_type: Awaitable[ChecksumTypeType]
     size: Awaitable[int]
     storage_class: Awaitable[ObjectStorageClassType]
@@ -1997,8 +1991,7 @@ class ObjectSummary(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CopyObjectRequestObjectSummaryCopyFromTypeDef]
     ) -> CopyObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        Creates a copy of an object that is already stored in Amazon S3.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/copy_from.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectsummarycopy_from-method)
@@ -2029,8 +2022,8 @@ class ObjectSummary(AIOBoto3ServiceResource):
         **kwargs: Unpack[CreateMultipartUploadRequestObjectSummaryInitiateMultipartUploadTypeDef],
     ) -> _MultipartUpload:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/initiate_multipart_upload.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectsummaryinitiate_multipart_upload-method)
@@ -2040,8 +2033,8 @@ class ObjectSummary(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[PutObjectRequestObjectSummaryPutTypeDef]
     ) -> PutObjectOutputTypeDef:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        End of support notice: As of October 1, 2025, Amazon S3 has discontinued
+        support for Email Grantee Access Control Lists (ACLs).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/objectsummary/put.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#objectsummaryput-method)
@@ -2136,7 +2129,7 @@ class ObjectVersion(AIOBoto3ServiceResource):
     object_key: str
     id: str
     e_tag: Awaitable[str]
-    checksum_algorithm: Awaitable[List[ChecksumAlgorithmType]]
+    checksum_algorithm: Awaitable[list[ChecksumAlgorithmType]]
     checksum_type: Awaitable[ChecksumTypeType]
     size: Awaitable[int]
     storage_class: Awaitable[Literal["STANDARD"]]
@@ -2224,8 +2217,7 @@ class S3ServiceResource(AIOBoto3ServiceResource):
         self, **kwargs: Unpack[CreateBucketRequestServiceResourceCreateBucketTypeDef]
     ) -> _Bucket:
         """
-        End of support notice: Beginning October 1, 2025, Amazon S3 will discontinue
-        support for creating new Email Grantee Access Control Lists (ACL).
+        This action creates an Amazon S3 bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/service-resource/create_bucket.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3/service_resource/#s3serviceresourcecreate_bucket-method)

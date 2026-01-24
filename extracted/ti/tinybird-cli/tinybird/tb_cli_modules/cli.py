@@ -19,7 +19,7 @@ import humanfriendly
 from click import Context
 from packaging import version
 
-import tinybird.context as context
+from tinybird import context
 from tinybird.client import (
     AuthException,
     AuthNoTokenException,
@@ -196,7 +196,7 @@ async def cli(
         semver = os.environ.get("TB_SEMVER", "")
 
     config = await get_config(host, token, semver)
-    client = _get_tb_client(config.get("token", None), config["host"])
+    client = _get_tb_client(config.get("token", None), config["host"])  # type: ignore[arg-type]
 
     # If they have passed a token or host as paramter and it's different that record in .tinyb, refresh the workspace id
     if token or host:
@@ -253,7 +253,7 @@ async def cli(
 
     logging.debug("debug enabled")
 
-    ctx.ensure_object(dict)["client"] = _get_tb_client(config.get("token", None), config["host"], semver)
+    ctx.ensure_object(dict)["client"] = _get_tb_client(config.get("token", None), config["host"], semver)  # type: ignore[arg-type]
 
     for connector in SUPPORTED_CONNECTORS:
         load_connector_config(ctx, connector, debug, check_uninstalled=True)
@@ -367,7 +367,20 @@ async def init(
             error = True
 
         elif override_commit:
-            if click.confirm(
+            # Handle case where there's no existing release
+            if not current_ws.get("release"):
+                if click.confirm(FeedbackManager.prompt_init_git_release_new(commit=override_commit)):
+                    try:
+                        release = await cli_git_release.update_release(client, current_ws, override_commit)
+                    except Exception as exc:
+                        raise CLIGitReleaseException(FeedbackManager.error_exception(error=str(exc)))
+
+                    final_response = FeedbackManager.success_init_git_release(
+                        workspace_name=current_ws["name"], release_commit=release["commit"]
+                    )
+                else:
+                    return
+            elif click.confirm(
                 FeedbackManager.prompt_init_git_release_force(
                     current_commit=current_ws["release"]["commit"], new_commit=override_commit
                 )
@@ -904,7 +917,7 @@ async def sql(
                 verbose=False,
             )
             query = ""
-            for _, elem in dependencies_graph.to_run.items():
+            for elem in dependencies_graph.to_run.values():
                 for _node in elem["nodes"]:
                     if _node["params"]["name"].lower() == node.lower():
                         query = "".join(_node["sql"])
@@ -983,8 +996,8 @@ async def materialize(
     ctx: Context,
     filename: str,
     push_deps: bool,
-    workspace_map: List[str],
-    workspace: List[str],
+    workspace_map: Tuple[Tuple[str, str], ...],
+    workspace: Tuple[Tuple[str, str], ...],
     no_versions: bool,
     verbose: bool,
     force_populate: Optional[str],
@@ -999,7 +1012,7 @@ async def materialize(
     click.echo(deprecation_notice)
     cl = create_tb_client(ctx)
 
-    async def _try_push_pipe_to_analyze(pipe_name):
+    async def _try_push_pipe_to_analyze(pipe_name: str) -> Optional[Any]:
         try:
             to_run = await folder_push(
                 cl,
@@ -1020,7 +1033,7 @@ async def materialize(
         except AlreadyExistsException as e:
             if "Datasource" in str(e):
                 click.echo(str(e))
-                return
+                return None
             if override_pipe or click.confirm(FeedbackManager.info_pipe_exists(name=pipe_name)):
                 to_run = await folder_push(
                     cl,
@@ -1038,7 +1051,7 @@ async def materialize(
                     verbose=verbose,
                 )
             else:
-                return
+                return None
         except click.ClickException as ex:
             # HACK: By now, datafile raises click.ClickException instead of
             # CLIException to avoid circular imports. Thats we need to trace
@@ -1229,7 +1242,7 @@ async def materialize(
         raise CLIException(FeedbackManager.error_exception(error=str(e)))
 
 
-def __patch_click_output():
+def __patch_click_output() -> None:
     import re
 
     CUSTOM_PATTERNS: List[str] = []

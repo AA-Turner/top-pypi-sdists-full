@@ -1,7 +1,14 @@
+import pytest
+from typing import Type
+
 from vellum.workflows.edges.edge import Edge
-from vellum.workflows.graph.graph import Graph
+from vellum.workflows.graph.graph import Graph, NoPortsNode
 from vellum.workflows.nodes.bases.base import BaseNode
+from vellum.workflows.nodes.displayable.final_output_node import FinalOutputNode
 from vellum.workflows.ports.port import Port
+from vellum.workflows.state.base import BaseState
+from vellum.workflows.triggers import ManualTrigger
+from vellum.workflows.triggers.schedule import ScheduleTrigger
 
 
 def test_graph__empty():
@@ -617,3 +624,390 @@ def test_graph__from_node_with_empty_ports():
 
     # THEN the graph should have exactly 1 node
     assert len(list(graph.nodes)) == 1
+
+
+def test_graph__manual_trigger_to_node():
+    # GIVEN a node
+    class MyNode(BaseNode):
+        pass
+
+    # WHEN we create graph with ManualTrigger >> Node (class-level, no instantiation)
+    graph = ManualTrigger >> MyNode
+
+    # THEN the graph has one trigger edge
+    trigger_edges = list(graph.trigger_edges)
+    assert len(trigger_edges) == 1
+    assert trigger_edges[0].trigger_class == ManualTrigger
+    assert trigger_edges[0].to_node == MyNode
+
+    # AND the graph has one trigger
+    triggers = list(graph.triggers)
+    assert len(triggers) == 1
+    assert triggers[0] == ManualTrigger
+
+    # AND the graph has one node
+    assert len(list(graph.nodes)) == 1
+    assert MyNode in list(graph.nodes)
+
+
+def test_graph__manual_trigger_to_set_of_nodes():
+    # GIVEN two nodes
+    class NodeA(BaseNode):
+        pass
+
+    class NodeB(BaseNode):
+        pass
+
+    # WHEN we create graph with ManualTrigger >> {NodeA, NodeB}
+    graph = ManualTrigger >> {NodeA, NodeB}
+
+    # THEN the graph has two trigger edges
+    trigger_edges = list(graph.trigger_edges)
+    assert len(trigger_edges) == 2
+
+    # AND both edges connect to the same ManualTrigger class
+    assert all(edge.trigger_class == ManualTrigger for edge in trigger_edges)
+
+    # AND edges connect to both nodes
+    target_nodes = {edge.to_node for edge in trigger_edges}
+    assert target_nodes == {NodeA, NodeB}
+
+    # AND the graph has one unique trigger
+    triggers = list(graph.triggers)
+    assert len(triggers) == 1
+
+    # AND the graph has two nodes
+    assert len(list(graph.nodes)) == 2
+
+
+def test_graph__manual_trigger_to_graph():
+    # GIVEN a graph of nodes
+    class NodeA(BaseNode):
+        pass
+
+    class NodeB(BaseNode):
+        pass
+
+    node_graph = NodeA >> NodeB
+
+    # WHEN we create graph with ManualTrigger >> Graph
+    graph = ManualTrigger >> node_graph
+
+    # THEN the graph has a trigger edge to the entrypoint
+    trigger_edges = list(graph.trigger_edges)
+    assert len(trigger_edges) == 1
+    assert trigger_edges[0].to_node == NodeA
+
+    # AND the graph preserves the original edges
+    edges = list(graph.edges)
+    assert len(edges) == 1
+    assert edges[0].to_node == NodeB
+
+    # AND the graph has both nodes
+    nodes = list(graph.nodes)
+    assert len(nodes) == 2
+    assert NodeA in nodes
+    assert NodeB in nodes
+
+
+def test_graph__manual_trigger_to_set_of_graphs_preserves_edges():
+    # GIVEN two graphs of nodes
+    class NodeA(BaseNode):
+        pass
+
+    class NodeB(BaseNode):
+        pass
+
+    class NodeC(BaseNode):
+        pass
+
+    class NodeD(BaseNode):
+        pass
+
+    graph_one = NodeA >> NodeB
+    graph_two = NodeC >> NodeD
+
+    # WHEN we create a graph with ManualTrigger >> {Graph1, Graph2}
+    combined_graph = ManualTrigger >> {graph_one, graph_two}
+
+    # THEN the combined graph has trigger edges to both entrypoints
+    trigger_edges = list(combined_graph.trigger_edges)
+    assert len(trigger_edges) == 2
+    assert {edge.to_node for edge in trigger_edges} == {NodeA, NodeC}
+
+    # AND the combined graph preserves all downstream edges
+    edges = list(combined_graph.edges)
+    assert len(edges) == 2
+    assert {(edge.from_port.node_class, edge.to_node) for edge in edges} == {
+        (NodeA, NodeB),
+        (NodeC, NodeD),
+    }
+
+    # AND the combined graph still exposes all nodes
+    nodes = list(combined_graph.nodes)
+    assert {NodeA, NodeB, NodeC, NodeD}.issubset(nodes)
+
+
+def test_graph__node_to_trigger_raises():
+    # GIVEN a node and trigger
+    class MyNode(BaseNode):
+        pass
+
+    # WHEN we try to create Node >> Trigger (class-level)
+    # THEN it raises TypeError
+    with pytest.raises(TypeError, match="Cannot create edge targeting trigger"):
+        MyNode >> ManualTrigger
+
+    # WHEN we try to create Node >> Trigger (instance-level)
+    # THEN it also raises TypeError
+    with pytest.raises(TypeError, match="Cannot create edge targeting trigger"):
+        MyNode >> ManualTrigger
+
+
+def test_graph__trigger_then_graph_then_node():
+    # GIVEN a trigger, a node, and another node
+    class StartNode(BaseNode):
+        pass
+
+    class EndNode(BaseNode):
+        pass
+
+    # WHEN we create Trigger >> Node >> Node
+    graph = ManualTrigger >> StartNode >> EndNode
+
+    # THEN the graph has one trigger edge
+    trigger_edges = list(graph.trigger_edges)
+    assert len(trigger_edges) == 1
+    assert trigger_edges[0].to_node == StartNode
+
+    # AND the graph has one regular edge
+    edges = list(graph.edges)
+    assert len(edges) == 1
+    assert edges[0].to_node == EndNode
+
+    # AND the graph has both nodes
+    nodes = list(graph.nodes)
+    assert len(nodes) == 2
+
+
+def test_graph__set_of_trigger_graphs_preserves_trigger_edges():
+    """Test that combining graphs with triggers via a set preserves trigger edges.
+
+    This tests the fix for Graph.from_set() not propagating _trigger_edges.
+    """
+
+    # GIVEN a custom scheduled trigger
+    class MyScheduledTrigger(ScheduleTrigger):
+        class Config:
+            cron = "0 9 * * *"
+
+    # AND two trigger-initiated graphs
+    class MyFirstNode(BaseNode):
+        pass
+
+    class MySecondNode(BaseNode):
+        pass
+
+    trigger_graph_a = MyScheduledTrigger >> MyFirstNode
+    trigger_graph_b = MyScheduledTrigger >> MySecondNode
+
+    # WHEN we combine them in a set
+    combined_graph = Graph.from_set({trigger_graph_a, trigger_graph_b})
+
+    # THEN the combined graph has both trigger edges
+    trigger_edges = list(combined_graph.trigger_edges)
+    assert len(trigger_edges) == 2
+
+    # AND both edges point to the correct nodes
+    target_nodes = {edge.to_node for edge in trigger_edges}
+    assert target_nodes == {MyFirstNode, MySecondNode}
+
+    # AND the graph exposes the trigger
+    triggers = list(combined_graph.triggers)
+    assert len(triggers) == 1
+    assert triggers[0] == MyScheduledTrigger
+
+
+def test_graph__set_of_trigger_graphs_to_node_preserves_trigger_edges():
+    # GIVEN a custom scheduled trigger
+    class MyScheduledTrigger(ScheduleTrigger):
+        class Config:
+            cron = "0 9 * * *"
+
+    # AND two trigger-initiated graphs
+    class MyFirstNode(BaseNode):
+        pass
+
+    class MySecondNode(BaseNode):
+        pass
+
+    class MyThirdNode(BaseNode):
+        pass
+
+    trigger_graph_a = MyScheduledTrigger >> MyFirstNode
+    trigger_graph_b = MyScheduledTrigger >> MySecondNode
+
+    # WHEN we combine them in a set and connect to another node
+    combined_graph = {trigger_graph_a, trigger_graph_b} >> MyThirdNode
+
+    # THEN the combined graph has both trigger edges
+    trigger_edges = list(combined_graph.trigger_edges)
+    assert len(trigger_edges) == 2
+
+    # AND both trigger edges point to the correct initial nodes
+    trigger_target_nodes = {edge.to_node for edge in trigger_edges}
+    assert trigger_target_nodes == {MyFirstNode, MySecondNode}
+
+    # AND the graph has regular edges to the third node
+    regular_edges = list(combined_graph.edges)
+    assert len(regular_edges) == 2
+    assert all(edge.to_node == MyThirdNode for edge in regular_edges)
+
+    # AND the graph has all three nodes
+    nodes = list(combined_graph.nodes)
+    assert len(nodes) == 3
+    assert set(nodes) == {MyFirstNode, MySecondNode, MyThirdNode}
+
+
+def test_graph__graph_rshift_graph_preserves_trigger_edges():
+    """Test that Graph >> Graph preserves trigger edges from the right-hand graph."""
+
+    # GIVEN a regular graph and a trigger-initiated graph
+    class StartNode(BaseNode):
+        pass
+
+    class TriggerNode(BaseNode):
+        pass
+
+    class EndNode(BaseNode):
+        pass
+
+    regular_graph = StartNode >> TriggerNode
+    trigger_graph = ManualTrigger >> EndNode
+
+    # WHEN we combine them with >>
+    combined = regular_graph >> trigger_graph
+
+    # THEN the combined graph has the trigger edge
+    trigger_edges = list(combined.trigger_edges)
+    assert len(trigger_edges) == 1
+    assert trigger_edges[0].to_node == EndNode
+
+    # AND the graph exposes the trigger
+    triggers = list(combined.triggers)
+    assert len(triggers) == 1
+
+
+def test_graph__graph_rshift_set_of_trigger_graphs_preserves_trigger_edges():
+    """Test that Graph >> {TriggerGraph1, TriggerGraph2} preserves trigger edges."""
+
+    # GIVEN a regular graph and two trigger-initiated graphs
+    class StartNode(BaseNode):
+        pass
+
+    class TriggerNodeA(BaseNode):
+        pass
+
+    class TriggerNodeB(BaseNode):
+        pass
+
+    regular_graph = Graph.from_node(StartNode)
+    trigger_graph_a = ManualTrigger >> TriggerNodeA
+    trigger_graph_b = ManualTrigger >> TriggerNodeB
+
+    # WHEN we combine them with >> and a set
+    combined = regular_graph >> {trigger_graph_a, trigger_graph_b}
+
+    # THEN the combined graph has both trigger edges
+    trigger_edges = list(combined.trigger_edges)
+    assert len(trigger_edges) == 2
+
+    # AND both trigger edges point to the correct nodes
+    trigger_target_nodes = {edge.to_node for edge in trigger_edges}
+    assert trigger_target_nodes == {TriggerNodeA, TriggerNodeB}
+
+
+class TestFinalOutputNoPortsNode:
+    """Test that we preserve final output nodes as NoPortsNode when constructing a Graph."""
+
+    def validate_graph(self, graph: Graph, final_output_node: Type[FinalOutputNode]):
+        assert len(list(graph._terminals)) == 1
+        node = list(graph._terminals)[0]
+        assert isinstance(node, NoPortsNode)
+        assert node.node_class == final_output_node
+
+    def test_from_edge(self):
+        # GIVEN
+        class StartNode(BaseNode[BaseState]):
+            pass
+
+        class MyFinalOutput(FinalOutputNode[BaseState, str]):
+            pass
+
+        # WHEN
+        edge = Edge(from_port=StartNode.Ports.default, to_node=MyFinalOutput)
+        graph = Graph.from_edge(edge)
+
+        # THEN
+        self.validate_graph(graph, MyFinalOutput)
+
+    def test_rshift__node(self):
+        # GIVEN
+        class StartNode(BaseNode[BaseState]):
+            pass
+
+        class MyFinalOutput(FinalOutputNode[BaseState, str]):
+            pass
+
+        # WHEN
+        initial_graph = Graph.from_node(StartNode)
+        graph = initial_graph >> MyFinalOutput
+
+        # THEN
+        self.validate_graph(graph, MyFinalOutput)
+
+    def test_rshift__graph(self):
+        # GIVEN
+        class StartNode(BaseNode[BaseState]):
+            pass
+
+        class MyFinalOutput(FinalOutputNode[BaseState, str]):
+            pass
+
+        # WHEN
+        subgraph = Graph.from_node(MyFinalOutput)
+        graph = Graph.from_node(StartNode) >> subgraph
+
+        # THEN
+        self.validate_graph(subgraph, MyFinalOutput)
+        self.validate_graph(graph, MyFinalOutput)
+
+    def test_rshift__set_with_node(self):
+        # GIVEN
+        class StartNode(BaseNode[BaseState]):
+            pass
+
+        class MyFinalOutput(FinalOutputNode[BaseState, str]):
+            pass
+
+        # WHEN
+        graph = Graph.from_node(StartNode) >> {MyFinalOutput}
+
+        # THEN
+        self.validate_graph(graph, MyFinalOutput)
+
+    def test_rshift__set_with_graph(self):
+        # GIVEN
+        class StartNode(BaseNode[BaseState]):
+            pass
+
+        class MyFinalOutput(FinalOutputNode[BaseState, str]):
+            pass
+
+        # WHEN
+        subgraph = Graph.from_node(MyFinalOutput)
+        graph = Graph.from_node(StartNode) >> {subgraph}
+
+        # THEN
+        self.validate_graph(subgraph, MyFinalOutput)
+        self.validate_graph(graph, MyFinalOutput)

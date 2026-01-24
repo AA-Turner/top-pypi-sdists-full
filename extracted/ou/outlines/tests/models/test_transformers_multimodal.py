@@ -2,6 +2,7 @@
 
 import io
 import re
+import torch
 from enum import Enum
 
 import pytest
@@ -43,21 +44,21 @@ def model():
         LlavaForConditionalGeneration.from_pretrained(TEST_MODEL),
         AutoProcessor.from_pretrained(TEST_MODEL),
     )
-    chat_template = '{% for message in messages %}{{ message.role }}: {{ message.content }}{% endfor %}'
-    model.type_adapter.tokenizer.chat_template = chat_template
 
     return model
 
 
-def test_transformers_multimodal_instantiate_simple():
+def test_transformers_multimodal_instantiate():
     model = outlines.from_transformers(
         LlavaForConditionalGeneration.from_pretrained(TEST_MODEL),
         AutoProcessor.from_pretrained(TEST_MODEL),
+        device_dtype=torch.bfloat16,
     )
     assert isinstance(model, TransformersMultiModal)
     assert isinstance(model.tokenizer, TransformerTokenizer)
     assert isinstance(model.type_adapter, TransformersMultiModalTypeAdapter)
     assert model.tensor_library_name == "torch"
+    assert model.device_dtype == torch.bfloat16
 
 
 def test_transformers_multimodal_simple(model, image):
@@ -70,6 +71,13 @@ def test_transformers_multimodal_simple(model, image):
 
 
 def test_transformers_multimodal_call(model, image):
+    result = model(
+        ["<image>Describe this image in one sentence:", Image(image)],
+        max_new_tokens=2,
+    )
+    assert isinstance(result, str)
+
+    model.device_dtype = torch.bfloat16
     result = model(
         ["<image>Describe this image in one sentence:", Image(image)],
         max_new_tokens=2,
@@ -100,8 +108,23 @@ def test_transformers_multimodal_chat(model, image):
             {
                 "role": "user",
                 "content": [
-                    "Describe this image in one sentence:<image>",
+                    "Describe this image in one sentence:",
                     Image(image),
+                ],
+            },
+        ]),
+        max_new_tokens=2,
+    )
+    assert isinstance(result, str)
+
+    result = model(
+        Chat(messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this image in one sentence:"},
+                    {"type": "image", "image": Image(image)},
                 ],
             },
         ]),
@@ -221,7 +244,7 @@ def test_transformers_multimodal_batch(model, image):
                 {
                     "role": "user",
                     "content": [
-                        "Describe this image in one sentence:<image>",
+                        "Describe this image in one sentence:",
                         Image(image),
                     ],
                 },
@@ -231,7 +254,7 @@ def test_transformers_multimodal_batch(model, image):
                 {
                     "role": "user",
                     "content": [
-                        "Describe this image in one sentence:<image>",
+                        "Describe this image in one sentence:",
                         Image(image),
                     ],
                 },
@@ -242,15 +265,30 @@ def test_transformers_multimodal_batch(model, image):
     assert isinstance(result, list)
     assert len(result) == 2
 
-
-def test_transformers_multimodal_deprecated_input_type(model, image):
-    with pytest.warns(DeprecationWarning):
-        result = model.generate(
-            {
-                "text": "<image>Describe this image in one sentence:",
-                "image": image,
-            },
-            None,
-            max_new_tokens=2,
-        )
-        assert isinstance(result, str)
+    result = model.batch(
+        [
+            Chat(messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe this image in one sentence:"},
+                        {"type": "image", "image": Image(image)},
+                    ],
+                },
+            ]),
+            Chat(messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "Describe this image in one sentence:"},
+                        {"type": "image", "image": Image(image)},
+                    ],
+                },
+            ]),
+        ],
+        max_new_tokens=2,
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2

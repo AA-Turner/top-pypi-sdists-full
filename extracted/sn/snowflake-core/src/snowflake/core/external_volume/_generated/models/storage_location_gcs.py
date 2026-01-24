@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr
+from pydantic import ConfigDict, StrictStr
 
 from snowflake.core.external_volume._generated.models.encryption import Encryption, EncryptionModel
 from snowflake.core.external_volume._generated.models.storage_location import StorageLocation
@@ -45,9 +45,10 @@ class StorageLocationGcs(StorageLocation):
 
     __properties = ["name", "storage_provider"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -72,7 +73,7 @@ class StorageLocationGcs(StorageLocation):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of encryption
         if self.encryption:
@@ -93,9 +94,9 @@ class StorageLocationGcs(StorageLocation):
             return None
 
         if type(obj) is not dict:
-            return StorageLocationGcs.parse_obj(obj)
+            return StorageLocationGcs.model_validate(obj)
 
-        _obj = StorageLocationGcs.parse_obj(
+        _obj = StorageLocationGcs.model_validate(
             {
                 "name": obj.get("name"),
                 "storage_base_url": obj.get("storage_base_url"),

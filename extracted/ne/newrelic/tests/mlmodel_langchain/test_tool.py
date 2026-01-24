@@ -27,6 +27,7 @@ from testing_support.ml_testing_utils import (
     disabled_ai_monitoring_settings,
     events_with_context_attrs,
     set_trace_info,
+    tool_events_sans_content,
 )
 from testing_support.validators.validate_custom_event import validate_custom_event_count
 from testing_support.validators.validate_custom_events import validate_custom_events
@@ -57,15 +58,6 @@ def multi_arg_tool():
         return first_num + second_num
 
     return _multi_arg_tool
-
-
-def events_sans_content(event):
-    new_event = copy.deepcopy(event)
-    for _event in new_event:
-        del _event[1]["input"]
-        if "output" in _event[1]:
-            del _event[1]["output"]
-    return new_event
 
 
 single_arg_tool_recorded_events = [
@@ -108,7 +100,7 @@ def test_langchain_single_arg_tool(set_trace_info, single_arg_tool):
 
 @reset_core_stats_engine()
 @disabled_ai_monitoring_record_content_settings
-@validate_custom_events(events_sans_content(single_arg_tool_recorded_events))
+@validate_custom_events(tool_events_sans_content(single_arg_tool_recorded_events))
 @validate_custom_event_count(count=1)
 @validate_transaction_metrics(
     name="test_tool:test_langchain_single_arg_tool_no_content",
@@ -144,7 +136,7 @@ def test_langchain_single_arg_tool_async(set_trace_info, single_arg_tool, loop):
 
 @reset_core_stats_engine()
 @disabled_ai_monitoring_record_content_settings
-@validate_custom_events(events_sans_content(single_arg_tool_recorded_events))
+@validate_custom_events(tool_events_sans_content(single_arg_tool_recorded_events))
 @validate_custom_event_count(count=1)
 @validate_transaction_metrics(
     name="test_tool:test_langchain_single_arg_tool_async_no_content",
@@ -275,7 +267,7 @@ def test_langchain_error_in_run(set_trace_info, multi_arg_tool):
 @validate_error_trace_attributes(
     callable_name(pydantic_core._pydantic_core.ValidationError), exact_attrs={"agent": {}, "intrinsic": {}, "user": {}}
 )
-@validate_custom_events(events_sans_content(multi_arg_error_recorded_events))
+@validate_custom_events(tool_events_sans_content(multi_arg_error_recorded_events))
 @validate_custom_event_count(count=1)
 @validate_transaction_metrics(
     name="test_tool:test_langchain_error_in_run_no_content",
@@ -327,7 +319,7 @@ def test_langchain_error_in_run_async(set_trace_info, multi_arg_tool, loop):
 @validate_error_trace_attributes(
     callable_name(pydantic_core._pydantic_core.ValidationError), exact_attrs={"agent": {}, "intrinsic": {}, "user": {}}
 )
-@validate_custom_events(events_sans_content(multi_arg_error_recorded_events))
+@validate_custom_events(tool_events_sans_content(multi_arg_error_recorded_events))
 @validate_custom_event_count(count=1)
 @validate_transaction_metrics(
     name="test_tool:test_langchain_error_in_run_async_no_content",
@@ -392,9 +384,7 @@ def test_langchain_tool_disabled_ai_monitoring_events_async(set_trace_info, sing
 
 def test_langchain_multiple_async_calls(set_trace_info, single_arg_tool, multi_arg_tool, loop):
     call1 = single_arg_tool_recorded_events.copy()
-    call1[0][1]["run_id"] = "b1883d9d-10d6-4b67-a911-f72849704e92"
     call2 = multi_arg_tool_recorded_events.copy()
-    call2[0][1]["run_id"] = "a58aa0c0-c854-4657-9e7b-4cce442f3b61"
     expected_events = call1 + call2
 
     @reset_core_stats_engine()
@@ -409,27 +399,15 @@ def test_langchain_multiple_async_calls(set_trace_info, single_arg_tool, multi_a
     def _test():
         set_trace_info()
 
-        with patch("langchain_core.callbacks.manager.uuid", autospec=True) as mock_uuid:
-            mock_uuid.uuid4.side_effect = [
-                uuid.UUID("b1883d9d-10d6-4b67-a911-f72849704e92"),  # first call
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b61"),
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b61"),  # second call
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b63"),
-                uuid.UUID("b1883d9d-10d6-4b67-a911-f72849704e93"),
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b64"),
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b65"),
-                uuid.UUID("a58aa0c0-c854-4657-9e7b-4cce442f3b66"),
-            ]
-
-            loop.run_until_complete(
-                asyncio.gather(
-                    single_arg_tool.arun({"query": "Python Agent"}),
-                    multi_arg_tool.arun(
-                        {"first_num": 53, "second_num": 28},
-                        tags=["python", "test_tags"],
-                        metadata={"test": "langchain", "test_run": True},
-                    ),
-                )
+        loop.run_until_complete(
+            asyncio.gather(
+                single_arg_tool.arun({"query": "Python Agent"}),
+                multi_arg_tool.arun(
+                    {"first_num": 53, "second_num": 28},
+                    tags=["python", "test_tags"],
+                    metadata={"test": "langchain", "test_run": True},
+                ),
             )
+        )
 
     _test()

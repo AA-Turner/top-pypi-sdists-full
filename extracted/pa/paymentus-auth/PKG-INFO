@@ -1,0 +1,236 @@
+Metadata-Version: 2.4
+Name: paymentus-auth
+Version: 1.0.0
+Summary: Paymentus Python Auth SDK
+Author-email: Paymentus SDK Support <sdksupport@paymentus.com>
+Maintainer-email: Paymentus SDK Support <sdksupport@paymentus.com>
+License-Expression: MIT
+Project-URL: Homepage, https://www.paymentus.com/
+Project-URL: Source, https://developer.paymentus.io/
+Keywords: paymentus,auth,authentication,authorization,jwt,api,sdk,access token
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: PyJWT>=2.8.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: requests>=2.31.0
+Requires-Dist: urllib3>=2.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: black>=22.0.0; extra == "dev"
+Requires-Dist: flake8>=4.0.0; extra == "dev"
+Requires-Dist: isort>=5.0.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Requires-Dist: build>=0.8.0; extra == "dev"
+
+# Paymentus Auth
+
+Authentication client for Paymentus API services. This package handles JWT token management and authentication for Paymentus API endpoints.
+
+## Installation
+
+```bash
+pip install paymentus-auth
+```
+
+## Usage
+
+### Basic Usage
+
+```python
+import asyncio
+from paymentus_auth import Auth, AuthConfig
+
+async def main():
+    # Initialize the auth client
+    auth_config = AuthConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        scope=['xotp'],  # Base scopes
+        tla='ABC'
+    )
+
+    auth_client = Auth(auth_config)
+
+    # Fetch a token
+    token = await auth_client.fetch_token()
+    print(f"Token: {token}")
+    
+    # Check if token is expired
+    is_token_expired = auth_client.is_token_expired()
+    print(f"Token Expired: {is_token_expired}")
+    
+    # Get current token
+    current_token = auth_client.get_current_token()
+    print(f"Current Token: {current_token}")
+
+asyncio.run(main())
+```
+
+## Configuration Options
+
+The `Auth` constructor accepts the following configuration:
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `base_url` | string | Yes | Base URL for the Paymentus API, it varies based on the environment biller is in |
+| `pre_shared_key` | string | Yes | Pre-shared key for JWT signing |
+| `scope` | string[] | Yes | Array of API scopes (e.g., ['xotp', 'xotp:profile']) |
+| `tla` | string | Yes | Three-letter acronym for your application |
+| `aud` | string | No | Audience claim for the JWT (optional) |
+| `timeout` | number | No | Request timeout in milliseconds (default: 5000) |
+| `user_login` | string | No | User login identifier |
+| `pm_token` | string[] | No | Payment method tokens |
+| `payments_data` | list | No | Payment data for the transaction |
+
+## Available Scopes
+
+The SDK supports the following scopes:
+
+- `xotp` - Basic XOTP functionality
+- `xotp:profile` - Profile management
+- `xotp:profile:read` - Read profile data
+- `xotp:profile:create` - Create profiles
+- `xotp:profile:update` - Update profiles
+- `xotp:profile:delete` - Delete profiles
+- `xotp:listProfiles` - List profiles
+- `xotp:payment` - Payment processing
+- `xotp:autopay` - Autopay functionality
+- `xotp:autopay:delete` - Delete autopay settings
+- `xotp:accounts` - Account management
+- `xotp:accounts:listAccounts` - List accounts
+
+## Error Handling
+
+The package throws specific error types for different scenarios:
+
+```python
+from paymentus_auth.errors import ConfigurationError, TokenError, NetworkError
+
+try:
+    token = await auth_client.fetch_token()
+except ConfigurationError as e:
+    print(f"Configuration Error: {e}")
+except TokenError as e:
+    print(f"Token Error: {e}")
+except NetworkError as e:
+    print(f"Network Error: {e}")
+```
+
+## Advanced Usage
+
+### Using Multiple Scopes
+
+```python
+import asyncio
+from paymentus_auth import Auth, AuthConfig
+
+async def main():
+    auth_config = AuthConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        scope=['xotp:profile', 'xotp:payment'],  # Multiple scopes
+        tla='ABC',
+        aud='WEB_SDK'
+    )
+    
+    auth_client = Auth(auth_config)
+    token = await auth_client.fetch_token()
+    print(f"Token: {token}")
+
+asyncio.run(main())
+```
+
+### Using Optional Fields
+
+```python
+import asyncio
+from paymentus_auth import Auth, AuthConfig
+
+async def main():
+    auth_config = AuthConfig(
+        base_url='https://<environment>.paymentus.com',
+        pre_shared_key='shared-256-bit-secret',
+        scope=['xotp'],
+        tla='ABC',
+        aud='WEB_SDK',
+        user_login='user@example.com',
+        pm_token=['token1', 'token2'],
+        payments_data=[{
+            'account_number': '123456',
+            'conv_fee_state': 'NY',
+            'conv_fee_country': 'US'
+        }]
+    )
+    
+    auth_client = Auth(auth_config)
+    token = await auth_client.fetch_token()
+    print(f"Token: {token}")
+
+asyncio.run(main())
+```
+
+## API Reference
+
+### Auth Class
+
+#### Constructor
+
+```python
+Auth(config: AuthConfig)
+```
+
+Creates a new Auth client instance with the provided configuration.
+
+#### Methods
+
+##### fetch_token()
+
+```python
+async fetch_token() -> str
+```
+
+Fetches a new JWT token from the Paymentus API. Returns a Promise that resolves to the token string.
+
+##### get_current_token()
+
+```python
+get_current_token() -> str or None
+```
+
+Returns the current token if available, or None if no token has been fetched.
+
+##### is_token_expired()
+
+```python
+is_token_expired() -> bool
+```
+
+Returns true if the current token is expired or no token is available.
+
+## Development
+
+### Building
+
+```bash
+python -m pip install -e .
+```
+
+### Testing
+
+```bash
+python -m pytest
+```
+
+
+## Disclaimer
+
+These SDKs are intended for use with the URLs and keys that are provided to you for your company by Paymentus. If you do not have this information, please reach out to your implementation or account manager. If you are interested in learning more about the solutions that Paymentus provides, you can visit our website at paymentus.com. You can request access to our complete documentation at developer.paymentus.io. If you are currently not a customer or partner and would like to learn more about the solution and how you can get started with Paymentus, please contact us at https://www.paymentus.com/lets-talk/.
+
+## Contact us
+
+If you have any questions or need assistance, please contact us at sdksupport@paymentus.com.
+
+## License
+
+MIT

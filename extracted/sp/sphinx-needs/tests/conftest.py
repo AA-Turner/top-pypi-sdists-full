@@ -1,5 +1,7 @@
 """Pytest conftest module containing common test configuration and fixtures."""
 
+from __future__ import annotations
+
 import json
 import os.path
 import secrets
@@ -13,7 +15,10 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
+from _pytest.mark import ParameterSet
 from docutils.nodes import document
+from jinja2 import Template
 from sphinx import version_info
 from sphinx.application import Sphinx
 from sphinx.testing.path import path
@@ -51,6 +56,19 @@ def copy_srcdir_to_tmpdir(srcdir: path, tmp: path) -> path:
     srcdir = path(__file__).parent.abspath() / srcdir
     tmproot = tmp.joinpath(generate_random_string()) / path(srcdir).basename()
     shutil.copytree(srcdir, tmproot)
+    return tmproot
+
+
+def create_src_files_in_tmpdir(files: list[tuple[Path, str]], tmp: path) -> path:
+    """Create source files in a temporary directory under the subdir src."""
+    subdir = path("src")
+    tmproot = tmp.joinpath(generate_random_string()) / subdir
+    tmproot.makedirs(exist_ok=True)
+    for file in files:
+        file_path, content = file
+        file_abs = tmproot.joinpath(str(file_path))
+        file_abs.parent.makedirs(exist_ok=True)
+        file_abs.write_text(content)
     return tmproot
 
 
@@ -119,7 +137,7 @@ def test_server(xprocess, sphinx_test_tempdir):
 
     if not check_server_connection(log_path=xprocess.getinfo("http_server").logpath):
         # Start the process and ensure it is running
-        _, logfile = xprocess.ensure("http_server", Starter, persist_logs=False)
+        xprocess.ensure("http_server", Starter, persist_logs=False)
 
     http_server_process = xprocess.getinfo("http_server")
     server_url = f"http://{addr}:{port}"
@@ -264,9 +282,18 @@ def test_app(make_app, sphinx_test_tempdir, request):
         )
         sphinx_conf_overrides.update(plantuml=plantuml)
 
-    # copy test srcdir to test temporary directory sphinx_test_tempdir
     srcdir = builder_params.get("srcdir")
-    src_dir = copy_srcdir_to_tmpdir(srcdir, sphinx_test_tempdir)
+    files = builder_params.get("files")
+    if (srcdir is None) == (files is None):
+        raise ValueError("Exactly one of srcdir, files must not be None")
+
+    if srcdir is not None:
+        # copy test srcdir to test temporary directory sphinx_test_tempdir
+        src_dir = copy_srcdir_to_tmpdir(srcdir, sphinx_test_tempdir)
+    else:
+        # create given files in tmpdir
+        src_dir = create_src_files_in_tmpdir(files, sphinx_test_tempdir)
+
     parent_path = Path(str(src_dir.parent.abspath()))
 
     if version_info >= (7, 2):
@@ -337,3 +364,164 @@ def snapshot_doctree(snapshot):
     except AttributeError:
         # fallback for older versions of pytest-snapshot
         return snapshot.use_extension(DoctreeSnapshotExtension)
+
+
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """Generate tests for a ``@pytest.mark.fixture_file`` decorator."""
+    for marker in metafunc.definition.iter_markers(name="fixture_file"):
+        params = create_parameters(*marker.args, **marker.kwargs)
+        metafunc.parametrize(argnames="content", argvalues=params)
+
+
+THIS_DIR = Path(__file__).parent
+
+
+def create_parameters(
+    *rel_paths: str, skip_files: None | list[str] = None
+) -> list[ParameterSet]:
+    """Create parameters for a pytest param_file decorator."""
+    paths: list[Path] = []
+    for rel_path in rel_paths:
+        assert not Path(rel_path).is_absolute()
+        path = THIS_DIR.joinpath(rel_path)
+        if path.is_file():
+            paths.append(path)
+        elif path.is_dir():
+            paths.extend(path.glob("*.yaml"))
+        else:
+            raise FileNotFoundError(f"File / folder not found: {path}")
+
+    if skip_files:
+        paths = [
+            path for path in paths if str(path.relative_to(THIS_DIR)) not in skip_files
+        ]
+
+    if not paths:
+        raise FileNotFoundError(f"No files found: {rel_paths}")
+
+    if len(paths) == 1:
+        with paths[0].open(encoding="utf8") as f:
+            try:
+                data = yaml.safe_load(f)
+            except Exception as err:
+                raise OSError(f"Error loading {paths[0]}") from err
+        return [pytest.param(value, id=id) for id, value in data.items()]
+    else:
+        params: list[ParameterSet] = []
+        for subpath in paths:
+            with subpath.open(encoding="utf8") as f:
+                try:
+                    data = yaml.safe_load(f)
+                except Exception as err:
+                    raise OSError(f"Error loading {subpath}") from err
+            for key, value in data.items():
+                params.append(
+                    pytest.param(
+                        value,
+                        id=f"{subpath.relative_to(THIS_DIR).with_suffix('').as_posix()}-{key}",
+                    )
+                )
+        return params
+
+
+@pytest.fixture
+def write_fixture_files():
+    def _inner(tmp: Path, content: dict[str, str]) -> None:
+        section_file_mapping: dict[str, Path] = {
+            "conf": tmp / "conf.py",
+            "ubproject": tmp / "ubproject.toml",
+            "rst": tmp / "index.rst",
+            "schemas": tmp / "schemas.json",
+        }
+        for section, file_path in section_file_mapping.items():
+            if section in content:
+                if isinstance(content[section], dict):
+                    # used for schemas.json
+                    file_path.write_text(
+                        json.dumps(content[section], indent=2), encoding="utf-8"
+                    )
+                elif isinstance(content[section], str):
+                    file_path.write_text(content[section], encoding="utf-8")
+                else:
+                    raise ValueError(
+                        f"Unsupported content type for section '{section}': {type(content[section])}"
+                    )
+
+    return _inner
+
+
+@pytest.fixture
+def get_warnings_list():
+    """
+    Fixture to get a list of warnings from a SphinxTestApp.
+
+    The split happens in each occurence of "WARNING: ".
+    Each warning is returned as a string with \n as multi line speparator.
+    """
+
+    def _get_warnings_list(app: SphinxTestApp) -> list[str]:
+        warnings_raw = strip_colors(app.warning.getvalue())
+        warnings_split = [
+            part
+            for part in warnings_raw.replace("ERROR: ", "WARNING: ").split("WARNING: ")
+            if part
+        ]
+        return warnings_split
+
+    return _get_warnings_list
+
+
+@pytest.fixture
+def schema_benchmark_app(tmpdir: Path, request: pytest.SubRequest, make_app):
+    """Fixture to create a schema benchmark Sphinx project."""
+    need_cnt: int = request.param
+
+    assert need_cnt % 10 == 0, "need_cnt must be a multiple of 10"
+    page_cnt = int(need_cnt / 10)
+
+    this_file_dir = Path(__file__).parent
+
+    src_dir = this_file_dir / "doc_test" / "doc_schema_benchmark"
+    page_template_path = src_dir / "page.rst.j2"
+    with page_template_path.open() as fp:
+        template_content = fp.read()
+
+    template = Template(template_content)
+    pages_dir = Path(tmpdir) / "pages"
+    pages_dir.mkdir(exist_ok=True)
+    toctree_content = """
+.. toctree::
+    :maxdepth: 2
+
+"""
+    width = len(str(page_cnt))
+    for i in range(1, page_cnt + 1):
+        i_fmt = f"{i:0{width}d}"
+        page_rst_content = template.render(page_nr=i_fmt)
+
+        page_name = f"page_{i_fmt}"
+        page_file = f"{page_name}.rst"
+        page_rst_path = pages_dir / page_file
+        page_rst_path.write_text(page_rst_content, encoding="utf-8")
+        toctree_content += f"   pages/{page_name}\n"
+
+    index_file = tmpdir / "index.rst"
+    index_file.write_text(toctree_content, encoding="utf-8")
+
+    copy_files = [
+        src_dir / "conf.py",
+        src_dir / "schemas.json",
+        src_dir / "ubproject.toml",
+    ]
+    for copy_file in copy_files:
+        dst_file = tmpdir / copy_file.name
+        dst_file.write_text(copy_file.read_text(), encoding="utf-8")
+
+    app: SphinxTestApp = make_app(
+        # the schema builder does only validate, no output
+        buildername="schema",
+        srcdir=Path(tmpdir),
+        freshenv=True,
+    )
+    yield app
+    app.cleanup()

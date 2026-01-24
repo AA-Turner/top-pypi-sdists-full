@@ -190,9 +190,9 @@ class CccClient(AbstractClient):
 
 
     def CreateAICall(self, request):
-        r"""Used to make outbound calls by invoking AI models, limited to the use of proprietary phone numbers. Currently, the Advanced version seats are available for a **limited time** free trial.
+        r"""This API is used to **call the AI model directly** to trigger a **single** outbound call. It supports configuring the model, prompt content, voice, and all call elements through API parameters.
 
-        Before initiating a call, please ensure your AI model is compatible with OpenAI, Azure, or Minimax protocols, and visit the model provider's website to obtain relevant authentication information. For detailed feature descriptions, please refer to the documentation [Tencent Cloud Contact Center AI Call Platform](https://www.tencentcloud.com/document/product/1229/66889).
+        The feature requires purchase of the Intelligent Agent call package and is only available for own telephone numbers. For details, refer to the Intelligent Agent Call Purchase Guide (https://www.tencentcloud.comom/document/product/679/125953?from_cn_redirect=1).
 
         :param request: Request instance for CreateAICall.
         :type request: :class:`tencentcloud.ccc.v20200210.models.CreateAICallRequest`
@@ -577,6 +577,52 @@ class CccClient(AbstractClient):
             body = self.call("DeleteStaff", params, headers=headers)
             response = json.loads(body)
             model = models.DeleteStaffResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeAIAgentInfoList(self, request):
+        r"""This API is used to get the list of Intelligent Agents.
+
+        :param request: Request instance for DescribeAIAgentInfoList.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAgentInfoListRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAgentInfoListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAIAgentInfoList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAIAgentInfoListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeAIAnalysisResult(self, request):
+        r"""This API is used to obtain AI Conversation Analytics results.
+
+        :param request: Request instance for DescribeAIAnalysisResult.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAnalysisResultRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.DescribeAIAnalysisResultResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAIAnalysisResult", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAIAnalysisResultResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1405,6 +1451,29 @@ class CccClient(AbstractClient):
             body = self.call("ResumePredictiveDialingCampaign", params, headers=headers)
             response = json.loads(body)
             model = models.ResumePredictiveDialingCampaignResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetStaffStatus(self, request):
+        r"""This API is used to set staff status.
+
+        :param request: Request instance for SetStaffStatus.
+        :type request: :class:`tencentcloud.ccc.v20200210.models.SetStaffStatusRequest`
+        :rtype: :class:`tencentcloud.ccc.v20200210.models.SetStaffStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetStaffStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetStaffStatusResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

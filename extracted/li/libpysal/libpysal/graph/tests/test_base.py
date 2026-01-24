@@ -7,8 +7,6 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-from packaging.version import Version
-from scipy import __version__ as scipy_version
 from scipy import sparse
 
 from libpysal import graph, weights
@@ -58,7 +56,8 @@ class TestBase:
             self.weight_dict_str_binary.values(),
             name="weight",
             index=pd.MultiIndex.from_arrays(
-                [self.index_str, self.neighbor_dict_str.values()],
+                # list() to allow pandas to coerce the data to its StringDtype
+                [list(self.index_str), self.neighbor_dict_str.values()],
                 names=["focal", "neighbor"],
             ),
         )
@@ -141,20 +140,22 @@ class TestBase:
 
     def test___repr__(self):
         expected = (
-            "<Graph of 10 nodes and 25 nonzero edges indexed by\n"
-            " [0, 1, 2, 3, 4, ...]>"
+            "<Graph of 10 nodes and 25 nonzero edges (2 components, 1 isolate)"
+            " indexed by\n [0, 1, 2, 3, 4, ...]>"
         )
         assert repr(self.g_int) == expected
 
         expected = (
-            "<Graph of 10 nodes and 25 nonzero edges indexed by\n"
+            "<Graph of 10 nodes and 25 nonzero edges (2 components, 1 isolate)"
+            " indexed by\n"
             " ['a', 'b', 'c', 'd', 'e', ...]>"
         )
         assert repr(self.g_str) == expected
 
         nybb = graph.Graph.build_contiguity(self.nybb)
         expected = (
-            "<Graph of 5 nodes and 10 nonzero edges indexed by\n"
+            "<Graph of 5 nodes and 10 nonzero edges (2 components, 1 isolate) "
+            "indexed by\n"
             " ['Staten Island', 'Queens', 'Brooklyn', 'Manhattan', 'Bronx']>"
         )
         assert repr(nybb) == expected
@@ -190,7 +191,8 @@ class TestBase:
         }
         h3_g = graph.Graph.from_dicts(h3)
         expected = (
-            "<Graph of 7 nodes and 22 nonzero edges indexed by\n"
+            "<Graph of 7 nodes and 22 nonzero edges (1 component, 0 isolates) "
+            "indexed by\n"
             " ['821f87fffffffff', '821fb7fffffffff', '821f97fffffffff',"
             " '823967fffffff...]>"
         )
@@ -373,9 +375,9 @@ class TestBase:
             ],
             np.ones(10),
         )
-        assert (
-            g == expected
-        ), "sparse csr nybb with ids does not match arrays constructor"
+        assert g == expected, (
+            "sparse csr nybb with ids does not match arrays constructor"
+        )
         np.testing.assert_array_equal(g.sparse.todense(), sp.todense())
 
         with pytest.raises(ValueError, match="The length of ids "):
@@ -460,7 +462,8 @@ class TestBase:
         pd.testing.assert_series_equal(
             g._adjacency,
             self.adjacency_str_binary,
-            check_dtype=False,
+            check_dtype=True,
+            check_index_type=False,
         )
 
     @pytest.mark.parametrize("y", [3, 5])
@@ -620,7 +623,6 @@ class TestBase:
             [3, 3, 2, 3, 4, 3, 2, 3, 2, 0],
             index=pd.Index(
                 ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"],
-                dtype="object",
                 name="focal",
             ),
             name="cardinalities",
@@ -1014,10 +1016,6 @@ class TestBase:
         with pytest.raises(ValueError, match="The length of `y`"):
             self.g_str.lag(list(range(1, 15)))
 
-    @pytest.mark.skipif(
-        Version(scipy_version) < Version("1.12.0"),
-        reason="sparse matrix power requires scipy>=1.12.0",
-    )
     def test_higher_order(self):
         cont = graph.Graph.build_contiguity(self.nybb)
         k2 = cont.higher_order(2)
@@ -1091,10 +1089,6 @@ class TestBase:
         lower = cont.higher_order(2, lower_order=True)
         assert lower == expected
 
-    @pytest.mark.skipif(
-        Version(scipy_version) < Version("1.12.0"),
-        reason="sparse matrix power requires scipy>=1.12.0",
-    )
     def test_higher_order_inclusive(self):  # GH738
         contig = graph.Graph.from_arrays(
             [0, 1, 2, 3, 3, 4, 4], [0, 3, 4, 1, 4, 2, 3], [0, 1, 1, 1, 1, 1, 1]

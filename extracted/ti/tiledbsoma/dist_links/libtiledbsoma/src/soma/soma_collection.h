@@ -16,6 +16,7 @@
 
 #include <tiledb/tiledb>
 
+#include "../tiledb_adapter/platform_config.h"
 #include "enums.h"
 #include "soma_dataframe.h"
 #include "soma_dense_ndarray.h"
@@ -43,9 +44,7 @@ class SOMACollection : public SOMAGroup {
      * @param uri URI to create the SOMACollection
      */
     static void create(
-        std::string_view uri,
-        std::shared_ptr<SOMAContext> ctx,
-        std::optional<TimestampRange> timestamp = std::nullopt);
+        std::string_view uri, std::shared_ptr<SOMAContext> ctx, std::optional<TimestampRange> timestamp = std::nullopt);
 
     /**
      * @brief Open a group at the specified URI and return SOMACollection
@@ -77,16 +76,13 @@ class SOMACollection : public SOMAGroup {
      * @param timestamp Optional pair indicating timestamp start and end
      */
     SOMACollection(
-        OpenMode mode,
-        std::string_view uri,
-        std::shared_ptr<SOMAContext> ctx,
-        std::optional<TimestampRange> timestamp)
+        OpenMode mode, std::string_view uri, std::shared_ptr<SOMAContext> ctx, std::optional<TimestampRange> timestamp)
         : SOMAGroup(
               mode,
               uri,
               ctx,
               std::filesystem::path(uri).filename().string(),  // group name
-              timestamp){};
+              timestamp) {};
 
     SOMACollection(const SOMAGroup& other)
         : SOMAGroup(other) {
@@ -97,8 +93,7 @@ class SOMACollection : public SOMAGroup {
     SOMACollection(SOMACollection&&) = default;
     virtual ~SOMACollection() = default;
 
-    using iterator =
-        typename std::map<std::string, std::shared_ptr<SOMAObject>>::iterator;
+    using iterator = typename std::map<std::string, std::shared_ptr<SOMAObject>>::iterator;
     iterator begin() {
         return children_.begin();
     }
@@ -150,7 +145,7 @@ class SOMACollection : public SOMAGroup {
         std::string_view uri,
         URIType uri_type,
         std::shared_ptr<SOMAContext> ctx,
-        const std::unique_ptr<ArrowSchema>& schema,
+        const managed_unique_ptr<ArrowSchema>& schema,
         const ArrowTable& index_columns,
         PlatformConfig platform_config = PlatformConfig(),
         std::optional<TimestampRange> timestamp = std::nullopt);
@@ -169,7 +164,7 @@ class SOMACollection : public SOMAGroup {
         std::string_view uri,
         URIType uri_type,
         std::shared_ptr<SOMAContext> ctx,
-        const std::unique_ptr<ArrowSchema>& schema,
+        const managed_unique_ptr<ArrowSchema>& schema,
         const ArrowTable& index_columns,
         PlatformConfig platform_config = PlatformConfig(),
         std::optional<TimestampRange> timestamp = std::nullopt);
@@ -193,7 +188,7 @@ class SOMACollection : public SOMAGroup {
         std::string_view uri,
         URIType uri_type,
         std::shared_ptr<SOMAContext> ctx,
-        const std::unique_ptr<ArrowSchema>& schema,
+        const managed_unique_ptr<ArrowSchema>& schema,
         const ArrowTable& index_columns,
         PlatformConfig platform_config = PlatformConfig(),
         std::optional<TimestampRange> timestamp = std::nullopt);

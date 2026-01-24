@@ -47,7 +47,7 @@ USER_STATE_EXPIRED: UserState.ValueType  # 3
 """User's registration has expired"""
 USER_STATE_VERIFICATION_ERROR: UserState.ValueType  # 4
 """Error occurred during verification"""
-global___UserState = UserState
+Global___UserState: typing_extensions.TypeAlias = UserState
 
 class _CompileType:
     ValueType = typing.NewType("ValueType", builtins.int)
@@ -67,7 +67,7 @@ FULL: CompileType.ValueType  # 0
 """Full compile"""
 SPECULATIVE: CompileType.ValueType  # 1
 """Speculative compile"""
-global___CompileType = CompileType
+Global___CompileType: typing_extensions.TypeAlias = CompileType
 
 class _CompileCause:
     ValueType = typing.NewType("ValueType", builtins.int)
@@ -90,7 +90,55 @@ COMPILE_CAUSE_COMPILE_LSP_COMMAND: CompileCause.ValueType  # 1
 """Compile was caused by an expliict compile command sent to the LSP"""
 COMPILE_CAUSE_REFRESH_SOURCES: CompileCause.ValueType  # 2
 """Compile was caused by a request to refresh sources for a project"""
-global___CompileCause = CompileCause
+Global___CompileCause: typing_extensions.TypeAlias = CompileCause
+
+class _RegistrationTriggerMethod:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _RegistrationTriggerMethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_RegistrationTriggerMethod.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    REGISTRATION_TRIGGER_METHOD_UNSPECIFIED: _RegistrationTriggerMethod.ValueType  # 0
+    REGISTRATION_TRIGGER_METHOD_DBT_CLOUD_YML: _RegistrationTriggerMethod.ValueType  # 1
+    """Registration will use credentials from dbt_cloud.yml file"""
+    REGISTRATION_TRIGGER_METHOD_WEB: _RegistrationTriggerMethod.ValueType  # 2
+    """Registration will proceed via web browser"""
+
+class RegistrationTriggerMethod(_RegistrationTriggerMethod, metaclass=_RegistrationTriggerMethodEnumTypeWrapper):
+    """How registration was triggered/determined at click time"""
+
+REGISTRATION_TRIGGER_METHOD_UNSPECIFIED: RegistrationTriggerMethod.ValueType  # 0
+REGISTRATION_TRIGGER_METHOD_DBT_CLOUD_YML: RegistrationTriggerMethod.ValueType  # 1
+"""Registration will use credentials from dbt_cloud.yml file"""
+REGISTRATION_TRIGGER_METHOD_WEB: RegistrationTriggerMethod.ValueType  # 2
+"""Registration will proceed via web browser"""
+Global___RegistrationTriggerMethod: typing_extensions.TypeAlias = RegistrationTriggerMethod
+
+class _RegistrationMethod:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _RegistrationMethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_RegistrationMethod.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    REGISTRATION_METHOD_UNSPECIFIED: _RegistrationMethod.ValueType  # 0
+    REGISTRATION_METHOD_DBT_CLOUD_YML: _RegistrationMethod.ValueType  # 1
+    """Registration completed using dbt_cloud.yml file"""
+    REGISTRATION_METHOD_OAUTH: _RegistrationMethod.ValueType  # 2
+    """Registration completed via OAuth flow (web)"""
+    REGISTRATION_METHOD_REGISTRATION_CODE: _RegistrationMethod.ValueType  # 3
+    """Registration completed via registration code flow (web)"""
+
+class RegistrationMethod(_RegistrationMethod, metaclass=_RegistrationMethodEnumTypeWrapper):
+    """Actual registration method used (known at completion/error)"""
+
+REGISTRATION_METHOD_UNSPECIFIED: RegistrationMethod.ValueType  # 0
+REGISTRATION_METHOD_DBT_CLOUD_YML: RegistrationMethod.ValueType  # 1
+"""Registration completed using dbt_cloud.yml file"""
+REGISTRATION_METHOD_OAUTH: RegistrationMethod.ValueType  # 2
+"""Registration completed via OAuth flow (web)"""
+REGISTRATION_METHOD_REGISTRATION_CODE: RegistrationMethod.ValueType  # 3
+"""Registration completed via registration code flow (web)"""
+Global___RegistrationMethod: typing_extensions.TypeAlias = RegistrationMethod
 
 @typing.final
 class User(google.protobuf.message.Message):
@@ -120,7 +168,7 @@ class User(google.protobuf.message.Message):
     ) -> None: ...
     def ClearField(self, field_name: typing.Literal["credentials_source", b"credentials_source", "dbt_cloud_hostname", b"dbt_cloud_hostname", "dbt_cloud_user_id", b"dbt_cloud_user_id", "registration_state", b"registration_state"]) -> None: ...
 
-global___User = User
+Global___User: typing_extensions.TypeAlias = User
 
 @typing.final
 class Editor(google.protobuf.message.Message):
@@ -158,7 +206,7 @@ class Editor(google.protobuf.message.Message):
     ) -> None: ...
     def ClearField(self, field_name: typing.Literal["editor_name", b"editor_name", "editor_version", b"editor_version", "extension_version", b"extension_version", "mac_machine_id", b"mac_machine_id", "machine_id", b"machine_id", "session_id", b"session_id"]) -> None: ...
 
-global___Editor = Editor
+Global___Editor: typing_extensions.TypeAlias = Editor
 
 @typing.final
 class CompileError(google.protobuf.message.Message):
@@ -178,4 +226,4 @@ class CompileError(google.protobuf.message.Message):
     ) -> None: ...
     def ClearField(self, field_name: typing.Literal["code", b"code", "message", b"message"]) -> None: ...
 
-global___CompileError = CompileError
+Global___CompileError: typing_extensions.TypeAlias = CompileError

@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sphinxcontrib-video"
-version = "0.4.1"
+version = "0.4.2"
 description = "Allows embedding of HTML5 videos in sphinx"
-requires-python = ">=3.6.9"
+requires-python = ">=3.9.0"
 dependencies = ["sphinx"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -16,9 +16,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -56,7 +53,6 @@ test = [
     "defusedxml",
 ]
 doc = [
-    "sphinx < 8",
     "pydata-sphinx-theme",
     "sphinx-design",
 ]
@@ -95,7 +91,7 @@ warn_redundant_casts = true
 changelog_incremental = false
 tag_format = "v$major.$minor.$patch$prerelease"
 update_changelog_on_bump = false
-version = "0.4.1"
+version = "0.4.2"
 version_files = [
     "pyproject.toml:version",
     "docs/conf.py:release",

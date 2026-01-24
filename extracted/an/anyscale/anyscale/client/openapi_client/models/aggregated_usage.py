@@ -34,25 +34,30 @@ class AggregatedUsage(object):
     """
     openapi_types = {
         'anyscale_credits': 'float',
+        'dollar_value': 'float',
         'date': 'date'
     }
 
     attribute_map = {
         'anyscale_credits': 'anyscale_credits',
+        'dollar_value': 'dollar_value',
         'date': 'date'
     }
 
-    def __init__(self, anyscale_credits=None, date=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, anyscale_credits=None, dollar_value=None, date=None, local_vars_configuration=None):  # noqa: E501
         """AggregatedUsage - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._anyscale_credits = None
+        self._dollar_value = None
         self._date = None
         self.discriminator = None
 
         self.anyscale_credits = anyscale_credits
+        if dollar_value is not None:
+            self.dollar_value = dollar_value
         if date is not None:
             self.date = date
 
@@ -78,6 +83,27 @@ class AggregatedUsage(object):
             raise ValueError("Invalid value for `anyscale_credits`, must not be `None`")  # noqa: E501
 
         self._anyscale_credits = anyscale_credits
+
+    @property
+    def dollar_value(self):
+        """Gets the dollar_value of this AggregatedUsage.  # noqa: E501
+
+
+        :return: The dollar_value of this AggregatedUsage.  # noqa: E501
+        :rtype: float
+        """
+        return self._dollar_value
+
+    @dollar_value.setter
+    def dollar_value(self, dollar_value):
+        """Sets the dollar_value of this AggregatedUsage.
+
+
+        :param dollar_value: The dollar_value of this AggregatedUsage.  # noqa: E501
+        :type: float
+        """
+
+        self._dollar_value = dollar_value
 
     @property
     def date(self):

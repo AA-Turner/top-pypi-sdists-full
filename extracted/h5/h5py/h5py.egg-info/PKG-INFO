@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: h5py
-Version: 3.14.0
+Version: 3.15.1
 Summary: Read and write HDF5 files from Python
 Author-email: Andrew Collette <andrew.collette@gmail.com>
 Maintainer-email: Thomas Kluyver <thomas@kluyver.me.uk>, Thomas A Caswell <tcaswell@bnl.gov>
@@ -21,11 +21,17 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 1 - Unstable
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: lzf/LICENSE.txt
@@ -34,7 +40,7 @@ License-File: licenses/license.txt
 License-File: licenses/pytables.txt
 License-File: licenses/python.txt
 License-File: licenses/stdint.txt
-Requires-Dist: numpy>=1.19.3
+Requires-Dist: numpy>=1.21.2
 Dynamic: license-file
 Dynamic: requires-dist
 

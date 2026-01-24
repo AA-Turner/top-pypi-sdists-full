@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aioftp
-Version: 0.26.2
+Version: 0.27.2
 Summary: ftp client/server for asyncio
 Author: yieyu, rsichnyi, jw4js, oleksandr-kuzmenko, ndhansen, modelmat, greut, PonyPC, jacobtomlinson, bachya, CrafterKolyan, jkr78, sakosha
 Author-email: pohmelie <multisosnooley@gmail.com>, asvetlov <andrew.svetlov@gmail.com>, decaz <decaz89@gmail.com>, janneronkko <janne.ronkko@iki.fi>, thirtyseven <ted@shlashdot.org>, ported-pw <contact@ported.pw>, Olegt0rr <t0rr@mail.ru>, michalc <michal@charemza.name>, ch3pjw <paul@concertdaw.co.uk>, puddly <puddly3@gmail.com>, AMDmi3 <amdmi3@amdmi3.ru>, webknjaz <webknjaz+github/profile@redhat.com>, rcfox <ryan@rcfox.ca>, bellini666 <thiago@bellini.dev>
@@ -212,7 +212,7 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Internet :: File Transfer Protocol (FTP)
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 Requires-Dist: typing-extensions>=4.13.2; python_version < "3.11"
 Provides-Extra: socks
@@ -331,7 +331,7 @@ pyftpdlib 1.5.2
 Dependencies
 ------------
 
-- Python 3.9+
+- Python 3.10+
 
 0.13.0 is the last version which supports python 3.5.3+
 
@@ -340,6 +340,8 @@ Dependencies
 0.21.4 is the last version which supports python 3.7+
 
 0.22.3 is the last version which supports python 3.8+
+
+0.26.3 is the last version which supports python 3.9+
 
 License
 -------

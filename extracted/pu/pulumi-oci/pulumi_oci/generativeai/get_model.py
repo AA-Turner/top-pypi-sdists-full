@@ -95,25 +95,16 @@ class GetModelResult:
     @_builtins.property
     @pulumi.getter(name="baseModelId")
     def base_model_id(self) -> _builtins.str:
-        """
-        The OCID of the base model that's used for fine-tuning. For pretrained models, the value is null.
-        """
         return pulumi.get(self, "base_model_id")
 
     @_builtins.property
     @pulumi.getter
     def capabilities(self) -> Sequence[_builtins.str]:
-        """
-        Describes what this model can be used for.
-        """
         return pulumi.get(self, "capabilities")
 
     @_builtins.property
     @pulumi.getter(name="compartmentId")
     def compartment_id(self) -> _builtins.str:
-        """
-        The compartment OCID for fine-tuned models. For pretrained models, this value is null.
-        """
         return pulumi.get(self, "compartment_id")
 
     @_builtins.property
@@ -132,49 +123,31 @@ class GetModelResult:
     @_builtins.property
     @pulumi.getter(name="displayName")
     def display_name(self) -> _builtins.str:
-        """
-        A user-friendly name.
-        """
         return pulumi.get(self, "display_name")
 
     @_builtins.property
     @pulumi.getter(name="fineTuneDetails")
     def fine_tune_details(self) -> Sequence['outputs.GetModelFineTuneDetailResult']:
-        """
-        Details about fine-tuning a custom model.
-        """
         return pulumi.get(self, "fine_tune_details")
 
     @_builtins.property
     @pulumi.getter(name="freeformTags")
     def freeform_tags(self) -> Mapping[str, _builtins.str]:
-        """
-        Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm).  Example: `{"Department": "Finance"}`
-        """
         return pulumi.get(self, "freeform_tags")
 
     @_builtins.property
     @pulumi.getter
     def id(self) -> _builtins.str:
-        """
-        An ID that uniquely identifies a pretrained or fine-tuned model.
-        """
         return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter(name="isLongTermSupported")
     def is_long_term_supported(self) -> _builtins.bool:
-        """
-        Whether a model is supported long-term. Only applicable to base models.
-        """
         return pulumi.get(self, "is_long_term_supported")
 
     @_builtins.property
     @pulumi.getter(name="lifecycleDetails")
     def lifecycle_details(self) -> _builtins.str:
-        """
-        A message describing the current state of the model in more detail that can provide actionable information.
-        """
         return pulumi.get(self, "lifecycle_details")
 
     @_builtins.property
@@ -185,9 +158,6 @@ class GetModelResult:
     @_builtins.property
     @pulumi.getter(name="modelMetrics")
     def model_metrics(self) -> Sequence['outputs.GetModelModelMetricResult']:
-        """
-        Model metrics during the creation of a new model.
-        """
         return pulumi.get(self, "model_metrics")
 
     @_builtins.property
@@ -209,33 +179,21 @@ class GetModelResult:
     @_builtins.property
     @pulumi.getter(name="timeCreated")
     def time_created(self) -> _builtins.str:
-        """
-        The date and time that the model was created in the format of an RFC3339 datetime string.
-        """
         return pulumi.get(self, "time_created")
 
     @_builtins.property
     @pulumi.getter(name="timeDeprecated")
     def time_deprecated(self) -> _builtins.str:
-        """
-        Corresponds to the time when the custom model and its associated foundation model will be deprecated.
-        """
         return pulumi.get(self, "time_deprecated")
 
     @_builtins.property
     @pulumi.getter(name="timeUpdated")
     def time_updated(self) -> _builtins.str:
-        """
-        The date and time that the model was updated in the format of an RFC3339 datetime string.
-        """
         return pulumi.get(self, "time_updated")
 
     @_builtins.property
     @pulumi.getter
     def type(self) -> _builtins.str:
-        """
-        The model type indicating whether this is a pretrained/base model or a custom/fine-tuned model.
-        """
         return pulumi.get(self, "type")
 
     @_builtins.property

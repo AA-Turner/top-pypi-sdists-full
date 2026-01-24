@@ -10,7 +10,7 @@ use probe_table::{ProbeTable, ProbeTableBuilder};
 
 use crate::RecordBatch;
 
-struct ArrowTableEntry(Vec<Box<dyn arrow2::array::Array>>);
+struct ArrowTableEntry(Vec<Box<dyn daft_arrow::array::Array>>);
 
 pub fn make_probeable_builder(
     schema: SchemaRef,
@@ -88,19 +88,39 @@ pub trait Probeable: Send + Sync {
 #[derive(Clone)]
 pub struct ProbeState {
     probeable: Arc<dyn Probeable>,
-    tables: Arc<Vec<RecordBatch>>,
+    record_batches: Vec<RecordBatch>,
 }
 
 impl ProbeState {
-    pub fn new(probeable: Arc<dyn Probeable>, tables: Arc<Vec<RecordBatch>>) -> Self {
-        Self { probeable, tables }
+    pub fn new(probeable: Arc<dyn Probeable>, record_batches: Vec<RecordBatch>) -> Self {
+        Self {
+            probeable,
+            record_batches,
+        }
     }
 
-    pub fn get_probeable(&self) -> &Arc<dyn Probeable> {
-        &self.probeable
+    /// Returns an iterator of booleans. The iterator iterates over the rows of the input table.
+    /// True if the right row has a match in the left table, false otherwise.
+    pub fn probe_exists<'a>(
+        &'a self,
+        record_batch: &'a RecordBatch,
+    ) -> DaftResult<impl Iterator<Item = bool> + 'a> {
+        self.probeable.probe_exists(record_batch)
     }
 
-    pub fn get_tables(&self) -> &Arc<Vec<RecordBatch>> {
-        &self.tables
+    /// Returns an iterator of optional iterators.
+    /// The outer iterator iterates over the rows of the input table.
+    /// The inner iterator, if present, iterates over the rows of the build table that match the input row.
+    pub fn probe_indices<'a>(
+        &'a self,
+        record_batch: &'a RecordBatch,
+    ) -> DaftResult<impl Iterator<Item = Option<impl Iterator<Item = (u32, u64)> + 'a>>> {
+        self.probeable
+            .probe_indices(record_batch)
+            .map(|indices_mapper| indices_mapper.make_iter())
+    }
+
+    pub fn get_record_batches(&self) -> &[RecordBatch] {
+        &self.record_batches
     }
 }

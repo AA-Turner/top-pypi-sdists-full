@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .gallery_images.gallery_images_request_builder import GalleryImagesRequestBuilder
     from .on_premises_connections.on_premises_connections_request_builder import OnPremisesConnectionsRequestBuilder
     from .provisioning_policies.provisioning_policies_request_builder import ProvisioningPoliciesRequestBuilder
+    from .report.report_request_builder import ReportRequestBuilder
     from .user_settings.user_settings_request_builder import UserSettingsRequestBuilder
 
 class VirtualEndpointRequestBuilder(BaseRequestBuilder):
@@ -57,7 +58,7 @@ class VirtualEndpointRequestBuilder(BaseRequestBuilder):
     
     async def get(self,request_configuration: Optional[RequestConfiguration[VirtualEndpointRequestBuilderGetQueryParameters]] = None) -> Optional[VirtualEndpoint]:
         """
-        Virtual endpoint
+        Get virtualEndpoint from deviceManagement
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: Optional[VirtualEndpoint]
         """
@@ -111,7 +112,7 @@ class VirtualEndpointRequestBuilder(BaseRequestBuilder):
     
     def to_get_request_information(self,request_configuration: Optional[RequestConfiguration[VirtualEndpointRequestBuilderGetQueryParameters]] = None) -> RequestInformation:
         """
-        Virtual endpoint
+        Get virtualEndpoint from deviceManagement
         param request_configuration: Configuration for the request such as headers, query parameters, and middleware options.
         Returns: RequestInformation
         """
@@ -200,6 +201,15 @@ class VirtualEndpointRequestBuilder(BaseRequestBuilder):
         return ProvisioningPoliciesRequestBuilder(self.request_adapter, self.path_parameters)
     
     @property
+    def report(self) -> ReportRequestBuilder:
+        """
+        Provides operations to manage the report property of the microsoft.graph.virtualEndpoint entity.
+        """
+        from .report.report_request_builder import ReportRequestBuilder
+
+        return ReportRequestBuilder(self.request_adapter, self.path_parameters)
+    
+    @property
     def user_settings(self) -> UserSettingsRequestBuilder:
         """
         Provides operations to manage the userSettings property of the microsoft.graph.virtualEndpoint entity.
@@ -218,7 +228,7 @@ class VirtualEndpointRequestBuilder(BaseRequestBuilder):
     @dataclass
     class VirtualEndpointRequestBuilderGetQueryParameters():
         """
-        Virtual endpoint
+        Get virtualEndpoint from deviceManagement
         """
         def get_query_parameter(self,original_name: str) -> str:
             """

@@ -4,114 +4,80 @@
  * SPDX-License-Identifier: LGPL-3.0-or-later
  */
 
-#include "precompiled_header.hpp"
-#include "pytgutils.h"
-#include "exception.h"
+#include "common_header.h"
+#include "convertors/type_casters.h"
+
 #include "server/device_class.h"
 #include "server/attr.h"
 #include "server/command.h"
-#include "server/pipe.h"
 
-#define __AUX_DECL_CALL_DEVCLASS_METHOD AutoPythonGIL __py_lock;
-
-#define __AUX_CATCH_PY_EXCEPTION         \
-    catch(bopy::error_already_set & eas) \
-    {                                    \
-        handle_python_exception(eas);    \
-    }
-
-#define CALL_DEVCLASS_METHOD(name)              \
-    __AUX_DECL_CALL_DEVCLASS_METHOD             \
-    try                                         \
-    {                                           \
-        bopy::call_method<void>(m_self, #name); \
-    }                                           \
-    __AUX_CATCH_PY_EXCEPTION
-
-#define CALL_DEVCLASS_METHOD_VARGS(name, ...)                \
-    __AUX_DECL_CALL_DEVCLASS_METHOD                          \
-    try                                                      \
-    {                                                        \
-        bopy::call_method<void>(m_self, #name, __VA_ARGS__); \
-    }                                                        \
-    __AUX_CATCH_PY_EXCEPTION
-
-CppDeviceClass::CppDeviceClass(const std::string &name) :
-    Tango::DeviceClass(const_cast<std::string &>(name))
-{
-}
-
-CppDeviceClass::~CppDeviceClass() { }
-
-void CppDeviceClass::create_command(const std::string &cmd_name,
-                                    Tango::CmdArgType param_type,
-                                    Tango::CmdArgType result_type,
-                                    const std::string &param_desc,
-                                    const std::string &result_desc,
-                                    Tango::DispLevel display_level,
-                                    bool default_command,
-                                    long polling_period,
-                                    const std::string &is_allowed)
-{
+void DeviceClassTrampoline::create_command(const std::string &cmd_name,
+                                           Tango::CmdArgType param_type,
+                                           Tango::CmdArgType result_type,
+                                           const std::string &param_desc,
+                                           const std::string &result_desc,
+                                           Tango::DispLevel display_level,
+                                           bool default_command,
+                                           long polling_period,
+                                           const std::string &is_allowed) {
     PyCmd *cmd_ptr =
         new PyCmd(cmd_name.c_str(), param_type, result_type, param_desc.c_str(), result_desc.c_str(), display_level);
 
-    if(!is_allowed.empty())
-    {
+    if(!is_allowed.empty()) {
         cmd_ptr->set_allowed(is_allowed);
     }
 
-    if(polling_period > 0)
-    {
+    if(polling_period > 0) {
         cmd_ptr->set_polling_period(polling_period);
     }
-    if(default_command)
-    {
-        set_default_command(cmd_ptr);
-    }
-    else
-    {
-        command_list.push_back(cmd_ptr);
+    if(default_command) {
+        Tango::DeviceClass::set_default_command(cmd_ptr);
+    } else {
+        Tango::DeviceClass::command_list.push_back(cmd_ptr);
     }
 }
 
-void CppDeviceClass::create_fwd_attribute(std::vector<Tango::Attr *> &att_list,
-                                          const std::string &attr_name,
-                                          Tango::UserDefaultFwdAttrProp *att_prop)
-{
+void DeviceClassTrampoline::create_fwd_attribute(std::vector<Tango::Attr *> &att_list,
+                                                 const std::string &attr_name,
+                                                 Tango::UserDefaultFwdAttrProp *att_prop) {
     Tango::FwdAttr *attr_ptr = new Tango::FwdAttr(attr_name);
     attr_ptr->set_default_properties(*att_prop);
     att_list.push_back(attr_ptr);
 }
 
-void CppDeviceClass::create_attribute(std::vector<Tango::Attr *> &att_list,
-                                      const std::string &attr_name,
-                                      Tango::CmdArgType attr_type,
-                                      Tango::AttrDataFormat attr_format,
-                                      Tango::AttrWriteType attr_write,
-                                      long dim_x,
-                                      long dim_y,
-                                      Tango::DispLevel display_level,
-                                      long polling_period,
-                                      bool memorized,
-                                      bool hw_memorized,
-                                      const std::string &read_method_name,
-                                      const std::string &write_method_name,
-                                      const std::string &is_allowed_name,
-                                      Tango::UserDefaultAttrProp *att_prop)
-{
+void DeviceClassTrampoline::create_attribute(std::vector<Tango::Attr *> &att_list,
+                                             const std::string &attr_name,
+                                             Tango::CmdArgType attr_type,
+                                             Tango::AttrDataFormat attr_format,
+                                             Tango::AttrWriteType attr_write,
+                                             long dim_x,
+                                             long dim_y,
+                                             Tango::DispLevel display_level,
+                                             long polling_period,
+                                             bool memorized,
+                                             bool hw_memorized,
+                                             bool alarm_event_implemented,
+                                             bool alarm_event_detect,
+                                             bool archive_event_implemented,
+                                             bool archive_event_detect,
+                                             bool change_event_implemented,
+                                             bool change_event_detect,
+                                             bool data_ready_event_implemented,
+                                             const std::string &read_method_name,
+                                             const std::string &write_method_name,
+                                             const std::string &is_allowed_name,
+                                             Tango::UserDefaultAttrProp *att_prop) {
     //
     // Create the attribute objet according to attribute format
     //
 
-    PyScaAttr *sca_attr_ptr = NULL;
-    PySpecAttr *spec_attr_ptr = NULL;
-    PyImaAttr *ima_attr_ptr = NULL;
-    PyAttr *py_attr_ptr = NULL;
-    Tango::Attr *attr_ptr = NULL;
+    PyScaAttr *sca_attr_ptr = nullptr;
+    PySpecAttr *spec_attr_ptr = nullptr;
+    PyImaAttr *ima_attr_ptr = nullptr;
+    PyAttr *py_attr_ptr = nullptr;
+    Tango::Attr *attr_ptr = nullptr;
 
-    switch(attr_format)
-    {
+    switch(attr_format) {
     case Tango::SCALAR:
         sca_attr_ptr = new PyScaAttr(attr_name, attr_type, attr_write);
         py_attr_ptr = sca_attr_ptr;
@@ -131,11 +97,11 @@ void CppDeviceClass::create_attribute(std::vector<Tango::Attr *> &att_list,
         break;
 
     default:
-        TangoSys_OMemStream o;
-        o << "Attribute " << attr_name << " has an unexpected data format\n"
-          << "Please report this bug to the PyTango development team" << std::ends;
-        Tango::Except::throw_exception(
-            (const char *) "PyDs_UnexpectedAttributeFormat", o.str(), (const char *) "create_attribute");
+        std::string reason = "PyDs_UnexpectedAttributeFormat";
+        std::string desc = "Attribute " + attr_name + " has an unexpected data format\nPlease report this bug to the PyTango development team";
+        std::string origin = "create_attribute";
+
+        Tango::Except::throw_exception(reason, desc, origin);
         break;
     }
 
@@ -143,274 +109,413 @@ void CppDeviceClass::create_attribute(std::vector<Tango::Attr *> &att_list,
     py_attr_ptr->set_write_name(write_method_name);
     py_attr_ptr->set_allowed_name(is_allowed_name);
 
-    if(att_prop)
-    {
+    if(att_prop != nullptr) {
         attr_ptr->set_default_properties(*att_prop);
     }
 
     attr_ptr->set_disp_level(display_level);
-    if(memorized)
-    {
+    if(memorized) {
         attr_ptr->set_memorized();
         attr_ptr->set_memorized_init(hw_memorized);
     }
 
-    if(polling_period > 0)
-    {
+    if(polling_period > 0) {
         attr_ptr->set_polling_period(polling_period);
     }
+
+    attr_ptr->set_alarm_event(alarm_event_implemented, alarm_event_detect);
+    attr_ptr->set_archive_event(archive_event_implemented, archive_event_detect);
+    attr_ptr->set_change_event(change_event_implemented, change_event_detect);
+    attr_ptr->set_data_ready_event(data_ready_event_implemented);
 
     att_list.push_back(attr_ptr);
 }
 
-void CppDeviceClass::create_pipe(std::vector<Tango::Pipe *> &pipe_list,
-                                 const std::string &name,
-                                 Tango::PipeWriteType access,
-                                 Tango::DispLevel display_level,
-                                 const std::string &read_method_name,
-                                 const std::string &write_method_name,
-                                 const std::string &is_allowed_name,
-                                 Tango::UserDefaultPipeProp *prop)
-{
-    Tango::Pipe *pipe_ptr = NULL;
-    if(access == Tango::PIPE_READ)
-    {
-        PyTango::Pipe::PyPipe *py_pipe_ptr = new PyTango::Pipe::PyPipe(name, display_level, access);
-        py_pipe_ptr->set_read_name(read_method_name);
-        py_pipe_ptr->set_allowed_name(is_allowed_name);
-        pipe_ptr = py_pipe_ptr;
-    }
-    else
-    {
-        PyTango::Pipe::PyWPipe *py_pipe_ptr = new PyTango::Pipe::PyWPipe(name, display_level);
-        py_pipe_ptr->set_read_name(read_method_name);
-        py_pipe_ptr->set_allowed_name(is_allowed_name);
-        py_pipe_ptr->set_write_name(write_method_name);
-        pipe_ptr = py_pipe_ptr;
-    }
-
-    if(prop)
-    {
-        pipe_ptr->set_default_properties(*prop);
-    }
-    pipe_list.push_back(pipe_ptr);
-}
-
-CppDeviceClassWrap::CppDeviceClassWrap(PyObject *_self, const std::string &name) :
-    CppDeviceClass(name),
-    m_self(_self)
-{
-    init_class();
-}
-
-/**
- * Destructor
- */
-CppDeviceClassWrap::~CppDeviceClassWrap() { }
-
-void CppDeviceClassWrap::init_class()
-{
-    AutoPythonGIL python_guard;
-    signal_handler_defined = is_method_defined(m_self, "signal_handler");
-}
-
-void CppDeviceClassWrap::attribute_factory(std::vector<Tango::Attr *> &att_list)
-{
-    //
-    // make sure we pass the same vector object to the python method
-    //
-    AutoPythonGIL python_guard;
-
-    bopy::object py_att_list(bopy::handle<>(
-        bopy::to_python_indirect<std::vector<Tango::Attr *>, bopy::detail::make_reference_holder>()(att_list)));
-
-    try
-    {
-        bopy::call_method<void>(m_self, "_attribute_factory", py_att_list);
-    }
-    catch(bopy::error_already_set &eas)
-    {
-        handle_python_exception(eas);
-    }
-}
-
-void CppDeviceClassWrap::pipe_factory()
-{
-    //
-    // make sure we pass the same vector object to the python method
-    //
-    AutoPythonGIL python_guard;
-
-    bopy::object py_pipe_list(bopy::handle<>(
-        bopy::to_python_indirect<std::vector<Tango::Pipe *>, bopy::detail::make_reference_holder>()(pipe_list)));
-
-    try
-    {
-        bopy::call_method<void>(m_self, "_pipe_factory", py_pipe_list);
-    }
-    catch(bopy::error_already_set &eas)
-    {
-        handle_python_exception(eas);
-    }
-}
-
-void CppDeviceClassWrap::command_factory()
-{
-    CALL_DEVCLASS_METHOD(_command_factory)
-}
-
-void CppDeviceClassWrap::device_name_factory(std::vector<std::string> &dev_list)
-{
-    //
-    // make sure we pass the same vector object to the python method
-    //
-    AutoPythonGIL python_guard;
-
-    bopy::object py_dev_list(bopy::handle<>(
-        bopy::to_python_indirect<std::vector<std::string>, bopy::detail::make_reference_holder>()(dev_list)));
-    try
-    {
-        bopy::call_method<void>(m_self, "device_name_factory", py_dev_list);
-    }
-    catch(bopy::error_already_set &eas)
-    {
-        handle_python_exception(eas);
-    }
-}
-
-void CppDeviceClassWrap::device_factory(const Tango::DevVarStringArray *dev_list)
-{
-    CALL_DEVCLASS_METHOD_VARGS(device_factory, dev_list)
-}
-
-void CppDeviceClassWrap::signal_handler(long signo)
-{
-    if(signal_handler_defined == true)
-    {
-        CALL_DEVCLASS_METHOD_VARGS(signal_handler, signo)
-    }
-    else
-    {
-        Tango::DeviceClass::signal_handler(signo);
-    }
-}
-
-void CppDeviceClassWrap::default_signal_handler(long signo)
-{
-    this->Tango::DeviceClass::signal_handler(signo);
-}
-
-namespace PyDeviceClass
-{
-
-bopy::object get_device_list(CppDeviceClass &self)
-{
-    bopy::list py_dev_list;
+namespace PyDeviceClass {
+py::object get_device_list(Tango::DeviceClass &self) {
+    py::list py_dev_list;
     std::vector<Tango::DeviceImpl *> dev_list = self.get_device_list();
-    for(std::vector<Tango::DeviceImpl *>::iterator it = dev_list.begin(); it != dev_list.end(); ++it)
-    {
-        bopy::object py_value = bopy::object(
-            bopy::handle<>(bopy::to_python_indirect<Tango::DeviceImpl *, bopy::detail::make_reference_holder>()(*it)));
-        py_dev_list.append(py_value);
+    for(auto *dev_ptr : dev_list) {
+        py_dev_list.append(py::cast(dev_ptr, py::return_value_policy::reference_internal));
     }
     return py_dev_list;
 }
 
-bopy::object get_command_list(CppDeviceClass &self)
-{
-    bopy::list py_cmd_list;
+py::object get_command_list(Tango::DeviceClass &self) {
+    py::list py_cmd_list;
     std::vector<Tango::Command *> cmd_list = self.get_command_list();
-    for(std::vector<Tango::Command *>::iterator it = cmd_list.begin(); it != cmd_list.end(); ++it)
-    {
-        bopy::object py_value = bopy::object(
-            bopy::handle<>(bopy::to_python_indirect<Tango::Command *, bopy::detail::make_reference_holder>()(*it)));
-        py_cmd_list.append(py_value);
+    for(auto *cmd_ptr : cmd_list) {
+        py_cmd_list.append(py::cast(cmd_ptr, py::return_value_policy::reference_internal));
     }
     return py_cmd_list;
 }
 
-bopy::object get_pipe_list(CppDeviceClass &self, const std::string &dev_name)
-{
-    bopy::list py_pipe_list;
-    std::vector<Tango::Pipe *> pipe_list = self.get_pipe_list(dev_name);
-    //        std::vector<Tango::Pipe *> pipe_list = self.get_pipe_list();
-    for(std::vector<Tango::Pipe *>::iterator it = pipe_list.begin(); it != pipe_list.end(); ++it)
-    {
-        bopy::object py_value = bopy::object(
-            bopy::handle<>(bopy::to_python_indirect<Tango::Pipe *, bopy::detail::make_reference_holder>()(*it)));
-        py_pipe_list.append(py_value);
-    }
-    return py_pipe_list;
-}
-
-void register_signal(CppDeviceClass &self, long signo)
-{
+void register_signal(Tango::DeviceClass &self, long signo) {
     self.register_signal(signo);
 }
 
-#if(defined __linux)
+#if !defined WIN32
 
-void register_signal(CppDeviceClass &self, long signo, bool own_handler)
-{
+void register_signal(Tango::DeviceClass &self, long signo, bool own_handler) {
     self.register_signal(signo, own_handler);
 }
 
 #endif
+
 } // namespace PyDeviceClass
 
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(export_device_overload, CppDeviceClass::export_device, 1, 2)
+void export_device_class(py::module &m) {
+    py::class_<Tango::DeviceClass,
+               LeakingSmartPtr<Tango::DeviceClass>,
+               DeviceClassTrampoline>(m,
+                                      "DeviceClass",
+                                      py::dynamic_attr(),
+                                      R"doc(
+                                        Base class for all TANGO device-class class.
+                                        A TANGO device-class class is a class where is stored all
+                                        data/method common to all devices of a TANGO device class)doc")
+        .def(py::init_alias<const std::string &>())
+        .def("device_factory",
+             &Tango::DeviceClass::device_factory,
+             py::arg("dev_list"))
+        .def("device_name_factory",
+             &Tango::DeviceClass::device_name_factory,
+             py::arg("list"))
+        .def(
+            "export_device",
+            [](Tango::DeviceClass &self, Tango::DeviceImpl *dev, const char *corba_dev_nam) {
+                static_cast<DeviceClassTrampoline &>(self).export_device(dev, corba_dev_nam);
+            },
+            py::call_guard<py::gil_scoped_release>(),
+            R"doc(
+                export_device(self, dev, corba_dev_name = 'Unused') -> None
 
-void export_device_class()
-{
-    bopy::class_<CppDeviceClass, std::shared_ptr<CppDeviceClassWrap>, boost::noncopyable>(
-        "DeviceClass", bopy::init<const std::string &>())
+                        For internal usage only
 
-        .def("device_factory", &CppDeviceClassWrap::device_factory)
-        .def("device_name_factory", &CppDeviceClassWrap::device_name_factory)
-        .def("export_device", &CppDeviceClass::export_device, export_device_overload())
-        .def("_add_device", &CppDeviceClass::add_device)
-        .def("register_signal", (void (*)(CppDeviceClass &, long)) & PyDeviceClass::register_signal)
-#if defined __linux
-        .def("register_signal", (void (*)(CppDeviceClass &, long, bool)) & PyDeviceClass::register_signal)
+                    Parameters :
+                        - dev : (DeviceImpl) device object
+                        - corba_dev_name : (str) CORBA device name. Default value is 'Unused'
+
+                    Return     : None)doc",
+            py::arg("dev"),
+            py::arg("corba_dev_name") = "Unused")
+        .def("_add_device", &Tango::DeviceClass::add_device, py::arg("device"))
+        .def("register_signal",
+             py::overload_cast<Tango::DeviceClass &, long>(&PyDeviceClass::register_signal),
+             R"doc(
+                register_signal(self, signo) -> None
+
+                        Register a signal.
+                        Register this class as class to be informed when signal signo
+                        is sent to to the device server process.
+                        The second version of the method is available only under Linux.
+
+                    Throws tango.DevFailed:
+                        - if the signal number is out of range
+                        - if the operating system failed to register a signal for the process.
+
+                    Parameters :
+                        - signo : (int) signal identifier
+
+                    Return     : None)doc",
+             py::arg("signo"))
+#if !defined WIN32
+        .def("register_signal",
+             py::overload_cast<Tango::DeviceClass &, long, bool>(&PyDeviceClass::register_signal),
+             R"doc(
+                register_signal(self, signo, own_handler) -> None
+
+                        Register a signal.
+                        Register this class as class to be informed when signal signo
+                        is sent to to the device server process.
+                        The second version of the method is available only under Linux.
+
+                    Throws tango.DevFailed:
+                        - if the signal number is out of range
+                        - if the operating system failed to register a signal for the process.
+
+                    Parameters :
+                        - signo : (int) signal identifier
+                        - own_handler : (bool) true if you want the device signal handler
+                                        to be executed in its own handler instead of being
+                                        executed by the signal thread. If this parameter
+                                        is set to true, care should be taken on how the
+                                        handler is written. A default false value is provided
+
+                    Return     : None)doc",
+             py::arg("signo"),
+             py::arg("own_handler"))
 #endif
-        .def("unregister_signal", &Tango::DeviceClass::unregister_signal)
-        .def("signal_handler", &Tango::DeviceClass::signal_handler, &CppDeviceClassWrap::default_signal_handler)
-        .def("get_name", &Tango::DeviceClass::get_name, bopy::return_value_policy<bopy::copy_non_const_reference>())
-        .def("get_type", &Tango::DeviceClass::get_type, bopy::return_value_policy<bopy::copy_non_const_reference>())
+        .def("unregister_signal",
+             &Tango::DeviceClass::unregister_signal,
+             R"doc(
+                unregister_signal(self, signo) -> None
+
+                        Unregister a signal.
+                        Unregister this class as class to be informed when signal signo
+                        is sent to to the device server process
+
+                    Parameters :
+                        - signo : (int) signal identifier
+                    Return     : None)doc",
+             py::arg("signo"))
+        .def("signal_handler",
+             &Tango::DeviceClass::signal_handler,
+             R"doc(
+                signal_handler(self, signo) -> None
+
+                        Signal handler.
+
+                        The method executed when the signal arrived in the device server process.
+                        This method is defined as virtual and then, can be redefined following
+                        device class needs.
+
+                    Parameters :
+                        - signo : (int) signal identifier
+                    Return     : None)doc",
+             py::arg("signo"))
+        .def("get_name",
+             &Tango::DeviceClass::get_name,
+             py::return_value_policy::copy,
+             R"doc(
+                get_name(self) -> str
+
+                    Get the TANGO device class name.
+
+                Parameters : None
+                Return     : (str) the TANGO device class name.)doc")
+        .def("get_type",
+             &Tango::DeviceClass::get_type,
+             py::return_value_policy::copy,
+             R"doc(
+                get_type(self) -> str
+
+                    Gets the TANGO device type name.
+
+                Parameters : None
+                Return     : (str) the TANGO device type name)doc")
         .def("get_doc_url",
              &Tango::DeviceClass::get_doc_url,
-             bopy::return_value_policy<bopy::copy_non_const_reference>())
+             py::return_value_policy::copy,
+             R"doc(
+                get_doc_url(self) -> str
+
+                    Get the TANGO device class documentation URL.
+
+                Parameters : None
+                Return     : (str) the TANGO device type name)doc")
         .def("get_cvs_tag",
              &Tango::DeviceClass::get_cvs_tag,
-             bopy::return_value_policy<bopy::copy_non_const_reference>())
+             py::return_value_policy::copy,
+             R"doc(
+                get_cvs_tag(self) -> str
+
+                    Gets the cvs tag
+
+                Parameters : None
+                Return     : (str) cvs tag)doc")
         .def("get_cvs_location",
              &Tango::DeviceClass::get_cvs_location,
-             bopy::return_value_policy<bopy::copy_non_const_reference>())
-        .def("get_device_list", &PyDeviceClass::get_device_list)
-        .def("get_command_list", &PyDeviceClass::get_command_list)
-        .def("get_pipe_list", &PyDeviceClass::get_pipe_list)
-        .def("get_cmd_by_name", &Tango::DeviceClass::get_cmd_by_name, bopy::return_internal_reference<>())
-        .def("get_pipe_by_name", &Tango::DeviceClass::get_pipe_by_name, bopy::return_internal_reference<>())
-        .def("set_type", (void(Tango::DeviceClass::*)(const char *)) & Tango::DeviceClass::set_type)
+             py::return_value_policy::copy,
+             R"doc(
+                get_cvs_location(self) -> None
+
+                    Gets the cvs localtion
+
+                Parameters : None
+                Return     : (str) cvs location)doc")
+        .def("get_device_list",
+             &PyDeviceClass::get_device_list,
+             R"doc(
+                get_device_list(self) -> sequence<tango.DeviceImpl>
+
+                    Gets the list of tango.DeviceImpl objects for this class
+
+                Parameters : None
+                Return     : (sequence<tango.DeviceImpl>) list of tango.DeviceImpl objects for this class)doc")
+        .def("get_command_list",
+             &PyDeviceClass::get_command_list,
+             R"doc(
+                get_command_list(self) -> sequence<tango.Command>
+
+                    Gets the list of tango.Command objects for this class
+
+                Parameters : None
+                Return     : (sequence<tango.Command>) list of tango.Command objects for this class
+
+                New in PyTango 8.0.0)doc")
+        .def("get_cmd_by_name",
+             &Tango::DeviceClass::get_cmd_by_name,
+             py::return_value_policy::reference_internal,
+             R"doc(
+                get_cmd_by_name(self, (str)cmd_name) -> tango.Command
+
+                    Get a reference to a command object.
+
+                Parameters :
+                    - cmd_name : (str) command name
+                Return     : (tango.Command) tango.Command object
+
+                New in PyTango 8.0.0)doc",
+             py::arg("cmd_name"))
+        .def("set_type",
+             py::overload_cast<const char *>(&Tango::DeviceClass::set_type),
+             R"doc(
+                set_type(self, dev_type) -> None
+
+                    Set the TANGO device type name.
+
+                Parameters :
+                    - dev_type : (str) the new TANGO device type name
+                Return     : None)doc",
+             py::arg("dev_type"))
         .def("add_wiz_dev_prop",
-             (void(Tango::DeviceClass::*)(const std::string &, const std::string &)) &
-                 Tango::DeviceClass::add_wiz_dev_prop)
+             py::overload_cast<const std::string &, const std::string &>(&Tango::DeviceClass::add_wiz_dev_prop),
+             R"doc(
+                add_wiz_dev_prop(self, name, desc) -> None
+
+                    For internal usage only
+
+                :param str name: device property name
+                :param str desc: device property description
+
+                :return: None)doc",
+             py::arg("name"),
+             py::arg("desc"))
         .def("add_wiz_dev_prop",
-             (void(Tango::DeviceClass::*)(const std::string &, const std::string &, const std::string &)) &
-                 Tango::DeviceClass::add_wiz_dev_prop)
+             py::overload_cast<const std::string &, const std::string &, const std::string &>(&Tango::DeviceClass::add_wiz_dev_prop),
+             R"doc(
+                add_wiz_dev_prop(self, name, desc, default) -> None
+
+                    For internal usage only
+
+                :param str name: device property name
+                :param str desc: device property description
+                :param str default: device property default value
+
+                :return: None)doc",
+             py::arg("name"),
+             py::arg("desc"),
+             py::arg("default"))
         .def("add_wiz_class_prop",
-             (void(Tango::DeviceClass::*)(const std::string &, const std::string &)) &
-                 Tango::DeviceClass::add_wiz_class_prop)
+             py::overload_cast<const std::string &, const std::string &>(&Tango::DeviceClass::add_wiz_class_prop),
+             R"doc(
+                add_wiz_class_prop(self, name, desc) -> None
+
+                    For internal usage only
+
+                :param str name: class property name
+                :param str desc: class property description
+
+                :return: None)doc",
+             py::arg("name"),
+             py::arg("desc"))
         .def("add_wiz_class_prop",
-             (void(Tango::DeviceClass::*)(const std::string &, const std::string &, const std::string &)) &
-                 Tango::DeviceClass::add_wiz_class_prop)
-        .def("_device_destroyer", (void(Tango::DeviceClass::*)(const char *)) & Tango::DeviceClass::device_destroyer)
-        .def("_create_attribute", &CppDeviceClass::create_attribute)
-        .def("_create_fwd_attribute", &CppDeviceClass::create_fwd_attribute)
-        .def("_create_pipe", &CppDeviceClass::create_pipe)
-        .def("_create_command", &CppDeviceClass::create_command)
+             py::overload_cast<const std::string &, const std::string &, const std::string &>(&Tango::DeviceClass::add_wiz_class_prop),
+             R"doc(
+                add_wiz_class_prop(self, name, desc, default) -> None
+
+                    For internal usage only
+
+                :param str name: class property name
+                :param str desc: class property description
+                :param str default: class property default value
+
+                :return: None)doc",
+             py::arg("name"),
+             py::arg("desc"),
+             py::arg("default"))
+        .def("_device_destroyer",
+             py::overload_cast<const char *>(&Tango::DeviceClass::device_destroyer),
+             py::call_guard<py::gil_scoped_release>())
+        .def("_create_attribute",
+             [](Tango::DeviceClass &self,
+                VectorWrapper<Tango::Attr> &py_att_list,
+                const std::string &attr_name,
+                Tango::CmdArgType attr_type,
+                Tango::AttrDataFormat attr_format,
+                Tango::AttrWriteType attr_write,
+                long dim_x,
+                long dim_y,
+                Tango::DispLevel display_level,
+                long polling_period,
+                bool memorized,
+                bool hw_memorized,
+                bool alarm_event_implemented,
+                bool alarm_event_detect,
+                bool archive_event_implemented,
+                bool archive_event_detect,
+                bool change_event_implemented,
+                bool change_event_detect,
+                bool data_ready_event_implemented,
+                const std::string &read_method_name,
+                const std::string &write_method_name,
+                const std::string &is_allowed_name,
+                Tango::UserDefaultAttrProp *att_prop) {
+                 static_cast<DeviceClassTrampoline &>(self).create_attribute(*py_att_list.get_ptr(),
+                                                                             attr_name,
+                                                                             attr_type,
+                                                                             attr_format,
+                                                                             attr_write,
+                                                                             dim_x,
+                                                                             dim_y,
+                                                                             display_level,
+                                                                             polling_period,
+                                                                             memorized,
+                                                                             hw_memorized,
+                                                                             alarm_event_implemented,
+                                                                             alarm_event_detect,
+                                                                             archive_event_implemented,
+                                                                             archive_event_detect,
+                                                                             change_event_implemented,
+                                                                             change_event_detect,
+                                                                             data_ready_event_implemented,
+                                                                             read_method_name,
+                                                                             write_method_name,
+                                                                             is_allowed_name,
+                                                                             att_prop);
+             })
+        .def("_create_fwd_attribute",
+             [](Tango::DeviceClass &self,
+                VectorWrapper<Tango::Attr> &py_att_list,
+                const std::string &attr_name,
+                Tango::UserDefaultFwdAttrProp *att_prop) {
+                 static_cast<DeviceClassTrampoline &>(self).create_fwd_attribute(*py_att_list.get_ptr(),
+                                                                                 attr_name,
+                                                                                 att_prop);
+             })
+        .def("_create_command",
+             [](Tango::DeviceClass &self,
+                const std::string &cmd_name,
+                Tango::CmdArgType param_type,
+                Tango::CmdArgType result_type,
+                const std::string &param_desc,
+                const std::string &result_desc,
+                Tango::DispLevel display_level,
+                bool default_command,
+                long polling_period,
+                const std::string &is_allowed) {
+                 static_cast<DeviceClassTrampoline &>(self).create_command(cmd_name,
+                                                                           param_type,
+                                                                           result_type,
+                                                                           param_desc,
+                                                                           result_desc,
+                                                                           display_level,
+                                                                           default_command,
+                                                                           polling_period,
+                                                                           is_allowed);
+             })
+
         .def("get_class_attr",
              &Tango::DeviceClass::get_class_attr,
-             bopy::return_value_policy<bopy::reference_existing_object>());
-    bopy::implicitly_convertible<std::shared_ptr<CppDeviceClassWrap>, std::shared_ptr<CppDeviceClass>>();
+             py::return_value_policy::reference,
+             R"doc(
+                get_class_attr(self) -> None
+
+                    Returns the instance of the :class:`tango.MultiClassAttribute` for the class
+
+                :param: None
+
+                :returns: the instance of the :class:`tango.MultiClassAttribute` for the class
+                :rtype: :class:`tango.MultiClassAttribute`)doc");
 }

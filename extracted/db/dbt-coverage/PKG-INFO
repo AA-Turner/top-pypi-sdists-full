@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dbt-coverage
-Version: 0.3.9
+Version: 0.4.1
 Summary: One-stop-shop for docs and test coverage of dbt projects
 License: MIT
 Author: Andrej Švec
@@ -291,7 +291,7 @@ the support matrix.
 |-------------|----------------|
 | <0.20       | not tested     |
 | 0.20 - 0.21 | 0.1            |
-| 1.0 - 1.8   | 0.2, 0.3       |
+| 1.0 - 1.9   | 0.2 - 0.4      |
 
 ## Related packages
 

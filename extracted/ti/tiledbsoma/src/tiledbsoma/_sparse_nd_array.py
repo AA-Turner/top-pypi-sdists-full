@@ -6,11 +6,9 @@
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Sequence,
-    cast,
-)
+import warnings
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pyarrow as pa
@@ -25,26 +23,16 @@ from . import _util
 from . import pytiledbsoma as clib
 from ._arrow_types import pyarrow_to_carrow_type
 from ._common_nd_array import NDArray
+from ._coordinate_selection import CoordinateValueFilters
 from ._dask.util import SOMADaskConfig
-from ._exception import SOMAError, map_exception_for_create
-from ._read_iters import (
-    BlockwiseScipyReadIter,
-    BlockwiseTableReadIter,
-    ManagedQuery,
-    SparseCOOTensorReadIter,
-    TableReadIter,
-)
-from ._tdb_handles import SparseNDArrayWrapper
+from ._exception import DoesNotExistError, SOMAError, is_does_not_exist_error, map_exception_for_create
+from ._managed_query import ManagedQuery
+from ._read_iters import BlockwiseScipyReadIter, BlockwiseTableReadIter, SparseCOOTensorReadIter, TableReadIter
 from ._types import NTuple, OpenTimestamp
 from ._util import from_clib_result_order
-from .options._soma_tiledb_context import (
-    SOMATileDBContext,
-    _validate_soma_tiledb_context,
-)
-from .options._tiledb_create_write_options import (
-    TileDBCreateOptions,
-    TileDBWriteOptions,
-)
+from .options._soma_tiledb_context import SOMATileDBContext, _validate_soma_tiledb_context
+from .options._tiledb_create_write_options import TileDBCreateOptions, TileDBDeleteOptions, TileDBWriteOptions
+from .options._util import build_clib_platform_config
 
 if TYPE_CHECKING:
     try:
@@ -106,7 +94,7 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
 
     __slots__ = ()
 
-    _wrapper_type = SparseNDArrayWrapper
+    _handle_type = clib.SOMASparseNDArray
 
     # Inherited from somacore
     # * ndim accessor
@@ -123,6 +111,46 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
         context: SOMATileDBContext | None = None,
         tiledb_timestamp: OpenTimestamp | None = None,
     ) -> Self:
+        """Creates a SOMA ``SparseNDArray`` at the given URI.
+
+        Args:
+            type:
+                The Arrow type to be stored in the NDArray. If the type is unsupported, an error will be raised.
+            shape:
+                The current maximum capacity of each dimension. All lengths must be in the positive int64 range. The
+                shape can be increased, but not decreased, after creation.
+            platform_config:
+                Platform-specific options used to create this array. This may be provided as settings in a dictionary,
+                with options located in the ``{'tiledb': {'create': ...}}`` key, or as a
+                :class:`~tiledbsoma.TileDBCreateOptions` object.
+            tiledb_timestamp:
+                If specified, overrides the default timestamp used to open this object. If unset, uses the timestamp
+                provided by the context.
+
+        Returns:
+            The created ``SparseNDArray``.
+
+        Raises:
+            TypeError:
+                If the ``type`` is unsupported.
+            ValueError:
+                If the ``shape`` is unsupported.
+            tiledbsoma.AlreadyExistsError:
+                If the underlying object already exists at the given URI.
+            TileDBError:
+                If unable to create the underlying object.
+
+        Examples:
+            >>> with tiledbsoma.SparseNDArray.create("array1", type=pa.float64(), shape=(1000, 100, 100)) as array:
+            >>>     print(array.schema)
+            soma_dim_0: int64 not null
+            soma_dim_1: int64 not null
+            soma_dim_2: int64 not null
+            soma_data: double not null
+
+        Lifecycle:
+            Maturing.
+        """
         context = _validate_soma_tiledb_context(context)
 
         # SOMA-to-core mappings:
@@ -146,6 +174,15 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
 
         index_column_schema = []
         index_column_data = {}
+
+        if any(col_size is None for col_size in shape):
+            new_shape = tuple(1 if col_size is None else col_size for col_size in shape)
+            warnings.warn(
+                f"Using ``None`` in the shape is deprecated. Updating shape={shape} to shape={new_shape}.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            shape = new_shape
 
         for dim_idx, dim_shape in enumerate(shape):
             dim_name = f"soma_dim_{dim_idx}"
@@ -176,9 +213,6 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
             if dim_shape == 0:
                 raise ValueError("SparseNDArray shape slots must be at least 1")
             if dim_shape is None:
-                # Core current-domain semantics are (lo, hi) with both
-                # inclusive, with lo <= hi. This means smallest is (0, 0)
-                # which is shape 1, not 0.
                 dim_shape = 1
 
             index_column_data[pa_field.name] = [
@@ -189,12 +223,10 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
                 dim_shape - 1,
             ]
 
-        index_column_info = pa.RecordBatch.from_pydict(
-            index_column_data, schema=pa.schema(index_column_schema)
-        )
+        index_column_info = pa.RecordBatch.from_pydict(index_column_data, schema=pa.schema(index_column_schema))
 
         carrow_type = pyarrow_to_carrow_type(type)
-        plt_cfg = _util.build_clib_platform_config(platform_config)
+        plt_cfg = build_clib_platform_config(platform_config)
         timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
         try:
             clib.SOMASparseNDArray.create(
@@ -208,10 +240,21 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
         except SOMAError as e:
             raise map_exception_for_create(e, uri) from None
 
-        handle = cls._wrapper_type.open(uri, "w", context, tiledb_timestamp)
+        try:
+            timestamp_ms = context._open_timestamp_ms(tiledb_timestamp)
+            handle = clib.SOMASparseNDArray.open(
+                uri,
+                mode=clib.OpenMode.soma_write,
+                context=context.native_context,
+                timestamp=(0, timestamp_ms),
+            )
+
+        except (RuntimeError, SOMAError) as tdbe:
+            if is_does_not_exist_error(tdbe):
+                raise DoesNotExistError(tdbe) from tdbe
+            raise SOMAError(tdbe) from tdbe
         return cls(
-            handle,
-            _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code",
+            handle, uri=uri, context=context, _dont_call_this_use_create_or_open_instead="tiledbsoma-internal-code"
         )
 
     @property
@@ -222,7 +265,29 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
             Maturing.
         """
         self._verify_open_for_reading()
-        return cast(SparseNDArrayWrapper, self._handle).nnz
+        return int(self._handle.nnz())
+
+    def delete_cells(self, coords: options.SparseNDCoords, *, platform_config: PlatformConfig | None = None) -> None:
+        """Deletes cells at the specified coordinates in a :class:`SparseNDArray`.
+
+        Note: Deleting cells does not change the shape of the :class:`SparseNDArray`.
+
+        Example deleting cells for ``soma_dim_1 >= 10000``:
+            >>> with tiledbsoma.SparseNDArray(count_matrix_uri, mode="d") as X:
+            ...     X.delete_cells(((slice(None, None), slice(10000, None)), value_filter="n_genes > 1000 and n_counts < 2000")
+
+        Args:
+            coords:
+                A per-dimension ``Sequence`` of scalar, slice, sequence of scalar or
+                `Arrow IntegerArray <https://arrow.apache.org/docs/python/generated/pyarrow.IntegerArray.html>` values
+                defining the region to read.
+        """
+        if platform_config is not None and not isinstance(platform_config, TileDBDeleteOptions):
+            raise TypeError(
+                f"Invalid PlatformConfig with type {type(platform_config)}. Must have type {TileDBDeleteOptions.__name__}."
+            )
+        coord_filter = CoordinateValueFilters.create(self, coords)
+        self._handle.delete_cells(coord_filter._handle)
 
     def read(
         self,
@@ -232,7 +297,7 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
         batch_size: options.BatchSize = _UNBATCHED,
         partitions: options.ReadPartitions | None = None,
         platform_config: PlatformConfig | None = None,
-    ) -> "SparseNDArrayRead":
+    ) -> SparseNDArrayRead:
         """Reads a user-defined slice of the :class:`SparseNDArray`.
 
         Args:
@@ -306,22 +371,23 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
             Maturing.
         """
         write_options: TileDBCreateOptions | TileDBWriteOptions
-        sort_coords = None
         if isinstance(platform_config, TileDBCreateOptions):
             raise ValueError(
-                "As of TileDB-SOMA 1.13, the write method takes "
-                "TileDBWriteOptions instead of TileDBCreateOptions"
+                "As of TileDB-SOMA 1.13, the write method takes TileDBWriteOptions instead of TileDBCreateOptions",
             )
         write_options = TileDBWriteOptions.from_platform_config(platform_config)
-        sort_coords = write_options.sort_coords
 
-        clib_sparse_array = self._handle._handle
+        clib_sparse_array = self._handle
 
         if isinstance(values, pa.SparseCOOTensor):
             # Write bulk data
             data, coords = values.to_numpy()
 
             mq = ManagedQuery(self, platform_config)
+
+            layout = clib.ResultOrder.unordered if write_options.sort_coords else clib.ResultOrder.globalorder
+            mq._handle.set_layout(layout)
+
             for i, c in enumerate(coords.T):
                 mq._handle.set_column_data(
                     f"soma_dim_{i}",
@@ -332,11 +398,14 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
                 )
             mq._handle.set_column_data(
                 "soma_data",
-                np.array(
-                    data, dtype=self.schema.field("soma_data").type.to_pandas_dtype()
-                ),
+                np.array(data, dtype=self.schema.field("soma_data").type.to_pandas_dtype()),
             )
-            mq._handle.submit_write(sort_coords or True)
+
+            if layout == clib.ResultOrder.unordered:
+                mq._handle.submit_write()
+                mq._handle.finalize()
+            else:
+                mq._handle.submit_and_finalize()
 
             if write_options.consolidate_and_vacuum:
                 # Consolidate non-bulk data
@@ -345,14 +414,16 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
 
         if isinstance(values, (pa.SparseCSCMatrix, pa.SparseCSRMatrix)):
             if self.ndim != 2:
-                raise ValueError(
-                    f"Unable to write 2D Arrow sparse matrix to {self.ndim}D SparseNDArray"
-                )
+                raise ValueError(f"Unable to write 2D Arrow sparse matrix to {self.ndim}D SparseNDArray")
             # Write bulk data
             # TODO: the ``to_scipy`` function is not zero copy. Need to explore zero-copy options.
             sp = values.to_scipy().tocoo()
 
             mq = ManagedQuery(self, platform_config)
+
+            layout = clib.ResultOrder.unordered if write_options.sort_coords else clib.ResultOrder.globalorder
+            mq._handle.set_layout(layout)
+
             for i, c in enumerate([sp.row, sp.col]):
                 mq._handle.set_column_data(
                     f"soma_dim_{i}",
@@ -363,11 +434,14 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
                 )
             mq._handle.set_column_data(
                 "soma_data",
-                np.array(
-                    sp.data, dtype=self.schema.field("soma_data").type.to_pandas_dtype()
-                ),
+                np.array(sp.data, dtype=self.schema.field("soma_data").type.to_pandas_dtype()),
             )
-            mq._handle.submit_write(sort_coords or True)
+
+            if layout == clib.ResultOrder.unordered:
+                mq._handle.submit_write()
+                mq._handle.finalize()
+            else:
+                mq._handle.submit_and_finalize()
 
             if write_options.consolidate_and_vacuum:
                 # Consolidate non-bulk data
@@ -375,28 +449,21 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
             return self
 
         if isinstance(values, pa.Table):
-            # Write bulk data
-            for batch in values.to_batches():
-                # clib_sparse_array.write(batch, sort_coords or False)
-                mq = ManagedQuery(self, None)
-                mq._handle.set_array_data(batch)
-                mq._handle.submit_write(sort_coords or False)
+            self._write_table(values, write_options.sort_coords)
 
             if write_options.consolidate_and_vacuum:
                 # Consolidate non-bulk data
                 clib_sparse_array.consolidate_and_vacuum()
             return self
 
-        raise TypeError(
-            f"Unsupported Arrow type or non-arrow type for values argument: {type(values)}"
-        )
+        raise TypeError(f"Unsupported Arrow type or non-arrow type for values argument: {type(values)}")
 
     @classmethod
     def _dim_capacity_and_extent(
         cls,
         dim_name: str,
         dim_shape: int | None,
-        ndim: int,  # not needed for sparse
+        ndim: int,  # not needed for sparse  # noqa: ARG003
         create_options: TileDBCreateOptions,
     ) -> tuple[int, int]:
         """Given a user-specified shape (maybe ``None``) along a particular dimension,
@@ -414,9 +481,7 @@ class SparseNDArray(NDArray, somacore.SparseNDArray):
             dim_capacity -= dim_extent
         else:
             if dim_shape <= 0:
-                raise ValueError(
-                    "SOMASparseNDArray shape must be a non-zero-length tuple of positive ints or Nones"
-                )
+                raise ValueError("SOMASparseNDArray shape must be a non-zero-length tuple of positive ints or Nones")
             dim_capacity = dim_shape
             dim_extent = min(dim_shape, create_options.dim_tile(dim_name, 2048))
 
@@ -432,13 +497,13 @@ class _SparseNDArrayReadBase(somacore.SparseRead):
         coords: options.SparseNDCoords,
         result_order: clib.ResultOrder,
         platform_config: options.PlatformConfig | None,
-    ):
+    ) -> None:
         """Lifecycle:
         Maturing.
         """
         self.array = array
         self.coords = coords
-        self.shape = tuple(array._handle._handle.shape)
+        self.shape = tuple(array._handle.shape)
         self.result_order = result_order
         self.platform_config = platform_config
 
@@ -463,7 +528,7 @@ class SparseNDArrayRead(_SparseNDArrayReadBase):
     def dask_array(
         self,
         **config: Unpack[SOMADaskConfig],
-    ) -> "da.Array":
+    ) -> da.Array:
         """Load a TileDB-SOMA X layer as a Dask array.
 
         The returned Array is effectively read-only; writes to it will not be persisted back to the
@@ -608,7 +673,7 @@ class SparseNDArrayBlockwiseRead(_SparseNDArrayReadBase):
         size: int | Sequence[int] | None,
         reindex_disable_on_axis: int | Sequence[int] | None,
         eager: bool = True,
-    ):
+    ) -> None:
         super().__init__(array, coords, result_order, platform_config)
         self.result_order = result_order
         self.axis = axis
@@ -644,9 +709,7 @@ class SparseNDArrayBlockwiseRead(_SparseNDArrayReadBase):
 
         Also tracked as https://github.com/single-cell-data/TileDB-SOMA/issues/668
         """
-        raise NotImplementedError(
-            "Blockwise SparseCOOTensor not implemented due to ARROW-17933."
-        )
+        raise NotImplementedError("Blockwise SparseCOOTensor not implemented due to ARROW-17933.")
 
     def scipy(self, *, compress: bool = True) -> BlockwiseScipyReadIter:
         """Returns a blockwise iterator of

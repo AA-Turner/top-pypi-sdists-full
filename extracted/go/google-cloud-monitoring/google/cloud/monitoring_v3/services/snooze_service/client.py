@@ -155,6 +155,34 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
     _DEFAULT_ENDPOINT_TEMPLATE = "monitoring.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -356,12 +384,8 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = SnoozeServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -369,7 +393,7 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -401,20 +425,14 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = SnoozeServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):
@@ -931,7 +949,7 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
         Returns:
             google.cloud.monitoring_v3.services.snooze_service.pagers.ListSnoozesPager:
                 The results of a successful ListSnoozes call, containing the matching
-                   Snoozes.
+                   \`Snooze`s.
 
                 Iterating over this object will yield results and
                 resolve additional pages automatically.
@@ -1162,14 +1180,14 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
                 What fields can be updated depends on the start time and
                 end time of the ``Snooze``.
 
-                -  end time is in the past: These ``Snooze``\ s are
-                   considered read-only and cannot be updated.
-                -  start time is in the past and end time is in the
-                   future: ``display_name`` and ``interval.end_time``
-                   can be updated.
-                -  start time is in the future: ``display_name``,
-                   ``interval.start_time`` and ``interval.end_time`` can
-                   be updated.
+                - end time is in the past: These ``Snooze``\ s are
+                  considered read-only and cannot be updated.
+                - start time is in the past and end time is in the
+                  future: ``display_name`` and ``interval.end_time`` can
+                  be updated.
+                - start time is in the future: ``display_name``,
+                  ``interval.start_time`` and ``interval.end_time`` can
+                  be updated.
             snooze (google.cloud.monitoring_v3.types.Snooze):
                 Required. The ``Snooze`` to update. Must have the name
                 field present.
@@ -1182,23 +1200,23 @@ class SnoozeServiceClient(metaclass=SnoozeServiceClientMeta):
 
                 For each field listed in ``update_mask``:
 
-                -  If the ``Snooze`` object supplied in the
-                   ``UpdateSnoozeRequest`` has a value for that field,
-                   the value of the field in the existing ``Snooze``
-                   will be set to the value of the field in the supplied
-                   ``Snooze``.
-                -  If the field does not have a value in the supplied
-                   ``Snooze``, the field in the existing ``Snooze`` is
-                   set to its default value.
+                - If the ``Snooze`` object supplied in the
+                  ``UpdateSnoozeRequest`` has a value for that field,
+                  the value of the field in the existing ``Snooze`` will
+                  be set to the value of the field in the supplied
+                  ``Snooze``.
+                - If the field does not have a value in the supplied
+                  ``Snooze``, the field in the existing ``Snooze`` is
+                  set to its default value.
 
                 Fields not listed retain their existing value.
 
                 The following are the field names that are accepted in
                 ``update_mask``:
 
-                -  ``display_name``
-                -  ``interval.start_time``
-                -  ``interval.end_time``
+                - ``display_name``
+                - ``interval.start_time``
+                - ``interval.end_time``
 
                 That said, the start time and end time of the ``Snooze``
                 determines which fields can legally be updated. Before

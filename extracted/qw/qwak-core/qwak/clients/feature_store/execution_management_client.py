@@ -1,4 +1,7 @@
 from _qwak_proto.qwak.execution.v1.backfill_pb2 import BackfillSpec
+from _qwak_proto.qwak.execution.v1.streaming_aggregation_pb2 import (
+    StreamingAggregationBackfillIngestion,
+)
 from _qwak_proto.qwak.execution.v1.batch_pb2 import BatchIngestion
 from _qwak_proto.qwak.execution.v1.execution_service_pb2 import (
     GetExecutionEntryRequest,
@@ -9,6 +12,8 @@ from _qwak_proto.qwak.execution.v1.execution_service_pb2 import (
     TriggerBackfillResponse,
     TriggerBatchFeaturesetRequest,
     TriggerBatchFeaturesetResponse,
+    TriggerStreamingAggregationBackfillRequest,
+    TriggerStreamingAggregationBackfillResponse,
 )
 from _qwak_proto.qwak.execution.v1.execution_service_pb2_grpc import (
     FeatureStoreExecutionServiceStub,
@@ -28,6 +33,29 @@ class ExecutionManagementClient:
         self._feature_store_execution_service = FeatureStoreExecutionServiceStub(
             grpc_channel
         )
+
+    def trigger_streaming_aggregation_backfill(
+        self, backfill_ingestion: StreamingAggregationBackfillIngestion
+    ) -> TriggerStreamingAggregationBackfillResponse:
+        """
+        Receives a configured streaming aggregation backfill proto and triggers a streaming aggregation
+        backfill against the execution manager
+
+        Args:
+            backfill_ingestion (StreamingAggregationBackfillIngestion): A protobuf message
+                containing the backfill specification details
+
+        Returns:
+            TriggerStreamingAggregationBackfillResponse: response object from the execution manager
+        """
+        try:
+            return self._feature_store_execution_service.TriggerStreamingAggregationBackfill(
+                TriggerStreamingAggregationBackfillRequest(backfill=backfill_ingestion)
+            )
+        except RpcError as e:
+            raise QwakException(
+                f"Failed to trigger streaming aggregation backfill job, error encountered {e}"
+            )
 
     def trigger_batch_backfill(
         self, batch_backfill_spec: BackfillSpec

@@ -583,7 +583,7 @@ class WaterProps;
  *
  * An example phase definition specifying a number of the above species interaction
  * parameters is given in the
- * <a href="../../sphinx/html/yaml/phases.html#hmw-electrolyte">YAML API Reference</a>.
+ * [YAML API Reference](../yaml/phases.html#hmw-electrolyte).
  *
  * ### Specification of the Debye-Huckel Constant
  *
@@ -804,8 +804,6 @@ public:
     //! @name  Molar Thermodynamic Properties of the Solution
     //! @{
 
-    double enthalpy_mole() const override;
-
     /**
      * Excess molar enthalpy of the solution from
      * the mixing process. Units: J/ kmol.
@@ -822,29 +820,6 @@ public:
      * Note this is kmol of the guessed at salt composition
      */
     virtual double relative_molal_enthalpy() const;
-
-    //! Molar entropy. Units: J/kmol/K.
-    /**
-     * Molar entropy of the solution. Units: J/kmol/K. For an ideal, constant
-     * partial molar volume solution mixture with pure species phases which
-     * exhibit zero volume expansivity:
-     * @f[
-     * \hat s(T, P, X_k) = \sum_k X_k \hat s^0_k(T)
-     *      - \hat R  \sum_k X_k \ln(X_k)
-     * @f]
-     * The reference-state pure-species entropies @f$ \hat s^0_k(T,p_{ref}) @f$
-     * are computed by the species thermodynamic property manager. The pure
-     * species entropies are independent of temperature since the volume
-     * expansivities are equal to zero.
-     * @see MultiSpeciesThermo
-     *
-     *      (HKM -> Bump up to Parent object)
-     */
-    double entropy_mole() const override;
-
-    double gibbs_mole() const override;
-
-    double cp_mole() const override;
 
     double cv_mole() const override;
 
@@ -1411,7 +1386,7 @@ private:
      *          dw = C_0 * M_0 (density of water) (kg/m3)
      *             = 1.0E3 at 25C
      */
-    mutable double m_A_Debye;
+    mutable double m_A_Debye = 1.172576;
 
     //! Water standard state calculator
     /*!
@@ -1421,9 +1396,6 @@ private:
 
     //! Pointer to the water property calculator
     unique_ptr<WaterProps> m_waterProps;
-
-    //! vector of size m_kk, used as a temporary holding area.
-    mutable vector<double> m_tmpV;
 
     /**
      *  Array of 2D data used in the Pitzer/HMW formulation. Beta0_ij[i][j] is

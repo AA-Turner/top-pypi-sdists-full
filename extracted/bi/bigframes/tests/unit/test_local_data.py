@@ -20,20 +20,21 @@ from bigframes.core import local_data
 
 pd_data = pd.DataFrame(
     {
-        "ints": [10, 20, 30, 40],
-        "nested_ints": [[1, 2], [3, 4, 5], [], [20, 30]],
-        "structs": [{"a": 100}, {}, {"b": 200}, {"b": 300}],
+        "ints": [10, 20, 30, 40, 50],
+        "nested_ints": [[1, 2], [], [3, 4, 5], [], [20, 30]],
+        "structs": [{"a": 100}, None, {}, {"b": 200}, {"b": 300}],
     }
 )
 
 pd_data_normalized = pd.DataFrame(
     {
-        "ints": pd.Series([10, 20, 30, 40], dtype=dtypes.INT_DTYPE),
+        "ints": pd.Series([10, 20, 30, 40, 50], dtype=dtypes.INT_DTYPE),
         "nested_ints": pd.Series(
-            [[1, 2], [3, 4, 5], [], [20, 30]], dtype=pd.ArrowDtype(pa.list_(pa.int64()))
+            [[1, 2], [], [3, 4, 5], [], [20, 30]],
+            dtype=pd.ArrowDtype(pa.list_(pa.int64())),
         ),
         "structs": pd.Series(
-            [{"a": 100}, {}, {"b": 200}, {"b": 300}],
+            [{"a": 100}, None, {}, {"b": 200}, {"b": 300}],
             dtype=pd.ArrowDtype(pa.struct({"a": pa.int64(), "b": pa.int64()})),
         ),
     }
@@ -43,6 +44,12 @@ pd_data_normalized = pd.DataFrame(
 def test_local_data_well_formed_round_trip():
     local_entry = local_data.ManagedArrowTable.from_pandas(pd_data)
     result = pd.DataFrame(local_entry.itertuples(), columns=pd_data.columns)
+    result = result.assign(
+        **{
+            col: result[col].astype(pd_data_normalized[col].dtype)
+            for col in pd_data_normalized.columns
+        }
+    )
     pandas.testing.assert_frame_equal(pd_data_normalized, result, check_dtype=False)
 
 
@@ -117,16 +124,28 @@ def test_local_data_well_formed_round_trip_chunked():
     as_rechunked_pyarrow = pa.Table.from_batches(pa_table.to_batches(max_chunksize=2))
     local_entry = local_data.ManagedArrowTable.from_pyarrow(as_rechunked_pyarrow)
     result = pd.DataFrame(local_entry.itertuples(), columns=pd_data.columns)
+    result = result.assign(
+        **{
+            col: result[col].astype(pd_data_normalized[col].dtype)
+            for col in pd_data_normalized.columns
+        }
+    )
     pandas.testing.assert_frame_equal(pd_data_normalized, result, check_dtype=False)
 
 
 def test_local_data_well_formed_round_trip_sliced():
     pa_table = pa.Table.from_pandas(pd_data, preserve_index=False)
-    as_rechunked_pyarrow = pa.Table.from_batches(pa_table.slice(2, 4).to_batches())
+    as_rechunked_pyarrow = pa.Table.from_batches(pa_table.slice(0, 4).to_batches())
     local_entry = local_data.ManagedArrowTable.from_pyarrow(as_rechunked_pyarrow)
     result = pd.DataFrame(local_entry.itertuples(), columns=pd_data.columns)
+    result = result.assign(
+        **{
+            col: result[col].astype(pd_data_normalized[col].dtype)
+            for col in pd_data_normalized.columns
+        }
+    )
     pandas.testing.assert_frame_equal(
-        pd_data_normalized[2:4].reset_index(drop=True),
+        pd_data_normalized[0:4].reset_index(drop=True),
         result.reset_index(drop=True),
         check_dtype=False,
     )
@@ -143,3 +162,25 @@ def test_local_data_not_equal_other():
     local_entry2 = local_data.ManagedArrowTable.from_pandas(pd_data[::2])
     assert local_entry != local_entry2
     assert hash(local_entry) != hash(local_entry2)
+
+
+def test_local_data_itertuples_struct_none():
+    pd_data = pd.DataFrame(
+        {
+            "structs": [{"a": 100}, None, {"b": 200}, {"b": 300}],
+        }
+    )
+    local_entry = local_data.ManagedArrowTable.from_pandas(pd_data)
+    result = list(local_entry.itertuples())
+    assert result[1][0] is None
+
+
+def test_local_data_itertuples_list_none():
+    pd_data = pd.DataFrame(
+        {
+            "lists": [[1, 2], None, [3, 4]],
+        }
+    )
+    local_entry = local_data.ManagedArrowTable.from_pandas(pd_data)
+    result = list(local_entry.itertuples())
+    assert result[1][0] == []

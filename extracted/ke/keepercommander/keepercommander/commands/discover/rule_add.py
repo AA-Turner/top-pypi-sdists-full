@@ -1,31 +1,38 @@
 from __future__ import annotations
 import argparse
 import logging
-from . import PAMGatewayActionDiscoverCommandBase, GatewayContext
+from . import PAMGatewayActionDiscoverCommandBase, GatewayContext, MultiConfigurationException, multi_conf_msg
 from ..pam.pam_dto import GatewayActionDiscoverRuleValidateInputs, GatewayActionDiscoverRuleValidate, GatewayAction
 from ..pam.router_helper import router_send_action_to_gateway, router_get_connected_gateways
 from ...display import bcolors
 from ...proto import pam_pb2
 from ...discovery_common.rule import Rules
-from ...discovery_common.types import ActionRuleItem
-from typing import TYPE_CHECKING
+from ...discovery_common.types import ActionRuleItem, Statement
+from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...params import KeeperParams
 
 
 class PAMGatewayActionDiscoverRuleAddCommand(PAMGatewayActionDiscoverCommandBase):
-    parser = argparse.ArgumentParser(prog='pam-action-discover-rule-add')
+    parser = argparse.ArgumentParser(prog='pam action discover rule add')
     parser.add_argument('--gateway', '-g', required=True, dest='gateway', action='store',
                         help='Gateway name of UID.')
+    parser.add_argument('--configuration-uid', '-c', required=False, dest='configuration_uid',
+                        action='store', help='PAM configuration UID, if gateway has multiple.')
+
     parser.add_argument('--action', '-a', required=True, choices=['add', 'ignore', 'prompt'],
                         dest='rule_action', action='store', help='Action to take if rule matches')
     parser.add_argument('--priority', '-p', required=True, dest='priority', action='store', type=int,
                         help='Rule execute priority')
+    parser.add_argument('--name', '-n', required=False, dest='name', action='store', type=str,
+                        help='Rule name')
     parser.add_argument('--ignore-case', required=False, dest='ignore_case', action='store_true',
                         help='Ignore value case. Rule value must be in lowercase.')
     parser.add_argument('--shared-folder-uid', required=False, dest='shared_folder_uid',
                         action='store', help='Folder to place record.')
+    parser.add_argument('--admin-uid', required=False, dest='admin_uid',
+                        action='store', help='Admin record UID to use for resource.')
     parser.add_argument('--statement', '-s', required=True, dest='statement', action='store',
                         help='Rule statement')
 
@@ -33,7 +40,8 @@ class PAMGatewayActionDiscoverRuleAddCommand(PAMGatewayActionDiscoverCommandBase
         return PAMGatewayActionDiscoverRuleAddCommand.parser
 
     @staticmethod
-    def validate_rule_statement(params: KeeperParams, gateway_context: GatewayContext, statement: str):
+    def validate_rule_statement(params: KeeperParams, gateway_context: GatewayContext, statement: str) \
+            -> List[Statement]:
 
         # Send rule the gateway to be validated. The rule is encrypted. It might contain sensitive information.
         action_inputs = GatewayActionDiscoverRuleValidateInputs(
@@ -61,8 +69,17 @@ class PAMGatewayActionDiscoverRuleAddCommand(PAMGatewayActionDiscoverCommandBase
 
         statement_struct = data.get("statementStruct")
         logging.debug(f"Rule Structure = {statement_struct}")
-        if isinstance(statement_struct, list) is False:
+        if not isinstance(statement_struct, list):
             raise Exception(f"The structured rule statement is not a list.")
+        ret = []
+        for item in statement_struct:
+            ret.append(
+                Statement(
+                    field=item.get("field"),
+                    operator=item.get("operator"),
+                    value=item.get("value")
+                )
+            )
 
         return statement_struct
 
@@ -73,9 +90,16 @@ class PAMGatewayActionDiscoverRuleAddCommand(PAMGatewayActionDiscoverCommandBase
 
         try:
             gateway = kwargs.get("gateway")
-            gateway_context = GatewayContext.from_gateway(params, gateway)
-            if gateway_context is None:
-                print(f'{bcolors.FAIL}Discovery job gateway [{gateway}] was not found.{bcolors.ENDC}')
+
+            try:
+                gateway_context = GatewayContext.from_gateway(params=params,
+                                                              gateway=gateway,
+                                                              configuration_uid=kwargs.get('configuration_uid'))
+                if gateway_context is None:
+                    print(f"{bcolors.FAIL}Could not find the gateway configuration for {gateway}.{bcolors.ENDC}")
+                    return
+            except MultiConfigurationException as err:
+                multi_conf_msg(gateway, err)
                 return
 
             # If we are setting the shared_folder_uid, make sure it exists.
@@ -97,13 +121,27 @@ class PAMGatewayActionDiscoverRuleAddCommand(PAMGatewayActionDiscoverCommandBase
                 statement=statement
             )
 
+            shared_folder_uid = kwargs.get("shared_folder_uid")
+            if shared_folder_uid is not None and len(shared_folder_uid) != 22:
+                print(f"{bcolors.FAIL}The shared folder UID {shared_folder_uid} is not the correct length."
+                      f"{bcolors.ENDC}")
+                return
+
+            admin_uid = kwargs.get("admin_uid")
+            if admin_uid is not None and len(admin_uid) != 22:
+                print(f"{bcolors.FAIL}The admin UID {admin_uid} is not the correct length."
+                      f"{bcolors.ENDC}")
+                return
+
             # If the rule passes its validation, then add control DAG
             rules = Rules(record=gateway_context.configuration, params=params)
             new_rule = ActionRuleItem(
+                name=kwargs.get("name"),
                 action=kwargs.get("rule_action"),
                 priority=kwargs.get("priority"),
                 case_sensitive=not kwargs.get("ignore_case", False),
-                shared_folder_uid=kwargs.get("shared_folder_uid"),
+                shared_folder_uid=shared_folder_uid,
+                admin_uid=admin_uid,
                 statement=statement_struct,
                 enabled=True
             )

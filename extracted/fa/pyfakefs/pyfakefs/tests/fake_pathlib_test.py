@@ -222,6 +222,7 @@ class RealPathlibInitializationWithDriveTest(FakePathlibInitializationWithDriveT
 class FakePathlibPurePathTest(RealPathlibTestCase):
     """Tests functionality present in PurePath class."""
 
+    @unittest.skipIf(sys.version_info >= (3, 15), "is_reserved removed in Python 3.15")
     def test_is_reserved_posix(self):
         self.check_posix_only()
         with self.deprecation_warning_since_313():
@@ -230,6 +231,7 @@ class FakePathlibPurePathTest(RealPathlibTestCase):
             self.assertFalse(self.path("COM1").is_reserved())
             self.assertFalse(self.path("nul.txt").is_reserved())
 
+    @unittest.skipIf(sys.version_info >= (3, 15), "is_reserved removed in Python 3.15")
     @unittest.skipIf(not is_windows, "Windows specific behavior")
     def test_is_reserved_windows(self):
         self.check_windows_only()
@@ -273,7 +275,6 @@ class FakePathlibPurePathTest(RealPathlibTestCase):
         with self.assertRaises(ValueError):
             self.path("passwd").relative_to("/usr")
 
-    @unittest.skipIf(sys.version_info < (3, 9), "is_relative_to new in Python 3.9")
     def test_is_relative_to(self):
         path = self.path("/etc/passwd")
         self.assertTrue(path.is_relative_to("/etc"))
@@ -308,6 +309,7 @@ class FakePathlibPurePosixPathTest(RealPathlibTestCase):
         super().setUp()
         self.path = self.pathlib.PurePosixPath
 
+    @unittest.skipIf(sys.version_info >= (3, 15), "is_reserved removed in Python 3.15")
     def test_is_reserved(self):
         with self.deprecation_warning_since_313():
             self.assertFalse(self.path("/dev").is_reserved())
@@ -346,7 +348,6 @@ class FakePathlibPurePosixPathTest(RealPathlibTestCase):
         with self.assertRaises(ValueError):
             self.path("passwd").relative_to("/usr")
 
-    @unittest.skipIf(sys.version_info < (3, 9), "is_relative_to new in Python 3.9")
     def test_is_relative_to(self):
         path = self.path("/etc/passwd")
         self.assertTrue(path.is_relative_to("/etc"))
@@ -383,6 +384,7 @@ class FakePathlibPureWindowsPathTest(RealPathlibTestCase):
         super().setUp()
         self.path = self.pathlib.PureWindowsPath
 
+    @unittest.skipIf(sys.version_info >= (3, 15), "is_reserved removed in Python 3.15")
     def test_is_reserved(self):
         with self.deprecation_warning_since_313():
             self.assertFalse(self.path("/dev").is_reserved())
@@ -421,7 +423,6 @@ class FakePathlibPureWindowsPathTest(RealPathlibTestCase):
         with self.assertRaises(ValueError):
             self.path("passwd").relative_to("/usr")
 
-    @unittest.skipIf(sys.version_info < (3, 9), "is_relative_to new in Python 3.9")
     def test_is_relative_to(self):
         path = self.path("/etc/passwd")
         self.assertTrue(path.is_relative_to("/etc"))
@@ -581,10 +582,6 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
             mode_mask = 0o600 if self.is_windows_fs else 0o700
             self.assertEqual(link_stat.st_mode & 0o777700, stat.S_IFLNK | mode_mask)
 
-    @unittest.skipIf(
-        sys.version_info < (3, 10),
-        "follow_symlinks argument new in Python 3.10",
-    )
     def test_chmod_no_followsymlinks(self):
         skip_if_symlink_not_supported()
         file_stat = self.os.stat(self.file_path)
@@ -699,9 +696,7 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
             self.path.cwd(), self.path(self.os.path.realpath(dir_path))
         )
 
-    @unittest.skipIf(
-        sys.platform != "win32" or sys.version_info < (3, 8), "Windows specific test"
-    )
+    @unittest.skipIf(sys.platform != "win32", "Windows specific test")
     @patch.dict(os.environ, {"USERPROFILE": r"C:\Users\John"})
     def test_expanduser_windows(self):
         self.assertEqual(
@@ -714,9 +709,7 @@ class FakePathlibFileObjectPropertyTest(RealPathlibTestCase):
     def test_expanduser_posix(self):
         self.assertEqual(self.path("~").expanduser(), self.path("/home/john"))
 
-    @unittest.skipIf(
-        sys.platform != "win32" or sys.version_info < (3, 8), "Windows specific test"
-    )
+    @unittest.skipIf(sys.platform != "win32", "Windows specific test")
     @patch.dict(os.environ, {"USERPROFILE": r"C:\Users\John"})
     def test_home_windows(self):
         self.assertEqual(
@@ -793,7 +786,6 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertTrue(self.os.path.exists(path_name))
         self.check_contents(path_name, "ανοησίες".encode("greek"))
 
-    @unittest.skipIf(sys.version_info < (3, 10), "newline argument new in Python 3.10")
     def test_write_with_newline_arg(self):
         path = self.path(self.make_path("some_file"))
         path.write_text("1\r\n2\n3\r4", newline="", encoding="utf8")
@@ -890,7 +882,6 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertTrue(self.os.path.exists(link_name))
         self.assertTrue(path.is_symlink())
 
-    @unittest.skipIf(sys.version_info < (3, 8), "link_to new in Python 3.8")
     @unittest.skipIf(sys.version_info >= (3, 12), "link_to removed in Python 3.12")
     def test_link_to(self):
         skip_if_symlink_not_supported()
@@ -904,7 +895,6 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertFalse(path.is_symlink())
         self.assertEqual(2, self.os.stat(file_name).st_nlink)
 
-    @unittest.skipIf(sys.version_info < (3, 10), "hardlink_to new in Python 3.10")
     def test_hardlink_to(self):
         file_name = self.make_path("foo", "bar.txt")
         self.create_file(file_name)
@@ -916,7 +906,6 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
         self.assertFalse(path.is_symlink())
         self.assertEqual(2, self.os.stat(file_name).st_nlink)
 
-    @unittest.skipIf(sys.version_info < (3, 9), "readlink new in Python 3.9")
     def test_readlink(self):
         skip_if_symlink_not_supported()
         link_path = self.make_path("foo", "bar", "baz")
@@ -987,6 +976,13 @@ class FakePathlibPathFileOperationTest(RealPathlibTestCase):
             ],
             sorted(path.glob("*.py")),
         )
+
+    def test_glob_dir(self):
+        # regression test for #1239
+        root_dir = self.path(self.make_path("root"))
+        test_file = self.make_path(root_dir, "foo", "bar.txt")
+        self.create_file(test_file)
+        self.assertEqual([root_dir / "foo"], list(root_dir.glob("foo")))
 
     def test_glob_case_windows(self):
         self.check_windows_only()
@@ -1226,11 +1222,6 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.os.makedirs(self.path(path))
         self.assertTrue(self.os.path.exists(path))
 
-    @unittest.skipIf(
-        is_windows and sys.version_info < (3, 8),
-        "os.readlink does not to support path-like objects "
-        "under Windows before Python 3.8",
-    )
     def test_readlink(self):
         skip_if_symlink_not_supported()
         link_path = self.make_path("foo", "bar", "baz")
@@ -1238,11 +1229,6 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.create_symlink(link_path, target)
         self.assert_equal_paths(self.os.readlink(self.path(link_path)), target)
 
-    @unittest.skipIf(
-        is_windows and sys.version_info < (3, 8),
-        "os.readlink does not to support path-like objects "
-        "under Windows before Python 3.8",
-    )
     def test_readlink_bytes(self):
         skip_if_symlink_not_supported()
         link_path = self.make_path(b"foo", b"bar", b"baz")
@@ -1303,7 +1289,6 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
         self.create_file(path, contents="1234567")
         self.assertEqual(self.os.stat(path), self.path(path).stat())
 
-    @unittest.skipIf(sys.version_info < (3, 10), "New in Python 3.10")
     def test_stat_follow_symlinks(self):
         self.check_posix_only()
         directory = self.make_path("foo")
@@ -1375,6 +1360,107 @@ class FakePathlibUsageInOsFunctionsTest(RealPathlibTestCase):
             self.path(path).owner()
         with self.assertRaises(NotImplementedError):
             self.path(path).group()
+
+    @unittest.skipIf(sys.version_info < (3, 14), "copy() is new in Python 3.14")
+    def test_copy_new_file(self):
+        source_path = self.path(self.make_path("some_file"))
+        target_path = self.make_path("some_other_file")
+        self.create_file(source_path, contents="test")
+        target = source_path.copy(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertTrue(target.exists())
+        self.assertEqual("test", target.read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "copy() is new in Python 3.14")
+    def test_copy_to_existing_file(self):
+        source_path = self.path(self.make_path("some_file"))
+        target_path = self.make_path("some_other_file")
+        self.create_file(source_path, contents="foo")
+        self.create_file(target_path, contents="bar")
+        target = source_path.copy(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertTrue(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertEqual("foo", target.read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "copy() is new in Python 3.14")
+    def test_copy_directory(self):
+        source_path = self.path(self.make_path("some_dir"))
+        self.create_file(source_path / "foo", contents="foo")
+        self.create_file(source_path / "bar", contents="bar")
+        self.create_dir(source_path / "dir")
+        target_path = self.make_path("new_dir")
+        target = source_path.copy(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertTrue(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertTrue((target / "foo").exists())
+        self.assertEqual("foo", (target / "foo").read_text())
+        self.assertEqual("bar", (target / "bar").read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "copy_into() is new in Python 3.14")
+    def test_copy_into(self):
+        source_dir = self.path(self.make_path("some_dir"))
+        source_path = source_dir / "foo"
+        self.create_file(source_path, contents="foo")
+        target_path = self.path(self.make_path("new_dir"))
+        self.create_dir(target_path)
+        target = source_path.copy_into(target_path)
+        self.assertTrue(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertEqual(str(target_path / "foo"), str(target))
+        self.assertEqual("foo", target.read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "move() is new in Python 3.14")
+    def test_move_file(self):
+        source_path = self.path(self.make_path("some_file"))
+        target_path = self.make_path("some_other_file")
+        self.create_file(source_path, contents="test")
+        target = source_path.move(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertFalse(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertEqual("test", target.read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "move() is new in Python 3.14")
+    def test_move_to_existing_file(self):
+        source_path = self.path(self.make_path("some_file"))
+        target_path = self.make_path("some_other_file")
+        self.create_file(source_path, contents="foo")
+        self.create_file(target_path, contents="bar")
+        target = source_path.move(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertFalse(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertEqual("foo", target.read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "move() is new in Python 3.14")
+    def test_move_directory(self):
+        source_path = self.path(self.make_path("some_dir"))
+        self.create_file(source_path / "foo", contents="foo")
+        self.create_file(source_path / "bar", contents="bar")
+        self.create_dir(source_path / "dir")
+        target_path = self.make_path("new_dir")
+        target = source_path.move(target_path)
+        self.assertEqual(target_path, str(target))
+        self.assertFalse(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertTrue((target / "foo").exists())
+        self.assertEqual("foo", (target / "foo").read_text())
+        self.assertEqual("bar", (target / "bar").read_text())
+
+    @unittest.skipIf(sys.version_info < (3, 14), "move_into() is new in Python 3.14")
+    def test_move_into(self):
+        source_dir = self.path(self.make_path("some_dir"))
+        source_path = source_dir / "foo"
+        self.create_file(source_path, contents="foo")
+        target_path = self.path(self.make_path("new_dir"))
+        self.create_dir(target_path)
+        target = source_path.move_into(target_path)
+        self.assertFalse(source_path.exists())
+        self.assertTrue(target.exists())
+        self.assertEqual(str(target_path / "foo"), str(target))
+        self.assertEqual("foo", target.read_text())
 
     def test_walk(self):
         """Regression test for #915 - walk results shall be strings."""
@@ -1631,9 +1717,6 @@ class SkipPathlibTest(fake_filesystem_unittest.TestCase):
         contents = read_bytes_pathlib("skipped_pathlib.py")
         self.assertTrue(contents.startswith(b"# Licensed under the Apache License"))
 
-    @unittest.skipIf(
-        IS_PYPY and sys.version_info < (3, 8), "Ignoring error in outdated version"
-    )
     def test_exists(self):
         self.assertTrue(check_exists_pathlib())
 

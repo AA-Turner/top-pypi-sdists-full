@@ -16,6 +16,7 @@ import fnmatch
 import itertools
 import json
 import logging
+import os
 import re
 from functools import reduce
 from typing import Dict, Any, List, Optional, Iterable, Tuple, Set
@@ -24,7 +25,7 @@ from colorama import Fore, Back, Style
 
 from . import record_edit, base, record_totp, record_file_report
 from .base import Command, GroupCommand, RecordMixin, FolderMixin, fields_to_titles
-from .. import api, display, crypto, utils, vault, vault_extensions, subfolder, recordv3, record_types
+from .. import api, display, crypto, utils, vault, vault_extensions, subfolder, record_types
 from ..breachwatch import BreachWatch
 from ..error import CommandError
 from ..params import KeeperParams
@@ -34,6 +35,32 @@ from ..subfolder import try_resolve_path, get_folder_path, find_folders, find_al
     get_folder_uids
 from ..team import Team
 
+def handle_empty_result(fmt, message, filename=None):
+    """
+    Handle 'no data found' scenarios for different output formats.
+    
+    Args:
+        fmt (str): Output format ('json', 'table', etc.)
+        message (str): Message to display/return
+        filename (str, optional): Output filename for JSON format
+    
+    Returns:
+        dict: For JSON format, returns {"message": message}
+        None: For other formats, logs the message and returns None
+    """
+    if fmt == 'json':
+        result = {"message": message}
+        if filename:
+            _, ext = os.path.splitext(filename)
+            if not ext:
+                filename += '.json'
+            logging.info('Report path: %s', os.path.abspath(filename))
+            with open(filename, 'w') as fd:
+                json.dump(result, fd, indent=2, default=base.json_serialized)
+            return None
+        return result
+    logging.info(message)
+    return None
 
 def register_commands(commands):
     commands['search'] = SearchCommand()
@@ -76,15 +103,19 @@ def register_command_info(aliases, command_info):
     for p in [get_info_parser, search_parser, list_parser, list_sf_parser, list_team_parser,
               record_history_parser, shared_records_report_parser, record_edit.record_add_parser,
               record_edit.record_update_parser, record_edit.append_parser, record_edit.download_parser,
-              record_edit.upload_parser, record_edit.delete_attachment_parser, clipboard_copy_parser, record_totp.totp_parser]:
+              record_edit.upload_parser, record_edit.delete_attachment_parser, clipboard_copy_parser, record_totp.totp_parser,
+              rm_parser, record_file_report.file_report_parser]:
         command_info[p.prog] = p.description
     command_info['trash'] = 'Manage records in the deleted items'
+    command_info['find-password'] = 'Find and display password for a record'
 
 
 get_info_parser = argparse.ArgumentParser(prog='get', description='Get the details of a record/folder/team by UID or title')
 get_info_parser.add_argument('--unmask', dest='unmask', action='store_true', help='display hidden field content')
 get_info_parser.add_argument('--legacy', dest='legacy', action='store_true',
                              help='json output: display typed records as legacy')
+get_info_parser.add_argument('--include-dag', dest='include_dag', action='store_true',
+                             help='include DAG/GraphSync information in json output')
 get_info_parser.add_argument(
     '--format', dest='format', action='store', choices=['detail', 'json', 'password', 'fields'],
     default='detail', help='output format')
@@ -97,6 +128,8 @@ search_parser.add_argument('-v', '--verbose', dest='verbose', action='store_true
 search_parser.add_argument('-c', '--categories', dest='categories', action='store',
                            help='One or more of these letters for categories to search: "r" = records, '
                                 '"s" = shared folders, "t" = teams')
+search_parser.add_argument('--format', dest='format', action='store', choices=['table', 'json'],
+                           default='table', help='output format')
 
 
 list_parser = argparse.ArgumentParser(prog='list', description='List all records', parents=[base.report_output_parser])
@@ -362,6 +395,7 @@ class RecordGetUidCommand(Command):
                     }
                     if version < 3 or kwargs.get('legacy') is True:
                         ro['title'] = r.title
+                        ro['record_type'] = r.record_type
                         if r.login:
                             ro['login'] = r.login
                         if r.password:
@@ -402,6 +436,8 @@ class RecordGetUidCommand(Command):
                         ro['share_admins'] = admins
 
                     ro['revision'] = r.revision
+                    if version == 3 and kwargs.get('include_dag') is True:
+                        self.include_dag(params, ro, r)
 
                     print(json.dumps(ro, indent=2))
                 elif fmt == 'password':
@@ -483,12 +519,17 @@ class RecordGetUidCommand(Command):
                             for user in rec['shares']['user_permissions']:
                                 print('')
                                 if 'username' in user:
-                                    print('User: ' + user['username'])
+                                    print('  User: ' + user['username'])
                                 if 'user_uid' in user:
-                                    print('User UID: ' + user['user_uid'])
+                                    print('  User UID: ' + user['user_uid'])
                                 elif 'accountUid' in user:
-                                    print('User UID: ' + user['accountUid'])
-                                
+                                    print('  User UID: ' + user['accountUid'])
+
+                                # Show owner status
+                                is_owner = user.get('owner', False)
+                                if is_owner:
+                                    print('  Owner: Yes')
+
                                 # Handle both possible spellings of sharable/shareable
                                 if 'sharable' in user:
                                     shareable = user['sharable']
@@ -496,59 +537,69 @@ class RecordGetUidCommand(Command):
                                     shareable = user['shareable']
                                 else:
                                     shareable = False
-                                
+
                                 if shareable is None:
                                     shareable = False
-                                
+
                                 # Handle both possible spellings of readable
-                                if 'readable' in user:
-                                    readable = user['readable']
+                                if 'editable' in user:
+                                    editable = user['editable']
                                 else:
-                                    readable = False
-                                
-                                if readable is None:
-                                    readable = False
-                                
-                                print('Shareable: ' + ('Yes' if shareable else 'No'))
-                                print('Read-Only: ' + ('Yes' if not shareable else 'No'))
-                            print('')
+                                    editable = False
+
+                                if editable is None:
+                                    editable = False
+
+                                print('  Shareable: ' + ('Yes' if shareable else 'No'))
+                                print('  Read-Only: ' + ('Yes' if not editable else 'No'))
                         if 'shared_folder_permissions' in rec['shares'] and rec['shares']['shared_folder_permissions']:
                             print('')
                             print('Shared Folder Permissions:')
                             for sf in rec['shares']['shared_folder_permissions']:
                                 print('')
                                 if 'shared_folder_uid' in sf:
-                                    print('Shared Folder UID: ' + sf['shared_folder_uid'])
+                                    print('  Shared Folder UID: ' + sf['shared_folder_uid'])
                                 if 'user_uid' in sf:
-                                    print('User UID: ' + sf['user_uid'])
+                                    print('  User UID: ' + sf['user_uid'])
                                 elif 'accountUid' in sf:
-                                    print('User UID: ' + sf['accountUid'])
-                                
+                                    print('  User UID: ' + sf['accountUid'])
+
                                 # Safely access boolean fields with fallback to False
                                 if sf.get('manage_users', False) is True:
-                                    print('Manage Users: True')
+                                    print('  Manage Users: True')
                                 if sf.get('manage_records', False) is True:
-                                    print('Manage Records: True')
+                                    print('  Manage Records: True')
                                 if sf.get('can_edit', False) is True:
-                                    print('Can Edit: True')
+                                    print('  Can Edit: True')
                                 if sf.get('can_share', False) is True:
-                                    print('Can Share: True')
-                            print('')
+                                    print('  Can Share: True')
                         if 'team_permissions' in rec['shares'] and rec['shares']['team_permissions']:
                             print('')
                             print('Team Permissions:')
                             for team in rec['shares']['team_permissions']:
                                 print('')
                                 if 'team_uid' in team:
-                                    print('Team UID: ' + team['team_uid'])
+                                    print('  Team UID: ' + team['team_uid'])
                                 if 'name' in team:
-                                    print('Name: ' + team['name'])
-                            print('')
+                                    print('  Name: ' + team['name'])
                     if admins:
                         print('')
-                        print('Share Admins:')
-                        for admin in admins:
-                            print(admin)
+                        max_admins_shown = 10
+                        total_admins = len(admins)
+                        if total_admins <= max_admins_shown:
+                            print(f'Share Admins ({total_admins}):')
+                            for admin in admins:
+                                print(f'  {admin}')
+                        else:
+                            print(f'Share Admins ({total_admins}, showing first {max_admins_shown}):')
+                            for admin in admins[:max_admins_shown]:
+                                print(f'  {admin}')
+                            print(f'  ... and {total_admins - max_admins_shown} more')
+
+                    # Display rotation info for pamUser records when --include-dag is specified
+                    if kwargs.get('include_dag') and r.record_type == 'pamUser':
+                        self.display_rotation_info(params, r)
+
                 direct_match = True
                 return
 
@@ -747,6 +798,316 @@ class RecordGetUidCommand(Command):
                 logging.info('\nTo view details of a specific item, use the get command with its UID.')
             return
 
+    def include_dag(self, params, ro, r):
+        """Include DAG/GraphSync information for the record.
+
+        Args:
+            params: Command parameters
+            ro: Record output dictionary to be modified
+            r: Record object
+        """
+        valid_record_types = {'pamDatabase', 'pamDirectory', 'pamMachine', 'pamUser', 'pamRemoteBrowser'}
+        if r.record_type not in valid_record_types:
+            return
+
+        # Initialize structures once - always present with nullable values
+        ro['associatedCredentials'] = {
+            'adminCredential': None,
+            'launchCredential': None,
+            'linkedCredentials': None
+        }
+        ro['pamSettingsEnabled'] = {
+            'connections': None,
+            'tunneling': None,
+            'rotation': None,
+            'sessionRecording': None,
+            'typescriptRecording': None,
+            'remoteBrowserIsolation': None
+        }
+
+        try:
+            # Get keeper tokens for DAG access
+            from .tunnel.port_forward.tunnel_helpers import get_keeper_tokens
+            from .tunnel.port_forward.TunnelGraph import TunnelDAG
+            from ..keeper_dag import EdgeType
+
+            encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
+            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, r.record_uid,
+                             transmission_key=transmission_key)
+
+            if not tdag.linking_dag.has_graph:
+                ro['dagDebug'] = {'error': 'No graph loaded', 'has_graph': False}
+                return
+
+            record_vertex = tdag.linking_dag.get_vertex(r.record_uid)
+            if record_vertex is None:
+                ro['dagDebug'] = {'error': f'Record vertex not found for {r.record_uid}', 'has_graph': True}
+                return
+
+            # Add debug info about the vertex
+            ro['dagDebug'] = {
+                'has_graph': True,
+                'vertex_uid': record_vertex.uid,
+                'vertex_name': getattr(record_vertex, 'name', None),
+                'vertex_type': str(getattr(record_vertex, 'vertex_type', None)),
+            }
+
+            # Extract allowedSettings from vertex content
+            try:
+                content = record_vertex.content_as_dict
+                ro['dagDebug']['vertex_content'] = content
+                if content and 'allowedSettings' in content:
+                    allowed_settings = content['allowedSettings']
+                    if isinstance(allowed_settings, dict):
+                        ro['pamSettingsEnabled']['connections'] = allowed_settings.get('connections')
+                        ro['pamSettingsEnabled']['tunneling'] = allowed_settings.get('portForwards')
+                        ro['pamSettingsEnabled']['rotation'] = allowed_settings.get('rotation')
+                        ro['pamSettingsEnabled']['sessionRecording'] = allowed_settings.get('sessionRecording')
+                        ro['pamSettingsEnabled']['typescriptRecording'] = allowed_settings.get('typescriptRecording')
+                        ro['pamSettingsEnabled']['remoteBrowserIsolation'] = allowed_settings.get('remoteBrowserIsolation')
+            except Exception as e:
+                ro['dagDebug']['content_error'] = str(e)
+
+            # Find all ACL links where Head is recordUID
+            admin_credential = None
+            launch_credential = None
+            linked_credentials = []
+            acl_debug = []
+
+            # Get vertices that have ACL edges pointing to this record (has_vertices)
+            for user_vertex in record_vertex.has_vertices(EdgeType.ACL):
+                acl_edge = user_vertex.get_edge(record_vertex, EdgeType.ACL)
+                if acl_edge:
+                    try:
+                        content = acl_edge.content_as_dict or {}
+                        acl_debug.append({
+                            'user_vertex_uid': user_vertex.uid,
+                            'edge_content': content
+                        })
+                        # belongs_to = content.get('belongs_to', False)
+                        is_admin = content.get('is_admin', False)
+                        is_launch_credential = content.get('is_launch_credential', None)
+
+                        # Add to linked credentials list
+                        if user_vertex.uid not in linked_credentials:
+                            linked_credentials.append(user_vertex.uid)
+
+                        if is_admin and admin_credential is None:
+                            admin_credential = user_vertex.uid
+
+                        if is_launch_credential and launch_credential is None:
+                            launch_credential = user_vertex.uid
+                    except Exception as e:
+                        acl_debug.append({'error': str(e), 'user_vertex_uid': user_vertex.uid})
+
+            ro['dagDebug']['acl_edges'] = acl_debug
+            ro['dagDebug']['all_edges'] = [{'type': str(e.edge_type), 'head_uid': e.head_uid} for e in record_vertex.edges]
+
+            # For pamUser records, show rotation profile from the ACL edge to parent (config/resource)
+            if r.record_type == 'pamUser':
+                rotation_profile = None
+                rotation_profile_config_uid = None
+                rotation_profile_resource_uid = None
+
+                for parent_vertex in record_vertex.belongs_to_vertices():
+                    acl_edge = record_vertex.get_edge(parent_vertex, EdgeType.ACL)
+                    if acl_edge:
+                        try:
+                            edge_content = acl_edge.content_as_dict or {}
+
+                            # Extract rotation profile flags from edge content
+                            # (matches web vault PamUserAclData type in dag-pam-link.ts)
+                            belongs_to = edge_content.get('belongs_to', False)
+                            is_iam_user = edge_content.get('is_iam_user', False)
+                            rotation_settings = edge_content.get('rotation_settings', {})
+                            is_noop = rotation_settings.get('noop', False) if isinstance(rotation_settings, dict) else False
+
+                            # Determine rotation profile using same logic as web vault
+                            # (dag-pam-link.ts configLinkRotationProfile)
+                            if is_noop:
+                                rotation_profile = 'scripts_only'  # "Run PAM scripts only"
+                                rotation_profile_config_uid = parent_vertex.uid
+                            elif is_iam_user:
+                                rotation_profile = 'iam_user'  # "IAM User"
+                                rotation_profile_config_uid = parent_vertex.uid
+                            elif belongs_to:
+                                rotation_profile = 'general'  # "General" (linked to resource)
+                                rotation_profile_resource_uid = parent_vertex.uid
+
+                            # Store full edge content in dagDebug for troubleshooting
+                            ro['dagDebug']['parentAclEdge'] = {
+                                'parent_uid': parent_vertex.uid,
+                                'parent_type': str(getattr(parent_vertex, 'vertex_type', None)),
+                                'content': edge_content
+                            }
+                        except Exception as e:
+                            ro['dagDebug']['parentAclEdge'] = {'error': str(e), 'parent_uid': parent_vertex.uid}
+
+                ro['rotationProfile'] = {
+                    'type': rotation_profile,
+                    'configUid': rotation_profile_config_uid,
+                    'resourceUid': rotation_profile_resource_uid
+                }
+
+            # Update associatedCredentials with found values
+            ro['associatedCredentials']['adminCredential'] = admin_credential
+            ro['associatedCredentials']['launchCredential'] = launch_credential
+            ro['associatedCredentials']['linkedCredentials'] = linked_credentials if linked_credentials else None
+
+        except Exception as e:
+            logging.debug(f"Error accessing DAG for record {r.record_uid}: {e}")
+            ro['dagDebug'] = {'error': str(e)}
+
+    def display_rotation_info(self, params, r):
+        """Display rotation info for pamUser records in table format (similar to web vault)"""
+        from .tunnel.port_forward.tunnel_helpers import get_keeper_tokens
+        from .tunnel.port_forward.TunnelGraph import TunnelDAG
+        from keeper_dag.edge import EdgeType
+
+        try:
+            # Get rotation data from cache
+            rotation_data = params.record_rotation_cache.get(r.record_uid)
+
+            # Get DAG data for rotation profile
+            encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
+            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, r.record_uid,
+                             transmission_key=transmission_key)
+
+            rotation_profile = None
+            config_uid = None
+            resource_uid = None
+
+            if tdag.linking_dag.has_graph:
+                record_vertex = tdag.linking_dag.get_vertex(r.record_uid)
+                if record_vertex:
+                    for parent_vertex in record_vertex.belongs_to_vertices():
+                        acl_edge = record_vertex.get_edge(parent_vertex, EdgeType.ACL)
+                        if acl_edge:
+                            edge_content = acl_edge.content_as_dict or {}
+                            belongs_to = edge_content.get('belongs_to', False)
+                            is_iam_user = edge_content.get('is_iam_user', False)
+                            rotation_settings = edge_content.get('rotation_settings', {})
+                            is_noop = rotation_settings.get('noop', False) if isinstance(rotation_settings, dict) else False
+
+                            if is_noop:
+                                rotation_profile = 'Scripts Only'
+                                config_uid = parent_vertex.uid
+                            elif is_iam_user:
+                                rotation_profile = 'IAM User'
+                                config_uid = parent_vertex.uid
+                            elif belongs_to:
+                                rotation_profile = 'General'
+                                resource_uid = parent_vertex.uid
+
+            # Get config UID from rotation cache if not from DAG
+            if not config_uid and rotation_data:
+                config_uid = rotation_data.get('configuration_uid')
+            if not resource_uid and rotation_data:
+                resource_uid = rotation_data.get('resource_uid')
+                # If resource_uid equals config_uid, it's an IAM/NOOP user, not General
+                if resource_uid and resource_uid == config_uid:
+                    resource_uid = None
+
+            # Get configuration name
+            config_name = None
+            if config_uid:
+                config_record = vault.KeeperRecord.load(params, config_uid)
+                if config_record:
+                    config_name = config_record.title
+
+            # Get resource name
+            resource_name = None
+            if resource_uid:
+                resource_record = vault.KeeperRecord.load(params, resource_uid)
+                if resource_record:
+                    resource_name = resource_record.title
+
+            print('')
+            print('Rotation:')
+
+            if not rotation_data and not rotation_profile:
+                print('  Status: Not configured')
+                return
+
+            # Rotation status
+            if rotation_data:
+                disabled = rotation_data.get('disabled', False)
+                print(f'  Status: {"Disabled" if disabled else "Enabled"}')
+            else:
+                print('  Status: Enabled')
+
+            # Rotation profile
+            if rotation_profile:
+                print(f'  Profile: {rotation_profile}')
+
+            # PAM Configuration
+            if config_name:
+                print(f'  Configuration: {config_name}')
+            elif config_uid:
+                print(f'  Configuration UID: {config_uid}')
+
+            # Resource (for General profile)
+            if resource_name:
+                print(f'  Resource: {resource_name}')
+            elif resource_uid:
+                print(f'  Resource UID: {resource_uid}')
+
+            # Schedule
+            if rotation_data and rotation_data.get('schedule'):
+                try:
+                    schedule_json = json.loads(rotation_data['schedule'])
+                    if isinstance(schedule_json, list) and len(schedule_json) > 0:
+                        schedule = schedule_json[0]
+                        schedule_type = schedule.get('type', 'ON_DEMAND')
+                        if schedule_type == 'ON_DEMAND':
+                            print('  Schedule: On Demand')
+                        else:
+                            # Format schedule description
+                            time_str = schedule.get('utcTime', '')
+                            tz = schedule.get('tz', 'UTC')
+                            if schedule_type == 'DAILY':
+                                interval = schedule.get('intervalCount', 1)
+                                desc = f"Every {interval} day(s) at {time_str} {tz}"
+                            elif schedule_type == 'WEEKLY':
+                                weekday = schedule.get('weekday', '')
+                                desc = f"Weekly on {weekday} at {time_str} {tz}"
+                            elif schedule_type == 'MONTHLY_BY_DAY':
+                                day = schedule.get('day', 1)
+                                desc = f"Monthly on day {day} at {time_str} {tz}"
+                            elif schedule_type == 'MONTHLY_BY_WEEKDAY':
+                                week = schedule.get('week', 'FIRST')
+                                weekday = schedule.get('weekday', '')
+                                desc = f"{week.title()} {weekday} of the month at {time_str} {tz}"
+                            else:
+                                desc = f"{schedule_type} at {time_str} {tz}"
+                            print(f'  Schedule: {desc}')
+                    else:
+                        print('  Schedule: On Demand')
+                except:
+                    print('  Schedule: On Demand')
+
+            # Last rotation
+            if rotation_data and rotation_data.get('last_rotation'):
+                last_rotation_ts = rotation_data['last_rotation']
+                if last_rotation_ts > 0:
+                    # Convert milliseconds to datetime
+                    last_rotation_dt = datetime.datetime.fromtimestamp(last_rotation_ts / 1000)
+                    print(f'  Last Rotated: {last_rotation_dt.strftime("%b %d, %Y at %I:%M %p")}')
+
+                    # Show rotation status if available
+                    # RecordRotationStatus enum: 0=NOT_ROTATED, 1=IN_PROGRESS, 2=SUCCESS, 3=FAILURE
+                    last_status = rotation_data.get('last_rotation_status')
+                    if last_status is not None:
+                        status_map = {0: 'Not Rotated', 1: 'In Progress', 2: 'Success', 3: 'Failure'}
+                        status_text = status_map.get(last_status, f'Unknown ({last_status})')
+                        print(f'  Last Status: {status_text}')
+
+        except Exception as e:
+            logging.debug(f"Error displaying rotation info for {r.record_uid}: {e}")
+            print('')
+            print('Rotation:')
+            print(f'  Error: Could not retrieve rotation info')
+
 
 class SearchCommand(Command):
     def get_parser(self):
@@ -760,38 +1121,97 @@ class SearchCommand(Command):
         categories = (kwargs.get('categories') or 'rst').lower()
         verbose = kwargs.get('verbose') is True
         skip_details = not verbose
+        fmt = kwargs.get('format', 'table')
+
+        all_results = []
 
         if 'r' in categories:
-            records = list(vault_extensions.find_records(params, pattern))
-            if records:
-                logging.info('')
-                table = []
-                headers = ['Record UID', 'Type', 'Title', 'Description']
-                for record in records:
-                    row = [record.record_uid, record.record_type, record.title,
-                           vault_extensions.get_record_description(record)]
-                    table.append(row)
-                table.sort(key=lambda x: (x[2] or '').lower())
 
-                base.dump_report_data(table, headers, row_number=True, column_width=None if verbose else 40)
-                if verbose and len(records) < 5:
-                    get_command = RecordGetUidCommand()
+            records = list(vault_extensions.find_records(params, pattern, record_version=None if verbose else [2,3]))
+            if records:
+                if fmt == 'json':
                     for record in records:
-                        get_command.execute(params, uid=record.record_uid)
+                        result_item = {
+                            'type': 'record',
+                            'record_uid': record.record_uid,
+                            'record_type': record.record_type,
+                            'title': record.title,
+                            'description': vault_extensions.get_record_description(record)
+                        }
+                        all_results.append(result_item)
+                else:
+                    logging.info('')
+                    table = []
+                    headers = ['Record UID', 'Type', 'Title', 'Description']
+                    for record in records:
+                        row = [record.record_uid, record.record_type, record.title,
+                               vault_extensions.get_record_description(record)]
+                        table.append(row)
+                    table.sort(key=lambda x: (x[2] or '').lower())
+
+                    base.dump_report_data(table, headers, row_number=True, column_width=None if verbose else 40)
+                    if verbose and len(records) < 5:
+                        get_command = RecordGetUidCommand()
+                        for record in records:
+                            get_command.execute(params, uid=record.record_uid)
 
         # Search shared folders
         if 's' in categories:
             results = api.search_shared_folders(params, pattern)
             if results:
-                logging.info('')
-                display.formatted_shared_folders(results, params=params, skip_details=skip_details)
+                if fmt == 'json':
+                    for sf in results:
+                        result_item = {
+                            'type': 'shared_folder',
+                            'shared_folder_uid': sf.shared_folder_uid,
+                            'name': sf.name,
+                            'can_edit': getattr(sf, 'can_edit', False),
+                            'can_share': getattr(sf, 'can_share', False)
+                        }
+                        all_results.append(result_item)
+                else:
+                    logging.info('')
+                    display.formatted_shared_folders(results, params=params, skip_details=skip_details)
 
         # Search teams
         if 't' in categories:
             results = api.search_teams(params, pattern)
             if results:
-                logging.info('')
-                display.formatted_teams(results, params=params, skip_details=skip_details)
+                if fmt == 'json':
+                    for team in results:
+                        result_item = {
+                            'type': 'team',
+                            'team_uid': team.team_uid,
+                            'name': team.name,
+                            'restrict_edit': getattr(team, 'restrict_edit', False),
+                            'restrict_view': getattr(team, 'restrict_view', False),
+                            'restrict_share': getattr(team, 'restrict_share', False)
+                        }
+                        all_results.append(result_item)
+                else:
+                    logging.info('')
+                    display.formatted_teams(results, params=params, skip_details=skip_details)
+
+        if fmt == 'json':
+            if all_results:
+                table = []
+                headers = ['type', 'uid', 'name', 'details']
+                
+                for item in all_results:
+                    if item['type'] == 'record':
+                        row = [item['type'], item['record_uid'], item['title'], 
+                               f"Type: {item['record_type']}, Description: {item['description']}"]
+                    elif item['type'] == 'shared_folder':
+                        row = [item['type'], item['shared_folder_uid'], item['name'],
+                               f"Can Edit: {item['can_edit']}, Can Share: {item['can_share']}"]
+                    elif item['type'] == 'team':
+                        row = [item['type'], item['team_uid'], item['name'],
+                               f"Restrict Edit: {item['restrict_edit']}, Restrict View: {item['restrict_view']}, Restrict Share: {item['restrict_share']}"]
+                    table.append(row)
+                
+                return base.dump_report_data(table, headers, fmt='json')
+            else:
+                return base.dump_report_data([], ['type', 'uid', 'name', 'details'], fmt='json')
 
 
 class RecordListCommand(Command):
@@ -849,7 +1269,7 @@ class RecordListCommand(Command):
             return base.dump_report_data(table, headers, fmt=fmt, filename=kwargs.get('output'),
                                          row_number=True, column_width=None if verbose else 40)
         else:
-            logging.info('No records are found')
+            return handle_empty_result(fmt, 'No records are found', kwargs.get('output'))
 
 
 class RecordListSfCommand(Command):
@@ -871,7 +1291,7 @@ class RecordListSfCommand(Command):
             return base.dump_report_data(table, headers, fmt=fmt, filename=kwargs.get('output'),
                                     row_number=True)
         else:
-            logging.info('No shared folders are found')
+            return handle_empty_result(fmt, 'No shared folders are found', kwargs.get('output'))
 
 
 class RecordListTeamCommand(Command):
@@ -923,7 +1343,7 @@ class RecordListTeamCommand(Command):
             return base.dump_report_data(table, headers, fmt=fmt, filename=kwargs.get('output'),
                                     row_number=True)
         else:
-            logging.info('No teams are found')
+            return handle_empty_result(fmt, 'No teams are found', kwargs.get('output'))
 
     @classmethod
     def get_team_members(self, params, teams, allow_fetch):
@@ -1188,8 +1608,8 @@ class TrashListCommand(Command, TrashMixin):
         verbose = kwargs.get('verbose') is True
 
         if len(deleted_records) == 0 and len(orphaned_records) == 0 and len(shared_folders) == 0:
-            logging.info('Trash is empty')
-            return
+            fmt = kwargs.get('format', 'table')
+            return handle_empty_result(fmt, 'Trash is empty', kwargs.get('output'))
 
         pattern = kwargs.get('pattern')
         if pattern:
@@ -1657,11 +2077,13 @@ class RecordHistoryCommand(Command, RecordMixin):
                         rows.append([name, value])
                 modified = datetime.datetime.fromtimestamp(int(rev['client_modified_time'] / 1000.0))
                 rows.append(['Modified', modified])
-                base.dump_report_data(rows, headers=['Name', 'Value'],
-                                 title=f'Record Revision V.{revision}', no_header=True, right_align=(0,))
+                fmt = kwargs.get('format') or ''
+                return base.dump_report_data(rows, headers=['Name', 'Value'],
+                                 title=f'Record Revision V.{revision}', no_header=True, right_align=(0,),
+                                 fmt=fmt, filename=kwargs.get('output'))
 
             elif action == 'diff':
-                count = 5
+                count = length - 1
                 current = vault.KeeperRecord.load(params, history[index])
                 rows = []
                 while count >= 0 and current:
@@ -1715,7 +2137,8 @@ class RecordHistoryCommand(Command, RecordMixin):
                                 lines.append('...')
                             row[index] = '\n'.join(lines)
 
-                base.dump_report_data(rows, headers)
+                fmt = kwargs.get('format') or ''
+                return base.dump_report_data(rows, headers, fmt=fmt, filename=kwargs.get('output'))
 
             elif action == 'restore':
                 if revision == 0:
@@ -2112,6 +2535,10 @@ class RecordRemoveCommand(Command):
         return rm_parser
 
     def execute(self, params, **kwargs):
+        from ..enforcement import MasterPasswordReentryEnforcer
+        if not MasterPasswordReentryEnforcer.check_and_enforce(params, "record_level"):
+            raise CommandError('rm', 'Operation cancelled: Re-authentication failed')
+
         records_to_delete = []     # type: List[Tuple[BaseFolderNode, str]]
         record_names = kwargs.get('records')
         rq_obj_limit = 999

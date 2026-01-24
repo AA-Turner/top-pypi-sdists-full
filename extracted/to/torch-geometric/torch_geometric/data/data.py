@@ -1,5 +1,6 @@
 import copy
 import warnings
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import chain
@@ -354,7 +355,7 @@ class BaseData:
         """
         return self.apply(lambda x: x.contiguous(), *args)
 
-    def to(self, device: Union[int, str], *args: str,
+    def to(self, device: Union[int, str, torch.device], *args: str,
            non_blocking: bool = False):
         r"""Performs tensor device conversion, either for all attributes or
         only the ones given in :obj:`*args`.
@@ -659,7 +660,13 @@ class Data(BaseData, FeatureStore, GraphStore):
                 return value.get_dim_size()
             return int(value.max()) + 1
         elif 'index' in key or key == 'face':
-            return self.num_nodes
+            num_nodes = self.num_nodes
+            if num_nodes is None:
+                raise RuntimeError(f"Unable to infer 'num_nodes' from the "
+                                   f"attribute '{key}'. Please explicitly set "
+                                   f"'num_nodes' as an attribute of 'data' to "
+                                   f"prevent this error")
+            return num_nodes
         else:
             return 0
 
@@ -844,14 +851,14 @@ class Data(BaseData, FeatureStore, GraphStore):
         # that maps global node indices to local ones in the final
         # heterogeneous graph:
         node_ids, index_map = {}, torch.empty_like(node_type)
-        for i, key in enumerate(node_type_names):
+        for i in range(len(node_type_names)):
             node_ids[i] = (node_type == i).nonzero(as_tuple=False).view(-1)
             index_map[node_ids[i]] = torch.arange(len(node_ids[i]),
                                                   device=index_map.device)
 
         # We iterate over edge types to find the local edge indices:
         edge_ids = {}
-        for i, key in enumerate(edge_type_names):
+        for i in range(len(edge_type_names)):
             edge_ids[i] = (edge_type == i).nonzero(as_tuple=False).view(-1)
 
         data = HeteroData()
@@ -897,6 +904,60 @@ class Data(BaseData, FeatureStore, GraphStore):
             data[attr] = value
 
         return data
+
+    def connected_components(self) -> List[Self]:
+        r"""Extracts connected components of the graph using a union-find
+        algorithm. The components are returned as a list of
+        :class:`~torch_geometric.data.Data` objects, where each object
+        represents a connected component of the graph.
+
+        .. code-block::
+
+            data = Data()
+            data.x = torch.tensor([[1.0], [2.0], [3.0], [4.0]])
+            data.y = torch.tensor([[1.1], [2.1], [3.1], [4.1]])
+            data.edge_index = torch.tensor(
+                [[0, 1, 2, 3], [1, 0, 3, 2]], dtype=torch.long
+            )
+
+            components = data.connected_components()
+            print(len(components))
+            >>> 2
+
+            print(components[0].x)
+            >>> Data(x=[2, 1], y=[2, 1], edge_index=[2, 2])
+
+        Returns:
+            List[Data]: A list of disconnected components.
+        """
+        # Union-Find algorithm to find connected components
+        self._parents: Dict[int, int] = {}
+        self._ranks: Dict[int, int] = {}
+        for edge in self.edge_index.t().tolist():
+            self._union(edge[0], edge[1])
+
+        # Rerun _find_parent to ensure all nodes are covered correctly
+        for node in range(self.num_nodes):
+            self._find_parent(node)
+
+        # Group parents
+        grouped_parents = defaultdict(list)
+        for node, parent in self._parents.items():
+            grouped_parents[parent].append(node)
+        del self._ranks
+        del self._parents
+
+        # Create components based on the found parents (roots)
+        components: List[Self] = []
+        for nodes in grouped_parents.values():
+            # Convert the list of node IDs to a tensor
+            subset = torch.tensor(nodes, dtype=torch.long)
+
+            # Use the existing subgraph function
+            component_data = self.subgraph(subset)
+            components.append(component_data)
+
+        return components
 
     ###########################################################################
 
@@ -1144,6 +1205,49 @@ class Data(BaseData, FeatureStore, GraphStore):
 
         return list(edge_attrs.values())
 
+    # Connected Components Helper Functions ###################################
+
+    def _find_parent(self, node: int) -> int:
+        r"""Finds and returns the representative parent of the given node in a
+        disjoint-set (union-find) data structure. Implements path compression
+        to optimize future queries.
+
+        Args:
+            node (int): The node for which to find the representative parent.
+
+        Returns:
+            int: The representative parent of the node.
+        """
+        if node not in self._parents:
+            self._parents[node] = node
+            self._ranks[node] = 0
+        if self._parents[node] != node:
+            self._parents[node] = self._find_parent(self._parents[node])
+        return self._parents[node]
+
+    def _union(self, node1: int, node2: int):
+        r"""Merges the sets containing node1 and node2 in the disjoint-set
+        data structure.
+
+        Finds the root parents of node1 and node2 using the _find_parent
+        method. If they belong to different sets, updates the parent of
+        root2 to be root1, effectively merging the two sets.
+
+        Args:
+            node1 (int): The index of the first node to union.
+            node2 (int): The index of the second node to union.
+        """
+        root1 = self._find_parent(node1)
+        root2 = self._find_parent(node2)
+        if root1 != root2:
+            if self._ranks[root1] < self._ranks[root2]:
+                self._parents[root1] = root2
+            elif self._ranks[root1] > self._ranks[root2]:
+                self._parents[root2] = root1
+            else:
+                self._parents[root2] = root1
+                self._ranks[root1] += 1
+
 
 ###############################################################################
 
@@ -1187,4 +1291,4 @@ def warn_or_raise(msg: str, raise_on_error: bool = True):
     if raise_on_error:
         raise ValueError(msg)
     else:
-        warnings.warn(msg)
+        warnings.warn(msg, stacklevel=2)

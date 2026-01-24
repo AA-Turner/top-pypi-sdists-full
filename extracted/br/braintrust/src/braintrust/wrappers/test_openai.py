@@ -1,15 +1,15 @@
 import asyncio
 import time
 
+import braintrust
 import openai
 import pytest
-from openai import AsyncOpenAI
-from openai._types import NOT_GIVEN
-from pydantic import BaseModel
-
 from braintrust import logger, wrap_openai
 from braintrust.test_helpers import assert_dict_matches, init_test_logger
 from braintrust.wrappers.test_utils import assert_metrics_are_valid
+from openai import AsyncOpenAI
+from openai._types import NOT_GIVEN
+from pydantic import BaseModel
 
 TEST_ORG_ID = "test-org-openai-py-tracing"
 PROJECT_NAME = "test-project-openai-py-tracing"
@@ -18,21 +18,43 @@ TEST_PROMPT = "What's 12 + 12?"
 TEST_SYSTEM_PROMPT = "You are a helpful assistant that only responds with numbers."
 
 
-@pytest.fixture(scope="module")
-def vcr_config():
-    return {
-        "filter_headers": [
-            "authorization",
-            "openai-organization",
-        ]
-    }
-
-
 @pytest.fixture
 def memory_logger():
     init_test_logger(PROJECT_NAME)
     with logger._internal_with_memory_background_logger() as bgl:
         yield bgl
+
+
+def test_tracing_processor_sets_current_span(memory_logger):
+    """Ensure that on_trace_start sets the span as current so nested spans work."""
+    pytest.importorskip("agents", reason="agents package not available")
+    from braintrust.wrappers.openai import BraintrustTracingProcessor
+
+    assert not memory_logger.pop()
+    processor = BraintrustTracingProcessor()
+
+    class DummyTrace:
+        def __init__(self):
+            self.trace_id = "test-trace-id"
+            self.name = "test-trace"
+
+        def export(self):
+            return {"group_id": "group", "metadata": {"foo": "bar"}}
+
+    trace = DummyTrace()
+
+    with braintrust.start_span(name="parent-span") as parent_span:
+        assert braintrust.current_span() == parent_span
+        processor.on_trace_start(trace)
+        created_span = processor._spans[trace.trace_id]
+        assert braintrust.current_span() == created_span
+
+        processor.on_trace_end(trace)
+        assert braintrust.current_span() == parent_span
+
+    spans = memory_logger.pop()
+    assert spans
+    assert any(span.get("span_attributes", {}).get("name") == trace.name for span in spans)
 
 
 @pytest.mark.vcr
@@ -261,7 +283,16 @@ def test_openai_responses_sparse_indices(memory_logger):
     # Create a mock response with sparse content indices (e.g., indices 0, 2, 5)
     # This simulates a streaming response where items arrive out of order or with gaps
     class MockResult:
-        def __init__(self, type, content_index=None, delta=None, annotation_index=None, annotation=None, output_index=None, item=None):
+        def __init__(
+            self,
+            type,
+            content_index=None,
+            delta=None,
+            annotation_index=None,
+            annotation=None,
+            output_index=None,
+            item=None,
+        ):
             self.type = type
             if content_index is not None:
                 self.content_index = content_index
@@ -312,8 +343,20 @@ def test_openai_responses_sparse_indices(memory_logger):
     all_results_with_annotations = [
         MockResult("response.output_item.added", item=MockItem()),
         MockResult("response.output_text.delta", content_index=0, delta="Text", output_index=0),
-        MockResult("response.output_text.annotation.added", content_index=0, annotation_index=1, annotation={"text": "Second annotation"}, output_index=0),
-        MockResult("response.output_text.annotation.added", content_index=0, annotation_index=3, annotation={"text": "Fourth annotation"}, output_index=0),
+        MockResult(
+            "response.output_text.annotation.added",
+            content_index=0,
+            annotation_index=1,
+            annotation={"text": "Second annotation"},
+            output_index=0,
+        ),
+        MockResult(
+            "response.output_text.annotation.added",
+            content_index=0,
+            annotation_index=3,
+            annotation={"text": "Fourth annotation"},
+            output_index=0,
+        ),
     ]
 
     result = wrapper._postprocess_streaming_results(all_results_with_annotations)
@@ -890,8 +933,6 @@ async def test_openai_streaming_with_break(memory_logger):
         model=TEST_MODEL, messages=[{"role": "user", "content": TEST_PROMPT}], stream=True
     )
 
-    time.sleep(0.2)  # time to first token sleep
-
     # Only process the first few chunks
     counter = 0
     async for chunk in stream:
@@ -1278,15 +1319,15 @@ def _is_wrapped(client):
 
 
 @pytest.mark.asyncio
+@pytest.mark.vcr
 async def test_braintrust_tracing_processor_current_span_detection(memory_logger):
     """Test that BraintrustTracingProcessor currentSpan() detection works with OpenAI Agents SDK."""
     pytest.importorskip("agents", reason="agents package not available")
 
     import agents
+    import braintrust
     from agents import Agent
     from agents.run import AgentRunner
-
-    import braintrust
     from braintrust.wrappers.openai import BraintrustTracingProcessor
 
     assert not memory_logger.pop()
@@ -1388,6 +1429,7 @@ async def test_braintrust_tracing_processor_current_span_detection(memory_logger
 
 
 @pytest.mark.asyncio
+@pytest.mark.vcr
 async def test_braintrust_tracing_processor_concurrency_bug(memory_logger):
     """Test that reproduces the concurrency bug where overlapping traces mix up first_input/last_output."""
     pytest.importorskip("agents", reason="agents package not available")
@@ -1397,7 +1439,6 @@ async def test_braintrust_tracing_processor_concurrency_bug(memory_logger):
     import agents
     from agents import Agent
     from agents.run import AgentRunner
-
     from braintrust.wrappers.openai import BraintrustTracingProcessor
 
     assert not memory_logger.pop()
@@ -1495,12 +1536,12 @@ async def test_braintrust_tracing_processor_concurrency_bug(memory_logger):
 
 
 @pytest.mark.asyncio
+@pytest.mark.vcr
 async def test_agents_tool_openai_nested_spans(memory_logger):
     """Test that OpenAI calls inside agent tools are properly nested under the tool span."""
     pytest.importorskip("agents", reason="agents package not available")
 
     from agents import Agent, Runner, function_tool, set_trace_processors
-
     from braintrust import current_span, wrap_openai
     from braintrust.wrappers.openai import BraintrustTracingProcessor
 
@@ -1626,6 +1667,9 @@ def test_braintrust_tracing_processor_trace_metadata_logging(memory_logger):
             self.trace_id = trace_id
             self.name = name
             self.metadata = metadata
+
+        def export(self):
+            return {"group_id": self.trace_id, "metadata": self.metadata}
 
     trace = MockTrace("test-trace", "Test Trace", {"conversation_id": "test-12345"})
 

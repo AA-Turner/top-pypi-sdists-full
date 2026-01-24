@@ -22,59 +22,47 @@ from datarobot.models.genai.llm_blueprint import vector_database_settings_trafar
 from datarobot.models.genai.playground import Playground
 from datarobot.utils.pagination import unpaginate
 
-trace_chat = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-    }
-).ignore_extra("*")
+trace_chat = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+}).ignore_extra("*")
 
-datarobot_user = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-    }
-).ignore_extra("*")
+datarobot_user = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+}).ignore_extra("*")
 
-trace_metadata = t.Dict(
-    {
-        t.Key("users"): t.List(datarobot_user),
-        t.Key("chats"): t.List(trace_chat),
-    }
-).ignore_extra("*")
+trace_metadata = t.Dict({
+    t.Key("users"): t.List(datarobot_user),
+    t.Key("chats"): t.List(trace_chat),
+}).ignore_extra("*")
 
 
-prompt_trace = t.Dict(
-    {
-        t.Key("timestamp"): t.String,
-        t.Key("user"): datarobot_user,
-        t.Key("chat_prompt_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("comparison_prompt_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("llm_blueprint_name"): t.String,
-        t.Key("llm_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_vendor", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_license", optional=True): t.Or(t.String, t.Null),
-        t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
-        t.Key("chat_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("chat_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("vector_database_settings", optional=True): t.Or(
-            vector_database_settings_trafaret, t.Null
-        ),
-        t.Key("result_metadata", optional=True): t.Or(
-            result_metadata_trafaret, t.Dict().allow_extra("*")
-        ),
-        t.Key("result_text", optional=True): t.Or(t.String, t.Null),
-        t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
-        t.Key("text"): t.String,
-        t.Key("execution_status"): t.String,
-        t.Key("prompt_type", optional=True): t.Or(t.String, t.Null),
-        t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("warning", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+prompt_trace = t.Dict({
+    t.Key("timestamp"): t.String,
+    t.Key("user"): datarobot_user,
+    t.Key("chat_prompt_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("use_case_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("comparison_prompt_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("llm_blueprint_name"): t.String,
+    t.Key("llm_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_vendor", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_license", optional=True): t.Or(t.String, t.Null),
+    t.Key("llm_settings", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    t.Key("chat_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("chat_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("vector_database_settings", optional=True): t.Or(vector_database_settings_trafaret, t.Null),
+    t.Key("result_metadata", optional=True): t.Or(result_metadata_trafaret, t.Dict().allow_extra("*")),
+    t.Key("result_text", optional=True): t.Or(t.String, t.Null),
+    t.Key("confidence_scores", optional=True): t.Or(confidence_scores_trafaret, t.Null),
+    t.Key("text"): t.String,
+    t.Key("execution_status"): t.String,
+    t.Key("prompt_type", optional=True): t.Or(t.String, t.Null),
+    t.Key("evaluation_dataset_configuration_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("warning", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 class PromptTrace(APIObject):

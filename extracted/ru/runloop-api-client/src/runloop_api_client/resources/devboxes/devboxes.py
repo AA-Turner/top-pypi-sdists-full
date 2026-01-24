@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Dict, List, Mapping, Iterable, Optional, TypedDict, cast
 from typing_extensions import Literal
 
 import httpx
 
-from .lsp import (
-    LspResource,
-    AsyncLspResource,
-    LspResourceWithRawResponse,
-    AsyncLspResourceWithRawResponse,
-    LspResourceWithStreamingResponse,
-    AsyncLspResourceWithStreamingResponse,
-)
+# uuid_utils is not typed
+from uuid_utils import uuid7  # type: ignore
+
 from .logs import (
     LogsResource,
     AsyncLogsResource,
@@ -41,7 +37,7 @@ from ...types import (
     devbox_snapshot_disk_async_params,
     devbox_write_file_contents_params,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven, FileTypes
+from ..._types import Body, Omit, Query, Headers, NotGiven, FileTypes, omit, not_given
 from ..._utils import is_given, extract_files, maybe_transform, deepcopy_minimal, async_maybe_transform
 from .browsers import (
     BrowsersResource,
@@ -104,6 +100,7 @@ from .disk_snapshots import (
 from ...lib.polling_async import async_poll_until
 from ...types.devbox_view import DevboxView
 from ...types.devbox_tunnel_view import DevboxTunnelView
+from ...types.shared_params.mount import Mount
 from ...types.devbox_snapshot_view import DevboxSnapshotView
 from ...types.shared.launch_parameters import LaunchParameters as SharedLaunchParameters
 from ...types.devbox_execution_detail_view import DevboxExecutionDetailView
@@ -115,6 +112,7 @@ from ...types.shared_params.code_mount_parameters import CodeMountParameters
 __all__ = ["DevboxesResource", "AsyncDevboxesResource", "DevboxRequestArgs"]
 
 DEVBOX_BOOTING_STATES = frozenset(("provisioning", "initializing"))
+DEVBOX_TERMINAL_STATES = frozenset(("suspended", "failure", "shutdown"))
 
 
 # Type for request arguments that combine polling config with additional request options
@@ -152,10 +150,6 @@ class DevboxesResource(SyncAPIResource):
         return ComputersResource(self._client)
 
     @cached_property
-    def lsp(self) -> LspResource:
-        return LspResource(self._client)
-
-    @cached_property
     def logs(self) -> LogsResource:
         return LogsResource(self._client)
 
@@ -185,24 +179,25 @@ class DevboxesResource(SyncAPIResource):
     def create(
         self,
         *,
-        blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
-        blueprint_name: Optional[str] | NotGiven = NOT_GIVEN,
-        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
-        entrypoint: Optional[str] | NotGiven = NOT_GIVEN,
-        environment_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        repo_connection_id: Optional[str] | NotGiven = NOT_GIVEN,
-        secrets: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        snapshot_id: Optional[str] | NotGiven = NOT_GIVEN,
+        blueprint_id: Optional[str] | Omit = omit,
+        blueprint_name: Optional[str] | Omit = omit,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | Omit = omit,
+        entrypoint: Optional[str] | Omit = omit,
+        environment_variables: Optional[Dict[str, str]] | Omit = omit,
+        file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        launch_parameters: Optional[LaunchParameters] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        mounts: Optional[Iterable[Mount]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        repo_connection_id: Optional[str] | Omit = omit,
+        secrets: Optional[Dict[str, str]] | Omit = omit,
+        snapshot_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Create a Devbox and begin the boot process.
@@ -222,7 +217,7 @@ class DevboxesResource(SyncAPIResource):
               successfully built Blueprint with the given name. Only one of (Snapshot ID,
               Blueprint ID, Blueprint name) should be specified.
 
-          code_mounts: A list of code mounts to be included in the Devbox.
+          code_mounts: A list of code mounts to be included in the Devbox. Use mounts instead.
 
           entrypoint: (Optional) When specified, the Devbox will run this script as its main
               executable. The devbox lifecycle will be bound to entrypoint, shutting down when
@@ -230,11 +225,13 @@ class DevboxesResource(SyncAPIResource):
 
           environment_variables: (Optional) Environment variables used to configure your Devbox.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: Map of paths and file contents to write before setup. Use mounts instead.
 
           launch_parameters: Parameters to configure the resources and launch time behavior of the Devbox.
 
           metadata: User defined metadata to attach to the devbox for organization.
+
+          mounts: A list of mounts to be included in the Devbox.
 
           name: (Optional) A user specified name to give the Devbox.
 
@@ -270,6 +267,7 @@ class DevboxesResource(SyncAPIResource):
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
                     "metadata": metadata,
+                    "mounts": mounts,
                     "name": name,
                     "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
@@ -296,7 +294,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxView:
         """
         Get the latest details and status of a Devbox.
@@ -324,14 +322,14 @@ class DevboxesResource(SyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """
@@ -429,28 +427,73 @@ class DevboxesResource(SyncAPIResource):
 
         return devbox
 
+    def await_suspended(
+        self,
+        id: str,
+        *,
+        polling_config: PollingConfig | None = None,
+    ) -> DevboxView:
+        """Wait for a devbox to reach the suspended state.
+
+        Args:
+            id: The ID of the devbox to wait for.
+            polling_config: Optional polling configuration.
+
+        Returns:
+            The devbox in the suspended state.
+
+        Raises:
+            PollingTimeout: If polling times out before the devbox is suspended.
+            RunloopError: If the devbox enters a non-suspended terminal state.
+        """
+
+        def wait_for_devbox_status() -> DevboxView:
+            return self._post(
+                f"/v1/devboxes/{id}/wait_for_status",
+                body={"statuses": list(DEVBOX_TERMINAL_STATES)},
+                cast_to=DevboxView,
+            )
+
+        def handle_timeout_error(error: Exception) -> DevboxView:
+            if isinstance(error, APITimeoutError) or (
+                isinstance(error, APIStatusError) and error.response.status_code == 408
+            ):
+                return placeholder_devbox_view(id)
+            raise error
+
+        def is_terminal_state(devbox: DevboxView) -> bool:
+            return devbox.status in DEVBOX_TERMINAL_STATES
+
+        devbox = poll_until(wait_for_devbox_status, is_terminal_state, polling_config, handle_timeout_error)
+
+        if devbox.status != "suspended":
+            raise RunloopError(f"Devbox entered non-suspended terminal state: {devbox.status}")
+
+        return devbox
+
     def create_and_await_running(
         self,
         *,
-        blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
-        blueprint_name: Optional[str] | NotGiven = NOT_GIVEN,
-        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
-        entrypoint: Optional[str] | NotGiven = NOT_GIVEN,
-        environment_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        blueprint_id: Optional[str] | Omit = omit,
+        blueprint_name: Optional[str] | Omit = omit,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | Omit = omit,
+        entrypoint: Optional[str] | Omit = omit,
+        environment_variables: Optional[Dict[str, str]] | Omit = omit,
+        file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        launch_parameters: Optional[LaunchParameters] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        mounts: Optional[Iterable[Mount]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         polling_config: PollingConfig | None = None,
-        repo_connection_id: Optional[str] | NotGiven = NOT_GIVEN,
-        secrets: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        snapshot_id: Optional[str] | NotGiven = NOT_GIVEN,
+        repo_connection_id: Optional[str] | Omit = omit,
+        secrets: Optional[Dict[str, str]] | Omit = omit,
+        snapshot_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Create a new devbox and wait for it to be in running state.
@@ -478,6 +521,7 @@ class DevboxesResource(SyncAPIResource):
             file_mounts=file_mounts,
             launch_parameters=launch_parameters,
             metadata=metadata,
+            mounts=mounts,
             name=name,
             repo_connection_id=repo_connection_id,
             secrets=secrets,
@@ -497,24 +541,24 @@ class DevboxesResource(SyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        starting_after: str | Omit = omit,
         status: Literal[
             "provisioning", "initializing", "running", "suspending", "suspended", "resuming", "failure", "shutdown"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncDevboxesCursorIDPage[DevboxView]:
         """
         List all Devboxes while optionally filtering by status.
 
         Args:
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -557,7 +601,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxCreateSSHKeyResponse:
         """
@@ -598,7 +642,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxTunnelView:
         """
@@ -641,7 +685,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -682,7 +726,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> BinaryAPIResponse:
         """
@@ -726,20 +770,24 @@ class DevboxesResource(SyncAPIResource):
         id: str,
         *,
         command: str,
-        command_id: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        command_id: str = str(uuid7()),
+        last_n: str | Omit = omit,
+        optimistic_timeout: Optional[int] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Execute a command with a known command ID on a devbox, optimistically waiting
         for it to complete within the specified timeout. If it completes in time, return
         the result. If not, return a status indicating the command is still running.
+        Note: attach_stdin parameter is not supported; use execute_async for stdin
+        support.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
@@ -747,7 +795,12 @@ class DevboxesResource(SyncAPIResource):
               specified the command is run from the directory based on the recent state of the
               persistent shell.
 
-          command_id: The command ID for idempotency and tracking
+          command_id: The command ID in UUIDv7 string format for idempotency and tracking
+
+          last_n: Last n lines of standard error / standard out to return (default: 100)
+
+          optimistic_timeout: Timeout in seconds to wait for command completion, up to 25 seconds. Defaults to
+              25 seconds. Operation is not killed.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -773,6 +826,7 @@ class DevboxesResource(SyncAPIResource):
                 {
                     "command": command,
                     "command_id": command_id,
+                    "optimistic_timeout": optimistic_timeout,
                     "shell_name": shell_name,
                 },
                 devbox_execute_params.DevboxExecuteParams,
@@ -783,8 +837,69 @@ class DevboxesResource(SyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
+                query=maybe_transform({"last_n": last_n}, devbox_execute_params.DevboxExecuteParams),
             ),
             cast_to=DevboxAsyncExecutionDetailView,
+        )
+
+    def execute_and_await_completion(
+        self,
+        devbox_id: str,
+        *,
+        command: str,
+        command_id: str = str(uuid7()),
+        last_n: str | Omit = omit,
+        optimistic_timeout: Optional[int] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
+        polling_config: PollingConfig | None = None,
+        # The following are forwarded to the initial execute request
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DevboxAsyncExecutionDetailView:
+        """
+        Execute a command and wait for it to complete with optimal latency for long running commands.
+
+        This method launches an execution and first attempts to
+        return the result within the initial request's timeout. If the execution is not yet
+        complete, it switches to using wait_for_command to minimize latency while waiting.
+
+        A command_id (UUIDv7) is automatically generated for idempotency and tracking.
+        You can provide your own command_id to enable custom retry logic or external tracking.
+        """
+        execution = self.execute(
+            devbox_id,
+            command=command,
+            command_id=command_id,
+            last_n=last_n,
+            optimistic_timeout=optimistic_timeout,
+            shell_name=shell_name,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+        )
+        if execution.status == "completed":
+            return execution
+
+        def handle_timeout_error(error: Exception) -> DevboxAsyncExecutionDetailView:
+            if isinstance(error, APITimeoutError) or (
+                isinstance(error, APIStatusError) and error.response.status_code == 408
+            ):
+                return execution
+            raise error
+
+        def is_done(result: DevboxAsyncExecutionDetailView) -> bool:
+            return result.status == "completed"
+
+        return poll_until(
+            lambda: self.wait_for_command(execution.execution_id, devbox_id=devbox_id, statuses=["completed"]),
+            is_done,
+            polling_config,
+            handle_timeout_error,
         )
 
     def execute_async(
@@ -792,13 +907,14 @@ class DevboxesResource(SyncAPIResource):
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -810,6 +926,9 @@ class DevboxesResource(SyncAPIResource):
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -832,6 +951,7 @@ class DevboxesResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 devbox_execute_async_params.DevboxExecuteAsyncParams,
@@ -846,29 +966,39 @@ class DevboxesResource(SyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    @typing_extensions.deprecated("deprecated")
+    # Use execute, execute_async, or execute_and_await_completion instead
     def execute_sync(
         self,
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """
         Execute a bash command in the Devbox shell, await the command completion and
-        return the output.
+        return the output. Note: attach_stdin parameter is not supported for synchronous
+        execution.
+
+        .. deprecated::
+           Use execute, execute_async, or execute_and_await_completion instead.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -893,6 +1023,7 @@ class DevboxesResource(SyncAPIResource):
             body=maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 devbox_execute_sync_params.DevboxExecuteSyncParams,
@@ -916,7 +1047,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -951,31 +1082,34 @@ class DevboxesResource(SyncAPIResource):
     def list_disk_snapshots(
         self,
         *,
-        devbox_id: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metadata_key: str | NotGiven = NOT_GIVEN,
-        metadata_key_in: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        devbox_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
+        source_blueprint_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncDiskSnapshotsCursorIDPage[DevboxSnapshotView]:
         """
-        List all snapshots of a Devbox while optionally filtering by Devbox ID and
-        metadata.
+        List all snapshots of a Devbox while optionally filtering by Devbox ID, source
+        Blueprint ID, and metadata.
 
         Args:
           devbox_id: Devbox ID to filter by.
 
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           metadata_key: Filter snapshots by metadata key-value pair. Can be used multiple times for
               different keys.
 
           metadata_key_in: Filter snapshots by metadata key with multiple possible values (OR condition).
+
+          source_blueprint_id: Source Blueprint ID to filter snapshots by.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -1001,6 +1135,7 @@ class DevboxesResource(SyncAPIResource):
                         "limit": limit,
                         "metadata_key": metadata_key,
                         "metadata_key_in": metadata_key_in,
+                        "source_blueprint_id": source_blueprint_id,
                         "starting_after": starting_after,
                     },
                     devbox_list_disk_snapshots_params.DevboxListDiskSnapshotsParams,
@@ -1019,7 +1154,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> str:
         """Read file contents from a file on a Devbox as a UTF-8.
@@ -1072,7 +1207,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -1115,7 +1250,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Resume a suspended Devbox with the disk state captured as suspend time.
@@ -1158,7 +1293,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Shutdown a running Devbox.
@@ -1196,14 +1331,15 @@ class DevboxesResource(SyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """
@@ -1211,6 +1347,8 @@ class DevboxesResource(SyncAPIResource):
         enable launching future Devboxes with the same disk state.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -1233,6 +1371,7 @@ class DevboxesResource(SyncAPIResource):
             f"/v1/devboxes/{id}/snapshot_disk",
             body=maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -1252,14 +1391,15 @@ class DevboxesResource(SyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """
@@ -1268,6 +1408,8 @@ class DevboxesResource(SyncAPIResource):
         monitored using the query endpoint.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -1288,6 +1430,7 @@ class DevboxesResource(SyncAPIResource):
             f"/v1/devboxes/{id}/snapshot_disk_async",
             body=maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -1312,7 +1455,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """
@@ -1350,13 +1493,13 @@ class DevboxesResource(SyncAPIResource):
         id: str,
         *,
         path: str,
-        file: FileTypes | NotGiven = NOT_GIVEN,
+        file: FileTypes | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """Upload file contents of any type (binary, text, etc) to a Devbox.
@@ -1414,26 +1557,29 @@ class DevboxesResource(SyncAPIResource):
         *,
         devbox_id: str,
         statuses: List[Literal["queued", "running", "completed"]],
-        timeout_seconds: Optional[int] | NotGiven = NOT_GIVEN,
+        last_n: str | Omit = omit,
+        timeout_seconds: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Polls the asynchronous execution's status until it reaches one of the desired
-        statuses or times out. Defaults to 60 seconds.
+        statuses or times out. Max is 25 seconds.
 
         Args:
           statuses: The command execution statuses to wait for. At least one status must be
               provided. The command will be returned as soon as it reaches any of the provided
               statuses.
 
-          timeout_seconds: (Optional) Timeout in seconds to wait for the status, up to 60 seconds. Defaults
-              to 60 seconds.
+          last_n: Last n lines of standard error / standard out to return (default: 100)
+
+          timeout_seconds: (Optional) Timeout in seconds to wait for the status, up to 25 seconds. Defaults
+              to 25 seconds.
 
           extra_headers: Send extra headers
 
@@ -1464,6 +1610,7 @@ class DevboxesResource(SyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
+                query=maybe_transform({"last_n": last_n}, devbox_wait_for_command_params.DevboxWaitForCommandParams),
             ),
             cast_to=DevboxAsyncExecutionDetailView,
         )
@@ -1479,7 +1626,7 @@ class DevboxesResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """Write UTF-8 string contents to a file at path on the Devbox.
@@ -1541,10 +1688,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
         return AsyncComputersResource(self._client)
 
     @cached_property
-    def lsp(self) -> AsyncLspResource:
-        return AsyncLspResource(self._client)
-
-    @cached_property
     def logs(self) -> AsyncLogsResource:
         return AsyncLogsResource(self._client)
 
@@ -1574,24 +1717,25 @@ class AsyncDevboxesResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
-        blueprint_name: Optional[str] | NotGiven = NOT_GIVEN,
-        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
-        entrypoint: Optional[str] | NotGiven = NOT_GIVEN,
-        environment_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
-        repo_connection_id: Optional[str] | NotGiven = NOT_GIVEN,
-        secrets: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        snapshot_id: Optional[str] | NotGiven = NOT_GIVEN,
+        blueprint_id: Optional[str] | Omit = omit,
+        blueprint_name: Optional[str] | Omit = omit,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | Omit = omit,
+        entrypoint: Optional[str] | Omit = omit,
+        environment_variables: Optional[Dict[str, str]] | Omit = omit,
+        file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        launch_parameters: Optional[LaunchParameters] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        mounts: Optional[Iterable[Mount]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
+        repo_connection_id: Optional[str] | Omit = omit,
+        secrets: Optional[Dict[str, str]] | Omit = omit,
+        snapshot_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Create a Devbox and begin the boot process.
@@ -1611,7 +1755,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
               successfully built Blueprint with the given name. Only one of (Snapshot ID,
               Blueprint ID, Blueprint name) should be specified.
 
-          code_mounts: A list of code mounts to be included in the Devbox.
+          code_mounts: A list of code mounts to be included in the Devbox. Use mounts instead.
 
           entrypoint: (Optional) When specified, the Devbox will run this script as its main
               executable. The devbox lifecycle will be bound to entrypoint, shutting down when
@@ -1619,11 +1763,13 @@ class AsyncDevboxesResource(AsyncAPIResource):
 
           environment_variables: (Optional) Environment variables used to configure your Devbox.
 
-          file_mounts: (Optional) Map of paths and file contents to write before setup..
+          file_mounts: Map of paths and file contents to write before setup. Use mounts instead.
 
           launch_parameters: Parameters to configure the resources and launch time behavior of the Devbox.
 
           metadata: User defined metadata to attach to the devbox for organization.
+
+          mounts: A list of mounts to be included in the Devbox.
 
           name: (Optional) A user specified name to give the Devbox.
 
@@ -1659,6 +1805,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
                     "file_mounts": file_mounts,
                     "launch_parameters": launch_parameters,
                     "metadata": metadata,
+                    "mounts": mounts,
                     "name": name,
                     "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
@@ -1685,7 +1832,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DevboxView:
         """
         Get the latest details and status of a Devbox.
@@ -1712,25 +1859,26 @@ class AsyncDevboxesResource(AsyncAPIResource):
     async def create_and_await_running(
         self,
         *,
-        blueprint_id: Optional[str] | NotGiven = NOT_GIVEN,
-        blueprint_name: Optional[str] | NotGiven = NOT_GIVEN,
-        code_mounts: Optional[Iterable[CodeMountParameters]] | NotGiven = NOT_GIVEN,
-        entrypoint: Optional[str] | NotGiven = NOT_GIVEN,
-        environment_variables: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        file_mounts: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        launch_parameters: Optional[LaunchParameters] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        blueprint_id: Optional[str] | Omit = omit,
+        blueprint_name: Optional[str] | Omit = omit,
+        code_mounts: Optional[Iterable[CodeMountParameters]] | Omit = omit,
+        entrypoint: Optional[str] | Omit = omit,
+        environment_variables: Optional[Dict[str, str]] | Omit = omit,
+        file_mounts: Optional[Dict[str, str]] | Omit = omit,
+        launch_parameters: Optional[LaunchParameters] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        mounts: Optional[Iterable[Mount]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         polling_config: PollingConfig | None = None,
-        repo_connection_id: Optional[str] | NotGiven = NOT_GIVEN,
-        secrets: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        snapshot_id: Optional[str] | NotGiven = NOT_GIVEN,
+        repo_connection_id: Optional[str] | Omit = omit,
+        secrets: Optional[Dict[str, str]] | Omit = omit,
+        snapshot_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Create a devbox and wait for it to be in running state.
@@ -1759,6 +1907,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             file_mounts=file_mounts,
             launch_parameters=launch_parameters,
             metadata=metadata,
+            mounts=mounts,
             name=name,
             repo_connection_id=repo_connection_id,
             secrets=secrets,
@@ -1828,18 +1977,60 @@ class AsyncDevboxesResource(AsyncAPIResource):
 
         return devbox
 
+    async def await_suspended(
+        self,
+        id: str,
+        *,
+        polling_config: PollingConfig | None = None,
+    ) -> DevboxView:
+        """Wait for a devbox to reach the suspended state.
+
+        Args:
+            id: The ID of the devbox to wait for.
+            polling_config: Optional polling configuration.
+
+        Returns:
+            The devbox in the suspended state.
+
+        Raises:
+            PollingTimeout: If polling times out before the devbox is suspended.
+            RunloopError: If the devbox enters a non-suspended terminal state.
+        """
+
+        async def wait_for_devbox_status() -> DevboxView:
+            try:
+                return await self._post(
+                    f"/v1/devboxes/{id}/wait_for_status",
+                    body={"statuses": list(DEVBOX_TERMINAL_STATES)},
+                    cast_to=DevboxView,
+                )
+            except (APITimeoutError, APIStatusError) as error:
+                if isinstance(error, APITimeoutError) or error.response.status_code == 408:
+                    return placeholder_devbox_view(id)
+                raise
+
+        def is_terminal_state(devbox: DevboxView) -> bool:
+            return devbox.status in DEVBOX_TERMINAL_STATES
+
+        devbox = await async_poll_until(wait_for_devbox_status, is_terminal_state, polling_config)
+
+        if devbox.status != "suspended":
+            raise RunloopError(f"Devbox entered non-suspended terminal state: {devbox.status}")
+
+        return devbox
+
     async def update(
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """
@@ -1885,24 +2076,24 @@ class AsyncDevboxesResource(AsyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        starting_after: str | Omit = omit,
         status: Literal[
             "provisioning", "initializing", "running", "suspending", "suspended", "resuming", "failure", "shutdown"
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DevboxView, AsyncDevboxesCursorIDPage[DevboxView]]:
         """
         List all Devboxes while optionally filtering by status.
 
         Args:
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -1945,7 +2136,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxCreateSSHKeyResponse:
         """
@@ -1986,7 +2177,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxTunnelView:
         """
@@ -2029,7 +2220,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -2070,7 +2261,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> AsyncBinaryAPIResponse:
         """
@@ -2114,20 +2305,24 @@ class AsyncDevboxesResource(AsyncAPIResource):
         id: str,
         *,
         command: str,
-        command_id: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        command_id: str = str(uuid7()),
+        last_n: str | Omit = omit,
+        optimistic_timeout: Optional[int] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Execute a command with a known command ID on a devbox, optimistically waiting
         for it to complete within the specified timeout. If it completes in time, return
         the result. If not, return a status indicating the command is still running.
+        Note: attach_stdin parameter is not supported; use execute_async for stdin
+        support.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
@@ -2135,7 +2330,12 @@ class AsyncDevboxesResource(AsyncAPIResource):
               specified the command is run from the directory based on the recent state of the
               persistent shell.
 
-          command_id: The command ID for idempotency and tracking
+          command_id: The command ID in UUIDv7 string format for idempotency and tracking
+
+          last_n: Last n lines of standard error / standard out to return (default: 100)
+
+          optimistic_timeout: Timeout in seconds to wait for command completion, up to 25 seconds. Defaults to
+              25 seconds. Operation is not killed.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -2161,6 +2361,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
                 {
                     "command": command,
                     "command_id": command_id,
+                    "optimistic_timeout": optimistic_timeout,
                     "shell_name": shell_name,
                 },
                 devbox_execute_params.DevboxExecuteParams,
@@ -2171,8 +2372,70 @@ class AsyncDevboxesResource(AsyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
+                query=await async_maybe_transform({"last_n": last_n}, devbox_execute_params.DevboxExecuteParams),
             ),
             cast_to=DevboxAsyncExecutionDetailView,
+        )
+
+    async def execute_and_await_completion(
+        self,
+        devbox_id: str,
+        *,
+        command: str,
+        command_id: str = str(uuid7()),
+        last_n: str | Omit = omit,
+        optimistic_timeout: Optional[int] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
+        polling_config: PollingConfig | None = None,
+        # The following are forwarded to the initial execute request
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+        idempotency_key: str | None = None,
+    ) -> DevboxAsyncExecutionDetailView:
+        """
+        Execute a command and wait for it to complete with optimal latency for long running commands.
+
+        This method launches an execution and first attempts to
+        return the result within the initial request's timeout. If the execution is not yet
+        complete, it switches to using wait_for_command to minimize latency while waiting.
+
+        A command_id (UUIDv7) is automatically generated for idempotency and tracking.
+        You can provide your own command_id to enable custom retry logic or external tracking.
+        """
+
+        execution = await self.execute(
+            devbox_id,
+            command=command,
+            command_id=command_id,
+            last_n=last_n,
+            optimistic_timeout=optimistic_timeout,
+            shell_name=shell_name,
+            extra_headers=extra_headers,
+            extra_query=extra_query,
+            extra_body=extra_body,
+            timeout=timeout,
+            idempotency_key=idempotency_key,
+        )
+        if execution.status == "completed":
+            return execution
+
+        def handle_timeout_error(error: Exception) -> DevboxAsyncExecutionDetailView:
+            if isinstance(error, APITimeoutError) or (
+                isinstance(error, APIStatusError) and error.response.status_code == 408
+            ):
+                return execution
+            raise error
+
+        def is_done(result: DevboxAsyncExecutionDetailView) -> bool:
+            return result.status == "completed"
+
+        return await async_poll_until(
+            lambda: self.wait_for_command(execution.execution_id, devbox_id=devbox_id, statuses=["completed"]),
+            is_done,
+            polling_config,
+            handle_timeout_error,
         )
 
     async def execute_async(
@@ -2180,13 +2443,14 @@ class AsyncDevboxesResource(AsyncAPIResource):
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
@@ -2198,6 +2462,9 @@ class AsyncDevboxesResource(AsyncAPIResource):
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -2220,6 +2487,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 devbox_execute_async_params.DevboxExecuteAsyncParams,
@@ -2234,29 +2502,39 @@ class AsyncDevboxesResource(AsyncAPIResource):
             cast_to=DevboxAsyncExecutionDetailView,
         )
 
+    @typing_extensions.deprecated("deprecated")
+    # Use execute, execute_async, or execute_and_await_completion instead
     async def execute_sync(
         self,
         id: str,
         *,
         command: str,
-        shell_name: Optional[str] | NotGiven = NOT_GIVEN,
+        attach_stdin: Optional[bool] | Omit = omit,
+        shell_name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """
         Execute a bash command in the Devbox shell, await the command completion and
-        return the output.
+        return the output. Note: attach_stdin parameter is not supported for synchronous
+        execution.
+
+        .. deprecated::
+           Use execute, execute_async, or execute_and_await_completion instead.
 
         Args:
           command: The command to execute via the Devbox shell. By default, commands are run from
               the user home directory unless shell_name is specified. If shell_name is
               specified the command is run from the directory based on the recent state of the
               persistent shell.
+
+          attach_stdin: Whether to attach stdin streaming for async commands. Not valid for execute_sync
+              endpoint. Defaults to false if not specified.
 
           shell_name: The name of the persistent shell to create or use if already created. When using
               a persistent shell, the command will run from the directory at the end of the
@@ -2281,6 +2559,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             body=await async_maybe_transform(
                 {
                     "command": command,
+                    "attach_stdin": attach_stdin,
                     "shell_name": shell_name,
                 },
                 devbox_execute_sync_params.DevboxExecuteSyncParams,
@@ -2304,7 +2583,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -2339,31 +2618,34 @@ class AsyncDevboxesResource(AsyncAPIResource):
     def list_disk_snapshots(
         self,
         *,
-        devbox_id: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        metadata_key: str | NotGiven = NOT_GIVEN,
-        metadata_key_in: str | NotGiven = NOT_GIVEN,
-        starting_after: str | NotGiven = NOT_GIVEN,
+        devbox_id: str | Omit = omit,
+        limit: int | Omit = omit,
+        metadata_key: str | Omit = omit,
+        metadata_key_in: str | Omit = omit,
+        source_blueprint_id: str | Omit = omit,
+        starting_after: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DevboxSnapshotView, AsyncDiskSnapshotsCursorIDPage[DevboxSnapshotView]]:
         """
-        List all snapshots of a Devbox while optionally filtering by Devbox ID and
-        metadata.
+        List all snapshots of a Devbox while optionally filtering by Devbox ID, source
+        Blueprint ID, and metadata.
 
         Args:
           devbox_id: Devbox ID to filter by.
 
-          limit: The limit of items to return. Default is 20.
+          limit: The limit of items to return. Default is 20. Max is 5000.
 
           metadata_key: Filter snapshots by metadata key-value pair. Can be used multiple times for
               different keys.
 
           metadata_key_in: Filter snapshots by metadata key with multiple possible values (OR condition).
+
+          source_blueprint_id: Source Blueprint ID to filter snapshots by.
 
           starting_after: Load the next page of data starting after the item with the given ID.
 
@@ -2389,6 +2671,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
                         "limit": limit,
                         "metadata_key": metadata_key,
                         "metadata_key_in": metadata_key_in,
+                        "source_blueprint_id": source_blueprint_id,
                         "starting_after": starting_after,
                     },
                     devbox_list_disk_snapshots_params.DevboxListDiskSnapshotsParams,
@@ -2407,7 +2690,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> str:
         """Read file contents from a file on a Devbox as a UTF-8.
@@ -2460,7 +2743,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """
@@ -2503,7 +2786,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Resume a suspended Devbox with the disk state captured as suspend time.
@@ -2546,7 +2829,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """Shutdown a running Devbox.
@@ -2584,14 +2867,15 @@ class AsyncDevboxesResource(AsyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """
@@ -2599,6 +2883,8 @@ class AsyncDevboxesResource(AsyncAPIResource):
         enable launching future Devboxes with the same disk state.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -2621,6 +2907,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             f"/v1/devboxes/{id}/snapshot_disk",
             body=await async_maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -2640,14 +2927,15 @@ class AsyncDevboxesResource(AsyncAPIResource):
         self,
         id: str,
         *,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        name: Optional[str] | NotGiven = NOT_GIVEN,
+        commit_message: Optional[str] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxSnapshotView:
         """
@@ -2656,6 +2944,8 @@ class AsyncDevboxesResource(AsyncAPIResource):
         monitored using the query endpoint.
 
         Args:
+          commit_message: (Optional) Commit message associated with the snapshot (max 1000 characters)
+
           metadata: (Optional) Metadata used to describe the snapshot
 
           name: (Optional) A user specified name to give the snapshot
@@ -2676,6 +2966,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             f"/v1/devboxes/{id}/snapshot_disk_async",
             body=await async_maybe_transform(
                 {
+                    "commit_message": commit_message,
                     "metadata": metadata,
                     "name": name,
                 },
@@ -2700,7 +2991,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxView:
         """
@@ -2738,13 +3029,13 @@ class AsyncDevboxesResource(AsyncAPIResource):
         id: str,
         *,
         path: str,
-        file: FileTypes | NotGiven = NOT_GIVEN,
+        file: FileTypes | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> object:
         """Upload file contents of any type (binary, text, etc) to a Devbox.
@@ -2802,26 +3093,29 @@ class AsyncDevboxesResource(AsyncAPIResource):
         *,
         devbox_id: str,
         statuses: List[Literal["queued", "running", "completed"]],
-        timeout_seconds: Optional[int] | NotGiven = NOT_GIVEN,
+        last_n: str | Omit = omit,
+        timeout_seconds: Optional[int] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxAsyncExecutionDetailView:
         """
         Polls the asynchronous execution's status until it reaches one of the desired
-        statuses or times out. Defaults to 60 seconds.
+        statuses or times out. Max is 25 seconds.
 
         Args:
           statuses: The command execution statuses to wait for. At least one status must be
               provided. The command will be returned as soon as it reaches any of the provided
               statuses.
 
-          timeout_seconds: (Optional) Timeout in seconds to wait for the status, up to 60 seconds. Defaults
-              to 60 seconds.
+          last_n: Last n lines of standard error / standard out to return (default: 100)
+
+          timeout_seconds: (Optional) Timeout in seconds to wait for the status, up to 25 seconds. Defaults
+              to 25 seconds.
 
           extra_headers: Send extra headers
 
@@ -2852,6 +3146,9 @@ class AsyncDevboxesResource(AsyncAPIResource):
                 extra_body=extra_body,
                 timeout=timeout,
                 idempotency_key=idempotency_key,
+                query=await async_maybe_transform(
+                    {"last_n": last_n}, devbox_wait_for_command_params.DevboxWaitForCommandParams
+                ),
             ),
             cast_to=DevboxAsyncExecutionDetailView,
         )
@@ -2867,7 +3164,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> DevboxExecutionDetailView:
         """Write UTF-8 string contents to a file at path on the Devbox.
@@ -2950,8 +3247,10 @@ class DevboxesResourceWithRawResponse:
         self.execute_async = to_raw_response_wrapper(
             devboxes.execute_async,
         )
-        self.execute_sync = to_raw_response_wrapper(
-            devboxes.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                devboxes.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.keep_alive = to_raw_response_wrapper(
             devboxes.keep_alive,
@@ -3003,10 +3302,6 @@ class DevboxesResourceWithRawResponse:
         return ComputersResourceWithRawResponse(self._devboxes.computers)
 
     @cached_property
-    def lsp(self) -> LspResourceWithRawResponse:
-        return LspResourceWithRawResponse(self._devboxes.lsp)
-
-    @cached_property
     def logs(self) -> LogsResourceWithRawResponse:
         return LogsResourceWithRawResponse(self._devboxes.logs)
 
@@ -3050,8 +3345,10 @@ class AsyncDevboxesResourceWithRawResponse:
         self.execute_async = async_to_raw_response_wrapper(
             devboxes.execute_async,
         )
-        self.execute_sync = async_to_raw_response_wrapper(
-            devboxes.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                devboxes.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.keep_alive = async_to_raw_response_wrapper(
             devboxes.keep_alive,
@@ -3103,10 +3400,6 @@ class AsyncDevboxesResourceWithRawResponse:
         return AsyncComputersResourceWithRawResponse(self._devboxes.computers)
 
     @cached_property
-    def lsp(self) -> AsyncLspResourceWithRawResponse:
-        return AsyncLspResourceWithRawResponse(self._devboxes.lsp)
-
-    @cached_property
     def logs(self) -> AsyncLogsResourceWithRawResponse:
         return AsyncLogsResourceWithRawResponse(self._devboxes.logs)
 
@@ -3150,8 +3443,10 @@ class DevboxesResourceWithStreamingResponse:
         self.execute_async = to_streamed_response_wrapper(
             devboxes.execute_async,
         )
-        self.execute_sync = to_streamed_response_wrapper(
-            devboxes.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                devboxes.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.keep_alive = to_streamed_response_wrapper(
             devboxes.keep_alive,
@@ -3203,10 +3498,6 @@ class DevboxesResourceWithStreamingResponse:
         return ComputersResourceWithStreamingResponse(self._devboxes.computers)
 
     @cached_property
-    def lsp(self) -> LspResourceWithStreamingResponse:
-        return LspResourceWithStreamingResponse(self._devboxes.lsp)
-
-    @cached_property
     def logs(self) -> LogsResourceWithStreamingResponse:
         return LogsResourceWithStreamingResponse(self._devboxes.logs)
 
@@ -3250,8 +3541,10 @@ class AsyncDevboxesResourceWithStreamingResponse:
         self.execute_async = async_to_streamed_response_wrapper(
             devboxes.execute_async,
         )
-        self.execute_sync = async_to_streamed_response_wrapper(
-            devboxes.execute_sync,
+        self.execute_sync = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                devboxes.execute_sync,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.keep_alive = async_to_streamed_response_wrapper(
             devboxes.keep_alive,
@@ -3301,10 +3594,6 @@ class AsyncDevboxesResourceWithStreamingResponse:
     @cached_property
     def computers(self) -> AsyncComputersResourceWithStreamingResponse:
         return AsyncComputersResourceWithStreamingResponse(self._devboxes.computers)
-
-    @cached_property
-    def lsp(self) -> AsyncLspResourceWithStreamingResponse:
-        return AsyncLspResourceWithStreamingResponse(self._devboxes.lsp)
 
     @cached_property
     def logs(self) -> AsyncLogsResourceWithStreamingResponse:

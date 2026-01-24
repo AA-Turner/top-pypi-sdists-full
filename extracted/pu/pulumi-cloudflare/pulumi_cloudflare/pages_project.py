@@ -23,26 +23,26 @@ class PagesProjectArgs:
     def __init__(__self__, *,
                  account_id: pulumi.Input[_builtins.str],
                  name: pulumi.Input[_builtins.str],
+                 production_branch: pulumi.Input[_builtins.str],
                  build_config: Optional[pulumi.Input['PagesProjectBuildConfigArgs']] = None,
                  deployment_configs: Optional[pulumi.Input['PagesProjectDeploymentConfigsArgs']] = None,
-                 production_branch: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input['PagesProjectSourceArgs']] = None):
         """
         The set of arguments for constructing a PagesProject resource.
-        :param pulumi.Input[_builtins.str] account_id: Identifier
+        :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[_builtins.str] name: Name of the project.
+        :param pulumi.Input[_builtins.str] production_branch: Production branch of the project. Used to identify production deployments.
         :param pulumi.Input['PagesProjectBuildConfigArgs'] build_config: Configs for the project build process.
         :param pulumi.Input['PagesProjectDeploymentConfigsArgs'] deployment_configs: Configs for deployments in a project.
-        :param pulumi.Input[_builtins.str] production_branch: Production branch of the project. Used to identify production deployments.
+        :param pulumi.Input['PagesProjectSourceArgs'] source: Configs for the project source control.
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "production_branch", production_branch)
         if build_config is not None:
             pulumi.set(__self__, "build_config", build_config)
         if deployment_configs is not None:
             pulumi.set(__self__, "deployment_configs", deployment_configs)
-        if production_branch is not None:
-            pulumi.set(__self__, "production_branch", production_branch)
         if source is not None:
             pulumi.set(__self__, "source", source)
 
@@ -50,7 +50,7 @@ class PagesProjectArgs:
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Input[_builtins.str]:
         """
-        Identifier
+        Identifier.
         """
         return pulumi.get(self, "account_id")
 
@@ -69,6 +69,18 @@ class PagesProjectArgs:
     @name.setter
     def name(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="productionBranch")
+    def production_branch(self) -> pulumi.Input[_builtins.str]:
+        """
+        Production branch of the project. Used to identify production deployments.
+        """
+        return pulumi.get(self, "production_branch")
+
+    @production_branch.setter
+    def production_branch(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "production_branch", value)
 
     @_builtins.property
     @pulumi.getter(name="buildConfig")
@@ -95,20 +107,11 @@ class PagesProjectArgs:
         pulumi.set(self, "deployment_configs", value)
 
     @_builtins.property
-    @pulumi.getter(name="productionBranch")
-    def production_branch(self) -> Optional[pulumi.Input[_builtins.str]]:
-        """
-        Production branch of the project. Used to identify production deployments.
-        """
-        return pulumi.get(self, "production_branch")
-
-    @production_branch.setter
-    def production_branch(self, value: Optional[pulumi.Input[_builtins.str]]):
-        pulumi.set(self, "production_branch", value)
-
-    @_builtins.property
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input['PagesProjectSourceArgs']]:
+        """
+        Configs for the project source control.
+        """
         return pulumi.get(self, "source")
 
     @source.setter
@@ -125,23 +128,34 @@ class _PagesProjectState:
                  created_on: Optional[pulumi.Input[_builtins.str]] = None,
                  deployment_configs: Optional[pulumi.Input['PagesProjectDeploymentConfigsArgs']] = None,
                  domains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 framework: Optional[pulumi.Input[_builtins.str]] = None,
+                 framework_version: Optional[pulumi.Input[_builtins.str]] = None,
                  latest_deployment: Optional[pulumi.Input['PagesProjectLatestDeploymentArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
+                 preview_script_name: Optional[pulumi.Input[_builtins.str]] = None,
                  production_branch: Optional[pulumi.Input[_builtins.str]] = None,
+                 production_script_name: Optional[pulumi.Input[_builtins.str]] = None,
                  source: Optional[pulumi.Input['PagesProjectSourceArgs']] = None,
-                 subdomain: Optional[pulumi.Input[_builtins.str]] = None):
+                 subdomain: Optional[pulumi.Input[_builtins.str]] = None,
+                 uses_functions: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         Input properties used for looking up and filtering PagesProject resources.
-        :param pulumi.Input[_builtins.str] account_id: Identifier
+        :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input['PagesProjectBuildConfigArgs'] build_config: Configs for the project build process.
-        :param pulumi.Input['PagesProjectCanonicalDeploymentArgs'] canonical_deployment: Most recent deployment to the repo.
+        :param pulumi.Input['PagesProjectCanonicalDeploymentArgs'] canonical_deployment: Most recent production deployment of the project.
         :param pulumi.Input[_builtins.str] created_on: When the project was created.
         :param pulumi.Input['PagesProjectDeploymentConfigsArgs'] deployment_configs: Configs for deployments in a project.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] domains: A list of associated custom domains for the project.
-        :param pulumi.Input['PagesProjectLatestDeploymentArgs'] latest_deployment: Most recent deployment to the repo.
+        :param pulumi.Input[_builtins.str] framework: Framework the project is using.
+        :param pulumi.Input[_builtins.str] framework_version: Version of the framework the project is using.
+        :param pulumi.Input['PagesProjectLatestDeploymentArgs'] latest_deployment: Most recent deployment of the project.
         :param pulumi.Input[_builtins.str] name: Name of the project.
+        :param pulumi.Input[_builtins.str] preview_script_name: Name of the preview script.
         :param pulumi.Input[_builtins.str] production_branch: Production branch of the project. Used to identify production deployments.
+        :param pulumi.Input[_builtins.str] production_script_name: Name of the production script.
+        :param pulumi.Input['PagesProjectSourceArgs'] source: Configs for the project source control.
         :param pulumi.Input[_builtins.str] subdomain: The Cloudflare subdomain associated with the project.
+        :param pulumi.Input[_builtins.bool] uses_functions: Whether the project uses functions.
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -155,22 +169,32 @@ class _PagesProjectState:
             pulumi.set(__self__, "deployment_configs", deployment_configs)
         if domains is not None:
             pulumi.set(__self__, "domains", domains)
+        if framework is not None:
+            pulumi.set(__self__, "framework", framework)
+        if framework_version is not None:
+            pulumi.set(__self__, "framework_version", framework_version)
         if latest_deployment is not None:
             pulumi.set(__self__, "latest_deployment", latest_deployment)
         if name is not None:
             pulumi.set(__self__, "name", name)
+        if preview_script_name is not None:
+            pulumi.set(__self__, "preview_script_name", preview_script_name)
         if production_branch is not None:
             pulumi.set(__self__, "production_branch", production_branch)
+        if production_script_name is not None:
+            pulumi.set(__self__, "production_script_name", production_script_name)
         if source is not None:
             pulumi.set(__self__, "source", source)
         if subdomain is not None:
             pulumi.set(__self__, "subdomain", subdomain)
+        if uses_functions is not None:
+            pulumi.set(__self__, "uses_functions", uses_functions)
 
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Identifier
+        Identifier.
         """
         return pulumi.get(self, "account_id")
 
@@ -194,7 +218,7 @@ class _PagesProjectState:
     @pulumi.getter(name="canonicalDeployment")
     def canonical_deployment(self) -> Optional[pulumi.Input['PagesProjectCanonicalDeploymentArgs']]:
         """
-        Most recent deployment to the repo.
+        Most recent production deployment of the project.
         """
         return pulumi.get(self, "canonical_deployment")
 
@@ -239,10 +263,34 @@ class _PagesProjectState:
         pulumi.set(self, "domains", value)
 
     @_builtins.property
+    @pulumi.getter
+    def framework(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Framework the project is using.
+        """
+        return pulumi.get(self, "framework")
+
+    @framework.setter
+    def framework(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "framework", value)
+
+    @_builtins.property
+    @pulumi.getter(name="frameworkVersion")
+    def framework_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Version of the framework the project is using.
+        """
+        return pulumi.get(self, "framework_version")
+
+    @framework_version.setter
+    def framework_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "framework_version", value)
+
+    @_builtins.property
     @pulumi.getter(name="latestDeployment")
     def latest_deployment(self) -> Optional[pulumi.Input['PagesProjectLatestDeploymentArgs']]:
         """
-        Most recent deployment to the repo.
+        Most recent deployment of the project.
         """
         return pulumi.get(self, "latest_deployment")
 
@@ -263,6 +311,18 @@ class _PagesProjectState:
         pulumi.set(self, "name", value)
 
     @_builtins.property
+    @pulumi.getter(name="previewScriptName")
+    def preview_script_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the preview script.
+        """
+        return pulumi.get(self, "preview_script_name")
+
+    @preview_script_name.setter
+    def preview_script_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "preview_script_name", value)
+
+    @_builtins.property
     @pulumi.getter(name="productionBranch")
     def production_branch(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -275,8 +335,23 @@ class _PagesProjectState:
         pulumi.set(self, "production_branch", value)
 
     @_builtins.property
+    @pulumi.getter(name="productionScriptName")
+    def production_script_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Name of the production script.
+        """
+        return pulumi.get(self, "production_script_name")
+
+    @production_script_name.setter
+    def production_script_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "production_script_name", value)
+
+    @_builtins.property
     @pulumi.getter
     def source(self) -> Optional[pulumi.Input['PagesProjectSourceArgs']]:
+        """
+        Configs for the project source control.
+        """
         return pulumi.get(self, "source")
 
     @source.setter
@@ -295,6 +370,18 @@ class _PagesProjectState:
     def subdomain(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "subdomain", value)
 
+    @_builtins.property
+    @pulumi.getter(name="usesFunctions")
+    def uses_functions(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether the project uses functions.
+        """
+        return pulumi.get(self, "uses_functions")
+
+    @uses_functions.setter
+    def uses_functions(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "uses_functions", value)
+
 
 @pulumi.type_token("cloudflare:index/pagesProject:PagesProject")
 class PagesProject(pulumi.CustomResource):
@@ -312,7 +399,212 @@ class PagesProject(pulumi.CustomResource):
         """
         > If you are using a `source` block configuration, you must first have a
            connected GitHub or GitLab account connected to Cloudflare. See the
-           [Getting Started with Pages] documentation on how to link your accounts.
+           [Getting Started with Pages](https://developers.cloudflare.com/pages/get-started/git-integration/)
+           documentation on how to link your accounts.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_pages_project = cloudflare.PagesProject("example_pages_project",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            name="my-pages-app",
+            production_branch="main",
+            build_config={
+                "build_caching": True,
+                "build_command": "npm run build",
+                "destination_dir": "build",
+                "root_dir": "/",
+                "web_analytics_tag": "cee1c73f6e4743d0b5e6bb1a0bcaabcc",
+                "web_analytics_token": "021e1057c18547eca7b79f2516f06o7x",
+            },
+            deployment_configs={
+                "preview": {
+                    "ai_bindings": {
+                        "AI_BINDING": {
+                            "project_id": "some-project-id",
+                        },
+                    },
+                    "always_use_latest_compatibility_date": False,
+                    "analytics_engine_datasets": {
+                        "ANALYTICS_ENGINE_BINDING": {
+                            "dataset": "api_analytics",
+                        },
+                    },
+                    "browsers": {
+                        "BROWSER": {},
+                    },
+                    "build_image_major_version": 3,
+                    "compatibility_date": "2025-01-01",
+                    "compatibility_flags": ["url_standard"],
+                    "d1_databases": {
+                        "D1_BINDING": {
+                            "id": "445e2955-951a-43f8-a35b-a4d0c8138f63",
+                        },
+                    },
+                    "durable_object_namespaces": {
+                        "DO_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "env_vars": {
+                        "foo": {
+                            "type": "plain_text",
+                            "value": "hello world",
+                        },
+                    },
+                    "fail_open": True,
+                    "hyperdrive_bindings": {
+                        "HYPERDRIVE": {
+                            "id": "a76a99bc342644deb02c38d66082262a",
+                        },
+                    },
+                    "kv_namespaces": {
+                        "KV_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "limits": {
+                        "cpu_ms": 100,
+                    },
+                    "mtls_certificates": {
+                        "MTLS": {
+                            "certificate_id": "d7cdd17c-916f-4cb7-aabe-585eb382ec4e",
+                        },
+                    },
+                    "placement": {
+                        "mode": "smart",
+                    },
+                    "queue_producers": {
+                        "QUEUE_PRODUCER_BINDING": {
+                            "name": "some-queue",
+                        },
+                    },
+                    "r2_buckets": {
+                        "R2_BINDING": {
+                            "name": "some-bucket",
+                            "jurisdiction": "eu",
+                        },
+                    },
+                    "services": {
+                        "SERVICE_BINDING": {
+                            "service": "example-worker",
+                            "entrypoint": "MyHandler",
+                            "environment": "production",
+                        },
+                    },
+                    "usage_model": "standard",
+                    "vectorize_bindings": {
+                        "VECTORIZE": {
+                            "index_name": "my_index",
+                        },
+                    },
+                    "wrangler_config_hash": "abc123def456",
+                },
+                "production": {
+                    "ai_bindings": {
+                        "AI_BINDING": {
+                            "project_id": "some-project-id",
+                        },
+                    },
+                    "always_use_latest_compatibility_date": False,
+                    "analytics_engine_datasets": {
+                        "ANALYTICS_ENGINE_BINDING": {
+                            "dataset": "api_analytics",
+                        },
+                    },
+                    "browsers": {
+                        "BROWSER": {},
+                    },
+                    "build_image_major_version": 3,
+                    "compatibility_date": "2025-01-01",
+                    "compatibility_flags": ["url_standard"],
+                    "d1_databases": {
+                        "D1_BINDING": {
+                            "id": "445e2955-951a-43f8-a35b-a4d0c8138f63",
+                        },
+                    },
+                    "durable_object_namespaces": {
+                        "DO_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "env_vars": {
+                        "foo": {
+                            "type": "plain_text",
+                            "value": "hello world",
+                        },
+                    },
+                    "fail_open": True,
+                    "hyperdrive_bindings": {
+                        "HYPERDRIVE": {
+                            "id": "a76a99bc342644deb02c38d66082262a",
+                        },
+                    },
+                    "kv_namespaces": {
+                        "KV_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "limits": {
+                        "cpu_ms": 100,
+                    },
+                    "mtls_certificates": {
+                        "MTLS": {
+                            "certificate_id": "d7cdd17c-916f-4cb7-aabe-585eb382ec4e",
+                        },
+                    },
+                    "placement": {
+                        "mode": "smart",
+                    },
+                    "queue_producers": {
+                        "QUEUE_PRODUCER_BINDING": {
+                            "name": "some-queue",
+                        },
+                    },
+                    "r2_buckets": {
+                        "R2_BINDING": {
+                            "name": "some-bucket",
+                            "jurisdiction": "eu",
+                        },
+                    },
+                    "services": {
+                        "SERVICE_BINDING": {
+                            "service": "example-worker",
+                            "entrypoint": "MyHandler",
+                            "environment": "production",
+                        },
+                    },
+                    "usage_model": "standard",
+                    "vectorize_bindings": {
+                        "VECTORIZE": {
+                            "index_name": "my_index",
+                        },
+                    },
+                    "wrangler_config_hash": "abc123def456",
+                },
+            },
+            source={
+                "config": {
+                    "deployments_enabled": True,
+                    "owner": "my-org",
+                    "owner_id": "12345678",
+                    "path_excludes": ["string"],
+                    "path_includes": ["string"],
+                    "pr_comments_enabled": True,
+                    "preview_branch_excludes": ["string"],
+                    "preview_branch_includes": ["string"],
+                    "preview_deployment_setting": "all",
+                    "production_branch": "main",
+                    "production_deployments_enabled": True,
+                    "repo_id": "12345678",
+                    "repo_name": "my-repo",
+                },
+                "type": "github",
+            })
+        ```
 
         ## Import
 
@@ -324,11 +616,12 @@ class PagesProject(pulumi.CustomResource):
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] account_id: Identifier
+        :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[Union['PagesProjectBuildConfigArgs', 'PagesProjectBuildConfigArgsDict']] build_config: Configs for the project build process.
         :param pulumi.Input[Union['PagesProjectDeploymentConfigsArgs', 'PagesProjectDeploymentConfigsArgsDict']] deployment_configs: Configs for deployments in a project.
         :param pulumi.Input[_builtins.str] name: Name of the project.
         :param pulumi.Input[_builtins.str] production_branch: Production branch of the project. Used to identify production deployments.
+        :param pulumi.Input[Union['PagesProjectSourceArgs', 'PagesProjectSourceArgsDict']] source: Configs for the project source control.
         """
         ...
     @overload
@@ -339,7 +632,212 @@ class PagesProject(pulumi.CustomResource):
         """
         > If you are using a `source` block configuration, you must first have a
            connected GitHub or GitLab account connected to Cloudflare. See the
-           [Getting Started with Pages] documentation on how to link your accounts.
+           [Getting Started with Pages](https://developers.cloudflare.com/pages/get-started/git-integration/)
+           documentation on how to link your accounts.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_pages_project = cloudflare.PagesProject("example_pages_project",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            name="my-pages-app",
+            production_branch="main",
+            build_config={
+                "build_caching": True,
+                "build_command": "npm run build",
+                "destination_dir": "build",
+                "root_dir": "/",
+                "web_analytics_tag": "cee1c73f6e4743d0b5e6bb1a0bcaabcc",
+                "web_analytics_token": "021e1057c18547eca7b79f2516f06o7x",
+            },
+            deployment_configs={
+                "preview": {
+                    "ai_bindings": {
+                        "AI_BINDING": {
+                            "project_id": "some-project-id",
+                        },
+                    },
+                    "always_use_latest_compatibility_date": False,
+                    "analytics_engine_datasets": {
+                        "ANALYTICS_ENGINE_BINDING": {
+                            "dataset": "api_analytics",
+                        },
+                    },
+                    "browsers": {
+                        "BROWSER": {},
+                    },
+                    "build_image_major_version": 3,
+                    "compatibility_date": "2025-01-01",
+                    "compatibility_flags": ["url_standard"],
+                    "d1_databases": {
+                        "D1_BINDING": {
+                            "id": "445e2955-951a-43f8-a35b-a4d0c8138f63",
+                        },
+                    },
+                    "durable_object_namespaces": {
+                        "DO_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "env_vars": {
+                        "foo": {
+                            "type": "plain_text",
+                            "value": "hello world",
+                        },
+                    },
+                    "fail_open": True,
+                    "hyperdrive_bindings": {
+                        "HYPERDRIVE": {
+                            "id": "a76a99bc342644deb02c38d66082262a",
+                        },
+                    },
+                    "kv_namespaces": {
+                        "KV_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "limits": {
+                        "cpu_ms": 100,
+                    },
+                    "mtls_certificates": {
+                        "MTLS": {
+                            "certificate_id": "d7cdd17c-916f-4cb7-aabe-585eb382ec4e",
+                        },
+                    },
+                    "placement": {
+                        "mode": "smart",
+                    },
+                    "queue_producers": {
+                        "QUEUE_PRODUCER_BINDING": {
+                            "name": "some-queue",
+                        },
+                    },
+                    "r2_buckets": {
+                        "R2_BINDING": {
+                            "name": "some-bucket",
+                            "jurisdiction": "eu",
+                        },
+                    },
+                    "services": {
+                        "SERVICE_BINDING": {
+                            "service": "example-worker",
+                            "entrypoint": "MyHandler",
+                            "environment": "production",
+                        },
+                    },
+                    "usage_model": "standard",
+                    "vectorize_bindings": {
+                        "VECTORIZE": {
+                            "index_name": "my_index",
+                        },
+                    },
+                    "wrangler_config_hash": "abc123def456",
+                },
+                "production": {
+                    "ai_bindings": {
+                        "AI_BINDING": {
+                            "project_id": "some-project-id",
+                        },
+                    },
+                    "always_use_latest_compatibility_date": False,
+                    "analytics_engine_datasets": {
+                        "ANALYTICS_ENGINE_BINDING": {
+                            "dataset": "api_analytics",
+                        },
+                    },
+                    "browsers": {
+                        "BROWSER": {},
+                    },
+                    "build_image_major_version": 3,
+                    "compatibility_date": "2025-01-01",
+                    "compatibility_flags": ["url_standard"],
+                    "d1_databases": {
+                        "D1_BINDING": {
+                            "id": "445e2955-951a-43f8-a35b-a4d0c8138f63",
+                        },
+                    },
+                    "durable_object_namespaces": {
+                        "DO_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "env_vars": {
+                        "foo": {
+                            "type": "plain_text",
+                            "value": "hello world",
+                        },
+                    },
+                    "fail_open": True,
+                    "hyperdrive_bindings": {
+                        "HYPERDRIVE": {
+                            "id": "a76a99bc342644deb02c38d66082262a",
+                        },
+                    },
+                    "kv_namespaces": {
+                        "KV_BINDING": {
+                            "namespace_id": "5eb63bbbe01eeed093cb22bb8f5acdc3",
+                        },
+                    },
+                    "limits": {
+                        "cpu_ms": 100,
+                    },
+                    "mtls_certificates": {
+                        "MTLS": {
+                            "certificate_id": "d7cdd17c-916f-4cb7-aabe-585eb382ec4e",
+                        },
+                    },
+                    "placement": {
+                        "mode": "smart",
+                    },
+                    "queue_producers": {
+                        "QUEUE_PRODUCER_BINDING": {
+                            "name": "some-queue",
+                        },
+                    },
+                    "r2_buckets": {
+                        "R2_BINDING": {
+                            "name": "some-bucket",
+                            "jurisdiction": "eu",
+                        },
+                    },
+                    "services": {
+                        "SERVICE_BINDING": {
+                            "service": "example-worker",
+                            "entrypoint": "MyHandler",
+                            "environment": "production",
+                        },
+                    },
+                    "usage_model": "standard",
+                    "vectorize_bindings": {
+                        "VECTORIZE": {
+                            "index_name": "my_index",
+                        },
+                    },
+                    "wrangler_config_hash": "abc123def456",
+                },
+            },
+            source={
+                "config": {
+                    "deployments_enabled": True,
+                    "owner": "my-org",
+                    "owner_id": "12345678",
+                    "path_excludes": ["string"],
+                    "path_includes": ["string"],
+                    "pr_comments_enabled": True,
+                    "preview_branch_excludes": ["string"],
+                    "preview_branch_includes": ["string"],
+                    "preview_deployment_setting": "all",
+                    "production_branch": "main",
+                    "production_deployments_enabled": True,
+                    "repo_id": "12345678",
+                    "repo_name": "my-repo",
+                },
+                "type": "github",
+            })
+        ```
 
         ## Import
 
@@ -387,13 +885,20 @@ class PagesProject(pulumi.CustomResource):
             if name is None and not opts.urn:
                 raise TypeError("Missing required property 'name'")
             __props__.__dict__["name"] = name
+            if production_branch is None and not opts.urn:
+                raise TypeError("Missing required property 'production_branch'")
             __props__.__dict__["production_branch"] = production_branch
             __props__.__dict__["source"] = source
             __props__.__dict__["canonical_deployment"] = None
             __props__.__dict__["created_on"] = None
             __props__.__dict__["domains"] = None
+            __props__.__dict__["framework"] = None
+            __props__.__dict__["framework_version"] = None
             __props__.__dict__["latest_deployment"] = None
+            __props__.__dict__["preview_script_name"] = None
+            __props__.__dict__["production_script_name"] = None
             __props__.__dict__["subdomain"] = None
+            __props__.__dict__["uses_functions"] = None
         super(PagesProject, __self__).__init__(
             'cloudflare:index/pagesProject:PagesProject',
             resource_name,
@@ -410,11 +915,16 @@ class PagesProject(pulumi.CustomResource):
             created_on: Optional[pulumi.Input[_builtins.str]] = None,
             deployment_configs: Optional[pulumi.Input[Union['PagesProjectDeploymentConfigsArgs', 'PagesProjectDeploymentConfigsArgsDict']]] = None,
             domains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+            framework: Optional[pulumi.Input[_builtins.str]] = None,
+            framework_version: Optional[pulumi.Input[_builtins.str]] = None,
             latest_deployment: Optional[pulumi.Input[Union['PagesProjectLatestDeploymentArgs', 'PagesProjectLatestDeploymentArgsDict']]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
+            preview_script_name: Optional[pulumi.Input[_builtins.str]] = None,
             production_branch: Optional[pulumi.Input[_builtins.str]] = None,
+            production_script_name: Optional[pulumi.Input[_builtins.str]] = None,
             source: Optional[pulumi.Input[Union['PagesProjectSourceArgs', 'PagesProjectSourceArgsDict']]] = None,
-            subdomain: Optional[pulumi.Input[_builtins.str]] = None) -> 'PagesProject':
+            subdomain: Optional[pulumi.Input[_builtins.str]] = None,
+            uses_functions: Optional[pulumi.Input[_builtins.bool]] = None) -> 'PagesProject':
         """
         Get an existing PagesProject resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -422,16 +932,22 @@ class PagesProject(pulumi.CustomResource):
         :param str resource_name: The unique name of the resulting resource.
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
-        :param pulumi.Input[_builtins.str] account_id: Identifier
+        :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[Union['PagesProjectBuildConfigArgs', 'PagesProjectBuildConfigArgsDict']] build_config: Configs for the project build process.
-        :param pulumi.Input[Union['PagesProjectCanonicalDeploymentArgs', 'PagesProjectCanonicalDeploymentArgsDict']] canonical_deployment: Most recent deployment to the repo.
+        :param pulumi.Input[Union['PagesProjectCanonicalDeploymentArgs', 'PagesProjectCanonicalDeploymentArgsDict']] canonical_deployment: Most recent production deployment of the project.
         :param pulumi.Input[_builtins.str] created_on: When the project was created.
         :param pulumi.Input[Union['PagesProjectDeploymentConfigsArgs', 'PagesProjectDeploymentConfigsArgsDict']] deployment_configs: Configs for deployments in a project.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] domains: A list of associated custom domains for the project.
-        :param pulumi.Input[Union['PagesProjectLatestDeploymentArgs', 'PagesProjectLatestDeploymentArgsDict']] latest_deployment: Most recent deployment to the repo.
+        :param pulumi.Input[_builtins.str] framework: Framework the project is using.
+        :param pulumi.Input[_builtins.str] framework_version: Version of the framework the project is using.
+        :param pulumi.Input[Union['PagesProjectLatestDeploymentArgs', 'PagesProjectLatestDeploymentArgsDict']] latest_deployment: Most recent deployment of the project.
         :param pulumi.Input[_builtins.str] name: Name of the project.
+        :param pulumi.Input[_builtins.str] preview_script_name: Name of the preview script.
         :param pulumi.Input[_builtins.str] production_branch: Production branch of the project. Used to identify production deployments.
+        :param pulumi.Input[_builtins.str] production_script_name: Name of the production script.
+        :param pulumi.Input[Union['PagesProjectSourceArgs', 'PagesProjectSourceArgsDict']] source: Configs for the project source control.
         :param pulumi.Input[_builtins.str] subdomain: The Cloudflare subdomain associated with the project.
+        :param pulumi.Input[_builtins.bool] uses_functions: Whether the project uses functions.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -443,18 +959,23 @@ class PagesProject(pulumi.CustomResource):
         __props__.__dict__["created_on"] = created_on
         __props__.__dict__["deployment_configs"] = deployment_configs
         __props__.__dict__["domains"] = domains
+        __props__.__dict__["framework"] = framework
+        __props__.__dict__["framework_version"] = framework_version
         __props__.__dict__["latest_deployment"] = latest_deployment
         __props__.__dict__["name"] = name
+        __props__.__dict__["preview_script_name"] = preview_script_name
         __props__.__dict__["production_branch"] = production_branch
+        __props__.__dict__["production_script_name"] = production_script_name
         __props__.__dict__["source"] = source
         __props__.__dict__["subdomain"] = subdomain
+        __props__.__dict__["uses_functions"] = uses_functions
         return PagesProject(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier
+        Identifier.
         """
         return pulumi.get(self, "account_id")
 
@@ -470,7 +991,7 @@ class PagesProject(pulumi.CustomResource):
     @pulumi.getter(name="canonicalDeployment")
     def canonical_deployment(self) -> pulumi.Output['outputs.PagesProjectCanonicalDeployment']:
         """
-        Most recent deployment to the repo.
+        Most recent production deployment of the project.
         """
         return pulumi.get(self, "canonical_deployment")
 
@@ -484,7 +1005,7 @@ class PagesProject(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="deploymentConfigs")
-    def deployment_configs(self) -> pulumi.Output[Optional['outputs.PagesProjectDeploymentConfigs']]:
+    def deployment_configs(self) -> pulumi.Output['outputs.PagesProjectDeploymentConfigs']:
         """
         Configs for deployments in a project.
         """
@@ -499,10 +1020,26 @@ class PagesProject(pulumi.CustomResource):
         return pulumi.get(self, "domains")
 
     @_builtins.property
+    @pulumi.getter
+    def framework(self) -> pulumi.Output[_builtins.str]:
+        """
+        Framework the project is using.
+        """
+        return pulumi.get(self, "framework")
+
+    @_builtins.property
+    @pulumi.getter(name="frameworkVersion")
+    def framework_version(self) -> pulumi.Output[_builtins.str]:
+        """
+        Version of the framework the project is using.
+        """
+        return pulumi.get(self, "framework_version")
+
+    @_builtins.property
     @pulumi.getter(name="latestDeployment")
     def latest_deployment(self) -> pulumi.Output['outputs.PagesProjectLatestDeployment']:
         """
-        Most recent deployment to the repo.
+        Most recent deployment of the project.
         """
         return pulumi.get(self, "latest_deployment")
 
@@ -515,16 +1052,35 @@ class PagesProject(pulumi.CustomResource):
         return pulumi.get(self, "name")
 
     @_builtins.property
+    @pulumi.getter(name="previewScriptName")
+    def preview_script_name(self) -> pulumi.Output[_builtins.str]:
+        """
+        Name of the preview script.
+        """
+        return pulumi.get(self, "preview_script_name")
+
+    @_builtins.property
     @pulumi.getter(name="productionBranch")
-    def production_branch(self) -> pulumi.Output[Optional[_builtins.str]]:
+    def production_branch(self) -> pulumi.Output[_builtins.str]:
         """
         Production branch of the project. Used to identify production deployments.
         """
         return pulumi.get(self, "production_branch")
 
     @_builtins.property
+    @pulumi.getter(name="productionScriptName")
+    def production_script_name(self) -> pulumi.Output[_builtins.str]:
+        """
+        Name of the production script.
+        """
+        return pulumi.get(self, "production_script_name")
+
+    @_builtins.property
     @pulumi.getter
     def source(self) -> pulumi.Output[Optional['outputs.PagesProjectSource']]:
+        """
+        Configs for the project source control.
+        """
         return pulumi.get(self, "source")
 
     @_builtins.property
@@ -534,4 +1090,12 @@ class PagesProject(pulumi.CustomResource):
         The Cloudflare subdomain associated with the project.
         """
         return pulumi.get(self, "subdomain")
+
+    @_builtins.property
+    @pulumi.getter(name="usesFunctions")
+    def uses_functions(self) -> pulumi.Output[_builtins.bool]:
+        """
+        Whether the project uses functions.
+        """
+        return pulumi.get(self, "uses_functions")
 

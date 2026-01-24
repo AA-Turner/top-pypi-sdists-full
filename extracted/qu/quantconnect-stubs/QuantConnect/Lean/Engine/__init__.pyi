@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 
 import QuantConnect
@@ -16,61 +16,6 @@ import QuantConnect.Util
 import QuantConnect.Util.RateLimit
 import System
 import System.Threading
-
-
-class LeanEngineSystemHandlers(System.Object, System.IDisposable):
-    """Provides a container for the system level handlers"""
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
-        ...
-
-    @property
-    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
-        """
-        Gets the messaging handler instance used for communicating various packets to listeners, including
-        debug/log messages, email/sms/web messages, as well as results and run time errors
-        """
-        ...
-
-    @property
-    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
-        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
-        ...
-
-    @property
-    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
-        """Gets the ILeanManager implementation using to enhance the hosting environment"""
-        ...
-
-    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
-        """
-        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
-        
-        :param job_queue: The job queue used to acquire algorithm jobs
-        :param api: The api instance used for communicating limits and status
-        :param notify: The messaging handler user for passing messages from the algorithm to listeners
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """
-        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
-        
-        :param composer: The composer instance to obtain implementations from
-        :returns: A fully hydrates LeanEngineSystemHandlers instance.
-        """
-        ...
-
-    def initialize(self) -> None:
-        """Initializes the Api, Messaging, and JobQueue components"""
-        ...
 
 
 class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
@@ -172,22 +117,59 @@ class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
         ...
 
 
-class Initializer(System.Object):
-    """Helper class to initialize a Lean engine"""
+class LeanEngineSystemHandlers(System.Object, System.IDisposable):
+    """Provides a container for the system level handlers"""
 
-    @staticmethod
-    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """Get and initializes Algorithm Handler"""
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
+        ...
+
+    @property
+    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
+        """
+        Gets the messaging handler instance used for communicating various packets to listeners, including
+        debug/log messages, email/sms/web messages, as well as results and run time errors
+        """
+        ...
+
+    @property
+    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
+        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
+        ...
+
+    @property
+    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
+        """Gets the ILeanManager implementation using to enhance the hosting environment"""
+        ...
+
+    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
+        """
+        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
+        
+        :param job_queue: The job queue used to acquire algorithm jobs
+        :param api: The api instance used for communicating limits and status
+        :param notify: The messaging handler user for passing messages from the algorithm to listeners
+        :param lean_manager: 
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
     @staticmethod
-    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """Get and initializes System Handler"""
+    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """
+        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
+        
+        :param composer: The composer instance to obtain implementations from
+        :returns: A fully hydrates LeanEngineSystemHandlers instance.
+        """
         ...
 
-    @staticmethod
-    def start() -> None:
-        """Basic common Lean initialization"""
+    def initialize(self) -> None:
+        """Initializes the Api, Messaging, and JobQueue components"""
         ...
 
 
@@ -195,7 +177,7 @@ class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResult
     """
     Provides an implementation of IIsolatorLimitResultProvider that tracks the algorithm
     manager's time loops and enforces a maximum amount of time that each time loop may take to execute.
-    The isolator uses the result provided by IsWithinLimit to determine if it should
+    The isolator uses the result provided by is_within_limit to determine if it should
     terminate the algorithm for violation of the imposed limits.
     """
 
@@ -213,8 +195,11 @@ class AlgorithmTimeLimitManager(System.Object, QuantConnect.IIsolatorLimitResult
         creation of IsolatorLimitResult instances as it pertains to the
         algorithm manager's time loop
         
-        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be spent to give execution time for things such as training scheduled events
-        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to spend in a single time loop. This value can be overriden if certain actions are taken by the algorithm, such as invoking the training methods.
+        :param additional_time_bucket: Provides a bucket of additional time that can be requested to be
+        spent to give execution time for things such as training scheduled events
+        :param time_loop_maximum: Specifies the maximum amount of time the algorithm is permitted to
+        spend in a single time loop. This value can be overriden if certain actions are taken by the
+        algorithm, such as invoking the training methods.
         """
         ...
 
@@ -295,7 +280,9 @@ class AlgorithmManager(System.Object):
         Initializes a new instance of the AlgorithmManager class
         
         :param live_mode: True if we're running in live mode, false for backtest mode
-        :param job: Provided by LEAN when creating a new algo manager. This is the job that the algo manager is about to execute. Research and other consumers can provide the default value of null
+        :param job: Provided by LEAN when creating a new algo manager. This is the job
+        that the algo manager is about to execute. Research and other consumers can provide the
+        default value of null
         """
         ...
 
@@ -319,7 +306,7 @@ class AlgorithmManager(System.Object):
         """
         ...
 
-    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource) -> None:
+    def run(self, job: QuantConnect.Packets.AlgorithmNodePacket, algorithm: QuantConnect.Interfaces.IAlgorithm, synchronizer: QuantConnect.Lean.Engine.DataFeeds.ISynchronizer, transactions: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, results: QuantConnect.Lean.Engine.Results.IResultHandler, realtime: QuantConnect.Lean.Engine.RealTime.IRealTimeHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager, cancellation_token_source: System.Threading.CancellationTokenSource, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool) -> None:
         """
         Launch the algorithm manager to run this strategy
         
@@ -376,6 +363,25 @@ class Engine(System.Object):
         :param assembly_path: The path to the algorithm's assembly
         :param worker_thread: The worker thread instance
         """
+        ...
+
+
+class Initializer(System.Object):
+    """Helper class to initialize a Lean engine"""
+
+    @staticmethod
+    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """Get and initializes Algorithm Handler"""
+        ...
+
+    @staticmethod
+    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """Get and initializes System Handler"""
+        ...
+
+    @staticmethod
+    def start() -> None:
+        """Basic common Lean initialization"""
         ...
 
 

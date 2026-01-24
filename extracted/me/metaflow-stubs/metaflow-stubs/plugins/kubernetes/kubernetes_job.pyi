@@ -1,0 +1,106 @@
+######################################################################################################
+#                                 Auto-generated Metaflow stub file                                  #
+# MF version: 2.19.17                                                                                #
+# Generated on 2026-01-22T21:47:05.918955                                                            #
+######################################################################################################
+
+from __future__ import annotations
+
+import metaflow
+import typing
+if typing.TYPE_CHECKING:
+    import metaflow.exception
+
+from ...exception import MetaflowException as MetaflowException
+from .kube_utils import qos_requests_and_limits as qos_requests_and_limits
+from .kubernetes_jobsets import KubernetesJobSet as KubernetesJobSet
+
+KUBERNETES_SECRETS: str
+
+KUBERNETES_JOB_TERMINATE_MODE: str
+
+CLIENT_REFRESH_INTERVAL_SECONDS: int
+
+DELETE_JOB_PROPAGATION_POLICY: str
+
+DELETE_JOB_TERMINATION_MODE: str
+
+class KubernetesJobException(metaflow.exception.MetaflowException, metaclass=type):
+    ...
+
+def k8s_retry(deadline_seconds = 60, max_backoff = 32):
+    ...
+
+class KubernetesJob(object, metaclass=type):
+    def __init__(self, client, **kwargs):
+        ...
+    def create_job_spec(self):
+        ...
+    def create(self):
+        ...
+    def execute(self):
+        ...
+    def step_name(self, step_name):
+        ...
+    def namespace(self, namespace):
+        ...
+    def name(self, name):
+        ...
+    def command(self, command):
+        ...
+    def image(self, image):
+        ...
+    def cpu(self, cpu):
+        ...
+    def memory(self, mem):
+        ...
+    def environment_variable(self, name, value):
+        ...
+    def label(self, name, value):
+        ...
+    def annotation(self, name, value):
+        ...
+    ...
+
+class RunningJob(object, metaclass=type):
+    def __init__(self, client, name, uid, namespace):
+        ...
+    def __repr__(self):
+        ...
+    def kill(self):
+        ...
+    @property
+    def id(self):
+        ...
+    @property
+    def is_done(self):
+        ...
+    @property
+    def status(self):
+        ...
+    @property
+    def has_succeeded(self):
+        ...
+    @property
+    def has_failed(self):
+        ...
+    @property
+    def _have_containers_succeeded(self):
+        ...
+    @property
+    def _has_any_container_failed(self):
+        ...
+    @property
+    def _are_pod_containers_done(self):
+        ...
+    @property
+    def is_running(self):
+        ...
+    @property
+    def is_waiting(self):
+        ...
+    @property
+    def reason(self):
+        ...
+    ...
+

@@ -1,6 +1,7 @@
 pub(crate) struct AnonymousDefinition;
 
 use crate::{
+    audit::AuditError,
     finding::{Confidence, Persona, Severity, location::Locatable as _},
     state::AuditState,
 };
@@ -18,16 +19,17 @@ audit_meta!(
     "workflow or action definition without a name"
 );
 
+#[async_trait::async_trait]
 impl Audit for AnonymousDefinition {
     fn new(_state: &AuditState) -> Result<Self, AuditLoadError> {
         Ok(Self)
     }
 
-    fn audit_workflow<'doc>(
+    async fn audit_workflow<'doc>(
         &self,
         workflow: &'doc crate::models::workflow::Workflow,
         _config: &crate::config::Config,
-    ) -> anyhow::Result<Vec<crate::finding::Finding<'doc>>> {
+    ) -> Result<Vec<crate::finding::Finding<'doc>>, AuditError> {
         let mut findings = vec![];
 
         if workflow.name.is_none() {
@@ -37,6 +39,7 @@ impl Audit for AnonymousDefinition {
                     .confidence(Confidence::High)
                     .persona(Persona::Pedantic)
                     .add_location(workflow.location().primary())
+                    .tip("use 'name: ...' to give this workflow a name")
                     .build(workflow)?,
             );
         }
@@ -45,14 +48,13 @@ impl Audit for AnonymousDefinition {
             match job {
                 Job::NormalJob(normal) => {
                     if normal.name.is_none() {
-                        let location = normal.location().primary();
-
                         findings.push(
                             Self::finding()
                                 .severity(ANONYMOUS_DEFINITION_JOB_SEVERITY)
                                 .confidence(Confidence::High)
                                 .persona(Persona::Pedantic)
-                                .add_location(location)
+                                .add_location(normal.location_with_grip().primary())
+                                .tip("use 'name: ...' to give this job a name")
                                 .build(workflow)?,
                         );
                     }

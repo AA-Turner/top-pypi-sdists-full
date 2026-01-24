@@ -24,6 +24,7 @@ from chalk.features.underscore import (
     UnderscoreRoot,
 )
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import schema_compat
 
 if typing_extensions.TYPE_CHECKING:
     from chalk import Features
@@ -66,7 +67,7 @@ def _parse_underscore_in_context(exp: Any, context: Any, is_pydantic: bool) -> A
         from chalk.features.dataframe import DataFrame
 
         if isinstance(parent_context, DataFrame) and is_pydantic:
-            if attr not in parent_context._underlying.schema:
+            if attr not in schema_compat(parent_context._underlying):
                 warnings.warn(
                     f"Attribute {attr} not found in dataframe schema. Returning None. Found expression {exp}."
                 )

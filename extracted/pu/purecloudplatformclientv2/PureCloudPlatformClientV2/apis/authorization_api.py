@@ -48,10 +48,10 @@ from ..models import DomainOrgRoleDifference
 from ..models import DomainOrganizationRole
 from ..models import DomainOrganizationRoleCreate
 from ..models import DomainOrganizationRoleUpdate
-from ..models import DomainPermissionEntityListing
 from ..models import ErrorBody
 from ..models import OrganizationProductEntityListing
 from ..models import OrganizationRoleEntityListing
+from ..models import PermissionCollectionEntityListing
 from ..models import PolicyAttributeSet
 from ..models import PolicyTestPayload
 from ..models import PolicyTestResult
@@ -165,7 +165,6 @@ class AuthorizationApi(object):
         """
         Delete an access control policy
         
-	    delete_authorization_policies_target_subject_subject_id is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -917,7 +916,7 @@ class AuthorizationApi(object):
             for asynchronous request. (optional)
         :param str before: The cursor that points to the start of the set of entities that has been returned.
         :param str after: The cursor that points to the end of the set of entities that has been returned.
-        :param str page_size: Number of entities to return. Maximum of 200.
+        :param str page_size: Page size (max 200, default 25)
         :param list[str] id: Optionally request specific divisions by their IDs
         :param str name: Optionally request specific divisions by division name
         :return: AuthzDivisionCursorListing
@@ -1244,7 +1243,7 @@ class AuthorizationApi(object):
                                             callback=params.get('callback'))
         return response
 
-    def get_authorization_permissions(self, **kwargs) -> 'DomainPermissionEntityListing':
+    def get_authorization_permissions(self, **kwargs) -> 'PermissionCollectionEntityListing':
         """
         Get all permissions.
         Retrieve a list of all permission defined in the system.
@@ -1263,7 +1262,7 @@ class AuthorizationApi(object):
         :param int page_number: Page number
         :param str query_type: Query filter type
         :param str query: Comma-separated list of permissions or domains to query
-        :return: DomainPermissionEntityListing
+        :return: PermissionCollectionEntityListing
                  If the method is called asynchronously,
                  returns the request thread.
         """
@@ -1323,7 +1322,7 @@ class AuthorizationApi(object):
                                             body=body_params,
                                             post_params=form_params,
                                             files=local_var_files,
-                                            response_type='DomainPermissionEntityListing',
+                                            response_type='PermissionCollectionEntityListing',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response
@@ -1332,7 +1331,6 @@ class AuthorizationApi(object):
         """
         Get a page of access policies for an organization
         
-	    get_authorization_policies is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1411,7 +1409,6 @@ class AuthorizationApi(object):
         """
         Get a page of access policies for a given subject
         
-	    get_authorization_policies_subject_subject_id is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1496,7 +1493,6 @@ class AuthorizationApi(object):
         """
         Get a page of access policies for a given policy target
         
-	    get_authorization_policies_target is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1581,7 +1577,6 @@ class AuthorizationApi(object):
         """
         Get an access control policy for a specified resource target and subject
         
-	    get_authorization_policies_target_subject_subject_id is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1666,7 +1661,6 @@ class AuthorizationApi(object):
         """
         Get a map of policy targets to valid attributes for those targets
         
-	    get_authorization_policies_targets is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1739,7 +1733,6 @@ class AuthorizationApi(object):
         """
         Get an access control policy with the specified policy ID
         
-	    get_authorization_policy is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1818,7 +1811,6 @@ class AuthorizationApi(object):
         """
         Get the list of attributes used to evaluate an access control policy with the specified policy ID
         
-	    get_authorization_policy_attributes is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -3289,7 +3281,6 @@ class AuthorizationApi(object):
         """
         Add an access control policy for a specified resource target and subject
         
-	    post_authorization_policies_target is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -3374,7 +3365,6 @@ class AuthorizationApi(object):
         """
         Validate the conditions and attributes of an access control policy for a specified resource target
         
-	    post_authorization_policies_target_validate is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -3459,7 +3449,6 @@ class AuthorizationApi(object):
         """
         Simulate a request and evaluate the specified policy ID against the provided values
         
-	    post_authorization_policy_simulate is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -4309,7 +4298,6 @@ class AuthorizationApi(object):
         """
         Add an access control policy for a specified resource target and subject, overwriting any existing policy
         
-	    put_authorization_policies_target is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -4394,7 +4382,6 @@ class AuthorizationApi(object):
         """
         Update an access control policy with a given ID
         
-	    put_authorization_policy is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function

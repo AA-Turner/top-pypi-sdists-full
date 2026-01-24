@@ -1,7 +1,8 @@
-from xcomponent import Catalog, Component, XNode
+from uuid import UUID
 
 import pytest
 from bs4 import PageElement  # type: ignore
+from xcomponent import Catalog, Component, XNode
 
 
 @pytest.fixture(autouse=True)
@@ -29,6 +30,20 @@ def Section(catalog: Catalog):
         return """<div><H1 title="hello"/><H2 title="world"/></div>"""
 
     return Section
+
+
+@pytest.fixture(autouse=True)
+def Paragraph(catalog: Catalog):
+    @catalog.component
+    def Paragraph() -> str:
+        return """
+            <>
+                <p>The lazy <strong>dog</strong> jump over...</p>
+                <p>the lazy dog jumped over the <em>quick brown fox</em>.</p>
+            </>
+        """
+
+    return Paragraph
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +95,28 @@ def Layout(catalog: Catalog):
     return Layout
 
 
+@pytest.fixture(autouse=True)
+def RenderNone(catalog: Catalog):
+    @catalog.component
+    def RenderNone(value: str | None) -> str:
+        return """
+        <input value={value}/>
+        """
+
+    return RenderNone
+
+
+@pytest.fixture(autouse=True)
+def RenderUuid(catalog: Catalog):
+    @catalog.component
+    def RenderUuid(uuid: UUID) -> str:
+        return """
+        <input value={uuid}/>
+        """
+
+    return RenderUuid
+
+
 def test_render_h1(catalog: Catalog):
     assert catalog.render('<H1 title="Hello, world!" />') == "<h1>Hello, world!</h1>"
 
@@ -94,9 +131,27 @@ def test_render_h2(catalog: Catalog):
     )
 
 
+def test_render_none(catalog: Catalog):
+    assert catalog.render("<RenderNone value={val} />", val=None) == "<input/>"
+
+
+def test_render_uuid(catalog: Catalog):
+    assert (
+        catalog.render("<RenderUuid uuid={val} />", val=UUID(int=1))
+        == '<input value="00000000-0000-0000-0000-000000000001"/>'
+    )
+
+
 def test_render_children(catalog: Catalog):
     assert (
         catalog.render("<Section />") == "<div><h1>hello</h1><h2>I - world</h2></div>"
+    )
+
+
+def test_render_whitespace(catalog: Catalog):
+    assert catalog.render("<Paragraph />") == (
+        "<p>The lazy <strong>dog</strong> jump over...</p>"
+        "<p>the lazy dog jumped over the <em>quick brown fox</em>.</p>"
     )
 
 

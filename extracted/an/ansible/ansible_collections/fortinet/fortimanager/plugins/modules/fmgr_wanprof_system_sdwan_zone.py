@@ -16,7 +16,6 @@ short_description: Configure SD-WAN zones.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -105,6 +104,7 @@ options:
                     - 'cfg-order'
                     - 'fib-best-match'
                     - 'input-device'
+                    - 'priority'
             minimum_sla_meet_members:
                 aliases: ['minimum-sla-meet-members']
                 type: int
@@ -135,8 +135,8 @@ EXAMPLES = '''
     - name: Configure SD-WAN zones.
       fortinet.fortimanager.fmgr_wanprof_system_sdwan_zone:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -144,7 +144,7 @@ EXAMPLES = '''
         state: present # <value in [present, absent]>
         wanprof_system_sdwan_zone:
           name: "your value" # Required variable, string
-          # service_sla_tie_break: <value in [cfg-order, fib-best-match, input-device]>
+          # service_sla_tie_break: <value in [cfg-order, fib-best-match, input-device, ...]>
           # minimum_sla_meet_members: <integer>
           # advpn_health_check: <string>
           # advpn_select: <value in [disable, enable]>
@@ -209,7 +209,11 @@ def main():
             'v_range': [['6.4.1', '']],
             'options': {
                 'name': {'v_range': [['6.4.1', '']], 'required': True, 'type': 'str'},
-                'service-sla-tie-break': {'v_range': [['6.4.3', '']], 'choices': ['cfg-order', 'fib-best-match', 'input-device'], 'type': 'str'},
+                'service-sla-tie-break': {
+                    'v_range': [['6.4.3', '']],
+                    'choices': ['cfg-order', 'fib-best-match', 'input-device', 'priority'],
+                    'type': 'str'
+                },
                 'minimum-sla-meet-members': {'v_range': [['7.4.1', '']], 'type': 'int'},
                 'advpn-health-check': {'v_range': [['7.4.2', '']], 'type': 'str'},
                 'advpn-select': {'v_range': [['7.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'}

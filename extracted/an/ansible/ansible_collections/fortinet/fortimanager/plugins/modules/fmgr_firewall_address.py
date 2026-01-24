@@ -16,7 +16,6 @@ short_description: Configure IPv4 addresses.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -304,6 +306,7 @@ options:
                             - 'rsso'
                             - 'external-resource'
                             - 'obsolete'
+                            - 'telemetry'
                     global_object:
                         aliases: ['global-object']
                         type: int
@@ -381,6 +384,14 @@ options:
                         aliases: ['sso-attribute-value']
                         type: raw
                         description: (list) Name
+                    agent_id:
+                        aliases: ['agent-id']
+                        type: raw
+                        description: (list) Telemetry agent id.
+                    tag_uuid:
+                        aliases: ['tag-uuid']
+                        type: str
+                        description: Foreign UUID of dynamic address object.
             end_ip:
                 aliases: ['end-ip']
                 type: str
@@ -573,6 +584,7 @@ options:
                     - 'rsso'
                     - 'external-resource'
                     - 'obsolete'
+                    - 'telemetry'
             global_object:
                 aliases: ['global-object']
                 type: int
@@ -642,6 +654,22 @@ options:
                 aliases: ['sso-attribute-value']
                 type: raw
                 description: (list) Name
+            pattern_end:
+                aliases: ['pattern-end']
+                type: int
+                description: Ending number of pattern for fqdn-group.
+            pattern_start:
+                aliases: ['pattern-start']
+                type: int
+                description: Starting number of pattern for fqdn-group.
+            tag_uuid:
+                aliases: ['tag-uuid']
+                type: str
+                description: Foreign UUID of dynamic address object.
+            agent_id:
+                aliases: ['agent-id']
+                type: raw
+                description: (list) Telemetry agent id.
 '''
 
 EXAMPLES = '''
@@ -657,13 +685,12 @@ EXAMPLES = '''
     - name: Configure IPv4 addresses.
       fortinet.fortimanager.fmgr_firewall_address:
         bypass_validation: false
-        adom: ansible
+        adom: root
         state: present
         firewall_address:
-          allow-routing: disable
-          associated-interface: any
           name: "ansible-test1"
-          visibility: disable
+          allow_routing: disable
+          associated_interface: any
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -697,8 +724,8 @@ EXAMPLES = '''
         adom: root
         state: present
         firewall_address:
-          allow-routing: disable
-          associated-interface: any
+          allow_routing: disable
+          associated_interface: any
           name: "address-orignal"
           # visibility: enable
     - name: Rename the firewall addressobject
@@ -716,44 +743,6 @@ EXAMPLES = '''
         state: absent
         firewall_address:
           name: "address-new"
-
-- name: Example playbook
-  hosts: fortimanagers
-  gather_facts: false
-  connection: httpapi
-  vars:
-    ansible_httpapi_use_ssl: true
-    ansible_httpapi_validate_certs: false
-    ansible_httpapi_port: 443
-  tasks:
-    - name: Create IPv4 addresses.
-      fortinet.fortimanager.fmgr_firewall_address:
-        adom: root
-        state: present
-        firewall_address:
-          allow-routing: disable
-          associated-interface: any
-          name: "fooaddress"
-          visibility: disable
-      register: info
-      failed_when: info.rc != 0
-    - name: Create IPv4 addresses.
-      fortinet.fortimanager.fmgr_firewall_address:
-        adom: root
-        state: present
-        firewall_address:
-          allow-routing: disable
-          associated-interface: any
-          name: "fooaddress"
-          visibility: disable
-      register: info
-      failed_when: info.message != 'Object update skipped!'
-    - name: Delete created address
-      fortinet.fortimanager.fmgr_firewall_address:
-        adom: root
-        state: absent
-        firewall_address:
-          name: "fooaddress"
 '''
 
 RETURN = '''
@@ -810,6 +799,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_address': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -871,7 +861,7 @@ def main():
                             'v_range': [['6.2.2', '']],
                             'choices': [
                                 'sdn', 'clearpass-spt', 'fsso', 'ems-tag', 'swc-tag', 'fortivoice-tag', 'fortinac-tag', 'fortipolicy-tag',
-                                'device-identification', 'rsso', 'external-resource', 'obsolete'
+                                'device-identification', 'rsso', 'external-resource', 'obsolete', 'telemetry'
                             ],
                             'type': 'str'
                         },
@@ -891,7 +881,9 @@ def main():
                         'os': {'v_range': [['7.4.0', '']], 'type': 'str'},
                         'route-tag': {'v_range': [['7.4.0', '']], 'type': 'int'},
                         'sw-version': {'v_range': [['7.4.0', '']], 'type': 'str'},
-                        'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'}
+                        'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'},
+                        'agent-id': {'v_range': [['7.6.4', '']], 'type': 'raw'},
+                        'tag-uuid': {'v_range': [['7.6.4', '']], 'type': 'str'}
                     },
                     'elements': 'dict'
                 },
@@ -938,7 +930,7 @@ def main():
                 'interface': {'v_range': [['6.2.0', '']], 'type': 'str'},
                 'sdn-addr-type': {'v_range': [['6.2.0', '']], 'choices': ['private', 'public', 'all'], 'type': 'str'},
                 'start-mac': {'v_range': [['6.2.0', '']], 'type': 'str'},
-                'tags': {'v_range': [['6.2.0', '6.4.15']], 'type': 'str'},
+                'tags': {'v_range': [['6.2.0', '6.4.15'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 'profile-list': {
                     'v_range': [['6.2.0', '6.2.13']],
                     'type': 'list',
@@ -956,7 +948,7 @@ def main():
                     'v_range': [['6.2.2', '']],
                     'choices': [
                         'sdn', 'clearpass-spt', 'fsso', 'ems-tag', 'swc-tag', 'fortivoice-tag', 'fortinac-tag', 'fortipolicy-tag',
-                        'device-identification', 'rsso', 'external-resource', 'obsolete'
+                        'device-identification', 'rsso', 'external-resource', 'obsolete', 'telemetry'
                     ],
                     'type': 'str'
                 },
@@ -974,7 +966,11 @@ def main():
                 'os': {'v_range': [['7.4.0', '']], 'type': 'str'},
                 'route-tag': {'v_range': [['7.4.0', '']], 'type': 'int'},
                 'sw-version': {'v_range': [['7.4.0', '']], 'type': 'str'},
-                'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'}
+                'sso-attribute-value': {'v_range': [['7.6.2', '']], 'type': 'raw'},
+                'pattern-end': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'int'},
+                'pattern-start': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'type': 'int'},
+                'tag-uuid': {'v_range': [['7.6.4', '']], 'type': 'str'},
+                'agent-id': {'v_range': [['7.6.4', '']], 'type': 'raw'}
             }
         }
     }

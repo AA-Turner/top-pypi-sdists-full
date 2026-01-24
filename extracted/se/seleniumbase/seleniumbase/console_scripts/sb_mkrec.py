@@ -29,7 +29,6 @@ Output:
     Creates a new SeleniumBase test using the Recorder.
     If the filename already exists, an error is raised.
 """
-import codecs
 import colorama
 import shutil
 import os
@@ -85,6 +84,11 @@ def main():
     error_msg = None
     invalid_cmd = None
     use_edge = False
+    use_opera = False
+    use_brave = False
+    use_comet = False
+    use_atlas = False
+    use_chromium = False
     use_uc = False
     esc_end = False
     start_page = None
@@ -139,6 +143,16 @@ def main():
                 help_me = True
             elif option.lower() == "--edge":
                 use_edge = True
+            elif option.lower() == "--opera":
+                use_opera = True
+            elif option.lower() == "--brave":
+                use_brave = True
+            elif option.lower() == "--comet":
+                use_comet = True
+            elif option.lower() == "--atlas":
+                use_atlas = True
+            elif option.lower() == "--use-chromium":
+                use_chromium = True
             elif option.lower() == "--ee":
                 esc_end = True
             elif option.lower() in ("--gui", "--headed"):
@@ -240,7 +254,7 @@ def main():
         d2.append("")
         data = d2
 
-    file = codecs.open(file_path, "w+", "utf-8")
+    file = open(file_path, mode="w+", encoding="utf-8")
     file.writelines("\r\n".join(data))
     file.close()
     success = (
@@ -276,6 +290,16 @@ def main():
             )
     if use_edge:
         run_cmd += " --edge"
+    elif use_opera:
+        run_cmd += " --opera"
+    elif use_brave:
+        run_cmd += " --brave"
+    elif use_comet:
+        run_cmd += " --comet"
+    elif use_atlas:
+        run_cmd += " --atlas"
+    elif use_chromium:
+        run_cmd += " --use-chromium"
     if force_gui:
         run_cmd += " --gui"
     if use_uc:

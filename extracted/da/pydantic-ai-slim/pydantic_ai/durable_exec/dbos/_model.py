@@ -7,12 +7,12 @@ from typing import Any
 
 from dbos import DBOS
 
-from pydantic_ai.agent import EventStreamHandler
-from pydantic_ai.messages import (
+from pydantic_ai import (
     ModelMessage,
     ModelResponse,
     ModelResponseStreamEvent,
 )
+from pydantic_ai.agent import EventStreamHandler
 from pydantic_ai.models import Model, ModelRequestParameters, StreamedResponse
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.settings import ModelSettings
@@ -45,6 +45,10 @@ class DBOSStreamedResponse(StreamedResponse):
     @property
     def provider_name(self) -> str:
         return self.response.provider_name or ''  # pragma: no cover
+
+    @property
+    def provider_url(self) -> str | None:
+        return self.response.provider_url  # pragma: no cover
 
     @property
     def timestamp(self) -> datetime:

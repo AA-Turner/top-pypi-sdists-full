@@ -1,13 +1,16 @@
 # This file is part of Tryton.  The COPYRIGHT file at the top level of
 # this repository contains the full copyright notices and license terms.
+
+import math
 import warnings
 
 from sql import As, Column, Expression, Literal, Null, Query, With
 from sql.aggregate import Max
 from sql.conditionals import Coalesce
-from sql.operators import Or
+from sql.functions import CharLength
+from sql.operators import Exists, Or
 
-from trytond.config import config
+import trytond.config as config
 from trytond.pool import Pool
 from trytond.pyson import PYSONEncoder
 from trytond.tools import cached_property, reduce_ids
@@ -16,8 +19,6 @@ from trytond.transaction import Transaction, inactive_records
 from .field import (
     Field, context_validate, domain_method, instantiate_context, order_method,
     search_order_validate)
-
-_subquery_threshold = config.getint('database', 'subquery_threshold')
 
 
 class Many2One(Field):
@@ -134,10 +135,20 @@ class Many2One(Field):
         Target = self.get_target()
         path_column = getattr(Target, self.path).sql_column(table)
         path_column = Coalesce(path_column, '')
-        cursor.execute(*table.select(path_column, where=red_sql))
+        cursor.execute(*table.select(
+                path_column, where=red_sql,
+                order_by=[CharLength(path_column).desc, path_column.asc]))
         if operator.endswith('child_of'):
-            where = Or()
+            paths = set()
             for path, in cursor:
+                discard = set()
+                for opath in paths:
+                    if path in opath:
+                        discard.add(opath)
+                paths -= discard
+                paths.add(path)
+            where = Or()
+            for path in paths:
                 where.append(path_column.like(path + '%'))
         else:
             ids = [int(x) for path, in cursor for x in path.split('/')[:-1]]
@@ -156,9 +167,19 @@ class Many2One(Field):
         Target = self.get_target()
         left = getattr(Target, self.left).sql_column(table)
         right = getattr(Target, self.right).sql_column(table)
-        cursor.execute(*table.select(left, right, where=red_sql))
-        where = Or()
+        cursor.execute(*table.select(
+                left, right, where=red_sql,
+                order_by=[(right - left).asc, left.asc]))
+        ranges = set()
         for l, r in cursor:
+            discard = set()
+            for ol, or_ in ranges:
+                if l < ol and or_ < r:
+                    discard.add((ol, or_))
+            ranges -= discard
+            ranges.add((l, r))
+        where = Or()
+        for l, r in ranges:
             if operator.endswith('child_of'):
                 where.append((left >= l) & (right <= r))
             else:
@@ -202,6 +223,8 @@ class Many2One(Field):
         pool = Pool()
         Rule = pool.get('ir.rule')
         Target = self.get_target()
+        subquery_threshold = config.getint('database', 'subquery_threshold')
+        use_subquery = Target.estimated_count() < subquery_threshold
 
         table, _ = tables[None]
         name, operator, value = domain[:3]
@@ -234,10 +257,15 @@ class Many2One(Field):
                     if operator.startswith('not'):
                         return ~expression
                     return expression
-                elif self.left and self.right:
+                elif (self.left and self.right
+                        and len(ids) <= math.floor(math.log10(
+                                Target.estimated_count() or 1))):
                     return self.convert_domain_mptt(
                         (name, operator, ids), tables)
-                elif self.path:
+                elif (self.path
+                        and (operator.endswith('parent_of')
+                            or len(ids) <= math.floor(math.log10(
+                                    Target.estimated_count() or 1)))):
                     return self.convert_domain_path(
                         (name, operator, ids), tables)
                 else:
@@ -250,8 +278,11 @@ class Many2One(Field):
                 target_id, = query.columns
                 if isinstance(target_id, As):
                     target_id = target_id.expression
-                query.where &= target_id == column
-                expression = column.in_(query)
+                if use_subquery:
+                    expression = column.in_(query)
+                else:
+                    query.where &= target_id == column
+                    expression = Exists(query)
                 if operator.startswith('not'):
                     return ~expression
                 return expression
@@ -271,7 +302,7 @@ class Many2One(Field):
             # No need to join with the target table
             return super().convert_domain(
                 (self.name, operator, value), tables, Model)
-        elif Target.estimated_count() < _subquery_threshold:
+        elif use_subquery:
             query = Target.search(target_domain, order=[], query=True)
             expression = column.in_(query)
         else:

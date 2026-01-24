@@ -20,7 +20,7 @@ public class ComplexNumber {
 
 	public override string ToString()
 	{
-		StringBuilder sb=new StringBuilder();
+		var sb=new StringBuilder();
 		sb.Append(Real);
 		if(Imaginary>0)
 			sb.Append('+');
@@ -52,9 +52,8 @@ public class ComplexNumber {
 	#region Equals and GetHashCode implementation
 	public override bool Equals(object obj)
 	{
-		if(!(obj is ComplexNumber))
+		if(obj is not ComplexNumber other)
 			return false;
-		ComplexNumber other = (ComplexNumber) obj;
 		// ReSharper disable CompareOfFloatsByEqualityOperator
 		return Real==other.Real && Imaginary==other.Imaginary;
 	}

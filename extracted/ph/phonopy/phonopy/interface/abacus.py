@@ -36,6 +36,7 @@
 
 import re
 import sys
+import warnings
 from collections import Counter
 
 import numpy as np
@@ -71,7 +72,7 @@ def read_abacus(filename):
     symbols = specie_lines[:, 0]
     ntype = len(symbols)
     try:
-        atom_potential = dict(zip(symbols, specie_lines[:, 2].tolist()))
+        atom_potential = dict(zip(symbols, specie_lines[:, 2].tolist(), strict=True))
     except IndexError:
         atom_potential = None
 
@@ -81,7 +82,7 @@ def read_abacus(filename):
     orb_pattern = re.compile(rf"{aim_title}\s*\n([\s\S]+?)\s*\n{aim_title_sub}")
     orb_lines = orb_pattern.search(contents)
     if orb_lines:
-        atom_basis = dict(zip(symbols, orb_lines.group(1).split("\n")))
+        atom_basis = dict(zip(symbols, orb_lines.group(1).split("\n"), strict=True))
     else:
         atom_basis = None
 
@@ -91,7 +92,9 @@ def read_abacus(filename):
     abf_pattern = re.compile(rf"{aim_title}\s*\n([\s\S]+?)\s*\n{aim_title_sub}")
     abf_lines = abf_pattern.search(contents)
     if abf_lines:
-        atom_offsite_basis = dict(zip(symbols, abf_lines.group(1).split("\n")))
+        atom_offsite_basis = dict(
+            zip(symbols, abf_lines.group(1).split("\n"), strict=True)
+        )
     else:
         atom_offsite_basis = None
 
@@ -238,20 +241,27 @@ def write_supercells_with_displacements(
 ):
     """Write supercells with displacements to files."""
     write_abacus("%s.in" % pre_filename, supercell, pps, orbitals, abfs)
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = "{pre_filename}-{0:0{width}}".format(
             i, pre_filename=pre_filename, width=width
         )
         write_abacus(filename, cell, pps, orbitals, abfs)
 
 
-def get_abacus_structure(atoms, pps, orbitals=None, abfs=None):
+def get_abacus_structure(atoms, pps=None, orbitals=None, abfs=None):
     """Return ABACUS structure in text."""
     empty_line = ""
     line = []
     line.append("ATOMIC_SPECIES")
     elements = list(Counter(atoms.symbols).keys())
     numbers = list(Counter(atoms.symbols).values())
+    if pps is None:
+        warnings.warn(
+            "Optional structure information (pseudopotential filenames) is missing.\n"
+            "You will need to manually add them to the STRU file.",
+            stacklevel=2,
+        )
+        pps = {elem: elem + "_pp_filename_here" for elem in elements}
 
     for _, elem in enumerate(elements):
         line.append(f"{elem}\t{atom_data[symbol_map[elem]][3]}\t{pps[elem]}")

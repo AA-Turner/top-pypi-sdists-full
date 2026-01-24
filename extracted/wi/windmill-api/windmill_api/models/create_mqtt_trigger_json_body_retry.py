@@ -16,11 +16,13 @@ T = TypeVar("T", bound="CreateMqttTriggerJsonBodyRetry")
 
 @_attrs_define
 class CreateMqttTriggerJsonBodyRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreateMqttTriggerJsonBodyRetryConstant]):
-        exponential (Union[Unset, CreateMqttTriggerJsonBodyRetryExponential]):
-        retry_if (Union[Unset, CreateMqttTriggerJsonBodyRetryRetryIf]):
+        constant (Union[Unset, CreateMqttTriggerJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreateMqttTriggerJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, CreateMqttTriggerJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreateMqttTriggerJsonBodyRetryConstant"] = UNSET

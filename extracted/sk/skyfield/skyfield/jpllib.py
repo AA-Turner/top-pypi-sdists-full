@@ -31,7 +31,7 @@ class SpiceKernel(object):
 
     >>> planets = load('de421.bsp')
     >>> print(planets)
-    SPICE kernel file 'de421.bsp' has 15 segments
+    Segments from kernel file 'de421.bsp':
       JD 2414864.50 - JD 2471184.50  (1899-07-28 through 2053-10-08)
           0 -> 1    SOLAR SYSTEM BARYCENTER -> MERCURY BARYCENTER
           0 -> 2    SOLAR SYSTEM BARYCENTER -> VENUS BARYCENTER
@@ -71,48 +71,47 @@ class SpiceKernel(object):
         self.filename = os.path.basename(path)
         self.spk = SPK.open(path)
         self.segments = [SPICESegment(self, s) for s in self.spk.segments]
-        self.codes = set(s.center for s in self.segments).union(
-                         s.target for s in self.segments)
         self.comments = self.spk.comments  # deprecated pass-through method
 
-        # Pre-compute which segments lead to which targets.
-        d = defaultdict(list)
-        for segment in self.segments:
-            d[segment.target].append(segment)
-
-        # Go ahead and build a vector function for each target.
-        self._vector_functions = {
-            target: segments[0] if len(segments) == 1 else Stack(segments)
-            for target, segments in d.items()
-        }
-
     def __repr__(self):
-        return '<{0} {1!r}>'.format(type(self).__name__, self.path)
+        paths = sorted({s.ephemeris.path for s in self.segments})
+        return '<{} {}>'.format(
+            type(self).__name__,
+            ' '.join(repr(path) for path in paths),
+        )
 
     def __str__(self):
-        segments = self.spk.segments
-        lines = ['SPICE kernel file {0!r} has {1} segments'
-                 .format(self.filename, len(segments))]
-        format_date = '{0}-{1:02}-{2:02}'.format
-        start = end = None
-        for s in segments:
-            if start != s.start_jd or end != s.end_jd:
-                start, end = s.start_jd, s.end_jd
+        lines = []
+        a = lines.append
+        format_date = '{}-{:02}-{:02}'.format
+        ephemeris = start = end = None
+        for s in self.segments:
+            if ephemeris is not s.ephemeris:
+                word = 'Segments' if (ephemeris is None) else 'And'
+                ephemeris = s.ephemeris
+                a('{} from kernel file {!r}:'.format(word, ephemeris.filename))
+            spk = s.spk_segment
+            if start != spk.start_jd or end != spk.end_jd:
+                start, end = spk.start_jd, spk.end_jd
                 starts = format_date(*compute_calendar_date(int(start)))
                 ends = format_date(*compute_calendar_date(int(end)))
-                lines.append('  JD {0:.2f} - JD {1:.2f}  ({2} through {3})'
-                             .format(start, end, starts, ends))
-            lines.append(_format_segment(s))
+                a('  JD {0:.2f} - JD {1:.2f}  ({2} through {3})'
+                  .format(start, end, starts, ends))
+            a(_format_segment(spk))
         return '\n'.join(lines)
 
     def close(self):
         """Close this ephemeris file."""
         self.spk.close()
+        del self.segments[:]  # Users expect to see this empty afterwards.
 
-        # In practice, users are not confident the file is really closed
-        # unless the metadata also disappears.
-        del self.segments[:]
-        self.codes.clear()
+    # We used to compute this only once, in __init__(), but it turns out
+    # that it needs to reflect changes as segments are added or deleted.
+    @property
+    def codes(self):
+        c = {s.center for s in self.segments}
+        c.update(s.target for s in self.segments)
+        return c
 
     def names(self):
         """Return all target names that are valid with this kernel.
@@ -130,9 +129,10 @@ class SpiceKernel(object):
         uses when printing information about a body.
 
         """
+        codes = self.codes
         d = defaultdict(list)
         for code, name in target_name_pairs:
-            if code in self.codes:
+            if code in codes:
                 d[code].append(name)
         return dict(d)
 
@@ -164,17 +164,28 @@ class SpiceKernel(object):
 
     def __getitem__(self, target):
         """Return a vector function for computing the location of `target`."""
+        target_arg = target
         target = self.decode(target)
-        vector_functions = self._vector_functions
-        vf = vector_functions[target]
-        if vf.center == 0:
-            return vf
-        vfs = [vf]
-        center = vf.center
-        while center in vector_functions:
-            vf = vector_functions[center]
+        center = target
+        vfs = []
+
+        while center != 0:
+            matches = [s for s in self.segments if s.target == center]
+            if not matches:
+                raise KeyError(
+                    'the segments of this ephemeris cannot connect the Solar'
+                    ' System Barycenter to the target {!r}'.format(target_arg)
+                )
+            elif len(matches) == 1:
+                vf = matches[0]
+            else:
+                vf = Stack(matches)
             vfs.append(vf)
             center = vf.center
+
+        if len(vfs) == 1:
+            return vfs[0]
+
         return VectorSum(center, target, tuple(reversed(vfs)))
 
     def __contains__(self, name_or_code):

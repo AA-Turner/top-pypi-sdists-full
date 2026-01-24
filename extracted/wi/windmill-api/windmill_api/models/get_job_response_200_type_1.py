@@ -51,7 +51,8 @@ class GetJobResponse200Type1:
         schedule_path (Union[Unset, str]):
         flow_status (Union[Unset, GetJobResponse200Type1FlowStatus]):
         workflow_as_code_status (Union[Unset, GetJobResponse200Type1WorkflowAsCodeStatus]):
-        raw_flow (Union[Unset, GetJobResponse200Type1RawFlow]):
+        raw_flow (Union[Unset, GetJobResponse200Type1RawFlow]): The flow structure containing modules and optional
+            preprocessor/failure handlers
         language (Union[Unset, GetJobResponse200Type1Language]):
         mem_peak (Union[Unset, int]):
         priority (Union[Unset, int]):

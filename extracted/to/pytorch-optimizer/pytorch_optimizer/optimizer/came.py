@@ -5,30 +5,31 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class CAME(BaseOptimizer):
-    r"""Confidence-guided Adaptive Memory Efficient Optimization.
+    """Confidence-guided Adaptive Memory Efficient Optimization.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param clip_threshold: float. threshold of root-mean-square of final gradient update.
-    :param ams_bound: bool. whether to use the AMSBound variant.
-    :param eps1: float. term added to the denominator to improve numerical stability.
-    :param eps2: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        clip_threshold (float): Threshold of root-mean-square of final gradient update.
+        ams_bound (bool): Whether to use the AMSBound variant.
+        eps1 (float): Term added to the denominator to improve numerical stability.
+        eps2 (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 2e-4,
-        betas: BETAS = (0.9, 0.999, 0.9999),
+        betas: Betas = (0.9, 0.999, 0.9999),
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
@@ -50,7 +51,7 @@ class CAME(BaseOptimizer):
         self.eps2 = eps2
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -66,7 +67,10 @@ class CAME(BaseOptimizer):
     def __str__(self) -> str:
         return 'CAME'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -109,7 +113,7 @@ class CAME(BaseOptimizer):
         return len(shape) >= 2
 
     @staticmethod
-    def get_rms(x: torch.Tensor) -> float:
+    def get_rms(x: torch.Tensor) -> torch.Tensor:
         r"""Get RMS."""
         return x.norm(2) / math.sqrt(x.numel())
 
@@ -125,18 +129,15 @@ class CAME(BaseOptimizer):
         torch.mul(r_factor, c_factor, out=output)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2, beta3 = group['betas']
 

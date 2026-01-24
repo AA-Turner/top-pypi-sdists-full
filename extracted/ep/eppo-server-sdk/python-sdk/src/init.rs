@@ -21,7 +21,7 @@ pub fn init(config: Bound<ClientConfig>) -> PyResult<Py<EppoClient>> {
 
     let py = config.py();
 
-    let client = Bound::new(py, EppoClient::new(py, &*config.borrow())?)?.unbind();
+    let client = Bound::new(py, EppoClient::new(py, &config.borrow())?)?.unbind();
 
     // minimizing the scope of holding the write lock
     let existing = {
@@ -35,7 +35,7 @@ pub fn init(config: Bound<ClientConfig>) -> PyResult<Py<EppoClient>> {
         std::mem::replace(&mut *instance, Some(client))
     };
     if let Some(existing) = existing {
-        existing.get().shutdown();
+        existing.get().shutdown(py);
         existing.drop_ref(py);
     }
 

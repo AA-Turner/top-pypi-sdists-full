@@ -40,6 +40,13 @@ def _find_quarter_rs(sess, contract_name, date):
             return True
 
 
+def _find_top_run(runs):
+    run_types_reverse = list(reversed(RUN_TYPES))
+    for run_type in run_types_reverse:
+        if run_type in runs:
+            return runs[run_type]
+
+
 def hh(data_source, use_bill_check=False):
     try:
         cfd_cache = data_source.caches["cfd"]
@@ -61,37 +68,59 @@ def hh(data_source, use_bill_check=False):
                     / 1000
                 )
             else:
-                if _find_quarter_rs(
-                    data_source.sess, "cfd_reconciled_daily_levy_rates", h_start
-                ):
-                    base_rate_dec = data_source.non_core_rate(
-                        "cfd_reconciled_daily_levy_rates", h_start
-                    )["rate_gbp_per_kwh"]
+                rates = data_source.non_core_rate(
+                    "cfd_reconciled_daily_levy_rates", h_start
+                )
+                records = rates["records"]
+                dt_str = hh_format(h_start)[:11] + "00:00"
 
-                elif _find_quarter_rs(
-                    data_source.sess, "cfd_in_period_tracking", h_start
-                ):
-                    base_rate_dec = data_source.non_core_rate(
-                        "cfd_in_period_tracking", h_start
-                    )["rate_gbp_per_kwh"]
+                try:
+                    runs = records[dt_str]
+                    top_run = _find_top_run(runs)
+                    base_rate = (
+                        _parse_number(top_run["Reconciled_Daily_Levy_Rate_GBP_Per_MWh"])
+                        / 1000
+                    )
+                except KeyError:
+                    base_rate = None
 
-                elif _find_quarter_rs(
-                    data_source.sess, "cfd_forecast_ilr_tra", h_start
-                ):
-                    base_rate_dec = Decimal(
-                        data_source.non_core_rate("cfd_forecast_ilr_tra", h_start)[
-                            "record"
-                        ]["Interim_Levy_Rate_GBP_Per_MWh"]
-                    ) / Decimal(1000)
+                if base_rate is None:
+                    rates = data_source.non_core_rate("cfd_in_period_tracking", h_start)
+                    records = rates["records"]
 
-                else:
-                    base_rate_dec = Decimal(
-                        data_source.non_core_rate(
-                            "cfd_advanced_forecast_ilr_tra", h_start
-                        )["sensitivity"]["Base Case"]["Interim Levy Rate_GBP_Per_MWh"]
-                    ) / Decimal(1000)
+                    if dt_str in records:
+                        record = records[dt_str]
+                        gbp = _parse_number(
+                            record["Actual_CFD_Payments_GBP"]
+                        ) + _parse_number(record["Expected_CFD_Payments_GBP"])
+                        mwh = _parse_number(
+                            record["Actual_Eligible_Demand_MWh"]
+                        ) + _parse_number(record["Expected_Eligible_Demand_MWh"])
 
-                base_rate = float(base_rate_dec)
+                        base_rate = gbp / mwh / 1000
+                    else:
+                        base_rate = None
+
+                if base_rate is None:
+                    if _find_quarter_rs(
+                        data_source.sess, "cfd_forecast_ilr_tra", h_start
+                    ):
+                        base_rate_dec = Decimal(
+                            data_source.non_core_rate("cfd_forecast_ilr_tra", h_start)[
+                                "record"
+                            ]["Interim_Levy_Rate_GBP_Per_MWh"]
+                        ) / Decimal(1000)
+
+                    else:
+                        base_rate_dec = Decimal(
+                            data_source.non_core_rate(
+                                "cfd_advanced_forecast_ilr_tra", h_start
+                            )["sensitivity"]["Base Case"][
+                                "Interim Levy Rate_GBP_Per_MWh"
+                            ]
+                        ) / Decimal(1000)
+
+                    base_rate = float(base_rate_dec)
 
             effective_ocl_rate = data_source.non_core_rate(
                 "cfd_operational_costs_levy", h["start-date"]
@@ -105,7 +134,7 @@ def hh(data_source, use_bill_check=False):
             levy_rate = float(levy_rate_str) / 1000
 
             h["cfd-rates"] = cfd_cache[h_start] = {
-                "interim": base_rate,
+                "supplier-obligation": base_rate,
                 "operational": levy_rate,
             }
 
@@ -120,7 +149,7 @@ def lcc_import(sess, log, set_progress, s):
 
 def _quarters(log, s):
     quarter = {}
-    for record in api_records(log, s, "2fc2fad9-ad57-4901-982a-f92d4ef6c622"):
+    for record in api_records(log, s, "003f527c-aa35-4198-adbb-21a61fc760eb"):
         settlement_date_str = record["Settlement_Date"]
         settlement_date_ct = to_ct(
             Datetime.strptime(settlement_date_str[:10], "%Y-%m-%d")
@@ -177,21 +206,10 @@ def import_in_period_tracking(sess, log, set_progress, s):
         if rs is None:
             rs = contract.insert_rate_script(sess, quarter_start, {"records": {}})
 
-        gbp = 0
-        kwh = 0
-        for record in quarter.values():
-            gbp += _parse_number(record["Actual_CFD_Payments_GBP"])
-            gbp += _parse_number(record["Expected_CFD_Payments_GBP"])
-            kwh += _parse_number(record["Actual_Eligible_Demand_MWh"]) * 1000
-            kwh += _parse_number(record["Expected_Eligible_Demand_MWh"]) * 1000
-
-        rate = gbp / kwh
-
         rs_script = rs.make_script()
         records = rs_script["records"]
         for k, v in sorted(quarter.items()):
             records[hh_format(k)] = v
-        rs_script["rate_gbp_per_kwh"] = rate
         rs.update(rs_script)
         sess.commit()
     log("Finished LCC CfD In-Period Tracking")
@@ -207,7 +225,7 @@ def import_operational_costs_levy(sess, log, set_progress, s):
             sess, contract_name, "", {}, to_utc(ct_datetime(1996, 4, 1)), None, {}
         )
 
-    for record in api_records(log, s, "44f41eac-61b3-4e8d-8c52-3eda7b8e8517", skip=1):
+    for record in api_records(log, s, "41c32b4f-388b-464f-9c3f-fbf1a6cfdca4", skip=1):
         period_start = _parse_date(record["Period_Start"])
 
         rs = sess.execute(
@@ -231,7 +249,7 @@ RUN_TYPES = ("II", "SF", "R1", "R2", "R3", "RF", "DF")
 def _reconciled_quarters(log, s, search_from):
     quarters = {}
 
-    for record in api_records(log, s, "e0e163cb-ba36-416d-83fe-976992d61516"):
+    for record in api_records(log, s, "24944bfe-b546-4f50-8bf6-895d8f769b2b"):
         settlement_date = _parse_date(record["Settlement_Date"])
         if settlement_date > search_from:
             settlement_date_ct = to_ct(settlement_date)
@@ -312,25 +330,6 @@ def import_reconciled_daily_levy_rates(sess, log, set_progress, s):
         if rs is None:
             rs = contract.insert_rate_script(sess, quarter_start, {"records": {}})
 
-        gbp = 0
-        kwh = 0
-        run_types_reverse = list(reversed(RUN_TYPES))
-        for runs in quarter.values():
-            top_run = None
-            for run_type in run_types_reverse:
-                if run_type in runs:
-                    top_run = runs[run_type]
-                    break
-
-            eligible_mwh = _parse_number(top_run["Reconciled_Eligible_Demand_MWh"])
-            gbp += (
-                _parse_number(top_run["Reconciled_Daily_Levy_Rate_GBP_Per_MWh"])
-                * eligible_mwh
-            )
-            kwh += eligible_mwh * 1000
-
-        rate = gbp / kwh
-
         rs_script = rs.make_script()
         records = rs_script["records"]
         for dt, runs in sorted(quarter.items()):
@@ -343,7 +342,6 @@ def import_reconciled_daily_levy_rates(sess, log, set_progress, s):
             for run_type, record in runs.items():
                 rs_runs[run_type] = record
 
-        rs_script["rate_gbp_per_kwh"] = rate
         rs.update(rs_script)
         sess.commit()
 
@@ -361,7 +359,7 @@ def import_forecast_ilr_tra(sess, log, set_progress, s):
             sess, contract_name, "", {}, to_utc(ct_datetime(1996, 4, 1)), None, {}
         )
 
-    for record in api_records(log, s, "fbece4ce-7cfc-42b7-8fb2-387cf59a3c32"):
+    for record in api_records(log, s, "63e6a924-8829-4014-95a2-722e92662e5f"):
         period_start_str = record["Period_Start"]
         if len(period_start_str) == 0:
             continue
@@ -393,7 +391,7 @@ def import_advanced_forecast_ilr_tra(sess, log, set_progress, s):
             sess, contract_name, "", {}, to_utc(ct_datetime(1996, 4, 1)), None, {}
         )
 
-    for record in api_records(log, s, "e3ad6876-c1e9-46f9-b557-cb9bdae53885"):
+    for record in api_records(log, s, "a80f87c6-cf65-4f9d-9a1a-d78140f50779"):
         period_start = _parse_varying_date(record["Period Start"])
 
         rs = sess.execute(

@@ -3,7 +3,7 @@ Type annotations for vpc-lattice service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_vpc_lattice/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -13,6 +13,7 @@ Usage::
     from types_aiobotocore_vpc_lattice.client import VPCLatticeClient
     from types_aiobotocore_vpc_lattice.paginator import (
         ListAccessLogSubscriptionsPaginator,
+        ListDomainVerificationsPaginator,
         ListListenersPaginator,
         ListResourceConfigurationsPaginator,
         ListResourceEndpointAssociationsPaginator,
@@ -33,6 +34,7 @@ Usage::
         client: VPCLatticeClient
 
         list_access_log_subscriptions_paginator: ListAccessLogSubscriptionsPaginator = client.get_paginator("list_access_log_subscriptions")
+        list_domain_verifications_paginator: ListDomainVerificationsPaginator = client.get_paginator("list_domain_verifications")
         list_listeners_paginator: ListListenersPaginator = client.get_paginator("list_listeners")
         list_resource_configurations_paginator: ListResourceConfigurationsPaginator = client.get_paginator("list_resource_configurations")
         list_resource_endpoint_associations_paginator: ListResourceEndpointAssociationsPaginator = client.get_paginator("list_resource_endpoint_associations")
@@ -59,6 +61,8 @@ from aiobotocore.paginate import AioPageIterator, AioPaginator
 from .type_defs import (
     ListAccessLogSubscriptionsRequestPaginateTypeDef,
     ListAccessLogSubscriptionsResponseTypeDef,
+    ListDomainVerificationsRequestPaginateTypeDef,
+    ListDomainVerificationsResponseTypeDef,
     ListListenersRequestPaginateTypeDef,
     ListListenersResponseTypeDef,
     ListResourceConfigurationsRequestPaginateTypeDef,
@@ -95,6 +99,7 @@ else:
 
 __all__ = (
     "ListAccessLogSubscriptionsPaginator",
+    "ListDomainVerificationsPaginator",
     "ListListenersPaginator",
     "ListResourceConfigurationsPaginator",
     "ListResourceEndpointAssociationsPaginator",
@@ -131,6 +136,27 @@ class ListAccessLogSubscriptionsPaginator(_ListAccessLogSubscriptionsPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/paginator/ListAccessLogSubscriptions.html#VPCLattice.Paginator.ListAccessLogSubscriptions.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_vpc_lattice/paginators/#listaccesslogsubscriptionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListDomainVerificationsPaginatorBase = AioPaginator[ListDomainVerificationsResponseTypeDef]
+else:
+    _ListDomainVerificationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListDomainVerificationsPaginator(_ListDomainVerificationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/paginator/ListDomainVerifications.html#VPCLattice.Paginator.ListDomainVerifications)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_vpc_lattice/paginators/#listdomainverificationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDomainVerificationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListDomainVerificationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/paginator/ListDomainVerifications.html#VPCLattice.Paginator.ListDomainVerifications.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_vpc_lattice/paginators/#listdomainverificationspaginator)
         """
 
 

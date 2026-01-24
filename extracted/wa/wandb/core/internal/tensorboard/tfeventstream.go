@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/wandb/wandb/core/internal/observability"
 	"github.com/wandb/wandb/core/internal/tensorboard/tbproto"
@@ -40,7 +41,7 @@ func NewTFEventStream(
 		logger:    logger,
 		ctx:       ctx,
 
-		reader: NewTFEventReader(logDir, fileFilter, logger),
+		reader: NewTFEventReader(logDir, fileFilter, logger, time.Now),
 
 		events: make(chan *tbproto.TFEvent),
 		files:  make(chan *LocalOrCloudPath),
@@ -86,6 +87,8 @@ func (s *tfEventStream) Start() {
 }
 
 func (s *tfEventStream) loop() {
+	defer s.reader.Close()
+
 	// Whether we're in the final stage where we read all remaining events.
 	//
 	// Stop() may be invoked while we're asleep, during which time more events

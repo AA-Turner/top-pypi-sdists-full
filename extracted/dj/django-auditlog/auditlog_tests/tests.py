@@ -4,11 +4,12 @@ import json
 import random
 import warnings
 from datetime import timezone
-from unittest import mock
+from unittest import mock, skipIf
 from unittest.mock import patch
 
 import freezegun
 from dateutil.tz import gettz
+from django import VERSION as DJANGO_VERSION
 from django.apps import apps
 from django.conf import settings
 from django.contrib.admin.sites import AdminSite
@@ -16,6 +17,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.contenttypes.models import ContentType
 from django.core import management
+from django.core.exceptions import ImproperlyConfigured
+from django.core.management import call_command
 from django.db import models
 from django.db.models import JSONField, Value
 from django.db.models.functions import Now
@@ -42,10 +45,12 @@ from test_app.models import (
     ModelPrimaryKeyModel,
     NoDeleteHistoryModel,
     NullableJSONModel,
-    PostgresArrayFieldModel,
     ProxyModel,
     RelatedModel,
+    RelatedModelParent,
     ReusableThroughRelatedModel,
+    SecretM2MModel,
+    SecretRelatedModel,
     SerializeNaturalKeyRelatedModel,
     SerializeOnlySomeOfThisModel,
     SerializePrimaryKeyRelatedModel,
@@ -60,14 +65,17 @@ from test_app.models import (
     UUIDPrimaryKeyModel,
 )
 
+from auditlog import get_logentry_model
 from auditlog.admin import LogEntryAdmin
 from auditlog.cid import get_cid
-from auditlog.context import disable_auditlog, set_actor
+from auditlog.context import disable_auditlog, set_actor, set_extra_data
 from auditlog.diff import mask_str, model_instance_diff
 from auditlog.middleware import AuditlogMiddleware
-from auditlog.models import DEFAULT_OBJECT_REPR, LogEntry
+from auditlog.models import DEFAULT_OBJECT_REPR
 from auditlog.registry import AuditlogModelRegistry, AuditLogRegistrationError, auditlog
 from auditlog.signals import post_log, pre_log
+
+LogEntry = get_logentry_model()
 
 
 class SimpleModelTest(TestCase):
@@ -258,7 +266,7 @@ class NoActorMixin:
         self.assertIsNone(log_entry.actor)
 
 
-class WithActorMixin:
+class WithActorMixinBase:
     sequence = itertools.count()
 
     def setUp(self):
@@ -276,10 +284,6 @@ class WithActorMixin:
         auditlog_entries = LogEntry.objects.filter(actor_email=user_email).all()
         self.assertIsNotNone(auditlog_entries, msg="All auditlog entries are deleted.")
         super().tearDown()
-
-    def make_object(self):
-        with set_actor(self.user):
-            return super().make_object()
 
     def check_create_log_entry(self, obj, log_entry):
         super().check_create_log_entry(obj, log_entry)
@@ -303,6 +307,12 @@ class WithActorMixin:
         super().check_delete_log_entry(obj, log_entry)
         self.assertEqual(log_entry.actor, self.user)
         self.assertEqual(log_entry.actor_email, self.user.email)
+
+
+class WithActorMixin(WithActorMixinBase):
+    def make_object(self):
+        with set_actor(self.user):
+            return super().make_object()
 
 
 class AltPrimaryKeyModelBase(SimpleModelTest):
@@ -369,6 +379,10 @@ class ModelPrimaryKeyModelWithActorTest(WithActorMixin, ModelPrimaryKeyModelBase
 
 # Must inherit from TransactionTestCase to use self.assertNumQueries.
 class ModelPrimaryKeyTest(TransactionTestCase):
+
+    def _fixture_teardown(self):
+        call_command("flush", verbosity=0, interactive=False, allow_cascade=True)
+
     def test_get_pk_value(self):
         """
         Test that the primary key can be retrieved without additional database queries.
@@ -798,6 +812,57 @@ class SimpleMappingModelTest(TestCase):
             ),
         )
 
+    @override_settings(AUDITLOG_STORE_JSON_CHANGES=True)
+    def test_changes_display_dict_with_json_changes_and_simplemodel(self):
+        sm = SimpleModel(integer=37, text="my simple model instance")
+        sm.save()
+        self.assertEqual(
+            sm.history.latest().changes_display_dict["integer"][1],
+            "37",
+        )
+        self.assertEqual(
+            sm.history.latest().changes_display_dict["text"][1],
+            "my simple model instance",
+        )
+
+    @override_settings(AUDITLOG_STORE_JSON_CHANGES=True)
+    def test_register_mapping_fields_with_json_changes(self):
+        smm = SimpleMappingModel(
+            sku="ASD301301A6", vtxt="2.1.5", not_mapped="Not mapped"
+        )
+        smm.save()
+        self.assertEqual(
+            smm.history.latest().changes_dict["sku"][1],
+            "ASD301301A6",
+            msg="The diff function retains 'sku' and can be retrieved.",
+        )
+        self.assertEqual(
+            smm.history.latest().changes_dict["not_mapped"][1],
+            "Not mapped",
+            msg="The diff function does not map 'not_mapped' and can be retrieved.",
+        )
+        self.assertEqual(
+            smm.history.latest().changes_display_dict["Product No."][1],
+            "ASD301301A6",
+            msg="The diff function maps 'sku' as 'Product No.' and can be retrieved.",
+        )
+        self.assertEqual(
+            smm.history.latest().changes_display_dict["Version"][1],
+            "2.1.5",
+            msg=(
+                "The diff function maps 'vtxt' as 'Version' through verbose_name"
+                " setting on the model field and can be retrieved."
+            ),
+        )
+        self.assertEqual(
+            smm.history.latest().changes_display_dict["not mapped"][1],
+            "Not mapped",
+            msg=(
+                "The diff function uses the django default verbose name for 'not_mapped'"
+                " and can be retrieved."
+            ),
+        )
+
 
 class SimpleMaskedFieldsModelTest(TestCase):
     """Log masked changes for fields in mask_fields"""
@@ -1179,15 +1244,30 @@ class DateTimeFieldModelTest(TestCase):
         dtm.naive_dt = Now()
         self.assertEqual(dtm.naive_dt, Now())
         dtm.save()
-        self.assertEqual(dtm.naive_dt, Now())
+
+        # Django 6.0+ evaluates expressions during save (django ticket #27222)
+        if DJANGO_VERSION >= (6, 0, 0):
+            with self.subTest("After save Django 6.0+"):
+                self.assertIsInstance(dtm.naive_dt, datetime.datetime)
+        else:
+            with self.subTest("After save Django < 6.0"):
+                self.assertEqual(dtm.naive_dt, Now())
 
     def test_json_field_value_none(self):
         json_model = NullableJSONModel(json=Value(None, JSONField()))
         json_model.save()
         self.assertEqual(json_model.history.count(), 1)
-        self.assertEqual(
-            json_model.history.latest().changes_dict["json"][1], "Value(None)"
-        )
+        changes_dict = json_model.history.latest().changes_dict
+
+        # Django 6.0+ evaluates expressions during save (django ticket #27222)
+        if DJANGO_VERSION >= (6, 0, 0):
+            with self.subTest("Django 6.0+"):
+                # Value(None) gets evaluated to "null"
+                self.assertEqual(changes_dict["json"][1], "null")
+        else:
+            with self.subTest("Django < 6.0"):
+                # Value(None) is preserved as string representation
+                self.assertEqual(changes_dict["json"][1], "Value(None)")
 
 
 class UnregisterTest(TestCase):
@@ -1292,7 +1372,7 @@ class RegisterModelSettingsTest(TestCase):
 
         self.assertTrue(self.test_auditlog.contains(SimpleExcludeModel))
         self.assertTrue(self.test_auditlog.contains(ChoicesFieldModel))
-        self.assertEqual(len(self.test_auditlog.get_models()), 33)
+        self.assertEqual(len(self.test_auditlog.get_models()), 36)
 
     def test_register_models_register_model_with_attrs(self):
         self.test_auditlog._register_models(
@@ -1666,47 +1746,6 @@ class CharFieldTextFieldModelTest(TestCase):
             )
 
 
-class PostgresArrayFieldModelTest(TestCase):
-    databases = "__all__"
-
-    def setUp(self):
-        self.obj = PostgresArrayFieldModel.objects.create(
-            arrayfield=[PostgresArrayFieldModel.RED, PostgresArrayFieldModel.GREEN],
-        )
-
-    @property
-    def latest_array_change(self):
-        return self.obj.history.latest().changes_display_dict["arrayfield"][1]
-
-    def test_changes_display_dict_arrayfield(self):
-        self.assertEqual(
-            self.latest_array_change,
-            "Red, Green",
-            msg="The human readable text for the two choices, 'Red, Green' is displayed.",
-        )
-        self.obj.arrayfield = [PostgresArrayFieldModel.GREEN]
-        self.obj.save()
-        self.assertEqual(
-            self.latest_array_change,
-            "Green",
-            msg="The human readable text 'Green' is displayed.",
-        )
-        self.obj.arrayfield = []
-        self.obj.save()
-        self.assertEqual(
-            self.latest_array_change,
-            "",
-            msg="The human readable text '' is displayed.",
-        )
-        self.obj.arrayfield = [PostgresArrayFieldModel.GREEN]
-        self.obj.save()
-        self.assertEqual(
-            self.latest_array_change,
-            "Green",
-            msg="The human readable text 'Green' is displayed.",
-        )
-
-
 class AdminPanelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -1714,21 +1753,24 @@ class AdminPanelTest(TestCase):
         )
         self.site = AdminSite()
         self.admin = LogEntryAdmin(LogEntry, self.site)
+        self.admin_path_prefix = (
+            f"admin/{LogEntry._meta.app_label}/{LogEntry._meta.model_name}"
+        )
         with freezegun.freeze_time("2022-08-01 12:00:00Z"):
             self.obj = SimpleModel.objects.create(text="For admin logentry test")
 
     def test_auditlog_admin(self):
         self.client.force_login(self.user)
         log_pk = self.obj.history.latest().pk
-        res = self.client.get("/admin/auditlog/logentry/")
+        res = self.client.get(f"/{self.admin_path_prefix}/")
         self.assertEqual(res.status_code, 200)
-        res = self.client.get("/admin/auditlog/logentry/add/")
+        res = self.client.get(f"/{self.admin_path_prefix}/add/")
         self.assertEqual(res.status_code, 403)
-        res = self.client.get(f"/admin/auditlog/logentry/{log_pk}/", follow=True)
+        res = self.client.get(f"/{self.admin_path_prefix}/{log_pk}/", follow=True)
         self.assertEqual(res.status_code, 200)
-        res = self.client.get(f"/admin/auditlog/logentry/{log_pk}/delete/")
+        res = self.client.get(f"/{self.admin_path_prefix}/{log_pk}/delete/")
         self.assertEqual(res.status_code, 403)
-        res = self.client.get(f"/admin/auditlog/logentry/{log_pk}/history/")
+        res = self.client.get(f"/{self.admin_path_prefix}/{log_pk}/history/")
         self.assertEqual(res.status_code, 200)
 
     def test_created_timezone(self):
@@ -1737,7 +1779,7 @@ class AdminPanelTest(TestCase):
         for tz, timestamp in [
             ("UTC", "2022-08-01 12:00:00"),
             ("Asia/Tbilisi", "2022-08-01 16:00:00"),
-            ("America/Buenos_Aires", "2022-08-01 09:00:00"),
+            ("America/Argentina/Buenos_Aires", "2022-08-01 09:00:00"),
             ("Asia/Kathmandu", "2022-08-01 17:45:00"),
         ]:
             with self.settings(TIME_ZONE=tz):
@@ -1758,7 +1800,7 @@ class AdminPanelTest(TestCase):
     def test_cid(self):
         self.client.force_login(self.user)
         expected_response = (
-            '<a href="/admin/auditlog/logentry/?cid=123" '
+            f'<a href="/{self.admin_path_prefix}/?cid=123" '
             'title="Click to filter by records with this correlation id">123</a>'
         )
 
@@ -1766,7 +1808,7 @@ class AdminPanelTest(TestCase):
         log_entry.cid = "123"
         log_entry.save()
 
-        res = self.client.get("/admin/auditlog/logentry/")
+        res = self.client.get(f"/{self.admin_path_prefix}/")
         self.assertEqual(res.status_code, 200)
         self.assertIn(expected_response, res.rendered_content)
 
@@ -1774,7 +1816,7 @@ class AdminPanelTest(TestCase):
         log = self.obj.history.latest()
         obj_pk = self.obj.pk
         delete_log_request = RequestFactory().post(
-            f"/admin/auditlog/logentry/{log.pk}/delete/"
+            f"/{self.admin_path_prefix}/{log.pk}/delete/"
         )
         delete_log_request.resolver_match = resolve(delete_log_request.path)
         delete_log_request.user = self.user
@@ -2090,6 +2132,27 @@ class ModelInstanceDiffTest(TestCase):
         model_instance_diff(simple2, simple1)
         model_instance_diff(simple1, simple2)
 
+    def test_diff_polymorphic_models(self):
+        """No error is raised when comparing parent/child for polymorphic models."""
+
+        # This tests that when a polymorphic model is compared to its parent,
+        # no FieldDoesNotExist errors are raised because those fields don't exist
+        # on the parent model.
+
+        # relation target
+        simple = SimpleModel()
+        simple.save()
+
+        # the parent model
+        related_parent = RelatedModelParent()
+        related_parent.save()
+
+        # the child model, with some fields that don't exist on the parent
+        related = RelatedModel(related=simple, one_to_one=simple)
+        related.save()
+
+        model_instance_diff(related, related_parent)
+
     def test_object_repr_related_deleted(self):
         """No error is raised when __str__() loads a related object that has been deleted."""
         simple = SimpleModel()
@@ -2343,6 +2406,29 @@ class TestRelatedDiffs(TestCase):
         log_update = instance.history.filter(timestamp=t2).first()
         self.assertEqual(int(log_create.changes_dict["related"][1]), one_simple.id)
         self.assertEqual(int(log_update.changes_dict["related"][1]), two_simple.id)
+
+    @override_settings(AUDITLOG_USE_FK_STRING_REPRESENTATION=True)
+    def test_string_representation_of_fk_changes(self):
+        """FK changes should be stored using string representation when setting is enabled"""
+
+        t1 = self.test_date
+        with freezegun.freeze_time(t1):
+            simple = SimpleModel.objects.create(text="Test Foo")
+            two_simple = SimpleModel.objects.create(text="Test Bar")
+            instance = RelatedModel.objects.create(one_to_one=simple, related=simple)
+
+        t2 = self.test_date + datetime.timedelta(days=20)
+        with freezegun.freeze_time(t2):
+            instance.one_to_one = two_simple
+            instance.related = two_simple
+            instance.save()
+
+        self.assertEqual(instance.history.all().count(), 2)
+        log_update = instance.history.filter(timestamp=t2).first()
+        self.assertEqual(log_update.changes_dict["related"][0], "Test Foo")
+        self.assertEqual(log_update.changes_dict["related"][1], "Test Bar")
+        self.assertEqual(log_update.changes_dict["one_to_one"][0], "Test Foo")
+        self.assertEqual(log_update.changes_dict["one_to_one"][1], "Test Bar")
 
 
 class TestModelSerialization(TestCase):
@@ -2771,7 +2857,7 @@ class SignalTests(TestCase):
 
         self.assertSignals(LogEntry.Action.DELETE)
 
-    @patch("auditlog.receivers.LogEntry.objects")
+    @patch.object(LogEntry, "objects")
     def test_signals_errors(self, log_entry_objects_mock):
         class CustomSignalError(BaseException):
             pass
@@ -2906,6 +2992,136 @@ class ModelManagerTest(TestCase):
         self.assertEqual(log.changes_dict["name"], ["Public", "Updated"])
 
 
+class BaseManagerSettingTest(TestCase):
+    """
+    If the AUDITLOG_USE_BASE_MANAGER setting is enabled, "secret" objects
+    should be audited as if they were public, with full access to field
+    values.
+    """
+
+    def test_use_base_manager_setting_update(self):
+        """
+        Model update. The default False case is covered by test_update_secret.
+        """
+        secret = SwappedManagerModel.objects.create(is_secret=True, name="Secret")
+        with override_settings(AUDITLOG_USE_BASE_MANAGER=True):
+            secret.name = "Updated"
+            secret.save()
+            log = LogEntry.objects.get_for_object(secret).first()
+            self.assertEqual(log.action, LogEntry.Action.UPDATE)
+            self.assertEqual(log.changes_dict["name"], ["Secret", "Updated"])
+
+    def test_use_base_manager_setting_related_model(self):
+        """
+        When AUDITLOG_USE_BASE_MANAGER is enabled, related model changes that
+        are normally invisible to the default model manager should remain
+        visible and not refer to "deleted" objects.
+        """
+        t1 = datetime.datetime(2025, 1, 1, 12, tzinfo=datetime.timezone.utc)
+        with (
+            override_settings(AUDITLOG_USE_BASE_MANAGER=False),
+            freezegun.freeze_time(t1),
+        ):
+            public_one = SwappedManagerModel.objects.create(name="Public One")
+            secret_one = SwappedManagerModel.objects.create(
+                is_secret=True, name="Secret One"
+            )
+            instance_one = SecretRelatedModel.objects.create(
+                one_to_one=public_one,
+                related=secret_one,
+            )
+
+            log_one = instance_one.history.filter(timestamp=t1).first()
+            self.assertIsInstance(log_one, LogEntry)
+            display_dict = log_one.changes_display_dict
+            self.assertEqual(display_dict["related"][0], "None")
+            self.assertEqual(
+                display_dict["related"][1],
+                f"Deleted 'SwappedManagerModel' ({secret_one.id})",
+                "Default manager should have no visibility of secret object",
+            )
+            self.assertEqual(display_dict["one to one"][0], "None")
+            self.assertEqual(display_dict["one to one"][1], "Public One")
+
+        t2 = t1 + datetime.timedelta(days=20)
+        with (
+            override_settings(AUDITLOG_USE_BASE_MANAGER=True),
+            freezegun.freeze_time(t2),
+        ):
+            public_two = SwappedManagerModel.objects.create(name="Public Two")
+            secret_two = SwappedManagerModel.objects.create(
+                is_secret=True, name="Secret Two"
+            )
+            instance_two = SecretRelatedModel.objects.create(
+                one_to_one=public_two,
+                related=secret_two,
+            )
+
+            log_two = instance_two.history.filter(timestamp=t2).first()
+            self.assertIsInstance(log_two, LogEntry)
+            display_dict = log_two.changes_display_dict
+            self.assertEqual(display_dict["related"][0], "None")
+            self.assertEqual(
+                display_dict["related"][1],
+                "Secret Two",
+                "Base manager should have full visibility of secret object",
+            )
+            self.assertEqual(display_dict["one to one"][0], "None")
+            self.assertEqual(display_dict["one to one"][1], "Public Two")
+
+    def test_use_base_manager_setting_changes(self):
+        """
+        When AUDITLOG_USE_BASE_MANAGER is enabled, registered many-to-many model
+        changes that refer to an object hidden from the default model manager
+        should remain visible and be logged.
+        """
+        with override_settings(AUDITLOG_USE_BASE_MANAGER=False):
+            obj_one = SwappedManagerModel.objects.create(
+                is_secret=True, name="Secret One"
+            )
+            m2m_one = SecretM2MModel.objects.create(name="M2M One")
+            m2m_one.m2m_related.add(obj_one)
+
+        self.assertIn(m2m_one, obj_one.m2m_related.all(), "Secret One sees M2M One")
+        self.assertNotIn(
+            obj_one, m2m_one.m2m_related.all(), "M2M One cannot see Secret One"
+        )
+        self.assertEqual(
+            0,
+            LogEntry.objects.get_for_object(m2m_one).count(),
+            "No update with default manager",
+        )
+
+        with override_settings(AUDITLOG_USE_BASE_MANAGER=True):
+            obj_two = SwappedManagerModel.objects.create(
+                is_secret=True, name="Secret Two"
+            )
+            m2m_two = SecretM2MModel.objects.create(name="M2M Two")
+            m2m_two.m2m_related.add(obj_two)
+
+        self.assertIn(m2m_two, obj_two.m2m_related.all(), "Secret Two sees M2M Two")
+        self.assertNotIn(
+            obj_two, m2m_two.m2m_related.all(), "M2M Two cannot see Secret Two"
+        )
+        self.assertEqual(
+            1,
+            LogEntry.objects.get_for_object(m2m_two).count(),
+            "Update logged with base manager",
+        )
+
+        log_entry = LogEntry.objects.get_for_object(m2m_two).first()
+        self.assertEqual(
+            log_entry.changes,
+            {
+                "m2m_related": {
+                    "type": "m2m",
+                    "operation": "add",
+                    "objects": [smart_str(obj_two)],
+                }
+            },
+        )
+
+
 class TestMaskStr(TestCase):
     """Test the mask_str function that masks sensitive data."""
 
@@ -2963,3 +3179,91 @@ class CustomMaskModelTest(TestCase):
             "****7654",
             msg="The custom masking function should be used in serialized data",
         )
+
+
+class WithExtraDataMixin(WithActorMixinBase):
+    def get_context_data(self):
+        return {}
+
+    def make_object(self):
+        with set_extra_data(context_data=self.get_context_data()):
+            return super().make_object()
+
+
+class ExtraDataTest(WithExtraDataMixin, SimpleModelTest):
+    def get_context_data(self):
+        return {
+            "actor": self.user,
+        }
+
+
+class ExtraDataWithRoleTest(WithExtraDataMixin, SimpleModelTest):
+    def get_context_data(self):
+        return {
+            "actor": self.user,
+            "role": "admin",
+        }
+
+    @skipIf(
+        settings.AUDITLOG_LOGENTRY_MODEL == "auditlog.LogEntry",
+        "Do not run on defualt log entry model",
+    )
+    def test_extra_data_role(self):
+        log = self.obj.history.first()
+        self.assertEqual(log.role, "admin")
+
+
+class ExtraDataWithRoleLazyLoadTest(WithExtraDataMixin, SimpleModelTest):
+    def get_context_data(self):
+        return {
+            "actor": self.user,
+            "role": lambda: "admin",
+        }
+
+    @skipIf(
+        settings.AUDITLOG_LOGENTRY_MODEL == "auditlog.LogEntry",
+        "Do not run on defualt log entry model",
+    )
+    def test_extra_data_role(self):
+        log = self.obj.history.first()
+        self.assertEqual(log.role, "admin")
+
+
+class GetLogEntryModelTest(TestCase):
+    """Test the get_logentry_model function."""
+
+    def get_model_name(self):
+        model = get_logentry_model()
+        return f"{model._meta.app_label}.{model._meta.object_name}"
+
+    def test_logentry_model(self):
+        self.assertEqual(self.get_model_name(), settings.AUDITLOG_LOGENTRY_MODEL)
+
+    @override_settings(AUDITLOG_LOGENTRY_MODEL="LogEntry")
+    def test_invalid_logentry_model_name(self):
+        with self.assertRaises(ImproperlyConfigured):
+            get_logentry_model()
+
+    @override_settings(AUDITLOG_LOGENTRY_MODEL="test_app2.LogEntry")
+    def test_invalid_appname(self):
+        with self.assertRaises(ImproperlyConfigured):
+            get_logentry_model()
+
+    def test_logentry_model_default_when_setting_missing(self):
+        """Regression test for issue #788: AttributeError when AUDITLOG_LOGENTRY_MODEL is not set."""
+        # Save and remove the setting to simulate the bug condition
+        original_value = getattr(settings, "AUDITLOG_LOGENTRY_MODEL", None)
+        if hasattr(settings, "AUDITLOG_LOGENTRY_MODEL"):
+            delattr(settings, "AUDITLOG_LOGENTRY_MODEL")
+
+        try:
+            # This should NOT raise AttributeError - it should use the default
+            model = get_logentry_model()
+            self.assertEqual(
+                f"{model._meta.app_label}.{model._meta.object_name}",
+                "auditlog.LogEntry",
+            )
+        finally:
+            # Restore the original setting
+            if original_value is not None:
+                settings.AUDITLOG_LOGENTRY_MODEL = original_value

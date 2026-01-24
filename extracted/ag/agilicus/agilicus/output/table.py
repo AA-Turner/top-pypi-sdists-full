@@ -42,6 +42,11 @@ def date_else_identity(input_obj, ctx=None):
             else:
                 list_as_str += f"- {obj}\n"
         return list_as_str
+    elif isinstance(input_obj, dict):
+        list_as_str = ""
+        for k, v in input_obj.items():
+            list_as_str += f"{k}: {v}\n"
+        return list_as_str
     return input_obj
 
 
@@ -66,9 +71,12 @@ class OutputColumn:
     format_fn: Callable = date_else_identity
     getter: Callable = None
     optional: bool = False
+    itemgetter: bool = False
 
 
-def column(name, newname=None, optional=False, getter=None, format_fn=None):
+def column(
+    name, newname=None, optional=False, getter=None, format_fn=None, itemgetter=False
+):
     out_name = newname
     if not out_name:
         out_name = name
@@ -80,6 +88,7 @@ def column(name, newname=None, optional=False, getter=None, format_fn=None):
         optional=optional,
         getter=getter,
         format_fn=format_fn,
+        itemgetter=itemgetter,
     )
 
 
@@ -95,6 +104,7 @@ def subtable(
     subobject_name=None,
     table_getter=operator.attrgetter,
     optional=False,
+    itemgetter=False,
 ):
     if not out_name:
         out_name = in_name
@@ -120,6 +130,7 @@ def subtable(
         format_fn=format_fn,
         getter=col_getter,
         optional=optional,
+        itemgetter=itemgetter,
     )
 
 
@@ -335,7 +346,7 @@ def get_table_style(ctx):
     return table_style
 
 
-def format_table(
+def format_table(  # noqa
     ctx,
     records,
     columns,
@@ -365,7 +376,14 @@ def format_table(
                 continue
         for column in columns:
             in_value = None
-            if column.getter:
+            out_value = "---"
+            if column.itemgetter:
+                try:
+                    in_value = operator.itemgetter(column.in_name)(record)
+                except Exception as exc:
+                    if not column.optional:
+                        raise exc
+            elif column.getter:
                 try:
                     in_value = column.getter(record, getter)
                 except Exception as exc:
@@ -378,7 +396,6 @@ def format_table(
                     if not column.optional:
                         raise exc
 
-            out_value = "---"
             if in_value is not None:
                 out_value = column.format_fn(in_value, ctx=ctx)
             row.append(out_value)

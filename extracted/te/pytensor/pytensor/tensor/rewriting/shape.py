@@ -7,7 +7,7 @@ import numpy as np
 
 import pytensor
 from pytensor.configdefaults import config
-from pytensor.graph.basic import Constant, Variable, ancestors, equal_computations
+from pytensor.graph.basic import Constant, Variable, equal_computations
 from pytensor.graph.features import AlreadyThere, Feature
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.rewriting.basic import (
@@ -15,6 +15,7 @@ from pytensor.graph.rewriting.basic import (
     copy_stack_trace,
     node_rewriter,
 )
+from pytensor.graph.traversal import ancestors
 from pytensor.graph.utils import InconsistencyError, get_variable_trace_string
 from pytensor.scalar import ScalarType
 from pytensor.tensor.basic import (
@@ -46,7 +47,7 @@ from pytensor.tensor.shape import (
 )
 from pytensor.tensor.subtensor import Subtensor, get_idx_list
 from pytensor.tensor.type import TensorType, discrete_dtypes, integer_dtypes
-from pytensor.tensor.type_other import NoneConst, NoneTypeT
+from pytensor.tensor.type_other import NoneTypeT
 from pytensor.tensor.variable import TensorVariable
 
 
@@ -447,8 +448,7 @@ class ShapeFeature(Feature):
         assert all(
             (
                 not hasattr(r.type, "shape")
-                or r.type.shape[i] != 1
-                and other_r.type.shape[i] != 1
+                or (r.type.shape[i] != 1 and other_r.type.shape[i] != 1)
             )
             or self.lscalar_one.equals(merged_shape[i])
             or self.lscalar_one.equals(
@@ -1137,7 +1137,7 @@ def local_merge_consecutive_specify_shape(fgraph, node):
 
     inner_obj, *shape = obj.owner.inputs
     for dim, sh in enumerate(node.inputs[1:]):
-        if not NoneConst.equals(sh):
+        if not isinstance(sh.type, NoneTypeT):
             shape[dim] = sh
 
     # TODO: We could make sure that the overlapping shapes of the two `SpecifyShape`s are
@@ -1183,7 +1183,7 @@ def local_Shape_of_SpecifyShape(fgraph, node):
 
     # Replace `NoneConst` by `shape_i`
     for i, sh in enumerate(shape):
-        if NoneConst.equals(sh):
+        if isinstance(sh.type, NoneTypeT):
             shape[i] = x.shape[i]
 
     return [stack(shape).astype(np.int64)]
@@ -1219,7 +1219,7 @@ def local_specify_shape_lift(fgraph, node):
                 for i, (dim, bcast) in enumerate(
                     zip(shape, out_broadcastable, strict=True)
                 )
-                if (not bcast and not NoneConst.equals(dim))
+                if (not bcast and not isinstance(dim.type, NoneTypeT))
             }
             new_elem_inps = elem_inps.copy()
             for i, elem_inp in enumerate(elem_inps):

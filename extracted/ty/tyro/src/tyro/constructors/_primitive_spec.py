@@ -34,6 +34,7 @@ from .._typing_compat import is_typing_literal, is_typing_union
 if TYPE_CHECKING:
     from ._registry import ConstructorRegistry
 
+from .. import _fmtlib as fmt
 from .. import _resolver, _strings
 from .._typing import TypeForm
 from ..conf import _markers
@@ -41,7 +42,11 @@ from ._backtracking import parse_with_backtracking
 
 
 class UnsupportedTypeAnnotationError(Exception):
-    """Exception raised when an unsupported type annotation is detected."""
+    """Exception raised when a type annotation is not supported."""
+
+    def __init__(self, message: tuple[fmt._Text, ...]):
+        self.message = message
+        super().__init__()
 
 
 T = TypeVar("T")
@@ -66,6 +71,7 @@ class PrimitiveTypeInfo:
     def make(
         raw_annotation: TypeForm | Callable,
         parent_markers: set[_markers.Marker],
+        exclude_markers: set[_markers.Marker] | None = None,
     ) -> PrimitiveTypeInfo:
         _, primitive_specs = _resolver.unwrap_annotated(
             raw_annotation, search_type=PrimitiveConstructorSpec
@@ -75,10 +81,13 @@ class PrimitiveTypeInfo:
         typ, extra_markers = _resolver.unwrap_annotated(
             raw_annotation, search_type=_markers._Marker
         )
+        markers = parent_markers | set(extra_markers)
+        if exclude_markers is not None:
+            markers = markers - exclude_markers
         return PrimitiveTypeInfo(
             type=cast(TypeForm, typ),
             type_origin=get_origin(typ),
-            markers=parent_markers | set(extra_markers),
+            markers=markers,
             _primitive_spec=primitive_spec,
         )
 
@@ -179,7 +188,9 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
     ) -> PrimitiveConstructorSpec | UnsupportedTypeAnnotationError | None:
         if type_info.type is not Any:
             return None
-        return UnsupportedTypeAnnotationError("`Any` is not a parsable type.")
+        return UnsupportedTypeAnnotationError(
+            (fmt.text("`Any` is not a parsable type."),)
+        )
 
     # HACK (json.loads): this is for code that uses
     # `tyro.conf.arg(constructor=json.loads)`. We're going to deprecate this
@@ -253,19 +264,50 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
 
     @registry.primitive_rule
     def path_rule(type_info: PrimitiveTypeInfo) -> PrimitiveConstructorSpec | None:
-        if not (
-            type_info.type in (os.PathLike, pathlib.Path)
-            or (
-                inspect.isclass(type_info.type)
-                and issubclass(type_info.type, pathlib.PurePath)
-            )
-        ):
+        try:
+            if not (
+                type_info.type in (os.PathLike, pathlib.Path)
+                or issubclass(type_info.type, pathlib.PurePath)
+            ):
+                return None
+        except TypeError:
+            # `issubclass()` failed.
             return None
         return PrimitiveConstructorSpec(
             nargs=1,
             metavar=type_info.type.__name__.upper(),
             instance_from_str=lambda args: pathlib.Path(args[0]),
             is_instance=lambda x: hasattr(x, "__fspath__"),
+            str_from_instance=lambda instance: [str(instance)],
+        )
+
+    @registry.primitive_rule
+    def upath_rule(type_info: PrimitiveTypeInfo) -> PrimitiveConstructorSpec | None:
+        # Check if upath is imported.
+        if "upath" not in sys.modules.keys():  # pragma: no cover
+            return None
+
+        try:
+            import upath
+
+            UPath = upath.UPath
+        except (ImportError, AttributeError):
+            # Needed for the mock import test in
+            # test_missing_optional_packages.py to pass.
+            return None
+
+        try:
+            if not (type_info.type is UPath or (issubclass(type_info.type, UPath))):
+                return None
+        except TypeError:
+            # `issubclass()` failed.
+            return None
+
+        return PrimitiveConstructorSpec(
+            nargs=1,
+            metavar=type_info.type.__name__.upper(),
+            instance_from_str=lambda args: type_info.type(args[0]),
+            is_instance=lambda x: isinstance(x, UPath),
             str_from_instance=lambda instance: [str(instance)],
         )
 
@@ -390,7 +432,16 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
             )
         )
         if isinstance(inner_spec, UnsupportedTypeAnnotationError):
-            return inner_spec  # Propagate error message.
+            return UnsupportedTypeAnnotationError(
+                (
+                    fmt.text(
+                        "Could not create sequence primitive spec from ",
+                        fmt.text["cyan"](f"`{type_info.type}`"),
+                        " due to unsupported inner type",
+                    ),
+                    *inner_spec.message,
+                )
+            )
 
         # We can now handle nargs='*' with backtracking, so no need to reject it.
 
@@ -457,7 +508,16 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
                 PrimitiveTypeInfo.make(contained_type, type_info.markers)
             )
             if isinstance(spec, UnsupportedTypeAnnotationError):
-                return spec
+                return UnsupportedTypeAnnotationError(
+                    (
+                        fmt.text(
+                            "Could not create tuple primitive spec from ",
+                            fmt.text["cyan"](f"`{type_info.type}`"),
+                            " due to unsupported inner type",
+                        ),
+                        *spec.message,
+                    )
+                )
             inner_specs.append(spec)
 
         def instance_from_str(args: list[str]) -> tuple:
@@ -519,9 +579,27 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
             )
         )
         if isinstance(key_spec, UnsupportedTypeAnnotationError):
-            return key_spec
+            return UnsupportedTypeAnnotationError(
+                (
+                    fmt.text(
+                        "Could not create dict primitive spec from ",
+                        fmt.text["cyan"](f"`{type_info.type}`"),
+                        " due to unsupported key type",
+                    ),
+                    *key_spec.message,
+                )
+            )
         if isinstance(val_spec, UnsupportedTypeAnnotationError):
-            return val_spec
+            return UnsupportedTypeAnnotationError(
+                (
+                    fmt.text(
+                        "Could not create dict primitive spec from ",
+                        fmt.text["cyan"](f"`{type_info.type}`"),
+                        " due to unsupported value type",
+                    ),
+                    *val_spec.message,
+                )
+            )
         pair_metavar = f"{key_spec.metavar} {val_spec.metavar}"
 
         def instance_from_str(args: list[str]) -> dict:
@@ -659,7 +737,16 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
 
             option_spec = ConstructorRegistry.get_primitive_spec(option_type_info)
             if isinstance(option_spec, UnsupportedTypeAnnotationError):
-                return option_spec
+                return UnsupportedTypeAnnotationError(
+                    (
+                        fmt.text(
+                            "Could not create union primitive spec from ",
+                            fmt.text["cyan"](f"`{type_info.type}`"),
+                            " due to unsupported option type",
+                        ),
+                        *option_spec.message,
+                    )
+                )
             if option_spec.choices is None:
                 choices = None
             elif choices is not None:
@@ -763,4 +850,151 @@ def apply_default_primitive_rules(registry: ConstructorRegistry) -> None:
             ),
             str_from_instance=str_from_instance,
             choices=None if choices is None else tuple(set(choices)),
+        )
+
+    @registry.primitive_rule
+    def python_syntax_collections_rule(
+        type_info: PrimitiveTypeInfo,
+    ) -> PrimitiveConstructorSpec | UnsupportedTypeAnnotationError | None:
+        """Handle collections with Python literal syntax when UsePythonSyntaxForLiteralCollections marker is present."""
+        # Check if the marker is present.
+        if _markers.UsePythonSyntaxForLiteralCollections not in type_info.markers:
+            return None
+
+        # Check if the type is a collection type.
+        if type_info.type_origin not in (list, tuple, set, dict, frozenset):
+            return None
+
+        # Return None if no type arguments.
+        type_args = get_args(type_info.type)
+        if len(type_args) == 0:
+            return None
+
+        # Validate that all innermost types are compatible with ast.literal_eval.
+        def is_literal_eval_compatible(typ: Any) -> bool:
+            """Check if a type is compatible with ast.literal_eval().
+
+            ast.literal_eval() only supports: str, bytes, int, float, complex, bool, None,
+            and the collection types list, tuple, dict, set. typing.Literal types are also
+            supported. Nested structures of these types are supported.
+            """
+            from typing import Literal as LiteralType
+
+            # Ellipsis is used in variable-length tuples like tuple[int, ...].
+            if typ is Ellipsis:
+                return True
+
+            origin = get_origin(typ)
+
+            # Handle Literal types - check if all values are literal-eval compatible.
+            if origin is LiteralType:
+                # Literal values themselves must be literal-eval compatible types.
+                return all(
+                    type(arg) in (str, bytes, int, float, complex, bool, type(None))
+                    for arg in get_args(typ)
+                )
+
+            if origin is not None:
+                # Recurse into generic types.
+                return all(is_literal_eval_compatible(arg) for arg in get_args(typ))
+
+            # Whitelist only types that ast.literal_eval() actually supports.
+            # This excludes built-in types like frozenset, range, slice, etc.
+            return typ in (
+                str,
+                bytes,
+                int,
+                float,
+                complex,
+                bool,
+                type(None),
+                list,
+                tuple,
+                dict,
+                set,
+            )
+
+        # Return None if any types are incompatible - let other rules handle it.
+        if not all(is_literal_eval_compatible(arg) for arg in type_args):
+            return None
+
+        def instance_from_str(args: list[str]) -> Any:
+            import ast
+
+            try:
+                # Use ast.literal_eval() for safe parsing of Python literals.
+                # Only supports: strings, bytes, numbers, tuples, lists, dicts, sets,
+                # booleans, None, and nested structures of these types.
+                value = ast.literal_eval(args[0])
+            except (ValueError, SyntaxError) as e:
+                raise ValueError(
+                    f"Could not parse '{args[0]}' as Python literal: {e}"
+                ) from e
+
+            # Validate the type using typeguard.
+            if not _resolver.is_instance(type_info.type, value):
+                raise ValueError(
+                    f"Value {value} (type {type(value)}) does not match expected type {type_info.type}"
+                )
+            return value
+
+        def str_from_instance(instance: Any) -> list[str]:
+            return [repr(instance)]
+
+        def is_instance_fn(x: Any) -> bool:
+            return _resolver.is_instance(type_info.type, x)
+
+        # Build a nice metavar showing the structure.
+        def get_metavar_for_type(typ: Any) -> str:
+            """Recursively build metavar string for a type."""
+            from typing import Literal as LiteralType
+
+            origin = get_origin(typ)
+
+            # Handle Literal types - show the literal values.
+            if origin is LiteralType:
+                args = get_args(typ)
+                # Format as {val1,val2,val3}.
+                return "{" + ",".join(repr(arg) for arg in args) + "}"
+
+            if origin is None:
+                # Handle None type specially - show as "None" instead of "NONETYPE".
+                if typ is type(None):
+                    return "None"
+                # Primitive type - just use uppercase name.
+                return typ.__name__.upper()
+
+            # Get type arguments.
+            args = get_args(typ)
+
+            if origin in (list, List):
+                elem = get_metavar_for_type(args[0])
+                return f"[{elem},...]"
+            elif origin in (tuple, Tuple):
+                if len(args) == 2 and args[1] is Ellipsis:
+                    # Variable-length tuple.
+                    elem = get_metavar_for_type(args[0])
+                    return f"({elem},...)"
+                else:
+                    # Fixed-length tuple.
+                    elems = ",".join(get_metavar_for_type(arg) for arg in args)
+                    return f"({elems})"
+            elif origin in (set, Set):
+                elem = get_metavar_for_type(args[0])
+                return f"{{{elem},...}}"
+            elif origin in (dict, Dict):
+                key = get_metavar_for_type(args[0])
+                val = get_metavar_for_type(args[1])
+                return f"{{{key}:{val},...}}"
+            else:
+                return str(origin).upper()
+
+        metavar = get_metavar_for_type(type_info.type)
+
+        return PrimitiveConstructorSpec(
+            nargs=1,
+            metavar=metavar,
+            instance_from_str=instance_from_str,
+            str_from_instance=str_from_instance,
+            is_instance=is_instance_fn,
         )

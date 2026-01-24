@@ -8,9 +8,9 @@ from eventkit import Event
 from . import util
 from .client import Client
 from .contract import (
+    CFD,
     Bag,
     Bond,
-    CFD,
     ComboLeg,
     Commodity,
     ContFuture,

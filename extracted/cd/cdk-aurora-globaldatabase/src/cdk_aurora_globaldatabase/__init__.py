@@ -241,24 +241,24 @@ class GlobalAuroraRDSMaster(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        credentials: typing.Optional[_aws_cdk_aws_rds_ceddda9d.Credentials] = None,
-        db_clusterp_pg: typing.Optional[_aws_cdk_aws_rds_ceddda9d.IParameterGroup] = None,
+        credentials: typing.Optional["_aws_cdk_aws_rds_ceddda9d.Credentials"] = None,
+        db_clusterp_pg: typing.Optional["_aws_cdk_aws_rds_ceddda9d.IParameterGroup"] = None,
         db_user_name: typing.Optional[builtins.str] = None,
         default_database_name: typing.Optional[builtins.str] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
-        engine_version: typing.Optional[_aws_cdk_aws_rds_ceddda9d.IClusterEngine] = None,
+        engine_version: typing.Optional["_aws_cdk_aws_rds_ceddda9d.IClusterEngine"] = None,
         instance_type: typing.Optional["InstanceTypeEnum"] = None,
-        monitoring_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        monitoring_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        monitoring_interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        monitoring_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rds_password: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
         time_zone: typing.Optional["MySQLtimeZone"] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -308,7 +308,7 @@ class GlobalAuroraRDSMaster(
     @jsii.member(jsii_name="addRegionalCluster")
     def add_regional_cluster(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         region: builtins.str,
@@ -350,12 +350,12 @@ class GlobalAuroraRDSMaster(
 
     @builtins.property
     @jsii.member(jsii_name="dbClusterpPG")
-    def db_clusterp_pg(self) -> _aws_cdk_aws_rds_ceddda9d.IParameterGroup:
+    def db_clusterp_pg(self) -> "_aws_cdk_aws_rds_ceddda9d.IParameterGroup":
         '''(experimental) return RDS Cluster ParameterGroup.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_rds_ceddda9d.IParameterGroup, jsii.get(self, "dbClusterpPG"))
+        return typing.cast("_aws_cdk_aws_rds_ceddda9d.IParameterGroup", jsii.get(self, "dbClusterpPG"))
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -368,12 +368,12 @@ class GlobalAuroraRDSMaster(
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
-    def engine_version(self) -> _aws_cdk_aws_rds_ceddda9d.IClusterEngine:
+    def engine_version(self) -> "_aws_cdk_aws_rds_ceddda9d.IClusterEngine":
         '''(experimental) return RDS Cluster DB Engine Version.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_rds_ceddda9d.IClusterEngine, jsii.get(self, "engineVersion"))
+        return typing.cast("_aws_cdk_aws_rds_ceddda9d.IClusterEngine", jsii.get(self, "engineVersion"))
 
     @builtins.property
     @jsii.member(jsii_name="globalClusterArn")
@@ -395,12 +395,12 @@ class GlobalAuroraRDSMaster(
 
     @builtins.property
     @jsii.member(jsii_name="rdsCluster")
-    def rds_cluster(self) -> _aws_cdk_aws_rds_ceddda9d.DatabaseCluster:
+    def rds_cluster(self) -> "_aws_cdk_aws_rds_ceddda9d.DatabaseCluster":
         '''(experimental) return RDS Cluster.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_rds_ceddda9d.DatabaseCluster, jsii.get(self, "rdsCluster"))
+        return typing.cast("_aws_cdk_aws_rds_ceddda9d.DatabaseCluster", jsii.get(self, "rdsCluster"))
 
     @builtins.property
     @jsii.member(jsii_name="rdsClusterarn")
@@ -422,12 +422,12 @@ class GlobalAuroraRDSMaster(
 
     @builtins.property
     @jsii.member(jsii_name="rdsIsPublic")
-    def rds_is_public(self) -> _aws_cdk_aws_ec2_ceddda9d.SubnetType:
+    def rds_is_public(self) -> "_aws_cdk_aws_ec2_ceddda9d.SubnetType":
         '''(experimental) return RDS Cluster is Public ?
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.SubnetType, jsii.get(self, "rdsIsPublic"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.SubnetType", jsii.get(self, "rdsIsPublic"))
 
     @builtins.property
     @jsii.member(jsii_name="rdsPassword")
@@ -467,21 +467,21 @@ class GlobalAuroraRDSMasterProps:
     def __init__(
         self,
         *,
-        credentials: typing.Optional[_aws_cdk_aws_rds_ceddda9d.Credentials] = None,
-        db_clusterp_pg: typing.Optional[_aws_cdk_aws_rds_ceddda9d.IParameterGroup] = None,
+        credentials: typing.Optional["_aws_cdk_aws_rds_ceddda9d.Credentials"] = None,
+        db_clusterp_pg: typing.Optional["_aws_cdk_aws_rds_ceddda9d.IParameterGroup"] = None,
         db_user_name: typing.Optional[builtins.str] = None,
         default_database_name: typing.Optional[builtins.str] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
-        engine_version: typing.Optional[_aws_cdk_aws_rds_ceddda9d.IClusterEngine] = None,
+        engine_version: typing.Optional["_aws_cdk_aws_rds_ceddda9d.IClusterEngine"] = None,
         instance_type: typing.Optional["InstanceTypeEnum"] = None,
-        monitoring_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        monitoring_role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
+        monitoring_interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        monitoring_role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
         parameters: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         rds_password: typing.Optional[builtins.str] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
         time_zone: typing.Optional["MySQLtimeZone"] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param credentials: (experimental) Credentials to use for the RDS database. Default: - creates new credentials
@@ -552,7 +552,7 @@ class GlobalAuroraRDSMasterProps:
             self._values["vpc"] = vpc
 
     @builtins.property
-    def credentials(self) -> typing.Optional[_aws_cdk_aws_rds_ceddda9d.Credentials]:
+    def credentials(self) -> typing.Optional["_aws_cdk_aws_rds_ceddda9d.Credentials"]:
         '''(experimental) Credentials to use for the RDS database.
 
         :default: - creates new credentials
@@ -560,12 +560,12 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("credentials")
-        return typing.cast(typing.Optional[_aws_cdk_aws_rds_ceddda9d.Credentials], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_rds_ceddda9d.Credentials"], result)
 
     @builtins.property
     def db_clusterp_pg(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_rds_ceddda9d.IParameterGroup]:
+    ) -> typing.Optional["_aws_cdk_aws_rds_ceddda9d.IParameterGroup"]:
         '''(experimental) RDS ParameterGroup.
 
         :default: - Aurora MySQL ParameterGroup
@@ -573,7 +573,7 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("db_clusterp_pg")
-        return typing.cast(typing.Optional[_aws_cdk_aws_rds_ceddda9d.IParameterGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_rds_ceddda9d.IParameterGroup"], result)
 
     @builtins.property
     def db_user_name(self) -> typing.Optional[builtins.str]:
@@ -611,7 +611,7 @@ class GlobalAuroraRDSMasterProps:
     @builtins.property
     def engine_version(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_rds_ceddda9d.IClusterEngine]:
+    ) -> typing.Optional["_aws_cdk_aws_rds_ceddda9d.IClusterEngine"]:
         '''(experimental) RDS Database Cluster Engine .
 
         :default: - rds.DatabaseClusterEngine.auroraMysql({version: rds.AuroraMysqlEngineVersion.VER_2_07_1,})
@@ -619,7 +619,7 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[_aws_cdk_aws_rds_ceddda9d.IClusterEngine], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_rds_ceddda9d.IClusterEngine"], result)
 
     @builtins.property
     def instance_type(self) -> typing.Optional["InstanceTypeEnum"]:
@@ -633,7 +633,7 @@ class GlobalAuroraRDSMasterProps:
         return typing.cast(typing.Optional["InstanceTypeEnum"], result)
 
     @builtins.property
-    def monitoring_interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def monitoring_interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The interval, in seconds, between points when Amazon RDS collects enhanced monitoring metrics for the DB instances.
 
         :default: no enhanced monitoring
@@ -641,10 +641,10 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("monitoring_interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def monitoring_role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def monitoring_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) Role that will be used to manage DB instances monitoring.
 
         :default: - A role is automatically created for you
@@ -652,7 +652,7 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("monitoring_role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -677,7 +677,7 @@ class GlobalAuroraRDSMasterProps:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) Credentials to use for the RDS database.
 
         :default: - []
@@ -685,7 +685,7 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def storage_encrypted(self) -> typing.Optional[builtins.bool]:
@@ -710,7 +710,7 @@ class GlobalAuroraRDSMasterProps:
         return typing.cast(typing.Optional["MySQLtimeZone"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''(experimental) RDS default VPC.
 
         :default: - new VPC
@@ -718,7 +718,7 @@ class GlobalAuroraRDSMasterProps:
         :stability: experimental
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -743,14 +743,14 @@ class GlobalAuroraRDSSlaveInfra(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         deletion_protection: typing.Optional[builtins.bool] = None,
-        stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
-        subnet_type: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetType] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        subnet_type: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -779,14 +779,14 @@ class GlobalAuroraRDSSlaveInfra(
 
     @builtins.property
     @jsii.member(jsii_name="dbSubnetGroup")
-    def db_subnet_group(self) -> _aws_cdk_aws_rds_ceddda9d.CfnDBSubnetGroup:
+    def db_subnet_group(self) -> "_aws_cdk_aws_rds_ceddda9d.CfnDBSubnetGroup":
         '''(experimental) GlobalAuroraRDSSlaveInfra subnet group .
 
         :default: - true
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_rds_ceddda9d.CfnDBSubnetGroup, jsii.get(self, "dbSubnetGroup"))
+        return typing.cast("_aws_cdk_aws_rds_ceddda9d.CfnDBSubnetGroup", jsii.get(self, "dbSubnetGroup"))
 
 
 @jsii.data_type(
@@ -805,10 +805,10 @@ class GlobalAuroraRDSSlaveInfraProps:
         self,
         *,
         deletion_protection: typing.Optional[builtins.bool] = None,
-        stack: typing.Optional[_aws_cdk_ceddda9d.Stack] = None,
+        stack: typing.Optional["_aws_cdk_ceddda9d.Stack"] = None,
         storage_encrypted: typing.Optional[builtins.bool] = None,
-        subnet_type: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetType] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
+        subnet_type: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
     ) -> None:
         '''
         :param deletion_protection: (experimental) Global RDS Database Cluster Engine Deletion Protection Option . Default: - false
@@ -850,13 +850,13 @@ class GlobalAuroraRDSSlaveInfraProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stack(self) -> typing.Optional[_aws_cdk_ceddda9d.Stack]:
+    def stack(self) -> typing.Optional["_aws_cdk_ceddda9d.Stack"]:
         '''(experimental) RDS Stack.
 
         :stability: experimental
         '''
         result = self._values.get("stack")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Stack], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Stack"], result)
 
     @builtins.property
     def storage_encrypted(self) -> typing.Optional[builtins.bool]:
@@ -870,16 +870,16 @@ class GlobalAuroraRDSSlaveInfraProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def subnet_type(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetType]:
+    def subnet_type(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"]:
         '''(experimental) Slave region.
 
         :stability: experimental
         '''
         result = self._values.get("subnet_type")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetType], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''(experimental) Slave region VPC.
 
         :default: - new VPC
@@ -887,7 +887,7 @@ class GlobalAuroraRDSSlaveInfraProps:
         :stability: experimental
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1538,7 +1538,7 @@ class StackParams(
     :stability: experimental
     '''
 
-    def __init__(self, scope: _constructs_77d1e7e8.Construct) -> None:
+    def __init__(self, scope: "_constructs_77d1e7e8.Construct") -> None:
         '''
         :param scope: -
 

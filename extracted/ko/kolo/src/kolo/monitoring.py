@@ -1,7 +1,5 @@
 import dis
-import functools
 import logging
-import operator
 import os
 import platform
 import sys
@@ -10,7 +8,6 @@ import time
 from collections import defaultdict
 from typing import Optional
 
-import httpx
 import msgpack
 import ulid
 
@@ -22,7 +19,6 @@ from .git import COMMIT_SHA
 from .plugins import PluginProcessor, load_plugin_data
 from .serialize import dump_msgpack, dump_msgpack_lightweight_repr, user_code_call_site
 from .threads import get_thread_id
-from .upload import upload_to_dashboard
 from .utils import extract_http_trace_name, extract_test_trace_name
 from .version import __version__
 

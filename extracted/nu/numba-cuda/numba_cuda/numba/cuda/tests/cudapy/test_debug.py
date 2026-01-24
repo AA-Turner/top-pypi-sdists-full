@@ -3,14 +3,15 @@
 
 import numpy as np
 
-from numba.core.utils import PYVERSION
+from numba.cuda.utils import PYVERSION
 from numba.cuda.testing import skip_on_cudasim, CUDATestCase
 from numba.cuda.tests.support import (
     override_config,
     captured_stderr,
     captured_stdout,
 )
-from numba import cuda, float64
+from numba import cuda
+from numba.cuda import float64
 import unittest
 
 
@@ -53,7 +54,7 @@ class TestDebugOutput(CUDATestCase):
                 self.assertRaises(AssertionError, check_meth, out)
 
     def _check_dump_bytecode(self, out):
-        if PYVERSION > (3, 10):
+        if PYVERSION in ((3, 11), (3, 12), (3, 13), (3, 14)):
             # binop with arg=0 is binary add, see CPython dis.py and opcode.py
             self.assertIn("BINARY_OP(arg=0", out)
         else:

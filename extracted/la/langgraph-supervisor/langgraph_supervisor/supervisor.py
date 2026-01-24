@@ -14,13 +14,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.chat_agent_executor import (
-    AgentState,
-    AgentStateWithStructuredResponse,
+    AgentState,  # type: ignore[deprecated]
+    AgentStateWithStructuredResponse,  # type: ignore[deprecated]
     Prompt,
     StateSchemaType,
     StructuredResponseSchema,
     _should_bind_tools,
-    create_react_agent,
+    create_react_agent,  # type: ignore[deprecated]
 )
 from langgraph.pregel import Pregel
 from langgraph.pregel.remote import RemoteGraph
@@ -193,8 +193,8 @@ def _prepare_tool_node(
                 all_tools,
                 name=str(input_tool_node.name),
                 tags=list(input_tool_node.tags) if input_tool_node.tags else None,
-                handle_tool_errors=input_tool_node.handle_tool_errors,
-                messages_key=input_tool_node.messages_key,
+                handle_tool_errors=input_tool_node._handle_tool_errors,
+                messages_key=input_tool_node._messages_key,
             )
         else:
             tool_node = ToolNode(all_tools)
@@ -234,28 +234,30 @@ def create_supervisor(
 
     Args:
         agents: List of agents to manage.
-            An agent can be a LangGraph [CompiledStateGraph](https://langchain-ai.github.io/langgraph/reference/graphs/#langgraph.graph.state.CompiledStateGraph),
-            a functional API [workflow](https://langchain-ai.github.io/langgraph/reference/func/#langgraph.func.entrypoint),
-            or any other [Pregel](https://langchain-ai.github.io/langgraph/reference/pregel/#langgraph.pregel.Pregel) object.
+            An agent can be a LangGraph [`CompiledStateGraph`](https://reference.langchain.com/python/langgraph/graphs/#langgraph.graph.state.CompiledStateGraph),
+            a functional API workflow, or any other [Pregel](https://reference.langchain.com/python/langgraph/pregel/#langgraph.pregel.Pregel)
+            object.
         model: Language model to use for the supervisor
         tools: Tools to use for the supervisor
         prompt: Optional prompt to use for the supervisor. Can be one of:
 
-            - str: This is converted to a SystemMessage and added to the beginning of the list of messages in state["messages"].
-            - SystemMessage: this is added to the beginning of the list of messages in state["messages"].
-            - Callable: This function should take in full graph state and the output is then passed to the language model.
-            - Runnable: This runnable should take in full graph state and the output is then passed to the language model.
+            - `str`: This is converted to a `SystemMessage` and added to the beginning of the list of messages in `state["messages"]`.
+            - `SystemMessage`: this is added to the beginning of the list of messages in `state["messages"]`.
+            - `Callable`: This function should take in full graph state and the output is then passed to the language model.
+            - `Runnable`: This runnable should take in full graph state and the output is then passed to the language model.
         response_format: An optional schema for the final supervisor output.
 
-            If provided, output will be formatted to match the given schema and returned in the 'structured_response' state key.
+            If provided, output will be formatted to match the given schema and returned in the `'structured_response'` state key.
+
             If not provided, `structured_response` will not be present in the output state.
+
             Can be passed in as:
 
-                - an OpenAI function/tool schema,
-                - a JSON Schema,
-                - a TypedDict class,
-                - or a Pydantic class.
-                - a tuple (prompt, schema), where schema is one of the above.
+                - An OpenAI function/tool schema,
+                - A JSON Schema,
+                - A TypedDict class,
+                - A Pydantic class.
+                - A tuple `(prompt, schema)`, where schema is one of the above.
                     The prompt will be used together with the model that is being used to generate the structured response.
 
             !!! Important
@@ -298,8 +300,10 @@ def create_supervisor(
             Post-model hook must be a callable or a runnable that takes in current graph state and returns a state update.
         parallel_tool_calls: Whether to allow the supervisor LLM to call tools in parallel (only OpenAI and Anthropic).
             Use this to control whether the supervisor can hand off to multiple agents at once.
-            If True, will enable parallel tool calls.
-            If False, will disable parallel tool calls (default).
+
+            If `True`, will enable parallel tool calls.
+
+            If `False`, will disable parallel tool calls.
 
             !!! Important
                 This is currently supported only by OpenAI and Anthropic models.
@@ -309,20 +313,22 @@ def create_supervisor(
         output_mode: Mode for adding managed agents' outputs to the message history in the multi-agent workflow.
             Can be one of:
 
-            - `full_history`: add the entire agent message history
-            - `last_message`: add only the last message (default)
-        add_handoff_messages: Whether to add a pair of (AIMessage, ToolMessage) to the message history
+            - `full_history`: Add the entire agent message history
+            - `last_message`: Add only the last message
+        add_handoff_messages: Whether to add a pair of `(AIMessage, ToolMessage)` to the message history
             when a handoff occurs.
-        handoff_tool_prefix: Optional prefix for the handoff tools (e.g., "delegate_to_" or "transfer_to_")
+        handoff_tool_prefix: Optional prefix for the handoff tools (e.g., `'delegate_to_'` or `'transfer_to_'`)
+
             If provided, the handoff tools will be named `handoff_tool_prefix_agent_name`.
+
             If not provided, the handoff tools will be named `transfer_to_agent_name`.
-        add_handoff_back_messages: Whether to add a pair of (AIMessage, ToolMessage) to the message history
+        add_handoff_back_messages: Whether to add a pair of `(AIMessage, ToolMessage)` to the message history
             when returning control to the supervisor to indicate that a handoff has occurred.
         supervisor_name: Name of the supervisor node.
         include_agent_name: Use to specify how to expose the agent name to the underlying supervisor LLM.
 
-            - None: Relies on the LLM provider using the name attribute on the AI message. Currently, only OpenAI supports this.
-            - `"inline"`: Add the agent name directly into the content field of the AI message using XML-style tags.
+            - `None`: Relies on the LLM provider using the name attribute on the AI message. Currently, only OpenAI supports this.
+            - `'inline'`: Add the agent name directly into the content field of the AI message using XML-style tags.
                 Example: `"How can I help you"` -> `"<name>agent_name</name><content>How can I help you?</content>"`
 
     Example:
@@ -384,7 +390,7 @@ def create_supervisor(
         add_handoff_back_messages = add_handoff_messages
 
     supervisor_schema = state_schema or (
-        AgentStateWithStructuredResponse if response_format is not None else AgentState
+        AgentStateWithStructuredResponse if response_format is not None else AgentState  # type: ignore[deprecated]
     )
     workflow_schema = state_schema or _OuterState
 
@@ -422,12 +428,12 @@ def create_supervisor(
     if include_agent_name:
         model = with_agent_name(model, include_agent_name)
 
-    supervisor_agent = create_react_agent(
+    supervisor_agent = create_react_agent(  # type: ignore[deprecated]
         name=supervisor_name,
         model=model,
         tools=tool_node,
         prompt=prompt,
-        state_schema=supervisor_schema,
+        state_schema=supervisor_schema,  # type: ignore[invalid-argument-type]
         response_format=response_format,
         pre_model_hook=pre_model_hook,
         post_model_hook=post_model_hook,

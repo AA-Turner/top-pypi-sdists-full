@@ -17,6 +17,9 @@ def patch_tf2onnx():
 
     logger = logging.getLogger(tf2onnx.__name__)
 
+    if not hasattr(np, "object"):
+        np.object = object
+
     def patched_rewrite_constant_fold(g, ops):
         """
         We call tensorflow transform with constant folding but in some cases
@@ -157,9 +160,7 @@ def patch_tf2onnx():
         ):
             a = copy.deepcopy(a)
             tensor_name = (
-                self.name.strip()
-                + "_"
-                + str(external_tensor_storage.name_counter)
+                f"{self.name.strip()}_{external_tensor_storage.name_counter}"
             )
             for c in '~"#%&*:<>?/\\{|}':
                 tensor_name = tensor_name.replace(c, "_")

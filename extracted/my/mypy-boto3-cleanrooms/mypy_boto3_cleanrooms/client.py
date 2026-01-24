@@ -3,7 +3,7 @@ Type annotations for cleanrooms service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -184,6 +185,8 @@ from .type_defs import (
     UntagResourceInputTypeDef,
     UpdateAnalysisTemplateInputTypeDef,
     UpdateAnalysisTemplateOutputTypeDef,
+    UpdateCollaborationChangeRequestInputTypeDef,
+    UpdateCollaborationChangeRequestOutputTypeDef,
     UpdateCollaborationInputTypeDef,
     UpdateCollaborationOutputTypeDef,
     UpdateConfiguredAudienceModelAssociationInputTypeDef,
@@ -210,12 +213,6 @@ from .type_defs import (
     UpdateProtectedQueryOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -226,14 +223,14 @@ __all__ = ("CleanRoomsServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CleanRoomsServiceClient(BaseClient):
@@ -426,7 +423,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_analysis_template(
         self, **kwargs: Unpack[DeleteAnalysisTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an analysis template.
 
@@ -436,7 +433,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_collaboration(
         self, **kwargs: Unpack[DeleteCollaborationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a collaboration.
 
@@ -446,7 +443,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_configured_audience_model_association(
         self, **kwargs: Unpack[DeleteConfiguredAudienceModelAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Provides the information necessary to delete a configured audience model
         association.
@@ -457,7 +454,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_configured_table(
         self, **kwargs: Unpack[DeleteConfiguredTableInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table.
 
@@ -467,7 +464,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_configured_table_analysis_rule(
         self, **kwargs: Unpack[DeleteConfiguredTableAnalysisRuleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table analysis rule.
 
@@ -477,7 +474,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_configured_table_association(
         self, **kwargs: Unpack[DeleteConfiguredTableAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configured table association.
 
@@ -487,7 +484,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_configured_table_association_analysis_rule(
         self, **kwargs: Unpack[DeleteConfiguredTableAssociationAnalysisRuleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an analysis rule for a configured table association.
 
@@ -497,7 +494,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_id_mapping_table(
         self, **kwargs: Unpack[DeleteIdMappingTableInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ID mapping table.
 
@@ -507,7 +504,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_id_namespace_association(
         self, **kwargs: Unpack[DeleteIdNamespaceAssociationInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an ID namespace association.
 
@@ -515,7 +512,7 @@ class CleanRoomsServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#delete_id_namespace_association)
         """
 
-    def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> Dict[str, Any]:
+    def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> dict[str, Any]:
         """
         Removes the specified member from a collaboration.
 
@@ -523,7 +520,7 @@ class CleanRoomsServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#delete_member)
         """
 
-    def delete_membership(self, **kwargs: Unpack[DeleteMembershipInputTypeDef]) -> Dict[str, Any]:
+    def delete_membership(self, **kwargs: Unpack[DeleteMembershipInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a specified membership.
 
@@ -533,7 +530,7 @@ class CleanRoomsServiceClient(BaseClient):
 
     def delete_privacy_budget_template(
         self, **kwargs: Unpack[DeletePrivacyBudgetTemplateInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a privacy budget template for a specified collaboration.
 
@@ -990,7 +987,7 @@ class CleanRoomsServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#start_protected_query)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Tags a resource.
 
@@ -998,7 +995,7 @@ class CleanRoomsServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag or list of tags from a resource.
 
@@ -1025,6 +1022,16 @@ class CleanRoomsServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_collaboration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#update_collaboration)
+        """
+
+    def update_collaboration_change_request(
+        self, **kwargs: Unpack[UpdateCollaborationChangeRequestInputTypeDef]
+    ) -> UpdateCollaborationChangeRequestOutputTypeDef:
+        """
+        Updates an existing collaboration change request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanrooms/client/update_collaboration_change_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cleanrooms/client/#update_collaboration_change_request)
         """
 
     def update_configured_audience_model_association(

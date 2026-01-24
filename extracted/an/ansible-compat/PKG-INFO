@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: ansible-compat
-Version: 25.8.1
+Version: 25.12.0
 Summary: Ansible compatibility goodies
 Author-email: Sorin Sbarnea <ssbarnea@redhat.com>
 Maintainer-email: Sorin Sbarnea <ssbarnea@redhat.com>
-License: MIT
+License-Expression: MIT
 Project-URL: changelog, https://github.com/ansible/ansible-compat/releases
 Project-URL: documentation, https://ansible.readthedocs.io/projects/compat/
 Project-URL: homepage, https://github.com/ansible/ansible-compat
@@ -15,39 +15,27 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python
-Classifier: Topic :: System :: Systems Administration
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Bug Tracking
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ansible-core>=2.16
-Requires-Dist: packaging
-Requires-Dist: PyYAML
-Requires-Dist: subprocess-tee>=0.4.1
 Requires-Dist: jsonschema>=4.6.0
-Provides-Extra: docs
-Requires-Dist: argparse-manpage; extra == "docs"
-Requires-Dist: black; extra == "docs"
-Requires-Dist: mkdocs-ansible>=24.3.1; extra == "docs"
-Provides-Extra: test
-Requires-Dist: coverage; extra == "test"
-Requires-Dist: pip; extra == "test"
-Requires-Dist: pytest-instafail; extra == "test"
-Requires-Dist: pytest-mock; extra == "test"
-Requires-Dist: pytest-plus>=0.6.1; extra == "test"
-Requires-Dist: pytest>=7.2.0; extra == "test"
-Requires-Dist: uv>=0.4.30; extra == "test"
+Requires-Dist: packaging>=22.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: subprocess-tee>=0.4.1
 Dynamic: license-file
 
 # ansible-compat

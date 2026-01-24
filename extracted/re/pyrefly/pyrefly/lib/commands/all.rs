@@ -6,6 +6,7 @@
  */
 
 use clap::Subcommand;
+use pyrefly_util::telemetry::Telemetry;
 
 use crate::commands::buck_check::BuckCheckArgs;
 use crate::commands::check::FullCheckArgs;
@@ -14,6 +15,7 @@ use crate::commands::dump_config::DumpConfigArgs;
 use crate::commands::infer::InferArgs;
 use crate::commands::init::InitArgs;
 use crate::commands::lsp::LspArgs;
+use crate::commands::report::ReportArgs;
 use crate::commands::tsp::TspArgs;
 use crate::commands::util::CommandExitStatus;
 
@@ -44,19 +46,26 @@ pub enum Command {
     Tsp(TspArgs),
     /// Automatically add type annotations to a file or directory.
     Infer(InferArgs),
+    /// Generate reports from pyrefly type checking results.
+    Report(ReportArgs),
 }
 
 impl Command {
-    pub async fn run(self, version_string: &str) -> anyhow::Result<CommandExitStatus> {
+    pub async fn run(
+        self,
+        version: &str,
+        telemetry: &impl Telemetry,
+    ) -> anyhow::Result<CommandExitStatus> {
         match self {
             Command::Check(args) => args.run().await,
             Command::Snippet(args) => args.run().await,
             Command::BuckCheck(args) => args.run(),
-            Command::Lsp(args) => args.run(version_string),
-            Command::Tsp(args) => args.run(),
+            Command::Lsp(args) => args.run(version, telemetry),
+            Command::Tsp(args) => args.run(telemetry),
             Command::Init(args) => args.run(),
             Command::Infer(args) => args.run(),
             Command::DumpConfig(args) => args.run(),
+            Command::Report(args) => args.run(),
         }
     }
 }

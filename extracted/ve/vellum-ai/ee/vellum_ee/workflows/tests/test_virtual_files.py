@@ -80,3 +80,51 @@ def test_base_class_dynamic_import(files):
         assert instance.id
     except Exception as e:
         pytest.fail(f"Failed to create an instance of BaseClass: {e}")
+
+
+def test_display_directory_not_auto_generated():
+    """
+    Test that the top-level display directory is NOT auto-generated with empty __init__.py.
+    Display directories typically have specific __init__.py content (e.g., "from .workflow import *")
+    that should not be replaced with empty auto-generated files.
+    """
+    # GIVEN a workflow with display/workflow.py but NO display/__init__.py
+    files = {
+        "__init__.py": "",
+        "workflow.py": """\
+from vellum.workflows import BaseWorkflow
+from vellum.workflows.nodes.bases import BaseNode
+
+class StartNode(BaseNode):
+    pass
+
+class Workflow(BaseWorkflow):
+    graph = StartNode
+""",
+        "display/workflow.py": """\
+from vellum_ee.workflows.display.workflows import BaseWorkflowDisplay
+
+class WorkflowDisplay(BaseWorkflowDisplay):
+    pass
+""",
+        # Note: NO "display/__init__.py" in files dict
+    }
+
+    namespace = str(uuid4())
+
+    # AND the virtual file loader is registered
+    sys.meta_path.append(VirtualFileFinder(files, namespace))
+
+    try:
+        # WHEN we try to resolve display/__init__.py
+        import importlib.util
+
+        spec = importlib.util.find_spec(f"{namespace}.display")
+
+        # THEN the spec should be found because we now support dynamic display module imports
+        assert spec
+        assert spec.origin == "display/__init__.py"
+
+    finally:
+        # Clean up
+        sys.meta_path = [finder for finder in sys.meta_path if not isinstance(finder, VirtualFileFinder)]

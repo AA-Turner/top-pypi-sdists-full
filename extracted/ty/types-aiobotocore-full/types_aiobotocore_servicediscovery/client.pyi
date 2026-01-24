@@ -3,7 +3,7 @@ Type annotations for servicediscovery service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_servicediscovery/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -92,12 +93,6 @@ from .type_defs import (
     UpdateServiceResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -106,22 +101,22 @@ else:
 __all__ = ("ServiceDiscoveryClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CustomHealthNotFound: Type[BotocoreClientError]
-    DuplicateRequest: Type[BotocoreClientError]
-    InstanceNotFound: Type[BotocoreClientError]
-    InvalidInput: Type[BotocoreClientError]
-    NamespaceAlreadyExists: Type[BotocoreClientError]
-    NamespaceNotFound: Type[BotocoreClientError]
-    OperationNotFound: Type[BotocoreClientError]
-    RequestLimitExceeded: Type[BotocoreClientError]
-    ResourceInUse: Type[BotocoreClientError]
-    ResourceLimitExceeded: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceAlreadyExists: Type[BotocoreClientError]
-    ServiceAttributesLimitExceededException: Type[BotocoreClientError]
-    ServiceNotFound: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CustomHealthNotFound: type[BotocoreClientError]
+    DuplicateRequest: type[BotocoreClientError]
+    InstanceNotFound: type[BotocoreClientError]
+    InvalidInput: type[BotocoreClientError]
+    NamespaceAlreadyExists: type[BotocoreClientError]
+    NamespaceNotFound: type[BotocoreClientError]
+    OperationNotFound: type[BotocoreClientError]
+    RequestLimitExceeded: type[BotocoreClientError]
+    ResourceInUse: type[BotocoreClientError]
+    ResourceLimitExceeded: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceAlreadyExists: type[BotocoreClientError]
+    ServiceAttributesLimitExceededException: type[BotocoreClientError]
+    ServiceNotFound: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 class ServiceDiscoveryClient(AioBaseClient):
     """
@@ -209,7 +204,7 @@ class ServiceDiscoveryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_servicediscovery/client/#delete_namespace)
         """
 
-    async def delete_service(self, **kwargs: Unpack[DeleteServiceRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_service(self, **kwargs: Unpack[DeleteServiceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a specified service and all associated service attributes.
 
@@ -219,7 +214,7 @@ class ServiceDiscoveryClient(AioBaseClient):
 
     async def delete_service_attributes(
         self, **kwargs: Unpack[DeleteServiceAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes specific attributes associated with a service.
 
@@ -386,7 +381,7 @@ class ServiceDiscoveryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_servicediscovery/client/#register_instance)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags to the specified resource.
 
@@ -394,7 +389,7 @@ class ServiceDiscoveryClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_servicediscovery/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -455,7 +450,7 @@ class ServiceDiscoveryClient(AioBaseClient):
 
     async def update_service_attributes(
         self, **kwargs: Unpack[UpdateServiceAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Submits a request to update a specified service to add service-level attributes.
 
@@ -515,7 +510,7 @@ class ServiceDiscoveryClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

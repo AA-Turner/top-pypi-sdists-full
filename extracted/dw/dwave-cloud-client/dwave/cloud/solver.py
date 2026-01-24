@@ -794,9 +794,9 @@ class CQMSolver(BaseUnstructuredSolver):
 
 
 class NLSolver(BaseUnstructuredSolver):
-    """NL solver interface.
+    """Nonlinear solver interface.
 
-    This class provides an :term:`NL model` sampling method and encapsulates
+    This class provides a :term:`nonlinear model` sampling method and encapsulates
     the solver description returned from the D-Wave cloud API.
 
     Args:
@@ -849,7 +849,7 @@ class NLSolver(BaseUnstructuredSolver):
                    upload_params: Optional[dict] = None,
                    **sample_params
                    ) -> Future:
-        """Sample from the specified :term:`NL model`.
+        """Sample from the specified :term:`nonlinear model`.
 
         Args:
             model (:class:`~dwave.optimization.Model`/bytes/str):
@@ -901,8 +901,8 @@ class NLSolver(BaseUnstructuredSolver):
                    model: Union['dwave.optimization.Model', io.IOBase, bytes],
                    **upload_params,
                    ) -> concurrent.futures.Future:
-        r"""Upload the specified :term:`NL model` to SAPI, returning a Problem ID
-        that can be used to submit the NL model to this solver (i.e. call the
+        r"""Upload the specified :term:`nonlinear model` to SAPI, returning a Problem ID
+        that can be used to submit the nonlinear model to this solver (i.e. call the
         :meth:`.sample_nlm` method).
 
         Args:
@@ -988,6 +988,10 @@ class StructuredSolver(BaseSolver):
     @property
     def is_vfyc(self):
         "Is this a virtual full-yield chip?"
+        warnings.warn(
+            "`Solver.is_vfyc` property is deprecated since dwave-cloud-client 0.14.1, "
+            "and will be removed in 0.15.0.",
+            DeprecationWarning, stacklevel=2)
         return self.properties.get('vfyc') == True
 
     @property

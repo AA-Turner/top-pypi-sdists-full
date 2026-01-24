@@ -308,7 +308,7 @@ def _convertPsToOct(ps: int|float) -> int:
     '''
     # environLocal.printDebug(['_convertPsToOct: input', ps])
     ps = round(ps, PITCH_SPACE_SIG_DIGITS)
-    return int(math.floor(ps / 12.)) - 1
+    return int(math.floor(ps / 12)) - 1
 
 
 def _convertPsToStep(
@@ -2103,6 +2103,8 @@ class Pitch(prebase.ProtoM21Object):
         >>> a < b
         True
         '''
+        if not isinstance(other, Pitch):
+            return NotImplemented
         if self.ps < other.ps:
             return True
         else:
@@ -2133,7 +2135,12 @@ class Pitch(prebase.ProtoM21Object):
         Do not rely on this behavior -- it may be changed in a future version
         to create a total ordering.
         '''
-        return self.__lt__(other) or self.__eq__(other)
+        lt_result = self.__lt__(other)
+        if lt_result is NotImplemented:
+            return NotImplemented
+        if lt_result:
+            return True
+        return self.__eq__(other)
 
     def __gt__(self, other) -> bool:
         '''
@@ -2145,6 +2152,9 @@ class Pitch(prebase.ProtoM21Object):
         >>> a > b
         False
         '''
+        if not isinstance(other, Pitch):
+            return NotImplemented
+
         if self.ps > other.ps:
             return True
         else:
@@ -2177,7 +2187,13 @@ class Pitch(prebase.ProtoM21Object):
         Do not rely on this behavior -- it may be changed in a future version
         to create a total ordering.
         '''
-        return self.__gt__(other) or self.__eq__(other)
+        gt_result = self.__gt__(other)
+        if gt_result is NotImplemented:
+            return NotImplemented
+        if gt_result:
+            return True
+
+        return self.__eq__(other)
 
     # --------------------------------------------------------------------------
     @property

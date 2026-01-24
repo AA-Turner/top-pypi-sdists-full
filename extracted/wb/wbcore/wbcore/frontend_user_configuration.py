@@ -3,11 +3,12 @@ import uuid
 
 import django_filters
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter
+
+from wbcore.contrib.authentication.models.users import User
 
 from .filters import BooleanFilter, CharFilter, ModelChoiceFilter
 from .serializers import ModelSerializer, PrimaryKeyCharField
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class FrontendUserConfiguration(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(to=get_user_model(), related_name="configurations", on_delete=models.CASCADE)
+    user = models.ForeignKey(to=User, related_name="configurations", on_delete=models.CASCADE)
 
     parent_configuration = models.ForeignKey(
         to="self",

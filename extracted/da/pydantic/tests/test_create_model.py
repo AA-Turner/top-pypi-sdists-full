@@ -28,6 +28,7 @@ def test_create_model() -> None:
     assert issubclass(FooModel, BaseModel)
     assert FooModel.model_config == BaseModel.model_config
     assert FooModel.__name__ == 'FooModel'
+    assert FooModel.__qualname__ == 'FooModel'
     assert FooModel.model_fields.keys() == {'foo', 'bar', 'baz', 'qux'}
     assert FooModel.model_fields['foo'].is_required()
     assert not FooModel.model_fields['bar'].is_required()
@@ -328,13 +329,13 @@ def test_create_model_with_doc():
 
 def test_create_model_protected_namespace_default():
     with pytest.warns(
-        UserWarning, match='Field "model_dump_something" in Model has conflict with protected namespace "model_dump"'
+        UserWarning, match="Field 'model_dump_something' in 'Model' conflicts with protected namespace 'model_dump'"
     ):
         create_model('Model', model_dump_something=(str, ...))
 
 
 def test_create_model_custom_protected_namespace():
-    with pytest.warns(UserWarning, match='Field "test_field" in Model has conflict with protected namespace "test_"'):
+    with pytest.warns(UserWarning, match="Field 'test_field' in 'Model' conflicts with protected namespace 'test_'"):
         create_model(
             'Model',
             __config__=ConfigDict(protected_namespaces=('test_',)),
@@ -345,7 +346,7 @@ def test_create_model_custom_protected_namespace():
 
 def test_create_model_multiple_protected_namespace():
     with pytest.warns(
-        UserWarning, match='Field "also_protect_field" in Model has conflict with protected namespace "also_protect_"'
+        UserWarning, match="Field 'also_protect_field' in 'Model' conflicts with protected namespace 'also_protect_'"
     ):
         create_model(
             'Model',
@@ -406,3 +407,9 @@ def test_type_field_in_the_same_module():
     B = create_model('B', a_cls=(type, A))
     b = B()
     assert b.a_cls == A
+
+
+def test_create_model_qualname() -> None:
+    FooModel = create_model('FooModel', __qualname__='test_create_model_qualname.FooModel')
+    assert FooModel.__name__ == 'FooModel'
+    assert FooModel.__qualname__ == 'test_create_model_qualname.FooModel'

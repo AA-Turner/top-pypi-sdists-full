@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: x509_crl
 version_added: '1.0.0'
@@ -430,6 +429,7 @@ import typing as t
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.common.validation import check_type_int, check_type_str
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLBadPassphraseError,
     OpenSSLObjectError,
@@ -480,7 +480,6 @@ from ansible_collections.community.crypto.plugins.module_utils._serial import (
 from ansible_collections.community.crypto.plugins.module_utils._time import (
     get_relative_time_option,
 )
-
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
@@ -822,10 +821,7 @@ class CRL(OpenSSLObject):
             if old_entries != new_entries:
                 return False
 
-        if self.format != self.actual_format and not ignore_conversion:
-            return False
-
-        return True
+        return not (self.format != self.actual_format and not ignore_conversion)
 
     def _generate_crl(self) -> bytes:
         crl = CertificateRevocationListBuilder()
@@ -918,9 +914,9 @@ class CRL(OpenSSLObject):
             self.changed = True
 
         file_args = self.module.load_file_common_arguments(self.module.params)
-        if self.module.check_file_absent_if_check_mode(file_args["path"]):
-            self.changed = True
-        elif self.module.set_fs_attributes_if_different(file_args, False):
+        if self.module.check_file_absent_if_check_mode(
+            file_args["path"]
+        ) or self.module.set_fs_attributes_if_different(file_args, False):
             self.changed = True
 
     def dump(self, check_mode: bool = False) -> dict[str, t.Any]:

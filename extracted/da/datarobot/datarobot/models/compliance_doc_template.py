@@ -33,53 +33,45 @@ TitleString = String(max_length=500)
 SectionDict = t.Forward()
 SectionDict.provide(
     t.Or(
-        t.Dict(
-            {
-                "type": t.Atom("datarobot"),
-                "title": TitleString,
-                "content_id": String(),
-                OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
-                OptKey("description"): t.Or(String(allow_blank=True), t.Null),
-                OptKey("instructions"): t.Or(
-                    t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
-                    t.Null,
-                ),
-                OptKey("locked"): t.Bool,
-            }
-        ),
-        t.Dict(
-            {
-                "type": t.Atom("user"),
-                "title": TitleString,
-                "regular_text": String(max_length=5000, allow_blank=True),
-                "highlighted_text": String(max_length=5000, allow_blank=True),
-                OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
-                OptKey("description"): t.Or(String(allow_blank=True), t.Null),
-                OptKey("instructions"): t.Or(
-                    t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
-                    t.Null,
-                ),
-                OptKey("locked"): t.Bool,
-            }
-        ),
-        t.Dict(
-            {
-                "type": t.Atom("custom"),
-                "title": TitleString,
-                "regular_text": String(max_length=5000, allow_blank=True),
-                "highlighted_text": String(max_length=5000, allow_blank=True),
-                OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
-                OptKey("description"): t.Or(String(allow_blank=True), t.Null),
-                OptKey("instructions"): t.Or(
-                    t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
-                    t.Null,
-                ),
-                OptKey("locked"): t.Bool,
-            }
-        ),
-        t.Dict(
-            {"type": t.Atom("table_of_contents"), "title": TitleString, OptKey("locked"): t.Bool}
-        ),
+        t.Dict({
+            "type": t.Atom("datarobot"),
+            "title": TitleString,
+            "content_id": String(),
+            OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
+            OptKey("description"): t.Or(String(allow_blank=True), t.Null),
+            OptKey("instructions"): t.Or(
+                t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
+                t.Null,
+            ),
+            OptKey("locked"): t.Bool,
+        }),
+        t.Dict({
+            "type": t.Atom("user"),
+            "title": TitleString,
+            "regular_text": String(max_length=5000, allow_blank=True),
+            "highlighted_text": String(max_length=5000, allow_blank=True),
+            OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
+            OptKey("description"): t.Or(String(allow_blank=True), t.Null),
+            OptKey("instructions"): t.Or(
+                t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
+                t.Null,
+            ),
+            OptKey("locked"): t.Bool,
+        }),
+        t.Dict({
+            "type": t.Atom("custom"),
+            "title": TitleString,
+            "regular_text": String(max_length=5000, allow_blank=True),
+            "highlighted_text": String(max_length=5000, allow_blank=True),
+            OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
+            OptKey("description"): t.Or(String(allow_blank=True), t.Null),
+            OptKey("instructions"): t.Or(
+                t.Dict({"owner": String(allow_blank=True), "user": String(allow_blank=True)}),
+                t.Null,
+            ),
+            OptKey("locked"): t.Bool,
+        }),
+        t.Dict({"type": t.Atom("table_of_contents"), "title": TitleString, OptKey("locked"): t.Bool}),
     )
 )
 
@@ -192,19 +184,15 @@ class ComplianceDocTemplate(APIObject):
 
     _root_path = "complianceDocTemplates/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("creator_id"): String(),
-            t.Key("creator_username"): String(),
-            OptKey("org_id"): t.Or(String(), t.Null),
-            t.Key("name"): String(),
-            OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
-            OptKey("project_type"): t.Or(
-                t.Enum(*enum_to_list(ComplianceDocTemplateProjectType)), t.Null
-            ),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("creator_id"): String(),
+        t.Key("creator_username"): String(),
+        OptKey("org_id"): t.Or(String(), t.Null),
+        t.Key("name"): String(),
+        OptKey("sections"): t.Or(t.List(SectionDict), t.Null),
+        OptKey("project_type"): t.Or(t.Enum(*enum_to_list(ComplianceDocTemplateProjectType)), t.Null),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -228,9 +216,7 @@ class ComplianceDocTemplate(APIObject):
         return f"ComplianceDocTemplate({self.name!r})"
 
     @classmethod
-    def get_default(
-        cls, template_type: Optional[ComplianceDocTemplateType] = None
-    ) -> "ComplianceDocTemplate":
+    def get_default(cls, template_type: Optional[ComplianceDocTemplateType] = None) -> "ComplianceDocTemplate":
         """Get a default DataRobot template. This template is used for generating
         compliance documentation when no template is specified.
 
@@ -376,9 +362,7 @@ class ComplianceDocTemplate(APIObject):
             "projectType": project_type,
         }
         r_data = cls._client.get(cls._root_path, params=params).json()
-        return cast(
-            List["ComplianceDocTemplate"], [cls.from_server_data(item) for item in r_data["data"]]
-        )
+        return cast(List["ComplianceDocTemplate"], [cls.from_server_data(item) for item in r_data["data"]])
 
     def sections_to_json_file(self, path: str, indent: int = 2) -> None:
         """Save sections of the template to a json file at the specified path

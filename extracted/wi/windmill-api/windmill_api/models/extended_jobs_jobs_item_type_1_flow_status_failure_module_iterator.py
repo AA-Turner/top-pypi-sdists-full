@@ -14,11 +14,13 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModuleIterator:
     Attributes:
         index (Union[Unset, int]):
         itered (Union[Unset, List[Any]]):
+        itered_len (Union[Unset, int]):
         args (Union[Unset, Any]):
     """
 
     index: Union[Unset, int] = UNSET
     itered: Union[Unset, List[Any]] = UNSET
+    itered_len: Union[Unset, int] = UNSET
     args: Union[Unset, Any] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -28,6 +30,7 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModuleIterator:
         if not isinstance(self.itered, Unset):
             itered = self.itered
 
+        itered_len = self.itered_len
         args = self.args
 
         field_dict: Dict[str, Any] = {}
@@ -37,6 +40,8 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModuleIterator:
             field_dict["index"] = index
         if itered is not UNSET:
             field_dict["itered"] = itered
+        if itered_len is not UNSET:
+            field_dict["itered_len"] = itered_len
         if args is not UNSET:
             field_dict["args"] = args
 
@@ -49,11 +54,14 @@ class ExtendedJobsJobsItemType1FlowStatusFailureModuleIterator:
 
         itered = cast(List[Any], d.pop("itered", UNSET))
 
+        itered_len = d.pop("itered_len", UNSET)
+
         args = d.pop("args", UNSET)
 
         extended_jobs_jobs_item_type_1_flow_status_failure_module_iterator = cls(
             index=index,
             itered=itered,
+            itered_len=itered_len,
             args=args,
         )
 

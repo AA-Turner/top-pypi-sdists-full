@@ -25,7 +25,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * 
- * $Id: //depot/r25.1/p4-python/python2to3.h#1 $
+ * $Id: //depot/r25.2/p4-python/python2to3.h#1 $
  *
  * Build instructions:
  *  Use Distutils - see accompanying setup.py

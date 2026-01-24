@@ -34,7 +34,7 @@ class Attributes(BaseModel):
 
     @staticmethod
     def check_attribute_name(attributes: set):
-        invalid = list()
+        invalid = []
         for attribute in attributes:
             if not ATTR_REGEX.match(attribute):
                 invalid.append(attribute)
@@ -81,7 +81,7 @@ class Attributes(BaseModel):
         :return:
         """
         self.check_attribute_name({name})
-        attribute = dict(name=name, sn=serial_number, value=value)
+        attribute = {"name": name, "sn": serial_number, "value": value}
         if self.snapshot_id:
             return self.set_attributes_by_sn([attribute])
         resp = raise_for_status(self.client.post(self.endpoint, json=attribute))
@@ -95,7 +95,7 @@ class Attributes(BaseModel):
         :return:
         """
         self.check_attribute_name({v["name"] for v in attributes})
-        payload = dict(attributes=attributes)
+        payload = {"attributes": attributes}
         if self.snapshot_id:
             payload["snapshot"] = self.snapshot_id
         resp = raise_for_status(self.client.put(self.endpoint, json=payload))
@@ -118,7 +118,7 @@ class Attributes(BaseModel):
         Args:
             sites: [{'sn': 'IPF SERIAL NUMBER', 'value': 'SITE NAME'}]
         """
-        [a.update(dict(name="siteName")) for a in sites]
+        [a.update({"name": "siteName"}) for a in sites]
         return self.set_attributes_by_sn(sites)
 
     def delete_attribute_by_sn(self, *serial_numbers):
@@ -127,7 +127,7 @@ class Attributes(BaseModel):
         Args:
             serial_numbers: Serial Numbers
         """
-        payload = dict(attributes=dict(sn=[str(i) for i in serial_numbers]))
+        payload = {"attributes": {"sn": [str(i) for i in serial_numbers]}}
         if self.snapshot_id:
             payload["snapshot"] = self.snapshot_id
         raise_for_status(self.client.request("DELETE", self.endpoint, json=payload))
@@ -139,7 +139,7 @@ class Attributes(BaseModel):
         Args:
             attribute_ids: Attribute IDs
         """
-        payload = dict(attributes=dict(id=[str(i) for i in attribute_ids]))
+        payload = {"attributes": {"id": [str(i) for i in attribute_ids]}}
         if self.snapshot_id:
             payload["snapshot"] = self.snapshot_id
         raise_for_status(self.client.request("DELETE", self.endpoint, json=payload))
@@ -178,7 +178,7 @@ class Attributes(BaseModel):
             )
         ):
             return False
-        self.client.snapshots[self.snapshot_id]._refresh_status()
+        self.client.snapshots[self.snapshot_id].update()
         if self.client.snapshots[self.snapshot_id].loaded and self.client.snapshot_id == self.snapshot_id:
             self.client.devices.update()
         return True

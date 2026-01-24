@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: aiormq
-Version: 6.9.0
+Version: 6.9.2
 Summary: Pure python AMQP asynchronous client library
 License: Apache-2.0
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,driver,pamqp
 Author: Dmitry Orlov
 Author-email: me@mosquito.su
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -16,12 +16,12 @@ Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet
@@ -153,7 +153,7 @@ Simple consumer
         channel = await connection.channel()
 
         # Declaring queue
-        declare_ok = await channel.queue_declare('helo')
+        declare_ok = await channel.queue_declare('hello', auto_delete=True)
         consume_ok = await channel.basic_consume(
             declare_ok.queue, on_message, no_ack=True
         )

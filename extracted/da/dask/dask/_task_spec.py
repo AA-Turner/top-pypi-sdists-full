@@ -135,7 +135,7 @@ def parse_input(obj: Any) -> object:
     if isinstance(obj, GraphNode):
         return obj
 
-    if isinstance(obj, TaskRef):
+    if _is_dask_future(obj):
         return Alias(obj.key)
 
     if isinstance(obj, dict):
@@ -247,11 +247,11 @@ def convert_legacy_task(
                 return Task(key, _identity_cast, *parsed_args, typ=type(task))
             else:
                 return cast(_T, type(task)(parsed_args))
-    elif isinstance(task, TaskRef):
+    elif _is_dask_future(task):
         if key is None:
-            return Alias(task.key)
+            return Alias(task.key)  # type: ignore[attr-defined]
         else:
-            return Alias(key, target=task.key)
+            return Alias(key, target=task.key)  # type: ignore[attr-defined]
     else:
         return task
 
@@ -364,6 +364,15 @@ class TaskRef:
             else:
                 return TaskRef(val)
         return self
+
+
+def _is_dask_future(obj: object) -> bool:
+    """Check if obj is a dask Future (TaskRef or duck-typed with __dask_future__).
+
+    This supports both distributed.Future (which inherits from TaskRef) and
+    third-party scheduler futures that set __dask_future__ = True.
+    """
+    return isinstance(obj, TaskRef) or getattr(obj, "__dask_future__", False)
 
 
 class GraphNode:
@@ -539,7 +548,7 @@ class Alias(GraphNode):
                 raise RuntimeError(
                     f"Invalid substitution encountered {self.key!r} -> {sub_key}"
                 )
-            return Alias(key or sub_key, val)  # type: ignore
+            return Alias(key or sub_key, val)  # type: ignore [arg-type]
         return self
 
     def __dask_tokenize__(self):
@@ -609,8 +618,8 @@ class DataNode(GraphNode):
 
 
 def _get_dependencies(obj: object) -> set | frozenset:
-    if isinstance(obj, TaskRef):
-        return {obj.key}
+    if _is_dask_future(obj):
+        return obj.key  # type: ignore[attr-defined]
     elif isinstance(obj, GraphNode):
         return obj.dependencies
     elif isinstance(obj, dict):
@@ -732,7 +741,7 @@ class Task(GraphNode):
             if kwargs:
                 if label_size2 > 5:
                     kwargs_repr = ", " + ", ".join(
-                        f"{k}={repr(v)}" for k, v in sorted(kwargs.items())
+                        f"{k}={v!r}" for k, v in sorted(kwargs.items())
                     )
                 else:
                     kwargs_repr = ", ..."
@@ -785,7 +794,7 @@ class Task(GraphNode):
         subs_filtered = {
             k: v for k, v in subs.items() if k in self.dependencies and k != v
         }
-        extras = _extra_args(type(self))  # type: ignore
+        extras = _extra_args(type(self))  # type: ignore[arg-type]
         extra_kwargs = {
             name: getattr(self, name) for name in extras if name not in {"key", "func"}
         }
@@ -838,7 +847,7 @@ class NestedContainer(Task, Iterable):
         **kwargs: Any,
     ):
         if len(args) == 1 and isinstance(args[0], self.klass):
-            args = args[0]  # type: ignore
+            args = args[0]  # type: ignore[assignment]
         super().__init__(
             None,
             self.to_container,
@@ -925,8 +934,8 @@ class Dict(NestedContainer, Mapping):
             assert not kwargs
             if len(args) == 1:
                 args = args[0]
-                if isinstance(args, dict):  # type: ignore
-                    args = tuple(itertools.chain(*args.items()))  # type: ignore
+                if isinstance(args, dict):  # type: ignore[unreachable]
+                    args = tuple(itertools.chain(*args.items()))  # type: ignore[unreachable]
                 elif isinstance(args, (list, tuple)):
                     if all(
                         len(el) == 2 if isinstance(el, (list, tuple)) else False
@@ -1204,6 +1213,6 @@ def _extra_args(typ: type) -> set[str]:
             inspect.Parameter.VAR_KEYWORD,
         ):
             continue
-        if name in typ.get_all_slots():  # type: ignore
+        if name in typ.get_all_slots():  # type: ignore[attr-defined]
             extras.add(name)
     return extras

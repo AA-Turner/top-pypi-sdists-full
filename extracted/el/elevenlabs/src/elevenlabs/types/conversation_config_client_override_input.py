@@ -5,12 +5,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .agent_config_override import AgentConfigOverride
+from .agent_config_override_input import AgentConfigOverrideInput
 from .conversation_config_override import ConversationConfigOverride
 from .tts_conversational_config_override import TtsConversationalConfigOverride
+from .turn_config_override import TurnConfigOverride
 
 
 class ConversationConfigClientOverrideInput(UncheckedBaseModel):
+    turn: typing.Optional[TurnConfigOverride] = pydantic.Field(default=None)
+    """
+    Configuration for turn detection
+    """
+
     tts: typing.Optional[TtsConversationalConfigOverride] = pydantic.Field(default=None)
     """
     Configuration for conversational text to speech
@@ -21,7 +27,7 @@ class ConversationConfigClientOverrideInput(UncheckedBaseModel):
     Configuration for conversational events
     """
 
-    agent: typing.Optional[AgentConfigOverride] = pydantic.Field(default=None)
+    agent: typing.Optional[AgentConfigOverrideInput] = pydantic.Field(default=None)
     """
     Agent specific configuration
     """

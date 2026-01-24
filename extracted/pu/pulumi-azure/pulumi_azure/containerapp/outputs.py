@@ -47,6 +47,7 @@ __all__ = [
     'AppTemplateTcpScaleRule',
     'AppTemplateTcpScaleRuleAuthentication',
     'AppTemplateVolume',
+    'EnvironmentCertificateCertificateKeyVault',
     'EnvironmentDaprComponentMetadata',
     'EnvironmentDaprComponentSecret',
     'EnvironmentIdentity',
@@ -903,6 +904,8 @@ class AppTemplate(dict):
         suggest = None
         if key == "azureQueueScaleRules":
             suggest = "azure_queue_scale_rules"
+        elif key == "cooldownPeriodInSeconds":
+            suggest = "cooldown_period_in_seconds"
         elif key == "customScaleRules":
             suggest = "custom_scale_rules"
         elif key == "httpScaleRules":
@@ -913,6 +916,8 @@ class AppTemplate(dict):
             suggest = "max_replicas"
         elif key == "minReplicas":
             suggest = "min_replicas"
+        elif key == "pollingIntervalInSeconds":
+            suggest = "polling_interval_in_seconds"
         elif key == "revisionSuffix":
             suggest = "revision_suffix"
         elif key == "tcpScaleRules":
@@ -934,11 +939,13 @@ class AppTemplate(dict):
     def __init__(__self__, *,
                  containers: Sequence['outputs.AppTemplateContainer'],
                  azure_queue_scale_rules: Optional[Sequence['outputs.AppTemplateAzureQueueScaleRule']] = None,
+                 cooldown_period_in_seconds: Optional[_builtins.int] = None,
                  custom_scale_rules: Optional[Sequence['outputs.AppTemplateCustomScaleRule']] = None,
                  http_scale_rules: Optional[Sequence['outputs.AppTemplateHttpScaleRule']] = None,
                  init_containers: Optional[Sequence['outputs.AppTemplateInitContainer']] = None,
                  max_replicas: Optional[_builtins.int] = None,
                  min_replicas: Optional[_builtins.int] = None,
+                 polling_interval_in_seconds: Optional[_builtins.int] = None,
                  revision_suffix: Optional[_builtins.str] = None,
                  tcp_scale_rules: Optional[Sequence['outputs.AppTemplateTcpScaleRule']] = None,
                  termination_grace_period_seconds: Optional[_builtins.int] = None,
@@ -946,11 +953,13 @@ class AppTemplate(dict):
         """
         :param Sequence['AppTemplateContainerArgs'] containers: One or more `container` blocks as detailed below.
         :param Sequence['AppTemplateAzureQueueScaleRuleArgs'] azure_queue_scale_rules: One or more `azure_queue_scale_rule` blocks as defined below.
+        :param _builtins.int cooldown_period_in_seconds: The number of seconds to wait before scaling down the number of instances again. Defaults to `300`.
         :param Sequence['AppTemplateCustomScaleRuleArgs'] custom_scale_rules: One or more `custom_scale_rule` blocks as defined below.
         :param Sequence['AppTemplateHttpScaleRuleArgs'] http_scale_rules: One or more `http_scale_rule` blocks as defined below.
         :param Sequence['AppTemplateInitContainerArgs'] init_containers: The definition of an init container that is part of the group as documented in the `init_container` block below.
         :param _builtins.int max_replicas: The maximum number of replicas for this container.
         :param _builtins.int min_replicas: The minimum number of replicas for this container.
+        :param _builtins.int polling_interval_in_seconds: The interval in seconds used for polling KEDA. Defaults to `30`.
         :param _builtins.str revision_suffix: The suffix for the revision. This value must be unique for the lifetime of the Resource. If omitted the service will use a hash function to create one.
         :param Sequence['AppTemplateTcpScaleRuleArgs'] tcp_scale_rules: One or more `tcp_scale_rule` blocks as defined below.
         :param _builtins.int termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed.
@@ -959,6 +968,8 @@ class AppTemplate(dict):
         pulumi.set(__self__, "containers", containers)
         if azure_queue_scale_rules is not None:
             pulumi.set(__self__, "azure_queue_scale_rules", azure_queue_scale_rules)
+        if cooldown_period_in_seconds is not None:
+            pulumi.set(__self__, "cooldown_period_in_seconds", cooldown_period_in_seconds)
         if custom_scale_rules is not None:
             pulumi.set(__self__, "custom_scale_rules", custom_scale_rules)
         if http_scale_rules is not None:
@@ -969,6 +980,8 @@ class AppTemplate(dict):
             pulumi.set(__self__, "max_replicas", max_replicas)
         if min_replicas is not None:
             pulumi.set(__self__, "min_replicas", min_replicas)
+        if polling_interval_in_seconds is not None:
+            pulumi.set(__self__, "polling_interval_in_seconds", polling_interval_in_seconds)
         if revision_suffix is not None:
             pulumi.set(__self__, "revision_suffix", revision_suffix)
         if tcp_scale_rules is not None:
@@ -993,6 +1006,14 @@ class AppTemplate(dict):
         One or more `azure_queue_scale_rule` blocks as defined below.
         """
         return pulumi.get(self, "azure_queue_scale_rules")
+
+    @_builtins.property
+    @pulumi.getter(name="cooldownPeriodInSeconds")
+    def cooldown_period_in_seconds(self) -> Optional[_builtins.int]:
+        """
+        The number of seconds to wait before scaling down the number of instances again. Defaults to `300`.
+        """
+        return pulumi.get(self, "cooldown_period_in_seconds")
 
     @_builtins.property
     @pulumi.getter(name="customScaleRules")
@@ -1033,6 +1054,14 @@ class AppTemplate(dict):
         The minimum number of replicas for this container.
         """
         return pulumi.get(self, "min_replicas")
+
+    @_builtins.property
+    @pulumi.getter(name="pollingIntervalInSeconds")
+    def polling_interval_in_seconds(self) -> Optional[_builtins.int]:
+        """
+        The interval in seconds used for polling KEDA. Defaults to `30`.
+        """
+        return pulumi.get(self, "polling_interval_in_seconds")
 
     @_builtins.property
     @pulumi.getter(name="revisionSuffix")
@@ -1226,13 +1255,13 @@ class AppTemplateContainer(dict):
                  startup_probes: Optional[Sequence['outputs.AppTemplateContainerStartupProbe']] = None,
                  volume_mounts: Optional[Sequence['outputs.AppTemplateContainerVolumeMount']] = None):
         """
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`. When there's a workload profile specified, there's no such constraint.
+        :param _builtins.float cpu: The amount of vCPU to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param _builtins.str image: The image to use to create the container.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`. When there's a workload profile specified, there's no such constraint.
+        :param _builtins.str memory: The amount of memory to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param _builtins.str name: The name of the container
         :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
         :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
@@ -1270,9 +1299,9 @@ class AppTemplateContainer(dict):
     @pulumi.getter
     def cpu(self) -> _builtins.float:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`. When there's a workload profile specified, there's no such constraint.
+        The amount of vCPU to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "cpu")
 
@@ -1288,9 +1317,9 @@ class AppTemplateContainer(dict):
     @pulumi.getter
     def memory(self) -> _builtins.str:
         """
-        The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`. When there's a workload profile specified, there's no such constraint.
+        The amount of memory to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "memory")
 
@@ -2281,16 +2310,16 @@ class AppTemplateInitContainer(dict):
         :param _builtins.str name: The name of the container
         :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
         :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`. When there's a workload profile specified, there's no such constraint.
+        :param _builtins.float cpu: The amount of vCPU to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param Sequence['AppTemplateInitContainerEnvArgs'] envs: One or more `env` blocks as detailed below.
         :param _builtins.str ephemeral_storage: The amount of ephemeral storage available to the Container App.
                
                > **Note:** `ephemeral_storage` is currently in preview and not configurable at this time.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`. When there's a workload profile specified, there's no such constraint.
+        :param _builtins.str memory: The amount of memory to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param Sequence['AppTemplateInitContainerVolumeMountArgs'] volume_mounts: A `volume_mounts` block as detailed below.
         """
         pulumi.set(__self__, "image", image)
@@ -2346,9 +2375,9 @@ class AppTemplateInitContainer(dict):
     @pulumi.getter
     def cpu(self) -> Optional[_builtins.float]:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`. When there's a workload profile specified, there's no such constraint.
+        The amount of vCPU to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "cpu")
 
@@ -2374,9 +2403,9 @@ class AppTemplateInitContainer(dict):
     @pulumi.getter
     def memory(self) -> Optional[_builtins.str]:
         """
-        The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`. When there's a workload profile specified, there's no such constraint.
+        The amount of memory to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "memory")
 
@@ -2649,7 +2678,7 @@ class AppTemplateVolume(dict):
         :param _builtins.str name: The name of the volume.
         :param _builtins.str mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string e.g. `dir_mode=0751,file_mode=0751`.
         :param _builtins.str storage_name: The name of the `AzureFile` storage.
-        :param _builtins.str storage_type: The type of storage volume. Possible values are `AzureFile`, `EmptyDir` and `Secret`. Defaults to `EmptyDir`.
+        :param _builtins.str storage_type: The type of storage volume. Possible values are `AzureFile`, `EmptyDir`, `NfsAzureFile` and `Secret`. Defaults to `EmptyDir`.
         """
         pulumi.set(__self__, "name", name)
         if mount_options is not None:
@@ -2687,9 +2716,60 @@ class AppTemplateVolume(dict):
     @pulumi.getter(name="storageType")
     def storage_type(self) -> Optional[_builtins.str]:
         """
-        The type of storage volume. Possible values are `AzureFile`, `EmptyDir` and `Secret`. Defaults to `EmptyDir`.
+        The type of storage volume. Possible values are `AzureFile`, `EmptyDir`, `NfsAzureFile` and `Secret`. Defaults to `EmptyDir`.
         """
         return pulumi.get(self, "storage_type")
+
+
+@pulumi.output_type
+class EnvironmentCertificateCertificateKeyVault(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "keyVaultSecretId":
+            suggest = "key_vault_secret_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in EnvironmentCertificateCertificateKeyVault. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        EnvironmentCertificateCertificateKeyVault.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        EnvironmentCertificateCertificateKeyVault.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 key_vault_secret_id: _builtins.str,
+                 identity: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str key_vault_secret_id: The ID of the Key Vault Secret containing the certificate. Changing this forces a new resource to be created.
+        :param _builtins.str identity: The managed identity to authenticate with Azure Key Vault. Possible values are the resource ID of user-assigned identity, and `System` for system-assigned identity. Defaults to `System`. Changing this forces a new resource to be created.
+               
+               > **Note:** Please make sure [required permissions](https://learn.microsoft.com/en-us/azure/container-apps/key-vault-certificates-manage) are correctly configured for your Key Vault and managed identity.
+        """
+        pulumi.set(__self__, "key_vault_secret_id", key_vault_secret_id)
+        if identity is not None:
+            pulumi.set(__self__, "identity", identity)
+
+    @_builtins.property
+    @pulumi.getter(name="keyVaultSecretId")
+    def key_vault_secret_id(self) -> _builtins.str:
+        """
+        The ID of the Key Vault Secret containing the certificate. Changing this forces a new resource to be created.
+        """
+        return pulumi.get(self, "key_vault_secret_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def identity(self) -> Optional[_builtins.str]:
+        """
+        The managed identity to authenticate with Azure Key Vault. Possible values are the resource ID of user-assigned identity, and `System` for system-assigned identity. Defaults to `System`. Changing this forces a new resource to be created.
+
+        > **Note:** Please make sure [required permissions](https://learn.microsoft.com/en-us/azure/container-apps/key-vault-certificates-manage) are correctly configured for your Key Vault and managed identity.
+        """
+        return pulumi.get(self, "identity")
 
 
 @pulumi.output_type
@@ -2777,8 +2857,8 @@ class EnvironmentDaprComponentSecret(dict):
                  value: Optional[_builtins.str] = None):
         """
         :param _builtins.str name: The Secret name.
-        :param _builtins.str identity: The identity to use for accessing key vault reference.
-        :param _builtins.str key_vault_secret_id: The Key Vault Secret ID. Could be either one of `id` or `versionless_id`.
+        :param _builtins.str identity: The identity to use for accessing key vault reference. Possible values are the Resource ID of a User Assigned Managed Identity, or `System` to use the System Assigned Managed Identity.
+        :param _builtins.str key_vault_secret_id: The Key Vault Secret ID.
         :param _builtins.str value: The value for this secret.
         """
         pulumi.set(__self__, "name", name)
@@ -2801,7 +2881,7 @@ class EnvironmentDaprComponentSecret(dict):
     @pulumi.getter
     def identity(self) -> Optional[_builtins.str]:
         """
-        The identity to use for accessing key vault reference.
+        The identity to use for accessing key vault reference. Possible values are the Resource ID of a User Assigned Managed Identity, or `System` to use the System Assigned Managed Identity.
         """
         return pulumi.get(self, "identity")
 
@@ -2809,7 +2889,7 @@ class EnvironmentDaprComponentSecret(dict):
     @pulumi.getter(name="keyVaultSecretId")
     def key_vault_secret_id(self) -> Optional[_builtins.str]:
         """
-        The Key Vault Secret ID. Could be either one of `id` or `versionless_id`.
+        The Key Vault Secret ID.
         """
         return pulumi.get(self, "key_vault_secret_id")
 
@@ -2919,7 +2999,7 @@ class EnvironmentWorkloadProfile(dict):
                  minimum_count: Optional[_builtins.int] = None):
         """
         :param _builtins.str name: The name of the workload profile.
-        :param _builtins.str workload_profile_type: Workload profile type for the workloads to run on. Possible values include `Consumption`, `D4`, `D8`, `D16`, `D32`, `E4`, `E8`, `E16` and `E32`.
+        :param _builtins.str workload_profile_type: Workload profile type for the workloads to run on. Possible values include `Consumption`, `Consumption-GPU-NC24-A100`, `Consumption-GPU-NC8as-T4`, `D4`, `D8`, `D16`, `D32`, `E4`, `E8`, `E16`, `E32`, `NC24-A100`, `NC48-A100` and `NC96-A100`.
                
                > **Note:** A `Consumption` type must have a name of `Consumption` and an environment may only have one `Consumption` Workload Profile.
                
@@ -2946,7 +3026,7 @@ class EnvironmentWorkloadProfile(dict):
     @pulumi.getter(name="workloadProfileType")
     def workload_profile_type(self) -> _builtins.str:
         """
-        Workload profile type for the workloads to run on. Possible values include `Consumption`, `D4`, `D8`, `D16`, `D32`, `E4`, `E8`, `E16` and `E32`.
+        Workload profile type for the workloads to run on. Possible values include `Consumption`, `Consumption-GPU-NC24-A100`, `Consumption-GPU-NC8as-T4`, `D4`, `D8`, `D16`, `D32`, `E4`, `E8`, `E16`, `E32`, `NC24-A100`, `NC48-A100` and `NC96-A100`.
 
         > **Note:** A `Consumption` type must have a name of `Consumption` and an environment may only have one `Consumption` Workload Profile.
 
@@ -3132,7 +3212,7 @@ class JobEventTriggerConfigScaleRule(dict):
                  name: _builtins.str,
                  authentications: Optional[Sequence['outputs.JobEventTriggerConfigScaleRuleAuthentication']] = None):
         """
-        :param _builtins.str custom_rule_type: Type of the scale rule.
+        :param _builtins.str custom_rule_type: Type of the scale rule. Possible values are `activemq`, `artemis-queue`, `kafka`, `pulsar`, `aws-cloudwatch`, `aws-dynamodb`, `aws-dynamodb-streams`, `aws-kinesis-stream`, `aws-sqs-queue`, `azure-app-insights`, `azure-blob`, `azure-data-explorer`, `azure-eventhub`, `azure-log-analytics`, `azure-monitor`, `azure-pipelines`, `azure-servicebus`, `azure-queue`, `cassandra`, `cpu`, `cron`, `datadog`, `elasticsearch`, `external`, `external-push`, `gcp-stackdriver`, `gcp-storage`, `gcp-pubsub`, `graphite`, `http`, `huawei-cloudeye`, `ibmmq`, `influxdb`, `kubernetes-workload`, `liiklus`, `memory`, `metrics-api`, `mongodb`, `mssql`, `mysql`, `nats-jetstream`, `stan`, `tcp`, `new-relic`, `openstack-metric`, `openstack-swift`, `postgresql`, `predictkube`, `prometheus`, `rabbitmq`, `redis`, `redis-cluster`, `redis-sentinel`, `redis-streams`, `redis-cluster-streams`, `redis-sentinel-streams`, `selenium-grid`, `solace-event-queue` and `github-runner`.
         :param Mapping[str, _builtins.str] metadata: Metadata properties to describe the scale rule.
         :param _builtins.str name: Name of the scale rule.
         :param Sequence['JobEventTriggerConfigScaleRuleAuthenticationArgs'] authentications: A `authentication` block as defined below.
@@ -3147,7 +3227,7 @@ class JobEventTriggerConfigScaleRule(dict):
     @pulumi.getter(name="customRuleType")
     def custom_rule_type(self) -> _builtins.str:
         """
-        Type of the scale rule.
+        Type of the scale rule. Possible values are `activemq`, `artemis-queue`, `kafka`, `pulsar`, `aws-cloudwatch`, `aws-dynamodb`, `aws-dynamodb-streams`, `aws-kinesis-stream`, `aws-sqs-queue`, `azure-app-insights`, `azure-blob`, `azure-data-explorer`, `azure-eventhub`, `azure-log-analytics`, `azure-monitor`, `azure-pipelines`, `azure-servicebus`, `azure-queue`, `cassandra`, `cpu`, `cron`, `datadog`, `elasticsearch`, `external`, `external-push`, `gcp-stackdriver`, `gcp-storage`, `gcp-pubsub`, `graphite`, `http`, `huawei-cloudeye`, `ibmmq`, `influxdb`, `kubernetes-workload`, `liiklus`, `memory`, `metrics-api`, `mongodb`, `mssql`, `mysql`, `nats-jetstream`, `stan`, `tcp`, `new-relic`, `openstack-metric`, `openstack-swift`, `postgresql`, `predictkube`, `prometheus`, `rabbitmq`, `redis`, `redis-cluster`, `redis-sentinel`, `redis-streams`, `redis-cluster-streams`, `redis-sentinel-streams`, `selenium-grid`, `solace-event-queue` and `github-runner`.
         """
         return pulumi.get(self, "custom_rule_type")
 
@@ -3253,7 +3333,7 @@ class JobIdentity(dict):
                  principal_id: Optional[_builtins.str] = None,
                  tenant_id: Optional[_builtins.str] = None):
         """
-        :param _builtins.str type: The type of identity used for the Container App Job. Possible values are `SystemAssigned`, `UserAssigned` and `None`. Defaults to `None`.
+        :param _builtins.str type: The type of identity used for the Container App Job. Possible values are `SystemAssigned`, `UserAssigned` and `None`.
         :param Sequence[_builtins.str] identity_ids: A list of Managed Identity IDs to assign to the Container App Job.
         :param _builtins.str principal_id: The Principal ID associated with this Managed Service Identity.
         :param _builtins.str tenant_id: The Tenant ID associated with this Managed Service Identity.
@@ -3270,7 +3350,7 @@ class JobIdentity(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of identity used for the Container App Job. Possible values are `SystemAssigned`, `UserAssigned` and `None`. Defaults to `None`.
+        The type of identity used for the Container App Job. Possible values are `SystemAssigned`, `UserAssigned` and `None`.
         """
         return pulumi.get(self, "type")
 
@@ -3662,13 +3742,13 @@ class JobTemplateContainer(dict):
                  startup_probes: Optional[Sequence['outputs.JobTemplateContainerStartupProbe']] = None,
                  volume_mounts: Optional[Sequence['outputs.JobTemplateContainerVolumeMount']] = None):
         """
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        :param _builtins.float cpu: The amount of vCPU to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param _builtins.str image: The image to use to create the container.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`.
+        :param _builtins.str memory: The amount of memory to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param _builtins.str name: The name of the container.
         :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
         :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
@@ -3706,9 +3786,9 @@ class JobTemplateContainer(dict):
     @pulumi.getter
     def cpu(self) -> _builtins.float:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        The amount of vCPU to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "cpu")
 
@@ -3724,9 +3804,9 @@ class JobTemplateContainer(dict):
     @pulumi.getter
     def memory(self) -> _builtins.str:
         """
-        The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`.
+        The amount of memory to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "memory")
 
@@ -4489,16 +4569,16 @@ class JobTemplateInitContainer(dict):
         :param _builtins.str name: The name of the container.
         :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
         :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        :param _builtins.float cpu: The amount of vCPU to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param Sequence['JobTemplateInitContainerEnvArgs'] envs: One or more `env` blocks as detailed below.
         :param _builtins.str ephemeral_storage: The amount of ephemeral storage available to the Container App.
                
                > **Note:** `ephemeral_storage` is currently in preview and not configurable at this time.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`.
+        :param _builtins.str memory: The amount of memory to allocate to the container.
                
-               > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+               > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         :param Sequence['JobTemplateInitContainerVolumeMountArgs'] volume_mounts: A `volume_mounts` block as detailed below.
         """
         pulumi.set(__self__, "image", image)
@@ -4554,9 +4634,9 @@ class JobTemplateInitContainer(dict):
     @pulumi.getter
     def cpu(self) -> Optional[_builtins.float]:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        The amount of vCPU to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.0` / `2.0` or `0.5` / `1.0`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "cpu")
 
@@ -4582,9 +4662,9 @@ class JobTemplateInitContainer(dict):
     @pulumi.getter
     def memory(self) -> Optional[_builtins.str]:
         """
-        The amount of memory to allocate to the container. Possible values are `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi` and `4Gi`.
+        The amount of memory to allocate to the container.
 
-        > **Note:** `cpu` and `memory` must be specified in `0.25'/'0.5Gi` combination increments. e.g. `1.25` / `2.5Gi` or `0.75` / `1.5Gi`
+        > **Note:** When using a Consumption plan, the `cpu` and `memory` properties must add up to one of the combinations found in the Microsoft provided documentation, for more information see [vCPU and memory allocation requirements](https://learn.microsoft.com/azure/container-apps/containers#allocations)
         """
         return pulumi.get(self, "memory")
 
@@ -4746,7 +4826,7 @@ class JobTemplateVolume(dict):
         :param _builtins.str name: The name of the volume.
         :param _builtins.str mount_options: Mount options used while mounting the AzureFile. Must be a comma-separated string e.g. `dir_mode=0751,file_mode=0751`.
         :param _builtins.str storage_name: The name of the storage to use for the volume.
-        :param _builtins.str storage_type: The type of storage to use for the volume. Possible values are `AzureFile`, `EmptyDir` and `Secret`.
+        :param _builtins.str storage_type: The type of storage to use for the volume. Possible values are `AzureFile`, `EmptyDir`, `NfsAzureFile` and `Secret`. Defaults to `EmptyDir`.
         """
         pulumi.set(__self__, "name", name)
         if mount_options is not None:
@@ -4784,7 +4864,7 @@ class JobTemplateVolume(dict):
     @pulumi.getter(name="storageType")
     def storage_type(self) -> Optional[_builtins.str]:
         """
-        The type of storage to use for the volume. Possible values are `AzureFile`, `EmptyDir` and `Secret`.
+        The type of storage to use for the volume. Possible values are `AzureFile`, `EmptyDir`, `NfsAzureFile` and `Secret`. Defaults to `EmptyDir`.
         """
         return pulumi.get(self, "storage_type")
 
@@ -4798,7 +4878,7 @@ class GetAppDaprResult(dict):
         """
         :param _builtins.str app_id: The Dapr Application Identifier.
         :param _builtins.int app_port: The port which the application is listening on. This is the same as the `ingress` port.
-        :param _builtins.str app_protocol: The protocol for the app. Possible values include `http` and `grpc`. Defaults to `http`.
+        :param _builtins.str app_protocol: The protocol for the app.
         """
         pulumi.set(__self__, "app_id", app_id)
         pulumi.set(__self__, "app_port", app_port)
@@ -4824,7 +4904,7 @@ class GetAppDaprResult(dict):
     @pulumi.getter(name="appProtocol")
     def app_protocol(self) -> _builtins.str:
         """
-        The protocol for the app. Possible values include `http` and `grpc`. Defaults to `http`.
+        The protocol for the app.
         """
         return pulumi.get(self, "app_protocol")
 
@@ -4837,8 +4917,8 @@ class GetAppIdentityResult(dict):
                  tenant_id: _builtins.str,
                  type: _builtins.str):
         """
-        :param Sequence[_builtins.str] identity_ids: A list of one or more Resource IDs for User Assigned Managed identities to assign. Required when `type` is set to `UserAssigned`.
-        :param _builtins.str type: The type of managed identity to assign. Possible values are `UserAssigned` and `SystemAssigned`
+        :param Sequence[_builtins.str] identity_ids: A list of one or more Resource IDs for User Assigned Managed identities to assign.
+        :param _builtins.str type: The type of managed identity to assign.
         """
         pulumi.set(__self__, "identity_ids", identity_ids)
         pulumi.set(__self__, "principal_id", principal_id)
@@ -4849,7 +4929,7 @@ class GetAppIdentityResult(dict):
     @pulumi.getter(name="identityIds")
     def identity_ids(self) -> Sequence[_builtins.str]:
         """
-        A list of one or more Resource IDs for User Assigned Managed identities to assign. Required when `type` is set to `UserAssigned`.
+        A list of one or more Resource IDs for User Assigned Managed identities to assign.
         """
         return pulumi.get(self, "identity_ids")
 
@@ -4867,7 +4947,7 @@ class GetAppIdentityResult(dict):
     @pulumi.getter
     def type(self) -> _builtins.str:
         """
-        The type of managed identity to assign. Possible values are `UserAssigned` and `SystemAssigned`
+        The type of managed identity to assign.
         """
         return pulumi.get(self, "type")
 
@@ -4897,7 +4977,7 @@ class GetAppIngressResult(dict):
         :param Sequence['GetAppIngressIpSecurityRestrictionArgs'] ip_security_restrictions: One or more `ip_security_restriction` blocks for IP-filtering rules as defined below.
         :param _builtins.int target_port: The target port on the container for the Ingress traffic.
         :param Sequence['GetAppIngressTrafficWeightArgs'] traffic_weights: A `traffic_weight` block as detailed below.
-        :param _builtins.str transport: The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        :param _builtins.str transport: The transport method for the Ingress.
         """
         pulumi.set(__self__, "allow_insecure_connections", allow_insecure_connections)
         pulumi.set(__self__, "client_certificate_mode", client_certificate_mode)
@@ -4995,7 +5075,7 @@ class GetAppIngressResult(dict):
     @pulumi.getter
     def transport(self) -> _builtins.str:
         """
-        The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        The transport method for the Ingress.
         """
         return pulumi.get(self, "transport")
 
@@ -5080,7 +5160,7 @@ class GetAppIngressCustomDomainResult(dict):
                  certificate_id: _builtins.str,
                  name: _builtins.str):
         """
-        :param _builtins.str certificate_binding_type: The Binding type. Possible values include `Disabled` and `SniEnabled`. Defaults to `Disabled`.
+        :param _builtins.str certificate_binding_type: The Binding type.
         :param _builtins.str certificate_id: The ID of the Container App Environment Certificate.
         :param _builtins.str name: The name of the Container App.
         """
@@ -5092,7 +5172,7 @@ class GetAppIngressCustomDomainResult(dict):
     @pulumi.getter(name="certificateBindingType")
     def certificate_binding_type(self) -> _builtins.str:
         """
-        The Binding type. Possible values include `Disabled` and `SniEnabled`. Defaults to `Disabled`.
+        The Binding type.
         """
         return pulumi.get(self, "certificate_binding_type")
 
@@ -5224,9 +5304,9 @@ class GetAppRegistryResult(dict):
                  username: _builtins.str):
         """
         :param _builtins.str identity: Resource ID for the User Assigned Managed identity to use when pulling from the Container Registry.
-        :param _builtins.str password_secret_name: The name of the Secret Reference containing the password value for this user on the Container Registry, `username` must also be supplied.
+        :param _builtins.str password_secret_name: The name of the Secret Reference containing the password value for the user on the Container Registry.
         :param _builtins.str server: The hostname for the Container Registry.
-        :param _builtins.str username: The username to use for this Container Registry, `password_secret_name` must also be supplied..
+        :param _builtins.str username: The username used for this Container Registry.
         """
         pulumi.set(__self__, "identity", identity)
         pulumi.set(__self__, "password_secret_name", password_secret_name)
@@ -5245,7 +5325,7 @@ class GetAppRegistryResult(dict):
     @pulumi.getter(name="passwordSecretName")
     def password_secret_name(self) -> _builtins.str:
         """
-        The name of the Secret Reference containing the password value for this user on the Container Registry, `username` must also be supplied.
+        The name of the Secret Reference containing the password value for the user on the Container Registry.
         """
         return pulumi.get(self, "password_secret_name")
 
@@ -5261,7 +5341,7 @@ class GetAppRegistryResult(dict):
     @pulumi.getter
     def username(self) -> _builtins.str:
         """
-        The username to use for this Container Registry, `password_secret_name` must also be supplied..
+        The username used for this Container Registry.
         """
         return pulumi.get(self, "username")
 
@@ -5322,10 +5402,12 @@ class GetAppTemplateResult(dict):
     def __init__(__self__, *,
                  azure_queue_scale_rules: Sequence['outputs.GetAppTemplateAzureQueueScaleRuleResult'],
                  containers: Sequence['outputs.GetAppTemplateContainerResult'],
+                 cooldown_period_in_seconds: _builtins.int,
                  http_scale_rules: Sequence['outputs.GetAppTemplateHttpScaleRuleResult'],
                  init_containers: Sequence['outputs.GetAppTemplateInitContainerResult'],
                  max_replicas: _builtins.int,
                  min_replicas: _builtins.int,
+                 polling_interval_in_seconds: _builtins.int,
                  revision_suffix: _builtins.str,
                  tcp_scale_rules: Sequence['outputs.GetAppTemplateTcpScaleRuleResult'],
                  termination_grace_period_seconds: _builtins.int,
@@ -5333,19 +5415,23 @@ class GetAppTemplateResult(dict):
                  custom_scale_rules: Optional[Sequence['outputs.GetAppTemplateCustomScaleRuleResult']] = None):
         """
         :param Sequence['GetAppTemplateContainerArgs'] containers: One or more `container` blocks as detailed below.
+        :param _builtins.int cooldown_period_in_seconds: The number of seconds to wait before scaling down the number of instances again.
         :param Sequence['GetAppTemplateInitContainerArgs'] init_containers: One or more `init_container` blocks as detailed below.
         :param _builtins.int max_replicas: The maximum number of replicas for this container.
         :param _builtins.int min_replicas: The minimum number of replicas for this container.
+        :param _builtins.int polling_interval_in_seconds: The interval in seconds used for polling KEDA.
         :param _builtins.str revision_suffix: The suffix string to which this `traffic_weight` applies.
         :param _builtins.int termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed.
         :param Sequence['GetAppTemplateVolumeArgs'] volumes: A `volume` block as detailed below.
         """
         pulumi.set(__self__, "azure_queue_scale_rules", azure_queue_scale_rules)
         pulumi.set(__self__, "containers", containers)
+        pulumi.set(__self__, "cooldown_period_in_seconds", cooldown_period_in_seconds)
         pulumi.set(__self__, "http_scale_rules", http_scale_rules)
         pulumi.set(__self__, "init_containers", init_containers)
         pulumi.set(__self__, "max_replicas", max_replicas)
         pulumi.set(__self__, "min_replicas", min_replicas)
+        pulumi.set(__self__, "polling_interval_in_seconds", polling_interval_in_seconds)
         pulumi.set(__self__, "revision_suffix", revision_suffix)
         pulumi.set(__self__, "tcp_scale_rules", tcp_scale_rules)
         pulumi.set(__self__, "termination_grace_period_seconds", termination_grace_period_seconds)
@@ -5365,6 +5451,14 @@ class GetAppTemplateResult(dict):
         One or more `container` blocks as detailed below.
         """
         return pulumi.get(self, "containers")
+
+    @_builtins.property
+    @pulumi.getter(name="cooldownPeriodInSeconds")
+    def cooldown_period_in_seconds(self) -> _builtins.int:
+        """
+        The number of seconds to wait before scaling down the number of instances again.
+        """
+        return pulumi.get(self, "cooldown_period_in_seconds")
 
     @_builtins.property
     @pulumi.getter(name="httpScaleRules")
@@ -5394,6 +5488,14 @@ class GetAppTemplateResult(dict):
         The minimum number of replicas for this container.
         """
         return pulumi.get(self, "min_replicas")
+
+    @_builtins.property
+    @pulumi.getter(name="pollingIntervalInSeconds")
+    def polling_interval_in_seconds(self) -> _builtins.int:
+        """
+        The interval in seconds used for polling KEDA.
+        """
+        return pulumi.get(self, "polling_interval_in_seconds")
 
     @_builtins.property
     @pulumi.getter(name="revisionSuffix")
@@ -5510,14 +5612,14 @@ class GetAppTemplateContainerResult(dict):
                  startup_probes: Sequence['outputs.GetAppTemplateContainerStartupProbeResult'],
                  volume_mounts: Sequence['outputs.GetAppTemplateContainerVolumeMountResult']):
         """
-        :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
-        :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        :param Sequence[_builtins.str] args: A list of extra arguments passed to the container.
+        :param Sequence[_builtins.str] commands: A command passed to the container to override the default. This is provided as a list of command line elements without spaces.
+        :param _builtins.float cpu: The amount of vCPU allocated to the container.
         :param Sequence['GetAppTemplateContainerEnvArgs'] envs: One or more `env` blocks as detailed below.
         :param _builtins.str ephemeral_storage: The amount of ephemeral storage available to the Container App.
         :param _builtins.str image: The image to use to create the container.
         :param Sequence['GetAppTemplateContainerLivenessProbeArgs'] liveness_probes: A `liveness_probe` block as detailed below.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values include `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi`, and `4Gi`.
+        :param _builtins.str memory: The amount of memory allocated to the container.
         :param _builtins.str name: The name of the Container App.
         :param Sequence['GetAppTemplateContainerReadinessProbeArgs'] readiness_probes: A `readiness_probe` block as detailed below.
         :param Sequence['GetAppTemplateContainerStartupProbeArgs'] startup_probes: A `startup_probe` block as detailed below.
@@ -5540,7 +5642,7 @@ class GetAppTemplateContainerResult(dict):
     @pulumi.getter
     def args(self) -> Sequence[_builtins.str]:
         """
-        A list of extra arguments to pass to the container.
+        A list of extra arguments passed to the container.
         """
         return pulumi.get(self, "args")
 
@@ -5548,7 +5650,7 @@ class GetAppTemplateContainerResult(dict):
     @pulumi.getter
     def commands(self) -> Sequence[_builtins.str]:
         """
-        A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
+        A command passed to the container to override the default. This is provided as a list of command line elements without spaces.
         """
         return pulumi.get(self, "commands")
 
@@ -5556,7 +5658,7 @@ class GetAppTemplateContainerResult(dict):
     @pulumi.getter
     def cpu(self) -> _builtins.float:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        The amount of vCPU allocated to the container.
         """
         return pulumi.get(self, "cpu")
 
@@ -5596,7 +5698,7 @@ class GetAppTemplateContainerResult(dict):
     @pulumi.getter
     def memory(self) -> _builtins.str:
         """
-        The amount of memory to allocate to the container. Possible values include `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi`, and `4Gi`.
+        The amount of memory allocated to the container.
         """
         return pulumi.get(self, "memory")
 
@@ -5687,16 +5789,16 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
                  timeout: _builtins.int,
                  transport: _builtins.str):
         """
-        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed.
         :param Sequence['GetAppTemplateContainerLivenessProbeHeaderArgs'] headers: A `header` block as detailed below.
-        :param _builtins.str host: The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
-        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
-        :param _builtins.int interval_seconds: How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        :param _builtins.str host: The value for the host header which should be sent with this probe.
+        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated.
+        :param _builtins.int interval_seconds: How often, in seconds, the probe should run.
         :param _builtins.str path: The path in the container at which to mount this volume.
-        :param _builtins.int port: The port number on which to connect. Possible values are between `1` and `65535`.
+        :param _builtins.int port: The port number on which to connect.
         :param _builtins.int termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed.
-        :param _builtins.int timeout: Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
-        :param _builtins.str transport: The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        :param _builtins.int timeout: Time in seconds after which the probe times out.
+        :param _builtins.str transport: The transport method for the Ingress.
         """
         pulumi.set(__self__, "failure_count_threshold", failure_count_threshold)
         pulumi.set(__self__, "headers", headers)
@@ -5713,7 +5815,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter(name="failureCountThreshold")
     def failure_count_threshold(self) -> _builtins.int:
         """
-        The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        The number of consecutive failures required to consider this probe as failed.
         """
         return pulumi.get(self, "failure_count_threshold")
 
@@ -5729,7 +5831,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter
     def host(self) -> _builtins.str:
         """
-        The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
+        The value for the host header which should be sent with this probe.
         """
         return pulumi.get(self, "host")
 
@@ -5737,7 +5839,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter(name="initialDelay")
     def initial_delay(self) -> _builtins.int:
         """
-        The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
+        The number of seconds elapsed after the container has started before the probe is initiated.
         """
         return pulumi.get(self, "initial_delay")
 
@@ -5745,7 +5847,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter(name="intervalSeconds")
     def interval_seconds(self) -> _builtins.int:
         """
-        How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        How often, in seconds, the probe should run.
         """
         return pulumi.get(self, "interval_seconds")
 
@@ -5761,7 +5863,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter
     def port(self) -> _builtins.int:
         """
-        The port number on which to connect. Possible values are between `1` and `65535`.
+        The port number on which to connect.
         """
         return pulumi.get(self, "port")
 
@@ -5777,7 +5879,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter
     def timeout(self) -> _builtins.int:
         """
-        Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
+        Time in seconds after which the probe times out.
         """
         return pulumi.get(self, "timeout")
 
@@ -5785,7 +5887,7 @@ class GetAppTemplateContainerLivenessProbeResult(dict):
     @pulumi.getter
     def transport(self) -> _builtins.str:
         """
-        The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        The transport method for the Ingress.
         """
         return pulumi.get(self, "transport")
 
@@ -5833,16 +5935,16 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
                  timeout: _builtins.int,
                  transport: _builtins.str):
         """
-        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed.
         :param Sequence['GetAppTemplateContainerReadinessProbeHeaderArgs'] headers: A `header` block as detailed below.
-        :param _builtins.str host: The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
-        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
-        :param _builtins.int interval_seconds: How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        :param _builtins.str host: The value for the host header which should be sent with this probe.
+        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated.
+        :param _builtins.int interval_seconds: How often, in seconds, the probe should run.
         :param _builtins.str path: The path in the container at which to mount this volume.
-        :param _builtins.int port: The port number on which to connect. Possible values are between `1` and `65535`.
-        :param _builtins.int success_count_threshold: The number of consecutive successful responses required to consider this probe as successful. Possible values are between `1` and `10`. Defaults to `3`.
-        :param _builtins.int timeout: Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
-        :param _builtins.str transport: The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        :param _builtins.int port: The port number on which to connect.
+        :param _builtins.int success_count_threshold: The number of consecutive successful responses required to consider this probe as successful.
+        :param _builtins.int timeout: Time in seconds after which the probe times out.
+        :param _builtins.str transport: The transport method for the Ingress.
         """
         pulumi.set(__self__, "failure_count_threshold", failure_count_threshold)
         pulumi.set(__self__, "headers", headers)
@@ -5859,7 +5961,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter(name="failureCountThreshold")
     def failure_count_threshold(self) -> _builtins.int:
         """
-        The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        The number of consecutive failures required to consider this probe as failed.
         """
         return pulumi.get(self, "failure_count_threshold")
 
@@ -5875,7 +5977,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter
     def host(self) -> _builtins.str:
         """
-        The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
+        The value for the host header which should be sent with this probe.
         """
         return pulumi.get(self, "host")
 
@@ -5883,7 +5985,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter(name="initialDelay")
     def initial_delay(self) -> _builtins.int:
         """
-        The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
+        The number of seconds elapsed after the container has started before the probe is initiated.
         """
         return pulumi.get(self, "initial_delay")
 
@@ -5891,7 +5993,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter(name="intervalSeconds")
     def interval_seconds(self) -> _builtins.int:
         """
-        How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        How often, in seconds, the probe should run.
         """
         return pulumi.get(self, "interval_seconds")
 
@@ -5907,7 +6009,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter
     def port(self) -> _builtins.int:
         """
-        The port number on which to connect. Possible values are between `1` and `65535`.
+        The port number on which to connect.
         """
         return pulumi.get(self, "port")
 
@@ -5915,7 +6017,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter(name="successCountThreshold")
     def success_count_threshold(self) -> _builtins.int:
         """
-        The number of consecutive successful responses required to consider this probe as successful. Possible values are between `1` and `10`. Defaults to `3`.
+        The number of consecutive successful responses required to consider this probe as successful.
         """
         return pulumi.get(self, "success_count_threshold")
 
@@ -5923,7 +6025,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter
     def timeout(self) -> _builtins.int:
         """
-        Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
+        Time in seconds after which the probe times out.
         """
         return pulumi.get(self, "timeout")
 
@@ -5931,7 +6033,7 @@ class GetAppTemplateContainerReadinessProbeResult(dict):
     @pulumi.getter
     def transport(self) -> _builtins.str:
         """
-        The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        The transport method for the Ingress.
         """
         return pulumi.get(self, "transport")
 
@@ -5979,16 +6081,16 @@ class GetAppTemplateContainerStartupProbeResult(dict):
                  timeout: _builtins.int,
                  transport: _builtins.str):
         """
-        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        :param _builtins.int failure_count_threshold: The number of consecutive failures required to consider this probe as failed.
         :param Sequence['GetAppTemplateContainerStartupProbeHeaderArgs'] headers: A `header` block as detailed below.
-        :param _builtins.str host: The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
-        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
-        :param _builtins.int interval_seconds: How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        :param _builtins.str host: The value for the host header which should be sent with this probe.
+        :param _builtins.int initial_delay: The number of seconds elapsed after the container has started before the probe is initiated.
+        :param _builtins.int interval_seconds: How often, in seconds, the probe should run.
         :param _builtins.str path: The path in the container at which to mount this volume.
-        :param _builtins.int port: The port number on which to connect. Possible values are between `1` and `65535`.
+        :param _builtins.int port: The port number on which to connect.
         :param _builtins.int termination_grace_period_seconds: The time in seconds after the container is sent the termination signal before the process if forcibly killed.
-        :param _builtins.int timeout: Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
-        :param _builtins.str transport: The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        :param _builtins.int timeout: Time in seconds after which the probe times out.
+        :param _builtins.str transport: The transport method for the Ingress.
         """
         pulumi.set(__self__, "failure_count_threshold", failure_count_threshold)
         pulumi.set(__self__, "headers", headers)
@@ -6005,7 +6107,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter(name="failureCountThreshold")
     def failure_count_threshold(self) -> _builtins.int:
         """
-        The number of consecutive failures required to consider this probe as failed. Possible values are between `1` and `30`. Defaults to `3`.
+        The number of consecutive failures required to consider this probe as failed.
         """
         return pulumi.get(self, "failure_count_threshold")
 
@@ -6021,7 +6123,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter
     def host(self) -> _builtins.str:
         """
-        The value for the host header which should be sent with this probe. If unspecified, the IP Address of the Pod is used as the host header. Setting a value for `Host` in `headers` can be used to override this for `HTTP` and `HTTPS` type probes.
+        The value for the host header which should be sent with this probe.
         """
         return pulumi.get(self, "host")
 
@@ -6029,7 +6131,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter(name="initialDelay")
     def initial_delay(self) -> _builtins.int:
         """
-        The number of seconds elapsed after the container has started before the probe is initiated. Possible values are between `0` and `60`. Defaults to `0` seconds.
+        The number of seconds elapsed after the container has started before the probe is initiated.
         """
         return pulumi.get(self, "initial_delay")
 
@@ -6037,7 +6139,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter(name="intervalSeconds")
     def interval_seconds(self) -> _builtins.int:
         """
-        How often, in seconds, the probe should run. Possible values are between `1` and `240`. Defaults to `10`
+        How often, in seconds, the probe should run.
         """
         return pulumi.get(self, "interval_seconds")
 
@@ -6053,7 +6155,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter
     def port(self) -> _builtins.int:
         """
-        The port number on which to connect. Possible values are between `1` and `65535`.
+        The port number on which to connect.
         """
         return pulumi.get(self, "port")
 
@@ -6069,7 +6171,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter
     def timeout(self) -> _builtins.int:
         """
-        Time in seconds after which the probe times out. Possible values are in the range `1` - `240`. Defaults to `1`.
+        Time in seconds after which the probe times out.
         """
         return pulumi.get(self, "timeout")
 
@@ -6077,7 +6179,7 @@ class GetAppTemplateContainerStartupProbeResult(dict):
     @pulumi.getter
     def transport(self) -> _builtins.str:
         """
-        The transport method for the Ingress. Possible values include `auto`, `http`, and `http2`. Defaults to `auto`
+        The transport method for the Ingress.
         """
         return pulumi.get(self, "transport")
 
@@ -6285,13 +6387,13 @@ class GetAppTemplateInitContainerResult(dict):
                  name: _builtins.str,
                  volume_mounts: Sequence['outputs.GetAppTemplateInitContainerVolumeMountResult']):
         """
-        :param Sequence[_builtins.str] args: A list of extra arguments to pass to the container.
-        :param Sequence[_builtins.str] commands: A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
-        :param _builtins.float cpu: The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        :param Sequence[_builtins.str] args: A list of extra arguments passed to the container.
+        :param Sequence[_builtins.str] commands: A command passed to the container to override the default. This is provided as a list of command line elements without spaces.
+        :param _builtins.float cpu: The amount of vCPU allocated to the container.
         :param Sequence['GetAppTemplateInitContainerEnvArgs'] envs: One or more `env` blocks as detailed below.
         :param _builtins.str ephemeral_storage: The amount of ephemeral storage available to the Container App.
         :param _builtins.str image: The image to use to create the container.
-        :param _builtins.str memory: The amount of memory to allocate to the container. Possible values include `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi`, and `4Gi`.
+        :param _builtins.str memory: The amount of memory allocated to the container.
         :param _builtins.str name: The name of the Container App.
         :param Sequence['GetAppTemplateInitContainerVolumeMountArgs'] volume_mounts: A `volume_mounts` block as detailed below.
         """
@@ -6309,7 +6411,7 @@ class GetAppTemplateInitContainerResult(dict):
     @pulumi.getter
     def args(self) -> Sequence[_builtins.str]:
         """
-        A list of extra arguments to pass to the container.
+        A list of extra arguments passed to the container.
         """
         return pulumi.get(self, "args")
 
@@ -6317,7 +6419,7 @@ class GetAppTemplateInitContainerResult(dict):
     @pulumi.getter
     def commands(self) -> Sequence[_builtins.str]:
         """
-        A command to pass to the container to override the default. This is provided as a list of command line elements without spaces.
+        A command passed to the container to override the default. This is provided as a list of command line elements without spaces.
         """
         return pulumi.get(self, "commands")
 
@@ -6325,7 +6427,7 @@ class GetAppTemplateInitContainerResult(dict):
     @pulumi.getter
     def cpu(self) -> _builtins.float:
         """
-        The amount of vCPU to allocate to the container. Possible values include `0.25`, `0.5`, `0.75`, `1.0`, `1.25`, `1.5`, `1.75`, and `2.0`.
+        The amount of vCPU allocated to the container.
         """
         return pulumi.get(self, "cpu")
 
@@ -6357,7 +6459,7 @@ class GetAppTemplateInitContainerResult(dict):
     @pulumi.getter
     def memory(self) -> _builtins.str:
         """
-        The amount of memory to allocate to the container. Possible values include `0.5Gi`, `1Gi`, `1.5Gi`, `2Gi`, `2.5Gi`, `3Gi`, `3.5Gi`, and `4Gi`.
+        The amount of memory allocated to the container.
         """
         return pulumi.get(self, "memory")
 
@@ -6526,7 +6628,7 @@ class GetAppTemplateVolumeResult(dict):
         :param _builtins.str mount_options: Mount options used while mounting the AzureFile.
         :param _builtins.str name: The name of the Container App.
         :param _builtins.str storage_name: The name of the `AzureFile` storage.
-        :param _builtins.str storage_type: The type of storage volume. Possible values include `AzureFile` and `EmptyDir`. Defaults to `EmptyDir`.
+        :param _builtins.str storage_type: The type of storage volume.
         """
         pulumi.set(__self__, "mount_options", mount_options)
         pulumi.set(__self__, "name", name)
@@ -6561,7 +6663,7 @@ class GetAppTemplateVolumeResult(dict):
     @pulumi.getter(name="storageType")
     def storage_type(self) -> _builtins.str:
         """
-        The type of storage volume. Possible values include `AzureFile` and `EmptyDir`. Defaults to `EmptyDir`.
+        The type of storage volume.
         """
         return pulumi.get(self, "storage_type")
 

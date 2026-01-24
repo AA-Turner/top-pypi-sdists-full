@@ -32,6 +32,7 @@ def test_serialize_workflow():
                 "required": True,
                 "default": None,
                 "extensions": {"color": None},
+                "schema": {"type": "string"},
             },
             {
                 "id": "545ff95e-e86f-4d06-a991-602781e72605",
@@ -40,6 +41,7 @@ def test_serialize_workflow():
                 "required": True,
                 "default": None,
                 "extensions": {"color": None},
+                "schema": {"type": "string"},
             },
         ],
         input_variables,
@@ -53,28 +55,19 @@ def test_serialize_workflow():
 
     # AND its raw data is what we expect
     workflow_raw_data = serialized_workflow["workflow_raw_data"]
-    assert len(workflow_raw_data["nodes"]) == 3
-    assert len(workflow_raw_data["edges"]) == 2
 
     # AND each node should be serialized correctly
-    entrypoint_node = workflow_raw_data["nodes"][0]
-    assert entrypoint_node == {
-        "id": "54c5c7d0-ab86-4ae9-b0b8-ea9ca7b87c14",
-        "type": "ENTRYPOINT",
-        "base": None,
-        "definition": None,
-        "inputs": [],
-        "data": {"label": "Entrypoint Node", "source_handle_id": "41840690-8d85-486e-a864-b0661ccf0f2e"},
-        "display_data": {"position": {"x": 0.0, "y": -50.0}},
-    }
-
-    guardrail_node = workflow_raw_data["nodes"][1]
+    guardrail_node = next(
+        node
+        for node in workflow_raw_data["nodes"]
+        if node["type"] == "METRIC" and node["data"]["label"] == "Example Guardrail Node"
+    )
     assert guardrail_node == {
-        "id": "5573f078-cced-48f3-bafd-782d48e260c7",
+        "id": "7fef2bbc-cdfc-4f66-80eb-2a52ee52da5f",
         "type": "METRIC",
         "inputs": [
             {
-                "id": "e5e9757e-27db-4200-a650-2f7bb2cd61f5",
+                "id": "dad627f3-d46d-4f12-b3d0-4aa25a5f24b5",
                 "key": "expected",
                 "value": {
                     "rules": [
@@ -87,7 +80,7 @@ def test_serialize_workflow():
                 },
             },
             {
-                "id": "f5cd9336-e8e9-429e-b7bc-785402e31bfb",
+                "id": "42aef2a5-5dcf-41ea-8da4-1eee1f8baf84",
                 "key": "actual",
                 "value": {
                     "rules": [
@@ -102,13 +95,13 @@ def test_serialize_workflow():
         ],
         "data": {
             "label": "Example Guardrail Node",
-            "source_handle_id": "0ed87407-697e-4ae9-ab9b-6c5cc2e57cf7",
-            "target_handle_id": "ce5b85b1-eded-46dd-b4b7-020afcdc67ab",
+            "source_handle_id": "baa8baa7-8849-4b96-a90d-c0545a60d3a8",
+            "target_handle_id": "53c299c7-1df2-4d54-bb0d-559a4947c16d",
             "error_output_id": None,
             "metric_definition_id": "example_metric_definition",
             "release_tag": "LATEST",
         },
-        "display_data": {"position": {"x": 200.0, "y": -50.0}},
+        "display_data": {"position": {"x": 0.0, "y": 0.0}},
         "base": {
             "module": ["vellum", "workflows", "nodes", "displayable", "guardrail_node", "node"],
             "name": "GuardrailNode",
@@ -118,77 +111,11 @@ def test_serialize_workflow():
             "name": "ExampleGuardrailNode",
         },
         "trigger": {
-            "id": "ce5b85b1-eded-46dd-b4b7-020afcdc67ab",
+            "id": "53c299c7-1df2-4d54-bb0d-559a4947c16d",
             "merge_behavior": "AWAIT_ANY",
         },
-        "ports": [{"id": "0ed87407-697e-4ae9-ab9b-6c5cc2e57cf7", "name": "default", "type": "DEFAULT"}],
+        "ports": [{"id": "baa8baa7-8849-4b96-a90d-c0545a60d3a8", "name": "default", "type": "DEFAULT"}],
     }
-
-    final_output_node = workflow_raw_data["nodes"][2]
-    assert final_output_node == {
-        "id": "cbc7197e-67c9-4af5-b781-879c8fd3e4c9",
-        "type": "TERMINAL",
-        "base": {
-            "module": [
-                "vellum",
-                "workflows",
-                "nodes",
-                "displayable",
-                "final_output_node",
-                "node",
-            ],
-            "name": "FinalOutputNode",
-        },
-        "definition": None,
-        "data": {
-            "label": "Final Output",
-            "name": "score",
-            "target_handle_id": "001b97f6-2bc8-4d1e-9572-028dcf17df4e",
-            "output_id": "2abd2b3b-c301-4834-a43f-5db3604f8422",
-            "output_type": "NUMBER",
-            "node_input_id": "6321442a-0d0d-4e25-965d-c24ff24712c5",
-        },
-        "inputs": [
-            {
-                "id": "6321442a-0d0d-4e25-965d-c24ff24712c5",
-                "key": "node_input",
-                "value": {
-                    "rules": [
-                        {
-                            "type": "NODE_OUTPUT",
-                            "data": {
-                                "node_id": "5573f078-cced-48f3-bafd-782d48e260c7",
-                                "output_id": "0cce9413-687e-43e9-af04-a488334688fa",
-                            },
-                        }
-                    ],
-                    "combinator": "OR",
-                },
-            }
-        ],
-        "display_data": {"position": {"x": 400.0, "y": -50.0}},
-    }
-
-    # AND each edge should be serialized correctly
-    serialized_edges = workflow_raw_data["edges"]
-    assert serialized_edges == [
-        {
-            "id": "7bab1cc9-eedd-4e76-8bc1-0437b842c3bd",
-            "source_node_id": "54c5c7d0-ab86-4ae9-b0b8-ea9ca7b87c14",
-            "source_handle_id": "41840690-8d85-486e-a864-b0661ccf0f2e",
-            "target_node_id": "5573f078-cced-48f3-bafd-782d48e260c7",
-            "target_handle_id": "ce5b85b1-eded-46dd-b4b7-020afcdc67ab",
-            "type": "DEFAULT",
-        },
-        {
-            "id": "5c456a17-a92b-4dad-9569-306043707c9f",
-            "source_node_id": "5573f078-cced-48f3-bafd-782d48e260c7",
-            "source_handle_id": "0ed87407-697e-4ae9-ab9b-6c5cc2e57cf7",
-            "target_node_id": "cbc7197e-67c9-4af5-b781-879c8fd3e4c9",
-            "target_handle_id": "001b97f6-2bc8-4d1e-9572-028dcf17df4e",
-            "type": "DEFAULT",
-        },
-    ]
 
     # AND the display data is what we expect
     display_data = workflow_raw_data["display_data"]

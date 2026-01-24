@@ -55,22 +55,30 @@ Demister Geometry
 .. autofunction:: fluids.packed_tower.voidage_experimental
 .. autofunction:: fluids.packed_tower.specific_area_mesh
 """
+from __future__ import annotations
 
 from math import log, sqrt
 
 from fluids.constants import g, pi
 from fluids.numerics import newton_system, secant, solve_2_direct
 
-__all__ = ['voidage_experimental', 'specific_area_mesh',
-'Stichlmair_dry', 'Stichlmair_wet', 'Stichlmair_flood', 'Robbins',
-'dP_demister_dry_Setekleiv_Svendsen_lit',
-'dP_demister_dry_Setekleiv_Svendsen',
-'dP_demister_wet_ElDessouky', 'separation_demister_ElDessouky']
+__all__: list[str] = [
+    "Robbins",
+    "Stichlmair_dry",
+    "Stichlmair_flood",
+    "Stichlmair_wet",
+    "dP_demister_dry_Setekleiv_Svendsen",
+    "dP_demister_dry_Setekleiv_Svendsen_lit",
+    "dP_demister_wet_ElDessouky",
+    "separation_demister_ElDessouky",
+    "specific_area_mesh",
+    "voidage_experimental",
+]
 
 ### Demister
 
-def dP_demister_dry_Setekleiv_Svendsen(S, voidage, vs, rho, mu, L=1.0):
-    r'''Calculates dry pressure drop across a demister, using the
+def dP_demister_dry_Setekleiv_Svendsen(S: float, voidage: float, vs: float, rho: float, mu: float, L: float=1.0) -> float:
+    r"""Calculates dry pressure drop across a demister, using the
     correlation in [1]_. This model is for dry demisters with no holdup only.
 
     .. math::
@@ -115,14 +123,14 @@ def dP_demister_dry_Setekleiv_Svendsen(S, voidage, vs, rho, mu, L=1.0):
        Spiral Wound Wire Mesh Pads at Low and Elevated Pressures." Chemical
        Engineering Research and Design 109 (May 2016): 141-149.
        doi:10.1016/j.cherd.2016.01.019.
-    '''
+    """
     term = 10.29 - 565./(69.6*S*L - (S*L)**2 - 779) - 74.9/(160.9 - 4.85*S*L)
     right = term + 45.33*(mu*voidage*S**2*L/rho/vs)**0.75
     return right*rho*vs**2/voidage**2
 
 
-def dP_demister_dry_Setekleiv_Svendsen_lit(S, voidage, vs, rho, mu, L=1.0):
-    r'''Calculates dry pressure drop across a demister, using the
+def dP_demister_dry_Setekleiv_Svendsen_lit(S: float, voidage: float, vs: float, rho: float, mu: float, L: float=1.0) -> float:
+    r"""Calculates dry pressure drop across a demister, using the
     correlation in [1]_. This model is for dry demisters with no holdup only.
     Developed with literature data included as well as their own experimental
     data.
@@ -169,14 +177,14 @@ def dP_demister_dry_Setekleiv_Svendsen_lit(S, voidage, vs, rho, mu, L=1.0):
        Spiral Wound Wire Mesh Pads at Low and Elevated Pressures." Chemical
        Engineering Research and Design 109 (May 2016): 141-149.
        doi:10.1016/j.cherd.2016.01.019.
-    '''
+    """
     term = 7.3 - 320./(69.6*S*L - (S*L)**2 - 779) - 52.4/(161 - 4.85*S*L)
     right = term + 27.2*(mu*voidage*S**2*L/rho/vs)**0.75
     return right*rho*vs**2/voidage**2
 
 
-def dP_demister_wet_ElDessouky(vs, voidage, d_wire, L=1.0):
-    r'''Calculates wet pressure drop across a demister, using the
+def dP_demister_wet_ElDessouky(vs: float, voidage: float, d_wire: float, L: float=1.0) -> float:
+    r"""Calculates wet pressure drop across a demister, using the
     correlation in [1]_. Uses only their own experimental data.
 
     .. math::
@@ -190,14 +198,14 @@ def dP_demister_wet_ElDessouky(vs, voidage, d_wire, L=1.0):
     voidage : float
         Voidage of bed of the demister material, normally ~0.98 []
     d_wire : float
-        Diameter of mesh wire,[m]
+        Diameter of mesh wire, [m]
     L : float, optional
         Length of the demister [m]
 
     Returns
     -------
     dP : float
-        Pressure drop across a dry demister [Pa]
+        Pressure drop across a wet demister [Pa]
 
     Notes
     -----
@@ -234,12 +242,12 @@ def dP_demister_wet_ElDessouky(vs, voidage, d_wire, L=1.0):
        S Al-Deffeeri. "Performance of Wire Mesh Mist Eliminator." Chemical
        Engineering and Processing: Process Intensification 39, no. 2 (March
        2000): 129-39. doi:10.1016/S0255-2701(99)00033-1.
-    '''
+    """
     return L*0.002356999643727531*(1-voidage)**0.375798*vs**0.81317*d_wire**-1.56114147
 
 
-def separation_demister_ElDessouky(vs, voidage, d_wire, d_drop):
-    r'''Calculates droplet removal by a demister as a fraction from 0 to 1,
+def separation_demister_ElDessouky(vs: float, voidage: float, d_wire: float, d_drop: float) -> float:
+    r"""Calculates droplet removal by a demister as a fraction from 0 to 1,
     using the correlation in [1]_. Uses only their own experimental data.
 
     .. math::
@@ -253,7 +261,7 @@ def separation_demister_ElDessouky(vs, voidage, d_wire, d_drop):
     voidage : float
         Voidage of bed of the demister material, normally ~0.98 []
     d_wire : float
-        Diameter of mesh wire,[m]
+        Diameter of mesh wire, [m]
     d_drop : float
         Drop diameter, [m]
 
@@ -297,13 +305,13 @@ def separation_demister_ElDessouky(vs, voidage, d_wire, d_drop):
        S Al-Deffeeri. "Performance of Wire Mesh Mist Eliminator." Chemical
        Engineering and Processing: Process Intensification 39, no. 2 (March
        2000): 129-39. doi:10.1016/S0255-2701(99)00033-1.
-    '''
+    """
     eta = 0.858352355761947*d_wire**-0.28264*(1-voidage)**0.099625*vs**0.106878*d_drop**0.383197
     return min(eta, 1.0)
 
 
-def voidage_experimental(m, rho, D, H):
-    r'''Calculates voidage of a bed or mesh given an experimental weight and
+def voidage_experimental(m: float, rho: float, D: float, H: float) -> float:
+    r"""Calculates voidage of a bed or mesh given an experimental weight and
     fixed density, diameter, and height, as shown in [1]_. The formula is also
     self-evident.
 
@@ -314,7 +322,7 @@ def voidage_experimental(m, rho, D, H):
     Parameters
     ----------
     m : float
-        Mass of mesh or bed particles weighted, [kg]
+        Mass of mesh or bed particles weighed, [kg]
     rho : float
         Density of solid particles or mesh [kg/m^3]
     D : float
@@ -342,12 +350,12 @@ def voidage_experimental(m, rho, D, H):
        Pressure Drop in Dry Demisters at Low and Elevated Pressures." Chemical
        Engineering Research and Design 85, no. 3 (2007): 377-85.
        doi:10.1205/cherd06048.
-    '''
+    """
     return 1 - m/(pi/4*D**2*H)/rho
 
 
-def specific_area_mesh(voidage, d):
-    r'''Calculates the specific area of a wire mesh, as used in demisters or
+def specific_area_mesh(voidage: float, d: float) -> float:
+    r"""Calculates the specific area of a wire mesh, as used in demisters or
     filters. Shown in [1]_, and also self-evident and non-empirical.
     Makes the ideal assumption that wires never touch.
 
@@ -383,14 +391,14 @@ def specific_area_mesh(voidage, d):
        Pressure Drop in Dry Demisters at Low and Elevated Pressures." Chemical
        Engineering Research and Design 85, no. 3 (2007): 377-85.
        doi:10.1205/cherd06048.
-    '''
+    """
     return 4*(1-voidage)/d
 
 ### Packing
 
 
-def Stichlmair_dry(Vg, rhog, mug, voidage, specific_area, C1, C2, C3, H=1.):
-    r'''Calculates dry pressure drop across a packed column, using the
+def Stichlmair_dry(Vg: float, rhog: float, mug: float, voidage: float, specific_area: float, C1: float, C2: float, C3: float, H: float=1.) -> float:
+    r"""Calculates dry pressure drop across a packed column, using the
     Stichlmair [1]_ correlation. Uses three regressed constants for each
     type of packing, and voidage and specific area.
 
@@ -435,7 +443,7 @@ def Stichlmair_dry(Vg, rhog, mug, voidage, specific_area, C1, C2, C3, H=1.):
     Notes
     -----
     This model is used by most process simulation tools. If H is not provided,
-    it defaults to 1. If Z is not provided, it defaults to 1.
+    it defaults to 1.
 
     Examples
     --------
@@ -449,20 +457,20 @@ def Stichlmair_dry(Vg, rhog, mug, voidage, specific_area, C1, C2, C3, H=1.):
        Prediction of Pressure Drop and Capacity of Countercurrent Gas/liquid
        Packed Columns." Gas Separation & Purification 3, no. 1 (March 1989):
        19-28. doi:10.1016/0950-4214(89)80016-7.
-    '''
+    """
     dp = 6*(1-voidage)/specific_area
     Re = Vg*rhog*dp/mug
     f0 = C1/Re + C2/sqrt(Re) + C3
     return 3/4.*f0*(1-voidage)/voidage**4.65*rhog*H/dp*Vg**2
 
 
-def _Stichlmair_wet_err(dP_irr, h0, c1, dP_dry, H, voidage, c):
+def _Stichlmair_wet_err(dP_irr: float, h0: float, c1: float, dP_dry: float, H: float, voidage: float, c: float) -> float:
     hT = h0*(1.0 + 20.0*dP_irr*dP_irr*c1)
     err = dP_dry/H*((1-voidage+hT)/(1.0 - voidage))**((2.0 + c)/3.)*(voidage/(voidage-hT))**4.65 -dP_irr/H
     return err
 
-def Stichlmair_wet(Vg, Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3, H=1.0):
-    r'''Calculates dry pressure drop across a packed column, using the
+def Stichlmair_wet(Vg: float, Vl: float, rhog: float, rhol: float, mug: float, voidage: float, specific_area: float, C1: float, C2: float, C3: float, H: float=1.0) -> float:
+    r"""Calculates wet pressure drop across a packed column, using the
     Stichlmair [1]_ correlation. Uses three regressed constants for each
     type of packing, and voidage and specific area. This model is for irrigated
     columns only.
@@ -475,7 +483,7 @@ def Stichlmair_wet(Vg, Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3, 
         \left(\frac{\epsilon}{\epsilon-h_T}\right)^{4.65}
 
     .. math::
-        h_T = h_0\left[1 + 20\left(\frac{\Delta Pirr}{H\rho_L g}\right)^2\right]
+        h_T = h_0\left[1 + 20\left(\frac{\Delta P_{irr}}{H\rho_L g}\right)^2\right]
 
     .. math::
         Fr_L = \frac{V_L^2 a}{g \epsilon^{4.65}}
@@ -529,7 +537,7 @@ def Stichlmair_wet(Vg, Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3, 
     Notes
     -----
     This model is used by most process simulation tools. If H is not provided,
-    it defaults to 1. If Z is not provided, it defaults to 1.
+    it defaults to 1.
     A numerical solver is used and needed by this model. Its initial guess
     is the dry pressure drop. Convergence problems may occur.
     The model as described in [1]_ appears to have a typo, and could not match
@@ -553,7 +561,7 @@ def Stichlmair_wet(Vg, Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3, 
        "Improving the Prediction of Irrigated Pressure Drop in Packed
        Absorption Towers." The Canadian Journal of Chemical Engineering 79,
        no. 4 (August 1, 2001): 584-94. doi:10.1002/cjce.5450790417.
-    '''
+    """
     dp = 6.0*(1.0 - voidage)/specific_area
     Re = Vg*rhog*dp/mug
     f0 = C1/Re + C2/sqrt(Re) + C3
@@ -567,28 +575,28 @@ def Stichlmair_wet(Vg, Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3, 
     return secant(_Stichlmair_wet_err, dP_dry, args=(h0, c1, dP_dry, H, voidage, c))
 
 
-def _Stichlmair_flood_f(inputs, Vl, rhog, rhol, mug, voidage, specific_area,
-                        C1, C2, C3, H):
-    """Internal function which calculates the errors of the two Stichlmair
-    objective functions, and their jacobian.
-    """
-    Vg, dP_irr = float(inputs[0]), float(inputs[1])
-    dp = 6.0*(1.0 - voidage)/specific_area
-    Re = Vg*rhog*dp/mug
-    f0 = C1/Re + C2/sqrt(Re) + C3
-    dP_dry = 0.75*f0*(1.0 - voidage)/voidage**4.65*rhog*H/dp*Vg*Vg
-    c = (-C1/Re - 0.5*C2*1.0/sqrt(Re))/f0
-    Frl = Vl*Vl*specific_area/(g*voidage**4.65)
-    h0 = 0.555*Frl**(1/3.)
-    hT = h0*(1.0 + 20.0*(dP_irr/H/rhol/g)**2)
-    err1 = dP_dry/H*((1.0 - voidage + hT)/(1.0 - voidage))**((2.0 + c)/3.)*(voidage/(voidage-hT))**4.65 - dP_irr/H
-    term = (dP_irr/(rhol*g*H))**2
-    err2 = (1./term - 40.0*((2.0+c)/3.)*h0/(1.0 - voidage + h0*(1.0 + 20.0*term))
-    - 186.0*h0/(voidage - h0*(1.0 + 20.0*term)))
-    return err1, err2
+# def _Stichlmair_flood_f(inputs, Vl, rhog, rhol, mug, voidage, specific_area,
+#                         C1, C2, C3, H):
+#     """Internal function which calculates the errors of the two Stichlmair
+#     objective functions, and their jacobian.
+#     """
+#     Vg, dP_irr = float(inputs[0]), float(inputs[1])
+#     dp = 6.0*(1.0 - voidage)/specific_area
+#     Re = Vg*rhog*dp/mug
+#     f0 = C1/Re + C2/sqrt(Re) + C3
+#     dP_dry = 0.75*f0*(1.0 - voidage)/voidage**4.65*rhog*H/dp*Vg*Vg
+#     c = (-C1/Re - 0.5*C2*1.0/sqrt(Re))/f0
+#     Frl = Vl*Vl*specific_area/(g*voidage**4.65)
+#     h0 = 0.555*Frl**(1/3.)
+#     hT = h0*(1.0 + 20.0*(dP_irr/H/rhol/g)**2)
+#     err1 = dP_dry/H*((1.0 - voidage + hT)/(1.0 - voidage))**((2.0 + c)/3.)*(voidage/(voidage-hT))**4.65 - dP_irr/H
+#     term = (dP_irr/(rhol*g*H))**2
+#     err2 = (1./term - 40.0*((2.0+c)/3.)*h0/(1.0 - voidage + h0*(1.0 + 20.0*term))
+#     - 186.0*h0/(voidage - h0*(1.0 + 20.0*term)))
+#     return err1, err2
 
-def _Stichlmair_flood_f_and_jac(inputs, Vl, rhog, rhol, mug, voidage,
-                                specific_area, C1, C2, C3, H):
+def _Stichlmair_flood_f_and_jac(inputs: list[float], Vl: float, rhog: float, rhol: float, mug: float, voidage: float,
+                                specific_area: float, C1: float, C2: float, C3: float, H: float) -> tuple[list[float], list[list[float]]]:
     """Internal function which calculates the errors of the two Stichlmair
     objective functions, and their jacobian.
 
@@ -657,9 +665,9 @@ def _Stichlmair_flood_f_and_jac(inputs, Vl, rhog, rhol, mug, voidage,
 
 
 
-def Stichlmair_flood(Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3,
-                     H=1.0):
-    r'''Calculates gas rate for flooding of a packed column, using the
+def Stichlmair_flood(Vl: float, rhog: float, rhol: float, mug: float, voidage: float, specific_area: float, C1: float, C2: float, C3: float,
+                     H: float=1.0) -> float:
+    r"""Calculates gas rate for flooding of a packed column, using the
     Stichlmair [1]_ correlation. Uses three regressed constants for each
     type of packing, and voidage and specific area.
 
@@ -671,7 +679,7 @@ def Stichlmair_flood(Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3,
         \left(\frac{\epsilon}{\epsilon-h_T}\right)^{4.65}
 
     .. math::
-        h_T = h_0\left[1 + 20\left(\frac{\Delta Pirr}{H\rho_L g}\right)^2\right]
+        h_T = h_0\left[1 + 20\left(\frac{\Delta P_{irr}}{H\rho_L g}\right)^2\right]
 
     .. math::
         Fr_L = \frac{V_L^2 a}{g \epsilon^{4.65}}
@@ -738,7 +746,7 @@ def Stichlmair_flood(Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3,
        Prediction of Pressure Drop and Capacity of Countercurrent Gas/liquid
        Packed Columns." Gas Separation & Purification 3, no. 1 (March 1989):
        19-28. doi:10.1016/0950-4214(89)80016-7.
-    '''
+    """
     guess = [0.0]*2
     guess[0] = Vl*100.0
     guess[1] = 1000.0
@@ -747,8 +755,8 @@ def Stichlmair_flood(Vl, rhog, rhol, mug, voidage, specific_area, C1, C2, C3,
                          C2, C3, H), ytol=1e-11, solve_func=solve_2_direct)[0][0]
 
 
-def Robbins(L, G, rhol, rhog, mul, H=1.0, Fpd=24.0):
-    r'''Calculates pressure drop across a packed column, using the Robbins
+def Robbins(L: float, G: float, rhol: float, rhog: float, mul: float, H: float=1.0, Fpd: float=24.0) -> float:
+    r"""Calculates pressure drop across a packed column, using the Robbins
     equation.
 
     Pressure drop is given by:
@@ -799,9 +807,9 @@ def Robbins(L, G, rhol, rhog, mul, H=1.0, Fpd=24.0):
 
     References
     ----------
-    .. [1] Robbins [Chem. Eng. Progr., p. 87 (May 1991) Improved Pressure Drop
+    .. [1] Robbins [Chem. Eng. Progr., p. 87 (May 1991)] Improved Pressure Drop
        Prediction with a New Correlation.
-    '''
+    """
     # Convert SI units to imperial for use in correlation
     L = L*737.33812 # kg/s/m^2 to lb/hr/ft^2
     G = G*737.33812 # kg/s/m^2 to lb/hr/ft^2
@@ -818,4 +826,4 @@ def Robbins(L, G, rhol, rhog, mul, H=1.0, Fpd=24.0):
     C4LF_10_GF2_C3 = C3*Gf2*10.0**(C4*Lf)
     C4LF_10_GF2_C3_2 = C4LF_10_GF2_C3*C4LF_10_GF2_C3
     dP = C4LF_10_GF2_C3 + 0.4*(5e-5*Lf)**0.1*(C4LF_10_GF2_C3_2*C4LF_10_GF2_C3_2)
-    return dP*817.22083*H # in. H2O to Pa/m
+    return dP*817.22083*H # in. H2O to Pa

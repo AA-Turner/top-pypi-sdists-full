@@ -51,7 +51,10 @@ def openFileSource(
     sourceFileSource: FileSource | None = None,
 ) -> FileSource:
     if sourceZipStream:
-        if isinstance(sourceZipStream, FileNamedBytesIO) and sourceZipStream.fileName:
+        if name := getattr(sourceZipStream, "name", None):
+            # Python IO convention is to use the name attribute
+            sourceZipStreamFileName: str = os.sep + str(name)
+        elif isinstance(sourceZipStream, FileNamedBytesIO) and sourceZipStream.fileName:
             sourceZipStreamFileName = os.sep + sourceZipStream.fileName
         else:
             sourceZipStreamFileName = os.sep + "POSTupload.zip"
@@ -237,7 +240,10 @@ class FileSource:
 
     def logError(self, err: Exception) -> None:
         if self.cntlr:
-            self.cntlr.addToLog(_("[{0}] {1}").format(type(err).__name__, err))
+            self.cntlr.error(
+                "FileSourceError",
+                _("[{0}] {1}").format(type(err).__name__, err),
+            )
 
     def open(self, reloadCache: bool = False) -> None:
         if self.isValid and not self.isOpen:
@@ -382,15 +388,21 @@ class FileSource:
                 # load mappings
                 self.loadTaxonomyPackageMappings()
 
-    def loadTaxonomyPackageMappings(self, errors: list[str] = [], expectTaxonomyPackage: bool = False) -> None:
-        if not self.mappedPaths and (self.taxonomyPackageMetadataFiles or expectTaxonomyPackage) and self.cntlr:
+    def loadTaxonomyPackageMappings(self, errors: list[str] | None = None, expectTaxonomyPackage: bool = False) -> None:
+        # Only attempt to load taxonomy package mappings one time.
+        if self.mappedPaths is not None:
+            return
+        self.mappedPaths = {}
+
+        if errors is None:
+            errors = []
+        if (self.isTaxonomyPackage or expectTaxonomyPackage) and self.cntlr:
             if PackageManager.validateTaxonomyPackage(self.cntlr, self, errors=errors):
                 assert isinstance(self.baseurl, str)
                 metadata = self.baseurl + os.sep + self.taxonomyPackageMetadataFiles[0]
                 self.taxonomyPackage = PackageManager.parsePackage(self.cntlr, self, metadata,
                                                                    os.sep.join(os.path.split(metadata)[:-1]) + os.sep,
                                                                    errors=errors)
-
                 assert self.taxonomyPackage is not None
                 self.mappedPaths = cast('dict[str, str]', self.taxonomyPackage.get("remappings"))
 
@@ -564,7 +576,7 @@ class FileSource:
                     if encoding is None:
                         encoding = XmlUtil.encoding(b)
                     if stripDeclaration:
-                        b = stripDeclarationBytes(b)
+                        b = stripDeclarationBytes(b, encoding)
                     return (FileNamedTextIOWrapper(filepath, io.BytesIO(b), encoding=encoding),
                             encoding)
                 except KeyError as err:
@@ -581,7 +593,7 @@ class FileSource:
                     if encoding is None:
                         encoding = XmlUtil.encoding(b)
                     if stripDeclaration:
-                        b = stripDeclarationBytes(b)
+                        b = stripDeclarationBytes(b, encoding)
                     return (FileNamedTextIOWrapper(filepath, io.BytesIO(b), encoding=encoding),
                             encoding)
                 except KeyError as err:
@@ -914,7 +926,11 @@ def openXmlFileStream(
             text = stripDeclarationText(text)
         return (FileNamedStringIO(filepath, initial_value=text), encoding)
 
-def stripDeclarationBytes(xml: bytes) -> bytes:
+def stripDeclarationBytes(xml: bytes, encoding: str | None) -> bytes:
+    if encoding is not None and not encoding.lower().startswith('utf-8'):
+        text = xml.decode(encoding)
+        text = stripDeclarationText(text)
+        return text.encode(encoding)
     xmlStart = xml[0:120]
     indexOfDeclaration = xmlStart.find(b"<?xml")
     if indexOfDeclaration >= 0:

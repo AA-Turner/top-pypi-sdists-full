@@ -67,7 +67,7 @@ void MoleReactor::evalSurfaces(double* LHS, double* RHS, double* sdot)
         SurfPhase* surf = S->thermo();
         double wallarea = S->area();
         size_t nk = surf->nSpecies();
-        S->syncState();
+        S->restoreState();
         kin->getNetProductionRates(&m_work[0]);
         for (size_t k = 0; k < nk; k++) {
             RHS[loc + k] = m_work[k] * wallarea / surf->size(k);
@@ -86,7 +86,7 @@ void MoleReactor::addSurfaceJacobian(vector<Eigen::Triplet<double>> &triplets)
 {
     size_t offset = m_nsp;
     for (auto& S : m_surfaces) {
-        S->syncState();
+        S->restoreState();
         double A = S->area();
         auto kin = S->kinetics();
         size_t nk = S->thermo()->nSpecies();
@@ -104,8 +104,8 @@ void MoleReactor::addSurfaceJacobian(vector<Eigen::Triplet<double>> &triplets)
                 size_t col = it.col();
                 auto& rowPhase = kin->speciesPhase(row);
                 auto& colPhase = kin->speciesPhase(col);
-                size_t rpi = kin->phaseIndex(rowPhase.name());
-                size_t cpi = kin->phaseIndex(colPhase.name());
+                size_t rpi = kin->phaseIndex(rowPhase.name(), true);
+                size_t cpi = kin->phaseIndex(colPhase.name(), true);
                 // check if the reactor kinetics object contains both phases to avoid
                 // any solid phases which may be included then use phases to map surf
                 // kinetics indicies to reactor kinetic indices
@@ -283,15 +283,17 @@ void MoleReactor::eval(double time, double* LHS, double* RHS)
 
 size_t MoleReactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + m_sidx;
-    } else if (nm == "int_energy") {
+    if (nm == "int_energy") {
         return 0;
-    } else if (nm == "volume") {
+    }
+    if (nm == "volume") {
         return 1;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + m_sidx;
+    } catch (const CanteraError&) {
+        throw CanteraError("MoleReactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -316,7 +318,30 @@ string MoleReactor::componentName(size_t k) {
             }
         }
     }
-    throw CanteraError("MoleReactor::componentName", "Index is out of bounds.");
+    throw IndexError("MoleReactor::componentName", "component", k, m_nv);
+}
+
+double MoleReactor::upperBound(size_t k) const {
+    // Component is either int_energy, volume, or moles of a bulk or surface species
+    return BigNumber;
+}
+
+double MoleReactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        return -BigNumber; // int_energy
+    } else if (k == 1) {
+        return 0; // volume
+    } else if (k >= 2 && k < m_nv) {
+        return -Tiny; // moles of bulk or surface species
+    } else {
+        throw CanteraError("MoleReactor::lowerBound", "Index {} is out of bounds.", k);
+    }
+}
+
+void MoleReactor::resetBadValues(double* y) {
+    for (size_t k = m_sidx; k < m_nv; k++) {
+        y[k] = std::max(y[k], 0.0);
+    }
 }
 
 }

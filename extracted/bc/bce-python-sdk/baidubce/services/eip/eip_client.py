@@ -49,7 +49,7 @@ class EipClient(BceBaseClient):
         BceBaseClient.__init__(self, config)
 
     def create_eip(self, bandwidth_in_mbps, name=None, billing=None,
-                   client_token=None, config=None):
+                   route_type=None, client_token=None, config=None):
         """
         Create an eip with the specified options.
 
@@ -76,6 +76,8 @@ class EipClient(BceBaseClient):
             'name': name,
             'bandwidthInMbps': bandwidth_in_mbps
         }
+        if route_type is not None:
+            body['routeType'] = route_type
         if billing is None:
             body['billing'] = {
                 'paymentTiming': 'Postpaid',
@@ -255,7 +257,7 @@ class EipClient(BceBaseClient):
         return self._send_request(http_methods.PUT, path, params=params, config=config)
 
 
-    def bind_eip(self, eip, instance_type, instance_id, client_token=None,
+    def bind_eip(self, eip, instance_type, instance_id, instance_ip, client_token=None,
                  config=None):
         """
         bind the eip to a specified instanceId and instanceType
@@ -282,6 +284,8 @@ class EipClient(BceBaseClient):
             'instanceType': instance_type,
             'instanceId': instance_id
         }
+        if instance_ip is not None:
+            body['instanceIp'] = instance_ip
         path = utils.append_uri(self._get_path(), eip)
         if client_token is None:
             client_token = self._generate_default_client_token()
@@ -396,8 +400,8 @@ class EipClient(BceBaseClient):
         return self._send_request(http_methods.PUT, path, params=params, config=config)
 
 
-    def list_eips(self, eip=None, instance_type=None, instance_id=None, status=None, marker=None, max_keys=1000,
-                  config=None):
+    def list_eips(self, eip=None, instance_type=None, ip_version=None, instance_id=None,
+                  status=None, marker=None, max_keys=1000, config=None):
         """
         get a list of eip owned by the authenticated user and specified
         conditions. we can Also get a single eip function  through this
@@ -477,6 +481,8 @@ class EipClient(BceBaseClient):
             params[b'marker'] = marker
         if max_keys is not None:
             params[b'maxKeys'] = max_keys
+        if ip_version is not None:
+            params[b'ipVersion'] = ip_version
         return self._send_request(http_methods.GET, path, params=params,
                                   config=config)
 

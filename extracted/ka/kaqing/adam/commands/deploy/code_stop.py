@@ -24,28 +24,11 @@ class CodeStop(Command):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
 
-        state, args = self.apply_state(args, state)
-        if not self.validate_state(state):
+        with self.validate(args, state) as (args, state):
+            _, dry = Command.extract_options(args, '--dry')
+            stop_user_codes(state.namespace, dry)
+
             return state
-
-        _, dry = Command.extract_options(args, '--dry')
-        stop_user_codes(state.namespace, dry)
-
-        # if not args:
-        #     log2('Please specify <port>.')
-        #     return state
-
-        # port = args[0]
-        # name = f'ops-{port}'
-        # user = os.getenv("USER")
-        # label_selector=f'user={user}'
-        # Ingresses.delete_ingresses(state.namespace, label_selector=label_selector)
-        # Services.delete_services(state.namespace, label_selector=label_selector)
-
-        # pattern = f'/c3/c3/ops/code/{user}/'
-        # self.kill_process_by_pattern(pattern)
-
-        return state
 
     def completion(self, state: ReplState):
         if state.namespace:
@@ -53,5 +36,5 @@ class CodeStop(Command):
 
         return {}
 
-    def help(self, _: ReplState):
-        return f'{CodeStop.COMMAND}\t stop code server'
+    def help(self, state: ReplState):
+        return super().help(state, 'stop code server')

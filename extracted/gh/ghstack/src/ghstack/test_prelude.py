@@ -12,6 +12,7 @@ from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple, Uni
 
 from expecttest import assert_expected_inline
 
+import ghstack.checkout
 import ghstack.cherry_pick
 
 import ghstack.github
@@ -32,6 +33,7 @@ __all__ = [
     "gh_land",
     "gh_unlink",
     "gh_cherry_pick",
+    "gh_checkout",
     "GitCommitHash",
     "checkout",
     "amend",
@@ -49,6 +51,8 @@ __all__ = [
     "get_sh",
     "get_upstream_sh",
     "get_github",
+    "get_pr_reviewers",
+    "get_pr_labels",
     "tick",
     "captured_output",
 ]
@@ -192,6 +196,8 @@ def gh_submit(
     base: Optional[str] = None,
     revs: Sequence[str] = (),
     stack: bool = True,
+    reviewer: Optional[str] = None,
+    label: Optional[str] = None,
 ) -> List[ghstack.submit.DiffMeta]:
     self = CTX
     r = ghstack.submit.main(
@@ -212,6 +218,8 @@ def gh_submit(
         revs=revs,
         stack=stack,
         check_invariants=True,
+        reviewer=reviewer,
+        label=label,
     )
     self.check_global_github_invariants(self.direct)
     return r
@@ -248,6 +256,17 @@ def gh_cherry_pick(pull_request: str, stack: bool = False) -> None:
         sh=self.sh,
         remote_name="origin",
         stack=stack,
+    )
+
+
+def gh_checkout(pull_request: str, same_base: bool = False) -> None:
+    self = CTX
+    return ghstack.checkout.main(
+        pull_request=pull_request,
+        github=self.github,
+        sh=self.sh,
+        remote_name="origin",
+        same_base=same_base,
     )
 
 
@@ -373,6 +392,26 @@ def is_direct() -> bool:
     return CTX.direct
 
 
+def get_github() -> ghstack.github_fake.FakeGitHubEndpoint:
+    return CTX.github
+
+
+def get_pr_reviewers(pr_number: int) -> List[str]:
+    """Get the reviewers for a PR number."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    return pr.reviewers
+
+
+def get_pr_labels(pr_number: int) -> List[str]:
+    """Get the labels for a PR number."""
+    github = get_github()
+    repo = github.state.repository("pytorch", "pytorch")
+    pr = github.state.pull_request(repo, ghstack.github_fake.GitHubNumber(pr_number))
+    return pr.labels
+
+
 def assert_eq(a: Any, b: Any) -> None:
     assert a == b, f"{a} != {b}"
 
@@ -404,10 +443,6 @@ def get_sh() -> ghstack.shell.Shell:
 
 def get_upstream_sh() -> ghstack.shell.Shell:
     return CTX.upstream_sh
-
-
-def get_github() -> ghstack.github.GitHubEndpoint:
-    return CTX.github
 
 
 def tick() -> None:

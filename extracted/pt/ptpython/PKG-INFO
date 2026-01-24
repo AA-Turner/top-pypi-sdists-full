@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ptpython
-Version: 3.0.31
+Version: 3.0.32
 Summary: Python REPL build on top of prompt_toolkit
 Author: Jonathan Slenders
 Project-URL: Homepage, https://github.com/prompt-toolkit/ptpython

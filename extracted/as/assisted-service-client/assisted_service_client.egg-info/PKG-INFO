@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assisted-service-client
-Version: 2.46.0.post5
+Version: 2.49.0.post55
 Summary: AssistedInstall
 Home-page: https://github.com/openshift/assisted-service
 Author: RedHat
@@ -197,7 +197,7 @@ Class | Method | HTTP request | Description
 *ManifestsApi* | [**v2_list_cluster_manifests**](docs/ManifestsApi.md#v2_list_cluster_manifests) | **GET** /v2/clusters/{cluster_id}/manifests | 
 *ManifestsApi* | [**v2_update_cluster_manifest**](docs/ManifestsApi.md#v2_update_cluster_manifest) | **PATCH** /v2/clusters/{cluster_id}/manifests | 
 *OperatorsApi* | [**v2_get_bundle**](docs/OperatorsApi.md#v2_get_bundle) | **GET** /v2/operators/bundles/{id} | Get operator properties for a bundle
-*OperatorsApi* | [**v2_list_bundles**](docs/OperatorsApi.md#v2_list_bundles) | **GET** /v2/operators/bundles | Get list of avaliable bundles
+*OperatorsApi* | [**v2_list_bundles**](docs/OperatorsApi.md#v2_list_bundles) | **GET** /v2/operators/bundles | Get list of available bundles
 *OperatorsApi* | [**v2_list_of_cluster_operators**](docs/OperatorsApi.md#v2_list_of_cluster_operators) | **GET** /v2/clusters/{cluster_id}/monitored-operators | 
 *OperatorsApi* | [**v2_list_operator_properties**](docs/OperatorsApi.md#v2_list_operator_properties) | **GET** /v2/supported-operators/{operator_name} | 
 *OperatorsApi* | [**v2_list_supported_operators**](docs/OperatorsApi.md#v2_list_supported_operators) | **GET** /v2/supported-operators | 

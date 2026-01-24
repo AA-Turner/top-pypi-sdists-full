@@ -182,6 +182,9 @@ except ImportError:
 	from sphinx_autodoc_typehints import _LOGGER as sat_logger
 	from sphinx_autodoc_typehints import _PYDATA_ANNOTATIONS as pydata_annotations
 
+if isinstance(next(iter(pydata_annotations)), tuple):
+	pydata_annotations = {x[1] for x in pydata_annotations}
+
 try:
 	# 3rd party
 	from sphinx_autodoc_typehints import _future_annotations_imported
@@ -372,6 +375,11 @@ def format_annotation(annotation: Any, fully_qualified: bool = False) -> str:
 
 		args = get_annotation_args(annotation, module, class_name)
 	except ValueError:
+		if isinstance(annotation, str) and '|' in annotation and sys.version_info < (3, 10):
+			sat_logger.warning(
+					"Unsupported | character in type annotation '%s' for this version of Python",
+					annotation,
+					)
 		return f":py:obj:`~.{annotation}`"
 
 	if module == "_io":
@@ -404,10 +412,11 @@ def format_annotation(annotation: Any, fully_qualified: bool = False) -> str:
 		full_name = "typing.Optional"
 	elif full_name == "types.UnionType":
 		full_name = "typing.Union"
-		role = "data"
 	elif full_name == "typing.Callable" and args and args[0] is not ...:
 		formatted_args = "\\[\\[" + ", ".join(format_annotation(arg) for arg in args[:-1]) + ']'
 		formatted_args += ", " + format_annotation(args[-1]) + ']'
+	elif full_name == "collections.abc.Callable":
+		role = "class"
 	elif full_name == "typing.Literal":
 		# TODO: Enums?
 		formatted_arg_list: DelimitedList[str] = DelimitedList()
@@ -418,6 +427,9 @@ def format_annotation(annotation: Any, fully_qualified: bool = False) -> str:
 				formatted_arg_list.append(code_repr(arg))
 
 		formatted_args = f"\\[{formatted_arg_list:, }]"
+
+	if full_name == "typing.Union":
+		role = "class"  # With at least the 3.14 docs.
 
 	if full_name == "typing.Optional":
 		args = tuple(x for x in args if x is not type(None))  # noqa: E721
@@ -482,7 +494,7 @@ def preprocess_function_defaults(obj: Callable) -> Tuple[Optional[inspect.Signat
 
 
 def preprocess_class_defaults(
-		obj: Callable
+		obj: Callable,
 		) -> Tuple[Optional[Callable], Optional[inspect.Signature], List[inspect.Parameter]]:
 	"""
 	Pre-processes the default values for the arguments of a class.
@@ -590,7 +602,8 @@ def process_signature(  # noqa: MAN001
 			and not _is_dataclass(name, what, obj.__qualname__)
 			):
 		sat_logger.warning(
-				"Cannot treat a function defined as a local function: '%s'  (use @functools.wraps)", name
+				"Cannot treat a function defined as a local function: '%s'  (use @functools.wraps)",
+				name,
 				)
 		return None
 
@@ -784,7 +797,7 @@ def process_docstring(
 					lines.insert(insert_index, f":rtype: {formatted_annotation}")
 
 
-def _class_get_type_hints(obj, globalns=None, localns=None):  # noqa: MAN001,MAN002
+def _class_get_type_hints(obj, globalns=None, localns=None):  # noqa: MAN001,MAN002,PRM002
 	"""
 	Return type hints for an object.
 
@@ -887,9 +900,8 @@ def setup(app: Sphinx) -> SphinxExtMetadata:
 	"""
 
 	if "sphinx_autodoc_typehints" in app.extensions:
-		raise ExtensionError(
-				"'sphinx_toolbox.more_autodoc.typehints' must be loaded before 'sphinx_autodoc_typehints'."
-				)
+		msg = "'sphinx_toolbox.more_autodoc.typehints' must be loaded before 'sphinx_autodoc_typehints'."
+		raise ExtensionError(msg)
 
 	sphinx_autodoc_typehints.format_annotation = format_annotation  # type: ignore[assignment]
 	sphinx_autodoc_typehints.process_signature = process_signature
@@ -924,4 +936,4 @@ def _resolve_forwardref(
 	elif sys.version_info >= (3, 12):
 		return fr._evaluate(module_dict, module_dict, set(), recursive_guard=set())
 	else:
-		return fr._evaluate(module_dict, module_dict, set())
+		return fr._evaluate(module_dict, module_dict, set())  # type: ignore[arg-type]

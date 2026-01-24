@@ -1,9 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
@@ -54,11 +55,13 @@ class BaseEngine(ABC):
         pass
 
     @abstractmethod
-    def get_pipeline(self, pipeline_name: str, local_path: str = ".") -> "Pipeline":
+    def get_pipeline(
+        self, pipeline_name: str, local_path: str | Path = "."
+    ) -> "Pipeline":
         """Download and load computed pipeline"""
         pass
 
     @abstractmethod
-    def get_best_pipeline(self, local_path: str = ".") -> "Pipeline":
+    def get_best_pipeline(self, local_path: str | Path = ".") -> "Pipeline":
         """Download and load the best pipeline"""
         pass

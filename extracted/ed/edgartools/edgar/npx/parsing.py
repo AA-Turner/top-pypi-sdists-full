@@ -3,9 +3,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional
 
-from lxml import etree as ET
+from lxml import etree as ET  # type: ignore[import-untyped]
 
-from .data import (
+from .models import (
     ClassInfo,
     IncludedManager,
     PrimaryDoc,
@@ -354,8 +354,9 @@ class PrimaryDocExtractor(BaseExtractor):
             or self._get_optional_text(
                 cover_page, f"{prefix}:leiNumber", PRIMARY_DOC_NAMESPACES
             ),
-            report_calendar_year=self._get_required_text(
-                cover_page, f"{prefix}:reportCalendarYear", PRIMARY_DOC_NAMESPACES
+            report_calendar_year=(
+                self._get_optional_text(cover_page, f"{prefix}:reportCalendarYear", PRIMARY_DOC_NAMESPACES)
+                or self._get_optional_text(cover_page, f"{prefix}:reportQuarterYear", PRIMARY_DOC_NAMESPACES)
             ),
             report_type=(
                 self._get_required_text(

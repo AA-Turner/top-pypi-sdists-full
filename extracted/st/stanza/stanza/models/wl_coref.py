@@ -79,13 +79,13 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("mode", choices=("train", "eval"))
     argparser.add_argument("experiment")
-    argparser.add_argument("--config-file", default="config.toml")
-    argparser.add_argument("--data-split", choices=("train", "dev", "test"),
+    argparser.add_argument("--config_file", default="config.toml")
+    argparser.add_argument("--data_split", choices=("train", "dev", "test"),
                            default="test",
                            help="Data split to be used for evaluation."
                                 " Defaults to 'test'."
                                 " Ignored in 'train' mode.")
-    argparser.add_argument("--batch-size", type=int,
+    argparser.add_argument("--batch_size", type=int,
                            help="Adjust to override the config value of anaphoricity "
                                 "batch size if you are experiencing out-of-memory "
                                 "issues")
@@ -103,6 +103,8 @@ if __name__ == "__main__":
                            help="Adjust the dummy mix")
     argparser.add_argument("--bert_finetune_begin_epoch", type=float,
                            help="Adjust the bert finetune begin epoch")
+    argparser.add_argument("--bert_model", type=str,
+                           help="Use this transformer for the given experiment")
     argparser.add_argument("--warm_start", action="store_true",
                            help="If set, the training will resume from the"
                                 " last checkpoint saved if any. Ignored in"
@@ -113,7 +115,7 @@ if __name__ == "__main__":
                                 " If not supplied, in 'eval' mode the latest"
                                 " weights of the experiment will be loaded;"
                                 " in 'train' mode no weights will be loaded.")
-    argparser.add_argument("--word-level", action="store_true",
+    argparser.add_argument("--word_level", action="store_true",
                            help="If set, output word-level conll-formatted"
                                 " files in evaluation modes. Ignored in"
                                 " 'train' mode.")
@@ -131,6 +133,16 @@ if __name__ == "__main__":
                            help="If set, log all of the trainable norms each epoch.  Very noisy!")
     argparser.add_argument("--seed", type=int, default=2020,
                            help="Random seed to set")
+
+    argparser.add_argument("--lang_lr_attenuation", type=str, default=None,
+                           help="A comma-separated list of languages where the LR will be scaled by 1/epoch, such as --lang_lr_attenuation=es,en,de,...")
+    argparser.add_argument("--lang_lr_weights", type=str, default=None,
+                           help="A comma-separated list of languages and their weights of LR scaling for different languages, such as es=0.5,en=1.0,...")
+
+    argparser.add_argument("--max_train_len", type=int, default=5000,
+                           help="Skip any documents longer than this maximum length")
+    argparser.add_argument("--no_max_train_len", action="store_const", const=float("inf"), dest="max_train_len",
+                           help="Do not skip any documents for being too long")
 
     argparser.add_argument("--train_data", default=None, help="File to use for train data")
     argparser.add_argument("--dev_data", default=None, help="File to use for dev data")
@@ -155,6 +167,8 @@ if __name__ == "__main__":
         config.n_hidden_layers = args.n_hidden_layers
     if args.learning_rate is not None:
         config.learning_rate = args.learning_rate
+    if args.bert_model is not None:
+        config.bert_model = args.bert_model
     if args.bert_learning_rate is not None:
         config.bert_learning_rate = args.bert_learning_rate
     if args.bert_finetune_begin_epoch is not None:
@@ -183,6 +197,14 @@ if __name__ == "__main__":
         config.dev_data = args.dev_data
     if args.test_data:
         config.test_data = args.test_data
+
+    if args.max_train_len:
+        config.max_train_len = args.max_train_len
+
+    if args.lang_lr_attenuation:
+        config.lang_lr_attenuation = args.lang_lr_attenuation
+    if args.lang_lr_weights:
+        config.lang_lr_weights = args.lang_lr_weights
 
     # if wandb, generate wandb configuration 
     if args.mode == "train":

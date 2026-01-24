@@ -4,21 +4,17 @@ import ctypes
 import sys
 from contextlib import ExitStack, contextmanager
 from importlib import resources
-from os.path import exists
-from os.path import join as pathjoin
-from sys import platform, version_info
+from pathlib import Path
+from sys import platform
 from threading import Lock
-from typing import (
-    Iterable,
-    Iterator,
-)
+from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
-from py_mini_racer._types import (
-    MiniRacerBaseException,
-)
-from py_mini_racer._value_handle import (
-    RawValueHandle,
-)
+from py_mini_racer._exc import MiniRacerBaseException
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Sequence
+
+    from py_mini_racer._value_handle import RawValueHandleType
 
 
 def _get_lib_filename(name: str) -> str:
@@ -33,22 +29,56 @@ def _get_lib_filename(name: str) -> str:
     return prefix + name + ext
 
 
+class _RawValueUnion(ctypes.Union):
+    _fields_: ClassVar[Sequence[tuple[str, type]]] = [
+        ("value_ptr", ctypes.c_void_p),
+        ("bytes_val", ctypes.POINTER(ctypes.c_char)),
+        ("char_p_val", ctypes.c_char_p),
+        ("int_val", ctypes.c_int64),
+        ("double_val", ctypes.c_double),
+    ]
+
+
+class _RawValue(ctypes.Structure):
+    _fields_: ClassVar[Sequence[tuple[str, type]]] = [
+        ("value", _RawValueUnion),
+        ("len", ctypes.c_size_t),
+        ("type", ctypes.c_uint8),
+    ]
+    _pack_ = 1
+
+
+RawValueHandle = ctypes.POINTER(_RawValue)
+
+if TYPE_CHECKING:
+    RawValueHandleTypeImpl = ctypes._Pointer[_RawValue]  # noqa: SLF001
+
+
 MR_CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_uint64, RawValueHandle)
 
 
-def _build_dll_handle(dll_path: str) -> ctypes.CDLL:
-    handle = ctypes.CDLL(dll_path)
+class MrCallback(Protocol):
+    def __call__(
+        self, callback_id: int, raw_val_handle: RawValueHandleType
+    ) -> None: ...
 
-    handle.mr_init_v8.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+
+class MrCallbackDecorator(Protocol):
+    def __call__(self, cb: MrCallback) -> MrCallback: ...
+
+
+mr_callback_func = cast("MrCallbackDecorator", MR_CALLBACK)
+
+
+def _build_dll_handle(dll_path: Path) -> ctypes.CDLL:  # noqa: PLR0915
+    handle = ctypes.CDLL(str(dll_path))
+
+    handle.mr_init_v8.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
 
     handle.mr_init_context.argtypes = [MR_CALLBACK]
     handle.mr_init_context.restype = ctypes.c_uint64
 
-    handle.mr_eval.argtypes = [
-        ctypes.c_uint64,
-        RawValueHandle,
-        ctypes.c_uint64,
-    ]
+    handle.mr_eval.argtypes = [ctypes.c_uint64, RawValueHandle, ctypes.c_uint64]
     handle.mr_eval.restype = ctypes.c_uint64
 
     handle.mr_free_value.argtypes = [ctypes.c_uint64, RawValueHandle]
@@ -78,36 +108,21 @@ def _build_dll_handle(dll_path: str) -> ctypes.CDLL:
 
     handle.mr_cancel_task.argtypes = [ctypes.c_uint64, ctypes.c_uint64]
 
-    handle.mr_heap_stats.argtypes = [
-        ctypes.c_uint64,
-        ctypes.c_uint64,
-    ]
-    handle.mr_heap_stats.restype = ctypes.c_uint64
+    handle.mr_heap_stats.argtypes = [ctypes.c_uint64]
+    handle.mr_heap_stats.restype = RawValueHandle
 
     handle.mr_low_memory_notification.argtypes = [ctypes.c_uint64]
 
-    handle.mr_make_js_callback.argtypes = [
-        ctypes.c_uint64,
-        ctypes.c_uint64,
-    ]
+    handle.mr_make_js_callback.argtypes = [ctypes.c_uint64, ctypes.c_uint64]
     handle.mr_make_js_callback.restype = RawValueHandle
 
-    handle.mr_heap_snapshot.argtypes = [
-        ctypes.c_uint64,
-        ctypes.c_uint64,
-    ]
-    handle.mr_heap_snapshot.restype = ctypes.c_uint64
+    handle.mr_heap_snapshot.argtypes = [ctypes.c_uint64]
+    handle.mr_heap_snapshot.restype = RawValueHandle
 
-    handle.mr_get_identity_hash.argtypes = [
-        ctypes.c_uint64,
-        RawValueHandle,
-    ]
+    handle.mr_get_identity_hash.argtypes = [ctypes.c_uint64, RawValueHandle]
     handle.mr_get_identity_hash.restype = RawValueHandle
 
-    handle.mr_get_own_property_names.argtypes = [
-        ctypes.c_uint64,
-        RawValueHandle,
-    ]
+    handle.mr_get_own_property_names.argtypes = [ctypes.c_uint64, RawValueHandle]
     handle.mr_get_own_property_names.restype = RawValueHandle
 
     handle.mr_get_object_item.argtypes = [
@@ -140,6 +155,9 @@ def _build_dll_handle(dll_path: str) -> ctypes.CDLL:
         RawValueHandle,
     ]
     handle.mr_splice_array.restype = RawValueHandle
+
+    handle.mr_array_push.argtypes = [ctypes.c_uint64, RawValueHandle, RawValueHandle]
+    handle.mr_array_push.restype = RawValueHandle
 
     handle.mr_call_function.argtypes = [
         ctypes.c_uint64,
@@ -176,17 +194,13 @@ def _build_dll_handle(dll_path: str) -> ctypes.CDLL:
 # V8 internationalization data:
 _ICU_DATA_FILENAME = "icudtl.dat"
 
-# V8 fast-startup snapshot; a dump of the heap after loading built-in JS
-# modules:
-_SNAPSHOT_FILENAME = "snapshot_blob.bin"
-
 DEFAULT_V8_FLAGS = ("--single-threaded",)
 
 
 class LibNotFoundError(MiniRacerBaseException):
     """MiniRacer-wrapped V8 build not found."""
 
-    def __init__(self, path: str):
+    def __init__(self, path: Path) -> None:
         super().__init__(f"Native library or dependency not available at {path}")
 
 
@@ -199,21 +213,14 @@ class LibAlreadyInitializedError(MiniRacerBaseException):
         )
 
 
-def _open_resource_file(filename: str, exit_stack: ExitStack) -> str:
-    if version_info >= (3, 9):
-        # resources.as_file was added in Python 3.9
-        resource_path = resources.files("py_mini_racer") / filename
-
-        context_manager = resources.as_file(resource_path)
-    else:
-        # now-deprecated API for Pythons older than 3.9
-        context_manager = resources.path("py_mini_racer", filename)
-
-    return str(exit_stack.enter_context(context_manager))
+def _open_resource_file(filename: str, exit_stack: ExitStack) -> Path:
+    return exit_stack.enter_context(
+        resources.as_file(resources.files("py_mini_racer") / filename)
+    )
 
 
-def _check_path(path: str) -> None:
-    if path is None or not exists(path):
+def _check_path(path: Path) -> None:
+    if not path.exists():
         raise LibNotFoundError(path)
 
 
@@ -225,25 +232,22 @@ def _open_dll(flags: Iterable[str]) -> Iterator[ctypes.CDLL]:
         # Find the dll and its external dependency files:
         meipass = getattr(sys, "_MEIPASS", None)
         if meipass is not None:
-            # We are running under PyInstaller
-            dll_path = pathjoin(meipass, dll_filename)
-            icu_data_path = pathjoin(meipass, _ICU_DATA_FILENAME)
-            snapshot_path = pathjoin(meipass, _SNAPSHOT_FILENAME)
+            # We are running under PyInstaller.
+            # See https://github.com/bpcreech/PyMiniRacer/issues/78
+            meipass_path = Path(meipass)
+            dll_path = meipass_path / "py_mini_racer" / dll_filename
+            icu_data_path = meipass_path / "py_mini_racer" / _ICU_DATA_FILENAME
         else:
             dll_path = _open_resource_file(dll_filename, exit_stack)
             icu_data_path = _open_resource_file(_ICU_DATA_FILENAME, exit_stack)
-            snapshot_path = _open_resource_file(_SNAPSHOT_FILENAME, exit_stack)
 
         _check_path(dll_path)
         _check_path(icu_data_path)
-        _check_path(snapshot_path)
 
         handle = _build_dll_handle(dll_path)
 
         handle.mr_init_v8(
-            " ".join(flags).encode("utf-8"),
-            icu_data_path.encode("utf-8"),
-            snapshot_path.encode("utf-8"),
+            " ".join(flags).encode("utf-8"), str(icu_data_path).encode("utf-8")
         )
 
         yield handle

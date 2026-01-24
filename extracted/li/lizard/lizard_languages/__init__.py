@@ -21,10 +21,12 @@ from .rust import RustReader
 from .typescript import TypeScriptReader
 from .fortran import FortranReader
 from .solidity import SolidityReader
-from .jsx import JSXReader
 from .tsx import TSXReader
 from .vue import VueReader
 from .perl import PerlReader
+from .st import StReader
+from .r import RReader
+from .plsql import PLSQLReader
 
 
 def languages():
@@ -50,10 +52,12 @@ def languages():
         SolidityReader,
         ErlangReader,
         ZigReader,
-        JSXReader,
         TSXReader,
         VueReader,
         PerlReader,
+        StReader,
+        RReader,
+        PLSQLReader,
     ]
 
 

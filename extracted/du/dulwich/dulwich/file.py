@@ -21,13 +21,25 @@
 
 """Safe access to git files."""
 
+__all__ = [
+    "FileLocked",
+    "GitFile",
+    "ensure_dir_exists",
+]
+
 import os
 import sys
 import warnings
-from typing import ClassVar, Union
+from collections.abc import Iterable, Iterator
+from types import TracebackType
+from typing import IO, Any, ClassVar, Literal, overload
+
+from ._typing import Buffer
 
 
-def ensure_dir_exists(dirname) -> None:
+def ensure_dir_exists(
+    dirname: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+) -> None:
     """Ensure a directory exists, creating if necessary."""
     try:
         os.makedirs(dirname)
@@ -35,7 +47,7 @@ def ensure_dir_exists(dirname) -> None:
         pass
 
 
-def _fancy_rename(oldname, newname) -> None:
+def _fancy_rename(oldname: str | bytes, newname: str | bytes) -> None:
     """Rename file with temporary backup file to rollback if rename fails."""
     if not os.path.exists(newname):
         os.rename(oldname, newname)
@@ -45,7 +57,7 @@ def _fancy_rename(oldname, newname) -> None:
     import tempfile
 
     # destination file exists
-    (fd, tmpfile) = tempfile.mkstemp(".tmp", prefix=oldname, dir=".")
+    (fd, tmpfile) = tempfile.mkstemp(".tmp", prefix=str(oldname), dir=".")
     os.close(fd)
     os.remove(tmpfile)
     os.rename(newname, tmpfile)
@@ -57,9 +69,43 @@ def _fancy_rename(oldname, newname) -> None:
     os.remove(tmpfile)
 
 
+@overload
 def GitFile(
-    filename: Union[str, bytes, os.PathLike], mode="rb", bufsize=-1, mask=0o644
-):
+    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    mode: Literal["wb"],
+    bufsize: int = -1,
+    mask: int = 0o644,
+    fsync: bool = True,
+) -> "_GitFile": ...
+
+
+@overload
+def GitFile(
+    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    mode: Literal["rb"] = "rb",
+    bufsize: int = -1,
+    mask: int = 0o644,
+    fsync: bool = True,
+) -> IO[bytes]: ...
+
+
+@overload
+def GitFile(
+    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    mode: str = "rb",
+    bufsize: int = -1,
+    mask: int = 0o644,
+    fsync: bool = True,
+) -> "IO[bytes] | _GitFile": ...
+
+
+def GitFile(
+    filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+    mode: str = "rb",
+    bufsize: int = -1,
+    mask: int = 0o644,
+    fsync: bool = True,
+) -> "IO[bytes] | _GitFile":
     """Create a file object that obeys the git file locking protocol.
 
     Returns: a builtin file object or a _GitFile object
@@ -74,6 +120,13 @@ def GitFile(
     The default file mask makes any created files user-writable and
     world-readable.
 
+    Args:
+      filename: Path to the file
+      mode: File mode (only 'rb' and 'wb' are supported)
+      bufsize: Buffer size for file operations
+      mask: File mask for created files
+      fsync: Whether to call fsync() before closing (default: True)
+
     """
     if "a" in mode:
         raise OSError("append mode not supported for Git files")
@@ -82,7 +135,7 @@ def GitFile(
     if "b" not in mode:
         raise OSError("text mode not supported for Git files")
     if "w" in mode:
-        return _GitFile(filename, mode, bufsize, mask)
+        return _GitFile(filename, mode, bufsize, mask, fsync)
     else:
         return open(filename, mode, bufsize)
 
@@ -90,13 +143,23 @@ def GitFile(
 class FileLocked(Exception):
     """File is already locked."""
 
-    def __init__(self, filename, lockfilename) -> None:
+    def __init__(
+        self,
+        filename: str | bytes,
+        lockfilename: str | bytes,
+    ) -> None:
+        """Initialize FileLocked.
+
+        Args:
+          filename: Name of the file that is locked
+          lockfilename: Name of the lock file
+        """
         self.filename = filename
         self.lockfilename = lockfilename
         super().__init__(filename, lockfilename)
 
 
-class _GitFile:
+class _GitFile(IO[bytes]):
     """File that follows the git locking protocol for writes.
 
     All writes to a file foo will be written into foo.lock in the same
@@ -107,8 +170,12 @@ class _GitFile:
         released. Typically this will happen in a finally block.
     """
 
+    _file: IO[bytes]
+    _filename: str | bytes
+    _lockfilename: str | bytes
+    _closed: bool
+
     PROXY_PROPERTIES: ClassVar[set[str]] = {
-        "closed",
         "encoding",
         "errors",
         "mode",
@@ -118,26 +185,36 @@ class _GitFile:
     }
     PROXY_METHODS: ClassVar[set[str]] = {
         "__iter__",
+        "__next__",
         "flush",
         "fileno",
         "isatty",
         "read",
+        "readable",
         "readline",
         "readlines",
         "seek",
+        "seekable",
         "tell",
         "truncate",
+        "writable",
         "write",
         "writelines",
     }
 
     def __init__(
-        self, filename: Union[str, bytes, os.PathLike], mode, bufsize, mask
+        self,
+        filename: str | bytes | os.PathLike[str] | os.PathLike[bytes],
+        mode: str,
+        bufsize: int,
+        mask: int,
+        fsync: bool = True,
     ) -> None:
         # Convert PathLike to str/bytes for our internal use
-        self._filename: Union[str, bytes] = os.fspath(filename)
+        self._filename: str | bytes = os.fspath(filename)
+        self._fsync = fsync
         if isinstance(self._filename, bytes):
-            self._lockfilename: Union[str, bytes] = self._filename + b".lock"
+            self._lockfilename: str | bytes = self._filename + b".lock"
         else:
             self._lockfilename = self._filename + ".lock"
         try:
@@ -147,12 +224,13 @@ class _GitFile:
                 mask,
             )
         except FileExistsError as exc:
-            raise FileLocked(filename, self._lockfilename) from exc
+            raise FileLocked(self._filename, self._lockfilename) from exc
         self._file = os.fdopen(fd, mode, bufsize)
         self._closed = False
 
-        for method in self.PROXY_METHODS:
-            setattr(self, method, getattr(self._file, method))
+    def __iter__(self) -> Iterator[bytes]:
+        """Iterate over lines in the file."""
+        return iter(self._file)
 
     def abort(self) -> None:
         """Close and discard the lockfile without overwriting the target.
@@ -185,7 +263,8 @@ class _GitFile:
         if self._closed:
             return
         self._file.flush()
-        os.fsync(self._file.fileno())
+        if self._fsync:
+            os.fsync(self._file.fileno())
         self._file.close()
         try:
             if getattr(os, "replace", None) is not None:
@@ -205,17 +284,81 @@ class _GitFile:
             warnings.warn(f"unclosed {self!r}", ResourceWarning, stacklevel=2)
             self.abort()
 
-    def __enter__(self):
+    def __enter__(self) -> "_GitFile":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         if exc_type is not None:
             self.abort()
         else:
             self.close()
 
-    def __getattr__(self, name):
+    def __fspath__(self) -> str | bytes:
+        """Return the file path for os.fspath() compatibility."""
+        return self._filename
+
+    @property
+    def closed(self) -> bool:
+        """Return whether the file is closed."""
+        return self._closed
+
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
         """Proxy property calls to the underlying file."""
         if name in self.PROXY_PROPERTIES:
             return getattr(self._file, name)
         raise AttributeError(name)
+
+    # Implement IO[bytes] methods by delegating to the underlying file
+    def read(self, size: int = -1) -> bytes:
+        return self._file.read(size)
+
+    # TODO: Remove type: ignore when Python 3.10 support is dropped (Oct 2026)
+    # Python 3.10 has issues with IO[bytes] overload signatures
+    def write(self, data: Buffer, /) -> int:  # type: ignore[override,unused-ignore]
+        return self._file.write(data)
+
+    def readline(self, size: int = -1) -> bytes:
+        return self._file.readline(size)
+
+    def readlines(self, hint: int = -1) -> list[bytes]:
+        return self._file.readlines(hint)
+
+    # TODO: Remove type: ignore when Python 3.10 support is dropped (Oct 2026)
+    # Python 3.10 has issues with IO[bytes] overload signatures
+    def writelines(self, lines: Iterable[Buffer], /) -> None:  # type: ignore[override,unused-ignore]
+        return self._file.writelines(lines)
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self._file.seek(offset, whence)
+
+    def tell(self) -> int:
+        return self._file.tell()
+
+    def flush(self) -> None:
+        return self._file.flush()
+
+    def truncate(self, size: int | None = None) -> int:
+        return self._file.truncate(size)
+
+    def fileno(self) -> int:
+        return self._file.fileno()
+
+    def isatty(self) -> bool:
+        return self._file.isatty()
+
+    def readable(self) -> bool:
+        return self._file.readable()
+
+    def writable(self) -> bool:
+        return self._file.writable()
+
+    def seekable(self) -> bool:
+        return self._file.seekable()
+
+    def __next__(self) -> bytes:
+        return next(iter(self._file))

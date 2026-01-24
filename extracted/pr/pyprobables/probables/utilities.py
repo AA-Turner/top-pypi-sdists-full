@@ -1,11 +1,11 @@
-""" Utility Functions """
+"""Utility Functions"""
 
 import math
 import mmap
 import string
 from array import array
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 
 
 def is_hex_string(hex_string: Union[str, None]) -> bool:
@@ -41,7 +41,7 @@ class MMap:
 
     def __init__(self, path: Union[Path, str]):
         self.__p = Path(path)
-        self.__f = self.path.open("rb")
+        self.__f = self.path.open("rb")  # noqa: SIM115
         self.__m = mmap.mmap(self.__f.fileno(), 0, access=mmap.ACCESS_READ)
         self._closed = False
 

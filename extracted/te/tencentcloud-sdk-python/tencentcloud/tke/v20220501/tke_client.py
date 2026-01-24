@@ -164,6 +164,52 @@ class TkeClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeClusterMachines(self, request):
+        r"""查询托原生点列表
+
+        :param request: Request instance for DescribeClusterMachines.
+        :type request: :class:`tencentcloud.tke.v20220501.models.DescribeClusterMachinesRequest`
+        :rtype: :class:`tencentcloud.tke.v20220501.models.DescribeClusterMachinesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeClusterMachines", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeClusterMachinesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeClusters(self, request):
+        r"""查询集群列表
+
+        :param request: Request instance for DescribeClusters.
+        :type request: :class:`tencentcloud.tke.v20220501.models.DescribeClustersRequest`
+        :rtype: :class:`tencentcloud.tke.v20220501.models.DescribeClustersResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeClusters", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeClustersResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeHealthCheckPolicies(self, request):
         r"""查询健康检测策略
 
@@ -247,6 +293,29 @@ class TkeClient(AbstractClient):
             body = self.call("DescribeNodePools", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeNodePoolsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyClusterMachine(self, request):
+        r"""修改原生节点
+
+        :param request: Request instance for ModifyClusterMachine.
+        :type request: :class:`tencentcloud.tke.v20220501.models.ModifyClusterMachineRequest`
+        :rtype: :class:`tencentcloud.tke.v20220501.models.ModifyClusterMachineResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyClusterMachine", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyClusterMachineResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

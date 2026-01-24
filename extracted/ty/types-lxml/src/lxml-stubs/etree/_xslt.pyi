@@ -2,8 +2,6 @@
 # Includes both xslt.pxi and xsltext.pxi
 #
 
-from __future__ import annotations
-
 import abc
 import sys
 from typing import (
@@ -14,6 +12,7 @@ from typing import (
     final,
     overload,
 )
+from typing_extensions import disjoint_base
 
 from .._types import (
     SupportsLaxItems,
@@ -33,8 +32,6 @@ if sys.version_info >= (3, 13):
     from warnings import deprecated
 else:
     from typing_extensions import deprecated
-
-_Stylesheet_Param = _XSLTQuotedStringParam | XPath | str  # noqa: F821
 
 # exported constants
 LIBXSLT_VERSION: Final[tuple[int, int, int]]
@@ -76,6 +73,8 @@ class _XSLTQuotedStringParam:
 
     strval: bytes
 
+_Stylesheet_Param = _XSLTQuotedStringParam | XPath | str
+
 class __AccessControlConfig(TypedDict):
     read_file: bool | None
     write_file: bool | None
@@ -83,6 +82,7 @@ class __AccessControlConfig(TypedDict):
     read_network: bool | None
     write_network: bool | None
 
+@disjoint_base
 class XSLTAccessControl:
     """Access control for XSLT: reading/writing files, directories and
     network I/O.
@@ -118,6 +118,7 @@ class XSLTAccessControl:
     @property
     def options(self) -> __AccessControlConfig: ...
 
+@disjoint_base
 class XSLT:
     """Turn an XSL document into an XSLT object.
 
@@ -181,11 +182,13 @@ class XSLT:
 
 class _XSLTProcessingInstruction(PIBase):
     def parseXSL(self, parser: _DefEtreeParsers | None = None) -> _ElementTree: ...
+    # pyrefly: ignore[bad-override]
     def set(self, key: Literal["href"], value: str) -> None: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
 
 # We replace argument types with close-enough public types. It is a disservice
 # to require users to include whole bunch of stub-only internal types just to
 # satisfy annotation requirement.
+@disjoint_base
 class XSLTExtension(metaclass=abc.ABCMeta):
     """Base class of an XSLT extension element"""
 
@@ -219,7 +222,7 @@ class XSLTExtension(metaclass=abc.ABCMeta):
         output_parent: _Element,  # _AppendOnlyElementProxy
     ) -> None: ...
     @overload
-    def apply_templates(  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
+    def apply_templates(  # pyright: ignore[reportOverlappingOverload]
         self,
         context: object,  # _XSLTContext
         node: _Element,  # _ReadOnlyElementProxy
@@ -265,7 +268,7 @@ class XSLTExtension(metaclass=abc.ABCMeta):
         output_parent: _Element,  # _AppendOnlyElementProxy
     ) -> None: ...
     @overload
-    def process_children(  # type: ignore[overload-overlap]  # pyright: ignore[reportOverlappingOverload]
+    def process_children(  # pyright: ignore[reportOverlappingOverload]
         self,
         context: object,  # _XSLTContext
         output_parent: None = None,

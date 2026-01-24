@@ -23,22 +23,24 @@ import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 
 import packaging.requirements
 import packaging.utils
 
 import nox.command
+import nox.registry
 import nox.virtualenv
 from nox import _options, tasks, workflow
+from nox._options import DefaultStr
 from nox._version import get_nox_version
-from nox.logger import setup_logging
+from nox.logger import logger, setup_logging
 from nox.project import load_toml
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-__all__ = ["execute_workflow", "main"]
+__all__ = ["execute_workflow", "main", "nox_main"]
 
 
 def __dir__() -> list[str]:
@@ -136,13 +138,31 @@ def check_url_dependency(dep_url: str, dist: importlib.metadata.Distribution) ->
     return dep_purl.netloc == origin_purl.netloc and dep_purl.path == origin_purl.path
 
 
+def get_main_filename() -> str | None:
+    main_module = sys.modules.get("__main__")
+    if (
+        main_module
+        and (fname := getattr(main_module, "__file__", ""))
+        and os.path.exists(main_filename := os.path.abspath(fname))
+    ):
+        return main_filename
+    return None
+
+
 def run_script_mode(
-    envdir: Path, *, reuse: bool, dependencies: list[str], venv_backend: str
+    noxfile: str,
+    envdir: Path,
+    *,
+    reuse: bool,
+    dependencies: list[str],
+    venv_backend: str,
+    download_python: Literal["auto", "never", "always"],
 ) -> NoReturn:
     envdir.mkdir(exist_ok=True)
     noxenv = envdir.joinpath("_nox_script_mode")
     venv = nox.virtualenv.get_virtualenv(
         *venv_backend.split("|"),
+        download_python=download_python,
         reuse_existing=reuse,
         envdir=str(noxenv),
     )
@@ -157,11 +177,12 @@ def run_script_mode(
     subprocess.run([*cmd, *dependencies], env=env, check=True)
     nox_cmd = shutil.which("nox", path=env["PATH"])
     assert nox_cmd is not None, "Nox must be discoverable when installed"
+    args = [nox_cmd, "-f", noxfile, *sys.argv[1:]]
     # The os.exec functions don't work properly on Windows
     if sys.platform.startswith("win"):
         raise SystemExit(
             subprocess.run(
-                [nox_cmd, *sys.argv[1:]],
+                args,
                 env=env,
                 stdout=None,
                 stderr=None,
@@ -170,10 +191,18 @@ def run_script_mode(
                 check=False,
             ).returncode
         )
-    os.execle(nox_cmd, nox_cmd, *sys.argv[1:], env)  # pragma: nocover # noqa: S606
+    os.execle(nox_cmd, *args, env)  # pragma: nocover # noqa: S606
 
 
 def main() -> None:
+    _main(main_ep=False)
+
+
+def nox_main() -> None:
+    _main(main_ep=True)
+
+
+def _main(*, main_ep: bool) -> None:
     args = _options.options.parse_args()
 
     if args.help:
@@ -192,7 +221,12 @@ def main() -> None:
         msg = f"Invalid NOX_SCRIPT_MODE: {nox_script_mode!r}, must be one of 'none', 'reuse', or 'fresh'"
         raise SystemExit(msg)
     if nox_script_mode != "none":
-        toml_config = load_toml(os.path.expandvars(args.noxfile), missing_ok=True)
+        noxfile = (
+            args.noxfile
+            if main_ep or not isinstance(args.noxfile, DefaultStr)
+            else (get_main_filename() or args.noxfile)
+        )
+        toml_config = load_toml(os.path.expandvars(noxfile), missing_ok=True)
         dependencies = toml_config.get("dependencies")
         if dependencies is not None:
             valid_env = check_dependencies(dependencies)
@@ -208,14 +242,36 @@ def main() -> None:
                     )
                 )
 
+                download_python = (
+                    os.environ.get("NOX_SCRIPT_DOWNLOAD_PYTHON")
+                    or (
+                        toml_config.get("tool", {})
+                        .get("nox", {})
+                        .get("script-download-python", "auto")
+                    )
+                    or args.download_python
+                )
+
+                if download_python not in ("auto", "never", "always"):
+                    logger.warning(
+                        f"Invalid parameter for {download_python=}. Defaulting to 'auto'"
+                    )
+                    download_python = "auto"
+                download_python = cast(
+                    "Literal['auto', 'never', 'always']", download_python
+                )
+
                 envdir = Path(args.envdir or ".nox")
                 run_script_mode(
+                    noxfile,
                     envdir,
                     reuse=nox_script_mode == "reuse",
                     dependencies=dependencies,
                     venv_backend=venv_backend,
+                    download_python=download_python,
                 )
 
+    nox.registry.reset()
     exit_code = execute_workflow(args)
 
     # Done; exit.

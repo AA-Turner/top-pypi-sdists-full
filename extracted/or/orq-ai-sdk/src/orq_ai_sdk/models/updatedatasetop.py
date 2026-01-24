@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from datetime import datetime
-from orq_ai_sdk.types import BaseModel
+from orq_ai_sdk.types import BaseModel, UNSET_SENTINEL
 from orq_ai_sdk.utils import (
     FieldMetadata,
     PathParamMetadata,
@@ -10,6 +10,7 @@ from orq_ai_sdk.utils import (
     parse_datetime,
 )
 import pydantic
+from pydantic import model_serializer
 from typing import Optional
 from typing_extensions import Annotated, NotRequired, TypedDict
 
@@ -20,7 +21,12 @@ class UpdateDatasetRequestBodyTypedDict(TypedDict):
     project_id: NotRequired[str]
     r"""The unique identifier of the project it belongs to"""
     path: NotRequired[str]
-    r"""The path where the entity is stored in the project structure. The first element of the path always represents the project name. Any subsequent path element after the project will be created as a folder in the project if it does not exists."""
+    r"""Entity storage path in the format: `project/folder/subfolder/...`
+
+    The first element identifies the project, followed by nested folders (auto-created as needed).
+
+    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    """
 
 
 class UpdateDatasetRequestBody(BaseModel):
@@ -31,11 +37,33 @@ class UpdateDatasetRequestBody(BaseModel):
     r"""The unique identifier of the project it belongs to"""
 
     path: Optional[str] = None
-    r"""The path where the entity is stored in the project structure. The first element of the path always represents the project name. Any subsequent path element after the project will be created as a folder in the project if it does not exists."""
+    r"""Entity storage path in the format: `project/folder/subfolder/...`
+
+    The first element identifies the project, followed by nested folders (auto-created as needed).
+
+    With project-based API keys, the first element is treated as a folder name, as the project is predetermined by the API key.
+    """
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["display_name", "project_id", "path"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class UpdateDatasetRequestTypedDict(TypedDict):
     dataset_id: str
+    r"""The unique identifier of the dataset"""
     request_body: NotRequired[UpdateDatasetRequestBodyTypedDict]
 
 
@@ -43,11 +71,28 @@ class UpdateDatasetRequest(BaseModel):
     dataset_id: Annotated[
         str, FieldMetadata(path=PathParamMetadata(style="simple", explode=False))
     ]
+    r"""The unique identifier of the dataset"""
 
     request_body: Annotated[
         Optional[UpdateDatasetRequestBody],
         FieldMetadata(request=RequestMetadata(media_type="application/json")),
     ] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["RequestBody"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class UpdateDatasetMetadataTypedDict(TypedDict):
@@ -77,10 +122,6 @@ class UpdateDatasetResponseBodyTypedDict(TypedDict):
     r"""The unique identifier of the user who created the dataset"""
     updated_by_id: NotRequired[str]
     r"""The unique identifier of the user who last updated the dataset"""
-    parent_id: NotRequired[str]
-    r"""The unique identifier for the parent of the committed version"""
-    version: NotRequired[str]
-    r"""The version of the dataset"""
     created: NotRequired[datetime]
     r"""The date and time the resource was created"""
     updated: NotRequired[datetime]
@@ -110,14 +151,24 @@ class UpdateDatasetResponseBody(BaseModel):
     updated_by_id: Optional[str] = None
     r"""The unique identifier of the user who last updated the dataset"""
 
-    parent_id: Optional[str] = None
-    r"""The unique identifier for the parent of the committed version"""
-
-    version: Optional[str] = None
-    r"""The version of the dataset"""
-
     created: Optional[datetime] = None
     r"""The date and time the resource was created"""
 
-    updated: Optional[datetime] = parse_datetime("2025-09-22T21:25:50.768Z")
+    updated: Optional[datetime] = parse_datetime("2026-01-23T11:14:01.166Z")
     r"""The date and time the resource was last updated"""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["created_by_id", "updated_by_id", "created", "updated"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

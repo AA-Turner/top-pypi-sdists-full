@@ -19,11 +19,13 @@ AUTH_RESPONSE_EXPIRES_IN = 'expires_in'
 AUTH_RESPONSE_INSTANCE_URL = 'instance_url'
 
 AUTH_PARAM_JWT_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+AUTH_PARAM_CLIENT_CREDENTIALS_GRANT_TYPE = 'client_credentials'
 AUTH_PARAM_CDP_GRANT_TYPE = 'urn:salesforce:grant-type:external:cdp'
 AUTH_PARAM_CDP_SUBJECT_TOKEN = 'subject_token'
 AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE = 'subject_token_type'
 AUTH_PARAM_CDP_SUBJECT_TOKEN_TYPE_VALUE = 'urn:ietf:params:oauth:token-type:access_token'
 AUTH_PARAM_REFRESH_TOKEN_GRANT_TYPE = 'refresh_token'
+AUTH_PARAM_DATASPACE = 'dataspace'
 
 ENCODING_ASCII = 'ascii'
 

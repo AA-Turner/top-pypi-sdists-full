@@ -1,4 +1,5 @@
 ---
+# cspell:ignore tombi
 ci:
   # We rely on renovate to update it but there is no way to fully disable it
   # https://github.com/pre-commit-ci/issues/issues/83
@@ -7,33 +8,52 @@ ci:
     # https://github.com/pre-commit-ci/issues/issues/55
     - ccv
     # No docker on pre-commit.ci
+    - tombi-format
+    - tombi-lint
 repos:
+  - repo: meta
+    hooks:
+      - id: check-useless-excludes
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.8.17
+    rev: 0.9.8
     hooks:
       - id: uv-sync
+      - id: uv-lock
       - id: uv-lock
         name: "deps: upgrade via uv sync --upgrade"
         alias: deps
         args: ["--upgrade"]
         stages: [manual]
-  - repo: meta
+  - repo: https://github.com/biomejs/pre-commit
+    rev: "v2.3.4"
     hooks:
-      - id: check-useless-excludes
-  - repo: https://github.com/rbubley/mirrors-prettier
-    # keep it before yamllint
-    rev: v3.6.2
+      - id: biome-check
+        name: biome
+        alias: biome
+        args: [--unsafe]
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.1
     hooks:
-      - id: prettier
-        always_run: true
+      - id: markdownlint-cli2
+        alias: md
+        pass_filenames: false
+        args: ["**/.*.md"]
         additional_dependencies:
-          - prettier
-          - prettier-plugin-sort-json@3.1.0
+          - markdownlint-cli2-formatter-pretty
+          - markdownlint-cli2-formatter-summarize
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v9.2.0
+    rev: v9.2.1
     hooks:
       - id: cspell
-        name: Spell check with cspell
+        entry: bash
+        pass_filenames: false
+        args:
+          - "-euo"
+          - "pipefail"
+          - "-c"
+          - "cspell-cli . --relative --no-progress --no-summary && cspell-cli . --disable-dictionary=words --no-exit-code --words-only --quiet --unique | LC_ALL=C
+            sort > .config/dictionary.txt"
+        name: cspell + remove unused and sort dictionary
   - repo: https://github.com/pre-commit/pre-commit-hooks.git
     rev: v6.0.0
     hooks:
@@ -45,6 +65,13 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
       - id: mixed-line-ending
+  - repo: https://github.com/tombi-toml/tombi-pre-commit
+    rev: v0.7.0
+    hooks:
+      - id: tombi-format
+        alias: toml
+      - id: tombi-lint
+        alias: toml
   - repo: https://github.com/Lucas-C/pre-commit-hooks.git
     rev: v1.5.5
     hooks:
@@ -54,29 +81,15 @@ repos:
             .config/pydoclint-baseline.txt
           )$
 
-  - repo: https://github.com/rbubley/mirrors-prettier
-    rev: v3.6.2
-    hooks:
-      - id: prettier
-        always_run: true
-        additional_dependencies:
-          - prettier
-          - prettier-plugin-toml
-          - prettier-plugin-sort-json
-
-  - repo: https://github.com/pappasam/toml-sort
-    rev: v0.24.3
-    hooks:
-      - id: toml-sort-fix
-        alias: toml
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+    rev: v0.14.4
     hooks:
       - id: ruff-format
         alias: ruff
       - id: ruff-check
+        alias: ruff
   - repo: https://github.com/pre-commit/mirrors-mypy.git
-    rev: v1.18.1
+    rev: v1.18.2
     hooks:
       - id: mypy
         additional_dependencies: &deps
@@ -88,7 +101,7 @@ repos:
         # Override default pre-commit '--ignore-missing-imports'
         args: []
   - repo: https://github.com/jsh9/pydoclint
-    rev: "0.7.3"
+    rev: "0.8.1"
     hooks:
       - id: pydoclint
         # This allows automatic reduction of the baseline file when needed.
@@ -96,7 +109,7 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/pycqa/pylint.git
-    rev: v3.3.8
+    rev: v4.0.2
     hooks:
       - id: pylint
         args:
@@ -107,3 +120,12 @@ repos:
     hooks:
       - id: ccv
         name: codecov
+  - repo: https://github.com/ansible/ansible-lint
+    rev: v25.9.2
+    hooks:
+      - id: ansible-lint
+        args: [--fix]
+  - repo: https://github.com/ansible/team-devtools
+    rev: v25.12.8
+    hooks:
+      - id: check-platform-constraints

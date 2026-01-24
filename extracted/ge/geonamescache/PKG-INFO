@@ -1,25 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: geonamescache
-Version: 2.0.0
+Version: 3.0.0
 Summary: Geonames data for continents, cities and US states.
-Home-page: https://github.com/yaph/geonamescache
-Author: Ramiro Gómez
-Author-email: code@ramiro.org
-License: MIT
-Platform: UNKNOWN
+Project-URL: Documentation, https://github.com/yaph/geonamescache#readme
+Project-URL: Issues, https://github.com/yaph/geonamescache/issues
+Project-URL: Source, https://github.com/yaph/geonamescache
+Author-email: Ramiro Gómez <code@ramiro.org>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: counties,countries,fips,geo,geodata,geonames,iso-codes,states
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Requires-Dist: typing-extensions
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 # GeonamesCache
 
@@ -35,23 +38,18 @@ Geonames data is obtained from [GeoNames](http://www.geonames.org/).
 
 ## Usage
 
-A simple usage example:
+A simple example:
 
     import geonamescache
 
     gc = geonamescache.GeonamesCache()
-    countries = gc.get_countries()
-    # print countries dictionary
-    print(countries)
-    # you really wanna do something more useful with the data...
+    print(gc.get_countries())
 
 ## Settings
 
 ### Cities dataset
 
-When creating a `GeonamesCache` you can set the `min_city_population` parameter to either of 500, 1000, 5000 or the default 15000. The smaller the minimum popluation the more cities are included in the cities dataset.
-
-*New in version 1.4*
+When creating a `GeonamesCache` you can set the `min_city_population` parameter to either of 500, 1000, 5000 or the default 15000. The smaller the minimum population the more cities are included in the cities dataset.
 
 ## Methods
 
@@ -78,7 +76,7 @@ This function returns a list of city records that match the given `NAME`.
 
 ## Mappers
 
-The mappers module provides function(s) to map data properties. Currently you can create a mapper that maps country properties, e. g. the `name` property to the `iso3` property, to do so you\'d write the following code:
+The mappers module provides function(s) to map data properties. Currently you can create a mapper that maps country properties, e. g. the `name` property to the `iso3` property, to do so you'd write the following code:
 
     from geonamescache.mappers import country
     mapper = country(from_key='name', to_key='iso3')
@@ -88,5 +86,3 @@ The mappers module provides function(s) to map data properties. Currently you ca
 ## Contributing
 
 Please write test(s) for any new feature. If you wish to build the data from scratch, run `make dl` and `make json`.
-
-

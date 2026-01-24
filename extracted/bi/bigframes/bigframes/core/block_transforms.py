@@ -67,40 +67,39 @@ def indicate_duplicates(
     if keep not in ["first", "last", False]:
         raise ValueError("keep must be one of 'first', 'last', or False'")
 
+    rownums = agg_expressions.WindowExpression(
+        agg_expressions.NullaryAggregation(
+            agg_ops.RowNumberOp(),
+        ),
+        window=windows.unbound(grouping_keys=tuple(columns)),
+    )
+    count = agg_expressions.WindowExpression(
+        agg_expressions.NullaryAggregation(
+            agg_ops.SizeOp(),
+        ),
+        window=windows.unbound(grouping_keys=tuple(columns)),
+    )
+
     if keep == "first":
         # Count how many copies occur up to current copy of value
         # Discard this value if there are copies BEFORE
-        window_spec = windows.cumulative_rows(
-            grouping_keys=tuple(columns),
-        )
+        predicate = ops.gt_op.as_expr(rownums, ex.const(0))
     elif keep == "last":
         # Count how many copies occur up to current copy of values
         # Discard this value if there are copies AFTER
-        window_spec = windows.inverse_cumulative_rows(
-            grouping_keys=tuple(columns),
-        )
+        predicate = ops.lt_op.as_expr(rownums, ops.sub_op.as_expr(count, ex.const(1)))
     else:  # keep == False
         # Count how many copies of the value occur in entire series.
         # Discard this value if there are copies ANYWHERE
-        window_spec = windows.unbound(grouping_keys=tuple(columns))
-    block, dummy = block.create_constant(1)
-    # use row number as will work even with partial ordering
-    block, val_count_col_id = block.apply_window_op(
-        dummy,
-        agg_ops.sum_op,
-        window_spec=window_spec,
-    )
-    block, duplicate_indicator = block.project_expr(
-        ops.gt_op.as_expr(val_count_col_id, ex.const(1))
+        predicate = ops.gt_op.as_expr(count, ex.const(1))
+
+    block = block.project_block_exprs(
+        [predicate],
+        labels=[None],
     )
     return (
-        block.drop_columns(
-            (
-                dummy,
-                val_count_col_id,
-            )
-        ),
-        duplicate_indicator,
+        block,
+        block.value_columns[-1],
     )
 
 
@@ -130,12 +129,12 @@ def quantile(
                 window_spec=window,
             )
             quantile_cols.append(quantile_col)
-    block, _ = block.aggregate(
-        grouping_column_ids,
+    block = block.aggregate(
         tuple(
             agg_expressions.UnaryAggregation(agg_ops.AnyValueOp(), ex.deref(col))
             for col in quantile_cols
         ),
+        grouping_column_ids,
         column_labels=pd.Index(labels),
         dropna=dropna,
     )
@@ -232,13 +231,11 @@ def _interpolate_column(
         masked_offsets,
         agg_ops.LastNonNullOp(),
         backwards_window,
-        skip_reproject_unsafe=True,
     )
     block, next_value_offset = block.apply_window_op(
         masked_offsets,
         agg_ops.FirstNonNullOp(),
         forwards_window,
-        skip_reproject_unsafe=True,
     )
 
     if interpolate_method == "linear":
@@ -361,12 +358,12 @@ def value_counts(
     if grouping_keys and drop_na:
         # only need this if grouping_keys is involved, otherwise the drop_na in the aggregation will handle it for us
         block = dropna(block, columns, how="any")
-    block, agg_ids = block.aggregate(
-        by_column_ids=(*grouping_keys, *columns),
+    block = block.aggregate(
         aggregations=[agg_expressions.NullaryAggregation(agg_ops.size_op)],
+        by_column_ids=(*grouping_keys, *columns),
         dropna=drop_na and not grouping_keys,
     )
-    count_id = agg_ids[0]
+    count_id = block.value_columns[0]
     if normalize:
         unbound_window = windows.unbound(grouping_keys=tuple(grouping_keys))
         block, total_count_id = block.apply_window_op(
@@ -399,15 +396,18 @@ def pct_change(block: blocks.Block, periods: int = 1) -> blocks.Block:
     window_spec = windows.unbound()
 
     original_columns = block.value_columns
-    block, shift_columns = block.multi_apply_window_op(
-        original_columns, agg_ops.ShiftOp(periods), window_spec=window_spec
-    )
     exprs = []
-    for original_col, shifted_col in zip(original_columns, shift_columns):
-        change_expr = ops.sub_op.as_expr(original_col, shifted_col)
-        pct_change_expr = ops.div_op.as_expr(change_expr, shifted_col)
+    for original_col in original_columns:
+        shift_expr = agg_expressions.WindowExpression(
+            agg_expressions.UnaryAggregation(
+                agg_ops.ShiftOp(periods), ex.deref(original_col)
+            ),
+            window_spec,
+        )
+        change_expr = ops.sub_op.as_expr(original_col, shift_expr)
+        pct_change_expr = ops.div_op.as_expr(change_expr, shift_expr)
         exprs.append(pct_change_expr)
-    return block.project_exprs(exprs, labels=column_labels, drop=True)
+    return block.project_block_exprs(exprs, labels=column_labels, drop=True)
 
 
 def rank(
@@ -428,16 +428,11 @@ def rank(
 
     columns = columns or tuple(col for col in block.value_columns)
     labels = [block.col_id_to_label[id] for id in columns]
-    # Step 1: Calculate row numbers for each row
-    # Identify null values to be treated according to na_option param
-    rownum_col_ids = []
-    nullity_col_ids = []
+
+    result_exprs = []
     for col in columns:
-        block, nullity_col_id = block.apply_unary_op(
-            col,
-            ops.isnull_op,
-        )
-        nullity_col_ids.append(nullity_col_id)
+        # Step 1: Calculate row numbers for each row
+        # Identify null values to be treated according to na_option param
         window_ordering = (
             ordering.OrderingExpression(
                 ex.deref(col),
@@ -448,87 +443,66 @@ def rank(
             ),
         )
         # Count_op ignores nulls, so if na_option is "top" or "bottom", we instead count the nullity columns, where nulls have been mapped to bools
-        block, rownum_id = block.apply_window_op(
-            col if na_option == "keep" else nullity_col_id,
-            agg_ops.dense_rank_op if method == "dense" else agg_ops.count_op,
-            window_spec=windows.unbound(
-                grouping_keys=grouping_cols, ordering=window_ordering
-            )
+        target_expr = (
+            ex.deref(col) if na_option == "keep" else ops.isnull_op.as_expr(col)
+        )
+        window_op = agg_ops.dense_rank_op if method == "dense" else agg_ops.count_op
+        window_spec = (
+            windows.unbound(grouping_keys=grouping_cols, ordering=window_ordering)
             if method == "dense"
             else windows.rows(
                 end=0, ordering=window_ordering, grouping_keys=grouping_cols
-            ),
-            skip_reproject_unsafe=(col != columns[-1]),
+            )
+        )
+        result_expr: ex.Expression = agg_expressions.WindowExpression(
+            agg_expressions.UnaryAggregation(window_op, target_expr), window_spec
         )
         if pct:
-            block, max_id = block.apply_window_op(
-                rownum_id, agg_ops.max_op, windows.unbound(grouping_keys=grouping_cols)
+            result_expr = ops.div_op.as_expr(
+                result_expr,
+                agg_expressions.WindowExpression(
+                    agg_expressions.UnaryAggregation(agg_ops.max_op, result_expr),
+                    windows.unbound(grouping_keys=grouping_cols),
+                ),
             )
-            block, rownum_id = block.project_expr(ops.div_op.as_expr(rownum_id, max_id))
-
-        rownum_col_ids.append(rownum_id)
-
-    # Step 2: Apply aggregate to groups of like input values.
-    # This step is skipped for method=='first' or 'dense'
-    if method in ["average", "min", "max"]:
-        agg_op = {
-            "average": agg_ops.mean_op,
-            "min": agg_ops.min_op,
-            "max": agg_ops.max_op,
-        }[method]
-        post_agg_rownum_col_ids = []
-        for i in range(len(columns)):
-            block, result_id = block.apply_window_op(
-                rownum_col_ids[i],
-                agg_op,
-                window_spec=windows.unbound(grouping_keys=(columns[i], *grouping_cols)),
-                skip_reproject_unsafe=(i < (len(columns) - 1)),
+        # Step 2: Apply aggregate to groups of like input values.
+        # This step is skipped for method=='first' or 'dense'
+        if method in ["average", "min", "max"]:
+            agg_op = {
+                "average": agg_ops.mean_op,
+                "min": agg_ops.min_op,
+                "max": agg_ops.max_op,
+            }[method]
+            result_expr = agg_expressions.WindowExpression(
+                agg_expressions.UnaryAggregation(agg_op, result_expr),
+                windows.unbound(grouping_keys=(col, *grouping_cols)),
             )
-            post_agg_rownum_col_ids.append(result_id)
-        rownum_col_ids = post_agg_rownum_col_ids
-
-    # Pandas masks all values where any grouping column is null
-    # Note: we use pd.NA instead of float('nan')
-    if grouping_cols:
-        predicate = functools.reduce(
-            ops.and_op.as_expr,
-            [ops.notnull_op.as_expr(column_id) for column_id in grouping_cols],
-        )
-        block = block.project_exprs(
-            [
-                ops.where_op.as_expr(
-                    ex.deref(col),
-                    predicate,
-                    ex.const(None),
-                )
-                for col in rownum_col_ids
-            ],
-            labels=labels,
-        )
-        rownum_col_ids = list(block.value_columns[-len(rownum_col_ids) :])
-
-    # Step 3: post processing: mask null values and cast to float
-    if method in ["min", "max", "first", "dense"]:
-        # Pandas rank always produces Float64, so must cast for aggregation types that produce ints
-        return (
-            block.select_columns(rownum_col_ids)
-            .multi_apply_unary_op(ops.AsTypeOp(pd.Float64Dtype()))
-            .with_column_labels(labels)
-        )
-    if na_option == "keep":
-        # For na_option "keep", null inputs must produce null outputs
-        exprs = []
-        for i in range(len(columns)):
-            exprs.append(
-                ops.where_op.as_expr(
-                    ex.const(pd.NA, dtype=pd.Float64Dtype()),
-                    nullity_col_ids[i],
-                    rownum_col_ids[i],
-                )
+        # Pandas masks all values where any grouping column is null
+        # Note: we use pd.NA instead of float('nan')
+        if grouping_cols:
+            predicate = functools.reduce(
+                ops.and_op.as_expr,
+                [ops.notnull_op.as_expr(column_id) for column_id in grouping_cols],
             )
-        return block.project_exprs(exprs, labels=labels, drop=True)
+            result_expr = ops.where_op.as_expr(
+                result_expr,
+                predicate,
+                ex.const(None),
+            )
 
-    return block.select_columns(rownum_col_ids).with_column_labels(labels)
+        # Step 3: post processing: mask null values and cast to float
+        if method in ["min", "max", "first", "dense"]:
+            # Pandas rank always produces Float64, so must cast for aggregation types that produce ints
+            result_expr = ops.AsTypeOp(pd.Float64Dtype()).as_expr(result_expr)
+        elif na_option == "keep":
+            # For na_option "keep", null inputs must produce null outputs
+            result_expr = ops.where_op.as_expr(
+                ex.const(pd.NA, dtype=pd.Float64Dtype()),
+                ops.isnull_op.as_expr(col),
+                result_expr,
+            )
+        result_exprs.append(result_expr)
+    return block.project_block_exprs(result_exprs, labels=labels, drop=True)
 
 
 def dropna(
@@ -648,40 +622,14 @@ def skew(
     original_columns = skew_column_ids
     column_labels = block.select_columns(original_columns).column_labels
 
-    block, delta3_ids = _mean_delta_to_power(
-        block, 3, original_columns, grouping_column_ids
-    )
     # counts, moment3 for each column
     aggregations = []
-    for i, col in enumerate(original_columns):
-        count_agg = agg_expressions.UnaryAggregation(
-            agg_ops.count_op,
-            ex.deref(col),
-        )
-        moment3_agg = agg_expressions.UnaryAggregation(
-            agg_ops.mean_op,
-            ex.deref(delta3_ids[i]),
-        )
-        variance_agg = agg_expressions.UnaryAggregation(
-            agg_ops.PopVarOp(),
-            ex.deref(col),
-        )
-        aggregations.extend([count_agg, moment3_agg, variance_agg])
+    for col in original_columns:
+        aggregations.append(skew_expr(ex.deref(col)))
 
-    block, agg_ids = block.aggregate(
-        by_column_ids=grouping_column_ids, aggregations=aggregations
+    block = block.aggregate(
+        aggregations, grouping_column_ids, column_labels=column_labels
     )
-
-    skew_ids = []
-    for i, col in enumerate(original_columns):
-        # Corresponds to order of aggregations in preceding loop
-        count_id, moment3_id, var_id = agg_ids[i * 3 : (i * 3) + 3]
-        block, skew_id = _skew_from_moments_and_count(
-            block, count_id, moment3_id, var_id
-        )
-        skew_ids.append(skew_id)
-
-    block = block.select_columns(skew_ids).with_column_labels(column_labels)
     if not grouping_column_ids:
         # When ungrouped, transpose result row into a series
         # perform transpose last, so as to not invalidate cache
@@ -698,36 +646,14 @@ def kurt(
 ) -> blocks.Block:
     original_columns = skew_column_ids
     column_labels = block.select_columns(original_columns).column_labels
-
-    block, delta4_ids = _mean_delta_to_power(
-        block, 4, original_columns, grouping_column_ids
-    )
     # counts, moment4 for each column
-    aggregations = []
-    for i, col in enumerate(original_columns):
-        count_agg = agg_expressions.UnaryAggregation(agg_ops.count_op, ex.deref(col))
-        moment4_agg = agg_expressions.UnaryAggregation(
-            agg_ops.mean_op, ex.deref(delta4_ids[i])
-        )
-        variance_agg = agg_expressions.UnaryAggregation(
-            agg_ops.PopVarOp(), ex.deref(col)
-        )
-        aggregations.extend([count_agg, moment4_agg, variance_agg])
+    kurt_exprs = []
+    for col in original_columns:
+        kurt_exprs.append(kurt_expr(ex.deref(col)))
 
-    block, agg_ids = block.aggregate(
-        by_column_ids=grouping_column_ids, aggregations=aggregations
+    block = block.aggregate(
+        kurt_exprs, grouping_column_ids, column_labels=column_labels
     )
-
-    kurt_ids = []
-    for i, col in enumerate(original_columns):
-        # Corresponds to order of aggregations in preceding loop
-        count_id, moment4_id, var_id = agg_ids[i * 3 : (i * 3) + 3]
-        block, kurt_id = _kurt_from_moments_and_count(
-            block, count_id, moment4_id, var_id
-        )
-        kurt_ids.append(kurt_id)
-
-    block = block.select_columns(kurt_ids).with_column_labels(column_labels)
     if not grouping_column_ids:
         # When ungrouped, transpose result row into a series
         # perform transpose last, so as to not invalidate cache
@@ -737,39 +663,56 @@ def kurt(
     return block
 
 
+def skew_expr(expr: ex.Expression) -> ex.Expression:
+    delta3_expr = _mean_delta_to_power(3, expr)
+    count_agg = agg_expressions.UnaryAggregation(
+        agg_ops.count_op,
+        expr,
+    )
+    moment3_agg = agg_expressions.UnaryAggregation(
+        agg_ops.mean_op,
+        delta3_expr,
+    )
+    variance_agg = agg_expressions.UnaryAggregation(
+        agg_ops.PopVarOp(),
+        expr,
+    )
+    return _skew_from_moments_and_count(count_agg, moment3_agg, variance_agg)
+
+
+def kurt_expr(expr: ex.Expression) -> ex.Expression:
+    delta_4_expr = _mean_delta_to_power(4, expr)
+    count_agg = agg_expressions.UnaryAggregation(agg_ops.count_op, expr)
+    moment4_agg = agg_expressions.UnaryAggregation(agg_ops.mean_op, delta_4_expr)
+    variance_agg = agg_expressions.UnaryAggregation(agg_ops.PopVarOp(), expr)
+    return _kurt_from_moments_and_count(count_agg, moment4_agg, variance_agg)
+
+
 def _mean_delta_to_power(
-    block: blocks.Block,
     n_power: int,
-    column_ids: typing.Sequence[str],
-    grouping_column_ids: typing.Sequence[str],
-) -> typing.Tuple[blocks.Block, typing.Sequence[str]]:
+    col_expr: ex.Expression,
+) -> ex.Expression:
     """Calculate (x-mean(x))^n. Useful for calculating moment statistics such as skew and kurtosis."""
-    window = windows.unbound(grouping_keys=tuple(grouping_column_ids))
-    block, mean_ids = block.multi_apply_window_op(column_ids, agg_ops.mean_op, window)
-    delta_ids = []
-    for val_id, mean_val_id in zip(column_ids, mean_ids):
-        delta = ops.sub_op.as_expr(val_id, mean_val_id)
-        delta_power = ops.pow_op.as_expr(delta, ex.const(n_power))
-        block, delta_power_id = block.project_expr(delta_power)
-        delta_ids.append(delta_power_id)
-    return block, delta_ids
+    mean_expr = agg_expressions.UnaryAggregation(agg_ops.mean_op, col_expr)
+    delta = ops.sub_op.as_expr(col_expr, mean_expr)
+    return ops.pow_op.as_expr(delta, ex.const(n_power))
 
 
 def _skew_from_moments_and_count(
-    block: blocks.Block, count_id: str, moment3_id: str, moment2_id: str
-) -> typing.Tuple[blocks.Block, str]:
+    count: ex.Expression, moment3: ex.Expression, moment2: ex.Expression
+) -> ex.Expression:
     # Calculate skew using count, third moment and population variance
     # See G1 estimator:
     # https://en.wikipedia.org/wiki/Skewness#Sample_skewness
     moments_estimator = ops.div_op.as_expr(
-        moment3_id, ops.pow_op.as_expr(moment2_id, ex.const(3 / 2))
+        moment3, ops.pow_op.as_expr(moment2, ex.const(3 / 2))
     )
 
-    countminus1 = ops.sub_op.as_expr(count_id, ex.const(1))
-    countminus2 = ops.sub_op.as_expr(count_id, ex.const(2))
+    countminus1 = ops.sub_op.as_expr(count, ex.const(1))
+    countminus2 = ops.sub_op.as_expr(count, ex.const(2))
     adjustment = ops.div_op.as_expr(
         ops.unsafe_pow_op.as_expr(
-            ops.mul_op.as_expr(count_id, countminus1), ex.const(1 / 2)
+            ops.mul_op.as_expr(count, countminus1), ex.const(1 / 2)
         ),
         countminus2,
     )
@@ -778,14 +721,14 @@ def _skew_from_moments_and_count(
 
     # Need to produce NA if have less than 3 data points
     cleaned_skew = ops.where_op.as_expr(
-        skew, ops.ge_op.as_expr(count_id, ex.const(3)), ex.const(None)
+        skew, ops.ge_op.as_expr(count, ex.const(3)), ex.const(None)
     )
-    return block.project_expr(cleaned_skew)
+    return cleaned_skew
 
 
 def _kurt_from_moments_and_count(
-    block: blocks.Block, count_id: str, moment4_id: str, moment2_id: str
-) -> typing.Tuple[blocks.Block, str]:
+    count: ex.Expression, moment4: ex.Expression, moment2: ex.Expression
+) -> ex.Expression:
     # Kurtosis is often defined as the second standardize moment: moment(4)/moment(2)**2
     # Pandas however uses Fisher’s estimator, implemented below
     # numerator = (count + 1) * (count - 1) * moment4
@@ -794,28 +737,26 @@ def _kurt_from_moments_and_count(
     # kurtosis = (numerator / denominator) - adjustment
 
     numerator = ops.mul_op.as_expr(
-        moment4_id,
+        moment4,
         ops.mul_op.as_expr(
-            ops.sub_op.as_expr(count_id, ex.const(1)),
-            ops.add_op.as_expr(count_id, ex.const(1)),
+            ops.sub_op.as_expr(count, ex.const(1)),
+            ops.add_op.as_expr(count, ex.const(1)),
         ),
     )
 
     # Denominator
-    countminus2 = ops.sub_op.as_expr(count_id, ex.const(2))
-    countminus3 = ops.sub_op.as_expr(count_id, ex.const(3))
+    countminus2 = ops.sub_op.as_expr(count, ex.const(2))
+    countminus3 = ops.sub_op.as_expr(count, ex.const(3))
 
     # Denominator
     denominator = ops.mul_op.as_expr(
-        ops.unsafe_pow_op.as_expr(moment2_id, ex.const(2)),
+        ops.unsafe_pow_op.as_expr(moment2, ex.const(2)),
         ops.mul_op.as_expr(countminus2, countminus3),
     )
 
     # Adjustment
     adj_num = ops.mul_op.as_expr(
-        ops.unsafe_pow_op.as_expr(
-            ops.sub_op.as_expr(count_id, ex.const(1)), ex.const(2)
-        ),
+        ops.unsafe_pow_op.as_expr(ops.sub_op.as_expr(count, ex.const(1)), ex.const(2)),
         ex.const(3),
     )
     adj_denom = ops.mul_op.as_expr(countminus2, countminus3)
@@ -826,9 +767,9 @@ def _kurt_from_moments_and_count(
 
     # Need to produce NA if have less than 4 data points
     cleaned_kurt = ops.where_op.as_expr(
-        kurt, ops.ge_op.as_expr(count_id, ex.const(4)), ex.const(None)
+        kurt, ops.ge_op.as_expr(count, ex.const(4)), ex.const(None)
     )
-    return block.project_expr(cleaned_kurt)
+    return cleaned_kurt
 
 
 def align(

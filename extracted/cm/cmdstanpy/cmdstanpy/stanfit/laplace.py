@@ -1,17 +1,8 @@
 """
-    Container for the result of running a laplace approximation.
+Container for the result of running a laplace approximation.
 """
 
-from typing import (
-    Any,
-    Dict,
-    Hashable,
-    List,
-    MutableMapping,
-    Optional,
-    Tuple,
-    Union,
-)
+from typing import Any, Hashable, MutableMapping, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -24,8 +15,8 @@ except ImportError:
     XARRAY_INSTALLED = False
 
 from cmdstanpy.cmdstan_args import Method
+from cmdstanpy.utils import stancsv
 from cmdstanpy.utils.data_munging import build_xarray_data
-from cmdstanpy.utils.stancsv import scan_generic_csv
 
 from .metadata import InferenceMetadata
 from .mle import CmdStanMLE
@@ -46,26 +37,56 @@ class CmdStanLaplace:
             )
         self._runset = runset
         self._mode = mode
-
         self._draws: np.ndarray = np.array(())
+        self._metadata = InferenceMetadata.from_csv(self._runset.csv_files[0])
 
-        config = scan_generic_csv(runset.csv_files[0])
-        self._metadata = InferenceMetadata(config)
+    def create_inits(
+        self, seed: Optional[int] = None, chains: int = 4
+    ) -> Union[list[dict[str, np.ndarray]], dict[str, np.ndarray]]:
+        """
+        Create initial values for the parameters of the model
+        by randomly selecting draws from the Laplace approximation.
+
+        :param seed: Used for random selection, defaults to None
+        :param chains: Number of initial values to return, defaults to 4
+        :return: The initial values for the parameters of the model.
+
+        If ``chains`` is 1, a dictionary is returned, otherwise a list
+        of dictionaries is returned, in the format expected for the
+        ``inits`` argument of :meth:`CmdStanModel.sample`.
+        """
+        self._assemble_draws()
+        rng = np.random.default_rng(seed)
+        idxs = rng.choice(self._draws.shape[0], size=chains, replace=False)
+        if chains == 1:
+            draw = self._draws[idxs[0]]
+            return {
+                name: var.extract_reshape(draw)
+                for name, var in self._metadata.stan_vars.items()
+            }
+        else:
+            return [
+                {
+                    name: var.extract_reshape(self._draws[idx])
+                    for name, var in self._metadata.stan_vars.items()
+                }
+                for idx in idxs
+            ]
 
     def _assemble_draws(self) -> None:
         if self._draws.shape != (0,):
             return
 
-        with open(self._runset.csv_files[0], 'r') as fd:
-            while (fd.readline()).startswith("#"):
-                pass
-            self._draws = np.loadtxt(
-                fd,
-                dtype=float,
-                ndmin=2,
-                delimiter=',',
-                comments="#",
+        csv_file = self._runset.csv_files[0]
+        try:
+            *_, draws = stancsv.parse_comments_header_and_draws(
+                self._runset.csv_files[0]
             )
+            self._draws = stancsv.csv_bytes_list_to_numpy(draws)
+        except Exception as exc:
+            raise ValueError(
+                f"An error occurred when parsing Stan csv {csv_file}"
+            ) from exc
 
     def stan_variable(self, var: str) -> np.ndarray:
         """
@@ -100,7 +121,7 @@ class CmdStanLaplace:
                 + ", ".join(self._metadata.stan_vars.keys())
             )
 
-    def stan_variables(self) -> Dict[str, np.ndarray]:
+    def stan_variables(self) -> dict[str, np.ndarray]:
         """
         Return a dictionary mapping Stan program variables names
         to the corresponding numpy.ndarray containing the inferred values.
@@ -122,7 +143,7 @@ class CmdStanLaplace:
             result[name] = self.stan_variable(name)
         return result
 
-    def method_variables(self) -> Dict[str, np.ndarray]:
+    def method_variables(self) -> dict[str, np.ndarray]:
         """
         Returns a dictionary of all sampler variables, i.e., all
         output column names ending in `__`.  Assumes that all variables
@@ -147,7 +168,7 @@ class CmdStanLaplace:
 
     def draws_pd(
         self,
-        vars: Union[List[str], str, None] = None,
+        vars: Union[list[str], str, None] = None,
     ) -> pd.DataFrame:
         if vars is not None:
             if isinstance(vars, str):
@@ -176,7 +197,7 @@ class CmdStanLaplace:
 
     def draws_xr(
         self,
-        vars: Union[str, List[str], None] = None,
+        vars: Union[str, list[str], None] = None,
     ) -> "xr.Dataset":
         """
         Returns the sampler draws as a xarray Dataset.
@@ -278,14 +299,14 @@ class CmdStanLaplace:
         return self.__dict__
 
     @property
-    def column_names(self) -> Tuple[str, ...]:
+    def column_names(self) -> tuple[str, ...]:
         """
         Names of all outputs from the sampler, comprising sampler parameters
         and all components of all model parameters, transformed parameters,
         and quantities of interest. Corresponds to Stan CSV file header row,
         with names munged to array notation, e.g. `beta[1]` not `beta.1`.
         """
-        return self._metadata.cmdstan_config['column_names']  # type: ignore
+        return self._metadata.column_names
 
     def save_csvfiles(self, dir: Optional[str] = None) -> None:
         """

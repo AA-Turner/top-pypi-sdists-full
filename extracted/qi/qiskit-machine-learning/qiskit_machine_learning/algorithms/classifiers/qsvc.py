@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -13,7 +13,6 @@
 """Quantum Support Vector Classifier"""
 
 import warnings
-from typing import Optional
 
 from sklearn.svm import SVC
 
@@ -34,24 +33,37 @@ class QSVC(SVC, SerializableModelMixin):
     Read more in the `scikit-learn user guide
     <https://scikit-learn.org/stable/modules/svm.html#svm-classification>`_.
 
-    **Example**
+    Examples:
+        .. code-block::
 
-    .. code-block::
+            from qiskit_machine_learning.kernels import FidelityQuantumKernel
+            from qiskit_machine_learning.algorithms import QSVC
 
-        qsvc = QSVC(quantum_kernel=qkernel)
-        qsvc.fit(sample_train,label_train)
-        qsvc.predict(sample_test)
+            kernel = FidelityQuantumKernel()
+            qsvc = QSVC(quantum_kernel=kernel)
+            qsvc.fit(X_train, y_train)
+            y_pred = qsvc.predict(X_test)
+
+            # Save the trained model
+            qsvc.to_dill('qsvc_model.dill')
+
+            # Load the model for later use
+            loaded_qsvc = QSVC.from_dill('qsvc_model.dill')
+            score = loaded_qsvc.score(X_test, y_test)
+
     """
 
-    def __init__(self, *, quantum_kernel: Optional[BaseKernel] = None, **kwargs):
+    def __init__(self, *, quantum_kernel: BaseKernel | None = None, **kwargs):
         """
         Args:
             quantum_kernel: A quantum kernel to be used for classification.
-                Has to be ``None`` when a precomputed kernel is used. If None,
+                Has to be ``"precomputed"`` when a precomputed kernel is used. If None,
                 default to :class:`~qiskit_machine_learning.kernels.FidelityQuantumKernel`.
             *args: Variable length argument list to pass to SVC constructor.
             **kwargs: Arbitrary keyword arguments to pass to SVC constructor.
         """
+        if "random_state" not in kwargs:
+            kwargs["random_state"] = algorithm_globals.random_seed
         if "kernel" in kwargs:
             msg = (
                 "'kernel' argument is not supported and will be discarded, "
@@ -60,15 +72,16 @@ class QSVC(SVC, SerializableModelMixin):
             warnings.warn(msg, QiskitMachineLearningWarning, stacklevel=2)
             # if we don't delete, then this value clashes with our quantum kernel
             del kwargs["kernel"]
-        if quantum_kernel is None:
-            msg = "No quantum kernel is provided, SamplerV1 based quantum kernel will be used."
-            warnings.warn(msg, QiskitMachineLearningWarning, stacklevel=2)
-        self._quantum_kernel = quantum_kernel if quantum_kernel else FidelityQuantumKernel()
 
-        if "random_state" not in kwargs:
-            kwargs["random_state"] = algorithm_globals.random_seed
+        feature_map = kwargs.pop("feature_map", None)
+        self._quantum_kernel = (
+            quantum_kernel if quantum_kernel else FidelityQuantumKernel(feature_map=feature_map)
+        )
 
-        super().__init__(kernel=self._quantum_kernel.evaluate, **kwargs)
+        if quantum_kernel == "precomputed":
+            super().__init__(kernel=self._quantum_kernel, **kwargs)
+        else:
+            super().__init__(kernel=self._quantum_kernel.evaluate, **kwargs)
 
     @property
     def quantum_kernel(self) -> BaseKernel:

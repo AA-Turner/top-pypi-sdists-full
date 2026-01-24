@@ -1,29 +1,42 @@
 import logging
+import random
 import re
 import sys
 from datetime import datetime, timezone
-from http.cookiejar import CookieJar
 from importlib import metadata
-from ssl import SSLContext
 from time import sleep
-from typing import Optional, Union, Generator, Any, Type, Literal, Mapping
+from typing import Optional, Union, Any, Type, Literal
+from urllib.parse import urlparse, urljoin, ParseResult
 
 import jwt
-from httpx import Client, BaseTransport, URL, Request, Response, Auth, Timeout, post
-from httpx._client import EventHook
-from httpx._types import CertTypes
+from niquests import (
+    Session,
+    Request,
+    Response,
+    PreparedRequest,
+    RetryConfiguration,
+    TimeoutConfiguration,
+    LifeCycleHook,
+)
+
+# See https://github.com/jawah/niquests/issues/324 for the PathLike import
+from niquests.typing import TLSVerifyType, TimeoutType, ProxyType, TLSClientCertType, PathLike  # noqa: F401
+from niquests.auth import AuthBase
+from niquests.cookies import extract_cookies_to_jar
+from niquests.exceptions import RetryError, HTTPError
 from packaging.version import Version
-from pydantic import field_validator, Field, AliasChoices, PrivateAttr
+from pydantic import field_validator, Field, AliasChoices, PrivateAttr, AnyUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource, InitSettingsSource
 
-from ipfabric.tools.shared import raise_for_status, valid_snapshot, ProxyTypes, TimeoutTypes
+from ipfabric.tools.shared import raise_for_status, valid_snapshot
 
 logger = logging.getLogger("ipfabric")
 
 RE_VERSION = re.compile(r"v?(\d(\.\d*)?)")
 
 
-def log_request(request: Request):
+def log_request(request: PreparedRequest):
+    # TODO: Figure out why these don't print
     logger.debug(f"Request event hook: {request.method} {request.url} - Waiting for response")
 
 
@@ -32,102 +45,162 @@ def log_response(response: Response):
     logger.debug(f"Response event hook: {request.method} {request.url} - Status {response.status_code}")
 
 
-class RateLimiter:
+class RateLimiter(AuthBase):
     def __init__(self, api_version: str = None):
         self.os_api_version = api_version
 
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
+        """Add the rate limit handler to the request."""
+        if self.rate_limit not in r.hooks["response"]:
+            r.register_hook("response", self.rate_limit)
+        if self.deprecated not in r.hooks["response"]:
+            r.register_hook("response", self.deprecated)
+        return r
+
     def deprecated(self, response: Response):
         if response.headers.get("deprecation", False) == "true":
-            version = response.url.path.split("/")[2]
-            if version == self.os_api_version:
-                logger.warning(
-                    f"API endpoint '{response.url.path}' has deprecation header set and will be removed in a future release."
-                )
+            path = urlparse(response.url).path
+            sunset = response.headers.get("sunset", None)
+            if path.split("/")[2] == self.os_api_version:
+                msg = f"API endpoint '{path}' has deprecation header set and will be removed in a future release."
+                msg += f" Sunset date is {sunset}." if sunset else ""
+                logger.warning(msg)
             else:
+                # TODO: Change to new versioning scheme.
                 logger.info(
-                    f"API endpoint '{response.url.path}' is using older API version, "
-                    f"current IP Fabric version is {self.os_api_version}."
+                    f"API endpoint '{path}' is using older API version, current IP Fabric version is {self.os_api_version}."
                 )
 
     @staticmethod
-    def rate_limit(response: Response, request: Request):
+    def send_prepared_request(response: Response, prep: PreparedRequest, **kwargs) -> Response:
+        _r = response.connection.send(prep, **kwargs)
+        _r.history = [*response.history, response]
+        _r.request = prep
+        return _r
+
+    def prepare_and_send(self, response: Response, **kwargs) -> Response:
+        response.close()
+        prep = response.request.copy()
+        extract_cookies_to_jar(prep._cookies, response.request, response.raw)
+        prep.prepare_cookies(prep._cookies)
+        return self.send_prepared_request(response, prep, **kwargs)
+
+    def rate_limit(self, response: Response, **kwargs):
+        if response.status_code != 429:
+            return response
+        retry = response.connection.max_retries
+
         reset = int(response.headers.get("X-RateLimit-Reset", 0))
-        wait = reset - int(datetime.now(timezone.utc).timestamp()) + 0.5
+        _ = retry.backoff_jitter * random.random()  # nosemgrep: bandit.B311
+        wait = reset - int(datetime.now(timezone.utc).timestamp()) + _
+
+        retries = len([_ for _ in response.history if _.status_code in retry.status_forcelist])
+        if retries >= retry.status:
+            raise RetryError("Max retry limit reached", response=response)
         if wait > 0:
-            logger.warning(f"Rate Limit Reached. Waiting for {wait} seconds.")
+            print(f"Rate Limit Reached. Waiting for {wait} seconds.")
             sleep(wait)
-        return request
+            _r = self.prepare_and_send(response, **kwargs)
+            if _r.status_code == 429 and _r.headers.get("X-RateLimit-Remaining", None) == "0":
+                self.rate_limit(_r, **kwargs)
+
+            return _r
+        return response
 
 
-class JWTToken(Auth, RateLimiter):
+class JWTToken(RateLimiter):
     """Used for streamlit."""
 
-    def auth_flow(self, request: Request) -> Generator[Request, Response, None]:
-        response = yield request
-        self.deprecated(response)
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
+        """Add the token to the request headers."""
+        super().__call__(r)
+        if self.auth_flow not in r.hooks["response"]:
+            r.register_hook("response", self.auth_flow)
+        return r
 
-        if response.status_code == 429 and response.headers.get("X-RateLimit-Remaining", None) == "0":
-            yield self.rate_limit(response, request)
+    @staticmethod
+    def auth_flow(response: Response) -> Response:
         if response.status_code == 401:
             logger.warning("Access Token has expired, please refresh IP Fabric or log in again.")
         return response
 
 
-class TokenAuth(Auth, RateLimiter):
+class TokenAuth(RateLimiter):
     def __init__(self, token: str, api_version: str = None) -> None:
         super().__init__(api_version)
         self._auth_header = token
 
-    def auth_flow(self, request: Request) -> Generator[Request, Response, None]:
-        request.headers["X-API-Token"] = self._auth_header
-
-        response = yield request
-        self.deprecated(response)
-        if response.status_code == 429 and response.headers.get("X-RateLimit-Remaining", None) == "0":
-            yield self.rate_limit(response, request)
-        return response
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
+        """Add the token to the request headers."""
+        super(TokenAuth, self).__call__(r)
+        r.headers["X-API-Token"] = self._auth_header
+        return r
 
 
-class AccessToken(Auth, RateLimiter):
+class AccessToken(RateLimiter):
     def __init__(
         self,
-        cookie_jar: CookieJar,
         username: str,
         password: str,
-        base_url: URL,
-        verify: Optional[Union[SSLContext, str, bool]],
+        base_url: AnyUrl,
         api_version: str = None,
     ):
         super().__init__(api_version)
-        self.cookie_jar = cookie_jar
-        self._login(username, password, base_url, verify)
+        self.base_url = base_url
+        self.username = username
+        self.password = password
 
-    def auth_flow(self, request: Request) -> Generator[Request, Response, None]:
-        response = yield request
-        self.deprecated(response)
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
+        """Add the token to the request headers."""
+        super().__call__(r)
+        if self.auth_flow not in r.hooks["response"]:
+            r.register_hook("response", self.auth_flow)
+        return r
 
-        if response.status_code == 429 and response.headers.get("X-RateLimit-Remaining", None) == "0":
-            yield self.rate_limit(response, request)
-        if response.status_code == 401:
-            response.read()
-            if "API_EXPIRED_ACCESS_TOKEN" in response.text:
-                # Use refreshToken in Cookies to get new accessToken & Response updates accessToken in shared CookieJar
-                resp = raise_for_status(post(response.url.join("/api/auth/token"), cookies=self.cookie_jar))
-                request.headers["Cookie"] = "accessToken=" + resp.cookies["accessToken"]  # Update request
-                yield request
+    def auth_flow(self, response: Response, **kwargs) -> Response:
+        if response.status_code == 401 and not response.request._cookies.get("accessToken"):
+            return self.login(response, **kwargs)
+        elif response.status_code == 401 and "API_EXPIRED_ACCESS_TOKEN" in response.text:
+            return self.refresh(response, **kwargs)
         return response
 
-    def _login(
-        self, username: str, password: str, base_url: URL, verify: Optional[Union[SSLContext, str, bool]]
-    ) -> None:
-        raise_for_status(
-            post(
-                base_url.join("auth/login"),
-                json=dict(username=username, password=password),
-                cookies=self.cookie_jar,
-                verify=verify,
-            )
-        )
+    def login(self, response: Response, **kwargs) -> Response:
+        response.close()
+        auth_prep = Request(
+            method="POST",
+            url=urljoin(self.base_url, "auth/login"),
+            json={"username": self.username, "password": self.password},
+            headers={"Content-Type": "application/json"},
+        ).prepare()
+        auth = response.connection.send(auth_prep, **kwargs)
+        if auth.status_code != 200:
+            raise HTTPError("Failed to Authenticate", response=auth, request=auth_prep)
+
+        prep = self.prepare_auth(auth, response)
+        return self.send_prepared_request(response, prep, **kwargs)
+
+    def refresh(self, response: Response, **kwargs) -> Response:
+        # Use refreshToken in Cookies to get new accessToken & Response updates accessToken in shared CookieJar
+        response.close()
+        reauth_prep = Request(
+            method="POST",
+            url=urljoin(self.base_url, "/api/auth/token"),
+            headers={"Content-Type": "application/json"},
+        ).prepare()
+        reauth = response.connection.send(reauth_prep, **kwargs)
+        if reauth.status_code != 200:
+            raise HTTPError("Failed to Reauthenticate", response=reauth, request=reauth_prep)
+        prep = self.prepare_auth(reauth, response)
+        return self.send_prepared_request(response, prep, **kwargs)
+
+    @staticmethod
+    def prepare_auth(auth: Response, response: Response) -> PreparedRequest:
+        auth.close()
+        response.history.append(auth)
+        prep = response.request.copy()
+        extract_cookies_to_jar(prep._cookies, auth.request, auth.raw)
+        prep.prepare_cookies(prep._cookies)
+        return prep
 
 
 class MyInitSettingsSource(InitSettingsSource):
@@ -135,13 +208,13 @@ class MyInitSettingsSource(InitSettingsSource):
         timeout = init_kwargs.pop("timeout", "DEFAULT")
         init_kwargs = {k: v for k, v in init_kwargs.items() if v is not None}
         if timeout != "DEFAULT":
-            init_kwargs["timeout"] = timeout
+            init_kwargs["timeout"] = float(timeout) if isinstance(timeout, str) else timeout
         super().__init__(settings_cls, init_kwargs)
 
 
 class Setup(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", env_prefix="ipf_", extra="allow")
-    base_url: Union[str, URL] = Field(None, validation_alias=AliasChoices("base_url", "ipf_url"))
+    base_url: AnyUrl = Field(None, validation_alias=AliasChoices("base_url", "ipf_url"))
     api_version: Optional[Union[int, float, str]] = Field(
         None, validation_alias=AliasChoices("api_version", "ipf_version")
     )
@@ -150,20 +223,26 @@ class Setup(BaseSettings):
     username: Optional[str] = None
     password: Optional[str] = None
     snapshot_id: Union[str, None] = Field("$last", validation_alias=AliasChoices("snapshot_id", "ipf_snapshot"))
-    verify: Union[SSLContext, bool, str] = True
-    timeout: Union[TimeoutTypes, Literal["DEFAULT"]] = Timeout(timeout=5.0)
     nvd_api_key: Optional[str] = Field(None, alias="nvd_api_key")
-    debug: bool = False
+
+    verify: TLSVerifyType = True
+    timeout: Union[None, TimeoutType, Literal["DEFAULT"]] = TimeoutConfiguration(connect=5.0, read=5.0)
+    proxy: Optional[ProxyType] = None
+    cert: Optional[TLSClientCertType] = None
     http2: bool = True
-    proxy: Optional[Union[ProxyTypes, None]] = None
-    mounts: Optional[Mapping[str, Optional[BaseTransport]]] = None
-    cert: Optional[Union[CertTypes, None]] = None
-    event_hooks: Optional[Mapping[str, list[EventHook]]] = None
-    _cookie_jar: CookieJar = PrivateAttr(default_factory=CookieJar)
-    client: Optional[Client] = Field(None, exclude=True)
-    os_version: Optional[str] = Field(None)
+    event_hooks: Optional[dict[str, list[LifeCycleHook]]] = Field(default_factory=dict)
+    retry_config: Optional[RetryConfiguration] = Field(None, description="Retries configuration for niquests client.")
+    debug: bool = False
+    psql: bool = False
+
+    _client: Optional[Session] = PrivateAttr(None)
+    _os_version: Optional[str] = PrivateAttr(None)
     _os_api_version: Optional[str] = PrivateAttr(None)
     _auth_type: Optional[str] = PrivateAttr(None)
+
+    @property
+    def client(self) -> Session:
+        return self._client
 
     @classmethod
     def settings_customise_sources(
@@ -182,25 +261,33 @@ class Setup(BaseSettings):
         )
 
     def model_post_init(self, __context):
-        event_hooks = {"request": [log_request], "response": [log_response]} if self.debug else self.event_hooks
-        self.client = Client(
-            base_url=self.base_url,
-            cookies=self._cookie_jar,
-            http2=self.http2,
-            verify=self.verify,
+        self._client = Session(
+            base_url=str(self.base_url),
+            disable_http2=not self.http2,
             timeout=self.timeout,
-            headers={
-                "User-Agent": f'python-ipfabric-sdk/{metadata.version("ipfabric")} (Python {sys.version.split(" ")[0]})'
-            },
-            event_hooks=event_hooks,
-            proxy=self.proxy,
-            mounts=self.mounts,
-            cert=self.cert,
+            retries=self.retry_config,
         )
+
+        self.client.verify = self.verify
+        self.client.cert = self.cert
+        self.client.proxies = self.proxy
+        self.client.headers["User-Agent"] = (
+            f'python-ipfabric-sdk/{metadata.version("ipfabric")} (Python {sys.version.split(" ")[0]})'
+        )
+        for k, v in self.event_hooks.items():
+            self.client.hooks[k].extend(v)
+        if self.debug:
+            self.client.hooks["pre_request"].append(log_request)
+            self.client.hooks["response"].append(log_response)
+
         if not (self.auth or self.token) and not (self.username and self.password):
             raise RuntimeError("IP Fabric Authentication not provided.")
-        self.api_version, self.os_version, self._os_api_version = self.check_version(self.api_version)
-        self.base_url = self.base_url.join(f"api/{self.api_version}/")
+        self.api_version, self._os_version, self._os_api_version = self.check_version(self.api_version)
+        if Version(self._os_api_version[1:]) < Version("7.5"):
+            self.base_url = urljoin(self.base_url, f"api/{self.api_version}/")
+        else:
+            self.psql = True
+            self.base_url = urljoin(self.base_url, "api/")
         self.client.base_url = self.base_url
         self._verify_auth()
 
@@ -222,7 +309,7 @@ class Setup(BaseSettings):
             self._auth_type = "API_TOKEN_AUTH"
             return TokenAuth(token, api_version=self._os_api_version)
 
-    def _get_auth_from_auth(self) -> Auth:
+    def _get_auth_from_auth(self) -> Any:
         """Separate auth handling logic"""
         if isinstance(self.auth, str):
             return self._check_jwt(self.auth)
@@ -231,15 +318,13 @@ class Setup(BaseSettings):
         self._auth_type = type(self.client.auth)
         return self.auth
 
-    def _get_access_token_auth(self, username: str, password: str) -> Auth:
+    def _get_access_token_auth(self, username: str, password: str) -> AccessToken:
         """Separate auth handling logic"""
         self._auth_type = "USER_PASS_ACCESS_TOKEN"
         return AccessToken(
-            self._cookie_jar,
             username,
             password,
             self.base_url,
-            self.verify,
             api_version=self._os_api_version,
         )
 
@@ -250,17 +335,15 @@ class Setup(BaseSettings):
             "api_version": self.api_version,
             "auth": self._auth_type,
             "timeout": self.client.timeout,
-            "_os_version": self.os_version,
+            "_os_version": self._os_version,
             "_os_api_version": self._os_api_version,
             "debug": self.debug,
             "_client": self.client,
             "verify": self.verify,
             "proxy": self.proxy,
-            "mounts": self.mounts,
-            "cert": self.cert,
-            "event_hooks": self.event_hooks,
             "http2": self.http2,
             "nvd_api_key": self.nvd_api_key,
+            "_psql": self.psql,
         }
 
     def check_version(self, custom_api_version) -> tuple:
@@ -304,10 +387,10 @@ class Setup(BaseSettings):
 
     @field_validator("base_url")
     @classmethod
-    def _convert_url(cls, v: Union[URL, str]) -> URL:
+    def _convert_url(cls, v: Union[ParseResult, str]) -> str:
         if isinstance(v, str):
-            v = URL(v)
-        return v
+            v = urlparse(v)
+        return str(v)
 
     @field_validator("snapshot_id")
     @classmethod

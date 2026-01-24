@@ -17,6 +17,9 @@ from worker_automate_hub.tasks.jobs.geracao_aprovacao_pedidos import (
     geracao_aprovacao_pedidos_171,
     geracao_aprovacao_pedidos_34,
 )
+from worker_automate_hub.tasks.jobs.inclusao_pedidos_raizen import inclusao_pedidos_raizen
+from worker_automate_hub.tasks.jobs.inclusao_pedidos_vibra import inclusao_pedidos_vibra
+from worker_automate_hub.tasks.jobs.inclusao_pedidos_ipiranga import inclusao_pedidos_ipiranga
 from worker_automate_hub.tasks.jobs.notas_faturamento_sap import notas_faturamento_sap
 from worker_automate_hub.tasks.jobs.descartes import descartes
 from worker_automate_hub.tasks.jobs.ecac_estadual_main import (
@@ -33,7 +36,9 @@ from worker_automate_hub.tasks.jobs.entrada_de_notas_36 import entrada_de_notas_
 from worker_automate_hub.tasks.jobs.entrada_de_notas_37 import entrada_de_notas_37
 from worker_automate_hub.tasks.jobs.entrada_de_notas_503 import entrada_de_notas_503
 from worker_automate_hub.tasks.jobs.extracao_saldo_estoque import extracao_saldo_estoque
-from worker_automate_hub.tasks.jobs.extracao_saldo_estoque_fiscal import extracao_saldo_estoque_fiscal
+from worker_automate_hub.tasks.jobs.extracao_saldo_estoque_fiscal import (
+    extracao_saldo_estoque_fiscal,
+)
 from worker_automate_hub.tasks.jobs.fidc_remessa_cobranca_cnab240 import (
     remessa_cobranca_cnab240,
 )
@@ -105,7 +110,43 @@ from worker_automate_hub.tasks.jobs.opex_capex import (
 from worker_automate_hub.tasks.jobs.entrada_de_notas_22 import (
     entrada_de_notas_22,
 )
+from worker_automate_hub.tasks.jobs.geracao_balancetes_filial import (
+    geracao_balancetes_filial,
+)
 
+from worker_automate_hub.tasks.jobs.devolucao_produtos import (
+    devolucao_produtos,
+)
+
+from worker_automate_hub.tasks.jobs.importacao_extratos import (
+    importacao_extratos,
+)
+
+from worker_automate_hub.tasks.jobs.importacao_extratos_748 import (
+    importacao_extratos_748,
+)
+
+from worker_automate_hub.tasks.jobs.extracao_dados_nielsen import (
+    extracao_dados_nielsen,
+)
+from worker_automate_hub.tasks.jobs.lista_clientes_sap import (
+    lista_clientes_sap,
+)
+from worker_automate_hub.tasks.jobs.lista_devolucoes_sap import (
+    lista_devolucoes_sap,
+)
+
+from worker_automate_hub.tasks.jobs.coleta_envio_ftp import (
+    coleta_envio_ftp,
+)
+
+from worker_automate_hub.tasks.jobs.sftp_equals_netunna import (
+    sftp_equals_netunna,
+)
+
+from worker_automate_hub.tasks.jobs.emissao_nf_frota import (
+emissao_nf_frota
+)
 
 task_definitions = {
     "5b295021-8df7-40a1-a45e-fe7109ae3902": exemplo_processo,
@@ -212,7 +253,20 @@ task_definitions = {
     "16debe45-3520-4f63-acfe-ef0e8784fcab": extracao_saldo_estoque,
     "9cbc6016-7c0e-4a3a-8ee9-fb9dc4b35e33": extracao_saldo_estoque_fiscal,
     "07072711-c9d0-49e4-b180-530cecbe0728": opex_capex,
-    "98bc6679-2e6b-4757-9fdc-b27eebd98f54": entrada_de_notas_22
+    "98bc6679-2e6b-4757-9fdc-b27eebd98f54": entrada_de_notas_22,
+    "2ebcc2e5-2fa1-4130-a92a-3af349a1920c": devolucao_produtos,
+    "d7794924-0330-453c-b79b-74f3c8991562": geracao_balancetes_filial,
+    "75ba49a7-4ffa-44bb-9b47-9bad07ae9ede": inclusao_pedidos_vibra, # Pedidos Vibra
+    "2187af6d-6b34-439b-9a62-3e10d9a24f9c": inclusao_pedidos_ipiranga, # Pedidos Ipiranga
+    "dda9dace-7ead-4e6c-a78f-4cd7a5780c8d": inclusao_pedidos_raizen, # Pedidos Raizen
+    "153a7bf9-8cab-41fd-b6d3-63d881ac1cf9": importacao_extratos,
+    "80345c74-29af-4a6a-8438-86061acf2531": importacao_extratos_748,
+    "e8ca47cf-c49b-437c-9028-50bcfa5fe021": extracao_dados_nielsen,
+    "411e50cf-a1ec-43c6-bc9a-d53459012bff": coleta_envio_ftp,
+    "02cd28a1-cc69-4a49-a46b-56687d615092": lista_clientes_sap,
+    "7a4e1ea5-852f-48b3-99e3-5c2910632fe3": lista_devolucoes_sap,
+    "f4dbc4ce-4741-4fe6-839d-9439d60b521a": sftp_equals_netunna,
+    "f8cb70e5-1340-4e6c-8745-1e5af9fd4e3d": emissao_nf_frota,
 }
 
 

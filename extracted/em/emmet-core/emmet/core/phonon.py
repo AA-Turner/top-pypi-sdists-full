@@ -2,47 +2,47 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import numpy as np
 import yaml  # type: ignore[import-untyped]
-from monty.dev import requires
 from monty.io import zopen
 from monty.os.path import zpath
-from pydantic import BaseModel, Field, PrivateAttr, computed_field, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PrivateAttr,
+    computed_field,
+    PlainSerializer,
+    BeforeValidator,
+)
 from pymatgen.core import Lattice, Structure
 from pymatgen.electronic_structure.bandstructure import BandStructureSymmLine, Kpoint
 from pymatgen.electronic_structure.core import Spin
 from pymatgen.phonon.bandstructure import PhononBandStructureSymmLine
 from pymatgen.phonon.dos import CompletePhononDos
 from pymatgen.phonon.dos import PhononDos as PhononDosObject
-from typing_extensions import Literal
+from typing_extensions import Literal, TypedDict
 
+from emmet.core.band_theory import BandStructure, BandTheoryBase
 from emmet.core.base import CalcMeta
-from emmet.core.common import convert_datetime
 from emmet.core.math import Matrix3D, Tensor4R, Vector3D
-from emmet.core.mpid import MPID
 from emmet.core.polar import BornEffectiveCharges, DielectricDoc, IRDielectric
 from emmet.core.structure import StructureMetadata
-from emmet.core.utils import DocEnum, get_num_formula_units, utcnow
-
-try:
-    import pyarrow as pa
-    from pyarrow import Table as ArrowTable
-except ImportError:
-    pa = None
-    ArrowTable = None
+from emmet.core.types.enums import DocEnum
+from emmet.core.types.pymatgen_types.structure_adapter import StructureType
+from emmet.core.types.typing import DateTimeType, FSPathType, IdentifierType
+from emmet.core.utils import get_num_formula_units, type_override
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Any
 
     from typing_extensions import Self
+
 
 DEFAULT_PHONON_FILES = {
     "structure": "POSCAR",
@@ -63,7 +63,7 @@ class PhononMethod(Enum):
     PHEASY = "pheasy"
 
 
-class PhononDOS(BaseModel):
+class PhononDOS(BandTheoryBase):
     """Define schema of pymatgen phonon density of states."""
 
     frequencies: list[float] = Field(description="The phonon frequencies in THz.")
@@ -71,22 +71,28 @@ class PhononDOS(BaseModel):
     projected_densities: list[list[float]] | None = Field(
         None, description="The projected phonon density of states."
     )
-    structure: Structure | None = Field(
-        None, description="The structure associated with this DOS."
-    )
 
-    @model_validator(mode="before")
     @classmethod
-    def rehydrate(cls, config: Any) -> Any:
-        """Correctly parse pymatgen-like keys."""
-        if config.get("pdos"):
-            config["projected_densities"] = config.pop("pdos")
-
-        # legacy data contains abipy structure objects
-        if (struct := config.get("structure")) and not isinstance(struct, Structure):
-            config["structure"] = Structure.from_dict(struct)
-
-        return config
+    def from_pmg(cls, config: PhononDosObject | CompletePhononDos | dict) -> Any:
+        """Correctly parse pymatgen-like objects."""
+        remap = {
+            "structure": "structure",
+            "frequencies": "frequencies",
+            "densities": "densities",
+            "projected_densities": "pdos",
+        }
+        if isinstance(config, PhononDosObject | CompletePhononDos):
+            cls_config = {k: getattr(config, v, None) for k, v in remap.items()}
+            if isinstance(pdos_as_dict := cls_config.get("projected_densities"), dict):
+                if not cls_config["structure"]:
+                    raise ValueError(
+                        "Cannot parse atom-projected phonon density of states without a structure."
+                    )
+                cls_config["projected_densities"] = [
+                    list(pdos_as_dict.get(site, [])) for site in cls_config["structure"]
+                ]
+            return cls(**cls_config)
+        return cls(**{k: config.get(v) for k, v in remap.items()})
 
     @cached_property
     def to_pmg(self) -> PhononDosObject | CompletePhononDos:
@@ -100,36 +106,17 @@ class PhononDOS(BaseModel):
             )
         return dos
 
-    @requires(pa is not None, "`pip install pyarrow` to use this functionality.")
-    def to_arrow(self, col_prefix: str | None = None) -> ArrowTable:
-        """Convert PhononDOS to a pyarrow Table."""
-        col_prefix = col_prefix or ""
-        config = {
-            f"{col_prefix}{k}": [getattr(self, k)]
-            for k in (
-                "frequencies",
-                "densities",
-                "projected_densities",
-            )
-        }
-        config[f"{col_prefix}structure"] = [
-            json.dumps(self.structure.as_dict()) if self.structure else None
-        ]
-        return pa.Table.from_pydict(config)
-
     @classmethod
-    @requires(pa is not None, "`pip install pyarrow` to use this functionality.")
-    def from_arrow(cls, table: ArrowTable, col_prefix: str | None = None) -> Self:
-        """Create a PhononDOS from a pyarrow Table."""
-        col_prefix = col_prefix or ""
-        config = {k: table[f"{col_prefix}{k}"].to_pylist()[0] for k in cls.model_fields}
-        if structure_str := config.pop("structure"):
-            config["structure"] = Structure.from_dict(json.loads(structure_str))
-        return cls(**config)
+    def from_phonopy(
+        cls,
+        phonon_dos_file: FSPathType,
+    ) -> Self:
+        """Create a PhononDOS from phonopy .dat output.
 
-    @classmethod
-    def from_phonopy(cls, phonon_dos_file: str | Path) -> Self:
-        """Create a PhononDOS from phonopy .dat output."""
+        Parameters
+        -----------
+        phonon_dos_file (FSPathType) : path to total_dos.dat
+        """
         phonopy_dos: dict[str, Any] = {
             k: []
             for k in (
@@ -143,44 +130,69 @@ class PhononDOS(BaseModel):
                 if len(cols := non_comment_text.split()) == 2:
                     phonopy_dos["frequencies"].append(float(cols[0]))
                     phonopy_dos["densities"].append(float(cols[1]))
+                elif len(cols) > 2:
+                    raise ValueError(
+                        f"File {phonon_dos_file} does not have the correct "
+                        "phonopy total_dos.dat format."
+                    )
 
         return cls(**phonopy_dos)
 
 
-class PhononBS(BaseModel):
+class ShreddedEigendisplacements(TypedDict):
+    real: list[list[list[tuple[float, float, float]]]]
+    imag: list[list[list[tuple[float, float, float]]]]
+
+
+_EIGENMODE_CTYPE = list[list[list[tuple[complex, complex, complex]]]]
+_EIGENMODE_RTYPE = list[list[list[tuple[float, float, float]]]]
+
+
+def _ser_eigenmode(eigenmode: _EIGENMODE_CTYPE) -> dict[str, _EIGENMODE_RTYPE]:
+    eigv = np.array(eigenmode)
+    return {k: getattr(eigv, k).tolist() for k in ("real", "imag")}
+
+
+def _deser_eigenmode(
+    dct: _EIGENMODE_CTYPE | dict[str, _EIGENMODE_RTYPE],
+) -> _EIGENMODE_CTYPE:
+    if isinstance(dct, dict):
+        real = np.array(dct["real"])
+        imag = np.array(dct["imag"])
+        return real + 1.0j * imag  # type: ignore[return-value]
+    return dct
+
+
+@type_override({"eigendisplacements": ShreddedEigendisplacements})
+class PhononBS(BandStructure):
     """Define schema of pymatgen phonon band structure."""
 
-    qpoints: list[Vector3D] = Field(
-        description="The q-kpoints at which the band structure was sampled, in direct coordinates.",
-    )
-    frequencies: list[list[float]] = Field(
-        description="The phonon frequencies in THz, with the first index representing the band, and the second the q-point.",
-    )
-    reciprocal_lattice: Matrix3D = Field(description="The reciprocal lattice.")
     has_nac: bool = Field(
         False,
         description="Whether the calculation includes non-analytical corrections at Gamma.",
     )
-    eigendisplacements: list[list[list[tuple[complex, complex, complex]]]] | None = (
-        Field(None, description="Phonon eigendisplacements in Cartesian coordinates.")
+
+    frequencies: list[list[float]] = Field(
+        description="The eigen-frequencies, with the first index representing the band, and the second the k-point.",
+        validation_alias="bands",
     )
-    labels_dict: dict[str, Vector3D] | None = Field(
-        None, description="The high-symmetry labels of specific q-points."
-    )
-    structure: Structure | None = Field(
-        None, description="The structure associated with the calculation."
-    )
+
+    eigendisplacements: Annotated[
+        _EIGENMODE_CTYPE | None,
+        BeforeValidator(_deser_eigenmode),
+        PlainSerializer(_ser_eigenmode),
+    ] = Field(None, description="Phonon eigendisplacements in Cartesian coordinates.")
+
     _primitive_structure: Structure | None = PrivateAttr(None)
 
-    @model_validator(mode="before")
-    def rehydrate(cls, config: Any) -> Any:
+    @classmethod
+    def from_pmg(cls, config: PhononBandStructureSymmLine | dict) -> Any:
         """Ensure fields are correctly populated."""
-        if isinstance(egd := config.get("eigendisplacements"), dict) and all(
-            egd.get(k) is not None for k in ("real", "imag")
-        ):
-            config["eigendisplacements"] = (
-                np.array(egd["real"]) + 1j * np.array(egd["imag"])
-            ).tolist()
+        config = (
+            config.as_dict()
+            if isinstance(config, PhononBandStructureSymmLine)
+            else config
+        )
 
         # legacy data contains abipy structure objects
         if (struct := config.get("structure")) and not isinstance(struct, Structure):
@@ -196,8 +208,7 @@ class PhononBS(BaseModel):
 
         if isinstance(config["reciprocal_lattice"], dict):
             config["reciprocal_lattice"] = config["reciprocal_lattice"].get("matrix")
-
-        return config
+        return cls(**config)
 
     @property
     def primitive_structure(self) -> Structure | None:
@@ -241,71 +252,8 @@ class PhononBS(BaseModel):
             structure=self.structure,
         )
 
-    @requires(pa is not None, "`pip install pyarrow` to use this functionality.")
-    def to_arrow(self, col_prefix: str | None = None) -> ArrowTable:
-        """Convert a PhononBS to an arrow table."""
-        config = self.model_dump()
-        if structure := config.pop("structure", None):
-            config["structure"] = json.dumps(structure.as_dict())
-
-        for k in ("qpoints", "frequencies", "reciprocal_lattice", "eigendisplacements"):
-            if (vals := config.pop(k, None)) and k == "eigendisplacements":
-                cvals = np.array(vals)
-                config["eigendisplacements_real"] = cvals.real.tolist()
-                config["eigendisplacements_imag"] = cvals.imag.tolist()
-            elif vals:
-                rvals = np.array(vals)
-                config[k] = rvals.tolist()
-
-        if qpt_labels := config.pop("labels_dict"):
-            config["qpoint_labels"] = list(qpt_labels)
-            config["qpoint_labelled_points"] = [
-                qpt_labels[k] for k in config["qpoint_labels"]
-            ]
-
-        col_prefix = col_prefix or ""
-        return pa.Table.from_pydict(
-            {f"{col_prefix}{k}": [v] for k, v in config.items()}
-        )
-
     @classmethod
-    @requires(pa is not None, "`pip install pyarrow` to use this functionality.")
-    def from_arrow(cls, table: ArrowTable, col_prefix: str | None = None) -> Self:
-        """Create a PhononBS from an arrow table."""
-        col_prefix = col_prefix or ""
-        config: dict[str, Any] = {}
-        for k in (
-            "structure",
-            "has_nac",
-            "qpoints",
-            "frequencies",
-            "reciprocal_lattice",
-            "eigendisplacements_real",
-            "qpoint_labels",
-        ):
-            _k = f"{col_prefix}{k}"
-            if _k not in table.column_names:
-                continue
-            v = table[_k].to_pylist()[0]
-            if k == "structure":
-                config[k] = Structure.from_dict(json.loads(v))
-            elif k in ("qpoints", "frequencies", "reciprocal_lattice"):
-                config[k] = np.array(v)
-            elif k == "eigendisplacements_real":
-                config["eigendisplacements"] = (
-                    table[f"{col_prefix}eigendisplacements_real"].to_numpy()[0]
-                    + 1.0j * table[f"{col_prefix}eigendisplacements_imag"].to_numpy()[0]
-                )
-            elif k == "qpoint_labels":
-                config["labels_dict"] = dict(
-                    zip(v, table[f"{col_prefix}qpoint_labelled_points"].to_pylist()[0])
-                )
-            else:
-                config[k] = v
-        return cls(**config)
-
-    @classmethod
-    def from_phonopy(cls, phonon_bandstructure_file: str | Path):
+    def from_phonopy(cls, phonon_bandstructure_file: FSPathType):
         """Create a PhononBS from phonopy .yaml output."""
         with zopen(phonon_bandstructure_file, "rt") as f:
             phonopy_bandstructure = yaml.safe_load(f.read())
@@ -328,6 +276,43 @@ class SumRuleChecks(BaseModel):
     )
     cnsr: float | None = Field(
         None, description="The violation of the charge neutral sum rule."
+    )
+
+
+class PhononComputationalSettings(BaseModel):
+    """Collection to store computational settings for the phonon computation."""
+
+    # could be optional and implemented at a later stage?
+    npoints_band: int | None = Field(
+        None, description="number of points for band structure computation"
+    )
+    kpath_scheme: str | None = Field(None, description="indicates the kpath scheme")
+    kpoint_density_dos: int | None = Field(
+        None,
+        description="number of points for computation of free energies and densities of states",
+    )
+
+
+class ThermalDisplacementData(BaseModel):
+    """Collection to store information on the thermal displacement matrices."""
+
+    freq_min_thermal_displacements: float | None = Field(
+        None,
+        description="cutoff frequency in THz to avoid numerical issues in the "
+        "computation of the thermal displacement parameters",
+    )
+    thermal_displacement_matrix_cif: list[list[Matrix3D]] | None = Field(
+        None, description="field including thermal displacement matrices in CIF format"
+    )
+    thermal_displacement_matrix: list[list[Matrix3D]] | None = Field(
+        None,
+        description="field including thermal displacement matrices in Cartesian "
+        "coordinate system",
+    )
+    temperatures_thermal_displacements: list[float] | None = Field(
+        None,
+        description="temperatures at which the thermal displacement matrices"
+        "have been computed",
     )
 
 
@@ -371,8 +356,7 @@ class PhononBSDOSTask(StructureMetadata):
         None, description="Force constants between every pair of atoms in the structure"
     )
 
-    last_updated: datetime = Field(
-        default_factory=utcnow,
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation for this Material document.",
     )
 
@@ -381,7 +365,7 @@ class PhononBSDOSTask(StructureMetadata):
         description="Deviations from sum rules.",
     )
 
-    structure: Structure | None = Field(
+    structure: StructureType | None = Field(
         None, description="Structure used in the calculation."
     )
 
@@ -421,9 +405,8 @@ class PhononBSDOSTask(StructureMetadata):
         description="Metadata for individual calculations used to build this document.",
     )
 
-    @model_validator(mode="before")
     @classmethod
-    def migrate_fields(cls, config: Any) -> Any:
+    def migrate_fields(cls, **config) -> Any:
         """Migrate legacy input fields."""
 
         # This block is for older DFPT data
@@ -437,17 +420,24 @@ class PhononBSDOSTask(StructureMetadata):
             if config.get(k):
                 config[v] = config.pop(k)
 
-        # Make sure that the datetime field is properly formatted
-        if config.get("last_updated"):
-            config["last_updated"] = convert_datetime(cls, config["last_updated"])
+        # migrate pymatgen objects
+        for k, emmet_cls in {
+            "phonon_dos": PhononDOS,
+            "phonon_bandstructure": PhononBS,
+        }.items():
+            if (old_obj := config.get(k)) and not isinstance(old_obj, emmet_cls):
+                try:
+                    new_obj = emmet_cls.from_pmg(old_obj)  # type: ignore[attr-defined]
+                except Exception:
+                    # purposely no except here - want this to hard fail if we
+                    # can't parse the input type
+                    new_obj = emmet_cls(**old_obj)
+                config[k] = new_obj
 
         if (ph_bs := config.get("phonon_bandstructure")) and not config.get(
             "structure"
         ):
-            if isinstance(ph_bs, PhononBandStructureSymmLine | PhononBS):
-                config["structure"] = ph_bs.structure
-            else:
-                config["structure"] = ph_bs.get("structure")
+            config["structure"] = ph_bs.structure
 
         # This block is for the migration from atomate2 --> emmet-core schemas
         if config.get("structure"):
@@ -456,7 +446,7 @@ class PhononBSDOSTask(StructureMetadata):
 
             old_formula_units = config.pop("formula_units", 1)
             if toten := config.pop("total_dft_energy", None):
-                config["total_energy"] = (
+                config["total_dft_energy"] = (
                     toten * old_formula_units / config["structure"].num_sites
                 )
 
@@ -501,7 +491,10 @@ class PhononBSDOSTask(StructureMetadata):
                 for job_name, meta in calc_meta.items()
             ]
 
-        return config
+        return cls.from_structure(
+            meta_structure=config.pop("meta_structure", config.get("structure")),
+            **config,
+        )
 
     @computed_field  # type: ignore[prop-decorator]
     @cached_property
@@ -590,7 +583,7 @@ class PhononBSDOSTask(StructureMetadata):
             norm_fac = 1.0 / self.structure.num_sites  # type: ignore[union-attr]
         elif normalization == "formula_units":
             norm_fac = 1.0 / self.formula_units  # type: ignore[operator]
-        else:
+        elif normalization:
             raise ValueError(f"Unknown {normalization=} convention.")
 
         return (
@@ -686,32 +679,16 @@ class PhononBSDOSTask(StructureMetadata):
         thermo_props["temperature"] = temperatures
         return thermo_props
 
-    @requires(pa is not None, "`pip install pyarrow` to use this functionality.")
-    def objects_to_arrow(self) -> ArrowTable:
-        """Convert band structure and DOS to pyarrow table row."""
-        table = pa.Table.from_pydict({"material_id": [self.material_id]})
-        if self.phonon_bandstructure:
-            bst = self.phonon_bandstructure.to_arrow(col_prefix="bs_")
-            for k in bst.column_names:
-                table = table.append_column(k, bst[k])
-
-        if self.phonon_dos:
-            dost = self.phonon_dos.to_arrow(col_prefix="dos_")
-
-            for k in dost.column_names:
-                table = table.append_column(k, dost[k])
-        return table
-
     @classmethod
     def from_phonopy_pheasy_files(
         cls,
-        structure_file: str | Path,
-        phonon_bandstructure_file: str | Path | None = None,
-        phonon_dos_file: str | Path | None = None,
-        force_constants_file: str | Path | None = None,
-        born_file: str | Path | None = None,
-        epsilon_static_file: str | Path | None = None,
-        phonopy_output_file: str | Path | None = None,
+        structure_file: FSPathType,
+        phonon_bandstructure_file: FSPathType | None = None,
+        phonon_dos_file: FSPathType | None = None,
+        force_constants_file: FSPathType | None = None,
+        born_file: FSPathType | None = None,
+        epsilon_static_file: FSPathType | None = None,
+        phonopy_output_file: FSPathType | None = None,
         **kwargs,
     ) -> Self:
         """
@@ -798,55 +775,12 @@ class PhononBSDOSTask(StructureMetadata):
 class PhononBSDOSDoc(PhononBSDOSTask):
     """Built data version of PhononBSDOSTask."""
 
-    material_id: MPID | None = Field(
+    material_id: IdentifierType | None = Field(
         None,
         description="The Materials Project ID of the material, of the form mp-******.",
     )
     task_ids: list[str] | None = Field(
         None, description="A list of identifiers that were used to build this document."
-    )
-
-    @model_validator(mode="after")
-    def match_id_fields(self) -> Self:
-        """Ensure that `material_id` aliases inherited `identifier` field."""
-        self.identifier = self.material_id
-        return self
-
-
-class PhononComputationalSettings(BaseModel):
-    """Collection to store computational settings for the phonon computation."""
-
-    # could be optional and implemented at a later stage?
-    npoints_band: int | None = Field(
-        None, description="number of points for band structure computation"
-    )
-    kpath_scheme: str | None = Field(None, description="indicates the kpath scheme")
-    kpoint_density_dos: int | None = Field(
-        None,
-        description="number of points for computation of free energies and densities of states",
-    )
-
-
-class ThermalDisplacementData(BaseModel):
-    """Collection to store information on the thermal displacement matrices."""
-
-    freq_min_thermal_displacements: float | None = Field(
-        None,
-        description="cutoff frequency in THz to avoid numerical issues in the "
-        "computation of the thermal displacement parameters",
-    )
-    thermal_displacement_matrix_cif: list[list[Matrix3D]] | None = Field(
-        None, description="field including thermal displacement matrices in CIF format"
-    )
-    thermal_displacement_matrix: list[list[Matrix3D]] | None = Field(
-        None,
-        description="field including thermal displacement matrices in Cartesian "
-        "coordinate system",
-    )
-    temperatures_thermal_displacements: list[float] | None = Field(
-        None,
-        description="temperatures at which the thermal displacement matrices"
-        "have been computed",
     )
 
 
@@ -866,6 +800,29 @@ class PhononWarnings(DocEnum):
     )
 
 
+vec2D = list[float, float]  # type: ignore[type-arg]
+vec3D = list[float, float, float]  # type: ignore[type-arg]
+
+
+class PhononWebsiteStruct(TypedDict):
+    atom_numbers: list[int]
+    atom_pos_car: list[vec3D]
+    atom_pos_red: list[vec3D]
+    atom_types: list[str]
+    distances: list[float]
+    eigenvalues: list[list[float]]
+    formula: str
+    # fails arrow conversion
+    # highsym_qpts: list[list[int, str]]
+    lattice: list[vec3D]
+    line_breaks: list[tuple[int, int]]
+    name: str
+    natoms: int
+    qpoints: list[vec3D]
+    repetitions: list[int, int, int]  # type: ignore[type-arg]
+    vectors: list[list[list[list[vec2D, vec2D, vec2D]]]]  # type: ignore[type-arg]
+
+
 class PhononWebsiteBS(BaseModel):
     """
     Document with a serialized version of the phonon band structure suitable
@@ -883,19 +840,17 @@ class PhononWebsiteBS(BaseModel):
         description="The type of the document: a phonon band structure for the phononwebsite.",
     )
 
-    phononwebsite: dict | None = Field(
+    phononwebsite: PhononWebsiteStruct | None = Field(
         None,
         description="Phononwebsite dictionary to plot the animated " "phonon modes.",
     )
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation update for this property",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this material document was first created",
-        default_factory=utcnow,
     )
 
 
@@ -916,14 +871,12 @@ class Ddb(BaseModel):
 
     ddb: str | None = Field(None, description="The string of the DDB file.")
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation update for this property",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this material document was first created",
-        default_factory=utcnow,
     )
 
 
@@ -985,7 +938,7 @@ class Phonon(StructureMetadata):
         "This comes in the form: mp-******",
     )
 
-    structure: Structure = Field(
+    structure: StructureType = Field(
         ..., description="The relaxed structure for the phonon calculation."
     )
 
@@ -1017,15 +970,72 @@ class Phonon(StructureMetadata):
         None, description="The vibrational contributions to the total energy."
     )
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for when this document was last updated",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this material document was first created",
-        default_factory=utcnow,
     )
+
+
+class TypedBaseInputDict(TypedDict):
+    charge: float
+    chksymbreak: int
+    ecut: float
+    fband: float
+    kptopt: int
+    nband: int
+    nbdbuf: int
+    ngkpt: list[int]
+    nshiftk: int
+    nspden: int
+    nspinor: int
+    nsppol: int
+    nstep: int
+    pawecutdg: float
+    shiftk: list[list[float]]
+    tolvrs: float
+
+
+class TypedDdBaseDict(TypedBaseInputDict):
+    chkprim: int
+    nqpt: int
+    qpt: list[int]
+    rfdir: list[int]
+    rfelfd: int
+
+
+class TypedDdeInputDict(TypedDdBaseDict):
+    prtwf: int
+
+
+class TypedDdkInputDict(TypedDdBaseDict):
+    iscf: float
+
+
+class TypedPhononInputDict(TypedDdeInputDict):
+    rfatpol: list[int]
+
+
+class TypedPseudopotentialsDict(TypedDict):
+    md5: list[str]
+    name: list[str]
+
+
+class TypedAbinitInputVars(TypedDict):
+    dde_input: TypedDdeInputDict
+    ddk_input: TypedDdkInputDict
+    ecut: float
+    gs_input: TypedBaseInputDict
+    ngkpt: list[int]
+    ngqpt: list[int]
+    occopt: int
+    phonon_input: TypedPhononInputDict
+    pseudopotentials: TypedPseudopotentialsDict
+    shiftk: list[list[float]]
+    tsmear: int
+    wfq_input: TypedBaseInputDict  # have to guess here without an example entry
 
 
 class AbinitPhonon(Phonon):
@@ -1034,7 +1044,7 @@ class AbinitPhonon(Phonon):
     with Abinit.
     """
 
-    abinit_input_vars: dict | None = Field(
+    abinit_input_vars: TypedAbinitInputVars | None = Field(
         None,
         description="Dict representation of the inputs used to obtain the phonon"
         "properties and the main general options (e.g. number of "
@@ -1053,7 +1063,7 @@ class SoundVelocity(BaseModel):
         description="The ID of this material, in the form: mp-******",
     )
 
-    structure: Structure = Field(
+    structure: StructureType = Field(
         ..., description="The relaxed structure for the phonon calculation."
     )
 
@@ -1076,14 +1086,12 @@ class SoundVelocity(BaseModel):
         "None if not correctly identified.",
     )
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for when this document was last updated",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this material document was first created",
-        default_factory=utcnow,
     )
 
 
@@ -1099,14 +1107,12 @@ class ThermalDisplacement(BaseModel):
         "This comes in the form: mp-******",
     )
 
-    last_updated: datetime = Field(
+    last_updated: DateTimeType = Field(
         description="Timestamp for the most recent calculation update for this property",
-        default_factory=utcnow,
     )
 
-    created_at: datetime = Field(
+    created_at: DateTimeType = Field(
         description="Timestamp for when this material document was first created",
-        default_factory=utcnow,
     )
 
     nsites: int = Field(
@@ -1139,11 +1145,11 @@ class ThermalDisplacement(BaseModel):
         description=" Generalized DOS in Cartesian coords, with shape (nsites, 3, 3, nomega)",
     )
 
-    amu: dict = Field(
+    amu: dict[str, float] = Field(
         ..., description="Dictionary of the atomic masses in atomic units."
     )
 
-    structure: Structure = Field(
+    structure: StructureType = Field(
         ..., description="The relaxed structure for the phonon calculation."
     )
 

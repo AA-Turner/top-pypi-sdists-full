@@ -14,6 +14,7 @@ how to do that:
 7. Save as a CSV file in django_countries/iso3166-1.csv
 8. Run this script from the command line
 """
+
 import glob
 import os
 from typing import TYPE_CHECKING, Dict
@@ -49,7 +50,7 @@ COUNTRIES: "Dict[str, StrPromise]" = {
     "AU": _("Australia"),
     "AT": _("Austria"),
     "AZ": _("Azerbaijan"),
-    "BS": _("Bahamas"),
+    "BS": _("Bahamas (The)"),
     "BH": _("Bahrain"),
     "BD": _("Bangladesh"),
     "BB": _("Barbados"),
@@ -189,7 +190,7 @@ COUNTRIES: "Dict[str, StrPromise]" = {
     "NA": _("Namibia"),
     "NR": _("Nauru"),
     "NP": _("Nepal"),
-    "NL": _("Netherlands"),
+    "NL": _("Netherlands (Kingdom of the)"),
     "NC": _("New Caledonia"),
     "NZ": _("New Zealand"),
     "NI": _("Nicaragua"),
@@ -563,7 +564,6 @@ def self_generate(
 
     # Sort countries.
     def sort_key(row):
-
         return (
             unicodedata.normalize("NFKD", row[0])
             .encode("ascii", "ignore")
@@ -573,7 +573,9 @@ def self_generate(
     countries = sorted(countries, key=sort_key)
 
     # Write countries.
-    match = re.match(r"(.*\nCOUNTRIES = \{\n)(.*?)(\n\}.*)", contents, re.DOTALL)
+    match = re.match(
+        r"(.*\nCOUNTRIES(?:: [^\n]+)? = \{\n)(.*?)(\n\}.*)", contents, re.DOTALL
+    )
     if not match:
         raise ValueError('Expected a "COUNTRIES =" section in the source file!')
     bits = match.groups()
@@ -584,15 +586,16 @@ def self_generate(
     content = bits[0]
     content += "\n".join(country_list)
     # Write alt codes.
-    alt_match = re.match(r"(.*\nALT_CODES = \{\n)(.*)(\n\}.*)", bits[2], re.DOTALL)
+    alt_match = re.match(
+        r"(.*\nALT_CODES(?:: [^\n]+)? = \{\n)(.*)(\n\}.*)", bits[2], re.DOTALL
+    )
     if not alt_match:
         raise ValueError('Expected an "ALT_CODES =" section in the source file!')
     alt_bits = alt_match.groups()
-    alt_list = []
-    for country_row in countries:
-        alt_list.append(
-            f'    "{country_row[1]}": ("{country_row[2]}", {country_row[3]}),'
-        )
+    alt_list = [
+        f'    "{country_row[1]}": ("{country_row[2]}", {country_row[3]}),'
+        for country_row in countries
+    ]
     content += alt_bits[0]
     content += "\n".join(alt_list)
     content += alt_bits[2]

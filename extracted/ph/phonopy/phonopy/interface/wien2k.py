@@ -34,11 +34,14 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
 import sys
 
 import numpy as np
 
 from phonopy.interface.vasp import check_forces, get_drift_forces
+from phonopy.physical_units import get_physical_units
 from phonopy.structure.atoms import PhonopyAtoms
 from phonopy.structure.cells import get_angles, get_cell_parameters
 from phonopy.structure.symmetry import Symmetry
@@ -64,7 +67,7 @@ def parse_set_of_forces(
     is_parsed = True
     force_sets = []
 
-    for i, (filename, disp) in enumerate(zip(forces_filenames, disps)):
+    for i, (filename, disp) in enumerate(zip(forces_filenames, disps, strict=True)):
         if verbose:
             sys.stdout.write("%d. " % (i + 1))
 
@@ -177,7 +180,7 @@ def write_supercells_with_displacements(
     npts_super = []
     r0s_super = []
     rmts_super = []
-    for i, j, k in zip(npts, r0s, rmts):
+    for i, j, k in zip(npts, r0s, rmts, strict=True):
         for _ in range(num_unitcells_in_supercell):
             npts_super.append(i)
             r0s_super.append(j)
@@ -186,7 +189,7 @@ def write_supercells_with_displacements(
     _pre_filename = pre_filename.split("/")[-1] + "S"
     write_wein2k(_pre_filename, supercell, npts_super, r0s_super, rmts_super)
 
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         symmetry = Symmetry(cell)
         filename = "{pre_filename}-{0:0{width}}.in".format(
             i, pre_filename=_pre_filename, width=width
@@ -211,7 +214,7 @@ def _get_wien2k_struct(cell, npts, r0s, rmts):
     alpha, beta, gamma = get_angles(lattice)
     positions = cell.scaled_positions
     symbols = cell.symbols
-    numbers = cell.get_atomic_numbers()
+    numbers = cell.numbers
 
     text = ""
 
@@ -340,7 +343,7 @@ def _distribute_forces(supercell, disp, forces, filename, symprec):
 
     # Rotation matrices in Cartesian
     rotations = []
-    for r in symmetry.get_symmetry_operations()["rotations"]:
+    for r in symmetry.symmetry_operations["rotations"]:
         rotations.append(similarity_transformation(lattice.T, r))
 
     map_operations = symmetry.get_map_operations()
@@ -421,7 +424,7 @@ if __name__ == "__main__":
                 # The following %19.16f follows write_vasp
                 if float("%19.16f" % pos[i]) >= 1:
                     pos[i] -= 1.0
-        cell.set_scaled_positions(positions)
+        cell.scaled_positions = positions
 
     parser = OptionParser()
     parser.set_defaults(w2v=False, v2w=False)
@@ -433,12 +436,10 @@ if __name__ == "__main__":
     )
     (options, args) = parser.parse_args()
 
-    from phonopy.physical_units import physical_units
-
     if options.v2w:
         cell = read_vasp(args[0])
-        lattice = cell.cell / physical_units.Bohr
-        cell.set_cell(lattice)
+        lattice = cell.cell / get_physical_units().Bohr
+        cell.cell = lattice
         npts, r0s, rmts = _parse_core_param(open(args[1]))
         text = _get_wien2k_struct(cell, npts, r0s, rmts)
         print(text)
@@ -446,15 +447,15 @@ if __name__ == "__main__":
     elif options.w2v:
         cell, npts, r0s, rmts = parse_wien2k_struct(args[0])
         positions = cell.scaled_positions
-        lattice = cell.cell * physical_units.Bohr
-        cell.set_cell(lattice)
-        cell.set_scaled_positions(positions)
+        lattice = cell.cell * get_physical_units().Bohr
+        cell.cell = lattice
+        cell.scaled_positions = positions
         _clean_scaled_positions(cell)
         write_vasp("POSCAR.wien2k", cell, direct=True)
         w = open("wien2k_core.dat", "w")
 
         w.write("# symbol       npt       r0             rmt\n")
-        for symbol, npt, r0, rmt in zip(cell.symbols, npts, r0s, rmts):
+        for symbol, npt, r0, rmt in zip(cell.symbols, npts, r0s, rmts, strict=True):
             w.write("%-10s     %5d     %10.8f     %10.5f\n" % (symbol, npt, r0, rmt))
     else:
         print("You need to set -r or -w option.")

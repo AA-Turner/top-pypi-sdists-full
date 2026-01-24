@@ -6,6 +6,7 @@ from unstructured_client import utils
 
 
 class DestinationConnectorType(str, Enum, metaclass=utils.OpenEnumMeta):
+    AZURE = "azure"
     ASTRADB = "astradb"
     AZURE_AI_SEARCH = "azure_ai_search"
     COUCHBASE = "couchbase"
@@ -20,6 +21,7 @@ class DestinationConnectorType(str, Enum, metaclass=utils.OpenEnumMeta):
     MOTHERDUCK = "motherduck"
     NEO4J = "neo4j"
     ONEDRIVE = "onedrive"
+    OPENSEARCH = "opensearch"
     PINECONE = "pinecone"
     POSTGRES = "postgres"
     REDIS = "redis"

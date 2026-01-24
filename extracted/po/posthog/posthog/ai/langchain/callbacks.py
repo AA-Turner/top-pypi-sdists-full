@@ -1,8 +1,8 @@
 try:
-    import langchain  # noqa: F401
+    import langchain_core  # noqa: F401
 except ImportError:
     raise ModuleNotFoundError(
-        "Please install LangChain to use this feature: 'pip install langchain'"
+        "Please install LangChain to use this feature: 'pip install langchain-core'"
     )
 
 import json
@@ -20,8 +20,14 @@ from typing import (
 )
 from uuid import UUID
 
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema.agent import AgentAction, AgentFinish
+try:
+    # LangChain 1.0+ and modern 0.x with langchain-core
+    from langchain_core.agents import AgentAction, AgentFinish
+    from langchain_core.callbacks.base import BaseCallbackHandler
+except (ImportError, ModuleNotFoundError):
+    # Fallback for older LangChain versions
+    from langchain.callbacks.base import BaseCallbackHandler
+    from langchain.schema.agent import AgentAction, AgentFinish
 from langchain_core.documents import Document
 from langchain_core.messages import (
     AIMessage,
@@ -29,15 +35,15 @@ from langchain_core.messages import (
     FunctionMessage,
     HumanMessage,
     SystemMessage,
-    ToolMessage,
     ToolCall,
+    ToolMessage,
 )
 from langchain_core.outputs import ChatGeneration, LLMResult
 from pydantic import BaseModel
 
 from posthog import setup
-from posthog.ai.utils import get_model_params, with_privacy_mode
 from posthog.ai.sanitization import sanitize_langchain
+from posthog.ai.utils import get_model_params, with_privacy_mode
 from posthog.client import Client
 
 log = logging.getLogger("posthog")
@@ -73,6 +79,8 @@ class GenerationMetadata(SpanMetadata):
     """Base URL of the provider's API used in the run."""
     tools: Optional[List[Dict[str, Any]]] = None
     """Tools provided to the model."""
+    posthog_properties: Optional[Dict[str, Any]] = None
+    """PostHog properties of the run."""
 
 
 RunMetadata = Union[SpanMetadata, GenerationMetadata]
@@ -414,6 +422,8 @@ class CallbackHandler(BaseCallbackHandler):
                 generation.model = model
             if provider := metadata.get("ls_provider"):
                 generation.provider = provider
+
+            generation.posthog_properties = metadata.get("posthog_properties")
         try:
             base_url = serialized["kwargs"]["openai_api_base"]
             if base_url is not None:
@@ -486,6 +496,7 @@ class CallbackHandler(BaseCallbackHandler):
             "$ai_latency": run.latency,
             "$ai_span_name": run.name,
             "$ai_span_id": run_id,
+            "$ai_framework": "langchain",
         }
         if parent_run_id is not None:
             event_properties["$ai_parent_id"] = parent_run_id
@@ -495,6 +506,14 @@ class CallbackHandler(BaseCallbackHandler):
         if isinstance(outputs, BaseException):
             event_properties["$ai_error"] = _stringify_exception(outputs)
             event_properties["$ai_is_error"] = True
+            event_properties = _capture_exception_and_update_properties(
+                self._ph_client,
+                outputs,
+                self._distinct_id,
+                self._groups,
+                event_properties,
+            )
+
         elif outputs is not None:
             event_properties["$ai_output_state"] = with_privacy_mode(
                 self._ph_client, self._privacy_mode, outputs
@@ -556,18 +575,36 @@ class CallbackHandler(BaseCallbackHandler):
             "$ai_http_status": 200,
             "$ai_latency": run.latency,
             "$ai_base_url": run.base_url,
+            "$ai_framework": "langchain",
         }
+
+        if isinstance(run.posthog_properties, dict):
+            event_properties.update(run.posthog_properties)
 
         if run.tools:
             event_properties["$ai_tools"] = run.tools
+
+        if self._properties:
+            event_properties.update(self._properties)
+
+        if self._distinct_id is None:
+            event_properties["$process_person_profile"] = False
 
         if isinstance(output, BaseException):
             event_properties["$ai_http_status"] = _get_http_status(output)
             event_properties["$ai_error"] = _stringify_exception(output)
             event_properties["$ai_is_error"] = True
+
+            event_properties = _capture_exception_and_update_properties(
+                self._ph_client,
+                output,
+                self._distinct_id,
+                self._groups,
+                event_properties,
+            )
         else:
             # Add usage
-            usage = _parse_usage(output)
+            usage = _parse_usage(output, run.provider, run.model)
             event_properties["$ai_input_tokens"] = usage.input_tokens
             event_properties["$ai_output_tokens"] = usage.output_tokens
             event_properties["$ai_cache_creation_input_tokens"] = (
@@ -591,12 +628,6 @@ class CallbackHandler(BaseCallbackHandler):
             event_properties["$ai_output_choices"] = with_privacy_mode(
                 self._ph_client, self._privacy_mode, completions
             )
-
-        if self._properties:
-            event_properties.update(self._properties)
-
-        if self._distinct_id is None:
-            event_properties["$process_person_profile"] = False
 
         self._ph_client.capture(
             distinct_id=self._distinct_id or trace_id,
@@ -688,6 +719,8 @@ class ModelUsage:
 
 def _parse_usage_model(
     usage: Union[BaseModel, dict],
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> ModelUsage:
     if isinstance(usage, BaseModel):
         usage = usage.__dict__
@@ -750,15 +783,38 @@ def _parse_usage_model(
         "cache_read": "cache_read_tokens",
         "reasoning": "reasoning_tokens",
     }
-    return ModelUsage(
+    normalized_usage = ModelUsage(
         **{
             dataclass_key: parsed_usage.get(mapped_key) or 0
             for mapped_key, dataclass_key in field_mapping.items()
         },
     )
+    # For Anthropic providers, LangChain reports input_tokens as the sum of all input tokens.
+    # Our cost calculation expects them to be separate for Anthropic, so we subtract cache tokens.
+    # Both cache_read and cache_write tokens should be subtracted since Anthropic's raw API
+    # reports input_tokens as tokens NOT read from or used to create a cache.
+    # For other providers (OpenAI, etc.), input_tokens already excludes cache tokens as expected.
+    # Match logic consistent with plugin-server: exact match on provider OR substring match on model
+    is_anthropic = False
+    if provider and provider.lower() == "anthropic":
+        is_anthropic = True
+    elif model and "anthropic" in model.lower():
+        is_anthropic = True
+
+    if is_anthropic and normalized_usage.input_tokens:
+        cache_tokens = (normalized_usage.cache_read_tokens or 0) + (
+            normalized_usage.cache_write_tokens or 0
+        )
+        if cache_tokens > 0:
+            normalized_usage.input_tokens = max(
+                normalized_usage.input_tokens - cache_tokens, 0
+            )
+    return normalized_usage
 
 
-def _parse_usage(response: LLMResult) -> ModelUsage:
+def _parse_usage(
+    response: LLMResult, provider: Optional[str] = None, model: Optional[str] = None
+) -> ModelUsage:
     # langchain-anthropic uses the usage field
     llm_usage_keys = ["token_usage", "usage"]
     llm_usage: ModelUsage = ModelUsage(
@@ -772,13 +828,15 @@ def _parse_usage(response: LLMResult) -> ModelUsage:
     if response.llm_output is not None:
         for key in llm_usage_keys:
             if response.llm_output.get(key):
-                llm_usage = _parse_usage_model(response.llm_output[key])
+                llm_usage = _parse_usage_model(
+                    response.llm_output[key], provider, model
+                )
                 break
 
     if hasattr(response, "generations"):
         for generation in response.generations:
             if "usage" in generation:
-                llm_usage = _parse_usage_model(generation["usage"])
+                llm_usage = _parse_usage_model(generation["usage"], provider, model)
                 break
 
             for generation_chunk in generation:
@@ -786,7 +844,9 @@ def _parse_usage(response: LLMResult) -> ModelUsage:
                     "usage_metadata" in generation_chunk.generation_info
                 ):
                     llm_usage = _parse_usage_model(
-                        generation_chunk.generation_info["usage_metadata"]
+                        generation_chunk.generation_info["usage_metadata"],
+                        provider,
+                        model,
                     )
                     break
 
@@ -813,10 +873,31 @@ def _parse_usage(response: LLMResult) -> ModelUsage:
                     bedrock_anthropic_usage or bedrock_titan_usage or ollama_usage
                 )
                 if chunk_usage:
-                    llm_usage = _parse_usage_model(chunk_usage)
+                    llm_usage = _parse_usage_model(chunk_usage, provider, model)
                     break
 
     return llm_usage
+
+
+def _capture_exception_and_update_properties(
+    client: Client,
+    exception: BaseException,
+    distinct_id: Optional[Union[str, int, UUID]],
+    groups: Optional[Dict[str, Any]],
+    event_properties: Dict[str, Any],
+):
+    if client.enable_exception_autocapture:
+        exception_id = client.capture_exception(
+            exception,
+            distinct_id=distinct_id,
+            groups=groups,
+            properties=event_properties,
+        )
+
+        if exception_id:
+            event_properties["$exception_event_id"] = exception_id
+
+    return event_properties
 
 
 def _get_http_status(error: BaseException) -> int:

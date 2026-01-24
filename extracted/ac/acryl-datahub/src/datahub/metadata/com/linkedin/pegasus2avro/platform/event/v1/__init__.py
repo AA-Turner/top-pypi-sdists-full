@@ -9,9 +9,13 @@
 # isort: skip_file
 from .......schema_classes import EntityChangeEventClass
 from .......schema_classes import ParametersClass
+from .......schema_classes import RelationshipChangeEventClass
+from .......schema_classes import RelationshipChangeOperationClass
 
 
 EntityChangeEvent = EntityChangeEventClass
 Parameters = ParametersClass
+RelationshipChangeEvent = RelationshipChangeEventClass
+RelationshipChangeOperation = RelationshipChangeOperationClass
 
 # fmt: on

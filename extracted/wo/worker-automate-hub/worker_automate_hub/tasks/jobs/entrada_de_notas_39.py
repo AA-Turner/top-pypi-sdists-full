@@ -388,7 +388,7 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                     if recebimento_fisico:
                         recebimento_fisico = nota["recebimentoFisico"].split(" ")
                         pyautogui.write(recebimento_fisico[0])
-                        await worker_sleep(2)
+                        await worker_sleep(5)
                 except:
                     console.print(
                         f"A chave recebimentoFisico não está presente na config de entrada...\n"

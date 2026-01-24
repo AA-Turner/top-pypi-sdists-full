@@ -2,7 +2,7 @@
 # This file is part of pygal
 #
 # A python svg graph plotting library
-# Copyright © 2012-2016 Kozea
+# Copyright © 2012-2025 Kozea
 #
 # This library is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
@@ -75,7 +75,7 @@ class Table(object):
             table.append(labels)
 
         if total:
-            if len(table):
+            if table:
                 table[0].append('Total')
             else:
                 table.append([None] * (ln + 1) + ['Total'])

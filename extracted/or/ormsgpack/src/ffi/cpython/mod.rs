@@ -5,12 +5,17 @@ use std::os::raw::c_int;
 
 mod int;
 mod unicode;
+#[cfg(unicode_state)]
+mod unicode_state;
 
 pub use unicode::*;
 
 #[inline(always)]
 pub unsafe fn pybytes_as_mut_u8(op: *mut PyObject) -> *mut u8 {
-    (*op.cast::<PyBytesObject>()).ob_sval.as_mut_ptr() as *mut u8
+    (*op.cast::<PyBytesObject>())
+        .ob_sval
+        .as_mut_ptr()
+        .cast::<u8>()
 }
 
 #[inline(always)]
@@ -31,6 +36,11 @@ pub unsafe fn pydict_set_item_known_hash(
     hash: Py_hash_t,
 ) -> c_int {
     _PyDict_SetItem_KnownHash(mp, key, item, hash)
+}
+
+#[inline(always)]
+pub unsafe fn pyobject_call_one_arg(func: *mut PyObject, arg: *mut PyObject) -> *mut PyObject {
+    PyObject_CallOneArg(func, arg)
 }
 
 #[inline(always)]

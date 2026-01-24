@@ -18,9 +18,17 @@ from . import outputs
 __all__ = [
     'AccessPolicyAssociationAccessScope',
     'AddonPodIdentityAssociation',
+    'CapabilityConfiguration',
+    'CapabilityConfigurationArgoCd',
+    'CapabilityConfigurationArgoCdAwsIdc',
+    'CapabilityConfigurationArgoCdNetworkAccess',
+    'CapabilityConfigurationArgoCdRbacRoleMapping',
+    'CapabilityConfigurationArgoCdRbacRoleMappingIdentity',
+    'CapabilityTimeouts',
     'ClusterAccessConfig',
     'ClusterCertificateAuthority',
     'ClusterComputeConfig',
+    'ClusterControlPlaneScalingConfig',
     'ClusterEncryptionConfig',
     'ClusterEncryptionConfigProvider',
     'ClusterIdentity',
@@ -41,6 +49,7 @@ __all__ = [
     'IdentityProviderConfigOidc',
     'NodeGroupLaunchTemplate',
     'NodeGroupNodeRepairConfig',
+    'NodeGroupNodeRepairConfigNodeRepairConfigOverride',
     'NodeGroupRemoteAccess',
     'NodeGroupResource',
     'NodeGroupResourceAutoscalingGroup',
@@ -51,6 +60,7 @@ __all__ = [
     'GetClusterAccessConfigResult',
     'GetClusterCertificateAuthorityResult',
     'GetClusterComputeConfigResult',
+    'GetClusterControlPlaneScalingConfigResult',
     'GetClusterIdentityResult',
     'GetClusterIdentityOidcResult',
     'GetClusterKubernetesNetworkConfigResult',
@@ -72,6 +82,7 @@ __all__ = [
     'GetNodeGroupResourceAutoscalingGroupResult',
     'GetNodeGroupScalingConfigResult',
     'GetNodeGroupTaintResult',
+    'GetNodeGroupUpdateConfigResult',
 ]
 
 @pulumi.output_type
@@ -150,6 +161,329 @@ class AddonPodIdentityAssociation(dict):
         The name of the Kubernetes service account inside the cluster to associate the IAM credentials with.
         """
         return pulumi.get(self, "service_account")
+
+
+@pulumi.output_type
+class CapabilityConfiguration(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "argoCd":
+            suggest = "argo_cd"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CapabilityConfiguration. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CapabilityConfiguration.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CapabilityConfiguration.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 argo_cd: Optional['outputs.CapabilityConfigurationArgoCd'] = None):
+        """
+        :param 'CapabilityConfigurationArgoCdArgs' argo_cd: ArgoCD configuration. See `argo_cd` below.
+        """
+        if argo_cd is not None:
+            pulumi.set(__self__, "argo_cd", argo_cd)
+
+    @_builtins.property
+    @pulumi.getter(name="argoCd")
+    def argo_cd(self) -> Optional['outputs.CapabilityConfigurationArgoCd']:
+        """
+        ArgoCD configuration. See `argo_cd` below.
+        """
+        return pulumi.get(self, "argo_cd")
+
+
+@pulumi.output_type
+class CapabilityConfigurationArgoCd(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "awsIdc":
+            suggest = "aws_idc"
+        elif key == "networkAccess":
+            suggest = "network_access"
+        elif key == "rbacRoleMappings":
+            suggest = "rbac_role_mappings"
+        elif key == "serverUrl":
+            suggest = "server_url"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CapabilityConfigurationArgoCd. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CapabilityConfigurationArgoCd.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CapabilityConfigurationArgoCd.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 aws_idc: Optional['outputs.CapabilityConfigurationArgoCdAwsIdc'] = None,
+                 namespace: Optional[_builtins.str] = None,
+                 network_access: Optional['outputs.CapabilityConfigurationArgoCdNetworkAccess'] = None,
+                 rbac_role_mappings: Optional[Sequence['outputs.CapabilityConfigurationArgoCdRbacRoleMapping']] = None,
+                 server_url: Optional[_builtins.str] = None):
+        """
+        :param 'CapabilityConfigurationArgoCdAwsIdcArgs' aws_idc: AWS IAM Identity Center configuration. See `aws_idc` below.
+        :param _builtins.str namespace: Kubernetes namespace for ArgoCD.
+        :param 'CapabilityConfigurationArgoCdNetworkAccessArgs' network_access: Network access configuration. See `network_access` below.
+        :param Sequence['CapabilityConfigurationArgoCdRbacRoleMappingArgs'] rbac_role_mappings: RBAC role mappings. See `rbac_role_mapping` below.
+        :param _builtins.str server_url: URL of the Argo CD server.
+        """
+        if aws_idc is not None:
+            pulumi.set(__self__, "aws_idc", aws_idc)
+        if namespace is not None:
+            pulumi.set(__self__, "namespace", namespace)
+        if network_access is not None:
+            pulumi.set(__self__, "network_access", network_access)
+        if rbac_role_mappings is not None:
+            pulumi.set(__self__, "rbac_role_mappings", rbac_role_mappings)
+        if server_url is not None:
+            pulumi.set(__self__, "server_url", server_url)
+
+    @_builtins.property
+    @pulumi.getter(name="awsIdc")
+    def aws_idc(self) -> Optional['outputs.CapabilityConfigurationArgoCdAwsIdc']:
+        """
+        AWS IAM Identity Center configuration. See `aws_idc` below.
+        """
+        return pulumi.get(self, "aws_idc")
+
+    @_builtins.property
+    @pulumi.getter
+    def namespace(self) -> Optional[_builtins.str]:
+        """
+        Kubernetes namespace for ArgoCD.
+        """
+        return pulumi.get(self, "namespace")
+
+    @_builtins.property
+    @pulumi.getter(name="networkAccess")
+    def network_access(self) -> Optional['outputs.CapabilityConfigurationArgoCdNetworkAccess']:
+        """
+        Network access configuration. See `network_access` below.
+        """
+        return pulumi.get(self, "network_access")
+
+    @_builtins.property
+    @pulumi.getter(name="rbacRoleMappings")
+    def rbac_role_mappings(self) -> Optional[Sequence['outputs.CapabilityConfigurationArgoCdRbacRoleMapping']]:
+        """
+        RBAC role mappings. See `rbac_role_mapping` below.
+        """
+        return pulumi.get(self, "rbac_role_mappings")
+
+    @_builtins.property
+    @pulumi.getter(name="serverUrl")
+    def server_url(self) -> Optional[_builtins.str]:
+        """
+        URL of the Argo CD server.
+        """
+        return pulumi.get(self, "server_url")
+
+
+@pulumi.output_type
+class CapabilityConfigurationArgoCdAwsIdc(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "idcInstanceArn":
+            suggest = "idc_instance_arn"
+        elif key == "idcManagedApplicationArn":
+            suggest = "idc_managed_application_arn"
+        elif key == "idcRegion":
+            suggest = "idc_region"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CapabilityConfigurationArgoCdAwsIdc. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CapabilityConfigurationArgoCdAwsIdc.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CapabilityConfigurationArgoCdAwsIdc.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 idc_instance_arn: _builtins.str,
+                 idc_managed_application_arn: Optional[_builtins.str] = None,
+                 idc_region: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str idc_instance_arn: ARN of the IAM Identity Center instance.
+        :param _builtins.str idc_region: Region of the IAM Identity Center instance.
+        """
+        pulumi.set(__self__, "idc_instance_arn", idc_instance_arn)
+        if idc_managed_application_arn is not None:
+            pulumi.set(__self__, "idc_managed_application_arn", idc_managed_application_arn)
+        if idc_region is not None:
+            pulumi.set(__self__, "idc_region", idc_region)
+
+    @_builtins.property
+    @pulumi.getter(name="idcInstanceArn")
+    def idc_instance_arn(self) -> _builtins.str:
+        """
+        ARN of the IAM Identity Center instance.
+        """
+        return pulumi.get(self, "idc_instance_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="idcManagedApplicationArn")
+    def idc_managed_application_arn(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "idc_managed_application_arn")
+
+    @_builtins.property
+    @pulumi.getter(name="idcRegion")
+    def idc_region(self) -> Optional[_builtins.str]:
+        """
+        Region of the IAM Identity Center instance.
+        """
+        return pulumi.get(self, "idc_region")
+
+
+@pulumi.output_type
+class CapabilityConfigurationArgoCdNetworkAccess(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "vpceIds":
+            suggest = "vpce_ids"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in CapabilityConfigurationArgoCdNetworkAccess. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        CapabilityConfigurationArgoCdNetworkAccess.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        CapabilityConfigurationArgoCdNetworkAccess.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 vpce_ids: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] vpce_ids: VPC Endpoint IDs.
+        """
+        if vpce_ids is not None:
+            pulumi.set(__self__, "vpce_ids", vpce_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="vpceIds")
+    def vpce_ids(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        VPC Endpoint IDs.
+        """
+        return pulumi.get(self, "vpce_ids")
+
+
+@pulumi.output_type
+class CapabilityConfigurationArgoCdRbacRoleMapping(dict):
+    def __init__(__self__, *,
+                 role: _builtins.str,
+                 identities: Optional[Sequence['outputs.CapabilityConfigurationArgoCdRbacRoleMappingIdentity']] = None):
+        """
+        :param _builtins.str role: ArgoCD role. Valid values: `ADMIN`, `EDITOR`, `VIEWER`.
+        :param Sequence['CapabilityConfigurationArgoCdRbacRoleMappingIdentityArgs'] identities: List of identities. See `identity` below.
+        """
+        pulumi.set(__self__, "role", role)
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
+
+    @_builtins.property
+    @pulumi.getter
+    def role(self) -> _builtins.str:
+        """
+        ArgoCD role. Valid values: `ADMIN`, `EDITOR`, `VIEWER`.
+        """
+        return pulumi.get(self, "role")
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[Sequence['outputs.CapabilityConfigurationArgoCdRbacRoleMappingIdentity']]:
+        """
+        List of identities. See `identity` below.
+        """
+        return pulumi.get(self, "identities")
+
+
+@pulumi.output_type
+class CapabilityConfigurationArgoCdRbacRoleMappingIdentity(dict):
+    def __init__(__self__, *,
+                 id: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str id: Identity ID.
+        :param _builtins.str type: Identity type. Valid values: `SSO_USER`, `SSO_GROUP`.
+        """
+        pulumi.set(__self__, "id", id)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Identity ID.
+        """
+        return pulumi.get(self, "id")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Identity type. Valid values: `SSO_USER`, `SSO_GROUP`.
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class CapabilityTimeouts(dict):
+    def __init__(__self__, *,
+                 create: Optional[_builtins.str] = None,
+                 delete: Optional[_builtins.str] = None,
+                 update: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str create: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        :param _builtins.str delete: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        :param _builtins.str update: A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        if create is not None:
+            pulumi.set(__self__, "create", create)
+        if delete is not None:
+            pulumi.set(__self__, "delete", delete)
+        if update is not None:
+            pulumi.set(__self__, "update", update)
+
+    @_builtins.property
+    @pulumi.getter
+    def create(self) -> Optional[_builtins.str]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "create")
+
+    @_builtins.property
+    @pulumi.getter
+    def delete(self) -> Optional[_builtins.str]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
+        """
+        return pulumi.get(self, "delete")
+
+    @_builtins.property
+    @pulumi.getter
+    def update(self) -> Optional[_builtins.str]:
+        """
+        A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
+        """
+        return pulumi.get(self, "update")
 
 
 @pulumi.output_type
@@ -281,6 +615,25 @@ class ClusterComputeConfig(dict):
         The ARN of the IAM Role EKS will assign to EC2 Managed Instances in your EKS Auto Mode cluster. This value cannot be changed after the compute capability of EKS Auto Mode is enabled..
         """
         return pulumi.get(self, "node_role_arn")
+
+
+@pulumi.output_type
+class ClusterControlPlaneScalingConfig(dict):
+    def __init__(__self__, *,
+                 tier: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str tier: The control plane scaling tier. Valid values are `standard`, `tier-xl`, `tier-2xl`, or `tier-4xl`. Defaults to `standard`. For more information about each tier, see [EKS Provisioned Control Plane](https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane-getting-started.html).
+        """
+        if tier is not None:
+            pulumi.set(__self__, "tier", tier)
+
+    @_builtins.property
+    @pulumi.getter
+    def tier(self) -> Optional[_builtins.str]:
+        """
+        The control plane scaling tier. Valid values are `standard`, `tier-xl`, `tier-2xl`, or `tier-4xl`. Defaults to `standard`. For more information about each tier, see [EKS Provisioned Control Plane](https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane-getting-started.html).
+        """
+        return pulumi.get(self, "tier")
 
 
 @pulumi.output_type
@@ -1134,21 +1487,180 @@ class NodeGroupLaunchTemplate(dict):
 
 @pulumi.output_type
 class NodeGroupNodeRepairConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "maxParallelNodesRepairedCount":
+            suggest = "max_parallel_nodes_repaired_count"
+        elif key == "maxParallelNodesRepairedPercentage":
+            suggest = "max_parallel_nodes_repaired_percentage"
+        elif key == "maxUnhealthyNodeThresholdCount":
+            suggest = "max_unhealthy_node_threshold_count"
+        elif key == "maxUnhealthyNodeThresholdPercentage":
+            suggest = "max_unhealthy_node_threshold_percentage"
+        elif key == "nodeRepairConfigOverrides":
+            suggest = "node_repair_config_overrides"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in NodeGroupNodeRepairConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        NodeGroupNodeRepairConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        NodeGroupNodeRepairConfig.__key_warning(key)
+        return super().get(key, default)
+
     def __init__(__self__, *,
-                 enabled: Optional[_builtins.bool] = None):
+                 enabled: Optional[_builtins.bool] = None,
+                 max_parallel_nodes_repaired_count: Optional[_builtins.int] = None,
+                 max_parallel_nodes_repaired_percentage: Optional[_builtins.int] = None,
+                 max_unhealthy_node_threshold_count: Optional[_builtins.int] = None,
+                 max_unhealthy_node_threshold_percentage: Optional[_builtins.int] = None,
+                 node_repair_config_overrides: Optional[Sequence['outputs.NodeGroupNodeRepairConfigNodeRepairConfigOverride']] = None):
         """
-        :param _builtins.bool enabled: Specifies whether to enable node auto repair for the node group. Node auto repair is disabled by default.
+        :param _builtins.bool enabled: Specifies whether to enable node auto repair for the node group. Node auto repair is disabled by default. Defaults to `false`.
+        :param _builtins.int max_parallel_nodes_repaired_count: Maximum number of nodes that can be repaired concurrently or in parallel, expressed as a count of unhealthy nodes. Conflicts with `max_parallel_nodes_repaired_percentage`.
+        :param _builtins.int max_parallel_nodes_repaired_percentage: Maximum number of nodes that can be repaired concurrently or in parallel, expressed as a percentage of unhealthy nodes. Conflicts with `max_parallel_nodes_repaired_count`.
+        :param _builtins.int max_unhealthy_node_threshold_count: Count threshold of unhealthy nodes, above which node auto repair actions will stop. Conflicts with `max_unhealthy_node_threshold_percentage`.
+        :param _builtins.int max_unhealthy_node_threshold_percentage: Percentage threshold of unhealthy nodes, above which node auto repair actions will stop. Conflicts with `max_unhealthy_node_threshold_count`.
+        :param Sequence['NodeGroupNodeRepairConfigNodeRepairConfigOverrideArgs'] node_repair_config_overrides: Granular overrides for specific repair actions. See `node_repair_config_overrides` below for details.
         """
         if enabled is not None:
             pulumi.set(__self__, "enabled", enabled)
+        if max_parallel_nodes_repaired_count is not None:
+            pulumi.set(__self__, "max_parallel_nodes_repaired_count", max_parallel_nodes_repaired_count)
+        if max_parallel_nodes_repaired_percentage is not None:
+            pulumi.set(__self__, "max_parallel_nodes_repaired_percentage", max_parallel_nodes_repaired_percentage)
+        if max_unhealthy_node_threshold_count is not None:
+            pulumi.set(__self__, "max_unhealthy_node_threshold_count", max_unhealthy_node_threshold_count)
+        if max_unhealthy_node_threshold_percentage is not None:
+            pulumi.set(__self__, "max_unhealthy_node_threshold_percentage", max_unhealthy_node_threshold_percentage)
+        if node_repair_config_overrides is not None:
+            pulumi.set(__self__, "node_repair_config_overrides", node_repair_config_overrides)
 
     @_builtins.property
     @pulumi.getter
     def enabled(self) -> Optional[_builtins.bool]:
         """
-        Specifies whether to enable node auto repair for the node group. Node auto repair is disabled by default.
+        Specifies whether to enable node auto repair for the node group. Node auto repair is disabled by default. Defaults to `false`.
         """
         return pulumi.get(self, "enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="maxParallelNodesRepairedCount")
+    def max_parallel_nodes_repaired_count(self) -> Optional[_builtins.int]:
+        """
+        Maximum number of nodes that can be repaired concurrently or in parallel, expressed as a count of unhealthy nodes. Conflicts with `max_parallel_nodes_repaired_percentage`.
+        """
+        return pulumi.get(self, "max_parallel_nodes_repaired_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maxParallelNodesRepairedPercentage")
+    def max_parallel_nodes_repaired_percentage(self) -> Optional[_builtins.int]:
+        """
+        Maximum number of nodes that can be repaired concurrently or in parallel, expressed as a percentage of unhealthy nodes. Conflicts with `max_parallel_nodes_repaired_count`.
+        """
+        return pulumi.get(self, "max_parallel_nodes_repaired_percentage")
+
+    @_builtins.property
+    @pulumi.getter(name="maxUnhealthyNodeThresholdCount")
+    def max_unhealthy_node_threshold_count(self) -> Optional[_builtins.int]:
+        """
+        Count threshold of unhealthy nodes, above which node auto repair actions will stop. Conflicts with `max_unhealthy_node_threshold_percentage`.
+        """
+        return pulumi.get(self, "max_unhealthy_node_threshold_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maxUnhealthyNodeThresholdPercentage")
+    def max_unhealthy_node_threshold_percentage(self) -> Optional[_builtins.int]:
+        """
+        Percentage threshold of unhealthy nodes, above which node auto repair actions will stop. Conflicts with `max_unhealthy_node_threshold_count`.
+        """
+        return pulumi.get(self, "max_unhealthy_node_threshold_percentage")
+
+    @_builtins.property
+    @pulumi.getter(name="nodeRepairConfigOverrides")
+    def node_repair_config_overrides(self) -> Optional[Sequence['outputs.NodeGroupNodeRepairConfigNodeRepairConfigOverride']]:
+        """
+        Granular overrides for specific repair actions. See `node_repair_config_overrides` below for details.
+        """
+        return pulumi.get(self, "node_repair_config_overrides")
+
+
+@pulumi.output_type
+class NodeGroupNodeRepairConfigNodeRepairConfigOverride(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "minRepairWaitTimeMins":
+            suggest = "min_repair_wait_time_mins"
+        elif key == "nodeMonitoringCondition":
+            suggest = "node_monitoring_condition"
+        elif key == "nodeUnhealthyReason":
+            suggest = "node_unhealthy_reason"
+        elif key == "repairAction":
+            suggest = "repair_action"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in NodeGroupNodeRepairConfigNodeRepairConfigOverride. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        NodeGroupNodeRepairConfigNodeRepairConfigOverride.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        NodeGroupNodeRepairConfigNodeRepairConfigOverride.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 min_repair_wait_time_mins: _builtins.int,
+                 node_monitoring_condition: _builtins.str,
+                 node_unhealthy_reason: _builtins.str,
+                 repair_action: _builtins.str):
+        """
+        :param _builtins.int min_repair_wait_time_mins: Minimum time in minutes to wait before attempting to repair a node with the specified `node_monitoring_condition` and `node_unhealthy_reason`.
+        :param _builtins.str node_monitoring_condition: Unhealthy condition reported by the node monitoring agent that this override applies to.
+        :param _builtins.str node_unhealthy_reason: Reason reported by the node monitoring agent that this override applies to.
+        :param _builtins.str repair_action: Repair action to take for nodes when all of the specified conditions are met. Valid values are defined by the EKS API.
+        """
+        pulumi.set(__self__, "min_repair_wait_time_mins", min_repair_wait_time_mins)
+        pulumi.set(__self__, "node_monitoring_condition", node_monitoring_condition)
+        pulumi.set(__self__, "node_unhealthy_reason", node_unhealthy_reason)
+        pulumi.set(__self__, "repair_action", repair_action)
+
+    @_builtins.property
+    @pulumi.getter(name="minRepairWaitTimeMins")
+    def min_repair_wait_time_mins(self) -> _builtins.int:
+        """
+        Minimum time in minutes to wait before attempting to repair a node with the specified `node_monitoring_condition` and `node_unhealthy_reason`.
+        """
+        return pulumi.get(self, "min_repair_wait_time_mins")
+
+    @_builtins.property
+    @pulumi.getter(name="nodeMonitoringCondition")
+    def node_monitoring_condition(self) -> _builtins.str:
+        """
+        Unhealthy condition reported by the node monitoring agent that this override applies to.
+        """
+        return pulumi.get(self, "node_monitoring_condition")
+
+    @_builtins.property
+    @pulumi.getter(name="nodeUnhealthyReason")
+    def node_unhealthy_reason(self) -> _builtins.str:
+        """
+        Reason reported by the node monitoring agent that this override applies to.
+        """
+        return pulumi.get(self, "node_unhealthy_reason")
+
+    @_builtins.property
+    @pulumi.getter(name="repairAction")
+    def repair_action(self) -> _builtins.str:
+        """
+        Repair action to take for nodes when all of the specified conditions are met. Valid values are defined by the EKS API.
+        """
+        return pulumi.get(self, "repair_action")
 
 
 @pulumi.output_type
@@ -1381,6 +1893,8 @@ class NodeGroupUpdateConfig(dict):
             suggest = "max_unavailable"
         elif key == "maxUnavailablePercentage":
             suggest = "max_unavailable_percentage"
+        elif key == "updateStrategy":
+            suggest = "update_strategy"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in NodeGroupUpdateConfig. Access the value via the '{suggest}' property getter instead.")
@@ -1395,15 +1909,19 @@ class NodeGroupUpdateConfig(dict):
 
     def __init__(__self__, *,
                  max_unavailable: Optional[_builtins.int] = None,
-                 max_unavailable_percentage: Optional[_builtins.int] = None):
+                 max_unavailable_percentage: Optional[_builtins.int] = None,
+                 update_strategy: Optional[_builtins.str] = None):
         """
         :param _builtins.int max_unavailable: Desired max number of unavailable worker nodes during node group update.
         :param _builtins.int max_unavailable_percentage: Desired max percentage of unavailable worker nodes during node group update.
+        :param _builtins.str update_strategy: Strategy to use for updating the node group. Valid values: `MINIMAL` and `DEFAULT`.
         """
         if max_unavailable is not None:
             pulumi.set(__self__, "max_unavailable", max_unavailable)
         if max_unavailable_percentage is not None:
             pulumi.set(__self__, "max_unavailable_percentage", max_unavailable_percentage)
+        if update_strategy is not None:
+            pulumi.set(__self__, "update_strategy", update_strategy)
 
     @_builtins.property
     @pulumi.getter(name="maxUnavailable")
@@ -1420,6 +1938,14 @@ class NodeGroupUpdateConfig(dict):
         Desired max percentage of unavailable worker nodes during node group update.
         """
         return pulumi.get(self, "max_unavailable_percentage")
+
+    @_builtins.property
+    @pulumi.getter(name="updateStrategy")
+    def update_strategy(self) -> Optional[_builtins.str]:
+        """
+        Strategy to use for updating the node group. Valid values: `MINIMAL` and `DEFAULT`.
+        """
+        return pulumi.get(self, "update_strategy")
 
 
 @pulumi.output_type
@@ -1536,6 +2062,24 @@ class GetClusterComputeConfigResult(dict):
         The ARN of the IAM Role EKS will assign to EC2 Managed Instances in your EKS Auto Mode cluster.
         """
         return pulumi.get(self, "node_role_arn")
+
+
+@pulumi.output_type
+class GetClusterControlPlaneScalingConfigResult(dict):
+    def __init__(__self__, *,
+                 tier: _builtins.str):
+        """
+        :param _builtins.str tier: The control plane scaling tier. Valid values are `standard`, `tier-xl`, `tier-2xl`, or `tier-4xl`.
+        """
+        pulumi.set(__self__, "tier", tier)
+
+    @_builtins.property
+    @pulumi.getter
+    def tier(self) -> _builtins.str:
+        """
+        The control plane scaling tier. Valid values are `standard`, `tier-xl`, `tier-2xl`, or `tier-4xl`.
+        """
+        return pulumi.get(self, "tier")
 
 
 @pulumi.output_type
@@ -2226,5 +2770,31 @@ class GetNodeGroupTaintResult(dict):
         The value of the taint.
         """
         return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetNodeGroupUpdateConfigResult(dict):
+    def __init__(__self__, *,
+                 max_unavailable: _builtins.int,
+                 max_unavailable_percentage: _builtins.int,
+                 update_strategy: _builtins.str):
+        pulumi.set(__self__, "max_unavailable", max_unavailable)
+        pulumi.set(__self__, "max_unavailable_percentage", max_unavailable_percentage)
+        pulumi.set(__self__, "update_strategy", update_strategy)
+
+    @_builtins.property
+    @pulumi.getter(name="maxUnavailable")
+    def max_unavailable(self) -> _builtins.int:
+        return pulumi.get(self, "max_unavailable")
+
+    @_builtins.property
+    @pulumi.getter(name="maxUnavailablePercentage")
+    def max_unavailable_percentage(self) -> _builtins.int:
+        return pulumi.get(self, "max_unavailable_percentage")
+
+    @_builtins.property
+    @pulumi.getter(name="updateStrategy")
+    def update_strategy(self) -> _builtins.str:
+        return pulumi.get(self, "update_strategy")
 
 

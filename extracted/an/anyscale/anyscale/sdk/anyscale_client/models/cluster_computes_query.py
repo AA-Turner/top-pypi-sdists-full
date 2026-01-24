@@ -39,7 +39,8 @@ class ClusterComputesQuery(object):
         'include_anonymous': 'bool',
         'paging': 'PageQuery',
         'cloud_id': 'str',
-        'version': 'int'
+        'version': 'int',
+        'sort_by_clauses': 'list[SortByClauseClusterComputesSortField]'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class ClusterComputesQuery(object):
         'include_anonymous': 'include_anonymous',
         'paging': 'paging',
         'cloud_id': 'cloud_id',
-        'version': 'version'
+        'version': 'version',
+        'sort_by_clauses': 'sort_by_clauses'
     }
 
-    def __init__(self, project_id=None, creator_id=None, name=None, include_anonymous=False, paging=None, cloud_id=None, version=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, project_id=None, creator_id=None, name=None, include_anonymous=False, paging=None, cloud_id=None, version=None, sort_by_clauses=[{"sort_field":"CREATED_AT","sort_order":"DESC"},{"sort_field":"NAME","sort_order":"ASC"},{"sort_field":"ID","sort_order":"ASC"}], local_vars_configuration=None):  # noqa: E501
         """ClusterComputesQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class ClusterComputesQuery(object):
         self._paging = None
         self._cloud_id = None
         self._version = None
+        self._sort_by_clauses = None
         self.discriminator = None
 
         if project_id is not None:
@@ -81,6 +84,8 @@ class ClusterComputesQuery(object):
             self.cloud_id = cloud_id
         if version is not None:
             self.version = version
+        if sort_by_clauses is not None:
+            self.sort_by_clauses = sort_by_clauses
 
     @property
     def project_id(self):
@@ -245,6 +250,29 @@ class ClusterComputesQuery(object):
             raise ValueError("Invalid value for `version`, must be a value greater than or equal to `-2`")  # noqa: E501
 
         self._version = version
+
+    @property
+    def sort_by_clauses(self):
+        """Gets the sort_by_clauses of this ClusterComputesQuery.  # noqa: E501
+
+        The order used to specify results. The list will be used to construct ORDER BY database queries. If not specified, the fallback order by clauses are 1. Creation time (desc) 2. Name (ascending) and 3. ID (ascending)  # noqa: E501
+
+        :return: The sort_by_clauses of this ClusterComputesQuery.  # noqa: E501
+        :rtype: list[SortByClauseClusterComputesSortField]
+        """
+        return self._sort_by_clauses
+
+    @sort_by_clauses.setter
+    def sort_by_clauses(self, sort_by_clauses):
+        """Sets the sort_by_clauses of this ClusterComputesQuery.
+
+        The order used to specify results. The list will be used to construct ORDER BY database queries. If not specified, the fallback order by clauses are 1. Creation time (desc) 2. Name (ascending) and 3. ID (ascending)  # noqa: E501
+
+        :param sort_by_clauses: The sort_by_clauses of this ClusterComputesQuery.  # noqa: E501
+        :type: list[SortByClauseClusterComputesSortField]
+        """
+
+        self._sort_by_clauses = sort_by_clauses
 
     def to_dict(self):
         """Returns the model properties as a dict"""

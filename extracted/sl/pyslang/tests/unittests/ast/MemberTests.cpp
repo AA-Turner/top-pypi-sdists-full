@@ -147,7 +147,7 @@ module m;
     assign l = d[2];
 
     logic q[$];
-    logic [1:0] qp;
+    logic qp[$];
     assign qp = q[1:0];
 
     virtual I vif;
@@ -666,7 +666,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diagnostics = compilation.getAllDiagnostics();
+    auto diagnostics = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     std::string result = "\n" + report(diagnostics);
     CHECK(result == R"(
 source:7:5: error: $error encountered
@@ -827,7 +827,7 @@ module test;
     global clocking gb @clk; endclocking
     global clocking gb2 @clk; endclocking
 
-    if (1) begin
+    if (1) begin : blk
         global clocking gb @clk; endclocking
     end
 endmodule
@@ -1059,6 +1059,8 @@ endmodule
                     .find<VariableSymbol>("foo");
 
     CHECK(foo.getHierarchicalPath() == "top.m1[2][1][3].asdf[1].genblk1.foo");
+    // Ensure we get the same answer twice
+    CHECK(foo.getHierarchicalPath() == "top.m1[2][1][3].asdf[1].genblk1.foo");
 }
 
 TEST_CASE("Hierarchical paths with unnamed generate arrays") {
@@ -1079,6 +1081,28 @@ endmodule
     compilation.getRoot().visit(
         makeVisitor([&](auto& v, const VariableSymbol& sym) { sym.appendHierarchicalPath(path); }));
     CHECK(path == "top.genblk1[0].a");
+}
+
+TEST_CASE("Hierarchical paths with collided unnamed generate arrays") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+  genvar i;
+  for (i = 0; i < 1; i = i + 1) begin
+    logic a;
+  end
+  for (i = 0; i < 1; i = i + 1) begin: genblk1
+  end
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    std::string path;
+    compilation.getRoot().visit(
+        makeVisitor([&](auto& v, const VariableSymbol& sym) { sym.appendHierarchicalPath(path); }));
+    CHECK(path == "top.genblk01[0].a");
 }
 
 TEST_CASE("$static_assert elab task") {

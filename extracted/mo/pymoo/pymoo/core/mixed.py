@@ -1,5 +1,4 @@
 import math
-from copy import deepcopy
 
 import numpy as np
 
@@ -11,7 +10,7 @@ from pymoo.core.infill import InfillCriterion
 from pymoo.core.population import Population
 from pymoo.core.problem import Problem
 from pymoo.core.sampling import Sampling
-from pymoo.core.variable import Choice, Real, Integer, Binary, BoundedVariable
+from pymoo.core.variable import Choice, Real, Integer, Binary
 from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.crossover.ux import UX
 from pymoo.operators.mutation.bitflip import BFM
@@ -55,7 +54,7 @@ class MixedVariableMating(InfillCriterion):
         self.crossover = crossover
         self.mutation = mutation
 
-    def _do(self, problem, pop, n_offsprings, parents=False, **kwargs):
+    def _do(self, problem, pop, n_offsprings, parents=False, random_state=None, **kwargs):
 
         # So far we assume all crossover need the same amount of parents and create the same number of offsprings
         XOVER_N_PARENTS = 2
@@ -87,7 +86,7 @@ class MixedVariableMating(InfillCriterion):
 
         if not parents:
             n_select = math.ceil(n_offsprings / XOVER_N_OFFSPRINGS)
-            pop = self.selection(problem, pop, n_select, XOVER_N_PARENTS, **kwargs)
+            pop = self.selection(problem, pop, n_select, XOVER_N_PARENTS, random_state=random_state, **kwargs)
 
         for clazz, list_of_vars in recomb:
 
@@ -105,10 +104,10 @@ class MixedVariableMating(InfillCriterion):
             _xu = np.array([vars[e].ub if hasattr(vars[e], "ub") else None for e in list_of_vars])
             _problem = Problem(vars=_vars, xl=_xl, xu=_xu)
 
-            _off = crossover(_problem, _parents, **kwargs)
+            _off = crossover(_problem, _parents, random_state=random_state, **kwargs)
 
             mutation = self.mutation[clazz]
-            _off = mutation(_problem, _off, **kwargs)
+            _off = mutation(_problem, _off, random_state=random_state, **kwargs)
 
             for k in range(n_offsprings):
                 for i, name in enumerate(list_of_vars):
@@ -119,8 +118,8 @@ class MixedVariableMating(InfillCriterion):
 
 class MixedVariableSampling(Sampling):
 
-    def _do(self, problem, n_samples, **kwargs):
-        V = {name: var.sample(n_samples) for name, var in problem.vars.items()}
+    def _do(self, problem, n_samples, random_state=None, **kwargs):
+        V = {name: var.sample(n_samples, random_state=random_state) for name, var in problem.vars.items()}
 
         X = []
         for k in range(n_samples):

@@ -3,7 +3,7 @@ Type annotations for health service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_health/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,22 +17,21 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
     EntityStatusCodeType,
+    EventActionabilityType,
+    EventPersonaType,
     EventScopeCodeType,
     EventStatusCodeType,
+    EventTypeActionabilityType,
     EventTypeCategoryType,
+    EventTypePersonaType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -101,7 +100,7 @@ __all__ = (
 class AccountEntityAggregateTypeDef(TypedDict):
     accountId: NotRequired[str]
     count: NotRequired[int]
-    statuses: NotRequired[Dict[EntityStatusCodeType, int]]
+    statuses: NotRequired[dict[EntityStatusCodeType, int]]
 
 
 class AffectedEntityTypeDef(TypedDict):
@@ -112,8 +111,8 @@ class AffectedEntityTypeDef(TypedDict):
     awsAccountId: NotRequired[str]
     lastUpdatedTime: NotRequired[datetime]
     statusCode: NotRequired[EntityStatusCodeType]
-    tags: NotRequired[Dict[str, str]]
-    entityMetadata: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
+    entityMetadata: NotRequired[dict[str, str]]
 
 
 TimestampTypeDef = Union[datetime, str]
@@ -134,7 +133,7 @@ class DescribeAffectedAccountsForOrganizationRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -169,7 +168,7 @@ class DescribeEntityAggregatesRequestTypeDef(TypedDict):
 class EntityAggregateTypeDef(TypedDict):
     eventArn: NotRequired[str]
     count: NotRequired[int]
-    statuses: NotRequired[Dict[EntityStatusCodeType, int]]
+    statuses: NotRequired[dict[EntityStatusCodeType, int]]
 
 
 class EventAggregateTypeDef(TypedDict):
@@ -199,12 +198,16 @@ class EventTypeFilterTypeDef(TypedDict):
     eventTypeCodes: NotRequired[Sequence[str]]
     services: NotRequired[Sequence[str]]
     eventTypeCategories: NotRequired[Sequence[EventTypeCategoryType]]
+    actionabilities: NotRequired[Sequence[EventTypeActionabilityType]]
+    personas: NotRequired[Sequence[EventTypePersonaType]]
 
 
 class EventTypeTypeDef(TypedDict):
     service: NotRequired[str]
     code: NotRequired[str]
     category: NotRequired[EventTypeCategoryType]
+    actionability: NotRequired[EventTypeActionabilityType]
+    personas: NotRequired[list[EventTypePersonaType]]
 
 
 class OrganizationEventTypeDef(TypedDict):
@@ -218,6 +221,8 @@ class OrganizationEventTypeDef(TypedDict):
     endTime: NotRequired[datetime]
     lastUpdatedTime: NotRequired[datetime]
     statusCode: NotRequired[EventStatusCodeType]
+    actionability: NotRequired[EventActionabilityType]
+    personas: NotRequired[list[EventPersonaType]]
 
 
 class EventTypeDef(TypedDict):
@@ -232,6 +237,8 @@ class EventTypeDef(TypedDict):
     lastUpdatedTime: NotRequired[datetime]
     statusCode: NotRequired[EventStatusCodeType]
     eventScopeCode: NotRequired[EventScopeCodeType]
+    actionability: NotRequired[EventActionabilityType]
+    personas: NotRequired[list[EventPersonaType]]
 
 
 class EventDescriptionTypeDef(TypedDict):
@@ -241,8 +248,8 @@ class EventDescriptionTypeDef(TypedDict):
 class OrganizationEntityAggregateTypeDef(TypedDict):
     eventArn: NotRequired[str]
     count: NotRequired[int]
-    statuses: NotRequired[Dict[EntityStatusCodeType, int]]
-    accounts: NotRequired[List[AccountEntityAggregateTypeDef]]
+    statuses: NotRequired[dict[EntityStatusCodeType, int]]
+    accounts: NotRequired[list[AccountEntityAggregateTypeDef]]
 
 
 DateTimeRangeTypeDef = TypedDict(
@@ -260,14 +267,14 @@ class DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeAffectedAccountsForOrganizationResponseTypeDef(TypedDict):
-    affectedAccounts: List[str]
+    affectedAccounts: list[str]
     eventScopeCode: EventScopeCodeType
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeAffectedEntitiesResponseTypeDef(TypedDict):
-    entities: List[AffectedEntityTypeDef]
+    entities: list[AffectedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -302,19 +309,19 @@ class DescribeEventDetailsForOrganizationRequestTypeDef(TypedDict):
 
 
 class DescribeAffectedEntitiesForOrganizationResponseTypeDef(TypedDict):
-    entities: List[AffectedEntityTypeDef]
-    failedSet: List[OrganizationAffectedEntitiesErrorItemTypeDef]
+    entities: list[AffectedEntityTypeDef]
+    failedSet: list[OrganizationAffectedEntitiesErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeEntityAggregatesResponseTypeDef(TypedDict):
-    entityAggregates: List[EntityAggregateTypeDef]
+    entityAggregates: list[EntityAggregateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEventAggregatesResponseTypeDef(TypedDict):
-    eventAggregates: List[EventAggregateTypeDef]
+    eventAggregates: list[EventAggregateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -339,19 +346,19 @@ DescribeEventTypesRequestTypeDef = TypedDict(
 
 
 class DescribeEventTypesResponseTypeDef(TypedDict):
-    eventTypes: List[EventTypeTypeDef]
+    eventTypes: list[EventTypeTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeEventsForOrganizationResponseTypeDef(TypedDict):
-    events: List[OrganizationEventTypeDef]
+    events: list[OrganizationEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class DescribeEventsResponseTypeDef(TypedDict):
-    events: List[EventTypeDef]
+    events: list[EventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -359,18 +366,18 @@ class DescribeEventsResponseTypeDef(TypedDict):
 class EventDetailsTypeDef(TypedDict):
     event: NotRequired[EventTypeDef]
     eventDescription: NotRequired[EventDescriptionTypeDef]
-    eventMetadata: NotRequired[Dict[str, str]]
+    eventMetadata: NotRequired[dict[str, str]]
 
 
 class OrganizationEventDetailsTypeDef(TypedDict):
     awsAccountId: NotRequired[str]
     event: NotRequired[EventTypeDef]
     eventDescription: NotRequired[EventDescriptionTypeDef]
-    eventMetadata: NotRequired[Dict[str, str]]
+    eventMetadata: NotRequired[dict[str, str]]
 
 
 class DescribeEntityAggregatesForOrganizationResponseTypeDef(TypedDict):
-    organizationEntityAggregates: List[OrganizationEntityAggregateTypeDef]
+    organizationEntityAggregates: list[OrganizationEntityAggregateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -384,6 +391,7 @@ class EntityFilterTypeDef(TypedDict):
 
 
 class EventFilterTypeDef(TypedDict):
+    actionabilities: NotRequired[Sequence[EventActionabilityType]]
     eventArns: NotRequired[Sequence[str]]
     eventTypeCodes: NotRequired[Sequence[str]]
     services: NotRequired[Sequence[str]]
@@ -397,9 +405,11 @@ class EventFilterTypeDef(TypedDict):
     eventTypeCategories: NotRequired[Sequence[EventTypeCategoryType]]
     tags: NotRequired[Sequence[Mapping[str, str]]]
     eventStatusCodes: NotRequired[Sequence[EventStatusCodeType]]
+    personas: NotRequired[Sequence[EventPersonaType]]
 
 
 class OrganizationEventFilterTypeDef(TypedDict):
+    actionabilities: NotRequired[Sequence[EventActionabilityType]]
     eventTypeCodes: NotRequired[Sequence[str]]
     awsAccountIds: NotRequired[Sequence[str]]
     services: NotRequired[Sequence[str]]
@@ -411,17 +421,18 @@ class OrganizationEventFilterTypeDef(TypedDict):
     entityValues: NotRequired[Sequence[str]]
     eventTypeCategories: NotRequired[Sequence[EventTypeCategoryType]]
     eventStatusCodes: NotRequired[Sequence[EventStatusCodeType]]
+    personas: NotRequired[Sequence[EventPersonaType]]
 
 
 class DescribeEventDetailsResponseTypeDef(TypedDict):
-    successfulSet: List[EventDetailsTypeDef]
-    failedSet: List[EventDetailsErrorItemTypeDef]
+    successfulSet: list[EventDetailsTypeDef]
+    failedSet: list[EventDetailsErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeEventDetailsForOrganizationResponseTypeDef(TypedDict):
-    successfulSet: List[OrganizationEventDetailsTypeDef]
-    failedSet: List[OrganizationEventDetailsErrorItemTypeDef]
+    successfulSet: list[OrganizationEventDetailsTypeDef]
+    failedSet: list[OrganizationEventDetailsErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

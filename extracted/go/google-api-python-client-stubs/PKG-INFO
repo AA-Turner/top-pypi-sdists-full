@@ -1,15 +1,16 @@
 Metadata-Version: 2.4
 Name: google-api-python-client-stubs
-Version: 1.30.0
+Version: 1.31.0
 Summary: Type stubs for google-api-python-client
+Author: Henrik Bruåsdal
 Author-email: Henrik Bruåsdal <henrik.bruasdal@gmail.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.7
-Requires-Dist: google-api-python-client>=2.176.0
+Requires-Dist: google-api-python-client>=2.186.0
 Requires-Dist: types-httplib2>=0.22.0.2
 Requires-Dist: typing-extensions>=3.10.0
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 
 # Type stubs for google-api-python-client

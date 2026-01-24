@@ -4,7 +4,7 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [tasks]
-postinstall = "pip install --no-use-pep517 --no-build-isolation --no-deps --disable-pip-version-check -e ."
+postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
 
 [tasks.install-nightlies]
 cmd = """
@@ -92,17 +92,17 @@ xsimd = "<11|>12.1"
 jemalloc-local = "*"
 
 [host-dependencies]
-python = ">=3.9"
+python = ">=3.10"
 pip = "*"
 setuptools = "*"
 wheel = "*"
 
 [dependencies]
-formulaic = ">=0.6.4"
+formulaic = ">=1.2.0"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
 scipy = ">=1.7.3"
-narwhals = ">=1.4.1"
+narwhals = ">=2.0.0"
 
 [feature.dev.dependencies]
 ipython = "*"
@@ -112,7 +112,7 @@ ipykernel = "*"
 click = "*"
 pytest = "*"
 pytest-xdist = "*"
-polars = "*"  # exclusively for polars tests
+polars = ">=1.35.0"  # exclusively for polars tests
 pyarrow = "*"  # exclusively for polars tests
 mypy = "*"
 
@@ -140,8 +140,6 @@ blas = { build = "*mkl" }
 [feature.benchmark.target.linux-64.dependencies]
 blas = { build = "*mkl" }
 
-[feature.py39.dependencies]
-python = "3.9.*"
 [feature.py310.dependencies]
 python = "3.10.*"
 [feature.py311.dependencies]
@@ -153,18 +151,17 @@ python = "3.13.*"
 
 [feature.oldies.dependencies]
 setuptools = "62.*"
-python = "=3.9.19"
+python = "=3.10"
 numpy = "=1.24.0"
 pandas = "=1.4.4"
 scipy = "=1.7.3"
-formulaic = "=0.6.4"
-narwhals = "=1.4.1"
+formulaic = "1.2.*"
+narwhals = "2.0.*"
 
 [environments]
 default = ["dev", "test"]
 docs = ["docs"]
 benchmark = ["benchmark"]
-py39 = ["py39", "test"]
 py310 = ["py310", "test"]
 py311 = ["py311", "test"]
 py312 = ["py312", "test"]

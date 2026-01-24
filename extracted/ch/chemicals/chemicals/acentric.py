@@ -46,9 +46,16 @@ Correlations
 ------------
 .. autofunction:: chemicals.acentric.LK_omega
 """
+from __future__ import annotations
 
-__all__ = ['omega', 'LK_omega', 'Stiel_polar_factor',
-           'omega_methods', 'omega_all_methods', 'omega_definition']
+__all__: list[str] = [
+    "LK_omega",
+    "Stiel_polar_factor",
+    "omega",
+    "omega_all_methods",
+    "omega_definition",
+    "omega_methods",
+]
 
 from math import log10
 
@@ -59,11 +66,11 @@ from chemicals import data_reader as dr
 from chemicals.data_reader import database_constant_lookup, list_available_methods_from_df_dict, retrieve_any_from_df_dict, retrieve_from_df_dict
 from chemicals.utils import mark_numba_incompatible
 
-omega_all_methods = (miscdata.HEOS, 'PSRK', 'PD', 'YAWS', critical.ACENTRIC_DEFINITION)
+omega_all_methods = (miscdata.HEOS, "PSRK", "PD", "YAWS", critical.ACENTRIC_DEFINITION)
 """Tuple of method name keys. See the `omega` for the actual references"""
 
 @mark_numba_incompatible
-def omega_methods(CASRN):
+def omega_methods(CASRN: str) -> list[str]:
     """Return all methods available for obtaining omega for the desired
     chemical.
 
@@ -81,11 +88,11 @@ def omega_methods(CASRN):
     --------
     omega
     """
-    return list_available_methods_from_df_dict(critical.omega_sources, CASRN, 'omega')
+    return list_available_methods_from_df_dict(critical.omega_sources, CASRN, "omega")
 
 @mark_numba_incompatible
-def omega(CASRN, method=None):
-    r'''Retrieve a chemical's acentric factor, `omega`.
+def omega(CASRN: str, method: str | None=None) -> float | None:
+    r"""Retrieve a chemical's acentric factor, `omega`.
 
     Automatically select a method to use if no method is provided;
     returns None if the data is not available.
@@ -157,17 +164,17 @@ def omega(CASRN, method=None):
        "The NIST REFPROP Database for Highly Accurate Properties of Industrially
        Important Fluids." Industrial & Engineering Chemistry Research 61, no. 42
        (October 26, 2022): 15449-72. https://doi.org/10.1021/acs.iecr.2c01427.
-    '''
+    """
     if dr.USE_CONSTANTS_DATABASE and method is None:
-        val, found = database_constant_lookup(CASRN, 'omega')
+        val, found = database_constant_lookup(CASRN, "omega")
         if found: return val
     if method:
-        return retrieve_from_df_dict(critical.omega_sources, CASRN, 'omega', method)
+        return retrieve_from_df_dict(critical.omega_sources, CASRN, "omega", method)
     else:
-        return retrieve_any_from_df_dict(critical.omega_sources, CASRN, 'omega')
+        return retrieve_any_from_df_dict(critical.omega_sources, CASRN, "omega")
 
-def omega_definition(Psat, Pc):
-    r'''Returns the acentric factor of a fluid according to its fundamental
+def omega_definition(Psat: float, Pc: float) -> float:
+    r"""Returns the acentric factor of a fluid according to its fundamental
     definition using the vapor pressure at a reduced temperature of 0.7Tc.
 
     .. math::
@@ -199,11 +206,11 @@ def omega_definition(Psat, Pc):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     return -log10(Psat/Pc) - 1.0
 
-def LK_omega(Tb, Tc, Pc):
-    r'''Estimates the acentric factor of a fluid using a correlation in [1]_.
+def LK_omega(Tb: float, Tc: float, Pc: float) -> float:
+    r"""Estimates the acentric factor of a fluid using a correlation in [1]_.
 
     .. math::
         \omega = \frac{\ln P_{br}^{sat} - 5.92714 + 6.09648/T_{br} + 1.28862
@@ -241,7 +248,7 @@ def LK_omega(Tb, Tc, Pc):
     .. [1] Lee, Byung Ik, and Michael G. Kesler. "A Generalized Thermodynamic
        Correlation Based on Three-Parameter Corresponding States." AIChE Journal
        21, no. 3 (1975): 510-527. doi:10.1002/aic.690210313.
-    '''
+    """
     T_br = Tb/Tc
     log_T_br = log(T_br)
     T_br_6 = T_br*T_br
@@ -251,8 +258,8 @@ def LK_omega(Tb, Tc, Pc):
              0.43577*T_br_6)
     return omega
 
-def Stiel_polar_factor(Psat, Pc, omega):
-    r'''This function handles the calculation of a chemical's Stiel Polar
+def Stiel_polar_factor(Psat: float, Pc: float, omega: float) -> float:
+    r"""This function handles the calculation of a chemical's Stiel Polar
     factor, directly through the definition of Stiel-polar factor.
     Requires the vapor pressure `Psat` at a reduced temperature of 0.6,
     the critical pressure `Pc`, and the acentric factor `omega`.
@@ -294,7 +301,7 @@ def Stiel_polar_factor(Psat, Pc, omega):
     .. [2] D, Kukoljac Miloš, and Grozdanić Dušan K. "New Values of the
        Polarity Factor." Journal of the Serbian Chemical Society 65, no. 12
        (January 1, 2000). http://www.shd.org.rs/JSCS/Vol65/No12-Pdf/JSCS12-07.pdf
-    '''
+    """
     Pr = Psat/Pc
     factor = log10(Pr) + 1.70*omega + 1.552
     return factor

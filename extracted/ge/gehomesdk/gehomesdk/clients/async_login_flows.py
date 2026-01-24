@@ -1,8 +1,9 @@
 from http.cookies import SimpleCookie
 from aiohttp import BasicAuth, ClientSession
-from lxml import etree
+from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs
 import logging
+from typing import Any, Dict
 
 from ..exception import *
 from .const import (
@@ -16,7 +17,7 @@ from .const import (
 )
 
 try:
-    import re2 as re
+    import re2 as re # pyright: ignore[reportMissingImports]
 except ImportError:
     import re
 
@@ -31,6 +32,36 @@ def set_login_cookie(session: ClientSession, account_region: str):
     c[LOGIN_REGION_COOKIE_NAME]["secure"] = True
 
     session.cookie_jar.update_cookies(c)
+
+
+def normalize_html_attr_value(raw: Any) -> str:
+    if isinstance(raw, (list, tuple)):
+        return " ".join(str(x) for x in raw)
+    if raw is None:
+        return ""
+    return str(raw)
+
+def extract_form_inputs(html: str, form_id: str) -> Dict[str, str]:
+    """
+    Parse `html`, find form with id `form_id`, and return a mapping of input name -> value.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    form = soup.find("form", id=form_id)
+    if not form:
+        return {}
+
+    result: Dict[str, str] = {}
+    for i in form.find_all("input"):
+        
+        name = normalize_html_attr_value(i.get("name"))
+        if not name:
+            continue
+
+        # use empty string if no value attribute present
+        value = i.get("value", "")
+        result[name] = normalize_html_attr_value(value)
+    return result
+
 
 async def async_get_authorization_code(session: ClientSession, account_username: str, account_password: str, account_region: str):
     params = {
@@ -55,12 +86,7 @@ async def async_get_authorization_code(session: ClientSession, account_username:
     )
     clean_username = re.sub(email_regex, r'\1', account_username)
 
-    etr = etree.HTML(resp_text)
-    post_data = {
-        i.attrib['name']: i.attrib['value']
-        for i in etr.xpath("//form[@id = 'frmsignin']//input")
-        if 'value' in i.keys()
-    }
+    post_data = extract_form_inputs(resp_text, 'frmsignin')
     post_data['username'] = clean_username
     post_data['password'] = account_password
 
@@ -86,17 +112,11 @@ async def async_get_authorization_code(session: ClientSession, account_username:
 async def async_handle_ok_response(session: ClientSession, resp_text: str) -> str:
     """Handles an OK 200 response from the login process"""
 
-    #parse the response into html
-    etr = etree.HTML(resp_text)
     post_data = {}
 
     try:
         #first try to pull all the form values    
-        post_data = {
-            i.attrib['name']: i.attrib['value']
-            for i in etr.xpath("//form[@id = 'frmsignin']//input")
-            if 'value' in i.keys()
-        }
+        post_data = extract_form_inputs(resp_text, 'frmsignin')
     except:
         pass
 
@@ -107,8 +127,13 @@ async def async_handle_ok_response(session: ClientSession, resp_text: str) -> st
 
     #try to get the error based on the known responses
     try:
-        reason = etr.find(".//div[@id='alert_pane']").text.translate({ord(c):"" for c in "\t\n"})
-        raise GeAuthFailedError(f"Authentication failed, reason: {reason}")
+        soup = BeautifulSoup(resp_text, "html.parser")
+        pane = soup.find("div", id="alert_pane")
+        if pane is not None:
+            text = pane.get_text()
+            if text:
+                reason = text.translate({ord(c): "" for c in "\t\n"})
+                raise GeAuthFailedError(f"Authentication failed, reason: {reason}")
     except GeAuthFailedError:
         raise #re-raise only auth failed errors, all others are irrelevant at this point
     except:
@@ -163,7 +188,7 @@ async def async_get_oauth2_token(session: ClientSession, account_username: str, 
                 raise GeGeneralServerError(f"Server error, code: {resp.status}")
             oauth_token = await resp.json()
         try:
-            access_token = oauth_token['access_token']
+            _ = oauth_token['access_token']
             return oauth_token
         except KeyError:
             raise GeAuthFailedError(f'Failed to get a token: {oauth_token}')
@@ -193,12 +218,12 @@ async def async_refresh_oauth2_token(session: ClientSession, refresh_token: str)
                 raise GeGeneralServerError(f"Server error, code: {resp.status}")
             oauth_token = await resp.json()
         try:
-            access_token = oauth_token['access_token']
+            _ = oauth_token['access_token']
             return oauth_token
         except KeyError:
             raise GeAuthFailedError(f'Failed to get a token: {oauth_token}')
         except Exception as exc:
-            resp_text = await resp.text()
+            _ = await resp.text()
             _LOGGER.exception(f"Could not refresh OAuth token, response details: {resp.__dict__}")
             raise GeAuthFailedError(f'Could not refresh OAuth token') from exc
     except Exception as exc:

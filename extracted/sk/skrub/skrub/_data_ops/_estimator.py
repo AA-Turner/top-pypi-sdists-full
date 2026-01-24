@@ -1,17 +1,18 @@
 # Scikit-learn-ish interface to the skrub DataOps
-
 import pandas as pd
 from sklearn import model_selection
 from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.exceptions import NotFittedError
+from sklearn.model_selection import KFold, check_cv
 from sklearn.utils.validation import check_is_fitted
 
+from .. import _dataframe as sbd
 from .. import _join_utils
 from ._choosing import BaseNumericChoice, get_default
-from ._data_ops import Apply, check_subsampled_X_y_shape
+from ._data_ops import Apply, DataOp, check_subsampled_X_y_shape
 from ._evaluation import (
     choice_graph,
-    chosen_or_default_outcomes,
+    eval_choices,
     evaluate,
     find_first_apply,
     find_node_by_name,
@@ -25,7 +26,7 @@ from ._evaluation import (
 from ._inspection import describe_params
 from ._parallel_coord import DEFAULT_COLORSCALE, plot_parallel_coord
 from ._subsampling import env_with_subsampling
-from ._utils import X_NAME, Y_NAME, _CloudPickle, attribute_error
+from ._utils import KFOLD_5, X_NAME, Y_NAME, _CloudPickle, attribute_error
 
 _FITTING_METHODS = ["fit", "fit_transform"]
 _SKLEARN_SEARCH_FITTED_ATTRIBUTES_TO_COPY = [
@@ -45,7 +46,8 @@ _SKLEARN_SEARCH_FITTED_ATTRIBUTES_TO_COPY = [
     "multimetric_",
 ]
 _SEARCH_FITTED_ATTRIBUTES = _SKLEARN_SEARCH_FITTED_ATTRIBUTES_TO_COPY + [
-    "best_learner_"
+    "best_learner_",
+    "refit_",
 ]
 
 
@@ -113,10 +115,6 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
     def __sklearn_is_fitted__(self):
         return getattr(self, "_is_fitted", False)
 
-    def fit(self, environment):
-        _ = self.fit_transform(environment)
-        return self
-
     def _eval_in_mode(self, mode, environment):
         if mode not in _FITTING_METHODS:
             check_is_fitted(self)
@@ -125,9 +123,62 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
         return result
 
     def report(self, *, environment, mode, **full_report_kwargs):
-        """Call the method specified by `mode` and return the result and full report.
+        """Call the method specified by ``mode`` and return the result and full report.
 
         See :meth:`DataOp.skb.full_report` for more information.
+
+        Parameters
+        ----------
+        environment : dict
+            Bindings for variables contained in the :class:`DataOp` that was
+            used to create this learner
+            (e.g. ``{"X": X_df, "other_table": df, ...}``).
+        mode : str
+            The method to call in order to generate the report, such as
+            ``"fit"``, ``"predict"``, etc.
+        full_report_kwargs : dict
+            See :meth:`DataOp.skb.full_report`
+
+        Returns
+        -------
+        dict
+            The result of ``DataOp.skb.full_report``: a dict containing
+            ``'result'``, ``'error'`` and ``'report_path'``.
+
+        Examples
+        --------
+        We start by creating the learner for a simple DataOp:
+
+        >>> import skrub
+        >>> from sklearn.linear_model import LogisticRegression
+        >>> from sklearn.datasets import make_classification
+        >>> pred = skrub.X().skb.apply(LogisticRegression(), y=skrub.y())
+        >>> X, y = make_classification(n_samples=20, random_state=0)
+        >>> split = pred.skb.train_test_split({'X': X, 'y': y}, shuffle=False)
+        >>> learner = pred.skb.make_learner()
+
+        We can now obtain reports for the different methods of the learner such
+        as 'fit', 'predict_proba', etc.
+
+        >>> fit_results = learner.report(
+        ...     environment=split["train"], mode="fit", open=False
+        ... )  # doctest: +SKIP
+        >>> fit_results['report_path']  # doctest: +SKIP
+        PosixPath('.../skrub_data/execution_reports/full_data_op_report_.../index.html')
+
+        Note that our learner has been fitted now, we can use it for predictions.
+
+        >>> predict_results = learner.report(
+        ...     environment=split["train"], mode="predict", open=False
+        ... )  # doctest: +SKIP
+        >>> predict_results['report_path']  # doctest: +SKIP
+        PosixPath('.../skrub_data/execution_reports/full_data_op_report_.../index.html')
+
+        In addition to the report, we can also retrieve the actual output of
+        the 'predict' method:
+
+        >>> predict_results['result']  # doctest: +SKIP
+        array([0, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 1, 0])
         """
         from ._inspection import full_report
 
@@ -148,7 +199,8 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
             attribute_error(self, name)
 
         def f(*args, **kwargs):
-            return self._eval_in_mode(name, *args, **kwargs)
+            result = self._eval_in_mode(name, *args, **kwargs)
+            return self if name == "fit" else result
 
         f.__name__ = name
         return f
@@ -163,9 +215,23 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
     def set_params(self, **params):
         if "data_op" in params:
             self.data_op = params.pop("data_op")
-        set_params(
-            self.data_op, {int(k.lstrip("data_op__")): v for k, v in params.items()}
-        )
+
+        def to_id(key):
+            # scikit-learn style '__' for nested attributes
+            if key.startswith("data_op__"):
+                return int(key.removeprefix("data_op__"))
+            # formatting of params passed to optuna:
+            # <choice_id>:<choice name or human-readable repr>
+            return int(key.split(":", 1)[0])
+
+        def to_idx(val):
+            # formatting of values passed to optuna for non-numeric choices:
+            # <outcome_index>:<outcome name or human-readable repr>
+            if isinstance(val, str):
+                return int(val.split(":", 1)[0])
+            return val
+
+        set_params(self.data_op, {to_id(k): to_idx(v) for k, v in params.items()})
         return self
 
     def get_param_grid(self):
@@ -234,15 +300,15 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
         >>> learner.find_fitted_estimator("classifier")
         DummyClassifier()
 
-        Depending on the parameters passed to ``skb.apply()``, the estimator we provide
-        can be wrapped in a skrub transformer that applies it to several columns in the
-        input, or to a subset of the columns in a dataframe. In other cases it may be
-        applied without any wrapping. We provide examples for those 3 different cases
-        below.
+        Depending on the parameters passed to :meth:`DataOp.skb.apply`, the
+        estimator we provide can be wrapped in a skrub transformer that applies
+        it to several columns in the input, or to a subset of the columns in a
+        dataframe. In other cases it may be applied without any wrapping. We
+        provide examples for those 3 different cases below.
 
         Case 1: the ``StringEncoder`` is a skrub single-column transformer: it
         transforms a single column. In the learner it gets wrapped in a
-        ``skrub.ApplyToCols`` which independently fits a separate instance of the
+        :class:`ApplyToCols` which independently fits a separate instance of the
         ``StringEncoder`` to each of the columns it transforms (in this case there is
         only one column, ``'product'``). The individual transformers can be found in the
         fitted attribute ``transformers_`` which maps column names to the corresponding
@@ -254,13 +320,13 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
         >>> encoder.transformers_['product'].vectorizer_.vocabulary_
         {' pe': 2, 'pen': 12, 'en ': 8, ' pen': 3, 'pen ': 13, ' cu': 0, 'cup': 6, 'up ': 18, ' cup': 1, 'cup ': 7, ' sp': 4, 'spo': 16, 'poo': 14, 'oon': 10, 'on ': 9, ' spo': 5, 'spoo': 17, 'poon': 15, 'oon ': 11}
 
-        This case (wrapping in ``ApplyToCols``) happens when the estimator is a skrub
+        This case (wrapping in :class:`ApplyToCols`) happens when the estimator is a skrub
         single-column transformer (it has a ``__single_column_transformer__``
-        attribute), we pass ``.skb.apply(how='columnwise')`` or we pass
+        attribute), we pass ``.skb.apply(how='cols')`` or we pass
         ``.skb.apply(allow_reject=True)``.
 
         Case 2: the ``PCA`` is a regular scikit-learn transformer. In the learner it
-        gets wrapped in a ``skrub.ApplyToFrame`` which applies it to the subset of columns
+        gets wrapped in a :class:`ApplyToFrame` which applies it to the subset of columns
         in the dataframe selected by the ``cols`` argument passed to ``.skb.apply()``.
         The fitted ``PCA`` can be found in the fitted attribute ``transformer_``.
 
@@ -272,8 +338,9 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
         >>> pca.transformer_.mean_
         array([2020.,    4.,    4.], dtype=float32)
 
-        This case (wrapping in ``ApplyToFrame``) happens when the estimator is a
-        scikit-learn transformer but not a single-column transformer.
+        This case (wrapping in :class:`ApplyToFrame`) happens when the estimator is a
+        scikit-learn transformer but not a single-column transformer, or we
+        pass ``.skb.apply(how='frame')``.
 
         The ``DummyRegressor`` is a scikit-learn predictor. In the learner it gets
         applied directly to the input dataframe without any wrapping.
@@ -286,7 +353,7 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
 
         This case (no wrapping) happens when the estimator is a scikit-learn predictor
         (not a transformer), the input is not a dataframe (e.g. it is a numpy array), or
-        we pass ``.skb.apply(how='full_frame')``.
+        we pass ``.skb.apply(how='no_wrap')``.
         """  # noqa: E501
         node = find_node_by_name(self.data_op, name)
         if node is None:
@@ -386,13 +453,9 @@ class SkrubLearner(_CloudPickleDataOp, BaseEstimator):
         parameters (outcomes of `choose_*` objects contained in the
         DataOp).
         """
-        return describe_params(
-            chosen_or_default_outcomes(self.data_op), choice_graph(self.data_op)
-        )
+        return describe_params(eval_choices(self.data_op), choice_graph(self.data_op))
 
 
-# Xy_pipeline because it is an actual scikit-learn pippeline rather than
-# a skrub learner
 def _to_Xy_pipeline(learner, environment):
     return learner.__skrub_to_Xy_pipeline__(environment)
 
@@ -402,7 +465,7 @@ def _to_env_learner(learner):
 
 
 def _get_classes(data_op):
-    first = find_first_apply(data_op.data_op)
+    first = find_first_apply(data_op)
     if first is None:
         attribute_error(data_op, "classes_")
     try:
@@ -424,8 +487,11 @@ class _XyPipelineMixin:
         first = find_first_apply(self.data_op)
         if first is None:
             return "transformer"
+        estimator = get_default(first._skrub_impl.estimator)
+        if isinstance(estimator, DataOp):
+            return "transformer"
         try:
-            return get_default(first._skrub_impl.estimator)._estimator_type
+            return estimator._estimator_type
         except AttributeError:
             return "transformer"
 
@@ -436,7 +502,13 @@ class _XyPipelineMixin:
             first = find_first_apply(self.data_op)
             if first is None:
                 return _default_sklearn_tags()
-            return get_default(first._skrub_impl.estimator).__sklearn_tags__()
+            estimator = get_default(first._skrub_impl.estimator)
+            if isinstance(estimator, DataOp):
+                return _default_sklearn_tags()
+            try:
+                return estimator.__sklearn_tags__()
+            except AttributeError:
+                return _default_sklearn_tags()
 
     @property
     def classes_(self):
@@ -471,10 +543,6 @@ class _XyPipeline(_XyPipelineMixin, SkrubLearner):
         new = SkrubLearner(self.data_op)
         _copy_attr(self, new, ["_is_fitted"])
         return new
-
-    def fit(self, X, y=None):
-        _ = self.fit_transform(X, y=y)
-        return self
 
     def _eval_in_mode(self, mode, X, y=None):
         result = evaluate(self.data_op, mode, self._get_env(X, y), clear=True)
@@ -613,6 +681,12 @@ def cross_validate(learner, environment, *, keep_subsampling=False, **kwargs):
     4    0.85
     Name: test_score, dtype: float64
     """
+    if not hasattr(learner, "__skrub_to_Xy_pipeline__"):
+        raise ValueError(
+            "`cross_validate` function requires either a Learner object or "
+            f"a ParamSearch object, got {type(learner)}."
+        )
+
     environment = env_with_subsampling(learner.data_op, environment, keep_subsampling)
     kwargs = _rename_cv_param_learner_to_estimator(kwargs)
     X, y = _compute_Xy(learner.data_op, environment)
@@ -632,8 +706,8 @@ def train_test_split(
     environment,
     *,
     keep_subsampling=False,
-    splitter=model_selection.train_test_split,
-    **splitter_kwargs,
+    split_func=model_selection.train_test_split,
+    **split_func_kwargs,
 ):
     """Split an environment into a training an testing environments.
 
@@ -644,9 +718,9 @@ def train_test_split(
     environment = env_with_subsampling(data_op, environment, keep_subsampling)
     X, y = _compute_Xy(data_op, environment)
     if y is None:
-        X_train, X_test = splitter(X, **splitter_kwargs)
+        X_train, X_test = split_func(X, **split_func_kwargs)
     else:
-        X_train, X_test, y_train, y_test = splitter(X, y, **splitter_kwargs)
+        X_train, X_test, y_train, y_test = split_func(X, y, **split_func_kwargs)
     train_env = {**environment, X_NAME: X_train}
     test_env = {**environment, X_NAME: X_test}
     result = {
@@ -663,41 +737,50 @@ def train_test_split(
     return result
 
 
-class ParamSearch(_CloudPickleDataOp, BaseEstimator):
-    """Learner that evaluates a skrub DataOp with hyperparameter tuning.
+def iter_cv_splits(data_op, environment, *, keep_subsampling=False, cv=KFOLD_5):
+    """Yield splits of an environment into training an testing environments.
 
-    This class is not meant to be instantiated manually, ``ParamSearch``
-    objects are created by calling :meth:`DataOp.skb.make_grid_search()` or
-    :meth:`DataOp.skb.make_randomized_search()` on a DataOp.
+    This functionality is exposed to users through the
+    ``DataOp.skb.iter_cv_splits()`` method. See the corresponding docstring for
+    details and examples.
     """
+    if cv is KFOLD_5:
+        cv = KFold(5)
+    cv = check_cv(cv)
+    environment = env_with_subsampling(data_op, environment, keep_subsampling)
+    X, y = _compute_Xy(data_op, environment)
+    for train_idx, test_idx in cv.split(X, y):
+        X_train, X_test = sbd.select_rows(X, train_idx), sbd.select_rows(X, test_idx)
+        train_env = {**environment, X_NAME: X_train}
+        test_env = {**environment, X_NAME: X_test}
+        split_info = {
+            "train": train_env,
+            "test": test_env,
+            "X_train": X_train,
+            "X_test": X_test,
+        }
+        if y is not None:
+            y_train, y_test = (
+                sbd.select_rows(y, train_idx),
+                sbd.select_rows(y, test_idx),
+            )
+            train_env[Y_NAME] = y_train
+            test_env[Y_NAME] = y_test
+            split_info["y_train"] = y_train
+            split_info["y_test"] = y_test
+        yield split_info
 
-    def __init__(self, data_op, search):
-        self.data_op = data_op
-        self.search = search
 
-    def __skrub_to_Xy_pipeline__(self, environment):
-        new = _XyParamSearch(self.data_op, self.search, _SharedDict(environment))
-        _copy_attr(self, new, _SEARCH_FITTED_ATTRIBUTES)
-        return new
+class _BaseParamSearch(_CloudPickleDataOp, BaseEstimator):
+    """Base class for hyperparameter search objects.
 
-    def fit(self, environment):
-        search = clone(self.search)
-        search.estimator = _XyPipeline(self.data_op, _SharedDict(environment))
-        param_grid = search.estimator.get_param_grid()
-        if hasattr(search, "param_grid"):
-            search.param_grid = param_grid
-        else:
-            assert hasattr(search, "param_distributions")
-            search.param_distributions = param_grid
-        X, y = _compute_Xy(self.data_op, environment)
-        search.fit(X, y)
-        _copy_attr(search, self, _SKLEARN_SEARCH_FITTED_ATTRIBUTES_TO_COPY)
-        try:
-            self.best_learner_ = _to_env_learner(search.best_estimator_)
-        except AttributeError:
-            # refit is set to False, there is no best_estimator_
-            pass
-        return self
+    It defines some default implementations for getting results, plotting, and
+    using the best learner.
+
+    Subclasses must define __skrub_to_Xy_pipeline__ and fit.
+    After fit, the attributes data_op, cv_results_, best_learner_ (unless refit
+    is False), and refit_ must be available.
+    """
 
     def __getattr__(self, name):
         if name not in supported_modes(self.data_op):
@@ -750,20 +833,19 @@ class ParamSearch(_CloudPickleDataOp, BaseEstimator):
 
         all_rows = []
         for params in self.cv_results_["params"]:
-            params = {int(k.lstrip("data_op__")): v for k, v in params.items()}
+            params = {int(k.removeprefix("data_op__")): v for k, v in params.items()}
             all_rows.append(describe_params(params, data_op_choices))
 
         table = pd.DataFrame(
             all_rows, columns=list(data_op_choices["choice_display_names"].values())
         )
-        if isinstance(self.scorer_, dict):
-            metric_names = list(self.scorer_.keys())
-            if isinstance(self.search.refit, str):
-                metric_names.insert(
-                    0, metric_names.pop(metric_names.index(self.search.refit))
-                )
-        else:
-            metric_names = ["score"]
+        metric_names = [
+            k.removeprefix("mean_test_")
+            for k in self.cv_results_.keys()
+            if k.startswith("mean_test_")
+        ]
+        if isinstance(self.refit_, str):
+            metric_names.insert(0, metric_names.pop(metric_names.index(self.refit_)))
         result_keys = [
             *(f"mean_test_{n}" for n in metric_names),
             *(f"std_test_{n}" for n in metric_names),
@@ -852,6 +934,44 @@ def _get_results_metadata(data_op_choices):
         "log_scale_columns": list(log_scale_columns),
         "int_columns": list(int_columns),
     }
+
+
+class ParamSearch(_BaseParamSearch):
+    """Learner that evaluates a skrub DataOp with hyperparameter tuning.
+
+    This class is not meant to be instantiated manually, ``ParamSearch``
+    objects are created by calling :meth:`DataOp.skb.make_grid_search()` or
+    :meth:`DataOp.skb.make_randomized_search()` on a DataOp.
+    """
+
+    def __init__(self, data_op, search):
+        self.data_op = data_op
+        self.search = search
+
+    def __skrub_to_Xy_pipeline__(self, environment):
+        new = _XyParamSearch(self.data_op, self.search, _SharedDict(environment))
+        _copy_attr(self, new, _SEARCH_FITTED_ATTRIBUTES)
+        return new
+
+    def fit(self, environment):
+        self.refit_ = self.search.refit
+        search = clone(self.search)
+        search.estimator = _XyPipeline(self.data_op, _SharedDict(environment))
+        param_grid = search.estimator.get_param_grid()
+        if hasattr(search, "param_grid"):
+            search.param_grid = param_grid
+        else:
+            assert hasattr(search, "param_distributions")
+            search.param_distributions = param_grid
+        X, y = _compute_Xy(self.data_op, environment)
+        search.fit(X, y)
+        _copy_attr(search, self, _SKLEARN_SEARCH_FITTED_ATTRIBUTES_TO_COPY)
+        try:
+            self.best_learner_ = _to_env_learner(search.best_estimator_)
+        except AttributeError:
+            # refit is set to False, there is no best_estimator_
+            pass
+        return self
 
 
 class _XyParamSearch(_XyPipelineMixin, ParamSearch):

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..asset import Asset
@@ -18,7 +18,7 @@ class Payment(Operation):
 
     Threshold: Medium
 
-    See `Payment <https://developers.stellar.org/docs/start/list-of-operations/#payment>`_ for more information.
+    See `Payment <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#payment>`_ for more information.
 
     :param destination: The destination account ID.
     :param asset: The asset to send.
@@ -34,10 +34,10 @@ class Payment(Operation):
 
     def __init__(
         self,
-        destination: Union[MuxedAccount, str],
+        destination: MuxedAccount | str,
         asset: Asset,
-        amount: Union[str, Decimal],
-        source: Optional[Union[MuxedAccount, str]] = None,
+        amount: str | Decimal,
+        source: MuxedAccount | str | None = None,
     ) -> None:
         super().__init__(source)
         if isinstance(destination, str):

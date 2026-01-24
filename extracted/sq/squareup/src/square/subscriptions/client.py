@@ -18,6 +18,7 @@ from ..types.change_timing import ChangeTiming
 from ..types.create_subscription_response import CreateSubscriptionResponse
 from ..types.delete_subscription_action_response import DeleteSubscriptionActionResponse
 from ..types.get_subscription_response import GetSubscriptionResponse
+from ..types.list_subscription_events_response import ListSubscriptionEventsResponse
 from ..types.pause_subscription_response import PauseSubscriptionResponse
 from ..types.resume_subscription_response import ResumeSubscriptionResponse
 from ..types.search_subscriptions_response import SearchSubscriptionsResponse
@@ -103,7 +104,7 @@ class SubscriptionsClient:
             at the canceled date and the subscriber is sent a prorated invoice at the beginning of the canceled cycle.
 
             When the subscription plan of the newly created subscription has a fixed number of cycles and the `canceled_date`
-            occurs before the subscription plan expires, the specified `canceled_date` sets the date when the subscription
+            occurs before the subscription plan completes, the specified `canceled_date` sets the date when the subscription
             stops through the end of the last cycle.
 
         tax_percentage : typing.Optional[str]
@@ -358,6 +359,7 @@ class SubscriptionsClient:
         )
         client.subscriptions.get(
             subscription_id="subscription_id",
+            include="include",
         )
         """
         _response = self._raw_client.get(subscription_id, include=include, request_options=request_options)
@@ -541,7 +543,7 @@ class SubscriptionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[SubscriptionEvent]:
+    ) -> SyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]:
         """
         Lists all [events](https://developer.squareup.com/docs/subscriptions-api/actions-events) for a specific subscription.
 
@@ -566,7 +568,7 @@ class SubscriptionsClient:
 
         Returns
         -------
-        SyncPager[SubscriptionEvent]
+        SyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]
             Success
 
         Examples
@@ -578,6 +580,8 @@ class SubscriptionsClient:
         )
         response = client.subscriptions.list_events(
             subscription_id="subscription_id",
+            cursor="cursor",
+            limit=1,
         )
         for item in response:
             yield item
@@ -841,7 +845,7 @@ class AsyncSubscriptionsClient:
             at the canceled date and the subscriber is sent a prorated invoice at the beginning of the canceled cycle.
 
             When the subscription plan of the newly created subscription has a fixed number of cycles and the `canceled_date`
-            occurs before the subscription plan expires, the specified `canceled_date` sets the date when the subscription
+            occurs before the subscription plan completes, the specified `canceled_date` sets the date when the subscription
             stops through the end of the last cycle.
 
         tax_percentage : typing.Optional[str]
@@ -1125,6 +1129,7 @@ class AsyncSubscriptionsClient:
         async def main() -> None:
             await client.subscriptions.get(
                 subscription_id="subscription_id",
+                include="include",
             )
 
 
@@ -1345,7 +1350,7 @@ class AsyncSubscriptionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[SubscriptionEvent]:
+    ) -> AsyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]:
         """
         Lists all [events](https://developer.squareup.com/docs/subscriptions-api/actions-events) for a specific subscription.
 
@@ -1370,7 +1375,7 @@ class AsyncSubscriptionsClient:
 
         Returns
         -------
-        AsyncPager[SubscriptionEvent]
+        AsyncPager[SubscriptionEvent, ListSubscriptionEventsResponse]
             Success
 
         Examples
@@ -1387,6 +1392,8 @@ class AsyncSubscriptionsClient:
         async def main() -> None:
             response = await client.subscriptions.list_events(
                 subscription_id="subscription_id",
+                cursor="cursor",
+                limit=1,
             )
             async for item in response:
                 yield item

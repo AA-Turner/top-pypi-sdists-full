@@ -381,7 +381,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['marks[].label', 'label', 'thumbChildren']
+    _children_props: typing.List[str] = ['marks[].label', 'label', 'thumbChildren']
     _base_nodes = ['label', 'thumbChildren', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'RangeSlider'

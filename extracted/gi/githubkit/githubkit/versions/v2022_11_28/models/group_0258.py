@@ -9,88 +9,58 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
+from typing import Union
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
-
-from .group_0010 import Integration
-from .group_0230 import PullRequestMinimal
-from .group_0257 import DeploymentSimple
 
 
-class CheckRun(GitHubModel):
-    """CheckRun
+class SimpleCommit(GitHubModel):
+    """Simple Commit
 
-    A check performed on the code of a given code change
+    A commit.
     """
 
-    id: int = Field(description="The id of the check.")
-    head_sha: str = Field(description="The SHA of the commit that is being checked.")
-    node_id: str = Field()
-    external_id: Union[str, None] = Field()
-    url: str = Field()
-    html_url: Union[str, None] = Field()
-    details_url: Union[str, None] = Field()
-    status: Literal[
-        "queued", "in_progress", "completed", "waiting", "requested", "pending"
-    ] = Field(
-        description="The phase of the lifecycle that the check is currently in. Statuses of waiting, requested, and pending are reserved for GitHub Actions check runs."
+    id: str = Field(description="SHA for the commit")
+    tree_id: str = Field(description="SHA for the commit's tree")
+    message: str = Field(description="Message describing the purpose of the commit")
+    timestamp: _dt.datetime = Field(description="Timestamp of the commit")
+    author: Union[SimpleCommitPropAuthor, None] = Field(
+        description="Information about the Git author"
     )
-    conclusion: Union[
-        None,
-        Literal[
-            "success",
-            "failure",
-            "neutral",
-            "cancelled",
-            "skipped",
-            "timed_out",
-            "action_required",
-        ],
-    ] = Field()
-    started_at: Union[datetime, None] = Field()
-    completed_at: Union[datetime, None] = Field()
-    output: CheckRunPropOutput = Field()
-    name: str = Field(description="The name of the check.")
-    check_suite: Union[CheckRunPropCheckSuite, None] = Field()
-    app: Union[None, Integration, None] = Field()
-    pull_requests: list[PullRequestMinimal] = Field(
-        description="Pull requests that are open with a `head_sha` or `head_branch` that matches the check. The returned pull requests do not necessarily indicate pull requests that triggered the check."
-    )
-    deployment: Missing[DeploymentSimple] = Field(
-        default=UNSET,
-        title="Deployment",
-        description="A deployment created as the result of an Actions check run from a workflow that references an environment",
+    committer: Union[SimpleCommitPropCommitter, None] = Field(
+        description="Information about the Git committer"
     )
 
 
-class CheckRunPropOutput(GitHubModel):
-    """CheckRunPropOutput"""
+class SimpleCommitPropAuthor(GitHubModel):
+    """SimpleCommitPropAuthor
 
-    title: Union[str, None] = Field()
-    summary: Union[str, None] = Field()
-    text: Union[str, None] = Field()
-    annotations_count: int = Field()
-    annotations_url: str = Field()
+    Information about the Git author
+    """
 
-
-class CheckRunPropCheckSuite(GitHubModel):
-    """CheckRunPropCheckSuite"""
-
-    id: int = Field()
+    name: str = Field(description="Name of the commit's author")
+    email: str = Field(description="Git email address of the commit's author")
 
 
-model_rebuild(CheckRun)
-model_rebuild(CheckRunPropOutput)
-model_rebuild(CheckRunPropCheckSuite)
+class SimpleCommitPropCommitter(GitHubModel):
+    """SimpleCommitPropCommitter
+
+    Information about the Git committer
+    """
+
+    name: str = Field(description="Name of the commit's committer")
+    email: str = Field(description="Git email address of the commit's committer")
+
+
+model_rebuild(SimpleCommit)
+model_rebuild(SimpleCommitPropAuthor)
+model_rebuild(SimpleCommitPropCommitter)
 
 __all__ = (
-    "CheckRun",
-    "CheckRunPropCheckSuite",
-    "CheckRunPropOutput",
+    "SimpleCommit",
+    "SimpleCommitPropAuthor",
+    "SimpleCommitPropCommitter",
 )

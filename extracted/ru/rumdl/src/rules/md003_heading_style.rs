@@ -7,17 +7,10 @@ use crate::rule::{LintError, LintResult, LintWarning, Rule, RuleCategory, Severi
 use crate::rule_config_serde::RuleConfig;
 use crate::rules::heading_utils::HeadingStyle;
 use crate::utils::range_utils::calculate_heading_range;
-use lazy_static::lazy_static;
-use regex::Regex;
 use toml;
 
 mod md003_config;
 use md003_config::MD003Config;
-
-lazy_static! {
-    static ref FRONT_MATTER_DELIMITER: Regex = Regex::new(r"^---\s*$").unwrap();
-    static ref QUICK_HEADING_CHECK: Regex = Regex::new(r"(?m)^(\s*)#|^(\s*)[^\s].*\n(\s*)(=+|-+)\s*$").unwrap();
-}
 
 /// Rule MD003: Heading style
 #[derive(Clone, Default)]
@@ -48,11 +41,18 @@ impl MD003HeadingStyle {
             return self.config.style;
         }
 
-        // Find the first heading from cached info
+        // Count all heading styles to determine most prevalent (prevalence-based approach)
+        let mut style_counts = std::collections::HashMap::new();
+
         for line_info in &ctx.lines {
             if let Some(heading) = &line_info.heading {
-                // Map from LintContext heading style to rules heading style
-                return match heading.style {
+                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+                if !heading.is_valid {
+                    continue;
+                }
+
+                // Map from LintContext heading style to rules heading style and count
+                let style = match heading.style {
                     crate::lint_context::HeadingStyle::ATX => {
                         if heading.has_closing_sequence {
                             HeadingStyle::AtxClosed
@@ -63,11 +63,32 @@ impl MD003HeadingStyle {
                     crate::lint_context::HeadingStyle::Setext1 => HeadingStyle::Setext1,
                     crate::lint_context::HeadingStyle::Setext2 => HeadingStyle::Setext2,
                 };
+                *style_counts.entry(style).or_insert(0) += 1;
             }
         }
 
-        // Default to ATX if no headings found
-        HeadingStyle::Atx
+        // Return most prevalent style
+        // In case of tie, prefer ATX as the default (deterministic tiebreaker)
+        style_counts
+            .into_iter()
+            .max_by(|(style_a, count_a), (style_b, count_b)| {
+                match count_a.cmp(count_b) {
+                    std::cmp::Ordering::Equal => {
+                        // Tiebreaker: prefer ATX (most common), then Setext1, then Setext2, then AtxClosed
+                        let priority = |s: &HeadingStyle| match s {
+                            HeadingStyle::Atx => 0,
+                            HeadingStyle::Setext1 => 1,
+                            HeadingStyle::Setext2 => 2,
+                            HeadingStyle::AtxClosed => 3,
+                            _ => 4,
+                        };
+                        priority(style_b).cmp(&priority(style_a)) // Reverse for min priority wins
+                    }
+                    other => other,
+                }
+            })
+            .map(|(style, _)| style)
+            .unwrap_or(HeadingStyle::Atx)
     }
 }
 
@@ -86,12 +107,14 @@ impl Rule for MD003HeadingStyle {
         // Get the target style using cached heading information
         let target_style = self.get_target_style(ctx);
 
-        // Create LineIndex once outside the loop
-        let line_index = crate::utils::range_utils::LineIndex::new(ctx.content.to_string());
-
         // Process headings using cached heading information
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
             if let Some(heading) = &line_info.heading {
+                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+                if !heading.is_valid {
+                    continue;
+                }
+
                 let level = heading.level;
 
                 // Map the cached heading style to the rule's HeadingStyle
@@ -157,11 +180,13 @@ impl Rule for MD003HeadingStyle {
                         let converted_heading =
                             HeadingUtils::convert_heading_style(&heading.text, level as u32, expected_style);
 
-                        // Add indentation
-                        let final_heading = format!("{}{}", " ".repeat(line_info.indent), converted_heading);
+                        // Preserve original indentation (including tabs)
+                        let line = line_info.content(ctx.content);
+                        let original_indent = &line[..line_info.indent];
+                        let final_heading = format!("{original_indent}{converted_heading}");
 
                         // Calculate the correct range for the heading
-                        let range = line_index.line_content_range(line_num + 1);
+                        let range = ctx.line_index.line_content_range(line_num + 1);
 
                         Some(crate::rule::Fix {
                             range,
@@ -171,10 +196,10 @@ impl Rule for MD003HeadingStyle {
 
                     // Calculate precise character range for the heading marker
                     let (start_line, start_col, end_line, end_col) =
-                        calculate_heading_range(line_num + 1, &line_info.content);
+                        calculate_heading_range(line_num + 1, line_info.content(ctx.content));
 
                     result.push(LintWarning {
-                        rule_name: Some(self.name()),
+                        rule_name: Some(self.name().to_string()),
                         line: start_line,
                         column: start_col,
                         end_line,
@@ -242,8 +267,12 @@ impl Rule for MD003HeadingStyle {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if content is empty or has no headings
-        ctx.content.is_empty() || !ctx.lines.iter().any(|line| line.heading.is_some())
+        // Fast path: check if document likely has headings using character frequency
+        if ctx.content.is_empty() || !ctx.likely_has_headings() {
+            return true;
+        }
+        // Verify headings actually exist (handles false positives from character frequency)
+        !ctx.lines.iter().any(|line| line.heading.is_some())
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -284,7 +313,7 @@ mod tests {
     fn test_atx_heading_style() {
         let rule = MD003HeadingStyle::default();
         let content = "# Heading 1\n## Heading 2\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -293,7 +322,7 @@ mod tests {
     fn test_setext_heading_style() {
         let rule = MD003HeadingStyle::new(HeadingStyle::Setext1);
         let content = "Heading 1\n=========\n\nHeading 2\n---------";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -304,7 +333,7 @@ mod tests {
         let content = "---\ntitle: Test\n---\n\n# Heading 1\n## Heading 2";
 
         // Test should detect headings and apply consistent style
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             result.is_empty(),
@@ -317,7 +346,7 @@ mod tests {
         // Default rule uses Atx which serves as our "consistent" mode
         let rule = MD003HeadingStyle::default();
         let content = "# Heading 1\n## Heading 2\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(result.is_empty());
     }
@@ -327,7 +356,7 @@ mod tests {
         // Test with consistent style (ATX)
         let rule = MD003HeadingStyle::new(HeadingStyle::Consistent);
         let content = "# Heading 1\n## Heading 2\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Make test more resilient
@@ -339,7 +368,7 @@ mod tests {
         // Test with incorrect style
         let rule = MD003HeadingStyle::new(HeadingStyle::Atx);
         let content = "# Heading 1 #\nHeading 2\n-----\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             !result.is_empty(),
@@ -349,7 +378,7 @@ mod tests {
         // Test with setext style
         let rule = MD003HeadingStyle::new(HeadingStyle::Setext1);
         let content = "Heading 1\n=========\nHeading 2\n---------\n### Heading 3";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         // The level 3 heading can't be setext, so it's valid as ATX
         assert!(
@@ -363,7 +392,7 @@ mod tests {
         let rule = MD003HeadingStyle::new(HeadingStyle::SetextWithAtx);
         // Setext for h1/h2, ATX for h3-h6
         let content = "Heading 1\n=========\n\nHeading 2\n---------\n\n### Heading 3\n\n#### Heading 4";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             result.is_empty(),
@@ -372,7 +401,7 @@ mod tests {
 
         // Test incorrect usage - ATX for h1/h2
         let content_wrong = "# Heading 1\n## Heading 2\n### Heading 3";
-        let ctx_wrong = LintContext::new(content_wrong, crate::config::MarkdownFlavor::Standard);
+        let ctx_wrong = LintContext::new(content_wrong, crate::config::MarkdownFlavor::Standard, None);
         let result_wrong = rule.check(&ctx_wrong).unwrap();
         assert_eq!(
             result_wrong.len(),
@@ -386,7 +415,7 @@ mod tests {
         let rule = MD003HeadingStyle::new(HeadingStyle::SetextWithAtxClosed);
         // Setext for h1/h2, ATX closed for h3-h6
         let content = "Heading 1\n=========\n\nHeading 2\n---------\n\n### Heading 3 ###\n\n#### Heading 4 ####";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
         assert!(
             result.is_empty(),
@@ -395,7 +424,7 @@ mod tests {
 
         // Test incorrect usage - regular ATX for h3+
         let content_wrong = "Heading 1\n=========\n\n### Heading 3\n\n#### Heading 4";
-        let ctx_wrong = LintContext::new(content_wrong, crate::config::MarkdownFlavor::Standard);
+        let ctx_wrong = LintContext::new(content_wrong, crate::config::MarkdownFlavor::Standard, None);
         let result_wrong = rule.check(&ctx_wrong).unwrap();
         assert_eq!(
             result_wrong.len(),

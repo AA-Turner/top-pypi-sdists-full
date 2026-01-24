@@ -28,13 +28,17 @@ from .output.table import (
     format_table,
     metadata_column,
 )
-from .resource_helpers import map_resource_published
+from .pagination import normalize_page_args
+from .resource_helpers import map_resource_published, standard_page_fields
+
+page_fields = standard_page_fields
 
 
 def list_desktop_resources(ctx, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     params = strip_none(kwargs)
+    params = normalize_page_args(params)
     query_results = apiclient.app_services_api.list_desktop_resources(**params)
     return query_results.desktop_resources
 

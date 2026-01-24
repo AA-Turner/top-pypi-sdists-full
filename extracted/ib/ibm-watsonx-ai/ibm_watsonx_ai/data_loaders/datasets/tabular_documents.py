@@ -1,8 +1,10 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 from __future__ import annotations
+
+from ibm_watsonx_ai.utils.utils import get_from_json
 
 __all__ = [
     "TabularDocumentsIterableDataset",
@@ -83,44 +85,56 @@ class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
 
         .. code-block:: python
 
-            connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+            connections = [
+                DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+            ]
 
-            iterable_dataset = TabularDocumentsIterableDataset(connections=connections,
-                                                        enable_sampling=True,
-                                                        sampling_type='random',
-                                                        sample_size_limit = 1GB)
+            iterable_dataset = TabularDocumentsIterableDataset(
+                connections=connections,
+                enable_sampling=True,
+                sampling_type="random",
+                sample_size_limit=1073741824,  # 1GB in Bytes
+            )
 
     **Example: read all documents/no subsampling**
 
         .. code-block:: python
 
-            connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+            connections = [
+                DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+            ]
 
-            iterable_dataset = TabularDocumentsIterableDataset(connections=connections,
-                                                        enable_sampling=False)
+            iterable_dataset = TabularDocumentsIterableDataset(
+                connections=connections, enable_sampling=False
+            )
 
     **Example: context based sampling**
 
             .. code-block:: python
 
-                connections = [DataConnection(data_asset_id='5d99c11a-2060-4ef6-83d5-dc593c6455e2')]
+                connections = [
+                    DataConnection(data_asset_id="5d99c11a-2060-4ef6-83d5-dc593c6455e2")
+                ]
 
-                iterable_dataset = TabularDocumentsIterableDataset(connections=connections,
-                                                            enable_sampling=True,
-                                                            sampling_type='benchmark_driven',
-                                                            sample_size_limit = 1GB,
-                                                            benchmark_dataset=pd.DataFrame(
-                                                                data={
-                                                                    "question": [
-                                                                        "What foundation models are available in watsonx.ai ?"
-                                                                    ],
-                                                                    "correct_answers": [
-                                                                        [
-                                                                            "The following models are available in watsonx.ai: ..."
-                                                                        ]
-                                                                    ],
-                                                                    "correct_answer_document_ids": ["sample_pdf_file.pdf"],
-                                                                }))
+                iterable_dataset = TabularDocumentsIterableDataset(
+                    connections=connections,
+                    enable_sampling=True,
+                    sampling_type="benchmark_driven",
+                    sample_size_limit=1073741824,  # 1GB in Bytes
+                    benchmark_dataset=pd.DataFrame(
+                        data={
+                            "question": [
+                                "What foundation models are available in watsonx.ai ?"
+                            ],
+                            "correct_answers": [
+                                [
+                                    "The following models are available in watsonx.ai: ..."
+                                ]
+                            ],
+                            "correct_answer_document_ids": ["sample_pdf_file.pdf"],
+                        }
+                    ),
+                )
 
     """
 
@@ -135,7 +149,7 @@ class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
         total_size_limit: int = DEFAULT_SAMPLE_SIZE_LIMIT,
         total_ndocs_limit: int | None = None,
         benchmark_dataset: pd.DataFrame | None = None,
-        error_callback: Callable[[str, Exception], None] = None,
+        error_callback: Callable[[str, Exception], None] | None = None,
         **kwargs: Any,
     ) -> None:
         BaseDocumentsIterableDataset.__init__(
@@ -153,14 +167,16 @@ class TabularDocumentsIterableDataset(BaseDocumentsIterableDataset):
         )
         self.tabular_iterable_args = kwargs.get("tabular_iterable_args", {})
 
-    def _prepare_file_type_flavored_tabular_iterable_args(self, doc: RemoteDocument):
+    def _prepare_file_type_flavored_tabular_iterable_args(
+        self, doc: RemoteDocument
+    ) -> dict:
         tabular_iterable_args = deepcopy(self.tabular_iterable_args)
 
         if (
             doc.document_id.endswith(".xlsx") or doc.document_id.endswith(".xls")
-        ) and "file_format" not in tabular_iterable_args.get(
-            "flight_parameters", {}
-        ).get("interaction_properties", {}):
+        ) and "file_format" not in get_from_json(
+            tabular_iterable_args, ["flight_parameters", "interaction_properties"], {}
+        ):
             if "flight_parameters" not in tabular_iterable_args:
                 tabular_iterable_args["flight_parameters"] = {}
 

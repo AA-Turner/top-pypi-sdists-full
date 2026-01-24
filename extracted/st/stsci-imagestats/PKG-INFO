@@ -1,16 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stsci.imagestats
-Version: 1.8.3
+Version: 1.8.4
 Summary: Compute sigma-clipped statistics on data arrays
-Author: Christopher Hanley
-Author-email: Warren Hack <help@stsci.edu>
-License: BSD-3-Clause
+Author: Warren Hack, Christopher Hanley
 Project-URL: Homepage, https://github.com/spacetelescope/stsci.imagestats
 Project-URL: Tracker, https://github.com/spacetelescope/stsci.imagestats/issues
 Project-URL: Documentation, https://stsciimagestats.readthedocs.io/en/stable/
 Project-URL: Source Code, https://github.com/spacetelescope/stsci.imagestats
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Cython
@@ -32,6 +29,7 @@ Requires-Dist: graphviz; extra == "docs"
 Requires-Dist: tomli; python_version < "3.11" and extra == "docs"
 Provides-Extra: test
 Requires-Dist: pytest>=6.0; extra == "test"
+Dynamic: license-file
 
 .. image:: https://readthedocs.org/projects/stsciimagestats/badge/?version=latest
     :target: https://stsciimagestats.readthedocs.io/en/latest/?badge=latest

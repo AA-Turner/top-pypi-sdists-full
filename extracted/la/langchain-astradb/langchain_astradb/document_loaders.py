@@ -8,7 +8,6 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
 )
 
 from langchain_core.document_loaders import BaseLoader
@@ -22,7 +21,7 @@ from langchain_astradb.utils.astradb import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncIterator, Callable, Iterator
 
     from astrapy.api_options import APIOptions
     from astrapy.authentication import TokenProvider
@@ -83,7 +82,7 @@ class AstraDBLoader(BaseLoader):
                 or just strings if no version info is provided, which, if supplied,
                 becomes the leading part of the User-Agent string in all API requests
                 related to this component.
-            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+            api_options: an instance of `astrapy.utils.api_options.APIOptions` that
                 can be supplied to customize the interaction with the Data API
                 regarding serialization/deserialization, timeouts, custom headers
                 and so on. The provided options are applied on top of settings already
@@ -146,8 +145,8 @@ class AstraDBLoader(BaseLoader):
         ):
             yield self._to_langchain_doc(doc)
 
+    @override
     async def aload(self) -> list[Document]:
-        """Load data into Document objects."""
         return [doc async for doc in self.alazy_load()]
 
     @override

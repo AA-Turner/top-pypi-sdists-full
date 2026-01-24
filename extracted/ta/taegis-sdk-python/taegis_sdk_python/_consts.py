@@ -1,0 +1,43 @@
+"""Taegis Constants."""
+
+from enum import Enum
+
+TAEGIS_ENVIRONMENT_URLS = {
+    "charlie": "https://api.ctpx.secureworks.com",
+    "production": "https://api.ctpx.secureworks.com",
+    "US1": "https://api.ctpx.secureworks.com",
+    "delta": "https://api.delta.taegis.secureworks.com",
+    "US2": "https://api.delta.taegis.secureworks.com",
+    "echo": "https://api.echo.taegis.secureworks.com",
+    "EU": "https://api.echo.taegis.secureworks.com",
+    "foxtrot": "https://api.foxtrot.taegis.secureworks.com",
+    "US3": "https://api.foxtrot.taegis.secureworks.com",
+    "golf": "https://api.golf.taegis.secureworks.com",
+    "EUW1": "https://api.golf.taegis.secureworks.com",
+}
+
+
+TAEGIS_TENANTS_URLS = {
+    "charlie": "https://api.tenants.ctpx.secureworks.com",
+    "production": "https://api.tenants.ctpx.secureworks.com",
+    "US1": "https://api.tenants.ctpx.secureworks.com",
+    "delta": "https://api-tenants.delta.taegis.secureworks.com",
+    "US2": "https://api-tenants.delta.taegis.secureworks.com",
+    "echo": "https://api-tenants.echo.taegis.secureworks.com",
+    "EU": "https://api-tenants.echo.taegis.secureworks.com",
+    "foxtrot": "https://api-tenants.foxtrot.taegis.secureworks.com",
+    "US3": "https://api-tenants.foxtrot.taegis.secureworks.com",
+    "golf": "https://api-tenants.golf.taegis.secureworks.com",
+    "EUW1": "https://api-tenants.golf.taegis.secureworks.com",
+}
+
+UNIVERSAL_ENVIRONMENT = "universal"
+UNIVERSAL_AUTHENTICATION_URL = "https://api.taegis.secureworks.com"
+
+DEFAULT_GATEWAY = "/graphql"
+
+
+class TaegisEnum(str, Enum):
+    """Handler for Unknown Enums."""
+
+    UNKNOWN = "TAEGIS_SDK_PYTHON_UNKNOWN"

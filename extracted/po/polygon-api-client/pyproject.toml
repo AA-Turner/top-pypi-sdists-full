@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "polygon-api-client"
-version = "v1.15.4"
+version = "v1.16.3"
 description = "Official Polygon.io REST and Websocket client."
 authors = ["polygon.io"]
 license = "MIT"
@@ -24,23 +24,23 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-urllib3 = ">=1.26.9,<3.0.0"
-websockets = ">=10.3,<15.0"
+python = "^3.9"
+urllib3 = ">=1.26.9"
+websockets = ">=14.0"
 certifi = ">=2022.5.18,<2026.0.0"
 
 [tool.poetry.dev-dependencies]
 black = "^24.8.0"
-mypy = "^1.13"
+mypy = "^1.18"
 types-urllib3 = "^1.26.25"
-Sphinx = "^7.1.2"
+Sphinx = "^7.4.7"
 sphinx-rtd-theme = "^3.0.2"
 # keep this in sync with docs/requirements.txt for readthedocs.org
-sphinx-autodoc-typehints = "^2.0.1"
+sphinx-autodoc-typehints = "^2.3.0"
 types-certifi = "^2021.10.8"
-types-setuptools = "^75.8.0"
-pook = "^2.0.1"
-orjson = "^3.10.15"
+types-setuptools = "^80.9.0"
+pook = "^2.1.4"
+orjson = "^3.11.4"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

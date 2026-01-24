@@ -34,7 +34,7 @@ def test_train(task: str, model: str, data: str) -> None:
 @pytest.mark.parametrize("task,model,data", TASK_MODEL_DATA)
 def test_val(task: str, model: str, data: str) -> None:
     """Test YOLO validation process for specified task, model, and data using a shell command."""
-    run(f"yolo val {task} model={model} data={data} imgsz=32 save_txt save_json")
+    run(f"yolo val {task} model={model} data={data} imgsz=32 save_txt save_json visualize")
 
 
 @pytest.mark.parametrize("task,model,data", TASK_MODEL_DATA)
@@ -82,7 +82,7 @@ def test_fastsam(
         everything_results = sam_model(s, device="cpu", retina_masks=True, imgsz=320, conf=0.4, iou=0.9)
 
         # Remove small regions
-        new_masks, _ = Predictor.remove_small_regions(everything_results[0].masks.data, min_area=20)
+        _new_masks, _ = Predictor.remove_small_regions(everything_results[0].masks.data, min_area=20)
 
         # Run inference with bboxes and points and texts prompt at the same time
         sam_model(source, bboxes=[439, 437, 524, 709], points=[[200, 200]], labels=[1], texts="a photo of a dog")

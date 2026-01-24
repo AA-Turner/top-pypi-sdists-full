@@ -1,0 +1,106 @@
+site_name: DS - A Deductive System
+site_url: https://ustc-knowledgecomputinglab.github.io/ds
+repo_url: https://github.com/USTC-KnowledgeComputingLab/ds
+site_description: A deductive system for logical inference, implemented in C++ with bindings for Python and TypeScript/JavaScript
+site_author: Hao Zhang
+copyright: GPL-3.0-or-later
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.instant.preview
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.prune
+    - navigation.indexes
+    - toc.follow
+    # - toc.integrate
+    - navigation.top
+    - search
+    - search.suggest
+    - search.highlight
+    - search.share
+    # - header.autohide
+    - announce.dismiss
+    # - navigation.footer
+  palette:
+    - scheme: default
+      media: "(prefers-color-scheme: light)"
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      media: "(prefers-color-scheme: dark)"
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - Core Concepts:
+      - Terms: concepts/terms.md
+      - Rules: concepts/rules.md
+      - Search Engine: concepts/search.md
+  - API Reference:
+      - TypeScript API: api/typescript.md
+      - Python API: api/python.md
+      - C++ API: api/cpp.md
+  - Support Packages:
+      - BNF: support-packages/bnf.md
+      - E-Graph: support-packages/egg.md
+  - Examples:
+      - Basis Examples: examples/basic.md
+      - Sudoku: examples/sudoku.md
+
+plugins:
+  - offline
+  - search
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - tables
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.blocks.caption
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji
+  - pymdownx.highlight:
+      linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist
+
+extra:
+  version:
+    provider: mike

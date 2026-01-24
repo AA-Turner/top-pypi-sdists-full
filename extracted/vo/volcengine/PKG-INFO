@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: volcengine
+Version: 1.0.215
+Summary: The Volcengine SDK for Python
+Home-page: https://github.com/Volcengine/volc-sdk-python
+Author: Volcengine SDK
+License: MIT License
+Keywords: pip,volcengine,volc-sdk-python
+Platform: any
+License-File: LICENSE

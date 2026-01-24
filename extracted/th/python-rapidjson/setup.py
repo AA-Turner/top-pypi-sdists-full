@@ -44,7 +44,7 @@ else:
                            " want to report the issue.")
 
 # Automatically updated by bump-my-version at release time
-VERSION = '1.21'
+VERSION = '1.23'
 
 with open('README.rst', encoding='utf-8') as f:
     LONG_DESCRIPTION = f.read()
@@ -94,7 +94,7 @@ setup(
     long_description=LONG_DESCRIPTION + '\n\n' + CHANGES,
     long_description_content_type='text/x-rst',
     license='MIT License',
-    keywords='json rapidjson',
+    keywords='json jsonc rapidjson',
     author='Ken Robbins',
     author_email='ken@kenrobbins.com',
     maintainer='Lele Gaifax',
@@ -111,6 +111,7 @@ setup(
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Programming Language :: Python',
     ],
     ext_modules=[Extension('rapidjson', **extension_options)],

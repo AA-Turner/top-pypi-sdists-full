@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-filer
-Version: 3.3.2
+Version: 3.4.3
 Summary: A file management application for django that makes handling of files and images a breeze.
 Author-email: Divio AG <info@divio.ch>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>
@@ -13,17 +13,18 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Django CMS
 Classifier: Framework :: Django CMS :: 3.11
 Classifier: Framework :: Django CMS :: 4.0
@@ -37,8 +38,9 @@ Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: django>=3.2
-Requires-Dist: django-polymorphic
+Requires-Dist: django-polymorphic<5.0
 Requires-Dist: easy-thumbnails[svg]
+Requires-Dist: svglib~=1.5.1
 Provides-Extra: heif
 Requires-Dist: pillow-heif; extra == "heif"
 Dynamic: license-file
@@ -47,7 +49,7 @@ Dynamic: license-file
 Django Filer
 ============
 
-|pypi| |python| |django| |coverage|
+|PyPiVersion| |TestCoverage| |PyVersion| |DjVersion| |CmsVersion|
 
 **django Filer** is a file management application for django that makes
 handling of files and images a breeze.
@@ -95,11 +97,26 @@ Please head over to the separate `documentation <https://django-filer.readthedoc
 for all the details on how to install, configure and use django-filer.
 
 
-.. |pypi| image:: https://badge.fury.io/py/django-filer.svg
-    :target: http://badge.fury.io/py/django-filer
-.. |coverage| image:: https://codecov.io/gh/django-cms/django-filer/branch/master/graph/badge.svg
+.. |PyPiVersion| image:: https://img.shields.io/pypi/v/django-filer.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/django-filer
+    :alt: Latest PyPI version
+
+.. |PyVersion| image:: https://img.shields.io/pypi/pyversions/django-filer.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/django-filer
+    :alt: Python versions
+
+.. |DjVersion| image:: https://img.shields.io/pypi/frameworkversions/django/django-filer.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/django-filer
+    :alt: Django versions
+
+.. |CmsVersion| image:: https://img.shields.io/pypi/frameworkversions/django-cms/django-filer.svg?style=flat-square
+    :target: https://pypi.python.org/pypi/django-filer
+    :alt: django CMS versions
+
+.. |TestCoverage| image:: https://codecov.io/gh/django-cms/django-filer/graph/badge.svg?token=O64yNt6pgo
     :target: https://codecov.io/gh/django-cms/django-filer
-.. |python| image:: https://img.shields.io/badge/python-3.10+-blue.svg
-    :target: https://pypi.org/project/django-filer/
-.. |django| image:: https://img.shields.io/badge/django-3.2+-blue.svg
-    :target: https://www.djangoproject.com/
+    :alt: Test coverage
+
+.. |License| image:: https://img.shields.io/github/license/django-cms/django-filer.svg?style=flat-square
+   :target: https://pypi.python.org/pypi/django-filer/
+    :alt: License

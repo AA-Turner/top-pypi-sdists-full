@@ -68,55 +68,217 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CertificateReference",
-    jsii_struct_bases=[],
-    name_mapping={"certificate_id": "certificateId"},
+from ..interfaces.aws_dms import (
+    CertificateReference as _CertificateReference_c1da6163,
+    DataMigrationReference as _DataMigrationReference_edcb340f,
+    DataProviderReference as _DataProviderReference_98a5de02,
+    EndpointReference as _EndpointReference_98005b5c,
+    EventSubscriptionReference as _EventSubscriptionReference_d17cc145,
+    ICertificateRef as _ICertificateRef_4762cd8c,
+    IDataMigrationRef as _IDataMigrationRef_bc862062,
+    IDataProviderRef as _IDataProviderRef_5ca5bf2b,
+    IEndpointRef as _IEndpointRef_132726f5,
+    IEventSubscriptionRef as _IEventSubscriptionRef_0bd45833,
+    IInstanceProfileRef as _IInstanceProfileRef_2a55b923,
+    IMigrationProjectRef as _IMigrationProjectRef_e8e0eb77,
+    IReplicationConfigRef as _IReplicationConfigRef_cd698554,
+    IReplicationInstanceRef as _IReplicationInstanceRef_074b3188,
+    IReplicationSubnetGroupRef as _IReplicationSubnetGroupRef_dcc76b58,
+    IReplicationTaskRef as _IReplicationTaskRef_97589d0d,
+    InstanceProfileReference as _InstanceProfileReference_e4469b64,
+    MigrationProjectReference as _MigrationProjectReference_b53b5f6c,
+    ReplicationConfigReference as _ReplicationConfigReference_cac8b4fd,
+    ReplicationInstanceReference as _ReplicationInstanceReference_408be100,
+    ReplicationSubnetGroupReference as _ReplicationSubnetGroupReference_fa0eeb14,
+    ReplicationTaskReference as _ReplicationTaskReference_d73d9e7e,
 )
-class CertificateReference:
-    def __init__(self, *, certificate_id: builtins.str) -> None:
-        '''A reference to a Certificate resource.
 
-        :param certificate_id: The Id of the Certificate resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _ICertificateRef_4762cd8c)
+class CfnCertificate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_dms.CfnCertificate",
+):
+    '''The ``AWS::DMS::Certificate`` resource creates an Secure Sockets Layer (SSL) certificate that encrypts connections between AWS DMS endpoints and the replication instance.
 
-        Example::
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-certificate.html
+    :cloudformationResource: AWS::DMS::Certificate
+    :exampleMetadata: fixture=_generated
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            certificate_reference = dms.CertificateReference(
-                certificate_id="certificateId"
-            )
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_dms as dms
+        
+        cfn_certificate = dms.CfnCertificate(self, "MyCfnCertificate",
+            certificate_identifier="certificateIdentifier",
+            certificate_pem="certificatePem",
+            certificate_wallet="certificateWallet"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        certificate_identifier: typing.Optional[builtins.str] = None,
+        certificate_pem: typing.Optional[builtins.str] = None,
+        certificate_wallet: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::DMS::Certificate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param certificate_identifier: A customer-assigned name for the certificate. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen or contain two consecutive hyphens.
+        :param certificate_pem: The contents of a ``.pem`` file, which contains an X.509 certificate.
+        :param certificate_wallet: The location of an imported Oracle Wallet certificate for use with SSL. An example is: ``filebase64("${path.root}/rds-ca-2019-root.sso")``
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9285e96abfa7ee16ad850524b1c3fff13c4042b5106c2a597d46c84fa5b727e)
+            type_hints = typing.get_type_hints(_typecheckingstub__f7c4a44b8a3c02f3f6ada86310479fa26dc0b32d4fba95316eb3faa446936347)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCertificateProps(
+            certificate_identifier=certificate_identifier,
+            certificate_pem=certificate_pem,
+            certificate_wallet=certificate_wallet,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCertificate")
+    @builtins.classmethod
+    def arn_for_certificate(cls, resource: "_ICertificateRef_4762cd8c") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__800ce2b9498d1aaa5d3738e8f5421864b7bdeee9fa9fe90b522738ed60f48aa1)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCertificate", [resource]))
+
+    @jsii.member(jsii_name="fromCertificateId")
+    @builtins.classmethod
+    def from_certificate_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        certificate_id: builtins.str,
+    ) -> "_ICertificateRef_4762cd8c":
+        '''Creates a new ICertificateRef from a certificateId.
+
+        :param scope: -
+        :param id: -
+        :param certificate_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54c58e4c61ec8f4fec86aeebbf242c64f4df21097435a1de2fa86d057deacae4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument certificate_id", value=certificate_id, expected_type=type_hints["certificate_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "certificate_id": certificate_id,
-        }
+        return typing.cast("_ICertificateRef_4762cd8c", jsii.sinvoke(cls, "fromCertificateId", [scope, id, certificate_id]))
+
+    @jsii.member(jsii_name="isCfnCertificate")
+    @builtins.classmethod
+    def is_cfn_certificate(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCertificate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ec50e92ec2206c7107151761682c218897be43ec904cabfababf894f06709d3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCertificate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec185f31d9affa5fa834d99f40ff8a27fcf34f84f01e6395782727e60768851f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__156b71bbee83d022775901dd6edb948295c746f554fa1406537af9a5b4771300)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def certificate_id(self) -> builtins.str:
-        '''The Id of the Certificate resource.'''
-        result = self._values.get("certificate_id")
-        assert result is not None, "Required property 'certificate_id' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+    @builtins.property
+    @jsii.member(jsii_name="certificateRef")
+    def certificate_ref(self) -> "_CertificateReference_c1da6163":
+        '''A reference to a Certificate resource.'''
+        return typing.cast("_CertificateReference_c1da6163", jsii.get(self, "certificateRef"))
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
 
-    def __repr__(self) -> str:
-        return "CertificateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+    @builtins.property
+    @jsii.member(jsii_name="certificateIdentifier")
+    def certificate_identifier(self) -> typing.Optional[builtins.str]:
+        '''A customer-assigned name for the certificate.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateIdentifier"))
+
+    @certificate_identifier.setter
+    def certificate_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f62a480b92e0600c6f9c24ec065961ca68c8267f28552593ff2bd04d1a6071d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificatePem")
+    def certificate_pem(self) -> typing.Optional[builtins.str]:
+        '''The contents of a ``.pem`` file, which contains an X.509 certificate.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificatePem"))
+
+    @certificate_pem.setter
+    def certificate_pem(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__313faf62724606e0e1418e631be23b5d6929e5f5b5dc81d9efcf33f65b18ee6f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificatePem", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateWallet")
+    def certificate_wallet(self) -> typing.Optional[builtins.str]:
+        '''The location of an imported Oracle Wallet certificate for use with SSL.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateWallet"))
+
+    @certificate_wallet.setter
+    def certificate_wallet(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4d761187c2ccc6e6454d7cb505d195a8e53d4bc1a28c7f3f46d3c576a1fb0671)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateWallet", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -213,4122 +375,7 @@ class CfnCertificateProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnDataMigrationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "data_migration_type": "dataMigrationType",
-        "migration_project_identifier": "migrationProjectIdentifier",
-        "service_access_role_arn": "serviceAccessRoleArn",
-        "data_migration_identifier": "dataMigrationIdentifier",
-        "data_migration_name": "dataMigrationName",
-        "data_migration_settings": "dataMigrationSettings",
-        "source_data_settings": "sourceDataSettings",
-        "tags": "tags",
-    },
-)
-class CfnDataMigrationProps:
-    def __init__(
-        self,
-        *,
-        data_migration_type: builtins.str,
-        migration_project_identifier: builtins.str,
-        service_access_role_arn: builtins.str,
-        data_migration_identifier: typing.Optional[builtins.str] = None,
-        data_migration_name: typing.Optional[builtins.str] = None,
-        data_migration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataMigration.DataMigrationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_data_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataMigration.SourceDataSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataMigration``.
-
-        :param data_migration_type: Specifies whether the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
-        :param migration_project_identifier: The property describes an identifier for the migration project. It is used for describing/deleting/modifying can be name/arn
-        :param service_access_role_arn: The IAM role that the data migration uses to access AWS resources.
-        :param data_migration_identifier: The property describes an ARN of the data migration.
-        :param data_migration_name: The user-friendly name for the data migration.
-        :param data_migration_settings: Specifies CloudWatch settings and selection rules for the data migration.
-        :param source_data_settings: Specifies information about the data migration's source data provider.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_data_migration_props = dms.CfnDataMigrationProps(
-                data_migration_type="dataMigrationType",
-                migration_project_identifier="migrationProjectIdentifier",
-                service_access_role_arn="serviceAccessRoleArn",
-            
-                # the properties below are optional
-                data_migration_identifier="dataMigrationIdentifier",
-                data_migration_name="dataMigrationName",
-                data_migration_settings=dms.CfnDataMigration.DataMigrationSettingsProperty(
-                    cloudwatch_logs_enabled=False,
-                    number_of_jobs=123,
-                    selection_rules="selectionRules"
-                ),
-                source_data_settings=[dms.CfnDataMigration.SourceDataSettingsProperty(
-                    cdc_start_position="cdcStartPosition",
-                    cdc_start_time="cdcStartTime",
-                    cdc_stop_time="cdcStopTime",
-                    slot_name="slotName"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce4f0495b1cbb322717399394700fafde1a57462a5e81a17f37360ae322c2f0b)
-            check_type(argname="argument data_migration_type", value=data_migration_type, expected_type=type_hints["data_migration_type"])
-            check_type(argname="argument migration_project_identifier", value=migration_project_identifier, expected_type=type_hints["migration_project_identifier"])
-            check_type(argname="argument service_access_role_arn", value=service_access_role_arn, expected_type=type_hints["service_access_role_arn"])
-            check_type(argname="argument data_migration_identifier", value=data_migration_identifier, expected_type=type_hints["data_migration_identifier"])
-            check_type(argname="argument data_migration_name", value=data_migration_name, expected_type=type_hints["data_migration_name"])
-            check_type(argname="argument data_migration_settings", value=data_migration_settings, expected_type=type_hints["data_migration_settings"])
-            check_type(argname="argument source_data_settings", value=source_data_settings, expected_type=type_hints["source_data_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_migration_type": data_migration_type,
-            "migration_project_identifier": migration_project_identifier,
-            "service_access_role_arn": service_access_role_arn,
-        }
-        if data_migration_identifier is not None:
-            self._values["data_migration_identifier"] = data_migration_identifier
-        if data_migration_name is not None:
-            self._values["data_migration_name"] = data_migration_name
-        if data_migration_settings is not None:
-            self._values["data_migration_settings"] = data_migration_settings
-        if source_data_settings is not None:
-            self._values["source_data_settings"] = source_data_settings
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def data_migration_type(self) -> builtins.str:
-        '''Specifies whether the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationtype
-        '''
-        result = self._values.get("data_migration_type")
-        assert result is not None, "Required property 'data_migration_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def migration_project_identifier(self) -> builtins.str:
-        '''The property describes an identifier for the migration project.
-
-        It is used for describing/deleting/modifying can be name/arn
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-migrationprojectidentifier
-        '''
-        result = self._values.get("migration_project_identifier")
-        assert result is not None, "Required property 'migration_project_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def service_access_role_arn(self) -> builtins.str:
-        '''The IAM role that the data migration uses to access AWS resources.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-serviceaccessrolearn
-        '''
-        result = self._values.get("service_access_role_arn")
-        assert result is not None, "Required property 'service_access_role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_migration_identifier(self) -> typing.Optional[builtins.str]:
-        '''The property describes an ARN of the data migration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationidentifier
-        '''
-        result = self._values.get("data_migration_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_migration_name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name for the data migration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationname
-        '''
-        result = self._values.get("data_migration_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_migration_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.DataMigrationSettingsProperty"]]:
-        '''Specifies CloudWatch settings and selection rules for the data migration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationsettings
-        '''
-        result = self._values.get("data_migration_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.DataMigrationSettingsProperty"]], result)
-
-    @builtins.property
-    def source_data_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.SourceDataSettingsProperty"]]]]:
-        '''Specifies information about the data migration's source data provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-sourcedatasettings
-        '''
-        result = self._values.get("source_data_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.SourceDataSettingsProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataMigrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnDataProviderProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "engine": "engine",
-        "data_provider_identifier": "dataProviderIdentifier",
-        "data_provider_name": "dataProviderName",
-        "description": "description",
-        "exact_settings": "exactSettings",
-        "settings": "settings",
-        "tags": "tags",
-    },
-)
-class CfnDataProviderProps:
-    def __init__(
-        self,
-        *,
-        engine: builtins.str,
-        data_provider_identifier: typing.Optional[builtins.str] = None,
-        data_provider_name: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        exact_settings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDataProvider``.
-
-        :param engine: The type of database engine for the data provider. Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` and ``docdb`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
-        :param data_provider_identifier: The identifier of the data provider. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-        :param data_provider_name: The name of the data provider.
-        :param description: A description of the data provider. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
-        :param exact_settings: The property describes the exact settings which can be modified. Default: - false
-        :param settings: The settings in JSON format for a data provider.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_data_provider_props = dms.CfnDataProviderProps(
-                engine="engine",
-            
-                # the properties below are optional
-                data_provider_identifier="dataProviderIdentifier",
-                data_provider_name="dataProviderName",
-                description="description",
-                exact_settings=False,
-                settings=dms.CfnDataProvider.SettingsProperty(
-                    doc_db_settings=dms.CfnDataProvider.DocDbSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn",
-                        ssl_mode="sslMode"
-                    ),
-                    ibm_db2_luw_settings=dms.CfnDataProvider.IbmDb2LuwSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    ibm_db2_zOs_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    maria_db_settings=dms.CfnDataProvider.MariaDbSettingsProperty(
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    microsoft_sql_server_settings=dms.CfnDataProvider.MicrosoftSqlServerSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    mongo_db_settings=dms.CfnDataProvider.MongoDbSettingsProperty(
-                        port=123,
-                        server_name="serverName",
-            
-                        # the properties below are optional
-                        auth_mechanism="authMechanism",
-                        auth_source="authSource",
-                        auth_type="authType",
-                        certificate_arn="certificateArn",
-                        database_name="databaseName",
-                        ssl_mode="sslMode"
-                    ),
-                    my_sql_settings=dms.CfnDataProvider.MySqlSettingsProperty(
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    oracle_settings=dms.CfnDataProvider.OracleSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        asm_server="asmServer",
-                        certificate_arn="certificateArn",
-                        secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
-                        secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
-                        secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
-                        secrets_manager_security_db_encryption_secret_id="secretsManagerSecurityDbEncryptionSecretId"
-                    ),
-                    postgre_sql_settings=dms.CfnDataProvider.PostgreSqlSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName",
-                        ssl_mode="sslMode",
-            
-                        # the properties below are optional
-                        certificate_arn="certificateArn"
-                    ),
-                    redshift_settings=dms.CfnDataProvider.RedshiftSettingsProperty(
-                        database_name="databaseName",
-                        port=123,
-                        server_name="serverName"
-                    )
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97cc3506a599073ab7e0ec6de0479e22078eea7f9108a8ff9c54e506d212555c)
-            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
-            check_type(argname="argument data_provider_identifier", value=data_provider_identifier, expected_type=type_hints["data_provider_identifier"])
-            check_type(argname="argument data_provider_name", value=data_provider_name, expected_type=type_hints["data_provider_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument exact_settings", value=exact_settings, expected_type=type_hints["exact_settings"])
-            check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "engine": engine,
-        }
-        if data_provider_identifier is not None:
-            self._values["data_provider_identifier"] = data_provider_identifier
-        if data_provider_name is not None:
-            self._values["data_provider_name"] = data_provider_name
-        if description is not None:
-            self._values["description"] = description
-        if exact_settings is not None:
-            self._values["exact_settings"] = exact_settings
-        if settings is not None:
-            self._values["settings"] = settings
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def engine(self) -> builtins.str:
-        '''The type of database engine for the data provider.
-
-        Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` and ``docdb`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-engine
-        '''
-        result = self._values.get("engine")
-        assert result is not None, "Required property 'engine' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def data_provider_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the data provider.
-
-        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-dataprovideridentifier
-        '''
-        result = self._values.get("data_provider_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def data_provider_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the data provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-dataprovidername
-        '''
-        result = self._values.get("data_provider_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the data provider.
-
-        Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def exact_settings(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''The property describes the exact settings which can be modified.
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-exactsettings
-        '''
-        result = self._values.get("exact_settings")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.SettingsProperty"]]:
-        '''The settings in JSON format for a data provider.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-settings
-        '''
-        result = self._values.get("settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.SettingsProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDataProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnEndpointProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "endpoint_type": "endpointType",
-        "engine_name": "engineName",
-        "certificate_arn": "certificateArn",
-        "database_name": "databaseName",
-        "doc_db_settings": "docDbSettings",
-        "dynamo_db_settings": "dynamoDbSettings",
-        "elasticsearch_settings": "elasticsearchSettings",
-        "endpoint_identifier": "endpointIdentifier",
-        "extra_connection_attributes": "extraConnectionAttributes",
-        "gcp_my_sql_settings": "gcpMySqlSettings",
-        "ibm_db2_settings": "ibmDb2Settings",
-        "kafka_settings": "kafkaSettings",
-        "kinesis_settings": "kinesisSettings",
-        "kms_key_id": "kmsKeyId",
-        "microsoft_sql_server_settings": "microsoftSqlServerSettings",
-        "mongo_db_settings": "mongoDbSettings",
-        "my_sql_settings": "mySqlSettings",
-        "neptune_settings": "neptuneSettings",
-        "oracle_settings": "oracleSettings",
-        "password": "password",
-        "port": "port",
-        "postgre_sql_settings": "postgreSqlSettings",
-        "redis_settings": "redisSettings",
-        "redshift_settings": "redshiftSettings",
-        "resource_identifier": "resourceIdentifier",
-        "s3_settings": "s3Settings",
-        "server_name": "serverName",
-        "ssl_mode": "sslMode",
-        "sybase_settings": "sybaseSettings",
-        "tags": "tags",
-        "username": "username",
-    },
-)
-class CfnEndpointProps:
-    def __init__(
-        self,
-        *,
-        endpoint_type: builtins.str,
-        engine_name: builtins.str,
-        certificate_arn: typing.Optional[builtins.str] = None,
-        database_name: typing.Optional[builtins.str] = None,
-        doc_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dynamo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.DynamoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.ElasticsearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        endpoint_identifier: typing.Optional[builtins.str] = None,
-        extra_connection_attributes: typing.Optional[builtins.str] = None,
-        gcp_my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.GcpMySQLSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ibm_db2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.IbmDb2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kafka_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.KafkaSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.KinesisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        microsoft_sql_server_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mongo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        neptune_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.NeptuneSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        password: typing.Optional[builtins.str] = None,
-        port: typing.Optional[jsii.Number] = None,
-        postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.RedisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.S3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        server_name: typing.Optional[builtins.str] = None,
-        ssl_mode: typing.Optional[builtins.str] = None,
-        sybase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.SybaseSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        username: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEndpoint``.
-
-        :param endpoint_type: The type of endpoint. Valid values are ``source`` and ``target`` .
-        :param engine_name: The type of engine for the endpoint, depending on the ``EndpointType`` value. *Valid values* : ``mysql`` | ``oracle`` | ``postgres`` | ``mariadb`` | ``aurora`` | ``aurora-postgresql`` | ``opensearch`` | ``redshift`` | ``redshift-serverless`` | ``s3`` | ``db2`` | ``azuredb`` | ``sybase`` | ``dynamodb`` | ``mongodb`` | ``kinesis`` | ``kafka`` | ``elasticsearch`` | ``docdb`` | ``sqlserver`` | ``neptune``
-        :param certificate_arn: The Amazon Resource Name (ARN) for the certificate.
-        :param database_name: The name of the endpoint database. For a MySQL source or target endpoint, don't specify ``DatabaseName`` . To migrate to a specific database, use this setting and ``targetDbType`` .
-        :param doc_db_settings: Settings in JSON format for the source and target DocumentDB endpoint. For more information about other available settings, see `Using extra connections attributes with Amazon DocumentDB as a source <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DocumentDB.html#CHAP_Source.DocumentDB.ECAs>`_ and `Using Amazon DocumentDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DocumentDB.html>`_ in the *AWS Database Migration Service User Guide* .
-        :param dynamo_db_settings: Settings in JSON format for the target Amazon DynamoDB endpoint. For information about other available settings, see `Using object mapping to migrate data to DynamoDB <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DynamoDB.html#CHAP_Target.DynamoDB.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-        :param elasticsearch_settings: Settings in JSON format for the target OpenSearch endpoint. For more information about the available settings, see `Extra connection attributes when using OpenSearch as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Elasticsearch.html#CHAP_Target.Elasticsearch.Configuration>`_ in the *AWS Database Migration Service User Guide* .
-        :param endpoint_identifier: The database endpoint identifier. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-        :param extra_connection_attributes: Additional attributes associated with the connection. Each attribute is specified as a name-value pair associated by an equal sign (=). Multiple attributes are separated by a semicolon (;) with no additional white space. For information on the attributes available for connecting your source or target endpoint, see `Working with AWS DMS Endpoints <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Endpoints.html>`_ in the *AWS Database Migration Service User Guide* .
-        :param gcp_my_sql_settings: Settings in JSON format for the source GCP MySQL endpoint. These settings are much the same as the settings for any MySQL-compatible endpoint. For more information, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param ibm_db2_settings: Settings in JSON format for the source IBM Db2 LUW endpoint. For information about other available settings, see `Extra connection attributes when using Db2 LUW as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DB2.html#CHAP_Source.DB2.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param kafka_settings: Settings in JSON format for the target Apache Kafka endpoint. For more information about other available settings, see `Using object mapping to migrate data to a Kafka topic <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kafka.html#CHAP_Target.Kafka.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams. For more information about other available settings, see `Using object mapping to migrate data to a Kinesis data stream <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kinesis.html#CHAP_Target.Kinesis.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-        :param kms_key_id: An AWS KMS key identifier that is used to encrypt the connection parameters for the endpoint. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server endpoint. For information about other available settings, see `Extra connection attributes when using SQL Server as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SQLServer.html#CHAP_Source.SQLServer.ConnectionAttrib>`_ and `Extra connection attributes when using SQL Server as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SQLServer.html#CHAP_Target.SQLServer.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param mongo_db_settings: Settings in JSON format for the source MongoDB endpoint. For more information about the available settings, see `Using MongoDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MongoDB.html#CHAP_Source.MongoDB.Configuration>`_ in the *AWS Database Migration Service User Guide* .
-        :param my_sql_settings: Settings in JSON format for the source and target MySQL endpoint. For information about other available settings, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ and `Extra connection attributes when using a MySQL-compatible database as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.MySQL.html#CHAP_Target.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param neptune_settings: Settings in JSON format for the target Amazon Neptune endpoint. For more information about the available settings, see `Specifying endpoint settings for Amazon Neptune as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Neptune.html#CHAP_Target.Neptune.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
-        :param oracle_settings: Settings in JSON format for the source and target Oracle endpoint. For information about other available settings, see `Extra connection attributes when using Oracle as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.ConnectionAttrib>`_ and `Extra connection attributes when using Oracle as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Oracle.html#CHAP_Target.Oracle.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param password: The password to be used to log in to the endpoint database.
-        :param port: The port used by the endpoint database.
-        :param postgre_sql_settings: Settings in JSON format for the source and target PostgreSQL endpoint. For information about other available settings, see `Extra connection attributes when using PostgreSQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ and `Extra connection attributes when using PostgreSQL as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.PostgreSQL.html#CHAP_Target.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param redis_settings: Settings in JSON format for the target Redis endpoint. For information about other available settings, see `Specifying endpoint settings for Redis as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redis.html#CHAP_Target.Redis.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
-        :param redshift_settings: Settings in JSON format for the Amazon Redshift endpoint. For more information about other available settings, see `Extra connection attributes when using Amazon Redshift as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redshift.html#CHAP_Target.Redshift.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-        :param s3_settings: Settings in JSON format for the source and target Amazon S3 endpoint. For more information about other available settings, see `Extra connection attributes when using Amazon S3 as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.S3.html#CHAP_Source.S3.Configuring>`_ and `Extra connection attributes when using Amazon S3 as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring>`_ in the *AWS Database Migration Service User Guide* .
-        :param server_name: The name of the server where the endpoint database resides.
-        :param ssl_mode: The Secure Sockets Layer (SSL) mode to use for the SSL connection. The default is ``none`` . .. epigraph:: When ``engine_name`` is set to S3, the only allowed value is ``none`` .
-        :param sybase_settings: Settings in JSON format for the source and target SAP ASE endpoint. For information about other available settings, see `Extra connection attributes when using SAP ASE as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SAP.html#CHAP_Source.SAP.ConnectionAttrib>`_ and `Extra connection attributes when using SAP ASE as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SAP.html#CHAP_Target.SAP.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param tags: One or more tags to be assigned to the endpoint.
-        :param username: The user name to be used to log in to the endpoint database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_endpoint_props = dms.CfnEndpointProps(
-                endpoint_type="endpointType",
-                engine_name="engineName",
-            
-                # the properties below are optional
-                certificate_arn="certificateArn",
-                database_name="databaseName",
-                doc_db_settings=dms.CfnEndpoint.DocDbSettingsProperty(
-                    docs_to_investigate=123,
-                    extract_doc_id=False,
-                    nesting_level="nestingLevel",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId"
-                ),
-                dynamo_db_settings=dms.CfnEndpoint.DynamoDbSettingsProperty(
-                    service_access_role_arn="serviceAccessRoleArn"
-                ),
-                elasticsearch_settings=dms.CfnEndpoint.ElasticsearchSettingsProperty(
-                    endpoint_uri="endpointUri",
-                    error_retry_duration=123,
-                    full_load_error_percentage=123,
-                    service_access_role_arn="serviceAccessRoleArn"
-                ),
-                endpoint_identifier="endpointIdentifier",
-                extra_connection_attributes="extraConnectionAttributes",
-                gcp_my_sql_settings=dms.CfnEndpoint.GcpMySQLSettingsProperty(
-                    after_connect_script="afterConnectScript",
-                    clean_source_metadata_on_mismatch=False,
-                    database_name="databaseName",
-                    events_poll_interval=123,
-                    max_file_size=123,
-                    parallel_load_threads=123,
-                    password="password",
-                    port=123,
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    server_name="serverName",
-                    server_timezone="serverTimezone",
-                    username="username"
-                ),
-                ibm_db2_settings=dms.CfnEndpoint.IbmDb2SettingsProperty(
-                    current_lsn="currentLsn",
-                    keep_csv_files=False,
-                    load_timeout=123,
-                    max_file_size=123,
-                    max_kBytes_per_read=123,
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    set_data_capture_changes=False,
-                    write_buffer_size=123
-                ),
-                kafka_settings=dms.CfnEndpoint.KafkaSettingsProperty(
-                    broker="broker",
-                    include_control_details=False,
-                    include_null_and_empty=False,
-                    include_partition_value=False,
-                    include_table_alter_operations=False,
-                    include_transaction_details=False,
-                    message_format="messageFormat",
-                    message_max_bytes=123,
-                    no_hex_prefix=False,
-                    partition_include_schema_table=False,
-                    sasl_password="saslPassword",
-                    sasl_user_name="saslUserName",
-                    security_protocol="securityProtocol",
-                    ssl_ca_certificate_arn="sslCaCertificateArn",
-                    ssl_client_certificate_arn="sslClientCertificateArn",
-                    ssl_client_key_arn="sslClientKeyArn",
-                    ssl_client_key_password="sslClientKeyPassword",
-                    topic="topic"
-                ),
-                kinesis_settings=dms.CfnEndpoint.KinesisSettingsProperty(
-                    include_control_details=False,
-                    include_null_and_empty=False,
-                    include_partition_value=False,
-                    include_table_alter_operations=False,
-                    include_transaction_details=False,
-                    message_format="messageFormat",
-                    no_hex_prefix=False,
-                    partition_include_schema_table=False,
-                    service_access_role_arn="serviceAccessRoleArn",
-                    stream_arn="streamArn"
-                ),
-                kms_key_id="kmsKeyId",
-                microsoft_sql_server_settings=dms.CfnEndpoint.MicrosoftSqlServerSettingsProperty(
-                    bcp_packet_size=123,
-                    control_tables_file_group="controlTablesFileGroup",
-                    database_name="databaseName",
-                    force_lob_lookup=False,
-                    password="password",
-                    port=123,
-                    query_single_always_on_node=False,
-                    read_backup_only=False,
-                    safeguard_policy="safeguardPolicy",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    server_name="serverName",
-                    tlog_access_mode="tlogAccessMode",
-                    trim_space_in_char=False,
-                    use_bcp_full_load=False,
-                    username="username",
-                    use_third_party_backup_device=False
-                ),
-                mongo_db_settings=dms.CfnEndpoint.MongoDbSettingsProperty(
-                    auth_mechanism="authMechanism",
-                    auth_source="authSource",
-                    auth_type="authType",
-                    database_name="databaseName",
-                    docs_to_investigate="docsToInvestigate",
-                    extract_doc_id="extractDocId",
-                    nesting_level="nestingLevel",
-                    password="password",
-                    port=123,
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    server_name="serverName",
-                    username="username"
-                ),
-                my_sql_settings=dms.CfnEndpoint.MySqlSettingsProperty(
-                    after_connect_script="afterConnectScript",
-                    clean_source_metadata_on_mismatch=False,
-                    events_poll_interval=123,
-                    max_file_size=123,
-                    parallel_load_threads=123,
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    server_timezone="serverTimezone",
-                    target_db_type="targetDbType"
-                ),
-                neptune_settings=dms.CfnEndpoint.NeptuneSettingsProperty(
-                    error_retry_duration=123,
-                    iam_auth_enabled=False,
-                    max_file_size=123,
-                    max_retry_count=123,
-                    s3_bucket_folder="s3BucketFolder",
-                    s3_bucket_name="s3BucketName",
-                    service_access_role_arn="serviceAccessRoleArn"
-                ),
-                oracle_settings=dms.CfnEndpoint.OracleSettingsProperty(
-                    access_alternate_directly=False,
-                    additional_archived_log_dest_id=123,
-                    add_supplemental_logging=False,
-                    allow_select_nested_tables=False,
-                    archived_log_dest_id=123,
-                    archived_logs_only=False,
-                    asm_password="asmPassword",
-                    asm_server="asmServer",
-                    asm_user="asmUser",
-                    char_length_semantics="charLengthSemantics",
-                    direct_path_no_log=False,
-                    direct_path_parallel_load=False,
-                    enable_homogenous_tablespace=False,
-                    extra_archived_log_dest_ids=[123],
-                    fail_tasks_on_lob_truncation=False,
-                    number_datatype_scale=123,
-                    oracle_path_prefix="oraclePathPrefix",
-                    parallel_asm_read_threads=123,
-                    read_ahead_blocks=123,
-                    read_table_space_name=False,
-                    replace_path_prefix=False,
-                    retry_interval=123,
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
-                    secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    security_db_encryption="securityDbEncryption",
-                    security_db_encryption_name="securityDbEncryptionName",
-                    spatial_data_option_to_geo_json_function_name="spatialDataOptionToGeoJsonFunctionName",
-                    standby_delay_time=123,
-                    use_alternate_folder_for_online=False,
-                    use_bFile=False,
-                    use_direct_path_full_load=False,
-                    use_logminer_reader=False,
-                    use_path_prefix="usePathPrefix"
-                ),
-                password="password",
-                port=123,
-                postgre_sql_settings=dms.CfnEndpoint.PostgreSqlSettingsProperty(
-                    after_connect_script="afterConnectScript",
-                    babelfish_database_name="babelfishDatabaseName",
-                    capture_ddls=False,
-                    database_mode="databaseMode",
-                    ddl_artifacts_schema="ddlArtifactsSchema",
-                    execute_timeout=123,
-                    fail_tasks_on_lob_truncation=False,
-                    heartbeat_enable=False,
-                    heartbeat_frequency=123,
-                    heartbeat_schema="heartbeatSchema",
-                    map_boolean_as_boolean=False,
-                    max_file_size=123,
-                    plugin_name="pluginName",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    slot_name="slotName"
-                ),
-                redis_settings=dms.CfnEndpoint.RedisSettingsProperty(
-                    auth_password="authPassword",
-                    auth_type="authType",
-                    auth_user_name="authUserName",
-                    port=123,
-                    server_name="serverName",
-                    ssl_ca_certificate_arn="sslCaCertificateArn",
-                    ssl_security_protocol="sslSecurityProtocol"
-                ),
-                redshift_settings=dms.CfnEndpoint.RedshiftSettingsProperty(
-                    accept_any_date=False,
-                    after_connect_script="afterConnectScript",
-                    bucket_folder="bucketFolder",
-                    bucket_name="bucketName",
-                    case_sensitive_names=False,
-                    comp_update=False,
-                    connection_timeout=123,
-                    date_format="dateFormat",
-                    empty_as_null=False,
-                    encryption_mode="encryptionMode",
-                    explicit_ids=False,
-                    file_transfer_upload_streams=123,
-                    load_timeout=123,
-                    map_boolean_as_boolean=False,
-                    max_file_size=123,
-                    remove_quotes=False,
-                    replace_chars="replaceChars",
-                    replace_invalid_chars="replaceInvalidChars",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId",
-                    server_side_encryption_kms_key_id="serverSideEncryptionKmsKeyId",
-                    service_access_role_arn="serviceAccessRoleArn",
-                    time_format="timeFormat",
-                    trim_blanks=False,
-                    truncate_columns=False,
-                    write_buffer_size=123
-                ),
-                resource_identifier="resourceIdentifier",
-                s3_settings=dms.CfnEndpoint.S3SettingsProperty(
-                    add_column_name=False,
-                    add_trailing_padding_character=False,
-                    bucket_folder="bucketFolder",
-                    bucket_name="bucketName",
-                    canned_acl_for_objects="cannedAclForObjects",
-                    cdc_inserts_and_updates=False,
-                    cdc_inserts_only=False,
-                    cdc_max_batch_interval=123,
-                    cdc_min_file_size=123,
-                    cdc_path="cdcPath",
-                    compression_type="compressionType",
-                    csv_delimiter="csvDelimiter",
-                    csv_no_sup_value="csvNoSupValue",
-                    csv_null_value="csvNullValue",
-                    csv_row_delimiter="csvRowDelimiter",
-                    data_format="dataFormat",
-                    data_page_size=123,
-                    date_partition_delimiter="datePartitionDelimiter",
-                    date_partition_enabled=False,
-                    date_partition_sequence="datePartitionSequence",
-                    date_partition_timezone="datePartitionTimezone",
-                    dict_page_size_limit=123,
-                    enable_statistics=False,
-                    encoding_type="encodingType",
-                    encryption_mode="encryptionMode",
-                    expected_bucket_owner="expectedBucketOwner",
-                    external_table_definition="externalTableDefinition",
-                    glue_catalog_generation=False,
-                    ignore_header_rows=123,
-                    include_op_for_full_load=False,
-                    max_file_size=123,
-                    parquet_timestamp_in_millisecond=False,
-                    parquet_version="parquetVersion",
-                    preserve_transactions=False,
-                    rfc4180=False,
-                    row_group_length=123,
-                    server_side_encryption_kms_key_id="serverSideEncryptionKmsKeyId",
-                    service_access_role_arn="serviceAccessRoleArn",
-                    timestamp_column_name="timestampColumnName",
-                    use_csv_no_sup_value=False,
-                    use_task_start_time_for_full_load_timestamp=False
-                ),
-                server_name="serverName",
-                ssl_mode="sslMode",
-                sybase_settings=dms.CfnEndpoint.SybaseSettingsProperty(
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                username="username"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f339ae28a930c099a0a813d874222c50e581fbff0c5b98878c1f5ae0871a0236)
-            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
-            check_type(argname="argument engine_name", value=engine_name, expected_type=type_hints["engine_name"])
-            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
-            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
-            check_type(argname="argument doc_db_settings", value=doc_db_settings, expected_type=type_hints["doc_db_settings"])
-            check_type(argname="argument dynamo_db_settings", value=dynamo_db_settings, expected_type=type_hints["dynamo_db_settings"])
-            check_type(argname="argument elasticsearch_settings", value=elasticsearch_settings, expected_type=type_hints["elasticsearch_settings"])
-            check_type(argname="argument endpoint_identifier", value=endpoint_identifier, expected_type=type_hints["endpoint_identifier"])
-            check_type(argname="argument extra_connection_attributes", value=extra_connection_attributes, expected_type=type_hints["extra_connection_attributes"])
-            check_type(argname="argument gcp_my_sql_settings", value=gcp_my_sql_settings, expected_type=type_hints["gcp_my_sql_settings"])
-            check_type(argname="argument ibm_db2_settings", value=ibm_db2_settings, expected_type=type_hints["ibm_db2_settings"])
-            check_type(argname="argument kafka_settings", value=kafka_settings, expected_type=type_hints["kafka_settings"])
-            check_type(argname="argument kinesis_settings", value=kinesis_settings, expected_type=type_hints["kinesis_settings"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument microsoft_sql_server_settings", value=microsoft_sql_server_settings, expected_type=type_hints["microsoft_sql_server_settings"])
-            check_type(argname="argument mongo_db_settings", value=mongo_db_settings, expected_type=type_hints["mongo_db_settings"])
-            check_type(argname="argument my_sql_settings", value=my_sql_settings, expected_type=type_hints["my_sql_settings"])
-            check_type(argname="argument neptune_settings", value=neptune_settings, expected_type=type_hints["neptune_settings"])
-            check_type(argname="argument oracle_settings", value=oracle_settings, expected_type=type_hints["oracle_settings"])
-            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
-            check_type(argname="argument postgre_sql_settings", value=postgre_sql_settings, expected_type=type_hints["postgre_sql_settings"])
-            check_type(argname="argument redis_settings", value=redis_settings, expected_type=type_hints["redis_settings"])
-            check_type(argname="argument redshift_settings", value=redshift_settings, expected_type=type_hints["redshift_settings"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument s3_settings", value=s3_settings, expected_type=type_hints["s3_settings"])
-            check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
-            check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
-            check_type(argname="argument sybase_settings", value=sybase_settings, expected_type=type_hints["sybase_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_type": endpoint_type,
-            "engine_name": engine_name,
-        }
-        if certificate_arn is not None:
-            self._values["certificate_arn"] = certificate_arn
-        if database_name is not None:
-            self._values["database_name"] = database_name
-        if doc_db_settings is not None:
-            self._values["doc_db_settings"] = doc_db_settings
-        if dynamo_db_settings is not None:
-            self._values["dynamo_db_settings"] = dynamo_db_settings
-        if elasticsearch_settings is not None:
-            self._values["elasticsearch_settings"] = elasticsearch_settings
-        if endpoint_identifier is not None:
-            self._values["endpoint_identifier"] = endpoint_identifier
-        if extra_connection_attributes is not None:
-            self._values["extra_connection_attributes"] = extra_connection_attributes
-        if gcp_my_sql_settings is not None:
-            self._values["gcp_my_sql_settings"] = gcp_my_sql_settings
-        if ibm_db2_settings is not None:
-            self._values["ibm_db2_settings"] = ibm_db2_settings
-        if kafka_settings is not None:
-            self._values["kafka_settings"] = kafka_settings
-        if kinesis_settings is not None:
-            self._values["kinesis_settings"] = kinesis_settings
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if microsoft_sql_server_settings is not None:
-            self._values["microsoft_sql_server_settings"] = microsoft_sql_server_settings
-        if mongo_db_settings is not None:
-            self._values["mongo_db_settings"] = mongo_db_settings
-        if my_sql_settings is not None:
-            self._values["my_sql_settings"] = my_sql_settings
-        if neptune_settings is not None:
-            self._values["neptune_settings"] = neptune_settings
-        if oracle_settings is not None:
-            self._values["oracle_settings"] = oracle_settings
-        if password is not None:
-            self._values["password"] = password
-        if port is not None:
-            self._values["port"] = port
-        if postgre_sql_settings is not None:
-            self._values["postgre_sql_settings"] = postgre_sql_settings
-        if redis_settings is not None:
-            self._values["redis_settings"] = redis_settings
-        if redshift_settings is not None:
-            self._values["redshift_settings"] = redshift_settings
-        if resource_identifier is not None:
-            self._values["resource_identifier"] = resource_identifier
-        if s3_settings is not None:
-            self._values["s3_settings"] = s3_settings
-        if server_name is not None:
-            self._values["server_name"] = server_name
-        if ssl_mode is not None:
-            self._values["ssl_mode"] = ssl_mode
-        if sybase_settings is not None:
-            self._values["sybase_settings"] = sybase_settings
-        if tags is not None:
-            self._values["tags"] = tags
-        if username is not None:
-            self._values["username"] = username
-
-    @builtins.property
-    def endpoint_type(self) -> builtins.str:
-        '''The type of endpoint.
-
-        Valid values are ``source`` and ``target`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-endpointtype
-        '''
-        result = self._values.get("endpoint_type")
-        assert result is not None, "Required property 'endpoint_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def engine_name(self) -> builtins.str:
-        '''The type of engine for the endpoint, depending on the ``EndpointType`` value.
-
-        *Valid values* : ``mysql`` | ``oracle`` | ``postgres`` | ``mariadb`` | ``aurora`` | ``aurora-postgresql`` | ``opensearch`` | ``redshift`` | ``redshift-serverless`` | ``s3`` | ``db2`` | ``azuredb`` | ``sybase`` | ``dynamodb`` | ``mongodb`` | ``kinesis`` | ``kafka`` | ``elasticsearch`` | ``docdb`` | ``sqlserver`` | ``neptune``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-enginename
-        '''
-        result = self._values.get("engine_name")
-        assert result is not None, "Required property 'engine_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def certificate_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) for the certificate.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-certificatearn
-        '''
-        result = self._values.get("certificate_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def database_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the endpoint database.
-
-        For a MySQL source or target endpoint, don't specify ``DatabaseName`` . To migrate to a specific database, use this setting and ``targetDbType`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-databasename
-        '''
-        result = self._values.get("database_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def doc_db_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DocDbSettingsProperty"]]:
-        '''Settings in JSON format for the source and target DocumentDB endpoint.
-
-        For more information about other available settings, see `Using extra connections attributes with Amazon DocumentDB as a source <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DocumentDB.html#CHAP_Source.DocumentDB.ECAs>`_ and `Using Amazon DocumentDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DocumentDB.html>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-docdbsettings
-        '''
-        result = self._values.get("doc_db_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DocDbSettingsProperty"]], result)
-
-    @builtins.property
-    def dynamo_db_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DynamoDbSettingsProperty"]]:
-        '''Settings in JSON format for the target Amazon DynamoDB endpoint.
-
-        For information about other available settings, see `Using object mapping to migrate data to DynamoDB <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DynamoDB.html#CHAP_Target.DynamoDB.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-dynamodbsettings
-        '''
-        result = self._values.get("dynamo_db_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DynamoDbSettingsProperty"]], result)
-
-    @builtins.property
-    def elasticsearch_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ElasticsearchSettingsProperty"]]:
-        '''Settings in JSON format for the target OpenSearch endpoint.
-
-        For more information about the available settings, see `Extra connection attributes when using OpenSearch as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Elasticsearch.html#CHAP_Target.Elasticsearch.Configuration>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-elasticsearchsettings
-        '''
-        result = self._values.get("elasticsearch_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ElasticsearchSettingsProperty"]], result)
-
-    @builtins.property
-    def endpoint_identifier(self) -> typing.Optional[builtins.str]:
-        '''The database endpoint identifier.
-
-        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-endpointidentifier
-        '''
-        result = self._values.get("endpoint_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def extra_connection_attributes(self) -> typing.Optional[builtins.str]:
-        '''Additional attributes associated with the connection.
-
-        Each attribute is specified as a name-value pair associated by an equal sign (=). Multiple attributes are separated by a semicolon (;) with no additional white space. For information on the attributes available for connecting your source or target endpoint, see `Working with AWS DMS Endpoints <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Endpoints.html>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-extraconnectionattributes
-        '''
-        result = self._values.get("extra_connection_attributes")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def gcp_my_sql_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.GcpMySQLSettingsProperty"]]:
-        '''Settings in JSON format for the source GCP MySQL endpoint.
-
-        These settings are much the same as the settings for any MySQL-compatible endpoint. For more information, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-gcpmysqlsettings
-        '''
-        result = self._values.get("gcp_my_sql_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.GcpMySQLSettingsProperty"]], result)
-
-    @builtins.property
-    def ibm_db2_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.IbmDb2SettingsProperty"]]:
-        '''Settings in JSON format for the source IBM Db2 LUW endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using Db2 LUW as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DB2.html#CHAP_Source.DB2.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-ibmdb2settings
-        '''
-        result = self._values.get("ibm_db2_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.IbmDb2SettingsProperty"]], result)
-
-    @builtins.property
-    def kafka_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KafkaSettingsProperty"]]:
-        '''Settings in JSON format for the target Apache Kafka endpoint.
-
-        For more information about other available settings, see `Using object mapping to migrate data to a Kafka topic <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kafka.html#CHAP_Target.Kafka.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kafkasettings
-        '''
-        result = self._values.get("kafka_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KafkaSettingsProperty"]], result)
-
-    @builtins.property
-    def kinesis_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KinesisSettingsProperty"]]:
-        '''Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams.
-
-        For more information about other available settings, see `Using object mapping to migrate data to a Kinesis data stream <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kinesis.html#CHAP_Target.Kinesis.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kinesissettings
-        '''
-        result = self._values.get("kinesis_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KinesisSettingsProperty"]], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''An AWS KMS key identifier that is used to encrypt the connection parameters for the endpoint.
-
-        If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key.
-
-        AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def microsoft_sql_server_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]]:
-        '''Settings in JSON format for the source and target Microsoft SQL Server endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using SQL Server as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SQLServer.html#CHAP_Source.SQLServer.ConnectionAttrib>`_ and `Extra connection attributes when using SQL Server as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SQLServer.html#CHAP_Target.SQLServer.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-microsoftsqlserversettings
-        '''
-        result = self._values.get("microsoft_sql_server_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]], result)
-
-    @builtins.property
-    def mongo_db_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MongoDbSettingsProperty"]]:
-        '''Settings in JSON format for the source MongoDB endpoint.
-
-        For more information about the available settings, see `Using MongoDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MongoDB.html#CHAP_Source.MongoDB.Configuration>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-mongodbsettings
-        '''
-        result = self._values.get("mongo_db_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MongoDbSettingsProperty"]], result)
-
-    @builtins.property
-    def my_sql_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MySqlSettingsProperty"]]:
-        '''Settings in JSON format for the source and target MySQL endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ and `Extra connection attributes when using a MySQL-compatible database as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.MySQL.html#CHAP_Target.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-mysqlsettings
-        '''
-        result = self._values.get("my_sql_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MySqlSettingsProperty"]], result)
-
-    @builtins.property
-    def neptune_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.NeptuneSettingsProperty"]]:
-        '''Settings in JSON format for the target Amazon Neptune endpoint.
-
-        For more information about the available settings, see `Specifying endpoint settings for Amazon Neptune as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Neptune.html#CHAP_Target.Neptune.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-neptunesettings
-        '''
-        result = self._values.get("neptune_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.NeptuneSettingsProperty"]], result)
-
-    @builtins.property
-    def oracle_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.OracleSettingsProperty"]]:
-        '''Settings in JSON format for the source and target Oracle endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using Oracle as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.ConnectionAttrib>`_ and `Extra connection attributes when using Oracle as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Oracle.html#CHAP_Target.Oracle.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-oraclesettings
-        '''
-        result = self._values.get("oracle_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.OracleSettingsProperty"]], result)
-
-    @builtins.property
-    def password(self) -> typing.Optional[builtins.str]:
-        '''The password to be used to log in to the endpoint database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-password
-        '''
-        result = self._values.get("password")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def port(self) -> typing.Optional[jsii.Number]:
-        '''The port used by the endpoint database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-port
-        '''
-        result = self._values.get("port")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def postgre_sql_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.PostgreSqlSettingsProperty"]]:
-        '''Settings in JSON format for the source and target PostgreSQL endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using PostgreSQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ and `Extra connection attributes when using PostgreSQL as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.PostgreSQL.html#CHAP_Target.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-postgresqlsettings
-        '''
-        result = self._values.get("postgre_sql_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.PostgreSqlSettingsProperty"]], result)
-
-    @builtins.property
-    def redis_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedisSettingsProperty"]]:
-        '''Settings in JSON format for the target Redis endpoint.
-
-        For information about other available settings, see `Specifying endpoint settings for Redis as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redis.html#CHAP_Target.Redis.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-redissettings
-        '''
-        result = self._values.get("redis_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedisSettingsProperty"]], result)
-
-    @builtins.property
-    def redshift_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedshiftSettingsProperty"]]:
-        '''Settings in JSON format for the Amazon Redshift endpoint.
-
-        For more information about other available settings, see `Extra connection attributes when using Amazon Redshift as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redshift.html#CHAP_Target.Redshift.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-redshiftsettings
-        '''
-        result = self._values.get("redshift_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedshiftSettingsProperty"]], result)
-
-    @builtins.property
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
-
-        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` .
-
-        For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def s3_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.S3SettingsProperty"]]:
-        '''Settings in JSON format for the source and target Amazon S3 endpoint.
-
-        For more information about other available settings, see `Extra connection attributes when using Amazon S3 as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.S3.html#CHAP_Source.S3.Configuring>`_ and `Extra connection attributes when using Amazon S3 as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-s3settings
-        '''
-        result = self._values.get("s3_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.S3SettingsProperty"]], result)
-
-    @builtins.property
-    def server_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the server where the endpoint database resides.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-servername
-        '''
-        result = self._values.get("server_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def ssl_mode(self) -> typing.Optional[builtins.str]:
-        '''The Secure Sockets Layer (SSL) mode to use for the SSL connection. The default is ``none`` .
-
-        .. epigraph::
-
-           When ``engine_name`` is set to S3, the only allowed value is ``none`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-sslmode
-        '''
-        result = self._values.get("ssl_mode")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def sybase_settings(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.SybaseSettingsProperty"]]:
-        '''Settings in JSON format for the source and target SAP ASE endpoint.
-
-        For information about other available settings, see `Extra connection attributes when using SAP ASE as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SAP.html#CHAP_Source.SAP.ConnectionAttrib>`_ and `Extra connection attributes when using SAP ASE as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SAP.html#CHAP_Target.SAP.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-sybasesettings
-        '''
-        result = self._values.get("sybase_settings")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.SybaseSettingsProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags to be assigned to the endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def username(self) -> typing.Optional[builtins.str]:
-        '''The user name to be used to log in to the endpoint database.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-username
-        '''
-        result = self._values.get("username")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEndpointProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnEventSubscriptionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "sns_topic_arn": "snsTopicArn",
-        "enabled": "enabled",
-        "event_categories": "eventCategories",
-        "source_ids": "sourceIds",
-        "source_type": "sourceType",
-        "subscription_name": "subscriptionName",
-        "tags": "tags",
-    },
-)
-class CfnEventSubscriptionProps:
-    def __init__(
-        self,
-        *,
-        sns_topic_arn: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        source_type: typing.Optional[builtins.str] = None,
-        subscription_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventSubscription``.
-
-        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification. The ARN is created by Amazon SNS when you create a topic and subscribe to it.
-        :param enabled: Indicates whether to activate the subscription. If you don't specify this property, AWS CloudFormation activates the subscription.
-        :param event_categories: A list of event categories for a source type that you want to subscribe to. If you don't specify this property, you are notified about all event categories. For more information, see `Working with Events and Notifications <https://docs.aws.amazon.com//dms/latest/userguide/CHAP_Events.html>`_ in the *AWS DMS User Guide* .
-        :param source_ids: A list of identifiers for which AWS DMS provides notification events. If you don't specify a value, notifications are provided for all sources. If you specify multiple values, they must be of the same type. For example, if you specify a database instance ID, then all of the other values must be database instance IDs.
-        :param source_type: The type of AWS DMS resource that generates the events. For example, if you want to be notified of events generated by a replication instance, you set this parameter to ``replication-instance`` . If this value isn't specified, all events are returned. *Valid values* : ``replication-instance`` | ``replication-task``
-        :param subscription_name: The name of the AWS DMS event notification subscription. This name must be less than 255 characters.
-        :param tags: One or more tags to be assigned to the event subscription.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_event_subscription_props = dms.CfnEventSubscriptionProps(
-                sns_topic_arn="snsTopicArn",
-            
-                # the properties below are optional
-                enabled=False,
-                event_categories=["eventCategories"],
-                source_ids=["sourceIds"],
-                source_type="sourceType",
-                subscription_name="subscriptionName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1555cbc21ca1acdd6ec0e2aad881e8c61105a38d2f194a09e644f876547b64e6)
-            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
-            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
-            check_type(argname="argument source_ids", value=source_ids, expected_type=type_hints["source_ids"])
-            check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
-            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "sns_topic_arn": sns_topic_arn,
-        }
-        if enabled is not None:
-            self._values["enabled"] = enabled
-        if event_categories is not None:
-            self._values["event_categories"] = event_categories
-        if source_ids is not None:
-            self._values["source_ids"] = source_ids
-        if source_type is not None:
-            self._values["source_type"] = source_type
-        if subscription_name is not None:
-            self._values["subscription_name"] = subscription_name
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def sns_topic_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification.
-
-        The ARN is created by Amazon SNS when you create a topic and subscribe to it.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-snstopicarn
-        '''
-        result = self._values.get("sns_topic_arn")
-        assert result is not None, "Required property 'sns_topic_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def enabled(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether to activate the subscription.
-
-        If you don't specify this property, AWS CloudFormation activates the subscription.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-enabled
-        '''
-        result = self._values.get("enabled")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of event categories for a source type that you want to subscribe to.
-
-        If you don't specify this property, you are notified about all event categories. For more information, see `Working with Events and Notifications <https://docs.aws.amazon.com//dms/latest/userguide/CHAP_Events.html>`_ in the *AWS DMS User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-eventcategories
-        '''
-        result = self._values.get("event_categories")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of identifiers for which AWS DMS provides notification events.
-
-        If you don't specify a value, notifications are provided for all sources.
-
-        If you specify multiple values, they must be of the same type. For example, if you specify a database instance ID, then all of the other values must be database instance IDs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-sourceids
-        '''
-        result = self._values.get("source_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def source_type(self) -> typing.Optional[builtins.str]:
-        '''The type of AWS DMS resource that generates the events.
-
-        For example, if you want to be notified of events generated by a replication instance, you set this parameter to ``replication-instance`` . If this value isn't specified, all events are returned.
-
-        *Valid values* : ``replication-instance`` | ``replication-task``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-sourcetype
-        '''
-        result = self._values.get("source_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def subscription_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the AWS DMS event notification subscription.
-
-        This name must be less than 255 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-subscriptionname
-        '''
-        result = self._values.get("subscription_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags to be assigned to the event subscription.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventSubscriptionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnInstanceProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "availability_zone": "availabilityZone",
-        "description": "description",
-        "instance_profile_identifier": "instanceProfileIdentifier",
-        "instance_profile_name": "instanceProfileName",
-        "kms_key_arn": "kmsKeyArn",
-        "network_type": "networkType",
-        "publicly_accessible": "publiclyAccessible",
-        "subnet_group_identifier": "subnetGroupIdentifier",
-        "tags": "tags",
-        "vpc_security_groups": "vpcSecurityGroups",
-    },
-)
-class CfnInstanceProfileProps:
-    def __init__(
-        self,
-        *,
-        availability_zone: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
-        instance_profile_identifier: typing.Optional[builtins.str] = None,
-        instance_profile_name: typing.Optional[builtins.str] = None,
-        kms_key_arn: typing.Optional[builtins.str] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        subnet_group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceProfile``.
-
-        :param availability_zone: The Availability Zone where the instance profile runs.
-        :param description: A description of the instance profile. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
-        :param instance_profile_identifier: The identifier of the instance profile. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-        :param instance_profile_name: The user-friendly name for the instance profile.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS KMS key that is used to encrypt the connection parameters for the instance profile. If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-        :param network_type: Specifies the network type for the instance profile. A value of ``IPV4`` represents an instance profile with IPv4 network type and only supports IPv4 addressing. A value of ``IPV6`` represents an instance profile with IPv6 network type and only supports IPv6 addressing. A value of ``DUAL`` represents an instance profile with dual network type that supports IPv4 and IPv6 addressing.
-        :param publicly_accessible: Specifies the accessibility options for the instance profile. A value of ``true`` represents an instance profile with a public IP address. A value of ``false`` represents an instance profile with a private IP address. The default value is ``true`` . Default: - false
-        :param subnet_group_identifier: The identifier of the subnet group that is associated with the instance profile.
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param vpc_security_groups: The VPC security groups that are used with the instance profile. The VPC security group must work with the VPC containing the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_instance_profile_props = dms.CfnInstanceProfileProps(
-                availability_zone="availabilityZone",
-                description="description",
-                instance_profile_identifier="instanceProfileIdentifier",
-                instance_profile_name="instanceProfileName",
-                kms_key_arn="kmsKeyArn",
-                network_type="networkType",
-                publicly_accessible=False,
-                subnet_group_identifier="subnetGroupIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_security_groups=["vpcSecurityGroups"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb987e57079646d3b74d43384b58a2e19975492c1f1b317aba746e6fa1f47b4e)
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument instance_profile_identifier", value=instance_profile_identifier, expected_type=type_hints["instance_profile_identifier"])
-            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
-            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument subnet_group_identifier", value=subnet_group_identifier, expected_type=type_hints["subnet_group_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_security_groups", value=vpc_security_groups, expected_type=type_hints["vpc_security_groups"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if description is not None:
-            self._values["description"] = description
-        if instance_profile_identifier is not None:
-            self._values["instance_profile_identifier"] = instance_profile_identifier
-        if instance_profile_name is not None:
-            self._values["instance_profile_name"] = instance_profile_name
-        if kms_key_arn is not None:
-            self._values["kms_key_arn"] = kms_key_arn
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if publicly_accessible is not None:
-            self._values["publicly_accessible"] = publicly_accessible
-        if subnet_group_identifier is not None:
-            self._values["subnet_group_identifier"] = subnet_group_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_security_groups is not None:
-            self._values["vpc_security_groups"] = vpc_security_groups
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone where the instance profile runs.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the instance profile.
-
-        Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_profile_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the instance profile.
-
-        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-instanceprofileidentifier
-        '''
-        result = self._values.get("instance_profile_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_profile_name(self) -> typing.Optional[builtins.str]:
-        '''The user-friendly name for the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-instanceprofilename
-        '''
-        result = self._values.get("instance_profile_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS KMS key that is used to encrypt the connection parameters for the instance profile.
-
-        If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses your default encryption key.
-
-        AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-kmskeyarn
-        '''
-        result = self._values.get("kms_key_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''Specifies the network type for the instance profile.
-
-        A value of ``IPV4`` represents an instance profile with IPv4 network type and only supports IPv4 addressing. A value of ``IPV6`` represents an instance profile with IPv6 network type and only supports IPv6 addressing. A value of ``DUAL`` represents an instance profile with dual network type that supports IPv4 and IPv6 addressing.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies the accessibility options for the instance profile.
-
-        A value of ``true`` represents an instance profile with a public IP address. A value of ``false`` represents an instance profile with a private IP address. The default value is ``true`` .
-
-        :default: - false
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def subnet_group_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the subnet group that is associated with the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-subnetgroupidentifier
-        '''
-        result = self._values.get("subnet_group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The VPC security groups that are used with the instance profile.
-
-        The VPC security group must work with the VPC containing the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-vpcsecuritygroups
-        '''
-        result = self._values.get("vpc_security_groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnMigrationProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "instance_profile_arn": "instanceProfileArn",
-        "instance_profile_identifier": "instanceProfileIdentifier",
-        "instance_profile_name": "instanceProfileName",
-        "migration_project_creation_time": "migrationProjectCreationTime",
-        "migration_project_identifier": "migrationProjectIdentifier",
-        "migration_project_name": "migrationProjectName",
-        "schema_conversion_application_attributes": "schemaConversionApplicationAttributes",
-        "source_data_provider_descriptors": "sourceDataProviderDescriptors",
-        "tags": "tags",
-        "target_data_provider_descriptors": "targetDataProviderDescriptors",
-        "transformation_rules": "transformationRules",
-    },
-)
-class CfnMigrationProjectProps:
-    def __init__(
-        self,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        instance_profile_arn: typing.Optional[builtins.str] = None,
-        instance_profile_identifier: typing.Optional[builtins.str] = None,
-        instance_profile_name: typing.Optional[builtins.str] = None,
-        migration_project_creation_time: typing.Optional[builtins.str] = None,
-        migration_project_identifier: typing.Optional[builtins.str] = None,
-        migration_project_name: typing.Optional[builtins.str] = None,
-        schema_conversion_application_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.SchemaConversionApplicationAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        transformation_rules: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnMigrationProject``.
-
-        :param description: A user-friendly description of the migration project.
-        :param instance_profile_arn: The Amazon Resource Name (ARN) of the instance profile for your migration project.
-        :param instance_profile_identifier: The identifier of the instance profile for your migration project.
-        :param instance_profile_name: The name of the associated instance profile.
-        :param migration_project_creation_time: (deprecated) The property describes a creating time of the migration project.
-        :param migration_project_identifier: The identifier of the migration project. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-        :param migration_project_name: The name of the migration project.
-        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
-        :param source_data_provider_descriptors: Information about the source data provider, including the name or ARN, and AWS Secrets Manager parameters.
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param target_data_provider_descriptors: Information about the target data provider, including the name or ARN, and AWS Secrets Manager parameters.
-        :param transformation_rules: The settings in JSON format for migration rules. Migration rules make it possible for you to change the object names according to the rules that you specify. For example, you can change an object name to lowercase or uppercase, add or remove a prefix or suffix, or rename objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_migration_project_props = dms.CfnMigrationProjectProps(
-                description="description",
-                instance_profile_arn="instanceProfileArn",
-                instance_profile_identifier="instanceProfileIdentifier",
-                instance_profile_name="instanceProfileName",
-                migration_project_creation_time="migrationProjectCreationTime",
-                migration_project_identifier="migrationProjectIdentifier",
-                migration_project_name="migrationProjectName",
-                schema_conversion_application_attributes=dms.CfnMigrationProject.SchemaConversionApplicationAttributesProperty(
-                    s3_bucket_path="s3BucketPath",
-                    s3_bucket_role_arn="s3BucketRoleArn"
-                ),
-                source_data_provider_descriptors=[dms.CfnMigrationProject.DataProviderDescriptorProperty(
-                    data_provider_arn="dataProviderArn",
-                    data_provider_identifier="dataProviderIdentifier",
-                    data_provider_name="dataProviderName",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_data_provider_descriptors=[dms.CfnMigrationProject.DataProviderDescriptorProperty(
-                    data_provider_arn="dataProviderArn",
-                    data_provider_identifier="dataProviderIdentifier",
-                    data_provider_name="dataProviderName",
-                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
-                    secrets_manager_secret_id="secretsManagerSecretId"
-                )],
-                transformation_rules="transformationRules"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d354515598618d1781b30321646570d53cc9d8150e99820d2ffc982f69de692)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
-            check_type(argname="argument instance_profile_identifier", value=instance_profile_identifier, expected_type=type_hints["instance_profile_identifier"])
-            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
-            check_type(argname="argument migration_project_creation_time", value=migration_project_creation_time, expected_type=type_hints["migration_project_creation_time"])
-            check_type(argname="argument migration_project_identifier", value=migration_project_identifier, expected_type=type_hints["migration_project_identifier"])
-            check_type(argname="argument migration_project_name", value=migration_project_name, expected_type=type_hints["migration_project_name"])
-            check_type(argname="argument schema_conversion_application_attributes", value=schema_conversion_application_attributes, expected_type=type_hints["schema_conversion_application_attributes"])
-            check_type(argname="argument source_data_provider_descriptors", value=source_data_provider_descriptors, expected_type=type_hints["source_data_provider_descriptors"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_data_provider_descriptors", value=target_data_provider_descriptors, expected_type=type_hints["target_data_provider_descriptors"])
-            check_type(argname="argument transformation_rules", value=transformation_rules, expected_type=type_hints["transformation_rules"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if description is not None:
-            self._values["description"] = description
-        if instance_profile_arn is not None:
-            self._values["instance_profile_arn"] = instance_profile_arn
-        if instance_profile_identifier is not None:
-            self._values["instance_profile_identifier"] = instance_profile_identifier
-        if instance_profile_name is not None:
-            self._values["instance_profile_name"] = instance_profile_name
-        if migration_project_creation_time is not None:
-            self._values["migration_project_creation_time"] = migration_project_creation_time
-        if migration_project_identifier is not None:
-            self._values["migration_project_identifier"] = migration_project_identifier
-        if migration_project_name is not None:
-            self._values["migration_project_name"] = migration_project_name
-        if schema_conversion_application_attributes is not None:
-            self._values["schema_conversion_application_attributes"] = schema_conversion_application_attributes
-        if source_data_provider_descriptors is not None:
-            self._values["source_data_provider_descriptors"] = source_data_provider_descriptors
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_data_provider_descriptors is not None:
-            self._values["target_data_provider_descriptors"] = target_data_provider_descriptors
-        if transformation_rules is not None:
-            self._values["transformation_rules"] = transformation_rules
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A user-friendly description of the migration project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_profile_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the instance profile for your migration project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofilearn
-        '''
-        result = self._values.get("instance_profile_arn")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_profile_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the instance profile for your migration project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofileidentifier
-        '''
-        result = self._values.get("instance_profile_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def instance_profile_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the associated instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofilename
-        '''
-        result = self._values.get("instance_profile_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def migration_project_creation_time(self) -> typing.Optional[builtins.str]:
-        '''(deprecated) The property describes a creating time of the migration project.
-
-        :deprecated: this property has been deprecated
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectcreationtime
-        :stability: deprecated
-        '''
-        result = self._values.get("migration_project_creation_time")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def migration_project_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier of the migration project.
-
-        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectidentifier
-        '''
-        result = self._values.get("migration_project_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def migration_project_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the migration project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectname
-        '''
-        result = self._values.get("migration_project_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def schema_conversion_application_attributes(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]]:
-        '''The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-schemaconversionapplicationattributes
-        '''
-        result = self._values.get("schema_conversion_application_attributes")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]], result)
-
-    @builtins.property
-    def source_data_provider_descriptors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
-        '''Information about the source data provider, including the name or ARN, and AWS Secrets Manager parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-sourcedataproviderdescriptors
-        '''
-        result = self._values.get("source_data_provider_descriptors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_data_provider_descriptors(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
-        '''Information about the target data provider, including the name or ARN, and AWS Secrets Manager parameters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-targetdataproviderdescriptors
-        '''
-        result = self._values.get("target_data_provider_descriptors")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]], result)
-
-    @builtins.property
-    def transformation_rules(self) -> typing.Optional[builtins.str]:
-        '''The settings in JSON format for migration rules.
-
-        Migration rules make it possible for you to change the object names according to the rules that you specify. For example, you can change an object name to lowercase or uppercase, add or remove a prefix or suffix, or rename objects.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-transformationrules
-        '''
-        result = self._values.get("transformation_rules")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnMigrationProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationConfigProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "compute_config": "computeConfig",
-        "replication_config_identifier": "replicationConfigIdentifier",
-        "replication_type": "replicationType",
-        "source_endpoint_arn": "sourceEndpointArn",
-        "table_mappings": "tableMappings",
-        "target_endpoint_arn": "targetEndpointArn",
-        "replication_settings": "replicationSettings",
-        "resource_identifier": "resourceIdentifier",
-        "supplemental_settings": "supplementalSettings",
-        "tags": "tags",
-    },
-)
-class CfnReplicationConfigProps:
-    def __init__(
-        self,
-        *,
-        compute_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnReplicationConfig.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-        replication_config_identifier: builtins.str,
-        replication_type: builtins.str,
-        source_endpoint_arn: builtins.str,
-        table_mappings: typing.Any,
-        target_endpoint_arn: builtins.str,
-        replication_settings: typing.Any = None,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        supplemental_settings: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicationConfig``.
-
-        :param compute_config: Configuration parameters for provisioning an AWS DMS Serverless replication.
-        :param replication_config_identifier: A unique identifier that you want to use to create a ``ReplicationConfigArn`` that is returned as part of the output from this action. You can then pass this output ``ReplicationConfigArn`` as the value of the ``ReplicationConfigArn`` option for other actions to identify both AWS DMS Serverless replications and replication configurations that you want those actions to operate on. For some actions, you can also use either this unique identifier or a corresponding ARN in action filters to identify the specific replication and replication configuration to operate on.
-        :param replication_type: The type of AWS DMS Serverless replication to provision using this replication configuration. Possible values: - ``"full-load"`` - ``"cdc"`` - ``"full-load-and-cdc"``
-        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this AWS DMS Serverless replication configuration.
-        :param table_mappings: JSON table mappings for AWS DMS Serverless replications that are provisioned using this replication configuration. For more information, see `Specifying table selection and transformations rules using JSON <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.SelectionTransformation.html>`_ .
-        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this AWS DMS serverless replication configuration.
-        :param replication_settings: Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration. For example, see `Change processing tuning settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.ChangeProcessingTuning.html>`_ .
-        :param resource_identifier: Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource. For more information, see `Fine-grained access control using resource names and tags <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#CHAP_Security.FineGrainedAccess>`_ .
-        :param supplemental_settings: Optional JSON settings for specifying supplemental data. For more information, see `Specifying supplemental data for task settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ .
-        :param tags: One or more optional tags associated with resources used by the AWS DMS Serverless replication. For more information, see `Tagging resources in AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            # replication_settings: Any
-            # supplemental_settings: Any
-            # table_mappings: Any
-            
-            cfn_replication_config_props = dms.CfnReplicationConfigProps(
-                compute_config=dms.CfnReplicationConfig.ComputeConfigProperty(
-                    max_capacity_units=123,
-            
-                    # the properties below are optional
-                    availability_zone="availabilityZone",
-                    dns_name_servers="dnsNameServers",
-                    kms_key_id="kmsKeyId",
-                    min_capacity_units=123,
-                    multi_az=False,
-                    preferred_maintenance_window="preferredMaintenanceWindow",
-                    replication_subnet_group_id="replicationSubnetGroupId",
-                    vpc_security_group_ids=["vpcSecurityGroupIds"]
-                ),
-                replication_config_identifier="replicationConfigIdentifier",
-                replication_type="replicationType",
-                source_endpoint_arn="sourceEndpointArn",
-                table_mappings=table_mappings,
-                target_endpoint_arn="targetEndpointArn",
-            
-                # the properties below are optional
-                replication_settings=replication_settings,
-                resource_identifier="resourceIdentifier",
-                supplemental_settings=supplemental_settings,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae045521aeb34847358ce5837e2233ae9d158bb9756b046af6dbf7b3db07a492)
-            check_type(argname="argument compute_config", value=compute_config, expected_type=type_hints["compute_config"])
-            check_type(argname="argument replication_config_identifier", value=replication_config_identifier, expected_type=type_hints["replication_config_identifier"])
-            check_type(argname="argument replication_type", value=replication_type, expected_type=type_hints["replication_type"])
-            check_type(argname="argument source_endpoint_arn", value=source_endpoint_arn, expected_type=type_hints["source_endpoint_arn"])
-            check_type(argname="argument table_mappings", value=table_mappings, expected_type=type_hints["table_mappings"])
-            check_type(argname="argument target_endpoint_arn", value=target_endpoint_arn, expected_type=type_hints["target_endpoint_arn"])
-            check_type(argname="argument replication_settings", value=replication_settings, expected_type=type_hints["replication_settings"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument supplemental_settings", value=supplemental_settings, expected_type=type_hints["supplemental_settings"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "compute_config": compute_config,
-            "replication_config_identifier": replication_config_identifier,
-            "replication_type": replication_type,
-            "source_endpoint_arn": source_endpoint_arn,
-            "table_mappings": table_mappings,
-            "target_endpoint_arn": target_endpoint_arn,
-        }
-        if replication_settings is not None:
-            self._values["replication_settings"] = replication_settings
-        if resource_identifier is not None:
-            self._values["resource_identifier"] = resource_identifier
-        if supplemental_settings is not None:
-            self._values["supplemental_settings"] = supplemental_settings
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def compute_config(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnReplicationConfig.ComputeConfigProperty"]:
-        '''Configuration parameters for provisioning an AWS DMS Serverless replication.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-computeconfig
-        '''
-        result = self._values.get("compute_config")
-        assert result is not None, "Required property 'compute_config' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnReplicationConfig.ComputeConfigProperty"], result)
-
-    @builtins.property
-    def replication_config_identifier(self) -> builtins.str:
-        '''A unique identifier that you want to use to create a ``ReplicationConfigArn`` that is returned as part of the output from this action.
-
-        You can then pass this output ``ReplicationConfigArn`` as the value of the ``ReplicationConfigArn`` option for other actions to identify both AWS DMS Serverless replications and replication configurations that you want those actions to operate on. For some actions, you can also use either this unique identifier or a corresponding ARN in action filters to identify the specific replication and replication configuration to operate on.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationconfigidentifier
-        '''
-        result = self._values.get("replication_config_identifier")
-        assert result is not None, "Required property 'replication_config_identifier' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replication_type(self) -> builtins.str:
-        '''The type of AWS DMS Serverless replication to provision using this replication configuration.
-
-        Possible values:
-
-        - ``"full-load"``
-        - ``"cdc"``
-        - ``"full-load-and-cdc"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationtype
-        '''
-        result = self._values.get("replication_type")
-        assert result is not None, "Required property 'replication_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_endpoint_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the source endpoint for this AWS DMS Serverless replication configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-sourceendpointarn
-        '''
-        result = self._values.get("source_endpoint_arn")
-        assert result is not None, "Required property 'source_endpoint_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_mappings(self) -> typing.Any:
-        '''JSON table mappings for AWS DMS Serverless replications that are provisioned using this replication configuration.
-
-        For more information, see `Specifying table selection and transformations rules using JSON <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.SelectionTransformation.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-tablemappings
-        '''
-        result = self._values.get("table_mappings")
-        assert result is not None, "Required property 'table_mappings' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def target_endpoint_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the target endpoint for this AWS DMS serverless replication configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-targetendpointarn
-        '''
-        result = self._values.get("target_endpoint_arn")
-        assert result is not None, "Required property 'target_endpoint_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replication_settings(self) -> typing.Any:
-        '''Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration.
-
-        For example, see `Change processing tuning settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.ChangeProcessingTuning.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationsettings
-        '''
-        result = self._values.get("replication_settings")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource.
-
-        For more information, see `Fine-grained access control using resource names and tags <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#CHAP_Security.FineGrainedAccess>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def supplemental_settings(self) -> typing.Any:
-        '''Optional JSON settings for specifying supplemental data.
-
-        For more information, see `Specifying supplemental data for task settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-supplementalsettings
-        '''
-        result = self._values.get("supplemental_settings")
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more optional tags associated with resources used by the AWS DMS Serverless replication.
-
-        For more information, see `Tagging resources in AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tagging.html>`_ .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicationConfigProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationInstanceProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "replication_instance_class": "replicationInstanceClass",
-        "allocated_storage": "allocatedStorage",
-        "allow_major_version_upgrade": "allowMajorVersionUpgrade",
-        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
-        "availability_zone": "availabilityZone",
-        "dns_name_servers": "dnsNameServers",
-        "engine_version": "engineVersion",
-        "kms_key_id": "kmsKeyId",
-        "multi_az": "multiAz",
-        "network_type": "networkType",
-        "preferred_maintenance_window": "preferredMaintenanceWindow",
-        "publicly_accessible": "publiclyAccessible",
-        "replication_instance_identifier": "replicationInstanceIdentifier",
-        "replication_subnet_group_identifier": "replicationSubnetGroupIdentifier",
-        "resource_identifier": "resourceIdentifier",
-        "tags": "tags",
-        "vpc_security_group_ids": "vpcSecurityGroupIds",
-    },
-)
-class CfnReplicationInstanceProps:
-    def __init__(
-        self,
-        *,
-        replication_instance_class: builtins.str,
-        allocated_storage: typing.Optional[jsii.Number] = None,
-        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        availability_zone: typing.Optional[builtins.str] = None,
-        dns_name_servers: typing.Optional[builtins.str] = None,
-        engine_version: typing.Optional[builtins.str] = None,
-        kms_key_id: typing.Optional[builtins.str] = None,
-        multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        network_type: typing.Optional[builtins.str] = None,
-        preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        replication_instance_identifier: typing.Optional[builtins.str] = None,
-        replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicationInstance``.
-
-        :param replication_instance_class: The compute and memory capacity of the replication instance as defined for the specified replication instance class. For example, to specify the instance class dms.c4.large, set this parameter to ``"dms.c4.large"`` . For more information on the settings and capacities for the available replication instance classes, see `Selecting the right AWS DMS replication instance for your migration <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.html#CHAP_ReplicationInstance.InDepth>`_ in the *AWS Database Migration Service User Guide* .
-        :param allocated_storage: The amount of storage (in gigabytes) to be initially allocated for the replication instance.
-        :param allow_major_version_upgrade: Indicates that major version upgrades are allowed. Changing this parameter does not result in an outage, and the change is asynchronously applied as soon as possible. This parameter must be set to ``true`` when specifying a value for the ``EngineVersion`` parameter that is a different major version than the replication instance's current version.
-        :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window. This parameter defaults to ``true`` . Default: ``true``
-        :param availability_zone: The Availability Zone that the replication instance will be created in. The default value is a random, system-chosen Availability Zone in the endpoint's AWS Region , for example ``us-east-1d`` .
-        :param dns_name_servers: A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database. This list overrides the default name servers supported by the replication instance. You can specify a comma-separated list of internet addresses for up to four on-premise DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
-        :param engine_version: The engine version number of the replication instance. If an engine version number is not specified when a replication instance is created, the default is the latest engine version available.
-        :param kms_key_id: An AWS KMS key identifier that is used to encrypt the data on the replication instance. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-        :param multi_az: Specifies whether the replication instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the Multi-AZ parameter is set to ``true`` .
-        :param network_type: The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing. IPv6 only is not yet supported.
-        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in UTC. *Format* : ``ddd:hh24:mi-ddd:hh24:mi`` *Default* : A 30-minute window selected at random from an 8-hour block of time per AWS Region , occurring on a random day of the week. *Valid days* ( ``ddd`` ): ``Mon`` | ``Tue`` | ``Wed`` | ``Thu`` | ``Fri`` | ``Sat`` | ``Sun`` *Constraints* : Minimum 30-minute window.
-        :param publicly_accessible: Specifies the accessibility options for the replication instance. A value of ``true`` represents an instance with a public IP address. A value of ``false`` represents an instance with a private IP address. The default value is ``true`` .
-        :param replication_instance_identifier: The replication instance identifier. This parameter is stored as a lowercase string. Constraints: - Must contain 1-63 alphanumeric characters or hyphens. - First character must be a letter. - Can't end with a hyphen or contain two consecutive hyphens. Example: ``myrepinstance``
-        :param replication_subnet_group_identifier: A subnet group to associate with the replication instance.
-        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-        :param tags: One or more tags to be assigned to the replication instance.
-        :param vpc_security_group_ids: Specifies the virtual private cloud (VPC) security group to be used with the replication instance. The VPC security group must work with the VPC containing the replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_replication_instance_props = dms.CfnReplicationInstanceProps(
-                replication_instance_class="replicationInstanceClass",
-            
-                # the properties below are optional
-                allocated_storage=123,
-                allow_major_version_upgrade=False,
-                auto_minor_version_upgrade=False,
-                availability_zone="availabilityZone",
-                dns_name_servers="dnsNameServers",
-                engine_version="engineVersion",
-                kms_key_id="kmsKeyId",
-                multi_az=False,
-                network_type="networkType",
-                preferred_maintenance_window="preferredMaintenanceWindow",
-                publicly_accessible=False,
-                replication_instance_identifier="replicationInstanceIdentifier",
-                replication_subnet_group_identifier="replicationSubnetGroupIdentifier",
-                resource_identifier="resourceIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_security_group_ids=["vpcSecurityGroupIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c195b8dd61348ff1d9f7bd70b0a5b897ad23028c6c9ea122bf051cb2a4cec2c7)
-            check_type(argname="argument replication_instance_class", value=replication_instance_class, expected_type=type_hints["replication_instance_class"])
-            check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
-            check_type(argname="argument allow_major_version_upgrade", value=allow_major_version_upgrade, expected_type=type_hints["allow_major_version_upgrade"])
-            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
-            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
-            check_type(argname="argument dns_name_servers", value=dns_name_servers, expected_type=type_hints["dns_name_servers"])
-            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
-            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
-            check_type(argname="argument multi_az", value=multi_az, expected_type=type_hints["multi_az"])
-            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
-            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
-            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
-            check_type(argname="argument replication_instance_identifier", value=replication_instance_identifier, expected_type=type_hints["replication_instance_identifier"])
-            check_type(argname="argument replication_subnet_group_identifier", value=replication_subnet_group_identifier, expected_type=type_hints["replication_subnet_group_identifier"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_instance_class": replication_instance_class,
-        }
-        if allocated_storage is not None:
-            self._values["allocated_storage"] = allocated_storage
-        if allow_major_version_upgrade is not None:
-            self._values["allow_major_version_upgrade"] = allow_major_version_upgrade
-        if auto_minor_version_upgrade is not None:
-            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
-        if availability_zone is not None:
-            self._values["availability_zone"] = availability_zone
-        if dns_name_servers is not None:
-            self._values["dns_name_servers"] = dns_name_servers
-        if engine_version is not None:
-            self._values["engine_version"] = engine_version
-        if kms_key_id is not None:
-            self._values["kms_key_id"] = kms_key_id
-        if multi_az is not None:
-            self._values["multi_az"] = multi_az
-        if network_type is not None:
-            self._values["network_type"] = network_type
-        if preferred_maintenance_window is not None:
-            self._values["preferred_maintenance_window"] = preferred_maintenance_window
-        if publicly_accessible is not None:
-            self._values["publicly_accessible"] = publicly_accessible
-        if replication_instance_identifier is not None:
-            self._values["replication_instance_identifier"] = replication_instance_identifier
-        if replication_subnet_group_identifier is not None:
-            self._values["replication_subnet_group_identifier"] = replication_subnet_group_identifier
-        if resource_identifier is not None:
-            self._values["resource_identifier"] = resource_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_security_group_ids is not None:
-            self._values["vpc_security_group_ids"] = vpc_security_group_ids
-
-    @builtins.property
-    def replication_instance_class(self) -> builtins.str:
-        '''The compute and memory capacity of the replication instance as defined for the specified replication instance class.
-
-        For example, to specify the instance class dms.c4.large, set this parameter to ``"dms.c4.large"`` . For more information on the settings and capacities for the available replication instance classes, see `Selecting the right AWS DMS replication instance for your migration <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.html#CHAP_ReplicationInstance.InDepth>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationinstanceclass
-        '''
-        result = self._values.get("replication_instance_class")
-        assert result is not None, "Required property 'replication_instance_class' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allocated_storage(self) -> typing.Optional[jsii.Number]:
-        '''The amount of storage (in gigabytes) to be initially allocated for the replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-allocatedstorage
-        '''
-        result = self._values.get("allocated_storage")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def allow_major_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates that major version upgrades are allowed.
-
-        Changing this parameter does not result in an outage, and the change is asynchronously applied as soon as possible.
-
-        This parameter must be set to ``true`` when specifying a value for the ``EngineVersion`` parameter that is a different major version than the replication instance's current version.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-allowmajorversionupgrade
-        '''
-        result = self._values.get("allow_major_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def auto_minor_version_upgrade(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window.
-
-        This parameter defaults to ``true`` .
-
-        Default: ``true``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-autominorversionupgrade
-        '''
-        result = self._values.get("auto_minor_version_upgrade")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''The Availability Zone that the replication instance will be created in.
-
-        The default value is a random, system-chosen Availability Zone in the endpoint's AWS Region , for example ``us-east-1d`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-availabilityzone
-        '''
-        result = self._values.get("availability_zone")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def dns_name_servers(self) -> typing.Optional[builtins.str]:
-        '''A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database.
-
-        This list overrides the default name servers supported by the replication instance. You can specify a comma-separated list of internet addresses for up to four on-premise DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-dnsnameservers
-        '''
-        result = self._values.get("dns_name_servers")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def engine_version(self) -> typing.Optional[builtins.str]:
-        '''The engine version number of the replication instance.
-
-        If an engine version number is not specified when a replication instance is created, the default is the latest engine version available.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-engineversion
-        '''
-        result = self._values.get("engine_version")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''An AWS KMS key identifier that is used to encrypt the data on the replication instance.
-
-        If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key.
-
-        AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-kmskeyid
-        '''
-        result = self._values.get("kms_key_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def multi_az(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether the replication instance is a Multi-AZ deployment.
-
-        You can't set the ``AvailabilityZone`` parameter if the Multi-AZ parameter is set to ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-multiaz
-        '''
-        result = self._values.get("multi_az")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def network_type(self) -> typing.Optional[builtins.str]:
-        '''The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
-
-        IPv6 only is not yet supported.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-networktype
-        '''
-        result = self._values.get("network_type")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''The weekly time range during which system maintenance can occur, in UTC.
-
-        *Format* : ``ddd:hh24:mi-ddd:hh24:mi``
-
-        *Default* : A 30-minute window selected at random from an 8-hour block of time per AWS Region , occurring on a random day of the week.
-
-        *Valid days* ( ``ddd`` ): ``Mon`` | ``Tue`` | ``Wed`` | ``Thu`` | ``Fri`` | ``Sat`` | ``Sun``
-
-        *Constraints* : Minimum 30-minute window.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-preferredmaintenancewindow
-        '''
-        result = self._values.get("preferred_maintenance_window")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def publicly_accessible(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies the accessibility options for the replication instance.
-
-        A value of ``true`` represents an instance with a public IP address. A value of ``false`` represents an instance with a private IP address. The default value is ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-publiclyaccessible
-        '''
-        result = self._values.get("publicly_accessible")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def replication_instance_identifier(self) -> typing.Optional[builtins.str]:
-        '''The replication instance identifier. This parameter is stored as a lowercase string.
-
-        Constraints:
-
-        - Must contain 1-63 alphanumeric characters or hyphens.
-        - First character must be a letter.
-        - Can't end with a hyphen or contain two consecutive hyphens.
-
-        Example: ``myrepinstance``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationinstanceidentifier
-        '''
-        result = self._values.get("replication_instance_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication_subnet_group_identifier(self) -> typing.Optional[builtins.str]:
-        '''A subnet group to associate with the replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationsubnetgroupidentifier
-        '''
-        result = self._values.get("replication_subnet_group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
-
-        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags to be assigned to the replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Specifies the virtual private cloud (VPC) security group to be used with the replication instance.
-
-        The VPC security group must work with the VPC containing the replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-vpcsecuritygroupids
-        '''
-        result = self._values.get("vpc_security_group_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicationInstanceProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationSubnetGroupProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "replication_subnet_group_description": "replicationSubnetGroupDescription",
-        "subnet_ids": "subnetIds",
-        "replication_subnet_group_identifier": "replicationSubnetGroupIdentifier",
-        "tags": "tags",
-    },
-)
-class CfnReplicationSubnetGroupProps:
-    def __init__(
-        self,
-        *,
-        replication_subnet_group_description: builtins.str,
-        subnet_ids: typing.Sequence[builtins.str],
-        replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicationSubnetGroup``.
-
-        :param replication_subnet_group_description: The description for the subnet group.
-        :param subnet_ids: One or more subnet IDs to be assigned to the subnet group.
-        :param replication_subnet_group_identifier: The identifier for the replication subnet group. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the identifier.
-        :param tags: One or more tags to be assigned to the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_replication_subnet_group_props = dms.CfnReplicationSubnetGroupProps(
-                replication_subnet_group_description="replicationSubnetGroupDescription",
-                subnet_ids=["subnetIds"],
-            
-                # the properties below are optional
-                replication_subnet_group_identifier="replicationSubnetGroupIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3aafd89e16d92c494e27cd4b858bfa30a53c5b4c3ca60c15a5f73d6512b8612)
-            check_type(argname="argument replication_subnet_group_description", value=replication_subnet_group_description, expected_type=type_hints["replication_subnet_group_description"])
-            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-            check_type(argname="argument replication_subnet_group_identifier", value=replication_subnet_group_identifier, expected_type=type_hints["replication_subnet_group_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_subnet_group_description": replication_subnet_group_description,
-            "subnet_ids": subnet_ids,
-        }
-        if replication_subnet_group_identifier is not None:
-            self._values["replication_subnet_group_identifier"] = replication_subnet_group_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def replication_subnet_group_description(self) -> builtins.str:
-        '''The description for the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-replicationsubnetgroupdescription
-        '''
-        result = self._values.get("replication_subnet_group_description")
-        assert result is not None, "Required property 'replication_subnet_group_description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def subnet_ids(self) -> typing.List[builtins.str]:
-        '''One or more subnet IDs to be assigned to the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-subnetids
-        '''
-        result = self._values.get("subnet_ids")
-        assert result is not None, "Required property 'subnet_ids' is missing"
-        return typing.cast(typing.List[builtins.str], result)
-
-    @builtins.property
-    def replication_subnet_group_identifier(self) -> typing.Optional[builtins.str]:
-        '''The identifier for the replication subnet group.
-
-        If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the identifier.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-replicationsubnetgroupidentifier
-        '''
-        result = self._values.get("replication_subnet_group_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags to be assigned to the subnet group.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicationSubnetGroupProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationTaskProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "migration_type": "migrationType",
-        "replication_instance_arn": "replicationInstanceArn",
-        "source_endpoint_arn": "sourceEndpointArn",
-        "table_mappings": "tableMappings",
-        "target_endpoint_arn": "targetEndpointArn",
-        "cdc_start_position": "cdcStartPosition",
-        "cdc_start_time": "cdcStartTime",
-        "cdc_stop_position": "cdcStopPosition",
-        "replication_task_identifier": "replicationTaskIdentifier",
-        "replication_task_settings": "replicationTaskSettings",
-        "resource_identifier": "resourceIdentifier",
-        "tags": "tags",
-        "task_data": "taskData",
-    },
-)
-class CfnReplicationTaskProps:
-    def __init__(
-        self,
-        *,
-        migration_type: builtins.str,
-        replication_instance_arn: builtins.str,
-        source_endpoint_arn: builtins.str,
-        table_mappings: builtins.str,
-        target_endpoint_arn: builtins.str,
-        cdc_start_position: typing.Optional[builtins.str] = None,
-        cdc_start_time: typing.Optional[jsii.Number] = None,
-        cdc_stop_position: typing.Optional[builtins.str] = None,
-        replication_task_identifier: typing.Optional[builtins.str] = None,
-        replication_task_settings: typing.Optional[builtins.str] = None,
-        resource_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        task_data: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnReplicationTask``.
-
-        :param migration_type: The migration type. Valid values: ``full-load`` | ``cdc`` | ``full-load-and-cdc``
-        :param replication_instance_arn: The Amazon Resource Name (ARN) of a replication instance.
-        :param source_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the source endpoint.
-        :param table_mappings: The table mappings for the task, in JSON format. For more information, see `Using Table Mapping to Specify Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.html>`_ in the *AWS Database Migration Service User Guide* .
-        :param target_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the target endpoint.
-        :param cdc_start_position: Indicates when you want a change data capture (CDC) operation to start. Use either ``CdcStartPosition`` or ``CdcStartTime`` to specify when you want a CDC operation to start. Specifying both values results in an error. The value can be in date, checkpoint, log sequence number (LSN), or system change number (SCN) format. Here is a date example: ``--cdc-start-position "2018-03-08T12:12:12"`` Here is a checkpoint example: ``--cdc-start-position "checkpoint:V1#27#mysql-bin-changelog.157832:1975:-1:2002:677883278264080:mysql-bin-changelog.157832:1876#0#0#*#0#93"`` Here is an LSN example: ``--cdc-start-position “mysql-bin-changelog.000024:373”`` .. epigraph:: When you use this task setting with a source PostgreSQL database, a logical replication slot should already be created and associated with the source endpoint. You can verify this by setting the ``slotName`` extra connection attribute to the name of this logical replication slot. For more information, see `Extra Connection Attributes When Using PostgreSQL as a Source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-        :param cdc_start_time: Indicates the start time for a change data capture (CDC) operation.
-        :param cdc_stop_position: Indicates when you want a change data capture (CDC) operation to stop. The value can be either server time or commit time. Here is a server time example: ``--cdc-stop-position "server_time:2018-02-09T12:12:12"`` Here is a commit time example: ``--cdc-stop-position "commit_time: 2018-02-09T12:12:12"``
-        :param replication_task_identifier: An identifier for the replication task. Constraints: - Must contain 1-255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
-        :param replication_task_settings: Overall settings for the task, in JSON format. For more information, see `Specifying Task Settings for AWS Database Migration Service Tasks <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.html>`_ in the *AWS Database Migration Service User Guide* .
-        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-        :param tags: One or more tags to be assigned to the replication task.
-        :param task_data: Supplemental information that the task requires to migrate the data for certain source and target endpoints. For more information, see `Specifying Supplemental Data for Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ in the *AWS Database Migration Service User Guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            cfn_replication_task_props = dms.CfnReplicationTaskProps(
-                migration_type="migrationType",
-                replication_instance_arn="replicationInstanceArn",
-                source_endpoint_arn="sourceEndpointArn",
-                table_mappings="tableMappings",
-                target_endpoint_arn="targetEndpointArn",
-            
-                # the properties below are optional
-                cdc_start_position="cdcStartPosition",
-                cdc_start_time=123,
-                cdc_stop_position="cdcStopPosition",
-                replication_task_identifier="replicationTaskIdentifier",
-                replication_task_settings="replicationTaskSettings",
-                resource_identifier="resourceIdentifier",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                task_data="taskData"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4920f44d880c720b2c02a65d1faf8192932fd28814ace33c249f86ca2fdfed8d)
-            check_type(argname="argument migration_type", value=migration_type, expected_type=type_hints["migration_type"])
-            check_type(argname="argument replication_instance_arn", value=replication_instance_arn, expected_type=type_hints["replication_instance_arn"])
-            check_type(argname="argument source_endpoint_arn", value=source_endpoint_arn, expected_type=type_hints["source_endpoint_arn"])
-            check_type(argname="argument table_mappings", value=table_mappings, expected_type=type_hints["table_mappings"])
-            check_type(argname="argument target_endpoint_arn", value=target_endpoint_arn, expected_type=type_hints["target_endpoint_arn"])
-            check_type(argname="argument cdc_start_position", value=cdc_start_position, expected_type=type_hints["cdc_start_position"])
-            check_type(argname="argument cdc_start_time", value=cdc_start_time, expected_type=type_hints["cdc_start_time"])
-            check_type(argname="argument cdc_stop_position", value=cdc_stop_position, expected_type=type_hints["cdc_stop_position"])
-            check_type(argname="argument replication_task_identifier", value=replication_task_identifier, expected_type=type_hints["replication_task_identifier"])
-            check_type(argname="argument replication_task_settings", value=replication_task_settings, expected_type=type_hints["replication_task_settings"])
-            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument task_data", value=task_data, expected_type=type_hints["task_data"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "migration_type": migration_type,
-            "replication_instance_arn": replication_instance_arn,
-            "source_endpoint_arn": source_endpoint_arn,
-            "table_mappings": table_mappings,
-            "target_endpoint_arn": target_endpoint_arn,
-        }
-        if cdc_start_position is not None:
-            self._values["cdc_start_position"] = cdc_start_position
-        if cdc_start_time is not None:
-            self._values["cdc_start_time"] = cdc_start_time
-        if cdc_stop_position is not None:
-            self._values["cdc_stop_position"] = cdc_stop_position
-        if replication_task_identifier is not None:
-            self._values["replication_task_identifier"] = replication_task_identifier
-        if replication_task_settings is not None:
-            self._values["replication_task_settings"] = replication_task_settings
-        if resource_identifier is not None:
-            self._values["resource_identifier"] = resource_identifier
-        if tags is not None:
-            self._values["tags"] = tags
-        if task_data is not None:
-            self._values["task_data"] = task_data
-
-    @builtins.property
-    def migration_type(self) -> builtins.str:
-        '''The migration type.
-
-        Valid values: ``full-load`` | ``cdc`` | ``full-load-and-cdc``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-migrationtype
-        '''
-        result = self._values.get("migration_type")
-        assert result is not None, "Required property 'migration_type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def replication_instance_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of a replication instance.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationinstancearn
-        '''
-        result = self._values.get("replication_instance_arn")
-        assert result is not None, "Required property 'replication_instance_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def source_endpoint_arn(self) -> builtins.str:
-        '''An Amazon Resource Name (ARN) that uniquely identifies the source endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-sourceendpointarn
-        '''
-        result = self._values.get("source_endpoint_arn")
-        assert result is not None, "Required property 'source_endpoint_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def table_mappings(self) -> builtins.str:
-        '''The table mappings for the task, in JSON format.
-
-        For more information, see `Using Table Mapping to Specify Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.html>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-tablemappings
-        '''
-        result = self._values.get("table_mappings")
-        assert result is not None, "Required property 'table_mappings' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def target_endpoint_arn(self) -> builtins.str:
-        '''An Amazon Resource Name (ARN) that uniquely identifies the target endpoint.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-targetendpointarn
-        '''
-        result = self._values.get("target_endpoint_arn")
-        assert result is not None, "Required property 'target_endpoint_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def cdc_start_position(self) -> typing.Optional[builtins.str]:
-        '''Indicates when you want a change data capture (CDC) operation to start.
-
-        Use either ``CdcStartPosition`` or ``CdcStartTime`` to specify when you want a CDC operation to start. Specifying both values results in an error.
-
-        The value can be in date, checkpoint, log sequence number (LSN), or system change number (SCN) format.
-
-        Here is a date example: ``--cdc-start-position "2018-03-08T12:12:12"``
-
-        Here is a checkpoint example: ``--cdc-start-position "checkpoint:V1#27#mysql-bin-changelog.157832:1975:-1:2002:677883278264080:mysql-bin-changelog.157832:1876#0#0#*#0#93"``
-
-        Here is an LSN example: ``--cdc-start-position “mysql-bin-changelog.000024:373”``
-        .. epigraph::
-
-           When you use this task setting with a source PostgreSQL database, a logical replication slot should already be created and associated with the source endpoint. You can verify this by setting the ``slotName`` extra connection attribute to the name of this logical replication slot. For more information, see `Extra Connection Attributes When Using PostgreSQL as a Source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstartposition
-        '''
-        result = self._values.get("cdc_start_position")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def cdc_start_time(self) -> typing.Optional[jsii.Number]:
-        '''Indicates the start time for a change data capture (CDC) operation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstarttime
-        '''
-        result = self._values.get("cdc_start_time")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def cdc_stop_position(self) -> typing.Optional[builtins.str]:
-        '''Indicates when you want a change data capture (CDC) operation to stop.
-
-        The value can be either server time or commit time.
-
-        Here is a server time example: ``--cdc-stop-position "server_time:2018-02-09T12:12:12"``
-
-        Here is a commit time example: ``--cdc-stop-position "commit_time: 2018-02-09T12:12:12"``
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstopposition
-        '''
-        result = self._values.get("cdc_stop_position")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication_task_identifier(self) -> typing.Optional[builtins.str]:
-        '''An identifier for the replication task.
-
-        Constraints:
-
-        - Must contain 1-255 alphanumeric characters or hyphens.
-        - First character must be a letter.
-        - Cannot end with a hyphen or contain two consecutive hyphens.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationtaskidentifier
-        '''
-        result = self._values.get("replication_task_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def replication_task_settings(self) -> typing.Optional[builtins.str]:
-        '''Overall settings for the task, in JSON format.
-
-        For more information, see `Specifying Task Settings for AWS Database Migration Service Tasks <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.html>`_ in the *AWS Database Migration Service User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationtasksettings
-        '''
-        result = self._values.get("replication_task_settings")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def resource_identifier(self) -> typing.Optional[builtins.str]:
-        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
-
-        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` .
-
-        For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-resourceidentifier
-        '''
-        result = self._values.get("resource_identifier")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''One or more tags to be assigned to the replication task.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def task_data(self) -> typing.Optional[builtins.str]:
-        '''Supplemental information that the task requires to migrate the data for certain source and target endpoints.
-
-        For more information, see `Specifying Supplemental Data for Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ in the *AWS Database Migration Service User Guide.*
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-taskdata
-        '''
-        result = self._values.get("task_data")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnReplicationTaskProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.DataMigrationReference",
-    jsii_struct_bases=[],
-    name_mapping={"data_migration_arn": "dataMigrationArn"},
-)
-class DataMigrationReference:
-    def __init__(self, *, data_migration_arn: builtins.str) -> None:
-        '''A reference to a DataMigration resource.
-
-        :param data_migration_arn: The DataMigrationArn of the DataMigration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            data_migration_reference = dms.DataMigrationReference(
-                data_migration_arn="dataMigrationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3231d48ec10be5ed4f13552ea230ffedcbfeb60245c7967f422f75319b192a09)
-            check_type(argname="argument data_migration_arn", value=data_migration_arn, expected_type=type_hints["data_migration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_migration_arn": data_migration_arn,
-        }
-
-    @builtins.property
-    def data_migration_arn(self) -> builtins.str:
-        '''The DataMigrationArn of the DataMigration resource.'''
-        result = self._values.get("data_migration_arn")
-        assert result is not None, "Required property 'data_migration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataMigrationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.DataProviderReference",
-    jsii_struct_bases=[],
-    name_mapping={"data_provider_arn": "dataProviderArn"},
-)
-class DataProviderReference:
-    def __init__(self, *, data_provider_arn: builtins.str) -> None:
-        '''A reference to a DataProvider resource.
-
-        :param data_provider_arn: The DataProviderArn of the DataProvider resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            data_provider_reference = dms.DataProviderReference(
-                data_provider_arn="dataProviderArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6954afc0036e6255386267c5bf38b541300908053167d63a1bb8a495100c710f)
-            check_type(argname="argument data_provider_arn", value=data_provider_arn, expected_type=type_hints["data_provider_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "data_provider_arn": data_provider_arn,
-        }
-
-    @builtins.property
-    def data_provider_arn(self) -> builtins.str:
-        '''The DataProviderArn of the DataProvider resource.'''
-        result = self._values.get("data_provider_arn")
-        assert result is not None, "Required property 'data_provider_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DataProviderReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.EndpointReference",
-    jsii_struct_bases=[],
-    name_mapping={"endpoint_id": "endpointId"},
-)
-class EndpointReference:
-    def __init__(self, *, endpoint_id: builtins.str) -> None:
-        '''A reference to a Endpoint resource.
-
-        :param endpoint_id: The Id of the Endpoint resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            endpoint_reference = dms.EndpointReference(
-                endpoint_id="endpointId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e69c76840aaab71ba3e902a98512f6b601e9ca70d3e343c75be75973f99bf29b)
-            check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "endpoint_id": endpoint_id,
-        }
-
-    @builtins.property
-    def endpoint_id(self) -> builtins.str:
-        '''The Id of the Endpoint resource.'''
-        result = self._values.get("endpoint_id")
-        assert result is not None, "Required property 'endpoint_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EndpointReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.EventSubscriptionReference",
-    jsii_struct_bases=[],
-    name_mapping={"event_subscription_id": "eventSubscriptionId"},
-)
-class EventSubscriptionReference:
-    def __init__(self, *, event_subscription_id: builtins.str) -> None:
-        '''A reference to a EventSubscription resource.
-
-        :param event_subscription_id: The Id of the EventSubscription resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            event_subscription_reference = dms.EventSubscriptionReference(
-                event_subscription_id="eventSubscriptionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfeecc930b861a7e100f0d5a85d05b36ed777db807c8b589c912be97ea597414)
-            check_type(argname="argument event_subscription_id", value=event_subscription_id, expected_type=type_hints["event_subscription_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "event_subscription_id": event_subscription_id,
-        }
-
-    @builtins.property
-    def event_subscription_id(self) -> builtins.str:
-        '''The Id of the EventSubscription resource.'''
-        result = self._values.get("event_subscription_id")
-        assert result is not None, "Required property 'event_subscription_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventSubscriptionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.ICertificateRef")
-class ICertificateRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Certificate.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
-        '''(experimental) A reference to a Certificate resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICertificateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Certificate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.ICertificateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
-        '''(experimental) A reference to a Certificate resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICertificateRef).__jsii_proxy_class__ = lambda : _ICertificateRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IDataMigrationRef")
-class IDataMigrationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DataMigration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="dataMigrationRef")
-    def data_migration_ref(self) -> DataMigrationReference:
-        '''(experimental) A reference to a DataMigration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDataMigrationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataMigration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IDataMigrationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="dataMigrationRef")
-    def data_migration_ref(self) -> DataMigrationReference:
-        '''(experimental) A reference to a DataMigration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DataMigrationReference, jsii.get(self, "dataMigrationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDataMigrationRef).__jsii_proxy_class__ = lambda : _IDataMigrationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IDataProviderRef")
-class IDataProviderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DataProvider.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="dataProviderRef")
-    def data_provider_ref(self) -> DataProviderReference:
-        '''(experimental) A reference to a DataProvider resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDataProviderRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DataProvider.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IDataProviderRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="dataProviderRef")
-    def data_provider_ref(self) -> DataProviderReference:
-        '''(experimental) A reference to a DataProvider resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DataProviderReference, jsii.get(self, "dataProviderRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDataProviderRef).__jsii_proxy_class__ = lambda : _IDataProviderRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IEndpointRef")
-class IEndpointRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointRef")
-    def endpoint_ref(self) -> EndpointReference:
-        '''(experimental) A reference to a Endpoint resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEndpointRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Endpoint.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IEndpointRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="endpointRef")
-    def endpoint_ref(self) -> EndpointReference:
-        '''(experimental) A reference to a Endpoint resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEndpointRef).__jsii_proxy_class__ = lambda : _IEndpointRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IEventSubscriptionRef")
-class IEventSubscriptionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
-        '''(experimental) A reference to a EventSubscription resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventSubscriptionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventSubscription.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IEventSubscriptionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
-        '''(experimental) A reference to a EventSubscription resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventSubscriptionRef).__jsii_proxy_class__ = lambda : _IEventSubscriptionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IInstanceProfileRef")
-class IInstanceProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInstanceProfileRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IInstanceProfileRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InstanceProfileReference", jsii.get(self, "instanceProfileRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _IInstanceProfileRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IMigrationProjectRef")
-class IMigrationProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a MigrationProject.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="migrationProjectRef")
-    def migration_project_ref(self) -> "MigrationProjectReference":
-        '''(experimental) A reference to a MigrationProject resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IMigrationProjectRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a MigrationProject.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IMigrationProjectRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="migrationProjectRef")
-    def migration_project_ref(self) -> "MigrationProjectReference":
-        '''(experimental) A reference to a MigrationProject resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("MigrationProjectReference", jsii.get(self, "migrationProjectRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IMigrationProjectRef).__jsii_proxy_class__ = lambda : _IMigrationProjectRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IReplicationConfigRef")
-class IReplicationConfigRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationConfig.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationConfigRef")
-    def replication_config_ref(self) -> "ReplicationConfigReference":
-        '''(experimental) A reference to a ReplicationConfig resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReplicationConfigRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationConfig.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IReplicationConfigRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationConfigRef")
-    def replication_config_ref(self) -> "ReplicationConfigReference":
-        '''(experimental) A reference to a ReplicationConfig resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReplicationConfigReference", jsii.get(self, "replicationConfigRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReplicationConfigRef).__jsii_proxy_class__ = lambda : _IReplicationConfigRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IReplicationInstanceRef")
-class IReplicationInstanceRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationInstance.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationInstanceRef")
-    def replication_instance_ref(self) -> "ReplicationInstanceReference":
-        '''(experimental) A reference to a ReplicationInstance resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReplicationInstanceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationInstance.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IReplicationInstanceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationInstanceRef")
-    def replication_instance_ref(self) -> "ReplicationInstanceReference":
-        '''(experimental) A reference to a ReplicationInstance resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReplicationInstanceReference", jsii.get(self, "replicationInstanceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReplicationInstanceRef).__jsii_proxy_class__ = lambda : _IReplicationInstanceRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IReplicationSubnetGroupRef")
-class IReplicationSubnetGroupRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationSubnetGroup.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationSubnetGroupRef")
-    def replication_subnet_group_ref(self) -> "ReplicationSubnetGroupReference":
-        '''(experimental) A reference to a ReplicationSubnetGroup resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReplicationSubnetGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationSubnetGroup.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IReplicationSubnetGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationSubnetGroupRef")
-    def replication_subnet_group_ref(self) -> "ReplicationSubnetGroupReference":
-        '''(experimental) A reference to a ReplicationSubnetGroup resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReplicationSubnetGroupReference", jsii.get(self, "replicationSubnetGroupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReplicationSubnetGroupRef).__jsii_proxy_class__ = lambda : _IReplicationSubnetGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_dms.IReplicationTaskRef")
-class IReplicationTaskRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationTask.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationTaskRef")
-    def replication_task_ref(self) -> "ReplicationTaskReference":
-        '''(experimental) A reference to a ReplicationTask resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IReplicationTaskRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ReplicationTask.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dms.IReplicationTaskRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="replicationTaskRef")
-    def replication_task_ref(self) -> "ReplicationTaskReference":
-        '''(experimental) A reference to a ReplicationTask resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ReplicationTaskReference", jsii.get(self, "replicationTaskRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IReplicationTaskRef).__jsii_proxy_class__ = lambda : _IReplicationTaskRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.InstanceProfileReference",
-    jsii_struct_bases=[],
-    name_mapping={"instance_profile_arn": "instanceProfileArn"},
-)
-class InstanceProfileReference:
-    def __init__(self, *, instance_profile_arn: builtins.str) -> None:
-        '''A reference to a InstanceProfile resource.
-
-        :param instance_profile_arn: The InstanceProfileArn of the InstanceProfile resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            instance_profile_reference = dms.InstanceProfileReference(
-                instance_profile_arn="instanceProfileArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a75aefe39e08b0f00bca4ee0a8f6172f5c829ed7f9cf040b778d6fcd2769e12)
-            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_profile_arn": instance_profile_arn,
-        }
-
-    @builtins.property
-    def instance_profile_arn(self) -> builtins.str:
-        '''The InstanceProfileArn of the InstanceProfile resource.'''
-        result = self._values.get("instance_profile_arn")
-        assert result is not None, "Required property 'instance_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InstanceProfileReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.MigrationProjectReference",
-    jsii_struct_bases=[],
-    name_mapping={"migration_project_arn": "migrationProjectArn"},
-)
-class MigrationProjectReference:
-    def __init__(self, *, migration_project_arn: builtins.str) -> None:
-        '''A reference to a MigrationProject resource.
-
-        :param migration_project_arn: The MigrationProjectArn of the MigrationProject resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            migration_project_reference = dms.MigrationProjectReference(
-                migration_project_arn="migrationProjectArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d7937cdf3dd9b6c5bb09761fa215dd04c8d44c453bbb5f90fd192ab11df36198)
-            check_type(argname="argument migration_project_arn", value=migration_project_arn, expected_type=type_hints["migration_project_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "migration_project_arn": migration_project_arn,
-        }
-
-    @builtins.property
-    def migration_project_arn(self) -> builtins.str:
-        '''The MigrationProjectArn of the MigrationProject resource.'''
-        result = self._values.get("migration_project_arn")
-        assert result is not None, "Required property 'migration_project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "MigrationProjectReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.ReplicationConfigReference",
-    jsii_struct_bases=[],
-    name_mapping={"replication_config_arn": "replicationConfigArn"},
-)
-class ReplicationConfigReference:
-    def __init__(self, *, replication_config_arn: builtins.str) -> None:
-        '''A reference to a ReplicationConfig resource.
-
-        :param replication_config_arn: The ReplicationConfigArn of the ReplicationConfig resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            replication_config_reference = dms.ReplicationConfigReference(
-                replication_config_arn="replicationConfigArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5dfdac76a9153c5dc719497eff797c75d3c4b38779b5e90dca7ee1d1fc86eeb7)
-            check_type(argname="argument replication_config_arn", value=replication_config_arn, expected_type=type_hints["replication_config_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_config_arn": replication_config_arn,
-        }
-
-    @builtins.property
-    def replication_config_arn(self) -> builtins.str:
-        '''The ReplicationConfigArn of the ReplicationConfig resource.'''
-        result = self._values.get("replication_config_arn")
-        assert result is not None, "Required property 'replication_config_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicationConfigReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.ReplicationInstanceReference",
-    jsii_struct_bases=[],
-    name_mapping={"replication_instance_id": "replicationInstanceId"},
-)
-class ReplicationInstanceReference:
-    def __init__(self, *, replication_instance_id: builtins.str) -> None:
-        '''A reference to a ReplicationInstance resource.
-
-        :param replication_instance_id: The Id of the ReplicationInstance resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            replication_instance_reference = dms.ReplicationInstanceReference(
-                replication_instance_id="replicationInstanceId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0e850430b860f0815676f975a93a31f99fd7c56c9865d29d6be6265df118216b)
-            check_type(argname="argument replication_instance_id", value=replication_instance_id, expected_type=type_hints["replication_instance_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_instance_id": replication_instance_id,
-        }
-
-    @builtins.property
-    def replication_instance_id(self) -> builtins.str:
-        '''The Id of the ReplicationInstance resource.'''
-        result = self._values.get("replication_instance_id")
-        assert result is not None, "Required property 'replication_instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicationInstanceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.ReplicationSubnetGroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"replication_subnet_group_id": "replicationSubnetGroupId"},
-)
-class ReplicationSubnetGroupReference:
-    def __init__(self, *, replication_subnet_group_id: builtins.str) -> None:
-        '''A reference to a ReplicationSubnetGroup resource.
-
-        :param replication_subnet_group_id: The Id of the ReplicationSubnetGroup resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            replication_subnet_group_reference = dms.ReplicationSubnetGroupReference(
-                replication_subnet_group_id="replicationSubnetGroupId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97c9793edf152afadc2dc7093dea714326d4b6e4f7421a419ba91e96b033eacf)
-            check_type(argname="argument replication_subnet_group_id", value=replication_subnet_group_id, expected_type=type_hints["replication_subnet_group_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_subnet_group_id": replication_subnet_group_id,
-        }
-
-    @builtins.property
-    def replication_subnet_group_id(self) -> builtins.str:
-        '''The Id of the ReplicationSubnetGroup resource.'''
-        result = self._values.get("replication_subnet_group_id")
-        assert result is not None, "Required property 'replication_subnet_group_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicationSubnetGroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_dms.ReplicationTaskReference",
-    jsii_struct_bases=[],
-    name_mapping={"replication_task_id": "replicationTaskId"},
-)
-class ReplicationTaskReference:
-    def __init__(self, *, replication_task_id: builtins.str) -> None:
-        '''A reference to a ReplicationTask resource.
-
-        :param replication_task_id: The Id of the ReplicationTask resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_dms as dms
-            
-            replication_task_reference = dms.ReplicationTaskReference(
-                replication_task_id="replicationTaskId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20133d00038dbda06444efbda4923411e530e79b3ec86ff7c33404335710a132)
-            check_type(argname="argument replication_task_id", value=replication_task_id, expected_type=type_hints["replication_task_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "replication_task_id": replication_task_id,
-        }
-
-    @builtins.property
-    def replication_task_id(self) -> builtins.str:
-        '''The Id of the ReplicationTask resource.'''
-        result = self._values.get("replication_task_id")
-        assert result is not None, "Required property 'replication_task_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ReplicationTaskReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ICertificateRef)
-class CfnCertificate(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_dms.CfnCertificate",
-):
-    '''The ``AWS::DMS::Certificate`` resource creates an Secure Sockets Layer (SSL) certificate that encrypts connections between AWS DMS endpoints and the replication instance.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-certificate.html
-    :cloudformationResource: AWS::DMS::Certificate
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_dms as dms
-        
-        cfn_certificate = dms.CfnCertificate(self, "MyCfnCertificate",
-            certificate_identifier="certificateIdentifier",
-            certificate_pem="certificatePem",
-            certificate_wallet="certificateWallet"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        certificate_identifier: typing.Optional[builtins.str] = None,
-        certificate_pem: typing.Optional[builtins.str] = None,
-        certificate_wallet: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param certificate_identifier: A customer-assigned name for the certificate. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen or contain two consecutive hyphens.
-        :param certificate_pem: The contents of a ``.pem`` file, which contains an X.509 certificate.
-        :param certificate_wallet: The location of an imported Oracle Wallet certificate for use with SSL. An example is: ``filebase64("${path.root}/rds-ca-2019-root.sso")``
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7c4a44b8a3c02f3f6ada86310479fa26dc0b32d4fba95316eb3faa446936347)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCertificateProps(
-            certificate_identifier=certificate_identifier,
-            certificate_pem=certificate_pem,
-            certificate_wallet=certificate_wallet,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ec185f31d9affa5fa834d99f40ff8a27fcf34f84f01e6395782727e60768851f)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__156b71bbee83d022775901dd6edb948295c746f554fa1406537af9a5b4771300)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateRef")
-    def certificate_ref(self) -> CertificateReference:
-        '''A reference to a Certificate resource.'''
-        return typing.cast(CertificateReference, jsii.get(self, "certificateRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateIdentifier")
-    def certificate_identifier(self) -> typing.Optional[builtins.str]:
-        '''A customer-assigned name for the certificate.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateIdentifier"))
-
-    @certificate_identifier.setter
-    def certificate_identifier(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f62a480b92e0600c6f9c24ec065961ca68c8267f28552593ff2bd04d1a6071d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateIdentifier", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificatePem")
-    def certificate_pem(self) -> typing.Optional[builtins.str]:
-        '''The contents of a ``.pem`` file, which contains an X.509 certificate.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificatePem"))
-
-    @certificate_pem.setter
-    def certificate_pem(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__313faf62724606e0e1418e631be23b5d6929e5f5b5dc81d9efcf33f65b18ee6f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificatePem", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateWallet")
-    def certificate_wallet(self) -> typing.Optional[builtins.str]:
-        '''The location of an imported Oracle Wallet certificate for use with SSL.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateWallet"))
-
-    @certificate_wallet.setter
-    def certificate_wallet(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d761187c2ccc6e6454d7cb505d195a8e53d4bc1a28c7f3f46d3c576a1fb0671)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateWallet", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IDataMigrationRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _IDataMigrationRef_bc862062, _ITaggableV2_4e6798f8)
 class CfnDataMigration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4342,6 +389,7 @@ class CfnDataMigration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -4374,7 +422,7 @@ class CfnDataMigration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         data_migration_type: builtins.str,
@@ -4382,11 +430,12 @@ class CfnDataMigration(
         service_access_role_arn: builtins.str,
         data_migration_identifier: typing.Optional[builtins.str] = None,
         data_migration_name: typing.Optional[builtins.str] = None,
-        data_migration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataMigration.DataMigrationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_data_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataMigration.SourceDataSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        data_migration_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataMigration.DataMigrationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_data_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataMigration.SourceDataSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::DataMigration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_migration_type: Specifies whether the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
@@ -4415,8 +464,34 @@ class CfnDataMigration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDataMigration")
+    @builtins.classmethod
+    def arn_for_data_migration(
+        cls,
+        resource: "_IDataMigrationRef_bc862062",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1481a7eabb0cb35a8c2460d0e2166bd3b023395fd96d56f5cea081a1fe0e68f9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataMigration", [resource]))
+
+    @jsii.member(jsii_name="isCfnDataMigration")
+    @builtins.classmethod
+    def is_cfn_data_migration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataMigration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4cc2fa4931db13a7f74e1aa2e9c403cab49521d03789989c6ab30dff8cf5ef4d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataMigration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4465,9 +540,9 @@ class CfnDataMigration(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4476,9 +551,9 @@ class CfnDataMigration(
 
     @builtins.property
     @jsii.member(jsii_name="dataMigrationRef")
-    def data_migration_ref(self) -> DataMigrationReference:
+    def data_migration_ref(self) -> "_DataMigrationReference_edcb340f":
         '''A reference to a DataMigration resource.'''
-        return typing.cast(DataMigrationReference, jsii.get(self, "dataMigrationRef"))
+        return typing.cast("_DataMigrationReference_edcb340f", jsii.get(self, "dataMigrationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="dataMigrationType")
@@ -4549,14 +624,14 @@ class CfnDataMigration(
     @jsii.member(jsii_name="dataMigrationSettings")
     def data_migration_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.DataMigrationSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.DataMigrationSettingsProperty"]]:
         '''Specifies CloudWatch settings and selection rules for the data migration.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.DataMigrationSettingsProperty"]], jsii.get(self, "dataMigrationSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.DataMigrationSettingsProperty"]], jsii.get(self, "dataMigrationSettings"))
 
     @data_migration_settings.setter
     def data_migration_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.DataMigrationSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.DataMigrationSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8963c8356a27c7982ca33e6c61a728ed5628c22df8d37124d8007103f7a2e57f)
@@ -4567,14 +642,14 @@ class CfnDataMigration(
     @jsii.member(jsii_name="sourceDataSettings")
     def source_data_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.SourceDataSettingsProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.SourceDataSettingsProperty"]]]]:
         '''Specifies information about the data migration's source data provider.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.SourceDataSettingsProperty"]]]], jsii.get(self, "sourceDataSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.SourceDataSettingsProperty"]]]], jsii.get(self, "sourceDataSettings"))
 
     @source_data_settings.setter
     def source_data_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDataMigration.SourceDataSettingsProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.SourceDataSettingsProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8edddc5cd2d125d456740b8fb13a6358f11fe2a40c4307f5c82a16f3ccf8a0b7)
@@ -4583,12 +658,12 @@ class CfnDataMigration(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0950ec3898888a28762ad7e52f4cb398a8e6388944b4239f9863d6eb7a1dfbfb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -4607,7 +682,7 @@ class CfnDataMigration(
         def __init__(
             self,
             *,
-            cloudwatch_logs_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            cloudwatch_logs_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             number_of_jobs: typing.Optional[jsii.Number] = None,
             selection_rules: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -4648,13 +723,13 @@ class CfnDataMigration(
         @builtins.property
         def cloudwatch_logs_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Whether to enable CloudWatch logging for the data migration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-datamigration-datamigrationsettings.html#cfn-dms-datamigration-datamigrationsettings-cloudwatchlogsenabled
             '''
             result = self._values.get("cloudwatch_logs_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def number_of_jobs(self) -> typing.Optional[jsii.Number]:
@@ -4794,7 +869,199 @@ class CfnDataMigration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IDataProviderRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnDataMigrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "data_migration_type": "dataMigrationType",
+        "migration_project_identifier": "migrationProjectIdentifier",
+        "service_access_role_arn": "serviceAccessRoleArn",
+        "data_migration_identifier": "dataMigrationIdentifier",
+        "data_migration_name": "dataMigrationName",
+        "data_migration_settings": "dataMigrationSettings",
+        "source_data_settings": "sourceDataSettings",
+        "tags": "tags",
+    },
+)
+class CfnDataMigrationProps:
+    def __init__(
+        self,
+        *,
+        data_migration_type: builtins.str,
+        migration_project_identifier: builtins.str,
+        service_access_role_arn: builtins.str,
+        data_migration_identifier: typing.Optional[builtins.str] = None,
+        data_migration_name: typing.Optional[builtins.str] = None,
+        data_migration_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataMigration.DataMigrationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_data_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataMigration.SourceDataSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataMigration``.
+
+        :param data_migration_type: Specifies whether the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
+        :param migration_project_identifier: The property describes an identifier for the migration project. It is used for describing/deleting/modifying can be name/arn
+        :param service_access_role_arn: The IAM role that the data migration uses to access AWS resources.
+        :param data_migration_identifier: The property describes an ARN of the data migration.
+        :param data_migration_name: The user-friendly name for the data migration.
+        :param data_migration_settings: Specifies CloudWatch settings and selection rules for the data migration.
+        :param source_data_settings: Specifies information about the data migration's source data provider.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_data_migration_props = dms.CfnDataMigrationProps(
+                data_migration_type="dataMigrationType",
+                migration_project_identifier="migrationProjectIdentifier",
+                service_access_role_arn="serviceAccessRoleArn",
+            
+                # the properties below are optional
+                data_migration_identifier="dataMigrationIdentifier",
+                data_migration_name="dataMigrationName",
+                data_migration_settings=dms.CfnDataMigration.DataMigrationSettingsProperty(
+                    cloudwatch_logs_enabled=False,
+                    number_of_jobs=123,
+                    selection_rules="selectionRules"
+                ),
+                source_data_settings=[dms.CfnDataMigration.SourceDataSettingsProperty(
+                    cdc_start_position="cdcStartPosition",
+                    cdc_start_time="cdcStartTime",
+                    cdc_stop_time="cdcStopTime",
+                    slot_name="slotName"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce4f0495b1cbb322717399394700fafde1a57462a5e81a17f37360ae322c2f0b)
+            check_type(argname="argument data_migration_type", value=data_migration_type, expected_type=type_hints["data_migration_type"])
+            check_type(argname="argument migration_project_identifier", value=migration_project_identifier, expected_type=type_hints["migration_project_identifier"])
+            check_type(argname="argument service_access_role_arn", value=service_access_role_arn, expected_type=type_hints["service_access_role_arn"])
+            check_type(argname="argument data_migration_identifier", value=data_migration_identifier, expected_type=type_hints["data_migration_identifier"])
+            check_type(argname="argument data_migration_name", value=data_migration_name, expected_type=type_hints["data_migration_name"])
+            check_type(argname="argument data_migration_settings", value=data_migration_settings, expected_type=type_hints["data_migration_settings"])
+            check_type(argname="argument source_data_settings", value=source_data_settings, expected_type=type_hints["source_data_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "data_migration_type": data_migration_type,
+            "migration_project_identifier": migration_project_identifier,
+            "service_access_role_arn": service_access_role_arn,
+        }
+        if data_migration_identifier is not None:
+            self._values["data_migration_identifier"] = data_migration_identifier
+        if data_migration_name is not None:
+            self._values["data_migration_name"] = data_migration_name
+        if data_migration_settings is not None:
+            self._values["data_migration_settings"] = data_migration_settings
+        if source_data_settings is not None:
+            self._values["source_data_settings"] = source_data_settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def data_migration_type(self) -> builtins.str:
+        '''Specifies whether the data migration is full-load only, change data capture (CDC) only, or full-load and CDC.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationtype
+        '''
+        result = self._values.get("data_migration_type")
+        assert result is not None, "Required property 'data_migration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def migration_project_identifier(self) -> builtins.str:
+        '''The property describes an identifier for the migration project.
+
+        It is used for describing/deleting/modifying can be name/arn
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-migrationprojectidentifier
+        '''
+        result = self._values.get("migration_project_identifier")
+        assert result is not None, "Required property 'migration_project_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service_access_role_arn(self) -> builtins.str:
+        '''The IAM role that the data migration uses to access AWS resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-serviceaccessrolearn
+        '''
+        result = self._values.get("service_access_role_arn")
+        assert result is not None, "Required property 'service_access_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_migration_identifier(self) -> typing.Optional[builtins.str]:
+        '''The property describes an ARN of the data migration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationidentifier
+        '''
+        result = self._values.get("data_migration_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_migration_name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name for the data migration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationname
+        '''
+        result = self._values.get("data_migration_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_migration_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.DataMigrationSettingsProperty"]]:
+        '''Specifies CloudWatch settings and selection rules for the data migration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-datamigrationsettings
+        '''
+        result = self._values.get("data_migration_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.DataMigrationSettingsProperty"]], result)
+
+    @builtins.property
+    def source_data_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.SourceDataSettingsProperty"]]]]:
+        '''Specifies information about the data migration's source data provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-sourcedatasettings
+        '''
+        result = self._values.get("source_data_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDataMigration.SourceDataSettingsProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-datamigration.html#cfn-dms-datamigration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataMigrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDataProviderRef_5ca5bf2b, _ITaggableV2_4e6798f8)
 class CfnDataProvider(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4808,6 +1075,7 @@ class CfnDataProvider(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -4912,6 +1180,16 @@ class CfnDataProvider(
                     database_name="databaseName",
                     port=123,
                     server_name="serverName"
+                ),
+                sybase_ase_settings=dms.CfnDataProvider.SybaseAseSettingsProperty(
+                    port=123,
+                    server_name="serverName",
+                    ssl_mode="sslMode",
+        
+                    # the properties below are optional
+                    certificate_arn="certificateArn",
+                    database_name="databaseName",
+                    encrypt_password=False
                 )
             ),
             tags=[CfnTag(
@@ -4923,21 +1201,22 @@ class CfnDataProvider(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         engine: builtins.str,
         data_provider_identifier: typing.Optional[builtins.str] = None,
         data_provider_name: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
-        exact_settings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        exact_settings: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::DataProvider``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param engine: The type of database engine for the data provider. Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` and ``docdb`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
+        :param engine: The type of database engine for the data provider. Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` , ``docdb`` , and ``sybase`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
         :param data_provider_identifier: The identifier of the data provider. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
         :param data_provider_name: The name of the data provider.
         :param description: A description of the data provider. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
@@ -4961,8 +1240,34 @@ class CfnDataProvider(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDataProvider")
+    @builtins.classmethod
+    def arn_for_data_provider(
+        cls,
+        resource: "_IDataProviderRef_5ca5bf2b",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__253f79c3455dbb70b109cf4129286b5cc12c3fcbaeb2eb329df3b6595880439e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDataProvider", [resource]))
+
+    @jsii.member(jsii_name="isCfnDataProvider")
+    @builtins.classmethod
+    def is_cfn_data_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDataProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91973b91d6d638a267b45653273b3d5cdab0ef470ed3ef3b3742b2ea5d2744a1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDataProvider", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5011,9 +1316,9 @@ class CfnDataProvider(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5022,9 +1327,9 @@ class CfnDataProvider(
 
     @builtins.property
     @jsii.member(jsii_name="dataProviderRef")
-    def data_provider_ref(self) -> DataProviderReference:
+    def data_provider_ref(self) -> "_DataProviderReference_98a5de02":
         '''A reference to a DataProvider resource.'''
-        return typing.cast(DataProviderReference, jsii.get(self, "dataProviderRef"))
+        return typing.cast("_DataProviderReference_98a5de02", jsii.get(self, "dataProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -5082,14 +1387,14 @@ class CfnDataProvider(
     @jsii.member(jsii_name="exactSettings")
     def exact_settings(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''The property describes the exact settings which can be modified.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "exactSettings"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "exactSettings"))
 
     @exact_settings.setter
     def exact_settings(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f4d016d92a836fecec39275d37ba39e9b434aac43e0b8d6b9a644a15bfff4ef8)
@@ -5100,14 +1405,14 @@ class CfnDataProvider(
     @jsii.member(jsii_name="settings")
     def settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.SettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SettingsProperty"]]:
         '''The settings in JSON format for a data provider.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.SettingsProperty"]], jsii.get(self, "settings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SettingsProperty"]], jsii.get(self, "settings"))
 
     @settings.setter
     def settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.SettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e759668e5454c7b728515ac0c320d568f1fc6f406c7ed4f0c45e830f497f443e)
@@ -5116,12 +1421,12 @@ class CfnDataProvider(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15d6e40a485e85376660625e14969b38fc293c419cb77e7880107c25ae376134)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6454,22 +2759,24 @@ class CfnDataProvider(
             "oracle_settings": "oracleSettings",
             "postgre_sql_settings": "postgreSqlSettings",
             "redshift_settings": "redshiftSettings",
+            "sybase_ase_settings": "sybaseAseSettings",
         },
     )
     class SettingsProperty:
         def __init__(
             self,
             *,
-            doc_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ibm_db2_luw_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.IbmDb2LuwSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            ibm_db2_z_os_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.IbmDb2zOsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            maria_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.MariaDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            microsoft_sql_server_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mongo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDataProvider.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            doc_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ibm_db2_luw_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.IbmDb2LuwSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            ibm_db2_z_os_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.IbmDb2zOsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            maria_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.MariaDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            microsoft_sql_server_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mongo_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            my_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            oracle_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            postgre_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            redshift_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            sybase_ase_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.SybaseAseSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The property identifies the exact type of settings for the data provider.
 
@@ -6483,6 +2790,7 @@ class CfnDataProvider(
             :param oracle_settings: OracleSettings property identifier.
             :param postgre_sql_settings: PostgreSqlSettings property identifier.
             :param redshift_settings: RedshiftSettings property identifier.
+            :param sybase_ase_settings: SybaseAseSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html
             :exampleMetadata: fixture=_generated
@@ -6585,6 +2893,16 @@ class CfnDataProvider(
                         database_name="databaseName",
                         port=123,
                         server_name="serverName"
+                    ),
+                    sybase_ase_settings=dms.CfnDataProvider.SybaseAseSettingsProperty(
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+                
+                        # the properties below are optional
+                        certificate_arn="certificateArn",
+                        database_name="databaseName",
+                        encrypt_password=False
                     )
                 )
             '''
@@ -6600,6 +2918,7 @@ class CfnDataProvider(
                 check_type(argname="argument oracle_settings", value=oracle_settings, expected_type=type_hints["oracle_settings"])
                 check_type(argname="argument postgre_sql_settings", value=postgre_sql_settings, expected_type=type_hints["postgre_sql_settings"])
                 check_type(argname="argument redshift_settings", value=redshift_settings, expected_type=type_hints["redshift_settings"])
+                check_type(argname="argument sybase_ase_settings", value=sybase_ase_settings, expected_type=type_hints["sybase_ase_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if doc_db_settings is not None:
                 self._values["doc_db_settings"] = doc_db_settings
@@ -6621,116 +2940,129 @@ class CfnDataProvider(
                 self._values["postgre_sql_settings"] = postgre_sql_settings
             if redshift_settings is not None:
                 self._values["redshift_settings"] = redshift_settings
+            if sybase_ase_settings is not None:
+                self._values["sybase_ase_settings"] = sybase_ase_settings
 
         @builtins.property
         def doc_db_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.DocDbSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.DocDbSettingsProperty"]]:
             '''DocDbSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-docdbsettings
             '''
             result = self._values.get("doc_db_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.DocDbSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.DocDbSettingsProperty"]], result)
 
         @builtins.property
         def ibm_db2_luw_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.IbmDb2LuwSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.IbmDb2LuwSettingsProperty"]]:
             '''IbmDb2LuwSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-ibmdb2luwsettings
             '''
             result = self._values.get("ibm_db2_luw_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.IbmDb2LuwSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.IbmDb2LuwSettingsProperty"]], result)
 
         @builtins.property
         def ibm_db2_z_os_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.IbmDb2zOsSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.IbmDb2zOsSettingsProperty"]]:
             '''IbmDb2zOsSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-ibmdb2zossettings
             '''
             result = self._values.get("ibm_db2_z_os_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.IbmDb2zOsSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.IbmDb2zOsSettingsProperty"]], result)
 
         @builtins.property
         def maria_db_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MariaDbSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MariaDbSettingsProperty"]]:
             '''MariaDbSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-mariadbsettings
             '''
             result = self._values.get("maria_db_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MariaDbSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MariaDbSettingsProperty"]], result)
 
         @builtins.property
         def microsoft_sql_server_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MicrosoftSqlServerSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MicrosoftSqlServerSettingsProperty"]]:
             '''MicrosoftSqlServerSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-microsoftsqlserversettings
             '''
             result = self._values.get("microsoft_sql_server_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MicrosoftSqlServerSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MicrosoftSqlServerSettingsProperty"]], result)
 
         @builtins.property
         def mongo_db_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MongoDbSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MongoDbSettingsProperty"]]:
             '''MongoDbSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-mongodbsettings
             '''
             result = self._values.get("mongo_db_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MongoDbSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MongoDbSettingsProperty"]], result)
 
         @builtins.property
         def my_sql_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MySqlSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MySqlSettingsProperty"]]:
             '''MySqlSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-mysqlsettings
             '''
             result = self._values.get("my_sql_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.MySqlSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.MySqlSettingsProperty"]], result)
 
         @builtins.property
         def oracle_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.OracleSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.OracleSettingsProperty"]]:
             '''OracleSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-oraclesettings
             '''
             result = self._values.get("oracle_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.OracleSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.OracleSettingsProperty"]], result)
 
         @builtins.property
         def postgre_sql_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.PostgreSqlSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.PostgreSqlSettingsProperty"]]:
             '''PostgreSqlSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-postgresqlsettings
             '''
             result = self._values.get("postgre_sql_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.PostgreSqlSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.PostgreSqlSettingsProperty"]], result)
 
         @builtins.property
         def redshift_settings(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.RedshiftSettingsProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.RedshiftSettingsProperty"]]:
             '''RedshiftSettings property identifier.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-redshiftsettings
             '''
             result = self._values.get("redshift_settings")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDataProvider.RedshiftSettingsProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.RedshiftSettingsProperty"]], result)
+
+        @builtins.property
+        def sybase_ase_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SybaseAseSettingsProperty"]]:
+            '''SybaseAseSettings property identifier.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-settings.html#cfn-dms-dataprovider-settings-sybaseasesettings
+            '''
+            result = self._values.get("sybase_ase_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SybaseAseSettingsProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6743,8 +3075,420 @@ class CfnDataProvider(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dms.CfnDataProvider.SybaseAseSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "port": "port",
+            "server_name": "serverName",
+            "ssl_mode": "sslMode",
+            "certificate_arn": "certificateArn",
+            "database_name": "databaseName",
+            "encrypt_password": "encryptPassword",
+        },
+    )
+    class SybaseAseSettingsProperty:
+        def __init__(
+            self,
+            *,
+            port: jsii.Number,
+            server_name: builtins.str,
+            ssl_mode: builtins.str,
+            certificate_arn: typing.Optional[builtins.str] = None,
+            database_name: typing.Optional[builtins.str] = None,
+            encrypt_password: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''SybaseAseSettings property identifier.
 
-@jsii.implements(_IInspectable_c2943556, IEndpointRef, _ITaggable_36806126)
+            :param port: 
+            :param server_name: 
+            :param ssl_mode: 
+            :param certificate_arn: 
+            :param database_name: 
+            :param encrypt_password: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dms as dms
+                
+                sybase_ase_settings_property = dms.CfnDataProvider.SybaseAseSettingsProperty(
+                    port=123,
+                    server_name="serverName",
+                    ssl_mode="sslMode",
+                
+                    # the properties below are optional
+                    certificate_arn="certificateArn",
+                    database_name="databaseName",
+                    encrypt_password=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a1189866ab1917313cc77a694dcca7b7f4c5b44e965df6b9905d3cf5aa09404e)
+                check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+                check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
+                check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
+                check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+                check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+                check_type(argname="argument encrypt_password", value=encrypt_password, expected_type=type_hints["encrypt_password"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "port": port,
+                "server_name": server_name,
+                "ssl_mode": ssl_mode,
+            }
+            if certificate_arn is not None:
+                self._values["certificate_arn"] = certificate_arn
+            if database_name is not None:
+                self._values["database_name"] = database_name
+            if encrypt_password is not None:
+                self._values["encrypt_password"] = encrypt_password
+
+        @builtins.property
+        def port(self) -> jsii.Number:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-port
+            '''
+            result = self._values.get("port")
+            assert result is not None, "Required property 'port' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def server_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-servername
+            '''
+            result = self._values.get("server_name")
+            assert result is not None, "Required property 'server_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ssl_mode(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-sslmode
+            '''
+            result = self._values.get("ssl_mode")
+            assert result is not None, "Required property 'ssl_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def certificate_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-certificatearn
+            '''
+            result = self._values.get("certificate_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def database_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-databasename
+            '''
+            result = self._values.get("database_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def encrypt_password(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-dataprovider-sybaseasesettings.html#cfn-dms-dataprovider-sybaseasesettings-encryptpassword
+            '''
+            result = self._values.get("encrypt_password")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SybaseAseSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnDataProviderProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "engine": "engine",
+        "data_provider_identifier": "dataProviderIdentifier",
+        "data_provider_name": "dataProviderName",
+        "description": "description",
+        "exact_settings": "exactSettings",
+        "settings": "settings",
+        "tags": "tags",
+    },
+)
+class CfnDataProviderProps:
+    def __init__(
+        self,
+        *,
+        engine: builtins.str,
+        data_provider_identifier: typing.Optional[builtins.str] = None,
+        data_provider_name: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        exact_settings: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDataProvider.SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDataProvider``.
+
+        :param engine: The type of database engine for the data provider. Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` , ``docdb`` , and ``sybase`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
+        :param data_provider_identifier: The identifier of the data provider. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+        :param data_provider_name: The name of the data provider.
+        :param description: A description of the data provider. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
+        :param exact_settings: The property describes the exact settings which can be modified. Default: - false
+        :param settings: The settings in JSON format for a data provider.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_data_provider_props = dms.CfnDataProviderProps(
+                engine="engine",
+            
+                # the properties below are optional
+                data_provider_identifier="dataProviderIdentifier",
+                data_provider_name="dataProviderName",
+                description="description",
+                exact_settings=False,
+                settings=dms.CfnDataProvider.SettingsProperty(
+                    doc_db_settings=dms.CfnDataProvider.DocDbSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn",
+                        ssl_mode="sslMode"
+                    ),
+                    ibm_db2_luw_settings=dms.CfnDataProvider.IbmDb2LuwSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    ibm_db2_zOs_settings=dms.CfnDataProvider.IbmDb2zOsSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    maria_db_settings=dms.CfnDataProvider.MariaDbSettingsProperty(
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    microsoft_sql_server_settings=dms.CfnDataProvider.MicrosoftSqlServerSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    mongo_db_settings=dms.CfnDataProvider.MongoDbSettingsProperty(
+                        port=123,
+                        server_name="serverName",
+            
+                        # the properties below are optional
+                        auth_mechanism="authMechanism",
+                        auth_source="authSource",
+                        auth_type="authType",
+                        certificate_arn="certificateArn",
+                        database_name="databaseName",
+                        ssl_mode="sslMode"
+                    ),
+                    my_sql_settings=dms.CfnDataProvider.MySqlSettingsProperty(
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    oracle_settings=dms.CfnDataProvider.OracleSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        asm_server="asmServer",
+                        certificate_arn="certificateArn",
+                        secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
+                        secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
+                        secrets_manager_security_db_encryption_access_role_arn="secretsManagerSecurityDbEncryptionAccessRoleArn",
+                        secrets_manager_security_db_encryption_secret_id="secretsManagerSecurityDbEncryptionSecretId"
+                    ),
+                    postgre_sql_settings=dms.CfnDataProvider.PostgreSqlSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn"
+                    ),
+                    redshift_settings=dms.CfnDataProvider.RedshiftSettingsProperty(
+                        database_name="databaseName",
+                        port=123,
+                        server_name="serverName"
+                    ),
+                    sybase_ase_settings=dms.CfnDataProvider.SybaseAseSettingsProperty(
+                        port=123,
+                        server_name="serverName",
+                        ssl_mode="sslMode",
+            
+                        # the properties below are optional
+                        certificate_arn="certificateArn",
+                        database_name="databaseName",
+                        encrypt_password=False
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97cc3506a599073ab7e0ec6de0479e22078eea7f9108a8ff9c54e506d212555c)
+            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
+            check_type(argname="argument data_provider_identifier", value=data_provider_identifier, expected_type=type_hints["data_provider_identifier"])
+            check_type(argname="argument data_provider_name", value=data_provider_name, expected_type=type_hints["data_provider_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument exact_settings", value=exact_settings, expected_type=type_hints["exact_settings"])
+            check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "engine": engine,
+        }
+        if data_provider_identifier is not None:
+            self._values["data_provider_identifier"] = data_provider_identifier
+        if data_provider_name is not None:
+            self._values["data_provider_name"] = data_provider_name
+        if description is not None:
+            self._values["description"] = description
+        if exact_settings is not None:
+            self._values["exact_settings"] = exact_settings
+        if settings is not None:
+            self._values["settings"] = settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def engine(self) -> builtins.str:
+        '''The type of database engine for the data provider.
+
+        Valid values include ``"aurora"`` , ``"aurora-postgresql"`` , ``"mysql"`` , ``"oracle"`` , ``"postgres"`` , ``"sqlserver"`` , ``redshift`` , ``mariadb`` , ``mongodb`` , ``db2`` , ``db2-zos`` , ``docdb`` , and ``sybase`` . A value of ``"aurora"`` represents Amazon Aurora MySQL-Compatible Edition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-engine
+        '''
+        result = self._values.get("engine")
+        assert result is not None, "Required property 'engine' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_provider_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the data provider.
+
+        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-dataprovideridentifier
+        '''
+        result = self._values.get("data_provider_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def data_provider_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the data provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-dataprovidername
+        '''
+        result = self._values.get("data_provider_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the data provider.
+
+        Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exact_settings(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''The property describes the exact settings which can be modified.
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-exactsettings
+        '''
+        result = self._values.get("exact_settings")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SettingsProperty"]]:
+        '''The settings in JSON format for a data provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-settings
+        '''
+        result = self._values.get("settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDataProvider.SettingsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-dataprovider.html#cfn-dms-dataprovider-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDataProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEndpointRef_132726f5, _ITaggable_36806126)
 class CfnEndpoint(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -6760,6 +3504,7 @@ class CfnEndpoint(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -7056,42 +3801,43 @@ class CfnEndpoint(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         endpoint_type: builtins.str,
         engine_name: builtins.str,
         certificate_arn: typing.Optional[builtins.str] = None,
         database_name: typing.Optional[builtins.str] = None,
-        doc_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        dynamo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.DynamoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        elasticsearch_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.ElasticsearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        doc_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dynamo_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.DynamoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.ElasticsearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         endpoint_identifier: typing.Optional[builtins.str] = None,
         extra_connection_attributes: typing.Optional[builtins.str] = None,
-        gcp_my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.GcpMySQLSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ibm_db2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.IbmDb2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kafka_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.KafkaSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        kinesis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.KinesisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        gcp_my_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.GcpMySQLSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ibm_db2_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.IbmDb2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kafka_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.KafkaSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.KinesisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        microsoft_sql_server_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        mongo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        neptune_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.NeptuneSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        microsoft_sql_server_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mongo_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        my_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        neptune_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.NeptuneSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        oracle_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         password: typing.Optional[builtins.str] = None,
         port: typing.Optional[jsii.Number] = None,
-        postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.RedisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        postgre_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redis_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RedisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redshift_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         resource_identifier: typing.Optional[builtins.str] = None,
-        s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.S3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        s3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.S3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         server_name: typing.Optional[builtins.str] = None,
         ssl_mode: typing.Optional[builtins.str] = None,
-        sybase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEndpoint.SybaseSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        sybase_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.SybaseSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         username: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::Endpoint``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param endpoint_type: The type of endpoint. Valid values are ``source`` and ``target`` .
@@ -7107,7 +3853,7 @@ class CfnEndpoint(
         :param ibm_db2_settings: Settings in JSON format for the source IBM Db2 LUW endpoint. For information about other available settings, see `Extra connection attributes when using Db2 LUW as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DB2.html#CHAP_Source.DB2.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
         :param kafka_settings: Settings in JSON format for the target Apache Kafka endpoint. For more information about other available settings, see `Using object mapping to migrate data to a Kafka topic <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kafka.html#CHAP_Target.Kafka.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
         :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams. For more information about other available settings, see `Using object mapping to migrate data to a Kinesis data stream <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kinesis.html#CHAP_Target.Kinesis.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
-        :param kms_key_id: An AWS KMS key identifier that is used to encrypt the connection parameters for the endpoint. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+        :param kms_key_id: An AWS key identifier that is used to encrypt the connection parameters for the endpoint. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
         :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server endpoint. For information about other available settings, see `Extra connection attributes when using SQL Server as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SQLServer.html#CHAP_Source.SQLServer.ConnectionAttrib>`_ and `Extra connection attributes when using SQL Server as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SQLServer.html#CHAP_Target.SQLServer.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
         :param mongo_db_settings: Settings in JSON format for the source MongoDB endpoint. For more information about the available settings, see `Using MongoDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MongoDB.html#CHAP_Source.MongoDB.Configuration>`_ in the *AWS Database Migration Service User Guide* .
         :param my_sql_settings: Settings in JSON format for the source and target MySQL endpoint. For information about other available settings, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ and `Extra connection attributes when using a MySQL-compatible database as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.MySQL.html#CHAP_Target.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
@@ -7166,8 +3912,52 @@ class CfnEndpoint(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEndpoint")
+    @builtins.classmethod
+    def arn_for_endpoint(cls, resource: "_IEndpointRef_132726f5") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7761f93304ac33cd495a90c1f5a99370e3abac6729cef125359cded810a0032d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEndpoint", [resource]))
+
+    @jsii.member(jsii_name="fromEndpointId")
+    @builtins.classmethod
+    def from_endpoint_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        endpoint_id: builtins.str,
+    ) -> "_IEndpointRef_132726f5":
+        '''Creates a new IEndpointRef from a endpointId.
+
+        :param scope: -
+        :param id: -
+        :param endpoint_id: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc7544659847cebf1010859beefe92e136eed06aeede14a54bb30e07bc5741a0)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument endpoint_id", value=endpoint_id, expected_type=type_hints["endpoint_id"])
+        return typing.cast("_IEndpointRef_132726f5", jsii.sinvoke(cls, "fromEndpointId", [scope, id, endpoint_id]))
+
+    @jsii.member(jsii_name="isCfnEndpoint")
+    @builtins.classmethod
+    def is_cfn_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9b8f01fd169db67037ba4274c4a0d2db405c30ba74e92e92d8624e7cafe05da)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEndpoint", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7220,15 +4010,15 @@ class CfnEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="endpointRef")
-    def endpoint_ref(self) -> EndpointReference:
+    def endpoint_ref(self) -> "_EndpointReference_98005b5c":
         '''A reference to a Endpoint resource.'''
-        return typing.cast(EndpointReference, jsii.get(self, "endpointRef"))
+        return typing.cast("_EndpointReference_98005b5c", jsii.get(self, "endpointRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="endpointType")
@@ -7286,14 +4076,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="docDbSettings")
     def doc_db_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DocDbSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DocDbSettingsProperty"]]:
         '''Settings in JSON format for the source and target DocumentDB endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DocDbSettingsProperty"]], jsii.get(self, "docDbSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DocDbSettingsProperty"]], jsii.get(self, "docDbSettings"))
 
     @doc_db_settings.setter
     def doc_db_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DocDbSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DocDbSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__964181ee2a910015024cb3f101a00f9f8185212a583fc0880419c4b8f4665704)
@@ -7304,14 +4094,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="dynamoDbSettings")
     def dynamo_db_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DynamoDbSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DynamoDbSettingsProperty"]]:
         '''Settings in JSON format for the target Amazon DynamoDB endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DynamoDbSettingsProperty"]], jsii.get(self, "dynamoDbSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DynamoDbSettingsProperty"]], jsii.get(self, "dynamoDbSettings"))
 
     @dynamo_db_settings.setter
     def dynamo_db_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.DynamoDbSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DynamoDbSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d1e66bdb10c14f72319011edd2b4677a0c649392f33602507802cb167a5121d5)
@@ -7322,14 +4112,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="elasticsearchSettings")
     def elasticsearch_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ElasticsearchSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ElasticsearchSettingsProperty"]]:
         '''Settings in JSON format for the target OpenSearch endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ElasticsearchSettingsProperty"]], jsii.get(self, "elasticsearchSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ElasticsearchSettingsProperty"]], jsii.get(self, "elasticsearchSettings"))
 
     @elasticsearch_settings.setter
     def elasticsearch_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.ElasticsearchSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ElasticsearchSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7a06f40e1959e428f7f5c27f542081cd85f979ba31209ebc3fe63da010fddb64)
@@ -7366,14 +4156,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="gcpMySqlSettings")
     def gcp_my_sql_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.GcpMySQLSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.GcpMySQLSettingsProperty"]]:
         '''Settings in JSON format for the source GCP MySQL endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.GcpMySQLSettingsProperty"]], jsii.get(self, "gcpMySqlSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.GcpMySQLSettingsProperty"]], jsii.get(self, "gcpMySqlSettings"))
 
     @gcp_my_sql_settings.setter
     def gcp_my_sql_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.GcpMySQLSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.GcpMySQLSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4c3a8d92e577dbc9df7cec45318f33c1e0fcbdf463cc7dfd5569ea58f1d00c06)
@@ -7384,14 +4174,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="ibmDb2Settings")
     def ibm_db2_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.IbmDb2SettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.IbmDb2SettingsProperty"]]:
         '''Settings in JSON format for the source IBM Db2 LUW endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.IbmDb2SettingsProperty"]], jsii.get(self, "ibmDb2Settings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.IbmDb2SettingsProperty"]], jsii.get(self, "ibmDb2Settings"))
 
     @ibm_db2_settings.setter
     def ibm_db2_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.IbmDb2SettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.IbmDb2SettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__44fef44c81ef6b8da87158243f0ccbedc43e7299d8652a35b098afa7a04a61c3)
@@ -7402,14 +4192,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="kafkaSettings")
     def kafka_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KafkaSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KafkaSettingsProperty"]]:
         '''Settings in JSON format for the target Apache Kafka endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KafkaSettingsProperty"]], jsii.get(self, "kafkaSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KafkaSettingsProperty"]], jsii.get(self, "kafkaSettings"))
 
     @kafka_settings.setter
     def kafka_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KafkaSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KafkaSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b7582d27225e5fe52e2294251941bf9c566610655a620a14039a2b6f9e42b21)
@@ -7420,14 +4210,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="kinesisSettings")
     def kinesis_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KinesisSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KinesisSettingsProperty"]]:
         '''Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KinesisSettingsProperty"]], jsii.get(self, "kinesisSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KinesisSettingsProperty"]], jsii.get(self, "kinesisSettings"))
 
     @kinesis_settings.setter
     def kinesis_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.KinesisSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KinesisSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ceccea684f95f5083095044bdbf739f8871dcf9b280587dfc9f741fad0e19969)
@@ -7437,7 +4227,7 @@ class CfnEndpoint(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''An AWS KMS key identifier that is used to encrypt the connection parameters for the endpoint.'''
+        '''An AWS  key identifier that is used to encrypt the connection parameters for the endpoint.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -7451,14 +4241,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="microsoftSqlServerSettings")
     def microsoft_sql_server_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]]:
         '''Settings in JSON format for the source and target Microsoft SQL Server endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]], jsii.get(self, "microsoftSqlServerSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]], jsii.get(self, "microsoftSqlServerSettings"))
 
     @microsoft_sql_server_settings.setter
     def microsoft_sql_server_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0d6650a04db2e7248a94227234af24d3685774adf590b885acf6d9a8e46f33c)
@@ -7469,14 +4259,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="mongoDbSettings")
     def mongo_db_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MongoDbSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MongoDbSettingsProperty"]]:
         '''Settings in JSON format for the source MongoDB endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MongoDbSettingsProperty"]], jsii.get(self, "mongoDbSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MongoDbSettingsProperty"]], jsii.get(self, "mongoDbSettings"))
 
     @mongo_db_settings.setter
     def mongo_db_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MongoDbSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MongoDbSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c34d02d08d15c9c23ee3acd69fc24c805faf00f28977c15fc4904ad2240ff59)
@@ -7487,14 +4277,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="mySqlSettings")
     def my_sql_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MySqlSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MySqlSettingsProperty"]]:
         '''Settings in JSON format for the source and target MySQL endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MySqlSettingsProperty"]], jsii.get(self, "mySqlSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MySqlSettingsProperty"]], jsii.get(self, "mySqlSettings"))
 
     @my_sql_settings.setter
     def my_sql_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.MySqlSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MySqlSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33dc654f9976a21468a898b3a1a83eab0b9827d20b4050ca617ac942a51a2bc3)
@@ -7505,14 +4295,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="neptuneSettings")
     def neptune_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.NeptuneSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.NeptuneSettingsProperty"]]:
         '''Settings in JSON format for the target Amazon Neptune endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.NeptuneSettingsProperty"]], jsii.get(self, "neptuneSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.NeptuneSettingsProperty"]], jsii.get(self, "neptuneSettings"))
 
     @neptune_settings.setter
     def neptune_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.NeptuneSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.NeptuneSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4bf2bf255501ef1ab216d754bda1b21fd5c2d7fa8b9eb7aef6710a3a3486ac0e)
@@ -7523,14 +4313,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="oracleSettings")
     def oracle_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.OracleSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.OracleSettingsProperty"]]:
         '''Settings in JSON format for the source and target Oracle endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.OracleSettingsProperty"]], jsii.get(self, "oracleSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.OracleSettingsProperty"]], jsii.get(self, "oracleSettings"))
 
     @oracle_settings.setter
     def oracle_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.OracleSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.OracleSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6b582a457202f3791a344c9af49ce79ffaf942cd191b44898b2f3c01b25dcc73)
@@ -7567,14 +4357,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="postgreSqlSettings")
     def postgre_sql_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.PostgreSqlSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PostgreSqlSettingsProperty"]]:
         '''Settings in JSON format for the source and target PostgreSQL endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.PostgreSqlSettingsProperty"]], jsii.get(self, "postgreSqlSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PostgreSqlSettingsProperty"]], jsii.get(self, "postgreSqlSettings"))
 
     @postgre_sql_settings.setter
     def postgre_sql_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.PostgreSqlSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PostgreSqlSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ae50808797b6c50dc9996fead375c4ab91f2b93a7e63dfb0f24b0eda9b51f9e)
@@ -7585,14 +4375,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="redisSettings")
     def redis_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedisSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedisSettingsProperty"]]:
         '''Settings in JSON format for the target Redis endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedisSettingsProperty"]], jsii.get(self, "redisSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedisSettingsProperty"]], jsii.get(self, "redisSettings"))
 
     @redis_settings.setter
     def redis_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedisSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedisSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__804bbb4ffca52155c93eb3b6c86a39edc8f1c8e0f7285eed7a57484757768a01)
@@ -7603,14 +4393,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="redshiftSettings")
     def redshift_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedshiftSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedshiftSettingsProperty"]]:
         '''Settings in JSON format for the Amazon Redshift endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedshiftSettingsProperty"]], jsii.get(self, "redshiftSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedshiftSettingsProperty"]], jsii.get(self, "redshiftSettings"))
 
     @redshift_settings.setter
     def redshift_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.RedshiftSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedshiftSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__29371f2c2b4a796793306172c888eba1b4d13b9962006ea4ea55d37fd5168a89)
@@ -7634,14 +4424,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="s3Settings")
     def s3_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.S3SettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.S3SettingsProperty"]]:
         '''Settings in JSON format for the source and target Amazon S3 endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.S3SettingsProperty"]], jsii.get(self, "s3Settings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.S3SettingsProperty"]], jsii.get(self, "s3Settings"))
 
     @s3_settings.setter
     def s3_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.S3SettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.S3SettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__beebfa648d87c594a19d4f5008c375d047ed33feb9cda485735fdfbdf6778832)
@@ -7681,14 +4471,14 @@ class CfnEndpoint(
     @jsii.member(jsii_name="sybaseSettings")
     def sybase_settings(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.SybaseSettingsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SybaseSettingsProperty"]]:
         '''Settings in JSON format for the source and target SAP ASE endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.SybaseSettingsProperty"]], jsii.get(self, "sybaseSettings"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SybaseSettingsProperty"]], jsii.get(self, "sybaseSettings"))
 
     @sybase_settings.setter
     def sybase_settings(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEndpoint.SybaseSettingsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SybaseSettingsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8233892017699d61eafcea4f1e10c7e0569b5267219badd590e4c1371d4b6fad)
@@ -7697,12 +4487,12 @@ class CfnEndpoint(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more tags to be assigned to the endpoint.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b8deb35cf3c053bed3738b0ba1313a78b00c19fe30ee591619e0da0e7a7a4be5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -7737,7 +4527,7 @@ class CfnEndpoint(
             self,
             *,
             docs_to_investigate: typing.Optional[jsii.Number] = None,
-            extract_doc_id: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            extract_doc_id: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             nesting_level: typing.Optional[builtins.str] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
             secrets_manager_secret_id: typing.Optional[builtins.str] = None,
@@ -7804,7 +4594,7 @@ class CfnEndpoint(
         @builtins.property
         def extract_doc_id(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies the document ID. Use this setting when ``NestingLevel`` is set to ``"none"`` .
 
             Default value is ``"false"`` .
@@ -7812,7 +4602,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-docdbsettings.html#cfn-dms-endpoint-docdbsettings-extractdocid
             '''
             result = self._values.get("extract_doc_id")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def nesting_level(self) -> typing.Optional[builtins.str]:
@@ -8057,7 +4847,7 @@ class CfnEndpoint(
             self,
             *,
             after_connect_script: typing.Optional[builtins.str] = None,
-            clean_source_metadata_on_mismatch: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            clean_source_metadata_on_mismatch: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             database_name: typing.Optional[builtins.str] = None,
             events_poll_interval: typing.Optional[jsii.Number] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
@@ -8172,7 +4962,7 @@ class CfnEndpoint(
         @builtins.property
         def clean_source_metadata_on_mismatch(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Adjusts the behavior of AWS DMS when migrating from an SQL Server source database that is hosted as part of an Always On availability group cluster.
 
             If you need AWS DMS to poll all the nodes in the Always On cluster for transaction backups, set this attribute to ``false`` .
@@ -8180,7 +4970,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-gcpmysqlsettings.html#cfn-dms-endpoint-gcpmysqlsettings-cleansourcemetadataonmismatch
             '''
             result = self._values.get("clean_source_metadata_on_mismatch")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def database_name(self) -> typing.Optional[builtins.str]:
@@ -8334,13 +5124,13 @@ class CfnEndpoint(
             self,
             *,
             current_lsn: typing.Optional[builtins.str] = None,
-            keep_csv_files: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            keep_csv_files: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             load_timeout: typing.Optional[jsii.Number] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
             max_k_bytes_per_read: typing.Optional[jsii.Number] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
             secrets_manager_secret_id: typing.Optional[builtins.str] = None,
-            set_data_capture_changes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            set_data_capture_changes: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             write_buffer_size: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Provides information that defines an IBMDB2 endpoint.
@@ -8421,7 +5211,7 @@ class CfnEndpoint(
         @builtins.property
         def keep_csv_files(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If true, AWS DMS saves any .csv files to the Db2 LUW target that were used to replicate data. DMS uses these files for analysis and troubleshooting.
 
             The default value is false.
@@ -8429,7 +5219,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-ibmdb2settings.html#cfn-dms-endpoint-ibmdb2settings-keepcsvfiles
             '''
             result = self._values.get("keep_csv_files")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def load_timeout(self) -> typing.Optional[jsii.Number]:
@@ -8490,7 +5280,7 @@ class CfnEndpoint(
         @builtins.property
         def set_data_capture_changes(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Enables ongoing replication (CDC) as a BOOLEAN value.
 
             The default is true.
@@ -8498,7 +5288,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-ibmdb2settings.html#cfn-dms-endpoint-ibmdb2settings-setdatacapturechanges
             '''
             result = self._values.get("set_data_capture_changes")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def write_buffer_size(self) -> typing.Optional[jsii.Number]:
@@ -8549,15 +5339,15 @@ class CfnEndpoint(
             self,
             *,
             broker: typing.Optional[builtins.str] = None,
-            include_control_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_null_and_empty: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_partition_value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_table_alter_operations: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_transaction_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            include_control_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_null_and_empty: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_partition_value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_table_alter_operations: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_transaction_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             message_format: typing.Optional[builtins.str] = None,
             message_max_bytes: typing.Optional[jsii.Number] = None,
-            no_hex_prefix: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            partition_include_schema_table: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            no_hex_prefix: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            partition_include_schema_table: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             sasl_password: typing.Optional[builtins.str] = None,
             sasl_user_name: typing.Optional[builtins.str] = None,
             security_protocol: typing.Optional[builtins.str] = None,
@@ -8692,7 +5482,7 @@ class CfnEndpoint(
         @builtins.property
         def include_control_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Shows detailed control information for table definition, column definition, and table and column changes in the Kafka message output.
 
             The default is ``false`` .
@@ -8700,12 +5490,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-includecontroldetails
             '''
             result = self._values.get("include_control_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_null_and_empty(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Include NULL and empty columns for records migrated to the endpoint.
 
             The default is ``false`` .
@@ -8713,12 +5503,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-includenullandempty
             '''
             result = self._values.get("include_null_and_empty")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_partition_value(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Shows the partition value within the Kafka message output unless the partition type is ``schema-table-type`` .
 
             The default is ``false`` .
@@ -8726,12 +5516,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-includepartitionvalue
             '''
             result = self._values.get("include_partition_value")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_table_alter_operations(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Includes any data definition language (DDL) operations that change the table in the control data, such as ``rename-table`` , ``drop-table`` , ``add-column`` , ``drop-column`` , and ``rename-column`` .
 
             The default is ``false`` .
@@ -8739,12 +5529,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-includetablealteroperations
             '''
             result = self._values.get("include_table_alter_operations")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_transaction_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Provides detailed transaction information from the source database.
 
             This information includes a commit timestamp, a log position, and values for ``transaction_id`` , previous ``transaction_id`` , and ``transaction_record_id`` (the record offset within a transaction). The default is ``false`` .
@@ -8752,7 +5542,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-includetransactiondetails
             '''
             result = self._values.get("include_transaction_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def message_format(self) -> typing.Optional[builtins.str]:
@@ -8777,7 +5567,7 @@ class CfnEndpoint(
         @builtins.property
         def no_hex_prefix(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this optional parameter to ``true`` to avoid adding a '0x' prefix to raw data in hexadecimal format.
 
             For example, by default, AWS DMS adds a '0x' prefix to the LOB column type in hexadecimal format moving from an Oracle source to a Kafka target. Use the ``NoHexPrefix`` endpoint setting to enable migration of RAW data type columns without adding the '0x' prefix.
@@ -8785,12 +5575,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-nohexprefix
             '''
             result = self._values.get("no_hex_prefix")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def partition_include_schema_table(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Prefixes schema and table names to partition values, when the partition type is ``primary-key-type`` .
 
             Doing this increases data distribution among Kafka partitions. For example, suppose that a SysBench schema has thousands of tables and each table has only limited range for a primary key. In this case, the same primary key is sent from thousands of tables to the same partition, which causes throttling. The default is ``false`` .
@@ -8798,7 +5588,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kafkasettings.html#cfn-dms-endpoint-kafkasettings-partitionincludeschematable
             '''
             result = self._values.get("partition_include_schema_table")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def sasl_password(self) -> typing.Optional[builtins.str]:
@@ -8907,14 +5697,14 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            include_control_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_null_and_empty: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_partition_value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_table_alter_operations: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_transaction_details: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            include_control_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_null_and_empty: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_partition_value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_table_alter_operations: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_transaction_details: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             message_format: typing.Optional[builtins.str] = None,
-            no_hex_prefix: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            partition_include_schema_table: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            no_hex_prefix: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            partition_include_schema_table: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             service_access_role_arn: typing.Optional[builtins.str] = None,
             stream_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -8992,7 +5782,7 @@ class CfnEndpoint(
         @builtins.property
         def include_control_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Shows detailed control information for table definition, column definition, and table and column changes in the Kinesis message output.
 
             The default is ``false`` .
@@ -9000,12 +5790,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-includecontroldetails
             '''
             result = self._values.get("include_control_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_null_and_empty(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Include NULL and empty columns for records migrated to the endpoint.
 
             The default is ``false`` .
@@ -9013,12 +5803,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-includenullandempty
             '''
             result = self._values.get("include_null_and_empty")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_partition_value(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Shows the partition value within the Kinesis message output, unless the partition type is ``schema-table-type`` .
 
             The default is ``false`` .
@@ -9026,12 +5816,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-includepartitionvalue
             '''
             result = self._values.get("include_partition_value")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_table_alter_operations(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Includes any data definition language (DDL) operations that change the table in the control data, such as ``rename-table`` , ``drop-table`` , ``add-column`` , ``drop-column`` , and ``rename-column`` .
 
             The default is ``false`` .
@@ -9039,12 +5829,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-includetablealteroperations
             '''
             result = self._values.get("include_table_alter_operations")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_transaction_details(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Provides detailed transaction information from the source database.
 
             This information includes a commit timestamp, a log position, and values for ``transaction_id`` , previous ``transaction_id`` , and ``transaction_record_id`` (the record offset within a transaction). The default is ``false`` .
@@ -9052,7 +5842,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-includetransactiondetails
             '''
             result = self._values.get("include_transaction_details")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def message_format(self) -> typing.Optional[builtins.str]:
@@ -9068,7 +5858,7 @@ class CfnEndpoint(
         @builtins.property
         def no_hex_prefix(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this optional parameter to ``true`` to avoid adding a '0x' prefix to raw data in hexadecimal format.
 
             For example, by default, AWS DMS adds a '0x' prefix to the LOB column type in hexadecimal format moving from an Oracle source to an Amazon Kinesis target. Use the ``NoHexPrefix`` endpoint setting to enable migration of RAW data type columns without adding the '0x' prefix.
@@ -9076,12 +5866,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-nohexprefix
             '''
             result = self._values.get("no_hex_prefix")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def partition_include_schema_table(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Prefixes schema and table names to partition values, when the partition type is ``primary-key-type`` .
 
             Doing this increases data distribution among Kinesis shards. For example, suppose that a SysBench schema has thousands of tables and each table has only limited range for a primary key. In this case, the same primary key is sent from thousands of tables to the same shard, which causes throttling. The default is ``false`` .
@@ -9089,7 +5879,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-kinesissettings.html#cfn-dms-endpoint-kinesissettings-partitionincludeschematable
             '''
             result = self._values.get("partition_include_schema_table")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def service_access_role_arn(self) -> typing.Optional[builtins.str]:
@@ -9152,20 +5942,20 @@ class CfnEndpoint(
             bcp_packet_size: typing.Optional[jsii.Number] = None,
             control_tables_file_group: typing.Optional[builtins.str] = None,
             database_name: typing.Optional[builtins.str] = None,
-            force_lob_lookup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            force_lob_lookup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             password: typing.Optional[builtins.str] = None,
             port: typing.Optional[jsii.Number] = None,
-            query_single_always_on_node: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            read_backup_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            query_single_always_on_node: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            read_backup_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             safeguard_policy: typing.Optional[builtins.str] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
             secrets_manager_secret_id: typing.Optional[builtins.str] = None,
             server_name: typing.Optional[builtins.str] = None,
             tlog_access_mode: typing.Optional[builtins.str] = None,
-            trim_space_in_char: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            use_bcp_full_load: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            trim_space_in_char: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_bcp_full_load: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             username: typing.Optional[builtins.str] = None,
-            use_third_party_backup_device: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            use_third_party_backup_device: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides information that defines a Microsoft SQL Server endpoint.
 
@@ -9305,13 +6095,13 @@ class CfnEndpoint(
         @builtins.property
         def force_lob_lookup(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Forces LOB lookup on inline LOB.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-forceloblookup
             '''
             result = self._values.get("force_lob_lookup")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def password(self) -> typing.Optional[builtins.str]:
@@ -9334,7 +6124,7 @@ class CfnEndpoint(
         @builtins.property
         def query_single_always_on_node(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Cleans and recreates table metadata information on the replication instance when a mismatch occurs.
 
             An example is a situation where running an alter DDL statement on a table might result in different information about the table cached in the replication instance.
@@ -9342,12 +6132,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-querysinglealwaysonnode
             '''
             result = self._values.get("query_single_always_on_node")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def read_backup_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When this attribute is set to ``Y`` , AWS DMS only reads changes from transaction log backups and doesn't read from the active transaction log file during ongoing replication.
 
             Setting this parameter to ``Y`` enables you to control active transaction log file growth during full load and ongoing replication tasks. However, it can add some source latency to ongoing replication.
@@ -9355,7 +6145,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-readbackuponly
             '''
             result = self._values.get("read_backup_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def safeguard_policy(self) -> typing.Optional[builtins.str]:
@@ -9418,7 +6208,7 @@ class CfnEndpoint(
         @builtins.property
         def trim_space_in_char(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Use the ``TrimSpaceInChar`` source endpoint setting to right-trim data on CHAR and NCHAR data types during migration.
 
             Setting ``TrimSpaceInChar`` does not left-trim data. The default value is ``true`` .
@@ -9426,12 +6216,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-trimspaceinchar
             '''
             result = self._values.get("trim_space_in_char")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_bcp_full_load(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Use this to attribute to transfer data for full-load operations using BCP.
 
             When the target table contains an identity column that does not exist in the source table, you must disable the use BCP for loading table option.
@@ -9439,7 +6229,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-usebcpfullload
             '''
             result = self._values.get("use_bcp_full_load")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def username(self) -> typing.Optional[builtins.str]:
@@ -9453,13 +6243,13 @@ class CfnEndpoint(
         @builtins.property
         def use_third_party_backup_device(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When this attribute is set to ``Y`` , DMS processes third-party transaction log backups if they are created in native format.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-microsoftsqlserversettings.html#cfn-dms-endpoint-microsoftsqlserversettings-usethirdpartybackupdevice
             '''
             result = self._values.get("use_third_party_backup_device")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9764,7 +6554,7 @@ class CfnEndpoint(
             self,
             *,
             after_connect_script: typing.Optional[builtins.str] = None,
-            clean_source_metadata_on_mismatch: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            clean_source_metadata_on_mismatch: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             events_poll_interval: typing.Optional[jsii.Number] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
             parallel_load_threads: typing.Optional[jsii.Number] = None,
@@ -9855,7 +6645,7 @@ class CfnEndpoint(
         @builtins.property
         def clean_source_metadata_on_mismatch(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Cleans and recreates table metadata information on the replication instance when a mismatch occurs.
 
             For example, in a situation where running an alter DDL on the table could result in different information about the table cached in the replication instance.
@@ -9863,7 +6653,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-mysqlsettings.html#cfn-dms-endpoint-mysqlsettings-cleansourcemetadataonmismatch
             '''
             result = self._values.get("clean_source_metadata_on_mismatch")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def events_poll_interval(self) -> typing.Optional[jsii.Number]:
@@ -9984,7 +6774,7 @@ class CfnEndpoint(
             self,
             *,
             error_retry_duration: typing.Optional[jsii.Number] = None,
-            iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
             max_retry_count: typing.Optional[jsii.Number] = None,
             s3_bucket_folder: typing.Optional[builtins.str] = None,
@@ -10061,7 +6851,7 @@ class CfnEndpoint(
         @builtins.property
         def iam_auth_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If you want IAM authorization enabled for this endpoint, set this parameter to ``true`` .
 
             Then attach the appropriate IAM policy document to your service role specified by ``ServiceAccessRoleArn`` . The default is ``false`` .
@@ -10069,7 +6859,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-neptunesettings.html#cfn-dms-endpoint-neptunesettings-iamauthenabled
             '''
             result = self._values.get("iam_auth_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_file_size(self) -> typing.Optional[jsii.Number]:
@@ -10178,27 +6968,27 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            access_alternate_directly: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            access_alternate_directly: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             additional_archived_log_dest_id: typing.Optional[jsii.Number] = None,
-            add_supplemental_logging: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            allow_select_nested_tables: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            add_supplemental_logging: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            allow_select_nested_tables: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             archived_log_dest_id: typing.Optional[jsii.Number] = None,
-            archived_logs_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            archived_logs_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             asm_password: typing.Optional[builtins.str] = None,
             asm_server: typing.Optional[builtins.str] = None,
             asm_user: typing.Optional[builtins.str] = None,
             char_length_semantics: typing.Optional[builtins.str] = None,
-            direct_path_no_log: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            direct_path_parallel_load: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            enable_homogenous_tablespace: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            extra_archived_log_dest_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], _IResolvable_da3f097b]] = None,
-            fail_tasks_on_lob_truncation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            direct_path_no_log: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            direct_path_parallel_load: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            enable_homogenous_tablespace: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            extra_archived_log_dest_ids: typing.Optional[typing.Union[typing.Sequence[jsii.Number], "_IResolvable_da3f097b"]] = None,
+            fail_tasks_on_lob_truncation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             number_datatype_scale: typing.Optional[jsii.Number] = None,
             oracle_path_prefix: typing.Optional[builtins.str] = None,
             parallel_asm_read_threads: typing.Optional[jsii.Number] = None,
             read_ahead_blocks: typing.Optional[jsii.Number] = None,
-            read_table_space_name: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            replace_path_prefix: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            read_table_space_name: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            replace_path_prefix: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             retry_interval: typing.Optional[jsii.Number] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
             secrets_manager_oracle_asm_access_role_arn: typing.Optional[builtins.str] = None,
@@ -10208,10 +6998,10 @@ class CfnEndpoint(
             security_db_encryption_name: typing.Optional[builtins.str] = None,
             spatial_data_option_to_geo_json_function_name: typing.Optional[builtins.str] = None,
             standby_delay_time: typing.Optional[jsii.Number] = None,
-            use_alternate_folder_for_online: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            use_b_file: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            use_direct_path_full_load: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            use_logminer_reader: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            use_alternate_folder_for_online: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_b_file: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_direct_path_full_load: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_logminer_reader: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             use_path_prefix: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Provides information that defines an Oracle endpoint.
@@ -10413,7 +7203,7 @@ class CfnEndpoint(
         @builtins.property
         def access_alternate_directly(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to ``false`` in order to use the Binary Reader to capture change data for an Amazon RDS for Oracle as the source.
 
             This tells the DMS instance to not access redo logs through any specified path prefix replacement using direct file access.
@@ -10421,7 +7211,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-accessalternatedirectly
             '''
             result = self._values.get("access_alternate_directly")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def additional_archived_log_dest_id(self) -> typing.Optional[jsii.Number]:
@@ -10439,7 +7229,7 @@ class CfnEndpoint(
         @builtins.property
         def add_supplemental_logging(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to set up table-level supplemental logging for the Oracle database.
 
             This attribute enables PRIMARY KEY supplemental logging on all tables selected for a migration task.
@@ -10449,18 +7239,18 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-addsupplementallogging
             '''
             result = self._values.get("add_supplemental_logging")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def allow_select_nested_tables(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to ``true`` to enable replication of Oracle tables containing columns that are nested tables or defined types.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-allowselectnestedtables
             '''
             result = self._values.get("allow_select_nested_tables")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def archived_log_dest_id(self) -> typing.Optional[jsii.Number]:
@@ -10476,7 +7266,7 @@ class CfnEndpoint(
         @builtins.property
         def archived_logs_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When this field is set to ``True`` , AWS DMS only accesses the archived redo logs.
 
             If the archived redo logs are stored on Automatic Storage Management (ASM) only, the AWS DMS user account needs to be granted ASM privileges.
@@ -10484,7 +7274,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-archivedlogsonly
             '''
             result = self._values.get("archived_logs_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def asm_password(self) -> typing.Optional[builtins.str]:
@@ -10535,18 +7325,18 @@ class CfnEndpoint(
         @builtins.property
         def direct_path_no_log(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this attribute helps to increase the commit rate on the Oracle target database by writing directly to tables and not writing a trail to database logs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-directpathnolog
             '''
             result = self._values.get("direct_path_no_log")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def direct_path_parallel_load(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this attribute specifies a parallel load when ``useDirectPathFullLoad`` is set to ``Y`` .
 
             This attribute also only applies when you use the AWS DMS parallel load feature. Note that the target table cannot have any constraints or indexes.
@@ -10554,23 +7344,23 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-directpathparallelload
             '''
             result = self._values.get("direct_path_parallel_load")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def enable_homogenous_tablespace(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to enable homogenous tablespace replication and create existing tables or indexes under the same tablespace on the target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-enablehomogenoustablespace
             '''
             result = self._values.get("enable_homogenous_tablespace")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def extra_archived_log_dest_ids(
             self,
-        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]]:
             '''Specifies the IDs of one more destinations for one or more archived redo logs.
 
             These IDs are the values of the ``dest_id`` column in the ``v$archived_log`` view. Use this setting with the ``archivedLogDestId`` extra connection attribute in a primary-to-single setup or a primary-to-multiple-standby setup.
@@ -10588,12 +7378,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-extraarchivedlogdestids
             '''
             result = self._values.get("extra_archived_log_dest_ids")
-            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[typing.List[jsii.Number], "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def fail_tasks_on_lob_truncation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this attribute causes a task to fail if the actual size of an LOB column is greater than the specified ``LobMaxSize`` .
 
             If a task is set to limited LOB mode and this option is set to ``true`` , the task fails instead of truncating the LOB data.
@@ -10601,7 +7391,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-failtasksonlobtruncation
             '''
             result = self._values.get("fail_tasks_on_lob_truncation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def number_datatype_scale(self) -> typing.Optional[jsii.Number]:
@@ -10652,18 +7442,18 @@ class CfnEndpoint(
         @builtins.property
         def read_table_space_name(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this attribute supports tablespace replication.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-readtablespacename
             '''
             result = self._values.get("read_table_space_name")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def replace_path_prefix(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to true in order to use the Binary Reader to capture change data for an Amazon RDS for Oracle as the source.
 
             This setting tells DMS instance to replace the default Oracle root with the specified ``usePathPrefix`` setting to access the redo logs.
@@ -10671,7 +7461,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-replacepathprefix
             '''
             result = self._values.get("replace_path_prefix")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def retry_interval(self) -> typing.Optional[jsii.Number]:
@@ -10789,7 +7579,7 @@ class CfnEndpoint(
         @builtins.property
         def use_alternate_folder_for_online(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to ``true`` in order to use the Binary Reader to capture change data for an Amazon RDS for Oracle as the source.
 
             This tells the DMS instance to use any specified prefix replacement to access all online redo logs.
@@ -10797,12 +7587,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-usealternatefolderforonline
             '''
             result = self._values.get("use_alternate_folder_for_online")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_b_file(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to True to capture change data using the Binary Reader utility.
 
             Set ``UseLogminerReader`` to False to set this attribute to True. To use Binary Reader with Amazon RDS for Oracle as the source, you set additional attributes. For more information about using this setting with Oracle Automatic Storage Management (ASM), see `Using Oracle LogMiner or AWS DMS Binary Reader for CDC <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.CDC>`_ .
@@ -10810,12 +7600,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-usebfile
             '''
             result = self._values.get("use_b_file")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_direct_path_full_load(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to True to have AWS DMS use a direct path full load.
 
             Specify this value to use the direct path protocol in the Oracle Call Interface (OCI). By using this OCI protocol, you can bulk-load Oracle target tables during a full load.
@@ -10823,12 +7613,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-usedirectpathfullload
             '''
             result = self._values.get("use_direct_path_full_load")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_logminer_reader(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Set this attribute to True to capture change data using the Oracle LogMiner utility (the default).
 
             Set this attribute to False if you want to access the redo logs as a binary file. When you set ``UseLogminerReader`` to False, also set ``UseBfile`` to True. For more information on this setting and using Oracle ASM, see `Using Oracle LogMiner or AWS DMS Binary Reader for CDC <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.CDC>`_ in the *AWS DMS User Guide* .
@@ -10836,7 +7626,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-oraclesettings.html#cfn-dms-endpoint-oraclesettings-uselogminerreader
             '''
             result = self._values.get("use_logminer_reader")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_path_prefix(self) -> typing.Optional[builtins.str]:
@@ -10888,15 +7678,15 @@ class CfnEndpoint(
             *,
             after_connect_script: typing.Optional[builtins.str] = None,
             babelfish_database_name: typing.Optional[builtins.str] = None,
-            capture_ddls: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            capture_ddls: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             database_mode: typing.Optional[builtins.str] = None,
             ddl_artifacts_schema: typing.Optional[builtins.str] = None,
             execute_timeout: typing.Optional[jsii.Number] = None,
-            fail_tasks_on_lob_truncation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            heartbeat_enable: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            fail_tasks_on_lob_truncation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            heartbeat_enable: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             heartbeat_frequency: typing.Optional[jsii.Number] = None,
             heartbeat_schema: typing.Optional[builtins.str] = None,
-            map_boolean_as_boolean: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            map_boolean_as_boolean: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
             plugin_name: typing.Optional[builtins.str] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
@@ -11027,7 +7817,7 @@ class CfnEndpoint(
         @builtins.property
         def capture_ddls(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''To capture DDL events, AWS DMS creates various artifacts in the PostgreSQL database when the task starts.
 
             You can later remove these artifacts.
@@ -11037,7 +7827,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-postgresqlsettings.html#cfn-dms-endpoint-postgresqlsettings-captureddls
             '''
             result = self._values.get("capture_ddls")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def database_mode(self) -> typing.Optional[builtins.str]:
@@ -11075,7 +7865,7 @@ class CfnEndpoint(
         @builtins.property
         def fail_tasks_on_lob_truncation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this value causes a task to fail if the actual size of a LOB column is greater than the specified ``LobMaxSize`` .
 
             The default value is ``false`` .
@@ -11085,12 +7875,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-postgresqlsettings.html#cfn-dms-endpoint-postgresqlsettings-failtasksonlobtruncation
             '''
             result = self._values.get("fail_tasks_on_lob_truncation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def heartbeat_enable(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''The write-ahead log (WAL) heartbeat feature mimics a dummy transaction.
 
             By doing this, it prevents idle logical replication slots from holding onto old WAL logs, which can result in storage full situations on the source. This heartbeat keeps ``restart_lsn`` moving and prevents storage full scenarios.
@@ -11100,7 +7890,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-postgresqlsettings.html#cfn-dms-endpoint-postgresqlsettings-heartbeatenable
             '''
             result = self._values.get("heartbeat_enable")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def heartbeat_frequency(self) -> typing.Optional[jsii.Number]:
@@ -11127,7 +7917,7 @@ class CfnEndpoint(
         @builtins.property
         def map_boolean_as_boolean(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When true, lets PostgreSQL migrate the boolean type as boolean.
 
             By default, PostgreSQL migrates booleans as ``varchar(5)`` . You must set this setting on both the source and target endpoints for it to take effect.
@@ -11137,7 +7927,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-postgresqlsettings.html#cfn-dms-endpoint-postgresqlsettings-mapbooleanasboolean
             '''
             result = self._values.get("map_boolean_as_boolean")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_file_size(self) -> typing.Optional[jsii.Number]:
@@ -11409,22 +8199,22 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            accept_any_date: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            accept_any_date: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             after_connect_script: typing.Optional[builtins.str] = None,
             bucket_folder: typing.Optional[builtins.str] = None,
             bucket_name: typing.Optional[builtins.str] = None,
-            case_sensitive_names: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            comp_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            case_sensitive_names: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            comp_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             connection_timeout: typing.Optional[jsii.Number] = None,
             date_format: typing.Optional[builtins.str] = None,
-            empty_as_null: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            empty_as_null: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             encryption_mode: typing.Optional[builtins.str] = None,
-            explicit_ids: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            explicit_ids: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             file_transfer_upload_streams: typing.Optional[jsii.Number] = None,
             load_timeout: typing.Optional[jsii.Number] = None,
-            map_boolean_as_boolean: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            map_boolean_as_boolean: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
-            remove_quotes: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            remove_quotes: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             replace_chars: typing.Optional[builtins.str] = None,
             replace_invalid_chars: typing.Optional[builtins.str] = None,
             secrets_manager_access_role_arn: typing.Optional[builtins.str] = None,
@@ -11432,8 +8222,8 @@ class CfnEndpoint(
             server_side_encryption_kms_key_id: typing.Optional[builtins.str] = None,
             service_access_role_arn: typing.Optional[builtins.str] = None,
             time_format: typing.Optional[builtins.str] = None,
-            trim_blanks: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            truncate_columns: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            trim_blanks: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            truncate_columns: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             write_buffer_size: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Provides information that defines an Amazon Redshift endpoint.
@@ -11460,7 +8250,7 @@ class CfnEndpoint(
             :param replace_invalid_chars: A list of characters that you want to replace. Use with ``ReplaceChars`` .
             :param secrets_manager_access_role_arn: The full Amazon Resource Name (ARN) of the IAM role that specifies AWS DMS as the trusted entity and grants the required permissions to access the value in ``SecretsManagerSecret`` . The role must allow the ``iam:PassRole`` action. ``SecretsManagerSecret`` has the value of the AWS Secrets Manager secret that allows access to the Amazon Redshift endpoint. .. epigraph:: You can specify one of two sets of values for these permissions. You can specify the values for this setting and ``SecretsManagerSecretId`` . Or you can specify clear-text values for ``UserName`` , ``Password`` , ``ServerName`` , and ``Port`` . You can't specify both. For more information on creating this ``SecretsManagerSecret`` , the corresponding ``SecretsManagerAccessRoleArn`` , and the ``SecretsManagerSecretId`` that is required to access it, see `Using secrets to access AWS Database Migration Service resources <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#security-iam-secretsmanager>`_ in the *AWS Database Migration Service User Guide* .
             :param secrets_manager_secret_id: The full ARN, partial ARN, or display name of the ``SecretsManagerSecret`` that contains the Amazon Redshift endpoint connection details.
-            :param server_side_encryption_kms_key_id: The AWS KMS key ID. If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide this key ID. The key that you use needs an attached policy that enables IAM user permissions and allows use of the key.
+            :param server_side_encryption_kms_key_id: The AWS key ID. If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide this key ID. The key that you use needs an attached policy that enables IAM user permissions and allows use of the key.
             :param service_access_role_arn: The Amazon Resource Name (ARN) of the IAM role that has access to the Amazon Redshift service. The role must allow the ``iam:PassRole`` action.
             :param time_format: The time format that you want to use. Valid values are ``auto`` (case-sensitive), ``'timeformat_string'`` , ``'epochsecs'`` , or ``'epochmillisecs'`` . It defaults to 10. Using ``auto`` recognizes most strings, even some that aren't supported when you use a time format string. If your date and time values use formats different from each other, set this parameter to ``auto`` .
             :param trim_blanks: A value that specifies to remove the trailing white space characters from a VARCHAR string. This parameter applies only to columns with a VARCHAR data type. Choose ``true`` to remove unneeded white space. The default is ``false`` .
@@ -11590,7 +8380,7 @@ class CfnEndpoint(
         @builtins.property
         def accept_any_date(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that indicates to allow any date format, including invalid formats such as 00/00/00 00:00:00, to be loaded without generating an error.
 
             You can choose ``true`` or ``false`` (the default).
@@ -11600,7 +8390,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-acceptanydate
             '''
             result = self._values.get("accept_any_date")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def after_connect_script(self) -> typing.Optional[builtins.str]:
@@ -11638,7 +8428,7 @@ class CfnEndpoint(
         @builtins.property
         def case_sensitive_names(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If Amazon Redshift is configured to support case sensitive schema names, set ``CaseSensitiveNames`` to ``true`` .
 
             The default is ``false`` .
@@ -11646,12 +8436,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-casesensitivenames
             '''
             result = self._values.get("case_sensitive_names")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def comp_update(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If you set ``CompUpdate`` to ``true`` Amazon Redshift applies automatic compression if the table is empty.
 
             This applies even if the table columns already have encodings other than ``RAW`` . If you set ``CompUpdate`` to ``false`` , automatic compression is disabled and existing column encodings aren't changed. The default is ``true`` .
@@ -11659,7 +8449,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-compupdate
             '''
             result = self._values.get("comp_update")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def connection_timeout(self) -> typing.Optional[jsii.Number]:
@@ -11686,7 +8476,7 @@ class CfnEndpoint(
         @builtins.property
         def empty_as_null(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that specifies whether AWS DMS should migrate empty CHAR and VARCHAR fields as NULL.
 
             A value of ``true`` sets empty CHAR and VARCHAR fields to null. The default is ``false`` .
@@ -11694,7 +8484,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-emptyasnull
             '''
             result = self._values.get("empty_as_null")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def encryption_mode(self) -> typing.Optional[builtins.str]:
@@ -11715,7 +8505,7 @@ class CfnEndpoint(
         @builtins.property
         def explicit_ids(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''This setting is only valid for a full-load migration task.
 
             Set ``ExplicitIds`` to ``true`` to have tables with ``IDENTITY`` columns override their auto-generated values with explicit values loaded from the source data files used to populate the tables. The default is ``false`` .
@@ -11723,7 +8513,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-explicitids
             '''
             result = self._values.get("explicit_ids")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def file_transfer_upload_streams(self) -> typing.Optional[jsii.Number]:
@@ -11752,7 +8542,7 @@ class CfnEndpoint(
         @builtins.property
         def map_boolean_as_boolean(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When true, lets Redshift migrate the boolean type as boolean.
 
             By default, Redshift migrates booleans as ``varchar(1)`` . You must set this setting on both the source and target endpoints for it to take effect.
@@ -11760,7 +8550,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-mapbooleanasboolean
             '''
             result = self._values.get("map_boolean_as_boolean")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_file_size(self) -> typing.Optional[jsii.Number]:
@@ -11774,7 +8564,7 @@ class CfnEndpoint(
         @builtins.property
         def remove_quotes(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that specifies to remove surrounding quotation marks from strings in the incoming data.
 
             All characters within the quotation marks, including delimiters, are retained. Choose ``true`` to remove quotation marks. The default is ``false`` .
@@ -11782,7 +8572,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-removequotes
             '''
             result = self._values.get("remove_quotes")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def replace_chars(self) -> typing.Optional[builtins.str]:
@@ -11833,7 +8623,7 @@ class CfnEndpoint(
 
         @builtins.property
         def server_side_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''The AWS KMS key ID.
+            '''The AWS  key ID.
 
             If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide this key ID. The key that you use needs an attached policy that enables IAM user permissions and allows use of the key.
 
@@ -11869,7 +8659,7 @@ class CfnEndpoint(
         @builtins.property
         def trim_blanks(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that specifies to remove the trailing white space characters from a VARCHAR string.
 
             This parameter applies only to columns with a VARCHAR data type. Choose ``true`` to remove unneeded white space. The default is ``false`` .
@@ -11877,12 +8667,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-trimblanks
             '''
             result = self._values.get("trim_blanks")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def truncate_columns(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that specifies to truncate data in columns to the appropriate number of characters, so that the data fits in the column.
 
             This parameter applies only to columns with a VARCHAR or CHAR data type, and rows with a size of 4 MB or less. Choose ``true`` to truncate data. The default is ``false`` .
@@ -11890,7 +8680,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-redshiftsettings.html#cfn-dms-endpoint-redshiftsettings-truncatecolumns
             '''
             result = self._values.get("truncate_columns")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def write_buffer_size(self) -> typing.Optional[jsii.Number]:
@@ -11963,13 +8753,13 @@ class CfnEndpoint(
         def __init__(
             self,
             *,
-            add_column_name: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            add_trailing_padding_character: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            add_column_name: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            add_trailing_padding_character: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             bucket_folder: typing.Optional[builtins.str] = None,
             bucket_name: typing.Optional[builtins.str] = None,
             canned_acl_for_objects: typing.Optional[builtins.str] = None,
-            cdc_inserts_and_updates: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            cdc_inserts_only: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            cdc_inserts_and_updates: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            cdc_inserts_only: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             cdc_max_batch_interval: typing.Optional[jsii.Number] = None,
             cdc_min_file_size: typing.Optional[jsii.Number] = None,
             cdc_path: typing.Optional[builtins.str] = None,
@@ -11981,29 +8771,29 @@ class CfnEndpoint(
             data_format: typing.Optional[builtins.str] = None,
             data_page_size: typing.Optional[jsii.Number] = None,
             date_partition_delimiter: typing.Optional[builtins.str] = None,
-            date_partition_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            date_partition_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             date_partition_sequence: typing.Optional[builtins.str] = None,
             date_partition_timezone: typing.Optional[builtins.str] = None,
             dict_page_size_limit: typing.Optional[jsii.Number] = None,
-            enable_statistics: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enable_statistics: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             encoding_type: typing.Optional[builtins.str] = None,
             encryption_mode: typing.Optional[builtins.str] = None,
             expected_bucket_owner: typing.Optional[builtins.str] = None,
             external_table_definition: typing.Optional[builtins.str] = None,
-            glue_catalog_generation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            glue_catalog_generation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             ignore_header_rows: typing.Optional[jsii.Number] = None,
-            include_op_for_full_load: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            include_op_for_full_load: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             max_file_size: typing.Optional[jsii.Number] = None,
-            parquet_timestamp_in_millisecond: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            parquet_timestamp_in_millisecond: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             parquet_version: typing.Optional[builtins.str] = None,
-            preserve_transactions: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            rfc4180: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            preserve_transactions: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            rfc4180: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             row_group_length: typing.Optional[jsii.Number] = None,
             server_side_encryption_kms_key_id: typing.Optional[builtins.str] = None,
             service_access_role_arn: typing.Optional[builtins.str] = None,
             timestamp_column_name: typing.Optional[builtins.str] = None,
-            use_csv_no_sup_value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            use_task_start_time_for_full_load_timestamp: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            use_csv_no_sup_value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            use_task_start_time_for_full_load_timestamp: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Provides information that defines an Amazon S3 endpoint.
 
@@ -12045,7 +8835,7 @@ class CfnEndpoint(
             :param preserve_transactions: If this setting is set to ``true`` , AWS DMS saves the transaction order for a change data capture (CDC) load on the Amazon S3 target specified by ```CdcPath`` <https://docs.aws.amazon.com/dms/latest/APIReference/API_S3Settings.html#DMS-Type-S3Settings-CdcPath>`_ . For more information, see `Capturing data changes (CDC) including transaction order on the S3 target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.EndpointSettings.CdcPath>`_ . .. epigraph:: This setting is supported in AWS DMS versions 3.4.2 and later.
             :param rfc4180: For an S3 source, when this value is set to ``true`` or ``y`` , each leading double quotation mark has to be followed by an ending double quotation mark. This formatting complies with RFC 4180. When this value is set to ``false`` or ``n`` , string literals are copied to the target as is. In this case, a delimiter (row or column) signals the end of the field. Thus, you can't use a delimiter as part of the string, because it signals the end of the value. For an S3 target, an optional parameter used to set behavior to comply with RFC 4180 for data migrated to Amazon S3 using .csv file format only. When this value is set to ``true`` or ``y`` using Amazon S3 as a target, if the data has quotation marks or newline characters in it, AWS DMS encloses the entire column with an additional pair of double quotation marks ("). Every quotation mark within the data is repeated twice. The default value is ``true`` . Valid values include ``true`` , ``false`` , ``y`` , and ``n`` .
             :param row_group_length: The number of rows in a row group. A smaller row group size provides faster reads. But as the number of row groups grows, the slower writes become. This parameter defaults to 10,000 rows. This number is used for .parquet file format only. If you choose a value larger than the maximum, ``RowGroupLength`` is set to the max row group length in bytes (64 * 1024 * 1024).
-            :param server_side_encryption_kms_key_id: If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide the AWS KMS key ID. The key that you use needs an attached policy that enables IAM user permissions and allows use of the key. Here is a CLI example: ``aws dms create-endpoint --endpoint-identifier *value* --endpoint-type target --engine-name s3 --s3-settings ServiceAccessRoleArn= *value* ,BucketFolder= *value* ,BucketName= *value* ,EncryptionMode=SSE_KMS,ServerSideEncryptionKmsKeyId= *value*``
+            :param server_side_encryption_kms_key_id: If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide the AWS key ID. The key that you use needs an attached policy that enables IAM user permissions and allows use of the key. Here is a CLI example: ``aws dms create-endpoint --endpoint-identifier *value* --endpoint-type target --engine-name s3 --s3-settings ServiceAccessRoleArn= *value* ,BucketFolder= *value* ,BucketName= *value* ,EncryptionMode=SSE_KMS,ServerSideEncryptionKmsKeyId= *value*``
             :param service_access_role_arn: A required parameter that specifies the Amazon Resource Name (ARN) used by the service to access the IAM role. The role must allow the ``iam:PassRole`` action. It enables AWS DMS to read and write objects from an S3 bucket.
             :param timestamp_column_name: A value that when nonblank causes AWS DMS to add a column with timestamp information to the endpoint data for an Amazon S3 target. .. epigraph:: AWS DMS supports the ``TimestampColumnName`` parameter in versions 3.1.4 and later. AWS DMS includes an additional ``STRING`` column in the .csv or .parquet object files of your migrated data when you set ``TimestampColumnName`` to a nonblank value. For a full load, each row of this timestamp column contains a timestamp for when the data was transferred from the source to the target by DMS. For a change data capture (CDC) load, each row of the timestamp column contains the timestamp for the commit of that row in the source database. The string format for this timestamp column value is ``yyyy-MM-dd HH:mm:ss.SSSSSS`` . By default, the precision of this value is in microseconds. For a CDC load, the rounding of the precision depends on the commit timestamp supported by DMS for the source database. When the ``AddColumnName`` parameter is set to ``true`` , DMS also includes a name for the timestamp column that you set with ``TimestampColumnName`` .
             :param use_csv_no_sup_value: This setting applies if the S3 output files during a change data capture (CDC) load are written in .csv format. If this setting is set to ``true`` for columns not included in the supplemental log, AWS DMS uses the value specified by ```CsvNoSupValue`` <https://docs.aws.amazon.com/dms/latest/APIReference/API_S3Settings.html#DMS-Type-S3Settings-CsvNoSupValue>`_ . If this setting isn't set or is set to ``false`` , AWS DMS uses the null value for these columns. .. epigraph:: This setting is supported in AWS DMS versions 3.4.1 and later.
@@ -12234,7 +9024,7 @@ class CfnEndpoint(
         @builtins.property
         def add_column_name(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''An optional parameter that, when set to ``true`` or ``y`` , you can use to add column name information to the .csv output file.
 
             The default value is ``false`` . Valid values are ``true`` , ``false`` , ``y`` , and ``n`` .
@@ -12242,12 +9032,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-addcolumnname
             '''
             result = self._values.get("add_column_name")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def add_trailing_padding_character(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Use the S3 target endpoint setting ``AddTrailingPaddingCharacter`` to add padding on string data.
 
             The default value is ``false`` .
@@ -12255,7 +9045,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-addtrailingpaddingcharacter
             '''
             result = self._values.get("add_trailing_padding_character")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def bucket_folder(self) -> typing.Optional[builtins.str]:
@@ -12291,7 +9081,7 @@ class CfnEndpoint(
         @builtins.property
         def cdc_inserts_and_updates(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that enables a change data capture (CDC) load to write INSERT and UPDATE operations to .csv or .parquet (columnar storage) output files. The default setting is ``false`` , but when ``CdcInsertsAndUpdates`` is set to ``true`` or ``y`` , only INSERTs and UPDATEs from the source database are migrated to the .csv or .parquet file.
 
             For .csv file format only, how these INSERTs and UPDATEs are recorded depends on the value of the ``IncludeOpForFullLoad`` parameter. If ``IncludeOpForFullLoad`` is set to ``true`` , the first field of every CDC record is set to either ``I`` or ``U`` to indicate INSERT and UPDATE operations at the source. But if ``IncludeOpForFullLoad`` is set to ``false`` , CDC records are written without an indication of INSERT or UPDATE operations at the source. For more information about how these settings work together, see `Indicating Source DB Operations in Migrated S3 Data <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring.InsertOps>`_ in the *AWS Database Migration Service User Guide* .
@@ -12304,12 +9094,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-cdcinsertsandupdates
             '''
             result = self._values.get("cdc_inserts_and_updates")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def cdc_inserts_only(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that enables a change data capture (CDC) load to write only INSERT operations to .csv or columnar storage (.parquet) output files. By default (the ``false`` setting), the first field in a .csv or .parquet record contains the letter I (INSERT), U (UPDATE), or D (DELETE). These values indicate whether the row was inserted, updated, or deleted at the source database for a CDC load to the target.
 
             If ``CdcInsertsOnly`` is set to ``true`` or ``y`` , only INSERTs from the source database are migrated to the .csv or .parquet file. For .csv format only, how these INSERTs are recorded depends on the value of ``IncludeOpForFullLoad`` . If ``IncludeOpForFullLoad`` is set to ``true`` , the first field of every CDC record is set to I to indicate the INSERT operation at the source. If ``IncludeOpForFullLoad`` is set to ``false`` , every CDC record is written without a first field to indicate the INSERT operation at the source. For more information about how these settings work together, see `Indicating Source DB Operations in Migrated S3 Data <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring.InsertOps>`_ in the *AWS Database Migration Service User Guide* .
@@ -12322,7 +9112,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-cdcinsertsonly
             '''
             result = self._values.get("cdc_inserts_only")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def cdc_max_batch_interval(self) -> typing.Optional[jsii.Number]:
@@ -12464,7 +9254,7 @@ class CfnEndpoint(
         @builtins.property
         def date_partition_enabled(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to ``true`` , this parameter partitions S3 bucket folders based on transaction commit dates.
 
             The default value is ``false`` . For more information about date-based folder partitioning, see `Using date-based folder partitioning <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.DatePartitioning>`_ .
@@ -12472,7 +9262,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-datepartitionenabled
             '''
             result = self._values.get("date_partition_enabled")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def date_partition_sequence(self) -> typing.Optional[builtins.str]:
@@ -12512,7 +9302,7 @@ class CfnEndpoint(
         @builtins.property
         def enable_statistics(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that enables statistics for Parquet pages and row groups.
 
             Choose ``true`` to enable statistics, ``false`` to disable. Statistics include ``NULL`` , ``DISTINCT`` , ``MAX`` , and ``MIN`` values. This parameter defaults to ``true`` . This value is used for .parquet file format only.
@@ -12520,7 +9310,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-enablestatistics
             '''
             result = self._values.get("enable_statistics")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def encoding_type(self) -> typing.Optional[builtins.str]:
@@ -12590,7 +9380,7 @@ class CfnEndpoint(
         @builtins.property
         def glue_catalog_generation(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When true, allows AWS Glue to catalog your S3 bucket.
 
             Creating an AWS Glue catalog lets you use Athena to query your data.
@@ -12598,7 +9388,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-gluecataloggeneration
             '''
             result = self._values.get("glue_catalog_generation")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def ignore_header_rows(self) -> typing.Optional[jsii.Number]:
@@ -12614,7 +9404,7 @@ class CfnEndpoint(
         @builtins.property
         def include_op_for_full_load(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that enables a full load to write INSERT operations to the comma-separated value (.csv) output files only to indicate how the rows were added to the source database.
 
             .. epigraph::
@@ -12629,7 +9419,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-includeopforfullload
             '''
             result = self._values.get("include_op_for_full_load")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def max_file_size(self) -> typing.Optional[jsii.Number]:
@@ -12645,7 +9435,7 @@ class CfnEndpoint(
         @builtins.property
         def parquet_timestamp_in_millisecond(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''A value that specifies the precision of any ``TIMESTAMP`` column values that are written to an Amazon S3 object file in .parquet format.
 
             .. epigraph::
@@ -12664,7 +9454,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-parquettimestampinmillisecond
             '''
             result = self._values.get("parquet_timestamp_in_millisecond")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def parquet_version(self) -> typing.Optional[builtins.str]:
@@ -12678,7 +9468,7 @@ class CfnEndpoint(
         @builtins.property
         def preserve_transactions(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If this setting is set to ``true`` , AWS DMS saves the transaction order for a change data capture (CDC) load on the Amazon S3 target specified by ```CdcPath`` <https://docs.aws.amazon.com/dms/latest/APIReference/API_S3Settings.html#DMS-Type-S3Settings-CdcPath>`_ . For more information, see `Capturing data changes (CDC) including transaction order on the S3 target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.EndpointSettings.CdcPath>`_ .
 
             .. epigraph::
@@ -12688,12 +9478,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-preservetransactions
             '''
             result = self._values.get("preserve_transactions")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def rfc4180(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''For an S3 source, when this value is set to ``true`` or ``y`` , each leading double quotation mark has to be followed by an ending double quotation mark.
 
             This formatting complies with RFC 4180. When this value is set to ``false`` or ``n`` , string literals are copied to the target as is. In this case, a delimiter (row or column) signals the end of the field. Thus, you can't use a delimiter as part of the string, because it signals the end of the value.
@@ -12705,7 +9495,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-rfc4180
             '''
             result = self._values.get("rfc4180")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def row_group_length(self) -> typing.Optional[jsii.Number]:
@@ -12722,7 +9512,7 @@ class CfnEndpoint(
 
         @builtins.property
         def server_side_encryption_kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide the AWS KMS key ID.
+            '''If you are using ``SSE_KMS`` for the ``EncryptionMode`` , provide the AWS  key ID.
 
             The key that you use needs an attached policy that enables IAM user permissions and allows use of the key.
 
@@ -12770,7 +9560,7 @@ class CfnEndpoint(
         @builtins.property
         def use_csv_no_sup_value(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''This setting applies if the S3 output files during a change data capture (CDC) load are written in .csv format. If this setting is set to ``true`` for columns not included in the supplemental log, AWS DMS uses the value specified by ```CsvNoSupValue`` <https://docs.aws.amazon.com/dms/latest/APIReference/API_S3Settings.html#DMS-Type-S3Settings-CsvNoSupValue>`_ . If this setting isn't set or is set to ``false`` , AWS DMS uses the null value for these columns.
 
             .. epigraph::
@@ -12780,12 +9570,12 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-usecsvnosupvalue
             '''
             result = self._values.get("use_csv_no_sup_value")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def use_task_start_time_for_full_load_timestamp(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''When set to true, this parameter uses the task start time as the timestamp column value instead of the time data is written to target.
 
             For full load, when ``useTaskStartTimeForFullLoadTimestamp`` is set to ``true`` , each row of the timestamp column contains the task start time. For CDC loads, each row of the timestamp column contains the transaction commit time.
@@ -12795,7 +9585,7 @@ class CfnEndpoint(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-endpoint-s3settings.html#cfn-dms-endpoint-s3settings-usetaskstarttimeforfullloadtimestamp
             '''
             result = self._values.get("use_task_start_time_for_full_load_timestamp")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -12891,7 +9681,892 @@ class CfnEndpoint(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEventSubscriptionRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "endpoint_type": "endpointType",
+        "engine_name": "engineName",
+        "certificate_arn": "certificateArn",
+        "database_name": "databaseName",
+        "doc_db_settings": "docDbSettings",
+        "dynamo_db_settings": "dynamoDbSettings",
+        "elasticsearch_settings": "elasticsearchSettings",
+        "endpoint_identifier": "endpointIdentifier",
+        "extra_connection_attributes": "extraConnectionAttributes",
+        "gcp_my_sql_settings": "gcpMySqlSettings",
+        "ibm_db2_settings": "ibmDb2Settings",
+        "kafka_settings": "kafkaSettings",
+        "kinesis_settings": "kinesisSettings",
+        "kms_key_id": "kmsKeyId",
+        "microsoft_sql_server_settings": "microsoftSqlServerSettings",
+        "mongo_db_settings": "mongoDbSettings",
+        "my_sql_settings": "mySqlSettings",
+        "neptune_settings": "neptuneSettings",
+        "oracle_settings": "oracleSettings",
+        "password": "password",
+        "port": "port",
+        "postgre_sql_settings": "postgreSqlSettings",
+        "redis_settings": "redisSettings",
+        "redshift_settings": "redshiftSettings",
+        "resource_identifier": "resourceIdentifier",
+        "s3_settings": "s3Settings",
+        "server_name": "serverName",
+        "ssl_mode": "sslMode",
+        "sybase_settings": "sybaseSettings",
+        "tags": "tags",
+        "username": "username",
+    },
+)
+class CfnEndpointProps:
+    def __init__(
+        self,
+        *,
+        endpoint_type: builtins.str,
+        engine_name: builtins.str,
+        certificate_arn: typing.Optional[builtins.str] = None,
+        database_name: typing.Optional[builtins.str] = None,
+        doc_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.DocDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dynamo_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.DynamoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        elasticsearch_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.ElasticsearchSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        endpoint_identifier: typing.Optional[builtins.str] = None,
+        extra_connection_attributes: typing.Optional[builtins.str] = None,
+        gcp_my_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.GcpMySQLSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ibm_db2_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.IbmDb2SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kafka_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.KafkaSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kinesis_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.KinesisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        microsoft_sql_server_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MicrosoftSqlServerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        mongo_db_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MongoDbSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        my_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.MySqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        neptune_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.NeptuneSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        oracle_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.OracleSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        password: typing.Optional[builtins.str] = None,
+        port: typing.Optional[jsii.Number] = None,
+        postgre_sql_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.PostgreSqlSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redis_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RedisSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        redshift_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.RedshiftSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        s3_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.S3SettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        server_name: typing.Optional[builtins.str] = None,
+        ssl_mode: typing.Optional[builtins.str] = None,
+        sybase_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEndpoint.SybaseSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        username: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEndpoint``.
+
+        :param endpoint_type: The type of endpoint. Valid values are ``source`` and ``target`` .
+        :param engine_name: The type of engine for the endpoint, depending on the ``EndpointType`` value. *Valid values* : ``mysql`` | ``oracle`` | ``postgres`` | ``mariadb`` | ``aurora`` | ``aurora-postgresql`` | ``opensearch`` | ``redshift`` | ``redshift-serverless`` | ``s3`` | ``db2`` | ``azuredb`` | ``sybase`` | ``dynamodb`` | ``mongodb`` | ``kinesis`` | ``kafka`` | ``elasticsearch`` | ``docdb`` | ``sqlserver`` | ``neptune``
+        :param certificate_arn: The Amazon Resource Name (ARN) for the certificate.
+        :param database_name: The name of the endpoint database. For a MySQL source or target endpoint, don't specify ``DatabaseName`` . To migrate to a specific database, use this setting and ``targetDbType`` .
+        :param doc_db_settings: Settings in JSON format for the source and target DocumentDB endpoint. For more information about other available settings, see `Using extra connections attributes with Amazon DocumentDB as a source <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DocumentDB.html#CHAP_Source.DocumentDB.ECAs>`_ and `Using Amazon DocumentDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DocumentDB.html>`_ in the *AWS Database Migration Service User Guide* .
+        :param dynamo_db_settings: Settings in JSON format for the target Amazon DynamoDB endpoint. For information about other available settings, see `Using object mapping to migrate data to DynamoDB <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DynamoDB.html#CHAP_Target.DynamoDB.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+        :param elasticsearch_settings: Settings in JSON format for the target OpenSearch endpoint. For more information about the available settings, see `Extra connection attributes when using OpenSearch as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Elasticsearch.html#CHAP_Target.Elasticsearch.Configuration>`_ in the *AWS Database Migration Service User Guide* .
+        :param endpoint_identifier: The database endpoint identifier. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+        :param extra_connection_attributes: Additional attributes associated with the connection. Each attribute is specified as a name-value pair associated by an equal sign (=). Multiple attributes are separated by a semicolon (;) with no additional white space. For information on the attributes available for connecting your source or target endpoint, see `Working with AWS DMS Endpoints <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Endpoints.html>`_ in the *AWS Database Migration Service User Guide* .
+        :param gcp_my_sql_settings: Settings in JSON format for the source GCP MySQL endpoint. These settings are much the same as the settings for any MySQL-compatible endpoint. For more information, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param ibm_db2_settings: Settings in JSON format for the source IBM Db2 LUW endpoint. For information about other available settings, see `Extra connection attributes when using Db2 LUW as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DB2.html#CHAP_Source.DB2.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param kafka_settings: Settings in JSON format for the target Apache Kafka endpoint. For more information about other available settings, see `Using object mapping to migrate data to a Kafka topic <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kafka.html#CHAP_Target.Kafka.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+        :param kinesis_settings: Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams. For more information about other available settings, see `Using object mapping to migrate data to a Kinesis data stream <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kinesis.html#CHAP_Target.Kinesis.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+        :param kms_key_id: An AWS key identifier that is used to encrypt the connection parameters for the endpoint. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+        :param microsoft_sql_server_settings: Settings in JSON format for the source and target Microsoft SQL Server endpoint. For information about other available settings, see `Extra connection attributes when using SQL Server as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SQLServer.html#CHAP_Source.SQLServer.ConnectionAttrib>`_ and `Extra connection attributes when using SQL Server as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SQLServer.html#CHAP_Target.SQLServer.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param mongo_db_settings: Settings in JSON format for the source MongoDB endpoint. For more information about the available settings, see `Using MongoDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MongoDB.html#CHAP_Source.MongoDB.Configuration>`_ in the *AWS Database Migration Service User Guide* .
+        :param my_sql_settings: Settings in JSON format for the source and target MySQL endpoint. For information about other available settings, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ and `Extra connection attributes when using a MySQL-compatible database as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.MySQL.html#CHAP_Target.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param neptune_settings: Settings in JSON format for the target Amazon Neptune endpoint. For more information about the available settings, see `Specifying endpoint settings for Amazon Neptune as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Neptune.html#CHAP_Target.Neptune.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
+        :param oracle_settings: Settings in JSON format for the source and target Oracle endpoint. For information about other available settings, see `Extra connection attributes when using Oracle as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.ConnectionAttrib>`_ and `Extra connection attributes when using Oracle as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Oracle.html#CHAP_Target.Oracle.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param password: The password to be used to log in to the endpoint database.
+        :param port: The port used by the endpoint database.
+        :param postgre_sql_settings: Settings in JSON format for the source and target PostgreSQL endpoint. For information about other available settings, see `Extra connection attributes when using PostgreSQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ and `Extra connection attributes when using PostgreSQL as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.PostgreSQL.html#CHAP_Target.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param redis_settings: Settings in JSON format for the target Redis endpoint. For information about other available settings, see `Specifying endpoint settings for Redis as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redis.html#CHAP_Target.Redis.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
+        :param redshift_settings: Settings in JSON format for the Amazon Redshift endpoint. For more information about other available settings, see `Extra connection attributes when using Amazon Redshift as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redshift.html#CHAP_Target.Redshift.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+        :param s3_settings: Settings in JSON format for the source and target Amazon S3 endpoint. For more information about other available settings, see `Extra connection attributes when using Amazon S3 as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.S3.html#CHAP_Source.S3.Configuring>`_ and `Extra connection attributes when using Amazon S3 as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring>`_ in the *AWS Database Migration Service User Guide* .
+        :param server_name: The name of the server where the endpoint database resides.
+        :param ssl_mode: The Secure Sockets Layer (SSL) mode to use for the SSL connection. The default is ``none`` . .. epigraph:: When ``engine_name`` is set to S3, the only allowed value is ``none`` .
+        :param sybase_settings: Settings in JSON format for the source and target SAP ASE endpoint. For information about other available settings, see `Extra connection attributes when using SAP ASE as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SAP.html#CHAP_Source.SAP.ConnectionAttrib>`_ and `Extra connection attributes when using SAP ASE as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SAP.html#CHAP_Target.SAP.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param tags: One or more tags to be assigned to the endpoint.
+        :param username: The user name to be used to log in to the endpoint database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_endpoint_props = dms.CfnEndpointProps(
+                endpoint_type="endpointType",
+                engine_name="engineName",
+            
+                # the properties below are optional
+                certificate_arn="certificateArn",
+                database_name="databaseName",
+                doc_db_settings=dms.CfnEndpoint.DocDbSettingsProperty(
+                    docs_to_investigate=123,
+                    extract_doc_id=False,
+                    nesting_level="nestingLevel",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId"
+                ),
+                dynamo_db_settings=dms.CfnEndpoint.DynamoDbSettingsProperty(
+                    service_access_role_arn="serviceAccessRoleArn"
+                ),
+                elasticsearch_settings=dms.CfnEndpoint.ElasticsearchSettingsProperty(
+                    endpoint_uri="endpointUri",
+                    error_retry_duration=123,
+                    full_load_error_percentage=123,
+                    service_access_role_arn="serviceAccessRoleArn"
+                ),
+                endpoint_identifier="endpointIdentifier",
+                extra_connection_attributes="extraConnectionAttributes",
+                gcp_my_sql_settings=dms.CfnEndpoint.GcpMySQLSettingsProperty(
+                    after_connect_script="afterConnectScript",
+                    clean_source_metadata_on_mismatch=False,
+                    database_name="databaseName",
+                    events_poll_interval=123,
+                    max_file_size=123,
+                    parallel_load_threads=123,
+                    password="password",
+                    port=123,
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    server_name="serverName",
+                    server_timezone="serverTimezone",
+                    username="username"
+                ),
+                ibm_db2_settings=dms.CfnEndpoint.IbmDb2SettingsProperty(
+                    current_lsn="currentLsn",
+                    keep_csv_files=False,
+                    load_timeout=123,
+                    max_file_size=123,
+                    max_kBytes_per_read=123,
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    set_data_capture_changes=False,
+                    write_buffer_size=123
+                ),
+                kafka_settings=dms.CfnEndpoint.KafkaSettingsProperty(
+                    broker="broker",
+                    include_control_details=False,
+                    include_null_and_empty=False,
+                    include_partition_value=False,
+                    include_table_alter_operations=False,
+                    include_transaction_details=False,
+                    message_format="messageFormat",
+                    message_max_bytes=123,
+                    no_hex_prefix=False,
+                    partition_include_schema_table=False,
+                    sasl_password="saslPassword",
+                    sasl_user_name="saslUserName",
+                    security_protocol="securityProtocol",
+                    ssl_ca_certificate_arn="sslCaCertificateArn",
+                    ssl_client_certificate_arn="sslClientCertificateArn",
+                    ssl_client_key_arn="sslClientKeyArn",
+                    ssl_client_key_password="sslClientKeyPassword",
+                    topic="topic"
+                ),
+                kinesis_settings=dms.CfnEndpoint.KinesisSettingsProperty(
+                    include_control_details=False,
+                    include_null_and_empty=False,
+                    include_partition_value=False,
+                    include_table_alter_operations=False,
+                    include_transaction_details=False,
+                    message_format="messageFormat",
+                    no_hex_prefix=False,
+                    partition_include_schema_table=False,
+                    service_access_role_arn="serviceAccessRoleArn",
+                    stream_arn="streamArn"
+                ),
+                kms_key_id="kmsKeyId",
+                microsoft_sql_server_settings=dms.CfnEndpoint.MicrosoftSqlServerSettingsProperty(
+                    bcp_packet_size=123,
+                    control_tables_file_group="controlTablesFileGroup",
+                    database_name="databaseName",
+                    force_lob_lookup=False,
+                    password="password",
+                    port=123,
+                    query_single_always_on_node=False,
+                    read_backup_only=False,
+                    safeguard_policy="safeguardPolicy",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    server_name="serverName",
+                    tlog_access_mode="tlogAccessMode",
+                    trim_space_in_char=False,
+                    use_bcp_full_load=False,
+                    username="username",
+                    use_third_party_backup_device=False
+                ),
+                mongo_db_settings=dms.CfnEndpoint.MongoDbSettingsProperty(
+                    auth_mechanism="authMechanism",
+                    auth_source="authSource",
+                    auth_type="authType",
+                    database_name="databaseName",
+                    docs_to_investigate="docsToInvestigate",
+                    extract_doc_id="extractDocId",
+                    nesting_level="nestingLevel",
+                    password="password",
+                    port=123,
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    server_name="serverName",
+                    username="username"
+                ),
+                my_sql_settings=dms.CfnEndpoint.MySqlSettingsProperty(
+                    after_connect_script="afterConnectScript",
+                    clean_source_metadata_on_mismatch=False,
+                    events_poll_interval=123,
+                    max_file_size=123,
+                    parallel_load_threads=123,
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    server_timezone="serverTimezone",
+                    target_db_type="targetDbType"
+                ),
+                neptune_settings=dms.CfnEndpoint.NeptuneSettingsProperty(
+                    error_retry_duration=123,
+                    iam_auth_enabled=False,
+                    max_file_size=123,
+                    max_retry_count=123,
+                    s3_bucket_folder="s3BucketFolder",
+                    s3_bucket_name="s3BucketName",
+                    service_access_role_arn="serviceAccessRoleArn"
+                ),
+                oracle_settings=dms.CfnEndpoint.OracleSettingsProperty(
+                    access_alternate_directly=False,
+                    additional_archived_log_dest_id=123,
+                    add_supplemental_logging=False,
+                    allow_select_nested_tables=False,
+                    archived_log_dest_id=123,
+                    archived_logs_only=False,
+                    asm_password="asmPassword",
+                    asm_server="asmServer",
+                    asm_user="asmUser",
+                    char_length_semantics="charLengthSemantics",
+                    direct_path_no_log=False,
+                    direct_path_parallel_load=False,
+                    enable_homogenous_tablespace=False,
+                    extra_archived_log_dest_ids=[123],
+                    fail_tasks_on_lob_truncation=False,
+                    number_datatype_scale=123,
+                    oracle_path_prefix="oraclePathPrefix",
+                    parallel_asm_read_threads=123,
+                    read_ahead_blocks=123,
+                    read_table_space_name=False,
+                    replace_path_prefix=False,
+                    retry_interval=123,
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_oracle_asm_access_role_arn="secretsManagerOracleAsmAccessRoleArn",
+                    secrets_manager_oracle_asm_secret_id="secretsManagerOracleAsmSecretId",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    security_db_encryption="securityDbEncryption",
+                    security_db_encryption_name="securityDbEncryptionName",
+                    spatial_data_option_to_geo_json_function_name="spatialDataOptionToGeoJsonFunctionName",
+                    standby_delay_time=123,
+                    use_alternate_folder_for_online=False,
+                    use_bFile=False,
+                    use_direct_path_full_load=False,
+                    use_logminer_reader=False,
+                    use_path_prefix="usePathPrefix"
+                ),
+                password="password",
+                port=123,
+                postgre_sql_settings=dms.CfnEndpoint.PostgreSqlSettingsProperty(
+                    after_connect_script="afterConnectScript",
+                    babelfish_database_name="babelfishDatabaseName",
+                    capture_ddls=False,
+                    database_mode="databaseMode",
+                    ddl_artifacts_schema="ddlArtifactsSchema",
+                    execute_timeout=123,
+                    fail_tasks_on_lob_truncation=False,
+                    heartbeat_enable=False,
+                    heartbeat_frequency=123,
+                    heartbeat_schema="heartbeatSchema",
+                    map_boolean_as_boolean=False,
+                    max_file_size=123,
+                    plugin_name="pluginName",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    slot_name="slotName"
+                ),
+                redis_settings=dms.CfnEndpoint.RedisSettingsProperty(
+                    auth_password="authPassword",
+                    auth_type="authType",
+                    auth_user_name="authUserName",
+                    port=123,
+                    server_name="serverName",
+                    ssl_ca_certificate_arn="sslCaCertificateArn",
+                    ssl_security_protocol="sslSecurityProtocol"
+                ),
+                redshift_settings=dms.CfnEndpoint.RedshiftSettingsProperty(
+                    accept_any_date=False,
+                    after_connect_script="afterConnectScript",
+                    bucket_folder="bucketFolder",
+                    bucket_name="bucketName",
+                    case_sensitive_names=False,
+                    comp_update=False,
+                    connection_timeout=123,
+                    date_format="dateFormat",
+                    empty_as_null=False,
+                    encryption_mode="encryptionMode",
+                    explicit_ids=False,
+                    file_transfer_upload_streams=123,
+                    load_timeout=123,
+                    map_boolean_as_boolean=False,
+                    max_file_size=123,
+                    remove_quotes=False,
+                    replace_chars="replaceChars",
+                    replace_invalid_chars="replaceInvalidChars",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId",
+                    server_side_encryption_kms_key_id="serverSideEncryptionKmsKeyId",
+                    service_access_role_arn="serviceAccessRoleArn",
+                    time_format="timeFormat",
+                    trim_blanks=False,
+                    truncate_columns=False,
+                    write_buffer_size=123
+                ),
+                resource_identifier="resourceIdentifier",
+                s3_settings=dms.CfnEndpoint.S3SettingsProperty(
+                    add_column_name=False,
+                    add_trailing_padding_character=False,
+                    bucket_folder="bucketFolder",
+                    bucket_name="bucketName",
+                    canned_acl_for_objects="cannedAclForObjects",
+                    cdc_inserts_and_updates=False,
+                    cdc_inserts_only=False,
+                    cdc_max_batch_interval=123,
+                    cdc_min_file_size=123,
+                    cdc_path="cdcPath",
+                    compression_type="compressionType",
+                    csv_delimiter="csvDelimiter",
+                    csv_no_sup_value="csvNoSupValue",
+                    csv_null_value="csvNullValue",
+                    csv_row_delimiter="csvRowDelimiter",
+                    data_format="dataFormat",
+                    data_page_size=123,
+                    date_partition_delimiter="datePartitionDelimiter",
+                    date_partition_enabled=False,
+                    date_partition_sequence="datePartitionSequence",
+                    date_partition_timezone="datePartitionTimezone",
+                    dict_page_size_limit=123,
+                    enable_statistics=False,
+                    encoding_type="encodingType",
+                    encryption_mode="encryptionMode",
+                    expected_bucket_owner="expectedBucketOwner",
+                    external_table_definition="externalTableDefinition",
+                    glue_catalog_generation=False,
+                    ignore_header_rows=123,
+                    include_op_for_full_load=False,
+                    max_file_size=123,
+                    parquet_timestamp_in_millisecond=False,
+                    parquet_version="parquetVersion",
+                    preserve_transactions=False,
+                    rfc4180=False,
+                    row_group_length=123,
+                    server_side_encryption_kms_key_id="serverSideEncryptionKmsKeyId",
+                    service_access_role_arn="serviceAccessRoleArn",
+                    timestamp_column_name="timestampColumnName",
+                    use_csv_no_sup_value=False,
+                    use_task_start_time_for_full_load_timestamp=False
+                ),
+                server_name="serverName",
+                ssl_mode="sslMode",
+                sybase_settings=dms.CfnEndpoint.SybaseSettingsProperty(
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                username="username"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f339ae28a930c099a0a813d874222c50e581fbff0c5b98878c1f5ae0871a0236)
+            check_type(argname="argument endpoint_type", value=endpoint_type, expected_type=type_hints["endpoint_type"])
+            check_type(argname="argument engine_name", value=engine_name, expected_type=type_hints["engine_name"])
+            check_type(argname="argument certificate_arn", value=certificate_arn, expected_type=type_hints["certificate_arn"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument doc_db_settings", value=doc_db_settings, expected_type=type_hints["doc_db_settings"])
+            check_type(argname="argument dynamo_db_settings", value=dynamo_db_settings, expected_type=type_hints["dynamo_db_settings"])
+            check_type(argname="argument elasticsearch_settings", value=elasticsearch_settings, expected_type=type_hints["elasticsearch_settings"])
+            check_type(argname="argument endpoint_identifier", value=endpoint_identifier, expected_type=type_hints["endpoint_identifier"])
+            check_type(argname="argument extra_connection_attributes", value=extra_connection_attributes, expected_type=type_hints["extra_connection_attributes"])
+            check_type(argname="argument gcp_my_sql_settings", value=gcp_my_sql_settings, expected_type=type_hints["gcp_my_sql_settings"])
+            check_type(argname="argument ibm_db2_settings", value=ibm_db2_settings, expected_type=type_hints["ibm_db2_settings"])
+            check_type(argname="argument kafka_settings", value=kafka_settings, expected_type=type_hints["kafka_settings"])
+            check_type(argname="argument kinesis_settings", value=kinesis_settings, expected_type=type_hints["kinesis_settings"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument microsoft_sql_server_settings", value=microsoft_sql_server_settings, expected_type=type_hints["microsoft_sql_server_settings"])
+            check_type(argname="argument mongo_db_settings", value=mongo_db_settings, expected_type=type_hints["mongo_db_settings"])
+            check_type(argname="argument my_sql_settings", value=my_sql_settings, expected_type=type_hints["my_sql_settings"])
+            check_type(argname="argument neptune_settings", value=neptune_settings, expected_type=type_hints["neptune_settings"])
+            check_type(argname="argument oracle_settings", value=oracle_settings, expected_type=type_hints["oracle_settings"])
+            check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument port", value=port, expected_type=type_hints["port"])
+            check_type(argname="argument postgre_sql_settings", value=postgre_sql_settings, expected_type=type_hints["postgre_sql_settings"])
+            check_type(argname="argument redis_settings", value=redis_settings, expected_type=type_hints["redis_settings"])
+            check_type(argname="argument redshift_settings", value=redshift_settings, expected_type=type_hints["redshift_settings"])
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+            check_type(argname="argument s3_settings", value=s3_settings, expected_type=type_hints["s3_settings"])
+            check_type(argname="argument server_name", value=server_name, expected_type=type_hints["server_name"])
+            check_type(argname="argument ssl_mode", value=ssl_mode, expected_type=type_hints["ssl_mode"])
+            check_type(argname="argument sybase_settings", value=sybase_settings, expected_type=type_hints["sybase_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "endpoint_type": endpoint_type,
+            "engine_name": engine_name,
+        }
+        if certificate_arn is not None:
+            self._values["certificate_arn"] = certificate_arn
+        if database_name is not None:
+            self._values["database_name"] = database_name
+        if doc_db_settings is not None:
+            self._values["doc_db_settings"] = doc_db_settings
+        if dynamo_db_settings is not None:
+            self._values["dynamo_db_settings"] = dynamo_db_settings
+        if elasticsearch_settings is not None:
+            self._values["elasticsearch_settings"] = elasticsearch_settings
+        if endpoint_identifier is not None:
+            self._values["endpoint_identifier"] = endpoint_identifier
+        if extra_connection_attributes is not None:
+            self._values["extra_connection_attributes"] = extra_connection_attributes
+        if gcp_my_sql_settings is not None:
+            self._values["gcp_my_sql_settings"] = gcp_my_sql_settings
+        if ibm_db2_settings is not None:
+            self._values["ibm_db2_settings"] = ibm_db2_settings
+        if kafka_settings is not None:
+            self._values["kafka_settings"] = kafka_settings
+        if kinesis_settings is not None:
+            self._values["kinesis_settings"] = kinesis_settings
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if microsoft_sql_server_settings is not None:
+            self._values["microsoft_sql_server_settings"] = microsoft_sql_server_settings
+        if mongo_db_settings is not None:
+            self._values["mongo_db_settings"] = mongo_db_settings
+        if my_sql_settings is not None:
+            self._values["my_sql_settings"] = my_sql_settings
+        if neptune_settings is not None:
+            self._values["neptune_settings"] = neptune_settings
+        if oracle_settings is not None:
+            self._values["oracle_settings"] = oracle_settings
+        if password is not None:
+            self._values["password"] = password
+        if port is not None:
+            self._values["port"] = port
+        if postgre_sql_settings is not None:
+            self._values["postgre_sql_settings"] = postgre_sql_settings
+        if redis_settings is not None:
+            self._values["redis_settings"] = redis_settings
+        if redshift_settings is not None:
+            self._values["redshift_settings"] = redshift_settings
+        if resource_identifier is not None:
+            self._values["resource_identifier"] = resource_identifier
+        if s3_settings is not None:
+            self._values["s3_settings"] = s3_settings
+        if server_name is not None:
+            self._values["server_name"] = server_name
+        if ssl_mode is not None:
+            self._values["ssl_mode"] = ssl_mode
+        if sybase_settings is not None:
+            self._values["sybase_settings"] = sybase_settings
+        if tags is not None:
+            self._values["tags"] = tags
+        if username is not None:
+            self._values["username"] = username
+
+    @builtins.property
+    def endpoint_type(self) -> builtins.str:
+        '''The type of endpoint.
+
+        Valid values are ``source`` and ``target`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-endpointtype
+        '''
+        result = self._values.get("endpoint_type")
+        assert result is not None, "Required property 'endpoint_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def engine_name(self) -> builtins.str:
+        '''The type of engine for the endpoint, depending on the ``EndpointType`` value.
+
+        *Valid values* : ``mysql`` | ``oracle`` | ``postgres`` | ``mariadb`` | ``aurora`` | ``aurora-postgresql`` | ``opensearch`` | ``redshift`` | ``redshift-serverless`` | ``s3`` | ``db2`` | ``azuredb`` | ``sybase`` | ``dynamodb`` | ``mongodb`` | ``kinesis`` | ``kafka`` | ``elasticsearch`` | ``docdb`` | ``sqlserver`` | ``neptune``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-enginename
+        '''
+        result = self._values.get("engine_name")
+        assert result is not None, "Required property 'engine_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def certificate_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) for the certificate.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-certificatearn
+        '''
+        result = self._values.get("certificate_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def database_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the endpoint database.
+
+        For a MySQL source or target endpoint, don't specify ``DatabaseName`` . To migrate to a specific database, use this setting and ``targetDbType`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-databasename
+        '''
+        result = self._values.get("database_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def doc_db_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DocDbSettingsProperty"]]:
+        '''Settings in JSON format for the source and target DocumentDB endpoint.
+
+        For more information about other available settings, see `Using extra connections attributes with Amazon DocumentDB as a source <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DocumentDB.html#CHAP_Source.DocumentDB.ECAs>`_ and `Using Amazon DocumentDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DocumentDB.html>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-docdbsettings
+        '''
+        result = self._values.get("doc_db_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DocDbSettingsProperty"]], result)
+
+    @builtins.property
+    def dynamo_db_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DynamoDbSettingsProperty"]]:
+        '''Settings in JSON format for the target Amazon DynamoDB endpoint.
+
+        For information about other available settings, see `Using object mapping to migrate data to DynamoDB <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.DynamoDB.html#CHAP_Target.DynamoDB.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-dynamodbsettings
+        '''
+        result = self._values.get("dynamo_db_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.DynamoDbSettingsProperty"]], result)
+
+    @builtins.property
+    def elasticsearch_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ElasticsearchSettingsProperty"]]:
+        '''Settings in JSON format for the target OpenSearch endpoint.
+
+        For more information about the available settings, see `Extra connection attributes when using OpenSearch as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Elasticsearch.html#CHAP_Target.Elasticsearch.Configuration>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-elasticsearchsettings
+        '''
+        result = self._values.get("elasticsearch_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.ElasticsearchSettingsProperty"]], result)
+
+    @builtins.property
+    def endpoint_identifier(self) -> typing.Optional[builtins.str]:
+        '''The database endpoint identifier.
+
+        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-endpointidentifier
+        '''
+        result = self._values.get("endpoint_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def extra_connection_attributes(self) -> typing.Optional[builtins.str]:
+        '''Additional attributes associated with the connection.
+
+        Each attribute is specified as a name-value pair associated by an equal sign (=). Multiple attributes are separated by a semicolon (;) with no additional white space. For information on the attributes available for connecting your source or target endpoint, see `Working with AWS DMS Endpoints <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Endpoints.html>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-extraconnectionattributes
+        '''
+        result = self._values.get("extra_connection_attributes")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def gcp_my_sql_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.GcpMySQLSettingsProperty"]]:
+        '''Settings in JSON format for the source GCP MySQL endpoint.
+
+        These settings are much the same as the settings for any MySQL-compatible endpoint. For more information, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-gcpmysqlsettings
+        '''
+        result = self._values.get("gcp_my_sql_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.GcpMySQLSettingsProperty"]], result)
+
+    @builtins.property
+    def ibm_db2_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.IbmDb2SettingsProperty"]]:
+        '''Settings in JSON format for the source IBM Db2 LUW endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using Db2 LUW as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.DB2.html#CHAP_Source.DB2.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-ibmdb2settings
+        '''
+        result = self._values.get("ibm_db2_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.IbmDb2SettingsProperty"]], result)
+
+    @builtins.property
+    def kafka_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KafkaSettingsProperty"]]:
+        '''Settings in JSON format for the target Apache Kafka endpoint.
+
+        For more information about other available settings, see `Using object mapping to migrate data to a Kafka topic <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kafka.html#CHAP_Target.Kafka.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kafkasettings
+        '''
+        result = self._values.get("kafka_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KafkaSettingsProperty"]], result)
+
+    @builtins.property
+    def kinesis_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KinesisSettingsProperty"]]:
+        '''Settings in JSON format for the target endpoint for Amazon Kinesis Data Streams.
+
+        For more information about other available settings, see `Using object mapping to migrate data to a Kinesis data stream <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Kinesis.html#CHAP_Target.Kinesis.ObjectMapping>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kinesissettings
+        '''
+        result = self._values.get("kinesis_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.KinesisSettingsProperty"]], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''An AWS  key identifier that is used to encrypt the connection parameters for the endpoint.
+
+        If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key.
+
+        AWS  creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def microsoft_sql_server_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]]:
+        '''Settings in JSON format for the source and target Microsoft SQL Server endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using SQL Server as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SQLServer.html#CHAP_Source.SQLServer.ConnectionAttrib>`_ and `Extra connection attributes when using SQL Server as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SQLServer.html#CHAP_Target.SQLServer.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-microsoftsqlserversettings
+        '''
+        result = self._values.get("microsoft_sql_server_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MicrosoftSqlServerSettingsProperty"]], result)
+
+    @builtins.property
+    def mongo_db_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MongoDbSettingsProperty"]]:
+        '''Settings in JSON format for the source MongoDB endpoint.
+
+        For more information about the available settings, see `Using MongoDB as a target for AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MongoDB.html#CHAP_Source.MongoDB.Configuration>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-mongodbsettings
+        '''
+        result = self._values.get("mongo_db_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MongoDbSettingsProperty"]], result)
+
+    @builtins.property
+    def my_sql_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MySqlSettingsProperty"]]:
+        '''Settings in JSON format for the source and target MySQL endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using MySQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.MySQL.html#CHAP_Source.MySQL.ConnectionAttrib>`_ and `Extra connection attributes when using a MySQL-compatible database as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.MySQL.html#CHAP_Target.MySQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-mysqlsettings
+        '''
+        result = self._values.get("my_sql_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.MySqlSettingsProperty"]], result)
+
+    @builtins.property
+    def neptune_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.NeptuneSettingsProperty"]]:
+        '''Settings in JSON format for the target Amazon Neptune endpoint.
+
+        For more information about the available settings, see `Specifying endpoint settings for Amazon Neptune as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Neptune.html#CHAP_Target.Neptune.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-neptunesettings
+        '''
+        result = self._values.get("neptune_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.NeptuneSettingsProperty"]], result)
+
+    @builtins.property
+    def oracle_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.OracleSettingsProperty"]]:
+        '''Settings in JSON format for the source and target Oracle endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using Oracle as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.Oracle.html#CHAP_Source.Oracle.ConnectionAttrib>`_ and `Extra connection attributes when using Oracle as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Oracle.html#CHAP_Target.Oracle.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-oraclesettings
+        '''
+        result = self._values.get("oracle_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.OracleSettingsProperty"]], result)
+
+    @builtins.property
+    def password(self) -> typing.Optional[builtins.str]:
+        '''The password to be used to log in to the endpoint database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-password
+        '''
+        result = self._values.get("password")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def port(self) -> typing.Optional[jsii.Number]:
+        '''The port used by the endpoint database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-port
+        '''
+        result = self._values.get("port")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def postgre_sql_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PostgreSqlSettingsProperty"]]:
+        '''Settings in JSON format for the source and target PostgreSQL endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using PostgreSQL as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ and `Extra connection attributes when using PostgreSQL as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.PostgreSQL.html#CHAP_Target.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-postgresqlsettings
+        '''
+        result = self._values.get("postgre_sql_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.PostgreSqlSettingsProperty"]], result)
+
+    @builtins.property
+    def redis_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedisSettingsProperty"]]:
+        '''Settings in JSON format for the target Redis endpoint.
+
+        For information about other available settings, see `Specifying endpoint settings for Redis as a target <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redis.html#CHAP_Target.Redis.EndpointSettings>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-redissettings
+        '''
+        result = self._values.get("redis_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedisSettingsProperty"]], result)
+
+    @builtins.property
+    def redshift_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedshiftSettingsProperty"]]:
+        '''Settings in JSON format for the Amazon Redshift endpoint.
+
+        For more information about other available settings, see `Extra connection attributes when using Amazon Redshift as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.Redshift.html#CHAP_Target.Redshift.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-redshiftsettings
+        '''
+        result = self._values.get("redshift_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.RedshiftSettingsProperty"]], result)
+
+    @builtins.property
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
+
+        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` .
+
+        For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def s3_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.S3SettingsProperty"]]:
+        '''Settings in JSON format for the source and target Amazon S3 endpoint.
+
+        For more information about other available settings, see `Extra connection attributes when using Amazon S3 as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.S3.html#CHAP_Source.S3.Configuring>`_ and `Extra connection attributes when using Amazon S3 as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.S3.html#CHAP_Target.S3.Configuring>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-s3settings
+        '''
+        result = self._values.get("s3_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.S3SettingsProperty"]], result)
+
+    @builtins.property
+    def server_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the server where the endpoint database resides.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-servername
+        '''
+        result = self._values.get("server_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ssl_mode(self) -> typing.Optional[builtins.str]:
+        '''The Secure Sockets Layer (SSL) mode to use for the SSL connection. The default is ``none`` .
+
+        .. epigraph::
+
+           When ``engine_name`` is set to S3, the only allowed value is ``none`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-sslmode
+        '''
+        result = self._values.get("ssl_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sybase_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SybaseSettingsProperty"]]:
+        '''Settings in JSON format for the source and target SAP ASE endpoint.
+
+        For information about other available settings, see `Extra connection attributes when using SAP ASE as a source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.SAP.html#CHAP_Source.SAP.ConnectionAttrib>`_ and `Extra connection attributes when using SAP ASE as a target for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Target.SAP.html#CHAP_Target.SAP.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-sybasesettings
+        '''
+        result = self._values.get("sybase_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEndpoint.SybaseSettingsProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags to be assigned to the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def username(self) -> typing.Optional[builtins.str]:
+        '''The user name to be used to log in to the endpoint database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-endpoint.html#cfn-dms-endpoint-username
+        '''
+        result = self._values.get("username")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEventSubscriptionRef_0bd45833, _ITaggable_36806126)
 class CfnEventSubscription(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -12907,6 +10582,7 @@ class CfnEventSubscription(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -12929,22 +10605,23 @@ class CfnEventSubscription(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         sns_topic_arn: builtins.str,
-        enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         source_type: typing.Optional[builtins.str] = None,
         subscription_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::EventSubscription``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification. The ARN is created by Amazon SNS when you create a topic and subscribe to it.
-        :param enabled: Indicates whether to activate the subscription. If you don't specify this property, AWS CloudFormation activates the subscription.
+        :param enabled: Indicates whether to activate the subscription. If you don't specify this property, CloudFormation activates the subscription.
         :param event_categories: A list of event categories for a source type that you want to subscribe to. If you don't specify this property, you are notified about all event categories. For more information, see `Working with Events and Notifications <https://docs.aws.amazon.com//dms/latest/userguide/CHAP_Events.html>`_ in the *AWS DMS User Guide* .
         :param source_ids: A list of identifiers for which AWS DMS provides notification events. If you don't specify a value, notifications are provided for all sources. If you specify multiple values, they must be of the same type. For example, if you specify a database instance ID, then all of the other values must be database instance IDs.
         :param source_type: The type of AWS DMS resource that generates the events. For example, if you want to be notified of events generated by a replication instance, you set this parameter to ``replication-instance`` . If this value isn't specified, all events are returned. *Valid values* : ``replication-instance`` | ``replication-task``
@@ -12967,8 +10644,55 @@ class CfnEventSubscription(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventSubscription")
+    @builtins.classmethod
+    def arn_for_event_subscription(
+        cls,
+        resource: "_IEventSubscriptionRef_0bd45833",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__48f49fbd94a597e7a1149b2cb56b566ee693a5f2c6829b33e6e662fad33cb432)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventSubscription", [resource]))
+
+    @jsii.member(jsii_name="fromSubscriptionName")
+    @builtins.classmethod
+    def from_subscription_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        subscription_name: builtins.str,
+    ) -> "_IEventSubscriptionRef_0bd45833":
+        '''Creates a new IEventSubscriptionRef from a subscriptionName.
+
+        :param scope: -
+        :param id: -
+        :param subscription_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__483b8221254c81804778aa24f348260cbd06b811f7d9d8f0fb1d70273a266797)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+        return typing.cast("_IEventSubscriptionRef_0bd45833", jsii.sinvoke(cls, "fromSubscriptionName", [scope, id, subscription_name]))
+
+    @jsii.member(jsii_name="isCfnEventSubscription")
+    @builtins.classmethod
+    def is_cfn_event_subscription(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventSubscription.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3eb593db35572074fb51b2261ee88190cc29bad6895691964157a02fc9ef377)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventSubscription", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -13012,15 +10736,15 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="eventSubscriptionRef")
-    def event_subscription_ref(self) -> EventSubscriptionReference:
+    def event_subscription_ref(self) -> "_EventSubscriptionReference_d17cc145":
         '''A reference to a EventSubscription resource.'''
-        return typing.cast(EventSubscriptionReference, jsii.get(self, "eventSubscriptionRef"))
+        return typing.cast("_EventSubscriptionReference_d17cc145", jsii.get(self, "eventSubscriptionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="snsTopicArn")
@@ -13039,14 +10763,14 @@ class CfnEventSubscription(
     @jsii.member(jsii_name="enabled")
     def enabled(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether to activate the subscription.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "enabled"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "enabled"))
 
     @enabled.setter
     def enabled(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f9e6185bdbcfc8331ed5d83bf2fbaa37dd9cb811c4e70a7c8fa3cf2a9f73604)
@@ -13110,19 +10834,198 @@ class CfnEventSubscription(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more tags to be assigned to the event subscription.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__80baa3035b4fe50b1e5040583141b0b892965c1bceea423668eba59b6a4693e0)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IInstanceProfileRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnEventSubscriptionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "sns_topic_arn": "snsTopicArn",
+        "enabled": "enabled",
+        "event_categories": "eventCategories",
+        "source_ids": "sourceIds",
+        "source_type": "sourceType",
+        "subscription_name": "subscriptionName",
+        "tags": "tags",
+    },
+)
+class CfnEventSubscriptionProps:
+    def __init__(
+        self,
+        *,
+        sns_topic_arn: builtins.str,
+        enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        source_type: typing.Optional[builtins.str] = None,
+        subscription_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventSubscription``.
+
+        :param sns_topic_arn: The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification. The ARN is created by Amazon SNS when you create a topic and subscribe to it.
+        :param enabled: Indicates whether to activate the subscription. If you don't specify this property, CloudFormation activates the subscription.
+        :param event_categories: A list of event categories for a source type that you want to subscribe to. If you don't specify this property, you are notified about all event categories. For more information, see `Working with Events and Notifications <https://docs.aws.amazon.com//dms/latest/userguide/CHAP_Events.html>`_ in the *AWS DMS User Guide* .
+        :param source_ids: A list of identifiers for which AWS DMS provides notification events. If you don't specify a value, notifications are provided for all sources. If you specify multiple values, they must be of the same type. For example, if you specify a database instance ID, then all of the other values must be database instance IDs.
+        :param source_type: The type of AWS DMS resource that generates the events. For example, if you want to be notified of events generated by a replication instance, you set this parameter to ``replication-instance`` . If this value isn't specified, all events are returned. *Valid values* : ``replication-instance`` | ``replication-task``
+        :param subscription_name: The name of the AWS DMS event notification subscription. This name must be less than 255 characters.
+        :param tags: One or more tags to be assigned to the event subscription.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_event_subscription_props = dms.CfnEventSubscriptionProps(
+                sns_topic_arn="snsTopicArn",
+            
+                # the properties below are optional
+                enabled=False,
+                event_categories=["eventCategories"],
+                source_ids=["sourceIds"],
+                source_type="sourceType",
+                subscription_name="subscriptionName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1555cbc21ca1acdd6ec0e2aad881e8c61105a38d2f194a09e644f876547b64e6)
+            check_type(argname="argument sns_topic_arn", value=sns_topic_arn, expected_type=type_hints["sns_topic_arn"])
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument event_categories", value=event_categories, expected_type=type_hints["event_categories"])
+            check_type(argname="argument source_ids", value=source_ids, expected_type=type_hints["source_ids"])
+            check_type(argname="argument source_type", value=source_type, expected_type=type_hints["source_type"])
+            check_type(argname="argument subscription_name", value=subscription_name, expected_type=type_hints["subscription_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sns_topic_arn": sns_topic_arn,
+        }
+        if enabled is not None:
+            self._values["enabled"] = enabled
+        if event_categories is not None:
+            self._values["event_categories"] = event_categories
+        if source_ids is not None:
+            self._values["source_ids"] = source_ids
+        if source_type is not None:
+            self._values["source_type"] = source_type
+        if subscription_name is not None:
+            self._values["subscription_name"] = subscription_name
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def sns_topic_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the Amazon SNS topic created for event notification.
+
+        The ARN is created by Amazon SNS when you create a topic and subscribe to it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-snstopicarn
+        '''
+        result = self._values.get("sns_topic_arn")
+        assert result is not None, "Required property 'sns_topic_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether to activate the subscription.
+
+        If you don't specify this property, CloudFormation activates the subscription.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-enabled
+        '''
+        result = self._values.get("enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def event_categories(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of event categories for a source type that you want to subscribe to.
+
+        If you don't specify this property, you are notified about all event categories. For more information, see `Working with Events and Notifications <https://docs.aws.amazon.com//dms/latest/userguide/CHAP_Events.html>`_ in the *AWS DMS User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-eventcategories
+        '''
+        result = self._values.get("event_categories")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def source_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of identifiers for which AWS DMS provides notification events.
+
+        If you don't specify a value, notifications are provided for all sources.
+
+        If you specify multiple values, they must be of the same type. For example, if you specify a database instance ID, then all of the other values must be database instance IDs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-sourceids
+        '''
+        result = self._values.get("source_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def source_type(self) -> typing.Optional[builtins.str]:
+        '''The type of AWS DMS resource that generates the events.
+
+        For example, if you want to be notified of events generated by a replication instance, you set this parameter to ``replication-instance`` . If this value isn't specified, all events are returned.
+
+        *Valid values* : ``replication-instance`` | ``replication-task``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-sourcetype
+        '''
+        result = self._values.get("source_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def subscription_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the AWS DMS event notification subscription.
+
+        This name must be less than 255 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-subscriptionname
+        '''
+        result = self._values.get("subscription_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags to be assigned to the event subscription.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-eventsubscription.html#cfn-dms-eventsubscription-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventSubscriptionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInstanceProfileRef_2a55b923, _ITaggableV2_4e6798f8)
 class CfnInstanceProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13136,6 +11039,7 @@ class CfnInstanceProfile(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -13159,7 +11063,7 @@ class CfnInstanceProfile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         availability_zone: typing.Optional[builtins.str] = None,
@@ -13168,19 +11072,20 @@ class CfnInstanceProfile(
         instance_profile_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         network_type: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         subnet_group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::InstanceProfile``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param availability_zone: The Availability Zone where the instance profile runs.
         :param description: A description of the instance profile. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
         :param instance_profile_identifier: The identifier of the instance profile. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
         :param instance_profile_name: The user-friendly name for the instance profile.
-        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS KMS key that is used to encrypt the connection parameters for the instance profile. If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS key that is used to encrypt the connection parameters for the instance profile. If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses an AWS owned encryption key to encrypt your resources.
         :param network_type: Specifies the network type for the instance profile. A value of ``IPV4`` represents an instance profile with IPv4 network type and only supports IPv4 addressing. A value of ``IPV6`` represents an instance profile with IPv6 network type and only supports IPv6 addressing. A value of ``DUAL`` represents an instance profile with dual network type that supports IPv4 and IPv6 addressing.
         :param publicly_accessible: Specifies the accessibility options for the instance profile. A value of ``true`` represents an instance profile with a public IP address. A value of ``false`` represents an instance profile with a private IP address. The default value is ``true`` . Default: - false
         :param subnet_group_identifier: The identifier of the subnet group that is associated with the instance profile.
@@ -13206,8 +11111,34 @@ class CfnInstanceProfile(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForInstanceProfile")
+    @builtins.classmethod
+    def arn_for_instance_profile(
+        cls,
+        resource: "_IInstanceProfileRef_2a55b923",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6042cf3eff9219b73a1e171a3fe14407370f871c46b0951c79ad7871a2cde28)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstanceProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnInstanceProfile")
+    @builtins.classmethod
+    def is_cfn_instance_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInstanceProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95948ec71add2083c2fe91934d5041539d4d5161ce76b31d4283c69ea1033913)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceProfile", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -13256,9 +11187,9 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13267,9 +11198,9 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> InstanceProfileReference:
+    def instance_profile_ref(self) -> "_InstanceProfileReference_e4469b64":
         '''A reference to a InstanceProfile resource.'''
-        return typing.cast(InstanceProfileReference, jsii.get(self, "instanceProfileRef"))
+        return typing.cast("_InstanceProfileReference_e4469b64", jsii.get(self, "instanceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="availabilityZone")
@@ -13326,7 +11257,7 @@ class CfnInstanceProfile(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArn")
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''The Amazon Resource Name (ARN) of the AWS KMS key that is used to encrypt the connection parameters for the instance profile.'''
+        '''The Amazon Resource Name (ARN) of the AWS  key that is used to encrypt the connection parameters for the instance profile.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyArn"))
 
     @kms_key_arn.setter
@@ -13353,14 +11284,14 @@ class CfnInstanceProfile(
     @jsii.member(jsii_name="publiclyAccessible")
     def publicly_accessible(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies the accessibility options for the instance profile.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "publiclyAccessible"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publiclyAccessible"))
 
     @publicly_accessible.setter
     def publicly_accessible(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bab01c20133942c669cfa6364b41fe2f0884195135cdb484b907cd1d017de096)
@@ -13382,12 +11313,12 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__18cb1326620745b811df71b6f775ffff322b6d7a24cc629d76bd1a938e4e1e10)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -13410,7 +11341,229 @@ class CfnInstanceProfile(
         jsii.set(self, "vpcSecurityGroups", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IMigrationProjectRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnInstanceProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "availability_zone": "availabilityZone",
+        "description": "description",
+        "instance_profile_identifier": "instanceProfileIdentifier",
+        "instance_profile_name": "instanceProfileName",
+        "kms_key_arn": "kmsKeyArn",
+        "network_type": "networkType",
+        "publicly_accessible": "publiclyAccessible",
+        "subnet_group_identifier": "subnetGroupIdentifier",
+        "tags": "tags",
+        "vpc_security_groups": "vpcSecurityGroups",
+    },
+)
+class CfnInstanceProfileProps:
+    def __init__(
+        self,
+        *,
+        availability_zone: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+        instance_profile_identifier: typing.Optional[builtins.str] = None,
+        instance_profile_name: typing.Optional[builtins.str] = None,
+        kms_key_arn: typing.Optional[builtins.str] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        subnet_group_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceProfile``.
+
+        :param availability_zone: The Availability Zone where the instance profile runs.
+        :param description: A description of the instance profile. Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
+        :param instance_profile_identifier: The identifier of the instance profile. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+        :param instance_profile_name: The user-friendly name for the instance profile.
+        :param kms_key_arn: The Amazon Resource Name (ARN) of the AWS key that is used to encrypt the connection parameters for the instance profile. If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses an AWS owned encryption key to encrypt your resources.
+        :param network_type: Specifies the network type for the instance profile. A value of ``IPV4`` represents an instance profile with IPv4 network type and only supports IPv4 addressing. A value of ``IPV6`` represents an instance profile with IPv6 network type and only supports IPv6 addressing. A value of ``DUAL`` represents an instance profile with dual network type that supports IPv4 and IPv6 addressing.
+        :param publicly_accessible: Specifies the accessibility options for the instance profile. A value of ``true`` represents an instance profile with a public IP address. A value of ``false`` represents an instance profile with a private IP address. The default value is ``true`` . Default: - false
+        :param subnet_group_identifier: The identifier of the subnet group that is associated with the instance profile.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param vpc_security_groups: The VPC security groups that are used with the instance profile. The VPC security group must work with the VPC containing the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_instance_profile_props = dms.CfnInstanceProfileProps(
+                availability_zone="availabilityZone",
+                description="description",
+                instance_profile_identifier="instanceProfileIdentifier",
+                instance_profile_name="instanceProfileName",
+                kms_key_arn="kmsKeyArn",
+                network_type="networkType",
+                publicly_accessible=False,
+                subnet_group_identifier="subnetGroupIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_security_groups=["vpcSecurityGroups"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eb987e57079646d3b74d43384b58a2e19975492c1f1b317aba746e6fa1f47b4e)
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument instance_profile_identifier", value=instance_profile_identifier, expected_type=type_hints["instance_profile_identifier"])
+            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
+            check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument subnet_group_identifier", value=subnet_group_identifier, expected_type=type_hints["subnet_group_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_security_groups", value=vpc_security_groups, expected_type=type_hints["vpc_security_groups"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if description is not None:
+            self._values["description"] = description
+        if instance_profile_identifier is not None:
+            self._values["instance_profile_identifier"] = instance_profile_identifier
+        if instance_profile_name is not None:
+            self._values["instance_profile_name"] = instance_profile_name
+        if kms_key_arn is not None:
+            self._values["kms_key_arn"] = kms_key_arn
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if subnet_group_identifier is not None:
+            self._values["subnet_group_identifier"] = subnet_group_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_security_groups is not None:
+            self._values["vpc_security_groups"] = vpc_security_groups
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Availability Zone where the instance profile runs.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the instance profile.
+
+        Descriptions can have up to 31 characters. A description can contain only ASCII letters, digits, and hyphens ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_profile_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the instance profile.
+
+        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-instanceprofileidentifier
+        '''
+        result = self._values.get("instance_profile_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_profile_name(self) -> typing.Optional[builtins.str]:
+        '''The user-friendly name for the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-instanceprofilename
+        '''
+        result = self._values.get("instance_profile_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the AWS  key that is used to encrypt the connection parameters for the instance profile.
+
+        If you don't specify a value for the ``KmsKeyArn`` parameter, then AWS DMS uses an AWS owned encryption key to encrypt your resources.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-kmskeyarn
+        '''
+        result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''Specifies the network type for the instance profile.
+
+        A value of ``IPV4`` represents an instance profile with IPv4 network type and only supports IPv4 addressing. A value of ``IPV6`` represents an instance profile with IPv6 network type and only supports IPv6 addressing. A value of ``DUAL`` represents an instance profile with dual network type that supports IPv4 and IPv6 addressing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies the accessibility options for the instance profile.
+
+        A value of ``true`` represents an instance profile with a public IP address. A value of ``false`` represents an instance profile with a private IP address. The default value is ``true`` .
+
+        :default: - false
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def subnet_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the subnet group that is associated with the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-subnetgroupidentifier
+        '''
+        result = self._values.get("subnet_group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_security_groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The VPC security groups that are used with the instance profile.
+
+        The VPC security group must work with the VPC containing the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-instanceprofile.html#cfn-dms-instanceprofile-vpcsecuritygroups
+        '''
+        result = self._values.get("vpc_security_groups")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMigrationProjectRef_e8e0eb77, _ITaggableV2_4e6798f8)
 class CfnMigrationProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13424,6 +11577,7 @@ class CfnMigrationProject(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -13464,7 +11618,7 @@ class CfnMigrationProject(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
@@ -13474,13 +11628,14 @@ class CfnMigrationProject(
         migration_project_creation_time: typing.Optional[builtins.str] = None,
         migration_project_identifier: typing.Optional[builtins.str] = None,
         migration_project_name: typing.Optional[builtins.str] = None,
-        schema_conversion_application_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.SchemaConversionApplicationAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        source_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        schema_conversion_application_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.SchemaConversionApplicationAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_data_provider_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_data_provider_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         transformation_rules: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::MigrationProject``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: A user-friendly description of the migration project.
@@ -13517,8 +11672,34 @@ class CfnMigrationProject(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForMigrationProject")
+    @builtins.classmethod
+    def arn_for_migration_project(
+        cls,
+        resource: "_IMigrationProjectRef_e8e0eb77",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d06eca9226ce1c87fd546d8b6a2a0d7e6b90110fa7c24cd46f6c3fcb60882f2e)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMigrationProject", [resource]))
+
+    @jsii.member(jsii_name="isCfnMigrationProject")
+    @builtins.classmethod
+    def is_cfn_migration_project(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMigrationProject.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62e3549da14a63e8ad86aad478900db7019e22a3dd7daa0f72c9df97e325f96e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMigrationProject", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -13558,9 +11739,9 @@ class CfnMigrationProject(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -13569,9 +11750,9 @@ class CfnMigrationProject(
 
     @builtins.property
     @jsii.member(jsii_name="migrationProjectRef")
-    def migration_project_ref(self) -> MigrationProjectReference:
+    def migration_project_ref(self) -> "_MigrationProjectReference_b53b5f6c":
         '''A reference to a MigrationProject resource.'''
-        return typing.cast(MigrationProjectReference, jsii.get(self, "migrationProjectRef"))
+        return typing.cast("_MigrationProjectReference_b53b5f6c", jsii.get(self, "migrationProjectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -13679,14 +11860,14 @@ class CfnMigrationProject(
     @jsii.member(jsii_name="schemaConversionApplicationAttributes")
     def schema_conversion_application_attributes(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]]:
         '''The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]], jsii.get(self, "schemaConversionApplicationAttributes"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]], jsii.get(self, "schemaConversionApplicationAttributes"))
 
     @schema_conversion_application_attributes.setter
     def schema_conversion_application_attributes(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8248f02c8a28507c6fd7b69d9078ece62cf902113b4922ac2c3b1eb1efe99e47)
@@ -13697,14 +11878,14 @@ class CfnMigrationProject(
     @jsii.member(jsii_name="sourceDataProviderDescriptors")
     def source_data_provider_descriptors(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
         '''Information about the source data provider, including the name or ARN, and AWS Secrets Manager parameters.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]], jsii.get(self, "sourceDataProviderDescriptors"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]], jsii.get(self, "sourceDataProviderDescriptors"))
 
     @source_data_provider_descriptors.setter
     def source_data_provider_descriptors(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a00bd941d6a9f753e2588061a187fa267a4026e4ad4481a8223f35bfb06bc87c)
@@ -13713,12 +11894,12 @@ class CfnMigrationProject(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ac8af1fc70b174a366c98ab2a01a5b731e43ae5aea452d554ac059c8709dc325)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -13728,14 +11909,14 @@ class CfnMigrationProject(
     @jsii.member(jsii_name="targetDataProviderDescriptors")
     def target_data_provider_descriptors(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
         '''Information about the target data provider, including the name or ARN, and AWS Secrets Manager parameters.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]], jsii.get(self, "targetDataProviderDescriptors"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]], jsii.get(self, "targetDataProviderDescriptors"))
 
     @target_data_provider_descriptors.setter
     def target_data_provider_descriptors(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnMigrationProject.DataProviderDescriptorProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e70fa24655fe3ca5e620c8a935fd467925c600296ae5d6c563060ae2bd7b8ebb)
@@ -13947,7 +12128,273 @@ class CfnMigrationProject(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IReplicationConfigRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnMigrationProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "instance_profile_arn": "instanceProfileArn",
+        "instance_profile_identifier": "instanceProfileIdentifier",
+        "instance_profile_name": "instanceProfileName",
+        "migration_project_creation_time": "migrationProjectCreationTime",
+        "migration_project_identifier": "migrationProjectIdentifier",
+        "migration_project_name": "migrationProjectName",
+        "schema_conversion_application_attributes": "schemaConversionApplicationAttributes",
+        "source_data_provider_descriptors": "sourceDataProviderDescriptors",
+        "tags": "tags",
+        "target_data_provider_descriptors": "targetDataProviderDescriptors",
+        "transformation_rules": "transformationRules",
+    },
+)
+class CfnMigrationProjectProps:
+    def __init__(
+        self,
+        *,
+        description: typing.Optional[builtins.str] = None,
+        instance_profile_arn: typing.Optional[builtins.str] = None,
+        instance_profile_identifier: typing.Optional[builtins.str] = None,
+        instance_profile_name: typing.Optional[builtins.str] = None,
+        migration_project_creation_time: typing.Optional[builtins.str] = None,
+        migration_project_identifier: typing.Optional[builtins.str] = None,
+        migration_project_name: typing.Optional[builtins.str] = None,
+        schema_conversion_application_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.SchemaConversionApplicationAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        source_data_provider_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_data_provider_descriptors: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMigrationProject.DataProviderDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        transformation_rules: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMigrationProject``.
+
+        :param description: A user-friendly description of the migration project.
+        :param instance_profile_arn: The Amazon Resource Name (ARN) of the instance profile for your migration project.
+        :param instance_profile_identifier: The identifier of the instance profile for your migration project.
+        :param instance_profile_name: The name of the associated instance profile.
+        :param migration_project_creation_time: (deprecated) The property describes a creating time of the migration project.
+        :param migration_project_identifier: The identifier of the migration project. Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+        :param migration_project_name: The name of the migration project.
+        :param schema_conversion_application_attributes: The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
+        :param source_data_provider_descriptors: Information about the source data provider, including the name or ARN, and AWS Secrets Manager parameters.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param target_data_provider_descriptors: Information about the target data provider, including the name or ARN, and AWS Secrets Manager parameters.
+        :param transformation_rules: The settings in JSON format for migration rules. Migration rules make it possible for you to change the object names according to the rules that you specify. For example, you can change an object name to lowercase or uppercase, add or remove a prefix or suffix, or rename objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_migration_project_props = dms.CfnMigrationProjectProps(
+                description="description",
+                instance_profile_arn="instanceProfileArn",
+                instance_profile_identifier="instanceProfileIdentifier",
+                instance_profile_name="instanceProfileName",
+                migration_project_creation_time="migrationProjectCreationTime",
+                migration_project_identifier="migrationProjectIdentifier",
+                migration_project_name="migrationProjectName",
+                schema_conversion_application_attributes=dms.CfnMigrationProject.SchemaConversionApplicationAttributesProperty(
+                    s3_bucket_path="s3BucketPath",
+                    s3_bucket_role_arn="s3BucketRoleArn"
+                ),
+                source_data_provider_descriptors=[dms.CfnMigrationProject.DataProviderDescriptorProperty(
+                    data_provider_arn="dataProviderArn",
+                    data_provider_identifier="dataProviderIdentifier",
+                    data_provider_name="dataProviderName",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_data_provider_descriptors=[dms.CfnMigrationProject.DataProviderDescriptorProperty(
+                    data_provider_arn="dataProviderArn",
+                    data_provider_identifier="dataProviderIdentifier",
+                    data_provider_name="dataProviderName",
+                    secrets_manager_access_role_arn="secretsManagerAccessRoleArn",
+                    secrets_manager_secret_id="secretsManagerSecretId"
+                )],
+                transformation_rules="transformationRules"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9d354515598618d1781b30321646570d53cc9d8150e99820d2ffc982f69de692)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
+            check_type(argname="argument instance_profile_identifier", value=instance_profile_identifier, expected_type=type_hints["instance_profile_identifier"])
+            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
+            check_type(argname="argument migration_project_creation_time", value=migration_project_creation_time, expected_type=type_hints["migration_project_creation_time"])
+            check_type(argname="argument migration_project_identifier", value=migration_project_identifier, expected_type=type_hints["migration_project_identifier"])
+            check_type(argname="argument migration_project_name", value=migration_project_name, expected_type=type_hints["migration_project_name"])
+            check_type(argname="argument schema_conversion_application_attributes", value=schema_conversion_application_attributes, expected_type=type_hints["schema_conversion_application_attributes"])
+            check_type(argname="argument source_data_provider_descriptors", value=source_data_provider_descriptors, expected_type=type_hints["source_data_provider_descriptors"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_data_provider_descriptors", value=target_data_provider_descriptors, expected_type=type_hints["target_data_provider_descriptors"])
+            check_type(argname="argument transformation_rules", value=transformation_rules, expected_type=type_hints["transformation_rules"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if description is not None:
+            self._values["description"] = description
+        if instance_profile_arn is not None:
+            self._values["instance_profile_arn"] = instance_profile_arn
+        if instance_profile_identifier is not None:
+            self._values["instance_profile_identifier"] = instance_profile_identifier
+        if instance_profile_name is not None:
+            self._values["instance_profile_name"] = instance_profile_name
+        if migration_project_creation_time is not None:
+            self._values["migration_project_creation_time"] = migration_project_creation_time
+        if migration_project_identifier is not None:
+            self._values["migration_project_identifier"] = migration_project_identifier
+        if migration_project_name is not None:
+            self._values["migration_project_name"] = migration_project_name
+        if schema_conversion_application_attributes is not None:
+            self._values["schema_conversion_application_attributes"] = schema_conversion_application_attributes
+        if source_data_provider_descriptors is not None:
+            self._values["source_data_provider_descriptors"] = source_data_provider_descriptors
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_data_provider_descriptors is not None:
+            self._values["target_data_provider_descriptors"] = target_data_provider_descriptors
+        if transformation_rules is not None:
+            self._values["transformation_rules"] = transformation_rules
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A user-friendly description of the migration project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_profile_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the instance profile for your migration project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofilearn
+        '''
+        result = self._values.get("instance_profile_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_profile_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the instance profile for your migration project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofileidentifier
+        '''
+        result = self._values.get("instance_profile_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_profile_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the associated instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-instanceprofilename
+        '''
+        result = self._values.get("instance_profile_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def migration_project_creation_time(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) The property describes a creating time of the migration project.
+
+        :deprecated: this property has been deprecated
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectcreationtime
+        :stability: deprecated
+        '''
+        result = self._values.get("migration_project_creation_time")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def migration_project_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the migration project.
+
+        Identifiers must begin with a letter and must contain only ASCII letters, digits, and hyphens. They can't end with a hyphen, or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectidentifier
+        '''
+        result = self._values.get("migration_project_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def migration_project_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the migration project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-migrationprojectname
+        '''
+        result = self._values.get("migration_project_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_conversion_application_attributes(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]]:
+        '''The schema conversion application attributes, including the Amazon S3 bucket name and Amazon S3 role ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-schemaconversionapplicationattributes
+        '''
+        result = self._values.get("schema_conversion_application_attributes")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.SchemaConversionApplicationAttributesProperty"]], result)
+
+    @builtins.property
+    def source_data_provider_descriptors(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
+        '''Information about the source data provider, including the name or ARN, and AWS Secrets Manager parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-sourcedataproviderdescriptors
+        '''
+        result = self._values.get("source_data_provider_descriptors")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def target_data_provider_descriptors(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]]:
+        '''Information about the target data provider, including the name or ARN, and AWS Secrets Manager parameters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-targetdataproviderdescriptors
+        '''
+        result = self._values.get("target_data_provider_descriptors")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnMigrationProject.DataProviderDescriptorProperty"]]]], result)
+
+    @builtins.property
+    def transformation_rules(self) -> typing.Optional[builtins.str]:
+        '''The settings in JSON format for migration rules.
+
+        Migration rules make it possible for you to change the object names according to the rules that you specify. For example, you can change an object name to lowercase or uppercase, add or remove a prefix or suffix, or rename objects.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-migrationproject.html#cfn-dms-migrationproject-transformationrules
+        '''
+        result = self._values.get("transformation_rules")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMigrationProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReplicationConfigRef_cd698554, _ITaggableV2_4e6798f8)
 class CfnReplicationConfig(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -13961,6 +12408,7 @@ class CfnReplicationConfig(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -14002,10 +12450,10 @@ class CfnReplicationConfig(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        compute_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnReplicationConfig.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        compute_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfig.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         replication_config_identifier: builtins.str,
         replication_type: builtins.str,
         source_endpoint_arn: builtins.str,
@@ -14014,9 +12462,10 @@ class CfnReplicationConfig(
         replication_settings: typing.Any = None,
         resource_identifier: typing.Optional[builtins.str] = None,
         supplemental_settings: typing.Any = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::ReplicationConfig``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param compute_config: Configuration parameters for provisioning an AWS DMS Serverless replication.
@@ -14049,8 +12498,34 @@ class CfnReplicationConfig(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForReplicationConfig")
+    @builtins.classmethod
+    def arn_for_replication_config(
+        cls,
+        resource: "_IReplicationConfigRef_cd698554",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f55a18d485b80c43fb3a15f9c7c1e177b1ff817d5b9d857a2ebf6a31b2eea6d4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReplicationConfig", [resource]))
+
+    @jsii.member(jsii_name="isCfnReplicationConfig")
+    @builtins.classmethod
+    def is_cfn_replication_config(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicationConfig.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e69d13fc95e9852e84f230c8daa750b0dec96497e0509f38aee85ba0976a02b5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationConfig", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -14090,9 +12565,9 @@ class CfnReplicationConfig(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -14101,22 +12576,22 @@ class CfnReplicationConfig(
 
     @builtins.property
     @jsii.member(jsii_name="replicationConfigRef")
-    def replication_config_ref(self) -> ReplicationConfigReference:
+    def replication_config_ref(self) -> "_ReplicationConfigReference_cac8b4fd":
         '''A reference to a ReplicationConfig resource.'''
-        return typing.cast(ReplicationConfigReference, jsii.get(self, "replicationConfigRef"))
+        return typing.cast("_ReplicationConfigReference_cac8b4fd", jsii.get(self, "replicationConfigRef"))
 
     @builtins.property
     @jsii.member(jsii_name="computeConfig")
     def compute_config(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnReplicationConfig.ComputeConfigProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicationConfig.ComputeConfigProperty"]:
         '''Configuration parameters for provisioning an AWS DMS Serverless replication.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnReplicationConfig.ComputeConfigProperty"], jsii.get(self, "computeConfig"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicationConfig.ComputeConfigProperty"], jsii.get(self, "computeConfig"))
 
     @compute_config.setter
     def compute_config(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnReplicationConfig.ComputeConfigProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnReplicationConfig.ComputeConfigProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__32966575e9a17251f77f3c3fd9f0bb4f54a2ab6b20a6253bb2e3f97654887c8e)
@@ -14229,12 +12704,12 @@ class CfnReplicationConfig(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more optional tags associated with resources used by the AWS DMS Serverless replication.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2f7a00e90f9a69724097ed67b1c9d994575c88df02b8ab67e96b098dd2bb1aea)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -14264,7 +12739,7 @@ class CfnReplicationConfig(
             dns_name_servers: typing.Optional[builtins.str] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
             min_capacity_units: typing.Optional[jsii.Number] = None,
-            multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            multi_az: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             preferred_maintenance_window: typing.Optional[builtins.str] = None,
             replication_subnet_group_id: typing.Optional[builtins.str] = None,
             vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -14274,7 +12749,7 @@ class CfnReplicationConfig(
             :param max_capacity_units: Specifies the maximum value of the AWS DMS capacity units (DCUs) for which a given AWS DMS Serverless replication can be provisioned. A single DCU is 2GB of RAM, with 1 DCU as the minimum value allowed. The list of valid DCU values includes 1, 2, 4, 8, 16, 32, 64, 128, 192, 256, and 384. So, the maximum value that you can specify for AWS DMS Serverless is 384. The ``MaxCapacityUnits`` parameter is the only DCU parameter you are required to specify.
             :param availability_zone: The Availability Zone where the AWS DMS Serverless replication using this configuration will run. The default value is a random, system-chosen Availability Zone in the configuration's AWS Region , for example, ``"us-west-2"`` . You can't set this parameter if the ``MultiAZ`` parameter is set to ``true`` .
             :param dns_name_servers: A list of custom DNS name servers supported for the AWS DMS Serverless replication to access your source or target database. This list overrides the default name servers supported by the AWS DMS Serverless replication. You can specify a comma-separated list of internet addresses for up to four DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
-            :param kms_key_id: An AWS Key Management Service ( AWS KMS ) key Amazon Resource Name (ARN) that is used to encrypt the data during AWS DMS Serverless replication. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your Amazon Web Services account. Your AWS account has a different default encryption key for each AWS Region .
+            :param kms_key_id: An AWS Key Management Service ( AWS ) key Amazon Resource Name (ARN) that is used to encrypt the data during AWS DMS Serverless replication. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS creates the default encryption key for your Amazon Web Services account. Your AWS account has a different default encryption key for each AWS Region .
             :param min_capacity_units: Specifies the minimum value of the AWS DMS capacity units (DCUs) for which a given AWS DMS Serverless replication can be provisioned. A single DCU is 2GB of RAM, with 1 DCU as the minimum value allowed. The list of valid DCU values includes 1, 2, 4, 8, 16, 32, 64, 128, 192, 256, and 384. So, the minimum DCU value that you can specify for AWS DMS Serverless is 1. If you don't set this value, AWS DMS sets this parameter to the minimum DCU value allowed, 1. If there is no current source activity, AWS DMS scales down your replication until it reaches the value specified in ``MinCapacityUnits`` .
             :param multi_az: Specifies whether the AWS DMS Serverless replication is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the ``MultiAZ`` parameter is set to ``true`` .
             :param preferred_maintenance_window: The weekly time range during which system maintenance can occur for the AWS DMS Serverless replication, in Universal Coordinated Time (UTC). The format is ``ddd:hh24:mi-ddd:hh24:mi`` . The default is a 30-minute window selected at random from an 8-hour block of time per AWS Region . This maintenance occurs on a random day of the week. Valid values for days of the week include ``Mon`` , ``Tue`` , ``Wed`` , ``Thu`` , ``Fri`` , ``Sat`` , and ``Sun`` . Constraints include a minimum 30-minute window.
@@ -14371,11 +12846,11 @@ class CfnReplicationConfig(
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
-            '''An AWS Key Management Service ( AWS KMS ) key Amazon Resource Name (ARN) that is used to encrypt the data during AWS DMS Serverless replication.
+            '''An AWS Key Management Service ( AWS  ) key Amazon Resource Name (ARN) that is used to encrypt the data during AWS DMS Serverless replication.
 
             If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key.
 
-            AWS KMS creates the default encryption key for your Amazon Web Services account. Your AWS account has a different default encryption key for each AWS Region .
+            AWS  creates the default encryption key for your Amazon Web Services account. Your AWS account has a different default encryption key for each AWS Region .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-replicationconfig-computeconfig.html#cfn-dms-replicationconfig-computeconfig-kmskeyid
             '''
@@ -14396,7 +12871,7 @@ class CfnReplicationConfig(
         @builtins.property
         def multi_az(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Specifies whether the AWS DMS Serverless replication is a Multi-AZ deployment.
 
             You can't set the ``AvailabilityZone`` parameter if the ``MultiAZ`` parameter is set to ``true`` .
@@ -14404,7 +12879,7 @@ class CfnReplicationConfig(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dms-replicationconfig-computeconfig.html#cfn-dms-replicationconfig-computeconfig-multiaz
             '''
             result = self._values.get("multi_az")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
@@ -14453,7 +12928,252 @@ class CfnReplicationConfig(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IReplicationInstanceRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "compute_config": "computeConfig",
+        "replication_config_identifier": "replicationConfigIdentifier",
+        "replication_type": "replicationType",
+        "source_endpoint_arn": "sourceEndpointArn",
+        "table_mappings": "tableMappings",
+        "target_endpoint_arn": "targetEndpointArn",
+        "replication_settings": "replicationSettings",
+        "resource_identifier": "resourceIdentifier",
+        "supplemental_settings": "supplementalSettings",
+        "tags": "tags",
+    },
+)
+class CfnReplicationConfigProps:
+    def __init__(
+        self,
+        *,
+        compute_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnReplicationConfig.ComputeConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+        replication_config_identifier: builtins.str,
+        replication_type: builtins.str,
+        source_endpoint_arn: builtins.str,
+        table_mappings: typing.Any,
+        target_endpoint_arn: builtins.str,
+        replication_settings: typing.Any = None,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        supplemental_settings: typing.Any = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationConfig``.
+
+        :param compute_config: Configuration parameters for provisioning an AWS DMS Serverless replication.
+        :param replication_config_identifier: A unique identifier that you want to use to create a ``ReplicationConfigArn`` that is returned as part of the output from this action. You can then pass this output ``ReplicationConfigArn`` as the value of the ``ReplicationConfigArn`` option for other actions to identify both AWS DMS Serverless replications and replication configurations that you want those actions to operate on. For some actions, you can also use either this unique identifier or a corresponding ARN in action filters to identify the specific replication and replication configuration to operate on.
+        :param replication_type: The type of AWS DMS Serverless replication to provision using this replication configuration. Possible values: - ``"full-load"`` - ``"cdc"`` - ``"full-load-and-cdc"``
+        :param source_endpoint_arn: The Amazon Resource Name (ARN) of the source endpoint for this AWS DMS Serverless replication configuration.
+        :param table_mappings: JSON table mappings for AWS DMS Serverless replications that are provisioned using this replication configuration. For more information, see `Specifying table selection and transformations rules using JSON <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.SelectionTransformation.html>`_ .
+        :param target_endpoint_arn: The Amazon Resource Name (ARN) of the target endpoint for this AWS DMS serverless replication configuration.
+        :param replication_settings: Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration. For example, see `Change processing tuning settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.ChangeProcessingTuning.html>`_ .
+        :param resource_identifier: Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource. For more information, see `Fine-grained access control using resource names and tags <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#CHAP_Security.FineGrainedAccess>`_ .
+        :param supplemental_settings: Optional JSON settings for specifying supplemental data. For more information, see `Specifying supplemental data for task settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ .
+        :param tags: One or more optional tags associated with resources used by the AWS DMS Serverless replication. For more information, see `Tagging resources in AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            # replication_settings: Any
+            # supplemental_settings: Any
+            # table_mappings: Any
+            
+            cfn_replication_config_props = dms.CfnReplicationConfigProps(
+                compute_config=dms.CfnReplicationConfig.ComputeConfigProperty(
+                    max_capacity_units=123,
+            
+                    # the properties below are optional
+                    availability_zone="availabilityZone",
+                    dns_name_servers="dnsNameServers",
+                    kms_key_id="kmsKeyId",
+                    min_capacity_units=123,
+                    multi_az=False,
+                    preferred_maintenance_window="preferredMaintenanceWindow",
+                    replication_subnet_group_id="replicationSubnetGroupId",
+                    vpc_security_group_ids=["vpcSecurityGroupIds"]
+                ),
+                replication_config_identifier="replicationConfigIdentifier",
+                replication_type="replicationType",
+                source_endpoint_arn="sourceEndpointArn",
+                table_mappings=table_mappings,
+                target_endpoint_arn="targetEndpointArn",
+            
+                # the properties below are optional
+                replication_settings=replication_settings,
+                resource_identifier="resourceIdentifier",
+                supplemental_settings=supplemental_settings,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae045521aeb34847358ce5837e2233ae9d158bb9756b046af6dbf7b3db07a492)
+            check_type(argname="argument compute_config", value=compute_config, expected_type=type_hints["compute_config"])
+            check_type(argname="argument replication_config_identifier", value=replication_config_identifier, expected_type=type_hints["replication_config_identifier"])
+            check_type(argname="argument replication_type", value=replication_type, expected_type=type_hints["replication_type"])
+            check_type(argname="argument source_endpoint_arn", value=source_endpoint_arn, expected_type=type_hints["source_endpoint_arn"])
+            check_type(argname="argument table_mappings", value=table_mappings, expected_type=type_hints["table_mappings"])
+            check_type(argname="argument target_endpoint_arn", value=target_endpoint_arn, expected_type=type_hints["target_endpoint_arn"])
+            check_type(argname="argument replication_settings", value=replication_settings, expected_type=type_hints["replication_settings"])
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+            check_type(argname="argument supplemental_settings", value=supplemental_settings, expected_type=type_hints["supplemental_settings"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "compute_config": compute_config,
+            "replication_config_identifier": replication_config_identifier,
+            "replication_type": replication_type,
+            "source_endpoint_arn": source_endpoint_arn,
+            "table_mappings": table_mappings,
+            "target_endpoint_arn": target_endpoint_arn,
+        }
+        if replication_settings is not None:
+            self._values["replication_settings"] = replication_settings
+        if resource_identifier is not None:
+            self._values["resource_identifier"] = resource_identifier
+        if supplemental_settings is not None:
+            self._values["supplemental_settings"] = supplemental_settings
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def compute_config(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnReplicationConfig.ComputeConfigProperty"]:
+        '''Configuration parameters for provisioning an AWS DMS Serverless replication.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-computeconfig
+        '''
+        result = self._values.get("compute_config")
+        assert result is not None, "Required property 'compute_config' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnReplicationConfig.ComputeConfigProperty"], result)
+
+    @builtins.property
+    def replication_config_identifier(self) -> builtins.str:
+        '''A unique identifier that you want to use to create a ``ReplicationConfigArn`` that is returned as part of the output from this action.
+
+        You can then pass this output ``ReplicationConfigArn`` as the value of the ``ReplicationConfigArn`` option for other actions to identify both AWS DMS Serverless replications and replication configurations that you want those actions to operate on. For some actions, you can also use either this unique identifier or a corresponding ARN in action filters to identify the specific replication and replication configuration to operate on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationconfigidentifier
+        '''
+        result = self._values.get("replication_config_identifier")
+        assert result is not None, "Required property 'replication_config_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_type(self) -> builtins.str:
+        '''The type of AWS DMS Serverless replication to provision using this replication configuration.
+
+        Possible values:
+
+        - ``"full-load"``
+        - ``"cdc"``
+        - ``"full-load-and-cdc"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationtype
+        '''
+        result = self._values.get("replication_type")
+        assert result is not None, "Required property 'replication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_endpoint_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the source endpoint for this AWS DMS Serverless replication configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-sourceendpointarn
+        '''
+        result = self._values.get("source_endpoint_arn")
+        assert result is not None, "Required property 'source_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_mappings(self) -> typing.Any:
+        '''JSON table mappings for AWS DMS Serverless replications that are provisioned using this replication configuration.
+
+        For more information, see `Specifying table selection and transformations rules using JSON <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.SelectionTransformation.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-tablemappings
+        '''
+        result = self._values.get("table_mappings")
+        assert result is not None, "Required property 'table_mappings' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def target_endpoint_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the target endpoint for this AWS DMS serverless replication configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-targetendpointarn
+        '''
+        result = self._values.get("target_endpoint_arn")
+        assert result is not None, "Required property 'target_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_settings(self) -> typing.Any:
+        '''Optional JSON settings for AWS DMS Serverless replications that are provisioned using this replication configuration.
+
+        For example, see `Change processing tuning settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.ChangeProcessingTuning.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-replicationsettings
+        '''
+        result = self._values.get("replication_settings")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''Optional unique value or name that you set for a given resource that can be used to construct an Amazon Resource Name (ARN) for that resource.
+
+        For more information, see `Fine-grained access control using resource names and tags <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Security.html#CHAP_Security.FineGrainedAccess>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def supplemental_settings(self) -> typing.Any:
+        '''Optional JSON settings for specifying supplemental data.
+
+        For more information, see `Specifying supplemental data for task settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-supplementalsettings
+        '''
+        result = self._values.get("supplemental_settings")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more optional tags associated with resources used by the AWS DMS Serverless replication.
+
+        For more information, see `Tagging resources in AWS Database Migration Service <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tagging.html>`_ .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationconfig.html#cfn-dms-replicationconfig-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReplicationInstanceRef_074b3188, _ITaggable_36806126)
 class CfnReplicationInstance(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14469,6 +13189,7 @@ class CfnReplicationInstance(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -14501,28 +13222,29 @@ class CfnReplicationInstance(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         replication_instance_class: builtins.str,
         allocated_storage: typing.Optional[jsii.Number] = None,
-        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
         dns_name_servers: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         kms_key_id: typing.Optional[builtins.str] = None,
-        multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        multi_az: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         network_type: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
-        publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         replication_instance_identifier: typing.Optional[builtins.str] = None,
         replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
         resource_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::ReplicationInstance``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param replication_instance_class: The compute and memory capacity of the replication instance as defined for the specified replication instance class. For example, to specify the instance class dms.c4.large, set this parameter to ``"dms.c4.large"`` . For more information on the settings and capacities for the available replication instance classes, see `Selecting the right AWS DMS replication instance for your migration <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.html#CHAP_ReplicationInstance.InDepth>`_ in the *AWS Database Migration Service User Guide* .
@@ -14532,7 +13254,7 @@ class CfnReplicationInstance(
         :param availability_zone: The Availability Zone that the replication instance will be created in. The default value is a random, system-chosen Availability Zone in the endpoint's AWS Region , for example ``us-east-1d`` .
         :param dns_name_servers: A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database. This list overrides the default name servers supported by the replication instance. You can specify a comma-separated list of internet addresses for up to four on-premise DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
         :param engine_version: The engine version number of the replication instance. If an engine version number is not specified when a replication instance is created, the default is the latest engine version available.
-        :param kms_key_id: An AWS KMS key identifier that is used to encrypt the data on the replication instance. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS KMS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+        :param kms_key_id: An AWS key identifier that is used to encrypt the data on the replication instance. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
         :param multi_az: Specifies whether the replication instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the Multi-AZ parameter is set to ``true`` .
         :param network_type: The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing. IPv6 only is not yet supported.
         :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in UTC. *Format* : ``ddd:hh24:mi-ddd:hh24:mi`` *Default* : A 30-minute window selected at random from an 8-hour block of time per AWS Region , occurring on a random day of the week. *Valid days* ( ``ddd`` ): ``Mon`` | ``Tue`` | ``Wed`` | ``Thu`` | ``Fri`` | ``Sat`` | ``Sun`` *Constraints* : Minimum 30-minute window.
@@ -14569,8 +13291,20 @@ class CfnReplicationInstance(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnReplicationInstance")
+    @builtins.classmethod
+    def is_cfn_replication_instance(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicationInstance.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__35160f219b6cb901e05a5fcdafb5d815847c60a8aa2c40fdf6dd2bbff71c37d7)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationInstance", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -14632,15 +13366,15 @@ class CfnReplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="replicationInstanceRef")
-    def replication_instance_ref(self) -> ReplicationInstanceReference:
+    def replication_instance_ref(self) -> "_ReplicationInstanceReference_408be100":
         '''A reference to a ReplicationInstance resource.'''
-        return typing.cast(ReplicationInstanceReference, jsii.get(self, "replicationInstanceRef"))
+        return typing.cast("_ReplicationInstanceReference_408be100", jsii.get(self, "replicationInstanceRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="replicationInstanceClass")
@@ -14672,14 +13406,14 @@ class CfnReplicationInstance(
     @jsii.member(jsii_name="allowMajorVersionUpgrade")
     def allow_major_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates that major version upgrades are allowed.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "allowMajorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowMajorVersionUpgrade"))
 
     @allow_major_version_upgrade.setter
     def allow_major_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d542d7160e59f9611ad93908e6070b4d58a40287b9bb64428b6c6fdfd564831b)
@@ -14690,14 +13424,14 @@ class CfnReplicationInstance(
     @jsii.member(jsii_name="autoMinorVersionUpgrade")
     def auto_minor_version_upgrade(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "autoMinorVersionUpgrade"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "autoMinorVersionUpgrade"))
 
     @auto_minor_version_upgrade.setter
     def auto_minor_version_upgrade(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a670c3f6412303c20ee8b484b6db57b09d69fe3bfd90a5002f50a95211ae920d)
@@ -14746,7 +13480,7 @@ class CfnReplicationInstance(
     @builtins.property
     @jsii.member(jsii_name="kmsKeyId")
     def kms_key_id(self) -> typing.Optional[builtins.str]:
-        '''An AWS KMS key identifier that is used to encrypt the data on the replication instance.'''
+        '''An AWS  key identifier that is used to encrypt the data on the replication instance.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
 
     @kms_key_id.setter
@@ -14760,14 +13494,14 @@ class CfnReplicationInstance(
     @jsii.member(jsii_name="multiAz")
     def multi_az(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies whether the replication instance is a Multi-AZ deployment.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "multiAz"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "multiAz"))
 
     @multi_az.setter
     def multi_az(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__15cd762d24a89b64d936fd024f99a77b04a531719743e2b8fc0fe1101c056518)
@@ -14807,14 +13541,14 @@ class CfnReplicationInstance(
     @jsii.member(jsii_name="publiclyAccessible")
     def publicly_accessible(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies the accessibility options for the replication instance.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "publiclyAccessible"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "publiclyAccessible"))
 
     @publicly_accessible.setter
     def publicly_accessible(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__47cab327863ed0bd5c6846fe9c62673d11bac796afa3f7043664bf2daed7b5af)
@@ -14871,12 +13605,12 @@ class CfnReplicationInstance(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more tags to be assigned to the replication instance.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e9b076e4deeb27025899867a8af58f94e0b718991df1032113865eea27810a7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -14899,7 +13633,382 @@ class CfnReplicationInstance(
         jsii.set(self, "vpcSecurityGroupIds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IReplicationSubnetGroupRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "replication_instance_class": "replicationInstanceClass",
+        "allocated_storage": "allocatedStorage",
+        "allow_major_version_upgrade": "allowMajorVersionUpgrade",
+        "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
+        "availability_zone": "availabilityZone",
+        "dns_name_servers": "dnsNameServers",
+        "engine_version": "engineVersion",
+        "kms_key_id": "kmsKeyId",
+        "multi_az": "multiAz",
+        "network_type": "networkType",
+        "preferred_maintenance_window": "preferredMaintenanceWindow",
+        "publicly_accessible": "publiclyAccessible",
+        "replication_instance_identifier": "replicationInstanceIdentifier",
+        "replication_subnet_group_identifier": "replicationSubnetGroupIdentifier",
+        "resource_identifier": "resourceIdentifier",
+        "tags": "tags",
+        "vpc_security_group_ids": "vpcSecurityGroupIds",
+    },
+)
+class CfnReplicationInstanceProps:
+    def __init__(
+        self,
+        *,
+        replication_instance_class: builtins.str,
+        allocated_storage: typing.Optional[jsii.Number] = None,
+        allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        availability_zone: typing.Optional[builtins.str] = None,
+        dns_name_servers: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        multi_az: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        network_type: typing.Optional[builtins.str] = None,
+        preferred_maintenance_window: typing.Optional[builtins.str] = None,
+        publicly_accessible: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        replication_instance_identifier: typing.Optional[builtins.str] = None,
+        replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationInstance``.
+
+        :param replication_instance_class: The compute and memory capacity of the replication instance as defined for the specified replication instance class. For example, to specify the instance class dms.c4.large, set this parameter to ``"dms.c4.large"`` . For more information on the settings and capacities for the available replication instance classes, see `Selecting the right AWS DMS replication instance for your migration <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.html#CHAP_ReplicationInstance.InDepth>`_ in the *AWS Database Migration Service User Guide* .
+        :param allocated_storage: The amount of storage (in gigabytes) to be initially allocated for the replication instance.
+        :param allow_major_version_upgrade: Indicates that major version upgrades are allowed. Changing this parameter does not result in an outage, and the change is asynchronously applied as soon as possible. This parameter must be set to ``true`` when specifying a value for the ``EngineVersion`` parameter that is a different major version than the replication instance's current version.
+        :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window. This parameter defaults to ``true`` . Default: ``true``
+        :param availability_zone: The Availability Zone that the replication instance will be created in. The default value is a random, system-chosen Availability Zone in the endpoint's AWS Region , for example ``us-east-1d`` .
+        :param dns_name_servers: A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database. This list overrides the default name servers supported by the replication instance. You can specify a comma-separated list of internet addresses for up to four on-premise DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
+        :param engine_version: The engine version number of the replication instance. If an engine version number is not specified when a replication instance is created, the default is the latest engine version available.
+        :param kms_key_id: An AWS key identifier that is used to encrypt the data on the replication instance. If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key. AWS creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+        :param multi_az: Specifies whether the replication instance is a Multi-AZ deployment. You can't set the ``AvailabilityZone`` parameter if the Multi-AZ parameter is set to ``true`` .
+        :param network_type: The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing. IPv6 only is not yet supported.
+        :param preferred_maintenance_window: The weekly time range during which system maintenance can occur, in UTC. *Format* : ``ddd:hh24:mi-ddd:hh24:mi`` *Default* : A 30-minute window selected at random from an 8-hour block of time per AWS Region , occurring on a random day of the week. *Valid days* ( ``ddd`` ): ``Mon`` | ``Tue`` | ``Wed`` | ``Thu`` | ``Fri`` | ``Sat`` | ``Sun`` *Constraints* : Minimum 30-minute window.
+        :param publicly_accessible: Specifies the accessibility options for the replication instance. A value of ``true`` represents an instance with a public IP address. A value of ``false`` represents an instance with a private IP address. The default value is ``true`` .
+        :param replication_instance_identifier: The replication instance identifier. This parameter is stored as a lowercase string. Constraints: - Must contain 1-63 alphanumeric characters or hyphens. - First character must be a letter. - Can't end with a hyphen or contain two consecutive hyphens. Example: ``myrepinstance``
+        :param replication_subnet_group_identifier: A subnet group to associate with the replication instance.
+        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+        :param tags: One or more tags to be assigned to the replication instance.
+        :param vpc_security_group_ids: Specifies the virtual private cloud (VPC) security group to be used with the replication instance. The VPC security group must work with the VPC containing the replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_replication_instance_props = dms.CfnReplicationInstanceProps(
+                replication_instance_class="replicationInstanceClass",
+            
+                # the properties below are optional
+                allocated_storage=123,
+                allow_major_version_upgrade=False,
+                auto_minor_version_upgrade=False,
+                availability_zone="availabilityZone",
+                dns_name_servers="dnsNameServers",
+                engine_version="engineVersion",
+                kms_key_id="kmsKeyId",
+                multi_az=False,
+                network_type="networkType",
+                preferred_maintenance_window="preferredMaintenanceWindow",
+                publicly_accessible=False,
+                replication_instance_identifier="replicationInstanceIdentifier",
+                replication_subnet_group_identifier="replicationSubnetGroupIdentifier",
+                resource_identifier="resourceIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_security_group_ids=["vpcSecurityGroupIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c195b8dd61348ff1d9f7bd70b0a5b897ad23028c6c9ea122bf051cb2a4cec2c7)
+            check_type(argname="argument replication_instance_class", value=replication_instance_class, expected_type=type_hints["replication_instance_class"])
+            check_type(argname="argument allocated_storage", value=allocated_storage, expected_type=type_hints["allocated_storage"])
+            check_type(argname="argument allow_major_version_upgrade", value=allow_major_version_upgrade, expected_type=type_hints["allow_major_version_upgrade"])
+            check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument dns_name_servers", value=dns_name_servers, expected_type=type_hints["dns_name_servers"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument multi_az", value=multi_az, expected_type=type_hints["multi_az"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
+            check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
+            check_type(argname="argument publicly_accessible", value=publicly_accessible, expected_type=type_hints["publicly_accessible"])
+            check_type(argname="argument replication_instance_identifier", value=replication_instance_identifier, expected_type=type_hints["replication_instance_identifier"])
+            check_type(argname="argument replication_subnet_group_identifier", value=replication_subnet_group_identifier, expected_type=type_hints["replication_subnet_group_identifier"])
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_security_group_ids", value=vpc_security_group_ids, expected_type=type_hints["vpc_security_group_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replication_instance_class": replication_instance_class,
+        }
+        if allocated_storage is not None:
+            self._values["allocated_storage"] = allocated_storage
+        if allow_major_version_upgrade is not None:
+            self._values["allow_major_version_upgrade"] = allow_major_version_upgrade
+        if auto_minor_version_upgrade is not None:
+            self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if dns_name_servers is not None:
+            self._values["dns_name_servers"] = dns_name_servers
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if multi_az is not None:
+            self._values["multi_az"] = multi_az
+        if network_type is not None:
+            self._values["network_type"] = network_type
+        if preferred_maintenance_window is not None:
+            self._values["preferred_maintenance_window"] = preferred_maintenance_window
+        if publicly_accessible is not None:
+            self._values["publicly_accessible"] = publicly_accessible
+        if replication_instance_identifier is not None:
+            self._values["replication_instance_identifier"] = replication_instance_identifier
+        if replication_subnet_group_identifier is not None:
+            self._values["replication_subnet_group_identifier"] = replication_subnet_group_identifier
+        if resource_identifier is not None:
+            self._values["resource_identifier"] = resource_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_security_group_ids is not None:
+            self._values["vpc_security_group_ids"] = vpc_security_group_ids
+
+    @builtins.property
+    def replication_instance_class(self) -> builtins.str:
+        '''The compute and memory capacity of the replication instance as defined for the specified replication instance class.
+
+        For example, to specify the instance class dms.c4.large, set this parameter to ``"dms.c4.large"`` . For more information on the settings and capacities for the available replication instance classes, see `Selecting the right AWS DMS replication instance for your migration <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_ReplicationInstance.html#CHAP_ReplicationInstance.InDepth>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationinstanceclass
+        '''
+        result = self._values.get("replication_instance_class")
+        assert result is not None, "Required property 'replication_instance_class' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allocated_storage(self) -> typing.Optional[jsii.Number]:
+        '''The amount of storage (in gigabytes) to be initially allocated for the replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-allocatedstorage
+        '''
+        result = self._values.get("allocated_storage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def allow_major_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates that major version upgrades are allowed.
+
+        Changing this parameter does not result in an outage, and the change is asynchronously applied as soon as possible.
+
+        This parameter must be set to ``true`` when specifying a value for the ``EngineVersion`` parameter that is a different major version than the replication instance's current version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-allowmajorversionupgrade
+        '''
+        result = self._values.get("allow_major_version_upgrade")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def auto_minor_version_upgrade(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''A value that indicates whether minor engine upgrades are applied automatically to the replication instance during the maintenance window.
+
+        This parameter defaults to ``true`` .
+
+        Default: ``true``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-autominorversionupgrade
+        '''
+        result = self._values.get("auto_minor_version_upgrade")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''The Availability Zone that the replication instance will be created in.
+
+        The default value is a random, system-chosen Availability Zone in the endpoint's AWS Region , for example ``us-east-1d`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-availabilityzone
+        '''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def dns_name_servers(self) -> typing.Optional[builtins.str]:
+        '''A list of custom DNS name servers supported for the replication instance to access your on-premise source or target database.
+
+        This list overrides the default name servers supported by the replication instance. You can specify a comma-separated list of internet addresses for up to four on-premise DNS name servers. For example: ``"1.1.1.1,2.2.2.2,3.3.3.3,4.4.4.4"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-dnsnameservers
+        '''
+        result = self._values.get("dns_name_servers")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The engine version number of the replication instance.
+
+        If an engine version number is not specified when a replication instance is created, the default is the latest engine version available.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''An AWS  key identifier that is used to encrypt the data on the replication instance.
+
+        If you don't specify a value for the ``KmsKeyId`` parameter, AWS DMS uses your default encryption key.
+
+        AWS  creates the default encryption key for your AWS account . Your AWS account has a different default encryption key for each AWS Region .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def multi_az(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether the replication instance is a Multi-AZ deployment.
+
+        You can't set the ``AvailabilityZone`` parameter if the Multi-AZ parameter is set to ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-multiaz
+        '''
+        result = self._values.get("multi_az")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The type of IP address protocol used by a replication instance, such as IPv4 only or Dual-stack that supports both IPv4 and IPv6 addressing.
+
+        IPv6 only is not yet supported.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''The weekly time range during which system maintenance can occur, in UTC.
+
+        *Format* : ``ddd:hh24:mi-ddd:hh24:mi``
+
+        *Default* : A 30-minute window selected at random from an 8-hour block of time per AWS Region , occurring on a random day of the week.
+
+        *Valid days* ( ``ddd`` ): ``Mon`` | ``Tue`` | ``Wed`` | ``Thu`` | ``Fri`` | ``Sat`` | ``Sun``
+
+        *Constraints* : Minimum 30-minute window.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-preferredmaintenancewindow
+        '''
+        result = self._values.get("preferred_maintenance_window")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def publicly_accessible(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies the accessibility options for the replication instance.
+
+        A value of ``true`` represents an instance with a public IP address. A value of ``false`` represents an instance with a private IP address. The default value is ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-publiclyaccessible
+        '''
+        result = self._values.get("publicly_accessible")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def replication_instance_identifier(self) -> typing.Optional[builtins.str]:
+        '''The replication instance identifier. This parameter is stored as a lowercase string.
+
+        Constraints:
+
+        - Must contain 1-63 alphanumeric characters or hyphens.
+        - First character must be a letter.
+        - Can't end with a hyphen or contain two consecutive hyphens.
+
+        Example: ``myrepinstance``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationinstanceidentifier
+        '''
+        result = self._values.get("replication_instance_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_subnet_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''A subnet group to associate with the replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-replicationsubnetgroupidentifier
+        '''
+        result = self._values.get("replication_subnet_group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
+
+        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags to be assigned to the replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Specifies the virtual private cloud (VPC) security group to be used with the replication instance.
+
+        The VPC security group must work with the VPC containing the replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationinstance.html#cfn-dms-replicationinstance-vpcsecuritygroupids
+        '''
+        result = self._values.get("vpc_security_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReplicationSubnetGroupRef_dcc76b58, _ITaggable_36806126)
 class CfnReplicationSubnetGroup(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -14918,6 +14027,7 @@ class CfnReplicationSubnetGroup(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -14937,20 +14047,21 @@ class CfnReplicationSubnetGroup(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         replication_subnet_group_description: builtins.str,
         subnet_ids: typing.Sequence[builtins.str],
         replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::ReplicationSubnetGroup``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param replication_subnet_group_description: The description for the subnet group.
         :param subnet_ids: One or more subnet IDs to be assigned to the subnet group.
-        :param replication_subnet_group_identifier: The identifier for the replication subnet group. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the identifier.
+        :param replication_subnet_group_identifier: The identifier for the replication subnet group. If you don't specify a name, CloudFormation generates a unique ID and uses that ID for the identifier.
         :param tags: One or more tags to be assigned to the subnet group.
         '''
         if __debug__:
@@ -14966,8 +14077,20 @@ class CfnReplicationSubnetGroup(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnReplicationSubnetGroup")
+    @builtins.classmethod
+    def is_cfn_replication_subnet_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicationSubnetGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20d123afb526ef56c232adb6a7d821089821275eb828547d3ccdc148e956ee78)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationSubnetGroup", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -15011,15 +14134,17 @@ class CfnReplicationSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="replicationSubnetGroupRef")
-    def replication_subnet_group_ref(self) -> ReplicationSubnetGroupReference:
+    def replication_subnet_group_ref(
+        self,
+    ) -> "_ReplicationSubnetGroupReference_fa0eeb14":
         '''A reference to a ReplicationSubnetGroup resource.'''
-        return typing.cast(ReplicationSubnetGroupReference, jsii.get(self, "replicationSubnetGroupRef"))
+        return typing.cast("_ReplicationSubnetGroupReference_fa0eeb14", jsii.get(self, "replicationSubnetGroupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="replicationSubnetGroupDescription")
@@ -15065,19 +14190,134 @@ class CfnReplicationSubnetGroup(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more tags to be assigned to the subnet group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a2c3c4e17f3d3ba3275fed9a1aab23448ad30fccd5e22c0ae03edd65bc8ff2e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IReplicationTaskRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationSubnetGroupProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "replication_subnet_group_description": "replicationSubnetGroupDescription",
+        "subnet_ids": "subnetIds",
+        "replication_subnet_group_identifier": "replicationSubnetGroupIdentifier",
+        "tags": "tags",
+    },
+)
+class CfnReplicationSubnetGroupProps:
+    def __init__(
+        self,
+        *,
+        replication_subnet_group_description: builtins.str,
+        subnet_ids: typing.Sequence[builtins.str],
+        replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationSubnetGroup``.
+
+        :param replication_subnet_group_description: The description for the subnet group.
+        :param subnet_ids: One or more subnet IDs to be assigned to the subnet group.
+        :param replication_subnet_group_identifier: The identifier for the replication subnet group. If you don't specify a name, CloudFormation generates a unique ID and uses that ID for the identifier.
+        :param tags: One or more tags to be assigned to the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_replication_subnet_group_props = dms.CfnReplicationSubnetGroupProps(
+                replication_subnet_group_description="replicationSubnetGroupDescription",
+                subnet_ids=["subnetIds"],
+            
+                # the properties below are optional
+                replication_subnet_group_identifier="replicationSubnetGroupIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a3aafd89e16d92c494e27cd4b858bfa30a53c5b4c3ca60c15a5f73d6512b8612)
+            check_type(argname="argument replication_subnet_group_description", value=replication_subnet_group_description, expected_type=type_hints["replication_subnet_group_description"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument replication_subnet_group_identifier", value=replication_subnet_group_identifier, expected_type=type_hints["replication_subnet_group_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "replication_subnet_group_description": replication_subnet_group_description,
+            "subnet_ids": subnet_ids,
+        }
+        if replication_subnet_group_identifier is not None:
+            self._values["replication_subnet_group_identifier"] = replication_subnet_group_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def replication_subnet_group_description(self) -> builtins.str:
+        '''The description for the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-replicationsubnetgroupdescription
+        '''
+        result = self._values.get("replication_subnet_group_description")
+        assert result is not None, "Required property 'replication_subnet_group_description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.List[builtins.str]:
+        '''One or more subnet IDs to be assigned to the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        assert result is not None, "Required property 'subnet_ids' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def replication_subnet_group_identifier(self) -> typing.Optional[builtins.str]:
+        '''The identifier for the replication subnet group.
+
+        If you don't specify a name, CloudFormation generates a unique ID and uses that ID for the identifier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-replicationsubnetgroupidentifier
+        '''
+        result = self._values.get("replication_subnet_group_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags to be assigned to the subnet group.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationsubnetgroup.html#cfn-dms-replicationsubnetgroup-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationSubnetGroupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IReplicationTaskRef_97589d0d, _ITaggable_36806126)
 class CfnReplicationTask(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15091,6 +14331,7 @@ class CfnReplicationTask(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_dms as dms
@@ -15119,7 +14360,7 @@ class CfnReplicationTask(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         migration_type: builtins.str,
@@ -15133,10 +14374,11 @@ class CfnReplicationTask(
         replication_task_identifier: typing.Optional[builtins.str] = None,
         replication_task_settings: typing.Optional[builtins.str] = None,
         resource_identifier: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_data: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DMS::ReplicationTask``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param migration_type: The migration type. Valid values: ``full-load`` | ``cdc`` | ``full-load-and-cdc``
@@ -15175,8 +14417,20 @@ class CfnReplicationTask(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnReplicationTask")
+    @builtins.classmethod
+    def is_cfn_replication_task(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReplicationTask.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9095aa357a6e21699c33eb78087624b67cd56257be2e0ff2a1ae4fe5996503a6)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReplicationTask", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -15220,15 +14474,15 @@ class CfnReplicationTask(
 
     @builtins.property
     @jsii.member(jsii_name="replicationTaskRef")
-    def replication_task_ref(self) -> ReplicationTaskReference:
+    def replication_task_ref(self) -> "_ReplicationTaskReference_d73d9e7e":
         '''A reference to a ReplicationTask resource.'''
-        return typing.cast(ReplicationTaskReference, jsii.get(self, "replicationTaskRef"))
+        return typing.cast("_ReplicationTaskReference_d73d9e7e", jsii.get(self, "replicationTaskRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="migrationType")
@@ -15375,12 +14629,12 @@ class CfnReplicationTask(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''One or more tags to be assigned to the replication task.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6a8fadfeae4645d0ebd875d4c0285d22d91319e75b8c434882a51c7205d677cb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -15400,8 +14654,301 @@ class CfnReplicationTask(
         jsii.set(self, "taskData", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dms.CfnReplicationTaskProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "migration_type": "migrationType",
+        "replication_instance_arn": "replicationInstanceArn",
+        "source_endpoint_arn": "sourceEndpointArn",
+        "table_mappings": "tableMappings",
+        "target_endpoint_arn": "targetEndpointArn",
+        "cdc_start_position": "cdcStartPosition",
+        "cdc_start_time": "cdcStartTime",
+        "cdc_stop_position": "cdcStopPosition",
+        "replication_task_identifier": "replicationTaskIdentifier",
+        "replication_task_settings": "replicationTaskSettings",
+        "resource_identifier": "resourceIdentifier",
+        "tags": "tags",
+        "task_data": "taskData",
+    },
+)
+class CfnReplicationTaskProps:
+    def __init__(
+        self,
+        *,
+        migration_type: builtins.str,
+        replication_instance_arn: builtins.str,
+        source_endpoint_arn: builtins.str,
+        table_mappings: builtins.str,
+        target_endpoint_arn: builtins.str,
+        cdc_start_position: typing.Optional[builtins.str] = None,
+        cdc_start_time: typing.Optional[jsii.Number] = None,
+        cdc_stop_position: typing.Optional[builtins.str] = None,
+        replication_task_identifier: typing.Optional[builtins.str] = None,
+        replication_task_settings: typing.Optional[builtins.str] = None,
+        resource_identifier: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        task_data: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReplicationTask``.
+
+        :param migration_type: The migration type. Valid values: ``full-load`` | ``cdc`` | ``full-load-and-cdc``
+        :param replication_instance_arn: The Amazon Resource Name (ARN) of a replication instance.
+        :param source_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the source endpoint.
+        :param table_mappings: The table mappings for the task, in JSON format. For more information, see `Using Table Mapping to Specify Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.html>`_ in the *AWS Database Migration Service User Guide* .
+        :param target_endpoint_arn: An Amazon Resource Name (ARN) that uniquely identifies the target endpoint.
+        :param cdc_start_position: Indicates when you want a change data capture (CDC) operation to start. Use either ``CdcStartPosition`` or ``CdcStartTime`` to specify when you want a CDC operation to start. Specifying both values results in an error. The value can be in date, checkpoint, log sequence number (LSN), or system change number (SCN) format. Here is a date example: ``--cdc-start-position "2018-03-08T12:12:12"`` Here is a checkpoint example: ``--cdc-start-position "checkpoint:V1#27#mysql-bin-changelog.157832:1975:-1:2002:677883278264080:mysql-bin-changelog.157832:1876#0#0#*#0#93"`` Here is an LSN example: ``--cdc-start-position “mysql-bin-changelog.000024:373”`` .. epigraph:: When you use this task setting with a source PostgreSQL database, a logical replication slot should already be created and associated with the source endpoint. You can verify this by setting the ``slotName`` extra connection attribute to the name of this logical replication slot. For more information, see `Extra Connection Attributes When Using PostgreSQL as a Source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+        :param cdc_start_time: Indicates the start time for a change data capture (CDC) operation.
+        :param cdc_stop_position: Indicates when you want a change data capture (CDC) operation to stop. The value can be either server time or commit time. Here is a server time example: ``--cdc-stop-position "server_time:2018-02-09T12:12:12"`` Here is a commit time example: ``--cdc-stop-position "commit_time: 2018-02-09T12:12:12"``
+        :param replication_task_identifier: An identifier for the replication task. Constraints: - Must contain 1-255 alphanumeric characters or hyphens. - First character must be a letter. - Cannot end with a hyphen or contain two consecutive hyphens.
+        :param replication_task_settings: Overall settings for the task, in JSON format. For more information, see `Specifying Task Settings for AWS Database Migration Service Tasks <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.html>`_ in the *AWS Database Migration Service User Guide* .
+        :param resource_identifier: A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object. The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` . For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+        :param tags: One or more tags to be assigned to the replication task.
+        :param task_data: Supplemental information that the task requires to migrate the data for certain source and target endpoints. For more information, see `Specifying Supplemental Data for Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ in the *AWS Database Migration Service User Guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_dms as dms
+            
+            cfn_replication_task_props = dms.CfnReplicationTaskProps(
+                migration_type="migrationType",
+                replication_instance_arn="replicationInstanceArn",
+                source_endpoint_arn="sourceEndpointArn",
+                table_mappings="tableMappings",
+                target_endpoint_arn="targetEndpointArn",
+            
+                # the properties below are optional
+                cdc_start_position="cdcStartPosition",
+                cdc_start_time=123,
+                cdc_stop_position="cdcStopPosition",
+                replication_task_identifier="replicationTaskIdentifier",
+                replication_task_settings="replicationTaskSettings",
+                resource_identifier="resourceIdentifier",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                task_data="taskData"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4920f44d880c720b2c02a65d1faf8192932fd28814ace33c249f86ca2fdfed8d)
+            check_type(argname="argument migration_type", value=migration_type, expected_type=type_hints["migration_type"])
+            check_type(argname="argument replication_instance_arn", value=replication_instance_arn, expected_type=type_hints["replication_instance_arn"])
+            check_type(argname="argument source_endpoint_arn", value=source_endpoint_arn, expected_type=type_hints["source_endpoint_arn"])
+            check_type(argname="argument table_mappings", value=table_mappings, expected_type=type_hints["table_mappings"])
+            check_type(argname="argument target_endpoint_arn", value=target_endpoint_arn, expected_type=type_hints["target_endpoint_arn"])
+            check_type(argname="argument cdc_start_position", value=cdc_start_position, expected_type=type_hints["cdc_start_position"])
+            check_type(argname="argument cdc_start_time", value=cdc_start_time, expected_type=type_hints["cdc_start_time"])
+            check_type(argname="argument cdc_stop_position", value=cdc_stop_position, expected_type=type_hints["cdc_stop_position"])
+            check_type(argname="argument replication_task_identifier", value=replication_task_identifier, expected_type=type_hints["replication_task_identifier"])
+            check_type(argname="argument replication_task_settings", value=replication_task_settings, expected_type=type_hints["replication_task_settings"])
+            check_type(argname="argument resource_identifier", value=resource_identifier, expected_type=type_hints["resource_identifier"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument task_data", value=task_data, expected_type=type_hints["task_data"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "migration_type": migration_type,
+            "replication_instance_arn": replication_instance_arn,
+            "source_endpoint_arn": source_endpoint_arn,
+            "table_mappings": table_mappings,
+            "target_endpoint_arn": target_endpoint_arn,
+        }
+        if cdc_start_position is not None:
+            self._values["cdc_start_position"] = cdc_start_position
+        if cdc_start_time is not None:
+            self._values["cdc_start_time"] = cdc_start_time
+        if cdc_stop_position is not None:
+            self._values["cdc_stop_position"] = cdc_stop_position
+        if replication_task_identifier is not None:
+            self._values["replication_task_identifier"] = replication_task_identifier
+        if replication_task_settings is not None:
+            self._values["replication_task_settings"] = replication_task_settings
+        if resource_identifier is not None:
+            self._values["resource_identifier"] = resource_identifier
+        if tags is not None:
+            self._values["tags"] = tags
+        if task_data is not None:
+            self._values["task_data"] = task_data
+
+    @builtins.property
+    def migration_type(self) -> builtins.str:
+        '''The migration type.
+
+        Valid values: ``full-load`` | ``cdc`` | ``full-load-and-cdc``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-migrationtype
+        '''
+        result = self._values.get("migration_type")
+        assert result is not None, "Required property 'migration_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def replication_instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of a replication instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationinstancearn
+        '''
+        result = self._values.get("replication_instance_arn")
+        assert result is not None, "Required property 'replication_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def source_endpoint_arn(self) -> builtins.str:
+        '''An Amazon Resource Name (ARN) that uniquely identifies the source endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-sourceendpointarn
+        '''
+        result = self._values.get("source_endpoint_arn")
+        assert result is not None, "Required property 'source_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_mappings(self) -> builtins.str:
+        '''The table mappings for the task, in JSON format.
+
+        For more information, see `Using Table Mapping to Specify Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TableMapping.html>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-tablemappings
+        '''
+        result = self._values.get("table_mappings")
+        assert result is not None, "Required property 'table_mappings' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def target_endpoint_arn(self) -> builtins.str:
+        '''An Amazon Resource Name (ARN) that uniquely identifies the target endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-targetendpointarn
+        '''
+        result = self._values.get("target_endpoint_arn")
+        assert result is not None, "Required property 'target_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def cdc_start_position(self) -> typing.Optional[builtins.str]:
+        '''Indicates when you want a change data capture (CDC) operation to start.
+
+        Use either ``CdcStartPosition`` or ``CdcStartTime`` to specify when you want a CDC operation to start. Specifying both values results in an error.
+
+        The value can be in date, checkpoint, log sequence number (LSN), or system change number (SCN) format.
+
+        Here is a date example: ``--cdc-start-position "2018-03-08T12:12:12"``
+
+        Here is a checkpoint example: ``--cdc-start-position "checkpoint:V1#27#mysql-bin-changelog.157832:1975:-1:2002:677883278264080:mysql-bin-changelog.157832:1876#0#0#*#0#93"``
+
+        Here is an LSN example: ``--cdc-start-position “mysql-bin-changelog.000024:373”``
+        .. epigraph::
+
+           When you use this task setting with a source PostgreSQL database, a logical replication slot should already be created and associated with the source endpoint. You can verify this by setting the ``slotName`` extra connection attribute to the name of this logical replication slot. For more information, see `Extra Connection Attributes When Using PostgreSQL as a Source for AWS DMS <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Source.PostgreSQL.html#CHAP_Source.PostgreSQL.ConnectionAttrib>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstartposition
+        '''
+        result = self._values.get("cdc_start_position")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def cdc_start_time(self) -> typing.Optional[jsii.Number]:
+        '''Indicates the start time for a change data capture (CDC) operation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstarttime
+        '''
+        result = self._values.get("cdc_start_time")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def cdc_stop_position(self) -> typing.Optional[builtins.str]:
+        '''Indicates when you want a change data capture (CDC) operation to stop.
+
+        The value can be either server time or commit time.
+
+        Here is a server time example: ``--cdc-stop-position "server_time:2018-02-09T12:12:12"``
+
+        Here is a commit time example: ``--cdc-stop-position "commit_time: 2018-02-09T12:12:12"``
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-cdcstopposition
+        '''
+        result = self._values.get("cdc_stop_position")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_task_identifier(self) -> typing.Optional[builtins.str]:
+        '''An identifier for the replication task.
+
+        Constraints:
+
+        - Must contain 1-255 alphanumeric characters or hyphens.
+        - First character must be a letter.
+        - Cannot end with a hyphen or contain two consecutive hyphens.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationtaskidentifier
+        '''
+        result = self._values.get("replication_task_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def replication_task_settings(self) -> typing.Optional[builtins.str]:
+        '''Overall settings for the task, in JSON format.
+
+        For more information, see `Specifying Task Settings for AWS Database Migration Service Tasks <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.CustomizingTasks.TaskSettings.html>`_ in the *AWS Database Migration Service User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-replicationtasksettings
+        '''
+        result = self._values.get("replication_task_settings")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def resource_identifier(self) -> typing.Optional[builtins.str]:
+        '''A display name for the resource identifier at the end of the ``EndpointArn`` response parameter that is returned in the created ``Endpoint`` object.
+
+        The value for this parameter can have up to 31 characters. It can contain only ASCII letters, digits, and hyphen ('-'). Also, it can't end with a hyphen or contain two consecutive hyphens, and can only begin with a letter, such as ``Example-App-ARN1`` .
+
+        For example, this value might result in the ``EndpointArn`` value ``arn:aws:dms:eu-west-1:012345678901:rep:Example-App-ARN1`` . If you don't specify a ``ResourceIdentifier`` value, AWS DMS generates a default identifier value for the end of ``EndpointArn`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-resourceidentifier
+        '''
+        result = self._values.get("resource_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''One or more tags to be assigned to the replication task.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def task_data(self) -> typing.Optional[builtins.str]:
+        '''Supplemental information that the task requires to migrate the data for certain source and target endpoints.
+
+        For more information, see `Specifying Supplemental Data for Task Settings <https://docs.aws.amazon.com/dms/latest/userguide/CHAP_Tasks.TaskData.html>`_ in the *AWS Database Migration Service User Guide.*
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dms-replicationtask.html#cfn-dms-replicationtask-taskdata
+        '''
+        result = self._values.get("task_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReplicationTaskProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "CertificateReference",
     "CfnCertificate",
     "CfnCertificateProps",
     "CfnDataMigration",
@@ -15424,295 +14971,9 @@ __all__ = [
     "CfnReplicationSubnetGroupProps",
     "CfnReplicationTask",
     "CfnReplicationTaskProps",
-    "DataMigrationReference",
-    "DataProviderReference",
-    "EndpointReference",
-    "EventSubscriptionReference",
-    "ICertificateRef",
-    "IDataMigrationRef",
-    "IDataProviderRef",
-    "IEndpointRef",
-    "IEventSubscriptionRef",
-    "IInstanceProfileRef",
-    "IMigrationProjectRef",
-    "IReplicationConfigRef",
-    "IReplicationInstanceRef",
-    "IReplicationSubnetGroupRef",
-    "IReplicationTaskRef",
-    "InstanceProfileReference",
-    "MigrationProjectReference",
-    "ReplicationConfigReference",
-    "ReplicationInstanceReference",
-    "ReplicationSubnetGroupReference",
-    "ReplicationTaskReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__d9285e96abfa7ee16ad850524b1c3fff13c4042b5106c2a597d46c84fa5b727e(
-    *,
-    certificate_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__70c99920ee84fe825d1d27715d21a77c22d5de3f61e54de6d533397773981c50(
-    *,
-    certificate_identifier: typing.Optional[builtins.str] = None,
-    certificate_pem: typing.Optional[builtins.str] = None,
-    certificate_wallet: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ce4f0495b1cbb322717399394700fafde1a57462a5e81a17f37360ae322c2f0b(
-    *,
-    data_migration_type: builtins.str,
-    migration_project_identifier: builtins.str,
-    service_access_role_arn: builtins.str,
-    data_migration_identifier: typing.Optional[builtins.str] = None,
-    data_migration_name: typing.Optional[builtins.str] = None,
-    data_migration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.DataMigrationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_data_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.SourceDataSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__97cc3506a599073ab7e0ec6de0479e22078eea7f9108a8ff9c54e506d212555c(
-    *,
-    engine: builtins.str,
-    data_provider_identifier: typing.Optional[builtins.str] = None,
-    data_provider_name: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    exact_settings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f339ae28a930c099a0a813d874222c50e581fbff0c5b98878c1f5ae0871a0236(
-    *,
-    endpoint_type: builtins.str,
-    engine_name: builtins.str,
-    certificate_arn: typing.Optional[builtins.str] = None,
-    database_name: typing.Optional[builtins.str] = None,
-    doc_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.DocDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    dynamo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.DynamoDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    elasticsearch_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ElasticsearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    endpoint_identifier: typing.Optional[builtins.str] = None,
-    extra_connection_attributes: typing.Optional[builtins.str] = None,
-    gcp_my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.GcpMySQLSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ibm_db2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.IbmDb2SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kafka_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.KafkaSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kinesis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.KinesisSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    microsoft_sql_server_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MicrosoftSqlServerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    mongo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MongoDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MySqlSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    neptune_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.NeptuneSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.OracleSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    password: typing.Optional[builtins.str] = None,
-    port: typing.Optional[jsii.Number] = None,
-    postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.PostgreSqlSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RedisSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RedshiftSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.S3SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    server_name: typing.Optional[builtins.str] = None,
-    ssl_mode: typing.Optional[builtins.str] = None,
-    sybase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.SybaseSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    username: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1555cbc21ca1acdd6ec0e2aad881e8c61105a38d2f194a09e644f876547b64e6(
-    *,
-    sns_topic_arn: builtins.str,
-    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    source_type: typing.Optional[builtins.str] = None,
-    subscription_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__eb987e57079646d3b74d43384b58a2e19975492c1f1b317aba746e6fa1f47b4e(
-    *,
-    availability_zone: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-    instance_profile_identifier: typing.Optional[builtins.str] = None,
-    instance_profile_name: typing.Optional[builtins.str] = None,
-    kms_key_arn: typing.Optional[builtins.str] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    subnet_group_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9d354515598618d1781b30321646570d53cc9d8150e99820d2ffc982f69de692(
-    *,
-    description: typing.Optional[builtins.str] = None,
-    instance_profile_arn: typing.Optional[builtins.str] = None,
-    instance_profile_identifier: typing.Optional[builtins.str] = None,
-    instance_profile_name: typing.Optional[builtins.str] = None,
-    migration_project_creation_time: typing.Optional[builtins.str] = None,
-    migration_project_identifier: typing.Optional[builtins.str] = None,
-    migration_project_name: typing.Optional[builtins.str] = None,
-    schema_conversion_application_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.SchemaConversionApplicationAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    source_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.DataProviderDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.DataProviderDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    transformation_rules: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ae045521aeb34847358ce5837e2233ae9d158bb9756b046af6dbf7b3db07a492(
-    *,
-    compute_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfig.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
-    replication_config_identifier: builtins.str,
-    replication_type: builtins.str,
-    source_endpoint_arn: builtins.str,
-    table_mappings: typing.Any,
-    target_endpoint_arn: builtins.str,
-    replication_settings: typing.Any = None,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    supplemental_settings: typing.Any = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c195b8dd61348ff1d9f7bd70b0a5b897ad23028c6c9ea122bf051cb2a4cec2c7(
-    *,
-    replication_instance_class: builtins.str,
-    allocated_storage: typing.Optional[jsii.Number] = None,
-    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    availability_zone: typing.Optional[builtins.str] = None,
-    dns_name_servers: typing.Optional[builtins.str] = None,
-    engine_version: typing.Optional[builtins.str] = None,
-    kms_key_id: typing.Optional[builtins.str] = None,
-    multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    network_type: typing.Optional[builtins.str] = None,
-    preferred_maintenance_window: typing.Optional[builtins.str] = None,
-    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    replication_instance_identifier: typing.Optional[builtins.str] = None,
-    replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a3aafd89e16d92c494e27cd4b858bfa30a53c5b4c3ca60c15a5f73d6512b8612(
-    *,
-    replication_subnet_group_description: builtins.str,
-    subnet_ids: typing.Sequence[builtins.str],
-    replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4920f44d880c720b2c02a65d1faf8192932fd28814ace33c249f86ca2fdfed8d(
-    *,
-    migration_type: builtins.str,
-    replication_instance_arn: builtins.str,
-    source_endpoint_arn: builtins.str,
-    table_mappings: builtins.str,
-    target_endpoint_arn: builtins.str,
-    cdc_start_position: typing.Optional[builtins.str] = None,
-    cdc_start_time: typing.Optional[jsii.Number] = None,
-    cdc_stop_position: typing.Optional[builtins.str] = None,
-    replication_task_identifier: typing.Optional[builtins.str] = None,
-    replication_task_settings: typing.Optional[builtins.str] = None,
-    resource_identifier: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    task_data: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3231d48ec10be5ed4f13552ea230ffedcbfeb60245c7967f422f75319b192a09(
-    *,
-    data_migration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6954afc0036e6255386267c5bf38b541300908053167d63a1bb8a495100c710f(
-    *,
-    data_provider_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e69c76840aaab71ba3e902a98512f6b601e9ca70d3e343c75be75973f99bf29b(
-    *,
-    endpoint_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bfeecc930b861a7e100f0d5a85d05b36ed777db807c8b589c912be97ea597414(
-    *,
-    event_subscription_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1a75aefe39e08b0f00bca4ee0a8f6172f5c829ed7f9cf040b778d6fcd2769e12(
-    *,
-    instance_profile_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d7937cdf3dd9b6c5bb09761fa215dd04c8d44c453bbb5f90fd192ab11df36198(
-    *,
-    migration_project_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5dfdac76a9153c5dc719497eff797c75d3c4b38779b5e90dca7ee1d1fc86eeb7(
-    *,
-    replication_config_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0e850430b860f0815676f975a93a31f99fd7c56c9865d29d6be6265df118216b(
-    *,
-    replication_instance_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__97c9793edf152afadc2dc7093dea714326d4b6e4f7421a419ba91e96b033eacf(
-    *,
-    replication_subnet_group_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__20133d00038dbda06444efbda4923411e530e79b3ec86ff7c33404335710a132(
-    *,
-    replication_task_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__f7c4a44b8a3c02f3f6ada86310479fa26dc0b32d4fba95316eb3faa446936347(
     scope: _constructs_77d1e7e8.Construct,
@@ -15721,6 +14982,26 @@ def _typecheckingstub__f7c4a44b8a3c02f3f6ada86310479fa26dc0b32d4fba95316eb3faa44
     certificate_identifier: typing.Optional[builtins.str] = None,
     certificate_pem: typing.Optional[builtins.str] = None,
     certificate_wallet: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__800ce2b9498d1aaa5d3738e8f5421864b7bdeee9fa9fe90b522738ed60f48aa1(
+    resource: _ICertificateRef_4762cd8c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54c58e4c61ec8f4fec86aeebbf242c64f4df21097435a1de2fa86d057deacae4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    certificate_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ec50e92ec2206c7107151761682c218897be43ec904cabfababf894f06709d3(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15755,6 +15036,15 @@ def _typecheckingstub__4d761187c2ccc6e6454d7cb505d195a8e53d4bc1a28c7f3f46d3c576a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__70c99920ee84fe825d1d27715d21a77c22d5de3f61e54de6d533397773981c50(
+    *,
+    certificate_identifier: typing.Optional[builtins.str] = None,
+    certificate_pem: typing.Optional[builtins.str] = None,
+    certificate_wallet: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__64c0e21ad134546b496f96ef4ca0fab25a87ff24faf22f3329fac7bdace07c4b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -15767,6 +15057,18 @@ def _typecheckingstub__64c0e21ad134546b496f96ef4ca0fab25a87ff24faf22f3329fac7bda
     data_migration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.DataMigrationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     source_data_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.SourceDataSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1481a7eabb0cb35a8c2460d0e2166bd3b023395fd96d56f5cea081a1fe0e68f9(
+    resource: _IDataMigrationRef_bc862062,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4cc2fa4931db13a7f74e1aa2e9c403cab49521d03789989c6ab30dff8cf5ef4d(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -15850,6 +15152,20 @@ def _typecheckingstub__db1b57aeabc331fa2a3aede2f3e4205147cbb53748fbc11debe0391a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ce4f0495b1cbb322717399394700fafde1a57462a5e81a17f37360ae322c2f0b(
+    *,
+    data_migration_type: builtins.str,
+    migration_project_identifier: builtins.str,
+    service_access_role_arn: builtins.str,
+    data_migration_identifier: typing.Optional[builtins.str] = None,
+    data_migration_name: typing.Optional[builtins.str] = None,
+    data_migration_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.DataMigrationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_data_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataMigration.SourceDataSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__cf28699baa8f0b678c6576c66e1c53e33b16d9f9cc37b854d4edbc95bf024780(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -15861,6 +15177,18 @@ def _typecheckingstub__cf28699baa8f0b678c6576c66e1c53e33b16d9f9cc37b854d4edbc95b
     exact_settings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__253f79c3455dbb70b109cf4129286b5cc12c3fcbaeb2eb329df3b6595880439e(
+    resource: _IDataProviderRef_5ca5bf2b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91973b91d6d638a267b45653273b3d5cdab0ef470ed3ef3b3742b2ea5d2744a1(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16045,6 +15373,32 @@ def _typecheckingstub__48803eeb23a0ec3425b1499cb6eedd7b2e70bcf1cc89d7b2c483a13b0
     oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.OracleSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.PostgreSqlSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.RedshiftSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    sybase_ase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.SybaseAseSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1189866ab1917313cc77a694dcca7b7f4c5b44e965df6b9905d3cf5aa09404e(
+    *,
+    port: jsii.Number,
+    server_name: builtins.str,
+    ssl_mode: builtins.str,
+    certificate_arn: typing.Optional[builtins.str] = None,
+    database_name: typing.Optional[builtins.str] = None,
+    encrypt_password: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97cc3506a599073ab7e0ec6de0479e22078eea7f9108a8ff9c54e506d212555c(
+    *,
+    engine: builtins.str,
+    data_provider_identifier: typing.Optional[builtins.str] = None,
+    data_provider_name: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    exact_settings: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDataProvider.SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16084,6 +15438,26 @@ def _typecheckingstub__738d71cd2300575c2c6537801f3dede195e2179cefcdceb9d0410340f
     sybase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.SybaseSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     username: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7761f93304ac33cd495a90c1f5a99370e3abac6729cef125359cded810a0032d(
+    resource: _IEndpointRef_132726f5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc7544659847cebf1010859beefe92e136eed06aeede14a54bb30e07bc5741a0(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    endpoint_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9b8f01fd169db67037ba4274c4a0d2db405c30ba74e92e92d8624e7cafe05da(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16621,6 +15995,43 @@ def _typecheckingstub__e0193ec81432f45bd3d781189917549ea6b46383bd54edb4ce2f3cd3f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f339ae28a930c099a0a813d874222c50e581fbff0c5b98878c1f5ae0871a0236(
+    *,
+    endpoint_type: builtins.str,
+    engine_name: builtins.str,
+    certificate_arn: typing.Optional[builtins.str] = None,
+    database_name: typing.Optional[builtins.str] = None,
+    doc_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.DocDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dynamo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.DynamoDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    elasticsearch_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.ElasticsearchSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    endpoint_identifier: typing.Optional[builtins.str] = None,
+    extra_connection_attributes: typing.Optional[builtins.str] = None,
+    gcp_my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.GcpMySQLSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    ibm_db2_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.IbmDb2SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kafka_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.KafkaSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kinesis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.KinesisSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    microsoft_sql_server_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MicrosoftSqlServerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    mongo_db_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MongoDbSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    my_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.MySqlSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    neptune_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.NeptuneSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    oracle_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.OracleSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    password: typing.Optional[builtins.str] = None,
+    port: typing.Optional[jsii.Number] = None,
+    postgre_sql_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.PostgreSqlSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redis_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RedisSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    redshift_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.RedshiftSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    s3_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.S3SettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    server_name: typing.Optional[builtins.str] = None,
+    ssl_mode: typing.Optional[builtins.str] = None,
+    sybase_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEndpoint.SybaseSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    username: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1d3042ac05bcc07c1b704196991fd764899b9b67bfb7cba510adb9fdde82fea2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16632,6 +16043,26 @@ def _typecheckingstub__1d3042ac05bcc07c1b704196991fd764899b9b67bfb7cba510adb9fdd
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48f49fbd94a597e7a1149b2cb56b566ee693a5f2c6829b33e6e662fad33cb432(
+    resource: _IEventSubscriptionRef_0bd45833,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__483b8221254c81804778aa24f348260cbd06b811f7d9d8f0fb1d70273a266797(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    subscription_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a3eb593db35572074fb51b2261ee88190cc29bad6895691964157a02fc9ef377(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16690,6 +16121,19 @@ def _typecheckingstub__80baa3035b4fe50b1e5040583141b0b892965c1bceea423668eba59b6
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1555cbc21ca1acdd6ec0e2aad881e8c61105a38d2f194a09e644f876547b64e6(
+    *,
+    sns_topic_arn: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    event_categories: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    source_type: typing.Optional[builtins.str] = None,
+    subscription_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0c72f2ad0340026b7e11a2dcfa2f16a6cc0dd6393207ad4c41449ed94d6f4a58(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16704,6 +16148,18 @@ def _typecheckingstub__0c72f2ad0340026b7e11a2dcfa2f16a6cc0dd6393207ad4c41449ed94
     subnet_group_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6042cf3eff9219b73a1e171a3fe14407370f871c46b0951c79ad7871a2cde28(
+    resource: _IInstanceProfileRef_2a55b923,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95948ec71add2083c2fe91934d5041539d4d5161ce76b31d4283c69ea1033913(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16780,6 +16236,22 @@ def _typecheckingstub__4acb79a955201c074f7475d3a51ea385cae01e682de7bd61381384953
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eb987e57079646d3b74d43384b58a2e19975492c1f1b317aba746e6fa1f47b4e(
+    *,
+    availability_zone: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+    instance_profile_identifier: typing.Optional[builtins.str] = None,
+    instance_profile_name: typing.Optional[builtins.str] = None,
+    kms_key_arn: typing.Optional[builtins.str] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    subnet_group_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_security_groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__02169f44825ddf8b21ca2acf1c203831f0a34ba053b5b8f4fea59ef921f5b56d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16796,6 +16268,18 @@ def _typecheckingstub__02169f44825ddf8b21ca2acf1c203831f0a34ba053b5b8f4fea59ef92
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.DataProviderDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     transformation_rules: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d06eca9226ce1c87fd546d8b6a2a0d7e6b90110fa7c24cd46f6c3fcb60882f2e(
+    resource: _IMigrationProjectRef_e8e0eb77,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62e3549da14a63e8ad86aad478900db7019e22a3dd7daa0f72c9df97e325f96e(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16903,6 +16387,24 @@ def _typecheckingstub__845461800c57296041434f4d61b34cd11fc19c1e5835ee02c0868f4fc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9d354515598618d1781b30321646570d53cc9d8150e99820d2ffc982f69de692(
+    *,
+    description: typing.Optional[builtins.str] = None,
+    instance_profile_arn: typing.Optional[builtins.str] = None,
+    instance_profile_identifier: typing.Optional[builtins.str] = None,
+    instance_profile_name: typing.Optional[builtins.str] = None,
+    migration_project_creation_time: typing.Optional[builtins.str] = None,
+    migration_project_identifier: typing.Optional[builtins.str] = None,
+    migration_project_name: typing.Optional[builtins.str] = None,
+    schema_conversion_application_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.SchemaConversionApplicationAttributesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.DataProviderDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_data_provider_descriptors: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMigrationProject.DataProviderDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    transformation_rules: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__94680f790d4726b7c801a80c1413457134b08ba7f03ece13365f54d8fea28dbb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -16917,6 +16419,18 @@ def _typecheckingstub__94680f790d4726b7c801a80c1413457134b08ba7f03ece13365f54d8f
     resource_identifier: typing.Optional[builtins.str] = None,
     supplemental_settings: typing.Any = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f55a18d485b80c43fb3a15f9c7c1e177b1ff817d5b9d857a2ebf6a31b2eea6d4(
+    resource: _IReplicationConfigRef_cd698554,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e69d13fc95e9852e84f230c8daa750b0dec96497e0509f38aee85ba0976a02b5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17008,6 +16522,22 @@ def _typecheckingstub__cccd397fe05dc0de656d261a2e429c3413c0e550cfcb56b8936f9090b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ae045521aeb34847358ce5837e2233ae9d158bb9756b046af6dbf7b3db07a492(
+    *,
+    compute_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnReplicationConfig.ComputeConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    replication_config_identifier: builtins.str,
+    replication_type: builtins.str,
+    source_endpoint_arn: builtins.str,
+    table_mappings: typing.Any,
+    target_endpoint_arn: builtins.str,
+    replication_settings: typing.Any = None,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    supplemental_settings: typing.Any = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__77ad0bed39c8ffa41b7998189a1d03defd3bc9e64d11468a83ada78f35f96476(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17029,6 +16559,12 @@ def _typecheckingstub__77ad0bed39c8ffa41b7998189a1d03defd3bc9e64d11468a83ada78f3
     resource_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__35160f219b6cb901e05a5fcdafb5d815847c60a8aa2c40fdf6dd2bbff71c37d7(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17147,6 +16683,29 @@ def _typecheckingstub__2272874fc3b867238f325a525b2ac85dcf4945e3c079e6b738328ca05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c195b8dd61348ff1d9f7bd70b0a5b897ad23028c6c9ea122bf051cb2a4cec2c7(
+    *,
+    replication_instance_class: builtins.str,
+    allocated_storage: typing.Optional[jsii.Number] = None,
+    allow_major_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    dns_name_servers: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    multi_az: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    network_type: typing.Optional[builtins.str] = None,
+    preferred_maintenance_window: typing.Optional[builtins.str] = None,
+    publicly_accessible: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    replication_instance_identifier: typing.Optional[builtins.str] = None,
+    replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__42a93d0e4d6a84e7b2c7e166a509fe22487d8b2f69197bf1094b7b78e1a08efb(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17155,6 +16714,12 @@ def _typecheckingstub__42a93d0e4d6a84e7b2c7e166a509fe22487d8b2f69197bf1094b7b78e
     subnet_ids: typing.Sequence[builtins.str],
     replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20d123afb526ef56c232adb6a7d821089821275eb828547d3ccdc148e956ee78(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17195,6 +16760,16 @@ def _typecheckingstub__a2c3c4e17f3d3ba3275fed9a1aab23448ad30fccd5e22c0ae03edd65b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a3aafd89e16d92c494e27cd4b858bfa30a53c5b4c3ca60c15a5f73d6512b8612(
+    *,
+    replication_subnet_group_description: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    replication_subnet_group_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ddd9891907ccbbff1ea14d14a5e54ee5d7bb976ca72f0b8bf69f14ef1b6abfb4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -17212,6 +16787,12 @@ def _typecheckingstub__ddd9891907ccbbff1ea14d14a5e54ee5d7bb976ca72f0b8bf69f14ef1
     resource_identifier: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_data: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9095aa357a6e21699c33eb78087624b67cd56257be2e0ff2a1ae4fe5996503a6(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17302,6 +16883,25 @@ def _typecheckingstub__6a8fadfeae4645d0ebd875d4c0285d22d91319e75b8c434882a51c720
 
 def _typecheckingstub__22dc69cf7eb1071bfc83826615b45d1eff66b8eccd5636322983df53e2f5ea82(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4920f44d880c720b2c02a65d1faf8192932fd28814ace33c249f86ca2fdfed8d(
+    *,
+    migration_type: builtins.str,
+    replication_instance_arn: builtins.str,
+    source_endpoint_arn: builtins.str,
+    table_mappings: builtins.str,
+    target_endpoint_arn: builtins.str,
+    cdc_start_position: typing.Optional[builtins.str] = None,
+    cdc_start_time: typing.Optional[jsii.Number] = None,
+    cdc_stop_position: typing.Optional[builtins.str] = None,
+    replication_task_identifier: typing.Optional[builtins.str] = None,
+    replication_task_settings: typing.Optional[builtins.str] = None,
+    resource_identifier: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    task_data: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

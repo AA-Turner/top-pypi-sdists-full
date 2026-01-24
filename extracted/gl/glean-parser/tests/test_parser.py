@@ -1157,10 +1157,10 @@ def test_no_internal_fields_exposed():
                         "metric2": {
                             "type": "dual_labeled_counter",
                             "dual_labels": {
-                                "key": { "description": "desc-a" },
-                                "category": { "description": "desc-b" },
-                            }
-                        }
+                                "key": {"description": "desc-a"},
+                                "category": {"description": "desc-b"},
+                            },
+                        },
                     },
                 }
             ),
@@ -1284,6 +1284,57 @@ def test_object_invalid():
     errors = list(all_metrics)
     assert len(errors) == 1
     assert "invalid `type` in object structure." in errors[0]
+
+
+@pytest.mark.parametrize(
+    "structure,num_errors",
+    [
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}, "value": {"oneOf": []}},
+            },
+            1,
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}, "value": {"oneOf": [ { "type": "object" } ]}},
+            },
+            1,
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}, "value": {"oneOf": [ { "type": "number", "other": "unsupported" } ]}},
+            },
+            1,
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}, "value": {"oneOf": [ { "type": "number" } ]}},
+            },
+            0,
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"key": {"type": "string"}, "value": {"oneOf": [ { "type": "number", "description": "desc" } ]}},
+            },
+            0,
+        ),
+    ],
+)
+def test_object_oneof(structure, num_errors):
+    contents = [{"category": {"metric": {"type": "object", "structure": structure}}}]
+
+    contents = [util.add_required(x) for x in contents]
+    all_metrics = parser.parse_objects(contents)
+    errors = list(all_metrics)
+    assert len(errors) == num_errors, errors
+    assert len(all_metrics.value) == 1
+    # assert all_metrics.value["category"]["metric"]._generate_structure == structure
 
 
 def test_dual_labeled_counter():

@@ -16,28 +16,36 @@ class CountriesBase:
     COMMON_NAMES = {
         "BN": _("Brunei"),
         "BO": _("Bolivia"),
+        "CD": _("Democratic Republic of the Congo"),
         "FM": _("Micronesia"),
         "GB": _("United Kingdom"),
+        "GS": _("South Georgia"),
         "IR": _("Iran"),
         "KP": _("North Korea"),
         "KR": _("South Korea"),
         "LA": _("Laos"),
         "MD": _("Moldova"),
+        "NL": _("Netherlands"),
+        "PS": _("Palestine"),
         "RU": _("Russia"),
+        "SH": _("Saint Helena"),
         "SY": _("Syria"),
         "TW": _("Taiwan"),
         "TZ": _("Tanzania"),
+        "VA": _("Vatican City"),
         "VE": _("Venezuela"),
         "VN": _("Vietnam"),
     }
 
     OLD_NAMES = {
+        "BS": [_("Bahamas")],
         "CZ": [_("Czech Republic")],
-        "MK": [_("Macedonia"), _("Macedonia (the former Yugoslav Republic of)")],
-        "SZ": [_("Swaziland")],
-        "TZ": [_("Tanzania, the United Republic of")],
         "FK": [_("Falkland Islands  [Malvinas]")],
+        "MK": [_("Macedonia"), _("Macedonia (the former Yugoslav Republic of)")],
+        "NL": [_("Netherlands")],
+        "SZ": [_("Swaziland")],
         "TR": [_("Turkey")],
+        "TZ": [_("Tanzania, the United Republic of")],
     }
 
     def __getstate__(self):

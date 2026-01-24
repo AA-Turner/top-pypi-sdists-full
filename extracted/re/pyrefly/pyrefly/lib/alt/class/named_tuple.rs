@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use dupe::Dupe;
 use pyrefly_python::dunder;
 use ruff_python_ast::name::Name;
 use starlark_map::small_set::SmallSet;
@@ -26,7 +27,6 @@ use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
 use crate::types::literal::Lit;
-use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -102,7 +102,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ParamList::new(params),
                 Type::SelfType(self.as_class_type_unchecked(cls)),
             ),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::NEW),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::NEW),
         }));
         ClassSynthesizedField::new(ty)
     }
@@ -116,7 +116,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         params.extend(self.get_named_tuple_field_params(cls, elements));
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(ParamList::new(params), Type::None),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::INIT),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::INIT),
         }));
         ClassSynthesizedField::new(ty)
     }
@@ -141,18 +141,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ParamList::new(params),
                 Type::ClassType(self.stdlib.iterable(self.unions(element_types))),
             ),
-            metadata: FuncMetadata::def(self.module().name(), cls.name().clone(), dunder::ITER),
+            metadata: FuncMetadata::def(self.module().dupe(), cls.dupe(), dunder::ITER),
         }));
         ClassSynthesizedField::new(ty)
     }
 
     fn get_named_tuple_match_args(&self, elements: &SmallSet<Name>) -> ClassSynthesizedField {
-        let ty = Type::Tuple(Tuple::Concrete(
+        let ty = Type::concrete_tuple(
             elements
                 .iter()
-                .map(|e| Type::Literal(Lit::Str(e.as_str().into())))
+                .map(|e| Lit::Str(e.as_str().into()).to_implicit_type())
                 .collect(),
-        ));
+        );
         ClassSynthesizedField::new(ty)
     }
 

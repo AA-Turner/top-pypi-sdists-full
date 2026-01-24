@@ -27,7 +27,7 @@ class DataSourceCreateQueryResourceObjectAttributes(BaseModel):
     DataSourceCreateQueryResourceObjectAttributes
     """ # noqa: E501
     title: StrictStr
-    visibility: StrictStr = Field(description="Visibility of data source. Currently only PRIVATE is supported.")
+    visibility: StrictStr = Field(description="Visibility of data source.")
     description: Optional[StrictStr] = ''
     __properties: ClassVar[List[str]] = ["title", "visibility", "description"]
 

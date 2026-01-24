@@ -3,13 +3,9 @@
 Objects used to add a spatial component to a model.
 
 .. note::
-    All Grid classes (:class:`_Grid`, :class:`SingleGrid`, :class:`MultiGrid`,
-    :class:`HexGrid`, etc.) are now in maintenance-only mode. While these classes remain
-    fully supported, new development occurs in the experimental cell space module
-    (:mod:`mesa.discrete_space`).
-
-    The :class:`PropertyLayer` and :class:`ContinuousSpace` classes remain fully supported
-    and actively developed.
+    mesa.space now in maintenance-only mode. While these classes remain
+    fully supported, new development occurs in the discrete space module
+    (:mod:`mesa.discrete_space`) and the experimental ContinuousSpace module
 
 Classes
 -------
@@ -21,8 +17,7 @@ Classes
 * NetworkGrid: a network where each node contains zero or more agents.
 """
 
-# Mypy; for the `|` operator purpose
-# Remove this __future__ import once the oldest supported Python is 3.10
+# Postpone annotation evaluation to avoid NameError from forward references (PEP 563). Remove once Python 3.14+ is required.
 from __future__ import annotations
 
 import collections
@@ -61,7 +56,7 @@ MultiGridContent = list[Agent]
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def accept_tuple_argument(wrapped_function: F) -> F:
+def accept_tuple_argument[F: Callable[..., Any]](wrapped_function: F) -> F:
     """Decorator to allow grid methods that take a list of (x, y) coord tuples to also handle a single position.
 
     Tuples are wrapped in a single-item list rather than forcing user to do it.
@@ -559,8 +554,8 @@ class _Grid:
 
         # This method is based on Agents.jl's random_empty() implementation. See
         # https://github.com/JuliaDynamics/Agents.jl/pull/541. For the discussion, see
-        # https://github.com/projectmesa/mesa/issues/1052 and
-        # https://github.com/projectmesa/mesa/pull/1565. The cutoff value provided
+        # https://github.com/mesa/mesa/issues/1052 and
+        # https://github.com/mesa/mesa/pull/1565. The cutoff value provided
         # is the break-even comparison with the time taken in the else branching point.
         if num_empty_cells > self.cutoff_empties:
             while True:
@@ -642,12 +637,17 @@ class PropertyLayer:
                 f"Width and height must be positive integers, got {width} and {height}."
             )
         # Check if the dtype is suitable for the data
-        if not isinstance(default_value, dtype):
-            warn(
-                f"Default value {default_value} ({type(default_value).__name__}) might not be best suitable with dtype={dtype.__name__}.",
-                UserWarning,
-                stacklevel=2,
-            )
+        try:
+            if dtype(default_value) != default_value:
+                warnings.warn(
+                    f"Default value {default_value} will lose precision when converted to {dtype.__name__}.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+        except (ValueError, TypeError) as e:
+            raise TypeError(
+                f"Default value {default_value} is incompatible with dtype={dtype.__name__}."
+            ) from e
 
         self.data = np.full((width, height), default_value, dtype=dtype)
 
@@ -817,6 +817,7 @@ class _PropertyGrid(_Grid):
         self.properties = {}
 
         # Initialize an empty mask as a boolean NumPy array
+        # True = cell is empty, False = cell is occupied
         self._empty_mask = np.ones((self.width, self.height), dtype=bool)
 
         # Handle both single PropertyLayer instance and list of PropertyLayer instances
@@ -1038,7 +1039,7 @@ class MultiGrid(_PropertyGrid):
             agent.pos = pos
             if self._empties_built:
                 self._empties.discard(pos)
-                self._empty_mask[agent.pos] = True
+            self._empty_mask[pos] = False
 
     def remove_agent(self, agent: Agent) -> None:
         """Remove the agent from the given location and set its pos attribute to None."""
@@ -1047,7 +1048,8 @@ class MultiGrid(_PropertyGrid):
         self._grid[x][y].remove(agent)
         if self._empties_built and self.is_cell_empty(pos):
             self._empties.add(pos)
-            self._empty_mask[agent.pos] = False
+        if self.is_cell_empty(pos):
+            self._empty_mask[pos] = True
         agent.pos = None
 
     def iter_neighbors(  # noqa: D102

@@ -7,7 +7,7 @@
 from functools import partial
 from packaging.version import Version
 
-from tango._tango import GreenMode
+from tango import GreenMode
 from tango.device_proxy import get_device_proxy
 from tango.attribute_proxy import get_attribute_proxy
 

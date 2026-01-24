@@ -560,10 +560,20 @@ class StreamChatInterface(abc.ABC):
 
     @abc.abstractmethod
     def delete_message(
-        self, message_id: str, **options: Any
+        self,
+        message_id: str,
+        delete_for_me: bool = False,
+        deleted_by: str = None,
+        **options: Any,
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
         """
         Deletes a message.
+
+        Args:
+            message_id: The ID of the message to delete
+            delete_for_me: If True, deletes the message only for the specified user
+            deleted_by: The user ID who is deleting the message (required when delete_for_me is True)
+            **options: Additional options to pass to the delete request
         """
         pass
 
@@ -1293,6 +1303,27 @@ class StreamChatInterface(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def update_channels_batch(
+        self, options: Any
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Updates channels in batch based on the provided options.
+
+        :param options: ChannelsBatchOptions containing operation, filter, and operation-specific data.
+        :return: StreamResponse containing task_id.
+        """
+        pass
+
+    @abc.abstractmethod
+    def channel_batch_updater(self) -> Any:
+        """
+        Returns a ChannelBatchUpdater instance for batch channel operations.
+
+        :return: ChannelBatchUpdater instance.
+        """
+        pass
+
+    @abc.abstractmethod
     def send_user_custom_event(
         self, user_id: str, event: Dict
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
@@ -1524,6 +1555,32 @@ class StreamChatInterface(abc.ABC):
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
         """
         Update the location of a user.
+        """
+        pass
+
+    @abc.abstractmethod
+    def mark_delivered(
+        self, data: Dict[str, Any]
+    ) -> Union[StreamResponse, Awaitable[StreamResponse], None]:
+        """
+        Send the mark delivered event for this user, only works if the `delivery_receipts` setting is enabled
+
+        :param data: MarkDeliveredOptions containing latest_delivered_messages and other optional fields
+        :return: The server response or None if delivery receipts are disabled
+        """
+        pass
+
+    @abc.abstractmethod
+    def mark_delivered_simple(
+        self, user_id: str, message_id: str, channel_cid: str
+    ) -> Union[StreamResponse, Awaitable[StreamResponse], None]:
+        """
+        Convenience method to mark a message as delivered for a specific user.
+
+        :param user_id: The user ID
+        :param message_id: The message ID
+        :param channel_cid: The channel CID (channel_type:channel_id)
+        :return: The server response or None if delivery receipts are disabled
         """
         pass
 

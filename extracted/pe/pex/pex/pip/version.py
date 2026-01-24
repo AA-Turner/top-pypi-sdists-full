@@ -4,6 +4,8 @@
 from __future__ import absolute_import
 
 import functools
+import hashlib
+import json
 import os
 import sys
 from textwrap import dedent
@@ -42,50 +44,84 @@ class PipVersionValue(Enum.Value):
                         break
         return cast("Optional[PipVersionValue]", getattr(cls, "_overridden"))
 
+    @staticmethod
+    def _to_requirement(
+        project_name,  # type: str
+        project_version=None,  # type: Optional[Union[str, Version]]
+    ):
+        # type: (...) -> Requirement
+
+        if not project_version:
+            return Requirement.parse(project_name)
+
+        return Requirement.parse(
+            "{project_name}=={project_version}".format(
+                project_name=project_name, project_version=project_version
+            )
+        )
+
     def __init__(
         self,
         version,  # type: str
-        setuptools_version,  # type: str
-        wheel_version,  # type: str
-        requires_python,  # type: str
+        setuptools_version=None,  # type: Optional[str]
+        wheel_version=None,  # type: Optional[str]
+        requires_python=None,  # type: Optional[str]
         name=None,  # type: Optional[str]
         requirement=None,  # type: Optional[str]
         setuptools_requirement=None,  # type: Optional[str]
         hidden=False,  # type: bool
+        available=True,  # type: bool
     ):
         # type: (...) -> None
-        super(PipVersionValue, self).__init__(name or version)
+        super(PipVersionValue, self).__init__(name or version, enum_type=PipVersionValue)
 
-        def to_requirement(
-            project_name,  # type: str
-            project_version,  # type: str
-        ):
-            # type: (...) -> Requirement
-            return Requirement.parse(
-                "{project_name}=={project_version}".format(
-                    project_name=project_name, project_version=project_version
-                )
-            )
+        self._version = version
+        self._requirement = requirement
+        self._requires_python = requires_python
 
-        self.version = Version(version)
-        self.requirement = (
-            Requirement.parse(requirement) if requirement else to_requirement("pip", version)
-        )
         self.setuptools_version = setuptools_version
         self.setuptools_requirement = (
             Requirement.parse(setuptools_requirement)
             if setuptools_requirement
-            else to_requirement("setuptools", setuptools_version)
+            else self._to_requirement("setuptools", setuptools_version)
         )
         self.wheel_version = wheel_version
-        self.wheel_requirement = to_requirement("wheel", wheel_version)
-        self.requires_python = SpecifierSet(requires_python) if requires_python else None
+        self.wheel_requirement = self._to_requirement("wheel", wheel_version)
         self.hidden = hidden
+        self.available = available
+
+    def cache_dir_name(self):
+        # type: () -> str
+        return self.value
+
+    @property
+    def version(self):
+        # type: () -> Version
+        return Version(self._version)
+
+    @property
+    def requires_python(self):
+        # type: () -> Optional[SpecifierSet]
+        return SpecifierSet(self._requires_python) if self._requires_python else None
+
+    @property
+    def requirement(self):
+        # type: () -> Requirement
+        return (
+            Requirement.parse(self._requirement)
+            if self._requirement
+            else self._to_requirement("pip", self.version)
+        )
 
     @property
     def requirements(self):
-        # type: () -> Iterable[Requirement]
+        # type: () -> Tuple[Requirement, ...]
         return self.requirement, self.setuptools_requirement, self.wheel_requirement
+
+    @property
+    def build_system_requires(self):
+        # type: () -> Tuple[Requirement, ...]
+        return ()
 
     def requires_python_applies(self, target=None):
         # type: (Optional[Union[Version, Target]]) -> bool
@@ -124,9 +160,9 @@ class LatestPipVersion(object):
 class LatestCompatiblePipVersion(object):
     def __get__(self, obj, objtype=None):
         # type: (...) -> PipVersionValue
-        if not hasattr(self, "_latest"):
-            self._latest = PipVersion.latest_compatible()
-        return self._latest
+        if not hasattr(self, "_latest_compatible"):
+            self._latest_compatible = PipVersion.latest_compatible()
+        return self._latest_compatible
 
 
 class DefaultPipVersion(object):
@@ -171,6 +207,59 @@ class DefaultPipVersion(object):
         return self._default
 
 
+class Adhoc(PipVersionValue):
+    def __init__(self):
+        super(Adhoc, self).__init__(
+            name="adhoc",
+            version="99",
+            setuptools_version="",
+            wheel_version="",
+            hidden=True,
+        )
+        self._adhoc_requirement = None  # type: Optional[Requirement]
+
+    def cache_dir_name(self):
+        # type: () -> str
+        return "adhoc-{fingerprint}".format(
+            fingerprint=hashlib.sha1(str(self.requirement).encode("utf-8")).hexdigest()
+        )
+
+    @property
+    def version(self):
+        # type: () -> Version
+        return Version(os.environ.get("_PEX_PIP_ADHOC_VERSION", self._version))
+
+    @property
+    def requires_python(self):
+        # type: () -> Optional[SpecifierSet]
+        raw_requires_python = os.environ.get("_PEX_PIP_ADHOC_REQUIRES_PYTHON")
+        if raw_requires_python:
+            return SpecifierSet(raw_requires_python)
+        return None
+
+    @property
+    def requirement(self):
+        # type: () -> Requirement
+
+        if self._adhoc_requirement is None:
+            requirement = os.environ.get("_PEX_PIP_ADHOC_REQUIREMENT")
+            if not requirement:
+                raise ValueError(
+                    "You must set a value for the _PEX_PIP_ADHOC_REQUIREMENT environment variable "
+                    "to use an adhoc Pip version."
+                )
+            self._adhoc_requirement = Requirement.parse(requirement)
+        return self._adhoc_requirement
+
+    @property
+    def build_system_requires(self):
+        # type: () -> Tuple[Requirement, ...]
+        build_system_requires = os.environ.get("_PEX_PIP_ADHOC_BUILD_SYSTEM_REQUIRES")
+        if not build_system_requires:
+            return ()
+        return tuple(Requirement.parse(req) for req in json.loads(build_system_requires))
+
+
 class PipVersion(Enum["PipVersionValue"]):
     @classmethod
     def values(cls):
@@ -196,6 +285,7 @@ class PipVersion(Enum["PipVersionValue"]):
         setuptools_requirement="setuptools",
         wheel_version="0.37.1",
         requires_python="<3.12",
+        available=vendor.PIP_SPEC.exists,
     )
 
     v22_2_2 = PipVersionValue(
@@ -366,8 +456,17 @@ class PipVersion(Enum["PipVersionValue"]):
         version="25.2",
         setuptools_version="80.9.0",
         wheel_version="0.45.1",
-        requires_python=">=3.9,<3.15",
+        requires_python=">=3.9,<3.16",
     )
+
+    v25_3 = PipVersionValue(
+        version="25.3",
+        setuptools_version="80.9.0",
+        wheel_version="0.45.1",
+        requires_python=">=3.9,<3.16",
+    )
+
+    ADHOC = Adhoc()
 
     VENDORED = v20_3_4_patched
     LATEST = LatestPipVersion()

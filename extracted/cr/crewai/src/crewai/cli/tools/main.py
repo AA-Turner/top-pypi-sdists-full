@@ -1,8 +1,9 @@
 import base64
+from json import JSONDecodeError
 import os
+from pathlib import Path
 import subprocess
 import tempfile
-from pathlib import Path
 from typing import Any
 
 import click
@@ -11,7 +12,9 @@ from rich.console import Console
 from crewai.cli import git
 from crewai.cli.command import BaseCommand, PlusAPIMixin
 from crewai.cli.config import Settings
+from crewai.cli.constants import DEFAULT_CREWAI_ENTERPRISE_URL
 from crewai.cli.utils import (
+    build_env_with_tool_repository_credentials,
     extract_available_exports,
     get_project_description,
     get_project_name,
@@ -19,6 +22,7 @@ from crewai.cli.utils import (
     tree_copy,
     tree_find_and_replace,
 )
+
 
 console = Console()
 
@@ -28,11 +32,11 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
     A class to handle tool repository related operations for CrewAI projects.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         BaseCommand.__init__(self)
         PlusAPIMixin.__init__(self, telemetry=self._telemetry)
 
-    def create(self, handle: str):
+    def create(self, handle: str) -> None:
         self._ensure_not_in_project()
 
         folder_name = handle.replace(" ", "_").replace("-", "_").lower()
@@ -42,8 +46,7 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         if project_root.exists():
             click.secho(f"Folder {folder_name} already exists.", fg="red")
             raise SystemExit
-        else:
-            os.makedirs(project_root)
+        os.makedirs(project_root)
 
         click.secho(f"Creating custom tool {folder_name}...", fg="green", bold=True)
 
@@ -56,14 +59,14 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         os.chdir(project_root)
         try:
             self.login()
-            subprocess.run(["git", "init"], check=True)
+            subprocess.run(["git", "init"], check=True)  # noqa: S607
             console.print(
                 f"[green]Created custom tool [bold]{folder_name}[/bold]. Run [bold]cd {project_root}[/bold] to start working.[/green]"
             )
         finally:
             os.chdir(old_directory)
 
-    def publish(self, is_public: bool, force: bool = False):
+    def publish(self, is_public: bool, force: bool = False) -> None:
         if not git.Repository().is_synced() and not force:
             console.print(
                 "[bold red]Failed to publish tool.[/bold red]\n"
@@ -76,10 +79,10 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
             raise SystemExit()
 
         project_name = get_project_name(require=True)
-        assert isinstance(project_name, str)
+        assert isinstance(project_name, str)  # noqa: S101
 
         project_version = get_project_version(require=True)
-        assert isinstance(project_version, str)
+        assert isinstance(project_version, str)  # noqa: S101
 
         project_description = get_project_description(require=False)
         encoded_tarball = None
@@ -94,8 +97,8 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         self._print_current_organization()
 
         with tempfile.TemporaryDirectory() as temp_build_dir:
-            subprocess.run(
-                ["uv", "build", "--sdist", "--out-dir", temp_build_dir],
+            subprocess.run(  # noqa: S603
+                ["uv", "build", "--sdist", "--out-dir", temp_build_dir],  # noqa: S607
                 check=True,
                 capture_output=False,
             )
@@ -129,14 +132,17 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         self._validate_response(publish_response)
 
         published_handle = publish_response.json()["handle"]
+        settings = Settings()
+        base_url = settings.enterprise_base_url or DEFAULT_CREWAI_ENTERPRISE_URL
+
         console.print(
             f"Successfully published `{published_handle}` ({project_version}).\n\n"
             + "⚠️ Security checks are running in the background. Your tool will be available once these are complete.\n"
-            + f"You can monitor the status or access your tool here:\nhttps://app.crewai.com/crewai_plus/tools/{published_handle}",
+            + f"You can monitor the status or access your tool here:\n{base_url}/crewai_plus/tools/{published_handle}",
             style="bold green",
         )
 
-    def install(self, handle: str):
+    def install(self, handle: str) -> None:
         self._print_current_organization()
         get_response = self.plus_api_client.get_tool(handle)
 
@@ -146,7 +152,7 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
                 style="bold red",
             )
             raise SystemExit
-        elif get_response.status_code != 200:
+        if get_response.status_code != 200:
             console.print(
                 "Failed to get tool details. Please try again later.", style="bold red"
             )
@@ -161,9 +167,19 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
 
         if login_response.status_code != 200:
             console.print(
-                "Authentication failed. Verify access to the tool repository, or try `crewai login`. ",
+                "Authentication failed. Verify if the currently active organization can access the tool repository, and run 'crewai login' again.",
                 style="bold red",
             )
+            try:
+                console.print(
+                    f"[{login_response.status_code} error - {login_response.json().get('message', 'Unknown error')}]",
+                    style="bold red italic",
+                )
+            except JSONDecodeError:
+                console.print(
+                    f"[{login_response.status_code} error - Unknown error - Invalid JSON response]",
+                    style="bold red italic",
+                )
             raise SystemExit
 
         login_response_json = login_response.json()
@@ -179,7 +195,7 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         settings.org_name = login_response_json["current_organization"]["name"]
         settings.dump()
 
-    def _add_package(self, tool_details: dict[str, Any]):
+    def _add_package(self, tool_details: dict[str, Any]) -> None:
         is_from_pypi = tool_details.get("source", None) == "pypi"
         tool_handle = tool_details["handle"]
         repository_handle = tool_details["repository"]["handle"]
@@ -196,10 +212,10 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
         else:
             add_package_command.extend(["--index", index, tool_handle])
 
-        add_package_result = subprocess.run(
+        add_package_result = subprocess.run(  # noqa: S603
             add_package_command,
             capture_output=False,
-            env=self._build_env_with_credentials(repository_handle),
+            env=build_env_with_tool_repository_credentials(repository_handle),
             text=True,
             check=True,
         )
@@ -208,7 +224,7 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
             click.echo(add_package_result.stderr, err=True)
             raise SystemExit
 
-    def _ensure_not_in_project(self):
+    def _ensure_not_in_project(self) -> None:
         if os.path.isfile("./pyproject.toml"):
             console.print(
                 "[bold red]Oops! It looks like you're inside a project.[/bold red]"
@@ -220,20 +236,6 @@ class ToolCommand(BaseCommand, PlusAPIMixin):
                 "[bold yellow]Tip:[/bold yellow] Navigate to a different directory and try again."
             )
             raise SystemExit
-
-    def _build_env_with_credentials(self, repository_handle: str):
-        repository_handle = repository_handle.upper().replace("-", "_")
-        settings = Settings()
-
-        env = os.environ.copy()
-        env[f"UV_INDEX_{repository_handle}_USERNAME"] = str(
-            settings.tool_repository_username or ""
-        )
-        env[f"UV_INDEX_{repository_handle}_PASSWORD"] = str(
-            settings.tool_repository_password or ""
-        )
-
-        return env
 
     def _print_current_organization(self) -> None:
         settings = Settings()

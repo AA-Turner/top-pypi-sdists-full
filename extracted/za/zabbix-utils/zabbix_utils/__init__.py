@@ -25,7 +25,6 @@
 from .api import ZabbixAPI
 from .sender import Sender
 from .getter import Getter
-from .status import ZabbixStatus
 from .types import ItemValue, APIVersion
 from .exceptions import ModuleBaseException, APIRequestError, APINotSupported, ProcessingError
 
@@ -49,7 +48,6 @@ __all__ = (
     'ItemValue',
     'Getter',
     'AsyncGetter',
-    'ZabbixStatus',
     'ModuleBaseException',
     'APIRequestError',
     'APINotSupported',

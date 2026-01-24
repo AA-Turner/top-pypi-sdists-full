@@ -13,14 +13,12 @@ from ipaddress import (
 )
 from json import JSONDecodeError, loads
 from typing import Union, Optional
-from urllib.parse import urljoin
+from urllib.parse import urlparse, urljoin
 from uuid import UUID
 
 import macaddress
 from dateutil import parser
-from httpx import Response, Timeout, Proxy, HTTPStatusError
-from httpx._types import URLTypes
-from pydantic import InstanceOf
+from niquests import Response, HTTPError
 from pytz import BaseTzInfo, utc
 
 logger = logging.getLogger("ipfabric")
@@ -36,10 +34,9 @@ VALID_IP = Union[IPv4Address, IPv4Network, IPv4Interface]
 VALID_IPv6 = Union[IPv6Address, IPv6Network, IPv6Interface]
 SLUG = re.compile(r"^[a-zA-Z0-9_\-.#:]*$")
 
-ProxyTypes = Union[None, URLTypes, InstanceOf[Proxy]]
-TimeoutTypes = Union[
-    Optional[float], tuple[Optional[float], Optional[float], Optional[float], Optional[float]], Timeout, None
-]
+
+def api_header(version: Optional[Union[str, int]] = None) -> dict:
+    return {"X-API-Version": str(int(version))} if version else {}
 
 
 def valid_snapshot(snapshot: Union[None, str], init: bool = False) -> str:
@@ -80,12 +77,11 @@ def raise_for_status(response: Response) -> Response:
     """
     Raise the `HTTPStatusError` if one occurred.
     """
-    request = response._request
-
+    if response.ok:
+        return response
+    request = response.request
     if request is None:
         raise RuntimeError("Cannot call `raise_for_status` as the request instance has not been set on this response.")
-    if response.is_success:
-        return response
 
     error_type = {
         1: "Informational response",
@@ -93,26 +89,28 @@ def raise_for_status(response: Response) -> Response:
         4: "Client error",
         5: "Server error",
     }.get(response.status_code // 100, "Invalid status code")
-    url = urljoin(str(response.url), response.url.path)
-    query = f"\nQuery: '{response.url.query}'" if response.url.query else ""
+    url = urlparse(response.url)
+    f_url = urljoin(url.netloc, url.path)
+    query = f"\nQuery: '{url.query}'" if url.query else ""
 
-    if response.has_redirect_location:
+    try:
+        msg = response.json()
         message = (
-            f"{error_type} '{response.status_code} {response.reason_phrase}' for url '{url}'{query}"
-            f"\nRedirect location: '{response.headers['location']}'"
+            f"{error_type} '{response.status_code} {response.reason}' for url '{f_url}'{query}"
+            f"\n{msg['code']}: {msg['message']}"
         )
-    else:
-        try:
-            msg = response.json()
-            message = (
-                f"{error_type} '{response.status_code} {response.reason_phrase}' for url '{url}'{query}"
-                f"\n{msg['code']}: {msg['message']}"
+        message += format_error_message(response)
+        if response.status_code == 410 and msg.get("code") == "API_UNSUPPORTED_VERSION":
+            raise HTTPError(
+                f"API version '{request.headers.get('X-API-Version')}' is not supported.\n"
+                f"Supported versions are: {response.headers.get('x-api-versions-supported')}",
+                request=request,
+                response=response,
             )
-            message += format_error_message(response)
-        except (JSONDecodeError, TypeError, KeyError):
-            message = f"{error_type} '{response.status_code} {response.reason_phrase}' for url '{url}'{query}"
+    except (JSONDecodeError, TypeError, KeyError):
+        message = f"{error_type} '{response.status_code} {response.reason}' for url '{f_url}'{query}"
 
-    raise HTTPStatusError(message, request=request, response=response)
+    raise HTTPError(message, request=request, response=response)
 
 
 def valid_slug(name: str):
@@ -150,11 +148,11 @@ def validate_ip_network_str(
     return str(validate_ip_network(ip, max_size, max_v6_size, ipv6))
 
 
-def create_filter(client, url, filters=None, sn=None) -> tuple:
+def create_filter(client, url, filters=None, sn=None) -> tuple[list[str], dict]:
     all_columns = client.get_columns(url)
-    if not any([_ in ["sn", "localSn"] for _ in all_columns]):
-        raise KeyError(f'Column "sn" or "localSn" not found in "{url}" table.')
-    f = {"sn": ["eq", sn]} if "sn" in all_columns else {"localSn": ["eq", sn]}
+    if not client.oas[url].post.sn_columns:
+        raise KeyError(f'Could not determine Serial Number Column in "{url}" table.')
+    f = {"or": [{col: ["eq", sn]} for col in client.oas[url].post.sn_columns]}
     if filters:
         f = {"and": [f, filters]}
     return all_columns, f
@@ -217,7 +215,7 @@ def parse_mac(mac_address) -> Union[str, list, None]:
     if isinstance(mac_address, str):
         return mac_format(mac_address)
     elif isinstance(mac_address, list):
-        parsed = list()
+        parsed = []
         for m in mac_address:
             if not m:
                 continue

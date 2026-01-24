@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-__version__ = "3.4.0"
+__version__ = "3.5.0"
 
 from marionette_driver import (
     addons,
@@ -19,4 +19,5 @@ from marionette_driver import (
 )
 from marionette_driver.by import By
 from marionette_driver.date_time_value import DateTimeValue
+from marionette_driver.keys import Keys
 from marionette_driver.wait import Wait

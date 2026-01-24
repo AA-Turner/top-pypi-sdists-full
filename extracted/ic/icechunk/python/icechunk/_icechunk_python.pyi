@@ -1,6 +1,6 @@
 import abc
 import datetime
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from enum import Enum
 from typing import Any, TypeAlias
 
@@ -14,6 +14,7 @@ class S3Options:
         anonymous: bool = False,
         force_path_style: bool = False,
         network_stream_timeout_seconds: int | None = None,
+        requester_pays: bool = False,
     ) -> None:
         """
         Create a new `S3Options` object
@@ -35,6 +36,150 @@ class S3Options:
             If set to 0, timeout is disabled. Default is 60 seconds.
         """
 
+    @property
+    def region(self) -> str | None:
+        """
+        Optional region to use for the storage backend.
+
+        Returns
+        -------
+        str | None
+            The region configured for the storage backend.
+        """
+        ...
+
+    @region.setter
+    def region(self, value: str | None) -> None:
+        """
+        Set the region to use for the storage backend.
+
+        Parameters
+        ----------
+        value: str | None
+            The region to use for the storage backend.
+        """
+        ...
+
+    @property
+    def endpoint_url(self) -> str | None:
+        """
+        Optional endpoint URL for the storage backend.
+
+        Returns
+        -------
+        str | None
+            The endpoint URL configured for the storage backend.
+        """
+        ...
+
+    @endpoint_url.setter
+    def endpoint_url(self, value: str | None) -> None:
+        """
+        Set the endpoint URL for the storage backend.
+
+        Parameters
+        ----------
+        value: str | None
+            The endpoint URL to use for the storage backend.
+        """
+        ...
+
+    @property
+    def allow_http(self) -> bool:
+        """
+        Whether HTTP requests are allowed for the storage backend.
+
+        Returns
+        -------
+        bool
+            ``True`` when HTTP requests to the storage backend are permitted.
+        """
+        ...
+
+    @allow_http.setter
+    def allow_http(self, value: bool) -> None:
+        """
+        Set whether HTTP requests are allowed for the storage backend.
+
+        Parameters
+        ----------
+        value: bool
+            ``True`` to allow HTTP requests to the storage backend, ``False`` otherwise.
+        """
+        ...
+
+    @property
+    def anonymous(self) -> bool:
+        """
+        Whether to use anonymous credentials (unsigned requests).
+
+        Returns
+        -------
+        bool
+            ``True`` when anonymous access is configured.
+        """
+        ...
+
+    @anonymous.setter
+    def anonymous(self, value: bool) -> None:
+        """
+        Set whether to use anonymous credentials.
+
+        Parameters
+        ----------
+        value: bool
+            ``True`` to perform unsigned requests, ``False`` to sign requests.
+        """
+        ...
+
+    @property
+    def force_path_style(self) -> bool:
+        """
+        Whether to force path-style bucket addressing.
+
+        Returns
+        -------
+        bool
+            ``True`` when path-style addressing is forced.
+        """
+        ...
+
+    @force_path_style.setter
+    def force_path_style(self, value: bool) -> None:
+        """
+        Set whether to force path-style bucket addressing.
+
+        Parameters
+        ----------
+        value: bool
+            ``True`` to always use path-style addressing, ``False`` to allow virtual-host style.
+        """
+        ...
+
+    @property
+    def network_stream_timeout_seconds(self) -> int | None:
+        """
+        Timeout in seconds for idle network streams.
+
+        Returns
+        -------
+        int | None
+            The timeout duration; ``0`` disables the timeout and ``None`` uses the default.
+        """
+        ...
+
+    @network_stream_timeout_seconds.setter
+    def network_stream_timeout_seconds(self, value: int | None) -> None:
+        """
+        Set the timeout for idle network streams.
+
+        Parameters
+        ----------
+        value: int | None
+            Timeout duration in seconds. Use ``0`` to disable or ``None`` for the default.
+        """
+        ...
+
 class ObjectStoreConfig:
     class InMemory:
         def __init__(self) -> None: ...
@@ -49,16 +194,16 @@ class ObjectStoreConfig:
         def __init__(self, options: S3Options) -> None: ...
 
     class Gcs:
-        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
+        def __init__(self, opts: Mapping[str, str] | None = None) -> None: ...
 
     class Azure:
-        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
+        def __init__(self, opts: Mapping[str, str] | None = None) -> None: ...
 
     class Tigris:
         def __init__(self, opts: S3Options) -> None: ...
 
     class Http:
-        def __init__(self, opts: dict[str, str] | None = None) -> None: ...
+        def __init__(self, opts: Mapping[str, str] | None = None) -> None: ...
 
 AnyObjectStoreConfig = (
     ObjectStoreConfig.InMemory
@@ -1216,6 +1361,25 @@ class RepositoryConfig:
         Clear all virtual chunk containers from the repository.
         """
         ...
+    def merge(self, other: RepositoryConfig) -> RepositoryConfig:
+        """
+        Merge another RepositoryConfig with this one.
+
+        When merging, values from the other config take precedence. For nested configs
+        (compression, caching, manifest, storage), the merge is applied recursively.
+        For virtual_chunk_containers, entries from the other config extend this one.
+
+        Parameters
+        ----------
+        other: RepositoryConfig
+            The configuration to merge with this one.
+
+        Returns
+        -------
+        RepositoryConfig
+            A new merged configuration.
+        """
+        ...
 
 class Diff:
     """The result of comparing two snapshots"""
@@ -1366,6 +1530,8 @@ class PyRepository:
     def config(self) -> RepositoryConfig: ...
     def storage_settings(self) -> StorageSettings: ...
     def storage(self) -> Storage: ...
+    @property
+    def authorized_virtual_container_prefixes(self) -> set[str]: ...
     def reopen(
         self,
         *,
@@ -1395,8 +1561,12 @@ class PyRepository:
     async def lookup_branch_async(self, branch: str) -> str: ...
     def lookup_snapshot(self, snapshot_id: str) -> SnapshotInfo: ...
     async def lookup_snapshot_async(self, snapshot_id: str) -> SnapshotInfo: ...
-    def reset_branch(self, branch: str, snapshot_id: str) -> None: ...
-    async def reset_branch_async(self, branch: str, snapshot_id: str) -> None: ...
+    def reset_branch(
+        self, branch: str, to_snapshot_id: str, from_snapshot_id: str | None
+    ) -> None: ...
+    async def reset_branch_async(
+        self, branch: str, to_snapshot_id: str, from_snapshot_id: str | None
+    ) -> None: ...
     def delete_branch(self, branch: str) -> None: ...
     async def delete_branch_async(self, branch: str) -> None: ...
     def delete_tag(self, tag: str) -> None: ...
@@ -1481,6 +1651,20 @@ class PyRepository:
         max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
         max_concurrent_manifest_fetches: int = 500,
     ) -> GCSummary: ...
+    def chunk_storage_stats(
+        self,
+        *,
+        max_snapshots_in_memory: int = 50,
+        max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
+        max_concurrent_manifest_fetches: int = 500,
+    ) -> ChunkStorageStats: ...
+    async def chunk_storage_stats_async(
+        self,
+        *,
+        max_snapshots_in_memory: int = 50,
+        max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
+        max_concurrent_manifest_fetches: int = 500,
+    ) -> ChunkStorageStats: ...
     def total_chunks_storage(
         self,
         *,
@@ -1499,6 +1683,26 @@ class PyRepository:
     async def inspect_snapshot_async(
         self, snapshot_id: str, *, pretty: bool = True
     ) -> str: ...
+
+class ChunkType(Enum):
+    """Enum for Zarr chunk types
+
+    Attributes
+    ----------
+    Uninitialized: int
+        Chunk doesn't have a materialized type yet
+    Native: int
+        Regular Zarr chunks
+    Virtual: int
+        Chunk conforming to the VirtualiZarr spec
+    Inline: int
+        Chunk is store inline in the manifest
+    """
+
+    UNINITIALIZED = 0
+    NATIVE = 1
+    VIRTUAL = 2
+    INLINE = 3
 
 class PySession:
     @classmethod
@@ -1520,6 +1724,12 @@ class PySession:
     def chunk_coordinates(
         self, array_path: str, batch_size: int
     ) -> AsyncIterator[list[list[int]]]: ...
+    def chunk_type(
+        self, array_path: str, chunk_coordinates: Sequence[int]
+    ) -> ChunkType: ...
+    async def chunk_type_async(
+        self, array_path: str, chunk_coordinates: Sequence[int]
+    ) -> ChunkType: ...
     @property
     def store(self) -> PyStore: ...
     @property
@@ -1539,6 +1749,16 @@ class PySession:
         metadata: dict[str, Any] | None = None,
         rebase_with: ConflictSolver | None = None,
         rebase_tries: int = 1_000,
+    ) -> str: ...
+    def flush(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> str: ...
+    async def flush_async(
+        self,
+        message: str,
+        metadata: dict[str, Any] | None = None,
     ) -> str: ...
     def rebase(self, solver: ConflictSolver) -> None: ...
     async def rebase_async(self, solver: ConflictSolver) -> None: ...
@@ -1838,6 +2058,10 @@ class GcsCredentials:
 
     This can be used to authenticate with a google cloud storage backend.
     """
+    class Anonymous:
+        """Uses anonymous credentials"""
+        def __init__(self) -> None: ...
+
     class FromEnv:
         """Uses credentials from environment variables"""
         def __init__(self) -> None: ...
@@ -1856,7 +2080,10 @@ class GcsCredentials:
         ) -> None: ...
 
 AnyGcsCredential = (
-    GcsCredentials.FromEnv | GcsCredentials.Static | GcsCredentials.Refreshable
+    GcsCredentials.Anonymous
+    | GcsCredentials.FromEnv
+    | GcsCredentials.Static
+    | GcsCredentials.Refreshable
 )
 
 class AzureStaticCredentials:
@@ -2217,3 +2444,52 @@ def spec_version() -> int:
         int: The version of the Icechunk specification that the library is compatible with
     """
     ...
+
+class ChunkStorageStats:
+    """Statistics about chunk storage across different chunk types."""
+
+    @property
+    def native_bytes(self) -> int:
+        """Total bytes stored in native chunks (stored in icechunk's chunk storage)"""
+        ...
+
+    @property
+    def virtual_bytes(self) -> int:
+        """Total bytes stored in virtual chunks (references to external data)"""
+        ...
+
+    @property
+    def inlined_bytes(self) -> int:
+        """Total bytes stored in inline chunks (stored directly in manifests)"""
+        ...
+
+    @property
+    def non_virtual_bytes(self) -> int:
+        """
+        Total bytes excluding virtual chunks.
+
+        This represents the approximate size of all objects stored in the
+        icechunk repository itself (native chunks plus inline chunks).
+        Virtual chunks are not included since they reference external data.
+
+        Returns:
+            int: The sum of native_bytes and inlined_bytes
+        """
+        ...
+
+    @property
+    def total_bytes(self) -> int:
+        """
+        Total bytes across all chunk types.
+
+        Returns the sum of native_bytes, virtual_bytes, and inlined_bytes.
+        This represents the total size of all data referenced by the repository,
+        including both data stored in icechunk and external virtual references.
+
+        Returns:
+            int: The sum of all chunk storage bytes
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+    def __add__(self, other: ChunkStorageStats) -> ChunkStorageStats: ...

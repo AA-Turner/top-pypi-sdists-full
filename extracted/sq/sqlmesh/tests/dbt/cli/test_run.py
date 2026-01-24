@@ -5,7 +5,7 @@ from click.testing import Result
 import time_machine
 from sqlmesh_dbt.operations import create
 from tests.cli.test_cli import FREEZE_TIME
-from tests.dbt.cli.conftest import EmptyProjectCreator
+from tests.dbt.conftest import EmptyProjectCreator
 
 pytestmark = pytest.mark.slow
 
@@ -27,7 +27,7 @@ def test_run_with_selectors(jaffle_shop_duckdb: Path, invoke_cli: t.Callable[...
         assert result.exit_code == 0
         assert "main.orders" in result.output
 
-    result = invoke_cli(["run", "--select", "main.raw_customers+", "--exclude", "main.orders"])
+    result = invoke_cli(["run", "--select", "raw_customers+", "--exclude", "orders"])
 
     assert result.exit_code == 0
     assert not result.exception
@@ -45,13 +45,13 @@ def test_run_with_selectors(jaffle_shop_duckdb: Path, invoke_cli: t.Callable[...
 def test_run_with_changes_and_full_refresh(
     create_empty_project: EmptyProjectCreator, invoke_cli: t.Callable[..., Result]
 ):
-    project_path = create_empty_project(project_name="test")
+    project_path, models_path = create_empty_project(project_name="test")
 
     engine_adapter = create(project_path).context.engine_adapter
     engine_adapter.execute("create table external_table as select 'foo' as a, 'bar' as b")
 
-    (project_path / "models" / "model_a.sql").write_text("select a, b from external_table")
-    (project_path / "models" / "model_b.sql").write_text("select a, b from {{ ref('model_a') }}")
+    (models_path / "model_a.sql").write_text("select a, b from external_table")
+    (models_path / "model_b.sql").write_text("select a, b from {{ ref('model_a') }}")
 
     # populate initial env
     result = invoke_cli(["run"])
@@ -65,6 +65,12 @@ def test_run_with_changes_and_full_refresh(
         "select a, b, 'changed' as c from {{ ref('model_a') }}"
     )
 
+    # Clear dbt's partial parse cache to ensure file changes are detected
+    # Without it dbt may use stale cached model definitions, causing flakiness
+    partial_parse_file = project_path / "target" / "sqlmesh_partial_parse.msgpack"
+    if partial_parse_file.exists():
+        partial_parse_file.unlink()
+
     # run with --full-refresh. this should:
     # - fully refresh model_a (pick up the new records from external_table)
     # - deploy the local change to model_b (introducing the 'changed' column)
@@ -77,3 +83,11 @@ def test_run_with_changes_and_full_refresh(
         ("foo", "bar", "changed"),
         ("baz", "bing", "changed"),
     ]
+
+
+def test_run_with_threads(jaffle_shop_duckdb: Path, invoke_cli: t.Callable[..., Result]):
+    result = invoke_cli(["run", "--threads", "4"])
+    assert result.exit_code == 0
+    assert not result.exception
+
+    assert "Model batches executed" in result.output

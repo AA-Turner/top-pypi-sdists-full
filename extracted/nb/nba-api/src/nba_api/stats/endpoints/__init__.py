@@ -11,11 +11,11 @@ __all__ = [
     "boxscorematchupsv3",
     "boxscoremiscv2",
     "boxscoremiscv3",
-    "boxscoreplayertrackv2",
     "boxscoreplayertrackv3",
     "boxscorescoringv2",
     "boxscorescoringv3",
     "boxscoresummaryv2",
+    "boxscoresummaryv3",
     "boxscoretraditionalv2",
     "boxscoretraditionalv3",
     "boxscoreusagev2",
@@ -37,6 +37,7 @@ __all__ = [
     "draftcombinespotshooting",
     "draftcombinestats",
     "drafthistory",
+    "dunkscoreleaders",
     "fantasywidget",
     "franchisehistory",
     "franchiseleaders",
@@ -94,7 +95,6 @@ __all__ = [
     "playerdashboardbyteamperformance",
     "playerdashboardbyyearoveryear",
     "playerestimatedmetrics",
-    "playerfantasyprofile",
     "playerfantasyprofilebargraph",
     "playergamelog",
     "playergamelogs",
@@ -105,6 +105,7 @@ __all__ = [
     "playervsplayer",
     "playoffpicture",
     "scoreboardv2",
+    "scoreboardv3",
     "scheduleleaguev2",
     "scheduleleaguev2int",
     "shotchartdetail",
@@ -149,11 +150,11 @@ from .boxscorehustlev2 import BoxScoreHustleV2
 from .boxscorematchupsv3 import BoxScoreMatchupsV3
 from .boxscoremiscv2 import BoxScoreMiscV2
 from .boxscoremiscv3 import BoxScoreMiscV3
-from .boxscoreplayertrackv2 import BoxScorePlayerTrackV2
 from .boxscoreplayertrackv3 import BoxScorePlayerTrackV3
 from .boxscorescoringv2 import BoxScoreScoringV2
 from .boxscorescoringv3 import BoxScoreScoringV3
 from .boxscoresummaryv2 import BoxScoreSummaryV2
+from .boxscoresummaryv3 import BoxScoreSummaryV3
 from .boxscoretraditionalv2 import BoxScoreTraditionalV2
 from .boxscoretraditionalv3 import BoxScoreTraditionalV3
 from .boxscoreusagev2 import BoxScoreUsageV2
@@ -175,6 +176,7 @@ from .draftcombineplayeranthro import DraftCombinePlayerAnthro
 from .draftcombinespotshooting import DraftCombineSpotShooting
 from .draftcombinestats import DraftCombineStats
 from .drafthistory import DraftHistory
+from .dunkscoreleaders import DunkScoreLeaders
 from .fantasywidget import FantasyWidget
 from .franchisehistory import FranchiseHistory
 from .franchiseleaders import FranchiseLeaders
@@ -232,7 +234,6 @@ from .playerdashboardbyshootingsplits import PlayerDashboardByShootingSplits
 from .playerdashboardbyteamperformance import PlayerDashboardByTeamPerformance
 from .playerdashboardbyyearoveryear import PlayerDashboardByYearOverYear
 from .playerestimatedmetrics import PlayerEstimatedMetrics
-from .playerfantasyprofile import PlayerFantasyProfile
 from .playerfantasyprofilebargraph import PlayerFantasyProfileBarGraph
 from .playergamelog import PlayerGameLog
 from .playergamelogs import PlayerGameLogs
@@ -244,6 +245,7 @@ from .playervsplayer import PlayerVsPlayer
 from .playoffpicture import PlayoffPicture
 from .scheduleleaguev2 import ScheduleLeagueV2
 from .scoreboardv2 import ScoreboardV2
+from .scoreboardv3 import ScoreboardV3
 from .shotchartdetail import ShotChartDetail
 from .shotchartleaguewide import ShotChartLeagueWide
 from .shotchartlineupdetail import ShotChartLineupDetail

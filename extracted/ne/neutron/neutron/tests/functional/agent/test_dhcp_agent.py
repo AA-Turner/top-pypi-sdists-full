@@ -15,9 +15,9 @@
 
 import copy
 import os.path
+import time
 from unittest import mock
 
-import eventlet
 import fixtures
 import netaddr
 from neutron_lib.api import converters
@@ -86,6 +86,7 @@ class DHCPAgentOVSTestFramework(base.BaseSudoTestCase):
         mock.patch('neutron.agent.rpc.PluginReportStateAPI').start()
         self.conf.set_override('check_child_processes_interval', 1, 'AGENT')
         self.agent = agent.DhcpAgentWithStateReport('localhost')
+        self.agent.init_host()
 
         self.ovs_driver = interface.OVSInterfaceDriver(self.conf)
         mock.patch('neutron.agent.common.ovs_lib.'
@@ -228,8 +229,9 @@ class DHCPAgentOVSTestFramework(base.BaseSudoTestCase):
 
         self._run_dhclient(vif_name, network)
 
-        predicate = lambda: len(
-            self._ip_list_for_vif(vif_name, network.namespace))
+        def predicate():
+            return len(self._ip_list_for_vif(vif_name, network.namespace))
+
         common_utils.wait_until_true(predicate, 10)
 
         ip_list = self._ip_list_for_vif(vif_name, network.namespace)
@@ -242,7 +244,7 @@ class DHCPAgentOVSTestFramework(base.BaseSudoTestCase):
         self._run_dhclient(vif_name, network)
         # we need wait some time (10 seconds is enough) and check
         # that dhclient not configured ip-address for interface
-        eventlet.sleep(10)
+        time.sleep(10)
 
         ip_list = self._ip_list_for_vif(vif_name, network.namespace)
         self.assertEqual([], ip_list)
@@ -421,43 +423,3 @@ class DHCPAgentOVSTestCase(DHCPAgentOVSTestFramework):
             exception=RuntimeError("'dhcp_ready_on_ports' not be called"))
         self.mock_plugin_api.dhcp_ready_on_ports.assert_called_with(
             ports_to_send)
-
-    def test_dhcp_processing_pool_size(self):
-        mock.patch.object(self.agent, 'call_driver').start().return_value = (
-            True)
-        self.agent.update_isolated_metadata_proxy = mock.Mock()
-        self.agent.disable_isolated_metadata_proxy = mock.Mock()
-
-        network_info_1 = self.network_dict_for_dhcp()
-        self.configure_dhcp_for_network(network=network_info_1)
-        self.assertEqual(agent.DHCP_PROCESS_GREENLET_MIN,
-                         self.agent._pool.size)
-
-        network_info_2 = self.network_dict_for_dhcp()
-        self.configure_dhcp_for_network(network=network_info_2)
-        self.assertEqual(agent.DHCP_PROCESS_GREENLET_MIN,
-                         self.agent._pool.size)
-
-        network_info_list = [network_info_1, network_info_2]
-        for _i in range(agent.DHCP_PROCESS_GREENLET_MAX + 1):
-            ni = self.network_dict_for_dhcp()
-            self.configure_dhcp_for_network(network=ni)
-            network_info_list.append(ni)
-
-        self.assertEqual(agent.DHCP_PROCESS_GREENLET_MAX,
-                         self.agent._pool.size)
-
-        for network in network_info_list:
-            self.agent.disable_dhcp_helper(network.id)
-
-        agent_network_info_len = len(self.agent.cache.get_network_ids())
-        if agent_network_info_len < agent.DHCP_PROCESS_GREENLET_MIN:
-            self.assertEqual(agent.DHCP_PROCESS_GREENLET_MIN,
-                             self.agent._pool.size)
-        elif (agent.DHCP_PROCESS_GREENLET_MIN <= agent_network_info_len <=
-              agent.DHCP_PROCESS_GREENLET_MAX):
-            self.assertEqual(agent_network_info_len,
-                             self.agent._pool.size)
-        else:
-            self.assertEqual(agent.DHCP_PROCESS_GREENLET_MAX,
-                             self.agent._pool.size)

@@ -3,7 +3,7 @@ Type annotations for cloudformation service ServiceResource.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/service_resource/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -27,6 +27,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import AsyncIterator, Awaitable, Sequence
 from datetime import datetime
 from typing import NoReturn
 
@@ -48,6 +49,7 @@ from .type_defs import (
     CreateStackInputServiceResourceCreateStackTypeDef,
     DeleteStackInputStackDeleteTypeDef,
     ModuleInfoTypeDef,
+    OperationEntryTypeDef,
     OutputTypeDef,
     ParameterTypeDef,
     RollbackConfigurationOutputTypeDef,
@@ -63,11 +65,6 @@ try:
     from boto3.resources.base import ResourceMeta
 except ImportError:
     from builtins import object as ResourceMeta  # type: ignore[assignment]
-if sys.version_info >= (3, 9):
-    from builtins import list as List
-    from collections.abc import AsyncIterator, Awaitable, Sequence
-else:
-    from typing import AsyncIterator, Awaitable, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -128,7 +125,7 @@ class ServiceResourceStacksCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Stack]]:
+    ) -> AsyncIterator[list[Stack]]:
         """
         A generator which yields pages of Stacks.
 
@@ -167,7 +164,7 @@ class StackEventsCollection(AIOResourceCollection):
         """
 
     def filter(  # type: ignore[override]
-        self, *, StackName: str = ..., NextToken: str = ...
+        self, *, NextToken: str = ...
     ) -> StackEventsCollection:
         """
         Get items from the collection, passing keyword arguments along as parameters to
@@ -196,7 +193,7 @@ class StackEventsCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[Event]]:
+    ) -> AsyncIterator[list[Event]]:
         """
         A generator which yields pages of Events.
 
@@ -264,7 +261,7 @@ class StackResourceSummariesCollection(AIOResourceCollection):
 
     def pages(  # type: ignore[override]
         self,
-    ) -> AsyncIterator[List[StackResourceSummary]]:
+    ) -> AsyncIterator[list[StackResourceSummary]]:
         """
         A generator which yields pages of StackResourceSummarys.
 
@@ -298,6 +295,7 @@ class Event(AIOBoto3ServiceResource):
     stack_id: Awaitable[str]
     event_id: Awaitable[str]
     stack_name: Awaitable[str]
+    operation_id: Awaitable[str]
     logical_resource_id: Awaitable[str]
     physical_resource_id: Awaitable[str]
     resource_type: Awaitable[str]
@@ -310,6 +308,7 @@ class Event(AIOBoto3ServiceResource):
     hook_status: Awaitable[HookStatusType]
     hook_status_reason: Awaitable[str]
     hook_invocation_point: Awaitable[Literal["PRE_PROVISION"]]
+    hook_invocation_id: Awaitable[str]
     hook_failure_mode: Awaitable[HookFailureModeType]
     detailed_status: Awaitable[DetailedStatusType]
     meta: CloudFormationResourceMeta  # type: ignore[override]
@@ -337,7 +336,7 @@ class Stack(AIOBoto3ServiceResource):
     stack_name: Awaitable[str]
     change_set_id: Awaitable[str]
     description: Awaitable[str]
-    parameters: Awaitable[List[ParameterTypeDef]]
+    parameters: Awaitable[list[ParameterTypeDef]]
     creation_time: Awaitable[datetime]
     deletion_time: Awaitable[datetime]
     last_updated_time: Awaitable[datetime]
@@ -345,12 +344,12 @@ class Stack(AIOBoto3ServiceResource):
     stack_status: Awaitable[StackStatusType]
     stack_status_reason: Awaitable[str]
     disable_rollback: Awaitable[bool]
-    notification_arns: Awaitable[List[str]]
+    notification_arns: Awaitable[list[str]]
     timeout_in_minutes: Awaitable[int]
-    capabilities: Awaitable[List[CapabilityType]]
-    outputs: Awaitable[List[OutputTypeDef]]
+    capabilities: Awaitable[list[CapabilityType]]
+    outputs: Awaitable[list[OutputTypeDef]]
     role_arn: Awaitable[str]
-    tags: Awaitable[List[TagTypeDef]]
+    tags: Awaitable[list[TagTypeDef]]
     enable_termination_protection: Awaitable[bool]
     parent_id: Awaitable[str]
     root_id: Awaitable[str]
@@ -358,6 +357,7 @@ class Stack(AIOBoto3ServiceResource):
     retain_except_on_create: Awaitable[bool]
     deletion_mode: Awaitable[DeletionModeType]
     detailed_status: Awaitable[DetailedStatusType]
+    last_operations: Awaitable[list[OperationEntryTypeDef]]
     meta: CloudFormationResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

@@ -9,20 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class TagProtectionType(TypedDict):
-    """Tag protection
+class PageDeploymentType(TypedDict):
+    """GitHub Pages
 
-    Tag protection
+    The GitHub Pages deployment status.
     """
 
-    id: NotRequired[int]
-    created_at: NotRequired[str]
-    updated_at: NotRequired[str]
-    enabled: NotRequired[bool]
-    pattern: str
+    id: Union[int, str]
+    status_url: str
+    page_url: str
+    preview_url: NotRequired[str]
 
 
-__all__ = ("TagProtectionType",)
+class PageDeploymentTypeForResponse(TypedDict):
+    """GitHub Pages
+
+    The GitHub Pages deployment status.
+    """
+
+    id: Union[int, str]
+    status_url: str
+    page_url: str
+    preview_url: NotRequired[str]
+
+
+__all__ = (
+    "PageDeploymentType",
+    "PageDeploymentTypeForResponse",
+)

@@ -26,11 +26,6 @@ def share_config(request: Request):
 
 
 @register_config
-def markdown_config(request: Request) -> tuple[str, dict[str, str]]:
-    return "markdown", {"blockdiag": reverse("wbcore:blockdiag", request=request)}
-
-
-@register_config
 def menu_calendar_config(request: Request) -> tuple[str, str | None]:
     menu_calendar = None
     if settings.FRONTEND_MENU_CALENDAR:

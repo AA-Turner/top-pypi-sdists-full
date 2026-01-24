@@ -11,10 +11,22 @@ __all__ = ["PriceInterval"]
 
 
 class PriceInterval(BaseModel):
+    """
+    The Price Interval resource represents a period of time for which a price will bill on a subscription. A
+    subscription’s price intervals define its billing behavior.
+    """
+
     id: str
 
     billing_cycle_day: int
     """The day of the month that Orb bills for this price"""
+
+    can_defer_billing: bool
+    """For in-arrears prices.
+
+    If true, and the price interval ends mid-cycle, the final line item will be
+    deferred to the next scheduled invoice instead of being billed mid-cycle.
+    """
 
     current_billing_period_end_date: Optional[datetime] = None
     """The end of the current billing period.

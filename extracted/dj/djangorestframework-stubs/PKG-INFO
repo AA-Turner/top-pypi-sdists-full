@@ -1,53 +1,38 @@
 Metadata-Version: 2.4
 Name: djangorestframework-stubs
-Version: 3.16.3
+Version: 3.16.7
 Summary: PEP-484 stubs for django-rest-framework
-Home-page: https://github.com/typeddjango/djangorestframework-stubs
 Author: Maksim Kurnikov
-Author-email: maxim.kurnikov@gmail.com
-Maintainer: Marti Raudsepp
-Maintainer-email: marti@juffo.org
-License: MIT
-Project-URL: Release notes, https://github.com/typeddjango/djangorestframework-stubs/releases
-Project-URL: Funding, https://github.com/sponsors/typeddjango
+Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.txt
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Classifier: Framework :: Django
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE.txt
-Requires-Dist: django-stubs>=5.2.5
+Requires-Dist: django-stubs>=5.2.8
 Requires-Dist: typing-extensions>=4.0
-Requires-Dist: requests>=2.0
 Requires-Dist: types-requests
-Requires-Dist: types-PyYAML
+Requires-Dist: types-pyyaml
+Requires-Dist: mypy>=1.13,<1.20 ; extra == 'compatible-mypy'
+Requires-Dist: django-stubs[compatible-mypy] ; extra == 'compatible-mypy'
+Requires-Dist: coreapi>=2.0.0 ; extra == 'coreapi'
+Requires-Dist: types-markdown>=0.1.5 ; extra == 'markdown'
+Maintainer: Marti Raudsepp, Nikita Sobolev
+Maintainer-email: Marti Raudsepp <marti@juffo.org>, Nikita Sobolev <mail@sobolevn.me>
+Requires-Python: >=3.10
+Project-URL: Funding, https://github.com/sponsors/typeddjango
+Project-URL: Homepage, https://github.com/typeddjango/djangorestframework-stubs
+Project-URL: Release notes, https://github.com/typeddjango/djangorestframework-stubs/releases
 Provides-Extra: compatible-mypy
-Requires-Dist: mypy<1.19,>=1.13; extra == "compatible-mypy"
-Requires-Dist: django-stubs[compatible-mypy]; extra == "compatible-mypy"
 Provides-Extra: coreapi
-Requires-Dist: coreapi>=2.0.0; extra == "coreapi"
 Provides-Extra: markdown
-Requires-Dist: types-Markdown>=0.1.5; extra == "markdown"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
-Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Description-Content-Type: text/markdown
 
 <img src="https://mypy-lang.org/static/mypy_light.svg" alt="mypy logo" width="300px"/>
 

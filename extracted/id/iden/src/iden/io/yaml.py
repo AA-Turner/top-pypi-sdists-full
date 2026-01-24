@@ -2,11 +2,10 @@ r"""Contain YAML-based data loaders and savers."""
 
 from __future__ import annotations
 
-__all__ = ["YamlLoader", "YamlSaver", "get_loader_mapping", "load_yaml", "save_yaml"]
+__all__ = ["YamlLoader", "YamlSaver", "load_yaml", "save_yaml"]
 
 from pathlib import Path
 from typing import Any, TypeVar
-from unittest.mock import Mock
 
 from iden.io.base import BaseFileSaver, BaseLoader
 from iden.utils.imports import check_yaml, is_yaml_available
@@ -14,31 +13,29 @@ from iden.utils.imports import check_yaml, is_yaml_available
 if is_yaml_available():
     import yaml
 else:  # pragma: no cover
-    yaml = Mock()
+    from iden.utils.fallback.yaml import yaml
 
 
 T = TypeVar("T")
 
 
-class YamlLoader(BaseLoader[Any]):
+class YamlLoader(BaseLoader[T]):
     r"""Implement a data loader to load data in a YAML file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import save_yaml, YamlLoader
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.yaml")
+        ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = YamlLoader().load(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import save_yaml, YamlLoader
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.yaml")
-    ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = YamlLoader().load(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
 
     def __init__(self) -> None:
@@ -48,32 +45,30 @@ class YamlLoader(BaseLoader[Any]):
         return f"{self.__class__.__qualname__}()"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return isinstance(other, self.__class__)
+        return type(other) is type(self)
 
-    def load(self, path: Path) -> Any:
+    def load(self, path: Path) -> T:
         with Path.open(path, mode="rb") as file:
             return yaml.safe_load(file)
 
 
-class YamlSaver(BaseFileSaver[Any]):
+class YamlSaver(BaseFileSaver[T]):
     r"""Implement a file saver to save data with a YAML file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import YamlSaver, YamlLoader
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.yaml")
+        ...     YamlSaver().save({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = YamlLoader().load(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import YamlSaver, YamlLoader
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.yaml")
-    ...     YamlSaver().save({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = YamlLoader().load(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
 
     def __init__(self) -> None:
@@ -83,9 +78,9 @@ class YamlSaver(BaseFileSaver[Any]):
         return f"{self.__class__.__qualname__}()"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
-        return isinstance(other, self.__class__)
+        return type(other) is type(self)
 
-    def _save_file(self, to_save: Any, path: Path) -> None:
+    def _save_file(self, to_save: T, path: Path) -> None:
         with Path.open(path, mode="w") as file:
             yaml.dump(to_save, file, Dumper=yaml.Dumper)
 
@@ -99,22 +94,20 @@ def load_yaml(path: Path) -> Any:
     Returns:
         The data from the YAML file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import load_yaml, save_yaml
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.yaml")
+        ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = load_yaml(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import load_yaml, save_yaml
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.yaml")
-    ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = load_yaml(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
     return YamlLoader().load(path)
 
@@ -135,43 +128,19 @@ def save_yaml(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     Raises:
         FileExistsError: if the file already exists.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import load_yaml, save_yaml
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.yaml")
+        ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = load_yaml(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import load_yaml, save_yaml
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.yaml")
-    ...     save_yaml({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = load_yaml(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
     YamlSaver().save(to_save, path, exist_ok=exist_ok)
-
-
-def get_loader_mapping() -> dict[str, BaseLoader]:
-    r"""Get a default mapping between the file extensions and loaders.
-
-    Returns:
-        The mapping between the file extensions and loaders.
-
-    Example usage:
-
-    ```pycon
-
-    >>> from iden.io.yaml import get_loader_mapping
-    >>> get_loader_mapping()
-    {'yaml': YamlLoader(), 'yml': YamlLoader()}
-
-    ```
-    """
-    if not is_yaml_available():
-        return {}
-    loader = YamlLoader()
-    return {"yaml": loader, "yml": loader}

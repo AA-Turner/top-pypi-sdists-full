@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: opentelemetry-resource-detector-containerid
+Version: 0.60b1
+Summary: Container Resource Detector for OpenTelemetry
+Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/resource/opentelemetry-resource-detector-containerid
+Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
+Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: opentelemetry-sdk~=1.12
+Description-Content-Type: text/x-rst
+
+OpenTelemetry Resource detectors for containers
+==========================================================
+
+|pypi|
+
+.. |pypi| image:: TODO
+   :target: TODO
+
+
+This library provides custom resource detector for container platforms
+
+Installation
+------------
+
+::
+
+    pip install opentelemetry-resource-detector-containerid
+
+---------------------------
+
+Usage example for `opentelemetry-resource-detector-containerid`
+
+.. code-block:: python
+
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.resource.detector.containerid import (
+        ContainerResourceDetector,
+    )
+    from opentelemetry.sdk.resources import get_aggregated_resources
+
+
+    trace.set_tracer_provider(
+        TracerProvider(
+            resource=get_aggregated_resources(
+                [
+                    ContainerResourceDetector(),
+                ]
+            ),
+        )
+    )
+
+References
+----------
+
+* `OpenTelemetry Project <https://opentelemetry.io/>`_

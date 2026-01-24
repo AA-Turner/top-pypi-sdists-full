@@ -15,7 +15,9 @@
 from libcpp.optional cimport optional
 from libcpp.span cimport span
 from libcpp.string cimport string
+from libcpp.vector cimport vector
 
+from dwave.optimization.libcpp.fraction cimport fraction
 from dwave.optimization.libcpp.state cimport State
 
 __all__ = ["Array"]
@@ -45,7 +47,10 @@ cdef extern from "dwave-optimization/array.hpp" namespace "dwave::optimization" 
         SizeInfo substitute() const
         SizeInfo substitute(ssize_t) const
 
+        fraction multiplier
         const Array* array_ptr
+        fraction offset
+
         optional[Py_ssize_t] min
         optional[Py_ssize_t] max
 
@@ -58,3 +63,5 @@ cdef extern from "dwave-optimization/array.hpp" namespace "dwave::optimization" 
         Py_ssize_t start
         Py_ssize_t stop
         Py_ssize_t step
+
+    vector[Py_ssize_t] broadcast_shapes(span[Py_ssize_t], span[Py_ssize_t]) except+

@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -17,44 +17,61 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0184 import MarketplaceListingPlan
+
+class UpdateBudget(GitHubModel):
+    """UpdateBudget"""
+
+    message: str = Field(
+        description="A message indicating the result of the update operation"
+    )
+    budget: UpdateBudgetPropBudget = Field()
 
 
-class MarketplacePurchasePropMarketplacePendingChange(GitHubModel):
-    """MarketplacePurchasePropMarketplacePendingChange"""
+class UpdateBudgetPropBudget(GitHubModel):
+    """UpdateBudgetPropBudget"""
 
-    is_installed: Missing[bool] = Field(default=UNSET)
-    effective_date: Missing[str] = Field(default=UNSET)
-    unit_count: Missing[Union[int, None]] = Field(default=UNSET)
-    id: Missing[int] = Field(default=UNSET)
-    plan: Missing[MarketplaceListingPlan] = Field(
+    id: Missing[str] = Field(default=UNSET, description="ID of the budget.")
+    budget_scope: Missing[
+        Literal["enterprise", "organization", "repository", "cost_center"]
+    ] = Field(default=UNSET, description="The type of scope for the budget")
+    budget_entity_name: Missing[str] = Field(
+        default=UNSET, description="The name of the entity to apply the budget to"
+    )
+    budget_amount: Missing[float] = Field(
+        default=UNSET, description="The budget amount in dollars"
+    )
+    prevent_further_usage: Missing[bool] = Field(
         default=UNSET,
-        title="Marketplace Listing Plan",
-        description="Marketplace Listing Plan",
+        description="Whether to prevent additional spending once the budget is exceeded",
+    )
+    budget_product_sku: Missing[str] = Field(
+        default=UNSET, description="A single product or sku to apply the budget to."
+    )
+    budget_type: Missing[Literal["ProductPricing", "SkuPricing"]] = Field(
+        default=UNSET, description="The type of pricing for the budget"
+    )
+    budget_alerting: Missing[UpdateBudgetPropBudgetPropBudgetAlerting] = Field(
+        default=UNSET
     )
 
 
-class MarketplacePurchasePropMarketplacePurchase(GitHubModel):
-    """MarketplacePurchasePropMarketplacePurchase"""
+class UpdateBudgetPropBudgetPropBudgetAlerting(GitHubModel):
+    """UpdateBudgetPropBudgetPropBudgetAlerting"""
 
-    billing_cycle: Missing[str] = Field(default=UNSET)
-    next_billing_date: Missing[Union[str, None]] = Field(default=UNSET)
-    is_installed: Missing[bool] = Field(default=UNSET)
-    unit_count: Missing[Union[int, None]] = Field(default=UNSET)
-    on_free_trial: Missing[bool] = Field(default=UNSET)
-    free_trial_ends_on: Missing[Union[str, None]] = Field(default=UNSET)
-    updated_at: Missing[str] = Field(default=UNSET)
-    plan: Missing[MarketplaceListingPlan] = Field(
-        default=UNSET,
-        title="Marketplace Listing Plan",
-        description="Marketplace Listing Plan",
+    will_alert: Missing[bool] = Field(
+        default=UNSET, description="Whether alerts are enabled for this budget"
+    )
+    alert_recipients: Missing[list[str]] = Field(
+        default=UNSET, description="Array of user login names who will receive alerts"
     )
 
 
-model_rebuild(MarketplacePurchasePropMarketplacePendingChange)
-model_rebuild(MarketplacePurchasePropMarketplacePurchase)
+model_rebuild(UpdateBudget)
+model_rebuild(UpdateBudgetPropBudget)
+model_rebuild(UpdateBudgetPropBudgetPropBudgetAlerting)
 
 __all__ = (
-    "MarketplacePurchasePropMarketplacePendingChange",
-    "MarketplacePurchasePropMarketplacePurchase",
+    "UpdateBudget",
+    "UpdateBudgetPropBudget",
+    "UpdateBudgetPropBudgetPropBudgetAlerting",
 )

@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -17,6 +17,11 @@ class Store(ABC):
     @abstractmethod
     def hit(self, key: str) -> bool:
         """Check if the cache is in the store"""
+
+    def clear(self, key: str) -> bool:
+        """Check if the cache is in the store"""
+        del key
+        return False
 
 
 StoreType = type[Store]

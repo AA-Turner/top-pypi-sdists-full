@@ -321,6 +321,7 @@ def get_ongoing_doc(ecr=True, package_sync_bucket_prefix=None) -> str:
                 "Effect": "Allow",
                 "Resource": "*",
                 "Action": [
+                    "ec2:AuthorizeSecurityGroupEgress",
                     "ec2:AuthorizeSecurityGroupIngress",
                     "ec2:CreateFleet",
                     "ec2:CreateLaunchTemplate",
@@ -384,6 +385,16 @@ def get_ongoing_doc(ecr=True, package_sync_bucket_prefix=None) -> str:
                     "ec2:TerminateInstances",
                 ],
                 "Condition": {"StringEquals": {"ec2:ResourceTag/owner": "coiled"}},
+            },
+            {
+                "Sid": "OngoingPlacementGroupPolicy",
+                "Effect": "Allow",
+                "Resource": "arn:*:ec2:*:*:placement-group/coiled-*",
+                "Action": [
+                    "ec2:CreatePlacementGroup",
+                    "ec2:DescribePlacementGroups",
+                    "ec2:DeletePlacementGroup",
+                ],
             },
             {
                 "Sid": "OptionalLogPull",

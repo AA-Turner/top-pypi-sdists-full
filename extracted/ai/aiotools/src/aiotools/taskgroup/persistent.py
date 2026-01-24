@@ -6,19 +6,19 @@ import logging
 import sys
 import traceback
 import weakref
+from collections.abc import Awaitable, Callable, Sequence
 from contextvars import ContextVar, Token
 from types import TracebackType
 from typing import (
     Any,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Optional,
-    Sequence,
+    Self,
     TypeVar,
+    cast,
 )
 
-from typing_extensions import Self
+from typing_extensions import deprecated
+
+from aiotools.types import CoroutineLike
 
 from .. import compat
 from .types import AsyncExceptionHandler
@@ -28,13 +28,13 @@ __all__ = (
     "current_ptaskgroup",
 )
 
-current_ptaskgroup: ContextVar["PersistentTaskGroup"] = ContextVar("current_ptaskgroup")
+current_ptaskgroup: ContextVar[PersistentTaskGroup] = ContextVar("current_ptaskgroup")  # type: ignore[deprecated]
 
 _ptaskgroup_idx = itertools.count()
-_log = logging.getLogger(__name__)
-_all_ptaskgroups: weakref.WeakSet["PersistentTaskGroup"] = weakref.WeakSet()
+_log = logging.getLogger(__spec__.name)
+_all_ptaskgroups: weakref.WeakSet[PersistentTaskGroup] = weakref.WeakSet()  # type: ignore[deprecated]
 
-T_co = TypeVar("T_co", covariant=True)
+T = TypeVar("T")
 
 
 async def _default_exc_handler(
@@ -45,12 +45,20 @@ async def _default_exc_handler(
     traceback.print_exc()
 
 
+@deprecated("Use aiotools.TaskScope instead.")
 class PersistentTaskGroup:
-    _base_error: Optional[BaseException]
+    _base_error: BaseException | None
     _exc_handler: AsyncExceptionHandler
     _tasks: set[asyncio.Task[Any]]
-    _on_completed_fut: Optional[asyncio.Future[Any]]
-    _current_taskgroup_token: Optional[Token[PersistentTaskGroup]]
+    _on_completed_fut: asyncio.Future[Any] | None
+    _current_taskgroup_token: Token[PersistentTaskGroup] | None
+    _entered: bool
+    _exiting: bool
+    _aborting: bool
+    _name: str
+    _parent_cancel_requested: bool
+    _unfinished_tasks: int
+    _parent_task: asyncio.Task[Any] | None
 
     @classmethod
     def all_ptaskgroups(cls) -> Sequence[PersistentTaskGroup]:
@@ -59,8 +67,8 @@ class PersistentTaskGroup:
     def __init__(
         self,
         *,
-        name: Optional[str] = None,
-        exception_handler: Optional[AsyncExceptionHandler] = None,
+        name: str | None = None,
+        exception_handler: AsyncExceptionHandler | None = None,
     ) -> None:
         self._entered = False
         self._exiting = False
@@ -87,10 +95,10 @@ class PersistentTaskGroup:
 
     def create_task(
         self,
-        coro: Coroutine[Any, Any, T_co] | Awaitable[T_co],
+        coro: CoroutineLike[T],
         *,
-        name: Optional[str] = None,
-    ) -> asyncio.Future[T_co]:
+        name: str | None = None,
+    ) -> Awaitable[T]:
         if not self._entered:
             # When used as object attribute, auto-enter.
             self._entered = True
@@ -100,11 +108,11 @@ class PersistentTaskGroup:
 
     def _create_task_with_name(
         self,
-        coro: Coroutine[Any, Any, T_co] | Awaitable[T_co],
+        coro: CoroutineLike[T],
         *,
-        name: Optional[str] = None,
-        cb: Callable[[asyncio.Task[Any]], None],
-    ) -> asyncio.Future[T_co]:
+        name: str | None = None,
+        cb: Callable[[asyncio.Task[T | None]], None],
+    ) -> Awaitable[T]:
         loop = compat.get_running_loop()
         result_future = loop.create_future()
         child_task = loop.create_task(
@@ -115,15 +123,16 @@ class PersistentTaskGroup:
         self._unfinished_tasks += 1
         child_task.add_done_callback(cb)
         self._tasks.add(child_task)
+        child_task.add_done_callback(self._tasks.discard)
         return result_future
 
     def _is_base_error(self, exc: BaseException) -> bool:
         assert isinstance(exc, BaseException)
         return isinstance(exc, (SystemExit, KeyboardInterrupt))
 
-    async def _wait_completion(self) -> Optional[BaseException]:
+    async def _wait_completion(self) -> BaseException | None:
         loop = compat.get_running_loop()
-        propagate_cancellation_error = None
+        propagate_cancellation_error: BaseException | None = None
         while self._unfinished_tasks:
             if self._on_completed_fut is None:
                 self._on_completed_fut = loop.create_future()
@@ -152,14 +161,14 @@ class PersistentTaskGroup:
 
     async def _task_wrapper(
         self,
-        coro: Coroutine[Any, Any, T_co] | Awaitable[T_co],
-        result_future: weakref.ref[asyncio.Future[T_co]],
-    ) -> T_co | None:
+        coro: CoroutineLike[T],
+        result_future: weakref.ref[asyncio.Future[T]],
+    ) -> T | None:
         loop = compat.get_running_loop()
         task = compat.current_task()
         fut = result_future()
         try:
-            ret = await coro
+            ret = await cast(Awaitable[T], coro)  # forced cast for Python 3.12 or older
             if fut is not None:
                 fut.set_result(ret)
             return ret
@@ -177,10 +186,10 @@ class PersistentTaskGroup:
             try:
                 if fut is not None:
                     fut.set_exception(e)
-                exc_info = sys.exc_info()
-                assert exc_info[0] is not None
-                assert exc_info[1] is not None
-                assert exc_info[2] is not None
+                exc_info = cast(
+                    tuple[type[BaseException], BaseException, TracebackType],
+                    sys.exc_info(),
+                )
                 await self._exc_handler(*exc_info)
             except Exception as exc:
                 # If there are exceptions inside the exception handler
@@ -200,32 +209,29 @@ class PersistentTaskGroup:
             del fut
 
     def _on_task_done(self, task: asyncio.Task[Any]) -> None:
-        try:
-            self._unfinished_tasks -= 1
-            assert self._unfinished_tasks >= 0
-            assert self._parent_task is not None
+        self._unfinished_tasks -= 1
+        assert self._unfinished_tasks >= 0
+        assert self._parent_task is not None
 
-            if self._on_completed_fut is not None and not self._unfinished_tasks:
-                if not self._on_completed_fut.done():
-                    self._on_completed_fut.set_result(True)
+        if self._on_completed_fut is not None and not self._unfinished_tasks:
+            if not self._on_completed_fut.done():
+                self._on_completed_fut.set_result(True)
 
-            if task.cancelled():
-                _log.debug("%r in %r has been cancelled.", task, self)
-                return
+        if task.cancelled():
+            _log.debug("%r in %r has been cancelled.", task, self)
+            return
 
-            exc = task.exception()
-            if exc is None:
-                return
+        exc = task.exception()
+        if exc is None:
+            return
 
-            # Now the exception is BaseException.
-            if self._base_error is None:
-                self._base_error = exc
+        # Now the exception is BaseException.
+        if self._base_error is None:
+            self._base_error = exc
 
-            self._trigger_shutdown()
-            if not self._parent_task.cancelling():  # type: ignore[attr-defined]
-                self._parent_cancel_requested = True
-        finally:
-            self._tasks.discard(task)
+        self._trigger_shutdown()
+        if not self._parent_task.cancelling():
+            self._parent_cancel_requested = True
 
     async def __aenter__(self) -> Self:
         self._parent_task = compat.current_task()
@@ -241,9 +247,7 @@ class PersistentTaskGroup:
     ) -> bool | None:
         assert self._parent_task is not None
         self._exiting = True
-        propagate_cancellation_error: Optional[type[BaseException] | BaseException] = (
-            None
-        )
+        propagate_cancellation_error: type[BaseException] | BaseException | None = None
 
         if (
             exc_val is not None
@@ -254,7 +258,7 @@ class PersistentTaskGroup:
 
         if exc_type is asyncio.CancelledError or exc_type is asyncio.TimeoutError:
             if self._parent_cancel_requested:
-                self._parent_task.uncancel()  # type: ignore[attr-defined]
+                self._parent_task.uncancel()
             else:
                 propagate_cancellation_error = exc_type
         if exc_type is not None and not self._aborting:

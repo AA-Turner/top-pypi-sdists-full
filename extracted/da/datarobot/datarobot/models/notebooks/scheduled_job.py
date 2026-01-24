@@ -31,22 +31,20 @@ from datarobot.models.notebooks.scheduled_run import (
 from datarobot.utils.pagination import unpaginate
 
 # TODO: [NB-4787] We are using trafaret's "ignore_extra" very liberally and this is a subset of properties
-notebook_scheduled_job_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("enabled"): t.Bool,
-        t.Key("next_run_time", optional=True): t.String,
-        t.Key("run_type"): t.String,
-        t.Key("notebook_type"): t.String,
-        t.Key("job_payload"): scheduled_job_payload_trafaret,
-        t.Key("title", optional=True): t.String,
-        t.Key("schedule", optional=True): t.String,
-        t.Key("schedule_localized", optional=True): t.String,
-        t.Key("last_successful_run", optional=True): t.String,
-        t.Key("last_failed_run", optional=True): t.String,
-        t.Key("last_run_time", optional=True): t.String,
-    }
-).ignore_extra("*")
+notebook_scheduled_job_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("enabled"): t.Bool,
+    t.Key("next_run_time", optional=True): t.String,
+    t.Key("run_type"): t.String,
+    t.Key("notebook_type"): t.String,
+    t.Key("job_payload"): scheduled_job_payload_trafaret,
+    t.Key("title", optional=True): t.String,
+    t.Key("schedule", optional=True): t.String,
+    t.Key("schedule_localized", optional=True): t.String,
+    t.Key("last_successful_run", optional=True): t.String,
+    t.Key("last_failed_run", optional=True): t.String,
+    t.Key("last_run_time", optional=True): t.String,
+}).ignore_extra("*")
 
 
 class NotebookScheduledJob(APIObject):
@@ -116,9 +114,7 @@ class NotebookScheduledJob(APIObject):
         self.last_run_time = last_run_time
 
     def __repr__(self) -> str:
-        non_manual_info = (
-            f", enabled={self.enabled}, schedule={self.schedule}" if self.is_scheduled_run else ""
-        )
+        non_manual_info = f", enabled={self.enabled}, schedule={self.schedule}" if self.is_scheduled_run else ""
         notebook_path_info = f', notebook_path="{self.notebook_path}"' if self.notebook_path else ""
         return (
             f'{self.__class__.__name__}(title="{self.title}", id={self.id}, run_type={self.run_type}, '
@@ -165,9 +161,7 @@ class NotebookScheduledJob(APIObject):
                 scheduled_job_id="65734fe637157200e28bf688",
             )
         """
-        r_data = cls._client.get(
-            f"{cls._path}{scheduled_job_id}/", params={"use_case_id": use_case_id}
-        )
+        r_data = cls._client.get(f"{cls._path}{scheduled_job_id}/", params={"use_case_id": use_case_id})
         return cls.from_server_data(r_data.json())
 
     @classmethod
@@ -203,9 +197,7 @@ class NotebookScheduledJob(APIObject):
         """
         Cancel a running notebook schedule.
         """
-        self._client.post(
-            f"{self._path}{self.id}/cancel/", params={"use_case_id": self.use_case_id}
-        )
+        self._client.post(f"{self._path}{self.id}/cancel/", params={"use_case_id": self.use_case_id})
 
     def get_most_recent_run(self) -> Optional[NotebookScheduledRun]:
         """
@@ -287,10 +279,7 @@ class NotebookScheduledJob(APIObject):
         """
         status = None
         start_time = time.time()
-        while (
-            status not in ScheduledRunStatus.terminal_statuses()
-            and time.time() < start_time + max_wait
-        ):
+        while status not in ScheduledRunStatus.terminal_statuses() and time.time() < start_time + max_wait:
             time.sleep(5)
             job_run = self.get_most_recent_run()
             if job_run:

@@ -179,3 +179,12 @@ SDK_DEFAULT_BASE_DELAY_MS = 100
 # Default base sleep time (milliseconds) for throttled exceptions.
 # https://github.com/aws/aws-sdk-java/blob/7b1e5b87b0bf03456df9e77716b14731adf9a7a7/aws-java-sdk-core/src/main/java/com/amazonaws/retry/PredefinedBackoffStrategies.java#L38
 SDK_DEFAULT_THROTTLED_BASE_DELAY_MS = 500
+
+
+class IpDiscoveryValues:
+    NONE = None
+    IPV4 = 'ipv4'
+    IPV6 = 'ipv6'
+
+
+VALID_IP_DISCOVERY_VALUES = [IpDiscoveryValues.NONE, IpDiscoveryValues.IPV4, IpDiscoveryValues.IPV6]

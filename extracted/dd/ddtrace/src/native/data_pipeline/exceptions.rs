@@ -1,4 +1,4 @@
-use data_pipeline::trace_exporter::error::TraceExporterError;
+use libdd_data_pipeline::trace_exporter::error::TraceExporterError;
 use pyo3::{create_exception, exceptions::PyException, prelude::*, PyErr};
 
 create_exception!(
@@ -75,6 +75,12 @@ impl From<TraceExporterErrorPy> for PyErr {
             )),
             TraceExporterError::Serialization(error) => {
                 SerializationError::new_err(error.to_string())
+            }
+            TraceExporterError::Shutdown(error) => {
+                InternalError::new_err(format!("Shutdown error: {}", error))
+            }
+            TraceExporterError::Telemetry(error) => {
+                InternalError::new_err(format!("Telemetry error: {}", error))
             }
         }
     }

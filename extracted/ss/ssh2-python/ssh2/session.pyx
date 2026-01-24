@@ -1,21 +1,23 @@
-# This file is part of ssh2-python.
-# Copyright (C) 2017-2020 Panos Kittenis
+#  This file is part of ssh2-python.
+#  Copyright (C) 2017-2025 Panos Kittenis.
+#  Copyright (C) 2017-2025 ssh2-python Contributors.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 from cpython cimport PyObject_AsFileDescriptor
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport calloc, malloc, free
+from libc.string cimport memcpy
 from libc.time cimport time_t
 from cython.operator cimport dereference as c_dereference
 
@@ -26,7 +28,7 @@ from .exceptions import SessionHostKeyError, KnownHostError, \
 from .listener cimport PyListener
 from .sftp cimport PySFTP
 from .publickey cimport PyPublicKeySystem
-from .utils cimport to_bytes, to_str, handle_error_codes
+from .utils cimport to_bytes, to_str, to_str_len, handle_error_codes
 from .statinfo cimport StatInfo
 from .knownhost cimport PyKnownHost
 from .fileinfo cimport FileInfo
@@ -53,6 +55,7 @@ LIBSSH2_HOSTKEY_TYPE_RSA = c_ssh2.LIBSSH2_HOSTKEY_TYPE_RSA
 LIBSSH2_HOSTKEY_TYPE_DSS = c_ssh2.LIBSSH2_HOSTKEY_TYPE_DSS
 
 
+## Method types and definitions
 cdef class MethodType:
     def __cinit__(self, value):
         self.value = value
@@ -70,6 +73,19 @@ LIBSSH2_METHOD_LANG_CS = MethodType(c_ssh2.LIBSSH2_METHOD_LANG_CS)
 LIBSSH2_METHOD_LANG_SC = MethodType(c_ssh2.LIBSSH2_METHOD_LANG_SC)
 
 
+## Flag types and definitions
+cdef class FlagType:
+    def __cinit__(self, value):
+        self.value = value
+
+
+LIBSSH2_FLAG_SIGPIPE = FlagType(c_ssh2.LIBSSH2_FLAG_SIGPIPE)
+LIBSSH2_FLAG_COMPRESS = FlagType(c_ssh2.LIBSSH2_FLAG_COMPRESS)
+LIBSSH2_FLAG_QUOTE_PATHS = FlagType(c_ssh2.LIBSSH2_FLAG_QUOTE_PATHS)
+LIBSSH2_FLAG_SK_PRESENCE_REQUIRED = FlagType(c_ssh2.LIBSSH2_SK_PRESENCE_REQUIRED)
+LIBSSH2_FLAG_SK_VERIFICATION_REQUIRED = FlagType(c_ssh2.LIBSSH2_SK_VERIFICATION_REQUIRED)
+
+
 cdef void kbd_callback(const char *name, int name_len,
                        const char *instruction, int instruction_len,
                        int num_prompts,
@@ -79,16 +95,26 @@ cdef void kbd_callback(const char *name, int name_len,
     py_sess = (<Session>c_dereference(abstract))
     if py_sess._kbd_callback is None:
         return
-    cdef bytes b_password = to_bytes(py_sess._kbd_callback())
-    cdef size_t _len = len(b_password)
-    cdef char *_password = b_password
-    cdef char *_password_copy
-    if num_prompts == 1:
-        _password_copy = <char *>malloc(sizeof(char) * _len)
-        for i in range(_len):
-            _password_copy[i] = _password[i]
-        responses[0].text = _password_copy
-        responses[0].length = _len
+
+    cdef list py_prompts = []
+    for i in range(num_prompts):
+        prompt_len = prompts[i].length
+        py_prompts.append(to_str_len(prompts[i].text, prompt_len))
+
+    cdef list py_responses = py_sess._kbd_callback(
+        <bytes> name[:name_len], <bytes> instruction[:instruction_len], py_prompts)
+
+    cdef bytes response
+    for i in range(num_prompts):
+        response = to_bytes(py_responses[i])
+
+        cur_buf_len = len(response)
+        cur_buff = <char *> calloc(sizeof(char), cur_buf_len)
+        for j in range(cur_buf_len):
+            cur_buff[j] = response[j]
+
+        responses[i].text = cur_buff
+        responses[i].length = cur_buf_len
 
 
 cdef class Session:
@@ -125,12 +151,6 @@ cdef class Session:
             rc = c_ssh2.libssh2_session_handshake(self._session, _sock)
             self._sock = _sock
         self.sock = sock
-        return handle_error_codes(rc)
-
-    def startup(self, sock):
-        """Deprecated - use self.handshake"""
-        cdef int _sock = PyObject_AsFileDescriptor(sock)
-        cdef int rc = c_ssh2.libssh2_session_startup(self._session, _sock)
         return handle_error_codes(rc)
 
     def set_blocking(self, bint blocking):
@@ -317,14 +337,41 @@ cdef class Session:
         :param password: Password
         :type password: str
         """
+        def passwd(*args, password=password):
+            return [password]
+        return self.userauth_keyboardinteractive_callback(username, passwd)
+
+    def userauth_keyboardinteractive_callback(
+            self, username not None, callback not None):
+        """
+        Perform keyboard-interactive authentication with provided Python callback function.
+
+        Callback function *must* have signature compatible with `(name, instruction, prompts, password, *args)`
+        where `*args` is any additional user-provided authentication data needed for authentication.
+        For example `oauth_handler(name, instruction, prompts, password, oauth)` can be used as a callback
+        to provide an oauth token for 2FA in addition to a password.
+
+        Callback function *must* return a python list of bytes of user-provided prompts required for authentication.
+        Any number of prompts may be used as required by the server.
+
+        Authentication is not required to be actually be keyboard interactive, in the requiring a human typing
+        manually sense.
+
+        Callbacks must go through the existing keyboardinteractive mechanism for things like 2FA and oauth
+        authentication to work correctly with SSH, hence this function.
+
+        This function is `ssh2-python` specific and is not part of upstream libssh2.
+
+        :param username: Username to authenticate as.
+        :type username: str
+        :param callback: Python callback function to be called to get additional authentication prompts.
+        :type callback: callable(str|bytes, str|bytes, list[str|bytes], str|bytes, *args[str|bytes])
+        """
         cdef int rc
         cdef bytes b_username = to_bytes(username)
         cdef const char *_username = b_username
 
-        def passwd():
-            return password
-
-        self._kbd_callback = passwd
+        self._kbd_callback = callback
         rc = c_ssh2.libssh2_userauth_keyboard_interactive(
             self._session, _username, &kbd_callback)
         self._kbd_callback = None
@@ -421,6 +468,35 @@ cdef class Session:
                 self._session))
         return PyChannel(channel, self)
 
+    def direct_streamlocal_ex(self, socket_path not None, shost not None, int sport):
+        """
+        From libssh2 documentation:
+          Tunnel a UNIX socket connection through the SSH transport via the remote host to a third party.
+          Communication from the client to the SSH server remains encrypted, communication from the server to the
+          3rd party host travels in cleartext.
+
+        :param socket_path: Unix socket path to connect to using the SSH host as a proxy.
+        :type socket_path: str
+        :param shost: Host to tell the SSH server the connection originated on.
+        :type shost: str
+        :param sport: Port to tell the SSH server the connection originated from.
+        :type sport: int
+        :returns: A `Channel` object for the server intiated connection to the third party or an exception is raised
+          on any error.
+        :rtype: `ssh2.channel.Channel`
+        """
+        cdef bytes b_socket_path = to_bytes(socket_path)
+        cdef bytes b_shost = to_bytes(shost)
+        cdef const char *c_socket_path = b_socket_path
+        cdef const char *c_shost = b_shost
+        cdef c_ssh2.LIBSSH2_CHANNEL *channel
+        with nogil:
+            channel = c_ssh2.libssh2_channel_direct_streamlocal_ex(self._session, c_socket_path, c_shost, sport)
+        if channel is NULL:
+            return handle_error_codes(c_ssh2.libssh2_session_last_errno(
+                self._session))
+        return PyChannel(channel, self)
+
     def block_directions(self):
         """Get blocked directions for the current session.
 
@@ -447,6 +523,41 @@ cdef class Session:
             rc = c_ssh2.libssh2_session_block_directions(
                 self._session)
         return rc
+
+    def flag(self, FlagType flag, enabled=True):
+        """
+        Enable/Disable flag for session.
+
+        Flag must be one of :py:class:`ssh2.session.LIBSSH2_FLAG_SIGPIPE`
+          or :py:class:`ssh2.session.LIBSSH2_FLAG_COMPRESS`.
+
+        Flags *must* be set before :py:func:`Session.handshake` is called for the library to use them.
+
+        :py:class:`ssh2.session.LIBSSH2_FLAG_SIGPIPE` - Library will not block SIGPIPE signal from triggering from the
+          socket used. Meaning if the socket connection is terminated unexpectedly, using library functions will
+          trigger a SIGPIPE signal from the associated socket. Default is off.
+
+        :py:class:`ssh2.session.LIBSSH2_FLAG_COMPRESS` - Library will enable compression for the session.
+          Default is off.
+
+        Use `Session.supported_algs(LIBSSH2_METHOD_COMP_CS)` to get a list of supported compression algorithms after
+        enabling compression, if any.
+
+        Default is to enable the flag - `enabled=True`.
+
+        Set `enabled=False` to disable a previously enabled flag.
+
+        :raises ValueError: On incorrect :py:class:`ssh2.session.FlagType` passed.
+        :returns: None
+        """
+        cdef int rc
+        cdef bint value = enabled
+        if not flag in (LIBSSH2_FLAG_SIGPIPE, LIBSSH2_FLAG_COMPRESS):
+            raise ValueError("Provided flag must be one of LIBSSH2_FLAG_SIGPIPE or LIBSSH2_FLAG_COMPRESS - got %s",
+                             flag)
+        with nogil:
+            rc = c_ssh2.libssh2_session_flag(self._session, flag.value, value)
+        handle_error_codes(rc)
 
     def forward_listen(self, int port):
         """Create forward listener on port.
@@ -554,28 +665,6 @@ cdef class Session:
                 self._session, errcode, _errmsg)
         return rc
 
-    def scp_recv(self, path not None):
-        """Receive file via SCP.
-
-        Deprecated in favour or recv2 (requires libssh2 >= 1.7).
-
-        :param path: File path to receive.
-        :type path: str
-
-        :rtype: tuple(:py:class:`ssh2.channel.Channel`,
-          :py:class:`ssh2.statinfo.StatInfo`) or None"""
-        cdef bytes b_path = to_bytes(path)
-        cdef char *_path = b_path
-        cdef StatInfo statinfo = StatInfo()
-        cdef c_ssh2.LIBSSH2_CHANNEL *channel
-        with nogil:
-            channel = c_ssh2.libssh2_scp_recv(
-                self._session, _path, statinfo._stat)
-        if channel is NULL:
-            return handle_error_codes(c_ssh2.libssh2_session_last_errno(
-                self._session))
-        return PyChannel(channel, self), statinfo
-
     def scp_recv2(self, path not None):
         """Receive file via SCP.
 
@@ -595,28 +684,6 @@ cdef class Session:
             return handle_error_codes(c_ssh2.libssh2_session_last_errno(
                 self._session))
         return PyChannel(channel, self), fileinfo
-
-    def scp_send(self, path not None, int mode, size_t size):
-        """Deprecated in favour of scp_send64. Send file via SCP.
-
-        :param path: Local file path to send.
-        :type path: str
-        :param mode: File mode.
-        :type mode: int
-        :param size: size of file
-        :type size: int
-
-        :rtype: :py:class:`ssh2.channel.Channel`"""
-        cdef bytes b_path = to_bytes(path)
-        cdef char *_path = b_path
-        cdef c_ssh2.LIBSSH2_CHANNEL *channel
-        with nogil:
-            channel = c_ssh2.libssh2_scp_send(
-                self._session, _path, mode, size)
-        if channel is NULL:
-            return handle_error_codes(c_ssh2.libssh2_session_last_errno(
-                self._session))
-        return PyChannel(channel, self)
 
     def scp_send64(self, path not None, int mode, c_ssh2.libssh2_uint64_t size,
                    time_t mtime, time_t atime):

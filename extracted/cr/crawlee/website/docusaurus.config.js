@@ -4,16 +4,24 @@ const path = require('path');
 const { externalLinkProcessor } = require('./tools/utils/externalLink');
 
 const GROUP_ORDER = [
-    'Classes',
-    'Abstract classes',
-    'Data structures',
+    'Autoscaling',
+    'Browser management',
+    'Configuration',
+    'Crawlers',
+    'Crawling contexts',
     'Errors',
+    'Event data',
+    'Event managers',
     'Functions',
-    'Constructors',
-    'Methods',
-    'Properties',
-    'Constants',
-    'Enumeration Members',
+    'HTTP clients',
+    'HTTP parsers',
+    'Request loaders',
+    'Session management',
+    'Statistics',
+    'Storage clients',
+    'Storage data',
+    'Storages',
+    'Other',
 ];
 
 const groupSort = (g1, g2) => {
@@ -65,16 +73,16 @@ module.exports = {
         gaGtag: true,
         repoUrl: 'https://github.com/apify/crawlee-python',
     },
+    onBrokenLinks: 'throw',
     markdown: {
         mermaid: true,
+        hooks: {
+            onBrokenMarkdownLinks: 'throw',
+        },
     },
     themes: [
         '@docusaurus/theme-mermaid',
     ],
-    onBrokenLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('throw'),
-    onBrokenMarkdownLinks:
-    /** @type {import('@docusaurus/types').ReportingSeverity} */ ('throw'),
     presets: /** @type {import('@docusaurus/types').PresetConfig[]} */ ([
         [
             '@docusaurus/preset-classic',
@@ -91,10 +99,6 @@ module.exports = {
                         return `https://github.com/apify/crawlee-python/edit/master/website/${doc.versionDocsDirPath}/${doc.docPath}`;
                     },
                 },
-                // blog: {
-                //     blogTitle: 'Crawlee Blog - learn how to build better scrapers',
-                //     blogDescription: 'Guides and tutorials on using Crawlee, the most reliable open-source web scraping and browser automation library for JavaScript and Node.js developers.',
-                // },
                 theme: {
                     customCss: '/src/css/custom.css',
                 },
@@ -160,6 +164,17 @@ module.exports = {
                 id: 'GTM-5P7MCS7',
             },
         ],
+        [
+            '@signalwire/docusaurus-plugin-llms-txt',
+            {
+                enableDescriptions: false,
+                content: {
+                    includeVersionedDocs: false,
+                    enableLlmsFullTxt: true,
+                    relativePaths: false,
+                },
+            },
+        ],
         async function runnableCodeBlock() {
             return {
                 name: 'runnable-code-block',
@@ -211,6 +226,13 @@ module.exports = {
                 },
             };
         },
+        [
+            path.resolve(__dirname, 'src/plugins/docusaurus-plugin-segment'),
+            {
+                writeKey: process.env.SEGMENT_TOKEN,
+                allowedInDev: false,
+            },
+        ],
     ],
     themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */ ({
@@ -219,6 +241,10 @@ module.exports = {
             sidebar: {
                 hideable: true,
             },
+        },
+        announcementBar: {
+            id: `apify-1m-challenge`,
+            content: `<b><a href="https://apify.com/challenge">Apify $1M Challenge 💰</a></b> Earn and win building with Crawlee!`,
         },
         navbar: {
             hideOnScroll: true,

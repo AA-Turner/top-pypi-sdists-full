@@ -13,20 +13,20 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
-
-class WebhooksWorkflowJobRun(GitHubModel):
-    """WebhooksWorkflowJobRun"""
-
-    conclusion: None = Field()
-    created_at: str = Field()
-    environment: str = Field()
-    html_url: str = Field()
-    id: int = Field()
-    name: None = Field()
-    status: str = Field()
-    updated_at: str = Field()
+from .group_0513 import Traffic
 
 
-model_rebuild(WebhooksWorkflowJobRun)
+class ViewTraffic(GitHubModel):
+    """View Traffic
 
-__all__ = ("WebhooksWorkflowJobRun",)
+    View Traffic
+    """
+
+    count: int = Field()
+    uniques: int = Field()
+    views: list[Traffic] = Field()
+
+
+model_rebuild(ViewTraffic)
+
+__all__ = ("ViewTraffic",)

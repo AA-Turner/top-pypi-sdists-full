@@ -37,6 +37,9 @@ class MessagingProfileUpdateParams(TypedDict, total=False):
     mms_transcoding: bool
     """enables automated resizing of MMS media."""
 
+    mobile_only: bool
+    """Send messages only to mobile phone numbers."""
+
     name: str
     """A user friendly name for the messaging profile."""
 
@@ -47,6 +50,14 @@ class MessagingProfileUpdateParams(TypedDict, total=False):
     and toll free numbers assigned to the messaging profile.
 
     To disable this feature, set the object field to `null`.
+    """
+
+    smart_encoding: bool
+    """Enables automatic character encoding optimization for SMS messages.
+
+    When enabled, the system automatically selects the most efficient encoding
+    (GSM-7 or UCS-2) based on message content to maximize character limits and
+    minimize costs.
     """
 
     url_shortener_settings: Optional[URLShortenerSettingsParam]

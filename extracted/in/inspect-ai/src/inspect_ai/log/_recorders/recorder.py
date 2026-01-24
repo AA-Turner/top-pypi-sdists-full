@@ -1,5 +1,5 @@
 import abc
-from typing import Literal
+from typing import IO, Literal
 
 from inspect_ai._util.error import EvalError
 from inspect_ai.log._log import (
@@ -18,6 +18,10 @@ class Recorder(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def handles_location(cls, location: str) -> bool: ...
+
+    @classmethod
+    @abc.abstractmethod
+    def handles_bytes(cls, first_bytes: bytes) -> bool: ...
 
     @abc.abstractmethod
     def default_log_buffer(self, sample_count: int) -> int: ...
@@ -47,11 +51,18 @@ class Recorder(abc.ABC):
         reductions: list[EvalSampleReductions] | None,
         error: EvalError | None = None,
         header_only: bool = False,
+        invalidated: bool = False,
     ) -> EvalLog: ...
 
     @classmethod
     @abc.abstractmethod
     async def read_log(cls, location: str, header_only: bool = False) -> EvalLog: ...
+
+    @classmethod
+    @abc.abstractmethod
+    async def read_log_bytes(
+        cls, log_bytes: IO[bytes], header_only: bool = False
+    ) -> EvalLog: ...
 
     @classmethod
     @abc.abstractmethod

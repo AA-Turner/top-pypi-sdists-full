@@ -69,17 +69,18 @@ MATRIX_HTTP_ERROR_MAP = {
 
 # Matrix Room Syntax
 IS_ROOM_ALIAS = re.compile(
-    r"^\s*(#|%23)?(?P<room>[a-z0-9-]+)((:|%3A)"
-    r"(?P<home_server>[a-z0-9.-]+))?\s*$",
+    r"^\s*(#|%23)?(?P<room>[A-Za-z0-9._=-]+)((:|%3A)"
+    r"(?P<home_server>[A-Za-z0-9.-]+))?\s*$",
     re.I,
 )
 
 # Room ID MUST start with an exclamation to avoid ambiguity
 IS_ROOM_ID = re.compile(
-    r"^\s*(!|&#33;|%21)(?P<room>[a-z0-9-]+)((:|%3A)"
-    r"(?P<home_server>[a-z0-9.-]+))?\s*$",
+    r"^\s*(!|&#33;|%21)(?P<room>[A-Za-z0-9._=-]+)((:|%3A)"
+    r"(?P<home_server>[A-Za-z0-9.-]+))?\s*$",
     re.I,
 )
+
 
 # Matrix is_image check
 IS_IMAGE = re.compile(r"^image/.*", re.I)
@@ -156,7 +157,7 @@ class NotifyMatrix(NotifyBase):
     attachment_support = True
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_matrix"
+    setup_url = "https://appriseit.com/services/matrix/"
 
     # Allows the user to specify the NotifyImageSize object
     image_size = NotifyImageSize.XY_32
@@ -254,7 +255,7 @@ class NotifyMatrix(NotifyBase):
             "target_room_alias": {
                 "name": _("Target Room Alias"),
                 "type": "string",
-                "prefix": "!",
+                "prefix": "#",
                 "map_to": "targets",
             },
             "targets": {
@@ -461,17 +462,11 @@ class NotifyMatrix(NotifyBase):
             # Acquire our access token from our URL
             access_token = self.password if self.password else self.user
 
-            default_port = 443 if self.secure else 80
-
             # Prepare our URL
-            url = "{schema}://{hostname}:{port}{webhook_path}/{token}".format(
+            url = "{schema}://{hostname}{port}{webhook_path}/{token}".format(
                 schema="https" if self.secure else "http",
                 hostname=self.host,
-                port=(
-                    ""
-                    if self.port is None or self.port == default_port
-                    else self.port
-                ),
+                port=("" if not self.port else f":{self.port}"),
                 webhook_path=MATRIX_V1_WEBHOOK_PATH,
                 token=access_token,
             )
@@ -520,7 +515,8 @@ class NotifyMatrix(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False
@@ -732,7 +728,7 @@ class NotifyMatrix(NotifyBase):
                 }
 
                 # Post our content
-                postokay, response = self._fetch(
+                postokay, _, _ = self._fetch(
                     path, payload=image_payload)
                 if not postokay:
                     # Mark our failure
@@ -744,7 +740,7 @@ class NotifyMatrix(NotifyBase):
                     attachment["room_id"] = room_id
                     attachment["type"] = "m.room.message"
 
-                    postokay, response = self._fetch(
+                    postokay, _, _ = self._fetch(
                         path, payload=attachment, method=method)
 
                     # Increment the transaction ID to avoid future messages
@@ -804,7 +800,7 @@ class NotifyMatrix(NotifyBase):
                 })
 
             # Post our content
-            postokay, response = self._fetch(
+            postokay, _, _ = self._fetch(
                 path, payload=payload, method=method
             )
 
@@ -848,7 +844,8 @@ class NotifyMatrix(NotifyBase):
                 # unsuppored at this time
                 continue
 
-            postokay, response = self._fetch("/upload", attachment=attachment)
+            postokay, response, _ = \
+                self._fetch("/upload", attachment=attachment)
             if not (postokay and isinstance(response, dict)):
                 # Failed to perform upload
                 return False
@@ -912,7 +909,7 @@ class NotifyMatrix(NotifyBase):
             payload["password"] = self.password
 
         # Register
-        postokay, response = self._fetch(
+        postokay, response, _ = self._fetch(
             "/register", payload=payload, params=params
         )
         if not (postokay and isinstance(response, dict)):
@@ -984,7 +981,7 @@ class NotifyMatrix(NotifyBase):
             return False
 
         # Build our URL
-        postokay, response = self._fetch("/login", payload=payload)
+        postokay, response, _ = self._fetch("/login", payload=payload)
         if not (postokay and isinstance(response, dict)):
             # Failed to login
             return False
@@ -1027,7 +1024,7 @@ class NotifyMatrix(NotifyBase):
         payload = {}
 
         # Expire our token
-        postokay, response = self._fetch("/logout", payload=payload)
+        postokay, response, _ = self._fetch("/logout", payload=payload)
         if not postokay and response.get("errcode") != "M_UNKNOWN_TOKEN":
             # If we get here, the token was declared as having already
             # been expired.  The response looks like this:
@@ -1104,7 +1101,7 @@ class NotifyMatrix(NotifyBase):
             path = f"/join/{NotifyMatrix.quote(room_id)}"
 
             # Make our query
-            postokay, _ = self._fetch(path, payload=payload)
+            postokay, _, _ = self._fetch(path, payload=payload)
             if postokay:
                 # Cache our entry for fast access later
                 self.store.set(
@@ -1152,7 +1149,7 @@ class NotifyMatrix(NotifyBase):
         path = f"/join/{NotifyMatrix.quote(room)}"
 
         # Attempt to join the channel
-        postokay, response = self._fetch(path, payload=payload)
+        postokay, response, status_code = self._fetch(path, payload=payload)
         if postokay:
             # Cache our entry for fast access later
             self.store.set(
@@ -1165,8 +1162,22 @@ class NotifyMatrix(NotifyBase):
 
             return response.get("room_id")
 
-        # Try to create the channel
-        return self._room_create(room)
+        # Only attempt to create a room when the server clearly indicates
+        # the alias does not exist. A join can fail for many reasons, such as
+        # invite required, auth failure, or permissions, and in those cases
+        # auto-creating is both noisy and incorrect.
+        if (status_code == requests.codes.not_found
+                or response.get("errcode") == "M_NOT_FOUND"):
+            return self._room_create(room)
+
+        self.logger.warning(
+            "Could not join Matrix room alias %s (error=%s). "
+            "If this is a private room, ensure the user is invited or "
+            "already joined, or specify the room_id (!...).",
+            room,
+            status_code,
+        )
+        return None
 
     def _room_create(self, room):
         """Creates a matrix room and return it's room_id if successful
@@ -1206,7 +1217,8 @@ class NotifyMatrix(NotifyBase):
             "preset": "trusted_private_chat",
         }
 
-        postokay, response = self._fetch("/createRoom", payload=payload)
+        postokay, response, _ = \
+            self._fetch("/createRoom", payload=payload)
         if not postokay:
             # Failed to create channel
             # Typical responses:
@@ -1237,7 +1249,7 @@ class NotifyMatrix(NotifyBase):
             # No list is possible
             return []
 
-        postokay, response = self._fetch(
+        postokay, response, _ = self._fetch(
             "/joined_rooms", payload=None, method="GET"
         )
         if not postokay:
@@ -1281,7 +1293,7 @@ class NotifyMatrix(NotifyBase):
         room = "#{}:{}".format(result.group("room"), home_server)
 
         # Make our request
-        postokay, response = self._fetch(
+        postokay, response, _ = self._fetch(
             f"/directory/room/{NotifyMatrix.quote(room)}",
             payload=None,
             method="GET",
@@ -1304,10 +1316,11 @@ class NotifyMatrix(NotifyBase):
         """Wrapper to request.post() to manage it's response better and make
         the send() function cleaner and easier to maintain.
 
-        This function returns True if the _post was successful and False if it
-        wasn't.
+        This function always returns a 3-tuple:
+            (success, response, status_code)
 
-        this function returns the status code if url_override is used
+        The response is a dict when JSON is parseable, otherwise an empty dict.
+        The status_code defaults to 500 on local failures.
         """
 
         # Define our headers
@@ -1332,7 +1345,7 @@ class NotifyMatrix(NotifyBase):
 
             except MatrixDiscoveryException:
                 # Discovery failed; we're done
-                return (False, {})
+                return (False, {}, requests.codes.internal_server_error)
 
         # Default return status code
         status_code = requests.codes.internal_server_error
@@ -1384,7 +1397,7 @@ class NotifyMatrix(NotifyBase):
                     (
                         "POST"
                         if method == "POST"
-                        else (requests.put if method == "PUT" else "GET")
+                        else ("PUT" if method == "PUT" else "GET")
                     ),
                     url,
                     self.verify_certificate,
@@ -1455,10 +1468,7 @@ class NotifyMatrix(NotifyBase):
                     self.logger.debug(f"Response Details:\r\n{r.content}")
 
                     # Return; we're done
-                    return (
-                        False if not url_override else status_code,
-                        response,
-                    )
+                    return (False, response, status_code)
 
             except (AttributeError, TypeError, ValueError):
                 # This gets thrown if we can't parse our JSON Response
@@ -1466,8 +1476,10 @@ class NotifyMatrix(NotifyBase):
                 #  - TypeError = r.content is None
                 #  - AttributeError = r is None
                 self.logger.warning("Invalid response from Matrix server.")
-                self.logger.debug(f"Response Details:\r\n{r.content}")
-                return (False if not url_override else status_code, {})
+                self.logger.debug(
+                    "Response Details:\r\n%r",
+                    b"" if not r else (r.content or b""))
+                return (False, {}, status_code)
 
             except (requests.TooManyRedirects, requests.RequestException) as e:
                 self.logger.warning(
@@ -1476,7 +1488,7 @@ class NotifyMatrix(NotifyBase):
                 )
                 self.logger.debug("Socket Exception: %s", str(e))
                 # Return; we're done
-                return (False if not url_override else status_code, response)
+                return (False, response, status_code)
 
             except OSError as e:
                 self.logger.warning(
@@ -1485,12 +1497,12 @@ class NotifyMatrix(NotifyBase):
                     )
                 )
                 self.logger.debug("I/O Exception: %s", str(e))
-                return (False if not url_override else status_code, {})
+                return (False, {}, status_code)
 
-            return (True if not url_override else status_code, response)
+            return (True, response, status_code)
 
         # If we get here, we ran out of retries
-        return (False if not url_override else status_code, {})
+        return (False, {}, status_code)
 
     def __del__(self):
         """Ensure we relinquish our token."""
@@ -1567,7 +1579,6 @@ class NotifyMatrix(NotifyBase):
                     ),
                 )
 
-        default_port = 443 if self.secure else 80
         return "{schema}://{auth}{hostname}{port}/{rooms}?{params}".format(
             schema=self.secure_protocol if self.secure else self.protocol,
             auth=auth,
@@ -1576,11 +1587,7 @@ class NotifyMatrix(NotifyBase):
                 if self.mode != MatrixWebhookMode.T2BOT
                 else self.pprint(self.access_token, privacy, safe="")
             ),
-            port=(
-                ""
-                if self.port is None or self.port == default_port
-                else f":{self.port}"
-            ),
+            port=("" if not self.port else f":{self.port}"),
             rooms=NotifyMatrix.quote("/".join(self.rooms)),
             params=NotifyMatrix.urlencode(params),
         )
@@ -1723,10 +1730,15 @@ class NotifyMatrix(NotifyBase):
             # We can use our cached value and return early
             return base_url
 
-        # 1. Extract the server name from the user's Matrix ID by splitting
         # the Matrix ID at the first colon.
-        verify_url = f"https://{self.host}/.well-known/matrix/client"
-        code, wk_response = self._fetch(
+        verify_url = \
+            "{schema}://{hostname}{port}/.well-known/matrix/client".format(
+                schema="https" if self.secure else "http",
+                hostname=self.host,
+                port=("" if not self.port else f":{self.port}"),
+            )
+
+        _, response, status_code = self._fetch(
             None, method="GET", url_override=verify_url
         )
 
@@ -1740,7 +1752,7 @@ class NotifyMatrix(NotifyBase):
         #     }
         # }
 
-        if code == requests.codes.not_found:
+        if status_code == requests.codes.not_found:
             # This is an acceptable response; we're done
             self.logger.debug(
                 "Matrix Well-Known Base URI not found at %s", verify_url
@@ -1759,15 +1771,16 @@ class NotifyMatrix(NotifyBase):
             )
             return ""
 
-        elif code != requests.codes.ok:
+        elif status_code != requests.codes.ok:
             # We're done early as we couldn't load the results
             msg = "Matrix Well-Known Base URI Discovery Failed"
             self.logger.warning(
-                "%s - %s returned error code: %d", msg, verify_url, code
+                    "%s - %s returned error code: %d",
+                    msg, verify_url, status_code,
             )
-            raise MatrixDiscoveryException(msg, error_code=code)
+            raise MatrixDiscoveryException(msg, error_code=status_code)
 
-        if not wk_response:
+        if not response:
             # This is an acceptable response; we simply do nothing
             self.logger.debug(
                 "Matrix Well-Known Base URI not defined %s", verify_url
@@ -1790,13 +1803,13 @@ class NotifyMatrix(NotifyBase):
         # Parse our m.homeserver information
         #
         try:
-            base_url = wk_response["m.homeserver"]["base_url"].rstrip("/")
+            base_url = response["m.homeserver"]["base_url"].rstrip("/")
             results = NotifyBase.parse_url(base_url, verify_host=True)
 
         except (AttributeError, TypeError, KeyError):
             # AttributeError: result wasn't a string (rstrip failed)
-            # TypeError     : wk_response wasn't a dictionary
-            # KeyError      : wk_response not to standards
+            # TypeError     : response wasn't a dictionary
+            # KeyError      : response not to standards
             results = None
 
         if not results:
@@ -1804,7 +1817,7 @@ class NotifyMatrix(NotifyBase):
             self.logger.warning(
                 "%s - m.homeserver payload is missing or invalid: %s",
                 msg,
-                str(wk_response),
+                str(response),
             )
             raise MatrixDiscoveryException(msg)
 
@@ -1814,31 +1827,32 @@ class NotifyMatrix(NotifyBase):
         #
         verify_url = f"{base_url}/_matrix/client/versions"
         # Post our content
-        code, response = self._fetch(
+        _, _, status_code = self._fetch(
             None, method="GET", url_override=verify_url
         )
-        if code != requests.codes.ok:
+        if status_code != requests.codes.ok:
             # We're done early as we couldn't load the results
             msg = "Matrix Well-Known Base URI Discovery Verification Failed"
             self.logger.warning(
-                "%s - %s returned error code: %d", msg, verify_url, code
+                    "%s - %s returned error code: %d",
+                    msg, verify_url, status_code,
             )
-            raise MatrixDiscoveryException(msg, error_code=code)
+            raise MatrixDiscoveryException(msg, error_code=status_code)
 
         #
         # Phase 2: Handle m.identity_server IF defined
         #
-        if "m.identity_server" in wk_response:
+        if "m.identity_server" in response:
             try:
-                identity_url = wk_response["m.identity_server"][
+                identity_url = response["m.identity_server"][
                     "base_url"
                 ].rstrip("/")
                 results = NotifyBase.parse_url(identity_url, verify_host=True)
 
             except (AttributeError, TypeError, KeyError):
                 # AttributeError: result wasn't a string (rstrip failed)
-                # TypeError     : wk_response wasn't a dictionary
-                # KeyError      : wk_response not to standards
+                # TypeError     : response wasn't a dictionary
+                # KeyError      : response not to standards
                 results = None
 
             if not results:
@@ -1846,7 +1860,7 @@ class NotifyMatrix(NotifyBase):
                 self.logger.warning(
                     "%s - m.identity_server payload is missing or invalid: %s",
                     msg,
-                    str(wk_response),
+                    str(response),
                 )
                 raise MatrixDiscoveryException(msg)
 
@@ -1856,16 +1870,17 @@ class NotifyMatrix(NotifyBase):
             verify_url = f"{identity_url}/_matrix/identity/v2"
 
             # Post our content
-            code, response = self._fetch(
+            _postokay, _, status_code = self._fetch(
                 None, method="GET", url_override=verify_url
             )
-            if code != requests.codes.ok:
+            if status_code != requests.codes.ok:
                 # We're done early as we couldn't load the results
                 msg = "Matrix Well-Known Identity URI Discovery Failed"
                 self.logger.warning(
-                    "%s - %s returned error code: %d", msg, verify_url, code
+                    "%s - %s returned error code: %d",
+                    msg, verify_url, status_code,
                 )
-                raise MatrixDiscoveryException(msg, error_code=code)
+                raise MatrixDiscoveryException(msg, error_code=status_code)
 
             # Update our cache
             self.store.set(
@@ -1909,15 +1924,10 @@ class NotifyMatrix(NotifyBase):
 
         # If we get hear, we need to build our URL dynamically based on what
         # was provided to us during the plugins initialization
-        default_port = 443 if self.secure else 80
         return "{schema}://{hostname}{port}".format(
             schema="https" if self.secure else "http",
             hostname=self.host,
-            port=(
-                ""
-                if self.port is None or self.port == default_port
-                else f":{self.port}"
-            ),
+            port=("" if not self.port else f":{self.port}"),
         )
 
     @property

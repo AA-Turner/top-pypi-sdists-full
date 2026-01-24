@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pickle
+
 import pytest
 
 import ry
@@ -8,10 +10,10 @@ from ._fnv_test_data import FNV_TEST_DATA
 
 
 def test_fnv_hasher_name() -> None:
-    assert ry.FnvHasher().__class__.__name__ == "FnvHasher"
+    assert ry.fnv1a().__class__.__name__ == "fnv1a"
     instance = ry.fnv1a(b"")
     assert instance.name == "fnv1a"
-    assert ry.FnvHasher.name == "fnv1a"
+    assert ry.fnv1a.name == "fnv1a"
     assert instance.name == "fnv1a"
 
 
@@ -19,32 +21,69 @@ def test_fnv1a_empty() -> None:
     assert ry.fnv1a(b"").intdigest() == 0xCBF29CE484222325
 
 
-@pytest.mark.parametrize("data,expected", FNV_TEST_DATA)
-def test_fnv1a(data: bytes, expected: int) -> None:
-    fnvhash = ry.fnv1a(data)
-    int_digest = fnvhash.intdigest()
-    assert int_digest == expected
-    hex_str_expected = hex(expected)[2:]
-
-    hex_digest_str_og_hasher = fnvhash.hexdigest()
-    assert hex_digest_str_og_hasher == hex_str_expected
-
-    hex_digest_str = ry.fnv1a(data).hexdigest()
-    assert hex_digest_str == hex_str_expected
-    assert hex_digest_str == hex_digest_str.lower()
+def test_fnv1a_repr() -> None:
+    assert repr(ry.fnv1a(b"")) == "fnv1a<cbf29ce484222325>"
 
 
-@pytest.mark.parametrize("data,expected", FNV_TEST_DATA)
+def test_fnv1a_pickling() -> None:
+    hasher = ry.fnv1a(b"abc")
+    pickled = pickle.dumps(hasher)
+    unpickled = pickle.loads(pickled)
+    assert unpickled.intdigest() == hasher.intdigest()
+    assert ry.fnv1a(key=hasher.intdigest()).intdigest() == hasher.intdigest()
+    assert ry.fnv1a(b"", key=hasher.intdigest()).intdigest() == hasher.intdigest()
+    hasher.update(b"def")
+    pickled2 = pickle.dumps(hasher)
+    unpickled2 = pickle.loads(pickled2)
+    assert unpickled2.intdigest() == hasher.intdigest()
+    assert unpickled2.intdigest() == ry.fnv1a(b"abcdef").intdigest()
+
+
+def test_fnv_key_parse() -> None:
+    key = 0x1234567890ABCDEF
+    hasher1 = ry.fnv1a(key=key)
+    hasher2 = ry.fnv1a(key=key.to_bytes(8, "big"))
+    assert hasher1.intdigest() == hasher2.intdigest()
+    hasher1.update(b"test")
+    hasher2.update(b"test")
+    assert hasher1.intdigest() == hasher2.intdigest()
+
+
+@pytest.mark.parametrize("bad_key", [b"short", b"way-2-fing-long", 3.14, "string"])
+def test_fnv_key_parse_err(bad_key: bytes | float | str) -> None:
+    with pytest.raises(TypeError):
+        ry.fnv1a(key=bad_key)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(("data", "expected"), FNV_TEST_DATA)
+class TestFnv1a:
+    def test_fnv1a(self, data: bytes, expected: int) -> None:
+        fnvhash = ry.fnv1a(data)
+        int_digest = fnvhash.intdigest()
+        assert int_digest == expected
+        hex_str_expected = f"{expected:016x}"
+        hex_digest_str_og_hasher = fnvhash.hexdigest()
+        assert hex_digest_str_og_hasher == hex_str_expected
+        hex_digest_str = ry.fnv1a(data).hexdigest()
+        assert hex_digest_str == hex_str_expected
+        assert hex_digest_str == hex_digest_str.lower()
+
+    def test_oneshot(self, data: bytes, expected: int) -> None:
+        int_digest = ry.fnv1a.oneshot(data)
+        assert int_digest == expected
+
+
+@pytest.mark.parametrize(("data", "expected"), FNV_TEST_DATA)
 def test_fnv1a_hasher(data: bytes, expected: int) -> None:
-    thingy = ry.FnvHasher()
+    thingy = ry.fnv1a()
     thingy.update(data)
     assert thingy.intdigest() == expected
-    thingy_with_init = ry.FnvHasher(data)
+    thingy_with_init = ry.fnv1a(data)
     assert thingy_with_init.intdigest() == expected
 
 
 def test_copy_hasher() -> None:
-    thingy = ry.FnvHasher()
+    thingy = ry.fnv1a()
     thingy.update(b"abc")
     thingy_copy = thingy.copy()
     thingy_copy.update(b"def")

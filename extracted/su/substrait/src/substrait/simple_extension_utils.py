@@ -1,5 +1,6 @@
-from substrait.gen.json import simple_extensions as se
 from typing import Union
+
+from substrait.gen.json import simple_extensions as se
 
 
 def build_arg(d: dict) -> Union[se.ValueArg, se.TypeArg, se.EnumerationArg]:
@@ -144,6 +145,7 @@ def build_type_variation(d: dict) -> se.TypeVariation:
 
 def build_simple_extensions(d: dict) -> se.SimpleExtensions:
     return se.SimpleExtensions(
+        urn=d["urn"],
         dependencies=d.get("dependencies"),
         types=[build_type_model(t) for t in d["types"]] if "types" in d else None,
         type_variations=[build_type_variation(t) for t in d["type_variations"]]

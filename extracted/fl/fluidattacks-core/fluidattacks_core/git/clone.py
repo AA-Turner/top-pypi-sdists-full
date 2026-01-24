@@ -75,14 +75,14 @@ async def ssh_clone(
         )
         _, stderr = await proc.communicate()
     except OSError as ex:
-        LOGGER.exception(ex, extra={"extra": {"branch": branch, "repo": repo_url}})
+        LOGGER.exception(MSG, extra={"extra": {"branch": branch, "repo": repo_url}})
 
         return None, str(ex)
 
-    os.remove(ssh_file_name)
+    os.remove(ssh_file_name)  # noqa: PTH107
 
     if mirror and proc.returncode == 0:
-        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230
+        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230,PTH123
             json.dump({"fluid_branch": branch, "repo": repo_url}, f)
     if proc.returncode == 0:
         return (folder_to_clone_root, None)
@@ -92,7 +92,7 @@ async def ssh_clone(
     return (None, stderr.decode("utf-8"))
 
 
-async def https_clone(
+async def https_clone(  # noqa: PLR0913
     *,
     branch: str,
     repo_url: str,
@@ -149,12 +149,12 @@ async def https_clone(
         )
         _, stderr = await proc.communicate()
     except OSError as ex:
-        LOGGER.exception(ex, extra={"extra": {"branch": branch, "repo": repo_url}})
+        LOGGER.exception(MSG, extra={"extra": {"branch": branch, "repo": repo_url}})
 
         return None, str(ex)
 
     if mirror and proc.returncode == 0:
-        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230
+        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230,PTH123
             json.dump({"fluid_branch": branch, "repo": repo_url}, f)
 
     if proc.returncode == 0:
@@ -165,7 +165,7 @@ async def https_clone(
     return (None, stderr.decode("utf-8"))
 
 
-async def codecommit_clone(
+async def codecommit_clone(  # noqa: PLR0913
     *,
     env: dict[str, str],
     branch: str,
@@ -202,12 +202,12 @@ async def codecommit_clone(
         )
         _, stderr = await proc.communicate()
     except OSError as ex:
-        LOGGER.exception(ex, extra={"extra": {"branch": branch, "repo": repo_url}})
+        LOGGER.exception(MSG, extra={"extra": {"branch": branch, "repo": repo_url}})
 
         return None, str(ex)
 
     if mirror and proc.returncode == 0:
-        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230
+        with open(f"{folder_to_clone_root}/.info.json", "w") as f:  # noqa: ASYNC230, PTH123
             json.dump({"fluid_branch": branch, "repo": repo_url}, f)
 
     if proc.returncode == 0:
@@ -218,7 +218,7 @@ async def codecommit_clone(
     return (None, stderr.decode("utf-8"))
 
 
-async def call_codecommit_clone(
+async def call_codecommit_clone(  # noqa: PLR0913
     *,
     branch: str,
     repo_url: str,
@@ -252,7 +252,7 @@ async def call_codecommit_clone(
         )
 
     except ClientError as exc:
-        LOGGER.error(
+        LOGGER.exception(
             MSG,
             extra={
                 "extra": {

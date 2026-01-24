@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: flake8-unused-arguments
-Version: 0.0.13
+Version: 0.0.14
 Summary: flake8 extension to warn on unused function arguments
 Home-page: https://github.com/nhoad/flake8-unused-arguments
 Author: Nathan Hoad
@@ -16,6 +16,17 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: flake8>3.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # flake8-unused-arguments
 
@@ -43,6 +54,9 @@ Configuration options also exist:
    `__enter__`, `__exit__`, etc.
 
 ## Changelog
+
+0.0.14
+ - Fixed compatibility with Python 3.14. Thanks to John T. Wodder II for contributing the fix!
 
 0.0.13
  - Added a new option for ignoring functions decorated with the override decorator. Thanks to Thomas M Kehrenberg for contributing this!

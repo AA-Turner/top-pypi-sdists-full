@@ -1,0 +1,34 @@
+[package]
+name = "squawk-ide"
+version.workspace = true
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+squawk-syntax.workspace = true
+squawk-linter.workspace = true
+rowan.workspace = true
+line-index.workspace = true
+annotate-snippets.workspace = true
+log.workspace = true
+smol_str.workspace = true
+la-arena.workspace = true
+smallvec.workspace = true
+itertools.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tabled.workspace = true
+
+[lints]
+workspace = true

@@ -16,7 +16,6 @@ short_description: Configure AWS external account list.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -122,8 +124,8 @@ EXAMPLES = '''
     - name: Configure AWS external account list.
       fortinet.fortimanager.fmgr_system_sdnconnector_externalaccountlist:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -191,13 +193,14 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'sdn-connector': {'type': 'str', 'api_name': 'sdn_connector'},
         'sdn_connector': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_sdnconnector_externalaccountlist': {
             'type': 'dict',
             'v_range': [['7.0.3', '']],
             'options': {
                 'region-list': {'v_range': [['7.0.3', '']], 'type': 'raw'},
                 'role-arn': {'v_range': [['7.0.3', '']], 'type': 'str'},
-                'external-id': {'v_range': [['7.0.5', '7.0.13'], ['7.2.1', '']], 'type': 'str'}
+                'external-id': {'v_range': [['7.0.5', '7.0.15'], ['7.2.1', '']], 'type': 'str'}
             }
         }
     }

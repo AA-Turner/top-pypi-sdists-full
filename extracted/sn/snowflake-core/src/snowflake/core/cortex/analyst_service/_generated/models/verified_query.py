@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 
 
 class VerifiedQuery(BaseModel):
@@ -52,9 +52,10 @@ class VerifiedQuery(BaseModel):
 
     __properties = ["name", "question", "sql", "verified_at", "verified_by"]
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -79,7 +80,7 @@ class VerifiedQuery(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -94,9 +95,9 @@ class VerifiedQuery(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return VerifiedQuery.parse_obj(obj)
+            return VerifiedQuery.model_validate(obj)
 
-        _obj = VerifiedQuery.parse_obj(
+        _obj = VerifiedQuery.model_validate(
             {
                 "name": obj.get("name"),
                 "question": obj.get("question"),

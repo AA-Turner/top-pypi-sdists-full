@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "ipfabric-snow"
+version = "0.1.0b16"
+description = "Integration with ServiceNow and IP Fabric"
+authors = ["Cristian Cordero <cristian.cordero@ipfabric.io>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "ipfabric_snow"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+ipfabric = ">=7.0.0b3"
+typer = {extras = ["all"], version = "^0.9.0"}
+loguru = "^0.7.2"
+rich = "^13.8.1"
+
+
+[tool.poetry.group.dev.dependencies]
+mkdocs = "^1.6.1"
+pymdown-extensions = "^10.9"
+mkdocs-material = "^9.5.34"
+mdx-truly-sane-lists = "^1.3"
+mkdocs-awesome-pages-plugin = "^2.9.3"
+invoke = "^2.2.0"
+black = "^23.12.1"
+
+[tool.poetry.scripts]
+ipfabric-snow = 'ipfabric_snow.main:main'
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -3,29 +3,31 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
-import re
 from collections import defaultdict
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable, TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any
 
 import regex
 
 from arelle import UrlUtil, XbrlConst
 from arelle.Cntlr import Cntlr
 from arelle.FileSource import FileSource
-from arelle.ModelInstanceObject import ModelFact
-from arelle.ValidateXbrl import ValidateXbrl
-from arelle.XmlValidateConst import VALID
+from arelle.ModelDocument import Type as ModelDocumentType
+from arelle.ModelInstanceObject import ModelFact, ModelInlineFact
+from arelle.ModelObject import ModelObject
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
-from .. import Constants
-from ..CoverPageRequirements import CoverPageItemStatus
-from ..DisclosureSystems import (DISCLOSURE_SYSTEM_EDINET)
-from ..FilingFormat import FILING_FORMATS
-from ..ReportFolderType import ReportFolderType, HTML_EXTENSIONS, IMAGE_EXTENSIONS
+from arelle.ValidateXbrl import ValidateXbrl
+from arelle.XmlValidateConst import VALID
+
+from ..Constants import JAPAN_LANGUAGE_CODES
+from ..DisclosureSystems import DISCLOSURE_SYSTEM_EDINET
+from ..FilingFormat import Ordinance, Taxonomy
 from ..PluginValidationDataExtension import PluginValidationDataExtension
+from ..ReportFolderType import HTML_EXTENSIONS, IMAGE_EXTENSIONS, ReportFolderType
 
 if TYPE_CHECKING:
     from ..ControllerPluginData import ControllerPluginData
@@ -54,50 +56,8 @@ FILE_COUNT_LIMITS = {
     Path("XBRL"): 99_990,
 }
 
-FILENAME_STEM_PATTERN = re.compile(r'[a-zA-Z0-9_-]*')
+FILENAME_STEM_PATTERN = regex.compile(r'[a-zA-Z0-9_-]*')
 
-PATTERN_CODE = r'(?P<code>[A-Za-z\d]*)'
-PATTERN_CONSOLIDATED = r'(?P<consolidated>c|n)'
-PATTERN_COUNT = r'(?P<count>\d{2})'
-PATTERN_DATE1 = r'(?P<year1>\d{4})-(?P<month1>\d{2})-(?P<day1>\d{2})'
-PATTERN_DATE2 = r'(?P<year2>\d{4})-(?P<month2>\d{2})-(?P<day2>\d{2})'
-PATTERN_FORM = r'(?P<form>\d{6})'
-PATTERN_LINKBASE = r'(?P<linkbase>lab|lab-en|gla|pre|def|cal)'
-PATTERN_MAIN = r'(?P<main>\d{7})'
-PATTERN_NAME = r'(?P<name>[a-z]{6})'
-PATTERN_ORDINANCE = r'(?P<ordinance>[a-z]*)'
-PATTERN_PERIOD = r'(?P<period>c|p)'  # TODO: Have only seen "c" in sample/public filings, assuming "p" for previous.
-PATTERN_REPORT = r'(?P<report>[a-z]*)'
-PATTERN_REPORT_SERIAL = r'(?P<report_serial>\d{3})'
-PATTERN_SERIAL = r'(?P<serial>\d{3})'
-
-PATTERN_AUDIT_REPORT_PREFIX = rf'jpaud-{PATTERN_REPORT}-{PATTERN_PERIOD}{PATTERN_CONSOLIDATED}'
-PATTERN_REPORT_PREFIX = rf'jp{PATTERN_ORDINANCE}{PATTERN_FORM}-{PATTERN_REPORT}'
-PATTERN_SUFFIX = rf'{PATTERN_REPORT_SERIAL}_{PATTERN_CODE}-{PATTERN_SERIAL}_{PATTERN_DATE1}_{PATTERN_COUNT}_{PATTERN_DATE2}'
-
-PATTERNS = list(regex.compile(p) for p in (
-    # Schema file for report
-    # Example: jpcrp050300-esr-001_X99007-000_2025-04-10_01_2025-04-10.xsd
-    rf'{PATTERN_REPORT_PREFIX}-{PATTERN_SUFFIX}.xsd',
-    # Schema file for audit report
-    # Example: jpaud-aar-cn-001_X99001-000_2025-03-31_01_2025-06-28.xsd
-    rf'{PATTERN_AUDIT_REPORT_PREFIX}-{PATTERN_SUFFIX}.xsd',
-    # Linkbase file for report
-    # Example: jpcrp020000-srs-001_X99001-000_2025-03-31_01_2025-11-20_cal.xml
-    rf'{PATTERN_REPORT_PREFIX}-{PATTERN_SUFFIX}_{PATTERN_LINKBASE}.xml',
-    # Linkbase file for audit report
-    # Example: jpaud-qrr-cc-001_X99001-000_2025-03-31_01_2025-11-20_pre.xml
-    rf'{PATTERN_AUDIT_REPORT_PREFIX}-{PATTERN_SUFFIX}_{PATTERN_LINKBASE}.xml',
-    # Cover page file for report
-    # Example: 0000000_header_jpcrp020000-srs-001_X99001-000_2025-03-31_01_2025-11-20_ixbrl.htm
-    rf'{Constants.COVER_PAGE_FILENAME_PREFIX}{PATTERN_REPORT_PREFIX}-{PATTERN_SUFFIX}_ixbrl.htm',
-    # Main file for report
-    # Example: 0205020_honbun_jpcrp020000-srs-001_X99001-000_2025-03-31_01_2025-11-20_ixbrl.htm
-    rf'{PATTERN_MAIN}_{PATTERN_NAME}_{PATTERN_REPORT_PREFIX}-{PATTERN_SUFFIX}_ixbrl.htm',
-    # Main file for audit report
-    # Example: jpaud-qrr-cc-001_X99001-000_2025-03-31_01_2025-11-20_pre.xml
-    rf'{PATTERN_AUDIT_REPORT_PREFIX}-{PATTERN_SUFFIX}_ixbrl.htm',
-))
 
 @validation(
     hook=ValidationHook.FILESOURCE,
@@ -346,7 +306,7 @@ def rule_EC0188E(
     """
     EDINET.EC0188E: There is an HTML file directly under PublicDoc or PrivateDoc whose first 7 characters are not numbers.
     """
-    pattern = re.compile(r'^\d{7}')
+    pattern = regex.compile(r'^\d{7}')
     uploadFilepaths = pluginData.getUploadFilepaths(fileSource)
     docFolders = frozenset({"PublicDoc", "PrivateDoc"})
     for path in uploadFilepaths:
@@ -580,8 +540,8 @@ def rule_EC0349E(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    EDINET.EC0349E: An unexpected directory or file exists in the XBRL directory.
-    Only PublicDoc, PrivateDoc, or AuditDoc directories may exist beneath the XBRL directory.
+    EDINET.EC0349E: An unexpected directory or file exists directly beneath the XBRL directory.
+    Only PublicDoc, PrivateDoc, or AuditDoc directories may exist directly beneath the XBRL directory.
     """
     uploadContents = pluginData.getUploadContents()
     if uploadContents is None:
@@ -596,13 +556,12 @@ def rule_EC0349E(
         if path.parent != xbrlDirectoryPath:
             continue
         if path not in allowedPaths:
-            if not any(pattern.fullmatch(path.name) for pattern in PATTERNS):
-                yield Validation.error(
-                    codes='EDINET.EC0349E',
-                    msg=_("An unexpected directory or file exists in the XBRL directory. "
-                          "Directory or file name: '%(file)s'."),
-                    file=path.name,
-                )
+            yield Validation.error(
+                codes='EDINET.EC0349E',
+                msg=_("An unexpected directory or file exists directly beneath the XBRL directory. "
+                      "Directory or file name: '%(file)s'."),
+                file=path.name,
+            )
 
 
 @validation(
@@ -632,7 +591,8 @@ def rule_EC0352E(
             any(path == t.manifestPath for t in ReportFolderType)
         ):
             continue
-        if not any(pattern.fullmatch(path.name) for pattern in PATTERNS):
+        patterns = pathInfo.reportFolderType.ixbrlFilenamePatterns
+        if not any(pattern.fullmatch(path.name) for pattern in patterns):
             yield Validation.error(
                 codes='EDINET.EC0352E',
                 msg=_("A file with an invalid name exists. "
@@ -645,7 +605,7 @@ def rule_EC0352E(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
-def rules_cover_page(
+def rule_cover_items(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
         *args: Any,
@@ -684,82 +644,90 @@ def rules_cover_page(
         filingFormat = pluginData.getFilingFormat(val.modelXbrl)
         if filingFormat is None:
             return
-        coverPageRequirements = pluginData.getCoverPageRequirements(val.modelXbrl)
-        currentLineNumber = 0
-        for qname in pluginData.coverPageItems:
-            foundFacts = []
-            validNonNilFacts = []
-            for fact in pluginData.iterFacts(val.modelXbrl, qname):
-                if fact.modelDocument != doc:
-                    continue
-                if fact.qname.prefix is not None and filingFormat.includesTaxonomyPrefix(fact.qname.prefix):
-                    foundFacts.append(fact)
-                if fact.xValid >= VALID and not fact.isNil:
-                    validNonNilFacts.append(fact)
+        allCoverItems = pluginData.getCoverItems(val.modelXbrl)
+        requiredCoverItems = pluginData.getCoverItemRequirements(val.modelXbrl)
+        if requiredCoverItems is None:
+            return
+        prohibitedCoverItems = allCoverItems - set(requiredCoverItems)
+        sequenceQueue = list(requiredCoverItems)
 
-            for fact in sorted(foundFacts, key=lambda f: cast(int, f.sourceline)):
-                if (sourceLine := cast(int, fact.sourceline)) <= currentLineNumber:
-                    yield Validation.error(
-                        codes='EDINET.EC1004E',
-                        msg=_("Cover item %(localName)s is not in the correct order. "
-                              "File name: '%(file)s'. "
-                              "Please correct the order of cover items in the appropriate file."),
-                        localName=qname.localName,
-                        file=doc.basename,
-                        modelObject=fact,
-                    )
-                else:
-                    currentLineNumber = sourceLine
-
-            if len(foundFacts) > 1:
+        ixNStag = doc.ixNStag
+        rootElt = doc.xmlRootElement
+        foundFactsByQname = defaultdict(list)
+        outOfSequence = False
+        seenInSequence = set()
+        for elt in rootElt.iterdescendants(ixNStag + "nonNumeric", ixNStag + "nonFraction", ixNStag + "fraction"):
+            if not isinstance(elt, ModelFact):
+                continue
+            if not elt.qname in allCoverItems:
+                continue
+            if elt.qname in prohibitedCoverItems:
+                yield Validation.error(
+                    codes='EDINET.EC1003E',
+                    msg=_("Cover item %(localName)s is not necessary. "
+                          "File name: '%(file)s' (line %(line)s). "
+                          "Please add the cover item %(localName)s to the relevant file."),
+                    localName=elt.qname.localName,
+                    file=doc.basename,
+                    line=elt.sourceline,
+                    modelObject=elt,
+                )
+                continue
+            foundFactsByQname[elt.qname].append(elt)
+            if elt.qname in seenInSequence:
                 yield Validation.error(
                     codes='EDINET.EC1002E',
                     msg=_("Cover item %(localName)s is duplicated. "
                           "File name: '%(file)s'. "
                           "Please check the cover item %(localName)s of the relevant file "
                           "and make sure there are no duplicates."),
+                    localName=elt.qname.localName,
+                    file=doc.basename,
+                    modelObject=elt,
+                )
+                continue
+            seenInSequence.add(elt.qname)
+            if len(sequenceQueue) == 0:
+                continue
+            if outOfSequence:
+                continue
+            if not sequenceQueue[0] == elt.qname:
+                outOfSequence = True
+                yield Validation.error(
+                    codes='EDINET.EC1004E',
+                    msg=_("Cover item %(localName)s is not in the correct order. "
+                          "File name: '%(file)s'. "
+                          "Please correct the order of cover items in the appropriate file."),
+                    localName=elt.qname.localName,
+                    file=doc.basename,
+                    modelObject=elt,
+                )
+            if elt.qname in sequenceQueue:
+                sequenceQueue.remove(elt.qname)
+
+        for qname in requiredCoverItems:
+            foundFacts = foundFactsByQname.get(qname, [])
+            # No facts found.
+            if len(foundFacts) == 0:
+                yield Validation.error(
+                    codes='EDINET.EC1001E',
+                    msg=_("Cover item %(localName)s is missing. "
+                          "File name: '%(file)s'. "
+                          "Please add the cover item %(localName)s to the relevant file."),
+                    localName=qname.localName,
+                    file=doc.basename,
+                )
+            # Fact(s) found, but no valid, non-nil value.
+            elif not any(f.xValid >= VALID and not f.isNil for f in foundFacts):
+                yield Validation.error(
+                    codes='EDINET.EC1005E',
+                    msg=_("Cover item %(localName)s is missing a valid value. "
+                          "File name: '%(file)s'. "
+                          "Please enter a valid value for %(localName)s in the relevant file."),
                     localName=qname.localName,
                     file=doc.basename,
                     modelObject=foundFacts,
                 )
-
-            status = coverPageRequirements.get(qname, filingFormat)
-            if status is None:
-                continue
-            if status == CoverPageItemStatus.REQUIRED:
-                if len(foundFacts) == 0:
-                    yield Validation.error(
-                        codes='EDINET.EC1001E',
-                        msg=_("Cover item %(localName)s is missing. "
-                              "File name: '%(file)s'. "
-                              "Please add the cover item %(localName)s to the relevant file."),
-                        localName=qname.localName,
-                        file=doc.basename,
-                    )
-                elif len(validNonNilFacts) == 0:
-                    yield Validation.error(
-                        codes='EDINET.EC1005E',
-                        msg=_("Cover item %(localName)s is missing a valid value. "
-                              "File name: '%(file)s'. "
-                              "Please enter a valid value for %(localName)s in the relevant file."),
-                        localName=qname.localName,
-                        file=doc.basename,
-                        modelObject=foundFacts,
-                    )
-            elif status == CoverPageItemStatus.PROHIBITED:
-                for fact in foundFacts:
-                    if fact.isNil:
-                        continue  # Prohibited cover pages facts are allowed, only if nil.
-                    yield Validation.error(
-                        codes='EDINET.EC1003E',
-                        msg=_("Cover item %(localName)s is not necessary. "
-                              "File name: '%(file)s' (line %(line)s). "
-                              "Please add the cover item %(localName)s to the relevant file."),
-                        localName=qname.localName,
-                        file=doc.basename,
-                        line=fact.sourceline,
-                        modelObject=fact,
-                    )
 
 
 @validation(
@@ -801,11 +769,17 @@ def rule_uri_references(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    EDINET.EC1007E: The URI in the HTML specifies a URL or absolute path.
-    EDINET.EC1013E: The URI in the HTML specifies a path not under a subdirectory.
-    EDINET.EC1014E: The URI in the HTML specifies a path to a directory.
-    EDINET.EC1021E: The URI in the HTML specifies a path to a file that doesn't exist.
-    EDINET.EC1023E: The URI in the HTML specifies a path to a PDF file.
+    EDINET.EC1007E: A URI in an HTML file must not be a URL or absolute path.
+    EDINET.EC1013E: A URI in an HTML file directly beneath a report folder
+        must specify a path under a subdirectory.
+    EDINET.EC1014E: A URI in an HTML file must not specify a path to a directory.
+    EDINET.EC1015E: A URI in an HTML file within a subdirectory
+        must not specify a path directly beneath the report folder.
+    EDINET.EC1021E: A URI in an HTML file must not specify a path to a file that doesn't exist.
+    EDINET.EC1023E: A URI in an HTML file must not specify a path to a PDF file.
+    EDINET.EC1035E: A URI in an HTML file must not specify a path to a location higher than the report path.
+
+    Note: See "図表 3-4-8 PublicDoc フォルダ全体のイメージ" in "File Specification for EDINET".
     """
     uploadContents = pluginData.getUploadContents(val.modelXbrl)
     if uploadContents is None:
@@ -822,21 +796,62 @@ def rule_uri_references(
                 modelObject=uriReference.element,
             )
             continue
-        path = Path(uriReference.attributeValue)
-        if len(path.parts) < 2:
+
+        uriPath = Path(uriReference.attributeValue)
+        documentFullPath = Path(uriReference.document.uri)
+        referenceFullPath = (documentFullPath.parent / uriPath).resolve()
+        documentPathInfo = uploadContents.uploadPathsByFullPath.get(documentFullPath)
+        assert documentPathInfo is not None # Should always be present, as it must exist to have a uriReference discovered.
+        reportFullPath = Path(str(val.modelXbrl.fileSource.baseurl)) / (documentPathInfo.reportPath or "")
+
+        if reportFullPath not in referenceFullPath.parents:
             yield Validation.error(
-                codes='EDINET.EC1013E',
-                msg=_("The URI in the HTML specifies a path not under a subdirectory. "
+                codes='EDINET.EC1035E',
+                msg=_("The URI in the HTML specifies a path that navigates "
+                      "outside of the report folder '%(reportPath)s'. "
                       "File name: '%(file)s' (line %(line)s). "
-                      "Please move the referenced file into a subfolder, or correct the URI."),
+                      "You cannot create a link from a subfolder to a parent folder. "
+                      "Please delete the link."),
+                reportPath=str(documentPathInfo.reportPath),
                 file=uriReference.document.basename,
                 line=uriReference.element.sourceline,
                 modelObject=uriReference.element,
             )
             continue
-        fullPath = Path(uriReference.document.uri).parent / path
-        pathInfo = uploadContents.uploadPathsByFullPath.get(fullPath)
-        if pathInfo is not None and pathInfo.isDirectory:
+
+        if not documentPathInfo.isSubdirectory:
+            if documentFullPath.parent not in referenceFullPath.parent.parents:
+                yield Validation.error(
+                    codes='EDINET.EC1013E',
+                    msg=_("The URI in the HTML file directly beneath '%(reportPath)s' "
+                          "specifies a path not under a subdirectory. "
+                          "File name: '%(file)s' (line %(line)s). "
+                          "Please move the referenced file into a subfolder beneath "
+                          "'%(reportPath)s', or correct the URI."),
+                    reportPath=str(documentPathInfo.reportPath),
+                    file=uriReference.document.basename,
+                    line=uriReference.element.sourceline,
+                    modelObject=uriReference.element,
+                )
+                continue
+
+        elif referenceFullPath.parent == reportFullPath:
+            yield Validation.error(
+                codes='EDINET.EC1015E',
+                msg=_("The URI in the HTML file within a subdirectory specifies a "
+                      "path to a file located directly beneath '%(reportPath)s'. "
+                      "File name: '%(file)s' (line %(line)s). "
+                      "You cannot create a link from a subfolder to this parent folder. "
+                      "Please correct the relevant link."),
+                reportPath=str(documentPathInfo.reportPath),
+                file=uriReference.document.basename,
+                line=uriReference.element.sourceline,
+                modelObject=uriReference.element,
+            )
+            continue
+
+        referencePathInfo = uploadContents.uploadPathsByFullPath.get(referenceFullPath)
+        if referencePathInfo is not None and referencePathInfo.isDirectory:
             yield Validation.error(
                 codes='EDINET.EC1014E',
                 msg=_("The URI in the HTML specifies a path to a directory. "
@@ -847,7 +862,8 @@ def rule_uri_references(
                 modelObject=uriReference.element,
             )
             continue
-        if path.suffix.lower() == '.pdf':
+
+        if referenceFullPath.suffix.lower() == '.pdf':
             yield Validation.error(
                 codes='EDINET.EC1023E',
                 msg=_("The URI in the HTML specifies a path to a PDF file. "
@@ -858,13 +874,14 @@ def rule_uri_references(
                 modelObject=uriReference.element,
             )
             continue
-        if not val.modelXbrl.fileSource.exists(str(fullPath)):
+
+        if not val.modelXbrl.fileSource.exists(str(referenceFullPath)):
             yield Validation.error(
                 codes='EDINET.EC1021E',
                 msg=_("The linked file ('%(path)s') does not exist. "
                       "File name: '%(file)s' (line %(line)s). "
                       "Please update the URI to reference a file."),
-                path=str(path),
+                path=str(uriPath),
                 file=uriReference.document.basename,
                 line=uriReference.element.sourceline,
                 modelObject=uriReference.element,
@@ -896,50 +913,6 @@ def rule_EC1009R(
                       "File name: '%(path)s'. "
                       "Please split the file so that the file size is 2.5MB or less."),
                 path=str(path),
-            )
-
-
-
-@validation(
-    hook=ValidationHook.XBRL_FINALLY,
-    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
-)
-def rule_EC1010E(
-        pluginData: PluginValidationDataExtension,
-        val: ValidateXbrl,
-        *args: Any,
-        **kwargs: Any,
-) -> Iterable[Validation]:
-    """
-    EDINET.EC1010E: The charset specification in the content attribute of the HTML <meta> tag must be UTF-8.
-    """
-    for modelDocument in val.modelXbrl.urlDocs.values():
-        path = Path(modelDocument.uri)
-        if path.suffix not in HTML_EXTENSIONS:
-            continue
-        rootElt = modelDocument.xmlRootElement
-        matchingElt = None
-        missingElts = []
-        for metaElt in rootElt.iterdescendants(tag=XbrlConst.qnXhtmlMeta.clarkNotation):
-            if metaElt.qname.localName != 'meta':
-                continue
-            content = metaElt.get('content')
-            if content is None:
-                continue
-            charset = content.split('charset=')[-1].strip().lower()
-            if charset == 'utf-8':
-                matchingElt = metaElt
-            else:
-                missingElts.append(metaElt)
-
-        if matchingElt is None or len(missingElts) > 0:
-            yield Validation.error(
-                codes='EDINET.EC1010E',
-                msg=_("The charset specification in the content attribute of the HTML <meta> tag is not UTF-8. "
-                      "File name: '%(path)s'. "
-                      "Please change the character code of the file to UTF-8."),
-                path=str(path),
-                modelObject=missingElts
             )
 
 
@@ -1007,6 +980,43 @@ def rule_EC1017E(
 
 
 @validation(
+    hook=ValidationHook.COMPLETE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_toc(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    Performs validation via controller-level TableOfContentsBuilder.
+    """
+    tocBuilder = pluginData.getTableOfContentsBuilder()
+    yield from tocBuilder.validate()
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_toc_pre(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    Doesn't perform validations, but prepares data for TableOfContentsBuilder.
+    """
+    manifestInstance = pluginData.getManifestInstance(val.modelXbrl)
+    if manifestInstance is not None and manifestInstance.type == ReportFolderType.PUBLIC_DOC.value:
+        pluginData.addToTableOfContents(val.modelXbrl)
+    return iter(())
+
+
+@validation(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
@@ -1025,7 +1035,6 @@ def rule_html_elements(
     the XML at all, and thus an XML schema error will be triggered rather than this validation error.
     """
     checkNames = frozenset({'body', 'head', 'html'})
-    langAttributeValues = frozenset({'ja', 'jp', 'ja-jp', 'JA', 'JP', 'JA-JP'})
     for modelDocument in val.modelXbrl.urlDocs.values():
         path = Path(modelDocument.uri)
         if path.suffix not in HTML_EXTENSIONS:
@@ -1035,12 +1044,14 @@ def rule_html_elements(
             rootElt.qname.localName: 1
         }
         for elt in rootElt.iterdescendants():
+            if not isinstance(elt, ModelObject):
+                continue
             name = elt.qname.localName
             if name in checkNames:
                 eltCounts[name] = eltCounts.get(name, 0) + 1
             if not isinstance(elt, ModelFact):
                 lang = elt.get(XbrlConst.qnXmlLang.clarkNotation)
-                if lang is not None and lang not in langAttributeValues:
+                if lang is not None and lang not in JAPAN_LANGUAGE_CODES:
                     yield Validation.error(
                         codes='EDINET.EC1011E',
                         msg=_("The language setting is not Japanese. "
@@ -1049,7 +1060,7 @@ def rule_html_elements(
                               "relevant file to one of the following: %(langValues)s."),
                         file=modelDocument.basename,
                         line=elt.sourceline,
-                        langValues=', '.join(langAttributeValues),
+                        langValues=', '.join(JAPAN_LANGUAGE_CODES),
                     )
 
         if any(count > 1 for count in eltCounts.values()):
@@ -1096,6 +1107,111 @@ def rule_EC1031E(
     hook=ValidationHook.FILESOURCE,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_EC5032E(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5032E: A manifest file for an IFRS submission must not define multiple instances.
+    """
+    instances = pluginData.getManifestInstances()
+    instancesByManifest = defaultdict(list)
+    for instance in instances:
+        instancesByManifest[instance.path].append(instance)
+    for manifestPath, instances in instancesByManifest.items():
+        if len(instances) < 2:
+            continue
+        for instance in instances:
+            if instance.filingFormat is None:
+                continue
+            if (
+                    instance.filingFormat.ordinance == Ordinance.IFRS or
+                    Taxonomy.IFRS in instance.filingFormat.taxonomies
+            ):
+                yield Validation.error(
+                    codes='EDINET.EC5032E',
+                    msg=_("A manifest file for an IFRS submission defines multiple instances. "
+                          "File: '%(path)s'. "
+                          "If you use the IFRS taxonomy, please specify only one instance."),
+                    path=str(manifestPath),
+                )
+                break
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC8023W(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC8023W: In IXBRL files, 'nonFraction' elements should be immediately preceded by
+    '△' if and only if the sign attribute is '-'.
+
+    * Tagging using International Financial Reporting Standards taxonomy elements is not checked.
+    * Tagging using Japanese GAAP notes or IFRS financial statement filer-specific additional elements
+        may be identified as an exception and a warning displayed, even if the data content is correct.
+
+    Note: This implementation interprets "immediately preceded" to mean that the symbol is present in the text
+    immediately before the target element, not nested within, or separated by, siblings elements. The use of
+    this symbol in sample filings support this interpretation.
+    """
+    negativeChar = '△'
+    for fact in val.modelXbrl.facts:
+        if not isinstance(fact, ModelInlineFact):
+            continue
+        if fact.localName != 'nonFraction':
+            continue
+        if fact.qname.namespaceURI == pluginData.namespaces.jpigp:
+            continue
+
+        precedingChar = None
+        precedingSibling = fact.getprevious()
+        # Check for the tail of the preceding sibling first.
+        if precedingSibling is not None:
+            if precedingSibling.tail:
+                strippedText = precedingSibling.tail.strip()
+                if strippedText:
+                    precedingChar = strippedText[-1]
+        # If nothing found, check the parent element if this is the first child.
+        elif (parent := fact.getparent()) is not None:
+            if fact == list(parent)[0] and parent.text:
+                strippedText = parent.text.strip()
+                if strippedText:
+                    precedingChar = strippedText[-1]
+
+        if fact.sign == '-' :
+            if precedingChar != negativeChar:
+                yield Validation.error(
+                    codes='EDINET.EC8023W',
+                    msg=_("In an inline XBRL file, if the sign attribute of the ix:nonFraction "
+                          "element is set to \"-\" (minus), you must set \"△\" immediately "
+                          "before the ix:nonFraction element tag."),
+                    modelObject=fact,
+                )
+        else:
+            if precedingChar == negativeChar:
+                yield Validation.error(
+                    codes='EDINET.EC8023W',
+                    msg=_("In an inline XBRL file, if the sign attribute of the ix:nonFraction "
+                          "element is not set to \"-\" (minus), there is no need to set \"△\" "
+                          "immediately before the ix:nonFraction element tag."),
+                    modelObject=fact,
+                )
+
+
+
+@validation(
+    hook=ValidationHook.FILESOURCE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_filenames(
         pluginData: ControllerPluginData,
         cntlr: Cntlr,
@@ -1118,10 +1234,10 @@ def rule_filenames(
         return
     for path, pathInfo in uploadContents.uploadPathsByPath.items():
         isReportFile = (
-            not pathInfo.isAttachment and
-            not pathInfo.isCorrection and
-            not pathInfo.isDirectory and
-            not pathInfo.isSubdirectory
+                not pathInfo.isAttachment and
+                not pathInfo.isCorrection and
+                not pathInfo.isDirectory and
+                not pathInfo.isSubdirectory
         )
         charactersAreValid = FILENAME_STEM_PATTERN.fullmatch(path.stem)
         lengthIsValid = isReportFile or (len(path.name) <= 31)
@@ -1172,6 +1288,12 @@ def rule_manifest_preferredFilename(
     EDINET.EC5806E: The same instance file name is set multiple times. File name: xxx
     The preferredFilename attribute value of the instance element in the manifest
     file must be unique within the same file.
+
+    EDINET.EC8008W: The file name of the report instance set in the manifest file
+    does not conform to the rules.
+
+    EDINET.EC8009W: The file name of the audit report instance set in the manifest file
+    does not conform to the rules.
     """
     instances = pluginData.getManifestInstances()
     preferredFilenames: dict[Path, set[str]] = defaultdict(set)
@@ -1187,6 +1309,7 @@ def rule_manifest_preferredFilename(
                 id=instance.id,
             )
             continue
+
         preferredFilename = Path(instance.preferredFilename)
         if preferredFilename.suffix != '.xbrl':
             yield Validation.error(
@@ -1201,6 +1324,34 @@ def rule_manifest_preferredFilename(
                 id=instance.id,
             )
             continue
+
+        reportFolderType = ReportFolderType.parse(instance.type)
+        match = True if reportFolderType is None else any(
+            pattern.fullmatch(preferredFilename.name)
+            for pattern in reportFolderType.xbrlFilenamePatterns
+        )
+        if not match:
+            if reportFolderType == ReportFolderType.AUDIT_DOC:
+                yield Validation.warning(
+                    codes='EDINET.EC8009W',
+                    msg=_("The file name of the audit report instance set in the manifest "
+                          "file does not conform to the rules. "
+                          "File name: '%(file)s'. "
+                          "Please set the file name of the corresponding audit report instance "
+                          "according to the rules. Please correct the contents of the manifest file."),
+                    file=preferredFilename.name,
+                )
+            else:
+                yield Validation.warning(
+                    codes='EDINET.EC8008W',
+                    msg=_("The file name of the report instance set in the manifest "
+                          "file does not comply with the regulations. "
+                          "File name: '%(file)s'. "
+                          "Please set the file name of the corresponding report instance "
+                          "according to the rules. Please correct the contents of the manifest file."),
+                    file=preferredFilename.name,
+                )
+
         if instance.preferredFilename in preferredFilenames[instance.path]:
             duplicateFilenames[instance.path].add(instance.preferredFilename)
             continue

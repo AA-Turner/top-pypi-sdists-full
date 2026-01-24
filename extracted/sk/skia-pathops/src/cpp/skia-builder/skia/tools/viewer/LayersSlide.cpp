@@ -7,17 +7,18 @@
 
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorFilter.h"
-#include "include/core/SkColorPriv.h"
 #include "include/core/SkImage.h"
 #include "include/core/SkMaskFilter.h"
 #include "include/core/SkPath.h"
 #include "include/core/SkRegion.h"
 #include "include/core/SkShader.h"
-#include "include/core/SkTime.h"
 #include "include/core/SkTypeface.h"
 #include "include/effects/SkGradientShader.h"
 #include "include/utils/SkCamera.h"
+#include "src/base/SkTime.h"
 #include "src/base/SkUTF.h"
+#include "src/core/SkColorPriv.h"
+#include "tools/DecodeUtils.h"
 #include "tools/viewer/ClickHandlerSlide.h"
 #include "tools/viewer/Slide.h"
 
@@ -167,11 +168,15 @@ class BackdropSlide : public ClickHandlerSlide {
 
 public:
     BackdropSlide() {
+        fName = "Backdrop";
+    }
+
+protected:
+    void load(SkScalar, SkScalar) override {
         fCenter.set(200, 150);
         fAngle = 0;
-        fImage = GetResourceAsImage("images/mandrill_512.png");
+        fImage = ToolUtils::GetResourceAsImage("images/mandrill_512.png");
         fFilter = SkImageFilters::Dilate(8, 8, nullptr);
-        fName = "Backdrop";
     }
 
     void draw(SkCanvas* canvas) override {
@@ -179,12 +184,11 @@ public:
 
         const SkScalar w = 250;
         const SkScalar h = 150;
-        SkPath path;
-        path.addOval(SkRect::MakeXYWH(-w/2, -h/2, w, h));
+        SkPath path = SkPath::Oval(SkRect::MakeXYWH(-w/2, -h/2, w, h));
         SkMatrix m;
         m.setRotate(fAngle);
         m.postTranslate(fCenter.x(), fCenter.y());
-        path.transform(m);
+        path = path.makeTransform(m);
 
         canvas->clipPath(path, SkClipOp::kIntersect, true);
         const SkRect bounds = path.getBounds();

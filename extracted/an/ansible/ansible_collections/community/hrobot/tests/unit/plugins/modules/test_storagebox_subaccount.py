@@ -1009,7 +1009,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
             .result_json({
                 "subaccounts": STORAGEBOX_SUBACCOUNTS,
             })
-            .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL))
+            .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=ghost_user'.format(API_BASE_URL))
         ])
 
         assert result['changed'] is False
@@ -1033,7 +1033,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
             .result_json({
                 "subaccounts": STORAGEBOX_SUBACCOUNTS,
             })
-            .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+            .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub2'.format(API_BASE_URL)),
 
             FetchUrlCall('DELETE', 200)
             .result_json({
@@ -1176,7 +1176,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
             .result_json({
                 "subaccounts": STORAGEBOX_SUBACCOUNTS,
             })
-            .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+            .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub2'.format(API_BASE_URL)),
 
             FetchUrlCall('DELETE', 200)
             .result_json({
@@ -1265,6 +1265,10 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .expect_json_value(['access_settings', 'readonly'], False)
                 .expect_json_value(['description'], 'My new subaccount')
                 .result_json({
+                    "subaccount": {
+                        "id": 1,
+                        "storage_box": 1234,
+                    },
                     "action": {
                         "id": 13,
                         "command": "create_subaccount",
@@ -1373,7 +1377,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=I%27ll+be+ignored'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 200)
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL))
@@ -1386,6 +1390,10 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .expect_json_value(['password'], 'toto')
                 .expect_json_value_absent(['username'])
                 .result_json({
+                    "subaccount": {
+                        "id": 2,
+                        "storage_box": 1234,
+                    },
                     "action": {
                         "id": 13,
                         "command": "create_subaccount",
@@ -1596,6 +1604,10 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .expect_json_value(['password'], '123')
                 .expect_json_value_absent(['username'])
                 .result_json({
+                    "subaccount": {
+                        "id": 42,
+                        "storage_box": 1234,
+                    },
                     "action": {
                         "id": 13,
                         "command": "create_subaccount",
@@ -1669,7 +1681,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL)),
             ]
         )
 
@@ -1788,7 +1800,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL)),
 
                 FetchUrlCall('PUT', 200)
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1'.format(API_BASE_URL))
@@ -1912,8 +1924,56 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 200)
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/update_access_settings'.format(API_BASE_URL))
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/change_home_directory'.format(API_BASE_URL))
                 .expect_json_value(["home_directory"], 'new/homedir')
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "running",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": None,
+                        "resources": [
+                            {
+                                "id": 1234,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": None,
+                    },
+                }),
+                FetchUrlCall('GET', 200)
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "success",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": "2016-01-30T23:50:00+00:00",
+                        "resources": [
+                            {
+                                "id": 23,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": None,
+                    },
+                })
+                .expect_url('{0}/v1/storage_boxes/actions/12'.format(API_BASE_URL)),
+
+                FetchUrlCall('POST', 200)
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/update_access_settings'.format(API_BASE_URL))
+                .expect_json_value_absent(["home_directory"])
                 .expect_json_value_absent(["samba_enabled"])
                 .expect_json_value_absent(["ssh_enabled"])
                 .expect_json_value_absent(["reachable_externally"])
@@ -2026,8 +2086,56 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 200)
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/update_access_settings'.format(API_BASE_URL))
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/change_home_directory'.format(API_BASE_URL))
                 .expect_json_value(["home_directory"], 'new/homedir')
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "running",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": None,
+                        "resources": [
+                            {
+                                "id": 1234,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": None,
+                    },
+                }),
+                FetchUrlCall('GET', 200)
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "success",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": "2016-01-30T23:50:00+00:00",
+                        "resources": [
+                            {
+                                "id": 23,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": None,
+                    },
+                })
+                .expect_url('{0}/v1/storage_boxes/actions/12'.format(API_BASE_URL)),
+
+                FetchUrlCall('POST', 200)
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/update_access_settings'.format(API_BASE_URL))
+                .expect_json_value_absent(["home_directory"])
                 .expect_json_value_absent(["samba_enabled"])
                 .expect_json_value_absent(["ssh_enabled"])
                 .expect_json_value_absent(["reachable_externally"])
@@ -2086,6 +2194,88 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
 
         assert result['msg'] == "Error while updating access settings: [action_failed] Action failed"
 
+    def test_update_subaccount_idempotence_by_comment_2_fail(self, mocker):
+        sleep_mock = MagicMock()
+        mocker.patch('time.sleep', sleep_mock)
+        input = {
+            'hetzner_token': '',
+            'storagebox_id': 1234,
+            # subaccount
+            'idempotence': 'comment',
+            "homedirectory": "/new/homedir",
+            "samba": True,
+            "ssh": True,
+            "external_reachability": True,
+            "webdav": True,
+            "readonly": False,
+            "comment": "Test account",
+        }
+        result = self.run_module_failed(
+            mocker,
+            storagebox_subaccount,
+            input,
+            [
+                FetchUrlCall('GET', 200)
+                .result_json({
+                    "subaccounts": STORAGEBOX_SUBACCOUNTS,
+                })
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+
+                FetchUrlCall('POST', 200)
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/change_home_directory'.format(API_BASE_URL))
+                .expect_json_value(["home_directory"], 'new/homedir')
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "running",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": None,
+                        "resources": [
+                            {
+                                "id": 1234,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": None,
+                    },
+                }),
+                FetchUrlCall('GET', 200)
+                .result_json({
+                    "action": {
+                        "id": 12,
+                        "command": "change_home_directory",
+                        "status": "error",
+                        "progress": 0,
+                        "started": "2016-01-30T23:50:00+00:00",
+                        "finished": "2016-01-30T23:50:00+00:00",
+                        "resources": [
+                            {
+                                "id": 23,
+                                "type": "storage_box",
+                            },
+                            {
+                                "id": 42,
+                                "type": "storage_box_subaccount"
+                            },
+                        ],
+                        "error": {
+                            "code": "action_failed",
+                            "message": "Action failed",
+                        },
+                    },
+                })
+                .expect_url('{0}/v1/storage_boxes/actions/12'.format(API_BASE_URL)),
+            ]
+        )
+
+        assert result['msg'] == "Error while updating home directory: [action_failed] Action failed"
+
     def test_update_password_only(self, mocker):
         sleep_mock = MagicMock()
         mocker.patch('time.sleep', sleep_mock)
@@ -2111,7 +2301,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 200)
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/reset_subaccount_password'.format(API_BASE_URL))
@@ -2220,7 +2410,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 200)
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/reset_subaccount_password'.format(API_BASE_URL))
@@ -2300,7 +2490,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL)),
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL)),
 
                 FetchUrlCall('POST', 400)
                 .expect_url('{0}/v1/storage_boxes/1234/subaccounts/1/actions/reset_subaccount_password'.format(API_BASE_URL))
@@ -2380,7 +2570,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL))
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL))
             ]
         )
 
@@ -2414,6 +2604,64 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
             'labels': {},
             'storage_box': 2342,
             'password': 'newsecurepassword',
+        }
+
+    def test_update_home_directory_only_CHECK_MODE(self, mocker):
+        result = self.run_module_success(
+            mocker,
+            storagebox_subaccount,
+            {
+                'hetzner_token': '',
+                'storagebox_id': 1234,
+                '_ansible_check_mode': True,
+                # subaccount
+                "username": "u2342-sub1",
+                "homedirectory": "test2",
+                "samba": True,
+                "ssh": True,
+                "external_reachability": True,
+                "webdav": False,
+                "readonly": False,
+                "comment": "Test account",
+            },
+            [
+                FetchUrlCall('GET', 200)
+                .result_json({
+                    "subaccounts": STORAGEBOX_SUBACCOUNTS,
+                })
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL))
+            ]
+        )
+
+        assert result['changed'] is True
+        assert result['created'] is False
+        assert result['deleted'] is False
+        assert result['updated'] is True
+        assert result['password_updated'] is False
+        assert result['subaccount'] == {
+            'access_settings': {
+                'reachable_externally': True,
+                'readonly': False,
+                'samba_enabled': True,
+                'ssh_enabled': True,
+                'webdav_enabled': False,
+            },
+            'username': 'u2342-sub1',
+            'server': 'u12345-sub1.your-storagebox.de',
+            'homedirectory': 'test2',
+            'home_directory': 'test2',
+            'samba': True,
+            'ssh': True,
+            'external_reachability': True,
+            'webdav': False,
+            'readonly': False,
+            'created': '2017-05-24 00:00:00',
+            'createtime': '2017-05-24 00:00:00',
+            'comment': 'Test account',
+            'description': 'Test account',
+            'id': 1,
+            'labels': {},
+            'storage_box': 2342,
         }
 
     def test_create_subaccount_CHECK_MODE(self, mocker):
@@ -2524,7 +2772,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
                 .result_json({
                     "subaccounts": STORAGEBOX_SUBACCOUNTS,
                 })
-                .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL))
+                .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub1'.format(API_BASE_URL))
             ]
         )
 
@@ -2572,7 +2820,7 @@ class TestHetznerStorageboxSubbacount(BaseTestModule):
             .result_json({
                 "subaccounts": STORAGEBOX_SUBACCOUNTS,
             })
-            .expect_url('{0}/v1/storage_boxes/1234/subaccounts'.format(API_BASE_URL))
+            .expect_url('{0}/v1/storage_boxes/1234/subaccounts?username=u2342-sub2'.format(API_BASE_URL))
         ])
 
         assert result['changed'] is True

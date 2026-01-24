@@ -565,6 +565,18 @@ class SpanNear(Query):
 
 
 @dataclass
+class SpanOr(Query):
+    clauses: Optional[Sequence[Query]] = None
+    type_name: Literal["span_or"] = "span_or"
+
+    def to_dict(self):
+        span_or = {}
+        if self.clauses is not None:
+            span_or["clauses"] = self.clauses
+        return {self.type_name: span_or}
+
+
+@dataclass
 class Span(Query):
     span_within: Optional[Query] = None
     span_near: Optional[Query] = None
@@ -2032,6 +2044,16 @@ class IndexSearchRequest(SearchRequest):
             "By default, this is `False` and therefore "
             "relationship-level attributes are not included."
         ),
+    )
+    enable_full_restriction: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Whether to enable full authorization restrictions for search results. "
+            "When (True), applies full authorization restrictions to show only assets "
+            "the user has access to. By default, this is None and standard "
+            "access controls apply."
+        ),
+        alias="enableFullRestriction",
     )
     request_metadata: Optional[IndexSearchRequestMetadata] = Field(
         default_factory=lambda: IndexSearchRequestMetadata(

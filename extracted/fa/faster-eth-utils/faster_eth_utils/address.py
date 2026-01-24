@@ -2,7 +2,7 @@ import re
 from typing import (
     Any,
     Final,
-    Union,
+    TypeGuard,
 )
 
 import cchecksum
@@ -13,21 +13,13 @@ from eth_typing import (
     HexAddress,
     HexStr,
 )
-from typing_extensions import (
-    TypeGuard,
-)
 
 from .conversions import (
     hexstr_if_str,
     to_hex,
 )
-from .crypto import (
-    keccak,
-)
 from .hexadecimal import (
-    add_0x_prefix,
     decode_hex,
-    encode_hex,
     remove_0x_prefix,
 )
 from .types import (
@@ -76,7 +68,7 @@ def is_address(value: Any) -> bool:
     return False
 
 
-def to_normalized_address(value: Union[AnyAddress, str, bytes]) -> HexAddress:
+def to_normalized_address(value: AnyAddress | str | bytes) -> HexAddress:
     """
     Converts an address to its normalized hexadecimal representation.
     """
@@ -100,7 +92,7 @@ def is_normalized_address(value: Any) -> TypeGuard[HexAddress]:
     return is_address(value) and value == to_normalized_address(value)
 
 
-def to_canonical_address(address: Union[AnyAddress, str, bytes]) -> Address:
+def to_canonical_address(address: AnyAddress | str | bytes) -> Address:
     """
     Convert a valid address to its canonical form (20-length bytes).
     """
@@ -115,15 +107,16 @@ def is_canonical_address(address: Any) -> TypeGuard[Address]:
 8
 
 def is_same_address(
-    left: Union[AnyAddress, str, bytes], right: Union[AnyAddress, str, bytes]
+    left: AnyAddress | str | bytes, right: AnyAddress | str | bytes
 ) -> bool:
     """
     Checks if both addresses are same or not.
     """
     if not is_address(left) or not is_address(right):
         raise ValueError("Both values must be valid addresses")
-    else:
-        return to_normalized_address(left) == to_normalized_address(right)
+    if left == right:
+        return True
+    return to_normalized_address(left) == to_normalized_address(right)
 
 
 def is_checksum_address(value: Any) -> TypeGuard[ChecksumAddress]:

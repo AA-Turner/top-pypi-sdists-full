@@ -10,6 +10,7 @@ import multiprocessing as mp
 import re
 import typing as t
 import warnings
+from zoneinfo import ZoneInfo
 
 from dateutil.parser import parse as dt_parse
 import numpy as np
@@ -22,7 +23,6 @@ from pandas.core.dtypes.common import (
     is_timedelta64_dtype,
     is_unsigned_integer_dtype,
 )
-import pytz
 
 from .base import InferFeatureAttributesBase, SingleTableFeatureAttributes
 from ..features import FeatureType
@@ -30,6 +30,7 @@ from ..utilities import (
     date_to_epoch,
     determine_iso_format,
     epoch_to_date,
+    get_hash,
     infer_time_feature_cycle_length,
     infer_time_format,
     ISO_8601_DATE_FORMAT,
@@ -217,10 +218,11 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
                         return FeatureType.DATE, {}
                 # Datetime feature (with timezone info)
                 if isinstance(dtype, pd.DatetimeTZDtype):
-                    if isinstance(dtype.tz, pytz.BaseTzInfo) and dtype.tz.zone:
-                        # If using a named time zone capture it, otherwise
-                        # rely on the offset in the iso8601 format
-                        typing_info['timezone'] = dtype.tz.zone
+                    # If using a named time zone capture it, otherwise
+                    # rely on the offset in the iso8601 format
+                    tz_name = getattr(dtype.tz, 'key', None) or getattr(dtype.tz, 'zone', None)
+                    if tz_name:
+                        typing_info['timezone'] = tz_name
                 # Datetime feature with no timezone info
                 return FeatureType.DATETIME, typing_info
 
@@ -249,7 +251,7 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
                     while num_samples <= max_samples:
                         # First, determine if the string resembles common time-only formats
                         if re.match(TIME_PATTERN, first_non_null) or re.match(SIMPLE_TIME_PATTERN,
-                                                                            first_non_null):
+                                                                              first_non_null):
                             return FeatureType.TIME, {}
                         # If this doesn't contain numbers, then report it as a string.
                         if first_non_null and not any(c.isnumeric() for c in first_non_null):
@@ -268,26 +270,29 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
                                 # but we now need to check if the 'time' component is zero. If so, we can cast to
                                 # a Numpy datetime64[D] dtype.
                                 #
-                                # However, we need to be careful with this -- if the user has a datetime feature of the format
-                                # '%y-%m-%d' for example, the `to_datetime()` conversion above will add an empty time component
-                                # as previously described. But, if the user has a datetime feature that *actually* has an empty
-                                # time component in the string -- say, '%y-%m-%dT00:00:00' -- we must respect the original
-                                # format even if it is intended to be a date-only feature.
+                                # However, we need to be careful with this -- if the user has a datetime feature of
+                                # the format '%y-%m-%d' for example, the `to_datetime()` conversion above will add an
+                                # empty time component as previously described. But, if the user has a datetime feature
+                                # that *actually* has an empty time component in the string -- say, '%y-%m-%dT00:00:00'
+                                # -- we must respect the original format even if it is intended to be a date-only
+                                # feature.
                                 if all([converted_val.time() == pd.Timestamp(0).time(),
                                         converted_val.tz is None,
                                         # Ensure there is no time component in the unconverted string
                                         'T' not in first_non_null,
                                         '00:00:00' not in first_non_null]):
                                     converted_dtype = np.datetime64(converted_val, 'D').dtype
-                                # Specify an original_type here to ensure the DataFrame is unchanged during deserialization
+                                # Specify an original_type here to ensure the DataFrame is unchanged during
+                                # deserialization
                                 typing_info = {'original_type': FeatureType.STRING}
                                 if converted_dtype in ['datetime64[Y]', 'datetime64[M]', 'datetime64[D]']:
                                     return FeatureType.DATE, typing_info
                                 elif isinstance(converted_dtype, pd.DatetimeTZDtype) or getattr(converted_dtype.tz):
-                                    if isinstance(converted_dtype.tz, pytz.BaseTzInfo) and converted_dtype.tz.zone:
-                                        # If using a named time zone capture it, otherwise
-                                        # rely on the offset in the iso8601 format
-                                        typing_info['timezone'] = converted_dtype.tz.zone
+                                    # If using a named time zone capture it, otherwise
+                                    # rely on the offset in the iso8601 format
+                                    tz_name = getattr(converted_dtype.tz, 'key', None) or getattr(converted_dtype.tz, 'zone', None)
+                                    if tz_name:
+                                        typing_info['timezone'] = tz_name
                                 return FeatureType.DATETIME, typing_info
 
                             else:
@@ -337,6 +342,27 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
             return None
         return self.data[feature_name][index]
 
+    def _get_n_random_rows(self, samples: int = 5000, seed: int | None = None) -> pd.DataFrame:
+        """
+        Get random samples from the data.
+
+        Parameters
+        ----------
+        samples : int, default 5000
+            The number of samples to randomly get from the data.
+        seed : int, default None
+            (Optional) The random number seed to use.
+
+        Returns
+        -------
+        pd.DataFrame
+            A Pandas DataFrame containing the random sample.
+        """
+        # If samples requested exceeds available rows, return all data
+        if samples >= len(self.data):
+            return self.data.copy()
+        return self.data.sample(n=samples, random_state=seed)
+
     def _get_random_value(self, feature_name: str, no_nulls: bool = False) -> t.Any | None:
         """
         Return a random sample from the given DataFrame column.
@@ -359,9 +385,18 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
     def _get_unique_count(self, feature_name: str | Iterable[str]) -> int:
         """Get the number of unique values in the provided feature(s)."""
         if isinstance(feature_name, str):
-            num_uniques = self.data[feature_name].nunique()
+            try:
+                num_uniques = self.data[feature_name].nunique()
+            except TypeError:
+                num_uniques = self.data[feature_name].apply(get_hash).nunique()
         elif isinstance(feature_name, Iterable):
-            num_uniques = len(self.data[feature_name].drop_duplicates())
+            try:
+                num_uniques = len(self.data[feature_name].drop_duplicates())
+            except TypeError:
+                temp_df = self.data[feature_name].apply(
+                    lambda col: col.apply(get_hash)
+                )
+                num_uniques = len(temp_df.drop_duplicates())
         else:
             raise ValueError(f"`Feature_name` must be of type `str` or `Iterable[str]`, not {type(feature_name)}.")
         return num_uniques
@@ -531,7 +566,7 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
                             # mode to timezone aware so we can correctly detect
                             # the number of instances of it in the original
                             # column.
-                            col_modes = col_modes.dt.tz_localize(pytz.utc)
+                            col_modes = col_modes.dt.tz_localize(datetime.timezone.utc)
                             col_modes = col_modes.dt.tz_convert(column.dt.tz)
 
                         # If the mode for the feature is same as an original
@@ -718,9 +753,11 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
 
             # Determine number of decimal places using
             # np.format_float_positional to handle scientific notation.
+            # Convert to numpy array for faster iteration
+            col_array = col.to_numpy()
             decimals = max([
                 len((str(np.format_float_positional(r))).split('.')[1])
-                for r in col
+                for r in col_array
             ])
 
             # specify decimal place. Proceed with training but issue a warning.
@@ -854,11 +891,11 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
                 guess_nominals = False
             else:
                 # Guess nominals if ALL of:
-                #   - `col_min` and `col_max` are both greater than zero
+                #   - `col_min` and `col_max` are both >= -1 (often a "special" number that could indicate nominality)
                 #   - Their length is at least 5
                 #   - They have the same length
                 guess_nominals = (
-                    col_min > 0 and col_max > 0 and
+                    col_min >= -1 and col_max >= -1 and
                     len(str(col_min)) >= 5 and
                     len(str(col_min)) == len(str(col_max))
                 )
@@ -878,44 +915,16 @@ class InferFeatureAttributesDataFrame(InferFeatureAttributesBase):
 
         return attributes
 
-    def _infer_string_attributes(self, feature_name: str) -> dict:
-        # Column has arbitrary string values, first check if they
-        # are ISO8601 datetimes.
-        if self._is_iso8601_datetime_column(feature_name):
-            # if datetime, determine the iso8601 format it's using
-            if first_non_null := self._get_first_non_null(feature_name):
-                fmt = determine_iso_format(first_non_null, feature_name)
-                return {
-                    'type': 'continuous',
-                    'data_type': 'formatted_date_time',
-                    'date_time_format': fmt
-                }
-            else:
-                # It isn't clear how this method would be called on a feature
-                # if it has no data, but just in case...
-                return {
-                    'type': 'continuous',
-                    'data_type': 'number',
-                }
-        elif self._is_json_feature(feature_name):
-            return {
-                'type': 'continuous',
-                'data_type': 'json'
-            }
-        elif self._is_yaml_feature(feature_name):
-            return {
-                'type': 'continuous',
-                'data_type': 'yaml'
-            }
-        else:
-            return self._infer_unknown_attributes(feature_name)
-
-    def _infer_unknown_attributes(self, feature_name: str) -> dict:
-        return {
-            'type': 'nominal',
-            'data_type': 'string',
-        }
-
-    def _get_unique_values(self, feature_name: str) -> set[t.Any]:
-        """Return the set of unique values for the given feature."""
-        return set(self.data[feature_name].unique())
+    def _get_unique_values(self, feature_name: str) -> set[t.Any] | list[t.Any]:
+        """Return the set (or list for unhashable types) of unique values for the given feature."""
+        try:
+            return list(self.data[feature_name].unique())
+        except TypeError:
+            unique_vals = []
+            seen_hashable = set()
+            for val in self.data[feature_name]:
+                hashable = get_hash(val)
+                if hashable not in seen_hashable:
+                    seen_hashable.add(hashable)
+                    unique_vals.append(val)  # Keep original value
+            return unique_vals

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase
-Version: 2.20.0
+Version: 2.27.2
 Summary: Supabase client for Python.
 Author: Joel Lee, Leon Fedden, Daniel Reinón García, Leynier Gutiérrez González, Anand, Andrew Smith
 Author-email: Joel Lee <joel@joellee.org>, Leon Fedden <leonfedden@gmail.com>, Daniel Reinón García <danielreinon@outlook.com>, Leynier Gutiérrez González <leynier41@gmail.com>, Andrew Smith <a.smith@silentworks.co.uk>
@@ -8,15 +8,17 @@ License-Expression: MIT
 License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Dist: realtime
-Requires-Dist: supabase-functions
-Requires-Dist: storage3
-Requires-Dist: supabase-auth
-Requires-Dist: postgrest
+Requires-Dist: realtime==2.27.2
+Requires-Dist: supabase-functions==2.27.2
+Requires-Dist: storage3==2.27.2
+Requires-Dist: supabase-auth==2.27.2
+Requires-Dist: postgrest==2.27.2
 Requires-Dist: httpx>=0.26,<0.29
+Requires-Dist: yarl>=1.22.0
 Maintainer: Leonardo Santiago
 Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
 Requires-Python: >=3.9
+Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md
 Project-URL: documentation, https://github.com/supabase/supabase-py/src/supabase
 Project-URL: homepage, https://github.com/supabase/supabase-py
 Project-URL: repository, https://github.com/supabase/supabase-py

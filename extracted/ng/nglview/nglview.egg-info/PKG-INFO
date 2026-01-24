@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: nglview
-Version: 3.1.4
+Version: 4.0
 Summary: IPython widget to interactively view molecular structures and trajectories.
 Home-page: https://github.com/arose/nglview
 Author: Alexander S. Rose, Hai Nguyen
@@ -27,7 +27,7 @@ Requires-Dist: ipywidgets>=8
 Requires-Dist: notebook>=7
 Requires-Dist: jupyterlab>=3
 Requires-Dist: jupyterlab_widgets
-Requires-Dist: numpy
+Requires-Dist: numpy<2.3
 Provides-Extra: simpletraj
 Requires-Dist: simpletraj; extra == "simpletraj"
 Provides-Extra: mdtraj
@@ -51,9 +51,6 @@ Requires-Dist: qcelemental; extra == "qcelemental"
 
 ![Build Status](https://github.com/nglviewer/nglview/actions/workflows/test.yml/badge.svg)
 ![Build Extension Status](https://github.com/nglviewer/nglview/actions/workflows/build-extension.yml/badge.svg)
-
-## Try nglview online: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/hainm/nglview-binder/master?urlpath=lab/tree/nglview/notebooks)
-
 
 An [IPython/Jupyter](http://jupyter.org/) widget to interactively view molecular structures and trajectories. Utilizes the embeddable [NGL Viewer](https://github.com/nglviewer/ngl) for rendering. Support for showing data from the file-system, [RCSB PDB](http:www.rcsb.org), [simpletraj](https://github.com/arose/simpletraj) and from objects of analysis libraries [mdtraj](http://mdtraj.org/), [pytraj](http://amber-md.github.io/pytraj/latest/index.html), [mdanalysis](http://www.mdanalysis.org/), [ParmEd](http://parmed.github.io/ParmEd/), [rdkit](https://github.com/rdkit/rdkit), [ase](https://wiki.fysik.dtu.dk/ase/), [HTMD](https://www.htmd.org), [biopython](https://github.com/biopython/biopython.github.io/), [cctbx](https://cci.lbl.gov/cctbx_docs/iotbx/), [pyrosetta](http://pyrosetta.org), [schrodinger's Structure](http://content.schrodinger.com/Docs/r2015-4/python_api/api/schrodinger.structure.Structure-class.html)
 
@@ -459,9 +456,6 @@ Acknowledgment
 ==============
 - Funding: Hai Nguyen is supported by NIH Grant GM103297, "The Center for HIV RNA Studies" (2015 to 02-2017).
 - Many thanks to `nglview` [contributors](https://github.com/arose/nglview/graphs/contributors)
-- [dunovank/jupyter-themes](https://github.com/dunovank/jupyter-themes): for `oceans16` theme
-- [base64-arraybuffer](https://github.com/niklasvh/base64-arraybuffer)
-- [ipywidgets](https://github.com/jupyter-widgets/ipywidgets)
 
 Cite
 ====

@@ -4,7 +4,8 @@ from adam.checks.check import Check
 from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
-from adam.k8s_utils.cassandra_nodes import CassandraNodes
+from adam.utils import Color
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
 
 class Gossip(Check):
     def name(self):
@@ -32,7 +33,7 @@ class Gossip(Check):
         #   TOKENS:21:<hidden>
         # STATUS line missing -> NORMAL
         # user, pw = get_user_pass(pod_name, ns)
-        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} gossipinfo", show_out=ctx.show_output)
+        result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} gossipinfo", show_out=ctx.show_output, text_color=Color.gray)
 
         nodes = self.parse_gossipinfo(result.stdout)
         details = {

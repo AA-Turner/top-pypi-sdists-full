@@ -1,0 +1,372 @@
+# Copyright (c) typedef int GmbH, Germany, 2025. All rights reserved.
+# Licensed under MIT.
+#
+# https://github.com/wamp-proto/wamp-cicd: /workflows/identifiers.yml
+#
+name: identifiers
+
+on:
+  workflow_call:
+    outputs:
+      base_repo:
+        description: >
+          Sanitized base repository identifier, derived from `github.repository`.
+          Example: "crossbario_autobahn_python" (original: "crossbario/autobahn-python")
+        value: ${{ jobs.build-identifiers.outputs.base_repo }}
+
+      base_branch:
+        description: >
+          Base repository branch name in a filesystem-safe form.
+          Example: "master" (original: "master")
+        value: ${{ jobs.build-identifiers.outputs.base_branch }}
+
+      pr_number:
+        description: >
+          Pull request number, prefixed with 'pr'. If not a PR, set to "none".
+          Example: "pr1680" or "none"
+        value: ${{ jobs.build-identifiers.outputs.pr_number }}
+
+      pr_repo:
+        description: >
+          Sanitized fork repository identifier from which the PR originates.
+          Example: "oberstet_autobahn_python" (original: "oberstet/autobahn-python")
+        value: ${{ jobs.build-identifiers.outputs.pr_repo }}
+
+      pr_branch:
+        description: >
+          Sanitized branch name of the PR head repository.
+          Example: "rel_v25_9_1_part4b" (original: "rel_v25.9.1_part4b")
+        value: ${{ jobs.build-identifiers.outputs.pr_branch }}
+
+      head_repo:
+        description: >
+          Sanitized repository full name from workflow_run.head_repository.full_name,
+          if this workflow was triggered by a workflow_run. Example: "oberstet_autobahn_python".
+          "none" otherwise.
+        value: ${{ jobs.build-identifiers.outputs.head_repo }}
+
+      head_sha:
+        description: >
+          Commit SHA from workflow_run.head_sha, if this workflow was triggered
+          by a workflow_run. Example: "a1b2c3d4e5f6g7h8i9j0".
+          "none" otherwise.
+        value: ${{ jobs.build-identifiers.outputs.head_sha }}
+
+      release_type:
+        description: >
+          Release type:
+
+          Type         Trigger	                        Context	                Goal
+          -----------------------------------------------------------------------------------------------------
+          development  pull_request_target (fork PR)   fork → base	            PR build/test
+          nightly      push (branch, not tagged)       base repo branch         Nightly (development) build
+          stable       push (tag)                      base repo branch + tag   Stable (release) build
+        value: ${{ jobs.build-identifiers.outputs.release_type }}
+
+      release_name:
+        description: >
+          Resolved release identifier, combining PR, branch, or tag context with timestamp.
+
+          Examples:
+            - development: "pr1680-oberstet_autobahn_python-rel_v25_9_1_part4b-202510091530"
+            - nightly: "master-202510091530"
+            - stable: "v25_9_10"
+        value: ${{ jobs.build-identifiers.outputs.release_name }}
+
+jobs:
+  build-identifiers:
+    name: Build GitHub identifiers
+    runs-on: ubuntu-latest
+
+    permissions:
+      # required for the workflow to fetch repo data (including submodules, artifacts, etc.)
+      contents: read
+
+      # required for GitHub’s REST API to return PR metadata when using the /pulls?head= endpoint
+      pull-requests: read
+
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    outputs:
+      base_repo: ${{ steps.ident.outputs.base_repo }}
+      base_branch: ${{ steps.ident.outputs.base_branch }}
+      pr_number: ${{ steps.ident.outputs.pr_number }}
+      pr_repo: ${{ steps.ident.outputs.pr_repo }}
+      pr_branch: ${{ steps.ident.outputs.pr_branch }}
+      head_repo: ${{ steps.ident.outputs.head_repo }}
+      head_sha: ${{ steps.ident.outputs.head_sha }}
+      release_type: ${{ steps.ident.outputs.release_type }}
+      release_name: ${{ steps.ident.outputs.release_name }}
+
+    steps:
+      - name: Checkout repo (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0 # fetch all history for all branches and tags
+
+      # The file pointed by the $GITHUB_EVENT_PATH env variable contains the same information
+      # than the corresponding webhook event.
+      # See: https://developer.github.com/webhooks/#events
+      - name: Dump GitHub event
+        id: debug-event
+        shell: bash
+        run: |
+          echo "───────────────────────────────────────────────"
+          echo "🧩 Dumping GitHub event payload (github.event)"
+          echo "Event file: $GITHUB_EVENT_PATH"
+          echo "───────────────────────────────────────────────"
+          cp "$GITHUB_EVENT_PATH" event.json
+          jq . event.json
+
+      - name: Identify and sanitize
+        id: ident
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! command -v jq >/dev/null; then
+            echo "::error::jq not installed"; exit 1
+          fi
+          if ! command -v curl >/dev/null; then
+            echo "::error::curl not installed"; exit 1
+          fi
+
+          SCRIPT_PATH="${{ github.workspace }}/.cicd/scripts/sanitize.sh"
+
+          if [[ -f "${SCRIPT_PATH}" ]]; then
+            source "${SCRIPT_PATH}"
+          else
+            echo "::error::Missing required file: ${SCRIPT_PATH}"
+            echo "This workflow expects the central CI/CD submodule to be checked out (with submodules: recursive)."
+            exit 1
+          fi
+
+          if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+            echo "::error::GITHUB_TOKEN not set. Make sure to export it via env."
+            exit 1
+          fi
+
+          base_repo=$(sanitize "${{ github.repository }}")
+          base_branch=$(sanitize "${{ github.ref_name }}")
+
+          # >>> Determine/Set: pr_repo, pr_branch, pr_number <<<
+          #
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # (1) workflow_run event: extract PR info from the triggering workflow
+            echo "Detected workflow_run event - extracting PR context from triggering workflow"
+
+            # Convert GitHub context to JSON and parse with jq
+            PR_DATA='${{ toJSON(github.event.workflow_run.pull_requests) }}'
+            PR_COUNT=$(echo "$PR_DATA" | jq 'length')
+            echo "Number of associated PRs: ${PR_COUNT}"
+
+            if [[ "$PR_COUNT" -gt 0 ]]; then
+              echo "(1.1) determine pr_repo/pr_branch/pr_number for PR on base repo from workflow_run.pull_requests ..."
+
+              # GitHub only populates workflow_run.pull_requests if:
+              # - The triggering workflow was actually run on a PR event (event == "pull_request"), _AND_
+              # - That workflow file exists on the _BASE_ repo’s branch (not from a fork).
+
+              # Extract first PR (there should only be one):
+
+              pr_number="pr$(echo "$PR_DATA" | jq -r '.[0].number')"
+              pr_repo_raw=$(echo "$PR_DATA" | jq -r '.[0].head.repo.full_name')
+              pr_repo=$(sanitize "$pr_repo_raw")
+              pr_branch_raw=$(echo "$PR_DATA" | jq -r '.[0].head.ref')
+              pr_branch=$(sanitize "$pr_branch_raw")
+
+              echo "Restored PR context: $pr_number from $pr_repo/$pr_branch"
+            else
+              echo "(1.2) determine pr_repo/pr_branch/pr_number for forked repo from ..."
+
+              if [[ "${{ github.event.workflow_run.event }}" == "pull_request" ]]; then
+                echo "... (1.2.1) PR (on that forked repo) ..."
+
+                # When the workflow was triggered from a PR, but not on the base repo but on a _FORK_:
+                # - pull_requests is empty, thus
+                # - use head_repository and head_branch (these always exist), and
+                # - extract the PR number from the display_title (works well for GitHub’s default titles)
+
+                pr_repo=$(sanitize "${{ github.event.workflow_run.head_repository.full_name }}")
+                pr_branch=$(sanitize "${{ github.event.workflow_run.head_branch }}")
+
+                # Use GitHub REST API to resolve PR number by head SHA
+                echo "Attempting to resolve PR via API: head=${{ github.event.workflow_run.head_repository.full_name }}:${{ github.event.workflow_run.head_branch }}"
+                pr_number_raw=$(curl -s -H "Authorization: Bearer $GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.event.workflow_run.head_repository.full_name }}:${{ github.event.workflow_run.head_branch }}" \
+                    | jq -r '.[0].number // empty')
+
+                if [[ -n "$pr_number_raw" && "$pr_number_raw" != "null" ]]; then
+                  pr_number="pr${pr_number_raw}"
+                  echo "Resolved PR number via API: $pr_number"
+                else
+                  pr_number="none"
+                  echo "::warning::Could not resolve PR number (forked PR, missing metadata)"
+                fi
+              else
+                echo "... (1.2.2) non-PR (e.g., direct push) ..."
+
+                pr_number="none"
+                pr_repo="$base_repo"
+                pr_branch="$base_branch"
+              fi
+            fi
+
+          elif [[ "${{ github.event_name }}" == "pull_request" || "${{ github.event_name }}" == "pull_request_target" ]]; then
+            echo "(2) Detected pull_request / pull_request_target event - extracting PR context from this workflow"
+
+            pr_number="pr${{ github.event.number }}"
+            pr_repo=$(sanitize "${{ github.event.pull_request.head.repo.full_name }}")
+            pr_branch=$(sanitize "${{ github.event.pull_request.head.ref }}")
+
+          else
+            echo "(3) Detected non-workflow_run & non-pull_request event ${{ github.event_name }} - no PR context applicable!"
+
+            pr_number="none"
+            pr_repo="$base_repo"
+            pr_branch="$base_branch"
+
+          fi
+
+          # -------------------------------------------------------
+          # Extract head repository and commit SHA (for workflow_run, pull_request, or pull_request_target)
+          # IMPORTANT: Must be done BEFORE tag detection since tag detection uses head_sha_raw
+          # -------------------------------------------------------
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            head_repo_raw="${{ github.event.workflow_run.head_repository.full_name }}"
+            head_sha_raw="${{ github.event.workflow_run.head_sha }}"
+          elif [[ "${{ github.event_name }}" == "pull_request" || "${{ github.event_name }}" == "pull_request_target" ]]; then
+            head_repo_raw="${{ github.event.pull_request.head.repo.full_name }}"
+            head_sha_raw="${{ github.event.pull_request.head.sha }}"
+          else
+            head_repo_raw=""
+            head_sha_raw=""
+          fi
+
+          # Determine if this is a tag context
+          tag_name=""
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # In workflow_run context, github.ref_type refers to the calling workflow,
+            # not the original event. We must check if the triggering workflow was
+            # actually triggered by a tag push.
+            #
+            # Check the event type of the triggering workflow:
+            triggering_event="${{ github.event.workflow_run.event }}"
+            echo "Triggering workflow event: $triggering_event"
+
+            # Only consider it a tag context if the original event was explicitly a push
+            # AND github.ref_type at that level was 'tag'
+            if [[ "$triggering_event" == "push" ]]; then
+              # In workflow_run, we need to check the actual ref that was pushed
+              # Unfortunately, workflow_run doesn't preserve ref_type, so we check
+              # if head_branch looks like a tag or use git describe on head_sha
+              git fetch --tags --force >/dev/null 2>&1 || true
+
+              # Check if head_sha is exactly at a tag
+              if [[ -n "$head_sha_raw" && "$head_sha_raw" != "null" ]]; then
+                tag_name=$(git describe --tags --exact-match "$head_sha_raw" 2>/dev/null || true)
+                if [[ -n "$tag_name" ]]; then
+                  echo "Detected tag at head_sha $head_sha_raw: $tag_name"
+                fi
+              fi
+            fi
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # Direct tag push - use the tag name from the event
+            tag_name="${{ github.ref_name }}"
+            echo "Detected direct tag push: $tag_name"
+          else
+            # Not a tag context based on ref_type
+            # Don't use git describe here to avoid false positives
+            tag_name=""
+          fi
+
+          if [[ -n "$tag_name" ]]; then
+            base_tag=$(sanitize "$tag_name")
+          else
+            base_tag="none"
+          fi
+
+          if [[ -n "$head_repo_raw" && "$head_repo_raw" != "null" ]]; then
+            head_repo=$(sanitize "$head_repo_raw")
+          else
+            head_repo="none"
+          fi
+
+          if [[ -n "$head_sha_raw" && "$head_sha_raw" != "null" ]]; then
+            head_sha=$(sanitize "$head_sha_raw")
+          else
+            head_sha="none"
+          fi
+
+          echo "Detected head context: $head_repo@$head_sha"
+
+          # -------------------------------------------------------
+          # Set release_type and release_name
+          # -------------------------------------------------------
+          timestamp=$(date +'%Y%m%d%H%M')
+
+          # Fork detection: if head_repo differs from base_repo, it's always a development/PR build
+          # This is the PRIMARY signal, even if we couldn't resolve the PR number
+          if [[ "$pr_number" != "none" ]] || [[ "$head_repo" != "$base_repo" && "$head_repo" != "none" ]]; then
+            release_type="development"
+
+            # If we couldn't resolve PR number but detected a fork, create fallback identifier
+            if [[ "$pr_number" == "none" ]]; then
+              pr_number="fork-${head_sha:0:8}"
+              echo "::notice::Fork detected but PR number unavailable - using fallback: $pr_number"
+            fi
+
+            release_name="${pr_number}-${pr_repo}-${pr_branch}-${timestamp}"
+          elif [[ "$base_tag" != "none" ]]; then
+            release_type="stable"
+            release_name="${base_tag}"
+          else
+            release_type="nightly"
+            release_name="${base_branch}-${timestamp}"
+          fi
+
+          {
+            echo "base_repo=$base_repo"
+            echo "base_branch=$base_branch"
+            echo "pr_number=$pr_number"
+            echo "pr_repo=$pr_repo"
+            echo "pr_branch=$pr_branch"
+            echo "head_repo=$head_repo"
+            echo "head_sha=$head_sha"
+            echo "release_type=$release_type"
+            echo "release_name=$release_name"
+          } >> "$GITHUB_OUTPUT"
+
+  log-identifiers:
+    name: Log resolved identifiers
+    runs-on: ubuntu-latest
+    needs: build-identifiers
+    steps:
+      - name: Print identifier summary
+        shell: bash
+        run: |
+          echo "───────────────────────────────────────────────"
+          echo "🔎  GitHub Identifiers Summary"
+          echo "───────────────────────────────────────────────"
+          echo "Base repository : ${{ needs.build-identifiers.outputs.base_repo }}"
+          echo "Base branch     : ${{ needs.build-identifiers.outputs.base_branch }}"
+          echo "Pull request #  : ${{ needs.build-identifiers.outputs.pr_number }}"
+          echo "PR repository   : ${{ needs.build-identifiers.outputs.pr_repo }}"
+          echo "PR branch       : ${{ needs.build-identifiers.outputs.pr_branch }}"
+          echo "Head repository : ${{ needs.build-identifiers.outputs.head_repo }}"
+          echo "Head SHA        : ${{ needs.build-identifiers.outputs.head_sha }}"
+          echo "Release type    : ${{ needs.build-identifiers.outputs.release_type }}"
+          echo "Release name    : ${{ needs.build-identifiers.outputs.release_name }}"
+          echo "───────────────────────────────────────────────"
+          echo "🌍 GitHub context"
+          echo "───────────────────────────────────────────────"
+          echo "Event name         : ${{ github.event_name }}"
+          echo "Head event name    : ${{ github.event.workflow_run.event || 'none' }}"
+          echo "Ref type           : ${{ github.ref_type }}"
+          echo "Ref name           : ${{ github.ref_name }}"
+          echo "Repository         : ${{ github.repository }}"
+          echo "Workflow run ID    : ${{ github.run_id }}"
+          echo "───────────────────────────────────────────────"

@@ -2,14 +2,11 @@
 import asyncio
 import functools
 import inspect
-import platform
 import re
-import shlex
 import sys
 import time
 import typing
 from dataclasses import dataclass
-from functools import partial
 from typing import Any, Callable, Optional
 
 import click
@@ -17,19 +14,15 @@ import typer
 from click import ClickException
 from typing_extensions import TypedDict
 
-from .._functions import _FunctionSpec
 from ..app import App, LocalEntrypoint
 from ..cls import _get_class_constructor_signature
 from ..config import config
 from ..environments import ensure_env
 from ..exception import ExecutionError, InvalidError, _CliUserExecutionError
 from ..functions import Function
-from ..image import Image
 from ..output import enable_output
-from ..runner import deploy_app, interactive_shell, run_app
-from ..secret import Secret
+from ..runner import deploy_app, run_app
 from ..serving import serve_app
-from ..volume import Volume
 from .import_refs import (
     CLICommand,
     MethodReference,
@@ -38,7 +31,7 @@ from .import_refs import (
     import_app_from_ref,
     parse_import_ref,
 )
-from .utils import ENV_OPTION, ENV_OPTION_HELP, is_tty, stream_app_logs
+from .utils import ENV_OPTION, ENV_OPTION_HELP, stream_app_logs
 
 
 class ParameterMetadata(TypedDict):
@@ -54,6 +47,26 @@ class AnyParamType(click.ParamType):
 
     def convert(self, value, param, ctx):
         return value
+
+
+class LiteralIntParamType(click.Choice):
+    """A ParamType for Literal types containing only integers."""
+
+    def __init__(self, literal_values: tuple[int, ...]):
+        self.int_values = {str(v): v for v in literal_values}
+        super().__init__(list(self.int_values.keys()))
+
+    def convert(self, value, param, ctx):
+        # If value is already an int (e.g., from a default), validate and return it
+        # Exclude bools since they're a subclass of int but we don't support them
+        if isinstance(value, int) and not isinstance(value, bool):
+            if value in self.int_values.values():
+                return value
+            # Invalid int - convert to string so Choice can generate a nice error message
+            value = str(value)
+        # Use Choice's validation for string inputs, then convert back to int
+        str_value = super().convert(value, param, ctx)
+        return self.int_values[str_value]
 
 
 option_parsers = {
@@ -106,6 +119,20 @@ def _get_cli_runnable_signature(sig: inspect.Signature, type_hints: dict[str, ty
     return CliRunnableSignature(signature, has_variadic_args)
 
 
+def _get_literal_values(type_hint: Any) -> Optional[tuple[Any, ...]]:
+    """Extract values from a Literal type annotation.
+
+    Returns None if not a Literal type, otherwise returns tuple of literal values.
+    """
+    try:
+        origin = typing.get_origin(type_hint)
+        if origin is typing.Literal:
+            return typing.get_args(type_hint)
+    except Exception:
+        pass
+    return None
+
+
 def _get_param_type_as_str(annot: Any) -> str:
     """Return annotation as a string, handling various spellings for optional types."""
     annot_str = str(annot)
@@ -128,16 +155,28 @@ def _add_click_options(func, parameters: dict[str, ParameterMetadata]):
     Kind of like typer, but using options instead of positional arguments
     """
     for param in parameters.values():
-        param_type_str = _get_param_type_as_str(param["type_hint"])
         param_name = param["name"].replace("_", "-")
         cli_name = "--" + param_name
-        if param_type_str == "bool":
-            cli_name += "/--no-" + param_name
 
-        parser = option_parsers.get(param_type_str)
-        if parser is None:
-            msg = f"Parameter `{param_name}` has unparseable annotation: {param['annotation']!r}"
-            raise NoParserAvailable(msg)
+        parser: Any
+        if (literal_values := _get_literal_values(param["type_hint"])) is not None:
+            if all(isinstance(v, str) for v in literal_values):
+                parser = click.Choice(list(literal_values))
+            elif all(isinstance(v, int) and not isinstance(v, bool) for v in literal_values):
+                parser = LiteralIntParamType(literal_values)
+            else:
+                # Mixed types, booleans, or other unsupported types
+                msg = f"Parameter `{param_name}` has unparseable annotation: {param['annotation']}"
+                raise NoParserAvailable(msg)
+        else:
+            param_type_str = _get_param_type_as_str(param["type_hint"])
+            if param_type_str == "bool":
+                cli_name += "/--no-" + param_name
+
+            parser = option_parsers.get(param_type_str)
+            if parser is None:
+                msg = f"Parameter `{param_name}` has unparseable annotation: {param['annotation']}"
+                raise NoParserAvailable(msg)
         kwargs: Any = {
             "type": parser,
         }
@@ -192,7 +231,8 @@ def _make_click_function(app, signature: CliRunnableSignature, inner: Callable[[
         _validate_interactive_quiet_params(ctx)
 
         show_progress: bool = ctx.obj["show_progress"]
-        with enable_output(show_progress):
+        show_timestamps: bool = ctx.obj["show_timestamps"]
+        with enable_output(show_progress, show_timestamps=show_timestamps):
             with run_app(
                 app,
                 detach=ctx.obj["detach"],
@@ -207,11 +247,21 @@ def _make_click_function(app, signature: CliRunnableSignature, inner: Callable[[
     return f
 
 
+def _get_signature(func: typing.Any) -> inspect.Signature:
+    """Returns signature with the original source annotations."""
+    kwargs: dict[str, typing.Any] = {}
+    if sys.version_info[:2] >= (3, 14):
+        import annotationlib
+
+        kwargs["annotation_format"] = annotationlib.Format.STRING
+    return inspect.signature(func, **kwargs)
+
+
 def _get_click_command_for_function(app: App, function: Function, ctx: click.Context):
     if function.is_generator:
         raise InvalidError("`modal run` is not supported for generator functions")
 
-    sig: inspect.Signature = inspect.signature(function.info.raw_f)
+    sig: inspect.Signature = _get_signature(function.info.raw_f)
     type_hints = safe_get_type_hints(function.info.raw_f)
     signature: CliRunnableSignature = _get_cli_runnable_signature(sig, type_hints)
 
@@ -260,7 +310,7 @@ def _get_click_command_for_cls(app: App, method_ref: MethodReference, ctx: click
 
     partial_function = partial_functions[method_name]
     raw_f = partial_function._get_raw_f()
-    sig_without_self = inspect.signature(functools.partial(raw_f, None))
+    sig_without_self = _get_signature(functools.partial(raw_f, None))
     fun_signature = _get_cli_runnable_signature(sig_without_self, safe_get_type_hints(raw_f))
 
     # TODO(erikbern): assert there's no overlap?
@@ -294,12 +344,12 @@ def _get_click_command_for_local_entrypoint(app: App, entrypoint: LocalEntrypoin
     func = entrypoint.info.raw_f
     isasync = inspect.iscoroutinefunction(func)
 
-    signature = _get_cli_runnable_signature(inspect.signature(func), safe_get_type_hints(func))
+    signature = _get_cli_runnable_signature(_get_signature(func), safe_get_type_hints(func))
 
     @click.pass_context
     def f(ctx, *args, **kwargs):
         if ctx.obj["detach"]:
-            print(
+            print(  # noqa: T201
                 "Note that running a local entrypoint in detached mode only keeps the last "
                 "triggered Modal function alive after the parent process has been killed or disconnected."
             )
@@ -311,7 +361,8 @@ def _get_click_command_for_local_entrypoint(app: App, entrypoint: LocalEntrypoin
         _validate_interactive_quiet_params(ctx)
 
         show_progress: bool = ctx.obj["show_progress"]
-        with enable_output(show_progress):
+        show_timestamps: bool = ctx.obj["show_timestamps"]
+        with enable_output(show_progress, show_timestamps=show_timestamps):
             with run_app(
                 app,
                 detach=ctx.obj["detach"],
@@ -401,8 +452,9 @@ class RunGroup(click.Group):
 @click.option("-i", "--interactive", is_flag=True, help="Run the app in interactive mode.")
 @click.option("-e", "--env", help=ENV_OPTION_HELP, default=None)
 @click.option("-m", is_flag=True, help="Interpret argument as a Python module path instead of a file/script path")
+@click.option("--timestamps", is_flag=True, help="Show timestamps for each log line.")
 @click.pass_context
-def run(ctx, write_result, detach, quiet, interactive, env, m):
+def run(ctx, write_result, detach, quiet, interactive, env, m, timestamps):
     """Run a Modal function or local entrypoint.
 
     `FUNC_REF` should be of the format `{file or module}::{function name}`.
@@ -439,6 +491,7 @@ def run(ctx, write_result, detach, quiet, interactive, env, m):
     ctx.obj["detach"] = detach  # if subcommand would be a click command...
     ctx.obj["show_progress"] = False if quiet else True
     ctx.obj["interactive"] = interactive
+    ctx.obj["show_timestamps"] = timestamps
 
 
 def deploy(
@@ -450,6 +503,7 @@ def deploy(
     use_module_mode: bool = typer.Option(
         False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
     ),
+    timestamps: bool = typer.Option(False, "--timestamps", help="Show timestamps for each log line."),
 ):
     """Deploy a Modal application.
 
@@ -467,19 +521,18 @@ def deploy(
     if not name:
         raise ExecutionError(
             "You need to either supply an explicit deployment name on the command line "
-            "or have a name set on the app.\n"
+            "or have a name set on the App.\n"
             "\n"
             "Examples:\n"
-            'app = modal.App("some-name")'
-            "or\n"
+            'app = modal.App("some-name")\n'
             "modal deploy ... --name=some-name"
         )
 
-    with enable_output():
+    with enable_output(show_timestamps=timestamps):
         res = deploy_app(app, name=name, environment_name=env or "", tag=tag)
 
     if stream_logs:
-        stream_app_logs(app_id=res.app_id, app_logs_url=res.app_logs_url)
+        stream_app_logs(app_id=res.app_id, app_logs_url=res.app_logs_url, show_timestamps=timestamps)
 
 
 def serve(
@@ -489,6 +542,7 @@ def serve(
     use_module_mode: bool = typer.Option(
         False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
     ),
+    timestamps: bool = typer.Option(False, "--timestamps", help="Show timestamps for each log line."),
 ):
     """Run a web endpoint(s) associated with a Modal app and hot-reload code.
 
@@ -497,6 +551,12 @@ def serve(
     ```
     modal serve hello_world.py
     ```
+
+    Modal-generated URLs will have a `-dev` suffix appended to them when running with `modal serve`.
+    To customize this suffix (i.e., to avoid collisions with other users in your workspace who are
+    concurrently serving the App), you can set the `dev_suffix` in your `.modal.toml` file or the
+    `MODAL_DEV_SUFFIX` environment variable.
+
     """
     env = ensure_env(env)
     import_ref = parse_import_ref(app_ref, use_module_mode=use_module_mode)
@@ -504,7 +564,7 @@ def serve(
     if app.description is None:
         app.set_description(_get_clean_app_description(app_ref))
 
-    with enable_output():
+    with enable_output(show_timestamps=timestamps):
         with serve_app(app, import_ref, environment_name=env):
             if timeout is None:
                 timeout = config["serve_timeout"]
@@ -514,178 +574,3 @@ def serve(
                 t = min(timeout, 3600)
                 time.sleep(t)
                 timeout -= t
-
-
-def shell(
-    container_or_function: Optional[str] = typer.Argument(
-        default=None,
-        help=(
-            "ID of running container, or path to a Python file containing a Modal App."
-            " Can also include a function specifier, like `module.py::func`, if the file defines multiple functions."
-        ),
-        metavar="REF",
-    ),
-    cmd: str = typer.Option("/bin/bash", "-c", "--cmd", help="Command to run inside the Modal image."),
-    env: str = ENV_OPTION,
-    image: Optional[str] = typer.Option(
-        default=None, help="Container image tag for inside the shell (if not using REF)."
-    ),
-    add_python: Optional[str] = typer.Option(default=None, help="Add Python to the image (if not using REF)."),
-    volume: Optional[list[str]] = typer.Option(
-        default=None,
-        help=(
-            "Name of a `modal.Volume` to mount inside the shell at `/mnt/{name}` (if not using REF)."
-            " Can be used multiple times."
-        ),
-    ),
-    secret: Optional[list[str]] = typer.Option(
-        default=None,
-        help=("Name of a `modal.Secret` to mount inside the shell (if not using REF). Can be used multiple times."),
-    ),
-    cpu: Optional[int] = typer.Option(default=None, help="Number of CPUs to allocate to the shell (if not using REF)."),
-    memory: Optional[int] = typer.Option(
-        default=None, help="Memory to allocate for the shell, in MiB (if not using REF)."
-    ),
-    gpu: Optional[str] = typer.Option(
-        default=None,
-        help="GPUs to request for the shell, if any. Examples are `any`, `a10g`, `a100:4` (if not using REF).",
-    ),
-    cloud: Optional[str] = typer.Option(
-        default=None,
-        help=(
-            "Cloud provider to run the shell on. Possible values are `aws`, `gcp`, `oci`, `auto` (if not using REF)."
-        ),
-    ),
-    region: Optional[str] = typer.Option(
-        default=None,
-        help=(
-            "Region(s) to run the container on. "
-            "Can be a single region or a comma-separated list to choose from (if not using REF)."
-        ),
-    ),
-    pty: Optional[bool] = typer.Option(default=None, help="Run the command using a PTY."),
-    use_module_mode: bool = typer.Option(
-        False, "-m", help="Interpret argument as a Python module path instead of a file/script path"
-    ),
-):
-    """Run a command or interactive shell inside a Modal container.
-
-    **Examples:**
-
-    Start an interactive shell inside the default Debian-based image:
-
-    ```
-    modal shell
-    ```
-
-    Start an interactive shell with the spec for `my_function` in your App
-    (uses the same image, volumes, mounts, etc.):
-
-    ```
-    modal shell hello_world.py::my_function
-    ```
-
-    Or, if you're using a [modal.Cls](https://modal.com/docs/reference/modal.Cls)
-    you can refer to a `@modal.method` directly:
-
-    ```
-    modal shell hello_world.py::MyClass.my_method
-    ```
-
-    Start a `python` shell:
-
-    ```
-    modal shell hello_world.py --cmd=python
-    ```
-
-    Run a command with your function's spec and pipe the output to a file:
-
-    ```
-    modal shell hello_world.py -c 'uv pip list' > env.txt
-    ```
-    """
-    env = ensure_env(env)
-
-    if pty is None:
-        pty = is_tty()
-
-    if platform.system() == "Windows":
-        raise InvalidError("`modal shell` is currently not supported on Windows")
-
-    app = App("modal shell")
-
-    if container_or_function is not None:
-        # `modal shell` with a container ID is a special case, alias for `modal container exec`.
-        if (
-            container_or_function.startswith("ta-")
-            and len(container_or_function[3:]) > 0
-            and container_or_function[3:].isalnum()
-        ):
-            from .container import exec
-
-            exec(container_id=container_or_function, command=shlex.split(cmd), pty=pty)
-            return
-
-        import_ref = parse_import_ref(container_or_function, use_module_mode=use_module_mode)
-        runnable, all_usable_commands = import_and_filter(
-            import_ref, base_cmd="modal shell", accept_local_entrypoint=False, accept_webhook=True
-        )
-        if not runnable:
-            help_header = (
-                "Specify a Modal function to start a shell session for. E.g.\n"
-                f"> modal shell {import_ref.file_or_module}::my_function"
-            )
-
-            if all_usable_commands:
-                help_footer = f"The selected module '{import_ref.file_or_module}' has the following choices:\n\n"
-                help_footer += _get_runnable_list(all_usable_commands)
-            else:
-                help_footer = f"The selected module '{import_ref.file_or_module}' has no Modal functions or classes."
-
-            raise ClickException(f"{help_header}\n\n{help_footer}")
-
-        function_spec: _FunctionSpec
-        if isinstance(runnable, MethodReference):
-            # TODO: let users specify a class instead of a method, since they use the same environment
-            class_service_function = runnable.cls._get_class_service_function()
-            function_spec = class_service_function.spec
-        elif isinstance(runnable, Function):
-            function_spec = runnable.spec
-        else:
-            raise ValueError("Referenced entity is not a Modal function or class")
-
-        start_shell = partial(
-            interactive_shell,
-            image=function_spec.image,
-            mounts=function_spec.mounts,
-            secrets=function_spec.secrets,
-            network_file_systems=function_spec.network_file_systems,
-            gpu=function_spec.gpus,
-            cloud=function_spec.cloud,
-            cpu=function_spec.cpu,
-            memory=function_spec.memory,
-            volumes=function_spec.volumes,
-            region=function_spec.scheduler_placement.proto.regions if function_spec.scheduler_placement else None,
-            pty=pty,
-            proxy=function_spec.proxy,
-        )
-    else:
-        modal_image = Image.from_registry(image, add_python=add_python) if image else None
-        volumes = {} if volume is None else {f"/mnt/{vol}": Volume.from_name(vol) for vol in volume}
-        secrets = [] if secret is None else [Secret.from_name(s) for s in secret]
-        start_shell = partial(
-            interactive_shell,
-            image=modal_image,
-            cpu=cpu,
-            memory=memory,
-            gpu=gpu,
-            cloud=cloud,
-            volumes=volumes,
-            secrets=secrets,
-            region=region.split(",") if region else [],
-            pty=pty,
-        )
-
-    # NB: invoking under bash makes --cmd a lot more flexible.
-    cmds = shlex.split(f'/bin/bash -c "{cmd}"')
-    start_shell(app, cmds=cmds, environment_name=env, timeout=3600)

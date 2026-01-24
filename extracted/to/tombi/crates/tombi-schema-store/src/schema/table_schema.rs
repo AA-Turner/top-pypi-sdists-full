@@ -6,14 +6,14 @@ use itertools::Itertools;
 use tombi_future::{BoxFuture, Boxable};
 use tombi_x_keyword::{
     ArrayValuesOrderBy, StringFormat, TableKeysOrder, TableKeysOrderGroupKind,
-    X_TOMBI_ARRAY_VALUES_ORDER_BY, X_TOMBI_TABLE_KEYS_ORDER,
+    X_TOMBI_ADDITIONAL_KEY_LABEL, X_TOMBI_ARRAY_VALUES_ORDER_BY, X_TOMBI_TABLE_KEYS_ORDER,
 };
 
 use super::{
     CurrentSchema, FindSchemaCandidates, PropertySchema, SchemaAccessor, SchemaDefinitions,
     SchemaItem, SchemaPatternProperties, SchemaUri, ValueSchema,
 };
-use crate::{Accessor, Referable, SchemaProperties, SchemaStore};
+use crate::{Accessor, Referable, SchemaProperties, SchemaStore, schema::not_schema::NotSchema};
 
 use tombi_json::StringNode;
 
@@ -36,9 +36,11 @@ pub struct TableSchema {
     pub array_values_order_by: Option<ArrayValuesOrderBy>,
     pub default: Option<tombi_json::Object>,
     pub const_value: Option<tombi_json::Object>,
-    pub enumerate: Option<Vec<tombi_json::Object>>,
+    pub r#enum: Option<Vec<tombi_json::Object>>,
     pub examples: Option<Vec<tombi_json::Object>>,
     pub deprecated: Option<bool>,
+    pub additional_key_label: Option<String>,
+    pub not: Option<NotSchema>,
 }
 
 impl TableSchema {
@@ -165,7 +167,7 @@ impl TableSchema {
                 .and_then(|v| v.as_u64().map(|u| u as usize)),
             keys_order,
             array_values_order_by,
-            enumerate: object_node.get("enum").and_then(|v| v.as_array()).map(|v| {
+            r#enum: object_node.get("enum").and_then(|v| v.as_array()).map(|v| {
                 v.items
                     .iter()
                     .filter_map(|v| v.as_object().map(|v| v.into()))
@@ -189,6 +191,10 @@ impl TableSchema {
                         .collect()
                 }),
             deprecated: object_node.get("deprecated").and_then(|v| v.as_bool()),
+            additional_key_label: object_node
+                .get(X_TOMBI_ADDITIONAL_KEY_LABEL)
+                .and_then(|v| v.as_str().map(|s| s.to_string())),
+            not: NotSchema::new(object_node, string_formats),
         }
     }
 
@@ -281,8 +287,7 @@ impl FindSchemaCandidates for TableSchema {
                 .write()
                 .await
                 .get_mut(&SchemaAccessor::from(&accessors[0]))
-            {
-                if let Ok(Some(CurrentSchema {
+                && let Ok(Some(CurrentSchema {
                     value_schema,
                     schema_uri,
                     definitions,
@@ -293,16 +298,15 @@ impl FindSchemaCandidates for TableSchema {
                         schema_store,
                     )
                     .await
-                {
-                    return value_schema
-                        .find_schema_candidates(
-                            &accessors[1..],
-                            &schema_uri,
-                            &definitions,
-                            schema_store,
-                        )
-                        .await;
-                }
+            {
+                return value_schema
+                    .find_schema_candidates(
+                        &accessors[1..],
+                        &schema_uri,
+                        &definitions,
+                        schema_store,
+                    )
+                    .await;
             }
 
             (candidates, errors)

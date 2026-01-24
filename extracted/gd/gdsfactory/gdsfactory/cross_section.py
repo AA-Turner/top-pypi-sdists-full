@@ -240,7 +240,7 @@ class CrossSection(BaseModel):
             if error_type == ErrorType.ERROR:
                 raise ValueError(message)
 
-            elif error_type == ErrorType.WARNING:
+            if error_type == ErrorType.WARNING:
                 warnings.warn(message, stacklevel=3)
 
     @property
@@ -268,8 +268,7 @@ class CrossSection(BaseModel):
         key_to_section = {s.name: s for s in self.sections}
         if key in key_to_section:
             return key_to_section[key]
-        else:
-            raise KeyError(f"{key} not in {list(key_to_section.keys())}")
+        raise KeyError(f"{key} not in {list(key_to_section.keys())}")
 
     @property
     def hash(self) -> str:
@@ -444,6 +443,62 @@ class Transition(BaseModel, arbitrary_types_allowed=True):
         return ",".join(
             [str(round(width, 3)) for width in width_type(t_values, *self.width)]
         )
+
+
+class TransitionAsymmetric(BaseModel, arbitrary_types_allowed=True):
+    """Waveguide information to extrude a path between two CrossSection with asymmetric transitions.
+
+    Parameters:
+        cross_section1: input cross_section.
+        cross_section2: output cross_section.
+        width_type1: transition type for lower edge width ('sine', 'linear', 'parabolic' or Callable).
+        width_type2: transition type for upper edge width.
+        offset_type1: transition type for lower edge offset.
+        offset_type2: transition type for upper edge offset.
+    """
+
+    cross_section1: CrossSectionSpec
+    cross_section2: CrossSectionSpec
+    width_type1: typings.WidthTypes | Callable[[float, float, float], float] = "sine"
+    width_type2: typings.WidthTypes | Callable[[float, float, float], float] = "sine"
+    offset_type1: typings.WidthTypes | Callable[[float, float, float], float] = "sine"
+    offset_type2: typings.WidthTypes | Callable[[float, float, float], float] = "sine"
+
+    @field_serializer("width_type1")
+    def serialize_width_type1(
+        self,
+        width_type1: typings.WidthTypes | Callable[[float, float, float], float],
+    ) -> str:
+        if isinstance(width_type1, str):
+            return width_type1
+        raise NotImplementedError("TODO")
+
+    @field_serializer("width_type2")
+    def serialize_width_type2(
+        self,
+        width_type2: typings.WidthTypes | Callable[[float, float, float], float],
+    ) -> str:
+        if isinstance(width_type2, str):
+            return width_type2
+        raise NotImplementedError("TODO")
+
+    @field_serializer("offset_type1")
+    def serialize_offset_type1(
+        self,
+        offset_type1: typings.WidthTypes | Callable[[float, float, float], float],
+    ) -> str:
+        if isinstance(offset_type1, str):
+            return offset_type1
+        raise NotImplementedError("TODO")
+
+    @field_serializer("offset_type2")
+    def serialize_offset_type2(
+        self,
+        offset_type2: typings.WidthTypes | Callable[[float, float, float], float],
+    ) -> str:
+        if isinstance(offset_type2, str):
+            return offset_type2
+        raise NotImplementedError("TODO")
 
 
 CrossSectionFactory: TypeAlias = Callable[..., "CrossSection"]
@@ -859,9 +914,11 @@ def strip_nitride_tip(
 @xsection
 def slot(
     width: float = 0.5,
-    layer: typings.LayerSpec = "WG",
+    layer: typings.LayerSpec = "WG_ABSTRACT",
     slot_width: float = 0.04,
+    rail_layer: typings.LayerSpec = "WG",
     sections: Sections | None = None,
+    **kwargs: Any,
 ) -> CrossSection:
     """Return CrossSection Slot (with an etched region in the center).
 
@@ -871,7 +928,9 @@ def slot(
                 the width at t==1 is the width at the end.
         layer: main section layer.
         slot_width: in um.
+        rail_layer: rail layer.
         sections: list of Sections(width, offset, layer, ports).
+        kwargs: other cross section parameters.
 
     .. plot::
         :include-source:
@@ -883,6 +942,9 @@ def slot(
         c = p.extrude(xs)
         c.plot()
     """
+    if slot_width >= width:
+        raise ValueError(f"{width=} must be greater than {slot_width=}")
+
     rail_width = (width - slot_width) / 2
     rail_offset = (rail_width + slot_width) / 2
 
@@ -890,18 +952,25 @@ def slot(
     section_list.extend(
         [
             Section(
-                width=rail_width, offset=rail_offset, layer=layer, name="left_rail"
+                width=rail_width,
+                offset=+rail_offset,
+                layer=rail_layer,
+                name="left_rail",
             ),
             Section(
-                width=rail_width, offset=-rail_offset, layer=layer, name="right rail"
+                width=rail_width,
+                offset=-rail_offset,
+                layer=rail_layer,
+                name="right_rail",
             ),
         ]
     )
 
     return strip(
         width=width,
-        layer="WG_ABSTRACT",
-        sections=sections,
+        layer=layer,
+        sections=section_list,
+        **kwargs,
     )
 
 
@@ -978,10 +1047,10 @@ def rib_with_trenches(
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
 
-    elif slab_offset is not None and width_slab is not None:
+    if slab_offset is not None and width_slab is not None:
         raise ValueError("Cannot specify both slab_offset and width_slab")
 
-    elif slab_offset is not None:
+    if slab_offset is not None:
         width_slab = width + 2 * width_trench + 2 * slab_offset
 
     trench_offset = width / 2 + width_trench / 2
@@ -1149,9 +1218,9 @@ def metal3(
 
 @xsection
 def gs(
-    width_metal: float = 10,
+    trace_width: float = 140,
     layer: typings.LayerSpec = "M3",
-    gap: float = 2,
+    gap: float = 120,
     layer_port: typings.LayerSpec = "M3_ABSTRACT",
     radius: float | None = None,
     **kwargs: Any,
@@ -1159,14 +1228,14 @@ def gs(
     """Return Ground-Signal-Ground cross_section.
 
     Args:
-        width_metal: in um.
+        trace_width: in um.
         layer: metal layer.
         gap: between metal lines in um.
         layer_port: port layer.
         radius: bend radius. Optional, defaults to 2*width+gap.
         kwargs: cross_section settings. (ignored)
     """
-    width = width_metal
+    width = trace_width
     sections = [
         Section(
             width=gap,
@@ -1181,31 +1250,33 @@ def gs(
     return CrossSection(sections=tuple(sections), radius=radius or 2 * width + gap)
 
 
+@xsection
 def gsg(
-    width: float = 10,
+    trace_width: float = 140,
     layer: typings.LayerSpec = "M3",
-    gap: float = 2,
+    gap: float = 100,
     radius: float | None = None,
 ) -> CrossSection:
     """Return Ground-Signal-Ground cross_section.
 
     Args:
-        width_metal: in um.
+        trace_width: in um.
         layer: metal layer.
         gap: between metal lines in um.
         layer_port: port layer.
         radius: bend radius. Optional, defaults to 3*width+2*gap.
     """
+    width = trace_width
     sections = [
         Section(
-            width=gap,
+            width=width,
             layer=layer,
             offset=0,
             port_names=port_names_electrical,
             port_types=port_types_electrical,
         ),
-        Section(width=width, layer=layer, offset=-gap - width / 2),
-        Section(width=width, layer=layer, offset=+gap + width / 2),
+        Section(width=width, layer=layer, offset=-gap - width),
+        Section(width=width, layer=layer, offset=+gap + width),
     ]
     return CrossSection(sections=tuple(sections), radius=radius or 3 * width + 2 * gap)
 
@@ -1670,10 +1741,10 @@ def pn_with_trenches(
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
 
-    elif slab_offset is not None and width_slab is not None:
+    if slab_offset is not None and width_slab is not None:
         raise ValueError("Cannot specify both slab_offset and width_slab")
 
-    elif slab_offset is not None:
+    if slab_offset is not None:
         width_slab = width + 2 * width_trench + 2 * slab_offset
 
     trench_offset = width / 2 + width_trench / 2
@@ -1888,10 +1959,10 @@ def pn_with_trenches_asymmetric(
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
 
-    elif slab_offset is not None and width_slab is not None:
+    if slab_offset is not None and width_slab is not None:
         raise ValueError("Cannot specify both slab_offset and width_slab")
 
-    elif slab_offset is not None:
+    if slab_offset is not None:
         width_slab = width + 2 * width_trench + 2 * slab_offset
 
     # Trenches
@@ -2121,10 +2192,10 @@ def l_wg_doped_with_trenches(
     if slab_offset is None and width_slab is None:
         raise ValueError("Must specify either slab_offset or width_slab")
 
-    elif slab_offset is not None and width_slab is not None:
+    if slab_offset is not None and width_slab is not None:
         raise ValueError("Cannot specify both slab_offset and width_slab")
 
-    elif slab_offset is not None:
+    if slab_offset is not None:
         width_slab = width + 2 * width_trench + 2 * slab_offset
 
     trench_offset = -1 * (width / 2 + width_trench / 2)

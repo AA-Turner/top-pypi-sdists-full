@@ -2,12 +2,13 @@ import logging
 
 from requests_oauthlib import OAuth2Session
 
-from django.shortcuts import redirect, get_object_or_404, render
-from django.urls import reverse
 from django.http.response import HttpResponseBadRequest
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
-from esi.models import CallbackRedirect, Token
 from esi import app_settings
+from esi.models import CallbackRedirect, Token
+
 from .decorators import tokens_required
 
 logger = logging.getLogger(__name__)

@@ -45,6 +45,8 @@ options:
             - C(org_usage_info) or C(org/usage)
             - C(org_users_info) or C(org/users)
             - C(org_users_root_info) or C(org/users/root)
+            - C(org_users_grid_federation_connections_info) or C(org/grid-federation-connections)
+            - C(org_ilm_info) or C(org/ilm-policy-tags)
             - C(versions_info) or C(versions)
             - Can specify a list of values to include a larger subset.
         default: "all"
@@ -113,6 +115,8 @@ sg_info:
         "org/usage": {...},
         "org/users": {...},
         "org/users/root": {...},
+        "org/grid-federation-connections": {...},
+        "org/ilm-policy-tags": {...},
         "org/versions": {...}
     }
 """
@@ -146,6 +150,9 @@ class NetAppSgGatherInfo(object):
         self.na_helper = NetAppModule()
         self.parameters = self.na_helper.set_parameters(self.module.params)
         self.rest_api = SGRestAPI(self.module)
+        # Get API version
+        self.rest_api.get_sg_product_version(api_root="org")
+        self.api_version = self.rest_api.get_api_version()
 
     def get_subset_info(self, gather_subset_info):
         """
@@ -186,6 +193,8 @@ class NetAppSgGatherInfo(object):
             'org_usage_info': 'org/usage',
             'org_users_info': 'org/users',
             'org_users_root_info': 'org/users/root',
+            'org_grid_federation_connections_info': 'org/grid-federation-connections',
+            'org_ilm_info': 'org/ilm-policy-tags',
             'versions_info': 'versions'
         }
         # Add rest API names as there info version, also make sure we don't add a duplicate
@@ -207,46 +216,52 @@ class NetAppSgGatherInfo(object):
         # Defining gather_subset and appropriate api_call
         get_sg_subset_info = {
             'org/compliance-global': {
-                'api_call': 'api/v3/org/compliance-global',
+                'api_call': 'api/%s/org/compliance-global' % self.api_version,
             },
             'org/config': {
-                'api_call': 'api/v3/org/config',
+                'api_call': 'api/%s/org/config' % self.api_version,
             },
             'org/config/product-version': {
-                'api_call': 'api/v3/org/config/product-version',
+                'api_call': 'api/%s/org/config/product-version' % self.api_version,
             },
             'org/containers': {
-                'api_call': 'api/v3/org/containers',
+                'api_call': 'api/%s/org/containers' % self.api_version,
             },
             'org/deactivated-features': {
-                'api_call': 'api/v3/org/deactivated-features',
+                'api_call': 'api/%s/org/deactivated-features' % self.api_version,
             },
             'org/endpoints': {
-                'api_call': 'api/v3/org/endpoints',
+                'api_call': 'api/%s/org/endpoints' % self.api_version,
             },
             'org/groups': {
-                'api_call': 'api/v3/org/groups',
+                'api_call': 'api/%s/org/groups' % self.api_version,
             },
             'org/identity-source': {
-                'api_call': 'api/v3/org/identity-source',
+                'api_call': 'api/%s/org/identity-source' % self.api_version,
             },
             'org/regions': {
-                'api_call': 'api/v3/org/regions',
+                'api_call': 'api/%s/org/regions' % self.api_version,
             },
             'org/users/current-user/s3-access-keys': {
-                'api_call': 'api/v3/org/users/current-user/s3-access-keys',
+                'api_call': 'api/%s/org/users/current-user/s3-access-keys' % self.api_version,
             },
             'org/usage': {
-                'api_call': 'api/v3/org/usage',
+                'api_call': 'api/%s/org/usage' % self.api_version,
             },
             'org/users': {
-                'api_call': 'api/v3/org/users',
+                'api_call': 'api/%s/org/users' % self.api_version,
             },
             'org/users/root': {
-                'api_call': 'api/v3/org/users/root',
+                'api_call': 'api/%s/org/users/root' % self.api_version,
             },
             'versions': {
-                'api_call': 'api/v3/versions',
+                'api_call': 'api/%s/versions' % self.api_version,
+            },
+            'org/grid-federation-connections': {
+                'api_call': 'api/%s/org/grid-federation-connections' % self.api_version,
+            },
+            'org/ilm-policy-tags': {
+                'api_call': 'api/%s/org/ilm-policy-tags' % self.api_version,
             },
         }
 
@@ -266,7 +281,7 @@ class NetAppSgGatherInfo(object):
 
             result_message[subset] = self.get_subset_info(specified_subset)
 
-        self.module.exit_json(changed='False', sg_info=result_message)
+        self.module.exit_json(changed=False, sg_info=result_message)
 
 
 def main():

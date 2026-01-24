@@ -8,10 +8,15 @@ from openinference.instrumentation import (
     OITracer,
     TraceConfig,
 )
-from openinference.instrumentation.agno._wrappers import (
-    _FunctionCallWrapper,
+from openinference.instrumentation.agno._model_wrapper import (
     _ModelWrapper,
-    _RunWrapper,
+)
+from openinference.instrumentation.agno._runs_wrapper import _RunWrapper
+from openinference.instrumentation.agno._tools_wrapper import _FunctionCallWrapper
+from openinference.instrumentation.agno._workflow_wrapper import (
+    _ParallelWrapper,
+    _StepWrapper,
+    _WorkflowWrapper,
 )
 from openinference.instrumentation.agno.version import __version__
 
@@ -79,6 +84,9 @@ class AgnoInstrumentor(BaseInstrumentor):  # type: ignore
         "_original_function_execute_method",
         "_original_function_aexecute_method",
         "_original_model_call_methods",
+        "_original_workflow_methods",
+        "_original_step_methods",
+        "_original_parallel_methods",
         "_tracer",
     )
 
@@ -209,26 +217,163 @@ class AgnoInstrumentor(BaseInstrumentor):  # type: ignore
             wrapper=function_call_wrapper.arun,
         )
 
+        # Instrument Workflow and Step
+        try:
+            from agno.workflow.step import Step
+            from agno.workflow.workflow import Workflow
+
+            workflow_wrapper = _WorkflowWrapper(tracer=self._tracer)
+            step_wrapper = _StepWrapper(tracer=self._tracer)
+
+            # Store original methods
+            self._original_workflow_methods = {}
+            self._original_step_methods = {}
+
+            # Wrap Workflow.run (sync) - wraps both streaming and non-streaming
+            if hasattr(Workflow, "run") and callable(getattr(Workflow, "run", None)):
+                self._original_workflow_methods["run"] = Workflow.run
+                wrap_function_wrapper(
+                    module=Workflow,
+                    name="run",
+                    wrapper=workflow_wrapper.run,
+                )
+
+            # Wrap Workflow.arun (async) - wraps both streaming and non-streaming
+            if hasattr(Workflow, "arun") and callable(getattr(Workflow, "arun", None)):
+                self._original_workflow_methods["arun"] = Workflow.arun  # type: ignore[assignment]
+                wrap_function_wrapper(
+                    module=Workflow,
+                    name="arun",
+                    wrapper=workflow_wrapper.arun,
+                )
+
+            # Wrap Step.execute (sync)
+            if hasattr(Step, "execute") and callable(getattr(Step, "execute", None)):
+                self._original_step_methods["execute"] = Step.execute
+                wrap_function_wrapper(
+                    module=Step,
+                    name="execute",
+                    wrapper=step_wrapper.run,
+                )
+
+            # Wrap Step.execute_stream (sync streaming)
+            if hasattr(Step, "execute_stream") and callable(getattr(Step, "execute_stream", None)):
+                self._original_step_methods["execute_stream"] = Step.execute_stream  # type: ignore[assignment]
+                wrap_function_wrapper(
+                    module=Step,
+                    name="execute_stream",
+                    wrapper=step_wrapper.run,
+                )
+
+            # Wrap Step.aexecute (async)
+            if hasattr(Step, "aexecute") and callable(getattr(Step, "aexecute", None)):
+                self._original_step_methods["aexecute"] = Step.aexecute  # type: ignore[assignment]
+                wrap_function_wrapper(
+                    module=Step,
+                    name="aexecute",
+                    wrapper=step_wrapper.arun,
+                )
+
+            # Wrap Step.aexecute_stream (async streaming)
+            if hasattr(Step, "aexecute_stream") and callable(
+                getattr(Step, "aexecute_stream", None)
+            ):
+                self._original_step_methods["aexecute_stream"] = Step.aexecute_stream  # type: ignore[assignment]
+                wrap_function_wrapper(
+                    module=Step,
+                    name="aexecute_stream",
+                    wrapper=step_wrapper.arun,
+                )
+
+            # Instrument Parallel for context propagation to worker threads
+            try:
+                from agno.workflow.parallel import Parallel
+
+                parallel_wrapper = _ParallelWrapper(tracer=self._tracer)
+                self._original_parallel_methods = {}
+
+                # Wrap Parallel.execute (sync non-streaming)
+                if hasattr(Parallel, "execute") and callable(getattr(Parallel, "execute", None)):
+                    self._original_parallel_methods["execute"] = Parallel.execute
+                    wrap_function_wrapper(
+                        module=Parallel,
+                        name="execute",
+                        wrapper=parallel_wrapper.execute,
+                    )
+
+                # Wrap Parallel.execute_stream (sync streaming)
+                if hasattr(Parallel, "execute_stream") and callable(
+                    getattr(Parallel, "execute_stream", None)
+                ):
+                    self._original_parallel_methods["execute_stream"] = Parallel.execute_stream  # type: ignore[assignment]
+                    wrap_function_wrapper(
+                        module=Parallel,
+                        name="execute_stream",
+                        wrapper=parallel_wrapper.execute,
+                    )
+
+                # Wrap Parallel.aexecute (async non-streaming)
+                if hasattr(Parallel, "aexecute") and callable(getattr(Parallel, "aexecute", None)):
+                    self._original_parallel_methods["aexecute"] = Parallel.aexecute  # type: ignore[assignment]
+                    wrap_function_wrapper(
+                        module=Parallel,
+                        name="aexecute",
+                        wrapper=parallel_wrapper.aexecute,
+                    )
+
+                # Wrap Parallel.aexecute_stream (async streaming)
+                if hasattr(Parallel, "aexecute_stream") and callable(
+                    getattr(Parallel, "aexecute_stream", None)
+                ):
+                    self._original_parallel_methods["aexecute_stream"] = Parallel.aexecute_stream  # type: ignore[assignment]
+                    wrap_function_wrapper(
+                        module=Parallel,
+                        name="aexecute_stream",
+                        wrapper=parallel_wrapper.aexecute,
+                    )
+
+            except (ImportError, AttributeError):
+                # Parallel not available in this version of agno
+                self._original_parallel_methods = None  # type: ignore[assignment]
+
+        except (ImportError, AttributeError):
+            # Workflow/Step not available in this version of agno
+            self._original_workflow_methods = None  # type: ignore[assignment]
+            self._original_step_methods = None  # type: ignore[assignment]
+            self._original_parallel_methods = None  # type: ignore[assignment]
+
     def _uninstrument(self, **kwargs: Any) -> None:
         from agno.agent import Agent
         from agno.team import Team
         from agno.tools.function import FunctionCall
 
         if self._original_run_method is not None:
-            Agent.run = self._original_run_method  # type: ignore[method-assign]
+            Agent._run = self._original_run_method  # type: ignore[method-assign]
             self._original_run_method = None
+        if self._original_run_stream_method is not None:
+            Agent._run_stream = self._original_run_stream_method  # type: ignore[method-assign]
+            self._original_run_stream_method = None
 
         if self._original_arun_method is not None:
-            Agent.arun = self._original_arun_method  # type: ignore[method-assign]
+            Agent._arun = self._original_arun_method  # type: ignore[method-assign]
             self._original_arun_method = None
+        if self._original_arun_stream_method is not None:
+            Agent._arun_stream = self._original_arun_stream_method  # type: ignore[method-assign]
+            self._original_arun_stream_method = None
 
         if self._original_team_run_method is not None:
-            Team.run = self._original_team_run_method  # type: ignore[method-assign]
+            Team._run = self._original_team_run_method  # type: ignore[method-assign]
             self._original_team_run_method = None
+        if self._original_team_run_stream_method is not None:
+            Team._run_stream = self._original_team_run_stream_method  # type: ignore[method-assign]
+            self._original_team_run_stream_method = None
 
         if self._original_team_arun_method is not None:
-            Team.arun = self._original_team_arun_method  # type: ignore[method-assign]
+            Team._arun = self._original_team_arun_method  # type: ignore[method-assign]
             self._original_team_arun_method = None
+        if self._original_team_arun_stream_method is not None:
+            Team._arun_stream = self._original_team_arun_stream_method  # type: ignore[method-assign]
+            self._original_team_arun_stream_method = None
 
         if self._original_model_call_methods is not None:
             for (
@@ -246,3 +391,38 @@ class AgnoInstrumentor(BaseInstrumentor):  # type: ignore
         if self._original_function_aexecute_method is not None:
             FunctionCall.aexecute = self._original_function_aexecute_method  # type: ignore[method-assign]
             self._original_function_aexecute_method = None
+
+        # Uninstrument Workflow and Step
+        if self._original_workflow_methods is not None:
+            try:
+                from agno.workflow.workflow import Workflow
+
+                for method_name, original in self._original_workflow_methods.items():
+                    if original is not None:
+                        setattr(Workflow, method_name, original)
+            except ImportError:
+                pass
+            self._original_workflow_methods = None  # type: ignore[assignment]
+
+        if self._original_step_methods is not None:
+            try:
+                from agno.workflow.step import Step
+
+                for method_name, original in self._original_step_methods.items():  # type: ignore[assignment]
+                    if original is not None:
+                        setattr(Step, method_name, original)
+            except ImportError:
+                pass
+            self._original_step_methods = None  # type: ignore[assignment]
+
+        # Uninstrument Parallel
+        if self._original_parallel_methods is not None:
+            try:
+                from agno.workflow.parallel import Parallel
+
+                for method_name, original in self._original_parallel_methods.items():  # type: ignore[assignment]
+                    if original is not None:
+                        setattr(Parallel, method_name, original)
+            except ImportError:
+                pass
+            self._original_parallel_methods = None  # type: ignore[assignment]

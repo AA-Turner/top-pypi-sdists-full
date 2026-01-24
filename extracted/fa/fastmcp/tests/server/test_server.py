@@ -1,21 +1,16 @@
-import logging
-from typing import Annotated, Any
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from textwrap import dedent
+from typing import Annotated
 
-import httpx
 import pytest
-from fastapi import FastAPI
 from mcp import McpError
 from pydantic import Field
-from pytest import LogCaptureFixture
 
 from fastmcp import Client, FastMCP
 from fastmcp.exceptions import NotFoundError
-from fastmcp.experimental.server.openapi import (
-    FastMCPOpenAPI as ExperimentalFastMCPOpenAPI,
-)
 from fastmcp.prompts.prompt import FunctionPrompt, Prompt
 from fastmcp.resources import Resource, ResourceTemplate
-from fastmcp.server.openapi import FastMCPOpenAPI as LegacyFastMCPOpenAPI
 from fastmcp.server.server import (
     add_resource_prefix,
     has_resource_prefix,
@@ -23,7 +18,6 @@ from fastmcp.server.server import (
 )
 from fastmcp.tools import FunctionTool
 from fastmcp.tools.tool import Tool
-from fastmcp.utilities.tests import caplog_for_fastmcp, temporary_settings
 
 
 class TestCreateServer:
@@ -31,6 +25,12 @@ class TestCreateServer:
         mcp = FastMCP(instructions="Server instructions")
         assert mcp.name.startswith("FastMCP-")
         assert mcp.instructions == "Server instructions"
+
+    async def test_change_instruction(self):
+        mcp = FastMCP(instructions="Server instructions")
+        assert mcp.instructions == "Server instructions"
+        mcp.instructions = "New instructions"
+        assert mcp.instructions == "New instructions"
 
     async def test_non_ascii_description(self):
         """Test that FastMCP handles non-ASCII characters in descriptions correctly"""
@@ -67,7 +67,7 @@ class TestTools:
         def fn(x: int) -> int:
             return x + 1
 
-        mcp_tools = await mcp._mcp_list_tools()
+        mcp_tools = await mcp._list_tools_mcp()
         assert len(mcp_tools) == 1
         assert mcp_tools[0].name == "fn"
 
@@ -80,7 +80,7 @@ class TestTools:
         def fn(x: int) -> int:
             return x + 1
 
-        mcp_tools = await mcp._mcp_list_tools()
+        mcp_tools = await mcp._list_tools_mcp()
         assert len(mcp_tools) == 1
         assert mcp_tools[0].name == "custom_name"
 
@@ -101,7 +101,7 @@ class TestTools:
         assert "adder" not in mcp_tools
 
         with pytest.raises(NotFoundError, match="Unknown tool: adder"):
-            await mcp._mcp_call_tool("adder", {"a": 1, "b": 2})
+            await mcp._call_tool_mcp("adder", {"a": 1, "b": 2})
 
     async def test_add_tool_at_init(self):
         def f(x: int) -> int:
@@ -127,7 +127,7 @@ class TestToolDecorator:
         mcp = FastMCP()
 
         with pytest.raises(NotFoundError, match="Unknown tool: add"):
-            await mcp._mcp_call_tool("add", {"x": 1, "y": 2})
+            await mcp._call_tool_mcp("add", {"x": 1, "y": 2})
 
     async def test_tool_decorator(self):
         mcp = FastMCP()
@@ -176,7 +176,7 @@ class TestToolDecorator:
         def add(x: int, y: int) -> int:
             return x + y
 
-        tools = await mcp._mcp_list_tools()
+        tools = await mcp._list_tools_mcp()
         assert len(tools) == 1
         tool = tools[0]
         assert tool.description == "Add two numbers"
@@ -298,10 +298,11 @@ class TestToolDecorator:
         def sample_tool(x: int) -> int:
             return x * 2
 
-        # Verify the tags were set correctly
-        tools = await mcp._tool_manager.list_tools()
-        assert len(tools) == 1
-        assert tools[0].tags == {"example", "test-tag"}
+        # Verify the tags were set correctly (local inventory)
+        tools_dict = await mcp._tool_manager.get_tools()
+        assert len(tools_dict) == 1
+        only_tool = next(iter(tools_dict.values()))
+        assert only_tool.tags == {"example", "test-tag"}
 
     async def test_add_tool_with_custom_name(self):
         """Test adding a tool with a custom name using server.add_tool()."""
@@ -414,7 +415,7 @@ class TestToolDecorator:
         mcp = FastMCP()
 
         with pytest.raises(
-            ValueError, match='Output schemas must have "type" set to "object"'
+            ValueError, match="Output schemas must represent object types"
         ):
 
             @mcp.tool(output_schema={"type": "integer"})
@@ -1277,20 +1278,11 @@ class TestResourcePrefixMounting:
         """Test that resource prefix utility functions correctly match and strip resource prefixes."""
         from fastmcp.server.server import has_resource_prefix, remove_resource_prefix
 
-        # Create a basic server to get the default resource prefix format
-        server = FastMCP()
-
         # Test matching
-        assert (
-            has_resource_prefix(uri, prefix, server.resource_prefix_format)
-            == expected_match
-        )
+        assert has_resource_prefix(uri, prefix) == expected_match
 
         # Test stripping
-        assert (
-            remove_resource_prefix(uri, prefix, server.resource_prefix_format)
-            == expected_strip
-        )
+        assert remove_resource_prefix(uri, prefix) == expected_strip
 
     async def test_import_server_with_new_prefix_format(self):
         """Test that import_server correctly uses the new prefix format."""
@@ -1438,143 +1430,97 @@ class TestShouldIncludeComponent:
         assert result is True
 
 
-class TestOpenAPIExperimentalFeatureFlag:
-    """Test experimental OpenAPI parser feature flag behavior."""
+class TestSettingsFromEnvironment:
+    async def test_settings_from_environment_issue_1749(self):
+        """Test that when auth is enabled, the server starts."""
+        from fastmcp.client.transports import PythonStdioTransport
+        from fastmcp.server.auth.providers.azure import AzureProvider
+        from fastmcp.settings import Settings
 
-    @pytest.fixture
-    def simple_openapi_spec(self):
-        """Simple OpenAPI spec for testing."""
-        return {
-            "openapi": "3.0.0",
-            "info": {"title": "Test API", "version": "1.0.0"},
-            "paths": {
-                "/test": {
-                    "get": {
-                        "operationId": "test_operation",
-                        "summary": "Test operation",
-                        "responses": {"200": {"description": "Success"}},
-                    }
-                }
-            },
-        }
+        script = dedent("""
+        import os
 
-    @pytest.fixture
-    def mock_client(self):
-        """Mock HTTP client."""
-        return httpx.AsyncClient(base_url="https://api.example.com")
+        os.environ["FASTMCP_SERVER_AUTH"] = "fastmcp.server.auth.providers.azure.AzureProvider"
 
-    def test_from_openapi_uses_legacy_by_default_and_logs_message(
-        self,
-        simple_openapi_spec: dict[str, Any],
-        mock_client: httpx.AsyncClient,
-        caplog: LogCaptureFixture,
-    ):
-        """Test that from_openapi uses legacy parser by default and emits log message."""
-        # Capture all logs at INFO level and above using FastMCP's logger
-        with caplog_for_fastmcp(caplog), caplog.at_level(logging.INFO):
-            # Create server using from_openapi (should use legacy by default)
-            server = FastMCP.from_openapi(
-                openapi_spec=simple_openapi_spec, client=mock_client
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_TENANT_ID"] = "A_Valid_Value"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_CLIENT_ID"] = "A_Valid_Value"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_CLIENT_SECRET"] = "A_Valid_Value"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_REDIRECT_PATH"] = "/auth/callback"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_BASE_URL"] = "http://localhost:8000"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_REQUIRED_SCOPES"] = "User.Read,email,profile"
+        os.environ["FASTMCP_SERVER_AUTH_AZURE_JWT_SIGNING_KEY"] = "test-secret"
+
+        import fastmcp
+        
+        mcp = fastmcp.FastMCP("TestServer")
+
+        mcp.run()
+        """)
+
+        with TemporaryDirectory() as temp_dir:
+            server_file = Path(temp_dir) / "server.py"
+            server_file.write_text(script)
+
+            transport: PythonStdioTransport = PythonStdioTransport(
+                script_path=server_file
             )
 
-        # Should be the legacy implementation
-        assert isinstance(server, LegacyFastMCPOpenAPI)
+            async with Client[PythonStdioTransport](transport=transport) as client:
+                tools = await client.list_tools()
 
-        # Should have logged the message about using legacy parser
-        legacy_log_messages = [
-            record
-            for record in caplog.records
-            if "Using legacy OpenAPI parser" in record.message
-        ]
-        assert len(legacy_log_messages) == 1
-        assert legacy_log_messages[0].levelno == logging.INFO
-        assert (
-            "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true"
-            in legacy_log_messages[0].message
+                assert tools == []
+
+        settings = Settings(
+            server_auth="fastmcp.server.auth.providers.azure.AzureProvider"
         )
 
-    def test_from_openapi_uses_experimental_with_flag_and_no_log(
-        self,
-        simple_openapi_spec: dict[str, Any],
-        mock_client: httpx.AsyncClient,
-        caplog: LogCaptureFixture,
-    ):
-        """Test that from_openapi uses experimental parser with flag and emits no log."""
-        # Capture all logs at INFO level and above
-        with caplog.at_level(logging.INFO):
-            # Create server with experimental flag enabled
-            with temporary_settings(experimental__enable_new_openapi_parser=True):
-                server = FastMCP.from_openapi(
-                    openapi_spec=simple_openapi_spec, client=mock_client
-                )
+        auth_class = settings.server_auth_class
 
-        # Should be the experimental implementation
-        assert isinstance(server, ExperimentalFastMCPOpenAPI)
+        assert auth_class is AzureProvider
 
-        # Should not have logged the legacy parser message
-        legacy_log_messages = [
-            record
-            for record in caplog.records
-            if "Using legacy OpenAPI parser" in record.message
-        ]
-        assert len(legacy_log_messages) == 0
 
-    def test_from_fastapi_uses_legacy_by_default_and_logs_message(
-        self, caplog: LogCaptureFixture
-    ):
-        """Test that from_fastapi uses legacy parser by default and emits log message."""
-        # Capture all logs at INFO level and above using FastMCP's logger
-        with caplog_for_fastmcp(caplog), caplog.at_level(logging.INFO):
-            # Create a simple FastAPI app
-            app = FastAPI(title="Test API")
+class TestAbstractCollectionTypes:
+    """Test that FastMCP accepts abstract collection types from collections.abc."""
 
-            @app.get("/test")
-            def test_endpoint():
-                return {"message": "test"}
+    async def test_fastmcp_init_with_tuples(self):
+        """Test FastMCP accepts tuples for sequence parameters."""
 
-            # Create server using from_fastapi (should use legacy by default)
-            server = FastMCP.from_fastapi(app=app)
+        def dummy_tool() -> str:
+            return "test"
 
-        # Should be the legacy implementation
-        assert isinstance(server, LegacyFastMCPOpenAPI)
-
-        # Should have logged the message about using legacy parser
-        legacy_log_messages = [
-            record
-            for record in caplog.records
-            if "Using legacy OpenAPI parser" in record.message
-        ]
-        assert len(legacy_log_messages) == 1
-        assert legacy_log_messages[0].levelno == logging.INFO
-        assert (
-            "FASTMCP_EXPERIMENTAL_ENABLE_NEW_OPENAPI_PARSER=true"
-            in legacy_log_messages[0].message
+        # Test with tuples and other abstract types
+        mcp = FastMCP(
+            "test",
+            middleware=(),  # Empty tuple
+            tools=(Tool.from_function(dummy_tool),),  # Tuple of tools
+            include_tags={"tag1", "tag2"},  # Set
+            exclude_tags=frozenset({"tag3"}),  # Frozen set
         )
+        assert mcp is not None
+        assert mcp.name == "test"
+        assert isinstance(mcp.middleware, list)  # Should be converted to list
 
-    def test_from_fastapi_uses_experimental_with_flag_and_no_log(
-        self, caplog: LogCaptureFixture
-    ):
-        """Test that from_fastapi uses experimental parser with flag and emits no log."""
-        # Capture all logs at INFO level and above
-        with caplog.at_level(logging.INFO):
-            # Create a simple FastAPI app
-            app = FastAPI(title="Test API")
+    async def test_fastmcp_init_with_readonly_mapping(self):
+        """Test FastMCP accepts read-only mappings."""
+        from types import MappingProxyType
 
-            @app.get("/test")
-            def test_endpoint():
-                return {"message": "test"}
+        # Test with read-only mapping
+        mcp = FastMCP(
+            "test2",
+            tool_transformations=MappingProxyType({}),  # Read-only mapping
+        )
+        assert mcp is not None
 
-            # Create server with experimental flag enabled
-            with temporary_settings(experimental__enable_new_openapi_parser=True):
-                server = FastMCP.from_fastapi(app=app)
+    async def test_fastmcp_works_with_abstract_types(self):
+        """Test that abstract types work end-to-end with a client."""
 
-        # Should be the experimental implementation
-        assert isinstance(server, ExperimentalFastMCPOpenAPI)
+        def greet(name: str) -> str:
+            return f"Hello, {name}!"
 
-        # Should not have logged the legacy parser message
-        legacy_log_messages = [
-            record
-            for record in caplog.records
-            if "Using legacy OpenAPI parser" in record.message
-        ]
-        assert len(legacy_log_messages) == 0
+        # Create server with tuple of tools
+        mcp = FastMCP("test", tools=(Tool.from_function(greet),))
+
+        # Verify it works with a client
+        async with Client(mcp) as client:
+            result = await client.call_tool("greet", {"name": "World"})
+            assert result.content[0].text == "Hello, World!"  # type: ignore[attr-defined]

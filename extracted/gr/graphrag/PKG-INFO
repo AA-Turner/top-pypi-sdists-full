@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: graphrag
-Version: 2.6.0
+Version: 2.7.0
 Summary: GraphRAG: A graph-based retrieval-augmented generation (RAG) system.
 Author: Mónica Carvajal
 Author-email: Alonso Guevara Fernández <alonsog@microsoft.com>, Andrés Morales Esquivel <andresmor@microsoft.com>, Chris Trevino <chtrevin@microsoft.com>, David Tittsworth <datittsw@microsoft.com>, Dayenne de Souza <ddesouza@microsoft.com>, Derek Worthen <deworthe@microsoft.com>, Gaudy Blanco Meneses <gaudyb@microsoft.com>, Ha Trinh <trinhha@microsoft.com>, Jonathan Larson <jolarso@microsoft.com>, Josh Bradley <joshbradley@microsoft.com>, Kate Lytvynets <kalytv@microsoft.com>, Kenny Zhang <zhangken@microsoft.com>, Nathan Evans <naevans@microsoft.com>, Rodrigo Racanicci <rracanicci@microsoft.com>, Sarah Smith <smithsarah@microsoft.com>
@@ -42,26 +42,6 @@ Requires-Dist: tqdm>=4.67.1
 Requires-Dist: textblob>=0.18.0.post0
 Requires-Dist: spacy>=3.8.4
 Requires-Dist: litellm>=1.77.1
-Provides-Extra: dev
-Requires-Dist: coverage>=7.6.9; extra == "dev"
-Requires-Dist: ipykernel>=6.29.5; extra == "dev"
-Requires-Dist: jupyter>=1.1.1; extra == "dev"
-Requires-Dist: nbconvert>=7.16.4; extra == "dev"
-Requires-Dist: poethepoet>=0.31.1; extra == "dev"
-Requires-Dist: pandas-stubs>=2.3.0.250703; extra == "dev"
-Requires-Dist: pyright>=1.1.390; extra == "dev"
-Requires-Dist: pytest>=8.3.4; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
-Requires-Dist: pytest-timeout>=2.3.1; extra == "dev"
-Requires-Dist: ruff>=0.8.2; extra == "dev"
-Requires-Dist: semversioner>=2.0.5; extra == "dev"
-Requires-Dist: update-toml>=0.2.1; extra == "dev"
-Requires-Dist: deptry>=0.21.1; extra == "dev"
-Requires-Dist: mkdocs-material>=9.5.48; extra == "dev"
-Requires-Dist: mkdocs-jupyter>=0.25.1; extra == "dev"
-Requires-Dist: mkdocs-exclude-search>=0.6.6; extra == "dev"
-Requires-Dist: pytest-dotenv>=0.5.2; extra == "dev"
-Requires-Dist: mkdocs-typer>=0.0.3; extra == "dev"
 Dynamic: license-file
 
 # GraphRAG

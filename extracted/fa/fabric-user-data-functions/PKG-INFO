@@ -1,0 +1,35 @@
+Metadata-Version: 2.1
+Name: fabric-user-data-functions
+Version: 1.0.54
+Summary: This package contains bindings and middle ware required for fabric functions built on python.
+License: Proprietary
+Author: Fabric AppDev Team
+Author-email: TridentAppDevEngineering@service.microsoft.com
+Requires-Python: >=3.9,<4.0
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: aiohttp (>=3.11.11,<4.0.0)
+Requires-Dist: azure-cosmos (>=4.2.0)
+Requires-Dist: azure-functions (>=1.17.0,<2.0.0)
+Requires-Dist: azure-storage-file-datalake (>=12.14.0,<13.0.0)
+Requires-Dist: pyarrow (>=19.0.1,<20.0.0)
+Requires-Dist: pydantic (>=2.11.2,<3.0.0)
+Requires-Dist: pyjwt (>=2.8.0,<3.0.0)
+Requires-Dist: pyodbc (>=5.0.1,<6.0.0)
+Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
+Description-Content-Type: text/markdown
+
+# Fabric User Data Functions Python Library
+
+## Introduction
+
+This project contains the necessary bindings and middleware we can register on a python function in order to receive fabric data from our worker extension. 
+
+## Suggestions / Issues
+
+If you have any suggestions or issues, please report them here: https://community.fabric.microsoft.com/t5/Issues/idb-p/Issues

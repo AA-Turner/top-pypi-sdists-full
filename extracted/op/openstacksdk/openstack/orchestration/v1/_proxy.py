@@ -531,7 +531,7 @@ class Proxy(proxy.Proxy):
             )
         except Exception as e:
             raise exceptions.SDKException(
-                f"Error in processing template files: {str(e)}"
+                f"Error in processing template files: {e!s}"
             )
 
     # ========== Stack events ==========
@@ -554,13 +554,15 @@ class Proxy(proxy.Proxy):
             obj = self._get(_stack.Stack, stack)
 
         if resource_name:
-            base_path = '/stacks/%(stack_name)s/%(stack_id)s/resources/%(resource_name)s/events'
             return self._list(
                 _stack_event.StackEvent,
                 stack_name=obj.name,
                 stack_id=obj.id,
                 resource_name=resource_name,
-                base_path=base_path,
+                base_path=(
+                    '/stacks/%(stack_name)s/%(stack_id)s/resources/'
+                    '%(resource_name)s/events'
+                ),
                 **attr,
             )
 

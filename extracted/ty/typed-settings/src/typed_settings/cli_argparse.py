@@ -6,7 +6,8 @@ Utilities for generating an :mod:`argparse` based CLI.
 
 import argparse
 import itertools
-from collections.abc import Collection, Iterable, Mapping, Sequence
+import re
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from datetime import date, datetime, timedelta
 from enum import Enum
 from functools import partial, wraps
@@ -14,9 +15,9 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
-    Optional,
     Union,
+    get_args,
+    get_origin,
 )
 
 from ._compat import PY_311
@@ -46,6 +47,7 @@ from .types import (
     LoaderMeta,
     MergedSettings,
     OptionInfo,
+    Secret,
 )
 
 
@@ -67,6 +69,8 @@ __all__ = [
     "handle_enum_by_name",
     "handle_enum_by_value",
     "handle_path",
+    "handle_pattern",
+    "handle_secret",
     "make_parser",
     "namespace2settings",
 ]
@@ -74,10 +78,10 @@ __all__ = [
 
 WrapppedFunc = Callable[[ST], Any]
 CliFn = Callable[[ST], Any]
-DecoratedCliFn = Callable[[], Optional[int]]
+DecoratedCliFn = Callable[[], int | None]
 
 
-def handle_datetime(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_datetime(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Handle isoformatted datetimes.
     """
@@ -92,7 +96,7 @@ def handle_datetime(type: type, default: Default, is_optional: bool) -> StrDict:
     return kwargs
 
 
-def handle_date(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_date(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Handle isoformatted datetimes.
     """
@@ -107,7 +111,7 @@ def handle_date(type: type, default: Default, is_optional: bool) -> StrDict:
     return kwargs
 
 
-def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict:
+def handle_timedelta(typ: type, default: Default, is_optional: bool) -> StrDict:
     """
     Handle isoformatted datetimes.
     """
@@ -123,13 +127,13 @@ def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict
 
 
 def handle_enum_by_name(
-    type: type[Enum], default: Default, is_optional: bool
+    typ: type[Enum], default: Default, is_optional: bool
 ) -> StrDict:
     """
     Use *choices* as option type and use the enum value's name as default.
     """
-    kwargs: StrDict = {"choices": [str(k) for k in type.__members__]}
-    if isinstance(default, type):
+    kwargs: StrDict = {"choices": [str(k) for k in typ.__members__]}
+    if isinstance(default, typ):
         # Convert Enum instance to string
         kwargs["default"] = default.name
     elif is_optional:
@@ -142,13 +146,13 @@ handle_enum = handle_enum_by_name
 
 
 def handle_enum_by_value(
-    type: type[Enum], default: Default, is_optional: bool
+    typ: type[Enum], default: Default, is_optional: bool
 ) -> StrDict:
     """
     Use *choices* as option type and use the enum value's name as default.
     """
-    kwargs: StrDict = {"choices": [str(v) for v in type.__members__.values()]}
-    if isinstance(default, type):
+    kwargs: StrDict = {"choices": [str(v) for v in typ.__members__.values()]}
+    if isinstance(default, typ):
         # Convert Enum instance to string
         kwargs["default"] = default.value
     elif is_optional:
@@ -157,13 +161,63 @@ def handle_enum_by_value(
     return kwargs
 
 
-def handle_path(type: type[Path], default: Default, is_optional: bool) -> StrDict:
+def handle_path(typ: type[Path], default: Default, is_optional: bool) -> StrDict:
     """
     Handle :class:`pathlib.Path` and also use proper metavar.
     """
-    kwargs: StrDict = {"type": Path, "metavar": "PATH"}
+    kwargs: StrDict = {"type": typ, "metavar": "PATH"}
     if isinstance(default, (Path, str)):
         kwargs["default"] = str(default)
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+def handle_pattern(
+    typ: type[re.Pattern], default: Default, is_optional: bool
+) -> StrDict:
+    """
+    Use "re.compile()" as func param type so that the resulting value is a
+    :class:`re.Pattern`.
+    """
+    kwargs: StrDict = {
+        "type": re.compile,
+        "metavar": "PATTERN",
+    }
+    if isinstance(default, typ):
+        # Convert Enum instance to string
+        kwargs["default"] = default.pattern
+
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+def handle_secret(typ: type[Secret], default: Default, is_optional: bool) -> StrDict:
+    """
+    Handle :class:`typed_settings.types.Secret` types.
+    """
+    metavar = "SECRET"
+    if isinstance(typ, type):
+        cli_type = Secret
+        has_default = isinstance(default, typ)
+    else:
+        secret_type = get_args(typ)[0]
+        cli_type = lambda v: Secret(secret_type(v))  # noqa: E731
+        if secret_type is not str:
+            metavar = f"SECRET_{secret_type.__name__.upper()}"
+        has_default = isinstance(default, get_origin(typ))
+
+    kwargs: StrDict = {
+        "type": cli_type,
+        "metavar": metavar,
+    }
+    if has_default:
+        kwargs["default"] = default.get_secret_value()  # type: ignore[union-attr]
+        kwargs["is_secret"] = True
+
     elif is_optional:
         kwargs["default"] = None
 
@@ -185,6 +239,8 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
     ),
     Enum: handle_enum_by_name,
     Path: handle_path,
+    re.Pattern: handle_pattern,
+    Secret: handle_secret,
 }
 
 
@@ -198,9 +254,7 @@ class ArgparseHandler:
             Use :data:`DEFAULT_TYPES` by default.
     """
 
-    def __init__(
-        self, extra_types: Optional[dict[type, TypeHandlerFunc]] = None
-    ) -> None:
+    def __init__(self, extra_types: dict[type, TypeHandlerFunc] | None = None) -> None:
         self.extra_types = extra_types or DEFAULT_TYPES
 
     def get_scalar_handlers(self) -> dict[type, TypeHandlerFunc]:
@@ -208,7 +262,7 @@ class ArgparseHandler:
 
     def handle_scalar(
         self,
-        type: Optional[type],
+        type: type | None,
         default: Default,
         is_optional: bool,
     ) -> StrDict:
@@ -229,11 +283,28 @@ class ArgparseHandler:
 
         return kwargs
 
+    def handle_literal(
+        self, type: type | None, default: Default, is_optional: bool
+    ) -> StrDict:
+        """
+        Use "choices" as option type and use the literal's values as choices.
+        """
+        values = get_args(type)
+        if not all(isinstance(v, str) for v in values):
+            raise ValueError(f"All Literal values must be strings: {values!r}")
+        kwargs: StrDict = {"choices": [str(v) for v in values]}
+        if default in values:
+            kwargs["default"] = default
+        elif is_optional:
+            kwargs["default"] = None
+
+        return kwargs
+
     def handle_tuple(
         self,
         type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[tuple],
+        default: tuple | None,
         is_optional: bool,
     ) -> StrDict:
         metavar = tuple(
@@ -250,7 +321,7 @@ class ArgparseHandler:
         self,
         type_args_maker: TypeArgsMaker,
         types: tuple[Any, ...],
-        default: Optional[Collection[Any]],
+        default: Collection[Any] | None,
         is_optional: bool,
     ) -> StrDict:
         kwargs = type_args_maker.get_kwargs(types[0], NO_DEFAULT)
@@ -279,12 +350,12 @@ class ArgparseHandler:
 
 def cli(
     settings_cls: type[ST],
-    loaders: Union[str, Sequence[Loader]],
+    loaders: str | Sequence[Loader],
     *,
     processors: Sequence[Processor] = (),
-    converter: Optional[Converter] = None,
+    converter: Converter | None = None,
     base_dir: Path = Path(),
-    type_args_maker: Optional[TypeArgsMaker] = None,
+    type_args_maker: TypeArgsMaker | None = None,
     **parser_kwargs: Any,
 ) -> Callable[[CliFn[ST]], DecoratedCliFn]:
     r"""
@@ -354,12 +425,12 @@ def cli(
 
 def make_parser(
     settings_cls: type[ST],
-    loaders: Union[str, Sequence[Loader]],
+    loaders: str | Sequence[Loader],
     *,
     processors: Sequence[Processor] = (),
-    converter: Optional[Converter] = None,
+    converter: Converter | None = None,
     base_dir: Path = Path(),
-    type_args_maker: Optional[TypeArgsMaker] = None,
+    type_args_maker: TypeArgsMaker | None = None,
     **parser_kwargs: Any,
 ) -> tuple[argparse.ArgumentParser, MergedSettings]:
     r"""
@@ -421,7 +492,7 @@ def namespace2settings(
     namespace: argparse.Namespace,
     *,
     merged_settings: MergedSettings,
-    converter: Optional[Converter] = None,
+    converter: Converter | None = None,
     base_dir: Path = Path(),
 ) -> ST:
     """
@@ -474,7 +545,7 @@ def _get_decorator(
         """
 
         @wraps(func)
-        def cli_wrapper() -> Optional[int]:
+        def cli_wrapper() -> int | None:
             if "description" not in parser_kwargs and func.__doc__:
                 parser_kwargs["description"] = func.__doc__.strip()
             parser, merged_settings = _mk_parser(
@@ -526,7 +597,7 @@ def _mk_argument(
     kwargs = type_args_maker.get_kwargs(oinfo.cls, default)
 
     param_decls: tuple[str, ...]
-    user_param_decls: Union[str, Sequence[str]]
+    user_param_decls: str | Sequence[str]
     user_param_decls = user_config.pop("param_decls", ())
     if not user_param_decls:
         option_name = oinfo.path.replace(".", "-").replace("_", "-")
@@ -539,11 +610,12 @@ def _mk_argument(
     # Get "help" from the user_config *now*, because we may need to update it
     # below.  Also replace "None" with "".
     kwargs["help"] = user_config.pop("help", None) or ""
+    is_secret = any([oinfo.is_secret, kwargs.pop("is_secret", False)])
     if "default" in kwargs and kwargs["default"] is not NO_DEFAULT:
         default_repr = kwargs.pop("default_repr", kwargs["default"])
         if kwargs["default"] is None:
             help_extra = ""
-        elif oinfo.is_secret:
+        elif is_secret:
             help_extra = f" [default: ({SECRET_REPR})]"
         elif isinstance(callable(kwargs["default"]), DefaultFactorySentinel):
             help_extra = "[default: (dynamic)]"
@@ -597,10 +669,10 @@ class BooleanOptionalAction(argparse.Action):
         dest: str,
         default: Default = None,
         type: Union[Callable[[str], Any], "FileType", None] = None,
-        choices: Optional[Iterable[Any]] = None,
+        choices: Iterable[Any] | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Union[str, tuple[str, ...], None] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         _option_strings = []
         for option_string in option_strings:
@@ -630,8 +702,8 @@ class BooleanOptionalAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if option_string and option_string in self.option_strings:  # pragma: no cover
             setattr(namespace, self.dest, not option_string.startswith("--no-"))
@@ -649,13 +721,13 @@ class ListAction(argparse.Action):
         self,
         option_strings: Sequence[str],
         dest: str,
-        nargs: Union[int, str, None] = None,
+        nargs: int | str | None = None,
         default: Default = None,
         type: Union[Callable[[str], Any], "FileType", None] = None,
-        choices: Optional[Iterable[Any]] = None,
+        choices: Iterable[Any] | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Union[str, tuple[str, ...], None] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         if nargs == 0:  # pragma: no cover
             raise ValueError(f"nargs for append actions must be != 0: {nargs}")
@@ -675,8 +747,8 @@ class ListAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if values is None:
             return  # pragma: no cover
@@ -700,10 +772,10 @@ class DictItemAction(argparse.Action):
         dest: str,
         default: Default = None,
         type: Union[Callable[[str], Any], "FileType", None] = None,
-        choices: Optional[Iterable[Any]] = None,
+        choices: Iterable[Any] | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Union[str, tuple[str, ...], None] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         super().__init__(
             option_strings=option_strings,
@@ -721,8 +793,8 @@ class DictItemAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         if values is None:
             return  # pragma: no cover

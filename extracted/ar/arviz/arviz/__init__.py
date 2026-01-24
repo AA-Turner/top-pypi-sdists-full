@@ -1,14 +1,54 @@
 # pylint: disable=wildcard-import,invalid-name,wrong-import-position
 """ArviZ is a library for exploratory analysis of Bayesian models."""
-__version__ = "0.22.0"
+__version__ = "0.23.1"
 
 import logging
 import os
+import re
 
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.pyplot import style
 import matplotlib as mpl
 from packaging import version
+
+
+def _warn_once_per_day():
+    from .preview import info
+
+    # skip warning if all 3 arviz subpackages are already installed
+    pat = re.compile(r"arviz_(base|stats|plots) available")
+    if len(pat.findall(info)) == 3:
+        return
+
+    import datetime
+    from warnings import warn
+    from pathlib import Path
+
+    warning_dir = Path.home() / "arviz_data"
+    warning_dir.mkdir(exist_ok=True)
+
+    stamp_file = warning_dir / "daily_warning"
+    today = datetime.date.today()
+
+    if stamp_file.exists():
+        last_date = datetime.date.fromisoformat(stamp_file.read_text().strip())
+    else:
+        last_date = None
+
+    if last_date != today:
+        warn(
+            "\nArviZ is undergoing a major refactor to improve flexibility and extensibility "
+            "while maintaining a user-friendly interface."
+            "\nSome upcoming changes may be backward incompatible."
+            "\nFor details and migration guidance, visit: "
+            "https://python.arviz.org/en/latest/user_guide/migration_guide.html",
+            FutureWarning,
+        )
+
+        stamp_file.write_text(today.isoformat())
+
+
+_warn_once_per_day()
 
 
 class Logger(logging.Logger):
@@ -333,4 +373,4 @@ except ModuleNotFoundError:
 
 
 # clean namespace
-del os, logging, LinearSegmentedColormap, Logger, mpl
+del os, re, logging, version, LinearSegmentedColormap, Logger, mpl

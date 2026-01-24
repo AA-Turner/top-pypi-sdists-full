@@ -394,6 +394,29 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateSyncUserTask(self, request):
+        r"""创建用户同步任务
+
+        :param request: Request instance for CreateSyncUserTask.
+        :type request: :class:`tencentcloud.bh.v20230418.models.CreateSyncUserTaskRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.CreateSyncUserTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSyncUserTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSyncUserTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateUser(self, request):
         r"""新建用户
 
@@ -408,6 +431,29 @@ class BhClient(AbstractClient):
             body = self.call("CreateUser", params, headers=headers)
             response = json.loads(body)
             model = models.CreateUserResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateUserDirectory(self, request):
+        r"""创建用户目录
+
+        :param request: Request instance for CreateUserDirectory.
+        :type request: :class:`tencentcloud.bh.v20230418.models.CreateUserDirectoryRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.CreateUserDirectoryResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateUserDirectory", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateUserDirectoryResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -647,6 +693,29 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DeleteUserDirectory(self, request):
+        r"""删除用户目录
+
+        :param request: Request instance for DeleteUserDirectory.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DeleteUserDirectoryRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DeleteUserDirectoryResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DeleteUserDirectory", params, headers=headers)
+            response = json.loads(body)
+            model = models.DeleteUserDirectoryResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DeleteUserGroupMembers(self, request):
         r"""删除用户组成员
 
@@ -762,6 +831,29 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeAccountGroups(self, request):
+        r"""获取账号组信息
+
+        :param request: Request instance for DescribeAccountGroups.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeAccountGroupsRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeAccountGroupsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAccountGroups", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAccountGroupsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeAcls(self, request):
         r"""查询访问权限列表
 
@@ -776,6 +868,29 @@ class BhClient(AbstractClient):
             body = self.call("DescribeAcls", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeAclsResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeAssetSyncFlag(self, request):
+        r"""查询资产自动同步开关
+
+        :param request: Request instance for DescribeAssetSyncFlag.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeAssetSyncFlagRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeAssetSyncFlagResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeAssetSyncFlag", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeAssetSyncFlagResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -868,6 +983,29 @@ class BhClient(AbstractClient):
             body = self.call("DescribeCmdTemplates", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeCmdTemplatesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeDepartments(self, request):
+        r"""查询部门信息
+
+        :param request: Request instance for DescribeDepartments.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeDepartmentsRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeDepartmentsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeDepartments", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeDepartmentsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1107,6 +1245,75 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeSecuritySetting(self, request):
+        r"""查询安全配置信息
+
+        :param request: Request instance for DescribeSecuritySetting.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeSecuritySettingRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeSecuritySettingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSecuritySetting", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSecuritySettingResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeSourceTypes(self, request):
+        r"""获取认证源信息
+
+        :param request: Request instance for DescribeSourceTypes.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeSourceTypesRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeSourceTypesResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeSourceTypes", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeSourceTypesResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeUserDirectory(self, request):
+        r"""获取用户目录
+
+        :param request: Request instance for DescribeUserDirectory.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeUserDirectoryRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeUserDirectoryResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeUserDirectory", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeUserDirectoryResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeUserGroupMembers(self, request):
         r"""查询用户组成员列表
 
@@ -1153,6 +1360,29 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeUserSyncStatus(self, request):
+        r"""获取用户同步状态
+
+        :param request: Request instance for DescribeUserSyncStatus.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DescribeUserSyncStatusRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DescribeUserSyncStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeUserSyncStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeUserSyncStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeUsers(self, request):
         r"""查询用户列表
 
@@ -1167,6 +1397,98 @@ class BhClient(AbstractClient):
             body = self.call("DescribeUsers", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeUsersResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DisableExternalAccess(self, request):
+        r"""关闭公网访问堡垒机
+
+        :param request: Request instance for DisableExternalAccess.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DisableExternalAccessRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DisableExternalAccessResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DisableExternalAccess", params, headers=headers)
+            response = json.loads(body)
+            model = models.DisableExternalAccessResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DisableIntranetAccess(self, request):
+        r"""关闭内网访问
+
+        :param request: Request instance for DisableIntranetAccess.
+        :type request: :class:`tencentcloud.bh.v20230418.models.DisableIntranetAccessRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.DisableIntranetAccessResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DisableIntranetAccess", params, headers=headers)
+            response = json.loads(body)
+            model = models.DisableIntranetAccessResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def EnableExternalAccess(self, request):
+        r"""开启公网访问堡垒机
+
+        :param request: Request instance for EnableExternalAccess.
+        :type request: :class:`tencentcloud.bh.v20230418.models.EnableExternalAccessRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.EnableExternalAccessResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableExternalAccess", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableExternalAccessResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def EnableIntranetAccess(self, request):
+        r"""开通内网访问
+
+        :param request: Request instance for EnableIntranetAccess.
+        :type request: :class:`tencentcloud.bh.v20230418.models.EnableIntranetAccessRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.EnableIntranetAccessResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("EnableIntranetAccess", params, headers=headers)
+            response = json.loads(body)
+            model = models.EnableIntranetAccessResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1199,6 +1521,75 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyAccessWhiteListAutoStatus(self, request):
+        r"""修改访问白名单自动添加IP状态：开启或关闭自动添加IP
+
+        :param request: Request instance for ModifyAccessWhiteListAutoStatus.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListAutoStatusRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListAutoStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyAccessWhiteListAutoStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyAccessWhiteListAutoStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyAccessWhiteListRule(self, request):
+        r"""修改访问白名单规则
+
+        :param request: Request instance for ModifyAccessWhiteListRule.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListRuleRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListRuleResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyAccessWhiteListRule", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyAccessWhiteListRuleResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyAccessWhiteListStatus(self, request):
+        r"""修改访问白名单状态：开启或关闭放开全部来源IP。
+
+        :param request: Request instance for ModifyAccessWhiteListStatus.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListStatusRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyAccessWhiteListStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyAccessWhiteListStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyAccessWhiteListStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyAcl(self, request):
         r"""修改访问权限
 
@@ -1213,6 +1604,52 @@ class BhClient(AbstractClient):
             body = self.call("ModifyAcl", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyAclResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyAssetSyncFlag(self, request):
+        r"""修改资产自动同步开关
+
+        :param request: Request instance for ModifyAssetSyncFlag.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyAssetSyncFlagRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyAssetSyncFlagResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyAssetSyncFlag", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyAssetSyncFlagResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyAuthModeSetting(self, request):
+        r"""修改认证方式配置信息
+
+        :param request: Request instance for ModifyAuthModeSetting.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyAuthModeSettingRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyAuthModeSettingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyAuthModeSetting", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyAuthModeSettingResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1383,6 +1820,29 @@ class BhClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyReconnectionSetting(self, request):
+        r"""修改运维资产连接重连次数
+
+        :param request: Request instance for ModifyReconnectionSetting.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyReconnectionSettingRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyReconnectionSettingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyReconnectionSetting", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyReconnectionSettingResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyResource(self, request):
         r"""资源变配
 
@@ -1420,6 +1880,29 @@ class BhClient(AbstractClient):
             body = self.call("ModifyUser", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyUserResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyUserDirectory(self, request):
+        r"""修改用户目录信息
+
+        :param request: Request instance for ModifyUserDirectory.
+        :type request: :class:`tencentcloud.bh.v20230418.models.ModifyUserDirectoryRequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.ModifyUserDirectoryResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyUserDirectory", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyUserDirectoryResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1811,6 +2294,52 @@ class BhClient(AbstractClient):
             body = self.call("SetLDAPSyncFlag", params, headers=headers)
             response = json.loads(body)
             model = models.SetLDAPSyncFlagResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SyncDevicesToIOA(self, request):
+        r"""同步资产到IOA
+
+        :param request: Request instance for SyncDevicesToIOA.
+        :type request: :class:`tencentcloud.bh.v20230418.models.SyncDevicesToIOARequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.SyncDevicesToIOAResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SyncDevicesToIOA", params, headers=headers)
+            response = json.loads(body)
+            model = models.SyncDevicesToIOAResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SyncUserToIOA(self, request):
+        r"""同步堡垒机本地用户到IOA
+
+        :param request: Request instance for SyncUserToIOA.
+        :type request: :class:`tencentcloud.bh.v20230418.models.SyncUserToIOARequest`
+        :rtype: :class:`tencentcloud.bh.v20230418.models.SyncUserToIOAResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SyncUserToIOA", params, headers=headers)
+            response = json.loads(body)
+            model = models.SyncUserToIOAResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

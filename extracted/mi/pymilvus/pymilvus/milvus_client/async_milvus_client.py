@@ -1,36 +1,32 @@
-import logging
 from typing import Dict, List, Optional, Union
 
 from pymilvus.client.abstract import AnnSearchRequest, BaseRanker
 from pymilvus.client.constants import DEFAULT_CONSISTENCY_LEVEL
 from pymilvus.client.types import (
     ExceptionsMessage,
+    LoadState,
     OmitZeroDict,
     ResourceGroupConfig,
     RoleInfo,
     UserInfo,
 )
+from pymilvus.client.utils import convert_struct_fields_to_user_format, is_vector_type
 from pymilvus.exceptions import (
     DataTypeNotMatchException,
-    MilvusException,
     ParamError,
     PrimaryKeyException,
 )
-from pymilvus.orm import utility
-from pymilvus.orm.collection import CollectionSchema
+from pymilvus.orm.collection import CollectionSchema, Function, FunctionScore
 from pymilvus.orm.connections import connections
-from pymilvus.orm.schema import FieldSchema
 from pymilvus.orm.types import DataType
 
 from ._utils import create_connection
+from .base import BaseMilvusClient
 from .check import validate_param
 from .index import IndexParam, IndexParams
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-
-class AsyncMilvusClient:
+class AsyncMilvusClient(BaseMilvusClient):
     """AsyncMilvusClient is an EXPERIMENTAL class
     which only provides part of MilvusClient's methods"""
 
@@ -54,7 +50,7 @@ class AsyncMilvusClient:
             timeout=timeout,
             **kwargs,
         )
-        self.is_self_hosted = bool(utility.get_server_type(using=self._using) == "milvus")
+        self.is_self_hosted = bool(self.get_server_type() == "milvus")
 
     async def create_collection(
         self,
@@ -126,12 +122,7 @@ class AsyncMilvusClient:
         conn = self._get_connection()
         if "consistency_level" not in kwargs:
             kwargs["consistency_level"] = DEFAULT_CONSISTENCY_LEVEL
-        try:
-            await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
-            logger.debug("Successfully created collection: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to create collection: %s", collection_name)
-            raise ex from ex
+        await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
 
         index_params = IndexParams()
         index_params.add_index(vector_field_name, index_type="AUTOINDEX", metric_type=metric_type)
@@ -151,12 +142,7 @@ class AsyncMilvusClient:
         conn = self._get_connection()
         if "consistency_level" not in kwargs:
             kwargs["consistency_level"] = DEFAULT_CONSISTENCY_LEVEL
-        try:
-            await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
-            logger.debug("Successfully created collection: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to create collection: %s", collection_name)
-            raise ex from ex
+        await conn.create_collection(collection_name, schema, timeout=timeout, **kwargs)
 
         if index_params:
             await self.create_index(collection_name, index_params, timeout=timeout)
@@ -167,7 +153,6 @@ class AsyncMilvusClient:
     ):
         conn = self._get_connection()
         await conn.drop_collection(collection_name, timeout=timeout, **kwargs)
-        logger.debug("Successfully dropped collection: %s", collection_name)
 
     async def rename_collection(
         self,
@@ -179,27 +164,18 @@ class AsyncMilvusClient:
     ):
         conn = self._get_connection()
         await conn.rename_collection(old_name, new_name, target_db, timeout=timeout, **kwargs)
-        logger.debug("Successfully renamed collection from %s to %s", old_name, new_name)
 
     async def load_collection(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        try:
-            await conn.load_collection(collection_name, timeout=timeout, **kwargs)
-        except MilvusException as ex:
-            logger.error("Failed to load collection: %s", collection_name)
-            raise ex from ex
+        await conn.load_collection(collection_name, timeout=timeout, **kwargs)
 
     async def release_collection(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        try:
-            await conn.release_collection(collection_name, timeout=timeout, **kwargs)
-        except MilvusException as ex:
-            logger.error("Failed to load collection: %s", collection_name)
-            raise ex from ex
+        await conn.release_collection(collection_name, timeout=timeout, **kwargs)
 
     async def create_index(
         self,
@@ -224,19 +200,14 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            await conn.create_index(
-                collection_name,
-                index_param.field_name,
-                index_param.get_index_configs(),
-                timeout=timeout,
-                index_name=index_param.index_name,
-                **kwargs,
-            )
-            logger.debug("Successfully created an index on collection: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to create an index on collection: %s", collection_name)
-            raise ex from ex
+        await conn.create_index(
+            collection_name,
+            index_param.field_name,
+            index_param.get_index_configs(),
+            timeout=timeout,
+            index_name=index_param.index_name,
+            **kwargs,
+        )
 
     async def drop_index(
         self, collection_name: str, index_name: str, timeout: Optional[float] = None, **kwargs
@@ -285,25 +256,13 @@ class AsyncMilvusClient:
         self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
     ) -> bool:
         conn = self._get_connection()
-        try:
-            return await conn.has_partition(
-                collection_name, partition_name, timeout=timeout, **kwargs
-            )
-        except Exception as ex:
-            logger.error(
-                "Failed to check partition existence: %s.%s", collection_name, partition_name
-            )
-            raise ex from ex
+        return await conn.has_partition(collection_name, partition_name, timeout=timeout, **kwargs)
 
     async def list_partitions(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> List[str]:
         conn = self._get_connection()
-        try:
-            return await conn.list_partitions(collection_name, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to list partitions: %s", collection_name)
-            raise ex from ex
+        return await conn.list_partitions(collection_name, timeout=timeout, **kwargs)
 
     async def insert(
         self,
@@ -328,12 +287,9 @@ class AsyncMilvusClient:
 
         conn = self._get_connection()
         # Insert into the collection.
-        try:
-            res = await conn.insert_rows(
-                collection_name, data, partition_name=partition_name, timeout=timeout
-            )
-        except Exception as ex:
-            raise ex from ex
+        res = await conn.insert_rows(
+            collection_name, data, partition_name=partition_name, timeout=timeout, **kwargs
+        )
         return OmitZeroDict(
             {
                 "insert_count": res.insert_count,
@@ -383,7 +339,7 @@ class AsyncMilvusClient:
             raise TypeError(msg)
 
         if len(data) == 0:
-            return {"upsert_count": 0}
+            return {"upsert_count": 0, "ids": []}
 
         conn = self._get_connection()
         # Upsert into the collection.
@@ -398,6 +354,7 @@ class AsyncMilvusClient:
             {
                 "upsert_count": res.upsert_count,
                 "cost": res.cost,
+                "ids": res.primary_keys,
             }
         )
 
@@ -405,7 +362,7 @@ class AsyncMilvusClient:
         self,
         collection_name: str,
         reqs: List[AnnSearchRequest],
-        ranker: BaseRanker,
+        ranker: Union[BaseRanker, Function],
         limit: int = 10,
         output_fields: Optional[List[str]] = None,
         timeout: Optional[float] = None,
@@ -413,26 +370,21 @@ class AsyncMilvusClient:
         **kwargs,
     ) -> List[List[dict]]:
         conn = self._get_connection()
-        try:
-            res = await conn.hybrid_search(
-                collection_name,
-                reqs,
-                ranker,
-                limit=limit,
-                partition_names=partition_names,
-                output_fields=output_fields,
-                timeout=timeout,
-                **kwargs,
-            )
-        except Exception as ex:
-            logger.error("Failed to hybrid search collection: %s", collection_name)
-            raise ex from ex
-        return res
+        return await conn.hybrid_search(
+            collection_name,
+            reqs,
+            ranker,
+            limit=limit,
+            partition_names=partition_names,
+            output_fields=output_fields,
+            timeout=timeout,
+            **kwargs,
+        )
 
     async def search(
         self,
         collection_name: str,
-        data: Union[List[list], list],
+        data: Optional[Union[List[list], list]] = None,
         filter: str = "",
         limit: int = 10,
         output_fields: Optional[List[str]] = None,
@@ -440,27 +392,26 @@ class AsyncMilvusClient:
         timeout: Optional[float] = None,
         partition_names: Optional[List[str]] = None,
         anns_field: Optional[str] = None,
+        ranker: Optional[Union[Function, FunctionScore]] = None,
+        ids: Optional[Union[List[int], List[str], str, int]] = None,
         **kwargs,
     ) -> List[List[dict]]:
         conn = self._get_connection()
-        try:
-            res = await conn.search(
-                collection_name,
-                data,
-                anns_field or "",
-                search_params or {},
-                expression=filter,
-                limit=limit,
-                output_fields=output_fields,
-                partition_names=partition_names,
-                expr_params=kwargs.pop("filter_params", {}),
-                timeout=timeout,
-                **kwargs,
-            )
-        except Exception as ex:
-            logger.error("Failed to search collection: %s", collection_name)
-            raise ex from ex
-        return res
+        return await conn.search(
+            collection_name=collection_name,
+            anns_field=anns_field or "",
+            param=search_params or {},
+            expression=filter,
+            limit=limit,
+            data=data,
+            ids=ids,
+            output_fields=output_fields,
+            partition_names=partition_names,
+            expr_params=kwargs.pop("filter_params", {}),
+            timeout=timeout,
+            ranker=ranker,
+            **kwargs,
+        )
 
     async def query(
         self,
@@ -485,32 +436,25 @@ class AsyncMilvusClient:
 
         if ids:
             try:
-                schema_dict = await conn.describe_collection(
-                    collection_name, timeout=timeout, **kwargs
+                schema_dict, _ = await conn._get_schema_from_cache_or_remote(
+                    collection_name, timeout=timeout
                 )
             except Exception as ex:
-                logger.error("Failed to describe collection: %s", collection_name)
                 raise ex from ex
             filter = self._pack_pks_expr(schema_dict, ids)
 
         if not output_fields:
             output_fields = ["*"]
 
-        try:
-            res = await conn.query(
-                collection_name,
-                expr=filter,
-                output_fields=output_fields,
-                partition_names=partition_names,
-                timeout=timeout,
-                expr_params=kwargs.pop("filter_params", {}),
-                **kwargs,
-            )
-        except Exception as ex:
-            logger.error("Failed to query collection: %s", collection_name)
-            raise ex from ex
-
-        return res
+        return await conn.query(
+            collection_name,
+            expr=filter,
+            output_fields=output_fields,
+            partition_names=partition_names,
+            timeout=timeout,
+            expr_params=kwargs.pop("filter_params", {}),
+            **kwargs,
+        )
 
     async def get(
         self,
@@ -529,29 +473,24 @@ class AsyncMilvusClient:
 
         conn = self._get_connection()
         try:
-            schema_dict = await conn.describe_collection(collection_name, timeout=timeout, **kwargs)
+            schema_dict, _ = await conn._get_schema_from_cache_or_remote(
+                collection_name, timeout=timeout
+            )
         except Exception as ex:
-            logger.error("Failed to describe collection: %s", collection_name)
             raise ex from ex
 
         if not output_fields:
             output_fields = ["*"]
 
         expr = self._pack_pks_expr(schema_dict, ids)
-        try:
-            res = await conn.query(
-                collection_name,
-                expr=expr,
-                output_fields=output_fields,
-                partition_names=partition_names,
-                timeout=timeout,
-                **kwargs,
-            )
-        except Exception as ex:
-            logger.error("Failed to get collection: %s", collection_name)
-            raise ex from ex
-
-        return res
+        return await conn.query(
+            collection_name,
+            expr=expr,
+            output_fields=output_fields,
+            partition_names=partition_names,
+            timeout=timeout,
+            **kwargs,
+        )
 
     async def delete(
         self,
@@ -592,11 +531,10 @@ class AsyncMilvusClient:
         conn = self._get_connection()
         if len(pks) > 0:
             try:
-                schema_dict = await conn.describe_collection(
-                    collection_name, timeout=timeout, **kwargs
+                schema_dict, _ = await conn._get_schema_from_cache_or_remote(
+                    collection_name, timeout=timeout
                 )
             except Exception as ex:
-                logger.error("Failed to describe collection: %s", collection_name)
                 raise ex from ex
             expr = self._pack_pks_expr(schema_dict, pks)
         else:
@@ -605,20 +543,16 @@ class AsyncMilvusClient:
             expr = filter
 
         ret_pks = []
-        try:
-            res = await conn.delete(
-                collection_name=collection_name,
-                expression=expr,
-                partition_name=partition_name,
-                expr_params=kwargs.pop("filter_params", {}),
-                timeout=timeout,
-                **kwargs,
-            )
-            if res.primary_keys:
-                ret_pks.extend(res.primary_keys)
-        except Exception as ex:
-            logger.error("Failed to delete primary keys in collection: %s", collection_name)
-            raise ex from ex
+        res = await conn.delete(
+            collection_name=collection_name,
+            expression=expr,
+            partition_name=partition_name,
+            expr_params=kwargs.pop("filter_params", {}),
+            timeout=timeout,
+            **kwargs,
+        )
+        if res.primary_keys:
+            ret_pks.extend(res.primary_keys)
 
         # compatible with deletions that returns primary keys
         if ret_pks:
@@ -630,61 +564,46 @@ class AsyncMilvusClient:
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> dict:
         conn = self._get_connection()
-        try:
-            return await conn.describe_collection(collection_name, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to describe collection: %s", collection_name)
-            raise ex from ex
+        result = await conn.describe_collection(collection_name, timeout=timeout, **kwargs)
+        # Convert internal struct_array_fields to user-friendly format
+        if isinstance(result, dict) and "struct_array_fields" in result:
+            converted_fields = convert_struct_fields_to_user_format(result["struct_array_fields"])
+            result["fields"].extend(converted_fields)
+            # Remove internal struct_array_fields from user-facing response
+            result.pop("struct_array_fields")
+        return result
 
     async def has_collection(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> bool:
         conn = self._get_connection()
-        try:
-            return await conn.has_collection(collection_name, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to check collection existence: %s", collection_name)
-            raise ex from ex
+        return await conn.has_collection(collection_name, timeout=timeout, **kwargs)
 
     async def list_collections(self, timeout: Optional[float] = None, **kwargs) -> List[str]:
         conn = self._get_connection()
-        try:
-            return await conn.list_collections(timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to list collections")
-            raise ex from ex
+        return await conn.list_collections(timeout=timeout, **kwargs)
 
     async def get_collection_stats(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ) -> Dict:
         conn = self._get_connection()
-        try:
-            stats = await conn.get_collection_stats(collection_name, timeout=timeout, **kwargs)
-            result = {stat.key: stat.value for stat in stats}
-            if "row_count" in result:
-                result["row_count"] = int(result["row_count"])
-        except Exception as ex:
-            logger.error("Failed to get collection stats: %s", collection_name)
-            raise ex from ex
-        else:
-            return result
+        stats = await conn.get_collection_stats(collection_name, timeout=timeout, **kwargs)
+        result = {stat.key: stat.value for stat in stats}
+        if "row_count" in result:
+            result["row_count"] = int(result["row_count"])
+        return result
 
     async def get_partition_stats(
         self, collection_name: str, partition_name: str, timeout: Optional[float] = None, **kwargs
     ) -> Dict:
         conn = self._get_connection()
-        try:
-            stats = await conn.get_partition_stats(
-                collection_name, partition_name, timeout=timeout, **kwargs
-            )
-            result = {stat.key: stat.value for stat in stats}
-            if "row_count" in result:
-                result["row_count"] = int(result["row_count"])
-        except Exception as ex:
-            logger.error("Failed to get partition stats: %s.%s", collection_name, partition_name)
-            raise ex from ex
-        else:
-            return result
+        stats = await conn.get_partition_stats(
+            collection_name, partition_name, timeout=timeout, **kwargs
+        )
+        result = {stat.key: stat.value for stat in stats}
+        if "row_count" in result:
+            result["row_count"] = int(result["row_count"])
+        return result
 
     async def get_load_state(
         self,
@@ -694,13 +613,18 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            return await conn.get_load_state(
-                collection_name, partition_names, timeout=timeout, **kwargs
+        state = await conn.get_load_state(
+            collection_name, partition_names, timeout=timeout, **kwargs
+        )
+
+        ret = {"state": state}
+        if state == LoadState.Loading:
+            progress = await conn.get_loading_progress(
+                collection_name, partition_names, timeout=timeout
             )
-        except Exception as ex:
-            logger.error("Failed to get load state: %s", collection_name)
-            raise ex from ex
+            ret["progress"] = progress
+
+        return ret
 
     async def refresh_load(
         self,
@@ -710,47 +634,28 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            return await conn.refresh_load(
-                collection_name, partition_names, timeout=timeout, **kwargs
-            )
-        except Exception as ex:
-            logger.error("Failed to refresh load: %s", collection_name)
-            raise ex from ex
+        return await conn.refresh_load(collection_name, partition_names, timeout=timeout, **kwargs)
 
     async def get_server_version(self, timeout: Optional[float] = None, **kwargs) -> str:
         conn = self._get_connection()
-        try:
-            return await conn.get_server_version(timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to get server version")
-            raise ex from ex
+        return await conn.get_server_version(timeout=timeout, **kwargs)
 
     async def describe_replica(
         self, collection_name: str, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        try:
-            return await conn.describe_replica(collection_name, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to describe replica: %s", collection_name)
-            raise ex from ex
+        return await conn.describe_replica(collection_name, timeout=timeout, **kwargs)
 
     async def alter_collection_properties(
         self, collection_name: str, properties: dict, timeout: Optional[float] = None, **kwargs
     ):
         conn = self._get_connection()
-        try:
-            await conn.alter_collection_properties(
-                collection_name,
-                properties=properties,
-                timeout=timeout,
-                **kwargs,
-            )
-            logger.debug("Successfully altered collection properties: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to alter collection properties: %s", collection_name)
-            raise ex from ex
+        await conn.alter_collection_properties(
+            collection_name,
+            properties=properties,
+            timeout=timeout,
+            **kwargs,
+        )
 
     async def drop_collection_properties(
         self,
@@ -760,14 +665,9 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            await conn.drop_collection_properties(
-                collection_name, property_keys=property_keys, timeout=timeout, **kwargs
-            )
-            logger.debug("Successfully dropped collection properties: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to drop collection properties: %s", collection_name)
-            raise ex from ex
+        await conn.drop_collection_properties(
+            collection_name, property_keys=property_keys, timeout=timeout, **kwargs
+        )
 
     async def alter_collection_field(
         self,
@@ -778,24 +678,13 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            await conn.alter_collection_field(
-                collection_name,
-                field_name=field_name,
-                field_params=field_params,
-                timeout=timeout,
-                **kwargs,
-            )
-            logger.debug(
-                "Successfully altered collection field properties: %s.%s",
-                collection_name,
-                field_name,
-            )
-        except Exception as ex:
-            logger.error(
-                "Failed to alter collection field properties: %s.%s", collection_name, field_name
-            )
-            raise ex from ex
+        await conn.alter_collection_field(
+            collection_name,
+            field_name=field_name,
+            field_params=field_params,
+            timeout=timeout,
+            **kwargs,
+        )
 
     async def add_collection_field(
         self,
@@ -806,69 +695,100 @@ class AsyncMilvusClient:
         timeout: Optional[float] = None,
         **kwargs,
     ):
+        if is_vector_type(data_type) and not kwargs.get("nullable", False):
+            raise ParamError(
+                message="Adding vector field to existing collection requires nullable=True"
+            )
         field_schema = self.create_field_schema(field_name, data_type, desc, **kwargs)
         conn = self._get_connection()
-        try:
-            await conn.add_collection_field(
-                collection_name,
-                field_schema,
-                timeout=timeout,
-                **kwargs,
-            )
-            logger.debug("Successfully added collection field: %s.%s", collection_name, field_name)
-        except Exception as ex:
-            logger.error("Failed to add collection field: %s.%s", collection_name, field_name)
-            raise ex from ex
+        await conn.add_collection_field(
+            collection_name,
+            field_schema,
+            timeout=timeout,
+            **kwargs,
+        )
 
-    @classmethod
-    def create_schema(cls, **kwargs):
-        kwargs["check_fields"] = False  # do not check fields for now
-        return CollectionSchema([], **kwargs)
+    async def add_collection_function(
+        self, collection_name: str, function: Function, timeout: Optional[float] = None, **kwargs
+    ):
+        """Add a new function to the collection.
 
-    @classmethod
-    def create_field_schema(
-        cls, name: str, data_type: DataType, desc: str = "", **kwargs
-    ) -> FieldSchema:
-        return FieldSchema(name, data_type, desc, **kwargs)
+        Args:
+            collection_name(``string``): The name of collection.
+            function(``Function``):  The function schema.
+            timeout (``float``, optional): A duration of time in seconds to allow for the RPC.
+                If timeout is set to None, the client keeps waiting until the server
+                responds or an error occurs.
+            **kwargs (``dict``): Optional field params
 
-    @classmethod
-    def prepare_index_params(cls, field_name: str = "", **kwargs) -> IndexParams:
-        index_params = IndexParams()
-        if field_name:
-            validate_param("field_name", field_name, str)
-            index_params.add_index(field_name, **kwargs)
-        return index_params
+        Raises:
+            MilvusException: If anything goes wrong
+        """
+        conn = self._get_connection()
+        await conn.add_collection_function(
+            collection_name,
+            function,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    async def alter_collection_function(
+        self,
+        collection_name: str,
+        function_name: str,
+        function: Function,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """Alter a function in the collection.
+
+        Args:
+            collection_name(``string``): The name of collection.
+            function_name(``string``): The function name that needs to be modified
+            function(``Function``):  The function schema.
+            timeout (``float``, optional): A duration of time in seconds to allow for the RPC.
+                If timeout is set to None, the client keeps waiting until the server
+                responds or an error occurs.
+            **kwargs (``dict``): Optional field params
+
+        Raises:
+            MilvusException: If anything goes wrong
+        """
+        conn = self._get_connection()
+        await conn.alter_collection_function(
+            collection_name,
+            function_name,
+            function,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    async def drop_collection_function(
+        self, collection_name: str, function_name: str, timeout: Optional[float] = None, **kwargs
+    ):
+        """Drop a function from the collection.
+
+        Args:
+            collection_name(``string``): The name of collection.
+            function_name(``string``): The function name that needs to be dropped
+            timeout (``float``, optional): A duration of time in seconds to allow for the RPC.
+                If timeout is set to None, the client keeps waiting until the server
+                responds or an error occurs.
+            **kwargs (``dict``): Optional field params
+
+        Raises:
+            MilvusException: If anything goes wrong
+        """
+        conn = self._get_connection()
+        await conn.drop_collection_function(
+            collection_name,
+            function_name,
+            timeout=timeout,
+            **kwargs,
+        )
 
     async def close(self):
         await connections.async_remove_connection(self._using)
-
-    def _get_connection(self):
-        return connections._fetch_handler(self._using)
-
-    def _extract_primary_field(self, schema_dict: Dict) -> dict:
-        fields = schema_dict.get("fields", [])
-        if not fields:
-            return {}
-
-        for field_dict in fields:
-            if field_dict.get("is_primary", None) is not None:
-                return field_dict
-
-        return {}
-
-    def _pack_pks_expr(self, schema_dict: Dict, pks: List) -> str:
-        primary_field = self._extract_primary_field(schema_dict)
-        pk_field_name = primary_field["name"]
-        data_type = primary_field["type"]
-
-        # Varchar pks need double quotes around the values
-        if data_type == DataType.VARCHAR:
-            ids = ["'" + str(entry) + "'" for entry in pks]
-            expr = f"""{pk_field_name} in [{','.join(ids)}]"""
-        else:
-            ids = [str(entry) for entry in pks]
-            expr = f"{pk_field_name} in [{','.join(ids)}]"
-        return expr
 
     async def list_indexes(self, collection_name: str, field_name: Optional[str] = "", **kwargs):
         conn = self._get_connection()
@@ -1008,11 +928,7 @@ class AsyncMilvusClient:
         self, user_name: str, timeout: Optional[float] = None, **kwargs
     ) -> dict:
         conn = self._get_connection()
-        try:
-            res = await conn.describe_user(user_name, True, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to describe user: %s", user_name)
-            raise ex from ex
+        res = await conn.describe_user(user_name, True, timeout=timeout, **kwargs)
         if hasattr(res, "results") and res.results:
             user_info = UserInfo(res.results)
             if user_info.groups:
@@ -1044,11 +960,7 @@ class AsyncMilvusClient:
         **kwargs,
     ) -> List[Dict[str, Union[str, List[str]]]]:
         conn = self._get_connection()
-        try:
-            res = await conn.list_privilege_groups(timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to list privilege groups")
-            raise ex from ex
+        res = await conn.list_privilege_groups(timeout=timeout, **kwargs)
         ret = []
         for g in res:
             privileges = []
@@ -1172,13 +1084,7 @@ class AsyncMilvusClient:
     ) -> Dict:
         conn = self._get_connection()
         db_name = kwargs.pop("db_name", "")
-        try:
-            res = await conn.select_grant_for_one_role(
-                role_name, db_name, timeout=timeout, **kwargs
-            )
-        except Exception as ex:
-            logger.error("Failed to describe role: %s", role_name)
-            raise ex from ex
+        res = await conn.select_grant_for_one_role(role_name, db_name, timeout=timeout, **kwargs)
         ret = {}
         ret["role"] = role_name
         ret["privileges"] = [dict(i) for i in res.groups]
@@ -1186,11 +1092,7 @@ class AsyncMilvusClient:
 
     async def list_roles(self, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        try:
-            res = await conn.list_roles(False, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to list roles")
-            raise ex from ex
+        res = await conn.list_roles(False, timeout=timeout, **kwargs)
 
         role_info = RoleInfo(res)
         return [g.role_name for g in role_info.groups]
@@ -1233,43 +1135,69 @@ class AsyncMilvusClient:
 
     async def flush(self, collection_name: str, timeout: Optional[float] = None, **kwargs):
         conn = self._get_connection()
-        try:
-            await conn.flush([collection_name], timeout=timeout, **kwargs)
-            logger.debug("Successfully flushed collection: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to flush collection: %s", collection_name)
-            raise ex from ex
+        await conn.flush([collection_name], timeout=timeout, **kwargs)
+
+    async def flush_all(self, timeout: Optional[float] = None, **kwargs) -> None:
+        """Flush all collections.
+
+        Args:
+            timeout (Optional[float]): An optional duration of time in seconds to allow for the RPC.
+            **kwargs: Additional arguments.
+        """
+        conn = self._get_connection()
+        await conn.flush_all(timeout=timeout, **kwargs)
+
+    async def get_flush_all_state(self, timeout: Optional[float] = None, **kwargs) -> bool:
+        """Get the flush all state.
+
+        Args:
+            timeout (Optional[float]): An optional duration of time in seconds to allow for the RPC.
+            **kwargs: Additional arguments.
+
+        Returns:
+            bool: True if flush all operation is completed, False otherwise.
+        """
+        conn = self._get_connection()
+        return await conn.get_flush_all_state(timeout=timeout, **kwargs)
 
     async def compact(
         self,
         collection_name: str,
         is_clustering: Optional[bool] = False,
+        is_l0: Optional[bool] = False,
         timeout: Optional[float] = None,
         **kwargs,
     ) -> int:
         conn = self._get_connection()
-        try:
-            compaction_id = await conn.compact(
-                collection_name, is_clustering=is_clustering, timeout=timeout, **kwargs
-            )
-            logger.debug("Successfully started compaction for collection: %s", collection_name)
-        except Exception as ex:
-            logger.error("Failed to compact collection: %s", collection_name)
-            raise ex from ex
-        else:
-            return compaction_id
+        return await conn.compact(
+            collection_name, is_clustering=is_clustering, is_l0=is_l0, timeout=timeout, **kwargs
+        )
 
     async def get_compaction_state(
         self, job_id: int, timeout: Optional[float] = None, **kwargs
     ) -> str:
         conn = self._get_connection()
-        try:
-            result = await conn.get_compaction_state(job_id, timeout=timeout, **kwargs)
-        except Exception as ex:
-            logger.error("Failed to get compaction state for job: %s", job_id)
-            raise ex from ex
-        else:
-            return result.state_name
+        result = await conn.get_compaction_state(job_id, timeout=timeout, **kwargs)
+        return result.state_name
+
+    async def get_compaction_plans(
+        self,
+        job_id: int,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """Get compaction plans for a specific job.
+
+        Args:
+            job_id (int): The ID of the compaction job.
+            timeout (Optional[float]): An optional duration of time in seconds to allow for the RPC.
+            **kwargs: Additional arguments.
+
+        Returns:
+            CompactionPlans: The compaction plans for the specified job.
+        """
+        conn = self._get_connection()
+        return await conn.get_compaction_plans(job_id, timeout=timeout, **kwargs)
 
     async def run_analyzer(
         self,
@@ -1284,18 +1212,54 @@ class AsyncMilvusClient:
         **kwargs,
     ):
         conn = self._get_connection()
-        try:
-            return await conn.run_analyzer(
-                texts,
-                analyzer_params=analyzer_params,
-                with_hash=with_hash,
-                with_detail=with_detail,
-                collection_name=collection_name,
-                field_name=field_name,
-                analyzer_names=analyzer_names,
-                timeout=timeout,
-                **kwargs,
-            )
-        except Exception as ex:
-            logger.error("Failed to run analyzer")
-            raise ex from ex
+        return await conn.run_analyzer(
+            texts,
+            analyzer_params=analyzer_params,
+            with_hash=with_hash,
+            with_detail=with_detail,
+            collection_name=collection_name,
+            field_name=field_name,
+            analyzer_names=analyzer_names,
+            timeout=timeout,
+            **kwargs,
+        )
+
+    async def update_replicate_configuration(
+        self,
+        clusters: Optional[List[Dict]] = None,
+        cross_cluster_topology: Optional[List[Dict]] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ):
+        """
+        Update replication configuration across Milvus clusters.
+
+        Args:
+            clusters (List[Dict], optional): List of cluster configurations.
+            Each dict should contain:
+                - cluster_id (str): Unique identifier for the cluster
+                - connection_param (Dict): Connection parameters with 'uri' and 'token'
+                - pchannels (List[str], optional): Physical channels for the cluster
+
+            cross_cluster_topology (List[Dict], optional): List of replication relationships.
+            Each dict should contain:
+                - source_cluster_id (str): ID of the source cluster
+                - target_cluster_id (str): ID of the target cluster
+
+            timeout (float, optional): An optional duration of time in seconds to allow for the RPC
+            **kwargs: Additional arguments
+
+        Returns:
+            Status: The status of the operation
+
+        Raises:
+            ParamError: If neither clusters nor cross_cluster_topology is provided
+            MilvusException: If the operation fails
+        """
+        conn = self._get_connection()
+        return await conn.update_replicate_configuration(
+            clusters=clusters,
+            cross_cluster_topology=cross_cluster_topology,
+            timeout=timeout,
+            **kwargs,
+        )

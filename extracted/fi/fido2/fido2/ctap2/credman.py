@@ -83,6 +83,7 @@ class CredentialManagement:
         TOTAL_CREDENTIALS = 0x09
         CRED_PROTECT = 0x0A
         LARGE_BLOB_KEY = 0x0B
+        THIRD_PARTY_PAYMENT = 0x0C
 
     @staticmethod
     def is_supported(info: Info) -> bool:
@@ -115,7 +116,7 @@ class CredentialManagement:
         self.pin_uv = _PinUv(pin_uv_protocol, pin_uv_token)
 
     def _call(self, sub_cmd, params=None, auth=True):
-        kwargs = {"sub_cmd": sub_cmd, "sub_cmd_params": params}
+        kwargs: dict[str, Any] = {"sub_cmd": sub_cmd, "sub_cmd_params": params}
         if auth:
             msg = struct.pack(">B", sub_cmd)
             if params is not None:

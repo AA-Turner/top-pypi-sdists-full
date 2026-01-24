@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 0.6.3.0
+Version: 6.9.9
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -38,11 +38,10 @@ Requires-Dist: uvicorn; extra == "all"
 Requires-Dist: nodriver; extra == "all"
 Requires-Dist: python-multipart; extra == "all"
 Requires-Dist: a2wsgi; extra == "all"
-Requires-Dist: pywebview; extra == "all"
-Requires-Dist: plyer; extra == "all"
 Requires-Dist: setuptools; extra == "all"
 Requires-Dist: markitdown[all]; extra == "all"
 Requires-Dist: python-dotenv; extra == "all"
+Requires-Dist: aiofile; extra == "all"
 Provides-Extra: slim
 Requires-Dist: curl_cffi>=0.6.2; extra == "slim"
 Requires-Dist: certifi; extra == "slim"
@@ -55,10 +54,13 @@ Requires-Dist: werkzeug; extra == "slim"
 Requires-Dist: flask; extra == "slim"
 Requires-Dist: fastapi; extra == "slim"
 Requires-Dist: uvicorn; extra == "slim"
+Requires-Dist: nodriver; extra == "slim"
 Requires-Dist: python-multipart; extra == "slim"
 Requires-Dist: a2wsgi; extra == "slim"
-Requires-Dist: markitdown[all]; extra == "slim"
+Requires-Dist: pypdf2; extra == "slim"
+Requires-Dist: python-docx; extra == "slim"
 Requires-Dist: python-dotenv; extra == "slim"
+Requires-Dist: aiofile; extra == "slim"
 Provides-Extra: image
 Requires-Dist: pillow; extra == "image"
 Requires-Dist: cairosvg; extra == "image"
@@ -73,12 +75,12 @@ Requires-Dist: loguru; extra == "api"
 Requires-Dist: fastapi; extra == "api"
 Requires-Dist: uvicorn; extra == "api"
 Requires-Dist: python-multipart; extra == "api"
+Requires-Dist: a2wsgi; extra == "api"
 Provides-Extra: gui
 Requires-Dist: werkzeug; extra == "gui"
 Requires-Dist: flask; extra == "gui"
 Requires-Dist: beautifulsoup4; extra == "gui"
 Requires-Dist: pillow; extra == "gui"
-Requires-Dist: ddgs; extra == "gui"
 Provides-Extra: search
 Requires-Dist: beautifulsoup4; extra == "search"
 Requires-Dist: pillow; extra == "search"
@@ -242,6 +244,10 @@ Notes:
 - In this example, the Interference API is mapped to 1337.
 
 ### Windows Guide (.exe)
+
+👉 Check out the Windows launcher for GPT4Free:  
+🔗 [https://github.com/gpt4free/g4f.exe](https://github.com/gpt4free/g4f.exe) 🚀  
+
 1. Download the release artifact `g4f.exe.zip` from:
    https://github.com/xtekky/gpt4free/releases/latest
 2. Unzip and run `g4f.exe`.
@@ -303,6 +309,52 @@ python -m g4f --port 8080 --debug
 python -m g4f.cli gui --port 8080 --debug
 ```
 
+### MCP Server
+GPT4Free now includes a Model Context Protocol (MCP) server that allows AI assistants like Claude to access web search, scraping, and image generation capabilities.
+
+**Starting the MCP server (stdio mode):**
+```bash
+# Using g4f command
+g4f mcp
+
+# Or using Python module
+python -m g4f.mcp
+```
+
+**Starting the MCP server (HTTP mode):**
+```bash
+# Start HTTP server on port 8765
+g4f mcp --http --port 8765
+
+# Custom host and port
+g4f mcp --http --host 127.0.0.1 --port 3000
+```
+
+HTTP mode provides:
+- `POST http://localhost:8765/mcp` - JSON-RPC endpoint
+- `GET http://localhost:8765/health` - Health check
+
+**Configuring with Claude Desktop:**
+
+Add to your `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "gpt4free": {
+      "command": "python",
+      "args": ["-m", "g4f.mcp"]
+    }
+  }
+}
+```
+
+**Available MCP Tools:**
+- `web_search` - Search the web using DuckDuckGo
+- `web_scrape` - Extract text content from web pages  
+- `image_generation` - Generate images from text prompts
+
+For detailed MCP documentation, see [g4f/mcp/README.md](g4f/mcp/README.md)
+
 ### Optional provider login (desktop within container)
 - Accessible at:
   ```
@@ -351,7 +403,7 @@ print(f"Generated image URL: {response.data[0].url}")
 
 Async client example:
 ```python
-from g4f.async_client import AsyncClient
+from g4f.client import AsyncClient
 import asyncio
 
 async def main():

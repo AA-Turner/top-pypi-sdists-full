@@ -10,7 +10,6 @@
 
 import abc
 import collections.abc
-import datetime
 import json
 import logging
 from typing import Optional, List, Tuple, Iterable, Type, Union, Dict, Any
@@ -18,7 +17,7 @@ from typing import Optional, List, Tuple, Iterable, Type, Union, Dict, Any
 import itertools
 
 from .params import KeeperParams
-from . import record_types, constants
+from . import record_types, constants, utils
 
 
 def sanitize_str_field_value(value):    # type: (Any) -> str
@@ -253,7 +252,7 @@ class PasswordRecord(KeeperRecord):
         return 2
 
     def get_record_type(self):
-        return ''
+        return 'general'
 
     def load_record_data(self, data, extra=None):
         self.title = sanitize_str_field_value(data.get('title')).strip()
@@ -814,8 +813,9 @@ class TypedField(object):
         if isinstance(field_value, int):
             if ft and ft.name == 'date':
                 if field_value != 0:
-                    dt = datetime.datetime.fromtimestamp(int(field_value // 1000)).date()
-                    yield str(dt)
+                    dt = utils.millis_to_datetime(field_value)
+                    if dt:
+                        yield str(dt.date())
             else:
                 yield str(field_value)
         elif isinstance(field_value, list):
@@ -865,9 +865,11 @@ class TypedRecord(KeeperRecord):
     def get_record_type(self):
         return self.type_name
 
-    def get_typed_field(self, field_type, label=None):    # type: (str, Optional[str]) -> Optional[TypedField]
+    def get_typed_field(self, field_type, label=None):    # type: (Optional[str], Optional[str]) -> Optional[TypedField]
+        if not field_type and not label:
+            raise Exception('"field_type" and "label" cannot be empty')
         return next((x for x in itertools.chain(self.fields, self.custom)
-                     if field_type == x.type and (not label or (x.label and label.casefold() == x.label.casefold()))),
+                     if (not field_type or field_type == x.type) and (not label or (x.label and label.casefold() == x.label.casefold()))),
                     None)
 
     def load_record_data(self, data, extra=None):
